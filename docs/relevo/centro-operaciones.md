@@ -65,7 +65,8 @@ Orden: **10, 8, 7 y 9**, después la **6** y después «Skills». La etapa 2 est
 | 3 | El teléfono: `/m/second-brain` es el chat, el Mapa en `/m/second-brain/mapa` | `36fcaa16e` |
 | 4 | Los adjuntos se guardan en el Archivero (mig **0305**) + lo que encontró la revisión | `4da56c37c` + `129eed9b9` |
 | **5** | **El Centro como adaptador: Claude Code desde el Second Brain** | **`8835e17aa` (la punta del 17/10)** |
-| 7, 8, 9, 10 | La parte de SERVIDOR, sin pantalla todavía (abajo) | `440bd6eea` |
+| 10 | «Entender el pedido»: los «Ir a …» debajo de la respuesta de MaKo | la punta del 17/10 (después de `6d3a4e0b9`) |
+| 7, 8, 9 | La parte de SERVIDOR, sin pantalla todavía (abajo) | `440bd6eea` |
 | 6 | Sin empezar | — |
 
 ⚠️ **La migración 0305 (`chart_chats.bloques`) la aplica el Cerebro**, con `node scripts/apply-migration.mjs
@@ -73,14 +74,9 @@ supabase/migrations/0305_chart_chats_bloques.sql`. Sólo agrega, y el código la
 llegan a MaKo pero no vuelven al recargar. Una migración nueva se le pide al Cerebro (la próxima libre era la 0306).
 
 **Cada tanda que falta, con su archivo listo:**
-1. **Tanda 10, «entender el pedido».** `/api/mako/pedidos` ya está en main, y la regla pura también: `linksDePedidos`
-   (lib/chat-mako-reglas.ts, con test). Falta la pantalla:
-   - en `mandar` de app/second-brain/ChatSecondBrain.tsx, pedir `POST /api/mako/pedidos {texto, tab: 'mako'}` EN
-     PARALELO al turno;
-   - colgar los links debajo de la respuesta de MaKo.
-
-   ⚠️ NO partir el mensaje. En el Second Brain no hay nada abierto, así que todo lo que nombra un área sería «otra tab»
-   y MaKo dejaría de contestar. Se suma el link; la respuesta no se saca.
+1. ~~**Tanda 10, «entender el pedido».**~~ Hecha el 17/10. Los links se piden en paralelo al turno y se cuelgan de la
+   respuesta a ESE mensaje (`colgarIrA`). Lo que costó está en hallazgos-second-brain.md. El link también se dibuja en
+   HiloMako, así que los chats de cada tab lo tienen si lo piden.
 2. **Tanda 8, el grupo de WhatsApp en la barra (sólo admin).** Ya están:
    - `grupoDeMaKo` y `hiloDelGrupoMaKo` (lib/chat-mako-indice.ts);
    - `hiloDelGrupo` (lib/mako-doer-conv.ts);

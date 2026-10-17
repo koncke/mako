@@ -79,3 +79,17 @@ test('buscar un chat de Claude Code no distingue tildes ni mayúsculas', async (
   assert.deepEqual(buscarChats(chats, 'céreb').map((c) => c.titulo), ['Cerebro']);
   assert.equal(buscarChats(chats, '   ').length, 3, 'sin nada buscado, todos');
 });
+
+// Tanda 10 (17/10/2026): «entender el pedido». Lo que, roto, no da error: el pedido esperando a la ruta antes de
+// mandar el turno (la respuesta se demora), o el mensaje partido (en el Second Brain todo sería «otra tab» y MaKo
+// dejaría de contestar). Probado ROMPIÉNDOLO: con `await linksDelPedido(mensaje)` antes del turno → 1 fallo (éste).
+test('el Second Brain pide los links EN PARALELO al turno, con la tab de MaKo, y no parte el mensaje', () => {
+  const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  assert.match(src, /body: JSON\.stringify\(\{ texto, tab: 'mako' \}\)/);
+  const mandar = src.slice(src.indexOf('const mandar = async ('), src.indexOf('const enviar = ('));
+  const pide = mandar.indexOf('const irA = linksDelPedido(mensaje);');
+  assert.ok(pide > 0 && pide < mandar.indexOf('await postArchivos') && pide < mandar.indexOf('await postLargo'), 'arranca antes del turno, sin esperarlo');
+  assert.match(mandar, /void irA\.then\(\(links\) => \{ if \(links\.length\) setItems\(\(xs\) => colgarIrA\(xs, links, idU\)\); \}\);/);
+  assert.match(mandar, /mensaje \}\)/, 'el turno lleva el mensaje entero');
+});
+
