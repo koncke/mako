@@ -29,8 +29,10 @@ export type Animo = 'trabajando' | 'despierto' | 'cansado' | 'dormido';
 
 /** El ánimo sale del estado del chat: lo que el ojo cuenta sin leer nada. */
 export function animoDe(c: { estado: 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato'; viejo: boolean }): Animo {
-  if (c.estado === 'cerrado' || c.estado === 'sin_dato') return 'dormido';
+  // Con la foto vieja (el Runner no da vueltas) no se sabe si duerme: «cansado» antes que «dormido» (Martín, 17/10/2026:
+  // «aparecen todos los chats como que no están haciendo nada, cuando no es así»).
   if (c.viejo) return 'cansado';
+  if (c.estado === 'cerrado' || c.estado === 'sin_dato') return 'dormido';
   return c.estado === 'trabajando' ? 'trabajando' : 'despierto';
 }
 

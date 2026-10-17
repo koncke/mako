@@ -995,6 +995,20 @@ el turno de antes. El test esperaba lo contrario y el que estaba mal era el test
 **Los hitos siguen en el Plan.** `lineasDeConversacion` deja en la conversación los turnos, los trabajos y las respuestas
 a la Ticketera. `avanceDelChat` sigue leyendo los pedidos de la bitácora.
 
+**De cada turno salen DOS textos**, por la regla de Martín de que cada chat abre con «Voy a trabajar en…» y cierra con
+su «Ya está»:
+- el PRIMERO sale en el acto, y se ve mientras trabaja;
+- el ÚLTIMO sale al terminar, si es otro (`cierreDe`).
+
+La primera versión sólo guardaba el último, y un chat que trabajaba una hora no mostraba nada.
+
+**«Trabajando» y «dormido» con el Runner caído.** El estado de cada chat sale del registro vivo de la PC
+(`sessions/<pid>.json`, `busy` o `idle`), y lo sube el Runner en cada vuelta. Cuando la app se cayó, el Runner dejó de
+dar vueltas, y la pantalla mostró una foto de hacía 40 minutos como si fuera de ahora: caras dormidas y «13 %». Ahora:
+- la lista dice «Sin noticias del Runner desde las HH:MM» (`sinNoticiasDesde`);
+- con la foto vieja, la cara es «cansado» y no «dormido» (`animoDe`, Muneco.tsx);
+- un chat que trabaja sin haber escrito nada lo dice (`trabajaSinEscribir`).
+
 **Sin medir:** cómo se ve con chats reales. Hace falta el cartero 1.8.0 instalado y unas vueltas. La primera vuelta de
 cada chat sube la cola de su historia (los últimos 2 MB del transcript).
 
