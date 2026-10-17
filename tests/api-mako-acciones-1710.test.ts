@@ -202,7 +202,8 @@ test('copiar_dashboard y pegar_dashboard: SIN http, sólo admin, no corren en un
     assert.deepEqual(d.gating, { tab: 'graphics', rolMinimo: 'admin' }, id);
     assert.ok(!RUTAS_REST.some(([, , rid]) => rid === id), `${id}: sin http no hay ruta REST`);
   }
-  assert.equal(porId('copiar_dashboard')!.reversible, false);
+  const copiarDef = porId('copiar_dashboard');
+  assert.ok(copiarDef && esAccion(copiarDef) && copiarDef.reversible === false, 'copiar guarda un código que ya no se retira');
   const r = sinComentarios(leer('lib/api-mako/areas/dashboard.run.ts'));
   const copiar = runner(r, 'copiar_dashboard');
   assert.match(copiar, /noEnFlujo\('Copiar un dashboard'\)/);
