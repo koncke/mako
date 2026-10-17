@@ -488,6 +488,31 @@ export type VozEleven = {
  * id que la cuenta no tiene falla recién al generar, con el pedido ya cobrado o
  * rechazado por un motivo que no se entiende.
  */
+/**
+ * Suma una voz de la biblioteca PÚBLICA de ElevenLabs a la cuenta del cliente,
+ * con SU key (AI Avatar, 17/10/2026). Es gratis: no consume caracteres, ocupa un
+ * lugar de voz de su cuenta. Sin esto, una voz de la galería se puede escuchar
+ * (su muestra es pública) pero no usar para hablar.
+ *
+ * `dueno` es el `public_owner_id` de la voz compartida (lib/ai-avatar/voces-galeria.ts).
+ */
+export async function sumarVozCompartida(dueno: string, id: string, nombre: string): Promise<Salida<{ voiceId: string }>> {
+  const key = await elevenKey();
+  if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
+  const r = await pedir(
+    `/voices/add/${encodeURIComponent(dueno)}/${encodeURIComponent(id)}`,
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ new_name: nombre.slice(0, 60) }) },
+    key,
+  );
+  const txt = await r.text();
+  if (!r.ok) return { ok: false, ...clasificar(r.status, txt) };
+  let voiceId = '';
+  try { voiceId = String((JSON.parse(txt) as { voice_id?: string }).voice_id ?? ''); } catch { /* abajo */ }
+  // Un 200 sin `voice_id` no es una voz sumada: se dice, no se da por hecho.
+  if (!voiceId) return { ok: false, ...clasificar(500, txt) };
+  return { ok: true, valor: { voiceId } };
+}
+
 export async function listarVoces(): Promise<Salida<VozEleven[]>> {
   const key = await elevenKey();
   if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };

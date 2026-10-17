@@ -27,10 +27,10 @@ import { randomUUID } from 'node:crypto';
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { encolar, estadoPuente } from '@/lib/flow-cola';
 import {
-  usaInterfaz, pedidoClipInterfaz, pedidoImagenInterfaz, pedidoSubidaInterfaz,
+  usaInterfaz, pedidoClipInterfaz, pedidoImagenInterfaz,
   clipDeInterfaz, rutaDeSubida, PREFIJO_OPERACION_INTERFAZ,
 } from '@/lib/flow-interfaz';
-import { ENDPOINTS, obj, arr, str, extraerMediaId, parchesEstadoClip, urlDeMedioFlow, parchesSubirImagen, KEY_CARAS_FLOW } from '@/lib/flow-protocolo';
+import { ENDPOINTS, obj, arr, str, extraerMediaId, parchesEstadoClip, urlDeMedioFlow } from '@/lib/flow-protocolo';
 import {
   cuerpoClipReferencias, semillaDeToma, mediaIdDeReferencia, KEY_CARA_FLOW,
 } from '@/lib/flow-clip-referencias';
@@ -53,7 +53,8 @@ import { escenarioPorId, fondoSiguiente } from '@/lib/escenarios-data';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { sumarVariantes } from './variantes-imagen';
 import { archivarToma, recuperarToma } from './tomas-archivo';
-import { personaEstado, addPersonaFoto, getPersona } from '@/lib/persona';
+import { personaEstado, addPersonaFoto } from '@/lib/persona';
+import { caraDeFoto } from '@/lib/flow-cara';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 import { leerPlan, porQueNoSirveElPlan, type Plan } from './plan-montaje';
 import { pistaPorId } from '@/lib/musica-catalogo';
@@ -2019,73 +2020,7 @@ export async function elegirFotoAction(
  * cuesta el ritmo de máquina contra Google.
  */
 async function caraEnFlow(item: PlanGuardado): Promise<string> {
-  const fotoId = str(item.fotoId);
-  if (!fotoId) return '';
-
-  // ⚠️ SE COMPRUEBA QUE LA FOTO SIGA EXISTIENDO ANTES DE USAR LO CACHEADO.
-  //
-  // `elegirFotoAction` verifica que exista al ELEGIRLA, y eso no cubre nada acá:
-  // borrar la foto después deja el `fotoId` del plan y la entrada del mapa vivos,
-  // así que se seguía generando con la cara de una foto que ya no está — mientras
-  // la pantalla muestra otra. Nadie puede notar que la comparación «¿apruebas tu
-  // avatar?» está comparando dos cosas sin relación.
-  //
-  // Y de paso se purga el mapa: una clave que apunta a una foto borrada no vuelve
-  // a servir nunca, y guardarla es prometer que sí.
-  const est = await personaEstado().catch(() => null);
-  if (est && !est.fotos.some((f: { id: string }) => f.id === fotoId)) {
-    const sucio = JSON.parse((await getSetting(KEY_CARAS_FLOW)) || '{}') as Record<string, string>;
-    if (fotoId in sucio) {
-      delete sucio[fotoId];
-      await setSetting(KEY_CARAS_FLOW, JSON.stringify(sucio));
-    }
-    return '';
-  }
-
-  const mapa = JSON.parse((await getSetting(KEY_CARAS_FLOW)) || '{}') as Record<string, string>;
-  if (str(mapa[fotoId])) return str(mapa[fotoId]);
-
-  const db = await getTenantDb();
-  const { data } = await db
-    .from('flow_trabajos')
-    .select('id, estado, resultado')
-    .eq('tipo', 'subir_imagen')
-    .filter('pedido->>fotoId', 'eq', fotoId)
-    .order('id', { ascending: false })
-    .limit(3);
-
-  for (const t of data ?? []) {
-    if (str(t.estado) !== 'listo') continue;
-    // ⚠️ La respuesta MEDIDA trae el id en `media.name`, y `media` es un OBJETO
-    // —no un array, a diferencia de las respuestas de generación—. Por eso no se
-    // usa `extraerMediaId`, que mira claves de primer nivel: acá está un nivel
-    // más adentro.
-    const id = str(obj(obj(t.resultado).media).name);
-    if (!id) continue;
-    await setSetting(KEY_CARAS_FLOW, JSON.stringify({ ...mapa, [fotoId]: id }));
-    return id;
-  }
-
-  // Ninguna esperando: se sube. Con una en vuelo, se espera a ésa.
-  if (!(data ?? []).some((t) => ['pendiente', 'tomado'].includes(str(t.estado)))) {
-    const foto = (await getPersona()).fotos.find((f: { id: string }) => f.id === fotoId);
-    if (!foto) return '';
-    const bin = await db.storage.from('archivero').download(foto.path);
-    if (bin.error || !bin.data) return '';
-    const b64 = Buffer.from(await bin.data.arrayBuffer()).toString('base64');
-    // Con el motor por interfaz la foto se sube por el menú «Upload» de Flow: viaja
-    // el archivo, no un parche de un pedido aprendido.
-    const puenteF = await estadoPuente().catch(() => null);
-    await encolar('subir_imagen', usaInterfaz(puenteF?.version)
-      ? pedidoSubidaInterfaz({ imagenB64: b64, mime: /\.png$/i.test(foto.path) ? 'image/png' : 'image/jpeg', fotoId })
-      : {
-        path: ENDPOINTS.subirImagen,
-        parches: parchesSubirImagen(b64),
-        // Para poder encontrar este trabajo despues sin mirar el cuerpo entero.
-        fotoId,
-      });
-  }
-  return '';
+  return caraDeFoto(str(item.fotoId));
 }
 
 /**

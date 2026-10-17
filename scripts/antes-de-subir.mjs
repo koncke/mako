@@ -15,8 +15,10 @@
 // QUE HACE (de más barato a más caro; frena en el primer rojo, `--todo` sigue):
 //   1. Las GUARDAS DEL PUSH (scripts/guardas-push.sh): las mismas que corren el pre-push y Actions — tipos de
 //      las bitácoras, skills y plugin al día, la API de MaKo, hooks de React, y «todo .ts es un módulo».
-//   2. El TSC ACOTADO de lo que cambió MÁS los archivos que lo importan, un nivel (el tsc suma solo lo que esos
-//      importan). Con el piso de RAM de scripts/typecheck-lock.mjs y su mismo lock: de a un tsc por máquina.
+//   2. El TSC ACOTADO de lo que cambió (el tsc suma solo lo que esos archivos importan; `--importadores` suma también a quienes
+//      los importan, un nivel — no es el default: con 14 chats abiertos pedía 4,3 GB y la PC tenía 1,3). Con el piso de RAM de
+//      scripts/typecheck-lock.mjs y su mismo lock. ⚠️ Si no entra en 90 s (RAM o lock), NO se espera 15 min ni se sale con 99:
+//      dice «tipos: los chequea Actions» y sigue con los tests; la línea final queda `VERDE <sha> (tipos: los chequea Actions)`.
 //   3. Los TESTS AFECTADOS (scripts/tests-afectados.mjs): todas las barredoras (git ls-files, readdir…, detectadas
 //      solas), los que NOMBRAN un archivo cambiado como texto y los que lo IMPORTAN, directo o transitivo.
 //   Todo con poca concurrencia (2 procesos de test) y esperando RAM, no cayéndose.
@@ -31,6 +33,8 @@
 // Uso:  node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--listar]
 //   --listar: sólo el plan (qué tests y qué archivos de tipos), no corre nada · --sin-fetch: no baja origin/main antes
 //   --sin-condiciones: no exige árbol limpio ni origin/main mergeado (lo usa el pre-push, que ya sabe qué commit sube)
+//   --importadores: el tsc acotado suma, además de lo cambiado, a quienes lo importan (un nivel).
+//   MAKO_TIPOS_ESPERA_S=<segundos>: cuánto espera RAM para los tipos antes de decir «los chequea Actions» (default 90).
 //   --profundidad N: de los tests que IMPORTAN un archivo cambiado, sólo los que están a N saltos o menos (default: todos).
 //     Es la palanca si el tiempo aprieta (26 min en la PC cargada con una punta de 21 archivos); un VERDE así dice «--profundidad N» en su línea.
 //   --solo guardas|tipos|tests: una sola etapa; la última línea es `PARCIAL …`, nunca `VERDE` (no vale para pasar una punta)
@@ -53,14 +57,14 @@
 // | 60 | fb434b555 | 481295b6e (59) | Tests | onboarding-hub-retirado.test.ts | ✔ barre: git ls-files | 152/1073 |
 // | 53 | 2e88e9737 | 7c2fc7488 (50) | Tests | agenda-whatsapp.test.ts | ✔ importa: lib/api-mako/areas/plan.def.ts (2 saltos) | 420/1064 |
 // | 53 | 2e88e9737 | 7c2fc7488 (50) | Tests | flujos-ws-explicito.test.ts | ✔ nombra: app/api/webhooks/fathom/route.ts | 420/1064 |
-// | 52 | 463c804a8 | 7c2fc7488 (50) | Tipos | _cobros-conexion-hijo.ts | ✔ guarda de módulos: _fathom-carga-hijo.ts, _plan-kanban-hijo.ts sin import/export | tsc: 935 archivos |
-// | 51 | e30d9fe07 | 7c2fc7488 (50) | Tipos | _cobros-conexion-hijo.ts | ✔ guarda de módulos: _fathom-carga-hijo.ts, _plan-kanban-hijo.ts sin import/export | tsc: 935 archivos |
+// | 52 | 463c804a8 | 7c2fc7488 (50) | Tipos | _cobros-conexion-hijo.ts | ✔ guarda de módulos: _fathom-carga-hijo.ts, _plan-kanban-hijo.ts sin import/export | tsc: 102 archivos |
+// | 51 | e30d9fe07 | 7c2fc7488 (50) | Tipos | _cobros-conexion-hijo.ts | ✔ guarda de módulos: _fathom-carga-hijo.ts, _plan-kanban-hijo.ts sin import/export | tsc: 102 archivos |
 // | 48 | 49fea715e | 2f913cddc (47) | Tests | puente-panel-copy.test.ts | ✔ cambio: el cambio lo toca | 339/1053 |
 // | 43 | 6970a8429 | d9e35f78a (42) | Tests | puente-panel-copy.test.ts | ✔ barre: git ls-files | 351/1038 |
 // | 38 | 60d618007 | 701efb8e2 (37) | Tests | progreso.test.ts | ✔ nombra: AGENTS.md | 468/1036 |
-// | 31 | fecd5cbaf | 7c94db5f5 (30) | Tipos | crm-campo-inline.test.ts | ✔ tsc: el cambio lo toca | tsc: 172 archivos |
+// | 31 | fecd5cbaf | 7c94db5f5 (30) | Tipos | crm-campo-inline.test.ts | ✔ tsc: el cambio lo toca | tsc: 85 archivos |
 // | 23 | 70c2efd4d | 0057d1aec (22) | Tests | tsc-acotado.test.ts | ✔ cambio: el cambio lo toca | 413/996 |
-// | 10 | ef08b26ff | 91f41eb92 (9) | Tipos | app/admin/dev/chatbot/bitacora.ts | ✔ tsc: el cambio lo toca | tsc: 168 archivos |
+// | 10 | ef08b26ff | 91f41eb92 (9) | Tipos | app/admin/dev/chatbot/bitacora.ts | ✔ tsc: el cambio lo toca | tsc: 33 archivos |
 // | 1 | 73ba933f0 | ae8febb5e (sin verde) | Tests | fuentes-sin-next-font.test.ts | ✔ barre: git ls-files | 462/958 |
 //
 // «Lo elige porque»: nombra = el test escribe la ruta de un archivo cambiado · barre = recorre el repo (corre siempre) · importa = importa
@@ -140,17 +144,24 @@ async function tomarLock(maxMs = 10 * 60 * 1000) {
 }
 const soltarLock = () => { try { if (duenoDelLock() === process.pid) unlinkSync(LOCK); } catch { /* ya no es mío */ } };
 
-/** Heap según cuántos archivos hay que compilar: el acotado de 170 archivos arrastra ~1.000 por lo que importan. */
-export const heapPara = (n) => (n > 600 ? 5120 : n > 250 ? 4096 : 3072);
-const pisoTsc = (heapMb) => (() => heapMb / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB + 0.3);
+/** Heap según cuántos archivos hay que compilar (el tsc suma lo que esos archivos importan: ~1.000 para 170). */
+export const heapPara = (n) => (n > 600 ? 5120 : n > 250 ? 4096 : n > 120 ? 3072 : 2048);
+const pisoTsc = (heapMb) => (() => heapMb / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB);
+
+// ⚠️ EL TIPO NO ES UN CANDADO QUE SE ARREGLE ESPERANDO (17/10/2026). El primer push del Cerebro con el pre-push nuevo se trabó en
+// «tipos (188 archivos)»: pedía 4,3 GB y la PC, con ~14 chats abiertos, tenía 1,3 libres. Ahora el paso espera poco (90 s) y, si no
+// entra, DICE «tipos: los chequea Actions» y sigue con los tests — el tsc completo de Actions corre justo después de los afectados.
+// «El gate tiene que poder correr en esta PC con 14 chats abiertos; si no, nadie lo va a usar.»
+const ESPERA_TIPOS_MS = (Number(process.env.MAKO_TIPOS_ESPERA_S) || 90) * 1000;
 
 async function correrTsc(alcance, out) {
   if (alcance.length === 0) { out('  ✔ ningún .ts/.tsx cambió: nada que compilar'); return { ok: true }; }
   const heap = heapPara(alcance.length);
-  if (!(await tomarLock())) out('  [antes-de-subir] el lock de typecheck no se liberó en 10 min: sigo igual');
+  const saltar = (porque) => { out(`  ⚠ tipos: los chequea Actions (${porque})`); return { ok: true, saltado: porque }; };
+  if (!(await tomarLock(ESPERA_TIPOS_MS))) return saltar('otro typecheck está corriendo y no se liberó');
   try {
-    const c = await esperarRam(1, { pisoGb: pisoTsc(heap), quien: 'antes-de-subir', esperaMaxMs: 15 * 60 * 1000 });
-    if (c === 0) return { ok: false, sinRam: true, porque: `tsc acotado: no hay RAM (hacen falta ${pisoTsc(heap)(1).toFixed(1)} GB)` };
+    const c = await esperarRam(1, { pisoGb: pisoTsc(heap), quien: 'antes-de-subir', esperaMaxMs: ESPERA_TIPOS_MS });
+    if (c === 0) return saltar(`no hay RAM: quedan ${ramLibreGb().toFixed(1)} GB y el tsc acotado pide ${pisoTsc(heap)(1).toFixed(1)}`);
     const dir = mkdtempSync(path.join(os.tmpdir(), 'antes-de-subir-tsc-'));
     const config = path.join(dir, 'tsconfig.json');
     writeFileSync(config, JSON.stringify(armarTsconfig(RAIZ, alcance), null, 2));
@@ -159,9 +170,9 @@ async function correrTsc(alcance, out) {
       const r = spawnSync(process.execPath, [`--max-old-space-size=${heap}`, path.join(RAIZ, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', config], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
       const salida = `${r.stdout ?? ''}${r.stderr ?? ''}`;
       const v = veredicto(r.error ? null : r.status, salida);
-      if (v === 'ok') { out(`  ✔ tipos de ${alcance.length} archivos (los cambiados y quienes los importan) sin errores · ${min(Date.now() - t0)} · heap ${heap} MB`); return { ok: true }; }
+      if (v === 'ok') { out(`  ✔ tipos de ${alcance.length} archivos sin errores · ${min(Date.now() - t0)} · heap ${heap} MB`); return { ok: true }; }
       if (v === 'errores') {
-        // ⚠️ SÓLO BLOQUEAN los errores de los archivos DEL ALCANCE (lo cambiado y quienes lo importan). tsc también compila todo lo que
+        // ⚠️ SÓLO BLOQUEAN los errores de los archivos DEL ALCANCE (lo cambiado; con --importadores, también quienes lo importan). tsc también compila todo lo que
         // esos archivos importan, y ahí un archivo suelto no ve los tipos que AGREGA otro (`declare module`, `.d.ts` ambientes):
         // medido el 17/10/2026 al reproducir el run 10, `insertar.ts` (TipTap) daba TS2339 que el tsc completo no da. Esos errores
         // se muestran pero no frenan: los decide el tsc completo de Actions. Un cambio que rompe a un importador DIRECTO sí frena.
@@ -179,7 +190,7 @@ async function correrTsc(alcance, out) {
         if (porArrastre) out(`  ℹ y ${porArrastre} más en archivos que sólo se compilan por arrastre (no cuentan acá)`);
         return { ok: false, porque: `tipos: ${propios.length} errores (${[...new Set(propios.map(archivoDe))].slice(0, 3).join(', ')})` };
       }
-      return { ok: false, sinRam: true, porque: `tsc acotado: no terminó (código ${r.status ?? r.error?.message}, ${salida.length} bytes): lo mató el vigía de RAM o se quedó sin heap — no es un error de tipos` };
+      return saltar(`el tsc acotado no terminó (código ${r.status ?? r.error?.message}, ${salida.length} bytes): lo mató el vigía de RAM o se quedó sin heap — no es un error de tipos`);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   } finally { soltarLock(); }
 }
@@ -194,7 +205,7 @@ export function sucio() {
 }
 
 function leerArgs(argv) {
-  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity };
+  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity, importadores: false };
   for (let i = 0; i < argv.length; i++) {
     const [k, v] = argv[i].split(/=(.*)/s);
     if (k === '--base') o.base = v !== undefined ? v : argv[++i];
@@ -203,6 +214,7 @@ function leerArgs(argv) {
     else if (k === '--sin-fetch') o.fetch = false;
     else if (k === '--sin-condiciones') o.condiciones = false;
     else if (k === '--listar') o.listar = true;
+    else if (k === '--importadores') o.importadores = true;
     else if (k === '--solo') o.solo = v !== undefined ? v : argv[++i];
     else if (k === '--profundidad') o.profundidad = Math.max(1, Number.parseInt(v !== undefined ? v : argv[++i], 10) || 1);
     else { process.stderr.write(`  [antes-de-subir] no conozco «${argv[i]}»\n`); o.ayuda = true; }
@@ -218,7 +230,7 @@ async function main(argv) {
     out(linea);
     if (process.env.MAKO_LINEA_VEREDICTO) { try { writeFileSync(process.env.MAKO_LINEA_VEREDICTO, linea + '\n'); } catch { /* sólo es un espejo */ } }
   };
-  if (o.ayuda) { out('node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--sin-condiciones] [--solo guardas|tipos|tests] [--profundidad N] [--listar]'); return 2; }
+  if (o.ayuda) { out('node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--sin-condiciones] [--solo guardas|tipos|tests] [--profundidad N] [--importadores] [--listar]'); return 2; }
   process.chdir(RAIZ);
 
   const sha = git(['rev-parse', '--short=9', 'HEAD']).trim();
@@ -239,7 +251,7 @@ async function main(argv) {
   if (!plan) { lineaFinal(`ROJO: no encuentro la base «${o.base}» (probá git fetch origin)`); return 1; }
   const { cambios, sel } = plan;
   out(`[antes-de-subir] ${sha} · ${cambios.cambiados.length} archivos cambiados respecto de ${o.base}`);
-  const alcance = alcanceTsc({ cambiados: cambios.cambiados, archivos: plan.archivos, importadoPor: sel.importadoPor, aumentan: sel.aumentan });
+  const alcance = alcanceTsc({ cambiados: cambios.cambiados, archivos: plan.archivos, importadoPor: sel.importadoPor, aumentan: sel.aumentan, importadores: o.importadores });
   if (o.listar) {
     imprimirPlan(plan, { base: o.base, explicar: false }, out);
     out(`  tsc acotado: ${alcance.length} archivos${alcance.length ? ' (' + alcance.slice(0, 4).join(', ') + (alcance.length > 4 ? '…' : '') + ')' : ''}`);
@@ -249,6 +261,7 @@ async function main(argv) {
   const rojos = [];
   const parar = () => rojos.length > 0 && !o.todo;
   let sinRam = false;
+  let tiposSaltados = '';
   const t0 = Date.now();
 
   const toca = (etapa) => !o.solo || o.solo === etapa;
@@ -262,6 +275,7 @@ async function main(argv) {
     out(`\n[2/3] tipos (tsc acotado a ${alcance.length} archivos)`);
     const t = await correrTsc(alcance, out);
     if (!t.ok) { rojos.push(t.porque); if (t.sinRam) sinRam = true; }
+    if (t.saltado) tiposSaltados = t.saltado;
   }
 
   if (toca('tests') && !parar()) {
@@ -303,7 +317,8 @@ async function main(argv) {
   if (o.condiciones && rojos.length === 0 && sinMain) rojos.push(sinMain);
 
   out(`\n[antes-de-subir] ${min(Date.now() - t0)} en total`);
-  if (rojos.length === 0) { lineaFinal(`VERDE ${sha}`); return 0; }
+  // Sin RAM para el tsc acotado el VERDE sigue valiendo, pero lo dice: los tipos los decide Actions (que corre el tsc completo).
+  if (rojos.length === 0) { lineaFinal(`VERDE ${sha}${tiposSaltados ? ' (tipos: los chequea Actions)' : ''}`); return 0; }
   lineaFinal(`ROJO: ${rojos.join(' · ')}`);
   return sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1;
 }

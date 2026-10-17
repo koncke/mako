@@ -35,6 +35,8 @@ import { NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 import { lugarSeccion } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
+import { getSetting } from '@/lib/settings';
+import { CLAVE_ENCUESTA } from '@/lib/onboarding-arranque';
 import { getAvatares, getContextoAvatares, siguientePreguntaAvatares } from '@/lib/avatares';
 import { getEntregables, siguientePreguntaEntregable } from '@/lib/entregable';
 import { getPersona, personaEstado } from '@/lib/persona';
@@ -277,10 +279,16 @@ export const RUNNERS: Runners = {
 
   ver_estado_onboarding: {
     leer: async (_input, ctx) => {
-      const [s, capa] = await Promise.all([getEstadoOnboarding(), capaDelWs(ctx.ws)]);
+      const [s, capa, encuestaRaw] = await Promise.all([getEstadoOnboarding(), capaDelWs(ctx.ws), getSetting(CLAVE_ENCUESTA).catch(() => null)]);
       const pasos = capa.onboarding.map((p) => ({ paso: p, hecho: !!s.steps[p]?.done, postergado: !!s.steps[p]?.postergado }));
+      // Cómo llegó a MaKo y qué quiere resolver primero (las dos preguntas del arranque del 17/10/2026), si ya cerró.
+      let encuesta: { origen: string | null; interes: string | null } | null = null;
+      try {
+        const v = encuestaRaw ? JSON.parse(encuestaRaw) as { origen?: unknown; interes?: unknown } : null;
+        if (v) encuesta = { origen: typeof v.origen === 'string' ? v.origen : null, interes: typeof v.interes === 'string' ? v.interes : null };
+      } catch { encuesta = null; }
       return json({
-        estado: s.status, pasos,
+        estado: s.status, pasos, encuesta,
         // Sin completedBy: es el email de quien lo cerró (dato del equipo) y esto sale por http.
         empezo: s.startedAt ?? null, termino: s.completedAt ?? null,
         nota: pasos.length ? 'Solo los pasos que le tocan a este plan.' : 'Este plan no tiene asistente de arranque.',
