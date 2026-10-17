@@ -84,7 +84,11 @@ function VerAdjunto({ x, onCerrar }: { x: AdjuntoCaja; onCerrar: () => void }) {
  * lo que se elige al mandar (`children`: la cuenta, el modelo y el esfuerzo, PiezasCentro.tsx → SelectoresDeEnvio).
  * `resumen`: lo elegido que no es «Automático», en chico al lado del «+» para que se vea sin abrirlo.
  */
-export function MasCaja({ a, apagado, resumen, children }: { a: AdjuntosDeCaja | undefined; apagado: boolean; resumen?: string | null; children?: ReactNode }) {
+export function MasCaja({ a, apagado, resumen, children }: {
+  a: AdjuntosDeCaja | undefined; apagado: boolean; resumen?: string | null;
+  /** Lo de abajo del menú; como función recibe `cerrar` (Tareas vinculadas lleva a un mensaje y cierra el menú). */
+  children?: ReactNode | ((cerrar: () => void) => ReactNode);
+}) {
   const [abierto, setAbierto] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
   const archivo = useRef<HTMLInputElement>(null);
@@ -123,7 +127,7 @@ export function MasCaja({ a, apagado, resumen, children }: { a: AdjuntosDeCaja |
               </button>
             </div>
           )}
-          {children && <div className="co-mas-caja__opciones">{children}</div>}
+          {children && <div className="co-mas-caja__opciones">{typeof children === 'function' ? children(() => setAbierto(false)) : children}</div>}
         </div>
       )}
       <input ref={archivo} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />

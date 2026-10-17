@@ -1006,4 +1006,39 @@ export const BITACORA: Hito[] = [
       "app/customer-success/curso/MenuCurso.tsx + estructura.ts — el interruptor en el «…» de la clase",
     ],
   },
+  {
+    fecha: "17 oct", hora: "07:19", chat: "Clients", sesion: "local_e33f53cb-dca5-4a82-b798-68817d6159e8", cuenta: "claude4",
+    actor: "martin", tipo: "prompt",
+    titulo: "Clientes, Curso y Comunidad en UNA tab, «Clients», como un grupo de Skool; y la tab «MaKo Partners»",
+    pedido: "Quiero unificar completamente la tab de \"Cursos\" con \"Comunidad\" y con \"Clientes\" y que la tab en la sidebar se llame \"Clients\" y que esté dentro de la sección \"Operate\"... Como lo tiene Skool, con una tab más de \"Classroom\", pero quiero conservar el diseño de la tab CURSO que tenemos, es más, quiero que el diseño de la comunidad tipo Skool que hicimos se parezca a lo que hicimos en CURSO, y que sea personalizable... Y también deberías crear una tab de \"Agencia\": para este caso, diseña la tab de \"MaKo Partners\" con todo lo que habíamos dicho y planeado... Y ahí deberían vivir los clientes de agencia, que no son los mismos que \"client\": podrían serlo como no... Eso se debe poder configurar en el CRM: si un usuario se unió al programa de \"MaKo Partners\", que le aparezca la opción en el CRM para llevarlos allí...",
+    puntos: [
+      "Lo repartió el Cerebro: la entrada de la sidebar la ordena el chat Sidebar, la opción del CRM la enchufa el chat CRM y el cobro es del chat Pagos.",
+    ],
+  },
+  {
+    fecha: "17 oct", hora: "08:30", chat: "Clients", sesion: "local_e33f53cb-dca5-4a82-b798-68817d6159e8", cuenta: "claude4",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Clients con la cabecera de Skool y la pinta del curso; MaKo Partners con la cartera de cuentas de la agencia",
+    puntos: [
+      "Clients (/clients): el programa arriba con su color, su fuente y su portada, y las sub-tabs Clients · Community · Classroom · Calendar · Members · Leaderboards · About. «Personalizar» guarda el MISMO estilo del Classroom y del portal del alumno: sin migración.",
+      "La comunidad del equipo se viste con la piel del curso. Las rutas viejas (/customer-success, /curso, /curso/vista, /comunidad) redirigen con su query; el código no se mudó de carpeta.",
+      "MaKo Partners (/partners), sólo para una agencia del programa y el super admin: cada cuenta con su estado, su plan, su equipo y su cobro (pagar su primer mes, activar la renovación), Inspeccionar y «+ Nuevo cliente». Los premios por referir NO se dibujan: no existen.",
+      "Abrir una cuenta es una sola implementación (lib/partners.ts) para la tab, el CRM y la API de MaKo (`llevar_a_partners`, la confirma una persona y el link lo escribe el código).",
+      "El teléfono: las tres pantallas de siempre llevan arriba el trío Clients · Community · Classroom, y /partners tiene su pantalla. «Sumar gente al equipo de una cuenta» queda en la computadora.",
+      "MaKo Partners lo ve sólo el admin de la agencia (son los links de pago). Clients quedó sin nada de la cuenta de MaKo: lo que hacía la tarjeta (reenviar el acceso, avisar que nadie puede entrar) se mudó a Partners antes de borrarlo.",
+      "Falta: la fila de la sidebar y de More (chat Sidebar), el botón en el CRM (chat CRM), verlo en el navegador y que «Salir» de una cuenta vuelva a /partners.",
+    ],
+    commits: [
+      { sha: "8d4fbbd3", msg: "Clients: Clientes, Curso y Comunidad en UNA tab con sub-tabs tipo Skool, y MaKo Partners para los clientes de agencia", lineas: 4686, archivos: 83 },
+      { sha: "5c2132c0", msg: "Clients y MaKo Partners en el teléfono", lineas: 292, archivos: 17 },
+      { sha: "45bf720d", msg: "MaKo Partners sólo para el admin; Clients sin el código dormido de agencia", lineas: 1197, archivos: 22 },
+    ],
+    archivos: [
+      "lib/clients-rutas.ts + app/clients/ — las rutas, la cabecera y «Personalizar»",
+      "app/customer-success/*/pantalla.tsx + a-clients.ts — una pantalla, dos URLs",
+      "lib/partners.ts + app/partners/ — la cartera y abrir una cuenta",
+      "app/m/cs/SeccionesClientsM.tsx + app/m/partners/ — el teléfono",
+      "docs/diseno-clients.md — las decisiones D1-D10",
+    ],
+  },
 ];

@@ -24,6 +24,7 @@ import { TelefonoProvider } from './_components/VistaMovil';
 import { prefiereMovil } from '@/lib/movil-guard';
 import { MOVIL_ACTIVO, seDesvia } from '@/lib/movil-desvio';
 import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
+import { vistaDeOtro } from '@/lib/vista-de-otro';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
 // del navegador, al lado del favicon. El producto es MaKo: acá decía "Marketing
@@ -123,8 +124,14 @@ export default async function RootLayout({
   const esTelefono = MOVIL_ACTIVO && (await prefiereMovil());
   const telefono = seDesvia({ activo: MOVIL_ACTIVO, telefono: esTelefono });
   const wsPropioMovil = telefono && esAdmin && (await getWorkspaceActual()) == null ? await wsSuperAdmin() : null;
+  // #881: a quién se está mirando, para que el PRIMER cuadro ya sea del cliente inspeccionado. Sin esto el
+  // Sidebar nacía con «Mauricio Bustos» y la barra aparecía tarde, corriendo la pantalla. El atributo en <html>
+  // abre el hueco de la barra desde el HTML del server (después lo maneja ImpersonationBanner).
+  // ⚠️ Con una agencia adentro de un cliente, una ruta pública (/vsl, /compartido) cargada en duro queda con ese
+  // hueco y sin barra: la barra no se monta ahí para sacarlo. Es raro y sólo es espacio; está en hallazgos-ui.
+  const vista = sesion ? await vistaDeOtro() : null;
   return (
-    <html lang="es" className="h-full antialiased">
+    <html lang="es" className="h-full antialiased" {...(vista ? { 'data-barra-agencia': '1' } : {})}>
       <body>
         {/* Geist vía CDN: deja que los estilos en línea del diseño usen
             font-family:'Geist' / 'Geist Mono' tal cual. */}
@@ -211,14 +218,14 @@ export default async function RootLayout({
                 por CSS desde la landing; ahora no hace falta el hack. */}
             <HideOnPublicLanding>
               <Suspense fallback={null}>
-                <Sidebar />
+                <Sidebar inicial={{ nombre: sesion?.nombre ?? '', rol: sesion?.rol ?? '', clienteNombre: vista?.clienteNombre ?? null }} />
               </Suspense>
             </HideOnPublicLanding>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               {/* Chrome interno oculto en la landing pública /vsl (ver PublicRouteGate). */}
               <HideOnPublicLanding>
                 <Suspense fallback={null}>
-                  <ImpersonationBanner />
+                  <ImpersonationBanner inicial={vista} />
                 </Suspense>
                 {/* La voz de MaKo caída, arriba de TODAS las pantallas de admin: un panel que
                     hay que abrir no avisa (ver AlertaVozMaKo). */}

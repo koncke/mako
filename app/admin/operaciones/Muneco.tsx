@@ -45,9 +45,11 @@ const GEO: Record<Forma, { ojos: number; dx: number; brillo: [number, number] }>
   frijol: { ojos: 19.5, dx: 5, brillo: [11.5, 13.5] },
   gota: { ojos: 23, dx: 5, brillo: [14, 17] },
   pildora: { ojos: 18.5, dx: 4.6, brillo: [13.5, 11] },
+  nube: { ojos: 21.5, dx: 5, brillo: [12, 15.5] },
+  diamante: { ojos: 20, dx: 4.6, brillo: [14.5, 13] },
 };
 
-function Cuerpo({ forma, color }: { forma: Forma; color: string }) {
+export function Cuerpo({ forma, color }: { forma: Forma; color: string }) {
   const relleno = `var(${color})`;
   // Los polígonos se redondean con un trazo del mismo color y uniones redondas.
   const redondo = { fill: relleno, stroke: relleno, strokeWidth: 5, strokeLinejoin: 'round' as const };
@@ -58,13 +60,21 @@ function Cuerpo({ forma, color }: { forma: Forma; color: string }) {
     case 'frijol': return <ellipse cx="20" cy="21" rx="17" ry="14.5" fill={relleno} />;
     case 'gota': return <path d="M20 3.5C26 11 35 17.5 35 25.5a15 12.5 0 0 1-30 0C5 17.5 14 11 20 3.5Z" fill={relleno} />;
     case 'pildora': return <rect x="7" y="4" width="26" height="34" rx="13" fill={relleno} />;
+    // La nube: tres lomas arriba sobre una base redonda (17/10/2026, la Criatura).
+    case 'nube': return (
+      <g fill={relleno}>
+        <circle cx="13" cy="20" r="8.5" /><circle cx="21" cy="15" r="10" /><circle cx="28.5" cy="21" r="7.5" />
+        <rect x="5" y="20" width="31" height="15" rx="7.5" />
+      </g>
+    );
+    case 'diamante': return <polygon points="20,5 34.5,21 20,37 5.5,21" {...redondo} />;
     default: return <circle cx="20" cy="21" r="16" fill={relleno} />;
   }
 }
 
 const TINTA = 'var(--ink)';
 
-function Boca({ cara, y }: { cara: CaraMuneco; y: number }) {
+export function Boca({ cara, y }: { cara: CaraMuneco; y: number }) {
   const b = y + 4.6;
   switch (cara) {
     case 'risa': return <path d={`M16.6 ${b - 0.4}h6.8q0 3.8-3.4 3.8t-3.4-3.8Z`} fill={TINTA} />;
@@ -76,6 +86,16 @@ function Boca({ cara, y }: { cara: CaraMuneco; y: number }) {
     );
     case 'tranquila': return <path d={`M18 ${b + 0.9}h4`} fill="none" stroke={TINTA} strokeWidth={1.6} strokeLinecap="round" />;
     case 'asombro': return <ellipse cx="20" cy={b + 1.3} rx="1.6" ry="1.9" fill={TINTA} />;
+    // El beso: un corazoncito en lugar de la boca.
+    case 'beso': return <path d={`M20 ${b + 2.6}c-2.6-1.6-3-3.6-1.6-4.2c.8-.3 1.4.2 1.6.7c.2-.5.8-1 1.6-.7c1.4.6 1 2.6-1.6 4.2Z`} fill="var(--bad)" opacity={0.85} />;
+    case 'bigote': return (
+      <g>
+        <path d={`M17.6 ${b + 1.2}q2.4 2 4.8 0`} fill="none" stroke={TINTA} strokeWidth={1.4} strokeLinecap="round" />
+        <path d={`M20 ${b - 0.4}c-1.6-1.4-4.6-1.4-5.6.8c1.8-.6 3.6.2 5.6-.2c2 .4 3.8-.4 5.6.2c-1-2.2-4-2.2-5.6-.8Z`} fill={TINTA} />
+      </g>
+    );
+    // La de gato: «ω».
+    case 'gato': return <path d={`M16.8 ${b}q1.6 2.2 3.2 0q1.6 2.2 3.2 0`} fill="none" stroke={TINTA} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />;
     case 'lengua': return (
       <g>
         <path d={`M17.2 ${b}q2.8 2.4 5.6 0`} fill="none" stroke={TINTA} strokeWidth={1.6} strokeLinecap="round" />

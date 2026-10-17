@@ -106,7 +106,8 @@ test('el color y el documento: lo mismo que el mapa de escritorio', () => {
   // Escritorio pinta y abre con LAS MISMAS (Grafo.tsx las importa de lib/cerebro-areas.ts).
   const grafo = sinComentarios(leer('app/second-brain/Grafo.tsx'));
   assert.match(grafo, /import \{[^}]*\brellenoNodo\b[^}]*\brutaVistaDocumento\b[^}]*\bsePuedeVerDocumento\b[^}]*\} from '@\/lib\/cerebro-areas';/);
-  assert.match(grafo, /const rellenoDe = \(n: NodoCerebro\): string => rellenoNodo\(n\);/, 'Grafo.tsx volvió a tener su regla de color');
+  // Con la taxonomía del grafo que se mira (17/10/2026: la construcción de MaKo trae la suya): la misma regla, otra paleta.
+  assert.match(grafo, /const rellenoDe = \(n: NodoCerebro\): string => rellenoNodo\(n, tax\);/, 'Grafo.tsx volvió a tener su regla de color');
   assert.match(grafo, /conWs\(rutaVistaDocumento\(idNodo\), wsDeBusqueda\(/, 'la vista previa de Grafo.tsx dejó de salir de rutaVistaDocumento con el ?ws= de la pestaña');
   // (La de BAJAR, sin `preview=1`, sigue escrita en el botón «Descargar»: es otra ruta y no se mira acá.)
   assert.doesNotMatch(grafo, /archivero\/download\?id=[^`'"\n]*preview=1/, 'Grafo.tsx volvió a escribir la ruta de la vista previa');

@@ -27,6 +27,7 @@ import { pathToFileURL } from 'node:url';
 import { clasificarIntencion, makoPidioDatos, esPedidoDeAgenda, makoPreguntoAlgo } from '../lib/mako-intencion';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
 import { promesasDe, groseriasDe, sanearSalida, SIN_HACER } from '../lib/doer-salida';
+import { actorDeWhatsApp, LINEA_TICKET_PROPUESTO } from '../lib/doer-ticket';
 import type { Vista } from '../lib/api-mako/registro';
 
 const RAIZ = join(__dirname, '..');
@@ -169,6 +170,43 @@ test('una propuesta que pide el «sí», o un «dime la hora y te lo agendo», n
   // ws9, 10/10/2026: la propuesta de agenda de siempre. Y ws13, 13/10: pide el dato que le falta.
   assert.deepEqual(promesasDe('Voy a agendar la visita con Demo Lead para el martes 13 a las 11:00 en tu Google Calendar con invitación a su correo. ¿Confirmas con un «sí»?'), []);
   assert.deepEqual(promesasDe('Listo, con el **18 de noviembre** confirmado.\n\nDime a qué hora exacta quieres que te ponga la alerta en el calendario para el cumpleaños de José Pontaroli y te lo agendo de una.'), []);
+});
+
+// --- 1-ter. Levantar un ticket desde el grupo (la Ticketera, 17/10) -------------------------------------------
+
+test('el ticket sabe QUIÉN escribió en el grupo: el teléfono, o el nombre si WhatsApp no lo da', () => {
+  assert.equal(actorDeWhatsApp('5491122334455@s.whatsapp.net', 'Pablo'), 'whatsapp:+5491122334455');
+  assert.equal(actorDeWhatsApp('5491122334455:12@s.whatsapp.net', null), 'whatsapp:+5491122334455', 'el sufijo de dispositivo no es parte del teléfono');
+  // Un @lid es el identificador anónimo de WhatsApp: NO es un teléfono.
+  assert.equal(actorDeWhatsApp('118288712345678@lid', 'Joan Pérez'), 'whatsapp:Joan Pérez');
+  assert.equal(actorDeWhatsApp(undefined, undefined), undefined);
+  // La línea que agrega el código PIDE el «sí» (el ticket es una pendiente: sin el «sí» no sale) y por eso no es una
+  // promesa: el saneo de la salida no la saca.
+  assert.match(LINEA_TICKET_PROPUESTO, /\?[^?]*«sí»/, 'la línea del ticket no pregunta ni pide el «sí»: promete un aviso que nadie confirmó');
+  assert.deepEqual(promesasDe(LINEA_TICKET_PROPUESTO), []);
+  // Y la promesa que reemplazaría a esa pregunta sí se ve.
+  assert.ok(promesasDe('Ya le aviso al equipo de MaKo y te lo arreglo.').length > 0, '«ya le aviso… te lo arreglo» no se ve como promesa');
+  assert.ok(promesasDe('Ya le aviso al equipo de MaKo.').length > 0, '«ya le aviso» suelto no se ve como promesa');
+});
+
+test('el doer le pasa al ticket quién escribe, el contexto con el error, y lo propone el código si algo falló', () => {
+  const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
+  const ctx = doer.slice(doer.indexOf('const ctxApi: CtxApi = {'), doer.indexOf('};', doer.indexOf('const ctxApi: CtxApi = {')));
+  assert.match(ctx, /actor: actorDeWhatsApp\(key\?\.participant, data\.pushName\)/, 'el ticket no sabe quién escribió: preparar() contesta «No sé quién eres»');
+  assert.match(ctx, /contextoTicket: \(\) => \(\{/, 'el ticket no recibe el contexto del turno');
+  assert.match(ctx, /erroresDelTurno\[0\]/, 'el contexto del ticket no lleva el error que registró el código');
+  // El teléfono sobrevive al lote: los dos mensajes que arma el doer copian `participant`.
+  assert.equal((doer.match(/fromMe: ultimo\.key\?\.fromMe, participant: ultimo\.key\?\.participant/g) ?? []).length, 2, 'un lote pierde quién escribió');
+  // Viaja con las de siempre, y cada salida de herramienta se mira con `errorParaTicket`.
+  assert.match(doer, /const toolsDeSiempre = \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS\];/);
+  const rt = doer.slice(doer.indexOf('const runTool = async'), doer.indexOf('const nuevoIntento'));
+  assert.match(rt, /errorParaTicket\(name, out\)/, 'las fallas de las herramientas no se registran para el ticket');
+  // El código lo propone cuando algo falló y el modelo no lo hizo, y lo DICE (la pendiente no la ve nadie si no).
+  const prop = doer.slice(doer.indexOf('if (erroresDelTurno.length && !ticketPropuesto'), doer.indexOf('const nPuntos'));
+  assert.match(prop, /runRegistro\(LEVANTAR_TICKET, propuestaPorFallo\(/, 'si algo falló, el código no propone el ticket');
+  assert.match(prop, /LINEA_TICKET_PROPUESTO/, 'el ticket queda propuesto y nadie le avisa a la persona');
+  // Y va DESPUÉS del saneo: la línea es del código, no del modelo.
+  assert.ok(doer.indexOf('if (erroresDelTurno.length && !ticketPropuesto') > doer.indexOf('const saneo = sanearSalida('), 'la línea del ticket quedó antes del saneo');
 });
 
 // --- 2. Lo que sale ------------------------------------------------------------------------------

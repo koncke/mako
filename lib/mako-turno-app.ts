@@ -59,7 +59,8 @@ import {
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
 import { adjuntosVisibles, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
-import { archivarPdfsDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
+import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
+import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila } from '@/lib/bandeja-filas';
 import { puedeVerKey } from '@/lib/movil-rutas';
@@ -253,7 +254,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (!s) return null;
     const ws = persona.ws;
     const canalKey = canalKeyDeSesion(s.id);
-    const textoPersona = (entrada.mensaje ?? '').trim().slice(0, TOPE_MENSAJE);
+    // El corte respeta los TEXTOS PEGADOS (lib/chat-pegado.ts, #848/#864): lo escrito hasta TOPE_MENSAJE, los pegados
+    // con su propio tope, y las marcas siempre cerradas.
+    const textoPersona = recortarMensaje((entrada.mensaje ?? '').trim(), TOPE_MENSAJE);
     const adjuntos = entrada.adjuntos ?? [];
     const avisos: string[] = [];
 
@@ -306,9 +309,17 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       });
       await archivarPdfsDelChat(ws, msg.id, inicio, pdfs);
     }
+    // Un TEXTO PEGADO largo del admin, ENTERO (antes del corte del mensaje), también a El Archivero: se guarda solo,
+    // sin pedirlo, como los PDF (#884, lib/chat-mako-adjuntos.ts → archivarPegadosDelChat). Sólo con `guardarAdjuntos`:
+    // el MaKo Analyst de un lead usa este turno y lo que se pega ahí es del LEAD.
+    if (persona.rol === 'admin' && entrada.guardarAdjuntos) {
+      const { pegados } = partirPegados(entrada.mensaje ?? '');
+      if (pegados.length) await archivarPegadosDelChat(ws, inicio, pegados);
+    }
     let titulo = s.titulo;
     if (!titulo) {
-      titulo = tituloDesde(textoPersona || textoMemoria);
+      // Un mensaje que es sólo un texto pegado se titula con el nombre del pegado, no con sus marcas (lib/chat-pegado.ts).
+      titulo = tituloDesde(textoParaTitulo(textoPersona) || textoMemoria);
       await renameSession(s.id, titulo).catch(() => {});
     }
     const sesion: SesionChat = { id: s.id, titulo, pinned: s.pinned, updatedAt: new Date().toISOString() };

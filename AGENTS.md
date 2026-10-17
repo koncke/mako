@@ -1446,14 +1446,21 @@ código nuevo:
     - **Un brief nombra el archivo, el «hecho» y lo que no se toca.** Nunca «lee todo el relevo» si alcanza una sección.
     - **Con la ventana de 5 horas arriba del 85%:** nada de workflows ni tandas grandes de tests. Se termina lo que está
       a medias y se commitea.
+    - **Un chat que necesita datos del negocio NO lee el cerebro entero** (17/10/2026, docs/diseno-second-brain-grafo.md):
+      pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
+      (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
+      grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
-    lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, el trabajo no aparece para revisar.
+    lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
   - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
     está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
     además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
-    - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba;
-    - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`, para que aparezca en Review.
+    - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba: el primer renglón
+      («Ya está: …») es el título de la tarjeta y lo demás su detalle. Desde el 17/10/2026 (la C) Review se fue: el
+      «Ya está» se dibuja como una tarjeta en la conversación, con «Revisar» en esa ruta (o en la tab de su área),
+      su tarea del Plan y «Responder sobre esto» (app/admin/operaciones/Avance.tsx → YaEstaMensaje);
+    - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`.
     **Y TODO lo de un área, también lo que Martín tiene que hacer por ella** (conectar una cuenta, cargar un precio, abrir
     su Chrome), lo dice el chat de esa área en su conversación: «¡Deja de decirme estas cosas por aquí!» (17/10/2026).
     El Cerebro no lo repite. En su chat queda sólo lo que no es de ningún área (cuentas, GitHub, la PC, la nube).
@@ -1470,8 +1477,13 @@ código nuevo:
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
     action (el Perro tarda hasta un minuto y las acciones van de a una): ninguna escritura directa a `plan_tareas`. Un
-    proyecto se busca por `nucleo()`: el tablero lo guarda como «Feature: CRM». **Un mensaje NO se vuelve tarea solo**:
-    «Sumar al Plan» es un clic de Martín, sin preguntas. El Cerebro no tiene proyecto.
+    proyecto se busca por `nucleo()`: el tablero lo guarda como «Feature: CRM». El Cerebro no tiene proyecto.
+    **EL PLAN DE CADA CHAT SE ARMA SOLO** (17/10/2026, la D; Martín: «no puede haber chats con el Plan vacío» y «marcar
+    resuelta una tarea... es AUTOMÁTICO, siempre»): el «Voy a trabajar en X» de un chat crea la tarea «X» en el proyecto de
+    su jefe, y su «Ya está» la marca hecha. Lo hace el SERVIDOR con los turnos que sube la PC (lib/centro-plan-auto.ts,
+    actor «MaKo · Ops Center»), después de contestarle al Runner (`after()`, porque cada paso pasa por el Perro). Un chat
+    no las suma a mano: lo que cuida es escribir el «Voy a trabajar en…» con un título que sirva de tarea. Un mensaje
+    cualquiera de Martín sigue sin volverse tarea.
   - **Dos chats distintos no se llaman igual**: si pasa, se unen. Se separan renombrando uno («⋯ → Renombrar»), que le
     manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
     firma, sin una puerta nueva a la PC.
@@ -9056,3 +9068,19 @@ Desde el 16/10/2026 una etapa de reunión puede tener vinculado un evento de Cal
   (`reclamarRuteoDeAgenda`), y para soltar UNA se pregunta antes si alguien más la usa.
 - **Un vínculo se guarda con el identificador que manda el webhook** (Calendly: la URI del event type; Cal.com:
   su id), nunca con el nombre: el ruteo compara exacto y dos eventos se pueden llamar igual.
+
+# La barra de inspección: lo que se pega a la ventana va debajo, y el primer cuadro lo arma el server
+
+Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra-agencia` y `--barra-agencia` vale su alto
+(docs/hallazgos-ui.md, #850 y #881).
+
+- **Lo que se pega a la VENTANA va a `top: var(--barra-agencia, 0px)`** (o `calc(N + var(--barra-agencia, 0px))`): un
+  `sticky` de una página que scrollea entera, o un `fixed` arriba. Lo que se pega ADENTRO de un modal o de un panel con
+  scroll va en su número de siempre, porque ahí la barra no está. Si el mismo componente vive en los dos lugares, cada
+  puerta dice dónde se pega (`arribaTabs` en la ficha del lead). Un `<aside>` ya lo baja la regla de globals.css.
+- **Un selector sobre el estilo en línea reconoce las DOS escrituras**: el navegador escribe «height: 100dvh» y el server
+  escribe «height:100dvh», sin espacios, y la hidratación no lo reescribe. Con una sola, la regla falla justo en la carga
+  del server, que es como se entra a inspeccionar. `tests/barra-inspeccion-alto.test.ts` lo fija.
+- **Un estado que se corrige con un fetch nace con lo que sabe el server, nunca con un literal**: el Sidebar nacía con
+  «Mauricio Bustos», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
+  usan el layout y `/api/auth/me`, y de ningún otro lado.

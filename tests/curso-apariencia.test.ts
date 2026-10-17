@@ -308,13 +308,13 @@ test('la vista previa: sin el desplegable de la etapa, «Vista del alumno» a la
   // La flecha, escrita o escapada: las dos dibujan «←».
   assert.match(barra, /<ButtonLink size="sm" variant="secondary" href=\{hrefVolverAEditar\(productoId\)\}>\{'(?:←|\\u2190)'\} Volver a editar<\/ButtonLink>/,
     'el botón tiene que decir «← Volver a editar» y navegar con el ?ws= (ButtonLink usa app/_ui/Link)');
-  assert.match(barra, /const hrefVolverAEditar = \(productoId: number\) => `\/customer-success\/curso\?producto=\$\{productoId\}`;/);
+  assert.match(barra, /const hrefVolverAEditar = \(productoId: number\) => `\/clients\/classroom\?producto=\$\{productoId\}`;/);
   assert.doesNotMatch(barra, /Volver al curso/);
   // «Vista del alumno» en el lugar del desplegable: después del espacio que empuja a la derecha.
   const aire = barra.indexOf('<span style={{ flex: 1 }} />');
   const rotulo = barra.indexOf('<Status tono="info">Vista del alumno</Status>');
   assert.ok(aire > 0 && rotulo > aire, '«Vista del alumno» no quedó a la derecha');
-  const page = sinComentarios(leer('app/customer-success/curso/vista/page.tsx'));
+  const page = sinComentarios(leer('app/customer-success/curso/vista/pantalla.tsx'));
   assert.doesNotMatch(page, /sp\.etapa|etapas=\{/, 'la página sigue leyendo la etapa elegida');
   assert.match(page, /const etapa = cfg\.etapas\[0\]\?\.key \?\? null;/, 'la vista previa es la del día uno');
   assert.match(page, /<BarraVistaPrevia productoId=\{productoId\} anotar=\{adminId != null\} \/>/);

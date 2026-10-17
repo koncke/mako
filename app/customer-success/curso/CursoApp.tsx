@@ -46,7 +46,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Pagina, PageHeader, EmptyState, ErrorState, Banner, Toast, useToast, useConfirm,
+  Pagina, EmptyState, ErrorState, Banner, Toast, useToast, useConfirm,
 } from '@/app/_ui';
 import Link, { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
@@ -105,6 +105,8 @@ import type { ClaseUgc, ControlMenuUgc, ModuloUgc } from '@/app/_cursos/tipos';
 // La fuente del curso, en el menú de la marca al lado del color (item 3 del 08/10/2026).
 import { SelectorFuente } from '@/app/_cursos/SelectorFuente';
 import { PASOS_RECORRIDO, PASOS_RECORRIDO_LECCION, RECORRIDO_CURSO, RECORRIDO_LECCION } from './recorridos-curso';
+// El programa de la cabecera de Clients y el de esta pantalla son el mismo (17/10/2026).
+import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
 
 /**
  * Un servicio con su curso. `etapas` = las columnas del KANBAN (las de la tabla Avance, con su color);
@@ -126,7 +128,7 @@ const SIN_ESTILOS: Record<number, EstiloCurso> = {};
 //    son datos puros, y así un test puede comprobar que cada paso señala algo que existe en el fuente.
 
 /** La vista previa del alumno de un producto (./vista/page.tsx): sin lead, no crea accesos. */
-const hrefVistaPrevia = (productoId: number) => `/customer-success/curso/vista?producto=${productoId}`;
+const hrefVistaPrevia = (productoId: number) => `/clients/classroom/preview?producto=${productoId}`;
 
 export function CursoApp({
   servicios, clases: clasesProp, avance, avanceError, conAvance, puedeEditar, inicial, errorClases, errorEntrega,
@@ -160,9 +162,13 @@ export function CursoApp({
    */
   estiloError?: string | null;
 }) {
-  const [productoId, setProductoId] = useState<number | null>(
+  // El producto: el de la URL (o el primero), RE-SEMBRADO cuando la cabecera de Clients cambia de programa (navega
+  // con otro `?producto=`); cambiarlo acá adentro lo escribe en la URL para que la cabecera diga el mismo
+  // (app/clients/programa-url.ts).
+  const [productoId, setProductoId] = usePrograma(
     servicios.some((s) => s.productoId === inicial.productoId) ? inicial.productoId : servicios[0]?.productoId ?? null,
   );
+  useProgramaEnUrl(productoId, servicios[0]?.productoId ?? null);
   // Ver la cabecera: la lista local se pisa cuando llega otra desde el server.
   const [base, setBase] = useState(clasesProp);
   const [clases, setClases] = useState(clasesProp);
@@ -433,7 +439,6 @@ export function CursoApp({
   if (errorEntrega) {
     return (
       <Pagina>
-        <PageHeader titulo="Curso" />
         <ErrorState titulo="No pude leer tus servicios" detalle={errorEntrega} detalleTecnico={errorEntrega} />
       </Pagina>
     );
@@ -442,10 +447,9 @@ export function CursoApp({
   if (!servicios.length) {
     return (
       <Pagina>
-        <PageHeader titulo="Curso" />
         <EmptyState titulo="Todavía no hay servicios"
-          detalle="El curso cuelga de las etapas de un producto. Créalo en Clientes."
-          accion={{ label: 'Ir a Clientes', href: '/customer-success' }} />
+          detalle="El curso cuelga de las etapas de un producto. Créalo en Clients."
+          accion={{ label: 'Ir a Clients', href: '/clients' }} />
       </Pagina>
     );
   }
@@ -908,7 +912,7 @@ export function CursoApp({
         <>
           {l.despues}
           <ComentariosClase key={c.id} api={apiComunidad} claseId={c.id}
-            linkComunidad={(postId) => conWs(`/customer-success/comunidad?producto=${c.productoId}&post=${postId}`, wsPestana)} />
+            linkComunidad={(postId) => conWs(`/clients/community?producto=${c.productoId}&post=${postId}`, wsPestana)} />
         </>
       ),
     };
@@ -1114,12 +1118,15 @@ export function CursoApp({
   }
 
   return (
-    // ⚠️ SIN CABECERA: el curso ES la pantalla, como en Conocimientos. Lo que había arriba se mudó
-    //    al menú de la marca (el producto) y a la barra del curso (la vista del alumno, invitar, el «?»).
-    <Pagina ancho="completo" style={{ padding: 0 }}>
+    // ⚠️ SIN CABECERA PROPIA: arriba está la de Clients (el programa y las sub-tabs, app/clients/ClientsShell.tsx).
+    //    Lo que había arriba se mudó al menú de la marca (el producto) y a la barra del curso (la vista del alumno,
+    //    invitar, el «?»).
+    // ⚠️ EMBEBIDO desde el 17/10/2026: con la cabecera de Clients encima, el alto ya no es la ventana. Lo da el
+    //    contenedor de Clients (`.cls--alto`, un flex en columna) y baja por FLEX hasta el curso.
+    <Pagina ancho="completo" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <CursoUgc
         key={servicio.productoId}
-        modo="pagina"
+        modo="embebido"
         // El NOMBRE del curso: lo que se lee mientras carga la hoja. Arriba a la derecha va en su lugar
         // `acciones` (item 14): el nombre ya está en la marca y en la portada.
         titulo={tituloDe(servicio)}

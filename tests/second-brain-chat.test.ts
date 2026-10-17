@@ -42,10 +42,12 @@ test('la página: entra con la puerta de MaKo, y el Mapa se calcula sólo para e
   assert.ok(bloque.includes('mapaDelSecondBrain('), 'sólo adentro del if del Mapa');
   const pagina = sinComentarios(leer('app/second-brain/pagina.tsx'));
   const armado = pagina.slice(pagina.indexOf('export async function mapaDelSecondBrain('), pagina.indexOf('\n}\n', pagina.indexOf('export async function mapaDelSecondBrain(')));
-  for (const f of ['construirCerebro(', 'tokenAgenteVisible(']) {
+  for (const f of ['construirCerebro(']) {
     assert.equal(pagina.split(f).length - 1, 1, `${f} aparece una sola vez`);
     assert.ok(armado.includes(f), `${f} sólo adentro de mapaDelSecondBrain`);
   }
+  // Sin la skill de Claude desde el 17/10/2026 (Martín: «fuera el botón Conectar a Claude»): el token no se lee acá.
+  assert.ok(!pagina.includes('tokenAgenteVisible('), 'el Mapa ya no lee el token de Claude');
   // Ops Center arma el Mapa con la MISMA puerta.
   const ops = sinComentarios(leer('app/admin/operaciones/page.tsx'));
   assert.ok(/if \(veMapa && pideElMapa\(q\)\) \{\s*mapa = await mapaDelSecondBrain\(\);/.test(ops), 'Ops Center: el Mapa con la misma puerta');
