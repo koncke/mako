@@ -3914,3 +3914,24 @@ en `lib/ajustes-secciones.ts` (la usan la computadora y el celular) y el molde e
 
 **Vive en:** `lib/ajustes-secciones.ts` · `lib/ajustes-negocio.ts` · `app/_ui/Ajustes.tsx` · `app/_ui/ajustes.css` ·
 `app/perfil/` · `app/configuraciones/` · `app/m/cuenta/` · `tests/ajustes-cuenta-negocio.test.ts` · *15/10/2026, chat «Ciberseguridad»*
+
+## El funnel tenía cuatro dibujos: el cubo, en el control, y sólo ése (17/10/2026)
+
+Martín, viendo «De qué funnels» del OKR con el ícono de las etapas en cada renglón: «Los íconos del CRM no son esos... Es
+el cubo que tenemos en el CRM... Hay que unificar los íconos». El barrido encontró **cuatro dibujos para lo mismo**: el
+cubo del set (`producto`, el selector del CRM), otro cubo trazado a mano con otro path en tres archivos del CRM
+(`IconoProducto` en AccionesLoteLeads, CampanasModal y ProductoDelLead), el embudo del sidebar en el selector de Offer
+(escritorio y teléfono) y el de las etapas en los dos selectores nuevos de General. Ninguno estaba mal en su archivo:
+divergieron porque cada uno lo dibujó donde lo necesitaba.
+
+- **Un solo lugar:** `ICONO_FUNNEL` (app/_ui/icono-funnel.ts, sin JSX para las listas armadas en un `.ts`) y el dibujo
+  `IconoFunnel` (app/_ui/iconos-menu.tsx). tests/icono-funnel.test.ts fija cada selector y que nadie vuelva a trazar un
+  cubo a mano (barre app/), probado rompiéndolo.
+- **Dónde va:** en el CONTROL que elige funnels (el `icono` del Dropdown; `Select` ahora lo deja pasar), la sección de un
+  árbol o la píldora del teléfono. NO en cada renglón: la regla del 12/10 del CRM (cada funnel lo nombra el negocio) sigue.
+- ⚠️ **El embudo (`Icon name="funnel"`) es FILTRAR**, no un funnel del CRM (Automations, el Ads Manager y el Dashboard lo
+  usan para filtrar). Un barrido por el nombre «funnel» los agarra a todos: se separan por lo que el control ELIGE.
+- **Lo que no tiene ícono no se tocó**: varios selectores de funnel de otras tabs (Ads Manager, prospectos, la landing,
+  «Agregar al CRM», los campos de una acción) no llevan ícono en el control. Si se suman, es `IconoFunnel`.
+
+**Vive en:** app/_ui/icono-funnel.ts · app/_ui/iconos-menu.tsx · tests/icono-funnel.test.ts · *17/10/2026, chat «Dashboard» (claude4)*
