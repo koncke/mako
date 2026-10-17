@@ -362,7 +362,42 @@ async function briefNegocio(): Promise<string> {
   return `### Funnel\n${funnel}\n\n### Perfil del negocio\n${perfil}`;
 }
 
-async function buildUserPrompt(pagina: LandingExtraida, comp: LandingComportamiento): Promise<string> {
+/** Cuánto se espera lo más tocado del mapa de calor antes de analizar sin eso (es un plus, no puede frenar el análisis). */
+const PLAZO_MAS_TOCADO_MS = 12_000;
+
+/**
+ * Lo más tocado de la página (el mapa de calor del Dashboard, #886), en líneas para el bloque de comportamiento, o []
+ * si no hay toques, no hay datos o no se pudo leer a tiempo. Import dinámico: el módulo del mapa es pesado y del server.
+ */
+async function masTocadoParaElAnalisis(url: string): Promise<string[]> {
+  try {
+    const [{ masTocadoDeLaPagina }, { lineasMasTocado }, { rotuloDe }] = await Promise.all([
+      import('./landing-mapa-server'), import('./landing-mapa'), import('./landing-mapa-rotulo'),
+    ]);
+    let plazo: ReturnType<typeof setTimeout> | undefined;
+    const r = await Promise.race([
+      masTocadoDeLaPagina(url),
+      new Promise<null>((ok) => { plazo = setTimeout(() => ok(null), PLAZO_MAS_TOCADO_MS); }),
+    ]);
+    clearTimeout(plazo);
+    return r ? lineasMasTocado(r, (f) => rotuloDe({ tipo: /^vacio/.test(f.etiqueta) ? 'clic_vacio' : 'click', etiqueta: f.etiqueta })) : [];
+  } catch (e) {
+    console.warn(`[landing-analyst] ${url}: no pude leer lo más tocado: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  }
+}
+
+/**
+ * El bloque de comportamiento con lo más tocado al final (#886, 17/10/2026). Lo que se tocó trae los textos de los
+ * botones de la página: va delimitado como contenido no confiable, como el copy.
+ */
+export function comportamientoConToques(comp: LandingComportamiento, tocado: readonly string[]): string {
+  const base = comportamientoTexto(comp);
+  if (!comp.hay_datos || !tocado.length) return base;
+  return `${base}\nLo más tocado de la página (mapa de calor, últimos 30 días; personas distintas y toques):\n${contenidoNoConfiable(tocado.join('\n'), 'mas_tocado')}`;
+}
+
+async function buildUserPrompt(pagina: LandingExtraida, comp: LandingComportamiento, tocado: readonly string[] = []): Promise<string> {
   // El título y la meta descripción los escribe QUIEN HIZO LA PÁGINA, igual que
   // el cuerpo: van delimitados como contenido no confiable. Sueltos eran el
   // hueco obvio para meterle instrucciones al modelo desde un <title>.
@@ -389,7 +424,7 @@ async function buildUserPrompt(pagina: LandingExtraida, comp: LandingComportamie
 
   return renderPrompt('landing_analyst.analyze.user', LANDING_ANALYZE_USER_TEMPLATE, {
     meta,
-    comportamiento: comportamientoTexto(comp),
+    comportamiento: comportamientoConToques(comp, tocado),
     negocio: await briefNegocio(),
     copy: contenidoNoConfiable(pagina.texto || '(la página no devolvió texto)', 'copy_landing'),
   });
@@ -533,7 +568,9 @@ export async function analizarCopy(pagina: LandingExtraida, comp: LandingComport
   let text: string;
   try {
     const system = await getPromptText('landing_analyst.analyze.system', LANDING_ANALYZE_SYSTEM_TEMPLATE);
-    text = await chatClaude(system, [{ role: 'user', content: await buildUserPrompt(pagina, comp) }], {
+    // #886: lo más tocado del mapa de calor entra al comportamiento (sólo si hay datos: sin visitas no hay toques).
+    const tocado = comp.hay_datos ? await masTocadoParaElAnalisis(pagina.url) : [];
+    text = await chatClaude(system, [{ role: 'user', content: await buildUserPrompt(pagina, comp, tocado) }], {
       // Sin model hardcodeado: manda el override de /modelos-ia (feature 'landing-analyst').
       thinking: true,
       effort: 'high',

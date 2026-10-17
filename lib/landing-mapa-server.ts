@@ -30,7 +30,8 @@ import { normalizarUrl, esPreviewDeEditor } from './landing-paginas';
 import { landingsDelWorkspace } from './landing-config-leer';
 import { verificarPagina } from './landing-token';
 import { cuerpoDeSesion } from './replay-leer';
-import { dispositivoDe, MAPA_DIAS, selAnclado, type Dispositivo, type ToqueMapa } from './landing-mapa';
+import { dispositivoDe, MAPA_DIAS, rankingDe, selAnclado, type Dispositivo, type FilaRanking, type ToqueMapa } from './landing-mapa';
+import { claveDeLanding } from './landing-url';
 import { fotoDeEventos, htmlDeFoto } from './landing-mapa-foto';
 import { rotuloDe } from './landing-mapa-rotulo';
 import { esSelloDelConstructor } from './graficos-datos-puro';
@@ -176,6 +177,37 @@ async function versionDeLaPagina(url: string): Promise<number | null> {
   const delMapa = k ? mapa[k]?.v ?? null : null;
   const vs = [deVisitas, delMapa].filter((x): x is number => typeof x === 'number' && x > 0);
   return vs.length ? Math.max(...vs) : null;
+}
+
+/**
+ * Lo más tocado de UNA página en los dos aparatos, para el análisis de la landing (#886). La página va por la LLAVE de
+ * Landing Analyst (`claveDeLanding`: sin www ni query), que es con la que se analiza; cada toque se compara con la suya.
+ * Una sola pasada por los toques del período.
+ */
+export async function masTocadoDeLaPagina(
+  llave: string, ventana: VentanaMapa = ventanaDeDias(), tope = 5,
+): Promise<{ movil: FilaRanking[]; escritorio: FilaRanking[] }> {
+  const por: Record<Dispositivo, ToqueMapa[]> = { movil: [], escritorio: [] };
+  const personas = new Map<string, number>();
+  const llaves = new Map<string, string | null>();
+  const llaveDe = (u: string): string | null => {
+    if (!llaves.has(u)) { try { llaves.set(u, claveDeLanding(u)); } catch { llaves.set(u, null); } }
+    return llaves.get(u) ?? null;
+  };
+  await recorrerToques(ventana, [], (f, url, disp) => {
+    if (llaveDe(url) !== llave) return;
+    const vid = f.visitor_id ?? `anon-${personas.size}`;
+    let p = personas.get(vid);
+    if (p === undefined) { p = personas.size; personas.set(vid, p); }
+    por[disp].push({
+      tipo: f.tipo_evento as ToqueMapa['tipo'],
+      x: f.clic_x as number, y: f.clic_y as number, vw: f.ancho_ventana as number, dh: f.alto_pagina,
+      sel: selAnclado(f.sel), rx: f.rel_x, ry: f.rel_y, vh: f.alto_ventana, fijo: f.fijo,
+      etiqueta: etiquetaDe(f),
+      p,
+    });
+  });
+  return { movil: rankingDe(por.movil, tope).filas, escritorio: rankingDe(por.escritorio, tope).filas };
 }
 
 /** Los toques de una página en un dispositivo. */

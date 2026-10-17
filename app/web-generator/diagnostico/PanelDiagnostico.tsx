@@ -117,6 +117,7 @@ import { VistaNuestra } from './VistaNuestra';
 import { VistaAfuera } from './VistaAfuera';
 import { Comentario, type EstadoArreglo } from './Comentario';
 import type { ControlVista, ObjetivoVista } from './vista';
+import { HREF_TRAFICO_LANDING } from '@/lib/landing-estructura-enlace';
 
 type Props = {
   docId?: number;
@@ -647,6 +648,11 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
           </button>
           {deNuestra && docId != null && (
             <Link href={`/web-generator/${docId}`} className="gp-btn gp-btn-contorno"><Ico n="lapiz" t={14} /> Abrir en el editor</Link>
+          )}
+          {/* #886 (17/10/2026): el tráfico de esta página (mapa de calor y pulso) vive en la hoja «Landing» del Dashboard,
+              que a su vez trae acá con «Analizar la estructura →». El análisis ya lee lo más tocado. */}
+          {resumen && (
+            <Link href={HREF_TRAFICO_LANDING} className="gp-btn gp-btn-fantasma" title="El mapa de calor y el pulso de tus páginas, en el Dashboard">Ver el tráfico →</Link>
           )}
           {!deNuestra && (
             <button type="button" className="gp-btn gp-btn-contorno" disabled={replicando || !urlPegada} aria-haspopup="menu" aria-expanded={!!menuReplicar} onClick={(e) => setMenuReplicar(menuReplicar ? null : e.currentTarget)}>
