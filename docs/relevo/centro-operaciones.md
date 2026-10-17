@@ -12,17 +12,29 @@ docs/hallazgos-operaciones.md → «El "atrás" lento del teléfono, WhatsApp en
 | WhatsApp en cada mensaje (deslizar para responder, el menú con reacciones, la cita que lleva al mensaje, los fijados); una sola lista con «Nuevo chat» arriba y el Cerebro como la estrella de MaKo; «Uso y Runners» arriba en el teléfono; el «atrás» sin redibujar todo | `aab915c7e` | — |
 | Cada cuenta del Uso con su nombre editable, su email y el logo de Claude; fuera «Abre su Runner…» y los botones de Runners (la G) | `5e50843a9` (cartero 1.15.2) | REVISAR: cartero (sube el titular de cuentas.tsv) |
 | Mientras un chat trabaja, sus pasos en vivo (la E) | `01f5fc8d7` (cartero 1.15.3) | REVISAR: cartero (lee los transcripts de los chats ocupados) y una escritura nueva en la ruta del cartero |
-| El Plan automático usa `cerrarPorYaEsta` cuando un «Ya está» llega sin su «Voy a trabajar en…» | `3e4e092ef` | — |
-| Un chat trae las prioridades de su jefe o cierra una tarea del Plan (`cartero.mjs plan`) | `2a6ef912f` (cartero 1.15.4) | REVISAR (seguridad): puerta nueva de la PC a MaKo |
+| ~~El Plan automático usa `cerrarPorYaEsta`~~ y ~~el Plan desde el chat (`cartero.mjs plan`)~~ | `3e4e092ef`, `2a6ef912f` | **REVERTIDOS** (`c1ced5358`, `a211ab957`): la revisión del Cerebro encontró 9 defectos (abajo) |
+| `vigilar` corta en su `fin` también al subir los pasos (lo chico de la revisión) | ver `git log` (cartero **1.15.5**) | REVISAR: cartero |
+| El teléfono rápido: escribir, abrir (los últimos 25 mensajes) y el refresco | `7c08e7a6d`, `b1f368c96` | — |
 | La criatura viva (`Criatura.tsx`: parpadea, entra, invita y reacciona) para el Onboarding y la barra | `257fe05f7` | — |
 
-**Lo que hace el Cerebro con esto:** instalar el cartero **1.15.4** (trae 1.15.1 a 1.15.3) DESPUÉS de revisar las cuatro puntas
-con ⚠️, y pasarle al Runner el paso 2d nuevo de `INSTRUCCIONES_RUNNER` (lib/runner.ts: «si `vigilar` trae `otraVez: true`,
+**Lo que hace el Cerebro con esto:** instalar el cartero **1.15.5** (trae 1.15.1 a 1.15.3 y el corte de `vigilar`; la 1.15.4 era
+el Plan desde el chat, revertido) DESPUÉS de revisar las puntas con ⚠️, y pasarle al Runner el paso 2d nuevo de `INSTRUCCIONES_RUNNER` (lib/runner.ts: «si `vigilar` trae `otraVez: true`,
 córrelo de nuevo en el acto»). Sin el 2d, `otraVez` espera a la vuelta siguiente del cron (2 min), como antes. Y avisarles a
 Onboarding (`local_0702928b…`) y a Sidebar (`local_789aebfb…`) que `Criatura` y `ASPECTO_MAKO` ya están (sha `257fe05f7` y
 `aab915c7e`).
 
 **Lo que sigue, en este orden:**
+0. **Volver a traer el Plan desde el chat y el paso «buscar», arreglados** (la revisión del Cerebro, 17/10, informe en el scratchpad
+   del cuarto: `scratchpad/ops4/revision.md`; otra punta con ⚠️ REVISAR):
+   - `plan prioridades` / `plan cerrar` imprimían la respuesta de MaKo ENTERA: va por `textoRemoto` o con forma fija;
+   - `?plan=1` cerraba sólo con el token, y la `sesion` la declara quien llama (un chat suplanta a otro jefe): cerrar pide un
+     pedido FIRMADO de Martín, o se limita a la tarea que Martín nombró en uno;
+   - `cerrarPorYaEsta` cierra toda «#NN» del texto (aunque esté nombrada como pendiente, un PR o un color) y en cualquier
+     proyecto: sólo con un verbo de cierre pegado al número, sólo en el proyecto del jefe y sólo si la tarjeta está en
+     producción; y un «Ya está identificado…» no es un cierre;
+   - si `cerrarPorYaEsta` falla, no es «buscada sin tarjetas» (va a los reintentos);
+   - `plan prioridades` ordenaba por fecha, no por prioridad.
+   Cada arreglo con su test probado rompiéndolo.
 1. **Que Martín lo vea en su iPhone:** el deslizar para responder, el mantener apretado, la lista única y el «atrás». La medición
    es de un Chrome headless con la CPU ×4 (hallazgo), no de su teléfono.
 2. **«Cámbiale el nombre» desde un chat:** la API del Plan no tiene una operación para renombrar una tarea (lib/api-mako/areas/

@@ -1540,10 +1540,9 @@ código nuevo:
     salen por mandar.ts con su marca en el texto (lib/centro-mensajes.ts → `armarConCita`, `armarReenvio`); reaccionar,
     destacar, fijar y eliminar para mí se guardan en MaKo y NO van al chat (un emoji le costaría un turno). Una acción nueva
     del menú sigue ese corte: si el chat tiene que enterarse, va firmada; si no, es una marca.
-  - **UN CHAT MANEJA EL PLAN DE SU JEFE CON `cartero.mjs plan`** (17/10/2026, cartero 1.15.4): si Martín pide «tráeme las
-    más prioritarias» o «ciérrala», el chat corre `node ~/.claude/operaciones/cartero.mjs plan prioridades` o
-    `plan cerrar #870 --evidencia "…"`. Sólo lee o cierra en el proyecto de SU jefe (lib/centro-plan-chat.ts); nada de
-    escribir el tablero por otro lado. Renombrar una tarea todavía no se puede (la API del Plan no lo tiene).
+  - **Ninguna puerta nueva de la PC a MaKo responde texto de MaKo al chat sin pasar por `textoRemoto` o una forma fija, ni
+    escribe en nombre de un chat con una `sesion` que declara quien llama** (17/10/2026, la revisión del Cerebro al Plan
+    desde el chat, que se revirtió por eso: docs/relevo/centro-operaciones.md). Escribir pide un pedido FIRMADO de Martín.
   - **EN UNA LISTA DEL TELÉFONO QUE SE REFRESCA SOLA, CADA FILA ES `memo`** (17/10/2026; Martín: «le doy para atrás en
     mobile, tarda bastante en reaccionar»): con props que no cambian entre toques (los mapas memorizados de useCentro.ts,
     callbacks estables) y nada calculado por fila en el render. Escribir en la caja, abrir o cerrar una hoja no puede volver

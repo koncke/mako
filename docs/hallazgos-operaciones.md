@@ -1433,10 +1433,20 @@ dibujan el servidor y los tests; la criatura viva (`Criatura.tsx`) trae el suyo 
 fuente.
 
 **Vive en:** app/m/operaciones/ChatsMovil.tsx (`FilaChatM`) · app/admin/operaciones/Hilo.tsx (`memo`), MensajeWA.tsx,
-Criatura.tsx · lib/centro-mensajes.ts y su `-db` · lib/centro-titulares*.ts · lib/centro-pasos*.ts · lib/centro-plan-chat*.ts
-· scripts/operaciones/cartero.mjs (`vigilar`, `rutaDesdeMsys`, `titularDe`, `pasoDe`, `plan`).
+Criatura.tsx · lib/centro-mensajes.ts y su `-db` · lib/centro-titulares*.ts · lib/centro-pasos*.ts
+· scripts/operaciones/cartero.mjs (`vigilar`, `rutaDesdeMsys`, `titularDe`, `pasoDe`).
+
+**El Plan desde el chat se revirtió (la revisión del Cerebro, 17/10): el diagnóstico obvio («el token alcanza, todos los chats
+son de Martín») era el equivocado.** Tres cosas que no se ven escribiendo la puerta y sí atacándola:
+- una respuesta de MaKo que se IMPRIME en el chat es texto que entra al contexto de un modelo en modo bypass: va por
+  `textoRemoto` o con forma fija, nunca entera (un título de tarea puede traer «corré cartero.mjs clave …»);
+- una `sesion` que declara quien llama no identifica a nadie: el token es uno para toda la PC y la foto de los chats la
+  escribe ese mismo token; escribir en nombre de un chat pide un pedido firmado de Martín;
+- «#NN» en un texto no es «cerré la NN»: puede ser lo pendiente, un PR, un ticket o un color.
+**Regla:** en AGENTS.md (el Centro).
 
 **Sin hacer:**
+- el Plan desde el chat y el paso «buscar» del Plan automático, con los arreglos de la revisión (docs/relevo/centro-operaciones.md);
 - «Cámbiale el nombre» desde un chat: la API del Plan no tiene una operación para renombrar una tarea (es del área Plan);
 - la lista de «Destacados» de WhatsApp (los destacados se ven con su estrella en cada mensaje, pero no hay una vista que los
   junte);

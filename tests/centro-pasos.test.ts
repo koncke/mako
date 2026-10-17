@@ -122,3 +122,35 @@ test('el «Trabajando…» muestra los pasos: el de ahora y los dos de antes', (
   assert.match(html, /Edita lista\.ts[\s\S]*Corre los tests[\s\S]*Busca en el código/);
   assert.doesNotMatch(html, /Lee lista\.ts/, 'los últimos tres');
 });
+
+// La revisión del Cerebro (17/10/2026, cartero 1.15.5): `subirPasos` corría DESPUÉS de mirar el reloj, con un POST de hasta
+// 8 s por cuenta, y la consulta liviana después: con MaKo colgado `vigilar` pasaba los 120 s del Bash del Runner. Ahora cada
+// POST corta en `fin` y la consulta no arranca pasado `fin`.
+// Probado ROMPIÉNDOLO (base en 6 pases): `subirPasos` sin `hasta` (los 8 s de siempre) → 1 fallo (tardó ~11 s con un tope
+// de 3 s).
+test('con MaKo colgado en los pasos, `vigilar` igual termina a tiempo (corta en su `fin`)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cartero-pasos-fin-'));
+  const cfgDir = join(dir, 'cfg');
+  mkdirSync(join(cfgDir, 'sessions'), { recursive: true });
+  const srv = createServer((req, res) => {
+    if (req.method === 'GET') { res.setHeader('content-type', 'application/json'); res.end('{"hay":0}'); return; }
+    if (req.url?.includes('pasos=1')) { req.resume(); return; } // colgado: nunca contesta
+    req.resume().on('end', () => { res.setHeader('content-type', 'application/json'); res.end('{"pedidos":[],"vencidos":0}'); });
+  });
+  await new Promise<void>((ok) => srv.listen(0, '127.0.0.1', () => ok()));
+  try {
+    writeFileSync(join(dir, 'config.json'), JSON.stringify({
+      url: `http://127.0.0.1:${(srv.address() as { port: number }).port}`, token: `mkop_${'z'.repeat(30)}`, cwds: ['C:\\dev\\'],
+      carteros: { claude2: { fuente: 'cli', configDir: cfgDir } }, carpetas: {},
+    }));
+    const t0 = Date.now();
+    await new Promise<void>((ok, mal) => execFile(process.execPath, [CARTERO, 'vigilar', '--cuenta', 'claude2', '--max-seg', '3'], {
+      env: { ...process.env, CARTERO_DIR: dir, CARTERO_APP_DIR: join(dir, 'app'), CARTERO_CONFIG_DIR: cfgDir, CARTERO_VIGILAR_MS: '150', CARTERO_PASOS_MS: '200' },
+    }, (e, _so, se) => (e ? mal(new Error(se || e.message)) : ok())));
+    const ms = Date.now() - t0;
+    assert.ok(ms < 6000, `terminó en ${ms} ms con un tope de 3 s`);
+  } finally {
+    srv.closeAllConnections?.();
+    srv.close();
+  }
+});

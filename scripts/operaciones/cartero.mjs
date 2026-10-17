@@ -82,7 +82,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.15.3';
+export const VERSION = '1.15.5';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -888,8 +888,10 @@ function pasosDeLaCuenta(cuenta, cfg, runners) {
   return out;
 }
 
-/** Sube los pasos de las cuentas de la carpeta, si cambiaron o hace rato que no. Devuelve cuántas subió (los tests lo cuentan). */
-async function subirPasos(cuenta, cfg, propio, ultimo) {
+/** Sube los pasos de las cuentas de la carpeta, si cambiaron o hace rato que no. Devuelve cuántas subió (los tests lo cuentan).
+ *  ⚠️ `hasta` es el `fin` de `vigilar` (1.15.5, la revisión del Cerebro): cada POST corta ahí, así que con MaKo colgado y
+ *  varias cuentas en la carpeta `vigilar` igual termina bajo los 120 s del Bash del Runner. */
+async function subirPasos(cuenta, cfg, propio, ultimo, hasta = Infinity, ahora = () => Date.now()) {
   const cuentas = cuenta ? [cuenta] : cuentasDeLaCarpeta(cfg, propio);
   const runners = carpetasConRunner(cfg, propio);
   const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
@@ -900,10 +902,12 @@ async function subirPasos(cuenta, cfg, propio, ultimo) {
     const firma = JSON.stringify(pasos);
     const antes = ultimo.get(c);
     if (antes && antes.firma === firma && Date.now() - antes.at < REPETIR_PASOS_MS) continue;
+    const queda = Math.min(8_000, hasta - ahora());
+    if (queda < 500) break;
     try {
       const r = await fetch(`${url}/api/operaciones/cartero?pasos=1`, {
         method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
-        body: JSON.stringify({ cuenta: c, pasos }), signal: AbortSignal.timeout(8_000),
+        body: JSON.stringify({ cuenta: c, pasos }), signal: AbortSignal.timeout(queda),
       });
       if (r.ok) { ultimo.set(c, { firma, at: Date.now() }); subidas++; }
     } catch { /* la próxima */ }
@@ -1546,7 +1550,10 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
     // Lo que otro Runner ya dejó en el buzón de esta carpeta: sale sin preguntarle a nadie.
     const locales = pendientes(cuenta, propio);
     if (locales.length) { r = { ...r, entregar: locales }; break; }
-    if (ahora() - pasosAt >= CADA_PASOS_MS) { pasosAt = ahora(); pasosSubidos += await subirPasos(cuenta, cfg, propio, ultimosPasos); }
+    // Los pasos, sólo con tiempo y cortando en `fin`; la consulta, sólo si no se pasó `fin` (corta a los 10 s): así el
+    // techo de `vigilar` es fin + 10 s (115 s) aun con MaKo colgado (1.15.5, la revisión del Cerebro).
+    if (ahora() - pasosAt >= CADA_PASOS_MS && ahora() + 500 < fin) { pasosAt = ahora(); pasosSubidos += await subirPasos(cuenta, cfg, propio, ultimosPasos, fin, ahora); }
+    if (ahora() > fin) break;
     let hay = 0;
     let fallo = false;
     try { hay = await hayAlgo(cuenta, cfg, propio); consultas++; } catch (e) { fallo = true; log(`VIGILAR: la consulta falló (${textoRemoto(e.message)}): cae a la vuelta completa`); }
