@@ -1,0 +1,39 @@
+// =============================================================================
+// /no-esta-en-tu-plan — el cartel de una tab que el plan del negocio no incluye (17/10/2026)
+// =============================================================================
+// Hasta este día, entrar a una tab que el plan no compró era un REDIRECT MUDO a la casa del plan, que se leía como
+// «la app está rota» (docs/hallazgos-planes-y-cobro.md, «`requireCapa` no puede renderizar nada»). El diagnóstico de
+// entonces decía que el cartel eran 56 call-sites: no hace falta tocar ninguno. `requireCapa` (lib/tab-access.ts) es
+// el ÚNICO lugar que decide «no está en tu plan», y ahora redirige ACÁ con la tab, en vez de a la casa. El componente
+// que lo dice existía desde agosto sin un solo emisor: `PermissionState` con `motivo="plan"` (app/_ui/Estados.tsx).
+
+import { requireSesion, homeDeCapa } from '@/lib/tab-access';
+import { getCapaActual, rutaConWs } from '@/lib/workspace';
+import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
+import { PermissionState } from '@/app/_ui/Estados';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+/** El nombre de la tab para el cartel («el Ads Manager» no: el rótulo de la barra). Sin uno conocido, genérico. */
+function nombreDeTab(key: string | undefined): string {
+  if (!key) return 'esta sección';
+  const it = [...TODOS_LOS_ITEMS, ...USER_NAV].flatMap((i) => [i, ...(i.secciones ?? [])]).find((i) => i.key === key);
+  return it ? it.label : 'esta sección';
+}
+
+export default async function NoEstaEnTuPlanPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
+  await requireSesion();
+  const tab = (await searchParams).tab;
+  const key = typeof tab === 'string' ? tab.slice(0, 60) : undefined;
+  const capa = await getCapaActual();
+  const [inicio, plan] = await Promise.all([rutaConWs(homeDeCapa(capa)), rutaConWs('/configuraciones/plan')]);
+  return (
+    <main style={{ flex: 1, minWidth: 0, padding: '34px 16px 60px', display: 'grid', placeItems: 'start center' }}>
+      <div style={{ width: '100%', maxWidth: 520 }}>
+        <PermissionState motivo="plan" que={nombreDeTab(key)}
+          accion={{ label: 'Ver mi plan', href: plan }} secundaria={{ label: 'Ir al inicio', href: inicio }} />
+      </div>
+    </main>
+  );
+}

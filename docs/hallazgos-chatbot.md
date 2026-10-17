@@ -5340,3 +5340,14 @@ en producción, no se hizo.
 **Vive en:** `lib/recordatorio-automatizacion.ts` (`ofreceVistaPrevia`, `toquesDeLaAutomatizacion`) ·
 `lib/reunion-recordatorio.ts` (`toquesDelNegocio`, el envío) · `app/automations/FlujoLienzo.tsx` · test:
 `tests/recordatorio-vista-previa.test.ts`
+---
+
+## Un DM pagado de Instagram dejaba un lead huérfano con el anuncio (17/10/2026)
+
+- **Síntoma** (revisión de b4, docs/relevo/crm-tanda-b1.md): en un anuncio click-to-DM, Meta manda dos mensajes de la
+  misma persona nueva casi juntos —el primero sin `referral`, el segundo con el anuncio—. Los dos pedidos crean un lead
+  y el compare-and-set de `ig_conversaciones` deja uno; el otro quedaba con `meta_ad_id`, la entrada y el @, y las
+  métricas por anuncio le contaban un lead que nunca agenda mientras el real quedaba sin atribuir.
+- **La regla.** El que perdió se BORRA (lo creó esa misma llamada: sin charla ni historial, y `createLead` no dispara
+  nada) y le pasa al que ganó el anuncio y la entrada sólo si no los tiene (`.is(null)`). Nunca se borra el que quedó
+  unido. **Vive en:** lib/zernio-entrante.ts (`quitarHuerfano`) · tests/zernio-huerfano.test.ts · *17/10/2026, agente B4.*

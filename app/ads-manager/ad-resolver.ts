@@ -21,7 +21,7 @@ import type { ReconVeredicto, RitmoEstado } from '@/lib/queries';
 export function synthSenal(node: NodoEstado, campana: string | null, adset: string | null): SenalRecon {
   return {
     ad_id: node.id, ad_name: node.name, campana, adset_name: adset,
-    spend_usd: 0, leads: 0, meta_leads: 0, dias_corriendo: 0,
+    spend_usd: 0, leads: 0, meta_leads: 0, leads_crm: 0, dias_corriendo: 0,
     ritmo: 'sin_datos' as RitmoEstado, ritmo_dias: [], veredicto: 'explorando' as ReconVeredicto,
     agendas: 0, cierres: 0, cash_usd: 0, hook_rate: null, hold_rate: null, ctr_link: null,
     cpl_usd: null, frequency: null, impressions: 0, link_clicks: 0, cpm_usd: null, cpc_usd: null,

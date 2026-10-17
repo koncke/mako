@@ -164,7 +164,8 @@ test('revertir: sólo si el cargo ya no está devuelto; el cobro con compare-and
   const r = cuerpo(fuente('lib/pagos.ts'), 'remarcarCobroDeProveedor');
   assert.ok(r.indexOf('await asegurarLeadDelNegocio(p.leadId);') >= 0 && r.indexOf('await asegurarLeadDelNegocio(p.leadId);') < r.indexOf('.update('), 'sin la guarda del negocio antes de escribir');
   assert.match(r, /if \(!data \|\| data\.pagado\) return \{ remarcado: false \};/);
-  assert.match(r, /await marcarPago\(Number\(data\.id\), true, p\.fechaPago\);/, 'por marcarPago: sincroniza lo cobrado');
+  // `mirarLinks: false` (17/10/2026): es la pasarela misma remarcando su cargo, no una marca a mano (tests/pagos-link-ya-pagado.test.ts).
+  assert.match(r, /await marcarPago\(Number\(data\.id\), true, p\.fechaPago, \{ mirarLinks: false \}\);/, 'por marcarPago: sincroniza lo cobrado');
 });
 
 test('pedir una devolución: el aviso al día ANTES, una ya fallida no se da por hecha, y el reintento lleva otra clave', () => {

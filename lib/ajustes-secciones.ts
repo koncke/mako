@@ -62,7 +62,7 @@ const SECCIONES_NEGOCIO: (SeccionAjustes & { si?: keyof DisponiblesNegocio })[] 
   { key: 'equipo', label: 'Equipo', href: '/equipo', icono: 'equipo', descripcion: 'Quién trabaja en tu negocio y qué ve cada uno.' },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icono: 'link', descripcion: 'WhatsApp, Meta, tu web y todo lo que se conecta.', si: 'integraciones' },
   { key: 'notificaciones', label: 'Notificaciones', href: '/configuraciones/notificaciones', icono: 'avisar', descripcion: 'A quién le avisa MaKo del negocio.' },
-  { key: 'fiscal', label: 'Identidades fiscales', href: '/configuraciones/fiscal', icono: 'dinero', descripcion: 'Los datos con los que facturas.' },
+  { key: 'fiscal', label: 'Identidades fiscales', href: '/configuraciones/fiscal', icono: 'dinero', descripcion: 'Los datos con los que facturas, y en qué moneda.' },
   // El botón «Darme de baja», como todo SaaS (15/10/2026): /reembolsos y /terminos remiten acá.
   { key: 'plan', label: 'Tu plan', href: '/configuraciones/plan', icono: 'repetir', descripcion: 'Tu plan de MaKo y cómo darte de baja.', si: 'plan' },
   { key: 'metodo', label: 'Método', href: '/metodo', icono: 'llave', descripcion: 'Las credenciales de la plataforma.', si: 'metodo' },

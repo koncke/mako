@@ -55,7 +55,8 @@ test('la cuota se asienta con la fecha del pago: los avisos y la reparación la 
   assert.match(w, /suscripcionId: pago\.preapprovalId, pagadoAt: pago\.fecha \}/, 'Mercado Pago: date_approved');
   const r = cuerpo(c, 'reconciliarCobros');
   assert.match(r, /pagadoAt: c\.pagado_at/, 'reparar días después no la corre al día de la reparación');
-  assert.match(r, /pagadoAt: aprobado\.fecha/);
+  // La lectura del link de Mercado Pago vive en `pagoDelLinkEnLaPasarela` desde el 17/10/2026 (la comparte el «marcar a mano»).
+  assert.match(cuerpo(c, 'pagoDelLinkEnLaPasarela'), /pagadoAt: aprobado\.fecha/);
 });
 
 test('cancelar por la pasarela: cancelada CON FECHA, el plazo de antes guardado, y los meses = las mensualidades cobradas', () => {

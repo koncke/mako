@@ -55,14 +55,15 @@ test('la regla: devuelta es impaga, sin vencimiento y con pasarela; la cuota del
 
 test('Outstanding y «A quién cobrarle» (getOutstandingDetalle): sin las devueltas, y con las columnas que la regla mira', () => {
   const f = cuerpo(PAGOS, '_getOutstandingDetalle');
-  assert.match(f, /\.select\('\*, leads\(/,
+  // Paginado desde el 17/10/2026 (leerTodo): las columnas van en su tercer argumento.
+  assert.match(f, /leerTodo<Record<string, unknown>>\(supabase, 'pagos', '\*, leads\(/,
     'sin proveedor ni cobro_id la regla da «no devuelta» para todas');
   assert.match(f, /let noPagados = rows\.filter\(\(r\) => !r\.pagado && !noEsDeuda\(r\)\);/);
 });
 
 test('el Outstanding global (getOutstandingTotal): la misma regla', () => {
   const f = cuerpo(PAGOS, 'getOutstandingTotal');
-  assert.match(f, /\.select\('\*'\)/);
+  assert.match(f, /leerTodo<Pago>\(supabase, 'pagos', '\*', \{ eq: \{ pagado: false \} \}\)/);
   assert.match(f, /\.filter\(\(p\) => !noEsDeuda\(p\)\)/);
 });
 

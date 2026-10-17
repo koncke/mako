@@ -207,6 +207,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/ads/conjuntos/{adsetId}/estado', 'proponer_estado_conjunto'],
   ['PUT', '/ads/conjuntos/{adsetId}/presupuesto', 'proponer_presupuesto_conjunto'],
   ['GET', '/ads/conjuntos/{adsetId}/segmentacion', 'ver_publico_conjunto_meta'],
+  ['PATCH', '/ads/conjuntos/{adsetId}/segmentacion', 'proponer_editar_publico_conjunto'],
   ['GET', '/ads/conversiones', 'listar_conversiones_meta'],
   ['GET', '/ads/cuenta', 'ver_cuenta_meta'],
   ['GET', '/ads/cuenta/salud', 'ver_salud_cuenta_meta'],

@@ -20,6 +20,7 @@ import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
+import { filaDeRendimiento } from '@/lib/ads-rendimiento';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { getMetaAccountHealth, type NodoEstado } from '@/lib/meta-health';
 // El aviso «es N veces el actual» vive en UN lugar con la tabla del Ads Manager: era la
@@ -30,8 +31,10 @@ import {
   listCustomAudiences, searchInterests, listLeadForms, listPixels, listPixelEvents, listCustomConversions,
   searchLugares, cuentaMeta, identidadesMeta, paginasDeGanadores, getAdsetTargeting, getAdForEdit,
   getCampaignBasics, getAdsetForAdd, getAdsAprobacionPendiente, getAdAccountId, formularioBase,
-  addAdToAdset, updateAdCopy, createCustomAudience, crearFormularioInstantaneo, metaErrorEnvelope,
+  addAdToAdset, updateAdCopy, createCustomAudience, crearFormularioInstantaneo, metaErrorEnvelope, editarPublicoConjunto,
 } from '@/lib/meta-ads-create';
+import { cambiosDesdeEntrada, entradaDesdeApi, resumenDeCambios, type EntradaPublico } from '@/lib/publico-cambios';
+import { lugaresDesdeMeta } from '@/lib/meta-geo';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { erroresFormulario, type FormularioNuevo, type PreguntaEstandar } from '@/lib/meta-formularios';
 import type { Creative, CTAType } from '@/lib/campaign-types';
@@ -376,12 +379,9 @@ export const RUNNERS: Runners = {
       return J({
         ventana,
         moneda: { gasto: `USD con la moneda REAL de la cuenta: lo que cobró Meta si la cuenta cobra en USD; un derivado con el tipo de cambio fijo del código (${TIPO_DE_CAMBIO_USD_MXN}) si cobra en MXN`, porcentajes: 'hook_rate, hold_rate y ctr van en %' },
-        anuncios: orden.slice(0, limite).map((s) => ({
-          ad_id: s.ad_id, anuncio: s.ad_name, campana: s.campana, conjunto: s.adset_name, gasto_usd: Math.round(s.spend_usd),
-          leads_meta: s.meta_leads, leads_crm: s.leads, agendas: s.agendas, cierres: s.cierres, cash_usd: s.cash_usd,
-          dias_corriendo: s.dias_corriendo, veredicto: s.veredicto, hook_rate_pct: r2(s.hook_rate), hold_rate_pct: r2(s.hold_rate),
-          ctr_pct: r2(s.ctr_link), cpl_usd: r2(s.cpl_usd), cpm_usd: r2(s.cpm_usd), frecuencia: r2(s.frequency), impresiones: s.impressions,
-        })),
+        // ⚠️ El renglón lo arma `filaDeRendimiento` (lib/ads-rendimiento.ts): hasta el 17/10/2026 este map devolvía
+        // `leads_meta` = 10 fijo (la META de leads, no los de Meta) y `leads_crm` = los que reporta Meta.
+        anuncios: orden.slice(0, limite).map(filaDeRendimiento),
         ...(orden.length > limite ? { anuncios_omitidos: orden.length - limite } : {}),
       });
     },
@@ -803,6 +803,29 @@ export const RUNNERS: Runners = {
       try {
         const r = await updateAdCopy(String(p.adId), p.edited as Record<string, string>);
         return { ok: true, resumen: 'Textos actualizados: Meta vuelve a revisar el anuncio.', datos: { creative_id: r.creative_id } };
+      } catch (err) { return errorAlCrear(err); }
+    },
+  },
+  proponer_editar_publico_conjunto: {
+    preparar: async (input) => {
+      if (!(await metaConectada())) return { error: SIN_META };
+      const adsetId = str(input, 'adsetId');
+      if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
+      const entrada = entradaDesdeApi(input);
+      if ('error' in entrada) return { error: entrada.error };
+      let actual: Awaited<ReturnType<typeof getAdsetTargeting>>;
+      try { actual = await getAdsetTargeting(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).` }; }
+      // Un pin sobre un geo que MaKo no sabe re-escribir se frena ACÁ, antes del «sí» (al ejecutar tiraría igual).
+      if (entrada.pin && lugaresDesdeMeta(actual.targeting.geo_locations, actual.targeting.excluded_geo_locations).noEntiendo.length) {
+        return { error: 'Este conjunto tiene lugares que MaKo no sabe editar: el punto del mapa se agrega en Meta.' };
+      }
+      const cambios = resumenDeCambios(cambiosDesdeEntrada(actual.targeting, entrada));
+      return { payload: { adsetId, entrada }, resumen: `Cambiar el público del conjunto «${actual.name}» (${adsetId}): ${cambios.join(' · ')}. Lo demás se conserva. Vuelve a revisión de Meta y reinicia el aprendizaje.` };
+    },
+    ejecutar: async (p) => {
+      try {
+        const r = await editarPublicoConjunto(String(p.adsetId), p.entrada as EntradaPublico);
+        return { ok: true, resumen: `Público de «${r.name}» actualizado: Meta vuelve a revisar el conjunto.` };
       } catch (err) { return errorAlCrear(err); }
     },
   },

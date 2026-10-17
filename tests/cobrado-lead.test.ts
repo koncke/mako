@@ -156,3 +156,18 @@ test('sumarMeses capa el día al último del mes', () => {
   assert.equal(sumarMeses('2028-01-31', 1), '2028-02-29');
   assert.equal(sumarMeses('2026-10-05', 3), '2027-01-05');
 });
+
+// 17/10/2026 · La próxima renovación de una suscripción de la PASARELA sale de su último cobro, no del cierre: Stripe y
+// Mercado Pago cobran el día en que se autorizó. Probado rompiéndolo: el ancla vuelve a `fechaCierre` → 1 fallo (este).
+test('la próxima renovación de una suscripción de la pasarela cuenta desde su último cobro, no desde el cierre', () => {
+  const activa = [{ tipo: 'suscripcion' as const, estado: 'pagado' as const, suscripcion_estado: 'activa' as const, motivo: null }];
+  const c = cobradoDelLead(lead({
+    ventaTipo: 'suscripcion', suscripcionMontoUsd: 97, fechaCierre: '2026-08-05', cobros: activa,
+    // Cerró el 05/08 pero la pasarela cobra los 12: la de septiembre entró el 12/09.
+    pagos: [pago(97, true, '2026-08-12', { proveedor: 'stripe', cobro_id: 3 }), pago(97, true, '2026-09-12', { proveedor: 'stripe', cobro_id: 3 })],
+  }));
+  assert.equal(c.suscripcion?.proximaRenovacion, '2026-11-12', 'el 12 de cada mes (hoy es el 14/10), no el 05');
+  // Una manual (sin pasarela) sigue contando desde el cierre.
+  const manual = cobradoDelLead(lead({ ventaTipo: 'suscripcion', suscripcionMontoUsd: 97, fechaCierre: '2026-08-05', pagos: [pago(97, true, '2026-09-12')] }));
+  assert.equal(manual.suscripcion?.proximaRenovacion, '2026-11-05');
+});

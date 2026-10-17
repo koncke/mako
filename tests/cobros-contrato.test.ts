@@ -100,5 +100,5 @@ test('lib/pagos.ts: un reembolso no deja DEUDA y un pago salda la cuota impaga q
   assert.match(reg, /!q\.pagado && !q\.proveedor_pago_id && q\.fecha_esperada && Math\.abs\(Number\(q\.monto_usd\) - p\.montoUsd\) < 0\.01/, 'el pago no casa la cuota impaga del plan: doble cash');
   const iCasa = reg.indexOf('const casa = impagas[0];');
   assert.ok(iCasa > 0 && iCasa < reg.indexOf('for (let intento = 0; intento < 2; intento++)'), 'se casa ANTES de insertar una cuota nueva');
-  assert.match(reg, /if \(casa\) \{[\s\S]*?await marcarPago\(casa\.id, true, p\.fechaPago\)/, 'la cuota casada se marca pagada (y corta la cobranza)');
+  assert.match(reg, /if \(casa\) \{[\s\S]*?await marcarPago\(casa\.id, true, p\.fechaPago, \{ mirarLinks: false \}\)/, 'la cuota casada se marca pagada (y corta la cobranza)');
 });

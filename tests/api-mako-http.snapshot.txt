@@ -398,6 +398,7 @@ proponer_crear_formulario_meta
 proponer_crear_publico_meta
 proponer_editar_angulo
 proponer_editar_avatar
+proponer_editar_publico_conjunto
 proponer_editar_textos_anuncio
 proponer_eliminar_entidad_meta
 proponer_estado_anuncio

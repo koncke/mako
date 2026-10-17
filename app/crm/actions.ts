@@ -1237,10 +1237,11 @@ export async function marcarPagoAction(
   fechaPago: string | null,
 ): Promise<{ quitada: boolean }> {
   await exigirAccesoAMarcarPago(pagoId, leadId);
-  const { quitada } = await marcarPago(pagoId, pagado, fechaPago);
+  const { quitada, porLink } = await marcarPago(pagoId, pagado, fechaPago);
   // `quitada`: era un pago que nació cobrado (suelto o mensualidad a mano) y deshacerlo lo quitó (mig 0295).
+  // `porLink`: su link ya se había cobrado y quedó cobrada con ESE pago; el historial ya lo escribió la pasarela.
   // Queda registrado en Change History (marcar y desmarcar).
-  await logLeadEvent(
+  if (!porLink) await logLeadEvent(
     leadId,
     pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado',
     pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada',

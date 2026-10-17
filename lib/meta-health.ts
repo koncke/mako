@@ -24,7 +24,10 @@ import { parseRecosCuenta } from './meta-recos-cuenta';
 import { paisDeCuentaMeta } from './meta-pais';
 import { esErrorDePermisoMeta } from './meta-permisos';
 import { credWs } from './credenciales';
-import { cachedRead, TAG } from './cache';
+import { TAG } from './cache';
+import { cache as reactCache } from 'react';
+import { revalidateTag, unstable_cache } from 'next/cache';
+import { getWorkspaceActual, runWithWorkspace } from './workspace';
 
 const GRAPH_BASE = 'https://graph.facebook.com';
 const MAX_PAGES = 50;
@@ -549,7 +552,30 @@ function sugerenciasMako(
 // dentro de la ventana reusan la Data Cache en vez de re-pegarle a la Graph API
 // las 5+ llamadas paginadas. El estado de Meta casi no cambia minuto a minuto;
 // una mutación puede invalidar con revalidateTag(TAG.marketing).
-export const getMetaHealth = cachedRead('metaHealth', _getMetaHealth, { tags: [TAG.marketing], revalidate: 120 });
+//
+// ⚠️ (17/10/2026) Y CON UN TAG PROPIO POR NEGOCIO, que la escritura expira (`expirarArbolMeta`, lo llama `metaWrite`).
+// `TAG.marketing` es global y lo comparten las lecturas de `lib/queries.ts` de TODOS los negocios: invalidarlo al
+// escribir un presupuesto expiraba todo eso, y por eso nadie lo hacía y la tabla volvía a pintar el monto viejo
+// (docs/hallazgos-ads.md, «El árbol de Meta que leen las guardas puede tener CUALQUIER edad»). La clave sigue siendo
+// la misma (`metaHealth`, `ws:N`): sólo se suma el tag.
+export const tagArbolMeta = (ws: number | null): string => `metaHealth:ws:${ws}`;
+
+export const getMetaHealth = reactCache(async (): Promise<MetaHealth> => {
+  const ws = await getWorkspaceActual();
+  const leer = unstable_cache(() => runWithWorkspace(ws, () => _getMetaHealth()), ['metaHealth', `ws:${ws}`], {
+    tags: [TAG.marketing, tagArbolMeta(ws)], revalidate: 120,
+  });
+  return leer();
+});
+
+/**
+ * Expira el árbol de Meta de UN negocio (y sólo ése) después de escribirle algo. `revalidateTag` con `expire: 0` y no
+ * `updateTag`: éste sólo corre dentro de una server action, y `metaWrite` la llaman una ruta, la API de MaKo y el doer
+ * (el `catch` vacío de `propagarRename` se lo tragaba). Nunca tira: lo peor es esperar el TTL.
+ */
+export function expirarArbolMeta(ws: number): void {
+  try { revalidateTag(tagArbolMeta(ws), { expire: 0 }); } catch { /* vence sola por TTL */ }
+}
 
 async function _getMetaHealth(): Promise<MetaHealth> {
   // ANTES del primer pedido: la tabla del Ads Manager decide con esto si una lectura ya
