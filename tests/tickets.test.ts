@@ -161,7 +161,7 @@ test('el pedido no pasa el tope del trabajo firmado: lo largo del cliente se rec
 test('lo que manda el Runner SIN firma es un texto fijo: el número y el comando, ni una palabra del cliente', () => {
   const m = mensajeTicket(12, '/repo');
   assert.match(m, /ticket #12/);
-  assert.match(m, /cd "C:\/repo" && node --import tsx scripts\/tickets\.ts ver 12/);
+  assert.match(m, /cd "\/repo" && node --import tsx scripts\/tickets\.ts ver 12/);
   assert.match(m, /reclasificar 12 pedido/);
   for (const malo of [0, -1, 1.5, Number.NaN, 2e9]) assert.throws(() => mensajeTicket(malo, 'r'));
   const src = sinComentarios(leer('lib/tickets-aviso.ts'));
