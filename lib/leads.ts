@@ -56,7 +56,7 @@ import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, derive
 // LEAD (no el del negocio): lo que valida un movimiento son los requisitos del
 // recorrido de ESE lead.
 import { getPipelineStagesDeLead, idDelFunnelDefault } from './funnels';
-import { casaDelAlta } from './lead-funnel-reglas';
+import { casaDelAlta, funnelsDeCampanaParaSumar } from './lead-funnel-reglas';
 import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
 import { stepsForStage, funnelReqInfo, pasosResueltos, type Step, type StageReqValues } from './stage-requirements';
 import type { VentaTipo } from './venta-tipo';
@@ -917,6 +917,12 @@ async function calificadoYaEnMeta(leadId: number): Promise<boolean> {
   }
 }
 
+/** A qué funnels se suma un lead que vuelve por una campaña (`funnelsDeCampanaParaSumar`, lib/lead-funnel-reglas.ts). */
+async function funnelsAlVolver(casa: number | null, campana: { funnelId: number | null; otros: readonly number[] }): Promise<number[]> {
+  const defaultId = await idDelFunnelDefault().catch(() => null);
+  return funnelsDeCampanaParaSumar(casa, campana, defaultId);
+}
+
 /** La casa con la que nace un lead: el funnel pedido, si es de ESTE negocio (`casaDelAlta`). Nunca tira. */
 async function casaParaElAlta(supabase: SupabaseClient, pedido: number | null | undefined): Promise<number | null> {
   if (pedido == null) return null;
@@ -1483,9 +1489,23 @@ export async function upsertLeadFromMeta(input: {
       await logLeadEvent(
         existing.id,
         'Funnel',
-        `Volvió a entrar por «${porCampana.nombre}», que es de ${porCampana.producto}. Sigue en su tablero.`,
+        `Volvió a entrar por «${porCampana.nombre}», que es de ${porCampana.producto}. Sigue en su tablero y se suma a ése.`,
         'Meta',
       ).catch(() => { /* el rastro no puede tumbar la ingesta */ });
+    }
+    // ⚠️ Y SE SUMA A LOS FUNNELS DE ESA CAMPAÑA (#893, 17/10/2026): hasta acá quedaba sólo en el suyo, con la línea de
+    // arriba como única pista. La regla de Martín (06/10) es «agregar, nunca mover»: una fila de `lead_funnel` en la
+    // etapa de entrada de cada funnel donde todavía no está, igual que un lead NUEVO de la campaña (abajo) y que «Traer
+    // los leads» al asignarla. `agregarAProducto` no hace nada si ya estaba. Best-effort: la ingesta no se cae por esto.
+    if (porCampana.asignada) {
+      const { agregarAProducto } = await import('./lead-funnel');
+      for (const f of await funnelsAlVolver(existing.funnel_id ?? null, porCampana)) {
+        try {
+          await agregarAProducto(existing.id, f, { autor: 'Meta' });
+        } catch (e) {
+          console.error(`[meta-leads] lead ${existing.id} no pudo sumarse al funnel ${f}:`, e instanceof Error ? e.message : e);
+        }
+      }
     }
     return { created: false, lead: data as Lead };
   }

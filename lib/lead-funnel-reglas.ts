@@ -54,6 +54,21 @@ export function casaDelAlta(
   return fila.es_default === true ? null : Number(fila.id);
 }
 
+/**
+ * Los funnels (ids REALES) a los que se SUMA un lead que ya existía y vuelve por una campaña de Meta (#893): los de la
+ * campaña —el principal (`null` = el del negocio) y los `otros`— menos su casa, sin repetir. Un funnel que no se puede
+ * resolver (el del negocio sin poder leer su id) no se suma.
+ */
+export function funnelsDeCampanaParaSumar(
+  casa: number | null,
+  campana: { funnelId: number | null; otros: readonly number[] },
+  defaultId: number | null,
+): number[] {
+  const casaR = casa == null ? defaultId : Number(casa);
+  const todos = [campana.funnelId == null ? defaultId : Number(campana.funnelId), ...campana.otros.map(Number)];
+  return [...new Set(todos.filter((f): f is number => f != null && Number.isInteger(f) && f !== casaR))];
+}
+
 /** La casa como id real: NULL es el producto del negocio. */
 export function casaReal(funnelIdDelLead: number | null | undefined, defaultId: number | null): number | null {
   return funnelIdDelLead == null ? defaultId : Number(funnelIdDelLead);

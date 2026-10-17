@@ -82,6 +82,21 @@ export async function confirmarLeadsAction(id: string, filas: FilaImport[]): Pro
       if (error) errores.push(`No pude guardar de qué campaña vino un lead: ${error.message}`);
     }
   }
+  // ── La GRABACIÓN de la ficha que ya existía (17/10/2026) ───────────────────────────
+  // El opt-in que choca con un duplicado va a propuesta con su `visitor_id` adentro, y al confirmarla nadie lo copiaba:
+  // la persona se registraba de nuevo y su ficha seguía sin grabación ni tracking (docs/hallazgos-landing.md, «Leads
+  // entrantes ya muestra la grabación»). Su atribución NO se pisa (su primer contacto es el que la trajo): sólo la
+  // llave de la visita, y sólo si la ficha no tenía una (`.is(null)`: dos dispositivos no se pisan).
+  const enriquecidos = (r.ids ?? []).filter((x) => x.destino === 'enriquecer');
+  if (Object.keys(atrib).length && enriquecidos.length) {
+    const db = await getTenantDb();
+    for (const x of enriquecidos) {
+      const visitor = atrib[x.filaId]?.visitor_id;
+      if (!visitor) continue;
+      const { error } = await db.from('leads').update({ visitor_id: visitor }).eq('id', x.leadId).is('visitor_id', null);
+      if (error) errores.push(`No pude atar la visita a un lead que ya existía: ${error.message}`);
+    }
+  }
 
   // ── Los productos: «agregar, nunca mover» ────────────────────────────────────────
   // Al lead nuevo, los que siguen a su casa; a la ficha que ya estaba, todos (si ya está
