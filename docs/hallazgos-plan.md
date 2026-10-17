@@ -6888,3 +6888,35 @@ app/api/cron/fathom-plan/route.ts · *2026-10-15*
 **Ojo al tocarlo:** el rótulo se sanea DESPUÉS de `resolverDueño`, que decide el email y «es mío» con el texto crudo; sanear antes cambiaría a quién se le reparten las tareas.
 
 **Vive en:** `lib/tarea-dueno.ts` (`rotuloDePersona`, `fuenteDicha`, `OTRA_PERSONA`) · `lib/plan-fathom.ts` (`coerceCandidatas`, el prompt) · `tests/tarea-dueno.test.ts`
+
+## La extracción del 16/10 leída contra las dos transcripciones: buena cosecha, mal archivada (17/10/2026)
+
+Martín pidió revisar si la extracción funciona. Se leyeron completas las dos llamadas suyas del 16/10: «Revisión de MaKo» con Código Inmobiliario (Fathom 193666833, 123 min) y «Mau <> Martin» (193681029, 121 min). Se contrastaron con las 37 tarjetas que dejaron (#843-#879).
+
+**Lo que anda.** Cada tarjeta trae el minuto y el link, y la cita textual es fiel. No junta cosas distintas. De lo que Martín dijo «me lo llevo», casi todo está.
+
+**Lo que no anda, en orden de daño:**
+1. **El proyecto.** Las 26 tarjetas de la revisión cayeron en «Cliente: Código Inmobiliario». Las 11 de Mauricio cayeron en «Cliente: Mauricio Bustos», un proyecto que la importación CREÓ a las 23:43. Son bugs y features de MaKo (Automations, CRM, Dashboard, Pagos…), así que en el tablero del dueño van al proyecto de la TAB (lib/plan-proyectos-catalogo.ts). La regla «el proyecto lo define la reunión» (memoria `proyecto-lo-define-la-reunion`) la dictó Mauricio para SUS reuniones con SUS clientes, donde lo que sale es trabajo de ese cliente. Aplicada sin mirar de quién es el tablero, archiva el producto como si fuera la entrega a un cliente. **El diagnóstico obvio («la IA eligió mal») es el equivocado:** `lib/reunion-cliente.ts` IGNORA lo que eligió el modelo cuando detecta cliente.
+2. **Detalles inventados.** El prompt pide detalle largo y el modelo rellena con datos que nadie dijo: «Claude 3.5 Sonnet de 200k» (#865), «Sendgrid / Resend o similar» (#875), «Baileys» (#851; MaKo usa Evolution), «inicio de 2025» (#878; la llamada nunca nombra un año), «suscripción Pro/Team… segunda cuenta» (#877; era la quinta y ya se compró), y un «React Error Boundary» supuesto (#853). Un dato técnico inventado en una tarjeta lo toma por cierto el chat que la trabaja.
+3. **El nombre del que habla.** Fathom rotula a Martín «Martin Carballo» y la tarjeta lo copia. Además, la diarización le atribuye a Joan frases de Martín (01:54-01:57 de la revisión).
+4. **Lo que faltó** (~12). De la revisión:
+   - los templates de la ficha son muy grandes (00:33:31);
+   - al inspeccionar sale primero el perfil de Mauricio (00:47:15);
+   - crear un flujo por cualquier vía debe crearlo con loader, y pegar uno copiado a otro negocio da «su etapa no está en su negocio» (00:48:01);
+   - la opción de modo oscuro (00:29:02);
+   - que el Second Brain guarde solo (00:28:04);
+   - Pablo no pudo agendar en el Calendario (01:26:22);
+   - juntar el análisis de landing del Dashboard con el de Web Generator (01:29:51);
+   - Offer: la vista PDF primero y un «43» que nadie sabe de dónde salió (01:48:49);
+   - en Chats, sacar la tab de email (01:16:00).
+
+   De la de Mauricio:
+   - un cobro «venció ayer» que estaba pagado (00:28:53, a verificar);
+   - «quitar» un pago no se aplicó al primer intento (00:27:46);
+   - revisar el acceso de administrador de Mauricio al repo de Martín (01:02:45).
+
+**Lo que NO es una falla:** todas nacen «Sin priorizar» (score 0). Es a propósito desde el 16/10 (`lib/plan-board.ts`, paso 3), y el que prioriza es «Re-priorizar todo». Lo que sí se pierde es la prioridad DICHA: Joan marcó a Brigitte como «la más prioritaria» y la tarjeta #868 nace igual que las demás.
+
+**Trampa al medirlo:** `fetchAllMeetings({ recordedAfter })` devolvió reuniones de septiembre. Fathom ignora `recorded_after` (ya anotado arriba en este documento); el filtro real lo hace `listReunionesRecientes`. Un script que llama a la lib de abajo se trae todo.
+
+**Vive en:** `lib/reunion-cliente.ts` (la regla del cliente) · `lib/plan-proyectos-catalogo.ts` · `lib/plan-fathom.ts` (`PLAN_FATHOM_SYSTEM_TEMPLATE`, el pedido de detalle) · tarjetas #843-#879 del ws9

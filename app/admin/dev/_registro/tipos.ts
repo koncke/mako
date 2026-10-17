@@ -33,6 +33,10 @@ export const CUENTAS = {
   // medidas: van «—» en vez de inventarlas. Sin esta fila, un hito firmado `claude3` rompía la pantalla
   // (`CUENTAS[h.cuenta].n` sobre undefined).
   claude3: { n: 3, nombre: 'Martín Koncke', ventana: '—', config: '—' },
+  // La 4 entra el 16/10/2026 a la noche, cuando la 3 llegó al 99% semanal. El gmail es otro (está en
+  // `~/.claude/cuentas.tsv`), pero la cuenta es de Martín, como las otras tres. Corre sólo en la app
+  // (`~/.claude`); su semana renueva el martes a las 16:59 de Argentina.
+  claude4: { n: 4, nombre: 'Leandro Tejado 2', ventana: '—', config: '~\\.claude (app)' },
 } as const;
 
 export type Cuenta = keyof typeof CUENTAS;
