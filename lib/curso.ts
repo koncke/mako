@@ -789,6 +789,17 @@ export const esCampoDeComunidad = (t: CampoTipo | string | undefined): t is 'pub
   t === 'publicar' || t === 'comentar';
 
 /**
+ * La VISTA PREVIA del equipo no tiene el token del alumno para pedir qué post se comenta (`accion: 'ver'`), así que un
+ * «Comentar» sin post elegido (= el último FIJADO, al comentar) decía «Todavía no hay un post para comentar» aunque lo
+ * hubiera (17/10/2026, docs/hallazgos-customer-success.md). El server de la vista previa le pone el último fijado.
+ * Un campo con post elegido no se toca; sin post fijado, tampoco.
+ */
+export function conPostDeComentar<C extends Pick<Campo, 'tipo' | 'postId' | 'postTitulo'>>(campos: readonly C[], post: { id: number; titulo: string } | null): C[] {
+  if (!post) return [...campos];
+  return campos.map((c) => (c.tipo === 'comentar' && !c.postId ? { ...c, postId: post.id, postTitulo: post.titulo } : c));
+}
+
+/**
  * Lo que queda guardado de un campo de comunidad: QUÉ escribió el alumno, por referencia.
  *   · publicar → `"<postId>"`
  *   · comentar → `"<postId>/<comentarioId>"` (el post va adelante: es a dónde lleva el link de la ficha)

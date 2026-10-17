@@ -25,14 +25,15 @@
 //    de vida corta: la ruta del portal pide el token de un alumno, y acá no hay ninguno.
 
 import { requireCapa } from '@/lib/tab-access';
-import { getTenantDb, adminDeWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, adminDeWorkspaceActual, getWorkspaceActual } from '@/lib/workspace';
+import { ultimoPostFijado } from '@/lib/comunidad-datos';
 import { clasesDelProducto } from '@/lib/curso-datos';
 import { urlsDeVistaPrevia } from '@/lib/curso-admin';
 import { urlsAdjuntosEquipo } from '@/lib/curso-adjuntos';
 import { refsEnHtml } from '@/lib/curso-adjuntos-reglas';
 import { modulosDelCurso } from '@/lib/curso-modulos-datos';
 import { armarModulos, conHtmlSaneado, cursoSeLista, estiloQueViaja, esClaseCerrada, type VistaAlumno } from '@/lib/curso-portal';
-import { htmlsDeTareas } from '@/lib/curso';
+import { conPostDeComentar, htmlsDeTareas } from '@/lib/curso';
 import { estilosDeProductos } from '@/lib/curso-estilo-datos';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
 import { SIN_NOMBRE_ALUMNO } from '@/lib/curso-nombre';
@@ -109,6 +110,15 @@ export async function PantallaVistaAlumno({ searchParams }: { searchParams: Prom
       const url = firmados.get(pathDe.get(c.id) ?? '');
       return { ...c, video: url ? { tipo: 'directo' as const, url } : null };
     });
+  }
+
+  // El «Comentar» sin post elegido comenta el último FIJADO; la vista previa no tiene token para preguntarlo, así que
+  // se lo pone el server (`conPostDeComentar`). Sin poder leerlo, se dibuja como siempre.
+  const hayComentarSinPost = modulos.some((e) => e.clases.some((c) => !esClaseCerrada(c) && c.campos.some((f) => f.tipo === 'comentar' && !f.postId)));
+  if (hayComentarSinPost) {
+    const ws = await getWorkspaceActual();
+    const fijado = ws != null ? await ultimoPostFijado(ws, productoId).catch(() => null) : null;
+    if (fijado) for (const e of modulos) e.clases = e.clases.map((c) => (esClaseCerrada(c) ? c : { ...c, campos: conPostDeComentar(c.campos, fijado) }));
   }
 
   // ⚠️ LOS ADJUNTOS DE LAS DESCRIPCIONES (imágenes, PDF, archivos), firmados para el EQUIPO: el alumno
