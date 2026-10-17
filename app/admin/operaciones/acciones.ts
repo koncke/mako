@@ -24,6 +24,8 @@ import { leerDecisiones } from '@/lib/admin-decisiones';
 import type { DecisionEspera } from '@/lib/centro-chats';
 import { sanearAspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { guardarMuneco } from '@/lib/centro-munecos-db';
+import { leerTurnos } from '@/lib/centro-turnos-db';
+import type { TurnoChat } from '@/lib/operaciones-reglas';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
@@ -49,6 +51,15 @@ export async function pushesCentroAction(): Promise<LecturaPushes> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, motivo: NO_PUEDE };
   return leerPushes();
+}
+
+/** Lo que se dijo en un chat (sus sesiones, las de todas sus cuentas), para su conversación (17/10/2026: «los chats no
+ *  se entienden»). Lo pide la pantalla al abrir un chat y en cada refresco de ese chat; los demás no viajan. */
+export async function turnosCentroAction(locales: string[]): Promise<{ ok: true; turnos: TurnoChat[] } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (!Array.isArray(locales)) return { ok: false, error: 'Falta el chat.' };
+  return { ok: true, turnos: await leerTurnos(locales.filter((l): l is string => typeof l === 'string')) };
 }
 
 /** Las tarjetas abiertas de la Ticketera (las archivadas no vienen). No es una acción. */

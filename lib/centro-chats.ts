@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_RE, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_RE, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -362,13 +362,27 @@ export type LineaChat =
   /** Un trabajo firmado que se le mandó desde el Centro (con su texto, su estado y el cierre, si lo dejó). */
   | { tipo: 'trabajo'; instante: number; trabajo: TrabajoP }
   /** Lo que Martín contestó a una pregunta de ESTE chat (la de arriba de la caja o la Ticketera): es su respuesta. */
-  | { tipo: 'respuesta'; instante: number; decision: Decision };
+  | { tipo: 'respuesta'; instante: number; decision: Decision }
+  /** Lo que se le dijo al chat y lo que contestó, sacado de su transcript (17/10/2026: «los chats no se entienden»). */
+  | { tipo: 'turno'; instante: number; turno: TurnoChat };
+
+/**
+ * Lo que se DIBUJA en la conversación (17/10/2026, Martín: «los chats no se entienden... No se entiende la conversación
+ * que se tiene»): lo que se le dijo y lo que contestó (los turnos), los trabajos del Centro y las respuestas a sus
+ * preguntas. Los pedidos de la bitácora y sus hitos («Corrección · 19:32 — …», «Lo pediste en …») NO: son el Plan, y
+ * van a su barra (`avanceDelChat` los sigue leyendo de `historialDelChat`). Un turno que trajo un trabajo tampoco: ese
+ * trabajo ya está, con sus ticks.
+ */
+export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] =>
+  lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || (l.tipo === 'turno' && !(l.turno.rol === 'yo' && l.turno.trabajo)));
 
 /** La conversación de un chat, la más vieja arriba (como un chat). */
 export function historialDelChat(
   chat: ChatCentro, pedidos: ReadonlyMap<string, PedidoP>, trabajos: readonly TrabajoP[],
   /** Sus preguntas ya contestadas (`respuestasDelChat`, lib/centro-preguntas.ts). */
   respuestas: readonly Decision[] = [],
+  /** Lo que se dijo en sus sesiones (lib/centro-turnos-db.ts): sólo del chat abierto, los demás no los traen. */
+  turnos: readonly TurnoChat[] = [],
 ): LineaChat[] {
   const out: LineaChat[] = [];
   for (const id of chat.pedidos) {
@@ -387,6 +401,10 @@ export function historialDelChat(
   for (const d of respuestas) {
     const t = fecha(d.respondidaAt);
     if (t != null) out.push({ tipo: 'respuesta', instante: t, decision: d });
+  }
+  for (const u of turnos) {
+    const t = fecha(u.at);
+    if (t != null && chat.miembros.includes(u.local)) out.push({ tipo: 'turno', instante: t, turno: u });
   }
   return out.sort((x, y) => x.instante - y.instante);
 }
@@ -409,6 +427,9 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
       if (c && t != null) ver({ texto: renglon(c.hecho || c.decidido), propio: false, tick: null, instante: t });
     } else if (l.tipo === 'respuesta') {
       ver({ texto: renglon(textoDeRespuesta(l.decision)), propio: true, tick: null, instante: l.instante });
+    } else if (l.tipo === 'turno') {
+      // Lo que contestó (o lo que se le dijo): lo último que pasó en la conversación. El turno de un trabajo ya está.
+      if (!(l.turno.rol === 'yo' && l.turno.trabajo)) ver({ texto: renglon(l.turno.texto), propio: l.turno.rol === 'yo', tick: null, instante: l.instante });
     } else {
       ver({ texto: renglon(l.pedido.texto), propio: true, tick: null, instante: l.instante });
       if (l.tipo === 'pedido') for (const s of l.pasos) if (s.instante != null) ver({ texto: renglon(s.titulo), propio: false, tick: null, instante: s.instante });
@@ -637,11 +658,12 @@ export function mensajeDeCommit(msg: string): string {
 
 /** El avance de un chat: un nodo por línea de su historial, el más viejo arriba (como un roadmap). */
 export function avanceDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
-  // Una respuesta a una pregunta no es algo que se le pidió: no es un nodo del avance.
-  return lineas.flatMap((l): NodoAvance[] => (l.tipo === 'respuesta' ? [] : [nodoDe(l)]));
+  // Una respuesta a una pregunta no es algo que se le pidió: no es un nodo del avance. Un turno de la conversación,
+  // tampoco: el Plan son los pedidos y los trabajos.
+  return lineas.flatMap((l): NodoAvance[] => (l.tipo === 'respuesta' || l.tipo === 'turno' ? [] : [nodoDe(l)]));
 }
 
-function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' }>): NodoAvance {
+function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' | 'turno' }>): NodoAvance {
   if (l.tipo === 'trabajo') {
     const w = l.trabajo;
     const texto = (w.texto ?? '').trim();

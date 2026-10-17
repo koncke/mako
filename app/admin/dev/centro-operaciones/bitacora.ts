@@ -550,4 +550,20 @@ export const BITACORA: Hito[] = [
       'scripts/operaciones/cartero.mjs, lib/runner.ts — el Runner aplica el modelo',
     ],
   },
+  {
+    fecha: '17 oct', hora: '07:20', chat: 'Centro de Operaciones', sesion: 'local_aac76313-d8b5-4b86-85f4-e579e4f33304', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La conversación de cada chat se lee como un chat',
+    pedido: 'los chats no se entienden... No se entiende la conversación que se tiene',
+    puntos: [
+      'Cada chat muestra lo que se le dijo y lo que contestó al terminar, sacado de su transcript en la PC.',
+      'Los hitos de la bitácora y «Lo pediste en…» salieron de la conversación: siguen en la barra del Plan.',
+      'Los chats que no se llaman como una tab ya no quedan escondidos en «Sin asignar».',
+    ],
+    archivos: [
+      'scripts/operaciones/cartero.mjs — lo nuevo de cada transcript (turnosDeLineas)',
+      'lib/centro-turnos-db.ts — los últimos turnos de cada chat',
+      'app/admin/operaciones/Hilo.tsx — la conversación',
+    ],
+  },
 ];

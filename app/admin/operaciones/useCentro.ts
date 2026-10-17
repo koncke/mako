@@ -17,8 +17,8 @@
 // ⚠️ LA GUARDA NO VIVE ACÁ: los datos de entrada los lee el servidor DESPUÉS de `puedeOperar` (las dos páginas del
 //    Centro y la del Second Brain, tests/operaciones.test.ts), y cada acción la vuelve a pedir (acciones.ts).
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Alcance } from '@/lib/operaciones-reglas';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DESTINO_RE, type Alcance, type TurnoChat } from '@/lib/operaciones-reglas';
 import {
   comoSale, completarChats, enQueTrabaja, esperasPorChat, historialDelChat, nombreValido, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
@@ -30,7 +30,7 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { fotoCentroAction, guardarMunecoAction, pushesCentroAction } from './acciones';
+import { fotoCentroAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
 import { copiar, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
@@ -92,6 +92,19 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const [renombrando, setRenombrando] = useState<{ clave: string; texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ clave: string; aspecto: Aspecto; guardando: boolean } | null>(null);
   const firma = useFirma(sub);
+  // ── Lo que se dijo en el chat abierto (sus turnos, del transcript: «los chats no se entienden», 17/10/2026) ──
+  // Se piden sólo para el chat que se mira (al abrirlo y en cada refresco): los demás no viajan.
+  const [turnos, setTurnos] = useState<Record<string, TurnoChat[]>>({});
+  const mirado = useRef<ChatCentro | null>(null);
+  const pedirTurnos = useCallback(async (c: ChatCentro) => {
+    const locales = c.miembros.filter((m) => DESTINO_RE.test(m));
+    if (!locales.length) return;
+    const r = await turnosCentroAction(locales).catch(() => null);
+    if (r?.ok) setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
+  }, []);
+  /** La conversación avisa qué chat se está mirando (o null al cerrarla). */
+  const mirar = useCallback((c: ChatCentro | null) => { mirado.current = c; if (c) void pedirTurnos(c); }, [pedirTurnos]);
+  const turnosDe = (c: ChatCentro): TurnoChat[] => turnos[c.clave] ?? [];
 
   // Se lee después de montar: el server no sabe lo del navegador, y el primer dibujo tiene que coincidir.
   useEffect(() => { setAvance(leerAvance()); }, []);
@@ -110,8 +123,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
   const lineasDe = useMemo(
-    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros))])),
-    [chats, porId, trabajos, decisiones, carteros],
+    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnos[c.clave])])),
+    [chats, porId, trabajos, decisiones, carteros, turnos],
   );
   const previas = useMemo(() => new Map<string, VistaPrevia | null>([...lineasDe].map(([k, l]) => [k, vistaPrevia(l)])), [lineasDe]);
   const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, enQueTrabaja(l)])), [lineasDe]);
@@ -119,8 +132,9 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
     if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
-  }, []);
+  }, [pedirTurnos]);
   useEffect(() => {
     const t = setInterval(() => { if (document.visibilityState === 'visible') refrescar(); }, REFRESCO_MS);
     const volver = () => { if (document.visibilityState === 'visible') refrescar(); };
@@ -241,6 +255,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   return {
     chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
+    turnosDe, mirar,
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     avance, cambiarAvance,
     envioDe, borradorDe, ponerBorrador, alcance, setAlcance, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,

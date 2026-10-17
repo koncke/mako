@@ -17,7 +17,9 @@
 
 import { Icon } from '@/app/_components/icons';
 import { ROTULO, type EstadoPedido } from '@/lib/operaciones-reglas';
-import type { LineaChat, TrabajoP } from '@/lib/centro-chats';
+import { lineasDeConversacion, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import type { TurnoChat } from '@/lib/operaciones-reglas';
+import { Markdown } from '@/app/_components/Markdown';
 import { textoDeRespuesta } from '@/app/admin/runway/decisiones';
 import { Muneco, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
@@ -84,7 +86,34 @@ function Trabajo({ w, quien }: { w: TrabajoP; quien: Quien }) {
   );
 }
 
+/** Un turno: lo de Martín a la derecha en su burbuja; lo de otra sesión, igual pero con su nombre; lo que contestó el chat,
+ *  a la izquierda con su muñeco, en Markdown (los chats contestan con listas y negritas), como Claude y ChatGPT. */
+function Turno({ t, quien }: { t: TurnoChat; quien: Quien }) {
+  const hora = horaAR(Date.parse(t.at));
+  if (t.rol === 'el') {
+    return (
+      <div className="co-el">
+        <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
+        <div className="co-el__cuerpo">
+          <div className="co-el__texto co-el__md"><Markdown text={t.texto} /></div>
+          <p className="co-el__rotulo">{hora}</p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="co-yo">
+      <p className="co-burbuja">
+        {t.rol === 'otro' && <span className="co-burbuja__cita">{t.de ?? 'Otro chat'}</span>}
+        {t.texto}
+        <span className="co-burbuja__pie">{hora}</span>
+      </p>
+    </div>
+  );
+}
+
 function Linea({ l, pushes, ahora, quien }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien }) {
+  if (l.tipo === 'turno') return <Turno t={l.turno} quien={quien} />;
   if (l.tipo === 'trabajo') return <Trabajo w={l.trabajo} quien={quien} />;
   if (l.tipo === 'respuesta') {
     // Lo que contestó a una pregunta del chat: su burbuja, con la pregunta arriba en chico (como la cita de WhatsApp).
@@ -128,12 +157,14 @@ function Linea({ l, pushes, ahora, quien }: { l: LineaChat; pushes: readonly Pus
   );
 }
 
-/** Las líneas de un chat, la más vieja arriba, con la píldora del día cada vez que cambia (WhatsApp). */
-export function Hilo({ lineas, pushes, ahora, vacio, quien }: {
+/** Las líneas de un chat, la más vieja arriba, con la píldora del día cada vez que cambia (WhatsApp). Sólo la
+ *  conversación (`lineasDeConversacion`): los hitos van a la barra del Plan. */
+export function Hilo({ lineas: todas, pushes, ahora, vacio, quien }: {
   lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string;
   /** El empleado de este chat: su muñeco va al lado de lo que hizo, y grande si todavía no hay nada. */
   quien: Quien & { animo: Animo; dato?: string | null };
 }) {
+  const lineas = lineasDeConversacion(todas);
   if (!lineas.length) {
     return (
       <div className="co-portada">

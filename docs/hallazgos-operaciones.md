@@ -956,6 +956,60 @@ descarta la de 5 horas si tiene más de 30 minutos. Además:
 - lib/centro-chats.ts (`porRevisar`, `rutaDeLaTab`, `destinoDeReview`) y lib/centro-uso.ts (`cuentasDeUso`, `sanearPlan`);
 - tests/centro-revisar.test.ts, centro-uso.test.ts y tickets-decisiones-mazo.test.ts.
 
+## La conversación como un chat de verdad: lo que contestó sale del transcript (17/10/2026)
+
+**El pedido.** Martín, mirando el Centro en producción: «Y sobre todo, los chats no se entienden... No se entiende la
+conversación que se tiene». La conversación mostraba títulos de hitos («Corrección · 19:32 — …», «Hecho · 04:34 — …») y
+líneas como «Lo pediste en Estrategia 3 cuentas». Lo que el chat CONTESTÓ no estaba en ningún lado: el Centro sólo veía
+la bitácora, los trabajos y sus cierres.
+
+**Lo que contestó cada chat ya estaba en la PC.** Primero se pensó en «subir el transcript», y es el diagnóstico obvio
+equivocado: pesa decenas de MB y está lleno de herramientas y razonamiento. Lo que se encontró:
+- **El registro de cada sesión de la app** (`claude-code-sessions/<org>/<x>/local_*.json`) ya trae `lastTurnReport`
+  (el texto final del último turno), `postTurnSummary`, `model`, `effort`, `cliSessionId` y `cwd`.
+- **El transcript** está en `<carpeta de config>/projects/<cwd con todo lo que no es letra o número cambiado por «-»>/<sesión>.jsonl`.
+  Para un chat de la app, en `~/.claude` y con el `cliSessionId`; para uno de terminal, en su carpeta y con su
+  `sessionId`. Medido con el chat Onboarding de la cuenta 4.
+
+Así quedó:
+- La PC lee del transcript **sólo lo nuevo, por posición en BYTES** (`turnos/<local>.json`). Con posiciones en
+  caracteres, una tilde corría todo.
+- `turnosDeLineas` (pura, con test) saca lo que se le dijo y la respuesta FINAL de cada turno: el último texto antes del
+  próximo mensaje o del fin del turno (`stop_hook_summary`). Si un chat no está trabajando, su última respuesta ya vale.
+- MaKo guarda los últimos 60 turnos de cada chat en `app_settings`, **sin migración** (lib/centro-turnos-db.ts). La marca
+  de la PC avanza sólo si MaKo dice `turnosOk`.
+
+**Lo que hay que limpiar de un transcript, medido sobre uno real:**
+- los `<system-reminder>` vienen PEGADOS al prompt;
+- los mensajes de otras sesiones vienen envueltos en `<cross-session-message from=… name=…>`, con un renglón antes y
+  otro después;
+- los avisos automáticos (`<task-notification>` y compañía) no los dijo nadie;
+- la app escribe en nombre del modelo «You've hit your session limit…» (`isApiErrorMessage`, `model: '<synthetic>'`).
+
+**Un trabajo del Centro también llega como mensaje** («Pedido de Martín desde el Centro…», con su id en la línea del
+`cierre`). Se marca con ese id y no se dibuja dos veces, porque ya está con sus ticks.
+
+**Un mensaje nuevo cierra el turno anterior, aunque no se muestre.** El aviso de la Ticketera no se dibuja, pero termina
+el turno de antes. El test esperaba lo contrario y el que estaba mal era el test.
+
+**Los hitos siguen en el Plan.** `lineasDeConversacion` deja en la conversación los turnos, los trabajos y las respuestas
+a la Ticketera. `avanceDelChat` sigue leyendo los pedidos de la bitácora.
+
+**Sin medir:** cómo se ve con chats reales. Hace falta el cartero 1.8.0 instalado y unas vueltas. La primera vuelta de
+cada chat sube la cola de su historia (los últimos 2 MB del transcript).
+
+**Del punto «a» (todo chat abierto se ve)**, se midió en la PC (17/10):
+- «Pagos» y «MaKo en WhatsApp» están en la carpeta de la cuenta 4 y el cartero los ve. Caían en «Sin asignar», que iba
+  PLEGADA; ahora va abierta.
+- «Runner» lo excluye el cartero a propósito: no se le puede escribir.
+- Los chats de la nube no quedan en ningún archivo de la PC.
+Las dos cosas que faltan, con su archivo, están en el relevo.
+
+**Vive en:** scripts/operaciones/cartero.mjs (`turnosDeLineas`, `turnosNuevos`, `turnosDeLaVuelta`, `carpetaDelCwd`) ·
+lib/operaciones-reglas.ts (`TurnoChat`, `sanearTurnos`, `unirTurnos`) · lib/centro-turnos-db.ts · lib/operaciones.ts
+(`cicloCartero` → `turnosOk`) · app/admin/operaciones/acciones.ts (`turnosCentroAction`) · lib/centro-chats.ts
+(`lineasDeConversacion`) · Hilo.tsx (`Turno`) · useCentro.ts (`mirar`, `turnosDe`) · tests/centro-turnos.test.ts
+
 ## La cuenta «Automático», el modelo y el esfuerzo: lo que se elige y lo que no se puede (17/10/2026)
 
 **El pedido.** Martín, en el mismo feedback:

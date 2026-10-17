@@ -32,9 +32,10 @@ import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'no
 import { getSupabaseServer } from './supabase';
 import {
   CUENTA_RE, POR_VUELTA, claveIdDe, estadoDeCierre, leerFirmable, sanearAcuses, sanearChats,
-  sanearCierres, sanearClaves, sanearEntregables, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
+  sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
 import { sanearCuota, type Cuota } from './centro-uso';
+import { guardarTurnos } from './centro-turnos-db';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 
 const T_PEDIDOS = 'operaciones_pedidos';
@@ -184,6 +185,8 @@ export type SalidaCiclo = {
   cierres: number;
   /** Los cierres que entraron (cartero 1.4.0): la PC borra ésos y vuelve a subir los demás. */
   cierresIds: string[];
+  /** Si lo que se dijo en los chats entró (cartero 1.8.0): sin esto la PC no avanza su marca y lo vuelve a subir. */
+  turnosOk: boolean;
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -262,6 +265,14 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     .upsert({ cuenta, visto_at: ahoraIso, version, chats, claves, updated_at: ahoraIso, ...(cuota ? { cuota } : {}) }, { onConflict: 'cuenta' });
   if (eUp) throw new Error(eUp.message);
 
+  // Lo que se dijo en cada chat desde la vuelta anterior (cartero 1.8.0, 17/10/2026: «los chats no se entienden»). Si no se
+  // pudo guardar, la vuelta sigue: la PC no avanza su marca hasta que MaKo diga que entró (`turnosOk`).
+  let turnosOk = true;
+  const turnos = sanearTurnos(e.turnos);
+  if (turnos.length) {
+    try { await guardarTurnos(turnos); } catch (err) { turnosOk = false; console.error('[operaciones] turnos:', err instanceof Error ? err.message : err); }
+  }
+
   // Los acuses de la vuelta anterior: sólo sobre un pedido TOMADO, o sobre un aviso de la
   // Ticketera TOMADO (comparten el formato de id, y cada id es de uno solo de los dos).
   let acuses = 0;
@@ -319,5 +330,5 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     avisosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds };
+  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk };
 }

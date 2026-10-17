@@ -108,7 +108,14 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const toast = useToastM();
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   const elegido = chats.find((c) => c.clave === abierto) ?? null;
-  const lineas = elegido ? historialDelChat(elegido, porId, trabajos, respuestasDelChat(elegido, decisiones, carteros)) : [];
+  const lineas = elegido ? historialDelChat(elegido, porId, trabajos, respuestasDelChat(elegido, decisiones, carteros), centro?.turnosDe(elegido)) : [];
+  // Lo que se dijo en el chat abierto: se pide mientras se lo mira (useCentro.ts → mirar). Sólo la hoja lo pide.
+  const mirar = centro?.mirar;
+  useEffect(() => {
+    if (!mirar || parte === 'lista') return;
+    mirar(elegido);
+    return () => mirar(null);
+  }, [elegido?.clave, mirar, parte]); // eslint-disable-line react-hooks/exhaustive-deps
   const preguntas = elegido ? preguntasDelChat(elegido, decisiones, carteros) : [];
   const hilo = useRef<HTMLDivElement>(null);
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado,
