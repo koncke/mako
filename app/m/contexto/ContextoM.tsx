@@ -21,7 +21,8 @@ type Estado = 'indexado' | 'pendiente' | 'error';
 type Entry = { id: number; titulo: string; categoria: string | null; cuerpo: string; activo: boolean; estado: Estado; error: string | null; updated_at: string };
 type Fase = { key: string; label: string; ejemplo: string };
 type PromptModo = { key: string; label: string; current: string; isDefault: boolean; versions: Array<{ ts: string; text: string }> };
-type Datos = { entries: Entry[]; fases: Fase[]; valores: Record<string, string>; modos: PromptModo[] };
+export type DatosContexto = { entries: Entry[]; fases: Fase[]; valores: Record<string, string>; modos: PromptModo[] };
+type Datos = DatosContexto;
 
 /** Los rótulos y colores de escritorio (`EstadoBadge` de ContextoTabs.tsx). */
 const ESTADO: Record<Estado, { t: string; tono: TonoPildora }> = {
@@ -39,10 +40,10 @@ const post = (url: string, body: Record<string, unknown>) =>
 
 type Hoja = { tipo: 'entrada'; e: Entry } | { tipo: 'nueva' } | { tipo: 'fase'; f: Fase } | { tipo: 'prompt'; m: PromptModo };
 
-export function ContextoM({ leido }: { leido: number }) {
+export function ContextoM({ iniciales }: { iniciales: DatosContexto | null }) {
   const toast = useToastM();
   const ws = useWs();
-  const [datos, setDatos] = useState<Datos | null>(null);
+  const [datos, setDatos] = useState<Datos | null>(iniciales);
   const [error, setError] = useState<string | null>(null);
   const [hoja, setHoja] = useState<Hoja | null>(null);
   const [texto, setTexto] = useState('');
@@ -64,7 +65,10 @@ export function ContextoM({ leido }: { leido: number }) {
       setError(e instanceof Error ? e.message : 'No se pudo leer el contexto de MaKo.');
     }
   }, []);
-  useEffect(() => { void cargar(); }, [cargar, leido]);
+  // ⚠️ ABRE CON LO QUE LEYÓ EL SERVER (17/10/2026, «que el teléfono ande más rápido»): tres lecturas menos desde el
+  // navegador (0,4-0,8 s medidos a 390 px). La página la monta con `key` nuevo en cada pasada del server (tirar hacia
+  // abajo trae lo nuevo); si el server no pudo leer (`null`), se pide como en la computadora.
+  useEffect(() => { if (iniciales == null) void cargar(); }, [cargar, iniciales]);
 
   /** Abre una hoja con su texto de arranque. El sub-estado se resetea al ABRIR (LEEME de app/m/_ui). */
   const abrir = (h: Hoja) => {

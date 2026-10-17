@@ -1,0 +1,40 @@
+/* =============================================================================
+   /m/reels — lo propio de Reels (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-reels-*: Next deja la hoja cargada al salir de la ruta. Sólo tokens de app/globals.css,
+   salvo lo que va ENCIMA del fondo oscuro de un video (blanco literal, como app/m/video/video.css). Un p con margen
+   va con [data-m] delante: `[data-m] :is(h1,h2,h3,p)` le gana a una clase sola. */
+
+/* La miniatura de una fila: un reel es 9:16 (como las de Video Generator). */
+.m-reels-mini {
+  flex: none; display: grid; place-items: center; width: 36px; height: 64px; border-radius: 7px;
+  background: var(--sidebar-2); color: var(--sidebar-text);
+}
+
+/* El guion: la portada y el caption arriba (el «Compartir» de Instagram), las partes en una columna. */
+.m-reels-guion { padding: 2px 2px 8px; }
+.m-reels-compartir { display: flex; gap: 14px; align-items: flex-start; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.m-reels-portada {
+  flex: none; display: flex; align-items: center; justify-content: center; width: 92px; aspect-ratio: 9 / 16;
+  padding: 8px; box-sizing: border-box; border-radius: 10px; background: var(--sidebar); text-align: center;
+}
+.m-reels-portada span {
+  color: #fff; font-size: 12px; font-weight: 700; line-height: 1.25; text-wrap: balance;
+  display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden;
+}
+[data-m] .m-reels-caption { margin: 0; min-width: 0; font-size: 15px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.m-reels-caption__resto { color: var(--faint); }
+.m-reels-parte { padding: 16px 0 0; }
+[data-m] .m-reels-gancho { margin: 0; font-size: 19px; font-weight: 650; line-height: 1.35; letter-spacing: -0.01em; color: var(--ink); }
+[data-m] .m-reels-texto { margin: 0; font-size: 16px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.m-reels-texto--fuerte { font-weight: 600; }
+[data-m] .m-reels-texto--dim { color: var(--dim); font-size: var(--fs-md); }
+[data-m] .m-reels-camara {
+  display: flex; gap: 6px; align-items: baseline; margin: 6px 0 0;
+  font-size: var(--fs-sm); line-height: 1.45; color: var(--dim);
+}
+.m-reels-camara svg { flex: none; transform: translateY(2px); }
+.m-reels-escenas { margin: 0; padding: 0; list-style: none; }
+.m-reels-escenas li { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.m-reels-escenas li:first-child { border-top: 0; padding-top: 2px; }
+.m-reels-escenas__n { flex: none; padding-top: 4px; font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--faint); }

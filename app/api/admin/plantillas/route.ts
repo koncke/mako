@@ -12,11 +12,11 @@ import {
   listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla, setCanalesPlantilla, setFrecuenciaPlantilla, setPosicionesPlantilla,
   borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo,
   setTituloPlantilla, setAsuntoPlantilla, setCategoriaPlantilla, setBorradorPlantilla, publicarBorrador,
-  ocultarPlantilla, restaurarPlantilla, conLaBaseDeLaPlataforma,
+  ocultarPlantilla, restaurarPlantilla, enElStoreDeLaPestana,
 } from '@/lib/plantillas';
 import { getProgramado, setProgramado, NoAgendable } from '@/lib/avisos-programados';
 import { acusesDe, setAcuses } from '@/lib/insistencias';
-import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { CATEGORIAS_AVISO, type CategoriaAviso } from '@/lib/avisos-catalogo';
 import { esFlujoValido } from '@/lib/flujos-tipos';
 import { sanearFrecuencia } from '@/lib/disparador-mensaje';
@@ -31,10 +31,7 @@ export const maxDuration = 60;
  * 10/10/2026: «Separar la base», lib/plantillas.ts → `KEY_BASE`); en el de un cliente que el super admin está
  * mirando, el store de ése, como siempre. El «MaKo en WhatsApp» del ws9 (/api/perfil/plantillas) edita su store.
  */
-async function enSuStore<T>(fn: () => Promise<T>): Promise<T> {
-  const [ws, base] = await Promise.all([getWorkspaceActual(), wsSuperAdmin()]);
-  return ws === base ? conLaBaseDeLaPlataforma(fn) : fn();
-}
+const enSuStore = enElStoreDeLaPestana; // lib/plantillas.ts (la comparte el teléfono, 17/10/2026)
 
 export async function GET(req: NextRequest) {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });

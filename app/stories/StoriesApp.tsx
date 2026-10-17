@@ -22,6 +22,7 @@ import { Dropdown } from '../components/Dropdown';
 import { Storyboard } from './Storyboard';
 import { OBJETIVOS_STORIES, empujaADm, type ObjetivoStories } from './objetivos';
 import { generarSecuenciaAction } from './actions';
+import { secuenciaATexto } from './texto';
 import type { PiezaStory } from '@/lib/ig-writer';
 
 const MONO = "'Geist Mono', monospace";
@@ -33,25 +34,8 @@ const areaTexto: CSSProperties = { width: '100%', minHeight: 110, padding: '12px
 
 type ItemHistorial = { pieza: PiezaStory; objetivo: ObjetivoStories; at: string };
 
-/**
- * La secuencia como texto, para «Copiar la secuencia». La arma el CÓDIGO desde la
- * pieza, no el modelo: un dato exacto no se le vuelve a pedir a un LLM.
- */
-function secuenciaATexto(p: PiezaStory): string {
-  const ultimo = p.frames.length - 1;
-  return [
-    `STORIES DEL DÍA: ${p.idea}`,
-    ...p.frames.map((f, i) => [
-      `FRAME ${i + 1} · ${f.tipo}`,
-      f.texto ? `Texto: ${f.texto}` : '',
-      f.indicacion ? `Producción: ${f.indicacion}` : '',
-      f.interactivoManual ? 'Interactivo: se agrega a mano en la app.' : '',
-      i === ultimo && (p.cta || p.palabraClave)
-        ? `Cierre: ${[p.cta, p.palabraClave ? `palabra clave ${p.palabraClave}` : ''].filter(Boolean).join(' · ')}`
-        : '',
-    ].filter(Boolean).join('\n')),
-  ].join('\n\n');
-}
+// «Copiar la secuencia» (`secuenciaATexto`) vive en ./texto.ts desde el 17/10/2026: lo usa también el teléfono
+// (app/m/stories), que no puede importar de este módulo 'use client'.
 
 export function StoriesApp({ piezaInicial = null }: { piezaInicial?: PiezaStory | null }) {
   const [objetivo, setObjetivo] = useState<ObjetivoStories>('conexion');

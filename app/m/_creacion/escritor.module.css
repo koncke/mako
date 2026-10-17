@@ -1,0 +1,19 @@
+/* Las piezas de los writers del teléfono (escritor.tsx). Sólo tokens de app/globals.css. Un <p> con margen va con
+   [data-m] delante: `[data-m] :is(h1,h2,h3,p) { margin: 0 }` (app/m/m.css) le gana a una clase sola. */
+.campo {
+  box-sizing: border-box; display: block; width: 100%; margin: 0 0 18px; padding: 12px 14px;
+  border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface);
+  font: inherit; font-size: 16px; line-height: 1.5; color: var(--ink); resize: none; outline: none;
+}
+.campo:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+.campo::placeholder { color: var(--faint); }
+.tilde { display: inline-grid; place-items: center; color: var(--primary); }
+[data-m] .error {
+  display: flex; gap: 8px; align-items: baseline; margin: 10px 4px 0;
+  font-size: var(--fs-sm); line-height: 1.45; color: var(--ink);
+}
+.error i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); transform: translateY(-1px); }
+[data-m] .rotulo {
+  margin: 0 0 6px; font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--faint);
+}

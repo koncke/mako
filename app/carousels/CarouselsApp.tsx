@@ -22,7 +22,6 @@ import Link from '@/app/_ui/Link';
 import { Pagina, Button } from '@/app/_ui';
 import { MakoLogo } from '../_components/MakoBrand';
 import { Dropdown } from '../components/Dropdown';
-import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { CAPTION_MAX, CAPTION_VISIBLE, LIMITES_CARRUSEL, LIMITES_IMAGEN } from '@/lib/ig-formatos';
 // `import type` de un módulo server-only: se borra al compilar, no arrastra nada.
 import type { PiezaCarrusel } from '@/lib/ig-writer';
@@ -30,6 +29,7 @@ import type { PiezaCarrusel } from '@/lib/ig-writer';
 // Second Brain. Nunca `/onboarding`, que es sólo el wizard del primer ingreso.
 import { rutaSeccion } from '@/lib/secciones-negocio';
 import { generarCarruselAction, type TipoCarrusel } from './actions';
+import { TIPOS, carruselATexto, rolDeSlide } from './pieza';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -38,35 +38,8 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)' };
 const areaTexto: CSSProperties = { width: '100%', padding: '12px 14px', fontSize: 14, fontFamily: SANS, lineHeight: 1.55, border: '1px solid var(--border-strong)', borderRadius: 10, background: 'var(--surface)', color: 'var(--ink)', resize: 'vertical' };
 
-const TIPOS: Array<{ value: TipoCarrusel; label: string; sub: string; icono: NombreIconoMenu }> = [
-  { value: 'educativo', label: 'Educativo', sub: 'Enseña una sola cosa; la respuesta va al final', icono: 'curso' },
-  { value: 'storytelling', label: 'Storytelling', sub: 'Historia escena a escena con personaje consistente', icono: 'cita' },
-  { value: 'venta', label: 'Venta', sub: 'Problema → solución ligada a tu oferta, CTA al cierre', icono: 'dinero' },
-];
-
-/** Rol de la slide según su posición (la portada es el gancho; la última cierra). */
-const rolDeSlide = (i: number, total: number) =>
-  i === 0 ? 'Portada · gancho' : i === total - 1 ? 'Cierre · moraleja + CTA' : 'Desarrollo';
-
-/**
- * El guion del carrusel como texto, para «Copiar el carrusel». Lo arma el CÓDIGO
- * desde la pieza editada, no el modelo: un dato exacto no se le vuelve a pedir a un
- * LLM.
- */
-function notasDe(p: PiezaCarrusel): string {
-  return [
-    `Objetivo: ${p.objetivo || '—'}`,
-    p.cta ? `CTA (última slide): ${p.cta}` : 'Sin CTA: pieza solo de alcance.',
-    p.palabraClave ? `Palabra clave comment→DM: ${p.palabraClave}` : '',
-    p.cta ? `Primer comentario sugerido: ${p.cta}` : '',
-    // Sin «SOLO JPEG (un PNG rebota)»: eso lo exige la API de publicación (Zernio), y
-    // desde el 06/10/2026 la pieza se sube a mano en la app, que acepta PNG.
-    `Entre ${LIMITES_CARRUSEL.itemsMin} y ${LIMITES_CARRUSEL.itemsMax} slides.`,
-    '',
-    ...p.slides.map((s, i) =>
-      `Slide ${i + 1} — ${rolDeSlide(i, p.slides.length)}\n  Texto en la imagen: ${s.texto || '—'}\n  Diseño: ${s.visual || '—'}`),
-  ].filter(Boolean).join('\n');
-}
+// TIPOS, rolDeSlide y el texto de «Copiar el carrusel» viven en ./pieza.ts desde el 17/10/2026: los usa también el
+// teléfono (app/m/carousels), que no puede importar de este módulo 'use client'.
 
 type ItemHistorial = { at: string; pedido: string; pieza: PiezaCarrusel };
 
@@ -106,7 +79,7 @@ export function CarouselsApp({
   const copiar = useCallback(async () => {
     if (!pieza) return;
     try {
-      await navigator.clipboard.writeText(`${notasDe(pieza)}\n\nCaption:\n${pieza.caption}`);
+      await navigator.clipboard.writeText(carruselATexto(pieza));
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2200);
     } catch { /* el navegador no permitió copiar; el texto queda a la vista */ }
