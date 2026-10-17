@@ -25,6 +25,11 @@ export const VENCE_DIAS = 14;
 /** Más que esto sin noticias del cartero y la pantalla deja de decir «vivo». El cartero pasa
  *  cada uno o dos minutos (el cron del chat Cartero). */
 export const CARTERO_VIVO_MS = 4 * 60 * 1000;
+/** Un trabajo `tomado` sin acuse por más que esto se da por «no sé si llegó» (y sus adjuntos se borran). Es mucho más que
+ *  los 30 minutos con que la PC vence su buzón: el acuse de la PC llega antes, salvo que se haya perdido (un Runner que
+ *  se cortó bajando un adjunto, un acuse cuyo UPDATE falló). Sin esto, quedaba `tomado` para siempre. */
+export const TOMADO_VENCE_MS = 2 * 3600 * 1000;
+
 /** Cuántos pedidos reclama el cartero por vuelta. */
 export const POR_VUELTA = 10;
 
@@ -118,7 +123,7 @@ export function problemaDeAdjuntos(x: unknown): string | null {
 
 /** El cartero que baja adjuntos. Con uno de antes, el trabajo saldría SIN sus archivos y nadie lo diría: la caja no ofrece
  *  adjuntar hasta que el Runner de esa cuenta suba esta versión (o una más nueva). */
-export const VERSION_ADJUNTOS = '1.9.0';
+export const VERSION_ADJUNTOS = '1.9.1';
 export function aceptaAdjuntos(version: string | null | undefined): boolean {
   const v = /^(\d+)\.(\d+)\.(\d+)/.exec(version ?? '');
   const m = /^(\d+)\.(\d+)\.(\d+)/.exec(VERSION_ADJUNTOS)!;

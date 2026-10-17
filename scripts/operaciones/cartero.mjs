@@ -69,7 +69,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.9.0';
+export const VERSION = '1.9.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -231,13 +231,26 @@ export async function bajarAdjuntos(url, token, id, adjuntos, dir = ADJUNTOS) {
   try {
     const rutas = [];
     for (const [i, a] of adjuntos.entries()) {
+      // ⚠️ SIN COMPRIMIR Y EN PARTES (1.9.1, la revisión de seguridad del 17/10/2026). Con `arrayBuffer()` la respuesta
+      //    entera iba a la RAM antes de mirar nada: una respuesta «chunked» no trae content-length (Number(null) da 0 y
+      //    pasaba) y una con gzip trae el tamaño COMPRIMIDO. Ahora se pide sin comprimir, se rechaza la comprimida, y se
+      //    corta en cuanto lo leído pasa lo firmado.
       const r = await fetch(`${url}/api/operaciones/cartero?pedido=${id}&adjunto=${a.ref}`, {
-        headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(60_000),
+        headers: { authorization: `Bearer ${token}`, 'accept-encoding': 'identity' }, signal: AbortSignal.timeout(60_000),
       });
       if (!r.ok) throw new Error(`MaKo no lo dio (${r.status})`);
-      const largo = Number(r.headers.get('content-length'));
-      if (Number.isFinite(largo) && largo > a.bytes) throw new Error('pesa más de lo firmado');
-      const b = Buffer.from(await r.arrayBuffer());
+      const codificado = (r.headers.get('content-encoding') ?? 'identity').trim().toLowerCase();
+      if (codificado !== 'identity') { await r.body?.cancel().catch(() => {}); throw new Error('vino comprimido'); }
+      const largo = r.headers.get('content-length');
+      if (largo != null && !(Number(largo) <= a.bytes)) { await r.body?.cancel().catch(() => {}); throw new Error('pesa más de lo firmado'); }
+      const partes = [];
+      let leidos = 0;
+      for await (const parte of r.body ?? []) {
+        leidos += parte.length;
+        if (leidos > a.bytes) throw new Error('pesa más de lo firmado'); // salir del for await cancela el resto
+        partes.push(parte);
+      }
+      const b = Buffer.concat(partes, leidos);
       if (b.length !== a.bytes) throw new Error('no pesa lo firmado');
       if (crypto.createHash('sha256').update(b).digest('hex') !== a.sha256) throw new Error('no es el archivo firmado');
       if (mimePorFirma(b) !== a.mime) throw new Error('no es una foto ni un PDF');
