@@ -94,6 +94,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/plan/tareas/paradas', 'listar_tareas_paradas'],
   ['GET', '/plan/tareas/sin-fecha', 'listar_tareas_sin_datos'],
   ['GET', '/plan/tareas/vencidas', 'listar_tareas_vencidas'],
+  // Cerrar EN EL ACTO, sin borrador (17/10/2026): «cuando algo ya está, que se marque solo».
+  ['POST', '/plan/tareas/cierres', 'cerrar_tareas_plan'],
   ['PUT', '/plan/tareas/{id}/avance', 'actualizar_avance_tarea'],
   // La columna del kanban (16/10/2026): un PUT idempotente, como el avance.
   ['PUT', '/plan/tareas/{id}/estado', 'mover_tarea_plan'],

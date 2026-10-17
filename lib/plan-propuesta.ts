@@ -12,8 +12,9 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
-import { agregarTareasPlanOwner, ampliarTareasPlanOwner, borrarPlanTarea, cerrarPlanTareaOwner, listPlanBoard, fusionarDetalle } from '@/lib/plan-board';
-import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, editarTarea, ampliarTareasCliente } from '@/lib/todo';
+import { agregarTareasPlanOwner, ampliarTareasPlanOwner, borrarPlanTarea, cerrarPlanTareaOwner, listPlanBoard } from '@/lib/plan-board';
+import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, ampliarTareasCliente } from '@/lib/todo';
+import { cerrarTareaCliente } from '@/lib/plan-cerrar';
 import { mismaTarea } from '@/lib/tareas-dedup';
 import { rutearSinIA } from '@/lib/todo-rutear';
 import { delCatalogoTodo } from '@/lib/todo-proyectos-catalogo';
@@ -26,7 +27,7 @@ import { corregirMarca } from '@/lib/mako-gramatica';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
 
 import { tableroDeCapa } from './tablero-de-capa';
-import { recortarPrueba, renglonDeCierre } from './cierre-tarjeta';
+import { recortarPrueba } from './cierre-tarjeta';
 import { conCruceGuardado } from './cruce-borrador';
 
 type Row = Record<string, unknown>;
@@ -724,7 +725,10 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           // cadena que arranca en el prompt de extracción. Si se cae acá, todo lo de
           // arriba está escrito y no se ofrece.
           // SIN `prioridad`: nacen libres (score 0). Y SIN IA: el proyecto lo decide `destinoSinIA`.
-          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, recurrente: t.recurrente, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente, { sinIA: true, clienteDeLaReunion: !!prop?.clienteNombre });
+          // ⚠️ `clienteDeLaReunion: false` SIEMPRE en el tablero del dueño (#870): el cliente de la llamada no
+          // abre un «Cliente: X» nuevo. Así nació «Cliente: Mauricio Bustos» al lado de «Cliente: Mauricio» el
+          // 16/10. Lo que un cliente dice de MaKo va a su tab; un proyecto que no existe va a la bandeja.
+          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, recurrente: t.recurrente, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente, { sinIA: true, clienteDeLaReunion: false });
           idsCreadas.push(...r.ids);
           // Mismo orden que `base` (agregarTareasPlanOwner filtra solo los títulos
           // vacíos, y acá no hay ninguno): la tarea i quedó con el id i.
@@ -760,7 +764,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           // bandeja lo decide «Re-priorizar todo», no esta carga (ver lib/plan-bandeja.ts).
           const destinos = await rutearSinIA(
             base.map((t) => ({ titulo: t.titulo, detalle: t.detalle, proyectoSugerido: t.proyecto })),
-            { clienteDeLaReunion: !!prop?.clienteNombre },
+            { clienteDeLaReunion: !!prop?.clienteNombre, cliente: prop?.clienteLeadId ? { leadId: prop.clienteLeadId, nombre: prop.clienteNombre ?? '' } : undefined },
           ).catch((e) => { console.error('[plan-propuesta] rutear sin IA:', e instanceof Error ? e.message : String(e)); return [] as Awaited<ReturnType<typeof rutearSinIA>>; });
           for (let bi = 0; bi < base.length; bi++) {
             const t = base[bi];
@@ -771,9 +775,13 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
               let catId = byName.get(k);
               if (catId == null) {
                 const cat = delCatalogoTodo(nombre);
+                // El proyecto del cliente de la reunión nace ATADO a su lead (#870): la próxima reunión lo
+                // encuentra por el dato (`proyectoDelCliente`), no por cómo se escribió su nombre.
+                const atado = d.via === 'cliente-de-la-reunion' && (prop?.clienteLeadId ?? 0) > 0
+                  ? { lead_id: prop!.clienteLeadId!, nombre: prop!.clienteNombre ?? null } : undefined;
                 const c = d.via === 'bandeja'
                   ? await crearCategoria(PROYECTO_SIN_PROYECTO, COLOR_SIN_PROYECTO, EMOJI_SIN_PROYECTO, 1, QUE_SIN_PROYECTO)
-                  : await crearCategoria(nombre, cat?.color ?? '#2F6FED', cat?.emoji);
+                  : await crearCategoria(nombre, cat?.color ?? '#2F6FED', cat?.emoji, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, atado);
                 catId = c.id; byName.set(k, c.id);
               }
               const tarea = await crearTarea({
@@ -805,14 +813,9 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         for (const c of aCerrar) {
           const n = Number(c.id);
           if (!Number.isFinite(n)) continue;
+          // La MISMA escritura que el cierre en el acto (`cerrar_tareas_plan`, lib/plan-cerrar.ts): un solo lugar.
           try {
-            const actual = (await listTareas()).find((t) => t.id === n);
-            await editarTarea(n, {
-              progreso: c.parcial ? Math.max(50, actual?.progreso ?? 0) : 100,
-              detalle: c.parcial ? fusionarDetalle(actual?.detalle ?? '', c.evidencia) : (actual?.detalle ?? null),
-              historial: [{ id: `cerr${Date.now()}${n}`, ts: Date.now(), actor: 'ia', text: renglonDeCierre(c.evidencia, c.parcial) }, ...(actual?.historial ?? [])],
-            });
-            cerradas += 1;
+            if (await cerrarTareaCliente(n, c.evidencia, c.parcial)) cerradas += 1;
           } catch (e) { console.error('[plan-propuesta] cerrar cliente:', e instanceof Error ? e.message : String(e)); }
         }
       }

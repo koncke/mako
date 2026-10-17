@@ -82,6 +82,7 @@ catalogo_estructuras_guion
 catalogo_metricas_experimento
 cerrar_experimento
 cerrar_objetivo
+cerrar_tareas_plan
 cobertura_datos_retro
 cobertura_guiones_anuncio
 cobranza_lead

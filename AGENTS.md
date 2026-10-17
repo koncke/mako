@@ -954,6 +954,19 @@ avance?» necesita el último valor que la base le confirmó a ESA pestaña** (`
 dos mitades): contra la fila sola, una pestaña vieja reabre lo que se completó en otro lado
 (16/10/2026, revisión adversarial).
 
+⚠️ **Y «el proyecto lo define la reunión» vale SÓLO en el tablero de un cliente** (#870, 17/10/2026). En el
+del dueño, una llamada con un cliente de MaKo deja trabajo de las tabs: cada tarea va al proyecto que eligió la
+extracción. Lo decide `proyectoQueManda` (lib/reunion-cliente.ts), y nadie más llama a
+`nombreDeProyectoPara` para pisar el proyecto de una reunión. **Y el proyecto de un cliente se busca por su LEAD**
+(`proyectoDelCliente`, lib/reunion-cliente-reglas.ts) y nace con su `cliente_lead_id`. Por nombre solo, el ws1
+terminó con tres proyectos para el mismo cliente.
+
+⚠️ **Lo que el detalle de una tarea extraída AFIRMA tiene que haberse dicho** (17/10/2026). Cada tarea del modelo pasa por
+`limpiarLoDicho` (lib/detalle-sin-inventos.ts): el nombre real en vez del de la cuenta de Fathom, y fuera el renglón con un
+dato técnico (librería, proveedor, versión, año) que no está en la transcripción. Un prompt nuevo que pida un LARGO mínimo
+vuelve a empujar el relleno: medido, 14 de 37 tarjetas. **Y para marcar hecha una tarea desde afuera del tablero se usa
+`cerrar_tareas_plan`** (en el acto, con la evidencia, sin borrador); `proponer_cierre_tareas` es sólo para lo que se deduce.
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
