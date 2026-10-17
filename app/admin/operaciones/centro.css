@@ -516,8 +516,8 @@
 /* Los selectores de la caja (cuenta, modelo, esfuerzo; 17/10/2026): chips que se despliegan, como el selector de modelo
    de Claude. Envuelven en una ventana angosta en vez de empujar el botón de mandar afuera. */
 .co-caja__barra { flex-wrap: wrap; }
-.co-elegir { max-width: 190px; padding-right: 8px; cursor: pointer; text-overflow: ellipsis; }
-.co-elegir:disabled { opacity: .55; cursor: default; }
+.co-envio-sel { max-width: 190px; padding-right: 8px; cursor: pointer; text-overflow: ellipsis; }
+.co-envio-sel:disabled { opacity: .55; cursor: default; }
 .co-chip {
   display: inline-flex;
   align-items: center;
