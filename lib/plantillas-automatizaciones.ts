@@ -908,6 +908,22 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // UN LEAD COMPLETÓ EL FORMULARIO DE META (17/10/2026, «nada por detrás», lote 3). Salía del store de /mensajes, apagado
+    // por default («déjalo como borrador, no activado»): su fila nace PAUSADA. Lo que falta (el teléfono, la campaña, las
+    // respuestas) se lleva su renglón; antes se tapaba con frases del código.
+    id: 'mako-lead-formulario-meta',
+    nombre: 'Un Lead Completó el Formulario de Meta',
+    emoji: '📥',
+    linea: 'Le avisa al grupo de un negocio que un lead completó su formulario de Meta, con lo que contestó.',
+    origen: 'el webhook y el poll de los formularios de Meta (meta-lead-nuevo), con cada lead nuevo',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_formulario_meta' },
+    pasos: [
+      mako('fm_mk', '📥 *{{nombre_completo}}* completó tu formulario de Meta\n📱 {{meta_telefono}}\n📢 {{meta_campana}}\n📝 Lo que contestó:{{meta_respuestas}}\n\nSu ficha 👉 {{link_lead}}', null),
+    ],
+  },
+  {
     // LA LANDING QUE CAMBIÓ LO QUE SE MIDE (17/10/2026, lote 3): se le agregó o se le sacó un video, un formulario o la
     // agenda. Si lo agregado se puede medir lo pregunta la CONDITION (`landing_medible`); lo agregado y lo sacado, cada uno
     // en su renglón opcional.

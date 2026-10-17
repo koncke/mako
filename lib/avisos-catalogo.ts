@@ -345,6 +345,8 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   // La prueba del Pixel (17/10/2026, lote 3): la que se cerró y la grabación lista.
   'prueba-recibida',
   'prueba-grabada',
+  // El lead que completó el formulario de Meta (17/10/2026, lote 3; nace PAUSADA, como nacía apagado).
+  'lead-formulario-meta',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -936,7 +938,8 @@ https://hola-mako.com/plan — MaKo`,
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     aporta: ['lead'],
     disparador: 'Webhook meta-leads: alguien completa un formulario de Meta y entra al CRM.',
-    ejemplo: `📥 *{{lead_nombre}}* completó tu formulario de Meta\n📱 {{lead_telefono}}\n\n{{lead_formulario}}\n\nSu ficha 👉 {{link_lead}}`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `lead_formulario_meta`, lote 3).
+    ejemplo: `📥 *{{nombre_completo}}* completó tu formulario de Meta\n📱 {{meta_telefono}}\n📢 {{meta_campana}}\n📝 Lo que contestó:{{meta_respuestas}}\n\nSu ficha 👉 {{link_lead}}`,
   },
   {
     id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp entrante (al dueño)', categoria: 'aviso', porDefecto: 'on',

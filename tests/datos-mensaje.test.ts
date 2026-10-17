@@ -46,6 +46,7 @@ import { datosPuenteAusente } from '../lib/flow-puente-aviso';
 import { datosLandingCambio, datosPixelViejo, datosTrackingApagado } from '../lib/tracking-aviso';
 import { datosOptin } from '../lib/optin-aviso';
 import { datosPruebaGrabada, datosPruebaRecibida } from '../lib/prueba-aviso';
+import { datosFormularioMeta } from '../lib/meta-form-aviso';
 import { datosDelReporte } from '../lib/reporte-destino';
 import { datosOfertaLista } from '../lib/oferta-lista';
 import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
@@ -138,6 +139,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     // Y la prueba del Pixel: la que se cerró y sus grabaciones (lib/prueba-aviso.ts).
     prueba: set(datosPruebaRecibida({ eventos: 3, pagina: 'a.com' })),
     grabaciones: set(datosPruebaGrabada([{ donde: 'a.com', url: 'https://hola-mako.com/crm/1' }])),
+    // Y el formulario de Meta que completó un lead (`datosFormularioMeta`).
+    meta: set(datosFormularioMeta({ telefono: '+52 1', campana: 'Octubre', fieldData: [{ name: 'tipo', values: ['Casa'] }] })),
     landing: set(datosLandingCambio({ pagina: 'https://a.com', agregaste: 'un video', todasSinMedir: false, sacaste: 'la agenda', link: 'https://hola-mako.com/integraciones' })),
     // 16/10/2026: y el reporte de los lunes ya armado, que pasa el cron (`datosDelReporte`, lib/reporte-destino.ts).
     reporte: set(datosDelReporte({ titulo: 'Reporte semanal · 05/10/2026–11/10/2026', texto: '🗓️ *Reporte semanal*' })),
