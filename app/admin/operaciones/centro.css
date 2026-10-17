@@ -344,6 +344,10 @@
 .co-el__cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .co-el__rotulo { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-el__texto { margin: 0; font-size: var(--fs-md); line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+/* Lo que contestó un chat va en Markdown (17/10/2026): sin el pre-wrap, que separaría cada bloque con renglones de más. */
+.co-el__md { white-space: normal; }
+.co-el__md > :first-child { margin-top: 0; }
+.co-el__md > :last-child { margin-bottom: 0; }
 .co-el__dl { margin: 4px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; font-size: var(--fs-sm); }
 .co-el__dl dt { color: var(--faint); }
 .co-el__dl dd { margin: 0; overflow-wrap: anywhere; }

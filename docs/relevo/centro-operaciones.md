@@ -11,7 +11,7 @@ Llegó por el Cerebro. Textual en sus mensajes; cada punto, con su estado:
 
 | # | Pedido | Estado |
 |---|---|---|
-| 1 | «los chats no se entienden»: la conversación como un chat de verdad, con lo que Martín escribió y lo que el chat le CONTESTÓ (el texto final de cada turno, del transcript). Los hitos van a la barra del Plan | sin empezar: necesita una tabla (pedido el número al Cerebro) y que el cartero suba los turnos |
+| 1 | «los chats no se entienden»: la conversación como un chat de verdad, con lo que Martín escribió y lo que el chat le CONTESTÓ (el texto final de cada turno, del transcript). Los hitos van a la barra del Plan | **hecho, sin migración** (app_settings). Para que ande: cartero 1.8.0 instalado. Sin mirarlo con chats reales |
 | 2 | «El Second Brain y el Centro deberían ser exactamente lo mismo en SuperAdmin» | **hecho**: Ops Center, una pantalla con dos puertas (app/second-brain/pagina.tsx) |
 | b | «que quede el nombre de "Ops Center"» | **hecho** (barra, teléfono, título) |
 | c | «que "Second brain" sea la sub tab debajo de la Ticketera» | **hecho** (también en el teléfono, una fila debajo de «Ticketera») |
@@ -20,7 +20,17 @@ Llegó por el Cerebro. Textual en sus mensajes; cada punto, con su estado:
 | 5 | ningún «Pega su comando en PowerShell» en ninguna pantalla: el clic más el permiso de la PC | el Uso ya no lo dice; falta el clic (docs/diseno-nuevo-chat-un-clic.md), que saca los de PanelRunner y «Nuevo chat» |
 | 6 | Review con TODO lo terminado; sin ruta, la tab de su área | **hecho** |
 | 7 | elegir el modelo (Automático, Opus, Sonnet, Haiku) y el esfuerzo al mandar o abrir un chat | **hecho al mandar** (sólo chats de la APP). Para que ande: el Cerebro reinstala el cartero (1.7.0) y le pasa al Runner el paso b nuevo de `INSTRUCCIONES_RUNNER`. Sin medir si la app pregunta cada vez. Al ABRIR un chat va con el clic |
-| a | todo chat abierto se ve (faltaban «Pagos», «MaKo en WhatsApp», «Runner» y uno de la nube) | sin empezar: mirar los filtros de cartero.mjs (`chatsDeLaApp`: `enCwds`, `esElCartero`) y la sección «Sin asignar», que va plegada |
+| a | todo chat abierto se ve (faltaban «Pagos», «MaKo en WhatsApp», «Runner» y uno de la nube) | **en parte**: «Sin asignar» va abierta (ahí estaban Pagos y MaKo en WhatsApp). FALTA: (1) el Runner, porque cartero.mjs lo saca a propósito (`esElCartero` en `chatsDeLaApp` y `leerRegistro`); subirlo con una marca (`esRunner`), sacarlo de `entregables`, y que `comoSale` apague su caja («El Runner entrega lo que escribes: no se le escribe»); (2) los chats de la NUBE, que no quedan en ningún archivo de la PC: el Runner (una sesión de la app) los lista con `list_sessions` y se los pasa al cartero; se dibujan con la marca «en la nube» |
+
+**Lo que sigue, en este orden** (17/10, 07:30, cuenta 4 al 6% semanal; este chat ahora se llama «Ops Center»):
+1. **El punto 5: cero PowerShell, con el clic.** El diseño está en docs/diseno-nuevo-chat-un-clic.md. Quedan
+   «Copiar comando» en PanelRunner.tsx (los Runners de terminal) y en «Nuevo chat» (`NuevoChatCentro`, PiezasCentro.tsx).
+   Antes de construir, medir con Martín despierto que la ventana se vea. Toca cartero.mjs: avisar ANTES al Cerebro.
+2. **El punto «a»: el Runner y los chats de la nube** (el detalle está en la tabla).
+3. Después, las tandas 8, 7, 9 y 6 del Second Brain, y «Skills».
+
+**Regla nueva de Martín (17/10, en AGENTS.md):** el «Ya está» de lo que llegó a producción lo escribe CADA chat en Ops
+Center, no el Cerebro. Cuando el Cerebro avise que una punta está en Ready, se escribe «Ya está» en este chat.
 
 ## PRIORIDAD DEL 17/10: escribirle a Claude Code desde el Second Brain (tanda 5) — HECHA, falta probarla
 

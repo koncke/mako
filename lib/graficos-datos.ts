@@ -286,7 +286,7 @@ type FPago = { id: number; lead_id: number | null; numero: number | null; monto_
  */
 async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
   const col = fecha === 'pago' ? 'fecha_pago' : 'fecha_esperada';
-  // Con el funnel que guardó cada pago (#897, mig 0309); sin la columna, la regla de siempre (abajo).
+  // Con el funnel que guardó cada pago (#897, mig 0310); sin la columna, la regla de siempre (abajo).
   const leerPagos = (cols: string) => leer<FPago>('pagos', cols, rg, { col, extra: (q) => (fecha === 'pago' ? q.eq('pagado', true) : q) });
   const rows = await leerPagos('id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago, funnel_id')
     .catch((e: unknown) => { if (faltaColumnaFunnel(e)) return leerPagos('id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago'); throw e; });

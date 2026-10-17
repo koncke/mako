@@ -248,6 +248,52 @@ export function sanearAcuses(x: unknown): Acuse[] {
   return out;
 }
 
+// ── Lo que se dijo en cada chat (17/10/2026) ──────────────────────────────────────────────────────────────────────
+// Martín, mirando el Centro en producción: «los chats no se entienden... No se entiende la conversación que se tiene».
+// La conversación tiene que leerse como un chat de verdad: lo que se le dijo y lo que CONTESTÓ (el texto final de cada
+// turno). Lo saca la PC del transcript de cada chat (cartero.mjs → turnosDeLineas) y lo sube en la vuelta, sólo lo
+// nuevo; MaKo guarda los últimos de cada chat (lib/centro-turnos-db.ts).
+
+/** Un turno: `yo` = lo que se le escribió (Martín, en la app o por un trabajo); `el` = lo que contestó al terminar;
+ *  `otro` = lo que le mandó otra sesión (`de`: su nombre, por ejemplo «Cerebro»). `trabajo` = el id del trabajo del Centro
+ *  que lo trajo (ese ya se ve como trabajo: el turno no se repite). */
+export type TurnoChat = { local: string; uuid: string; rol: 'yo' | 'el' | 'otro'; de: string | null; texto: string; at: string; trabajo: string | null };
+/** Lo más largo de un turno que se guarda (la PC ya lo corta). */
+export const TOPE_TURNO = 4000;
+/** Cuántos turnos sube una vuelta, como mucho (la primera de un chat largo trae su historia). */
+export const MAX_TURNOS_VUELTA = 300;
+/** Cuántos turnos se guardan por chat (los últimos). */
+export const TURNOS_POR_CHAT = 60;
+
+export function sanearTurnos(x: unknown): TurnoChat[] {
+  if (!Array.isArray(x)) return [];
+  const out: TurnoChat[] = [];
+  for (const a of x.slice(0, MAX_TURNOS_VUELTA)) {
+    if (!a || typeof a !== 'object') continue;
+    const o = a as Record<string, unknown>;
+    if (typeof o.local !== 'string' || !DESTINO_RE.test(o.local)) continue;
+    if (typeof o.uuid !== 'string' || !/^[\w-]{8,64}$/.test(o.uuid)) continue;
+    if (o.rol !== 'yo' && o.rol !== 'el' && o.rol !== 'otro') continue;
+    if (typeof o.texto !== 'string' || !o.texto.trim()) continue;
+    const at = typeof o.at === 'string' ? Date.parse(o.at) : NaN;
+    if (!Number.isFinite(at)) continue;
+    out.push({
+      local: o.local, uuid: o.uuid, rol: o.rol, de: o.rol === 'otro' ? corto(o.de, 60) || null : null,
+      texto: o.texto.slice(0, TOPE_TURNO), at: new Date(at).toISOString(),
+      trabajo: typeof o.trabajo === 'string' && UUID_RE.test(o.trabajo) ? o.trabajo : null,
+    });
+  }
+  return out;
+}
+
+/** Une lo que había con lo nuevo: sin repetir (por `uuid`: dos Runners pueden subir lo mismo), por hora, y sólo los
+ *  últimos `TURNOS_POR_CHAT`. */
+export function unirTurnos(antes: readonly TurnoChat[], nuevos: readonly TurnoChat[]): TurnoChat[] {
+  const porId = new Map<string, TurnoChat>();
+  for (const t of [...antes, ...nuevos]) porId.set(t.uuid, t);
+  return [...porId.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).slice(-TURNOS_POR_CHAT);
+}
+
 /** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */
 /** `revisar`: la página de MaKo donde se mira lo que hizo (punto 6, la sub-tab «Review»). Sólo una ruta interna. */
 export type Cierre = { decidido: string; hecho: string; comprobado: string; sigue: string; prueba: string | null; revisar?: string | null };

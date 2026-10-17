@@ -18,12 +18,12 @@
 //   · ChatGPT y Claude — el «⋯» de cada fila con Renombrar y Cambiar su muñeco;
 //   · claude.ai → Configuración → Uso — el desplegable «Uso» (Uso.tsx).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Field, Input, Modal } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
-  SECCION_CEREBRO, SECCION_CHATS, SECCION_SIN_ASIGNAR, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats,
+  SECCION_CEREBRO, SECCION_CHATS, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats,
   type ChatCentro, type VistaPrevia,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
@@ -108,7 +108,9 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   buscando: boolean;
   onElegir: (clave: string) => void;
 }) {
-  const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set([SECCION_SIN_ASIGNAR]));
+  // «Sin asignar» va ABIERTA desde el 17/10/2026 (Martín: «Hay chats que están corriendo acá que no se reflejan... ni
+  // como jefes ni como trabajadores»: «Pagos» y «MaKo en WhatsApp» estaban ahí, plegados). Todo chat abierto se ve.
+  const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set());
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
   const secciones = useMemo(() => seccionesDeChats(visibles, k.tabs), [visibles, k.tabs]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
@@ -152,8 +154,12 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
 
 /** La conversación de un chat con su caja: Conversacion.tsx, enchufada al motor. */
 export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; chat: ChatCentro; onVolver: () => void }) {
+  // Lo que se dijo en ESTE chat se pide mientras se lo mira (y se refresca con el resto).
+  const { mirar } = k;
+  useEffect(() => { mirar(chat); return () => mirar(null); }, [chat.clave, mirar]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Conversacion
+      turnos={k.turnosDe(chat)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       avance={k.avance} onAvance={k.cambiarAvance}
       aspecto={elegidoPara(k.munecos, chat.titulo)}

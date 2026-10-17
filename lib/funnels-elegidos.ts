@@ -20,7 +20,7 @@
 // esa fecha o antes (`funnelDelMomento`). Cada pago va a UN solo funnel, así que «VSL + Renovación» suma el total
 // sin contar nada dos veces. Lo que no resolvía: una cuota vieja de la venta del VSL que se cobra DESPUÉS de agregar
 // al lead a Renovación contaba en Renovación.
-// ⚠️ DESDE EL 17/10/2026 (#897, mig 0309) EL PAGO GUARDA SU FUNNEL (`pagos.funnel_id`): un trigger lo fija al CREAR la
+// ⚠️ DESDE EL 17/10/2026 (#897, mig 0310) EL PAGO GUARDA SU FUNNEL (`pagos.funnel_id`): un trigger lo fija al CREAR la
 // fila con esta misma regla (el funnel del lead ese día), así la cuota de la venta del VSL sigue siendo del VSL aunque
 // se cobre después de agregarlo a Renovación. Un hecho con `funnel` manda sobre `funnelDelMomento`; sin él (la columna
 // todavía no está, o un pago sin lead), la regla de siempre. Medido ese día: con las dos reglas los pagos cobrados de
@@ -87,12 +87,12 @@ export function funnelDelMomento(casa: number | null, agregados: readonly Agrega
 
 /**
  * Un hecho que cuenta para un OKR o un KPI: de qué lead es, cuándo pasó y cuánto suma (1 si se cuenta). `funnel`: el
- * que guardó el pago (mig 0309); cuando está, manda.
+ * que guardó el pago (mig 0310); cuando está, manda.
  */
 export type Hecho = { lead: number | null; fecha: string | null; valor: number; funnel?: number | null };
 
 /**
- * ¿El error es que `pagos.funnel_id` todavía no existe (la mig 0309 sin aplicar)? Los lectores reintentan sin la columna
+ * ¿El error es que `pagos.funnel_id` todavía no existe (la mig 0310 sin aplicar)? Los lectores reintentan sin la columna
  * y cuentan con la regla de siempre: nunca un cero ni una pantalla caída por una migración que falta.
  */
 export function faltaColumnaFunnel(e: unknown): boolean {
@@ -125,7 +125,7 @@ export function filtrarEnFunnels<T>(
   const set = new Set(elegidos);
   return items.filter((x) => {
     const { lead, fecha, funnel } = de(x);
-    // El que guardó el pago (mig 0309) manda: es el de cuando se creó, no el de cuando se cobró.
+    // El que guardó el pago (mig 0310) manda: es el de cuando se creó, no el de cuando se cobró.
     if (funnel != null) return set.has(funnel);
     if (lead == null || !fecha) return false;
     const f = funnelDelMomento(casas.get(lead) ?? null, agregados.get(lead) ?? [], fecha);
