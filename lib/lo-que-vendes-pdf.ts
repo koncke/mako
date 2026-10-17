@@ -14,6 +14,7 @@
 
 import { PIEZAS_DEL_ARRANQUE, type PiezaKey, type PiezasSabidas } from './offer-marco';
 import { PdfDoc } from './pdf-escritor';
+import { zonaDeLoGuardado } from './zona-negocio-reglas';
 
 const C = {
   tinta: '#12151B',     // --ink
@@ -69,7 +70,8 @@ export type MetaLoQueVendes = { negocio: string; fecha: Date; zona?: string };
 
 function fechaCorta(d: Date, zona?: string): string {
   try {
-    return new Intl.DateTimeFormat('es-MX', { timeZone: zona || 'America/Mexico_City', day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+    // La zona del negocio por la regla única (lib/zona-negocio-reglas.ts): un default propio aquí era un segundo default.
+    return new Intl.DateTimeFormat('es-MX', { timeZone: zonaDeLoGuardado(zona), day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
   } catch {
     return d.toISOString().slice(0, 10);
   }
