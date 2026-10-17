@@ -92,7 +92,7 @@ export type DepsCrearIA = {
   /** El system prompt de crear (editable en /configuraciones). */
   system: () => Promise<string>;
   /** La cascada gratis con sus tres escalones (`generar`). */
-  generar: (p: { system: string; user: string; hastaMs: number; traducir: (obj: Record<string, unknown>) => Traducido }) => Promise<{ r: ResultadoConPregunta } | FalloIA>;
+  generar: (p: { system: string; user: string; hastaMs: number; traducir: (obj: Record<string, unknown>) => Traducido; alIntento?: (n: number) => void }) => Promise<{ r: ResultadoConPregunta } | FalloIA>;
   crearEtiquetas: (nuevas: EtiquetaNueva[]) => Promise<{ ids: Map<number, number>; creadas: Array<{ id: number; nombre: string }> }>;
   /** Los pasos guardados de una fila y su nombre (null = no existe en este negocio). */
   filaDe: (id: number) => Promise<{ pasos: PasoGrafo[]; nombre: string } | null>;
@@ -163,7 +163,11 @@ export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<Res
   };
 
   o.alFase?.({ t: 'fase', fase: 'modelo' });
-  const g = await deps.generar({ system, user, hastaMs: inicio + (o.plazoMs ?? PLAZO_CREAR_MS), traducir });
+  // Desde el segundo pedido a un proveedor, la fase lo dice («intento 2»): el primero no sirvió y se prueba otro (#847).
+  const g = await deps.generar({
+    system, user, hastaMs: inicio + (o.plazoMs ?? PLAZO_CREAR_MS), traducir,
+    alIntento: (n) => { if (n > 1) o.alFase?.({ t: 'fase', fase: 'modelo', intento: n }); },
+  });
   if ('error' in g) return { ok: false, error: g.error, ...(g.link ? { link: g.link } : {}) };
   const r = g.r;
   // El modelo preguntó (una pregunta que pasó `preguntaDeIA`): no se escribe nada.

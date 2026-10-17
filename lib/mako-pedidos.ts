@@ -241,7 +241,8 @@ const RE_VERBOS: ReadonlyArray<readonly [Exclude<Verbo, 'otro'>, RegExp]> = [
   ['borrar', /\b(?:elimin\w*|borr(?:a|ar|ame|ala|alo|alas|alos|e|es|en|emos)\b|quit(?:a|ar|ame|ala|alo|alas|alos|ale|e|en|emos)\b|archiv(?:a|ar|ame|ala|alo|alas|alos|e|en|emos)\b|suprim\w*|desech\w*|deshaz\w*)/],
   ['crear', /\b(?:cre(?:a|ar|ame|ala|alo|alas|alos|e|es|en|emos)\b(?!\s+que\b)|gener(?:a|ar|ame|ala|alo|e|es|en|emos)\b|agend(?:ar|ame|ala|alo|alos|emos|en|es)\b|agenda(?=\s+(?:un|una|la|el|a)\b)|reagend\w*|arm(?:a|ar|ame|ala|alo|emos)\b|hazme\b)/],
   ['editar', /\b(?:cambi(?:a|ar|ame|ala|alo|alas|alos|ale|ales|e|es|en|emos)\b|modific\w*|edit(?:a|ar|ala|alo|e|es|en|emos)\b|ajust\w*|actualiz\w*|muev\w*|mover\w*|renombr\w*|pon(?:er\w*|e|me|le|les|lo|la|los|las|ga|gas)?\b|agreg\w*|anad\w*|mejor(?:a|ar|ala|alo|e|es|en|emos)\b|corrig\w*|correg\w*|reescrib\w*|configur\w*|acort\w*|alarg\w*|traduc\w*|sustitu\w*|reemplaz\w*)/],
-  ['ver', /\b(?:ver|veamos|mir(?:a|ar|ame|emos)\b|muestr\w*|mostr\w*|ensen(?:a|ame|ar)\b|list(?:a|ar|ame)\b|dime\b|consult\w*|revis(?:a|ar|ame|emos)\b|cuant[oa]s?\b)/],
+  // «Abre» (17/10/2026, probado en el ws9): «Abre la hoja Landing» no tenía verbo y sólo la IA lo leía.
+  ['ver', /\b(?:ver|veamos|mir(?:a|ar|ame|emos)\b|muestr\w*|mostr\w*|ensen(?:a|ame|ar)\b|list(?:a|ar|ame)\b|dime\b|consult\w*|revis(?:a|ar|ame|emos)\b|cuant[oa]s?\b|abr(?:e|ir|eme|ela|elo|amos)\b)/],
   // Sin «qué tengo»: «la otra automatización QUE TENGO» lo leía como un segundo verbo (ver) y la IA entraba de más.
 ];
 
@@ -306,6 +307,196 @@ function soloConPalabrasDeLaTab(texto: string, area: Area, tab: Area): boolean {
   if (!new RegExp(de.enTexto.source, de.enTexto.flags).test(plano(original))) return false;
   const sin = original.replace(new RegExp(de.enTexto.source, de.enTexto.flags), ' ');
   return !areasEn(sin, plano(sin)).some((a) => a.area === area);
+}
+
+// ── Ir a otra tab, y un objeto de ESTA tab nombrado por su palabra (17/10/2026, probado en el ws9) ─────────────────
+//
+// Las tres fallas que vio el chat «Dashboard» con la IA de verdad (docs/hallazgos-ia.md): «Abre la hoja Landing» iba al
+// Web Generator, «Ve al CRM» iba ENTERO a editar la hoja abierta, y «Abre la hoja de Marketing» (que no existe) también.
+
+/**
+ * LOS VERBOS DE IR, con su preposición: «ve al», «llévame a la», «vamos a», «quiero ir al». NO están en `RE_VERBOS`:
+ * «vamos a crear otra landing» es crear, y «cuando el lead entra al funnel» es la descripción de una automatización. Un
+ * verbo de ir sólo cuenta con un DESTINO que se reconoce (`destinoEn`). «Abre» va aparte: sólo lleva a una tab nombrada
+ * por su título («abre el CRM», «abre la tab de General»), no por una palabra del área («abre la hoja X» es una hoja).
+ */
+const RE_IR = /\b(?:ve|vete|vamos|vayamos|llev(?:ame|anos)|vuelve|volvamos|regresa|regresemos|(?:quiero|quisiera|necesito|puedo)\s+ir)\s+(?:a|al|hacia)\s+/g;
+const RE_ABRIR_TAB = /\b(?:abre|abreme|abrir|abramos)\s+/g;
+/** Lo que va entre la preposición y el nombre de la tab: «a LA TAB DE General», «al MÓDULO del CRM». */
+const RE_CONTENEDOR = /^(?:(?:la|el|mi|mis|los|las)\s+)?(?:(?:tab|pestana|seccion|pantalla|vista|modulo|parte)s?\s+(?:de\s+(?:la\s+|el\s+)?|del\s+)?)?/;
+const RE_ARTICULO = /^(?:(?:la|el|mi|mis|los|las)\s+)?/;
+
+/**
+ * Los títulos de las tabs (`AREA_INFO[*].tab`), comparables y el más largo primero. «CRM» y «General» NO son palabras de
+ * su área en `AREA_KEYWORDS` (se hizo para sumar herramientas), así que sin esto «Ve al CRM» no nombraba nada. Dos áreas
+ * con la misma tab (Cobros y CRM, Closing y Dashboard): la de la ruta sin `?`, que es la tab misma.
+ */
+const TITULOS_DE_TAB: ReadonlyArray<{ t: string; area: Area }> = (() => {
+  const m = new Map<string, Area>();
+  for (const a of AREAS) {
+    const t = comparable(AREA_INFO[a].tab);
+    if (!t) continue;
+    const antes = m.get(t);
+    if (antes == null || (AREA_INFO[antes].ruta.includes('?') && !AREA_INFO[a].ruta.includes('?'))) m.set(t, a);
+  }
+  return [...m].map(([t, area]) => ({ t, area })).sort((x, y) => y.t.length - x.t.length);
+})();
+
+/** Un destino: el área, si se reconoció por el TÍTULO de su tab, dónde empieza el verbo y dónde termina su preposición. */
+type Destino = { area: Area; porTitulo: boolean; desde: number; hasta: number };
+
+/** El destino de un verbo de ir o de «abre», sobre el texto plano. null = no hay verbo de ir o no se reconoce adónde. */
+function destinoEn(original: string, pl: string): Destino | null {
+  const mejor: Destino[] = [];
+  for (const [re, ir] of [[RE_IR, true], [RE_ABRIR_TAB, false]] as const) {
+    const r = new RegExp(re.source, 'g');
+    let m: RegExpExecArray | null;
+    while ((m = r.exec(pl))) {
+      const desde = m.index + m[0].length;
+      const cont = RE_CONTENEDOR.exec(pl.slice(desde))?.[0] ?? '';
+      const conTab = /\b(?:tab|pestana|seccion|pantalla|vista|modulo|parte)s?\b/.test(cont);
+      // «abre» sólo con su contenedor o directo al título; sin artículo de más («abre la hoja…» no es una tab).
+      const resto = pl.slice(desde + (ir || conTab ? cont.length : (RE_ARTICULO.exec(pl.slice(desde))?.[0].length ?? 0)));
+      const cr = ` ${comparable(resto.slice(0, 80))} `;
+      const tit = TITULOS_DE_TAB.find((x) => cr.startsWith(` ${x.t} `));
+      if (tit) { mejor.push({ area: tit.area, porTitulo: true, desde: m.index, hasta: desde }); break; }
+      if (!ir) continue;
+      const off = desde + cont.length;
+      // Un verbo no es un destino: «vamos a AGENDAR una reunión» es agendar (con su operación), no ir al CRM.
+      if (verbosEn(pl.slice(off))[0]?.desde === 0) continue;
+      const area = AREAS.find((a) => ANCLADAS[a].test(original.slice(off)) || ANCLADAS[a].test(pl.slice(off)));
+      if (area) { mejor.push({ area, porTitulo: false, desde: m.index, hasta: desde }); break; }
+    }
+  }
+  return mejor.sort((x, y) => x.desde - y.desde)[0] ?? null;
+}
+
+/**
+ * ¿El área sólo aparece ADENTRO del nombre de un objeto de esta tab? «Abre la hoja Landing» nombra el área `landing`
+ * con el NOMBRE de una hoja del Dashboard: es esa hoja, no el Web Generator, aunque la IA etiquete `landing` (pasaba:
+ * la palabra del área le ganaba al nombre exacto). Se borran los nombres (enteros, como palabras) y se vuelve a mirar.
+ */
+function sinNombresDeObjetos(original: string, objetos: readonly ObjetoChat[]): string {
+  let out = original;
+  for (const o of objetos) {
+    const pal = comparable(o.nombre).split(' ').filter(Boolean);
+    if (pal.join(' ').length < 3) continue;
+    const re = new RegExp(`(?<![a-z0-9])${pal.join('[^a-z0-9]+')}(?![a-z0-9])`, 'g');
+    const pl = plano(out);
+    let m: RegExpExecArray | null;
+    let nuevo = '';
+    let ult = 0;
+    while ((m = re.exec(pl))) { nuevo += out.slice(ult, m.index) + ' '.repeat(m[0].length); ult = m.index + m[0].length; }
+    out = nuevo + out.slice(ult);
+  }
+  return out;
+}
+
+/** Los objetos de la tab CON lo abierto (que no siempre viene en `objetos`). */
+const todosLosObjetos = (ctx: Pick<ContextoPedidos, 'actual' | 'objetos'>): ObjetoChat[] => {
+  const l = [...(ctx.objetos ?? [])];
+  if (ctx.actual && !l.some((o) => o.id === ctx.actual!.id)) l.push(ctx.actual);
+  return l;
+};
+
+/** Las áreas que nombra el texto FUERA de los nombres de los objetos de esta tab. */
+const areasFueraDeNombres = (texto: string, ctx: Pick<ContextoPedidos, 'actual' | 'objetos'>): AreaEn[] => {
+  const sin = sinNombresDeObjetos(nfc(texto), todosLosObjetos(ctx));
+  return areasEn(sin, plano(sin));
+};
+
+/**
+ * LA PALABRA DE LOS OBJETOS DE CADA TAB, para «abre la hoja X», «archiva la hoja X», «borra la automatización X». Con un
+ * nombre detrás que no es de ningún objeto, se dice que no hay y cuáles hay: antes, «Abre la hoja de Marketing» (no hay
+ * ninguna) iba como un cambio de la hoja abierta. Sólo con «ver» (y «abre») y «borrar»: «cambia la hoja de colores»
+ * puede ser un cambio de lo abierto. En el Video Editor sólo «proyecto»: «el video» también es el que se edita.
+ */
+const PALABRA_DEL_OBJETO: Partial<Readonly<Record<Area, { re: RegExp; uno: string }>>> = {
+  metricas: { re: /^hojas?$/, uno: 'una hoja' },
+  general: { re: /^hojas?$/, uno: 'una hoja' },
+  landing: { re: /^(?:landings?|webs?|sitios?)$/, uno: 'una landing' },
+  chatbot: { re: /^(?:automatizacion(?:es)?|flujos?|secuencias?)$/, uno: 'una automatización' },
+  imagen: { re: /^disenos?$/, uno: 'un diseño' },
+  video: { re: /^proyectos?$/, uno: 'un proyecto' },
+};
+/** Lo que, después de «la hoja», no es un nombre: «la hoja anterior», «la hoja nueva». */
+const NO_ES_NOMBRE = new Set(['anterior', 'ultima', 'ultimo', 'siguiente', 'primera', 'primero', 'nueva', 'nuevo', 'principal', 'actual',
+  'abierta', 'abierto', 'esta', 'este', 'esa', 'ese', 'otra', 'otro', 'mia', 'mio', 'completa', 'entera', 'que', 'para', 'con', 'y', 'o',
+  // «la landing de MI competidor», «la hoja de LA marca»: lo que sigue describe, no nombra.
+  'mi', 'mis', 'tu', 'tus', 'su', 'sus', 'un', 'una', 'el', 'la', 'los', 'las', 'lo']);
+/** Dónde termina el nombre: la puntuación o una palabra que ya es otra cosa («la hoja de Ventas PARA ver el CAC»). */
+const FIN_DEL_NOMBRE = /[,.;:!?¿¡()]|\s(?:y|o|para|con|que|porque|donde|por|en|a|al|sobre|desde|hasta|hoy|ahora|ya|tambien|ademas|luego|despues)\b/;
+
+/**
+ * Lo que va detrás de la palabra de los objetos de la tab: `cola`, todo lo que sigue (para un nombre con «y» adentro,
+ * «CRM y pipeline»), y `nombre`, cortado donde empieza otra cosa («la hoja de Marketing para ver el CAC» → «Marketing»;
+ * null si lo que sigue no es un nombre). null entero si no es «<verbo> la <palabra>». `desde`: donde termina el verbo
+ * («abre») o la preposición de uno de ir («ve a»).
+ */
+function nombreTrasLaPalabra(l: Lectura, tab: Area, desde: number): { cola: string; nombre: string | null } | null {
+  const pal = PALABRA_DEL_OBJETO[tab];
+  if (!pal) return null;
+  const re = /[a-z0-9]+/g;
+  re.lastIndex = desde;
+  let m: RegExpExecArray | null = null;
+  for (let saltos = 0; saltos <= 3; saltos++) {
+    m = re.exec(l.pl);
+    if (!m || !RELLENO.has(m[0])) break;
+  }
+  if (!m || !pal.re.test(m[0])) return null;
+  const resto = l.original.slice(m.index + m[0].length);
+  const comillas = /^\s*(?:de\s+)?[«"“]([^»"”]{2,80})[»"”]/.exec(resto);
+  if (comillas) return { cola: comillas[1].trim(), nombre: comillas[1].trim() };
+  const plr = plano(resto);
+  const pre = /^\s*(?:(?:que\s+se\s+llama|llamad[ao]|de\s+nombre|del|de)\s+)?/.exec(plr)?.[0].length ?? 0;
+  const cola = plr.slice(pre);
+  const fin = cola.search(FIN_DEL_NOMBRE);
+  const nombre = resto.slice(pre, pre + (fin < 0 ? cola.length : fin)).trim();
+  const palabras = comparable(nombre).split(' ').filter(Boolean);
+  const esNombre = palabras.length > 0 && palabras.length <= 6 && !NO_ES_NOMBRE.has(palabras[0]);
+  return { cola: resto.slice(pre, pre + 120), nombre: esNombre ? nombre : null };
+}
+
+/** Une con «y»: «A», «A y B», «A, B y C». */
+const unirConY = (l: readonly string[]): string => (l.length <= 1 ? l.join('') : `${l.slice(0, -1).join(', ')} y ${l[l.length - 1]}`);
+
+/**
+ * «Abre / archiva la hoja X»: los objetos de esta tab que se llaman así (el nombre exacto; si no, uno que lo contiene),
+ * o null si el pedido no tiene esa forma. Sin objetos conocidos no se dice nada: no se sabe si no hay o si no se leyeron.
+ */
+function porSuPalabra(l: Lectura, ctx: ContextoPedidos): { verbo: 'ver' | 'borrar'; nombre: string; lista: ObjetoChat[]; todos: ObjetoChat[] } | null {
+  // «Ve a la hoja X» es ver; si no, el primer verbo.
+  const verbo = l.destino ? 'ver' : l.verbos[0]?.verbo;
+  const desde = l.destino ? l.destino.hasta : l.verbos[0]?.hasta;
+  if ((verbo !== 'ver' && verbo !== 'borrar') || desde == null) return null;
+  // «La otra hoja», «la anterior»: eso lo resuelve `referidos` (y pregunta cuál).
+  if (l.referencia && /\botr[ao]s?\b|\banterior\b/.test(plano(l.referencia))) return null;
+  const todos = todosLosObjetos(ctx);
+  if (!todos.length) return null;
+  const tras = nombreTrasLaPalabra(l, ctx.tab, desde);
+  if (!tras) return null;
+  // Primero, un objeto cuyo nombre ENTERO arranca ahí (el más largo): «la hoja CRM y pipeline de ventas».
+  const cola = ` ${comparable(tras.cola)} `;
+  const enLaCola = todos.filter((o) => { const on = comparable(o.nombre); return on.length >= 3 && cola.startsWith(` ${on} `); });
+  if (enLaCola.length) {
+    const largo = Math.max(...enLaCola.map((o) => comparable(o.nombre).length));
+    return { verbo, nombre: tras.cola, lista: enLaCola.filter((o) => comparable(o.nombre).length === largo), todos };
+  }
+  if (!tras.nombre) return null;
+  const n = comparable(tras.nombre);
+  const exactos = todos.filter((o) => comparable(o.nombre) === n);
+  const lista = exactos.length ? exactos : todos.filter((o) => {
+    const on = comparable(o.nombre);
+    return (n.length >= 4 && ` ${on} `.includes(` ${n} `)) || (on.length >= 4 && ` ${n} `.includes(` ${on} `));
+  });
+  return { verbo, nombre: tras.nombre, lista, todos };
+}
+
+/** «No hay una hoja «Marketing». Están «A» y «B».» — con las más recientes primero y tope de tres nombradas. */
+function noHay(tab: Area, nombre: string, todos: readonly ObjetoChat[]): string {
+  const nombres = masRecientes(todos).map((o) => `«${nombreDe(o)}»`);
+  const lista = nombres.length <= 3 ? unirConY(nombres) : `${nombres.slice(0, 3).join(', ')} y ${nombres.length - 3} más`;
+  return `No hay ${PALABRA_DEL_OBJETO[tab]?.uno ?? 'uno'} «${nombre}». ${nombres.length === 1 ? 'Está' : 'Están'} ${lista}.`;
 }
 
 /** La última palabra de una frase («otra página» → «página»). */
@@ -407,14 +598,16 @@ function sustantivoTrasVerbo(l: Lectura): string | undefined {
   return undefined;
 }
 
-/** Lo que las reglas leen de un pedazo de texto. */
-type Lectura = { original: string; pl: string; verbos: VerboEn[]; areas: AreaEn[]; objeto: { area: Area; frase: string } | null; referencia: string | null };
+/** Lo que las reglas leen de un pedazo de texto. `destino`: «ve al CRM» (sólo si el verbo de ir es el primero). */
+type Lectura = { original: string; pl: string; verbos: VerboEn[]; areas: AreaEn[]; objeto: { area: Area; frase: string } | null; referencia: string | null; destino: Destino | null };
 
 function leer(texto: string): Lectura {
   const original = nfc(texto);
   const pl = plano(original);
   const verbos = verbosEn(pl);
-  return { original, pl, verbos, areas: areasEn(original, pl), objeto: objetoDirecto(original, pl, verbos[0]), referencia: referenciaEn(original, pl) };
+  const d = destinoEn(original, pl);
+  const destino = d && (!verbos[0] || d.desde <= verbos[0].desde) ? d : null;
+  return { original, pl, verbos, areas: areasEn(original, pl), objeto: objetoDirecto(original, pl, verbos[0]), referencia: referenciaEn(original, pl), destino };
 }
 
 /** El área según las reglas: la del objeto del verbo; si no, la primera nombrada después del verbo; si no, la primera. */
@@ -427,6 +620,7 @@ function areaDeReglas(l: Lectura): Area | null {
 /** Las reglas sobre UN pedazo: verbo (el primero que aparece), área y referencia. */
 function etiquetarConReglas(texto: string): PedidoCrudo {
   const l = leer(texto);
+  if (l.destino) return { texto: l.original.trim(), verbo: 'ver', area: l.destino.area, referencia: l.referencia, etiqueta: 'reglas' };
   return { texto: l.original.trim(), verbo: l.verbos[0]?.verbo ?? 'otro', area: areaDeReglas(l), referencia: l.referencia, etiqueta: 'reglas' };
 }
 
@@ -464,11 +658,14 @@ function partirPorY(texto: string): string[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(pl))) {
     const desde = m.index + m[0].length;
-    if (verbosEn(pl.slice(desde))[0]?.desde !== 0) continue;
+    const irB = destinoEn(texto.slice(desde), pl.slice(desde))?.desde === 0;
+    if (verbosEn(pl.slice(desde))[0]?.desde !== 0 && !irB) continue;
     const a = texto.slice(0, m.index).replace(/[\s,;:-]+$/g, '');
     const b = texto.slice(desde);
     if (!/[a-z0-9]/.test(plano(a))) continue;
     if (referenciaEn(a, plano(a)) == null && referenciaEn(b, plano(b)) != null) return [a, ...partirPorY(b)];
+    // «Cambia el título y llévame al CRM»: el link no se come el cambio de lo abierto (17/10/2026).
+    if (irB && destinoEn(a, plano(a)) == null) return [a, ...partirPorY(b)];
   }
   return [texto];
 }
@@ -580,11 +777,42 @@ function hacemosDe(l: Lectura): string {
 function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
   const tab = ctx.tab;
   const l = leer(c.texto);
-  // El objeto del verbo es OTRO objeto de esta tab con una palabra de otra área («otro proyecto» en el Video Editor),
-  // o el pedido nombra esa otra área sólo con esa palabra: es de esta tab (`OBJETOS_DE_LA_TAB`).
-  const propio = !!l.objeto && esObjetoDeLaTab(tab, ultimaPalabra(l.objeto.frase));
-  const area = propio || (c.area != null && soloConPalabrasDeLaTab(c.texto, c.area, tab)) ? tab : c.area ?? tab;
   const actual = ctx.actual ?? null;
+  // IR A OTRA TAB («Ve al CRM», «Llévame a la tab de General»): el link, sin operación. A la misma tab, nombrada por su
+  // título, se dice que ya está ahí; por una palabra de su área («ve a la otra landing» en el Web Generator), sigue.
+  if (l.destino && l.destino.area !== tab) {
+    const info = AREA_INFO[l.destino.area];
+    return {
+      pedido: { sobre: 'otra-tab', texto: c.texto, area: l.destino.area, titulo: info.tab, link: conWs(info.ruta, ctx.ws ?? null), operacion: null, confirmar: false },
+      ambiguo: false, frase: null,
+    };
+  }
+  if (l.destino?.porTitulo) {
+    return { pedido: { sobre: 'otro', texto: c.texto, verbo: 'ver', objeto: null, candidatos: [], operacion: null, confirmar: false, pregunta: `Ya estás en ${AREA_INFO[tab].tab}.` }, ambiguo: false, frase: null };
+  }
+  // «ABRE / ARCHIVA LA HOJA X»: un objeto de esta tab por su palabra y su nombre. Antes que el área: «Landing» es el
+  // nombre de la hoja, no el Web Generator. Sin ninguno con ese nombre, se dice que no hay y cuáles hay.
+  const nombrada = porSuPalabra(l, ctx);
+  if (nombrada) {
+    const verbo = nombrada.verbo;
+    if (!nombrada.lista.length) {
+      return { pedido: { sobre: 'otro', texto: c.texto, verbo, objeto: null, candidatos: [], operacion: null, confirmar: false, pregunta: noHay(tab, nombrada.nombre, nombrada.todos) }, ambiguo: false, frase: null };
+    }
+    if (verbo === 'ver' && actual && nombrada.lista.length === 1 && nombrada.lista[0].id === actual.id) {
+      return { pedido: { sobre: 'otro', texto: c.texto, verbo, objeto: null, candidatos: [], operacion: null, confirmar: false, pregunta: `«${nombreDe(actual)}» ya está abierta.` }, ambiguo: false, frase: null };
+    }
+    return { pedido: sobreOtro({ ...c, verbo }, nombrada.lista, ctx), ambiguo: false, frase: null };
+  }
+  // El objeto del verbo es OTRO objeto de esta tab con una palabra de otra área («otro proyecto» en el Video Editor),
+  // o el pedido nombra esa otra área sólo con esa palabra (`OBJETOS_DE_LA_TAB`), o SÓLO dentro del nombre de un objeto
+  // de esta tab («Abre Landing» en el Dashboard, aunque la IA diga `landing`): es de esta tab. Salvo que el verbo CREE
+  // una de esa área o la nombre como una más («créame OTRA landing», «una landing nueva»): ahí no es el nombre de la hoja.
+  const propio = !!l.objeto && esObjetoDeLaTab(tab, ultimaPalabra(l.objeto.frase));
+  const unaDeEsaArea = !!l.objeto && l.objeto.area === c.area
+    && (c.verbo === 'crear' || /\b(?:otr[ao]s?|una?|unos|unas|nuev[ao]s?)\b/.test(plano(l.objeto.frase)));
+  const enUnNombre = c.area != null && c.area !== tab && !unaDeEsaArea && l.areas.some((a) => a.area === c.area)
+    && !areasFueraDeNombres(c.texto, ctx).some((a) => a.area === c.area);
+  const area = propio || enUnNombre || (c.area != null && soloConPalabrasDeLaTab(c.texto, c.area, tab)) ? tab : c.area ?? tab;
   // El objeto del verbo es una PARTE de lo abierto («crea otra página» en un diseño, «otro gráfico» en una hoja).
   const parte = !!l.objeto && esParteDeLoAbierto(tab, ultimaPalabra(l.objeto.frase));
   const deEstaTab = l.objeto?.area === tab || propio;
@@ -671,9 +899,11 @@ export function resolverPedidos(crudos: readonly PedidoCrudo[], ctx: ContextoPed
 export function dudaDeLasReglas(crudos: readonly PedidoCrudo[], ctx: ContextoPedidos): string | null {
   for (const c of crudos) {
     const l = leer(c.texto);
-    if (new Set(l.areas.map((a) => a.area)).size >= 2) return 'un pedido nombra dos áreas';
+    // Sin las que nombra SÓLO el nombre de un objeto de esta tab («la hoja Landing»): ésas no son otra área (17/10/2026).
+    const areas = areasFueraDeNombres(c.texto, ctx);
+    if (new Set(areas.map((a) => a.area)).size >= 2) return 'un pedido nombra dos áreas';
     if (decidir(c, ctx).ambiguo) return 'nombra otra área, pero puede ser un cambio de lo abierto';
-    const senal = l.areas.some((a) => a.area !== ctx.tab) || !!l.referencia || l.objeto?.area === ctx.tab;
+    const senal = areas.some((a) => a.area !== ctx.tab) || !!l.referencia || l.objeto?.area === ctx.tab;
     if (new Set(l.verbos.map((v) => v.verbo)).size >= 2 && senal) return 'dos verbos sin conector';
   }
   return null;
