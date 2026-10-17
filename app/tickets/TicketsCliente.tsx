@@ -101,7 +101,7 @@ export function TicketsCliente({ tickets: iniciales, error, abierto: abiertoInic
         <section className="tickets-lista" aria-label="Tus tickets">
           <h2 className="tickets-lista__titulo">Tus tickets</h2>
           {error ? <ErrorState titulo="No pude leer tus tickets" detalle={error} />
-            : !tickets.length ? <EmptyState inline titulo="Todavía no levantaste ninguno" detalle="Cuando mandes uno, lo vas a ver acá con en qué anda." />
+            : !tickets.length ? <EmptyState inline titulo="Todavía no levantaste ninguno" detalle="Cuando mandes uno, lo vas a ver aquí con en qué anda." />
               : (
                 <ul className="tickets-filas">
                   {tickets.map((t) => (

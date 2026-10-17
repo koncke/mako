@@ -121,7 +121,7 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
       <div className={`tickets-bandeja__cuerpo${elegido ? ' tickets-bandeja__cuerpo--detalle' : ''}`}>
         <ul className="tickets-bandeja__lista" aria-label="Tickets">
           {tickets === null ? <li className="tickets-bandeja__vacio">Cargando…</li>
-            : !visibles.length ? <li className="tickets-bandeja__vacio"><EmptyState inline titulo={grupo === 'decidir' ? 'No hay nada por decidir' : 'No hay tickets acá'} /></li>
+            : !visibles.length ? <li className="tickets-bandeja__vacio"><EmptyState inline titulo={grupo === 'decidir' ? 'No hay nada por decidir' : 'No hay tickets aquí'} /></li>
               : visibles.map((t) => (
                 <li key={t.id}>
                   <button type="button" className={`tickets-bandeja__fila${elegido === t.id ? ' is-on' : ''}`} onClick={() => setElegido(t.id)}>

@@ -97,8 +97,8 @@ export const RUNNERS: Runners = {
       });
       if (!r.ok) return { ok: false, resumen: r.error };
       const sigue = r.triage.autoArreglo
-        ? 'Es algo que debería andar: ya está yendo a arreglarse, y te aviso por acá cuando esté.'
-        : 'Le llegó al equipo: te aviso por acá cuando lo decidan.';
+        ? 'Es algo que debería andar: ya está yendo a arreglarse, y te aviso por aquí cuando esté.'
+        : 'Le llegó al equipo: te aviso por aquí cuando lo decidan.';
       return { ok: true, resumen: `Listo, es el ticket #${r.id}. ${sigue}`, datos: { ticketId: r.id } };
     }),
   },
