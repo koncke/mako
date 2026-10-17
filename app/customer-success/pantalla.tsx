@@ -183,8 +183,8 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
   // "client": podrían serlo como no». Esta pantalla ya no lee la cartera, el plan, el equipo ni el cobro de nadie:
   // eran dos lecturas que CRUZAN de inquilino, y ahora las hace sólo la tab que las muestra. Un cliente que además
   // tiene cuenta lo dice en su ficha («MaKo Partners →», FichaCliente) con su `clienteWs`, que ya viene en el lead.
-  // Lo que quedó dormido en la tarjeta y la ficha (CuentaDeMaKo, la tab Equipo) se limpia con la T3 del CRM, que
-  // rearma esa ficha (docs/hallazgos-customer-success.md, «Clients y MaKo Partners»).
+  // La tarjeta y la ficha tampoco dibujan nada de eso: CuentaDeMaKo, la tab Equipo, el chip del plan y «Reenviar el
+  // acceso» se fueron el mismo día (lo que hacían, a Partners; tests/cs-tarjeta-cuentas.test.ts).
 
   /**
    * CADA CLIENTE, CON LO QUE DIBUJA SU FICHA (Resumen y Llamadas).

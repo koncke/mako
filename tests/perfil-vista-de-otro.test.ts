@@ -22,6 +22,7 @@
 //   4. lib/perfil.ts con la regla vieja (`if (sesion.rol !== 'admin') return …` antes del sujeto) → 6 / 1 «lib/perfil.ts …»
 //   5. lib/perfil.ts cayendo a `?? propio` en la vista de otro                                   → 6 / 1 «lib/perfil.ts …»
 //   6. page.tsx sembrando `[]` aunque la lectura de usuarios falle (`if (true)`)                  → 6 / 1 «la tarjeta …»
+//      (desde el 17/10/2026 «MaKo Partners dice…»: lib/partners.ts y PartnersApp; rotura: `=== 0` → `!== 1` → 6 / 1)
 //   7. la ficha leyendo `j.invitacion ?` en vez de pasárselo a `avisoInvitacion`                  → 6 / 1 «sumar desde la ficha …»
 // Y la guarda que ya existía del falso éxito al APROBAR (tests/curso-invitar.test.ts, «los avisos de
 // aprobación de agencia miran `enviado`»), rota el mismo día: `aviso = inv` en la aprobación → 29 / 1,
@@ -104,19 +105,21 @@ test('lib/perfil.ts decide con `deQuienEsElPerfil` y el contexto de agencia, y n
   assert.match(src, /if \(!u && vista\.deOtro\) throw/);
 });
 
-test('la tarjeta dice «nadie puede entrar» sólo cuando la lectura de usuarios ANDUVO', () => {
-  // Desde el 17/10/2026 el equipo de una cuenta de agencia lo lee MaKo Partners (lib/partners.ts), con la MISMA regla.
+test('MaKo Partners dice «nadie puede entrar» sólo cuando la lectura de usuarios ANDUVO', () => {
+  // Desde el 17/10/2026 el equipo de una cuenta de agencia lo lee y lo dibuja MaKo Partners (lib/partners.ts y
+  // app/partners/PartnersApp.tsx), con la MISMA regla que tenía la tarjeta de Clients.
   const page = sinComentarios(leer('lib/partners.ts'));
   // La siembra de `[]` cuelga de que `listarUsuarios` haya contestado: un fallo es `null`.
   assert.match(page, /listarUsuarios\(\)\.catch\(\(\) => null\)/);
   assert.match(page, /if \(usuarios\) for \(const ws of aprobados\) equipoPorWs\.set\(ws, \[\]\);/);
-  const card = sinComentarios(leer('app/customer-success/ClienteCard.tsx'));
-  assert.match(card, /const sinNadie = Boolean\(ws && equipo && equipo\.length === 0\)/);
-  assert.match(card, /\{sinNadie && !aviso && <PieTexto mal>/);
+  // `[]` (leí y no hay nadie) dice «Nadie puede entrar»; `null` (no pude leer) no afirma nada: `?.length === 0`.
+  const app = sinComentarios(leer('app/partners/PartnersApp.tsx'));
+  assert.match(app, /if \(c\.estado === 'aprobado' && c\.equipo\?\.length === 0\) return \{ texto: 'Nadie puede entrar'/);
 });
 
-test('sumar desde la ficha dice si el mail SALIÓ, con `avisoInvitacion` (que mira `enviado`)', () => {
-  const ficha = sinComentarios(leer('app/customer-success/FichaCliente.tsx'));
+test('sumar desde la ficha de la cuenta dice si el mail SALIÓ, con `avisoInvitacion` (que mira `enviado`)', () => {
+  // El equipo se mudó de la ficha de Clients a MaKo Partners el 17/10/2026 (app/partners/EquipoDeCuenta.tsx).
+  const ficha = sinComentarios(leer('app/partners/EquipoDeCuenta.tsx'));
   assert.match(ficha, /if \(puedeSumar\) setEnvio\(avisoInvitacion\(j\.invitacion, email\.trim\(\)\)\)/);
   assert.doesNotMatch(ficha, /j\.invitacion\s*\?(?!\.)/);
   // Y la función contesta por `enviado`: un objeto con `enviado: false` NO es «le llegó».

@@ -18,10 +18,13 @@ import { emailUtilizable } from '@/lib/agencia-altas';
 import { ROTULO_CARTERA } from '@/lib/agencia-cartera';
 import type { CuentaPartner } from '@/lib/partners';
 import { llevarAPartnersAction } from '@/app/partners/actions';
+import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 
 function estadoDe(c: CuentaPartner): { texto: string; tono: TonoPildora } {
   if (c.cobro?.pagar) return { texto: 'Falta pagar', tono: 'warn' };
   if (c.cobro?.renovacion && !c.cobro.renovacion.activada) return { texto: 'Activar renovación', tono: 'warn' };
+  // Habilitada y sin nadie adentro (`[]` = leí y no hay nadie; `null` = no pude leer). Igual que la computadora.
+  if (c.estado === 'aprobado' && c.equipo?.length === 0) return { texto: 'Nadie puede entrar', tono: 'warn' };
   if (c.estado === 'aprobado') return { texto: 'Activa', tono: 'good' };
   if (c.estado === 'revocado') return { texto: ROTULO_CARTERA.revocado, tono: 'bad' };
   return { texto: ROTULO_CARTERA.pendiente, tono: 'neutro' };
@@ -44,10 +47,13 @@ export function PartnersM({ cuentas, usd }: { cuentas: CuentaPartner[]; usd: num
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [ocupado, setOcupado] = useState(false);
-  const [link, setLink] = useState<string | null>(null);
+  // Lo que dejó el alta. ⚠️ Sin link de pago NO es un error (`sinLink`, lib/partners.ts): la cuenta ya se abrió y espera
+  // la aprobación. Por eso «hecho» es su propio estado y no `link !== null`: con el link vacío el formulario volvía a
+  // aparecer y un segundo envío chocaba con el email ya usado.
+  const [hecho, setHecho] = useState<{ link: string | null } | null>(null);
   const [mal, setMal] = useState<string | null>(null);
 
-  const abrirAlta = () => { setNombre(''); setEmail(''); setLink(null); setMal(null); setAlta(true); };
+  const abrirAlta = () => { setNombre(''); setEmail(''); setHecho(null); setMal(null); setAlta(true); };
   const crear = async () => {
     if (!nombre.trim() || !emailUtilizable(email) || ocupado) return;
     setOcupado(true);
@@ -55,10 +61,26 @@ export function PartnersM({ cuentas, usd }: { cuentas: CuentaPartner[]; usd: num
     const r = await llevarAPartnersAction({ nombre, email }).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
     setOcupado(false);
     if (!r.ok) { setMal(r.error); return; }
-    setLink(r.link);
+    setHecho({ link: r.link });
     toast('Cuenta abierta');
     // Diferido: abrir o cerrar una hoja toca el historial (app/m/_ui/LEEME.md, «Tanda 3»).
     setTimeout(() => router.refresh(), 400);
+  };
+
+  // «Reenviar el acceso» a quien maneja la cuenta, como en la computadora (/api/agencia/reinvitar decide el permiso).
+  const quien = c?.equipo?.find((u) => u.rol === 'admin') ?? c?.equipo?.[0] ?? null;
+  const [reenviando, setReenviando] = useState(false);
+  const reenviar = async (clienteWs: number, a: { id: number; email: string }) => {
+    if (reenviando) return;
+    setReenviando(true);
+    try {
+      const j = (await (await fetch('/api/agencia/reinvitar', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ clienteWs, usuarioId: a.id }),
+      })).json()) as { ok?: boolean; error?: string; invitacion?: ResultadoInvitacion };
+      // El toast de /m es corto (3-4 palabras): el detalle del envío, sólo si no salió.
+      if (!j.ok) { toast('No se pudo reenviar'); return; }
+      toast(avisoInvitacion(j.invitacion, a.email).tono === 'ok' ? 'Acceso reenviado' : 'No salió el mail');
+    } catch { toast('No se pudo reenviar'); } finally { setReenviando(false); }
   };
 
   const entrar = async (clienteWs: number) => {
@@ -113,23 +135,27 @@ export function PartnersM({ cuentas, usd }: { cuentas: CuentaPartner[]; usd: num
             {c.plan && <FilaDatoM k="Plan" v={c.plan} />}
             <FilaDatoM k="Equipo" v={c.equipo ? `${c.equipo.length} ${c.equipo.length === 1 ? 'persona' : 'personas'}` : '—'} />
             <FilaDatoM k="En tu CRM" v={c.lead ? c.lead.nombre : 'No está'} href={c.lead ? `/m/crm/${c.lead.id}` : undefined} />
+            {c.estado === 'aprobado' && quien && (
+              <FilaDatoM k="Acceso" v={reenviando ? 'Reenviando…' : `Reenviar a ${quien.nombre}`} azul
+                onClick={() => void reenviar(c.ws, quien)} />
+            )}
           </ListaM>
         )}
       </SheetM>
 
-      <SheetM abierto={alta} onCerrar={() => setAlta(false)} titulo={link === null ? 'Nuevo cliente' : 'Su primer mes'} ocupado={ocupado}
-        pie={link === null ? (
+      <SheetM abierto={alta} onCerrar={() => setAlta(false)} titulo={hecho === null ? 'Nuevo cliente' : hecho.link ? 'Su primer mes' : 'Cuenta abierta'} ocupado={ocupado}
+        pie={hecho === null ? (
           <PieM consecuencia={`Se crea su cuenta de MaKo: US$${usd} al mes.`}>
             <Button variant="primary" size="lg" full disabled={!nombre.trim() || !emailUtilizable(email) || ocupado} onClick={() => void crear()}>
               {ocupado ? 'Abriendo…' : 'Abrir su cuenta'}
             </Button>
           </PieM>
-        ) : link ? (
+        ) : hecho.link ? (
           <PieM consecuencia="Al pagarlo, la cuenta queda habilitada.">
-            <ButtonLink variant="primary" size="lg" full href={link} newTab>Pagar su primer mes</ButtonLink>
+            <ButtonLink variant="primary" size="lg" full href={hecho.link} newTab>Pagar su primer mes</ButtonLink>
           </PieM>
         ) : undefined}>
-        {link === null ? (
+        {hecho === null ? (
           <div className="m-partners-form">
             <label className="m-partners-lab" htmlFor="m-partners-nombre">Nombre de su negocio</label>
             <input id="m-partners-nombre" className="m-partners-in" value={nombre} onChange={(e) => setNombre(e.target.value)} />
@@ -138,7 +164,7 @@ export function PartnersM({ cuentas, usd }: { cuentas: CuentaPartner[]; usd: num
               onChange={(e) => setEmail(e.target.value)} />
             {mal && <p className="m-partners-mal" role="alert">{mal}</p>}
           </div>
-        ) : link ? null : (
+        ) : hecho.link ? null : (
           <p className="m-partners-nota">Le llega su acceso cuando MaKo la habilite.</p>
         )}
       </SheetM>

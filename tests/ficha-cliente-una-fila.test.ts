@@ -36,6 +36,13 @@ import { resolve } from 'node:path';
 const leer = (p: string) => readFileSync(resolve(import.meta.dirname, p), 'utf8');
 const ficha = () => leer('../app/customer-success/FichaCliente.tsx');
 const shell = () => leer('../app/plan/board/BoardShell.tsx');
+// ⚠️ DESDE EL 17/10/2026 EL EQUIPO DE LA CUENTA DE MaKo DE UN CLIENTE DE AGENCIA VIVE EN MaKo PARTNERS (la ficha de la
+// cuenta, app/partners/PartnersApp.tsx, con app/partners/EquipoDeCuenta.tsx), no en la ficha de Clients. Las reglas de
+// abajo (la misma vista para todos los que miran, pedir vs sumar, el vacío que dice «nadie») se mudaron con él: los
+// tests las persiguen allá. Roturas de la mudanza: sacar `!superAdmin` de `puedePedir` → 1 fallo («y el permiso…»);
+// condicionar el equipo a `superAdmin` → 1 fallo («EL QUE IMPORTA…»).
+const partners = () => leer('../app/partners/PartnersApp.tsx');
+const equipoDeCuenta = () => leer('../app/partners/EquipoDeCuenta.tsx');
 
 // ⚠️ Y EL 05/10/2026 LA FILA CAMBIÓ DE DUEÑO, sin volver a ser dos. «Dejar solo la sección
 // de "PRIORIDADES"… y que haya un botón que te redirija» al Plan: el tablero se monta con
@@ -58,33 +65,26 @@ test('la ficha de un cliente dibuja UNA fila de tabs: la suya, con el tablero si
   for (const b of boards) assert.match(b, /soloVista="prioridades"/, 'un tablero volvió a traer su selector: dos filas de tabs');
 });
 
-test('EL QUE IMPORTA: «Equipo» cuelga del WORKSPACE, no de quién mira ni de lo que tenga', () => {
-  // Cualquier condición sobre la persona o el contenido hace que la MISMA ficha se vea
-  // distinta según quién mire, y ése fue el reporte: «¿me estás mostrando algo diferente al
-  // inspeccionar?». `cuentas.visible` es «este workspace es agencia» (page.tsx).
-  const f = sinComentarios(ficha());
-  const tab = /\.\.\.\((\w+) \? \[\{ id: 'equipo'[^\n]*/.exec(f);
-  assert.ok(tab, 'no encontré la tab «Equipo»');
-  assert.equal(tab[1], 'verCuentas', `la tab «Equipo» cuelga de otra cosa: ${tab[0]}`);
-  assert.match(f, /const verCuentas = Boolean\(cuentas\?\.visible\);/);
-  assert.ok(!/superAdmin|puedePedir|equipo\?\.length \?|hayEquipo/.test(tab[0].replace(/badge: equipo\?\.length/, '')),
-    `la tab «Equipo» volvió a depender de quién mira o de lo que tiene: ${tab[0]}`);
+test('EL QUE IMPORTA: el equipo de una cuenta cuelga de la CUENTA, no de quién mira ni de lo que tenga', () => {
+  // Cualquier condición sobre la persona o el contenido hace que la MISMA ficha se vea distinta según quién mire, y ése
+  // fue el reporte: «¿me estás mostrando algo diferente al inspeccionar?». En Partners cuelga de que la cuenta esté
+  // habilitada: la agencia y el super admin parados en ella ven lo mismo.
+  const p = sinComentarios(partners());
+  const m = /\{abierta\.estado === 'aprobado' \? \(\s*<EquipoDeCuenta/.exec(p);
+  assert.ok(m, 'el equipo de la cuenta volvió a depender de otra cosa que la cuenta');
+  // Y la ficha de Clients no tiene equipo: es la de la entrega.
+  assert.doesNotMatch(sinComentarios(ficha()), /id: 'equipo'|<Panel id="equipo"/, 'volvió la tab «Equipo» a la ficha de Clients');
 });
 
 test('y el permiso de PEDIR un alta sigue siendo del que mira', () => {
-  // Lo que se unificó es la VISTA, no el permiso: el super admin no pide altas, crea. Si
-  // esta condición se fuera con la otra, le estaríamos ofreciendo pedirse permiso a sí
-  // mismo.
-  const f = ficha();
-  assert.ok(/!cuentas\.superAdmin/.test(f), 'se perdió el corte de quién puede PEDIR un alta');
-  assert.ok(/puedePedir=\{puedePedir\}/.test(f), 'el botón de pedir dejó de depender de ese corte');
+  // Lo que se unificó es la VISTA, no el permiso: el super admin no pide altas, crea. Si esta condición se fuera con la
+  // otra, le estaríamos ofreciendo pedirse permiso a sí mismo.
+  const p = partners();
+  assert.ok(/puedePedir=\{puedeAbrir && !superAdmin\}/.test(p), 'se perdió el corte de quién puede PEDIR un alta');
 });
 
-test('el equipo no depende del tablero: un tablero ilegible no se lo lleva puesto', () => {
-  // No depende del tablero: perderlo por una lectura caída sería esconder lo único que
-  // quedó legible. Y es justo el caso del cliente con cero usuarios. Desde el 05/10 vive en
-  // su propia tab, así que lo que se fija es que el «no pude leer» quede ADENTRO de
-  // Prioridades y el equipo afuera.
+test('un tablero ilegible dice que no se pudo leer, adentro de Tareas', () => {
+  // «No pude leer» no se pinta como «no tiene trabajo». El equipo, que antes compartía esta ficha, vive en Partners.
   const f = sinComentarios(ficha());
   const ini = f.indexOf('<Panel id="prioridades"');
   const fin = f.indexOf('</Panel>', ini);
@@ -92,8 +92,6 @@ test('el equipo no depende del tablero: un tablero ilegible no se lo lleva puest
   const prioridades = f.slice(ini, fin);
   assert.ok(prioridades.length < 2_000, `el panel de Prioridades mide ${prioridades.length}: estoy mirando otra cosa`);
   assert.match(prioridades, /No pude leer su tablero/, 'se fue el mensaje de tablero ilegible');
-  assert.ok(!/EquipoDelCliente/.test(prioridades), 'el equipo volvió a vivir adentro de la rama del tablero');
-  assert.ok(f.indexOf('<Panel id="equipo"') > fin, 'el equipo no tiene su propia tab');
 });
 
 // ⚠️ PROBADO ROMPIÉNDOLO, la reescritura del 05/10/2026 (baseline del archivo: 10 / 0):
@@ -154,19 +152,19 @@ test('el menú de acciones se PORTALEA: adentro de un modal lo recorta el overfl
 });
 
 test('el equipo vacío NO dice «nadie más»: no hay NADIE, ni el dueño de la cuenta', () => {
-  // «Pareciera que se bugeó y que la propia Brigitte no puede entrar» — y con cero
-  // usuarios es literal: no puede entrar nadie. La frase lo tiene que decir.
-  const f = ficha();
-  assert.ok(!/Nadie m.s entra a la cuenta/.test(f), 'volvió la frase que da a entender que el dueño sí entra');
-  assert.ok(/no tiene a nadie adentro/.test(f), 'el vacío dejó de decir que la cuenta no tiene a nadie');
+  // «Pareciera que se bugeó y que la propia Brigitte no puede entrar» — y con cero usuarios es literal: no puede entrar
+  // nadie. La frase lo tiene que decir (en Partners desde el 17/10/2026).
+  const e = equipoDeCuenta();
+  assert.ok(!/Nadie m.s entra a la cuenta/.test(e), 'volvió la frase que da a entender que el dueño sí entra');
+  assert.ok(/no tiene a nadie adentro/.test(e), 'el vacío dejó de decir que la cuenta no tiene a nadie');
 });
 
 test('el super admin puede SUMAR, no sólo pedir', () => {
-  // «¿De qué sirve que tenga una tab de equipo que no puede hacer nada? Ahí deberían
-  // poder agregarle setter o closer.» El que pide deja un pedido; el que firma, crea.
-  const f = ficha();
-  assert.ok(/puedeSumar/.test(f), 'no hay camino para sumar directo');
-  assert.ok(/puedeSumar \? '\/api\/admin\/usuarios' : '\/api\/agencia\/altas'/.test(f),
+  // «¿De qué sirve que tenga una tab de equipo que no puede hacer nada? Ahí deberían poder agregarle setter o closer.»
+  // El que pide deja un pedido; el que firma, crea.
+  const e = equipoDeCuenta();
+  assert.ok(/puedeSumar \? '\/api\/admin\/usuarios' : '\/api\/agencia\/altas'/.test(e),
     'los dos caminos no salen del mismo formulario, o se perdió uno');
-  assert.ok(/\(puedePedir \|\| puedeSumar\)/.test(f), 'el formulario sigue siendo sólo para el que PIDE');
+  assert.ok(/\(puedePedir \|\| puedeSumar\)/.test(e), 'el formulario sigue siendo sólo para el que PIDE');
+  assert.ok(/puedeSumar=\{superAdmin\}/.test(partners()), 'Partners no le da al super admin el camino de sumar');
 });
