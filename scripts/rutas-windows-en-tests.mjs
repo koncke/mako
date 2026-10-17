@@ -34,6 +34,7 @@ export const PERMITIDOS = new Map([
   ['tests/centro-turnos.test.ts', 'el cwd de una sesión de Claude Code: enCwds lo compara como texto y carpetaDelCwd arma con él el nombre de la carpeta del transcript, no se abre'],
   ['tests/centro-adjuntos.test.ts', 'el cwd de una sesión de Claude Code y las carpetas del Runner: enCwds los compara como texto, no se abren'],
   ['tests/centro-runner-nube.test.ts', 'el cwd de una sesión de Claude Code y las carpetas del Runner: enCwds los compara como texto, no se abren'],
+  ['tests/centro-abrir.test.ts', 'los casos de la lista blanca de la ruta del primer mensaje (comandoDeApertura) y el cwd del Runner: se comparan como texto, no se abren'],
   ['tests/rutas-windows-en-tests.test.ts', 'los casos de esta misma guarda: son el texto que tiene que cazar'],
 ]);
 

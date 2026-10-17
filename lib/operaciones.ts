@@ -31,7 +31,7 @@ import 'server-only';
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
-  CUENTA_RE, POR_VUELTA, TOMADO_VENCE_MS, claveIdDe, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
+  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, claveIdDe, sanearAbre, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
 import { sanearCuota, type Cuota } from './centro-uso';
@@ -252,6 +252,38 @@ async function avisosParaElCartero(
  * cuenta y los acuses de la vuelta anterior, y se lleva lo que puede entregar ahora.
  * Devuelve null si el token no vale; tira si falta la cuenta.
  */
+/**
+ * ¿Hay algo para entregar en estas cuentas? (cartero 1.12.0, `vigilar`; Martín: «Envié un mensaje y no pasó nada por
+ * varios segundos».) Es la consulta LIVIANA que la PC hace cada pocos segundos: devuelve SÓLO un número, sin escribir
+ * nada. Cuenta lo `escrito` para los entregables que cada cuenta subió en su última vuelta, y los `nuevo` sólo de las
+ * cuentas que la PC dice que abre (si no, una vuelta completa no los reclamaría y la PC preguntaría en falso para
+ * siempre). Quien llama ya validó el token del cartero.
+ */
+export async function hayParaElCartero(cuentas: readonly string[], abre: readonly string[]): Promise<number> {
+  const validas = [...new Set(cuentas.filter((c) => CUENTA_RE.test(c)))].slice(0, 10);
+  if (!validas.length) return 0;
+  const db = getSupabaseServer();
+  const { data: filas, error } = await db.from(T_CARTEROS).select('cuenta, chats').in('cuenta', validas);
+  if (error) throw new Error(error.message);
+  const vivos = (filas ?? []).flatMap((f) => sanearChats(f.chats)
+    .filter((c) => c.vivo && c.runner !== false && !c.esRunner && !c.nube).map((c) => c.local));
+  let n = 0;
+  if (vivos.length) {
+    const { count, error: e } = await db.from(T_PEDIDOS).select('id', { count: 'exact', head: true })
+      .eq('estado', 'escrito').in('destino', vivos);
+    if (e) throw new Error(e.message);
+    n += count ?? 0;
+  }
+  const abren = validas.filter((c) => abre.includes(c));
+  if (abren.length) {
+    const { count, error: e } = await db.from(T_PEDIDOS).select('id', { count: 'exact', head: true })
+      .eq('estado', 'escrito').eq('destino', DESTINO_NUEVO).in('destino_cuenta', abren);
+    if (e) throw new Error(e.message);
+    n += count ?? 0;
+  }
+  return n;
+}
+
 /** ¿Es el token de los carteros? Lo usan la vuelta y la bajada de un adjunto (app/api/operaciones/cartero/route.ts). */
 export async function tokenDelCarteroValido(token: string): Promise<boolean> {
   if (!token.startsWith('mkop_')) return false;
@@ -339,6 +371,20 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
       .eq('estado', 'escrito').in('destino', vivos).order('created_at', { ascending: true }).limit(POR_VUELTA);
     if (eCand) throw new Error(eCand.message);
     for (const { id } of cand ?? []) {
+      const { data } = await db.from(T_PEDIDOS)
+        .update({ estado: 'tomado', tomado_at: ahoraIso, updated_at: ahoraIso })
+        .eq('id', id).eq('estado', 'escrito').select('id, firmado, firma');
+      if (data && data[0]) pedidos.push(data[0] as PedidoParaEntregar);
+    }
+  }
+  // Los chats NUEVOS de esta cuenta (cartero 1.11.0, «un clic»): sólo a un cartero que dice que los abre (`abre`: una
+  // terminal de esa cuenta y el permiso local prendido). Sin eso quedan escritos, y la pantalla dice qué hacer.
+  if (sanearAbre(e.abre).includes(cuenta) && pedidos.length < POR_VUELTA) {
+    const { data: nuevos, error: eNuevos } = await db.from(T_PEDIDOS).select('id')
+      .eq('estado', 'escrito').eq('destino', DESTINO_NUEVO).eq('destino_cuenta', cuenta)
+      .order('created_at', { ascending: true }).limit(POR_VUELTA - pedidos.length);
+    if (eNuevos) throw new Error(eNuevos.message);
+    for (const { id } of nuevos ?? []) {
       const { data } = await db.from(T_PEDIDOS)
         .update({ estado: 'tomado', tomado_at: ahoraIso, updated_at: ahoraIso })
         .eq('id', id).eq('estado', 'escrito').select('id, firmado, firma');
