@@ -1225,8 +1225,10 @@ export function EditorInforme({
             Sin `onDetalle`, el clic en un número no hace nada y no se pinta como clicable. Desde v5, lo que
             abre lo decide el gráfico (`alClicDe`: el detalle, su pop-up o nada). */}
         {(() => {
-          const cuerpo = popupDelCloser ? <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={popupDelCloser} efectivo={ef} />
-            : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} />;
+          // #860: el ▶ de un anuncio, sólo con sesión (en un link compartido la ruta del video no contesta) y mirando.
+          const conReproductor = !compartido && !editando;
+          const cuerpo = popupDelCloser ? <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={popupDelCloser} efectivo={ef} conReproductor={conReproductor} />
+            : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} conReproductor={conReproductor} />;
           // Las acciones EN LA FILA (`tabla.acciones`: «Marcar cobrada»…) van sólo mirando y con sesión: sin este
           // provider la tabla no dibuja la columna (useColumnaAcciones devuelve null).
           return c.tabla?.acciones && !editando && !compartido

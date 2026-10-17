@@ -137,6 +137,10 @@ export const CSS_HTML = `
 .gr-tarjeta-cab { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; }
 .gr-tarjeta-cab--sin { grid-template-columns: minmax(0, 1fr); }
 .gr-tarjeta-mini { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; background: var(--surface-2); display: block; }
+/* #860: el ▶ de una tarjeta de anuncio, encima de su miniatura (reproduce el video ahí mismo: ReproductorAnuncio.tsx). */
+.gr-tarjeta-mini-caja { position: relative; display: block; justify-self: center; }
+.gr-tarjeta-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border-radius: 50%; border: 0; display: grid; place-items: center; padding: 0 0 0 3px; background: rgba(0, 0, 0, .62); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; }
+.gr-tarjeta-play:hover, .gr-tarjeta-play:focus-visible { background: rgba(0, 0, 0, .8); outline: 2px solid #fff; outline-offset: 1px; }
 .gr-tarjeta-nom { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .gr-tarjeta-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .gr-tarjeta-chips > span { font-size: var(--fs-sm); color: var(--dim); background: var(--surface-2); border-radius: 7px; padding: 2px 8px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

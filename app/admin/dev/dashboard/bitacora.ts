@@ -584,4 +584,22 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/graficos-identidad.ts', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/Grafico.tsx', 'app/dashboard/MiniaturaHoja.tsx', 'app/general/bloques/comun.tsx', 'tests/graficos-identidad-acento.test.ts — probado rompiéndolo'],
     revisar: '/general',
   },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Los anuncios ganadores en vertical y que se reproduzcan en la hoja (#860)',
+    pedido: 'en los anuncios que más te traen, se corta la cara de la persona porque los anuncios normalmente son en vertical y el bloque está pensado para horizontal, entonces eso hay que arreglarlo. Y número dos, debería poder reproducirse ahí mismo, sin necesidad de tener que redirigir a otra pestaña.',
+    puntos: ['De la revisión de MaKo del 16/10 (1:14:00). Lo repartió el Cerebro al chat Dashboard el 17/10.'],
+  },
+  {
+    fecha: '17 oct', hora: '10:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los anuncios ganadores, en vertical y con ▶',
+    puntos: [
+      'En «Los anuncios que más te traen» (y en «Tus anuncios ganadores» de Ads Analyst) cada anuncio se ve en vertical, como se publica: ya no se corta la cara.',
+      'Cada anuncio con video tiene un ▶: el video se reproduce en una ventana encima de la hoja, sin ir a Facebook.',
+      'Si el anuncio es de imagen, la ventana lo dice y ofrece verlo en Facebook.',
+      'En un link compartido no aparece el ▶.',
+    ],
+    archivos: ['lib/anuncio-video.ts', 'app/api/anuncios/video/route.ts', 'app/dashboard/graficos/ReproductorAnuncio.tsx', 'app/dashboard/graficos/Tarjetas.tsx', 'app/dashboard/editor-css.ts', 'tests/anuncio-video.test.ts — probado rompiéndolo'],
+    revisar: '/general',
+  },
 ];

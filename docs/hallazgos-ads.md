@@ -4116,3 +4116,32 @@ anuncio del ws1: desde 2023-09-18 contesta, desde 2023-09-16 no). El creativo y 
 ganadores»: tienen que aparecer los números, el diario y la audiencia.
 **Vive en:** lib/meta-rango.ts · app/api/ad-insights/route.ts · app/api/entity-insights/route.ts · lib/meta-desgloses.ts.
 *17/10/2026, claude4 (chat Dashboard).*
+
+## Reproducir un anuncio sin salir de la hoja: la vista previa de Meta NO sirve, el `embed_html` del video sí (17/10/2026)
+
+**El pedido (#860, revisión del 16/10, 1:14:00):** en «Los anuncios que más te traen» la miniatura cortaba la cara (iba
+4:3 y los anuncios son verticales) y «debería poder reproducirse ahí mismo» en vez de abrir Meta en otra pestaña.
+
+**Lo medido contra Meta (un anuncio del ws1, sólo lectura):**
+
+- `GET /{video_id}?fields=source` sigue sin `source` (la entrada de arriba): no hay un .mp4 propio que poner en un `<video>`.
+- **La vista previa del anuncio parecía lo obvio y es la equivocada:** `/{ad_id}/previews?ad_format=INSTAGRAM_REELS`
+  devuelve un iframe de `business.facebook.com/ads/api/preview_iframe.php` que, SIN sesión de Facebook, contesta **400** y
+  **`X-Frame-Options: DENY`**. En Ads Manager anda porque quien mira está logueado; a un cliente no le carga.
+- **`embed_html` del video** es un iframe de `www.facebook.com/plugins/video.php` que sin sesión contesta 200, **sin**
+  `X-Frame-Options`, y trae las URLs del .mp4 adentro (`sd_src`/`hd_src`). Ojo: el HTML contiene «Unavailable…» (es el
+  nombre de un recurso de su JS, `UnavailableResources`), y buscar «unavailable» da un falso «no disponible».
+- Los formatos del video confirman el vertical: `native:1080x1920`.
+
+**Cómo quedó:** /api/anuncios/video (la puerta de Ads, el token del workspace) devuelve el src del plugin, validado por
+host y ruta (`srcDelReproductor`, lib/anuncio-video.ts: sale de una respuesta de un tercero y va a un iframe de la app).
+Las tarjetas de anuncios llevan un ▶ que lo abre en una ventana vertical (app/dashboard/graficos/ReproductorAnuncio.tsx),
+sólo con sesión y mirando; en un link compartido no hay ▶ (la ruta pide sesión). La miniatura de la portada es un póster
+9:16 de alto fijo.
+
+**Nadie lo miró en pantalla:** que el plugin REPRODUZCA dentro del iframe se dedujo de la respuesta (200, sin
+`X-Frame-Options`, con los .mp4), no se vio en un navegador. Después del deploy: ws1, General con la plantilla «Anuncios»,
+▶ en un anuncio. Si no reproduce, el siguiente intento es bajar el .mp4 de `sd_src` del lado del server.
+**Vive en:** lib/anuncio-video.ts · app/api/anuncios/video/route.ts · app/dashboard/graficos/ReproductorAnuncio.tsx ·
+app/dashboard/graficos/Tarjetas.tsx · app/dashboard/editor-css.ts.
+*17/10/2026, claude4 (chat Dashboard).*

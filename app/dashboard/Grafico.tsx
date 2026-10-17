@@ -48,6 +48,8 @@ import dynamic from 'next/dynamic';
 import { chipComparar, fmtValor, histograma, OTROS, sinDatos, type FilaResultado, type Resultado } from '@/lib/graficos-agregar';
 import { PAGINA_MINIATURA } from '@/lib/graficos-muestra';
 import { EstilosGraficos } from './graficos/estilos';
+import { ReproductorAnuncio } from './graficos/ReproductorAnuncio';
+import { esTarjetaDeAnuncio } from '@/lib/anuncio-video';
 import { AreaMedida, useMedida, type Tam } from './graficos/medida';
 import { CapaEtiquetas, type SerieEtiqueta } from './graficos/Etiquetas';
 import { Paneles } from './graficos/Paneles';
@@ -155,10 +157,12 @@ function SoloNumero({ r, compacto }: { r: Resultado; compacto: boolean }) {
  * `onDetalle` (opcional): con él, el gráfico es clickeable — ver la cabecera. Quien lo monta lo pasa sólo
  * mirando: editando, un clic selecciona la tarjeta.
  */
-export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; estado: EstadoDatos; tema: TemaHoja; onDetalle?: (sel: SelDetalle) => void; efectivo?: Efectivo }) {
+export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReproductor = false }: { g: G; estado: EstadoDatos; tema: TemaHoja; onDetalle?: (sel: SelDetalle) => void; efectivo?: Efectivo; conReproductor?: boolean }) {
   // Las series apagadas desde la leyenda. Estado de la VISTA: no se guarda en el informe.
   // (Arriba de todo: un hook detrás de un `return` es la pantalla en blanco de AGENTS.md.)
   const [ocultas, setOcultas] = useState<ReadonlySet<string>>(() => new Set());
+  // #860: el anuncio que se está reproduciendo (el ▶ de una tarjeta de anuncio), o null.
+  const [video, setVideo] = useState<{ adId: string; nombre: string } | null>(null);
 
   // El hueco de la ola 2: un tipo con dibujo propio (el mapa de calor de página) recibe todo y dibuja él.
   const Propio = DIBUJOS_PROPIOS[g.tipo];
@@ -364,7 +368,10 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
     const barraEn = conBarra ? r.columnas.findIndex((x) => x.id === conBarra) : -1;
     // Sobre una portada, una lista de PERSONAS (un cliente, un lead, un alumno) lleva el avatar con sus iniciales.
     const personas = !!portada && !!g.dimension && DIMENSIONES_PERSONA.has(g.dimension);
-    if (g.tipo === 'tarjetas') return <Tarjetas r={r} barraEn={barraEn} chips={g.tabla?.columnas ?? []} color={c(0)} compacto={e.compacto} alFila={alFila} personas={personas} />;
+    if (g.tipo === 'tarjetas') {
+      const alReproducir = conReproductor && esTarjetaDeAnuncio(g) ? (adId: string, nombre: string) => setVideo({ adId, nombre }) : undefined;
+      return <Tarjetas r={r} barraEn={barraEn} chips={g.tabla?.columnas ?? []} color={c(0)} compacto={e.compacto} alFila={alFila} personas={personas} alReproducir={alReproducir} />;
+    }
     if (info?.grupo === 'Tabla') {
       const modo = g.tipo === 'tabla_barras' ? 'barras' : g.tipo === 'tabla_calor' ? 'calor' : 'plana';
       return <Tabla r={r} modo={modo} barraEn={barraEn} color={c(0)} menosEsMejor={(i) => menosEsMejor(r.columnas[i]?.id ?? '')} extras={extras} total={g.total} compacto={e.compacto} alFila={alFila} personas={personas} portada={!!portada} />;
@@ -712,7 +719,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
       </AreaMedida>
     );
   })();
-  return <><EstilosGraficos />{cuerpo}</>;
+  return <><EstilosGraficos />{cuerpo}{video && <ReproductorAnuncio adId={video.adId} nombre={video.nombre} onCerrar={() => setVideo(null)} />}</>;
 }
 
 // ── Piezas propias ─────────────────────────────────────────────────────────────────────────

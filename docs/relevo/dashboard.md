@@ -36,6 +36,8 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
   no los bloques (docs/hallazgos-graficos.md).
 - **#859** — la portada y lo relleno de los bloques de General toman el color de «Estilo de la hoja»
   (docs/hallazgos-graficos.md). Va en un commit DESPUÉS de la punta que ya tiene el Cerebro.
+- **#860** — los anuncios ganadores en póster vertical y con ▶ que reproduce el video en la hoja (el `embed_html` del
+  video; la vista previa del anuncio no carga sin sesión de Facebook: docs/hallazgos-ads.md). Sin mirar en un navegador.
 - **Experiments se retiró y vive en el Dashboard:**
   - «probemos X» en «Editar con MaKo» agrega a la hoja un elemento «Experimento» (app/dashboard/ElementoExperimento.tsx):
     propuesta → «Arrancar» (mide el baseline) → antes/ahora en vivo → «Concluir» (veredicto y aprendizaje de MaKo).
@@ -47,8 +49,7 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
 
 ## Lo que falta
 
-- **Lo que sigue del orden del Cerebro (17/10)**: #860 (anuncios
-  ganadores en 9:16 y que se reproduzcan en la hoja; ojo, Meta ya no da `source`), #862 y #896 (un chat de MaKo que
+- **Lo que sigue del orden del Cerebro (17/10)**: #862 y #896 (un chat de MaKo que
   separe analizar de editar; las métricas de los experimentos con ElegirFunnels: la Retro ya no existe), #886 (un solo
   análisis de landing con el Web Generator). El detalle de cada uno, en C:/dev/auditoria-1610.json por su número.
 - **El chat Sidebar** dejó la key `experimentos` viva (ítem sin fila, sección oculta del teléfono), así que las dos
