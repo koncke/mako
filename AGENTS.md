@@ -380,7 +380,9 @@ Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sig
    módulo»: un `.ts` sin `import`/`export` es un script global para `tsc` y choca con otros, runs 51 y 52).
 2. **El `tsc` ACOTADO** de lo que cambiaste **más los que lo importan, un nivel** (un test SIN tocar que llama a la firma
    vieja de lo que cambiaste; en el run 31, un test llamaba con dos argumentos a una firma que pedía uno). Con el mismo lock y el mismo piso de RAM que
-   `typecheck-lock.mjs`: de a un `tsc` por máquina.
+   `typecheck-lock.mjs`: de a un `tsc` por máquina. **Sólo bloquean los errores de esos archivos**: `tsc` compila además lo que
+   importan, y ahí un archivo suelto no ve los tipos que AGREGA otro (`declare module`), así que los de arrastre se muestran y los
+   decide Actions.
 3. **Los tests AFECTADOS** (`scripts/tests-afectados.mjs`), elegidos solos, sin lista a mano:
    - **todas las barredoras**: los que usan `git ls-files`, `git grep`, `readdir`/`glob`, o nombran 20+ archivos. Corren
      SIEMPRE (puente-panel-copy, zona-negocio, progreso, fuentes-sin-next-font): un cambio en cualquier lado las rompe y

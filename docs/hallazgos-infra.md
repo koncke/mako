@@ -6540,7 +6540,16 @@ alcanzar, aunque se cumpliera al pie de la letra:
 - **No hay `gh` ni API de GitHub en esta PC**: las bases de los runs salen de `C:/dev/runs-ci.jsonl` (el Cerebro) guardado en el repo. El
   run 1 no tiene verde anterior: su base es el padre del commit que creó el workflow.
 - **Lo que encontró la primera corrida de verdad**: la punta de Automations SOLA (21 archivos, base = su padre) ya tenía rojo `puente-panel-copy` (voseo de
-  `lib/campanita.ts`) — y otro que nadie había visto, `api-mako-registro` («docs/api-mako.md quedó viejo»), porque es de otra guarda.
+  `lib/campanita.ts`) — y otro que nadie había visto, `api-mako-registro` («docs/api-mako.md quedó viejo»), porque es de otra guarda. Costó
+  **26 min 20 s** en esta PC cargada (388 archivos, 4.590 tests, tres esperas de RAM; la máquina llegó a 0,1 GB libres sin que el script la tocara).
+- **El `tsc` acotado compila también lo que esos archivos importan, y un archivo suelto no ve los tipos que AGREGA otro** (`declare module`,
+  `.d.ts` ambientes). Reproduciendo el run 10 con el tsc REAL salió, además de la bitácora sin `puntos` (TS2741), un TS2339 en
+  `app/web-generator/editor/insertar.ts` («toggleEtiqueta no existe en ChainedCommands») que el tsc completo no da: ese archivo no estaba en
+  el alcance, llegaba por arrastre. Por eso **sólo bloquean los errores de los archivos del alcance**; los de arrastre se muestran y los decide
+  Actions. Reproducidos con el tsc real: run 31 (TS2554 en `crm-campo-inline.test.ts`) y run 10 (TS2741).
+- **La profundidad del grafo casi no ahorra**: con 120 archivos cambiados, 457 tests con todos los saltos, 356 con `--profundidad 1`. Lo grande
+  son las barredoras (110-150) y los que nombran un archivo: la palanca existe (`--profundidad N`, y el VERDE pasa a `PARCIAL`), pero no es la que
+  acorta la espera.
 
 **Lo que NO cubre** (y por qué Actions sigue corriendo todo):
 - Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y
@@ -6548,6 +6557,9 @@ alcanzar, aunque se cumpliera al pie de la letra:
 - Un test que arma la ruta con una interpolación (`` `lib/${x}.ts` ``) y no importa ni nombra: no sale por esa vía (sí si barre).
 - Los errores de tipos que aparecen a DOS saltos del cambio (el `tsc` acotado sólo suma quienes lo importan, un nivel).
 - Diferencias de Linux contra Windows: sólo las ve Actions.
+- Una barredora ESCONDIDA en un ayudante que el test importa (hoy ningún `tests/_*.ts` barre, pero un test nuevo podría importar uno que sí): se
+  detecta por el texto del test, no por el de sus imports.
+- Tests que arman un repo de git propio con `git init` bajo el `GIT_INDEX_FILE` temporal (hoy ninguno): el índice del script se les cruzaría.
 
 **Quedó SIN hacer:**
 - Instalar el pre-push nuevo en `.git/hooks` (`scripts/claude-hooks/pre-push`): lo comparten todos los chats, espera el visto del Cerebro.
@@ -6555,9 +6567,9 @@ alcanzar, aunque se cumpliera al pie de la letra:
   pero el hook de Claude no lo frena al lanzarlo (y es infraestructura compartida: se avisa antes).
 - Qué hacer con los 2.000 minutos: la decisión `minutos-github-actions` (A: tarjeta y tope en GitHub, B: runner propio, C: nada) la
   contesta Martín en la Ticketera; «fallar rápido» baja el gasto en las tres.
-- Una punta que toca un módulo central (`lib/flujo-conversacion`, `lib/nutricion`…) elige 300-450 tests: ~12 min en esta PC con la RAM
-  apretada. Si molesta, la palanca es una bandera que deje afuera los importadores transitivos de segundo grado (no se hizo: el pedido era
-  transitivo, y en el replay hay un rojo que sólo sale así: `agenda-whatsapp`, run 53).
+- Una punta que toca un módulo central (`lib/flujo-conversacion`, `lib/nutricion`…) elige 300-450 tests: 12-26 min en esta PC con la RAM
+  apretada. `--profundidad N` casi no lo baja (ver arriba); lo que lo bajaría es afinar qué cuenta como barredora (95 tests hacen `readdir`,
+  muchos de una carpeta chica) — no se hizo: cada test que se saque de ahí es un riesgo que el replay no mide.
 
 **Vive en:** `scripts/tests-afectados.mjs` · `scripts/antes-de-subir.mjs` · `scripts/modulos-ts.mjs` · `scripts/replay-fallos-ci.mjs` ·
 `docs/fallos-ci-integracion.jsonl` · `.github/workflows/integracion.yml` · `scripts/claude-hooks/pre-push` · `tests/tests-afectados.test.ts`

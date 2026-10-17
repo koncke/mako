@@ -161,9 +161,23 @@ async function correrTsc(alcance, out) {
       const v = veredicto(r.error ? null : r.status, salida);
       if (v === 'ok') { out(`  ✔ tipos de ${alcance.length} archivos (los cambiados y quienes los importan) sin errores · ${min(Date.now() - t0)} · heap ${heap} MB`); return { ok: true }; }
       if (v === 'errores') {
+        // ⚠️ SÓLO BLOQUEAN los errores de los archivos DEL ALCANCE (lo cambiado y quienes lo importan). tsc también compila todo lo que
+        // esos archivos importan, y ahí un archivo suelto no ve los tipos que AGREGA otro (`declare module`, `.d.ts` ambientes):
+        // medido el 17/10/2026 al reproducir el run 10, `insertar.ts` (TipTap) daba TS2339 que el tsc completo no da. Esos errores
+        // se muestran pero no frenan: los decide el tsc completo de Actions. Un cambio que rompe a un importador DIRECTO sí frena.
+        const delAlcance = new Set(alcance);
         const errores = salida.split('\n').filter((l) => /error TS\d+/.test(l));
-        out(errores.slice(0, 30).join('\n') + (errores.length > 30 ? `\n  …y ${errores.length - 30} más` : ''));
-        return { ok: false, porque: `tipos: ${errores.length} errores (${[...new Set(errores.map((l) => l.split('(')[0]))].slice(0, 3).join(', ')})` };
+        const archivoDe = (l) => l.split('(')[0].replace(/\\/g, '/');
+        const propios = errores.filter((l) => delAlcance.has(archivoDe(l)));
+        const porArrastre = errores.length - propios.length;
+        if (propios.length === 0) {
+          out(`  ✔ tipos de ${alcance.length} archivos sin errores · ${min(Date.now() - t0)} · heap ${heap} MB`);
+          out(`  ℹ ${porArrastre} error(es) en archivos que sólo se compilan por arrastre (no frenan; los decide el tsc de Actions): ${[...new Set(errores.map(archivoDe))].slice(0, 3).join(', ')}`);
+          return { ok: true };
+        }
+        out(propios.slice(0, 30).join('\n') + (propios.length > 30 ? `\n  …y ${propios.length - 30} más` : ''));
+        if (porArrastre) out(`  ℹ y ${porArrastre} más en archivos que sólo se compilan por arrastre (no cuentan acá)`);
+        return { ok: false, porque: `tipos: ${propios.length} errores (${[...new Set(propios.map(archivoDe))].slice(0, 3).join(', ')})` };
       }
       return { ok: false, sinRam: true, porque: `tsc acotado: no terminó (código ${r.status ?? r.error?.message}, ${salida.length} bytes): lo mató el vigía de RAM o se quedó sin heap — no es un error de tipos` };
     } finally { rmSync(dir, { recursive: true, force: true }); }

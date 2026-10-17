@@ -312,9 +312,10 @@ export function motivoPrincipal(razones) {
  * llamaba con 2 argumentos a una firma que pedía 1). tsc suma solo lo que esos archivos importan.
  *
  * ⚠️ Y los archivos que AUMENTAN tipos (`declare module '…'` / `declare global`) de la misma carpeta de primer nivel
- * (`app/web-generator/…`): un archivo compilado SOLO no ve el tipo que agrega otro. Medido el 17/10/2026 al reproducir el
- * run 10 con el tsc real: sin esto, `insertar.ts` daba TS2339 («toggleEtiqueta no existe en ChainedCommands») que el tsc
- * completo no da — la limitación que scripts/tsc-acotado.mjs ya avisaba, y que hacía un ROJO que Actions no iba a dar.
+ * (`app/web-generator/…`): un archivo compilado SOLO no ve el tipo que agrega otro (la limitación que scripts/tsc-acotado.mjs ya
+ * avisaba: `insertar.ts` da TS2339 «toggleEtiqueta no existe en ChainedCommands» si `extensiones/marcas.ts` no está en la lista).
+ * Cuando el archivo suelto NO está en el alcance sino que llega por arrastre, no alcanza con esto: ahí los errores no bloquean
+ * (scripts/antes-de-subir.mjs → correrTsc). Medido el 17/10/2026 reproduciendo el run 10 con el tsc real.
  */
 export function alcanceTsc({ cambiados, archivos, importadoPor, aumentan = new Set() }) {
   const existentes = new Set(archivos);
