@@ -49,4 +49,21 @@ export const BITACORA: Hito[] = [
       'lib/api-mako/areas/chats.def.ts', 'lib/api-mako/areas/chats.run.ts', 'lib/mako-intencion.ts', 'tests/chats-registro.test.ts',
     ],
   },
+  {
+    fecha: '17 oct', hora: '06:20', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Email y WhatsApp se unifican en Chats',
+    pedido: "Quiero también eliminar las tabs de \"Email y WhatsApp\" y unificarlo todo en \"Chats\", y que por favor te asegures de que todo funcione bien...",
+    puntos: ['Llegó por el Cerebro con la sidebar nueva: el jefe «Sidebar» lleva la unificación.'],
+  },
+  {
+    fecha: '17 oct', hora: '10:50', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Chats es la única tab de conversaciones, y el email es un canal más',
+    puntos: [
+      'WhatsApp y Email salen de la barra. Sus páginas siguen (conectar números; dominio, secuencias y envíos) y se entra desde Chats: el «+» de Canales y el pie de la Bandeja.',
+      'El email entra a la bandeja: lo que llega (con su cuerpo y sus adjuntos) y lo que se contesta, en el hilo del cliente de correo y con el remitente del negocio. Con lead, en la misma conversación que su WhatsApp e Instagram.',
+      'Para que llegue un email hace falta prender «Receiving» en Resend y el MX del dominio del negocio.',
+    ],
+    archivos: ['lib/chats-email.ts', 'lib/chats-email-reglas.ts', 'app/api/chats/email/route.ts', 'supabase/migrations/0312_email_mensajes.sql', 'app/chats/Composer.tsx', 'tests/chats-email.test.ts'],
+    revisar: '/chats',
+  },
 ];
