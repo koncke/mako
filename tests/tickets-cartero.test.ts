@@ -49,7 +49,7 @@ test('la vuelta reclama, acusa y devuelve los tickets; `hay` los cuenta sólo pa
   const op = sinComentarios(leer('lib/operaciones.ts'));
   assert.match(op, /tickets = await ticketsParaElCartero\(version, chats, new Set\(vivos\), ahoraIso\)/);
   assert.match(op, /acuses \+= await acusarTicket\(a, ahoraIso\)/);
-  assert.match(op, /return \{[^}]*\btickets, ticketsError \}/);
+  assert.match(op, /return \{ pedidos, avisos, avisosError, tickets, ticketsError, /);
   assert.match(op, /const conCerebro = \(filas \?\? \[\]\)\.some\(\(f\) => versionAlMenos\(f\.version as string \| null, VERSION_CARTERO_TICKETS\)/);
   assert.match(op, /if \(conCerebro\) n \+= await ticketsSinEntregar\(\);/);
   // Y lo que reclama la vuelta también mira la versión (lib/tickets-runner.ts).

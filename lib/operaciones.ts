@@ -446,5 +446,5 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     ticketsError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds, tickets, ticketsError };
+  return { pedidos, avisos, avisosError, tickets, ticketsError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
 }
