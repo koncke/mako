@@ -343,14 +343,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_comentarios_clase_comunidad', area: 'comunidad', tipo: 'lectura',
     titulo: 'Ver los comentarios de una clase',
-    descripcion: 'El hilo de comentarios de una clase del curso (dos niveles), si está cerrado, su postId (null = nadie comentó todavía) y si el curso tiene los comentarios de las clases prendidos (apagados, los alumnos no los ven). Para responder, likear, editar o borrar dentro del hilo se usan las de post y comentario con ese postId.',
+    descripcion: 'El hilo de comentarios de una clase del curso (dos niveles), si está cerrado, su postId (null = nadie comentó todavía) y si esa clase tiene los comentarios prendidos (apagados, los alumnos no los ven). Para responder, likear, editar o borrar dentro del hilo se usan las de post y comentario con ese postId.',
     parametros: [claseId],
     salida: 'json', canales: HTTP, costo: 'gratis', gating: GATING,
   },
   {
     id: 'comentar_clase_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Comentar una clase',
-    descripcion: `Comenta una clase del curso en el primer nivel: si es el primer comentario abre su hilo (y quien lo abre lo sigue). Para responder dentro del hilo, comentar_post_comunidad con su postId y responderA. Con los comentarios de las clases apagados se comenta igual y ningún alumno lo ve. ${FIRMA} Devuelve \`datos.comentarioId\` y \`datos.postId\`.`,
+    descripcion: `Comenta una clase del curso en el primer nivel: si es el primer comentario abre su hilo (y quien lo abre lo sigue). Para responder dentro del hilo, comentar_post_comunidad con su postId y responderA. Con los comentarios de esa clase apagados se comenta igual y ningún alumno lo ve. ${FIRMA} Devuelve \`datos.comentarioId\` y \`datos.postId\`.`,
     parametros: [
       fijo(claseId),
       { nombre: 'cuerpo', tipo: 'string', obligatorio: true, max: TOPE_COMENTARIO, descripcion: `el texto (hasta ${TOPE_COMENTARIO} letras).` },

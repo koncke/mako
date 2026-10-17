@@ -53,7 +53,7 @@ import { sanearEvento, esZonaValida, textoRecurrencia, leerFecha, rangoDeCalenda
 import { getEstadoTab, tabOnboardingDef } from '@/lib/tab-onboarding-state';
 import { claseDeId } from '@/lib/curso-datos';
 import { estilosLeidos } from '@/lib/curso-estilo-datos';
-import { comentariosPrendidos } from '@/lib/curso-estilo';
+import { comentariosDeClase } from '@/lib/curso-estilo';
 import { modulosDelCurso } from '@/lib/curso-modulos-datos';
 import { DURACION_DEFAULT_API } from './comunidad.def';
 import {
@@ -704,11 +704,11 @@ export const RUNNERS: Runners = {
       if (!r.ok) return fallo(r.error);
       return J({
         claseId: id, clase: cl.titulo, productoId: cl.productoId, postId: r.hilo.postId, cerrado: r.hilo.cerrado,
-        comentarios_prendidos: est.error ? null : comentariosPrendidos(est.estilos.get(cl.productoId)),
+        comentarios_prendidos: est.error ? null : comentariosDeClase(est.estilos.get(cl.productoId), id),
         hilo: r.hilo.hilo.map(comentarioPublico),
         notas: [
           'postId null = nadie comentó todavía: comentar_clase_comunidad abre el hilo.',
-          'comentarios_prendidos false = los alumnos no ven los comentarios de las clases (se prende en el menú de la marca del curso); null = no se pudo leer.',
+          'comentarios_prendidos false = los alumnos no ven los comentarios de ESTA clase (se prenden en el «…» de la clase); null = no se pudo leer.',
         ],
       });
     },
@@ -726,10 +726,10 @@ export const RUNNERS: Runners = {
       const f = await firmaAlProponer(ctx);
       if ('error' in f) return f;
       const est = await estilosLeidos([cl.productoId]);
-      const apagados = !est.error && !comentariosPrendidos(est.estilos.get(cl.productoId));
+      const apagados = !est.error && !comentariosDeClase(est.estilos.get(cl.productoId), id);
       return {
         payload: { claseId: id, productoId: cl.productoId, cuerpo: input.cuerpo, ...(Array.isArray(input.menciones) ? { menciones: input.menciones } : {}) },
-        resumen: `Comentar la clase «${cl.titulo}», ${comoFirma(f.firma)}: «${corto(v.cuerpo)}».${apagados ? ' Ojo: el curso tiene los comentarios de las clases apagados, así que ningún alumno lo va a ver.' : ''}`,
+        resumen: `Comentar la clase «${cl.titulo}», ${comoFirma(f.firma)}: «${corto(v.cuerpo)}».${apagados ? ' Ojo: esa clase tiene los comentarios apagados, así que ningún alumno lo va a ver.' : ''}`,
       };
     }),
     ejecutar: sinLanzar('comentar la clase', async (pl, ctx) => {

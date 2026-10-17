@@ -15456,7 +15456,7 @@ curl -L \
 
 ### `GET /api/v1/comunidad/clases/{claseId}/comentarios` — Ver los comentarios de una clase
 
-El hilo de comentarios de una clase del curso (dos niveles), si está cerrado, su postId (null = nadie comentó todavía) y si el curso tiene los comentarios de las clases prendidos (apagados, los alumnos no los ven). Para responder, likear, editar o borrar dentro del hilo se usan las de post y comentario con ese postId.
+El hilo de comentarios de una clase del curso (dos niveles), si está cerrado, su postId (null = nadie comentó todavía) y si esa clase tiene los comentarios prendidos (apagados, los alumnos no los ven). Para responder, likear, editar o borrar dentro del hilo se usan las de post y comentario con ese postId.
 
 - **Ruta por operación:** `GET /api/v1/comunidad/ver_comentarios_clase_comunidad`
 - **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
@@ -15479,7 +15479,7 @@ curl -L \
 
 ### `POST /api/v1/comunidad/clases/{claseId}/comentarios` — Comentar una clase
 
-Comenta una clase del curso en el primer nivel: si es el primer comentario abre su hilo (y quien lo abre lo sigue). Para responder dentro del hilo, comentar_post_comunidad con su postId y responderA. Con los comentarios de las clases apagados se comenta igual y ningún alumno lo ve. Se publica FIRMADO por la persona del equipo que lo confirma en MaKo (o la que creó el token): sin una persona, no se publica. Devuelve `datos.comentarioId` y `datos.postId`.
+Comenta una clase del curso en el primer nivel: si es el primer comentario abre su hilo (y quien lo abre lo sigue). Para responder dentro del hilo, comentar_post_comunidad con su postId y responderA. Con los comentarios de esa clase apagados se comenta igual y ningún alumno lo ve. Se publica FIRMADO por la persona del equipo que lo confirma en MaKo (o la que creó el token): sin una persona, no se publica. Devuelve `datos.comentarioId` y `datos.postId`.
 
 - **Ruta por operación:** `POST /api/v1/comunidad/comentar_clase_comunidad`
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
