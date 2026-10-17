@@ -4091,3 +4091,28 @@ después, y la mitad es lo contrario de lo que se suponía.
   `checkCronAuth`), y todo `/api/cron` es público por prefijo. Quedó como tarea aparte.
 
 *14/10/2026, cuenta 2 (claude2), chat «Ads Manager», relevamiento `wf_2c9a91f5-f46`.*
+
+## El pop-up del anuncio con el período «Todo»: Meta guarda 37 meses y un `since` más viejo es un ERROR (17/10/2026)
+
+**Síntoma (#876, llamada Mau <> Martín del 16/10, 53:01):** Martín crea la hoja Ads Analyst en el ws1, abre un anuncio
+ganador de la portada y dice que algunos datos los trae y otros no los está leyendo. El video y el guion
+estaban; los números, el diario y la audiencia, no.
+
+**Lo obvio era mirar la hoja, y la hoja estaba bien:** medidos los 13 gráficos de la plantilla contra el ws1 con el lector
+de verdad, todos traen dato (89 guiones, hook rate 32 %, costo por agenda US$76). Lo que fallaba era el POP-UP: lee a
+Meta en vivo (`/api/ad-insights`) con el período del gráfico que lo abrió, y Ads Analyst va con «Todo», que arranca el
+2020-01-01. Meta contesta `#3018 The start date of the time range cannot be beyond 37 months` (medido el 17/10 con un
+anuncio del ws1: desde 2023-09-18 contesta, desde 2023-09-16 no). El creativo y el guion salen de nuestra base: por eso
+«algunos datos sí».
+
+- La regla ya existía para los gráficos de audiencia (`desdeQueGuardaMeta`, desde el 11/10), pero vivía adentro de
+  lib/graficos-audiencia.ts y las otras tres lecturas con período libre la ignoraban: /api/ad-insights,
+  /api/entity-insights (campaña o conjunto) y lib/meta-desgloses.ts (los desgloses de la cuenta del Ads Manager).
+- Ahora vive en **lib/meta-rango.ts** (`timeRangeMeta`) y tests/meta-rango.test.ts barre TODO `time_range` del repo:
+  uno armado a mano falla. La única excepción es la sincronización diaria (lib/meta-ads.ts pide un día).
+- El total con «Todo» es el de lo que Meta guarda (37 meses), no el histórico: más atrás no hay nada que traer.
+
+**Nadie lo miró en pantalla.** Después del deploy: ws1, una hoja Ads Analyst, clic en un anuncio de «Tus anuncios
+ganadores»: tienen que aparecer los números, el diario y la audiencia.
+**Vive en:** lib/meta-rango.ts · app/api/ad-insights/route.ts · app/api/entity-insights/route.ts · lib/meta-desgloses.ts.
+*17/10/2026, claude4 (chat Dashboard).*

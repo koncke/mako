@@ -13,6 +13,7 @@ import type { NextRequest } from 'next/server';
 import { conversorGastoMeta } from '@/lib/moneda-meta';
 import { getTenantDb } from '@/lib/workspace';
 import { credWs, integracionConectada } from '@/lib/credenciales';
+import { timeRangeMeta } from '@/lib/meta-rango';
 // Sólo quien administra el workspace: gasto y entrega de Meta en vivo (ver /api/meta-health).
 import { guardAdsWs } from '@/lib/ads-guard';
 
@@ -66,7 +67,9 @@ export async function GET(req: NextRequest) {
   const token = await credWs('META_ACCESS_TOKEN'); // token del workspace actual (dueño=env, cliente=su fila)
   if (!ver || !token) return Response.json({ error: 'Meta no configurado' }, { status: 500 });
 
-  const timeRange = JSON.stringify({ since: desde, until: hasta });
+  // Meta guarda 37 meses: con el período «Todo» de una hoja (desde 2020) contestaba #3018 y el pop-up del anuncio se
+  // quedaba sin números, diario ni audiencia (lib/meta-rango.ts).
+  const timeRange = timeRangeMeta(desde, hasta);
 
   // Helper: una llamada a insights del anuncio (opcionalmente con breakdown o diario).
   async function insights(fields: string, opts: { breakdowns?: string; daily?: boolean } = {}) {

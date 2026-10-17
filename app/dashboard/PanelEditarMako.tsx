@@ -56,7 +56,8 @@ const TOPE_CLIENTE_MS = 125_000;
 const ALTO_CAJA = 160;
 
 /** Los pedidos de ejemplo del panel vacío: genéricos (AGENTS.md: un ejemplo de pantalla es ficticio por regla). */
-export const SUGERENCIAS_DASHBOARD = ['Agrega los leads por semana', 'Pon arriba lo cobrado del mes', 'Quita el último gráfico'] as const;
+// 17/10/2026: «Probemos…» es Experiments, que se mudó acá (lib/experimentos-catalogo.ts): el ejemplo enseña que existe.
+export const SUGERENCIAS_DASHBOARD = ['Agrega los leads por semana', 'Pon arriba lo cobrado del mes', 'Probemos un anuncio con testimonio'] as const;
 export const SUGERENCIAS_GENERAL = ['Agrega mis tareas prioritarias', 'Pon arriba lo cobrado del mes', 'Agrega Mi día'] as const;
 
 const lista = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : []);
@@ -70,7 +71,7 @@ function historialDe(hilo: readonly MensajeEdicion[]): TurnoEdicion[] {
   }).slice(-TURNOS_IA);
 }
 
-export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplicar, onDeshacer, onCrearHoja, onAbrirHoja, onArchivarHoja, onCerrar }: {
+export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplicar, onDeshacer, onCrearHoja, onAbrirHoja, onArchivarHoja, onCerrar, textoInicial = '' }: {
   /** La hoja abierta. */
   hoja: Hoja;
   informe: 'dashboard' | 'general';
@@ -90,8 +91,10 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   /** Archiva otra hoja del informe (`eliminarHoja`: queda en Archivados, con su Deshacer). Ya confirmado. */
   onArchivarHoja: (id: string) => void;
   onCerrar: () => void;
+  /** Lo que la caja trae escrito al abrir (un link viejo de /experimentos con su hipótesis: «Probemos: …»). */
+  textoInicial?: string;
 }) {
-  const [texto, setTexto] = useState('');
+  const [texto, setTexto] = useState(textoInicial);
   /** Desde cuándo piensa MaKo (null = no piensa). */
   const [desde, setDesde] = useState<number | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());

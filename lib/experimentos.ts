@@ -27,6 +27,7 @@ import { getPromptText, renderPrompt } from './prompt-render';
 import { getMarketingWindow, type MarketingWindow } from './queries';
 import { hoyEnTijuana, ayerEnTijuana, diasAntes } from './date-utils';
 import { fmtUSD, fmtNum } from './format';
+import { METRICAS_EXPERIMENTO, type KeyMetricaExperimento, type MetricaExperimento } from './experimentos-catalogo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -120,60 +121,37 @@ export type Propuesta = {
 // cómo se formatea/qué dirección es "mejor" por defecto. La dirección final la
 // fija el experimento (la hipótesis manda), no el default.
 
-type MetricaDef = {
-  key: string;
-  label: string;
-  formato: Formato;
-  mejor: Direccion;        // dirección natural de mejora (sugerencia)
-  desc: string;            // descripción para el prompt de MaKo
-  extraer: (w: MarketingWindow) => number | null;
-};
+type MetricaDef = MetricaExperimento & { extraer: (w: MarketingWindow) => number | null };
 
 const safeDiv = (a: number | null, b: number | null): number | null =>
   a != null && b != null && b > 0 ? a / b : null;
 
-export const METRICAS: MetricaDef[] = [
-  { key: 'cpl', label: 'Costo por vista de landing', formato: 'usd', mejor: 'bajar',
-    desc: 'spend ÷ vistas de landing', extraer: (w) => w.cpl_global },
-  { key: 'cp_form', label: 'Costo por formulario', formato: 'usd', mejor: 'bajar',
-    desc: 'spend ÷ formularios completados', extraer: (w) => safeDiv(w.spend_usd, w.leads_count) },
-  { key: 'cpc', label: 'Costo por clic', formato: 'usd', mejor: 'bajar',
-    desc: 'spend ÷ clics', extraer: (w) => w.cpc_global },
-  { key: 'cpm', label: 'CPM (costo por mil impresiones)', formato: 'usd', mejor: 'bajar',
-    desc: 'spend ÷ impresiones × 1000', extraer: (w) => w.cpm_global },
-  { key: 'cpa', label: 'Costo por agenda', formato: 'usd', mejor: 'bajar',
-    desc: 'spend ÷ agendas', extraer: (w) => safeDiv(w.spend_usd, w.reuniones_en_ventana) },
-  { key: 'cac', label: 'CAC (costo por cierre)', formato: 'usd', mejor: 'bajar',
-    desc: 'spend ÷ cierres en la ventana', extraer: (w) => w.cac },
-  { key: 'ctr', label: 'CTR', formato: 'pct', mejor: 'subir',
-    desc: 'clics ÷ impresiones (%)', extraer: (w) => w.ctr_global },
-  { key: 'tasa_landing', label: 'Tasa impresión → landing', formato: 'pct', mejor: 'subir',
-    desc: 'vistas de landing ÷ impresiones (%)', extraer: (w) => pct(w.landing_page_views, w.impressions) },
-  { key: 'tasa_form', label: 'Tasa clic → formulario', formato: 'pct', mejor: 'subir',
-    desc: 'formularios ÷ clics al enlace (%)', extraer: (w) => pct(w.leads_count, w.link_clicks) },
-  { key: 'tasa_agenda', label: 'Tasa formulario → agenda', formato: 'pct', mejor: 'subir',
-    desc: 'agendas ÷ formularios (%)', extraer: (w) => pct(w.reuniones_en_ventana, w.leads_count) },
-  { key: 'impressions', label: 'Impresiones', formato: 'num', mejor: 'subir',
-    desc: 'impresiones servidas (Meta)', extraer: (w) => w.impressions },
-  { key: 'landing_page_views', label: 'Vistas de landing', formato: 'num', mejor: 'subir',
-    desc: 'vistas de landing (Meta Pixel)', extraer: (w) => w.landing_page_views },
-  { key: 'leads_count', label: 'Formularios completados', formato: 'num', mejor: 'subir',
-    desc: 'instant forms completados (Meta)', extraer: (w) => w.leads_count },
-  // ⚠️ La `key` NO se toca: viaja a la columna `experimentos.metrica` (mig 0047)
-  // y renombrarla deja huérfano a todo experimento ya guardado. Lo que sí se
-  // corrigió es la `desc`, que es lo ÚNICO que lee MaKo para decidir: decía
-  // «fecha de agenda» y el número sale de `fecha_junta_1`.
-  { key: 'agendamientos', label: 'Agendas', formato: 'num', mejor: 'subir',
-    desc: 'reuniones con fecha en la ventana (leads con fecha_junta_1 en rango)', extraer: (w) => w.reuniones_en_ventana },
-  { key: 'vsl_views', label: 'Vistas de VSL', formato: 'num', mejor: 'subir',
-    desc: 'vistas del VSL (YouTube)', extraer: (w) => w.vsl_views },
-  { key: 'cierres', label: 'Cierres', formato: 'num', mejor: 'subir',
-    desc: 'cierres por fecha de cierre en la ventana', extraer: (w) => w.cierres_en_ventana },
-  { key: 'spend_usd', label: 'Inversión', formato: 'usd', mejor: 'bajar',
-    desc: 'gasto en Meta en la ventana', extraer: (w) => w.spend_usd },
-];
+// El catálogo (key, label, formato, dirección y la desc que lee MaKo) vive en lib/experimentos-catalogo.ts, que es puro
+// (lo leen la IA de la hoja y la pantalla). Acá, cómo sale cada una de la ventana de marketing. `Record<Key, …>` es el
+// guard: una métrica nueva en el catálogo sin su extractor no compila.
+const EXTRAER: Record<KeyMetricaExperimento, (w: MarketingWindow) => number | null> = {
+  cpl: (w) => w.cpl_global,
+  cp_form: (w) => safeDiv(w.spend_usd, w.leads_count),
+  cpc: (w) => w.cpc_global,
+  cpm: (w) => w.cpm_global,
+  cpa: (w) => safeDiv(w.spend_usd, w.reuniones_en_ventana),
+  cac: (w) => w.cac,
+  ctr: (w) => w.ctr_global,
+  tasa_landing: (w) => pct(w.landing_page_views, w.impressions),
+  tasa_form: (w) => pct(w.leads_count, w.link_clicks),
+  tasa_agenda: (w) => pct(w.reuniones_en_ventana, w.leads_count),
+  impressions: (w) => w.impressions,
+  landing_page_views: (w) => w.landing_page_views,
+  leads_count: (w) => w.leads_count,
+  agendamientos: (w) => w.reuniones_en_ventana,
+  vsl_views: (w) => w.vsl_views,
+  cierres: (w) => w.cierres_en_ventana,
+  spend_usd: (w) => w.spend_usd,
+};
 
-const META_BY_KEY = new Map(METRICAS.map((m) => [m.key, m] as const));
+export const METRICAS: MetricaDef[] = METRICAS_EXPERIMENTO.map((m) => ({ ...m, extraer: EXTRAER[m.key] }));
+
+const META_BY_KEY = new Map<string, MetricaDef>(METRICAS.map((m) => [m.key, m] as const));
 
 function pct(a: number | null, b: number | null): number | null {
   const r = safeDiv(a, b);
@@ -349,6 +327,30 @@ export async function getExperimentosView(): Promise<ExperimentosView> {
       validadas: cerrados.filter((e) => e.veredicto === 'validada').length,
     },
   };
+}
+
+/**
+ * Un experimento con su medición en vivo: lo que dibuja el elemento «Experimento» de la hoja
+ * (app/dashboard/ElementoExperimento.tsx). Sólo se mide el activo; el cerrado ya guardó su baseline, su resultado y su
+ * serie. `null` = no existe en este negocio (el elemento lo dice, no se cae).
+ */
+export async function experimentoConMedicion(id: number): Promise<ExperimentoConMedicion | null> {
+  const e = await getExperimento(id);
+  if (!e) return null;
+  return { ...e, medicion: e.estado === 'activo' ? await medir(e).catch(() => null) : null };
+}
+
+/**
+ * El experimento que se arrancó desde ESTE elemento de una hoja (`config.elemento`, que pone la ruta al arrancar). Así
+ * la hoja no se escribe al arrancar —se arranca MIRANDO la hoja, no editándola— y el elemento sigue siendo la propuesta:
+ * lo que cambia es que ahora tiene un experimento en la base. `null` = todavía nadie lo arrancó.
+ */
+export async function experimentoDeElemento(elemento: string): Promise<ExperimentoConMedicion | null> {
+  const supabase = (await getTenantDb());
+  const { data, error } = await supabase.from('experimentos').select('id')
+    .eq('config->>elemento', elemento).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(`experimentoDeElemento: ${error.message}`);
+  return data ? experimentoConMedicion(Number((data as { id: number }).id)) : null;
 }
 
 /** Datos mínimos para crear/arrancar un experimento. */

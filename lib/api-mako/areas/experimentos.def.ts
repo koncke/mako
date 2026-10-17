@@ -6,7 +6,8 @@
 // lo importan los tests y el generador de la referencia. Los cuerpos van en
 // experimentos.run.ts, cruzados por id. Español neutro (lo lee el cliente).
 //
-// Qué hay en esta área (tab Experiments, /experimentos):
+// Qué hay en esta área (desde el 17/10/2026 sin tab propia: un experimento es un elemento «Experimento» de una hoja
+// del Dashboard, que propone «Editar con MaKo» — app/api/experimentos/route.ts; /experimentos sólo redirige):
 //   · Experimentos: una hipótesis se vuelve medible (métrica del catálogo, dirección,
 //     ventana, baseline) y al cerrar MaKo dicta veredicto y deja el aprendizaje.
 //   · Conclusiones: las verdades del negocio (experimentos cerrados con veredicto).
@@ -14,11 +15,10 @@
 //     descartar / deshacer cada item), más el gate del Perro Guardián.
 //
 // Decisiones:
-//   · Generar una Retro NO entra (8 fases de IA, minutos, stream NDJSON, y el gate
-//     del Perro vive inline en app/api/retro/route.ts): se corre desde la tab. Por
-//     eso tampoco entra debatir el gate: su «deja» no destraba nada fuera de esa
-//     ruta, que vuelve a debatir con su propio motivo. Sí entran leer los reportes,
-//     el plan, el seguimiento y el estado del gate.
+//   · Generar una Retro NO entra, y desde el 17/10/2026 no se genera en ningún lado:
+//     la tab y app/api/retro (su único llamador) se retiraron con Experiments. Tampoco
+//     entra debatir el gate. Sí entran leer los reportes viejos, el plan, el
+//     seguimiento y el estado del gate.
 //   · Crear un experimento es `pantalla` (varios campos libres y una métrica que un
 //     modelo puede transcribir mal; al arrancar fija baseline y fechas). Iniciar /
 //     cerrar / descartar uno YA identificado por id son `chat`, y el runner vuelve a
@@ -30,8 +30,9 @@
 //   · Las métricas son del funnel GLOBAL de la cuenta (no por anuncio ni campaña),
 //     los montos salen en USD convertidos desde MXN con un tipo de cambio fijo, y
 //     las fechas se anclan a America/Tijuana. Va dicho en cada salida.
-//   · Rol: la página /experimentos hace requireRolWs([]) (solo el ADMIN del
-//     workspace; un closer o setter rebota). `gating.tab` mira la CAPA del workspace,
+//   · Rol y capa: /api/experimentos pide soloAdminDeTab('graphics') (el ADMIN del
+//     workspace con el Dashboard en su capa), así que la tab del gating es `graphics`
+//     desde el 17/10/2026 (antes `experimentos`, la key de la tab retirada). `gating.tab` mira la CAPA del workspace,
 //     no el rol de la persona, así que TODO lo del área lleva además
 //     `rolMinimo: 'admin'` (TAB_ADMIN) para replicar esa pantalla: cerrar un
 //     experimento vuelve verdad un veredicto, aceptar un item crea experimentos y
@@ -50,8 +51,8 @@
 
 import type { OperacionDef, Parametro } from '../tipos';
 
-const TAB = { tab: 'experimentos' } as const;
-const TAB_ADMIN = { tab: 'experimentos', rolMinimo: 'admin' } as const;
+const TAB = { tab: 'graphics' } as const;
+const TAB_ADMIN = { tab: 'graphics', rolMinimo: 'admin' } as const;
 const CANALES_TODOS = ['whatsapp', 'app', 'http'] as const;
 
 /** Las 17 keys del catálogo METRICAS de lib/experimentos.ts. Son contrato de base
@@ -98,7 +99,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'vista_experimentos', area: 'experimentos', tipo: 'lectura',
     titulo: 'Tablero de experimentos en vivo',
-    descripcion: 'La vista de la tab Experiments: los ACTIVOS con medición en vivo contra el dato real (baseline comparable, valor actual, delta %, si va en la dirección de éxito, días corridos de total), los propuestos sin arrancar, los cerrados con su veredicto y los descartados, con contadores. Úsalo para «¿cómo van mis experimentos?». Es más lenta que listar_experimentos: mide cada activo por tramos. No trae la serie por tramo (para eso, medicion_experimento).',
+    descripcion: 'Todos los experimentos (desde el 17/10/2026 viven en el Dashboard: se piden con «probemos…» en «Editar con MaKo»): los ACTIVOS con medición en vivo contra el dato real (baseline comparable, valor actual, delta %, si va en la dirección de éxito, días corridos de total), los propuestos sin arrancar, los cerrados con su veredicto y los descartados, con contadores. Úsalo para «¿cómo van mis experimentos?». Es más lenta que listar_experimentos: mide cada activo por tramos. No trae la serie por tramo (para eso, medicion_experimento).',
     parametros: [],
     salida: 'json', canales: CANALES_TODOS, costo: 'gratis', gating: TAB_ADMIN, lenta: true,
   },
@@ -112,7 +113,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_conclusiones_experimentos', area: 'experimentos', tipo: 'lectura',
     titulo: 'Conclusiones: las verdades del negocio',
-    descripcion: 'Los experimentos CERRADOS con su veredicto (validada / refutada / no_concluyente), el aprendizaje redactado con el número adentro, baseline y resultado con su unidad, y fechas. Es la tab Conclusions. Úsalo para «¿qué ya probamos?», «¿qué se refutó?» o «¿qué quedó no concluyente y valdría reintentar?». A diferencia de estado_experimentos, incluye TODOS los veredictos.',
+    descripcion: 'Los experimentos CERRADOS con su veredicto (validada / refutada / no_concluyente), el aprendizaje redactado con el número adentro, baseline y resultado con su unidad, y fechas. Úsalo para «¿qué ya probamos?», «¿qué se refutó?» o «¿qué quedó no concluyente y valdría reintentar?». A diferencia de estado_experimentos, incluye TODOS los veredictos.',
     parametros: [
       { nombre: 'veredicto', tipo: 'string', enum: ['validada', 'refutada', 'no_concluyente'], descripcion: 'Filtra por veredicto. Sin esto, trae todos los cerrados.' },
       { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 200, descripcion: 'Cuántos devolver como máximo (default 50). La respuesta dice cuántos quedaron afuera.' },
@@ -183,7 +184,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'estado_gate_retro', area: 'experimentos', tipo: 'lectura',
     titulo: 'Si el Perro deja correr una Retro',
-    descripcion: 'Evalúa la deuda de la última Retro (aceptado vs hecho) y dice si el gate del Perro Guardián BLOQUEA una Retro nueva, en qué modo está (gate / disposicion / off), qué títulos quedaron pendientes y hace cuántos días se corrió la anterior. Úsalo antes de sugerir correr una Retro (se corre desde la tab Experiments, no desde aquí). No bloquea sin Retro previa, sin plan, o si no se aceptó nada. Ojo: si la lectura del seguimiento falla por dentro también da «no bloquea»; en ese caso la salida trae `advertencia` y no hay que afirmarlo como un hecho. No requiere parámetros.',
+    descripcion: 'Evalúa la deuda de la última Retro (aceptado vs hecho) y dice si el gate del Perro Guardián BLOQUEA una Retro nueva, en qué modo está (gate / disposicion / off), qué títulos quedaron pendientes y hace cuántos días se corrió la anterior. Una Retro nueva ya no se corre (la tab Experiments se retiró el 17/10/2026): no sugieras correrla. No bloquea sin Retro previa, sin plan, o si no se aceptó nada. Ojo: si la lectura del seguimiento falla por dentro también da «no bloquea»; en ese caso la salida trae `advertencia` y no hay que afirmarlo como un hecho. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: CANALES_TODOS, costo: 'gratis', gating: TAB_ADMIN,
   },

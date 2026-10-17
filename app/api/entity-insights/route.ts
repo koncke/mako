@@ -9,6 +9,7 @@
 import type { NextRequest } from 'next/server';
 import { conversorGastoMeta } from '@/lib/moneda-meta';
 import { credWs, integracionConectada } from '@/lib/credenciales';
+import { timeRangeMeta } from '@/lib/meta-rango';
 // Sólo quien administra el workspace: gasto y entrega de Meta en vivo (ver /api/meta-health).
 import { guardAdsWs } from '@/lib/ads-guard';
 
@@ -52,7 +53,8 @@ export async function GET(req: NextRequest) {
   const token = await credWs('META_ACCESS_TOKEN'); // por-workspace
   if (!ver || !token) return Response.json({ error: 'Meta no configurado' }, { status: 500 });
 
-  const timeRange = JSON.stringify({ since: desde, until: hasta });
+  // Meta guarda 37 meses: un `since` más viejo es el error #3018, no un recorte (lib/meta-rango.ts).
+  const timeRange = timeRangeMeta(desde, hasta);
 
   async function insights(fields: string, opts: { breakdowns?: string; daily?: boolean } = {}) {
     const u = new URL(`${GRAPH}/${ver}/${id}/insights`);
