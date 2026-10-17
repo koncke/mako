@@ -344,7 +344,11 @@ export function EditorInforme({
   tableroRef.current = tablero;
   const [hojaId, setHojaId] = useState(hojaInicial);
   const [llamada, setLlamada] = useState<number | null>(llamadaInicial);
-  const [editando, setEditando] = useState(false);
+  // `?probar=` (una hipótesis de Offer) abre «Editar con MaKo»: es un pedido de CAMBIAR la hoja, así que entra editando
+  // (17/10/2026: el panel que cambia la hoja sólo existe editando; en vista, MaKo asesora).
+  const [editando, setEditando] = useState(() => !!probarInicial && !soloLectura && !compartido);
+  const editandoRef = useRef(editando);
+  editandoRef.current = editando;
   const [dispositivoElegido, setDispositivo] = useState<Dispositivo>('escritorio');
   const dispositivo: Dispositivo = editando ? dispositivoElegido : 'escritorio';
   const [selId, setSelId] = useState<string | null>(null);
@@ -912,7 +916,8 @@ export function EditorInforme({
   const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setProbar(''); setMakoEditar((v) => !v); }, []);
   // #862: «Analizar · Editar» en la cabecera del panel de MaKo, sin cerrarlo: el AI Analyst y «Editar con MaKo» son el
   // MISMO MaKo en dos modos. Sólo si la persona tiene los dos (el AI Analyst no es del que sólo mira; editar, sí del que guarda).
-  const conModosMako = !soloMirar && guardable && !enBlanco && !compartido;
+  // 17/10/2026: y sólo EDITANDO. Mirando, el MaKo de la hoja es el AI Analyst y no ofrece pasar a Editar.
+  const conModosMako = editando && !soloMirar && guardable && !enBlanco && !compartido;
   const cambiarModoMako = useCallback((m: ModoMako) => {
     setMenu(null);
     setProbar('');
@@ -921,8 +926,11 @@ export function EditorInforme({
   }, []);
   /** La hoja de ese id como está AHORA en el informe (el panel compara por referencia antes de aplicar o deshacer). */
   const leerHoja = useCallback((id: string) => tableroRef.current.hojas.find((h) => h.id === id) ?? null, []);
-  /** Lo que cambió MaKo (o su Deshacer) entra por `mutar`: tiene deshacer, y lo guarda el autoguardado de siempre. */
-  const ponerHojaDeMako = useCallback((h: Hoja) => mutarHoja(() => h, h.id), [mutarHoja]);
+  /**
+   * Lo que cambió MaKo (o su Deshacer) entra por `mutar`: tiene deshacer, y lo guarda el autoguardado de siempre. SÓLO
+   * EDITANDO (17/10/2026): una respuesta que llega después de tocar «Ver» no entra. La ruta tampoco la arma en vista.
+   */
+  const ponerHojaDeMako = useCallback((h: Hoja) => { if (editandoRef.current) mutarHoja(() => h, h.id); }, [mutarHoja]);
   const hojaDelHilo = hoja.id;
   const alHiloMako = useCallback((fn: (h: MensajeEdicion[]) => MensajeEdicion[]) => {
     setHilosMako((x) => ({ ...x, [hojaDelHilo]: fn(x[hojaDelHilo] ?? []) }));
@@ -1034,7 +1042,8 @@ export function EditorInforme({
   const solosPila = solosEnPila(ordenados, (c) => esGrafico(c) && esTarjetaNumero(c.tipo) && !(c.w >= 6 && c.h >= 5) && !marcoDePortada(c));
   const primerGrafico = ordenados.find(esGrafico)?.id ?? null;
   const primerConMako = ordenados.find((c): c is Grafico => esGrafico(c) && conMako(c) && !!datos[c.id]?.resultado)?.id ?? null;
-  const alternarEdicion = () => { setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
+  // Al tocar «Ver» con «Editar con MaKo» abierto, el panel pasa a Analizar (17/10/2026): mirando, MaKo asesora.
+  const alternarEdicion = () => { if (editando && makoEditar) { setMakoEditar(false); setProbar(''); setAnalista(true); } setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
   const puedeNuevaHoja = guardable && tablero.hojas.length < MAX_HOJAS;
   /**
    * Un elemento de la barra de inserción (o de su menú), agregado al lienzo. `inicial` es lo que trae una variante
@@ -1313,9 +1322,11 @@ export function EditorInforme({
             </div>
             )}
             {/* «Editar con MaKo» (16/10/2026): el logo solo sobre negro, chico (punto 3 de la tanda de la topbar: «solo el
-                logo con el fondo negro, nada más»). Sólo quien puede guardar, y con una hoja. */}
-            {guardable && !enBlanco && !compartido && (
-              <BotonMako lado={30} title="Editar con MaKo" encendido={makoEditar} onClick={alternarMakoEditar} />
+                logo con el fondo negro, nada más»). Sólo quien puede guardar, y con una hoja. MIRANDO abre el AI Analyst
+                (17/10/2026, Martín: «al estar en VISTA del dashboard debería asesorar, no modificar»); editando, el que cambia. */}
+            {guardable && !enBlanco && !compartido && (editando
+              ? <BotonMako lado={30} title="Editar con MaKo" encendido={makoEditar} onClick={alternarMakoEditar} />
+              : <BotonMako lado={30} title="Analizar con MaKo" encendido={analista} onClick={alternarAnalista} />
             )}
             {/* «Editar» en azul (punto 3 de v5). Compartir se fue al ⋮. */}
             {!soloMirar && !enBlanco && (
@@ -1491,8 +1502,8 @@ export function EditorInforme({
             lienzo en la compu (./edicion-css.ts). Con la vista: el análisis a mano mira lo que la persona eligió. */}
         {/* #862: los dos son el MISMO MaKo en dos modos («Analizar · Editar», ./ModosMako.tsx), cuando la persona tiene los dos. */}
         {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} onModo={conModosMako ? cambiarModoMako : undefined} />}
-        {makoEditar && guardable && !enBlanco && !compartido && (
-          <PanelEditarMako hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
+        {makoEditar && editando && guardable && !enBlanco && !compartido && (
+          <PanelEditarMako editando={editando} hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
             onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
             onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} onModo={conModosMako ? cambiarModoMako : undefined} />
         )}

@@ -1258,6 +1258,47 @@ Test: tests/dashboard-mako-modos.test.ts (probado rompiéndolo). **Nadie lo mir�
 app/dashboard/PanelAnalista.tsx · app/dashboard/ModosMako.tsx · app/dashboard/EditorInforme.tsx.
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Mirando, MaKo cambiaba la hoja: el botón de la topbar abría «Editar», y el «analizar» lo decidía el modelo (17/10/2026)
+
+Martín, 17/10 19:31: «ya falló con Mauricio, al estar en VISTA del dashboard debería asesorar, no modificar».
+
+- ⚠️ **El diagnóstico obvio era el equivocado.** Por «Un MaKo con dos modos» (arriba) parecía cubierto, porque el
+  CÓDIGO descarta los cambios de un análisis. Pero sólo los descarta si el MODELO marca el pedido con `"analizar":true`.
+  Y «muéstrame…» o «compárame…» los puede leer como «agrega un gráfico». El agujero era el camino: el botón de MaKo de la
+  topbar abría «Editar con MaKo» también MIRANDO (`guardable && !enBlanco && !compartido`, sin `editando`). Lo que
+  devolvía entraba por `mutar` y lo escribía el autoguardado, que guarda igual en vista. Ni la ruta ni el panel
+  preguntaban si la persona estaba editando.
+- **Ahora lo decide el server:** `/api/graficos/editar` contesta 409, sin gastar un token, si el pedido no trae
+  `modo: 'editar'`, `editando: true` y el id de ESA hoja (`permisoEdicionMako`). Mirando, el botón abre el AI Analyst.
+  El panel que cambia la hoja sólo se monta editando, y la cabecera ofrece «Editar» sólo editando. Al tocar «Ver» con
+  el panel abierto, pasa a Analizar. Y `ponerHojaDeMako` no aplica nada fuera de la edición, por si una respuesta
+  llega tarde. `?probar=` (la hipótesis de Offer) es un pedido de cambiar, así que entra editando.
+- **Los otros caminos, revisados:** el chat por gráfico (`ChatMakoGrafico`) y el AI Analyst no tienen cómo escribir la
+  hoja. La API de MaKo (`editar_hoja_con_ia_*`) es una herramienta de EDITAR, propone y la persona confirma: no hay un
+  «en vista» ahí. Las burbujas «archivar otra hoja» de los pedidos piden un clic, y desde ahora sólo existen editando.
+- **Lo medido en la base** (sólo lectura, ws1, informe `graficos.tablero.2` de Mauricio):
+  - Hubo UNA sola llamada a «Editar con MaKo» en el ws1, el 17/10 a las 00:10:05 UTC (16/10, 21:10 en Argentina), por
+    la red de plataforma (Gemini). El último guardado del informe es de las 00:08:30, ANTES. Ninguna pieza de la hoja
+    activa tiene un id de esa hora (el id lleva `Date.now()` en base 36). Esa llamada no dejó nada guardado.
+  - Hoy le queda UNA hoja activa, «Ads Analyst». Se creó de la plantilla a las 00:03:53, y a las 00:04:14 MaKo le sumó
+    4 gráficos: es el ajuste de la plantilla, no «Editar con MaKo». Tiene 13 hojas archivadas. 7 se archivaron entre
+    las 23:58 y las 00:08:30 UTC: las 6 rehechas del 15/10 y una «Landing» creada a las 23:58:56.
+  - La base no dice QUIÉN las archivó: el informe no tiene historial, y un clic de la persona y una burbuja de MaKo
+    escriben lo mismo. Están archivadas, no borradas, y se recuperan desde Archivados.
+  - ⚠️ `anthropic_usage` registra sólo lo que cae a la red de plataforma o a un respaldo. Una llamada que contestó una
+    key del negocio no deja fila. Antes de esa llamada hubo un 429 a las 00:08:11 y un guardado a las 00:08:30: no se
+    puede descartar que haya sido una edición contestada por otra key del negocio.
+
+Test: tests/dashboard-mako-vista.test.ts (probado rompiéndolo, cinco roturas, 4 / 1 cada una).
+**Nadie lo miró en pantalla.**
+**Vive en:** lib/graficos-ia-edicion.ts (`permisoEdicionMako`) · app/api/graficos/editar/route.ts ·
+app/dashboard/EditorInforme.tsx · app/dashboard/PanelEditarMako.tsx. El plan para el resto de los chats está en
+docs/diseno-chats-de-mako.md.
+**Lo que quedó SIN hacer:** el autoguardado (`/api/graficos`, guardar) sigue aceptando cualquier tablero, también en
+vista. La vista escribe legítimamente (crear o archivar una hoja, el ajuste de una plantilla), así que no se le puede
+poner la misma puerta sin separar esas escrituras. El resto de los chats de MaKo sigue sin la regla: el plan.
+*17/10/2026, claude4 (agente del Cerebro).*
+
 ## Del mapa de calor al diagnóstico de estructura del Web Generator (17/10/2026, la mitad del Dashboard)
 
 Martín (#886, revisión del 16/10, 1:29:51): «que lo que recién vimos en dashboard del template de landing se combine
