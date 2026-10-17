@@ -21,6 +21,7 @@ import { hoyEnWorkspace } from '@/lib/timezone';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { credWs } from '@/lib/credenciales';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
+import { ofrecePartners } from './partners-crm';
 import { mapToCrmLead, etapasDelTablero } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
 import { leerOrdenManual } from '@/lib/crm-orden';
@@ -131,6 +132,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // Si este embudo invita solo al curso al ganar (el «⋯» de la columna Ganado). Nunca tira:
   // sin él, la opción no se ofrece.
   const pCurso = estadoCursoAlGanar(funnelId);
+  // «Llevar a MaKo Partners» en el menú de un lead: sólo la agencia y su admin (app/crm/partners-crm.ts). Nunca tira.
+  const pPartners = ofrecePartners();
 
   try {
     // Las etapas van en la misma ola (antes serializaban al frente).
@@ -194,7 +197,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   // Con la etapa de ENTRADA pegada: a ella caen los agregados cuya etapa ya no existe acá.
   const validStageKeys = etapasDelTablero(stages);
-  const [[anunciosObj, adMap], ordenManual, cursoAlGanar] = await Promise.all([pAtrib, pOrden, pCurso]);
+  const [[anunciosObj, adMap], ordenManual, cursoAlGanar, partners] = await Promise.all([pAtrib, pOrden, pCurso, pPartners]);
   const atrib = { anuncios: new Map(Object.entries(anunciosObj)), adMap };
   const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys, atrib));
 
@@ -245,6 +248,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       equipo={equipo}
       ordenManual={ordenManual}
       cursoAlGanar={cursoAlGanar}
+      partners={partners}
     />
     <PanelMakoCrm funnelId={funnelId} />
     </>

@@ -2536,4 +2536,28 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/ads-manager',
   },
+  {
+    fecha: '17 oct', hora: '13:00', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha del lead arranca con lo esencial, y el buscador de Instagram dice por qué no encuentra',
+    puntos: [
+      'En producción desde el run 110. Las tarjetas #880, #844 y #856 quedaron cerradas en el Plan con su prueba.',
+      'Las plantillas del Resumen de la ficha arrancan con lo esencial: «Antes de la llamada», la de casi todos los funnels, pasa de 18 a 13 bloques. Sale sobre todo la charla de WhatsApp, que ocupaba todo el ancho aunque estuviera vacía. Lo demás se agrega con «＋». El teléfono sigue a las plantillas, así que también se ve más corto ahí.',
+      'Un funnel que armó su Resumen a mano no cambia.',
+      'Al crear un lead, el campo de Instagram ya no promete buscar por nombre (no hay ninguna fuente gratis que lo haga) y, cuando no encuentra, dice por qué: «Por nombre no se puede: escribe su @», «Meta no la muestra: es personal o no existe», «Conecta Meta para ver su cuenta».',
+      'Investigado con la documentación de Meta: una calificación ya enviada no se puede corregir. Pasadas 48 horas, volver a marcar a un lead cuenta como una segunda conversión.',
+    ],
+    commits: [
+      { sha: 'c3f0d449e', msg: 'CRM (#880): las plantillas del Resumen de la ficha arrancan con lo esencial; lo demás se agrega', lineas: 106, archivos: 3 },
+      { sha: '33c94ee2d', msg: 'CRM (#880): el test de la ficha en el TELÉFONO sigue a las plantillas más cortas', lineas: 35, archivos: 2 },
+      { sha: '886318974', msg: 'CRM (#844): el buscador de Instagram del alta dice por qué no encuentra, y no promete buscar por nombre', lineas: 173, archivos: 5 },
+      { sha: '5a1f4949b', msg: 'Hallazgos de Ads (#856): una calificación ya enviada a Meta no se corrige, con las fuentes oficiales', lineas: 42, archivos: 3 },
+    ],
+    archivos: [
+      'lib/ficha/plantillas-resumen.ts — las plantillas del Resumen, más cortas',
+      'lib/instagram-buscar.ts y app/crm/new/InstagramBuscador.tsx — el aviso de por qué no encuentra',
+      'docs/hallazgos-ads.md — lo que dice Meta de corregir una conversión',
+    ],
+    revisar: '/crm',
+  },
 ];

@@ -127,6 +127,7 @@ import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLo
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
+import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -180,6 +181,12 @@ export type CrmLead = {
    * Lo arma `mapToCrmLead` (app/crm/crm-map.ts). Obligatorio: un mapper nuevo no lo olvida.
    */
   ingresoEstimado: number | null;
+  /**
+   * La cuenta de MaKo Partners del lead (`leads.cliente_ws`): con ella el menú ofrece «Ver en MaKo Partners»; sin
+   * ella, «Llevar a MaKo Partners» (sólo el admin de una agencia: `partners` del tablero). Opcional: un tablero que
+   * no es de agencia no la necesita.
+   */
+  cuentaPartners?: number | null;
   /**
    * El tipo de venta guardado (`leads.venta_tipo`). Lo lee `leadToMoveInfo` para el wizard.
    *
@@ -441,6 +448,7 @@ export function CrmBoard({
   funnelActivo = null,
   ordenManual = {},
   cursoAlGanar = null,
+  partners = false,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -484,6 +492,12 @@ export function CrmBoard({
    * `null` = la opción no se ofrece: su producto no tiene clases, o no se pudo leer.
    */
   cursoAlGanar?: { prendido: boolean } | null;
+  /**
+   * MaKo Partners (17/10/2026): el menú de un lead ofrece «Llevar a MaKo Partners» (o «Ver en MaKo Partners» si ya
+   * tiene cuenta). Lo decide el SERVER (app/crm/page.tsx): el workspace es agencia (`esAgencia`) Y quien mira es su
+   * admin, que es lo que exigen /partners y `llevarAPartnersAction`.
+   */
+  partners?: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -522,6 +536,8 @@ export function CrmBoard({
    *  porque la pregunta lo NOMBRA, y volver a buscarlo para escribir el nombre seria
    *  pedirle a la lista que no haya cambiado entre el click y la respuesta. */
   const [borrarUno, setBorrarUno] = useState<CrmLead | null>(null);
+  // El lead que se está llevando a MaKo Partners: la ventana es la MISMA de /partners (app/partners/LlevarAPartners.tsx).
+  const [aPartners, setAPartners] = useState<CrmLead | null>(null);
   /** La fila en la mano. Es un REF y no estado: se escribe en el `dragstart` y leerlo no
    *  dibuja nada — un `setState` ahi redibuja la tabla justo en el frame en que arranca
    *  el gesto, que es el bug clasico de esta familia. */
@@ -2318,6 +2334,7 @@ export function CrmBoard({
           conWhatsapp: !!l.telefonoNorm, conTelefono: !!l.phone?.trim(), conEmail: !!l.email?.trim(),
           seleccionado: selLeads.has(id), seleccionados: elegidos.length,
           hayEquipo: equipo.length > 0, hayOtroFunnel: destinosLote.length > 0,
+          partners: partners ? (l.cuentaPartners != null ? 'ver' : 'llevar') : null,
         },
       };
     }
@@ -2394,6 +2411,8 @@ export function CrmBoard({
       case 'whatsapp': if (l?.telefonoNorm) window.open(waDe(l.telefonoNorm), '_blank', 'noopener,noreferrer'); return;
       case 'copiar_telefono': if (l) copiarDato(l.phone, 'Teléfono copiado'); return;
       case 'copiar_email': if (l) copiarDato(l.email, 'Email copiado'); return;
+      case 'partners_llevar': if (l) setAPartners(l); return;
+      case 'partners_ver': if (l?.cuentaPartners != null) router.push(`/partners?cuenta=${l.cuentaPartners}`); return;
       case 'seleccionar':
       case 'quitar_seleccion': if (l) alternarSel(l.id); return;
       // La MISMA confirmación que el tacho de la fila.
@@ -3274,6 +3293,10 @@ export function CrmBoard({
       {/* EL TACHO DE UNA FILA. Misma pregunta que la del lote, en singular y nombrando
           al lead: «No se puede deshacer» es lo unico que convierte un icono chico al
           borde de una fila en una decision. */}
+      {aPartners && (
+        <ModalLlevarAPartners leadId={aPartners.id} nombre={aPartners.name} email={aPartners.email || null}
+          onCerrar={() => setAPartners(null)} onListo={() => router.refresh()} />
+      )}
       {borrarUno && (
         <ConfirmDialog
           title={`¿Eliminar «${borrarUno.name}»?`}
