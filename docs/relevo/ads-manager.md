@@ -19,6 +19,38 @@ la tab **`/instagram`**, que se retiró el 06/10 y hoy sólo redirige.
 
 ---
 
+## 17/10/2026 · los pendientes B4 (rama `pend-b4-1710`, agente «Pendientes B4: Ads y plata»)
+
+Lo aprendido está en `docs/hallazgos-ads.md` → «Los pendientes del 17/10 (B4)». Hecho:
+
+| Qué | Dónde |
+|---|---|
+| MaKo ya no inventa los leads de Meta por anuncio (`meta_leads` era la META de 10) | lib/ads-rendimiento.ts |
+| El super admin sin negocio elegido no opera la cuenta del ws1 (409 «Elige primero el negocio») | lib/ads-guard.ts |
+| Editar el público por la API de MaKo (`proponer_editar_publico_conjunto`) y crear un pin pegando coordenadas o el link largo de Maps | lib/publico-cambios.ts · lib/meta-geo.ts |
+| Escribir en Meta expira el árbol de ESE negocio (`metaHealth:ws:N`): la tabla ve lo escrito | lib/meta-health.ts · lib/meta-write.ts |
+| «Conectar con Meta» avisa si el token vino sin permisos de anuncios | app/api/integraciones/meta/callback/route.ts |
+| El DM pagado de Instagram no deja un lead huérfano con el anuncio | lib/zernio-entrante.ts |
+| La API de Ads Manager y Meta no contesta a un negocio cuyo plan no incluye la tab | lib/api-tab.ts |
+
+**Ya estaba:** la ruta del público (`adset-targeting`) comprueba la cuenta desde el 13/10 (`e4fb140b`).
+**Decisiones tomadas** (no se re-preguntan): la 2 (el pin: pegar el punto, sin librería ni CSP), la 4 (la barra de lote
+queda oscura), la 5 (la publicación a medias dice lo mismo) y la 6 (el ojo queda).
+**Medido:** ws13 y ws14 siguen con «Joan P2P app» y ws11 con «Lidermente_Agent»: nadie reconectó. Si esas apps siguen en
+desarrollo lo dice una corrida en seco (`validate_only`) sobre SU cuenta: lo decide Martín.
+
+**Lo que quedó SIN hacer, con el porqué:**
+- **El Autopilot (punto 18).** El motor, el cron, la pantalla, la API, renumerar la 0275 al primer número libre mirando
+  todos los worktrees, aplicarla, mirarlo en ws3 y la revisión adversarial: no entró en esta corrida (tamaño). La base
+  sigue en `refs/wip/autopilot-base-1410`; el contrato, en `docs/diseno-ads-autopilot.md`.
+- **Subir un anuncio de IMAGEN desde MaKo.** El Image Editor guarda sólo una `miniatura` del diseño (no la imagen a
+  tamaño real) y las imágenes de escena de Flow vencen a las ~6 h: falta de DÓNDE sacarla. La pieza es «Usar en un
+  anuncio» en el Image Editor (exportar el PNG y subirlo a `adimages`), que es de esa área.
+- **Variaciones de gancho**: dependen de que el puente traiga el video de Flow (Content Machine).
+- **Lo que espera a Meta** («Conectar con Meta» para todos, leads en vivo, bloquear apps ajenas, el tutorial sin app
+  propia): sigue esperando el App Review.
+- **Mirar en pantalla el onboarding del Ads Manager (#801)**: no hubo RAM para un build (`/ads-manager?ws=3`).
+
 ## Retomado el 13/10/2026 (cuenta 2): lo que se fue cerrando
 
 Pedido de Martín, por el chat «Estrategia 3 CUENTAS»: continuar y cerrar lo planificado acá, sumar la

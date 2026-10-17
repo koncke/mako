@@ -5,6 +5,32 @@
 [hallazgos-planes-y-cobro.md](../hallazgos-planes-y-cobro.md) → «La pasarela» (Stripe, Mercado Pago, el plan de MaKo y
 el cliente de agencia). La historia de cada cambio está en `git log`.
 
+## 17/10/2026 · los pendientes B4 (rama `pend-b4-1710`, agente «Pendientes B4: Ads y plata»)
+
+Lo aprendido: `docs/hallazgos-pagos.md` §5 y `docs/hallazgos-planes-y-cobro.md` → «Quien deja de pagar deja de entrar».
+
+| Qué | Dónde |
+|---|---|
+| **Quien deja de pagar su lugar deja de entrar**: el cron de la pasarela pausa el negocio cuando se terminó lo pagado (+5 días) y lo reabre al pagar; un negocio pausado va a /cuenta-pausada y la API contesta 403 | lib/plan-acceso{,-reglas}.ts · lib/workspace.ts · app/cuenta-pausada |
+| Marcar a mano una cuota cuyo link ya se cobró no cuenta la plata dos veces | lib/pagos.ts · lib/cobros.ts (`asentarLinkPagadoDeCuota`) |
+| El cartel «no está en tu plan» y el corte de la API por plan | lib/tab-access.ts · lib/api-tab.ts |
+| Identidades fiscales sólo del admin; la moneda del negocio con pantalla | app/crm/[id]/deal-actions.ts · app/configuraciones/MonedaNegocioPanel.tsx |
+| La cobranza lee todas las cuotas (cortaba en 1.000); la renovación desde el último cobro; «De baja» en el Dashboard | lib/pagos.ts · lib/cobrado-lead.ts · lib/graficos-datos.ts |
+
+**Medido** (sólo lectura): el `in` sobre `ctx->>cuotaId` no traba guardar cuotas ni cerrar en Ganado. **0 cobros en
+producción** el 17/10: el corte por falta de pago no toca a nadie hoy.
+
+**Lo que quedó SIN hacer, con el porqué:**
+- **Precios en moneda local en el catálogo** (`lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts`): pide una columna
+  nueva en `productos` (migración) y su pantalla; no entró en esta corrida.
+- **Los bloques de Pagos que no se dibujan** (`confirmacion-de-pago`, `recordatorios-de-cobro`, `excepciones`,
+  `cliente-en-cs`, app/crm/lead-view/ficha/reglas-pagos.ts): cada uno necesita su lectura, y los recordatorios por lead
+  piden la columna `lead_id` (mig 0186). No entró.
+- **Mirar en el ws3** la tab Pagos, la «Baja del cliente» y la tarjeta del cliente de agencia (leads 2739 y 2740), y
+  /cuenta-pausada: no hubo RAM para un build.
+- **Que el corte avise**: hoy queda en el log del cron y en el chip «pausado» de /admin. Un aviso a Martín (y al cliente)
+  sería un Evento de MaKo del catálogo de avisos, que es del chat de Automations.
+
 ## Lo de esta sesión (rama `pagos-agencia-clientes`, en `C:/dev/wt-pagos`; pasada al Cerebro, sin pushear)
 
 | Commit | Qué |
