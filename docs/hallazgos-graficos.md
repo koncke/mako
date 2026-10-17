@@ -1180,7 +1180,31 @@ Tests: tests/experimentos-en-la-hoja.test.ts y tests/analisis-mudada.test.ts, pr
 app/api/experimentos/route.ts · lib/graficos-ia-edicion.ts.
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Una plantilla entra al instante y se ajusta por detrás: lo que gana si la persona la tocó (17/10/2026)
+
+Martín (#857, revisión del 16/10, 1:08:13): el «Revisando… N s · hasta 2 min» al elegir una plantilla «confunde al
+usuario». Ahora la hoja entra YA con la plantilla tal cual —cada gráfico con su cargando, como cualquier hoja— y
+/api/graficos/plantilla la ajusta a los datos del negocio en el fondo (saca los vacíos, MaKo suma otros).
+
+- **La ruta ajusta la hoja que la pantalla YA creó** (manda `hoja` con sus ids): los gráficos que se quedan conservan su
+  id y lo que ya leyeron. Si la ruta instanciara la suya, la hoja entera se volvería a leer al reemplazarse.
+- **La ajustada reemplaza sólo si nadie la tocó** (`sigueComoSeCreo`, lib/graficos-plantilla-relleno.ts). ⚠️ Comparar
+  la hoja ENTERA no sirve: la grilla compacta lo que vino al montar (en edición escribe posiciones sin que nadie toque
+  nada), y con eso el ajuste no llegaba nunca. Se comparan sin las posiciones; un título, un filtro o una pieza de más o
+  de menos sí cuentan, y entonces lo de la persona gana sin aviso.
+- ⚠️ **El ajuste NO va con el controlador del modal:** el modal se cierra apenas se crea la hoja y su desmontaje aborta
+  `ctrl` (así cortaba antes el pedido al cerrarlo). Va con su propio `AbortSignal.timeout`.
+- Reemplazar no se deshace (como crear) y vacía la pila de deshacer.
+
+Test: tests/dashboard-plantilla-al-instante.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** app/dashboard/NuevaHoja.tsx · app/dashboard/EditorInforme.tsx (`rellenarHoja`) ·
+lib/graficos-plantilla-relleno.ts · app/api/graficos/plantilla/route.ts.
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
+
+- **Una plantilla que se ajusta por detrás (17/10/2026):** mientras llega el ajuste, la hoja muestra los gráficos que
+  después se van (los vacíos dicen «Sin datos» unos segundos). Si se quisiera, marcarlos como «midiendo» hasta que llegue.
 
 - **Experiments en la hoja (17/10/2026):**
   - Un experimento creado por la API (`crear_experimento`) o uno de antes del 17/10 **no tiene elemento: no se ve en

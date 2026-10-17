@@ -144,6 +144,7 @@ import { AccionesFilaProvider } from './entidades/acciones-fila';
 import { ELEMENTOS_ALTO_LIBRE_EN_PILA, graficoAltoLibreEnPila, solosEnPila } from './pila';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
 import { hojaConIdsNuevos } from '@/lib/graficos-copia';
+import { sigueComoSeCreo } from '@/lib/graficos-plantilla-relleno';
 import { tokenDeDashboard } from './copia-dash-cliente';
 import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
 import { conMako } from '@/lib/graficos-catalogo';
@@ -626,11 +627,14 @@ export function EditorInforme({
       show(`Hoja ${hojaAgregada.nombre} agregada`);
     } else if (aviso) show(aviso);
   }, [hojaAgregada, arranque, inicial, aviso, show]);
+  /** Las hojas recién creadas, como se crearon: la de una plantilla se reemplaza por la ajustada sólo si sigue así. */
+  const creadas = useRef(new Map<string, Hoja>());
   /** Lo que devuelve «Nueva hoja» (en blanco, de una plantilla o armada por MaKo), ya saneado. */
   const crearHoja = useCallback((h: Hoja, aviso?: string) => {
     const t = tableroRef.current;
     if (t.hojas.length >= MAX_HOJAS) { show('Máximo de hojas'); return; }
     const nueva: Hoja = t.hojas.some((x) => x.id === h.id) ? { ...h, id: nuevoId() } : h;
+    creadas.current.set(nueva.id, nueva);
     // En blanco, la que se crea es la ÚNICA: el inicial que viajaba por dentro no se guarda.
     // ⚠️ CREAR UNA HOJA NO SE DESHACE (14/10/2026, Martín: «Si creo una hoja no debería aparecer el deshacer si no hago
     // ninguna acción»): con `mutar`, el Deshacer de la hoja nueva la borraba y volvía a la de antes. Se guarda (el
@@ -643,6 +647,23 @@ export function EditorInforme({
     irAHoja(nueva.id);
     if (aviso) show(aviso);
   }, [vaciar, irAHoja, show, enBlanco]);
+  /**
+   * #857: la plantilla ya está en pantalla y llega la AJUSTADA a los datos del negocio (sin los gráficos vacíos, con los
+   * que sumó MaKo). Reemplaza a la creada sólo si nadie la tocó (`sigueComoSeCreo`: moverla no cuenta); si la tocaron,
+   * lo de la persona gana y no se dice nada. Como crearla, no se deshace.
+   */
+  const rellenarHoja = useCallback((id: string, h: Hoja | null, aviso?: string) => {
+    const creada = creadas.current.get(id);
+    creadas.current.delete(id);
+    const actual = tableroRef.current.hojas.find((x) => x.id === id);
+    if (!creada || !actual) return;
+    if (!sigueComoSeCreo(creada, actual)) return;
+    if (h) {
+      setTablero((tt) => ({ ...tt, hojas: tt.hojas.map((x) => (x.id === id ? { ...h, id } : x)) }));
+      vaciar();
+    }
+    if (aviso) show(aviso);
+  }, [vaciar, show]);
   const duplicarHoja = (id: string) => {
     const h = tablero.hojas.find((x) => x.id === id);
     if (!h || tablero.hojas.length >= MAX_HOJAS) return;
@@ -1344,7 +1365,7 @@ export function EditorInforme({
               // pongas ahí el "¿Qué vas a crear hoy?"». La caja y, abajo, las plantillas como páginas: la portada del Landing
               // Generator. Es la MISMA pieza que el modal «Nueva hoja» (`CrearHoja`, ./NuevaHoja.tsx), sin foco al abrir.
               <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
-                {guardable && <CrearHoja onCrear={crearHoja} enBlanco="Página 1" informe={informe} senales={senales} />}
+                {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informe} senales={senales} />}
               </div>
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
@@ -1561,7 +1582,7 @@ export function EditorInforme({
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
       {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} soloFuentes={esGeneral ? FUENTES_GENERAL : undefined} />}
-      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} />}
+      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} />}
       {gDetalle && esGrafico(gDetalle) && detalle && (
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />

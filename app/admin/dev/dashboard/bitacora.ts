@@ -549,4 +549,22 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/meta-rango.ts', 'app/api/ad-insights/route.ts', 'app/api/entity-insights/route.ts', 'lib/meta-desgloses.ts', 'tests/meta-rango.test.ts', 'docs/hallazgos-ads.md'],
     revisar: '/dashboard',
   },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Una plantilla sin el «Revisando» de dos minutos (#857)',
+    pedido: 'al crear un general o un dashboard… salta un mensajito de revisando y un timer de cuánto lleva revisando y hasta dos minutos dice. Eso no debería ser así porque confunde al usuario',
+    puntos: ['De la revisión de MaKo del 16/10 (1:08:13). Lo repartió el Cerebro al chat Dashboard el 17/10.'],
+  },
+  {
+    fecha: '17 oct', hora: '09:00', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Elegir una plantilla abre la hoja al instante',
+    puntos: [
+      'Al elegir una plantilla, la hoja aparece enseguida y cada gráfico carga por su cuenta: se fue la espera de «Revisando… hasta 2 min».',
+      'Por detrás, MaKo la ajusta a los datos del negocio: saca los gráficos que quedarían vacíos y suma otros. Unos segundos después, la hoja se acomoda sola.',
+      'Si en esos segundos la cambias, se queda como la dejaste.',
+      'Vale para el Dashboard y para General.',
+    ],
+    archivos: ['app/dashboard/NuevaHoja.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/graficos-plantilla-relleno.ts', 'app/api/graficos/plantilla/route.ts', 'tests/dashboard-plantilla-al-instante.test.ts — probado rompiéndolo'],
+    revisar: '/dashboard',
+  },
 ];
