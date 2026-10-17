@@ -876,8 +876,8 @@ https://hola-mako.com/crm/482/resumen
     // instante del webhook: en ese momento el análisis todavía no había corrido,
     // así que no había resumen que pasar, y la respuesta del dueño no la escuchaba
     // nadie. El link reemplaza la pregunta — ver app/api/webhooks/fathom/route.ts.
-    // El texto lo arma `textoAvisoPostLlamada` (lib/lead-resumen.ts) con la llamada.
-    textoDelCodigo: true,
+    // ⚠️ DESDE EL 16/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `reunion_grabada`); el 17/10 el
+    // webhook dejó de armar el que sólo rotulaba el feed («nada por detrás», lote 3).
     // ⚠️ Decía «Webhook Fathom, dentro del after()»: la tarjeta CRON dibujaba «after()».
     disparador: 'Cuando Fathom entrega la grabación de una llamada con un lead y MaKo terminó de analizarla (el seguimiento queda como borrador).',
     ejemplo: `━━ 🗓️ REUNIÓN ━━
