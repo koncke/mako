@@ -1153,6 +1153,43 @@ al Plan: el Plan son los pedidos y los trabajos, y un «Ya está» cierra uno de
 - lib/centro-chats.ts (`yaEstaDelChat`, `rutaDeYaEsta`, `comoSale`) y app/admin/operaciones/AdjuntosCaja.tsx;
 - tests/centro-adjuntos.test.ts, centro-ya-esta.test.ts y centro-runner-nube.test.ts.
 
+## El clic, medido: `detached` muere con la herramienta, el Explorador no (17/10/2026)
+
+**El pedido.** Martín quiere abrir un chat de terminal con «un clic + el permiso de la PC», nunca pegando un comando en
+PowerShell (docs/diseno-nuevo-chat-un-clic.md). El diseño decía `spawn('powershell.exe', …, { detached: true })`. Antes de
+construir había que mirar que la ventana se viera. La medición la hizo el primer chat «Ops Center» el 17/10 a las ~07:15
+UTC, con el OK de Martín («Sí, ábrela», un trabajo firmado desde el Centro), y desde la herramienta Bash de una sesión de
+la APP, la misma que usa el Runner.
+
+**El diagnóstico obvio era el equivocado.** «En Windows, un hijo `detached` tiene su propia ventana» lo dice la doc de
+Node, y es cierto fuera de esta herramienta:
+- lanzado desde la herramienta Bash, el PowerShell `detached` MUERE apenas termina la llamada: ni ventana ni comando. Lo
+  más probable es que la herramienta corra cada comando en un job de Windows que mata a sus hijos, y `detached` no los
+  saca del job;
+- atado (`spawnSync`) corre bien, carga el perfil de Windows PowerShell 5.1, y `claude2` existe.
+
+**Lo que SÍ abre una ventana visible y duradera:**
+- se escribe un `.cmd` con `powershell.exe -NoExit -EncodedCommand <b64>` y se abre con `explorer.exe <ruta>`. El
+  Explorador vive fuera del job;
+- la ventana es de **Windows Terminal** (`WindowsTerminal.exe`, con el título que se le dio), no de powershell.exe: en
+  Windows 11 la consola por defecto es la Terminal. Para buscarla por título, se busca ahí;
+- `explorer.exe` **devuelve 1 aunque abra bien**. Su código no sirve de acuse: la prueba es que el chat nuevo aparezca en
+  `sessions/<pid>.json` de su carpeta en la vuelta siguiente.
+
+**Y una trampa que el diseño no veía: el primer mensaje no puede ir como argumento.** La función del perfil hace
+`claude @args`, y Windows PowerShell 5.1 no escapa las comillas dobles al pasarle un texto a un ejecutable: un argumento
+con `"` llega partido en varios. Con `(Get-Content -Raw …)`, un mensaje que dijera `" --algo "` terminaría siendo una
+opción de Claude. Así quedó:
+- el primer mensaje va a `aperturas/<id>.txt`;
+- el chat arranca con un pedido FIJO que arma la PC («Lee el archivo <ruta> y haz lo que dice»);
+- un nombre con `"` se rechaza en la firma.
+
+**Sin medir:** que `claudeN -n '<nombre>' '<pedido>'` arranque la sesión interactiva con ese pedido (la ayuda de la CLI
+dice que sí), y el caso de la cuenta de la app (sólo puede PROPONER el chat).
+
+**Vive en:** docs/diseno-nuevo-chat-un-clic.md («3. La PC» y «Medido») · la nota de la medición, en la carpeta de notas
+compartida del Cerebro (`ops-center-medicion-clic-17-10.md`).
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -1168,8 +1205,8 @@ al Plan: el Plan son los pedidos y los trabajos, y un «Ya está» cierra uno de
 
 ## Lo que quedó sin hacer
 
-- **El clic sin PowerShell (punta 5, 17/10)**: el diseño está en docs/diseno-nuevo-chat-un-clic.md. Antes de construirlo
-  hay que medir con Martín presente que la ventana se vea, porque abre una ventana en su pantalla.
+- **El clic sin PowerShell (punta 5, 17/10)**: medido (arriba, «El clic, medido»), en construcción. Falta el caso de
+  la cuenta de la app, que sólo puede PROPONER el chat.
 - **Los adjuntos subidos y nunca firmados** (se cerró la pestaña entre subir y firmar) quedan en el bucket `archivero`,
   con el prefijo `operaciones/`. No hay barrido (lib/operaciones-adjuntos.ts).
 - **Adjuntar texto** (txt, md, csv, un log): hoy la caja acepta sólo fotos y PDF, lo mismo que el chat con MaKo. Un

@@ -1,6 +1,10 @@
 # Diseño: abrir un chat de Claude Code con un clic, desde MaKo
 
-**Fecha:** 17/10/2026, de madrugada. **Estado:** diseño, sin construir. **Dueño:** el chat «Centro de Operaciones».
+**Fecha:** 17/10/2026, de madrugada; corregido a la mañana con la medición. **Estado:** medido, en construcción.
+**Dueño:** el chat «Ops Center».
+
+> ⚠️ **Corregido el 17/10 con lo MEDIDO** (abajo, «Medido»): `detached` NO abre nada, y el primer mensaje NO va por la
+> línea de comandos. Lo que vale es lo de «3. La PC».
 
 **El pedido.** Martín, por el Cerebro (docs/relevo/cerebro.md, «Al Centro», punto 2): «un clic + el permiso de la PC»,
 nunca pegar un comando en PowerShell. Hoy «Nuevo chat» del Centro arma `claude2 -n 'CRM'`, y Martín lo copia y lo pega
@@ -61,17 +65,30 @@ declara, el trabajo queda «escrito», y la caja dice qué hacer para darle el p
   escribe el primer mensaje en `aperturas/<id>.txt` y abre la ventana:
 
   ```text
-  spawn('powershell.exe', ['-NoExit', '-EncodedCommand', <base64 UTF-16LE de:
-      <cuenta> -n '<titulo>' (Get-Content -Raw '<ruta del .txt>')>], { detached: true, stdio: 'ignore' })
+  aperturas/<id>.cmd:   @echo off
+                        powershell.exe -NoExit -EncodedCommand <base64 UTF-16LE de:
+                          <cuenta> -n '<titulo>' 'Lee el archivo <ruta del .txt> y haz lo que dice: es el primer mensaje de Martín.'>
+  spawnSync('explorer.exe', [<ruta del .cmd>])   (su código de salida no dice nada: devuelve 1 aunque abra)
   ```
 
   Las reglas de ese lanzamiento:
   - **Nunca por `cmd.exe`.** `cmd /c start` expande `%VAR%` y corta en una comilla doble, adentro del nombre.
-  - **Con `detached`.** En Windows, el hijo `detached` tiene su propia ventana (la doc de Node).
+  - **~~Con `detached`~~ NO: por el Explorador.** Medido el 17/10: un hijo `detached` lanzado desde la herramienta Bash
+    de una sesión de la app MUERE al terminar la llamada (la herramienta corre en un job de Windows que mata a sus hijos).
+    Lo que abre una ventana visible y duradera es escribir un `.cmd` con `powershell.exe -NoExit -EncodedCommand <b64>`
+    y abrirlo con `explorer.exe <ruta del .cmd>`: el Explorador vive fuera del job. La ventana es de Windows Terminal
+    (la consola por defecto de Windows 11), no de powershell.exe. El `.cmd` no lleva texto de nadie: sólo base64.
+  - **El código de `explorer.exe` no dice nada**: devuelve 1 aunque abra bien. El acuse dice «se pidió abrir», no
+    «abierto», y la prueba es que el chat aparezca en la lista en la vuelta siguiente.
   - **Con `-EncodedCommand`.** El comando no pasa por ninguna cita de la línea de comandos.
-  - **El nombre va entre comillas simples con la comilla doblada**, como en `comandoNuevoChat`.
+  - **El nombre va entre comillas simples con la comilla doblada**, como en `comandoNuevoChat`, y **sin comillas
+    dobles**: la función del perfil hace `claude @args`, y Windows PowerShell 5.1 parte en varios argumentos un texto con
+    `"` al pasarlo a un ejecutable. Un nombre con `"` se rechaza (en la firma, en las dos lecturas).
   - **`cuenta` sale de la lista de la PC**, nunca del texto.
-  - **El primer mensaje no pasa por la línea de comandos**: PowerShell lo lee del archivo.
+  - **El primer mensaje NO pasa por la línea de comandos, ni siquiera leído de un archivo** (`(Get-Content …)` como
+    argumento tiene el mismo problema de las comillas dobles: un `" --algo"` adentro terminaría siendo una opción de
+    Claude). La PC lo escribe en `aperturas/<id>.txt`, y el chat arranca con un pedido FIJO que arma ella: «Lee el
+    archivo <ruta> y haz lo que dice: es el primer mensaje de Martín». La ruta es la carpeta fija más el id del trabajo.
 - El acuse es `entregado` cuando la ventana se lanzó, con el motivo «Abierto en la terminal de la cuenta 2». La PC no
   sabe si el chat arrancó bien: lo dice así, no «listo».
 
@@ -97,14 +114,19 @@ apaga igual (`abrir-permitir off`). El texto exacto se copia desde la pantalla, 
 - **El permiso se apaga**: `abrir-permitir off`. Un `nuevo` que llega con el permiso apagado queda «escrito», no se
   pierde.
 
-## A medir antes de construir
+## Medido (17/10/2026, ~07:15 UTC, con el OK de Martín)
 
-- **Que la ventana se vea.** Hay que confirmar que un `powershell.exe` lanzado `detached` por node, desde la
-  herramienta Bash del Runner de la app, abre una ventana visible en el escritorio de Martín. No se probó: a las 4 de
-  la mañana le habría aparecido una ventana en la pantalla.
-- **Que `claudeN -n '<nombre>' '<primer mensaje>'` arranque el chat con ese mensaje**: `claude [prompt]` abre la sesión
-  interactiva con el pedido, según la ayuda de la CLI. Hay que mirarlo con la función del perfil.
-- **El caso de la app**: si un Runner de la app puede dejar la PROPUESTA de un chat (la tarjeta), y cuántos clics le
+Lo midió el primer chat «Ops Center» desde la herramienta Bash de una sesión de la app, la misma que usa el Runner. El
+detalle está en docs/hallazgos-operaciones.md («El clic, medido»).
+- **`detached` no sirve**: el proceso muere al terminar la llamada, sin ventana y sin correr nada.
+- **Atado, el comando corre y carga el perfil**: `claude2` existe en esa ventana.
+- **Por el Explorador SÍ**: un `.cmd` abierto con `explorer.exe` deja una ventana de Windows Terminal en pie, con el perfil
+  cargado. `explorer.exe` devuelve 1 igual.
+
+**Sin medir todavía:**
+- que `claudeN -n '<nombre>' '<pedido>'` arranque la sesión interactiva con ese pedido. La ayuda de la CLI dice que
+  `claude [prompt]` lo hace; lo confirma el primer clic de verdad;
+- **el caso de la app**: si un Runner de la app puede dejar la PROPUESTA de un chat (la tarjeta), y cuántos clics le
   quedan a Martín.
 
 ## Archivos
