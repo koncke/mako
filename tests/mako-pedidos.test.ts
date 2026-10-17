@@ -462,5 +462,51 @@ test('la ruta: cada tab con la MISMA puerta que su pantalla, y los objetos del n
   assert.match(dashboard, /if \(rol !== 'admin' \|\| !tabEnCapa\('graphics', await getCapaActual\(\)\.catch\(\(\) => null\)\)\) return \[\];/);
   assert.match(dashboard, /const l = await leerTablero\(\);\s*if \(l\.estado !== 'propio'\) return \[\];/, 'quien nunca guardó ve la pantalla sin páginas');
   assert.match(dashboard, /hojasVisibles\(l\.tablero\)/);
-  assert.match(ruta, /const objetos = TABS_CON_OBJETOS_EN_EL_NAVEGADOR\.includes\(tab\) \? objetosDelNavegador\(body\.objetos\) : await objetosDeTab\(tab, rol, ws\);/);
+  // `rolWs` desde que Automations se enganchó (17/10/2026): su puerta es la de su lista, admin y setter.
+  assert.match(ruta, /const objetos = TABS_CON_OBJETOS_EN_EL_NAVEGADOR\.includes\(tab\) \? objetosDelNavegador\(body\.objetos\) : await objetosDeTab\(tab, rol, ws, rolWs\);/);
+  const chatbot = cuerpo("if (tab === 'chatbot') {");
+  assert.match(chatbot, /if \(rolWs !== 'admin' && rolWs !== 'setter'\) return \[\];/);
+  assert.match(chatbot, /\.is\('archivada_at', null\)/, 'las archivadas no son «la otra»');
+});
+
+// La revisión del chat de Automations (16/10/2026, docs/hallazgos-chatbot.md «Los pedidos sueltos en el chat de
+// Automations») encontró tres maneras en que un pedido de EDICIÓN de lo abierto se iba a otro lado. Se arreglaron en el
+// resolver (17/10/2026) y valen para todas las tabs. Probado rompiéndolo (arnés `romper.py` del scratchpad, una rotura por
+// vez y md5 igual al restaurar; base 21 / 21):
+//   R30. `esComparacion` siempre false (el nombre de una comparación vuelve a ser el objeto)  → 20 / 1.
+//   R31. sin `borraUnaParte` («borra el mensaje de Cobranza» archiva Cobranza)              → 20 / 1.
+//   R32. `partirPorY` nunca parte                                                            → 20 / 1.
+//   R33. sin `PARTES_DE_LO_ABIERTO.chatbot` («agrega un email» se va a Email Marketing)       → 20 / 1.
+//   R34. `partirPorY` parte en todo «y + verbo» («Crea otra landing y ponle…» se parte)       → 20 / 1.
+test('Automations: un nombre en una comparación es de lo abierto, borrar una parte de otra no la archiva, y «A y elimina la otra» se parte', async () => {
+  const K: ObjetoChat = { id: 'K', nombre: 'Cobranza', tocadoAt: '2026-10-12T10:00:00Z' };
+  const ctx = ctxChatbot([A, B, K]);
+  // 1. El nombre como dato del cambio de lo abierto: todo a lo abierto, la IA del chat lo recibe entero.
+  for (const t of ['Que el mensaje diga lo mismo que en Cobranza', 'Hazla como la de Cobranza', 'Pon el texto igual que en «Cobranza»']) {
+    assert.deepEqual((await interpretarCon(t, ctx, null)).pedidos, [{ sobre: 'actual', texto: t }], t);
+  }
+  // …pero nombrada como objeto, sigue siendo ESA (y borrarla confirma y archiva).
+  const el = (await interpretarCon('Elimina Cobranza', ctx, null)).pedidos[0];
+  assert.ok(el.sobre === 'otro' && el.objeto?.id === 'K' && el.verbo === 'borrar' && el.confirmar && el.operacion === 'archivar_secuencia', JSON.stringify(el));
+  // 2. Borrar una PARTE de otra es un cambio de ésa, nunca archivarla.
+  const parte = (await interpretarCon('Borra el mensaje de Cobranza', ctx, null)).pedidos[0];
+  assert.ok(parte.sobre === 'otro' && parte.objeto?.id === 'K', JSON.stringify(parte));
+  if (parte.sobre === 'otro') {
+    assert.equal(parte.verbo, 'editar', 'borrar el mensaje de una automatización ofrecía archivarla entera');
+    assert.equal(parte.confirmar, false);
+    assert.notEqual(parte.operacion, 'archivar_secuencia');
+  }
+  // 3. «A y <verbo> B» con la otra sólo en B: dos pedidos, y lo de lo abierto no se pierde.
+  const dos = await interpretarCon('Borra la tarjeta del delay y elimina la otra automatización', ctxChatbot([A, B]), null);
+  assert.deepEqual(dos.pedidos.map((p) => p.sobre), ['actual', 'otro']);
+  assert.equal(dos.pedidos[0].texto, 'Borra la tarjeta del delay');
+  const otra = dos.pedidos[1];
+  assert.ok(otra.sobre === 'otro' && otra.objeto?.id === B.id && otra.confirmar);
+  // …y con la referencia en A no se parte: es UN pedido sobre la nueva.
+  assert.equal(partirPedidos('Crea otra landing y ponle el título Ofertas').length, 1);
+  // 4. Las tarjetas de una automatización son de la abierta, aunque su palabra sea de otra área (y aunque la IA la etiquete así).
+  const email = 'Agrega un email de bienvenida';
+  assert.deepEqual((await interpretarCon(email, ctx, null)).pedidos, [{ sobre: 'actual', texto: email }]);
+  const ia = doble(JSON.stringify({ pedidos: [{ texto: email, verbo: 'editar', area: 'email', referencia: null }] }));
+  assert.deepEqual((await interpretarCon(email, ctx, ia)).pedidos, [{ sobre: 'actual', texto: email }], 'con la IA diciendo «email», se iba a Email Marketing');
 });

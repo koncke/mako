@@ -5033,9 +5033,9 @@ lib/notificaciones.ts
 
 ## Los pedidos sueltos en el chat de Automations: lo que la revisión frenó antes de subir (16/10/2026)
 
-El enganche del módulo de Web Generator (docs/diseno-mako-pedidos.md) en el chat de MaKo está hecho y con sus tests en
-la rama **`wip/automations-pedidos`** (1639ae566), **SIN SUBIR**: la revisión adversarial confirmó regresiones del chat
-de siempre. Lo que hay que arreglar antes, y por qué no se veía:
+El enganche del módulo de Web Generator (docs/diseno-mako-pedidos.md) en el chat de MaKo quedó en la rama
+**`wip/automations-pedidos`** (1639ae566) sin subir: la revisión adversarial confirmó regresiones del chat de siempre.
+**Arregladas todas el 17/10/2026** (sección de abajo). Lo que encontró, y por qué no se veía:
 
 - ⚠️ **El resolver no sabe que el lienzo está VACÍO.** Con una automatización recién creada (modo crear), «Crea una
   automatización que…» es el pedido para ESTA, pero sale como «crear otra» (una burbuja) y no llega a MaKo. El chat tiene
@@ -5088,3 +5088,32 @@ Prender #247 lo decide Joan.
 
 **Vive en:** `lib/meta-lead-nuevo.ts` · `lib/meta-leads.ts` (`pollMetaLeads`) · `lib/meta-leads-poll-reglas.ts`
 (`esNuevoParaElNegocio`) · `lib/nutricion.ts` (`enrolarPorEvento`, `conSuEtapa`) · test: `tests/meta-lead-nuevo.test.ts`
+
+**Vive en:** app/automations/pedidos-chat.ts, pedidos-cliente.ts, ChatMako.tsx, la ruta app/api/mako/pedidos con
+`chatbot` · lib/mako-pedidos.ts (el resolver, del Web Generator) · test: tests/automations-pedidos-chat.test.ts
+
+## Los pedidos sueltos, arreglados: lo que no era lo que parecía (17/10/2026)
+
+- ⚠️ **«Un nombre se lleva el mensaje» no era que el resolver busque nombres de más: eran dos casos con forma distinta.**
+  «Que diga lo mismo QUE EN Cobranza» usa el nombre como DATO de un cambio de lo abierto; «borra EL MENSAJE de Cobranza»
+  sí habla de Cobranza, pero de una PARTE suya. Lo primero va a lo abierto (`esComparacion`, el nombre después de «como»,
+  «que (en)», «igual que»…); lo segundo es un cambio de Cobranza —un link para abrirla—, nunca archivarla (`borraUnaParte`:
+  el sustantivo del verbo es una parte, `PARTES_DE_LO_ABIERTO.chatbot`). Las dos reglas viven en el resolver y valen
+  para todas las tabs.
+- ⚠️ **Un nombre con una palabra de OTRA área cae a lo abierto aunque sea otro objeto:** «Seguimiento de agendados» lleva
+  «agendados», que es del CRM, y el pedido se lee como «nombra otra área, puede ser un cambio de lo abierto» (va entero a
+  MaKo). No ofrece archivar, que era lo grave; pero «abre Seguimiento de agendados» tampoco da el link. Sin hacer.
+- **«A y elimina la otra» se parte sólo si la referencia está en B.** «y + verbo» no partía nunca a propósito («Crea otra
+  landing y ponle el título X» es UN pedido), y con dos «borrar» las reglas tampoco dudaban (cuentan verbos DISTINTOS).
+  `partirPorY` parte cuando A no nombra otro objeto y B sí.
+- ⚠️ **La pregunta de «cambios sin publicar» no protegía nada en este camino:** el borrador del lienzo se guarda solo al
+  irse (`useBorradorSecuencia`), y la pregunta sólo ofrecía «Descartar cambios» (llevarse lo que MaKo acababa de hacer) o
+  «Seguir editando» con una fila vacía de más. «Crea otra» desde el chat cambia SIN preguntar y deja la abierta con su
+  punto ámbar (`creaDesdeElChat`, app/automations/SimuladorWhatsApp.tsx). «＋ Nueva» sigue preguntando como siempre.
+- ⚠️ **El ref que recuerda «vino del chat» se apaga en un EFECTO, no en el render:** el `abrir` se aplica al dibujar, y en
+  desarrollo React dibuja dos veces; apagado en el primer dibujo, el segundo volvía a `elegir` y salía la pregunta.
+- **Cuatro tests fijan la forma de `crearNueva`** (su primera línea, el `return;` del fallo, el `setAbrirSec` del pedido):
+  para que conteste si nació se cambiaron sólo los `return` a `false`/`true` y la lógica nueva fue a la lista, no a la tab.
+
+**Sin hacer:** verlo con clics en el ws3 (pedir «crea una…» con el lienzo vacío, «elimina la otra» con dos, y crear otra
+con un borrador). El link de «abre X» cuando el nombre de X lleva una palabra de otra área (arriba).

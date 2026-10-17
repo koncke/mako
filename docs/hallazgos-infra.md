@@ -6563,3 +6563,17 @@ ve comparando tamaños (`wc -c` contra `git show HEAD:…`).
 (`sed -i 's/\r$//' extension/*.js extension/*.html extension/*.json` — para git no es un cambio) y
 recién ahí generar. Vive en `scripts/zip-extension.mjs` (`leer`): lo que falta es que el generador
 normalice él mismo.
+
+## Un worktree nuevo sin `node_modules`: el tsc acotado dice «NO SE PUDO CHEQUEAR» y esconde por qué (17/10/2026)
+
+`git worktree add` no trae `node_modules` (está en el `.gitignore`), y `scripts/tsc-acotado.mjs` corre
+`node_modules/typescript/bin/tsc` del worktree. Sin la carpeta, node muere con `MODULE_NOT_FOUND` y el script contesta
+«NO SE PUDO CHEQUEAR (código 1, 787 bytes de salida)… Si fue el vigía de RAM, esperá o cerrá chats». La salida no se
+muestra, y el diagnóstico obvio (la RAM) es el equivocado: no es un rojo ni un verde, es que no hay `tsc`.
+
+- **El arreglo:** la misma junction que tienen los demás worktrees de `C:/dev`, en PowerShell:
+  `New-Item -ItemType Junction -Path <worktree>/node_modules -Target <clon>/node_modules`. Con eso, el acotado y los
+  tests (`node --import tsx --test`) corren igual que en el clon.
+- **Cómo distinguirlos:** el vigía de RAM deja «0 bytes de salida»; un `MODULE_NOT_FOUND` deja unos cientos.
+
+*17/10/2026, chat «Automations» (claude4), al abrir C:/dev/wt-aut-pedidos para la rama de los pedidos sueltos.*
