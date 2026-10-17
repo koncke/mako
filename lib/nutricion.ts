@@ -116,7 +116,7 @@ import { after } from 'next/server';
 // Un mensaje de WhatsApp con VARIAS partes (cuarta tanda, punto 15): el modelo, el guardado y la marca.
 import {
   partesExplicitas, partesAlGuardar, problemaDePartes, partesYaSalidas, marcaPartes, borradorDePartes,
-  pausaAntesDe, lineaDelPaso, lineaAlGuardar, type ParteMensaje,
+  pausaAntesDe, lineaDelPaso, lineaAlGuardar, sinVistaPrevia, vistaPreviaAlGuardar, type ParteMensaje,
 } from '@/lib/mensaje-partes';
 // Instagram y Messenger por Zernio (sexta tanda, parte «canales»): el canal de un paso al guardarlo y
 // UNA rama del envío (`enviarPasoSocial`). Lo demás del motor no cambia.
@@ -1029,6 +1029,8 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
         })(),
         ...partesAlGuardar(p, partesPrevias.get(idDe(flujo, i))),
         ...lineaAlGuardar(p, antes.find((q, j) => idDe(q, j) === idDe(flujo, i))),
+        // Los links sin la tarjeta (#869), con la misma regla que la línea.
+        ...vistaPreviaAlGuardar(p, antes.find((q, j) => idDe(q, j) === idDe(flujo, i))),
         // La cuenta de Instagram o Messenger de ESTA tarjeta (decimocuarta tanda), con la misma regla que la línea.
         ...cuentaAlGuardar(p, antes.find((q, j) => idDe(q, j) === idDe(flujo, i))),
       };
@@ -3525,6 +3527,8 @@ export type ResultadoProceso = {
 async function enviarPartesDelPaso(a: {
   partes: readonly ParteMensaje[]; desde: number; telefono: string; leadId: number; linea: string | null;
   vars: Record<string, string>;
+  /** Los links de los textos sin la tarjeta (`sinVistaPrevia` del paso, #869). */
+  sinVistaPrevia?: boolean;
 }): Promise<{ ok: boolean; salieron: number; error?: string; backoffHoras: number; textos: string[] }> {
   const salieronAntes = Math.max(0, Math.min(a.desde, a.partes.length));
   const pendientes = a.partes.slice(salieronAntes);
@@ -3555,7 +3559,7 @@ async function enviarPartesDelPaso(a: {
       const t = textoConDatos(p.cuerpo, a.vars);
       if (!t.trim()) continue;
       textos.push(t);
-      r = await enviarYEspejar({ telefono: a.telefono, texto: t, leadId: a.leadId, linea: a.linea });
+      r = await enviarYEspejar({ telefono: a.telefono, texto: t, leadId: a.leadId, linea: a.linea, sinVistaPrevia: a.sinVistaPrevia });
     } else if (p.tipo === 'audio') {
       const b = binarios.get(k)!;
       r = await enviarAudioYEspejar({ telefono: a.telefono, base64: b.base64, mimetype: b.mime, leadId: a.leadId, linea: a.linea });
@@ -4745,6 +4749,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // la secuencia (`null` = la de por default), y si puede mandar ahora. Una línea pedida que no es
         // del negocio no está en `lineasEvo`: `canalDeLinea` la frena con su motivo, sin caer a otra.
         const lineaSec = lineaDelPaso(paso) ?? sec.instance_name;
+        // Sus links sin la tarjeta de vista previa (#869): en lo que sale y en el borrador que lo espera.
+        const sinTarjeta = sinVistaPrevia(paso);
         if (partesMulti) {
           // ⚠️ «NO PUDE LEER» NO ES «NO SALIÓ NINGUNA». Sin saber cuántas salieron no se manda nada ni
           // se escribe nada: un `fallo` sin la marca borraría la del intento anterior. Vuelve en la
@@ -4772,7 +4778,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           // el audio y el archivo: los campos de siempre son el espejo de la PRIMERA parte, y por esas
           // ramas saldría sólo ésa.
           if (saleSoloEste || await esLeadCliente(lead.id)) {
-            const r = await enviarPartesDelPaso({ partes: partesMulti, desde: partesSalidas, telefono: lead.telefono, leadId: lead.id, linea: lineaSec, vars: varsNO });
+            const r = await enviarPartesDelPaso({ partes: partesMulti, desde: partesSalidas, telefono: lead.telefono, leadId: lead.id, linea: lineaSec, vars: varsNO, sinVistaPrevia: sinTarjeta });
             partesSalidas = r.salieron;
             textoEnviado = r.textos.join('\n\n') || null; textoAutor = r.textos.length ? 'fijo' : null;
             estado = r.ok ? 'enviado' : 'fallo';
@@ -4793,7 +4799,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
               await crearBorrador({
                 leadId: lead.id, telefono: lead.telefono, texto, audioId: b.audioId, adjuntoId: b.adjuntoId,
                 origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id,
-                linea: lineaSec,
+                linea: lineaSec, sinVistaPrevia: sinTarjeta,
               });
               estado = 'borrador';
             }
@@ -4820,7 +4826,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             // toque — no como paso aparte, que el guard anti-ban de 20h frenaría.
             if (r.ok && cuerpoNO.trim()) {
               textoEnviado = cuerpoNO; textoAutor = 'fijo';
-              await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id, linea: lineaSec })
+              await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id, linea: lineaSec, sinVistaPrevia: sinTarjeta })
                 .catch(() => { /* el audio ya salió: el pie es un extra, no puede tumbar el envío */ });
             }
           } else if (!carril && await tieneBorradorNutriPendiente(lead.id)) {
@@ -4836,7 +4842,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
               leadId: lead.id, telefono: lead.telefono,
               texto: cuerpoNO, audioId: audio.id,
               origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id,
-              linea: lineaSec,
+              linea: lineaSec, sinVistaPrevia: sinTarjeta,
             });
             estado = 'borrador';
           }
@@ -4881,7 +4887,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             // valor para ESTE lead. No sale un WhatsApp en blanco ni se reintenta: se omite y la cadencia sigue.
             estado = 'omitido'; nota = 'quedó vacío: sus datos no tienen valor';
           } else {
-            const r = await enviarYEspejar({ telefono: lead.telefono, texto: t.texto, leadId: lead.id, linea: lineaSec });
+            const r = await enviarYEspejar({ telefono: lead.telefono, texto: t.texto, leadId: lead.id, linea: lineaSec, sinVistaPrevia: sinTarjeta });
             estado = r.ok ? 'enviado' : 'fallo';
             if (!r.ok) nota = r.error;
           }
@@ -4899,7 +4905,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           const t = await escribirTexto();
           textoEnviado = t.texto; textoAutor = t.autor;
           if (t.motivo) nota = `IA no usada: ${t.motivo}`;
-          await crearBorrador({ leadId: lead.id, telefono: lead.telefono, texto: t.texto, origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id, linea: lineaSec });
+          await crearBorrador({ leadId: lead.id, telefono: lead.telefono, texto: t.texto, origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id, linea: lineaSec, sinVistaPrevia: sinTarjeta });
           estado = 'borrador';
         }
       } else if (waOn && paso.canal === 'whatsapp') {
@@ -6118,12 +6124,12 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
     if (!audio || !b64) { await registrar('fallo', audio ? 'no pude bajar el audio del paso' : 'el audio del paso ya no existe', null); return no('No salió la nota de voz: el audio no está.'); }
     if (!(await reclamar())) return yaSalio;
     if (!sale) {
-      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea });
+      await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, audioId: audio.id, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
       await registrar('borrador', null, pie || null);
       return si(`Te dejé la nota de voz «${audio.titulo}» para aprobar.`);
     }
     const r = await enviarAudioYEspejar({ telefono: lead.telefono, base64: b64, mimetype: audio.media_mime, leadId, linea });
-    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea }).catch(() => { /* el audio ya salió */ });
+    if (r.ok && pie.trim()) await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) }).catch(() => { /* el audio ya salió */ });
     await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie.trim() || null);
     return r.ok ? si(`Le mandé la nota de voz «${audio.titulo}».`) : no(`No salió la nota de voz (${(r.error ?? '').slice(0, 120)}).`);
   }
@@ -6146,11 +6152,11 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
   if (!pie.trim()) return no('Un mensaje de la rama estaba vacío: no salió.');
   if (!(await reclamar())) return yaSalio;
   if (!sale) {
-    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea });
+    await crearBorrador({ leadId, telefono: lead.telefono, texto: pie, origen: 'nutricion', secuenciaId: secuencia.id, paso: i + 1, inscripcionId: null, linea: c.linea, sinVistaPrevia: sinVistaPrevia(p) });
     await registrar('borrador', null, pie);
     return si(`Te dejé para aprobar: «${pie.slice(0, 120)}».`);
   }
-  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea });
+  const r = await enviarYEspejar({ telefono: lead.telefono, texto: pie, leadId, linea, sinVistaPrevia: sinVistaPrevia(p) });
   await registrar(r.ok ? 'enviado' : 'fallo', r.ok ? null : (r.error ?? 'no salió'), pie);
   return r.ok ? si(`Le contesté: «${pie.slice(0, 120)}».`) : no(`No salió la respuesta (${(r.error ?? '').slice(0, 120)}).`);
 }

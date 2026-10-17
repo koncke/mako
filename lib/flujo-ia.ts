@@ -2540,8 +2540,11 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
   });
   // UNDÉCIMA TANDA: un dato de la reunión sólo detrás de una espera «antes_de_reunion» o de una condición «reunion_en»
   // (sin eso le llega a quien ya la tuvo, o a quien no tiene ninguna).
+  // ⚠️ (17/10/2026, #847) EL ERROR DICE EL ARREGLO DE UNA TARJETA: «Su reunión sigue en pie» delante. Decía sólo
+  // «reunion_en», que pide horas: Joan (ws13) pidió «el día y hora de la reunión» en el aviso de un pre-R1 y los cuatro
+  // proveedores lo repitieron. Lo que va después de `: usa "…": "…"` es para el modelo (`paraLaPersona` lo corta).
   for (const id of datosDeReunionSinMirarla(pasos)) {
-    if (!soloIds || soloIds.has(id)) err.push('un texto usa un dato de la reunión sin un "esperar" con "antes_de_reunion" ni una condición "reunion_en" antes');
+    if (!soloIds || soloIds.has(id)) err.push('un texto usa un dato de la reunión sin mirarla antes: usa "campo": "reunion_en_pie" en una condición delante de esa tarjeta, o un "esperar" con "antes_de_reunion"');
   }
   return [...new Set(err)];
 }

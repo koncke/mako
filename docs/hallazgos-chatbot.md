@@ -5187,3 +5187,68 @@ tests: `tests/probar-en-el-grupo.test.ts`, `tests/probar-grupo-mako.test.ts`
 **Vive en:** `lib/equipo-contesto.ts` · `lib/nutricion.ts` (`equipoDeLaInscripcion`, `equipoContestoDesdeElAviso`) ·
 `lib/condiciones-catalogo.ts` (`equipo_contesto`) · `lib/flujo-grafo.ts` (`equipoContestoEnEsta`) ·
 test: `tests/equipo-contesto.test.ts`
+
+## «Crear con IA se quedó pensando»: no era lento, era un error repetido cuatro veces (17/10/2026, tarjeta #847)
+
+- ⚠️ **El diagnóstico obvio (el modelo tarda, el loader no corta) era el equivocado.** ws13, 16/10 21:27-21:29 UTC:
+  Joan pidió «aviso al grupo con el día y hora de la reunión» para un pre-R1. Gemini, Groq dos veces y el Gemini de la
+  red escribieron JSON que se LEÍA, los cuatro rechazados por la MISMA regla de la revisión (un dato de la reunión sin
+  mirarla antes). Un Gemini de la red se colgó 100 s, el plazo se fue y el «Corregir» nunca corrió: 2,5 min y un error.
+  Se reconstruyó con `anthropic_usage` (qué llegó) y `vercel logs` (por qué no sirvió): ver hallazgos-infra.md.
+- **Un error de revisión casi siempre lo pide el PEDIDO**: otro proveedor con el mismo pedido lo repite. La primera
+  pasada para en el primer JSON que se lee y no pasa (`pararEnRevision`), y va al «Corregir», que le lista los
+  problemas. El «Corregir» sí prueba los demás proveedores (con los errores en el pedido, otro puede arreglarlo). Un JSON
+  que NO se lee sigue probando el siguiente, como antes.
+- **La regla de la reunión también vale para los avisos al equipo, a propósito** (tests/flujo-forma.test.ts, «Colgado
+  del CRON, sin nada: no»; la plantilla «Un Lead Agendó» le pone una condición delante). No se aflojó: el error ahora
+  dice el arreglo de UNA tarjeta (`"reunion_en_pie"` delante). Decía sólo «reunion_en», que pide horas.
+- **Un error de la revisión le habla a DOS lectores:** al modelo en el «Corregir» y a la persona en `falloDeRevision`.
+  Lo que va después de `: usa "…": "…"` es sólo para el modelo (`paraLaPersona` lo corta).
+- ⚠️ **El log dice «resolvió con la RED DE PLATAFORMA» cuando `validar` acepta**, y con `pararEnRevision` acepta
+  también una salida con errores para cortar la cascada: esa línea ya no prueba que la salida sirvió.
+- **Sin hacer:** un proveedor colgado sigue costando hasta 100 s por intento (`timeoutMs` de `pasada`). No se bajó: el
+  OpenRouter gratis tardó 97 s en una salida buena de ws10 el 16/10.
+
+**Vive en:** `lib/flujo-ia-crear.ts` (`pasada`, `generar`) · `lib/flujo-ia.ts` (`validarIA`, el error de la reunión) ·
+test: `tests/crear-ia-revision-corrige.test.ts`
+
+## El CRON sólo dispara: «Número» y «Reentrada» fuera de su panel (17/10/2026, tarjeta #846)
+
+- **El «Número» del CRON estaba de más:** desde la sexta tanda cada WhatsApp elige el suyo en la cabecera de su panel
+  (`CabeceraWhatsApp`, «sin "Toda la automatización"»), el motor usa `lineaDelPaso(paso) ?? sec.instance_name`, y una
+  respuesta sale por la línea donde escribió el lead (`lineaEntrante ?? secuencia.instance_name`). El selector del CRON
+  editaba ese respaldo. Se fue; `instance_name` sigue valiendo para lo que ya lo tenía.
+- **La «Reentrada» es de toda la automatización** (lib/reentrada.ts), así que no se volvió «de cada mensaje»: va debajo
+  de cada WhatsApp (`pieWhatsApp`, el MISMO control y el mismo guardado en todos) rotulada «toda la automatización». Un
+  flujo sin ningún WhatsApp (sólo email) la sigue teniendo en el CRON: si no, no habría dónde elegirla.
+- **Sin verificar en pantalla:** el pie suma ~70 px debajo del composer; el cuerpo del panel scrollea (Lienzo.tsx),
+  pero no se miró en un panel bajo.
+
+**Vive en:** `app/automations/SecuenciaPerfil.tsx` (`controlReentrada`, `hayWhatsApp`) ·
+`app/automations/FlujoLienzo.tsx` (`pieWhatsApp`, `EditorMensaje`) · test: `tests/cron-solo-disparo.test.ts`
+
+## Los links de un WhatsApp, con o sin la vista previa (17/10/2026, tarjeta #869)
+
+- **Es de cada mensaje** (`sin_vista_previa: true` en el paso, lib/mensaje-partes.ts), como la línea: el interruptor
+  «Vista previa del link» aparece en la tarjeta sólo si un texto lleva un link (escrito, o un dato como
+  `{{reunion_link}}`). Apagada, Evolution recibe `linkPreview: false` en /message/sendText (v2.3.7). Sin el campo, con
+  la tarjeta, como siempre. Sólo el no oficial: el oficial es una plantilla de Meta.
+- ⚠️ **Un campo nuevo del paso se pierde al guardar si no pasa por `setSecuenciaPasos`**: el paso se RECONSTRUYE campo
+  por campo. Va `vistaPreviaAlGuardar` con la regla de `lineaAlGuardar` (con la clave, lo que llega; sin la clave —la
+  API, el generador—, lo de antes).
+- ⚠️ **El texto de un paso sale por SEIS caminos**, y el obvio es uno solo: el texto que sale solo, las partes
+  (`enviarPartesDelPaso`), el pie de un audio, el BORRADOR que espera al setter (cuatro `crearBorrador`), «Si
+  responde» (`mandarMensajeDeRespuesta`) y las dos pruebas (la del panel, que manda lo que el NAVEGADOR arma, y
+  `probar_secuencia`). Un borrador se manda después y sin el paso: la marca viaja en `wa_borradores.sin_vista_previa`
+  (mig 0309).
+- ⚠️ **Una columna nueva no se pide en el claim de un borrador.** `enviarBorrador` reclama con `update … select(…)`:
+  con la columna en el select y la migración sin aplicar, PostgREST rechaza el pedido y NO sale ningún borrador. Se lee
+  aparte (`borradorSinVistaPrevia`) y `crearBorrador` reintenta sin la marca ante un 42703: sin la columna, el
+  borrador sale con la tarjeta, pero sale.
+- **Sin verificar en vivo:** que Evolution 2.3.7 respete `linkPreview: false` se tomó de su contrato, no de un envío.
+  Se prueba con «Probar en mi WhatsApp» de una tarjeta con un link y el interruptor apagado.
+
+**Vive en:** `lib/mensaje-partes.ts` (`sinVistaPrevia`, `vistaPreviaAlGuardar`, `tieneLink`) · `lib/evolution.ts`
+(`enviarTexto`) · `lib/evolution-envio.ts` (`crearBorrador`, `enviarBorrador`) · `lib/nutricion.ts` ·
+`app/automations/FlujoLienzo.tsx` · mig `0309_wa_borradores_sin_vista_previa.sql` · test:
+`tests/whatsapp-sin-vista-previa.test.ts`
