@@ -43,6 +43,25 @@ export function esDelWebhookTodavia(createdTime: string | null | undefined, ahor
 }
 
 /**
+ * ⚠️ UN LEAD QUE EL POLL CREA TAMBIÉN TIENE «LO INMEDIATO» (17/10/2026, tarjeta #868, Brigitte): el aviso, los flujos y la
+ * inscripción en las automatizaciones (`alNacerLeadDeMeta`, lib/meta-lead-nuevo.ts). Hasta ese día el poll sólo lo
+ * cargaba, suponiendo que de lo inmediato se encargaba el webhook; pero para una página que no está suscripta a la app
+ * —la de Brigitte, ws15— el webhook NO LLEGA NUNCA, y sus leads entraban al CRM sin disparar ninguna automatización.
+ *
+ * Con un tope de edad: la pasada diaria repasa la semana y `?dias=90` rescata tres meses. Un lead que Meta tomó hace
+ * días no es «un lead nuevo» para el negocio: se carga callado, como siempre. 24 h cubre la pasada que se cortó una
+ * noche entera. Sin fecha de Meta no se sabe: callado.
+ */
+export const EDAD_MAXIMA_LO_INMEDIATO_MS = 24 * 3600_000;
+
+export function esNuevoParaElNegocio(createdTime: string | null | undefined, ahoraMs: number): boolean {
+  if (!createdTime) return false;
+  const t = Date.parse(createdTime);
+  if (!Number.isFinite(t)) return false;
+  return ahoraMs - t <= EDAD_MAXIMA_LO_INMEDIATO_MS;
+}
+
+/**
  * Cuántos días repasa ESTA corrida. `?dias=` manda (backfill a mano: `?dias=90`). Si no,
  * la de las 13:30 UTC —la hora de la corrida diaria de siempre— repasa la semana, y el
  * resto, el último día.
