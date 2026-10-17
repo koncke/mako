@@ -15,7 +15,10 @@
 //   · Uno que ya está en OTRA etapa dice dónde, y «Traer aquí» lo desvincula de allá y lo vincula acá.
 //   · «Crear un evento» abre la página de Calendly o Cal.com en otra pestaña (sus APIs no crean tipos de evento
 //     desde acá); al volver, «Actualizar» lo trae a la lista.
-//   · Google Calendar NO está: el motor sólo conoce Calendly y Cal.com (lib/agenda-evento-etapa.ts, ProveedorAgenda).
+//   · Google Calendar NO está, y se dice abajo (17/10/2026): su API no lista las páginas de reserva («appointment
+//     schedules») ni marca de cuál viene una reserva (llega como un evento común, `eventType: default`; developers.google.com,
+//     «Event types»). Vincular una a una etapa pediría adivinar por el título y leer el calendario con un cron: no se hace
+//     hasta que Google lo exponga (docs/hallazgos-crm.md, «Las tabs como HOJAS…» §6).
 // =============================================================================
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
@@ -155,6 +158,7 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: 
       {agenda?.proveedores.filter((p) => p.conectado && p.error).map((p) => (
         <p key={p.proveedor} style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--warn)' }}>{NOMBRE_PROVEEDOR[p.proveedor]}: {p.error}</p>
       ))}
+      <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--faint)' }}>Google Calendar todavía no: Google no comparte sus páginas de reserva.</p>
       {agenda && !agenda.sePuedeVincular && (
         <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--warn)' }}>Todavía no se pueden asignar eventos en esta cuenta.</p>
       )}

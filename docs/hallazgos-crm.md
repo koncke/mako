@@ -9597,6 +9597,13 @@ a su plantilla NO borra las hojas propias (no vienen de ninguna). Y una trampa d
 ajeno o que no existe no falla, devuelve el pipeline GENÉRICO (`origen: 'sin-fila'`), y con la base caída también
 (`'error'`): `ver_funnel` con `embudoId` valida el id contra los CRM del workspace ANTES de leer.
 
+**6. Google Calendar en «Asignar evento» (punto 3): no, y por qué.** Lo que se vincula a una etapa es un TIPO de evento
+(una página de reserva de Calendly o Cal.com) y el webhook dice de cuál vino cada reserva. Google no tiene eso por API:
+la API de Calendar no lista las páginas de reserva («appointment schedules») y una reserva llega como un evento común
+(`eventType: default`, developers.google.com/calendar/api/guides/event-types), sin decir de qué página vino. Hacerlo
+pediría adivinar por el título del evento y leer el calendario con un cron (Google no avisa sin un dominio verificado).
+**Decisión: no se hace** hasta que Google lo exponga; el modal lo dice en una línea (app/crm/EventosDeEtapaModal.tsx).
+
 **Sin hacer (con su archivo):**
 - «Estilo de la hoja» (app/crm/lead-view/ficha/EstiloDeLaHoja.tsx, del chat Dashboard) todavía habla de las cuatro tabs:
   en una hoja propia lo usa un PUENTE en FichaPorBloques.tsx (`estiloDe`). Cuando acepte un `LugarFicha`, el puente se va.
