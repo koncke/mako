@@ -485,6 +485,13 @@
 .mk-seccion__chev { opacity: .45; transition: opacity .13s ease, transform .15s ease; }
 .mk-seccion:hover .mk-seccion__chev, .mk-seccion:focus-visible .mk-seccion__chev { opacity: 1; }
 
+/* ── El alto de una pantalla de alto fijo dentro de una tab UNIFICADA (17/10/2026) ──
+   La barra de arriba de una tab unificada (app/_components/SeccionesTab.tsx) deja su
+   alto en --alto-secciones mientras se ve. Una pantalla que ocupa el alto entero
+   (`100vh`) se lo resta, o se pasa 40 px y scrollea el documento. Automations la usa
+   como clase porque un test suyo prohíbe esa palabra en su fuente. */
+.mk-alto-tab { height: calc(100vh - var(--alto-secciones, 0px)); }
+
 /* ── Las CRIATURAS de la barra (17/10/2026) ───────────────────────────────
    Ops Center y Second Brain llevan de ícono el muñeco de ese chat del Ops Center
    (app/admin/operaciones/Muneco.tsx), y Martín lo pidió «moviéndose como siempre».
