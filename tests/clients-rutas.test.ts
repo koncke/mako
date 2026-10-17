@@ -145,7 +145,6 @@ const QUEDAN: Record<string, string> = {
   'app/_components/nav.ts': 'la barra: la ordena el chat Sidebar',
   'app/_components/Sidebar.tsx': '«Regresar a Clientes» del modo dev: chat Sidebar',
   'app/_components/ImpersonationBanner.tsx': 'la salida de la vista de agencia: se muda a /partners',
-  'app/api/auth/me/route.ts': 'la salida de la vista de agencia: se muda a /partners',
   'lib/movil-guard.ts': 'la salida de la vista de agencia: se muda a /partners',
   'lib/agencia-cartera.ts': 'la salida de la vista de agencia: se muda a /partners',
   'app/admin/runway/datos.ts': 'un link de ejemplo del panel de Runway (super admin)',

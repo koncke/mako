@@ -71,5 +71,5 @@ test('/api/auth/me y el layout leen al cliente de UN solo lugar', () => {
   assert.match(lib, /^import 'server-only';$/m);
   assert.match(lib, /if \(!sesion \|\| !\(await estaImpersonando\(\)\)\) return null;/);
   assert.match(lib, /const agencia = esSuperAdmin \? await agenciaDeCliente\(clienteWs\) : null;/);
-  assert.match(lib, /salida: agencia \? `\/customer-success\?\$\{WS_PARAM\}=\$\{agencia\.ws\}` : rutaDeSalida\(esSuperAdmin\)/);
+  assert.match(lib, /salida: agencia \? `\/partners?\?\$\{WS_PARAM\}=\$\{agencia\.ws\}` : rutaDeSalida\(esSuperAdmin\)/);
 });
