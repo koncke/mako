@@ -569,7 +569,9 @@ export const BITACORA: Hito[] = [
       '«De qué funnels» (OKR y KPIs) y el funnel de «Tu funnel hoy» llevan el cubo en el desplegable, como el selector del CRM, y ya no un ícono de etapas en cada renglón.',
       'Había cuatro dibujos para un funnel: el cubo del CRM, otro cubo dibujado a mano en tres lugares del CRM (acciones en lote, asignar campañas y el funnel de la ficha), el embudo en el selector de Offer y el de las etapas. Ahora es uno solo.',
       'El embudo sigue siendo el ícono de filtrar: ese no se tocó.',
+      'En producción desde el run 84.',
     ],
+    commits: [{ sha: '0d411b920', msg: 'Un funnel se dibuja con el cubo en toda la app (en el control, no en cada renglón)', lineas: 169, archivos: 18 }],
     archivos: [
       'app/_ui/icono-funnel.ts — el ícono del funnel, en un solo lugar',
       'app/_ui/iconos-menu.tsx — `IconoFunnel`, el dibujo',
