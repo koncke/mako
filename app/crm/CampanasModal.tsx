@@ -46,7 +46,7 @@ import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-m
 import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 import { useVerMas } from '@/app/plan/board/VerMas';
 import { ProductoCelda, type ItemCampana } from '@/app/ads-manager/ProductoCelda';
-import type { CampanaAsignada } from '@/lib/campana-config';
+import { funnelsDeAsignada, type CampanaAsignada } from '@/lib/campana-config';
 import { hayQuePreguntar, preguntaAsignar, valorDeProducto, funnelDeValor } from '@/lib/campana-asignar';
 import {
   campanasDelProductoAction, previaLoteAction, asignarLoteAction, quitarLoteAction, deshacerLoteAction,
@@ -132,9 +132,10 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
   }, []);
 
   const asignadas = useMemo(() => estado?.asignadas ?? [], [estado]);
-  const dondeVa = useMemo(() => new Map(asignadas.map((a) => [a.id, a.funnelId])), [asignadas]);
+  // Todos sus funnels, la casa primero (#893): es «de este funnel» también si lo tiene como otro.
+  const dondeVa = useMemo(() => new Map(asignadas.map((a) => [a.id, funnelsDeAsignada(a)])), [asignadas]);
   const nombreDe = (id: number | null) => estado?.productos.find((p) => p.id === id)?.nombre ?? 'otro funnel';
-  const esMia = (id: string) => dondeVa.has(id) && dondeVa.get(id) === funnelId;
+  const esMia = (id: string) => !!dondeVa.get(id)?.includes(funnelId);
 
   const actualizar = (nuevas: CampanaAsignada[]) => {
     setEstado((e) => (e ? { ...e, asignadas: nuevas } : e));
@@ -337,7 +338,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
     // Un conjunto sin asignación propia HEREDA la de su campaña (así rutea
     // `funnelIdDeCampana`), y la celda lo dice en vez de «Sin asignar».
     const heredadoDe = item.tipo === 'conjunto' && !asignada && item.campanaId && dondeVa.has(item.campanaId)
-      ? nombreDe(dondeVa.get(item.campanaId)!) : null;
+      ? nombreDe(dondeVa.get(item.campanaId)![0]) : null;
     return (
       <div key={f.id} role="row" className="mk-fila-campana" onClick={() => alternarSel(f.id)}
         style={{

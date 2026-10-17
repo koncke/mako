@@ -103,6 +103,8 @@ const TRAZOS = {
   audio: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></>,
   plan: <><rect x="4.5" y="3.5" width="15" height="17" rx="2.5" /><path d="m7.5 8 1.2 1.2 2.2-2.4M7.5 13l1.2 1.2 2.2-2.4M13 8.2h3.5M13 13.2h3.5" /></>,
   grafico: <><path d="M4 20h16" /><rect x="5.5" y="12" width="3" height="6" rx=".8" /><rect x="10.5" y="7" width="3" height="11" rx=".8" /><rect x="15.5" y="9.5" width="3" height="8.5" rx=".8" /></>,
+  // El matraz: un experimento (17/10/2026, el elemento «Experimento» de la hoja).
+  experimento: <><path d="M9.5 3.5h5" /><path d="M10.5 3.5v5.2L5.4 18a1.6 1.6 0 0 0 1.4 2.4h10.4a1.6 1.6 0 0 0 1.4-2.4l-5.1-9.3V3.5" /><path d="M7.6 14.5h8.8" /></>,
   web: <><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5S14.3 18.1 12 20.5C9.7 18.1 8.6 15.3 8.6 12S9.7 5.9 12 3.5Z" /></>,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   cerrar: <path d="M6 6l12 12M18 6 6 18" />,

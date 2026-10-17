@@ -510,6 +510,28 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'borra el vínculo del evento (agenda_evento_etapa) y suelta su fila del índice de webhooks si ya nadie la usa',
   },
+  // #893 (17/10/2026): una campaña o un conjunto de Meta va a UNO O VARIOS funnels (lib/campana-config.ts, `tambien`).
+  {
+    id: 'ver_campanas_funnels', area: 'crm', tipo: 'lectura',
+    titulo: 'Campañas de Meta y sus funnels',
+    descripcion: 'Qué campañas y conjuntos de Meta están asignados a qué funnels del CRM: cada lead nuevo de esa campaña entra al primero (su funnel principal) y se suma a los demás. Un conjunto asignado gana a su campaña. Trae también los funnels que se pueden elegir, con su embudoId. Úsala antes de asignar_campana_funnels.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'asignar_campana_funnels', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Asignar una campaña a funnels',
+    descripcion: 'PROPONE a qué funnels entran los leads nuevos de una campaña o un conjunto de Meta (queda pendiente hasta el «sí»): el primero es su funnel principal y en los demás se suma; [] la deja sin asignar. Reemplaza lo que tenía. Los leads que ya entraron no se mueven. Ids de listar_campanas_meta y de ver_campanas_funnels. Solo el administrador.',
+    parametros: [
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: ['campana', 'conjunto'], descripcion: 'campana o conjunto.' },
+      { nombre: 'id', tipo: 'string', obligatorio: true, max: 30, descripcion: 'el id de Meta de la campaña o del conjunto.' },
+      { nombre: 'embudos', tipo: 'string[]', obligatorio: true, max: 11, vaciaEsValor: true, descripcion: 'los embudoId, el principal primero (de ver_campanas_funnels).' },
+      { nombre: 'nombre', tipo: 'string', max: 200, descripcion: 'su nombre en Meta, para mostrarlo.' },
+      { nombre: 'campanaId', tipo: 'string', max: 30, descripcion: 'en un conjunto: el id de su campaña.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda a qué funnels entran los leads nuevos de esa campaña o conjunto (el setting meta.campanas)',
+  },
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {

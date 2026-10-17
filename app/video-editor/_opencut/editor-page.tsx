@@ -119,9 +119,11 @@ export function EditorPage({ projectId }: { projectId: string }) {
 }
 
 /**
- * Sin WebGPU el motor dibuja por el camino lento (renderer.isDegraded). CapCut no
- * tiene este aviso, pero sin él la persona no sabe por qué el reproductor va a
- * los saltos: queda una franja fina que se cierra.
+ * `renderer.isDegraded` = el navegador no tiene NI WebGPU NI WebGL2, y entonces NO
+ * hay vista previa (el reproductor no monta el compositor, ver preview/components).
+ * El aviso decía «abre el editor en Chrome» —suponía un camino lento que no
+ * existe— y se lo mostraba a gente que ya estaba en Chrome con la aceleración de
+ * gráficos caída (tarjeta #853, 17/10/2026). Ahora dice lo que destraba.
  */
 function AvisoRenderDegradado() {
 	const degradado = useEditor((e) => e.renderer.isDegraded);
@@ -129,7 +131,7 @@ function AvisoRenderDegradado() {
 	if (!degradado || cerrado) return null;
 	return (
 		<div className="flex h-7 shrink-0 items-center justify-center gap-2 bg-(--cc-panel) text-[11px] text-(--cc-text-3)">
-			<span>Para la mejor experiencia, abre el editor en Chrome.</span>
+			<span>La vista previa necesita la aceleración de gráficos: reinicia el navegador.</span>
 			<button
 				type="button"
 				onClick={() => setCerrado(true)}

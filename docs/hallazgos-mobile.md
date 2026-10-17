@@ -1166,3 +1166,20 @@ una plantilla sin lista para una tab usa la del respaldo.
 **Vive en:** app/m/crm/ficha-bloques.ts (`piezasDelTelefono`, `tabsQueVe`, `PIEZA_DE_BLOQUE`) ·
 app/m/crm/[id]/page.tsx · tests/m-ficha-bloques.test.ts ·
 *16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`cc6cf405b`).*
+
+## General en el teléfono con varias hojas: la URL ya traía la hoja, faltaba con qué elegirla (17/10/2026)
+
+**Síntoma (#872, llamada Mau <> Martín del 16/10, 33:14):** Mauricio creó plantillas de General y en su celular sólo
+veía una hoja, sin forma de pasar a la otra. La portada del teléfono dibujaba `tablero.hojas[0]` (app/m/hoy/page.tsx).
+
+- **No hizo falta una ruta nueva:** el teléfono abre /general con la MISMA URL que la computadora y el desvío la
+  reescribe a /m/hoy con la query ENTERA (`urlReescrita`, lib/movil-desvio.ts). Así que `/general?hoja=<id>` —el link
+  de escritorio— llega al teléfono con su hoja; sólo faltaba leerla y ofrecer las otras.
+- El selector es el `SegmentadoM` de la casa con un link por hoja (la página es de server). ⚠️ El segmentado reparte el
+  ancho en partes iguales: con más de tres hojas los nombres se cortaban, así que ahí cada botón mide su nombre y la
+  fila se desliza de costado (`HOJAS_SIN_DESLIZAR`, app/m/hoy/modelo.ts).
+
+Test: tests/m-hoy-hojas.test.ts (probado rompiéndolo). **Nadie lo miró en un teléfono.** Después del deploy: ws3 con dos
+hojas de General, abrir hola-mako.com/general en el celular y tocar la segunda.
+**Vive en:** app/m/hoy/page.tsx · app/m/hoy/modelo.ts · app/m/hoy/hoy.css.
+*17/10/2026, claude4 (chat Dashboard).*

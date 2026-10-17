@@ -19,16 +19,19 @@
 // son dos claves» (AGENTS.md). Acá hay UN escritor (el selector) y UN lector (el
 // ruteo).
 //
-// ⚠️ ES UN MAPA, NO UNA LISTA POR EMBUDO. Una campaña cae en UN producto. Con una lista
-// por embudo, la misma campaña podría estar en dos y el ruteo tendría que desempatar en
-// silencio. Acá la clave es el id de la campaña, así que asignarla a otro producto la
-// MUEVE — no hay forma de escribir el estado ambiguo.
+// ⚠️ ES UN MAPA, NO UNA LISTA POR EMBUDO. Una campaña tiene UNA fila: su casa y, si hay,
+// los otros funnels (`tambien`, abajo). Con una lista por embudo, la misma campaña podría
+// tener dos casas y el ruteo tendría que desempatar en silencio. Acá la clave es el id de
+// la campaña, así que asignarla a otro producto le MUEVE la casa — no hay forma de
+// escribir el estado ambiguo.
 //
-// ⚠️ Y YA NO ES PORQUE EL LEAD TENGA UN SOLO `funnel_id`: desde la migración 0207
-// (06/10/2026) un lead está en VARIOS productos (`lead_funnel`, `agregarAProducto` en
-// lib/lead-funnel.ts). Que una campaña vaya a varios productos es posible en el modelo; lo
-// que falta es que la entrada de leads de Meta, que hoy resuelve UNO (`funnelIdDeCampana`),
-// agregue los demás. Es una decisión de Martín, no un límite del CRM.
+// ⚠️ UNO O VARIOS FUNNELS (#893, 17/10/2026). Desde la migración 0207 un lead está en
+// VARIOS productos (`lead_funnel`). Martín, el 17/10: «estoy seguro que no solamente en los
+// OKR, esa configuración seguro debe faltar en varios lugares». Cada asignación sigue
+// teniendo UNA casa (`funnelId`, la que lleva al lead en `leads.funnel_id`) y suma
+// `tambien`: los otros funnels a los que ENTRA el lead nuevo, como fila de `lead_funnel` en
+// su etapa de entrada. Es el molde de las landings (lib/landing-config.ts, `funnelIds`: el
+// primero es la casa). La clave sigue siendo el id: una campaña no puede tener dos filas.
 //
 // ⚠️ EL CONJUNTO GANA A LA CAMPAÑA. Si la campaña C va al producto A y uno de sus
 // conjuntos al B, un lead de ese conjunto va a B: lo más específico es lo que alguien
@@ -60,9 +63,16 @@ export type CampanaAsignada = {
    * ⚠️ Y puede llegar como STRING: `funnels.id` es `bigint`. Se sanea al parsear.
    */
   funnelId: number | null;
+  /**
+   * Los OTROS funnels a los que también entran sus leads (#893), escritos como `funnelId`
+   * (`null` = el del negocio). Nunca repite la casa ni se repite. Ausente = sólo la casa.
+   */
+  tambien?: Array<number | null>;
 };
 
 export const CONFIG_KEY = 'meta.campanas';
+/** Cuántos funnels además de la casa: un negocio tiene pocos, y cada uno es una fila por lead. */
+export const MAX_TAMBIEN = 10;
 /** Holgado: una cuenta grande corre decenas de campañas, no cientos asignadas a mano. */
 export const MAX_ASIGNADAS = 200;
 
@@ -78,6 +88,23 @@ const idFila = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 };
+
+/** Los `tambien` saneados: ids de fila o `null` (el del negocio), sin repetir y sin la casa. */
+function tambienLimpio(v: unknown, casa: number | null): Array<number | null> {
+  if (!Array.isArray(v)) return [];
+  const out: Array<number | null> = [];
+  for (const x of v) {
+    const id = x === null ? null : idFila(x);
+    if (id === null && x !== null) continue;
+    if (id === casa || out.includes(id)) continue;
+    out.push(id);
+    if (out.length >= MAX_TAMBIEN) break;
+  }
+  return out;
+}
+
+/** Todos los funnels de una asignación, la casa PRIMERO. */
+export const funnelsDeAsignada = (c: CampanaAsignada): Array<number | null> => [c.funnelId, ...(c.tambien ?? [])];
 
 /**
  * Lee la configuración. Tolera todo lo que no sea una lista de asignaciones válidas:
@@ -97,12 +124,15 @@ export function parsearCampanas(crudo: string | null | undefined): CampanaAsigna
     if (!esIdMeta(id) || out.some((c) => c.id === id)) continue;
     const tipo = r.tipo === 'conjunto' ? 'conjunto' : 'campana';
     const campanaId = limpio(r.campanaId, 30);
+    const funnelId = idFila(r.funnelId);
+    const tambien = tambienLimpio(r.tambien, funnelId);
     out.push({
       tipo,
       id,
       nombre: limpio(r.nombre, 200) || id,
       ...(tipo === 'conjunto' && esIdMeta(campanaId) ? { campanaId } : {}),
-      funnelId: idFila(r.funnelId),
+      funnelId,
+      ...(tambien.length ? { tambien } : {}),
     });
   }
   return out.slice(0, MAX_ASIGNADAS);
@@ -125,6 +155,32 @@ export function conCampana(actuales: CampanaAsignada[], nueva: CampanaAsignada):
 
 export function sinCampana(actuales: CampanaAsignada[], id: string): CampanaAsignada[] {
   return actuales.filter((c) => c.id !== id);
+}
+
+/**
+ * Prende o apaga UN funnel en una campaña ya asignada (#893): el gesto de la casilla.
+ *
+ *   · un funnel que no tiene → lo suma a `tambien` (la casa no cambia);
+ *   · uno de `tambien` → lo saca;
+ *   · la CASA → el primero de `tambien` pasa a ser la casa. Si no hay otro, la campaña queda
+ *     sin asignar: un lead no puede entrar a «ningún funnel elegido».
+ *
+ * `null` si la campaña no está asignada: eso es asignarla (`conCampana`), con su pregunta.
+ */
+export function alternarFunnelDeCampana(actuales: CampanaAsignada[], id: string, funnelId: number | null): CampanaAsignada[] | null {
+  const c = actuales.find((x) => x.id === id);
+  if (!c) return null;
+  const tambien = c.tambien ?? [];
+  let nueva: CampanaAsignada | null;
+  if (funnelId === c.funnelId) {
+    nueva = tambien.length ? { ...c, funnelId: tambien[0], tambien: tambien.slice(1) } : null;
+  } else if (tambien.includes(funnelId)) {
+    nueva = { ...c, tambien: tambien.filter((f) => f !== funnelId) };
+  } else {
+    if (tambien.length >= MAX_TAMBIEN) return actuales;
+    nueva = { ...c, tambien: [...tambien, funnelId] };
+  }
+  return nueva ? conCampana(actuales, nueva) : sinCampana(actuales, id);
 }
 
 /**
@@ -154,14 +210,16 @@ export function funnelIdDeCampana(
   asignadas: CampanaAsignada[],
   origen: { campaignId?: string | null; adsetId?: string | null },
   esViva: (funnelId: number | null) => boolean = () => true,
-): { asignada: false } | { asignada: true; funnelId: number | null; por: CampanaAsignada } {
+): { asignada: false } | { asignada: true; funnelId: number | null; tambien: Array<number | null>; por: CampanaAsignada } {
   const adset = origen.adsetId?.trim();
   const camp = origen.campaignId?.trim();
   asignadas = asignadas.filter((c) => esViva(c.funnelId));
+  // Los de `tambien` se validan uno por uno: uno archivado no entra, y no le saca nada a los demás.
+  const con = (c: CampanaAsignada) => ({ asignada: true as const, funnelId: c.funnelId, tambien: (c.tambien ?? []).filter((f) => esViva(f)), por: c });
   const porConjunto = adset ? asignadas.find((c) => c.tipo === 'conjunto' && c.id === adset) : undefined;
-  if (porConjunto) return { asignada: true, funnelId: porConjunto.funnelId, por: porConjunto };
+  if (porConjunto) return con(porConjunto);
   const porCampana = camp ? asignadas.find((c) => c.tipo === 'campana' && c.id === camp) : undefined;
-  if (porCampana) return { asignada: true, funnelId: porCampana.funnelId, por: porCampana };
+  if (porCampana) return con(porCampana);
   return { asignada: false };
 }
 
@@ -169,7 +227,8 @@ export function funnelIdDeCampana(
  *  debajo, sus conjuntos. Un conjunto cuya campaña no está asignada a este embudo va
  *  suelto, al final — no se puede colgar de una fila que no se dibuja. */
 export function asignadasDe(asignadas: CampanaAsignada[], funnelId: number | null): CampanaAsignada[] {
-  const mias = asignadas.filter((c) => c.funnelId === funnelId);
+  // Con las que lo tienen en `tambien` (#893): sus leads también entran acá.
+  const mias = asignadas.filter((c) => funnelsDeAsignada(c).includes(funnelId));
   const campanas = mias.filter((c) => c.tipo === 'campana');
   const out: CampanaAsignada[] = [];
   for (const c of campanas) {

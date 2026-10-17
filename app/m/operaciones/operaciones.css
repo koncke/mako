@@ -77,12 +77,8 @@
 
 /* Un sub-chat («CRM › Lead Detail») va corrido a la derecha, debajo de su jefe. */
 [data-m] .m-operaciones-sub { display: inline-flex; margin-left: 18px; }
-/* El muñeco de la conversación se toca para cambiarlo; el «⋯», a la derecha, abre las opciones. */
+/* El muñeco de la conversación se toca para abrir las opciones (Renombrar y el muñeco): sin «⋯» desde el 17/10/2026. */
 [data-m] .m-operaciones-muneco { padding: 0; border: 0; background: none; display: inline-flex; cursor: pointer; }
-[data-m] .m-operaciones-mas {
-  margin-left: auto; display: inline-grid; place-items: center; width: 40px; height: 40px;
-  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); cursor: pointer;
-}
 [data-m] .m-operaciones-volver {
   display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 0; border: 0; background: none;
   font: inherit; font-size: var(--fs-md); color: var(--primary); cursor: pointer;

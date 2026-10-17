@@ -26,7 +26,8 @@ import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, carteroVivo, rutaParaRevisa
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
-import type { Cuota } from './centro-uso';
+import { usoDeCuenta, type Cuota } from './centro-uso';
+import { preguntaDeTrabajo, resumenDeRespuesta, type PreguntaChat } from './centro-preguntas-chat';
 
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
@@ -327,6 +328,43 @@ export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
 export const chatDeClave = (chats: readonly ChatCentro[], clave: string | null) =>
   clave ? chats.find((c) => c.clave === clave || c.miembros.includes(clave)) ?? null : null;
 
+/**
+ * El chat abierto, aunque lo hayan RENOMBRADO (Martín, 17/10/2026: «Le pedí que renombre el chat, lo hizo, pero falta que
+ * automáticamente me posicione en el mismo chat que estaba»). La clave de un chat es su nombre (`nombre:crm`), así que
+ * renombrarlo la cambia y la vieja deja de existir. Se busca, en orden:
+ *   1. por la clave, o por una de sus sesiones (`chatDeClave`);
+ *   2. por las sesiones que tenía el chat abierto (`antes`, sus `miembros` de la última vez): es el mismo chat;
+ *   3. con una clave de nombre que ya no está (un link viejo, o recargar la página), por el último trabajo que se le mandó
+ *      a ese nombre: `destino_titulo` es el nombre que tenía al mandarlo, y `destino` su sesión. El renombre mismo es un
+ *      trabajo así (`textoDeRenombre`), así que siempre hay uno.
+ * null = no hay forma de saber cuál era.
+ */
+export function seguirChat(
+  chats: readonly ChatCentro[], clave: string | null, antes: readonly string[] | null | undefined,
+  trabajos: readonly Pick<TrabajoP, 'destino' | 'destino_titulo' | 'created_at'>[],
+): ChatCentro | null {
+  if (!clave) return null;
+  const directo = chatDeClave(chats, clave);
+  if (directo) return directo;
+  const sesiones = (antes ?? []).filter((m) => DESTINO_RE.test(m));
+  const porSesion = sesiones.length ? chats.find((c) => c.miembros.some((m) => sesiones.includes(m))) : undefined;
+  if (porSesion) return porSesion;
+  if (!clave.startsWith('nombre:')) return null;
+  const nombre = clave.slice('nombre:'.length);
+  const mandados = trabajos
+    .filter((w) => w.destino_titulo && normal(w.destino_titulo) === nombre && DESTINO_RE.test(w.destino))
+    .sort((a, b) => (fecha(b.created_at) ?? 0) - (fecha(a.created_at) ?? 0));
+  for (const w of mandados) {
+    const c = chatDeClave(chats, w.destino);
+    if (c) return c;
+  }
+  return null;
+}
+
+/** La dirección del chat abierto en la URL: su sesión, que no cambia al renombrarlo; el que no tiene (un jefe anotado sólo
+ *  por nombre, el Cerebro sin sesión), su clave. */
+export const claveParaUrl = (c: Pick<ChatCentro, 'clave' | 'sesion'>): string => (c.sesion && DESTINO_RE.test(c.sesion) ? c.sesion : c.clave);
+
 /** Cuántas tarjetas espera un chat: la suma de las de sus miembros (`esperasPorChat` cuenta por sesión). */
 export const esperaDe = (c: Pick<ChatCentro, 'miembros'>, esperas: Readonly<Record<string, number>>) =>
   c.miembros.reduce((n, k) => n + (esperas[k] ?? 0), 0);
@@ -376,7 +414,10 @@ export type LineaChat =
   /** Lo que Martín contestó a una pregunta de ESTE chat (la de arriba de la caja o la Ticketera): es su respuesta. */
   | { tipo: 'respuesta'; instante: number; decision: Decision }
   /** Lo que se le dijo al chat y lo que contestó, sacado de su transcript (17/10/2026: «los chats no se entienden»). */
-  | { tipo: 'turno'; instante: number; turno: TurnoChat };
+  | { tipo: 'turno'; instante: number; turno: TurnoChat }
+  /** Una pregunta del chat, con sus opciones (17/10/2026: el formulario de `cartero.mjs preguntar`). `trabajo` = el trabajo
+   *  firmado que la contestó, si ya salió: la respuesta se dibuja en la pregunta, no como una burbuja aparte. */
+  | { tipo: 'pregunta'; instante: number; pregunta: PreguntaChat; trabajo: TrabajoP | null };
 
 /**
  * Lo que se DIBUJA en la conversación (17/10/2026, Martín: «los chats no se entienden... No se entiende la conversación
@@ -386,7 +427,7 @@ export type LineaChat =
  * trabajo ya está, con sus ticks.
  */
 export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] =>
-  lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || (l.tipo === 'turno' && !(l.turno.rol === 'yo' && l.turno.trabajo)));
+  lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || l.tipo === 'pregunta' || (l.tipo === 'turno' && !(l.turno.rol === 'yo' && l.turno.trabajo)));
 
 /** Un chat que trabaja y todavía no escribió nada lo dice (Martín, 17/10/2026: «No puede haber un chat en "trabajando"
  *  sin nada escrito»): nunca una conversación vacía. null = escribió algo, o no está trabajando. */
@@ -400,8 +441,22 @@ export function historialDelChat(
   respuestas: readonly Decision[] = [],
   /** Lo que se dijo en sus sesiones (lib/centro-turnos-db.ts): sólo del chat abierto, los demás no los traen. */
   turnos: readonly TurnoChat[] = [],
+  /** Sus preguntas (lib/centro-preguntas-chat-db.ts): también sólo del chat abierto. */
+  preguntas: readonly PreguntaChat[] = [],
 ): LineaChat[] {
   const out: LineaChat[] = [];
+  // El trabajo que contesta una pregunta va ADENTRO de la pregunta: dibujado aparte sería el texto firmado con su marca.
+  const suyas = preguntas.filter((p) => chat.miembros.includes(p.local));
+  const respuestaDe = new Map<string, TrabajoP>();
+  for (const w of trabajos) {
+    const id = preguntaDeTrabajo(w.texto);
+    if (id && chat.trabajos.includes(w.id) && suyas.some((p) => p.id === id)) respuestaDe.set(id, w);
+  }
+  for (const p of suyas) {
+    const t = fecha(p.at);
+    if (t != null) out.push({ tipo: 'pregunta', instante: t, pregunta: p, trabajo: respuestaDe.get(p.id) ?? null });
+  }
+  const contestan = new Set([...respuestaDe.values()].map((w) => w.id));
   for (const id of chat.pedidos) {
     const p = pedidos.get(id);
     if (!p) continue;
@@ -413,7 +468,7 @@ export function historialDelChat(
   // que lo trabajó. `pidioAca` sigue calculándose (dice de dónde vino), pero no se dibuja acá.
   for (const w of trabajos) {
     const t = fecha(w.created_at);
-    if (chat.trabajos.includes(w.id) && t != null) out.push({ tipo: 'trabajo', instante: t, trabajo: w });
+    if (chat.trabajos.includes(w.id) && t != null && !contestan.has(w.id)) out.push({ tipo: 'trabajo', instante: t, trabajo: w });
   }
   for (const d of respuestas) {
     const t = fecha(d.respondidaAt);
@@ -444,6 +499,11 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
       if (c && t != null) ver({ texto: renglon(c.hecho || c.decidido), propio: false, tick: null, instante: t });
     } else if (l.tipo === 'respuesta') {
       ver({ texto: renglon(textoDeRespuesta(l.decision)), propio: true, tick: null, instante: l.instante });
+    } else if (l.tipo === 'pregunta') {
+      const r = l.pregunta.respuesta;
+      ver({ texto: renglon(l.pregunta.pregunta), propio: false, tick: null, instante: l.instante });
+      const t = fecha(r?.at ?? null);
+      if (r && t != null) ver({ texto: renglon(resumenDeRespuesta(l.pregunta, r)), propio: true, tick: null, instante: t });
     } else if (l.tipo === 'turno') {
       // Lo que contestó (o lo que se le dijo): lo último que pasó en la conversación. El turno de un trabajo ya está.
       if (!(l.turno.rol === 'yo' && l.turno.trabajo)) ver({ texto: renglon(l.turno.texto), propio: l.turno.rol === 'yo', tick: null, instante: l.instante });
@@ -523,8 +583,95 @@ export function sinNoticiasDesde(carteros: readonly Pick<CarteroP, 'vistoAt'>[],
   return vistos.length ? Math.max(...vistos) : null;
 }
 
+// ── En qué está lo que mandó Martín (17/10/2026) ──────────────────────────────────────────────────────────────
+// Martín: «Envié un mensaje y no pasó nada por varios segundos... Debería automáticamente comenzar a trabajar». Desde
+// el cartero 1.12.0 (`vigilar`) un trabajo sale en segundos; la pantalla lo cuenta paso por paso, sin silencio:
+// «Enviado» (está en MaKo) → «La PC lo recibió» (el Runner lo tomó) → «Trabajando…» (el chat lo tiene). Y si tarda,
+// dice POR QUÉ, con lo que Martín puede hacer: la cuenta sin cuota, la PC que no responde (ningún Runner da noticias),
+// el Runner de esa cuenta cerrado, o el chat cerrado.
+
+/** Hasta acá, un trabajo `escrito` no tarda: `vigilar` consulta cada ~4 s y la pantalla se refresca cada 2,5 s. */
+export const TARDA_MS = 30_000;
+/** Lo `tomado` lo entrega el Runner con SendMessage: más que esto es que está ocupado. */
+export const TARDA_TOMADO_MS = 90_000;
+/** Recién entregado, el chat ya lo tiene aunque el Runner todavía no haya subido que está ocupado. */
+export const RECIEN_ENTREGADO_MS = 3 * 60_000;
+
+const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
+export type FaseEnvio = 'enviado' | 'recibido';
+/** La línea debajo de lo que mandó Martín. `porQue` sólo cuando tarda. */
+export type EstadoDelEnvio = { fase: FaseEnvio; texto: string; porQue: string | null };
+
+/** Por qué no sale (o no llega) un trabajo, en lo que Martín puede hacer. null = no hay nada que lo frene. */
+function porQueTarda(
+  w: Pick<TrabajoP, 'destino' | 'destino_cuenta'>,
+  chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner'> | null,
+  carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'chats' | 'cuota'>[],
+  ahora: number,
+): string | null {
+  if (w.destino === DESTINO_NUEVO) return 'Se abre cuando prendas la apertura de chats en el Runner.';
+  const subido = carteros.flatMap((k) => k.chats.map((c) => ({ ...c, cuenta: c.cuenta ?? k.cuenta }))).find((c) => c.local === w.destino);
+  const cuenta = subido?.cuenta ?? w.destino_cuenta;
+  const n = cuenta ? cuenta.replace(/^claude/, '') : '?';
+  const suyo = carteros.find((k) => k.cuenta === cuenta);
+  // Sin cuota, ni el Runner ni el chat corren: va primero, porque si no parecería que la PC no responde.
+  const uso = usoDeCuenta(suyo?.cuota ?? null, ahora);
+  const lleno = [uso.cinco, uso.semana].find((v) => v?.pct != null && v.pct >= 100);
+  if (lleno) return `La cuenta ${n} llegó a su límite${lleno.reinicia ? `: sigue a las ${horaAR(lleno.reinicia)}` : ''}.`;
+  if (!carteroVivo(suyo, ahora)) {
+    const pc = sinNoticiasDesde(carteros, ahora);
+    if (pc != null) return `La PC no responde desde las ${horaAR(pc)}: puede estar dormida.`;
+    const visto = fecha(suyo?.vistoAt);
+    return visto != null ? `El Runner de la cuenta ${n} no responde desde las ${horaAR(visto)}: ábrelo para que salga.` : `Abre el Runner de la cuenta ${n} para que salga.`;
+  }
+  const estado = chat?.estado ?? (subido ? (subido.vivo ? 'abierto' : 'cerrado') : 'sin_dato');
+  if (estado !== 'trabajando' && estado !== 'abierto') return `Abre este chat en la cuenta ${n} para que lo reciba.`;
+  if (chat?.sinRunner || subido?.runner === false) return `Abre el Runner de la cuenta ${n} para que salga.`;
+  return null;
+}
+
+/**
+ * La línea de estado de un trabajo del Centro, debajo de su burbuja: «Enviado» o «La PC lo recibió», y por qué tarda si
+ * tarda. null = ya lo tiene el chat (los ✓✓ lo dicen, y «Trabajando…» va al pie de la conversación: `chatTrabajando`), o
+ * terminó, o no salió (eso lo dice su nota roja).
+ */
+export function estadoDelEnvio(
+  w: Pick<TrabajoP, 'destino' | 'destino_cuenta' | 'created_at' | 'estado'>,
+  chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner'> | null,
+  carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'chats' | 'cuota'>[],
+  ahora: number,
+): EstadoDelEnvio | null {
+  const estado = w.estado ?? 'escrito';
+  if (estado !== 'escrito' && estado !== 'tomado') return null;
+  const desde = fecha(w.created_at) ?? ahora;
+  if (estado === 'escrito') {
+    return { fase: 'enviado', texto: 'Enviado', porQue: ahora - desde > TARDA_MS ? porQueTarda(w, chat, carteros, ahora) ?? 'El Runner lo toma en segundos.' : null };
+  }
+  return { fase: 'recibido', texto: 'La PC lo recibió', porQue: ahora - desde > TARDA_TOMADO_MS ? porQueTarda(w, chat, carteros, ahora) ?? 'El Runner se lo está pasando al chat.' : null };
+}
+
+/**
+ * ¿Va «Trabajando…» al pie de la conversación? Sí si el Runner lo ve ocupado AHORA (no una foto vieja), o si el último
+ * trabajo se le entregó hace poco y todavía no contestó: el estado ocupado llega con la vuelta completa del Runner, y entre
+ * una cosa y la otra la pantalla no puede quedar callada.
+ */
+export function chatTrabajando(chat: Pick<ChatCentro, 'estado' | 'viejo'>, lineas: readonly LineaChat[], ahora: number): boolean {
+  if (chat.estado === 'trabajando' && !chat.viejo) return true;
+  const trabajos = lineas.filter((l): l is Extract<LineaChat, { tipo: 'trabajo' }> => l.tipo === 'trabajo');
+  const ultimo = trabajos[trabajos.length - 1]?.trabajo;
+  if (!ultimo || ultimo.estado !== 'entregado' || ultimo.cierre) return false;
+  const entregado = fecha(ultimo.entregado_at ?? null);
+  if (entregado == null || ahora - entregado > RECIEN_ENTREGADO_MS) return false;
+  return !lineas.some((l) => l.tipo === 'turno' && l.turno.rol === 'el' && l.instante > entregado);
+}
+
+/** ¿Hay algo en camino (escrito o tomado, de hace poco)? Mientras tanto la pantalla se refresca más seguido. */
+export const hayEnCamino = (trabajos: readonly Pick<TrabajoP, 'estado' | 'created_at'>[], ahora: number): boolean =>
+  trabajos.some((w) => (w.estado === 'escrito' || w.estado === 'tomado') && ahora - (fecha(w.created_at) ?? 0) < 5 * 60_000);
+
 /** «Cuenta 3», o null si no se sabe. */
-export const nombreCuenta = (c: string | null | undefined): string | null => (c ? `Cuenta ${c.replace(/^claude/, '')}` : null);
+export const nombreCuenta =(c: string | null | undefined): string | null => (c ? `Cuenta ${c.replace(/^claude/, '')}` : null);
 
 /**
  * Lo que dice la caja debajo, en una línea. null = nada que decir (sale ya).
@@ -586,24 +733,37 @@ export const SECCION_CHATS = 'chats';
 export type SeccionChats = { clave: string; titulo: string | null; chats: ChatCentro[] };
 
 export const SECCION_CEREBRO = 'cerebro';
-export const SECCION_SIN_ASIGNAR = 'sin-asignar';
+
+/** Cuántas cosas esperan a Martín en un chat (sus preguntas sin contestar): lo que lo sube en la lista. */
+export type AvisosDe = (c: ChatCentro) => number;
 
 /**
- * Martín (16/10/2026): «No estás aplicando la modularización y organización de chats... Quiero chats con los nombres de las
- * tabs que sean "jefes"... Y no veo que ningún "jefe" tenga sus chats», y que el orquestador no es un jefe más. Con
- * `tabs` (app/admin/operaciones/tabs.ts), un chat cuyo jefe no se llama como ninguna tab («dashboard-marketing-7d», un
- * título que inventó la app) va a «Sin asignar», que nace plegado: se renombra con su «⋯» y pasa a su jefe. Sin `tabs`,
- * todos van a la lista (como antes).
+ * El lugar de un chat en la lista (Martín, 17/10/2026: «que los chats trabajando siempre estén arriba... Y los que tienen
+ * notificaciones también»): 0 = trabajando AHORA (no una foto vieja), 1 = espera algo de Martín, 2 = el resto.
  */
-export function seccionesDeChats(chats: readonly ChatCentro[], tabs?: readonly string[]): SeccionChats[] {
+export function prioridadEnLista(c: ChatCentro, avisos?: AvisosDe): 0 | 1 | 2 {
+  if (c.estado === 'trabajando' && !c.viejo) return 0;
+  return avisos && avisos(c) > 0 ? 1 : 2;
+}
+/** Lo que trabaja o espera a Martín nunca queda escondido detrás de «Mostrar más». */
+export const esPrioritario = (c: ChatCentro, avisos?: AvisosDe) => prioridadEnLista(c, avisos) < 2;
+
+/**
+ * Las secciones de la barra: el Cerebro arriba y fijo, y UNA lista con los demás (17/10/2026, Martín: «No entiendo el
+ * desplegable de "Sin asignar", no tiene sentido, elimínalo»). Adentro, primero los que trabajan, después los que
+ * esperan a Martín, después el resto por actividad; los sub-chats van con su jefe (`porJefe`), que sube con ellos.
+ * ⚠️ Un chat que no se llama como una tab ya no va aparte: está en la lista, y renombrándolo pasa a su jefe.
+ */
+export function seccionesDeChats(chats: readonly ChatCentro[], avisos?: AvisosDe): SeccionChats[] {
   const cerebro = chats.filter((c) => esCerebro(c.titulo));
-  const resto = chats.filter((c) => !esCerebro(c.titulo));
-  const conocidas = tabs ? new Set(tabs.map(normal)) : null;
-  const deTab = (c: ChatCentro) => !conocidas || conocidas.has(normal(partesDelNombre(c.titulo).jefe));
+  const resto = chats
+    .filter((c) => !esCerebro(c.titulo))
+    .map((c, i) => ({ c, i, p: prioridadEnLista(c, avisos) }))
+    .sort((a, b) => a.p - b.p || (a.p === 2 ? (b.c.actividad ?? 0) - (a.c.actividad ?? 0) : 0) || a.i - b.i)
+    .map((x) => x.c);
   const out: SeccionChats[] = [];
   if (cerebro.length) out.push({ clave: SECCION_CEREBRO, titulo: null, chats: cerebro });
-  if (resto.some(deTab)) out.push({ clave: SECCION_CHATS, titulo: null, chats: resto.filter(deTab) });
-  if (resto.some((c) => !deTab(c))) out.push({ clave: SECCION_SIN_ASIGNAR, titulo: 'Sin asignar', chats: resto.filter((c) => !deTab(c)) });
+  if (resto.length) out.push({ clave: SECCION_CHATS, titulo: null, chats: resto });
   return out;
 }
 
@@ -698,10 +858,10 @@ export function mensajeDeCommit(msg: string): string {
 export function avanceDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
   // Una respuesta a una pregunta no es algo que se le pidió: no es un nodo del avance. Un turno de la conversación,
   // tampoco: el Plan son los pedidos y los trabajos.
-  return lineas.flatMap((l): NodoAvance[] => (l.tipo === 'respuesta' || l.tipo === 'turno' ? [] : [nodoDe(l)]));
+  return lineas.flatMap((l): NodoAvance[] => (l.tipo === 'respuesta' || l.tipo === 'turno' || l.tipo === 'pregunta' ? [] : [nodoDe(l)]));
 }
 
-function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' | 'turno' }>): NodoAvance {
+function nodoDe(l: Exclude<LineaChat, { tipo: 'respuesta' | 'turno' | 'pregunta' }>): NodoAvance {
   if (l.tipo === 'trabajo') {
     const w = l.trabajo;
     const texto = (w.texto ?? '').trim();

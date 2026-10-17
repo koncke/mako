@@ -55,13 +55,14 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
   assert.match(src, /autoabrir: conGuia && !enBlanco && !editando/);
   // Un return aparte se dibujaba SIN los <style> del editor (12/10: el texto chiquito arriba a la izquierda).
   assert.doesNotMatch(src, /if \(enBlanco\) \{\s*return \(/);
-  assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} enBlanco="Página 1" informe=\{informe\} senales=\{senales\} \/>\}/);
+  assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} onRellenar=\{rellenarHoja\} enBlanco="Página 1" informe=\{informe\} senales=\{senales\} \/>\}/);
   assert.doesNotMatch(src, /Nuevo Dashboard/, 'volvió el botón en lugar de la caja');
   // En blanco el desplegable de hojas sólo existe si hay Archivados (para restaurar una).
   assert.match(src, /conHojas=\{enBlanco \? guardable && !!tablero\.archivadas\?\.length : /);
   // En blanco no hay «Editar» ni ⋮, y en el Dashboard tampoco el filtro ni la búsqueda (14/10/2026: «Si no tengo tabs no
-  // debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard»). En General la barra de filtros no va nunca.
-  assert.match(src, /\{!esGeneral && !enBlanco && \(\s*<div className="lk-top-filtros"/);
+  // debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard»). Desde el 17/10 (#858) la barra de filtros
+  // va también en General (tests/general-filtros-por-defecto.test.ts); en blanco, en ninguna.
+  assert.match(src, /\{!enBlanco && \(\s*<div className="lk-top-filtros"/);
   assert.match(src, /\{!soloMirar && !enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--azul"/);
   assert.match(src, /\{!enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--icono lk-mas"/);
   assert.doesNotMatch(src, /empezarEnBlanco/, 'volvió el «Editar» de la pantalla en blanco');
@@ -70,7 +71,7 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
 test('NuevaHoja: el modal monta la MISMA pieza que la pantalla en blanco, y las plantillas van como páginas', () => {
   const src = leer('app/dashboard/NuevaHoja.tsx');
   assert.match(src, /export function CrearHoja\(/);
-  assert.match(src, /<Modal titulo="Nueva hoja" ancho=\{980\} sinFiletes onCerrar=\{cerrar\}>\s*<CrearHoja onCrear=\{onCrear\} onListo=\{cerrar\} enBlanco=\{enBlanco\} informe=\{informe\} senales=\{senales\} \/>\s*<\/Modal>/);
+  assert.match(src, /<Modal titulo="Nueva hoja" ancho=\{980\} sinFiletes onCerrar=\{cerrar\}>\s*<CrearHoja onCrear=\{onCrear\} onRellenar=\{onRellenar\} onListo=\{cerrar\} enBlanco=\{enBlanco\} informe=\{informe\} senales=\{senales\} \/>\s*<\/Modal>/);
   assert.equal((src.match(/<CajaPedido /g) ?? []).length, 1, 'una sola caja: la de CrearHoja');
   assert.match(src, /<MiniaturaHoja hoja=\{muestras\.get\(p\.id\) \?\? null\} \/>/);
   assert.match(src, /<span className="nh-usar">Usar plantilla<\/span>/);

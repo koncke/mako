@@ -107,6 +107,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/automatizaciones/simulacion', 'evaluar_crm_automatico'],
   ['GET', '/crm/busqueda/duplicados', 'duplicados_lead'],
   ['GET', '/crm/busqueda/leads', 'buscar_leads'],
+  // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.
+  ['GET', '/crm/campanas', 'ver_campanas_funnels'],
+  ['PUT', '/crm/campanas/funnels', 'asignar_campana_funnels'],
   // Un CRM nuevo por su tipo (14/10/2026): crea el embudo y devuelve su embudoId.
   ['POST', '/crm/embudos', 'crear_crm'],
   ['PUT', '/crm/entradas', 'declarar_entradas_funnel'],

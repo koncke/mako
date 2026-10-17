@@ -251,7 +251,8 @@ test('la caja firma el hash que calculó ELLA, y no ofrece adjuntar hasta el car
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
     const s = sinComentarios(leer(f));
     assert.match(s, /onPaste=\{\(e\) => alPegar\(e, adjuntos\)\}/, `${f}: pegar una captura`);
-    assert.match(s, /<BotonAdjuntar a=\{adjuntos\}/, `${f}: el botón de adjuntar`);
+    // Desde el 17/10 (la B) adjuntar vive en el «+» de la caja, con «Importar archivo» e «Imagen» (AdjuntosCaja.tsx → MasCaja).
+    assert.match(s, /<MasCaja a=\{adjuntos\}/, `${f}: el «+» de la caja, que adjunta`);
   }
 });
 

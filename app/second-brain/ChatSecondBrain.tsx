@@ -39,10 +39,12 @@ import { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
-import { chatDeClave } from '@/lib/centro-chats';
+import { claveParaUrl, seguirChat } from '@/lib/centro-chats';
 import { ChatDelCentro, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
-import type { VistaTicketera } from '@/app/tickets/decisiones/CambioVista';
+import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
+import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
+import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { MunecoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { Microfono } from '@/app/admin/operaciones/Microfono';
@@ -149,7 +151,7 @@ type Props = {
   /** `?centro=`: el chat de Claude Code que se abre al entrar. */
   centroInicial: string | null;
   /** `?ticketera=`: Ops Center abre con la Ticketera entera (las rutas viejas de la Ticketera traen acá). */
-  ticketeraInicial?: VistaTicketera | null;
+  ticketeraInicial?: VistaDeTicketera | null;
   /** Qué se abre sin nada en la URL: el jefe del Second Brain (/second-brain) o el Cerebro (/admin/operaciones). */
   inicio?: 'second-brain' | 'centro';
 };
@@ -180,17 +182,17 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const [errorLista, setErrorLista] = useState<string | null>(null);
   const [elegido, setElegido] = useState<Elegido | null>(() => {
     if (!centro) return null;
-    // La clave de un chat, o la de una de sus sesiones (los links de siempre del Centro: `?chat=local_…`).
-    const pedido = chatDeClave(centro.chats, centroInicial);
+    // La clave de un chat, o la de una de sus sesiones (los links de siempre del Centro: `?chat=local_…`). Un link con el
+    // nombre de antes de un renombre lleva al chat renombrado (lib/centro-chats.ts → seguirChat).
+    const pedido = seguirChat(centro.chats, centroInicial, null, centro.trabajos);
     if (pedido) return { centro: pedido.clave };
-    // En /admin/operaciones, sin nada pedido, abre el Cerebro, como el Centro de siempre.
-    const entrada = inicio === 'centro' && chatInicial == null && mapa == null ? centroDeEntrada(centro) : null;
+    // En Ops Center, sin nada pedido, abre el Cerebro, como el Centro de siempre (desde el 17/10/2026 también por la puerta
+    // de /second-brain: «Second Brain» es el grafo, no una lista aparte).
+    const entrada = chatInicial == null && mapa == null ? centroDeEntrada(centro) : null;
     return entrada ? { centro: entrada } : null;
   });
   const [conChat, setConChat] = useState(chatInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
-  const [ticketera, setTicketera] = useState<VistaTicketera | null>(ticketeraInicial);
-  /** El último chat de Claude Code abierto: volver de «Second Brain» vuelve a él. */
-  const ultimoCentro = useRef<string | null>(centroInicial);
+  const [ticketera, setTicketera] = useState<VistaDeTicketera | null>(ticketeraInicial);
   const [items, setItems] = useState<ItemHilo[]>([]);
   const [cargado, setCargado] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -237,10 +239,11 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       const pedida = chatInicial != null && ss.some((s) => s.id === chatInicial) ? chatInicial : null;
       const { jefe } = arbolDelJefe(ss);
       // Lo que ya se eligió (el chat de Claude Code de la URL, o un toque antes de que llegara la lista) se queda.
-      setElegido((prev) => prev ?? (pedida != null ? { id: pedida } : jefe ? { id: jefe.id } : { virtual: 'jefe' }));
+      // En Ops Center la lista es la de Claude Code: un chat con MaKo se abre sólo si la URL lo pide.
+      setElegido((prev) => prev ?? (pedida != null ? { id: pedida } : ops ? null : jefe ? { id: jefe.id } : { virtual: 'jefe' }));
     });
     return () => { vivo = false; };
-  }, [cargarLista, chatInicial]);
+  }, [cargarLista, chatInicial, ops]);
 
   // ── El hilo de lo elegido ──
   const idElegido = elegido && 'id' in elegido ? elegido.id : null;
@@ -276,18 +279,30 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   }, [elegido, idElegido, idAntes, cargarHilo]);
 
   const claveCentro = elegido && 'centro' in elegido ? elegido.centro : null;
-  useEffect(() => { if (elegido) anotarEnUrl(idElegido, claveCentro); }, [elegido, idElegido, claveCentro]);
-  useEffect(() => { if (claveCentro) ultimoCentro.current = claveCentro; }, [claveCentro]);
+  // ⚠️ EL CHAT ABIERTO SE SIGUE AUNQUE LO RENOMBREN (17/10/2026: renombrarlo dejaba a Martín en un panel vacío). Su clave es
+  // su nombre: si ya no está, se lo busca por las sesiones que tenía (`miembrosAbierto`) y la clave pasa a la nueva.
+  const miembrosAbierto = useRef<readonly string[] | null>(null);
+  const chatCentro = centro && claveCentro ? seguirChat(centro.chats, claveCentro, miembrosAbierto.current, centro.trabajos) : null;
+  useEffect(() => {
+    if (!chatCentro) return;
+    miembrosAbierto.current = chatCentro.miembros;
+    if (claveCentro && chatCentro.clave !== claveCentro) setElegido({ centro: chatCentro.clave });
+  }, [chatCentro, claveCentro]);
+  // En la URL va su SESIÓN (no cambia al renombrarlo); el que no tiene, su clave.
+  const urlCentro = chatCentro ? claveParaUrl(chatCentro) : claveCentro;
+  useEffect(() => { if (elegido) anotarEnUrl(idElegido, urlCentro); }, [elegido, idElegido, urlCentro]);
   // ⚠️ LA TICKETERA SIGUE A LA URL, no a la prop: un link a esta misma página con otro `?ticketera=` (el ítem «Ticketera»
   // de la barra de admin) no la vuelve a montar (docs/hallazgos-operaciones.md).
   const qTicketera = useSearchParams().get('ticketera');
   useEffect(() => {
     if (!ops) return;
-    const v: VistaTicketera | null = qTicketera === 'lista' || qTicketera === 'tarjetas' ? qTicketera : null;
+    const v: VistaDeTicketera | null = esVistaTicketera(qTicketera) ? qTicketera : null;
     setTicketera(v);
     if (v) setConChat(true);
   }, [qTicketera, ops]);
-  const abrirTicketera = (v: VistaTicketera) => { setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
+  // Los tickets de los usuarios que esperan a Martín: el número del botón (17/10/2026, app/tickets/bandeja/).
+  const ticketsPorDecidir = useTicketsPorDecidir(ops);
+  const abrirTicketera = (v: VistaDeTicketera) => { setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
   const cerrarTicketera = () => { setTicketera(null); anotarParam('ticketera', null); };
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
@@ -474,25 +489,23 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const nombre = esJefe ? JEFE_SECOND_BRAIN : idAntes != null ? (deAntes?.titulo?.trim() || 'Chat de antes') : sub ? tituloDe(sub) : SIN_TITULO;
   const nombreMuneco = esJefe ? JEFE_SECOND_BRAIN : idAntes != null ? SECCION_ANTES : nombreDeSub(sub ?? { titulo: null });
   const animo = trabajo ? 'trabajando' : 'despierto';
-  const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : ''}`;
+  // El grafo se abre sin soltar el chat que estaba abierto: vuelve a él (17/10/2026: «nunca cambia de chat»).
+  const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : ''}`;
   /** Volver del Mapa a lo que estaba elegido (lo vuelve a armar el servidor). */
-  const hrefVolver = idElegido ? `${base}?chat=${idElegido}` : claveCentro ? `${base}?centro=${encodeURIComponent(claveCentro)}` : base;
-  /** En Ops Center, ¿la lista es la del Second Brain (los chats con MaKo y el Mapa)? Fuera de Ops Center, siempre. */
-  const enSB = !ops || mapa != null || (elegido == null ? inicio === 'second-brain' : !('centro' in elegido));
+  const hrefVolver = idElegido ? `${base}?chat=${idElegido}` : urlCentro ? `${base}?centro=${encodeURIComponent(urlCentro)}` : base;
+  /** ¿El panel muestra un chat con MaKo? Fuera de Ops Center, siempre; en Ops Center, sólo si es el elegido (por la URL). */
+  const enSB = !ops || (elegido != null && !('centro' in elegido));
+  /** ¿La lista es la de los chats con MaKo? Fuera de Ops Center. En Ops Center la lista es SIEMPRE la de Claude Code: abrir el
+   *  grafo no la cambia (Martín, 17/10/2026: la entrada «Second Brain» «abre sólo el grafo y nunca cambia de chat»). */
+  const listaSB = !ops;
   // «Second Brain» abre el GRAFO en el panel (Martín, 17/10/2026: «Entro a la tab de Second Brain y me envía a un CHAT de
-  // Second Brain... cuando ahí debería saltar el grafo»); el chat con MaKo queda como una fila de la lista. Sin el Mapa
-  // (no es admin de la tab), el chat.
+  // Second Brain... cuando ahí debería saltar el grafo»), con el chat que estaba abierto anotado para volver. Sin el Mapa
+  // (no es admin de la tab), el chat con MaKo.
   const irAlSecondBrain = () => {
     if (veMapa) { if (ticketera) cerrarTicketera(); setConChat(true); router.push(hrefMapa); return; }
     elegir(arbol.jefe ? { id: arbol.jefe.id } : { virtual: 'jefe' });
   };
-  const irAClaudeCode = () => {
-    const ultimo = ultimoCentro.current && centro?.chats.some((x) => x.clave === ultimoCentro.current) ? ultimoCentro.current : null;
-    const c = ultimo ?? (centro ? centroDeEntrada(centro) : null);
-    if (c) elegir({ centro: c });
-  };
-  // Los chats de Claude Code: el elegido, y los que dicen lo buscado.
-  const chatCentro = centro && claveCentro ? centro.chats.find((c) => c.clave === claveCentro) ?? null : null;
+  // Los chats de Claude Code que dicen lo buscado (el elegido, `chatCentro`, se sigue arriba).
   const chatsCentro = centro?.chats;
   const delCentro = useMemo(() => (chatsCentro ? buscarChats(chatsCentro, busca) : []), [chatsCentro, busca]);
 
@@ -526,20 +539,19 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
               la Ticketera»), como «Buscar» y «Biblioteca» en la barra de ChatGPT. */}
           {centro && (
             <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketera != null}
-              onClick={() => (ticketera ? cerrarTicketera() : abrirTicketera('tarjetas'))}>
+              onClick={() => (ticketera ? cerrarTicketera() : abrirTicketera('tickets'))}>
               <Icon name="soporte" size={17} />Ticketera
-              {centro.pendientesTicketera > 0 && <span className="co-acceso__n">{centro.pendientesTicketera}</span>}
+              {(ticketsPorDecidir ?? 0) > 0 && <span className="co-acceso__n">{ticketsPorDecidir}</span>}
             </button>
           )}
           {centro && (
-            <button type="button" className="co-acceso" aria-pressed={enSB && !ticketera}
-              onClick={() => (enSB ? irAClaudeCode() : irAlSecondBrain())}>
+            <button type="button" className="co-acceso" aria-pressed={mapa != null && !ticketera} onClick={irAlSecondBrain}>
               <Icon name="cerebro" size={17} />Second Brain
             </button>
           )}
           {/* El grafo del negocio, arriba de los chats: como la Ticketera en el Centro (el botón del grafo de Obsidian). En
-              Ops Center va sólo adentro del Second Brain. */}
-          {veMapa && enSB && (
+              Ops Center no está (17/10/2026: «la entrada "Mapa" se va»): el grafo lo abre «Second Brain». */}
+          {veMapa && listaSB && (
             <button type="button" className="co-acceso" aria-pressed={mapa != null}
               onClick={() => { setConChat(true); router.push(mapa ? hrefVolver : hrefMapa); }}>
               <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Mapa
@@ -549,7 +561,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
 
         <nav className="co-lista" aria-label="Chats">
           {/* Ops Center fuera del Second Brain: los chats de Claude Code (el Cerebro y cada jefe con sus sub-chats). */}
-          {!enSB && centro && (
+          {!listaSB && centro && (
             <>
               <NuevoChatCentro centro={centro} cuentaDelAbierto={chatCentro?.cuenta ?? null} />
               {centro.chats.length > 0 && !delCentro.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
@@ -558,7 +570,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
                 : <p className="co-lista__vacio">Conecta un Runner para ver tus chats aquí.</p>}
             </>
           )}
-          {enSB && (<>
+          {listaSB && (<>
           {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude. */}
           <button type="button" className="co-fila co-fila--nuevo"
             aria-current={!mapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo' ? 'true' : undefined}
@@ -601,7 +613,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       </aside>
 
       {centro && ticketera ? (
-        <TicketeraCentro
+        <TicketeraCentro cerebro={cerebroDelCentro(centro)}
           decisiones={centro.decisionesOk ? centro.decisiones : null} vista={ticketera} onVista={abrirTicketera}
           responder={centro.responderAca} deshacer={centro.deshacerAca}
           onVolver={() => { cerrarTicketera(); setConChat(false); }}
