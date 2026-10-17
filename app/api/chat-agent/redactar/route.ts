@@ -40,6 +40,7 @@ import { ejecutarOperacion } from '@/lib/api-mako/ejecutar';
 import { canalKeyDe } from '@/lib/api-mako/canal';
 import type { Ctx } from '@/lib/api-mako/tipos';
 import { FEATURE_GUION_AUDIO } from '@/lib/guion-audio';
+import { llevaDatosDeClientes } from '@/lib/doer-herramientas';
 import {
   lecturasDeRedacta, esParaElEquipo, pedidoDeRedacta, redactaSystem, userDeRedacta, revisarRedacta, pedidoParaChat, textoDePropuestaParaChat,
   type LECTURAS_REDACTA, type PropuestaRedacta, type PedidoRedacta,
@@ -79,12 +80,12 @@ async function anotarEnChat(ws: number, p: PedidoRedacta, respuesta: string): Pr
 }
 
 /** Lo que el registro devolvió, en texto, recortado a su tope. */
-async function leer(ctx: Ctx, lecturas: typeof LECTURAS_REDACTA): Promise<{ leido: Array<{ rotulo: string; texto: string }> }> {
-  const leido: Array<{ rotulo: string; texto: string }> = [];
+async function leer(ctx: Ctx, lecturas: typeof LECTURAS_REDACTA): Promise<{ leido: Array<{ id: string; rotulo: string; texto: string }> }> {
+  const leido: Array<{ id: string; rotulo: string; texto: string }> = [];
   const rs = await Promise.all(lecturas.map(async (l) => {
     try {
       const r = await ejecutarOperacion(l.id, l.input ?? {}, ctx, 'json');
-      return r.ok && r.tipo === 'lectura' && r.resultado.trim() ? { rotulo: l.rotulo, texto: r.resultado.trim().slice(0, l.tope) } : null;
+      return r.ok && r.tipo === 'lectura' && r.resultado.trim() ? { id: l.id, rotulo: l.rotulo, texto: r.resultado.trim().slice(0, l.tope) } : null;
     } catch (e) {
       console.warn(`[redactar] no pude leer ${l.id}: ${msg(e)}`);
       return null;
@@ -150,13 +151,21 @@ export async function POST(req: NextRequest) {
   } catch (e) { errores.push(msg(e)); }
 
   // 2) La RED DE PLATAFORMA: sólo si ninguna key del cliente contestó algo que sirva.
+  // ⛔ Y SIN LO QUE LEE DATOS DE CLIENTES (17/10/2026): la red es el plan gratis de Gemini y Groq de la agencia, que
+  // entrena con lo que recibe. Lo que una lectura trae lo decide el REGISTRO (`llevaDatosDeClientes`, el mismo corte
+  // que el doer de WhatsApp: lib/doer-herramientas.ts), no una lista de nombres: lo que lee clientes no viaja.
   if (!propuesta) {
     const superWs = await wsSuperAdmin().catch(() => null);
     const red = superWs != null ? await provsGratisDePlataforma().catch(() => []) : [];
+    const leidoRed = leido.filter((l) => !llevaDatosDeClientes(l.id));
+    if (red.length && leidoRed.length < leido.length) {
+      console.warn(`[redactar] ws=${ws} red de plataforma SIN ${leido.length - leidoRed.length} lecturas con datos de clientes (${leido.filter((l) => llevaDatosDeClientes(l.id)).map((l) => l.id).join(', ')})`);
+    }
+    const userRed = userDeRedacta(p, leidoRed);
     for (const r of red) {
       if (propuesta) break;
       try {
-        const out = await chatCheapTools(system, [{ role: 'user', content: user }], [], async () => '', {
+        const out = await chatCheapTools(system, [{ role: 'user', content: userRed }], [], async () => '', {
           provider: r.provider, clave: r.clave, wsKey: superWs!, maxTokens: 1_200, timeoutMs: 40_000,
           feature: FEATURE_GUION_AUDIO, motivo: `⚠ red de plataforma (${r.provider}) — las keys del negocio no contestaron · ${MOTIVO}`,
         });
