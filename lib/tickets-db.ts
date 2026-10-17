@@ -63,6 +63,8 @@ export type FilaTicket = {
   aviso_estado: string | null;
   aviso_intentos: number;
   aviso_motivo: string | null;
+  /** Cuándo se tomó (o resolvió) el último intento de entrega al Cerebro. */
+  aviso_at?: string | null;
   arreglado_at: string | null;
   arreglo_nota: string | null;
   resuelto_at: string | null;
@@ -73,7 +75,7 @@ export type FilaTicket = {
 
 export type Evento = { id: number; at: string; actor: string; tipo: string; texto: string | null; datos: Record<string, unknown> | null };
 
-const COLS = 'id, created_at, updated_at, workspace_id, usuario_id, usuario_email, usuario_nombre, rol, plan, tipo, tipo_manual, titulo, descripcion, canal, contexto, estado, prioridad, triage, decision, decision_nota, decidido_at, duplicado_de, respuesta, despacho, pedido_id, despachado_at, aviso_estado, aviso_intentos, aviso_motivo, arreglado_at, arreglo_nota, resuelto_at, avisado_at';
+const COLS = 'id, created_at, updated_at, workspace_id, usuario_id, usuario_email, usuario_nombre, rol, plan, tipo, tipo_manual, titulo, descripcion, canal, contexto, estado, prioridad, triage, decision, decision_nota, decidido_at, duplicado_de, respuesta, despacho, pedido_id, despachado_at, aviso_estado, aviso_intentos, aviso_motivo, aviso_at, arreglado_at, arreglo_nota, resuelto_at, avisado_at';
 
 function aFila(f: Record<string, unknown>): FilaTicket {
   const ws = f.workspaces as { nombre?: unknown } | null | undefined;

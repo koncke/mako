@@ -22,6 +22,7 @@ import { RunnerMovil } from './RunnerMovil';
 import { ChatsM } from './ChatsMovil';
 import { cuentasConTitular } from '@/app/admin/operaciones/PiezasCentro';
 import { usoPrincipal } from '@/lib/centro-uso';
+import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { hace } from '@/lib/progreso-reglas';
 
 export function CentroAppMovil(datos: DatosCentro) {
@@ -29,15 +30,19 @@ export function CentroAppMovil(datos: DatosCentro) {
   const k = useCentro(datos, (t) => toast(t));
   const { carteros, ahora, estado, firma } = k;
   const [runners, setRunners] = useState(false);
+  // Los tickets de los usuarios que esperan a Martín (el mismo número que el botón de la computadora). null = leyendo.
+  const tickets = useTicketsPorDecidir(true);
 
   const activos = carteros.filter((c) => carteroVivo(c, ahora)).length;
   const principal = usoPrincipal(carteros.map((c) => ({ cuenta: c.cuenta, cuota: c.cuota ?? null })), ahora);
 
   return (
     <>
-      {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). */}
+      {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). Desde el
+          17/10 es la de los tickets de los usuarios; el mazo de siempre quedó aparte, como en la computadora. */}
       <ListaM etiqueta="Ticketera">
-        <FilaM icono="soporte" titulo="Ticketera" segunda={k.pendientesTicketera ? `${k.pendientesTicketera} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tarjetas" navegacion />
+        <FilaM icono="soporte" titulo="Ticketera" segunda={tickets == null ? 'Tickets de clientes' : tickets ? `${tickets} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tickets" navegacion />
+        <FilaM icono="soporte" titulo="Preguntas de los chats" segunda={k.pendientesTicketera ? `${k.pendientesTicketera} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tarjetas" navegacion />
         {/* Ops Center (17/10/2026): «que "Second brain" sea la sub tab debajo de la Ticketera», como en la computadora.
             Abre el GRAFO («debería saltar el grafo»): `?panel=mapa` lleva al Mapa a quien lo ve, y al chat a quien no. */}
         <FilaM icono="cerebro" titulo="Second Brain" href="/m/second-brain?panel=mapa" navegacion />

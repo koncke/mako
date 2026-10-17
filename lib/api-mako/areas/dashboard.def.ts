@@ -255,6 +255,32 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis',
     gating: GATING,
   },
+  // «Copiar dashboard» y pegarlo con su código (mig 0268, 12/10/2026): lo que la pantalla hace en POST /api/graficos/copia,
+  // por la API. SIN http: el código se lee desde cualquier negocio que lo tenga, y un token que vive en la máquina de un
+  // tercero no tiene por qué publicar un informe. El código NO pasa por el modelo: lo escribe el sistema (`paraLaPersona`).
+  {
+    id: 'copiar_dashboard', area: 'metricas', tipo: 'accion',
+    titulo: 'Copiar una hoja del Dashboard con su código',
+    descripcion: 'Guarda una hoja del Dashboard (con sus gráficos y filtros, SIN los filtros sobre personas) detrás de un código MAKO-DASH-… que sirve para pegarla en cualquier negocio con pegar_dashboard. Quien tenga el código puede leer la hoja: dáselo sólo a quien quieras. No cambia el informe. El código se lo manda el sistema a la persona (no aparece en lo que lees).',
+    parametros: [persona, hojaObligatoria],
+    confirmacion: 'chat', reversible: false,
+    escribe: 'guarda una copia de la hoja en dashboard_copias (no cambia ningún informe)',
+    canales: SIN_HTTP, costo: 'gratis',
+    gating: GATING,
+  },
+  {
+    id: 'pegar_dashboard', area: 'metricas', tipo: 'accion',
+    titulo: 'Pegar un dashboard copiado',
+    descripcion: 'Agrega al informe una hoja copiada con su código MAKO-DASH-… (de copiar_dashboard o del botón «Copiar dashboard» de la pantalla): llega con ids nuevos, al final. Si el código es de OTRO negocio, los filtros que nombran cosas de ese negocio (campañas, closers) llegan vacíos. Devuelve el id de la hoja nueva. No corre en una automatización.',
+    parametros: [
+      persona,
+      { nombre: 'codigo', tipo: 'string', obligatorio: true, max: 200, rotulo: 'Código', ejemplo: 'MAKO-DASH-ABCD-EFGH', descripcion: 'El código MAKO-DASH-… de la hoja copiada (o un texto que lo contenga).' },
+    ],
+    confirmacion: 'chat', reversible: true,
+    escribe: 'agrega una hoja al informe de esa persona',
+    canales: SIN_HTTP, costo: 'gratis',
+    gating: GATING,
+  },
   {
     id: 'borrar_hoja_dashboard', area: 'metricas', tipo: 'accion',
     titulo: 'Borrar una hoja del Dashboard',

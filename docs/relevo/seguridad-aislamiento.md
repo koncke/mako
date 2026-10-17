@@ -28,6 +28,16 @@
 >   espejo»); el mail «tu contraseña cambió» (**pendiente:** crear su fila desde la plantilla «Tu Contraseña Cambió» en el
 >   ws de la plataforma); la red gratis de IA sin historial y el ✦ de Automations sin lecturas con datos de clientes; el
 >   RAG que prestaba lo cargado a mano en el ws1.
+> - ⚠️ **El grupo SuperAdmin de Martín ahora ve los datos del ws de la PLATAFORMA** (antes, los del ws1). Si MaKo en ese
+>   grupo «no encuentra» algo que antes encontraba, es esto: era el CRM de Mauricio.
+> - **Revisión del Cerebro, mismo día:** cerrados los cuatro defectos de la IA gratis y del ws1 (el texto, el adjunto y la
+>   nota de voz del turno; el system lean; el grupo SuperAdmin → plataforma; el gasto de Claude ajeno fuera del panel de
+>   Mauricio).
+> - **Para DESPUÉS DEL 20/10** (corte de consumo de la cuenta, orden del Cerebro), sin empezar: las fotos HUÉRFANAS del
+>   bucket `avatars` (objetos `leads/<ws>/<lead>.jpg` que ninguna fila apunta: la mudanza de `renombrarFotosAdivinables`,
+>   lib/fotos-contacto.ts, sólo encuentra las que una fila viva nombra; borrarlas o mudarlas con un script en seco
+>   primero); el barrido de `exigirSesion()` en los `'use server'` de las otras tabs; el saldo de Claude cargado a mano,
+>   que sigue en el ws1 (`getSaldo`, lib/anthropic-usage.ts).
 > - **Sigue pendiente, con su archivo:** mudar el método de la plataforma del ws1 al ws de la plataforma (Copywriting,
 >   «Buenas prácticas», Levanta Muertos en `mako_knowledge`; `mako.guion_angulos` y `mako.guion_estructuras` en
 >   `app_settings`; `lib/copywriting-metodo.ts`, `lib/guion-*-store.ts`) — el lector del RAG ya lee de la plataforma; la
@@ -214,8 +224,10 @@ Los tres webhooks nuevos usan la lectura ESTRICTA de ruteo y pasan el guard
 
 Martín: *«que no exista más, guardalo en privado»*. El código entero está en la etiqueta de git
 **`archivo/chatwoot-2026-10-09`**. `lib/chatwoot.ts` quedó como **cascarón** —cero pedidos, cero
-credenciales— porque lo importan archivos que la rama `wip/api-acciones-0910` tiene a medio
-cambiar; cuando esa rama entre, se borra entero. Las tarjetas salieron de
+credenciales—. *Actualizado el 17/10/2026*: ya no lo importan `app/crm/actions.ts`, `lib/nutricion.ts` ni `lib/meta-templates.ts`;
+quedan los dos archivos de la API de MaKo con las 8 operaciones del WhatsApp oficial (ver
+`docs/relevo/integraciones.md`), y la rama `wip/api-acciones-0910` ya no es el motivo (son 2 commits WIP del 09/10, sin terminar).
+Cuando esas operaciones salgan, se borra entero. Las tarjetas salieron de
 `lib/integraciones-catalogo.ts` y de `lib/metodo-catalogo.ts`, así que **nadie puede volver a
 configurarlo**. `tests/sin-chatwoot.test.ts` lo fija en positivo.
 

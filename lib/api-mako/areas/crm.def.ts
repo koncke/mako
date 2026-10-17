@@ -35,6 +35,8 @@ import { CANALES } from '@/lib/fase-diagnostico';
 // estilo del Dashboard. Copiar sus ids a mano sería un segundo catálogo.
 import { TABS_FICHA, DENSIDADES } from '@/lib/ficha/catalogo';
 import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
+// Puro: los métodos de pago son los de la ficha (copiarlos a mano sería otro catálogo).
+import { METODOS_PAGO } from '@/lib/pagos-campo';
 
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
@@ -55,6 +57,15 @@ const leadIdOpcional = (desc: string): Parametro =>
   ({ nombre: 'leadId', tipo: 'number', descripcion: desc, entero: true, minimo: 1 });
 const fechaIso = (nombre: string, desc: string, obligatorio = false): Parametro =>
   ({ nombre, tipo: 'string', descripcion: desc, max: 10, ...(obligatorio ? { obligatorio: true } : {}) });
+// Cómo se COBRÓ un pago a mano (14/10/2026, decisión 7 de docs/diseno-ficha-bloques.md): la misma regla que la ficha
+// (`pagoEnMoneda` + `etiquetaDePago`, lib/pagos-campo.ts). ⚠️ `montoUsd` SIEMPRE es dólares: un pago en pesos por
+// WhatsApp entraba como dólares porque la operación no tenía dónde decir la moneda (Mauricio, 17/10/2026).
+const paramsDeCobro: Parametro[] = [
+  { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 3, descripcion: 'La moneda en que se cobró de verdad, código de 3 letras (MXN, ARS, COP, EUR…). Pásala SIEMPRE que la persona hable de pesos, euros o cualquier moneda que no sea dólares. Sin moneda el pago es en dólares.' },
+  { nombre: 'montoOriginal', rotulo: 'Monto en esa moneda', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'Cuánto se cobró, en la «moneda» (no en dólares). Va siempre con la moneda; sin ella se rechaza.' },
+  { nombre: 'concepto', rotulo: 'Concepto', tipo: 'string', max: 200, descripcion: 'Para qué fue el pago, en pocas palabras («adelanto», «segunda cuota», «extra de diseño»).' },
+  { nombre: 'metodo', rotulo: 'Método', tipo: 'string', enum: METODOS_PAGO, descripcion: 'Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque u otro.' },
+];
 const cualReunion: Parametro = { nombre: 'cual', tipo: 'string', enum: ['R1', 'R2'], obligatorio: true, descripcion: 'qué reunión: R1 (primera) o R2 (segunda).' };
 // ⚠️ EL PRODUCTO DEL CRM VA POR EL ID DE SU EMBUDO, que es lo que leen lib/lead-funnel.ts y la
 // tabla `lead_funnel` (mig 0207). NO es el id de listar_productos (el catálogo de ofertas): del
@@ -80,14 +91,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'buscar_leads', area: 'crm', tipo: 'lectura',
     titulo: 'Buscar leads por texto',
-    descripcion: 'Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una lista compacta (id, nombre, estado, etapa, fechas de reuniones, monto de cierre en USD, closer y setter). Es el primer paso antes de cualquier otra operación sobre un lead: de aquí sale el leadId. Compara el texto tal cual (sensible a acentos) y devuelve como máximo 20 resultados.',
+    descripcion: 'Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una lista compacta (id, nombre, estado, etapa y etapa_nombre —la etapa en la que la ve el equipo y cómo se llama—, fechas de reuniones, monto de cierre en USD, closer y setter). Es el primer paso antes de cualquier otra operación sobre un lead: de aquí sale el leadId. Compara el texto tal cual (sensible a acentos) y devuelve como máximo 20 resultados.',
     parametros: [{ nombre: 'texto', tipo: 'string', obligatorio: true, max: 200, descripcion: 'texto a buscar en nombre, teléfono, email o empresa.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
     id: 'ficha_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Ficha de un lead',
-    descripcion: 'La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2 y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y no significa que no contestó). Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.',
+    descripcion: 'La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2 y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y no significa que no contestó) y en el de su landing (formulario_landing, igual: null = no se guardó, no «no contestó»). La etapa viene como etapa y etapa_nombre, la misma que ve el equipo. Trae además, SÓLO si están cargados: web, instagram, youtube, linkedin, direccion, sexo, ingreso_estimado_usd (lo que alguien cree que vale mientras está abierto; en un lead ganado no va, como en la nueva ficha: lo real es el monto de cierre, y en su lugar viene ingreso_estimado_oculto con el porqué: no es «no tiene»), venta_tipo con suscripcion_mensual_usd y suscripcion_meses, la oferta asignada, pagina_registro (la página donde se registró), entrada_social (cómo entró por Instagram o Messenger: comentario, mensaje, historia o anuncio) y email_dado_de_baja. Un campo que no está es «no está cargado», no «no tiene». Con una ficha muy larga, las respuestas de los formularios se acortan (ficha_acortada) en vez de cortarse. Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.',
     parametros: [leadId()],
     // ⚠️ formulario_meta sale por TODOS los canales, a propósito (08/10/2026): es dato del lead
     // como el teléfono y el email, que esta misma ficha ya entrega. Los dos caminos de afuera
@@ -209,7 +220,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cobranza_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Plan de pagos de un lead',
-    descripcion: 'El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado.',
+    descripcion: 'El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado. El bloque `cobrado` dice lo cobrado con la misma cuenta que la ficha (texto, estado y semáforo —verde, ámbar, rojo o gris—, cobrado, total, pendiente y vencido en USD, la próxima cuota, cuántas hay cobradas, vencidas y por vencer, la suscripción con su estado y la renovación rechazada si la hay, lo cobrado en otras monedas y si las cuentas cuadran): úsalo para «¿cómo va X con sus pagos?» en vez de sumar a mano. Cada cuota trae cobrada_en. Para cambiar el vencimiento o el monto de una cuota, mandarle su link o cortar su recordatorio están editar_cuota, crear_link_cuota y cortar_recordatorio_cuota (área cobros), con ese mismo id.',
     parametros: [leadId()],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -709,7 +720,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'marcar_pago_cobrado', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Marcar una cuota cobrada',
-    descripcion: 'PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (queda pendiente hasta el «sí»). Recalcula lo cobrado del lead. El pagoId sale de cobranza_lead. Si se cobró un monto DISTINTO, pasa montoUsd: si fue menos, la diferencia queda como una cuota nueva pendiente con el mismo vencimiento, salvo que la persona diga que es un descuento (resto=descuento). Úsala cuando digan «ya me pagó la cuota 2» o «me pagó 300 de la cuota de 500».',
+    descripcion: 'PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (queda pendiente hasta el «sí»). Recalcula lo cobrado del lead. El pagoId sale de cobranza_lead. Si se cobró un monto DISTINTO, pasa montoUsd: si fue menos, la diferencia queda como una cuota nueva pendiente con el mismo vencimiento, salvo que la persona diga que es un descuento (resto=descuento). Si se cobró en otra moneda que no es dólares («me pagó 500 mil pesos»), pasa moneda y montoOriginal: nunca los pongas en montoUsd, que SIEMPRE son dólares (si la persona no dijo cuántos dólares son y la cuota está en dólares, se salda con el monto de la cuota). Concepto y metodo son opcionales. Úsala cuando digan «ya me pagó la cuota 2» o «me pagó 300 de la cuota de 500».',
     parametros: [
       { nombre: 'pagoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id de la cuota (de cobranza_lead).' },
       leadId('id del lead dueño de la cuota.'),
@@ -717,21 +728,23 @@ export const DEFS: readonly OperacionDef[] = [
       fechaIso('fechaPago', 'YYYY-MM-DD en que se cobró (default hoy en la zona del negocio).'),
       { nombre: 'montoUsd', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'Lo que se cobró de verdad, en USD, si fue distinto del monto de la cuota. Si se omite, la cuota se cobra tal cual.' },
       { nombre: 'resto', tipo: 'string', enum: ['pendiente', 'descuento'], descripcion: 'Sólo si montoUsd es MENOR que la cuota: pendiente (default, la diferencia queda como una cuota nueva) o descuento (no se cobra).' },
+      ...paramsDeCobro,
     ],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'marca o desmarca la cuota en pagos (con el monto real si vino), deja la diferencia como una cuota nueva si se cobró de menos, recalcula total_cobrado_usd del lead y deja historial',
+    reversible: true, escribe: 'marca o desmarca la cuota en pagos (con el monto real, la moneda, el concepto y el método si vinieron), deja la diferencia como una cuota nueva si se cobró de menos, recalcula total_cobrado_usd del lead y deja historial',
   },
   {
     id: 'registrar_pago_suelto', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Registrar un pago fuera del plan',
-    descripcion: 'PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelanto, un extra, un pago de otro esquema): entra como una cuota nueva ya cobrada y suma a lo cobrado del lead. No cambia el monto de cierre. Si el pago corresponde a una cuota que ya existe, usa marcar_pago_cobrado.',
+    descripcion: 'PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelanto, un extra, un pago de otro esquema): entra como una cuota nueva ya cobrada y suma a lo cobrado del lead. No cambia el monto de cierre. Si se cobró en otra moneda que no es dólares («me pagó 500 mil pesos»), pasa moneda y montoOriginal además de montoUsd (los dólares que son: si la persona no lo dijo, pregúntalo, no inventes una tasa); montoUsd SIEMPRE es dólares. Concepto y metodo son opcionales. Si el pago corresponde a una cuota que ya existe, usa marcar_pago_cobrado.',
     parametros: [
       leadId('id del lead que pagó.'),
-      { nombre: 'montoUsd', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000000, descripcion: 'Lo que se cobró, en USD.' },
+      { nombre: 'montoUsd', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000000, descripcion: 'Lo que se cobró, EN DÓLARES. Si se cobró en otra moneda, los dólares que son (el valor para los reportes); lo que se cobró de verdad va en montoOriginal.' },
       fechaIso('fechaPago', 'YYYY-MM-DD en que se cobró (default hoy en la zona del negocio).'),
+      ...paramsDeCobro,
     ],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'insert en pagos (una cuota nueva ya cobrada), recalcula total_cobrado_usd del lead y deja historial',
+    reversible: true, escribe: 'insert en pagos (una cuota nueva ya cobrada, con su moneda, concepto y método si vinieron), recalcula total_cobrado_usd del lead y deja historial',
   },
   {
     id: 'ignorar_datos_sin_marcar', area: 'crm', tipo: 'accion', confirmacion: 'chat',

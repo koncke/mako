@@ -365,11 +365,15 @@ export async function wsDeGrupoJid(jid: string): Promise<number | null> {
     .from('app_settings').select('workspace_id').eq('key', KEY_GRUPO_JID).eq('value', jid).limit(1).maybeSingle();
   const wsCliente = (data as { workspace_id?: number } | null)?.workspace_id;
   if (wsCliente != null) return wsCliente;
-  // 2) Grupo SuperAdmin del dueño.
+  // 2) Grupo SuperAdmin del dueño, y 3) sus grupos de prueba (la allowlist, p.ej. "MaKo · Pruebas").
+  //
+  // ⛔ SON DE LA PLATAFORMA, NO DEL ws1 (17/10/2026, revisión del Cerebro). Devolvían OWNER_WS: en el grupo de Martín,
+  // MaKo leía y escribía el CRM, el plan y la plata de Mauricio, que es un CLIENTE. La CONFIGURACIÓN de estos grupos
+  // sigue guardada en el ws1 (`KEY_GRUPO_SUPERADMIN`, `gruposDoer(OWNER_WS)`: mudarla es mudar datos), pero los DATOS
+  // que se ven son los de `wsSuperAdmin()`. Sin plataforma resuelta, nadie (fail-closed): el grupo no se contesta.
   const superadmin = await runWithWorkspace(OWNER_WS, () => getSetting(KEY_GRUPO_SUPERADMIN));
-  if (superadmin && jid === superadmin) return OWNER_WS;
-  // 3) Grupos de prueba del dueño (su allowlist), p.ej. "MaKo · Pruebas".
-  if ((await gruposDoer(OWNER_WS)).includes(jid)) return OWNER_WS;
+  const esDeLaPlataforma = (superadmin && jid === superadmin) || (await gruposDoer(OWNER_WS)).includes(jid);
+  if (esDeLaPlataforma) return wsSuperAdmin().catch(() => null);
   return null;
 }
 
@@ -649,7 +653,7 @@ async function transcribirDeMensaje(instance: string, m: MsgIn): Promise<string>
   }
   if (!b64) return '';
   try {
-    return (await transcribirAudio(b64, a.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz (lote)' })).trim();
+    return (await transcribirAudio(b64, a.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz (lote)', pii: true })).trim();
   } catch (e) { console.error('[mako-doer-in] STT lote:', e instanceof Error ? e.message : String(e)); return ''; }
 }
 
@@ -727,7 +731,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // Si NINGUNA de las IA pudo escucharlo (Gemini→Groq→OpenAI, todas caídas o sin
       // cuota), MaKo lo dice. Antes se descartaba en silencio: mandabas el audio y no
       // pasaba nada, indistinguible de que te estuviera ignorando.
-      try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz del grupo' })).trim(); }
+      try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz del grupo', pii: true })).trim(); }
       catch (e) {
         const detalle = e instanceof Error ? e.message : String(e);
         console.error('[mako-doer-in] STT:', detalle);
@@ -986,7 +990,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * `tools` es la lista de ESTE system (la del turno, o la de la red), y `aviso` una línea más
      * después del bloque de herramientas.
      */
-    const armarSystem = (tools: typeof turno.tools, aviso = ''): string => {
+    const armarSystem = (tools: typeof turno.tools, aviso = '', baseDelSystem = base): string => {
       const permitidasDelTurno = new Set(tools.map((t) => t.name));
       const bloqueTools = tools.length
         ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
@@ -997,7 +1001,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // El pedido de agenda en curso, sólo si el turno trae la herramienta que lo sigue (un
       // prompt que nombra algo que no viajó es una trampa, ver DOER_WA_TOOLS).
       const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
-      return `${base}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+      return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
     };
     const system = armarSystem(tools);
     if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
@@ -1536,6 +1540,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             const turnoRed = respuesta ? null : turnoParaLaRed({
               tools, delRegistro: turno.delRegistro,
               tiposPendientes: await listarPendientes(ctxApi).then((ps) => ps.map((p) => p.operacion)).catch(() => ['(no se pudieron leer las pendientes)']),
+              texto, conAdjuntos: !!mediaBlocks,
             });
             if (turnoRed?.cortar) {
               erroresPlataforma.push(`red gratis salteada: el turno lleva datos de clientes (${turnoRed.cortar.slice(0, 5).join(', ')}) y el plan gratis entrena con lo que recibe`);
@@ -1544,9 +1549,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             if (!respuesta && turnoRed && !turnoRed.cortar) {
               const red = await provsGratisDePlataforma().catch(() => []);
               const toolsRed = turnoRed.tools;
-              const systemRed = turnoRed.sacadas.length
-                ? armarSystem(toolsRed, `\n\n${SIN_DATOS_DE_CLIENTES}`)
-                : system;
+              // ⛔ El system de la red va LEAN (la voz de MaKo y su núcleo, `buildSystemPrompt({ lean })`): el completo
+              // trae «TU METODOLOGÍA», que sale de `searchKnowledge` sobre el conocimiento propio, y el glosario (fuente
+              // «reunión») son nombres y apellidos de la gente de las llamadas (revisión del Cerebro, 17/10/2026).
+              const baseRed = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: '', lean: true }));
+              const systemRed = armarSystem(toolsRed, turnoRed.sacadas.length ? `\n\n${SIN_DATOS_DE_CLIENTES}` : '', baseRed);
               if (turnoRed.sacadas.length) console.warn(`[mako-doer-in] ws=${wsData} red de plataforma SIN ${turnoRed.sacadas.length} herramientas con datos de clientes (${turnoRed.sacadas.join(', ').slice(0, 300)})`);
               // ⚠️ CON PRESUPUESTO DE TIEMPO. La agencia tiene 11 keys gratis
               // cargadas y probarlas todas puede ser un minuto largo: del otro lado

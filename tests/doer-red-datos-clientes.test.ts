@@ -63,7 +63,7 @@ function red(mensaje: string, tiposPendientes: string[] = []) {
   const hayPendientes = tiposPendientes.length > 0;
   const veredicto = clasificarIntencion(mensaje, { hayPendientes });
   const t = herramientasDelTurno({ veredicto, texto: mensaje, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista, hayPendientes });
-  const r = turnoParaLaRed({ tools: t.tools, delRegistro: t.delRegistro, tiposPendientes });
+  const r = turnoParaLaRed({ tools: t.tools, delRegistro: t.delRegistro, tiposPendientes, texto: mensaje, conAdjuntos: false });
   return { intencion: veredicto.intencion, nombres: t.tools.map((x) => x.name), r };
 }
 const corta = (mensaje: string, pend: string[] = []) => {
@@ -142,7 +142,8 @@ test('el doer corre la red con lo que decide `turnoParaLaRed`, y no con el turno
   assert.match(bloque, /if \(!respuesta && turnoRed && !turnoRed\.cortar\)/, 'la red corre aunque el turno se haya cortado');
   assert.match(bloque, /chatCheapTools\(systemRed, soloElTurno\(msgs\), toolsRed,/, 'la red manda el system y las herramientas del turno entero');
   assert.doesNotMatch(bloque, /chatCheapTools\(system, msgs, tools,/, 'la red manda las herramientas del turno entero');
-  assert.match(bloque, /armarSystem\(toolsRed, `\\n\\n\$\{SIN_DATOS_DE_CLIENTES\}`\)/, 'el system de la red nombra herramientas que no viajan');
+  // (17/10/2026: y el system de la red va LEAN, `baseRed`, sin «TU METODOLOGÍA»: tests/red-gratis-sin-datos.test.ts.)
+  assert.match(bloque, /armarSystem\(toolsRed, turnoRed\.sacadas\.length \? `\\n\\n\$\{SIN_DATOS_DE_CLIENTES\}` : '', baseRed\)/, 'el system de la red nombra herramientas que no viajan');
 });
 
 test('sin keys propias y con la red cortada, el aviso dice por qué y adónde ir (y no manda a conectar Claude)', () => {

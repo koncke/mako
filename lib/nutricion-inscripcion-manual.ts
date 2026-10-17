@@ -119,6 +119,57 @@ export function decidirInscripcionManual(p: {
   return { inscribe: true, como: previa ? 'reinicio' : 'nueva' };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SACAR a un lead de una secuencia (17/10/2026): el espejo de inscribir
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo que se inscribía por la API no se podía deshacer (docs/hallazgos-api-mako.md, «SIN HACER»).
+//
+// ⚠️ SALIR ES CANCELAR, NO COMPLETAR. Una inscripción 'completada' la lee el evaluador del desenlace
+// (lib/nutricion-desenlace.ts) y puede mover la etapa del lead por una secuencia que nunca terminó;
+// 'cancelada' no es un desenlace (es lo que escribe archivar una secuencia). El costo está a la vista y se
+// dice en la operación: una cancelada NO se vuelve a abrir (regla 3 de arriba: puede ser una baja), ni a mano
+// ni por la entrada automática. Para pausar sin cerrar no hay operación: se pausa la secuencia entera.
+// Sólo sale lo que puede mandar: en curso, o con el lead hablando (respondio) o con una persona atendiéndolo
+// (handoff). Lo ya terminado o cancelado no se toca: el historial de lo que pasó se conserva.
+
+/** Estados en los que una inscripción todavía puede mandar algo y, por lo tanto, se puede cortar. */
+export const ESTADOS_QUE_SALEN: readonly string[] = [...ESTADOS_EN_CURSO, 'respondio', 'handoff'];
+
+export type PorQueNoSale = 'secuencia_no_existe' | 'lead_no_existe' | 'no_estaba' | 'ya_cancelada' | 'ya_termino' | 'estado_desconocido' | 'carrera';
+
+export type VeredictoSalida =
+  | { sale: true; estadoAntes: string }
+  | { sale: false; porque: 'no_estaba' | 'ya_cancelada' | 'ya_termino' | 'estado_desconocido' };
+
+export function decidirSalidaDeSecuencia(previa: PreviaParaInscribir): VeredictoSalida {
+  if (!previa) return { sale: false, porque: 'no_estaba' };
+  if (previa.estado === 'cancelada' || previa.desenlace === 'cancelado') return { sale: false, porque: 'ya_cancelada' };
+  if (ESTADOS_QUE_SALEN.includes(previa.estado)) return { sale: true, estadoAntes: previa.estado };
+  if (ESTADOS_TERMINADOS.includes(previa.estado)) return { sale: false, porque: 'ya_termino' };
+  // En POSITIVO, como la regla 3: sólo se corta lo que se sabe vivo.
+  return { sale: false, porque: 'estado_desconocido' };
+}
+
+const MOTIVOS_SALIDA: Record<PorQueNoSale, (s: string, lead: string, ids: { secuenciaId: number; leadId: number }) => string> = {
+  secuencia_no_existe: (_s, _l, ids) => `No existe la secuencia #${ids.secuenciaId} en este negocio. Pide el id con listar_secuencias_nutricion.`,
+  lead_no_existe: (_s, _l, ids) => `No existe el lead #${ids.leadId} en este negocio. Búscalo con buscar_leads.`,
+  no_estaba: (s, lead) => `${lead} no está en «${s}»: no hay nada que sacar. Revisa inscripciones_lead.`,
+  ya_cancelada: (s, lead) => `La inscripción de ${lead} en «${s}» ya está cancelada: no le va a escribir más.`,
+  ya_termino: (s, lead) => `${lead} ya terminó «${s}»: no le queda nada por mandar, y su historia se conserva.`,
+  estado_desconocido: (s, lead) => `La inscripción de ${lead} en «${s}» está en un estado que no se puede cortar a mano. Revisa inscripciones_lead.`,
+  carrera: (s, lead) => `La inscripción de ${lead} en «${s}» cambió mientras tanto: no se tocó nada. Revisa inscripciones_lead.`,
+};
+
+/** El motivo por el que NO sale, en una frase que lee la persona (y el modelo). Un Record: un motivo sin frase no compila. */
+export function motivoNoSale(porque: PorQueNoSale, p: { secuenciaId: number; secuencia?: string | null; leadId: number; lead?: string | null }): string {
+  const s = p.secuencia?.trim() || `#${p.secuenciaId}`;
+  const lead = p.lead?.trim() || `el lead #${p.leadId}`;
+  return MOTIVOS_SALIDA[porque](s, lead, { secuenciaId: p.secuenciaId, leadId: p.leadId });
+}
+
+/** «Ya está así» para un flujo: el estado que el paso pide ya es el de hoy (no una alarma al dueño en cada corrida). */
+export const SALIDAS_QUE_YA_ESTABAN: readonly PorQueNoSale[] = ['no_estaba', 'ya_cancelada', 'ya_termino'];
+
 /**
  * Lo que contesta `inscribirEnSecuencia` además de las reglas: un id que no es de ESTE negocio
  * (la secuencia o el lead: se leen con `getTenantDb`, así que el de otro negocio no existe acá),

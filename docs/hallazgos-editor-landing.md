@@ -1281,7 +1281,7 @@ Siete agentes en `C:/dev/wt-web-t7` (rama `web-t7`): renombre, cuadro, motor, AP
 - Comentarios que siguen con el sandbox viejo escrito: `app/l/html/[docId]/[bloque]/route.ts:6`,
   `app/web-generator/editor/nodos/HtmlLibreVista.tsx:23` y `docs/diseno-editor-landing.md` (T6).
 - Otros documentos siguen nombrando `app/landing-generator/` (esta cosecha actualizó sólo este y
-  diseno-editor-landing.md): `docs/relevo/crm-tanda-b1.md`, `docs/relevo/dashboard-v4.md`, `docs/dev-tabs-mapa.md`,
+  diseno-editor-landing.md): `docs/relevo/dashboard-v4.md`, `docs/dev-tabs-mapa.md`,
   `docs/hallazgos-chatbot.md`, `docs/hallazgos-landing.md`, `docs/hallazgos-mobile.md`, `docs/hallazgos-video-editor.md`,
   `docs/editor-imagen/relevamiento-integracion-mako.md`, `docs/diseno-mako-mobile-v2.md` y algunos relevos.
 - **Verlo con clics** (Martín, en `/web-generator?ws=3`): la sidebar y el More del teléfono dicen «Web Generator»; un

@@ -5,13 +5,12 @@
 //  - CRUD de BORRADORES en whatsapp_template_drafts (se redactan/validan en la app).
 //  - Lectura de plantillas reales de Meta (con su status: PENDING/APPROVED/REJECTED).
 //  - Envío de una plantilla a aprobar (POST a la Graph API).
-// Las credenciales (WABA id + token con whatsapp_business_management) salen del
-// provider_config del inbox de Chatwoot (ver lib/chatwoot.getWabaConfig).
+// Las credenciales (WABA id + token con whatsapp_business_management) salían del provider_config del inbox de
+// Chatwoot, que se borró el 09/10/2026 (`getWabaConfig`, más abajo): hoy no hay de dónde leerlas.
 // =============================================================================
 
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
-import { getWabaConfig } from '@/lib/chatwoot';
 
 export type TemplateButton =
   | { type: 'QUICK_REPLY'; text: string }
@@ -19,6 +18,19 @@ export type TemplateButton =
   | { type: 'PHONE_NUMBER'; text: string; phone_number: string };
 
 export type TemplateParam = { name: string; example: string };
+
+/** La cuenta de WhatsApp Business con la que se habla con la Graph API de Meta. */
+type WabaConfig = { token: string; wabaId: string; phoneNumberId: string; version: string; appId: string };
+
+/**
+ * ⚠️ Hoy NO hay de dónde sacarla. Las credenciales vivían en el provider_config del inbox de Chatwoot, que se borró el
+ * 09/10/2026 (código en la etiqueta `archivo/chatwoot-2026-10-09`): cada llamada a la Graph API de este archivo tira este
+ * error, igual que antes con el interruptor apagado. Volver a tener plantillas de Meta es traer la cuenta de otro lado
+ * (una integración propia con su WABA id y su token), no resucitar esto. Ver docs/relevo/integraciones.md.
+ */
+async function getWabaConfig(): Promise<WabaConfig> {
+  throw new Error('Chatwoot no existe más en MaKo (se retiró el 09/10/2026).');
+}
 
 export type TemplateCategoria = 'marketing' | 'utility' | 'authentication';
 export type TemplateStatus = 'borrador' | 'pending' | 'approved' | 'rejected' | 'paused' | 'disabled';

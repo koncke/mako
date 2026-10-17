@@ -407,7 +407,8 @@ Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se
 
 **CIERRE DEL 14/10 ~15:10: la cuenta claude2 llegó al 98% semanal.** Frené la tanda B1 (`wf_0132bb27-e06`) y NO se pusheó
 nada de la tanda B. En producción está hasta la tanda A (fb1410, en `45fe2cb7f`, deploy Ready). Lo que devolvió cada agente
-(contrato del motor, pendientes, hallazgos, revisiones) está volcado en **docs/relevo/crm-tanda-b1.md**.
+(contrato del motor, pendientes, hallazgos, revisiones) estuvo volcado en `docs/relevo/crm-tanda-b1.md`, que se borró el 17/10/2026: lo que sigue
+vigente está en **docs/relevo/crm-pendientes-b1.md**, los hallazgos en `docs/hallazgos-crm.md` y el texto original en `git show 86bc162be:docs/relevo/crm-tanda-b1.md`.
 Estado de cada frente; todos salen de `crm-bloques` @ `2c19b2d69`:
 - **b1, motor** (`wtc-b1`, rama `crm-bloques-b1`): TERMINADO en 5 commits, de `1c930ec33` a `d04040305`: catálogo, plantillas, config por
   funnel, avisos por funnel, ops ver/cambiar_ficha_funnel y los dos ignorados. Le falta su revisión.
@@ -419,7 +420,7 @@ Estado de cada frente; todos salen de `crm-bloques` @ `2c19b2d69`:
   ALTAS de plata.** Una: `ajustarPlanAction` recibe un Partial y lo escribe como el plan entero, y borra cuotas o corre los
   vencimientos. Otra: en el modo 'lista', una cuota protegida termina en «insertar». Hay además seis medias (dedup de la cobranza
   con un id que sobrevive, un link vivo de una cuota cobrada a mano, «Sin cobro» con impagas vivas, una cuota nacida después de
-  la foto, Editar deal que ignora en silencio, cancelar pisa el plazo). El detalle está en crm-tanda-b1.md. Trae migración XXXX.
+  la foto, Editar deal que ignora en silencio, cancelar pisa el plazo). (Esas fallas se arreglaron: ver `docs/hallazgos-crm.md`, «Las seis bajas de b2» y las dos entradas de arriba.) Trae migración XXXX.
 - **b3, «Nuevo CRM»** (`wtc-b3`): 3 commits, `54b6bde61`..`8b3392d15`: presets, el modal por tipo y las ops tipos_de_crm/crear_crm.
   No tiene revisión (no era invisible).
 - **b4, captura** (`wtc-b4`): 2 commits, `6b11f7602` y `cab2e72d3`. La revisión dice que va bien, con una media: la etapa

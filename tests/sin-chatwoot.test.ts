@@ -72,12 +72,12 @@ const ARCHIVOS = execFileSync('git', ['ls-files', 'app', 'lib', 'scripts', 'prox
   .filter((f) => /\.(ts|tsx|mjs|cjs|js|sh|json)$/.test(f) && existsSync(join(RAIZ, f)));
 
 /** Quién puede importar lib/chatwoot.ts todavía, y por qué. Se ACHICA: no se le agrega a nadie. */
+// 17/10/2026: salieron app/crm/actions.ts (dos llamadas que contestaban null), lib/nutricion.ts (el paso por el oficial
+// quedó en fallo, sin llamar a nada) y lib/meta-templates.ts (su `getWabaConfig` local tira lo mismo). Quedan las dos
+// del REGISTRO de la API de MaKo, cuyas 8 operaciones del oficial hay que retirar JUNTAS (docs/relevo/integraciones.md).
 const IMPORTADORES: Record<string, string> = {
-  'app/crm/actions.ts': 'rama wip/api-acciones-0910 (ensureContactoWhatsapp)',
-  'lib/api-mako/areas/whatsapp.helpers.ts': 'rama wip/api-acciones-0910 (la bandeja oficial del registro)',
-  'lib/api-mako/areas/whatsapp.run.ts': 'rama wip/api-acciones-0910 (las operaciones del oficial)',
-  'lib/nutricion.ts': 'rama wip/api-acciones-0910 (el paso por el oficial, sendWhatsappTemplate)',
-  'lib/meta-templates.ts': 'plantillas de Meta: leen la cuenta de WhatsApp Business del inbox (segunda tanda)',
+  'lib/api-mako/areas/whatsapp.helpers.ts': 'las operaciones del oficial del registro de la API (se retiran juntas)',
+  'lib/api-mako/areas/whatsapp.run.ts': 'las operaciones del oficial del registro de la API (se retiran juntas)',
 };
 
 const HISTORIA = 'historia: cuenta lo que pasó, no es código vivo';

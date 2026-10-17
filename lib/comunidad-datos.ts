@@ -242,6 +242,25 @@ export async function productoDelPost(ws: number, postId: number): Promise<numbe
   return f ? Number(f.producto_id) : null;
 }
 
+/**
+ * De qué producto y qué post es un comentario, quién lo escribió y su texto. `null` = no está en este
+ * negocio. Lo usa la API de MaKo (lib/api-mako/areas/comunidad.run.ts), que recibe un comentario POR SU
+ * ID sin saber de qué comunidad es: con esto arma el actor de ese producto, y la acción de verdad pasa
+ * después por `comentarioDe` (que vuelve a pedir el producto del actor). Es la hermana de
+ * `productoDelPost`, y como ella NO decide nada sola.
+ */
+export async function productoDelComentario(ws: number, comentarioId: number):
+  Promise<{ productoId: number; postId: number; miembro: string; cuerpo: string; menciones: string[] } | null> {
+  if (!Number.isInteger(comentarioId) || comentarioId <= 0) return null;
+  const { data, error } = await de(ws, 'comunidad_comentarios').select('producto_id, post_id, miembro, cuerpo, menciones').eq('id', comentarioId).maybeSingle();
+  if (error) throw new Error(error.message);
+  const f = data as { producto_id: number; post_id: number; miembro: string; cuerpo: string; menciones: unknown } | null;
+  return f ? {
+    productoId: Number(f.producto_id), postId: Number(f.post_id), miembro: f.miembro, cuerpo: f.cuerpo ?? '',
+    menciones: mencionesGuardadas(f.menciones),
+  } : null;
+}
+
 /** Los puntos de unos miembros (likes recibidos en este producto). Sólo los pedidos. */
 async function puntosDe(ws: number, productoId: number, claves: readonly string[]): Promise<Map<string, number>> {
   const unicas = [...new Set(claves)];
@@ -1639,7 +1658,10 @@ export async function borrarCategoria(a: Actor, idRaw: unknown): Promise<Resulta
   }
 }
 
-/** Sube o baja una categoría en los chips. Reescribe el orden entero (0..N), así nunca quedan empates. */
+/**
+ * Sube o baja una categoría en los chips: arma la lista con el intercambio y la escribe
+ * `ordenarCategorias`, la ÚNICA que reescribe el orden (la usa también la API de MaKo).
+ */
 export async function moverCategoria(a: Actor, idRaw: unknown, dir: unknown): Promise<Resultado<{ categorias: CategoriaVista[] }>> {
   try {
     if (!puedeConfigurar(a)) return NO_CONFIGURA;
@@ -1650,13 +1672,34 @@ export async function moverCategoria(a: Actor, idRaw: unknown, dir: unknown): Pr
     if (i < 0 || j < 0 || j >= lista.length) return { ok: true, categorias: lista };
     const nueva = lista.slice();
     [nueva[i], nueva[j]] = [nueva[j], nueva[i]];
-    for (let k = 0; k < nueva.length; k++) {
-      const { error } = await de(a.ws, 'comunidad_categorias').update({ orden: k }).eq('producto_id', a.productoId).eq('id', nueva[k].id);
+    return await ordenarCategorias(a, nueva.map((c) => c.id));
+  } catch (e) {
+    return { ok: false, error: msg(e, 'No se pudo mover.') };
+  }
+}
+
+/**
+ * Pone las categorías en el orden de `idsRaw`: la lista ENTERA de ids, cada una una vez (ni de más ni
+ * de menos: una lista a medias dejaría dos categorías con el mismo número). Reescribe el orden entero
+ * (0..N), así nunca quedan empates. La llaman las flechas de la pantalla (`moverCategoria`) y la API de
+ * MaKo (`ordenar_categorias_comunidad`, lib/api-mako/areas/comunidad.run.ts): un solo lugar que escribe
+ * el orden.
+ */
+export async function ordenarCategorias(a: Actor, idsRaw: unknown): Promise<Resultado<{ categorias: CategoriaVista[] }>> {
+  try {
+    if (!puedeConfigurar(a)) return NO_CONFIGURA;
+    const lista = await categoriasDe(a.ws, a.productoId);
+    const ids = Array.isArray(idsRaw) ? idsRaw.map(idValido) : [];
+    const existen = new Set(lista.map((c) => c.id));
+    const completa = ids.length === lista.length && new Set(ids).size === ids.length && ids.every((x) => x != null && existen.has(x));
+    if (!completa) return { ok: false, error: 'Pasa todas las categorías, una vez cada una.' };
+    for (let k = 0; k < ids.length; k++) {
+      const { error } = await de(a.ws, 'comunidad_categorias').update({ orden: k }).eq('producto_id', a.productoId).eq('id', ids[k] as number);
       if (error) return { ok: false, error: error.message };
     }
     return { ok: true, categorias: await categoriasDe(a.ws, a.productoId) };
   } catch (e) {
-    return { ok: false, error: msg(e, 'No se pudo mover.') };
+    return { ok: false, error: msg(e, 'No se pudo ordenar.') };
   }
 }
 

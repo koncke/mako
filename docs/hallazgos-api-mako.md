@@ -1055,7 +1055,8 @@ vale para cualquier operación nueva:
 - El editor (`EditorAccionMako.tsx`) pide `secuenciaId`, `embudoId` y la key de una etapa como
   números o texto sueltos: falta un selector alimentado por `listar_secuencias_nutricion` y
   `productos_del_lead`.
-- No hay operación para SACAR a un lead de una secuencia, así que inscribir no se deshace por API.
+- ~~No hay operación para SACAR a un lead de una secuencia~~: hecho el 17/10/2026 (`sacar_lead_de_secuencia`; queda
+  CANCELADA y no se vuelve a abrir, ver «Pendientes B1 de la API» más abajo).
 - Mover a un lead en su producto PRINCIPAL desde `mover_lead_en_producto` se niega y deriva a
   `proponer_cambio_etapa`: unificarlo obliga a decidir qué hace el paso con el monto o el motivo.
 - Por chat no se puede CREAR un paso de acción (`editar_pasos_secuencia_mensajes` exige canal y
@@ -1063,6 +1064,147 @@ vale para cualquier operación nueva:
 
 *08/10/2026, cuenta 2. Corrida `wf_48a7d912-9a9` (tres agentes en worktrees) y revisión
 `wf_d229086b-56f`; commits `fafe007b`, `6d4703ec`, `63a0f95a`, `40d8f052`, `b2a6db9d`, `395c4c11`.*
+
+## Pendientes B1 de la API (17/10/2026): un pago en pesos, sacar de una secuencia, los productos de una landing y lo que ya estaba
+
+Pedido de Martín del 17/10 («implemente todos los pendientes al 100%»). Cada uno con el diagnóstico que NO era, porque
+tres de los cuatro tenían una segunda causa escondida detrás de la obvia.
+
+**«Un pago en pesos por WhatsApp entra como dólares».** El diagnóstico obvio era «a `marcar_pago_cobrado` y
+`registrar_pago_suelto` les falta la moneda» (cobrarCuota y registrarPagoSuelto ya la recibían desde el 14/10). Era la mitad.
+- **La otra mitad: ni siquiera llegaban al turno.** Medido con tsx contra `herramientasDelTurno` (el turno que CORRE):
+  «Juan me pagó 500 mil pesos», «ya me pagó la cuota 2» y «registrá un pago de 500 mil pesos de Juan» salían `capturar`,
+  dudosas, con DOS herramientas. MaKo no tenía con qué registrar un pago; el que sí llegaba (`marcá la cuota 2 … como cobrada`)
+  quedaba sin `registrar_pago_suelto` por el presupuesto de 12.000 caracteres. Ahora `esPedidoDeCobro` (lib/mako-intencion.ts)
+  conoce el tipo `pago` (un hecho —pagó, transfirió, depositó— más lo que se pagó, o el pedido de registrarlo) y el tipo
+  `cuota` («cambiale el vencimiento a la cuota 3», «mandale el link de la cuota 2»), con las áreas `crm` y `cobros`.
+  Regla: **una operación nueva se prueba por el turno que corre, no sólo por su definición**; una def perfecta que el
+  clasificador no trae al turno no existe para MaKo.
+- **La regla (pura, con test):** `cobroManualDeEntrada` (lib/pagos-campo.ts). Sin moneda el monto es en dólares (como la
+  ficha); un `montoOriginal` SIN `moneda` se RECHAZA (antes los pesos de `montoUsd` entraban como dólares sin error); con otra
+  moneda los dólares los declara la persona (nunca una tasa inventada), o son los de la cuota que se salda.
+- **Y el resumen que se confirma lo dice:** si no se dijo la moneda y la del negocio no es USD, el «sí» trae «Queda en
+  dólares (USD) … la moneda del negocio es ARS: si se cobró en ARS, dímelo antes de confirmar» (`avisoMonedaPorOmision`).
+- **Vive en:** `lib/api-mako/areas/crm.def.ts` y `crm.run.ts` (`paramsDeCobro`, los dos runners), `lib/pagos-campo.ts`,
+  `lib/mako-intencion.ts` (`pago`, `cuota`). **Tests:** `tests/api-mako-pagos-moneda.test.ts` (ejecuta los runners de verdad contra
+  una base de mentira con dos negocios: `tests/_api-pagos-hijo.ts`) y `tests/api-mako-pago-intencion.test.ts`.
+- ⚠️ **Los falsos positivos que se cazaron al medir:** «mi socio me pagó la comida» entraba como pago porque «pagó» sin tilde
+  normaliza a «pago», que era su propio objeto (el objeto se busca SIN el verbo); y «la cuota de IA» / «la cuota diaria de
+  WhatsApp» no son una cuota de pago (`CUOTA_DE_USO`). `textoDelPago` de `app/crm/[id]/deal-actions.ts` es una copia de
+  `textoDelCobro` (lib/pagos-campo.ts): no se tocó para no pisar al CRM; cuando se toque, que importe la de la lib.
+
+**«MaKo no puede sacar a un lead de una secuencia».** `sacar_lead_de_secuencia` (chatbot, chat, sólo admin, SIN http como
+`inscribir_lead_secuencia`). Lo no obvio:
+- **Salir es CANCELAR, no completar.** Una inscripción `completada` la lee el evaluador del desenlace
+  (lib/nutricion-desenlace.ts) y puede mover la etapa del lead por una secuencia que nunca terminó; `cancelada` no es un
+  desenlace (es lo que escribe archivar una secuencia). El costo está dicho en la operación y en el resumen: **una cancelada
+  no se vuelve a abrir** (ni con `inscribir_lead_secuencia` ni por la entrada automática: puede ser una baja), así que
+  `reversible: false`.
+- Sólo sale lo que puede mandar (en curso, `respondio`, `handoff`); lo terminado o ya cancelado es «ya está así»
+  (`yaEstaba`: en un flujo, éxito sin alarma) y se conserva su historia; un estado desconocido NO se corta (en POSITIVO).
+  Escribe con compare-and-set sobre el estado leído y deja `proximo_envio_at` en null (una fila cancelada con fecha miente).
+- **Vive en:** `lib/nutricion-inscripcion-manual.ts` (`decidirSalidaDeSecuencia`, pura), `lib/nutricion-salida-manual.ts`
+  (lectura y escritura con `getTenantDb`: el lead o la secuencia de otro negocio no existen), `chatbot.def/run.ts`.
+  **Test:** `tests/api-mako-acciones-1710.test.ts` (hijo `tests/_api-acciones-hijo.ts`).
+
+**«MaKo no puede asignar productos a una landing».** `guardar_landing` gana `productos` (los `embudoId`; `[]` los saca todos; sin
+el parámetro quedan como están) y `listar_landings` trae `productosDisponibles`. ⚠️ **`undefined` es «no los toques» y `[]`
+es «sácalos»**: sin `vaciaEsValor` el validador descarta la lista vacía y no hay forma de desasignar, y un runner que escribe
+`funnelIds: productos ?? []` borra los productos al corregirle la URL (la trampa del mapper campo por campo,
+lib/landing-config.ts). Se valida contra `productosAsignables()` (los activos de ESTE negocio, los mismos que ofrece el
+paso 2 del Pixel): uno de otro negocio o archivado se rechaza antes de escribir. Queda afuera `gracias` (la página de
+gracias), que la pantalla también asigna.
+
+**Lo que se dio por faltante y se midió contra el registro (no contra los docs).**
+- **Ya estaban:** crear desde una plantilla (`crear_automatizacion_desde_plantilla`) y el botón que cobra un producto
+  (`cobrar_producto_landing`, `quitar_cobro_landing`, `configurar_boton_landing`). Los docs (`hallazgos-chatbot.md`,
+  `hallazgos-editor-landing.md`) los daban por pendientes: son de la undécima tanda de Automations y de la tanda 6 del Landing
+  Generator (`feb0a0dff`, 14/10). Regla: «no está en la API» se mide corriendo el registro, no leyendo un hallazgo viejo.
+- **Faltaban de verdad y se hicieron:** `duplicar_automatizacion` (la MISMA `duplicarSecuencia` que «Duplicar», con la base
+  del negocio; la copia nace PAUSADA), `copiar_dashboard` y `pegar_dashboard` (el código `MAKO-DASH-…`, las mismas reglas y
+  tabla que `/api/graficos/copia`). Los tres SIN http. El código del dashboard NO pasa por el modelo: va por
+  `paraLaPersona` y `datos`, nunca en el `resumen`.
+
+**MaKo Analyst y la ficha.**
+- **«Esconde el ingreso estimado de un ganado» no era un bug: es la regla de la ficha** (`ingresoNoAplica`, el estimado no es
+  una venta; la nueva ficha lo oculta en un ganado y la tarjeta vieja `InfoPrincipalCard` todavía no). Lo que sí era un
+  defecto es que el modelo leyera esa ausencia como «no tiene estimado»: ahora MaKo usa la MISMA función que la ficha y,
+  cuando lo oculta, dice `ingreso_estimado_oculto` con el porqué.
+- **«Puede cortar formularios de una ficha larga» era cierto y peor de lo que decía:** `recortar` corta TEXTO por el final y
+  `formulario_meta` / `formulario_landing` van al final, así que lo primero que se perdía era lo que el lead contestó, y lo
+  que quedaba era un JSON cortado a media palabra. `compactarFicha` (lib/mako-analyst-lead-reglas.ts) acorta las respuestas
+  largas (y, si hace falta, deja menos filas diciendo cuántas se omitieron) hasta que entra, sigue siendo un JSON válido y
+  avisa con `ficha_acortada`.
+
+**La herramienta de prueba que sirvió (y su trampa).** Los hijos `tests/_api-pagos-hijo.ts` y `tests/_api-acciones-hijo.ts`
+corren los runners REALES de la API (`--conditions=react-server`) contra `tests/_postgrest-de-mentira.ts` con dos negocios, y
+miran lo que QUEDA ESCRITO. ⚠️ **Se importan por el registro** (`lib/api-mako/runners.ts`, `runnerDe(id)`): importar un
+`.run.ts` suelto cae en `Cannot access 'RUNNERS' before initialization` (ciclo runners → chatbot.run → runners). Lo que el
+PostgREST de mentira NO puede probar es una carrera de verdad: el compare-and-set de `sacarDeSecuencia` se fija porque el
+runner decide de nuevo contra la base, no por una carrera simulada.
+
+**Vive en:** ver cada bloque · **Tests:** `tests/api-mako-pagos-moneda.test.ts`, `tests/api-mako-pago-intencion.test.ts`,
+`tests/api-mako-acciones-1710.test.ts`.
+
+## La comunidad por la API de MaKo: de «a medias» a main, firmada por una persona (17/10/2026)
+
+El área `comunidad` (41 operaciones: posts, comentarios, categorías, miembros y eventos) estaba implementada en
+`wip/api-acciones-1410` desde el 14/10 con un bloqueante abierto y sin revisión de seguridad. Se trajo SÓLO esa (no las otras
+áreas de la rama) porque entra entera y verde: el resto sigue a medias (`docs/relevo/api-mako.md`).
+
+**El bloqueante era de diseño y se cerró así (decisión de Martín, 17/10).** 11 escrituras «firmadas» (publicar, comentar, likes,
+votar, seguir, la campana, el perfil) salen con el nombre de una persona del equipo (`miembro` sólo acepta `u:N` / `l:N`, el
+CHECK de la 0217): firma **la persona que confirma en la bandeja, o la que creó el token detallado; sin persona no se
+publica**. El `Ctx` gana `persona` (el email de quien creó el token, sólo en el detallado y sólo si es un email); el clásico, un
+paso de flujo y un `actor` que parece un email pero no viene de la bandeja NO firman. Además tiene que ser una cuenta no
+suspendida DE ESTE negocio (o un admin de la plataforma); la de otro negocio no firma, ni siquiera siendo admin del suyo.
+**Vive en:** `lib/api-mako/areas/comunidad.helpers.ts` (`personaDe`, `firmaDelEquipo`), `comunidad.run.ts` (`quienFirma`,
+`firmaAlProponer`, `firmaAlEscribir`, `faltaFirma`), `lib/api-mako/http.ts` y `tokens.ts` (`persona`, `creadoPor`).
+
+**Lo que encontró la revisión de seguridad (un lector sin mi contexto, sólo leyendo el código) y se arregló:**
+- ⚠️ **Se firmaba con el nombre del admin un texto que la bandeja le mostraba cortado.** Comentar, responder, editar un
+  comentario y el perfil eran `chat`: la bandeja muestra el resumen a 120 letras y cada valor del payload a 240, y un comentario
+  admite 4.000. Un Claude clásico que lee textos de alumnos (inyección de instrucciones) podía proponer un link de phishing
+  pasadas las 240 letras y el admin confirmaba el principio. Ahora las cuatro son `pantalla` (el formulario entero, como
+  `publicar_post_comunidad`). Regla: **lo que se firma con el nombre de una persona y puede ser largo se confirma en una
+  pantalla que lo muestra entero, nunca en un «sí» sobre un resumen recortado.**
+- ⚠️ **Confirmar una escritura firmada sin persona QUEMABA la pendiente.** `confirmarPendiente` reclama antes de ejecutar y la
+  falta de firma recién se veía en `ejecutar`: un «sí» por un token clásico con alcance `ejecutar` o por WhatsApp la dejaba en
+  `error` para el admin que sí la podía confirmar en la bandeja (regla 3 de AGENTS.md: lo que se sabe sin escribir falla antes).
+  `AccionRun` gana `faltaParaConfirmar`, que se pregunta ANTES de reclamar (y en la pantalla genérica, antes de marcarla aplicada).
+- **Una lectura escribía:** `ver_avisos_comunidad` llamaba a `campanaComunidad`, que anota los avisos de los eventos próximos (un
+  upsert en `comunidad_notificaciones`): un token «Solo lectura» escribía filas en la campana de su creador. La API lee con
+  `{ sinEscribir: true }`; la pantalla sigue anotando al abrirla.
+- **Los ids de lo irreversible se podían editar al revisar** (`borrar_post`, `borrar_comentario`, `sacar_alumno`, `borrar_categoria`,
+  `borrar_evento`, `editar_evento`, y los de comentar/editar): cambiar el `leadId` en /mako/revisar baneaba a otro alumno bajo el
+  título del primero. Llevan `fijoAlRevisar`. El barrido de `tests/revisar-fijo.test.ts` sólo cubre plata y envíos: una
+  acción de pantalla que borra o banea con un id merece la misma marca.
+
+**Lo que la revisión confirmó que está bien (para no volver a medirlo):** ningún runner toca un id de otro negocio antes de
+comprobar que es de `ctx.ws` (las `comunidad_*` ya están en `TENANT_TABLES` y toda query lleva el workspace a mano); ningún
+cliente HTTP fija `persona` ni `actor` por el body o la query (el Ctx se arma sólo en http.ts y `validarInput` descarta lo que la
+def no declara); las lecturas no devuelven emails, teléfonos ni URLs firmadas de adjuntos; el HTML de posts y comentarios queda
+como texto plano; el video sólo se reconoce en YouTube, Vimeo o Loom; el lugar de un evento sólo acepta http(s).
+
+**Sin arreglar, a propósito o por costo:**
+- Un admin de agencia con cartera (rol global `usuario`, `workspace_id` de la agencia) NO firma (`firmaDelEquipo` falla cerrado),
+  aunque la tab sí lo deja. Es un recorte, no un agujero.
+- `por`, `creado_por` y `actualizado_por` quedan con el nombre del creador del token: la fila no dice que vino de un script.
+- `miembrosDeLaComunidad` y `likesDelProducto` leen todos los accesos y todos los likes en cada `ver_comunidad`, `ver_ranking`,
+  `listar_miembros` y `buscar`: en una comunidad grande `/api/v1` corta a los 60 s. Sin medir.
+- Los textos de los alumnos (posts, bios, motivos de baneo) vuelven crudos a un agente: ninguna lectura avisa que no es de
+  fiar. Un token detallado ejecuta `sacar_alumno` sin pantalla.
+- `listar_pendientes` / `ver_pendiente` (área `mako`) muestran los resúmenes de las pendientes de comunidad a un token sin
+  permiso en `comunidad`: ya pasaba con las otras áreas.
+- Los errores internos de la base (`invalid input syntax for type bigint`) salen en el 400 de un id fuera de rango (`1e21`): los ids
+  no llevan `maximo` y esos textos no pasan por `esNuestro` (lib/api-mako/ejecutar.ts).
+- Los comentarios de la cabecera de `comunidad.run.ts` y de `comunidad-datos.ts` dicen que las tablas `comunidad_*` no están en
+  `TENANT_TABLES`; ya están (`lib/workspace.ts`). La seguridad no depende de eso (cada query lleva el workspace).
+
+**Vive en:** `lib/api-mako/areas/comunidad.{def,helpers,run}.ts`, `lib/comunidad-{datos,calendario,campana}.ts`,
+`lib/api-mako/{tipos,registro,runners,rest,recursos,acciones,http,tokens}.ts` · **Tests:** `tests/api-mako-comunidad-acciones.test.ts`
+(el de la rama, portado), `tests/api-mako-comunidad-firma.test.ts` (corre el runner de verdad con dos negocios:
+`tests/_api-comunidad-hijo.ts`), `tests/comunidad-permisos.test.ts`.
 
 ## Agenda por WhatsApp: los dos casos abiertos, cerrados — y cuatro formas de romperlo sin un error (09/10/2026)
 

@@ -462,9 +462,22 @@ trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se c
   (`isolatedMemory: false` en `build/turbopack-build/index.js`): con 7168 podían ser dos heaps de
   7 GB en una máquina de 8. Los workers de páginas estáticas lo descartan (`isolatedMemory: true`),
   y la memoria nativa de Turbopack (Rust) no la cubre ningún tope.
-- **Por eso el margen no se deduce: se mide**, y todavía no se midió. La forma es un deploy de
+- **Por eso el margen no se deduce: se mide**, y el PICO de heap sigue sin medirse. La forma es un deploy de
   preview con `next build --experimental-debug-memory-usage` (Next no lo prende con una variable:
-  es un flag de la línea de comandos), que imprime el pico de heap en el log.
+  es un flag de la línea de comandos), que imprime el pico de heap en el log. ⚠️ **Los logs de un build normal NO traen la
+  memoria** (medido el 17/10 sobre 5 builds de producción): sin ese flag no hay número que leer, y ningún build existente lo
+  tiene. Hacerlo es disparar un build, que se hace a propósito y no desde un chat que sólo quería leer.
+- **Lo que SÍ se midió (17/10/2026, sólo lectura: `vercel inspect <url> --logs` y `vercel api /v9/projects/<id>`)** — y el
+  «`standard` (8 GB)» de arriba era cierto el 15/10 y YA NO LO ES: el proyecto se llama **`mako`** en Vercel (`dashboard-marketing` es su nombre viejo y el del
+  repo; con ese nombre el CLI contesta `project_not_found`) y hoy construye en **`buildMachineType: "enhanced"` con
+  `elasticConcurrencyEnabled: true`: 8 cores, 16 GB**. El cambio pasó el 15/10 entre las 21:17 UTC (4 cores, 8 GB, «Compiled
+  successfully in 4.1min», 322-357 s de build) y las 23:58 UTC (8 cores, 16 GB, «in 61s», ~100 s), y desde entonces hubo **80
+  deploys de producción seguidos (15/10 22:05 → 17/10 18:12 UTC), los 80 `READY`**, de 86 a 145 s (mediana 114 s).
+  `NODE_OPTIONS` sigue en Production y Preview (puesta el 15/10). **El margen real, entonces, es el doble del que tenía cuando
+  murió** (el tope de 4 GB por heap, en 16 GB físicos), pero eso es la capacidad de la máquina, no lo que usa el build.
+  ⚠️ **Y cuesta plata, y no hay una línea en el repo que diga quién lo decidió**: con la fórmula de `docs/hallazgos-infra.md`
+  («La factura de builds no mide TIEMPO», `ceil(min) × vCPU × US$0,0035`) son 8 vCPU × 2 min ≈ US$0,056 por deploy, contra los
+  US$0 de Standard con on-demand apagado. Sin cotejar con la factura: lo confirma Martín o el panel de Vercel.
 - **Si vuelve a morir por memoria**, antes de pagar una máquina más grande hay una palanca
   gratis para probar: `NEXT_TURBOPACK_USE_WORKER=0` corre Turbopack en el hilo principal y deja
   un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
@@ -1074,7 +1087,11 @@ Ocho cosas que no se ven en el código y ya mordieron:
    veces; con presupuesto, eso es plata. La contracara: lo reclamado no vuelve a
    `pendiente`, así que **todo lo que se pueda saber sin escribir falla en `preparar()`**
    —un candado en `ejecutar()` consume la pendiente aunque rechace— y lo lento no sale por
-   `/api/v1`, que corta a 60 s.
+   `/api/v1`, que corta a 60 s. **Lo que sólo se sabe AL confirmar** (quién confirma: una escritura
+   firmada que llega sin nadie que firme) se declara en el runner como `faltaParaConfirmar`, que
+   `confirmarPendiente` pregunta ANTES de reclamar (y la pantalla genérica, antes de marcarla aplicada);
+   sin eso, un «sí» por un token clásico o por WhatsApp dejaba la pendiente en `error` para el admin que
+   sí la podía confirmar (comunidad, 17/10/2026).
 4. **Una acción de pantalla no tiene gemela de chat.** Si queda una tool vieja en
    `MAKO_ACCION_TOOLS` con el mismo nombre, el doer de WhatsApp la prefiere y pide un «sí».
    Al pasar una operación a `pantalla`, se saca la vieja; `confirmarPendiente` cierra sin
@@ -1105,6 +1122,11 @@ Ocho cosas que no se ven en el código y ya mordieron:
    `toolsDelRegistro` suelto, el test de agenda dio verde mientras 3 de sus 5 pedidos llegaban
    sin la herramienta (08/10/2026). Y el presupuesto de 12.000 caracteres ordena por
    relevancia CONTRA EL TEXTO: sumar un área sin sumar relevancia no trae la acción.
+   **Y una operación que mueve plata lleva SU frase en esa lista, con la forma en que la dice el dueño**
+   («Juan me pagó 500 mil pesos», «cambiale el vencimiento a la cuota 3»): las nueve de Pagos campo por
+   campo (14/10/2026) salieron con su def perfecta y ninguna frase, y tres días después «ya me pagó la cuota 2»
+   caía `capturar` con DOS herramientas — MaKo no podía registrar un pago, con o sin moneda
+   (`tests/api-mako-pago-intencion.test.ts`, docs/hallazgos-api-mako.md → «Pendientes B1 de la API»).
 
 **Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
 docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):

@@ -959,3 +959,28 @@ https), y se valida ANTES de abrir nada. Vive en `lib/landing-paginas.ts` (`urlP
 (`af8a5aca7`).
 
 *15/10/2026, chat «Landing Generator» (`claude1`).*
+
+---
+
+## «Se borra cuando entre la rama X» venció sin que nadie lo viera: el cascarón de Chatwoot (17/10/2026)
+
+**El síntoma**: `lib/chatwoot.ts` seguía en el repo ocho días después de «borrar Chatwoot» (09/10). Su comentario, el test
+`tests/sin-chatwoot.test.ts` y dos relevos decían lo mismo: no se borra porque lo importan archivos que la rama `wip/api-acciones-0910` tiene
+a medio cambiar.
+
+**El motivo estaba vencido, y nadie lo midió**: esa rama son 2 commits «WIP (sin terminar, NO pushear)» del 09/10 (222 archivos tocados) y la API de
+MaKo que sirve está en `main` desde hace días. De los 5 importadores, **3 se quitaron sin conflicto posible** porque eran código muerto:
+`app/crm/actions.ts` llamaba a `ensureContactoWhatsapp`, que contestaba `null` siempre (dos llamadas); el paso por el WhatsApp oficial de
+`lib/nutricion.ts` ya devolvía el fallo del cascarón; y `lib/meta-templates.ts` sólo usaba `getWabaConfig`, que tiraba. Quedan dos:
+`lib/api-mako/areas/whatsapp.helpers.ts` y `whatsapp.run.ts`, que registran **8 operaciones** del WhatsApp oficial (que contestan «no hay canal
+oficial» desde el 09/10). Retirarlas cambia el CONTRATO de la API de MaKo (def, rest, docs, snapshot HTTP, tests del editor), y eso es del
+chat de la API, no de un pendiente de limpieza.
+
+**La regla**: un «se borra cuando entre la rama X» se vuelve a medir cada vez que alguien lo lee (`git log origin/main..X`, `git diff --stat
+origin/main...X`), y la lista de importadores del test se achica por partes: `IMPORTADORES` está hecha para eso.
+
+**Y la columna `crm_etiquetas.chatwoot_label`** (mig 0224): sin lector ni escritor — se midió por grep en app/, lib/, scripts/ y tests/ —, y
+`lib/datos-mau.ts` ya la omite al copiar. La migración que la quita (`0314_quitar_crm_etiquetas_chatwoot_label.sql`) está escrita y **sin
+aplicar**; el procedimiento está en `docs/relevo/integraciones.md`.
+
+**Vive en:** lib/chatwoot.ts · lib/api-mako/areas/whatsapp.{helpers,run}.ts · tests/sin-chatwoot.test.ts · supabase/migrations/0314_quitar_crm_etiquetas_chatwoot_label.sql

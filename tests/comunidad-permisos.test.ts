@@ -130,10 +130,14 @@ test('publicar: valida la categoría (y su permiso) con `validarPost` antes de i
 });
 
 test('configurar: las cuatro escrituras arrancan preguntando `puedeConfigurar`', () => {
-  for (const f of ['guardarCategoria', 'borrarCategoria', 'moverCategoria', 'guardarNombresNivel']) {
+  // `moverCategoria` ya no escribe (08/10/2026): arma la lista con el intercambio y la escribe
+  // `ordenarCategorias`, que comparte con la API de MaKo. La escritura se mira donde está, y la flecha,
+  // que delegue DESPUÉS de preguntar.
+  for (const f of ['guardarCategoria', 'borrarCategoria', 'ordenarCategorias', 'guardarNombresNivel']) {
     const c = cuerpo(DATOS, f);
     assert.ok(antesQue(c, 'if (!puedeConfigurar(a))', /\.(insert|update|upsert|delete)\(/), f);
   }
+  assert.ok(antesQue(cuerpo(DATOS, 'moverCategoria'), 'if (!puedeConfigurar(a))', 'ordenarCategorias(a, '), 'las flechas ordenan sin preguntar');
 });
 
 test('no ve otro producto: cada lectura de un post o comentario va por SU producto', () => {
@@ -189,7 +193,7 @@ test('los leads y los accesos también llevan el workspace a mano', () => {
 test('la ruta del alumno: workspace de la FIRMA, el portón, y ni fijar ni configurar', () => {
   assert.match(RUTA, /runWithWorkspace\(firma\.ws,/);
   assert.match(RUTA, /const actor = await actorDelAlumno\(token, productoId\);\s*if \(!actor\) return NO\(\);/);
-  for (const prohibida of ['fijarPost', 'guardarCategoria', 'borrarCategoria', 'moverCategoria', 'guardarNombresNivel']) {
+  for (const prohibida of ['fijarPost', 'guardarCategoria', 'borrarCategoria', 'moverCategoria', 'ordenarCategorias', 'guardarNombresNivel']) {
     assert.ok(!RUTA.includes(prohibida), `la ruta del alumno expone ${prohibida}`);
   }
 });
@@ -293,3 +297,7 @@ test('cada server action del equipo pasa por la puerta (`conActor`): una action 
 // arreglos de la revisión: la subida sin el permiso (borrado o invertido) · la ruta sin el tope de
 // subidas · el «quitar like» sin su producto · la puerta del equipo sin la capa. Las de arriba (las
 // diecisiete de la primera mitad y las tres de la segunda), re-medidas: 1 / 25 cada una.
+// `ordenarCategorias` (13/10/2026, la escritura del orden que comparten las flechas y la API de MaKo),
+// contra este archivo de 26: sin su `puedeConfigurar` → 1 fallo y 25 pases; `moverCategoria` escribiendo
+// el orden ella misma en vez de delegar → 2 fallos y 24 pases («configurar» y «cada update/delete va
+// acotado», porque el bucle suelto no lleva el producto).

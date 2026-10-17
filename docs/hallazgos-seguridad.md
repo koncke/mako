@@ -2031,9 +2031,13 @@ lo que no se deduce leyendo el código; el changelog está en los commits de la 
   AGENTS.md.
 - **Lo que NO se tocó, con su archivo:** el default del resolver sin cookie (`lib/workspace.ts`, `resolverDesdeCookies`)
   sigue en el ws1, y de ahí cuelgan los reportes diario y horario «sólo del ws1» (§6.2 del relevo); la línea de voz de
-  MaKo cae al ws1 en `wsDeInstancia` (app/api/webhooks/evolution/route.ts) y el gasto de la key de Claude de la agencia se
-  anota en el ws1 (`wsDeProveedor`, lib/anthropic-usage.ts). Las tres son «la plataforma vive en el negocio de
+  MaKo cae al ws1 en `wsDeInstancia` (app/api/webhooks/evolution/route.ts). Son «la plataforma vive en el negocio de
   Mauricio», no «no sé de quién es», y moverlas es mudar datos.
+- ⚠️ **Dos de esa familia se cerraron el mismo día, por la revisión del Cerebro, y el guard no las veía** (son
+  `return OWNER_WS` adentro de un `if`, no un fallback): el grupo SuperAdmin de Martín y sus grupos de prueba le daban a
+  MaKo los DATOS del ws1 (`wsDeGrupoJid`, lib/mako-doer-in.ts → ahora la plataforma), y el gasto de Claude de cualquier
+  negocio sin key propia se anotaba en el panel de Mauricio con el `motivo` de trabajos ajenos (`wsDeLaFila`,
+  lib/anthropic-usage.ts → ahora la plataforma). El saldo de Claude cargado a mano sigue en el ws1.
 
 ### `getTenantDb()` sobre una tabla fuera del Set: el comentario juraba lo contrario
 
@@ -2106,6 +2110,12 @@ evento corre y no sale nada (`apagado`, anotado en `mfa_eventos` como `contrasen
 El historial del grupo viajaba entero a la red gratis: ahora sólo el turno (`soloElTurno`). El ✦ de Automations que
 escribe los mensajes (app/api/chat-agent/redactar) tenía su propia red sin corte: ahora va sin las lecturas que el
 registro marca con datos de clientes (`llevaDatosDeClientes`), el mismo corte que el doer.
+
+⚠️ **Y el primer arreglo seguía mirando lo PEDIDO** (lo cazó la revisión del Cerebro): «anotá: llamar a Juan Pérez 11
+2233 4455, juan@mail.com» no pide herramientas de clientes y viajaba tal cual. Lo que viaja es el turno mismo, su
+adjunto, su nota de voz y el system. Ahora un email, un teléfono o un adjunto cortan (`turnoParaLaRed` con
+`llevaDatosPersonales`), la nota de voz se transcribe con `pii: true` y el system de la red va LEAN (el completo trae
+«TU METODOLOGÍA», y el glosario de las reuniones son nombres y apellidos). `tests/red-gratis-cuatro-defectos.test.ts`.
 
 ### El RAG: «manual» no era «método»
 
