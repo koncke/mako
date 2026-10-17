@@ -9047,3 +9047,19 @@ Desde el 16/10/2026 una etapa de reunión puede tener vinculado un evento de Cal
   (`reclamarRuteoDeAgenda`), y para soltar UNA se pregunta antes si alguien más la usa.
 - **Un vínculo se guarda con el identificador que manda el webhook** (Calendly: la URI del event type; Cal.com:
   su id), nunca con el nombre: el ruteo compara exacto y dos eventos se pueden llamar igual.
+
+# La barra de inspección: lo que se pega a la ventana va debajo, y el primer cuadro lo arma el server
+
+Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra-agencia` y `--barra-agencia` vale su alto
+(docs/hallazgos-ui.md, #850 y #881).
+
+- **Lo que se pega a la VENTANA va a `top: var(--barra-agencia, 0px)`** (o `calc(N + var(--barra-agencia, 0px))`): un
+  `sticky` de una página que scrollea entera, o un `fixed` arriba. Lo que se pega ADENTRO de un modal o de un panel con
+  scroll va en su número de siempre, porque ahí la barra no está. Si el mismo componente vive en los dos lugares, cada
+  puerta dice dónde se pega (`arribaTabs` en la ficha del lead). Un `<aside>` ya lo baja la regla de globals.css.
+- **Un selector sobre el estilo en línea reconoce las DOS escrituras**: el navegador escribe «height: 100dvh» y el server
+  escribe «height:100dvh», sin espacios, y la hidratación no lo reescribe. Con una sola, la regla falla justo en la carga
+  del server, que es como se entra a inspeccionar. `tests/barra-inspeccion-alto.test.ts` lo fija.
+- **Un estado que se corrige con un fetch nace con lo que sabe el server, nunca con un literal**: el Sidebar nacía con
+  «Mauricio Bustos», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
+  usan el layout y `/api/auth/me`, y de ningún otro lado.

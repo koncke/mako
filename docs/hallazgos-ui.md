@@ -3954,9 +3954,70 @@ quedar por detrás». En Automations se escondían el título y «Probar», y el
 - Lo FIJO arriba (`position: fixed; top: N`) no lo arregla esa regla: el cartel de la copia de Automations bajó con
   `calc(18px + var(--barra-agencia, 0px))`.
 
-**Sin hacer:** el panel lateral fijo de la ficha del CRM (`FichaPorBloques`, `top: 0`) y las barras `sticky; top: 0` de una
-pantalla que scrollea (una clase en CSS, como la lateral del Web Generator, no la toma la regla del estilo en línea).
-Verlo con clics inspeccionando un cliente después del deploy.
+**La segunda vuelta, el mismo 17/10 (Onboarding).**
+
+- ⚠️ **La regla no tomaba la pantalla que llega del SERVER, y entrar a inspeccionar SIEMPRE llega del server.** El estilo
+  que pinta el navegador se serializa con espacios: «flex: 0 0 auto; height: 100dvh;». El que escribe React en el server va
+  sin espacios: «flex:0 0 auto;height:100dvh». La hidratación no lo reescribe. Recién cuando React le cambia alguna
+  propiedad, el navegador lo vuelve a serializar con espacios. Por eso falla a veces sí y a veces no, y la medición de
+  arriba, hecha con un HTML escrito a mano con espacios, dio bien.
+  Se entra con `<a href="/general?ws=N">`, que es una carga dura. Medido en Chrome sin ventana con el CSS real (ventana de
+  608, barra de 50): la forma del server medía **608**, o sea sin descontar nada. Con las dos formas nuevas (al principio, o
+  después de `;` sin espacio) mide **558**, y `min-height` sigue en 608. **Regla:** un selector de atributo sobre `style`
+  tiene que reconocer las DOS escrituras.
+- **Lo que quedó como «sin hacer» ya estaba hecho, y no por esta regla.** El panel del AI Analyst de la ficha del CRM
+  (`fixed; top: 0`) y la lateral del Web Generator (`sticky; top: 0` en una clase) son `<aside>`. Con la barra prendida, la
+  regla vieja `[data-barra-agencia] aside` les pone `top` y alto descontados con `!important`. Medido: los dos quedan con
+  top 50. El test 4 fija que sigan siendo `<aside>`.
+- **Los que de verdad quedaban debajo** salieron de relevar los 18 `sticky`/`fixed` con top 0 de app/. Son los que se pegan
+  a la VENTANA y no son `<aside>`:
+  - «Editando el deal» (`app/crm/[id]/EditarDeal.tsx`);
+  - la fila de la hoja de la ficha en la RUTA /crm/[id] (en el pop-up se pega adentro de la ficha y va en 0: `arribaTabs`
+    sólo lo pasa `LeadDetailBody`);
+  - la cabecera abierta de /admin/estrategia;
+  - el índice de las docs de la API (`.gh-docs-sidebar`, un `<nav>`).
+
+  Los cuatro van a `top: var(--barra-agencia, 0px)`. El resto se pega adentro de un modal o de un panel con scroll, donde
+  la barra no llega, o son anclas de 0×0 que se ubican por JS.
+
+**Sin hacer:**
+- **Las barras de lote** (`sticky; top: 8`): `BarraPegada` en app/plan/board/Tablas.tsx:747, BoardShell.tsx (3452, 5132,
+  5163 con top 66, 5552), CrmBoard.tsx:2957 y customer-success/LoteClientes.tsx:229. En /plan se pegan a la ventana y
+  quedarían debajo de la barra, pero `BarraPegada` también vive adentro de la columna con scroll del modal de un proyecto.
+  Sumarles la barra siempre las correría 50 px en el modal: hace falta que cada puerta diga dónde se pega, como
+  `arribaTabs`.
+- **La regla de todo `<aside>` también pisa** el `top: 12; bottom: 12` del panel `<aside className="an">` de PanelAnalista.
+  No se miró con la barra puesta.
+- **Una ruta pública** cargada en duro con una agencia adentro de un cliente queda con el hueco de la barra y sin barra
+  (ver #881 abajo). Es raro y sólo es espacio.
+- Verlo con clics inspeccionando el ws3 cuando esté en producción.
 
 **Vive en:** `app/globals.css` (después de la regla del Sidebar) · `app/automations/ChatAgentApp.tsx` (el cartel de la
-copia) · test: `tests/barra-inspeccion-alto.test.ts`
+copia) · los cuatro de arriba · test: `tests/barra-inspeccion-alto.test.ts` (5 tests) y `tests/lead-cabecera.test.ts`
+(`arribaTabs`)
+
+## Al inspeccionar, el primer cuadro era el de Mauricio (17/10/2026, tarjeta #881)
+
+Martín, revisión del 16/10 (47:15): «al inspeccionar, muchas veces al entrar se bugea y sale primero el usuario de perfil de
+Mauricio y luego sale el usuario que se está inspeccionando».
+
+- ⚠️ **El diagnóstico obvio era el equivocado. No era `lib/perfil-sujeto.ts` ni la ficha del cliente:** el Sidebar nacía con
+  `useState('Mauricio Bustos')`, un resto de cuando la app era de una sola cuenta, y con `impersonando = false`. Las
+  iniciales, sin nombre, caían a «MB». Los dos datos se corregían cuando contestaba `/api/auth/me`. Como se entra a
+  inspeccionar con una carga dura (`<a href>` el super admin, `location.href` la agencia), el primer cuadro salía mal en
+  CADA entrada. Y no sólo inspeccionando: **cualquier cliente veía «Mauricio Bustos» abajo a la izquierda** hasta que
+  llegaba su nombre. La barra de arriba tenía la misma demora: aparecía después y corría la pantalla 50 px.
+- **El primer cuadro lo arma el server.** `lib/vista-de-otro.ts` dice a quién se mira: el cliente, su nombre, su agencia y la
+  salida. El layout se lo pasa al Sidebar (`inicial`) y a la barra, y pone `data-barra-agencia` en `<html>` desde el HTML,
+  así no hay salto. `/api/auth/me` llama a la MISMA función, porque con dos cuentas de «a quién se mira» el cartel y los
+  datos podrían nombrar a dos clientes. **Regla:** un estado de cliente que se corrige con un fetch nace con lo que sabe el
+  server, nunca con un literal.
+- Las entradas a inspeccionar son todas cargas duras, así que alcanza con el valor inicial: no hace falta sincronizar
+  props → estado en un `router.refresh()`.
+
+**Sin hacer:** `rolWs` y `capa` siguen naciendo vacíos. Las pestañas del Sidebar que dependen de qué compró el cliente se
+filtran recién cuando contesta `/api/auth/me`. Pasarlas desde el layout le suma dos lecturas a cada página. La foto del
+perfil propio también llega después: hasta entonces se ven las iniciales correctas.
+
+**Vive en:** `lib/vista-de-otro.ts` · `app/layout.tsx` · `app/_components/Sidebar.tsx` (`SidebarInicial`) ·
+`app/_components/ImpersonationBanner.tsx` · `app/api/auth/me/route.ts` · test: `tests/inspeccionar-primer-cuadro.test.ts`

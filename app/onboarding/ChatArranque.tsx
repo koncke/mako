@@ -392,7 +392,7 @@ const CSS_ARRANQUE = `
   background: var(--surface); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; text-decoration: none;
 }
 .arr-link:hover { border-color: var(--border-strong); }
-.arr-link--principal { background: var(--primary); border-color: var(--primary); color: #fff; }
+.arr-link--principal { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .arr-link--espera { color: var(--faint); font-weight: 500; }
 .arr-bloqueo {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
