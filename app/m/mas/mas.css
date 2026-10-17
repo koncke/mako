@@ -10,7 +10,5 @@
 .m-mas-compu .m-fila__t,
 .m-mas-compu .m-icono { color: var(--dim); }
 
-/* La hoja de una tab «En la computadora» (FilasMas.tsx): el motivo, en el cuerpo de la hoja. */
-[data-m] .m-mas-motivo { margin: 4px 0 8px; font-size: 16px; line-height: 1.5; color: var(--ink); }
 /* Cuántas filas tiene un desplegable («Coming soon»): gris, como el riel de un conteo. */
 .m-mas-n { font-size: 15px; color: var(--dim); font-variant-numeric: tabular-nums; }
