@@ -74,6 +74,7 @@ import { eventTypeDeReunion, linkParaAgendar } from '@/lib/calendly-agenda';
 import { listReviewPendientes } from '@/lib/review-queue';
 import { listProductos, upsertProducto } from '@/lib/productos';
 import { productosDelLead, agregarAProducto, quitarDeProducto, moverEtapaEnProducto } from '@/lib/lead-funnel';
+import { campanasParaMaKo, asignarCampanaAFunnels } from '@/lib/campana-funnel';
 // El evento de agenda vinculado a una etapa de reunión (16/10/2026): las mismas funciones que la pantalla.
 import {
   listarEventosDeAgenda, prepararVinculo, vincularEvento, buscarVinculo, desvincularEvento, type AgendaDelNegocio,
@@ -1020,6 +1021,39 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.cambio) return { ok: false, resumen: 'Ese evento ya no estaba vinculado: no se cambió nada.' };
       return { ok: true, resumen: `Listo: «${r.vinculo.nombre ?? r.vinculo.identificador}» ya no está vinculado a ninguna etapa.` };
+    }),
+  },
+
+  ver_campanas_funnels: {
+    leer: async () => {
+      try { return json(await campanasParaMaKo()); } catch { return fallo('No pude leer las campañas asignadas. Intenta de nuevo.'); }
+    },
+  },
+  asignar_campana_funnels: {
+    preparar: async (input) => {
+      const ids = (Array.isArray(input.embudos) ? input.embudos : []).map((x) => Number(String(x).trim()));
+      if (ids.some((n) => !Number.isSafeInteger(n) || n <= 0)) return { error: 'Cada embudo va por su embudoId (un número). Pide ver_campanas_funnels.' };
+      let v: Awaited<ReturnType<typeof campanasParaMaKo>>;
+      try { v = await campanasParaMaKo(); } catch { return { error: 'No pude leer las campañas asignadas. Intenta de nuevo.' }; }
+      const faltan = ids.filter((id) => !v.funnels.some((f) => f.embudoId === id));
+      if (faltan.length) return { error: `No existe el embudo ${faltan.join(', ')}.`, disponibles: v.funnels };
+      const nombres = [...new Set(ids)].map((id) => v.funnels.find((f) => f.embudoId === id)!.crm);
+      const quien = `${input.tipo === 'conjunto' ? 'el conjunto' : 'la campaña'} «${input.nombre || v.asignadas.find((a) => a.id === input.id)?.nombre || input.id}»`;
+      return {
+        payload: { tipo: input.tipo, id: input.id, embudos: [...new Set(ids)], nombre: input.nombre, campanaId: input.campanaId },
+        resumen: nombres.length
+          ? `Los leads nuevos de ${quien} entran a «${nombres[0]}»${nombres.length > 1 ? ` y se suman a ${nombres.slice(1).map((n) => `«${n}»`).join(', ')}` : ''}.`
+          : `Dejar ${quien} sin asignar: sus leads nuevos entran donde entrarían sin ella.`,
+      };
+    },
+    ejecutar: (payload) => seguro('asignar la campaña', async () => {
+      const opt = (v: unknown) => (v == null || v === '' ? undefined : String(v));
+      const r = await asignarCampanaAFunnels(
+        { tipo: payload.tipo === 'conjunto' ? 'conjunto' : 'campana', id: String(payload.id), nombre: opt(payload.nombre), campanaId: opt(payload.campanaId) },
+        (Array.isArray(payload.embudos) ? payload.embudos : []).map(Number),
+      );
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: r.despues ? 'Listo: sus leads nuevos entran a esos funnels.' : 'Listo: quedó sin asignar.', datos: { antes: r.antes, despues: r.despues } };
     }),
   },
 
