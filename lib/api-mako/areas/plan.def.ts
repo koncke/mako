@@ -264,7 +264,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'actualizar_avance_tarea', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar el avance de una tarea',
-    descripcion: 'Cambia el avance (0-99 %) de UNA tarea y deja rastro en el historial; la columna (por hacer, en curso) se deriva sola del avance. También sirve para reabrir una tarea hecha. Para marcarla HECHA (100 %) usa proponer_cierre_tareas, que pide la evidencia. No toca score, deadline ni proyecto.',
+    descripcion: 'Cambia el avance (0-99 %) de UNA tarea y deja rastro en el historial; la columna (por hacer, en curso) se deriva sola del avance. También sirve para reabrir una tarea hecha. Para marcarla HECHA (100 %) usa cerrar_tareas_plan, que pide la evidencia. No toca score, deadline ni proyecto.',
     parametros: [
       { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan), o «#412».', obligatorio: true, max: 80 },
       { nombre: 'progreso', tipo: 'number', descripcion: 'avance nuevo en %, de 0 a 99.', obligatorio: true, entero: true, minimo: 0, maximo: 99 },
@@ -279,7 +279,7 @@ export const DEFS: readonly OperacionDef[] = [
     // propósito: cerrar por chat pasa por proponer_cierre_tareas, que pide la evidencia.
     id: 'mover_tarea_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Mover una tarea de columna',
-    descripcion: 'Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Atorada admite un motivo corto. No toca la prioridad. Sacarla de Completada la reabre en 0%; para completarla usa proponer_cierre_tareas.',
+    descripcion: 'Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Atorada admite un motivo corto. No toca la prioridad. Sacarla de Completada la reabre en 0%; para completarla usa cerrar_tareas_plan.',
     parametros: [
       { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan), o «#412».', obligatorio: true, max: 80 },
       { nombre: 'estado', tipo: 'string', descripcion: 'la columna destino.', obligatorio: true, enum: ['por_hacer', 'en_curso', 'en_seguimiento', 'no_cumple'] },
@@ -373,6 +373,26 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'resumen', tipo: 'string', descripcion: 'una línea de qué es este lote.', max: 300 },
     ],
     escribe: 'un borrador de cierres en plan_propuestas; las tareas se cierran recién al confirmar',
+    canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    // CERRAR EN EL ACTO (17/10/2026). Martín: que marcar resuelta una tarea, cuando algo ya está, sea AUTOMÁTICO
+    // siempre. Sin borrador en /plan/revisar: se confirma como cualquier acción de chat (un «sí», o en el acto
+    // desde el Centro, un flujo o un token con `ejecutar`) y cierra con la evidencia y la ruta. lib/plan-cerrar.ts.
+    id: 'cerrar_tareas_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Marcar hechas tareas que ya están',
+    descripcion: 'Marca como HECHAS, sin borrador, tareas que ya existen y que YA ESTÁN hechas, cada una con la evidencia (qué se entregó, dónde se ve) y, si la hay, la ruta de MaKo donde se revisa. Es lo que se usa cuando algo ya se terminó: no pide revisión en otra pantalla. Cerrar no es borrar: la tarjeta queda con su historial y se reabre moviéndola de columna. Sin evidencia de al menos 10 caracteres no se cierra; una que ya estaba hecha no es un error. Si sólo lo deduces y no lo verificaste, usa proponer_cierre_tareas.',
+    parametros: [
+      {
+        nombre: 'cerrar', tipo: 'object[]', descripcion: 'las tareas a marcar hechas.', obligatorio: true, max: 40,
+        campos: [
+          { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan), o «#870».', obligatorio: true, max: 80 },
+          { nombre: 'evidencia', tipo: 'string', descripcion: 'qué se hizo y dónde se ve (mínimo 10 caracteres).', obligatorio: true, max: TOPE_PRUEBA_CIERRE },
+          { nombre: 'revisar', tipo: 'string', descripcion: 'la ruta de MaKo donde se prueba («/crm?lead=12»), si la hay.', max: 300 },
+        ],
+      },
+    ],
+    escribe: 'la tarea (plan_tareas o experimento_tareas): hecha al 100 %, la checklist tildada y la evidencia en el historial',
     canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {

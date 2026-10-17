@@ -12,8 +12,9 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
-import { agregarTareasPlanOwner, ampliarTareasPlanOwner, borrarPlanTarea, cerrarPlanTareaOwner, listPlanBoard, fusionarDetalle } from '@/lib/plan-board';
-import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, editarTarea, ampliarTareasCliente } from '@/lib/todo';
+import { agregarTareasPlanOwner, ampliarTareasPlanOwner, borrarPlanTarea, cerrarPlanTareaOwner, listPlanBoard } from '@/lib/plan-board';
+import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, ampliarTareasCliente } from '@/lib/todo';
+import { cerrarTareaCliente } from '@/lib/plan-cerrar';
 import { mismaTarea } from '@/lib/tareas-dedup';
 import { rutearSinIA } from '@/lib/todo-rutear';
 import { delCatalogoTodo } from '@/lib/todo-proyectos-catalogo';
@@ -26,7 +27,7 @@ import { corregirMarca } from '@/lib/mako-gramatica';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
 
 import { tableroDeCapa } from './tablero-de-capa';
-import { recortarPrueba, renglonDeCierre } from './cierre-tarjeta';
+import { recortarPrueba } from './cierre-tarjeta';
 import { conCruceGuardado } from './cruce-borrador';
 
 type Row = Record<string, unknown>;
@@ -812,14 +813,9 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         for (const c of aCerrar) {
           const n = Number(c.id);
           if (!Number.isFinite(n)) continue;
+          // La MISMA escritura que el cierre en el acto (`cerrar_tareas_plan`, lib/plan-cerrar.ts): un solo lugar.
           try {
-            const actual = (await listTareas()).find((t) => t.id === n);
-            await editarTarea(n, {
-              progreso: c.parcial ? Math.max(50, actual?.progreso ?? 0) : 100,
-              detalle: c.parcial ? fusionarDetalle(actual?.detalle ?? '', c.evidencia) : (actual?.detalle ?? null),
-              historial: [{ id: `cerr${Date.now()}${n}`, ts: Date.now(), actor: 'ia', text: renglonDeCierre(c.evidencia, c.parcial) }, ...(actual?.historial ?? [])],
-            });
-            cerradas += 1;
+            if (await cerrarTareaCliente(n, c.evidencia, c.parcial)) cerradas += 1;
           } catch (e) { console.error('[plan-propuesta] cerrar cliente:', e instanceof Error ? e.message : String(e)); }
         }
       }

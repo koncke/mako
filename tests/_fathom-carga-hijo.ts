@@ -663,6 +663,41 @@ async function main() {
     };
   }
 
+  // ── El cierre EN EL ACTO (17/10/2026, `cerrar_tareas_plan`): los dos tableros, sin borrador. Sólo con `cierre`.
+  if (modo === 'cierre') {
+    const { RUNNERS } = await import('../lib/api-mako/areas/plan.run');
+    const run = RUNNERS.cerrar_tareas_plan as { preparar: (i: Record<string, unknown>, c: unknown) => Promise<Record<string, unknown>>; ejecutar: (p: Record<string, unknown>, c: unknown) => Promise<Record<string, unknown>> };
+    const ctx = { ws: 1, canal: 'app', canalKey: 'app:test', alcance: 'ejecutar', rol: 'admin', actor: 'test' };
+    const correr = async (input: Record<string, unknown>) => {
+      const prep = await runWithWorkspace(1, () => run.preparar(input, ctx));
+      if ('error' in prep) return { prep };
+      const ej = await runWithWorkspace(1, () => run.ejecutar(prep.payload as Record<string, unknown>, ctx));
+      return { prep: { resumen: prep.resumen }, ej };
+    };
+
+    // EL DUEÑO (plan_tareas).
+    reset(); sembrarWorkspace('superadmin');
+    db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pplan', pid: 'P1', name: 'Feature: Plan', emoji: '🗺', color: '#000', score: 80, detalle: '', historial: [], orden: 1 });
+    db.plan_tareas.push(defaults('plan_tareas', { workspace_id: WS_DUENO, id: 't870', num: 870, title: 'Arreglar la asignación de proyectos de Fathom', progress: 30, score: 60, labels: ['pplan'], historial: [], checklist: [{ id: 'c1', text: 'probar', done: false }], recurrente: false, deadline: '', estado: 'en_curso' }));
+    db.plan_tareas.push(defaults('plan_tareas', { workspace_id: WS_DUENO, id: 't871', num: 871, title: 'Ya hecha antes', progress: 100, score: 10, labels: ['pplan'], historial: [], checklist: [], recurrente: false, deadline: '', estado: 'hecho' }));
+    const dCorta = await correr({ cerrar: [{ id: '#870', evidencia: 'listo' }] });
+    const dYa = await correr({ cerrar: [{ id: '#871', evidencia: 'Ya estaba hecha de antes.' }] });
+    const dOk = await correr({ cerrar: [{ id: '#870', evidencia: 'Las tareas de una reunión con cliente van a su tab.', revisar: '/plan?tarea=t870' }] });
+    const t870 = db.plan_tareas.find((t) => t.id === 't870') as Fila;
+    out.cierreDueno = {
+      corta: dCorta, ya: dYa, ok: dOk,
+      fila: { progress: t870.progress, estado: t870.estado, checklist: t870.checklist, historial: ((t870.historial as Fila[]) ?? []).map((h) => h.text) },
+      borradores: db.plan_propuestas.length,
+    };
+
+    // EL CLIENTE (experimento_tareas).
+    reset(); sembrarWorkspace('completo');
+    db.experimento_tareas.push(defaults('experimento_tareas', { workspace_id: WS_CLIENTE, id: 600, titulo: 'Mandar el contrato a Macario', estado: 'por_hacer', progreso: 0, orden: 1, origen: 'manual' }));
+    const cOk = await correr({ cerrar: [{ id: '600', evidencia: 'Contrato enviado por mail el 17/10.' }] });
+    const t600 = db.experimento_tareas.find((t) => t.id === 600) as Fila;
+    out.cierreCliente = { ok: cOk, fila: { progreso: t600.progreso, estado: t600.estado, historial: ((t600.historial as Fila[]) ?? []).map((h) => h.text) }, borradores: db.plan_propuestas.length };
+  }
+
   out.sinMock = [...sinMock];
   process.stdout.write('@@RESULTADO@@' + JSON.stringify(out));
 }

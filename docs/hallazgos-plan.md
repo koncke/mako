@@ -6921,6 +6921,8 @@ Martín pidió revisar si la extracción funciona. Se leyeron completas las dos 
 
 **Vive en:** `lib/reunion-cliente.ts` (la regla del cliente) · `lib/plan-proyectos-catalogo.ts` · `lib/plan-fathom.ts` (`PLAN_FATHOM_SYSTEM_TEMPLATE`, el pedido de detalle) · tarjetas #843-#879 del ws9
 
+**Arreglado el 17/10/2026:** el proyecto en «La reunión con un cliente: en el tablero del dueño NO manda» (#870), y los inventos, el nombre y lo que faltaba en «La extracción, medida otra vez contra las llamadas del 16/10», las dos más abajo.
+
 ## La reunión con un cliente: en el tablero del dueño NO manda, y un cliente tiene UN proyecto (17/10/2026, #870)
 
 **Síntoma, en los dos tableros a la vez (llamadas del 16/10):**
@@ -6976,3 +6978,97 @@ servidor lo pisaba.
 **Vive en:** lib/reunion-cliente-reglas.ts · lib/reunion-cliente.ts (`proyectoQueManda`, `nombreDeProyectoPara`,
 `porTitulo`) · lib/plan-propuesta.ts (`aplicarPropuestas`) · lib/todo-rutear.ts (`rutearSinIA`) ·
 app/api/plan-fathom/route.ts (`clienteParaElModal`) · tests/reunion-cliente-870.test.ts
+
+## La extracción, medida otra vez contra las llamadas del 16/10: lo que la arregló y lo que no (17/10/2026)
+
+Sigue a «La extracción del 16/10 leída contra las dos transcripciones» (más arriba). Se midió con la extracción real
+(Gemini, la cascada gratis) sobre las mismas dos llamadas, contra las 50 tarjetas #843-#892, revisando cada par a mano.
+
+| | 16/10 | 17/10 |
+|---|---|---|
+| pedidos de la revisión con Código Inmobiliario | 26 de 36 | 30 de 36 |
+| pedidos de la llamada con Mauricio | 11 de 14 | 11 de 14 |
+| tarjetas con «Martin Carballo» | 17 de 37 | 0 de 55 |
+| tarjetas con un dato técnico que nadie dijo | 14 de 37 | 0 de 55 |
+| bugs de MaKo en un proyecto de cliente | 37 de 37 | 0 |
+
+**Los datos inventados los EMPUJABA el prompt.** Pedía «PISO DURO: MÍNIMO 600 caracteres»; la mediana salió en 1.291.
+Lo que el modelo no tenía para escribir lo completaba con ingeniería supuesta: componentes («DateRangeFilter»),
+librerías («React Error Boundary»), proveedores («Sendgrid / Resend o similar»), versiones («Claude 3.5 Sonnet de
+200k»). La lectura a mano vio 6 tarjetas así; el control en código encontró 14, todas del mismo tipo.
+- **Arreglo en el prompt:** sin piso, y «Detalles concretos es lo que la reunión dijo, NO tu plan técnico». Con eso
+  la corrida de 20k ya no escribió ni un dato así (0 recortes).
+- **Arreglo en el código:** `sacarLoNoDicho` (lib/detalle-sin-inventos.ts), por si el modelo lo vuelve a hacer. Lo
+  aplica `limpiarLoDicho`, por donde pasa cada tarea en `coerceCandidatas`.
+
+**El control, y sus tres trampas** (las tres medidas):
+- **Los montos no se revisan.** La transcripción dice «20 mil» o «nueve mil» y el detalle escribe «20.000».
+  Sacarlos borraba lo que sí se dijo. Sólo cuentan los números con letras pegadas («200k»), las versiones («3.5») y
+  los años.
+- **`fuenteDicha` deja la puntuación pegada a la palabra** (corta en espacios: «hmo.»). Una palabra dicha al final
+  de una frase no contaba como dicha: el control sacó un renglón cierto sobre «HMO». `FuenteDatos.palabras` las
+  guarda sin puntuación.
+- **El robot escribe mal los nombres** («Maco», «Claudio»). Una letra de diferencia cuenta como dicho, y el
+  vocabulario de la app (`VOCABULARIO_MAKO`) siempre se puede nombrar. Las citas («…») no se revisan: son la voz
+  de la reunión.
+
+**«Martin Carballo»:** Fathom rotula a quien graba con el nombre de SU cuenta. La prueba de que es la misma persona
+es el EMAIL (`aliasDelDueno`, lib/tarea-dueno.ts), nunca el parecido. El nombre se cambia ANTES de leer
+(transcripción, resumen, participantes) y otra vez en lo que devuelve el modelo.
+
+**El diagnóstico obvio para lo que faltaba («partes más chicas») era a medias.**
+- Lo que recuperó pedidos fue el bloque «REVISIÓN DE UN PRODUCTO»: cada molestia o pedido sobre lo que construye
+  quien mira el tablero es una tarea, aunque nadie diga «lo hago» y aunque salga mientras se muestra.
+- Partes de 15k y de 20k encontraron lo mismo (30 de 36). Pero con 15k la de Mauricio tuvo 9 partes y tardó
+  399 s, más que los 300 s de Vercel (`after()` tiene 285).
+- Quedó 20k leído de a TRES: las mismas rondas que 25k de a dos. Gemini tardó de 70 a 140 s por parte con mucha
+  demanda: 279 s y 154 s.
+
+**Sin hacer:**
+- **La extracción no mira el reloj.** `extraerTareasDeTexto` no recibe `hasta`. Una reunión de 3 h, o un Gemini
+  lento, pasa los 300 s y la función muere sin escribir nada. El cron y la ruta tienen reloj; el extractor, no.
+- **Los 5 pedidos que la revisión todavía pierde son del mismo tipo:** una frase sobre la pantalla mientras se
+  muestra otra cosa. Son el bug de pantalla completa del Second Brain, «que guarde solo», Pablo que no pudo agendar,
+  el «43» de Offer y la tab de email de Chats.
+- Los 3 de Mauricio son dudosos de verdad (resuelto en vivo, un pedido A él, un cobro a verificar). No se tocan.
+- El TÍTULO no pasa por el control (recortarle una palabra lo deja sin sentido): «Meta CAPI» sí se dijo, pero
+  nada lo comprueba.
+
+**Vive en:** lib/detalle-sin-inventos.ts · lib/plan-fathom.ts (`PLAN_FATHOM_SYSTEM_TEMPLATE`, `CHUNK_CHARS`,
+`CONCURRENCIA`, `coerceCandidatas`) · lib/tarea-dueno.ts (`aliasDelDueno`, `conNombreReal`) ·
+tests/plan-fathom-sin-inventos.test.ts (los números de la medición en su cabecera)
+
+## Marcar hecha una tarea cuando algo YA ESTÁ: en el acto, sin borrador (17/10/2026)
+
+**Síntoma:** Martín pidió que marcar resuelta una tarea, cuando algo ya está, sea automático siempre.
+- El único camino desde afuera del tablero era `proponer_cierre_tareas`. Deja un BORRADOR en /plan/revisar y espera
+  a que alguien lo confirme.
+- El Centro lo proponía y lo aplicaba en dos pasos. Si el segundo fallaba, quedaba un borrador colgado.
+- El «Ya está» de un chat no cerraba nada.
+
+**La regla que queda:** cerrar desde afuera del tablero es `cerrar_tareas_plan` (la API de MaKo,
+`POST /api/v1/plan/tareas/cierres`).
+- Es una acción de **chat**: «canal propone, persona confirma» sigue en pie (no existe «sin confirmación»). Desde el
+  Centro, un flujo o un token con `ejecutar` se aplica en el acto, sin pantalla.
+- Pide evidencia de 10 caracteres o más y acepta la ruta `revisar`.
+- Una que ya estaba hecha es «ya está así» (`yaEstaba`), no un error.
+- Escribe por las MISMAS funciones que el borrador al aplicar un cierre (lib/plan-cerrar.ts). El cierre del tablero
+  de un cliente, que vivía copiado adentro de `aplicarPropuestas`, ahora es uno solo (`cerrarTareaCliente`).
+- `proponer_cierre_tareas` queda para lo que sólo se DEDUCE (confianza media, o «a medias»).
+
+**El «Ya está» de un chat** (`cerrarPorYaEsta`, lib/centro-plan.ts) cierra:
+- las tarjetas que nombra por número (#870);
+- si no nombra ninguna, la abierta del proyecto del jefe cuyo título ENTERO, de tres palabras o más, aparece en el
+  texto.
+
+Nada por parecido: cerrar la tarjeta equivocada esconde trabajo pendiente, y no cerrar una se arregla con un clic.
+
+**Sin hacer:**
+- Enchufar `cerrarPorYaEsta` donde el Ops Center detecta el «Ya está» (lib/centro-chats.ts, `esYaEsta`). Es del
+  Ops Center 3; se le pasó la firma el 17/10.
+- Que MaKo en WhatsApp ofrezca `cerrar_tareas_plan` cuando la persona dice «ya lo hice». Hoy lo elige por la
+  descripción, sin un test que lo mida.
+
+**Vive en:** lib/plan-cerrar.ts · lib/api-mako/areas/plan.def.ts y plan.run.ts (`cerrar_tareas_plan`) ·
+lib/centro-plan.ts (`cerrarTareaDelPlan`, `cerrarPorYaEsta`) · lib/centro-plan-reglas.ts (`tarjetasDelYaEsta`) ·
+tests/plan-cierre-en-el-acto.test.ts

@@ -152,3 +152,26 @@ export function avisoDeAlta(creadas: number, donde: { enEsteChat: boolean; proye
   if (donde && !donde.enEsteChat && donde.proyecto) return `Quedó en «${sinPrefijo(donde.proyecto)}»`;
   return 'Sumada al Plan';
 }
+
+// ── El «Ya está» de un chat cierra su tarjeta (17/10/2026) ──────────────────────────────────────────────────────────
+// Martín: que marcar resuelta una tarea, cuando algo ya está, sea AUTOMÁTICO siempre. El lado del chat (detectar el
+// «Ya está» y llamar) es del Ops Center; acá, qué tarjetas cierra un texto. La regla es estricta a propósito: cerrar la
+// tarjeta equivocada esconde trabajo pendiente, y no cerrar una se arregla con un clic.
+//   1. Las que el texto NOMBRA por número («#870», «la 870» no): son las que el chat sabe que trabajó.
+//   2. Si no nombra ninguna, la abierta del proyecto del jefe cuyo título entero aparece en el texto.
+//   Nada más: ni parecidos ni la «más probable». Sin ninguna, no se cierra nada y se dice.
+
+/** Los números de tarjeta que nombra un texto («#870, #873 y #882»). */
+export const numerosDeTarjeta = (texto: string): number[] =>
+  [...new Set([...texto.matchAll(/(?:^|[^\w&/])#(\d{2,6})\b/g)].map((m) => Number(m[1])))];
+
+/** Las tarjetas abiertas que cierra este «Ya está» (`abiertas`: las del proyecto del jefe, o todas para los números). */
+export function tarjetasDelYaEsta(texto: string, abiertas: readonly TareaPlanP[], delJefe: readonly TareaPlanP[] = abiertas): TareaPlanP[] {
+  const nums = numerosDeTarjeta(texto);
+  if (nums.length) return abiertas.filter((t) => t.num != null && nums.includes(t.num));
+  const t = ` ${normal(texto).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ')} `;
+  return delJefe.filter((x) => {
+    const tit = normal(x.titulo).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return tit.split(' ').length >= 3 && t.includes(` ${tit} `);
+  });
+}
