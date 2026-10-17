@@ -1212,6 +1212,34 @@ Y tres endurecimientos baratos:
 scripts/operaciones/cartero.mjs (`abrir`, `vencerAperturas`, `textoRemoto`) · tests/centro-abrir.test.ts · la nota de
 la medición, en la carpeta de notas compartida del Cerebro (`ops-center-medicion-clic-17-10.md`).
 
+## Que salga en segundos: `vigilar` y la consulta liviana (17/10/2026, cartero 1.12.0)
+
+**El pedido.** Martín: «Envié un mensaje y no pasó nada por varios segundos... Debería automáticamente comenzar a
+trabajar». El Cerebro lo midió: el trabajo a Video Generator se mandó a las 07:55 UTC, salió del buzón a las 07:56:57 y
+se acusó a las 07:57:11. Era el cron de 2 minutos del Runner.
+
+**Lo obvio era bajar el cron, y no alcanza.** El cron arranca un TURNO del modelo cada vez, y la vuelta completa
+(`ciclo`) sube los chats y los turnos de los transcripts. Hacerla cada pocos segundos es caro y pesado. `esperar` ya
+existía, pero hacía eso mismo: la vuelta completa cada 15 s, y salía por stderr con código 2. Lo que quedó:
+- **una consulta liviana**, `GET ?hay=<cuentas>&abre=<cuentas>`, que devuelve sólo un número y no escribe nada. Cuenta
+  lo `escrito` para los entregables que cada cuenta subió en su última vuelta, y los `nuevo` sólo de las cuentas que la
+  PC abre: si no, una vuelta completa no los reclamaría, y la PC preguntaría en falso para siempre;
+- **`vigilar`**, dentro del MISMO turno del cron: la vuelta completa, la consulta cada ~4 s y, apenas hay algo, otra
+  vuelta y sale.
+
+**Tres cuidados que se prueban con un MaKo de mentira:**
+- **El Bash del Runner corta a los 120 s**: `vigilar` no arranca una vuelta que, con margen (1,5 × la última, mínimo
+  2 s), no entra en lo que queda. El tope es 105 s;
+- **si la consulta falla, cae a la vuelta completa**, con 30 s mínimo entre una y otra, no al silencio;
+- **si `hay` dice que sí y la vuelta no reclama nada**, espera antes de repetirla: sin eso, la vuelta completa corría
+  cada 4 s.
+
+Un test con un tope MENOR que el margen mínimo de una vuelta (2 s) pasaba sin consultar nunca. Por eso las pruebas usan
+topes de 6-8 s.
+
+**Vive en:** scripts/operaciones/cartero.mjs (`vigilar`, `hayAlgo`) · lib/operaciones.ts (`hayParaElCartero`) ·
+app/api/operaciones/cartero/route.ts (el GET `?hay=`) · lib/runner.ts (el paso 2a) · tests/centro-vigilar.test.ts.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
