@@ -1,0 +1,71 @@
+/* =============================================================================
+   «Reportar problema» (/tickets): el campo, la lista y el detalle (Intercom + el «Mis solicitudes» de Zendesk)
+   =============================================================================
+   Sólo tokens. Las clases llevan el nombre ENTERO de la carpeta (`.tickets-*`): Next deja la hoja cargada al salir.
+   Escritorio: lista a la izquierda, detalle a la derecha. Angosto (tablet vertical, teléfono): una columna, y el
+   detalle REEMPLAZA a la lista con su «←» (AGENTS.md, «La app se adapta al tamaño de la pantalla, SIEMPRE»). */
+
+.tickets-cliente { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sect-gap); align-items: start; }
+.tickets-cliente--detalle { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+.tickets-cliente__lado { display: flex; flex-direction: column; gap: var(--sect-gap); min-width: 0; }
+
+.tickets-nuevo {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--card-pad);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.tickets-nuevo__pregunta { font-size: var(--fs-card); font-weight: 600; color: var(--text); }
+.tickets-nuevo__tipos { display: flex; flex-wrap: wrap; gap: 8px; }
+.tickets-chip {
+  min-height: 34px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer;
+}
+.tickets-chip:hover { background: var(--surface-2); }
+.tickets-chip.is-on { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+.tickets-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tickets-nuevo__pie { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tickets-nuevo__nota { color: var(--dim); font-size: var(--fs-sm); }
+.tickets-aviso { margin: 0; font-size: var(--fs-sm); }
+.tickets-aviso--good { color: var(--good); }
+.tickets-aviso--bad { color: var(--bad); }
+
+.tickets-lista__titulo { font-size: var(--fs-sect); font-weight: 600; margin: 0 0 10px; color: var(--text); }
+.tickets-filas { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface); }
+.tickets-filas li + li { border-top: 1px solid var(--border); }
+.tickets-fila {
+  width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px;
+  padding: 12px 16px; min-height: var(--touch); background: none; border: 0; text-align: left; font: inherit; color: var(--text); cursor: pointer;
+}
+.tickets-fila:hover { background: var(--surface-2); }
+.tickets-fila.is-on { background: var(--primary-bg); }
+.tickets-fila:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
+.tickets-fila__num { color: var(--dim); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.tickets-fila__titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); }
+.tickets-fila__cuando { color: var(--dim); font-size: var(--fs-meta); white-space: nowrap; }
+
+.tickets-detalle {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--card-pad);
+  display: flex; flex-direction: column; gap: 16px; min-width: 0; position: sticky; top: 16px;
+}
+.tickets-detalle__cab { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.tickets-detalle__volver {
+  width: 34px; height: 34px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); cursor: pointer; font-size: 16px;
+}
+.tickets-detalle__meta { margin: 0; color: var(--dim); font-size: var(--fs-meta); }
+.tickets-detalle__titulo { margin: 2px 0 0; font-size: var(--fs-card); font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.tickets-conversacion { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.tickets-burbuja { max-width: 88%; padding: 10px 14px; border-radius: var(--r-lg); background: var(--surface-2); }
+.tickets-burbuja--tu { align-self: flex-end; background: var(--primary-bg); }
+.tickets-burbuja__quien { display: block; color: var(--dim); font-size: var(--fs-meta); margin-bottom: 4px; }
+.tickets-burbuja__texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-md); color: var(--text); }
+.tickets-detalle__responder { display: flex; flex-direction: column; gap: 8px; }
+.tickets-detalle__cerrado { margin: 0; color: var(--dim); font-size: var(--fs-sm); }
+
+/* Angosto: el detalle reemplaza a la lista. */
+@media (max-width: 900px) {
+  .tickets-cliente--detalle { grid-template-columns: minmax(0, 1fr); }
+  .tickets-cliente--detalle .tickets-cliente__lado { display: none; }
+  .tickets-detalle { position: static; }
+  .tickets-fila { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .tickets-fila__cuando { display: none; }
+}

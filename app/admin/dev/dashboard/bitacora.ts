@@ -504,4 +504,67 @@ export const BITACORA: Hito[] = [
     archivos: ['app/dashboard/PanelEstilo.tsx', 'lib/graficos-temas.ts', 'app/dashboard/PanelEditarMako.tsx', 'tests/graficos-temas-ajustes.test.ts', 'tests/dashboard-editar-mako-muneco.test.ts'],
     revisar: '/dashboard',
   },
+  {
+    fecha: '17 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Experiments, simplificada dentro del chat de MaKo del Dashboard',
+    pedido: 'Quiero que "Experiments" la simplifiques completamente: la funcionalidad, o lo que pretendía, puede vivir dentro del chat de MaKo de "Dashboard". OJO, no tengas miedo de eliminar completamente lo que está hecho y sólo conservar lo que pretende la tab, para hacer algo mejor y más simple aprovechando el chat de MaKo en Dashboard',
+    puntos: ['Lo pasó el Cerebro al chat Dashboard el 17/10, con la barra a cargo del chat Sidebar (Experiments se va y el Dashboard pasa a «Operate»).'],
+  },
+  {
+    fecha: '17 oct', hora: '07:15', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los experimentos viven en el Dashboard: «probemos…» y MaKo lo arma en la hoja',
+    puntos: [
+      'En «Editar con MaKo» del Dashboard escribes «probemos un anuncio con testimonio» y MaKo agrega a la hoja un elemento «Experimento»: la hipótesis, qué número mide, hacia dónde y durante cuántos días.',
+      '«Arrancar» mide el punto de partida y desde ahí la tarjeta muestra antes → ahora, cuánto se movió y la línea de cada día. Cumplida la ventana, «Concluir» y MaKo dice si se cumplió y qué se aprendió.',
+      'El número tiene que ser uno de los que MaKo sabe medir: si no, no lo inventa.',
+      'La tab Experiments se fue (con la Retro y el Análisis): /experimentos y /analisis llevan al Dashboard, y un link viejo con una hipótesis abre el panel con «Probemos: …» escrito.',
+      'El «Probarlo» de Offer abre el Dashboard con la hipótesis lista. En el teléfono se sacó: su Dashboard no tiene el panel.',
+      'En General no se ofrece: no es un banco de pruebas.',
+    ],
+    archivos: ['lib/experimentos-catalogo.ts', 'lib/experimentos.ts', 'app/dashboard/ElementoExperimento.tsx', 'app/api/experimentos/route.ts', 'lib/graficos-ia-edicion.ts', 'app/experimentos/page.tsx', 'tests/experimentos-en-la-hoja.test.ts', 'tests/analisis-mudada.test.ts'],
+    revisar: '/dashboard',
+  },
+  {
+    fecha: '17 oct', hora: '07:15', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo que dejó la mudanza de Experiments',
+    puntos: [
+      'docs/hallazgos-graficos.md: por qué el experimento se ata al elemento y no al revés (arrancar no escribe la hoja), que una métrica fuera del catálogo no se adivina, que la guía va en el mensaje del usuario, qué se borró y qué se quedó, y que los experimentos de antes (o los de la API) no tienen dónde verse.',
+      'AGENTS.md: un merge que salió fast-forward no dejó commit tuyo; enmendarlo reescribe el de otra sesión.',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'La hoja Ads Analyst lee y carga mal las métricas (#876)',
+    pedido: 'Bueno, no sé por qué, hay algunos datos que me lo trae, yo me llevo para trabajar eso, pero hay algunos datos que me lo están leyendo',
+    puntos: ['De la llamada Mau <> Martín del 16/10 (53:01), al abrir un anuncio ganador de la hoja Ads Analyst recién creada en el negocio de Mauricio. Lo repartió el Cerebro al chat Dashboard el 17/10, primero por impacto.'],
+  },
+  {
+    fecha: '17 oct', hora: '08:10', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El anuncio de Ads Analyst trae sus números, su diario y su audiencia',
+    puntos: [
+      'Al abrir un anuncio de la hoja Ads Analyst (en «Tus anuncios ganadores» o en los guiones), ahora aparecen los números, el día a día y la audiencia, no sólo el video y el guion.',
+      'La hoja mira «Todo» y Meta guarda los últimos 37 meses: se le pide desde ahí, en vez de recibir un error.',
+      'Lo mismo en el detalle de una campaña o un conjunto y en el resumen de la cuenta del Ads Manager.',
+    ],
+    archivos: ['lib/meta-rango.ts', 'app/api/ad-insights/route.ts', 'app/api/entity-insights/route.ts', 'lib/meta-desgloses.ts', 'tests/meta-rango.test.ts', 'docs/hallazgos-ads.md'],
+    revisar: '/dashboard',
+  },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Una plantilla sin el «Revisando» de dos minutos (#857)',
+    pedido: 'al crear un general o un dashboard… salta un mensajito de revisando y un timer de cuánto lleva revisando y hasta dos minutos dice. Eso no debería ser así porque confunde al usuario',
+    puntos: ['De la revisión de MaKo del 16/10 (1:08:13). Lo repartió el Cerebro al chat Dashboard el 17/10.'],
+  },
+  {
+    fecha: '17 oct', hora: '09:00', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Elegir una plantilla abre la hoja al instante',
+    puntos: [
+      'Al elegir una plantilla, la hoja aparece enseguida y cada gráfico carga por su cuenta: se fue la espera de «Revisando… hasta 2 min».',
+      'Por detrás, MaKo la ajusta a los datos del negocio: saca los gráficos que quedarían vacíos y suma otros. Unos segundos después, la hoja se acomoda sola.',
+      'Si en esos segundos la cambias, se queda como la dejaste.',
+      'Vale para el Dashboard y para General.',
+    ],
+    archivos: ['app/dashboard/NuevaHoja.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/graficos-plantilla-relleno.ts', 'app/api/graficos/plantilla/route.ts', 'tests/dashboard-plantilla-al-instante.test.ts — probado rompiéndolo'],
+    revisar: '/dashboard',
+  },
 ];

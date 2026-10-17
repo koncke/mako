@@ -4091,3 +4091,65 @@ después, y la mitad es lo contrario de lo que se suponía.
   `checkCronAuth`), y todo `/api/cron` es público por prefijo. Quedó como tarea aparte.
 
 *14/10/2026, cuenta 2 (claude2), chat «Ads Manager», relevamiento `wf_2c9a91f5-f46`.*
+
+## El pop-up del anuncio con el período «Todo»: Meta guarda 37 meses y un `since` más viejo es un ERROR (17/10/2026)
+
+**Síntoma (#876, llamada Mau <> Martín del 16/10, 53:01):** Martín crea la hoja Ads Analyst en el ws1, abre un anuncio
+ganador de la portada y dice que algunos datos los trae y otros no los está leyendo. El video y el guion
+estaban; los números, el diario y la audiencia, no.
+
+**Lo obvio era mirar la hoja, y la hoja estaba bien:** medidos los 13 gráficos de la plantilla contra el ws1 con el lector
+de verdad, todos traen dato (89 guiones, hook rate 32 %, costo por agenda US$76). Lo que fallaba era el POP-UP: lee a
+Meta en vivo (`/api/ad-insights`) con el período del gráfico que lo abrió, y Ads Analyst va con «Todo», que arranca el
+2020-01-01. Meta contesta `#3018 The start date of the time range cannot be beyond 37 months` (medido el 17/10 con un
+anuncio del ws1: desde 2023-09-18 contesta, desde 2023-09-16 no). El creativo y el guion salen de nuestra base: por eso
+«algunos datos sí».
+
+- La regla ya existía para los gráficos de audiencia (`desdeQueGuardaMeta`, desde el 11/10), pero vivía adentro de
+  lib/graficos-audiencia.ts y las otras tres lecturas con período libre la ignoraban: /api/ad-insights,
+  /api/entity-insights (campaña o conjunto) y lib/meta-desgloses.ts (los desgloses de la cuenta del Ads Manager).
+- Ahora vive en **lib/meta-rango.ts** (`timeRangeMeta`) y tests/meta-rango.test.ts barre TODO `time_range` del repo:
+  uno armado a mano falla. La única excepción es la sincronización diaria (lib/meta-ads.ts pide un día).
+- El total con «Todo» es el de lo que Meta guarda (37 meses), no el histórico: más atrás no hay nada que traer.
+
+**Nadie lo miró en pantalla.** Después del deploy: ws1, una hoja Ads Analyst, clic en un anuncio de «Tus anuncios
+ganadores»: tienen que aparecer los números, el diario y la audiencia.
+**Vive en:** lib/meta-rango.ts · app/api/ad-insights/route.ts · app/api/entity-insights/route.ts · lib/meta-desgloses.ts.
+*17/10/2026, claude4 (chat Dashboard).*
+
+## ¿Se puede corregir una calificación que ya viajó a Meta? No: lo que se manda por CAPI no se borra ni se edita (#856, 17/10/2026)
+
+**La pregunta (revisión del 16/10):** el CRM daba por hecho que «no se deshace» (docs/api-mako-inventario.md), sin
+fuente. Se buscaron las tres salidas posibles en la documentación OFICIAL de Meta, y ninguna corrige:
+
+- **Borrar o editar el evento:** la API no lo ofrece. Ni «Using the API», ni los parámetros del evento de servidor, ni
+  los de `custom_data` mencionan borrar, actualizar o corregir un evento ya enviado.
+- **Otro evento («Lead descalificado»):** en Conversion Leads el `event_name` es libre («Free form field to capture
+  the stages you use within your CRM») y piden mandar cada etapa cuando cambia. Mandar una etapa nueva SUMA una señal;
+  no resta la anterior, y la página no dice nada de un lead que vuelve para atrás.
+- **Un valor negativo:** `value` es «A numeric value associated with the event. This must represent a monetary
+  amount», obligatorio para compras y optimización por valor. No hay ninguna mención de valores negativos ni de
+  reembolsos; no es un mecanismo de corrección.
+- **El dedup por `event_id`:** sólo descarta un DUPLICADO del mismo par (`event_name`, `event_id`), y se queda con el
+  PRIMERO («we only consider the first one»). Reenviar con el mismo id no pisa nada: se descarta el nuevo.
+
+**La trampa que sale de esto (lo que corrige un comentario del código):** la ventana del dedup es de **48 horas**
+(«events are only deduplicated if they are received within 48 hours»). `eventIdCalificado` (lib/meta-capi-payload.ts)
+cubre marcar → desmarcar → marcar dentro de esas 48 h; pasado ese plazo, volver a marcar a un lead es una SEGUNDA
+conversión. Y la página de deduplicación describe el `event_id` para el par navegador + servidor; para dos eventos de
+servidor sólo dice, en el método por FBP, «If you send us two consecutive server events with the same information, we
+do not discard either». O sea: el dedup entre dos envíos nuestros es lo esperable, no una garantía escrita.
+
+**La regla que queda:** lo que viaja a Meta es definitivo. El «Deshacer» del CRM vuelve la ficha atrás, pero la
+conversión ya contó. **Sin hacer:** que el envío espere la ventana del «Deshacer» y relea el lead antes de mandar
+(`after()` en `updateLead`, lib/leads.ts, que desde #854 ya va de fondo); y una marca nuestra de «ya se mandó» para que
+volver a marcar después de 48 h no cuente dos veces (sigue sin columna).
+
+**Fuentes (Meta for Developers, leídas el 17/10/2026):**
+[Deduplicación](https://developers.facebook.com/documentation/ads-commerce/conversions-api/deduplicate-pixel-and-server-events) ·
+[Parámetros del evento de servidor](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/server-event) ·
+[custom_data](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/custom-data) ·
+[Conversion Leads: payload](https://developers.facebook.com/documentation/ads-commerce/conversions-api/conversion-leads-integration/payload-specification) ·
+[Using the API](https://developers.facebook.com/documentation/ads-commerce/conversions-api/using-the-api)
+
+*17/10/2026, chat «CRM» (claude4).*

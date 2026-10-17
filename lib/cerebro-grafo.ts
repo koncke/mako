@@ -57,6 +57,14 @@ import { getManual as getVozManual, getEvidencia as getVozEvidencia } from './ch
 import { ANGULOS_GUION_DEFAULT } from './guion-angulos';
 import { listKnowledge } from './mako-knowledge';
 import { getSetting } from './settings';
+import { getTenantDb } from './workspace';
+import { listarOfertas, productosDeOfertas, ofertasDeFunnels, listarLeadMagnets } from './ofertas';
+import { listarFunnels } from './funnels';
+import { listLeads } from './leads';
+import { conteoPorEtapa } from './api-mako/areas/crm.helpers';
+import { quarterActual, listObjectives, listKpis } from './objectives';
+import { listarSesionesOffer } from './offer-sesiones';
+import { agregarLoVivo, LECTURAS_VACIAS, type ChatMakoVivo, type ConteoLeads, type FechasDeAlta, type LecturasVivas } from './cerebro-vivo';
 
 // ── El modelo ────────────────────────────────────────────────────────────────
 // Vive en `cerebro-modelo.ts`, SIN `server-only`, porque el componente que dibuja
@@ -206,13 +214,80 @@ function motivoDeTransicion(t: FunnelTransition): string {
   return `${t.label}, sola: la dispara ${tr.label}`;
 }
 
-export async function construirCerebro(): Promise<Cerebro> {
+// ── Lo vivo del negocio (punto 13, 17/10/2026): Offer, los funnels, los leads, los OKR/KPI y los chats ─────────
+// Cada lectura con su `.catch()` a vacío, como las secundarias de abajo: una fuente que falle no deja sin mapa a
+// nadie. Lo que se HACE con esto vive en lib/cerebro-vivo.ts (puro, probado sin base).
+
+/** Las tablas cuyo `created_at` se lee para el `nace` de cada nodo. */
+const TABLAS_CON_FECHA = ['ofertas', 'productos', 'lead_magnets', 'funnels', 'objectives', 'kpis', 'offer_sesiones'] as const;
+
+/** El `created_at` de cada fila, por tabla. Una lectura chica por tabla (`id, created_at`), en paralelo. */
+async function fechasDeAlta(): Promise<FechasDeAlta> {
+  const db = await getTenantDb();
+  const out: FechasDeAlta = {};
+  await Promise.all(TABLAS_CON_FECHA.map(async (t) => {
+    try {
+      const { data, error } = await db.from(t).select('id, created_at').order('id', { ascending: false }).limit(500);
+      if (error) return;
+      out[t] = Object.fromEntries(((data ?? []) as Array<{ id: unknown; created_at: unknown }>)
+        .filter((r) => typeof r.created_at === 'string').map((r) => [String(r.id), r.created_at as string]));
+    } catch { /* sin fecha: el nodo va con `nace` null, nunca con una inventada */ }
+  }));
+  return out;
+}
+
+/** Los leads de hoy, contados con la MISMA regla que el CRM (`conteoPorEtapa`) más los nuevos de 7 días. */
+async function contarLeads(): Promise<ConteoLeads | null> {
+  const [c, leads] = await Promise.all([conteoPorEtapa(), listLeads()]);
+  const desde = Date.now() - 7 * 86_400_000;
+  return {
+    total: c.total_leads,
+    nuevos7d: leads.filter((l) => Date.parse(l.created_at) >= desde).length,
+    sinAsignar: c.sin_closer_ni_setter,
+    porEtapa: c.etapas.map((e) => ({ key: e.key, leads: e.leads })),
+    origenes: c.origenes,
+  };
+}
+
+async function leerLoVivo(chatsMako?: ChatMakoVivo[]): Promise<LecturasVivas> {
+  const [ofertas, ligasProducto, ligasFunnel, leadMagnets, funnels, leads, objetivos, kpis, chatsOffer, fechas] = await Promise.all([
+    listarOfertas(true).catch(() => []),
+    productosDeOfertas().catch(() => []),
+    ofertasDeFunnels().catch(() => []),
+    listarLeadMagnets().catch(() => []),
+    listarFunnels().catch(() => []),
+    contarLeads().catch(() => null),
+    quarterActual().then(({ qt }) => listObjectives(qt)).catch(() => []),
+    listKpis(true).catch(() => []),
+    listarSesionesOffer().catch(() => []),
+    fechasDeAlta().catch(() => ({})),
+  ]);
+  return {
+    ...LECTURAS_VACIAS,
+    ofertas: ofertas.map((o) => ({ ...o, bonos: (o.bonos ?? []).map((b) => ({ nombre: (b as { nombre?: string | null }).nombre ?? null })) })),
+    ligasProducto, ligasFunnel, leadMagnets,
+    funnels: funnels.map((f) => ({ id: f.id, nombre: f.nombre, canal: f.canal, esDefault: f.esDefault })),
+    leads,
+    objetivos: objetivos.map((o) => ({ id: o.id, titulo: o.titulo, metaValor: o.metaValor, unidad: o.unidad, quarter: o.quarter, anio: o.anio, funnelIds: o.funnelIds })),
+    kpis: kpis.map((k) => ({ id: k.id, nombre: k.nombre, objectiveId: k.objectiveId, compromiso: k.compromiso, unidad: k.unidad, cadencia: k.cadencia, funnelIds: k.funnelIds })),
+    chatsOffer: chatsOffer.map((c) => ({ id: c.id, titulo: c.titulo, estado: String(c.estado), updatedAt: c.updatedAt })),
+    chatsMako,
+    fechas,
+  };
+}
+
+/**
+ * @param opciones.chatsMako los chats con MaKo de QUIEN MIRA. Sólo los pasa la pantalla (app/second-brain/pagina.tsx):
+ *   son de la persona y no del negocio, así que el ZIP y la API —que no tienen persona— arman el grafo sin ellos, y
+ *   eso es a propósito (no es el «parámetro opcional que sólo pasa uno» que se advierte abajo para el funnel).
+ */
+export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } = {}): Promise<Cerebro> {
   // ⚠️ El funnel se LEE ACÁ ADENTRO y no entra por parámetro, aunque la página ya lo
   // tenga a mano. `construirCerebro()` tiene DOS llamadores —la pantalla y la ruta que
   // arma el ZIP— y un parámetro opcional que solo pasara uno dejaría el vault sin funnel
   // en silencio, que es la clase de bug que este repo ya pagó varias veces. Va en el
   // mismo Promise.all, así que no suma latencia, y `getFunnelDefault()` nunca lanza.
-  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, recomendaciones, funnel, secuencias, landings, audios, vozManual, vozEvidencia, glosario, objCierres, objCash] = await Promise.all([
+  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, recomendaciones, funnel, secuencias, landings, audios, vozManual, vozEvidencia, glosario, objCierres, objCash, vivo] = await Promise.all([
     getSchema(),
     getDiagnosticoFase(),
     listFiles(),
@@ -236,6 +311,7 @@ export async function construirCerebro(): Promise<Cerebro> {
     listKnowledge().catch(() => []),
     getSetting('objetivo_cierres').catch(() => null),
     getSetting('objetivo_cash_usd').catch(() => null),
+    leerLoVivo(opciones.chatsMako).catch(() => ({ ...LECTURAS_VACIAS, chatsMako: opciones.chatsMako })),
   ]);
 
   const { answers, fuente } = computeEffective(files, manual);
@@ -340,6 +416,7 @@ export async function construirCerebro(): Promise<Cerebro> {
       // El mime viaja para que el panel pueda PREVISUALIZARLO. La etiqueta va recortada
       // a 30 caracteres, así que ni siquiera la extensión sobrevive para adivinarlo.
       mime: (f as { mime?: string | null }).mime ?? null,
+      nace: f.created_at ?? null,
     });
     unir(RAIZ, id, 'Un documento que soltaste en el Archivero');
   }
@@ -406,6 +483,10 @@ export async function construirCerebro(): Promise<Cerebro> {
 
   // ── Productos ──────────────────────────────────────────────────────────────
   const nodoOferta = campoANodo.get('oferta_nombre');
+  // Los que una oferta de Offer incluye se cuelgan de ESA oferta (lib/cerebro-vivo.ts): la arista vieja al campo del
+  // brief sería un radio de más sin información.
+  const ofertasActivas = new Set(vivo.ofertas.filter((o) => o.activa).map((o) => o.id));
+  const conOferta = new Set(vivo.ligasProducto.filter((lp) => ofertasActivas.has(lp.oferta_id)).map((lp) => lp.producto_id));
   for (const p of productos) {
     const precio = p.monto_usd == null ? 'sin precio cargado'
       : p.tipo === 'suscripcion'
@@ -427,8 +508,9 @@ export async function construirCerebro(): Promise<Cerebro> {
       ],
       fuente: 'del catálogo que arma el CRM',
       autoria: 'mako',
+      nace: vivo.fechas.productos?.[String(p.id)] ?? null,
     });
-    unir(nodoOferta ?? RAIZ, id, nodoOferta ? 'MaKo lo dedujo de tu oferta' : 'Un producto del catálogo');
+    if (!conOferta.has(Number(p.id))) unir(nodoOferta ?? RAIZ, id, nodoOferta ? 'MaKo lo dedujo de tu oferta' : 'Un producto del catálogo');
   }
 
   // ── Gancho (lead magnets) ──────────────────────────────────────────────────
@@ -743,6 +825,7 @@ export async function construirCerebro(): Promise<Cerebro> {
       detalle: a.duracion_s ? `Audio de ${Math.round(a.duracion_s)} segundos.` : 'Un audio grabado por ti.',
       fuente: 'lo grabaste tú',
       autoria: 'usuario',
+      nace: a.created_at ?? null,
     });
     if (enElMapa.has('voz')) unir(idAudio, 'voz', 'Es tu voz grabada, la que suena en la nutrición');
   }
@@ -798,9 +881,18 @@ export async function construirCerebro(): Promise<Cerebro> {
       detalle: propios.slice(0, 12).map((g) => g.titulo).join(' · '),
       fuente: 'lo cargaste en Conocimiento',
       autoria: 'usuario',
+      nace: propios.map((g) => g.created_at).filter(Boolean).sort().at(-1) ?? null,
     });
     if (enElMapa.has('voz')) unir(idGlos, 'voz', 'Las palabras con las que MaKo te escribe');
   }
+
+  // ── LO VIVO DEL NEGOCIO (punto 13, 17/10/2026): ofertas, lead magnets, funnels, leads, OKR/KPI y chats ────────
+  // Va ANTES de los nodos de área para que sus miembros entren al racimo de su área como cualquier otro dato.
+  agregarLoVivo({ nodos, aristas }, vivo, {
+    raiz: RAIZ,
+    primeraEtapa: funnel.pipeline[0] ? `etapa:${funnel.pipeline[0].key}` : null,
+    etapasEnMapa: new Set(nodos.filter((n) => n.id.startsWith('etapa:')).map((n) => n.id)),
+  });
 
   // ── Las ÁREAS como nodos ───────────────────────────────────────────────────
   // Es el mecanismo con el que Quartz fabrica racimos sin inventar ninguna fuerza:
@@ -960,6 +1052,7 @@ export async function construirCerebro(): Promise<Cerebro> {
     aristas,
     posiciones,
     encuadre,
+    huella: huellaDeContenido(nodos, aristas),
     cuenta: {
       total: reales.length,
       mako: reales.filter((n) => n.autoria === 'mako').length,
@@ -985,4 +1078,17 @@ function fuenteDe(f: { tipo: 'archivo' | 'manual'; nombre?: string } | undefined
   if (f?.tipo === 'archivo') return `de ${f.nombre ?? 'un documento tuyo'}`;
   if (f?.tipo === 'manual') return 'lo escribiste tú';
   return '';
+}
+
+/** La huella del CONTENIDO del grafo (FNV-1a sobre ids, nombres, textos, datos y aristas): el grafo vivo de la
+ *  pantalla la compara para no redibujar lo que no cambió. No es la de `huellaDe` (cerebro-layout.ts), que mira sólo
+ *  ids y aristas porque es la del dibujo. */
+export function huellaDeContenido(nodos: NodoCerebro[], aristas: AristaCerebro[]): string {
+  const s = JSON.stringify([
+    nodos.map((n) => [n.id, n.etiqueta, n.detalle, n.datos ?? null, n.cuerpo ?? null, n.autoria]),
+    aristas.map((a) => [a.de, a.a, a.motivo]),
+  ]);
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36);
 }

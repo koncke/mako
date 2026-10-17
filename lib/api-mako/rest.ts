@@ -105,6 +105,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/automatizaciones/simulacion', 'evaluar_crm_automatico'],
   ['GET', '/crm/busqueda/duplicados', 'duplicados_lead'],
   ['GET', '/crm/busqueda/leads', 'buscar_leads'],
+  // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.
+  ['GET', '/crm/campanas', 'ver_campanas_funnels'],
+  ['PUT', '/crm/campanas/funnels', 'asignar_campana_funnels'],
   // Un CRM nuevo por su tipo (14/10/2026): crea el embudo y devuelve su embudoId.
   ['POST', '/crm/embudos', 'crear_crm'],
   ['PUT', '/crm/entradas', 'declarar_entradas_funnel'],
@@ -506,6 +509,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/negocio/productos/generaciones', 'sugerir_productos'],
   ['DELETE', '/negocio/productos/{id}', 'borrar_producto'],
   ['GET', '/negocio/segundo-cerebro/archivos', 'leer_segundo_cerebro_como_archivos'],
+  ['GET', '/negocio/segundo-cerebro/indice', 'indice_segundo_cerebro'],
+  ['GET', '/negocio/segundo-cerebro/recuperar', 'recuperar_del_segundo_cerebro'],
   // ── contenido ─────────────────────────────────────────────────────────────
   ['GET', '/contenido/angulos', 'catalogo_angulos_guion'],
   ['GET', '/contenido/anuncios', 'listar_anuncios_planteados'],
@@ -543,6 +548,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // Las operaciones del chat «Editar con IA»: cada una deja una PROPUESTA en el proyecto (lib/editor-video/chat-api.ts).
   ...OPERACIONES_API.map((o): RutaRest => ['POST', `/video/proyectos/{proyecto}/propuestas/${o.op.replace(/_/g, '-')}`, o.id]),
   ['GET', '/video/voz', 'ver_voz_cliente'],
+  ['GET', '/video/avatares', 'ver_avatares'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],
   ['GET', '/integraciones/cuotas-ia', 'ver_cuotas_ia'],

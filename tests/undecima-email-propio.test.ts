@@ -193,6 +193,7 @@ const FROM_PERMITIDOS: Record<string, string[]> = {
   'lib/invitaciones.ts': ['REMITENTE_MAKO', 'rem.from'],
   'lib/notify.ts': ['REMITENTE_MAKO'],
   'lib/nutricion.ts': ['fromPaso'],
+  'lib/onboarding-guardia-server.ts': ['REMITENTE_MAKO'],
   'lib/prueba-paso.ts': ['from'],
   'lib/reunion-destinatarios.ts': ['REMITENTE_MAKO'],
   'app/api/compartir/route.ts': ['from'],

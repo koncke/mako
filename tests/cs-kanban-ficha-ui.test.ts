@@ -70,7 +70,7 @@ function bloque(src: string, abre: string, cierra: string): string {
 }
 
 const APP = sinComentarios(leer('app/customer-success/ClientesApp.tsx'));
-const PAGE = sinComentarios(leer('app/customer-success/page.tsx'));
+const PAGE = sinComentarios(leer('app/customer-success/pantalla.tsx'));
 const FICHA = sinComentarios(leer('app/customer-success/FichaCliente.tsx'));
 const TABLA = sinComentarios(leer('app/customer-success/TablaClientes.tsx'));
 const KANBAN = sinComentarios(leer('app/customer-success/KanbanEntrega.tsx'));
@@ -80,7 +80,8 @@ const ENTREGA = sinComentarios(leer('app/customer-success/entrega.ts'));
 // ── 1. La ficha linkeable: `?cliente=<leadId>` ─────────────────────────────────
 
 test('page.tsx lee ?cliente= en el SERVER, sólo en la rama de la cartera, y lo pasa', () => {
-  assert.match(PAGE, /export default async function CustomerSuccessPage\(\{ searchParams \}: \{ searchParams: Promise</);
+  // Desde el 17/10/2026 es una PANTALLA que monta /clients (app/clients/page.tsx), no la página de la ruta.
+  assert.match(PAGE, /export async function PantallaClientes\(\{ searchParams \}: \{ searchParams: Promise</);
   assert.match(PAGE, /const clienteInicial = leerClienteDeUrl\(\(await searchParams\)\[PARAM_CLIENTE\]\);/);
   // Después del `return <AdminView`: la grilla del super admin es de WORKSPACES, no de leads.
   assert.ok(PAGE.indexOf('leerClienteDeUrl(') > PAGE.indexOf('<AdminView'), 'el super admin sin impersonar no tiene fichas de leads');

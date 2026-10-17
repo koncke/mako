@@ -239,7 +239,7 @@ test('al alumno sólo le viajan las portadas de las clases que ve (no las de una
   assert.deepEqual(viaja.portadasEtapa, { a: PICSUM }, 'la de un módulo que no viaja, tampoco');
   const portal = sinComentarios(leer('lib/curso-portal.ts'));
   assert.match(portal, /estilo: estiloQueViaja\(estilos\.get\(productoId\) \?\? estiloVacio\(\), modulos\)/);
-  assert.match(sinComentarios(leer('app/customer-success/curso/vista/page.tsx')), /estilo: estiloQueViaja\(/);
+  assert.match(sinComentarios(leer('app/customer-success/curso/vista/pantalla.tsx')), /estilo: estiloQueViaja\(/);
   // Desde el 08/10/2026 borrar una clase la manda a la PAPELERA (mig 0223) y su portada se borra cuando
   // la PURGA la borra de verdad: el «Deshacer» la tiene que devolver con su portada.
   // (14/10/2026: con sus comentarios, que también son un ajuste de estilo de la clase.)

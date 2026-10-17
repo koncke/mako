@@ -71,7 +71,7 @@ const DEF = TAB_ONBOARDINGS[TAB_CURSO];
 
 test('el catálogo: prefijo propio, el orden de PASOS_CURSO, invitar al final y opcional', () => {
   assert.ok(DEF, 'la tab Curso no tiene onboarding en el catálogo');
-  assert.equal(DEF.href, '/customer-success/curso');
+  assert.equal(DEF.href, '/clients/classroom');
   assert.deepEqual(DEF.pasos.map((p) => p.key), [...PASOS_CURSO], 'el catálogo y PASOS_CURSO dicen órdenes distintos: el orden es una guarda');
   for (const p of DEF.pasos) assert.match(p.key, /^curso_/, `«${p.key}» sin prefijo: colisiona vía KEY_PASOS_COMPARTIDOS`);
   const de = (k: string) => DEF.pasos.find((p) => p.key === k)!;
@@ -134,7 +134,7 @@ test('«con video» es lo que el portal DIBUJA, no lo que dice la columna', () =
 });
 
 test('la página anota los pasos en cada carga y NO tapa la tab', () => {
-  const page = sinComentarios(leer('app/customer-success/curso/page.tsx'));
+  const page = sinComentarios(leer('app/customer-success/curso/pantalla.tsx'));
   assert.match(page, /sincronizarOnboardingCurso\(/, 'la página dejó de anotar los pasos derivados');
   assert.match(page, /onboarding=\{onboarding\}/, 'la lista del onboarding no le llega a la tab');
   // Ni wizard ni redirect AL ONBOARDING: la tab se abre siempre en su curso. El ÚNICO redirect es el
@@ -143,7 +143,7 @@ test('la página anota los pasos en cada carga y NO tapa la tab', () => {
   assert.doesNotMatch(page, /onboardingTabPendiente|onboardingRequeridoPara/);
   const redirects = [...page.matchAll(/\bredirect\(([^;]*)\);/g)].map((m) => m[1]);
   assert.equal(redirects.length, 1, `la página redirige ${redirects.length} veces`);
-  assert.match(redirects[0], /^await rutaConWs\(`\/customer-success\?vista=avance/, `redirige a otro lado: ${redirects[0]}`);
+  assert.match(redirects[0], /^await rutaConWs\(`\/clients\?vista=avance/, `redirige a otro lado: ${redirects[0]}`);
   // ⚠️ DESDE EL 08/10/2026 LA TAB NO DIBUJA LA LISTA «Configura tu curso» (item 3, Martín: «Elimina el
   //    recuadro… En su lugar haz el típico tutorial de app»). La reemplazó el RECORRIDO, que se ve una
   //    vez por PERSONA (D7) y se puede volver a ver con el «?». Los pasos de arriba se siguen anotando.
@@ -211,7 +211,7 @@ test('la lista no manda nada: invitar lleva a Avance, donde una persona elige', 
 });
 
 test('la vista previa no crea accesos ni cuenta ingresos: sin lead, sin token y con vistaPrevia', () => {
-  const vista = sinComentarios(leer('app/customer-success/curso/vista/page.tsx'));
+  const vista = sinComentarios(leer('app/customer-success/curso/vista/pantalla.tsx'));
   // Desde el 08/10/2026 lleva además las URLs firmadas de los adjuntos de las descripciones (la vista
   // previa no tiene token para pedirlos como el alumno).
   // Desde el 09/10/2026 la vista va con TODAS las correctas (`conCorrectasDelEquipo`, punto 5 del audio

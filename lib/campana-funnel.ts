@@ -27,7 +27,7 @@ import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getTenantDb } from './workspace';
 import { productosAsignables } from './landing-funnel';
 import {
-  CONFIG_KEY, parsearCampanas, funnelIdDeCampana, esIdMeta,
+  CONFIG_KEY, parsearCampanas, funnelIdDeCampana, esIdMeta, conCampana, sinCampana, funnelsDeAsignada, MAX_TAMBIEN,
   type CampanaAsignada,
 } from './campana-config';
 
@@ -95,7 +95,7 @@ export async function funnelDeCampana(origen: {
   adsetId?: string | null;
   /** El anuncio, para derivar el conjunto cuando no viene (el opt-in de la landing). */
   adId?: string | null;
-}): Promise<{ asignada: false } | { asignada: true; funnelId: number | null; nombre: string; producto: string }> {
+}): Promise<{ asignada: false } | { asignada: true; funnelId: number | null; otros: number[]; nombre: string; producto: string }> {
   // Sin ningún id de Meta no hay nada que buscar: ni se lee el setting. Es el caso de
   // casi todo lead que no viene de Meta, y no tiene por qué pagar una consulta.
   const campaignId = esIdMeta(origen.campaignId) ? origen.campaignId.trim() : null;
@@ -124,9 +124,15 @@ export async function funnelDeCampana(origen: {
     if (!r.asignada) return { asignada: false };
     const elegido = r.funnelId == null ? def : vivos.find((f) => f.id === r.funnelId) ?? null;
     if (!elegido) return { asignada: false };
+    // Los otros funnels (#893) con su id REAL, que es como los guarda `lead_funnel` (el del
+    // negocio también): quien llama los AGREGA con `agregarAProducto`, nunca los escribe en la casa.
+    const otros = [...new Set(r.tambien
+      .map((f) => (f == null ? def?.id ?? null : f))
+      .filter((f): f is number => f != null && f !== elegido.id))];
     return {
       asignada: true,
       funnelId: elegido.esDefault ? null : elegido.id,
+      otros,
       nombre: r.por.nombre,
       producto: elegido.nombre,
     };
@@ -136,4 +142,57 @@ export async function funnelDeCampana(origen: {
     console.error('[campana-funnel] no se pudo resolver el producto de la campaña:', e instanceof Error ? e.message : e);
     return { asignada: false };
   }
+}
+
+/** Una asignación como la lee MaKo: cada funnel con su id REAL de embudo y su nombre, la casa primero. */
+export type CampanaParaMaKo = { tipo: 'campana' | 'conjunto'; id: string; nombre: string; campanaId?: string; funnels: Array<{ embudoId: number; crm: string }> };
+
+/** Las asignaciones con sus funnels por nombre (la API de MaKo, `ver_campanas_funnels`). Estricta: un error tira. */
+export async function campanasParaMaKo(): Promise<{ asignadas: CampanaParaMaKo[]; funnels: Array<{ embudoId: number; crm: string }> }> {
+  const [asignadas, vivos] = await Promise.all([leerCampanasAsignadasEstricto(), productosAsignables()]);
+  const def = vivos.find((f) => f.esDefault) ?? null;
+  const de = (id: number | null) => (id == null ? def : vivos.find((f) => f.id === id) ?? null);
+  return {
+    asignadas: asignadas.map((c) => ({
+      tipo: c.tipo, id: c.id, nombre: c.nombre, ...(c.campanaId ? { campanaId: c.campanaId } : {}),
+      funnels: funnelsDeAsignada(c).map(de).filter((f): f is NonNullable<typeof f> => !!f).map((f) => ({ embudoId: f.id, crm: f.nombre })),
+    })),
+    funnels: vivos.map((f) => ({ embudoId: f.id, crm: f.nombre })),
+  };
+}
+
+/**
+ * Deja una campaña o un conjunto yendo a ESTOS funnels (#893), por su id REAL de embudo: el primero es la casa del
+ * lead y los demás lo suman. Vacío = sin asignar. Es lo que hace la API de MaKo (`asignar_campana_funnels`); la
+ * pantalla va casilla por casilla (app/crm/campanas-actions.ts). No trae a los leads que ya entraron: sólo cambia a
+ * dónde van los nuevos. Devuelve cómo estaba, para deshacer.
+ */
+export async function asignarCampanaAFunnels(
+  item: { tipo: 'campana' | 'conjunto'; id: string; nombre?: string; campanaId?: string },
+  embudoIds: readonly number[],
+): Promise<{ ok: true; antes: CampanaAsignada | null; despues: CampanaAsignada | null } | { ok: false; error: string }> {
+  if (!esIdMeta(item.id)) return { ok: false, error: 'Ese id no es de Meta.' };
+  if (item.tipo === 'conjunto' && item.campanaId != null && !esIdMeta(item.campanaId)) return { ok: false, error: 'El id de la campaña madre no es de Meta.' };
+  const ids = [...new Set(embudoIds)];
+  if (ids.length > MAX_TAMBIEN + 1) return { ok: false, error: `Como mucho ${MAX_TAMBIEN + 1} funnels.` };
+  const vivos = await productosAsignables();
+  const faltan = ids.filter((id) => !vivos.some((f) => f.id === id));
+  if (faltan.length) return { ok: false, error: `No existe el embudo ${faltan.join(', ')}. Pide ver_campanas_funnels.` };
+  // El del negocio se guarda como `null`, como en la casa del lead (ver la cabecera).
+  const comoSeGuarda = (id: number) => (vivos.find((f) => f.id === id)?.esDefault ? null : id);
+  const actuales = await leerCampanasAsignadasEstricto();
+  const antes = actuales.find((c) => c.id === item.id.trim()) ?? null;
+  if (!ids.length) {
+    await guardarCampanasAsignadas(sinCampana(actuales, item.id.trim()));
+    return { ok: true, antes, despues: null };
+  }
+  const [casa, ...resto] = ids.map(comoSeGuarda);
+  const nueva = conCampana(actuales, {
+    tipo: item.tipo, id: item.id.trim(), nombre: item.nombre?.trim() || antes?.nombre || item.id.trim(),
+    ...(item.tipo === 'conjunto' && (item.campanaId ?? antes?.campanaId) ? { campanaId: (item.campanaId ?? antes?.campanaId)!.trim() } : {}),
+    funnelId: casa, ...(resto.length ? { tambien: resto } : {}),
+  });
+  if (!nueva) return { ok: false, error: 'No se pudo armar la asignación.' };
+  await guardarCampanasAsignadas(nueva);
+  return { ok: true, antes, despues: nueva.find((c) => c.id === item.id.trim()) ?? null };
 }

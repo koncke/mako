@@ -387,7 +387,9 @@ test('traer los leads de una campaña los AGREGA (lead_funnel): no toca la casa 
   };
   const asignar = bloque('asignarLoteAction');
   // Se calcula con la configuración YA guardada (conjunto > campaña)...
-  assert.match(asignar, /planDeTraidaLote\(d\.id, lote, nueva\)/, 'se calcula con la configuración YA guardada (conjunto > campaña)');
+  // (Desde el 17/10/2026 el agregado vive en `traerAlDestino`, que comparte con sumar un funnel: #893.)
+  assert.match(asignar, /traerAlDestino\(d, lote, nueva\)/, 'se calcula con la configuración YA guardada (conjunto > campaña)');
+  assert.match(asignar, /const plan = await planDeTraidaLote\(d\.id, lote, mapa\);/);
   // ...se agrega con el id REAL del destino: el principal va a lead_funnel con su id, nunca null...
   assert.match(asignar, /agregarLoteAProducto\(\s*grupo\.map\(\(l\) => l\.id\), d\.real,/, 'se agrega con el id REAL del destino');
   // ...el deshacer recibe SÓLO lo que la base confirmó haber agregado, con su producto...

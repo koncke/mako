@@ -1094,29 +1094,6 @@ uuid (lib/operaciones-reglas.ts, `unirTurnos`). Medido: 54 chats en `app_setting
 
 **Regla:** un cartero que AVANZA una marca se instala después del servidor que recibe lo que sube, nunca antes.
 
-## Los adjuntos a la PC: el tope de tamaño que no topaba y el «tomado» sin salida (17/10/2026)
-
-Antes de integrar la punta de adjuntos (cartero 1.9.0), una revisión con tres lentes (escritura en disco, quién puede
-qué, contenido) y una refutación por hallazgo encontró DOS defectos reales. Los arregló la 1.9.1:
-
-- **El tope de `content-length` no topaba.** Con una respuesta chunked, `Number(null)` da 0, que es finito, y pasa. Con
-  gzip, el fetch de Node descomprime solo y el header trae el tamaño comprimido. En los dos casos `await r.arrayBuffer()`
-  junta TODO en RAM antes de comparar con lo firmado: se reprodujo en Node 24.17 con 50 MB, y una bomba gzip de 4 MB llega
-  a ~4 GB. **Regla:** un tope de tamaño se aplica sobre los bytes que llegan (`for await` sobre `r.body`, cortando al pasar
-  lo firmado) y con `accept-encoding: identity`. El header es un dato del que manda, no un límite.
-- **Un pedido en 'tomado' no tenía salida.** Sólo el acuse lo sacaba: cancelar y vencer miraban 'escrito'. Con adjuntos,
-  la ventana entre reclamar y escribir el buzón pasó de milisegundos a decenas de segundos, y el Bash del Runner corta a
-  los 120 s. El pedido quedaba 'tomado' para siempre, MaKo seguía sirviendo el archivo y el binario no se borraba nunca.
-  **Regla:** todo estado intermedio de un trabajo tiene un vencimiento. Ahora 'tomado' vence a las 2 h, a 'incierto', y
-  el adjunto se sirve sólo en los 15 min siguientes a `tomado_at`.
-
-**Lo que quedó sin confirmar:** los hallazgos de severidad baja no pasaron por la refutación: el
-nombre que firma el navegador sin compararlo con lo subido, y lo subido que queda si el envío falla después de subir.
-Están en el journal de la corrida (subagents/workflows/wf_bce975b0-704 de la sesión del Cerebro).
-
-**Vive en:** `scripts/operaciones/cartero.mjs` (`bajarAdjuntos`) · `lib/operaciones.ts` (`cicloCartero`) ·
-`lib/operaciones-adjuntos.ts` (`adjuntoParaElCartero`) · tests/centro-adjuntos.test.ts
-
 ## Adjuntos hasta la PC, los «Ya está» en Review, el Runner y la nube en la lista (17/10/2026)
 
 **El pedido.** Martín: «Realmente quiero comenzar a dar feedback de las cosas pero me estás trabando». El relevo del
@@ -1276,6 +1253,25 @@ topes de 6-8 s.
 
 **Vive en:** scripts/operaciones/cartero.mjs (`vigilar`, `hayAlgo`) · lib/operaciones.ts (`hayParaElCartero`) ·
 app/api/operaciones/cartero/route.ts (el GET `?hay=`) · lib/runner.ts (el paso 2a) · tests/centro-vigilar.test.ts.
+
+## Un mensaje del Runner queda RETENIDO si el chat destino corre en otro modo de permisos (17/10/2026)
+
+**Síntoma:** Martín mandó un pedido grande al Cerebro desde el Ops Center. El Runner lo entregó y lo acusó «ok», pero el
+Cerebro no lo vio durante una hora.
+
+**Causa:** la app RETIENE un mensaje entre sesiones cuando el que recibe corre en otro modo de permisos que el que manda.
+El Runner estaba en «auto» y el Cerebro en «Omitir permisos». El mensaje queda esperando que alguien lo apruebe en la
+pantalla del chat destino. El Runner no se entera: su SendMessage salió bien y su acuse ya está escrito.
+
+**Arreglo:** el chat destino en el MISMO modo que el Runner. Al pasar al Cerebro a «auto», el mensaje se liberó solo. Un
+Runner no se puede subir a «Omitir permisos» si no se lanzó con --dangerously-skip-permissions.
+
+**Regla:** todos los chats que reciben del Runner van en su mismo modo. Un acuse «ok» del Runner prueba que se mandó,
+no que se leyó.
+
+**Lo que quedó sin explicar:** entre las 09:07 y las 09:59 UTC el Runner dijo «vuelta hecha» pero MaKo no recibió
+ninguna (operaciones_carteros.visto_at quieto), y no tomaba mensajes nuevos. Se destrabó al parar su turno con
+stop_session y reprogramar el cron con `vigilar` (1.12.0). Si vuelve a pasar, mirar visto_at antes de creerle al Runner.
 
 ## El chat abierto, el «Trabajando…» y las preguntas de los chats (17/10/2026, Ops Center de la cuenta 4)
 

@@ -1,52 +1,21 @@
 // =============================================================================
-// /admin/dev — la barra de Dev, con las 122 áreas adentro
+// /admin/dev — lleva a la CONSTRUCCIÓN DE MAKO en el Second Brain (17/10/2026)
 // =============================================================================
-// Hasta acá las áreas solo se alcanzaban por el sidebar, y ahí entran seis.
-// Esta pantalla muestra LA BARRA con las 122: es a la vez la puerta a cada
-// registro y la maqueta con la que se decide cómo va a quedar Dev en la barra
-// de verdad, antes de tocar `nav.ts`.
+// Hasta el 17/10 esto era «Áreas del producto»: la barra de Dev con las 122 áreas y sus trampas (MapaAreas.tsx, sobre
+// BarraPreview), sin un solo vínculo entre ellas. Martín pidió deprecarla al 100% («había otro grafo de eso que hay que
+// DEPRECAR»): la construcción de MaKo ahora es la segunda capa del grafo del Second Brain (lib/cerebro-construccion.ts),
+// con las áreas, sus bitácoras, los hitos y los chats jefe, y sus vínculos (qué chat trabaja dónde, qué áreas comparten
+// código). Las páginas de cada área (/admin/dev/<área>, con su bitácora) se quedan: son a donde lleva cada nodo.
 //
-// El ESTADO no sale del catálogo sino del plan: una pieza con tareas abiertas no
-// está cerrada, por más que `areas.ts` diga `listo`. Ver `roadmap.ts`.
-//
-// Solo super-admin: es herramienta de construcción, no producto.
+// Solo super-admin: el mismo guard de siempre, antes de redirigir.
 
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
-import { Pagina, PageHeader } from '@/app/_ui';
-import { AREAS } from './areas';
-import { conteoPorArea, estadoEfectivo, wsDelBoard } from './roadmap';
-import { MapaAreas, type AreaVista } from './MapaAreas';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DevPage() {
-  // El mismo guard que el resto de /admin: rol de AGENCIA, re-chequeado contra la
-  // base en cada request.
   const admin = await getSesionAdmin();
   if (!admin) redirect('/inicio');
-
-  // El workspace sale de la sesión ya validada, no de la resolución ambiente.
-  const { porArea, total: enElPlan } = await conteoPorArea(wsDelBoard(admin.ws));
-  const areas: AreaVista[] = AREAS.map((a) => {
-    const suyas = porArea.get(a.slug) ?? 0;
-    return {
-      slug: a.slug, titulo: a.titulo, alcance: a.alcance,
-      agente: !!a.agente, abiertas: suyas, estado: estadoEfectivo(a, suyas), nota: a.nota ?? '',
-    };
-  });
-
-  return (
-    <Pagina ancho="completo">
-      <PageHeader
-        titulo="Áreas del producto"
-        proposito="La barra de Dev con las 122 áreas. Cada una lleva su Roadmap —que sale del plan— y su Change History, que sale de git."
-      />
-      <MapaAreas
-        areas={areas}
-        total={areas.length}
-        abiertas={enElPlan}
-      />
-    </Pagina>
-  );
+  redirect('/admin/operaciones?panel=mapa&capa=construccion');
 }

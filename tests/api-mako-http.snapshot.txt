@@ -30,6 +30,7 @@ archivar_etiqueta
 archivar_secuencia
 armar_tab_ficha
 asegurar_plantilla_reporte
+asignar_campana_funnels
 asignar_closer_setter
 asignar_oferta_lead
 audios_requeridos
@@ -231,6 +232,7 @@ guardar_version_landing
 huecos_secuencias
 ignorar_datos_sin_marcar
 importar_borrador_landing
+indice_segundo_cerebro
 iniciar_experimento
 inscripciones_lead
 insertar_elemento_dashboard
@@ -425,6 +427,7 @@ reactivar_datos_sin_marcar
 recomendar_formatos_creativo
 reconciliar_plantillas
 recortar_clip_video
+recuperar_del_segundo_cerebro
 reducir_ruido_video
 reembolsar_cobro
 reemplazar_clip_video
@@ -472,6 +475,7 @@ ver_analitica_landing
 ver_anuncio_planteado
 ver_anuncio_video
 ver_archivero
+ver_avatares
 ver_base_formulario_meta
 ver_borrador_de_reunion
 ver_borrador_landing
@@ -479,6 +483,7 @@ ver_borrador_plan
 ver_cac_acumulado
 ver_cac_mensual
 ver_cambios_landing
+ver_campanas_funnels
 ver_capacidad_instalada
 ver_catalogo_dashboard
 ver_ciclo_venta

@@ -35,6 +35,8 @@ import { NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 import { lugarSeccion } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
+import { getSetting } from '@/lib/settings';
+import { CLAVE_ENCUESTA } from '@/lib/onboarding-arranque';
 import { getAvatares, getContextoAvatares, siguientePreguntaAvatares } from '@/lib/avatares';
 import { getEntregables, siguientePreguntaEntregable } from '@/lib/entregable';
 import { getPersona, personaEstado } from '@/lib/persona';
@@ -47,6 +49,7 @@ import { fraseEntregaAlBorrar } from '@/lib/servicio-etapas';
 import { sugerirProductos } from '@/lib/productos-ia';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { construirVault } from '@/lib/vault';
+import { indiceDelCerebro, recuperar } from '@/lib/cerebro-recuperar';
 import { matchNodo, type CampoCerebro } from '@/lib/buscar-cerebro';
 import { AREAS as AREAS_CEREBRO, type AreaId } from '@/lib/cerebro-modelo';
 import {
@@ -277,10 +280,16 @@ export const RUNNERS: Runners = {
 
   ver_estado_onboarding: {
     leer: async (_input, ctx) => {
-      const [s, capa] = await Promise.all([getEstadoOnboarding(), capaDelWs(ctx.ws)]);
+      const [s, capa, encuestaRaw] = await Promise.all([getEstadoOnboarding(), capaDelWs(ctx.ws), getSetting(CLAVE_ENCUESTA).catch(() => null)]);
       const pasos = capa.onboarding.map((p) => ({ paso: p, hecho: !!s.steps[p]?.done, postergado: !!s.steps[p]?.postergado }));
+      // Cómo llegó a MaKo y qué quiere resolver primero (las dos preguntas del arranque del 17/10/2026), si ya cerró.
+      let encuesta: { origen: string | null; interes: string | null } | null = null;
+      try {
+        const v = encuestaRaw ? JSON.parse(encuestaRaw) as { origen?: unknown; interes?: unknown } : null;
+        if (v) encuesta = { origen: typeof v.origen === 'string' ? v.origen : null, interes: typeof v.interes === 'string' ? v.interes : null };
+      } catch { encuesta = null; }
       return json({
-        estado: s.status, pasos,
+        estado: s.status, pasos, encuesta,
         // Sin completedBy: es el email de quien lo cerró (dato del equipo) y esto sale por http.
         empezo: s.startedAt ?? null, termino: s.completedAt ?? null,
         nota: pasos.length ? 'Solo los pasos que le tocan a este plan.' : 'Este plan no tiene asistente de arranque.',
@@ -399,6 +408,22 @@ export const RUNNERS: Runners = {
         ? `\n\n---\n_Se cortó en ${TOPE_VAULT_CHARS} caracteres. Quedaron afuera ${afuera.length} de ${archivos.length} archivos: ${afuera.join(', ')}. Pídelos con menos áreas._\n`
         : '';
       return `# Segundo cerebro (${archivos.length} archivos)${md}${pie}`;
+    },
+  },
+
+  indice_segundo_cerebro: {
+    leer: async () => indiceDelCerebro(await construirCerebro()),
+  },
+
+  recuperar_del_segundo_cerebro: {
+    leer: async (input) => {
+      const p = recuperar(await construirCerebro(), {
+        pregunta: str(input, 'pregunta'),
+        ids: Array.isArray(input.ids) ? (input.ids as unknown[]).map(String) : [],
+        profundidad: typeof input.profundidad === 'number' ? input.profundidad : undefined,
+        presupuesto: typeof input.presupuesto === 'number' ? input.presupuesto : undefined,
+      });
+      return `${p.texto}\n\n_${p.modo === 'indice' ? 'La pregunta no nombra ningún dato: va el índice.' : `${p.nodos.length} datos, ~${p.tokens} tokens.`}_`;
     },
   },
 

@@ -32,6 +32,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
 import { leerComunidad } from './datos';
 import { ComunidadM } from './ComunidadM';
+import { SeccionesClientsM } from '@/app/m/cs/SeccionesClientsM';
 import { EN_LA_COMPUTADORA, R } from './modelo';
 
 export const dynamic = 'force-dynamic';
@@ -45,6 +46,7 @@ export default async function ComunidadPagina({ searchParams }: {
   if (lectura.tipo === 'sin-productos') {
     return (
       <PantallaM>
+        <SeccionesClientsM activa="community" />
         <VacioM frase={`${R.sinProductos}.`} />
         <ComputadoraM que="Crear un producto en el CRM" />
       </PantallaM>
@@ -70,6 +72,7 @@ export default async function ComunidadPagina({ searchParams }: {
 
   return (
     <PantallaM>
+      <SeccionesClientsM activa="community" />
       {/* La llave es el producto: cambiarlo es otra comunidad (su feed, sus miembros, sus hojas). */}
       <ComunidadM key={lectura.productoId} productos={lectura.productos} productoId={lectura.productoId}
         comunidad={lectura.comunidad} feed={lectura.feed} postInicial={lectura.postInicial} />

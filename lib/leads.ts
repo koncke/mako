@@ -12,7 +12,7 @@ import {
   buscarDuplicados, camposParaCompletar, elegirPorTelefono, emailComparable, LeadDuplicadoError, nombreComparable, patronesDeNombre, telefonoComparable,
   type CandidatoLead, type Coincidencia, type LeadExistente,
 } from './leads-duplicados';
-import { getTenantDb, getWorkspaceActual } from './workspace';
+import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
 // Las columnas CRUDAS de Meta y el rastro del descarte: puro y sin `server-only`
 // para que la decisión de "no pisar con vacío" tenga test. Ver lib/meta-leads-campos.ts.
 import {
@@ -30,6 +30,7 @@ import { enTandas } from './ids-con-filas';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { getUsuarioActual } from './auth';
+import { after } from 'next/server';
 import { sendMetaCAPIEvent } from './meta-capi';
 import { esSexo } from './resumen-ficha';
 import { EVENTOS_CALIFICADO, eventIdCalificado } from './meta-capi-payload';
@@ -848,11 +849,15 @@ async function avisarFusion(canal: 'Meta' | 'Calendly' | 'Cal.com', lead: Lead, 
     const { linkApp } = await import('./app-url');
     const { getWorkspaceActual } = await import('./workspace');
     const ws = await getWorkspaceActual();
+    const { datosFusion, claveFusion, DEDUP_FUSION_MIN } = await import('./lead-fusionado');
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `lead_fusionado`, «nada por detrás»,
+    // lote 2): acá van sólo el lead y los datos. Y el freno es POR LEAD: con 60 min SIN clave, la fusión de OTRO lead en esa
+    // hora no se avisaba, y este aviso es lo único que hace visible un match equivocado.
     await emitirDelCatalogo('lead-fusionado', {
-      texto: `Entró un contacto por *${canal}* y lo sumé a *${lead.nombre}*, que ya tenías (${porQue}). Si no era la misma persona, avísame y lo separo 👉 ${linkApp(`/crm/${lead.id}`, ws)}`,
-      // Una fusión por hora del mismo canal no son diez avisos: es un patrón, y
-      // diez mensajes por el mismo patrón se leen como ruido y se silencian.
-      dedupTtlMin: 60,
+      ...(ws != null ? { ws } : {}),
+      lead: { id: lead.id, nombre: lead.nombre },
+      datos: datosFusion({ canal, porQue, link: linkApp(`/crm/${lead.id}`, ws) }),
+      dedupKey: claveFusion(lead.id), dedupTtlMin: DEDUP_FUSION_MIN,
     });
   } catch (e) {
     // El aviso no puede tumbar la ingesta: el lead ya se actualizó y eso es el
@@ -1086,33 +1091,41 @@ export async function updateLead(
     // que Meta pueda optimizar sin que nadie declare nada, el propio para medirlo
     // con su nombre. El id es estable por lead, así que marcar → desmarcar → marcar
     // deja de mandar dos conversiones.
+    // ⚠️ DE FONDO (#854): el guardado esperaba a Meta, dos envíos en serie, y la ficha
+    // no pintaba «Calificado» hasta entonces. Va en `after()` con el workspace
+    // capturado (sin él, el píxel y el historial serían de otro); sin request, en línea.
     const eventId = eventIdCalificado(id);
-    for (const eventName of EVENTOS_CALIFICADO) {
-      try {
-        const r = await sendMetaCAPIEvent({
-          eventName,
-          email: merged.email,
-          phone: merged.telefono,
-          // El identificador de más prioridad de Meta, y lo único que mueve la
-          // Cobertura de leads. Un lead que no vino de un formulario no lo tiene:
-          // `leadIdDeMeta` lo filtra, porque uno inválido hace que Meta rechace.
-          metaLeadId: merged.meta_lead_id,
-          // El hecho es ESTE cambio de etapa, no la hora de otra cosa.
-          eventTime: new Date(),
-          eventId,
-          customData: { lead_type: 'calificado', value: 1 },
-        });
-        // ⚠️ Lo que Meta rechaza no puede fallar en silencio. El log de Vercel no lo
-        // lee nadie y a los 60 minutos no existe: la línea va al historial de la
-        // ficha, que es donde el dueño mira. Y sólo el rechazo real — que al lead le
-        // falte el píxel o el token no es noticia de ESTE lead.
-        if (!r.ok && (r.motivo === 'rechazado' || r.motivo === 'http' || r.motivo === 'red')) {
-          await logLeadEvent(id, 'Meta', `No entró la conversión ${eventName}: ${r.detalle}`.slice(0, 300), 'MaKo');
+    const ws = await getWorkspaceActual();
+    const avisarAMeta = async () => {
+      for (const eventName of EVENTOS_CALIFICADO) {
+        try {
+          const r = await sendMetaCAPIEvent({
+            eventName,
+            email: merged.email,
+            phone: merged.telefono,
+            // El identificador de más prioridad de Meta, y lo único que mueve la
+            // Cobertura de leads. Un lead que no vino de un formulario no lo tiene:
+            // `leadIdDeMeta` lo filtra, porque uno inválido hace que Meta rechace.
+            metaLeadId: merged.meta_lead_id,
+            // El hecho es ESTE cambio de etapa, no la hora de otra cosa.
+            eventTime: new Date(),
+            eventId,
+            customData: { lead_type: 'calificado', value: 1 },
+          });
+          // ⚠️ Lo que Meta rechaza no puede fallar en silencio. El log de Vercel no lo
+          // lee nadie y a los 60 minutos no existe: la línea va al historial de la
+          // ficha, que es donde el dueño mira. Y sólo el rechazo real — que al lead le
+          // falte el píxel o el token no es noticia de ESTE lead.
+          if (!r.ok && (r.motivo === 'rechazado' || r.motivo === 'http' || r.motivo === 'red')) {
+            await logLeadEvent(id, 'Meta', `No entró la conversión ${eventName}: ${r.detalle}`.slice(0, 300), 'MaKo');
+          }
+        } catch (err) {
+          console.error(`[updateLead] error firing ${eventName} CAPI event:`, err);
         }
-      } catch (err) {
-        console.error(`[updateLead] error firing ${eventName} CAPI event:`, err);
       }
-    }
+    };
+    if (ws == null) await avisarAMeta();
+    else try { after(() => runWithWorkspace(ws, avisarAMeta)); } catch { await runWithWorkspace(ws, avisarAMeta); }
   }
 
   // Auto-etiqueta de WhatsApp: si cambió la etapa derivada del lead, ajustamos la
@@ -1432,6 +1445,20 @@ export async function upsertLeadFromMeta(input: {
     .single();
   if (error) throw new Error(`Error creando lead desde Meta: ${error.message}`);
   await dejarRastroDeDescartes((data as Lead).id);
+  // ⚠️ LOS OTROS FUNNELS DE LA CAMPAÑA (#893): el lead nuevo entra a TODOS. Se AGREGA (una fila
+  // de `lead_funnel` en la etapa de entrada de cada uno), como el opt-in de una landing con
+  // varios. Cada uno es best-effort: el lead ya entró, y uno que falla queda en el log, no lo
+  // pierde. Import dinámico: lib/lead-funnel.ts importa este módulo.
+  if (porCampana.asignada && porCampana.otros.length) {
+    const { agregarAProducto } = await import('./lead-funnel');
+    for (const f of porCampana.otros) {
+      try {
+        await agregarAProducto((data as Lead).id, f, { autor: 'Meta' });
+      } catch (e) {
+        console.error(`[meta-leads] lead ${(data as Lead).id} no pudo entrar al funnel ${f}:`, e instanceof Error ? e.message : e);
+      }
+    }
+  }
   return { created: true, lead: data as Lead };
 }
 

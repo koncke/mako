@@ -23,6 +23,164 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## El texto pegado en el chat: un documento, no un mazacote (17/10/2026, tarjetas #848, #864 y #884)
+
+`lib/chat-pegado.ts` (las reglas), `app/_chat/PegadoHilo.tsx` (la tarjeta y la burbuja plegada), las dos cajas
+(ChatSecondBrain.tsx y app/m/mako/Composer.tsx), los dos hilos (HiloMako.tsx y ChatMako.tsx) y el turno.
+
+- **#848: el diagnóstico obvio (la CSS rota) era el equivocado.** Reproducido sin la app, con 400 renglones: la página
+  NO se desborda a lo ancho (la burbuja y la caja ya cortaban y tenían tope), pero la burbuja medía **24.474 px** de
+  alto: el chat entero pasaba a ser el pegado. Ahora el pegado es una tarjeta (100 px) y lo escrito largo se pliega
+  con «Ver todo» (249 px).
+- **Cómo se reproduce un problema de layout sin levantar la app:** `renderToString` del hilo (con un stub de `.css`), las
+  tres hojas reales (globals, centro.css, chat.css) en un HTML, y Chrome headless con `--dump-dom`; un script de la
+  página mide (`getBoundingClientRect`) y escribe el resultado en el DOM. Cuesta ~300 MB, no 4 GB.
+- **El pegado viaja marcado DENTRO del mensaje** (`[[texto pegado]]…[[/texto pegado]]`), no como archivo: los adjuntos
+  del chat son fotos y PDF validados por sus bytes que van al modelo como documento (lib/mako-adjuntos.ts); un .txt no
+  entra en ese camino. Así se guarda en el hilo como siempre y se vuelve a partir al releerlo.
+- **El turno cortaba el mensaje en 8.000 caracteres (`TOPE_MENSAJE`)**, y con un pegado largo se perdía la marca de cierre:
+  el hilo habría mostrado el pegado crudo. El corte ahora respeta las marcas (`recortarMensaje`): lo escrito hasta 8.000,
+  los pegados con su propio tope (12.000, el historial viaja con los últimos 12 mensajes) y un aviso en el que se cortó.
+- **#884: El Archivero recibe el pegado ENTERO** (de `entrada.mensaje`, antes del corte), como documento de texto, y le saca
+  los datos como a cualquier otro: entra al grafo como `doc:`. Sólo del admin y sólo con `guardarAdjuntos` (el MaKo
+  Analyst de un lead usa el mismo turno y lo que se pega ahí es del lead), igual que los PDF.
+- **En el teléfono `app/_chat/chat.css` no se carga** (tampoco para ArchivosHilo, que ya se veía sin estilo): la pieza nueva
+  importa su hoja. Y una `<p>` en /m lleva el margen del navegador (no hay reset): `.ch-plegable > p { margin: 0 }`.
+- **Lo que quedó SIN hacer:** la caja del Ops Center (ChatDelCentro, AdjuntosCaja, en app/admin/operaciones) puede usar
+  las mismas piezas; es de ese chat. Y «lo que se charla se guarda solo»: la charla ya es un nodo del grafo (`chat:`),
+  pero escribir el perfil del negocio sin confirmar sigue con la tarjeta de siempre (un dato mal deducido de una charla
+  pisaría uno bueno sin que nadie lo vea).
+
+## Que el grafo sirva a los chats: la vista local y lo que ahorra, medido (17/10/2026, punto 13c)
+
+`lib/cerebro-recuperar.ts` (puro): el ÍNDICE (carpetas y áreas con su conteo, una línea y ejemplos con id) y la VISTA
+LOCAL (semillas de la pregunta + vecinos a un salto, una línea por dato, con presupuesto de tokens). Por la API de MaKo:
+`indice_segundo_cerebro` y `recuperar_del_segundo_cerebro` (`GET /negocio/segundo-cerebro/indice|recuperar`), gratis y
+con la puerta del Second Brain. La medición: `scripts/medir-recuperacion.ts`.
+
+- **Lo medido (ws 3 y ws 9, sólo lectura, 17/10/2026):** la vista local promedia **190 y 118 tokens** por pregunta, contra
+  **678 y 459** del grafo entero en líneas (lo que hoy manda la búsqueda con MaKo a la IA: −72 % y −74 %) y **1.606 y
+  1.105** del vault (lo que devuelve `leer_segundo_cerebro_como_archivos`: −88 % y −89 %). El índice, ~300 tokens, una vez
+  por chat. Los dos workspaces son CHICOS (25 y 18 datos): la vista cuesta lo que pide la pregunta y no crece con el grafo,
+  así que en un negocio de 70 datos el ahorro es mayor. El ws 1 no se midió, a propósito (el script lo rechaza).
+- **La búsqueda del grafo no sirve tal cual para una pregunta.** `matchNodo` pide TODAS las palabras de la consulta en el
+  mismo nodo: «¿cuánto cobro por la mentoría?» no matchea nada nunca. La vista puntúa palabra por palabra (3 en el
+  nombre, 1 en el detalle), saca las palabras vacías y deja los números cortos («el avatar 3»).
+- **El puente que en GraphRAG hacen los embeddings, acá es un mapa chico de sinónimos** («cobro», «precio», «vendo» →
+  la oferta y los productos; «leads», «etapa» → el funnel). Ningún nodo dice «cobro»; sin el puente, la pregunta más
+  común del dueño no encontraba su oferta. Sin IA: recuperar no cuesta un token de modelo.
+- **La línea de un vecino tiene que ser corta.** Con la línea larga para todos (cada nodo con sus vecinos), la pregunta de
+  los leads costaba **708 tokens contra 678 del grafo entero**: cada etapa repetía la cadena de las otras. Las semillas
+  van completas y los vecinos en una línea con sangría, sin sus vecinos y con dos datos (603 en el ws 3).
+- **Medir fuera de Next** pide `--conditions=react-server` (si no, `server-only` revienta al importar) y el `.env.local`
+  del clon principal (los worktrees no lo tienen; apunta a PRODUCCIÓN, por eso el script no escribe). `listLeads` es una
+  lectura cacheada de Next y afuera no lee: en la medición falta el nodo de los leads; en producción está.
+- **El detector de voseo mira TODO el repo, también una lista de palabras vacías en lib/** (`tests/puente-panel-copy.test.ts`, «ninguna
+  pantalla del repo le habla al cliente de vos»): «decime» y «mostrame» en la lista de `VACIAS` lo pusieron en rojo en el
+  `antes-de-subir`. Si un detector de lo que escribe el usuario necesita nombrar el voseo, va en `FUERA_DE_ALCANCE` de
+  ese test con el porqué; acá alcanzó con sacarlas.
+- **Sin RAM para el build parcial, una prueba de humo sí entra:** `renderToString` en Node de la pantalla (VistaCerebro,
+  el Grafo de la construcción, ConstruccionM) con `require.extensions['.css'] = () => {}` precargado. Caza los errores de
+  EJECUCIÓN que el tsc no ve. `--conditions=react-server` acá NO va: rompe `react-dom/server`.
+- **Lo que quedó SIN hacer:** que el turno de MaKo pida nodos en vez de mandar el contexto entero. Hoy
+  `buildSystemPrompt` (lib/mako-context.ts) va en modo completo en cada mensaje (8-11 kB, `lib/agente-contexto.ts`). Es un
+  cambio del turno de MaKo, no del grafo: las dos operaciones ya están para que lo use.
+
+## La construcción de MaKo, como segunda capa del super admin (17/10/2026, punto 13b)
+
+`lib/cerebro-construccion.ts` (puro) arma el grafo de las áreas con bitácora, sus últimos hitos y los chats jefe;
+`lib/cerebro-construccion-datos.ts` lo junta del registro de /admin/dev. Reemplaza a `MapaAreas.tsx` (borrado);
+`/admin/dev` lleva a `/admin/operaciones?panel=mapa&capa=construccion`.
+
+- **El mismo componente dibuja los dos grafos: lo que cambia es la TAXONOMÍA.** `NodoCerebro<A>` y `Cerebro<A>` son
+  genéricos (el default es `AreaId`, así que el código del negocio no cambió) y el grafo trae `taxonomia` (carpetas y
+  áreas con su color). Grafo.tsx pinta, agrupa, navega y filtra con ella (`rellenoNodo(n, tax)`, `pasaFiltro(n, f, tax)`,
+  `agruparConexiones(…, tax)`); el filtro de secciones, el editor y «Exportar» son sólo del negocio (`esNegocio`).
+- **El hub, medido con el registro real (56 áreas):** con los hitos adentro del racimo de su familia daba 14,8× (el tope
+  de `scripts/medir-grafo.mjs` es 4,5×); con los jefes adentro, 6,5×. El racimo es sólo de las ÁREAS; un hito cuelga de su
+  área y de su chat, un jefe de las áreas donde anotó. Quedó: 176 nodos, 16 % de hojas, hub 4,0×, densidad 1,63, una
+  sola isla.
+- **El layout de ~180 nodos cuesta segundos** (4,4 s medidos con la máquina cargada; ~100 nodos del negocio, décimas).
+  Las bitácoras viajan en el build y no cambian entre deploys: la capa se guarda armada 10 minutos en memoria.
+- **Un chat jefe es un TÍTULO** (`claveDeNombre`, la misma clave del Centro), con la ventana del Centro (14 días) y dos
+  hitos o más: con 30 días y un hito eran 48 jefes, la mitad de un solo hito.
+- **«Comparten código» no cuenta los archivos que están en todas** (más de 6 áreas): `lib/workspace.ts` une todo con todo
+  y no dice nada. Con dos archivos o más en común quedan 19 aristas laterales, las que sacan al mapa de la forma de
+  estrella.
+- **La fecha de un hito va en la hora de Argentina con su desfase** (`isoDeHito`): la fecha corta sale del texto, y un
+  hito de las 22:30 escrito en UTC caía al día siguiente.
+- **La guarda es la del Centro, sin copiarla**: `puedeOperar(getSesionAdmin(), wsSuperAdmin())` adentro de `quienOpera()`
+  (app/second-brain/pagina.tsx), que usa también el teléfono. `mapaDelSecondBrain()` no cambió de firma a propósito: la
+  página del Ops Center la llama así y `tests/second-brain-chat.test.ts` lo mira con un regex sobre un archivo que es del
+  Ops Center.
+- **«Dev» en la barra de admin ahora cae en el grafo.** La barra de Dev (las 122 áreas, `familiasDev`) sigue apareciendo
+  en `/admin/dev/<área>`, que es a donde lleva cada nodo («Abrir en su bitácora»).
+
+## Lo que el negocio TIENE, como nodos, y el nodo que viaja (17/10/2026, punto 13a)
+
+`lib/cerebro-vivo.ts` (puro) suma ofertas, lead magnets, funnels, leads, objetivos/KPI y chats; las lecturas van en el
+mismo `Promise.all` de `construirCerebro`. El diseño: `docs/diseno-second-brain-grafo.md`.
+
+- **«Los gráficos del negocio» no son las hojas del Dashboard.** Esas viven en `graficos.tablero.<persona>`
+  (`lib/graficos-tablero.ts`): son la vista de cada persona, no un dato del negocio. Lo que el negocio se propuso medir
+  son los objetivos y los KPI (`objectives`, `kpis`, los números de /general): ésos entran.
+- **Dos fuentes para el Lead Magnet.** El editor del área (`EntregableView`) escribe `mako.entregable` (nodos `ent:`);
+  Offer escribe la tabla `lead_magnets` (mig 0169). Los dos entran; si uno se llama igual que otro, es el mismo.
+- **Los roles de `oferta_productos` son `principal`, `bump` e `incluido`** (mig 0169), no «bono/upsell» como sugiere la
+  pantalla de Offer.
+- **Las listas de siempre no traen `created_at`** (`listarOfertas`, `listarFunnels`, `listObjectives`…). El `nace` sale
+  de una lectura chica por tabla (`id, created_at`, en paralelo: `fechasDeAlta`). Lo que no tiene fecha va `null`: las
+  claves de `app_settings` (avatares, razones, fase) sólo tienen `updated_at` y no se inventa un nacimiento.
+- **Los chats con MaKo son de la PERSONA, no del negocio.** Los pasa sólo la pantalla (`lib/cerebro-chats.ts`); el ZIP y
+  la API arman el grafo sin ellos. Un chat se cuelga de lo que NOMBRA su título (la búsqueda del grafo al revés: el
+  título es el pajar y el nombre del nodo la consulta); los que no nombran nada van juntos en un nodo.
+- **`toLocaleString('es')` no agrupa los números de cuatro cifras** (`minimumGroupingDigits: 2` del español): la misma
+  pantalla decía «USD 1500» y «USD 12.000». El punto de miles va a mano (`miles`, `lib/cerebro-vivo.ts`).
+- **Una fecha que se dibuja en el servidor y en el navegador sale del TEXTO, no de `toLocaleDateString`**: con la zona
+  horaria del servidor, un dato de las 23 h caía en otro día (aviso de hidratación y una fecha que salta).
+  `fechaCortaNodo` (`lib/cerebro-areas.ts`).
+- **El bucle de dibujo dependía de `posiciones`, y con un grafo VIVO eso rearma el mapa entero.** Mientras el grafo
+  llegaba una vez daba igual; con la pantalla pidiéndolo cada 3 minutos, cada vuelta reiniciaba el reloj de la entrada y
+  todo volvía a nacer desde afuera. Ahora el bucle arranca al montar y las posiciones nuevas DESLIZAN lo que ya estaba
+  (`deslizarRef`, 800 ms). La física de arrastre se rearma con el grafo nuevo (cachea los radios).
+- **El nodo que viaja necesita saber qué vio la persona**, y eso es una comodidad de quien mira: `localStorage`, con una
+  huella del negocio y el `?ws=` en la clave (`claveVistos`). La primera vez no viaja nada (`nuevosDesde` da `null`):
+  hacer viajar el grafo entero como si todo fuera nuevo sería un desfile.
+- **En el teléfono el viaje es SMIL, no CSS.** Cada punto sale de su propio lugar del borde, y un `var(--dx)` por punto no
+  es un token de la casa: `tests/m-second-brain.test.ts` exige que cada `var()` exista en app/globals.css.
+
+## La pantalla sólo dibuja el grafo: oscuro, la barra lateral, y nada abajo (17/10/2026)
+
+Feedback de Martín del 17/10, puntos 11 y 12. El diseño entero está en `docs/diseno-second-brain-grafo.md`.
+
+- **«Nada aparece abajo» NO es borrar lo de abajo.** Debajo del grafo vivía `AreasHub`, y desde el 15/10 es el ÚNICO
+  lugar donde se editan las diez secciones del negocio (lo que era el hub de `/onboarding`; `lib/secciones-negocio.ts`
+  → `DONDE_SE_EDITA`, y los `?area=` de otras pantallas caen ahí). Lo que molestaba era que **tocar un nodo** lo abría
+  (`irA` llamaba a `onAbrirArea(n.area, false)`). Quedó: tocar sólo fija; el editor se abre con «Editar» de la barra
+  lateral o con un `?area=`, en un `Modal` ENCIMA del grafo. Con `contenedor`: adentro de la Matriz se abren otros
+  modales, y sin eso la pila apaga la caja y con ella al que se acaba de abrir (pantalla en blanco, sin error).
+- **Una función no viaja del servidor al grafo, pero el contexto sí.** El grafo lo arma el servidor
+  (`mapaDelSecondBrain`, `app/second-brain/pagina.tsx`) y llega como un nodo ya renderizado a `ChatSecondBrain`. El
+  «volver a los chats» de la ventana angosta no puede ser una prop de `VistaCerebro` (sería una función cruzando la
+  frontera): se la da la pantalla por `VolverDelGrafo` (`app/second-brain/volver.ts`). Funciona porque `VistaCerebro` es
+  un componente de cliente que React monta ADENTRO del árbol de `ChatSecondBrain`, aunque lo haya creado el servidor.
+- **El oscuro fijo es `data-tema="oscuro"` en la raíz, más el fondo escrito.** Los tokens se dan vuelta en cualquier
+  caja (app/globals.css); sin `background: var(--bg)` se ve el fondo claro del panel de atrás. En el teléfono el tema de
+  la PWA es del shell (`app/m/_ui/ShellM.tsx`): el grafo es una ISLA oscura con el título adentro, y las listas siguen el
+  tema de la persona.
+- **El alto del lienzo ya no sale del viewport.** El `clamp(…100svh - 280px…)` existía para dejar asomar las tarjetas de
+  abajo; con la pantalla entera para el grafo, el alto sale del padre (una columna flex) y la fila de la grilla es
+  `minmax(0, 1fr)` — con `auto`, el SVG empuja y el panel crece en vez de recortar.
+- **Los controles flotan con `pointer-events: none` en la barra y `auto` en sus hijos.** Si la barra entera recibe el
+  puntero, la franja de arriba del lienzo deja de panear.
+- **«El otro grafo de la construcción» no era un grafo.** Los dos candidatos: `/admin/dev` (`MapaAreas.tsx`) monta la
+  barra (`BarraPreview`) con las 122 áreas y sus trampas, sin nodos ni aristas; «App viva» es una nota de memoria, no una
+  pantalla. El único otro grafo de verdad es graphify (`/api/admin/graph`), que es el del CÓDIGO y se queda. Lo que se
+  depreca es `/admin/dev` como foto de la construcción, cuando la capa «Construcción» del grafo la reemplace (13b).
+- **La regla de agrupar y el tipo viven en `lib/cerebro-areas.ts`** (`agruparConexiones`, `tipoDeNodo`): la barra lateral
+  y la hoja del teléfono dicen lo mismo con la misma función (`tests/second-brain-grafo.test.ts` falla si el teléfono
+  agrupa por su cuenta).
+
 ## «Entender el pedido» en el chat central: el link no demora la respuesta ni se cuelga de otra (17/10/2026)
 
 Tanda 10 de la etapa 2. Martín: «que el chat le deje ahí el link para ir a donde corresponde». Debajo de la respuesta de

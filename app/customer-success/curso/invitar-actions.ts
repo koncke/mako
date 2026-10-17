@@ -134,7 +134,7 @@ export async function invitarClientesAction(items: Array<{ leadId: number; email
       // una fila de «No salió» que no dice nada nuevo. Se dice una vez y se ofrece configurarlo.
       if (resultados[resultados.length - 1].correo) break;
     }
-    if (resultados.some((x) => x.enviado)) revalidatePath('/customer-success');
+    if (resultados.some((x) => x.enviado)) revalidatePath('/clients');
     return { ok: true, resultados, correo: resultados.find((x) => x.correo)?.correo ?? null };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo invitar.' };
@@ -255,8 +255,8 @@ export async function invitarNuevoAlumnoAction(datos: {
       : !soloAca
         ? { enviado: false, texto: 'Se cargó, pero quedó en otro producto. Sácalo de ahí e invítalo desde su ficha.', correo: null }
         : fraseDe(await invitarAlCurso({ ws, leadId, email: correo, autor, reenviar: false, canales: canalesDeInvitacion(datos.canales), productoId }));
-    revalidatePath('/customer-success');
-    revalidatePath('/customer-success/curso');
+    revalidatePath('/clients');
+    revalidatePath('/clients/classroom');
     revalidatePath('/crm');
     return { ok: true, leadId, ...r };
   } catch (e) {

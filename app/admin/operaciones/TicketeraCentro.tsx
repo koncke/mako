@@ -14,20 +14,29 @@
 // (/tickets/decisiones y su lista, y las del teléfono) traen hasta acá con `?ticketera=`.
 // ⚠️ Sus hojas (mazo.css, vistas.css, decisiones.css) las importa la PÁGINA (app/admin/operaciones/page.tsx).
 
+//
+// ⚠️ DESDE EL 17/10/2026 LA TICKETERA ES LA DE LOS TICKETS DE LOS USUARIOS (`tickets`, app/tickets/bandeja/; Martín: «La
+// ticketera desde ahora será exclusiva para los tickets levantados por los usuarios»). El mazo de las preguntas de los
+// chats queda como «Preguntas de los chats» hasta que ande el formulario de opciones dentro de cada chat; después se borra.
+
 import { Icon } from '@/app/_components/icons';
 import type { AccionDeshacer, AccionResponder, Decision, LecturaDecisiones } from '@/app/admin/runway/decisiones';
 import { MazoDecisiones } from '@/app/tickets/decisiones/Mazo';
 import { TableroDecisiones } from '@/app/admin/runway/Tablero';
-import type { VistaTicketera } from '@/app/tickets/decisiones/CambioVista';
+import type { VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
+import { BandejaTickets } from '@/app/tickets/bandeja/BandejaTickets';
+import type { CerebroParaTickets } from '@/app/tickets/bandeja/cerebro';
 
-export function TicketeraCentro({ decisiones, vista, onVista, responder, deshacer, onVolver }: {
+export function TicketeraCentro({ decisiones, vista, onVista, responder, deshacer, onVolver, cerebro }: {
   /** null = no se pudieron leer (la Ticketera lo dice: no dibuja un mazo vacío que se lee «no hay nada»). */
   decisiones: readonly Decision[] | null;
-  vista: VistaTicketera;
-  onVista: (v: VistaTicketera) => void;
+  vista: VistaDeTicketera;
+  onVista: (v: VistaDeTicketera) => void;
   responder: AccionResponder;
   deshacer: AccionDeshacer;
   onVolver: () => void;
+  /** El chat «Cerebro», listo para firmarle (app/tickets/bandeja/cerebro.ts): «Aprobar» un ticket le manda el pedido. */
+  cerebro: CerebroParaTickets | null;
 }) {
   const lectura: LecturaDecisiones = decisiones
     ? { ok: true, decisiones: [...decisiones] }
@@ -39,11 +48,17 @@ export function TicketeraCentro({ decisiones, vista, onVista, responder, deshace
           <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
         </button>
         <div className="co-cab__texto"><h1 className="co-cab__titulo">Ticketera</h1></div>
+        <nav className="ticketera-vistas" aria-label="Qué mirar" style={{ marginLeft: 'auto' }}>
+          <button type="button" aria-current={vista === 'tickets' ? 'page' : undefined} onClick={() => onVista('tickets')}>Tickets de clientes</button>
+          <button type="button" aria-current={vista !== 'tickets' ? 'page' : undefined} onClick={() => onVista('tarjetas')}>Preguntas de los chats</button>
+        </nav>
       </header>
       <div className="co-ticketera__cuerpo">
-        {vista === 'tarjetas'
-          ? <MazoDecisiones lectura={lectura} responder={responder} deshacer={deshacer} onCambioVista={onVista} />
-          : <TableroDecisiones lectura={lectura} responder={responder} onCambioVista={onVista} />}
+        {vista === 'tickets'
+          ? <BandejaTickets cerebro={cerebro} />
+          : vista === 'tarjetas'
+            ? <MazoDecisiones lectura={lectura} responder={responder} deshacer={deshacer} onCambioVista={onVista} />
+            : <TableroDecisiones lectura={lectura} responder={responder} onCambioVista={onVista} />}
       </div>
     </section>
   );

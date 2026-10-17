@@ -422,7 +422,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'cs_clientes', label: 'Tus clientes' },
       { key: 'cs_ficha', label: 'Ficha de un cliente' },
     ],
-    href: '/customer-success',
+    href: '/clients',
   },
 
   // ── Curso (Customer Success): el programa que ven los clientes en su portal ──
@@ -464,7 +464,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'curso_vista', label: 'Vista del alumno' },
       { key: 'curso_invitar', label: 'Tu primer alumno', opcional: true },
     ],
-    href: '/customer-success/curso',
+    href: '/clients/classroom',
   },
 
   // ── Comunidad (Customer Success): el feed tipo Skool de cada producto (07/10/2026) ──
@@ -489,7 +489,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'comunidad_post', label: 'Tu primer post' },
       { key: 'comunidad_alumnos', label: 'Un alumno participa', opcional: true },
     ],
-    href: '/customer-success/comunidad',
+    href: '/clients/community',
   },
 
   // ── Stories: el writer de secuencias de stories ──

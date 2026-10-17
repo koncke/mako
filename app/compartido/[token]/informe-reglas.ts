@@ -88,6 +88,8 @@ export const ELEMENTOS_QUE_NO_SALEN: Readonly<Partial<Record<TipoElemento, strin
   // 14/10/2026: un bloque de la tab General (lib/general-piezas.ts) lo arma el server de /general con los datos del negocio
   // (la plata, el CRM, el Plan): fuera de ahí no hay de dónde sacarlo, y por un link sería sacar todo eso a un tercero.
   general: 'lo arma /general con los datos del negocio (la plata, el CRM, el Plan), y por un link saldrían a un tercero',
+  // 17/10/2026: un experimento («probemos X»): su medición es el funnel del negocio y sus botones lo arrancan y lo cierran.
+  experimento: 'mide el funnel del negocio y sus botones escriben: sin sesión no hay qué mostrar',
 };
 
 /**
