@@ -13,7 +13,7 @@ export default async function PlantillasPage() {
   await requireAiAvatar();
   return (
     <Pagina>
-      <PageHeader titulo="Plantillas" proposito="Elige un tema y úsalo con tu cara." />
+      <PageHeader titulo="Templates" proposito="Elige un tema y úsalo con tu cara." />
       <Plantillas />
     </Pagina>
   );
