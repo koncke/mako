@@ -69,7 +69,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.7.0';
+export const VERSION = '1.8.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -218,6 +218,141 @@ export function quienFirmo(texto, firmaB64, spkis) {
   return null;
 }
 
+// ── lo que se dijo en cada chat (1.8.0, 17/10/2026) ──────────────────────────────────────────────────────────────────
+// Martín: «los chats no se entienden... No se entiende la conversación que se tiene». La conversación del Centro tiene
+// que leerse como un chat: lo que se le dijo y lo que CONTESTÓ al terminar cada turno. Sale del transcript del chat
+// (`<carpeta>/projects/<cwd con «-»>/<sesión>.jsonl`), leído desde donde quedó la vuelta anterior (`turnos/<local>.json`),
+// y se sube sólo lo nuevo. Del transcript NO sale nada más: ni las herramientas, ni lo que pensó, ni los recordatorios.
+const TURNOS = path.join(DIR, 'turnos');
+const TOPE_TURNO = 4000;
+/** La primera vez que se lee un chat, sólo su cola: la historia entera puede pesar decenas de MB. */
+const COLA_PRIMERA_VEZ = 2 * 1024 * 1024;
+/** Lo que se lee de un chat por vuelta, como mucho (el resto, en la siguiente). */
+const LECTURA_MAX = 4 * 1024 * 1024;
+const MAX_TURNOS_VUELTA = 300;
+/** Un chat cerrado se sigue leyendo estos días (lo último que contestó antes de cerrarse). */
+const DIAS_TURNOS = 3;
+const RECORDATORIO_RE = /<system-reminder>[\s\S]*?<\/system-reminder>/g;
+const CRUZADO_RE = /<cross-session-message\b([^>]*)>([\s\S]*?)<\/cross-session-message>/;
+/** Lo que el sistema le escribe al chat (no lo dijo nadie): avisos de tareas, de sesiones, del CI. */
+const AUTOMATICO_RE = /^(?:<task-notification>|<side-sessions-event>|<ci-monitor-event>|\[SYSTEM NOTIFICATION|<local-command-|<command-name>)/;
+
+/** La carpeta de los transcripts de un cwd: Claude Code cambia por «-» todo lo que no es letra o número. */
+export const carpetaDelCwd = (cwd) => String(cwd ?? '').replace(/[^a-zA-Z0-9]/g, '-');
+
+/** El texto de un mensaje: un string, o los bloques de texto (sin herramientas ni imágenes). */
+function textoDe(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content.filter((b) => b && b.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('\n');
+}
+
+/**
+ * Los turnos de unas líneas del transcript, en orden. `pendiente` es la última respuesta de MaKo de un turno que todavía
+ * no terminó (viene de la vuelta anterior y vuelve, actualizada): la respuesta de un turno es su ÚLTIMO texto, y se da
+ * por cerrada con el próximo mensaje que se le escribe o con el fin del turno (`stop_hook_summary`). Puro.
+ *   · `yo`: lo que se le escribió (Martín en la app, o un trabajo del Centro: `trabajo` = su id, que el Centro ya muestra);
+ *   · `otro`: lo que le mandó otra sesión (`de`: su nombre);
+ *   · `el`: lo que contestó.
+ */
+export function turnosDeLineas(lineas, pendiente = null) {
+  const turnos = [];
+  let p = pendiente;
+  const cerrar = () => { if (p) { turnos.push({ uuid: p.uuid, rol: 'el', de: null, texto: p.texto, at: p.at, trabajo: null }); p = null; } };
+  for (const l of lineas) {
+    let o;
+    try { o = JSON.parse(l); } catch { continue; }
+    if (!o || typeof o !== 'object' || o.isSidechain) continue;
+    if (o.type === 'assistant') {
+      // Lo que escribe la app en nombre del modelo («You've hit your session limit…») no es una respuesta del chat.
+      if (o.isApiErrorMessage || o.message?.model === '<synthetic>') continue;
+      const t = textoDe(o.message?.content).trim();
+      if (t && typeof o.uuid === 'string') p = { uuid: o.uuid, texto: t.slice(0, TOPE_TURNO), at: o.timestamp };
+      continue;
+    }
+    if (o.type === 'system' && o.subtype === 'stop_hook_summary') { cerrar(); continue; }
+    if (o.type !== 'user' || o.isMeta || typeof o.uuid !== 'string') continue;
+    const c = o.message?.content;
+    if (Array.isArray(c) && c.some((b) => b && b.type === 'tool_result')) continue;
+    const t = textoDe(c).replace(RECORDATORIO_RE, '').trim();
+    if (!t || AUTOMATICO_RE.test(t)) continue;
+    cerrar();
+    const m = CRUZADO_RE.exec(t);
+    if (m) {
+      const cuerpo = m[2].trim();
+      // El aviso de una respuesta de la Ticketera lo arma la PC (mensajeAviso): no es una conversación.
+      if (!cuerpo || /^Martín contestó tu tarjeta/.test(cuerpo)) continue;
+      const trabajo = /^Pedido de Martín desde el Centro de Operaciones/.test(cuerpo) ? (/ cierre ([0-9a-f-]{36}) /.exec(cuerpo)?.[1] ?? null) : null;
+      const de = /\bname="([^"]{1,60})"/.exec(m[1])?.[1] ?? /\bfrom="([^"]{1,60})"/.exec(m[1])?.[1] ?? null;
+      turnos.push(trabajo
+        ? { uuid: o.uuid, rol: 'yo', de: null, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo }
+        : { uuid: o.uuid, rol: 'otro', de, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
+      continue;
+    }
+    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
+  }
+  return { turnos, pendiente: p };
+}
+
+/** Lo nuevo del transcript de un chat desde la vuelta anterior. Devuelve los turnos y la marca nueva (se guarda sólo si
+ *  MaKo dice que entraron: `guardarMarcas`). Sin transcript, o sin nada nuevo, nada. */
+function turnosNuevos(c) {
+  if (!c.transcript) return null;
+  let st;
+  try { st = fs.statSync(c.transcript); } catch { return null; }
+  const archivo = path.join(TURNOS, `${c.local}.json`);
+  const marca0 = leerJson(archivo, null);
+  const marca = marca0 && marca0.transcript === c.transcript ? marca0 : null;
+  const ocupado = c.estado === 'busy';
+  // Sin nada nuevo y sin una respuesta esperando a que el turno termine: no hay nada que leer.
+  if (marca && marca.offset >= st.size && !(marca.pendiente && !ocupado)) return null;
+  // Todo en BYTES (Buffer): una posición en caracteres se corre con cada tilde o emoji.
+  let inicio = marca ? Math.min(marca.offset, st.size) : Math.max(0, st.size - COLA_PRIMERA_VEZ);
+  const hasta = Math.min(st.size, inicio + LECTURA_MAX);
+  let buf = Buffer.alloc(0);
+  if (hasta > inicio) {
+    buf = Buffer.alloc(hasta - inicio);
+    const fd = fs.openSync(c.transcript, 'r');
+    try { fs.readSync(fd, buf, 0, buf.length, inicio); } finally { fs.closeSync(fd); }
+  }
+  // La primera vez se arranca en el medio de una línea: se salta hasta la siguiente.
+  if (!marca && inicio > 0) {
+    const i = buf.indexOf(0x0a);
+    if (i < 0) { inicio += buf.length; buf = Buffer.alloc(0); } else { inicio += i + 1; buf = buf.subarray(i + 1); }
+  }
+  // Sólo las líneas enteras: la última, si no terminó, se lee en la vuelta siguiente.
+  const corte = buf.lastIndexOf(0x0a);
+  const completo = corte >= 0 ? buf.subarray(0, corte + 1) : Buffer.alloc(0);
+  const offset = inicio + completo.length;
+  const r = turnosDeLineas(completo.toString('utf8').split('\n').filter(Boolean), marca?.pendiente ?? null);
+  // Un chat que no está trabajando ya terminó su turno: su última respuesta es la que vale.
+  if (r.pendiente && !ocupado) { r.turnos.push({ uuid: r.pendiente.uuid, rol: 'el', de: null, texto: r.pendiente.texto, at: r.pendiente.at, trabajo: null }); r.pendiente = null; }
+  return { turnos: r.turnos.map((t) => ({ local: c.local, ...t })), marca: { archivo, transcript: c.transcript, offset, pendiente: r.pendiente } };
+}
+
+/** Lo nuevo de todos los chats de la vuelta, con un tope (lo que no entra sale en la siguiente: su marca no avanza). */
+export function turnosDeLaVuelta(chats) {
+  const turnos = [];
+  const marcas = [];
+  for (const c of chats) {
+    // Los chats cerrados hace días no cambian: no se leen (la app guarda cientos).
+    const t = c.actividad ? Date.parse(c.actividad) : NaN;
+    if (!c.vivo && !(Number.isFinite(t) && Date.now() - t < DIAS_TURNOS * 86_400_000)) continue;
+    let n;
+    try { n = turnosNuevos(c); } catch { n = null; }
+    if (!n) continue;
+    if (turnos.length + n.turnos.length > MAX_TURNOS_VUELTA && turnos.length) break;
+    turnos.push(...n.turnos.slice(-MAX_TURNOS_VUELTA));
+    marcas.push(n.marca);
+  }
+  return { turnos, marcas };
+}
+
+function guardarMarcas(marcas) {
+  fs.mkdirSync(TURNOS, { recursive: true });
+  for (const { archivo, ...m } of marcas) escribirJson(archivo, m);
+}
+
 // ── qué chats hay ────────────────────────────────────────────────────────────────────────────
 const vive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
 const enCwds = (cwd, cwds) => cwds.some((p) => String(cwd ?? '').toLowerCase().startsWith(expandir(p).toLowerCase()));
@@ -249,6 +384,8 @@ function chatsDeLaApp(cuenta, cwds, carpetas) {
             local: o.sessionId, titulo: String(o.title || '(sin título)').slice(0, 120), cuenta,
             vivo: false, estado: null, pipe: null,
             actividad: o.lastActivityAt ? new Date(o.lastActivityAt).toISOString() : null,
+            // Su transcript: los chats de la app los guarda en ~/.claude (también los de otra cuenta).
+            transcript: UUID_RE.test(o.cliSessionId ?? '') ? path.join(resolver('~/.claude'), 'projects', carpetaDelCwd(o.cwd), `${o.cliSessionId}.jsonl`) : null,
           });
         }
       }
@@ -321,6 +458,7 @@ function leerRegistro(cuenta, configDir, fuente, cwds, chats) {
         local, titulo: String(s.name || `${path.basename(String(s.cwd || ''))} · ${s.sessionId.slice(0, 8)}`).slice(0, 120),
         cuenta, vivo: true, estado, pipe: s.messagingSocketPath, dir,
         actividad: s.updatedAt ? new Date(s.updatedAt).toISOString() : null,
+        transcript: path.join(dir, 'projects', carpetaDelCwd(s.cwd), `${s.sessionId}.jsonl`),
       });
     }
   }
@@ -418,14 +556,16 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   // Lo que ALGÚN Runner de la PC puede entregar: el chat vivo, con un Runner abierto en su carpeta. MaKo reclama
   // sólo eso; lo demás queda escrito y sale cuando se abra ese Runner (no se vence en el buzón).
   const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner).map((c) => c.local);
+  // Lo que se dijo en cada chat desde la vuelta anterior (sólo lo nuevo).
+  const { turnos, marcas } = turnosDeLaVuelta([...chats.values()]);
   const r = await fetch(`${url}/api/operaciones/cartero`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
     body: JSON.stringify({
       cuenta, version: VERSION,
-      // Ni la dirección del canal ni la carpeta salen de la PC.
-      chats: [...chats.values()].map(({ pipe, dir, ...c }) => c),
-      entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta),
+      // Ni la dirección del canal, ni la carpeta, ni dónde está el transcript salen de la PC.
+      chats: [...chats.values()].map(({ pipe, dir, transcript, ...c }) => c),
+      entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta), turnos,
     }),
     signal: AbortSignal.timeout(30_000),
   });
@@ -434,6 +574,8 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
 
   // Lo que se subió ya está en MaKo: se borra de acá (sólo lo que se listó ANTES de subir).
   for (const f of archivosAcuse) fs.rmSync(f, { force: true });
+  // Los turnos: la marca avanza sólo si MaKo los guardó (un servidor de antes no dice nada: los ignora igual).
+  if (salida.turnosOk !== false) guardarMarcas(marcas);
   // Un cierre se borra cuando MaKo dice que lo aplicó (`cierresIds`). El que no entró (su acuse todavía no llegó, o
   // un servidor de antes que no dice cuáles) se vuelve a subir en la vuelta siguiente, hasta un día.
   const aplicados = new Set(Array.isArray(salida.cierresIds) ? salida.cierresIds : []);
