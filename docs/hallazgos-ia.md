@@ -4389,6 +4389,8 @@ El script, fuera del repo: `probar-pedidos-ws9.mts` en el scratchpad del chat «
   reconoce (`destinoEn`): el TÍTULO de la tab (`AREA_INFO[*].tab`, con «la tab de», «la pestaña de») o, después de «ve a»
   y «llévame a», una palabra del área que no sea un verbo («vamos a agendar» sigue siendo agendar, con su operación). A la
   misma tab por su título: «Ya estás en Dashboard.». «A y llévame al CRM» se parte, para que el link no se coma el cambio.
+  ⚠️ Una regex sobre el texto PLANO que escribe «llevame» la agarra la guarda de voseo de tests/puente-panel-copy.test.ts
+  (que no nombra este archivo: corre sobre todo el repo). Se escribe `llev(?:ame|anos)`, como `agend(?:ar|ame)` al lado.
 - **«Abre la hoja de Marketing» (no existe) ahora dice «No hay una hoja «Marketing». Están «A» y «B».».** Es
   `PALABRA_DEL_OBJETO` por tab (hoja, landing, automatización, diseño, proyecto), sólo con ver/abrir y borrar, y sólo si la
   tab conoce sus objetos (con la lista vacía no se sabe si no hay o si no se leyeron). Un nombre con «y» adentro

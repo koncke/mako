@@ -320,7 +320,7 @@ function soloConPalabrasDeLaTab(texto: string, area: Area, tab: Area): boolean {
  * verbo de ir sólo cuenta con un DESTINO que se reconoce (`destinoEn`). «Abre» va aparte: sólo lleva a una tab nombrada
  * por su título («abre el CRM», «abre la tab de General»), no por una palabra del área («abre la hoja X» es una hoja).
  */
-const RE_IR = /\b(?:ve|vete|vamos|vayamos|llevame|llevanos|vuelve|volvamos|regresa|regresemos|(?:quiero|quisiera|necesito|puedo)\s+ir)\s+(?:a|al|hacia)\s+/g;
+const RE_IR = /\b(?:ve|vete|vamos|vayamos|llev(?:ame|anos)|vuelve|volvamos|regresa|regresemos|(?:quiero|quisiera|necesito|puedo)\s+ir)\s+(?:a|al|hacia)\s+/g;
 const RE_ABRIR_TAB = /\b(?:abre|abreme|abrir|abramos)\s+/g;
 /** Lo que va entre la preposición y el nombre de la tab: «a LA TAB DE General», «al MÓDULO del CRM». */
 const RE_CONTENEDOR = /^(?:(?:la|el|mi|mis|los|las)\s+)?(?:(?:tab|pestana|seccion|pantalla|vista|modulo|parte)s?\s+(?:de\s+(?:la\s+|el\s+)?|del\s+)?)?/;
