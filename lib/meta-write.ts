@@ -47,6 +47,17 @@ export type MetaWriteResult =
  * esa guarda resolvió — nunca uno que venga del body.
  */
 export async function metaWrite(body: MetaWriteBody, ws: number): Promise<MetaWriteResult> {
+  const r = await escribirEnMeta(body, ws);
+  // Lo escrito se ve en la próxima lectura del árbol de ESTE negocio (17/10/2026, `expirarArbolMeta`): antes la tabla
+  // podía volver a pintar el presupuesto viejo hasta que la caché venciera, y una caché vencida igual sirve lo viejo.
+  if (r.ok) {
+    const { expirarArbolMeta } = await import('@/lib/meta-health');
+    expirarArbolMeta(ws);
+  }
+  return r;
+}
+
+async function escribirEnMeta(body: MetaWriteBody, ws: number): Promise<MetaWriteResult> {
   const ver = process.env.META_API_VERSION; // la fija instrumentation, no es secreto
   const token = await credWs('META_ACCESS_TOKEN', ws);
   // 409 y no 500: no es una falla nuestra, es un workspace que todavía no conectó
