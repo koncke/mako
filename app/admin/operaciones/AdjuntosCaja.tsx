@@ -1,14 +1,19 @@
 'use client';
 
 // =============================================================================
-// Los adjuntos de la caja del Ops Center: el botón, la tira con la vista previa y el Ctrl+V (17/10/2026)
+// La caja del Ops Center: el «+», las miniaturas de lo adjuntado y el visor (17/10/2026)
 // =============================================================================
-// Martín: adjuntar imágenes y archivos en la caja, y pegar una captura con Ctrl+V, en la computadora y en el teléfono.
-// Copiado de la caja del Second Brain (ChatSecondBrain.tsx): las mismas clases (app/_chat/chat.css), el mismo `accept` y la
-// misma regla para pegar. El estado y la subida viven en useCentro.ts (`sumarAdjuntos`, `mandar`): esto sólo dibuja.
+// Martín (feedback del 17/10, la B): «abajo, un solo "+" con un desplegable bien diseñado», con «Importar archivo» e
+// «Imagen» como dos botones, la cuenta, el modelo y el esfuerzo; y «la preview de un adjunto va como en Claude: sólo la
+// miniatura, sin el nombre, con aire respecto del placeholder... Al clickearla se amplía ANTES de mandar, también un
+// PDF». Copiado de la caja de Claude: el «+» abajo a la izquierda abre un menú hacia arriba, y lo adjuntado son cuadritos
+// arriba del texto.
+// El estado y la subida viven en useCentro.ts (`sumarAdjuntos`, `mandar`): esto sólo dibuja. Lo usan la computadora
+// (Conversacion.tsx) y el teléfono (ChatsMovil.tsx): en el teléfono el menú se abre adentro de la caja, porque una hoja
+// sobre otra REEMPLAZA (SheetM.tsx).
 
 import '@/app/_chat/chat.css';
-import { useRef, type ClipboardEvent } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { ACCEPT_ADJUNTOS_CHAT } from '@/lib/mako-adjuntos';
@@ -30,37 +35,99 @@ export function alPegar(e: ClipboardEvent<HTMLTextAreaElement>, a: AdjuntosDeCaj
   if (fs.length && !Array.from(e.clipboardData.types).includes('text/plain')) { e.preventDefault(); a.onSumar(fs); }
 }
 
-/** La tira de lo elegido, arriba del texto. */
+/** Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. */
 export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
+  const [viendo, setViendo] = useState<AdjuntoCaja | null>(null);
   if (!a?.items.length) return null;
   return (
-    <ul className="ch-elegidos" aria-label="Archivos para mandar">
-      {a.items.map((x) => (
-        <li key={x.id} className="ch-elegido">
-          {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
-          {x.tipo === 'image' ? <img src={x.url} alt="" /> : <IconoChat nombre="archivo" size={20} />}
-          <span className="ch-elegido__nombre" title={x.file.name}>{x.file.name}</span>
-          <button type="button" className="ch-elegido__quitar" onClick={() => a.onQuitar(x.id)} aria-label={`Quitar ${x.file.name}`}>
-            <Icon name="x" size={14} />
-          </button>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="co-miniaturas" aria-label="Archivos para mandar">
+        {a.items.map((x) => (
+          <li key={x.id} className="co-miniatura">
+            <button type="button" className="co-miniatura__ver" onClick={() => setViendo(x)} aria-label={`Ver ${x.file.name}`} title={x.file.name}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
+              {x.tipo === 'image' ? <img src={x.url} alt="" /> : <span className="co-miniatura__doc"><IconoChat nombre="archivo" size={18} /><span>PDF</span></span>}
+            </button>
+            <button type="button" className="co-miniatura__quitar" onClick={() => a.onQuitar(x.id)} aria-label={`Quitar ${x.file.name}`}>
+              <Icon name="x" size={12} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {viendo && <VerAdjunto x={viendo} onCerrar={() => setViendo(null)} />}
+    </>
   );
 }
 
-/** El «+» de la barrita de la caja. */
-export function BotonAdjuntar({ a, apagado }: { a: AdjuntosDeCaja | undefined; apagado: boolean }) {
-  const entrada = useRef<HTMLInputElement>(null);
-  if (!a?.puede) return null;
+/** El adjunto ampliado, antes de mandar: la foto entera, o el PDF en su visor. Escape o tocar afuera lo cierra. */
+function VerAdjunto({ x, onCerrar }: { x: AdjuntoCaja; onCerrar: () => void }) {
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar(); };
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [onCerrar]);
   return (
-    <>
-      <button type="button" className="ch-adjuntar" onClick={() => entrada.current?.click()} disabled={apagado}
-        aria-label="Adjuntar fotos o PDF" title="Adjuntar fotos o PDF (o pega una captura)">
+    <div className="co-ver" role="dialog" aria-modal="true" aria-label={x.file.name} onClick={onCerrar}>
+      <div className="co-ver__marco" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="co-ver__cerrar" onClick={onCerrar} aria-label="Cerrar"><Icon name="x" size={18} /></button>
+        {x.tipo === 'image'
+          // eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:)
+          ? <img className="co-ver__img" src={x.url} alt={x.file.name} />
+          : <iframe className="co-ver__pdf" src={x.url} title={x.file.name} />}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * El «+» de la caja, abajo a la izquierda: arriba los dos botones para adjuntar («Importar archivo» y «Imagen») y, debajo,
+ * lo que se elige al mandar (`children`: la cuenta, el modelo y el esfuerzo, PiezasCentro.tsx → SelectoresDeEnvio).
+ * `resumen`: lo elegido que no es «Automático», en chico al lado del «+» para que se vea sin abrirlo.
+ */
+export function MasCaja({ a, apagado, resumen, children }: { a: AdjuntosDeCaja | undefined; apagado: boolean; resumen?: string | null; children?: ReactNode }) {
+  const [abierto, setAbierto] = useState(false);
+  const caja = useRef<HTMLDivElement>(null);
+  const archivo = useRef<HTMLInputElement>(null);
+  const imagen = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e: PointerEvent) => { if (!caja.current?.contains(e.target as Node)) setAbierto(false); };
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
+    document.addEventListener('pointerdown', fuera);
+    document.addEventListener('keydown', tecla);
+    return () => { document.removeEventListener('pointerdown', fuera); document.removeEventListener('keydown', tecla); };
+  }, [abierto]);
+  const elegir = (fs: FileList | null, input: HTMLInputElement) => {
+    const lista = Array.from(fs ?? []);
+    input.value = '';
+    setAbierto(false);
+    if (lista.length) a?.onSumar(lista);
+  };
+  const adjunta = !!a?.puede;
+  return (
+    <div className="co-mas-caja" ref={caja}>
+      <button type="button" className="ch-adjuntar" aria-haspopup="menu" aria-expanded={abierto} disabled={apagado}
+        onClick={() => setAbierto((v) => !v)} aria-label="Más opciones" title="Adjuntar y elegir con qué corre">
         <Icon name="plus" size={18} />
       </button>
-      <input ref={entrada} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden
-        onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; if (fs.length) a.onSumar(fs); }} />
-    </>
+      {resumen && !abierto && <span className="co-mas-caja__resumen">{resumen}</span>}
+      {abierto && (
+        <div className="co-mas-caja__panel" role="menu">
+          {adjunta && (
+            <div className="co-mas-caja__tiles">
+              <button type="button" role="menuitem" className="co-mas-caja__tile" onClick={() => archivo.current?.click()}>
+                <IconoChat nombre="archivo" size={20} /><span>Importar archivo</span>
+              </button>
+              <button type="button" role="menuitem" className="co-mas-caja__tile" onClick={() => imagen.current?.click()}>
+                <IconoChat nombre="foto" size={20} /><span>Imagen</span>
+              </button>
+            </div>
+          )}
+          {children && <div className="co-mas-caja__opciones">{children}</div>}
+        </div>
+      )}
+      <input ref={archivo} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
+      <input ref={imagen} type="file" accept="image/*" multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
+    </div>
   );
 }

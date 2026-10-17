@@ -23,7 +23,7 @@ import { Button, Field, Input, Modal } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
-  SECCION_CEREBRO, SECCION_CHATS, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
+  SECCION_CEREBRO, SECCION_CHATS, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
   type ChatCentro, type VistaPrevia,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
@@ -103,8 +103,9 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
 
 const alternar = (set: Set<string>, k: string) => { const n = new Set(set); if (n.has(k)) n.delete(k); else n.add(k); return n; };
 
-/** La lista de la barra: el Cerebro arriba, los jefes con sus sub-chats, y aparte, plegado, lo que no tiene jefe
- *  (lib/centro-chats.ts → seccionesDeChats). `visibles` ya viene filtrada por lo buscado. */
+/** La lista de la barra: el Cerebro arriba y, en una sola lista, primero lo que trabaja, después lo que espera a Martín y
+ *  después el resto, cada jefe con sus sub-chats (lib/centro-chats.ts → seccionesDeChats). `visibles` ya viene filtrada
+ *  por lo buscado. */
 export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }: {
   centro: Centro;
   visibles: readonly ChatCentro[];
@@ -113,11 +114,13 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   buscando: boolean;
   onElegir: (clave: string) => void;
 }) {
-  // «Sin asignar» va ABIERTA desde el 17/10/2026 (Martín: «Hay chats que están corriendo acá que no se reflejan... ni
-  // como jefes ni como trabajadores»: «Pagos» y «MaKo en WhatsApp» estaban ahí, plegados). Todo chat abierto se ve.
+  // Sin «Sin asignar» desde el 17/10/2026 (Martín: «No entiendo el desplegable de "Sin asignar", no tiene sentido,
+  // elimínalo»): una sola lista, y lo que trabaja o espera una respuesta arriba.
   const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set());
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
-  const secciones = useMemo(() => seccionesDeChats(visibles, k.tabs), [visibles, k.tabs]);
+  const { esperas } = k;
+  const avisos = useMemo(() => (c: ChatCentro) => esperaDe(c, esperas), [esperas]);
+  const secciones = useMemo(() => seccionesDeChats(visibles, avisos), [visibles, avisos]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
   // Sin ningún Runner dando vueltas, lo de abajo es una foto: se dice desde cuándo, en vez de mostrarlos «quietos».
   const sinNoticias = sinNoticiasDesde(k.carteros, k.ahora);
@@ -129,8 +132,8 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
       {secciones.map(({ clave, titulo, chats: lista }) => {
         const plegada = plegadas.has(clave) && !buscando;
         const todas = enteras.has(clave) || buscando;
-        // El elegido se ve siempre, aunque esté más abajo del corte.
-        const corte = todas ? lista : lista.filter((c, i) => i < VISIBLES || c.clave === actual);
+        // El elegido se ve siempre, aunque esté más abajo del corte; lo que trabaja o espera a Martín, también.
+        const corte = todas ? lista : lista.filter((c, i) => i < VISIBLES || c.clave === actual || esPrioritario(c, avisos));
         return (
           <div key={clave} className={`co-cuenta${clave === SECCION_CEREBRO ? ' co-cuenta--cerebro' : ''}`}>
             {/* La lista no lleva título; sólo lo anotado antes del 16/10 va aparte, plegado. */}
@@ -169,11 +172,11 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
   useEffect(() => { mirar(chat); return () => mirar(null); }, [chat.clave, mirar]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Conversacion
-      turnos={k.turnosDe(chat)}
+      turnos={k.turnosDe(chat)} carteros={k.carteros}
+      preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       avance={k.avance} onAvance={k.cambiarAvance}
       aspecto={elegidoPara(k.munecos, chat.titulo)}
-      onMenu={(x, y) => k.abrirMenu(chat.clave, x, y)}
       onMuneco={() => k.abrirMuneco(chat)}
       espera={esperaDe(chat, k.esperas)}
       preguntas={preguntasDelChat(chat, k.decisiones, k.carteros)}
@@ -184,12 +187,24 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
         items: k.adjuntosDe(chat.clave), puede: k.puedeAdjuntar(chat),
         onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id),
       }}
-      alcance={k.alcance} onAlcance={k.setAlcance} enviando={k.enviando}
+      enviando={k.enviando} resumenEnvio={resumenDeEnvio(k, chat)}
       onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
       onVolver={onVolver}
       selectores={<SelectoresDeEnvio centro={k} chat={chat} />}
     />
   );
+}
+
+/** Lo elegido que no es «Automático» (la cuenta, el modelo, el esfuerzo), para verlo al lado del «+» sin abrirlo. */
+export function resumenDeEnvio(k: Centro, chat: ChatCentro): string | null {
+  const partes: string[] = [];
+  const cuenta = k.cuentaElegida(chat.clave);
+  if (cuenta !== AUTOMATICO) partes.push(nombreCuenta(cuenta) ?? cuenta);
+  if (aceptaModelo(k.destinoDeChat(chat).sesion)) {
+    if (k.modelo) partes.push(NOMBRE_MODELO[k.modelo]);
+    if (k.esfuerzo) partes.push(NOMBRE_ESFUERZO[k.esfuerzo]);
+  }
+  return partes.length ? partes.join(' · ') : null;
 }
 
 /**
@@ -204,27 +219,37 @@ export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: C
   const destino = k.destinoDeChat(chat);
   const conModelo = aceptaModelo(destino.sesion);
   const libre = (n: number | null) => (n == null ? '' : ` · ${n}% libre`);
+  // Un renglón por cosa, con su nombre a la izquierda: viven adentro del «+» de la caja (AdjuntosCaja.tsx → MasCaja).
   return (
     <>
       {opciones.length > 0 && (
-        <select className="co-chip co-envio-sel" aria-label="Cuenta" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
-          onChange={(e) => k.elegirCuenta(chat.clave, e.target.value)} disabled={k.enviando}>
-          <option value={AUTOMATICO}>{automatica ? `Automático · ${nombreCuenta(automatica)}` : 'Automático'}</option>
-          {opciones.map((o) => <option key={o.cuenta} value={o.cuenta}>{`${nombreCuenta(o.cuenta)}${libre(o.libre)}`}</option>)}
-        </select>
+        <label className="co-envio-fila">
+          <span>Cuenta</span>
+          <select className="co-chip co-envio-sel" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
+            onChange={(e) => k.elegirCuenta(chat.clave, e.target.value)} disabled={k.enviando}>
+            <option value={AUTOMATICO}>{automatica ? `Automático · ${nombreCuenta(automatica)}` : 'Automático'}</option>
+            {opciones.map((o) => <option key={o.cuenta} value={o.cuenta}>{`${nombreCuenta(o.cuenta)}${libre(o.libre)}`}</option>)}
+          </select>
+        </label>
       )}
-      <select className="co-chip co-envio-sel" aria-label="Modelo" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
-        title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
-        onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
-        <option value={AUTOMATICO}>Modelo automático</option>
-        {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
-      </select>
-      <select className="co-chip co-envio-sel" aria-label="Esfuerzo" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
-        title={conModelo ? 'Cuánto piensa' : 'El esfuerzo se elige sólo en los chats de la app'}
-        onChange={(e) => k.setEsfuerzo(e.target.value === AUTOMATICO ? null : e.target.value as Esfuerzo)}>
-        <option value={AUTOMATICO}>Esfuerzo automático</option>
-        {ESFUERZOS.map((x) => <option key={x} value={x}>{NOMBRE_ESFUERZO[x]}</option>)}
-      </select>
+      <label className="co-envio-fila">
+        <span>Modelo</span>
+        <select className="co-chip co-envio-sel" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+          title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
+          onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
+          <option value={AUTOMATICO}>Automático</option>
+          {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
+        </select>
+      </label>
+      <label className="co-envio-fila">
+        <span>Esfuerzo</span>
+        <select className="co-chip co-envio-sel" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+          title={conModelo ? 'Cuánto piensa' : 'El esfuerzo se elige sólo en los chats de la app'}
+          onChange={(e) => k.setEsfuerzo(e.target.value === AUTOMATICO ? null : e.target.value as Esfuerzo)}>
+          <option value={AUTOMATICO}>Automático</option>
+          {ESFUERZOS.map((x) => <option key={x} value={x}>{NOMBRE_ESFUERZO[x]}</option>)}
+        </select>
+      </label>
     </>
   );
 }

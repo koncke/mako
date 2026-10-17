@@ -50,6 +50,7 @@ const AL_WIZARD: ReadonlyArray<{ archivo: string; por: string }> = [
   { archivo: 'lib/movil-rutas.ts', por: 'el respaldo de escritorio de /configurar, que es el wizard' },
   { archivo: 'lib/movil-desvio.ts', por: 'la lista de rutas que el teléfono abre igual (el wizard)' },
   { archivo: 'lib/titulo-tab.ts', por: 'el título de la pestaña del wizard' },
+  { archivo: 'lib/onboarding-guardia-server.ts', por: 'el aviso de bloqueo lleva al super admin al wizard del cliente, donde está «Desbloquear» (17/10)' },
 ];
 
 test('cada sección tiene un lugar que existe: el área está en AREAS y la sub-pestaña en SUBVISTAS', () => {

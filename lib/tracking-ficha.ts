@@ -22,7 +22,7 @@
 type IdFunnel = number | string | null | undefined;
 
 export function funnelTieneCampana(
-  asignadas: ReadonlyArray<{ funnelId: IdFunnel }>,
+  asignadas: ReadonlyArray<{ funnelId: IdFunnel; tambien?: ReadonlyArray<IdFunnel> }>,
   funnelDelLead: IdFunnel,
   idDelDefault: number | null,
 ): boolean {
@@ -33,5 +33,6 @@ export function funnelTieneCampana(
     return n === idDelDefault ? null : n;
   };
   const delLead = norm(funnelDelLead);
-  return asignadas.some((c) => norm(c.funnelId) === delLead);
+  // Con sus otros funnels (#893): una campaña que también entra a éste lo trae.
+  return asignadas.some((c) => [c.funnelId, ...(c.tambien ?? [])].some((f) => norm(f) === delLead));
 }

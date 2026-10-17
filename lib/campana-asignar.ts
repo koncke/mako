@@ -59,3 +59,17 @@ export function preguntaAsignar({ producto, aTraer, desde, porProducto }: {
     cancelar: 'No asignar',
   };
 }
+
+/**
+ * La pregunta al SUMAR un funnel a una campaña que ya tiene otro (#893). Sólo si hay leads para traer: sin ellos no hay
+ * nada que decidir y se suma directo. Nadie sale de donde está, así que no hay «desde».
+ */
+export function preguntaSumar({ producto, aTraer }: { producto: string; aTraer: number }): { titulo: string; mensaje: string; confirmar: string; cancelar: string } {
+  const leads = `${aTraer} ${aTraer === 1 ? 'lead' : 'leads'}`;
+  return {
+    titulo: `¿Traer ${leads} a «${producto}»?`,
+    mensaje: `Los nuevos entran también en «${producto}». Los que ya entraron se suman ahí y siguen donde estaban.`,
+    confirmar: `Traer ${aTraer}`,
+    cancelar: 'No sumar',
+  };
+}
