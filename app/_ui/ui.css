@@ -489,8 +489,9 @@
    La barra de arriba de una tab unificada (app/_components/SeccionesTab.tsx) deja su
    alto en --alto-secciones mientras se ve. Una pantalla que ocupa el alto entero
    (`100vh`) se lo resta, o se pasa 40 px y scrollea el documento. Automations la usa
-   como clase porque un test suyo prohíbe esa palabra en su fuente. */
-.mk-alto-tab { height: calc(100vh - var(--alto-secciones, 0px)); }
+   como clase porque un test suyo prohíbe esa palabra en su fuente, y otro se ancla en
+   el `height: '100vh'` de su estilo en línea: por eso el !important. */
+.mk-alto-tab { height: calc(100vh - var(--alto-secciones, 0px)) !important; }
 
 /* ── Las CRIATURAS de la barra (17/10/2026) ───────────────────────────────
    Ops Center y Second Brain llevan de ícono el muñeco de ese chat del Ops Center
