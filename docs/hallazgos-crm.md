@@ -9395,6 +9395,102 @@ FichaPorBloques.tsx · PanelFicha.tsx · app/crm/lead-view/LeadTabs.tsx · tests
 tests/ficha-galeria.test.ts.
 *16/10/2026, frente «marco» de la ficha v2 (claude3).*
 
+## Lo que sobrevive del volcado de la tanda B1 del CRM, que se borró el 17/10/2026
+
+El volcado `docs/relevo/crm-tanda-b1.md` (14/10, lo que devolvieron los cinco agentes de `wf_0132bb27-e06`) decía de sí
+mismo «al integrar, los hallazgos van a docs/hallazgos-<área>.md y esto se borra». Se borró con esta cosecha. Sus
+contratos están en la cabecera de cada módulo, sus commits en git, los inventarios de tests en cada test, y las fallas de
+la revisión de b2 (2 altas, 8 medias, 6 bajas) están arregladas arriba. Su texto completo queda en la historia:
+`git show 86bc162be:docs/relevo/crm-tanda-b1.md`. Lo que no estaba en ningún otro lado, por frente:
+
+**Los avisos de «datos sin marcar» (b1, motor).**
+- **«3 sin marcar» en la ficha y el lead ausente de «A revisar» tenían una causa que NO eran los apagados.** El worklist
+  sacaba al lead entero ignorado (`pendientes_ignorados`, mig 0109) y la empresa omitida; `estadoDatosDeLead`, no. Las tres
+  puertas pasan hoy por `avisanDelLead` (lib/datos-aviso.ts). Regla: un número que se cuenta en tres lugares se cuenta con
+  UNA función.
+- **«Volver a avisar» mentía en los leads ignorados de la manera vieja:** el botón sólo sacaba el dato de
+  `datos_ignorados` y `pendientes_ignorados` (o `empresa_omitido`) lo seguía escondiendo. `cambioDeIgnorados` pasa ese lead
+  a ignorado dato por dato (todos menos el que vuelve) y limpia la marca vieja.
+- **La API ignora TODOS los datos ignorables, no sólo los que hoy faltan:** así «Spam» deja de contar también con lo que
+  le falte después, y cada dato aparece en «Ver más» con su «volver a avisar».
+- **La regla general de las plantillas apaga MÁS avisos que las listas del diseño** («si la plantilla no pone el bloque,
+  el aviso nace apagado»): en Landing con opt-in el setter y el closer, en Evento el calificado, en Te escriben el
+  servicio, la promesa y lo fiscal… Se implementó la regla como está escrita y `tests/ficha-plantillas.test.ts` la fija;
+  cambiarlo es una línea en la plantilla o un toque en la ficha por funnel (`cambiar_ficha_funnel`, cambio `aviso`).
+- **Guardar la ficha de un funnel NO puede pasar por `saveFunnelDe`** aunque mergee bien: pone `declarado = true` y con eso
+  los prompts afirman un funnel que nadie declaró. `lib/ficha/config-server.ts` escribe aparte, con compare-and-set sobre
+  `funnels.updated_at`.
+- **`tieneEtapaDeReunion` es un booleano, no cuenta reuniones:** se aplica etapa por etapa (`etapas.filter(e =>
+  tieneEtapaDeReunion([e]))`) para no tener una segunda copia del predicado; la «Reunión excepcional» que siembra
+  `generateFunnel` en nutrición no cuenta.
+- ⚠️ **La plantilla de la ficha depende del canal del NEGOCIO** (`getDiagnosticoFase`) porque `funnels.canal` está en NULL:
+  si ese setting falta o no se lee (`getSetting` devuelve null en vez de tirar), un funnel presencial con una reunión pasa de
+  «Evento» a «Una llamada» y cambian sus avisos, sin error.
+- **El diseño citaba un archivo que ya no existe** (`lib/general-vistas-modelo.ts`): la General se rehízo sobre el editor del
+  Dashboard (`lib/general-piezas.ts`, `lib/general-plantillas.ts`). Regla: un documento de diseño que nombra archivos se
+  verifica contra el árbol antes de usarlo de molde.
+
+**Pagos campo por campo (b2), lo que contó el implementador además de la revisión.**
+- ⚠️ **El diagnóstico obvio era el equivocado:** `crearCobroAction` bloqueaba el `pagoId` «porque `registrarCobroDeProveedor`
+  no mira de qué lead es la cuota». Eso ya estaba cerrado desde el 11/10 (`.eq('lead_id', p.leadId)`, lib/pagos.ts). Los
+  riesgos de verdad eran dos: `saveLeadPlanManual` borraba e insertaba las impagas (el `pago_id` del link quedaba en null por
+  el FK) y saldar por id marcaba la cuota por SU monto y no por el del link. Regla: el link de una cuota cobra la cuota
+  (`montoUsd = cuota.monto_usd`) y se salda por id sólo si el monto coincide.
+- **Después de guardar «Editar deal» el recordatorio de una cuota ya pagada seguía saliendo:** borrar e insertar le cambiaba
+  el id a cada cuota, la corrida quedaba con un `ctx.cuotaId` huérfano que `marcarPago` no corta y el dedup
+  (`cuota:${pago_id}`, lib/cobranza.ts) era nuevo. Regla: ningún escritor de `pagos` borra e inserta; se reconcilia por id
+  (lo fija `tests/pagos-escritura.test.ts`: un solo `delete` en lib/pagos.ts).
+- **Una renovación rechazada seguía pintada como fallida después de que la tarjeta volvió a pasar:** `aplicarPagoAprobado`
+  sólo tocaba el cobro si pasaba a pagado, y uno ya «pagado» nunca limpiaba el motivo que dejó `aplicarPagoFallido`. Hoy lo
+  borra `PREFIJO_RENOVACION_FALLIDA`, la misma constante con la que se escribe y se lee.
+- ⚠️ **`pagos.lead_id` sólo tiene FK a `leads(id)` y `getTenantDb` estampa el workspace en el insert:** con el id de un lead
+  de OTRO negocio la cuota entraba en el cash de éste apuntando a una persona ajena, sin error. Regla:
+  `asegurarLeadDelNegocio(leadId)` antes de insertar en `pagos` (registrarPagoSuelto, cobrarCuota, la reconciliación).
+- ⚠️ **Ninguna acción de `app/crm/[id]/deal-actions.ts` cortaba sin sesión:** sin cookie, `getWorkspaceActual()` cae al ws1
+  (Mauricio, un cliente) y escribían cuotas y pagos en su CRM. Regla: `haySesion()` en TODA `export async function` de las dos
+  puertas de Pagos, con el barrido de `tests/acciones-sin-sesion.test.ts`.
+- **Mergear en el server no alcanzaba para el documento fiscal:** `DealDetailsCard` manda `deal_fiscal` con el `doc_path` de
+  SU foto del lead y la foto vieja lo pisaba. Regla: `doc_path`/`doc_nombre` los escribe sólo `/api/extract-deal-fiscal`.
+- **La moneda del negocio no existía** (todo asumía USD). Va en `app_settings` `negocio.moneda`, y **un pago SIN moneda se lee
+  como USD, no como la moneda del negocio**: las pantallas viejas mandan dólares sin decirlo, y el día que un negocio
+  configure MXN, 500 USD se habrían guardado como 500 pesos. La moneda del negocio la pone la pantalla como valor inicial.
+  (La API ya no deja pasar «pesos sin moneda»: ver «Un pago con moneda por WhatsApp» en hallazgos-api-mako.md.)
+- **`tests/cobranza.test.ts` fallaba en la base desde el 13/10:** el recorte de `marcarPago` iba hasta
+  `sincronizarTotalCobrado` y en el medio quedaron `cobrarCuota` y `registrarPagoSuelto`. Regla de los guards que leen el
+  fuente: recortar hasta el próximo `\nexport `, no hasta un nombre que puede alejarse.
+- Dos pestañas no se pisan al mergear un jsonb con un CAS sobre `leads.updated_at` (trigger de la mig 0001) y 3 reintentos:
+  no hizo falta una RPC. La suscripción manual sí necesitó una columna (`suscripcion_cancelada_at`) para distinguir
+  «cancelada» de «terminó su plazo».
+
+**Captura de datos (b4).**
+- **Un comentario que dice dónde «sigue viajando» un dato se verifica contra el call site:** el de `lib/zernio-entrante.ts`
+  decía que el anuncio de un DM pagado «viaja en el `ctx` del disparador», y `dispararEventoSocial` manda sólo `{ subtipo }`.
+- **Que un campo esté en el tipo de entrada no prueba que se escriba:** `createLead` tenía `meta_ad_id` en `LeadCreateInput` y
+  no en el insert (el mismo patrón que el `visitor_id` de agosto). Un campo nuevo del alta se prueba sobre el INSERT.
+- **`eventoSocialDe` (lib/canal-social.ts) pone el 1/1/1970 cuando el cuerpo no trae fecha:** le sirve a la ventana de 24 h
+  (que quede cerrada) pero guardado como «cuándo entró» es un dato inventado. Todo lo que guarde `e.fecha` como fecha de un
+  hecho mira que sea > 0.
+- **El @ se guarda sólo de Instagram:** en Messenger el usuario es el de Facebook (`plataformaDe('messenger') = 'facebook'`) y
+  en `leads.instagram` linkearía al perfil de otra persona. No hay columna para el usuario de Facebook.
+- ⚠️ **`lead_audit.workspace_id` (y toda tabla del loop de la mig 0054) tiene `default 1`:** un INSERT desde una migración sin
+  `workspace_id` explícito cae al ws1. El backfill del @ (0291) lo pasa explícito, con test.
+- **`getLead` lee con `select('*')`** y por eso las columnas nuevas no rompen la ficha si falta la migración; ponerlas en
+  `LISTA_COLS` haría que el CRM abra vacío (hay un test que lo fija).
+- **`esColumnaInexistente` ya existe** (lib/nutricion-grafo-motor.ts) pero vive en un módulo pesado: lib/lead-alta-columnas.ts
+  trae una copia acotada que exige que el mensaje nombre una de las columnas nuevas (sin eso, el reintento taparía la falta
+  de otra columna).
+- **`meta_ad_id` en los leads de un DM pagado mueve números:** el CPL y los cierres por anuncio de los click-to-DM cambian, y
+  `lib/campana-traer.ts` puede sumar esos leads al producto de su campaña. Es correcto (los trajo el anuncio), pero se ve.
+- ⚠️ **La etapa «efectiva» de MaKo (`ficha_lead`, `buscar_leads`) se calcula contra el funnel DEL NEGOCIO**, no contra el del
+  lead (`getFunnelDeLead` devuelve el default, lib/funnels.ts): para un lead cuya casa es un producto secundario, MaKo
+  contradice al tablero y a `productos_del_lead`. Sigue sin arreglarse (ver `docs/relevo/crm-pendientes-b1.md`).
+
+**Entorno (vale para cualquier chat con worktrees en Windows).**
+- **El fin de línea se mide con node o con `git ls-files --eol`, nunca con `grep $'\r'` de Git Bash**, que dice «no hay CR»
+  sobre archivos CRLF: un script de reemplazo multilínea tiene que adaptar `\n` → `\r\n` (el Edit tool ya lo hace).
+- **El scratchpad es COMPARTIDO entre los agentes de una corrida:** otros frentes pisaron `msg1.txt` y `msg2.txt`. Los
+  nombres de archivo temporales llevan el frente.
+
 ## El Resumen NATIVO de la ficha: lo que no se ve en el código (16/10/2026)
 
 El frente «Resumen» de la ficha v2 (rama `crm-ficha-v2`): cada bloque del Resumen dejó de envolver una tarjeta de antes
