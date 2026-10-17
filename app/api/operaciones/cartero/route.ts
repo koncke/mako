@@ -20,6 +20,9 @@ import { cicloCartero, hayParaElCartero, tokenDelCarteroValido } from '@/lib/ope
 import { adjuntoParaElCartero } from '@/lib/operaciones-adjuntos';
 
 export const dynamic = 'force-dynamic';
+/** La vuelta contesta en segundos; lo que sigue (el Plan de los chats, lib/centro-plan-auto.ts) corre en `after()`, y cada
+ *  paso del Perro tarda hasta un minuto. */
+export const maxDuration = 300;
 
 const tokenDe = (req: NextRequest) => {
   const auth = req.headers.get('authorization') ?? '';

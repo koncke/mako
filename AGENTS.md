@@ -368,10 +368,18 @@ runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la 
 pasa una punta al Cerebro** sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
 
 ```sh
-node scripts/antes-de-subir.mjs
+node scripts/antes-de-subir.mjs --rapido
 ```
 
-y le pasa **la última línea**, `VERDE <sha>`. El Cerebro compara ese sha con el de la punta: **sin la línea, no integra.**
+**Es el MÍNIMO OBLIGATORIO** y tarda ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
+rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min antes de compartir procesos). Corre las guardas, los
+tests que **nombran o importan DIRECTO** un archivo cambiado y **todas las barredoras**, sin tipos; le deja a Actions los tipos y los
+importadores a dos saltos o más (el replay: 19 de los 20 rojos de «Tests»). Sin `--rapido` es el chequeo COMPLETO (todos los saltos
+y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); el Cerebro lo usa para
+el push a `integracion`, y un jefe con tiempo puede correrlo también.
+
+El jefe le pasa al Cerebro **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta. El Cerebro compara ese sha con el de la
+punta: **sin la línea, no integra.**
 Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
 mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
 o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
@@ -409,6 +417,15 @@ tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El s
 **espera RAM** antes de cada una (el piso se deriva: zona roja del vigía + lo que pide cada proceso). Nunca corras
 `node --test tests/*.test.ts` a mano en esta máquina.
 
+⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con
+`scripts/cache-lecturas.cjs` memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos
+~5.400 archivos y, con `node --test`, cada archivo de test es un proceso aparte que los vuelve a leer (12 barredoras: 193 s
+separadas, 40 s juntas; la suite ENTERA —1.050 tests compartibles— en 2 procesos: 260 s, 0 rojos). **Todo rojo de un proceso
+compartido se repite aislado antes de contarlo** (puede ser interferencia: `editor-landing-origen` falló una vez porque otro test
+dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de trabajo NUNCA se comparte
+(regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su proceso solo, sin tocar nada.** El
+riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en su proceso.
+
 **Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
 → tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
 calcular, la segunda fase cae a `npm test`. Medido con la API (`/actions/runs/{id}/timing`, 17/10): un run ROJO cuesta ~2 min
@@ -416,9 +433,9 @@ facturables (run 94: 107 s; antes 5-10). El VERDE (run 95: 781 s) subió de ~11 
 node (núcleos − 1 = UN proceso en un runner de 2 vCPU): ahora `auto` usa todos los núcleos, la segunda fase va en UNA sola corrida
 de `node --test`, y un archivo que sólo falla con varios procesos se repite solo y, si pasa, sale como FLAKY (no frena, pero se ve).
 
-**La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 17 runs rojos de Actions
+**La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 21 runs rojos de Actions
 (`docs/fallos-ci-integracion.jsonl`) sobre el árbol exacto de la cabeza que falló y con la base real (el último verde):
-**20/20 rojos salen**. Un run rojo nuevo se suma a ese archivo y se vuelve a correr: si no sale, el script todavía no está.
+**25/25 rojos salen**. Un run rojo nuevo se suma a ese archivo y se vuelve a correr: si no sale, el script todavía no está.
 El porqué de cada decisión y lo que NO cubre: [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Los rojos de Actions».
 
 # El build de Vercel tiene un tope de memoria que NO está en el repo
@@ -954,6 +971,19 @@ avance?» necesita el último valor que la base le confirmó a ESA pestaña** (`
 dos mitades): contra la fila sola, una pestaña vieja reabre lo que se completó en otro lado
 (16/10/2026, revisión adversarial).
 
+⚠️ **Y «el proyecto lo define la reunión» vale SÓLO en el tablero de un cliente** (#870, 17/10/2026). En el
+del dueño, una llamada con un cliente de MaKo deja trabajo de las tabs: cada tarea va al proyecto que eligió la
+extracción. Lo decide `proyectoQueManda` (lib/reunion-cliente.ts), y nadie más llama a
+`nombreDeProyectoPara` para pisar el proyecto de una reunión. **Y el proyecto de un cliente se busca por su LEAD**
+(`proyectoDelCliente`, lib/reunion-cliente-reglas.ts) y nace con su `cliente_lead_id`. Por nombre solo, el ws1
+terminó con tres proyectos para el mismo cliente.
+
+⚠️ **Lo que el detalle de una tarea extraída AFIRMA tiene que haberse dicho** (17/10/2026). Cada tarea del modelo pasa por
+`limpiarLoDicho` (lib/detalle-sin-inventos.ts): el nombre real en vez del de la cuenta de Fathom, y fuera el renglón con un
+dato técnico (librería, proveedor, versión, año) que no está en la transcripción. Un prompt nuevo que pida un LARGO mínimo
+vuelve a empujar el relleno: medido, 14 de 37 tarjetas. **Y para marcar hecha una tarea desde afuera del tablero se usa
+`cerrar_tareas_plan`** (en el acto, con la evidencia, sin borrador); `proponer_cierre_tareas` es sólo para lo que se deduce.
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
@@ -1443,14 +1473,21 @@ código nuevo:
     - **Un brief nombra el archivo, el «hecho» y lo que no se toca.** Nunca «lee todo el relevo» si alcanza una sección.
     - **Con la ventana de 5 horas arriba del 85%:** nada de workflows ni tandas grandes de tests. Se termina lo que está
       a medias y se commitea.
+    - **Un chat que necesita datos del negocio NO lee el cerebro entero** (17/10/2026, docs/diseno-second-brain-grafo.md):
+      pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
+      (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
+      grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
-    lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, el trabajo no aparece para revisar.
+    lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
   - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
     está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
     además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
-    - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba;
-    - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`, para que aparezca en Review.
+    - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba: el primer renglón
+      («Ya está: …») es el título de la tarjeta y lo demás su detalle. Desde el 17/10/2026 (la C) Review se fue: el
+      «Ya está» se dibuja como una tarjeta en la conversación, con «Revisar» en esa ruta (o en la tab de su área),
+      su tarea del Plan y «Responder sobre esto» (app/admin/operaciones/Avance.tsx → YaEstaMensaje);
+    - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`.
     **Y TODO lo de un área, también lo que Martín tiene que hacer por ella** (conectar una cuenta, cargar un precio, abrir
     su Chrome), lo dice el chat de esa área en su conversación: «¡Deja de decirme estas cosas por aquí!» (17/10/2026).
     El Cerebro no lo repite. En su chat queda sólo lo que no es de ningún área (cuentas, GitHub, la PC, la nube).
@@ -1459,16 +1496,22 @@ código nuevo:
     tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
     herramientas.
     **Y ninguna punta llega al Cerebro sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
-    de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs` sobre
-    su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea (`VERDE <sha>`) junto con la punta:
+    de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs --rapido`
+    (~3-4 min: es el mínimo obligatorio) sobre su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea
+    (`VERDE <sha> (rápido: …)`) junto con la punta:
     el Cerebro no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
     «Antes de pasarle una punta al Cerebro» (más arriba, junto al pre-push).
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
     action (el Perro tarda hasta un minuto y las acciones van de a una): ninguna escritura directa a `plan_tareas`. Un
-    proyecto se busca por `nucleo()`: el tablero lo guarda como «Feature: CRM». **Un mensaje NO se vuelve tarea solo**:
-    «Sumar al Plan» es un clic de Martín, sin preguntas. El Cerebro no tiene proyecto.
+    proyecto se busca por `nucleo()`: el tablero lo guarda como «Feature: CRM». El Cerebro no tiene proyecto.
+    **EL PLAN DE CADA CHAT SE ARMA SOLO** (17/10/2026, la D; Martín: «no puede haber chats con el Plan vacío» y «marcar
+    resuelta una tarea... es AUTOMÁTICO, siempre»): el «Voy a trabajar en X» de un chat crea la tarea «X» en el proyecto de
+    su jefe, y su «Ya está» la marca hecha. Lo hace el SERVIDOR con los turnos que sube la PC (lib/centro-plan-auto.ts,
+    actor «MaKo · Ops Center»), después de contestarle al Runner (`after()`, porque cada paso pasa por el Perro). Un chat
+    no las suma a mano: lo que cuida es escribir el «Voy a trabajar en…» con un título que sirva de tarea. Un mensaje
+    cualquiera de Martín sigue sin volverse tarea.
   - **Dos chats distintos no se llaman igual**: si pasa, se unen. Se separan renombrando uno («⋯ → Renombrar»), que le
     manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
     firma, sin una puerta nueva a la PC.
@@ -1658,6 +1701,25 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
+
+## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
+
+Pedido de Martín (17/10/2026, por el Ops Center): «al terminar de solucionar algo que detectaste de un cliente… le
+envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una aclaración de que sos el "Desarrollador"».
+
+- **Con la herramienta, nunca a mano:** `scripts/avisar-arreglo-al-grupo.mts --ws <n> --clave <incidente|ticket>
+  --commit <sha> --texto "…" --origen "<tu chat>"`. Sin `--enviar` no manda nada: prueba la producción y muestra el texto.
+  Con `--enviar`, `avisarArregloAlGrupo` (lib/aviso-arreglo.ts) firma «👨‍💻 Desarrollador de MaKo», respeta el tope del
+  día, no repite la misma clave y deja el registro en el negocio (`mako.dev.aviso_arreglo.<clave>`).
+- **Nunca antes de producción.** El script lo prueba: el commit en `origin/main` Y un despliegue de producción de Vercel
+  en «Ready» que lo contiene. «Pushear no es desplegar».
+- **Nunca en el ws1 sin estar seguro** (es de Mauricio, un cliente): `--ws1-seguro` y sólo después de mirar que el
+  arreglo es suyo.
+- **El texto dice lo que YA pasó**, en palabras del cliente y de tú: qué le falló, que ya anda y cómo probarlo. Sin
+  promesas ni groserías (se rechaza, no se corrige). Un aviso por arreglo.
+- **NO necesita el OK de Martín** (17/10/2026, 10:09: «No necesitas mi aprobacion, manda el mensaje tranquilamente al
+  grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
+  lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -3860,6 +3922,23 @@ dirección.** Truncado e invención son la misma métrica con el signo cambiado,
 nació mirando una sola punta. Lo mismo vale para «demasiado lento / demasiado rápido»,
 «muy chico / muy grande», «cero resultados / demasiados resultados»: una distribución tiene
 dos colas, y la que no se mira es por donde entra.
+
+# Una tasa cuenta a la MISMA gente, y un número que ve el cliente dice de dónde sale
+
+El 16/10/2026, en la revisión con Código Inmobiliario, Martín leyó en el diagnóstico de Offer «Cierras el 43% de las
+llamadas» y preguntó «¿de dónde sacó ese número?». Lo calculaba el código: las 9 ventas del PERÍODO sobre las 21
+asistencias del PERÍODO, y 4 de esas ventas nunca habían pasado por una llamada. Sobre la misma gente eran 6 de 21.
+
+- **Numerador y denominador salen de la MISMA lectura** («de los que asistieron, cuántos compraron»), no de dos conteos
+  del mismo rango de fechas. Si sólo hay conteos del período, se dice como tal («ventas del período»), nunca «cierras el X%».
+- **Un número que ve un cliente lleva su fuente al lado** («tu CRM, del 19/07 al 16/10», «según me dijiste», «en MaKo»).
+  Lo que la IA escribe con cifras se revisa cifra por cifra contra lo que dio el dueño y lo que calculó el código
+  (lib/offer-reglas.ts → `diagnosticoConFuentes`): una cifra sin fuente saca su frase.
+- **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Cristian: …») vuelve «dicho por el
+  dueño» a todo número del 0 al 59 si se cuentan (`cifrasDelNegocio` ya no las lee).
+- **Un conteo no le da fuente a un porcentaje**: «43 llamadas» y «43%» son claves distintas (`claveConFuente`).
+
+Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario».
 
 # Dos números que se comparan salen de UN juicio — no de una fórmula sobre el otro
 
@@ -9043,3 +9122,19 @@ Desde el 16/10/2026 una etapa de reunión puede tener vinculado un evento de Cal
   (`reclamarRuteoDeAgenda`), y para soltar UNA se pregunta antes si alguien más la usa.
 - **Un vínculo se guarda con el identificador que manda el webhook** (Calendly: la URI del event type; Cal.com:
   su id), nunca con el nombre: el ruteo compara exacto y dos eventos se pueden llamar igual.
+
+# La barra de inspección: lo que se pega a la ventana va debajo, y el primer cuadro lo arma el server
+
+Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra-agencia` y `--barra-agencia` vale su alto
+(docs/hallazgos-ui.md, #850 y #881).
+
+- **Lo que se pega a la VENTANA va a `top: var(--barra-agencia, 0px)`** (o `calc(N + var(--barra-agencia, 0px))`): un
+  `sticky` de una página que scrollea entera, o un `fixed` arriba. Lo que se pega ADENTRO de un modal o de un panel con
+  scroll va en su número de siempre, porque ahí la barra no está. Si el mismo componente vive en los dos lugares, cada
+  puerta dice dónde se pega (`arribaTabs` en la ficha del lead). Un `<aside>` ya lo baja la regla de globals.css.
+- **Un selector sobre el estilo en línea reconoce las DOS escrituras**: el navegador escribe «height: 100dvh» y el server
+  escribe «height:100dvh», sin espacios, y la hidratación no lo reescribe. Con una sola, la regla falla justo en la carga
+  del server, que es como se entra a inspeccionar. `tests/barra-inspeccion-alto.test.ts` lo fija.
+- **Un estado que se corrige con un fetch nace con lo que sabe el server, nunca con un literal**: el Sidebar nacía con
+  «Mauricio Bustos», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
+  usan el layout y `/api/auth/me`, y de ningún otro lado.

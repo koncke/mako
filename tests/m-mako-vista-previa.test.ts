@@ -142,7 +142,8 @@ test('ELEGIR no sube nada: las tres entradas y el «+» de la vista pasan por `s
 test('Enviar manda los adjuntos y el texto, y recién ahí ChatMako sube TODO JUNTO por multipart', () => {
   const enviar = bloque(COMPOSER, 'const enviar = () => {', 'const micApagado');
   assert.match(enviar, /if \(!puedeEnviar\) return;/);
-  const iMandar = enviar.indexOf('onEnviar(envioDe(texto, lista.ref.current));');
+  // Desde el 17/10/2026 el texto lleva también los textos pegados largos, como documento (#864, lib/chat-pegado.ts).
+  const iMandar = enviar.indexOf('onEnviar(envioDe(conPegados(texto, pegados), lista.ref.current));');
   const iVaciar = enviar.indexOf('lista.vaciar();');
   assert.ok(iMandar > 0 && iVaciar > iMandar, 'se manda lo de AHORA (la ref) y después se vacía la lista');
   const vista = VISTA();

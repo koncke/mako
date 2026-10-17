@@ -175,7 +175,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       turnos={k.turnosDe(chat)} carteros={k.carteros}
       preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
-      avance={k.avance} onAvance={k.cambiarAvance}
+      tareas={k.tareasDe(chat)}
       aspecto={elegidoPara(k.munecos, chat.titulo)}
       onMuneco={() => k.abrirMuneco(chat)}
       espera={esperaDe(chat, k.esperas)}
@@ -263,7 +263,7 @@ export function MenusCentro({ centro: k }: { centro: Centro }) {
         <MenuContextual punto={{ x: menu.x, y: menu.y }} titulo={delMenu.titulo} onCerrar={k.cerrarMenu} onElegir={k.elegirEnMenu}
           items={[
             ...(delMenu.sesiones.length ? [{ id: 'renombrar', label: 'Renombrar', icono: 'renombrar' as const }] : []),
-            { id: 'muneco', label: 'Cambiar su muñeco', icono: 'emoji' as const },
+            { id: 'muneco', label: 'Cambiar su criatura', icono: 'emoji' as const },
           ]} />
       )}
       {renombrando && deRenombre && (
@@ -279,10 +279,10 @@ export function MenusCentro({ centro: k }: { centro: Centro }) {
         </Modal>
       )}
       {eligiendo && deMuneco && (
-        <Modal titulo="Su muñeco" onCerrar={() => k.setEligiendo(null)} ancho={760} alto="min(560px, 90dvh)"
+        <Modal titulo="Su criatura" onCerrar={() => k.setEligiendo(null)} ancho={760} alto="min(560px, 90dvh)"
           pie={<>
             {elegidoPara(munecos, deMuneco.titulo) && <Button variant="tertiary" disabled={eligiendo.guardando} onClick={() => void k.guardarElegido(null)}>Volver al de siempre</Button>}
-            <Button loading={eligiendo.guardando} onClick={() => void k.guardarElegido(eligiendo.aspecto)}>Guardar muñeco</Button>
+            <Button loading={eligiendo.guardando} onClick={() => void k.guardarElegido(eligiendo.aspecto)}>Guardar criatura</Button>
           </>}>
           <ElegirMuneco titulo={deMuneco.titulo} animo={animoDe(deMuneco)} aspecto={eligiendo.aspecto} onCambio={(a) => k.setEligiendo({ ...eligiendo, aspecto: a })} />
         </Modal>

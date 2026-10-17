@@ -11,9 +11,16 @@
 // de la comunidad y el ranking de 30 días), Calendario, Miembros, Ranking (Leaderboards) y About. A la
 // derecha, la búsqueda (posts y miembros) y la campana de notificaciones.
 //
-// La montan dos pantallas con dos pieles y dos caminos al server (./api.ts):
-//   · el EQUIPO: app/customer-success/comunidad/ComunidadEquipo.tsx (server actions, tokens de la app);
-//   · el ALUMNO: ./ComunidadAlumno.tsx (POST con el token de su link, la paleta del portal del curso).
+// La montan dos pantallas con dos caminos al server (./api.ts):
+//   · el EQUIPO: app/customer-success/comunidad/ComunidadEquipo.tsx (server actions), adentro de la tab Clients;
+//   · el ALUMNO: ./ComunidadAlumno.tsx (POST con el token de su link).
+// Desde el 17/10/2026 LAS DOS van con la piel del CURSO (`piel: 'papel'`). Martín: «quiero que el diseño de la
+// comunidad tipo Skool que hicimos se parezca a lo que hicimos en CURSO, y que sea personalizable». El acento y la
+// fuente son los del programa (los pinta la raíz de Clients o el portal). La piel de la app queda para quien la pida.
+//
+// ⚠️ ADENTRO DE CLIENTS LA PESTAÑA LA MANDA LA URL (`pestana` + `onPestana`) y la fila de pestañas es la de la
+//    cabecera de Clients (`sinPestanas`): cada pestaña es una sub-tab (/clients/community, /clients/members…). Las
+//    vueltas internas (abrir un post desde la campana, un evento, «Ver ranking») pasan por `onPestana` igual.
 //
 // ⚠️ LA MODERACIÓN SE OFRECE SÓLO SI EL SERVER DIJO QUE SE PUEDE (`puedoModerar`) Y LA API LA TIENE
 //    (la del alumno no la trae). Esconderla no protege nada: el server vuelve a preguntar.
@@ -32,7 +39,9 @@ import { Campana } from './Campana';
 import { Busqueda } from './Busqueda';
 import { Ctx, Ico, useComunidad, type CtxComunidad, type Tema } from './piezas';
 
-type Pestana = 'comunidad' | 'calendario' | 'miembros' | 'ranking' | 'about';
+export type Pestana = 'comunidad' | 'calendario' | 'miembros' | 'ranking' | 'about';
+/** La piel: la del curso (papel, tinta, el acento del programa) o la de la app. */
+export type Piel = 'papel' | 'app';
 const PESTANAS: Array<{ id: Pestana; label: string }> = [
   { id: 'comunidad', label: 'Comunidad' },
   { id: 'calendario', label: 'Calendario' },
@@ -44,9 +53,19 @@ const PESTANAS: Array<{ id: Pestana; label: string }> = [
 /** Cada cuánto el alumno avisa que sigue acá (la ventana de «en línea» es de 5 minutos). */
 const LATIDO_MS = 90_000;
 
-export function Comunidad({ api, tema, inicial = null, cabecera, aviso: avisoArriba, postInicial = null }: {
+export function Comunidad({
+  api, tema, piel = 'papel', inicial = null, cabecera, aviso: avisoArriba, postInicial = null,
+  pestana: pestanaControlada, onPestana, sinPestanas = false,
+}: {
   api: ApiComunidad;
   tema: Tema;
+  /** Default: la del curso (17/10/2026). */
+  piel?: Piel;
+  /** La pestaña, cuando la manda la URL (la tab Clients). Sin esto, la pestaña es estado de acá. */
+  pestana?: Pestana;
+  onPestana?: (p: Pestana) => void;
+  /** No dibujar la fila de pestañas: la dibuja quien monta (la cabecera de Clients). La búsqueda y la campana quedan. */
+  sinPestanas?: boolean;
   /** Lo que ya trae el HTML (el equipo). Sin esto, se pide al montar (el alumno). */
   inicial?: { comunidad: ComunidadVista; feed: FeedVista } | null;
   /** Lo que va a la derecha de las pestañas (el selector de producto del equipo). */
@@ -61,7 +80,9 @@ export function Comunidad({ api, tema, inicial = null, cabecera, aviso: avisoArr
 }) {
   const [datos, setDatos] = useState(inicial);
   const [error, setError] = useState<string | null>(null);
-  const [pestana, setPestana] = useState<Pestana>('comunidad');
+  const [pestanaLocal, setPestanaLocal] = useState<Pestana>('comunidad');
+  const pestana = pestanaControlada ?? pestanaLocal;
+  const setPestana = onPestana ?? setPestanaLocal;
   const [perfil, setPerfil] = useState<string | null>(null);
   const [postPedido, setPostPedido] = useState<number | null>(postInicial);
   const [eventoPedido, setEventoPedido] = useState<{ id: number; ocurrencia: string | null } | null>(null);
@@ -117,9 +138,10 @@ export function Comunidad({ api, tema, inicial = null, cabecera, aviso: avisoArr
     sacar: puedeSacar ? (m) => setSacando({ clave: m.clave, nombre: m.nombre }) : null,
     aviso: (m) => show(m),
     confirmar: (m, o) => confirm(m, { ...o, danger: true }),
-  } : null), [api, tema, datos, setComunidad, ahora, show, confirm, puedeSacar]);
+  } : null), [api, tema, datos, setComunidad, ahora, show, confirm, puedeSacar, setPestana]);
 
-  const raiz = `cmu cmu--${tema}`;
+  // El tema dice QUIÉN mira (equipo o alumno); la piel, CÓMO se ve (./estilos.ts).
+  const raiz = `cmu cmu--${tema} cmu--${piel}`;
   if (!ctx || !datos) {
     return (
       <div className={raiz}>
@@ -134,8 +156,8 @@ export function Comunidad({ api, tema, inicial = null, cabecera, aviso: avisoArr
       <div className={raiz}>
         <style dangerouslySetInnerHTML={{ __html: CSS_COMUNIDAD }} />
         {avisoArriba}
-        <nav className="cmu-tabs" aria-label="Comunidad">
-          {PESTANAS.map((p) => (
+        <nav className={`cmu-tabs${sinPestanas ? ' cmu-tabs--solo-extra' : ''}`} aria-label="Comunidad">
+          {!sinPestanas && PESTANAS.map((p) => (
             <button key={p.id} type="button" className="cmu-tab" data-on={pestana === p.id} aria-current={pestana === p.id ? 'page' : undefined}
               onClick={() => setPestana(p.id)}>
               {p.label}

@@ -79,3 +79,32 @@
 .ch-adjuntar:hover:not(:disabled) { color: var(--ink); background: var(--velo-hover); }
 .ch-adjuntar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .ch-adjuntar:disabled { cursor: default; opacity: .6; }
+
+/* ── El texto pegado como documento, y la burbuja larga plegada (17/10/2026, #848 y #864) ─────────────────────
+   app/_chat/PegadoHilo.tsx. Una transcripción de 400 renglones hacía una burbuja de 24.474 px: el chat entero era el
+   pegado. El pegado es una tarjeta (abre en una caja con su propio scroll) y lo escrito largo se pliega. */
+.ch-pegados { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: 100%; }
+.ch-pegado { width: min(100%, 420px); border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.ch-pegado__cab {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: 0; background: none;
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+.ch-pegado__cab:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.ch-pegado__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ch-pegado__nombre { font-size: var(--fs-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-pegado__meta { font-size: var(--fs-meta); color: var(--faint); }
+.ch-pegado__ver { flex: none; font-size: var(--fs-sm); font-weight: 600; color: var(--primary); }
+.ch-pegado__cuerpo {
+  margin: 0; padding: 10px 12px; border-top: 1px solid var(--border); max-height: min(50dvh, 420px); overflow-y: auto;
+  font-size: var(--fs-sm); line-height: 1.5; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.ch-plegable { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 100%; }
+.ch-plegable > p { margin: 0; }
+.ch-plegable[data-plegado='1'] > p {
+  max-height: 16em; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+}
+.ch-plegable__ver { border: 0; background: none; padding: 2px 4px; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--primary); cursor: pointer; }
+/* En la caja, antes de mandar: el pegado como una ficha más de la lista de archivos. */
+.ch-elegido--pegado .ch-elegido__nombre { max-width: 220px; }

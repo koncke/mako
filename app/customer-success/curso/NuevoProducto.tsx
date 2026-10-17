@@ -37,7 +37,7 @@ import { crearServicioAction } from '../actions';
 import { useCerrarEstable, useFocoInicial } from './dialogo-foco';
 
 /** El curso del producto `id` (el `?ws=` lo pone `conWs`). */
-const rutaDelCurso = (id: number) => `/customer-success/curso?producto=${id}`;
+const rutaDelCurso = (id: number) => `/clients/classroom?producto=${id}`;
 
 export function NuevoProducto({ onCerrar }: { onCerrar: () => void }) {
   const id = useId();

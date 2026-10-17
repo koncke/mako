@@ -71,8 +71,9 @@ export function EditarDeal({ lead, stages, pagos, onDone, onCancel }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* Barra de acción FIJA (solo existe mientras se edita el deal) */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14, boxShadow: '0 4px 16px rgba(18,21,27,.07)' }}>
+      {/* Barra de acción FIJA (solo existe mientras se edita el deal). Se pega a la VENTANA: debajo de la barra de
+          inspección (#850). */}
+      <div style={{ position: 'sticky', top: 'var(--barra-agencia, 0px)', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14, boxShadow: '0 4px 16px rgba(18,21,27,.07)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <span style={chipStyleFor(sm)}>{sm?.label ?? stage}</span>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--dim)' }}>Editando el deal</span>

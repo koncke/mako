@@ -4375,6 +4375,37 @@ El script, fuera del repo: `probar-pedidos-ws9.mts` en el scratchpad del chat «
 `objetosDeTab` + `interpretarMensaje` + `burbujasDeHoja` bajo `runWithWorkspace(9)` y `--conditions=react-server`.
 · *2026-10-17 chat «Dashboard» (claude4)*
 
+### Las tres, cerradas en las reglas (17/10/2026, chat «Automations»)
+
+- **«Abre la hoja Landing» no era culpa de la IA.** Las reglas solas acertaban; lo que fallaba era que DUDABAN («Landing» es
+  palabra del área `landing`, así que el texto «nombraba dos áreas»), le preguntaban a la IA, la IA decía `landing` y una
+  etiqueta de la IA gana siempre. El diagnóstico obvio («que la IA etiquete mejor») no lo arreglaba. Ahora un área que el
+  texto nombra SÓLO dentro del nombre de un objeto de esta tab no cuenta: ni para dudar (`areasFueraDeNombres`) ni para
+  mandar a otra tab (`enUnNombre`, aunque la IA lo diga). ⚠️ Con una excepción que el primer intento rompió: «créame OTRA
+  landing» con una hoja llamada «Landing» es una landing, no la hoja (`unaDeEsaArea`).
+- **«Ve al CRM» no tenía ni verbo ni área.** «CRM» y «General» no son palabras de su área en `AREA_KEYWORDS` (esa tabla se
+  hizo para sumar herramientas: no tiene los nombres de las tabs). Los verbos de ir NO van en `RE_VERBOS`: «vamos a crear
+  otra landing» es crear y «cuando el lead entra al funnel» describe una automatización. Cuentan sólo con un destino que se
+  reconoce (`destinoEn`): el TÍTULO de la tab (`AREA_INFO[*].tab`, con «la tab de», «la pestaña de») o, después de «ve a»
+  y «llévame a», una palabra del área que no sea un verbo («vamos a agendar» sigue siendo agendar, con su operación). A la
+  misma tab por su título: «Ya estás en Dashboard.». «A y llévame al CRM» se parte, para que el link no se coma el cambio.
+  ⚠️ Una regex sobre el texto PLANO que escribe «llevame» la agarra la guarda de voseo de tests/puente-panel-copy.test.ts
+  (que no nombra este archivo: corre sobre todo el repo). Se escribe `llev(?:ame|anos)`, como `agend(?:ar|ame)` al lado.
+- **«Abre la hoja de Marketing» (no existe) ahora dice «No hay una hoja «Marketing». Están «A» y «B».».** Es
+  `PALABRA_DEL_OBJETO` por tab (hoja, landing, automatización, diseño, proyecto), sólo con ver/abrir y borrar, y sólo si la
+  tab conoce sus objetos (con la lista vacía no se sabe si no hay o si no se leyeron). Un nombre con «y» adentro
+  («CRM y pipeline») se busca ENTERO antes de cortar el nombre en la «y». La hoja abierta pedida por su nombre: «ya está
+  abierta» (antes la burbuja no decía nada).
+
+**Lo que quedó SIN hacer:** la burbuja de «Ve al CRM» dice «Eso se hace en CRM.» con su link: el texto es de cada chat
+(`TEXTOS_HOJA.irA` en app/dashboard/pedidos-hoja.ts) y `PedidoResuelto` no distingue «ir» de «hacer». «Quiero ver mis
+leads en el CRM» sigue dependiendo de la IA (las reglas lo mandan a la hoja; «en el CRM» no es un destino). No se probó con
+la IA de verdad ni en pantalla.
+
+**Vive en:** `lib/mako-pedidos.ts` (`destinoEn`, `areasFueraDeNombres`, `porSuPalabra`, `noHay`, `decidir`,
+`dudaDeLasReglas`) · test: `tests/mako-pedidos.test.ts` (los tres del 17/10, probados rompiéndolo).
+· *2026-10-17 chat «Automations» (claude4)*
+
 ## La key de la plataforma copiada en la fila de un cliente: los datos del ws1 iban a un Gemini gratis (16/10/2026)
 
 **Vive en:** lib/ai-cheap.ts (`provsDe`, `provDe`, `soloLasPropias`, `huellasDeLaPlataforma`) · lib/ia-keys.ts

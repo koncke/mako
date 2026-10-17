@@ -26,6 +26,7 @@ import { proyectoParaTarea } from './reunion-cliente';
 import { asignarTareasAProyectos } from './mako-guardian';
 import { CATALOGO_TODO, delCatalogoTodo, PREFIJO_CLIENTE } from './todo-proyectos-catalogo';
 import { esProyectoDeCliente, esProyectoBandeja, destinoSinIA, type DestinoSinIA } from './plan-bandeja';
+import { proyectoDelCliente } from './reunion-cliente-reglas';
 
 const norm = (s: string): string =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
@@ -147,10 +148,19 @@ export async function rutearTareasCliente(items: TareaARutear[]): Promise<Destin
  * `clienteDeLaReunion`: el borrador sabe con qué cliente fue la reunión (mig 0160). Sólo así un
  * «Cliente: X» que todavía no existe puede nacer: es la señal del CRM, no el modelo.
  */
-export async function rutearSinIA(items: TareaARutear[], opts: { clienteDeLaReunion?: boolean } = {}): Promise<DestinoSinIA[]> {
+export async function rutearSinIA(items: TareaARutear[], opts: { clienteDeLaReunion?: boolean; cliente?: { leadId: number; nombre: string } } = {}): Promise<DestinoSinIA[]> {
   if (!items.length) return [];
-  const cats = await listCategorias().catch(() => [] as Array<{ id: number; nombre: string }>);
+  const cats = await listCategorias().catch(() => [] as Array<{ id: number; nombre: string; cliente_lead_id?: number | null }>);
   const existentes = new Set(cats.map((c) => norm(c.nombre)));
+  // EL PROYECTO QUE YA TIENE EL CLIENTE DE LA REUNIÓN (#870). El borrador guardó un nombre al leerse
+  // («Cliente: Congelados HMO») y ese nombre puede no existir más —se unió con otro, o el dueño lo
+  // renombró—. Con el lead del borrador se busca el suyo: sin esto, cargar un borrador viejo volvía a
+  // abrir el proyecto que se acababa de unir.
+  const delCliente = opts.cliente && opts.cliente.leadId > 0
+    ? proyectoDelCliente(cats.filter((c) => !esProyectoBandeja(c.nombre)), { leadId: opts.cliente.leadId, empresa: null, nombre: opts.cliente.nombre })
+    : undefined;
+  const propuestoDe = (p?: string): string | undefined =>
+    delCliente && p && esProyectoDeCliente(p) && !existentes.has(norm(p)) ? delCliente.nombre : p;
   return Promise.all(items.map(async (it) => {
     const r = await proyectoParaTarea({ titulo: it.titulo, detalle: it.detalle }).catch(() => null);
     const deTexto = r?.cliente && r.nombre ? { nombre: r.nombre, via: 'cliente-en-texto' as const }
@@ -158,7 +168,7 @@ export async function rutearSinIA(items: TareaARutear[], opts: { clienteDeLaReun
         : null;
     return destinoSinIA({
       deTexto,
-      propuesto: it.proyectoSugerido,
+      propuesto: propuestoDe(it.proyectoSugerido),
       existe: (n) => existentes.has(norm(n)),
       delCatalogo: (n) => delCatalogoTodo(n)?.nombre,
       esClienteDeLaReunion: (n) => !!opts.clienteDeLaReunion && esProyectoDeCliente(n),

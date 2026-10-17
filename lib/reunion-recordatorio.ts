@@ -255,7 +255,7 @@ export async function leerConfigRecordatorio(ws: number): Promise<ConfigRecordat
  */
 export async function toquesDelNegocio(ws: number): Promise<{
   activo: boolean; fuente: 'automatizacion' | 'configuracion';
-  toques: Array<{ min: number; texto: string; linea: string | null }>; problemas: string[];
+  toques: Array<{ min: number; texto: string; linea: string | null; sinVistaPrevia?: boolean }>; problemas: string[];
 }> {
   const { data, error } = await getSupabaseServer()
     .from('nutricion_secuencias').select('id, activa, pasos')
@@ -265,12 +265,12 @@ export async function toquesDelNegocio(ws: number): Promise<{
   const filas = (data ?? []) as Array<{ id: number; activa: boolean | null; pasos: unknown }>;
   if (filas.length) {
     const problemas: string[] = [];
-    const porMin = new Map<number, { min: number; texto: string; linea: string | null }>();
+    const porMin = new Map<number, { min: number; texto: string; linea: string | null; sinVistaPrevia?: boolean }>();
     const activas = filas.filter((f) => f.activa === true);
     for (const f of activas.length ? activas : filas.slice(0, 1)) {
       const r = toquesDeLaAutomatizacion(Array.isArray(f.pasos) ? f.pasos : []);
       if (r.problema) { problemas.push(`#${f.id}: ${r.problema}`); continue; }
-      for (const t of r.toques) if (!porMin.has(t.min)) porMin.set(t.min, { min: t.min, texto: t.texto, linea: t.linea });
+      for (const t of r.toques) if (!porMin.has(t.min)) porMin.set(t.min, { min: t.min, texto: t.texto, linea: t.linea, sinVistaPrevia: t.sinVistaPrevia === true });
     }
     return { activo: activas.length > 0, fuente: 'automatizacion', toques: [...porMin.values()], problemas };
   }
@@ -362,7 +362,8 @@ export async function mandarRecordatoriosAlLead(
         // Por el número de ESE toque (el que se eligió en su tarjeta); sin elegir, el de por default,
         // como siempre. Uno que ya no está no cae al de por default: `enviarTexto` no manda y el
         // error queda abajo, en `fallo:` (lib/recordatorio-lead.ts, `ConfigRecordatorio.lineas`).
-        const r = await enviarYEspejar({ telefono, texto, leadId: lead.id, linea: toque.linea })
+        // Con su interruptor «Vista previa del link» apagado, el link de la reunión sale como texto (#869).
+        const r = await enviarYEspejar({ telefono, texto, leadId: lead.id, linea: toque.linea, sinVistaPrevia: toque.sinVistaPrevia === true })
           .catch((e): { ok: false; error: string } => ({ ok: false, error: msgErr(e) }));
         if (r.ok) {
           // La marca de ENVIADO va después del envío ok, nunca antes.

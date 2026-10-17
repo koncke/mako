@@ -37,3 +37,15 @@ export function recortarPrueba(prueba: string): string {
 export function renglonDeCierre(prueba: string, parcial: boolean): string {
   return `${parcial ? 'MaKo la dejó a medias' : 'MaKo la marcó hecha'}: ${recortarPrueba(prueba)}`;
 }
+
+/**
+ * La prueba de un cierre EN EL ACTO (`cerrar_tareas_plan`, 17/10/2026) con la ruta donde se revisa. La ruta va
+ * ADELANTE de la prueba recortada, no atrás: si la prueba es larga, lo que se corta es el texto, nunca el link.
+ */
+export function pruebaConRuta(prueba: string, revisar?: string | null): string {
+  const p = (prueba ?? '').trim();
+  const r = (revisar ?? '').trim();
+  if (!r) return recortarPrueba(p);
+  const cola = ` · Se revisa en ${r}`;
+  return `${recortarPrueba(p).slice(0, Math.max(10, TOPE_PRUEBA_CIERRE - cola.length)).trimEnd()}${cola}`;
+}

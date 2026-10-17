@@ -5,8 +5,8 @@
 // leyendo el fuente SIN comentarios (la convención de la casa es explicar en el comentario lo
 // que se sacó, y un guard de «esto NO está» se acusaría a sí mismo):
 //
-//   · se fueron el formulario de hand-offs y el renglón del recordatorio (puntos 1 y 2), y los
-//     avisos de línea caída y envío apagado siguen;
+//   · se fueron el formulario de hand-offs y el renglón del recordatorio (puntos 1 y 2); los
+//     avisos de línea caída y envío apagado se fueron después (17/10/2026, #851);
 //   · la lista muestra SÓLO el nombre, en dos renglones, y busca por nombre (punto 3);
 //   · el recordatorio es un ítem de la lista que lee y escribe EXACTAMENTE el mismo setting;
 //   · «Probar» es un panel acoplado a la derecha que NO reemplaza al lienzo, con ✕ y ↻, que
@@ -46,14 +46,15 @@ function bloque(src: string, firma: string): string {
 
 // ── Puntos 1 y 2: lo que se fue de arriba del lienzo ───────────────────────────
 
-test('se fueron el formulario de hand-offs y el renglón del recordatorio; los avisos de la línea siguen', () => {
+test('se fueron el formulario de hand-offs, el renglón del recordatorio y (desde el 17/10) los avisos de la línea', () => {
   assert.equal(existsSync(join(RAIZ, 'app/automations/HandoffsPanel.tsx')), false, 'el formulario volvió');
   assert.equal(existsSync(join(RAIZ, 'app/automations/RecordatorioReunion.tsx')), false, 'el renglón volvió');
   const app = APP();
   assert.doesNotMatch(app, /HandoffsPanel|RecordatorioReunion|setHandoffs/);
-  // Los dos avisos que SÍ se quedan (los fijan además flujo-acciones-bordes y chatbot-puerta).
-  assert.match(app, /\{canalCaido && \(secuencias \?\? \[\]\)\.some\(\(s\) => s\.activa\) && \(/);
-  assert.match(app, /!canalCaido && envioWa === false && /);
+  // Los dos avisos de arriba (línea caída y envío apagado) se fueron el 17/10/2026 (#851, Martín: «Que no aparezca
+  // ningún mensaje»): lo dicen el chip de cada tarjeta y Publicar/Activar/Probar, que abren el QR ahí.
+  assert.doesNotMatch(app, /\{canalCaido && \(secuencias \?\? \[\]\)\.some\(\(s\) => s\.activa\) && \(/);
+  assert.doesNotMatch(app, /envioWa === false/);
   // `resolverHandoff` y su acción se QUEDAN: los usa MaKo (`resolver_handoff`).
   assert.match(sinComentarios(leer('app/api/chat-agent/secuencias/route.ts')), /resolver-handoff/);
 });
@@ -111,7 +112,7 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   assert.match(lista, /const makoVisible = makoAbierto && !!sel && !creandoSel && caja\.w > 0;/);
   // (15/10/2026: con la lista de contactos, «Probar» pide más ancho, `probarConContactos`; lo sigue decidiendo `muelles`.)
   assert.match(lista, /const m = calcularMuelles\(caja, \{ listaAbierta: true, probarAbierto: probarVisible \|\| makoVisible, editorAbierto: true, probarConContactos: probarVisible && probarContactos \}\);/);
-  assert.match(lista, /makoAlAbrir=\{makoPara === sel\.id\} onChatMako=\{setMakoAbierto\}/);
+  assert.match(lista, /makoAlAbrir=\{makoPara === sel\.id\}(?: cronAlAbrir=\{cronPara === sel\.id\})? onChatMako=\{setMakoAbierto\}/);
   assert.match(lista, /insetDer=\{m\.insets\.der \|\| undefined\}\n\s+muelles=\{m\}/);
   assert.match(lista, /\{probarVisible && sel && m\.probar && \(\n\s+<div data-muelle="probar" style=\{\{ position: 'absolute', left: m\.probar\.left, top: m\.probar\.top, width: m\.probar\.width, height: m\.probar\.height, zIndex: 3, display: 'flex' \}\}>\n\s+<PanelProbar\n/);
   assert.match(lista, /style=\{\{ width: '100%', height: '100%' \}\}/);

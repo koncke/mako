@@ -36,6 +36,34 @@
 // vencimiento). Sirve para mostrarla en la lista; NO se guarda como foto del lead.
 // =============================================================================
 
+// ⚠️ POR NOMBRE NO HAY FUENTE, Y LA PANTALLA LO DICE (#844, 17/10/2026). Martín, en la revisión del 16/10 (11:53):
+// «pones martinkon... ya debería buscarte en internet... Pero hoy en día dice sin resultado y es mentira. Yo busqué
+// incluso mi usuario idéntico y aún dice sin resultado». Medido el 17/10: no hay una fuente oficial y gratis que busque
+// cuentas de Instagram por nombre. Google cerró su Custom Search a clientes nuevos (arriba), Microsoft apagó las Bing
+// Search APIs el 11/08/2025 y Brave sacó su plan gratis en 2026; la barra de Instagram es privada. Pagar una para un
+// campo del alta no pasa la poda del lanzamiento. Entonces: «Sin resultados» ya no se dice cuando no se pudo buscar.
+// La ruta cuenta qué pasó con Meta (`EstadoMeta`) y `avisoSinResultados` lo pone en palabras: por nombre no se puede;
+// por @, Meta no muestra cuentas personales, o el negocio no tiene Meta conectado, o Meta no contestó.
+
+/** Qué pasó con Meta en una búsqueda: lo que la pantalla dice en vez de un «Sin resultados» que miente. */
+export type EstadoMeta = 'encontro' | 'no-esta' | 'sin-conexion' | 'sin-permiso' | 'no-pude';
+export const esEstadoMeta = (x: unknown): x is EstadoMeta =>
+  x === 'encontro' || x === 'no-esta' || x === 'sin-conexion' || x === 'sin-permiso' || x === 'no-pude';
+
+/**
+ * La frase de la lista cuando no hay resultados. `esUsuario` = lo escrito es un @ (sin espacios); `porNombre` = una
+ * fuente por nombre contestó (hoy ninguna). Primero lo que la persona puede hacer: si escribió un nombre, que escriba
+ * el @; si escribió el @, por qué Meta no lo trae. «Usar @x» sigue ofreciéndose debajo.
+ */
+export function avisoSinResultados(p: { esUsuario: boolean; meta: EstadoMeta | null; porNombre: boolean | null }): string {
+  if (!p.esUsuario && p.porNombre !== true) return 'Por nombre no se puede: escribe su @';
+  if (p.meta === 'sin-conexion') return 'Conecta Meta para ver su cuenta';
+  if (p.meta === 'sin-permiso') return 'Meta no da permiso: revisa la conexión';
+  if (p.meta === 'no-pude') return 'Meta no contestó';
+  if (p.meta === 'no-esta') return 'Meta no la muestra: es personal o no existe';
+  return 'Sin resultados';
+}
+
 /** Un perfil de Instagram para elegir. `usuario` va sin la @ y en minúsculas (Instagram no distingue). */
 export type PerfilIg = { usuario: string; nombre: string | null; foto: string | null };
 

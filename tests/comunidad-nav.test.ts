@@ -53,7 +53,7 @@ test('se ve en la barra en cada capa donde la página deja entrar', () => {
 });
 
 test('la página pide la capa de Customer Success', () => {
-  const src = readFileSync(join(import.meta.dirname, '..', 'app', 'customer-success', 'comunidad', 'page.tsx'), 'utf8')
+  const src = readFileSync(join(import.meta.dirname, '..', 'app', 'customer-success', 'comunidad', 'pantalla.tsx'), 'utf8')
     .replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
   assert.match(src, /await requireCapa\('customer-success'\);/);
 });
@@ -64,7 +64,7 @@ test('el catálogo tiene la tab con los pasos EN EL MISMO ORDEN que la regla', (
   const def = TAB_ONBOARDINGS[TAB_COMUNIDAD];
   assert.ok(def, 'falta cs-comunidad en el catálogo de onboardings');
   assert.equal(def.key, TAB_COMUNIDAD);
-  assert.equal(def.href, '/customer-success/comunidad');
+  assert.equal(def.href, '/clients/community');
   assert.deepEqual(def.pasos.map((p) => p.key), [...PASOS_COMUNIDAD]);
   assert.deepEqual(def.pasos.filter((p) => !p.opcional).map((p) => p.key), ['comunidad_post'], 'el único obligatorio es el primer post');
 });

@@ -17,7 +17,7 @@ import { after, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { listReunionesRecientes, extraerTareasDeTexto, cacheKeyReunion, type ProyectoRef, type Yo, type TareaCandidata, type Participante } from '@/lib/plan-fathom';
 import { guardarTermino } from '@/lib/glosario';
-import { resolverClienteDeReunion, nombreDeProyectoPara, opcionesDeCliente } from '@/lib/reunion-cliente';
+import { resolverClienteDeReunion, proyectoQueManda, opcionesDeCliente, tableroDelWorkspace, type ClienteDeReunion } from '@/lib/reunion-cliente';
 import { getSetting } from '@/lib/settings';
 import { esFechaValida } from '@/lib/date-utils';
 import { resumenPropuestasPorRefs, crearPropuesta, estadoDePropuesta, ponerProcesando, RESUMEN_SIN_COMPROMISOS } from '@/lib/plan-propuesta';
@@ -67,7 +67,7 @@ async function asegurarBorrador(
 ): Promise<string> {
   try {
     const cli = await resolverClienteDeReunion({ titulo, participantes }).catch(() => null);
-    const proyCliente = cli ? await nombreDeProyectoPara(cli).catch(() => '') : '';
+    const proyCliente = await proyectoQueManda(cli);
     const mias = tareas.filter((t) => !t.esDeOtro).length;
     return await crearPropuesta({
       ref: `fathom:${recordingId}`,
@@ -83,12 +83,25 @@ async function asegurarBorrador(
   } catch (e) { console.error(`[api:plan-fathom] borrador: ${msg(e)}`); return ''; }
 }
 
+/**
+ * Lo que el modal necesita saber del cliente de la reunión. Tres casos:
+ *   · tablero de un cliente y cliente reconocido → `cliente` con su proyecto: todas van ahí;
+ *   · tablero de un cliente sin certeza → `opcionesCliente`, la pregunta cerrada;
+ *   · TABLERO DEL DUEÑO (#870) → nada que preguntar ni que forzar: `reunionCon` dice con quién fue, y
+ *     cada tarea se queda con el proyecto que eligió la extracción (lo que un cliente dice de MaKo va a
+ *     la tab de la que habla).
+ */
+async function clienteParaElModal(cli: ClienteDeReunion | null, participantes: Array<{ nombre?: string; email?: string | null }>) {
+  const proyecto = await proyectoQueManda(cli);
+  if (cli && proyecto) return { cliente: { nombre: cli.nombre, empresa: cli.empresa, proyecto, email: cli.email }, opcionesCliente: [], reunionCon: null };
+  if (cli || (await tableroDelWorkspace()) === 'dueno') return { cliente: null, opcionesCliente: [], reunionCon: cli?.nombre ?? null };
+  return { cliente: null, opcionesCliente: await opcionesDeCliente({ participantes }).catch(() => []), reunionCon: null };
+}
+
 async function conCliente(payload: Record<string, unknown>, titulo: string | null) {
   const participantes = (payload.participantes ?? []) as Array<{ nombre?: string; email?: string | null }>;
   const cli = await resolverClienteDeReunion({ titulo, participantes }).catch(() => null);
-  const cliente = cli ? { nombre: cli.nombre, empresa: cli.empresa, proyecto: await nombreDeProyectoPara(cli), email: cli.email } : null;
-  const opcionesCliente = cliente ? [] : await opcionesDeCliente({ participantes }).catch(() => []);
-  return Response.json({ ok: true, ...payload, cliente, opcionesCliente });
+  return Response.json({ ok: true, ...payload, ...(await clienteParaElModal(cli, participantes)) });
 }
 
 export async function POST(req: NextRequest) {
@@ -225,9 +238,7 @@ export async function POST(req: NextRequest) {
         const ex = await extrasDeLectura(rid);
         const participantes = ex?.participantes ?? [];
         const cli = await resolverClienteDeReunion({ titulo: est.fuenteTitulo ?? null, participantes }).catch(() => null);
-        const cliente = cli ? { nombre: cli.nombre, empresa: cli.empresa, proyecto: await nombreDeProyectoPara(cli), email: cli.email } : null;
-        const opcionesCliente = cliente ? [] : await opcionesDeCliente({ participantes }).catch(() => []);
-        reunion = { dudas: ex?.dudas ?? [], participantes, partesFallidas: ex?.partesFallidas ?? 0, cliente, opcionesCliente };
+        reunion = { dudas: ex?.dudas ?? [], participantes, partesFallidas: ex?.partesFallidas ?? 0, ...(await clienteParaElModal(cli, participantes)) };
       }
       // «Sin compromisos» también es 'fallado' (lib/plan-propuesta.ts, `marcarSinCompromisos`): el
       // modal lo dibuja como una lectura vacía, con «Volver a analizar», y no como un error.

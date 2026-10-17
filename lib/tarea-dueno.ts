@@ -182,3 +182,28 @@ export function rotuloDePersona(
     || (primero.length >= 3 && fuente.palabras.has(primero)))) return r;
   return OTRA_PERSONA;
 }
+
+// ── El nombre de la cuenta de Fathom no es el de la persona (17/10/2026) ─────────────────────────────────────
+// Fathom rotula a quien graba con el nombre de SU cuenta («Martin Carballo») y la app lo conoce por otro
+// («Martin Koncke»). El modelo copia la etiqueta: 17 de las 37 tarjetas de las llamadas del 16/10 decían
+// «Martin Carballo». La prueba de que es la misma persona es el EMAIL, nunca el parecido del nombre.
+
+export type AliasDelDueno = { de: string; a: string };
+
+/** El nombre con que Fathom rotula a quien mira el tablero, si es OTRO y el email es el mismo. */
+export function aliasDelDueno(grabo: { name?: string | null; email?: string | null } | null | undefined, yo: { nombre: string; email: string }): AliasDelDueno | null {
+  const de = (grabo?.name ?? '').trim();
+  const a = (yo.nombre ?? '').trim();
+  const mismoEmail = !!yo.email && (grabo?.email ?? '').trim().toLowerCase() === yo.email.trim().toLowerCase();
+  if (!mismoEmail || !de || !a || normNombre(de) === normNombre(a)) return null;
+  return { de, a };
+}
+
+/** Cambia el nombre de la cuenta por el de la persona, con o sin acentos y en cualquier capitalización. */
+export function conNombreReal(texto: string, alias: AliasDelDueno): string {
+  const patron = normNombre(alias.de).split(' ').map((p) => [...p].map((c) => {
+    const v: Record<string, string> = { a: '[aáàä]', e: '[eéèë]', i: '[iíìï]', o: '[oóòö]', u: '[uúùü]', n: '[nñ]' };
+    return v[c] ?? c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }).join('')).join('\\s+');
+  return texto.replace(new RegExp(`(?<![\\p{L}])${patron}(?![\\p{L}])`, 'giu'), alias.a);
+}

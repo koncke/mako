@@ -17,6 +17,12 @@
 // incrustadas, caracteres fuera de WinAnsi. Si un día hace falta algo de eso, ahí
 // sí conviene la librería.
 //
+// Y LAS MISMAS PÁGINAS EN SVG (17/10/2026, tarjeta #887: «al terminar el análisis, lo primero que se ve es la vista del
+// PDF»). Cada operador que va al stream se anota también como dibujo (`Dibujo`), y `paginasSvg` arma con eso cada
+// página con las MISMAS posiciones, colores y anchos de texto (`textLength`, medido con las métricas de Helvetica). Es
+// lo que muestra la pantalla: un `<iframe>` con el PDF no se ve en Android ni entero en un iPhone, y un visor de PDF
+// en el navegador es una librería de más de un mega.
+//
 // Coordenadas: la API trabaja de ARRIBA hacia abajo (y = distancia desde el borde
 // superior, como en la pantalla) y convierte al sistema de PDF (origen abajo a la
 // izquierda) recién al escribir el operador. Mezclar los dos sistemas en las
@@ -128,6 +134,33 @@ export type OpcionesPdf = {
 
 const FUENTE_ID: Record<FuenteEstandar, string> = { 'Helvetica': 'F1', 'Helvetica-Bold': 'F2', 'Helvetica-Oblique': 'F3' };
 
+/** Lo mismo que se escribe en el stream, como dibujo (coordenadas desde ARRIBA): de acá sale `paginasSvg`. */
+type Dibujo =
+  | { k: 'texto'; x: number; y: number; t: string; fuente: FuenteEstandar; tam: number; color: string; w: number }
+  | { k: 'rect'; x: number; y: number; w: number; h: number; r: number; relleno?: string; borde?: string; grosor: number }
+  | { k: 'linea'; x1: number; y1: number; x2: number; y2: number; color: string; grosor: number };
+
+const HEX = /^#[0-9a-f]{6}$/i;
+const colorSvg = (c: string | undefined): string => (c && HEX.test(c.trim()) ? c.trim() : '#000000');
+const xml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function svgDe(d: Dibujo): string {
+  if (d.k === 'texto') {
+    const peso = d.fuente === 'Helvetica-Bold' ? ' font-weight="bold"' : '';
+    const estilo = d.fuente === 'Helvetica-Oblique' ? ' font-style="italic"' : '';
+    // El ancho del PDF, forzado: con Arial en vez de Helvetica la línea mide casi lo mismo, y así no se sale del margen.
+    const largo = d.w > 0 ? ` textLength="${num(d.w)}" lengthAdjust="spacingAndGlyphs"` : '';
+    return `<text x="${num(d.x)}" y="${num(d.y)}" font-family="Helvetica, Arial, sans-serif" font-size="${num(d.tam)}"${peso}${estilo} fill="${colorSvg(d.color)}"${largo} xml:space="preserve">${xml(d.t)}</text>`;
+  }
+  if (d.k === 'rect') {
+    if (!d.relleno && !d.borde) return '';
+    const r = d.r ? ` rx="${num(d.r)}" ry="${num(d.r)}"` : '';
+    const borde = d.borde ? ` stroke="${colorSvg(d.borde)}" stroke-width="${num(d.grosor)}"` : '';
+    return `<rect x="${num(d.x)}" y="${num(d.y)}" width="${num(d.w)}" height="${num(d.h)}"${r} fill="${d.relleno ? colorSvg(d.relleno) : 'none'}"${borde}/>`;
+  }
+  return `<line x1="${num(d.x1)}" y1="${num(d.y1)}" x2="${num(d.x2)}" y2="${num(d.y2)}" stroke="${colorSvg(d.color)}" stroke-width="${num(d.grosor)}"/>`;
+}
+
 export class PdfDoc {
   /** A4 en puntos. */
   readonly ancho = 595.28;
@@ -136,6 +169,7 @@ export class PdfDoc {
   private readonly pie: string;
   private readonly colorPie: string;
   private paginas: string[][] = [];
+  private dibujos: Dibujo[][] = [];
   /** Cursor vertical, desde el borde superior. */
   y = 0;
   private descartados = new Set<string>();
@@ -156,10 +190,12 @@ export class PdfDoc {
 
   nuevaPagina(): void {
     this.paginas.push([]);
+    this.dibujos.push([]);
     this.y = this.margen;
   }
 
   private op(s: string): void { this.paginas[this.paginas.length - 1].push(s); }
+  private dibujo(d: Dibujo): void { this.dibujos[this.dibujos.length - 1].push(d); }
 
   /** Avanza el cursor; si no entra, pasa de página. */
   espacio(pt: number): void {
@@ -308,6 +344,7 @@ export class PdfDoc {
   private escribir(x: number, yBase: number, t: string, fuente: FuenteEstandar, tam: number, color: string): void {
     if (!t) return;
     this.op(`BT /${FUENTE_ID[fuente]} ${num(tam)} Tf ${rgb(color)} rg ${num(x)} ${num(this.alto - yBase)} Td ${literal(t)} Tj ET`);
+    this.dibujo({ k: 'texto', x, y: yBase, t, fuente, tam, color, w: anchoTexto(t, fuente, tam) });
   }
 
   /** Rectángulo (y = borde superior, desde arriba). Radio opcional con curvas de Bézier. */
@@ -338,11 +375,13 @@ export class PdfDoc {
     const borde = e.borde ? `${rgb(e.borde)} RG ${num(e.grosor ?? 0.75)} w ` : '';
     const pinta = e.relleno && e.borde ? 'B' : e.relleno ? 'f' : e.borde ? 'S' : 'n';
     this.op(`q ${relleno}${borde}${path} ${pinta} Q`);
+    this.dibujo({ k: 'rect', x, y, w, h, r, relleno: e.relleno, borde: e.borde, grosor: e.grosor ?? 0.75 });
   }
 
   /** Una línea recta (coordenadas desde arriba). */
   linea(x1: number, y1: number, x2: number, y2: number, color = '#EAECF1', grosor = 0.75): void {
     this.op(`q ${rgb(color)} RG ${num(grosor)} w ${num(x1)} ${num(this.alto - y1)} m ${num(x2)} ${num(this.alto - y2)} l S Q`);
+    this.dibujo({ k: 'linea', x1, y1, x2, y2, color, grosor });
   }
 
   /** Una barra de progreso: carril + relleno recortado a [0, 1] (AGENTS.md «Una barra de gráfico se recorta al 100%»). */
@@ -350,6 +389,26 @@ export class PdfDoc {
     const f = Math.max(0, Math.min(1, Number.isFinite(fraccion) ? fraccion : 0));
     this.rect(x, y, w, h, { relleno: carril, radio: h / 2 });
     if (f > 0) this.rect(x, y, Math.max(h, w * f), h, { relleno: color, radio: h / 2 });
+  }
+
+  /**
+   * Las MISMAS páginas en SVG (#887), con el pie de cada una: lo que muestra la pantalla antes de descargar. No toca el
+   * documento (`bytes` se puede llamar antes o después).
+   */
+  paginasSvg(): string[] {
+    const total = this.dibujos.length;
+    const yPie = this.alto - this.margen + 14;
+    return this.dibujos.map((ds, i) => {
+      const pie: Dibujo[] = [];
+      if (this.pie) {
+        const t = this.sanea(this.pie);
+        pie.push({ k: 'texto', x: this.margen, y: yPie, t, fuente: 'Helvetica', tam: 8, color: this.colorPie, w: anchoTexto(t, 'Helvetica', 8) });
+      }
+      const n = `${i + 1} / ${total}`;
+      const w = anchoTexto(n, 'Helvetica', 8);
+      pie.push({ k: 'texto', x: this.ancho - this.margen - w, y: yPie, t: n, fuente: 'Helvetica', tam: 8, color: this.colorPie, w });
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${num(this.ancho)} ${num(this.alto)}" width="${num(this.ancho)}" height="${num(this.alto)}"><rect width="100%" height="100%" fill="#FFFFFF"/>${[...ds, ...pie].map(svgDe).join('')}</svg>`;
+    });
   }
 
   /** El PDF terminado. Agrega el pie a cada página («n / N» a la derecha). */

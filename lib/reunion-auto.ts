@@ -42,7 +42,7 @@ import { zonaDelNegocio } from './timezone';
 import { fechaHoraEnTz } from './date-utils';
 import { listPlanBoard } from './plan-board';
 import { listCategorias } from './todo';
-import { resolverClienteDeReunion, nombreDeProyectoPara } from './reunion-cliente';
+import { resolverClienteDeReunion, proyectoQueManda } from './reunion-cliente';
 import type { TipoReunion } from './reunion-clasificar';
 import { linkApp, APP_BASE_URL as APP_URL } from './app-url';
 import { tableroDeCapa } from './tablero-de-capa';
@@ -370,8 +370,10 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         participantes: r.participantes,
         emails: [r.host?.email ?? ''].filter(Boolean),
       }).catch(() => null);
-      const proyCliente = cliente ? await nombreDeProyectoPara(cliente) : '';
-      if (cliente) console.log(`[reunion-auto] «${r.titulo}» es con ${cliente.nombre} → todo va a «${proyCliente}»`);
+      // ⚠️ SÓLO EN EL TABLERO DE UN CLIENTE (#870, 17/10/2026). En el del dueño, una llamada con un
+      // cliente de MaKo deja trabajo de las tabs: cada tarea va al proyecto que eligió la extracción.
+      const proyCliente = await proyectoQueManda(cliente, ws);
+      if (cliente) console.log(`[reunion-auto] «${r.titulo}» es con ${cliente.nombre} → ${proyCliente ? `todo va a «${proyCliente}»` : 'cada tarea a su proyecto (tablero del dueño)'}`);
 
       // ── EL JUEZ DEL CRITERIO ────────────────────────────────────────────────
       // Solo en los workspaces que cargaron su criterio de compromisos. Sin el, todo

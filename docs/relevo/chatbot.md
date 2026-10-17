@@ -1,5 +1,45 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **17/10/2026 tarde (`claude4`, chat jefe «Automations», sesión local_f74a2156) — LA LISTA DEL CEREBRO, HECHA:**
+> - **Punta (rama `undecima`, con origin/main mergeado en 15e3dd0bf):** 1d48f3176 #894 (varios funnels en «Está en el
+>   funnel de»), cb51166a3 + f677f1cd1 los tres pedidos del ws9 (lib/mako-pedidos.ts), 8a2a5326f #847 (45 s por intento,
+>   «intento N», el dictado), 9f81f2b1b #851 (sin los dos carteles) + #869 (el recordatorio con su vista previa).
+> - **#845, sin código:** la premisa era falsa (no había exclusión) y los leads de la prueba de la llamada ya no existen.
+>   Propuesto al Cerebro: reescribirla como «una prueba con tu propio número que no sale dice por qué» (el freno de 20 h
+>   por persona, «Una sola vez», el embudo), o cerrarla como obsoleta con esa explicación.
+> - **Ojo al traer main otra vez:** `ElegirFunnels` cambió en main (el ícono va en el control); el `sinTodos` de #894 se
+>   mergeó a mano encima. Si alguien vuelve a tocar sus renglones, `tests/condicion-varios-funnels.test.ts` lo agarra.
+> - **Sin mirar en pantalla, nada de esto.** Y sin probar en vivo: que Evolution respete `linkPreview: false` (es un
+>   «Probar en mi WhatsApp» a un teléfono de verdad) y los pedidos con la IA de verdad.
+> - **Lo que sigue (orden del Cerebro):** el lote 3 de «nada por detrás». Del lote 2 quedan `voz-mako-caida-email` (a
+>   propósito, ver el inventario) y los dos del segundo motor. Abiertos de antes: Groq primero en `PROVS_CREAR_IA` (sin
+>   medir calidad), «Crear con IA» que arme la condición con varios funnels, el texto «Eso se hace en CRM» de la burbuja
+>   de ir (de cada chat).
+> - **Espera a Martín:** la key de Resend con Full access en el ws1; borrar los dos mensajes de prueba de la #198.
+
+> **17/10/2026 ~06:45 AR (`claude4`, chat jefe «Automations», sesión local_f74a2156) — CIERRE POR CONTEXTO (92%):**
+> - **En producción:** #849, #873, #882 (run 90) y #847, #846, #869, #875 (run 92). El «Ya está» de cada uno y el
+>   mensaje de «Para revisar / Te toca a ti / Lo que sigue» ya se los escribí a Martín en este chat; los hitos están en
+>   la bitácora (app/admin/dev/chatbot/bitacora.ts).
+> - **⚠️ PUNTA SIN ENTREGAR AL CEREBRO** (lo reiniciaron ~05:00 y retuvo el mensaje; venció sin entregarse): rama
+>   `undecima`, todo encima de 233c065ee. Está escrita en la carpeta de notas compartida
+>   (side-session-notes/local_797d5445…/automations-17-10.md). Trae: de042212c (lote 2: recordatorio del curso, fila
+>   #271), 181862be6 (lote 2: el puente de Flow, fila #272), 0c1cdb0a3 (por qué la alerta de la voz no se muda), y el
+>   commit de cierre (el muñeco del chat + #882 al instante + este relevo).
+> - **Filas del ws 9 creadas hoy ANTES del deploy** (sin camino viejo: sin fila no sale): #269 `reunion_cancelada`,
+>   #270 `lead_fusionado`, #271 `curso_recordatorio`, #272 `flow_puente_ausente`.
+> - **Lote 2 de «nada por detrás»: 4 de 8.** Faltan `voz-mako-caida-email` (no se mudó a propósito: el camino del evento
+>   le haría perder el destinatario fijo y el tope de 30 s; ver el inventario) y los tres del SEGUNDO motor
+>   (`store-flujo-*`, `insistencias-drenar`: lib/flujos.ts y lib/insistencias.ts), que son un cambio de arquitectura.
+> - **#882, segunda mitad, hecha:** la plantilla y la copia con el cargador de «＋ Nueva»; la plantilla abre con su CRON
+>   abierto (sin la pregunta del modal). **El muñeco** «Automations» en la cabecera del chat de MaKo (sólo eso: el hilo
+>   del Second Brain no, este chat tiene otro modelo de mensajes). Ninguno de los dos mirado en pantalla.
+> - **Sin ubicar:** «los puntos 5-6 del feedback del 16/10» de lo visual de «Probar». En el feedback del CRM del 16/10 el
+>   5 y el 6 son del Dashboard y de la ficha, no de «Probar». Preguntarle al Cerebro de dónde salen.
+> - **Regla que me costó una frenada (run 89):** antes de pasar una punta, TODOS los tests que nombran cada archivo
+>   tocado (`grep -l`), con concurrencia 2. Y un `.css` NO va en un componente que los tests importan (va en la página).
+> - **Espera a Martín:** la key de Resend con Full access en el ws1; borrar los dos mensajes de prueba de la #198 (no urge).
+
 > **17/10/2026 ~04:30 AR (`claude4`, chat jefe «Automations», sesión local_f74a2156) — LAS TARJETAS DE BRIGITTE Y DE
 > LAS LLAMADAS, CERRADAS:**
 > - **En producción (run 90):** #849 «Contestó el equipo», #873 (Supr borra lo del lazo), #882 (pegar en otro negocio

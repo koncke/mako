@@ -105,7 +105,7 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const enUnTexto = (t: EventTarget | null): boolean =>
   t instanceof HTMLElement && !!t.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
 
-export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, fondoTabs, pedido, onNoEsta, sangria }: {
+export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, fondoTabs, arribaTabs, pedido, onNoEsta, sangria }: {
   /** Lo que trajo `getLeadFullAction`: las dos puertas leen lo mismo. */
   data: LeadFullData;
   /** Aplicar en el acto lo que una acción ya escribió en el lead (el pop-up). Sin esto, se relee. */
@@ -116,6 +116,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   onTab?: (key: string) => void;
   /** El fondo de la fila de tabs pegada arriba (el de quien la contiene). */
   fondoTabs: string;
+  /** Dónde se pega esa fila: en la ruta, debajo de la barra de inspección (#850). En el pop-up, 0. */
+  arribaTabs?: string;
   /** «Solucionar» un dato de la cabecera: `n` cambia en cada pedido. */
   pedido?: { id: StepId; n: number } | null;
   /** El campo no está en esta ficha: el asistente de «Completar datos». */
@@ -584,7 +586,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   return (
     <div ref={raizRef} className={['fb', enEdicion && 'fb--editando', ...estilo.clases].filter(Boolean).join(' ')} style={estilo.vars as CSSProperties}>
       <style>{CSS_FICHA}</style>
-      <LeadTabs initial={initialTab} irA={irA} fija={{ fondo: fondoTabs }} actions={acciones} tabs={tabs} sangria={sangria} onActiva={setActiva}
+      <LeadTabs initial={initialTab} irA={irA} fija={{ fondo: fondoTabs, arriba: arribaTabs }} actions={acciones} tabs={tabs} sangria={sangria} onActiva={setActiva}
         onChange={(key) => { setUltima(key); if (nueva && key !== nueva.id) cerrarSinVolver(); onTab?.(key); }}
         onNueva={puedeGuardar && efectiva.hojas.length < TOPE_HOJAS ? abrirNueva : undefined}
         maxNombre={TOPE_NOMBRE_TAB} onRenombrar={puedeGuardar ? (key, nombre) => {

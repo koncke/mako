@@ -257,10 +257,10 @@ test('un FALLO no se guarda en la caché: sólo lo que una fuente CONTESTÓ', ()
   assert.deepEqual(escrituras, [
     'clave, null',                              // la página del negocio no tiene Instagram (Meta contestó)
     'clave, id',                                // su cuenta de Instagram
-    '`mx:${ws}`, true',                         // leerla dio token, permiso o límite: se pausa (revisión 12/10)
+    '`mx:${ws}`, motivo',                       // leerla dio token, permiso o límite: se pausa con su motivo (#844)
     '`m:${ws}:${u}`, lectura.perfil',           // Meta encontró el @ (por NEGOCIO)
     '`m:${ws}:${u}`, null',                     // Meta contestó «no está» (2207013)
-    '`mx:${ws}`, true',                         // la conexión no sirve o está limitada: no en cada tecla
+    '`mx:${ws}`, lectura.motivo',               // la conexión no sirve o está limitada: no en cada tecla
     'clave, lectura.perfiles',                  // Google contestó (vacío incluido)
     "'g:sin-cuota', true, TTL_SIN_CUOTA_MS",    // Google sin cuota: no se le pregunta un rato
   ]);
@@ -296,9 +296,9 @@ test('un límite de Meta, o la conexión que no sirve al leer la cuenta de la p�
   // La ruta: el error de la cuenta de la página viaja con su motivo, y el catch pausa con él.
   assert.match(RUTA, /throw Object\.assign\(new Error\([^;]*\), \{ motivo: motivoDeErrorGraph\(j\?\.error\) \}\);/);
   const ini = RUTA.indexOf('ig = token ? await igDelNegocio(ws, token) : null;');
-  const atrapa = RUTA.slice(ini, RUTA.indexOf('if (!token || !ig) return encontrados;', ini));
+  const atrapa = RUTA.slice(ini, RUTA.indexOf('if (!token || !ig) return {', ini));
   assert.ok(ini > 0 && atrapa.length < 600, 'no encontré el catch de la cuenta de la página');
-  assert.match(atrapa, /if \(motivo === 'sin-permiso' \|\| motivo === 'limite'\) guardarCache\(`mx:\$\{ws\}`, true\);/);
+  assert.match(atrapa, /if \(motivo === 'sin-permiso' \|\| motivo === 'limite'\) guardarCache\(`mx:\$\{ws\}`, motivo\);/);
   assert.match(RUTA, /else if \(lectura\.motivo === 'sin-permiso' \|\| lectura\.motivo === 'limite'\) \{/);
 });
 

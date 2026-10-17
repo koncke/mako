@@ -9635,3 +9635,69 @@ lib/mako-analyst-lead-reglas.ts (`PISTA_EDICION_FICHA`), lib/mako-turno-app.ts (
 
 **Vive en:** `lib/calendly-cancelar.ts` · `lib/api-mako/areas/crm.def.ts` y `crm.run.ts` (`cancelar_reunion_calendly`) ·
 `lib/editor-acciones.ts` (bloque «Agenda») · `lib/doer-herramientas.ts` · test: `tests/calendly-cancelar.test.ts`
+
+## Lo que dejó la revisión del 16/10 en el CRM: calificado al instante, campañas a varios funnels, plantillas cortas y el buscador de Instagram (17/10/2026)
+
+**«Calificado» tardaba en pintarse (#854).** El diagnóstico obvio era «la pantalla es lenta», y era a medias: la ficha
+pintaba desde lo que volvía del server, y el server (`updateLead`, lib/leads.ts) esperaba los DOS envíos a Meta en
+serie antes de contestar. Ahora el envío va en `after()` y los botones de sí / no se pintan al tocarlos
+(`useTriAlInstante`, app/crm/lead-view/CampoEditable.tsx).
+- ⚠️ `after()` corre FUERA del contexto del workspace: sin capturar el `ws` y volver a entrar con `runWithWorkspace`, el
+  píxel y el historial serían los de otro negocio. Fuera de un request (un script) `after()` tira: se corre en línea.
+- La verdad sigue siendo el server: el pintado se suelta cuando la ficha relee (`useEffect` sobre el valor) o cuando el
+  guardado falla. Lo que el server descartaría (no vino a la R1) ya se dibuja bloqueado, así que no puede quedar
+  pintado un valor que el server tiró.
+
+**Una campaña o un conjunto de Meta a VARIOS funnels (#893).** `meta.campanas` llevaba un funnel por campaña; ahora
+cada asignación tiene su casa (`funnelId`) y los otros (`tambien`), con el molde de las landings: el lead nuevo nace
+en la casa y se agrega a los demás. Lo no obvio:
+- **Hay DOS puertas de un lead de Meta** y las dos tienen que agregar: el formulario (`upsertLeadFromMeta`,
+  lib/leads.ts) y el opt-in de la landing (`funnelesDelLead`, app/api/track/optin/route.ts). Arreglar una sola deja la
+  mitad de los leads en un funnel.
+- **Tres tests fijaban «la campaña manda a UN producto»** (landing-optin, campana-asignar, campana-producto): eran la
+  regla vieja escrita como guard, no un error del cambio. Se actualizaron con el porqué.
+- **La celda «Producto» es la MISMA en Ads Manager y en la tabla del CRM** (app/ads-manager/ProductoCelda.tsx): pasó a
+  tener casillas. La primera marcada es la casa; desmarcar la casa promueve a la siguiente (`alternarFunnelDeCampana`);
+  la ✕ de la sección de un funnel saca SÓLO ese funnel (antes quitaba la campaña entera).
+- MaKo no podía asignar campañas a funnels (no había ninguna operación): `ver_campanas_funnels` y
+  `asignar_campana_funnels`. Una operación HTTP nueva necesita su ruta REST en lib/api-mako/rest.ts o el test la frena.
+
+**Las plantillas de la ficha eran grandes (#880).** La regla que las inflaba estaba en un test: «cada plantilla del
+Resumen trae la lista ENTERA de su tipo», cuando su motivo escrito era que cada aviso de «datos sin marcar» tenga dónde
+llenarse. Ahora exige sólo los bloques que avisan, y las de entrada perdieron lo que ya tiene su tab o se agrega: la
+charla de WhatsApp (ancho completo y con su raya aunque no haya charla), el video visto, lo cobrado, los cambios de
+MaKo, las automatizaciones y el origen donde la bajada no lo promete. «Antes de la llamada», la de casi todos los
+funnels (los que tienen reunión), pasó de 18 a 13.
+- Medido en la base (sólo lectura): casi todos los funnels siguen la plantilla de entrada sin tocarla, así que el
+  recorte les llega a todos; uno que armó su Resumen a mano (el ws1, «Negocio que ESCALA») no cambia.
+- ⚠️ **EL TELÉFONO SIGUE A LAS PLANTILLAS** (app/m/crm/ficha-bloques.ts: la ficha de MaKo Mobile destila la ficha del
+  funnel), y tests/m-ficha-bloques.test.ts fija qué ve cada una. La primera punta de #880 frenó el run 104 por eso: se
+  corrieron los tests de la ficha y del CRM, no los del teléfono. **Una punta que toque lib/ficha/ corre también
+  `tests/m-*.test.ts`.**
+- El motivo de salida y el plazo de la nutrición son «con raya» en el catálogo pero se callan cuando no aplican
+  (`vacio`): contarlos como peso visual engaña.
+
+**El buscador de Instagram «decía sin resultado y era mentira» (#844).** No era un bug: por NOMBRE no hay fuente
+oficial y gratis (Google cerró su Custom Search a clientes nuevos y la apaga el 1/1/2027; Microsoft apagó las Bing
+Search APIs el 11/08/2025; Brave sacó su plan gratis en 2026), y por @ Business Discovery sólo ve cuentas de empresa o
+creador, con la conexión de Meta del negocio. Lo que mentía era la pantalla: «Sin resultados» para cinco cosas
+distintas. Ahora la ruta devuelve qué pasó con Meta (`meta`: encontró, no la muestra, sin conexión, sin permiso, no
+contestó) y la lista lo dice (`avisoSinResultados`); el campo ya no promete buscar por nombre.
+- ⚠️ La caché `mx:<ws>` guardaba `true`; ahora guarda el motivo, porque «sin permiso» y «Meta está limitando» piden
+  frases distintas.
+
+**Sin hacer:**
+- #856 (docs/hallazgos-ads.md): que el envío a Meta espere la ventana del «Deshacer» y relea el lead antes de mandar;
+  hoy deshacer un «Calificado» vuelve la ficha pero la conversión ya contó (`updateLead`, lib/leads.ts).
+- #893: un lead que YA existe y vuelve por una campaña de otro funnel sigue sólo en el suyo (queda en su historial);
+  no se lo agrega a los otros. Y la barra de lote y el alta de una campaña nueva asignan una casa sola: sumar otros
+  funnels es desde la celda.
+- #880: las plantillas de Pagos («Venta con contrato» dibuja 9 bloques vacíos) siguen iguales: cuatro de ellos avisan
+  datos de la entrega, y achicarlas es apagar avisos, que es otra decisión.
+- #844: buscar por nombre necesita una fuente paga (Brave, unos US$5 cada 1.000 búsquedas, con tarjeta). Si se decide,
+  se cambia `buscarEnGoogle` (la ruta) y `leerRespuestaGoogle` (lib/instagram-buscar.ts).
+
+**Vive en:** lib/leads.ts · app/crm/lead-view/CampoEditable.tsx · lib/campana-config.ts · lib/campana-funnel.ts ·
+app/ads-manager/ProductoCelda.tsx · lib/ficha/plantillas-resumen.ts · lib/instagram-buscar.ts ·
+app/api/crm/instagram-buscar/route.ts · tests: calificado-al-instante, campana-varios-funnels, ficha-plantillas-simples,
+instagram-buscar-aviso · *17/10/2026, chat «CRM» (claude4).*

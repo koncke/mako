@@ -102,7 +102,6 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ClienteCruce } from './cruce';
-import type { CuentasProp } from './CuentaDeMaKo';
 import type { ResumenTrabajo } from './trabajo';
 import { ClienteCard, type CursoDeTarjeta } from './ClienteCard';
 import { columnasVisibles } from './BarraClientes';
@@ -128,8 +127,8 @@ export type Asignacion = { etapa: string; etapa_desde: string; por: string };
 
 export function KanbanEntrega({
   etapas, fases, fase, origen, servicio, clientes, asignacion, numeroDe,
-  trabajoDe, tableroOk, cuentas,
-  onSoltar, onAbrir, onEquipo, onNuevoCliente, onError,
+  trabajoDe, tableroOk,
+  onSoltar, onAbrir, onNuevoCliente,
   seleccion, onSeleccion, cursoDe, onPermisos,
 }: {
   etapas: EtapaEntrega[];
@@ -166,7 +165,6 @@ export function KanbanEntrega({
   /** Con el tablero caído la tarjeta pone un renglón en vez de tres ceros: un 0 es una
    *  afirmación sobre su trabajo, y si la lectura falló nadie la hizo. */
   tableroOk: boolean;
-  cuentas?: CuentasProp;
   /**
    * Se soltó lo que viajaba en ESA columna, ANTES de ese cliente (`null` = al final).
    *
@@ -178,7 +176,6 @@ export function KanbanEntrega({
    */
   onSoltar: (leadIds: number[], etapa: string, antesDe: number | null) => void;
   onAbrir: (leadId: number) => void;
-  onEquipo: (leadId: number) => void;
   /**
    * Crear un cliente, naciendo en ESA etapa.
    *
@@ -187,7 +184,6 @@ export function KanbanEntrega({
    * para que el alta termine donde se apretó.
    */
   onNuevoCliente: (etapa: string) => void;
-  onError: (m: string) => void;
   /** Los clientes marcados. Vive AFUERA: es la misma selección que la tabla. */
   seleccion: ReadonlySet<number>;
   onSeleccion: (next: Set<number>) => void;
@@ -632,9 +628,7 @@ export function KanbanEntrega({
                         <ClienteCard
                           c={c} n={numeroDe.get(c.leadId) ?? 0}
                           trabajo={trabajoDe(c.leadId)} tableroOk={tableroOk}
-                          cuentas={cuentas} onError={onError}
                           onAbrir={() => onAbrir(c.leadId)}
-                          onEquipo={() => onEquipo(c.leadId)}
                           curso={cursoDe?.(c.leadId) ?? null}
                           onPermisos={onPermisos ? () => onPermisos(c.leadId) : undefined}
                           /* LA CASILLA DEL CRM, tal cual (CrmBoard.tsx, la tarjeta del lead):

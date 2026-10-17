@@ -274,7 +274,7 @@ test('el editor: los comentarios debajo de la lección con el ajuste de ESA clas
   assert.match(app, /if \(!comentariosDeClase\(estiloActual, c\.id\) \|\| !apiComunidad\) return l;/);
   assert.match(app, /<ComentariosClase key=\{c\.id\} api=\{apiComunidad\} claseId=\{c\.id\}/);
   // «Ver en Comunidad» es un <a> adentro del curso: lleva el ?ws= (AGENTS.md, las cinco formas de navegar).
-  assert.match(app, /linkComunidad=\{\(postId\) => conWs\(`\/customer-success\/comunidad\?producto=\$\{c\.productoId\}&post=\$\{postId\}`, wsPestana\)\}/);
+  assert.match(app, /linkComunidad=\{\(postId\) => conWs\(`\/clients\/community\?producto=\$\{c\.productoId\}&post=\$\{postId\}`, wsPestana\)\}/);
   // El interruptor: YA NO en el menú de la marca (14/10/2026), sino en el «…» de cada clase, con su
   // Deshacer por el mismo camino que la portada, y sólo con el estilo leído.
   const marca = app.slice(app.indexOf('const menuMarca = '), app.indexOf('if (!servicio) {', app.indexOf('const menuMarca = ')));

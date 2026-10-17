@@ -128,6 +128,45 @@ cosas más, del ws13 y del ws9:
   (entre «re» y «programa» no hay borde de palabra). Al arreglar un prefijo, enumerá TODOS los verbos de la regla que lo
   admiten, no sólo el que se vio.
 
+**Levantar un ticket desde el grupo (17/10, con la Ticketera).** El doer le pasa al ticket QUIÉN escribió y el contexto
+del turno, y el código lo propone cuando una herramienta de MaKo falló (el molde del chat de la app). Tres cosas que no
+se ven:
+- **El doer no sabe el email de quien escribe**, y del mensaje sólo llega `key.participant`. El actor es
+  `whatsapp:+<teléfono>` (`lib/doer-ticket.ts`). ⚠️ **Un `…@lid` NO es un teléfono**: es el id anónimo que WhatsApp usa en
+  algunos grupos, y leerlo como número le pondría al ticket un teléfono que no existe; ahí va el pushName.
+- ⚠️ **Todo LOTE perdía quién escribió**: los dos mensajes que arma el doer al juntar mensajes (el del buffer y el del
+  cron de huérfanos) copiaban `remoteJid`, `id` y `fromMe`, y no `participant`. Cualquier dato del remitente que se
+  agregue al turno tiene que pasar por esos dos lugares.
+- **La pendiente del ticket que propone el código no la ve nadie si no se dice**: el modelo ya contestó. La línea la
+  escribe el código, después del saneo, y termina pidiendo el «sí» (si no, el saneo la leería como promesa). Al
+  probarlo rompiéndolo apareció un agujero del detector: «ya le aviso al equipo y te lo arreglo» no era una promesa para
+  `promesasDe` («aviso» y «arreglo» no estaban, ni el «le» del «ya le…»).
+- ⚠️ **Hasta la próxima punta de la Ticketera, `preparar()` contesta «No sé quién eres»** para un actor `whatsapp:…`:
+  el ticket no se levanta y no se rompe nada (el código no agrega la línea si la propuesta falló).
+
+**El aviso «ya quedó arreglado» al grupo del cliente (17/10, pedido de Martín por el Ops Center).** Cambió la regla del
+vigía: ahora un jefe SÍ escribe en el grupo de un cliente, pero sólo para avisar que algo que le falló ya anda en
+producción, firmado «Desarrollador de MaKo» (`lib/aviso-arreglo.ts`, `scripts/avisar-arreglo-al-grupo.mts`; la regla en
+AGENTS.md). Lo que costó medir:
+- ⚠️ **«Está en producción» no se puede saber desde la base ni desde GitHub con lo que hay.** No existe un endpoint de
+  versión (`docs/hallazgos-infra.md`), y el `GITHUB_TOKEN` de la plataforma apunta a `mbustos-digital/dashboard-marketing`
+  y no ve `hola-mako/dashboard-marketing` (404 en deployments). Lo que SÍ anda es el CLI de Vercel filtrando por commit:
+  `vercel ls --prod --meta githubCommitSha=<sha>` devuelve el despliegue de producción de ESE commit con su estado. El
+  script mira la punta de `main` hacia atrás hasta encontrar uno Ready que contenga el arreglo.
+- **No es una operación del registro de la API, a propósito**: una operación la puede pedir el modelo en un chat o una
+  automatización, y firmar como el equipo en el grupo de un cliente no puede estar al alcance de ninguno. La Ticketera
+  la llama como función, desde su cron.
+- **Un aviso por arreglo se cumple RESERVANDO antes de mandar** (`cambiarSettingSi(key, null, …)`, atómico) y soltando
+  la reserva si el envío falló: con la marca después del envío, dos llamadas mandan dos; con la marca antes y sin
+  soltarla, un Evolution caído dejaba el arreglo «avisado» para siempre.
+- **Lo que MaKo manda al grupo por otro camino tiene que entrar al anti-eco del doer** (`anotarEnviadoAlGrupo`): si el
+  eco vuelve como `fromMe` y no está en el anillo, el doer lo procesa como un mensaje de la persona. Medido el 17/10:
+  desde el 01/10 ningún aviso del catálogo entró así, pero la guarda del doer no lo distingue.
+- ⚠️ **Y el clasificador de permisos de Claude Code bloquea correr el script, aunque sin `--enviar` no mande nada**: lo
+  lee como una transacción real. Martín dijo que el aviso no necesita su OK; cuando el clasificador lo frena, se le pasa
+  el comando exacto en el chat del jefe para que lo apruebe ahí. Y sin `NODE_OPTIONS=--conditions=react-server` el
+  script se cae al importar (`server-only`), ANTES de mandar o reservar nada.
+
 **Lo que quedó sin hacer:**
 - **Nada se probó contra una agenda real.** El ws18 tiene Google conectado y es un cliente: la primera prueba es su
   próximo pedido, y el vigía lo va a ver.
@@ -10161,6 +10200,16 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   `encabezadoAviso`); la tarjeta «tal cual» no lo lleva, como en las mudanzas de Fathom y de la línea (lo que se ve en
   la tarjeta es lo que llega). La comparación letra por letra es del CUERPO.
 
-**Vive en:** `lib/reunion-cancelada.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
+- **Una copia con LISTAS también entra en una fila literal** (`curso-recordatorio-clases`, fila #271): cada sección va
+  en su renglón y su lista es UN dato que arranca con su salto de línea y sólo viene si tiene a alguien
+  (`datosRecordatorioDueno`). Así la sección vacía no trae su dato y `sinRenglonesVacios` se lleva el renglón ENTERO,
+  encabezado incluido. El runner de eventos no recorta los datos (`emitirTarjetaDelEvento` → `textoConDatos`).
+- ⚠️ **El «Le/Les» del texto viejo era una frase armada en el código:** una fila no lo puede decir sin dos casos. La
+  redacción quedó buena para uno y para varios («Recordé… a 1 cliente», «No llegó el recordatorio a:»).
+- ⚠️ **El emisor va con el id LITERAL** (`emitirDelCatalogo('curso-recordatorio-clases', …)`): tests/plantillas-viejas.test.ts
+  busca a cada emisor por él, y con el id en una constante decía «nada lo emite».
+- El color del feed (amarillo cuando a alguien no le llegó) se pierde: el evento usa el semáforo del catálogo.
+
+**Vive en:** `lib/reunion-cancelada.ts` · `lib/curso-mensajes-texto.ts` (`datosRecordatorioDueno`) · `lib/curso-mensajes.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
 (`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
 · test: `tests/reunion-cancelada-evento.test.ts`

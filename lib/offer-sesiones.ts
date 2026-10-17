@@ -6,9 +6,9 @@
 // de la v1 que quedan por compatibilidad (`listarSesionesOffer`, `semillaOffer`). Todo corre dentro del
 // workspace actual (`getTenantDb`, tabla en TENANT_TABLES).
 //
-// ⚠️ LA VISTA NUNCA LLEVA EL TEXTO DE LOS DOCUMENTOS. Vive en `documentos[].texto` (hasta 40.000
-//    caracteres cada uno, hasta 12) y sólo lo lee el motor para armar el prompt: bajarlo al navegador
-//    sería mandar en cada respuesta hasta medio MB que nadie dibuja.
+// ⚠️ LA VISTA NUNCA LLEVA EL TEXTO DE LOS DOCUMENTOS. Vive en `documentos[].texto` (hasta 300.000
+//    caracteres cada uno desde el 17/10/2026, #865, más su `lectura` por partes; hasta 12) y sólo lo lee el motor
+//    para armar el prompt: bajarlo al navegador sería mandar en cada respuesta megas que nadie dibuja.
 // ⚠️ TODA ESCRITURA ES COMPARE-AND-SET SOBRE `updated_at` (`actualizarSesion`). La pantalla sube varios
 //    archivos a la vez y cada «leer» agrega a `documentos`: con un read-modify-write pelado, dos lecturas
 //    en paralelo se pisan y un documento desaparece sin un error. Y un turno tarda hasta un minuto: lo
@@ -32,7 +32,7 @@ import {
   type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezasSabidas,
 } from './offer-marco';
 import {
-  INTENTOS_CAS, adjuntoDe, construirArbol, esperaCAS, ligadaParaVista, mensajeParaVista, ofertaDesdePropuesta, ofertaYaAnotada, primerMensaje,
+  INTENTOS_CAS, adjuntoDe, conclusionVisible, construirArbol, destinoDeLaOferta, esperaCAS, juntarLigas, ligadaParaVista, mensajeParaVista, ofertaDesdePropuesta, ofertaYaAnotada, primerMensaje,
   sanearArmado, armadoParaVista, sanearDocumentos, sanearMensajes, sanearPiezas,
   type ArmadoOffer,
   type DocumentoGuardado, type MensajeGuardado, type SesionParaArbol,
@@ -129,7 +129,7 @@ function aFila(r: Record<string, unknown>): FilaOffer {
  * Lo que la vista muestra y la fila no guarda (se lee: el funnel o la oferta pueden renombrarse, la liga
  * pudo fallar). `ligada` ausente = true (ver el porqué en `OfferSesionVista.ligada`).
  */
-export type NombresSesion = { funnel?: string; ofertaBase?: string; ligada?: boolean };
+export type NombresSesion = { funnel?: string; ofertaBase?: string; ligada?: boolean; guardadaEn?: Array<{ id: number; nombre: string }> };
 
 /**
  * Lo que ve la pantalla. `puedeConcluir` lo calcula el código sobre las piezas, nunca el modelo. Sync a
@@ -144,7 +144,8 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
     mensajes: f.mensajes.map((m) => mensajeParaVista(f.id, m)),
     piezas: f.piezas,
     docs: f.documentos.map(adjuntoDe),
-    conclusion: f.conclusiones.length ? f.conclusiones[f.conclusiones.length - 1] : null,
+    // Lo guardado antes del 17/10/2026 sin los avisos del embudo de entonces (el «43%» sin fuente, tarjeta #888).
+    conclusion: f.conclusiones.length ? conclusionVisible(f.conclusiones[f.conclusiones.length - 1], f) : null,
     versiones: f.conclusiones.length,
     // Sólo si lo guardado es la versión VIGENTE: después de afinar y concluir una v2, la v2 no está
     // guardada aunque la v1 sí, y mostrarla como «Guardada» escondía el botón (revisión 11/10).
@@ -158,6 +159,7 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
     modo: f.ofertaBaseId != null ? 'analizar' : 'crear',
     ofertaGuardadaId: f.ofertaId,
     ligada: ligadaParaVista(f, nombres.ligada),
+    guardadaEn: nombres.guardadaEn ?? [],
     armando: armadoParaVista(f.armado, Date.now()),
   };
 }
@@ -169,19 +171,28 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
 export async function nombresDeSesion(f: Pick<FilaOffer, 'funnelId' | 'ofertaBaseId' | 'ofertaId'>): Promise<NombresSesion> {
   const out: NombresSesion = {};
   await Promise.all([
-    // ¿Falta la liga de la oferta guardada a su funnel? Sólo se pregunta si hay las dos cosas. TOLERANTE a
+    // ¿En qué funnels está la oferta guardada? (#895: uno o VARIOS, no sólo el de la conversación). Con eso, la vista
+    // dice «Guardada en …» y `ligada`: false sólo si no está en NINGUNO y el de la conversación existe. TOLERANTE a
     // propósito: si falla, `ligada` queda ausente (= true) y no se invita a reintentar en falso.
-    f.funnelId != null && f.ofertaId != null
+    f.ofertaId != null
       ? (async () => {
         const db = await getTenantDb();
-        const liga = await db.from('funnel_ofertas').select('id').eq('funnel_id', f.funnelId as number).eq('oferta_id', f.ofertaId as number).limit(1);
+        const [liga, fs] = await Promise.all([
+          db.from('funnel_ofertas').select('funnel_id').eq('oferta_id', f.ofertaId as number),
+          leerFunnels(),
+        ]);
         if (liga.error) throw new Error(liga.error.message);
-        if (((liga.data ?? []) as unknown[]).length) { out.ligada = true; return; }
-        // Sin liga: si el funnel ya no existe, reintentar no lo arregla, así que tampoco se ofrece.
+        const ids = [...new Set(((liga.data ?? []) as Array<{ funnel_id: unknown }>).map((l) => Number(l.funnel_id)).filter((n) => Number.isSafeInteger(n) && n > 0))];
+        out.guardadaEn = ids.map((id) => {
+          const x = (fs ?? []).find((y) => y.id === id);
+          return { id, nombre: x ? (x.producto ?? '').trim() || x.nombre : 'Un funnel que ya no está' };
+        });
+        if (f.funnelId == null || ids.length) { out.ligada = true; return; }
+        // Sin liga a ninguno: si el funnel de la conversación ya no existe, reintentar no lo arregla, y no se ofrece.
         const fun = await db.from('funnels').select('id').eq('id', f.funnelId as number).limit(1);
         if (fun.error) throw new Error(fun.error.message);
         out.ligada = !((fun.data ?? []) as unknown[]).length;
-      })().catch((e) => console.warn('[offer] no pude mirar si la oferta está ligada a su funnel:', e instanceof Error ? e.message : e))
+      })().catch((e) => console.warn('[offer] no pude mirar en qué funnels está la oferta guardada:', e instanceof Error ? e.message : e))
       : null,
     f.funnelId != null
       ? leerFunnels().then((fs) => {
@@ -464,9 +475,11 @@ const esNombreRepetido = (e: unknown): boolean =>
  * tira: la oferta ya quedó guardada y la respuesta lo dice en `aviso`, con `avisoReintentable` diciendo si
  * volver a tocar «Guardar» lo puede arreglar.
  */
-export async function guardarComoOferta(id: number): Promise<{ ofertaId: number; fila: FilaOffer } & ResultadoLiga> {
+export async function guardarComoOferta(id: number, elegidos: readonly number[] | null = null): Promise<{ ofertaId: number; fila: FilaOffer } & ResultadoLiga> {
   const f = await leerFila(id);
   if (!f) throw new ErrorOffer('No encontré esa conversación.', 404);
+  // A qué funnels va (#895): los elegidos, «todos» (los activos) o, sin elección, el de la conversación.
+  const ligar = async (ofertaId: number) => ligarAFunnels(await destinoAhora(f.funnelId, elegidos), ofertaId);
   const conc = f.conclusiones.length ? f.conclusiones[f.conclusiones.length - 1] : null;
   if (!conc) throw new ErrorOffer('Primero arma la oferta: todavía no hay una conclusión para guardar.', 409);
 
@@ -475,7 +488,7 @@ export async function guardarComoOferta(id: number): Promise<{ ofertaId: number;
     const { data, error } = await db.from('ofertas').select('id').eq('id', f.ofertaId).limit(1);
     if (error) throw fallo('verificar la oferta guardada', error.message);
     if (((data ?? []) as unknown[]).length) {
-      return { ofertaId: f.ofertaId, fila: f, ...(await ligarAlFunnel(f.funnelId, f.ofertaId)) };
+      return { ofertaId: f.ofertaId, fila: f, ...(await ligar(f.ofertaId)) };
     }
   }
 
@@ -532,7 +545,7 @@ export async function guardarComoOferta(id: number): Promise<{ ofertaId: number;
     await descartarOferta(guardada, `otro pedido ya había guardado esta versión como la oferta #${ganadora.id}`);
     // La que gana ya ligó su producto en SU pedido: hacerlo acá sería ligar dos veces el mismo par
     // (lo frena `uq_oferta_producto`, pero pedirle a la base que rechace lo que sabemos no es un plan).
-    return { ofertaId: ganadora.id, fila, ...(await ligarAlFunnel(f.funnelId, ganadora.id)) };
+    return { ofertaId: ganadora.id, fila, ...(await ligar(ganadora.id)) };
   }
   // Al PRODUCTO del catálogo, con la misma regla que el seed del brief: el que se llama igual, o el
   // único que hay. Con varios y ninguno que coincida no liga, a propósito — ver
@@ -542,7 +555,7 @@ export async function guardarComoOferta(id: number): Promise<{ ofertaId: number;
   // Va DESPUÉS del CAS y sólo si esta oferta sobrevivió: ligar antes dejaría el puente puesto a una
   // oferta que el CAS descarta un instante después.
   await ligarProductoQueCorresponde(guardada, base.nombre);
-  return { ofertaId: guardada, fila, ...(await ligarAlFunnel(f.funnelId, guardada)) };
+  return { ofertaId: guardada, fila, ...(await ligar(guardada)) };
 }
 
 /** Borra una oferta que este pedido creó y no va a quedar anotada. Nunca tira: lo que no se pudo borrar se loguea. */
@@ -559,6 +572,25 @@ export type ResultadoLiga = { aviso?: string; avisoReintentable?: boolean };
 
 /** El fallo que sí se arregla volviendo a tocar «Guardar»: la base no contestó. */
 const AVISO_LIGA_REINTENTABLE = 'La oferta quedó guardada, pero no pude sumarla a tu funnel (falló la base de MaKo). Vuelve a tocar «Guardar» en un momento.';
+
+/**
+ * Los funnels a los que va la oferta (`destinoDeLaOferta`, lib/offer-reglas.ts), con los ACTIVOS (`leerFunnels` sólo trae ésos) leídos sólo si se
+ * eligió «todos». Si no se pudieron leer, ninguno: `ligarAFunnels` con una lista vacía no liga nada y la pantalla
+ * sigue ofreciendo «Guardar» (`ligada` false).
+ */
+async function destinoAhora(funnelConversacion: number | null, elegidos: readonly number[] | null): Promise<number[]> {
+  const activos = elegidos != null && !elegidos.length
+    ? ((await leerFunnels().catch(() => null)) ?? []).map((x) => x.id)
+    : [];
+  return destinoDeLaOferta({ funnelConversacion, elegidos, activos });
+}
+
+/** La oferta, ligada a CADA funnel elegido (#895), uno por uno. Nunca tira: los avisos se juntan en uno. */
+async function ligarAFunnels(funnelIds: readonly number[], ofertaId: number): Promise<ResultadoLiga> {
+  const rs: ResultadoLiga[] = [];
+  for (const id of funnelIds) rs.push(await ligarAlFunnel(id, ofertaId));
+  return juntarLigas(rs);
+}
 
 /**
  * Liga la oferta al funnel de la conversación. Principal sólo si el funnel no tiene ninguna principal.

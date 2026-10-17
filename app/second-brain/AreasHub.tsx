@@ -27,14 +27,15 @@
 //    ITERA `AREAS` de lib/cerebro-modelo.ts —la misma lista que colorea el mapa y que
 //    nombra las carpetas del ZIP—, así que no hay una segunda lista que se quede vieja.
 //
-// En reposo esta mitad mide CERO: sin nada abierto no dibuja nada. Ese es el espacio
-// que el grafo necesitaba para ser protagonista.
+// 4. DESDE EL 17/10/2026 ES UNA CAJA ENCIMA DEL GRAFO, no una sección debajo: «al tocar un nodo NO aparece nada
+//    abajo, jamás» (Martín). Se abre sólo con una intención explícita —«Editar» en la barra lateral del grafo, o un
+//    `?area=` de otra pantalla— y sin nada abierto no dibuja nada.
 // =============================================================================
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
-import { AREAS, type AreaId } from '@/lib/cerebro-modelo';
+import { AREAS, NIVEL1, type AreaId } from '@/lib/cerebro-modelo';
 import { SUBVISTAS } from '@/lib/secciones-negocio';
-import { Section, Button } from '@/app/_ui';
+import { Modal } from '@/app/_ui';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { Archivero } from '../onboarding/Archivero';
 import { MatrizView } from '../onboarding/MatrizView';
@@ -93,11 +94,9 @@ const vistasDe = (funnelPanel: ReactNode): Record<AreaId, Array<{ id?: string; n
   funnel: [{ nombre: 'El funnel', vista: funnelPanel }],
 });
 
-export function AreasHub({ abierta, onAbrir, salto, funnelPanel, vistaInicial }: {
+export function AreasHub({ abierta, onAbrir, funnelPanel, vistaInicial }: {
   abierta: AreaId | null;
   onAbrir: (a: AreaId | null) => void;
-  /** Contador de pedidos de SALTO. Ver VistaCerebro: abrir y saltar son dos cosas. */
-  salto: number;
   funnelPanel: ReactNode;
   /** La sub-pestaña que pidió la URL (`?vista=`), ya validada contra SUBVISTAS. Sólo vale para el área de entrada. */
   vistaInicial?: string | null;
@@ -109,34 +108,16 @@ export function AreasHub({ abierta, onAbrir, salto, funnelPanel, vistaInicial }:
   const [sub, setSub] = useState(() => indiceDe(abierta, vistaInicial));
   // La de entrada se respeta UNA vez: el reset de abajo corre también al montar y la pisaría.
   const areaDeEntrada = useRef(abierta);
-  const panelRef = useRef<HTMLDivElement | null>(null);
 
-  // Cambiar de área resetea la sub-pestaña. Nada más: esto NO scrollea.
+  // Cambiar de área resetea la sub-pestaña.
   useEffect(() => {
     if (abierta === areaDeEntrada.current) { areaDeEntrada.current = null; return; }
     setSub(0);
   }, [abierta]);
 
-  // El salto a la sección se pide APARTE. Sin esto, tocar «Abrir» en la columna del mapa
-  // abre algo que está fuera de pantalla y parece que el botón no hizo nada; y con esto
-  // atado a `abierta`, tocar un nodo del grafo —que ahora también abre la sección— le
-  // arrancaba la pantalla al que solo quería leer el detalle.
-  //
-  // ⚠️ La primera corrida se saltea: el efecto corre al montar y sin la guarda la página
-  // arranca scrolleada abajo. Y depende SOLO de `salto`: cuando existían las tarjetas,
-  // cualquier re-render del padre volvía a disparar este scroll y la página se movía
-  // sola cada vez que el mouse rozaba una.
-  // La corrida de montaje se saltea SALVO que ya haya algo abierto: eso sólo pasa
-  // con un `?area=` en la URL, y ahí el que llegó vino a ver esa sección — dejarlo
-  // arriba del mapa con el panel abierto abajo es no haberlo llevado a ningún lado.
-  const primera = useRef(abierta === null);
-  useEffect(() => {
-    if (primera.current) { primera.current = false; return; }
-    panelRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  }, [salto]);
-
   const areaAbierta = abierta ? AREAS.find((a) => a.id === abierta) ?? null : null;
   const vistas = abierta ? vistasDe(funnelPanel)[abierta] : [];
+  const carpeta = areaAbierta ? NIVEL1.find((c) => c.id === areaAbierta.padre)?.nombre ?? null : null;
 
   return (
     <>
@@ -145,36 +126,39 @@ export function AreasHub({ abierta, onAbrir, salto, funnelPanel, vistaInicial }:
           con un error — se pintan como un cuadrado de color liso, en silencio. */}
       <BrandDefs />
 
-      <div ref={panelRef}>
-        {areaAbierta && (
-          <Section
-            titulo={areaAbierta.nombre}
-            nota={areaAbierta.que}
-            accion={<Button variant="tertiary" onClick={() => onAbrir(null)}>Cerrar</Button>}
-          >
-            {vistas.length > 1 && (
-              <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3, marginBottom: 18, flexWrap: 'wrap' }}>
-                {vistas.map((v, i) => (
-                  <button
-                    key={v.nombre}
-                    type="button"
-                    onClick={() => setSub(i)}
-                    style={{
-                      border: 'none', background: sub === i ? 'var(--surface)' : 'transparent',
-                      color: sub === i ? 'var(--ink)' : 'var(--dim)', fontWeight: sub === i ? 600 : 500,
-                      fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer',
-                      boxShadow: sub === i ? '0 1px 2px rgba(18,21,27,.08)' : 'none',
-                    }}
-                  >{v.nombre}</button>
-                ))}
-              </div>
-            )}
-            {vistas[sub]?.vista ?? vistas[0]?.vista}
-          </Section>
-        )}
-      </div>
-
-
+      {/* ⚠️ UNA CAJA ENCIMA, NUNCA DEBAJO DEL GRAFO (Martín, 17/10/2026: «al tocar un nodo NO aparece nada abajo,
+          jamás»). `contenedor`: adentro de varios editores se abren otros modales (la Matriz), y sin esto la pila
+          apaga esta caja y con ella al que se acaba de abrir. `alto` fijo: la caja no salta al cambiar de sub-pestaña. */}
+      {areaAbierta && (
+        <Modal
+          titulo={areaAbierta.nombre}
+          encabezado={carpeta ?? undefined}
+          onCerrar={() => onAbrir(null)}
+          ancho={1040}
+          alto="min(88vh, 860px)"
+          contenedor
+        >
+          <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>{areaAbierta.que}</p>
+          {vistas.length > 1 && (
+            <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3, marginBottom: 18, flexWrap: 'wrap' }}>
+              {vistas.map((v, i) => (
+                <button
+                  key={v.nombre}
+                  type="button"
+                  onClick={() => setSub(i)}
+                  style={{
+                    border: 'none', background: sub === i ? 'var(--surface)' : 'transparent',
+                    color: sub === i ? 'var(--ink)' : 'var(--dim)', fontWeight: sub === i ? 600 : 500,
+                    fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer',
+                    boxShadow: sub === i ? '0 1px 2px rgba(18,21,27,.08)' : 'none',
+                  }}
+                >{v.nombre}</button>
+              ))}
+            </div>
+          )}
+          {vistas[sub]?.vista ?? vistas[0]?.vista}
+        </Modal>
+      )}
     </>
   );
 }

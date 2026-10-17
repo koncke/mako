@@ -28,7 +28,7 @@
 ## Índice
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
-- **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
+- **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `cerrar_tareas_plan` · `proponer_ampliar_tareas`
 - **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `armar_tab_ficha`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
@@ -38,7 +38,7 @@
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
-- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
+- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
@@ -745,7 +745,7 @@ curl -L \
 
 ## Plan — `plan`
 
-Tab **Plan** (`/plan`). 18 lecturas · 9 acciones.
+Tab **Plan** (`/plan`). 18 lecturas · 10 acciones.
 
 ### `GET /api/v1/plan/resumen` — Ver el plan del negocio
 
@@ -1208,7 +1208,7 @@ curl -L \
 
 ### `PUT /api/v1/plan/tareas/{id}/estado` — Mover una tarea de columna
 
-Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Atorada admite un motivo corto. No toca la prioridad. Sacarla de Completada la reabre en 0%; para completarla usa proponer_cierre_tareas.
+Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Atorada admite un motivo corto. No toca la prioridad. Sacarla de Completada la reabre en 0%; para completarla usa cerrar_tareas_plan.
 
 - **Ruta por operación:** `POST /api/v1/plan/mover_tarea_plan`
 - **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)
@@ -1396,6 +1396,38 @@ curl -L \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/plan/borradores/cierres" \
+  -d '{"cerrar":[]}'
+```
+
+### `POST /api/v1/plan/tareas/cierres` — Marcar hechas tareas que ya están
+
+Marca como HECHAS, sin borrador, tareas que ya existen y que YA ESTÁN hechas, cada una con la evidencia (qué se entregó, dónde se ve) y, si la hay, la ruta de MaKo donde se revisa. Es lo que se usa cuando algo ya se terminó: no pide revisión en otra pantalla. Cerrar no es borrar: la tarjeta queda con su historial y se reabre moviéndola de columna. Sin evidencia de al menos 10 caracteres no se cierra; una que ya estaba hecha no es un error. Si sólo lo deduces y no lo verificaste, usa proponer_cierre_tareas.
+
+- **Ruta por operación:** `POST /api/v1/plan/cerrar_tareas_plan`
+- **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la tarea (plan_tareas o experimento_tareas): hecha al 100 %, la checklist tildada y la evidencia en el historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** todo
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `cerrar` | object[] | sí | las tareas a marcar hechas. |
+| `cerrar.id` | string | sí | id de la tarea (de listar_tareas_plan), o «#870». |
+| `cerrar.evidencia` | string | sí | qué se hizo y dónde se ve (mínimo 10 caracteres). |
+| `cerrar.revisar` | string | no | la ruta de MaKo donde se prueba («/crm?lead=12»), si la hay. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/plan/tareas/cierres" \
   -d '{"cerrar":[]}'
 ```
 
@@ -11099,7 +11131,7 @@ curl -L \
 
 ## El negocio (onboarding, Second Brain, conocimiento) — `negocio`
 
-Tab **Second Brain** (`/second-brain`). 16 lecturas · 15 acciones.
+Tab **Second Brain** (`/second-brain`). 18 lecturas · 15 acciones.
 
 ### `GET /api/v1/negocio/contexto` — Contexto del negocio
 
@@ -11409,6 +11441,55 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/negocio/segundo-cerebro/archivos"
+```
+
+### `GET /api/v1/negocio/segundo-cerebro/indice` — Índice del segundo cerebro
+
+El índice del mapa del negocio: cada carpeta y cada área con cuántos datos tiene, una línea de qué es y hasta tres ejemplos con su id, más los puntos fijos (el Norte, el cuello de botella, los leads). Son unos cientos de tokens. Pídelo PRIMERO para saber qué hay, y después pide sólo lo que necesitas con recuperar_del_segundo_cerebro, en vez de leer el cerebro entero.
+
+- **Ruta por operación:** `GET /api/v1/negocio/indice_segundo_cerebro`
+- **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** markdown
+- **Costo:** gratis · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** second-brain
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/segundo-cerebro/indice"
+```
+
+### `GET /api/v1/negocio/segundo-cerebro/recuperar` — Recuperar del segundo cerebro
+
+La vista local del mapa del negocio para UNA pregunta: los datos que la pregunta nombra (o los `ids` que pidas, del índice o de una vista anterior) y sus vecinos, una línea por dato con su tipo, su id, su detalle, sus datos y con qué se conecta, hasta el `presupuesto` de tokens. Úsala en vez de leer el cerebro entero: trae sólo lo que hace falta. Sin nada que la pregunta nombre, devuelve el índice. Con `ids` y profundidad 0 trae esos datos ENTEROS.
+
+- **Ruta por operación:** `GET /api/v1/negocio/recuperar_del_segundo_cerebro`
+- **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** markdown
+- **Costo:** gratis · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** second-brain
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `pregunta` | string | no | Lo que hay que contestar, con las palabras del dueño («¿cuánto cobro por la mentoría?»). |
+| `ids` | string[] | no | Ids de datos que ya conoces (del índice o de una vista anterior). |
+| `profundidad` | number | no | 0 = sólo esos datos (enteros), 1 = y sus vecinos (default), 2 = y los vecinos de ésos. |
+| `presupuesto` | number | no | Tokens estimados del paquete. Default 1500. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/segundo-cerebro/recuperar"
 ```
 
 ### `GET /api/v1/negocio/glosario/terminos` — Glosario del negocio
@@ -14490,7 +14571,7 @@ curl -L \
 
 ## Curso (módulos y clases) — `curso`
 
-Tab **Customer Success › Curso** (`/customer-success/curso`). 3 lecturas · 8 acciones.
+Tab **Clients › Classroom** (`/clients/classroom`). 3 lecturas · 8 acciones.
 
 ### `GET /api/v1/curso/cursos` — Listar los cursos
 
