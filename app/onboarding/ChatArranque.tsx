@@ -27,6 +27,7 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { DIAL_DEFAULT } from '@/lib/paises';
 import { tipoCrmPorId } from '@/lib/pipeline';
 import { rutaDeEntrada, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
+import { MENSAJE_BLOQUEADO } from '@/lib/onboarding-guardia';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
 import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { OfferApp, type ArranqueOffer } from '../offer/OfferApp';
@@ -189,6 +190,8 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     abrirEnFunnel: vista.modo === 'oferta' && vista.etapa === 'oferta' && !vista.tieneSesion && !vista.sesionCaida
       ? vista.funnelDefaultId : null,
     onSesion: alCambiarSesion,
+    // La guardia lo bloqueó a mitad de la conversación de lo que vende: se relee y se muestra el aviso.
+    onBloqueado: () => { void releer(); },
     // Sin el riel: sus piezas y su «Armar mi oferta» son del análisis, que se hace en la tab Offer.
     conRiel: false,
     placeholder: placeholderDe(vista.etapa),
@@ -197,6 +200,29 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     // la misma pantalla (mientras el onboarding esté pendiente, ninguna otra tab se puede abrir).
     errorExtra: <BotonIntegracion servicio="gemini" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar mi propia IA</BotonIntegracion>,
   };
+
+  // ⛔ BLOQUEADO POR LA GUARDIA (lib/onboarding-guardia.ts, 17/10/2026): sin chat. El cliente lee que quedó en revisión;
+  // el equipo de MaKo, mirándolo, ve el motivo, lo que escribió y «Desbloquear». Va DESPUÉS de todos los hooks.
+  if (vista.bloqueo) {
+    const desbloquear = async () => { if (ocupado) return; setOcupado(true); try { aplicar(await llamar({ action: 'desbloquear' })); } finally { setOcupado(false); } };
+    return (
+      <div className="arr-capa">
+        <style>{CSS_ARRANQUE}</style>
+        <main className="arr-bloqueo" role="status">
+          <MunecoMako size={64} animo="cansado" />
+          <p className="arr-bloqueo__titulo">{MENSAJE_BLOQUEADO}</p>
+          {vista.equipo && (
+            <div className="arr-tarjeta arr-bloqueo__equipo">
+              <span className="arr-tarjeta__rotulo">Para el equipo · {vista.bloqueo.motivo}</span>
+              {vista.equipo.ultimasFaltas.map((f, i) => <span key={i} className="arr-bloqueo__falta">{f}</span>)}
+              <Button variant="primary" size="sm" loading={ocupado} onClick={() => void desbloquear()}>Desbloquear</Button>
+            </div>
+          )}
+          {aviso && <span className="arr-bloqueo__falta">{aviso.texto}</span>}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="arr-capa">
@@ -331,4 +357,11 @@ const CSS_ARRANQUE = `
 .arr-link:hover { border-color: var(--border-strong); }
 .arr-link--principal { background: var(--primary); border-color: var(--primary); color: #fff; }
 .arr-link--espera { color: var(--faint); font-weight: 500; }
+.arr-bloqueo {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  padding: 24px 16px; text-align: center;
+}
+.arr-bloqueo__titulo { margin: 0; max-width: 420px; font-size: 17px; font-weight: 600; line-height: 1.45; color: var(--ink); }
+.arr-bloqueo__equipo { max-width: 520px; width: 100%; text-align: left; }
+.arr-bloqueo__falta { font-size: var(--fs-sm); color: var(--dim); overflow-wrap: anywhere; }
 `;

@@ -15,6 +15,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { wsDelOnboarding } from '@/lib/onboarding-guard';
+import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
+import { desbloquearOnboarding, frenoDeArranque } from '@/lib/onboarding-guardia-server';
 import { getSettingEstricto } from '@/lib/settings';
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
@@ -55,6 +57,9 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = (await req.json()) as Record<string, unknown>; } catch { return no(400, 'body inválido'); }
   const listo = async (extra: Record<string, unknown> = {}) => NextResponse.json({ ok: true, ...extra, vista: await vistaArranque() });
+  // Quién escribe, SÓLO para la guardia (la ráfaga por usuario): nunca para los datos del negocio (el contacto de los
+  // reportes es el del negocio, ver 'telefono').
+  const usuarioGuardia = (await getUsuarioActual().catch(() => null))?.email ?? null;
 
   try {
     switch (body.action) {
@@ -70,6 +75,11 @@ export async function POST(req: NextRequest) {
         const texto = typeof body.texto === 'string' ? body.texto : undefined;
         const opcion = typeof body.opcion === 'number' ? body.opcion : undefined;
         const opcionTexto = typeof body.opcionTexto === 'string' ? body.opcionTexto : undefined;
+
+        // ⛔ La guardia (17/10/2026): la ráfaga, el bloqueo y el troleo, antes de anotar nada. Una opción tocada no
+        // se mira (la escribió MaKo); lo escrito, sí.
+        const freno = await frenoDeArranque({ req, ws: g.ws, usuario: usuarioGuardia, texto: opcion === undefined ? texto : undefined });
+        if (freno) return NextResponse.json({ ok: false, error: freno.error, ...(freno.bloqueado ? { bloqueado: true } : {}), vista: await vistaArranque() }, { status: freno.status });
 
         // El código del WhatsApp: se verifica contra lo que MaKo mandó (lib/mako-grupo.ts).
         if (etapa === 'codigo' && texto && /^\D*\d{6}\D*$/.test(texto)) {
@@ -115,6 +125,9 @@ export async function POST(req: NextRequest) {
       }
 
       case 'telefono': {
+        // Cada pedido manda un código por WhatsApp: la ráfaga y el bloqueo también valen acá.
+        const frenoTel = await frenoDeArranque({ req, ws: g.ws, usuario: usuarioGuardia });
+        if (frenoTel) return NextResponse.json({ ok: false, error: frenoTel.error, ...(frenoTel.bloqueado ? { bloqueado: true } : {}), vista: await vistaArranque() }, { status: frenoTel.status });
         const e = await estadoEstricto();
         const h = await hechosDelArranque(e);
         if (etapaDeArranque(e, h) !== 'telefono') return no(409, 'Ahora no estoy esperando tu teléfono.');
@@ -140,6 +153,13 @@ export async function POST(req: NextRequest) {
       // cuando le falta: si el intento de cuando contestó el objetivo falló, esto lo reintenta).
       case 'preparar': {
         await asegurarFunnelPrincipal();
+        return listo();
+      }
+
+      // El super admin, mirando a un cliente bloqueado por la guardia, lo desbloquea desde el mismo onboarding.
+      case 'desbloquear': {
+        if (!(await getSesionAdmin())) return no(403, 'Solo el equipo de MaKo puede desbloquear un onboarding.');
+        await desbloquearOnboarding();
         return listo();
       }
 
