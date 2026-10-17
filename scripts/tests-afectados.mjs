@@ -208,11 +208,11 @@ export function motivoBarredora(src, nombradas = rutasNombradas(src)) {
 // -----------------------------------------------------------------------------
 
 /**
- * @param {{ cambiados: string[], archivos: string[], leer: (ruta: string) => string | null }} p
+ * @param {{ cambiados: string[], archivos: string[], leer: (ruta: string) => string | null, profundidad?: number }} p
  *   cambiados: lo que el cambio toca (incluye borrados); archivos: lo que existe ahora (incluye
  *   lo nuevo sin git); leer: el texto de un archivo de código; profundidad: cuántos saltos de import se siguen
  *   (default: todos; `--profundidad 3` es la palanca si el tiempo aprieta: ver el replay, qué rojos salen a cada profundidad).
- * @returns {{ tests: Map<string, {tipo: string, detalle: string}[]>, sinRed: string[], totalTests: number, importadoPor: Map<string, Set<string>> }}
+ * @returns {{ tests: Map<string, {tipo: string, detalle: string}[]>, sinRed: string[], totalTests: number, importadoPor: Map<string, Set<string>>, aumentan: Set<string> }}
  */
 export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity }) {
   const existentes = new Set(archivos);
