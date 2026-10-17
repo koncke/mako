@@ -5,13 +5,18 @@
 // negocio disponible y crear los gráficos alrededor de esa métrica y no crear un montón de gráficos vacíos».
 //
 // QUIÉN: el admin del negocio, con la tab en su capa (lo mismo que «¿Qué vas a crear hoy?», ./../ia/route.ts). No
-// escribe nada: devuelve la hoja y la pantalla la agrega con su guardado de siempre. Cerrar el modal corta el pedido.
+// escribe nada: devuelve la hoja y la pantalla la pone con su guardado de siempre.
+//
+// #857 (17/10/2026): la pantalla ya CREÓ la hoja con la plantilla tal cual y manda esa (`hoja`, con sus ids): se ajusta
+// ESA, así los gráficos que se quedan conservan su id y lo que ya leyeron (lib/graficos-plantilla-relleno.ts). Sin
+// `hoja` (una pestaña abierta con la pantalla de antes), se instancia la plantilla acá, como siempre.
 
 import { NextResponse } from 'next/server';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { instanciarPlantilla, plantillaHojaDe } from '@/lib/graficos-plantillas';
+import { sanearHoja } from '@/lib/graficos-catalogo';
 import { hojaConDatos } from '@/lib/graficos-con-datos-server';
 import { esPlantillaGeneral } from '@/lib/general-plantillas';
 import { ALCANCE_GENERAL } from '@/lib/graficos-ia';
@@ -42,7 +47,9 @@ export async function POST(req: Request) {
   else if (!tabEnCapa('graphics', await getCapaActual())) return err(404, 'No existe');
 
   // La hoy del Dashboard es la de siempre (app/dashboard/page.tsx): la misma con que la pantalla va a pedir los datos.
-  const r = await hojaConDatos(instanciarPlantilla(p), { hoy: hoyEnTijuana(), hastaMs: inicio + PLAZO_MS, sumar: { nombre: p.nombre, linea: p.linea }, alcance: general ? ALCANCE_GENERAL : undefined });
+  // Lo que manda el navegador se sanea con el catálogo de acá; si no sirve, la plantilla de siempre.
+  const base = sanearHoja(body.hoja, 0) ?? instanciarPlantilla(p);
+  const r = await hojaConDatos(base, { hoy: hoyEnTijuana(), hastaMs: inicio + PLAZO_MS, sumar: { nombre: p.nombre, linea: p.linea }, alcance: general ? ALCANCE_GENERAL : undefined });
   console.log(`[graficos/plantilla] ${p.id}: ${r.quitados} sin datos, ${r.agregados} sumados${r.sinNada ? ', ninguno con datos' : ''} (${Date.now() - inicio} ms)`);
   return NextResponse.json({ ok: true, hoja: r.hoja, aviso: r.aviso });
 }

@@ -558,7 +558,7 @@ REGLAS DE MaKo (no negociables)
 9. La oferta es lo último que se corrige: si hay datos del embudo, primero se dice dónde se corta (volumen → asistencia → cierre → oferta). Asistencia sana: 60-80%; cierre sano: 25-40% de las llamadas calificadas.
 10. Duración entre 90 y 180 días, con un resultado definido.
 11. Margen bruto: alerta por debajo de 60%; objetivo 80%. Los números de la oferta incluyen LTV:CAC (mínimo 3 a 1).
-12. Fuera de /experimentos MaKo no declara verdades: los cambios se proponen como hipótesis para probar.`;
+12. MaKo no declara verdades: los cambios se proponen como hipótesis para probar (con «Probemos…» en el Dashboard).`;
 
 /**
  * Las preguntas de la guía, en orden de prioridad (§3 del marco). Una por mensaje.

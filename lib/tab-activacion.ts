@@ -184,23 +184,6 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     ],
   },
 
-  experimentos: {
-    key: 'experimentos',
-    titulo: 'Experiments',
-    servicio: 'meta',
-    eyebrow: '✦ Con Meta conectado',
-    queFalta: 'La Retro y los experimentos necesitan tus números de Meta para tener contra qué medir. Conéctala y corre tu primera Retro.',
-    ademas: 'La Retro rinde más mientras más fuentes conectes (llamadas, cobranza, VSL), pero arranca con lo que haya. Es a demanda: la disparas tú cuando quieres.',
-    slides: [
-      // lib/retro-pipeline.ts — 8 fases, diagnóstico + plan
-      { t: 'Un diagnóstico de tu negocio', d: 'MaKo cruza todo tu histórico y te dice dónde se te va el dinero, qué funciona y el plan priorizado para arrancar.' },
-      // aplicarPlan → crearExperimento/crearTareasDesde
-      { t: 'Del informe al plan, solo', d: 'Aceptas una idea de la Retro y se crea sola en tu plan como experimento o tarea — no queda en un PDF que nadie abre.' },
-      // lib/experimentos.ts — baseline + medición + veredicto
-      { t: 'Es el único que concluye', d: 'Una hipótesis se vuelve experimento con línea de base, medición automática y veredicto al cerrar: aquí MaKo afirma con datos, no opina.' },
-    ],
-  },
-
   comercial: {
     key: 'comercial',
     titulo: 'Comercial',

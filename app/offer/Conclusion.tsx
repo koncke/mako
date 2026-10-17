@@ -39,6 +39,7 @@ import {
   type AvisoGuardado, type Provisional, type PuntoVisible,
 } from './ayudas';
 import { descargarPdf, mensajeDeError } from './offer-api';
+import { hrefProbar } from '@/lib/experimentos-catalogo';
 
 const LECTURA = 880;
 
@@ -358,10 +359,10 @@ function VistaDiagnostico({ d, calculo, conProbar = true }: { d: DiagnosticoOfer
                 <div style={{ fontSize: 'var(--fs-card)', fontWeight: 700, lineHeight: 1.35, color: 'var(--ink)' }}><T v={c.titulo} /></div>
                 {tiene(txt(c.porque)) && <div style={{ marginTop: 4, fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--dim)' }}><T v={c.porque} /></div>}
               </div>
-              {/* Un cambio es una HIPÓTESIS (regla 10 del marco): se prueba en
-                  Experiments, que abre el alta con la hipótesis ya escrita. */}
+              {/* Un cambio es una HIPÓTESIS (regla 10 del marco): se prueba en el Dashboard, con «Editar con
+                  MaKo» abierto y «Probemos: …» escrito (Experiments se mudó ahí el 17/10/2026). */}
               {conProbar && tiene(txt(c.hipotesis)) && (
-                <ButtonLink href={`/experimentos?tab=experiments&hipotesis=${encodeURIComponent(c.hipotesis)}`} variant="secondary" size="sm">
+                <ButtonLink href={hrefProbar(c.hipotesis)} variant="secondary" size="sm">
                   Probarlo
                 </ButtonLink>
               )}

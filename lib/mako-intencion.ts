@@ -650,7 +650,11 @@ const INTERROGATIVO = /\b(cu[aá]nt[oa]s?|qu[eé]|cu[aá]l(es)?|qui[eé]n(es)?|c
 // ⚠️ Y «¿me agendás una visita…?»: la segunda persona con el pronombre ADELANTE (16/10/2026, ws18). Es como pide quien
 // vosea o tutea en una pregunta («me agendás», «me agendas», «le agendarías»), no era ninguna de estas formas y el
 // pedido caía en `consultar`. Sólo con el pronombre: «tus agendas» es el sustantivo.
-const VERBO_AGENDAR = /(?<!\b(?:mi|tu|su|la|de|en|mis|tus|sus|una|esta)\s)\bagenda\s+(?:me|le|les|nos|una?|la|el|a)\b|\b(?:re)?agend(?:ame|ale|ales|ala|alo|alas|alos|anos)\b|\breagenda\b|\bprograma(?:me|la|le)\b|\b(?:me|nos|le|les)\s+(?:la\s+|lo\s+)?(?:re)?agend(?:as|aras|arias)\b/;
+// ⚠️ Y «reprogramame la reunión… reprogramámela para el lunes» (17/10/2026, ws13) caía al default, sin ninguna
+// herramienta de agenda, y MaKo contestó «no tengo acceso para mover eventos de tu calendario». Es la gemela de
+// «reagendá» (07/10): `\bprograma` no matchea adentro de «reprograma», porque entre «re» y «programa» no hay borde.
+// «programa» suelto es el sustantivo («el programa»); «reprograma» suelto no lo es.
+const VERBO_AGENDAR = /(?<!\b(?:mi|tu|su|la|de|en|mis|tus|sus|una|esta)\s)\bagenda\s+(?:me|le|les|nos|una?|la|el|a)\b|\b(?:re)?agend(?:ame|ale|ales|ala|alo|alas|alos|anos)\b|\breagenda\b|\b(?:re)?programa(?:me|mela|melo|la|le|lo|las|los|nos)\b|\breprograma\b|\b(?:me|nos|le|les)\s+(?:la\s+|lo\s+)?(?:re)?agend(?:as|aras|arias)\b/;
 const VERBO_SOBRE_REUNION = /\b(?:crea(?:me|la|le)?|arma(?:me|la|le)?|pon(?:e|eme|ela|me|la|le)|mueve(?:la|lo|me)?|move(?:la|lo|me|las|los)|pasa(?:la|lo|me|las|los)?|cambia(?:la|lo|le|me|las|los)?|cancela(?:la|lo|me|las|los)?|borra(?:la|lo|me|las|los)?|elimina(?:la|lo|me|las|los)?|edita(?:la|lo|le)?|modifica(?:la|lo|le)?|suspende(?:la|lo)?|renombra(?:la|lo)?)\b/;
 // Las formas con modal: es como pide un cliente que tutea («me puedes agendar…»).
 const MODAL_AGENDA = /\b(?:puedes|podes|podrias|podras|puede|podria|quiero|queria|necesito|hay que|vamos a)\s+(?:me\s+|nos\s+|le\s+)?(?:re)?(agendar|crear|armar|poner|mover|pasar|cambiar|cancelar|borrar|eliminar|editar|modificar|programar|suspender|renombrar)(?:me|la|lo|le|nos|las|los)?\b/;

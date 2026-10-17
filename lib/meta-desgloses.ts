@@ -24,6 +24,7 @@
 import 'server-only';
 import { credWsEstricta } from './credenciales';
 import { getWorkspaceActual } from './workspace';
+import { timeRangeMeta } from './meta-rango';
 
 const GRAPH = 'https://graph.facebook.com';
 
@@ -80,7 +81,8 @@ async function pedir(c: Conexion, p: { desde: string; hasta: string; breakdown: 
   u.searchParams.set('fields', CAMPOS);
   u.searchParams.set('action_breakdowns', 'action_type');
   u.searchParams.set('breakdowns', p.breakdown);
-  u.searchParams.set('time_range', JSON.stringify({ since: p.desde, until: p.hasta }));
+  // Un `since` de más de 37 meses es el error #3018, no un recorte (lib/meta-rango.ts).
+  u.searchParams.set('time_range', timeRangeMeta(p.desde, p.hasta));
   u.searchParams.set('limit', '500');
   u.searchParams.set('access_token', c.token);
   const out: FilaInsights[] = [];

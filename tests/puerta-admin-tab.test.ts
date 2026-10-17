@@ -1,5 +1,5 @@
 // =============================================================================
-// La puerta de las rutas /api de Experiments y Second Brain (lib/puerta-admin-tab.ts)
+// La puerta de las rutas /api de los experimentos del Dashboard y del Second Brain (lib/puerta-admin-tab.ts)
 // =============================================================================
 // Las pantallas de esas dos tabs son sólo del admin (`requireRolWs([], { nav })` en escritorio,
 // `requireMovil({ navKey })` en el teléfono), pero el proxy sólo pide SESIÓN fuera de /admin y /metodo: un
@@ -55,8 +55,10 @@ const rutasDe = (base: string) => (readdirSync(join(RAIZ, base), { recursive: tr
 
 /** La tab que pide cada carpeta de rutas, y la página que la pide igual. */
 const AREAS = [
-  { rutas: [...rutasDe('app/api/experimentos'), ...rutasDe('app/api/retro')], nav: 'experimentos', pagina: 'app/experimentos/page.tsx', minimo: 6,
-    puerta: "requireRolWs([], { nav: 'experimentos' })" },
+  // 17/10/2026: la tab Experiments se retiró y sus experimentos viven en el Dashboard (su ruta es la del elemento de la
+  // hoja, app/api/experimentos/route.ts); /api/retro se fue con la tab. La página que la pide igual es el Dashboard.
+  { rutas: rutasDe('app/api/experimentos'), nav: 'graphics', pagina: 'app/dashboard/page.tsx', minimo: 2,
+    puerta: "requireRolWs(['closer', 'setter'], { nav: 'graphics' })" },
   // La página del Second Brain es el CHAT con MaKo desde el 16/10/2026 (entra con la puerta de MaKo, closer y setter
   // incluidos): lo que es del admin de la tab es el MAPA, y lo corta con la misma regla que estas rutas.
   { rutas: rutasDe('app/api/second-brain'), nav: 'second-brain', pagina: 'app/second-brain/page.tsx', minimo: 2,
