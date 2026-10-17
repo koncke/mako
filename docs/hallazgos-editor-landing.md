@@ -1992,3 +1992,43 @@ Los tres vinieron de la revisión con Código Inmobiliario (16/10, Fathom 863534
   `lib/api-mako/areas/landing-editor.def.ts` · `tests/mako-intencion-landing.test.ts` (T1-T4).
 
 *17/10/2026, «Pendientes B3» (`claude4`).*
+
+## Pendientes B3, segunda tanda (17/10/2026): la plata, el dominio, la poda y las copias de la API
+
+### El reuso de un cobro de prueba después de pasar a claves reales
+- **Síntoma** (revisión de la tanda 4): `cobroReusable` no miraba el `modo`; un pendiente creado con las claves de prueba,
+  reusado después del cambio a reales, mandaba al comprador a un checkout de PRUEBA (no cobra y nadie se entera).
+- **Dónde estaba el dato:** el modo de la clave de hoy sólo lo sabía `crearCobro` (lib/cobros.ts, de Integraciones). Se
+  sacó a UNA función, `modoDeLaPasarela`, y la landing la pregunta sólo si hay pendientes (con Mercado Pago es una
+  consulta a su API). Sin saber el modo, no se reusa: crear uno nuevo es lo seguro.
+- **Vive en:** `lib/cobros.ts` (`modoDeLaPasarela`) · `lib/editor-landing/pago-pedido.ts` (`cobroReusable`, `DepPago.modo`).
+
+### Reclamar una raíz ajena tapaba el www del dueño real
+- **Causa:** desde la tanda 7 el www se sumaba al CONECTAR, y conectar es un reclamo sin probar nada (pendiente, sin TXT).
+  El www no es una fila con reserva de 72 h: el bloqueo no vencía. **Ahora el www se suma recién con la raíz VERIFICADA**
+  (`debeSumarWww`, en `comprobar`), que además le da su www a las raíces de antes del 15/10 al mirar la pestaña.
+- **El www que no apunta pasó a informativo** (decisión del 15/10): fuera de `falta`. ⚠️ Y entonces la tabla de
+  registros desaparecía en un verificado (`verTabla` miraba sólo `falta`): se ve también por la fila del www sin listo.
+- **Vive en:** `lib/editor-landing/dominios.ts` (`comprobar`), `dominios-reglas.ts` (`debeSumarWww`, `AVISO_WWW`, la fila
+  `para: 'www'`), `app/web-generator/editor/dialogos/DialogoPublicar.tsx`.
+
+### Las copias de seguridad de MaKo no se podaban
+- `podarVersionesAuto` miraba sólo «Guardado automático»: «Antes de un cambio de MaKo» (cada edición por la API o
+  WhatsApp) y «Antes de aplicar el diagnóstico» crecían sin tope. Se podan las tres, por motivo (`MOTIVOS_QUE_SE_PODAN`).
+  Los textos viven en tres módulos; el test los compara con los de allá.
+
+### Las reglas copiadas de la API, unificadas
+- `rutaLibre`, `hacerInicio`, `motivoRuta`, `duplicarPagina`, «Restablecer estilo» y el tema sugerido vivían en archivos
+  'use client' y la API los tenía COPIADOS. Ahora viven en `lib/editor-landing/paginas-reglas.ts` y `reglas-pantalla.ts`;
+  los 'use client' re-exportan y la API usa los MISMOS (los tests comparan la identidad de la función, no el resultado).
+
+### Lo que quedó SIN hacer (de la lista B3, Web Generator)
+- **Avisarle al negocio un pago rechazado o una pasarela caída** (decidido el 14/10: plantilla del catálogo, un evento de
+  MaKo como `pago_recibido`). No se hizo: toca el motor de avisos (`lib/disparadores.ts`, `avisos-catalogo.ts`,
+  `variables-aviso.ts`, `plantillas-automatizaciones.ts`) que el chat Automations reescribía ese día. El plan, en
+  docs/relevo/landing-generator.md → «Lo que sigue (17/10)».
+- «sacá el video de la web» es editar, pero `acomodar_bloque_landing` no entra en el presupuesto del turno.
+- «Mi otro producto»: preguntar en texto libre pide decidir cómo vuelve la respuesta al pedido (hoy cada mensaje se
+  interpreta suelto en /api/mako/pedidos).
+
+*17/10/2026, «Pendientes B3» (`claude4`).*

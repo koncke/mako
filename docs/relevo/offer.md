@@ -1,5 +1,13 @@
 # Relevo — la tab Offer
 
+## Estado al 17/10/2026 («Pendientes B3», claude4, rama pend-b3-1710)
+
+Hecho: «Los números» de la propuesta marcan lo que estimó MaKo (y lo guardado se lee marcado), la pestaña del PDF deja
+ver cualquier versión anterior, y la transcripción de un audio se lee entera con «Ver todo». Sigue SIN hacer: el PDF
+externo para un prospecto (sin diagnóstico ni «[completar]») y que El Archivero guarde de dónde vino cada documento
+(pide migración en `archivero_files`). Detalle: docs/hallazgos-offer.md.
+
+
 <sub>Escrito por el chat que la construyó (cuenta claude3), 12/10/2026 ~07:45 UTC. Primera mano.</sub>
 
 ## Estado al 16/10/2026 — leer esto primero

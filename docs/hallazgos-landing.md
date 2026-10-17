@@ -4308,3 +4308,30 @@ clics llegan bien, porque esa parte no la tocó. Además la copia arranca el gra
   `tests/landing-analyst-auto.test.ts` (A1-A8).
 
 *17/10/2026, «Pendientes B3» (`claude4`).*
+
+## El Pixel: una vara, la portada por clic, www y sin www, y lo más tocado en el análisis (17/10/2026)
+
+- **Cuatro lectores medían la versión distinto que el aviso de adentro.** El pulso, `ver_estado_pixel`, el «Verificar» y
+  el WhatsApp del vigilante leían `snippetDesactualizado()` (el setting del WORKSPACE: lo escribe el último evento, y sin
+  fila contaba como v1); el aviso fijo decidía por página y mirando lo que la página sirve. Ahora
+  `snippetDesactualizado` pregunta a `estadoPixel` (import dinámico: pixel-estado importa landing-token).
+- **Una landing dada de baja dejaba el aviso para siempre.** Se descartan las páginas declaradas sin una visita en 7
+  días (`DIAS_PAGINA_VIVA`); sin ninguna visita, no hay aviso. ⚠️ **No 48 h como el WhatsApp:** eso es sobre el negocio
+  entero; por página, una landing viva de poco tráfico prendía y apagaba el aviso día por medio.
+- **La misma portada como una página por clic:** medido en ws1 (30 días), Meta agrega `ai=AI@…` y `ct=<instante>`
+  (distintos en CADA clic desde su app) y `sfnsn=scwspwa` (compartir por WhatsApp). Van a `PARAMS_DE_MEDICION`.
+- **Con www y sin www, dos visitantes (v25).** La cookie `nqe_visitor_id` iba sin `domain=`. Ahora va en el dominio más
+  corto que acepta el navegador, probando de lo más corto a lo más largo (el «auto» de Google Analytics): el navegador
+  rechaza un sufijo público (`com.mx`, `vercel.app`). Las cookies viejas no se juntan solas (cada host conserva su
+  visitante hasta que vence). Sin pedir repegar: `PIXEL_MINIMO_AVISO` sigue en 22 y la línea de /m.js lo trae sola.
+- **#886: el análisis de una landing lee lo más tocado del mapa de calor** (`masTocadoDeLaPagina`, una pasada por los
+  toques). ⚠️ La URL de un toque está normalizada con la del Pixel (`normalizarUrl`: conserva el www) y el análisis va
+  por `claveDeLanding` (sin www ni query): se comparan por la llave del análisis. Lo tocado trae los textos de los
+  botones de la página: va en un bloque NO CONFIABLE, y con plazo (es un plus: no frena el análisis).
+- **«La prueba del Pixel no avisa cuando la grabación quedó guardada» ya estaba hecho** (el cron prueba-grabacion y su
+  automatización de SuperAdmin `prueba_grabada`, más el sondeo de la pantalla): el relevo del 06/10 estaba viejo.
+- **Vive en:** `lib/pixel-aviso.ts` (`DIAS_PAGINA_VIVA`, `veredictoPixel` con `vivas`) · `lib/pixel-estado.ts`
+  (`paginasVivas`) · `lib/landing-token.ts` (`snippetDesactualizado`, `dominioDelVisitante`, v25) · `lib/landing-paginas.ts`
+  · `lib/landing-mapa-server.ts` (`masTocadoDeLaPagina`) · `lib/landing-analyst.ts` (`comportamientoConToques`).
+
+*17/10/2026, «Pendientes B3» (`claude4`).*

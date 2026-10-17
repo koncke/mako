@@ -1,5 +1,36 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
+## Estado al 17/10/2026 (rama pend-b3-1710, «Pendientes B3», cuenta claude4) — leer primero
+
+**Hecho, con su test probado rompiéndolo (lo sube el Cerebro):** #863 (el Diagnóstico ya no dice «nada que señalar»
+sobre una landing con hallazgos del Landing Analyst), #861 (la vista previa: el VSL se pausa y no arranca con sonido, el
+recorrido ya no traba el scroll), los tres pedidos que MaKo entendía mal («quita el botón», «quítale el formulario»,
+«analiza las animaciones»), el cobro de prueba que se reusaba en real, el www que se sumaba antes de verificar (y la
+pestaña que no lo explicaba), la poda de las copias de MaKo, los avisos de Replicar en la copia, el rótulo de formatos,
+el guard de links absolutos, las reglas que la API tenía copiadas, y #886 del lado del Web Generator (el análisis lee lo
+más tocado; «Ver el tráfico →»). Detalle: docs/hallazgos-editor-landing.md, las dos entradas «Pendientes B3».
+
+**Sin verificar en un navegador** (la regla de RAM): mirar con clics en el ws3 el Diagnóstico de un diseño con VSL
+(pausar, scrollear con el recorrido abierto), una landing de afuera ya analizada (tiene que traer sus comentarios), y
+«Dominios» con una raíz recién conectada (el www recién aparece al verificar).
+
+**Lo que sigue, con su archivo:**
+1. **El aviso al negocio de un pago rechazado o una pasarela caída** (decidido el 14/10, `landing-aviso-rechazo`). No
+   se hizo por no pisar al chat Automations, que reescribía el motor de avisos ese día. El plan, copiando
+   `pago_recibido`: un evento de MaKo `pago_fallido` en `EVENTOS_MAKO` (lib/disparadores.ts, `trae: ['lead', 'pago']`),
+   su entrada `pago-fallido` en lib/avisos-catalogo.ts, la variable `pago_motivo` en lib/variables-aviso.ts, la
+   plantilla de la galería del negocio («Un pago no pasó», lib/plantillas-automatizaciones.ts, como `mako-pago`) y el
+   emisor en `ejecutarPago` cuando `dep.crear` falla (lib/editor-landing/pago-pedido.ts: hoy sólo va al historial del
+   lead). El rechazo DENTRO del checkout de Stripe es de lib/cobros-eventos.ts (Integraciones).
+2. **Pagar desde un dominio propio vuelve a hola-mako.com**: `crearCobro` arma el retorno con `APP_BASE_URL`
+   (lib/cobros.ts, de Integraciones); hace falta una base de retorno del host que sirvió la landing.
+3. **Animaciones, etapas 4, 6 y 9** y **el video de fondo** (espera al puente a Flow): sin empezar.
+4. **Comentar como MaKo** (`comentar_landing`, `borrar_comentario_equipo_landing`, docs/hallazgos-api-mako.md) y
+   **renombrar el proyecto del Plan a «Web Generator»** (un cambio de datos del Plan en ws9, migrando por id): decididos,
+   sin hacer.
+5. «sacá el video de la web» sin `acomodar_bloque_landing` (presupuesto del turno) y «Mi otro producto» en texto libre.
+
+
 > **Estado al 15/10/2026 11:40: la TANDA 7 está EN PRODUCCIÓN** (entró con el push de Estrategia, `70172c164`;
 > deploy `mako-pcg4b6mub` Ready, verificado en vivo por la política nueva de la página de afuera). Falta que Martín la
 > vea con clics y que el clon corra `npx next typegen` cuando se ponga al día (lo hace Estrategia). Ver «Tanda 7» al final. La tab se llama Web Generator y vive en `/web-generator`
