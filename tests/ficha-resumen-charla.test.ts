@@ -31,15 +31,14 @@ test('los siete están registrados, y lo que se sabe antes de leer los calla', (
     assert.match(registro, new RegExp(`'${id}': \\{ Componente: \\w+, \\.\\.\\.REGLAS_RESUMEN\\['${id}'\\] \\}`), `«${id}» sin componente`);
   }
   const ctx = (lead: Partial<Lead>) => ({ lead } as unknown as CtxFicha);
-  const puesto = { id: 'charla-whatsapp' as const, ancho: 12 as const, diseno: 'ultimo' };
   // Sin teléfono no hay WhatsApp; con uno, se lee.
-  assert.equal(REGLAS_RESUMEN['charla-whatsapp'].estaVacio(ctx({ telefono: null, telefono_normalizado: null }), puesto), true);
-  assert.equal(REGLAS_RESUMEN['charla-whatsapp'].estaVacio(ctx({ telefono: '+52 55 1234 5678' }), puesto), false);
+  assert.equal(REGLAS_RESUMEN['charla-whatsapp'].estaVacio(ctx({ telefono: null, telefono_normalizado: null })), true);
+  assert.equal(REGLAS_RESUMEN['charla-whatsapp'].estaVacio(ctx({ telefono: '+52 55 1234 5678' })), false);
   // Sin @ ni entrada por redes no hay DM.
-  assert.equal(REGLAS_RESUMEN['charla-dm'].estaVacio(ctx({ instagram: null, entrada_social: null }), puesto), true);
-  assert.equal(REGLAS_RESUMEN['charla-dm'].estaVacio(ctx({ instagram: 'mako.app' }), puesto), false);
+  assert.equal(REGLAS_RESUMEN['charla-dm'].estaVacio(ctx({ instagram: null, entrada_social: null })), true);
+  assert.equal(REGLAS_RESUMEN['charla-dm'].estaVacio(ctx({ instagram: 'mako.app' })), false);
   // Sin email ni teléfono ninguna automatización le mandó nada.
-  assert.equal(REGLAS_RESUMEN['lo-que-le-mandamos'].estaVacio(ctx({ email: null, telefono: null, telefono_normalizado: null }), puesto), true);
+  assert.equal(REGLAS_RESUMEN['lo-que-le-mandamos'].estaVacio(ctx({ email: null, telefono: null, telefono_normalizado: null })), true);
 });
 
 test('cada lectura exige sesión y lee con el workspace', () => {
