@@ -479,3 +479,14 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - docs/pendientes.md quedó marcado DESACTUALIZADO; se concilia después del 20/10.
   - Todos los agentes terminaron; no queda ninguno corriendo.
   - **SEMANAL cuenta 4:** ~76%. Lo que queda, en cada relevo «para después del 20/10».
+- **23:30 UTC:**
+  - **En producción:** el run 129 (29392086f: MaKo en vista del Dashboard no edita, lo decide el server; el plan para unificar los chats en docs/diseno-chats-de-mako.md) y el run 130 (b61321827: Ops Center 6).
+  - **Cerrados en el Centro:** 05688f9a, 341f0257 y dd9f3560.
+  - **Avisarle al chat Sidebar** cuando se pueda escribirle: Ops6 tocó nav.ts (`arribaDe`) para sacar el Second Brain de la barra del super admin.
+  - **Para después del 20/10:**
+    - unificar los chats de MaKo;
+    - el texto del razonamiento en «Trabajando…» (pide revisión de qué viaja);
+    - borrar el mazo viejo (Mazo.tsx, Tablero.tsx);
+    - SheetM a media altura en todas las hojas;
+    - las fotos del Centro en otro dispositivo (decide Martín).
+  - **SEMANAL cuenta 4:** ~78%. No queda ningún agente corriendo.
