@@ -186,6 +186,15 @@ function PreviewCanvas({
 	const editor = useEditor();
 	const activeProject = useEditor((e) => e.project.getActive());
 	const renderTree = useEditor((e) => e.renderer.getRenderTree());
+	// ⚠️ SIN GPU NO HAY COMPOSITOR, Y NO HAY «CAMINO LENTO». `isDegraded` lo pone el
+	// EditorProvider cuando `initializeGpu()` falla, y eso pasa sólo si el navegador
+	// no tiene NI WebGPU NI WebGL2 (wgpu cae a WebGL2 solo: medido 17/10/2026 con un
+	// Chrome sin ventana). Ahí `initCompositor` tira «GPU context not initialized»,
+	// y como el montaje del lienzo lo llamaba en un efecto, la pantalla entera caía
+	// en «Esta pantalla se rompió al dibujarse» (tarjeta #853). A Chrome le pasa
+	// cuando su proceso de GPU se cae varias veces —un video pesado alcanza— y queda
+	// así hasta reiniciarlo: por eso «no dejaba entrar» ni recargando.
+	const sinGpu = useEditor((e) => e.renderer.isDegraded);
 	const mostrarReglas = usePreviewStore((s) => s.mostrarReglas);
 	const escala = useEscalaReproductor();
 	const viewport = usePreviewViewportState({
@@ -227,7 +236,9 @@ function PreviewCanvas({
 	// the container div owns positioning/styling, the canvas itself fills it.
 	useEffect(() => {
 		const mount = canvasMountRef.current;
-		if (!mount) return;
+		// Sin GPU no se monta: `getOutputCanvas()` tiraría acá, en un efecto, y eso
+		// tumba la pantalla entera. El resto del editor sigue andando.
+		if (!mount || sinGpu) return;
 		const outputCanvas = renderer.getOutputCanvas();
 		outputCanvas.style.display = "block";
 		outputCanvas.style.width = "100%";
@@ -238,10 +249,10 @@ function PreviewCanvas({
 				mount.removeChild(outputCanvas);
 			}
 		};
-	}, [renderer]);
+	}, [renderer, sinGpu]);
 
 	const render = useCallback(() => {
-		if (!renderTree || renderingRef.current) return;
+		if (sinGpu || !renderTree || renderingRef.current) return;
 
 		// «Eje de vista previa» (línea de tiempo): con el mouse sobre las pistas
 		// se muestra ese cuadro sin mover el cabezal.
@@ -280,7 +291,7 @@ function PreviewCanvas({
 			.finally(() => {
 				renderingRef.current = false;
 			});
-	}, [renderer, renderTree, editor.playback, editor.timeline]);
+	}, [sinGpu, renderer, renderTree, editor.playback, editor.timeline]);
 
 	useRafLoop(render);
 
@@ -408,6 +419,11 @@ function PreviewCanvas({
 													: activeProject?.settings.background.color,
 										}}
 									/>
+									{sinGpu && (
+										<div className="absolute inset-0 flex items-center justify-center p-4 text-center text-[12px] text-(--cc-text-3)">
+											Reinicia el navegador para ver la vista previa
+										</div>
+									)}
 									<PreviewOverlayLayer
 										instances={overlayInstances}
 										plane="under-interaction"
