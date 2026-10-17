@@ -378,7 +378,7 @@ test('CABLEADO: el emisor manda sólo con el interruptor del negocio Y el envío
   const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
   assert.match(b, /return runWithWorkspace\(ws, async \(\) =>/, 'envioWhatsappHabilitado lee el contexto: tiene que ir adentro del runWithWorkspace');
   // Desde la mudanza (10/10/2026) el interruptor y los toques salen de `toquesDelNegocio`: la automatización del
-  // recordatorio si el negocio la tiene, y si no la configuración de antes (tests/recordatorio-automatizacion.test.ts).
+  // recordatorio del negocio; sin ninguna, apagado (desde el 17/10 sin camino viejo: tests/recordatorio-automatizacion.test.ts).
   assert.match(b, /try \{ fuente = await toquesDelNegocio\(ws\); \}\s*catch \(e\) \{ res\.errores\.push\(msgErr\(e\)\); return res; \}/, 'una lectura que falla no puede caer a otra fuente');
   assert.match(b, /if \(!fuente\.activo && !opts\.dry\) return res;/, 'apagado tiene que cortar ANTES de mirar los leads');
   assert.match(b, /res\.envio = await envioWhatsappHabilitado\(\)/);
