@@ -39,7 +39,7 @@ queda oscura), la 5 (la publicación a medias dice lo mismo) y la 6 (el ojo qued
 **Medido:** ws13 y ws14 siguen con «Joan P2P app» y ws11 con «Lidermente_Agent»: nadie reconectó. Si esas apps siguen en
 desarrollo lo dice una corrida en seco (`validate_only`) sobre SU cuenta: lo decide Martín.
 
-**Lo que quedó SIN hacer, con el porqué:**
+**Lo que quedó SIN hacer, con el porqué (para después del 20/10: corte de consumo del Cerebro, 17/10):**
 - **El Autopilot (punto 18).** El motor, el cron, la pantalla, la API, renumerar la 0275 al primer número libre mirando
   todos los worktrees, aplicarla, mirarlo en ws3 y la revisión adversarial: no entró en esta corrida (tamaño). La base
   sigue en `refs/wip/autopilot-base-1410`; el contrato, en `docs/diseno-ads-autopilot.md`.

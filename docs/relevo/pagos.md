@@ -20,7 +20,7 @@ Lo aprendido: `docs/hallazgos-pagos.md` §5 y `docs/hallazgos-planes-y-cobro.md`
 **Medido** (sólo lectura): el `in` sobre `ctx->>cuotaId` no traba guardar cuotas ni cerrar en Ganado. **0 cobros en
 producción** el 17/10: el corte por falta de pago no toca a nadie hoy.
 
-**Lo que quedó SIN hacer, con el porqué:**
+**Lo que quedó SIN hacer, con el porqué (para después del 20/10: corte de consumo del Cerebro, 17/10):**
 - **Precios en moneda local en el catálogo** (`lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts`): pide una columna
   nueva en `productos` (migración) y su pantalla; no entró en esta corrida.
 - **Los bloques de Pagos que no se dibujan** (`confirmacion-de-pago`, `recordatorios-de-cobro`, `excepciones`,
