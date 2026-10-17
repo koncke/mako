@@ -1327,6 +1327,22 @@ código nuevo:
     **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
     escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
     quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
+  - **EL MODELO JUSTO Y LA INSTRUCCIÓN PRECISA: los tokens son la capacidad** (17/10/2026). Martín: «quiero que los jefes
+    y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y eligiendo qué modelo de IA debe
+    correr». Medido esa noche: con nueve chats abiertos, la ventana de 5 horas de una cuenta Max llegó al 95% en
+    unas 2 horas, con la semanal al 13%. El cuello es la ventana de 5 horas.
+    - **El Cerebro elige el modelo al abrir un chat** (`start_session` → `model`, y `effort`):
+      - Opus para diseñar, diagnosticar lo difícil o juzgar;
+      - Sonnet para implementar con un plan claro, tests, copy o migraciones;
+      - Haiku con esfuerzo bajo para lo que sólo da vueltas o lee (el Runner).
+    - **Un jefe hace lo mismo con sus subagentes** (`Agent` y `agent()` de un Workflow, con `model`): Sonnet o Haiku para
+      leer, buscar o aplicar un patrón, y Opus sólo para la etapa que juzga. Un workflow, sólo cuando el tamaño lo pide.
+    - **Un brief nombra el archivo, el «hecho» y lo que no se toca.** Nunca «lee todo el relevo» si alcanza una sección.
+    - **Con la ventana de 5 horas arriba del 85%:** nada de workflows ni tandas grandes de tests. Se termina lo que está
+      a medias y se commitea.
+  - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
+    en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
+    lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, el trabajo no aparece para revisar.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
