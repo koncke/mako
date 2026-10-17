@@ -543,6 +543,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // Las operaciones del chat «Editar con IA»: cada una deja una PROPUESTA en el proyecto (lib/editor-video/chat-api.ts).
   ...OPERACIONES_API.map((o): RutaRest => ['POST', `/video/proyectos/{proyecto}/propuestas/${o.op.replace(/_/g, '-')}`, o.id]),
   ['GET', '/video/voz', 'ver_voz_cliente'],
+  ['GET', '/video/avatares', 'ver_avatares'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],
   ['GET', '/integraciones/cuotas-ia', 'ver_cuotas_ia'],
