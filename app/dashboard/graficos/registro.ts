@@ -29,6 +29,11 @@ export type PropsDibujo = {
   onDetalle?: (sel: SelDetalle) => void;
   /** Lo que resolvió la hoja para este gráfico (período y filtros): el mapa de calor lo necesita (v5). */
   efectivo?: Efectivo;
+  /**
+   * Con sesión y mirando (no en un link compartido ni editando): el dibujo puede llevar a otra tab. El mapa de calor
+   * ofrece «Analizar la estructura» en el Web Generator (#886), que pide sesión.
+   */
+  conEnlaces?: boolean;
 };
 
 export const DIBUJOS_PROPIOS: Readonly<Record<string, ComponentType<PropsDibujo>>> = {

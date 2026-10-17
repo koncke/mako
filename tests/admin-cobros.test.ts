@@ -27,7 +27,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ADMIN_FAMILIAS, FAMILIAS, USER_NAV, itemsDe } from '../app/_components/nav';
+import { ADMIN_NAV, FAMILIAS, SUPERADMIN_MENU, USER_NAV, itemsDe } from '../app/_components/nav';
+import { puedeVerItem } from '../lib/nav-visibilidad';
 import { CAPAS_VENDIBLES } from '../lib/capas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -125,9 +126,15 @@ test('la página es sólo del super admin, y el guard va antes de leer nada', ()
   assert.doesNotMatch(page, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada workspace');
 });
 
-test('el item vive en la familia de Admin, sin el prefijo de los registros, y ningún cliente lo enlaza', () => {
-  const item = ADMIN_FAMILIAS.flatMap(itemsDe).find((i) => i.href === '/admin/cobros');
+// Desde el 17/10/2026 la familia Admin salió de la barra: Cobros («Billing») es una SECCIÓN de Clients que sólo ve el
+// super admin (app/_components/nav.ts → HERRAMIENTAS).
+test('el item es del super admin, sin el prefijo de los registros, y ningún cliente lo ve', () => {
+  const item = ADMIN_NAV.find((i) => i.href === '/admin/cobros');
   assert.equal(item?.key, 'admin-cobros', "la key va SIN 'dev-' (tests/dev-areas.test.ts lo reserva a los registros)");
-  const deClientes = [...FAMILIAS.flatMap(itemsDe), ...USER_NAV].filter((i) => i.href.startsWith('/admin/cobros'));
-  assert.deepEqual(deClientes.map((i) => i.key), []);
+  // Primero colgó de Clients; desde que Clients es una tab con sus sub-tabs adentro (17/10/2026), va al menú de la foto.
+  assert.ok(SUPERADMIN_MENU.includes(item!), 'Billing no está en el menú de la foto del super admin');
+  assert.equal(item!.adminOnly, true);
+  assert.deepEqual(FAMILIAS.flatMap(itemsDe).filter((i) => i.href.startsWith('/admin/cobros')).map((i) => i.key), [], 'Billing volvió a la barra');
+  assert.equal(puedeVerItem(item!, { adminShell: false, rolWs: 'admin', capa: 'completo' }), false, 'el admin de un cliente lo vería');
+  assert.deepEqual(USER_NAV.filter((i) => i.href.startsWith('/admin/cobros')).map((i) => i.key), []);
 });

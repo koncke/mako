@@ -6912,7 +6912,7 @@ curl -L \
 
 ### `GET /api/v1/metricas/embudo/etapas` — Salud del embudo por etapa
 
-El embudo del período con el porcentaje de paso de cada etapa y su salud (verde, ámbar, rojo, sin_datos): Impresión→Click de link, Click→Formulario, Formulario→Agenda, Agenda→Asistió a la R1, Asistió→Calificado, Calificado→Cierre, más dos etapas de contexto (Click→Landing, Landing→VSL) que no compiten por ser el cuello. Devuelve el cuello de botella. Úsala para «¿dónde pierdo más gente?» o «¿qué etapa optimizo primero?». Una etapa con su fuente desconectada dice fuente_pendiente, no 0%. Los umbrales son una referencia fija de la plataforma, no del negocio del cliente: dilo si repites un «rojo». Cierre = etapa ganado.
+El embudo del período con el porcentaje de paso de cada etapa y su salud (verde, ámbar, rojo, sin_datos): Impresión→Click de link, Click→Formulario, Formulario→Agenda, Agenda→Asistió a la R1, Asistió→Calificado, Calificado→Cierre, más dos etapas de contexto (Click→Landing, Landing→VSL) que no compiten por ser el cuello. Devuelve el cuello de botella. Úsala para «¿dónde pierdo más gente?» o «¿qué etapa optimizo primero?». Una etapa con su fuente desconectada dice fuente_pendiente, no 0%. Los umbrales son una referencia fija de la plataforma, no del negocio del cliente: dilo si repites un «rojo». Cierre = etapa ganado. Con «funnels», el embudo de ESOS funnels: las etapas del CRM cuentan sólo sus leads (cada uno en el funnel donde estaba ese día); lo de Meta (impresiones, clics, formularios) sigue siendo de toda la cuenta y la salida lo dice.
 
 - **Ruta por operación:** `GET /api/v1/metricas/diagnosticar_funnel`
 - **Token detallado:** permiso `metricas=read` (Solo lectura en «Dashboard y análisis»)
@@ -6926,6 +6926,7 @@ El embudo del período con el porcentaje de paso de cada etapa y su salud (verde
 | --- | --- | --- | --- |
 | `desde` | string | no | Primer día de la ventana, YYYY-MM-DD. Si falta, se usan los últimos 90 días hasta hoy en la zona del negocio. Tope: 1830 días. |
 | `hasta` | string | no | Último día de la ventana, YYYY-MM-DD, inclusive. Default: hoy. |
+| `funnels` | string | no | De qué funnels es el embudo: «todos» (el negocio entero, el default) o ids separados por coma de funnels_del_negocio (listar_objetivos), p. ej. «1,29». Funnels con etapas distintas (uno con reuniones y otro sin) no se miden juntos: pídelos de a uno. |
 
 ```bash
 curl -L \

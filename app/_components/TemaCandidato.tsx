@@ -57,14 +57,14 @@ try{
     document.documentElement.setAttribute('${ATTR_TEMA}',t);
     if(localStorage.getItem('${LS_MODO}')==='oscuro')document.documentElement.setAttribute('${ATTR_MODO}','oscuro');
   }else{
-    /* Fuera del Cliente de Diseño no se aplica NADA, aunque el navegador tenga
-       el tema guardado. La clave vive en localStorage, que es del NAVEGADOR y
+    /* Fuera del Cliente de Diseño no se aplica el TEMA, aunque el navegador lo
+       tenga guardado. La clave vive en localStorage, que es del NAVEGADOR y
        no del workspace: sin esta condición, prenderlo una vez en el cliente de
        diseño lo dejaba puesto en el super admin y en el otro cliente de prueba.
-       Los atributos se sacan explícitamente porque una navegación de cliente no
-       vuelve a correr este script. */
+       El atributo se saca explícitamente porque una navegación de cliente no
+       vuelve a correr este script. El MODO no se toca desde el 17/10/2026: es de
+       la persona (ModoArranque), no del taller. */
     document.documentElement.removeAttribute('${ATTR_TEMA}');
-    document.documentElement.removeAttribute('${ATTR_MODO}');
   }
 }catch(e){}
 `.trim();
@@ -82,15 +82,11 @@ export function aplicarTemaCandidato(id: string | null) {
     raiz.setAttribute(ATTR_TEMA, id);
     try { localStorage.setItem(LS_TEMA, id); } catch { /* incógnito */ }
   } else {
-    // Sacar el tema saca TAMBIÉN el modo. El modo oscuro no existe por su
-    // cuenta todavía: es parte del tema en prueba. Sin esto, apagar el tema
-    // dejaba la app oscura y sin ningún control a la vista para volver.
+    // Sacar el tema NO saca el modo desde el 17/10/2026 (tarjeta #883): el claro/oscuro existe por su cuenta, es de la
+    // persona y tiene su interruptor a la vista en la barra (InterruptorModo). Antes era parte del tema en prueba y
+    // sacarlo dejaba la app oscura sin control; hoy el control está siempre.
     raiz.removeAttribute(ATTR_TEMA);
-    raiz.removeAttribute(ATTR_MODO);
-    try {
-      localStorage.removeItem(LS_TEMA);
-      localStorage.removeItem(LS_MODO);
-    } catch { /* incógnito */ }
+    try { localStorage.removeItem(LS_TEMA); } catch { /* incógnito */ }
   }
   window.dispatchEvent(new Event('mako-tema-candidato'));
 }
@@ -108,8 +104,9 @@ export function TemaCandidato() {
   // puesto. Este efecto es el que lo saca en cada cambio de ruta.
   useEffect(() => {
     if (enDiseno()) return;
+    // Sólo el TEMA: el modo es de la persona (17/10/2026). Sacarlo acá, en cada render, le apagaba el oscuro elegido
+    // al super admin en cada pantalla.
     document.documentElement.removeAttribute(ATTR_TEMA);
-    document.documentElement.removeAttribute(ATTR_MODO);
   });
 
   return (

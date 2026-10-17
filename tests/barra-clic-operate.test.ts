@@ -72,8 +72,14 @@ test('el rótulo de una familia no baja de renglón mientras la barra se anima',
       contadorFamilia: 0, contadorItem: () => 0, onToggle: () => {}, flyoutKey: null,
       onAbrirFlyout: () => {}, onCerrarFlyout: () => {},
     }));
+    // Desde el 17/10/2026 (la barra al estilo Linear), plegada la BARRA el rótulo no es texto: es una línea fina. No hay
+    // renglón que pueda bajar; lo que se fija es que el texto no vuelva al rail.
+    if (!open) {
+      assert.doesNotMatch(html, /class="mk-seccion"/, 'plegada: el rótulo volvió a ser texto en el rail');
+      continue;
+    }
     assert.match(estiloDe(html, 'button', 'mk-seccion'), /white-space:\s*nowrap/,
-      `${open ? 'abierta' : 'plegada'}: sin nowrap el rótulo baja de renglón y la barra salta`);
+      'abierta: sin nowrap el rótulo baja de renglón y la barra salta');
   }
 });
 
