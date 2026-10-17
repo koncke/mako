@@ -99,10 +99,16 @@ test('el panel: la tarjeta va al chat del grupo, la lista sale con el grupo, y a
   assert.match(PANEL, /const conGrupo = canal === 'whatsapp' && avisaAlGrupo\(flujoVivo\);\n\s+const conBarra = canal !== 'email' && \(escenarios\.length > 1 \|\| conGrupo\);/);
   const alGrupo = PANEL.slice(PANEL.indexOf('const alGrupo = '), PANEL.indexOf('const pildora = '));
   assert.ok(alGrupo.length > 200, 'no encontré `alGrupo`');
-  assert.doesNotMatch(alGrupo, /mandarReal|postar|fetch\(/, 'la prueba le escribiría al grupo del cliente');
+  // ⚠️ CAMBIADO A PROPÓSITO EL 17/10/2026 (#852, Martín: «que se puedan probar en el grupo de MaKo»): al grupo de verdad
+  // le escribe SÓLO «Probar en el grupo» —una automatización que sólo le habla al grupo— y nunca el envío al lead. Lo fija
+  // también tests/probar-en-el-grupo.test.ts.
+  assert.doesNotMatch(alGrupo, /mandarReal|fetch\(/, 'la prueba le escribiría al grupo por el envío al lead');
+  const postares = [...alGrupo.matchAll(/postar\(/g)].length;
+  assert.equal(postares, 1, 'al grupo, un solo envío: el de «Probar en el grupo»');
+  assert.match(alGrupo, /if \(realRef\.current && enElGrupoRef\.current && debeSalirDeVerdad\(/, 'al grupo de verdad sólo en «Probar en el grupo»');
   assert.match(alGrupo, /sistema\(PILDORA_AL_GRUPO\);/);
-  // El chat del grupo, sin caja para escribir (sin `onEnviarTexto`), y diciendo arriba que es una prueba.
-  assert.match(PANEL, /<ChatHilo key=\{ID_GRUPO\} accent="var\(--wa\)" accentBubble="var\(--wa-bubble\)" mensajes=\{\[NOTA_GRUPO, \.\.\.grupoMsgs\]\} animarNuevos \/>/);
+  // El chat del grupo, sin caja para escribir (sin `onEnviarTexto`), y diciendo arriba si es una prueba o si le llega.
+  assert.match(PANEL, /<ChatHilo key=\{ID_GRUPO\} accent="var\(--wa\)" accentBubble="var\(--wa-bubble\)" mensajes=\{\[real && enElGrupo \? NOTA_GRUPO_DE_VERDAD : NOTA_GRUPO, \.\.\.grupoMsgs\]\} animarNuevos \/>/);
   assert.match(PANEL, /const NOTA_GRUPO: HiloMsg = \{ id: 'nota-grupo', fromMe: false, tipo: 'sistema', texto: NOTA_DEL_GRUPO \};/);
   // La ruta sólo LEE el grupo.
   const ruta = RUTA.slice(RUTA.indexOf('async function grupoDelNegocio'), RUTA.indexOf('export async function GET'));

@@ -5117,3 +5117,44 @@ Prender #247 lo decide Joan.
 
 **Sin hacer:** verlo con clics en el ws3 (pedir «crea una…» con el lienzo vacío, «elimina la otra» con dos, y crear otra
 con un borrador). El link de «abre X» cuando el nombre de X lleva una palabra de otra área (arriba).
+
+## «Probar en el grupo»: la regla del 16/10 a la mañana, dada vuelta por Martín a la tarde (17/10/2026, tarjeta #852)
+
+- ⚠️ **«La prueba nunca le escribe al grupo de verdad» era una decisión de un chat, no de Martín**, y Martín la dio vuelta
+  en la revisión de esa misma tarde (44:06): «que se envíen las pruebas al grupo… si la automatización no tiene ningún
+  mensaje a clientes… que se pueda probar en el grupo de MaKo». Se conservó lo que la regla protegía: sólo una
+  automatización que SÓLO le habla al grupo (`soloAlGrupo`: ningún mensaje al lead ni AI Step), sólo el admin, con tope,
+  y cada envío abre con «🧪 Prueba de «X» · Caso N. No es un lead real.» (`ENCABEZADO_PRUEBA`).
+- **«¿Por qué me piden un remitente?» (Joan):** el botón de esas automatizaciones es «Probar en el grupo», sin «De» ni
+  «Para»: sale por la línea de MaKo al grupo del negocio. Con un mensaje al lead sigue «Probar en WhatsApp» con su
+  remitente, y la tarjeta del grupo de ESA prueba sigue sin salir de verdad.
+- **Lo que viaja lo valida el server como una tarjeta de verdad** (`problemaDePartesGrupo`, `prepararPartesGrupo`): el
+  texto llega con los datos DE EJEMPLO del panel (nunca de un lead), el audio sólo la Voz de MaKo, el archivo del
+  negocio; y la automatización tiene que ser del negocio. Una fila de un evento de SuperAdmin no lo ofrece (le escribe al
+  grupo de cada negocio, no hay uno).
+- **#845 (sacar la exclusión del número y el email de Martín): no hay ninguna.** Medido el 17/10: ninguna regla en el
+  código, `wa_bloqueados` vacía, ningún lead de Martín dado de baja. Lo que frena una prueba repetida con el mismo
+  contacto es el tope anti-spam (una por persona cada 20 h, `lib/limites-envio.ts`), la reentrada «Una sola vez» y el
+  embudo de la automatización (`ámbito`). Los leads de prueba de la llamada ya no existen: no se pudo saber cuál fue.
+
+**Vive en:** `lib/probar-grupo.ts` (`soloAlGrupo`, `ENCABEZADO_PRUEBA`, `partesDeBurbujas`) · `lib/probar-grupo-envio.ts`
+· `app/api/chat-agent/simulador/route.ts` (`enviar-grupo`) · `app/automations/PanelProbar.tsx` (`enElGrupo`, `alGrupo`) ·
+tests: `tests/probar-en-el-grupo.test.ts`, `tests/probar-grupo-mako.test.ts`
+
+## «El envío de WhatsApp está apagado» con la línea conectada: el interruptor escondido (17/10/2026, tarjeta #851)
+
+- ⚠️ **No era la línea: era un SEGUNDO interruptor.** `envio_whatsapp_enabled` (lib/envio-flags.ts) es fail-closed para
+  los clientes. Medido el 17/10: prendido sólo en ws1, ws11 y ws13. Pablo (ws18) y Brigitte (ws15) tenían la línea
+  conectada y el envío apagado: una automatización «Activa» que le escribe al lead no mandaba nada. Era el cartel amarillo
+  que Martín vio en la revisión («qué raro que esté conectado y te salga…»).
+- **Decisión de Martín (Ticketera `envio-whatsapp-al-activar`, «B · Sí, y prenderlo ya»):** activar una automatización
+  que le escribe al lead por WhatsApp prende el envío del negocio (`prenderEnvioAlActivar` en `setSecuenciaActiva`, la
+  regla en lib/envio-al-activar.ts). Sólo prende; apagarlo sigue siendo a mano en /whatsapp, y el cartel lo dice.
+- **Prendido el 17/10 en ws15 y ws18.** Antes se midió el riesgo de prender de golpe (con el envío apagado el tick no mueve
+  nada y lo vencido se acumula): las únicas automatizaciones activas que le escriben al lead estaban en ws1 y ws13, ya
+  prendidos. Se deshace con `envio_whatsapp_enabled = 'false'` en esos dos.
+- **«Que salte el QR al Probar o Publicar sin WhatsApp» ya estaba** (décima tanda: el 409 de Publicar, Activar y Probar
+  abren `ConectarMedio` ahí mismo). Lo que se vio en la llamada fue el interruptor, no la falta de línea.
+
+**Vive en:** `lib/envio-al-activar.ts` · `lib/nutricion.ts` (`setSecuenciaActiva`, `prenderEnvioAlActivar`) ·
+`lib/envio-flags.ts` · test: `tests/envio-al-activar.test.ts`
