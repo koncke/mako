@@ -1,6 +1,6 @@
 # Relevo — chat «Dashboard» (la tab Dashboard y el editor de General)
 
-<sub>Escrito el 17/10/2026 ~07:20 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
+<sub>Escrito el 17/10/2026 ~10:30 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
 en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
 
 ## Cómo se trabaja acá
@@ -22,10 +22,12 @@ en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relev
 ## Dónde está (17/10)
 
 **En main** (runs 81, 83, 84 y 85): los OKR y los KPIs del CRM con uno o varios funnels; «Estilo de la hoja» con ajustes
-encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo del CRM como ícono único de funnel.
+encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo del CRM como ícono único de funnel. **Y en el
+run 103** (punta 33d11eaae): #876, #872, #857, #858 y Experiments. Los cierres propuestos para el Plan, con su prueba, en
+la carpeta de notas del Cerebro (`dashboard-cierres-run103.json`).
 
-**Punta entregada al Cerebro, sin subir: cuatro commits, uno por pedido** (el orden del Cerebro del 17/10, por impacto:
-#876, #872, #857, … y Experiments al final; Experiments ya estaba casi hecho y entró primero).
+**Uno por pedido, en el orden del Cerebro del 17/10 (por impacto: #876, #872, #857, … y Experiments al final;
+Experiments ya estaba casi hecho y entró primero). De #859 en adelante, entregados y sin subir:**
 - **#876** — el pop-up de un anuncio de Ads Analyst se quedaba sin números: Meta guarda 37 meses y «Todo» le pedía desde
   2020 (#3018). `timeRangeMeta` (lib/meta-rango.ts) en las tres lecturas con período libre (docs/hallazgos-ads.md).
 - **#872** — General en el celular con varias hojas: el segmentado de hojas en /m/hoy, con la URL de escritorio
@@ -44,6 +46,9 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
   de esa página (`?analizar=<url>`). La otra mitad (las métricas dentro del diagnóstico) es del chat Web Generator.
 - **#896** — `diagnosticar_funnel` de la API de MaKo mide uno o varios funnels (`getFunnelEtapas` con `funnels`); dos con
   etapas distintas no se suman (el ws1 tiene ese caso) y lo de Meta es de toda la cuenta (docs/hallazgos-api-mako.md).
+- **La red por bloque** (pedido del Cerebro tras el crash de General en el celular, 6b922f7e3) — cada bloque de General y
+  cada gráfico o elemento del editor va adentro de `RedDeBloque` (app/dashboard/RedDeBloque.tsx): uno roto dice «Este
+  bloque no cargó» y la hoja sigue. `dibujar` corre ADENTRO de la red (docs/hallazgos-graficos.md). Sin mirar en pantalla.
 - **Experiments se retiró y vive en el Dashboard:**
   - «probemos X» en «Editar con MaKo» agrega a la hoja un elemento «Experimento» (app/dashboard/ElementoExperimento.tsx):
     propuesta → «Arrancar» (mide el baseline) → antes/ahora en vivo → «Concluir» (veredicto y aprendizaje de MaKo).
@@ -58,7 +63,8 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
 - **Del orden del Cerebro (17/10) quedan cabos**: `ver_serie_funnel_semanal` sigue midiendo el funnel principal
   (`getFunnelSeries`, lib/queries.ts, tiene sus propias lecturas y va por `cachedRead`: la clave de caché tendría que llevar
   los funnels); la mitad del Web Generator de #886. El detalle de cada pedido, en C:/dev/auditoria-1610.json por su número.
-- **Los «Ya está»**: cuando el Cerebro confirme en producción cada punta, escribirlos en este chat con su ruta (ws3).
+- **Los «Ya está»**: los del run 103 se escribieron en este chat el 17/10. Faltan los de #859, #860, #862, #886, #896 y la
+  red por bloque, cuando el Cerebro confirme que subieron (cada uno con su ruta en el ws3).
 - **El chat Sidebar** dejó la key `experimentos` viva (ítem sin fila, sección oculta del teléfono), así que las dos
   redirecciones conservan su puerta. Si la saca, se van esas dos líneas y entra en `RETIRADAS` (tests/tabs-retiradas.test.ts).
   ⚠️ Su rama y la mía cambian tests/analisis-mudada.test.ts: al mezclar, mi versión más su parte de Offer/Analyze. Avisado.

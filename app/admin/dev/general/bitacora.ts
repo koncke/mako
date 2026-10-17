@@ -618,4 +618,16 @@ export const BITACORA: Hito[] = [
     archivos: ['app/dashboard/EditorInforme.tsx', 'tests/general-filtros-por-defecto.test.ts — probado rompiéndolo'],
     revisar: '/general',
   },
+  {
+    fecha: '17 oct', hora: '10:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un bloque roto ya no se lleva la hoja entera',
+    puntos: [
+      'Lo pidió el Cerebro después del error que viste en el celular, cuando la portada de General quedó en blanco por un solo bloque.',
+      'Si un bloque o un gráfico no se puede dibujar, ese dice «Este bloque no cargó» y el resto de la hoja sigue en pie.',
+      'Vale en la computadora, en el celular y también en las hojas del Dashboard.',
+      'Lo obvio no alcanzaba: el bloque se armaba antes de entrar a la red, y su error pasaba por encima.',
+    ],
+    archivos: ['app/dashboard/RedDeBloque.tsx', 'app/dashboard/ElementoGeneral.tsx', 'app/dashboard/EditorInforme.tsx', 'tests/general-red-por-bloque.test.ts — probado rompiéndolo'],
+    revisar: '/general',
+  },
 ];
