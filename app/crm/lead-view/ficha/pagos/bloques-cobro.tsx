@@ -177,13 +177,28 @@ export function Cuotas(props: PropsBloque) {
   // otro id y otro número (el inicial volvía como «Cuota N», y su recordatorio se volvía a mandar), así que no era
   // la misma cuota. Lo que tiene un link sin pagar o un recordatorio corriendo no se quita: el server lo dice.
   const [aQuitar, setAQuitar] = useState<Pago | null>(null);
-  const quitar = (q: Pago) => start(async () => {
-    const r = await quitarCuotaAction(lead.id, q.id);
+  // ⚠️ «QUITAR» SE VE EN EL ACTO (#891, llamada con Mauricio del 16/10: «Se me hace que no la quitaste... Eso es un
+  // error», y al rato «ahí sí se quitó»). La confirmación se cerraba DESPUÉS de la acción, y la acción revalida cinco
+  // pantallas y después se relee la ficha: segundos con el diálogo abierto y sin una señal. En el ws1 quedó UNA sola
+  // baja registrada (16/10 20:41), así que el primer clic no falló: tardó. Ahora la confirmación se cierra al
+  // confirmar, el renglón dice «Quitando…» sin botones, y desaparece apenas el server dice que se quitó (sin esperar a
+  // que la ficha se relea). Si no se quitó, vuelve y lo dice.
+  // ⚠️ Y LOS ESTADOS VAN AFUERA DE `start`: un setState adentro de una transición puede no dibujarse hasta que termina.
+  const [quitando, setQuitando] = useState<ReadonlySet<number>>(() => new Set());
+  const [quitadas, setQuitadas] = useState<ReadonlySet<number>>(() => new Set());
+  const conId = (s: ReadonlySet<number>, id: number, si: boolean) => { const n = new Set(s); if (si) n.add(id); else n.delete(id); return n; };
+  const quitar = (q: Pago) => {
     setAQuitar(null);
-    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
-    ctx.releer();
-    show(r.quitada ? 'Cuota quitada' : `No se quitó: ${r.motivo ?? 'cambió en otra pantalla'}`);
-  });
+    setQuitando((s) => conId(s, q.id, true));
+    start(async () => {
+      const r = await quitarCuotaAction(lead.id, q.id);
+      setQuitando((s) => conId(s, q.id, false));
+      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+      if (r.quitada) setQuitadas((s) => conId(s, q.id, true));
+      ctx.releer();
+      show(r.quitada ? 'Cuota quitada' : `No se quitó: ${r.motivo ?? 'cambió en otra pantalla'}`);
+    });
+  };
   const becado = lead.venta_tipo === 'sin_cobro';
 
   // «Baja del cliente» (#871): lo que no pagó deja de ser deuda y lo cobrado queda. Con confirmación, y se deshace.
@@ -192,8 +207,12 @@ export function Cuotas(props: PropsBloque) {
   const puedeDarDeBaja = !becado && lead.venta_tipo !== 'suscripcion' && impagasVivas.length > 0;
   const [preguntarBaja, setPreguntarBaja] = useState(false);
   const [enBaja, setEnBaja] = useState(false);
-  const baja = (deshacer: boolean) => start(async () => {
+  const baja = (deshacer: boolean) => {
+    // Afuera de `start`, como en «Quitar»: el «guardando» se tiene que ver mientras corre, no al final.
     setEnBaja(true);
+    start(() => bajaEnCurso(deshacer));
+  };
+  const bajaEnCurso = async (deshacer: boolean) => {
     const r = await bajaDelClienteAction(lead.id, deshacer);
     setEnBaja(false);
     setPreguntarBaja(false);
@@ -201,11 +220,12 @@ export function Cuotas(props: PropsBloque) {
     refrescarCobros(lead.id);
     ctx.releer();
     show(deshacer ? 'Baja deshecha' : 'Cliente dado de baja', deshacer ? undefined : () => baja(true));
-  });
+  };
 
   // «Sólo la próxima»: la vencida más vieja o la que vence primero, y cuántas más hay.
-  const proxima = vivas.filter((q) => !q.pagado && q.fecha_esperada).sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)))[0] ?? null;
-  const lista = diseno === 'proxima' ? (proxima ? [proxima] : []) : [...vivas, ...deBaja, ...devueltas];
+  // Lo que el server ya quitó no se dibuja, aunque la ficha todavía no se haya releído (#891).
+  const proxima = vivas.filter((q) => !q.pagado && q.fecha_esperada && !quitadas.has(q.id)).sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)))[0] ?? null;
+  const lista = (diseno === 'proxima' ? (proxima ? [proxima] : []) : [...vivas, ...deBaja, ...devueltas]).filter((q) => !quitadas.has(q.id));
 
   return (
     <Tarjeta titulo={titulo} marca={marcaDato('plan')}
@@ -224,8 +244,9 @@ export function Cuotas(props: PropsBloque) {
           // Con un recordatorio corriendo no se edita nada; con un link vivo, el monto no (el link cobra ese monto).
           const montoEditable = r.editable && !prot.includes('link') && !prot.includes('recordatorio');
           const fechaEditable = r.editable && !prot.includes('recordatorio');
+          const saliendo = quitando.has(q.id);
           return (
-            <div key={q.id} style={{ ...renglon, borderColor: BORDE[r.estado] ?? 'var(--border)', opacity: r.estado === 'devuelta' || r.estado === 'baja' ? 0.7 : 1 }}>
+            <div key={q.id} aria-busy={saliendo || undefined} style={{ ...renglon, borderColor: BORDE[r.estado] ?? 'var(--border)', opacity: saliendo ? 0.55 : r.estado === 'devuelta' || r.estado === 'baja' ? 0.7 : 1 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{r.nombre}</span>
                 <span style={{ fontSize: 14, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', minWidth: 70 }}>
@@ -244,7 +265,8 @@ export function Cuotas(props: PropsBloque) {
                 {prot.includes('link') && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}>Link enviado</span>}
                 {prot.includes('recordatorio') && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--warn)' }}>Recordatorio en curso</span>}
               </div>
-              {!editando && (
+              {saliendo && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--dim)' }}>Quitando…</span>}
+              {!editando && !saliendo && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {r.accion === 'marcar' && <Button variant={r.estado === 'vencida' ? 'primary' : 'secondary'} size="sm" onClick={() => cobrar.marcar(q)}>Marcar pagada</Button>}
                   {r.accion === 'marcar' && cobrar.hayPasarela && !becado && <Button variant="tertiary" size="sm" onClick={() => cobrar.mandarLink(q)}>Mandar link</Button>}

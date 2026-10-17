@@ -247,6 +247,27 @@ el MRR un 85% (hallazgos-crm.md).
 - **La regla.** Una lectura que filtra en memoria por una columna nueva lee con `*`: si la columna no está, el campo
   llega `undefined` y la regla da «no es de baja». Lo fija tests/pagos-baja.test.ts.
 
+### «Quitar» no falló la primera vez: tardó sin decir nada (#891, 17/10/2026)
+
+- **El síntoma** (llamada con Mauricio, 16/10, 27:42): «Se me hace que no la quitaste... Eso es un error», y al rato
+  «ahí sí se quitó».
+- **El diagnóstico obvio era el equivocado: que el server la rechazó la primera vez** (un link o un recordatorio la
+  protegían). En el ws1 (lead 91) no había ni link ni recordatorio, y el historial tiene UNA sola baja (16/10 20:41):
+  el primer clic se aplicó, tarde.
+- **La causa.** La confirmación se cerraba DESPUÉS de la acción, que revalida cinco pantallas; y la fila se iba recién
+  cuando la ficha se releía (otra acción, en la misma cola). Segundos con el diálogo abierto y sin una señal.
+- **La regla.** Una acción de la ficha que tarda cierra su diálogo y marca el renglón («Quitando…») ANTES de llamar
+  al server, y AFUERA de `startTransition`: un setState adentro de una transición puede no dibujarse hasta que
+  termina. Lo que el server confirmó se saca de la vista sin esperar la relectura. tests/pagos-quitar-al-instante.test.ts.
+
+### «General marca vencido algo cobrado» era un dato, no un bug (#890, 17/10/2026)
+
+- **Leído en el ws1** (lead 23, Adrian Medina): venta de US$7.500 y US$5.625 cobrados. La tercera cuota (US$1.875,
+  vence 15/10) está sin cobrar, y General la marca vencida con razón.
+- **De dónde salió.** El 16/09 «Cuotas actualizadas desde Deal Details» partió la segunda cuota de US$3.750 en dos de
+  US$1.875, y el 13/10 se marcó pagada sólo una.
+- **La regla.** Antes de tocar General por un «ya está cobrado», se leen los pagos del lead y su historial.
+
 ### Cliente de agencia (#866 y #867)
 
 No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
