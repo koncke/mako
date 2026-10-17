@@ -13,6 +13,7 @@
 
 import type { ReactNode } from 'react';
 import { Markdown } from '@/app/_components/Markdown';
+import Link from '@/app/_ui/Link';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ERROR_INCIERTO, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
 import { TarjetaAccion, type ItemPropuesta } from './TarjetaAccion';
@@ -93,7 +94,15 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       return;
     }
     if (x.k === 'msg') {
-      filas.push(<DeMako key={x.id} quien={quien}><div className="ch-md"><Markdown text={x.texto} /></div></DeMako>);
+      filas.push(
+        <DeMako key={x.id} quien={quien}>
+          <div className="ch-md"><Markdown text={x.texto} /></div>
+          {/* Lo pedido que se hace en otra pantalla: el link para ir, como el «Ir a …» de los otros chats (tanda 10). */}
+          {!!x.irA?.length && (
+            <div className="ch-ira">{x.irA.map((l) => <Link key={l.link} className="co-chip" href={l.link}>{`Ir a ${l.titulo}`}</Link>)}</div>
+          )}
+        </DeMako>,
+      );
       return;
     }
     if (x.k === 'aviso') {

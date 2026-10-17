@@ -28,12 +28,16 @@ ofrece `claude4 -n Runner` a la cuenta 4, que no tiene función en el `$PROFILE`
 la app (`tieneTerminal`, lib/runner.ts, con test).
 
 **Lo que sigue del reparto del Cerebro, antes de las tandas:** Martín quiere abrir un chat de terminal con «un clic + el
-permiso de la PC», nunca pegando un comando en PowerShell. Va con diseño primero. Lo que se sabe:
-- una sesión de la app ya crea chats visibles de la APP (`start_session`, hallazgos-operaciones, «La cuenta 4»);
-- lo que no puede crear es uno de TERMINAL, que vive en otra carpeta de config;
-- el clic tiene que llegar a la PC por el cartero, como un trabajo firmado que el Runner ejecuta, y abrir la terminal
-  con la función de la cuenta. Eso cambia lo que el Runner tiene permitido hacer, así que necesita el OK de Martín:
-  es configuración de su PC.
+permiso de la PC», nunca pegando un comando en PowerShell. **El diseño está escrito: docs/diseno-nuevo-chat-un-clic.md**
+(17/10, sin construir).
+- Para las cuentas de terminal: un trabajo firmado con `destino: 'nuevo'`, que la PC abre en PowerShell.
+- El permiso de la PC es el de Claude Code sobre `cartero.mjs abrir`, más uno local que Martín prende una vez en el
+  Runner.
+- Para la cuenta de la app no se puede desde MaKo: `start_session` se rechaza en los turnos del cron y en los de un
+  mensaje.
+
+Antes de construir hay que medir tres cosas (están en el diseño). Una es que la ventana se vea, y abre una ventana en la
+pantalla de Martín: hacerlo con él despierto. Toca cartero.mjs, que corre el Runner: avisar ANTES al Cerebro.
 
 **La prueba de punta a punta la hace Martín.** Abre `/second-brain` → «Claude Code» → «Cerebro», escribe algo y lo
 manda. Tiene que ver el tick y la respuesta del Cerebro. Si la caja dice «Pégale tu Token al Runner», copia el Token
@@ -61,7 +65,8 @@ Orden: **10, 8, 7 y 9**, después la **6** y después «Skills». La etapa 2 est
 | 3 | El teléfono: `/m/second-brain` es el chat, el Mapa en `/m/second-brain/mapa` | `36fcaa16e` |
 | 4 | Los adjuntos se guardan en el Archivero (mig **0305**) + lo que encontró la revisión | `4da56c37c` + `129eed9b9` |
 | **5** | **El Centro como adaptador: Claude Code desde el Second Brain** | **`8835e17aa` (la punta del 17/10)** |
-| 7, 8, 9, 10 | La parte de SERVIDOR, sin pantalla todavía (abajo) | `440bd6eea` |
+| 10 | «Entender el pedido»: los «Ir a …» debajo de la respuesta de MaKo | la punta del 17/10 (después de `6d3a4e0b9`) |
+| 7, 8, 9 | La parte de SERVIDOR, sin pantalla todavía (abajo) | `440bd6eea` |
 | 6 | Sin empezar | — |
 
 ⚠️ **La migración 0305 (`chart_chats.bloques`) la aplica el Cerebro**, con `node scripts/apply-migration.mjs
@@ -69,14 +74,9 @@ supabase/migrations/0305_chart_chats_bloques.sql`. Sólo agrega, y el código la
 llegan a MaKo pero no vuelven al recargar. Una migración nueva se le pide al Cerebro (la próxima libre era la 0306).
 
 **Cada tanda que falta, con su archivo listo:**
-1. **Tanda 10, «entender el pedido».** `/api/mako/pedidos` ya está en main, y la regla pura también: `linksDePedidos`
-   (lib/chat-mako-reglas.ts, con test). Falta la pantalla:
-   - en `mandar` de app/second-brain/ChatSecondBrain.tsx, pedir `POST /api/mako/pedidos {texto, tab: 'mako'}` EN
-     PARALELO al turno;
-   - colgar los links debajo de la respuesta de MaKo.
-
-   ⚠️ NO partir el mensaje. En el Second Brain no hay nada abierto, así que todo lo que nombra un área sería «otra tab»
-   y MaKo dejaría de contestar. Se suma el link; la respuesta no se saca.
+1. ~~**Tanda 10, «entender el pedido».**~~ Hecha el 17/10. Los links se piden en paralelo al turno y se cuelgan de la
+   respuesta a ESE mensaje (`colgarIrA`). Lo que costó está en hallazgos-second-brain.md. El link también se dibuja en
+   HiloMako, así que los chats de cada tab lo tienen si lo piden.
 2. **Tanda 8, el grupo de WhatsApp en la barra (sólo admin).** Ya están:
    - `grupoDeMaKo` y `hiloDelGrupoMaKo` (lib/chat-mako-indice.ts);
    - `hiloDelGrupo` (lib/mako-doer-conv.ts);
