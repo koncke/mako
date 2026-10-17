@@ -15,7 +15,8 @@
 // lista de ruido · la huella con el stack · la huella con los números · /api/errores sin rechazar otro origen (pasó la
 // primera vez: el test miraba el cálculo y no el 403) · el boundary importando algo de la app · el reportador sin sesión
 // y en lo público · registrar sin descartar el ruido · el ticket de MaKo sin el hilo · la tabla sin el revoke. Y en
-// tests/tickets.test.ts, el chat diciendo «le avisé» aunque no haya entrado → 13 / 1.
+// tests/tickets.test.ts, el chat diciendo «le avisé» aunque no haya entrado → 13 / 1. Y el aviso al grupo sin mirar que el
+// build traiga el hito (sin la prueba del deploy) → 7 / 1.
 // =============================================================================
 
 import test from 'node:test';
@@ -26,7 +27,8 @@ import {
   TOPE_AFECTADOS, conAfectado, esRuido, huellaDe, rutaPatron, rutaSinDatos, sanearReporte, sinDatos, ticketDeError,
   type ReporteError,
 } from '../lib/errores-app-reglas';
-import { CANALES, clasificar } from '../lib/tickets-reglas';
+import { CANALES, clasificar, pruebaDeProduccion, textoArregloAlGrupo } from '../lib/tickets-reglas';
+import { textoDelAviso as validarAvisoDeArreglo } from '../lib/aviso-arreglo-reglas';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -87,7 +89,7 @@ test('la huella agrupa el MISMO error (otros números, otro lead, otro deploy) y
 
 test('el ticket que abre es un bug evidente para el triage, con el hilo del chat si vino de MaKo', () => {
   const t = ticketDeError(base(), 3);
-  assert.equal(t.titulo, 'La pantalla /crm se rompió');
+  assert.equal(t.titulo, 'La pantalla «CRM» se rompió', 'en palabras del cliente: el nombre de la tab, no la ruta');
   assert.match(String(t.contexto.error), /TypeError: .*· 3 veces/);
   const v = clasificar({ tipoDeclarado: 'bug', declaradoPor: 'sistema', titulo: t.titulo, descripcion: t.descripcion, contexto: t.contexto as never });
   assert.equal(v.tipo, 'bug');
@@ -98,7 +100,8 @@ test('el ticket que abre es un bug evidente para el triage, con el hilo del chat
   // De MaKo: la herramienta y el hilo, para avisarle en ESE chat.
   const m = sanearReporte({ origen: 'mako', nombre: 'mover_lead', mensaje: 'Algo falló de nuestro lado', hilo: '4521' })!;
   const tm = ticketDeError(m);
-  assert.equal(tm.titulo, 'MaKo no pudo hacer «mover_lead»');
+  assert.equal(tm.titulo, 'MaKo no pudo «mover_lead»');
+  assert.equal(ticketDeError(sanearReporte({ origen: 'mako', nombre: 'mover_lead', mensaje: 'x', etiqueta: 'Mover un lead de etapa' })!).titulo, 'MaKo no pudo «Mover un lead de etapa»');
   assert.deepEqual(tm.contexto.chat, { donde: 'error-mako', hilo: '4521' });
   assert.equal(sanearReporte({ origen: 'navegador', nombre: 'E', mensaje: 'x', hilo: '4521' })!.hilo, undefined, 'el navegador no elige un hilo');
   assert.equal(sanearReporte({ origen: 'otro', nombre: 'E', mensaje: 'x' }), null);
@@ -137,6 +140,23 @@ test('las tres puertas: el navegador con sesión y del mismo origen, el servidor
   assert.match(er, /if \(esRuido\(r\)\) return \{ ok: false, motivo: 'ruido' \};/);
   assert.match(er, /if \(\(count \?\? 0\) >= TOPE_ERRORES_NUEVOS_POR_DIA\) return \{ ok: false, motivo: 'tope' \};/);
   assert.match(er, /\} catch \(e\) \{\s*console\.error\('\[errores-app\] registrarError:'/, 'nunca tira');
+});
+
+test('el aviso al grupo: en palabras del cliente, aceptado por la función del Desarrollador, y SÓLO con la prueba del deploy', () => {
+  // Rota: llamar a `avisarArregloAlGrupo` sin mirar que este build traiga el hito → este test falla (se le diría
+  // «ya anda» a un cliente por un ticket que Martín sólo contestó).
+  for (const titulo of ['La pantalla «CRM» se rompió', 'MaKo no pudo «Mover un lead de etapa»', 'Falló la pantalla «General»']) {
+    const texto = textoArregloAlGrupo({ titulo });
+    assert.match(texto, /^Arreglamos un error que viste en MaKo: [a-zé].*\. Ya anda\.$/);
+    const v = validarAvisoDeArreglo(texto);
+    assert.ok(v.ok, `la función del Desarrollador rechaza «${texto}»: ${v.ok ? '' : v.error}`);
+  }
+  const prueba = pruebaDeProduccion({ ticket: 12, hito: 'La etapa se guarda', area: 'crm', commit: '0949d7792abc', deploy: 'mako-abc.vercel.app' });
+  assert.match(prueba, /ticket #12 .*https:\/\/mako-abc\.vercel\.app.*0949d7792.*«La etapa se guarda» del área crm/);
+  const cierre = sinComentarios(leer('lib/tickets-cierre.ts'));
+  assert.match(cierre, /const hito = f\.estado === 'resuelto' \? \(desplegados\.get\(f\.id\) \?\? \(f\.duplicado_de \? desplegados\.get\(f\.duplicado_de\) : undefined\)\) : undefined;\s*if \(hito\) \{/);
+  assert.match(cierre, /avisarArregloAlGrupo\(\{ ws: n, clave: `ticket:\$\{f\.id\}`, texto: textoArregloAlGrupo\(f\), prueba, origen: 'ticketera', ws1Seguro: n === 1 \}\)/);
+  assert.doesNotMatch(cierre, /ejecutarDesdeFlujo/, 'no es una operación del registro: nadie más puede firmar como el equipo');
 });
 
 test('la tabla nace con RLS y el revoke, y el canal `sistema` dice lo mismo en la base y en el código', () => {

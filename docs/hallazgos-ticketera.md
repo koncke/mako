@@ -133,6 +133,5 @@ Lo cazó la revisión del archivo con `cat -A`. Para editar código con barras, 
 | La bandeja en el teléfono | app/m/operaciones/TicketeraMovil.tsx | Hoy la Ticketera del teléfono sigue siendo el mazo |
 | «Tus tickets» en el teléfono | app/m (no existe) | `rutaMovil('/tickets')` es null: en el teléfono se levanta y se consulta por el chat de MaKo (`mis_tickets`) |
 | Levantarlo por WhatsApp | lib/mako-doer-in.ts | Es del chat «MaKo en WhatsApp»: el registro ya acepta `actor: 'whatsapp:<teléfono>'` (lo atribuye a la persona del negocio con ese teléfono) y el aviso de vuelta pasa por `sanearSalida` |
-| El aviso de arreglado al grupo del negocio | lib/tickets-cierre.ts | Llama a `avisar_arreglo_al_grupo` de «MaKo en WhatsApp», que todavía no existe: hasta entonces no sale |
 | Adjuntar una captura a mano | app/tickets | El contexto automático cubre el caso del chat |
 | Borrar el mazo de las preguntas de los chats | app/tickets/decisiones, app/admin/runway | Cuando ande el formulario de opciones dentro de cada chat (Ops Center) |

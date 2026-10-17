@@ -504,13 +504,20 @@ export function ticketsDeHitos(registros: ReadonlyArray<{ area: string; bitacora
 }
 
 // ── El aviso al cliente ───────────────────────────────────────────────────────────────────────────────────────────
-/** La operación de «MaKo en WhatsApp» que avisa en el grupo de un negocio que un error ya está arreglado (firmada
- *  «Desarrollador»). La llama el cierre de un ticket del SISTEMA (lib/tickets-cierre.ts). */
-export const OPERACION_AVISO_ARREGLO = 'avisar_arreglo_al_grupo';
+/**
+ * El texto del aviso al GRUPO del negocio cuando un error del sistema ya está arreglado: qué se rompió (el título, que
+ * arma el código en palabras del cliente: «La pantalla «CRM» se rompió») y que ya anda. De tú, sin promesas y sin nada
+ * que haya escrito un cliente. La firma («Desarrollador de MaKo») la pone `avisarArregloAlGrupo` (lib/aviso-arreglo.ts),
+ * que además RECHAZA un texto con promesas o groserías.
+ */
+export function textoArregloAlGrupo(t: Pick<AvisoCliente, 'titulo'>): string {
+  const que = t.titulo.trim().replace(/[.\s]+$/, '');
+  return `Arreglamos un error que viste en MaKo: ${que.charAt(0).toLowerCase()}${que.slice(1)}. Ya anda.`;
+}
 
-/** El texto del aviso al grupo: qué se rompió (el título, que arma el código) y que ya está. Nada de un cliente. */
-export function textoArregloAlGrupo(t: Pick<AvisoCliente, 'id' | 'titulo'>): string {
-  return `Arreglamos un error que apareció en MaKo: «${t.titulo}». Ya está funcionando (ticket #${t.id}).`;
+/** Lo que PRUEBA que un arreglo está en producción: el build que corre trae el hito que nombra el ticket. */
+export function pruebaDeProduccion(p: { ticket: number; hito: string; area: string; commit: string | null; deploy: string | null }): string {
+  return `ticket #${p.ticket} cerrado porque el deploy ${p.deploy ? `https://${p.deploy}` : '(sin url)'} (commit ${p.commit ? p.commit.slice(0, 9) : '?'}) trae el hito «${p.hito}» del área ${p.area}`.slice(0, 300);
 }
 
 export type AvisoCliente = { id: number; titulo: string; estado: string; respuesta: string | null; duplicado_de: number | null };
