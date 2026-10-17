@@ -380,3 +380,20 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
 
 - **14:30 UTC:** el run 107 cayó en Tipos (app/onboarding/arranque-ui.ts sin `guardadaEn`, que Offer #895 hizo obligatorio). Arreglado en 0d2ebd214, que ya está subido y lleva TODO: Offer, Automations, #880, Dashboard, Plan, MaKo en WhatsApp (aviso de arreglo y ticket desde el grupo) e Infra `--rapido`. Esperan: Sidebar `sidebar-email` (mig 0312) y Ticketera punta 2. El aviso a Joan lo tiene que aprobar Martín en el chat de MaKo en WhatsApp, porque el clasificador lo frenó. Falta abrir el Ops Center 4.
 - **14:40 UTC:** Ticketera puntas 2 y 3 (0949d7792) integradas en wt-push-q: el cartero 1.15.0 lleva el bug automático al Cerebro y los errores de toda la app van a tickets (mig 0313 aplicada). Al llegar a producción: REINSTALAR el cartero 1.15.0 (`node scripts/operaciones/cartero.mjs instalar` desde wt-push-q) y avisarle a la Ticketera su «Ya está». Sube en la tanda que sigue al run 109.
+
+## 17/10 ~11:45 AR (14:45 UTC) — ESTADO PARA RETOMAR
+
+- **Producción: 1bae61a77 (run 110 verde, deploy Ready).** El run 109 cayó en Tipos con el test de Infra (`compartibles`); lo arregló 72285d901, que ya iba en esta tanda. Trae Offer, Automations, CRM #880, Dashboard 74a7576a4, Plan, MaKo en WhatsApp (18c9b1eb7 y edb8ffd38), Second Brain, Clients, Onboarding D/E, Infra `--rapido` y Ticketera 2-3. **El cartero 1.15.0 ya está REINSTALADO.**
+- **«Ya está» avisados:** Offer, Automations, CRM, Dashboard, Plan, MaKo en WhatsApp, Second Brain, Clients, Onboarding y Ticketera.
+  - **Infra NO lo recibió** (tope de 10 mensajes; ver hallazgos-operaciones «Los dos topes»). Hay que mandárselo después del próximo mensaje de Martín.
+- **Run 111 (f3d6f0612), corriendo:**
+  - Dashboard 5933718c1: red por bloque, #886 y #896;
+  - Sidebar 51cbc9df8: la barra nueva, el email en Chats, el tema por persona y la mig 0312 aplicada.
+  - Al llegar a producción, avisar el «Ya está» a Sidebar y a Dashboard.
+- **En wt-push-q para la tanda que sigue:** MaKo en WhatsApp 8d90f8357 («agendarle» en el ws18; el aviso al grupo de Pablo va recién con eso en producción) y estos hallazgos.
+- **MaKo Mobile end to end (pedido 103d1f01 del Ops Center):** corre como Agent en segundo plano, en C:/dev/wt-mobile, rama mobile-e2e-1710. No se le pudo abrir chat porque el turno era automático.
+  - Entrega puntas «VERDE <sha>» al Cerebro.
+  - El cierre del cartero con 103d1f01 lo corre el Cerebro cuando lo último esté en producción.
+  - Ya sabe que la sidebar nueva cambia el teléfono.
+- **Sin encontrar:** `dashboard-cierres-run103.json`, que Dashboard dice haber dejado en la «carpeta de notas del Cerebro». No está ni en el scratchpad ni en ~/.claude ni en C:/dev. Hay que pedírselo de nuevo.
+- **El pedido «Sí mándalo siempre, sin aprobación» a MaKo en WhatsApp quedó retenido** (otro modo de permisos). Martín lo tiene que aprobar en ese chat o escribirlo en el del Cerebro.

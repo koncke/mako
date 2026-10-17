@@ -36,7 +36,7 @@ const GATING: Gating = { tab: 'chats' };
 const SIN_HTTP = ['whatsapp', 'app'] as const;
 
 /** Los canales de la bandeja (CanalChat de lib/chats-tipos.ts: el tipo los mantiene iguales). */
-const CANALES_CHAT: readonly CanalChat[] = ['whatsapp', 'instagram', 'messenger'];
+const CANALES_CHAT: readonly CanalChat[] = ['whatsapp', 'instagram', 'messenger', 'email'];
 /** «Mostrar» de la lista (respond.io: Show), los mismos valores que la pantalla (lib/chats-reglas.ts). */
 export const MOSTRAR_CHAT: readonly MostrarChats[] = ['abiertas', 'cerradas', 'pospuestas', 'todas'];
 /**
@@ -60,7 +60,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_chats', area: 'chats', tipo: 'lectura',
     titulo: 'Ver la bandeja de Chats',
-    descripcion: 'Las conversaciones de la tab Chats: una por contacto, con sus canales (WhatsApp de cada línea, Instagram, Messenger), el último mensaje y si lo escribió el contacto, la etapa, el asignado (el setter del lead), el estado (abierta, cerrada, pospuesta) y si hay un borrador de MaKo por enviar. Por defecto, las abiertas, la más reciente primero. Úsala para «¿quién me escribió?», «¿qué chats tengo sin responder?» o para sacar la clave antes de hilo_chat o cerrar_chat. Si una fuente no se pudo leer, lo dice en `fallas`: no es lo mismo que no tener chats.',
+    descripcion: 'Las conversaciones de la tab Chats: una por contacto, con sus canales (WhatsApp de cada línea, Instagram, Messenger, Email), el último mensaje y si lo escribió el contacto, la etapa, el asignado (el setter del lead), el estado (abierta, cerrada, pospuesta) y si hay un borrador de MaKo por enviar. Por defecto, las abiertas, la más reciente primero. Úsala para «¿quién me escribió?», «¿qué chats tengo sin responder?» o para sacar la clave antes de hilo_chat o cerrar_chat. Si una fuente no se pudo leer, lo dice en `fallas`: no es lo mismo que no tener chats.',
     parametros: [
       { nombre: 'vista', tipo: 'string', enum: VISTAS_CHAT, descripcion: 'todos (default), mios (quien pregunta es el setter o el closer; sólo en la app), sin-asignar (ni setter ni closer), mako (el setter es MaKo), borradores (con un borrador de MaKo por enviar) o bloqueados. Un bloqueado sólo aparece en bloqueados.' },
       { nombre: 'canal', tipo: 'string', enum: CANALES_CHAT, descripcion: 'sólo los contactos que tienen ese canal.' },

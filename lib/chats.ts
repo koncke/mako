@@ -39,6 +39,7 @@ import type { Stage, StageDerivable } from './pipeline';
 import { leerTodo } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
 import { tzActual } from './timezone';
+import { fuentesEmail, hiloEmail, leadDeEmail } from './chats-email';
 import {
   listarConversacionesSociales, conversacionesSocialesDe, buscarConversacionesSociales, mensajesSociales,
   type ConversacionSocialChat,
@@ -95,8 +96,10 @@ export async function puertaChats(): Promise<PuertaChats> {
 type FilaLeadChat = StageDerivable & {
   id: number; nombre: string | null; empresa: string | null; telefono_normalizado: string | null;
   setter: string | null; closer: string | null; funnel_id?: number | null;
+  /** Para el canal email (17/10/2026): escribirle por primera vez desde la bandeja. */
+  email?: string | null;
 };
-const COLS_LEAD_CHAT = 'id, nombre, empresa, telefono_normalizado, setter, closer, funnel_id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada';
+const COLS_LEAD_CHAT = 'id, nombre, empresa, telefono_normalizado, email, setter, closer, funnel_id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada';
 
 type EmbudoChat = { stages: readonly Stage[]; labels: Readonly<Record<string, string>> };
 
@@ -355,13 +358,15 @@ export async function listarChats(opts?: { buscar?: string; usuario?: YoChats })
   const falla = (fuente: string) => (e: unknown) => { console.error(`[chats] ${fuente}: ${msg(e)}`); fallas.push(fuente); return null; };
 
   // Las líneas primero: sin ellas no se sabe cómo leer WhatsApp. Lo demás corre a la par.
-  const [lns, embudo, social, estados, leidos, borradores] = await Promise.all([
+  const [lns, embudo, social, estados, leidos, borradores, emails] = await Promise.all([
     lineasDelNegocio(ws),
     etapasDelNegocio(),
     listarConversacionesSociales().catch(falla('instagram')),
     leerEstados().catch(falla('estado')),
     leerLeidos(yo.id).catch(falla('leidos')),
     leerBorradores().catch(falla('borradores')),
+    // El email (17/10/2026, lib/chats-email.ts): sin la tabla todavía (antes de la mig 0312), una falla más, no un error.
+    fuentesEmail().catch(falla('email')),
   ]);
   if (social == null && fallas.includes('instagram')) fallas.push('messenger');
   if (embudo.falla) fallas.push('etapas');
@@ -387,6 +392,7 @@ export async function listarChats(opts?: { buscar?: string; usuario?: YoChats })
 
   const rs = rotulosSociales(social ?? []);
   for (const s of social ?? []) fuentes.push(fuenteSocial(s, rs.rotulo(s.canal, s.cuenta)));
+  fuentes.push(...(emails ?? []));
 
   // Los leads de todas las fuentes, en una lectura (el nombre, el asignado, el closer y la etapa del CRM).
   const leadIds = fuentes.map((f) => f.leadId).filter((x): x is number => x != null);
@@ -631,6 +637,8 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
     const suya = socialPedida?.find((s) => s.id === p.convId) ?? null;
     if (suya?.leadId != null) leadId = suya.leadId;
   }
+  // Un email (`em:`) de alguien que ya es lead es el contacto del lead, como una persona de Instagram.
+  if (p.tipo === 'email') leadId = await leadDeEmail(p.email).catch((e) => { falla('email')(e); return null; });
 
   const [lns, embudo] = await Promise.all([lineasDelNegocio(ws), etapasDelNegocio()]);
   if (!lns) fallas.push('whatsapp');
@@ -692,6 +700,11 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
       fuentes.push(fuenteDeHilo(x.ms, x.l, varias, { jid: x.jid, tel: x.tel, leadId, nombre: lead?.nombre || x.nombreWa || (x.tel ?? x.jid), bloqueado }));
     }
   }
+
+  // Email: los del lead y los de la dirección pedida (y, sin ninguno, la identidad para escribirle por primera vez).
+  const em = await hiloEmail({ leadId, contactos: [p.tipo === 'email' ? p.email : null, lead?.email ?? null] }).catch(falla('email'));
+  if (em?.fuente) fuentes.push(em.fuente);
+  if (em?.mensajes.length) mensajes.push(...em.mensajes);
 
   // Instagram y Messenger: las personas del lead (y la pedida), con sus mensajes.
   const social = leadId != null

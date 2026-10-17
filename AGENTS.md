@@ -4653,9 +4653,13 @@ Un `<button>` con un párrafo adentro se anuncia leyendo el párrafo entero, as�
 
 # Una pantalla oscura se hace redefiniendo TOKENS, no reglas
 
-La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). No hay
-`prefers-color-scheme` ni modo oscuro global, y no se está agregando uno. Cuando una
-pantalla tiene que ser oscura —hoy solo `/second-brain`— se marca `<html data-tema="oscuro">`
+La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). **Desde el 17/10/2026 cada persona
+puede elegir oscuro** (tarjeta #883): el interruptor al lado de la foto de la barra (`InterruptorModo`) guarda
+`mako.modo` en su navegador, `ModoArranque` lo aplica antes del primer pintado y `ModoDelUsuario` lo sostiene al
+navegar. **Claro por defecto y nunca `prefers-color-scheme`**: oscuro sólo si la persona lo eligió. Una pantalla nueva
+consume tokens (`var(--surface)`, `var(--ink)`…) y así respeta la elección sin hacer nada; un color escrito a mano
+(`#fff`) es una pantalla que se queda clara en el oscuro de alguien. Cuando una pantalla tiene que ser oscura SIEMPRE
+—el editor de video, como CapCut— se marca `<html data-tema="oscuro">`
 y se redefinen los tokens en `app/globals.css`. Todo lo que ya consume `var(--surface)`,
 `var(--ink)`, `var(--border)`… se da vuelta solo. El inventario de esa pantalla contó **40
 usos** repartidos en tres archivos: tocarlos uno por uno era garantizar que el próximo se
@@ -8998,6 +9002,11 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   página de escritorio lee la URL, las claves van en `QUERY_DE_SECCION`: un push vuelve a la computadora por
   `rutaEscritorio`, y la clave que se cae al ir al teléfono se cae también allá. Una tab UNIFICADA de escritorio se
   gatea con la key de la sección que muestra (`ads-writer`, no `copywriting`: esa no está en TODOS_LOS_ITEMS).
+- **Una pantalla que deja de ser fila de la sidebar NO se borra de nav.ts: va a `SIN_FILA`** (17/10/2026), y su fila
+  de More queda con `oculta: true`. `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS`: sin el ítem, la
+  puerta del teléfono se cierra para todos, sin error; y `rutaMovil` tira si la fila de More no está. La sidebar
+  (familias, lo de arriba y el menú de la foto) la edita UN solo chat, el jefe «Sidebar»: los demás le pasan nombre,
+  ruta, key y roles (docs/diseno-sidebar.md).
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.

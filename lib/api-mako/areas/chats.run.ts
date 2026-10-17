@@ -35,7 +35,7 @@ const corto = (t: string | null | undefined, n: number): string | null => {
   return s ? (s.length > n ? `${s.slice(0, n - 1)}…` : s) : null;
 };
 const enLista = <T extends string>(lista: readonly T[], v: string | null): v is T => v != null && (lista as readonly string[]).includes(v);
-const CANALES: readonly CanalChat[] = ['whatsapp', 'instagram', 'messenger'];
+const CANALES: readonly CanalChat[] = ['whatsapp', 'instagram', 'messenger', 'email'];
 
 /** La clave pedida: la de listar_chats tal cual (validada por `parsearClave`), o la del lead, que junta sus canales. */
 function claveDe(input: Record<string, unknown>): { clave: string } | { error: string; faltan?: string[] } {

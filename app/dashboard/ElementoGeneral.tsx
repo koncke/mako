@@ -27,6 +27,7 @@ import { conVariables, opcionDe, piezaGeneral, type OpcionesElegidas, type Pieza
 
 export type { FunnelElegible } from '../components/ElegirFunnels';
 import type { FunnelElegible } from '../components/ElegirFunnels';
+import { RedDeBloque } from './RedDeBloque';
 
 /** Lo que General le presta al editor (lo monta app/general/ProveedorGeneral.tsx). */
 export type ContextoDeGeneral = {
@@ -74,20 +75,31 @@ export function ElementoGeneral({ e }: { e: Elemento }) {
   const pieza = e.general?.pieza;
   if (!pieza) return null;
   const info = piezaGeneral(pieza);
-  const nodo = g?.dibujar(e) ?? null;
   // El título propio puede llevar variables («{{saludo}}, {{nombre}}»: el de la portada de la Bienvenida, 15/10/2026).
   const titulo = g ? conVariables(e.texto.trim(), g.variables) : e.texto.trim();
   const oscuro = opcionDe(pieza, e.general?.opciones, 'fondo') === 'oscuro';
+  // ⚠️ La RED POR BLOQUE (./RedDeBloque.tsx): un bloque que tira al dibujarse dice «Este bloque no cargó» y el resto de la
+  //    hoja sigue en pie. `dibujar` corre ADENTRO de la red (en `DibujoDeBloque`): llamado acá, un error al armar el
+  //    elemento saltaría por encima. La `key` (el bloque y sus opciones) la reinicia al cambiar una opción.
   return (
     <div className="gen-pieza" data-pieza={pieza} data-oscuro={oscuro ? '' : undefined}>
       <style>{CSS}</style>
       <TituloPropio.Provider value={titulo || null}>
-        {nodo ?? (
-          <div className="gen-pieza-vacia">
-            {!g ? `«${info.nombre}» se ve en la tab General.` : `No pude armar «${info.nombre}».`}
-          </div>
-        )}
+        <RedDeBloque key={JSON.stringify(e.general)} nombre={info.nombre}>
+          <DibujoDeBloque e={e} nombre={info.nombre} enGeneral={!!g} />
+        </RedDeBloque>
       </TituloPropio.Provider>
+    </div>
+  );
+}
+
+/** El dibujo del bloque, adentro de la red (ver arriba). */
+function DibujoDeBloque({ e, nombre, enGeneral }: { e: Elemento; nombre: string; enGeneral: boolean }) {
+  const g = useContext(Contexto);
+  const nodo = g?.dibujar(e) ?? null;
+  return nodo ?? (
+    <div className="gen-pieza-vacia">
+      {!enGeneral ? `«${nombre}» se ve en la tab General.` : `No pude armar «${nombre}».`}
     </div>
   );
 }
@@ -102,10 +114,21 @@ export function PiezaGeneralDeMuestra({ e }: { e: Elemento }) {
   if (!g || !pieza) return null;
   const titulo = conVariables(e.texto.trim(), g.variables);
   const oscuro = opcionDe(pieza, e.general?.opciones, 'fondo') === 'oscuro';
+  // La misma red que en la hoja: el ejemplo roto de un bloque no se lleva la galería de plantillas.
   return (
     <div className="gen-pieza" data-pieza={pieza} data-oscuro={oscuro ? '' : undefined}>
       <style>{CSS}</style>
-      <TituloPropio.Provider value={titulo || null}>{g.muestra(pieza, e.general?.opciones)}</TituloPropio.Provider>
+      <TituloPropio.Provider value={titulo || null}>
+        <RedDeBloque key={JSON.stringify(e.general)} nombre={piezaGeneral(pieza).nombre}>
+          <MuestraDeBloque pieza={pieza} opciones={e.general?.opciones} />
+        </RedDeBloque>
+      </TituloPropio.Provider>
     </div>
   );
+}
+
+/** La muestra del bloque, adentro de la red. */
+function MuestraDeBloque({ pieza, opciones }: { pieza: PiezaGeneral; opciones?: OpcionesElegidas }) {
+  const g = useContext(Contexto);
+  return g ? <>{g.muestra(pieza, opciones)}</> : null;
 }

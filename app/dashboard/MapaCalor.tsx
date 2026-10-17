@@ -25,6 +25,8 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Select, Spinner } from '@/app/_ui';
+import Link from '@/app/_ui/Link';
+import { hrefAnalizarEstructura } from '@/lib/landing-estructura-enlace';
 import { AreaMedida } from './graficos/medida';
 import type { PropsDibujo } from './graficos/registro';
 import { efectivoDe, hojaVacia, type Efectivo, type Hoja } from '@/lib/graficos-catalogo';
@@ -113,7 +115,7 @@ export default function MapaCalor(props: PropsDibujo & { efectivo?: Efectivo }) 
   return props.estado.resultado?.muestra ? <MapaCalorMuestra /> : <MapaCalorDatos {...props} />;
 }
 
-function MapaCalorDatos({ g, efectivo }: PropsDibujo & { efectivo?: Efectivo }) {
+function MapaCalorDatos({ g, efectivo, conEnlaces = false }: PropsDibujo & { efectivo?: Efectivo }) {
   const hoy = useMemo(() => hoyEnTijuana(), []);
   const ef = useMemo(() => efectivo ?? efectivoDe(g, hojaSinControles(), {}, hoy), [efectivo, g, hoy]);
   const consulta = useMemo(
@@ -168,6 +170,9 @@ function MapaCalorDatos({ g, efectivo }: PropsDibujo & { efectivo?: Efectivo }) 
 
   const rotuloModo = modo === 'vivo' ? 'En vivo'
     : modo === 'foto' ? (infoFoto.estado === 'ok' ? `Foto · ${diaMes(infoFoto.grabada)}` : 'Foto') : null;
+  // #886: de lo que la gente HACE en la página a lo que le FALTA: el diagnóstico de estructura del Web Generator, de la
+  // página que se está mirando (lib/landing-estructura-enlace.ts). Sólo con sesión y mirando.
+  const analizar = conEnlaces ? hrefAnalizarEstructura(pagina.url) : null;
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -195,6 +200,7 @@ function MapaCalorDatos({ g, efectivo }: PropsDibujo & { efectivo?: Efectivo }) 
             {rotuloModo}
           </span>
         )}
+        {analizar && <Link href={analizar} style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', flex: 'none' }} title="El diagnóstico de esta página en el Web Generator">Analizar la estructura →</Link>}
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>
           {d && <span style={{ fontSize: 13, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{d.toques.length} toques · {d.personas} personas</span>}
           <Leyenda compacta />

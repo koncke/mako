@@ -590,10 +590,12 @@ export const BITACORA: Hito[] = [
     fecha: '17 oct', hora: '08:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
     titulo: 'General en el celular con todas sus hojas',
     puntos: [
+      'En producción desde el run 103.',
       'Si tu General tiene más de una hoja, en el celular aparecen arriba sus nombres: tocas uno y ves esa hoja.',
       'Con más de tres hojas, los nombres se deslizan de costado en vez de cortarse.',
       'El link de cada hoja es el mismo en la computadora y en el celular.',
     ],
+    commits: [{ sha: '937bc7fb1', msg: 'General en el celular con todas sus hojas: se pasa de una a otra (#872)', lineas: 128, archivos: 7 }],
     archivos: ['app/m/hoy/page.tsx', 'app/m/hoy/modelo.ts', 'app/m/hoy/hoy.css', 'tests/m-hoy-hojas.test.ts — probado rompiéndolo'],
     revisar: '/general',
   },
@@ -607,11 +609,25 @@ export const BITACORA: Hito[] = [
     fecha: '17 oct', hora: '09:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
     titulo: 'General con la búsqueda y el filtro de fecha',
     puntos: [
+      'En producción desde el run 103.',
       'Arriba de cada hoja de General vuelven la barra de búsqueda y el filtro con el período, como en el Dashboard.',
       'Editando, el filtro ofrece «Agregar filtro».',
       'El período cambia los gráficos de la hoja; los bloques de General siguen con su propio rango (del mes, hoy).',
     ],
+    commits: [{ sha: '33d11eaae', msg: 'General vuelve a tener la búsqueda y el filtro de fecha por defecto (#858)', lineas: 97, archivos: 7 }],
     archivos: ['app/dashboard/EditorInforme.tsx', 'tests/general-filtros-por-defecto.test.ts — probado rompiéndolo'],
+    revisar: '/general',
+  },
+  {
+    fecha: '17 oct', hora: '10:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un bloque roto ya no se lleva la hoja entera',
+    puntos: [
+      'Lo pidió el Cerebro después del error que viste en el celular, cuando la portada de General quedó en blanco por un solo bloque.',
+      'Si un bloque o un gráfico no se puede dibujar, ese dice «Este bloque no cargó» y el resto de la hoja sigue en pie.',
+      'Vale en la computadora, en el celular y también en las hojas del Dashboard.',
+      'Lo obvio no alcanzaba: el bloque se armaba antes de entrar a la red, y su error pasaba por encima.',
+    ],
+    archivos: ['app/dashboard/RedDeBloque.tsx', 'app/dashboard/ElementoGeneral.tsx', 'app/dashboard/EditorInforme.tsx', 'tests/general-red-por-bloque.test.ts — probado rompiéndolo'],
     revisar: '/general',
   },
 ];
