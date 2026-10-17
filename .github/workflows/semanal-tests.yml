@@ -1,0 +1,89 @@
+# =============================================================================
+# La suite entera, AISLADA, una vez por semana (decidido el 17/10/2026, 15:40 UTC)
+# =============================================================================
+# Por qué: desde que el run de `integracion` corre los tests COMPARTIENDO proceso (`--compartir`, tests-afectados.mjs) para
+# bajar de ~50 a ~8 min, un test que ensucia el estado global (variables de entorno, un mock que no restaura, el reloj)
+# puede dar verde dentro del grupo y rojo solo, o al revés. Una vez por semana, `npm test` corre cada archivo en SU proceso,
+# como en la notebook. El Cerebro lo decidió: ~11 min por corrida, ~45 min al mes, y caza el falso verde por contagio.
+#
+# ⚠️ MINUTOS (cuenta Free: 2.000 por mes y sin medio de pago; ya se gastaron muchos). Lo que lo mantiene barato:
+#   · UNA corrida por semana (lunes 04:17 AR), nunca por push ni por pull request;
+#   · si en la semana no entró NINGÚN commit a main, no hace nada (el primer paso lo mira con la API en segundos, antes de
+#     bajar el repo ni instalar nada: se factura 1 minuto en vez de ~11);
+#   · una sola fase: sin guardas, sin tipos (los corre `integracion` en cada subida), sin `next typegen`;
+#   · `timeout-minutes: 20` es el techo duro: si algo se cuelga no se come el mes (20 × 5 lunes = 100 min como mucho).
+# Medido en el primer run: el tiempo de la suite se escribe en el resumen del run. Tarda más de 20 min → subir el techo
+# (docs/hallazgos-infra.md → «La suite entera, una vez por semana»).
+#
+# Un rojo acá NO frena nada (main avanza por `integracion`): avisa. GitHub manda el mail de un run que falló a quien editó
+# este archivo por última vez; el resumen del run trae la lista de los tests rojos.
+# =============================================================================
+name: suite completa (semanal)
+
+on:
+  schedule:
+    # Lunes 07:17 UTC = 04:17 AR. Un minuto "raro" a propósito: a las en punto GitHub encola de más y se atrasa.
+    - cron: '17 7 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: suite-semanal
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  suite-completa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # Antes de gastar nada: ¿entró algo a main desde la última vez? A mano (workflow_dispatch) corre siempre.
+      - name: ¿Hubo cambios en la semana?
+        id: cambios
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          desde=$(date -u -d '8 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          nuevos=$(gh api "repos/${{ github.repository }}/commits?sha=main&since=${desde}&per_page=1" --jq 'length')
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${nuevos}" != "0" ]; then
+            echo "correr=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "correr=no" >> "$GITHUB_OUTPUT"
+            echo "Sin commits en main desde ${desde}: no se corre la suite." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cambios.outputs.correr == 'si'
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        if: steps.cambios.outputs.correr == 'si'
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar
+        if: steps.cambios.outputs.correr == 'si'
+        run: npm ci --no-audit --no-fund
+
+      # `npm test` = `node --import tsx --test tests/*.test.ts`: cada archivo en su proceso, sin `--compartir`. Dos a la vez
+      # (el runner trae 2 CPU y ~7 GB; el default de node, núcleos − 1, serían UNO solo).
+      - name: Suite entera, cada test en su proceso
+        if: steps.cambios.outputs.correr == 'si'
+        run: |
+          SECONDS=0
+          echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
+          set +e
+          npm test -- --test-concurrency=2 2>&1 | tee suite.log
+          c=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Suite completa y aislada: $SECONDS s (código $c)"
+            grep -E '^ℹ (tests|pass|fail|skipped)' suite.log || true
+            echo ""
+            echo "Tests rojos:"
+            grep -E '^✖ ' suite.log | sort -u | head -40 || true
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $c

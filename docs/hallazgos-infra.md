@@ -6807,6 +6807,114 @@ Y si se escribe un script de una vez en el scratchpad: desde ahí node no resuel
 module`), y un `.tsx` con `await` arriba de todo falla con «Top-level await is currently not supported with the "cjs"
 output format». Se corre desde adentro del worktree, envuelto en una función `async`.
 
+---
+
+## Un test que mide tiempo de reloj da verde o rojo según la CARGA: se simula el reloj, no se sube el tope (17/10/2026)
+
+**El síntoma**: `tests/ads-video-procesando.test.ts`, el caso «esperarVideoListo: "no pude leer" no es "Meta sigue procesando"», falló en la
+suite completa (`actual: 'tope', expected: 'sin_lectura'`), pasó solo y volvió a pasar en la suite completa. Medido el 10/10, escrito en
+`docs/relevo/infra-y-build.md` como «sin arreglar».
+
+**El diagnóstico obvio era el equivocado, dos veces**: no era un bug de `esperarVideoListo` (mide tiempo real A PROPÓSITO: es la espera de
+un video que Meta procesa), y la cura obvia —subir `topeMs: 40`— sólo mueve el umbral. El test elegía un presupuesto de **40 ms de reloj de
+pared** y daba por hecho que cabían varios sondeos. Cuántos caben depende de cuánto tarda cada vuelta del event loop: con la máquina
+cargada entra UNO solo, la «última lectura» es la primera, y `[processing, {ok:false}]` contesta `'tope'` en vez de `'sin_lectura'`.
+**Reproducido a mano** (17/10, sin necesidad de cargar la máquina): un `fetch` que traba el hilo 45 ms → `'tope'`; en reposo → `'sin_lectura'`.
+(Cargar la máquina desde afuera con 16 hilos de CPU NO lo reprodujo: lo que importa es el estancamiento DENTRO del proceso del test.)
+
+**La cura**: el tiempo del test lo avanza el test. `mock.timers.enable({ apis: ['setTimeout', 'Date'] })` y un bombeo — `await new Promise(setImmediate)`
+(no está simulado y deja correr las promesas) seguido de `mock.timers.tick(1)` — hacen que quepan SIEMPRE los 40 sondeos, esté la
+máquina libre o quemando; hay un caso con el `fetch` trabado 45 ms que pasa igual. `mock.timers.reset()` en el `finally`: con los
+tests compartiendo proceso en Actions (`--compartir`), un reloj simulado que se queda puesto rompe al test que sigue.
+
+**La regla**: un test que depende de «cuántas vueltas caben en N ms» no está midiendo el código sino la máquina. Se simula el reloj; un
+`timeout` más grande es un test que falla menos y sigue sin decir qué mide.
+
+**Vive en:** tests/ads-video-procesando.test.ts · app/ads-manager/creativeUpload.ts (`esperarVideoListo`, sin tocar)
+
+---
+
+## La suite entera y AISLADA, una vez por semana: por qué, cuánto cuesta y qué NO hacerle (17/10/2026)
+
+**La decisión** (el Cerebro, 17/10 15:40 UTC): `.github/workflows/semanal-tests.yml`. Desde que `integracion` corre los tests compartiendo proceso
+(`--compartir`, scripts/tests-afectados.mjs) para bajar de ~50 a ~8 min, un test que ensucia el estado global (variables de entorno, un mock
+sin restaurar, el reloj) puede dar verde adentro del grupo y rojo solo, o al revés. Una vez por semana `npm test` corre cada archivo en SU
+proceso, como en la notebook.
+
+**Cuánto cuesta, y cómo se mantiene barato** (la cuenta es Free: 2.000 min/mes, sin medio de pago, y se gastaron 835 en dos días el 17/10):
+~11 min por corrida × 4-5 lunes ≈ 45-55 min al mes. Lo sostienen cuatro cosas, y cada una tiene su test (tests/semanal-tests-ci.test.ts):
+- **una programación** (lunes 07:17 UTC), nunca por push ni por pull request;
+- **si en la semana no entró ningún commit a main, no hace nada**: el primer paso lo mira con la API de GitHub *antes* de bajar el repo, y se
+  factura 1 minuto en vez de 11;
+- **una sola fase**: sin guardas, sin tipos (los corre `integracion` en cada subida);
+- **`timeout-minutes: 20`**: un test colgado no se come el mes (20 × 5 lunes = 100 min como mucho).
+
+⚠️ **Sin medir**: el workflow no puede correr hasta que esté en `main` (un `schedule` sólo vale desde la rama por defecto), así que los ~11
+min son la estimación del Cerebro. El primer run (se dispara a mano con `workflow_dispatch`) escribe los segundos en el resumen del run:
+si pasa de 20 min, subir el techo; si tarda mucho menos, bajarlo.
+
+**Qué NO hacerle**: no sumarle `--compartir` (es lo que corre `integracion`; la semanal existe para no hacerlo), no engancharla a `push`, y no
+leer su rojo como «main está roto»: no frena nada (main avanza por `integracion`). Un rojo ahí es un test que depende del orden o del
+estado global: se arregla el test.
+
+**Vive en:** .github/workflows/semanal-tests.yml · tests/semanal-tests-ci.test.ts
+
+---
+
+## Lo que se puede medir del build de Vercel LEYENDO, y lo que no: la máquina cambió y el pico de memoria sigue sin número (17/10/2026)
+
+**El pendiente**: «medir cuánta memoria usa el build de Vercel antes de que vuelva a quedarse sin memoria» (AGENTS.md).
+
+**Lo que se midió, sólo lectura** (`vercel inspect <url> --logs` y `vercel api /v9/projects/<id>`, scope `mbustos-4239s-projects`, sin disparar ningún
+build): el proyecto se llama **`mako`** (con el nombre `dashboard-marketing` el CLI contesta `project_not_found`; ver más arriba «no hay proyecto duplicado»);
+el 15/10 a las 21:17 UTC construía en **4 cores / 8 GB** («Compiled successfully in 4.1min»); a las 23:58 UTC ya en **8 cores / 16 GB (Enhanced
+Build Machine)**, «in 61s»; hoy `buildMachineType: "enhanced"` con `elasticConcurrencyEnabled: true`. Desde ese cambio, **80 deploys de producción
+seguidos, los 80 `READY`** (86-145 s, mediana 114 s). `NODE_OPTIONS` sigue en Production y Preview.
+
+**Lo que NO se pudo medir, y por qué el diagnóstico obvio («leé el log de un build y sacá el número») era el equivocado**: el log de un build normal
+**no imprime la memoria**. El pico de heap sale sólo con `next build --experimental-debug-memory-usage`, que es un flag de la línea de comandos
+(Next no lo prende con una variable), y ningún build existente lo trae. Medirlo es disparar un build a propósito (un preview con ese flag en
+`vercel.json` → `buildCommand`, o uno local en una máquina con RAM), no leer logs. Lo que sí se sabe: la máquina de hoy tiene el doble
+de memoria que la que murió, así que el margen creció — sin saber cuánto usa el build.
+
+⚠️ **Y la máquina Enhanced con elastic encendido SE FACTURA** (la entrada «La factura de builds no mide TIEMPO», arriba, dice que Standard con
+on-demand apagado cuesta US$0): por su fórmula son 8 vCPU × `ceil(min)` × US$0,0035 ≈ US$0,056 por deploy de 2 minutos. No hay en el repo una
+línea que diga quién ni cuándo lo decidió; coincide con el día en que los builds morían por memoria (15/10). Sin cotejar con la factura: lo confirma
+Martín desde Team Settings → Build and Deployment → Build Machines. **Vive en:** AGENTS.md («El build de Vercel tiene un tope de memoria…»).
+
+---
+
+## Limpiar worktrees: 75, 26 se podían borrar, y lo caro es MIRAR, no borrar (17/10/2026)
+
+**El pendiente**: «limpiar las 67 copias de trabajo viejas» (el disco estaba en 99 %, con 4,9 GB libres). Cuando se hizo eran 75.
+
+**Lo que no se ve desde el nombre**: un worktree «viejo» y un worktree «con trabajo ajeno» se llaman igual. De 75, **26 cumplían todo** y se
+borraron; **10 tenían commits que no están en ninguna rama remota** (no son viejos: son trabajo sin subir), 5 tenían cambios sin guardar,
+18 tenían un commit de las últimas 24 h (esos se borran mañana si siguen limpios) y 15 no se tocan por regla (ver
+`docs/relevo/infra-y-build.md` §7.4 para la lista). **Un nombre como `wt-push-e` o `wtc-b2` no dice nada de si hay algo adentro.**
+
+**Las trampas del procedimiento** (cada una costó o iba a costar):
+- **Mirar es lo lento.** `git status` + un `find -mmin` sobre ~17.000 archivos tardan 1-2 minutos por árbol con el antivirus de Windows: los 75 serían
+  una hora. Se ordena de lo barato a lo caro (¿se puede tocar?, ¿su HEAD está en origin/main?, ¿su último commit es de hace más de 24 h?), y
+  `git status` y `find` sólo corren sobre los que sobreviven (32 de 75), de a 4 a la vez. La primera versión hacía las cinco cosas por árbol: 4 minutos para pasar por 3
+  árboles, y se tuvo que matar.
+- **`git worktree remove` sin `--force` ES la red**: se niega si hay cambios o archivos sin trackear que no sean ignorados. No se confía sólo en eso porque
+  tampoco mira «alguien lo está usando ahora» (por eso las 24 h).
+- **La junction de `node_modules` se saca ANTES, con `cmd /c rmdir` (sin `/s`)**, en cada árbol. Un borrado recursivo que la siga se lleva el
+  `node_modules` del clon principal, que comparten todos los worktrees: el script cuenta las entradas del del clon (578) antes y después de CADA borrado y
+  frena si cambian. Se sacan sólo las que `LinkType` dice `Junction` o `SymbolicLink` y son carpetas: en OneDrive un archivo «bajo demanda» también es un
+  punto de reanálisis, y borrarlo dejaría el árbol sucio.
+- **PowerShell 5.1 lee un .ps1 sin BOM como ANSI**: un guion con tildes en los textos ni arranca («Unexpected token»). Los guiones de borrado van en ASCII.
+- **Los `refs/wip` y los stash son del REPO, no de un árbol**: borrar el worktree no los toca (los 15 `refs/wip` y los stash siguen). Aun así no se borró el
+  que tiene un `refs/wip` con su nombre.
+- Las **ramas locales no se borran**: un worktree borrado con su rama intacta se recrea en minutos con `git worktree add`.
+
+**Regla**: antes de borrar, el criterio es «mirar que no tenga trabajo sin guardar» de verdad (cambios, commits sin subir, actividad de hoy), con el
+árbol en una lista en seco que se puede leer. **Vive en:** `docs/relevo/infra-y-build.md` §7.4 · el procedimiento: `git worktree list --porcelain`,
+`git merge-base --is-ancestor <HEAD> origin/main`, `git status --porcelain`, `git worktree remove <ruta>`.
+
+---
+
 ## El disco lleno (17/10/2026)
 
 **Síntoma.** El C: llegó al 100% (2,6 GB libres de 455) y la PC volvió a la firma del 08/10 (ver «`.next/dev` llegó a

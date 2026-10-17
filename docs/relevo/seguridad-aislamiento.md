@@ -224,8 +224,10 @@ Los tres webhooks nuevos usan la lectura ESTRICTA de ruteo y pasan el guard
 
 Martín: *«que no exista más, guardalo en privado»*. El código entero está en la etiqueta de git
 **`archivo/chatwoot-2026-10-09`**. `lib/chatwoot.ts` quedó como **cascarón** —cero pedidos, cero
-credenciales— porque lo importan archivos que la rama `wip/api-acciones-0910` tiene a medio
-cambiar; cuando esa rama entre, se borra entero. Las tarjetas salieron de
+credenciales—. *Actualizado el 17/10/2026*: ya no lo importan `app/crm/actions.ts`, `lib/nutricion.ts` ni `lib/meta-templates.ts`;
+quedan los dos archivos de la API de MaKo con las 8 operaciones del WhatsApp oficial (ver
+`docs/relevo/integraciones.md`), y la rama `wip/api-acciones-0910` ya no es el motivo (son 2 commits WIP del 09/10, sin terminar).
+Cuando esas operaciones salgan, se borra entero. Las tarjetas salieron de
 `lib/integraciones-catalogo.ts` y de `lib/metodo-catalogo.ts`, así que **nadie puede volver a
 configurarlo**. `tests/sin-chatwoot.test.ts` lo fija en positivo.
 

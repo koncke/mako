@@ -267,8 +267,11 @@ test('⚠️ una lectura por ENTIDAD que el texto NOMBRA, y el motor la usa en s
   const usos = motor.match(/await datosParaElLead\(JSON\.stringify\((paso|p)\), valoresVariablesLead\(/g) ?? [];
   // El quinto, desde TikTok fase 0 (14/10/2026): un mensaje fijo de la rama de un AI Step de Instagram o Messenger.
   assert.equal(usos.length, 5, `el motor resuelve el «{ }» en ${usos.length} de sus 5 envíos (WhatsApp, email, «Si responde», Instagram/Messenger, y «Si responde» por las redes)`);
-  // Lo oficial (las plantillas de Meta) sigue con lo de siempre: sus parámetros los registra Meta.
-  assert.match(motor, /bodyParams: valoresVariablesLead\(lead, \{ negocio \}\),/);
+  // Lo oficial (las plantillas de Meta) ya no se manda (17/10/2026): el canal se borró con Chatwoot el 09/10 y `sendWhatsappTemplate` contestaba
+  // siempre el fallo. El paso queda en «fallo» con su porqué, sin llamar a nada. Si vuelve el oficial, vuelve con `bodyParams` (sus parámetros
+  // los registra Meta) y estos dos asserts se invierten. Probado rompiéndolo (base 11 / 0): volver a `sendWhatsappTemplate`, o sacar la nota del fallo → 10 / 1 (éste).
+  assert.doesNotMatch(motor, /sendWhatsappTemplate|bodyParams:/, 'el motor volvió a mandar una plantilla por el oficial');
+  assert.match(motor, /nota = SIN_CANAL_OFICIAL;/, 'el paso por el oficial tiene que decir por qué falla');
   // `datosParaElLead` no lee nada si lo que el texto nombra ya lo tiene el motor en la mano.
   const res = sinComentarios(leer('lib/variables-resolver.ts'));
   const dpl = res.slice(res.indexOf('export async function datosParaElLead('));
