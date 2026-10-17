@@ -415,7 +415,11 @@ test('replicar.ts: Landing escribe estilo y efectos, Página web avisa, Presenta
 
 test('la pantalla: la línea se lee al abrirse el editor de la copia, una vez y nunca por la URL', () => {
   const rep = sinComentarios(leer('app/web-generator/crear/Replicar.tsx'));
-  assert.match(rep, /if \(r\.avisoScroll\) dejarAvisoDeReplica\(r\.id, AVISO_SCROLL\);\s*irDuro\(`\/web-generator\/\$\{r\.id\}`, ws\);/);
+  // 17/10/2026: viaja TODO el aviso del server (el scroll incluido: el server lo suma a `aviso`), también antes de
+  // `alListo` («Aplicar» del Diagnóstico sobre una de afuera). Rotura: volver a dejar sólo el del scroll → 1 fallo.
+  assert.match(rep, /const aviso = r\.aviso \?\? \(r\.avisoScroll \? AVISO_SCROLL : null\);\s*if \(aviso\) dejarAvisoDeReplica\(r\.id, aviso\);/);
+  assert.ok(rep.indexOf('dejarAvisoDeReplica(r.id, aviso)') < rep.indexOf('if (r.ok && alListo)'), 'antes de seguir con la copia');
+  assert.match(rep, /if \(r\.ok\) \{\s*irDuro\(`\/web-generator\/\$\{r\.id\}`, ws\);/);
   const ed = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
   assert.match(ed, /useEffect\(\(\) => \{\s*if \(avisoReplica\.current === undefined\) avisoReplica\.current = tomarAvisoDeReplica\(docId\);/,
     'en un efecto, nunca en el inicializador de useState/useRef');

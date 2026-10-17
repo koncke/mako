@@ -113,11 +113,17 @@ export function useReplicar(): {
       alLeer: () => setEstado({ fase: 'replicando', formato, leyendo: true }),
       sigue: () => montado.current,
     });
+    // Lo que no se copió se lee al abrirse el editor de la copia (./aviso-replica.ts). Tanda 8: sólo la línea del scroll;
+    // desde el 17/10/2026 TODO lo que avisa el server («quedó sin diseño», «sin el estilo de la original», «imágenes no
+    // copiadas», el scroll), que hasta ahí sólo leía MaKo. Y también cuando la copia sigue con otra cosa (`alListo`:
+    // «Aplicar» del Diagnóstico sobre una landing de afuera), para cuando se abra su editor.
+    if (r.ok) {
+      const aviso = r.aviso ?? (r.avisoScroll ? AVISO_SCROLL : null);
+      if (aviso) dejarAvisoDeReplica(r.id, aviso);
+    }
     // Sale bien: el editor de la copia (se queda «replicando» mientras navega), o lo que siga con ella.
     if (r.ok && alListo) { await alListo({ id: r.id, titulo: r.titulo }); return; }
     if (r.ok) {
-      // Tanda 8: lo que no se copió del scroll se lee al abrirse el editor de la copia (./aviso-replica.ts).
-      if (r.avisoScroll) dejarAvisoDeReplica(r.id, AVISO_SCROLL);
       irDuro(`/web-generator/${r.id}`, ws);
       return;
     }
