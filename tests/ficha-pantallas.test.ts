@@ -121,7 +121,10 @@ test('en una pantalla TÁCTIL (un iPad): 44 px de toque y campos de 16 px, por c
 //    Dashboard). Lo que se fija es lo mismo: el nombre de la hoja baja de renglón y nada scrollea de costado.
 test('el título de la hoja no se corta: baja de renglón, nunca scrollea de costado', () => {
   const tabs = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
-  assert.match(tabs, /\.lt-tit \{[^}]*overflow-wrap: anywhere;/);
+  assert.match(tabs, /\.lt-tit \{[^}]*overflow-wrap: break-word;/);
+  // En el botón (un flex), «Nueva hoja» se partía en dos renglones teniendo lugar (recorrido del 17/10/2026, con
+  // `overflow-wrap` anywhere y break-word): el nombre del botón va en un renglón (probado rompiéndolo: sin el nowrap, 5 / 1).
+  assert.match(tabs, /\.lt-tit-btn > span \{[^}]*white-space: nowrap;[^}]*text-overflow: ellipsis;/);
   assert.match(tabs, /\.lt-hoja-nombre \{[^}]*text-overflow: ellipsis;/, 'en el desplegable, un nombre largo se corta con «…»');
   assert.doesNotMatch(tabs, /overflowX|overflow-x/);
 });

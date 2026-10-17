@@ -24,14 +24,7 @@ import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
 import type { EstadoDatos } from '@/lib/datos-aviso';
 import { leerFichaFunnelAction } from '../ficha-actions';
 import { DatosSinMarcarCard } from './DatosSinMarcarCard';
-
-/** Lo que avisa hoy el funnel, como los «datos sin marcar» de un lead al que le falta todo. Las asistencias no se ignoran. */
-export function datosDeEjemplo(avisos: ReadonlyArray<{ id: EstadoDatos['avisar'][number]['id']; label: string; avisa: boolean; por: string }>): EstadoDatos {
-  return {
-    avisar: avisos.filter((a) => a.avisa && a.por !== 'siempre').map((a) => ({ id: a.id, label: a.label, estado: 'falta' as const, ignorable: true })),
-    ocultos: [],
-  };
-}
+import { datosDeEjemplo } from './datos-de-ejemplo';
 
 export function FichaDeEjemplo({ onCerrar, onCambio }: { onCerrar: () => void; onCambio: () => void }) {
   const [datos, setDatos] = useState<EstadoDatos | null>(null);

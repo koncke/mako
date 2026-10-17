@@ -110,7 +110,8 @@ test('se fue la PERILLA, no la función: lo que configuraban los modales tiene o
   const puertas = (modal: string) => archivos.filter((f) =>
     !f.endsWith(`/${modal}.tsx`) && existsSync(resolve(RAIZ, f)) && new RegExp(`<${modal}\\b`).test(sinComentarios(leer(f))));
   assert.deepEqual(puertas('ResumenModal'), [], 'volvió el modal del Resumen: la ficha se arma en «Personalizar»');
-  assert.deepEqual(puertas('AvisosDatosModal'), ['app/_components/MakoConfirmGate.tsx'], 'el modal de avisos volvió a la ficha');
+  // ⚠️ 17/10/2026: el modal de avisos se BORRÓ; su última puerta («A revisar» sin leads) abre un lead de ejemplo.
+  assert.deepEqual(puertas('AvisosDatosModal'), [], 'volvió el modal de interruptores');
   // ⚠️ 17/10/2026: los interruptores de la barra lateral se fueron con ella; la perilla de la ficha es «Obligatorio» en
   // la barra de cada bloque (Martín, 16/10/2026).
   assert.ok(!existsSync(resolve(RAIZ, 'app/crm/lead-view/ficha/PanelFicha.tsx')), 'volvió la barra lateral');

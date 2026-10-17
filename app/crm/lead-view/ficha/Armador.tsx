@@ -146,6 +146,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
       // ⚠️ EL ANCHO VA EN VARIABLES, NO EN `gridColumn`: un estilo en línea le gana a todo @media, y la tablet
       // y el celular cortan las columnas por CSS (./ficha-css.ts, con los anchos de `spansPorDispositivo`).
       <div key={`${b.def.id}:${b.n}`} className={clases} style={{ '--fb-span': b.span, '--fb-span-t': b.spanTableta } as CSSProperties}
+        data-recorrido={editando && i === 0 ? 'fb-bloque' : undefined}
         draggable={editando || undefined}
         onDragStart={editando ? alArrastrar : undefined}
         onDragOver={editando ? alPasar : undefined}

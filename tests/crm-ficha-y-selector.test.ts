@@ -205,8 +205,9 @@ test('MaKo Analyst (ex «Análisis») va pegado a Historial, en las DOS fichas',
 
   // Los links viejos (`?tab=insights`) y «Ver análisis» de la siguiente acción abren el PANEL, no la primera pestaña.
   assert.doesNotMatch(ficha, /key: 'insights'/, 'volvió la pestaña MaKo Analyst');
-  assert.match(ficha, /const \[analyst, setAnalyst\] = useState\(initialTab === 'insights'\);/);
-  assert.match(ficha, /irATab: \(clave\) => \{ if \(clave === 'insights'\) \{ setAnalyst\(true\); return; \}/);
+  // 17/10/2026: el panel tiene dos modos («analizar» y «editar»); el link viejo abre el de analizar.
+  assert.match(ficha, /const \[panel, setPanel\] = useState<null \| 'analizar' \| 'editar'>\(initialTab === 'insights' \? 'analizar' : null\);/);
+  assert.match(ficha, /irATab: \(clave\) => \{ if \(clave === 'insights'\) \{ setPanel\('analizar'\); return; \}/);
   assert.match(ficha, /\{ value: 'analyst', label: 'AI Analyst', icono: 'mako' \}/, 'el «⋯» perdió el AI Analyst');
 });
 

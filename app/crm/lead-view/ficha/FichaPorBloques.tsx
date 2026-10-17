@@ -52,7 +52,7 @@
 //     bloque y «¿Ignorar siempre?» en «Datos sin marcar».
 // =============================================================================
 
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { EstiloDeLaHoja } from './EstiloDeLaHoja';
 import { csvDelLead, nombreArchivoLead } from './exportar-lead';
@@ -77,6 +77,10 @@ import type { LeadFullData } from '../../actions';
 import { JourneyTimeline } from '../../JourneyTimeline';
 import { LeadTabs, type LeadTabDef, type OpcionHoja } from '../LeadTabs';
 import { AnalystDelLead } from '../AnalystDelLead';
+import { MakoAnalystLead } from '../MakoAnalystLead';
+import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
+import { imprimirFicha } from './imprimir-ficha';
+import { PASOS_FICHA_EDICION, RECORRIDO_FICHA_EDICION } from './recorrido-ficha';
 import { AuditHistory } from '../AuditHistory';
 import { useRefrescarFicha } from '../ficha-cambio';
 import { Armador } from './Armador';
@@ -164,14 +168,20 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // costado izquierdo, todo el modal del detail se desplace a la derecha»). Es un panel aparte, a la izquierda, que
   // se abre desde el «⋯». Lo que pedía la pestaña vieja (`?tab=insights`, «Ver análisis» de la siguiente acción) lo
   // abre a él.
-  const [analyst, setAnalyst] = useState(initialTab === 'insights');
+  // ⚠️ Y DESDE EL 17/10/2026 EL PANEL TIENE DOS MODOS: «analizar» (el AI Analyst del «⋯») y «editar», que se abre SOLO al
+  // apretar «Editar» (Martín: «Al momento de EDITAR, también debería salir automáticamente este modal, pero ahora ya no
+  // para analizar al lead, sino para editar la vista»). Es el mismo chat, con la hoja abierta atada (../MakoAnalystLead).
+  const [panel, setPanel] = useState<null | 'analizar' | 'editar'>(initialTab === 'insights' ? 'analizar' : null);
+  // La hoja que se está mirando (la clave de `?tab=`), para el chat de edición: la avisa LeadTabs.
+  const [activa, setActiva] = useState<string>(initialTab ?? 'resumen');
+  const raizRef = useRef<HTMLDivElement>(null);
   const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
   const ctx: CtxFicha = {
     data, lead, stages, etapa, hoy,
     rol: data.rol ?? 'otro', esAdmin: data.rol === 'admin', verPrivado: !!data.verPrivado,
     releer: refrescar,
     parchear: parchear ?? (() => refrescar()),
-    irATab: (clave) => { if (clave === 'insights') { setAnalyst(true); return; } setIrA({ key: clave, n: Date.now() }); },
+    irATab: (clave) => { if (clave === 'insights') { setPanel('analizar'); return; } setIrA({ key: clave, n: Date.now() }); },
     solucionar: (paso) => solucionar(paso, Date.now()),
   };
   function solucionar(paso: StepId, n: number) {
@@ -382,11 +392,11 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
               <IconoMenu nombre="restaurar" size={15} /> Deshacer
             </button>
             <span className="fb-sep" aria-hidden />
-            <button type="button" className="fb-herr" aria-haspopup="menu" aria-expanded={agregar?.tab === tab}
+            <button type="button" className="fb-herr" aria-haspopup="menu" aria-expanded={agregar?.tab === tab} data-recorrido="fb-agregar"
               onClick={(e) => { const ancla = e.currentTarget; setAgregar((a) => (a?.tab === tab ? null : { tab, ancla })); }}>
               <IconoMenu nombre="agregar" size={15} /> Agregar bloque <span aria-hidden>▾</span>
             </button>
-            <button type="button" className="fb-herr" aria-pressed={conGaleria} onClick={() => { setSel(null); setAgregar(null); if (conGaleria) soltarGaleria(tab); else setGaleria(tab); }}>
+            <button type="button" className="fb-herr" aria-pressed={conGaleria} data-recorrido="fb-templates" onClick={() => { setSel(null); setAgregar(null); if (conGaleria) soltarGaleria(tab); else setGaleria(tab); }}>
               {/* «Templates» desde el 16/10/2026 («"Plantilla" ya está en la topbar de edición, y debería llamarse
                   "Templates"», Martín). */}
               <IconoMenu nombre="archivo" size={15} /> Templates
@@ -394,7 +404,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
             <div className="fb-barra-fin">
               {esTabFicha(tab) && !delLead.includes(tab) && <span className="fb-barra-linea">Este lead no ve esta tab.</span>}
               <SelectorDispositivo valor={dispositivo} onCambiar={setDispositivo} />
-              <EstiloDeLaHoja ef={estilo.ef} tab={estilo.tab} onCambio={estilo.onCambio} />
+              <span data-recorrido="fb-estilo" style={{ display: 'inline-flex' }}><EstiloDeLaHoja ef={estilo.ef} tab={estilo.tab} onCambio={estilo.onCambio} /></span>
             </div>
           </div>
           {galeriaNodo}
@@ -478,10 +488,16 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   ];
 
   const estilo = estiloDeFicha(efectiva.estilo);
+  /** Entrar o salir de «Editar». Entrar abre el chat de MaKo en modo edición; salir lo cierra (si era ese). */
+  const alternarEdicion = (entrar: boolean) => {
+    setEditando(entrar); setSel(null); setAgregar(null); setGaleria(null); setVistas({});
+    setPanel((p) => (entrar ? 'editar' : p === 'editar' ? null : p));
+  };
+  const guia = useRecorrido(RECORRIDO_FICHA_EDICION, { autoabrir: enEdicion });
   const boton = puede ? (
-    <button type="button" className="fb-personalizar" aria-pressed={enEdicion}
+    <button type="button" className="fb-personalizar" aria-pressed={enEdicion} data-recorrido="fb-editar"
       title={enEdicion ? 'Volver a la ficha' : 'Armar la ficha de este funnel'}
-      onClick={() => { setEditando((v) => !v); setSel(null); setAgregar(null); setGaleria(null); setVistas({}); }}>
+      onClick={() => alternarEdicion(!editando)}>
       {/* «Editar» en azul, como el Dashboard («Obvio que el botón de "Personalizar" debe eliminarse... Que sea igual
           que en dashboard o general... El botón en azul de "Editar"», Martín, 16/10/2026). */}
       <IconoMenu nombre={enEdicion ? 'ver' : 'editar'} size={15} /> {enEdicion ? 'Ver' : 'Editar'}
@@ -510,6 +526,13 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     const url = `${window.location.origin}/crm/${lead.id}${ws ? `?ws=${encodeURIComponent(ws)}` : ''}`;
     void navigator.clipboard?.writeText(url).then(() => show('Link copiado'), () => show('No se pudo copiar', undefined, 'bad'));
   };
+  /** «Exportar (PDF)»: la ficha como se ve, en el diálogo de imprimir (./imprimir-ficha.ts). */
+  const exportarPdf = () => {
+    const r = raizRef.current;
+    if (!r) return;
+    const caja = r.closest<HTMLElement>('[data-ficha-ruta], [role="dialog"]') ?? r;
+    void imprimirFicha(caja, `Ficha de ${lead.nombre || `#${lead.id}`}`);
+  };
   const menu = (
     <Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha ariaLabel="Más opciones de la ficha"
       buttonStyle={{ width: 32, height: 32, padding: 0, justifyContent: 'center', border: '1px solid var(--border-strong)', borderRadius: 999, background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
@@ -517,40 +540,59 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
         { value: 'analyst', label: 'AI Analyst', icono: 'mako' },
         { value: 'link', label: 'Copiar el link', icono: 'link' },
         { value: 'csv', label: 'Exportar (CSV)', icono: 'descargar' },
+        { value: 'pdf', label: 'Exportar (PDF)', icono: 'descargar' },
+        ...(puede ? [{ value: 'guia', label: 'Guía de edición', icono: 'pregunta' as const }] : []),
       ]}
-      onChange={(v) => { if (v === 'analyst') setAnalyst(true); else if (v === 'link') copiarLink(); else if (v === 'csv') exportarCsv(); }} />
+      onChange={(v) => {
+        if (v === 'analyst') setPanel('analizar');
+        else if (v === 'link') copiarLink();
+        else if (v === 'csv') exportarCsv();
+        else if (v === 'pdf') exportarPdf();
+        else if (v === 'guia') { if (!enEdicion) alternarEdicion(true); guia.reabrir(); }
+      }} />
   );
   const acciones = <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{boton}{menu}</span>;
 
   // El panel del AI Analyst: aparte de la ficha (por portal), a la izquierda, y la ficha se corre a la derecha para
   // dejarle lugar (el `<style>` vive sólo mientras está abierto). El clic adentro no cierra la ficha: el evento sube
   // por el árbol de React hasta la caja de la ficha, que lo frena.
-  const panelAnalyst = analyst && typeof document !== 'undefined' ? createPortal(
-    <aside aria-label={`AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()}
-      style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 90, width: 'min(420px, 100vw)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.18)' }}>
-      <style>{'[data-ficha-overlay]{padding-left:calc(min(420px, 100vw) + 20px)!important}[data-ficha-ruta]{padding-left:min(420px, 100vw)}'}</style>
+  // Editando, el chat sabe en qué hoja está (la clave de la API y su nombre); en el Historial, ninguna.
+  const lugarActivo = lugarDeClave(activa, efectiva.hojas);
+  const edicion = panel === 'editar' && lugarActivo ? { tab: lugarActivo, nombre: lugarDe(efectiva, lugarActivo).nombre } : null;
+  const panelAnalyst = panel && typeof document !== 'undefined' ? createPortal(
+    <aside aria-label={panel === 'editar' ? 'Editar la ficha con MaKo' : `AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()} data-recorrido="fb-mako"
+      style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 90, width: 'var(--fb-analyst-ancho)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.18)' }}>
+      {/* ⚠️ EL ANCHO SIGUE A LA PANTALLA (recorrido del 17/10/2026): con 420 fijos, a 1024 la ficha quedaba en ~560 px y
+          se cortaban los botones de la calificación. Un tercio de la pantalla, entre 320 y 420; en un teléfono, entero. */}
+      <style>{':root{--fb-analyst-ancho:min(420px, max(320px, 32vw))}@media (max-width:720px){:root{--fb-analyst-ancho:100vw}}[data-ficha-overlay]{padding-left:calc(var(--fb-analyst-ancho) + 20px)!important}[data-ficha-ruta]{padding-left:var(--fb-analyst-ancho)}'}</style>
       <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
         <IconoMenu nombre="mako" size={18} />
-        <strong style={{ flex: 1, fontSize: 15, color: 'var(--ink)' }}>AI Analyst</strong>
-        <button type="button" onClick={() => setAnalyst(false)} title="Cerrar" aria-label="Cerrar el AI Analyst"
+        <strong style={{ flex: 1, fontSize: 15, color: 'var(--ink)' }}>{panel === 'editar' ? 'Editar con MaKo' : 'AI Analyst'}</strong>
+        <button type="button" onClick={() => setPanel(null)} title="Cerrar" aria-label="Cerrar el AI Analyst"
           style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, border: 'none', borderRadius: 8, background: 'none', color: 'var(--dim)', cursor: 'pointer', padding: 0 }}>
           <IconoMenu nombre="cerrar" size={16} />
         </button>
       </header>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 12px' }}>
-        <AnalystDelLead lead={lead} stages={stages} tienePlan={pagos.length > 0} inicial={data.insightGen}
-          faltantesIniciales={data.faltantesInsight}
-          llamadas={data.insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
-          alto="calc(100vh - 90px)" />
+        {panel === 'editar' ? (
+          <div style={{ height: 'calc(100vh - 90px)', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <MakoAnalystLead leadId={lead.id} nombre={lead.nombre ?? ''} edicion={edicion} />
+          </div>
+        ) : (
+          <AnalystDelLead lead={lead} stages={stages} tienePlan={pagos.length > 0} inicial={data.insightGen}
+            faltantesIniciales={data.faltantesInsight}
+            llamadas={data.insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
+            alto="calc(100vh - 90px)" />
+        )}
       </div>
     </aside>,
     document.body,
   ) : null;
 
   return (
-    <div className={['fb', enEdicion && 'fb--editando', ...estilo.clases].filter(Boolean).join(' ')} style={estilo.vars as CSSProperties}>
+    <div ref={raizRef} className={['fb', enEdicion && 'fb--editando', ...estilo.clases].filter(Boolean).join(' ')} style={estilo.vars as CSSProperties}>
       <style>{CSS_FICHA}</style>
-      <LeadTabs initial={initialTab} irA={irA} fija={{ fondo: fondoTabs }} actions={acciones} tabs={tabs} sangria={sangria}
+      <LeadTabs initial={initialTab} irA={irA} fija={{ fondo: fondoTabs }} actions={acciones} tabs={tabs} sangria={sangria} onActiva={setActiva}
         onChange={(key) => { setUltima(key); if (nueva && key !== nueva.id) cerrarSinVolver(); onTab?.(key); }}
         onNueva={puedeGuardar && efectiva.hojas.length < TOPE_HOJAS ? abrirNueva : undefined}
         maxNombre={TOPE_NOMBRE_TAB} onRenombrar={puedeGuardar ? (key, nombre) => {
@@ -570,6 +612,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
       )}
       <Toast state={toast} onClose={clear} />
       {panelAnalyst}
+      {puede && <Recorrido id={RECORRIDO_FICHA_EDICION} pasos={PASOS_FICHA_EDICION} abierto={guia.abierto} onCerrar={guia.onCerrar} />}
     </div>
   );
 }

@@ -222,7 +222,7 @@ test('CABLEADO: cada bloque recibe la vista épica, la siguiente acción lleva a
   assert.match(fuente, /else if \(a\.tipo === 'tab'\) ctx\.irATab\(a\.tab\);\s*else ctx\.solucionar\(a\.paso\);/);
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   // Desde el 16/10/2026 «insights» (Ver análisis) abre el panel AI Analyst; las demás claves, su pestaña.
-  assert.match(ficha, /irATab: \(clave\) => \{ if \(clave === 'insights'\) \{ setAnalyst\(true\); return; \} setIrA\(\{ key: clave, n: Date\.now\(\) \}\); \},/);
+  assert.match(ficha, /irATab: \(clave\) => \{ if \(clave === 'insights'\) \{ setPanel\('analizar'\); return; \} setIrA\(\{ key: clave, n: Date\.now\(\) \}\); \},/);
   assert.match(ficha, /solucionar: \(paso\) => solucionar\(paso, Date\.now\(\)\),/);
   assert.match(ficha, /if \(pedido\) solucionar\(pedido\.id, pedido\.n\);/, 'la cabecera y los bloques: un solo camino');
   // Un bloque que lee lo suyo al montarse y no tiene nada no deja hueco (los duplicados).

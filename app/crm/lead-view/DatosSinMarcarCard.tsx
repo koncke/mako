@@ -82,7 +82,7 @@ function conIgnoradoLocal(d: EstadoDatos, id: StepId, ignorar: boolean): EstadoD
 // ⚠️ SIN ENGRANAJE (14/10/2026): «de qué datos te avisa MaKo» se elige en la ficha misma, en «Personalizar»
 // (lead-view/ficha/PanelFicha.tsx), y por FUNNEL. El modal del negocio que abría el engranaje se fue de acá:
 // Martín, «Todas las personalizables, no los hagas con un modal diferente».
-export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abrirAlMontar = false, ignorarSiempre }: {
+export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abrirAlMontar = false, ignorarSiempre, ejemplo = false }: {
   leadId: number;
   datos: EstadoDatos;
   /** Llevar al dato: la ficha cambia de tab y lo señala. */
@@ -97,6 +97,8 @@ export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abri
    * bloque), para todos sus leads. Sin esto, el basurero ignora sólo en este lead.
    */
   ignorarSiempre?: { funnelId: number | null };
+  /** El lead de EJEMPLO (./FichaDeEjemplo.tsx, 17/10/2026): «Ver» abre siempre el desplegable (no hay dato que completar). */
+  ejemplo?: boolean;
 }) {
   const [local, setLocal] = useState(datos);
   useEffect(() => { setLocal(datos); }, [datos]);
@@ -113,7 +115,7 @@ export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onCambio, abri
 
   const abrir = () => {
     // Un solo dato que avisa y nada escondido: no hay nada que elegir, se va derecho a él.
-    if (local.avisar.length === 1 && local.ocultos.length === 0) { onSolucionar(local.avisar[0].id); return; }
+    if (!ejemplo && local.avisar.length === 1 && local.ocultos.length === 0) { onSolucionar(local.avisar[0].id); return; }
     setVerMas(false);
     setAbierto((v) => !v);
   };

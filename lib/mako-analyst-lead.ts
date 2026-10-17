@@ -38,9 +38,9 @@ import {
   chartKeyDePersona, canalKeyDeSesion,
   type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
-import { chartKeyDelLead, contextoDelLead, leadIdDe, LECTURAS_DEL_LEAD, type LecturaHecha } from '@/lib/mako-analyst-lead-reglas';
+import { chartKeyDelLead, contextoDelLead, contextoDeEdicion, leadIdDe, LECTURAS_DEL_LEAD, PISTA_EDICION_FICHA, type LecturaHecha } from '@/lib/mako-analyst-lead-reglas';
 
-export type AnalystDelLead = { persona: PersonaChat; lead: { id: number; nombre: string } };
+export type AnalystDelLead = { persona: PersonaChat; lead: { id: number; nombre: string; funnelId: number | null } };
 export type FalloAnalyst = { error: string; status: 400 | 401 | 403 | 404 };
 
 /**
@@ -66,7 +66,7 @@ export async function analystDelRequest(leadIdCrudo: unknown): Promise<AnalystDe
   if (!lead) return { error: 'No encuentro ese lead.', status: 404 };
   return {
     persona: { ws, rol: rolWs === 'admin' ? 'admin' : 'miembro', actor: sesion.email || sesion.nombre || sesion.sub, chartKey },
-    lead: { id: lead.id, nombre: (lead.nombre ?? '').trim() },
+    lead: { id: lead.id, nombre: (lead.nombre ?? '').trim(), funnelId: lead.funnel_id ?? null },
   };
 }
 
@@ -117,7 +117,7 @@ export async function contextoDelLeadAhora(a: AnalystDelLead, sessionId: number)
 export async function turnoDelLead(
   a: AnalystDelLead,
   sessionId: number | null,
-  entrada: { mensaje: string; adjuntos?: AdjuntoListo[] },
+  entrada: { mensaje: string; adjuntos?: AdjuntoListo[]; edicion?: { tab: string; nombre: string } | null },
 ): Promise<RespuestaTurno | null> {
   const suyas = await listarSesiones(a.persona);
   let sid: number;
@@ -128,7 +128,15 @@ export async function turnoDelLead(
     sid = suyas[0]?.id ?? (await nuevaSesion(a.persona)).id;
   }
   const contexto = await contextoDelLeadAhora(a, sid);
-  return turnoApp(a.persona, sid, { ...entrada, contexto });
+  // EDITANDO LA VISTA (17/10/2026): el mismo chat, pero lo que se pide es cambiar la ficha del CRM del lead. El CRM sale
+  // del lead (server), nunca de la pantalla; de la pantalla sólo la hoja abierta, saneada en la ruta (`edicionDe`).
+  const { edicion, ...resto } = entrada;
+  if (!edicion) return turnoApp(a.persona, sid, { ...resto, contexto });
+  return turnoApp(a.persona, sid, {
+    ...resto,
+    contexto: `${contexto}\n\n${contextoDeEdicion({ ...edicion, embudoId: a.lead.funnelId })}`,
+    pista: PISTA_EDICION_FICHA,
+  });
 }
 
 /** Confirmar o cancelar desde la tarjeta: el ciclo de siempre (reclamar → ejecutar, con el gating

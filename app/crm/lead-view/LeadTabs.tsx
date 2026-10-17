@@ -47,7 +47,7 @@ export type LeadTabDef = {
   opciones?: OpcionHoja[];
 };
 
-export function LeadTabs({ tabs, initial, onChange, actions, fija, irA, onRenombrar, maxNombre = 24, onNueva, sangria }: {
+export function LeadTabs({ tabs, initial, onChange, actions, fija, irA, onRenombrar, maxNombre = 24, onNueva, sangria, onActiva }: {
   tabs: LeadTabDef[];
   initial?: string;
   onChange?: (key: string) => void;
@@ -80,6 +80,8 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA, onRenomb
   onNueva?: () => void;
   /** Cuánto se corre el título a la derecha para quedar a la altura del nombre del lead (un largo de CSS). */
   sangria?: string;
+  /** Cada vez que cambia la hoja que se ve (por el desplegable o desde afuera): el chat de edición la necesita. */
+  onActiva?: (key: string) => void;
 }) {
   const initKey = initial && tabs.some((t) => t.key === initial) ? initial : tabs[0]?.key ?? '';
   const [tab, setTab] = useState<string>(initKey);
@@ -97,6 +99,7 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA, onRenomb
 
   const activa = tabs.find((t) => t.key === tab) ?? tabs[0];
   const activeKey = activa?.key ?? '';
+  useEffect(() => { if (activeKey) onActiva?.(activeKey); }, [activeKey, onActiva]);
   const conHojas = tabs.length > 1 || !!onNueva;
   const editable = !!(activa?.renombrable && onRenombrar);
   const abrir = (e: { currentTarget: HTMLElement }) => { const a = e.currentTarget; setMenu((m) => (m ? null : a)); };
@@ -127,13 +130,13 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA, onRenomb
               </h2>
               {badge}
               {conHojas && (
-                <button type="button" className="lt-hojas" aria-label="Cambiar de hoja" title="Cambiar de hoja"
+                <button type="button" className="lt-hojas" data-recorrido="fb-hojas" aria-label="Cambiar de hoja" title="Cambiar de hoja"
                   aria-haspopup="menu" aria-expanded={!!menu} onClick={abrir}>{flecha}</button>
               )}
             </>
           ) : conHojas && activa ? (
             <h2 className="lt-tit">
-              <button type="button" className="lt-tit-btn" title="Cambiar de hoja" aria-haspopup="menu" aria-expanded={!!menu} onClick={abrir}>
+              <button type="button" className="lt-tit-btn" data-recorrido="fb-hojas" title="Cambiar de hoja" aria-haspopup="menu" aria-expanded={!!menu} onClick={abrir}>
                 <span>{activa.label}</span>{badge}{flecha}
               </button>
             </h2>
@@ -233,13 +236,17 @@ function MenuHojasFicha({ hojas, activa, onNueva, onIr, onCerrar }: {
 
 // Las medidas de app/dashboard/editor-css.ts (lk-top-tit, lk-top-hojas, lk-hoja-*), con las clases de esta pieza. Sólo
 // tokens de la app: se dan vuelta solos en oscuro. Es un template literal: ninguna comilla invertida adentro.
+// ⚠️ EL NOMBRE DEL BOTÓN VA EN UN RENGLÓN (`nowrap`, con «…» si no entra; recorrido del 17/10/2026): con `overflow-wrap`
+//    («anywhere», y también «break-word»), en el botón (un flex) «Nueva hoja» se partía en dos renglones teniendo lugar de
+//    sobra: medido en vivo, el flex le daba 94 px a un texto que pide ~105. Los nombres tienen tope (24): no hace falta
+//    partirlos.
 const CSS_HOJAS = `
 .lt-izq { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; }
-.lt-tit { margin: 0; min-width: 0; display: inline-flex; align-items: center; gap: 6px; font-family: 'Geist', sans-serif; font-size: 19px; font-weight: 650; letter-spacing: -0.015em; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere; }
+.lt-tit { margin: 0; min-width: 0; display: inline-flex; align-items: center; gap: 6px; font-family: 'Geist', sans-serif; font-size: 19px; font-weight: 650; letter-spacing: -0.015em; line-height: 1.25; color: var(--ink); overflow-wrap: break-word; }
 .lt-tit .edin { padding: 1px 4px; border-radius: 6px; }
 .lt-tit .edin:hover { background: var(--velo-hover); }
 .lt-tit-btn { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: var(--touch); border: none; background: transparent; padding: 1px 6px; margin-left: -6px; border-radius: 8px; font: inherit; color: inherit; cursor: pointer; text-align: left; }
-.lt-tit-btn > span { min-width: 0; overflow-wrap: anywhere; }
+.lt-tit-btn > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lt-tit-btn:hover, .lt-tit-btn[aria-expanded="true"] { background: var(--velo-hover); }
 .lt-hojas { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border: none; border-radius: 8px; background: transparent; color: var(--dim); cursor: pointer; padding: 0; }
 .lt-hojas:hover, .lt-hojas[aria-expanded="true"] { background: var(--velo-hover); color: var(--ink); }

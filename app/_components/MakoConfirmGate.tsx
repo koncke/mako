@@ -69,7 +69,8 @@ const MONO = "'Geist Mono', monospace";
 const LeadEditModal = dynamic(() => import('@/app/crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
 
 /** El modal de «de qué datos te avisa MaKo», cargado recién al abrirlo (por lo mismo que la ficha). */
-const AvisosDatosModal = dynamic(() => import('@/app/crm/lead-view/AvisosDatosModal').then((m) => m.AvisosDatosModal), { ssr: false });
+// Sin leads en la lista, el engranaje abre un lead de EJEMPLO (17/10/2026; antes, el modal de interruptores, que se borró).
+const FichaDeEjemplo = dynamic(() => import('@/app/crm/lead-view/FichaDeEjemplo').then((m) => m.FichaDeEjemplo), { ssr: false });
 
 type Paso = { id: StepId; label: string };
 /** Lo que la ruta lee para la cara (ver `ponerCaras` en /api/datos-sin-marcar-count). */
@@ -307,7 +308,8 @@ function Tarjeta() {
         {/* ⚠️ EL ENGRANAJE ABRE UNA FICHA, no el modal de interruptores (16/10/2026, Martín: «debería abrirme el detalle
             de un lead... con el desplegable de "Datos sin marcar" abierto, y dentro... el botón de Basura rojo, y
             cuando le doy me pregunta ¿Ignorar siempre?»). Es la del primer lead de la lista (uno de verdad: uno de
-            ejemplo pediría datos inventados); sin leads en la lista, el modal de siempre. */}
+            ejemplo pediría datos inventados); sin leads en la lista, un lead de EJEMPLO (17/10/2026, FichaDeEjemplo: la
+            cabecera y el «Datos sin marcar» de la ficha con lo que avisa el CRM principal; no inventa nada en la base). */}
         <button type="button" onClick={() => { const p = filas[0]; if (p) setFicha({ id: p.lead_id, nombre: p.lead_nombre, ver: true, avisos: true }); else setConfig(true); }}
           title="Elegir de qué datos te avisa MaKo" aria-label="Elegir de qué datos te avisa MaKo"
           style={{ ...iconoBtn, border: 'none', background: 'none', marginLeft: 'auto' }}>
@@ -364,7 +366,7 @@ function Tarjeta() {
         <LeadEditModal leadId={ficha.id} seed={{ nombre: ficha.nombre }} verDatos={ficha.ver} avisos={ficha.avisos}
           onClose={() => { setFicha(null); setReleer((n) => n + 1); router.refresh(); }} />
       )}
-      {config && <AvisosDatosModal onCerrar={() => setConfig(false)} onGuardado={() => setReleer((n) => n + 1)} />}
+      {config && <FichaDeEjemplo onCerrar={() => setConfig(false)} onCambio={() => setReleer((n) => n + 1)} />}
     </section>
   );
 }
