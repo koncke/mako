@@ -93,6 +93,18 @@ export function nombreArchivoOferta(titulo: string, version: number): string {
 
 /** Genera el PDF de una conclusión. Nunca tira por el contenido: lo que no entra se corta en líneas y páginas. */
 export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Array {
+  return documentoDeOferta(c, meta).bytes();
+}
+
+/**
+ * Las páginas del MISMO PDF en SVG, para verlo en la pantalla antes de descargarlo (17/10/2026, tarjeta #887: «al terminar
+ * el análisis, lo primero que se ve es la vista del PDF»). Mismo documento, misma función: no hay una segunda maqueta.
+ */
+export function paginasDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): string[] {
+  return documentoDeOferta(c, meta).paginasSvg();
+}
+
+function documentoDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): PdfDoc {
   const fecha = fechaCorta(meta.fecha, meta.zona);
   const doc = new PdfDoc({ pie: `Generado por MaKo · ${fecha}` });
   const W = doc.anchoUtil;
@@ -244,7 +256,7 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
     }
   }
 
-  return doc.bytes();
+  return doc;
 }
 
 const etiquetaPunto = (k: PuntoControl): string => PUNTOS_CONTROL.find((x) => x.punto === k)?.label ?? k;

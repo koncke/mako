@@ -3,10 +3,11 @@
 // =============================================================================
 // Conclusion — lo que MaKo concluyó: el diagnóstico y la oferta nueva
 // =============================================================================
-// Arriba, el bloque héroe (el molde «tesis» de app/experimentos/RetroReport.tsx,
-// con tokens y no con sus hex): la frase de la oferta en grande y el puntaje en un
-// anillo, con UN chip que dice si está lista o qué es lo que más la frena. Debajo,
-// las tres acciones y un switcher de dos vistas.
+// Arriba, las tres acciones y un switcher de tres vistas. La PRIMERA es el PDF tal cual se descarga (17/10/2026,
+// tarjeta #887: «lo que le recomiendo siempre… es que te muestre la vista de PDF, mejor antes que eso»): antes de la
+// oferta nueva en pantalla, la persona ve el documento. En las otras dos, el bloque héroe (el molde «tesis» de
+// app/experimentos/RetroReport.tsx, con tokens y no con sus hex): la frase de la oferta en grande y el puntaje en un
+// anillo, con UN chip que dice si está lista o qué es lo que más la frena.
 //
 // v2: el diagnóstico de FASE del negocio (las preguntas que MaKo hizo en el chat) NO se dibuja acá:
 // va al PDF (pedido de Martín: «el resultado del diagnóstico no se debe ver al finalizar esas
@@ -39,6 +40,7 @@ import {
   type AvisoGuardado, type Provisional, type PuntoVisible,
 } from './ayudas';
 import { descargarPdf, mensajeDeError } from './offer-api';
+import { VistaPdf } from './VistaPdf';
 
 const LECTURA = 880;
 
@@ -600,13 +602,15 @@ export function VistaOferta({ p, provisional }: { p: PropuestaOferta; provisiona
 
 // ── La vista ─────────────────────────────────────────────────────────────────
 
-type Pestana = 'diagnostico' | 'oferta';
-const PESTANAS: ReadonlyArray<{ id: Pestana; label: string }> = [
+export type Pestana = 'pdf' | 'diagnostico' | 'oferta';
+/** El PDF PRIMERO (#887): es lo que se ve al abrir la oferta, también cuando se abre sola al terminar de armarla. */
+export const PESTANAS: ReadonlyArray<{ id: Pestana; label: string }> = [
+  { id: 'pdf', label: 'PDF' },
   { id: 'diagnostico', label: 'Diagnóstico' },
   { id: 'oferta', label: 'Oferta nueva' },
 ];
 
-export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar = true }: {
+export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar = true, pestanaInicial = PESTANAS[0].id }: {
   sesion: OfferSesionVista;
   conclusion: ConclusionOferta;
   /**
@@ -614,17 +618,18 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar 
    * todavía no se puede abrir (rebota al onboarding) y sacaría a la persona del chat.
    */
   conProbar?: boolean;
+  /** Con qué vista abre: el PDF (#887), salvo que el que la dibuja pida otra. */
+  pestanaInicial?: Pestana;
   /** Vuelve al chat (la conclusión sigue a un clic, con «Ver mi oferta»). */
   onSeguir: () => void;
   /** Guarda la oferta nueva (v2: ligada al funnel de la conversación). Tira si falla; devuelve el aviso del motor, si hay. */
   onGuardar: () => Promise<AvisoGuardado | null>;
 }) {
-  const [pestana, setPestana] = useState<Pestana>('diagnostico');
+  const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
   const id = useId();
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
       <div style={{ maxWidth: LECTURA, marginInline: 'auto', padding: '2px 2px 40px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <Heroe conclusion={conclusion} />
         <BarraAcciones sesion={sesion} onSeguir={onSeguir} onGuardar={onGuardar} />
         <div role="tablist" aria-label="Qué ver" className="of-seg" style={{ alignSelf: 'flex-start', marginTop: 4 }}>
           {PESTANAS.map((p) => (
@@ -632,11 +637,11 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar 
               aria-selected={pestana === p.id} tabIndex={pestana === p.id ? 0 : -1} className="of-seg__op"
               onClick={() => setPestana(p.id)}
               onKeyDown={(e) => {
-                // Flechas entre las dos pestañas, como en cualquier tablist.
+                // Flechas entre las pestañas (dan la vuelta), como en cualquier tablist.
                 if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
                 e.preventDefault();
-                const otra = PESTANAS.find((x) => x.id !== p.id);
-                if (!otra) return;
+                const i = PESTANAS.findIndex((x) => x.id === p.id);
+                const otra = PESTANAS[(i + (e.key === 'ArrowRight' ? 1 : PESTANAS.length - 1)) % PESTANAS.length];
                 setPestana(otra.id);
                 document.getElementById(`${id}-tab-${otra.id}`)?.focus();
               }}>
@@ -645,9 +650,16 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar 
           ))}
         </div>
         <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${pestana}`}>
-          {pestana === 'diagnostico'
-            ? <VistaDiagnostico d={conclusion.diagnostico} calculo={conclusion.calculo} conProbar={conProbar} />
-            : <VistaOferta p={conclusion.propuesta} provisional={provisionalDe(conclusion)} />}
+          {pestana === 'pdf'
+            ? <VistaPdf sesionId={sesion.id} version={conclusion.version} />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <Heroe conclusion={conclusion} />
+                {pestana === 'diagnostico'
+                  ? <VistaDiagnostico d={conclusion.diagnostico} calculo={conclusion.calculo} conProbar={conProbar} />
+                  : <VistaOferta p={conclusion.propuesta} provisional={provisionalDe(conclusion)} />}
+              </div>
+            )}
         </div>
       </div>
     </div>

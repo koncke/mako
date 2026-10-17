@@ -441,6 +441,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/offer',
   },
+  {
+    fecha: '17 oct', hora: '09:10', chat: 'Offer', sesion: 'local_76bc176e-dac3-4c50-a67c-f62d5fbe9e5e', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Al terminar, lo primero que se ve es el PDF',
+    puntos: [
+      'Cuando MaKo termina de armar la oferta con la pantalla abierta, la ventana se abre sola y muestra el PDF, página por página, tal cual se descarga.',
+      '«Ver mi oferta» también abre en el PDF. El diagnóstico y la oferta nueva quedan en las pestañas de al lado.',
+      'Se ve igual en la computadora y en el teléfono: las páginas son las del mismo documento, sin depender del visor de PDF del navegador.',
+    ],
+    archivos: [
+      'lib/pdf-escritor.ts — `paginasSvg`: las mismas páginas del PDF, en SVG',
+      'app/offer/VistaPdf.tsx — la pestaña «PDF», la primera',
+      'app/offer/OfferApp.tsx — la ventana que se abre sola al terminar',
+      'tests/offer-vista-pdf.test.ts — 8 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
 ];
 
 export const PARTES: Parte[] = [
