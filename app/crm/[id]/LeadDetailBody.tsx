@@ -35,7 +35,7 @@ import type { StepId } from '@/lib/stage-requirements';
 import { EditarDeal } from './EditarDeal';
 import { FunnelYEtapa, useProductosDeLaFicha } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
-import { CabeceraLead } from '../lead-view/CabeceraLead';
+import { CabeceraLead, SANGRIA_NOMBRE_LEAD } from '../lead-view/CabeceraLead';
 import { EtiquetasDelLead, versionDeEtiquetas } from '../lead-view/EtiquetasDelLead';
 // ⚠️ LAS TABS Y SUS BLOQUES SON LA MISMA PIEZA QUE LA DEL POP-UP DEL TABLERO (14/10/2026): esta ruta y
 // app/crm/LeadSheet.tsx montan `FichaPorBloques` con los MISMOS datos (`getLeadFullAction`).
@@ -216,7 +216,8 @@ export function LeadDetailBody({ data, initialTab, initialEdit, initialSoluciona
         <>
           {/* La fila de pestañas queda pegada arriba al scrollear la página (punto 16). Las tabs son las
               del pop-up (`FichaPorBloques`): en esta ruta el lead viene del server y el refresh lo trae. */}
-          <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" altoChat={ALTO_CHAT_EN_LA_RUTA}
+          {/* El título de la hoja a la altura del nombre del lead: la cabecera es una caja del mismo ancho que la ficha. */}
+          <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" altoChat={ALTO_CHAT_EN_LA_RUTA} sangria={`${SANGRIA_NOMBRE_LEAD}px`}
             pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} />
           {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
               que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el

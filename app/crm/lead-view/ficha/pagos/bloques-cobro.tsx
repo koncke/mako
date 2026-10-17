@@ -37,8 +37,6 @@ import { useCobrar } from './cobrar';
 import { EnLinea } from './EnLinea';
 import { Aviso, MONO, Semaforo, Tarjeta, TONO_UI, nada } from './piezas';
 
-/** La vista épica (el criterio de General): llega en PropsBloque como `epico`; hasta entonces, false. */
-const esEpico = (p: PropsBloque): boolean => (p as PropsBloque & { epico?: boolean }).epico === true;
 const ganado = (ctx: CtxFicha) => ctx.lead.estado_lead === 'ganado';
 const canceladaAt = (ctx: CtxFicha): string | null => ((ctx.lead as unknown as Record<string, unknown>).suscripcion_cancelada_at as string | null | undefined) ?? null;
 const error = (r: { ok: boolean; error?: string }): string | null => (r.ok ? null : r.error ?? 'No pude guardar.');
@@ -85,7 +83,8 @@ export function EstadoDeCuenta(props: PropsBloque) {
   const leido = estadoDeCuenta({ cobrado, pagos: ctx.data.pagos, ganado: ganado(ctx), hoy: ctx.hoy });
   const e = leido && !leidos && leido.accion?.tipo === 'registrar-mes' ? { ...leido, accion: null } : leido;
   if (!e) return null;
-  const epico = esEpico(props);
+  // La vista épica (el criterio de General): la prende la TAB y llega en PropsBloque (../tipos.ts).
+  const { epico } = props;
   const boton = e.accion && (
     <Button variant={e.tono === 'rojo' ? 'primary' : 'secondary'} size={epico ? 'lg' : 'md'} disabled={props.editando} onClick={() => e.accion && cobrar.abrir(e.accion)}>{e.accion.boton}</Button>
   );
@@ -461,7 +460,7 @@ export function Suscripcion(props: PropsBloque) {
   return (
     <Tarjeta titulo={titulo} marca={marcaDato('monto')} derecha={<Semaforo tono={s.renovacionFallida ? 'rojo' : estado.tono}>{s.renovacionFallida ? 'Falló la renovación' : estado.txt}</Semaforo>}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: esEpico(props) ? 56 : 30, fontWeight: 700, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', minWidth: 80 }}>
+        <span style={{ fontSize: props.epico ? 56 : 30, fontWeight: 700, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', minWidth: 80 }}>
           <EnLinea valor={lead.suscripcion_monto_usd != null ? String(lead.suscripcion_monto_usd) : ''} tipo="numero" prefijo="$" vacio="$—" titulo="Edita la mensualidad" bloqueado={editando}
             estilo={{ fontSize: 'inherit', fontWeight: 'inherit' }} onGuardar={(v) => venta({ campo: 'monto', valor: v ? Number(v) : null }, { suscripcion_monto_usd: v ? Number(v) : null })} />
         </span>

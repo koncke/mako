@@ -13,14 +13,18 @@
 //    «Personalizar» (ahí se abre con «Plantillas»). Un no-admin nunca la ve: ve la sugerida, que es lo que ya se dibuja.
 // ⚠️ «AHORA NO» SE RECUERDA EN EL NAVEGADOR (por funnel y tab), no en el funnel: cerrar no es elegir, y escribirlo en
 //    la ficha le cambiaría la ficha a todos. La tab se queda con la sugerida.
+// ⚠️ UNA HOJA PROPIA (17/10/2026) TAMBIÉN TIENE GALERÍA: «En blanco» y las plantillas de TODAS las tabs (en una hoja
+//    propia va cualquier bloque), sin «Sugerido» (una hoja nueva no tiene un tipo que la sugiera). Elegir una COPIA sus
+//    bloques una vez: la hoja no la sigue después (lib/ficha/config.ts). «Nueva hoja» es esta misma galería antes de
+//    que la hoja exista: lo que se elige la crea (`cambioDeNueva`).
 // ⚠️ NADA DE ESTO PASA EN UN CELULAR: «Personalizar» no va en el celular (decisión de b1) y la galería tampoco
 //    (./ficha-css.ts la esconde a lo ancho de un teléfono; la tab sigue con la sugerida debajo).
 // =============================================================================
 
 import { aplicarCambio, fichaEfectiva, listaDeEntradaTab, type BloquePuesto, type CambioFicha, type FichaEfectiva, type FichaGuardada, type RespaldoNegocio } from '@/lib/ficha/config';
-import { bloqueDef, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
+import { bloqueDef, esTabFicha, TABS_FICHA, type BloqueId, type IdHoja, type LugarFicha, type TabFicha } from '@/lib/ficha/catalogo';
 import type { PlantillaId } from '@/lib/ficha/plantillas';
-import { plantillaTabPorId, type PlantillaTab } from '@/lib/ficha/plantillas-tab';
+import { galeriaDeTab, plantillaTabPorId, type PlantillaTab, type PlantillaTabEnGaleria } from '@/lib/ficha/plantillas-tab';
 import { spansPorDispositivo } from './armar';
 
 /** Lo que se está mirando en la galería: una plantilla de la tab, o lo que armó MaKo con un pedido. */
@@ -28,9 +32,31 @@ export type VistaGaleria =
   | { tipo: 'plantilla'; id: string }
   | { tipo: 'mako'; bloques: BloquePuesto[]; epica: boolean };
 
-/** El cambio que guarda lo que se mira («Usar»). */
-export function cambioDeVista(v: VistaGaleria, tab: TabFicha): CambioFicha {
-  return v.tipo === 'plantilla' ? { op: 'plantilla', tab, plantilla: v.id } : { op: 'armar', tab, bloques: v.bloques, epica: v.epica };
+/** «En blanco» de una hoja propia: no es una plantilla de ninguna tab (no trae el contacto del Resumen). */
+export const EN_BLANCO_HOJA: PlantillaTab = { id: 'hoja-en-blanco', tab: 'resumen', nombre: 'En blanco', bajada: 'Arma la hoja desde cero.', bloques: [] };
+
+/** El cambio que guarda lo que se mira («Usar»). En una hoja propia, «En blanco» es la plantilla vacía (null). */
+export function cambioDeVista(v: VistaGaleria, tab: LugarFicha): CambioFicha {
+  if (v.tipo === 'mako') return { op: 'armar', tab, bloques: v.bloques, epica: v.epica };
+  return { op: 'plantilla', tab, plantilla: v.id === EN_BLANCO_HOJA.id ? null : v.id };
+}
+
+/** El cambio que CREA la hoja nueva con lo que se eligió en «Nueva hoja» (sin nombre: el motor pone el de la plantilla). */
+export function cambioDeNueva(v: VistaGaleria, hoja: IdHoja): CambioFicha {
+  if (v.tipo === 'mako') return { op: 'hoja', hoja, nombre: null, bloques: v.bloques, epica: v.epica };
+  return v.id === EN_BLANCO_HOJA.id ? { op: 'hoja', hoja, nombre: null } : { op: 'hoja', hoja, nombre: null, plantilla: v.id };
+}
+
+/**
+ * La galería de un lugar, en su orden: la de la tab (./plantillas-tab.ts, `galeriaDeTab`), o, en una hoja propia,
+ * «En blanco» y las de TODAS las tabs con bloques, sin sugerencias.
+ */
+export function galeriaDeLugar(lugar: LugarFicha, o: { plantilla: PlantillaId; porque?: string }): PlantillaTabEnGaleria[] {
+  if (esTabFicha(lugar)) return galeriaDeTab(lugar, o);
+  return [
+    { plantilla: EN_BLANCO_HOJA, porque: null },
+    ...TABS_FICHA.flatMap((t) => galeriaDeTab(t, { plantilla: o.plantilla }).filter((x) => x.plantilla.bloques.length > 0).map((x) => ({ plantilla: x.plantilla, porque: null }))),
+  ];
 }
 
 /** La ficha del funnel tal como está. */
@@ -40,7 +66,7 @@ type Base = { eleccion: { id: PlantillaId }; guardada: FichaGuardada; respaldo: 
  * LA FICHA QUE QUEDARÍA si se usa lo que se mira: el mismo motor que guarda, sin guardar. Si el cambio no se puede
  * aplicar (una plantilla que ya no existe), la de hoy.
  */
-export function fichaConVista(f: Base, v: VistaGaleria, tab: TabFicha): FichaEfectiva {
+export function fichaConVista(f: Base, v: VistaGaleria, tab: LugarFicha): FichaEfectiva {
   const r = aplicarCambio(f.guardada, cambioDeVista(v, tab), f.eleccion.id, f.respaldo);
   return r.ok ? fichaEfectiva(f.eleccion.id, r.ficha, f.respaldo) : f.efectiva;
 }
@@ -49,7 +75,9 @@ export function fichaConVista(f: Base, v: VistaGaleria, tab: TabFicha): FichaEfe
  * ¿Lo que se mira es lo que la tab ya tiene? La plantilla en uso, sin bloques tocados y con la épica de la plantilla.
  * Si la tab se tocó, mirar su plantilla muestra la plantilla LIMPIA, y «Usar» la devuelve a eso.
  */
-export function esLaDeHoy(f: Pick<Base, 'efectiva'>, v: VistaGaleria, tab: TabFicha): boolean {
+export function esLaDeHoy(f: Pick<Base, 'efectiva'>, v: VistaGaleria, tab: LugarFicha): boolean {
+  // Una hoja propia no está «en» ninguna plantilla: elegir una siempre la vuelve a copiar.
+  if (!esTabFicha(tab)) return false;
   const ef = f.efectiva;
   return v.tipo === 'plantilla' && v.id === ef.plantillasTab[tab] && !ef.tocadas.includes(tab)
     && ef.epica[tab] === !!plantillaTabPorId(v.id)?.epico;
@@ -78,6 +106,13 @@ export function miniaturaDe(pt: PlantillaTab, respaldo: RespaldoNegocio, registr
  * Los ejemplos de la caja, por tab (los que se escriben solos). GENÉRICOS a propósito (AGENTS.md: un ejemplo de UI es
  * ficticio por regla): lo que mira cualquier negocio, sin el nombre de un lead, un producto ni un cliente.
  */
+/** Los de una hoja propia: mezclan bloques de varias tabs, que es para lo que existe. */
+export const EJEMPLOS_HOJA: readonly string[] = [
+  'Lo que necesito para cerrarle la venta',
+  'Su contacto, sus reuniones y lo que pagó',
+  'Todo lo que vio antes de agendar',
+];
+
 export const EJEMPLOS_TAB: Readonly<Record<TabFicha, readonly string[]>> = {
   resumen: [
     'Lo que tengo que hacer con este lead, en grande',

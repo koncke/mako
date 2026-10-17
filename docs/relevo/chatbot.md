@@ -1,5 +1,29 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **17/10/2026 ~05:30 AR (`claude4`, chat jefe «Automations», semanal en 4%) — BRIGITTE PRIMERO (orden de Martín), Y LA
+> CAMPANITA:**
+> - **Pasado al Cerebro (rama `undecima`):** la campanita de escritorio + «Sin grupo de MaKo» en la tarjeta (2c64c61aa, ya en
+>   integración; el Cerebro le sumó un arreglo, 7c3d1174f); #868 Brigitte (04e704dcb); #850 la barra de inspección (6a30310ce);
+>   #852 «Probar en el grupo» (416a50a5e); #851 activar prende el envío (949995786). Y la rama **`wip/automations-pedidos`
+>   (55eab1530)**, worktree C:/dev/wt-aut-pedidos: los pedidos sueltos SIN las regresiones (cuatro reglas nuevas del
+>   resolver compartido, avisadas al Cerebro antes). Lista para integrar.
+> - **DATOS TOCADOS EN PRODUCCIÓN (con respaldo, se deshacen):** ws15 #266 «Un Lead Entró 2» pasó de disparador manual a
+>   «Lead entrante» del funnel 17 (`respaldo-266-ws15.json`, scratchpad de la sesión 74712af3); `envio_whatsapp_enabled`
+>   prendido en ws15 y ws18 (decisión de Martín, Ticketera `envio-whatsapp-al-activar`, B).
+> - **#868 en una línea:** el poll de Meta no hacía lo inmediato (la página de Brigitte no está suscripta, el webhook no le
+>   llega), `lead_nuevo` no miraba las automatizaciones de la etapa, y la de Joan quedó en manual al pegarla. Los tres, en
+>   docs/hallazgos-chatbot.md («Las automatizaciones de Brigitte…»).
+> - **#845: no hay exclusión** del número ni del email de Martín (medido). **#851:** el QR al Probar/Publicar ya existía; lo
+>   de la llamada era el interruptor del envío.
+> - **SIGUE (orden del Cerebro, tarjetas del Plan del ws9):** #849 (la condición «no hubo respuesta», del lead o del dueño en
+>   el grupo), #847 (crear con IA se cuelga), #882 (pegar en otro negocio pierde el disparador: es lo que dejó a #266 en
+>   manual), #846, #869, #873, #874, #875. Después, lo de antes: 4c Calendly (`lib/calendly-cancelar.ts` sin commitear en
+>   wt-undecima), «nada por detrás» lotes 2 y 3, Probar puntos 5-6 y el muñeco (copiar 8db1e3cbc del CRM).
+> - **Sin ver con clics** (la PC no tiene RAM para next dev): la campanita, la opción de la tarjeta, la barra de inspección y
+>   «Probar en el grupo». Después del deploy, en el ws3 con sesión de super admin (nunca el ws1).
+> - **Espera a Martín, no urge:** borrar los dos mensajes de prueba del chat de MaKo de la #198 (ws1).
+> - La captura de WhatsApp que vino con la tarea (OKR con varios CRM) es de /general (Dashboard), no de acá.
+
 > **16/10/2026 ~10:30 AR (`claude3`, uso semanal en 88%) — NADA POR DETRÁS, LOTE 1 EN PRODUCCIÓN, y los pedidos sueltos
 > a medio subir:**
 > - **En producción:** el lote 1(b) (run 41: «Se cortó» y «Se desconectó» con texto literal; sin camino viejo: un evento

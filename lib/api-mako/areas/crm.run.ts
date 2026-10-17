@@ -26,8 +26,8 @@ import {
   setMeetingManual, setPipelineStage, duplicadosDeLead, getTrackingEvents, getVslEngagement,
   contarVisitasLanding, esRequisitosFaltantes, type Lead, type FathomLink,
 } from '@/lib/leads';
-import { getFunnelDefault } from '@/lib/funnels';
-import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId } from '@/lib/pipeline';
+import { getFunnelDefault, getFunnelDe } from '@/lib/funnels';
+import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId, type Stage } from '@/lib/pipeline';
 // «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
 import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS, siembraDeCrm, tipoCrmPorId } from '@/lib/pipeline';
 import { CANALES, esCanal } from '@/lib/fase-diagnostico';
@@ -338,6 +338,49 @@ async function fichaDelCrm(embudoId: unknown): Promise<FichaDelFunnel | { error:
   return { error: pedido == null ? 'Este negocio todavía no tiene un CRM.' : `El CRM #${pedido} no es de este negocio.`, disponibles: crms?.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
 }
 
+// ── las etapas de UN CRM (ver_funnel) ─────────────────────────────────────────
+
+/** Las etapas por banda, con la forma de `ver_funnel` en lib/mako-tools.ts (la del chat de MaKo): el pipeline con su tipo, y las de nutrición y descarte. */
+function bandasDeEtapas(stages: Stage[]) {
+  const banda = (b: 'pipeline' | 'nutricion' | 'salidas') => stages
+    .filter((x) => (x.band ?? 'pipeline') === b)
+    .sort((a, c) => (a.col ?? 0) - (c.col ?? 0))
+    .map((x) => (b === 'pipeline' && x.kind ? { key: x.key, label: x.label, tipo: x.kind } : { key: x.key, label: x.label }));
+  return { activo: banda('pipeline'), nutricion: banda('nutricion'), descartado: banda('salidas') };
+}
+
+/**
+ * ver_funnel: las etapas de un CRM del negocio y de cuál son (`crm`). Sin `embudoId`, las del principal, por la
+ * lectura de siempre (runMakoTool, la misma del chat). Con él, el CRM se busca entre los DEL WORKSPACE
+ * (productosCrm, que scopea con getTenantDb) ANTES de leer nada: un id de otro negocio o que no existe vuelve con los
+ * CRM que hay, igual que ver_ficha_funnel.
+ *
+ * ⚠️ getFunnelDe NO falla con un id que no es de acá: devuelve el pipeline GENÉRICO (origen 'sin-fila'), y con la
+ * base caída también (origen 'error'). Por eso se valida primero y, leída la fila, el 'error' vuelve como error
+ * y no como las etapas de un embudo que ese negocio no tiene.
+ */
+async function etapasDelCrm(input: Record<string, unknown>): Promise<SalidaLectura> {
+  const pedido = n(input.embudoId);
+  const crms = await productosCrm().catch(() => null);
+  if (pedido != null && !crms) return fallo(NO_LEI_PRODUCTOS);
+  const crm = pedido != null ? crms?.find((p) => p.embudoId === pedido) : crms?.find((p) => p.esDefault);
+  if (pedido != null && !crm) {
+    return fallo(json({ error: `El CRM #${pedido} no es de este negocio.`, disponibles: crms?.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) }));
+  }
+  const quien = crm ? { id: crm.embudoId, nombre: crm.nombre, principal: crm.esDefault } : null;
+  if (!crm || crm.esDefault) {
+    // El principal: la lectura de siempre. Si no se pudo saber cuál es (quien null), el texto sale tal cual.
+    const texto = await runMakoTool('ver_funnel', input);
+    if (typeof texto !== 'string') return texto;
+    let o: unknown;
+    try { o = JSON.parse(texto); } catch { return texto; }
+    return quien && o && typeof o === 'object' ? json({ crm: quien, ...o }) : texto;
+  }
+  const cfg = await getFunnelDe(crm.embudoId);
+  if (cfg.origen === 'error') return fallo('No pude leer ese CRM. Intenta de nuevo.');
+  return json({ crm: quien, ...bandasDeEtapas(cfg.stages) });
+}
+
 // ── los runners ───────────────────────────────────────────────────────────────
 
 export const RUNNERS: Runners = {
@@ -346,7 +389,8 @@ export const RUNNERS: Runners = {
   ficha_lead: { leer: (input) => runMakoTool('ficha_lead', input) },
   reuniones_lead: { leer: (input) => runMakoTool('reuniones_lead', input) },
   reuniones_recientes: { leer: (input) => runMakoTool('reuniones_recientes', input) },
-  ver_funnel: { leer: (input) => runMakoTool('ver_funnel', input) },
+  // (17/10/2026) ver_funnel ya no es sólo la heredada: con `embudoId` lee las etapas de otro CRM (etapasDelCrm).
+  ver_funnel: { leer: (input) => etapasDelCrm(input) },
   // Lectura que vive en el archivo de acciones → el runner de acciones.
   listar_horarios_reunion: { leer: (input, ctx) => legado(ctx)('listar_horarios_reunion', input) },
 

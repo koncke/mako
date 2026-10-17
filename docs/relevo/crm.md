@@ -6,6 +6,41 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω13. 17/10/2026 (chat «CRM», cuenta `claude4`): el feedback del 16/10 hecho, en la rama `crm-ficha-v2`
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`, con origin/main mergeado (20b19dc5f). **Sin subir: se le pasa al Cerebro.**
+Commits: `e92688cd2` (Pagos, la épica por `props.epico`), `6574b28b5` (las tabs como HOJAS), `fa9192e96` (`ver_funnel`
+con `embudoId`, #898), `bdb403e7f` («Editar» con MaKo, el «⋯», el lead de ejemplo) y el de esta cosecha.
+
+**Qué cambia para Martín y los clientes al desplegar:**
+- La fila de pestañas de la ficha se fue: arriba va el nombre de la hoja con su ▾, a la altura del nombre del lead, y el
+  desplegable es el del Dashboard («＋ Nueva hoja» primera, cada hoja con su ⋮). El nombre se cambia en el título.
+  «Nueva hoja» crea una hoja propia del funnel (con un template de cualquier tab, con la caja de MaKo o en blanco).
+- Los templates muestran la tab de verdad en chico, con los datos del lead; la plantilla de toda la ficha es otra fila
+  de templates. La barra lateral de «Editar» se fue.
+- «Editar» abre a la izquierda el chat de MaKo para editar la vista; el «⋯» suma «Exportar (PDF)» y «Guía de edición».
+- «A revisar» sin leads: el engranaje abre un lead de ejemplo con «¿Ignorar siempre?». El modal de interruptores se borró.
+- El AI Analyst a 1024 ya no aplasta la ficha.
+- La API de MaKo: `cambiar_ficha_funnel` crea, borra y mueve hojas (`nueva_hoja`, `quitar_hoja`, `mover_hoja`) y
+  `ver_funnel` lee las etapas de cualquier CRM con `embudoId`.
+
+**Mirado en el ws3** (build parcial + `next start`, sesión firmada, escritorio y 390 táctil; receta y trampas en
+docs/hallazgos-crm.md, «Las tabs como HOJAS…»): la cabecera con el título alineado, «A revisar» y su engranaje,
+«Asignar evento» (vacío: el ws3 no tiene Calendly), el AI Analyst a 1440 y 1024, el chat del CRM a la izquierda con el
+muñeco, el desplegable de hojas, «Editar» con el chat y la guía, los templates y «Nueva hoja». **No se pudo mirar**: la
+ruta /crm/[id] (404 sólo en el build parcial) y nada en producción (la extensión de Chrome no conectada en la cuenta 4).
+
+**SIN HACER, en este orden (con su archivo):**
+1. **Medir el pop-up en producción** (punto 4): en local, ~1,3 s del clic a la ficha, ~1,2 s es `getLeadFullAction`
+   (app/crm/actions.ts). Si en producción sigue lento, partir esa action con tiempos por lectura.
+2. ~~Google Calendar en «Asignar evento»~~ (punto 3): **decidido que no**, porque la API de Google no expone las páginas
+   de reserva ni de cuál viene una reserva; el modal lo dice (docs/hallazgos-crm.md, «Las tabs como HOJAS…» §6).
+3. **#897: que cada pago guarde de qué funnel es** (lleva migración: pedirle el número al Cerebro, la próxima libre era la
+   0309). La regla para contar un pago en un funnel ya existe: lib/funnels-elegidos.ts (`funnelDelMomento`).
+4. **T2 de la ficha v2**: Reuniones y Tracking rehechos, y la tarjeta del lead en el kanban personalizable (§0-Ω11).
+5. Los pendientes de la cosecha del 17/10 (el puente de «Estilo de la hoja», unificar el desplegable con `MenuHojas`,
+   releer la ficha cuando MaKo la cambia desde el chat, las hojas propias en el teléfono).
+
 ## 0-Ω12. FEEDBACK DE MARTÍN DEL 16/10/2026 a la tarde — LO PRIMERO PARA QUIEN SIGA
 
 Diez puntos sobre la ficha, «A revisar», el renombrar un CRM, «Asignar evento» y el chat del CRM, textuales y con

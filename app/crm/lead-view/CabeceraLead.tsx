@@ -31,6 +31,7 @@
 
 import { useState, useTransition, type ReactNode } from 'react';
 import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
+import { geometriaCabecera } from '@/app/_components/cabecera-detalle-geo';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
 import { IdentidadPicker, type CambioIdentidad } from '@/app/_components/IdentidadPicker';
@@ -54,7 +55,16 @@ const caraDe = (l: LeadConCara): CaraLead => ({
   portada: l.portada ?? null, portadaY: l.portada_y ?? null, icono: l.icono ?? null, avatarY: l.avatar_y ?? null,
 });
 
-export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerrar, marco = false, alto = 92, tam = 88 }: {
+/** La cara del lead (px): 88 desde el 16/10/2026, como la de un cliente. */
+export const TAM_CARA_LEAD = 88;
+/**
+ * Dónde empieza el NOMBRE del lead, desde el borde izquierdo de la cabecera (px): el margen, la cara y su aire
+ * (`geometriaCabecera`). El título de la hoja abierta de la ficha se alinea con esto (punto 9 del 16/10/2026: «Quiero
+ * que esté alineado al título del nombre de la persona. No más a la izquierda»).
+ */
+export const SANGRIA_NOMBRE_LEAD = geometriaCabecera(0, TAM_CARA_LEAD).sangria;
+
+export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerrar, marco = false, alto = 92, tam = TAM_CARA_LEAD }: {
   lead: LeadConCara;
   /** La foto del email (Gravatar, `d=404`), armada en el server. */
   fotoEmail: string | null;

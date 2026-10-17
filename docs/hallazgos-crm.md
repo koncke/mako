@@ -9552,3 +9552,66 @@ infiere la firma de la función escrita (`(ctx) => …`), así que sobra un argu
 
 **Vive en:** el proceso de validar una rama (memoria del tsc acotado; docs/hallazgos-infra.md) ·
 `satisfies ReglasDeTab` en app/crm/lead-view/ficha/reglas-*.ts · *16/10/2026, chat «CRM» (claude3); lo arregló Cerebro en integración.*
+
+## Las tabs como HOJAS, «Editar» con MaKo y el recorrido en el ws3: lo que no se ve en el código (17/10/2026)
+
+**1. El chat elige las herramientas ANTES de leer el contexto.** «Editar» abre el chat de MaKo del lead para editar la
+vista, y lo obvio era sumar al system «la persona está editando la ficha». Medido ejecutando el selector
+(`herramientasDelChat`, lib/mako-turno-app-reglas.ts) con seis pedidos reales: SOLOS, «hazla épica», «agrega el bloque de
+visitas» y «cambia el nombre de esta hoja» se clasifican «capturar» (2 herramientas) y en los demás
+`cambiar_ficha_funnel` queda afuera del presupuesto de 12.000 caracteres. El contexto llega tarde: las herramientas ya
+están elegidas. Lo que anduvo es una PISTA que la pantalla antepone al texto que se clasifica, nunca al que lee el
+modelo ni al que se guarda (`EntradaTurnoApp.pista`): con «Cambia la ficha del CRM: » adelante, 6 de 6; la misma frase
+como sufijo, 5 de 6 («hazla…» empieza con «haz» y sigue siendo «capturar»).
+- **La regla:** si un chat tiene que poder hacer X en un modo, probar el SELECTOR con frases reales de ese modo antes de
+  tocar el prompt; y la pista va adelante. Lo fija tests/ficha-editar-con-mako.test.ts, que ejecuta el selector.
+
+**2. `overflow-wrap` en un botón flex parte el texto teniendo lugar.** El título «Nueva hoja» salía en dos renglones con
+`anywhere` y también con `break-word`: medido en vivo, el flex le daba 94 px a un texto que pide ~105. El arreglo no fue
+cambiar el `overflow-wrap` (lo obvio, y no alcanzó) sino `white-space: nowrap` con «…» en el nombre del botón: los
+nombres de hoja tienen tope (24).
+
+**3. Recorrer la ficha en local, con el ws3 (la receta del 16/10 más tres trampas).**
+- **/crm daba 404 adentro del layout** sin ningún error: `guardOnboarding` manda el ws3 (onboarding sin terminar) a
+  /onboarding, que no estaba en el build parcial, y el redirect del server viaja como 200. No se escribió en el ws3 (lo
+  usaba el chat Onboarding a la vez, y restaurar la foto le habría borrado lo suyo): se salteó el guard SÓLO en local con
+  una variable de entorno, en lib/tab-access.ts, sin commitear y devuelto al terminar.
+- **`--debug-build-paths` con `app/crm/[id]/page.tsx` no incluye la ruta**: los corchetes son una clase del glob. Sirve
+  `app/crm/*/page.tsx`. Y aun compilada, /crm/[id] dio 404 en el build parcial con y sin cookies (sin causa encontrada en
+  diez minutos); el pop-up es la misma pieza y se miró ahí.
+- **«A revisar» no aparece** si su conteo no está en el build: vive en /api/datos-sin-marcar-count.
+- robocopy devuelve 1 cuando COPIÓ (no es un error); el junction de node_modules se saca con
+  `[System.IO.Directory]::Delete(ruta)` (sólo el enlace) y se repone con `New-Item -ItemType Junction`.
+
+**4. Lo que vio el recorrido (y no los tests):** el AI Analyst de 420 px fijos dejaba la ficha en ~560 px a 1024 y
+cortaba los tres botones de la calificación: ahora mide un tercio de la pantalla entre 320 y 420 (en un teléfono,
+entero). El pop-up tarda **~1,3 s del clic a la ficha dibujada, y ~1,2 s de eso es la server action de lectura**
+(`getLeadFullAction`), medido en local contra la base real (nueve aperturas, 1.217 a 1.284 ms): es una cota de arriba,
+porque en Vercel la base está más cerca. Medirlo en producción quedó sin hacer (la extensión de Chrome no estaba
+conectada en la cuenta 4).
+
+**5. Las hojas propias van con los bloques de las tabs, no con una tab nueva.** Un bloque nace atado a su tab
+(`vaEnTab`, lib/ficha/catalogo.ts); una hoja propia (`LugarFicha`, clave `h-…`) acepta cualquiera de la ficha del lead
+(los de Customer Success, no), y cada bloque se dibuja como en su tab de siempre (`casaDelBloque`). Volver toda la ficha
+a su plantilla NO borra las hojas propias (no vienen de ninguna). Y una trampa de la API: `getFunnelDe(id)` con un id
+ajeno o que no existe no falla, devuelve el pipeline GENÉRICO (`origen: 'sin-fila'`), y con la base caída también
+(`'error'`): `ver_funnel` con `embudoId` valida el id contra los CRM del workspace ANTES de leer.
+
+**6. Google Calendar en «Asignar evento» (punto 3): no, y por qué.** Lo que se vincula a una etapa es un TIPO de evento
+(una página de reserva de Calendly o Cal.com) y el webhook dice de cuál vino cada reserva. Google no tiene eso por API:
+la API de Calendar no lista las páginas de reserva («appointment schedules») y una reserva llega como un evento común
+(`eventType: default`, developers.google.com/calendar/api/guides/event-types), sin decir de qué página vino. Hacerlo
+pediría adivinar por el título del evento y leer el calendario con un cron (Google no avisa sin un dominio verificado).
+**Decisión: no se hace** hasta que Google lo exponga; el modal lo dice en una línea (app/crm/EventosDeEtapaModal.tsx).
+
+**Sin hacer (con su archivo):**
+- «Estilo de la hoja» (app/crm/lead-view/ficha/EstiloDeLaHoja.tsx, del chat Dashboard) todavía habla de las cuatro tabs:
+  en una hoja propia lo usa un PUENTE en FichaPorBloques.tsx (`estiloDe`). Cuando acepte un `LugarFicha`, el puente se va.
+- El desplegable de las hojas es una copia de la anatomía de `MenuHojas` (app/dashboard/Cabecera.tsx): unificarlos.
+- Cuando MaKo cambia la ficha desde el chat de edición, la ficha no se relee sola (hay que cerrar y abrir).
+- Las hojas propias no salen en el teléfono (/m) ni son lugar donde «Solucionar» busca primero (son el último).
+- `avisosDatosAction` y `guardarAvisosDatosAction` (app/crm/datos-sin-marcar-actions.ts) quedaron sin pantalla al
+  borrarse el modal de interruptores: el respaldo del negocio (`crm.datos_aviso.apagados`) sólo se cambia por la API.
+
+**Vive en:** lib/ficha/config.ts (`hojas`, `lugarDe`), app/crm/lead-view/LeadTabs.tsx, ficha/FichaPorBloques.tsx,
+lib/mako-analyst-lead-reglas.ts (`PISTA_EDICION_FICHA`), lib/mako-turno-app.ts (`pista`) · *17/10/2026, chat «CRM» (claude4).*

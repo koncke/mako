@@ -1360,7 +1360,13 @@ código nuevo:
     además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
     - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba;
     - deja en la bitácora del área el hito «Hecho» con `revisar` y `sesion`, para que aparezca en Review.
-    El Cerebro, en su chat con Martín, sólo coordina y pide lo que es de Martín: no repite el «ya está» de cada área.
+    **Y TODO lo de un área, también lo que Martín tiene que hacer por ella** (conectar una cuenta, cargar un precio, abrir
+    su Chrome), lo dice el chat de esa área en su conversación: «¡Deja de decirme estas cosas por aquí!» (17/10/2026).
+    El Cerebro no lo repite. En su chat queda sólo lo que no es de ningún área (cuentas, GitHub, la PC, la nube).
+    **Y todo trabajo arranca con «Voy a trabajar en…»** (17/10/2026; Martín: «No puede haber un chat en "trabajando" sin
+    nada escrito... Siempre debe enviar un mensaje tipo "Voy a trabajar en..."»). Lo primero que escribe un chat al
+    tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
+    herramientas.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
