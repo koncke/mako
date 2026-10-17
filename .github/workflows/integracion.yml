@@ -57,14 +57,35 @@ jobs:
       - name: Tipos de las rutas
         run: npx next typegen
 
-      - name: Tipos
-        run: node --max-old-space-size=5120 node_modules/typescript/bin/tsc --noEmit
-
+      # ⚠️ FALLAR RÁPIDO (17/10/2026). De los 90 runs, 16 fallaron, y 12 de esos 16 fueron un TEST de otra área que
+      # lee el código como texto o un barrido global; cada uno se veía recién a los ~11 min (Tests: 508 s, Tipos: 137 s)
+      # y se llevó 15. Ahora las guardas (segundos) y los tests que lo CAMBIADO puede romper corren PRIMERO
+      # (scripts/tests-afectados.mjs: barredoras + los que nombran o importan un archivo cambiado, contra
+      # origin/main = el último verde): un rojo se ve en ~3 min. Después Tipos, y por último los demás tests: la suma
+      # de las dos fases es la suite entera (`npm test`), y ninguno corre dos veces — por eso esto también AHORRA minutos
+      # (los fallidos se llevaron 140 de los 2.000 del mes en 2 días). Si el script no puede calcular (código 2), no se
+      # pierde cobertura: la segunda fase cae a `npm test` completo.
       - name: Guardas del push
         run: sh scripts/guardas-push.sh origin
 
-      - name: Tests
-        run: npm test
+      - name: Tests afectados por lo que cambió (fallar rápido)
+        run: |
+          set +e
+          node scripts/tests-afectados.mjs --base origin/main --cortar --concurrencia auto --tanda 40
+          c=$?
+          if [ "$c" -eq 2 ]; then echo "::warning::no pude calcular los tests afectados: la fase siguiente corre la suite completa"; exit 0; fi
+          exit $c
+
+      - name: Tipos
+        run: node --max-old-space-size=5120 node_modules/typescript/bin/tsc --noEmit
+
+      - name: Tests (los demás)
+        run: |
+          set +e
+          node scripts/tests-afectados.mjs --base origin/main --resto --concurrencia auto --tanda 60
+          c=$?
+          if [ "$c" -eq 2 ]; then echo "::warning::sin plan de afectados: corro la suite completa"; npm test; exit $?; fi
+          exit $c
 
       - name: Avanzar main (sólo fast-forward)
         run: |

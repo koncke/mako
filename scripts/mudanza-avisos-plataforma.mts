@@ -41,6 +41,9 @@ const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   // 16/10/2026, lote 1 de docs/inventario-nada-por-detras.md: la alerta de la cuenta publicitaria, con su techo.
   { plantilla: 'mako-meta-cuenta-frenada', evento: 'meta_cuenta_frenada' },
   { plantilla: 'mako-meta-cuenta-recuperada', evento: 'meta_cuenta_recuperada' },
+  // 17/10/2026, lote 2: la reunión que el lead canceló en Calendly. La fila va ANTES del deploy (el código de antes no la lee).
+  { plantilla: 'mako-reunion-cancelada', evento: 'reunion_cancelada' },
+  { plantilla: 'mako-lead-fusionado', evento: 'lead_fusionado' },
 ];
 // POR TANDAS DE DEPLOY (16/10/2026): la fila de un evento cuyo código todavía no está en producción no correría, así
 // que se mudan sólo los desplegados. Sin `--eventos`, todos.

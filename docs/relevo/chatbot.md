@@ -1,5 +1,23 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **17/10/2026 ~04:30 AR (`claude4`, chat jefe «Automations», sesión local_f74a2156) — LAS TARJETAS DE BRIGITTE Y DE
+> LAS LLAMADAS, CERRADAS:**
+> - **En producción (run 90):** #849 «Contestó el equipo», #873 (Supr borra lo del lazo), #882 (pegar en otro negocio
+>   conserva el disparador). El «Ya está» se lo escribí a Martín en este chat; el hito «Hecho» está en la bitácora.
+> - **Pasado al Cerebro, va en la próxima subida (rama `undecima`, 57bc44ea4):** #847 (Crear con IA corrige en vez de
+>   repetir el error), #846 (el CRON sólo dispara; la reentrada va en cada WhatsApp), #869 (links sin vista previa; **mig
+>   0309 APLICADA**), #875 (el error de Resend dice de quién es la key), 4c (⚡ «Cancelar su reunión» de Calendly) y #874
+>   (⚡ «Invitar al curso», traída SÓLO esa acción de `wip/api-acciones-1410`).
+> - **Para Martín, ya dicho en este chat:** la key de Resend de la PLATAFORMA (fila del ws1, `RESEND_API_KEY`) es de sólo
+>   envío; hasta que pegue una con «Full access», nadie puede dar de alta su dominio. NO copiarla de mako-api: la pone él.
+> - **Regla que me costó una frenada (run 89):** antes de pasar una punta, correr TODOS los tests que nombran cada archivo
+>   tocado (`grep -l "<archivo>" tests/*.ts`), con `--test-concurrency=2`. Varios leen `lib/nutricion.ts` como texto.
+> - **SIGUE:** «nada por detrás» lotes 2 y 3 (docs/inventario-nada-por-detras.md), lo visual de «Probar» (puntos 5-6 y el
+>   muñeco: copiar 8db1e3cbc del CRM), y la segunda mitad de #882 (crear al instante con loader por cualquier vía).
+> - **Sin ver con clics:** «Vista previa del link» (que Evolution 2.3.7 respete `linkPreview: false`), el pie de
+>   reentrada en el panel del WhatsApp, y los selectores nuevos de ⚡ Acción (Calendly, curso). En el ws3 con super admin.
+> - **Espera a Martín, no urge:** borrar los dos mensajes de prueba del chat de MaKo de la #198 (ws1).
+
 > **17/10/2026 ~05:30 AR (`claude4`, chat jefe «Automations», semanal en 4%) — BRIGITTE PRIMERO (orden de Martín), Y LA
 > CAMPANITA:**
 > - **Pasado al Cerebro (rama `undecima`):** la campanita de escritorio + «Sin grupo de MaKo» en la tarjeta (2c64c61aa, ya en
