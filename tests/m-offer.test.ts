@@ -277,8 +277,9 @@ test('la conclusión se dibuja con lo que manda un modelo, también a medias (se
   assert.match(html, /Qué falta para venderla/);
   assert.match(html, /class="m-offer-completar">Completar</, 'un «[completar]» es una pastilla, no texto que se copia');
   assert.doesNotMatch(html, /170%/, 'un aviso que afirma más de 100 % no se muestra (avisosAfirmables)');
-  // «Probarlo» lleva la hipótesis a Experiments con la URL de escritorio (el desvío la abre en el teléfono).
-  assert.match(html, /href="\/experimentos\?tab=experiments&amp;hipotesis=h">Probarlo</);
+  // Sin «Probarlo» en el teléfono: desde el 17/10/2026 un cambio se prueba con «Editar con MaKo» del Dashboard, que
+  // /m/dashboard no tiene (el link aterrizaba en una hoja sin nada de la hipótesis).
+  assert.doesNotMatch(html, />Probarlo</, 'el teléfono vuelve a ofrecer «Probarlo», que lleva a un Dashboard sin el panel');
   const rota = { version: 1, diagnostico: null, calculo: {}, propuesta: null } as unknown as ConclusionOferta;
   assert.doesNotThrow(() => renderToStaticMarkup(createElement(ConclusionM, { conclusion: rota })));
   const gen = renderToStaticMarkup(createElement(GenerandoM, { gen: { paso: 'oferta', corriendo: false, error: 'Tardó más de 5 minutos.' } }));

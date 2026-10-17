@@ -35,7 +35,7 @@
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
-- **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
+- **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
@@ -8025,16 +8025,16 @@ curl -L \
   -d '{"persona":"ana@negocio.com"}'
 ```
 
-## Experiments y Retro — `experimentos`
+## Experimentos y Retro — `experimentos`
 
-Tab **Experiments** (`/experimentos`). 14 lecturas · 9 acciones.
+Tab **Dashboard** (`/dashboard`). 14 lecturas · 9 acciones.
 
 ### `GET /api/v1/experimentos/resumen` — Verdades validadas y experimentos en curso
 
 Bloque de texto con las VERDADES VALIDADAS del negocio (aprendizajes de experimentos cerrados con veredicto «validada», hasta 12) y los experimentos ACTIVOS (hasta 12, todavía sin resultado). Úsalo antes de afirmar cualquier causa-efecto sobre el negocio: lo que está aquí se puede afirmar; lo que no, se propone como experimento. No incluye refutadas ni no concluyentes (para eso, listar_conclusiones_experimentos). No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/estado_experimentos`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** texto
 - **Costo:** gratis
@@ -8054,12 +8054,12 @@ curl -L \
 Lista los experimentos del negocio (propuestos, activos, cerrados y descartados), más recientes primero, con id, título, estado, métrica y su unidad, dirección, ventana, fechas y, si cerró, veredicto y aprendizaje. Úsalo para «¿qué experimentos tengo?», para encontrar el id de uno por su título, o para filtrar por estado antes de iniciar, cerrar o descartar. Sin medición en vivo (para eso, vista_experimentos o medicion_experimento).
 
 - **Ruta por operación:** `GET /api/v1/experimentos/listar_experimentos`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8079,12 +8079,12 @@ curl -L \
 Trae un experimento completo por id: hipótesis, cambio probado, métrica (con su unidad), dirección, criterio de éxito, ventana, fechas de inicio y fin, baseline guardado y, si cerró, veredicto, resultado y aprendizaje. Úsalo cuando ya tienes el id y necesitas el detalle. No mide en vivo: en un experimento activo el baseline guardado es el de la ventana completa y NO el que se compara mientras corre; ese número sale de medicion_experimento.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/ficha_experimento`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8100,15 +8100,15 @@ curl -L \
 
 ### `GET /api/v1/experimentos/tablero` — Tablero de experimentos en vivo
 
-La vista de la tab Experiments: los ACTIVOS con medición en vivo contra el dato real (baseline comparable, valor actual, delta %, si va en la dirección de éxito, días corridos de total), los propuestos sin arrancar, los cerrados con su veredicto y los descartados, con contadores. Úsalo para «¿cómo van mis experimentos?». Es más lenta que listar_experimentos: mide cada activo por tramos. No trae la serie por tramo (para eso, medicion_experimento).
+Todos los experimentos (desde el 17/10/2026 viven en el Dashboard: se piden con «probemos…» en «Editar con MaKo»): los ACTIVOS con medición en vivo contra el dato real (baseline comparable, valor actual, delta %, si va en la dirección de éxito, días corridos de total), los propuestos sin arrancar, los cerrados con su veredicto y los descartados, con contadores. Úsalo para «¿cómo van mis experimentos?». Es más lenta que listar_experimentos: mide cada activo por tramos. No trae la serie por tramo (para eso, medicion_experimento).
 
 - **Ruta por operación:** `GET /api/v1/experimentos/vista_experimentos`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis · puede tardar
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 _Sin parámetros._
 
@@ -8125,12 +8125,12 @@ curl -L \
 Cuánto se movió la métrica de UN experimento respecto de su baseline comparable (mismo largo de días que lleva corrido, inmediatamente antes del inicio): valor actual, baseline, delta %, si va en la dirección de éxito, serie por tramo y las ventanas de fechas usadas. Úsalo para «¿va bien el experimento X?» y antes de proponer cerrarlo. En un activo mide en vivo; en un cerrado devuelve lo que quedó guardado al cierre. Un propuesto o un descartado no tiene medición.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/medicion_experimento`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis · puede tardar
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8146,15 +8146,15 @@ curl -L \
 
 ### `GET /api/v1/experimentos/conclusiones` — Conclusiones: las verdades del negocio
 
-Los experimentos CERRADOS con su veredicto (validada / refutada / no_concluyente), el aprendizaje redactado con el número adentro, baseline y resultado con su unidad, y fechas. Es la tab Conclusions. Úsalo para «¿qué ya probamos?», «¿qué se refutó?» o «¿qué quedó no concluyente y valdría reintentar?». A diferencia de estado_experimentos, incluye TODOS los veredictos.
+Los experimentos CERRADOS con su veredicto (validada / refutada / no_concluyente), el aprendizaje redactado con el número adentro, baseline y resultado con su unidad, y fechas. Úsalo para «¿qué ya probamos?», «¿qué se refutó?» o «¿qué quedó no concluyente y valdría reintentar?». A diferencia de estado_experimentos, incluye TODOS los veredictos.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/listar_conclusiones_experimentos`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8174,11 +8174,11 @@ curl -L \
 Las 17 métricas del funnel que un experimento puede usar como termómetro: key exacta, nombre, unidad (usd / pct / num), dirección natural de mejora y cómo se calcula. Úsalo antes de crear un experimento para elegir una key válida. Todas miden el funnel GLOBAL de la cuenta, no un anuncio ni una campaña, y el catálogo no sabe si la fuente de cada una está conectada (vsl_views o cierres pueden no medirse nunca). No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/catalogo_metricas_experimento`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 _Sin parámetros._
 
@@ -8195,12 +8195,12 @@ curl -L \
 Texto compacto con el valor de cada métrica del catálogo en los últimos N días completos (default 30), con la ventana de fechas dicha. Es el encuadre numérico que MaKo usa para sugerir e idear experimentos. Úsalo para dar contexto rápido antes de proponer una hipótesis. Si la fuente falla devuelve «sin datos» sin distinguir fuente desconectada de fuente caída; un «—» es un valor que no se pudo calcular, no un cero.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/snapshot_funnel_experimentos`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** texto
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8219,12 +8219,12 @@ curl -L \
 Las Retros del negocio, más recientes primero: id, cuándo se corrió, qué período analizó, título-tesis, resumen, el dato duro destacado (con delta vs el período anterior) y si tiene reporte v3 con plan (cuántos items y cuántos aceptados). Úsalo para «¿cuándo fue la última Retro?», «¿qué decía?» o para ubicar el id antes de leer su plan. Sin el reporte completo (para eso, ficha_retro).
 
 - **Ruta por operación:** `GET /api/v1/experimentos/listar_retros`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8243,12 +8243,12 @@ curl -L \
 Solo el plan de una Retro: cada item con su itemId, tipo (experimento o tarea), título, por qué, impacto estimado, de qué hallazgo nace, la cadena de tareas para poder probarlo, el spec del experimento, y el estado que le dio la persona (aceptada con experimento_id / tarea_id, pospuesta, descartada con motivo, o sin tocar). Úsalo para «¿qué me propuso la Retro?» y para obtener el itemId antes de aceptar, posponer, descartar o deshacer. Para saber si lo aceptado se HIZO, seguimiento_ultima_retro.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/plan_retro`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8267,12 +8267,12 @@ curl -L \
 Para cada item del plan de la última Retro con reporte v3, qué pasó DE VERDAD mirando el experimento real (cerrado = hecho) y la tarea real del tablero: Hecho / Hecha, En curso (experimento midiendo), Empezada (tarea con avance), Aceptada y sin tocar, Aceptada pero no está en el tablero, Pospuesta, Descartada o Sin tocar; más el resumen de deuda (total aceptado, hechas, en curso, sin tocar, pendientes). Regla: aceptar no es hacer. Úsalo para «¿cumplí lo de la Retro?». Ojo: si la lectura falla por dentro también devuelve vacío. No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/seguimiento_ultima_retro`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 _Sin parámetros._
 
@@ -8286,15 +8286,15 @@ curl -L \
 
 ### `GET /api/v1/experimentos/retros/bloqueo` — Si el Perro deja correr una Retro
 
-Evalúa la deuda de la última Retro (aceptado vs hecho) y dice si el gate del Perro Guardián BLOQUEA una Retro nueva, en qué modo está (gate / disposicion / off), qué títulos quedaron pendientes y hace cuántos días se corrió la anterior. Úsalo antes de sugerir correr una Retro (se corre desde la tab Experiments, no desde aquí). No bloquea sin Retro previa, sin plan, o si no se aceptó nada. Ojo: si la lectura del seguimiento falla por dentro también da «no bloquea»; en ese caso la salida trae `advertencia` y no hay que afirmarlo como un hecho. No requiere parámetros.
+Evalúa la deuda de la última Retro (aceptado vs hecho) y dice si el gate del Perro Guardián BLOQUEA una Retro nueva, en qué modo está (gate / disposicion / off), qué títulos quedaron pendientes y hace cuántos días se corrió la anterior. Una Retro nueva ya no se corre (la tab Experiments se retiró el 17/10/2026): no sugieras correrla. No bloquea sin Retro previa, sin plan, o si no se aceptó nada. Ojo: si la lectura del seguimiento falla por dentro también da «no bloquea»; en ese caso la salida trae `advertencia` y no hay que afirmarlo como un hecho. No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/estado_gate_retro`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 _Sin parámetros._
 
@@ -8311,12 +8311,12 @@ curl -L \
 Las 7 métricas destacadas de un período (inversión, formularios, costo por formulario, agendas, costo por agenda, cierres, CAC) con su valor, el del período anterior de igual largo y el delta %, más el valor crudo de las 17 métricas del catálogo. Es el bloque «dato duro» de la Retro, calculado por código sin IA. Úsalo para un resumen numérico honesto de un rango de fechas sin correr una Retro. Un «—» o null es un valor que no se pudo calcular, no un cero. Si «hasta» es hoy o posterior se recorta a ayer y la salida lo dice en `hasta_ajustado`. Tarda con rangos largos.
 
 - **Ruta por operación:** `GET /api/v1/experimentos/destacados_periodo_retro`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis · puede tardar
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8336,12 +8336,12 @@ curl -L \
 Qué fuentes o métricas faltan para que una Retro pueda opinar sobre un período (p. ej. nutrición sin secuencias activas, VSL sin medir, cobranza sin cargar), con la acción sugerida. Es la auditoría de cobertura de la Retro, sin IA, pero consulta todas las fuentes del negocio en paralelo y tarda. Si hay una Retro reciente, ficha_retro trae la cobertura guardada sin recalcular. Úsalo para «¿qué me falta conectar para que la Retro sirva?».
 
 - **Ruta por operación:** `GET /api/v1/experimentos/cobertura_datos_retro`
-- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=read` (Solo lectura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis · puede tardar
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8361,7 +8361,7 @@ curl -L \
 Pasa un experimento «propuesto» a ACTIVO: fecha de inicio hoy, fin = hoy + ventana − 1, y mide el baseline de la métrica en la ventana de igual largo previa. Úsalo cuando la persona dice «arranca el experimento X» sobre uno guardado sin arrancar. Solo sobre estado «propuesto»: uno activo, cerrado o descartado se rechaza (no hay «volver a propuesto»; el camino atrás de un activo es descartarlo). Queda pendiente hasta que la persona confirme.
 
 - **Ruta por operación:** `POST /api/v1/experimentos/iniciar_experimento`
-- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8369,7 +8369,7 @@ Pasa un experimento «propuesto» a ACTIVO: fecha de inicio hoy, fin = hoy + ven
 - **Reversible:** no
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8389,7 +8389,7 @@ curl -L \
 Mide el resultado de un experimento ACTIVO (la métrica desde el inicio hasta el último día completo vs el baseline comparable) y MaKo dicta el veredicto (validada / refutada / no_concluyente) y redacta el aprendizaje con el número adentro. El experimento pasa a «cerrado» y, si se valida, su aprendizaje entra a las verdades que MaKo cita en todo el producto. Úsalo cuando venció la ventana o la persona pide cerrarlo antes; muestra antes la medición (medicion_experimento). Al proponer ya muestra baseline, valor actual, delta y días corridos, y avisa si cierra antes de que termine la ventana. Irreversible: no existe reabrir ni editar el veredicto. Al confirmar vuelve a medir e invoca un modelo.
 
 - **Ruta por operación:** `POST /api/v1/experimentos/cerrar_experimento`
-- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8397,7 +8397,7 @@ Mide el resultado de un experimento ACTIVO (la métrica desde el inicio hasta el
 - **Reversible:** no
 - **Costo:** ia · puede tardar
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8417,7 +8417,7 @@ curl -L \
 Marca un experimento propuesto o activo como «descartado»: se abandona sin veredicto y sale del tablero, sin borrar la fila. Úsalo cuando la persona dice «olvida ese experimento» o la hipótesis dejó de tener sentido. No hay «restaurar». Sobre uno ya cerrado se rechaza (una verdad no se descarta).
 
 - **Ruta por operación:** `POST /api/v1/experimentos/descartar_experimento`
-- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8425,7 +8425,7 @@ Marca un experimento propuesto o activo como «descartado»: se abandona sin ver
 - **Reversible:** no
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8445,7 +8445,7 @@ curl -L \
 Acepta un item del plan de una Retro. Si es un experimento, lo CREA y lo ARRANCA hoy (baseline medido) con el spec que MaKo ya redactó, y crea en el tablero las tareas de su cadena «para poder probarlo» con la prioridad que les pone el Perro Guardián. Si es una tarea, la crea en el tablero con origen «retro». Re-aceptar reusa lo creado (y se rechaza si el experimento que se había creado ya no existe o está descartado). Úsalo cuando la persona dice «dale, haz la 2 del plan»; muestra antes el item (plan_retro). Si hay que aceptar varios, propón y confirma uno por vez: dos cambios simultáneos sobre la misma Retro se pisan, y si pasa la confirmación contesta que no se aplicó y qué quedó creado. Al confirmar puede invocar un modelo.
 
 - **Ruta por operación:** `POST /api/v1/experimentos/aceptar_item_plan_retro`
-- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8453,7 +8453,7 @@ Acepta un item del plan de una Retro. Si es un experimento, lo CREA y lo ARRANCA
 - **Reversible:** no
 - **Costo:** ia · puede tardar
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8474,7 +8474,7 @@ curl -L \
 Marca un item del plan de una Retro como «pospuesta»: queda registrado que la persona decidió no hacerlo ahora y NO cuenta como deuda para el gate del Perro. Si el item ya estaba aceptado, lo que se creó sigue existiendo. Úsalo cuando dice «eso más adelante». Se deshace con deshacer_item_plan_retro. Ojo: un item aceptado y pospuesto deja de contar como deuda para el gate del Perro aunque el experimento siga corriendo; no lo uses para destrabar el gate. Si el item cambió desde que se propuso, la confirmación no se aplica.
 
 - **Ruta por operación:** `POST /api/v1/experimentos/posponer_item_plan_retro`
-- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8482,7 +8482,7 @@ Marca un item del plan de una Retro como «pospuesta»: queda registrado que la 
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8503,7 +8503,7 @@ curl -L \
 Marca un item del plan de una Retro como «descartada» con un motivo corto (máximo 60 caracteres). No cuenta como deuda para el gate y el motivo lo lee la memoria de la próxima Retro. Úsalo cuando la persona rechaza la propuesta y dice por qué. Se deshace con deshacer_item_plan_retro. Ojo: un item aceptado y descartado deja de contar como deuda para el gate del Perro aunque el experimento siga corriendo; no lo uses para destrabar el gate. Si el item cambió desde que se propuso, la confirmación no se aplica.
 
 - **Ruta por operación:** `POST /api/v1/experimentos/descartar_item_plan_retro`
-- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8511,7 +8511,7 @@ Marca un item del plan de una Retro como «descartada» con un motivo corto (má
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8535,7 +8535,7 @@ curl -L \
 Borra el estado (aceptada / pospuesta / descartada) de un item del plan para volverlo a «sin tocar». Si la aceptación ya creó un experimento o tareas, QUEDAN creados (re-aceptar reusa el experimento, no duplica). Úsalo para corregir un «sí» equivocado. Ojo: un item aceptado y deshecho deja de contar como deuda para el gate del Perro aunque el experimento siga corriendo; no lo uses para destrabar el gate.
 
 - **Ruta por operación:** `POST /api/v1/experimentos/deshacer_item_plan_retro`
-- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -8543,7 +8543,7 @@ Borra el estado (aceptada / pospuesta / descartada) de un item del plan para vol
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8564,7 +8564,7 @@ curl -L \
 Propone crear un experimento con hipótesis, cambio a probar, métrica del catálogo, dirección de éxito, ventana de medición (3 a 90 días) y, opcional, objetivo, criterio de éxito y presupuesto informativo. La persona lo revisa, lo corrige y lo confirma en una pantalla de MaKo. Con arrancar=true (default) queda ACTIVO desde hoy con el baseline medido en la ventana previa; con arrancar=false queda «propuesto» para iniciarlo después. Flujo recomendado: sugerir_experimento, la persona revisa, y crear_experimento con esa propuesta. La métrica es una key de catalogo_metricas_experimento y mide el funnel global de la cuenta. No se puede borrar: se abandona con descartar_experimento y la fila queda.
 
 - **Ruta por operación:** `POST /api/v1/experimentos/crear_experimento`
-- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8572,7 +8572,7 @@ Propone crear un experimento con hipótesis, cambio a probar, métrica del catá
 - **Reversible:** no
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -8605,7 +8605,7 @@ curl -L \
 Propone borrar definitivamente una Retro (su reporte, plan y hallazgos); un administrador lo confirma en una pantalla de MaKo. Los experimentos y tareas creados desde su plan sobreviven. Úsalo solo si la persona lo pide con todas las letras: una Retro cuesta minutos y varias llamadas de IA, y borrar la última cambia la memoria y el gate de la siguiente (la anterior pasa a ser «la última» o, si no hay, el gate deja de bloquear).
 
 - **Ruta por operación:** `POST /api/v1/experimentos/borrar_retro`
-- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experiments y Retro»)
+- **Token detallado:** permiso `experimentos=write` (Lectura y escritura en «Experimentos y Retro»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -8613,7 +8613,7 @@ Propone borrar definitivamente una Retro (su reporte, plan y hallazgos); un admi
 - **Reversible:** no
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
-- **Requiere la tab:** experimentos
+- **Requiere la tab:** graphics
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
@@ -14079,7 +14079,7 @@ Para una tab de MaKo (closing, email, script, crm, marketing, experimentos, come
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `key` | string (closing \\| email \\| script \\| crm \\| marketing \\| experimentos \\| comercial) | sí | la tab: closing (la hoja Closing del Dashboard), email, script (los guiones de los anuncios: Ads Writer y la hoja Ads Analyst del Dashboard), crm, marketing (Dashboard), experimentos o comercial. |
+| `key` | string (closing \\| email \\| script \\| crm \\| marketing \\| comercial) | sí | la tab: closing (la hoja Closing del Dashboard), email, script (los guiones de los anuncios: Ads Writer y la hoja Ads Analyst del Dashboard), crm, marketing (Dashboard), experimentos o comercial. |
 
 ```bash
 curl -L \

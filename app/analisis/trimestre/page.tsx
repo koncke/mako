@@ -45,7 +45,8 @@ export async function generateMetadata() {
 }
 
 export default async function TrimestrePage() {
-  await requireRolWs([], { nav: 'experimentos' });
+  // La puerta del Dashboard: Experiments (de donde colgaba) se retiró el 17/10/2026.
+  await requireRolWs([], { nav: 'graphics' });
   if (!(await esWorkspaceDueno())) notFound();
 
   return (
@@ -54,8 +55,8 @@ export default async function TrimestrePage() {
         titulo="Dónde se rompió el trimestre"
         proposito={`${PERIODO.etiqueta}. Todo el embudo pagado, desde la impresión en Meta hasta el dólar cobrado, reconstruido desde la base de MaKo.`}
         acciones={
-          <Link href="/experimentos?tab=analisis" style={{ fontSize: 'var(--fs-sm)', color: 'var(--accent)', textDecoration: 'none' }}>
-            ← Análisis en vivo
+          <Link href="/dashboard" style={{ fontSize: 'var(--fs-sm)', color: 'var(--accent)', textDecoration: 'none' }}>
+            ← El Dashboard
           </Link>
         }
       />

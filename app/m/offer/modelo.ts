@@ -59,7 +59,6 @@ export const ROTULOS = {
   supuestos: 'Supuestos', // Conclusion.tsx
   provisional: 'Provisional', // Conclusion.tsx
   paraSubirla: 'Para subirla: ', // Conclusion.tsx (lo que sube la nota de una dimensión)
-  probarlo: 'Probarlo', // Conclusion.tsx (un cambio, a Experiments)
   noContesto: 'MaKo no contestó tu último mensaje.', // ChatOffer.tsx
   marcarVarias: 'Puedes marcar varias', // ChatOffer.tsx (una pregunta con `varias`)
   fotoVideo: 'Foto o video', // ChatOffer.tsx (el menú del clip)
@@ -100,7 +99,6 @@ export const DONDE_VIVE: Record<keyof typeof ROTULOS, readonly string[]> = {
   supuestos: ['app/offer/Conclusion.tsx'],
   provisional: ['app/offer/Conclusion.tsx'],
   paraSubirla: ['app/offer/Conclusion.tsx'],
-  probarlo: ['app/offer/Conclusion.tsx'],
   noContesto: ['app/offer/ChatOffer.tsx'],
   marcarVarias: ['app/offer/ChatOffer.tsx'],
   fotoVideo: ['app/offer/ChatOffer.tsx'],
@@ -330,12 +328,6 @@ export function filasDimensiones(d: Pick<DiagnosticoOferta, 'dimensiones'> | nul
     return { id: dim.id, label: dim.label, nota: v, tono: v == null ? null : tonoDeNota(v), porque: txt(n?.porque).trim(), mejora: txt(n?.mejora).trim() };
   });
 }
-
-/**
- * «Probarlo»: un cambio es una HIPÓTESIS (regla 10 del marco) y se prueba en Experiments, que abre el alta con
- * ella escrita (app/m/experimentos lee `?hipotesis=`, como escritorio). El mismo link de app/offer/Conclusion.tsx.
- */
-export const hrefProbarlo = (hipotesis: string): string => `/m/experimentos?tab=experiments&hipotesis=${encodeURIComponent(hipotesis)}`;
 
 /** Lo que el Diagnóstico dibuja además de las notas, saneado (viene de un modelo). */
 export function lecturaDelDiagnostico(d: DiagnosticoOferta | null | undefined, calculo: CalculoDiagnostico | null | undefined) {

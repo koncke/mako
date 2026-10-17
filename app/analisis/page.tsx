@@ -1,32 +1,20 @@
 // =============================================================================
-// /analisis → /experimentos?tab=analisis  (la tab se mudó el 11/10/2026)
+// /analisis → /dashboard  (la tab se mudó a Experiments el 11/10/2026, y Experiments se retiró el 17/10/2026)
 // =============================================================================
-// Pedido de Martín, textual: «Elimina la tab de "Análisis", llévala dentro de "Experiments"». El
-// informe (la cascada de costos, la fuga de los que no calificaban, los creativos y la meta) vive
-// ahora como la cuarta tab de Experiments: app/experimentos/VistaAnalisis.tsx, calculado en
-// app/experimentos/page.tsx SÓLO cuando esa tab está abierta (analisisNegocio es lenta).
+// El informe de Análisis (la cascada de costos, la fuga de los que no calificaban, los creativos y la meta) vivía como la
+// cuarta pestaña de Experiments. Martín, 17/10/2026, sobre Experiments: «no tengas miedo de eliminar completamente lo que
+// está hecho y sólo conservar lo que pretende la tab». Esas preguntas las contestan las hojas del Dashboard (Marketing,
+// Comercial) y su AI Analyst; `lib/analisis-negocio.ts` sigue vivo para MaKo (sus herramientas, la API, Offer).
 //
-// ⚠️ SE REDIRIGE, NO SE BORRA: /analisis está escrito en lugares que nadie puede editar —
-// marcadores, links compartidos con su rango (`?desde=…&hasta=…`, que el informe pone en la URL
-// justamente para que se pueda citar), tareas del plan— y un 404 ahí es peor que la pantalla vieja
-// (AGENTS.md, «Retirar una RUTA»).
+// ⚠️ SE REDIRIGE, NO SE BORRA: /analisis está en marcadores, links compartidos y tareas del plan (AGENTS.md, «Retirar una
+// RUTA»). El rango del link viejo (`?desde=…&hasta=…`) ya no tiene a dónde ir: el Dashboard tiene su propio período.
+// Con `rutaConWs`, por la pestaña del cliente que el super admin está mirando.
 //
-// ⚠️ CON LA QUERY ENTERA, y `tab` AL FINAL del objeto: desde/hasta/cierres/presupuesto son lo que
-// hace que el link abra EL MISMO análisis que se compartió; y un `?tab=` que viniera en el link
-// viejo (basura: /analisis nunca tuvo tabs) no puede pisar el destino. Con `rutaConWs`, porque un
-// `redirect()` pelado pierde la pestaña del cliente que el super admin está mirando; si el link ya
-// trae su `?ws=`, viaja adentro de la query y `conWs` lo respeta.
-//
-// /analisis/trimestre NO se mudó: el informe congelado tiene su propia ruta, fijada por
-// tests/informe-congelado.test.ts, y ese link ya salió por WhatsApp.
-//
-// Sin guard de rol a propósito: un redirect no muestra nada, y /experimentos hace su propio
-// `requireRolWs([], { nav: 'experimentos' })` (que en las cuatro capas da lo mismo que 'analisis').
+// /analisis/trimestre NO se va: el informe congelado tiene su propia ruta y su link ya salió por WhatsApp.
 
 import { redirect } from 'next/navigation';
 import { rutaConWs } from '@/lib/workspace';
-import { destinoConQuery } from '@/lib/ruta-automations';
 
-export default async function AnalisisMudada({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  redirect(await rutaConWs(destinoConQuery('/experimentos', { ...(await searchParams), tab: 'analisis' })));
+export default async function AnalisisMudada() {
+  redirect(await rutaConWs('/dashboard'));
 }

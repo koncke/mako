@@ -389,7 +389,7 @@ test('el chat no desaparece nunca: armar es un mensaje del hilo y la oferta se v
   assert.match(app, /armando=\{armandoEnChat\}/);
   const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
   assert.match(chat, /<GenerandoEnChat /);
-  // En el arranque, «Probarlo» (que sale a Experiments) no se ofrece: esa pantalla rebota al onboarding.
+  // En el arranque, «Probarlo» (que sale al Dashboard) no se ofrece: esa pantalla rebota al onboarding.
   assert.match(app, /conProbar=\{!arranque\}/);
 });
 

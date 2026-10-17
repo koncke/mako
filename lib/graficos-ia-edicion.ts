@@ -27,9 +27,10 @@
 // =============================================================================
 
 import {
-  MAX_COMPONENTES, abajoDeTodo, esElemento, esGrafico, sanearComponente, sanearHoja, tituloDe,
+  MAX_COMPONENTES, TIPOS_ELEMENTO, abajoDeTodo, esElemento, esGrafico, sanearComponente, sanearHoja, tituloDe,
   type Componente, type Hoja,
 } from './graficos-catalogo';
+import { metricasExperimentoParaIA, sanearPropuesta } from './experimentos-catalogo';
 import { PERIODOS_IA, TOPE_PEDIDO_IA, acomodar, catalogoParaIA, piezaDeIA, type AlcanceIA } from './graficos-ia';
 import { contenidoNoConfiable } from './prompt-render-pure';
 import { esPiezaGeneral, piezaGeneral } from './general-piezas';
@@ -98,6 +99,7 @@ function paraModelo(c: Componente): Record<string, unknown> {
   }
   if (esElemento(c)) {
     if (c.tipo === 'general' && c.general) return { id: c.id, bloque_general: c.general.pieza, titulo: nombreDeComponente(c) };
+    if (c.tipo === 'experimento') return { id: c.id, experimento: c.texto.slice(0, 80) };
     if (c.tipo === 'texto' || c.tipo === 'seccion') return { id: c.id, seccion: c.texto.slice(0, 80) };
     return { id: c.id, elemento: c.tipo, ...(c.texto ? { titulo: c.texto.slice(0, 60) } : {}) };
   }
@@ -117,12 +119,28 @@ export function hojaParaIA(h: Hoja): string {
   });
 }
 
+/**
+ * Los experimentos (17/10/2026: «Experiments» se mudó acá, lib/experimentos-catalogo.ts). Sólo en el Dashboard: General
+ * es lo que alguien ve al entrar, no un banco de pruebas. Va en el USER y no en el system: el system es editable en
+ * /configuraciones, y un override guardado antes de esto no sabría que existe.
+ */
+export const conExperimentos = (alcance: AlcanceIA = {}): boolean => !alcance.bloquesGeneral;
+
+const GUIA_EXPERIMENTOS = [
+  'EXPERIMENTOS: si la persona pide PROBAR algo («probemos…», «quiero ver si…», «testeemos…»), en "agregar" va UN experimento:',
+  '{"experimento":{"titulo":"…","hipotesis":"lo que cree, en una frase","cambio":"qué cambia para probarlo","metrica":"<id de MÉTRICAS DE EXPERIMENTOS>","direccion":"subir|bajar","ventana_dias":14,"criterio_exito":"qué tiene que pasar para darla por buena"}}',
+  'Elige la métrica que mejor mide la hipótesis. Queda PROPUESTO en la hoja: la persona lo arranca, MaKo lo mide contra el dato real y al terminar dice si se cumplió. No prometas el resultado en "respuesta".',
+  'MÉTRICAS DE EXPERIMENTOS (id — qué mide):',
+  metricasExperimentoParaIA(),
+].join('\n');
+
 /** El mensaje user: el catálogo (con el alcance de la hoja), la hoja, lo último que se habló y el pedido, todo como dato. */
 export function userDeEdicion(p: { hoja: Hoja; pedido: string; historial?: readonly TurnoEdicion[]; alcance?: AlcanceIA }): string {
   const turnos = (p.historial ?? []).slice(-TURNOS_IA)
     .map((t) => `${t.quien === 'persona' ? 'Persona' : 'MaKo'}: ${t.texto.replace(/\s+/g, ' ').slice(0, TOPE_TURNO)}`);
   return [
     catalogoParaIA(undefined, p.alcance),
+    ...(conExperimentos(p.alcance) ? ['', GUIA_EXPERIMENTOS] : []),
     '',
     'LA HOJA (como está; los "id" son los que usas en "quitar" y "cambiar"):',
     contenidoNoConfiable(hojaParaIA(p.hoja), 'hoja'),
@@ -158,6 +176,17 @@ export function firmaDeHoja(h: Hoja): string {
   let x = 5381;
   for (let i = 0; i < s.length; i++) x = ((x << 5) + x + s.charCodeAt(i)) | 0;
   return `${s.length}:${(x >>> 0).toString(36)}`;
+}
+
+/** La propuesta de un experimento como elemento de la hoja (`null` = no sirve: sin hipótesis o sin una métrica que exista). */
+export function elementoDeExperimento(raw: unknown): Componente | null {
+  const propuesta = sanearPropuesta(raw);
+  if (!propuesta) return null;
+  const info = TIPOS_ELEMENTO.find((x) => x.id === 'experimento');
+  return sanearComponente({
+    clase: 'elemento', tipo: 'experimento', texto: propuesta.titulo,
+    experimento: { id: null, propuesta }, x: 0, y: 0, w: info?.w, h: info?.h,
+  });
 }
 
 /** Lo que el modelo puede cambiar de un gráfico (lo demás —el lugar, el estilo, los filtros, el pop-up— no lo toca). */
@@ -248,6 +277,15 @@ export function aplicarEdicion(hoja: Hoja, json: unknown, alcance: AlcanceIA = {
   const arriba: Componente[] = [];
   crudos.slice(0, lugar).forEach((raw, i) => {
     pedidas++;
+    // Un experimento («probemos X»): la propuesta saneada, como un elemento de la hoja que la persona arranca.
+    if (raw && typeof raw === 'object' && 'experimento' in raw) {
+      if (!conExperimentos(alcance)) { fallidas++; correcciones.push(`agregar ${i + 1}: los experimentos van en el Dashboard`); return; }
+      const e = elementoDeExperimento((raw as Record<string, unknown>).experimento);
+      if (!e) { fallidas++; correcciones.push(`agregar ${i + 1}: el experimento no trae hipótesis o su métrica no está en MÉTRICAS DE EXPERIMENTOS`); return; }
+      abajo.push(e);
+      cambios.push(`Propuse el experimento ${comillas(nombreDeComponente(e))}`);
+      return;
+    }
     const p = piezaDeIA(raw, i + 1, alcance);
     if (!p.ok) { fallidas++; correcciones.push(`agregar ${p.motivo}`); return; }
     if (p.corregida.length) { corregidas++; correcciones.push(...p.corregida.map((x) => `agregar ${x}`)); }

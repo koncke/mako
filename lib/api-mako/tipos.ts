@@ -52,7 +52,9 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // los permisos de los tokens); la TAB es Automations desde el 09/10/2026 (ex /chatbot).
   chatbot: { titulo: 'Chatbot y secuencias', tab: 'Automations', ruta: '/automations' },
   metricas: { titulo: 'Dashboard y análisis', tab: 'Dashboard', ruta: '/dashboard' },
-  experimentos: { titulo: 'Experiments y Retro', tab: 'Experiments', ruta: '/experimentos' },
+  // 17/10/2026: la tab Experiments se retiró y los experimentos viven en el Dashboard («Editar con MaKo»). El ÁREA sigue
+  // llamándose `experimentos`: es la clave del registro, de las operaciones y de los permisos de los tokens.
+  experimentos: { titulo: 'Experimentos y Retro', tab: 'Dashboard', ruta: '/dashboard' },
   // Landing Analyst y Closing Analyst se retiraron como tabs el 11/10/2026: analizar una página es parte
   // de Web Generator, y las llamadas son la hoja «Closing» del Dashboard. Las ÁREAS (`landing`,
   // `closing`) y sus títulos no cambian: son la clave del registro y de los permisos de los tokens.

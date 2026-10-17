@@ -1142,7 +1142,58 @@ teléfono no tiene. Test: tests/dashboard-editar-mako-muneco.test.ts. **Nadie lo
 **Vive en:** app/dashboard/PanelEstilo.tsx · lib/graficos-temas.ts · app/dashboard/PanelEditarMako.tsx.
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Experiments se retiró: un experimento es un ELEMENTO de la hoja que propone «Editar con MaKo» (17/10/2026)
+
+Martín: «Quiero que "Experiments" la simplifiques completamente: la funcionalidad, o lo que pretendía, puede vivir dentro
+del chat de MaKo de "Dashboard"». Lo que pretendía la tab: una hipótesis que se vuelve medible (una métrica del catálogo,
+dirección, ventana, baseline comparable) y un veredicto con su aprendizaje al cerrar. Eso quedó; las cuatro sub-tabs, la
+Retro, el Análisis y la pantalla del teléfono se borraron. Ahora «probemos X» en «Editar con MaKo» agrega un elemento
+«Experimento» a la hoja, que se arranca, se mide en vivo y se concluye ahí mismo.
+
+- **El experimento se ata al elemento por `config.elemento` (la fila guarda el id del elemento), no al revés.** Arrancar
+  pasa en modo VISTA y no escribe la hoja: no hay guardado que pise a otra pestaña con el editor abierto, y el elemento
+  encuentra su experimento con `GET /api/experimentos?elemento=E`. Arrancar dos veces (dos pestañas, doble clic) devuelve
+  el mismo (`experimentoDeElemento` ANTES de `crearExperimento`). Consecuencia: duplicar o copiar la hoja da ids nuevos
+  (`hojaConIdsNuevos`), y la copia vuelve a mostrar la PROPUESTA, no el experimento — en otro negocio es lo correcto.
+- **Una métrica que no está en el catálogo NO se adivina** (`sanearPropuesta` devuelve null, lib/experimentos-catalogo.ts):
+  un experimento con la métrica cambiada da un veredicto sobre otra cosa, y nadie lo nota. La ruta re-sanea lo que
+  manda el navegador con la misma función. El catálogo se partió en un módulo PURO para que la hoja y la IA lo lean sin
+  `server-only`; `lib/experimentos.ts` le pega el `extraer` de cada métrica.
+- **La guía de experimentos va en el mensaje del USUARIO, no en el system** (`GUIA_EXPERIMENTOS`, lib/graficos-ia-edicion.ts):
+  el system se puede reemplazar desde /configuraciones (prompts editables) y la guía se perdería con él. Y sólo en el
+  Dashboard: General no es un banco de pruebas (`conExperimentos`).
+- **La puerta pasó a la del Dashboard**: `soloAdminDeTab('graphics')` en la ruta y `gating.tab: 'graphics'` en el área
+  `experimentos` de la API de MaKo (era `experimentos`, la key de la tab que el chat «Sidebar» saca de la barra).
+- **Lo que se borró y lo que NO:** se fueron la UI de la Retro y `app/api/retro` (su único llamador era la tab), las
+  ideas/sugerencias por HTTP y el informe de Análisis. Se quedan `lib/retro-*` (la API de MaKo lee las retros viejas),
+  `lib/analisis-negocio.ts` (lo usan mako-tools, la API de métricas y Offer), el informe congelado de /analisis/trimestre,
+  y `experimento_tareas`/`tarea_categorias`, que son del Plan (su demo se mudó a app/plan/_demo.ts). /vsl/experimentos es
+  una página de la landing y no tiene nada que ver.
+- **El «Probarlo» de Offer** lleva a `/dashboard?probar=<hipótesis>`, que abre el panel con «Probemos: …» escrito. En el
+  TELÉFONO se sacó: /m/dashboard no tiene «Editar con MaKo» y el link aterrizaba en una hoja sin nada de la hipótesis.
+- ⚠️ **Un link viejo a /experimentos?tab=experiments&hipotesis=… conserva la hipótesis** (`destinoDeExperimentos`): los
+  mensajes de WhatsApp y los PDF de Offer que ya salieron la llevan.
+
+Tests: tests/experimentos-en-la-hoja.test.ts y tests/analisis-mudada.test.ts, probados rompiéndolos (números en su encabezado).
+**Nadie lo miró en pantalla** (sin RAM para un `next dev`).
+**Vive en:** lib/experimentos-catalogo.ts · lib/experimentos.ts · app/dashboard/ElementoExperimento.tsx ·
+app/api/experimentos/route.ts · lib/graficos-ia-edicion.ts.
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
+
+- **Experiments en la hoja (17/10/2026):**
+  - Un experimento creado por la API (`crear_experimento`) o uno de antes del 17/10 **no tiene elemento: no se ve en
+    ninguna pantalla** (sí en el contexto de MaKo y por la API). `sanearElemento` ya acepta `experimento: { id: N }`;
+    falta que «Editar con MaKo» conozca los experimentos del negocio para poder agregarlos a una hoja.
+  - El teléfono no muestra ni pide experimentos: /m/dashboard destila la hoja en sus números y su serie
+    (`piezasDeHoja`, app/m/dashboard/datos.ts, sólo gráficos) y no tiene el panel de «Editar con MaKo».
+  - Una Retro nueva ya no se genera en ningún lado. Si vuelve, que sea otro elemento de la hoja.
+  - ⚠️ **Las dos redirecciones conservan la puerta de la tab** (`requireRolWs([], { nav: 'experimentos' })` y
+    `requireMovil({ navKey: 'experimentos' })`): el chat «Sidebar» dejó la key viva (ítem sin fila, sección oculta del
+    teléfono) y tests/movil-mas-secciones.test.ts exige esa puerta en las dos páginas. Cuando la key se vaya de
+    app/_components/nav.ts, lib/movil-rutas.ts y lib/capas.ts (la capa superadmin), se van esas dos líneas y el
+    `experimentos` de `conRol`, y /experimentos y /m/experimentos entran en `RETIRADAS` de tests/tabs-retiradas.test.ts.
 
 - **El filtro «Producto» de los LEADS mira sólo la casa** (17/10/2026): una hoja filtrada por un funnel de agregados
   («Renovación») no muestra a sus leads. Contar a un lead en sus dos funnels duplica los totales: sin decidir. Vive en

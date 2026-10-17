@@ -528,7 +528,10 @@ Reglas que salen de eso:
   amend, la otra sesión puede haber commiteado: el amend le reescribe el commit A ELLA,
   con tu mensaje. Pasó. Se recupera con `git reset --soft <su-hash>` (nunca `--hard`: se
   llevaría su trabajo sin commitear), pero la forma de no llegar ahí es `git log -1`
-  antes de cada amend.
+  antes de cada amend. ⚠️ **Y un `git merge origin/main` que salió fast-forward NO dejó
+  commit tuyo:** HEAD es el último de main, de otra sesión. Enmendar «el merge» (para
+  sumarle un trailer) le reescribe ese commit (pasó el 17/10/2026; se volvió con
+  `git reset --soft origin/main`). Antes: `git rev-parse -q --verify HEAD^2` (sin salida = no hubo merge).
 - **Y la app puede dejar de hidratar por culpa de la otra sesión.** Un `export` a medias
   en un client component rompe el bundle ENTERO: la página se ve perfecta (el HTML es
   del server) pero ningún botón responde. Antes de diagnosticar tu propio cambio, probá

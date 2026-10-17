@@ -48,12 +48,13 @@ import type { Hoja, Tablero } from '@/lib/graficos-catalogo';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { EditorInforme } from './EditorInforme';
+import { textoProbar } from '@/lib/experimentos-catalogo';
 import { pedidosDeHoja } from './exportar';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-type Busqueda = { hoja?: string | string[]; llamada?: string | string[] };
+type Busqueda = { hoja?: string | string[]; llamada?: string | string[]; probar?: string | string[] };
 
 export default async function Page({ searchParams }: { searchParams: Promise<Busqueda> }) {
   await requireRolWs(['closer', 'setter'], { nav: 'graphics' });
@@ -73,6 +74,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const p = await searchParams;
   const pedida = Array.isArray(p.hoja) ? p.hoja[0] : p.hoja;
   const llamada = llamadaDeUrl(p.llamada);
+  // `?probar=` (17/10/2026): un link viejo de /experimentos con su hipótesis abre «Editar con MaKo» con «Probemos…».
+  const probar = textoProbar(p.probar);
 
   let tablero: Tablero;
   let lecturaFallo = false;
@@ -134,6 +137,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         aviso={lleno ? 'Máximo de hojas' : null}
         soloLectura={!!unica}
         llamadaInicial={llamada}
+        probarInicial={unica ? null : probar}
         sinPaginas={sinPaginas}
         senales={senalesNegocio}
       />

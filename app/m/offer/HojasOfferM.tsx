@@ -18,13 +18,13 @@
 
 import { useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { Button, ButtonLink } from '@/app/_ui/Button';
+import { Button } from '@/app/_ui/Button';
 import type { ArbolOffer, ConclusionOferta, OfferSesionVista, PiezasSabidas } from '@/lib/offer-marco';
 import { esSeccionProvisional, guardadaVisible, partirCompletar, propuestoPorMakoDe, provisionalDe, tonoDeNota, type AvisoGuardado } from '@/app/offer/ayudas';
 import { descargarPdf, mensajeDeError } from '@/app/offer/offer-api';
 import { FilaM, ListaM, PieM, PildoraM, SegmentadoM, SheetM, VacioM } from '@/app/m/_ui';
 import {
-  ESTADO_PIEZA, ROTULOS, arribaDeLaOferta, datosParaCompletar, estadoDePasos, filasDimensiones, heroeDe, hrefProbarlo, lecturaDelDiagnostico,
+  ESTADO_PIEZA, ROTULOS, arribaDeLaOferta, datosParaCompletar, estadoDePasos, filasDimensiones, heroeDe, lecturaDelDiagnostico,
   piezasEnGrupos, progresoDePiezas, renglonesDelSelector, seccionesDeOferta, seccionesDelSelector,
   type Bloque, type EstadoPaso, type PasoGeneracion,
 } from './modelo';
@@ -365,12 +365,8 @@ function Diagnostico({ conclusion }: { conclusion: ConclusionOferta }) {
                 <span className="m-offer-cambios__txt">
                   <strong><T v={c.titulo} /></strong>
                   {c.porque && <span><T v={c.porque} /></span>}
-                  {/* Un cambio es una HIPÓTESIS: se prueba en Experiments, que abre el alta con ella escrita. */}
-                  {c.hipotesis && (
-                    <span className="m-offer-cambios__accion">
-                      <ButtonLink href={hrefProbarlo(c.hipotesis)} variant="secondary" size="md">{ROTULOS.probarlo}</ButtonLink>
-                    </span>
-                  )}
+                  {/* Sin «Probarlo» en el teléfono: un cambio se prueba con «Editar con MaKo» del Dashboard (17/10/2026), que
+                      /m/dashboard no tiene; el link aterrizaba en una hoja sin nada de la hipótesis. */}
                 </span>
               </li>
             ))}

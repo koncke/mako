@@ -118,6 +118,7 @@ import { CrearHoja, NuevaHoja } from './NuevaHoja';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
 import { PanelEditarMako, type MensajeEdicion } from './PanelEditarMako';
+import { pedidoDeProbar } from '@/lib/experimentos-catalogo';
 import { BarraControles } from './BarraControles';
 import { MenuFiltro } from './MenuFiltro';
 import { BuscarEnTabla } from './BuscarEnHoja';
@@ -293,7 +294,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
-  hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard',
+  hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
   senales = null,
 }: {
   inicial: Tablero;
@@ -311,6 +312,11 @@ export function EditorInforme({
   soloLectura?: boolean;
   /** `?llamada=`: el recording_id de la llamada cuya ficha se abre al entrar. */
   llamadaInicial?: number | null;
+  /**
+   * `?probar=` (17/10/2026): una hipótesis que llegó de un link viejo de /experimentos (el «Probarlo» de Offer). Abre
+   * «Editar con MaKo» con «Probemos: …» escrito: la persona lo manda y MaKo propone el experimento en la hoja.
+   */
+  probarInicial?: string | null;
   /** El link compartido (sin sesión): se mira y se exporta; lo que se lee va por la ruta del link. */
   compartido?: Compartido | null;
   /**
@@ -345,7 +351,9 @@ export function EditorInforme({
   const [analista, setAnalista] = useState(false);
   // «Editar con MaKo» (16/10/2026, ./PanelEditarMako.tsx): el panel, y el hilo de cada hoja (de la sesión: cerrar y abrir
   // el panel no lo pierde, recargar sí).
-  const [makoEditar, setMakoEditar] = useState(false);
+  const [makoEditar, setMakoEditar] = useState(!!probarInicial);
+  // La hipótesis de `?probar=` va escrita UNA vez: cerrado el panel, abrirlo de nuevo no la vuelve a poner.
+  const [probar, setProbar] = useState(probarInicial ?? '');
   const [hilosMako, setHilosMako] = useState<Record<string, MensajeEdicion[]>>({});
   const [detalle, setDetalle] = useState<{ id: string; sel: SelDetalle } | null>(null);
   const [vista, setVista] = useState<VistaValores>({});
@@ -862,8 +870,8 @@ export function EditorInforme({
   const cerrarAnalista = useCallback(() => setAnalista(false), []);
   // Los dos paneles van en el mismo lugar (`.an`): abrir uno cierra el otro.
   const alternarAnalista = useCallback(() => { setMenu(null); setMakoEditar(false); setAnalista((v) => !v); }, []);
-  const cerrarMakoEditar = useCallback(() => setMakoEditar(false), []);
-  const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setMakoEditar((v) => !v); }, []);
+  const cerrarMakoEditar = useCallback(() => { setMakoEditar(false); setProbar(''); }, []);
+  const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setProbar(''); setMakoEditar((v) => !v); }, []);
   /** La hoja de ese id como está AHORA en el informe (el panel compara por referencia antes de aplicar o deshacer). */
   const leerHoja = useCallback((id: string) => tableroRef.current.hojas.find((h) => h.id === id) ?? null, []);
   /** Lo que cambió MaKo (o su Deshacer) entra por `mutar`: tiene deshacer, y lo guarda el autoguardado de siempre. */
@@ -1419,7 +1427,7 @@ export function EditorInforme({
         {makoEditar && guardable && !enBlanco && !compartido && (
           <PanelEditarMako hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
             onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
-            onCerrar={cerrarMakoEditar} />
+            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} />
         )}
       </div>
 
