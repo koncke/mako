@@ -26,6 +26,7 @@ import { join } from 'node:path';
 import { RUTA_CONFIG_M, SECCIONES_NEGOCIO_M, rutaEscritorio, rutaInterna, rutaMovil, type SeccionNegocioM } from '../lib/movil-rutas';
 import { seccionesNegocio } from '../lib/ajustes-secciones';
 import { cabeceraPorRuta } from '../app/m/_ui/cabecera';
+import { tituloDe } from '../lib/titulo-tab';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
@@ -51,6 +52,7 @@ test('ida y vuelta: /configuraciones es el índice y cada sección, la suya; el 
     assert.equal(rutaEscritorio(m), SECCIONES_NEGOCIO_M[k], k);
     assert.equal(rutaInterna(SECCIONES_NEGOCIO_M[k]), m, k);
     assert.ok(existsSync(join(RAIZ, `app/m/configuraciones/${k}/page.tsx`)), `${k}: sin página en el teléfono`);
+    assert.equal(tituloDe(m), tituloDe(SECCIONES_NEGOCIO_M[k]), `${k}: la pestaña no se titula como en la computadora`);
   }
   // Los 49 avisos de «apagar este reporte» dicen `?tab=notif` (lib/avisos.ts): a las Notificaciones del negocio.
   assert.equal(rutaMovil('/configuraciones?tab=notif&ws=3'), `${RUTA_CONFIG_M}/notificaciones`);

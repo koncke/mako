@@ -416,6 +416,9 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
     out.push({ id: 'arriba', titulo: null, filas: arriba.secciones.map((s) => ({ tipo: 'pantalla' as const, key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id })) });
   }
   const enBarra = new Set(DESTINOS_MOVIL.map((d) => d.navKey).filter((k): k is string => k != null));
+  // Lo que ya está en la barra de ESTE rol, por su ruta del teléfono: General no tiene key en DESTINOS_MOVIL (es la
+  // portada, `navKey: null`) y sin esto aparecía otra vez en Operate (visto a 390 px el 17/10/2026).
+  const barra = new Set(barraMovil(rol, capa).map((b) => b.href));
   FAMILIAS.forEach((f, i) => {
     const familia = FAMILIAS_MAS[i];
     if (!familia) return;
@@ -427,6 +430,8 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
       if (!visible) continue;
       const keys = [t.key, ...(t.secciones ?? []).map((s) => s.key)];
       if (keys.some((k) => enBarra.has(k))) continue;
+      const destino = rutaMovil(visible.href);
+      if (destino && barra.has(destino.split('?')[0])) continue;
       const s = deFamilia.find((x) => keys.includes(x.navKey));
       if (s) { usadas.add(s.id); filas.push({ tipo: 'pantalla', key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id }); continue; }
       // Tiene sección en el teléfono pero la regla del teléfono no se la muestra (o subió a la barra): nada.

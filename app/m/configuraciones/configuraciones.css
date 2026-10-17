@@ -46,3 +46,6 @@ textarea.m-configuraciones-entrada { min-height: 88px; resize: none; }
 
 /* «Darme de baja»: el texto de una fila que corta algo, en rojo, como en Ajustes › Suscripciones de iOS. */
 .m-configuraciones-rojo { color: var(--bad); }
+
+/* Una caja suelta después de las secciones (sin título): el aire que pondría una sección. */
+.m-configuraciones-suelta { margin-top: 22px; }

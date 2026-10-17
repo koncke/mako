@@ -106,9 +106,11 @@ export function NotificacionesNegocioM({ leido }: { leido: number }) {
           <FilaM navegacion icono="plus" titulo="Agregar un email" chevron={false} onClick={() => setAgregar('email')} />
         </ListaM>
       </SeccionM>
-      <ListaM>
-        <FilaM navegacion icono="bell" titulo="Tus avisos en la app" segunda="El pop-up y el sonido son tuyos" href="/m/cuenta" />
-      </ListaM>
+      <div className="m-configuraciones-suelta">
+        <ListaM>
+          <FilaM navegacion icono="bell" titulo="Tus avisos en la app" segunda="El pop-up y el sonido son tuyos" href="/m/cuenta" />
+        </ListaM>
+      </div>
 
       <HojaAgregar canal={agregar} ocupado={ocupado} ladaInicial={dest.telefonos[0] ? splitTelefono(dest.telefonos[0]).lada : DIAL_DEFAULT}
         onCerrar={() => setAgregar(null)}
