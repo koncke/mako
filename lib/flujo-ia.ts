@@ -3015,7 +3015,10 @@ REGLAS (el código las comprueba y saca lo que no cumpla):
 // agenda, y la agenda no pasa por una IA: decisión del 07/10/2026). Ningún código mira el contenido
 // de una guía, así que un ejemplo que la contradice enseña más que la regla. Lo fija
 // tests/flujo-ia-arreglos.test.ts, que parsea este ejemplo y lo pasa por las dos capas.
-export const CREAR_IA_SYSTEM_TEMPLATE = `Armas AUTOMATIZACIONES de ${NOMBRES_CANALES} para un negocio: un flujo de tarjetas que arranca solo (el CRON) y les escribe a sus leads. Te paso el negocio, sus listas y el pedido del dueño. Devuelves el flujo como un objeto JSON.
+// (17/10/2026, #849) Sin «Devuelves el flujo como un objeto JSON.» en la primera línea: lo dice el cierre
+// («Devuelve EXCLUSIVAMENTE el objeto JSON»), y esos ~11 tokens pagan la condición «Contestó el equipo»
+// bajo el techo de Groq (tests/crear-ia-tercera.test.ts estaba en ~4.005 de 4.000).
+export const CREAR_IA_SYSTEM_TEMPLATE = `Armas AUTOMATIZACIONES de ${NOMBRES_CANALES} para un negocio: un flujo de tarjetas que arranca solo (el CRON) y les escribe a sus leads. Te paso el negocio, sus listas y el pedido del dueño.
 
 ${TARJETAS_Y_REGLAS}
 10. "nombre": hasta 40 caracteres. "disparador": una clave de DISPARADORES ("d1") o una lista de claves de la MISMA línea (["d7", "d8"]) si vale en varias etapas. «Etapa» = leads que todavía no compraron; «Entrega» = clientes que ya compraron (un cliente nuevo o entrante también). Si el pedido habla de un alumno (terminó una clase, un módulo), van TODAS las claves de «Entrega» de ese producto. "inicio": la primera tarjeta; si es una lista, cada una arranca un camino desde el CRON.

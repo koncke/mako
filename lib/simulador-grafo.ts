@@ -287,6 +287,8 @@ export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
     respondio: !!c.respondio,
     // En «Probar», el lead contestó desde que entró si quien prueba escribió algo (la condición `contesto`).
     contestoEnEsta: !!c.respondio,
+    // En una prueba nadie del equipo contesta en el grupo (#849): «El equipo no contestó» se cumple y se ve ese camino.
+    equipoContestoEnEsta: false,
     creadoMs: ahoraMs,
     tieneTelefono: c.tieneTelefono !== false,
     tieneEmail: c.tieneEmail !== false,
