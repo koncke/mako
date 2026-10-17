@@ -35,6 +35,17 @@ if [ -f scripts/rutas-windows-en-tests.mjs ]; then
   fi
 fi
 
+# Un .ts sin import ni export es un script GLOBAL para tsc: dos así que declaran `type Fila` chocan, y el rojo cae en el
+# archivo que NO tocaste (runs 51 y 52 de Actions, 16/10/2026). Un tsc acotado no lo ve. ~1 s, sin tsx.
+if [ -f scripts/modulos-ts.mjs ]; then
+  echo "[pre-push] Chequeando que todo .ts sea un modulo (import o export)..."
+  if ! node scripts/modulos-ts.mjs; then
+    echo "  X PUSH BLOQUEADO: un .ts sin import ni export (arriba, cual y como arreglarlo)."
+    echo ""
+    exit 1
+  fi
+fi
+
 echo "[pre-push] Chequeando que las skills tengan el contrato al día…"
 if ! node scripts/sync-contrato-detalle.mjs --check; then
   echo ""

@@ -13,8 +13,9 @@
 #   - Push a `main` (el camino de emergencia, si Actions no corre): corre el tsc
 #     local COMPLETO por el lock, como antes. Así `main` nunca recibe código sin
 #     chequear, venga por donde venga.
-#   - Push a cualquier otra rama (`integracion` incluida): sólo las guardas
-#     baratas (scripts/guardas-push.sh). El tsc lo corre Actions antes de main.
+#   - Push a `integracion`: scripts/antes-de-subir.mjs (las guardas + el tsc
+#     ACOTADO + los tests afectados; ver abajo). Actions corre además todo.
+#   - Push a cualquier otra rama: sólo las guardas baratas (scripts/guardas-push.sh).
 #
 # Saltearlo a propósito: git push --no-verify (no lo hagas salvo emergencia).
 # =============================================================================
@@ -24,9 +25,52 @@ REMOTO="${1:-origin}"
 
 # stdin trae una línea por ref: <ref local> <sha local> <ref remota> <sha remota>
 A_MAIN=0
-while read -r _ref_local _sha_local ref_remota _sha_remota; do
+A_INTEGRACION=0
+SHA_INTEGRACION=""
+while read -r _ref_local sha_local ref_remota _sha_remota; do
   [ "$ref_remota" = "refs/heads/main" ] && A_MAIN=1
+  if [ "$ref_remota" = "refs/heads/integracion" ]; then A_INTEGRACION=1; SHA_INTEGRACION="$sha_local"; fi
 done
+
+# ⚠️ PUSH A `integracion` (17/10/2026): corre scripts/antes-de-subir.mjs — las guardas, el tsc ACOTADO de lo cambiado y los
+# TESTS AFECTADOS (barredoras + los que nombran o importan un archivo cambiado). De 90 runs de Actions, 16 fallaron, y 12 eran un
+# test de otra área que nadie había corrido (cada uno costó ~15 min). Cuesta minutos acá (con 2 procesos y esperando RAM, nunca
+# cayéndose) a cambio de no gastar un run de Actions en un rojo que se veía antes. Va con --cortar: frena en la primera tanda roja.
+# Se usa el script del worktree que se pushea (un árbol viejo sin él sigue como antes: lo cubre Actions, que también corre los
+# afectados primero). Saltearlo a propósito: MAKO_SIN_ANTES_DE_SUBIR=1 git push …  (o --no-verify; no lo hagas salvo emergencia).
+if [ "$A_INTEGRACION" -eq 1 ] && [ "$A_MAIN" -eq 0 ] && [ "${MAKO_SIN_ANTES_DE_SUBIR:-}" != "1" ] && [ -f scripts/antes-de-subir.mjs ]; then
+  if [ "$SHA_INTEGRACION" != "$(git rev-parse HEAD)" ]; then
+    echo "[pre-push] El push a integracion no sube HEAD: antes-de-subir mira HEAD, no lo que se sube. Lo chequea Actions."
+  else
+    echo "[pre-push] Push a integracion: antes-de-subir (guardas + tipos acotados + tests afectados)…"
+    # La línea VERDE/ROJO queda como ÚLTIMA línea de la salida del push (se lee sin abrir nada más).
+    LINEA="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/antes-de-subir-$$.txt")"
+    MAKO_LINEA_VEREDICTO="$LINEA" node scripts/antes-de-subir.mjs --sin-condiciones --cortar
+    ANTES=$?
+    VEREDICTO="$(cat "$LINEA" 2>/dev/null)"
+    rm -f "$LINEA"
+    # 99 = «no corrió» (sin RAM, o el vigía lo mató): NO es un test roto ni un error de tipos.
+    if [ "$ANTES" -eq 99 ]; then
+      echo ""
+      echo "  ✖ PUSH BLOQUEADO: antes-de-subir NO pudo correr (falta RAM). Esto NO es un rojo del código."
+      echo "    Cerrá unos chats de Claude y volvé a pushear, o MAKO_SIN_ANTES_DE_SUBIR=1 git push …: lo chequea Actions."
+      echo ""
+      [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
+      exit 1
+    fi
+    if [ "$ANTES" -ne 0 ]; then
+      echo ""
+      echo "  ✖ PUSH BLOQUEADO: antes-de-subir dio ROJO."
+      echo "    Arreglalo y volvé a pushear: así Actions no gasta un run (~15 min) en lo mismo."
+      echo ""
+      [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
+      exit 1
+    fi
+    echo "[pre-push] ✓ antes-de-subir en verde (las guardas ya corrieron adentro)."
+    [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
+    exit 0
+  fi
+fi
 
 if [ "$A_MAIN" -eq 1 ]; then
   # ⚠️ EL LOCK DEL TYPECHECK LO PONE ESTE HOOK, NO EL package.json DEL WORKTREE.

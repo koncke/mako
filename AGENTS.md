@@ -358,7 +358,58 @@ renombrar la tab «Guiones» a «Ads Writer» el push salió verde, se desplegó
 el test del título quedó roto en `main`. **Si tocás `nav.ts`, los títulos de pestaña, un
 catálogo o cualquier cosa que un test mire por su NOMBRE, corré `npm test` antes de
 pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y la mayoría
-de los cambios no los necesita — pero los renombres, sí.
+de los cambios no los necesita — pero los renombres, sí. (17/10/2026: «acordarse a mano» costó 16
+runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la sección de abajo.)
+
+# Antes de pasarle una punta al Cerebro: `antes-de-subir` en VERDE, sobre tu rama con `origin/main` mergeado
+
+**La regla** (17/10/2026; Martín: «asegúrate por todos los medios de que no vuelva a ocurrir nunca más»). Un chat **no le
+pasa una punta al Cerebro** sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
+
+```sh
+node scripts/antes-de-subir.mjs
+```
+
+y le pasa **la última línea**, `VERDE <sha>`. El Cerebro compara ese sha con el de la punta: **sin la línea, no integra.**
+Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
+mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
+o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
+
+Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sigue):
+1. **Las guardas del push** (`scripts/guardas-push.sh`, las mismas del pre-push y de Actions — incluida «todo `.ts` es un
+   módulo»: un `.ts` sin `import`/`export` es un script global para `tsc` y choca con otros, runs 51 y 52).
+2. **El `tsc` ACOTADO** de lo que cambiaste **más los que lo importan, un nivel** (un test SIN tocar que llama a la firma
+   vieja de lo que cambiaste; en el run 31, un test llamaba con dos argumentos a una firma que pedía uno). Con el mismo lock y el mismo piso de RAM que
+   `typecheck-lock.mjs`: de a un `tsc` por máquina.
+3. **Los tests AFECTADOS** (`scripts/tests-afectados.mjs`), elegidos solos, sin lista a mano:
+   - **todas las barredoras**: los que usan `git ls-files`, `git grep`, `readdir`/`glob`, o nombran 20+ archivos. Corren
+     SIEMPRE (puente-panel-copy, zona-negocio, progreso, fuentes-sin-next-font): un cambio en cualquier lado las rompe y
+     no se les puede preguntar «¿tocaste lo mío?»;
+   - **los que NOMBRAN un archivo cambiado como texto** — `readFileSync('lib/nutricion.ts')`, `join(raiz, 'app',
+     'automations', 'PanelProbar.tsx')`, o `'lib/nutricion'` sin extensión —: no hay `import`, por eso un grafo de
+     imports solo no alcanza (run 89). Los comentarios no cuentan (`AGENTS.md` citado en un comentario «nombraba» a 167);
+   - **los que IMPORTAN uno cambiado, directo o por la cadena** (run 80: editor-acciones, a dos saltos del registro);
+   - y los que el cambio mismo toca.
+
+⚠️ **Los archivos NUEVOS sin `git add` son invisibles para las guardas que barren con `git ls-files`** (run 80: `lib/campanita.ts`
+era nuevo y la guarda de voseo no lo veía en el worktree del jefe). `antes-de-subir` corre los tests con un ÍNDICE
+TEMPORAL (`GIT_INDEX_FILE`, copia del real + `git add -N`) para que vean lo mismo que verán en Actions, sin tocar el
+tuyo. Pero **el VERDE sólo vale con el árbol LIMPIO** (lo que probaste tiene que ser lo que viaja) y con `origin/main`
+mergeado: si no, la última línea es un `ROJO` que lo dice.
+
+⚠️ **`node --test` SIN `--test-concurrency` lanza un proceso por núcleo.** El 17/10/2026, a la 01:05, una tanda de 8 archivos de
+tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El script corre 2 a la vez, en tandas de 6, y
+**espera RAM** antes de cada una (el piso se deriva: zona roja del vigía + lo que pide cada proceso). Nunca corras
+`node --test tests/*.test.ts` a mano en esta máquina.
+
+**Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
+→ tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
+calcular, la segunda fase cae a `npm test`. Un rojo se ve en ~3 min en vez de ~11 (Tests: 508 s, Tipos: 137 s).
+
+**La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 17 runs rojos de Actions
+(`docs/fallos-ci-integracion.jsonl`) sobre el árbol exacto de la cabeza que falló y con la base real (el último verde):
+**20/20 rojos salen**. Un run rojo nuevo se suma a ese archivo y se vuelve a correr: si no sale, el script todavía no está.
+El porqué de cada decisión y lo que NO cubre: [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Los rojos de Actions».
 
 # El build de Vercel tiene un tope de memoria que NO está en el repo
 
@@ -1367,6 +1418,11 @@ código nuevo:
     nada escrito... Siempre debe enviar un mensaje tipo "Voy a trabajar en..."»). Lo primero que escribe un chat al
     tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
     herramientas.
+    **Y ninguna punta llega al Cerebro sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
+    de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs` sobre
+    su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea (`VERDE <sha>`) junto con la punta:
+    el Cerebro no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
+    «Antes de pasarle una punta al Cerebro» (más arriba, junto al pre-push).
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
