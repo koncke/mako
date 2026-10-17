@@ -70,6 +70,8 @@ export function siguienteDelCtx(ctx: Pick<CtxFicha, 'lead' | 'hoy' | 'data'>, o:
 const sinEmailNiTelefono = (ctx: Pick<CtxFicha, 'lead'>): boolean =>
   !ctx.lead.email?.trim() && !ctx.lead.telefono?.trim() && !ctx.lead.telefono_normalizado?.trim();
 
+const sinTelefono = (ctx: CtxFicha): boolean => !ctx.lead.telefono?.trim() && !ctx.lead.telefono_normalizado?.trim();
+
 export const REGLAS_RESUMEN = {
   // Lo de arriba: lo que toca hacer y lo que hay que mirar antes de escribirle.
   'siguiente-accion': { estaVacio: (ctx) => !siguienteDelCtx(ctx), disenos: ['banner', 'fila', 'chip'] },
@@ -105,4 +107,17 @@ export const REGLAS_RESUMEN = {
   'pagina-de-registro': { estaVacio: (ctx) => !paginaLegible(ctx.lead.pagina_registro), disenos: ['linea', 'fila'] },
   'publicacion-de-entrada': { estaVacio: (ctx) => !entradaSocialGuardada(ctx.lead.entrada_social), disenos: ['linea'] },
   notas: { disenos: ['caja', 'tres', 'ultima'] },
+  // La CHARLA (17/10/2026, ./resumen/charla.tsx): leen lo suyo al montarse y, si no hay nada, el componente se calla
+  // (como `posibles-duplicados`). Acá va lo que se sabe ANTES de leer, para no pagar una lectura que no puede traer nada:
+  //   · sin teléfono no hay WhatsApp: ni charla, ni pase a humano (el AI Step es de WhatsApp), ni mensaje listo;
+  //   · sin @ ni entrada por redes no hay DM (Zernio ata la charla al lead y le deja las dos cosas: mig 0290 y 0291);
+  //   · sin email ni teléfono ninguna automatización le pudo mandar nada;
+  //   · lo que MaKo espera que se confirme no depende de ningún dato del lead: sólo se sabe leyendo.
+  'charla-whatsapp': { estaVacio: (ctx) => sinTelefono(ctx), disenos: ['ultimo', 'tres', 'hilo'] },
+  'charla-dm': { estaVacio: (ctx) => !ctx.lead.instagram?.trim() && !entradaSocialGuardada(ctx.lead.entrada_social), disenos: ['ventana', 'hilo', 'chip'] },
+  'pase-a-humano': { estaVacio: (ctx) => sinTelefono(ctx), disenos: ['banner', 'fila'] },
+  'cambios-de-mako': { estaVacio: () => false, disenos: ['tarjeta', 'renglon'] },
+  'mensaje-listo': { estaVacio: (ctx) => sinTelefono(ctx), disenos: ['tarjeta', 'renglon', 'llamada'] },
+  'automatizaciones-en-curso': { estaVacio: sinEmailNiTelefono, disenos: ['lista', 'linea'] },
+  'lo-que-le-mandamos': { estaVacio: sinEmailNiTelefono, disenos: ['contador', 'canal'] },
 } satisfies ReglasDeTab;
