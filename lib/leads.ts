@@ -1441,6 +1441,20 @@ export async function upsertLeadFromMeta(input: {
     .single();
   if (error) throw new Error(`Error creando lead desde Meta: ${error.message}`);
   await dejarRastroDeDescartes((data as Lead).id);
+  // ⚠️ LOS OTROS FUNNELS DE LA CAMPAÑA (#893): el lead nuevo entra a TODOS. Se AGREGA (una fila
+  // de `lead_funnel` en la etapa de entrada de cada uno), como el opt-in de una landing con
+  // varios. Cada uno es best-effort: el lead ya entró, y uno que falla queda en el log, no lo
+  // pierde. Import dinámico: lib/lead-funnel.ts importa este módulo.
+  if (porCampana.asignada && porCampana.otros.length) {
+    const { agregarAProducto } = await import('./lead-funnel');
+    for (const f of porCampana.otros) {
+      try {
+        await agregarAProducto((data as Lead).id, f, { autor: 'Meta' });
+      } catch (e) {
+        console.error(`[meta-leads] lead ${(data as Lead).id} no pudo entrar al funnel ${f}:`, e instanceof Error ? e.message : e);
+      }
+    }
+  }
   return { created: true, lead: data as Lead };
 }
 

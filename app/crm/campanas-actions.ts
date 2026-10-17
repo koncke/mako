@@ -27,7 +27,7 @@ import { getRolWsEfectivo } from '@/lib/workspace';
 import { campanasYConjuntos } from '@/lib/meta-health';
 import { productosAsignables } from '@/lib/landing-funnel';
 import { leerCampanasAsignadasEstricto, guardarCampanasAsignadas } from '@/lib/campana-funnel';
-import { conCampana, sinCampana, esIdMeta, type CampanaAsignada } from '@/lib/campana-config';
+import { alternarFunnelDeCampana, conCampana, funnelsDeAsignada, sinCampana, esIdMeta, type CampanaAsignada } from '@/lib/campana-config';
 import { conteoPorCampana, campanasDeMetricas } from '@/lib/campana-atribucion';
 import { leadsYMetricas, planDeTraidaLote } from '@/lib/campana-traer';
 import { agregarLoteAProducto, quitarLoteDeProducto } from '@/lib/lead-funnel';
@@ -304,43 +304,53 @@ export async function asignarLoteAction(
     const previos = lote.map((it) => ({ id: it.id, antes: actuales.find((a) => a.id === it.id) ?? null }));
     const nueva = conItems(actuales, lote, d.id);
     await guardarCampanasAsignadas(nueva);
-
-    let movidos: Movido[] = [];
-    let fallaron = 0;
-    if (traer) {
-      // ⚠️ SE CALCULA CON LA CONFIGURACIÓN YA GUARDADA: si una campaña tiene un conjunto en
-      // otro producto, sus leads se quedan allá — igual que los que entren mañana.
-      const plan = await planDeTraidaLote(d.id, lote, nueva);
-      for (const it of lote) {
-        const grupo = plan.get(it.id) ?? [];
-        if (!grupo.length) continue;
-        const nombre = String(it.nombre || it.id).slice(0, 120);
-        // Se agrega con el id REAL del destino (el del negocio también: en `lead_funnel` va
-        // con su id). `agregarLoteAProducto` vuelve a saltear a los que ya están —por casa o
-        // por fila—, así que una carrera con otra pestaña no duplica, y devuelve SÓLO los que
-        // la base confirmó: el deshacer no puede sacar a alguien que no agregó este lote.
-        // ⚠️ UN `try` POR ÍTEM: `agregarLoteAProducto` TIRA (producto sin etapas, archivado
-        // en el medio) y `moverEnLote` no tiraba nunca. Sin esto, el error del segundo ítem
-        // se lleva puesto el `movidos` del primero —que ya se escribió— y su deshacer
-        // desaparece. Se cuenta como fallado y la pantalla lo dice.
-        try {
-          const r = await agregarLoteAProducto(
-            grupo.map((l) => l.id), d.real,
-            `Agregado a «${d.nombre}» por ${it.tipo === 'conjunto' ? 'el conjunto' : 'la campaña'} «${nombre}»`,
-          );
-          movidos = movidos.concat(r.agregados.map((id) => ({ id, a: d.real })));
-          fallaron += r.fallaron;
-        } catch (e) {
-          console.error('[campanas] no se pudieron agregar los leads de', it.id, e instanceof Error ? e.message : e);
-          fallaron += grupo.length;
-        }
-      }
-      if (movidos.length) { bust(); revalidatePath('/crm'); }
-    }
+    const { movidos, fallaron } = traer ? await traerAlDestino(d, lote, nueva) : { movidos: [], fallaron: 0 };
     return { ok: true, asignadas: nueva, previos, movidos, fallaron };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar' };
   }
+}
+
+/**
+ * AGREGA al destino los leads de estas campañas que ya están en el CRM (asignar con «traer», o sumarle un funnel).
+ *
+ * ⚠️ SE CALCULA CON LA CONFIGURACIÓN YA GUARDADA (`mapa`): si una campaña tiene un conjunto en otro producto, sus
+ * leads se quedan allá — igual que los que entren mañana.
+ */
+async function traerAlDestino(
+  d: { real: number; nombre: string; id: number | null },
+  lote: Item[],
+  mapa: CampanaAsignada[],
+): Promise<{ movidos: Movido[]; fallaron: number }> {
+  let movidos: Movido[] = [];
+  let fallaron = 0;
+  const plan = await planDeTraidaLote(d.id, lote, mapa);
+  for (const it of lote) {
+    const grupo = plan.get(it.id) ?? [];
+    if (!grupo.length) continue;
+    const nombre = String(it.nombre || it.id).slice(0, 120);
+    // Se agrega con el id REAL del destino (el del negocio también: en `lead_funnel` va
+    // con su id). `agregarLoteAProducto` vuelve a saltear a los que ya están —por casa o
+    // por fila—, así que una carrera con otra pestaña no duplica, y devuelve SÓLO los que
+    // la base confirmó: el deshacer no puede sacar a alguien que no agregó este lote.
+    // ⚠️ UN `try` POR ÍTEM: `agregarLoteAProducto` TIRA (producto sin etapas, archivado
+    // en el medio) y `moverEnLote` no tiraba nunca. Sin esto, el error del segundo ítem
+    // se lleva puesto el `movidos` del primero —que ya se escribió— y su deshacer
+    // desaparece. Se cuenta como fallado y la pantalla lo dice.
+    try {
+      const r = await agregarLoteAProducto(
+        grupo.map((l) => l.id), d.real,
+        `Agregado a «${d.nombre}» por ${it.tipo === 'conjunto' ? 'el conjunto' : 'la campaña'} «${nombre}»`,
+      );
+      movidos = movidos.concat(r.agregados.map((id) => ({ id, a: d.real })));
+      fallaron += r.fallaron;
+    } catch (e) {
+      console.error('[campanas] no se pudieron agregar los leads de', it.id, e instanceof Error ? e.message : e);
+      fallaron += grupo.length;
+    }
+  }
+  if (movidos.length) { bust(); revalidatePath('/crm'); }
+  return { movidos, fallaron };
 }
 
 /** La de a una. Mantiene su forma (`antes`) porque la usa la tabla de Ads Manager. */
@@ -354,6 +364,39 @@ export async function asignarCampanaAction(
 > {
   const r = await asignarLoteAction(funnelId, [item], traer);
   return r.ok ? { ok: true, asignadas: r.asignadas, antes: r.previos[0]?.antes ?? null, movidos: r.movidos, fallaron: r.fallaron } : r;
+}
+
+/**
+ * Prende o apaga UN funnel en una campaña o conjunto (#893): la casilla de la celda «Producto». Sin asignar todavía,
+ * es asignarla. Prender uno con `traer` agrega a ese funnel los leads suyos que ya están en el CRM, como al asignar;
+ * apagarlo no saca a nadie (como quitar). La casa y la regla de cuál pasa a ser casa: `alternarFunnelDeCampana`.
+ * Devuelve `antes` para el MISMO deshacer de asignar (`deshacerAsignacionAction`), que la deja como estaba entera.
+ */
+export async function alternarFunnelCampanaAction(
+  funnelId: number | null,
+  item: Item,
+  traer = false,
+): Promise<
+  | { ok: true; asignadas: CampanaAsignada[]; antes: CampanaAsignada | null; movidos: Movido[]; fallaron: number }
+  | { ok: false; error: string }
+> {
+  if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
+  const [it] = sanear([item]);
+  if (!it) return { ok: false, error: 'Ese id no es de Meta.' };
+  try {
+    const d = await destino(funnelId);
+    if (!d.ok) return { ok: false, error: 'Ese funnel ya no existe.' };
+    const actuales = await leerCampanasAsignadasEstricto();
+    const antes = actuales.find((a) => a.id === it.id) ?? null;
+    if (!antes) return asignarCampanaAction(d.id, it, traer);
+    const nueva = alternarFunnelDeCampana(actuales, it.id, d.id) ?? actuales;
+    await guardarCampanasAsignadas(nueva);
+    const prendio = !funnelsDeAsignada(antes).includes(d.id);
+    const { movidos, fallaron } = prendio && traer ? await traerAlDestino(d, [it], nueva) : { movidos: [], fallaron: 0 };
+    return { ok: true, asignadas: nueva, antes, movidos, fallaron };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar' };
+  }
 }
 
 /** Tope del deshacer. Un lote de campañas grandes del cliente más grande trae cientos. */
