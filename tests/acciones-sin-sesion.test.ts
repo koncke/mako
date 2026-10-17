@@ -91,7 +91,9 @@ test('las acciones de la tab Pagos (deal y campo por campo) exigen sesión adent
   for (const archivo of ['app/crm/[id]/deal-actions.ts', 'app/crm/[id]/pagos-campo-actions.ts']) {
     const src = sinComentarios(leer(archivo));
     const fns = [...src.matchAll(/^export async function (\w+)\(/gm)].map((m) => m[1]);
-    assert.ok(fns.length >= 7, `${archivo}: vi ${fns.length} acciones, el barrido no está mirando`);
+    // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: deal-actions.ts perdió `saveDealSectionsAction` y `saveCuotasAction` (se
+    // fueron con Editar deal), y le quedan 6. El piso sigue diciendo «el barrido ve el archivo», no «hay N acciones».
+    assert.ok(fns.length >= 5, `${archivo}: vi ${fns.length} acciones, el barrido no está mirando`);
     for (const fn of fns) {
       const ini = src.indexOf(`export async function ${fn}(`);
       const fin = src.indexOf('\nexport ', ini + 10);

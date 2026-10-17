@@ -129,15 +129,14 @@ test('lo que cobró la pasarela no se quita a mano aunque diga que nació cobrad
   assert.equal(db.pagos.length, 1);
 });
 
-test('un pago suelto nace con la marca; la mensualidad de Editar deal también', async () => {
+// ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: la «mensualidad de Editar deal» se fue con esa pantalla (y su inserción en
+// `saveCuotasAction`); lo que queda es el pago suelto.
+test('un pago suelto nace con la marca', async () => {
   const { registrarPagoSuelto } = await import('../lib/pagos');
   sembrar({});
   await correr(() => registrarPagoSuelto(LEAD, { monto: 150, fecha: '2026-10-16' }));
   const alta = escrituras.find((e) => e.startsWith('POST pagos'));
   assert.ok(alta && JSON.parse(alta.slice('POST pagos '.length)).nacio_cobrada === true, `el insert no lleva la marca: ${alta}`);
-  const deal = fuente('app/crm/[id]/deal-actions.ts');
-  const cobradas = deal.slice(deal.indexOf('const rows = cobradas.map((c, i) => ({'), deal.indexOf("const { error } = await db.from('pagos').insert(rows);"));
-  assert.match(cobradas, /nacio_cobrada: true,/);
 });
 
 test('la pantalla, la API y Customer Success saben que se quitó: el Deshacer lo vuelve a registrar, no re-marca una fila que no existe', () => {
@@ -149,7 +148,7 @@ test('la pantalla, la API y Customer Success saben que se quitó: el Deshacer lo
   const des = cobrar.slice(cobrar.indexOf('const desmarcar = (q: Pago)'), cobrar.indexOf('const leadCobro ='));
   assert.ok(des.indexOf('if (quitada) {') > 0 && des.indexOf('await registrarPagoSueltoAction(lead.id, {') > des.indexOf('if (quitada) {'), 'el Deshacer de un pago quitado lo vuelve a registrar');
   assert.match(fuente('lib/api-mako/areas/crm.run.ts'), /const \{ quitada \} = await marcarPago\(Number\(payload\.pagoId\), pagado, fechaPago\);/);
-  assert.match(fuente('app/crm/[id]/DealDetailsCard.tsx'), /if \(r\?\.quitada\) setFeedback\(\{ kind: 'ok', msg: 'Pago quitado\.' \}\); else setPagoToast\(/);
+  // (La tarjeta del Deal de Customer Success se fue el 17/10/2026: CS usa los mismos bloques, o sea `cobrar.tsx`, arriba.)
 });
 
 test('un solo link vivo por cuota: el índice en la base, y el segundo pedido devuelve el que ganó', () => {

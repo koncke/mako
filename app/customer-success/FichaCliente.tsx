@@ -67,7 +67,8 @@ import type { TrabajoDeCliente } from './trabajo';
 import { colorDe } from './ClienteCard';
 import { guardarDatosClienteAction, pagosDeClienteAction } from './actions';
 import { atajar } from './sin-red';
-import { ResumenCliente, LlamadasCliente, PagosCliente, HistorialCliente, type DatosCrm } from './FichaPestanas';
+import { ResumenCliente, LlamadasCliente, HistorialCliente, type DatosCrm } from './FichaPestanas';
+import { PagosCliente } from './PagosCliente';
 import { FichaEntrega, type EntregaFicha } from './FichaEntrega';
 import { FichaCurso } from './FichaCurso';
 import { rutaPlanDeCliente } from './ficha-datos';
@@ -359,7 +360,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, entrega, tabInicia
         <Tabs tabs={pestanas} activa={activa} onCambio={cambiarPestana} />
 
         <Panel id="resumen" activa={activa} abiertas={abiertas}>
-          <ResumenCliente c={c} />
+          <ResumenCliente c={c}
+            onCambio={(patch) => setCrm((d) => (d && d !== 'cargando' && d.ok ? { ...d, lead: { ...d.lead, ...patch } } : d))} />
         </Panel>
 
         <Panel id="prioridades" activa={activa} abiertas={abiertas}>
@@ -397,9 +399,9 @@ export function FichaCliente({ c, n, trabajo, user, clientes, entrega, tabInicia
         </Panel>
 
         <Panel id="pagos" activa={activa} abiertas={abiertas}>
-          {/* Lo que la tarjeta del Deal ya escribió se aplica a `crm`, que se leyó una vez:
-              el refresh no lo vuelve a leer (ver `PagosCliente`). */}
-          <PagosCliente datos={crm ?? 'cargando'}
+          {/* Lo que un bloque ya escribió se aplica también a `crm` (la cabecera y el Historial),
+              que se leyó una vez: el refresh no lo vuelve a leer. */}
+          <PagosCliente leadId={c.leadId}
             onCambio={(patch) => setCrm((d) => (d && d !== 'cargando' && d.ok ? { ...d, lead: { ...d.lead, ...patch } } : d))} />
         </Panel>
 

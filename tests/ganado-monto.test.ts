@@ -33,8 +33,6 @@
 //   · LeadSheet sin `...suscripcionDeFila(lead)` (además: TS2739)               → 7 / 1
 //   · AUDIT_FIELDS sin `suscripcion_monto_usd`                                  → 7 / 1
 //   · REVERTIBLES sin CAMPO_SUS_MESES                                           → 7 / 1
-//   · saveDealSectionsAction sin el compare-and-set sobre venta_tipo            → 7 / 1
-//   · DealDetailsCard sin el campo «Mensualidad (USD)»                          → 7 / 1
 //   · la lista del tablero vuelve a dibujar `'$' + l.monto`                     → 7 / 1
 // Correr: npx tsx --test tests/ganado-monto.test.ts
 
@@ -222,20 +220,7 @@ test('AUDIT_FIELDS registra la mensualidad y el plazo, y las dos líneas se pued
   assert.match(grupo, /if \(Object\.keys\(suscripcion\)\.length\) \{[\s\S]{0,200}\.update\(suscripcion\)/);
 });
 
-// ── 4. Deal Details corrige una suscripción ───────────────────────────────────
-
-test('Deal Details edita la mensualidad y el plazo, sólo sobre una suscripción, y deja el valor en el historial', () => {
-  const acc = tramo(fuente('app/crm/[id]/deal-actions.ts'), 'export type DealSectionsInput', 'export async function quitarSinCobroAction(', 12000);
-  assert.match(acc, /suscripcion_monto_usd\?: number \| null;/);
-  assert.match(acc, /suscripcion_meses\?: number \| null;/);
-  // Compare-and-set: una pantalla vieja no le cuelga una mensualidad a un pago único.
-  assert.match(acc, /\.update\(sus\)\.eq\('id', leadId\)\.eq\('venta_tipo', 'suscripcion'\)/);
-  // El valor (de cuánto a cuánto) y no sólo «Guardó: mensualidad».
-  assert.match(acc, /logLeadChanges\(leadId, before, await getLead\(leadId\)/);
-
-  const card = fuente('app/crm/[id]/DealDetailsCard.tsx');
-  assert.match(card, /ventaTipo === 'suscripcion' \? \(\s*<>\s*<Field label="Mensualidad \(USD\)">[\s\S]{0,400}<Field label="Plazo \(meses\)">/);
-  assert.match(card, /\.\.\.\(ventaTipo === 'suscripcion' \? \{\s*suscripcion_monto_usd: draft\.mensualidad/);
-  // El save se re-arma cuando cambia el tipo (si no, guarda con el de la primera vez).
-  assert.match(card, /\}\), \[lead\.id, lead\.deal_fiscal, ventaTipo\]\);/);
-});
+// ── 4. Deal Details corrige una suscripción: BORRADO A PROPÓSITO el 17/10/2026 ─────────────────
+// Fijaba la tarjeta vieja (DealDetailsCard) y `saveDealSectionsAction`, que se borraron con la tab Pagos de
+// Customer Success, su último lector. La mensualidad y el plazo se corrigen en el bloque `suscripcion` de la
+// tab Pagos (lo fija tests/pagos-campo.test.ts).

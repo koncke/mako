@@ -18,7 +18,7 @@
 // sus botones para poder ir al WhatsApp o copiar». Se fueron de acá la Entrega (pasó a los
 // desplegables de la cabecera, ./FichaEntrega.tsx), el Trabajo («para eso ya está la sección
 // de Prioridades», que ahora se llama Tareas y lleva «Ver en el Plan»), y la venta (vive en
-// la tab Pagos, con el mismo DealDetailsCard del CRM).
+// la tab Pagos, con los mismos bloques que la del CRM: ./PagosCliente.tsx, desde el 17/10/2026).
 //
 // ⚠️ PAGOS E HISTORIAL PIDEN SUS DATOS AL ABRIRSE, como las Notas: son componentes del CRM
 // que se reusan tal cual y traen su lectura (ver `pagosDeClienteAction`). El resto de la
@@ -31,8 +31,8 @@ import { Icon } from '@/app/_components/icons';
 import type { AnalisisEntregaVista, GravedadRiesgo, QuienPaso } from '@/lib/closing-entrega-contrato';
 import { NotasCard } from '@/app/crm/lead-view/NotasCard';
 import { InfoPrincipalCard } from '@/app/crm/lead-view/InfoPrincipalCard';
+import { DealCliente } from './PagosCliente';
 import { AuditHistory } from '@/app/crm/lead-view/AuditHistory';
-import { DealDetailsCard } from '@/app/crm/[id]/DealDetailsCard';
 import type { Lead } from '@/lib/leads';
 import type { Pago } from '@/lib/pagos';
 import type { Stage } from '@/lib/pipeline';
@@ -48,7 +48,7 @@ function dia(iso: string | null | undefined): string | null {
   return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(t);
 }
 
-export function ResumenCliente({ c }: { c: ClienteCruce }) {
+export function ResumenCliente({ c, onCambio }: { c: ClienteCruce; onCambio: (patch: Partial<Lead>) => void }) {
   const contacto = c.ficha?.contacto;
   return (
     <div className="fr">
@@ -56,6 +56,11 @@ export function ResumenCliente({ c }: { c: ClienteCruce }) {
         email={c.email ?? null} telefono={contacto?.telefono ?? null} web={contacto?.web ?? null} />
       <div className="fr-notas">
         <NotasCard leadId={c.leadId} />
+      </div>
+      {/* El estado de cuenta y lo que se le vendió (servicio, promesa, obligaciones): los bloques que la plantilla de CS
+          pone en el Resumen (./PagosCliente.tsx). Vivían en la tarjeta vieja del deal, en Pagos. */}
+      <div className="fr-notas">
+        <DealCliente leadId={c.leadId} onCambio={onCambio} />
       </div>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </div>
@@ -72,17 +77,7 @@ function Cargando({ children }: { children: ReactNode }) {
   return <p className="fl-nada fl-cargando"><Spinner size={14} /> {children}</p>;
 }
 
-/**
- * ⚠️ `onCambio` NO ES OPCIONAL ACÁ en la práctica: `datos` se lee UNA vez por ficha
- * (`pagosDeClienteAction`), así que el `router.refresh()` de la tarjeta no la toca. Sin
- * aplicarlo, «Quitar "Sin cobro"» escribía y la tarjeta seguía diciendo «Sin cobro» con la
- * cabecera de la ficha (que sí viene del server) diciendo lo contrario.
- */
-export function PagosCliente({ datos, onCambio }: { datos: DatosCrm; onCambio: (patch: Pick<Lead, 'venta_tipo'>) => void }) {
-  if (datos === 'cargando') return <><Cargando>Leyendo sus pagos</Cargando><style dangerouslySetInnerHTML={{ __html: CSS }} /></>;
-  if (!datos.ok) return <><p className="fl-nada">No pude leer sus pagos. {datos.error}</p><style dangerouslySetInnerHTML={{ __html: CSS }} /></>;
-  return <DealDetailsCard lead={datos.lead} pagos={datos.pagos} onCambio={onCambio} />;
-}
+// La tab Pagos vive en ./PagosCliente.tsx desde el 17/10/2026: los mismos bloques que la del CRM.
 
 /**
  * EL HISTORIAL ES EL DEL CRM, y ahí ya cae lo de Customer Success: mover de etapa escribe
