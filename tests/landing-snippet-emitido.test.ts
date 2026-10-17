@@ -793,3 +793,45 @@ test('el lote se parte con el tope del RECEPTOR, y la foto de la página no se t
     'el peso de un lote comprimido se mide sobre el base64: un tercio de los lotes buenos no se mandaría',
   );
 });
+
+// ── El visitante es UNO con www y sin www (v25, 17/10/2026) ──────────────────────────────────────────────────────
+// La cookie `nqe_visitor_id` iba sin `domain=`: www.tunegocio.com y tunegocio.com eran dos visitantes para la misma
+// persona. Ahora va en el dominio más corto que el navegador acepta. Se EJECUTA la función emitida contra un document
+// de mentira que rechaza los sufijos públicos, como el navegador.
+// Probado rompiéndolo (base del archivo en verde): la cookie sin `domain` → 1 fallo; probar de lo más largo a lo más
+// corto (queda en el host exacto) → 1 fallo; sin borrar la cookie de prueba → 1 fallo.
+test('el visitante es uno con www y sin www: la cookie va en el dominio más corto que acepta el navegador', async () => {
+  const cod = codigoEmitido();
+  const i = cod.indexOf('function dominioDelVisitante');
+  assert.ok(i > 0, 'no está la función que elige el dominio de la cookie');
+  const fn = cod.slice(i, cod.indexOf('var visitorId', i));
+  const { runInNewContext } = await import('node:vm');
+  const correr = (host: string, sufijos: string[]) => {
+    const jar = new Map<string, string>();
+    const escritas: string[] = [];
+    const document = {
+      get cookie() { return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join('; '); },
+      set cookie(c: string) {
+        escritas.push(c);
+        const [par, ...attrs] = c.split(';').map((x) => x.trim());
+        const [k, v] = par.split('=');
+        const dom = attrs.find((a) => a.startsWith('domain='))?.slice(7);
+        if (dom && sufijos.includes(dom)) return;           // el navegador rechaza un sufijo público
+        if (attrs.includes('max-age=0')) { jar.delete(k); return; }
+        jar.set(k, v);
+      },
+    };
+    const getCookie = (n: string) => { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : null; };
+    const d = runInNewContext(`${fn}; dominioDelVisitante()`, { document, location: { hostname: host }, getCookie });
+    return { d, jar, escritas };
+  };
+  const publicos = ['com', 'mx', 'com.mx', 'app', 'vercel.app'];
+  assert.equal(correr('www.tunegocio.com', publicos).d, 'tunegocio.com');
+  assert.equal(correr('tunegocio.com', publicos).d, 'tunegocio.com');
+  assert.equal(correr('www.inmobiliaria.com.mx', publicos).d, 'inmobiliaria.com.mx', 'un sufijo de dos partes');
+  assert.equal(correr('landingvsl.vercel.app', publicos).d, 'landingvsl.vercel.app', 'un subdominio de un sufijo público queda en su host');
+  assert.equal(correr('localhost', publicos).d, null);
+  assert.equal(correr('www.tunegocio.com', publicos).jar.has('nqe_dom'), false, 'la cookie de prueba no queda');
+  // Y la del visitante se escribe con ese dominio.
+  assert.match(cod, /'nqe_visitor_id=' \+ visitorId \+ '; max-age=31536000; path=\/; SameSite=Lax' \+ \(dominioCookie \? '; domain=' \+ dominioCookie : ''\)/);
+});

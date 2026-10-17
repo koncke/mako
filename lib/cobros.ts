@@ -91,6 +91,23 @@ async function credMp(ws: number): Promise<CredMp | null> {
   return token && userId ? { pasarela: 'mercadopago', token, userId } : null;
 }
 
+/**
+ * El modo (real o prueba) con que cobraría HOY esa pasarela del negocio: el de su clave de Stripe, o el de su cuenta de
+ * Mercado Pago (una consulta a su API). null si no está conectada o la cuenta no contesta. Es la MISMA regla que usa
+ * `crearCobro` para anotar el `modo` de un cobro nuevo (17/10/2026): la landing la usa para no reusar un pendiente de
+ * PRUEBA después de pasar a claves reales (lib/editor-landing/pago-pedido.ts, `cobroReusable`).
+ */
+export async function modoDeLaPasarela(ws: number, pasarela: Pasarela): Promise<'real' | 'prueba' | null> {
+  if (pasarela === 'stripe') {
+    const s = await credStripe(ws);
+    return s ? (modoDeClaveStripe(s.key) ?? 'real') : null;
+  }
+  const m = await credMp(ws);
+  if (!m) return null;
+  const c = await leerCuentaMp(m.token);
+  return c.ok ? c.modo : null;
+}
+
 /** Las pasarelas con las que ESTE workspace puede cobrar hoy (las dos, una o ninguna). */
 export async function pasarelasConectadas(ws: number): Promise<Pasarela[]> {
   const [s, m] = await Promise.all([credStripe(ws), credMp(ws)]);

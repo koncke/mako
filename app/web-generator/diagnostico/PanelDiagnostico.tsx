@@ -117,6 +117,7 @@ import { VistaNuestra } from './VistaNuestra';
 import { VistaAfuera } from './VistaAfuera';
 import { Comentario, type EstadoArreglo } from './Comentario';
 import type { ControlVista, ObjetivoVista } from './vista';
+import { HREF_TRAFICO_LANDING } from '@/lib/landing-estructura-enlace';
 
 type Props = {
   docId?: number;
@@ -648,6 +649,11 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
           {deNuestra && docId != null && (
             <Link href={`/web-generator/${docId}`} className="gp-btn gp-btn-contorno"><Ico n="lapiz" t={14} /> Abrir en el editor</Link>
           )}
+          {/* #886 (17/10/2026): el tráfico de esta página (mapa de calor y pulso) vive en la hoja «Landing» del Dashboard,
+              que a su vez trae acá con «Analizar la estructura →». El análisis ya lee lo más tocado. */}
+          {resumen && (
+            <Link href={HREF_TRAFICO_LANDING} className="gp-btn gp-btn-fantasma" title="El mapa de calor y el pulso de tus páginas, en el Dashboard">Ver el tráfico →</Link>
+          )}
           {!deNuestra && (
             <button type="button" className="gp-btn gp-btn-contorno" disabled={replicando || !urlPegada} aria-haspopup="menu" aria-expanded={!!menuReplicar} onClick={(e) => setMenuReplicar(menuReplicar ? null : e.currentTarget)}>
               {replicando ? <span className="gp-giro" aria-hidden /> : <Ico n="copiar" t={14} />} Replicar en el editor <Ico n="chevron-abajo" t={12} />
@@ -758,7 +764,10 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
                 />
               ) : error ? <p className="gdg-error" role="alert">{error}</p> : null}
               {cargando && !analizando && <p className="gdg-vacio"><span className="gp-giro" aria-hidden /></p>}
-              {!cargando && !analizando && !error && !sugerencias.length && resumen && <p className="gdg-vacio">MaKo no encontró nada que señalar.</p>}
+              {/* #863 (17/10/2026): decía «MaKo no encontró nada que señalar», y eso afirma que la landing está bien. El
+                  análisis pide de 3 a 8 hallazgos con cita: cero no es «sin hallazgos», es que este análisis no dejó
+                  ninguno que se pueda mostrar (los del Landing Analyst ya se pasan solos al listar). */}
+              {!cargando && !analizando && !error && !sugerencias.length && resumen && <p className="gdg-vacio">Este análisis no dejó comentarios. Vuelve a analizar.</p>}
               {!cargando && sugerencias.length > 0 && !visibles.length && <p className="gdg-vacio">No hay comentarios aquí.</p>}
               <ul className="gdg-lista">
                 {visibles.map((s) => (
@@ -835,6 +844,11 @@ const CSS_PANEL_DIAGNOSTICO = `
 .gdg-vista { position: relative; flex: 1 1 auto; min-height: 420px; border: 1px solid var(--gp-borde, #e4e4e7); border-radius: 12px; overflow: auto; background: var(--gp-superficie, #fff); }
 .gdg-vista--nuestra { container-type: inline-size; overscroll-behavior: contain; }
 .gdg-vista--nuestra .gdg-lienzo .gm-doc { --gm-base: calc(100cqw / 68.5); --gm-base-movil: calc(100cqw / 68.5); }
+/* #861 (17/10/2026): la vista ya no es inert (VistaNuestra.tsx). Lo que lleva a otro lado no se aprieta (y la vista
+   además frena el clic y el envío); el VIDEO sí, para poder pausarlo. La agenda y el HTML personalizado tampoco. */
+.gdg-vista--nuestra .gdg-lienzo :is(a, button, input, select, textarea, label, summary, [role="button"], [role="link"]) { pointer-events: none; }
+.gdg-vista--nuestra .gdg-lienzo iframe { pointer-events: none; }
+.gdg-vista--nuestra .gdg-lienzo .gm-insertado[data-clase="video"] iframe { pointer-events: auto; }
 /* El rótulo de cada página cuando la landing tiene varias (htmlDeVistaDiagnostico): lo dibuja el CSS desde
    el atributo, así no es un nodo de texto donde una cita se pueda ubicar. */
 .gdg-pagina { padding: 6px 14px; background: var(--gp-superficie-2, #f4f4f5); border-bottom: 1px solid var(--gp-borde, #e4e4e7); font: 600 12px/1.4 system-ui, sans-serif; color: var(--gp-tenue, #6b6b72); text-transform: uppercase; letter-spacing: .04em; }

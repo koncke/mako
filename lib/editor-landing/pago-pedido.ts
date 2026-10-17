@@ -236,8 +236,12 @@ export function leadPorEmail(candidatos: ReadonlyArray<{ id: number | string; em
 }
 
 /** Lo que se va a cobrar, y para quién: el email que escribió el visitante y la landing de donde vino. */
-export type CobroBuscado = { productoId: number; pasarela: Pasarela; monto: number; moneda: string; tipo: TipoCobro; email: string; slug: string };
-type CobroComparable = Pick<Cobro, 'estado' | 'producto_id' | 'proveedor' | 'monto' | 'moneda' | 'tipo' | 'email' | 'alta_capa' | 'creado_por'>;
+/**
+ * `modo`: el de la clave ACTUAL de la pasarela (`modoDeLaPasarela`, lib/cobros.ts). Sin saberlo (null) no se reusa:
+ * crear uno nuevo es lo seguro (el pendiente viejo queda pendiente, como queda cualquiera que no se pagó).
+ */
+export type CobroBuscado = { productoId: number; pasarela: Pasarela; monto: number; moneda: string; tipo: TipoCobro; email: string; slug: string; modo: 'real' | 'prueba' | null };
+type CobroComparable = Pick<Cobro, 'estado' | 'producto_id' | 'proveedor' | 'monto' | 'moneda' | 'tipo' | 'email' | 'alta_capa' | 'creado_por' | 'modo'>;
 
 /**
  * ¿Este cobro pendiente ya es lo que se va a cobrar? El MISMO producto, por la MISMA pasarela, al MISMO
@@ -250,10 +254,15 @@ type CobroComparable = Pick<Cobro, 'estado' | 'producto_id' | 'proveedor' | 'mon
  * (`crear_link_pago` pasa `productoId`), con el email de la ficha cargado en el checkout. Y un pendiente
  * con alta de MaKo (`alta_capa`) habilita el cambio de email de app/pagar/cambio-email.ts: entregarlo
  * sería entregar la cuenta. Lo que no creó una landing no se reusa NUNCA desde una landing.
+ *
+ * ⚠️ Y EN EL MISMO MODO (17/10/2026, revisión de la tanda 4): un pendiente creado con las claves de PRUEBA, reusado
+ * después de que el negocio pasó a las reales, mandaba al comprador a un checkout de prueba (no cobra nada y nadie se
+ * entera). Se compara contra el modo de la clave de HOY.
  */
 export function cobroReusable(c: CobroComparable, b: CobroBuscado): boolean {
   const email = emailComparable(c.email);
   return c.estado === 'pendiente'
+    && b.modo !== null && c.modo === b.modo
     && c.alta_capa == null
     && esDeLaLanding(c.creado_por, b.slug)
     && email !== null && email === emailComparable(b.email)
@@ -398,6 +407,8 @@ export type CobroPendiente = CobroComparable & { token: string };
 export type DepPago = {
   /** Los pedidos de esta landing en la última hora. null = sin la tabla (mig 0276): no hay techo. Tira = la base falló. */
   usosDeLaHora: () => Promise<number | null>;
+  /** El modo de la clave ACTUAL de la pasarela (`modoDeLaPasarela`). Se pregunta sólo si hay un pendiente que reusar. */
+  modo: (pasarela: Pasarela) => Promise<'real' | 'prueba' | null>;
   estado: () => Promise<EstadoCobroLanding>;
   candado: DepCandado;
   /** La propuesta de contacto cuando no se puede cobrar (lib/propuestas.ts, con `ref`: no se duplica). */
@@ -437,11 +448,14 @@ export async function ejecutarPago(p: { productoId: number; email: string; slug:
     }
     const pasarela = pasarelaDeLanding(estado.conectadas)!;
     const leadId = await dep.lead();
-    const buscado: CobroBuscado = { productoId: p.productoId, pasarela, monto: producto!.montoUsd!, moneda: 'USD', tipo: producto!.tipo, email: p.email, slug: p.slug };
     try {
-      // El pendiente del MISMO lead, producto, precio, email y landing: un «atrás» y otra vez, o la misma
-      // persona dos días después, siguen en el mismo checkout — y con el candado, también un doble clic.
-      const ya = cobroPendienteReusable(await dep.pendientes(leadId), buscado);
+      // El pendiente del MISMO lead, producto, precio, email, landing y MODO: un «atrás» y otra vez, o la misma
+      // persona dos días después, siguen en el mismo checkout — y con el candado, también un doble clic. El modo de
+      // la clave se pregunta sólo si hay pendientes (con Mercado Pago es una consulta a su API).
+      const pendientes = await dep.pendientes(leadId);
+      const modo = pendientes.length ? await dep.modo(pasarela).catch(() => null) : null;
+      const buscado: CobroBuscado = { productoId: p.productoId, pasarela, monto: producto!.montoUsd!, moneda: 'USD', tipo: producto!.tipo, email: p.email, slug: p.slug, modo };
+      const ya = cobroPendienteReusable(pendientes, buscado);
       if (ya) return { tipo: 'redirigir', url: dep.linkDe(ya.token), reusado: true };
       // Sin `monto`, `moneda`, `montoUsd` ni `altaCapa`: el precio lo pone el catálogo y una landing no da
       // de alta cuentas de MaKo (pago-landing-server.ts, la cabecera).

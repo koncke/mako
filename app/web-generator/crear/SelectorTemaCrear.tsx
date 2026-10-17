@@ -21,33 +21,17 @@
 // =============================================================================
 
 import { useMemo, useState } from 'react';
-import { TEMAS, TEMA_DEFAULT_ID, temaPorId, type Tema } from '@/lib/editor-landing/temas';
-import { PLANTILLAS, type CategoriaPlantilla } from '@/lib/editor-landing/plantillas';
+import { TEMAS, temaPorId, type Tema } from '@/lib/editor-landing/temas';
+import { temaSugerido } from '@/lib/editor-landing/reglas-pantalla';
 import type { TemaPropio } from '@/lib/editor-landing/api-tipos';
-import type { ObjetivoLanding } from '@/lib/landing-spec';
 import { Filtros, TileTema } from '../MiniaturaLanding';
 
-/** Qué categoría de plantilla resuelve cada objetivo de la página. */
-const CATEGORIA_DE_OBJETIVO: Record<ObjetivoLanding, CategoriaPlantilla> = {
-  agendar: 'Agendar',
-  vender: 'Vender',
-  registrar: 'Captar contactos',
-  descargar: 'Captar contactos',
-};
 
 /** Cuántos se ven antes de «Ver más» (la grilla 3×2 de Gamma). */
 export const TEMAS_POPULARES = 6;
 
-/**
- * El tema que MaKo sugiere para un objetivo: el de la primera plantilla de esa categoría.
- * Si esa plantilla nombra un tema que el catálogo ya no tiene, el default — nunca un id que
- * `temaPorId` resolvería a otra cosa sin avisar.
- */
-export function temaSugerido(objetivo: ObjetivoLanding): string {
-  const categoria = CATEGORIA_DE_OBJETIVO[objetivo];
-  const id = PLANTILLAS.find((p) => p.categoria === categoria)?.tema;
-  return id && TEMAS.some((t) => t.id === id) ? id : TEMA_DEFAULT_ID;
-}
+// El tema que MaKo sugiere: vive en lib/editor-landing/reglas-pantalla.ts desde el 17/10/2026 (la API lo tenía copiado).
+export { temaSugerido };
 
 /** Los que se ven sin «Ver más»: el sugerido primero, después el catálogo en su orden. */
 export function temasDestacados(sugerido: string, todos: readonly Tema[] = TEMAS, n = TEMAS_POPULARES): Tema[] {

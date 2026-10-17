@@ -135,10 +135,10 @@ export async function subirArchivo(f: File, mime: string): Promise<string> {
  * la vigente. Va por `fetch` y no por un link: si el servidor contesta un error (403, 404), se dice en
  * la pantalla en vez de bajar un JSON con nombre de PDF.
  */
-export async function descargarPdf(sesionId: number, version?: number | null): Promise<void> {
+export async function descargarPdf(sesionId: number, version?: number | null, op: { externo?: boolean } = {}): Promise<void> {
   let r: Response;
   try {
-    r = await fetch(urlPdf(sesionId, version), { signal: AbortSignal.timeout(TOPE.pdf) });
+    r = await fetch(urlPdf(sesionId, version, op), { signal: AbortSignal.timeout(TOPE.pdf) });
   } catch (e) {
     throw new Error(esCorte(e) ? 'El PDF tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.');
   }

@@ -175,7 +175,10 @@ test('el snippet lleva versión, y algo la mira cuando se queda vieja', () => {
   // cron (para el WhatsApp) y la pantalla (para el chip). Dos copias divergirían.
   // ⚠️ Desde el 09/10/2026 «viejo» corta en PIXEL_MINIMO_AVISO, no en la versión actual:
   // con la actual, la v23 (un renombre) le mandaba el WhatsApp a cada negocio en la 22.
-  assert.ok(/viejo: instalada < PIXEL_MINIMO_AVISO/.test(lib), 'nadie compara la instalada contra el mínimo que pide repegar: la versión sola no avisa nada');
+  // 17/10/2026: `snippetDesactualizado` pregunta a `estadoPixel` (la vara del aviso de adentro, por página), que corta
+  // en PIXEL_MINIMO_AVISO por defecto.
+  assert.ok(/const \{ estadoPixel \} = await import\('\.\/pixel-estado'\)/.test(lib), 'el viejo/al día sale de la MISMA vara que el aviso de adentro');
+  assert.ok(/const minimo = opts\.minimo \?\? PIXEL_MINIMO_AVISO;/.test(leer('../lib/pixel-estado.ts')), 'nadie compara la instalada contra el mínimo que pide repegar: la versión sola no avisa nada');
   const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
   assert.ok(/snippetDesactualizado\(\)/.test(cron), 'el cron tiene que preguntar por el mismo lugar que la pantalla');
   assert.ok(/tracking-desactualizado/.test(cron), 'falta el aviso por WhatsApp');

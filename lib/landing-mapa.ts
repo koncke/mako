@@ -126,6 +126,23 @@ export function rankingDe(toques: ToqueMapa[], tope = 8): { filas: FilaRanking[]
 }
 
 /**
+ * Lo más tocado de una página como lo lee el ANÁLISIS de la landing (#886, 17/10/2026: Martín, revisión del 16/10, 1:29:51:
+ * «que lo que recién vimos en dashboard del template de landing se combine con esta funcionalidad del feedback de la
+ * estructura que te da Web Generator»). Una línea por aparato con lo que más gente tocó; sin toques, nada. El rótulo es
+ * el del ranking del mapa (`rotulo`, lib/landing-mapa-rotulo.ts: lo pasa quien llama para no atar este módulo a aquél).
+ */
+export function lineasMasTocado(
+  r: { movil: readonly FilaRanking[]; escritorio: readonly FilaRanking[] },
+  rotulo: (f: FilaRanking) => string,
+  tope = 5,
+): string[] {
+  const linea = (aparato: string, filas: readonly FilaRanking[]) => (filas.length
+    ? `${aparato}: ${filas.slice(0, tope).map((f) => `«${rotulo(f)}» (${f.personas} ${f.personas === 1 ? 'persona' : 'personas'}, ${f.toques} ${f.toques === 1 ? 'toque' : 'toques'})`).join(' · ')}`
+    : null);
+  return [linea('En el celular', r.movil), linea('En la computadora', r.escritorio)].filter((x): x is string => x !== null);
+}
+
+/**
  * La rampa del calor: un solo tramo de tonos VECINOS (amarillo → naranja → rojo),
  * de transparente a opaco.
  *

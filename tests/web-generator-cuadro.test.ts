@@ -39,7 +39,7 @@ import {
   consultaDerecha, derechaDeAccion, derechaDeCaja, derechaDeQuery, derechaDeVuelta, modoCajaDe, queryDeDerecha, type Derecha,
 } from '../app/web-generator/panel-reglas';
 import { aceptaArrastre } from '../app/web-generator/CajaPedido';
-import CajaCrear from '../app/web-generator/CajaCrear';
+import CajaCrear, { ACCEPT_ARCHIVO, ROTULO_ARCHIVOS } from '../app/web-generator/CajaCrear';
 import { PARAMS_DEFAULT, MAX_INSTRUCCIONES } from '../lib/editor-landing/ia-reglas';
 import { marcasDeVoseo } from '../lib/puestas-data';
 
@@ -419,3 +419,14 @@ test('ni el cuadro ni sus piezas tienen voseo (el guard del repo no ve un archiv
 //   R17 «Tu texto» también con Analizar                                → 18 / 1 ««Tu texto» aparece SOLA…»
 //   R18 «Volver» de Crear sin lo mandado (`onSalir()`)                 → 18 / 1 «el cuadro del Web Generator usa ESTAS funciones…»
 // Restaurado: 19 / 0.
+
+// 17/10/2026 (deuda de la tanda 7): el rótulo decía «PowerPoint, Word o PDF» y el cuadro acepta también planillas,
+// audio y video. Rotura: volver al rótulo de antes → 1 fallo.
+test('el rótulo de lo que se importa dice lo que el cuadro acepta', () => {
+  for (const [ext, palabra] of [['.mp3', 'audio'], ['.mp4', 'video'], ['.xlsx', 'planillas']] as const) {
+    assert.ok(ACCEPT_ARCHIVO.split(',').includes(ext), ext);
+    assert.ok(ROTULO_ARCHIVOS.toLowerCase().includes(palabra), palabra);
+  }
+  const src = readFileSync(join(__dirname, '..', 'app/web-generator/CajaCrear.tsx'), 'utf8');
+  assert.doesNotMatch(src.replace(/^\s*\*.*$/gm, ''), /PowerPoint, Word o PDF/);
+});

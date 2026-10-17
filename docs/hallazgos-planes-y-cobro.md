@@ -859,3 +859,14 @@ tamaño del cartel de upgrade).*
 **Corregido en:** `docs/referidos.md`, `docs/fuentes-fuera-del-repo.md`, `docs/propuesta-tabs-strategy.md` (la pregunta 6, contestada), la cabecera de `audio-referidos-10oct-transcripcion.md` (fuera del repo) y la memoria `referidos-propuesta`. Nada construido colgaba del supuesto: no hay rol, capa ni pantalla «para el socio»; Strategy y la Ticketera siguen siendo sólo del super admin.
 
 **Vive en:** `docs/referidos.md` · `docs/propuesta-tabs-strategy.md` · `docs/fuentes-fuera-del-repo.md`
+
+## El referido de 97 cuesta US$130,46, no 124,98 (17/10/2026)
+
+- La tab Strategy (`app/admin/estrategia/datos.ts`) usaba r² para «llegó a pagar 2 meses» también en el plan de 97. Con
+  el 50% del primer mes, ese mes YA es un pago: «pagó 2 meses» es el mes 2, r y no r² (docs/referidos.md:56, la cuenta
+  que manda). Sigue debajo del techo (158,07).
+- **Sin hacer:** el 1 a 1 en 10.000 en `app/admin/dev/pricing/modelo.ts`: la corrida de 24 meses (`PROYECCION_24`) está
+  escrita a mano con 4.000 en cada fila derivada (caja, ventas, ingresos); cambiar el precio sin rehacer la corrida deja
+  filas que no cierran. Y las tareas #771, #783 y #840 del Plan con los precios del 20/09.
+
+*17/10/2026, «Pendientes B3» (`claude4`).*
