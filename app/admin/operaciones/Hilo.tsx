@@ -32,6 +32,7 @@ import { ConLinks } from './ConLinks';
 import { memo } from 'react';
 import { idDeLinea, leerCita, leerReenvio, sinOcultos, type MarcasChat } from '@/lib/centro-mensajes';
 import { CitaEnBurbuja, Deslizable, MarcasEnHora, ReaccionWA, mensajeDeLinea } from './MensajeWA';
+import type { PasoDelTurno } from '@/lib/centro-pasos';
 
 /** «10:52», con el reloj de Argentina. */
 const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -249,19 +250,29 @@ function Linea({ l, pushes, ahora, quien, vivo, onResponder, extras, wa }: { l: 
   );
 }
 
-/** Mientras el chat trabaja, al pie de la conversación: su muñeco y «Trabajando…», como Claude mientras piensa. */
-function Trabajando({ quien }: { quien: Quien }) {
+/** Mientras el chat trabaja, al pie de la conversación: su muñeco y «Trabajando…», como Claude mientras piensa. Con los
+ *  pasos de su turno (la E, 17/10/2026: «una animación con los pasos de su turno en vivo, como Claude»): los últimos tres,
+ *  el de ahora con los puntitos y los de antes apagados, copiado de la lista de pasos de Claude Code en la app. */
+function Trabajando({ quien, pasos = [] }: { quien: Quien; pasos?: readonly PasoDelTurno[] }) {
+  const ultimos = pasos.slice(-3);
   return (
     <div className="co-el co-trabajando" role="status" aria-live="polite">
       <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="trabajando" size={26} />
-      <p className="co-trabajando__texto">Trabajando<span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></p>
+      <div className="co-trabajando__cuerpo">
+        {ultimos.length > 1 && (
+          <ul className="co-pasos" aria-label="Lo que hizo recién">
+            {ultimos.slice(0, -1).map((p, i) => <li key={`${p.at}-${i}`} className="co-pasos__hecho">{p.texto}</li>)}
+          </ul>
+        )}
+        <p className="co-trabajando__texto">{ultimos.at(-1)?.texto ?? 'Trabajando'}<span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></p>
+      </div>
     </div>
   );
 }
 
 /** Las líneas de un chat, la más vieja arriba, con la píldora del día cada vez que cambia (WhatsApp). Sólo la
  *  conversación (`lineasDeConversacion`): los hitos van a la barra del Plan. */
-function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder, tareas, onFeedback, marcas }: {
+function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder, tareas, onFeedback, marcas, pasos }: {
   lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string;
   /** El empleado de este chat: su muñeco va al lado de lo que hizo, y grande si todavía no hay nada. */
   quien: Quien & { animo: Animo; dato?: string | null };
@@ -271,6 +282,8 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onRespo
   onResponder?: Responder;
   /** Las marcas de Martín en los mensajes (reacciones, destacados, fijados, eliminados para él: lib/centro-mensajes.ts). */
   marcas?: MarcasChat | null;
+  /** Los pasos en vivo del turno abierto (la E, lib/centro-pasos.ts): van en el «Trabajando…». */
+  pasos?: readonly PasoDelTurno[];
 } & ExtrasDelHilo) {
   // Lo que Martín eliminó para él no se dibuja (WhatsApp: «Eliminar para mí»).
   const lineas = sinOcultos(lineasDeConversacion(todas), marcas);
@@ -297,7 +310,7 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onRespo
       {items.map((it) => (it.dia
         ? <span key={it.k} className="co-dia">{it.dia}</span>
         : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} onResponder={onResponder} extras={{ tareas, onFeedback }} wa={wa} />))}
-      {trabaja && <Trabajando quien={quien} />}
+      {trabaja && <Trabajando quien={quien} pasos={pasos} />}
     </>
   );
 }

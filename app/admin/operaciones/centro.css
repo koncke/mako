@@ -1185,3 +1185,12 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-uso__input { width: 180px; max-width: 100%; height: 26px; padding: 0 8px; border: 1px solid var(--primary-weak); border-radius: 6px; background: var(--surface); font: inherit; font-size: var(--fs-sm); color: var(--ink); }
 .co-uso__error { font-size: var(--fs-meta); color: var(--bad); }
 @media (pointer: coarse) { .co-uso__input { font-size: 16px; height: 34px; } .co-uso__lapiz { width: 32px; height: 32px; } }
+
+/* Los pasos en vivo de un chat que trabaja (17/10/2026, la E): los de antes apagados y tachados de a uno, el de ahora con
+   los puntitos, como la lista de pasos de Claude Code. */
+.co-trabajando__cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.co-pasos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1px; }
+.co-pasos__hecho { font-size: var(--fs-meta); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-pasos__hecho::before { content: "✓ "; color: var(--good); }
+.co-trabajando .co-trabajando__texto { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+.co-trabajando .co-trabajando__puntos { vertical-align: middle; }

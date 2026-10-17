@@ -38,6 +38,7 @@ import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisio
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
 import { contestarPreguntaAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, pushesCentroAction, turnosCentroAction } from './acciones';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
+import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
@@ -48,6 +49,7 @@ import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
 const REFRESCO_MS = 8000;
 /** Una lista vacía que no cambia entre renders: las piezas memorizadas comparan por identidad. */
 const SIN_TAREAS: TareaDelChat[] = [];
+const SIN_PASOS: PasoDelTurno[] = [];
 /** Con algo en camino (escrito o tomado), la pantalla mira más seguido: sale en segundos y tiene que verse (17/10/2026). */
 const REFRESCO_APURADO_MS = 2500;
 
@@ -150,6 +152,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // de la caja de cada chat (responder a un mensaje), que viaja en el texto firmado.
   const [marcas, setMarcas] = useState<Record<string, MarcasChat>>({});
   const [nombresCuentas, setNombresCuentas] = useState<CuentasConNombre>(d.cuentasIniciales ?? {});
+  // Lo que están haciendo AHORA los chats ocupados (la E): llega con cada refresco.
+  const [pasos, setPasos] = useState<PasosPorChat>({});
   /** El nombre que Martín le pone a una cuenta en el Uso (la G): devuelve el error, o null. */
   const renombrarCuenta = async (cuenta: string, alias: string): Promise<string | null> => {
     const r = await guardarAliasCuentaAction(cuenta, alias).catch(() => null);
@@ -225,11 +229,15 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     [chats, porId, trabajos, decisiones, carteros, turnos, preguntas],
   );
   const previas = useMemo(() => new Map<string, VistaPrevia | null>([...lineasDe].map(([k, l]) => [k, vistaPrevia(l)])), [lineasDe]);
-  const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, enQueTrabaja(l)])), [lineasDe]);
+  // Los pasos en vivo de cada chat (la E), una vez por refresco: el hilo memorizado compara por identidad.
+  const pasosPorChat = useMemo(() => new Map<string, PasoDelTurno[]>(chats.map((c) => [c.clave, pasosDelChat(c, pasos)])), [chats, pasos]);
+  // En qué está: el paso que está dando AHORA, si la PC lo subió; si no, el título de lo que tiene en curso.
+  const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, pasosPorChat.get(k)?.at(-1)?.texto ?? enQueTrabaja(l)])), [lineasDe, pasosPorChat]);
+  const pasosDe = (c: ChatCentro): PasoDelTurno[] => pasosPorChat.get(c.clave) ?? SIN_PASOS;
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.cuentas) setNombresCuentas(f.cuentas); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);
@@ -491,7 +499,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   return {
     chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
-    marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta,
+    marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, pasosDe,
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,

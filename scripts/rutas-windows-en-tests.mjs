@@ -37,6 +37,7 @@ export const PERMITIDOS = new Map([
   ['tests/centro-abrir.test.ts', 'los casos de la lista blanca de la ruta del primer mensaje (comandoDeApertura) y el cwd del Runner: se comparan como texto, no se abren'],
   ['tests/centro-vigilar.test.ts', 'el cwd de una sesión de Claude Code y las carpetas del Runner: enCwds los compara como texto, no se abren'],
   ['tests/cartero-revisar-msys.test.ts', 'lo que Git Bash le pasa a cartero.mjs en --revisar (C:/Program Files/Git/…): se parsea como texto, no se abre'],
+  ['tests/centro-pasos.test.ts', 'el cwd de una sesión de Claude Code y la ruta de un Read: carpetaDelCwd y pasoDe los tratan como texto, no se abren'],
   ['tests/rutas-windows-en-tests.test.ts', 'los casos de esta misma guarda: son el texto que tiene que cazar'],
 ]);
 

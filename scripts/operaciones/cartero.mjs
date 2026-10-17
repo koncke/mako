@@ -82,7 +82,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.15.2';
+export const VERSION = '1.15.3';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -807,6 +807,110 @@ function verChats(cuenta, cfg = config(), runners = carpetasConRunner(cfg, dirPr
   return chats;
 }
 
+// ── Los pasos en vivo (1.15.3, 17/10/2026, la E) ─────────────────────────────────────────────────────────────
+// Martín (feedback del 17/10, su punto 1): «mientras un chat trabaja, una animación con los pasos de su turno en vivo, como
+// Claude». De cada chat OCUPADO se leen los últimos 256 KB de su transcript y se suben sus últimos pasos: el nombre de la
+// herramienta y, del Bash, su `description` (la frase corta que el modelo le pone). NADA del contenido: ni el comando, ni lo
+// que leyó, ni lo que escribió, ni una ruta entera (sólo el nombre del archivo). Las reglas de MaKo: lib/centro-pasos.ts.
+const COLA_PASOS = 256 * 1024;
+const PASOS_POR_CHAT = 6;
+const MAX_TEXTO_PASO = 90;
+/** Cada cuánto `vigilar` sube los pasos, y cada cuánto los repite aunque no cambien (MaKo los da por viejos a los 90 s). */
+const CADA_PASOS_MS = Math.max(100, Number(process.env.CARTERO_PASOS_MS) || 15_000);
+const REPETIR_PASOS_MS = 45_000;
+
+const corto = (s) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_TEXTO_PASO);
+const nombreDeArchivo = (p) => corto(String(p ?? '').split(/[\\/]/).filter(Boolean).pop() ?? '');
+
+/** Un paso, en palabras: lo que la herramienta HACE, nunca con qué. null = no se muestra. */
+export function pasoDe(b) {
+  if (!b || b.type !== 'tool_use' || typeof b.name !== 'string') return null;
+  const i = b.input && typeof b.input === 'object' ? b.input : {};
+  const n = b.name;
+  if (n === 'Bash' || n === 'PowerShell') return corto(i.description) || 'Corre un comando';
+  if (n === 'Read') return i.file_path ? `Lee ${nombreDeArchivo(i.file_path)}` : 'Lee un archivo';
+  if (n === 'Edit' || n === 'MultiEdit' || n === 'NotebookEdit') return i.file_path || i.notebook_path ? `Edita ${nombreDeArchivo(i.file_path ?? i.notebook_path)}` : 'Edita un archivo';
+  if (n === 'Write') return i.file_path ? `Escribe ${nombreDeArchivo(i.file_path)}` : 'Escribe un archivo';
+  if (n === 'Grep' || n === 'Glob') return 'Busca en el código';
+  if (n === 'WebFetch' || n === 'WebSearch') return 'Busca en la web';
+  if (n === 'Agent' || n === 'Task') return corto(i.description) ? `Agente: ${corto(i.description)}` : 'Lanza un agente';
+  if (n === 'TodoWrite' || /update_plan$/.test(n)) return 'Ordena su plan';
+  if (n === 'SendMessage') return 'Le escribe a otro chat';
+  if (n === 'Skill') return 'Usa una skill';
+  if (n === 'ToolSearch') return null;
+  if (n.startsWith('mcp__')) return `Usa ${corto(n.split('__').pop().replace(/_/g, ' '))}`;
+  return corto(n);
+}
+
+/** Los pasos del turno ABIERTO: los `tool_use` desde el último mensaje de una persona (o de otra sesión); el final de un
+ *  turno (`stop_hook_summary`) los vacía. Puro. */
+export function pasosDeLineas(lineas) {
+  let pasos = [];
+  for (const l of lineas) {
+    let o;
+    try { o = JSON.parse(l); } catch { continue; }
+    if (!o || typeof o !== 'object' || o.isSidechain) continue;
+    if (o.type === 'system' && o.subtype === 'stop_hook_summary') { pasos = []; continue; }
+    if (o.type === 'user' && !o.isMeta) {
+      const c = o.message?.content;
+      if (Array.isArray(c) && c.some((b) => b && b.type === 'tool_result')) continue;
+      const t = textoDe(c).replace(RECORDATORIO_RE, '').trim();
+      if (t && !AUTOMATICO_RE.test(t)) pasos = [];
+      continue;
+    }
+    if (o.type !== 'assistant' || !Array.isArray(o.message?.content)) continue;
+    for (const b of o.message.content) {
+      const texto = pasoDe(b);
+      const at = typeof o.timestamp === 'string' && Number.isFinite(Date.parse(o.timestamp)) ? o.timestamp : null;
+      if (texto && at) pasos.push({ at, texto });
+    }
+  }
+  return pasos.slice(-PASOS_POR_CHAT);
+}
+
+/** Los pasos de los chats OCUPADOS de una cuenta: los últimos 256 KB de cada transcript. */
+function pasosDeLaCuenta(cuenta, cfg, runners) {
+  const out = {};
+  for (const c of verChats(cuenta, cfg, runners).values()) {
+    if (!c.vivo || c.estado !== 'busy' || !c.transcript || c.esRunner) continue;
+    try {
+      const st = fs.statSync(c.transcript);
+      const inicio = Math.max(0, st.size - COLA_PASOS);
+      const buf = Buffer.alloc(st.size - inicio);
+      const fd = fs.openSync(c.transcript, 'r');
+      try { fs.readSync(fd, buf, 0, buf.length, inicio); } finally { fs.closeSync(fd); }
+      const lineas = buf.toString('utf8').split('\n');
+      if (inicio > 0) lineas.shift(); // la primera, cortada al medio
+      const p = pasosDeLineas(lineas.filter(Boolean));
+      if (p.length) out[c.local] = p;
+    } catch { /* un transcript que no se puede leer no frena la vuelta */ }
+  }
+  return out;
+}
+
+/** Sube los pasos de las cuentas de la carpeta, si cambiaron o hace rato que no. Devuelve cuántas subió (los tests lo cuentan). */
+async function subirPasos(cuenta, cfg, propio, ultimo) {
+  const cuentas = cuenta ? [cuenta] : cuentasDeLaCarpeta(cfg, propio);
+  const runners = carpetasConRunner(cfg, propio);
+  const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
+  let subidas = 0;
+  for (const c of cuentas) {
+    let pasos;
+    try { pasos = pasosDeLaCuenta(c, cfg, runners); } catch { continue; }
+    const firma = JSON.stringify(pasos);
+    const antes = ultimo.get(c);
+    if (antes && antes.firma === firma && Date.now() - antes.at < REPETIR_PASOS_MS) continue;
+    try {
+      const r = await fetch(`${url}/api/operaciones/cartero?pasos=1`, {
+        method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
+        body: JSON.stringify({ cuenta: c, pasos }), signal: AbortSignal.timeout(8_000),
+      });
+      if (r.ok) { ultimo.set(c, { firma, at: Date.now() }); subidas++; }
+    } catch { /* la próxima */ }
+  }
+  return subidas;
+}
+
 // ── el mensaje que recibe el chat ────────────────────────────────────────────────────────────
 export function mensaje(p, rutas = []) {
   const fecha = new Date(p.creado).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -933,6 +1037,8 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
       chats: [...[...chats.values()].map(({ pipe, dir, transcript, ...c }) => c), ...enNube],
       entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta), turnos,
       ...(preguntas.length ? { preguntas } : {}),
+      // Lo que están haciendo AHORA sus chats ocupados (1.15.3, la E): pasos cortos, sin contenido.
+      pasos: (() => { try { return pasosDeLaCuenta(cuenta, cfg, runners); } catch { return {}; } })(),
       // El nombre y el email de esta cuenta, de cuentas.tsv (1.15.2, la G): el Uso los muestra; un servidor de antes los ignora.
       ...(titularDe(cuenta) ? { titular: titularDe(cuenta) } : {}),
       // Las cuentas en las que esta PC abre chats (1.11.0): MaKo le da un trabajo «nuevo» sólo a quien lo declara.
@@ -1429,6 +1535,10 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
   // Lo que la primera consulta ya ve y la vuelta del principio no reclamó (un trabajo que esta PC no entrega): con eso de
   // base, `otraVez` sale sólo por algo NUEVO. Sin la base, un pendiente trabado haría correr al Runner sin parar.
   let base = null;
+  // Los pasos en vivo (1.15.3, la E): cada ~15 s, si cambiaron (o cada 45 s para que no venzan).
+  const ultimosPasos = new Map();
+  let pasosAt = ahora();
+  let pasosSubidos = 0;
   while (!hayQueEntregar(r)) {
     // ¿Entra otra espera con su consulta? Si no, se termina acá. (La vuelta completa se mira aparte, abajo.)
     if (ahora() + CADA_VIGILAR_MS > fin) break;
@@ -1436,6 +1546,7 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
     // Lo que otro Runner ya dejó en el buzón de esta carpeta: sale sin preguntarle a nadie.
     const locales = pendientes(cuenta, propio);
     if (locales.length) { r = { ...r, entregar: locales }; break; }
+    if (ahora() - pasosAt >= CADA_PASOS_MS) { pasosAt = ahora(); pasosSubidos += await subirPasos(cuenta, cfg, propio, ultimosPasos); }
     let hay = 0;
     let fallo = false;
     try { hay = await hayAlgo(cuenta, cfg, propio); consultas++; } catch (e) { fallo = true; log(`VIGILAR: la consulta falló (${textoRemoto(e.message)}): cae a la vuelta completa`); }
@@ -1459,7 +1570,7 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
       }
     }
   }
-  return { ...r, vigilo: Math.round((ahora() - inicio) / 1000), consultas, ...(otraVez ? { otraVez: true } : {}) };
+  return { ...r, vigilo: Math.round((ahora() - inicio) / 1000), consultas, pasos: pasosSubidos, ...(otraVez ? { otraVez: true } : {}) };
 }
 
 async function esperar(cuenta, maxSeg) {

@@ -179,6 +179,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       // El Cerebro es siempre la estrella de MaKo: tocarla no abre el selector.
       onMuneco={esCriaturaDeMako(chat.titulo) ? undefined : () => k.abrirMuneco(chat)}
       lineas={k.lineasDe.get(chat.clave)}
+      pasos={k.pasosDe(chat)}
       // Lo de WhatsApp (17/10/2026): las marcas y la cita de este chat, reenviar a otros y copiar (MensajeWA.tsx).
       wa={{
         marcas: k.marcasDe(chat), onMarcar: (c) => void k.marcar(chat, c),

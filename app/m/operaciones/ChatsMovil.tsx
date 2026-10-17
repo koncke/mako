@@ -459,7 +459,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             </div>
             <ContextoWA.Provider value={accionesWA}>
               <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
-                vivo={vivo} onResponder={responderPregunta} tareas={centro.tareasDe(elegido)} onFeedback={feedback} marcas={marcas} />
+                vivo={vivo} onResponder={responderPregunta} tareas={centro.tareasDe(elegido)} onFeedback={feedback} marcas={marcas} pasos={centro.pasosDe(elegido)} />
             </ContextoWA.Provider>
             {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
             {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}

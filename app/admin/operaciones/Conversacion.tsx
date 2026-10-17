@@ -24,6 +24,7 @@ import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MensajeWA } from './MensajeWA';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
+import type { PasoDelTurno } from '@/lib/centro-pasos';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
@@ -54,8 +55,10 @@ export type WaDeConversacion = {
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
   aspecto, onMuneco, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
-  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa,
+  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos,
 }: {
+  /** Los pasos en vivo de su turno abierto (la E): van en el «Trabajando…» del hilo. */
+  pasos?: readonly PasoDelTurno[];
   /** La conversación ya calculada (useCentro.ts → lineasDe, memorizada): sin esto se calcula acá en cada render. */
   lineas?: readonly LineaChat[];
   /** Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): las marcas, la cita de la caja, reenviar y copiar. */
@@ -220,7 +223,7 @@ export function Conversacion({
         <div className="co-hilo__col">
           <ContextoWA.Provider value={wa ? accionesWA : null}>
             <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
-              vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} />
+              vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos} />
           </ContextoWA.Provider>
         </div>
       </div>
