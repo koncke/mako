@@ -602,4 +602,21 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/anuncio-video.ts', 'app/api/anuncios/video/route.ts', 'app/dashboard/graficos/ReproductorAnuncio.tsx', 'app/dashboard/graficos/Tarjetas.tsx', 'app/dashboard/editor-css.ts', 'tests/anuncio-video.test.ts — probado rompiéndolo'],
     revisar: '/general',
   },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'MaKo analiza y MaKo edita: separarlos (#862)',
+    pedido: 'viste que el chat que vos abriste, dice editar con MaKo... Una cosa es MaKo analiza y otra cosa es MaKo Edita, entonces ahí está confundido porque es lo que dice editar con MaKo y vos le pediste que te dé un análisis del funnel',
+    puntos: ['De la revisión de MaKo del 16/10 (1:24:47): Joan le pidió un análisis al panel «Editar con MaKo» y le cambió la hoja. Lo repartió el Cerebro al chat Dashboard el 17/10.'],
+  },
+  {
+    fecha: '17 oct', hora: '11:00', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo en la hoja: «Analizar» o «Editar»',
+    puntos: [
+      'El panel de MaKo dice arriba en qué modo está, «Analizar» o «Editar», y se pasa de uno a otro sin cerrarlo.',
+      'Si en «Editar» pides un análisis («¿cómo va mi funnel?»), MaKo no toca la hoja y te ofrece «Analizar la hoja».',
+      'Vale en el Dashboard y en General.',
+    ],
+    archivos: ['lib/graficos-ia-edicion.ts', 'app/dashboard/ModosMako.tsx', 'app/dashboard/PanelEditarMako.tsx', 'app/dashboard/PanelAnalista.tsx', 'app/api/graficos/editar/route.ts', 'tests/dashboard-mako-modos.test.ts — probado rompiéndolo'],
+    revisar: '/dashboard',
+  },
 ];

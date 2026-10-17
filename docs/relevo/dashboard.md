@@ -38,6 +38,8 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
   (docs/hallazgos-graficos.md). Va en un commit DESPUÉS de la punta que ya tiene el Cerebro.
 - **#860** — los anuncios ganadores en póster vertical y con ▶ que reproduce el video en la hoja (el `embed_html` del
   video; la vista previa del anuncio no carga sin sesión de Facebook: docs/hallazgos-ads.md). Sin mirar en un navegador.
+- **#862** — MaKo en la hoja con dos modos, «Analizar · Editar»; un análisis pedido en Editar no toca la hoja (el código
+  descarta los cambios que vienen con `analizar`) y ofrece pasar a Analizar (docs/hallazgos-graficos.md).
 - **Experiments se retiró y vive en el Dashboard:**
   - «probemos X» en «Editar con MaKo» agrega a la hoja un elemento «Experimento» (app/dashboard/ElementoExperimento.tsx):
     propuesta → «Arrancar» (mide el baseline) → antes/ahora en vivo → «Concluir» (veredicto y aprendizaje de MaKo).
@@ -49,8 +51,8 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
 
 ## Lo que falta
 
-- **Lo que sigue del orden del Cerebro (17/10)**: #862 y #896 (un chat de MaKo que
-  separe analizar de editar; las métricas de los experimentos con ElegirFunnels: la Retro ya no existe), #886 (un solo
+- **Lo que sigue del orden del Cerebro (17/10)**: #896 (la Retro ya no existe; queda que `diagnosticar_funnel` y
+  `ver_serie_funnel_semanal` de la API de MaKo acepten uno o varios funnels: `getFunnelEtapas`, lib/queries.ts), #886 (un solo
   análisis de landing con el Web Generator). El detalle de cada uno, en C:/dev/auditoria-1610.json por su número.
 - **El chat Sidebar** dejó la key `experimentos` viva (ítem sin fila, sección oculta del teléfono), así que las dos
   redirecciones conservan su puerta. Si la saca, se van esas dos líneas y entra en `RETIRADAS` (tests/tabs-retiradas.test.ts).

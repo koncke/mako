@@ -1239,6 +1239,25 @@ Test: tests/graficos-identidad-acento.test.ts (probado rompiéndolo). **Nadie lo
 app/dashboard/MiniaturaHoja.tsx · app/general/bloques/comun.tsx.
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Un MaKo con dos modos: un análisis pedido en «Editar» no toca la hoja (17/10/2026)
+
+Martín (#862, revisión del 16/10, 1:24:47): Joan le pidió al panel «Editar con MaKo» un análisis del funnel y MaKo le
+EDITÓ la hoja: «Una cosa es MaKo analiza y otra cosa es MaKo Edita». El AI Analyst (⋮) y «Editar con MaKo» eran dos
+paneles sin relación, y el de editar convertía cualquier pedido en cambios.
+
+- **La regla no depende de que el modelo la cumpla:** la guía le pide `"analizar":true` para un análisis, y
+  `aplicarEdicion` DESCARTA los cambios que vengan con esa marca (el modelo a veces manda las dos cosas). La guía va en el
+  mensaje del usuario, como la de experimentos: el system se reemplaza desde /configuraciones.
+- **Los dos paneles son el mismo MaKo en dos modos** («Analizar · Editar» en la cabecera, app/dashboard/ModosMako.tsx), y
+  un análisis pedido en Editar ofrece «Analizar la hoja», que pasa al otro modo sin cerrar el panel. Los modos aparecen
+  sólo si la persona tiene los dos: el AI Analyst no es del que sólo mira y editar es del que guarda.
+- La API de MaKo (`editar_hoja_con_ia_*`) ya contestaba «sin cambios» con la respuesta: un análisis tampoco cambia nada ahí.
+
+Test: tests/dashboard-mako-modos.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** lib/graficos-ia-edicion.ts · app/api/graficos/editar/route.ts · app/dashboard/PanelEditarMako.tsx ·
+app/dashboard/PanelAnalista.tsx · app/dashboard/ModosMako.tsx · app/dashboard/EditorInforme.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
 - **Una plantilla que se ajusta por detrás (17/10/2026):** mientras llega el ajuste, la hoja muestra los gráficos que

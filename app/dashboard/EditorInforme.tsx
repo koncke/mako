@@ -115,6 +115,7 @@ import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '
 import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
 import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
 import { CrearHoja, NuevaHoja } from './NuevaHoja';
+import type { ModoMako } from './ModosMako';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
 import { PanelEditarMako, type MensajeEdicion } from './PanelEditarMako';
@@ -893,6 +894,15 @@ export function EditorInforme({
   const alternarAnalista = useCallback(() => { setMenu(null); setMakoEditar(false); setAnalista((v) => !v); }, []);
   const cerrarMakoEditar = useCallback(() => { setMakoEditar(false); setProbar(''); }, []);
   const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setProbar(''); setMakoEditar((v) => !v); }, []);
+  // #862: «Analizar · Editar» en la cabecera del panel de MaKo, sin cerrarlo: el AI Analyst y «Editar con MaKo» son el
+  // MISMO MaKo en dos modos. Sólo si la persona tiene los dos (el AI Analyst no es del que sólo mira; editar, sí del que guarda).
+  const conModosMako = !soloMirar && guardable && !enBlanco && !compartido;
+  const cambiarModoMako = useCallback((m: ModoMako) => {
+    setMenu(null);
+    setProbar('');
+    setAnalista(m === 'analizar');
+    setMakoEditar(m === 'editar');
+  }, []);
   /** La hoja de ese id como está AHORA en el informe (el panel compara por referencia antes de aplicar o deshacer). */
   const leerHoja = useCallback((id: string) => tableroRef.current.hojas.find((h) => h.id === id) ?? null, []);
   /** Lo que cambió MaKo (o su Deshacer) entra por `mutar`: tiene deshacer, y lo guarda el autoguardado de siempre. */
@@ -1455,11 +1465,12 @@ export function EditorInforme({
 
         {/* El AI Analyst es un panel (un `aside` de alto completo), no un modal: va en esta fila, encima del
             lienzo en la compu (./edicion-css.ts). Con la vista: el análisis a mano mira lo que la persona eligió. */}
-        {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} />}
+        {/* #862: los dos son el MISMO MaKo en dos modos («Analizar · Editar», ./ModosMako.tsx), cuando la persona tiene los dos. */}
+        {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} onModo={conModosMako ? cambiarModoMako : undefined} />}
         {makoEditar && guardable && !enBlanco && !compartido && (
           <PanelEditarMako hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
             onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
-            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} />
+            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} onModo={conModosMako ? cambiarModoMako : undefined} />
         )}
       </div>
 

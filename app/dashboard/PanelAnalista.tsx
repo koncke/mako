@@ -40,6 +40,7 @@ import { esGrafico, tituloDe, type Hoja, type VistaValores } from '@/lib/grafico
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { DIA_MES_MAX, textoCron, type CronAviso } from '@/lib/cron-aviso';
 import { plural } from '@/lib/plural';
+import { CSS_MODOS_MAKO, ModosMako, type ModoMako } from './ModosMako';
 import {
   cambiosDesde, conNombres, haceCuanto,
   type EntradaAnalisis, type Hallazgo, type Recomendacion, type VistaAnalisis,
@@ -113,7 +114,7 @@ function useAhora(cadaMs: number): number {
 
 // ── El panel ──────────────────────────────────────────────────────────────────────────────
 
-export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista }: {
+export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
   hoja: Hoja;
   /** Lo que cada gráfico está mostrando AHORA (el resultado ya agregado): sólo para la firma. */
   loQueSeVe: LoQueSeVe[];
@@ -123,6 +124,8 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista }: {
    * el análisis a mano mira los valores guardados de la hoja, igual que el programado, y lo dice.
    */
   vista?: VistaValores;
+  /** #862: pasar al otro modo del MISMO MaKo (./ModosMako.tsx): la cabecera dice «Analizar · Editar». */
+  onModo?: (m: ModoMako) => void;
 }) {
   const [estado, setEstado] = useState<VistaAnalisis | null>(null);
   const [tz, setTz] = useState<string | null>(null);
@@ -246,10 +249,10 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista }: {
     // Escape cierra SÓLO con el foco adentro del panel: no es un modal, y la grilla de al lado tiene sus
     // propios Escape. Un desplegable abierto adentro se come el suyo antes (Dropdown corta en captura).
     <aside className="an" aria-label="AI Analyst" onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}>
-      <style>{CSS}</style>
+      <style>{CSS + CSS_MODOS_MAKO}</style>
       <div className="an-cab">
         <MakoStar size={16} animate={corriendo} />
-        <span className="an-tit">AI Analyst</span>
+        {onModo ? <ModosMako modo="analizar" onModo={onModo} /> : <span className="an-tit">AI Analyst</span>}
         <button type="button" className="an-x" onClick={onCerrar} aria-label="Cerrar" title="Cerrar">×</button>
       </div>
 
