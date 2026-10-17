@@ -1,0 +1,17 @@
+/* =============================================================================
+   /m/conocimientos — Knowledge en el teléfono. Clases `.m-conocimientos-*`, sólo tokens de app/globals.css.
+   ============================================================================= */
+
+[data-m] .m-conocimientos-aviso { margin: 0 4px 14px; font-size: var(--fs-sm); color: var(--dim); }
+[data-m] .m-conocimientos-resumen { margin: 0 4px 18px; font-size: var(--fs-md); line-height: 1.5; color: var(--dim); }
+/* El número de la clase, en el lugar del ícono (como el «1, 2, 3» del contenido de un curso en Udemy). */
+.m-conocimientos-n {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px;
+  background: var(--surface-2); color: var(--dim); font-size: var(--fs-sm); font-weight: 600; font-variant-numeric: tabular-nums;
+}
+/* El video a todo el ancho de la columna, 16:9, con las esquinas de una tarjeta. */
+.m-conocimientos-video { position: relative; width: 100%; aspect-ratio: 16 / 9; margin: 0 0 18px; border-radius: var(--r-lg); overflow: hidden; background: #000; }
+.m-conocimientos-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+.m-conocimientos-md { margin: 0 4px 20px; font-size: var(--fs-md); line-height: 1.55; color: var(--ink); overflow-wrap: anywhere; }
+.m-conocimientos-md img, .m-conocimientos-md pre, .m-conocimientos-md table { max-width: 100%; }
+.m-conocimientos-md pre { overflow-x: auto; }

@@ -126,7 +126,7 @@ test('cada fila de More es la de la sidebar: el nombre, el ícono, la familia y 
   // Y lo que la sidebar le muestra a un cliente (sin lo «pronto» ni lo del super admin) está en la barra, en
   // More, o acá con su motivo. Una tab nueva de la sidebar no se olvida en silencio.
   // Desde el 17/10/2026 una tab sin sección del teléfono tiene su marca en lib/movil-rutas.ts (SOLO_ESCRITORIO o
-  // EN_CAMINO: Image, de «Mobile 1») y More la muestra «En la computadora»; lo fija tests/movil-toda-tab.test.ts.
+  // EN_CAMINO)) y More la muestra «En la computadora»; lo fija tests/movil-toda-tab.test.ts.
   const FUERA: Record<string, string> = { general: 'es General, la del medio de la barra' };
   const marcada = (keys: string[]) => keys.some((k) => SOLO_ESCRITORIO[k] || EN_CAMINO[k]);
   const visible = (t: NavItem) => !t.adminOnly && !t.comingSoon;
@@ -159,7 +159,8 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
     [null, ['mako']],
     // Clients es UNA fila (sus sub-tabs van adentro); MaKo Partners sólo para el admin de una agencia.
     ['Operate', ['calendario', 'dashboard', 'ads', 'cs']],
-    ['Sales Machine', ['offer', 'landing', 'automations', 'video', 'copywriting']],
+    // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
+    ['Sales Machine', ['offer', 'landing', 'automations', 'video', 'image', 'copywriting']],
   ]);
   // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la
   // sidebar (Calendario y Dashboard), y en More le queda MaKo.
@@ -204,6 +205,8 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
     offer: ['oferta', 'funnel'],
     copywriting: ['tab'],
+    // La API de MaKo (17/10/2026): docs · tokens · registro, en los dos lados.
+    'api-mako': ['tab'],
     curso: ['producto'],
     comunidad: ['producto', 'post'],
   });
@@ -256,6 +259,12 @@ test('cada sección de More TIENE su página, con el guard de SU key', () => {
     if (!existsSync(join(RAIZ, archivo))) { faltan.push(`${archivo} (no existe)`); continue; }
     // El Second Brain es el CHAT con MaKo desde el 16/10/2026 (entra con la key 'mako', como la fila de abajo): lo que es
     // del admin de la tab es su Mapa, que vive en su propia página con la key 'second-brain'.
+    // Las del SUPER ADMIN (17/10/2026) se cuidan como su página de escritorio, con `getSesionAdmin()`: su key no está en
+    // TODOS_LOS_ITEMS, y `requireMovil({ navKey })` les cerraría la puerta a todos.
+    if (s.superAdmin) {
+      if (!leer(archivo).includes('await getSesionAdmin()')) faltan.push(`${archivo} (sin getSesionAdmin(), la puerta de escritorio)`);
+      continue;
+    }
     const [pagina, key] = s.id === 'second-brain' ? [archivo, 'mako'] : [archivo, s.navKey];
     // Con opciones de la misma puerta, también (`onboarding: false` en «Reportar problema», como su `gateOnboarding: false`).
     if (!new RegExp(String.raw`requireMovil\(\{ navKey: '${key}'(, [^}]*)? \}\)`).test(leer(pagina))) faltan.push(`${pagina} (sin requireMovil({ navKey: '${key}' }))`);
