@@ -30,6 +30,7 @@ import { colorDe } from '@/app/_components/TarjetaEntidad';
 import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 import type { CarteraPartner, CuentaPartner } from '@/lib/partners';
 import { EquipoDeCuenta } from './EquipoDeCuenta';
+import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { ModalLlevarAPartners } from './LlevarAPartners';
 
 type Vista = 'clients' | 'program';
@@ -38,6 +39,9 @@ type Vista = 'clients' | 'program';
 function chipDe(c: CuentaPartner): { texto: string; tono: 'warn' | 'good' | 'neutral' | 'bad' } {
   if (c.cobro?.pagar) return { texto: 'Falta pagar su mes', tono: 'warn' };
   if (c.cobro?.renovacion && !c.cobro.renovacion.activada) return { texto: 'Activar renovación', tono: 'warn' };
+  // ⚠️ Una cuenta habilitada SIN NADIE ADENTRO (el ws15 del 28/09: nació antes de que abrir una cuenta pidiera el email).
+  // `[]` es «leí y no hay nadie»; `null` es «no pude leer», y ahí no se afirma nada (lib/partners.ts).
+  if (c.estado === 'aprobado' && c.equipo?.length === 0) return { texto: 'Nadie puede entrar', tono: 'warn' };
   if (c.estado === 'aprobado') return { texto: 'Activa', tono: 'good' };
   if (c.estado === 'revocado') return { texto: ROTULO_CARTERA.revocado, tono: 'bad' };
   return { texto: ROTULO_CARTERA.pendiente, tono: 'neutral' };
@@ -88,6 +92,28 @@ export function PartnersApp({ cartera, vistaInicial, cuentaInicial, leadNuevo, p
   }, [abierta, vista]);
 
   const cerrarFicha = useCallback(() => setAbiertaWs(null), []);
+
+  /**
+   * «Reenviar el acceso» a quien maneja la cuenta (vivía en la tarjeta de Clients hasta el 17/10/2026). El permiso lo
+   * pregunta el server contra la cartera en el momento (/api/agencia/reinvitar). El resultado es el del ENVÍO: un «listo»
+   * mudo no distingue «se le mandó» de «no salió».
+   */
+  const [reenviando, setReenviando] = useState(false);
+  const reenviar = async (clienteWs: number, a: { id: number; email: string }) => {
+    if (reenviando) return;
+    setReenviando(true);
+    try {
+      const j = (await (await fetch('/api/agencia/reinvitar', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ clienteWs, usuarioId: a.id }),
+      })).json()) as { ok?: boolean; error?: string; invitacion?: ResultadoInvitacion };
+      if (!j.ok) { show(j.error ?? 'No se pudo reenviar el acceso.', undefined, 'bad'); return; }
+      const aviso = avisoInvitacion(j.invitacion, a.email);
+      show(aviso.texto, undefined, aviso.tono === 'ok' ? 'good' : 'warn');
+    } catch {
+      show('No se pudo reenviar el acceso.', undefined, 'bad');
+    } finally { setReenviando(false); }
+  };
+  const quienManeja = abierta?.equipo?.find((u) => u.rol === 'admin') ?? abierta?.equipo?.[0] ?? null;
   const cerrarAlta = useCallback(() => setAlta(null), []);
   const cerrarPago = useCallback(() => setPago(null), []);
 
@@ -183,6 +209,12 @@ export function PartnersApp({ cartera, vistaInicial, cuentaInicial, leadNuevo, p
             {abierta.cobro?.renovacion?.activada && <div><dt>Renovación</dt><dd>Activa</dd></div>}
           </dl>
           <h3 className="pt-sub">Equipo</h3>
+          {abierta.estado === 'aprobado' && quienManeja && (puedeAbrir || superAdmin) && (
+            <button type="button" className="pt-acc pt-reenviar" disabled={reenviando}
+              onClick={() => void reenviar(abierta.ws, quienManeja)}>
+              {reenviando ? 'Reenviando…' : `Reenviar el acceso a ${quienManeja.nombre}`}
+            </button>
+          )}
           {abierta.estado === 'aprobado' ? (
             <EquipoDeCuenta equipo={abierta.equipo} altas={abierta.altas} clienteWs={abierta.ws}
               puedePedir={puedeAbrir && !superAdmin} puedeSumar={superAdmin}
@@ -307,6 +339,7 @@ const CSS = `
 .pt-datos dt{ font-size:12px; color:var(--dim); margin-bottom:2px; }
 .pt-datos dd{ margin:0; font-size:14px; font-weight:600; color:var(--ink); }
 .pt-sub{ margin:6px 0 4px; font-size:14px; font-weight:700; color:var(--ink); }
+.pt-reenviar{ margin:4px 0 8px; }
 .pt-nota{ margin:10px 0 0; font-size:13px; color:var(--dim); }
 .pt-programa{ margin:0; padding:0 0 0 20px; display:flex; flex-direction:column; gap:14px; max-width:680px; font-size:15px; color:var(--ink); }
 .pt-programa b{ font-weight:700; }

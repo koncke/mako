@@ -6,7 +6,7 @@
 // Pedido de Martín (06/10/2026): «Al igual que en la vista de Agencia, se debería poder INVITAR
 // al cliente a MaKo para que tenga acceso al curso».
 //
-// LA FORMA es la de «Abrir cuenta» de la vista de Agencia (../CuentaDeMaKo.tsx): un botón que
+// LA FORMA es la de «Abrir cuenta» de la vista de Agencia (CuentaDeMaKo.tsx, hoy app/partners/LlevarAPartners.tsx): un botón que
 // abre un modal que pide el email —prellenado con el del CRM y obligatorio—, por portal al body,
 // `anidada`, con el estado visible y la opción de reenviar. LO DE ADENTRO es otra cosa: no se
 // crea workspace, ni cuenta, ni hay aprobación cruzada (es el mismo negocio y el que invita es el

@@ -597,8 +597,9 @@ test('la tarjeta ofrece el curso SIN conCuentas: la fila y el menú existen sin 
   // Las opciones del curso entran por la función pura, AFUERA de cualquier `conCuentas`.
   const ops = bloque(card, 'const opciones: Array<{ value: string; label: string }> = [', '];');
   assert.match(ops, /^const opciones[^\n]*\n\s*\.\.\.opcionesDeCursoEnTarjeta\(curso, Boolean\(onPermisos\)\),/);
-  // La fila de acciones existe si hay opciones, y el menú no cuelga de `conCuentas`.
-  assert.match(card, /acciones=\{conCuentas \|\| accionExtra \|\| opciones\.length > 0 \?/);
+  // La fila de acciones existe si hay opciones. Desde el 17/10/2026 la tarjeta no tiene NADA de la cuenta de agencia
+  // (se fue a MaKo Partners): ni `conCuentas` ni el control de la cuenta (tests/cs-tarjeta-cuentas.test.ts).
+  assert.match(card, /acciones=\{accionExtra \|\| opciones\.length > 0 \?/);
   assert.match(card, /\{opciones\.length > 0 && \(\s*<span/);
   assert.doesNotMatch(card, /conCuentas && opciones\.length > 0/, 'el menú volvió a ser sólo de agencias');
   // El arrastre: el menú se marca `data-nodrag` y lo que cancela el gesto es `agarrar`.
