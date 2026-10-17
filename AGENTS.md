@@ -1659,6 +1659,23 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
 
+## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
+
+Pedido de Martín (17/10/2026, por el Ops Center): «al terminar de solucionar algo que detectaste de un cliente… le
+envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una aclaración de que sos el "Desarrollador"».
+
+- **Con la herramienta, nunca a mano:** `scripts/avisar-arreglo-al-grupo.mts --ws <n> --clave <incidente|ticket>
+  --commit <sha> --texto "…" --origen "<tu chat>"`. Sin `--enviar` no manda nada: prueba la producción y muestra el texto.
+  Con `--enviar`, `avisarArregloAlGrupo` (lib/aviso-arreglo.ts) firma «👨‍💻 Desarrollador de MaKo», respeta el tope del
+  día, no repite la misma clave y deja el registro en el negocio (`mako.dev.aviso_arreglo.<clave>`).
+- **Nunca antes de producción.** El script lo prueba: el commit en `origin/main` Y un despliegue de producción de Vercel
+  en «Ready» que lo contiene. «Pushear no es desplegar».
+- **Nunca en el ws1 sin estar seguro** (es de Mauricio, un cliente): `--ws1-seguro` y sólo después de mirar que el
+  arreglo es suyo.
+- **El texto dice lo que YA pasó**, en palabras del cliente y de tú: qué le falló, que ya anda y cómo probarlo. Sin
+  promesas ni groserías (se rechaza, no se corrige). Un aviso por arreglo.
+- **El primero de cada negocio, Martín lo ve antes**: es un mensaje real al grupo de un cliente.
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres

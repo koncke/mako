@@ -144,6 +144,27 @@ se ven:
 - ⚠️ **Hasta la próxima punta de la Ticketera, `preparar()` contesta «No sé quién eres»** para un actor `whatsapp:…`:
   el ticket no se levanta y no se rompe nada (el código no agrega la línea si la propuesta falló).
 
+**El aviso «ya quedó arreglado» al grupo del cliente (17/10, pedido de Martín por el Ops Center).** Cambió la regla del
+vigía: ahora un jefe SÍ escribe en el grupo de un cliente, pero sólo para avisar que algo que le falló ya anda en
+producción, firmado «Desarrollador de MaKo» (`lib/aviso-arreglo.ts`, `scripts/avisar-arreglo-al-grupo.mts`; la regla en
+AGENTS.md). Lo que costó medir:
+- ⚠️ **«Está en producción» no se puede saber desde la base ni desde GitHub con lo que hay.** No existe un endpoint de
+  versión (`docs/hallazgos-infra.md`), y el `GITHUB_TOKEN` de la plataforma apunta a `mbustos-digital/dashboard-marketing`
+  y no ve `hola-mako/dashboard-marketing` (404 en deployments). Lo que SÍ anda es el CLI de Vercel filtrando por commit:
+  `vercel ls --prod --meta githubCommitSha=<sha>` devuelve el despliegue de producción de ESE commit con su estado. El
+  script mira la punta de `main` hacia atrás hasta encontrar uno Ready que contenga el arreglo.
+- **No es una operación del registro de la API, a propósito**: una operación la puede pedir el modelo en un chat o una
+  automatización, y firmar como el equipo en el grupo de un cliente no puede estar al alcance de ninguno. La Ticketera
+  la llama como función, desde su cron.
+- **Un aviso por arreglo se cumple RESERVANDO antes de mandar** (`cambiarSettingSi(key, null, …)`, atómico) y soltando
+  la reserva si el envío falló: con la marca después del envío, dos llamadas mandan dos; con la marca antes y sin
+  soltarla, un Evolution caído dejaba el arreglo «avisado» para siempre.
+- **Lo que MaKo manda al grupo por otro camino tiene que entrar al anti-eco del doer** (`anotarEnviadoAlGrupo`): si el
+  eco vuelve como `fromMe` y no está en el anillo, el doer lo procesa como un mensaje de la persona. Medido el 17/10:
+  desde el 01/10 ningún aviso del catálogo entró así, pero la guarda del doer no lo distingue.
+- ⚠️ **Y el clasificador de permisos de Claude Code bloquea correr el script, aunque sin `--enviar` no mande nada**: lo
+  lee como una transacción real. El primer aviso de cada negocio lo aprueba Martín de todas formas.
+
 **Lo que quedó sin hacer:**
 - **Nada se probó contra una agenda real.** El ws18 tiene Google conectado y es un cliente: la primera prueba es su
   próximo pedido, y el vigía lo va a ver.

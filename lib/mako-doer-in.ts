@@ -102,6 +102,15 @@ async function registrarEnviados(ws: number, jid: string, ids: string[]): Promis
   await runWithWorkspace(ws, () => setSetting(KEY_SENT(jid), JSON.stringify(next)));
 }
 
+/**
+ * Anota un mensaje que mandó OTRO camino al grupo (el aviso de arreglo del desarrollador, lib/aviso-arreglo.ts) como
+ * propio del doer: si su eco vuelve como `fromMe`, el doer lo saltea en vez de contestarle a su propio aviso.
+ * Es el mismo anillo que la respuesta del doer (los settings operativos van en OWNER_WS, keyeados por jid).
+ */
+export async function anotarEnviadoAlGrupo(jid: string, id: string): Promise<void> {
+  await registrarEnviados(OWNER_WS, jid, [id]);
+}
+
 /** JIDs de grupo donde el doer está habilitado (allowlist). */
 export async function gruposDoer(ws: number): Promise<string[]> {
   return runWithWorkspace(ws, async () => {
