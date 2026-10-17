@@ -187,6 +187,30 @@ export async function opcionesDeEvento(a: Actor): Promise<Resultado<OpcionesEven
   }
 }
 
+/**
+ * UN evento como lo edita el equipo (con su regla de acceso y su recurrencia), si es una SERIE, y si una
+ * fecha `YYYY-MM-DD` es una de sus ocurrencias. `null` = no existe en esta comunidad (o quien pide no
+ * arma el calendario).
+ *
+ * La usa la API de MaKo (lib/api-mako/areas/comunidad.run.ts): `guardarEvento` revalida el evento ENTERO,
+ * así que editar «sólo la hora» por la API es mezclar lo pedido sobre esto; y `guardarEvento` /
+ * `borrarEvento` contestan «Esa fecha ya no está en la serie» recién al escribir, cuando la API lo tiene
+ * que saber antes (`esOcurrencia`). Es la MISMA vista que dibuja el calendario (`vistaDeEvento`), no una copia.
+ */
+export async function eventoParaEditar(a: Actor, idRaw: unknown): Promise<{ evento: EventoVista; serie: boolean; esOcurrencia: (fecha: string) => boolean } | null> {
+  if (!puedeGestionarEventos(a)) return null;
+  const id = idValido(idRaw);
+  const fila = id ? await eventoDe(a, id) : null;
+  const s = fila ? serieDe(fila) : null;
+  if (!fila || !s) return null;
+  const quien = await quienMira(a);
+  return {
+    evento: vistaDeEvento(fila, s, quien, new Map(), a),
+    serie: esSerie(fila, s),
+    esOcurrencia: (fecha: string) => indiceDeFecha(s, fecha) != null,
+  };
+}
+
 // ── Crear y editar ────────────────────────────────────────────────────────────────
 
 export type AlcanceEdicion = 'este' | 'siguientes' | 'todos';

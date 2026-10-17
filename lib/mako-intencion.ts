@@ -1281,6 +1281,10 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // El área «curso» sale SÓLO por HTTP (lib/api-mako/areas/curso.def.ts): nombrarla no le suma
   // ninguna herramienta al doer. Está para que la tabla cubra todas las áreas.
   curso: /\b(m[oó]dulos? del curso|clases? del curso|armar (el|un) curso|migrar (el|un) curso)/i,
+  // El área «comunidad» también sale SÓLO por HTTP (lib/api-mako/areas/comunidad.def.ts): nombrarla no le suma ninguna
+  // herramienta al doer. Está para que la tabla cubra todas las áreas, y es ANGOSTA a propósito: «automatizaciones de la
+  // comunidad» es de `creaciones` (arriba) y no tiene por qué sumar esta.
+  comunidad: /\b(posts? de la comunidad|miembros de la comunidad|ranking de la comunidad|categor[ií]as de la comunidad)/i,
   // Las creaciones publicadas y sus estrellas (13/10/2026). «plantilla» sola NO: es de WhatsApp y del Dashboard.
   creaciones: /\b(creaciones?|estrellas?|galer[ií]a|publicar (?:mi|la|una|esta) automatizaci[oó]n|automatizaci[oó]n(?:es)? de (?:otros|la comunidad)|lo que publicaron)/i,
   // La pasarela de pagos (11/10/2026). Sin «pago» suelto, a propósito: «los pagos de Ana» son sus

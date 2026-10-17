@@ -6,6 +6,7 @@ activar_crm_automatico
 activar_envio_real_email
 actualizar_avance_tarea
 adjuntar_grabaciones_fathom
+admitir_alumno_comunidad
 afinar_avatares
 agregar_bloque_general
 agregar_bloque_landing
@@ -20,6 +21,7 @@ agregar_objetivo_custom
 agregar_seccion_landing
 agregar_texto_video
 ajustar_color_video
+ajustar_comunidad
 analisis_negocio
 analizar_hoja_dashboard
 analizar_llamadas_lead
@@ -40,19 +42,24 @@ borrar_analisis_landing
 borrar_avatar_negocio
 borrar_borrador_landing
 borrar_borrador_plantilla
+borrar_categoria_comunidad
 borrar_clase_curso
+borrar_comentario_comunidad
 borrar_diseno_imagen
 borrar_documento_archivero
 borrar_elementos_video
+borrar_evento_comunidad
 borrar_guion_anuncio
 borrar_hoja_dashboard
 borrar_landing
 borrar_landing_creada
 borrar_plantilla_meta
+borrar_post_comunidad
 borrar_producto
 borrar_retro
 borrar_tema_landing
 buscar_conocimiento
+buscar_en_comunidad
 buscar_en_segundo_cerebro
 buscar_fotos_landing
 buscar_intereses_meta
@@ -66,6 +73,8 @@ cambiar_espera_paso
 cambiar_estado_comentario_landing
 cambiar_estilo_texto_video
 cambiar_ficha_funnel
+cambiar_like_comentario_comunidad
+cambiar_like_post_comunidad
 cambiar_moneda_negocio
 cambiar_tema_landing
 cambiar_texto_landing
@@ -80,6 +89,7 @@ cancelar_suscripcion
 catalogo_angulos_guion
 catalogo_estructuras_guion
 catalogo_metricas_experimento
+cerrar_comentarios_post_comunidad
 cerrar_experimento
 cerrar_objetivo
 cerrar_tareas_plan
@@ -87,6 +97,8 @@ cobertura_datos_retro
 cobertura_guiones_anuncio
 cobranza_lead
 cobrar_producto_landing
+comentar_clase_comunidad
+comentar_post_comunidad
 comparar_agendas_meta_crm
 compartir_borrador_landing
 conectar_componentes_dashboard
@@ -115,12 +127,14 @@ cortar_recordatorio_cuota
 cortar_tramo_video
 crear_borrador_whatsapp_empresa
 crear_broadcast
+crear_categoria_comunidad
 crear_clase_curso
 crear_contacto_chatwoot_lead
 crear_crm
 crear_diseno_imagen
 crear_etiqueta
 crear_evento_calendario
+crear_evento_comunidad
 crear_experimento
 crear_hoja_dashboard
 crear_hoja_general
@@ -152,13 +166,17 @@ duplicados_lead
 duplicar_diseno_imagen
 duplicar_hoja_dashboard
 duplicar_landing
+editar_about_comunidad
 editar_avatar_negocio
 editar_broadcast
+editar_categoria_comunidad
 editar_clase_curso
+editar_comentario_comunidad
 editar_contacto_lead
 editar_cuota
 editar_dato_deal
 editar_etiqueta
+editar_evento_comunidad
 editar_grafico_dashboard
 editar_hoja_con_ia_dashboard
 editar_hoja_dashboard
@@ -168,7 +186,9 @@ editar_meta_secuencia_email
 editar_obligacion_deal
 editar_pasos_secuencia_email
 editar_pasos_secuencia_mensajes
+editar_perfil_comunidad
 editar_plantilla_meta
+editar_post_comunidad
 editar_texto_guion_anuncio
 editar_venta_lead
 elegir_formato_creativo_anuncio
@@ -192,6 +212,7 @@ estado_envio_whatsapp
 estado_experimentos
 estado_gate_retro
 estado_onboarding_chatbot
+estado_onboarding_comunidad
 estado_onboarding_contenido
 estado_onboarding_video
 estado_plantillas_meta
@@ -200,6 +221,7 @@ etapa_inbox_de_lead
 etapas_para_secuencia
 etiquetas_lead
 evaluar_crm_automatico
+exportar_evento_ics_comunidad
 factores_cierre
 faltantes_del_lead
 ficha_broadcast
@@ -207,6 +229,7 @@ ficha_experimento
 ficha_lead
 ficha_secuencia_email
 ficha_secuencia_mensajes
+fijar_post_comunidad
 fijar_zona_horaria_workspace
 generar_avatares
 generar_conclusiones_dashboard
@@ -271,6 +294,7 @@ listar_cobros
 listar_cohortes_mensuales
 listar_cohortes_semanales
 listar_comentarios_landing
+listar_comunidades
 listar_conclusiones_experimentos
 listar_conjuntos_meta
 listar_conversiones_meta
@@ -306,6 +330,7 @@ listar_landings_detectadas
 listar_lead_magnets
 listar_leads
 listar_lugares_grabacion
+listar_miembros_comunidad
 listar_motivos_venta_llamada
 listar_objetivos
 listar_objetivos_secuencia
@@ -315,6 +340,7 @@ listar_pixeles_meta
 listar_plantillas_aprobadas
 listar_plantillas_imagen
 listar_plantillas_video
+listar_posts_comunidad
 listar_preguntas_diagnostico_fase
 listar_productos
 listar_propuestas_revisar
@@ -325,6 +351,7 @@ listar_publicaciones_mako_meta
 listar_publicos_meta
 listar_recomendaciones_meta
 listar_retros
+listar_sacados_comunidad
 listar_secuencias_archivadas
 listar_secuencias_email
 listar_secuencias_nutricion
@@ -343,6 +370,7 @@ listar_videos_landing
 listar_videos_panda
 mandar_landing_a_papelera
 marcar_asistencia_reunion
+marcar_avisos_leidos_comunidad
 marcar_calificado
 marcar_pago_cobrado
 marcar_reunion_manual
@@ -358,6 +386,7 @@ mover_clase_curso
 mover_elemento_video
 mover_estado_guion_anuncio
 mover_tarea_plan
+nombrar_niveles_comunidad
 nombrar_video
 normalizar_audio_video
 ocultar_elemento_video
@@ -365,6 +394,7 @@ ocultar_video
 oferta_del_lead
 olvidar_nombre_video
 opciones_siguiente_paso_guion
+ordenar_categorias_comunidad
 ordenar_modulos_curso
 panorama_closing
 pasar_comentarios_a_copia_landing
@@ -416,6 +446,7 @@ proponer_toggle_nutricion
 propuestas_lead_pendientes
 publicar_creacion
 publicar_landing
+publicar_post_comunidad
 quitar_cobro_landing
 quitar_componente_dashboard
 quitar_conector_dashboard
@@ -454,8 +485,10 @@ reuniones_proximas
 reuniones_recientes
 revertir_clip_video
 revisar_direccion_landing
+sacar_alumno_comunidad
 sacar_etiqueta_lead
 seguimiento_ultima_retro
+seguir_post_comunidad
 sembrar_kpis_sugeridos
 separar_audio_video
 silenciar_clip_video
@@ -477,12 +510,14 @@ ver_anuncio_planteado
 ver_anuncio_video
 ver_archivero
 ver_avatares
+ver_avisos_comunidad
 ver_base_formulario_meta
 ver_borrador_de_reunion
 ver_borrador_landing
 ver_borrador_plan
 ver_cac_acumulado
 ver_cac_mensual
+ver_calendario_comunidad
 ver_cambios_landing
 ver_campanas_funnels
 ver_capacidad_instalada
@@ -492,7 +527,9 @@ ver_clase_curso
 ver_cobro
 ver_cobro_landing
 ver_codigo_pixel
+ver_comentarios_clase_comunidad
 ver_comportamiento_landing
+ver_comunidad
 ver_configuracion_landing
 ver_contexto_video
 ver_creacion
@@ -526,6 +563,7 @@ ver_integraciones
 ver_landing_creada
 ver_metricas_video_panda
 ver_mi_plan
+ver_miembro_comunidad
 ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo
@@ -536,6 +574,7 @@ ver_perfil_guiones
 ver_perfil_negocio
 ver_personalidad_voz
 ver_plan
+ver_post_comunidad
 ver_preferencias_notificaciones
 ver_prioridades_plan
 ver_propuesta_accion
@@ -544,6 +583,7 @@ ver_proyecto_plan
 ver_proyecto_video
 ver_publico_conjunto_meta
 ver_puente_flow
+ver_ranking_comunidad
 ver_rechazos_pago_landing
 ver_rendimiento_anuncios
 ver_repriorizacion_plan
@@ -572,3 +612,4 @@ verificar_pagina_pixel
 vincular_evento_etapa
 vista_experimentos
 volver_a_mostrar_sugerencia
+votar_encuesta_comunidad
