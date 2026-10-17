@@ -45,7 +45,7 @@ import { estaBloqueado } from './evolution-block';
 import { normalizarTelefono } from './leads';
 import { tzDeWorkspace } from './timezone';
 import { entregaDeProducto, entregaDeProductoEstricta } from './entrega-servicio';
-import { emitirAviso } from './avisos';
+import { emitirAviso, emitirDelCatalogo } from './avisos';
 import {
   linkDeAcceso, linkDeAccesoExistente, clasesDelProducto, progresoDelCliente, etapaActualDe, productosDelAlumno,
   productosConCasaDelAlumno, accesoDe,
@@ -63,7 +63,7 @@ import {
   NO_TENIA_PENDIENTES, type CompromisosJunta,
   juntaPendiente, juntaResuelta, claveAvisoJunta, textoJuntaDueno, tituloAvisoJunta,
   tocaRecordatorio, sigueEnElPrograma, sesionCerca, ventanaDeSesionCerca,
-  textoRecordatorioClases, textoRecordatorioDueno, claveAvisoRecordatorio, TITULO_AVISO_RECORDATORIO,
+  textoRecordatorioClases, datosRecordatorioDueno, claveAvisoRecordatorio, TITULO_AVISO_RECORDATORIO,
   type AccesoParaRecordar, type BloqueVideos, type RecordatorioHecho, type RecordatorioSinEscribir,
 } from './curso-mensajes-texto';
 
@@ -737,8 +737,6 @@ export async function correrAvisosDeSesiones(ahora: Date = new Date()): Promise<
 //      recién leído: dos corridas del mismo tick no le mandan dos veces. Si el envío falla después,
 //      no se reintenta hasta el próximo turno — un recordatorio de menos se nota menos que dos.
 
-const TIPO_AVISO_RECORDATORIO = 'curso-recordatorio-clases';
-
 /**
  * Cuántos recordatorios, como mucho, salen en UNA corrida (todos los negocios juntos). No es por la
  * cuota de nadie: es el RITMO de la línea no oficial, que es lo que la protege de un baneo
@@ -987,21 +985,18 @@ async function recordarEnWorkspace(ws: number, leadIds: number[], ahora: Date, r
   }
 
   // UNA copia a Mauricio por corrida, con todos: a quién se le recordó qué.
-  const texto = textoRecordatorioDueno({ hechos: c.hechos, sinEscribir: c.sinEscribir });
-  if (!texto) return;
-  const r = await emitirAviso({
-    ws,
-    tipo: TIPO_AVISO_RECORDATORIO,
-    titulo: TITULO_AVISO_RECORDATORIO,
-    texto,
-    categoria: 'aviso',
-    semaforo: c.sinEscribir.length || c.hechos.some((h) => h.noLlego) ? 'amarillo' : 'na',
-    link: '/customer-success',
+  // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `curso_recordatorio`, «nada por
+  // detrás», lote 2): acá van sólo los datos (`datosRecordatorioDueno`), con la misma clave de siempre.
+  const datos = datosRecordatorioDueno({ hechos: c.hechos, sinEscribir: c.sinEscribir });
+  if (!datos) return;
+  // El id LITERAL (tests/plantillas-viejas.test.ts busca a cada emisor por él).
+  const r = await emitirDelCatalogo('curso-recordatorio-clases', {
+    ws, datos: datos as Record<string, string>,
     dedupKey: claveAvisoRecordatorio(ws, [...c.hechos, ...c.sinEscribir].map((x) => x.leadId), ahora),
     dedupTtlMin: 60,
   });
-  if (r.deduped) return;
-  if (r.wa || r.email || r.agrupado) res.avisosDueno += 1;
+  if (r.deduped && !r.apagado) return;
+  if (r.wa || r.email === true) res.avisosDueno += 1;
   else res.avisosDuenoSinSalir += 1;
 }
 

@@ -80,7 +80,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.14.2';
+export const VERSION = '1.14.3';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1446,7 +1446,10 @@ if (esMain) {
       }
       case 'medir': {
         const cfg = config();
-        const c = cuentaOpcional() ?? cuentaDeLaApp(cfg, dirPropio(cfg));
+        // La cuenta es la que tiene la app ABIERTA (~/.claude/cuenta-activa.txt): la carpeta de la app la comparten varias cuentas
+        // y cuentaDeLaApp devolvía la primera (17/10: anotó claude1 con la cuenta 4 abierta, y el corte del 97% no la leía).
+        const activa = (() => { try { const c = fs.readFileSync(path.join(path.dirname(USO_APP), 'cuenta-activa.txt'), 'utf8').trim().split(/\s+/)[0]; return CUENTA_RE.test(c) ? c : null; } catch { return null; } })();
+        const c = cuentaOpcional() ?? activa ?? cuentaDeLaApp(cfg, dirPropio(cfg));
         if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: medir --cuenta claudeN <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
         imprimir({ ok: true, cuenta: c, ...medir(c, resto) }); break;
       }

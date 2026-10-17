@@ -157,6 +157,22 @@ cosas más, del ws13 y del ws9:
   (entre «re» y «programa» no hay borde de palabra). Al arreglar un prefijo, enumerá TODOS los verbos de la regla que lo
   admiten, no sólo el que se vio.
 
+**Levantar un ticket desde el grupo (17/10, con la Ticketera).** El doer le pasa al ticket QUIÉN escribió y el contexto
+del turno, y el código lo propone cuando una herramienta de MaKo falló (el molde del chat de la app). Tres cosas que no
+se ven:
+- **El doer no sabe el email de quien escribe**, y del mensaje sólo llega `key.participant`. El actor es
+  `whatsapp:+<teléfono>` (`lib/doer-ticket.ts`). ⚠️ **Un `…@lid` NO es un teléfono**: es el id anónimo que WhatsApp usa en
+  algunos grupos, y leerlo como número le pondría al ticket un teléfono que no existe; ahí va el pushName.
+- ⚠️ **Todo LOTE perdía quién escribió**: los dos mensajes que arma el doer al juntar mensajes (el del buffer y el del
+  cron de huérfanos) copiaban `remoteJid`, `id` y `fromMe`, y no `participant`. Cualquier dato del remitente que se
+  agregue al turno tiene que pasar por esos dos lugares.
+- **La pendiente del ticket que propone el código no la ve nadie si no se dice**: el modelo ya contestó. La línea la
+  escribe el código, después del saneo, y termina pidiendo el «sí» (si no, el saneo la leería como promesa). Al
+  probarlo rompiéndolo apareció un agujero del detector: «ya le aviso al equipo y te lo arreglo» no era una promesa para
+  `promesasDe` («aviso» y «arreglo» no estaban, ni el «le» del «ya le…»).
+- ⚠️ **Hasta la próxima punta de la Ticketera, `preparar()` contesta «No sé quién eres»** para un actor `whatsapp:…`:
+  el ticket no se levanta y no se rompe nada (el código no agrega la línea si la propuesta falló).
+
 **Lo que quedó sin hacer:**
 - **Nada se probó contra una agenda real.** El ws18 tiene Google conectado y es un cliente: la primera prueba es su
   próximo pedido, y el vigía lo va a ver.
@@ -10190,6 +10206,16 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   `encabezadoAviso`); la tarjeta «tal cual» no lo lleva, como en las mudanzas de Fathom y de la línea (lo que se ve en
   la tarjeta es lo que llega). La comparación letra por letra es del CUERPO.
 
-**Vive en:** `lib/reunion-cancelada.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
+- **Una copia con LISTAS también entra en una fila literal** (`curso-recordatorio-clases`, fila #271): cada sección va
+  en su renglón y su lista es UN dato que arranca con su salto de línea y sólo viene si tiene a alguien
+  (`datosRecordatorioDueno`). Así la sección vacía no trae su dato y `sinRenglonesVacios` se lleva el renglón ENTERO,
+  encabezado incluido. El runner de eventos no recorta los datos (`emitirTarjetaDelEvento` → `textoConDatos`).
+- ⚠️ **El «Le/Les» del texto viejo era una frase armada en el código:** una fila no lo puede decir sin dos casos. La
+  redacción quedó buena para uno y para varios («Recordé… a 1 cliente», «No llegó el recordatorio a:»).
+- ⚠️ **El emisor va con el id LITERAL** (`emitirDelCatalogo('curso-recordatorio-clases', …)`): tests/plantillas-viejas.test.ts
+  busca a cada emisor por él, y con el id en una constante decía «nada lo emite».
+- El color del feed (amarillo cuando a alguien no le llegó) se pierde: el evento usa el semáforo del catálogo.
+
+**Vive en:** `lib/reunion-cancelada.ts` · `lib/curso-mensajes-texto.ts` (`datosRecordatorioDueno`) · `lib/curso-mensajes.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
 (`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
 · test: `tests/reunion-cancelada-evento.test.ts`

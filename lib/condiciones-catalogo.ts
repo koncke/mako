@@ -143,8 +143,11 @@ export type TipoValor =
   | { t: 'ninguno' }
   /** Un número con su operador (≥ / ≤). `unidad` va pegada al número en la tarjeta. */
   | { t: 'numero'; unidad: string; def: number; min: number; max: number; ref?: CatalogoValor }
-  /** Un elemento de un catálogo. */
-  | { t: 'lista'; catalogo: CatalogoValor }
+  /**
+   * Un elemento de un catálogo. Con `varios`, uno O VARIOS en la misma fila (#894: «A o B»), en `FilaCondicion.valores`;
+   * el `evaluar` de la condición los lee con `valoresDeFila` y se cumple con cualquiera.
+   */
+  | { t: 'lista'; catalogo: CatalogoValor; varios?: true }
   /** Un texto libre (se busca sin mayúsculas ni tildes). */
   | { t: 'texto' }
   /** Una de una lista FIJA que trae la condición (16/10/2026: el dato de un evento, `VariableAviso.condicion`). */
@@ -285,6 +288,32 @@ type LugarReunion = { fechaMs: number | null; asistio: boolean | null; finMs?: n
 
 /** Cuántas etapas de reunión se guardan por fila: más que esto es un dato roto, no una elección. */
 export const TOPE_REUNIONES = 12;
+
+/** Cuántas opciones se guardan en una de lista con `varios` (el tope de `ElegirFunnels`): más es un dato roto. */
+export const TOPE_VARIOS = 20;
+
+/**
+ * LO ELEGIDO EN UNA DE LISTA (#894, 17/10/2026), sin repetidos y en orden: `valores` si la fila los trae, si no `valor`
+ * solo (una fila de antes, o una sola elegida). Vacío = falta elegir. Es la ÚNICA lectura: el motor, la frase de la
+ * tarjeta, el editor y la validación de «Crear con IA» pasan por acá.
+ */
+export function valoresDeFila(f: Pick<FilaCondicion, 'valor' | 'valores'>): string[] {
+  const crudos = Array.isArray(f.valores) && f.valores.length ? f.valores : f.valor == null ? [] : [f.valor];
+  const out: string[] = [];
+  for (const x of crudos) {
+    const s = typeof x === 'number' && Number.isFinite(x) ? String(x) : typeof x === 'string' ? x.trim() : '';
+    if (s && !out.includes(s)) out.push(s);
+  }
+  return out.slice(0, TOPE_VARIOS);
+}
+
+/** La fila con estas elegidas: la primera en `valor`, todas en `valores` sólo si son dos o más. Vacío = falta elegir. */
+export function conValores(f: FilaCondicion, elegidos: readonly string[]): FilaCondicion {
+  const vs = valoresDeFila({ valores: [...elegidos] });
+  const out: FilaCondicion = { ...f, valor: vs[0] ?? null };
+  if (vs.length > 1) out.valores = vs; else delete out.valores;
+  return out;
+}
 
 /** Las etapas de reunión de una fila, separadas y sin repetidos: `${funnelId}:${key}` → { funnelId, key }. */
 export function reunionesDeFila(f: Pick<FilaCondicion, 'reuniones'>): Array<{ funnelId: number; key: string }> {
@@ -550,8 +579,13 @@ export const CONDICIONES: readonly DefCondicion[] = [
     evaluar: (_f, h) => sigueEnEtapaDelCron(h),
   },
   {
-    id: 'en_producto', seccion: 'Etapa y pipeline', ambito: 'adquisicion', rotulo: ['Está en el funnel de', 'No está en el funnel de'], negable: true, valor: { t: 'lista', catalogo: 'producto' }, fuentes: ['lead', 'productos'],
-    evaluar: (f, h) => { const id = num(f); return id == null || !h.etapasPorProducto ? null : h.etapasPorProducto.has(id); },
+    id: 'en_producto', seccion: 'Etapa y pipeline', ambito: 'adquisicion', rotulo: ['Está en el funnel de', 'No está en el funnel de'], negable: true, valor: { t: 'lista', catalogo: 'producto', varios: true }, fuentes: ['lead', 'productos'],
+    // #894 (17/10/2026): con varios es «A o B» en una sola fila; negada, «ni A ni B».
+    evaluar: (f, h) => {
+      const ids = valoresDeFila(f).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+      const m = h.etapasPorProducto;
+      return !ids.length || !m ? null : ids.some((id) => m.has(id));
+    },
   },
 
   // ── Agenda y llamadas ──
@@ -1115,7 +1149,8 @@ export function problemaDeFila(f: FilaCondicion): string | null {
     return null;
   }
   if (c.reuniones && (f.reuniones?.length ?? 0) > TOPE_REUNIONES) return `«${c.rotulo[0]}» tiene más de ${TOPE_REUNIONES} reuniones`;
-  if (v.t === 'lista' && (f.valor == null || f.valor === '')) return `falta elegir «${c.rotulo[0]}»`;
+  if (v.t === 'lista' && !valoresDeFila(f).length) return `falta elegir «${c.rotulo[0]}»`;
+  if (v.t === 'lista' && !v.varios && (f.valores?.length ?? 0) > 1) return `«${c.rotulo[0]}» lleva una sola opción`;
   if (v.t === 'texto' && !String(f.valor ?? '').trim()) return `falta el texto de «${c.rotulo[0]}»`;
   if (v.t === 'opciones' && !v.opciones.some((o) => o.value === String(f.valor ?? ''))) return `falta elegir «${c.rotulo[0]}»`;
   if (v.t === 'numero') {
@@ -1261,8 +1296,11 @@ function textoBase(f: FilaCondicion, n?: NombresCatalogo): string {
     return v.ref ? `${base} · ${nombreDeValor(v.ref, String(f.ref ?? ''), n)}` : base;
   }
   if (v.t === 'lista') {
-    if (f.valor == null || f.valor === '') return `${r} …`;
-    const nom = nombreDeValor(v.catalogo, String(f.valor), n);
+    const vs = valoresDeFila(f);
+    if (!vs.length) return `${r} …`;
+    // Varias (#894): «Está en el funnel de «A» o «B»»; negada, «No está en el funnel de «A» ni «B»».
+    if (v.varios && vs.length > 1) return `${r} ${vs.map((x) => `«${nombreDeValor(v.catalogo, x, n)}»`).join(f.no && c.negable ? ' ni ' : ' o ')}`;
+    const nom = nombreDeValor(v.catalogo, vs[0], n);
     return v.catalogo === 'origen' || v.catalogo === 'estado_lead' || v.catalogo === 'estado_cliente' ? `${r}: ${nom}` : `${r} «${nom}»`;
   }
   if (v.t === 'texto') return `${r} «${String(f.valor ?? '').trim() || '…'}»`;

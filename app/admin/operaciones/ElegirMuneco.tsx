@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// Elegir el muñeco de un empleado (15/10/2026)
+// Elegir la criatura de un empleado (15/10/2026; «Criatura» desde el 17/10)
 // =============================================================================
 // Martín: «Crea más diseños variados de las figuras tipo trabajadores... Con diferentes caras, etc... Y que si le doy
 // click pueda elegir cambiar a otro». Copiado del armador de Notion Faces (faces.notion.com, mirado ese día): a la
@@ -37,7 +37,7 @@ export function ElegirMuneco({ titulo, animo, aspecto, onCambio }: {
   const ops = OPCIONES[pieza];
   return (
     <div className="co-elegir">
-      <nav className="co-elegir__piezas" aria-label="Piezas del muñeco">
+      <nav className="co-elegir__piezas" aria-label="Piezas de la criatura">
         {PIEZAS.map((p) => (
           <button key={p.id} type="button" className="co-elegir__pieza" aria-pressed={pieza === p.id} onClick={() => setPieza(p.id)}>{p.label}</button>
         ))}
@@ -62,6 +62,7 @@ export function ElegirMuneco({ titulo, animo, aspecto, onCambio }: {
           })}
         </div>
       </div>
+      {/* La criatura se mueve adentro de su recuadro, como en el chat (17/10/2026, la F): pasea de lado a lado. */}
       <div className="co-elegir__retrato">
         <Muneco titulo={titulo} animo={animo === 'dormido' ? 'despierto' : animo} size={128} aspecto={aspecto} />
         <span className="co-elegir__nombre">{titulo}</span>

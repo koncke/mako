@@ -96,6 +96,7 @@ test('la primera pasada para en la revisión; el «Corregir» sí prueba los dem
   // (El hijo de arriba lo EJECUTA; esto fija que el «Corregir» no herede el freno: con los errores en el pedido, otro
   // proveedor puede arreglarlo.)
   const src = execFileSync(process.execPath, ['-e', `process.stdout.write(require('fs').readFileSync(${JSON.stringify(join(RAIZ, 'lib/flujo-ia-crear.ts'))}, 'utf8'))`], { encoding: 'utf8' }).replace(/\r\n/g, '\n');
-  assert.match(src, /const uno = await pasada\(\{ \.\.\.p, motivo, hastaMs, provs, modelos, errores, erroresRed, pararEnRevision: true \}\);/);
-  assert.match(src, /const dos = await pasada\(\{ \.\.\.p, user: corregir, motivo: `Corregir · \$\{motivo\}`, hastaMs, provs, modelos, errores, erroresRed \}\);/);
+  // (17/10, #847: las dos pasan además el aviso de cada intento, `alIntentar`; tests/crear-ia-intentos.test.ts.)
+  assert.match(src, /const uno = await pasada\(\{ \.\.\.p, motivo, hastaMs, provs, modelos, errores, erroresRed, pararEnRevision: true(?:, alIntentar)? \}\);/);
+  assert.match(src, /const dos = await pasada\(\{ \.\.\.p, user: corregir, motivo: `Corregir · \$\{motivo\}`, hastaMs, provs, modelos, errores, erroresRed(?:, alIntentar)? \}\);/);
 });

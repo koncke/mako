@@ -14,6 +14,7 @@
 // La regla vive en lib/funnels-elegidos.ts (`alternarFunnel`), con test.
 // =============================================================================
 
+import type { CSSProperties } from 'react';
 import { Dropdown } from './Dropdown';
 import { Select } from '@/app/_ui/Select';
 import { IconoFunnel } from '@/app/_ui/iconos-menu';
@@ -21,7 +22,7 @@ import { alternarFunnel } from '@/lib/funnels-elegidos';
 
 export type FunnelElegible = { id: number; nombre: string };
 
-export function ElegirFunnels({ funnels, valor, onCambiar, todos = 'Todos los funnels', label, hint, disabled, ariaLabel }: {
+export function ElegirFunnels({ funnels, valor, onCambiar, todos = 'Todos los funnels', label, hint, disabled, ariaLabel, sinTodos, buttonStyle }: {
   funnels: readonly FunnelElegible[];
   /** Los elegidos. Vacío = todos. */
   valor: readonly number[];
@@ -33,6 +34,14 @@ export function ElegirFunnels({ funnels, valor, onCambiar, todos = 'Todos los fu
   hint?: string;
   disabled?: boolean;
   ariaLabel?: string;
+  /**
+   * SIN «TODOS» (#894, 17/10/2026: la condición «Está en el funnel de»): donde vacío NO es el negocio entero sino «falta
+   * elegir». No hay renglón «Todos», el botón dice `todos` mientras no se elija ninguno y apagar el último deja la lista
+   * vacía. Sólo sin `label` (el desplegable solo).
+   */
+  sinTodos?: boolean;
+  /** La cara del botón (sin `label`): la de la pantalla que lo monta. */
+  buttonStyle?: CSSProperties;
 }) {
   // Uno elegido que ya no está (se borró el funnel) se muestra igual, marcado: si no estuviera entre las opciones no
   // se vería, y la persona no sabría por qué el número no le cierra.
@@ -40,16 +49,17 @@ export function ElegirFunnels({ funnels, valor, onCambiar, todos = 'Todos los fu
   // Sin ícono en los renglones: el cubo de un funnel va en el CONTROL (app/_ui/icono-funnel.ts), como el selector del
   // CRM. Cada renglón ya lleva su casilla.
   const options = [
-    { value: '', label: todos },
+    ...(sinTodos ? [] : [{ value: '', label: todos }]),
     ...funnels.map((f) => ({ value: String(f.id), label: f.nombre })),
     ...perdidos.map((id) => ({ value: String(id), label: 'Un funnel que ya no está' })),
   ];
-  const varios = valor.length ? valor.map(String) : [''];
+  const varios = valor.length ? valor.map(String) : sinTodos ? [] : [''];
   const tocar = (v: string) => onCambiar(alternarFunnel(valor, v));
   const aria = ariaLabel ?? label ?? 'De qué funnels';
   const icono = <IconoFunnel />;
   if (label) {
     return <Select label={label} hint={hint} options={options} value="" varios={varios} onChange={tocar} disabled={disabled} ariaLabel={aria} icono={icono} />;
   }
-  return <Dropdown value="" options={options} varios={varios} onChange={tocar} disabled={disabled} width="100%" ariaLabel={aria} icono={icono} />;
+  return <Dropdown value="" options={options} varios={varios} onChange={tocar} disabled={disabled} width="100%" ariaLabel={aria} icono={icono}
+    buttonStyle={buttonStyle} {...(sinTodos && !valor.length ? { botonLabel: todos } : {})} />;
 }

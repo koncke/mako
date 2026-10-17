@@ -159,7 +159,8 @@ const conclusion = (calculo: Record<string, unknown>, extra: Record<string, unkn
 }) as unknown as ConclusionOferta;
 
 const sesion = { id: 7, ofertaId: null, ligada: true, funnelId: 3 } as unknown as OfferSesionVista;
-const dibujar = (c: ConclusionOferta) => renderToStaticMarkup(createElement(Conclusion, { sesion, conclusion: c, onSeguir: () => {}, onGuardar: async () => null }));
+// Con la pestaña del diagnóstico: desde el 17/10 (#887) la ventana abre en el PDF (tests/offer-vista-pdf.test.ts).
+const dibujar = (c: ConclusionOferta) => renderToStaticMarkup(createElement(Conclusion, { sesion, conclusion: c, onSeguir: () => {}, onGuardar: async () => null, pestanaInicial: 'diagnostico' }));
 
 test('conclusión sin lista: el chip dice cuánto falta y el diagnóstico lista QUÉ falta (sólo lo que no pasa)', () => {
   const html = dibujar(conclusion({ controlFinal: [{ punto: 'garantia', ok: true, porque: '' }, { punto: 'resultado', ok: false, porque: 'La promesa no tiene número.' }] }));

@@ -2952,9 +2952,11 @@ export function CrmBoard({
           una linea y porque importarla arrastraria `Tablas.tsx` entero (95 KB) al bundle
           del CRM. ⚠️ Y VA AFUERA de la caja de la tabla, que lleva `overflow: hidden`:
           un sticky adentro de algo que recorta se queda clavado igual que si no lo
-          tuviera, con el `position` puesto y sin un solo error. */}
+          tuviera, con el `position` puesto y sin un solo error.
+          ⚠️ Y DEBAJO DE LA BARRA DE AGENCIA (#850, 17/10/2026): al inspeccionar un negocio esa barra va fija
+          arriba, y con `top: 8` la de lote quedaba tapada. `--barra-agencia` (app/globals.css) es 0 sin ella. */}
       {elegidos.length > 0 && (
-        <div style={{ position: 'sticky', top: 8, zIndex: 20, marginBottom: 10 }}>
+        <div style={{ position: 'sticky', top: 'calc(var(--barra-agencia, 0px) + 8px)', zIndex: 20, marginBottom: 10 }}>
           <AccionesLoteLeads
             // El clic derecho sobre un tildado pide sus acciones por acá (`manijaLote`, ver `elegirContextual`).
             ref={manijaLote}

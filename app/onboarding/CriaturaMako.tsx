@@ -15,6 +15,13 @@
 //   · contenta — la respuesta entró (un saltito);
 //   · duda     — no la entendió (se ladea).
 // Con movimiento reducido, sin gestos: sólo los ojos.
+//
+// ⚠️ LA ESTRELLA, CUANDO LLEGUE (Ops Center 3, 17/10 ~12:30: todavía NO está; la toma el próximo Ops Center). Va a ser
+// `Criatura` de app/admin/operaciones/Criatura.tsx, con `aspecto={ASPECTO_MAKO}` (lib/centro-munecos.ts) y
+// `reaccion: 'escucha' | 'contenta' | 'piensa' | 'sorpresa' | 'duda' | null`: estas cuatro entran tal cual. El cambio es
+// el cuerpo de esta función: `<Criatura aspecto={ASPECTO_MAKO} titulo="MaKo" size={size} reaccion={reaccion} />`, y
+// se va el CSS de abajo (la criatura parpadea sola y respeta el movimiento reducido). Trae además `entrada`/`onEntrada`
+// e `invita` (latido hasta el clic), que hoy hace ./EntradaMako.tsx: se pueden sumar después.
 // =============================================================================
 
 import type { CSSProperties } from 'react';

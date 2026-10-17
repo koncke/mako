@@ -45,7 +45,7 @@ import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { chatAlCostado } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente, edicionTocaPasos } from '@/lib/flujo-ia-cliente';
 import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
-import { normalizar, esNodoMensaje } from '@/lib/flujo-grafo';
+import { normalizar, esNodoMensaje, ID_INICIO } from '@/lib/flujo-grafo';
 import { eliminar } from '@/lib/flujo-edicion';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { Muelles } from '@/lib/lienzo-grafo';
@@ -165,7 +165,7 @@ export type FrenoDeProbar = FrenoDelFlujo & { medio?: Medio; linea?: string | nu
 /** El ícono de cada opción de la «Reentrada» (del set de la casa). */
 const ICONO_REENTRADA: Readonly<Record<Reentrada, string>> = { una_vez: 'check', otra_reunion: 'calendario', siempre: 'repetir' };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako, onMakoTrabajando, onCrearOtra, onListaCambio }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, cronAlAbrir = false, pedidoAlAbrir = null, onChatMako, onMakoTrabajando, onCrearOtra, onListaCambio }: {
   /**
    * EL CHAT DE MaKo ESTÁ ABIERTO (decimocuarta tanda, punto 3: «El chat de MaKo, debe ser como los otros chats, que se
    * abran al costado, no en el medio del flujo»). Lo lee la tab para reservarle el muelle de la DERECHA, el de «Probar»
@@ -187,6 +187,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * abre por `abrirMako`, la del ✦.
    */
   makoAlAbrir?: boolean;
+  /** Abre con su CRON abierto (#882: la plantilla creada al instante elige su etapa ahí, con el mismo desplegable). */
+  cronAlAbrir?: boolean;
   /**
    * EL PEDIDO CON EL QUE NACIÓ (decimotercera tanda, punto 2): el de «Pídeselo a MaKo» del modal «Nueva automatización».
    * La fila ya existe (vacía y pausada) y el chat lo manda solo, como CREAR sobre ella. Llega junto con `makoAlAbrir`.
@@ -716,6 +718,19 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   if (makoAlAbrir !== makoPedido) {
     setMakoPedido(makoAlAbrir);
     if (makoAlAbrir && !editandoIA) abrirMako();
+  }
+  /**
+   * EL CRON ABIERTO AL ENTRAR (`cronAlAbrir`, #882, 17/10/2026): una plantilla que arranca en una etapa se crea AL INSTANTE,
+   * sin la pregunta del modal, y la etapa se elige acá. En el flanco y al dibujar, como `makoAlAbrir`: abre la tarjeta CRON
+   * (`foco`) y su editor (`cronAbierto`).
+   */
+  const [cronPedido, setCronPedido] = useState(false);
+  if (cronAlAbrir !== cronPedido) {
+    setCronPedido(cronAlAbrir);
+    if (cronAlAbrir) {
+      setCronAbierto(crons.primero?.id ?? 'nuevo');
+      setFoco((f) => ({ id: ID_INICIO, vez: (f?.vez ?? 0) + 1 }));
+    }
   }
   /**
    * EL FRENO DE LO QUE SE VE, para el panel de «Probar» (séptima tanda): la MISMA `frenoDelFlujo` que

@@ -114,4 +114,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/cobros',
   },
+  {
+    fecha: '16 oct', hora: '—', chat: '—', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: '«Quitar» un pago no se aplicó al primer intento',
+    pedido: 'Se me hace que no la quitaste... Eso es un error',
+    puntos: ['Llamada «Mau <> Martin» (27:42, tarjeta #891), en Pagos del lead de Francisco Javier Hernández; al rato, «ahí sí se quitó».'],
+  },
+  {
+    fecha: '17 oct', hora: '09:24', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: «Quitar» una cuota se ve en el acto',
+    puntos: [
+      'Al confirmar «Quitar», la confirmación se cierra en el acto, el renglón dice «Quitando…» y desaparece apenas el server confirma. Si no se pudo quitar, vuelve y lo dice.',
+      '⚠️ **No falló la primera vez: tardó.** En el lead de Francisco (ws1) quedó UNA sola baja registrada y no había nada que la frenara. La confirmación se cerraba recién al volver la acción, que actualiza cinco pantallas, y la fila se iba con la relectura de la ficha: segundos sin una señal.',
+      'Lo mismo en «Baja del cliente»: su «guardando» se ve mientras corre.',
+    ],
+    commits: [{ sha: '344503de7', msg: 'Pagos: «Quitar» una cuota se ve en el acto (#891)', lineas: 133, archivos: 3 }],
+    archivos: [
+      'app/crm/lead-view/ficha/pagos/bloques-cobro.tsx — `quitar`, `quitando` y `quitadas`',
+      'tests/pagos-quitar-al-instante.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/crm/2739?ws=3&tab=pagos',
+  },
 ];

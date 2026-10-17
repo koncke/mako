@@ -27,8 +27,8 @@ import { Button, Field, Input } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { conVinetas, enterEnLista, textoParaMandar } from '@/lib/centro-caja';
 import {
-  CEREBRO, SECCION_CEREBRO, SECCION_CHATS, avanceDelChat, comoSale, esPrioritario, seguirChat, enQueTrabaja, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats, trabajaSinEscribir,
-  textoDeEnvio, textoDeRenombre, vistaPrevia, yaEstaDelChat, type CarteroP, type ChatCentro, type TrabajoP,
+  CEREBRO, SECCION_CEREBRO, SECCION_CHATS, comoSale, esPrioritario, seguirChat, enQueTrabaja, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats, trabajaSinEscribir,
+  textoDeEnvio, textoDeRenombre, vistaPrevia, type CarteroP, type ChatCentro, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
@@ -38,7 +38,8 @@ import { MunecoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from '@/
 import { comandoNuevoChat } from '@/lib/runner';
 import { Hilo, Tick } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
-import { BarraAvanceMovil } from '@/app/admin/operaciones/Avance';
+import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
+import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
 import { guardarMunecoAction } from '@/app/admin/operaciones/acciones';
 import { Microfono } from '@/app/admin/operaciones/Microfono';
@@ -130,6 +131,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // La caja: dónde va el cursor después de que una lista cambió el texto (la viñeta, el ítem siguiente).
   const caja = useRef<HTMLTextAreaElement>(null);
   const cursor = useRef<number | null>(null);
+  const resalte = useRef<HTMLDivElement | null>(null);
   const borradorAbierto = elegido && centro ? centro.borradorDe(elegido.clave) : '';
   useEffect(() => {
     const el = caja.current;
@@ -154,6 +156,12 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // El borrador es el del motor (useCentro.ts): el mismo que en la computadora, guardado mientras se escribe.
   const texto = borradorAbierto;
   const ponerTexto = (t: string) => { if (elegido && centro) centro.ponerBorrador(elegido.clave, t); };
+  /** Responder sobre un «Ya está» (la C): la caja arranca con «Sobre «…»: ». */
+  const responderSobre = (titulo: string) => {
+    const prefijo = `Sobre «${titulo}»: `;
+    ponerTexto(texto.startsWith(prefijo) ? texto : prefijo + texto);
+    window.setTimeout(() => { const el = caja.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0);
+  };
   // Las fotos y los PDF de la caja (17/10/2026): el estado es del motor (useCentro.ts), el mismo de la computadora.
   const adjuntos: AdjuntosDeCaja | undefined = centro && elegido ? {
     items: centro.adjuntosDe(elegido.clave), puede: centro.puedeAdjuntar(elegido),
@@ -218,7 +226,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     if (!r.ok) { setEligiendo({ ...eligiendo, guardando: false }); toast(r.error); return; }
     onMunecos(r.munecos);
     setEligiendo(null);
-    toast('Muñeco guardado');
+    toast('Criatura guardada');
   }
   const abrirMuneco = () => { if (elegido) setEligiendo({ aspecto: aspectoDe(elegido.titulo, elegidoPara(munecos, elegido.titulo)), guardando: false }); };
   const cerrarHoja = () => { setAbierto(null); setOpciones(false); setRenombre(null); setEligiendo(null); };
@@ -230,9 +238,17 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
         <ListaAdjuntos a={adjuntos} />
         <div className="m-operaciones-caja__fila">
           {/* El «+» de la caja, como en la computadora: adjuntar y con qué corre (17/10/2026, la B). */}
-          {centro && <MasCaja a={adjuntos} apagado={enviando} resumen={resumenDeEnvio(centro, elegido)}><SelectoresDeEnvio centro={centro} chat={elegido} /></MasCaja>}
+          {centro && (
+            <MasCaja a={adjuntos} apagado={enviando} resumen={resumenDeEnvio(centro, elegido)}>
+              {(cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); irAlTurno(u); }} /></>}
+            </MasCaja>
+          )}
+          <div className="co-caja__campo">
+          {hayLinks(texto) && <ResalteDeLinks texto={texto} capa={(el) => { resalte.current = el; }} />}
           <textarea
             ref={caja}
+            className={hayLinks(texto) ? 'co-caja__texto--resalte' : undefined}
+            onScroll={(e) => { if (resalte.current) resalte.current.scrollTop = e.currentTarget.scrollTop; }}
             rows={1}
             value={texto}
             onChange={(e) => {
@@ -251,11 +267,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             aria-label={`Escribe a ${elegido.titulo}`}
             disabled={enviando}
           />
+          </div>
           <Microfono valor={texto} onValor={ponerTexto} onError={(m) => toast(m)} apagado={enviando} />
           <button type="button" className="co-enviar" onClick={mandar} disabled={enviando || (!texto.trim() && !adjuntos?.items.length)} aria-label="Firmar y mandar">
             {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
           </button>
         </div>
+        <LinksDeLaCaja texto={texto} />
         {estado && <div className="m-operaciones-caja__fila m-operaciones-caja__fila--meta"><span className="m-operaciones-caja__estado">{estado}</span></div>}
       </div>
     ) : envio.por === 'leyendo_clave' ? null : (
@@ -338,7 +356,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           Renombrar y el muñeco se abren ADENTRO de la de la conversación, con su «‹» para volver, como una navegación de
           iOS dentro de una hoja. Abrirlas en una hoja nueva cerraba la conversación, y con ella la hoja nueva. */}
       {conHoja && <SheetM abierto={!!elegido} onCerrar={cerrarHoja} snap="alto"
-        titulo={renombre ? 'Renombrar' : eligiendo ? 'Su muñeco' : elegido?.titulo ?? 'Chat'}
+        titulo={renombre ? 'Renombrar' : eligiendo ? 'Su criatura' : elegido?.titulo ?? 'Chat'}
         ocupado={!!renombre?.mandando || !!eligiendo?.guardando}
         pie={renombre ? (
           <PieM consecuencia={elegido && new Set(elegido.sesiones.map((s) => s.cuenta)).size > 1 ? `Se renombra en sus ${new Set(elegido.sesiones.map((s) => s.cuenta)).size} cuentas.` : undefined}>
@@ -346,7 +364,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           </PieM>
         ) : eligiendo ? (
           <PieM>
-            <Button variant="primary" size="lg" full loading={eligiendo.guardando} onClick={() => guardarMuneco(eligiendo.aspecto)}>Guardar muñeco</Button>
+            <Button variant="primary" size="lg" full loading={eligiendo.guardando} onClick={() => guardarMuneco(eligiendo.aspecto)}>Guardar criatura</Button>
             {elegido && elegidoPara(munecos, elegido.titulo) && <Button variant="tertiary" size="lg" full disabled={eligiendo.guardando} onClick={() => guardarMuneco(null)}>Volver al de siempre</Button>}
           </PieM>
         ) : opciones ? undefined : pie}>
@@ -370,7 +388,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
         {elegido && !renombre && !eligiendo && opciones && (
           <ListaM etiqueta="Opciones">
             {elegido.sesiones.length > 0 && <FilaM icono="pen" titulo="Renombrar" onClick={() => { setOpciones(false); setRenombre({ texto: elegido.titulo, error: null, mandando: false }); }} navegacion />}
-            <FilaM icono="perfil" titulo="Cambiar su muñeco" onClick={() => { setOpciones(false); abrirMuneco(); }} navegacion />
+            <FilaM icono="perfil" titulo="Cambiar su criatura" onClick={() => { setOpciones(false); abrirMuneco(); }} navegacion />
           </ListaM>
         )}
         {elegido && !renombre && !eligiendo && !opciones && (
@@ -383,10 +401,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
               {[...new Set(elegido.sesiones.map((s) => s.cuenta).filter((x): x is string => !!x))].map((x) => <span key={x} className="co-chip-cuenta">{nombreCuenta(x)}</span>)}
               {metaDe(elegido)}
             </div>
-            <BarraAvanceMovil nodos={avanceDelChat(lineas)} yaEsta={yaEstaDelChat(lineas)} pushes={pushes} ahora={ahora} chat={elegido} />
             <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: elegido.titulo, aspecto: elegidoPara(munecos, elegido.titulo), animo: animoDe(elegido), dato: trabajaSinEscribir(elegido, lineas) ?? metaDe(elegido) }}
               vivo={{ chat: elegido, carteros }}
-              onResponder={centro ? (p, e, o) => centro.contestarPregunta(elegido, p, e, o) : undefined} />
+              onResponder={centro ? (p, e, o) => centro.contestarPregunta(elegido, p, e, o) : undefined}
+              tareas={centro?.tareasDe(elegido)} onFeedback={responderSobre} />
             {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
             {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}
           </div>

@@ -64,8 +64,11 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA, onRenomb
    * cuerpo de la ficha (`flex: 1; minHeight: 0; overflowY: auto` adentro de un panel con alto
    * topeado); en la ruta /crm/[id], el documento. Por eso esta fila no puede vivir adentro de nada
    * con `overflow`: la raíz de LeadTabs no lleva ninguno.
+   *
+   * `arriba`: dónde se pega. En la ruta (pegada a la VENTANA) va debajo de la barra de inspección (#850); en el pop-up,
+   * que scrollea adentro, en 0.
    */
-  fija?: { fondo: string };
+  fija?: { fondo: string; arriba?: string };
   /**
    * Cambiar de hoja DESDE AFUERA: «solucionar» un dato sin marcar lleva a la hoja donde vive su campo
    * (13/10/2026), y una hoja recién creada se abre sola. `n` cambia en cada pedido, así pedir dos veces la
@@ -118,7 +121,7 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA, onRenomb
           pantalla siempre»). */}
       <div style={{
         borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, minHeight: 'var(--touch)', paddingLeft: sangria,
-        ...(fija ? { position: 'sticky' as const, top: 0, zIndex: 5, background: fija.fondo, paddingTop: 6 } : {}),
+        ...(fija ? { position: 'sticky' as const, top: fija.arriba ?? 0, zIndex: 5, background: fija.fondo, paddingTop: 6 } : {}),
       }}>
         <div className="lt-izq">
           {editable && activa ? (

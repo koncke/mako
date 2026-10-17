@@ -411,7 +411,8 @@ test('CABLEADO: el emisor le pasa la zona del negocio a toquesVencidos (la hora 
 
 test('CABLEADO: cada toque sale por SU número', () => {
   const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
-  assert.match(b, /enviarYEspejar\(\{ telefono, texto, leadId: lead\.id, linea: toque\.linea \}\)/,
+  // (17/10, #869: y el interruptor de la vista previa de SU tarjeta, tests/recordatorio-vista-previa.test.ts.)
+  assert.match(b, /enviarYEspejar\(\{ telefono, texto, leadId: lead\.id, linea: toque\.linea(?:, sinVistaPrevia: toque\.sinVistaPrevia === true)? \}\)/,
     'sin `linea`, el número elegido en la tarjeta se guarda y el toque sale por la de por default');
   // (La ruta que guardaba el número de cada toque se fue con el lienzo de antes, el 10/10/2026: el número
   // es la `linea` del paso de la automatización, que valida `setSecuenciaPasos` como en cualquier otra.)
