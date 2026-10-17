@@ -12,9 +12,9 @@
 // negocio y le llegaban los reportes (ventas, gasto, montos). El mismo corte que /api/equipo.
 
 import type { NextRequest } from 'next/server';
-import { getDestinatarios, setDestinatarios, type Destinatarios } from '@/lib/notif-destinatarios';
+import { setDestinatarios, type Destinatarios } from '@/lib/notif-destinatarios';
 import { getWorkspaceActual, getWorkspace, getRolWsEfectivo } from '@/lib/workspace';
-import { getGrupoJidMaKo } from '@/lib/mako-grupo';
+import { destinatariosDelNegocio } from '@/lib/destinatarios-negocio';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -28,12 +28,8 @@ async function soloAdmin(): Promise<Response | null> {
 export async function GET() {
   const cerrada = await soloAdmin();
   if (cerrada) return cerrada;
-  const ws = await getWorkspaceActual();
-  const [destinatarios, grupoJid] = await Promise.all([
-    getDestinatarios(),
-    ws != null ? getGrupoJidMaKo(ws) : Promise.resolve(null),
-  ]);
-  return Response.json({ ok: true, destinatarios, tieneGrupo: Boolean(grupoJid) });
+  // La lectura vive en lib/destinatarios-negocio.ts (17/10/2026): la comparte el teléfono, que la hace en el server.
+  return Response.json({ ok: true, ...(await destinatariosDelNegocio()) });
 }
 
 export async function POST(req: NextRequest) {

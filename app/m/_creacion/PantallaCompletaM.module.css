@@ -1,0 +1,10 @@
+/* La capa de un editor a pantalla completa (PantallaCompletaM.tsx). Sólo tokens; el oscuro es el fondo de la sidebar,
+   que es oscuro en los dos temas (como el reproductor de app/m/video/video.css). */
+.capa {
+  position: fixed; z-index: 41; inset: 0;
+  display: flex; flex-direction: column; min-height: 0;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: var(--bg); color: var(--ink);
+  overscroll-behavior: contain;
+}
+.oscura { background: var(--sidebar); color: var(--on-sidebar); }

@@ -61,6 +61,16 @@ export async function listarUsuarios(): Promise<Usuario[]> {
   return (data ?? []) as Usuario[];
 }
 
+/**
+ * Los miembros del equipo de un workspace: sus usuarios-cliente, nunca los admins de la agencia (17/10/2026: vivía en
+ * app/api/equipo/route.ts; lo comparte la pantalla del teléfono, que lo lee en el server). Quien lo llama pregunta antes
+ * si es el admin de ESE negocio.
+ */
+export async function equipoDe(ws: number): Promise<Usuario[]> {
+  const todos = await listarUsuarios();
+  return todos.filter((u) => u.rol === 'usuario' && u.workspace_id === ws);
+}
+
 export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | null> {
   const { data, error } = await getSupabaseServer()
     .from('usuarios').select(COLS).eq('email', email.trim().toLowerCase()).maybeSingle();
