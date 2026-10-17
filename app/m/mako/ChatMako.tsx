@@ -44,6 +44,8 @@ import {
   itemsDeSesion, leerRespuesta, textoConArchivos, type EstadoPropuesta, type ItemHilo,
 } from './chat-ui';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
+import { PegadosHilo, TextoPlegable } from '@/app/_chat/PegadoHilo';
+import { partirPegados } from '@/lib/chat-pegado';
 
 const RUTA = '/api/m/mako';
 /** El maxDuration de /api/m/mako es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
@@ -296,7 +298,8 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
   if (x.k === 'msg') {
     const tuyo = x.role === 'user';
     // Con los archivos a la vista, sin el «(envió una imagen: x)» que el turno guarda para el modelo.
-    const t = x.archivos?.length ? textoConArchivos(x.texto) : x.texto;
+    // Lo pegado largo, como documento; lo escrito largo, plegado (#848 y #864: lib/chat-pegado.ts, lo mismo que escritorio).
+    const { texto: t, pegados } = partirPegados(x.archivos?.length ? textoConArchivos(x.texto) : x.texto);
     return (
       <li className={`m-mako-msg ${tuyo ? 'm-mako-msg--yo' : 'm-mako-msg--mk'}`} data-estado={x.estado}>
         <div className="m-mako-burbuja">
@@ -305,7 +308,10 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
           {!x.archivos?.length && x.adjuntos && x.adjuntos.length > 0 && (
             <p className="m-mako-adjuntos">{x.adjuntos.join(' · ')}</p>
           )}
-          {t && <div className={x.voz ? 'm-mako-transcripcion' : 'm-mako-texto'}>{tuyo ? t : conNegritas(t)}</div>}
+          {tuyo && <PegadosHilo pegados={pegados} />}
+          {t && (tuyo && !x.voz
+            ? <TextoPlegable texto={t} className="m-mako-texto" />
+            : <div className={x.voz ? 'm-mako-transcripcion' : 'm-mako-texto'}>{tuyo ? t : conNegritas(t)}</div>)}
         </div>
         {x.estado === 'error' ? (
           <p className="m-mako-falla" role="alert">

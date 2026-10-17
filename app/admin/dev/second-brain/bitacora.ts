@@ -458,4 +458,23 @@ export const BITACORA: Hito[] = [
       'tests/second-brain-recuperar.test.ts',
     ],
   },
+  {
+    fecha: '17 oct', hora: '11:00', chat: 'Second Brain', sesion: 'local_26ff7b73-b712-4726-9882-89617840bf7c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Pegar una transcripción larga ya no rompe el chat: va como documento y se guarda sola',
+    pedido: 'Pegar una transcripción larga en el chat del Second Brain rompe la pantalla. Un texto pegado de más de 1.000 caracteres se ve como un documento adjunto, como en Claude. Lo que se pega queda guardado solo en el Second Brain.',
+    puntos: [
+      'Un texto pegado de más de 1.000 caracteres no entra a la caja: queda como una ficha «Texto pegado» y en el chat se ve como un documento que se abre.',
+      'Lo escrito muy largo se pliega con «Ver todo». Antes, una transcripción de 400 renglones ocupaba 24.474 px de alto.',
+      'Lo que pegas se guarda solo en El Archivero, entero, y MaKo le saca los datos como a cualquier documento.',
+      'Igual en la computadora y en el teléfono.',
+    ],
+    archivos: [
+      'lib/chat-pegado.ts — las reglas (marcar, partir, cortar sin romper)',
+      'app/_chat/PegadoHilo.tsx — la tarjeta y la burbuja plegada',
+      'lib/chat-mako-adjuntos.ts → archivarPegadosDelChat — El Archivero',
+      'tests/chat-pegado.test.ts',
+    ],
+    revisar: '/second-brain',
+  },
 ];

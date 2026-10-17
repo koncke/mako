@@ -23,6 +23,34 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## El texto pegado en el chat: un documento, no un mazacote (17/10/2026, tarjetas #848, #864 y #884)
+
+`lib/chat-pegado.ts` (las reglas), `app/_chat/PegadoHilo.tsx` (la tarjeta y la burbuja plegada), las dos cajas
+(ChatSecondBrain.tsx y app/m/mako/Composer.tsx), los dos hilos (HiloMako.tsx y ChatMako.tsx) y el turno.
+
+- **#848: el diagnóstico obvio (la CSS rota) era el equivocado.** Reproducido sin la app, con 400 renglones: la página
+  NO se desborda a lo ancho (la burbuja y la caja ya cortaban y tenían tope), pero la burbuja medía **24.474 px** de
+  alto: el chat entero pasaba a ser el pegado. Ahora el pegado es una tarjeta (100 px) y lo escrito largo se pliega
+  con «Ver todo» (249 px).
+- **Cómo se reproduce un problema de layout sin levantar la app:** `renderToString` del hilo (con un stub de `.css`), las
+  tres hojas reales (globals, centro.css, chat.css) en un HTML, y Chrome headless con `--dump-dom`; un script de la
+  página mide (`getBoundingClientRect`) y escribe el resultado en el DOM. Cuesta ~300 MB, no 4 GB.
+- **El pegado viaja marcado DENTRO del mensaje** (`[[texto pegado]]…[[/texto pegado]]`), no como archivo: los adjuntos
+  del chat son fotos y PDF validados por sus bytes que van al modelo como documento (lib/mako-adjuntos.ts); un .txt no
+  entra en ese camino. Así se guarda en el hilo como siempre y se vuelve a partir al releerlo.
+- **El turno cortaba el mensaje en 8.000 caracteres (`TOPE_MENSAJE`)**, y con un pegado largo se perdía la marca de cierre:
+  el hilo habría mostrado el pegado crudo. El corte ahora respeta las marcas (`recortarMensaje`): lo escrito hasta 8.000,
+  los pegados con su propio tope (12.000, el historial viaja con los últimos 12 mensajes) y un aviso en el que se cortó.
+- **#884: El Archivero recibe el pegado ENTERO** (de `entrada.mensaje`, antes del corte), como documento de texto, y le saca
+  los datos como a cualquier otro: entra al grafo como `doc:`. Sólo del admin y sólo con `guardarAdjuntos` (el MaKo
+  Analyst de un lead usa el mismo turno y lo que se pega ahí es del lead), igual que los PDF.
+- **En el teléfono `app/_chat/chat.css` no se carga** (tampoco para ArchivosHilo, que ya se veía sin estilo): la pieza nueva
+  importa su hoja. Y una `<p>` en /m lleva el margen del navegador (no hay reset): `.ch-plegable > p { margin: 0 }`.
+- **Lo que quedó SIN hacer:** la caja del Ops Center (ChatDelCentro, AdjuntosCaja, en app/admin/operaciones) puede usar
+  las mismas piezas; es de ese chat. Y «lo que se charla se guarda solo»: la charla ya es un nodo del grafo (`chat:`),
+  pero escribir el perfil del negocio sin confirmar sigue con la tarjeta de siempre (un dato mal deducido de una charla
+  pisaría uno bueno sin que nadie lo vea).
+
 ## Que el grafo sirva a los chats: la vista local y lo que ahorra, medido (17/10/2026, punto 13c)
 
 `lib/cerebro-recuperar.ts` (puro): el ÍNDICE (carpetas y áreas con su conteo, una línea y ejemplos con id) y la VISTA

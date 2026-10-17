@@ -55,6 +55,7 @@ import {
 import { achicarImagen } from '@/app/m/mako/subir';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { VolverDelGrafo } from './volver';
+import { caracteres, conPegados, esPegadoLargo, nombrePegado } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
   ARRANQUES_SECOND_BRAIN, AVISO_ANTES, JEFE_SECOND_BRAIN, SECCION_ANTES, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, colgarIrA, edadCorta, filtrarSubs,
@@ -217,6 +218,11 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const [elegidos, setElegidos] = useState<ArchivoElegido[]>([]);
   const elegidosRef = useRef<ArchivoElegido[]>([]);
   const ponerElegidos = (xs: ArchivoElegido[]) => { elegidosRef.current = xs; setElegidos(xs); };
+  /** Los textos pegados de más de 1.000 caracteres (#864): no van a la caja, van como un documento con el mensaje
+   *  (lib/chat-pegado.ts). El ref los tiene al día, como el de los archivos. */
+  const [pegados, setPegados] = useState<Array<{ id: string; texto: string }>>([]);
+  const pegadosRef = useRef<Array<{ id: string; texto: string }>>([]);
+  const ponerPegados = (xs: Array<{ id: string; texto: string }>) => { pegadosRef.current = xs; setPegados(xs); };
   const [soltando, setSoltando] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
 
@@ -317,6 +323,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     setFaltaMic(null);
     for (const a of elegidosRef.current) URL.revokeObjectURL(a.url);
     ponerElegidos([]);
+    ponerPegados([]);
     // Con el Mapa abierto, volver a una conversación es volver a la página sin `panel` (lo arma el servidor).
     if (mapa) { router.push('id' in e ? `${base}?chat=${e.id}` : 'centro' in e ? `${base}?centro=${encodeURIComponent(e.centro)}` : base); }
     if (ticketera) cerrarTicketera();
@@ -388,9 +395,11 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
 
   const enviarCaja = () => {
     const t = texto.trim();
-    if ((!t && !elegidosRef.current.length) || ocupadoRef.current) return;
-    // La vista previa NO se suelta acá: la burbuja que sale la sigue mostrando hasta que vuelve guardada.
-    if (enviar(t, elegidosRef.current)) { setTexto(''); ponerElegidos([]); }
+    const pg = pegadosRef.current.map((p) => p.texto);
+    if ((!t && !elegidosRef.current.length && !pg.length) || ocupadoRef.current) return;
+    // La vista previa NO se suelta acá: la burbuja que sale la sigue mostrando hasta que vuelve guardada. Los pegados
+    // salen DENTRO del mensaje, entre sus marcas: el hilo los dibuja como documento y el turno los archiva (#884).
+    if (enviar(conPegados(t, pg), elegidosRef.current)) { setTexto(''); ponerElegidos([]); ponerPegados([]); }
   };
 
   // ── Los archivos de la caja: el «+», pegar y arrastrar. Los mismos topes que la ruta (4 archivos, 4 MB). ──
@@ -660,8 +669,17 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
               </div>
             ) : (
             <div className="co-caja">
-              {elegidos.length > 0 && (
+              {(elegidos.length > 0 || pegados.length > 0) && (
                 <ul className="ch-elegidos" aria-label="Archivos para mandar">
+                  {pegados.map((p) => (
+                    <li key={p.id} className="ch-elegido ch-elegido--pegado">
+                      <IconoChat nombre="archivo" size={20} />
+                      <span className="ch-elegido__nombre" title={nombrePegado(p.texto)}>{`${nombrePegado(p.texto, 24)} · ${caracteres(p.texto)}`}</span>
+                      <button type="button" className="ch-elegido__quitar" onClick={() => ponerPegados(pegadosRef.current.filter((x) => x.id !== p.id))} aria-label="Quitar el texto pegado">
+                        <Icon name="x" size={14} />
+                      </button>
+                    </li>
+                  ))}
                   {elegidos.map((a) => (
                     <li key={a.id} className="ch-elegido">
                       {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
@@ -680,7 +698,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
                 onPaste={(e) => {
                   // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: si hay texto, se pega el texto.
                   const fs = Array.from(e.clipboardData.files);
-                  if (fs.length && !Array.from(e.clipboardData.types).includes('text/plain')) { e.preventDefault(); void sumarArchivos(fs); }
+                  if (fs.length && !Array.from(e.clipboardData.types).includes('text/plain')) { e.preventDefault(); void sumarArchivos(fs); return; }
+                  // Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude).
+                  const pegado = e.clipboardData.getData('text/plain');
+                  if (esPegadoLargo(pegado)) { e.preventDefault(); ponerPegados([...pegadosRef.current, { id: idLocal('p'), texto: pegado }]); }
                 }}
                 placeholder="Escríbele a MaKo" aria-label="Escríbele a MaKo"
                 disabled={!cargado || !!errorCarga}
@@ -693,7 +714,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
                 <input ref={entrada} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden
                   onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; void sumarArchivos(fs); }} />
                 <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); setTexto(v); }} onError={setFaltaMic} apagado={!cargado || !!errorCarga} />
-                <button type="button" className="co-enviar" onClick={enviarCaja} disabled={!!trabajo || (!texto.trim() && !elegidos.length) || !cargado || !!errorCarga}
+                <button type="button" className="co-enviar" onClick={enviarCaja} disabled={!!trabajo || (!texto.trim() && !elegidos.length && !pegados.length) || !cargado || !!errorCarga}
                   aria-label="Mandar" title="Mandar (Enter)">
                   {trabajo ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
                 </button>
