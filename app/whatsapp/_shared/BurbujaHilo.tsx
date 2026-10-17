@@ -17,7 +17,7 @@
 //    su NOMBRE, y ChatHilo lo usaba como título del archivo. Quien quiera un caption debajo pasa
 //    `nombre` en la media y `texto` aparte.
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { TextoMarcas } from '@/app/_components/TextoMarcas';
 import { AudioPlay } from './AudioPlay';
 import { IconClip, IconDoc } from './composer-icons';
@@ -155,9 +155,7 @@ export function BurbujaHilo({ contenido, saliente = true, compacta = false, auto
         <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: sep(conTexto || !!audio.transcript) }}>{audio.titulo}{audio.duracion_s ? ` · ${fmtDur(audio.duracion_s)}` : ''}</div>
       )}
       {audio?.transcript && (
-        <div style={{ fontSize: compacta ? 11 : 12, color: 'var(--faint)', lineHeight: 1.45, marginBottom: sep(conTexto) }}>
-          Dice: «{audio.transcript.slice(0, compacta ? 90 : 140)}{audio.transcript.length > (compacta ? 90 : 140) ? '…' : ''}»
-        </div>
+        <Transcripcion texto={audio.transcript} compacta={compacta} style={{ fontSize: compacta ? 11 : 12, color: 'var(--faint)', lineHeight: 1.45, marginBottom: sep(conTexto) }} />
       )}
 
       {(conTexto || (tipo === 'document' && !!media?.nombre && !!texto)) && (
@@ -174,6 +172,36 @@ export function BurbujaHilo({ contenido, saliente = true, compacta = false, auto
           {hora && <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>{hora}</span>}
           {pie}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Cuánto de la transcripción se ve antes del «…»: en la tarjeta del lienzo y en el hilo. */
+export const TOPE_TRANSCRIPCION = { compacta: 90, hilo: 140 } as const;
+
+/**
+ * La transcripción de un audio: «Dice: «…»». En el HILO se lee ENTERA con «Ver todo» (17/10/2026): se cortaba a 140
+ * letras sin forma de leer el resto, y en el chat de Offer (o de MaKo) lo que el dueño DICTÓ es justamente lo que se
+ * quiere releer (docs/relevo/offer.md, «la transcripción cortada a 140 caracteres»). En la tarjeta del lienzo
+ * (`compacta`) sigue el recorte: ahí un clic abre el editor.
+ */
+function Transcripcion({ texto, compacta, style }: { texto: string; compacta: boolean; style: CSSProperties }) {
+  const [entera, setEntera] = useState(false);
+  const tope = compacta ? TOPE_TRANSCRIPCION.compacta : TOPE_TRANSCRIPCION.hilo;
+  const larga = texto.length > tope;
+  const verTodo = larga && entera && !compacta;
+  return (
+    <div style={style}>
+      Dice: «{verTodo ? texto : texto.slice(0, tope)}{larga && !verTodo ? '…' : ''}»
+      {larga && !compacta && (
+        <>
+          {' '}
+          <button type="button" onClick={() => setEntera((v) => !v)} aria-expanded={entera}
+            style={{ border: 0, padding: 0, background: 'none', color: 'var(--primary)', font: 'inherit', cursor: 'pointer' }}>
+            {entera ? 'Ver menos' : 'Ver todo'}
+          </button>
+        </>
       )}
     </div>
   );
