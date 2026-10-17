@@ -1,5 +1,5 @@
 import 'server-only';
-import { templateDeCanal } from '@/lib/pipeline';
+import { templateDeCanal, type Stage } from '@/lib/pipeline';
 
 // =============================================================================
 // producto-con-funnel — dar de alta un producto Y su tablero, de una
@@ -55,7 +55,17 @@ export type ProductoNuevo = { productoId: number; ofertaId: number; funnelId: nu
  * configuración: quien crea un producto sabe si lo vende por llamada o por carrito.
  * Sin canal se cae a la genérica, que sigue siendo mejor que una pantalla en blanco.
  */
-export async function crearProductoConFunnel(nombreCrudo: string, canal?: string | null): Promise<ProductoNuevo> {
+export async function crearProductoConFunnel(
+  nombreCrudo: string,
+  canal?: string | null,
+  /**
+   * Las etapas que ELIGIÓ quien crea (un tipo de «Nuevo CRM», `crearCrm` en lib/nuevo-crm.ts), con
+   * sus nutriciones apagadas y lo que va en el `data` (la entrada). Van en el MISMO insert del
+   * embudo: escritas después, si la segunda escritura fallaba el CRM quedaba con las del canal.
+   * Sin esto, la plantilla del canal.
+   */
+  siembra?: { pipeline: Stage[]; suppressed?: readonly string[]; extra?: Record<string, unknown> },
+): Promise<ProductoNuevo> {
   const nombre = (nombreCrudo ?? '').trim();
   if (!nombre) throw new Error('El funnel necesita un nombre.');
   // El nombre del funnel reservado es el que la migración 0170 le puso a todos:
@@ -83,13 +93,17 @@ export async function crearProductoConFunnel(nombreCrudo: string, canal?: string
 
   // La plantilla del canal declarado. `templateDeCanal` falla cerrado: con un canal que
   // no está en el catálogo devuelve null y el funnel nace con la genérica.
+  // Con `siembra`, mandan sus etapas; la plantilla del canal queda anotada como de dónde salió.
   const tpl = templateDeCanal(canal);
+  const propias = siembra?.pipeline.length ? siembra : null;
   const funnelId = await crearFunnel({
     nombre,
     esDefault: false,
     canal: canal ?? null,
     plantilla: tpl?.id ?? null,
-    pipeline: tpl?.pipeline,
+    pipeline: propias ? propias.pipeline : tpl?.pipeline,
+    suppressed: propias ? [...(propias.suppressed ?? [])] : tpl?.suppressed,
+    extra: siembra?.extra,
   });
   await ligarOfertaAFunnel(funnelId, ofertaId, true);
 

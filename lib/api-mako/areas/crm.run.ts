@@ -1567,8 +1567,7 @@ export const RUNNERS: Runners = {
       try {
         const r = await crearCrm(String(payload.nombre), siembra);
         invalidar('pipeline', 'leads');
-        const aviso = r.etapasDelTipo ? '' : ' Quedó con las etapas de su canal: ajústalas desde el lápiz del CRM.';
-        return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).${aviso}`, datos: { embudoId: r.funnelId, productoId: r.productoId } };
+        return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).`, datos: { embudoId: r.funnelId, productoId: r.productoId } };
       } catch (e) {
         // `crearProductoConFunnel` tira con un mensaje para la persona (nombre vacío o reservado).
         return { ok: false, resumen: e instanceof Error ? e.message : String(e) };

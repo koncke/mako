@@ -53,7 +53,9 @@ import {
   type RespuestaQA,
   type EstadoLead,
   enriquecerLead,
+  valorDelHistorial,
 } from '@/lib/leads';
+import { camposPisados } from '@/lib/historial-pisado';
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { agregarAProducto } from '@/lib/lead-funnel';
@@ -86,7 +88,7 @@ import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra,
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
 import {
   VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline,
-  esCampoContacto, mismoDatoDeContacto, mismoValorDeCampo, valorGuardadoDeCampo, YA_LO_CAMBIARON,
+  esCampoDeshacible, mismoDatoDeContacto, mismoValorDeCampo, valorGuardadoDeCampo, YA_LO_CAMBIARON,
 } from './campo-inline';
 // El usuario de Instagram del ALTA (punto 28) se normaliza con la MISMA regla que el de la ficha.
 import { usuarioInstagram } from './campo-inline';
@@ -164,7 +166,6 @@ import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type Pla
 import { avisoDeConservadas } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
-import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
 import { TOPE_NOTA, BUCKET_NOTAS_LEAD, pathEsNotaDelLead } from './notas-reglas';
@@ -863,36 +864,6 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
   bust(TAG.leads);
   revalidatePath('/crm');
   return { id: created.id };
-}
-
-/**
- * Alta desde el MODAL del tablero: crea y devuelve el id, sin navegar.
- *
- * Devuelve el error en vez de tirarlo porque el que llama es un modal abierto
- * encima del tablero: una excepción ahí sube al error boundary y se lleva puesta la
- * pantalla entera, con los filtros y el scroll que este cambio vino a preservar.
- */
-/**
- * Un producto nuevo con su tablero, sin salir del CRM.
- *
- * Devuelve el error en vez de tirarlo: el que llama es un modal abierto encima del
- * tablero, y una excepción ahí sube al error boundary y se lleva la pantalla entera.
- */
-/**
- * ⚠️ RECIBE EL CANAL, y es lo que hace que el tablero nuevo sea DISTINTO del de al lado.
- * Sin él, el funnel nacía sin etapas y caía a la plantilla genérica — que en un workspace
- * que nunca tocó su funnel es idéntica a la del negocio.
- */
-export async function crearProductoAction(nombre: string, canal?: string | null): Promise<{ funnelId: number } | { error: string }> {
-  try {
-    const { funnelId } = await crearProductoConFunnel(nombre, canal);
-    bust(TAG.leads);
-    revalidatePath('/crm');
-    revalidatePath('/funnel');
-    return { funnelId };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'No se pudo crear el funnel.' };
-  }
 }
 
 /**
@@ -2430,12 +2401,13 @@ export async function deshacerCampoLeadAction(id: number, campo: string, antes: 
 
 /**
  * El mismo «Deshacer» para los datos de contacto que se guardan por `saveLeadMetaAction` (el email, el teléfono, la
- * empresa, las redes, la dirección y el sexo del Resumen): sólo si el dato sigue diciendo lo que se escribió.
+ * empresa, las redes, la dirección y el sexo del Resumen, y el nombre de «Información principal»): sólo si el dato
+ * sigue diciendo lo que se escribió.
  */
 export async function deshacerContactoLeadAction(id: number, campo: string, antes: string | null, esperado: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
   const sesion = await getUsuarioActual().catch(() => null);
   if (!sesion) return { ok: false, error: 'Tu sesión venció' };
-  if (!esCampoContacto(campo)) return { ok: false, error: 'Ese dato no se edita aquí' };
+  if (!esCampoDeshacible(campo)) return { ok: false, error: 'Ese dato no se edita aquí' };
   try {
     const lead = await getLead(id);
     if (!lead) return { ok: false, error: 'No encontré el lead' };
@@ -2639,6 +2611,9 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
   if (!REVERTIBLES.has(row.campo)) throw new Error(`"${row.campo}" no se puede deshacer automáticamente.`);
 
   const before = await getLead(leadId).catch(() => null);
+  // Lo mismo que `revertMoveAction`: no pisa lo que cambió otra persona después de esta línea.
+  if (!before) throw new Error('No pude leer el lead para deshacer.');
+  if (camposPisados([row], (c) => valorDelHistorial(before, c)).length) throw new Error(`${YA_LO_CAMBIARON}: ${row.campo}`);
   const v = row.valor_anterior; // string | null (formato de auditVal)
   const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
 
@@ -2702,7 +2677,7 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
  * sola pasada, respetando las invariantes (estado y monto van en el mismo
  * updateLead para que "cerro=true ⇒ monto" no se pise). Queda auditado.
  */
-export async function revertMoveAction(leadId: number, createdAt: string): Promise<void> {
+export async function revertMoveAction(leadId: number, createdAt: string): Promise<void | { error: string }> {
   const allAudit = await getLeadAudit(leadId);
   const grupo = allAudit.filter(
     (r) => r.created_at === createdAt && REVERTIBLES.has(r.campo) && r.valor_anterior !== r.valor_nuevo,
@@ -2714,14 +2689,23 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   const STATUS = new Set(['Etapa', 'Estado']);
   if (grupo.some((r) => STATUS.has(r.campo))) {
     const ultimo = allAudit.filter((r) => STATUS.has(r.campo)).reduce((mx, r) => (r.created_at > mx ? r.created_at : mx), '');
-    if (ultimo && createdAt !== ultimo) throw new Error('Solo se puede deshacer el último cambio de estado. Vuelve de a uno, empezando por el más reciente.');
+    if (ultimo && createdAt !== ultimo) return { error: 'Solo se puede deshacer el último cambio de estado. Vuelve de a uno, empezando por el más reciente.' };
   }
 
   const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
 
+  // ⚠️ NO PISA LO QUE CAMBIÓ OTRA PERSONA DESPUÉS (17/10/2026, docs/relevo/crm.md §0-Ω10): cada dato del grupo tiene
+  // que seguir diciendo lo que escribió esta línea. Si no, no se escribe nada y se dice cuál (`camposPisados`).
+  const actual = await getLead(leadId).catch(() => null);
+  if (!actual) throw new Error('No pude leer el lead para deshacer.');
+  const pisados = camposPisados(grupo, (c) => valorDelHistorial(actual, c));
+  // Se DEVUELVE y no se tira: en producción Next esconde el mensaje de un error de server action, y éste
+  // es justo el que la persona tiene que leer.
+  if (pisados.length) return { error: `${YA_LO_CAMBIARON}: ${pisados.join(', ')}` };
+
   // El plazo de una suscripción CANCELADA no se revierte (`plazoSeRevierte`): se corta ANTES de escribir nada del grupo.
-  if (grupo.some((r) => r.campo === CAMPO_SUS_MESES) && !plazoSeRevierte(canceladaDe(await getLead(leadId).catch(() => null)))) {
-    throw new Error(PLAZO_DE_CANCELADA);
+  if (grupo.some((r) => r.campo === CAMPO_SUS_MESES) && !plazoSeRevierte(canceladaDe(actual))) {
+    return { error: PLAZO_DE_CANCELADA };
   }
 
   const upd: Parameters<typeof updateLead>[1] = {};
