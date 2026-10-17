@@ -7056,6 +7056,12 @@ tests/plan-fathom-sin-inventos.test.ts (los números de la medición en su cabec
   de un cliente, que vivía copiado adentro de `aplicarPropuestas`, ahora es uno solo (`cerrarTareaCliente`).
 - `proponer_cierre_tareas` queda para lo que sólo se DEDUCE (confianza media, o «a medias»).
 
+**Trampa al nombrarla:** en la descripción de `actualizar_avance_tarea` se cambió «usa proponer_cierre_tareas» por «usa
+cerrar_tareas_plan». Eso le sumó «plan» a su relevancia. En un «mové eso al viernes» por WhatsApp pasó a entrar ella y
+quedó afuera `listar_tareas_plan`, la que el turno necesita (lo cazó antes-de-subir en tests/agenda-whatsapp.test.ts).
+La descripción de una operación compite por el presupuesto de herramientas de WhatsApp (`ordenarPorRelevancia`): nombrar
+otra operación le suma las palabras de su id. Se dejó como estaba.
+
 **El «Ya está» de un chat** (`cerrarPorYaEsta`, lib/centro-plan.ts) cierra:
 - las tarjetas que nombra por número (#870);
 - si no nombra ninguna, la abierta del proyecto del jefe cuyo título ENTERO, de tres palabras o más, aparece en el

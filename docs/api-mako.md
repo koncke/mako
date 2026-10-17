@@ -1178,7 +1178,7 @@ curl -L \
 
 ### `PUT /api/v1/plan/tareas/{id}/avance` — Cambiar el avance de una tarea
 
-Cambia el avance (0-99 %) de UNA tarea y deja rastro en el historial; la columna (por hacer, en curso) se deriva sola del avance. También sirve para reabrir una tarea hecha. Para marcarla HECHA (100 %) usa cerrar_tareas_plan, que pide la evidencia. No toca score, deadline ni proyecto.
+Cambia el avance (0-99 %) de UNA tarea y deja rastro en el historial; la columna (por hacer, en curso) se deriva sola del avance. También sirve para reabrir una tarea hecha. Para marcarla HECHA (100 %) usa proponer_cierre_tareas, que pide la evidencia. No toca score, deadline ni proyecto.
 
 - **Ruta por operación:** `POST /api/v1/plan/actualizar_avance_tarea`
 - **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)

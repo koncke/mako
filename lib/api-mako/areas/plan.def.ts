@@ -264,7 +264,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'actualizar_avance_tarea', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar el avance de una tarea',
-    descripcion: 'Cambia el avance (0-99 %) de UNA tarea y deja rastro en el historial; la columna (por hacer, en curso) se deriva sola del avance. También sirve para reabrir una tarea hecha. Para marcarla HECHA (100 %) usa cerrar_tareas_plan, que pide la evidencia. No toca score, deadline ni proyecto.',
+    descripcion: 'Cambia el avance (0-99 %) de UNA tarea y deja rastro en el historial; la columna (por hacer, en curso) se deriva sola del avance. También sirve para reabrir una tarea hecha. Para marcarla HECHA (100 %) usa proponer_cierre_tareas, que pide la evidencia. No toca score, deadline ni proyecto.',
     parametros: [
       { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan), o «#412».', obligatorio: true, max: 80 },
       { nombre: 'progreso', tipo: 'number', descripcion: 'avance nuevo en %, de 0 a 99.', obligatorio: true, entero: true, minimo: 0, maximo: 99 },
