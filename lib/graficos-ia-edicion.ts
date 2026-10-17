@@ -134,6 +134,13 @@ const GUIA_EXPERIMENTOS = [
   metricasExperimentoParaIA(),
 ].join('\n');
 
+/**
+ * #862 (Martín, 16/10: «Una cosa es MaKo analiza y otra cosa es MaKo Edita»): un pedido de ANÁLISIS no es un cambio. Va en
+ * el USER por lo mismo que los experimentos (el system se reemplaza desde /configuraciones), en el Dashboard y en General.
+ * El código descarta los cambios que vengan con `analizar` (`aplicarEdicion`): la regla no depende de que el modelo la cumpla.
+ */
+const GUIA_ANALIZAR = 'SI PIDE UN ANÁLISIS y no un cambio (qué pasa, por qué subió o bajó, cómo va, qué conviene hacer, una opinión del negocio): no cambies la hoja. Devuelve {"respuesta":"una frase: eso lo hace el modo Analizar","analizar":true} y nada más.';
+
 /** El mensaje user: el catálogo (con el alcance de la hoja), la hoja, lo último que se habló y el pedido, todo como dato. */
 export function userDeEdicion(p: { hoja: Hoja; pedido: string; historial?: readonly TurnoEdicion[]; alcance?: AlcanceIA }): string {
   const turnos = (p.historial ?? []).slice(-TURNOS_IA)
@@ -141,6 +148,8 @@ export function userDeEdicion(p: { hoja: Hoja; pedido: string; historial?: reado
   return [
     catalogoParaIA(undefined, p.alcance),
     ...(conExperimentos(p.alcance) ? ['', GUIA_EXPERIMENTOS] : []),
+    '',
+    GUIA_ANALIZAR,
     '',
     'LA HOJA (como está; los "id" son los que usas en "quitar" y "cambiar"):',
     contenidoNoConfiable(hojaParaIA(p.hoja), 'hoja'),
@@ -164,6 +173,8 @@ export type ResultadoEdicion = {
   errores: string[];
   /** Lo que se corrigió o descartó, pieza por pieza, con ids: para el log y el reintento. */
   correcciones: string[];
+  /** #862: pidió un ANÁLISIS, no un cambio: la hoja no se tocó y el panel ofrece pasar al modo «Analizar». */
+  analizar: boolean;
 };
 
 /**
@@ -203,6 +214,11 @@ const CAMPOS_GRAFICO = ['tipo', 'fuente', 'metricas', 'dimension', 'desglose', '
 export function aplicarEdicion(hoja: Hoja, json: unknown, alcance: AlcanceIA = {}): ResultadoEdicion {
   const o = (json && typeof json === 'object' && !Array.isArray(json) ? json : {}) as Record<string, unknown>;
   const respuesta = texto(o.respuesta, 500);
+  // #862: un ANÁLISIS pedido en «Editar» no cambia la hoja, AUNQUE el modelo mande cambios con él (lo que pasó con Joan el
+  // 16/10: pidió un análisis del funnel y MaKo le editó la hoja). El panel ofrece pasar a «Analizar».
+  if (o.analizar === true) {
+    return { hoja, respuesta: respuesta || 'Eso es un análisis: lo hace el modo Analizar.', cambios: [], avisos: [], errores: [], correcciones: [], analizar: true };
+  }
   const cambios: string[] = [];
   const avisos: string[] = [];
   const correcciones: string[] = [];
@@ -316,5 +332,5 @@ export function aplicarEdicion(hoja: Hoja, json: unknown, alcance: AlcanceIA = {
   const nueva = cambios.length
     ? sanearHoja({ ...hoja, ...(nombre ? { nombre } : {}), componentes }, 0) ?? hoja
     : hoja;
-  return { hoja: nueva, respuesta: respuesta || (cambios.length ? 'Listo.' : ''), cambios, avisos, errores, correcciones };
+  return { hoja: nueva, respuesta: respuesta || (cambios.length ? 'Listo.' : ''), cambios, avisos, errores, correcciones, analizar: false };
 }

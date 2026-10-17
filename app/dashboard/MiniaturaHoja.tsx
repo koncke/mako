@@ -60,8 +60,8 @@ const hoyLocal = (): string => {
 /** Un componente, como lo dibuja la hoja. `vivo`: ya montado y a la vista (los cuerpos entran recién ahí). */
 function Pieza({ c, hoja, vivo, hoy }: { c: Componente; hoja: Hoja; vivo: boolean; hoy: string }): ReactNode {
   const variables = useVariablesInforme();
-  // La portada (lib/graficos-identidad.ts): la misma tarjeta pintada que en la hoja.
-  const portada = marcoDePortada(c);
+  // La portada (lib/graficos-identidad.ts): la misma tarjeta pintada que en la hoja (con el color de la hoja, si tiene).
+  const portada = marcoDePortada(c, hoja.tema.acento);
   const conPortada = (clase: string): string => (portada ? `${clase} ${portada.clase}` : clase);
   const estilo = { flex: 1, ...(portada?.estilo ?? {}) } as CSSProperties;
   if (esGrafico(c)) {

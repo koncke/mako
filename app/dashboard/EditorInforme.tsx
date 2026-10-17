@@ -103,7 +103,7 @@ import {
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
-import { FILAS_PORTADA_EN_PILA, marcoDePortada } from '@/lib/graficos-identidad';
+import { FILAS_PORTADA_EN_PILA, acentoDeBloque, marcoDePortada } from '@/lib/graficos-identidad';
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
 import { useGeneral } from './ElementoGeneral';
@@ -115,6 +115,7 @@ import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '
 import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
 import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
 import { CrearHoja, NuevaHoja } from './NuevaHoja';
+import type { ModoMako } from './ModosMako';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
 import { PanelEditarMako, type MensajeEdicion } from './PanelEditarMako';
@@ -893,6 +894,15 @@ export function EditorInforme({
   const alternarAnalista = useCallback(() => { setMenu(null); setMakoEditar(false); setAnalista((v) => !v); }, []);
   const cerrarMakoEditar = useCallback(() => { setMakoEditar(false); setProbar(''); }, []);
   const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setProbar(''); setMakoEditar((v) => !v); }, []);
+  // #862: «Analizar · Editar» en la cabecera del panel de MaKo, sin cerrarlo: el AI Analyst y «Editar con MaKo» son el
+  // MISMO MaKo en dos modos. Sólo si la persona tiene los dos (el AI Analyst no es del que sólo mira; editar, sí del que guarda).
+  const conModosMako = !soloMirar && guardable && !enBlanco && !compartido;
+  const cambiarModoMako = useCallback((m: ModoMako) => {
+    setMenu(null);
+    setProbar('');
+    setAnalista(m === 'analizar');
+    setMakoEditar(m === 'editar');
+  }, []);
   /** La hoja de ese id como está AHORA en el informe (el panel compara por referencia antes de aplicar o deshacer). */
   const leerHoja = useCallback((id: string) => tableroRef.current.hojas.find((h) => h.id === id) ?? null, []);
   /** Lo que cambió MaKo (o su Deshacer) entra por `mutar`: tiene deshacer, y lo guarda el autoguardado de siempre. */
@@ -1141,10 +1151,15 @@ export function EditorInforme({
     const altoLibre = enPila && esGrafico(c) && graficoAltoLibreEnPila(c);
     // Un número (los cuadros de resultados) mide en la pila lo que dibuja, con el piso de una tarjeta de 3 filas: un CPM de
     // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
-    // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color; en la pila mide menos que en el escritorio.
-    const portada = marcoDePortada(c);
+    // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color —el de la hoja, si eligió uno (#859)—; en la
+    // pila mide menos que en el escritorio.
+    const portada = marcoDePortada(c, hoja.tema.acento);
     const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(portada ? Math.min(c.h, FILAS_PORTADA_EN_PILA) : c.h) }) : {};
-    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto, ...(portada?.estilo ?? {}) } as CSSProperties;
+    // #859: lo que un bloque de General pinta RELLENO (barras, botones, los números del Plan) toma el color de la hoja
+    // (`--gb-acento`, app/general/bloques/comun.tsx). Los links de texto siguen en `--primary`: un acento claro sobre la
+    // tarjeta blanca no se leería. Con portada manda la portada.
+    const acento = esElemento(c) && c.tipo === 'general' && !portada ? acentoDeBloque(hoja.tema.acento) : null;
+    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto, ...(portada?.estilo ?? {}), ...(acento ?? {}) } as CSSProperties;
     const alClic = (ev: ReactMouseEvent) => {
       if (!editando) return;
       ev.stopPropagation();
@@ -1220,8 +1235,10 @@ export function EditorInforme({
             Sin `onDetalle`, el clic en un número no hace nada y no se pinta como clicable. Desde v5, lo que
             abre lo decide el gráfico (`alClicDe`: el detalle, su pop-up o nada). */}
         {(() => {
-          const cuerpo = popupDelCloser ? <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={popupDelCloser} efectivo={ef} />
-            : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} />;
+          // #860: el ▶ de un anuncio, sólo con sesión (en un link compartido la ruta del video no contesta) y mirando.
+          const conReproductor = !compartido && !editando;
+          const cuerpo = popupDelCloser ? <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={popupDelCloser} efectivo={ef} conReproductor={conReproductor} />
+            : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} conReproductor={conReproductor} />;
           // Las acciones EN LA FILA (`tabla.acciones`: «Marcar cobrada»…) van sólo mirando y con sesión: sin este
           // provider la tabla no dibuja la columna (useColumnaAcciones devuelve null).
           return c.tabla?.acciones && !editando && !compartido
@@ -1448,11 +1465,12 @@ export function EditorInforme({
 
         {/* El AI Analyst es un panel (un `aside` de alto completo), no un modal: va en esta fila, encima del
             lienzo en la compu (./edicion-css.ts). Con la vista: el análisis a mano mira lo que la persona eligió. */}
-        {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} />}
+        {/* #862: los dos son el MISMO MaKo en dos modos («Analizar · Editar», ./ModosMako.tsx), cuando la persona tiene los dos. */}
+        {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} onModo={conModosMako ? cambiarModoMako : undefined} />}
         {makoEditar && guardable && !enBlanco && !compartido && (
           <PanelEditarMako hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
             onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
-            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} />
+            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} onModo={conModosMako ? cambiarModoMako : undefined} />
         )}
       </div>
 

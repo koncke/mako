@@ -66,6 +66,41 @@ const POR_ID: ReadonlyMap<string, Identidad> = new Map(IDENTIDADES.map((x) => [x
 /** La identidad de un id, o null (un id que no existe no pinta nada: el saneo lo tira). */
 export const identidadDe = (id: unknown): Identidad | null => (typeof id === 'string' ? POR_ID.get(id) ?? null : null);
 
+/**
+ * LA PORTADA SIGUE EL COLOR DE LA HOJA (#859, 17/10/2026; Martín en la revisión del 16/10, 1:12:30: «los bloques que
+ * hicimos para que sean épicos… no están reaccionando con la edición del estilo de la hoja como el cambio de color»).
+ * Con un acento elegido en «Estilo de la hoja» (`tema.acento`, un hex), la portada se pinta de ESE color, con la tinta que
+ * mejor se lee encima (`tintaSobre`); la forma sigue siendo la de su identidad. Sin acento, la identidad de la plantilla
+ * (cada plantilla se distingue por su color: Martín, 14/10). Es lo que usan los tres que dibujan una tarjeta.
+ */
+export function identidadEfectiva(id: unknown, acento?: string | null): Identidad | null {
+  const x = identidadDe(id);
+  if (!x) return null;
+  if (typeof acento !== 'string' || !/^#[0-9a-f]{6}$/i.test(acento)) return x;
+  return { ...x, fondo: acento, tinta: tintaSobre(acento) };
+}
+
+/**
+ * Las variables con que un bloque de General pinta lo RELLENO (barras, botones, los números del Plan) con el color de la
+ * hoja (#859), o null sin acento. Los links de texto no las usan: un acento claro sobre la tarjeta blanca no se lee.
+ */
+export function acentoDeBloque(acento: string | null | undefined): Record<string, string> | null {
+  if (typeof acento !== 'string' || !/^#[0-9a-f]{6}$/i.test(acento)) return null;
+  return { '--gb-acento': acento, '--gb-acento-tinta': tintaSobre(acento) };
+}
+
+/**
+ * La tinta de un fondo cualquiera: blanca, o casi negra del mismo tono (como las de la tabla, «#2A1E04» sobre el dorado),
+ * la que dé MÁS contraste. tests/graficos-identidad-acento.test.ts mide que no baje de 4,5 en ningún fondo. ⚠️ El 96 % de
+ * negro no es estético: con 92 %, sobre un verde medio (#338833) ninguna de las dos llegaba a 4,5 (daba 4,47); con 96 % el
+ * peor de la grilla es 4,53 (#3377CC). No se aclara.
+ */
+export function tintaSobre(fondo: string): string {
+  const blanca = '#FFFFFF';
+  const oscura = mezclar('#000000', fondo, 0.96);
+  return contraste(blanca, fondo) >= contraste(oscura, fondo) ? blanca : oscura.toUpperCase();
+}
+
 /** El color de cada plantilla del Dashboard (lib/graficos-plantillas.ts), por su id. */
 export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
   marketing: 'azul-meta',
@@ -108,8 +143,8 @@ export const COLOR_GENERAL: Readonly<Record<string, string>> = {
  * estilos del editor redefine con ellas los tokens de la casa (`--ink`, `--dim`, `--border`…), así un gráfico o un bloque
  * que usa los tokens se dibuja sobre el color sin saberlo.
  */
-export function varsDePortada(id: unknown): Record<string, string> | null {
-  const x = identidadDe(id);
+export function varsDePortada(id: unknown, acento?: string | null): Record<string, string> | null {
+  const x = identidadEfectiva(id, acento);
   if (!x) return null;
   return { '--portada-fondo': x.fondo, '--portada-tinta': x.tinta };
 }
@@ -118,8 +153,8 @@ export function varsDePortada(id: unknown): Record<string, string> | null {
  * Los colores de las series sobre una portada: la tinta y sus mezclas con el fondo. Sobre un color fuerte una serie de
  * otro color pelea con él; en tonos de la tinta se lee como la imagen de una portada.
  */
-export function paletaDePortada(id: unknown): string[] | null {
-  const x = identidadDe(id);
+export function paletaDePortada(id: unknown, acento?: string | null): string[] | null {
+  const x = identidadEfectiva(id, acento);
   if (!x) return null;
   return [1, 0.72, 0.5, 0.34, 0.86, 0.6, 0.42, 0.26].map((k) => mezclar(x.tinta, x.fondo, k));
 }
@@ -159,10 +194,11 @@ export function iniciales(nombre: string): string {
 
 /**
  * Lo que una tarjeta necesita para ser portada: su clase, sus variables y su forma. Lo usan los tres que dibujan una
- * tarjeta de la hoja (el editor, la miniatura de la galería y el arnés de capturas), así no se separan.
+ * tarjeta de la hoja (el editor, la miniatura de la galería y el arnés de capturas), así no se separan. `acento`: el
+ * color de la hoja (`tema.acento`), que gana sobre el de la identidad (`identidadEfectiva`).
  */
-export function marcoDePortada(c: object): { clase: string; estilo: Record<string, string>; forma: FormaPortada } | null {
-  const x = identidadDe((c as { portada?: unknown }).portada);
+export function marcoDePortada(c: object, acento?: string | null): { clase: string; estilo: Record<string, string>; forma: FormaPortada } | null {
+  const x = identidadEfectiva((c as { portada?: unknown }).portada, acento);
   if (!x) return null;
   return { clase: 'lk-comp--portada', estilo: { '--portada-fondo': x.fondo, '--portada-tinta': x.tinta }, forma: x.forma };
 }

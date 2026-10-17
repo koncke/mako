@@ -258,6 +258,8 @@ export function PropsGrafico({ g, hoja, hoy, enPopup = false, onCambiar, onCambi
                 style={{ background: x.fondo }} onClick={() => onCambiar({ portada: x.id })} />
             ))}
           </div>
+          {/* #859: con un color elegido en «Estilo de la hoja», la portada se pinta de ese color (el de acá elige la forma). */}
+          {g.portada && hoja.tema.acento && <p className="lk-ayuda">Usa el color de la hoja</p>}
         </Seccion>
 
         {conObjetivo && (

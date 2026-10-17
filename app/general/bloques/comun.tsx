@@ -77,8 +77,8 @@ a.gb-losa:hover,button.gb-losa:hover,.gb-losa[role=button]:hover{background:var(
 .gb-ph-caja{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;max-width:300px;padding:14px 18px;
   background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 24px rgba(18,21,27,.10)}
 .gb-ph-txt{font-size:14px;font-weight:600;color:var(--ink);line-height:1.35}
-.gb-boton{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:10px;border:1px solid var(--primary);
-  background:var(--primary);color:var(--on-primary,#fff);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap}
+.gb-boton{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:10px;border:1px solid var(--gb-acento,var(--primary));
+  background:var(--gb-acento,var(--primary));color:var(--gb-acento-tinta,var(--on-primary,#fff));font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap}
 .gb-boton:hover{filter:brightness(1.06)}
 .gb-boton--grande{height:clamp(40px,calc(3cqi + 30px),52px);padding:0 clamp(16px,3cqi,24px);border-radius:12px;font-size:clamp(14.5px,calc(1.2cqi + 11px),17px)}
 .gb-boton--sec{background:transparent;color:var(--ink);border-color:var(--border-strong)}
