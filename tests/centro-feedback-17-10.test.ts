@@ -77,7 +77,7 @@ test('B: la caja con un solo «+», sin «Sólo esto», con listas en vivo, en l
   assert.match(codigo('app/m/operaciones/ChatsMovil.tsx'), /<MasCaja[^>]*>[\s\S]{0,80}<SelectoresDeEnvio\b/, 'la cuenta, el modelo y el esfuerzo, adentro del «+»');
   // D: «Tareas vinculadas (N)» también va adentro del «+», y tocar una lleva a su mensaje (cerrando el menú).
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    assert.match(codigo(f), /<MasCaja[^>]*>[\s\S]{0,200}<TareasVinculadas tareas=\{[^}]+\} onIr=\{\(u\) => \{ cerrar\(\); irAlTurno\(u\); \}\} \/>/, `${f}: las tareas del chat en el «+»`);
+    assert.match(codigo(f), /<MasCaja[^>]*>[\s\S]{0,200}<TareasVinculadas tareas=\{[^}]+\} onIr=\{\(u\) => \{ cerrar\(\);[^\n]*irAlTurno\(u\)[^\n]*\/>/, `${f}: las tareas del chat en el «+»`);
   }
   const adj = codigo('app/admin/operaciones/AdjuntosCaja.tsx');
   assert.doesNotMatch(adj, /ch-elegido__nombre|>\{x\.file\.name\}</, 'la miniatura va sin el nombre, como Claude');
@@ -90,8 +90,10 @@ test('B: el borrador se borra sólo cuando el mensaje SALIÓ, y lo que sale es M
   const fallo = cuerpo.indexOf("if (!r.ok) { avisar(r.error, 'bad'); return; }");
   const limpia = cuerpo.indexOf('limpiarBorrador(c.clave)');
   assert.ok(fallo > 0 && limpia > fallo, 'se limpia después de saber que salió');
-  assert.match(cuerpo, /const texto = textoParaMandar\(borradorDe\(c\.clave\)\)/);
-  assert.match(codigo('app/m/operaciones/ChatsMovil.tsx'), /if \(!r\.ok\) \{ toast\(r\.error\); return; \}[\s\S]*centro\?\.limpiarBorrador\(elegido\.clave\)/, 'el teléfono también');
+  // Desde el 17/10 con la cita arriba si responde a un mensaje (lo de WhatsApp: lib/centro-mensajes.ts → armarConCita).
+  assert.match(cuerpo, /const texto = armarConCita\(citas\[c\.clave\] \?\? null, textoParaMandar\(borradorDe\(c\.clave\)\)\)/);
+  // El teléfono manda por el MISMO motor desde el 17/10 (sin un segundo `mandar`): limpia igual, después de saber que salió.
+  assert.match(codigo('app/m/operaciones/ChatsMovil.tsx'), /const mandar = \(\) => \{ if \(elegido\) void centro\.mandar\(elegido\); \};/, 'el teléfono también');
 });
 
 test('B: lo que escribió Martín se ve con sus listas', () => {

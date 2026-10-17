@@ -18,6 +18,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { cicloCartero, hayParaElCartero, tokenDelCarteroValido } from '@/lib/operaciones';
 import { adjuntoParaElCartero } from '@/lib/operaciones-adjuntos';
+import { guardarPasos } from '@/lib/centro-pasos-db';
+import { CUENTA_RE } from '@/lib/operaciones-reglas';
 
 export const dynamic = 'force-dynamic';
 /** La vuelta contesta en segundos; lo que sigue (el Plan de los chats, lib/centro-plan-auto.ts) corre en `after()`, y cada
@@ -68,6 +70,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // ?pasos=1 (cartero 1.15.3, la E): lo que están haciendo AHORA los chats ocupados de una cuenta, cada ~15 s desde
+    // `vigilar`. Liviano: sólo pisa la foto de esa cuenta (lib/centro-pasos-db.ts), con el token del cartero.
+    if (req.nextUrl.searchParams.has('pasos')) {
+      if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
+      const o = (cuerpo && typeof cuerpo === 'object' ? cuerpo : {}) as Record<string, unknown>;
+      if (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta)) return NextResponse.json({ error: 'falta la cuenta' }, { status: 400 });
+      const chats = await guardarPasos(o.cuenta, o.pasos);
+      return NextResponse.json({ ok: true, chats });
+    }
     const salida = await cicloCartero(token, cuerpo);
     if (!salida) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
     return NextResponse.json(salida);
