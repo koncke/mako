@@ -285,4 +285,62 @@ export const BITACORA: Hito[] = [
       'tests: plan-repriorizar (34), plan-kanban-server (12), fathom-sin-friccion (28) — 25 roturas nuevas, 25 cazadas',
     ],
   },
+  {
+    fecha: '17 oct', hora: '11:00', chat: 'Plan', sesion: 'local_e2193b64-ddcf-4f12-afb6-26cbd8d56104', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho #870: las tareas de una reunión con un cliente van a su tab, y un cliente tiene un solo proyecto',
+    puntos: [
+      'En producción desde 1bae61a77 (run 110).',
+      'En tu tablero, una llamada con un cliente de MaKo ya no manda todas sus tareas a «Cliente: X»: cada una va a la tab de la que habla, y cargar un borrador no abre proyectos de cliente nuevos.',
+      'En el tablero de un cliente, todo va al proyecto de SU cliente, buscado por el cliente y no por el nombre. El título de la reunión lo reconoce por la sigla de la empresa («Junta Monserrat HMO»).',
+      'En el tablero de Mauricio, los tres proyectos de Macario Romero quedaron en uno (44 tareas, con las 7 que estaban en «Sin proyecto»).',
+    ],
+    commits: [
+      { sha: 'c7bc48b74', msg: 'Plan: la reunión con un cliente ya no pisa la tab, y un cliente tiene un solo proyecto (#870)', lineas: 674, archivos: 14 },
+    ],
+    archivos: [
+      'lib/reunion-cliente-reglas.ts — clienteManda, proyectoDelCliente, clientePorTitulo',
+      'scripts/unir-proyectos-de-cliente.ts — la unión de proyectos repetidos (foto en C:/dev/backup-unir-proyectos-1.json)',
+      'tests/reunion-cliente-870.test.ts — 8 roturas, 8 cazadas',
+    ],
+    revisar: '/plan',
+  },
+  {
+    fecha: '17 oct', hora: '11:00', chat: 'Plan', sesion: 'local_e2193b64-ddcf-4f12-afb6-26cbd8d56104', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: las tareas que salen de una reunión ya no inventan datos, dicen tu nombre y pierden menos pedidos',
+    puntos: [
+      'En producción desde 1bae61a77 (run 110).',
+      'Medido contra las dos llamadas del 16/10: la revisión con Código Inmobiliario pasa de 26 a 30 de 36 pedidos; la de Mauricio queda en 11 de 14.',
+      'Ninguna tarjeta dice «Martin Carballo» (antes 17 de 37) ni trae un dato técnico que nadie dijo (antes 14 de 37).',
+      'Lo que todavía se pierde: una frase sobre la pantalla mientras se muestra otra cosa (5 de los 36).',
+    ],
+    commits: [
+      { sha: '0314f8c5a', msg: 'Plan: la extracción de reuniones sin datos inventados, con tu nombre y sin perder pedidos', lineas: 465, archivos: 6 },
+    ],
+    archivos: [
+      'lib/detalle-sin-inventos.ts — lo que el detalle afirma tiene que haberse dicho',
+      'lib/plan-fathom.ts — el prompt sin piso de 600 caracteres, partes de 20k de a tres',
+      'tests/plan-fathom-sin-inventos.test.ts — los números de la medición en su cabecera; 8 roturas, 8 cazadas',
+    ],
+    revisar: '/plan',
+  },
+  {
+    fecha: '17 oct', hora: '11:00', chat: 'Plan', sesion: 'local_e2193b64-ddcf-4f12-afb6-26cbd8d56104', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: marcar hecha una tarea cuando algo ya está es automático, con la evidencia y sin borrador',
+    puntos: [
+      'En producción desde 1bae61a77 (run 110).',
+      'Una acción nueva de MaKo cierra la tarea al momento, con la evidencia y el link para revisarla; ya no deja un borrador para confirmar en otra pantalla. #870 se cerró así.',
+      '«Marcar hecha» del Centro ya la usa. Que el «Ya está» de cada chat cierre su tarjeta lo enchufa el Ops Center.',
+    ],
+    commits: [
+      { sha: 'b2354889e', msg: 'Plan: marcar hecha una tarea cuando ya está es automático, con la evidencia y sin borrador', lineas: 506, archivos: 16 },
+      { sha: '410360a93', msg: 'Plan: «marcar hechas» no le roba lugar a la lista de tareas en un «movela al viernes»', lineas: 12, archivos: 4 },
+    ],
+    archivos: [
+      'lib/plan-cerrar.ts — el cierre en los dos tableros',
+      'lib/api-mako/areas/plan.def.ts y plan.run.ts — cerrar_tareas_plan',
+      'lib/centro-plan.ts — cerrarTareaDelPlan y cerrarPorYaEsta',
+      'tests/plan-cierre-en-el-acto.test.ts — 6 roturas, 6 cazadas',
+    ],
+    revisar: '/admin/operaciones',
+  },
 ];
