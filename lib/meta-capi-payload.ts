@@ -148,7 +148,8 @@ export const EVENTOS_CALIFICADO = ['SubmitApplication', 'QualifiedLead'] as cons
  * eventos. Con el id derivado del lead, el segundo llega con la misma clave y Meta
  * lo descarta en vez de contar dos conversiones.
  *
- * ⚠️ LA VENTANA DE DEDUPLICACIÓN ES DE META, NO NUESTRA. Esto cubre el rebote de
+ * ⚠️ LA VENTANA DE DEDUPLICACIÓN ES DE META, NO NUESTRA: 48 horas, y se queda con el PRIMERO (documentado; ver la
+ * sección de #856 en docs/hallazgos-ads.md: lo enviado no se corrige). Esto cubre el rebote de
  * minutos u horas, que es el caso real (alguien se equivoca y corrige). Una
  * idempotencia que tenga que valer meses necesita una columna nuestra, y hoy no
  * existe — está anotado en docs/hallazgos-ads.md.

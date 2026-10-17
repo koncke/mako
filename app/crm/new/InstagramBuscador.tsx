@@ -22,9 +22,10 @@
 //     lleva su tope (17 s: la ruta corta a los 15): un `fetch` sin `signal` es un giro eterno.
 //   · Una respuesta sólo se dibuja si es la del texto que está escrito AHORA (`resp.texto`): una vieja
 //     que llega tarde no pisa la lista.
-//   · NADA SE INVENTA: sin resultados, la lista lo dice; si lo escrito es un @, ofrece «Usar @x» (lo que
-//     la persona escribió, no una cuenta que alguien vio). Sin el buscador por nombre de la plataforma,
-//     pide el @ exacto.
+//   · NADA SE INVENTA: sin resultados, la lista dice POR QUÉ (#844, `avisoSinResultados`): por nombre no hay
+//     fuente, y por @ Meta no muestra cuentas personales, o el negocio no tiene Meta conectado, o Meta no
+//     contestó. «Sin resultados» a secas mentía: Martín buscó su @ exacto y lo leyó como un bug. Si lo
+//     escrito es un @, ofrece «Usar @x» (lo que la persona escribió, no una cuenta que alguien vio).
 //   · La foto es una URL del CDN de Meta que VENCE: se muestra y no se guarda. Si no carga, iniciales.
 //
 // ⚠️ LA LISTA VA EN UN PORTAL (position: fixed sobre el body), como el Dropdown de la casa: el alta vive
@@ -46,7 +47,7 @@ import { Avatar } from '@/app/_ui/Avatar';
 import { Spinner } from '@/app/_ui/Feedback';
 import { Icon } from '@/app/_components/icons';
 import { altoMaximoDelMenu, lugarDelMenu, CAJA_MENU, SEPARACION_MENU } from '@/app/components/dropdown-lugar';
-import { ESPERA_MS, alcanzaParaBuscar, perfilManual, urlDePerfil, type PerfilIg } from '@/lib/instagram-buscar';
+import { ESPERA_MS, alcanzaParaBuscar, avisoSinResultados, esEstadoMeta, perfilManual, urlDePerfil, usuarioDeTexto, type EstadoMeta, type PerfilIg } from '@/lib/instagram-buscar';
 
 export type { PerfilIg };
 
@@ -62,7 +63,7 @@ const campo: CSSProperties = {
 };
 
 type Respuesta =
-  | { texto: string; perfiles: PerfilIg[]; porNombre: boolean | null }
+  | { texto: string; perfiles: PerfilIg[]; porNombre: boolean | null; meta: EstadoMeta | null }
   | { texto: string; fallo: true };
 
 type Lugar = { top?: number; bottom?: number; left: number; width: number; alto: number };
@@ -115,11 +116,11 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial }: {
       const tope = setTimeout(() => ctrl.abort(), TOPE_MS);
       try {
         const r = await fetch(`/api/crm/instagram-buscar?q=${encodeURIComponent(consulta)}`, { signal: ctrl.signal });
-        const j = (await r.json().catch(() => null)) as { ok?: boolean; perfiles?: unknown; porNombre?: unknown } | null;
+        const j = (await r.json().catch(() => null)) as { ok?: boolean; perfiles?: unknown; porNombre?: unknown; meta?: unknown } | null;
         if (!vigente) return;
         if (!r.ok || !j?.ok || !Array.isArray(j.perfiles)) throw new Error(`HTTP ${r.status}`);
         const perfiles = (j.perfiles as PerfilIg[]).filter((p) => p && typeof p.usuario === 'string' && p.usuario);
-        setResp({ texto: consulta, perfiles, porNombre: typeof j.porNombre === 'boolean' ? j.porNombre : null });
+        setResp({ texto: consulta, perfiles, porNombre: typeof j.porNombre === 'boolean' ? j.porNombre : null, meta: esEstadoMeta(j.meta) ? j.meta : null });
         setActivo(0);
       } catch {
         // Lo cancelado por una tecla nueva no es un fallo: `vigente` ya es false.
@@ -254,7 +255,7 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial }: {
         onFocus={() => setAbierto(true)}
         onBlur={() => setAbierto(false)}
         onKeyDown={onKeyDown}
-        placeholder="Busca por nombre o @usuario"
+        placeholder="Su @usuario de Instagram"
         aria-label="Instagram"
         role="combobox"
         aria-autocomplete="list"
@@ -294,7 +295,11 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial }: {
           )}
           {!buscando && !fallo && vacio && (
             <div style={nota}>
-              Sin resultados{!manual && actual && 'porNombre' in actual && actual.porNombre === false ? '. Escribe el @ exacto' : ''}
+              {avisoSinResultados({
+                esUsuario: usuarioDeTexto(consulta) != null,
+                meta: actual && 'meta' in actual ? actual.meta : null,
+                porNombre: actual && 'porNombre' in actual ? actual.porNombre : null,
+              })}
             </div>
           )}
           {opciones.map((p, i) => {
