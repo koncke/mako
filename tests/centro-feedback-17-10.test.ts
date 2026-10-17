@@ -81,7 +81,9 @@ test('B: la caja con un solo «+», sin «Sólo esto», con listas en vivo, en l
   }
   const adj = codigo('app/admin/operaciones/AdjuntosCaja.tsx');
   assert.doesNotMatch(adj, /ch-elegido__nombre|>\{x\.file\.name\}</, 'la miniatura va sin el nombre, como Claude');
-  assert.match(adj, /co-ver__pdf/, 'un PDF también se amplía antes de mandar');
+  // El visor vive aparte desde el 17/10 (Visor.tsx: también lo usa la burbuja enviada, y el «atrás» lo cierra a él solo).
+  assert.match(adj, /<Visor /, 'la miniatura se amplía en el visor');
+  assert.match(codigo('app/admin/operaciones/Visor.tsx'), /co-ver__pdf/, 'un PDF también se amplía antes de mandar');
 });
 
 test('B: el borrador se borra sólo cuando el mensaje SALIÓ, y lo que sale es Markdown', () => {

@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MAX_TEXTO, armarFirmable, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type Modelo } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
+import { TEXTO_SOLO_ADJUNTOS } from '@/lib/centro-caja';
 import { encolarPedidoAction } from './acciones';
 import { claveDelDispositivo, crearClaveDelDispositivo, firmar, type ClaveDispositivo } from './clave-dispositivo';
 
@@ -65,8 +66,8 @@ export function useFirma(sub: string) {
   return { clave, crear, mandar };
 }
 
-/** El texto de un trabajo que sólo lleva adjuntos (el texto firmado no puede ir vacío). */
-export const TEXTO_SOLO_ADJUNTOS = 'Te mando estos adjuntos.';
+/** El texto de un trabajo que sólo lleva adjuntos: vive en lib/centro-caja.ts (la burbuja no lo muestra, como WhatsApp). */
+export { TEXTO_SOLO_ADJUNTOS };
 
 const hex = (b: ArrayBuffer) => Array.from(new Uint8Array(b), (x) => x.toString(16).padStart(2, '0')).join('');
 

@@ -59,12 +59,19 @@ function Previa({ c, p, espera, enCurso }: { c: ChatCentro; p: VistaPrevia | nul
   if (espera > 0) return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
   // Sin nada que contar, la fila es de un renglón: «Sin nada anotado» repetido en 40 filas no distingue a ninguna.
   if (!p) return null;
+  // Lo último es un «Ya está» (17/10/2026): su sello «Completado» y lo que se hizo (la fila avisa si no se vio).
+  if (p.ya) return <span className="co-fila__l2"><SelloCompletado /><span className="co-fila__l2-texto">{p.texto}</span></span>;
   return (
     <span className="co-fila__l2">
       {p.tick ? <Tick estado={p.tick} /> : p.propio ? 'Tú: ' : ''}
       <span className="co-fila__l2-texto">{p.texto}</span>
     </span>
   );
+}
+
+/** El sello de un «Ya está» en la lista (17/10/2026: en pantalla «Ya está» se dice «Completado»). */
+export function SelloCompletado() {
+  return <span className="co-sello-ok"><Icon name="check" size={11} />Completado</span>;
 }
 
 /** Una fila de la lista: un chat, o un sub-chat (corrido a la derecha, sólo con lo que va después de «›»). */
@@ -87,7 +94,9 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
             <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
             {/* Un chat de la nube (lo anota el Runner de la app): se ve, con su marca, y no se le escribe desde acá. */}
             {c.nube && <span className="co-chip-cuenta">Nube</span>}
-            <span className="co-fila__hace">{edadCorta(c.actividad, k.ahora)}</span>
+            <span className={`co-fila__hace${k.yaSinVer.has(c.clave) ? ' co-fila__hace--nuevo' : ''}`}>{edadCorta(c.actividad, k.ahora)}</span>
+            {/* El aviso de un «Ya está» sin ver, como el globito de no leídos de WhatsApp (verde, a la derecha). */}
+            {k.yaSinVer.has(c.clave) && <span className="co-aviso-ya" role="status" aria-label="Completado sin ver"><Icon name="check" size={11} /></span>}
           </span>
           <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} enCurso={k.enCursos.get(c.clave) ?? null} />
         </span>

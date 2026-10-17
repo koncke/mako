@@ -48,7 +48,10 @@ export function CentroAppMovil(datos: DatosCentro) {
           onClick={() => setRunners(true)} navegacion />
       </ListaM>
       <ChatsMDelCentro centro={k} />
-      <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners">
+      {/* En «alto» (17/10/2026, Martín: «esa sección se traba y no se puede scrollear hasta el final»): en «medio» la hoja
+          está corrida hacia abajo y lo último del cuerpo queda DEBAJO de la pantalla aunque se scrollee hasta el fondo
+          (SheetM mide el cuerpo con el alto de «alto»; docs/hallazgos-mobile.md). */}
+      <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners" snap="alto">
         <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
           cuentas={cuentasConTitular(k)} onRenombrar={k.renombrarCuenta} />
       </SheetM>

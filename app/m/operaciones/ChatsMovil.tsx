@@ -42,7 +42,7 @@ import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
 import { guardarMunecoAction } from '@/app/admin/operaciones/acciones';
-import { Microfono } from '@/app/admin/operaciones/Microfono';
+import { BotonMandar } from '@/app/admin/operaciones/Microfono';
 import { aspectoDe, elegidoPara, esCriaturaDeMako, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
@@ -50,8 +50,8 @@ const metaDe = (c: ChatCentro) => ESTADO[c.estado];
 import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
 import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import type { Centro } from '@/app/admin/operaciones/useCentro';
-import { SelectoresDeEnvio, resumenDeEnvio } from '@/app/admin/operaciones/PiezasCentro';
-import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
+import { SelectoresDeEnvio, SelloCompletado, resumenDeEnvio } from '@/app/admin/operaciones/PiezasCentro';
+import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import type { Responder } from '@/app/admin/operaciones/PreguntaChat';
 import { SIN_MARCAS } from '@/lib/centro-mensajes';
 
@@ -78,8 +78,10 @@ const edad = (t: number | null, ahora: number): string => {
 type PropsFilaChatM = {
   c: ChatCentro; sub: boolean; previa: VistaPrevia | null; enCurso: string | null; espera: number; aspecto: Aspecto | null; ahora: number;
   onAbrir: (clave: string) => void;
+  /** Trae un «Ya está» que este teléfono no vio (useCentro.ts → yaSinVer): el aviso verde a la derecha, como WhatsApp. */
+  nuevo: boolean;
 };
-const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, aspecto, ahora, onAbrir }: PropsFilaChatM) {
+const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, aspecto, ahora, onAbrir, nuevo }: PropsFilaChatM) {
   const vivo = c.estado === 'trabajando' && !c.viejo;
   return (
     <FilaM
@@ -89,9 +91,11 @@ const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, 
       segunda={vivo
         ? <span className="m-operaciones-vivo">{enCurso ?? 'trabajando…'}</span>
         : espera > 0 ? <span className="m-operaciones-espera">Espera tu respuesta</span>
+        : p?.ya ? <span className="m-operaciones-previa"><SelloCompletado />{p.texto}</span>
         : p ? <span className="m-operaciones-previa">{p.tick ? <Tick estado={p.tick} /> : p.propio ? 'Tú: ' : ''}{p.texto}</span>
           : undefined}
-      riel={<span className="m-operaciones-hace">{edad(c.actividad, ahora)}</span>}
+      riel={<span className="m-operaciones-riel"><span className={`m-operaciones-hace${nuevo ? ' co-fila__hace--nuevo' : ''}`}>{edad(c.actividad, ahora)}</span>
+        {nuevo && <span className="co-aviso-ya" role="status" aria-label="Completado sin ver"><Icon name="check" size={11} /></span>}</span>}
       onClick={() => onAbrir(c.clave)}
       chevron={false}
     />
@@ -102,8 +106,8 @@ const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, 
  *  de cada chat y de cada vista previa aunque nada haya cambiado, y sin esto las 90 filas se volvían a dibujar en cada uno. */
 function mismaFila(a: PropsFilaChatM, b: PropsFilaChatM): boolean {
   return a.c.clave === b.c.clave && a.c.titulo === b.c.titulo && a.c.estado === b.c.estado && a.c.viejo === b.c.viejo && a.c.nube === b.c.nube
-    && a.sub === b.sub && a.enCurso === b.enCurso && a.espera === b.espera && a.aspecto === b.aspecto && a.onAbrir === b.onAbrir
-    && a.previa?.texto === b.previa?.texto && a.previa?.tick === b.previa?.tick && a.previa?.propio === b.previa?.propio
+    && a.sub === b.sub && a.enCurso === b.enCurso && a.espera === b.espera && a.aspecto === b.aspecto && a.onAbrir === b.onAbrir && a.nuevo === b.nuevo
+    && a.previa?.texto === b.previa?.texto && a.previa?.tick === b.previa?.tick && a.previa?.propio === b.previa?.propio && a.previa?.ya === b.previa?.ya
     && edad(a.c.actividad, a.ahora) === edad(b.c.actividad, b.ahora);
 }
 
@@ -201,7 +205,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const [cuantos, setCuantos] = useState(TANDA_HILO);
   useEffect(() => { setCuantos(TANDA_HILO); }, [abierto]);
   const verTodo = useCallback(() => setCuantos(Number.MAX_SAFE_INTEGER), []);
-  const [menuWA, setMenuWA] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
+  const [menuWA, setMenuWA] = useState<MenuAbiertoWA | null>(null);
   const [panelWA, setPanelWA] = useState<{ tipo: 'info' | 'reenviar'; m: MensajeWA } | null>(null);
   const [reenviando, setReenviando] = useState(false);
   // Lo de AHORA para los callbacks estables: el hilo está memorizado (Hilo.tsx) y una función nueva en cada tecla lo
@@ -210,7 +214,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   useLayoutEffect(() => { ultimos.current = { centro, elegido }; });
   const enfocarCaja = () => window.setTimeout(() => { const el = caja.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0);
   const accionesWA = useMemo<AccionesWA>(() => ({
-    abrirMenu: (m, x, y) => setMenuWA({ m, x, y }),
+    abrirMenu: (m, x, y, tactil) => setMenuWA({ m, x, y, tactil }),
     responder: (m) => {
       const { centro: k, elegido: c } = ultimos.current;
       if (!c) return;
@@ -317,7 +321,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
         <div className="m-operaciones-caja__fila">
           {/* El «+» de la caja, como en la computadora: adjuntar y con qué corre (17/10/2026, la B). */}
           {centro && (
-            <MasCaja a={adjuntos} apagado={enviando} resumen={resumenDeEnvio(centro, elegido)}>
+            <MasCaja a={adjuntos} apagado={enviando} resumen={null}>
               {(cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>}
             </MasCaja>
           )}
@@ -346,13 +350,14 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             disabled={enviando}
           />
           </div>
-          <Microfono valor={texto} onValor={ponerTexto} onError={(m) => toast(m)} apagado={enviando} />
-          <button type="button" className="co-enviar" onClick={mandar} disabled={enviando || (!texto.trim() && !adjuntos?.items.length)} aria-label="Firmar y mandar">
-            {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
-          </button>
+          {/* UN botón, como WhatsApp (Microfono.tsx → BotonMandar): el micrófono sin nada escrito y la flecha con texto. */}
+          <BotonMandar valor={texto} onValor={ponerTexto} onError={(m) => toast(m)} enviando={enviando}
+            hayQueMandar={!!texto.trim() || !!adjuntos?.items.length} onMandar={mandar} />
         </div>
         <LinksDeLaCaja texto={texto} />
-        {estado && <div className="m-operaciones-caja__fila m-operaciones-caja__fila--meta"><span className="m-operaciones-caja__estado">{estado}</span></div>}
+        {/* Lo elegido en el «+» que no es «Automático» (la cuenta, el modelo) va acá abajo y no al lado del «+»: la fila es
+            de la caja entera, como WhatsApp (17/10/2026). */}
+        {(estado || resumenDeEnvio(centro, elegido)) && <div className="m-operaciones-caja__fila m-operaciones-caja__fila--meta"><span className="m-operaciones-caja__estado">{estado ?? resumenDeEnvio(centro, elegido)}</span></div>}
       </div>
     ) : envio.por === 'leyendo_clave' ? null : (
       <div className="m-operaciones-caja m-operaciones-caja--quieta">
@@ -408,7 +413,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             {filas.map((f) => (f.tipo === 'mas'
               ? <FilaM key={`mas-${f.k}`} titulo={`Ver los ${f.n} chats`} onClick={() => setEnteras((s) => new Set(s).add(f.k))} navegacion />
               : <FilaChatM key={f.c.clave} c={f.c} sub={f.sub} previa={centro.previas.get(f.c.clave) ?? null} enCurso={centro.enCursos.get(f.c.clave) ?? null}
-                espera={esperaDe(f.c, esperas)} aspecto={elegidoPara(munecos, f.c.titulo)} ahora={ahora} onAbrir={abrirEstable} />))}
+                espera={esperaDe(f.c, esperas)} aspecto={elegidoPara(munecos, f.c.titulo)} ahora={ahora} onAbrir={abrirEstable} nuevo={centro.yaSinVer.has(f.c.clave)} />))}
           </ListaM>
         </SeccionM>
       )}

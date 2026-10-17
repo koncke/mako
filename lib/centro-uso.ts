@@ -61,9 +61,17 @@ export function sanearCuota(x: unknown): Cuota | null {
 
 /** Una medición de hace más que esto lleva su edad al lado. */
 export const USO_VIEJO_MS = 30 * 60 * 1000;
+/**
+ * Una medición de hace más que esto ya NO es un dato (17/10/2026, Martín: «el Uso de una cuenta muestra datos viejos»): se
+ * dibuja apagada, como «Sin medir hace X», y el botón no la usa. Lo obvio era «el número está mal», y el número era el de
+ * otra cuenta en su archivo (lo corrigió el Cerebro); lo que faltaba es que una medición vieja no se lea como de ahora.
+ * La cuenta 1 no tiene Runner y se mide a mano: su número envejece hasta que alguien la mide.
+ */
+export const USO_VENCIDO_MS = 6 * 3_600_000;
 
 export type UsoVentana = { pct: number | null; reinicia: number | null; reinicio: boolean };
-export type UsoDeCuenta = { cinco: UsoVentana | null; semana: UsoVentana | null; medido: number | null; viejo: boolean };
+/** `vencido`: la medición tiene más de `USO_VENCIDO_MS` (o no hay): sus porcentajes no se muestran como vigentes. */
+export type UsoDeCuenta = { cinco: UsoVentana | null; semana: UsoVentana | null; medido: number | null; viejo: boolean; vencido: boolean };
 
 /** Cómo se lee la cuota de una cuenta ahora: pasado el reinicio, el porcentaje ya no vale. */
 export function usoDeCuenta(c: Cuota | null | undefined, ahora: number): UsoDeCuenta {
@@ -78,6 +86,7 @@ export function usoDeCuenta(c: Cuota | null | undefined, ahora: number): UsoDeCu
     cinco: leer(c?.cinco), semana: leer(c?.semana),
     medido: Number.isFinite(medido) ? medido : null,
     viejo: !Number.isFinite(medido) || ahora - medido > USO_VIEJO_MS,
+    vencido: !Number.isFinite(medido) || ahora - medido > USO_VENCIDO_MS,
   };
 }
 
@@ -93,7 +102,8 @@ export function usoPrincipal(cuotas: readonly { cuenta: string; cuota: Cuota | n
   for (const { cuenta, cuota } of cuotas) {
     const u = usoDeCuenta(cuota, ahora);
     const pct = u.semana?.pct;
-    if (pct == null) continue;
+    // Una medición vencida no es un dato: el botón dice «—» antes que un número de hace un día.
+    if (pct == null || u.vencido) continue;
     const este = { cuenta, pct, viejo: u.viejo, medido: u.medido };
     if (!u.viejo) { if (!fresco || pct > fresco.pct) fresco = este; } else if (!viejo || pct > viejo.pct) viejo = este;
   }

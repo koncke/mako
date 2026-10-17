@@ -12,6 +12,9 @@
 // ⚠️ SIN `server-only`: lo usan las dos pantallas y el servidor (el borrador de MaKo).
 
 export const VINETA = '• ';
+/** El texto de un trabajo que sólo lleva adjuntos (el texto firmado no puede ir vacío). La burbuja no lo dibuja: una foto
+ *  sola va sin epígrafe, como en WhatsApp (Hilo.tsx). */
+export const TEXTO_SOLO_ADJUNTOS = 'Te mando estos adjuntos.';
 const ITEM_RE = /^(\s*)(•|-|\*|(\d{1,3})[.)])\s(.*)$/;
 
 /** El renglón donde está el cursor: dónde empieza y dónde termina. */
@@ -56,7 +59,10 @@ export function enterEnLista(t: string, ini: number, fin: number): { texto: stri
 /** Lo que sale de la caja: las viñetas de la pantalla, como Markdown de verdad. */
 export const textoParaMandar = (t: string): string => t.replace(/^(\s*)• /gm, '$1- ').trim();
 
-export type BloqueMensaje = { tipo: 'parrafo'; texto: string } | { tipo: 'lista'; numerada: boolean; items: string[] };
+/** `marcas`: la marca de cada ítem TAL CUAL la escribió Martín («3.», «7)», «-», «•»). Una lista numerada se dibuja con
+ *  SUS números (17/10/2026, Martín: «envié un mensaje con numeración y no salió con mi numeración»): un <ol> renumera
+ *  desde 1, y con un renglón en el medio cada tramo volvía a empezar en 1. WhatsApp muestra lo que se escribió. */
+export type BloqueMensaje = { tipo: 'parrafo'; texto: string } | { tipo: 'lista'; numerada: boolean; items: string[]; marcas: string[] };
 
 /** Lo que dice una burbuja, en párrafos y listas (para dibujar «1. » y «- » como lista, como Claude). */
 export function bloquesDeMensaje(t: string): BloqueMensaje[] {
@@ -66,8 +72,8 @@ export function bloquesDeMensaje(t: string): BloqueMensaje[] {
     const ultimo = out[out.length - 1];
     if (m) {
       const numerada = m[3] != null;
-      if (ultimo?.tipo === 'lista' && ultimo.numerada === numerada) ultimo.items.push(m[4]);
-      else out.push({ tipo: 'lista', numerada, items: [m[4]] });
+      if (ultimo?.tipo === 'lista' && ultimo.numerada === numerada) { ultimo.items.push(m[4]); ultimo.marcas.push(m[2]); }
+      else out.push({ tipo: 'lista', numerada, items: [m[4]], marcas: [m[2]] });
     } else if (ultimo?.tipo === 'parrafo') {
       ultimo.texto += `\n${linea}`;
     } else {
