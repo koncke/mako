@@ -24,6 +24,18 @@
 // lleva Deshacer, que vuelve a llamar con `{ prev, entryId }`. La action llama a
 // `refresh()`, así que la página se re-pide sola (las 5 prioridades se rellenan).
 //
+// REDISEÑO DEL 17/10/2026 (Martín: «rediseña las actuales de CRM, Plan… Siempre copia de otras apps que ya lo hacen
+// bien»). Se miraron las capturas de la App Store de Todoist, Things 3 y Linear en el teléfono; lo que se copió:
+//   · PRIORIDADES = la fila de Todoist: la casilla redonda con el COLOR DE LA PRIORIDAD (p1 rojo, p2 naranja, p3
+//     azul, p4 gris → Alta, Media, Baja, A futuro), el título, y debajo el plazo con su calendario y el proyecto
+//     («# Grocery») a la derecha. El plazo vencido lleva el calendario rojo (el color en la marca, no en el texto).
+//   · TAREAS = el tablero de Linear: el ícono de estado delante del nombre de cada columna (círculo vacío, medio
+//     lleno, lleno con su tilde), y en la tarjeta el título primero y abajo la prioridad como las rayitas de señal
+//     de Linear, el proyecto y el plazo. Sólo MUESTRA la prioridad: los tableros del Plan no la cambian.
+//   · PROYECTOS = la fila de proyecto de Linear: el nombre y, a la derecha, el anillo de avance con su porcentaje.
+//   · RECURRENTES: el «↻ Cada lunes» de Todoist.
+// La piel vive en ./plan.css debajo de `.m-plan-tablero`: KanbanM (app/m/_ui) es compartido y no se toca.
+//
 // ⚠️ LA FILA QUE SE VA SE SOSTIENE AUNQUE EL SERVER YA NO LA MANDE. El refresco trae las
 // listas SIN la tarea, y puede llegar antes de que termine de irse: `conEnTransito`
 // (formato.ts) la deja donde estaba hasta que la animación termina. Al terminar, si el
@@ -51,6 +63,7 @@ import { haptico } from '@/lib/haptico';
 import { marcarHechaAction, moverTareaAction } from '@/app/m/plan/acciones';
 import type { ItemPlan, ResultadoMarcar } from '@/app/plan/board/hoy';
 import { ROTULO_BANDA, TONO_BANDA, colorProyecto, conEnTransito, contar, plazoCorto, textoVence } from './formato';
+import { Icon } from '@/app/_components/icons';
 import { etiquetaEstado } from '@/lib/todo-estados';
 
 export type VistaPlan = 'prioridades' | 'tareas' | 'proyectos' | 'recurrentes';
@@ -223,70 +236,86 @@ export function ListaPlan({ listas, columnasTareas, proyectos, recurrentes, fech
 
       <div className="m-plan-cuerpo">
         {vista === 'tareas' ? (
-          <KanbanM
-            etiqueta="Tareas por estado"
-            columnas={columnasTareas.map((c) => ({ key: c.key, titulo: c.titulo, cuantos: c.cuantos }))}
-            // ⚠️ LA COMPLETADA DESDE EL SHEET VA A «COMPLETADA» YA, sin esperar al refresco: con
-            // columnas por estado la tarea no se va del tablero (hasta el 16/10 sí, sólo había
-            // abiertas), así que la marca de «en tránsito» la pone en su columna nueva en vez de
-            // esconderla. Deshacer suelta la marca y vuelve a la que dice el server.
-            tarjetas={listas.tareas.map((it) => {
-              const plazo = plazoCorto(it.deadline, fecha);
-              const color = it.proyecto ? colorProyecto(it.proyecto) : null;
-              return {
-                id: it.id,
-                col: marcas.has(it.id) ? 'hecho' : it.estado,
-                etiqueta: it.titulo,
-                contenido: (
-                  <>
-                    {it.proyecto && (
-                      <span className="m-kb-tj__chip" style={color ? ({ '--c': color } as CSSProperties) : undefined}>{it.proyecto.nombre}</span>
-                    )}
-                    <span className="m-kb-tj__n" data-dos>{it.titulo}</span>
-                    {it.motivo && <span className="m-kb-tj__c">{it.motivo}</span>}
-                    {plazo && <span className="m-kb-tj__pie"><span data-mal={it.vencida || undefined}>{plazo}</span></span>}
-                  </>
-                ),
-              };
-            })}
-            unidades="tareas"
-            onTocar={(id) => { const it = listas.tareas.find((x) => x.id === id); if (it) abrir(it); }}
-            moverA={(id) => {
-              const it = listas.tareas.find((x) => x.id === id);
-              return it && enLinea && !marcas.has(id) ? columnasTareas.map((c) => c.key).filter((k) => k !== it.estado) : [];
-            }}
-            onMover={mover}
-            tituloMover="Mover a…"
-            fraseMovida={(col) => `Pasó a ${columnaDe.get(col) ?? col}`}
-          />
+          <div className="m-plan-tablero" data-tablero="tareas">
+            <KanbanM
+              etiqueta="Tareas por estado"
+              columnas={columnasTareas.map((c) => ({ key: c.key, titulo: c.titulo, cuantos: c.cuantos }))}
+              // ⚠️ LA COMPLETADA DESDE EL SHEET VA A «COMPLETADA» YA, sin esperar al refresco: con
+              // columnas por estado la tarea no se va del tablero (hasta el 16/10 sí, sólo había
+              // abiertas), así que la marca de «en tránsito» la pone en su columna nueva en vez de
+              // esconderla. Deshacer suelta la marca y vuelve a la que dice el server.
+              tarjetas={listas.tareas.map((it) => {
+                const plazo = plazoCorto(it.deadline, fecha);
+                const color = it.proyecto ? colorProyecto(it.proyecto) : null;
+                return {
+                  id: it.id,
+                  col: marcas.has(it.id) ? 'hecho' : it.estado,
+                  etiqueta: it.titulo,
+                  // La tarjeta de Linear: el título primero; abajo la prioridad (rayitas), el proyecto y el plazo.
+                  contenido: (
+                    <>
+                      <span className="m-kb-tj__n" data-dos>{it.titulo}</span>
+                      {it.motivo && <span className="m-kb-tj__c">{it.motivo}</span>}
+                      <span className="m-plan-meta">
+                        <Prioridad k={it.prioridad} />
+                        {it.proyecto && (
+                          <span className="m-plan-meta__proy">
+                            <i className="m-plan-punto" style={color ? { background: color } : undefined} aria-hidden />
+                            {it.proyecto.nombre}
+                          </span>
+                        )}
+                        {plazo && <Plazo texto={plazo} vencida={it.vencida} />}
+                      </span>
+                    </>
+                  ),
+                };
+              })}
+              unidades="tareas"
+              onTocar={(id) => { const it = listas.tareas.find((x) => x.id === id); if (it) abrir(it); }}
+              moverA={(id) => {
+                const it = listas.tareas.find((x) => x.id === id);
+                return it && enLinea && !marcas.has(id) ? columnasTareas.map((c) => c.key).filter((k) => k !== it.estado) : [];
+              }}
+              onMover={mover}
+              tituloMover="Mover a…"
+              fraseMovida={(col) => `Pasó a ${columnaDe.get(col) ?? col}`}
+            />
+          </div>
         ) : vista === 'proyectos' ? (
-          <KanbanM
-            etiqueta="Proyectos por prioridad"
-            columnas={BANDAS.map((b) => ({ key: b, titulo: ROTULO_BANDA[b] }))}
-            tarjetas={proyectos.map((pr) => ({
-              id: pr.id,
-              col: pr.banda,
-              etiqueta: pr.nombre,
-              contenido: (
-                <>
-                  <span className="m-kb-tj__n">{pr.emoji ? `${pr.emoji} ` : ''}{pr.nombre}</span>
-                  <span className="m-kb-tj__avance" aria-hidden><i style={{ width: `${pr.pct}%` }} /></span>
-                  <span className="m-kb-tj__pie">
-                    <span>{pr.total ? `${pr.hechas}/${pr.total} · ${pr.pct}%` : 'Sin tareas'}</span>
-                    {pr.deadline && <span>{plazoCorto(pr.deadline, fecha)}</span>}
+          <div className="m-plan-tablero" data-tablero="proyectos">
+            <KanbanM
+              etiqueta="Proyectos por prioridad"
+              columnas={BANDAS.map((b) => ({ key: b, titulo: ROTULO_BANDA[b] }))}
+              tarjetas={proyectos.map((pr) => ({
+                id: pr.id,
+                col: pr.banda,
+                etiqueta: pr.nombre,
+                // La fila de proyecto de Linear: el nombre y el anillo de avance a la derecha; abajo, cuántas y el plazo.
+                contenido: (
+                  <span className="m-plan-proyecto">
+                    <span className="m-plan-proyecto__txt">
+                      <span className="m-kb-tj__n">{pr.emoji ? `${pr.emoji} ` : ''}{pr.nombre}</span>
+                      <span className="m-plan-meta">
+                        <span>{pr.total ? `${pr.hechas} de ${pr.total}` : 'Sin tareas'}</span>
+                        {pr.deadline && <Plazo texto={plazoCorto(pr.deadline, fecha) ?? pr.deadline} vencida={false} />}
+                      </span>
+                    </span>
+                    <span className="m-plan-anillo" style={anillo(pr.pct)} aria-hidden>
+                      <span>{pr.pct}%</span>
+                    </span>
                   </span>
-                </>
-              ),
-            }))}
-            unidades="proyectos"
-            onTocar={(id) => { const pr = proyectos.find((x) => x.id === id); if (pr) { setProyAbierto(pr); setVerProy(true); } }}
-          />
+                ),
+              }))}
+              unidades="proyectos"
+              onTocar={(id) => { const pr = proyectos.find((x) => x.id === id); if (pr) { setProyAbierto(pr); setVerProy(true); } }}
+            />
+          </div>
         ) : vista === 'recurrentes' ? (
           recurrentes.length === 0 ? <VacioM frase="Nada se repite." /> : (
             <ListaM etiqueta={contar(recurrentes.length, 'tarea que se repite', 'tareas que se repiten')}>
               {recurrentes.map((r) => (
                 <FilaM key={r.id} titulo={r.titulo} segunda={r.proyecto ? <Proyecto p={r.proyecto} /> : undefined}
-                  riel={r.repite ?? 'Se repite'} chevron={false} />
+                  riel={<span className="m-plan-repite"><Icon name="regenerar" size={14} />{r.repite ?? 'Se repite'}</span>} chevron={false} />
               ))}
             </ListaM>
           )
@@ -348,6 +377,36 @@ export function ListaPlan({ listas, columnasTareas, proyectos, recurrentes, fech
   );
 }
 
+/** El plazo como en Todoist: el calendario (rojo si venció: el color va en la marca) y el día. */
+function Plazo({ texto, vencida }: { texto: string; vencida: boolean }) {
+  return (
+    <span className="m-plan-plazo" data-vencida={vencida || undefined}>
+      <Icon name="calendario" size={13} />
+      {vencida && <span className="m-sr">Vencida, </span>}
+      {texto}
+    </span>
+  );
+}
+
+/**
+ * La prioridad como las rayitas de señal de Linear: tres barras, llenas según el escalón (Alta 3 · Media 2 ·
+ * Baja 1 · A futuro 0); «Sin priorizar» son tres rayas, como el «No priority» de Linear. Sólo se MUESTRA.
+ */
+function Prioridad({ k }: { k: TareaKanbanM['prioridad'] }) {
+  const rotulo = k === 'sin_priorizar' ? 'Sin priorizar' : ROTULO_BANDA[k];
+  return (
+    <span className="m-plan-prio" data-prio={k} role="img" aria-label={`Prioridad: ${rotulo}`}>
+      <i /><i /><i />
+    </span>
+  );
+}
+
+/** El anillo de avance de un proyecto (Linear): el porcentaje como variable de CSS. */
+function anillo(pct: number): CSSProperties {
+  const estilo: CSSProperties & Record<'--pct', string> = { '--pct': `${Math.max(0, Math.min(100, pct))}` };
+  return estilo;
+}
+
 /** El proyecto como en el prototipo: su punto de color y su nombre. */
 function Proyecto({ p }: { p: NonNullable<ItemPlan['proyecto']> }) {
   const color = colorProyecto(p);
@@ -381,11 +440,11 @@ function FilaTarea({ item, fecha, estado, enLinea, onCompletar, onAbrir }: {
               <button type="button" className="m-plan-abrir" onClick={onAbrir} aria-label={`Ver ${item.titulo}`} />
             </>
           )}
-          segunda={item.proyecto ? <Proyecto p={item.proyecto} /> : undefined}
-          riel={plazo ? (
-            <span className="m-plan-plazo" data-vencida={item.vencida || undefined}>
-              {item.vencida && <span className="m-sr">Vencida, </span>}
-              {plazo}
+          // La línea de Todoist debajo del título: el plazo con su calendario y, a la derecha, el proyecto.
+          segunda={plazo || item.proyecto ? (
+            <span className="m-plan-meta m-plan-meta--fila">
+              {plazo && <Plazo texto={plazo} vencida={item.vencida} />}
+              {item.proyecto && <span className="m-plan-meta__der"><Proyecto p={item.proyecto} /></span>}
             </span>
           ) : undefined}
           chevron={false}
@@ -396,6 +455,8 @@ function FilaTarea({ item, fecha, estado, enLinea, onCompletar, onAbrir }: {
               titulo={item.titulo}
               deshabilitado={!enLinea}
               motivo="Sin conexión"
+              // El color de la prioridad en el círculo, como Todoist (p1 rojo · p2 naranja · p3 azul · p4 gris).
+              className={`m-plan-casilla m-plan-casilla--${item.banda}`}
             />
           )}
           swipeDerecha={enLinea && !estado ? { rotulo: 'Completar', icono: 'check', tono: 'completar', onAccion: () => onCompletar('swipe') } : undefined}

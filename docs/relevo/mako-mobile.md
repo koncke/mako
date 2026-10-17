@@ -3,6 +3,34 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 17/10/2026 (claude4) — REDISEÑO del CRM y el Plan copiando Pipedrive, HubSpot, Todoist y Linear
+
+Pedido de Martín (17/10, 12:56): «Implementa completamente MaKo Mobile en todas las tabs... Y rediseña las actuales de
+CRM, Plan, etc... Siempre copia de otras apps que ya lo hacen bien». Lo hizo el agente «Mobile 3» en
+`C:/dev/wt-graphics`, rama `mobile-rediseno-1710` (sale de origin/main 2420cccb1). Main integra y pushea.
+
+**Hecho (commits en la rama):**
+- CRM: el tablero es la lista de deals de Pipedrive (filas pegadas, «plata · empresa · por dónde llegó», el punto verde
+  de reunión agendada o rojo de Nutrición manual vencida, la etapa con su plata y el conteo de Attio, la barra llena
+  hasta la etapa que se mira); la ficha lleva el encabezado a la izquierda y la fila de acciones en círculos de HubSpot
+  (Llamar · WhatsApp · Agendar · Nota) y la etapa como la barra de avance de Pipedrive, que abre «Mover de etapa».
+- Plan: Prioridades con el círculo de color de prioridad de Todoist y el plazo con su calendario; Tareas con los íconos
+  de estado y las rayitas de prioridad de Linear (sólo se muestra); Proyectos con el anillo de avance de Linear;
+  Recurrentes con el «↻» de Todoist.
+- Todo es piel de KanbanM desde crm.css y plan.css: el componente compartido no cambió. Ninguna decisión de Martín se
+  tocó (columna por pantalla, arrastrar + «Mover a…», el Plan no cambia prioridad, WhatsApp abre Chats).
+
+**Mirado** a 390 px (Chrome headless, UA de iPhone, `next start` local, ws9 sólo leyendo): tablero, «Mover a…», ficha y
+las cuatro vistas del Plan, sin errores de JS ni desborde. Capturas: docs/prototipos/mobile-rediseno-1710-crm.png y
+-plan.png (los leads, con nombres ficticios y datos desenfocados).
+
+**Lo que falta, en orden:**
+1. Mover un lead y una tarea con la piel nueva en un teléfono de verdad, en el ws3 (hoy su onboarding tapa /m).
+2. El «+» para cargar un lead (Pipedrive) y el agregar rápido de tareas (Todoist): escritorio los tiene; en el teléfono
+   son funciones nuevas y el alta de tareas dispara al Perro. app/m/crm/TableroCrm.tsx, app/m/plan/ListaPlan.tsx.
+3. Calendar y General no se rediseñaron (ya copian Google Calendar y la hoja de escritorio).
+Detalle y trampas: docs/hallazgos-mobile.md → «El CRM y el Plan del teléfono rediseñados…».
+
 ## 17/10/2026 (claude4) — END TO END: Chats con todos los canales y la primera auditoría MIRADA a 390 px
 
 Pedido de Martín (17/10, 10:35): «Implementa end to end MaKo mobile, hay muchas cosas que faltan o podrían
