@@ -507,7 +507,7 @@ export function ticketsDeHitos(registros: ReadonlyArray<{ area: string; bitacora
 /**
  * El texto del aviso al GRUPO del negocio cuando un error del sistema ya está arreglado: qué se rompió (el título, que
  * arma el código en palabras del cliente: «La pantalla «CRM» se rompió») y que ya anda. De tú, sin promesas y sin nada
- * que haya escrito un cliente. La firma («Desarrollador de MaKo») la pone `avisarArregloAlGrupo` (lib/aviso-arreglo.ts),
+ * que haya escrito un cliente. La firma del equipo la pone SÓLO `avisarArregloAlGrupo` (lib/aviso-arreglo.ts),
  * que además RECHAZA un texto con promesas o groserías.
  */
 export function textoArregloAlGrupo(t: Pick<AvisoCliente, 'titulo'>): string {

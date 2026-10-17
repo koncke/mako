@@ -126,8 +126,8 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>): 
     } catch (e) { console.error(`[tickets] WhatsApp de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
   }
   // Un error que la app vio sola (lib/errores-app.ts): cuando está ARREGLADO Y DESPLEGADO, a cada negocio que lo vio se le
-  // avisa en su grupo con `avisarArregloAlGrupo` (lib/aviso-arreglo.ts, de «MaKo en WhatsApp»: firma «Desarrollador de
-  // MaKo», un aviso por arreglo y por negocio, tope por día). Es una función de lib y no una operación del registro, para
+  // avisa en su grupo con `avisarArregloAlGrupo` (lib/aviso-arreglo.ts, de «MaKo en WhatsApp»: pone la firma del equipo,
+  // un aviso por arreglo y por negocio, tope por día). Es una función de lib y no una operación del registro, para
   // que ni un modelo ni una automatización de un cliente puedan firmar como el equipo.
   // ⚠️ SÓLO CON PRUEBA: la función no puede verificar producción. La prueba es que ESTE build trae el hito con
   // `tickets: [n]` (el del ticket, o el de su original si es un duplicado). Un ticket del sistema «resuelto» por otra cosa
