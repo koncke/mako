@@ -10287,6 +10287,16 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   unidad y la página en un renglón opcional. ⚠️ Dos fuentes distintas aunque sean de la misma prueba: con una sola, cada
   automatización ofrecía en su «{ }» el dato de la otra, que su evento no trae.
 
+- ⚠️ **MUDAR UN AVISO QUE NACÍA APAGADO LO PRENDÍA PARA TODOS.** Un aviso del catálogo sin `porDefecto` nace APAGADO en
+  /mensajes (`estaPrendida`), y un evento de la plataforma NO lee ese interruptor: lo decide su fila. La mudanza creaba la
+  fila PRENDIDA, así que al desplegar el aviso empezaba a llegarle a TODOS los negocios. Medido el 17/10 (el store
+  `mako.plantillas.store` de los 13 negocios activos): nadie había prendido `landing-cambio`, `lead-de-landing`, los dos de
+  la prueba, `lead-fusionado` ni `flow-puente-ausente`, o sea que no le llegaban a nadie. Los dos últimos (lote 2) ya se
+  estaban mandando a todos desde el run 110. Arreglo: la mudanza crea PAUSADO lo que nacía apagado y `--pausar` pausó los
+  seis (#270, #272, #275-#278); prenderlos es decisión de SuperAdmin, con el texto ya editable. Lo fija
+  tests/mudanza-apagados.test.ts. El diagnóstico obvio («la fila es la que manda, como siempre») no lo veía: la pregunta era
+  A QUIÉN le llegaba ANTES.
+
 **La familia «tracking y landing» del lote 3 está entera.** Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
 Plan, pagos, reportes por email, mensajes al lead: docs/inventario-nada-por-detras.md).
 
