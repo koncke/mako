@@ -145,4 +145,8 @@ test('la pantalla: «＋ Nueva hoja» primera y sólo para quien guarda; el tít
   assert.match(sinComentarios(leer('app/crm/LeadSheet.tsx')), /sangria=\{`calc\(\$\{SANGRIA_NOMBRE_LEAD\}px - clamp\(16px,4vw,28px\)\)`\}/, 'el pop-up le resta su padding');
   assert.match(sinComentarios(leer('app/crm/[id]/LeadDetailBody.tsx')), /sangria=\{`\$\{SANGRIA_NOMBRE_LEAD\}px`\}/);
   assert.match(leer('app/crm/lead-view/CabeceraLead.tsx'), /export const SANGRIA_NOMBRE_LEAD = geometriaCabecera\(0, TAM_CARA_LEAD\)\.sangria;/);
+  // «Estilo de la hoja» recibe la hoja tal cual (17/10/2026): sin el puente que le hacía pasar una hoja propia por el
+  // Resumen. Probado rompiéndolo: el panel leyendo `ef.epica[tab]` de vuelta, 5 / 1.
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/EstiloDeLaHoja.tsx')), /checked=\{lugarDe\(ef, tab\)\.epica\}/);
+  assert.doesNotMatch(ficha, /const estiloDe = /, 'volvió el puente de «Estilo de la hoja»');
 });
