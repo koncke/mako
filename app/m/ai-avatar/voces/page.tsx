@@ -17,7 +17,7 @@ import { RUTA_MAS } from '@/lib/movil-rutas';
 import { vocesCuentaAction } from '@/app/ai-avatar/actions';
 import { CabeceraM, PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-import { nombreTab, seccionesTabM, vistaDe } from '../../_creacion/secciones';
+import { vistaDe } from '../../_creacion/secciones';
 import { requireAiAvatarM } from '../puerta';
 import { VocesM } from './VocesM';
 
@@ -26,14 +26,13 @@ export const dynamic = 'force-dynamic';
 export default async function VocesPagina() {
   const ctx = await requireMovil({ navKey: 'ai-avatar-voces' });
   await requireAiAvatarM();
-  const secciones = seccionesTabM('ai-avatar', vistaDe(ctx));
   const r = await vocesCuentaAction();
   const cuenta = r.ok ? { voces: r.voces } : { sinKey: r.sinKey, error: r.error };
   return (
     <PantallaM>
       {/* Sin fila en SECCIONES_MAS (lib/movil-creacion.ts dice por qué): la cabecera la pone la page. */}
       <CabeceraM titulo="AI Avatar" padre={{ href: RUTA_MAS, label: 'More' }} />
-      <SeccionesTabM etiqueta={nombreTab('ai-avatar')} secciones={secciones} activa="ai-avatar-voces" />
+      <SeccionesTabM tab="ai-avatar" activa="ai-avatar-voces" vista={vistaDe(ctx)} />
       <VocesM cuenta={cuenta} />
     </PantallaM>
   );

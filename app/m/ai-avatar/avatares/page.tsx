@@ -19,7 +19,7 @@ import { inicioAvatarAction } from '@/app/ai-avatar/actions';
 import { plantillaPorId } from '@/lib/ai-avatar/plantillas';
 import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-import { nombreTab, seccionesTabM, vistaDe } from '../../_creacion/secciones';
+import { vistaDe } from '../../_creacion/secciones';
 import { requireAiAvatarM } from '../puerta';
 import { AvataresM } from './AvataresM';
 
@@ -31,14 +31,13 @@ export default async function AvataresPagina({ searchParams }: { searchParams: P
   const ctx = await requireMovil({ navKey: 'ai-avatar-avatares' });
   await requireAiAvatarM();
   const sp = await searchParams;
-  const secciones = seccionesTabM('ai-avatar', vistaDe(ctx));
   const inicio = await inicioAvatarAction();
   const plantilla = typeof sp.plantilla === 'string' ? plantillaPorId(sp.plantilla.slice(0, 80))?.id : undefined;
   return (
     <PantallaM>
       {/* Sin fila en SECCIONES_MAS (lib/movil-creacion.ts dice por qué): la cabecera la pone la page. */}
       <CabeceraM titulo="AI Avatar" padre={{ href: RUTA_MAS, label: 'More' }} />
-      <SeccionesTabM etiqueta={nombreTab('ai-avatar')} secciones={secciones} activa="ai-avatar-avatares" />
+      <SeccionesTabM tab="ai-avatar" activa="ai-avatar-avatares" vista={vistaDe(ctx)} />
       {inicio.ok ? <AvataresM inicio={inicio} plantillaInicial={plantilla} /> : <ErrorM frase={inicio.error} />}
     </PantallaM>
   );

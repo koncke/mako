@@ -22,7 +22,7 @@
 import type { DefSeccionMas } from './movil-rutas';
 
 /** Las pantallas de creación del teléfono con fila en SECCIONES_MAS (OCULTA, menos «image», que es fila de More). */
-export type IdCreacion = 'image' | 'video-editor' | 'reels' | 'stories' | 'carousels';
+export type IdCreacion = 'image' | 'video-editor' | 'reels' | 'stories' | 'carousels' | 'admin-copywriting';
 
 /**
  * Las filas OCULTAS de More (`oculta: true`): no son filas ni suben a la barra, pero le dan a cada pantalla su
@@ -49,6 +49,9 @@ export const SECCIONES_CREACION: readonly DefSeccionMas[] = [
   { id: 'carousels', label: 'Carousels', href: '/m/carousels', icon: 'carousel', navKey: 'carousels', familia: null, oculta: true },
   // Copywriting (tab unificada; su Ads Writer es la fila «Copywriting»): Stories.
   { id: 'stories', label: 'Stories', href: '/m/stories', icon: 'stories', navKey: 'stories', familia: null, oculta: true },
+  // Copy Method (Copywriting › Method): una herramienta del SUPER ADMIN (nav.ts → HERRAMIENTAS.copywriting). `superAdmin`,
+  // como las de Mobile 2 (/m/mensajes): su page se cuida con `getSesionAdmin()`, no con `requireMovil({ navKey })`.
+  { id: 'admin-copywriting', label: 'Copy Method', href: '/m/admin/copywriting', icon: 'escribir', navKey: 'admin-copywriting', familia: null, oculta: true, superAdmin: true },
 ];
 
 /**

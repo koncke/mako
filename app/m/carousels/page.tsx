@@ -22,20 +22,19 @@ import { requireMovil } from '@/lib/movil-guard';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
+import { vistaDe } from '../_creacion/secciones';
 import { CarouselsM } from './CarouselsM';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CarouselsPagina() {
   const ctx = await requireMovil({ navKey: 'carousels' });
-  const secciones = seccionesTabM('image', vistaDe(ctx));
   // ¿El brief del negocio tiene algo cargado? Lo mismo que pregunta la page de escritorio.
   let perfilCargado = true;
   try { perfilCargado = (await perfilNegocioTexto()).trim().length > 0; } catch { /* sin perfil legible: no se afirma que está vacío */ }
   return (
     <PantallaM>
-      <SeccionesTabM etiqueta={nombreTab('image')} secciones={secciones} activa="carousels" />
+      <SeccionesTabM tab="image" activa="carousels" vista={vistaDe(ctx)} />
       <CarouselsM perfilCargado={perfilCargado} />
     </PantallaM>
   );

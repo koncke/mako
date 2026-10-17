@@ -1,5 +1,8 @@
 # Briefings por chat del último relevo
 
+**Todo lo pendiente, junto y priorizado: [`../pendientes.md`](../pendientes.md)** (foto del 17/10/2026: 296 puntos
+verificados contra el código, por impacto). Al cerrar uno, se borra de ahí en el mismo commit.
+
 Uno por cada chat que hay que retomar. **Se reescriben en cada relevo**; las versiones
 anteriores quedan en el historial de git.
 

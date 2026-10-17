@@ -15,6 +15,20 @@
 //     no desde un desenlace ni desde Nutrición manual, porque el Deshacer no repone el monto, el
 //     motivo ni el plazo). El server vuelve a chequear las dos cosas en moverEtapaAction.
 //   · La lupa (la UNA acción del encabezado) abre el buscador en un sheet.
+//
+// REDISEÑO DEL 17/10/2026 (Martín: «rediseña las actuales de CRM, Plan… Siempre copia de otras apps que ya lo hacen
+// bien»). Se miraron las capturas de la App Store de Pipedrive, HubSpot y Attio en el teléfono; lo que se copió:
+//   · La FILA DEL DEAL de Pipedrive: el nombre grande, debajo «$4.2k · Empresa · por dónde llegó» en gris, y a la
+//     derecha el punto de actividad (verde = agendado, rojo = venció) con su fecha, en vez de una tarjeta suelta con
+//     su pie. Filas pegadas con su filete, sobre la columna blanca: entran 7-8 leads por pantalla, no 4.
+//   · El ENCABEZADO DE LA ETAPA de Pipedrive («Proposal Presented / $109,790»): el nombre en letra normal, la plata
+//     abajo; el conteo en la píldora de la derecha, como la columna del tablero de Attio («Prospecting 24»).
+//   · La BARRA DE ETAPAS de Pipedrive: llena hasta la etapa que se está mirando (dónde estás en el funnel), con el
+//     conteo de cada una debajo (eso es nuestro: dónde está la gente sin recorrer las columnas).
+//   · El selector de funnel como el «Sales pipeline ▾» de Pipedrive.
+// Lo que NO cambia (decisiones de Martín): una columna por pantalla con la siguiente asomando (Trello), arrastrar
+// con el dedo + «Mover a…» al mantener. Todo es la piel de KanbanM desde ./crm.css (`.m-crm-tablero`): el
+// componente compartido no se toca.
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -60,17 +74,9 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
     id: String(t.id),
     col: t.col,
     href: ficha(t.id),
-    etiqueta: t.nombre,
-    contenido: (
-      <>
-        <span className="m-kb-tj__n">{t.nombre}</span>
-        {t.segunda && <span className="m-kb-tj__c">{t.segunda}</span>}
-        <span className="m-kb-tj__pie">
-          <span>{t.cuando}</span>
-          {t.plata ? <strong>{t.plata}</strong> : null}
-        </span>
-      </>
-    ),
+    // El nombre accesible lleva lo que dice el punto (el color solo no se lee).
+    etiqueta: t.senal.dice ? `${t.nombre}, ${t.senal.dice}` : t.nombre,
+    contenido: <FilaLead t={t} />,
   })), [datos.tarjetas]);
 
   const mover = async (id: string, destino: string): Promise<ResultadoMover> => {
@@ -92,26 +98,28 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
   const selector = datos.funnels.length > 1 ? (
     <button type="button" className="m-crm-funnel" aria-label={`Funnel: ${actual?.nombre ?? ''}`} onClick={() => setElegirFunnel(true)}>
       <span>{actual?.nombre}</span>
-      <Icon name="chevron" size={16} />
+      <span className="m-crm-funnel__flecha" aria-hidden><Icon name="chevron" size={16} /></span>
     </button>
   ) : undefined;
 
   return (
     <>
       <CabeceraM accion={accion} />
-      <KanbanM
-        etiqueta="Tablero del CRM"
-        columnas={columnas}
-        tarjetas={tarjetas}
-        unidades="leads"
-        arriba={selector}
-        moverA={(id) => {
-          const actualCol = datos.tarjetas.find((t) => String(t.id) === id)?.col;
-          if (!actualCol || !deDondeSale.has(actualCol)) return [];
-          return datos.columnas.filter((c) => movibles.has(c.key) && c.key !== actualCol).map((c) => c.key);
-        }}
-        onMover={mover}
-      />
+      <div className="m-crm-tablero">
+        <KanbanM
+          etiqueta="Tablero del CRM"
+          columnas={columnas}
+          tarjetas={tarjetas}
+          unidades="leads"
+          arriba={selector}
+          moverA={(id) => {
+            const actualCol = datos.tarjetas.find((t) => String(t.id) === id)?.col;
+            if (!actualCol || !deDondeSale.has(actualCol)) return [];
+            return datos.columnas.filter((c) => movibles.has(c.key) && c.key !== actualCol).map((c) => c.key);
+          }}
+          onMover={mover}
+        />
+      </div>
 
       <SheetM id="funnel" abierto={elegirFunnel} onCerrar={() => setElegirFunnel(false)} titulo="Funnel" snap="medio">
         <ListaM etiqueta="Funnels">
@@ -137,6 +145,29 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
         {buscar && <Buscador />}
       </SheetM>
     </>
+  );
+}
+
+/**
+ * La fila de un lead en el tablero, copiada de la del deal de Pipedrive: nombre · «plata · empresa» · punto y fecha.
+ * Las clases van sin `.m-crm-tablero` delante a propósito: la COPIA que sigue al dedo al arrastrar cuelga de #m-root
+ * (KanbanM), fuera del tablero, y tiene que dibujarse igual.
+ */
+function FilaLead({ t }: { t: TableroCrmM['tarjetas'][number] }) {
+  const linea = [t.plata, t.segunda].filter(Boolean).join(' · ');
+  return (
+    <span className="m-crm-tj" data-tono={t.senal.tono ?? undefined}>
+      <span className="m-crm-tj__txt">
+        <span className="m-crm-tj__n">{t.nombre}</span>
+        {linea && <span className="m-crm-tj__c">{linea}</span>}
+      </span>
+      {(t.senal.tono || t.senal.texto) && (
+        <span className="m-crm-tj__der">
+          {t.senal.tono && <i className="m-crm-tj__punto" aria-hidden />}
+          {t.senal.texto && <span className="m-crm-tj__cuando">{t.senal.texto}</span>}
+        </span>
+      )}
+    </span>
   );
 }
 

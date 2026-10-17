@@ -43,6 +43,7 @@ import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
 import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from './ruta-web-generator';
 import { SECCIONES_COMUNIDAD as SECCIONES_COMUNIDAD_CLIENTS } from './clients-rutas';
+import { rutaDeTabVieja } from './ajustes-secciones';
 // Las tabs de CREACIÓN (17/10/2026): sus filas ocultas y su ida y vuelta viven en ./movil-creacion.ts.
 import { SECCIONES_CREACION, rutaEscritorioCreacion, rutaMovilCreacion, type IdCreacion } from './movil-creacion';
 
@@ -53,7 +54,9 @@ export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
   | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'mako'
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
-  | 'tickets'
+  | 'tickets' | 'configuraciones'
+  // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
+  | 'mensajes' | 'modelos-ia' | 'contexto'
   | IdCreacion;
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
 export type IdBarra = DestinoMovil | IdSeccionMas;
@@ -95,6 +98,12 @@ export type DefSeccionMas = {
    * (17/10/2026: salió de la sidebar de escritorio, nav.ts → SIN_FILA). Sin esto, borrar la fila rompía `rutaMovil`.
    */
   oculta?: true;
+  /**
+   * Sólo el SUPER ADMIN (17/10/2026): una herramienta de la plataforma (nav.ts → HERRAMIENTAS), cuya key no está en
+   * `TODOS_LOS_ITEMS` y que `puedeVerKey` no conoce. Su página se cuida como la de escritorio, con `getSesionAdmin()`,
+   * y no con `requireMovil({ navKey })` (que le cerraría la puerta a todos). Va siempre `oculta`.
+   */
+  superAdmin?: true;
 };
 
 /** Las familias de la sidebar, con su nombre de escritorio y en su orden (una caja de More cada una). */
@@ -179,9 +188,44 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // OCULTAS: la fila da la cabecera (título y «volver»), el título de la pestaña y la puerta (`requireMovil({ navKey })`),
   // y nunca sube a la barra de un rol.
   { id: 'tickets', label: 'Reportar problema', href: '/m/tickets', icon: 'soporte', navKey: 'tickets', familia: null, oculta: true },
+  // «Configuración del negocio»: el índice y cada sección debajo (/m/configuraciones/<sección>, `SECCIONES_NEGOCIO_M`).
+  { id: 'configuraciones', label: 'Configuración del negocio', href: '/m/configuraciones', icon: 'config', navKey: 'configuraciones', familia: null, oculta: true },
+  // Las del SUPER ADMIN (nav.ts → HERRAMIENTAS), con el nombre de la sidebar. MaKo Messages es una sección de Automations
+  // (se llega por la barra de secciones de /m/automations); AI Models y MaKo Context, del menú de su foto.
+  { id: 'mensajes', label: 'MaKo Messages', href: '/m/mensajes', icon: 'mako', navKey: 'mensajes', familia: null, oculta: true, superAdmin: true },
+  { id: 'modelos-ia', label: 'AI Models', href: '/m/modelos-ia', icon: 'mako', navKey: 'modelos-ia', familia: null, oculta: true, superAdmin: true },
+  { id: 'contexto', label: 'MaKo Context', href: '/m/contexto', icon: 'contexto', navKey: 'contexto', familia: null, oculta: true, superAdmin: true },
   // Las pantallas de CREACIÓN (17/10/2026), todas ocultas: lib/movil-creacion.ts dice por qué.
   ...SECCIONES_CREACION,
 ];
+
+/**
+ * Las pantallas del teléfono que son UNA ruta de escritorio sin query ni subrutas (17/10/2026): la misma tabla sirve a
+ * `rutaMovil` y a `rutaEscritorio`, así que la ida y la vuelta no pueden divergir.
+ */
+const UNA_A_UNA: Readonly<Record<string, string>> = {
+  '/mensajes': '/m/mensajes',
+  '/modelos-ia': '/m/modelos-ia',
+  '/contexto': '/m/contexto',
+};
+
+/**
+ * Las secciones de «Configuración del negocio» que tienen pantalla en el teléfono, con su ruta de ESCRITORIO (cada
+ * sección es su ruta, como en Google: lib/ajustes-secciones.ts). En el teléfono viven debajo del índice
+ * (/m/configuraciones/<clave>), así que su «volver» es «Configuración del negocio». General (Horario y Criterio) y Método
+ * (las credenciales de la plataforma), del super admin, se abren en la computadora desde el índice.
+ */
+export const SECCIONES_NEGOCIO_M = {
+  equipo: '/equipo',
+  integraciones: '/integraciones',
+  notificaciones: '/configuraciones/notificaciones',
+  fiscal: '/configuraciones/fiscal',
+  plan: '/configuraciones/plan',
+} as const;
+export type SeccionNegocioM = keyof typeof SECCIONES_NEGOCIO_M;
+const CLAVES_NEGOCIO_M: readonly SeccionNegocioM[] = ['equipo', 'integraciones', 'notificaciones', 'fiscal', 'plan'];
+const esSeccionNegocioM = (k: string): k is SeccionNegocioM => CLAVES_NEGOCIO_M.some((c) => c === k);
+export const RUTA_CONFIG_M = '/m/configuraciones';
 
 /** El nombre de la PANTALLA de una sección (la cabecera, su «volver» y la pestaña): `titulo` o, si no, el de la fila. */
 export function tituloSeccion(s: Pick<DefSeccionMas, 'label' | 'titulo'>): string {
@@ -340,8 +384,7 @@ export const EN_CAMINO: Readonly<Record<string, string>> = {
   // «Mobile 1» (17/10/2026): las tabs de creación (Video Editor, Reels, AI Avatar, Image Editor, Carousels, Stories y
   // Copy Method) ya tienen su pantalla: lib/movil-creacion.ts.
   // «Mobile 2» (17/10/2026): negocio y configuración.
-  integraciones: 'Mobile 2', 'api-mako': 'Mobile 2', configuraciones: 'Mobile 2',
-  contexto: 'Mobile 2', 'modelos-ia': 'Mobile 2', conocimientos: 'Mobile 2', mensajes: 'Mobile 2',
+  'api-mako': 'Mobile 2', conocimientos: 'Mobile 2',
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
   agencia: 'sin dueño', 'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño', 'admin-cobros': 'sin dueño',
   'admin-agente': 'sin dueño',
@@ -401,6 +444,9 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
     out.push({ id: 'arriba', titulo: null, filas: arriba.secciones.map((s) => ({ tipo: 'pantalla' as const, key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id })) });
   }
   const enBarra = new Set(DESTINOS_MOVIL.map((d) => d.navKey).filter((k): k is string => k != null));
+  // Lo que ya está en la barra de ESTE rol, por su ruta del teléfono: General no tiene key en DESTINOS_MOVIL (es la
+  // portada, `navKey: null`) y sin esto aparecía otra vez en Operate (visto a 390 px el 17/10/2026).
+  const barra = new Set(barraMovil(rol, capa).map((b) => b.href));
   FAMILIAS.forEach((f, i) => {
     const familia = FAMILIAS_MAS[i];
     if (!familia) return;
@@ -412,6 +458,8 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
       if (!visible) continue;
       const keys = [t.key, ...(t.secciones ?? []).map((s) => s.key)];
       if (keys.some((k) => enBarra.has(k))) continue;
+      const destino = rutaMovil(visible.href);
+      if (destino && barra.has(destino.split('?')[0])) continue;
       const s = deFamilia.find((x) => keys.includes(x.navKey));
       if (s) { usadas.add(s.id); filas.push({ tipo: 'pantalla', key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id }); continue; }
       // Tiene sección en el teléfono pero la regla del teléfono no se la muestra (o subió a la barra): nada.
@@ -573,7 +621,26 @@ export function rutaMovil(href: string | null | undefined): string | null {
     const t = Number(q.get('t'));
     return Number.isSafeInteger(t) && t > 0 ? `/m/tickets/${t}` : '/m/tickets';
   }
-  if (p === '/perfil' || (p === '/configuraciones' && q.get('tab') === 'notif')) return '/m/cuenta';
+  if (p === '/perfil') return '/m/cuenta';
+  // «Configuración del negocio» (17/10/2026): el índice, y cada sección por su ruta de escritorio. El `?tab=` VIEJO de
+  // /configuraciones (los 49 avisos dicen `?tab=notif` para apagar un reporte) va a donde lo manda la computadora
+  // (`rutaDeTabVieja`): `notif` a las Notificaciones DEL NEGOCIO. Hasta el 17/10 iba a «Tu cuenta», que en escritorio
+  // dejó de ser ese lugar el 15/10. Horario y Criterio son General, que en el teléfono es el índice.
+  if (p === '/configuraciones') {
+    const vieja = rutaDeTabVieja(q.get('tab'));
+    const sec = vieja ? CLAVES_NEGOCIO_M.find((k) => SECCIONES_NEGOCIO_M[k] === vieja) : undefined;
+    return sec ? `${RUTA_CONFIG_M}/${sec}` : RUTA_CONFIG_M;
+  }
+  if (p === '/marketing/salud') return `${RUTA_CONFIG_M}/integraciones`;
+  if (UNA_A_UNA[p]) return UNA_A_UNA[p];
+  for (const k of CLAVES_NEGOCIO_M) {
+    if (p !== SECCIONES_NEGOCIO_M[k]) continue;
+    // Integraciones lee `?abrir=<key>` (o `?servicio=`) para abrir ESA integración (lib/integracion-en-tab.ts): viaja.
+    const out = new URLSearchParams();
+    if (k === 'integraciones') for (const c of ['abrir', 'servicio']) { const v = q.get(c); if (v) out.set(c, v); }
+    const resto = out.toString();
+    return `${RUTA_CONFIG_M}/${k}${resto ? `?${resto}` : ''}`;
+  }
   // Las secciones de More (v2). Cada una cae en su sección. Donde el id es EL MISMO en los dos
   // lados (el plan de un video, una landing de landing_docs), va a la pantalla de ESA cosa; un
   // anuncio de Meta no tiene pantalla propia en el teléfono y cae en la lista de Ads Manager.
@@ -720,6 +787,9 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/tickets/decisiones') { destino = '/admin/operaciones'; q.set('ticketera', 'tarjetas'); }
   else if (p === '/m/operaciones') destino = '/admin/operaciones';
   else if (p === '/m/tickets') destino = '/tickets';
+  else if (p === RUTA_CONFIG_M) destino = '/configuraciones';
+  else if (Object.values(UNA_A_UNA).includes(p)) destino = Object.keys(UNA_A_UNA).find((k) => UNA_A_UNA[k] === p) ?? null;
+  else if ((m = p.match(/^\/m\/configuraciones\/([^/]+)$/)) && esSeccionNegocioM(m[1])) destino = SECCIONES_NEGOCIO_M[m[1]];
   else if ((m = p.match(/^\/m\/tickets\/(\d+)$/))) { destino = '/tickets'; q.set('t', m[1]); }
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
   else if (p === '/m/cuenta/seguridad') destino = '/perfil/seguridad';

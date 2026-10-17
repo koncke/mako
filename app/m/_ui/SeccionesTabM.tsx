@@ -1,58 +1,44 @@
-'use client';
-
 // =============================================================================
-// SeccionesTabM — la barra de secciones de una tab con secciones (Video, Image, Copywriting, AI Avatar)
+// SeccionesTabM — la barra de SECCIONES de una tab unificada, en el teléfono (17/10/2026)
 // =============================================================================
-// La destilación de la barra de escritorio (app/_components/SeccionesTab.tsx): las mismas secciones, en su orden y
-// con su nombre, y la que todavía no está lleva su «pronto». Se ve como el segmentado de la casa (<SegmentadoM>, el
-// de Clients · Community · Classroom), pero NO recorta: cuando no entran (Image tiene cuatro, Copywriting cinco para
-// el super admin) la tira se desliza de costado, como las pestañas de arriba de Instagram o de CapCut. Con una sola
-// sección no se dibuja (una barra con un botón no le sirve a nadie, la regla de escritorio).
+// En escritorio, una tab con `secciones` (nav.ts: Automations › MaKo Messages, Offer › Strategy, Video › Editor · Create
+// with AI · Reels, Image, Copywriting, AI Avatar…) dibuja arriba de la pantalla la barra de secciones
+// (app/_components/SeccionesTab.tsx), con la regla de la sidebar (`seccionesVisibles`). El teléfono destila eso mismo:
+// las secciones que esta persona ve Y que tienen pantalla en el teléfono (`rutaMovil`), cada una como link, en el orden y
+// con el nombre de escritorio, y la que todavía no está con su «pronto». Con una sola no dibuja nada, porque no hay entre
+// qué elegir.
 //
-// ⚠️ LA SECCIÓN QUE SE MIRA QUEDA A LA VISTA: en Image › Carousels o Copywriting › Stories (la cuarta) la tira abría
-// en su comienzo y la elegida quedaba afuera, sin nada que dijera dónde se estaba (medido a 390 px, 17/10/2026). Al
-// montar, la tira se corre lo justo para centrarla.
-//
-// Las secciones las calcula el server (app/m/_creacion/secciones.ts → `seccionesTabM`): este componente no decide
-// quién ve qué. Se importa por su ruta, no por el índice de app/m/_ui (lleva su .module.css).
+// UNA primitiva para las dos que nacieron el mismo día (Mobile 2, Automations; Mobile 1, las tabs de creación): la API y
+// el cálculo son éstos; el dibujo es <BarraSeccionesM> (la tira que se desliza cuando no entran y centra la elegida).
+// Sin 'use client' y sin CSS propio: la arma el server de cada página, y tests de node importan `seccionesDeTabM`.
 // =============================================================================
 
-import { useLayoutEffect, useRef } from 'react';
-import Link from '@/app/_ui/Link';
-import styles from './SeccionesTabM.module.css';
+import { FAMILIAS, type NavItem } from '@/app/_components/nav';
+import { seccionesVisibles, type VistaNav } from '@/lib/nav-visibilidad';
+import { rutaMovil } from '@/lib/movil-rutas';
+import { BarraSeccionesM, type OpcionSeccionM } from './BarraSeccionesM';
 
-/** Una sección: la key de nav.ts, su nombre de la barra de escritorio y su pantalla del teléfono (/m/…). */
-export type SeccionTabM = { key: string; label: string; href: string; pronto: boolean };
+/** La tab de escritorio con secciones, por su key (`video`, `image`, `copywriting`, `ai-avatar`, `automatizaciones`…). */
+function tabDe(tab: string): NavItem | undefined {
+  return FAMILIAS.flatMap((f) => f.bloques.flat()).find((x) => x.key === tab);
+}
 
-export function SeccionesTabM({ etiqueta, secciones, activa }: {
-  /** El nombre de la tab («Video»): para el lector de pantalla. */
-  etiqueta: string;
-  secciones: readonly SeccionTabM[];
-  /** La key de la sección que se está mirando. */
-  activa: string;
-}) {
-  const barra = useRef<HTMLElement>(null);
-  useLayoutEffect(() => {
-    const b = barra.current;
-    const a = b?.querySelector<HTMLElement>('[aria-current="page"]');
-    if (!b || !a || b.scrollWidth <= b.clientWidth) return;
-    b.scrollLeft = Math.max(0, a.offsetLeft - (b.clientWidth - a.offsetWidth) / 2);
-  }, [activa, secciones.length]);
+/** Las secciones que el teléfono ofrece de la tab `tab` para esta persona, con la ruta del teléfono de cada una. */
+export function seccionesDeTabM(tab: string, vista: VistaNav): OpcionSeccionM[] {
+  const t = tabDe(tab);
+  if (!t) return [];
+  return seccionesVisibles(t, vista).flatMap((s): OpcionSeccionM[] => {
+    const href = rutaMovil(s.href);
+    return href ? [{ id: s.key, label: s.seccion ?? s.label, href: href.split('?')[0], pronto: !!s.comingSoon }] : [];
+  });
+}
 
-  if (secciones.length < 2) return null;
+export function SeccionesTabM({ tab, activa, vista }: { tab: string; activa: string; vista: VistaNav }) {
+  const opciones = seccionesDeTabM(tab, vista);
+  if (opciones.length < 2) return null;
   return (
-    <nav ref={barra} aria-label={etiqueta} className={styles.barra} data-m-sin-pull>
-      {secciones.map((s) => (
-        <Link
-          key={s.key}
-          href={s.href}
-          className={styles.op}
-          aria-current={s.key === activa ? 'page' : undefined}
-        >
-          <span>{s.label}</span>
-          {s.pronto && <span className={styles.pronto}>pronto</span>}
-        </Link>
-      ))}
-    </nav>
+    <div className="m-secciones-tab">
+      <BarraSeccionesM etiqueta={tabDe(tab)?.label ?? 'Sección'} valor={activa} opciones={opciones} />
+    </div>
   );
 }

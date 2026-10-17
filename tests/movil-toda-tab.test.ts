@@ -17,7 +17,7 @@
 //
 // Las familias del MODO Dev (ADMIN_FAMILIAS) no se recorren: se llega por `dev-entrar`, que es sólo de escritorio.
 //
-// Verificado ROMPIÉNDOLO (17/10/2026, scratchpad/romper.py: cada rotura sobre el archivo real, restaurado de memoria y
+// Verificado ROMPIÉNDOLO (17/10/2026, scratchpad/mobile2/romper_m2.py: cada rotura sobre el archivo real, restaurado de memoria y
 // comparado por hash), de a una; base 5 pasan / 0 fallan:
 //   · la key `email` renombrada en SOLO_ESCRITORIO                          → 3 / 2 (email sin marca + la marca fantasma)
 //   · `crm` anotado en EN_CAMINO (ya tiene pantalla)                         → 4 / 1 (la marca vieja)
@@ -25,6 +25,8 @@
 //   · `masCompleto` sin el menú de la foto                                    → 4 / 1 (More: falta «Configuración del negocio»)
 //   · `rutaMovil` de las «pronto» a /m/proximamente (no hay página)           → 2 / 3 (rotas, More y la ida y vuelta)
 //   · sin la excepción de MaKo Partners del super admin                       → 4 / 1 (la diferencia es real)
+//   · `masCompleto` sin saltear lo que está en la barra por su ruta            → 4 / 1 (General salía otra vez en Operate,
+//     visto a 390 px: General es la portada y no tiene key en DESTINOS_MOVIL)
 // =============================================================================
 
 import test from 'node:test';
@@ -35,6 +37,7 @@ import {
   ADMIN_FAMILIAS, ADMIN_NAV, ARRIBA, FAMILIAS, SIN_FILA, SUPERADMIN_MENU, USER_NAV, itemsDe, type NavItem,
 } from '../app/_components/nav';
 import { resolverTab, puedeVerItem, type VistaNav } from '../lib/nav-visibilidad';
+import { tituloDe } from '../lib/titulo-tab';
 import {
   EN_CAMINO, SOLO_ESCRITORIO, barraMovil, masCompleto, rutaEscritorio, rutaInterna, rutaMovil, type FilaMas, type RolMovil,
 } from '../lib/movil-rutas';
@@ -136,6 +139,7 @@ const MAS_ESTRICTO_EN_EL_TELEFONO: Record<string, string> = {
 test('More tiene un lugar para cada tab que la sidebar le muestra a cada persona (o la barra la tiene)', () => {
   const faltan: string[] = [];
   const rotas: string[] = [];
+  const repetidas: string[] = [];
   for (const p of PERSONAS) {
     const vista: VistaNav = { adminShell: p.adminShell, rolWs: p.rol ?? '', capa: p.capa };
     // Lo que dibuja la sidebar (Sidebar.tsx): las tabs resueltas, los ítems de los desplegables, el menú de la foto sin
@@ -155,9 +159,16 @@ test('More tiene un lugar para cada tab que la sidebar le muestra a cada persona
       if (!enMas && !enBarra && !MAS_ESTRICTO_EN_EL_TELEFONO[`${p.nombre}|${it.label}`]) faltan.push(`${p.nombre}: ${it.label}`);
     }
     for (const f of filas) if (f.tipo === 'pantalla' && !existePagina(f.href)) rotas.push(`${p.nombre}: ${f.label} → ${f.href}`);
+    // Una cosa en un solo lugar, como el «More» de iOS: nada de lo que está en la barra se repite en More, y nada dos veces.
+    const etiquetas = filas.map((f) => f.label);
+    for (const f of filas) {
+      if (f.tipo === 'pantalla' && barra.includes(f.href.split('?')[0])) repetidas.push(`${p.nombre}: ${f.label} (está en la barra)`);
+      if (etiquetas.indexOf(f.label) !== etiquetas.lastIndexOf(f.label)) repetidas.push(`${p.nombre}: ${f.label} (dos veces)`);
+    }
   }
   assert.deepEqual(faltan, [], 'tabs de la sidebar sin lugar en More ni en la barra');
   assert.deepEqual(rotas, [], 'filas de More que llevan a una pantalla que no existe');
+  assert.deepEqual([...new Set(repetidas)], [], 'More repite lo que ya está en la barra o en More');
 });
 
 test('las «Coming soon» tienen SU pantalla en el teléfono, ida y vuelta con la URL de escritorio', () => {
@@ -168,6 +179,8 @@ test('las «Coming soon» tienen SU pantalla en el teléfono, ida y vuelta con l
     assert.equal(m, `/m/pronto/${it.key}`, `${it.key}: ${it.href}`);
     assert.equal(rutaEscritorio(m!), it.href, `${it.key}: no vuelve a su URL de escritorio`);
     assert.equal(rutaInterna(it.href), m, `${it.key}: el shell no sabe que está en su pantalla`);
+    // La pestaña se titula como en la computadora (lib/titulo-tab.ts): sin esto era «MaKo» a secas.
+    assert.equal(tituloDe(m!), tituloDe(it.href), `${it.key}: el título de la pestaña`);
   }
   // Una key que no es «pronto» no se inventa una URL.
   assert.equal(rutaEscritorio('/m/pronto/crm'), '/m/pronto/crm');

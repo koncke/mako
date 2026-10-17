@@ -31,11 +31,10 @@
   margin-right: 6px; vertical-align: 1px; background: var(--faint);
 }
 
-/* ── El plazo en el riel. Vencida: el punto rojo; el texto queda en tinta ── */
-.m-plan-plazo { display: inline-flex; align-items: center; gap: 6px; }
-.m-plan-plazo[data-vencida]::before {
-  content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--bad);
-}
+/* ── El plazo (Todoist, 17/10/2026): el calendario y el día. Vencida: el calendario rojo; el texto queda en tinta ── */
+.m-plan-plazo { flex: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.m-plan-plazo svg { flex: none; color: var(--faint); }
+.m-plan-plazo[data-vencida] svg { color: var(--bad); }
 
 /* ── El filete arranca donde arranca el TEXTO (después de la casilla) ──── */
 /* La fila va envuelta (para cerrarse al salir), así que el filete del shell caería a 16 px. */
@@ -67,6 +66,85 @@
 
 /* La forma del segmentado mientras carga (loading.tsx). */
 .m-plan-skel-seg { height: 44px; border-radius: var(--r-md); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   REDISEÑO 17/10/2026 — Todoist (Prioridades), Linear (Tareas y Proyectos). Ver la cabecera de ListaPlan.tsx.
+   Lo de los tableros es PIEL de KanbanM (compartido): va debajo de `.m-plan-tablero` y el componente no se toca.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Todoist: el círculo lleva el color de la prioridad (p1 rojo · p2 naranja · p3 azul · p4 gris), y al
+   completarse se llena de ese color. */
+.m-plan-casilla--alta .m-casilla__c { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+.m-plan-casilla--media .m-casilla__c { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.m-plan-casilla--baja .m-casilla__c { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.m-plan-casilla--alta[aria-checked="true"] .m-casilla__c { background: var(--bad); border-color: var(--bad); }
+.m-plan-casilla--media[aria-checked="true"] .m-casilla__c { background: var(--warn); border-color: var(--warn); }
+
+/* La línea de abajo (Todoist en la lista, Linear en la tarjeta): plazo, prioridad, proyecto. */
+.m-plan-meta {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  font-size: var(--fs-meta); line-height: 1.3; color: var(--dim); font-variant-numeric: tabular-nums;
+}
+.m-plan-meta--fila { width: 100%; }
+.m-plan-meta__der { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-plan-meta__proy { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* La prioridad como las rayitas de señal de Linear (sólo se muestra). */
+.m-plan-prio { flex: none; display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+.m-plan-prio i { display: block; width: 3px; border-radius: 1px; background: var(--border-strong); }
+.m-plan-prio i:nth-child(1) { height: 5px; }
+.m-plan-prio i:nth-child(2) { height: 8px; }
+.m-plan-prio i:nth-child(3) { height: 11px; }
+.m-plan-prio[data-prio="alta"] i,
+.m-plan-prio[data-prio="media"] i:nth-child(-n+2),
+.m-plan-prio[data-prio="baja"] i:nth-child(1) { background: var(--ink); }
+/* «Sin priorizar»: tres rayas acostadas, como el «No priority» de Linear. */
+.m-plan-prio[data-prio="sin_priorizar"] { align-items: center; }
+.m-plan-prio[data-prio="sin_priorizar"] i { height: 2px; }
+
+/* Linear: el nombre de la columna en letra normal con el ícono de estado delante; el conteo, gris y sin píldora. */
+[data-m] .m-plan-tablero .m-kb__col-cab h3 {
+  position: relative; font-size: var(--fs-md); font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink);
+}
+.m-plan-tablero .m-kb__cuenta { background: none; min-width: 0; padding: 0; }
+.m-plan-tablero[data-tablero="tareas"] .m-kb__col-cab h3::before {
+  content: ''; display: inline-block; vertical-align: -2px; margin-right: 8px;
+  width: 14px; height: 14px; box-sizing: border-box; padding: 2px; border-radius: 50%;
+  border: 2px solid var(--faint); background-clip: content-box;
+}
+/* No cumple tu criterio: punteado (el «Backlog» de Linear). Por hacer: vacío. En proceso: a medias. */
+.m-plan-tablero [data-kb-col="no_cumple"] .m-kb__col-cab h3::before { border-style: dashed; }
+.m-plan-tablero [data-kb-col="en_curso"] .m-kb__col-cab h3::before {
+  border-color: var(--warn); background-image: conic-gradient(var(--warn) 0 50%, transparent 0);
+}
+/* Atorada: a medias, en rojo (empezada y frenada). */
+.m-plan-tablero [data-kb-col="en_seguimiento"] .m-kb__col-cab h3::before {
+  border-color: var(--bad); background-image: conic-gradient(var(--bad) 0 50%, transparent 0);
+}
+/* Completada: lleno, con su tilde. */
+.m-plan-tablero [data-kb-col="hecho"] .m-kb__col-cab h3::before {
+  border-color: var(--primary); background: var(--primary); padding: 0;
+}
+.m-plan-tablero [data-kb-col="hecho"] .m-kb__col-cab h3::after {
+  content: ''; position: absolute; left: 5px; top: 50%; width: 3px; height: 6px;
+  border: solid var(--on-primary); border-width: 0 1.6px 1.6px 0;
+  transform: translateY(-62%) rotate(45deg);
+}
+.m-plan-tablero .m-kb-tj { gap: 8px; }
+
+/* Linear: el proyecto con su anillo de avance a la derecha. */
+.m-plan-proyecto { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; }
+.m-plan-proyecto__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.m-plan-anillo {
+  flex: none; position: relative; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
+  background: conic-gradient(var(--primary) calc(var(--pct, 0) * 1%), var(--border) 0);
+}
+.m-plan-anillo::before { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: var(--surface); }
+.m-plan-anillo span { position: relative; font-size: 11px; font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* Recurrentes: «↻ Cada lunes» (Todoist). */
+.m-plan-repite { display: inline-flex; align-items: center; gap: 5px; }
+.m-plan-repite svg { flex: none; color: var(--faint); }
 
 @media (prefers-reduced-motion: reduce) {
   .m-plan-item, .m-plan-item .m-fila__t { transition: none; }

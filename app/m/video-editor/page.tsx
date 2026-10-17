@@ -18,17 +18,16 @@ import './video-editor.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
+import { vistaDe } from '../_creacion/secciones';
 import { InicioVideoEditorM } from './ClienteVideoM';
 
 export const dynamic = 'force-dynamic';
 
 export default async function VideoEditorPagina() {
   const ctx = await requireMovil({ navKey: 'video-editor' });
-  const secciones = seccionesTabM('video', vistaDe(ctx));
   return (
     <PantallaM>
-      <SeccionesTabM etiqueta={nombreTab('video')} secciones={secciones} activa="video-editor" />
+      <SeccionesTabM tab="video" activa="video-editor" vista={vistaDe(ctx)} />
       <InicioVideoEditorM ws={ctx.ws} />
     </PantallaM>
   );

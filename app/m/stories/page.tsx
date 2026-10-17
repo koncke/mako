@@ -23,7 +23,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { getAnswers, getSchema } from '@/lib/onboarding';
 import { PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
+import { vistaDe } from '../_creacion/secciones';
 import { StoriesM } from './StoriesM';
 
 export const dynamic = 'force-dynamic';
@@ -41,11 +41,10 @@ async function perfilConDatos(): Promise<boolean> {
 
 export default async function StoriesPagina() {
   const ctx = await requireMovil({ navKey: 'stories' });
-  const secciones = seccionesTabM('copywriting', vistaDe(ctx));
   const perfilListo = await perfilConDatos();
   return (
     <PantallaM>
-      <SeccionesTabM etiqueta={nombreTab('copywriting')} secciones={secciones} activa="stories" />
+      <SeccionesTabM tab="copywriting" activa="stories" vista={vistaDe(ctx)} />
       <StoriesM perfilListo={perfilListo} />
     </PantallaM>
   );

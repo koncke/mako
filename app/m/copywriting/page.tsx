@@ -43,7 +43,7 @@ import { PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 // La barra de secciones de la tab Copywriting (Ideas · Ads Writer · YouTube Writer · Stories), como en escritorio
 // (17/10/2026). A un cliente le queda sólo Ads Writer, y con una sección la barra no se dibuja.
-import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
+import { vistaDe } from '../_creacion/secciones';
 import { CopywritingM } from './CopywritingM';
 import { avatarLite, celdaM, draftM, type AvatarLite, type CeldaM, type DatosAnalizarM } from './modelo';
 
@@ -95,7 +95,7 @@ export default async function CopywritingPagina({ searchParams }: { searchParams
 
   return (
     <PantallaM>
-      <SeccionesTabM etiqueta={nombreTab('copywriting')} secciones={seccionesTabM('copywriting', vistaDe(ctx))} activa="ads-writer" />
+      <SeccionesTabM tab="copywriting" activa="ads-writer" vista={vistaDe(ctx)} />
       <CopywritingM celdas={celdas} avatares={avatares} pendiente={pendiente} errorMatriz={errorMatriz} analizar={analizar} />
     </PantallaM>
   );

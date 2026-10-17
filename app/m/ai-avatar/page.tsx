@@ -25,7 +25,7 @@ import { inicioAvatarAction } from '@/app/ai-avatar/actions';
 import { plantillaPorId } from '@/lib/ai-avatar/plantillas';
 import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
+import { vistaDe } from '../_creacion/secciones';
 import { requireAiAvatarM } from './puerta';
 import { CrearVideoM } from './CrearVideoM';
 
@@ -38,14 +38,13 @@ export default async function AiAvatarPagina({ searchParams }: { searchParams: P
   const ctx = await requireMovil({ navKey: 'ai-avatar-crear' });
   await requireAiAvatarM();
   const sp = await searchParams;
-  const secciones = seccionesTabM('ai-avatar', vistaDe(ctx));
   const inicio = await inicioAvatarAction();
   const plantilla = plantillaPorId(uno(sp.plantilla) ?? '');
   return (
     <PantallaM>
       {/* Sin fila en SECCIONES_MAS (lib/movil-creacion.ts dice por qué): la cabecera la pone la page. */}
       <CabeceraM titulo="AI Avatar" padre={{ href: RUTA_MAS, label: 'More' }} />
-      <SeccionesTabM etiqueta={nombreTab('ai-avatar')} secciones={secciones} activa="ai-avatar-crear" />
+      <SeccionesTabM tab="ai-avatar" activa="ai-avatar-crear" vista={vistaDe(ctx)} />
       {inicio.ok
         ? <CrearVideoM inicio={inicio} avatarInicial={uno(sp.avatar)} guionInicial={plantilla?.guion ?? ''} />
         : <ErrorM frase={inicio.error} />}

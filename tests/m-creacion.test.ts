@@ -23,11 +23,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { TODOS_LOS_ITEMS } from '../app/_components/nav';
+import { ADMIN_NAV, TODOS_LOS_ITEMS } from '../app/_components/nav';
 import { RUTAS_CREACION, SECCIONES_CREACION } from '../lib/movil-creacion';
 import { SECCIONES_MAS, rutaEscritorio, rutaInterna, rutaMovil } from '../lib/movil-rutas';
 import { esTrabajo, cabeceraPorRuta } from '../app/m/_ui/cabecera';
-import { seccionesTabM } from '../app/m/_creacion/secciones';
+import { seccionesDeTabM } from '../app/m/_ui/SeccionesTabM';
 import type { VistaNav } from '../lib/nav-visibilidad';
 
 const RAIZ = join(__dirname, '..');
@@ -74,15 +74,22 @@ test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, co
 });
 
 // Roto 17/10/2026: la fila de Reels con navKey 'reel' (no existe en nav.ts) → 5/1; la page del teléfono de Stories con
-// `navKey: 'copywriting'` → 5/1; la page de Avatars sin `requireAiAvatarM()` → 5/1; la de Voices sin su <CabeceraM> → 5/1.
+// `navKey: 'copywriting'` → 5/1; la page de Avatars sin `requireAiAvatarM()` → 5/1; la de Voices sin su <CabeceraM> → 5/1;
+// la de Copy Method sin `getSesionAdmin()` → 5/1.
 test('la puerta del teléfono es la de escritorio: la misma key, que existe, y AI Avatar sólo para el super admin', () => {
   // AI Avatar NO tiene fila (lib/movil-creacion.ts: una fila oculta le borraría su fila en More, `masCompleto`).
   assert.ok(!SECCIONES_MAS.some((x) => x.navKey.startsWith('ai-avatar')), 'AI Avatar no va en SECCIONES_MAS');
   for (const s of SECCIONES_CREACION) {
-    assert.ok(TODOS_LOS_ITEMS.some((i) => i.key === s.navKey), `${s.id}: la key «${s.navKey}» no está en nav.ts (la puerta se cerraría para todos, sin error)`);
     assert.equal(s.oculta, true, `${s.id}: es una fila oculta (lib/movil-creacion.ts dice por qué)`);
     const pagina = `app/m/${s.href.slice('/m/'.length)}/page.tsx`;
     assert.ok(existsSync(join(RAIZ, pagina)), `${pagina} no existe`);
+    if (s.superAdmin) {
+      // Copy Method: una herramienta del super admin (ADMIN_NAV), con la puerta de escritorio.
+      assert.ok(ADMIN_NAV.some((i) => i.key === s.navKey), `${s.id}: la key «${s.navKey}» no es de ADMIN_NAV`);
+      assert.ok(leer(pagina).includes('await getSesionAdmin()'), `${pagina}: sin getSesionAdmin(), la puerta de escritorio`);
+      continue;
+    }
+    assert.ok(TODOS_LOS_ITEMS.some((i) => i.key === s.navKey), `${s.id}: la key «${s.navKey}» no está en nav.ts (la puerta se cerraría para todos, sin error)`);
     assert.ok(leer(pagina).includes(`requireMovil({ navKey: '${s.navKey}' })`), `${pagina}: sin requireMovil de su key`);
   }
   // Las pages de escritorio con la pregunta de toda tab piden la MISMA key que su pantalla del teléfono.
@@ -116,26 +123,27 @@ test('la puerta del teléfono es la de escritorio: la misma key, que existe, y A
 
 const SUPER: VistaNav = { adminShell: true, rolWs: 'admin', capa: 'superadmin' };
 const CLIENTE: VistaNav = { adminShell: false, rolWs: 'admin', capa: 'completo' };
-const keys = (xs: ReturnType<typeof seccionesTabM>) => xs.map((x) => x.key);
+const keys = (xs: ReturnType<typeof seccionesDeTabM>) => xs.map((x) => x.id);
 
-// Roto 17/10/2026: con `adminShell` del cliente en true (Reels a la vista de un cliente) → 5/1.
+// Roto 17/10/2026: con `adminShell` del cliente en true (Reels a la vista de un cliente) → 5/1 (sobre `seccionesDeTabM`,
+// que desde la unión con la barra de Mobile 2 vive en app/m/_ui/SeccionesTabM.tsx).
 test('la barra de secciones de cada tab: las de escritorio, con la regla del Sidebar, cada una a su pantalla del teléfono', () => {
-  assert.deepEqual(keys(seccionesTabM('video', SUPER)), ['video-editor', 'video-generator', 'reels']);
-  assert.deepEqual(keys(seccionesTabM('video', CLIENTE)), ['video-editor', 'video-generator']);
-  assert.deepEqual(seccionesTabM('video', CLIENTE).map((s) => [s.label, s.href]), [['Editor', '/m/video-editor'], ['Create with AI', '/m/video']]);
+  assert.deepEqual(keys(seccionesDeTabM('video', SUPER)), ['video-editor', 'video-generator', 'reels']);
+  assert.deepEqual(keys(seccionesDeTabM('video', CLIENTE)), ['video-editor', 'video-generator']);
+  assert.deepEqual(seccionesDeTabM('video', CLIENTE).map((s) => [s.label, s.href]), [['Editor', '/m/video-editor'], ['Create with AI', '/m/video']]);
   // Image: Image Generator y Thumbnails están en la barra de un cliente, con su «pronto», como en escritorio.
-  assert.deepEqual(seccionesTabM('image', CLIENTE).map((s) => [s.key, s.pronto]), [
+  assert.deepEqual(seccionesDeTabM('image', CLIENTE).map((s) => [s.id, !!s.pronto]), [
     ['image-editor', false], ['image-generator', true], ['thumbnails', true], ['carousels', false],
   ]);
   // Copywriting: el super admin ve también Copy Method (su herramienta, `adminOnly`); a un cliente le queda sólo Ads
   // Writer (y con una sección la barra no se dibuja).
-  assert.deepEqual(keys(seccionesTabM('copywriting', SUPER)), ['ideas', 'ads-writer', 'youtube-writer', 'stories', 'admin-copywriting']);
-  assert.equal(seccionesTabM('copywriting', SUPER).find((s) => s.key === 'admin-copywriting')?.href, '/m/admin/copywriting');
-  assert.deepEqual(keys(seccionesTabM('copywriting', CLIENTE)), ['ads-writer']);
-  assert.deepEqual(keys(seccionesTabM('ai-avatar', SUPER)), ['ai-avatar-crear', 'ai-avatar-avatares', 'ai-avatar-voces', 'ai-avatar-plantillas']);
-  assert.deepEqual(keys(seccionesTabM('ai-avatar', CLIENTE)), []);
+  assert.deepEqual(keys(seccionesDeTabM('copywriting', SUPER)), ['ideas', 'ads-writer', 'youtube-writer', 'stories', 'admin-copywriting']);
+  assert.equal(seccionesDeTabM('copywriting', SUPER).find((s) => s.id === 'admin-copywriting')?.href, '/m/admin/copywriting');
+  assert.deepEqual(keys(seccionesDeTabM('copywriting', CLIENTE)), ['ads-writer']);
+  assert.deepEqual(keys(seccionesDeTabM('ai-avatar', SUPER)), ['ai-avatar-crear', 'ai-avatar-avatares', 'ai-avatar-voces', 'ai-avatar-plantillas']);
+  assert.deepEqual(keys(seccionesDeTabM('ai-avatar', CLIENTE)), []);
   // Un closer no ve ninguna (son del admin).
-  assert.deepEqual(keys(seccionesTabM('video', { adminShell: false, rolWs: 'closer', capa: 'completo' })), []);
+  assert.deepEqual(keys(seccionesDeTabM('video', { adminShell: false, rolWs: 'closer', capa: 'completo' })), []);
 });
 
 // Roto 17/10/2026: la línea de `esTrabajo` de los editores borrada → 5/1.

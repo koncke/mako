@@ -23,20 +23,19 @@ import { requireMovil } from '@/lib/movil-guard';
 import { estadoContextoReels, leerHistorial } from '@/app/reels/reels-datos';
 import { PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
+import { vistaDe } from '../_creacion/secciones';
 import { ReelsM } from './ReelsM';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ReelsPagina() {
   const ctx = await requireMovil({ navKey: 'reels' });
-  const secciones = seccionesTabM('video', vistaDe(ctx));
   const [historial, contexto] = ctx.ws == null
     ? [[], null]
     : await Promise.all([leerHistorial(), estadoContextoReels().catch(() => null)]);
   return (
     <PantallaM>
-      <SeccionesTabM etiqueta={nombreTab('video')} secciones={secciones} activa="reels" />
+      <SeccionesTabM tab="video" activa="reels" vista={vistaDe(ctx)} />
       <ReelsM historial={historial} perfilListo={contexto?.listo ?? true} />
     </PantallaM>
   );

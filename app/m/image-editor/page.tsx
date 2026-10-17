@@ -22,19 +22,18 @@ import { listarDisenos } from '@/lib/image-editor/server';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
+import { vistaDe } from '../_creacion/secciones';
 import { InicioImagenM } from './InicioImagenM';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ImageEditorPagina() {
   const ctx = await requireMovil({ navKey: 'image-editor' });
-  const secciones = seccionesTabM('image', vistaDe(ctx));
   const r = ctx.ws == null ? { ok: false as const, error: 'Abre el editor desde un negocio.' } : await listarDisenos(ctx.ws);
   const tamanos = Object.entries(TAMANOS_API).map(([id, t]) => ({ id, nombre: t.nombre, ancho: t.ancho, alto: t.alto }));
   return (
     <PantallaM>
-      <SeccionesTabM etiqueta={nombreTab('image')} secciones={secciones} activa="image-editor" />
+      <SeccionesTabM tab="image" activa="image-editor" vista={vistaDe(ctx)} />
       {r.ok
         ? <InicioImagenM disenos={r.disenos} tamanos={tamanos} />
         : <ErrorM frase="No se pudieron leer tus diseños. Es un problema nuestro: vuelve a intentar." />}

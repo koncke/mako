@@ -15,10 +15,11 @@ import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { TemplateDetalleModal, type PlantillaVista } from './TemplateDetalleModal';
 import type { CategoriaAviso } from '@/lib/avisos-catalogo';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { ICONO_CATEGORIA } from './categoria-icono';
+import { ICONO_CATEGORIA, ORDEN_CATEGORIA, ROTULO_CATEGORIA } from './categoria-icono';
 
-const ORDEN: CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'];
-const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reportes', aviso: 'Avisos', accion: 'Acciones', pregunta: 'Preguntas' };
+// El orden y el nombre de cada categoría viven en ./categoria-icono.ts (los comparte el teléfono, app/m/mensajes).
+const ORDEN = ORDEN_CATEGORIA;
+const LABEL = ROTULO_CATEGORIA;
 
 const respuestaDueno = (a: PlantillaVista) => (a.categoria === 'accion' ? 'Sí, adelante 👍' : a.categoria === 'pregunta' ? 'Adelante, pásamelo' : '👍');
 const replicaMaKo = (a: PlantillaVista) => (a.categoria === 'accion' ? '✅ Listo, lo hago ahora y te confirmo cuando esté. — MaKo' : 'Genial, te lo preparo y te lo paso en un rato. 🙌 — MaKo');

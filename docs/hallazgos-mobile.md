@@ -30,10 +30,16 @@ de secciones de escritorio (`SeccionesTabM`, con la regla de la sidebar). Todo m
 **Trampas del entorno (no dan error):**
 - **Una fila OCULTA de `SECCIONES_MAS` le BORRA a una tab `adminOnly` su fila de More.** `masCompleto` (Mobile 2) saltea
   una tab que «tiene sección en el teléfono» pero que la regla del teléfono no muestra; y `puedeVerKey` no mira
-  `adminOnly`. AI Avatar y Copy Method van SIN fila: More las arma desde la sidebar por su ruta, y su cabecera la pone cada
-  page con `<CabeceraM>`. (Lo que se pierde: More no se marca en la barra de abajo en esas pantallas, `destinoActivo`.)
+  `adminOnly`. AI Avatar va SIN fila: More la arma desde la sidebar por su ruta, y su cabecera la pone cada page con
+  `<CabeceraM>`. (Lo que se pierde: More no se marca en la barra de abajo, `destinoActivo`.) Copy Method sí tiene fila,
+  con el `superAdmin` de Mobile 2 (una herramienta de ADMIN_NAV: su page se cuida con `getSesionAdmin()`).
 - **Un `.module.css` en una pieza de `app/m/_ui` exportada por el ÍNDICE tumba tests de node** (tests/m-offer: «Unexpected
-  token '.'»): el índice lo importan tests que no cargan CSS. `SeccionesTabM` y `BotonFlotanteM` se importan por su ruta.
+  token '.'»): el índice lo importan tests que no cargan CSS. `BotonFlotanteM` se importa por su ruta, y la barra de
+  secciones lleva sus clases en m.css (tests/m-superadmin importa `seccionesDeTabM`).
+- **Dos agentes hicieron la MISMA barra de secciones el mismo día** (Mobile 2 para Automations, éste para Video, Image,
+  Copywriting y AI Avatar), con el mismo nombre de archivo y otra API. Quedó UNA: la API de Mobile 2
+  (`<SeccionesTabM tab activa vista>`, `seccionesDeTabM`) con el dibujo de ésta (`BarraSeccionesM`: se desliza, «pronto» y
+  centra la elegida).
 - **`next build --debug-build-paths` con `[param]` en la ruta no compila esa página y no avisa**: los corchetes son una
   clase de caracteres del glob. Se pide la carpeta (`app/m/video-editor/**`). Después, el parche de `dynamicRoutes` de
   siempre (receta en el relevo).
@@ -60,13 +66,87 @@ de secciones de escritorio (`SeccionesTabM`, con la regla de la sidebar). Todo m
   gestos de fabric con el dedo no se probaron en un teléfono.
 - Reels, Stories y Carousels: generar no se probó (gasta IA del negocio); Stories y Carousels guardan la sesión en la
   pantalla, como escritorio.
-- More no se marca en la barra en AI Avatar y Copy Method (no tienen fila: ver arriba).
+- More no se marca en la barra en AI Avatar (no tiene fila: ver arriba).
 - Nada se vio en un teléfono de verdad.
 
 **Vive en:** lib/movil-creacion.ts (rutas y filas) · app/m/_creacion/ (`secciones.ts`, `escritor.tsx`,
 `PantallaCompletaM.tsx`) · app/m/_ui/SeccionesTabM.tsx y BotonFlotanteM.tsx · app/m/{video-editor, image-editor,
 ai-avatar, reels, stories, carousels, admin/copywriting} · tests/m-creacion.test.ts.
 *17/10/2026, claude4 (chat «Mobile 1: tabs de creación»).*
+## El CRM y el Plan del teléfono rediseñados copiando Pipedrive, HubSpot, Todoist y Linear (17/10/2026)
+
+Pedido de Martín (17/10, 12:56, por el Centro de Operaciones): «rediseña las actuales de CRM, Plan, etc… Siempre copia
+de otras apps que ya lo hacen bien». Rama `mobile-rediseno-1710` (C:/dev/wt-graphics). Qué se copió de cuál está en la
+cabecera de cada pantalla (app/m/crm/TableroCrm.tsx, app/m/crm/[id]/FichaLead.tsx y page.tsx, app/m/plan/ListaPlan.tsx);
+las capturas antes/después, en docs/prototipos/mobile-rediseno-1710-crm.png y -plan.png.
+
+**Para ABRIR la referencia de una app de teléfono sin un teléfono: la API de búsqueda de iTunes.**
+- `https://itunes.apple.com/search?term=pipedrive&entity=software&country=us` devuelve, por app, `screenshotUrls`: las
+  capturas de la App Store. Cambiando el final de la URL por `600x0w.jpg` se bajan a buen tamaño y se leen con la
+  herramienta de imágenes (con `sharp` del repo se arma una hoja con las seis).
+- Lo obvio era la página de la App Store (`apps.apple.com/us/app/<nombre>/id<n>`) con un id adivinado: devuelve 1 KB sin
+  capturas. Las búsquedas web devuelven la documentación de ESCRITORIO de Pipedrive y nada de cómo se ve en el teléfono.
+
+**El rediseño es PIEL del componente compartido, desde la carpeta de la pantalla.**
+- KanbanM (app/m/_ui) lo usan el CRM, Clientes y el Plan. La piel va en `crm.css` / `plan.css` debajo de una clase que
+  envuelve al tablero (`.m-crm-tablero`, `.m-plan-tablero`) y el componente no se toca: Clientes sigue como estaba.
+- ⚠️ **La copia que sigue al dedo al arrastrar cuelga de `#m-root`, FUERA del envoltorio**: las clases de lo de adentro de
+  la tarjeta (`.m-crm-tj*`) van sin el envoltorio delante, o la tarjeta arrastrada se dibuja desarmada. Las de la caja
+  (filete, sin radio) sí van con él: la copia se ve como tarjeta levantada.
+- Las reglas de m.css con la misma especificidad pierden contra las de la pantalla (se cargan después): al pisar el
+  fondo de la columna se perdió el resaltado de destino (`[data-destino]`) y la animación de llegada; hubo que
+  reponerlos con el envoltorio delante, también en `prefers-reduced-motion`.
+
+**«Sin empresa» es un RELLENO, no un dato.**
+- Síntoma: la segunda línea de casi todas las tarjetas del CRM del teléfono decía «Sin empresa» (todas las de la
+  columna mirada del ws9), y nunca decía por dónde llegó el lead, que era su respaldo (`company || llegoPor(...)`).
+- Causa: `mapToCrmLead` (app/crm/crm-map.ts) pone `company: l.empresa ?? 'Sin empresa'`, así que el `||` nunca cae.
+- Regla: un campo de `CrmLead` puede venir RELLENADO para la tarjeta de escritorio; antes de usarlo como «¿hay dato?»,
+  mirar el mapper. El teléfono compara contra `SIN_EMPRESA` (app/m/crm/datos.ts).
+
+**El `chevron` de app/_components/icons.tsx apunta hacia ABAJO.** FilaM lo rota para el «›». Rotarlo 90° «para que
+apunte abajo» lo dejó en «‹» (visto a 390 px). Antes de rotar un ícono, mirá hacia dónde apunta.
+
+**Lo que NO se copió, y por qué** (para que nadie lo «complete»):
+- El triángulo amarillo de Pipedrive («sin actividad planificada»): escritorio no tiene esa alarma, y un tablero que
+  reclama algo en cada tarjeta es lo que hacía abandonar el CRM a Mauricio (memoria crm-guardar-nunca-bloquea). La
+  señal se alimenta SÓLO con el pie de la tarjeta de escritorio: la reunión que viene (verde) y la Nutrición manual
+  vencida (rojo). Una reunión que ya pasó no es «agendado».
+- Las flechas ‹ › y los botones Won/Lost de la ficha de Pipedrive: desde el teléfono no se va a cualquier etapa (Ganado,
+  cobros y las del wizard son de la computadora, `seMueveEnElTelefono`); la barra abre «Mover de etapa», que dice a
+  cuáles sí.
+- El «+» de Pipedrive (nuevo deal) y el agregar rápido de Todoist: escritorio los tiene, pero en el teléfono son
+  funciones nuevas (el alta de una tarea dispara al Perro, AGENTS.md). Quedan en el relevo.
+
+**Mirar /m en local, lo que costó esta vez:**
+- **Copiar `node_modules` desde el clon de OneDrive tardó 49 minutos**, no «~1-3 min»: 60.823 archivos a 20 MB/min,
+  con el disco tan ocupado que un `grep` de 120 s y un `du` se cortaron por tiempo. Y 7 archivos de `onnxruntime-node`
+  fallaron la primera pasada (una segunda pasada con `/XO` los copió). Se lanza en segundo plano y se trabaja el código
+  mientras.
+- **Desde el Git Bash, `robocopy … /E` falla**: el Bash convierte `/E` en `E:/` («Invalid Parameter #3»). Va por
+  PowerShell. Y por lo mismo, **un argumento `/crm` a un script de node llega como `C:/Program Files/Git/crm`**: CDP
+  contesta «Cannot navigate to invalid URL» y la foto sale en blanco sin error. `MSYS_NO_PATHCONV=1`.
+- **`--debug-build-paths` lee GLOBS: `app/m/crm/[id]/page.tsx` es una clase de caracteres** y la ficha no se compila (sin
+  aviso; la tabla de rutas del build parcial no se imprime). `app/m/crm/*/page.tsx` sí; `[[]id]` tampoco anduvo. Se
+  confirma en `.next/app-path-routes-manifest.json`.
+- El ws3 sigue con el onboarding pendiente (todo /m va a `/configurar`): se miró con el ws9 sólo leyendo. **Las capturas
+  que van al repo no llevan datos de leads**: antes de la foto, un script cambia los nombres por ficticios y desenfoca
+  teléfono, email y notas (el diseño es el real).
+- «Mover a…» se abrió en el navegador con `PointerEvent` sintéticos (pointerdown, 700 ms, pointerup): KanbanM lo
+  escucha con los handlers de React y la hoja se abre sin escribir nada. Arrastrar de verdad no se probó (sin ws3).
+
+**SIN HACER (con su archivo):**
+- Mover un lead y una tarea en el ws3 con la piel nueva, en un teléfono (arrastrar y «Mover a…»): app/m/crm/crm.css,
+  app/m/plan/plan.css. Y ver el punto verde con una reunión real (el ws9 no tenía ninguna próxima).
+- El «+» para cargar un lead (Pipedrive) y el agregar rápido de una tarea (Todoist): app/m/crm/TableroCrm.tsx,
+  app/m/plan/ListaPlan.tsx; el alta de tareas pasa por el Perro (AGENTS.md, «Crear tareas dispara al Perro»).
+- Calendar (app/m/calendario) ya es la copia de Google Calendar (Día · Agenda) y la portada General (app/m/hoy) dibuja
+  la hoja de escritorio por decisión: no se rediseñaron en esta tanda.
+
+**Vive en:** app/m/crm/ (`senalDeTarjeta`, `progresoEnFunnel` en reglas.ts; `SIN_EMPRESA` en datos.ts; la piel en
+crm.css) · app/m/plan/ListaPlan.tsx y plan.css · tests/m-crm-rediseno.test.ts · tests/m-plan-rediseno.test.ts ·
+docs/prototipos/mobile-rediseno-1710-*.png.
+*17/10/2026, claude4 (agente «Mobile 3: rediseño de CRM y Plan»).*
 
 ## Chats del teléfono con todos los canales, y la primera auditoría MIRADA a 390 px (17/10/2026)
 
