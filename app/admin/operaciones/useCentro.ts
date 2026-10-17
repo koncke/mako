@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DESTINO_RE, aceptaAdjuntos, type AdjuntoPedido, type Alcance, type TurnoChat } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { idLocal, problemaDeSeleccion, tipoDeElegido } from '@/app/m/mako/chat-ui';
-import { achicarImagen } from '@/app/m/mako/subir';
+import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   comoSale, completarChats, enQueTrabaja, esperasPorChat, historialDelChat, nombreValido, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
