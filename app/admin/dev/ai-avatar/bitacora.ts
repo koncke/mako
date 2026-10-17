@@ -39,4 +39,24 @@ export const BITACORA: Hito[] = [
       'Limpios para uso comercial: InfiniteTalk, StableAvatar, EchoMimicV3, LongCat (avatar por audio) y Chatterbox, Qwen3-TTS (voz). Ningún repo se copió: la tab usa Flow y ElevenLabs, que ya estaban.',
     ],
   },
+  {
+    fecha: '17 oct', hora: '06:09', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tab AI Avatar: looks, voces, plantillas y el video del avatar',
+    puntos: [
+      'Cuatro secciones copiadas de HeyGen: Crear video, Avatares, Voces y Plantillas. La ve sólo el super admin hasta que la valides.',
+      'Un look es tu foto en una escena de la galería; sale gratis por Flow. Con un look se crea el video: tu guion, en tomas, por el motor del Video Generator.',
+      'Voces: 25 voces en español para escuchar y sumar a la cuenta de ElevenLabs del cliente. El video todavía sale con la voz de Flow en su acento.',
+      'Cómo se prueba: en un workspace con foto cargada y la extensión de MaKo al día, Avatares → elegir foto y tema → Crear look; cuando aparece, Crear video → guion → Generar video. Al terminar, Editar y exportar abre el Video Editor.',
+    ],
+    commits: [
+      { sha: 'ee1b411c', msg: 'AI Avatar: la tab tipo HeyGen, con looks, galería de voces y de temas, y el video del avatar', lineas: 1738, archivos: 26 },
+    ],
+    archivos: [
+      'app/ai-avatar/AiAvatarCliente.tsx — las cuatro secciones',
+      'app/ai-avatar/actions.ts — looks, video y voces (sin generación propia)',
+      'lib/ai-avatar/plantillas.ts y voces-galeria.ts — las galerías',
+      'lib/flow-cara.ts — la cara de una foto en Flow, compartida con el Video Generator',
+    ],
+    revisar: '/ai-avatar/avatares',
+  },
 ];
