@@ -6578,6 +6578,16 @@ muestra, y el diagnóstico obvio (la RAM) es el equivocado: no es un rojo ni un 
 
 *17/10/2026, chat «Automations» (claude4), al abrir C:/dev/wt-aut-pedidos para la rama de los pedidos sueltos.*
 
+## El tsc acotado de las pantallas del Ops Center: una lista larga muere, en tandas pasa (17/10/2026)
+
+Con ~14 chats abiertos y 1,5 GB libres, `scripts/tsc-acotado.mjs` sobre 25 archivos del Ops Center salió 99 dos veces:
+con el heap de siempre lo mató el vigía de RAM («código 1, 0 bytes de salida»), y con `--heap=1800` se quedó sin heap
+(«código 134»). Las pantallas arrastran casi toda la app por sus imports (app/_ui, el Second Brain, el teléfono), así que
+achicar el heap no ayuda. **Lo que anduvo:** tandas de 3 a 5 archivos con `--heap=2300`, y las librerías y los tests en
+otra tanda: las cinco dieron ✓. Un 99 sigue sin ser un verde: se vuelve a correr en tandas, nunca se da por bueno.
+
+*17/10/2026, chat «Ops Center» (claude4), en C:/dev/wt-centro-chat.*
+
 ## Los logs de producción de AYER se leen con `vercel logs --since/--until` (17/10/2026)
 
 **Síntoma:** «Crear con IA se quedó pensando» en una llamada de la noche anterior. En la base no había rastro del

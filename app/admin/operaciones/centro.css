@@ -337,11 +337,28 @@
 .co-tick--mal { color: var(--bad); }
 .co-nota { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-nota--mal { color: var(--bad); }
+/* En qué está lo que mandó Martín (17/10/2026): «Enviado» → «La PC lo recibió», y por qué tarda si tarda. */
+.co-envio { margin: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: var(--fs-meta); color: var(--faint); text-align: right; }
+.co-envio__paso { display: inline-flex; align-items: center; gap: 6px; }
+.co-envio__paso::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .55; }
+.co-envio--recibido .co-envio__paso::before { background: var(--primary); opacity: 1; }
+.co-envio--tarda .co-envio__paso { color: var(--warn); }
+.co-envio__porque { color: var(--dim); max-width: 34ch; overflow-wrap: anywhere; }
+/* «Trabajando…» al pie de la conversación, con tres puntos que laten (como Claude mientras piensa). */
+.co-trabajando { align-items: center; }
+.co-trabajando__texto { margin: 0; font-size: var(--fs-sm); color: var(--dim); display: inline-flex; align-items: baseline; gap: 2px; }
+.co-trabajando__puntos { display: inline-flex; gap: 3px; margin-left: 3px; }
+.co-trabajando__puntos i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: co-late 1.2s ease-in-out infinite; }
+.co-trabajando__puntos i:nth-child(2) { animation-delay: .15s; }
+.co-trabajando__puntos i:nth-child(3) { animation-delay: .3s; }
+@keyframes co-late { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .co-trabajando__puntos i { animation: none; opacity: .6; } }
 
 /* Lo del chat: a la izquierda, sin burbuja, como el asistente en Claude y ChatGPT. */
 .co-el { align-self: stretch; display: flex; gap: 10px; }
 .co-el > .mun { margin-top: -2px; }
 .co-el__cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.co-el__cuerpo--ancho { flex: 1; }
 .co-el__rotulo { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-el__texto { margin: 0; font-size: var(--fs-md); line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 /* Lo que contestó un chat va en Markdown (17/10/2026): sin el pre-wrap, que separaría cada bloque con renglones de más. */
@@ -767,8 +784,21 @@
 .co-preg__campo::placeholder { color: var(--faint); }
 .co-preg__pie { margin: 6px 4px 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-preg__error { color: var(--bad); }
+/* La pregunta ADENTRO de la conversación (PreguntaChat.tsx, 17/10/2026): un mensaje del chat, a la izquierda, con el
+   mismo formulario. Contestada, lo elegido queda marcado y lo demás tenue. */
+.co-preg--chat { margin: 0; max-width: 560px; width: 100%; }
+.co-preg__num--caja { border-radius: 5px; }
+.co-preg__op[data-elegida='true'] .co-preg__num { border-color: var(--primary); background: var(--primary); color: var(--surface); }
+.co-preg--contestada .co-preg__op { cursor: default; opacity: 1; }
+.co-preg--contestada .co-preg__op:not([data-elegida='true']) { opacity: .5; }
+.co-preg--contestada .co-preg__op[data-elegida='true'] { background: var(--primary-bg); }
+.co-preg__otra-dicha { margin: 0; align-items: center; background: var(--primary-bg); }
+.co-preg__pie--chat { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+.co-chip--primario { border-color: var(--primary); background: var(--primary); color: var(--surface); font-weight: 600; }
+.co-chip--primario:hover { background: var(--primary-strong); }
+.co-chip--primario:disabled { opacity: .5; cursor: default; }
 /* La ayuda es del teclado: en una pantalla táctil sobra (Claude Code en el teléfono tampoco la muestra). */
-@media (hover: none) and (pointer: coarse) { .co-preg__ayuda { display: none; } .co-preg__pie:not(:has(.co-preg__error)) { display: none; } }
+@media (hover: none) and (pointer: coarse) { .co-preg__ayuda { display: none; } .co-preg__pie:not(.co-preg__pie--chat):not(:has(.co-preg__error)) { display: none; } }
 
 /* La conversación vacía: el empleado grande, como la portada de un Bot. */
 .co-portada { margin: 14vh auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
@@ -840,16 +870,10 @@
 .co-fila-wrap--sub .co-fila { gap: 10px; min-height: 0; padding-block: 7px; }
 .co-fila-wrap--sub .co-fila__titulo { font-size: var(--fs-sm); }
 
-/* La cabecera: el muñeco se toca para cambiarlo, y el «⋯» abre el menú del chat. */
+/* La cabecera: el muñeco se toca para cambiarlo (el «⋯» de acá se fue el 17/10/2026: está en la fila de la barra). */
 .co-cab__muneco { flex: none; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
 .co-cab__muneco:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-cab__muneco:hover .mun { transform: scale(1.06); transition: transform .12s ease; }
-.co-cab__mas {
-  flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; margin-left: 6px;
-  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); cursor: pointer;
-}
-.co-cab__mas:hover { background: var(--velo-hover); color: var(--ink); }
-.co-cab__mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ── Elegir el muñeco (ElegirMuneco.tsx), copiado del armador de Notion Faces ───────────────────────── */
 .co-elegir { display: grid; grid-template-columns: 132px minmax(0, 1fr) 200px; gap: 16px; min-height: 360px; }

@@ -18,11 +18,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance, TurnoChat } from '@/lib/operaciones-reglas';
-import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, yaEstaDelChat, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, yaEstaDelChat, type CarteroP, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { Hilo } from './Hilo';
+import type { Responder } from './PreguntaChat';
+import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
 import { Microfono } from './Microfono';
 import { BotonAdjuntar, ListaAdjuntos, alPegar, type AdjuntosDeCaja } from './AdjuntosCaja';
@@ -33,8 +35,14 @@ const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabaja
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
-  avance, onAvance, aspecto, onMenu, onMuneco, preguntas, respuestas, responder, selectores, turnos = [], adjuntos,
+  avance, onAvance, aspecto, onMuneco, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
+  preguntasChat = [], onResponder,
 }: {
+  /** Las preguntas del chat como formulario en su conversación (17/10/2026), y cómo se contestan (useCentro.ts). */
+  preguntasChat?: readonly PreguntaChatT[];
+  onResponder?: Responder;
+  /** Los Runners: con ellos cada trabajo dice en qué está y por qué tarda (Hilo.tsx → VivoDelHilo). */
+  carteros?: readonly CarteroP[];
   /** Las fotos y los PDF de la caja (17/10/2026): elegirlos, pegarlos con Ctrl+V y quitarlos (useCentro.ts). */
   adjuntos?: AdjuntosDeCaja;
   /** Lo que se le dijo y lo que contestó, del transcript (useCentro.ts → turnosDe): la conversación de verdad. */
@@ -59,8 +67,6 @@ export function Conversacion({
   onAvance: (abierta: boolean) => void;
   /** El muñeco que Martín le eligió (o null: el de siempre). */
   aspecto: Aspecto | null;
-  /** El «⋯» de la cabecera: el menú del chat, abierto en ese punto. */
-  onMenu: (x: number, y: number) => void;
   /** Tocar al muñeco abre el selector (Martín: «que si le doy click pueda elegir cambiar a otro»). */
   onMuneco: () => void;
   envio: Envio;
@@ -74,7 +80,7 @@ export function Conversacion({
   onCopiarClave: () => void;
   onVolver: () => void;
 }) {
-  const lineas = historialDelChat(chat, pedidos, trabajos, respuestas, turnos);
+  const lineas = historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
   // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
@@ -129,17 +135,16 @@ export function Conversacion({
           <span className="co-cab__avance-txt">Plan</span>
           {total > 0 && <span className="co-avance__conteo">{hechos}<span>/{total}</span></span>}
         </button>
-        <button type="button" className="co-cab__mas" aria-label={`Opciones de ${chat.titulo}`} title="Opciones"
-          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onMenu(r.left - 150, r.bottom + 4); }}>
-          <Icon name="mas" size={18} />
-        </button>
+        {/* Sin «⋯» acá desde el 17/10/2026 (Martín: fuera los tres puntos): Renombrar y la criatura están en la fila de la
+            barra (su «⋯» y el clic derecho), y la criatura también se cambia tocándola acá. */}
       </header>
 
       <div className="co-cuerpo">
       <div className="co-conv">
       <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
-          <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, aspecto, animo: animoDe(chat), dato: trabajaSinEscribir(chat, lineas) ?? [cuenta, meta].filter(Boolean).join(' · ') }} />
+          <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, aspecto, animo: animoDe(chat), dato: trabajaSinEscribir(chat, lineas) ?? [cuenta, meta].filter(Boolean).join(' · ') }}
+            vivo={carteros ? { chat, carteros } : undefined} onResponder={onResponder} />
         </div>
       </div>
 

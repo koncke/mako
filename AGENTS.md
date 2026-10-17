@@ -1340,7 +1340,8 @@ código nuevo:
     registro aparte: el nombre es la convención. Lo decide el jefe —se renombra a sí mismo o renombra al sub-chat con
     `set_session_title`— y funciona igual si el sub-chat lo crea Martín con un clic y lo nombra así.
   - **El jefe se llama como una tab de VERDAD** (16/10/2026): la lista sale de la barra y de las áreas
-    (app/admin/operaciones/tabs.ts); lo que no coincide va a «Sin asignar». **El orquestador se llama «Cerebro»** y no es
+    (app/admin/operaciones/tabs.ts). Desde el 17/10/2026 no hay «Sin asignar»: una sola lista, con lo que trabaja y lo que
+    espera a Martín arriba (`seccionesDeChats`), y el chat abierto se sigue por su SESIÓN aunque lo renombren (`seguirChat`). **El orquestador se llama «Cerebro»** y no es
     un jefe: va aparte, arriba («Estrategia 3 cuentas» es su nombre de antes). Un pedido sale SÓLO en el chat que lo
     trabajó, nunca en el que lo pasó; **el que nadie empezó, en el chat donde se pidió**.
   - **El historial de una tab es de su jefe** (16/10/2026): lo anotado con un nombre que hoy no tiene ningún chat
@@ -5577,6 +5578,17 @@ SÍ se publica:
 concretas y excluyentes, y el contexto dice qué se rompe con cada una. Si para contestar hay
 que abrir el código, falta trabajo tuyo, no decisión suya — la prueba está en que una de las 56
 volvió contestada con **«No entiendo esta pregunta»**.
+
+**DESDE EL 17/10/2026 LA PREGUNTA DE UN CHAT VA A SU CONVERSACIÓN, NO A LA TICKETERA** (Martín: «me pide
+que responda, en lugar de darme las opciones tipo multiple select»). La Ticketera queda para los tickets de
+usuarios. Lo que pasa la prueba de arriba se pregunta así, y nunca en texto suelto («Contestá "sí"»):
+
+1. escribí un JSON con `{ pregunta, contexto?, opciones: [{ titulo, detalle? }], recomendada?: <índice>,
+   varias?: true }` (de 2 a 6 opciones, la recomendada por su índice desde 0);
+2. corré `node ~/.claude/operaciones/cartero.mjs preguntar <archivo.json>` (cartero 1.14.0) y **terminá el turno**.
+
+Martín la ve en tu chat del Ops Center como un formulario y elige. La respuesta te llega como un mensaje
+firmado: «Respuesta a tu pregunta «…» [pregunta <id>]: 2. …». Las reglas: lib/centro-preguntas-chat.ts.
 
 # La cosecha: lo que aprende un subagente no vuelve solo
 

@@ -17,13 +17,14 @@
 
 import { Icon } from '@/app/_components/icons';
 import { ROTULO, type EstadoPedido } from '@/lib/operaciones-reglas';
-import { lineasDeConversacion, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { chatTrabajando, estadoDelEnvio, lineasDeConversacion, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { Markdown } from '@/app/_components/Markdown';
 import { textoDeRespuesta } from '@/app/admin/runway/decisiones';
 import { Muneco, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
+import { PreguntaChat, type Responder } from './PreguntaChat';
 
 /** «10:52», con el reloj de Argentina. */
 const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -52,11 +53,16 @@ export function Tick({ estado }: { estado: EstadoPedido }) {
 /** El empleado del chat: su nombre y, si Martín le eligió uno, su muñeco. */
 type Quien = { titulo: string; aspecto?: Aspecto | null };
 
-function Trabajo({ w, quien }: { w: TrabajoP; quien: Quien }) {
+/** Con qué se cuenta en qué está lo que mandó Martín (lib/centro-chats.ts → estadoDelEnvio): el chat y los Runners. */
+export type VivoDelHilo = { chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner'>; carteros: readonly CarteroP[] };
+
+function Trabajo({ w, quien, vivo, ahora }: { w: TrabajoP; quien: Quien; vivo?: VivoDelHilo; ahora: number }) {
   const t = Date.parse(w.created_at);
   const estado = w.estado ?? 'escrito';
   const mal = estado === 'no_entregado' || estado === 'incierto' || estado === 'cancelado';
   const c = w.cierre;
+  // «Enviado» → «La PC lo recibió», y por qué tarda si tarda (Martín, 17/10/2026: «no pasó nada por varios segundos»).
+  const va = vivo ? estadoDelEnvio(w, vivo.chat, vivo.carteros, ahora) : null;
   return (
     <>
       <div className="co-yo">
@@ -66,6 +72,12 @@ function Trabajo({ w, quien }: { w: TrabajoP; quien: Quien }) {
         </p>
         {w.adjuntos?.length ? <p className="co-nota">{`Adjuntó ${w.adjuntos.join(' · ')}`}</p> : null}
         {mal && <p className="co-nota co-nota--mal">{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}</p>}
+        {va && (
+          <p className={`co-envio co-envio--${va.fase}${va.porQue ? ' co-envio--tarda' : ''}`} role="status">
+            <span className="co-envio__paso">{va.texto}</span>
+            {va.porQue && <span className="co-envio__porque">{va.porQue}</span>}
+          </p>
+        )}
       </div>
       {c && (
         <div className="co-el">
@@ -113,9 +125,21 @@ function Turno({ t, quien }: { t: TurnoChat; quien: Quien }) {
   );
 }
 
-function Linea({ l, pushes, ahora, quien }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien }) {
+function Linea({ l, pushes, ahora, quien, vivo, onResponder }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; onResponder?: Responder }) {
   if (l.tipo === 'turno') return <Turno t={l.turno} quien={quien} />;
-  if (l.tipo === 'trabajo') return <Trabajo w={l.trabajo} quien={quien} />;
+  if (l.tipo === 'pregunta') {
+    // Lo que el chat pregunta: un mensaje suyo, con el formulario de opciones adentro (PreguntaChat.tsx, 17/10/2026).
+    return (
+      <div className="co-el">
+        <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
+        <div className="co-el__cuerpo co-el__cuerpo--ancho">
+          <PreguntaChat p={l.pregunta} onResponder={onResponder} enviada={!!l.trabajo} />
+          <p className="co-el__rotulo">{horaAR(l.instante)}</p>
+        </div>
+      </div>
+    );
+  }
+  if (l.tipo === 'trabajo') return <Trabajo w={l.trabajo} quien={quien} vivo={vivo} ahora={ahora} />;
   if (l.tipo === 'respuesta') {
     // Lo que contestó a una pregunta del chat: su burbuja, con la pregunta arriba en chico (como la cita de WhatsApp).
     return (
@@ -158,14 +182,29 @@ function Linea({ l, pushes, ahora, quien }: { l: LineaChat; pushes: readonly Pus
   );
 }
 
+/** Mientras el chat trabaja, al pie de la conversación: su muñeco y «Trabajando…», como Claude mientras piensa. */
+function Trabajando({ quien }: { quien: Quien }) {
+  return (
+    <div className="co-el co-trabajando" role="status" aria-live="polite">
+      <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="trabajando" size={26} />
+      <p className="co-trabajando__texto">Trabajando<span className="co-trabajando__puntos" aria-hidden><i /><i /><i /></span></p>
+    </div>
+  );
+}
+
 /** Las líneas de un chat, la más vieja arriba, con la píldora del día cada vez que cambia (WhatsApp). Sólo la
  *  conversación (`lineasDeConversacion`): los hitos van a la barra del Plan. */
-export function Hilo({ lineas: todas, pushes, ahora, vacio, quien }: {
+export function Hilo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder }: {
   lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string;
   /** El empleado de este chat: su muñeco va al lado de lo que hizo, y grande si todavía no hay nada. */
   quien: Quien & { animo: Animo; dato?: string | null };
+  /** El chat y los Runners: con ellos cada trabajo dice en qué está, y el pie dice «Trabajando…» (17/10/2026). */
+  vivo?: VivoDelHilo;
+  /** Contestar una pregunta del chat (useCentro.ts → contestarPregunta). Sin esto, el formulario se ve y no se toca. */
+  onResponder?: Responder;
 }) {
   const lineas = lineasDeConversacion(todas);
+  const trabaja = vivo ? chatTrabajando(vivo.chat, todas, ahora) : false;
   if (!lineas.length) {
     return (
       <div className="co-portada">
@@ -186,7 +225,8 @@ export function Hilo({ lineas: todas, pushes, ahora, vacio, quien }: {
     <>
       {items.map((it) => (it.dia
         ? <span key={it.k} className="co-dia">{it.dia}</span>
-        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} />))}
+        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} onResponder={onResponder} />))}
+      {trabaja && <Trabajando quien={quien} />}
     </>
   );
 }

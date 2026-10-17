@@ -26,7 +26,7 @@ import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { idLocal, problemaDeSeleccion, tipoDeElegido } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
-  comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
+  comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
@@ -36,10 +36,13 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { fotoCentroAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { contestarPreguntaAction, fotoCentroAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
+/** Con algo en camino (escrito o tomado), la pantalla mira más seguido: sale en segundos y tiene que verse (17/10/2026). */
+const REFRESCO_APURADO_MS = 2500;
 /** La barra del avance se recuerda abierta o cerrada entre chats y visitas: es una preferencia (AGENTS.md). */
 const CLAVE_AVANCE = 'centro.avance';
 const leerAvance = () => { try { return window.localStorage.getItem(CLAVE_AVANCE) === '1'; } catch { return false; } };
@@ -54,6 +57,8 @@ export type DatosCentro = {
   decisionesIniciales: DecisionEspera[] | null;
   /** Los muñecos que Martín eligió, por nombre (lib/centro-munecos-db.ts). */
   munecosIniciales: MunecosElegidos;
+  /** Cuántas preguntas espera cada sesión (lib/centro-preguntas-chat-db.ts → leerAbiertas). */
+  preguntasAbiertasIniciales?: Record<string, number>;
   pedidos: PedidoP[];
   ahora: number;
   sub: string;
@@ -115,16 +120,23 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // ── Lo que se dijo en el chat abierto (sus turnos, del transcript: «los chats no se entienden», 17/10/2026) ──
   // Se piden sólo para el chat que se mira (al abrirlo y en cada refresco): los demás no viajan.
   const [turnos, setTurnos] = useState<Record<string, TurnoChat[]>>({});
+  // Y sus preguntas (17/10/2026, el formulario de su conversación): viajan con los turnos.
+  const [preguntas, setPreguntas] = useState<Record<string, PreguntaChat[]>>({});
+  const [abiertas, setAbiertas] = useState<Record<string, number>>(d.preguntasAbiertasIniciales ?? {});
   const mirado = useRef<ChatCentro | null>(null);
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
     const locales = c.miembros.filter((m) => DESTINO_RE.test(m));
     if (!locales.length) return;
     const r = await turnosCentroAction(locales).catch(() => null);
-    if (r?.ok) setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
+    if (r?.ok) {
+      setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
+      setPreguntas((q) => ({ ...q, [c.clave]: r.preguntas ?? [] }));
+    }
   }, []);
   /** La conversación avisa qué chat se está mirando (o null al cerrarla). */
   const mirar = useCallback((c: ChatCentro | null) => { mirado.current = c; if (c) void pedirTurnos(c); }, [pedirTurnos]);
   const turnosDe = (c: ChatCentro): TurnoChat[] => turnos[c.clave] ?? [];
+  const preguntasDe = (c: ChatCentro): PreguntaChat[] => preguntas[c.clave] ?? [];
 
   // Se lee después de montar: el server no sabe lo del navegador, y el primer dibujo tiene que coincidir.
   useEffect(() => { setAvance(leerAvance()); }, []);
@@ -138,29 +150,35 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     return [...locales.filter((l) => !deCola.some((w) => w.id === l.id)), ...deCola];
   }, [cola, locales]);
   const carteros = useMemo(() => estado?.carteros ?? [], [estado]);
-  const esperas = useMemo(() => esperasPorChat(decisiones, carteros), [decisiones, carteros]);
+  // Lo que espera a Martín en cada sesión: las tarjetas de la Ticketera y las preguntas del formulario de su chat.
+  const esperas = useMemo(() => {
+    const m = { ...esperasPorChat(decisiones, carteros) };
+    for (const [local, n] of Object.entries(abiertas)) m[local] = (m[local] ?? 0) + n;
+    return m;
+  }, [decisiones, carteros, abiertas]);
   const chats = useMemo(() => completarChats(base, { carteros, trabajos, ahora }), [base, carteros, trabajos, ahora]);
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
   const lineasDe = useMemo(
-    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnos[c.clave])])),
-    [chats, porId, trabajos, decisiones, carteros, turnos],
+    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnos[c.clave], preguntas[c.clave])])),
+    [chats, porId, trabajos, decisiones, carteros, turnos, preguntas],
   );
   const previas = useMemo(() => new Map<string, VistaPrevia | null>([...lineasDe].map(([k, l]) => [k, vistaPrevia(l)])), [lineasDe]);
   const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, enQueTrabaja(l)])), [lineasDe]);
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);
+  const apurado = hayEnCamino(trabajos, ahora);
   useEffect(() => {
-    const t = setInterval(() => { if (document.visibilityState === 'visible') refrescar(); }, REFRESCO_MS);
+    const t = setInterval(() => { if (document.visibilityState === 'visible') refrescar(); }, apurado ? REFRESCO_APURADO_MS : REFRESCO_MS);
     const volver = () => { if (document.visibilityState === 'visible') refrescar(); };
     document.addEventListener('visibilitychange', volver);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', volver); };
-  }, [refrescar]);
+  }, [refrescar, apurado]);
   // Vercel, después de dibujar.
   useEffect(() => { let vivo = true; pushesCentroAction().then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
 
@@ -283,6 +301,25 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     setEsfuerzo(null);
   }
 
+  // ── Contestar una pregunta del chat (17/10/2026, el formulario de su conversación) ──────────────────────────────
+  // Primero sale FIRMADA por mandar.ts (el único camino a la PC: la PC recibe lo firmado), y recién con ese trabajo en la
+  // cola el servidor la marca contestada (acciones.ts → contestarPreguntaAction). Devuelve el error, o null.
+  async function contestarPregunta(c: ChatCentro, p: PreguntaChat, elegidas: number[], otra: string): Promise<string | null> {
+    const cuenta = c.sesiones.find((s) => s.sesion === p.local)?.cuenta ?? c.cuenta;
+    const sale = comoSale({ sesion: p.local, cuenta, estado: c.estado }, carteros, claveFirma, ahora);
+    if (!sale.puede) return textoDeEnvio(sale) ?? 'No puedo mandarla todavía.';
+    const texto = textoDeRespuesta(p, elegidas, otra.trim() || null);
+    const r = await firma.mandar({ sesion: p.local, cuenta, titulo: c.titulo }, texto, 'solo_esto');
+    if (!r.ok) return r.error;
+    anotarEnviado({ id: r.id, destino: p.local, destino_titulo: c.titulo, destino_cuenta: cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    const m = await contestarPreguntaAction({ local: p.local, id: p.id, elegidas, otra, trabajo: r.id }).catch(() => null);
+    // Salió firmada aunque no se haya podido marcar: el chat la recibe igual. Se ve contestada acá, y el refresco trae la verdad.
+    const contestada: PreguntaChat = m?.ok ? m.pregunta : { ...p, respuesta: { elegidas, otra: otra.trim() || null, at: new Date().toISOString(), trabajo: r.id } };
+    setPreguntas((q) => ({ ...q, [c.clave]: (q[c.clave] ?? []).map((x) => (x.id === p.id ? contestada : x)) }));
+    setAbiertas((a) => { const n = (a[p.local] ?? 0) - 1; const out = { ...a }; if (n > 0) out[p.local] = n; else delete out[p.local]; return out; });
+    return null;
+  }
+
   // Los avisos dicen qué hacer, cortos (Martín, 15/10/2026: «Jamás pongas mensajes no claros»). Después de crear el
   // Token, el paso siguiente (pegárselo al Runner) ya lo dice la caja.
   const copiarConAviso = async (t: string, aviso: string) => {
@@ -343,7 +380,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   return {
     chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
-    turnosDe, mirar,
+    turnosDe, preguntasDe, contestarPregunta, mirar,
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     avance, cambiarAvance,
     envioDe, borradorDe, ponerBorrador, alcance, setAlcance, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
