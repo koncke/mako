@@ -94,3 +94,11 @@ test('el Second Brain pide los links EN PARALELO al turno, con la tab de MaKo, y
   assert.match(mandar, /mensaje \}\)/, 'el turno lleva el mensaje entero');
 });
 
+
+// 17/10/2026, Martín: «Entro a la tab de Second Brain y me envía a un CHAT de Second Brain... cuando ahí debería saltar
+// el grafo». Probado ROMPIÉNDOLO: irAlSecondBrain eligiendo el chat aunque vea el Mapa → 1 fallo (éste).
+test('«Second Brain», debajo de la Ticketera, abre el grafo (el chat con MaKo queda en la lista)', () => {
+  const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  const ir = src.slice(src.indexOf('const irAlSecondBrain = () => {'), src.indexOf('const irAClaudeCode'));
+  assert.match(ir, /if \(veMapa\) \{[^}]*router\.push\(hrefMapa\); return; \}/, 'con el Mapa, el panel es el grafo');
+});
