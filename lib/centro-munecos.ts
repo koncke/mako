@@ -15,7 +15,10 @@
 // (`CLAVE_MUNECOS`), y lo que no se eligió sale del nombre (`aspectoDe`), igual en el server y en el navegador.
 // ⚠️ SIN `server-only`: lo usan las pantallas, el server y los tests.
 
-export const FORMAS = ['circulo', 'cuadrado', 'hexagono', 'triangulo', 'frijol', 'gota', 'pildora'] as const;
+// LA CRIATURA (17/10/2026, la F del feedback de Martín: «"Su muñeco" pasa a llamarse "Criatura". Tiene 9 cuerpos, 9 colores
+// y 9 caras»). Las piezas nuevas van AL FINAL de cada lista: el que no se eligió sale de su nombre con las de antes
+// (`DE_SIEMPRE`), así ningún chat cambia de cara por haber más opciones.
+export const FORMAS = ['circulo', 'cuadrado', 'hexagono', 'triangulo', 'frijol', 'gota', 'pildora', 'nube', 'diamante'] as const;
 export type Forma = (typeof FORMAS)[number];
 /** La paleta categórica de la casa (app/globals.css). Pasteles: el ojo oscuro se lee sobre todos. `--grafo-funnel`
  *  queda afuera a propósito: al lado de `--grafo-panorama` son dos verdes que no se distinguen en 38 px. */
@@ -24,16 +27,20 @@ export const COLORES = [
   '--grafo-entregables', '--grafo-avatares', '--grafo-razones', '--grafo-voz',
 ] as const;
 export type Color = (typeof COLORES)[number];
-export const CARAS = ['sonrisa', 'risa', 'dientes', 'tranquila', 'asombro', 'lengua'] as const;
+export const CARAS = ['sonrisa', 'risa', 'dientes', 'tranquila', 'asombro', 'lengua', 'beso', 'bigote', 'gato'] as const;
+/** Las piezas con las que se sortea el que no se eligió: las de antes del 17/10/2026 (ver arriba). */
+const DE_SIEMPRE = { formas: FORMAS.slice(0, 7), caras: CARAS.slice(0, 6) } as const;
 export type CaraMuneco = (typeof CARAS)[number];
 export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco };
 export type MunecosElegidos = Record<string, Aspecto>;
 
 export const ROTULO_FORMA: Record<Forma, string> = {
   circulo: 'Círculo', cuadrado: 'Cuadrado', hexagono: 'Hexágono', triangulo: 'Triángulo', frijol: 'Frijol', gota: 'Gota', pildora: 'Píldora',
+  nube: 'Nube', diamante: 'Diamante',
 };
 export const ROTULO_CARA: Record<CaraMuneco, string> = {
   sonrisa: 'Sonrisa', risa: 'Risa', dientes: 'Dientes', tranquila: 'Tranquila', asombro: 'Asombro', lengua: 'Lengua',
+  beso: 'Beso', bigote: 'Bigote', gato: 'Gato',
 };
 
 /** Dónde se guarda lo elegido: app_settings del workspace de la plataforma. */
@@ -93,11 +100,12 @@ export function aspectoDe(titulo: string, elegido?: Aspecto | null): Aspecto {
   if (elegido) return elegido;
   const t = normal(titulo) || '?';
   const h = hash(t);
-  const cara = CARAS[(h >>> 7) % CARAS.length];
+  const cara = DE_SIEMPRE.caras[(h >>> 7) % DE_SIEMPRE.caras.length];
   const fijo = EQUIPO.find(([pre]) => t.startsWith(pre));
   const esSub = /[›>]/.test(titulo);
   if (fijo) return { forma: fijo[1], color: fijo[2], cara: esSub ? cara : fijo[3] };
-  return { forma: FORMAS[h % FORMAS.length], color: COLORES[Math.floor(h / FORMAS.length) % COLORES.length], cara };
+  const { formas } = DE_SIEMPRE;
+  return { forma: formas[h % formas.length], color: COLORES[Math.floor(h / formas.length) % COLORES.length], cara };
 }
 
 /** Lo elegido para un nombre, si lo hay. */

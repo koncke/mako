@@ -11,6 +11,10 @@
 //   · rutaDeYaEsta sin descartar archivos → 1 fallo;
 //   · yaEstaDelChat aceptando lo que escribió Martín (rol «yo») → 1 fallo;
 //   · Review (SubTabs) sin los «Ya está» → 1 fallo.
+// Desde el 17/10 a la tarde (la C del feedback de Martín) Review y la barra del Plan se fueron: cada «Ya está» es una
+// TARJETA en la conversación (Avance.tsx → YaEstaMensaje), con «Revisar», su tarea del Plan y «Responder sobre esto».
+//   · el hilo dibujando el «Ya está» como un turno más (sin `YaEstaMensaje`) → 1 fallo («la tarjeta»);
+//   · la tarjeta sin la tarea del Plan que ese mensaje cerró → 1 fallo (el mismo).
 //   Restaurado de memoria (no con git checkout): 5 pases.
 // Lo que el test NO ve: la fila pintada (no hay navegador en estos tests).
 
@@ -20,6 +24,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { avanceDelChat, destinoDeReview, esYaEsta, porRevisar, rutaDeYaEsta, yaEstaDelChat, type LineaChat } from '../lib/centro-chats';
 import type { TurnoChat } from '../lib/operaciones-reglas';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Hilo } from '../app/admin/operaciones/Hilo';
+import type { TareaDelChat } from '../lib/centro-plan-auto-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -71,11 +79,22 @@ test('cada «Ya está» del chat es un HECHO de Review, con su ruta y la sesión
   assert.deepEqual(destinoDeReview(filtro, { clave: 'nombre:crm', sesion: LOCAL, titulo: 'CRM' }, []), { href: '/crm?lead=12', via: 'pagina' });
 });
 
-test('Review junta lo terminado del Plan con los «Ya está», en la computadora y en el teléfono', () => {
-  const avance = sinComentarios(leer('app/admin/operaciones/Avance.tsx'));
-  assert.match(avance, /const revisar = porRevisar\(\[\.\.\.nodos, \.\.\.yaEsta\]\);/);
-  assert.match(sinComentarios(leer('app/admin/operaciones/Conversacion.tsx')), /<RielAvance nodos=\{nodos\} yaEsta=\{yaEstaDelChat\(lineas\)\}/);
-  assert.match(sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx')), /<BarraAvanceMovil nodos=\{avanceDelChat\(lineas\)\} yaEsta=\{yaEstaDelChat\(lineas\)\}/);
+test('la tarjeta: cada «Ya está» es un mensaje con «Revisar», su tarea del Plan y «Responder sobre esto»', () => {
+  const t: TurnoChat = { local: LOCAL, uuid: 'u-chat-0042', rol: 'el', de: null, texto: 'Ya está: el filtro del CRM.\nPruébalo en /crm?lead=12 y mirá la columna nueva.', at: '2026-10-17T12:00:00Z', trabajo: null };
+  const tareas: TareaDelChat[] = [{ local: LOCAL, chat: 'CRM', titulo: 'El filtro del CRM', tarea: 'T-99', voy: 'u-chat-0041', ya: 'u-chat-0042', at: '2026-10-17T11:00:00Z', estado: 'hecha', intentos: 0 }];
+  const html = renderToStaticMarkup(createElement(Hilo, {
+    lineas: [{ tipo: 'turno', instante: Date.parse(t.at), turno: t }], pushes: [], ahora: Date.parse('2026-10-17T12:05:00Z'), vacio: '',
+    quien: { titulo: 'CRM', animo: 'despierto' }, tareas, onFeedback: () => {},
+    vivo: { chat: { estado: 'abierto', viejo: false, clave: 'nombre:crm', sesion: LOCAL, titulo: 'CRM' }, carteros: [] },
+  }));
+  assert.match(html, /class="co-ya"/, 'la tarjeta');
+  assert.match(html, /href="\/crm\?lead=12"[^>]*>[\s\S]*?Revisar/, 'el link a dónde revisar');
+  assert.match(html, /href="\/plan\?tarea=T-99"[\s\S]*?El filtro del CRM[\s\S]*?Hecha/, 'su tarea del Plan, hecha');
+  assert.match(html, /Responder sobre esto/);
+  assert.match(html, /id="co-turno-u-chat-0042"/, 'el ancla para llegar desde «Tareas vinculadas»');
+  // Review y la barra del Plan se fueron de las dos pantallas.
+  assert.doesNotMatch(sinComentarios(leer('app/admin/operaciones/Conversacion.tsx')), /RielAvance|co-cab__avance/);
+  assert.doesNotMatch(sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx')), /BarraAvanceMovil/);
 });
 
 test('la ruta de un «Ya está» pasa por la misma regla que Review (sólo interna)', () => {

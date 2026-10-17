@@ -15,22 +15,27 @@
 // =============================================================================
 
 import type { ReactNode } from 'react';
+import { trozosConLinks } from '@/lib/links-texto';
 
-/** Negrita inline. Lo demás pasa como texto. */
-export function renderInline(text: string, k: string): ReactNode[] {
+/** Negrita inline. Lo demás pasa como texto; con `enlaces`, los links http(s) y `[texto](url)` van como <a>
+ *  (17/10/2026, el Ops Center: «un link pegado en el chat siempre se ve azul y clickeable»; lib/links-texto.ts). */
+export function renderInline(text: string, k: string, enlaces = false): ReactNode[] {
+  const conLinks = (p: string, kk: string): ReactNode => (!enlaces ? p : trozosConLinks(p).map((x, j) => (x.tipo === 'texto'
+    ? <span key={`${kk}-${j}`}>{x.t}</span>
+    : <a key={`${kk}-${j}`} className="co-link" href={x.href} target="_blank" rel="noreferrer noopener">{x.t}</a>)));
   return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
-    /^\*\*[^*]+\*\*$/.test(p) ? <strong key={`${k}-${i}`}>{p.slice(2, -2)}</strong> : <span key={`${k}-${i}`}>{p}</span>,
+    /^\*\*[^*]+\*\*$/.test(p) ? <strong key={`${k}-${i}`}>{conLinks(p.slice(2, -2), `${k}-${i}`)}</strong> : <span key={`${k}-${i}`}>{conLinks(p, `${k}-${i}`)}</span>,
   );
 }
 
-export function Markdown({ text, compacto = false }: { text: string; compacto?: boolean }) {
+export function Markdown({ text, compacto = false, enlaces = false }: { text: string; compacto?: boolean; enlaces?: boolean }) {
   const lines = text.split('\n');
   const blocks: ReactNode[] = [];
   let bullets: string[] = [];
   const flush = () => {
     if (!bullets.length) return;
     const items = bullets;
-    blocks.push(<ul key={`ul-${blocks.length}`} style={{ margin: '4px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 3 }}>{items.map((b, i) => <li key={i} style={{ lineHeight: 1.5 }}>{renderInline(b, `li-${blocks.length}-${i}`)}</li>)}</ul>);
+    blocks.push(<ul key={`ul-${blocks.length}`} style={{ margin: '4px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 3 }}>{items.map((b, i) => <li key={i} style={{ lineHeight: 1.5 }}>{renderInline(b, `li-${blocks.length}-${i}`, enlaces)}</li>)}</ul>);
     bullets = [];
   };
   lines.forEach((raw, idx) => {
@@ -40,8 +45,8 @@ export function Markdown({ text, compacto = false }: { text: string; compacto?: 
     if (t === '') return;
     if (/^---+$/.test(t)) { blocks.push(<hr key={idx} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0' }} />); return; }
     const h = t.match(/^(#{1,3})\s+(.*)$/);
-    if (h) { const lvl = h[1].length; blocks.push(<div key={idx} style={{ fontWeight: 600, fontSize: lvl === 1 ? 16 : lvl === 2 ? 15 : 14, color: 'var(--ink)', margin: '6px 0 2px' }}>{renderInline(h[2], `h-${idx}`)}</div>); return; }
-    blocks.push(<p key={idx} style={{ margin: compacto ? '2px 0' : '3px 0', lineHeight: 1.55 }}>{renderInline(t, `p-${idx}`)}</p>);
+    if (h) { const lvl = h[1].length; blocks.push(<div key={idx} style={{ fontWeight: 600, fontSize: lvl === 1 ? 16 : lvl === 2 ? 15 : 14, color: 'var(--ink)', margin: '6px 0 2px' }}>{renderInline(h[2], `h-${idx}`, enlaces)}</div>); return; }
+    blocks.push(<p key={idx} style={{ margin: compacto ? '2px 0' : '3px 0', lineHeight: 1.55 }}>{renderInline(t, `p-${idx}`, enlaces)}</p>);
   });
   flush();
   return <>{blocks}</>;
