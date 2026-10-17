@@ -36,6 +36,9 @@ export type ClaudeMsg = { role: 'user' | 'assistant'; content: string };
  * pausado» — y eso NO abre nada, porque lo que autoriza es la lista de CÓDIGO. Un store
  * que puede fallar solo tiene permitido hacer las cosas MÁS restrictivas, nunca menos.
  */
+/** Lo que se le dice al negocio cuando su Claude está conectado y la plataforma lo tiene en pausa. */
+export const CLAUDE_EN_PAUSA = 'Tu Claude está conectado, pero MaKo lo tiene en pausa por un rato: no lo estoy usando. Vuelve a intentar más tarde.';
+
 async function claudePausado(): Promise<boolean> {
   try {
     const { getSetting } = await import('@/lib/settings');
@@ -87,8 +90,12 @@ export async function conClaveDelNegocio(p: {
       await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin()),
     ];
   } catch { return null; }
-  const v = evaluarClaveDelNegocio({ feature: p.feature, clave, clavesPlataforma, pausa: await claudePausado() });
-  if (!v.ok) return null;
+  const pausa = await claudePausado();
+  const v = evaluarClaveDelNegocio({ feature: p.feature, clave, clavesPlataforma, pausa });
+  // ⚠️ LA PAUSA SE DICE (17/10/2026, docs/hallazgos-graficos.md): con `null`, el negocio que conectó SU Claude quedaba sin
+  // ningún error suyo y la caja le decía «Conecta tu Claude en Integraciones» (`avisoSinIA`), que ya está conectado. La
+  // pausa es de la plataforma, pero la clave que no se usó es la SUYA: va a su lista, con lo que pasa de verdad.
+  if (!v.ok) return pausa ? { error: CLAUDE_EN_PAUSA } : null;
   const permiso = v.permiso;
 
   // Claude no tiene modo JSON: se le pide en el system, y la cascada verifica que parsee.

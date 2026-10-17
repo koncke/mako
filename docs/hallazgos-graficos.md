@@ -1328,6 +1328,15 @@ API y la ruta comparten está en `editarHojaIA`, así que los dos caminos lo tie
 (`AlcanceIA.experimentos`) · lib/graficos-ia-edicion.ts · lib/graficos-ia-editar.ts ·
 tests/experimentos-existentes-en-la-hoja.test.ts · *17/10/2026, B5 (claude4)*
 
+## «Editar con MaKo»: el hilo sobrevive a recargar, y Claude en pausa no dice «Conecta tu Claude» (17/10/2026)
+
+- **El hilo** se guarda en el navegador por informe y por hoja (app/dashboard/hilo-guardado.ts), LIVIANO: sin las hojas de
+  antes y de después de cada cambio (después de recargar no se ofrece un Deshacer viejo: la hoja ya se guardó). Se lee
+  después de montar y no se guarda el `{}` del primer render encima (`hilosListos`). Test: tests/dashboard-hilo-guardado.test.ts.
+- **Claude en pausa** (`claudePausado`): `conClaveDelNegocio` devolvía null y el negocio que conectó SU Claude leía «Conecta
+  tu Claude». Ahora la pausa deja su error (`CLAUDE_EN_PAUSA`, lib/anthropic.ts). Test: tests/claude-pausado-aviso.test.ts.
+*17/10/2026, B5 (claude4)*
+
 ## Lo que quedó sin hacer
 
 - **La red por bloque (17/10/2026):** las miniaturas de la galería dibujan los gráficos de ejemplo sin red
