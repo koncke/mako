@@ -22,7 +22,7 @@ export const ENTREGA_TOMADO_VENCE_MS = 2 * 60 * 60 * 1000;
 /** Cuántos tickets reclama un Runner por vuelta. */
 export const TICKETS_POR_VUELTA = 5;
 /** El Runner que entiende `tickets` (los de antes los ignorarían y se quemarían los intentos). */
-export const VERSION_CARTERO_TICKETS = '1.11.0';
+export const VERSION_CARTERO_TICKETS = '1.15.0';
 
 export type FilaEntrega = {
   estado: string;

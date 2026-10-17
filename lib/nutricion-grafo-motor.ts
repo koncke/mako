@@ -30,7 +30,7 @@ import {
 // La libertad de un escenario del AI Step (undécima tanda): la única que escribe `sola` / `no_contesta`.
 import { conLibertad, libertadesPermitidas } from './ai-step-libertad';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
-import { condicionPorId, reunionesDeFila, TOPE_REUNIONES, type HechosCatalogo } from './condiciones-catalogo';
+import { condicionPorId, reunionesDeFila, valoresDeFila, TOPE_REUNIONES, type HechosCatalogo } from './condiciones-catalogo';
 import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, finDeLaReunionMs, type FilaReunion } from './nutricion-reinscripcion';
 // El CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4): la marca y la tolerancia del emisor de hoy, los hilos
 // de una inscripción y la operación de la tarjeta «MaKo en WhatsApp». Los cuatro son puros.
@@ -1096,6 +1096,13 @@ function sanearFila(x: unknown): FilaCondicion | null {
     const r = reunionesDeFila({ reuniones: o.reuniones.filter((x): x is string => typeof x === 'string' && x.length <= 120) })
       .slice(0, TOPE_REUNIONES).map((x) => `${x.funnelId}:${x.key}`);
     if (r.length) f.reuniones = r;
+  }
+  // #894 (la quinta puerta otra vez): las varias de «Está en el funnel de». Sin esto, el primer guardado dejaba la fila
+  // con el primero solo y «A o B» se volvía «A».
+  if (def?.valor.t === 'lista' && def.valor.varios && Array.isArray(o.valores)) {
+    const vs = valoresDeFila({ valores: o.valores.filter((x): x is string => typeof x === 'string' && x.length <= 120) });
+    if (vs.length) f.valor = vs[0];
+    if (vs.length > 1) f.valores = vs;
   }
   return f;
 }

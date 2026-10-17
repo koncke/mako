@@ -2,13 +2,14 @@
 // =============================================================================
 // antes-de-subir.mjs — lo que Actions le va a decir a tu punta, dicho ANTES de pasársela al Cerebro
 // =============================================================================
-// POR QUE EXISTE: de los 91 runs de integracion al 17/10/2026, 17 fallaron (más 14 cancelados), y cada
-// rojo costó ~15 min de reloj y de los 2.000 minutos gratis del mes (los fallidos se llevaron 140). Los 17
+// POR QUE EXISTE: de los 101 runs de integracion al 17/10/2026, 21 fallaron (más 14 cancelados), y cada
+// rojo costó ~15 min de reloj y de los 2.000 minutos gratis del mes (los fallidos se llevaron 140). Los 21
 // rojos son de DOS clases, y ninguna la cubre «corré los tests de tu área»:
-//   (a) 13 en «Tests»: un test de OTRA área que lee el código como texto (un regex exacto sobre el fuente) o
+//   (a) 16 en «Tests»: un test de OTRA área que lee el código como texto (un regex exacto sobre el fuente) o
 //       un barrido global del repo (puente-panel-copy, progreso, fuentes-sin-next-font, frontera-use-client).
-//   (b) 4 en «Tipos»: un ayudante de tests sin export que tsc toma por script global (51 y 52), un test que
-//       llamaba con dos argumentos a una firma que pide uno (31), una bitácora sin `puntos` (10).
+//   (b) 5 en «Tipos»: un ayudante de tests sin export que tsc toma por script global (51 y 52), un test que
+//       llamaba con dos argumentos a una firma que pide uno (31), una bitácora sin `puntos` (10), un test que pasaba
+//       `{}` donde se pide un `ProcessEnv` (100).
 // El área la define quien escribe el cambio; lo que se rompe lo define quien escribió el test o el tipo. Por
 // eso esto no pregunta «¿qué tocaste?» sino «¿qué mira lo que tocaste?» — y lo contesta leyendo el código.
 //
@@ -21,7 +22,24 @@
 //      dice «tipos: los chequea Actions» y sigue con los tests; la línea final queda `VERDE <sha> (tipos: los chequea Actions)`.
 //   3. Los TESTS AFECTADOS (scripts/tests-afectados.mjs): todas las barredoras (git ls-files, readdir…, detectadas
 //      solas), los que NOMBRAN un archivo cambiado como texto y los que lo IMPORTAN, directo o transitivo.
-//   Todo con poca concurrencia (2 procesos de test) y esperando RAM, no cayéndose.
+//   Todo con poca concurrencia (2 procesos) y esperando RAM, no cayéndose.
+//
+// DOS MODOS (medidos el 17/10/2026 en esta PC con ~14 chats abiertos, sobre la punta de Automations de 21 archivos, que tiene 3 rojos reales):
+//   · COMPLETO (el default): guardas + tipos de lo cambiado + tests afectados a TODOS los saltos. Los tests: 4 min 21 s (396 archivos, 4.712 tests).
+//   · `--rapido`: el MÍNIMO que un jefe corre antes de pasar una punta (AGENTS.md). Guardas + los tests que nombran o importan DIRECTO un archivo
+//     cambiado (profundidad 1) + todas las barredoras + los tipos de lo cambiado SI ENTRAN EN RAM SIN ESPERAR (20 s; `--sin-tipos` los apaga): 3 min 28 s
+//     sin tipos, en total. Le deja a Actions los importadores a 2+ saltos (y los tipos si no entraron: la línea lo dice); el replay
+//     (`replay-fallos-ci.mjs --rapido`) dice qué cubre: 19 de los 20 rojos de «Tests» y los 5 de «Tipos» (3 de ellos sólo con los tipos incluidos).
+//     ⚠️ Los tipos se incluyen POR DEFECTO aunque el pedido era «sin tsc»: 3 de los 25 rojos de Actions eran errores de tipos de archivos CAMBIADOS, y los 5
+//     que tuvo el test de este mismo script al armarlo los vio sólo el modo completo — un VERDE rápido sin tipos los habría dejado pasar.
+//   ⚠️ Antes de compartir procesos (abajo) la misma punta tardaba 26 min con 388 archivos, y el modo rápido 9 min 23 s.
+//
+// POR QUÉ ES RÁPIDO: los tests que no tocan estado global corren JUNTOS en UN proceso (`--test-isolation=none`) con las lecturas de archivos en
+// memoria (scripts/cache-lecturas.cjs). El costo no era el regex: ~68 barredoras leen los mismos ~5.400 archivos y con `node --test` cada archivo de
+// test es un proceso aparte que los vuelve a leer. Medido: 12 barredoras globales, 193 s separadas y 40 s juntas; la SUITE ENTERA (1.050 tests
+// compartibles, 10.905 casos) en 2 procesos, 260 s, 0 rojos. Todo rojo de un proceso compartido se REPITE aislado antes de contarlo (puede ser
+// interferencia: `editor-landing-origen` falló una vez porque otro test había dejado algo que hacía creer a lib/app-url.ts que corría «en el
+// navegador»). Riesgo que queda: un FALSO VERDE por contagio — por eso Actions sigue corriendo cada test en su proceso.
 //
 // LA SALIDA ES UNA LÍNEA, la última:   VERDE <sha>     o     ROJO: <qué>
 // y el VERDE sólo vale si (a) el árbol está LIMPIO (lo que probaste es lo que viaja: un archivo nuevo sin
@@ -33,6 +51,7 @@
 // Uso:  node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--listar]
 //   --listar: sólo el plan (qué tests y qué archivos de tipos), no corre nada · --sin-fetch: no baja origin/main antes
 //   --sin-condiciones: no exige árbol limpio ni origin/main mergeado (lo usa el pre-push, que ya sabe qué commit sube)
+//   --rapido [--sin-tipos]: el modo rápido (arriba) · --sin-compartir: cada test en su proceso, como `npm test`.
 //   --importadores: el tsc acotado suma, además de lo cambiado, a quienes lo importan (un nivel).
 //   MAKO_TIPOS_ESPERA_S=<segundos>: cuánto espera RAM para los tipos antes de decir «los chequea Actions» (default 90).
 //   --profundidad N: de los tests que IMPORTAN un archivo cambiado, sólo los que están a N saltos o menos (default: todos).
@@ -40,12 +59,17 @@
 //   --solo guardas|tipos|tests: una sola etapa; la última línea es `PARCIAL …`, nunca `VERDE` (no vale para pasar una punta)
 //
 // ───────────────────────────────────────────────────────────────────────────
-// LA PRUEBA: el REPLAY de los 17 runs rojos (node scripts/replay-fallos-ci.mjs --md). Para cada run se toma el árbol
+// LA PRUEBA: el REPLAY de los 21 runs rojos (node scripts/replay-fallos-ci.mjs --md). Para cada run se toma el árbol
 // de la cabeza que falló y la base REAL = el último run verde anterior (docs/fallos-ci-integracion.jsonl), y se
-// mira si el rojo habría salido. 17/17 runs, 20/20 rojos:
+// mira si el rojo habría salido. 21/21 runs, 25/25 rojos:
 //
 // | run | cabeza | base (run) | paso | el rojo | lo elige porque | tests elegidos |
 // |---|---|---|---|---|---|---|
+// | 100 | e9d5b041a | 89ee3aee3 (97) | Tipos | centro-preguntas-chat.test.ts | ✔ tsc: el cambio lo toca | tsc: 72 archivos |
+// | 99 | 2e70621a5 | 89ee3aee3 (97) | Tests | onboarding-hub-retirado.test.ts | ✔ barre: git ls-files | 387/1134 |
+// | 99 | 2e70621a5 | 89ee3aee3 (97) | Tests | undecima-email-propio.test.ts | ✔ barre: recorre carpetas | 387/1134 |
+// | 98 | 0484dc0c2 | 89ee3aee3 (97) | Tests | link-con-workspace.test.ts | ✔ barre: recorre carpetas | 387/1134 |
+// | 94 | 14d945d10 | 70276424a (93) | Tests | centro-abrir.test.ts | ✔ cambio: el cambio lo toca | 476/1125 |
 // | 91 | 852198de7 | e5f23ef0d (90) | Tests | frontera-use-client.test.ts | ✔ barre: git ls-files | 332/1113 |
 // | 89 | 20b129409 | 3e6976024 (87) | Tests | plazo-etapa-automatizacion.test.ts | ✔ nombra: lib/nutricion.ts | 465/1111 |
 // | 85 | cdb744ddd | 7fc4137b4 (84) | Tests | centro-revisar.test.ts | ✔ nombra: lib/operaciones-reglas.ts | 442/1101 |
@@ -69,11 +93,11 @@
 //
 // «Lo elige porque»: nombra = el test escribe la ruta de un archivo cambiado · barre = recorre el repo (corre siempre) · importa = importa
 // uno cambiado (N saltos) · cambio = el cambio toca al test · tsc = el .ts con el error está en lo que compila el tsc acotado.
-// Los 4 rojos de «Tipos»: en 10 y 31 el archivo con el error CAMBIÓ, y por eso entra al tsc acotado (y el tsc real, corrido sobre
+// Los 5 rojos de «Tipos»: en 10, 31 y 100 el archivo con el error CAMBIÓ, y por eso entra al tsc acotado (y el tsc real, corrido sobre
 // esos árboles con `--solo tipos`, reproduce el error: TS2554 en crm-campo-inline.test.ts); 51 y 52 los frena scripts/modulos-ts.mjs
 // (el archivo del error NO cambió: chocaba con dos scripts globales que sí). Los «tests elegidos» son 14-45 % de la suite cuando
-// la base es el último verde del Cerebro (que junta ~8 puntas): no es azar — 7 de 20 rojos son barredoras que corren SIEMPRE, y
-// los otros 13 los elige lo que tocaron. Por eso corre acá y en Actions primero, y el resto después (integracion.yml).
+// la base es el último verde del Cerebro (que junta ~8 puntas): no es azar — 11 de 25 rojos son barredoras que corren SIEMPRE, y
+// los otros 14 los elige lo que tocaron. Por eso corre acá y en Actions primero, y el resto después (integracion.yml).
 // =============================================================================
 
 import { spawnSync, execFileSync } from 'node:child_process';
@@ -154,13 +178,13 @@ const pisoTsc = (heapMb) => (() => heapMb / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB);
 // «El gate tiene que poder correr en esta PC con 14 chats abiertos; si no, nadie lo va a usar.»
 const ESPERA_TIPOS_MS = (Number(process.env.MAKO_TIPOS_ESPERA_S) || 90) * 1000;
 
-async function correrTsc(alcance, out) {
+async function correrTsc(alcance, out, esperaMs = ESPERA_TIPOS_MS) {
   if (alcance.length === 0) { out('  ✔ ningún .ts/.tsx cambió: nada que compilar'); return { ok: true }; }
   const heap = heapPara(alcance.length);
   const saltar = (porque) => { out(`  ⚠ tipos: los chequea Actions (${porque})`); return { ok: true, saltado: porque }; };
-  if (!(await tomarLock(ESPERA_TIPOS_MS))) return saltar('otro typecheck está corriendo y no se liberó');
+  if (!(await tomarLock(esperaMs))) return saltar('otro typecheck está corriendo y no se liberó');
   try {
-    const c = await esperarRam(1, { pisoGb: pisoTsc(heap), quien: 'antes-de-subir', esperaMaxMs: ESPERA_TIPOS_MS });
+    const c = await esperarRam(1, { pisoGb: pisoTsc(heap), quien: 'antes-de-subir', esperaMaxMs: esperaMs });
     if (c === 0) return saltar(`no hay RAM: quedan ${ramLibreGb().toFixed(1)} GB y el tsc acotado pide ${pisoTsc(heap)(1).toFixed(1)}`);
     const dir = mkdtempSync(path.join(os.tmpdir(), 'antes-de-subir-tsc-'));
     const config = path.join(dir, 'tsconfig.json');
@@ -205,7 +229,7 @@ export function sucio() {
 }
 
 function leerArgs(argv) {
-  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity, importadores: false };
+  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity, importadores: false, rapido: false, conTipos: true, compartir: !process.env.CI };
   for (let i = 0; i < argv.length; i++) {
     const [k, v] = argv[i].split(/=(.*)/s);
     if (k === '--base') o.base = v !== undefined ? v : argv[++i];
@@ -215,6 +239,10 @@ function leerArgs(argv) {
     else if (k === '--sin-condiciones') o.condiciones = false;
     else if (k === '--listar') o.listar = true;
     else if (k === '--importadores') o.importadores = true;
+    else if (k === '--rapido') { o.rapido = true; o.profundidad = 1; }
+    else if (k === '--con-tipos') o.conTipos = true;
+    else if (k === '--sin-tipos') o.conTipos = false;
+    else if (k === '--sin-compartir') o.compartir = false;
     else if (k === '--solo') o.solo = v !== undefined ? v : argv[++i];
     else if (k === '--profundidad') o.profundidad = Math.max(1, Number.parseInt(v !== undefined ? v : argv[++i], 10) || 1);
     else { process.stderr.write(`  [antes-de-subir] no conozco «${argv[i]}»\n`); o.ayuda = true; }
@@ -230,7 +258,7 @@ async function main(argv) {
     out(linea);
     if (process.env.MAKO_LINEA_VEREDICTO) { try { writeFileSync(process.env.MAKO_LINEA_VEREDICTO, linea + '\n'); } catch { /* sólo es un espejo */ } }
   };
-  if (o.ayuda) { out('node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--sin-condiciones] [--solo guardas|tipos|tests] [--profundidad N] [--importadores] [--listar]'); return 2; }
+  if (o.ayuda) { out('node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--sin-condiciones] [--solo guardas|tipos|tests] [--profundidad N] [--importadores] [--rapido [--sin-tipos]] [--sin-compartir] [--listar]'); return 2; }
   process.chdir(RAIZ);
 
   const sha = git(['rev-parse', '--short=9', 'HEAD']).trim();
@@ -271,9 +299,11 @@ async function main(argv) {
     if (!g.ok) rojos.push(g.porque);
   }
 
-  if (toca('tipos') && !parar()) {
+  if (toca('tipos') && !parar() && (!o.rapido || o.conTipos)) {
     out(`\n[2/3] tipos (tsc acotado a ${alcance.length} archivos)`);
-    const t = await correrTsc(alcance, out);
+    // En --rapido los tipos se intentan SIN esperar (20 s): si la RAM no alcanza ya, no se frena al jefe. Medido: 3 de los 25 rojos de Actions
+    // eran errores de tipos de archivos CAMBIADOS, y los 5 que tuvo mi propio test al armar esto los vio sólo el modo completo.
+    const t = await correrTsc(alcance, out, o.rapido ? 20 * 1000 : ESPERA_TIPOS_MS);
     if (!t.ok) { rojos.push(t.porque); if (t.sinRam) sinRam = true; }
     if (t.saltado) tiposSaltados = t.saltado;
   }
@@ -281,18 +311,21 @@ async function main(argv) {
   if (toca('tests') && !parar()) {
     out('\n[3/3] tests afectados');
     imprimirPlan(plan, { base: o.base, explicar: false }, out);
-    const lista = agrupar(sel.tests).orden;
-    if (lista.length === 0) out('  Ningún test mira lo cambiado.');
+    const ag = agrupar(sel.tests, sel.compartibles, { compartir: o.compartir });
+    const lista = ag.orden;
+    const compartidos = ag.compartidos;
+    if (lista.length === 0 && compartidos.length === 0) out('  Ningún test mira lo cambiado.');
     else {
+      if (compartidos.length) out(`  ↳ ${compartidos.length} barredoras que sólo leen corren juntas en un proceso, con las lecturas en memoria`);
       const carpetaTmp = mkdtempSync(path.join(os.tmpdir(), 'antes-de-subir-'));
       const indice = indiceConNuevos(cambios.nuevos, carpetaTmp);
       const env = { ...process.env, ...(indice ? { GIT_INDEX_FILE: indice } : {}) };
-      const r = await correrTests({ lista, tanda: 6, concurrencia: 2, cortar: o.cortar, env, carpetaTmp, out });
+      const r = await correrTests({ lista, compartidos, tanda: 6, concurrencia: 2, cortar: o.cortar, env, carpetaTmp, out });
       if (r.sinRam) { rojos.push(`tests: no hay RAM (quedan ${ramLibreGb().toFixed(1)} GB) — no se corrieron, no es un rojo de código`); sinRam = true; }
       else {
         rmSync(carpetaTmp, { recursive: true, force: true });
-        out(`  ${r.rojos.size ? '✖' : '✔'} ${r.total.tests} tests de ${lista.length} archivos · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
-        if (r.flaky.length) out(`  ⚠ ${r.flaky.length} FLAKY (rojos con 2 procesos, verdes solos; no frenan): ${r.flaky.join(', ')}`);
+        out(`  ${r.rojos.size ? '✖' : '✔'} ${r.total.tests} tests de ${lista.length + compartidos.length} archivos · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
+        if (r.flaky.length) out(`  ⚠ ${r.flaky.length} FLAKY (rojos con varios procesos o con otro test en el mismo proceso, verdes aislados; no frenan): ${r.flaky.join(', ')}`);
         if (r.rojos.size) rojos.push(`tests: ${[...r.rojos].map((f) => f.replace(/^tests\//, '')).slice(0, 6).join(', ')}${r.rojos.size > 6 ? '…' : ''}`);
       }
     }
@@ -305,8 +338,8 @@ async function main(argv) {
     return rojos.length ? (sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1) : 0;
   }
 
-  // Con la profundidad recortada no se miró todo lo que se debía: tampoco es un VERDE para pasar una punta.
-  if (Number.isFinite(o.profundidad)) {
+  // Con la profundidad recortada (sin --rapido) no se miró todo lo que se debía: tampoco es un VERDE para pasar una punta.
+  if (Number.isFinite(o.profundidad) && !o.rapido) {
     out(`\n[antes-de-subir] ${min(Date.now() - t0)} en total · --profundidad ${o.profundidad}`);
     lineaFinal(rojos.length ? `ROJO: ${rojos.join(' · ')}` : `PARCIAL (--profundidad ${o.profundidad}): sin rojos — no vale como VERDE, quedaron afuera los importadores más lejanos`);
     return rojos.length ? (sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1) : 0;
@@ -319,7 +352,9 @@ async function main(argv) {
 
   out(`\n[antes-de-subir] ${min(Date.now() - t0)} en total`);
   // Sin RAM para el tsc acotado el VERDE sigue valiendo, pero lo dice: los tipos los decide Actions (que corre el tsc completo).
-  if (rojos.length === 0) { lineaFinal(`VERDE ${sha}${tiposSaltados ? ' (tipos: los chequea Actions)' : ''}`); return 0; }
+  // `--rapido` es el MÍNIMO que un jefe corre antes de pasar una punta (AGENTS.md): sin los importadores lejanos —los decide Actions—, y con los tipos
+  // de lo cambiado sólo si entraron en RAM; la línea lo dice, para que el Cerebro sepa qué se miró.
+  if (rojos.length === 0) { lineaFinal(`VERDE ${sha}${o.rapido ? (o.conTipos && !tiposSaltados ? ' (rápido: tipos de lo cambiado sí; sin importadores lejanos: los chequea Actions)' : ' (rápido: sin tipos ni importadores lejanos; los chequea Actions)') : tiposSaltados ? ' (tipos: los chequea Actions)' : ''}`); return 0; }
   lineaFinal(`ROJO: ${rojos.join(' · ')}`);
   return sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1;
 }

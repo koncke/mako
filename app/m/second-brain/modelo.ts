@@ -153,10 +153,10 @@ export function deDondeSalio(n: NodoCerebro): string {
 }
 
 /** Los vecinos con su motivo (el texto de la arista), sin repetir. */
-export function conexionesDe(c: Pick<Cerebro, 'nodos' | 'aristas'>, id: string): Array<{ nodo: NodoCerebro; motivo: string }> {
+export function conexionesDe<N extends NodoCerebro<string> = NodoCerebro>(c: { nodos: readonly N[]; aristas: Cerebro['aristas'] }, id: string): Array<{ nodo: N; motivo: string }> {
   const porId = new Map(c.nodos.map((n) => [n.id, n]));
   const vistos = new Set<string>();
-  const out: Array<{ nodo: NodoCerebro; motivo: string }> = [];
+  const out: Array<{ nodo: N; motivo: string }> = [];
   for (const e of c.aristas) {
     const otro = e.de === id ? e.a : e.a === id ? e.de : null;
     if (!otro || vistos.has(otro)) continue;
@@ -178,7 +178,7 @@ export type LineaMapa = { x1: number; y1: number; x2: number; y2: number };
  * calcula el server (d3-force, `cerebro.posiciones`), escaladas al bbox de los puntos, con el
  * radio de Obsidian escalado igual (y un piso para que se vea). Sin interacción: es una foto.
  */
-export function miniMapa(c: Pick<Cerebro, 'nodos' | 'aristas' | 'posiciones'>, ancho: number, alto: number, margen = 14): { puntos: PuntoMapa[]; lineas: LineaMapa[] } {
+export function miniMapa(c: Pick<Cerebro<string>, 'nodos' | 'aristas' | 'posiciones' | 'taxonomia'>, ancho: number, alto: number, margen = 14): { puntos: PuntoMapa[]; lineas: LineaMapa[] } {
   const g = gradosDe(c.nodos, c.aristas);
   const con = c.nodos.filter((n) => c.posiciones[n.id]);
   if (!con.length) return { puntos: [], lineas: [] };
@@ -198,7 +198,7 @@ export function miniMapa(c: Pick<Cerebro, 'nodos' | 'aristas' | 'posiciones'>, a
     return {
       id: n.id, x: p.x, y: p.y,
       r: Math.round(Math.max(1.8, radioDe(g[n.id] ?? 0) * k) * 10) / 10,
-      color: rellenoNodo(n),
+      color: rellenoNodo(n, c.taxonomia),
       opacidad: n.autoria === 'pendiente' ? OPACIDAD_PENDIENTE : 1,
     };
   });

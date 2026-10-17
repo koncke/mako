@@ -102,7 +102,7 @@ import { kanbanDeValor, valorDeVarios, separarValor, MENU_MAS, esperaAntesDe, er
 // Undécima tanda: las filas del catálogo, los datos del «{ }», la tarjeta MaKo por partes, la forma de hoy y la galería.
 // Duodécima: el desplegable de condiciones por ámbito (`seccionesDeCondiciones`) y las opciones de una de lista.
 import {
-  condicionPorId, problemaDeFila, OPERADORES, seccionesDeCondiciones, deValorOpcion, opcionesDe, normalizarTexto,
+  condicionPorId, problemaDeFila, OPERADORES, seccionesDeCondiciones, deValorOpcion, opcionesDe, normalizarTexto, valoresDeFila,
   type OperadorCondicion, type CatalogosCondicion, type AmbitoDisparo, type DefCondicion, type CatalogoValor,
 } from './condiciones-catalogo';
 import { TOPE_TEXTO_SOCIAL, VENTANA_META_MS, esCanalSocial, NOMBRE_CANAL, problemaDeAdjunto, type CanalSocial } from './canal-social';
@@ -2470,7 +2470,11 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
         // Duodécima tanda: sólo las que ofrece el desplegable con ESTE CRON, y una de lista con una opción suya.
         if (!condiciones.has(String(f.campo))) { err.push(`la condición «${String(f.campo)}» no está en CONDICIONES con ese disparador`); continue; }
         const def = condicionPorId(f.campo);
-        if (def?.valor.t === 'lista' && !valoresDeLista(def.valor.catalogo, cat).has(String(f.valor ?? ''))) err.push(`la condición «${String(f.campo)}» usa una opción que no existe`);
+        if (def?.valor.t === 'lista') {
+          const hay = valoresDeLista(def.valor.catalogo, cat);
+          const vs = valoresDeFila(f);
+          if (!vs.length || vs.some((x) => !hay.has(x))) err.push(`la condición «${String(f.campo)}» usa una opción que no existe`);
+        }
         if (f.campo === 'etiqueta' && !etiquetaOk(f.valor)) err.push(`una condición usa una etiqueta que no existe (${String(f.valor)})`);
         if (f.campo === 'etapa' && !etapaOk(f.valor, f.funnel_id)) err.push(`una condición usa una etapa que no existe (${String(f.valor)})`);
       }
@@ -3235,7 +3239,8 @@ export type GuardadoIA = Pick<ListoIA, 'pasos' | 'nombre' | 'orden' | 'disparado
 
 export type EventoIA =
   | { t: 'fase'; fase: 'contexto'; leyendo: LeyendoIA; texto: string }
-  | { t: 'fase'; fase: 'modelo' }
+  /** `intento`: desde el segundo pedido a un proveedor (el anterior no sirvió), cuál va (#847). */
+  | { t: 'fase'; fase: 'modelo'; intento?: number }
   | { t: 'fase'; fase: 'respuesta' }
   | { t: 'fase'; fase: 'revision'; reparadas: number }
   | ListoIA

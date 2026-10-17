@@ -196,7 +196,9 @@ select.gh-form-control { padding-right: 32px; appearance: none; background: var(
 
 /* ── Documentación: barra lateral, artículo y endpoints ───────────────────── */
 .gh-docs { display: grid; grid-template-columns: 286px minmax(0, 1fr); min-height: 70vh; border-top: 0; }
-.gh-docs-sidebar { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 16px 0 32px; border-right: 1px solid var(--gh-border-muted); background: var(--gh-bg); }
+/* Se pega a la VENTANA: con la barra de inspección arriba, va debajo y descuenta su alto (#850). Es un <nav>: la regla de
+   los <aside> de globals.css no la toma. */
+.gh-docs-sidebar { position: sticky; top: var(--barra-agencia, 0px); align-self: start; max-height: calc(100vh - var(--barra-agencia, 0px)); overflow-y: auto; padding: 16px 0 32px; border-right: 1px solid var(--gh-border-muted); background: var(--gh-bg); }
 .gh-docs-sidebar-cabecera { padding: 0 16px 16px; border-bottom: 1px solid var(--gh-border-muted); }
 .gh-docs-sidebar-cabecera h2 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
 .gh-docs-nav { padding: 8px 8px 0; list-style: none; margin: 0; }

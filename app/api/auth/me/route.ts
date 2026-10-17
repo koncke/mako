@@ -6,10 +6,9 @@
 
 import { NextResponse } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { getCapaActual, getWorkspace, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
+import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
 import { rutaDeSalida } from '@/lib/agencia-cartera';
-import { agenciaDeCliente } from '@/lib/agencia';
-import { WS_PARAM } from '@/lib/ws-tab';
+import { vistaDeOtro } from '@/lib/vista-de-otro';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,11 +24,9 @@ export async function GET() {
   // dijera un cliente y los datos fueran de otro.
   const ws = await getWorkspaceActual();
   const impersonando = await estaImpersonando();
-  let clienteNombre: string | null = null;
-  const clienteWs = impersonando ? ws : null;
-  if (clienteWs) {
-    try { clienteNombre = (await getWorkspace(clienteWs))?.nombre ?? `Workspace ${clienteWs}`; } catch { clienteNombre = `Workspace ${clienteWs}`; }
-  }
+  // El cliente, su nombre, su agencia y la salida salen de lib/vista-de-otro.ts: el layout dibuja el PRIMER
+  // cuadro con lo mismo (#881), y dos copias de esta cuenta podrían nombrar a dos clientes.
+  const vista = await vistaDeOtro();
 
   // ⚠️ LA SALIDA ES UN DATO, NO UNA CONSTANTE. El botón «Salir de la vista»
   // apuntaba hardcodeado a '/admin' en tres lugares, y '/admin' está en
@@ -40,7 +37,7 @@ export async function GET() {
   const esSuperAdmin = sesion.rol === 'admin';
   // De qué agencia es este cliente, si es de alguna. Decide DOS cosas: la cadena
   // que se dibuja y a qué escalón vuelve «Salir».
-  const agencia = esSuperAdmin && clienteWs ? await agenciaDeCliente(clienteWs) : null;
+  const agencia = vista?.agencia ?? null;
 
   return NextResponse.json({
     ok: true,
@@ -64,7 +61,7 @@ export async function GET() {
     // es de una agencia, arriba está esa agencia; si no, arriba está la
     // plataforma. Un stack habría que guardarlo, sobreviviría mal a un F5 y
     // mentiría al entrar por un link directo.
-    salida: agencia ? `/customer-success?${WS_PARAM}=${agencia.ws}` : rutaDeSalida(esSuperAdmin),
+    salida: vista?.salida ?? rutaDeSalida(esSuperAdmin),
     // ⚠️ LA CADENA, PARA CUANDO HAY DOS NIVELES: el super admin mirando a un
     // cliente que pertenece a una agencia. Sin esto la barra dice «estás viendo
     // a Cliente X» y se calla lo único que hace falta saber ahí — de quién es
@@ -83,7 +80,7 @@ export async function GET() {
     capa: await getCapaActual(),
     legacy: sesion.sub === 'legacy',
     impersonando,
-    clienteNombre,
-    clienteWs,
+    clienteNombre: vista?.clienteNombre ?? null,
+    clienteWs: vista?.clienteWs ?? null,
   });
 }

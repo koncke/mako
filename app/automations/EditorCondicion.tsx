@@ -42,13 +42,14 @@
 
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownGroup, type DropdownOption } from '../components/Dropdown';
+import { ElegirFunnels } from '../components/ElegirFunnels';
 import { SelectorEtiqueta } from '@/app/_components/etiquetas-cliente';
 import { inpLienzo, botonGrande } from '@/app/_components/Lienzo';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { TOPE_FILAS, TOPE_CASOS, ROTULO_RESPUESTA, unionDe, rotuloSiNoDeRespuesta, type FilaCondicion, type RamaCondicion, type CasoRespuesta } from '@/lib/flujo-grafo';
 import {
   condicionPorId, seccionesDeCondiciones, arbolDeOpciones, esArbol, filaNueva, deValorOpcion, valorOpcion, problemaDeFila,
-  nombreDeValor, nombresCatalogoDe, cuotaDeFila, SIMBOLO_OP, TOPE_CUOTA, TOPE_REUNIONES, SECCION_RESPUESTA,
+  nombreDeValor, nombresCatalogoDe, cuotaDeFila, SIMBOLO_OP, TOPE_CUOTA, TOPE_REUNIONES, SECCION_RESPUESTA, valoresDeFila, conValores,
   type AmbitoDisparo, type CatalogosCondicion, type DefCondicion, type ProductoCondicion,
   type SeccionOpciones, type NivelArbol, type DatosDeLaCondicion,
 } from '@/lib/condiciones-catalogo';
@@ -459,6 +460,18 @@ function Valor({ fila, cat, busy, onCambiar, incompleta }: {
     return null;
   }
 
+  // UNO O VARIOS (#894, 17/10/2026: «Está en el funnel de» con varios es «A o B» en una sola fila): el selector de
+  // funnels de la casa, sin «Todos» (acá vacío es «falta elegir», no el negocio entero).
+  if (v.t === 'lista' && v.varios && v.catalogo === 'producto') {
+    const funnels = [...new Map((cat.productos ?? []).filter((p) => p.funnelId != null).map((p) => [Number(p.funnelId), { id: Number(p.funnelId), nombre: p.nombre }])).values()];
+    return (
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <ElegirFunnels funnels={funnels} valor={valoresDeFila(fila).map(Number).filter((n) => n > 0)} sinTodos todos="Elige uno o varios"
+          ariaLabel={def.rotulo[0]} disabled={busy} buttonStyle={{ ...SECUNDARIO, ...marco }}
+          onCambiar={(ids) => onCambiar(conValores(fila, ids.map(String)), true)} />
+      </div>
+    );
+  }
   if (v.t === 'lista') {
     const valor = fila.valor == null ? '' : String(fila.valor);
     return (

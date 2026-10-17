@@ -15,6 +15,10 @@
 //     `TextoMio` (el texto crudo) → 1 fallo; `limpiarBorrador` antes de saber si salió → 1 fallo; el cartero diciendo
 //     «— Alcance: Sólo esto.» → 1 fallo; la miniatura con el nombre del archivo → 1 fallo.
 //   · A en la pantalla: la recomendada en el segundo lugar → 1 fallo; contestada sin «Respondiste» → 1 fallo.
+//   · D: el teléfono sin «Tareas vinculadas» en el «+» → 1 fallo (el de la B).
+//   · F: el sorteo por nombre con las 9 piezas (sin `DE_SIEMPRE`) → 1 fallo; un «Su muñeco» de vuelta en el teléfono →
+//     1 fallo; el retrato sin su paseo → 1 fallo; el «Diamante» o la cara «Gato» cayendo al dibujo de siempre → 1 fallo
+//     cada uno (todos en el mismo test).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,6 +30,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { Hilo } from '../app/admin/operaciones/Hilo';
 import type { LineaChat } from '../lib/centro-chats';
 import type { PreguntaChat } from '../lib/centro-preguntas-chat';
+import { CARAS, COLORES, FORMAS, aspectoDe } from '../lib/centro-munecos';
+import { Boca, Cuerpo, Muneco } from '../app/admin/operaciones/Muneco';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
@@ -68,7 +74,11 @@ test('B: la caja con un solo «+», sin «Sólo esto», con listas en vivo, en l
     assert.match(src, /conVinetas\(/, `${f}: las viñetas en vivo`);
     assert.match(src, /enterEnLista\(/, `${f}: Enter sigue la lista`);
   }
-  assert.match(codigo('app/m/operaciones/ChatsMovil.tsx'), /<MasCaja[^>]*>\s*<SelectoresDeEnvio\b/, 'la cuenta, el modelo y el esfuerzo, adentro del «+»');
+  assert.match(codigo('app/m/operaciones/ChatsMovil.tsx'), /<MasCaja[^>]*>[\s\S]{0,80}<SelectoresDeEnvio\b/, 'la cuenta, el modelo y el esfuerzo, adentro del «+»');
+  // D: «Tareas vinculadas (N)» también va adentro del «+», y tocar una lleva a su mensaje (cerrando el menú).
+  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
+    assert.match(codigo(f), /<MasCaja[^>]*>[\s\S]{0,200}<TareasVinculadas tareas=\{[^}]+\} onIr=\{\(u\) => \{ cerrar\(\); irAlTurno\(u\); \}\} \/>/, `${f}: las tareas del chat en el «+»`);
+  }
   const adj = codigo('app/admin/operaciones/AdjuntosCaja.tsx');
   assert.doesNotMatch(adj, /ch-elegido__nombre|>\{x\.file\.name\}</, 'la miniatura va sin el nombre, como Claude');
   assert.match(adj, /co-ver__pdf/, 'un PDF también se amplía antes de mandar');
@@ -115,4 +125,27 @@ test('A en la pantalla: el formulario con la recomendada primero, y contestada c
   assert.match(contestada, /Respondiste · 10:00/);
   assert.match(contestada, /data-elegida="true"[^>]*>[\s\S]*?Sí, ábrela/);
   assert.doesNotMatch(contestada, /Escribe otra cosa/, 'contestada no se vuelve a contestar');
+});
+
+test('F: la Criatura, con 9 cuerpos, 9 colores y 9 caras, que pasea en su recuadro; ningún chat cambia de cara solo', () => {
+  assert.deepEqual([FORMAS.length, COLORES.length, CARAS.length], [9, 9, 9]);
+  // Cada pieza se dibuja distinta (un cuerpo o una boca que cae al «default» se vería igual que otra).
+  const dibujo = (a: Parameters<typeof Muneco>[0]['aspecto']) => renderToStaticMarkup(createElement(Muneco, { titulo: 'x', animo: 'despierto', aspecto: a }));
+  const base = { forma: FORMAS[0], color: COLORES[0], cara: CARAS[0] } as const;
+  assert.ok(dibujo(base).includes('<svg'), 'la criatura entera se dibuja');
+  // Sólo la pieza, sin el brillo ni los ojos (que cambian de lugar con el cuerpo y esconderían un cuerpo repetido).
+  const pieza = (hijo: ReturnType<typeof createElement>) => renderToStaticMarkup(createElement('svg', null, hijo));
+  assert.equal(new Set(FORMAS.map((forma) => pieza(createElement(Cuerpo, { forma, color: COLORES[0] })))).size, FORMAS.length, 'nueve cuerpos distintos');
+  assert.equal(new Set(CARAS.map((cara) => pieza(createElement(Boca, { cara, y: 20 })))).size, CARAS.length, 'nueve caras distintas');
+  // El que no se eligió sale de su nombre con las piezas de antes: las nuevas son sólo para elegir.
+  for (let i = 0; i < 300; i++) {
+    const a = aspectoDe(`Chat de prueba ${i}`);
+    assert.ok(FORMAS.indexOf(a.forma) < 7 && CARAS.indexOf(a.cara) < 6, `«Chat de prueba ${i}» no cambió de cara`);
+  }
+  for (const f of ['app/admin/operaciones/PiezasCentro.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/ElegirMuneco.tsx']) {
+    assert.doesNotMatch(codigo(f), /['"`>][^'"`<]*\b[Mm]uñeco\b/, `${f}: se llama «Criatura»`);
+  }
+  const css = leer('app/admin/operaciones/centro.css');
+  assert.match(css, /\.co-elegir__retrato \.mun \{ animation: mun-pasea/, 'pasea en su recuadro');
+  assert.match(css, /prefers-reduced-motion: reduce\) \{ \.co-elegir__retrato \.mun \{ animation: none/, 'y se queda quieta si se pidió menos movimiento');
 });

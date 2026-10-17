@@ -41,6 +41,8 @@ import { datosCaida, datosVolvio } from '../lib/linea-vigilancia';
 import { datosPostLlamada } from '../lib/reunion-grabada';
 import { datosCancelada } from '../lib/reunion-cancelada';
 import { datosFusion } from '../lib/lead-fusionado';
+import { datosRecordatorioDueno } from '../lib/curso-mensajes-texto';
+import { datosPuenteAusente } from '../lib/flow-puente-aviso';
 import { datosDelReporte } from '../lib/reporte-destino';
 import { datosOfertaLista } from '../lib/oferta-lista';
 import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
@@ -121,6 +123,10 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     cancelada: set(datosCancelada({ reunion: 'R1', cuando: 'jueves 16 a las 11:00' })),
     // Y el contacto que se sumó a un lead que ya estaba, que pasa la ingesta (`datosFusion`).
     fusion: set(datosFusion({ canal: 'Meta', porQue: 'mismo teléfono', link: 'https://hola-mako.com/crm/1842' })),
+    // Y la corrida del recordatorio de clases, que pasa el cron del curso (`datosRecordatorioDueno`), con las tres secciones.
+    recordatorio: set(datosRecordatorioDueno({ hechos: [{ cliente: 'Ana', bloques: [{ etapa: 'Norte', videos: ['a'] }], noLlego: null }, { cliente: 'Eva', bloques: [], noLlego: 'sin línea' }], sinEscribir: [{ cliente: 'Juan', motivo: 'sin teléfono' }] }) as Record<string, string>),
+    // Y las tomas de video sin tomar, que pasa el cron flow-abandono (`datosPuenteAusente`).
+    flow: set(datosPuenteAusente(3)),
     // 16/10/2026: y el reporte de los lunes ya armado, que pasa el cron (`datosDelReporte`, lib/reporte-destino.ts).
     reporte: set(datosDelReporte({ titulo: 'Reporte semanal · 05/10/2026–11/10/2026', texto: '🗓️ *Reporte semanal*' })),
     // Y la oferta que MaKo terminó de armar, que pasa el armado en el servidor (`datosOfertaLista`, lib/oferta-lista.ts).

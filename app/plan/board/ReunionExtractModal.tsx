@@ -87,7 +87,9 @@ export type ClienteReunion = { nombre: string; empresa: string | null; proyecto:
 /** Lo que se ofrece cuando el server NO tuvo certeza (pregunta cerrada, una sola). */
 type OpcionCliente = { nombre: string; sub: string };
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[]; borradorId?: string; usage?: unknown; error?: string; estado?: string; resumen?: string; n?: number; yaEstaba?: boolean;
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cliente?: ClienteReunion | null; opcionesCliente?: OpcionCliente[];
+  /** Tablero del dueño (#870): con quién fue la reunión, sin mandar el proyecto de nadie. */
+  reunionCon?: string | null; borradorId?: string; usage?: unknown; error?: string; estado?: string; resumen?: string; n?: number; yaEstaba?: boolean;
   /** `extraer` sin caché (16/10/2026): la lectura quedó corriendo en el server; hay que sondear. */
   procesando?: boolean;
   /** `reuniones`: las que el cron descartó. `null` = no se pudieron leer (no es «ninguna»). */
@@ -146,6 +148,8 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
   // El cliente que el server reconoció en la reunión (por el email del invitado en el
   // CRM). Si no reconoció ninguno se muestra igual, para que el dueño lo elija.
   const [cliente, setCliente] = useState<ClienteReunion | null>(null);
+  // En el tablero del DUEÑO la reunión con un cliente no manda el proyecto (#870): sólo se dice con quién fue.
+  const [reunionCon, setReunionCon] = useState<string | null>(null);
   const [reuniones, setReuniones] = useState<ReunionMeta[] | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);   // nextCursor de Fathom
   const [cargandoMas, setCargandoMas] = useState(false);
@@ -366,6 +370,7 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
         const mias = j.tareas.filter((t) => !t.esDeOtro).length;
         setBorradores((b) => ({ ...b, [r.recordingId]: { id: j.borradorId!, estado: 'pendiente', creadas: 0, pendientesMias: mias, pendientesOtros: j.tareas!.length - mias } }));
       }
+      setReunionCon(j.reunionCon ?? null);
       await procesar(j.tareas, j.dudas ?? [], j.cliente ?? null, j.opcionesCliente ?? [], j.borradorId ?? '');
     } else { setErr(j.error || 'MaKo no pudo leer la reunión.'); setFase('lista'); setElegida(null); }
   };
@@ -429,6 +434,7 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
         // Sin compromisos NO es un error: es la lectura vacía de siempre, con «Volver a analizar».
         if (e.sinCompromisos) { setFilas([]); setFase('revisar'); return; }
         if (e.estado === 'fallado') { setErr(e.resumen || 'MaKo no pudo leer la reunión.'); volverALista(); return; }
+        setReunionCon(e.reunionCon ?? null);
         await procesar(e.tareas ?? [], e.dudas ?? [], e.cliente ?? null, e.opcionesCliente ?? [], id);
         return;
       }
@@ -506,7 +512,7 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
   // Volver a la lista de reuniones de Fathom. Si nunca se cargó (entramos por "subir
   // archivo", que la saltea), la trae ahora: si no, quedaría un spinner falso eterno.
   const volverALista = () => {
-    setFase('lista'); setElegida(null); setFilas([]); setFreno(null); setDudas([]); setOpciones([]); setElegido(null); setCliente(null); setBorradorId('');
+    setFase('lista'); setElegida(null); setFilas([]); setFreno(null); setDudas([]); setOpciones([]); setElegido(null); setCliente(null); setReunionCon(null); setBorradorId('');
     if (reuniones == null && !cargandoMas) void cargar(true);
   };
 
@@ -855,7 +861,9 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
                     <div style={{ minWidth: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--dim)' }}>
                       {cliente
                         ? <>Es una reunión con <b style={{ color: 'var(--ink)' }}>{cliente.nombre}</b>: todas estas tareas van a <b style={{ color: 'var(--ink)' }}>«{cliente.proyecto}»</b>.{' '}<span style={{ color: 'var(--faint)' }}>Si alguna no es de este cliente, cámbiasela abajo.</span></>
-                        : <>No es de un cliente: <b style={{ color: 'var(--ink)' }}>las dejo donde MaKo propuso</b>. Si alguna sí lo es, elige su proyecto abajo.</>}
+                        : reunionCon
+                          ? <>Reunión con <b style={{ color: 'var(--ink)' }}>{reunionCon}</b>: cada tarea va a su tab.</>
+                          : <>No es de un cliente: <b style={{ color: 'var(--ink)' }}>las dejo donde MaKo propuso</b>. Si alguna sí lo es, elige su proyecto abajo.</>}
                     </div>
                   </div>
                   {/* Freno del Perro por tipo de reunión (punto 8): ventas/entrega no son del plan */}

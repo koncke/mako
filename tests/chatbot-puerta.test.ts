@@ -45,14 +45,14 @@ test('abrirGuiaVoz: sólo si el server CONTESTÓ que no hay guía', () => {
   assert.equal(abrirGuiaVoz(null), false);
 });
 
-test('la pantalla marca el paso «Tu WhatsApp» al cargar con la línea conectada y al vincular desde el aviso rojo', () => {
+test('la pantalla marca el paso «Tu WhatsApp» al cargar con la línea conectada', () => {
   const app = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   // Duodécima tanda: el onboarding ya no decide qué se ve; se lee sólo para rellenar el paso.
   assert.doesNotMatch(app, /abreEnQR|puertaAlRecargar|setEnOnboarding/);
   assert.match(app, /action: 'paso', paso: 'wa_no_oficial', tab: 'setting'/);
-  // Se marca al cargar con la línea ya conectada y al vincular desde el aviso rojo (`ConectarMedio`).
+  // Se marca al cargar con la línea ya conectada. (Hasta el 17/10 también al vincular desde el aviso rojo de la línea,
+  // que se fue con #851: vinculada desde el chip de una tarjeta, Probar o Publicar, se marca en la próxima carga.)
   assert.ok(app.includes('if (marcarWhatsappAlCargar({ onboarding, canal: estadoCanal })) {'));
-  assert.match(app, /<ConectarMedio medio="whatsapp" onCerrar=\{\(\) => setConectarWa\(false\)\} onConectado=\{\(\) => \{\n\s+setConectarWa\(false\);\n\s+setCanal\(\{ estado: 'conectado', desde: null \}\);\n\s+void marcarPasoWhatsapp\(\)\.catch\(\(\) => \{\}\);\n\s+void load\(\);/);
   // El onboarding contesta si hay guía de voz, leyéndola de forma estricta (un error no es «no hay»).
   const ruta = sinComentarios(leer('app/api/chat-agent/onboarding/route.ts'));
   assert.ok(ruta.includes("m.hayVozGuiaEstricto()).catch(() => null)"));
@@ -77,14 +77,13 @@ test('«Sale sola» es de cada mensaje («Revisar antes de enviar»), con el val
   assert.match(perfil, /envioAutoSecuencia=\{est\?\.envio_automatico === true\}/);
 });
 
-test('el envío apagado viaja en el GET de secuencias y la pantalla lo avisa (#328)', () => {
+// El cartel amarillo del envío apagado (#328) se fue el 17/10 (#851, Martín: «Que no aparezca ningún mensaje»): activar
+// una automatización que le escribe al lead prende el envío (`prenderEnvioAlActivar`, tests/envio-al-activar.test.ts).
+test('el envío apagado viaja en el GET de secuencias; la tab ya no lo dibuja (#851)', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/route.ts'));
   assert.ok(ruta.includes('envioWhatsapp: await envioWhatsappHabilitadoEstricto().catch(() => null),'));
   const app = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
-  // Sólo si una secuencia activa manda por WhatsApp: una de puro email no está «sin mandar nada».
-  // Y cuentan los MENSAJES: un paso «⚡ Acción» corre con el envío apagado (08/10/2026).
-  assert.ok(app.includes("!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa && s.pasos.some((p) => p.canal === 'whatsapp' && !esPasoAccion(p)))"));
-  assert.match(app, /fetch\('\/api\/whatsapp\/envio'/);
+  assert.doesNotMatch(app, /El envío de WhatsApp está apagado|Prender el envío|envioWa/, 'volvió el cartel amarillo');
   // Prender exige un número conectado: CUALQUIER línea, no sólo la de por default.
   const envio = sinComentarios(leer('app/api/whatsapp/envio/route.ts'));
   assert.ok(envio.includes("evolutionConectado: lineas.some((l) => l.estado === 'conectado'),"));

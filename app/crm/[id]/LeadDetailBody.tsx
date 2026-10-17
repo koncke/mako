@@ -217,7 +217,7 @@ export function LeadDetailBody({ data, initialTab, initialEdit, initialSoluciona
           {/* La fila de pestañas queda pegada arriba al scrollear la página (punto 16). Las tabs son las
               del pop-up (`FichaPorBloques`): en esta ruta el lead viene del server y el refresh lo trae. */}
           {/* El título de la hoja a la altura del nombre del lead: la cabecera es una caja del mismo ancho que la ficha. */}
-          <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" altoChat={ALTO_CHAT_EN_LA_RUTA} sangria={`${SANGRIA_NOMBRE_LEAD}px`}
+          <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" arribaTabs="var(--barra-agencia, 0px)" altoChat={ALTO_CHAT_EN_LA_RUTA} sangria={`${SANGRIA_NOMBRE_LEAD}px`}
             pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} />
           {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
               que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el

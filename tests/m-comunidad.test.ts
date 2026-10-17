@@ -48,8 +48,9 @@ const CS = 'app/customer-success/comunidad';
 /** De qué archivo de escritorio sale cada rótulo de `R`. A MANO: si se agrega uno a R, se agrega acá. */
 const ORIGEN: Record<keyof typeof R, string> = {
   comunidad: `${ESC}/Comunidad.tsx`, miembros: `${ESC}/Comunidad.tsx`, ranking: `${ESC}/Comunidad.tsx`,
-  producto: `${CS}/ComunidadEquipo.tsx`, sinProductos: `${CS}/ComunidadEquipo.tsx`, noPudeCargar: `${CS}/ComunidadEquipo.tsx`,
-  sinLeerProductos: `${CS}/page.tsx`,
+  // El programa se elige en la cabecera de Clients desde el 17/10/2026 (docs/diseno-clients.md D4).
+  producto: 'app/clients/ClientsShell.tsx', sinProductos: `${CS}/ComunidadEquipo.tsx`, noPudeCargar: `${CS}/ComunidadEquipo.tsx`,
+  sinLeerProductos: `${CS}/pantalla.tsx`,
   escribeAlgo: `${ESC}/Feed.tsx`, todas: `${ESC}/Feed.tsx`, fijado: `${ESC}/Feed.tsx`, cerrado: `${ESC}/Feed.tsx`,
   encuesta: `${ESC}/Feed.tsx`, video: `${ESC}/Feed.tsx`, archivo: `${ESC}/Feed.tsx`, sinPosts: `${ESC}/Feed.tsx`,
   verMas: `${ESC}/Feed.tsx`, publicado: `${ESC}/Feed.tsx`,

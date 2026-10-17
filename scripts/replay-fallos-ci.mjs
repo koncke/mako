@@ -12,6 +12,7 @@
 //
 // Uso:  node scripts/replay-fallos-ci.mjs            # la tabla, y exit 1 si alguno NO sale
 //       node scripts/replay-fallos-ci.mjs --md       # la tabla en markdown (la de abajo salió de acá)
+//       node scripts/replay-fallos-ci.mjs --rapido   # lo mismo con el modo rápido de antes-de-subir: qué cubre y qué deja a Actions
 //       node scripts/replay-fallos-ci.mjs --solo 80,85
 //
 // Si agregás un run rojo nuevo, sumalo a docs/fallos-ci-integracion.jsonl (n, sha, base = el último verde,
@@ -35,10 +36,10 @@ function cargarCasos() {
 const tiene = (sha) => { try { execFileSync('git', ['cat-file', '-e', `${sha}^{commit}`], { cwd: RAIZ, stdio: 'ignore' }); return true; } catch { return false; } };
 
 /** Repite un run. Devuelve { n, sha, base, baseRun, elegidos, total, filas: [{paso, archivo, sale, porque}] }. */
-export function repetir(caso) {
+export function repetir(caso, { rapido = false } = {}) {
   const { archivos, leer } = fuenteGit(caso.sha);
   const cambiados = cambiosEntre(caso.base, caso.sha);
-  const sel = seleccionar({ cambiados, archivos, leer });
+  const sel = seleccionar({ cambiados, archivos, leer, profundidad: rapido ? 1 : Infinity });
   const tsc = alcanceTsc({ cambiados, archivos, importadoPor: sel.importadoPor, aumentan: sel.aumentan });
   const cambiadosSet = new Set(cambiados);
   const filas = caso.rojos.map((r) => {
@@ -50,6 +51,7 @@ export function repetir(caso) {
       const cadena = p.detalle.split(' → ');
       return { ...r, sale: true, porque: `${p.tipo}: ${cadena.slice(-1)[0]}${p.tipo === 'importa' ? ` (${cadena.length - 1} salto${cadena.length === 2 ? '' : 's'})` : ''}`, tipos: [...new Set(todos)] };
     }
+    // En el modo rápido los tipos de lo CAMBIADO van igual (si entran en RAM sin esperar); los importadores lejanos, no.
     if (!tsc.includes(r.archivo)) {
       // Runs 51 y 52: el archivo del error NO cambió; chocaba con scripts globales que sí (ver scripts/modulos-ts.mjs).
       const globales = sinModulo(archivos, leer);
@@ -67,11 +69,12 @@ function main(argv) {
   const solo = (argv.find((a) => a.startsWith('--solo=')) ?? (argv.includes('--solo') ? `--solo=${argv[argv.indexOf('--solo') + 1]}` : ''))
     .slice(7).split(',').filter(Boolean).map(Number);
   const md = argv.includes('--md');
+  const rapido = argv.includes('--rapido');
   const casos = cargarCasos().filter((c) => solo.length === 0 || solo.includes(c.n));
   const resultados = [];
   for (const c of casos) {
     if (!tiene(c.sha) || !tiene(c.base)) { console.error(`  [replay] run ${c.n}: faltan objetos de git (${c.sha}/${c.base}); corré \`git fetch origin\``); resultados.push({ ...c, filas: c.rojos.map((r) => ({ ...r, sale: false, porque: 'sin objetos' })), cambiados: 0, elegidos: 0, total: 0 }); continue; }
-    resultados.push(repetir(c));
+    resultados.push(repetir(c, { rapido }));
   }
   const filas = resultados.flatMap((r) => r.filas.map((f) => ({ r, f })));
   const bien = filas.filter(({ f }) => f.sale).length;
@@ -85,6 +88,13 @@ function main(argv) {
       : `${f.sale ? '✔' : '✖'} run ${String(r.n).padStart(2)} ${r.sha.slice(0, 9)} base ${base.padEnd(18)} ${f.paso.padEnd(5)} ${archivo.padEnd(42)} ${f.porque} · ${elegidos}`;
   });
   console.log([...cab, ...lineas].join('\n'));
+  if (rapido) {
+    const t = filas.filter(({ f }) => f.paso === 'Tests');
+    const ti = filas.filter(({ f }) => f.paso === 'Tipos');
+    console.log(`\nMODO RÁPIDO (profundidad 1, tipos de lo cambiado si entran en RAM): tests ${t.filter(({ f }) => f.sale).length}/${t.length} · tipos ${ti.filter(({ f }) => f.sale).length}/${ti.length}`);
+    for (const { r, f } of filas.filter(({ f }) => !f.sale)) console.log(`  fuera del rápido: run ${r.n} ${f.paso} ${f.archivo} — ${f.porque}`);
+    return 0;
+  }
   console.log(`\n${bien}/${filas.length} rojos de ${resultados.length} runs: ${bien === filas.length ? 'el script los habría frenado a todos' : 'ALGUNO NO SALE: el script todavía no está'}`);
   return bien === filas.length ? 0 : 1;
 }

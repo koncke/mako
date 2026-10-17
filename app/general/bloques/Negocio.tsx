@@ -93,7 +93,7 @@ function Embudo({ c }: { c: ConteoFunnel }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 24%) 1fr minmax(52px, auto)', alignItems: 'center', gap: 'clamp(10px, 2cqi, 18px)' }}>
               <span className="gb-d" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{e.label}</span>
               <span style={{ display: 'flex', justifyContent: 'center' }}>
-                <span style={{ width: `${Math.min(100, ancho)}%`, height: 'clamp(22px, calc(3cqi + 12px), 40px)', borderRadius: 8, background: e.dot || 'var(--primary)', opacity: e.n ? 1 : 0.25 }} />
+                <span style={{ width: `${Math.min(100, ancho)}%`, height: 'clamp(22px, calc(3cqi + 12px), 40px)', borderRadius: 8, background: e.dot || 'var(--gb-acento, var(--primary))', opacity: e.n ? 1 : 0.25 }} />
               </span>
               <span className="gb-t gb-num" style={{ fontWeight: 800, color: e.n ? 'var(--ink)' : 'var(--faint)' }}>{fmtNum(e.n)}</span>
             </div>
@@ -120,7 +120,7 @@ function Barras({ c }: { c: ConteoFunnel }) {
           <span className="gb-d" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.label}</span>
           {/* La barra se recorta al 100% y su carril lleva overflow: hidden (AGENTS.md). */}
           <span style={{ display: 'block', height: 'clamp(12px, calc(2.2cqi + 4px), 26px)', borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
-            <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (e.n / tope) * 100)}%`, background: e.dot || 'var(--primary)', opacity: e.n ? 1 : 0 }} />
+            <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (e.n / tope) * 100)}%`, background: e.dot || 'var(--gb-acento, var(--primary))', opacity: e.n ? 1 : 0 }} />
           </span>
           <span className="gb-t gb-num" style={{ textAlign: 'right', fontWeight: 800, minWidth: '2ch', color: e.n ? 'var(--ink)' : 'var(--faint)' }}>{fmtNum(e.n)}</span>
         </div>

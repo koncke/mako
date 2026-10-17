@@ -1,3 +1,7 @@
+{"n":100,"sha":"e9d5b041a852","base":"89ee3aee3ed3","baseRun":97,"baseEsAncestro":true,"rojos":[{"paso":"Tipos","archivo":"tests/centro-preguntas-chat.test.ts"}]}
+{"n":99,"sha":"2e70621a516e","base":"89ee3aee3ed3","baseRun":97,"baseEsAncestro":true,"rojos":[{"paso":"Tests","archivo":"tests/onboarding-hub-retirado.test.ts"},{"paso":"Tests","archivo":"tests/undecima-email-propio.test.ts"}]}
+{"n":98,"sha":"0484dc0c2e04","base":"89ee3aee3ed3","baseRun":97,"baseEsAncestro":true,"rojos":[{"paso":"Tests","archivo":"tests/link-con-workspace.test.ts"}]}
+{"n":94,"sha":"14d945d102f2","base":"70276424aa81","baseRun":93,"baseEsAncestro":true,"rojos":[{"paso":"Tests","archivo":"tests/centro-abrir.test.ts"}]}
 {"n":91,"sha":"852198de7167","base":"e5f23ef0db0d","baseRun":90,"baseEsAncestro":true,"rojos":[{"paso":"Tests","archivo":"tests/frontera-use-client.test.ts"}],"nota":"barrido: useCentro.ts (sin use client) importaba un valor de app/m/mako/subir.ts (use client)"}
 {"n":89,"sha":"20b129409296","base":"3e6976024bd8","baseRun":87,"baseEsAncestro":true,"rojos":[{"paso":"Tests","archivo":"tests/plazo-etapa-automatizacion.test.ts"}]}
 {"n":85,"sha":"cdb744ddd44d","base":"7fc4137b499c","baseRun":84,"baseEsAncestro":true,"rojos":[{"paso":"Tests","archivo":"tests/centro-revisar.test.ts"},{"paso":"Tests","archivo":"tests/medios-automatizacion.test.ts"}]}

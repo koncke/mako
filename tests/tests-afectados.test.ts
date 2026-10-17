@@ -13,6 +13,9 @@
 //     «un archivo que ningún test mira se avisa» (AGENTS.md pasaba a ser un archivo «nombrado»).
 //   · `motivoBarredora` sin `ls-files` → 2 rojas: la suya y la guarda de voseo (run 80), que dejaría de correr siempre.
 //   · `correrTests` sin reintento (REINTENTO_MAX = 0) → 1 roja: el archivo que sólo falla con 2 procesos dejaría de ser FLAKY.
+//   · Los procesos compartidos (28 pruebas): `compartible()` siempre true → 2 rojas (la de clasificar y la de seleccionar); sin la repetición
+//     aislada de los rojos de un grupo compartido → 1 roja (la interferencia dejaría de ser FLAKY y pasaría a ser un rojo falso); `agrupar` sin
+//     compartir nunca → 1 roja.
 // =============================================================================
 
 import test from 'node:test';
@@ -23,8 +26,8 @@ import { join } from 'node:path';
 import { sinModulo } from '../scripts/modulos-ts.mjs';
 import { heapPara } from '../scripts/antes-de-subir.mjs';
 import {
-  alcanceTsc, clavesDe, concurrenciaAuto, correrTests, especificadores, leerResultado, motivoBarredora, pisoRam, resolver,
-  resolverNombre, rutasNombradas, rutasSinExtension, seleccionar, sinComentarios, UMBRAL_NOMBRA_MUCHOS,
+  agrupar, alcanceTsc, clavesDe, compartible, concurrenciaAuto, correrTests, especificadores, leerResultado, motivoBarredora, pisoRam,
+  resolver, resolverNombre, rutasNombradas, rutasSinExtension, seleccionar, sinComentarios, UMBRAL_NOMBRA_MUCHOS,
 } from '../scripts/tests-afectados.mjs';
 
 const existeEn = (...rutas: string[]) => { const s = new Set(rutas); return (r: string) => s.has(r); };
@@ -315,6 +318,80 @@ test('correrTests: un archivo rojo con 2 procesos que pasa SOLO es FLAKY y no fr
 
     const b = await correrTests({ ...comun, lista: [join(dir, 'rojo.test.ts'), join(dir, 'verde.test.ts')] });
     assert.equal(b.rojos.size, 1, 'un rojo de verdad sigue siendo rojo después de repetirlo solo');
+    assert.equal(b.flaky.length, 0);
+  } finally {
+    if (previo === undefined) delete process.env.CI; else process.env.CI = previo;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Las barredoras que sólo leen corren JUNTAS en un proceso (scripts/cache-lecturas.cjs), y lo que sale rojo ahí se repite aislado
+// ---------------------------------------------------------------------------
+
+test('compartible: una barredora que sólo lee se comparte; la que toca el entorno, los globales o la carga de módulos, no', () => {
+  const lee = "const archivos = execFileSync('git', ['ls-files', 'app']).toString().split('\n'); for (const f of archivos) readFileSync(f, 'utf8');";
+  assert.equal(compartible(lee), true);
+  assert.equal(compartible("process.env.VERCEL_ENV = 'production'; " + lee), false, 'cambia el entorno de todos');
+  assert.equal(compartible("globalThis.fetch = async () => new Response('x'); " + lee), false, 'cambia un global');
+  assert.equal(compartible("(globalThis as any).window = {}; " + lee), false, 'cambia un global con un cast');
+  assert.equal(compartible("Module._load = function () {}; " + lee), false, 'cambia cómo se cargan los módulos');
+  assert.equal(compartible("process.chdir('..'); " + lee), false, 'cambia el directorio de trabajo');
+  assert.equal(compartible("if (process.env.CI === '1') {} " + lee), true, 'LEER el entorno no lo cambia');
+});
+
+test('agrupar con compartir: los que sólo leen salen de la fila y van juntos; los que el cambio toca o importan código, no', () => {
+  const tests = new Map([
+    ['tests/lee-todo.test.ts', [{ tipo: 'barre', detalle: 'git ls-files' }]],
+    ['tests/toca-el-entorno.test.ts', [{ tipo: 'barre', detalle: 'recorre carpetas' }]],
+    ['tests/nombra-y-barre.test.ts', [{ tipo: 'nombra', detalle: 'lib/x.ts' }, { tipo: 'barre', detalle: 'git ls-files' }]],
+    ['tests/lee-texto.test.ts', [{ tipo: 'nombra', detalle: 'AGENTS.md' }]],
+    ['tests/editada-y-barre.test.ts', [{ tipo: 'cambio', detalle: 'el cambio lo toca' }, { tipo: 'barre', detalle: 'git ls-files' }]],
+    ['tests/solo-importa.test.ts', [{ tipo: 'importa', detalle: 'a → b' }]],
+  ]);
+  const compartibles = new Set(['tests/lee-todo.test.ts', 'tests/nombra-y-barre.test.ts', 'tests/lee-texto.test.ts', 'tests/editada-y-barre.test.ts']);
+  const con = agrupar(tests, compartibles, { compartir: true });
+  assert.deepEqual(con.compartidos, ['tests/lee-texto.test.ts', 'tests/lee-todo.test.ts', 'tests/nombra-y-barre.test.ts']);
+  assert.deepEqual([...con.orden].sort(), ['tests/editada-y-barre.test.ts', 'tests/solo-importa.test.ts', 'tests/toca-el-entorno.test.ts'],
+    'corren aparte: el que el cambio mismo toca, el que importa código (tiene estado) y el que cambia el entorno');
+  const sin = agrupar(tests, compartibles, { compartir: false });
+  assert.deepEqual(sin.compartidos, []);
+  assert.equal(sin.orden.length, 6, 'sin compartir, cada uno en su proceso como siempre');
+});
+
+test('seleccionar marca como compartible a todo test que no toca estado global, importe o no código del repo', () => {
+  const repo: Record<string, string> = {
+    'lib/x.ts': 'export const x = 1;',
+    'tests/lee-texto.test.ts': "import { readFileSync } from 'node:fs';\nreadFileSync('lib/x.ts', 'utf8');",
+    'tests/importa-codigo.test.ts': "import { x } from '../lib/x';\nx;",
+    'tests/barre-con-estado.test.ts': "process.env.VERCEL_ENV = 'production';\nexecFileSync('git', ['ls-files']);",
+    'tests/barre-y-lee.test.ts': "import { x } from '../lib/x';\nexecFileSync('git', ['ls-files']);",
+  };
+  const r = seleccionar({ cambiados: ['lib/x.ts'], archivos: Object.keys(repo), leer: (f: string) => repo[f] ?? null });
+  assert.deepEqual([...r.compartibles].sort(), ['tests/barre-y-lee.test.ts', 'tests/importa-codigo.test.ts', 'tests/lee-texto.test.ts'],
+    'comparten los que sólo leen o importan código; el que cambia el entorno (process.env.X = …), nunca');
+});
+
+test('correrTests con un grupo compartido: lo que sale rojo por la interferencia de otro test se repite AISLADO y queda FLAKY', async () => {
+  const previo = process.env.CI;
+  process.env.CI = '1';
+  const dir = mkdtempSync(join(tmpdir(), 'compartido-'));
+  try {
+    const cuerpo = (t: string) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\n${t}\n`;
+    // a-ensucia deja un global; b-victima exige que no esté: en UN proceso b falla, aislado pasa (lo mismo que editor-landing-origen)
+    writeFileSync(join(dir, 'a-ensucia.test.ts'), cuerpo("(globalThis as Record<string, unknown>).__contaminado = true;\ntest('deja un global', () => assert.ok(true));"));
+    writeFileSync(join(dir, 'b-victima.test.ts'), cuerpo("test('no hay global', () => assert.equal((globalThis as Record<string, unknown>).__contaminado, undefined));"));
+    writeFileSync(join(dir, 'c-rojo.test.ts'), cuerpo("test('rojo de verdad', () => assert.fail('siempre'));"));
+    const lineas: string[] = [];
+    const comun = { lista: [], tanda: 2, concurrencia: 1, cortar: false, env: process.env, carpetaTmp: dir, out: (s: string) => { lineas.push(s); } };
+
+    const a = await correrTests({ ...comun, compartidos: [join(dir, 'a-ensucia.test.ts'), join(dir, 'b-victima.test.ts')] });
+    assert.equal(a.rojos.size, 0, 'aislado pasa: no es un rojo');
+    assert.equal(a.flaky.length, 1, 'pero se informa');
+    assert.match(lineas.join('\n'), /FLAKY: .*b-victima/);
+
+    const b = await correrTests({ ...comun, compartidos: [join(dir, 'a-ensucia.test.ts'), join(dir, 'c-rojo.test.ts')] });
+    assert.equal(b.rojos.size, 1, 'un rojo de verdad sigue rojo aislado');
     assert.equal(b.flaky.length, 0);
   } finally {
     if (previo === undefined) delete process.env.CI; else process.env.CI = previo;

@@ -628,4 +628,27 @@ export const BITACORA: Hito[] = [
       'tests/centro-caja.test.ts, tests/centro-feedback-17-10.test.ts',
     ],
   },
+  {
+    fecha: '17 oct', hora: '11:49', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «Ya está» es un mensaje con links y su tarea del Plan, el Plan se arma solo, y la Criatura',
+    pedido: 'Marcar resuelta una tarea o un proyecto cuando algo ya está es AUTOMÁTICO, siempre',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Cada «Ya está» de un chat es una tarjeta: qué cambió, «Revisar», su tarea del Plan y «Responder sobre esto».',
+      'Review y la barra del Plan se fueron de la conversación, en la computadora y en el teléfono.',
+      'El «Voy a trabajar en…» de un chat crea su tarea en el Plan, y su «Ya está» la marca hecha, solo.',
+      'En el «+» de la caja, «Tareas vinculadas»: tocar una te lleva a su mensaje.',
+      '«Su muñeco» ahora es la Criatura: 9 cuerpos, 9 colores y 9 caras, y pasea en su recuadro.',
+      'Un link pegado se ve azul y se abre con un clic, en la caja (con su chip) y en los mensajes.',
+    ],
+    archivos: [
+      'app/admin/operaciones/Avance.tsx — la tarjeta del «Ya está» y las tareas vinculadas',
+      'lib/centro-plan-auto-reglas.ts, lib/centro-plan-auto.ts — el Plan de cada chat, solo',
+      'lib/operaciones.ts — la vuelta anota y aplica después de contestar',
+      'lib/centro-munecos.ts, app/admin/operaciones/Muneco.tsx — las piezas nuevas',
+      'lib/links-texto.ts, app/admin/operaciones/ConLinks.tsx — los links azules',
+      'tests/centro-plan-auto.test.ts, tests/centro-ya-esta.test.ts, tests/centro-feedback-17-10.test.ts',
+    ],
+  },
 ];

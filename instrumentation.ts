@@ -37,3 +37,36 @@ export async function register() {
   await credencialesListas();
   console.log(`[credenciales] boot: listo en ${Date.now() - t0}ms`);
 }
+
+// =============================================================================
+// onRequestError — los errores del SERVIDOR van solos a la Ticketera (17/10/2026)
+// =============================================================================
+// Martín: «córrelo en toda la app: MaKo en los chats de la app, errores al navegar o lo que sea. Y todo lo solucionas
+// automáticamente». Una pantalla que falla en el servidor le llega al navegador sin su mensaje (sólo el digest), así que
+// el que lo reporta es el servidor: lib/errores-app.ts lo agrupa por huella y la primera vez abre un ticket de bug que va
+// solo al Cerebro. Quién lo vio sale de la cookie de sesión (verificada), para avisarle cuando esté arreglado.
+// ⚠️ NUNCA TIRA y se espera (lo pide la doc de Next): `registrarError` no lanza, y un fallo acá se loguea.
+export async function onRequestError(
+  err: unknown,
+  request: { path: string; method: string; headers: Record<string, string | string[] | undefined> },
+  context: { routePath?: string; routeType?: string },
+) {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+  try {
+    const e = (err && typeof err === 'object' ? err : {}) as { name?: string; message?: string; stack?: string; digest?: string };
+    const cabecera = (k: string) => { const v = request.headers[k]; return Array.isArray(v) ? v.join('; ') : v ?? ''; };
+    const galletas = Object.fromEntries(cabecera('cookie').split(';').map((p) => p.trim().split('=')).filter((p) => p.length >= 2).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]));
+    const { SESSION_COOKIE, IMPERSONATE_COOKIE, verificarToken, leerImpersonacion } = await import('./lib/auth-session');
+    const sesion = verificarToken(galletas[SESSION_COOKIE]);
+    const ws = (sesion?.rol === 'admin' ? leerImpersonacion(galletas[IMPERSONATE_COOKIE]) : null) ?? sesion?.ws ?? null;
+    const { identidadDe } = await import('./lib/tickets-db');
+    const { registrarError } = await import('./lib/errores-app');
+    const quien = sesion?.email && ws ? await identidadDe(ws, sesion.email, sesion.nombre) : null;
+    await registrarError({
+      origen: 'servidor', nombre: e.name || context.routeType || 'Error', mensaje: e.message || '(sin mensaje)',
+      stack: e.stack, digest: e.digest, ruta: request.path, navegador: cabecera('user-agent'),
+    }, quien);
+  } catch (x) {
+    console.error('[onRequestError] no pude registrar el error:', x instanceof Error ? x.message : String(x));
+  }
+}

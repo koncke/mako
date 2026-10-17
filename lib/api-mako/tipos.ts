@@ -70,8 +70,10 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   imagen: { titulo: 'Image Editor (diseños)', tab: 'Image', ruta: '/image-editor' },
   integraciones: { titulo: 'Integraciones', tab: 'Integraciones', ruta: '/integraciones' },
   equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
-  cs: { titulo: 'Customer Success', tab: 'Customer Success', ruta: '/customer-success' },
-  curso: { titulo: 'Curso (módulos y clases)', tab: 'Customer Success › Curso', ruta: '/customer-success/curso' },
+  // Los TÍTULOS no cambian (son la clave del área). La tab sí: desde el 17/10/2026 Clientes, Curso y Comunidad son UNA
+  // tab, Clients, con sub-tabs (docs/diseno-clients.md); las rutas viejas redirigen.
+  cs: { titulo: 'Customer Success', tab: 'Clients', ruta: '/clients' },
+  curso: { titulo: 'Curso (módulos y clases)', tab: 'Clients › Classroom', ruta: '/clients/classroom' },
   // Las creaciones que un negocio publica para los demás y sus estrellas (13/10/2026, lib/creaciones.ts). Sin tab
   // en la barra: la galería vive en /creaciones y cada feature pone su botón «Publicar».
   creaciones: { titulo: 'Creaciones de la comunidad (estrellas)', tab: 'Creaciones', ruta: '/creaciones' },

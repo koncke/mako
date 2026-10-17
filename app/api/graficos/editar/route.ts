@@ -60,5 +60,6 @@ export async function POST(req: Request) {
   const r = await editarHojaIA({ hoja, pedido, historial: historialDe(body?.historial), alcance: general ? ALCANCE_GENERAL : undefined, inicio });
   if ('error' in r) return NextResponse.json({ ok: false, error: r.error, ...(r.link ? { link: r.link } : {}) }, { status: 502 });
   if (r.correcciones.length) console.log('[graficos/editar] aceptada con correcciones:', r.correcciones.join(' | '));
-  return NextResponse.json({ ok: true, respuesta: r.respuesta, cambios: r.cambios, avisos: r.avisos, ...(r.cambios.length ? { hoja: r.hoja } : {}) });
+  // `analizar` (#862): pidió un análisis, no un cambio; la hoja no se tocó y el panel ofrece pasar a «Analizar».
+  return NextResponse.json({ ok: true, respuesta: r.respuesta, cambios: r.cambios, avisos: r.avisos, analizar: r.analizar, ...(r.cambios.length ? { hoja: r.hoja } : {}) });
 }

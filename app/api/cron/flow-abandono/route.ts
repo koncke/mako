@@ -26,6 +26,7 @@ import { type NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { createClient } from '@supabase/supabase-js';
 import { emitirDelCatalogo } from '@/lib/avisos';
+import { datosPuenteAusente } from '@/lib/flow-puente-aviso';
 import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -45,16 +46,6 @@ export const revalidate = 0;
  * trabajo que sobrevive eso no está esperando, está solo.
  */
 const ABANDONO_MIN = 12;
-
-/**
- * El salto de línea de WhatsApp, sin escaparlo dentro de un template literal.
- *
- * Es la convención del repo (`prueba-grabacion` hace lo mismo): un `
-` literal
- * adentro de un template se lee bien en el editor y ya costó caro en este
- * proyecto — el fuente y lo que se sirve no son el mismo texto.
- */
-const NL = String.fromCharCode(10);
 
 /** El tope de avisos por corrida. Un incidente no puede ser cien mensajes. */
 const AVISOS_MAX = 5;
@@ -96,18 +87,9 @@ export async function GET(req: NextRequest) {
     if (avisados >= AVISOS_MAX) break;
     avisados++;
     try {
-      // ⚠️ `texto` ARMADO ACÁ y no `contexto`. `contexto` manda el aviso a un
-      // modelo para que lo redacte, y esto es un hecho con un número: no hay nada
-      // que interpretar, y hacerlo pasar por un LLM es la forma de que el número
-      // salga distinto del que se midió.
-      await runWithWorkspace(ws, () => emitirDelCatalogo('flow-puente-ausente', {
-        texto: `🔴 Tus videos no se están generando: tu navegador dejó de responder y `
-          + `${cuantos === 1 ? 'quedó *1 toma* sin tomar' : `quedaron *${cuantos} tomas* sin tomar`}.`
-          + NL + NL
-          + `Abre la extensión de MaKo y toca *Conectar*. `
-          + `${cuantos === 1 ? 'Esa toma no se cobró' : 'Esas tomas no se cobraron'}: `
-          + `cuando vuelvas, la${cuantos === 1 ? '' : 's'} vuelves a mandar. — MaKo`,
-      }));
+      // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `flow_puente_ausente`, «nada
+      // por detrás», lote 2): acá va sólo cuántas tomas quedaron (un número, por código: nunca por un modelo).
+      await runWithWorkspace(ws, () => emitirDelCatalogo('flow-puente-ausente', { ws, datos: datosPuenteAusente(cuantos) }));
     } catch (e) {
       // ⚠️ UN AVISO QUE FALLA NO PUEDE DESHACER EL CIERRE. Los trabajos ya se
       // cerraron —eso es lo que impide que se cobren dos veces— y volver a

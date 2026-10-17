@@ -315,8 +315,9 @@ test('la ruta: editar con la respuesta del CRON NO llama al modelo; «Déjalo as
   assert.equal(respuestaDelCron(respuesta('cron', 'igual'), []).disparadores, undefined);
   assert.equal(respuestaDelCron(respuesta('cron', 'instagram:dm'), []).disparadores?.[0]?.trigger_tipo, 'instagram');
   assert.equal(respuestaDelCron(respuesta('cron', 'basura:x'), []).disparadores, undefined);
-  // Editar pasa su propio motivo a la cascada y usa la revisión de editar.
-  assert.match(RUTA, /generar\(\{ system, user, hastaMs: inicio \+ PLAZO_MODELO_MS, traducir, motivo: 'Editar una automatización con IA' \}\)/);
+  // Editar pasa su propio motivo a la cascada y usa la revisión de editar. (17/10, #847: y el número de intento como
+  // fase, tests/crear-ia-intentos.test.ts.)
+  assert.match(RUTA, /generar\(\{\s*system, user, hastaMs: inicio \+ PLAZO_MODELO_MS, traducir, motivo: 'Editar una automatización con IA',\s*alIntento: [^\n]*\n\s*\}\)/);
   // (15/10/2026: una RESPUESTA del modelo no cambió nada y no se revisa: «no cambió nada» la reintentaría,
   // tests/flujo-ia-consulta.test.ts.)
   assert.match(RUTA, /return \{ r, errores: r\.respuesta \? \[\] : erroresEdicion\(base, r, ctx\) \};/);

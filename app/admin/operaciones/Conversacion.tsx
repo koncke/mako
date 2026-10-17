@@ -19,7 +19,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type 
 import { Icon } from '@/app/_components/icons';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { conVinetas, enterEnLista } from '@/lib/centro-caja';
-import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, yaEstaDelChat, type CarteroP, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
@@ -29,16 +30,19 @@ import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat'
 import { Pregunta } from './Pregunta';
 import { Microfono } from './Microfono';
 import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from './AdjuntosCaja';
-import { RielAvance } from './Avance';
+import { TareasVinculadas, irAlTurno } from './Avance';
+import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from './ConLinks';
 import { Muneco, animoDe } from './Muneco';
 
 const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
-  avance, onAvance, aspecto, onMuneco, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
-  preguntasChat = [], onResponder, resumenEnvio = null,
+  aspecto, onMuneco, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
+  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [],
 }: {
+  /** Las tareas del Plan de este chat (lib/centro-plan-auto-reglas.ts): la tarjeta de cada «Ya está» y «Tareas vinculadas». */
+  tareas?: readonly TareaDelChat[];
   /** Lo elegido para mandar que no es «Automático» (la cuenta, el modelo), en chico al lado del «+». */
   resumenEnvio?: string | null;
   /** Las preguntas del chat como formulario en su conversación (17/10/2026), y cómo se contestan (useCentro.ts). */
@@ -65,9 +69,6 @@ export function Conversacion({
   /** Los pushes de Vercel; null mientras llegan (el avance no afirma «subió» sin leerlos). */
   pushes: readonly PushP[] | null;
   ahora: number;
-  /** La barra derecha del avance, abierta o no (la decide el padre: se recuerda entre chats). */
-  avance: boolean;
-  onAvance: (abierta: boolean) => void;
   /** El muñeco que Martín le eligió (o null: el de siempre). */
   aspecto: Aspecto | null;
   /** Tocar al muñeco abre el selector (Martín: «que si le doy click pueda elegir cambiar a otro»). */
@@ -89,6 +90,9 @@ export function Conversacion({
   const caja = useRef<HTMLTextAreaElement>(null);
   /** Dónde va el cursor después de que una lista cambió el texto (la viñeta, el ítem siguiente). */
   const cursor = useRef<number | null>(null);
+  /** La capa que pinta los links (17/10/2026): se corre con el scroll del <textarea>. */
+  const resalte = useRef<HTMLDivElement | null>(null);
+  const conLinks = hayLinks(texto);
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [chat.clave, lineas.length]);
@@ -120,8 +124,12 @@ export function Conversacion({
   const cuentas = [...new Set(chat.sesiones.map((s) => s.cuenta).filter((c): c is string => !!c))];
   if (!cuentas.length && chat.cuenta) cuentas.push(chat.cuenta);
   const meta = chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado];
-  const nodos = avanceDelChat(lineas);
-  const { hechos, total } = conteoAvance(nodos);
+  /** Responder sobre un «Ya está»: la caja arranca con «Sobre «…»: » y queda lista para escribir. */
+  const responderSobre = (titulo: string) => {
+    const prefijo = `Sobre «${titulo}»: `;
+    onTexto(texto.startsWith(prefijo) ? texto : prefijo + texto);
+    window.setTimeout(() => { const el = caja.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0);
+  };
 
   return (
     <section className="co-panel" aria-label={`Conversación con ${chat.titulo}`}>
@@ -129,7 +137,7 @@ export function Conversacion({
         <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
           <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
         </button>
-        <button type="button" className="co-cab__muneco" onClick={onMuneco} title="Cambiar su muñeco" aria-label={`Cambiar el muñeco de ${chat.titulo}`}>
+        <button type="button" className="co-cab__muneco" onClick={onMuneco} title="Cambiar su criatura" aria-label={`Cambiar la criatura de ${chat.titulo}`}>
           <Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat)} size={34} espera={espera} />
         </button>
         <div className="co-cab__texto">
@@ -139,12 +147,7 @@ export function Conversacion({
             {meta}
           </span>
         </div>
-        <button type="button" className="co-cab__avance" aria-pressed={avance} onClick={() => onAvance(!avance)}
-          title={avance ? 'Cerrar el Plan' : 'Ver el Plan de este chat'}>
-          <Icon name="todo" size={16} />
-          <span className="co-cab__avance-txt">Plan</span>
-          {total > 0 && <span className="co-avance__conteo">{hechos}<span>/{total}</span></span>}
-        </button>
+        {/* Sin el botón «Plan» desde el 17/10/2026 (la C): el Plan del chat va en cada «Ya está» y en el «+» de la caja. */}
         {/* Sin «⋯» acá desde el 17/10/2026 (Martín: fuera los tres puntos): Renombrar y la criatura están en la fila de la
             barra (su «⋯» y el clic derecho), y la criatura también se cambia tocándola acá. */}
       </header>
@@ -154,7 +157,7 @@ export function Conversacion({
       <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
           <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, aspecto, animo: animoDe(chat), dato: trabajaSinEscribir(chat, lineas) ?? [cuenta, meta].filter(Boolean).join(' · ') }}
-            vivo={carteros ? { chat, carteros } : undefined} onResponder={onResponder} />
+            vivo={carteros ? { chat, carteros } : undefined} onResponder={onResponder} tareas={tareas} onFeedback={responderSobre} />
         </div>
       </div>
 
@@ -165,8 +168,13 @@ export function Conversacion({
         {envio.puede ? (
           <div className="co-caja">
             <ListaAdjuntos a={adjuntos} />
+            {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}
+            <div className="co-caja__campo">
+            {conLinks && <ResalteDeLinks texto={texto} capa={(el) => { resalte.current = el; }} />}
             <textarea
               ref={caja}
+              className={conLinks ? 'co-caja__texto--resalte' : undefined}
+              onScroll={(e) => { if (resalte.current) resalte.current.scrollTop = e.currentTarget.scrollTop; }}
               rows={1}
               value={texto}
               onChange={(e) => {
@@ -181,10 +189,14 @@ export function Conversacion({
               aria-label={`Escribe a ${chat.titulo}`}
               disabled={enviando}
             />
+            </div>
+            <LinksDeLaCaja texto={texto} />
             {/* Abajo, un solo «+» con lo que se adjunta y con qué corre (17/10/2026, la B); «Sólo esto» se fue: el chat
                 decide solo si de lo pedido sale una regla. */}
             <div className="co-caja__barra">
-              <MasCaja a={adjuntos} apagado={enviando} resumen={resumenEnvio}>{selectores}</MasCaja>
+              <MasCaja a={adjuntos} apagado={enviando} resumen={resumenEnvio}>
+                {(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); irAlTurno(u); }} /></>}
+              </MasCaja>
               <span className="co-caja__hueco" aria-hidden />
               <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} apagado={enviando} />
               <button type="button" className="co-enviar" onClick={onMandar} disabled={enviando || (!texto.trim() && !adjuntos?.items.length)} aria-label="Firmar y mandar" title="Firmar y mandar (Enter)">
@@ -204,7 +216,6 @@ export function Conversacion({
         <p className="co-caja__estado" aria-live="polite">{envio.puede ? faltaMic ?? estado ?? '' : ''}</p>
       </div>
       </div>
-      {avance && <RielAvance nodos={nodos} yaEsta={yaEstaDelChat(lineas)} pushes={pushes} ahora={ahora} onCerrar={() => onAvance(false)} chat={chat} />}
       </div>
     </section>
   );

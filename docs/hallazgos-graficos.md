@@ -1216,6 +1216,48 @@ aparecer por defecto», y editando falta cómo agregarlos. Revierte el 14/10, cu
 Test: tests/general-filtros-por-defecto.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Los bloques épicos siguen el color de la hoja: la portada, y lo relleno de los bloques de General (17/10/2026)
+
+Martín (#859, revisión del 16/10, 1:12:30): «los bloques… épicos… no están reaccionando con la edición del estilo de la
+hoja como el cambio de color». La portada se pintaba con la identidad de su plantilla (lib/graficos-identidad.ts) y los
+bloques de General con `--primary`, el azul de la app: ninguno leía el acento de «Estilo de la hoja».
+
+- **Con un acento elegido, la portada es de ese color** (`identidadEfectiva`); la forma sigue siendo la de su identidad.
+  Sin acento, la de la plantilla (cada plantilla se distingue por su color). ⚠️ Son TRES los que dibujan una tarjeta —el
+  editor (el marco), el gráfico de adentro (su paleta y su halo, Grafico.tsx) y la miniatura de la galería— y los tres
+  reciben el acento: con uno solo, la tarjeta sale de un color y sus series de otro.
+- ⚠️ **La tinta sobre un color que eligió la persona se CALCULA** (`tintaSobre`): la tabla de identidades trae sus tintas
+  curadas, un acento libre no. La primera versión (92 % de negro) la tiró el propio test: 4,47 sobre #338833. Con 96 %, el
+  peor fondo de la grilla del test da 4,53 (#3377CC): queda poco margen, así que no se aclara la tinta oscura.
+- **Los bloques de General pintan con el acento sólo lo RELLENO** (barras, botones, los números del Plan: `--gb-acento`,
+  app/general/bloques/comun.tsx), también en el teléfono (app/m/hoy/GeneralM.tsx). Los links de texto siguen en
+  `--primary`: un acento claro (el lima) sobre la tarjeta blanca no se lee.
+- En Propiedades, con un acento en la hoja, el color de portada dice «Usa el color de la hoja» (elegir uno cambia la forma).
+
+Test: tests/graficos-identidad-acento.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** lib/graficos-identidad.ts · app/dashboard/EditorInforme.tsx · app/dashboard/Grafico.tsx ·
+app/dashboard/MiniaturaHoja.tsx · app/general/bloques/comun.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
+## Un MaKo con dos modos: un análisis pedido en «Editar» no toca la hoja (17/10/2026)
+
+Martín (#862, revisión del 16/10, 1:24:47): Joan le pidió al panel «Editar con MaKo» un análisis del funnel y MaKo le
+EDITÓ la hoja: «Una cosa es MaKo analiza y otra cosa es MaKo Edita». El AI Analyst (⋮) y «Editar con MaKo» eran dos
+paneles sin relación, y el de editar convertía cualquier pedido en cambios.
+
+- **La regla no depende de que el modelo la cumpla:** la guía le pide `"analizar":true` para un análisis, y
+  `aplicarEdicion` DESCARTA los cambios que vengan con esa marca (el modelo a veces manda las dos cosas). La guía va en el
+  mensaje del usuario, como la de experimentos: el system se reemplaza desde /configuraciones.
+- **Los dos paneles son el mismo MaKo en dos modos** («Analizar · Editar» en la cabecera, app/dashboard/ModosMako.tsx), y
+  un análisis pedido en Editar ofrece «Analizar la hoja», que pasa al otro modo sin cerrar el panel. Los modos aparecen
+  sólo si la persona tiene los dos: el AI Analyst no es del que sólo mira y editar es del que guarda.
+- La API de MaKo (`editar_hoja_con_ia_*`) ya contestaba «sin cambios» con la respuesta: un análisis tampoco cambia nada ahí.
+
+Test: tests/dashboard-mako-modos.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** lib/graficos-ia-edicion.ts · app/api/graficos/editar/route.ts · app/dashboard/PanelEditarMako.tsx ·
+app/dashboard/PanelAnalista.tsx · app/dashboard/ModosMako.tsx · app/dashboard/EditorInforme.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
 - **Una plantilla que se ajusta por detrás (17/10/2026):** mientras llega el ajuste, la hoja muestra los gráficos que
