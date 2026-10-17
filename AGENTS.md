@@ -4060,7 +4060,11 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
   (no «Claude vetado» ni «falló»: molde, el `catch` de `lib/lead-insights.ts`). Una feature nueva que lea leads, conversaciones o llamadas se marca
   `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
-  misma regla él mismo: el corte de la cascada no lo cubre. Una regla que corta de más tampoco está
+  misma regla él mismo: el corte de la cascada no lo cubre. Si la red manda HERRAMIENTAS de la API, «¿lee datos de
+  clientes?» lo contesta el registro (`leeDatosDeClientes`: `DATOS_DE_CLIENTES_POR_AREA` y la marca `datosDeClientes`
+  de cada operación), y se corta por lo que el turno PIDE, no por lo que viaja (molde: `turnoParaLaRed`,
+  lib/doer-herramientas.ts, 17/10/2026). Una operación nueva que lea leads, conversaciones, llamadas o cobros en un
+  área marcada sin datos de clientes lleva `datosDeClientes: true`. Una regla que corta de más tampoco está
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).

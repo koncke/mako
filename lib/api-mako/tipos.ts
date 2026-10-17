@@ -85,6 +85,28 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Second Brain', ruta: '/second-brain' },
 };
 
+/**
+ * ¿Lo que devuelven las operaciones de esta área lleva DATOS DE LOS CLIENTES DEL NEGOCIO: sus leads, sus conversaciones,
+ * sus llamadas, sus cobros, sus alumnos, su equipo? Lo pregunta quien manda un turno a una IA que entrena con lo que
+ * recibe (la red gratis de la plataforma): con datos de clientes, ese turno no va (AGENTS.md, regla del 16/10/2026).
+ *
+ * Por ÁREA y con todas escritas: un área nueva no compila sin decidirlo, y `true` es el lado cerrado. Lo propio del
+ * negocio (sus tareas, sus KPIs, sus páginas, sus anuncios, su perfil) no es de un cliente. Una operación que no sigue a
+ * su área lo dice en su def (`datosDeClientes`), y lo lee `leeDatosDeClientes` (registro.ts). En las áreas en `false`,
+ * tests/doer-red-datos-clientes.test.ts exige esa marca escrita en toda operación con un nombre sospechoso (lead,
+ * llamada, chat, cobro…): sumar una así es DECIDIR. `mako` va en `true` aunque sus pendientes no: lo que traen
+ * listar/confirmar/cancelar es lo de cada pendiente, y eso se mira aparte (`turnoParaLaRed`,
+ * lib/doer-herramientas.ts).
+ */
+export const DATOS_DE_CLIENTES_POR_AREA: Record<Area, boolean> = {
+  general: false, plan: false, crm: true, ads: false, chats: true, whatsapp: true, email: true, chatbot: true,
+  // El Dashboard lee leads uno por uno (a quién cobrar, los del embudo maduro, el detalle de un número).
+  metricas: true, experimentos: false, landing: false, closing: true, negocio: false, contenido: false, video: false,
+  imagen: false, integraciones: false,
+  // Los datos del equipo y las identidades fiscales del negocio son de personas que no son quien escribe.
+  equipo: true, cs: true, curso: true, calendario: false, creaciones: false, operaciones: false, cobros: true, mako: true,
+};
+
 /** Por dónde puede entrar un pedido. Lo declara CADA operación, en positivo. */
 export const CANALES = ['whatsapp', 'app', 'http'] as const;
 export type Canal = (typeof CANALES)[number];
@@ -226,6 +248,10 @@ type Base = {
    *  Un runner que llama a `lib/google-calendar` sin declararlo, o que interpola un dato
    *  de la agenda en lo que ve el modelo, no pasa `tests/agenda-sin-ia.test.ts`. */
   datosDeGoogle?: true;
+  /** Pisa, para ESTA operación, lo que dice su área en `DATOS_DE_CLIENTES_POR_AREA`: `true` si lee leads,
+   *  conversaciones, llamadas o cobros de los clientes del negocio en un área que no los tiene; `false` si lo que trae
+   *  no es de ningún cliente en un área que sí. No va al modelo ni al catálogo. */
+  datosDeClientes?: boolean;
   /** true si puede pasar de 30 s (pagina tablas grandes, sale a un proveedor lento).
    *  Va al catálogo; la ruta HTTP tiene `maxDuration = 60`. */
   lenta?: true;

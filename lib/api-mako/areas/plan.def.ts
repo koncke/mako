@@ -173,6 +173,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_borrador_de_reunion', area: 'plan', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Qué salió de una reunión',
     descripcion: 'Dado el recordingId de una grabación de Fathom, el borrador que dejó, EN CUALQUIER ESTADO: cuántas tareas se cargaron, cuántas propias y de otras personas siguen pendientes, o si se descartó. Evita volver a leer (y pagar) una reunión que ya se leyó.',
     parametros: [
@@ -182,6 +183,8 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'listar_reuniones_fathom', area: 'plan', tipo: 'lectura',
+    // Los títulos de las grabaciones nombran a con quién fue la llamada, y entre ellas están las de ventas.
+    datosDeClientes: true,
     titulo: 'Últimas reuniones de Fathom',
     descripcion: 'Una página de las grabaciones recientes del Fathom del negocio: título, fecha, duración en minutos, link, cantidad de participantes y tipo (equipo, ventas, entrega u otra, calculado contra el CRM y el equipo), más qué borrador dejó cada una y `sin_leer`: las que el cron no leyó y por qué. Para seguir, pasa el cursor que devuelve. Necesita Fathom conectado.',
     parametros: [

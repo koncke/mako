@@ -224,6 +224,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'listar_motivos_venta_llamada', area: 'ads', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Evidencia de venta por llamada',
     descripcion: 'Los hechos verificables por los que este negocio vende por llamada: el canal declarado en el diagnóstico, las entradas del funnel que agendan solas y la pieza de agenda medida en sus landings. Se citan, no se afirman; lista vacía = no hay evidencia. Úsala junto con listar_eventos_pixel_meta para avisar que el pixel no mide la agenda.',
     parametros: [],
@@ -363,6 +364,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_transcript_anuncio', area: 'ads', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Transcripción de un anuncio',
     descripcion: 'El texto literal de un anuncio tal como lo transcribió MaKo desde Meta (o el texto leído de la imagen), con sus secciones, idioma, duración, tipo (video o imagen), estado y el error si falló (sin_video, muy_grande, error). «sin_video» puede ser que Meta no devolvió el video, no que no lo tenga. Úsala para «¿qué dice exactamente este anuncio?» o para explicar por qué no tiene análisis.',
     parametros: [P_AD_ID_GUION],
