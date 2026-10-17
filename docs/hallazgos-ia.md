@@ -4511,6 +4511,11 @@ sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA
   un nombre). Siguen cortando las que nombran personas: `a_quien_cobrar`, `cuotas_pendientes`,
   `listar_leads_embudo_maduro`, y `analisis_negocio` (trae las RESPUESTAS de los que no calificaron, contadas por valor:
   si una respuesta es texto libre, puede llevar un nombre). Test en tests/doer-red-datos-clientes.test.ts.
+  ⚠️ **La revisión del Cerebro (17/10, ALTA):** marcar la operación no alcanza, porque la red gratis recibe además el
+  HISTORIAL del grupo (avisos con nombres y teléfonos de leads). Cuando lo pedido corre sólo gracias a una métrica
+  liberada (antes se cortaba), viaja sin la conversación: sólo lo que la persona escribió ahora (`sinHistorial`,
+  `mensajesParaLaRed`, lib/doer-herramientas.ts). Lo que no pidió eso (un saludo, el plan) sigue como estaba. **Sin hacer:**
+  si la pregunta misma nombra a un cliente, su nombre viaja (es el texto del turno).
 - **Con una pendiente de un lead, también se corta la charla** de ese grupo hasta que la pendiente vence o se resuelve.
 - **El guion de audio de Automations** (`app/api/chat-agent/redactar`) tiene su propia red sin el corte: es de
   Automations.

@@ -25,11 +25,12 @@ import { runWithWorkspace } from './workspace';
 import { extraerTareasDeReunion, cacheKeyReunion, type ProyectoRef, type Yo, type TareaCandidata, type Participante, type DudaTermino } from './plan-fathom';
 import { glosarioTexto } from './glosario';
 import { getSetting, setSetting } from './settings';
-import { marcarProcesado, marcarFallado, marcarSinCompromisos, type PropuestaTarea } from './plan-propuesta';
+import { marcarProcesado, marcarFallado, marcarSinCompromisos, estadoDePropuesta, type PropuestaTarea } from './plan-propuesta';
 import { resolverClienteDeReunion, proyectoQueManda } from './reunion-cliente';
 import { cruzarTareas } from './reunion-cruce';
 import { soltarLectura } from './reunion-leyendo';
-import { anotarParcial, cerrarParcial } from './reunion-parcial';
+import { anotarParcial, cerrarParcial, leerParcial } from './reunion-parcial';
+import { lecturaCompleta, sinLasYaPropuestas, unirLeidas } from './lectura-por-partes';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -78,6 +79,8 @@ export function tareasDeLaExtraccion(tareas: TareaCandidata[], proyectos: Proyec
 export async function completarBorradorDeReunion(opts: {
   ws: number; borradorId: string; recordingId: number; titulo: string | null;
   proyectos: ProyectoRef[]; yo: Yo; uso?: string; hasta: number;
+  /** «Volver a analizar»: de cero, sin la marca de una lectura a medias. Sin esto, lo ya leído no se relee. */
+  reanalizar?: boolean;
 }): Promise<void> {
   const { ws, borradorId, recordingId, titulo, proyectos, yo } = opts;
   const t0 = Date.now();
@@ -87,46 +90,60 @@ export async function completarBorradorDeReunion(opts: {
       // CON EL RELOJ DE LA RUTA (17/10/2026): `hasta` llegaba hasta acá y no se le pasaba a la extracción, así que una
       // junta de 3 h seguía leyendo después de los 300 s y la función moría sin llenar el borrador («Leyendo…» hasta que
       // venciera el candado). Ahora lee lo que entra; lo que falta queda en la marca y lo completa el cron.
-      const out = await extraerTareasDeReunion(recordingId, proyectos, yo, { glosario, usoMotivo: opts.uso, hasta: opts.hasta });
+      // DE CERO SÓLO SI SE PIDE («Volver a analizar», revisión de B5 del 17/10/2026). Si no, lo ya leído (la marca) no se
+      // vuelve a leer y lo nuevo se SUMA a lo que ya tenía el borrador: sin esto, volver a tocar «Extraer» en una junta de
+      // 3 h releía desde la parte 1 y se cortaba siempre en el mismo lugar (y el cron no ve las reuniones de más de 26 h).
+      if (opts.reanalizar) await cerrarParcial(recordingId);
+      const previa = opts.reanalizar ? null : await leerParcial(recordingId);
+      const antes: PropuestaTarea[] = previa ? (await estadoDePropuesta(borradorId).catch(() => null))?.tareas ?? [] : [];
+      const out = await extraerTareasDeReunion(recordingId, proyectos, yo, { glosario, usoMotivo: opts.uso, hasta: opts.hasta, previa });
       const partesFallidas = out.partesFallidas ?? 0;
-      // La marca de la lectura a medias: lo leído (con o sin tareas) no se vuelve a leer. Es una lectura DE CERO
-      // («Extraer», «Volver a analizar»): la marca de antes no cuenta.
+      const leidasTotal = unirLeidas(previa && previa.partes === out.partes ? previa.leidas : [], out.leidas ?? []);
+      // La marca de la lectura a medias: lo leído (con o sin tareas) no se vuelve a leer.
       if (partesFallidas && out.partes && out.leidas?.length) {
-        await anotarParcial(recordingId, { partes: out.partes, leidas: out.leidas, ref: `fathom:${recordingId}`, fresca: true });
-      } else if (!partesFallidas) {
+        await anotarParcial(recordingId, { partes: out.partes, leidas: out.leidas, ref: `fathom:${recordingId}`, fresca: !previa });
+      } else if (!partesFallidas && (!previa || lecturaCompleta(out.partes ?? 0, leidasTotal))) {
         await cerrarParcial(recordingId);
       }
-      // EL CACHÉ, con el mismo criterio que antes en la ruta y en el cron: sólo una lectura ENTERA
+      // EL CACHÉ, con el mismo criterio que antes en la ruta y en el cron: sólo una lectura ENTERA, de cero
       // y con tareas. Uno a medias se serviría para siempre como «esto es todo».
-      if (out.tareas.length && !partesFallidas) {
+      if (out.tareas.length && !partesFallidas && !previa) {
         await setSetting(cacheKeyReunion(recordingId), JSON.stringify({ tareas: out.tareas, participantes: out.participantes ?? [], ts: Date.now() })).catch(() => {});
       }
       await setSetting(KEY_LECTURA(recordingId), JSON.stringify({
         dudas: out.dudas ?? [], participantes: out.participantes ?? [], partesFallidas, fin: new Date().toISOString(),
       } satisfies ExtrasDeLectura)).catch(() => {});
 
-      // Lo que se le dice a la persona cuando la reunión era más larga que el reloj: no es una falla, sigue sola.
-      const leidasTxt = out.partes ? `leí ${out.leidas?.length ?? 0} de ${out.partes} partes` : '';
-      const sigue = out.sinTiempo ? ` Es larga: ${leidasTxt} y sigo con el resto sola en la próxima vuelta.` : '';
-      if (!out.tareas.length) {
+      // Lo que se le dice a la persona cuando la reunión era más larga que el reloj: no es una falla, y cómo sigue (el
+      // cron sólo mira las de las últimas 26 h: lo que lo completa seguro es volver a tocar «Extraer»).
+      const sigue = partesFallidas && out.partes
+        ? ` Es larga: leí ${leidasTotal.length} de ${out.partes} partes. Para leer el resto, vuelve a tocar «Extraer».`
+        : '';
+      const nuevas = antes.length ? sinLasYaPropuestas(out.tareas, antes) : out.tareas;
+      if (!nuevas.length) {
+        if (antes.length) {
+          await marcarProcesado(borradorId, { tareas: antes, resumen: `MaKo siguió leyendo «${titulo ?? 'la reunión'}» y no encontró compromisos nuevos.${sigue}` });
+          return;
+        }
         if (partesFallidas) await marcarFallado(borradorId, out.sinTiempo ? `todavía no termino.${sigue}` : `no pude leer ${partesFallidas} tramo(s) de la reunión. Prueba de nuevo en un rato.`);
         else await marcarSinCompromisos(borradorId);
         return;
       }
       const cli = await resolverClienteDeReunion({ titulo, participantes: out.participantes ?? [] }).catch(() => null);
       const proyCliente = await proyectoQueManda(cli, ws);
-      const mias = out.tareas.filter((t) => !t.esDeOtro).length;
+      const mias = nuevas.filter((t) => !t.esDeOtro).length;
       // EL CRUCE, ACÁ Y ANTES DE MOSTRARLAS (16/10/2026): el modal ya no lo corre, y tampoco ve el
       // borrador hasta que esté cruzado. Hasta ese día esto marcaba «pendiente» y DESPUÉS cruzaba: el
       // sondeo del modal tomaba las filas sin el cruce, su autosave lo borraba (con el sello puesto),
       // y cargar creaba la duplicada (`cruzarTareas`, lib/reunion-cruce.ts). Con el reloj que quede;
       // si no entra o el modelo no contesta, sale sin sello y lo cruza el barrido del cron.
-      const tareas = tareasDeLaExtraccion(out.tareas, proyectos, proyCliente);
+      const tareas = tareasDeLaExtraccion(nuevas, proyectos, proyCliente);
       const cruce = await cruzarTareas(tareas, { excluirId: borradorId, hasta: opts.hasta })
         .catch((e) => ({ tareas, cruzado: false, marcadas: 0, motivo: msg(e) }));
       await marcarProcesado(borradorId, {
-        tareas: cruce.tareas, cruzado: cruce.cruzado,
-        resumen: `MaKo leyó «${titulo ?? 'la reunión'}» y sacó ${mias} compromiso${mias === 1 ? '' : 's'} tuyo${mias === 1 ? '' : 's'}.${sigue || (partesFallidas ? ` (${partesFallidas} tramo(s) sin leer)` : '')}`,
+        // Lo que ya tenía el borrador va primero, tal cual (con lo que la persona ya revisó); lo nuevo, detrás.
+        tareas: [...antes, ...cruce.tareas], cruzado: cruce.cruzado && !antes.length,
+        resumen: `MaKo leyó «${titulo ?? 'la reunión'}» y sacó ${mias} compromiso${mias === 1 ? '' : 's'} tuyo${mias === 1 ? '' : 's'}${antes.length ? ' más' : ''}.${sigue || (partesFallidas ? ` (${partesFallidas} tramo(s) sin leer)` : '')}`,
         clienteNombre: cli?.nombre, clienteLeadId: cli?.leadId,
       });
       console.log(`[leer-reunion-bg] ws ${ws} · ${borradorId} · ${out.tareas.length} tareas en ${Math.round((Date.now() - t0) / 1000)}s · ${cruce.cruzado ? 'cruzada' : `sin cruzar (${cruce.motivo ?? ''})`}`);

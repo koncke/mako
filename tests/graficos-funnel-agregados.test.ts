@@ -60,3 +60,22 @@ test('la dimensión y el filtro se llaman «Funnel» (el id sigue siendo `produc
     assert.equal(d?.nombre, 'Funnel', `en ${f}`);
   }
 });
+
+// REVISIÓN DE B5 (17/10/2026), MEDIA (plata): un lead que entra a la hoja de «Renovación» SÓLO por estar agregado traía su
+// venta y lo cobrado de la casa (el VSL), y además entraba con las altas y agendas de antes de que se lo agregara. El monto
+// cuenta en el funnel donde se vendió (como los pagos y los OKR): por un funnel agregado, en 0 (`Fila.soloCasa`), y el lead
+// cuenta ahí sólo desde el día en que se lo agregó.
+// PROBADO ROMPIÉNDOLO: `filtrarFilas` sin `soloCasa` → 1 fallo; `filasLeads` sin mirar `desde` → 1 fallo.
+test('por un funnel agregado, el lead cuenta pero su venta y lo cobrado NO (son de su casa)', () => {
+  const venta: Fila = {
+    f: '2026-10-15', d: { producto: 'Negocio que ESCALA' }, v: { leads: 1, cierres: 1, vendido: 3000, cobrado: 1500 },
+    r: { lead: '7' }, m: { producto: ['Renovación'] }, soloCasa: ['cierres', 'vendido', 'cobrado'],
+  };
+  const [porAgregado] = filtrarFilas([venta], [{ dimension: 'producto', valores: ['Renovación'] }]);
+  assert.deepEqual(porAgregado.v, { leads: 1, cierres: 0, vendido: 0, cobrado: 0 }, 'se sumó la venta de otro funnel');
+  const [porCasa] = filtrarFilas([venta], [{ dimension: 'producto', valores: ['Negocio que ESCALA'] }]);
+  assert.deepEqual(porCasa.v, venta.v, 'en su casa la venta cuenta entera');
+  assert.equal(filtrarFilas([venta], []).at(0), venta, 'sin filtro, la fila de siempre');
+  const src = readFileSync(join(__dirname, '..', 'lib', 'graficos-datos.ts'), 'utf8');
+  assert.match(src, /a\.desde <= fila/, 'filasLeads cuenta al lead en el funnel agregado aunque se lo agregara después');
+});

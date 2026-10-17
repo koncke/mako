@@ -60,7 +60,8 @@ export function datosReunionesAlPlan(
   if (!varias) {
     const h = hechas[0];
     return {
-      plan_varias: 'no', plan_resto: h?.resto ? 'sí' : 'no', ...comunes,
+      // «Terminé de leer» sólo si TERMINÓ (revisión de B5): una vuelta que completa y sigue a medias no terminó nada.
+      plan_varias: 'no', plan_resto: h?.resto && !(h.partesFallidas ?? 0) ? 'sí' : 'no', ...comunes,
       ...(texto(h?.titulo) ? { plan_titulo: texto(h.titulo)! } : {}),
       ...(texto(h?.conQuien) ? { plan_con: texto(h.conQuien)! } : {}),
       ...(h && texto(p.cuando(h)) ? { plan_cuando: texto(p.cuando(h))! } : {}),
@@ -73,7 +74,7 @@ export function datosReunionesAlPlan(
   });
   const mas = hechas.length - TOPE_REUNIONES_AVISO;
   return {
-    plan_varias: 'sí', plan_resto: hechas.some((h) => h.resto) ? 'sí' : 'no', ...comunes,
+    plan_varias: 'sí', plan_resto: hechas.some((h) => h.resto && !(h.partesFallidas ?? 0)) ? 'sí' : 'no', ...comunes,
     plan_reuniones: `${hechas.length} reuniones`,
     plan_lista: filas.join('') + (mas > 0 ? `\n…y ${mas} ${mas === 1 ? 'reunión más' : 'reuniones más'}.` : ''),
   };

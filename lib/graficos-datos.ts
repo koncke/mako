@@ -225,7 +225,10 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
   // DÓNDE MÁS ESTÁ CADA LEAD (17/10/2026): sin esto, una hoja filtrada por un funnel de agregados salía vacía.
   const agregados = await funnelsAgregados(rows.map((x) => Number(x.id)), rot.producto);
   return rows.map((x) => {
-    const tambien = (agregados.get(Number(x.id)) ?? []).filter((n) => n !== rot.producto(x.funnel_id));
+    // Sólo los funnels en los que YA estaba el día de esta fila (revisión de B5, la regla de lib/funnels-elegidos.ts): una alta
+    // o una agenda de antes de que se lo agregara a «Renovación» no es de «Renovación». Sin fecha, ninguno.
+    const fila = fecha === 'agenda' ? fechaTj(x.fecha_junta_1) : fecha === 'cierre' ? fechaTj(x.fecha_cierre) : fechaTj(x.created_at);
+    const tambien = fila ? (agregados.get(Number(x.id)) ?? []).filter((a) => a.nombre !== rot.producto(x.funnel_id) && !!a.desde && a.desde <= fila).map((a) => a.nombre) : [];
     const ciclo = diasEntre(x.fecha_agenda, x.fecha_primer_pago);
     const vendio = gano(x);
     const cicloCierre = vendio ? diasEntre(x.fecha_junta_1, x.fecha_cierre) : null;
@@ -248,7 +251,8 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
         madurez_mes: j1 ? madurez.mes.get(`${j1.slice(0, 7)}-01`) || null : null,
       },
       r: { lead: String(x.id) },
-      ...(tambien.length ? { m: { producto: tambien } } : {}),
+      // La venta, lo cobrado y el ciclo hasta el pago son de su casa: por un funnel agregado, en 0 (`Fila.soloCasa`).
+      ...(tambien.length ? { m: { producto: tambien }, soloCasa: ['cierres', 'vendido', 'cobrado', 'dias_ciclo', 'con_ciclo', 'dias_ciclo_cierre', 'con_ciclo_cierre'] } : {}),
       v: {
         leads: 1, agendas: x.fecha_junta_1 ? 1 : 0, asistencias: x.asistio_j1 ? 1 : 0, calificados: x.calificado ? 1 : 0,
         limpias: x.asistio_j1 && x.calificado ? 1 : 0,

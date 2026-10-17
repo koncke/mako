@@ -123,16 +123,20 @@ export async function rotulosDelCrm(): Promise<{ producto: (id: number | null) =
  * agregados («Renovación» en el ws1, sin un solo lead de casa) salía VACÍA porque el filtro miraba sólo la casa (17/10/2026).
  * Si no se puede leer, ningún lead tiene agregados (la hoja queda como antes) y se dice en el log.
  */
-export async function funnelsAgregados(leadIds: readonly number[], producto: (id: number | null) => string | null): Promise<Map<number, string[]>> {
-  const out = new Map<number, string[]>();
+export async function funnelsAgregados(leadIds: readonly number[], producto: (id: number | null) => string | null): Promise<Map<number, Array<{ nombre: string; desde: string }>>> {
+  const out = new Map<number, Array<{ nombre: string; desde: string }>>();
   if (!leadIds.length) return out;
   try {
-    const filas = await leerPorIds<{ lead_id: number; funnel_id: number }>('lead_funnel', 'lead_id, funnel_id', 'lead_id', [...leadIds]);
+    // `desde`: el día en que se lo agregó (revisión de B5). Lo que le pasó ANTES es de otro funnel.
+    const filas = await leerPorIds<{ lead_id: number; funnel_id: number; created_at: string | null }>('lead_funnel', 'lead_id, funnel_id, created_at', 'lead_id', [...leadIds]);
     for (const f of filas) {
       const nombre = producto(Number(f.funnel_id));
       if (!nombre) continue;
       const lista = out.get(Number(f.lead_id)) ?? [];
-      if (!lista.includes(nombre)) lista.push(nombre);
+      const desde = fechaTj(f.created_at) ?? '';
+      const ya = lista.find((x) => x.nombre === nombre);
+      if (!ya) lista.push({ nombre, desde });
+      else if (desde && desde < ya.desde) ya.desde = desde;
       out.set(Number(f.lead_id), lista);
     }
   } catch (e) {

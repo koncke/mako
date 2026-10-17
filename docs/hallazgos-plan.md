@@ -7175,3 +7175,24 @@ eso al viernes» (el presupuesto del doer es de 12.000). No era la operación nu
 (lib/doer-herramientas.ts). Lo cazó tests/agenda-whatsapp.test.ts, que ya pedía la herramienta el día que viajara.
 **Vive en:** lib/plan-fecha-limite.ts · lib/api-mako/areas/plan.def.ts · plan.run.ts · lib/doer-herramientas.ts ·
 tests/plan-fecha-por-whatsapp.test.ts · *17/10/2026, B5 (claude4)*
+
+## La revisión adversarial de «Una reunión larga» (17/10/2026): nueve defectos, siete reales en el Plan
+
+El Cerebro revisó la tanda 1 de B5. Lo que la revisión encontró y la regla que quedó, en una línea cada uno:
+- **El juez del criterio sólo cree en «faltantes» sobre una lectura ENTERA.** Lee la reunión entera; en una lectura a medias
+  o que completa, la lista es sólo de las partes leídas y lo demás volvía como «faltante» con otra redacción (`mismaTarea`
+  caza 1 de 17). Ahí el juez clasifica y nada más.
+- **Lo ya propuesto incluye lo ya cargado** (`aplicadas`): al confirmar, las tuyas salen de `tareas`.
+- **Una vuelta que completa y ya se hizo no se repite ni se avisa** (su borrador de resto existe, aunque esté descartado), y
+  sin partes leídas no hay nada que completar. Antes salía el aviso en cada corrida del cron.
+- **Con marca, ni KEY_VISTA ni una fila «procesando» frenan la continuación**: la fila «procesando» la deja el propio cron
+  cuando lo leído no trae tareas; lo nuevo se SUMA a lo que ya tenía.
+- **Sin la transcripción (Fathom no contestó) es un tramo fallido**, aunque haya resumen; y sin partes leídas, una vuelta que
+  completa no cierra la marca.
+- **El modal también sigue donde quedó** (`previa`) y suma; «Volver a analizar» lee de cero y vacía la marca antes. Lo que
+  se le dice a la persona es honesto: «vuelve a tocar «Extraer»» (el cron sólo mira las de las últimas 26 h).
+- **«Terminé de leer» sólo si terminó.**
+**El diagnóstico obvio era el equivocado:** «el cron completa lo que falta» era cierto sólo para el cron y dentro de 26 h;
+el camino del modal, y las filas que el propio cron deja «procesando», no lo heredaban.
+**Vive en:** lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts · app/api/plan-fathom/route.ts · lib/plan-fathom.ts ·
+lib/reunion-plan-aviso.ts · tests/reunion-larga-reloj.test.ts (R1-R7 en su cabecera) · *17/10/2026, B5 (claude4)*

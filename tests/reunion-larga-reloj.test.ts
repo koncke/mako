@@ -18,11 +18,22 @@
 //   5. reunion-auto completando SIN `sinLasYaPropuestas` (la repetida del corte vuelve) ................ 1 fallo
 //   6. reunion-auto sin pasarle `hasta` a la extracción ................................................ 1 fallo
 //   7. `recordingDeRef` con el `Number(ref.slice(7))` de antes ........................................ 1 fallo
+// Y LA REVISIÓN ADVERSARIAL DE LA TANDA 1 (17/10/2026), cada arreglo roto de a uno:
+//   R1. completar sin partes leídas (`!leidas.length` fuera) ...... 0 fallos: defensivo, sin faltantes del juez una vuelta
+//       sin partes no trae tareas y va a la rama vacía (lo cubre «una vuelta que completa y no lee nada»)
+//   R1b. completar sin mirar si el borrador del resto ya existe ................................ 1 fallo
+//   R2. la fila «procesando» otra vez de cero (`previa` = null) ................................. 1 fallo
+//   R3. sin transcripción, cerrar igual la marca ................................................ 1 fallo
+//   R4. el modal sin `previa` .................................................................... 1 fallo
+//   R5. el juez con «faltantes» en una lectura a medias ......................................... 1 fallo
+//   R6. plan-fathom sin el tramo fallido cuando falta la transcripción ............................ 1 fallo
+//   R7. lo ya propuesto sin las `aplicadas` ..................................................... 1 fallo
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   leerPorRondas, leerMarca, unirLeidas, lecturaCompleta, saltearSi, refDelResto, recordingDeRef, sinLasYaPropuestas,
@@ -104,7 +115,9 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 });
 type Foto = { borradores: Array<{ ref: string; estado: string; titulos: string[]; resumen: string }>; marca: string | null; vista: boolean };
 const r = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as {
-  parcial: { pedidos: Array<{ hasta: boolean; previa: { partes: number; leidas: number[] } | null }>; tras1: Foto; tras2: Foto; corridas: Array<{ nuevas: number; conTareas: number; tareas: number }> };
+  parcial: { pedidos: Array<{ hasta: boolean; previa: { partes: number; leidas: number[] } | null }>; tras1: Foto; trasFalla: Foto; tras2: Foto; corridas: Array<{ nuevas: number; conTareas: number; tareas: number; avisos: number }> };
+  revision: { previa951: number[] | null; titulos951: string[]; estado951: string; marca951: string | null; marca952: string | null; vista952: boolean; titulos953: string[]; estado953: string; tareasDeLaCorrida: number };
+  modal: { previa: number[] | null; titulos: string[]; marca: string | null; reanalizar: { previa: unknown; titulos: string[]; resumen: string } };
   sinMock: string[];
 };
 
@@ -120,8 +133,8 @@ test('una reunión leída a medias se COMPLETA: la corrida siguiente lee sólo l
   assert.deepEqual(JSON.parse(tras1.marca ?? '{}').leidas, [0, 1]);
   assert.equal(tras1.vista, false, 'leída a medias: no se cierra');
   // Segunda corrida: NO la saltea por tener borrador; lee con la marca y deja lo nuevo aparte, sin la repetida del corte.
-  assert.equal(pedidos.length, 2, 'la segunda corrida la volvió a mirar');
-  assert.deepEqual({ partes: pedidos[1].previa?.partes, leidas: pedidos[1].previa?.leidas }, { partes: 4, leidas: [0, 1] }, 'le pasó lo ya leído para no releerlo');
+  assert.equal(pedidos.length, 3, 'las corridas que siguen la volvieron a mirar');
+  assert.deepEqual({ partes: pedidos[2].previa?.partes, leidas: pedidos[2].previa?.leidas }, { partes: 4, leidas: [0, 1] }, 'le pasó lo ya leído para no releerlo');
   const resto = tras2.borradores.find((b) => b.ref === 'fathom:950:partes-3-4');
   assert.ok(resto, 'el resto va a un borrador aparte');
   assert.deepEqual(resto.titulos, ['Llamar al contador por la factura de septiembre'], 'sin la que ya propuso la primera vuelta');
@@ -130,8 +143,53 @@ test('una reunión leída a medias se COMPLETA: la corrida siguiente lee sólo l
   // Leída entera: se cierra y la marca se vacía. La tercera corrida ya no la mira.
   assert.equal(tras2.vista, true);
   assert.equal(tras2.marca, '');
-  assert.deepEqual(corridas.map((c) => c.nuevas), [1, 1, 0]);
-  assert.deepEqual(corridas.map((c) => c.tareas), [2, 1, 0]);
+  assert.deepEqual(corridas.map((c) => c.nuevas), [1, 1, 1, 0]);
+  assert.deepEqual(corridas.map((c) => c.tareas), [2, 0, 1, 0]);
+});
+
+// ── REVISIÓN ADVERSARIAL DE LA TANDA 1 (17/10/2026, docs/hallazgos-plan.md «Una reunión larga…», la revisión) ──────────
+
+test('una vuelta que completa y no lee nada: ni borrador ni aviso, y la marca no se toca (antes: un aviso por corrida)', () => {
+  const { trasFalla, tras1, corridas } = r.parcial;
+  assert.deepEqual(corridas[1], { nuevas: 1, conTareas: 0, tareas: 0, avisos: 0 });
+  assert.deepEqual(trasFalla.borradores.map((b) => b.ref), ['fathom:950'], 'no hay un «fathom:950:partes-» vacío');
+  assert.equal(trasFalla.marca, tras1.marca, 'lo leído sigue anotado igual');
+});
+
+test('la fila «procesando» que dejó el cron sigue donde quedó y SUMA (antes: releía desde la parte 1 para siempre)', () => {
+  const v = r.revision;
+  assert.deepEqual(v.previa951, [0, 1], 'releyó desde cero');
+  assert.deepEqual(v.titulos951, ['Armar el tablero de la campaña de octubre', 'Pedir los permisos de la cuenta publicitaria nueva'], 'se perdió lo de antes o se repitió');
+  assert.equal(v.estado951, 'pendiente');
+  assert.equal(v.marca951, '', 'leída entera: la marca se vacía');
+});
+
+test('una vuelta que completa y YA se hizo (su borrador existe, aunque descartado) no se repite ni se avisa', () => {
+  assert.deepEqual(r.revision.titulos953, ['Grabar el testimonio de Pedro'], 'le escribió encima al borrador de antes');
+  assert.equal(r.revision.estado953, 'descartada', 'revivió el borrador que la persona descartó');
+  assert.equal(r.revision.tareasDeLaCorrida, 1, 'la corrida anunció tareas que no están en ningún borrador');
+});
+
+test('sin la transcripción de Fathom, una vuelta que completa NO cierra la reunión ni vacía la marca', () => {
+  assert.ok(r.revision.marca952, 'vació la marca con el resto sin leer');
+  assert.equal(r.revision.vista952, false, 'la cerró como «terminé de leerla»');
+});
+
+test('la lectura del modal sigue donde quedó y suma; «Volver a analizar» lee de cero', () => {
+  assert.deepEqual(r.modal.previa, [0, 1], 'el modal releía desde la parte 1');
+  assert.deepEqual(r.modal.titulos, ['Armar el tablero de la campaña de octubre', 'Pedir los permisos de la cuenta publicitaria nueva']);
+  assert.equal(r.modal.marca, '');
+  assert.equal(r.modal.reanalizar.previa, null, '«Volver a analizar» siguió una marca vieja');
+  assert.deepEqual(r.modal.reanalizar.titulos, ['Revisar el guion del webinar']);
+  assert.match(r.modal.reanalizar.resumen, /vuelve a tocar «Extraer»/, 'promete que sigue sola, y el cron no ve las de más de 26 h');
+});
+
+test('en una lectura a medias o que completa, el juez NO agrega «faltantes»; y sin transcripción es un tramo fallido', () => {
+  const auto = readFileSync(join(RAIZ, 'lib', 'reunion-auto.ts'), 'utf8');
+  assert.match(auto, /if \(juicio && \(parcial \|\| completando \|\| previa\)\) juicio = \{ \.\.\.juicio, faltantes: \[\] \};/);
+  assert.match(auto, /\[\.\.\.p\.tareas, \.\.\.\(p\.aplicadas \?\? \[\]\)\]/, 'lo ya cargado (aplicadas) no cuenta como propuesto');
+  const fathom = readFileSync(join(RAIZ, 'lib', 'plan-fathom.ts'), 'utf8');
+  assert.match(fathom, /if \(!texto && fathomCallado\) return \{ tareas: \[\], dudas: \[\], cabecera: '', transcript: '', partesFallidas: 1 \};/);
 });
 
 test('el escenario no usó tablas sin mock', () => {

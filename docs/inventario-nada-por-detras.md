@@ -79,6 +79,8 @@ faltaba. 243 entradas crudas, 132 únicas por el lugar del envío. Las líneas c
   `porDefecto`; el ws 13 lo tenía apagado a mano), así que su fila nace PAUSADA. ⚠️ **La fila NO está creada**: va DESPUÉS del
   deploy con `scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan --aplicar` (como no le llegaba a nadie,
   el hueco no cambia nada). Queda `lead-no-confirmo`.
+  ⚠️ **Al prenderla:** el ws 13 tenía este aviso APAGADO a mano en /mensajes, y un evento de la plataforma no lee ese
+  interruptor. Antes de prender la fila, sumarle una CONDITION que excluya al ws 13 (o preguntarle a Código Inmobiliario).
 - ⚠️ **`voz-mako-caida-email` NO se mudó todavía, a propósito:** es la red de seguridad de la propia MaKo (le escribe a
   su equipo cuando su línea de voz se cae, por email porque el WhatsApp está caído), con TRES casos (se cayó, volvió, no
   puedo comprobar). El camino del evento le haría perder dos cosas que hoy tiene: el destinatario fijo (`EMAILS_ALERTA_VOZ`

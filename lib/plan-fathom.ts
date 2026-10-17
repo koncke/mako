@@ -952,6 +952,10 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   const texto = transcriptToText(transcript, 400000);
   // Vacía porque Fathom no contestó → UN tramo fallido: quien llama la reintenta en vez de cerrarla.
   if (!resumen && !texto) return { tareas: [], dudas: [], cabecera: '', transcript: '', ...(fathomCallado ? { partesFallidas: 1 } : {}) };
+  // ⚠️ Y SIN LA TRANSCRIPCIÓN AUNQUE HAYA RESUMEN (revisión de B5, 17/10/2026): las tareas salen de la transcripción, así
+  // que con sólo el resumen la lectura vuelve vacía y SIN fallas, y quien llama la cerraba como «leída, sin compromisos»
+  // (o, completando, vaciaba la marca con el resto sin leer). Si Fathom no contestó, es un tramo fallido.
+  if (!texto && fathomCallado) return { tareas: [], dudas: [], cabecera: '', transcript: '', partesFallidas: 1 };
 
   // Los action items estructurados de Fathom (con su dueño ya atribuido) le dan al
   // modelo la pista de quién asumió qué, sin que lo tenga que adivinar del transcript.

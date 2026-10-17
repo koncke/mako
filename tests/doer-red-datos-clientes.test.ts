@@ -37,7 +37,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { clasificarIntencion } from '../lib/mako-intencion';
-import { herramientasDelTurno, turnoParaLaRed, llevaDatosDeClientes, SIN_DATOS_DE_CLIENTES } from '../lib/doer-herramientas';
+import { herramientasDelTurno, turnoParaLaRed, llevaDatosDeClientes, mensajesParaLaRed, SIN_DATOS_DE_CLIENTES } from '../lib/doer-herramientas';
 import { REGISTRO, porId, type Vista } from '../lib/api-mako/registro';
 import { DATOS_DE_CLIENTES_POR_AREA, type Area } from '../lib/api-mako/tipos';
 import { textoSinRedPorDatos, sinRedPorDatos } from '../lib/fallo-ia-texto';
@@ -161,7 +161,8 @@ test('el doer corre la red con lo que decide `turnoParaLaRed`, y no con el turno
   const bloque = doer.slice(iDecide, doer.indexOf('respondió con la RED DE PLATAFORMA', iRed));
   assert.match(bloque, /if \(turnoRed\?\.cortar\) \{[^}]*erroresPlataforma\.push\(`red gratis salteada:/, 'el corte no deja la marca que lee `sinRedPorDatos`');
   assert.match(bloque, /if \(!respuesta && turnoRed && !turnoRed\.cortar\)/, 'la red corre aunque el turno se haya cortado');
-  assert.match(bloque, /chatCheapTools\(systemRed, msgs, toolsRed,/, 'la red manda el system y las herramientas del turno entero');
+  // (17/10/2026, B5: con una métrica liberada, sin la conversación del grupo: `mensajesParaLaRed`.)
+  assert.match(bloque, /chatCheapTools\(systemRed, (?:mensajesParaLaRed\(msgs, turnoRed\)|msgs), toolsRed,/, 'la red manda el system y las herramientas del turno entero');
   assert.doesNotMatch(bloque, /chatCheapTools\(system, msgs, tools,/, 'la red manda las herramientas del turno entero');
   assert.match(bloque, /armarSystem\(toolsRed, `\\n\\n\$\{SIN_DATOS_DE_CLIENTES\}`\)/, 'el system de la red nombra herramientas que no viajan');
 });
@@ -190,4 +191,28 @@ test('el registro decide por la def y, si no dice nada, por su área', () => {
   assert.equal(llevaDatosDeClientes('ver_rechazos_pago_landing'), false);
   assert.equal(llevaDatosDeClientes('buscar_leads'), true);
   assert.equal(llevaDatosDeClientes('ver_plan'), false);
+});
+
+// REVISIÓN DE B5 (17/10/2026), ALTA: con las métricas marcadas `datosDeClientes: false`, «¿cuánto vendí este mes?» dejó de
+// cortarse y el turno salía a la red gratis CON EL HISTORIAL DEL GRUPO (avisos con nombre, teléfono y lo que escribió un
+// lead). Ahora, si viaja una métrica «liberada» de su área, va sólo lo que la persona escribió en este turno.
+// PROBADO ROMPIÉNDOLO: `sinHistorial` siempre false → 1 fallo; el doer pasando `msgs` sin `mensajesParaLaRed` → 1 fallo.
+test('«¿cuánto vendí este mes?» viaja a la red SIN la conversación del grupo (que trae datos de leads)', () => {
+  const { r } = red('¿cuánto vendí este mes?');
+  assert.equal(r.cortar, null);
+  if (r.cortar) return;
+  assert.equal(r.sinHistorial, true, 'una métrica liberada viajó con el historial del grupo');
+  const historial = [
+    { role: 'assistant', content: '📥 *Silvana Ruiz* completó tu formulario de Meta\n📱 +52 1 55 1234 5678' },
+    { role: 'user', content: 'dale, gracias' },
+    { role: 'user', content: '¿cuánto vendí este mes?' },
+  ];
+  const sale = JSON.stringify(mensajesParaLaRed(historial, r));
+  assert.ok(!sale.includes('Silvana') && !sale.includes('5678'), `viajó texto del grupo: ${sale}`);
+  assert.ok(sale.includes('¿cuánto vendí este mes?'));
+  // Un turno sin métricas liberadas sigue como antes (el saludo, el plan): no se le saca la conversación.
+  const plan = red('¿qué tengo pendiente en el plan?').r;
+  if (!plan.cortar) assert.equal(plan.sinHistorial, false);
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.match(doer, /chatCheapTools\(systemRed, mensajesParaLaRed\(msgs, turnoRed\), toolsRed,/);
 });

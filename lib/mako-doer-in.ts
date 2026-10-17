@@ -31,7 +31,7 @@ import { actorDeWhatsApp, LINEA_ERROR_AVISADO } from '@/lib/doer-ticket';
 import { registrarError } from '@/lib/errores-app';
 import { identidadDelActor } from '@/lib/tickets-db';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
-import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, SIN_DATOS_DE_CLIENTES } from '@/lib/doer-herramientas';
+import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, mensajesParaLaRed, SIN_DATOS_DE_CLIENTES } from '@/lib/doer-herramientas';
 import { listarPendientes } from '@/lib/api-mako/acciones';
 import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
@@ -1571,7 +1571,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 }
                 probados++;
                 try {
-                  const rp = await chatCheapTools(systemRed, msgs, toolsRed, nuevoIntento(), {
+                  // ⚠️ Con una métrica «liberada» (sólo números), SIN la conversación del grupo (revisión de B5, 17/10/2026):
+                  // el historial trae avisos con nombres y teléfonos de leads, y la red gratis entrena con lo que recibe.
+                  const rp = await chatCheapTools(systemRed, mensajesParaLaRed(msgs, turnoRed), toolsRed, nuevoIntento(), {
                     provider: r.provider, clave: r.clave, wsKey: await wsSuperAdmin(),
                     // 10 s por proveedor: con 25 s de presupuesto entran al menos
                     // dos intentos reales aunque uno quede colgado.

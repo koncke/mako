@@ -1312,6 +1312,13 @@ por funnel cuenta a cada lead UNA vez, en su casa. Así ningún total se duplica
 filtrada queda vacía. Lo mismo en la cartera. Los pagos ya iban por el funnel del día. El id de la dimensión sigue siendo
 `producto` (hojas guardadas); cambió el nombre que se ve.
 
+⚠️ **La revisión del Cerebro (17/10, plata):** así, la venta y lo cobrado de la CASA (el VSL) se sumaban en «Renovación».
+Ahora, por un funnel agregado, la fila cuenta pero sus métricas de la casa van en 0 (`Fila.soloCasa`: cierres, vendido,
+cobrado, el ciclo hasta el pago; en la cartera, la deuda), y el lead cuenta ahí sólo desde el día en que se lo agregó
+(`lead_funnel.created_at` contra la fecha de la fila). Es la regla de los pagos y los OKR: cada cosa en el funnel donde
+estaba ESE día. Consecuencia medida en el ws1: los 5 de «Renovación» se agregaron el 13/10 con todo lo anterior, así que
+una hoja de Leads por alta o por cierre filtrada por «Renovación» da 0 hasta que pase algo ahí (la fuente Pagos dice lo mismo).
+
 **Trampa:** `sed -i` en Git Bash pasa el archivo entero a LF en el working copy (el diff igual sale chico, porque el
 índice ya es LF). **Sin hacer:** un gráfico agrupado por funnel DENTRO de una hoja filtrada por «Renovación» muestra a
 esos leads bajo su casa (p. ej. «Ventas»), no bajo «Renovación». Si molesta, que el agrupado use el valor del filtro.

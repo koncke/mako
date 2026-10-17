@@ -52,6 +52,12 @@ export type Fila = {
    * sea otra, y sin filtro el lead se cuenta UNA vez, en su casa. Contarlo en cada funnel duplicaba los totales.
    */
   m?: Record<string, readonly string[]>;
+  /**
+   * Las métricas de la fila que son de su CASA (la venta, lo cobrado, el cierre): cuando la fila entra a un filtro SÓLO por
+   * `m` (un funnel al que se la agregó), van en 0 (revisión de B5, 17/10/2026). El monto cuenta en el funnel donde se vendió,
+   * como en los pagos y los OKR (lib/funnels-elegidos.ts): sumar la venta del VSL a «Renovación» es plata de otro funnel.
+   */
+  soloCasa?: readonly string[];
 };
 
 /** «X de Y»: el numerador y el denominador de una razón cuyo denominador no llegó al `minimo`. */
@@ -345,12 +351,28 @@ export function filtrarFilas(filas: Fila[], filtros: Filtro[]): Fila[] {
   const plano = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   // Lo que la fila ES en esa dimensión, y dónde MÁS está (`m`: un lead agregado a otro funnel).
   const valoresDe = (fl: Fila, dim: string): string[] => [claveCategoria(fl.d[dim]), ...(fl.m?.[dim] ?? []).map((v) => claveCategoria(v))];
-  const pruebas = activos.map((x) => {
-    if (x.valores && x.valores.length) { const set = new Set(x.valores.map((v) => claveCategoria(v))); return (fl: Fila) => valoresDe(fl, x.dimension).some((v) => set.has(v)); }
-    const t = plano(x.texto!.trim());
-    return (fl: Fila) => valoresDe(fl, x.dimension).some((v) => plano(v).includes(t));
+  // Cada prueba dice si la fila pasa por lo que ES (`d`) o sólo por dónde MÁS está (`m`).
+  type Paso = 'no' | 'casa' | 'agregado';
+  const pruebas = activos.map((x): ((fl: Fila) => Paso) => {
+    const pasa = (v: string): boolean => {
+      if (x.valores && x.valores.length) return x.valores.some((w) => claveCategoria(w) === v);
+      return plano(v).includes(plano(x.texto!.trim()));
+    };
+    return (fl) => {
+      if (pasa(claveCategoria(fl.d[x.dimension]))) return 'casa';
+      return (fl.m?.[x.dimension] ?? []).some((v) => pasa(claveCategoria(v))) ? 'agregado' : 'no';
+    };
   });
-  return filas.filter((fl) => pruebas.every((p) => p(fl)));
+  const out: Fila[] = [];
+  for (const fl of filas) {
+    const pasos = pruebas.map((p) => p(fl));
+    if (pasos.includes('no')) continue;
+    // Entró sólo por un funnel al que se la agregó: lo que es de su casa (la venta, lo cobrado) no se suma ahí.
+    if (pasos.includes('agregado') && fl.soloCasa?.length) {
+      out.push({ ...fl, v: { ...fl.v, ...Object.fromEntries(fl.soloCasa.map((k) => [k, 0])) } });
+    } else out.push(fl);
+  }
+  return out;
 }
 
 /** El orden de los grupos de una categoría: «(sin dato)» al final; una escala con orden propio por su etiqueta; si no, por la métrica. */

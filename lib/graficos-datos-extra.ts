@@ -787,8 +787,9 @@ async function filasCartera(): Promise<Fila[]> {
     r: { cliente: String(c.leadId) },
     ...(() => {
       const casa = rot.producto(embudo.get(c.leadId) ?? null);
-      const tambien = (agregados.get(c.leadId) ?? []).filter((n) => n !== casa);
-      return tambien.length ? { m: { producto: tambien } } : {};
+      // La cartera es una foto de HOY: el cliente está en esos funnels. Su deuda es de la venta de su casa (revisión de B5).
+      const tambien = (agregados.get(c.leadId) ?? []).map((a) => a.nombre).filter((n) => n !== casa);
+      return tambien.length ? { m: { producto: tambien }, soloCasa: ['deuda_vencida_usd', 'cuotas_vencidas'] } : {};
     })(),
   }));
 }

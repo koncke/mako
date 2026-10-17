@@ -51,15 +51,18 @@ test('una reunión, sin nada de más: los renglones que no aplican no salen', ()
     '📝 Leí tu reunión *Sync semanal*\n👥 Con Ana\n🗓️ vie 17 oct · 12:00\n\nSaqué *3 tareas tuyas* y te las dejé en el plan para que las confirmes:\nhttps://hola-mako.com/plan/revisar/p1\n\nEntras, revisas y con un toque quedan cargadas. — MaKo');
 });
 
-test('la que COMPLETA una lectura a medias dice que terminó, y lo leído a medias se dice', () => {
-  const d = datosReunionesAlPlan([{ ...una, resto: true, otras: 2, descartadas: 4, partesFallidas: 1, propId: 'p2' }], { cuando: () => null, link: LINK });
+test('la que COMPLETA una lectura a medias dice que terminó; y la que sigue a medias, lo dice', () => {
+  const d = datosReunionesAlPlan([{ ...una, resto: true, otras: 2, descartadas: 4, propId: 'p2' }], { cuando: () => null, link: LINK });
   assert.equal(tarjetaPara(d), 'rp_resto_mk');
   const t = textoConDatos(cuerpo('rp_resto_mk'), sinVacios(d));
   assert.match(t, /^📝 Terminé de leer tu reunión \*Sync semanal\*\n\nSaqué \*3 tareas tuyas\* más/);
   assert.match(t, /👥 Y 2 de los demás, para repartir\./);
   assert.match(t, /Otras 4 no las cargué porque tu criterio las deja afuera/);
-  assert.match(t, /⚠️ De esta reunión todavía no pude leer todo/);
+  assert.doesNotMatch(t, /⚠️/, 'terminó: no hay nada a medias');
   assert.doesNotMatch(t, /🗓️/, 'sin fecha, su renglón no va');
+  // Una vuelta que todavía no termina: la tarjeta de una reunión, con el renglón de lo leído a medias.
+  const medias = datosReunionesAlPlan([{ ...una, resto: true, partesFallidas: 1, propId: 'p2' }], { cuando: () => null, link: LINK });
+  assert.match(textoConDatos(cuerpo(tarjetaPara(medias)), sinVacios(medias)), /⚠️ De esta reunión no pude leer todo/);
 });
 
 test('varias reuniones: la lista con el link de cada una', () => {
@@ -84,4 +87,14 @@ test('el cron manda los DATOS, no un texto armado por el código', () => {
   assert.match(src, /emitirDelCatalogo\('reunion-tareas-al-plan', \{ ws, datos: /);
   assert.doesNotMatch(src, /emitirDelCatalogo\('reunion-tareas-al-plan', \{[^}]*texto:/);
   assert.doesNotMatch(src, /export function textoAviso\(/);
+});
+
+// REVISIÓN DE B5 (17/10/2026), BAJA: «Terminé de leer tu reunión» salía aunque esa vuelta también quedara a medias.
+// PROBADO ROMPIÉNDOLO: `plan_resto` sin mirar `partesFallidas` → 2 fallos.
+test('«Terminé de leer» sólo si terminó: una vuelta que completa y sigue a medias no lo dice', () => {
+  const d = datosReunionesAlPlan([{ ...una, resto: true, partesFallidas: 1, propId: 'p4' }], { cuando: () => null, link: LINK });
+  assert.equal(d.plan_resto, 'no');
+  assert.equal(tarjetaPara(d), 'rp_una_mk');
+  const fin = datosReunionesAlPlan([{ ...una, resto: true, propId: 'p5' }], { cuando: () => null, link: LINK });
+  assert.equal(fin.plan_resto, 'sí');
 });
