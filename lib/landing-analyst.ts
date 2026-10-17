@@ -380,7 +380,7 @@ async function masTocadoParaElAnalisis(url: string): Promise<string[]> {
       new Promise<null>((ok) => { plazo = setTimeout(() => ok(null), PLAZO_MAS_TOCADO_MS); }),
     ]);
     clearTimeout(plazo);
-    return r ? lineasMasTocado(r, (f) => rotuloDe({ tipo: /^vacio/.test(f.etiqueta) ? 'clic_vacio' : 'click', etiqueta: f.etiqueta })) : [];
+    return r ? lineasMasTocado(r, (f) => rotuloDe({ tipo: /^vacio/.test(f.etiqueta) ? 'clic_vacio' : 'click', etiqueta: f.etiqueta })) : [];
   } catch (e) {
     console.warn(`[landing-analyst] ${url}: no pude leer lo más tocado: ${e instanceof Error ? e.message : String(e)}`);
     return [];
