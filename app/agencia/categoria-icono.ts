@@ -19,3 +19,10 @@ export const ICONO_CATEGORIA: Readonly<Record<CategoriaAviso, NombreIconoMenu>> 
   accion: 'accion',
   pregunta: 'pregunta',
 };
+
+/**
+ * El NOMBRE de cada categoría en la pantalla y su orden (17/10/2026): vivían adentro de PlantillasView.tsx, que es
+ * `'use client'`, y los necesita también la pantalla del teléfono (app/m/mensajes). Una sola copia.
+ */
+export const ORDEN_CATEGORIA: readonly CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'];
+export const ROTULO_CATEGORIA: Readonly<Record<CategoriaAviso, string>> = { reporte: 'Reportes', aviso: 'Avisos', accion: 'Acciones', pregunta: 'Preguntas' };

@@ -1,0 +1,13 @@
+/* =============================================================================
+   /m/api-mako — la API de MaKo en el teléfono. Clases `.m-api-mako-*`, sólo tokens de app/globals.css.
+   ============================================================================= */
+
+.m-api-mako-tabs { margin: 0 0 16px; }
+.m-api-mako-n { font-size: var(--fs-sm); color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Una ruta o una operación, en monoespaciada y cortada si no entra (nunca desborda a lo ancho). */
+.m-api-mako-ruta { font-family: 'Geist Mono', monospace; font-size: 13px; overflow-wrap: anywhere; }
+.m-api-mako-borrar {
+  display: block; width: 100%; min-height: 48px; border: 0; background: none; color: var(--bad);
+  font: inherit; font-size: var(--fs-md); font-weight: 600; cursor: pointer;
+}
+.m-api-mako-borrar:focus-visible { outline: none; box-shadow: var(--focus-ring); }

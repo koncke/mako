@@ -91,6 +91,7 @@ const QUEDAN: Record<string, { porque: string; pendiente?: true }> = {
   'app/landing-analyst/PulsoPaginas.tsx': { porque: 'copiar la línea del Pixel (la landing)' },
   'app/marketing/salud/page.tsx': { porque: 'un alias de ruta que redirige a /integraciones' },
   'app/general/bloques/Norte.tsx': { porque: 'el «Conectar» del semáforo SIN FUENTES no nombra una integración: va a la grilla (abd91fdb, docs/hallazgos-objectives.md)' },
+  'app/m/configuraciones/integraciones/page.tsx': { porque: 'el teléfono (Mobile 2, 17/10): todavía no tiene el modal de conectar, así que «Conectar» abre ESA integración en la computadora (?abrir=)' },
 };
 
 /** Un literal que ARRANCA con /integraciones (no la prosa, no /api/integraciones, no /admin/dev/integraciones). */
