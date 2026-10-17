@@ -1358,6 +1358,10 @@ código nuevo:
     - **Un brief nombra el archivo, el «hecho» y lo que no se toca.** Nunca «lee todo el relevo» si alcanza una sección.
     - **Con la ventana de 5 horas arriba del 85%:** nada de workflows ni tandas grandes de tests. Se termina lo que está
       a medias y se commitea.
+    - **Un chat que necesita datos del negocio NO lee el cerebro entero** (17/10/2026, docs/diseno-second-brain-grafo.md):
+      pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
+      (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
+      grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, el trabajo no aparece para revisar.
