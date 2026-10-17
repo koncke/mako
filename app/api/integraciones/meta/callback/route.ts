@@ -18,6 +18,7 @@ import { adminDeWorkspaceActual } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
 import { leerEstadoGcal, puedeEscribirAgenda } from '@/lib/gcal-estado';
 import { guardarConexionMeta } from '@/lib/meta-conexion';
+import { permisosDeAnunciosFaltantes } from '@/lib/meta-permisos';
 import { destinoDeVuelta, ENV_SECRETO_APP, META_APP_ID, metaRedirectUri, volverSeguro, type ResultadoConexionMeta } from '@/lib/meta-login';
 
 export const dynamic = 'force-dynamic';
@@ -77,6 +78,19 @@ export async function GET(req: NextRequest) {
     if ('error' in g) {
       console.error('[meta-oauth] el token canjeado no sirvió para leer la cuenta:', g.error);
       return salir('meta-fallo', ws);
+    }
+    // ⚠️ CONECTÓ, PERO ¿CON LOS PERMISOS DE ANUNCIOS? (17/10/2026) Meta puede devolver el token sin `ads_read` ni
+    // `ads_management` (pasó con la app MaKo el 08/10) y la tarjeta lo decía recién cuando fallaba una lectura. Se mira
+    // ahora, best effort: si `/me/permissions` no contesta, se dice «conectado» como siempre.
+    try {
+      const p = await fetch(`https://graph.facebook.com/${version}/me/permissions?access_token=${encodeURIComponent(j.access_token)}`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+      const faltan = permisosDeAnunciosFaltantes(await p.json().catch(() => null));
+      if (faltan.length) {
+        console.warn(`[meta-oauth] ws=${ws} conectado sin ${faltan.join(', ')}`);
+        return salir('sin-permisos', ws);
+      }
+    } catch (e) {
+      console.warn('[meta-oauth] no pude leer los permisos del token:', e instanceof Error ? e.message : String(e));
     }
     return salir('ok', ws);
   } catch (e) {

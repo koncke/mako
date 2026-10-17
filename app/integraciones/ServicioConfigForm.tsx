@@ -100,6 +100,7 @@ const RESULTADO_META: Record<string, string> = {
   'no-permitido': 'Sólo un admin de este espacio puede conectar Meta.',
   'no-disponible': 'Conectar con Meta todavía no está disponible.',
   'meta-fallo': 'Meta no completó la conexión. Vuelve a intentarlo.',
+  'sin-permisos': 'Conectó sin permisos de anuncios. Reconecta y acéptalos.',
 };
 
 const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 };
