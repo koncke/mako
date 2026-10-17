@@ -192,7 +192,7 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 ];
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
-export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer'
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer' | 'contrasena_cambiada'
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
   | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio'
   | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing' | 'prueba_recibida' | 'prueba_grabada' | 'lead_formulario_meta'
@@ -264,6 +264,11 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // `{{link_restablecer}}` es un dato SECRETO (`secreto`, lib/variables-aviso.ts). Todo por Automations: el mail lo
   // manda la automatización de SuperAdmin, por el remitente de MaKo.
   { subtipo: 'contrasena_restablecer', aviso: 'seguridad-contrasena-restablecer', label: 'Alguien pide restablecer su contraseña', trae: ['restablecer'], persona: 'restablecer', quien: 'Quien pide restablecer su contraseña' },
+  // «TU CONTRASEÑA CAMBIÓ» (17/10/2026, los circuitos 1, 3 y 4 de docs/diseno-login-contrasena.md lo prometían y no
+  // existía): lo emite Seguridad (lib/contrasena-cambio-aviso.ts) cada vez que se crea, se cambia o se restablece una
+  // contraseña, en el ws de la plataforma y con `usuario_id`. Sin datos secretos: el mail dice QUÉ pasó y qué hacer si
+  // no fue la persona. Al correo de la CUENTA (`aviso`, lib/destino-usuario.ts).
+  { subtipo: 'contrasena_cambiada', aviso: 'seguridad-contrasena-cambiada', label: 'Se crea o cambia la contraseña de alguien', trae: [], persona: 'aviso', quien: 'La persona cuya contraseña cambió' },
   // LOS MENSAJES DE MaKo A SUS CLIENTES, mudados de a uno (15/10/2026, docs/diseno-avisos-plataforma.md). La línea por QR
   // de un negocio se cae y vuelve: lo mide lib/lineas-vigilante.ts, que pasa los datos de la línea (`datosCaida`).
   { subtipo: 'whatsapp_caido', aviso: 'wa-desconectado', label: 'Se corta el WhatsApp de un negocio', trae: ['linea'], plataforma: true },

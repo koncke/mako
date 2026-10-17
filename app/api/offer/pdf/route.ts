@@ -28,7 +28,7 @@ import type { NextRequest } from 'next/server';
 import { adminDeWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { leerFila, nombreNegocioOffer } from '@/lib/offer-sesiones';
 import { conclusionDeVersion, conclusionVisible } from '@/lib/offer-reglas';
-import { pdfDeOferta, nombreArchivoOferta, paginasDeOferta } from '@/lib/offer-pdf';
+import { pdfDeOferta, nombreArchivoOferta, paginasDeOferta, pdfExternoDeOferta, nombreArchivoOfertaExterna } from '@/lib/offer-pdf';
 import { pdfDeLoQueVendes, nombreArchivoLoQueVendes } from '@/lib/lo-que-vendes-pdf';
 import { tzDeWorkspace } from '@/lib/timezone';
 
@@ -79,8 +79,12 @@ export async function GET(req: NextRequest) {
       if (vistaPaginas) {
         return Response.json({ ok: true, version: conclusion.version, paginas: paginasDeOferta(conclusion, meta) }, { headers: { 'Cache-Control': 'no-store' } });
       }
-      const bytes = pdfDeOferta(conclusion, meta);
-      const nombre = nombreArchivoOferta(conclusion.propuesta.nombre || fila.titulo, conclusion.version);
+      // `tipo=externo` (17/10/2026): la oferta sola, para mandarle a un prospecto (sin diagnóstico ni «[completar]»).
+      const externo = req.nextUrl.searchParams.get('tipo') === 'externo';
+      const bytes = externo ? pdfExternoDeOferta(conclusion, meta) : pdfDeOferta(conclusion, meta);
+      const nombre = externo
+        ? nombreArchivoOfertaExterna(conclusion.propuesta.nombre || fila.titulo)
+        : nombreArchivoOferta(conclusion.propuesta.nombre || fila.titulo, conclusion.version);
       // Un `Uint8Array` es un BodyInit válido; el buffer se copia para que el tipo
       // sea un ArrayBuffer «de verdad» (no SharedArrayBuffer) en todos los runtimes.
       return new Response(bytes.slice().buffer, {

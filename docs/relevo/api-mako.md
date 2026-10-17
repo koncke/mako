@@ -173,7 +173,7 @@ existen en main.
 | Qué | Dónde vive | Estado |
 |---|---|---|
 | **Un token no se apaga cuando su creador pierde el acceso.** `creadoPor` se guarda y no se vuelve a mirar, y `autenticar()` fija `rol: 'admin'` para TODO token | `lib/api-mako/tokens.ts` (`resolverTokenApi`), `lib/api-mako/http.ts` | `cola` en `app/admin/dev/api-mako/bitacora.ts:30` — verificado hoy: `creadoPor` sólo se escribe y se dibuja, nunca se consulta |
-| **`/api/agente/plan` y `/lead` (POST) no miran el alcance**: un token principal acuñado como `lectura` propone igual | `app/api/agente/plan/route.ts`, `app/api/agente/lead/route.ts` | verificado hoy: la palabra «alcance» no aparece en ninguno de los dos |
+| ~~**`/api/agente/plan` y `/lead` (POST) no miran el alcance**~~ **CERRADO el 17/10/2026**: un token «Solo leer» contesta 403 (`rechazoPorAlcance`, lib/api-mako/alcance.ts; `tests/agente-alcance-propuestas.test.ts`) | `app/api/agente/plan/route.ts`, `app/api/agente/lead/route.ts` | la decisión D del 08/10 («se mantiene tal cual») cedió ante la promesa de la tarjeta: «Solo leer: no deja nada pendiente» |
 | **Las 25 tools viejas están declaradas dos veces** y ya divergieron de la def | `lib/mako-tools.ts`, `lib/mako-doer-acciones.ts` | estado `sigue`; antes hay que arreglar la def de `proponer_tareas_plan` |
 | **Las descripciones dicen «PROPONE… hasta el sí»**, que con un token detallado es falso (escribe en el acto). La documentación lo aclara; el texto de la def, no | `lib/api-mako/areas/*.def.ts` | abierto |
 | **La skill y `plugin/` no enseñan las rutas REST** ni los tokens detallados | `lib/agente-skill.ts`, `plugin/skills/` | abierto |

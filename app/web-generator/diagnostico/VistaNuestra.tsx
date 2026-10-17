@@ -15,16 +15,20 @@
 // ⚠️ LA ESCALA VA POR `--gm-base`, NUNCA POR `transform: scale()` (la misma regla que la miniatura del
 //    Panel, MiniaturaLanding.tsx): las cajas que se leen con getBoundingClientRect son las que se ven, y
 //    el recorte del recorrido cae justo sobre el bloque.
-// ⚠️ `inert`: es una vista, no la landing. Un botón o un formulario de la página no se aprietan acá (un
-//    `<form>` real mandaría la persona a otro lado). La rueda del mouse igual scrollea: el contenedor de
-//    afuera no es inerte.
+// ⚠️ ES UNA VISTA, NO LA LANDING: un botón o un formulario de la página no se aprietan acá (un `<form>` real mandaría
+//    a la persona a otro lado). Hasta el 17/10/2026 eso lo hacía `inert` sobre TODO el lienzo, y apagaba también el
+//    reproductor: el VSL arrancaba solo, con sonido, y no se podía pausar (#861, Martín en la revisión con Código
+//    Inmobiliario). Ahora lo frenan tres cosas, y el video queda vivo: la hoja del panel (`pointer-events: none` en
+//    links, botones, campos y en todo iframe que no sea un video), el clic y el envío frenados acá en captura
+//    (`SELECTOR_SIN_CLIC`: el teclado también «hace clic») y `htmlParaVistaPrevia` (vista.ts), que le saca el permiso
+//    de arrancar con sonido a cada iframe y le pone controles a un `<video>` que arranca solo.
 // =============================================================================
 
-import { useLayoutEffect, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
+import { useLayoutEffect, useEffect, useMemo, useRef, type MutableRefObject, type SyntheticEvent } from 'react';
 import { buscarEnTextos } from '@/lib/editor-landing/diagnostico';
 import { altoDeMensaje, documentoHtmlLibre } from '@/lib/editor-landing/html-libre';
 import {
-  EVENTO_MOVIO, bloqueDeCoincidencia, cajaDeRect, recortarA, selectorDeSeccion, textosDelDom,
+  EVENTO_MOVIO, SELECTOR_SIN_CLIC, bloqueDeCoincidencia, cajaDeRect, htmlParaVistaPrevia, recortarA, selectorDeSeccion, textosDelDom,
   type ControlVista, type ObjetivoVista, type Ubicacion,
 } from './vista';
 
@@ -51,7 +55,7 @@ export function VistaNuestra({ html, objetivos, controlRef, senal, onUbicar }: {
   //    un paso del recorrido), y los bloques que se ubicaron quedan desconectados. Medido en el navegador
   //    (12/10/2026): el recorrido señalaba la vista ENTERA en vez del título, porque `hallados` guardaba un
   //    <h1> con `isConnected === false`.
-  const contenido = useMemo(() => ({ __html: html }), [html]);
+  const contenido = useMemo(() => ({ __html: htmlParaVistaPrevia(html) }), [html]);
 
   // Ubicar cada comentario en el DOM recién pintado (antes de que el navegador pinte: el recorrido
   // mide en el cuadro siguiente).
@@ -145,9 +149,22 @@ export function VistaNuestra({ html, objetivos, controlRef, senal, onUbicar }: {
     return () => { if (controlRef.current === control) controlRef.current = null; };
   }, [controlRef]);
 
+  // Ni el clic (del mouse o del teclado, que también lo dispara) ni el envío salen de la vista. Lo de adentro de un
+  // iframe no llega acá: por eso la hoja deja vivo sólo el iframe de un VIDEO.
+  const frenar = (e: SyntheticEvent) => {
+    const t = e.target;
+    if (t instanceof Element && t.closest(SELECTOR_SIN_CLIC)) { e.preventDefault(); e.stopPropagation(); }
+  };
   return (
     <div ref={scrollRef} className="gdg-vista gdg-vista--nuestra">
-      <div ref={lienzoRef} className="gdg-lienzo" inert dangerouslySetInnerHTML={contenido} />
+      <div
+        ref={lienzoRef}
+        className="gdg-lienzo"
+        onClickCapture={frenar}
+        onAuxClickCapture={frenar}
+        onSubmitCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        dangerouslySetInnerHTML={contenido}
+      />
     </div>
   );
 }

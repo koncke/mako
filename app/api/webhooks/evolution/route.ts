@@ -12,7 +12,7 @@
 import { after, type NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
-import { jidToNumero } from '@/lib/evolution';
+import { jidToNumero, registrarWebhookInstancia } from '@/lib/evolution';
 import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
 import { manejarEntranteDoer, wsDeGrupoJid } from '@/lib/mako-doer-in';
 import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz } from '@/lib/mako-canal';
@@ -22,6 +22,7 @@ import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels
 import { cerrarPorAcuse, acusesDe } from '@/lib/insistencias';
 import { marcarRespondieron } from '@/lib/flujo-corridas';
 import { esAcuse } from '@/lib/flujos-tipos';
+import { verificarFirma } from '@/lib/evolution-firma';
 
 /**
  * El texto plano de un mensaje entrante, para mirar si es un «ok».
@@ -102,21 +103,39 @@ function mapMsgStatus(s: unknown): string | null {
   return null; // PENDING/1 u otros → no tocamos
 }
 
+/** Las líneas que este proceso ya re-registró con la URL nueva: una vez por línea alcanza. */
+const reRegistradas = new Set<string>();
+
 export async function POST(req: NextRequest) {
   // Fail-CLOSED: sin secret configurado (o sin match) → 401. El endpoint es
   // público, sin sesión y con service_role; un fail-open dejaría a cualquiera
   // pisar el estado de conexión de cualquier workspace (instance_name adivinable).
-  const secret = process.env.EVOLUTION_WEBHOOK_SECRET;
-  if (!secret || new URL(req.url).searchParams.get('secret') !== secret) {
-    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-  }
-
+  //
+  // ⚠️ LA FIRMA ES DE LA LÍNEA, NO DE LA PLATAFORMA (17/10/2026, lib/evolution-firma.ts): se verifica
+  // contra el `instance` del CUERPO, que es lo que decide a qué negocio va el evento. Con la URL de
+  // una línea no se firman eventos de otra. Por eso el cuerpo se lee ANTES de autorizar.
   let body: EvEvent;
-  try { body = (await req.json()) as EvEvent; } catch { return Response.json({ ok: true, ignored: 'bad_json' }); }
+  try { body = (await req.json()) as EvEvent; } catch { return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 }); }
+  const veredicto = verificarFirma({
+    secreto: process.env.EVOLUTION_WEBHOOK_SECRET,
+    query: new URL(req.url).searchParams,
+    instancia: body?.instance,
+    ahora: Date.now(),
+  });
+  if (veredicto === 'rechazado') return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
   const instance = body.instance;
   const evento = (body.event ?? '').toLowerCase();
   if (!instance) return Response.json({ ok: true, ignored: 'sin instance' });
+  // Una línea con la URL vieja (`?secret=` de plataforma): se acepta hasta el corte y se la vuelve
+  // a registrar con su firma. Una línea viva manda eventos todo el tiempo: se cura sola.
+  if (veredicto === 'legado' && instance !== '__health__' && !reRegistradas.has(instance)) {
+    reRegistradas.add(instance);
+    after(async () => {
+      const r = await registrarWebhookInstancia(instance).catch((e: unknown) => ({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+      if (!r.ok) { reRegistradas.delete(instance); console.error(`[webhook:evolution] no pude re-registrar ${instance}: ${r.error}`); }
+    });
+  }
 
   const supabase = getSupabaseServer();
   const nowISO = new Date().toISOString();

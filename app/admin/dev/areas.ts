@@ -1286,7 +1286,7 @@ export const AREAS: AreaDev[] = [
     slug: 'multi-tenant-isolation', titulo: 'Multi-Tenant Isolation', familia: 'Infra', grupo: 'Seguridad',
     estado: 'parcial',
     alcance: 'workspace.ts, RLS, TENANT_TABLES. Ya hubo 15 tablas abiertas al rol anon.',
-    vive: ['lib/ws-tab.ts', 'lib/cache.ts', 'tests/tenant-tables-contract.test.ts', 'docs/auditoria-aislamiento-workspace.md'],
+    vive: ['lib/ws-tab.ts', 'lib/cache.ts', 'tests/tenant-tables-contract.test.ts', 'docs/hallazgos-seguridad.md'],
     proyectos: ['Seguridad y multi-inquilino'],
   },
   {

@@ -12,17 +12,16 @@
 // =============================================================================
 
 import 'server-only';
-import { getSesionAdmin } from './auth';
-import { adminDeWorkspaceActual, OWNER_WS } from './workspace';
+
+import { adminDeWorkspaceActual } from './workspace';
 
 /**
  * El workspace sobre el que esta sesión puede operar Ads Manager, o null.
  *
- * En POSITIVO: nombra lo que PASA, no lo que se excluye. Pasan dos, y nada más:
- *   · el admin DE ESTE workspace (adminDeWorkspaceActual, lib/workspace.ts:192);
- *   · el admin de AGENCIA sin workspace propio → OWNER_WS (el ws1, que es Mauricio,
- *     un CLIENTE: el nombre de la constante es historia). Es el contrato de siempre
- *     y el único `null` que sigue pasando.
+ * En POSITIVO: nombra lo que PASA, no lo que se excluye. Pasa UNO, y nada más:
+ *   · el admin DE ESTE workspace (adminDeWorkspaceActual, lib/workspace.ts).
+ *   Hasta el 17/10/2026 pasaba también el admin de AGENCIA sin workspace propio, y operaba
+ *   OWNER_WS: el ws1, que es Mauricio, un CLIENTE (su cuenta publicitaria).
  *
  * ⚠️ SIGUE EXIGIENDO ROL ADMIN, y eso no es un detalle heredado: con las
  * credenciales por workspace, el rol es LO ÚNICO que separa a un closer o un
@@ -37,9 +36,10 @@ async function wsQuePuedeOperar(): Promise<number | null> {
   const admin = await adminDeWorkspaceActual();
   if (admin != null) return admin;
   // adminDeWorkspaceActual devuelve null por DOS motivos distintos —no es admin, o
-  // es admin y no resolvió workspace— y desde afuera no se distinguen. El de
-  // agencia sin workspace opera el ws1, como siempre.
-  return (await getSesionAdmin()) != null ? OWNER_WS : null;
+  // es admin y no resolvió workspace—. El de agencia sin workspace operaba el ws1 «como siempre»,
+  // y el ws1 es Mauricio, un CLIENTE: su cuenta publicitaria. Desde el 17/10/2026, nadie (medido
+  // ese día: el único admin de plataforma tiene workspace propio).
+  return null;
 }
 
 /**

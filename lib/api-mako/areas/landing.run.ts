@@ -31,6 +31,7 @@ import {
   getVideosLanding, getVideosOcultos, videosDetectados,
 } from '@/lib/landing-token';
 import { analizarLanding as detectarPiezas, estadoVideo, hostDePieza } from '@/lib/landing-analisis';
+import { fetchSeguro } from '@/lib/fetch-seguro';
 import { loQueSabemos } from '@/lib/landing-vigilancia';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { replayDePrueba, replayDeLead } from '@/lib/replay-leer';
@@ -215,7 +216,7 @@ export const RUNNERS: Runners = {
         ultima_visita: ult.ultima,
         recibio_en_ultimos_dias: vivo, ventana_dias: LANDING_VENTANA_DIAS,
         version_instalada: version.instalada || null, version_actual: SNIPPET_VERSION, codigo_viejo: version.viejo,
-        nota: 'La versión instalada es la del último evento del negocio entero (sin eventos versionados cuenta como 1). Con más de una página, usa verificar_pagina_pixel para cada una. Si la consulta falla, recibio_en_ultimos_dias sale false y ultima_visita sale null: ese null o ese false también pueden ser un error de lectura, no la prueba de que no llega nada.',
+        nota: 'La versión instalada es la más vieja entre las páginas declaradas con visitas en los últimos 7 días (lo que cada página SIRVE si se pudo leer; si no, lo que mandaron sus visitas): la misma vara del aviso de adentro. 0 = nunca pegó el Pixel. Con más de una página, usa verificar_pagina_pixel para cada una. Si la consulta falla, recibio_en_ultimos_dias sale false y ultima_visita sale null: ese null o ese false también pueden ser un error de lectura, no la prueba de que no llega nada.',
       });
     },
   },
@@ -306,7 +307,7 @@ export const RUNNERS: Runners = {
       // de lib/landing-analisis, fuera de esta área).
       const destino = await validarDestino(l.url);
       if (!destino.ok) return errorLectura(`No salgo a leer ${l.url}: ${destino.error}`);
-      const [a, token] = await Promise.all([detectarPiezas(l.url), tokenPixelExistente()]);
+      const [a, token] = await Promise.all([detectarPiezas(l.url, fetchSeguro), tokenPixelExistente()]);
       if (!a.ok || a.error) {
         return json({ url: l.url, leida: false, error: a.error, nota: 'No se pudo leer la página: esto es «no sé», no «no tiene nada». Reintenta más tarde.' });
       }

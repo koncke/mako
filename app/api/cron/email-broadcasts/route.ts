@@ -13,7 +13,7 @@ import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { procesarBroadcastsProgramados } from '@/lib/email-marketing';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
-import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -32,10 +32,12 @@ export async function GET(request: NextRequest) {
     const activos = (await listarWorkspaces()).filter((w) => w.estado === 'activo');
     const activosIds = new Set(activos.map((w) => w.id));
 
-    // Forzado manual: un solo workspace ACTIVO (default dueño), aunque tenga el
+    // Forzado manual: un solo workspace ACTIVO (con ?ws=, obligatorio), aunque tenga el
     // envío apagado (los envíos quedan 'simulado' — lo decide enviarBroadcast).
     if (force) {
-      const ws = wsExplicito ?? OWNER_WS;
+      // Sin `?ws=` caía al ws1 (Mauricio, un cliente). El forzado manual dice a quién.
+      if (wsExplicito == null) return Response.json({ ok: false, error: 'el forzado manual pide ?ws=<id>' }, { status: 400 });
+      const ws = wsExplicito;
       if (!activosIds.has(ws)) return Response.json({ ok: false, error: `workspace ${ws} inexistente o pausado` }, { status: 404 });
       const r = await runWithWorkspace(ws, () => procesarBroadcastsProgramados());
       return Response.json({ ok: true, ws, modo: 'forzado', ...r, ms: Date.now() - tStart });

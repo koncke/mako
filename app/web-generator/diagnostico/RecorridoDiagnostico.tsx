@@ -25,6 +25,10 @@
 //   · el Escape lo contesta sólo él (`esElDeArriba` + `stopImmediatePropagation`: los Escape de la casa
 //     viven todos en `document` y en captura, y el panel de atrás también escucha);
 //   · las flechas del teclado pasan de comentario;
+//   · (#861, 17/10/2026) EL VELO NO SE COME EL MOUSE: sólo la tarjeta recibe clics (`pointer-events`). Antes la capa
+//     de pantalla entera tapaba la vista: con el recorrido abierto —se abre solo después de analizar— no se podía
+//     scrollear la landing ni pausar el video que arrancaba solo («el scroll quedó totalmente trabado», Martín en la
+//     revisión con Código Inmobiliario). El recorrido ya re-mide en cada scroll, así que el recorte sigue al bloque;
 //   · (tanda 6, decisión c de Martín) cada paso puede llevar sus ACCIONES («Aplicar», «Preguntar a MaKo»):
 //     las dibuja el panel (`acciones`), en un renglón propio arriba de «Anterior | Siguiente». El recorrido
 //     no sabe qué hacen: el panel decide si después cierra o pasa al siguiente (`onCerrar`, `siguiente`).
@@ -258,7 +262,8 @@ export function RecorridoDiagnostico({ pasos, abierto, desde = 0, ir, caja, sena
 
 /** La hoja del recorrido: los mismos tokens y medidas que el de la casa (app/_ui/Recorrido.tsx). */
 const CSS_RECORRIDO = `
-.gdg-rec { position: fixed; inset: 0; --rec-velo: color-mix(in srgb, var(--sidebar) 66%, transparent); }
+.gdg-rec { position: fixed; inset: 0; pointer-events: none; --rec-velo: color-mix(in srgb, var(--sidebar) 66%, transparent); }
+.gdg-rec__tarjeta { pointer-events: auto; }
 .gdg-rec__velo { position: absolute; inset: 0; background: var(--rec-velo); }
 .gdg-rec__hueco { position: fixed; border-radius: var(--r-md); box-shadow: 0 0 0 2px var(--primary), 0 0 0 200vmax var(--rec-velo); pointer-events: none; }
 .gdg-rec__hueco::after { content: ''; position: absolute; inset: -2px; border-radius: inherit; animation: gdgRecLatido 1.8s ease-out infinite; }

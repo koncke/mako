@@ -670,6 +670,26 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
       ),
     ],
   },
+  {
+    // «Tu Contraseña Cambió» (17/10/2026): lo prometían los circuitos 1, 3 y 4 de docs/diseno-login-contrasena.md. SÓLO
+    // SuperAdmin: el evento lo emite Seguridad en el ws de la plataforma (lib/contrasena-cambio-aviso.ts) y el mail sale a
+    // la persona, a su correo de la CUENTA, por el remitente de MaKo. Sin datos secretos: dice qué pasó y qué hacer.
+    id: 'seguridad-contrasena-cambiada',
+    nombre: 'Tu Contraseña Cambió',
+    emoji: '🔐',
+    linea: 'Le avisa a una persona que se creó o se cambió la contraseña de su cuenta de MaKo.',
+    origen: 'Seguridad: crear, cambiar o restablecer la contraseña (seguridad-contrasena-cambiada)',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'contrasena_cambiada' },
+    pasos: [
+      email(
+        'scc_mail', 'Tu contraseña de MaKo cambió', 'Si no fuiste tú, avísanos ya.',
+        'Hola:\n\nSe creó o se cambió la contraseña de tu cuenta de MaKo.\n\nSi fuiste tú, no hace falta hacer nada.\nSi no fuiste tú, entra con Google y cámbiala desde Tu cuenta → Seguridad, o escríbenos a equipo@hola-mako.com.',
+        null, { revisar: false },
+      ),
+    ],
+  },
   // LOS MENSAJES DE MaKo A SUS CLIENTES, mudados a automatizaciones de la plataforma (15/10/2026, el 2 de las doce de
   // Martín; docs/diseno-avisos-plataforma.md). El evento lo emite el NEGOCIO cuya línea se cayó (lib/lineas-vigilante.ts)
   // y la tarjeta le llega al grupo de ESE negocio (`negocioWs`, lib/flujos.ts). Cada dato en su renglón: un renglón con

@@ -38,6 +38,7 @@ import { leerCuentaStripe } from '@/lib/stripe-api';
 import { leerCuentaMp } from '@/lib/mercadopago-api';
 import { normalizarMoneda } from '@/lib/pasarela-moneda';
 import { esPasarela, type Cobro, type CobroVisible, type Pasarela, type TipoCobro } from '@/lib/cobros-tipos';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 // La mutación ya ocurrió: si la invalidación fallara, la caché vence sola por su TTL (molde de
 // deal-actions.ts). Nunca rompe lo que ya se escribió.
@@ -104,6 +105,7 @@ export type OpcionesCobro =
  * un negocio que ya lo conectó.
  */
 export async function opcionesCobroAction(leadId: number): Promise<OpcionesCobro> {
+  await exigirSesion();
   if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
   const ctx = await sesionDelWs();
   if (!ctx) return { ok: false, error: SIN_SESION };
@@ -137,6 +139,7 @@ export type MonedasCobro = Partial<Record<Pasarela, string | null>>;
  * NO va al montar la ficha: lo pide el asistente al abrirse.
  */
 export async function monedasCobroAction(): Promise<MonedasCobro> {
+  await exigirSesion();
   const ctx = await sesionDelWs();
   if (!ctx) return {};
   const [keyStripe, tokenMp] = await Promise.all([
@@ -167,6 +170,7 @@ function visible(c: Cobro): CobroVisible {
 
 /** Los cobros del lead, del más nuevo al más viejo. Tira si no pudo leer (la lista dice «no pude»). */
 export async function cobrosDelLeadAction(leadId: number): Promise<CobroVisible[]> {
+  await exigirSesion();
   if (!idValido(leadId)) return [];
   const ctx = await sesionDelWs();
   if (!ctx) throw new Error(SIN_SESION);
@@ -181,6 +185,7 @@ export async function cobrosDelLeadAction(leadId: number): Promise<CobroVisible[
  * NUNCA tira: una falla acá apaga la tab, no la ficha.
  */
 export async function senalesDeCobroAction(leadId: number): Promise<{ pasarelaConectada: boolean; hayCobros: boolean }> {
+  await exigirSesion();
   const nada = { pasarelaConectada: false, hayCobros: false };
   if (!idValido(leadId)) return nada;
   const ctx = await sesionDelWs().catch(() => null);
@@ -229,6 +234,7 @@ export type ResultadoCobrar =
  *     `marcarPago` corta su cobranza (`cerrarCorridasDeCuota`). Si no coincide, entra como cuota nueva.
  */
 export async function crearCobroAction(leadId: number, datos: DatosCobro): Promise<ResultadoCobrar> {
+  await exigirSesion();
   if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
   const ctx = await sesionDelWs();
   if (!ctx) return { ok: false, error: SIN_SESION };
@@ -261,6 +267,7 @@ export async function crearCobroAction(leadId: number, datos: DatosCobro): Promi
 
 /** Anula un link que todavía no se pagó. Cualquiera de la ficha (no mueve plata). */
 export async function anularCobroAction(cobroId: number): Promise<{ ok: boolean; error?: string }> {
+  await exigirSesion();
   if (!idValido(cobroId)) return { ok: false, error: 'Cobro inválido.' };
   const ctx = await sesionDelWs();
   if (!ctx) return { ok: false, error: SIN_SESION };
@@ -283,6 +290,7 @@ export async function anularCobroAction(cobroId: number): Promise<{ ok: boolean;
  * workspace, y la pantalla lo confirma antes. No se reintenta solo.
  */
 export async function reembolsarCobroAction(cobroId: number, motivo?: string | null): Promise<{ ok: boolean; resumen: string }> {
+  await exigirSesion();
   if (!idValido(cobroId)) return { ok: false, resumen: 'Cobro inválido.' };
   const ctx = await sesionDelWs();
   if (!ctx) return { ok: false, resumen: SIN_SESION };
@@ -306,6 +314,7 @@ export async function reembolsarCobroAction(cobroId: number, motivo?: string | n
 
 /** Cancela la suscripción en la pasarela EN EL ACTO. Irreversible: sólo un admin del workspace. */
 export async function cancelarSuscripcionAction(cobroId: number): Promise<{ ok: boolean; resumen: string }> {
+  await exigirSesion();
   if (!idValido(cobroId)) return { ok: false, resumen: 'Cobro inválido.' };
   const ctx = await sesionDelWs();
   if (!ctx) return { ok: false, resumen: SIN_SESION };

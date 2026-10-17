@@ -20,6 +20,17 @@
 /** Lo que el Archivero sabe leer (lo mismo que acepta su server: texto, Word, PDF o imagen). */
 export const ACEPTA_ARCHIVERO = '.txt,.md,.markdown,.docx,.pdf,image/*';
 
+/**
+ * De dónde vino un documento (columna `archivero_files.origen`, mig 0316, 17/10/2026; docs/relevo/offer.md:
+ * «archivero_files no guarda de dónde vino un documento»): subido en El Archivero, una página (link), el chat de Offer
+ * o el onboarding («Lo que vendes»). La lista la repite el CHECK de la migración. Vive acá (puro) porque la lee la
+ * pantalla; lib/archivero.ts la re-exporta.
+ */
+export const ORIGENES_ARCHIVERO = ['archivero', 'link', 'offer', 'onboarding'] as const;
+export type OrigenArchivero = (typeof ORIGENES_ARCHIVERO)[number];
+/** Lo que dice la lista de El Archivero de un documento que NO subió la persona (corto: va al lado del tamaño). */
+export const ROTULO_ORIGEN: Readonly<Partial<Record<OrigenArchivero, string>>> = { offer: 'Del chat de Offer', onboarding: 'Del onboarding' };
+
 /** Una web escrita a mano («tunegocio.com») como URL, o null si no lo parece. */
 export function normalizarUrlArchivero(u: string): string | null {
   let s = u.trim();

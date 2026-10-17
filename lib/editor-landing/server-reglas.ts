@@ -38,6 +38,19 @@ export const MOTIVO = {
 } as const;
 
 /**
+ * Las instantáneas que deja la MÁQUINA y se podan a las últimas `TOPE_VERSIONES_AUTO` de cada motivo (17/10/2026). Las
+ * publicadas, las manuales y las de antes de restaurar quedan todas.
+ *
+ * Las de MaKo («Antes de un cambio de MaKo», una por cada edición por la API o por WhatsApp: MOTIVO_ANTES_DE_MAKO en
+ * lib/api-mako/areas/landing-contenido.helpers.ts) y las de «Aplicar» del Diagnóstico (MOTIVO_ANTES_DE_APLICAR en
+ * diagnostico.ts) no se borraban nunca: hasta 1,5 MB por fila y por cambio, sin tope (docs/relevo/landing-generator.md,
+ * tanda 7). Los textos se repiten acá porque este módulo no importa la API; tests/editor-landing-versiones-poda.test.ts
+ * los compara con los de allá.
+ */
+export const MOTIVOS_QUE_SE_PODAN: readonly string[] = [MOTIVO.auto, 'Antes de un cambio de MaKo', 'Antes de aplicar el diagnóstico'];
+export const sePoda = (motivo: string): boolean => MOTIVOS_QUE_SE_PODAN.includes(motivo);
+
+/**
  * ¿Este guardado deja una versión automática? Sí si nunca hubo una, o si la ÚLTIMA (de cualquier
  * motivo: una publicada también cuenta) tiene más de 10 minutos.
  *

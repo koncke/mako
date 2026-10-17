@@ -128,3 +128,40 @@ export function binarioHuerfano(info: unknown, ahora: number): boolean {
   const t = typeof crudo === 'string' ? Date.parse(crudo) : NaN;
   return Number.isFinite(t) && ahora - t > TOPE_HUERFANO_MS;
 }
+
+// ── De dónde vino cada documento (`archivero_files.origen`, mig 0316, 17/10/2026) ──
+// La migración se puede aplicar antes o después del deploy: si la columna todavía no está, se lee y se escribe SIN
+// ella (y lo dice el log). Un documento no se pierde por no saber de dónde vino.
+
+type ErrorDb = { code?: string | null; message?: string | null };
+export type FilaDb = Record<string, unknown>;
+
+/** ¿El error dice que falta la columna `origen`? 42703 (Postgres, al leer) o PGRST204 (PostgREST, al escribir). */
+export const faltaOrigen = (e: ErrorDb | null | undefined): boolean =>
+  !!e && (e.code === '42703' || e.code === 'PGRST204') && /origen/i.test(e.message ?? '');
+
+/** Lee con `origen` (`con`) y, sólo si la columna falta, de nuevo sin ella (`sin`). Otro error vuelve tal cual. */
+export async function leerConOrigen<D>(
+  con: () => PromiseLike<{ data: D | null; error: ErrorDb | null }>,
+  sin: () => PromiseLike<{ data: D | null; error: ErrorDb | null }>,
+  avisar: (m: string) => void = (m) => console.warn(m),
+): Promise<{ data: D | null; error: ErrorDb | null }> {
+  const r = await con();
+  if (!faltaOrigen(r.error)) return r;
+  avisar(`[archivero] falta archivero_files.origen (mig 0316): ${r.error?.message ?? ''}`);
+  return sin();
+}
+
+/** Inserta la fila con su `origen`; si la columna falta, la inserta sin él. Devuelve el error que quede (o null). */
+export async function insertarConOrigen(
+  insertar: (fila: FilaDb) => PromiseLike<{ error: ErrorDb | null }>,
+  fila: FilaDb,
+  origen: string | undefined,
+  avisar: (m: string) => void = (m) => console.warn(m),
+): Promise<ErrorDb | null> {
+  if (!origen) return (await insertar(fila)).error;
+  const { error } = await insertar({ ...fila, origen });
+  if (!faltaOrigen(error)) return error;
+  avisar(`[archivero] falta archivero_files.origen (mig 0316): «${String(fila.nombre ?? '')}» entra sin su origen`);
+  return (await insertar(fila)).error;
+}

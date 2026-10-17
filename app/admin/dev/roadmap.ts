@@ -12,7 +12,7 @@
 // hay una tarea específica que pidió Mauricio».
 
 import 'server-only';
-import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { AREAS, type AreaDev, type EstadoArea } from './areas';
 import { TITULOS_EN_PLAN } from './customer-success/roadmap-cs';
 
@@ -175,6 +175,10 @@ async function tareasAbiertas(ws: number): Promise<TareaRoadmap[]> {
 }
 
 /** El workspace donde vive el board del dueño, a partir de la sesión ya validada.
- *  `OWNER_WS` solo como red: un admin sin workspace propio cae al del dueño, que es
- *  el contrato de siempre. */
-export const wsDelBoard = (wsDeLaSesion: number | null | undefined): number => wsDeLaSesion ?? OWNER_WS;
+ *  ⚠️ Caía a `OWNER_WS` («un admin sin workspace propio cae al del dueño»), y el ws1 es
+ *  Mauricio, un CLIENTE: el board de MaKo se leía de su negocio. Desde el 17/10/2026 tira
+ *  (medido ese día: el único admin de plataforma tiene workspace). */
+export const wsDelBoard = (wsDeLaSesion: number | null | undefined): number => {
+  if (wsDeLaSesion == null) throw new Error('Esta sesión no tiene un negocio propio: no sé de qué board leer.');
+  return wsDeLaSesion;
+};

@@ -74,6 +74,7 @@ import {
   consultaDelDominio, decidirHost, esHostDeMako, estaVerificado, etiquetaDns, motivoDominioInvalido, motivoParaQuitarReclamo,
   normalizarDominio, pedidoDelDominio, pendienteVencido, pendientesVigentes, puedeSoltarseDeVercel, queFalta, registrosDns,
   textoDominioOcupado, CODIGO_REDIRECCION_WWW, cuerpoWww, redirigeA, soltarWww, sumarWww, textoYaRedirige, wwwDeRaiz,
+  debeSumarWww, AVISO_WWW,
   type Comprobacion, type CuerpoWww, type DepsWww, type EntradaRegistros, type PedidoDelDominio,
 } from '../lib/editor-landing/dominios-reglas';
 import { RUTA_PAGAR_LANDING, SUBRUTAS_FIJAS } from '../lib/editor-landing/origen-landings';
@@ -436,7 +437,7 @@ test('qué falta: un pendiente cuya reserva venció lo dice ANTES que los regist
   // Lo que `comprobar` le pasa: la fecha del reclamo de la FILA, sólo para un pendiente.
   const src = sinComentarios(leer('lib/editor-landing/dominios.ts'));
   assert.match(src, /estadoFinal === 'pendiente' && pendienteVencido\(reclamadoAt, Date\.now\(\)\),/);
-  assert.match(src, /comprobar\(ws, id, fila\.dominio, fila\.dominio_estado, fila\.dominio_verificado_at, fila\.dominio_reclamado_at, !!op\.verificar\)/);
+  assert.match(src, /comprobar\(ws, id, fila\.dominio, fila\.dominio_estado, fila\.dominio_verificado_at, fila\.dominio_reclamado_at, !!op\.verificar, fila\.dominio_agregado_por_mako === true\)/);
 });
 
 // Verificación de la tanda 6 (15/10/2026): decía «conéctalo de nuevo», y con el dominio en Vercel la pestaña no
@@ -641,13 +642,30 @@ test('soltar el www: antes que la raíz, sólo si la raíz se suelta, redirige a
   assert.equal(textoYaRedirige('tunegocio.com'), 'Ese dominio ya lleva a tunegocio.com. Quita tunegocio.com de su landing primero.');
 });
 
-test('el server: conectar suma el www sin frenar la raíz; soltar la landing suelta el www; todo por el ÚNICO DELETE', () => {
+// 17/10/2026: el www se suma recién con la raíz VERIFICADA (`debeSumarWww`). Antes se sumaba al conectar, y reclamar
+// una raíz AJENA (un pendiente sin probar nada) tapaba el www del dueño real, sin vencer nunca.
+// ROTURAS (17/10/2026, arnés que restaura de memoria y compara el sha256; base 38 / 0): conectar vuelve a sumar el
+// www → 37 / 1; comprobar sin `debeSumarWww` → 37 / 1; debeSumarWww sin exigir verificado → 37 / 1; el www otra vez en
+// `falta` → 35 / 3. Restaurado: 38 / 0.
+test('el www de una raíz se suma recién VERIFICADA y nuestra, y sólo si todavía no redirige a ella', () => {
+  assert.equal(debeSumarWww({ verificado: true, raizEsNuestra: true, wwwRedirige: false }), true);
+  assert.equal(debeSumarWww({ verificado: false, raizEsNuestra: true, wwwRedirige: false }), false, 'un reclamo sin verificar no tapa el www de nadie');
+  assert.equal(debeSumarWww({ verificado: true, raizEsNuestra: false, wwwRedirige: false }), false, 'la raíz ya estaba en el proyecto: no es nuestra');
+  assert.equal(debeSumarWww({ verificado: true, raizEsNuestra: true, wwwRedirige: true }), false, 'ya está');
+});
+
+test('el server: conectar NO suma el www (lo suma comprobar, con la raíz verificada); soltar la landing suelta el www; todo por el ÚNICO DELETE', () => {
   const src = sinComentarios(leer('lib/editor-landing/dominios.ts'));
   const con = src.slice(src.indexOf('export async function conectarDominio('), src.indexOf('async function reclamar('));
-  const iAgrega = con.indexOf('agrego = await agregarAVercel(c, d);');
-  const iWww = con.search(/try \{\s*const www = await sumarWww\(depsWww\(c\), d, agrego \|\| marca\);/);
-  assert.ok(iAgrega > 0 && iWww > iAgrega, 'el www va DESPUÉS de la raíz, y sólo si la raíz es nuestra (agrego || marca)');
-  assert.match(con.slice(iWww), /\} catch \(e\) \{\s*console\.error\(/, 'un error del www no frena la conexión de la raíz');
+  assert.ok(con.indexOf('agrego = await agregarAVercel(c, d);') > 0);
+  assert.doesNotMatch(con, /sumarWww\(/, 'conectar no suma el www: un reclamo ajeno taparía el www del dueño real');
+  assert.match(con, /comprobar\(ws, id, d, estado, [^)]*, false, agrego \|\| marca\)/, 'comprobar sabe si la raíz es nuestra');
+  const comp = src.slice(src.indexOf('async function comprobar('), src.indexOf('async function wwwDeLaRaiz('));
+  assert.match(comp, /debeSumarWww\(\{ verificado: estadoFinal === 'verificado', raizEsNuestra, wwwRedirige: www !== null \}\)/);
+  const iSuma = comp.indexOf('await sumarWww(depsWww(c), d, true)');
+  assert.ok(iSuma > comp.indexOf("estadoFinal = 'verificado'"), 'el www va DESPUÉS de pasar la fila a verificada');
+  assert.match(comp.slice(iSuma), /\} catch \(e\) \{\s*console\.error\(/, 'un error del www no frena nada');
+  assert.match(src, /dominio: await comprobar\([^)]*!!op\.verificar, fila\.dominio_agregado_por_mako === true\)/, 'mirar un verificado sin www se lo suma (las raíces de antes del 15/10)');
   const soltar = src.slice(src.indexOf('export async function soltarDominioDeVercel('), src.indexOf('function valorTxtMako('));
   assert.match(soltar, /await soltarWww\(depsWww\(c\), dominioGuardado, agregadoPorMako === true\);\s*await quitarDeVercel\(c, dominioGuardado, agregadoPorMako === true\);/);
   // El www se suelta por el MISMO DELETE con guard, y se agrega con la redirección.
@@ -656,7 +674,7 @@ test('el server: conectar suma el www sin frenar la raíz; soltar la landing sue
   assert.match(src, /async function agregarWwwAVercel\(c: ConfigVercel, cuerpo: CuerpoWww\)[\s\S]{0,200}?\{ method: 'POST', body: cuerpo \}/);
   // La lista de registros de la pestaña lleva el www (sólo si redirige a la raíz) y `queFalta` lo avisa.
   assert.match(src, /if \(!pw \|\| !redirigeA\(pw, raiz\)\) return null;/);
-  assert.match(src, /www \? www\.apunta : undefined,/);
+  assert.doesNotMatch(src, /www \? www\.apunta : undefined,/, 'el www ya no va en `falta`: es informativo');
 });
 
 test('registros: una raíz con su www lleva el CNAME www después de los A (y el TXT de Vercel del www sin repetir)', () => {
@@ -667,7 +685,7 @@ test('registros: una raíz con su www lleva el CNAME www después de los A (y el
   }));
   assert.deepEqual(r.map((x) => [x.tipo, x.nombre, x.valor, x.listo, x.para]), [
     ['A', '@', '216.150.1.1', false, 'apuntar'],
-    ['CNAME', 'www', '2db067c06ef29ee8.vercel-dns-016.com', false, 'apuntar'],
+    ['CNAME', 'www', '2db067c06ef29ee8.vercel-dns-016.com', false, 'www'],
     ['TXT', '_vercel', 'vc=1', false, 'vercel'],
     ['TXT', '_vercel', 'vc=2', false, 'vercel'],
     ['TXT', '_mako', 'mako-verificacion=abc', null, 'mako'],
@@ -677,11 +695,17 @@ test('registros: una raíz con su www lleva el CNAME www después de los A (y el
   assert.ok(!sub.some((x) => x.nombre === 'www'), JSON.stringify(sub));
 });
 
-test('qué falta: el www de una raíz verificada que no apunta se dice; sin www o sin leerlo, no', () => {
+// Decisión del 15/10/2026, hecha el 17/10: el www que no apunta es INFORMATIVO. En `falta` quedaba en rojo PARA SIEMPRE
+// cuando el www del negocio sirve otra cosa a propósito. La pestaña lo dice aparte (`AVISO_WWW`) y muestra su fila.
+test('qué falta: el www ya no va en `falta`; la pestaña lo avisa aparte y muestra la tabla por su fila', () => {
   const ok: Comprobacion = { enVercel: true, vercel: true, apunta: true, mako: true };
-  assert.equal(queFalta(ok, true, false, false), 'Falta el registro de www');
-  assert.equal(queFalta(ok, true, false, true), null);
-  assert.equal(queFalta(ok, true, false, null), null, 'no se pudo leer: no se avisa');
-  assert.equal(queFalta(ok, true, false), null, 'sin www');
-  assert.equal(queFalta({ ...ok, apunta: false }, true, false, false), 'El DNS ya no apunta a MaKo', 'la raíz manda');
+  assert.equal(queFalta(ok, true, false), null);
+  assert.equal(queFalta({ ...ok, apunta: false }, true, false), 'El DNS ya no apunta a MaKo', 'la raíz manda');
+  const r = registrosDns(base({ dominio: 'tunegocio.com', apex: 'tunegocio.com', www: { apunta: false } }));
+  assert.equal(r.find((x) => x.nombre === 'www')?.para, 'www', 'la fila del www tiene su propio para (su title)');
+  const ui = leer('app/web-generator/editor/dialogos/DialogoPublicar.tsx');
+  assert.match(ui, /www: 'MaKo suma www y lo lleva a tu dominio',/);
+  assert.match(ui, /const verTabla = !!dato && dato\.enVercel && \(!verificado \|\| !!dato\.falta \|\| wwwFalta\);/);
+  assert.match(ui, /\{!dato\.falta && wwwFalta && <p className="gmp-ayuda"[^>]*>\{AVISO_WWW\}<\/p>\}/);
+  assert.ok(AVISO_WWW.length < 80);
 });

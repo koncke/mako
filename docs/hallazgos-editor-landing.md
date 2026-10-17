@@ -1938,3 +1938,97 @@ Lo que encontró, además:
   candidatas de «¿Cuál?» y los links «Abrir…»/«Ir a…» en contorno, y `secundario` dejó de ser una variante de las
   burbujas (`VarianteBoton`): volver a usarla no compila.
 - **El aviso «Archivada» con «Deshacer» no se alcanzó a ver** (ya no estaba cuando se miró): sin verificar.
+
+## El Diagnóstico, la vista previa y tres pedidos de MaKo (17/10/2026, «Pendientes B3»)
+
+Los tres vinieron de la revisión con Código Inmobiliario (16/10, Fathom 863534246) y de los «Chicos» de las tandas 7 y 8.
+
+### «MaKo no encontró nada que señalar» (#863): no era la IA ni el scraper
+- **Síntoma.** Martín abrió el Diagnóstico de la landing de Código Inmobiliario y leyó «MaKo no encontró nada que
+  señalar» (01:34). La tarea del Plan pedía revisar el prompt y el scraper.
+- **El diagnóstico obvio era el equivocado.** La fila de `landing_analyses` de esa landing tenía **3 hallazgos con
+  cita**. La había escrito el **Landing Analyst** (el análisis automático del Pixel, 06/10), que guarda la fila pero
+  no los comentarios (`landing_sugerencias`). El panel, al abrir, LISTA: hay veredicto, hay cero comentarios, y como ya
+  hay veredicto no analiza solo. Medido en producción el 17/10: ws 11, 13 y 14, tres hallazgos y cero comentarios cada uno.
+- **La regla.** Dos escritores del mismo análisis (la tab Landing Analyst y el Diagnóstico) necesitan un puente al
+  LEER: `listar` de una de afuera pasa los hallazgos guardados que no son comentarios (`hallazgosSinComentario`, por la
+  misma clave que deduplica al guardar: lo descartado no vuelve). Y un vacío no se pinta como «está bien»: el análisis
+  pide de 3 a 8 hallazgos, cero es «no dejó comentarios», no «nada que señalar».
+- **Vive en:** `lib/editor-landing/diagnostico.ts` (`hallazgosSinComentario`) · `diagnostico-server.ts`
+  (`analisisGuardado`, `sugerenciasDeAfuera`) · `tests/web-generator-diagnostico-vista-previa.test.ts`.
+
+### La vista previa no dejaba pausar el VSL ni scrollear (#861): dos causas, ninguna era el CSS del scroll
+- **`inert` sobre todo el lienzo** (VistaNuestra) apagaba también el reproductor. Y el VSL arrancaba **con sonido**:
+  el iframe del video lleva `allow="autoplay"` (`ALLOW_EMBED`, lib/embeds.ts) y la persona ya había hecho clic en la
+  página, así que Chrome lo deja sonar. Ahora: sin `inert`; links, botones, campos y todo iframe que no sea un video
+  con `pointer-events: none`; el clic y el envío frenados en captura (el teclado también «hace clic»); y
+  `htmlParaVistaPrevia` le saca el permiso de arrancar con sonido a cada iframe y le pone controles al `<video>` que
+  arranca solo. Un `allow` cambiado con el iframe ya cargado no cuenta: se cambia en el TEXTO antes de pintar.
+- **«El scroll quedó totalmente trabado» era el RECORRIDO**: su capa de pantalla entera (`.gdg-rec`, `inset: 0`) se
+  comía la rueda y los clics, y el recorrido se abre solo después de analizar. La capa va con `pointer-events: none` y
+  sólo la tarjeta recibe el mouse; el recorte ya seguía al bloque porque el recorrido re-mide en cada scroll.
+- **Sin verificar en un navegador** (la regla de RAM): el arreglo está fijado por fuente y por el HTML que se pinta.
+  Lo que hay que mirar con clics: un diseño con VSL en el Diagnóstico, pausar, scrollear con el recorrido abierto.
+- **Vive en:** `app/web-generator/diagnostico/VistaNuestra.tsx`, `vista.ts` (`htmlParaVistaPrevia`,
+  `SELECTOR_SIN_CLIC`), la hoja de `PanelDiagnostico.tsx`, `RecorridoDiagnostico.tsx`.
+
+### Tres pedidos de landing que MaKo entendía mal
+- **«quita el botón de la web» → despublicar.** `SACAR_DE_INTERNET` aceptaba cualquier cosa entre el verbo y «de la
+  web». Ahora no acepta una PARTE de la landing en el medio (`PARTE_DE_LANDING`): sacar el botón es editar. «sacá la
+  landing de internet» sigue siendo despublicar.
+- **«quítale el formulario a la landing» sin la herramienta.** Se clasificaba bien (editar), pero
+  `acomodar_bloque_landing` no entraba en los 12.000 caracteres: la raíz «quita» empujaba primero a
+  `quitar_dominio_landing` y `quitar_cobro_landing`. **El arreglo obvio era el equivocado:** poner «quitar» en el
+  TÍTULO (peso doble) la hacía entrar, y le sacaba `listar_landings_creadas` a «quítale la animación a la sección 2»
+  (medido con el test de animaciones). Va en la DESCRIPCIÓN, con las piezas que se borran. Regla: antes de tocar el
+  título o la descripción de una operación, correr los tests de turno de TODA el área, no sólo el del pedido.
+- **«analiza las animaciones de mi landing» se GUARDABA como captura** («sin señal clara», con `ver_plan` y
+  `listar_pendientes`): quedaba a 4 palabras de «landing» y el tope es 3. Analizar UNA PARTE de la landing nombrada es
+  analizar; las animaciones van al tipo `animar`, porque lo que las LEE es `ver_configuracion_landing`, que viaja con
+  esa relevancia (la de analizar trae el análisis del copy, que no las mira).
+- **Sin hacer:** «sacá el video de la web» ya es editar, pero `acomodar_bloque_landing` no entra en el presupuesto
+  («sacá» y «video» suman más en `listar_videos_landing` y `despublicar_landing`).
+- **Vive en:** `lib/mako-intencion.ts` (`PARTE_DE_LANDING`, `PEDIDO_ANALIZAR_PARTE`, `PEDIDO_ANALIZAR_ANIMACION`) ·
+  `lib/api-mako/areas/landing-editor.def.ts` · `tests/mako-intencion-landing.test.ts` (T1-T4).
+
+*17/10/2026, «Pendientes B3» (`claude4`).*
+
+## Pendientes B3, segunda tanda (17/10/2026): la plata, el dominio, la poda y las copias de la API
+
+### El reuso de un cobro de prueba después de pasar a claves reales
+- **Síntoma** (revisión de la tanda 4): `cobroReusable` no miraba el `modo`; un pendiente creado con las claves de prueba,
+  reusado después del cambio a reales, mandaba al comprador a un checkout de PRUEBA (no cobra y nadie se entera).
+- **Dónde estaba el dato:** el modo de la clave de hoy sólo lo sabía `crearCobro` (lib/cobros.ts, de Integraciones). Se
+  sacó a UNA función, `modoDeLaPasarela`, y la landing la pregunta sólo si hay pendientes (con Mercado Pago es una
+  consulta a su API). Sin saber el modo, no se reusa: crear uno nuevo es lo seguro.
+- **Vive en:** `lib/cobros.ts` (`modoDeLaPasarela`) · `lib/editor-landing/pago-pedido.ts` (`cobroReusable`, `DepPago.modo`).
+
+### Reclamar una raíz ajena tapaba el www del dueño real
+- **Causa:** desde la tanda 7 el www se sumaba al CONECTAR, y conectar es un reclamo sin probar nada (pendiente, sin TXT).
+  El www no es una fila con reserva de 72 h: el bloqueo no vencía. **Ahora el www se suma recién con la raíz VERIFICADA**
+  (`debeSumarWww`, en `comprobar`), que además le da su www a las raíces de antes del 15/10 al mirar la pestaña.
+- **El www que no apunta pasó a informativo** (decisión del 15/10): fuera de `falta`. ⚠️ Y entonces la tabla de
+  registros desaparecía en un verificado (`verTabla` miraba sólo `falta`): se ve también por la fila del www sin listo.
+- **Vive en:** `lib/editor-landing/dominios.ts` (`comprobar`), `dominios-reglas.ts` (`debeSumarWww`, `AVISO_WWW`, la fila
+  `para: 'www'`), `app/web-generator/editor/dialogos/DialogoPublicar.tsx`.
+
+### Las copias de seguridad de MaKo no se podaban
+- `podarVersionesAuto` miraba sólo «Guardado automático»: «Antes de un cambio de MaKo» (cada edición por la API o
+  WhatsApp) y «Antes de aplicar el diagnóstico» crecían sin tope. Se podan las tres, por motivo (`MOTIVOS_QUE_SE_PODAN`).
+  Los textos viven en tres módulos; el test los compara con los de allá.
+
+### Las reglas copiadas de la API, unificadas
+- `rutaLibre`, `hacerInicio`, `motivoRuta`, `duplicarPagina`, «Restablecer estilo» y el tema sugerido vivían en archivos
+  'use client' y la API los tenía COPIADOS. Ahora viven en `lib/editor-landing/paginas-reglas.ts` y `reglas-pantalla.ts`;
+  los 'use client' re-exportan y la API usa los MISMOS (los tests comparan la identidad de la función, no el resultado).
+
+### Lo que quedó SIN hacer (de la lista B3, Web Generator)
+- **Avisarle al negocio un pago rechazado o una pasarela caída** (decidido el 14/10: plantilla del catálogo, un evento de
+  MaKo como `pago_recibido`). No se hizo: toca el motor de avisos (`lib/disparadores.ts`, `avisos-catalogo.ts`,
+  `variables-aviso.ts`, `plantillas-automatizaciones.ts`) que el chat Automations reescribía ese día. El plan, en
+  docs/relevo/landing-generator.md → «Lo que sigue (17/10)».
+- «sacá el video de la web» es editar, pero `acomodar_bloque_landing` no entra en el presupuesto del turno.
+- «Mi otro producto»: preguntar en texto libre pide decidir cómo vuelve la respuesta al pedido (hoy cada mensaje se
+  interpreta suelto en /api/mako/pedidos).
+
+*17/10/2026, «Pendientes B3» (`claude4`).*

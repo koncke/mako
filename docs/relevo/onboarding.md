@@ -1,5 +1,12 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## 17/10/2026 a la tarde («Pendientes B3», claude4, rama pend-b3-1710)
+
+Hecho: lo tachado de «Qué hacer ahora» se guarda y MaKo lo sabe; la tabla de clientes del super admin tiene «Llegó
+por» (y el CSV); el PDF «Lo que vendes» queda en El Archivero al cerrar (sin extracción paga). Sin ver en un navegador.
+Detalle: docs/hallazgos-onboarding.md, «Lo tachado del diagnóstico…».
+
+
 ## ESTADO AL 17/10/2026 ~13:30 AR — LO PRIMERO PARA QUIEN SIGA
 
 **A, B, C, D y E están EN PRODUCCIÓN** (main 1bae61a77, run 110; «Ya está» de A-C escrito en el chat de Onboarding).

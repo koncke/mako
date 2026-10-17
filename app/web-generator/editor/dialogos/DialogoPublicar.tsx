@@ -58,7 +58,7 @@ import { slugDeUrlLanding, urlLandingEn } from '@/lib/editor-landing/origen-land
 import { avisoDeVideo, hrefPermitido } from '@/lib/editor-landing/especificacion';
 import type { BotonNav, ConfigLanding, EnlaceNav } from '@/lib/editor-landing/api-tipos';
 import {
-  RUTA_DOMINIO, motivoDominioInvalido, normalizarDominio, urlDeDominio,
+  AVISO_WWW, RUTA_DOMINIO, motivoDominioInvalido, normalizarDominio, urlDeDominio,
   type EstadoDominio, type PedidoDominio, type RegistroDns, type RespuestaDominio,
 } from '@/lib/editor-landing/dominios-reglas';
 import { PLAZO_DOCS_MS, postJson } from '../../cliente';
@@ -585,6 +585,8 @@ const PARA_REGISTRO: Record<RegistroDns['para'], string> = {
   apuntar: 'Lleva tu dominio a MaKo',
   vercel: 'Prueba ante Vercel que el dominio es tuyo',
   mako: 'Prueba ante MaKo que el dominio es tuyo',
+  // 17/10/2026: la pestaña no explicaba el www. MaKo lo suma cuando la raíz queda verificada y lo lleva a ella.
+  www: 'MaKo suma www y lo lleva a tu dominio',
 };
 
 /**
@@ -658,7 +660,9 @@ function SeccionDominio({ docId, urlMako, prefijo, publicado, confirmar, avisar 
   const copiarValor = async (v: string) => { if (await copiarTexto(v)) avisar('Copiado'); };
 
   const verificado = dato?.estado === 'verificado';
-  const verTabla = !!dato && dato.enVercel && (!verificado || !!dato.falta);
+  // El www que no apunta es INFORMATIVO (no va en `falta`): con la raíz verificada, la tabla se sigue viendo por su fila.
+  const wwwFalta = !!dato && verificado && dato.registros.some((r) => r.para === 'www' && r.listo === false);
+  const verTabla = !!dato && dato.enVercel && (!verificado || !!dato.falta || wwwFalta);
 
   return (
     <>
@@ -684,6 +688,7 @@ function SeccionDominio({ docId, urlMako, prefijo, publicado, confirmar, avisar 
             <BotonBorrar talla="md" title="Eliminar dominio" disabled={!!ocupado} onClick={() => void quitar()} />
           </div>
           {dato.falta && <p className={verificado ? 'gmp-error' : 'gmp-ayuda'} style={{ margin: '0 0 8px' }}>{dato.falta}</p>}
+          {!dato.falta && wwwFalta && <p className="gmp-ayuda" style={{ margin: '0 0 8px' }}>{AVISO_WWW}</p>}
           {!dato.enVercel && (
             <button type="button" className="gmp-btn gmp-btn-contorno gmp-btn-chico" disabled={!!ocupado} onClick={() => void conectar(dato.dominio)}>
               {ocupado === 'conectar' ? <Giro chico etiqueta="Conectando" /> : <Icono nombre="restablecer" tam={14} />}Conectar de nuevo

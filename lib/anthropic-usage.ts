@@ -10,7 +10,7 @@
 // =============================================================================
 
 import 'server-only';
-import { OWNER_WS, getWorkspaceActual } from './workspace';
+import { OWNER_WS, getWorkspaceActual, WS_NINGUNO } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { saldoOpenRouter } from './openrouter-saldo';
@@ -30,14 +30,18 @@ import { esDelCreditoDeLaPlataforma } from './veto-claude';
 async function wsDeProveedor(provider?: string | null): Promise<number> {
   let ws: number | null = null;
   try { ws = await getWorkspaceActual(); } catch { ws = null; }
-  if (ws == null) return OWNER_WS;
+  // Sin workspace (una cookie que no resuelve contra la base) la fila NO es de Mauricio: va a
+  // ningún negocio y el insert falla (best-effort). Los crons sin cookie resuelven antes de llegar acá.
+  if (ws == null) return WS_NINGUNO;
   if (provider && provider !== 'anthropic') return ws;
   if (ws === OWNER_WS) return OWNER_WS;
   // Claude en el workspace de un cliente: es suyo solo si la key es suya.
   try {
     const { credWs } = await import('./credenciales');
     return (await credWs('ANTHROPIC_API_KEY', ws)) ? ws : OWNER_WS;
-  } catch { return OWNER_WS; }
+    // «No pude leer si la key es suya» no es «es de la agencia»: la fila (feature, motivo, modelo) iba
+    // al panel de gasto de Mauricio. Se queda en el negocio que la pidió (17/10/2026).
+  } catch { return ws; }
 }
 
 export type UsageInfo = {
@@ -322,7 +326,7 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   // Una sola lectura: TODO lo del workspace del request, y nada más. Para el dueño
   // es lo mismo que antes (Claude ya se registraba en su ws); para un cliente es lo
   // que arregla las dos cosas a la vez — ve su gasto y no ve el de la agencia.
-  const wsActual = await (async () => { try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; } })();
+  const wsActual = await (async () => { try { return (await getWorkspaceActual()) ?? WS_NINGUNO; } catch { return WS_NINGUNO; } })();
   const cols = 'created_at, feature, motivo, model, provider, cost_usd, input_tokens, output_tokens';
   let rows: Row[] = [];
   try {

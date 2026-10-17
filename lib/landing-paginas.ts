@@ -72,6 +72,10 @@ const PARAMS_DE_MEDICION = [
   // ANTES del 16/10 que pierda la ventana de MaKo (la página se recargó sola) la mediría como una página nueva por
   // lectura. Así cae en la misma página (revisión de la tanda 8). Una página real nunca lo trae.
   'mako_leer',
+  // Los que agrega Meta al clic de un anuncio dentro de su app (`ai=AI@…` y `ct=<instante>`, distintos EN CADA CLIC) y el
+  // de compartir por WhatsApp desde Facebook (`sfnsn=scwspwa`). Medido el 17/10/2026 en ws1: la misma portada salía
+  // como una página por clic (docs/relevo/pixel-clarity-landing.md §2). La de Landing Analyst ya tira el query entero.
+  'ai', 'ct', 'sfnsn',
 ];
 
 function hostCanonico(hostname: string): string {

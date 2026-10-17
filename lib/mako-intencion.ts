@@ -218,6 +218,9 @@ const verboFuerte = (raices: string) => `\\b(?:${raices})(?:§|${PRON_LANDING}\\
 const verboSuelto = (raices: string) => `^(?:${raices})\\b(?![\\s,]+de\\b)`;
 const verboModal = (verbos: string) => `\\b(?:puedes|podes|podrias|podras|puede|podria|quiero que|queria que|necesito que|quisiera que|te pido que)\\s+(?:me\\s+|nos\\s+|le\\s+)?(?:${verbos})(?:${PRON_LANDING})?\\b`;
 const OBJETO_LANDING = '(?:landings?|landing ?pages?|paginas?|sitios?|webs?|presentacion(?:es)?)\\b';
+/** Una PARTE de la landing (no la landing misma): un botón, el formulario, una sección, el dominio… */
+const PARTES_LANDING = 'secci(?:on|ones)|titular(?:es)?|titulos?|subtitulos?|botone?s?|formularios?|temas?|dominios?|videos?|vsl|agendas?|calendario|links?|enlaces?|textos?|imagen(?:es)?|fotos?|colores?|fuentes?|tipografias?|precios?|testimonios?|preguntas|faq|bloques?|encabezado|portada|hero|pie|footer|menu|logo|cta|direccion';
+const PARTE_DE_LANDING = `(?:${PARTES_LANDING})\\b`;
 const OBJETO_O_LINK = `(?:${OBJETO_LANDING}|https?:\\/\\/)`;
 /** Otro objeto entre el verbo y la landing: el pedido es de esa otra cosa. */
 const OTRO_QUE_LANDING = '(?:anuncios?|campanas?|posts?|reels?|historias?|stor(?:y|ies)|e-?mails?|correos?|mails?|videos?|guion(?:es)?|copys?|automatizacion(?:es)?|flujos?|reunion(?:es)?|llamadas?|tareas?|imagen(?:es)?|creativos?|banners?|logos?|leads?|links?|enlaces?|urls?)\\b';
@@ -230,8 +233,12 @@ const PEDIDO_DESPUBLICAR = pedidoDe([
   verboFuerte('despublica'), verboSuelto('despublica'), verboModal('despublicar|despubliques|despublique'),
   `\\b(?:da|dale|dar)${SEP_LANDING}de${SEP_LANDING}baja`,
 ], OBJETO_LANDING);
-/** «sacá / sácala / quitá … de internet»: despublicar, si nombra la landing en algún lado. */
-const SACAR_DE_INTERNET = new RegExp(`\\b(?:saca|quita|baja|sacar|quitar|bajar|saques|quites|bajes)(?:§|${PRON_LANDING})?(?:${SEP_LANDING}\\S+?){0,3}?${SEP_LANDING}de${SEP_LANDING}(?:internet|linea|la web)\\b`);
+/**
+ * «sacá / sácala / quitá … de internet»: despublicar, si nombra la landing en algún lado.
+ * ⚠️ SIN UNA PARTE DE LA LANDING EN EL MEDIO (17/10/2026): «quita el botón de la web» salía como despublicar —a un
+ *    cliente que pedía sacar un botón, MaKo le proponía bajar su web—. Lo que se saca es el botón: eso es editar.
+ */
+const SACAR_DE_INTERNET = new RegExp(`\\b(?:saca|quita|baja|sacar|quitar|bajar|saques|quites|bajes)(?:§|${PRON_LANDING})?(?:${SEP_LANDING}(?!${PARTE_DE_LANDING})\\S+?){0,3}?${SEP_LANDING}de${SEP_LANDING}(?:internet|linea|la web)\\b`);
 const NOMBRA_LANDING = new RegExp(`\\b${OBJETO_LANDING}`);
 const PEDIDO_PUBLICAR = pedidoDe([
   verboFuerte('publica|sube|subi'), verboSuelto('publica|sube'), verboModal('publicar|publiques|publique|subir|subas|suba'),
@@ -239,12 +246,13 @@ const PEDIDO_PUBLICAR = pedidoDe([
 const PEDIDO_REPLICAR = pedidoDe([
   verboFuerte('replica|copia|clona'), verboSuelto('replica|copia|clona'), verboModal('replicar|copiar|clonar|repliques|copies|clones'),
 ], OBJETO_O_LINK);
-const PEDIDO_ANALIZAR = pedidoDe([
+const VERBOS_ANALIZAR = [
   verboFuerte('analiza|revisa|audita|diagnostica|evalua'), verboSuelto('analiza|revisa|audita|diagnostica|evalua'),
   verboModal('analizar|revisar|auditar|diagnosticar|evaluar|analices|revises|audites|diagnostiques|evalues'),
   // «hazle un diagnóstico a mi landing» (con «le»): la verificación de la tanda 7 lo midió sin herramienta.
   `\\b(?:haz|hazme|haznos|hazle|hazles|haceme|hacele|hace§|haganle|dame|quiero|necesito|quisiera)${SEP_LANDING}(?:un|una|el|la)${SEP_LANDING}(?:diagnostico|analisis|auditoria|revision)\\b`,
-], OBJETO_O_LINK);
+];
+const PEDIDO_ANALIZAR = pedidoDe(VERBOS_ANALIZAR, OBJETO_O_LINK);
 const PEDIDO_CREAR = pedidoDe([
   verboFuerte('crea|arma|hace|genera|disena|monta|prepara|haz'), `\\bhaz\\b`,
   verboSuelto('crea|arma|genera|disena|monta|prepara'),
@@ -290,10 +298,22 @@ const ANIMACION = '(?:animacion(?:es)?|animad[oa]s?|efectos?)\\b';
 /** Un verbo de cambiar a ≤3 palabras de la animación, o «animar» a ≤3 de una pieza de la landing. */
 const PEDIDO_ANIMACION = new RegExp(`(?:${VERBOS_ANIMAR})(?:${SEP_LANDING}(?!${OTRO_QUE_EDITAR})\\S+?){0,3}?${SEP_LANDING}${ANIMACION}${NO_DE_OTRO}`);
 const PEDIDO_ANIMAR = new RegExp(`(?:${VERBO_ANIMA}|^anima\\b|\\b(?:puedes|podes|podrias|podras|puede|podria|quiero que|queria que|necesito que|quisiera que|te pido que)\\s+(?:me\\s+|nos\\s+|le\\s+)?(?:animar|animes)(?:${PRON_EDITAR})?\\b)(?:${SEP_LANDING}(?!${OTRO_QUE_EDITAR})\\S+?){0,3}?${SEP_LANDING}${PIEZA_LANDING}${NO_DE_OTRO}`);
+/**
+ * Analizar UNA PARTE de la landing nombrada: «analiza las animaciones de mi landing», «revisa el formulario de la página
+ * de gracias» (17/10/2026). Medido con el turno que corre: «analiza las animaciones de mi landing» quedaba a 4 palabras
+ * de «landing» (el tope es 3), ninguna regla la tomaba y el mensaje se GUARDABA como captura («sin señal clara»), sin
+ * una sola herramienta de landing. Va con la landing nombrada, como editar.
+ *   · Una parte (el formulario, los botones, el video): `analizar`.
+ *   · Las ANIMACIONES: `animar`. Lo que las lee es ver_configuracion_landing (el estilo y el efecto de cada sección), y
+ *     ésa viaja con la relevancia de animar, no con la de analizar (que trae el análisis del COPY, que no las mira).
+ */
+const despuesDeAnalizar = (obj: string) => new RegExp(`(?:${VERBOS_ANALIZAR.join('|')})(?:${SEP_LANDING}(?!${OTRO_QUE_EDITAR})\\S+?){0,3}?${SEP_LANDING}${obj}${NO_DE_OTRO}`);
+const PEDIDO_ANALIZAR_PARTE = despuesDeAnalizar(PARTE_DE_LANDING);
+const PEDIDO_ANALIZAR_ANIMACION = despuesDeAnalizar(ANIMACION);
 const NOMBRA_SECCION = /\bsecci(?:on|ones)\b/;
-/** ¿Pide cambiar las animaciones de una landing? La landing nombrada, o una sección (el efecto por sección es de acá). */
+/** ¿Pide cambiar (o mirar) las animaciones de una landing? La landing nombrada, o una sección (el efecto por sección es de acá). */
 const pideAnimar = (n: string): boolean =>
-  (PEDIDO_ANIMACION.test(n) || PEDIDO_ANIMAR.test(n)) && (nombraLaLanding(n) || NOMBRA_SECCION.test(n.replace(PAGINA_DE_REDES, ' ')));
+  (PEDIDO_ANIMACION.test(n) || PEDIDO_ANIMAR.test(n) || PEDIDO_ANALIZAR_ANIMACION.test(n)) && (nombraLaLanding(n) || NOMBRA_SECCION.test(n.replace(PAGINA_DE_REDES, ' ')));
 
 /** ¿Le pide a MaKo algo sobre una landing del Web Generator? Recibe el texto CRUDO de la persona. */
 export function esPedidoDeLanding(texto: string): PedidoDeLanding | null {
@@ -307,7 +327,7 @@ export function esPedidoDeLanding(texto: string): PedidoDeLanding | null {
   if (PEDIDO_DESPUBLICAR.test(n) || (SACAR_DE_INTERNET.test(n) && NOMBRA_LANDING.test(n))) return { tipo: 'despublicar' };
   if (PEDIDO_PUBLICAR.test(n)) return { tipo: 'publicar' };
   if (PEDIDO_REPLICAR.test(n)) return { tipo: 'replicar' };
-  if (PEDIDO_ANALIZAR.test(n)) return { tipo: 'analizar' };
+  if (PEDIDO_ANALIZAR.test(n) || (PEDIDO_ANALIZAR_PARTE.test(n) && nombraLaLanding(n))) return { tipo: 'analizar' };
   if (PEDIDO_CREAR.test(n) || QUIERO_UNA_LANDING.test(n)) return { tipo: 'crear' };
   if (PEDIDO_EDITAR.test(n) && nombraLaLanding(n)) return { tipo: 'editar' };
   return null;

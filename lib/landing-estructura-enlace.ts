@@ -23,3 +23,9 @@ export function hrefAnalizarEstructura(url: unknown): string | null {
     return null;
   }
 }
+
+/**
+ * La otra dirección (#886, 17/10/2026): del diagnóstico del Web Generator a la hoja «Landing» del Dashboard, donde está
+ * el mapa de calor y el pulso de la página. `?hoja=landing` es como el Dashboard abre una hoja (app/dashboard/EditorInforme.tsx).
+ */
+export const HREF_TRAFICO_LANDING = '/dashboard?hoja=landing';

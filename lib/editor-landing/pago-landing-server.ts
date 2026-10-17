@@ -32,7 +32,7 @@ import { emailComparable, esLeadDuplicado } from '../leads-duplicados';
 import { idDelFunnelDefault } from '../funnels';
 import { funnelPrincipalDeLanding } from '../landing-funnel';
 import { casaParaEscribir } from '../lead-funnel-reglas';
-import { crearCobro, linkDelCobro, listarCobros, pasarelasConectadas } from '../cobros';
+import { crearCobro, linkDelCobro, listarCobros, modoDeLaPasarela, pasarelasConectadas } from '../cobros';
 import { crearPropuesta } from '../propuestas';
 import { slugValido } from './doc';
 import { leerFoto } from './server-reglas';
@@ -327,6 +327,7 @@ export async function pagarDesdeLanding(
   const log: DepCandado['log'] = (nivel, texto) => console[nivel](`[landing-pagar] ws=${l.ws} /l/${l.slug} producto=${p.productoId} ${texto}`);
   return ejecutarPago({ productoId: p.productoId, email: p.email, slug: l.slug }, {
     usosDeLaHora: () => usosDeLaHora(l.docId),
+    modo: (pasarela) => modoDeLaPasarela(l.ws, pasarela),
     estado: () => estadoCobroLanding(l.ws),
     candado: candadoDePago(l.docId, claveDeCandado(l.ws, p.email), log),
     proponer: (motivo, quePide) => proponerQuienQuisoPagar(l, p, motivo, quePide, atribucion),

@@ -30,6 +30,7 @@ import { estructurarGuion } from '@/lib/guion-estructurar';
 import { archivoATexto, puedeLeerse, porQueNoPuedo, MAX_ARCHIVO_BYTES } from '@/lib/archivo-a-texto';
 import { resolverLink, htmlATexto, pareceLogin } from '@/lib/texto-de-link';
 import { validarDestino } from '@/lib/landing-fetch';
+import { fetchSeguro } from '@/lib/fetch-seguro';
 
 /** La celda donde caen los guiones que el cliente trajo. */
 const CELDA_PROPIOS = 'guiones-propios';
@@ -228,9 +229,10 @@ export async function textoDeLinkAction(crudo: string): Promise<{ ok: true; text
   if (!chequeo.ok) return { ok: false, error: chequeo.error };
 
   try {
-    const res = await fetch(url, {
+    // `fetchSeguro` (lib/fetch-seguro.ts) y no `fetch` + `redirect: 'follow'`: `validarDestino`
+    // de arriba miraba SÓLO el primer salto, y un link que redirige a una IP interna se leía.
+    const res = await fetchSeguro(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MaKoBot/1.0)', Accept: 'text/plain,text/html,*/*' },
-      redirect: 'follow',
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {

@@ -42,6 +42,7 @@ import {
 import { descargarPdf, mensajeDeError } from './offer-api';
 import { hrefProbar } from '@/lib/experimentos-catalogo';
 import { VistaPdf } from './VistaPdf';
+import { Dropdown } from '@/app/components/Dropdown';
 import { ElegirFunnels, type FunnelElegible } from '@/app/components/ElegirFunnels';
 
 const LECTURA = 880;
@@ -242,6 +243,14 @@ function BarraAcciones({ sesion, funnels, onSeguir, onGuardar }: {
     setError(null);
     try { await descargarPdf(sesion.id); } catch (e) { setError(mensajeDeError(e)); } finally { setBajando(false); }
   };
+  // El PDF para un PROSPECTO (17/10/2026): la oferta sola, sin el diagnóstico ni los datos a completar.
+  const [bajandoExterno, setBajandoExterno] = useState(false);
+  const pdfExterno = async () => {
+    if (bajandoExterno) return;
+    setBajandoExterno(true);
+    setError(null);
+    try { await descargarPdf(sesion.id, null, { externo: true }); } catch (e) { setError(mensajeDeError(e)); } finally { setBajandoExterno(false); }
+  };
   const guardar = async () => {
     if (guardada || guardando) return;
     setGuardando(true);
@@ -256,6 +265,9 @@ function BarraAcciones({ sesion, funnels, onSeguir, onGuardar }: {
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <Button variant="primary" size="lg" loading={bajando} onClick={() => void pdf()} icon={<Icon name="descargar" size={18} />}>
           Descargar PDF
+        </Button>
+        <Button variant="secondary" size="lg" loading={bajandoExterno} onClick={() => void pdfExterno()} icon={<Icon name="descargar" size={18} />}>
+          PDF para tu cliente
         </Button>
         <Button variant="secondary" size="lg" onClick={onSeguir}>Seguir afinando</Button>
         {guardada
@@ -646,6 +658,11 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, funnels = 
   funnels?: readonly FunnelElegible[];
 }) {
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
+  // Las versiones anteriores (17/10/2026, docs/relevo/offer.md: «ver versiones anteriores»): cada «Pulir» deja una
+  // versión nueva y la de antes sólo se veía descargando con `?v=`. En la pestaña del PDF se elige cuál ver; el
+  // diagnóstico y la oferta muestran siempre la última (son las que la vista trae).
+  const [verVersion, setVerVersion] = useState<number>(conclusion.version);
+  const ultima = Math.max(sesion.versiones, conclusion.version);
   const id = useId();
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -671,7 +688,24 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, funnels = 
         </div>
         <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${pestana}`}>
           {pestana === 'pdf'
-            ? <VistaPdf sesionId={sesion.id} version={conclusion.version} />
+            ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {ultima > 1 && (
+                  <div style={{ alignSelf: 'flex-start', width: 240, maxWidth: '100%' }}>
+                    <Dropdown
+                      value={String(verVersion)}
+                      ariaLabel="Qué versión ver"
+                      width="100%"
+                      onChange={(v) => setVerVersion(Number(v))}
+                      options={Array.from({ length: ultima }, (_, i) => ultima - i).map((v) => ({
+                        value: String(v), label: v === conclusion.version ? `Versión ${v} (la última)` : `Versión ${v}`,
+                      }))}
+                    />
+                  </div>
+                )}
+                <VistaPdf sesionId={sesion.id} version={verVersion} />
+              </div>
+            )
             : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <Heroe conclusion={conclusion} />

@@ -9,7 +9,7 @@
 // lo tocan a mano. Mapeo 1:1 con BoardTask/Label (jsonb para checklist/historial/fuente).
 
 import 'server-only';
-import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace, getWorkspaceActual, WS_NINGUNO } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
 import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist, HIST_CAP } from '@/app/plan/board/types';
 // Las COLUMNAS del kanban (mig 0294): las mismas reglas que la mitad del cliente (lib/todo.ts).
@@ -47,7 +47,7 @@ export type Row = Record<string, unknown>;
 // 121 áreas se pintaron «Cerrado» con cero tareas — leía el workspace equivocado y
 // no fallaba, devolvía vacío. Quien necesite leer el board del dueño usa esto.
 export const enPlan = async <T,>(fn: () => Promise<T>): Promise<T> =>
-  runWithWorkspace((await getWorkspaceActual()) ?? OWNER_WS, fn);
+  runWithWorkspace((await getWorkspaceActual()) ?? WS_NINGUNO, fn);
 
 // id string estable para tareas/proyectos nuevos (el board usa ids de texto).
 const genId = (p: string): string => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

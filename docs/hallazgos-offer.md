@@ -899,3 +899,20 @@ guarda siempre en el funnel de la conversación (`app/m/offer/OfferM.tsx`, no ma
 (`textoGuardada`) · `lib/api-mako/areas/negocio.*.ts` · `tests/offer-guardar-funnels.test.ts` (9 roturas)
 
 *17/10/2026, cuenta claude4.*
+
+## «Los números» de la propuesta: lo que estimó MaKo sale marcado (17/10/2026, la mitad que quedó del #888)
+
+- **Síntoma.** En la Parte 2 del PDF de Código Inmobiliario: márgenes y un «LTV:CAC estimado superior a 5 a 1» que
+  nadie dio. El prompt se los PIDE («margen bruto, ventas y llamadas necesarias, % cobrado al firmar y LTV:CAC, con la
+  cuenta a la vista»: lib/offer-ia.ts, punto 11) y `aplicarReglasPropuesta` no los revisaba.
+- **Decisión con criterio.** El código no los puede CALCULAR (no tiene el costo de adquisición, la recompra ni la
+  retención), así que los MARCA, como pide la decisión 10 de Martín (lo que propuso MaKo, separado de lo que dijo el
+  negocio): una línea con una cifra que el negocio no dio termina en «(estimado por MaKo)» y va a «Lo que propuso
+  MaKo». Quedan sin marca lo del negocio, el precio propuesto, el margen que calcula el código con su precio y su costo
+  (`margenDe`), una CUENTA a la vista hecha sólo con cifras del negocio y una línea con «[completar]».
+- **Lo guardado** se lee marcado (`conclusionVisible`: la pantalla, MaKo Mobile por la vista y el PDF), sin reescribir
+  la fila. Ahí no está el contexto cargado (el CRM): una cifra que salió de ahí se lee «estimada», el lado seguro.
+- **Vive en:** `lib/offer-reglas.ts` (`MARCA_ESTIMADO`, `numeroDeLaPropuesta`, `aplicarReglasPropuesta`,
+  `propuestoPorMako`, `conclusionVisible`) · `tests/offer-numeros-estimados.test.ts` (O1-O7).
+
+*17/10/2026, «Pendientes B3» (`claude4`).*

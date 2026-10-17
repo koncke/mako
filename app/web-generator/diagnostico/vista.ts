@@ -91,5 +91,34 @@ export function bloqueDeCoincidencia(nodos: readonly Text[], c: Coincidencia, to
   return el;
 }
 
+// ── La vista previa de una landing NUESTRA: el video se pausa, lo demás no se aprieta (#861) ──────────────
+//
+// Pedido de Martín en la revisión con Código Inmobiliario (16/10/2026, Fathom 863534246, 01:23): «que se pueda pausar
+// el video y que se pueda escrolear, ya sea con la ruedita del mouse o también con … la barra de scroll». La vista
+// iba ENTERA con `inert` (que no se aprieten los botones ni se mande un formulario), y eso también apagaba el
+// reproductor: el VSL arrancaba solo, con sonido (el iframe del video lleva `allow="autoplay"`, ALLOW_EMBED en
+// lib/embeds.ts, y la persona ya había hecho clic en la página), y no había cómo pararlo.
+
+/** Lo que en la vista previa NO se aprieta: llevaría a otro lado o mandaría algo. El reproductor no está acá. */
+export const SELECTOR_SIN_CLIC = 'a, button, input, select, textarea, label, summary, form, [role="button"], [role="link"]';
+
+/**
+ * El HTML de la vista previa: el mismo de la publicada, pero ningún video arranca SOLO CON SONIDO y todo video se
+ * puede pausar.
+ *   · A cada `<iframe>` se le saca `autoplay` de su `allow`: sin ese permiso un reproductor de otro origen no puede
+ *     arrancar con sonido (sí mudo, que no tapa nada).
+ *   · Un `<video autoplay>` (el nuestro va mudo y SIN controles: especificacion.ts, `specVideo`) lleva `controls`.
+ * Puro y sobre el texto, ANTES de pintar: un `allow` que se cambia con el iframe ya cargado no cuenta hasta que vuelve
+ * a navegar.
+ */
+export function htmlParaVistaPrevia(html: string): string {
+  return String(html ?? '')
+    .replace(/<iframe\b[^>]*>/gi, (tag) => tag.replace(/(\sallow\s*=\s*)(["'])([^"']*)\2/i, (_m, pre: string, q: string, v: string) => {
+      const permisos = v.split(';').map((x) => x.trim()).filter((x) => x && !/^autoplay\b/i.test(x));
+      return `${pre}${q}${permisos.join('; ')}${q}`;
+    }))
+    .replace(/<video\b[^>]*>/gi, (tag) => (/\scontrols(?=[\s=>/])/i.test(tag) ? tag : tag.replace(/^<video\b/i, '<video controls')));
+}
+
 /** Un id para un selector `#…` (los de sección son `[A-Za-z0-9_-]`, pero no se confía). */
 export const selectorDeSeccion = (id: string): string => `#t-${id.replace(/[^A-Za-z0-9_-]/g, '')}`;

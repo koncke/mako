@@ -28,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PIXEL_MINIMO_AVISO, pixelParaActualizar, RUTA_PIXEL,
-  clavePagina, versionEnHtml, anotarVersionDePagina, veredictoPixel, paraMirar, parsearMapaVersiones,
+  clavePagina, versionEnHtml, anotarVersionDePagina, veredictoPixel, paraMirar, parsearMapaVersiones, DIAS_PAGINA_VIVA,
 } from '../lib/pixel-aviso';
 
 const RAIZ = join(__dirname, '..');
@@ -232,4 +232,41 @@ test('⚠️ el cableado: el beacon anota cada página en el pageview, y los tre
   assert.ok(iServida > 0 && iServida < cron.indexOf('atrasadas.push(v.url)'), 'el WhatsApp nombra la página sin mirar lo que sirve');
   const token = sinComentarios(leer('lib/landing-token.ts'));
   assert.match(token, /const instalada = Math\.max\([\s\S]{0,200}servida \?\? 0,/, 'el diagnóstico dejó de sumar la versión servida');
+});
+
+// =============================================================================
+// 17/10/2026: una página sin visitas no pide repegar, y todos miden con la misma vara
+// =============================================================================
+// docs/relevo/pixel-clarity-landing.md §2 y §4.3: una landing DADA DE BAJA con una v18 dejaba el aviso fijo para
+// siempre; y el pulso, MaKo y el WhatsApp leían el setting del workspace (`snippetDesactualizado`) mientras el aviso de
+// adentro decidía por página: podían decir «al día» y «viejo» a la vez.
+// Roturas (arnés que restaura de memoria; base del archivo en verde): sin filtrar por `vivas` → 1 fallo («una página
+// sin visitas…»); sin el corte de «ninguna visita» → 1 fallo; `snippetDesactualizado` con el setting de antes → 1
+// fallo («todos miden…»).
+test('una página sin visitas en 7 días no pide repegar; sin ninguna visita, no hay aviso', () => {
+  assert.equal(DIAS_PAGINA_VIVA, 7);
+  const VIVA = 'https://leila.com/lidermente';
+  const MUERTA = 'https://leila.com/vieja';
+  const mapa = { 'leila.com/lidermente': { v: 22, t: '2026-10-10' }, 'leila.com/vieja': { v: 18, t: '2026-09-01' } };
+  const sinVivas = veredictoPixel({ guardada: '22', mapa, paginas: [VIVA, MUERTA] });
+  assert.equal(sinVivas.viejo, true, 'sin el dato de visitas, como antes');
+  const conVivas = veredictoPixel({ guardada: '22', mapa, paginas: [VIVA, MUERTA], vivas: new Set(['leila.com/lidermente']) });
+  assert.equal(conVivas.viejo, false, 'la dada de baja ya no prende el aviso');
+  assert.deepEqual(conVivas.paginas.map((p) => p.url), [VIVA]);
+  const laViejaViva = veredictoPixel({ guardada: '22', mapa, paginas: [VIVA, MUERTA], vivas: new Set(['leila.com/vieja']) });
+  assert.equal(laViejaViva.viejo, true, 'la vieja con visitas, sí');
+  assert.equal(veredictoPixel({ guardada: '18', mapa: {}, paginas: [], vivas: new Set() }).viejo, false, 'sin ninguna visita no hay aviso');
+  assert.equal(veredictoPixel({ guardada: '18', mapa: {}, paginas: [] }).viejo, true);
+  assert.deepEqual(paraMirar({ guardada: '22', mapa, paginas: [VIVA, MUERTA], vivas: new Set(['leila.com/lidermente']) }), []);
+});
+
+test('todos miden con la misma vara: snippetDesactualizado pregunta a estadoPixel, y estadoPixel lee las visitas recientes', () => {
+  const lib = leer('lib/landing-token.ts');
+  const ini = lib.indexOf('export async function snippetDesactualizado(');
+  const cuerpo = lib.slice(ini, lib.indexOf('\n}\n', ini));
+  assert.match(cuerpo, /await import\('\.\/pixel-estado'\)/);
+  assert.doesNotMatch(cuerpo, /getSetting\(SNIPPET_VERSION_KEY\)/, 'el setting del workspace era la otra vara');
+  const estado = leer('lib/pixel-estado.ts');
+  assert.match(estado, /paginasVivas\(\),/);
+  assert.match(estado, /\.gte\('created_at', desde\)/);
 });

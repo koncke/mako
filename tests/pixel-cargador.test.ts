@@ -189,7 +189,9 @@ test('el WhatsApp de «quedó viejo» no sale de nuevo por la v23: la clave sigu
   const lib = sinComentarios(leer('lib/landing-token.ts'));
   const ini = lib.indexOf('export async function snippetDesactualizado(');
   const cuerpo = lib.slice(ini, lib.indexOf('\n}\n', ini));
-  assert.match(cuerpo, /viejo: instalada < PIXEL_MINIMO_AVISO/);
+  // 17/10/2026: con la vara del aviso de adentro (`estadoPixel`, que corta en PIXEL_MINIMO_AVISO por defecto).
+  assert.match(cuerpo, /const e = await estadoPixel\(\);/);
+  assert.match(sinComentarios(leer('lib/pixel-estado.ts')), /const minimo = opts\.minimo \?\? PIXEL_MINIMO_AVISO;/);
   assert.match(lib, /const vieja = version != null && version < PIXEL_MINIMO_AVISO;/, '`verificarPagina` nombraría en el WhatsApp una página en la 22');
 });
 

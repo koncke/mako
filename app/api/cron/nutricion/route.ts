@@ -21,9 +21,9 @@
 // de abajo).
 //
 // Modos manuales (para probar la máquina):
-//   ?dry=1[&ws=N]     → dry-run del workspace N (default dueño): lista qué
+//   ?dry=1[&ws=N]     → dry-run del workspace N (?ws= obligatorio): lista qué
 //                       inscribiría/enviaría, sin escribir.
-//   ?commit=1[&ws=N]  → fuerza el commit del workspace N (default dueño) aunque
+//   ?commit=1[&ws=N]  → fuerza el commit del workspace N (?ws= obligatorio) aunque
 //                       no tenga canales habilitados; los pasos de canales
 //                       apagados avanzan como 'simulado' (semántica histórica).
 //   &ignorar_ventana=1 → ignora el horario de envío del negocio (tests).
@@ -43,7 +43,7 @@ import { correSinCanales } from '@/lib/motor-tick';
 import { tieneRecurrenteAlGrupo } from '@/lib/disparadores';
 import { evaluarDesenlaces } from '@/lib/nutricion-desenlace';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
-import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
 import { ESPERA_CORRIDA_HASTA_MS } from '@/lib/espera-duracion';
 import { conTurnoDelMotor } from '@/lib/motor-turno';
 
@@ -93,12 +93,14 @@ export async function GET(request: NextRequest) {
     const activosIds = new Set(activos.map((w) => w.id));
     // Los modos manuales también exigen un workspace ACTIVO (no operar pausados).
     const resolverManual = (): number | Response => {
-      const ws = wsExplicito ?? OWNER_WS;
+      // Sin `?ws=` caía al ws1 (Mauricio, un cliente). Un modo manual dice a quién.
+      if (wsExplicito == null) return Response.json({ ok: false, error: 'el modo manual pide ?ws=<id>' }, { status: 400 });
+      const ws = wsExplicito;
       if (!activosIds.has(ws)) return Response.json({ ok: false, error: `workspace ${ws} inexistente o pausado` }, { status: 404 });
       return ws;
     };
 
-    // ── Modo manual: dry-run de UN workspace (default dueño) ──────────────────
+    // ── Modo manual: dry-run de UN workspace (?ws= obligatorio) ──────────────────
     if (url.searchParams.get('dry') === '1') {
       const ws = resolverManual();
       if (ws instanceof Response) return ws;
@@ -112,7 +114,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ── Modo manual: commit forzado de UN workspace (default dueño) ───────────
+    // ── Modo manual: commit forzado de UN workspace (?ws= obligatorio) ───────────
     if (url.searchParams.get('commit') === '1') {
       const ws = resolverManual();
       if (ws instanceof Response) return ws;

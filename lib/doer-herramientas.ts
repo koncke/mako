@@ -17,7 +17,7 @@
 import { CONTRATO, areasDelMensaje, sinPrefijoDeLote, type Intencion, type VeredictoIntencion } from './mako-intencion';
 import { toolsDelRegistro, porId, leeDatosDeClientes, type Vista } from './api-mako/registro';
 import type { ToolDef } from './anthropic';
-import { DATOS_DE_CLIENTES_POR_AREA, type Area } from './api-mako/tipos';
+import type { Area } from './api-mako/tipos';
 
 /** Las de Calendly. A un negocio sin Calendly no le sirven, y su receta («buscá el lead,
  *  pedile el email, ofrecé 3 huecos») le gana a la de Google: con un evento sin lead,
@@ -60,6 +60,18 @@ export function llevaDatosDeClientes(nombre: string): boolean {
   return !d || leeDatosDeClientes(d);
 }
 
+/**
+ * Lo que viaja a la RED GRATIS de la plataforma: SÓLO el mensaje de este turno, sin el historial (17/10/2026).
+ *
+ * `turnoParaLaRed` decide por lo que se PIDIÓ en este turno, pero el historial del grupo viajaba entero: si en un
+ * turno anterior MaKo nombró a un lead —su nombre, su teléfono, lo que dijo—, ese texto iba al plan gratis de
+ * Gemini o de Groq, que entrena con lo que recibe. Sin historial el modelo pierde el «¿y el otro?», y es el precio:
+ * la red es el último recurso de un negocio sin una IA propia que conteste, no la conversación de siempre.
+ */
+export function soloElTurno<T>(msgs: readonly T[]): T[] {
+  return msgs.length ? [msgs[msgs.length - 1]] : [];
+}
+
 /** La línea del system cuando la red corre sin las herramientas que leen datos de clientes: el modelo no las tiene, y
  *  sin esto contesta como si hubiera mirado (o deduce de la conversación). */
 export const SIN_DATOS_DE_CLIENTES = 'EN ESTE TURNO NO PUEDES LEER LEADS, CONVERSACIONES, LLAMADAS NI COBROS: el negocio no tiene una IA propia que conteste, y esos datos no van a la de MaKo. Si lo que te piden los necesita, dilo en una línea y nada más; no los deduzcas de la conversación.';
@@ -67,28 +79,7 @@ export const SIN_DATOS_DE_CLIENTES = 'EN ESTE TURNO NO PUEDES LEER LEADS, CONVER
 /** Lo que la red gratis hace con un turno: cortarlo (y por qué) o correrlo con estas herramientas. */
 export type TurnoDeLaRed<T> =
   | { cortar: string[] }
-  | { cortar: null; tools: T[]; sacadas: string[];
-    /**
-     * El turno viaja SIN la conversación del grupo, sólo con lo que la persona escribió ahora (revisión de B5, 17/10/2026).
-     * Lo prende una herramienta que su ÁREA cuenta como datos de clientes y la operación declara que no (las métricas que
-     * traen sólo números: `datosDeClientes: false`). Antes de esa marca, esos turnos se cortaban y no viajaba nada; con la
-     * marca corren, pero el historial del grupo tiene avisos con nombres, teléfonos y lo que escribió un lead: eso no va.
-     */
-    sinHistorial: boolean };
-
-/** ¿La herramienta es de un área con datos de clientes y la operación declara que ella no los trae? */
-export function liberadaDeSuArea(nombre: string): boolean {
-  const d = porId(nombre);
-  return !!d && DATOS_DE_CLIENTES_POR_AREA[d.area] === true && d.datosDeClientes === false;
-}
-
-/**
- * Los mensajes que viajan a la red gratis: todos, o —con `sinHistorial`— sólo el último (lo que la persona escribió en
- * este turno). Puro, para que el test vea lo que de verdad sale.
- */
-export function mensajesParaLaRed<M>(msgs: readonly M[], turno: { sinHistorial: boolean }): M[] {
-  return turno.sinHistorial ? msgs.slice(-1) : [...msgs];
-}
+  | { cortar: null; tools: T[]; sacadas: string[] };
 
 /**
  * ⛔ EL TURNO QUE PUEDE IR A LA RED GRATIS DE LA PLATAFORMA (17/10/2026).
@@ -123,11 +114,8 @@ export function turnoParaLaRed<T extends { name: string }>(p: {
   const sacadas = p.tools.filter((t) => llevaDatosDeClientes(t.name)).map((t) => t.name);
   // Un turno que traía herramientas y se queda sin ninguna no tiene con qué hacer lo que se le pidió.
   if (p.tools.length && !tools.length) return { cortar: sacadas };
-  // SIN HISTORIAL cuando lo PEDIDO sólo corre gracias a una métrica liberada: con la regla del área entera se cortaba (todo
-  // lo pedido leía datos de clientes) y no viajaba nada. Lo que no pidió eso (un saludo, el plan) sigue con su conversación.
-  const pedidoLiberado = p.delRegistro.length > 0 && p.delRegistro.some((t) => liberadaDeSuArea(t.name))
-    && p.delRegistro.every((t) => llevaDatosDeClientes(t.name) || liberadaDeSuArea(t.name));
-  return { cortar: null, tools, sacadas, sinHistorial: pedidoLiberado };
+  // El historial del grupo NO viaja nunca a la red (`soloElTurno`, en el doer): ahí hay leads nombrados en otros turnos.
+  return { cortar: null, tools, sacadas };
 }
 
 /**

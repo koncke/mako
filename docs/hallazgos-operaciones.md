@@ -1443,10 +1443,14 @@ son de Martín») era el equivocado.** Tres cosas que no se ven escribiendo la p
 - una `sesion` que declara quien llama no identifica a nadie: el token es uno para toda la PC y la foto de los chats la
   escribe ese mismo token; escribir en nombre de un chat pide un pedido firmado de Martín;
 - «#NN» en un texto no es «cerré la NN»: puede ser lo pendiente, un PR, un ticket o un color.
-**Regla:** en AGENTS.md (el Centro).
+**Y dos revisiones no alcanzaron para cerrar un parser de texto libre.** La segunda (763ac6e51) encontró 9 defectos más en la
+versión «arreglada»: negaciones, «en producción» dicho de otra cosa, una respuesta a una pregunta que repite el «#870». La
+lección: lo que ESCRIBE en el Plan no se decide leyendo texto; se pide con un dato ESTRUCTURADO (`--tareas 870` en el
+cierre, con un commit verificable) o lo hace Martín. Quedó `plan prioridades`, de sólo lectura y atado al pedido firmado.
+**Regla:** en AGENTS.md (el Centro): un chat no cierra tareas; el cierre se pide con `--tareas`, nunca con texto.
 
 **Sin hacer:**
-- el Plan desde el chat y el paso «buscar» del Plan automático, con los arreglos de la revisión (docs/relevo/centro-operaciones.md);
+- el cierre estructurado `cartero.mjs cierre … --tareas 870,872 --prueba <commit>` (después del 20/10; el diseño, en docs/relevo/centro-operaciones.md);
 - «Cámbiale el nombre» desde un chat: la API del Plan no tiene una operación para renombrar una tarea (es del área Plan);
 - la lista de «Destacados» de WhatsApp (los destacados se ven con su estrella en cada mensaje, pero no hay una vista que los
   junte);

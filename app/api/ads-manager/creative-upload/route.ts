@@ -30,7 +30,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from '@/lib/supabase';
 import { uploadAdImage, uploadAdVideoByUrl, waitForVideoReady, estadoVideo, metaErrorEnvelope, ADS_CREATIVES_BUCKET as BUCKET } from '@/lib/meta-ads-create';
 import type { UploadResult } from '@/lib/campaign-types';
-import { getTenantDb, getWorkspaceActual, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace, wsObligatorio } from '@/lib/workspace';
 import { guardAdsWs, wsDeAdsManager } from '@/lib/ads-guard';
 import { transcribeMediaBuffer, structureTranscript } from '@/lib/transcribe';
 import { esPathDeStaging, STAGING_CARPETA, stagingVencido } from '@/lib/ads-staging';
@@ -269,7 +269,7 @@ export async function POST(req: NextRequest) {
     const sb = supabase;
     // El workspace se captura ACÁ: lo que corre en after() lo necesita para guardar la
     // transcripción en el cliente correcto (molde: app/api/webhooks/fathom/route.ts).
-    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+    const ws = await wsObligatorio();
     const tamano = await tamanoDelStaging(sb, path, body.size);
     // La bajada para transcribir ARRANCA YA, en paralelo con Meta: así está terminada
     // mucho antes de que alguien pueda borrar el staging (el navegador pregunta recién

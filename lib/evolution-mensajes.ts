@@ -8,9 +8,8 @@
 // funciones de lectura alimentan el inbox.
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual, wsObligatorio } from '@/lib/workspace';
 import { leerPorPaginas } from '@/lib/supabase-paginado';
-import { OWNER_WS } from '@/lib/auth-session';
 import { jidToNumero, lineaParaLeer, fetchMensajesEvolution,
   fetchConversacionEvolution, fetchChatsEvolution, fetchLidDeNumero, statusDeRecord, type EvRecord } from '@/lib/evolution';
 import { normalizarTelefono } from '@/lib/leads';
@@ -154,7 +153,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
   // Subimos media SOLO si es fila nueva o todavía no tenía media guardada.
   let mediaPath: string | null = prev?.media_path ?? null;
   if (!mediaPath && mediaBase64 && mediaMime) {
-    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+    const ws = await wsObligatorio();
     mediaPath = await subirMedia(ws, instance, key.id, mediaBase64, mediaMime, ext);
   }
 

@@ -14,7 +14,7 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
-import { getWorkspaceActual, OWNER_WS } from './workspace';
+import { wsObligatorio } from './workspace';
 import { configWs } from './cron-workspaces';
 
 const API_V2 = 'https://api-v2.pandavideo.com';
@@ -56,7 +56,7 @@ const _videoCache = new Map<number, { map: Map<string, string>; ts: number }>();
 const VIDEO_CACHE_TTL_MS = 5 * 60 * 1000;
 
 async function getVideoMap(): Promise<Map<string, string>> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = await wsObligatorio();
   const cached = _videoCache.get(ws);
   if (cached && Date.now() - cached.ts < VIDEO_CACHE_TTL_MS) return cached.map;
   const map = new Map<string, string>();
@@ -271,7 +271,7 @@ const _catalogoCache = new Map<number, { map: Map<string, VideoPanda>; ts: numbe
  * no puede apagar la lista de videos.
  */
 export async function catalogoPanda(): Promise<Map<string, VideoPanda>> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = await wsObligatorio();
   const cached = _catalogoCache.get(ws);
   // El mismo TTL que el resto del módulo: la pantalla del probador consulta cada
   // 3 segundos, y sin caché serían 20 llamadas por minuto a Panda por persona.

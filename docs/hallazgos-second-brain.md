@@ -1865,3 +1865,23 @@ pasó a `normalizarUrlArchivero` para no pisar ese renombre.
 
 **Vive en:** lib/cerebro-areas.ts · lib/archivero-subida.ts · app/second-brain/Grafo.tsx ·
 app/onboarding/Archivero.tsx · app/m/second-brain/modelo.ts · tests/m-second-brain.test.ts · *2026-10-16*
+
+## De dónde vino cada documento de El Archivero (17/10/2026)
+
+**Síntoma:** desde el 15/10 el chat de Offer deja sus archivos en El Archivero, y desde el 17/10 el onboarding
+deja «Lo que vendes»; en la lista se veían igual que lo que la persona subió a mano, y `archivero_files` no
+tenía dónde decirlo (docs/relevo/offer.md lo dejaba «pide migración»).
+**Ahora:** columna `origen` (mig **0316**, con CHECK: `archivero`, `link`, `offer`, `onboarding`; NULL = de
+antes). Cada puerta pasa el suyo a `insertFile`, y la lista dice «Del chat de Offer» / «Del onboarding» al
+lado del tamaño (lo subido acá no lleva rótulo).
+**La trampa del orden de despliegue:** la columna puede llegar antes o después del código. `leerConOrigen` e
+`insertarConOrigen` (lib/archivero-registro.ts, puros) reintentan SIN `origen` sólo ante 42703 / PGRST204 que
+nombran `origen`; cualquier otro error vuelve tal cual (un 23505 reintentado insertaría dos veces).
+**Regla:** una puerta nueva que guarde en El Archivero pasa su `origen`; un origen nuevo va a
+`ORIGENES_ARCHIVERO` (lib/archivero-subida.ts) Y al CHECK, con migración (tests/archivero-origen.test.ts
+compara las dos listas).
+**Sin hacer:** la 0316 sin aplicar en Supabase (el número lo pone el Cerebro: la 0314 la tenía B1-infra); el
+Second Brain del teléfono (app/m/second-brain) no muestra el origen.
+
+**Vive en:** lib/archivero-registro.ts · lib/archivero-subida.ts · lib/archivero.ts (`insertFile`, `pubFile`)
+· app/onboarding/Archivero.tsx · supabase/migrations/0316_archivero_origen.sql · *2026-10-17*

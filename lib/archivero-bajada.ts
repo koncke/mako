@@ -95,7 +95,7 @@ function lookupClavado(ips: string[]): LookupFunction {
  * lo leído, como antes se recortaba) y un plazo que cubre también el cuerpo. El nombre sigue
  * viajando en el SNI y en el Host, así que TLS y los virtual hosts andan igual.
  */
-export function pedirClavado(url: URL, ips: string[]): Promise<RespuestaWeb> {
+export function pedirClavado(url: URL, ips: string[], ua = 'Mozilla/5.0 (compatible; MaKoBot/1.0)'): Promise<RespuestaWeb> {
   return new Promise((resolve, reject) => {
     const esHttps = url.protocol === 'https:';
     const pedir = esHttps ? pedidoHttps : pedidoHttp;
@@ -103,7 +103,7 @@ export function pedirClavado(url: URL, ips: string[]): Promise<RespuestaWeb> {
     const fallar = (e: Error) => { if (!cerrado) { cerrado = true; reject(e); } };
     const req = pedir(url, {
       method: 'GET',
-      headers: { 'user-agent': 'Mozilla/5.0 (compatible; MaKoBot/1.0)', accept: 'text/html,application/xhtml+xml,*/*' },
+      headers: { 'user-agent': ua, accept: 'text/html,application/xhtml+xml,*/*' },
       lookup: lookupClavado(ips),
       ...(esHttps ? { servername: url.hostname } : {}),
     }, (res) => {

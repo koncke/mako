@@ -18,6 +18,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { bearerDe, wsDelBearer } from '@/lib/agente-token';
+import { rechazoPorAlcance } from '@/lib/api-mako/alcance';
+import { limitePorClave } from '@/lib/limite-publico';
 import { wsEnContexto, runWithWorkspace, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { tableroDeCapa } from '@/lib/tablero-de-capa';
 import { listPlanBoard } from '@/lib/plan-board';
@@ -90,6 +92,13 @@ export async function POST(req: NextRequest) {
   const ws = await wsDeReq(req);
   if (ws instanceof Response) return ws;
   if (ws == null) return noAutorizado();
+  // Un token «Solo leer» no deja propuestas (lib/api-mako/alcance.ts → rechazoPorAlcance).
+  const fuera = rechazoPorAlcance(bearerDe(req), 'proponer');
+  if (fuera) return NextResponse.json({ ok: false, error: fuera }, { status: 403 });
+  // Por NEGOCIO, no por IP: el token es del negocio, y un formulario suyo que se dispara en bucle no
+  // le llena la bandeja de propuestas (lib/limite-publico.ts).
+  const frenado = limitePorClave('agente-propone', ws, 60, 60_000);
+  if (frenado) return frenado;
 
   let body: Record<string, unknown>;
   try { body = (await req.json()) as Record<string, unknown>; } catch { return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }

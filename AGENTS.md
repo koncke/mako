@@ -1542,7 +1542,13 @@ código nuevo:
     del menú sigue ese corte: si el chat tiene que enterarse, va firmada; si no, es una marca.
   - **Ninguna puerta nueva de la PC a MaKo responde texto de MaKo al chat sin pasar por `textoRemoto` o una forma fija, ni
     escribe en nombre de un chat con una `sesion` que declara quien llama** (17/10/2026, la revisión del Cerebro al Plan
-    desde el chat, que se revirtió por eso: docs/relevo/centro-operaciones.md). Escribir pide un pedido FIRMADO de Martín.
+    desde el chat, rehecho por eso: docs/hallazgos-operaciones.md). Escribir pide un pedido FIRMADO de Martín.
+  - **UN CHAT NO CIERRA TAREAS DEL PLAN; el cierre se pide con `--tareas` en el cierre, NUNCA leyendo texto** (17/10/2026,
+    después de dos revisiones adversariales del Cerebro: cerrar «#870» leyendo un «Ya está» o un pedido —negaciones,
+    «en producción», una respuesta que repite el número— no se arregla con regex). Hasta que exista `cartero.mjs cierre …
+    --tareas 870,872 --prueba <commit>` (pendiente, docs/relevo/centro-operaciones.md), Martín las marca hechas en el
+    Centro. Lo que sí puede un chat es LEER: `node ~/.claude/operaciones/cartero.mjs plan prioridades --trabajo <id>` con
+    el id del pedido firmado de Martín que lo pide (el de su `cierre`).
   - **EN UNA LISTA DEL TELÉFONO QUE SE REFRESCA SOLA, CADA FILA ES `memo`** (17/10/2026; Martín: «le doy para atrás en
     mobile, tarda bastante en reaccionar»): con props que no cambian entre toques (los mapas memorizados de useCentro.ts,
     callbacks estables) y nada calculado por fila en el render. Escribir en la caja, abrir o cerrar una hoja no puede volver
@@ -1602,6 +1608,33 @@ del CONTEXTO, que para un cron que itera clientes es el dueño. Medido el 29/09/
 CLIENTE después — un aviso que el dueño tenía apagado moría para todos sus clientes, con el
 interruptor de cada uno decorativo para ese camino. No da error: el aviso no sale, que es
 indistinguible de «no pasó nada que avisar».
+
+⛔ **Y NUNCA `?? OWNER_WS`** (17/10/2026: había 40 en el código vivo, más sus primos `.catch(() =>
+OWNER_WS)`, `catch { return OWNER_WS }` y `? OWNER_WS : null`). «Si no sé de qué negocio es, lo tiro al de
+Mauricio» es una fuga de un cliente real sin un error. `getWorkspaceActual()` devuelve null SÓLO con una
+cookie de sesión que no resuelve contra la base (suspendido, borrado) —medido ese día: todo usuario de
+producción tiene workspace—, así que null es justo el caso que no puede caer en nadie:
+
+- lo que **escribe, manda o gasta** → `await wsObligatorio()` (lib/workspace.ts), que TIRA;
+- lo que **sólo lee** → `(await getWorkspaceActual()) ?? WS_NINGUNO` (-1: vuelve vacío, como `getTenantDb`).
+
+Lo fija `tests/sin-fallback-owner-ws.test.ts`. Un cron o un webhook SIN cookie todavía resuelve al ws1 por
+el default del resolver (`resolverDesdeCookies`): eso es otra decisión, anotada en
+docs/relevo/seguridad-aislamiento.md.
+
+# Lo que entra sin pasar por una pantalla: sesión, tope y destino, en el código de la puerta
+
+Tres reglas del 17/10/2026, cada una con su guard que barre en positivo (las listas de excepciones llevan su porqué):
+
+- **Toda server action de `app/crm` arranca con `await exigirSesion();`** (lib/sesion-accion.ts): una acción
+  es un POST con un id que viaja en el bundle, y el proxy sólo valida la FIRMA de la cookie (la de un
+  suspendido vale 30 días). `tests/crm-acciones-sesion.test.ts`. Leer `getUsuarioActual()` no es cortar.
+- **Toda ruta PÚBLICA que escribe lleva tope de pedidos** (`limitePorIp`/`limitePorClave`, lib/limite-publico.ts)
+  o su excusa escrita en `tests/rutas-publicas-limite.test.ts`. Topes generosos (un NAT de operador es mucha
+  gente, y un 429 en el opt-in es un lead perdido); los webhooks se eximen (firma, y un 429 los deshabilita).
+- **Una URL que escribe un cliente (o su agente) se baja con `fetchSeguro`** (lib/fetch-seguro.ts):
+  `validarDestino` en CADA salto, IP clavada, techo de tamaño. `fetch` sigue los redirects sin mirarlos, y
+  validar sólo el primero es el agujero. `tests/landing-analisis-ssrf.test.ts`.
 
 # El remitente de un NEGOCIO nunca es MaKo, y lo que firma MaKo sale por la key de MaKo
 

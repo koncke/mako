@@ -22,6 +22,7 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { analizarLanding, type AnalisisLanding } from './landing-analisis';
+import { fetchSeguro } from './fetch-seguro';
 import {
   SNAPSHOT_KEY,
   SIN_CAMBIOS,
@@ -52,7 +53,7 @@ export type Mirada = {
  * cliente termina escrito en el workspace de Mauricio.
  */
 export async function mirarLanding(url: string, vigentes?: readonly string[]): Promise<Mirada> {
-  const analisis = await analizarLanding(url);
+  const analisis = await analizarLanding(url, fetchSeguro);
 
   // La puerta. `ok:false` o `error` cubre el 403, el timeout, el DNS que no
   // resuelve y la página que devolvió algo que no es HTML. En todos esos casos

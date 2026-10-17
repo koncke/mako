@@ -37,7 +37,7 @@ import { useEditorState, type Editor } from '@tiptap/react';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import {
-  ATTRS_TARJETA_DEFAULT, DEGRADADOS, NODO, tituloDeTarjeta,
+  DEGRADADOS, NODO, tituloDeTarjeta,
   type AttrsTarjeta, type Degradado, type DisenoTarjeta, type JsonNodo,
 } from '@/lib/editor-landing/doc';
 import { attrsTarjeta } from '@/lib/editor-landing/especificacion';
@@ -45,6 +45,7 @@ import { varsDeTema } from '@/lib/editor-landing/temas';
 import { useEditorLanding } from '../contexto';
 import { diapositivaFija } from '@/lib/editor-landing/api-tipos';
 import { EntradaColor, EstilosGmp, Icono, Segmentado, posicionJunto, useFijo, type OpcionSeg } from '../dialogos/piezas-gma';
+import { ESTILO_RESTABLECIDO } from '@/lib/editor-landing/reglas-pantalla';
 
 /** A qué se ancla: el botón que lo abrió, o un rectángulo ya medido. */
 export type AnclaEstilo = HTMLElement | DOMRect | null;
@@ -77,19 +78,8 @@ export function escribirEstilo(editor: Editor, id: string, cambios: Partial<Attr
   });
 }
 
-/** Lo que «Restablecer estilo» vuelve a su default (ver la cabecera: la imagen se queda). */
-export const ESTILO_RESTABLECIDO: Partial<AttrsTarjeta> = {
-  fondo: ATTRS_TARJETA_DEFAULT.fondo,
-  fondoColor: ATTRS_TARJETA_DEFAULT.fondoColor,
-  fondoDegradado: ATTRS_TARJETA_DEFAULT.fondoDegradado,
-  ancho: ATTRS_TARJETA_DEFAULT.ancho,
-  alineacion: ATTRS_TARJETA_DEFAULT.alineacion,
-  alto: ATTRS_TARJETA_DEFAULT.alto,
-  superposicion: ATTRS_TARJETA_DEFAULT.superposicion,
-  imagenAjuste: ATTRS_TARJETA_DEFAULT.imagenAjuste,
-  imagenFocoX: ATTRS_TARJETA_DEFAULT.imagenFocoX,
-  imagenFocoY: ATTRS_TARJETA_DEFAULT.imagenFocoY,
-};
+// «Restablecer estilo»: vive en lib/editor-landing/reglas-pantalla.ts desde el 17/10/2026 (la API de MaKo lo tenía copiado).
+export { ESTILO_RESTABLECIDO };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las opciones (los nombres de Gamma en español)

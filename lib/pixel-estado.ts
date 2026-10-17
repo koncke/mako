@@ -21,8 +21,9 @@ import { SNIPPET_VERSION, SNIPPET_VERSION_KEY } from './landing-token';
 import { CONFIG_KEY, parsearConfig, urlsDe } from './landing-config';
 import { PAGINAS_KEY, parsearPaginas } from './landing-paginas';
 import { versionServida } from './pixel-servido';
+import { getTenantDb } from './workspace';
 import {
-  VERSIONES_POR_PAGINA_KEY, PIXEL_MINIMO_AVISO, clavePagina, paraMirar, parsearMapaVersiones, veredictoPixel,
+  DIAS_PAGINA_VIVA, VERSIONES_POR_PAGINA_KEY, PIXEL_MINIMO_AVISO, clavePagina, paraMirar, parsearMapaVersiones, veredictoPixel,
 } from './pixel-aviso';
 
 /** Cuántas páginas se miran como mucho: cada una que dé «vieja» es un pedido HTTP. */
@@ -39,14 +40,38 @@ export async function paginasDeclaradas(): Promise<string[]> {
   return parsearPaginas(await getSetting(PAGINAS_KEY));
 }
 
+/** Cuántas visitas recientes se leen para saber qué páginas están vivas (las más nuevas primero). */
+const TOPE_VISITAS_VIVAS = 5_000;
+
+/**
+ * Las claves de las páginas con alguna visita en los últimos `DIAS_PAGINA_VIVA` días (`veredictoPixel`, `vivas`), o
+ * undefined si no se pudo leer: no poder leer no apaga el aviso (decide como antes).
+ */
+async function paginasVivas(): Promise<ReadonlySet<string> | undefined> {
+  try {
+    const desde = new Date(Date.now() - DIAS_PAGINA_VIVA * 86_400_000).toISOString();
+    const db = await getTenantDb();
+    const { data, error } = await db.from('landing_visits').select('landing_url')
+      .gte('created_at', desde).order('created_at', { ascending: false }).limit(TOPE_VISITAS_VIVAS);
+    if (error) throw new Error(error.message);
+    const out = new Set<string>();
+    for (const f of (data ?? []) as Array<{ landing_url: string | null }>) { const k = clavePagina(f.landing_url); if (k) out.add(k); }
+    return out;
+  } catch (e) {
+    console.warn(`[pixel-estado] no pude leer las visitas recientes: ${e instanceof Error ? e.message : String(e)}`);
+    return undefined;
+  }
+}
+
 export async function estadoPixel(opts: { minimo?: number } = {}) {
   const minimo = opts.minimo ?? PIXEL_MINIMO_AVISO;
-  const [guardada, mapaCrudo, paginas] = await Promise.all([
+  const [guardada, mapaCrudo, paginas, vivas] = await Promise.all([
     getSetting(SNIPPET_VERSION_KEY),
     getSetting(VERSIONES_POR_PAGINA_KEY),
     paginasDeclaradas(),
+    paginasVivas(),
   ]);
-  const base = { guardada, mapa: parsearMapaVersiones(mapaCrudo), paginas: paginas.slice(0, TOPE_PAGINAS), minimo };
+  const base = { guardada, mapa: parsearMapaVersiones(mapaCrudo), paginas: paginas.slice(0, TOPE_PAGINAS), minimo, vivas };
   const servidas: Record<string, number | null> = {};
   await Promise.all(paraMirar(base).map(async (url) => {
     const k = clavePagina(url);
