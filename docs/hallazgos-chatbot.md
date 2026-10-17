@@ -5158,3 +5158,27 @@ tests: `tests/probar-en-el-grupo.test.ts`, `tests/probar-grupo-mako.test.ts`
 **Vive en:** `lib/equipo-contesto.ts` · `lib/nutricion.ts` (`equipoDeLaInscripcion`, `equipoContestoDesdeElAviso`) ·
 `lib/condiciones-catalogo.ts` (`equipo_contesto`) · `lib/flujo-grafo.ts` (`equipoContestoEnEsta`) ·
 test: `tests/equipo-contesto.test.ts`
+
+## «Crear con IA se quedó pensando»: no era lento, era un error repetido cuatro veces (17/10/2026, tarjeta #847)
+
+- ⚠️ **El diagnóstico obvio (el modelo tarda, el loader no corta) era el equivocado.** ws13, 16/10 21:27-21:29 UTC:
+  Joan pidió «aviso al grupo con el día y hora de la reunión» para un pre-R1. Gemini, Groq dos veces y el Gemini de la
+  red escribieron JSON que se LEÍA, los cuatro rechazados por la MISMA regla de la revisión (un dato de la reunión sin
+  mirarla antes). Un Gemini de la red se colgó 100 s, el plazo se fue y el «Corregir» nunca corrió: 2,5 min y un error.
+  Se reconstruyó con `anthropic_usage` (qué llegó) y `vercel logs` (por qué no sirvió): ver hallazgos-infra.md.
+- **Un error de revisión casi siempre lo pide el PEDIDO**: otro proveedor con el mismo pedido lo repite. La primera
+  pasada para en el primer JSON que se lee y no pasa (`pararEnRevision`), y va al «Corregir», que le lista los
+  problemas. El «Corregir» sí prueba los demás proveedores (con los errores en el pedido, otro puede arreglarlo). Un JSON
+  que NO se lee sigue probando el siguiente, como antes.
+- **La regla de la reunión también vale para los avisos al equipo, a propósito** (tests/flujo-forma.test.ts, «Colgado
+  del CRON, sin nada: no»; la plantilla «Un Lead Agendó» le pone una condición delante). No se aflojó: el error ahora
+  dice el arreglo de UNA tarjeta (`"reunion_en_pie"` delante). Decía sólo «reunion_en», que pide horas.
+- **Un error de la revisión le habla a DOS lectores:** al modelo en el «Corregir» y a la persona en `falloDeRevision`.
+  Lo que va después de `: usa "…": "…"` es sólo para el modelo (`paraLaPersona` lo corta).
+- ⚠️ **El log dice «resolvió con la RED DE PLATAFORMA» cuando `validar` acepta**, y con `pararEnRevision` acepta
+  también una salida con errores para cortar la cascada: esa línea ya no prueba que la salida sirvió.
+- **Sin hacer:** un proveedor colgado sigue costando hasta 100 s por intento (`timeoutMs` de `pasada`). No se bajó: el
+  OpenRouter gratis tardó 97 s en una salida buena de ws10 el 16/10.
+
+**Vive en:** `lib/flujo-ia-crear.ts` (`pasada`, `generar`) · `lib/flujo-ia.ts` (`validarIA`, el error de la reunión) ·
+test: `tests/crear-ia-revision-corrige.test.ts`
