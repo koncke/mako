@@ -167,8 +167,10 @@ test('un nombre conocido o dicho queda, y lo que no se dijo pasa a «Otra person
 
 test('la extracción de una reunión sanea los dos rótulos, y el prompt pide «Otra persona»', () => {
   const src = readFileSync(new URL('../lib/plan-fathom.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /dueño: rotuloDePersona\(d\.dueño, conocidos, dicho\),/);
+  // Desde el 17/10/2026 el rótulo pasa antes por `limpiarLoDicho` (el nombre real en vez del de la cuenta de Fathom).
+  assert.match(src, /dueno: d\.dueño,/);
+  assert.match(src, /dueño: rotuloDePersona\(limpio\.dueno, conocidos, dicho\),/);
   assert.match(src, /dichoPor: rotuloDePersona\(/);
-  assert.match(src, /coerceCandidatas\(obj, proyectos, yo, participantes, dicho\)/);
+  assert.match(src, /coerceCandidatas\(obj, proyectos, yo, participantes, dicho, control\)/);
   assert.match(src, /QUIÉN ES CADA UNO:[^\n]*"Otra persona"[^\n]*NUNCA un rol que dedujiste/);
 });
