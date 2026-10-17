@@ -24,6 +24,7 @@ import { BUCKET_ADJUNTOS, getMensajeConBloques, setBloques } from './chart-chats
 import { registrarDocumentoSinPisar, type RegistroArchivero } from './archivero';
 import { conArchivero, rutaDeAdjunto, sanearBloques, type BloqueChat, type EstadoArchivero } from './chat-mako-bloques';
 import type { AdjuntoListo } from './mako-adjuntos';
+import { nombrePegado } from './chat-pegado';
 
 /** Lo que dura el link firmado de un adjunto: lo que tarda en abrirse, no más. */
 const FIRMA_S = 300;
@@ -67,6 +68,41 @@ export async function urlFirmadaDeAdjunto(path: string): Promise<string | null> 
  * mensaje `msgId`: ahí se anota lo que pasó. Fuera de un pedido (un script) `after` tira y se hace en línea (molde:
  * app/api/offer/route.ts, `archivarDespues`).
  */
+/**
+ * Los TEXTOS PEGADOS largos de un mensaje del admin, a El Archivero (#884: «lo que se pega queda guardado solo en el
+ * Second Brain, sin pedirlo»). Cada uno es un documento de texto: El Archivero le saca los datos como a cualquier otro,
+ * así que entra al grafo (`doc:`) y alimenta el negocio. ENTERO: el mensaje del hilo lleva un tope (lib/chat-pegado.ts →
+ * recortarMensaje), El Archivero no. Después de responder, como los PDF; un fallo queda en el log y no corta el chat.
+ */
+export async function archivarPegadosDelChat(ws: number, inicio: number, pegados: readonly string[]): Promise<void> {
+  if (!pegados.length) return;
+  const trabajo = () => runWithWorkspace(ws, async () => {
+    for (const texto of pegados) {
+      const origen = `${ws}/chatdoc/${randomUUID()}`;
+      const nombre = `${nombrePegado(texto, 60)}.txt`;
+      const contenido = new TextEncoder().encode(texto);
+      try {
+        const { error } = await bucket().upload(origen, Buffer.from(contenido), { contentType: 'text/plain; charset=utf-8', upsert: false });
+        const r: RegistroArchivero = error
+          ? { ok: false, motivo: 'falló el almacenamiento de MaKo' }
+          : await registrarDocumentoSinPisar(ws, {
+            origen, contenido, nombre, mime: 'text/plain', texto,
+            motivo: `Second Brain → El Archivero: extraer campos de un texto pegado`, hastaMs: inicio + PLAZO_ARCHIVERO_MS,
+          });
+        if (!r.ok) console.error(`[chat-mako:archivero] el texto pegado «${nombre}» no quedó en El Archivero: ${r.motivo}`);
+      } catch (e) {
+        await borrarAdjuntos([origen]);
+        console.error('[chat-mako:archivero] texto pegado:', e instanceof Error ? e.message : e);
+      }
+    }
+  });
+  try {
+    after(trabajo);
+    return;
+  } catch { /* sin pedido: en línea */ }
+  await trabajo();
+}
+
 export async function archivarPdfsDelChat(ws: number, msgId: number, inicio: number, pdfs: ReadonlyArray<{
   i: number; contenido: Uint8Array; nombre: string; mime: string; texto: string;
 }>): Promise<void> {

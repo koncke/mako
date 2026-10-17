@@ -20,9 +20,11 @@ import Link from '@/app/_ui/Link';
 import { VistaCerebro } from './VistaCerebro';
 import { ChatSecondBrain } from './ChatSecondBrain';
 import { construirCerebro } from '@/lib/cerebro-grafo';
-import { tokenAgenteVisible } from '@/lib/agente-token';
-import { getWorkspaceActual } from '@/lib/workspace';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { chatsMakoDeQuienMira } from '@/lib/cerebro-chats';
+import { construccionDeMako } from '@/lib/cerebro-construccion-datos';
+import { getSesionAdmin } from '@/lib/auth';
+import { wsSuperAdmin } from '@/lib/workspace';
+import { puedeOperar } from '@/lib/operaciones-reglas';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { esVistaTicketera } from '@/app/tickets/decisiones/reglas';
 // La Ticketera vive adentro de Ops Center (16/10/2026): sus hojas las importa la página (CambioVista.tsx lo explica).
@@ -36,8 +38,9 @@ export type QuerySecondBrain = { chat?: string; panel?: string; area?: string; c
 /** ¿La URL pide el Mapa? `?panel=mapa`, o un `?area=` de los links de siempre. */
 export const pideElMapa = (q: QuerySecondBrain): boolean => q.panel === 'mapa' || !!q.area;
 
-/** El Mapa: el grafo del negocio, con el editor del funnel y la skill de Claude (VistaCerebro.tsx). Sólo adentro del `if`
- *  del Mapa de cada página. */
+/** El Mapa: el grafo del negocio, con el editor de cada área (VistaCerebro.tsx). Sólo adentro del `if` del Mapa de cada
+ *  página. Sin la skill de Claude desde el 17/10/2026 (Martín: «fuera el botón Conectar a Claude, el Centro ya lo hace por
+ *  defecto»): el token se sigue acuñando en /integraciones. */
 export async function mapaDelSecondBrain(): Promise<ReactNode> {
   // El embudo se configura ENTERO en el pop-up del CRM (29/09/2026): el área se nombra y se linkea, no se dibuja.
   const funnelPanel = (
@@ -47,14 +50,18 @@ export async function mapaDelSecondBrain(): Promise<ReactNode> {
       las etapas, la nutrición y cómo entra tu gente.
     </p>
   );
-  const ws = await getWorkspaceActual();
-  const [cerebro, agenteActual] = await Promise.all([
-    construirCerebro(),
-    // Sólo la pista y el alcance: el token se muestra una vez, al acuñarlo (09/10/2026).
-    ws == null ? Promise.resolve(null) : tokenAgenteVisible(ws).catch(() => null),
-  ]);
-  // `APP_BASE_URL` y no una variable de entorno a mano: la skill salía con `BASE=` vacío (lib/app-url.ts).
-  return <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} agenteActual={agenteActual} appUrl={APP_BASE_URL} />;
+  // Con los chats con MaKo de quien mira: son suyos, así que sólo los suma la pantalla (lib/cerebro-chats.ts). Y para
+  // quien OPERA (el super admin, con la misma guarda del Centro), la construcción de MaKo como segunda capa: a los demás
+  // no se les arma ni se les manda.
+  const [chatsMako, opera] = await Promise.all([chatsMakoDeQuienMira(), quienOpera()]);
+  const cerebro = await construirCerebro({ chatsMako });
+  const construccion = opera ? construccionDeMako() : null;
+  return <VistaCerebro cerebro={cerebro} construccion={construccion} funnelPanel={funnelPanel} />;
+}
+
+/** ¿Quien mira opera MaKo? La guarda del Centro de Operaciones (app/admin/operaciones/datos.ts), tal cual. */
+export async function quienOpera(): Promise<boolean> {
+  try { return puedeOperar(await getSesionAdmin(), await wsSuperAdmin()); } catch { return false; }
 }
 
 const enteroDe = (v: string | undefined): number | null => {

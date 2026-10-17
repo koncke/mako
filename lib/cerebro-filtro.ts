@@ -18,7 +18,7 @@
 // la pantalla en blanco sin haberlo pedido.
 // =============================================================================
 
-import { AREAS, type AreaId, type NodoCerebro } from './cerebro-modelo';
+import { AREAS, TAXONOMIA_NEGOCIO, type AreaId, type NodoCerebro, type Taxonomia } from './cerebro-modelo';
 
 /** Quién escribió el dato. Es una PARTICIÓN, no un conjunto de etiquetas: «MaKo + vos»
  *  es lo mismo que «todos», así que se elige uno solo. */
@@ -54,7 +54,7 @@ export const clonarFiltro = (f: EstadoFiltro): EstadoFiltro => ({
 /** El andamiaje del dibujo: la raíz, las carpetas madre y los nodos de área. Existen
  *  para sostener el mapa y NO son datos del negocio — no se cuentan, no se exportan y
  *  no se rigen por la autoría, porque no tienen una. */
-export const esAndamio = (n: NodoCerebro): boolean =>
+export const esAndamio = (n: Pick<NodoCerebro<string>, 'id'>): boolean =>
   n.id === 'raiz' || n.id.startsWith('area:') || n.id.startsWith('n1:');
 
 /**
@@ -68,12 +68,14 @@ export const esAndamio = (n: NodoCerebro): boolean =>
  * La raíz pasa siempre: es el centro del mapa y sin ella las áreas cuelgan de la nada.
  * Ojo con eso en cualquier conteo de cara al usuario — el mínimo alcanzable no es cero.
  */
-export function pasaFiltro(n: NodoCerebro, f: EstadoFiltro): boolean {
+export function pasaFiltro(n: NodoCerebro<string>, f: EstadoFiltro, tax: Taxonomia = TAXONOMIA_NEGOCIO): boolean {
   if (n.id === 'raiz') return true;
 
-  const suArea = AREAS.find((a) => a.id === n.area);
+  // La taxonomía del grafo que se mira (la de la construcción de MaKo tiene sus propias áreas): el filtro compara
+  // ids como texto, así que sirve para cualquiera.
+  const suArea = tax.areas.find((a) => a.id === n.area);
   if (f.carpetas.size && !f.carpetas.has(suArea?.padre ?? '')) return false;
-  if (f.areas.size && !f.areas.has(n.area)) return false;
+  if (f.areas.size && !(f.areas as ReadonlySet<string>).has(n.area)) return false;
 
   if (f.autoria !== 'todos') {
     if (esAndamio(n)) return true;

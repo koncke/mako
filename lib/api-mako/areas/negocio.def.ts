@@ -243,6 +243,27 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'markdown', canales: TODOS, costo: 'gratis', lenta: true, gating: { tab: 'second-brain', rolMinimo: 'admin' },
   },
+  // La recuperación por vista local (17/10/2026, docs/diseno-second-brain-grafo.md): un chat trae sólo los nodos que le
+  // sirven y no el cerebro entero (lib/cerebro-recuperar.ts). Sin IA: no cuesta un token de modelo recuperar.
+  {
+    id: 'indice_segundo_cerebro', area: 'negocio', tipo: 'lectura',
+    titulo: 'Índice del segundo cerebro',
+    descripcion: 'El índice del mapa del negocio: cada carpeta y cada área con cuántos datos tiene, una línea de qué es y hasta tres ejemplos con su id, más los puntos fijos (el Norte, el cuello de botella, los leads). Son unos cientos de tokens. Pídelo PRIMERO para saber qué hay, y después pide sólo lo que necesitas con recuperar_del_segundo_cerebro, en vez de leer el cerebro entero.',
+    parametros: [],
+    salida: 'markdown', canales: TODOS, costo: 'gratis', lenta: true, gating: { tab: 'second-brain', rolMinimo: 'admin' },
+  },
+  {
+    id: 'recuperar_del_segundo_cerebro', area: 'negocio', tipo: 'lectura',
+    titulo: 'Recuperar del segundo cerebro',
+    descripcion: 'La vista local del mapa del negocio para UNA pregunta: los datos que la pregunta nombra (o los `ids` que pidas, del índice o de una vista anterior) y sus vecinos, una línea por dato con su tipo, su id, su detalle, sus datos y con qué se conecta, hasta el `presupuesto` de tokens. Úsala en vez de leer el cerebro entero: trae sólo lo que hace falta. Sin nada que la pregunta nombre, devuelve el índice. Con `ids` y profundidad 0 trae esos datos ENTEROS.',
+    parametros: [
+      { nombre: 'pregunta', tipo: 'string', max: 500, descripcion: 'Lo que hay que contestar, con las palabras del dueño («¿cuánto cobro por la mentoría?»).' },
+      { nombre: 'ids', tipo: 'string[]', max: 30, descripcion: 'Ids de datos que ya conoces (del índice o de una vista anterior).' },
+      { nombre: 'profundidad', tipo: 'number', entero: true, minimo: 0, maximo: 2, descripcion: '0 = sólo esos datos (enteros), 1 = y sus vecinos (default), 2 = y los vecinos de ésos.' },
+      { nombre: 'presupuesto', tipo: 'number', entero: true, minimo: 200, maximo: 6000, descripcion: 'Tokens estimados del paquete. Default 1500.' },
+    ],
+    salida: 'markdown', canales: TODOS, costo: 'gratis', lenta: true, gating: { tab: 'second-brain', rolMinimo: 'admin' },
+  },
   {
     id: 'ver_glosario_negocio', area: 'negocio', tipo: 'lectura',
     titulo: 'Glosario del negocio',
