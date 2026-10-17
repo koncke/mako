@@ -88,7 +88,7 @@ export function BotonEmojis({ campo, valor, onValor, apagado }: {
             {lista.map((e) => (
               <button key={e} type="button" role="option" aria-selected={false} className="co-emojis__emoji" onPointerDown={(ev) => ev.preventDefault()} onClick={() => poner(e)}>{e}</button>
             ))}
-            {!lista.length && <p className="co-emojis__vacio">Los que uses van a aparecer acá.</p>}
+            {!lista.length && <p className="co-emojis__vacio">Los que uses aparecerán aquí.</p>}
           </div>
           <div className="co-emojis__pestanas" role="tablist">
             <button type="button" role="tab" aria-selected={cat === 'recientes'} className="co-emojis__pestana" onClick={() => setCat('recientes')} aria-label="Recientes" title="Recientes">🕘</button>
