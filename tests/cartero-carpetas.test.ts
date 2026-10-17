@@ -133,6 +133,42 @@ test('reparte: MaKo reclama sólo lo que un Runner alcanza, y cada Runner entreg
   }
 });
 
+// El modelo y el esfuerzo (17/10/2026): la PC se los pasa al Runner con la sesión, para que los aplique antes de entregar,
+// y sólo en un chat de la APP. Probado ROMPIÉNDOLO: `comoCorre` sin mirar `local_` → 2 fallos (éste y el del arnés, cuyos
+// chats son de terminal). El arnés no arma chats de la app: que el buzón use `comoCorre` lo mira la última línea.
+test('el modelo y el esfuerzo viajan al Runner sólo para un chat de la app', async () => {
+  const { comoCorre } = await import('../scripts/operaciones/cartero.mjs');
+  const app = 'local_0b1c2d3e-4f50-4a61-8b72-9c83d4e5f601';
+  assert.deepEqual(comoCorre({ destino: app, modelo: 'sonnet', esfuerzo: null }), { sesion: app, modelo: 'sonnet', esfuerzo: null });
+  assert.deepEqual(comoCorre({ destino: app }), {}, 'sin elegir nada, nada');
+  assert.deepEqual(comoCorre({ destino: local(1), modelo: 'sonnet', esfuerzo: 'low' }), {}, 'a uno de terminal no se le puede cambiar');
+  assert.match(readFileSync(CARTERO, 'utf8'), /mensaje: mensaje\(l\.p\),\s*\.\.\.comoCorre\(l\.p\),/, 'el buzón lleva lo que dice comoCorre');
+});
+
+test('lo que trae modelo o esfuerzo sale por la PC como siempre a un chat de terminal (sin pedirle al Runner que lo cambie)', async () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const spki = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
+  const ahora = Date.now();
+  const firmar = (n: number, como: { modelo?: 'sonnet'; esfuerzo?: 'low' }) => {
+    const firmado = armarFirmable(nuevoPayload({ id: id(n), texto: `para ${n}`, destino: local(n), cuenta: 'claude4', titulo: 'x', alcance: 'solo_esto', ...como }, ahora));
+    return { id: id(n), firmado, firma: sign('sha256', Buffer.from(firmado, 'utf8'), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64') };
+  };
+  const pc = await armarPC((_, n) => ({ pedidos: n === 1 ? [firmar(1, { modelo: 'sonnet', esfuerzo: 'low' }), firmar(2, {})] : [] }));
+  const v = vivos(3);
+  const cfg = pc.carpeta('a');
+  try {
+    pc.sesion(cfg, v.pids[0], 'Runner'); pc.sesion(cfg, v.pids[1], 'CRM', 1); pc.sesion(cfg, v.pids[2], 'Pagos', 2);
+    pc.config({ claude4: { fuentes: [{ fuente: 'cli', configDir: cfg }] } });
+    writeFileSync(join(pc.dir, 'claves.txt'), `${spki}\n`);
+    const o = await pc.json(['ciclo'], cfg, v.pids[0]) as { entregar: Array<Record<string, unknown>> };
+    // En este arnés los chats son de TERMINAL (`cli_`): el trabajo con modelo sale, sin pedirle al Runner que lo cambie.
+    assert.deepEqual(o.entregar.map((e) => e.id).sort(), [id(1), id(2)].sort(), 'los dos salen');
+    for (const e of o.entregar) assert.ok(!('modelo' in e) && !('sesion' in e), `${e.id}: sin pedido de modelo`);
+  } finally {
+    v.matar(); pc.cerrar();
+  }
+});
+
 test('un chat que no es el Runner no se queda con lo del buzón', async () => {
   const pc = await armarPC(() => ({}));
   const v = vivos(1);

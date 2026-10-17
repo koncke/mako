@@ -956,6 +956,45 @@ descarta la de 5 horas si tiene más de 30 minutos. Además:
 - lib/centro-chats.ts (`porRevisar`, `rutaDeLaTab`, `destinoDeReview`) y lib/centro-uso.ts (`cuentasDeUso`, `sanearPlan`);
 - tests/centro-revisar.test.ts, centro-uso.test.ts y tickets-decisiones-mazo.test.ts.
 
+## La cuenta «Automático», el modelo y el esfuerzo: lo que se elige y lo que no se puede (17/10/2026)
+
+**El pedido.** Martín, en el mismo feedback:
+- el punto 3: «Al enviar un prompt por el Second Brain no me deja seleccionar qué cuenta... Si no selecciono nada que lo
+  decida solo, pero debería poder seleccionar»;
+- el punto 7: «que los jefes y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y
+  eligiendo qué modelo de IA debe correr».
+
+**Elegir la cuenta es elegir a cuál de SUS sesiones va el trabajo.** Un chat es un nombre con una sesión por cuenta
+(`unirPorNombre`). La lectura obvia era «mandarlo a cualquier cuenta», y es la equivocada: una cuenta en la que el chat
+no está abierto no tiene a quién entregarle. Por eso el selector ofrece sólo las cuentas donde el chat vive, y abrirlo en
+otra es el «un clic» (docs/diseno-nuevo-chat-un-clic.md).
+
+«Automático» (`sesionAutomatica`, lib/centro-cuentas.ts) elige así:
+1. Primero la sesión que recibe ya: abierta, al día, con Runner en su carpeta y el de su cuenta vivo.
+2. Entre ésas, la de más cuota libre, y lo libre lo decide la ventana MÁS gastada (5 horas o semanal).
+3. Lo que no se sabe va después de lo que se sabe: tratar «sin dato» como «todo libre» mandaba todo a la cuenta sin
+   medir.
+
+**El modelo y el esfuerzo no se pueden cambiar en un chat de terminal.** `set_session_model` y `set_session_effort` son
+herramientas de la APP: un chat de terminal no tiene cómo recibir el cambio desde afuera, y la sesión no puede cambiarse
+el suyo (el sistema lo prohíbe: «a session must not silently re-price its own turns»). Así funciona:
+- en un chat de terminal, el selector aparece apagado y dice por qué;
+- en uno de la app, el modelo y el esfuerzo viajan FIRMADOS, opcionales: sin elegir nada, el texto firmado es idéntico al
+  de antes (la regla quedó en AGENTS.md);
+- la PC se los pasa al Runner con la sesión (`comoCorre`, cartero.mjs 1.7.0), y el Runner los aplica antes de entregar;
+- «Automático» no toca nada: lo decide el Cerebro;
+- vuelven a «Automático» después de mandar, como el alcance. Así el Runner no cambia el modelo en cada trabajo, y cada
+  cambio puede pedirle permiso a Martín en la app.
+
+**Sin medir:** si la app le pide permiso a Martín cada vez que el Runner cambia el modelo de OTRA sesión. La herramienta
+dice que sí («any other session, and the app asks the user first»), salvo en modo auto. Si pregunta siempre, el Runner se
+frena esperando: hay que mirarlo en la primera prueba.
+
+**Vive en:** lib/centro-cuentas.ts · lib/operaciones-reglas.ts (`MODELOS`, `ESFUERZOS`, `armarFirmable`) ·
+app/admin/operaciones/useCentro.ts y PiezasCentro.tsx (`SelectoresDeEnvio`) · app/m/operaciones/ChatsMovil.tsx ·
+scripts/operaciones/cartero.mjs (`comoCorre`) · lib/runner.ts (el paso b) · tests/centro-cuentas.test.ts,
+tests/operaciones.test.ts y tests/cartero-carpetas.test.ts
+
 ## La cuenta 4, y una sesión de la app SÍ abre chats visibles (17/10/2026)
 
 **Una sesión de la app ya puede crear chats.** Lo de arriba («el Centro no puede abrir un chat de Claude Code (medido)», 16/10) quedó viejo para la app de escritorio. La noche del 16 al 17/10, el Cerebro de la cuenta 4 abrió siete chats con `mcp__ccd_session__start_session`: CRM, Onboarding, Centro de Operaciones, Automations, Runner, Video Generator y Dashboard. Cada uno llevaba título y brief, y quedó en la barra lateral. La herramienta aparece como diferida y se carga con ToolSearch. El chat creado arranca solo con su brief y le avisa a quien lo abrió cuando termina un turno. Lo que sigue sin poder hacer una sesión de la app es abrir una de TERMINAL (otra carpeta de config). Para eso, Martín pidió (17/10) «un clic + el permiso de la PC», nunca pegar un comando: está repartido al chat del Centro.

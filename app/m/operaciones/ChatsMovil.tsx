@@ -47,6 +47,9 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const metaDe = (c: ChatCentro) => ESTADO[c.estado];
 import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
+import type { Centro } from '@/app/admin/operaciones/useCentro';
+import { SelectoresDeEnvio } from '@/app/admin/operaciones/PiezasCentro';
+import { aceptaModelo } from '@/lib/centro-cuentas';
 
 /** Cuántos chats se ven antes de «Ver todos». */
 const VISIBLES = 10;
@@ -60,7 +63,10 @@ const edad = (t: number | null, ahora: number): string => {
   return `${Math.round(s / 86_400)} d`;
 };
 
-export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos, decisiones, responder, tabs, parte, tituloChats = 'Chats', abierto: abiertoFuera, onAbierto }: {
+export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos, decisiones, responder, tabs, parte, tituloChats = 'Chats', abierto: abiertoFuera, onAbierto, centro }: {
+  /** El motor del Centro (useCentro.ts): con él, la caja elige la cuenta, el modelo y el esfuerzo (17/10/2026), igual que
+   *  la de la computadora (PiezasCentro.tsx → SelectoresDeEnvio). */
+  centro?: Centro;
   /** Sólo las filas o sólo la hoja de la conversación (ver arriba); sin esto, las dos. */
   parte?: 'lista' | 'hoja';
   /** El título de la sección de los jefes (en el Second Brain, «Claude Code»: «Chats» ahí son los de MaKo). */
@@ -116,18 +122,23 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
 
   if (!chats.length) return parte === 'hoja' ? null : <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />;
 
-  const envio = elegido ? comoSale(elegido, carteros, firma.clave === undefined ? undefined : firma.clave?.id ?? null, ahora) : null;
+  // La sesión a la que va: la de la cuenta elegida (o la automática) si está el motor; si no, la del chat.
+  const destino = elegido ? (centro ? centro.destinoDeChat(elegido) : elegido) : null;
+  const envio = destino ? comoSale(destino, carteros, firma.clave === undefined ? undefined : firma.clave?.id ?? null, ahora) : null;
   const texto = elegido ? borradores[elegido.clave] ?? '' : '';
 
   async function mandar() {
-    if (!elegido?.sesion || !envio?.puede || enviando || !texto.trim()) return;
+    if (!elegido || !destino?.sesion || !envio?.puede || enviando || !texto.trim()) return;
     setEnviando(true);
-    const r = await firma.mandar({ sesion: elegido.sesion, cuenta: elegido.cuenta, titulo: elegido.titulo }, texto, alcance);
+    const como = centro && aceptaModelo(destino.sesion) ? { modelo: centro.modelo, esfuerzo: centro.esfuerzo } : {};
+    const r = await firma.mandar({ sesion: destino.sesion, cuenta: destino.cuenta, titulo: elegido.titulo }, texto, alcance, como);
     setEnviando(false);
     if (!r.ok) { toast(r.error); return; }
-    onEnviado({ id: r.id, destino: elegido.sesion, destino_titulo: elegido.titulo, destino_cuenta: elegido.cuenta, created_at: r.creado, texto: texto.trim(), estado: 'escrito', motivo: null, cierre: null });
+    onEnviado({ id: r.id, destino: destino.sesion, destino_titulo: elegido.titulo, destino_cuenta: destino.cuenta, created_at: r.creado, texto: texto.trim(), estado: 'escrito', motivo: null, cierre: null });
     setBorradores((b) => ({ ...b, [elegido.clave]: '' }));
     setAlcance('solo_esto');
+    centro?.setModelo(null);
+    centro?.setEsfuerzo(null);
   }
   const copiarClave = async () => {
     if (!firma.clave) return;
@@ -189,6 +200,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           <button type="button" className="co-chip" aria-pressed={alcance === 'de_ahora_en_mas'} onClick={() => setAlcance(alcance === 'solo_esto' ? 'de_ahora_en_mas' : 'solo_esto')}>
             {alcance === 'solo_esto' ? 'Sólo esto' : 'Y de ahora en más'}
           </button>
+          {centro && <SelectoresDeEnvio centro={centro} chat={elegido} />}
           {estado && <span className="m-operaciones-caja__estado">{estado}</span>}
         </div>
       </div>

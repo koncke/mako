@@ -15,7 +15,7 @@
 // de cada chat, con un chip»), y a la derecha el botón «Avance» abre la barra derecha con el roadmap de ESTE chat
 // (Avance.tsx), como la de Offer.
 
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
@@ -32,8 +32,10 @@ const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabaja
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
-  avance, onAvance, aspecto, onMenu, onMuneco, preguntas, respuestas, responder,
+  avance, onAvance, aspecto, onMenu, onMuneco, preguntas, respuestas, responder, selectores,
 }: {
+  /** A qué cuenta va y con qué modelo y esfuerzo corre (PiezasCentro.tsx → SelectoresDeEnvio), en la barrita de la caja. */
+  selectores?: ReactNode;
   /** Las tarjetas de la Ticketera que ESTE chat espera (lib/centro-preguntas.ts): se contestan arriba de la caja. */
   preguntas: readonly Decision[];
   /** Las suyas ya contestadas: van en la conversación como respuestas de Martín. */
@@ -160,6 +162,7 @@ export function Conversacion({
               >
                 {alcance === 'solo_esto' ? 'Sólo esto' : 'Y de ahora en más'}
               </button>
+              {selectores}
               <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} apagado={enviando} />
               <button type="button" className="co-enviar" onClick={onMandar} disabled={enviando || !texto.trim()} aria-label="Firmar y mandar" title="Firmar y mandar (Enter)">
                 {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
