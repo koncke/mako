@@ -323,7 +323,7 @@ test('revisión final: «Guardar» revalida el curso (el Atrás), la disposició
   // la Vista del alumno dibujaba la clase de antes de guardar, y el próximo «Guardar» chocaba consigo mismo.
   const acc = sinComentarios(leer('app/customer-success/curso/modulos-actions.ts'));
   const action = entre(acc, 'export async function guardarLeccionAction', '\n}\n');
-  assert.match(action, /const r = await guardarLeccion\(Number\(claseId\), cambios, antes\);\s*if \(r\.ok\) revalidatePath\('\/customer-success\/curso'\);\s*return r;/);
+  assert.match(action, /const r = await guardarLeccion\(Number\(claseId\), cambios, antes\);\s*if \(r\.ok\) revalidatePath\('\/clients\/classroom'\);\s*return r;/);
   // Esa vuelta trae los ajustes del SERVER (CursoApp resiembra `estilos`): la disposición se guarda ANTES.
   const lec = sinComentarios(leer('app/customer-success/curso/LeccionEditable.tsx'));
   const guardar = entre(lec, 'const guardar = useCallback(', '}, [poner, oRef]);');

@@ -95,7 +95,7 @@ test('las dos puertas listan con cursoSeLista: el portal del alumno y la vista p
   const vista = portal.slice(i, portal.indexOf('\n}\n', i));
   assert.match(vista, /if \(!cursoSeLista\(cur\.modulos, clases, permitido\)\) continue;/);
   assert.doesNotMatch(vista, /if \(!clases\.length\) continue;/, 'volvió el corte por «sin clases»');
-  const previa = sinComentarios(leer('app/customer-success/curso/vista/page.tsx'));
+  const previa = sinComentarios(leer('app/customer-success/curso/vista/pantalla.tsx'));
   assert.match(previa, /productos: cursoSeLista\(cur\.modulos, clases\) \? \[\{/);
   assert.doesNotMatch(previa, /productos: clases\.length \?/);
 });

@@ -36,6 +36,7 @@ import { tabEnCapa } from './capas';
 import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
 import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from './ruta-web-generator';
+import { SECCIONES_COMUNIDAD as SECCIONES_COMUNIDAD_CLIENTS } from './clients-rutas';
 
 /** Los cinco destinos FIJOS de la barra. `hoy` es General (la portada; su ruta interna es /m/hoy). */
 export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
@@ -175,8 +176,8 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel'], // app/offer/page.tsx (el «Analizar oferta →» del CRM)
   copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
-  curso: ['producto'], // app/customer-success/curso/page.tsx
-  comunidad: ['producto', 'post'], // app/customer-success/comunidad/page.tsx (`?post=N` abre ESE post)
+  curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Clients › Classroom)
+  comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Clients › Community; `?post=N` abre ESE post)
 };
 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;
@@ -422,9 +423,14 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // Copywriting: lo que un cliente ve de esa tab unificada es Ads Writer (y /content-machine, el destino que
   // su código ya declara). Ideas, YouTube Writer y Stories son del super admin y se quedan en la computadora.
   if (dentro(p, '/ads-writer') || dentro(p, '/content-machine')) return aSeccion('copywriting', q);
-  // Curso y Comunidad, ANTES que Clientes (que se queda con el resto de /customer-success). El Avance se
-  // fue del Curso a Clientes: un link viejo (`/customer-success/curso?vista=avance`) en escritorio
-  // redirige a /customer-success (app/customer-success/curso/page.tsx), y acá también va a Clientes.
+  // La tab Clients (17/10/2026, docs/diseno-clients.md): Classroom y las cinco sub-tabs de la comunidad, ANTES que
+  // Clients (que se queda con el resto de /clients). El teléfono sigue con sus tres pantallas.
+  if (dentro(p, '/clients/classroom')) return aSeccion('curso', q);
+  if (SECCIONES_COMUNIDAD_CLIENTS.some((s) => dentro(p, `/clients/${s}`))) return aSeccion('comunidad', q);
+  if (dentro(p, '/clients')) return '/m/cs';
+  // Las rutas VIEJAS de Customer Success (links ya mandados): en escritorio redirigen a /clients
+  // (app/customer-success/a-clients.ts); el teléfono las lleva directo a su pantalla. Curso y Comunidad, ANTES que
+  // Clientes. El Avance se fue del Curso a Clientes: `/customer-success/curso?vista=avance` va a Clientes.
   if (dentro(p, '/customer-success/curso')) return q.get('vista') === 'avance' ? '/m/cs' : aSeccion('curso', q);
   if (dentro(p, '/customer-success/comunidad')) return aSeccion('comunidad', q);
   if (dentro(p, '/customer-success')) return '/m/cs';
@@ -531,9 +537,9 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/experimentos') destino = '/experimentos';
   else if (p === '/m/offer') destino = '/offer';
   else if (p === '/m/copywriting') destino = '/ads-writer';
-  else if (p === '/m/curso') destino = '/customer-success/curso';
-  else if (p === '/m/comunidad') destino = '/customer-success/comunidad';
-  else if (p === '/m/cs') destino = '/customer-success';
+  else if (p === '/m/curso') destino = '/clients/classroom';
+  else if (p === '/m/comunidad') destino = '/clients/community';
+  else if (p === '/m/cs') destino = '/clients';
   else if (p === '/m/automations') destino = RUTA_AUTOMATIONS;
   else if ((m = p.match(/^\/m\/video\/([^/]+)$/))) { destino = '/video-generator'; q.set('plan', m[1]); }
   else if (p === '/m/video') destino = '/video-generator';

@@ -465,11 +465,14 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'customer-success', titulo: 'Customer Success', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'parcial', verEnApp: '/customer-success', hallazgos: 'hallazgos-customer-success',
+    estado: 'parcial', verEnApp: '/clients', hallazgos: 'hallazgos-customer-success',
     alcance: 'Lo que pasa DESPUÉS del pago, para cualquier workspace. CONSTRUIDO (/customer-success): la cartera (los leads ganados del CRM), cuál necesita atención hoy y por qué (lib/cs-senal.ts, que además ORDENA la pantalla), qué dice el contrato, el trabajo abierto de ese cliente en el tablero, y el estado en la entrega —activo, pausado, graduado, baja—, que es una DECISIÓN que se marca a mano. El CS Analyst es, desde el 12/10/2026, la hoja «CS Analyst» del Dashboard (la cartera, la entrega y las sesiones; /cs-analyst redirige). SIN CONSTRUIR: anticipar una baja leyendo las llamadas de entrega, y los casos de éxito.',
     // La carpeta entera: el kanban, la tabla, el lote, el editor de etapas y las pestañas de
     // la ficha nacieron el 05/10 y la lista archivo por archivo no los veía.
-    vive: ['app/customer-success/', 'lib/servicio-etapas.ts', 'lib/cs-mover-etapa.ts', 'lib/entrega-servicio.ts', 'lib/clientes-ganados.ts', 'app/plan/board/filtro-cliente.ts',
+    // La tab Clients (17/10/2026, docs/diseno-clients.md): la cabecera y las rutas nuevas, y MaKo Partners (las cuentas
+    // de los clientes de una agencia, que salieron de esta carpeta).
+    vive: ['app/clients/', 'lib/clients-rutas.ts', 'app/partners/', 'lib/partners.ts', 'docs/diseno-clients.md', 'docs/hallazgos-partners.md',
+      'app/customer-success/', 'lib/servicio-etapas.ts', 'lib/cs-mover-etapa.ts', 'lib/entrega-servicio.ts', 'lib/clientes-ganados.ts', 'app/plan/board/filtro-cliente.ts',
       // La cartera (#109, 07/10/2026): el último contacto como UNA regla y la alerta de baja al dueño.
       'lib/cs-contacto.ts', 'lib/cs-sin-contacto.ts', 'app/api/cron/cs-sin-contacto/',
       'app/customer-success/page.tsx', 'app/customer-success/ClientesApp.tsx', 'app/customer-success/FichaCliente.tsx', 'app/customer-success/ClienteCard.tsx', 'app/customer-success/NuevoCliente.tsx', 'lib/cs-autoasignar.ts', 'app/customer-success/actions.ts', 'app/customer-success/trabajo.ts', 'app/customer-success/cruce.ts', 'lib/cs-cartera.ts', 'lib/cs-senal.ts', 'lib/cs-contrato.ts', 'lib/plan-clientes.ts', 'app/plan/board/AsignarCliente.tsx', 'supabase/migrations/0172_trabajo_de_un_cliente.sql', 'lib/portadas.ts', 'app/_components/PortadaPicker.tsx', 'app/api/portadas/route.ts', 'supabase/migrations/0173_portadas_y_fotos.sql', 'lib/api-mako/areas/cs.def.ts', 'lib/api-mako/areas/cs.run.ts', 'lib/api-mako/areas/cs.helpers.ts', 'app/cs-analyst/page.tsx', 'app/_components/ComingSoon.tsx', 'app/admin/dev/customer-success/roadmap-cs.ts', 'docs/sprint-servicio-mauricio.md', 'public/vsl-assets/mako-cs.html',

@@ -105,6 +105,6 @@ test('el admin global SIN cliente SÍ se desvía, a SU negocio (Martín, 12/10: 
   const guard = leer('lib/movil-guard.ts');
   assert.ok(guard.includes("if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(HOME_MOVIL, await wsSuperAdmin()));"), 'el guard no manda al admin sin cliente a su negocio');
   assert.ok(!guard.includes("redirect('/inicio')"), 'volvió el rebote a /inicio: con el desvío prendido, un bucle');
-  // Y /inicio, en un teléfono, lo manda a /m (no a /customer-success, que el desvío taparía).
-  assert.ok(leer('app/inicio/page.tsx').includes("if (ws == null) redirect(telefono ? '/general' : '/customer-success');"), '/inicio no reparte al teléfono');
+  // Y /inicio, en un teléfono, lo manda a /m (no a /clients, ex /customer-success, que el desvío taparía).
+  assert.ok(leer('app/inicio/page.tsx').includes("if (ws == null) redirect(telefono ? '/general' : '/clients');"), '/inicio no reparte al teléfono');
 });

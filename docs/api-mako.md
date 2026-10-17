@@ -14412,7 +14412,7 @@ curl -L \
 
 ## Curso (módulos y clases) — `curso`
 
-Tab **Customer Success › Curso** (`/customer-success/curso`). 3 lecturas · 8 acciones.
+Tab **Clients › Classroom** (`/clients/classroom`). 3 lecturas · 8 acciones.
 
 ### `GET /api/v1/curso/cursos` — Listar los cursos
 

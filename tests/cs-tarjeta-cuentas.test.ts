@@ -4,7 +4,7 @@
 // «En el detail de un cliente, la tab de "Equipo" y en general todo lo que tenga que ver
 // con invitar a MaKo, debería solo verse si la cuenta es AGENCIA, sino, no deberían estar
 // esas opciones» (Martín, 05/10/2026). Quién es agencia lo decide el SERVER
-// (`cuentas.visible`, app/customer-success/page.tsx); la TARJETA lo aplica en un solo
+// (`cuentas.visible`, app/customer-success/pantalla.tsx); la TARJETA lo aplica en un solo
 // lugar, y eso es lo que este archivo fija.
 //
 // Lo que había antes y por qué esto existe: el menú «Acciones» y el control de la cuenta

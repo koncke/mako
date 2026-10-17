@@ -203,7 +203,7 @@ test('la lectura de accesos trae el email y la invitación, y una fila invitada 
   assert.equal(estadoDeInvitacion(accesoDeFila({ estado: 'sin-link', ingresos: 0, ultimoIngresoAt: null })).tipo, 'sin-invitar');
   assert.equal(accesoDeFila(null), null, 'sin leer no es «sin invitar»');
   // Y la página de Clientes le pasa el email del CRM a la fila (con él se prellena el modal).
-  const page = sinComentarios(leer('app/customer-success/page.tsx'));
+  const page = sinComentarios(leer('app/customer-success/pantalla.tsx'));
   assert.match(page, /email: c\.email \?\? null, etapa, \.\.\.a, acceso: accesoDe\(c\.leadId\)/);
 });
 

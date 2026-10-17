@@ -88,8 +88,9 @@ test('las siete nuevas: su ruta del teléfono, la de escritorio, la key que las 
     ['offer', '/m/offer', '/offer', 'offer', 'sales'],
     // La tab unificada Copywriting abre su sección Ads Writer, y es esa key la que gatea (requireRolWs de /ads-writer).
     ['copywriting', '/m/copywriting', '/ads-writer', 'ads-writer', 'content'],
-    ['curso', '/m/curso', '/customer-success/curso', 'cs-curso', 'customer'],
-    ['comunidad', '/m/comunidad', '/customer-success/comunidad', 'cs-comunidad', 'customer'],
+    // Desde el 17/10/2026 la URL de escritorio es la de la tab Clients (docs/diseno-clients.md).
+    ['curso', '/m/curso', '/clients/classroom', 'cs-curso', 'customer'],
+    ['comunidad', '/m/comunidad', '/clients/community', 'cs-comunidad', 'customer'],
   ]);
 });
 
@@ -173,7 +174,7 @@ test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo
   // Curso y Comunidad piden en escritorio la capa de Customer Success (`requireCapa`), y la sidebar, sólo el admin.
   for (const id of ['curso', 'comunidad'] as const) {
     const s = seccion(id);
-    assert.ok(leer(`app/customer-success/${id}/page.tsx`).includes("requireCapa('customer-success')"), `${id}: cambió el guard de escritorio`);
+    assert.ok(leer(`app/customer-success/${id}/pantalla.tsx`).includes("requireCapa('customer-success')"), `${id}: cambió el guard de escritorio`);
     for (const capa of Object.keys(CAPAS) as CapaId[]) {
       assert.equal(puedeVerKey(s.navKey, 'admin', capa), tabEnCapa('customer-success', capa), `${id} en la capa ${capa}`);
     }

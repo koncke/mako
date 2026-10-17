@@ -106,17 +106,21 @@ test('Mercado Pago recibe `start_date` sólo cuando hay inicio', () => {
 });
 
 test('abrir la cuenta crea el link del primer mes y, sin link, la cuenta queda como siempre', () => {
-  const a = fuente('app/customer-success/actions.ts');
+  // Desde el 17/10/2026 abrir la cuenta de un cliente de agencia es UNA implementación, la de MaKo Partners
+  // (lib/partners.ts); la acción de Clients la envuelve (docs/diseno-clients.md, D8).
+  const a = fuente('lib/partners.ts');
   const i = a.indexOf('await crearUsuario({');
-  const j = a.indexOf('const cobro = await linkPrimerMes({ agenciaWs, clienteWs: ws.id');
+  const j = a.indexOf('const cobro = await linkPrimerMes({ agenciaWs: p.agenciaWs, clienteWs: ws.id');
   assert.ok(i > 0 && j > i, 'el link sale después de crear la cuenta y su usuario');
-  assert.match(a, /return \{ ok: true, clienteWs: ws\.id, estado: 'pendiente', link: cobro\.ok \? cobro\.link : null, sinLink: cobro\.ok \? null : cobro\.motivo \};/);
+  assert.match(a, /return \{ ok: true, clienteWs: ws\.id, link: cobro\.ok \? cobro\.link : null, sinLink: cobro\.ok \? null : cobro\.motivo \};/);
+  assert.match(fuente('app/customer-success/actions.ts'), /const r = await abrirCuentaDePartner\(\{ agenciaWs,/, 'la de Clients es un envoltorio');
 });
 
 test('⚠️ una agencia ve SÓLO sus cobros: la lectura filtra por `agencia_ws`', () => {
   const s = fuente('lib/agencia-cobro.ts');
   assert.match(s, /\.eq\('workspace_id', plataforma\)\.eq\('agencia_ws', agenciaWs\)/);
-  assert.match(fuente('app/customer-success/page.tsx'), /cobrosPorWs: esAg && agenciaWs \? await cobrosDeClientesDeAgencia\(agenciaWs\) : \{\}/);
+  // Lo lee MaKo Partners (lib/partners.ts), sólo para una agencia del programa, con SU workspace.
+  assert.match(fuente('lib/partners.ts'), /cobrosDeClientesDeAgencia\(agenciaWs\)/);
 });
 
 test('la renovación nace del cron al terminar el onboarding, con su inicio, y el cron no corta la respuesta', () => {

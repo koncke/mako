@@ -306,7 +306,7 @@ test('el lector PAGINA (wa_mensajes del ws1 pasa las mil filas), por `id`, de a 
 });
 
 test('la página trae el último contacto por ESE lector y distingue «nunca» de «no pude»', () => {
-  const page = sinComentarios(leer('app/customer-success/page.tsx'));
+  const page = sinComentarios(leer('app/customer-success/pantalla.tsx'));
   assert.match(page, /const lecturaContacto = ultimoContactoDeClientes\(clientes\.map\(\(c\) => c\.leadId\)\);/);
   assert.match(page, /contactoUltimo: contactos \? \(contactos\[c\.leadId\] \?\? \{ fecha: null, via: null \}\) : null,/);
 });
