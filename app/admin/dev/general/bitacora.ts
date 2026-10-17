@@ -580,4 +580,38 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/general',
   },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'General en el celular: pasar de una hoja a otra (#872)',
+    pedido: 'Ahí yo me llevo como feedback ponerlo en la vista de mobile, porque actualmente solamente se puede…',
+    puntos: ['De la llamada Mau <> Martín del 16/10 (33:14): Mauricio, en su celular, creó plantillas de General y sólo veía una hoja. Lo repartió el Cerebro al chat Dashboard el 17/10 (dueño de las hojas de General).'],
+  },
+  {
+    fecha: '17 oct', hora: '08:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'General en el celular con todas sus hojas',
+    puntos: [
+      'Si tu General tiene más de una hoja, en el celular aparecen arriba sus nombres: tocas uno y ves esa hoja.',
+      'Con más de tres hojas, los nombres se deslizan de costado en vez de cortarse.',
+      'El link de cada hoja es el mismo en la computadora y en el celular.',
+    ],
+    archivos: ['app/m/hoy/page.tsx', 'app/m/hoy/modelo.ts', 'app/m/hoy/hoy.css', 'tests/m-hoy-hojas.test.ts — probado rompiéndolo'],
+    revisar: '/general',
+  },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'General con la búsqueda y el filtro de fecha por defecto (#858)',
+    pedido: 'al momento de crear una plantilla en la tab general no aparece el filtro de, por defecto que debería aparecer de fecha y el por defecto que debería aparecer el tema de la barra de búsqueda. Esas dos cosas siempre deberían aparecer por defecto y no aparecen y tampoco aparece en la edición el botón de agregarlo',
+    puntos: ['De la revisión de MaKo del 16/10 (1:10:12), mirando la General de una clienta. Revierte lo del 14/10 («menos la barra de busqueda y el filtro que no sirven en general»).'],
+  },
+  {
+    fecha: '17 oct', hora: '09:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'General con la búsqueda y el filtro de fecha',
+    puntos: [
+      'Arriba de cada hoja de General vuelven la barra de búsqueda y el filtro con el período, como en el Dashboard.',
+      'Editando, el filtro ofrece «Agregar filtro».',
+      'El período cambia los gráficos de la hoja; los bloques de General siguen con su propio rango (del mes, hoy).',
+    ],
+    archivos: ['app/dashboard/EditorInforme.tsx', 'tests/general-filtros-por-defecto.test.ts — probado rompiéndolo'],
+    revisar: '/general',
+  },
 ];

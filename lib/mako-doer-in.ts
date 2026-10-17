@@ -311,7 +311,7 @@ const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, 
 - Análisis de una llamada de ventas: ${APP_URL}/dashboard?hoja=closing&llamada={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tienes, ${APP_URL}/dashboard?hoja=closing.
 - Los chats con un lead (WhatsApp, Instagram y Messenger en un solo hilo): ${APP_URL}${RUTA_CHATS}?${PARAM_CHATS.lead}={id}
 - Marketing / anuncios: ${APP_URL}/dashboard · Ads Manager: ${APP_URL}/ads-manager
-- Experimentos (verdades validadas): ${APP_URL}/experimentos
+- Experimentos (lo que se está probando y lo que el dato ya confirmó): ${APP_URL}/dashboard · se piden con «Editar con MaKo» («probemos…»)
 - Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email
 - Salud de la cuenta de Meta: ${APP_URL}/integraciones
 Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes aquí → ${APP_URL}/dashboard?hoja=closing".`;

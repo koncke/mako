@@ -41,6 +41,10 @@
 // editor la agrega con `mutar` (una foto de deshacer) y la abre. Después de `onCrear` el modal llama a `onCerrar`: que
 // el editor también lo cierre no rompe nada.
 //
+// ⚠️ UNA PLANTILLA NO ESPERA (#857, 17/10/2026): la hoja entra AL INSTANTE con la plantilla tal cual y la ajustada a los
+// datos del negocio llega después por `onRellenar` (lib/graficos-plantilla-relleno.ts dice cuándo reemplaza). Ese pedido
+// NO se corta al cerrar el modal: el modal se cierra apenas se crea la hoja.
+//
 // ⚠️ EL ESTADO «PENSANDO» VA ADENTRO DEL MODAL, no en una capa por portal: la de Automations es
 //    `zIndex: 125` y un Modal de la pila arranca en 130 (app/_components/pila-modales.ts), así que
 //    encima de éste quedaría DEBAJO, sin un error.
@@ -127,15 +131,13 @@ const CSS = `
   box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 6%,transparent),0 6px 18px color-mix(in srgb,var(--ink) 7%,transparent);transition:box-shadow .15s,transform .15s,border-color .15s}
 .nh-plantilla:hover:not(:disabled),.nh-plantilla:focus-visible{border-color:var(--primary);box-shadow:0 2px 4px color-mix(in srgb,var(--ink) 8%,transparent),0 12px 28px color-mix(in srgb,var(--ink) 12%,transparent);transform:translateY(-1px)}
 .nh-plantilla:disabled{cursor:default}
-.nh-plantilla:disabled:not([data-armando="si"]){opacity:.6}
+.nh-plantilla:disabled{opacity:.6}
 .nh-plantilla:focus-visible{outline:none}
 .nh-mini{position:relative;display:block;margin-bottom:10px;border-radius:9px;overflow:hidden;box-shadow:0 0 0 1px var(--border)}
 .nh-mini--vacia{display:grid;place-items:center;aspect-ratio:16/10;background:var(--bg);box-shadow:none;border:1.5px dashed var(--border-strong);color:var(--dim);font-size:30px;line-height:1}
 .nh-plantilla:hover:not(:disabled) .nh-mini--vacia,.nh-plantilla:focus-visible .nh-mini--vacia{border-color:var(--primary);color:var(--primary)}
 .nh-usar{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:9999px;background:var(--primary);color:var(--on-primary);font-size:13px;font-weight:600;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none}
-.nh-plantilla:hover:not(:disabled) .nh-usar,.nh-plantilla:focus-visible .nh-usar,.nh-usar[data-visible="si"]{opacity:1}
-.nh-giro{width:13px;height:13px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:nh-giro .8s linear infinite}
-@keyframes nh-giro{to{transform:rotate(360deg)}}
+.nh-plantilla:hover:not(:disabled) .nh-usar,.nh-plantilla:focus-visible .nh-usar{opacity:1}
 .nh-nombre{font-size:14.5px;font-weight:600;line-height:1.3;color:var(--ink);padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nh-pie{display:flex;align-items:baseline;gap:8px;min-width:0;padding:0 4px}
 .nh-pie .nh-nombre{padding:0;min-width:0}
@@ -143,12 +145,18 @@ const CSS = `
 .nh-buscar{display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;box-sizing:border-box;border-radius:11px;border:1px solid var(--border-strong);background:var(--surface);color:var(--dim)}
 .nh-buscar:focus-within{border-color:var(--primary)}
 .nh-buscar input{flex:1;min-width:0;border:none;outline:none;background:transparent;color:var(--ink);font:inherit;font-size:14px}
-@media (prefers-reduced-motion: reduce){.nh-mini,.nh-usar{transition:none}.nh-giro{animation:none}}
+@media (prefers-reduced-motion: reduce){.nh-mini,.nh-usar{transition:none}}
 `;
 
 type PropsCrearHoja = {
   /** La hoja nueva, saneada y con ids nuevos. `aviso`: lo primero que MaKo ajustó (o lo que se vació al pegar), para el toast. */
   onCrear: (h: Hoja, aviso?: string) => void;
+  /**
+   * La hoja de una plantilla, ya ajustada a los datos del negocio (`hoja`: la que la reemplaza; null = se queda como
+   * está) y el aviso para el toast. Llega segundos después de `onCrear`, con el modal ya cerrado. Sin esto, la plantilla
+   * queda tal cual.
+   */
+  onRellenar?: (id: string, hoja: Hoja | null, aviso?: string) => void;
   /** El nombre de la «Hoja en blanco» (el editor le pasa «Página N»). */
   enBlanco?: string;
   /** En General (14/10/2026) la galería es la de General (lib/general-plantillas.ts), nunca la del Dashboard. */
@@ -161,11 +169,11 @@ type PropsCrearHoja = {
 };
 
 /** El modal «Nueva hoja»: la misma pieza que la pantalla en blanco, adentro del Modal de la casa. */
-export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva', informe = 'dashboard', senales = null }: PropsCrearHoja & { onCerrar: () => void }) {
+export function NuevaHoja({ onCerrar, onCrear, onRellenar, enBlanco = 'Página nueva', informe = 'dashboard', senales = null }: PropsCrearHoja & { onCerrar: () => void }) {
   const cerrar = useCerrarEstable(onCerrar);
   return (
     <Modal titulo="Nueva hoja" ancho={980} sinFiletes onCerrar={cerrar}>
-      <CrearHoja onCrear={onCrear} onListo={cerrar} enBlanco={enBlanco} informe={informe} senales={senales} />
+      <CrearHoja onCrear={onCrear} onRellenar={onRellenar} onListo={cerrar} enBlanco={enBlanco} informe={informe} senales={senales} />
     </Modal>
   );
 }
@@ -174,11 +182,11 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva', infor
  * «¿Qué vas a crear hoy?» y las plantillas: el cuerpo del modal y la pantalla en blanco (14/10/2026). `onListo`: lo
  * que pasa después de crear (el modal se cierra; en la pantalla en blanco no hace falta, el editor ya muestra la hoja).
  */
-export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', informe = 'dashboard', senales = null }: PropsCrearHoja & { onListo?: () => void }) {
+export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nueva', informe = 'dashboard', senales = null }: PropsCrearHoja & { onListo?: () => void }) {
   // Las props de AHORA para los handlers asincrónicos (un `onCrear` de hace un minuto cerraría sobre
   // el informe de entonces).
-  const props = useRef({ onCrear, enBlanco, onListo });
-  useEffect(() => { props.current = { onCrear, enBlanco, onListo }; });
+  const props = useRef({ onCrear, onRellenar, enBlanco, onListo });
+  useEffect(() => { props.current = { onCrear, onRellenar, enBlanco, onListo }; });
 
   const [pedido, setPedido] = useState('');
   /** Desde cuándo piensa MaKo (null = no piensa). */
@@ -191,8 +199,6 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
   const [archivo, setArchivo] = useState<ArchivoCaja | null>(null);
   /** El dashboard que había en el portapapeles al abrir: la grilla ofrece «Pegar lo copiado». */
   const [copiado, setCopiado] = useState<{ token: string; nombre: string } | null>(null);
-  /** La plantilla que se está armando con los datos del negocio (su nombre); null = lo que piensa es el pedido. */
-  const [armando, setArmando] = useState<string | null>(null);
   const pensando = desde != null;
   const ctrl = useRef<AbortController | null>(null);
   const subida = useRef<AbortController | null>(null);
@@ -235,46 +241,35 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
     ctrl.current?.abort();
     ctrl.current = null;
     setDesde(null);
-    setArmando(null);
   };
 
   /**
-   * UNA PLANTILLA, ARMADA CON LOS DATOS DEL NEGOCIO (Martín, reunión del 12/10, 103:41: «al momento de crear un
-   * template, debería analizar qué métricas tiene ese negocio disponible… y no crear un montón de gráficos vacíos»).
-   * La ruta (app/api/graficos/plantilla) mide cada gráfico con el lector de la pantalla, quita los vacíos y MaKo suma
-   * otros sobre lo que sí tiene; el toast dice cuántos. Si la ruta no contesta, entra la plantilla tal cual y se dice:
-   * no poder medir no es razón para no crearla. Cancelar no crea nada.
+   * UNA PLANTILLA, AL INSTANTE Y AJUSTADA DESPUÉS (#857, 17/10/2026). La hoja entra YA con la plantilla tal cual: cada
+   * gráfico muestra su cargando mientras lee, sin el «Revisando… N s» que confundía (Martín, 16/10). Por detrás, la ruta
+   * (app/api/graficos/plantilla) mide ESA hoja con el lector de la pantalla, quita los gráficos vacíos y MaKo suma otros
+   * sobre lo que sí tiene (Martín, reunión del 12/10, 103:41: «no crear un montón de gráficos vacíos»); lo que vuelve
+   * llega por `onRellenar`. Si la ruta no contesta, la plantilla se queda como está y se dice: no poder medir no es razón
+   * para no crearla.
    */
-  const armarPlantilla = async (p: PlantillaHoja) => {
+  const armarPlantilla = (p: PlantillaHoja) => {
     if (pensando) return;
-    const c = new AbortController();
-    ctrl.current = c;
-    const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
-    setError(null);
-    setArmando(p.nombre);
-    setDesde(Date.now());
-    setAhora(Date.now());
+    const h = instanciarPlantilla(p);
+    crear(h);
+    void rellenarPlantilla(p, h);
+  };
+  /** El ajuste a los datos del negocio. NO usa `ctrl`: el modal ya se cerró y cerrarlo no tiene que cortar esto. */
+  const rellenarPlantilla = async (p: PlantillaHoja, creada: Hoja) => {
     try {
       const res = await fetch('/api/graficos/plantilla', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plantilla: p.id }), signal: c.signal,
+        body: JSON.stringify({ plantilla: p.id, hoja: creada }), signal: AbortSignal.timeout(TOPE_CLIENTE_MS),
       });
       const j = await res.json().catch(() => null) as { ok?: boolean; hoja?: unknown; aviso?: unknown } | null;
-      if (ctrl.current !== c) return;
       // Lo que llega por la red se vuelve a sanear: la hoja vale por lo que dice el catálogo de acá.
       const h = j?.ok ? sanearHoja(j.hoja, 0) : null;
-      setDesde(null);
-      setArmando(null);
-      if (!h) { crear(instanciarPlantilla(p), SIN_MEDIR); return; }
-      crear(h, typeof j?.aviso === 'string' ? j.aviso : undefined);
+      props.current.onRellenar?.(creada.id, h, h ? (typeof j?.aviso === 'string' ? j.aviso : undefined) : SIN_MEDIR);
     } catch {
-      if (ctrl.current !== c) return;
-      setDesde(null);
-      setArmando(null);
-      crear(instanciarPlantilla(p), SIN_MEDIR);
-    } finally {
-      clearTimeout(tope);
-      if (ctrl.current === c) ctrl.current = null;
+      props.current.onRellenar?.(creada.id, null, SIN_MEDIR);
     }
   };
 
@@ -416,7 +411,7 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
           {pensando && (
             <div role="status" aria-live="polite" style={S.estado}>
               <span style={S.rotulo}>✦ {GRAMATICA.analizando.rotulo}</span>
-              <span style={S.dim}>· {armando ? `${armando} con tus datos` : `${FUENTES.length} conjuntos de datos`} · {segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
+              <span style={S.dim}>· {FUENTES.length} conjuntos de datos · {segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
               <span style={{ marginLeft: 'auto' }}><Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button></span>
             </div>
           )}
@@ -453,14 +448,12 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
             const sugerida = porque.get(p.id) ?? null;
             return (
               <button key={p.id} type="button" className="nh-plantilla" data-plantilla={p.id} data-sugerida={sugerida ? 'si' : undefined}
-                disabled={pensando} data-armando={armando === p.nombre ? 'si' : undefined}
+                disabled={pensando}
                 aria-label={`Usar la plantilla ${p.nombre}${sugerida ? ` (sugerida: ${sugerida})` : ''}`}
-                onClick={() => { void armarPlantilla(p); }}>
+                onClick={() => armarPlantilla(p)}>
                 <span className="nh-mini">
                   <MiniaturaHoja hoja={muestras.get(p.id) ?? null} />
-                  {armando === p.nombre
-                    ? <span className="nh-usar" data-visible="si"><span className="nh-giro" aria-hidden /> Armando</span>
-                    : <span className="nh-usar">Usar plantilla</span>}
+                  <span className="nh-usar">Usar plantilla</span>
                 </span>
                 <span className="nh-pie">
                   <span className="nh-nombre">{p.nombre}</span>

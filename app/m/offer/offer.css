@@ -346,9 +346,8 @@
   background: var(--primary-bg); color: var(--primary-strong); font-size: var(--fs-sm); font-weight: 700;
 }
 [data-m] .m-offer-cambios__txt, [data-m] .m-offer-items__txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-md); line-height: 1.5; color: var(--ink); }
-/* Las líneas debajo del título, en gris (sólo las hijas directas: un botón adentro no se toca). */
-[data-m] .m-offer-cambios__txt > span:not(.m-offer-cambios__accion), [data-m] .m-offer-items__txt > span { color: var(--dim); font-size: var(--fs-sm); }
-[data-m] .m-offer-cambios__accion { display: flex; margin-top: 6px; }
+/* Las líneas debajo del título, en gris (sólo las hijas directas). */
+[data-m] .m-offer-cambios__txt > span, [data-m] .m-offer-items__txt > span { color: var(--dim); font-size: var(--fs-sm); }
 [data-m] .m-offer-items:not([data-numerada]) > li { padding-left: 12px; border-left: 3px solid var(--border-strong); }
 
 /* Las secciones de la oferta nueva: desplegables (<details>), la primera abierta. */

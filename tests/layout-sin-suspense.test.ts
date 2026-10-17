@@ -105,8 +105,6 @@ const LOADING_PERMITIDOS = [
   'app/m/calendario/loading.tsx',
   // Second Brain: construirCerebro hace 21 lecturas en paralelo y corre d3-force en el server.
   'app/m/second-brain/loading.tsx',
-  // Experiments: getExperimentosView mide en vivo cada experimento contra Meta, y listRetros trae cada reporte.
-  'app/m/experimentos/loading.tsx',
   // Curso: la cartera de la entrega, las clases de cada curso y el progreso paginado de cada cliente ganado.
   'app/m/curso/loading.tsx',
 ];

@@ -325,7 +325,9 @@ test('la barra de inserción: cada tipo del catálogo en UN lugar, en el orden d
   });
   // El bloque de General (14/10/2026) no va en esta barra: tiene su botón propio, «Bloques de General», que sólo existe en
   // la tab General (app/dashboard/EditorInforme.tsx, `esGeneral`). En el Dashboard no hay de dónde sacar lo que dibuja.
-  assert.deepEqual([...lugaresDe.keys()].sort(), TIPOS_ELEMENTO.map((t) => t.id).filter((t) => t !== 'general').sort(), 'un tipo del catálogo sin lugar en la barra');
+  // Tampoco el Experimento (17/10/2026): nace de «probemos X» en «Editar con MaKo» con su propuesta; uno insertado a mano
+  // no tendría qué medir (lib/experimentos-catalogo.ts).
+  assert.deepEqual([...lugaresDe.keys()].sort(), TIPOS_ELEMENTO.map((t) => t.id).filter((t) => t !== 'general' && t !== 'experimento').sort(), 'un tipo del catálogo sin lugar en la barra');
   for (const [t, ls] of lugaresDe) assert.equal(ls.length, 1, `«${t}» está en ${ls.length} lugares`);
   const pos = (t: string) => lugaresDe.get(t)![0];
   const orden = ['insertado', 'imagen', 'texto', 'linea', 'seccion', 'ia'].map(pos);
