@@ -523,7 +523,7 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // chat): un `?tab=` viejo no viaja, y abre los chats. Lo que sí viaja es la Ticketera (`?ticketera=`).
   if (p === '/admin/operaciones') {
     const t = q.get('ticketera');
-    return t === 'tarjetas' || t === 'lista' ? `/m/operaciones?ticketera=${t}` : '/m/operaciones';
+    return t === 'tickets' || t === 'tarjetas' || t === 'lista' ? `/m/operaciones?ticketera=${t}` : '/m/operaciones';
   }
   // Las pantallas que SÓLO existen en el teléfono, con la URL que muestran (`SOLO_TELEFONO`).
   const chat = p.match(/^\/crm\/(\d+)\/chat$/);

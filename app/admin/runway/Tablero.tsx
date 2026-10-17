@@ -13,10 +13,17 @@
 // adentro: el marco lo pone cada página.
 
 import { TarjetaDecision } from './TarjetaDecision';
+import { vistaDelAviso } from '@/lib/decisiones-aviso';
 import { repartir, textoDeRespuesta, URGENCIAS, type AccionResponder, type Decision, type LecturaDecisiones } from './decisiones';
 import { CambioVista, type VistaTicketera } from '@/app/tickets/decisiones/CambioVista';
 
 function Contestada({ d, responder }: { d: Decision; responder: AccionResponder }) {
+  // Si el aviso de la respuesta llegó al chat (mig 0288, `aviso_estado`): antes sólo se veía «El chat ya la tiene».
+  const aviso = vistaDelAviso({
+    recogidaAt: d.recogidaAt, respondidaAt: d.respondidaAt, avisoDe: d.avisoDe ?? null,
+    avisoEstado: d.avisoEstado === 'tomado' || d.avisoEstado === 'entregado' || d.avisoEstado === 'no_entregado' || d.avisoEstado === 'incierto' ? d.avisoEstado : null,
+    avisoAt: d.avisoAt ?? null, avisoIntentos: d.avisoIntentos ?? 0,
+  }, Date.now());
   return (
     <details className="decisiones-hecha">
       <summary>
@@ -25,8 +32,8 @@ function Contestada({ d, responder }: { d: Decision; responder: AccionResponder 
           <span className="decisiones-hecha-preg">{d.pregunta}</span>
           <span className="decisiones-hecha-resp">{textoDeRespuesta(d)}</span>
         </span>
-        <span className={`decisiones-hecha-estado${d.recogidaAt ? '' : ' decisiones-hecha-estado--nueva'}`}>
-          {d.recogidaAt ? 'El chat ya la tiene' : 'Nueva'}
+        <span className={`decisiones-hecha-estado${aviso.texto === 'Nueva' ? ' decisiones-hecha-estado--nueva' : aviso.tono === 'neutral' ? '' : ` decisiones-hecha-estado--${aviso.tono}`}`}>
+          {aviso.texto}
         </span>
       </summary>
       <div className="decisiones-hecha-cuerpo"><TarjetaDecision d={d} responder={responder} /></div>

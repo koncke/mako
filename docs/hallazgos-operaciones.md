@@ -1398,7 +1398,9 @@ de la PC al Plan, y es de revisión de seguridad. Sin medir en una pantalla real
   `NuevoChat`, montados sobre el mismo `useCentro`.
 - ~~El chat «Cartero» con su cron~~: corre desde el 15/10 en la cuenta 3 («pasó hace 41 s») y la PC acepta un Token
   (`cartero.mjs estado`, 15/10). Falta que Martín lo renombre a «Runner» (la línea, en docs/relevo/centro-operaciones.md).
-- **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
+- ~~**La Ticketera no muestra si el aviso llegó**~~: hecho el 17/10. La bandeja de los tickets dibuja `avisado_at` (al cliente) y
+  `aviso_estado` (al Cerebro) en un bloque «Avisos», y el mazo viejo dice en cada contestada si el aviso llegó al chat. Medido
+  antes: ninguna de las dos pantallas los leía. Ver docs/hallazgos-ticketera.md → «La Ticketera no mostraba si el aviso llegó».
 - **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
 - **El chat Runner en cada cuenta que esté corriendo** (15/10): sin él, lo que se escribe en la caja queda «escrito».
   Sus instrucciones se copian desde el Centro (Runners → Nuevo Runner; viven en `lib/runner.ts`). Y el Token de cada

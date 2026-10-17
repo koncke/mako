@@ -4,6 +4,55 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## La Ticketera del teléfono era el mazo viejo, y traer la bandeja no alcanzaba (17/10/2026)
+
+**El síntoma**: Martín abría el Ops Center en el teléfono y la fila «Ticketera» seguía llevando al mazo de las preguntas de los
+chats; la bandeja de los tickets de los clientes sólo existía en la computadora.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+- «Se monta `BandejaTickets` en la página del teléfono y listo»: la bandeja lee y decide con sus propias acciones de servidor, pero
+  **«Aprobar» le firma el ticket al chat Cerebro desde el navegador** (`cerebroDelCentro`, app/tickets/bandeja/cerebro.ts), y eso sale
+  del motor del Centro (`useCentro`: la firma, la lista de chats, el estado del Runner). Sin él, `cerebro` queda en `null` y
+  Aprobar deja el ticket «en curso» sin entregar y con un cartel que miente («No hay un chat Cerebro en Ops Center»: el chat existe, es la pantalla la que no lo ve). La pantalla del teléfono monta
+  `useCentro` con los mismos datos que la lista de chats (`TicketsMovil`).
+- «La ruta ya viaja»: `/admin/operaciones?ticketera=tickets` —el ítem «Ticketera» de la barra, los links «revisar» de las
+  bitácoras— **se convertía en `/m/operaciones` a secas**: `rutaMovil` sólo dejaba pasar `tarjetas` y `lista`. En el teléfono todo
+  link a la Ticketera nueva caía en la lista de chats, sin error.
+
+**La regla**: una pantalla que FIRMA algo desde el navegador lleva el motor de la firma, aunque lea sus datos sola; y una vista
+nueva de una query (`?ticketera=`) se da de alta en las TRES puntas: la página, `rutaMovil` y `rutaEscritorio`
+(tests/ticketera-movil-y-avisos.test.ts). El teléfono tiene dos filas, una por paso: «Ticketera» (los tickets, con su número) y
+«Preguntas de los chats» (el mazo de siempre).
+
+**Vive en:** app/m/operaciones/TicketeraMovil.tsx · app/m/operaciones/page.tsx · app/m/operaciones/CentroAppMovil.tsx ·
+lib/movil-rutas.ts · app/tickets/bandeja/bandeja.css (la hoja se importa en la PÁGINA, no en el componente)
+
+---
+
+## La Ticketera no mostraba si el aviso llegó: el dato estaba, y el renglón del historial sólo existe si salió (17/10/2026)
+
+**El síntoma**: Martín decide, el cliente «debería enterarse», y nadie podía ver si se enteró. Una pendiente de siempre
+(docs/hallazgos-operaciones.md) la daba por «el dato está, la pantalla no lo dibuja».
+
+**Medido** (17/10/2026, leyendo la bandeja): `avisado_at` no se dibujaba en ninguna parte y `aviso_estado` tampoco; `aviso_at` ni
+siquiera se pedía (`COLS`). Lo único visible era el renglón del historial `Aviso al cliente: push, chat` (lo escribe `avisarUno`), y
+ése existe **sólo cuando el aviso SALIÓ**: el aviso que no sale no deja nada que mirar, que es justo el caso que importa.
+
+**Lo que hay que saber para leerlo**:
+- hay DOS avisos y no son lo mismo: `avisado_at` es el aviso **al cliente** (se marca si salió por ALGÚN canal; un negocio sin push,
+  sin hilo y sin grupo no lo recibe nunca y el cron lo reintenta cada 15 min para siempre); `aviso_estado` es la entrega **al
+  Cerebro** de un bug del triage (`despacho = 'runner'`), con sus 5 intentos;
+- «sin avisar» se cuenta desde el CIERRE (`resuelto_at` / `decidido_at`), no desde `updated_at`, que se mueve al cambiar la prioridad;
+- el umbral es el doble del cron (30 min): antes de eso es «Avisando…», después es «no salió».
+
+La bandeja ahora tiene un bloque «Avisos» en cada ticket y marca «⚠ sin avisar» en la lista; el mazo viejo dice en cada contestada si
+el aviso llegó al chat (`vistaDelAviso`). Las reglas están en lib/tickets-aviso.ts y lib/decisiones-aviso.ts (puras, con test).
+
+**Vive en:** lib/tickets-aviso.ts (`avisoAlCliente`, `entregaAlCerebro`) · lib/decisiones-aviso.ts (`vistaDelAviso`) ·
+app/tickets/bandeja/BandejaTickets.tsx · app/admin/runway/Tablero.tsx
+
+---
+
 ## El cierre: «¿ya está en producción?» no lo contesta GitHub, lo contesta el código que corre (17/10/2026)
 
 **El síntoma a evitar**: un ticket que el cliente ve «Resuelto» con el arreglo todavía sin desplegar, o uno que nunca
@@ -130,7 +179,8 @@ Lo cazó la revisión del archivo con `cat -A`. Para editar código con barras, 
 
 | Qué | Dónde | Por qué |
 |---|---|---|
-| La bandeja en el teléfono | app/m/operaciones/TicketeraMovil.tsx | Hoy la Ticketera del teléfono sigue siendo el mazo |
+| Ver la bandeja del teléfono en un teléfono real | app/m/operaciones/TicketeraMovil.tsx | Hecha el 17/10 y probada con tests; falta mirarla en pantalla (ws3, super admin) |
+| Avisar al cliente por OTRO canal cuando ninguno sale | lib/tickets-cierre.ts | Hoy un negocio sin push, hilo ni grupo queda «El aviso al cliente no salió» para siempre; ahora se VE, no se resuelve |
 | «Tus tickets» en el teléfono | app/m (no existe) | `rutaMovil('/tickets')` es null: en el teléfono se levanta y se consulta por el chat de MaKo (`mis_tickets`) |
 | Levantarlo por WhatsApp | lib/mako-doer-in.ts | Es del chat «MaKo en WhatsApp»: el registro ya acepta `actor: 'whatsapp:<teléfono>'` (lo atribuye a la persona del negocio con ese teléfono) y el aviso de vuelta pasa por `sanearSalida` |
 | Adjuntar una captura a mano | app/tickets | El contexto automático cubre el caso del chat |
