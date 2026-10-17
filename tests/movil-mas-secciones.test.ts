@@ -256,6 +256,12 @@ test('cada sección de More TIENE su página, con el guard de SU key', () => {
     if (!existsSync(join(RAIZ, archivo))) { faltan.push(`${archivo} (no existe)`); continue; }
     // El Second Brain es el CHAT con MaKo desde el 16/10/2026 (entra con la key 'mako', como la fila de abajo): lo que es
     // del admin de la tab es su Mapa, que vive en su propia página con la key 'second-brain'.
+    // Las del SUPER ADMIN (17/10/2026) se cuidan como su página de escritorio, con `getSesionAdmin()`: su key no está en
+    // TODOS_LOS_ITEMS, y `requireMovil({ navKey })` les cerraría la puerta a todos.
+    if (s.superAdmin) {
+      if (!leer(archivo).includes('await getSesionAdmin()')) faltan.push(`${archivo} (sin getSesionAdmin(), la puerta de escritorio)`);
+      continue;
+    }
     const [pagina, key] = s.id === 'second-brain' ? [archivo, 'mako'] : [archivo, s.navKey];
     // Con opciones de la misma puerta, también (`onboarding: false` en «Reportar problema», como su `gateOnboarding: false`).
     if (!new RegExp(String.raw`requireMovil\(\{ navKey: '${key}'(, [^}]*)? \}\)`).test(leer(pagina))) faltan.push(`${pagina} (sin requireMovil({ navKey: '${key}' }))`);

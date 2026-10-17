@@ -19,6 +19,7 @@ import './automations.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
+import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 import { AutomationsM } from './AutomationsM';
 import { leerAutomations } from './datos';
 
@@ -30,10 +31,17 @@ const COMPU = 'Editar el lienzo y crear automatizaciones';
 export default async function AutomationsPagina() {
   const ctx = await requireMovil({ navKey: 'setting' });
   const lectura = await leerAutomations({ conNumeros: puedeVerKey('chat-analyst', ctx.rol, ctx.capa) });
+  // La barra de secciones de escritorio (17/10/2026): al super admin, Automations · MaKo Messages (los mensajes de MaKo
+  // SON automatizaciones, AGENTS.md). A los demás no les dibuja nada: ven una sola sección.
+  const secciones = (
+    <SeccionesTabM tab="automatizaciones" activa="setting"
+      vista={{ adminShell: ctx.sesion.rol === 'admin' && !ctx.impersonando, rolWs: ctx.rol ?? '', capa: ctx.capa ?? '' }} />
+  );
 
   if (lectura.estado === 'error') {
     return (
       <PantallaM>
+        {secciones}
         <ErrorM frase="No se pudieron leer las automatizaciones." />
         <ComputadoraM que={COMPU} />
       </PantallaM>
@@ -42,6 +50,7 @@ export default async function AutomationsPagina() {
   if (!lectura.total) {
     return (
       <PantallaM>
+        {secciones}
         <VacioM frase="Todavía no hay automatizaciones." />
         <ComputadoraM que={COMPU} />
       </PantallaM>
@@ -49,6 +58,7 @@ export default async function AutomationsPagina() {
   }
   return (
     <PantallaM>
+      {secciones}
       <AutomationsM filas={lectura.filas} puedeEditar={ctx.rol === 'admin'} />
       <ComputadoraM que={COMPU} />
     </PantallaM>
