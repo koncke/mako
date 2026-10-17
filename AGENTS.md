@@ -368,10 +368,18 @@ runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la 
 pasa una punta al Cerebro** sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
 
 ```sh
-node scripts/antes-de-subir.mjs
+node scripts/antes-de-subir.mjs --rapido
 ```
 
-y le pasa **la última línea**, `VERDE <sha>`. El Cerebro compara ese sha con el de la punta: **sin la línea, no integra.**
+**Es el MÍNIMO OBLIGATORIO** y tarda ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
+rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min antes de compartir procesos). Corre las guardas, los
+tests que **nombran o importan DIRECTO** un archivo cambiado y **todas las barredoras**, sin tipos; le deja a Actions los tipos y los
+importadores a dos saltos o más (el replay: 19 de los 20 rojos de «Tests»). Sin `--rapido` es el chequeo COMPLETO (todos los saltos
+y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); el Cerebro lo usa para
+el push a `integracion`, y un jefe con tiempo puede correrlo también.
+
+El jefe le pasa al Cerebro **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta. El Cerebro compara ese sha con el de la
+punta: **sin la línea, no integra.**
 Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
 mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
 o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
@@ -409,6 +417,15 @@ tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El s
 **espera RAM** antes de cada una (el piso se deriva: zona roja del vigía + lo que pide cada proceso). Nunca corras
 `node --test tests/*.test.ts` a mano en esta máquina.
 
+⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con
+`scripts/cache-lecturas.cjs` memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos
+~5.400 archivos y, con `node --test`, cada archivo de test es un proceso aparte que los vuelve a leer (12 barredoras: 193 s
+separadas, 40 s juntas; la suite ENTERA —1.050 tests compartibles— en 2 procesos: 260 s, 0 rojos). **Todo rojo de un proceso
+compartido se repite aislado antes de contarlo** (puede ser interferencia: `editor-landing-origen` falló una vez porque otro test
+dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de trabajo NUNCA se comparte
+(regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su proceso solo, sin tocar nada.** El
+riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en su proceso.
+
 **Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
 → tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
 calcular, la segunda fase cae a `npm test`. Medido con la API (`/actions/runs/{id}/timing`, 17/10): un run ROJO cuesta ~2 min
@@ -416,9 +433,9 @@ facturables (run 94: 107 s; antes 5-10). El VERDE (run 95: 781 s) subió de ~11 
 node (núcleos − 1 = UN proceso en un runner de 2 vCPU): ahora `auto` usa todos los núcleos, la segunda fase va en UNA sola corrida
 de `node --test`, y un archivo que sólo falla con varios procesos se repite solo y, si pasa, sale como FLAKY (no frena, pero se ve).
 
-**La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 17 runs rojos de Actions
+**La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 21 runs rojos de Actions
 (`docs/fallos-ci-integracion.jsonl`) sobre el árbol exacto de la cabeza que falló y con la base real (el último verde):
-**20/20 rojos salen**. Un run rojo nuevo se suma a ese archivo y se vuelve a correr: si no sale, el script todavía no está.
+**25/25 rojos salen**. Un run rojo nuevo se suma a ese archivo y se vuelve a correr: si no sale, el script todavía no está.
 El porqué de cada decisión y lo que NO cubre: [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Los rojos de Actions».
 
 # El build de Vercel tiene un tope de memoria que NO está en el repo
@@ -1444,8 +1461,9 @@ código nuevo:
     tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
     herramientas.
     **Y ninguna punta llega al Cerebro sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
-    de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs` sobre
-    su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea (`VERDE <sha>`) junto con la punta:
+    de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs --rapido`
+    (~3-4 min: es el mínimo obligatorio) sobre su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea
+    (`VERDE <sha> (rápido: …)`) junto con la punta:
     el Cerebro no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
     «Antes de pasarle una punta al Cerebro» (más arriba, junto al pre-push).
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan

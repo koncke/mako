@@ -23,7 +23,7 @@ habilita a darle mejores prompts al otro Claude».
 - El repo es **CRLF**: un reemplazo por bloque buscó `'\n];\n'`, no matcheó, se fue 700 líneas más abajo y **borró 76 KB con exit 0** → [Editar este repo](#editar-este-repo-archivos-grandes-saltos-de-línea-y-nombres).
 - Con **`npm run dev` (`-H 127.0.0.1`) toda pantalla del TELÉFONO da `ERR_TOO_MANY_REDIRECTS`** en local: el rewrite a `/m` sale como externo y vuelve a entrar al proxy. Con `-H localhost`, 200 → [Tests y entorno local](#️-con-npm-run-dev--h-127001-ninguna-pantalla-del-teléfono-se-puede-mirar-en-local-15102026).
 - Verificar contra **`127.0.0.1` en vez de `localhost`** deja la página entera y sin hidratar, sin un solo error en el navegador — y las dos explicaciones que uno tiene a mano («rompí yo», «lo rompió la otra sesión») parecen confirmarse → [Tests y entorno local](#️-127001-no-es-localhost-para-el-dev-server-la-página-se-ve-entera-y-no-hidrata).
-- **17 de 91 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
+- **21 de 101 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -6484,17 +6484,18 @@ pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con much
 
 ⚠️ **Esa regla está escrita desde el 15/10 y no frenó nada** — el 17/10 se midió por qué (entrada de abajo).
 
-## Los rojos de Actions: 17 de 91 runs, dos clases, y por qué «corré los tests de tu área» no podía alcanzar (17/10/2026)
+## Los rojos de Actions: 21 de 101 runs, dos clases, y por qué «corré los tests de tu área» no podía alcanzar (17/10/2026)
 
-**El síntoma:** de los 91 runs de `integracion` (15-17/10), 17 fallaron y 14 se cancelaron; cada rojo costó ~15 min de reloj
-y minutos del mes (140 de los 2.000 gratis en dos días). Los 17 son de **dos clases**:
+**El síntoma:** de los 101 runs de `integracion` (15-17/10), 21 fallaron y 14 se cancelaron; cada rojo costó ~15 min de reloj
+y minutos del mes (140 de los 2.000 gratis en dos días). Los 21 son de **dos clases**:
 
-- **(a) 13 en «Tests»**: un test de OTRA área que lee el código como TEXTO (un regex exacto sobre el fuente: `editor-acciones`,
+- **(a) 16 en «Tests»**: un test de OTRA área que lee el código como TEXTO (un regex exacto sobre el fuente: `editor-acciones`,
   `medios-automatizacion`, `centro-revisar`, `plazo-etapa-automatizacion`, `progreso`…) o un BARRIDO global del repo
-  (`puente-panel-copy` ×3, `zona-negocio`, `fuentes-sin-next-font`, `frontera-use-client`, `tsc-acotado`, `onboarding-hub-retirado`).
-- **(b) 4 en «Tipos»**: dos ayudantes de tests nuevos sin `export` que `tsc` toma por scripts globales (51 y 52: el error cae en
-  `_cobros-conexion-hijo.ts`, que NO cambió), un test que llamaba con dos argumentos a una firma que pasó a pedir uno (31) y
-  una bitácora sin `puntos` (10).
+  (`puente-panel-copy` ×3, `zona-negocio`, `fuentes-sin-next-font`, `frontera-use-client`, `tsc-acotado`, `onboarding-hub-retirado`,
+  y desde que corre el workflow nuevo: `link-con-workspace`, `undecima-email-propio`, `centro-abrir`).
+- **(b) 5 en «Tipos»**: dos ayudantes de tests nuevos sin `export` que `tsc` toma por scripts globales (51 y 52: el error cae en
+  `_cobros-conexion-hijo.ts`, que NO cambió), un test que llamaba con dos argumentos a una firma que pasó a pedir uno (31), una
+  bitácora sin `puntos` (10) y un test que pasaba `{}` donde se pide un `ProcessEnv` (100).
 
 **El diagnóstico obvio —«los chats no corren los tests»— era el equivocado.** Corrían los suyos, y la regla («corré los tests que
 LEEN cada archivo tocado», entrada de arriba) estaba escrita desde el 15/10, y los 17 rojos son del 15 al 17/10. Por qué no podía
@@ -6524,9 +6525,9 @@ alcanzar, aunque se cumpliera al pie de la letra:
 - `.github/workflows/integracion.yml`: **falla rápido** — guardas → afectados contra `origin/main` → tipos → los demás tests; las
   dos fases suman la suite entera y no repiten ninguno. Medido con la API: un rojo cuesta 2 min facturables (run 94, 107 s), no 5-10.
   El verde salió caro (ver «El verde caro» abajo) y se corrigió.
-- `scripts/replay-fallos-ci.mjs` + `docs/fallos-ci-integracion.jsonl`: **la prueba**. Para cada uno de los 17 runs rojos toma el
+- `scripts/replay-fallos-ci.mjs` + `docs/fallos-ci-integracion.jsonl`: **la prueba**. Para cada uno de los 21 runs rojos toma el
   árbol exacto de la cabeza que falló (sin checkout: `ls-tree` + `cat-file --batch`) y la base REAL, el último run verde anterior,
-  y pregunta si el rojo habría salido: **17/17 runs, 20/20 rojos**. Un rojo nuevo se suma al `.jsonl` y se vuelve a correr.
+  y pregunta si el rojo habría salido: **21/21 runs, 25/25 rojos**. Un rojo nuevo se suma al `.jsonl` y se vuelve a correr.
 
 **Lo que se aprendió construyéndolo (cada uno costó un falso positivo o un rojo escondido):**
 
@@ -6553,7 +6554,7 @@ alcanzar, aunque se cumpliera al pie de la letra:
   2,9): el `tsc` acotado con importadores (188 archivos) pedía 4,3 GB y había 1,3 libres — se quedó esperando. Tres correcciones, de lo que ya
   estaba medido y no se había mirado: (1) el vigía de RAM sólo mata `tsc`, eslint, vitest, jest, playwright y `next build` — **nunca un `node --test`** —,
   así que el margen de 0,3 GB sobre la zona roja para los tests sobraba (de 1,55 a 1,3 GB para un proceso); (2) el alcance local del `tsc` pasa a lo
-  CAMBIADO (33-102 archivos en los replays en vez de 168-935; el replay sigue en 20/20 porque los rojos de «Tipos» estaban en lo cambiado o los frena
+  CAMBIADO (33-102 archivos en los replays en vez de 168-935; el replay sigue en 25/25 porque los rojos de «Tipos» estaban en lo cambiado o los frena
   `modulos-ts`); (3) el paso de tipos espera 90 s, no 15 min, y si no entra dice «tipos: los chequea Actions» y sigue — lo mismo vale para el lock.
 - **El verde caro: fallar rápido costó 3 min facturables en el 85 % de los runs** (medido con la API por el Cerebro, 17/10). Run 94, ROJO: 2 min
   facturables (107 s; antes 5-10). Run 95, VERDE: 14 (781 s) contra ~11 de antes: afectados 333 s + tipos 148 s + los demás 217 s + `npm ci` 29 s +
@@ -6570,7 +6571,29 @@ alcanzar, aunque se cumpliera al pie de la letra:
   como `FLAKY` (no frenan, pero se ven en la salida) y si siguen rojos, son rojos. El test flaky sigue sin arreglarse (es de Ads): conviene subirle `topeMs` de 40 a 300.
 - **La profundidad del grafo casi no ahorra**: con 120 archivos cambiados, 457 tests con todos los saltos, 356 con `--profundidad 1`. Lo grande
   son las barredoras (110-150) y los que nombran un archivo: la palanca existe (`--profundidad N`, y el VERDE pasa a `PARCIAL`), pero no es la que
-  acorta la espera.
+  acorta la espera. (La que sí la acortó es la de abajo.)
+- **«Los jefes no lo corren porque con 16 chats tarda 40-94 min»: el costo era el DISCO, no el trabajo** (el Cerebro lo pidió el 17/10 tras los runs 94,
+  98, 99 y 100, todos por barredoras o tipos). Se rastreó con un `--require` qué lee cada barredora (`fs` y los comandos `git`): 62 leen entre 1.500 y
+  6.000 archivos, 6 más de 500, 28 entre 50 y 500 y 81 menos de 50. Las ~68 globales leen los MISMOS ~5.400 archivos de `app/` y `lib/`, y con
+  `node --test` cada archivo de test es un proceso aparte que los vuelve a leer y a listar: 12 de ellas tardaron **193 s** en procesos separados (2 a la vez)
+  y **40 s** juntas en UN proceso con las lecturas memorizadas (`scripts/cache-lecturas.cjs` + `--test-isolation=none`). **Lo que se probó antes y NO
+  sirvió** — la «obvia» era recortar qué barredoras correr: (1) por carpeta que barren (152 de 157 mencionan `app/`); (2) por el vocabulario de cada barredora
+  contra las líneas AGREGADAS del diff (un commit de 1 archivo y 232 caracteres igual elegía 60-157 de 150 barredoras; con sólo los términos que aparecen en
+  ≤2 barredoras, un commit de 17 archivos elegía 100+). Una barredora global puede romperse con un cambio en cualquier lado: no se le puede preguntar «¿tocaste lo mío?»
+  — lo que se puede es que cuesten poco.
+  **Medido** (PC con ~14 chats, 0,1-1,3 GB libres): las 148 barredoras que sólo leen, en 2 procesos compartidos: 267 s; la SUITE ENTERA (1.050 de los 1.125
+  tests que no tocan estado global, 10.905 casos) en 2 procesos: **260 s, 0 rojos, 0 interferencias** (separados, ~50 min en esa PC). Sobre la punta de
+  Automations (21 archivos, 3 rojos reales): completo 26 min 20 s → **4 min 21 s**; `--rapido` 9 min 23 s (primer intento, sólo las barredoras compartidas) →
+  **3 min 28 s** (todo lo que no toca estado global compartido). Un proceso compartido pesa ~725 MB (guarda en memoria lo que lee): el piso de RAM de un grupo es
+  0,9 + 0,8 por grupo.
+  **Riesgos que quedan, dichos:** (a) la interferencia — `editor-landing-origen` falló una vez en un proceso compartido porque otro test dejó algo en el entorno que hacía creer a
+  `lib/app-url.ts` que corría «en el navegador», y pasó aislado: por eso todo rojo de un proceso compartido se repite aislado antes de contarse, y un test que
+  cambia `process.env`, un global, `Module._load` o el directorio de trabajo nunca se comparte (`PELIGRO_COMPARTIR`; lo que esa regex no vea se descubre por rojo
+  y se resuelve igual); (b) el FALSO VERDE por contagio (un test que pasa sólo por lo que dejó otro): no hay forma de medirlo desde acá, y por eso Actions NO comparte
+  procesos: sigue corriendo cada test aislado. Si alguna vez un run de Actions da un rojo que `antes-de-subir` dio verde, lo primero que hay que mirar es esto.
+- **`--rapido` y lo que cubre** (`node scripts/replay-fallos-ci.mjs --rapido`): profundidad 1 y sin tipos. De los 25 rojos de los 21 runs: **19 de los 20 de «Tests»**
+  (falta `agenda-whatsapp`, run 53, que está a DOS saltos del cambio) y **2 de los 5 de «Tipos»** (los que frena la guarda de módulos; 10, 31 y 100 son errores de
+  tipos de archivos que cambiaron, y los ve `--con-tipos` o el modo completo, 1-2 min más cuando la RAM alcanza). Los de tipos y los saltos lejanos los decide Actions.
 
 **Lo que NO cubre** (y por qué Actions sigue corriendo todo):
 - Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y
