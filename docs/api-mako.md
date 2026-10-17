@@ -10307,7 +10307,7 @@ curl -L \
 
 ### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover o borrar un bloque
 
-Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar. El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
+Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar (quitar o sacar un botón, el formulario, un video, una imagen). El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/acomodar_bloque_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)

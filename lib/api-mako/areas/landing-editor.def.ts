@@ -286,8 +286,13 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   },
   {
     id: 'acomodar_bloque_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    // «Quitar» y las piezas en la descripción (17/10/2026): «quítale el formulario a la landing» se
+    // clasificaba bien (editar) pero esta operación no entraba en los 12.000 caracteres del turno de WhatsApp: la raíz
+    // «quita» empujaba primero a quitar_dominio_landing y quitar_cobro_landing. En la DESCRIPCIÓN y no en el título: en el
+    // título (peso doble) le sacaba la lista a «quítale la animación a la sección 2». Lo fija
+    // tests/mako-intencion-landing.test.ts.
     titulo: 'Mover o borrar un bloque',
-    descripcion: `Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar. El bloque se nombra por su posición en la sección (de ver_secciones_landing). ${VERSION}`,
+    descripcion: `Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar (quitar o sacar un botón, el formulario, un video, una imagen). El bloque se nombra por su posición en la sección (de ver_secciones_landing). ${VERSION}`,
     parametros: [
       P_ID, P_SECCION,
       { nombre: 'bloque', rotulo: 'Bloque', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'La posición del bloque en la sección (su n en ver_secciones_landing).' },
