@@ -336,6 +336,23 @@ export function motivoDecisionInvalida(d: { decision: unknown; respuesta?: strin
   return null;
 }
 
+// ── Quién pide por WhatsApp ───────────────────────────────────────────────────────────────────────────────────────
+// El doer de WhatsApp no sabe el email de quien escribe: sabe su teléfono (el JID). Pasa `actor: 'whatsapp:<teléfono>'` y
+// el ticket se le atribuye a la persona del negocio con ese teléfono en su perfil; si no hay UNA, queda con el teléfono.
+export const ACTOR_WHATSAPP_RE = /^whatsapp:\+?(\d{8,15})$/;
+export const telefonoDelActor = (actor: string): string | null => ACTOR_WHATSAPP_RE.exec(actor.trim().toLowerCase())?.[1] ?? null;
+
+/**
+ * ¿Es el mismo teléfono? Por los últimos 8 dígitos: el JID de WhatsApp y el que cargó la persona difieren en el prefijo
+ * (`+54 9 11…` contra `011 15…`, el 9 de Argentina que agrega WhatsApp). Con menos de 8 dígitos no se compara.
+ */
+export function mismoTelefono(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = String(a ?? '').replace(/\D/g, '');
+  const y = String(b ?? '').replace(/\D/g, '');
+  if (x.length < 8 || y.length < 8) return false;
+  return x.slice(-8) === y.slice(-8);
+}
+
 /** El número que ven las personas: «#12». */
 export const numero = (id: number) => `#${id}`;
 

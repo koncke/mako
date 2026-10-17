@@ -1354,7 +1354,10 @@ código nuevo:
   Lo fija tests/centro-abrir.test.ts.
 - **Lo único que el cartero entrega SIN firma es un texto FIJO que arma él**: el aviso de una respuesta
   de la Ticketera (`mensajeAviso`, scripts/operaciones/cartero.mjs) lleva sólo el `ref` validado y el
-  comando para leerla. Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra.
+  comando para leerla, y el bug del triage de un ticket de cliente (`mensajeTicket`, 1.15.0) lleva sólo el NÚMERO.
+  Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra. Y si `hayParaElCartero` cuenta algo
+  nuevo, lo cuenta sólo para un Runner de la versión que lo entrega: con uno de antes, `vigilar` saldría en cada
+  vuelta por algo que nunca le llega (tests/tickets-cartero.test.ts).
 - **Una tarjeta de la Ticketera se publica con `destino`** (la sesión que pregunta, `local_…`/`cli_…`):
   `chat` es un nombre y con un nombre no se sabe a quién avisar (lib/decisiones-aviso.ts).
 - **En la pantalla, lo que despacha el Centro es un «trabajo»; «pedido» es lo que pide Martín.** Martín,

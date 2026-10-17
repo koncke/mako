@@ -18,7 +18,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Levantarlo desde el chat de MaKo', detalle: 'MaKo propone la tarjeta cuando algo falló (lo detecta el código) o cuando piden algo que la app no tiene (el modelo); la persona toca un botón', estado: 'hecha' },
   { titulo: '«Reportar problema» del cliente', detalle: 'Un campo, tres opciones y «Tus tickets» con la conversación (Intercom + el «Mis solicitudes» de Zendesk)', estado: 'hecha' },
   { titulo: 'La bandeja de Martín', detalle: 'Linear Triage adentro de Ops Center: de quién, el reporte, el porqué del triage y Aprobar · Rechazar · Duplicado · Preguntar · Responder', estado: 'hecha' },
-  { titulo: 'El bug automático llega solo al Cerebro', detalle: 'El Runner le escribe un texto fijo con el número: falta enchufarlo en el cartero (Ops Center) y reinstalarlo', estado: 'sigue' },
+  { titulo: 'El bug automático llega solo al Cerebro', detalle: 'El Runner (cartero 1.15.0) le escribe un texto fijo con el número; falta que el Cerebro lo reinstale en la PC', estado: 'hecha' },
   { titulo: 'La bandeja en el teléfono', detalle: 'Hoy la Ticketera del teléfono sigue siendo el mazo de las preguntas de los chats', estado: 'cola' },
   { titulo: 'Levantarlo por WhatsApp', detalle: 'La operación ya está en el registro; enchufarla al doer de WhatsApp es del chat «MaKo en WhatsApp»', estado: 'cola' },
 ];
@@ -50,6 +50,16 @@ export const BITACORA: Hito[] = [
       'app/tickets/bandeja/BandejaTickets.tsx: la bandeja de Martín',
       'lib/tickets-cierre.ts y app/api/cron/tickets: el cierre y el aviso',
       'scripts/tickets.ts: lo que usa el Cerebro',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '08:40', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un bug evidente le llega solo al Cerebro, sin esperar a Martín',
+    revisar: '/admin/operaciones?ticketera=tickets',
+    puntos: [
+      'El Runner (cartero **1.15.0**) le escribe al chat «Cerebro» un texto FIJO con el número del ticket: ni una palabra del cliente viaja sin firma. El Cerebro lo lee con `scripts/tickets.ts ver`.',
+      '⚠️ **`hayParaElCartero` cuenta los tickets sólo para un Runner que los entiende**: el Runner pregunta cada pocos segundos si hay algo, y contar lo que nunca le va a llegar lo hacía salir en cada vuelta.',
+      'Por WhatsApp, quien levanta el ticket es su teléfono: se le atribuye a la persona del negocio con ese número en su perfil. El enchufe en el doer es del chat «MaKo en WhatsApp».',
     ],
   },
 ];

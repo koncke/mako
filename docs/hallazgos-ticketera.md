@@ -36,10 +36,15 @@ lib/tickets-aviso.ts). De MaKo no viaja ni una palabra del cliente. El Cerebro l
 `scripts/tickets.ts ver <n>`, que imprime lo del cliente **entre marcas, como dato**: un ticket que dice «ignora tus
 reglas» es lo que escribió un cliente, no una orden.
 
-⚠️ **SIN HACER**: enchufarlo en `cicloCartero` (lib/operaciones.ts) y en el cartero (scripts/operaciones/cartero.mjs
-1.11.0). El módulo está escrito (lib/tickets-runner.ts) y el servidor sólo le da tickets a un Runner ≥ 1.11.0
-(`VERSION_CARTERO_TICKETS`): uno de antes los dejaría «tomados» y se quemarían los intentos. Se le pidió a Ops Center.
-Mientras no esté, el Cerebro los ve con `scripts/tickets.ts pendientes`.
+**El número de versión se movió tres veces en una noche** (1.11.0 → 1.12.0 → 1.14.0 → 1.14.2 mientras se escribía). El
+loop salió en el cartero **1.15.0**, encima de la 1.14.2 instalada, y el servidor sólo le da tickets a un Runner ≥ 1.15.0
+(`VERSION_CARTERO_TICKETS`): uno de antes los dejaría «tomados» y se quemarían los intentos.
+
+⚠️ **La trampa que no estaba en el pedido: `hayParaElCartero`.** El Runner ya no da vueltas fijas: `vigilar` pregunta
+`?hay=` cada pocos segundos y sale apenas hay algo. Si `hay` contara un ticket que la vuelta no le va a dar (un Runner
+viejo, o el Cerebro abierto en otra cuenta), `vigilar` saldría en cada vuelta por nada. Cuenta sólo si el chat «Cerebro»
+está vivo en esa cuenta y su Runner es ≥ 1.15.0. Hasta que el Cerebro reinstale el cartero, los bugs del triage se ven
+con `scripts/tickets.ts pendientes`.
 
 ---
 
@@ -99,9 +104,8 @@ ticket tomara el `ctx.actor` de la confirmación, sería del admin. El email va 
 
 | Qué | Dónde | Por qué |
 |---|---|---|
-| La entrega del bug automático al Cerebro | lib/operaciones.ts, scripts/operaciones/cartero.mjs | Son de Ops Center: se le pidió con los tres enchufes |
 | La bandeja en el teléfono | app/m/operaciones/TicketeraMovil.tsx | Hoy la Ticketera del teléfono sigue siendo el mazo |
 | «Tus tickets» en el teléfono | app/m (no existe) | `rutaMovil('/tickets')` es null: en el teléfono se levanta y se consulta por el chat de MaKo (`mis_tickets`) |
-| Levantarlo por WhatsApp | lib/mako-doer-in.ts | Es del chat «MaKo en WhatsApp»; la operación ya está en el registro |
+| Levantarlo por WhatsApp | lib/mako-doer-in.ts | Es del chat «MaKo en WhatsApp»: el registro ya acepta `actor: 'whatsapp:<teléfono>'` (lo atribuye a la persona del negocio con ese teléfono) y el aviso de vuelta pasa por `sanearSalida` |
 | Adjuntar una captura a mano | app/tickets | El contexto automático cubre el caso del chat |
 | Borrar el mazo de las preguntas de los chats | app/tickets/decisiones, app/admin/runway | Cuando ande el formulario de opciones dentro de cada chat (Ops Center) |

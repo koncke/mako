@@ -114,8 +114,12 @@ async function avisarUno(f: FilaAviso): Promise<boolean> {
   }
   if (f.canal === 'whatsapp') {
     try {
+      // Por el MISMO saneo de salida que el doer (lib/doer-salida.ts; lo pidió el chat «MaKo en WhatsApp»): lo libre del
+      // aviso es la respuesta de Martín o la nota del arreglo. `corrioHerramientas: true` porque el aviso ES el resultado
+      // de algo hecho (el cierre): «te avisamos cuando esté» de un duplicado lo cumple el código, no es una promesa suelta.
+      const { sanearSalida } = await import('./doer-salida');
       const { enviarAlGrupoMaKo } = await import('./mako-grupo');
-      const r = await enviarAlGrupoMaKo(ws, texto);
+      const r = await enviarAlGrupoMaKo(ws, sanearSalida(texto, { corrioHerramientas: true }).texto);
       if (r.ok) salio.push('whatsapp');
     } catch (e) { console.error(`[tickets] WhatsApp de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
   }

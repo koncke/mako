@@ -11,7 +11,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import type { ChatCartero } from './operaciones-reglas';
-import { ENTREGA_MAX_INTENTOS, TICKETS_POR_VUELTA, VERSION_CARTERO_TICKETS, esElCerebro, necesitaEntrega, versionAlMenos, type FilaEntrega } from './tickets-aviso';
+import { ENTREGA_MAX_INTENTOS, ENTREGA_TOMADO_VENCE_MS, TICKETS_POR_VUELTA, VERSION_CARTERO_TICKETS, esElCerebro, necesitaEntrega, versionAlMenos, type FilaEntrega } from './tickets-aviso';
 
 const T = 'tickets';
 
@@ -54,6 +54,19 @@ export async function ticketsParaElCartero(
     if (out.length >= TICKETS_POR_VUELTA) break;
   }
   return out;
+}
+
+/**
+ * Cuántos bugs del triage esperan que un Runner se los lleve al Cerebro: el MISMO criterio de `necesitaEntrega`, en una
+ * consulta (lo pide `hayParaElCartero` cada pocos segundos). Lo tomado hace menos de 2 h no cuenta: ya está en camino.
+ */
+export async function ticketsSinEntregar(ahora = Date.now()): Promise<number> {
+  const vence = new Date(ahora - ENTREGA_TOMADO_VENCE_MS).toISOString();
+  const { count, error } = await getSupabaseServer().from(T).select('id', { count: 'exact', head: true })
+    .eq('despacho', 'runner').eq('estado', 'en_curso').lt('aviso_intentos', ENTREGA_MAX_INTENTOS)
+    .or(`aviso_estado.is.null,aviso_estado.in.(no_entregado,incierto),and(aviso_estado.eq.tomado,aviso_at.lt.${vence})`);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
 }
 
 /** El acuse de una entrega (por el id del intento). Devuelve cuántos tocó: 0 = no era de un ticket. */
