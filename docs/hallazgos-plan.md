@@ -7126,3 +7126,14 @@ que no entra en el reloj ya no es una de ésas: se lee en dos corridas. No se mi
 **Vive en:** lib/lectura-por-partes.ts · lib/reunion-parcial.ts · lib/plan-fathom.ts (`extraerTareasDeTexto`,
 `fusionarDuplicadas`) · lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts · app/plan/board/TareasRecibidasModal.tsx ·
 tests/reunion-larga-reloj.test.ts (+ el modo `parcial` de tests/_fathom-carga-hijo.ts) · *17/10/2026, B5 (claude4)*
+
+## La re-puntuación completa del Perro (`puntuarPlan`) tampoco pisa lo fijado (17/10/2026)
+
+Era lo que quedó en la cola del relevo del Perro: `puntuarPlan` (lib/mako-guardian.ts) curvaba con `curveTaskScores` y
+devolvía un número para TODAS, también las fijadas a mano: el mismo error que `recurvarPlanOwner` tuvo hasta el 14/10
+(240 de 513 arrastres deshechos), en el otro camino. Ahora una tarea que llega con `fijada` no recibe número y el resto
+se corrige alrededor de ella con `respetarFijadas` (`curvaSinPisarFijadas`, app/plan/board/lugar-al-soltar.ts).
+**Medido al leer el código:** hoy NADIE la llama con el plan entero —el default de /api/mako-guardian no tiene botón y la
+Retro, su otro llamador, se retiró—: el arreglo es para el día que vuelva un «re-puntuar todo» con el modelo. Quien la
+llame tiene que mandar `fijada` y `num` (sin eso, como antes). **Vive en:** lib/mako-guardian.ts (`GuardTaskIn`,
+`puntuarPlan`) · app/plan/board/lugar-al-soltar.ts · tests/plan-repuntuar-fijadas.test.ts · *17/10/2026, B5 (claude4)*
