@@ -1,8 +1,8 @@
 // =============================================================================
 // MaKo Mobile — las tabs de CREACIÓN en el teléfono (17/10/2026)
 // =============================================================================
-// Video Editor, Image Editor, AI Avatar, Reels, Stories, Carousels y las «pronto» (lib/movil-creacion.ts y
-// app/m/_creacion). Fija lo que se rompe sin un solo error:
+// Video Editor, Image Editor, AI Avatar, Reels, Stories y Carousels (lib/movil-creacion.ts y app/m/_creacion). Las
+// «Coming soon» son de /m/pronto (Mobile 2, tests/movil-toda-tab.test.ts). Fija lo que se rompe sin un solo error:
 //   · la ida y la vuelta de cada ruta de escritorio con su pantalla del teléfono (con su query, las subrutas y las
 //     rutas viejas), y lo que se QUEDA en la computadora (el presentador del Image Editor, una subruta inventada);
 //   · que la puerta del teléfono sea la de escritorio: la MISMA key de nav.ts que pide cada page de escritorio, una
@@ -13,9 +13,9 @@
 //   · el teléfono no COPIA lo de escritorio: los textos de «Copiar» viven en módulos puros que usan los dos lados;
 //   · abrir una pantalla de AI Avatar no gasta nada: ninguna page llama a lo que encola trabajo en Flow.
 //
-// Verificado ROMPIÉNDOLO (17/10/2026, scratchpad/romper.py: doce roturas sobre el archivo real, de a una, restaurando
+// Verificado ROMPIÉNDOLO (17/10/2026, scratchpad/romper.py: trece roturas sobre el archivo real, de a una, restaurando
 // de memoria y comparando el hash): base 6 pasan / 0 fallan; cada rotura, 5 / 1 en el test que la vigila (anotada
-// arriba de cada uno); restaurado, 6 / 0.
+// arriba de cada uno; la de `rutaMovilCreacion` después de las «pronto» tumba dos, 4 / 2); restaurado, 6 / 0.
 // =============================================================================
 
 import test from 'node:test';
@@ -33,7 +33,8 @@ const RAIZ = join(__dirname, '..');
 const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const leer = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8'));
 
-// Roto 17/10/2026: una ruta de alias borrada (era `/vsl-writer`, hoy de las «pronto») → 5/1; `noSub` sin 'presentador' → 5/1; la query de `/ai-avatar/avatares`
+// Roto 17/10/2026: la línea de creación de `rutaMovil` borrada (las rutas caían en las «pronto» o en null) → 4/2 (éste
+// y el de la puerta); `noSub` sin 'presentador' → 5/1; la query de `/ai-avatar/avatares`
 // sin `plantilla` → 5/1; `rutaEscritorioCreacion` sin el chequeo de la vuelta (una /m inventada se traducía) → 5/1.
 test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, con lo que escritorio lee de la query', () => {
   const casos: Array<[string, string | null]> = [
@@ -71,7 +72,7 @@ test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, co
 });
 
 // Roto 17/10/2026: la fila de Reels con navKey 'reel' (no existe en nav.ts) → 5/1; la page del teléfono de Stories con
-// `navKey: 'copywriting'` → 5/1; la page de Avatars sin `requireAiAvatarM()` → 5/1.
+// `navKey: 'copywriting'` → 5/1; la page de Avatars sin `requireAiAvatarM()` → 5/1; la de Voices sin su <CabeceraM> → 5/1.
 test('la puerta del teléfono es la de escritorio: la misma key, que existe, y AI Avatar sólo para el super admin', () => {
   // AI Avatar NO tiene fila (lib/movil-creacion.ts: una fila oculta le borraría su fila en More, `masCompleto`).
   assert.ok(!SECCIONES_MAS.some((x) => x.navKey.startsWith('ai-avatar')), 'AI Avatar no va en SECCIONES_MAS');
