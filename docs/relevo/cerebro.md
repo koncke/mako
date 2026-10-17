@@ -415,3 +415,11 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
     - tipos 155 s;
     - los demás 68 s (antes 182): 692 compartidos en 2 grupos de 38 y 22 s + 49 aislados;
     - total del job ≈ 485 s (antes ≈ 676 s); 0 flaky.
+- **17:00 UTC:** en producción el run 115 (68cc6d74a, MaKo Mobile entero, el pedido 103d1f01 CERRADO en el Centro con --revisar /chats) y el 116 (f0ab59099).
+  - El 116 trae el lote 3 de Automations: e0f1f3b5b, más de26fe351 con el formulario de Meta (#279 pausada).
+  - La revisión adversarial del motor de avisos encontró UN defecto real: `--pausar` sin `--eventos=` pausaba #260 y la cuenta recuperada. Lo arreglé en 71891c5cb y está en hallazgos-comunicacion.
+  - Automations pausó #270, #272 y #275-#278 en producción: desde el run 110, los dos primeros les llegaban a todos los negocios.
+- **«Ya está» SIN mandar (tope de 10), para el próximo mensaje de Martín:**
+  - Sidebar y Dashboard (run 111);
+  - CRM Partners, Onboarding F (cierra #850), Plan (los dos arreglos de «Marcar hecha»), Ticketera 4 y Automations (bitácora + lote 3) (runs 113/116);
+  - Infra (4d10a74a1 y los tiempos del 113, más arriba; SÍ al `npm test` semanal).
