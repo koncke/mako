@@ -63,7 +63,7 @@ export function HistorialFicha({ funnelId, nombre, onCerrar, onVolvio }: {
       {leido === 'cargando' && <p style={{ color: 'var(--dim)', fontSize: 14 }}>Cargando…</p>}
       {typeof leido === 'string' && leido !== 'cargando' && <p style={{ color: 'var(--bad)', fontSize: 14 }}>{leido}</p>}
       {typeof leido === 'object' && !leido.entradas.length && (
-        <p style={{ color: 'var(--dim)', fontSize: 14 }}>Todavía no hay cambios guardados. Desde hoy, cada cambio de la ficha queda acá.</p>
+        <p style={{ color: 'var(--dim)', fontSize: 14 }}>Todavía no hay cambios guardados. Desde hoy, cada cambio de la ficha queda aquí.</p>
       )}
       {typeof leido === 'object' && leido.entradas.length > 0 && (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>

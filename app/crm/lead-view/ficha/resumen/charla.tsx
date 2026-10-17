@@ -99,16 +99,13 @@ export function CharlaWhatsApp({ ctx, titulo, diseno, epico }: PropsBloque) {
 
 // ── La charla por DM ─────────────────────────────────────────────────────────
 
-/** El usuario, si la ventana de 24 h sigue abierta y cuánto le queda, y los últimos mensajes. Sin charla, se calla. */
+/** El usuario, si hoy se le puede escribir (la regla del canal) y los últimos mensajes. Sin charla, se calla. */
 export function CharlaDm({ ctx, titulo, diseno, epico }: PropsBloque) {
   const { dato: r, ahora } = useLectura(ctx.lead.id, charlaDmAction);
   if (r === 'cargando' || r === 'sin-charla') return null;
   if (r === null) return <NoPude titulo={titulo} epico={epico} que="sus mensajes directos" />;
-  const fin = r.ventanaHasta ? Date.parse(r.ventanaHasta) : NaN;
-  const horas = Number.isFinite(fin) && ahora ? Math.floor((fin - ahora) / 3_600_000) : null;
-  const ventana = horas == null ? 'Sin dato de la ventana' : horas > 0 ? `Ventana abierta: ${horas} h` : 'Ventana cerrada';
-  const red = r.plataforma === 'facebook' ? 'Messenger' : 'Instagram';
-  const quien = r.usuario ? `@${r.usuario}` : red;
+  const ventana = r.puedeEscribir ? 'Se le puede escribir' : (r.motivoNoEscribir ?? 'No se le puede escribir');
+  const quien = r.usuario ? `@${r.usuario}` : r.red;
   if (diseno === 'chip' && !epico) {
     return <Bloque titulo={titulo} epico={false}><span className="fr-chip" style={{ alignSelf: 'flex-start' }}>{quien} · {ventana}</span></Bloque>;
   }

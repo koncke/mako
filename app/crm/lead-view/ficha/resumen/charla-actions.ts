@@ -22,6 +22,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getTenantDb } from '@/lib/workspace';
 import { hiloWhatsApp } from '@/lib/crm-movil';
 import { inscripcionesDeLead } from '@/lib/api-mako/areas/chatbot.helpers';
+import { conversacionesSocialesDe, mensajesSociales } from '@/lib/canal-zernio';
 
 const idValido = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x > 0;
 const conSesion = async (): Promise<boolean> => { try { return Boolean(await getUsuarioActual()); } catch { return false; } };
@@ -41,22 +42,22 @@ export async function charlaWhatsAppAction(leadId: number): Promise<{ mensajes: 
   }
 }
 
-/** La charla por DM (Instagram o Messenger): el usuario, hasta cuándo se le puede escribir y los últimos mensajes. */
-export async function charlaDmAction(leadId: number): Promise<{ usuario: string | null; plataforma: string | null; ventanaHasta: string | null; mensajes: MensajeCorto[] } | null | 'sin-charla'> {
+/**
+ * La charla por DM (Instagram o Messenger): el usuario, si hoy se le puede escribir y los últimos mensajes.
+ * Lee por EL CANAL (lib/canal-zernio.ts, la misma puerta que la bandeja de Chats): las tablas de Instagram sólo las
+ * nombra el canal (tests/sin-instagram.test.ts), y «se le puede escribir» es SU regla (`escrituraDe`), no una cuenta
+ * de horas hecha acá.
+ */
+export type CharlaPorDm = { usuario: string | null; red: 'Instagram' | 'Messenger'; puedeEscribir: boolean; motivoNoEscribir: string | null; mensajes: MensajeCorto[] };
+export async function charlaDmAction(leadId: number): Promise<CharlaPorDm | null | 'sin-charla'> {
   if (!idValido(leadId) || !(await conSesion())) return null;
   try {
-    const db = await getTenantDb();
-    const { data, error } = await db.from('ig_conversaciones').select('id, username, plataforma, ventana_expira_at')
-      .eq('lead_id', leadId).order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(1);
-    if (error) return null;
-    const c = ((data ?? []) as Array<{ id: number; username: string | null; plataforma: string | null; ventana_expira_at: string | null }>)[0];
+    const ms = (iso: string | null) => Date.parse(iso ?? '') || 0;
+    const c = [...(await conversacionesSocialesDe({ leadId }))].sort((a, b) => ms(b.ultimaFecha) - ms(a.ultimaFecha))[0];
     if (!c) return 'sin-charla';
-    const { data: ms, error: e2 } = await db.from('ig_mensajes').select('direccion, texto, created_at')
-      .eq('conversacion_id', c.id).order('created_at', { ascending: false }).limit(10);
-    if (e2) return null;
-    const mensajes = ((ms ?? []) as Array<{ direccion: string | null; texto: string | null; created_at: string | null }>).reverse()
-      .map((m) => ({ deMi: m.direccion === 'saliente', texto: m.texto?.trim() || '(sin texto)', cuando: m.created_at }));
-    return { usuario: c.username, plataforma: c.plataforma, ventanaHasta: c.ventana_expira_at, mensajes };
+    const mensajes = (await mensajesSociales([c.id])).slice(-10)
+      .map((m) => ({ deMi: m.saliente, texto: m.texto?.trim() || '(sin texto)', cuando: m.fecha }));
+    return { usuario: c.username, red: c.canal === 'messenger' ? 'Messenger' : 'Instagram', puedeEscribir: c.puedeEscribir, motivoNoEscribir: c.motivoNoEscribir, mensajes };
   } catch {
     return null;
   }
