@@ -56,18 +56,19 @@ test('A2: la página del teléfono abre la bandeja con `?ticketera=tickets`, des
   assert.match(pagina.slice(tickets), /<TicketsMovil \{\.\.\.datos\} \/>/, 'la bandeja recibe el motor del Centro entero');
   assert.match(pagina, /import '@\/app\/tickets\/bandeja\/bandeja\.css';/, 'la hoja la importa la página, no el componente');
   assert.doesNotMatch(leer('app/tickets/bandeja/BandejaTickets.tsx'), /import '.*\.css'/, 'un css en el componente rompe los tests con node');
-  // El mazo viejo se sigue abriendo, con su nombre de la computadora.
-  assert.match(pagina, /<CabeceraM titulo="Preguntas de los chats" trabajo/);
+  // El mazo viejo ya no se abre (17/10/2026, 19:31): `tarjetas` y `lista` abren los tickets, y la hoja no lleva su cabecera.
+  assert.match(pagina, /ticketera === 'tickets' \|\| ticketera === 'tarjetas' \|\| ticketera === 'lista'/);
+  assert.doesNotMatch(pagina, /Preguntas de los chats/);
 });
 
 test('A3: «Aprobar» en el teléfono le firma al Cerebro: la bandeja se monta sobre el motor del Centro', () => {
   const src = leer('app/m/operaciones/TicketeraMovil.tsx');
   assert.match(src, /const centro = useCentro\(datos, \(t\) => toast\(t\)\);/);
   assert.match(src, /<BandejaTickets cerebro=\{cerebroDelCentro\(centro\)\} \/>/, 'sin el Cerebro, Aprobar deja el ticket sin entregar');
-  // El Centro ofrece las dos puertas, cada una con su número.
+  // El Centro ofrece la puerta de los tickets, con su número («Preguntas de los chats» se sacó el 17/10/2026 a las 19:31).
   const centro = leer('app/m/operaciones/CentroAppMovil.tsx');
   assert.match(centro, /titulo="Ticketera"[^>]*href="\/m\/operaciones\?ticketera=tickets"/);
-  assert.match(centro, /titulo="Preguntas de los chats"[^>]*href="\/m\/operaciones\?ticketera=tarjetas"/);
+  assert.doesNotMatch(centro, /Preguntas de los chats|ticketera=tarjetas/);
   assert.match(centro, /useTicketsPorDecidir\(true\)/, 'el número de la fila es el de los tickets');
 });
 
