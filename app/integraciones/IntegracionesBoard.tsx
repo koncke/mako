@@ -169,7 +169,8 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
-  incidentes: Incidente[];
+  /** `null` = no se pudieron leer (no es «no hubo»). */
+  incidentes: Incidente[] | null;
   /** <script> con el token del workspace, listo para copiar. null = admin sin impersonar. */
   snippetLanding?: string | null;
   /** La línea del cargador del Pixel (lib/pixel-cargador.ts). null = admin sin impersonar. */
@@ -798,7 +799,9 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
 }
 
 // ── Historial de problemas (incidentes con inicio → fin) ──────────────────────
-function ProblemasHistorial({ incidentes, nombreDe }: { incidentes: Incidente[]; nombreDe: (service: string) => string }) {
+function ProblemasHistorial({ incidentes: leidos, nombreDe }: { incidentes: Incidente[] | null; nombreDe: (service: string) => string }) {
+  // «No pude leer» NO es «Todo en orden» (17/10/2026): con la lectura caída, se dice eso y no se cuenta ningún activo.
+  const incidentes = leidos ?? [];
   const activos = incidentes.filter((x) => x.resolvedAt === null).length;
   return (
     <section style={{ ...card, marginTop: 20, padding: '22px 30px 12px' }}>
@@ -806,7 +809,9 @@ function ProblemasHistorial({ incidentes, nombreDe }: { incidentes: Incidente[];
         <h2 style={{ fontWeight: 600, fontSize: 18, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>Historial de problemas</h2>
         <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{activos} {activos === 1 ? 'activo' : 'activos'}</span>
       </div>
-      {incidentes.length === 0 ? (
+      {leidos === null ? (
+        <div style={{ color: 'var(--warn)', fontSize: 13.5, padding: '14px 0' }}>No pude leer el historial de problemas. Recarga en un rato.</div>
+      ) : incidentes.length === 0 ? (
         <div style={{ color: 'var(--dim)', fontSize: 13.5, padding: '14px 0' }}>Todo en orden. Aquí van a quedar los incidentes de cada servicio con su período: desde cuándo empezó el problema hasta que se resolvió.</div>
       ) : (
         incidentes.map((it, idx) => {

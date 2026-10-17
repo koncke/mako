@@ -3985,6 +3985,10 @@ alguien haya mirado, así que no hay ningún registro de por qué empezó ese d�
   (`lib/api-mako/areas/ads.run.ts:483`), pero cualquier consumidor nuevo que tome `[]` como «todo
   sano» afirma de más. **Regla:** «no pude leer» llega como error o como un campo aparte, nunca
   como lista vacía. *2026-09-16 api-mako-areas*
+  **Arreglado el 17/10/2026 (B5):** `leerIncidentes` devuelve `null` cuando no pudo leer; /integraciones dice «No pude leer
+  el historial de problemas» y `listar_incidentes_meta` falla con el motivo. `getIncidentes` (`[]` en los dos casos) queda
+  sólo para el teléfono (app/m/configuraciones/integraciones, de Mobile), que no afirma nada con la lista vacía.
+  Test: tests/integraciones-incidentes-no-leidos.test.ts.
 
 *Corrida del 21/08/2026 — incidente #101 cerrado a mano en prod, credencial de ws13
 corregida a `act_…`, mig 0139 aplicada. Typecheck 0 errores, 1030/1030 tests.*

@@ -35,7 +35,7 @@ import {
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { erroresFormulario, type FormularioNuevo, type PreguntaEstandar } from '@/lib/meta-formularios';
 import type { Creative, CTAType } from '@/lib/campaign-types';
-import { getIncidentes } from '@/lib/meta-health-history';
+import { leerIncidentes } from '@/lib/meta-health-history';
 import { getSenalesRecon } from '@/lib/queries';
 import { motivosDeVentaPorLlamada } from '@/lib/venta-por-llamada';
 import { tzDeWorkspace } from '@/lib/timezone';
@@ -481,8 +481,10 @@ export const RUNNERS: Runners = {
   },
   listar_incidentes_meta: {
     leer: async (input) => {
-      const inc = await getIncidentes(num(input, 'limite') ?? 30);
-      return J({ incidentes: inc, ...(inc.length ? {} : { nota: 'Lista vacía: no hay incidentes registrados o no se pudo leer la tabla (la lectura no distingue). No afirmes que la cuenta nunca tuvo problemas.' }) });
+      // `null` = no se pudo leer la tabla (17/10/2026: antes llegaba como lista vacía y la nota decía «no distingue»).
+      const inc = await leerIncidentes(num(input, 'limite') ?? 30);
+      if (inc === null) return fallo('No pude leer el historial de incidentes. Eso NO significa que no haya: es la lectura la que falló.');
+      return J({ incidentes: inc, ...(inc.length ? {} : { nota: 'Lista vacía: no hay incidentes registrados.' }) });
     },
   },
   ver_base_formulario_meta: {
