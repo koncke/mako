@@ -123,6 +123,8 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       hasta(' La última semana es la que contiene este día. Default: hoy en la zona del negocio.'),
       { nombre: 'semanas', tipo: 'number', entero: true, minimo: 1, maximo: 26, descripcion: 'Cuántas semanas hacia atrás. Default 12.' },
+      // 17/10/2026, el cabo de #896: uno o varios funnels, con la MISMA lectura que diagnosticar_funnel.
+      { nombre: 'funnels', tipo: 'string', max: 200, descripcion: 'De qué funnels es la serie: «todos» (el negocio entero, el default) o ids separados por coma de funnels_del_negocio (listar_objetivos), p. ej. «1,29». Lo de Meta sigue siendo de toda la cuenta. Funnels con etapas distintas no se miden juntos: pídelos de a uno.' },
     ],
     salida: 'json',
     canales: TODOS, costo: 'gratis',

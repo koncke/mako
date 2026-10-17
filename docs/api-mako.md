@@ -6952,6 +6952,7 @@ El porcentaje de paso de cada etapa del embudo semana a semana, con el lunes de 
 | --- | --- | --- | --- |
 | `hasta` | string | no | Último día de la ventana, YYYY-MM-DD, inclusive. La última semana es la que contiene este día. Default: hoy en la zona del negocio. |
 | `semanas` | number | no | Cuántas semanas hacia atrás. Default 12. |
+| `funnels` | string | no | De qué funnels es la serie: «todos» (el negocio entero, el default) o ids separados por coma de funnels_del_negocio (listar_objetivos), p. ej. «1,29». Lo de Meta sigue siendo de toda la cuenta. Funnels con etapas distintas no se miden juntos: pídelos de a uno. |
 
 ```bash
 curl -L \

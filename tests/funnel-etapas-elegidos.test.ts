@@ -64,3 +64,21 @@ test('el modelo sabe que lo de Meta es de toda la cuenta cuando mide un funnel',
   assert.match(diag, /if \(f\.pautaDeTodaLaCuenta\) notas\.unshift\('Embudo de los funnels elegidos:/);
   assert.match(leer('lib/queries.ts'), /\.\.\.\(conFunnels \? \{ funnels: \[\.\.\.funnels\], pautaDeTodaLaCuenta: true \} : \{\}\)/);
 });
+
+// 17/10/2026, el cabo de #896 (docs/relevo/dashboard.md, «Lo que falta»): `ver_serie_funnel_semanal` seguía midiendo el funnel
+// principal (`getFunnelSeries` tiene sus propias lecturas). Ahora recibe los funnels con la misma regla.
+// PROBADO ROMPIÉNDOLO: la serie sin filtrar las R1 por funnel → 1 fallo; la API sin pasarle los funnels → 1 fallo.
+test('la serie SEMANAL del embudo también mide los funnels elegidos (y la API se los pasa)', () => {
+  const q = leer('lib/queries.ts');
+  const s = entre(q, 'async function _getFunnelSeries(', 'const ratio =');
+  assert.match(s, /funnels: readonly number\[\] = \[\],/);
+  assert.match(s, /const stages = funnels\.length \? await etapasDeFunnels\(funnels\) :/);
+  assert.match(s, /const j1s = await enLosFunnels\(j1Crudas, funnels, \(r\) => r\.fecha_junta_1\);/);
+  assert.match(s, /const altasRes = await enLosFunnels\(altasTodas, funnels,/);
+  const run = leer('lib/api-mako/areas/metricas.run.ts');
+  const serie = entre(run, 'ver_serie_funnel_semanal: {', 'ver_tendencias: {');
+  assert.match(serie, /s = await getFunnelSeries\(h, semanas, ids\);/);
+  assert.match(serie, /FunnelsConEtapasDistintas/);
+  const def = DEFS_METRICAS.find((d) => d.id === 'ver_serie_funnel_semanal');
+  assert.ok(def?.parametros?.some((p) => p.nombre === 'funnels'), 'la operación no ofrece «funnels»');
+});

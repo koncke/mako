@@ -1522,3 +1522,8 @@ ajustó). **No se midió con números reales** (la trampa de arriba).
 **Vive en:** lib/queries.ts (`getFunnelEtapas`, `etapasDeFunnels`) · lib/api-mako/areas/metricas.run.ts ·
 lib/api-mako/funnels-del-pedido.ts.
 *17/10/2026, claude4 (chat Dashboard).*
+
+**El cabo, cerrado el mismo día (B5):** `ver_serie_funnel_semanal` también recibe `funnels` y `getFunnelSeries` reparte las
+R1 y las altas con `enLosFunnels`, igual que el período. La caché no necesitó cambiar: `unstable_cache` suma los
+argumentos a la clave, así que la serie de «1,29» y la del negocio entero no se pisan (el relevo decía que había que
+sumarlos a mano). Test: el último de tests/funnel-etapas-elegidos.test.ts.
