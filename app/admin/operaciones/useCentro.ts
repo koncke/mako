@@ -29,6 +29,7 @@ import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
+import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
 import { fotoCentroAction, guardarMunecoAction, pushesCentroAction } from './acciones';
 import { copiar, useFirma } from './mandar';
 
@@ -79,6 +80,11 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const [munecos, setMunecos] = useState<MunecosElegidos>(d.munecosIniciales);
   const [borradores, setBorradores] = useState<Record<string, string>>({});
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
+  /** La cuenta elegida para cada chat (ausente = «Automático»): se recuerda mientras la pantalla está abierta. */
+  const [cuentaDe, setCuentaDe] = useState<Record<string, string>>({});
+  /** El modelo y el esfuerzo del próximo trabajo (null = «Automático»): vuelven a Automático después de mandar. */
+  const [modelo, setModelo] = useState<Modelo | null>(null);
+  const [esfuerzo, setEsfuerzo] = useState<Esfuerzo | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [avance, setAvance] = useState(false);
   // El «⋯» de una fila (o el clic derecho): dónde abre y de qué chat es.
@@ -144,7 +150,14 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   // ── La caja ────────────────────────────────────────────────────────────────────────────────────
   const claveFirma = firma.clave === undefined ? undefined : firma.clave?.id ?? null;
-  const envioDe = (c: ChatCentro): Envio => comoSale(c, carteros, claveFirma, ahora);
+  // ── La cuenta (Martín, 17/10/2026: «Si no selecciono nada que lo decida solo, pero debería poder seleccionar») ──
+  const cuentaElegida = (clave: string) => cuentaDe[clave] ?? AUTOMATICO;
+  const elegirCuenta = (clave: string, cuenta: string) => setCuentaDe((m) => ({ ...m, [clave]: cuenta }));
+  /** A qué sesión va lo que se escribe en la caja de ESTE chat (la cuenta elegida, o la automática). */
+  const destinoDeChat = (c: ChatCentro) => destinoDe(c, cuentaElegida(c.clave), carteros, ahora);
+  /** Las cuentas del chat para el selector, y cuál elegiría «Automático». */
+  const cuentasDe = (c: ChatCentro) => ({ opciones: cuentasDelChat(c, carteros, ahora), automatica: sesionAutomatica(c, carteros, ahora)?.cuenta ?? null });
+  const envioDe = (c: ChatCentro): Envio => comoSale(destinoDeChat(c), carteros, claveFirma, ahora);
   const borradorDe = (clave: string) => borradores[clave] ?? '';
   const ponerBorrador = (clave: string, t: string) => setBorradores((b) => ({ ...b, [clave]: t }));
 
@@ -153,14 +166,19 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   async function mandar(c: ChatCentro) {
     const texto = borradorDe(c.clave);
-    if (!c.sesion || !envioDe(c).puede || enviando || !texto.trim()) return;
+    const d = destinoDeChat(c);
+    if (!d.sesion || !envioDe(c).puede || enviando || !texto.trim()) return;
     setEnviando(true);
-    const r = await firma.mandar({ sesion: c.sesion, cuenta: c.cuenta, titulo: c.titulo }, texto, alcance);
+    // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
+    const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, alcance, como);
     setEnviando(false);
     if (!r.ok) { avisar(r.error, 'bad'); return; }
-    anotarEnviado({ id: r.id, destino: c.sesion, destino_titulo: c.titulo, destino_cuenta: c.cuenta, created_at: r.creado, texto: texto.trim(), estado: 'escrito', motivo: null, cierre: null });
+    anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim(), estado: 'escrito', motivo: null, cierre: null });
     ponerBorrador(c.clave, '');
     setAlcance('solo_esto');
+    setModelo(null);
+    setEsfuerzo(null);
   }
 
   // Los avisos dicen qué hacer, cortos (Martín, 15/10/2026: «Jamás pongas mensajes no claros»). Después de crear el
@@ -226,6 +244,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     avance, cambiarAvance,
     envioDe, borradorDe, ponerBorrador, alcance, setAlcance, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
+    cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
     renombrando, setRenombrando, deRenombre, renombrar,
     eligiendo, setEligiendo, deMuneco, abrirMuneco, guardarElegido,

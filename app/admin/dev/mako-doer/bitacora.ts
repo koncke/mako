@@ -316,4 +316,37 @@ export const BITACORA: Hito[] = [
       'tests/agenda-whatsapp.test.ts — reescrito sobre el turno real; 15 roturas entre los dos tests',
     ],
   },
+  // ── 17 de octubre: el vigía de los grupos, y el «no puedo» de Pablo ─────────────
+  {
+    fecha: '17 oct', hora: '01:50', chat: 'Cerebro', sesion: 'local_797d5445-2365-464d-ae3d-1d71aa7baa8c', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que se vigilen SIEMPRE todos los grupos de MaKo y los errores se arreglen solos',
+    pedido: 'quiero activar un proceso donde SIEMPRE se esté leyendo todos los grupos de MaKo en WhatsApp con clientes, porque MaKo muchas veces dice "no puedo" o tira errores, y no me gusta que no funcione, debe funcionar entero... que se esté vigilando y que se debugeen los errores en automático cuando surjan... Por ejemplo en la cuenta de Pablo hay un error con su google calendar',
+    puntos: [
+      'Llegó por el Cerebro, con el grupo del ws18 (Pablo Chavez) del 16/10 ya medido: «primero debes activar la integración», «Déjame ver el plan…» sin nada más, «no tengo acceso para escribir en tu Google Calendar», «te cargo las tareas» sin cargar nada, y groserías en el grupo de un cliente.',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '01:36', chat: 'MaKo en WhatsApp', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: el vigía de los grupos, y MaKo ya no dice «no puedo» con la herramienta afuera ni promete sin hacer',
+    revisar: '/second-brain?ws=18',
+    puntos: [
+      '⚠️ **No era Google: el permiso de Pablo estaba guardado desde las 12:03, seis horas antes.** Era el clasificador, tres veces: «probá el calendario de google» caía a material sin nada para mirar la conexión (y MaKo DEDUJO que no estaba conectado); «Hola MaKo, ¿cómo estás? ¿Me agendás…?» llegaba como pregunta, donde no viajan las que escriben (el «¿cómo estás?» no se pelaba nunca: la regex no podía matchear, y «me agendás» no era el verbo); y «Nancy, Alem 1987» —los datos que MaKo pidió con un «pásame…» sin «?»— caía a material.',
+      '**Y el «Déjame ver el plan» tenía `ver_plan` en la mesa**: Gemini flash-lite, el respaldo, no la llamó. Se reintenta UNA vez con la herramienta obligatoria y, si igual promete, la oración no sale y se dice que no se hizo. Una respuesta del doer es el FINAL del turno: no hay un después.',
+      '**El prompt fabricaba la promesa**: el turno sin herramientas decía, como ejemplo, «eso lo miro y te lo paso», y el ws13 lo recibió textual el 13/10. Las groserías venían de la persona de MaKo («puedes putear suave»): el doer las corta al salir; la persona no se tocó.',
+      '**El vigía** (`scripts/vigia-mako-grupos.mts`, sólo lectura) lee todos los grupos cada 15 minutos y marca «no puedo», promesas, quejas, groserías, silencios y carteles. Su primera pasada encontró los del ws13 («Si 18 de noviembre» salía por el camino barato sin agenda; «Pasamelo» no reclamaba lo prometido), también arreglados.',
+      '**Cómo se prueba:** el próximo pedido de agenda de Pablo en su grupo (el hilo se ve en el Second Brain del ws18). No se probó contra una agenda real: la del ws18 es de un cliente.',
+    ],
+    commits: [
+      { sha: '4569887d', msg: 'MaKo en WhatsApp: el vigía de los grupos, y lo que le dijo «no puedo» a Pablo (no era Google, era el clasificador)', lineas: 1100, archivos: 13 },
+    ],
+    archivos: [
+      'lib/mako-intencion.ts — `CORTESIA`, «me agendás», probar una integración, `makoPidioDatos`, `esPedidoDeAgenda` y el reclamo de una promesa',
+      'lib/doer-salida.ts — `promesasDe`, `groseriasDe` y `sanearSalida` (la oración sale, no se reescribe)',
+      'lib/mako-doer-in.ts — el preámbulo sin promesas ni groserías, el reintento «prometió sin hacer», el camino barato que mira la intención y el saneo antes de mandar',
+      'lib/vigia-mako-grupos.ts + scripts/vigia-mako-grupos.mts — qué es un incidente, y el que lee sin escribir',
+      'tests/mako-en-whatsapp-pablo.test.ts (13, 19 roturas) y tests/vigia-mako-grupos.test.ts (5, 9 roturas)',
+    ],
+  },
 ];

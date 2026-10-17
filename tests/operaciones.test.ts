@@ -192,6 +192,10 @@ const BATERIA: Array<[string, string]> = [
   ['en el futuro', variante({ creado: new Date(AHORA + 3_600_000).toISOString(), vence: new Date(AHORA + 86_400_000).toISOString() })],
   ['vencido', variante({ creado: new Date(AHORA - 20 * 86_400_000).toISOString(), vence: new Date(AHORA - 6 * 86_400_000).toISOString() })],
   ['vence de más', variante({ vence: new Date(AHORA + 40 * 86_400_000).toISOString() })],
+  // El modelo y el esfuerzo (17/10/2026): opcionales, y si vienen, de la lista.
+  ['con modelo y esfuerzo', variante({ modelo: 'sonnet', esfuerzo: 'high' })],
+  ['modelo raro', variante({ modelo: 'gpt-5' })],
+  ['esfuerzo raro', variante({ esfuerzo: 'turbo' })],
 ];
 
 test('el servidor y el cartero dan el MISMO veredicto sobre cada texto firmado', async () => {
@@ -204,7 +208,16 @@ test('el servidor y el cartero dan el MISMO veredicto sobre cada texto firmado',
     if (!a.ok) assert.equal(b.motivo, a.motivo, `${nombre}: motivos distintos`);
     else buenos++;
   }
-  assert.equal(buenos, 4, 'la batería tiene cuatro textos válidos');
+  assert.equal(buenos, 5, 'la batería tiene cinco textos válidos');
+});
+
+// Probado ROMPIÉNDOLO (17/10/2026): armarFirmable poniendo `modelo: null` siempre → 1 fallo (éste).
+test('sin modelo ni esfuerzo, el texto firmado es el de siempre; con ellos, van adentro de la firma', () => {
+  const sin = JSON.parse(armarFirmable(base()));
+  assert.ok(!('modelo' in sin) && !('esfuerzo' in sin), 'un trabajo sin elegir nada firma lo mismo que antes del 17/10');
+  const con = nuevoPayload({ id: '6b2b7d32-9a51-4e43-9a43-2f3a4b5c6d7e', texto: 'hola', destino: 'local_0b1c2d3e-4f50-4a61-8b72-9c83d4e5f601', cuenta: 'claude4', titulo: 'CRM', alcance: 'solo_esto', modelo: 'haiku', esfuerzo: 'low' }, AHORA);
+  const l = leerFirmable(armarFirmable(con), AHORA);
+  assert.ok(l.ok && l.p.modelo === 'haiku' && l.p.esfuerzo === 'low');
 });
 
 test('la firma de WebCrypto (r||s) la verifica el cartero, y un byte cambiado la rompe', async () => {

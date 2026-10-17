@@ -15,11 +15,11 @@ Llegó por el Cerebro. Textual en sus mensajes; cada punto, con su estado:
 | 2 | «El Second Brain y el Centro deberían ser exactamente lo mismo en SuperAdmin» | **hecho**: Ops Center, una pantalla con dos puertas (app/second-brain/pagina.tsx) |
 | b | «que quede el nombre de "Ops Center"» | **hecho** (barra, teléfono, título) |
 | c | «que "Second brain" sea la sub tab debajo de la Ticketera» | **hecho** (también en el teléfono, una fila debajo de «Ticketera») |
-| 3 | elegir la cuenta al mandar, con «Automático» por defecto (la de más cuota libre que pueda correr ese chat) | sin empezar |
+| 3 | elegir la cuenta al mandar, con «Automático» por defecto (la de más cuota libre que pueda correr ese chat) | **hecho** (computadora y teléfono): sólo las cuentas donde el chat vive; abrirlo en otra es el clic |
 | 4 | el Uso de las CUATRO cuentas, con su plan, la de 5 horas y la semanal, y «medido hace X» | **hecho en la pantalla**; falta que la PC mande el plan y la 5 h de la cuenta de la app (cartero.mjs y el Runner) |
 | 5 | ningún «Pega su comando en PowerShell» en ninguna pantalla: el clic más el permiso de la PC | el Uso ya no lo dice; falta el clic (docs/diseno-nuevo-chat-un-clic.md), que saca los de PanelRunner y «Nuevo chat» |
 | 6 | Review con TODO lo terminado; sin ruta, la tab de su área | **hecho** |
-| 7 | elegir el modelo (Automático, Opus, Sonnet, Haiku) y el esfuerzo al mandar o abrir un chat | sin empezar: el Runner lo aplica con `set_session_model` / `set_session_effort` (sólo chats de la APP; los de terminal no se pueden) |
+| 7 | elegir el modelo (Automático, Opus, Sonnet, Haiku) y el esfuerzo al mandar o abrir un chat | **hecho al mandar** (sólo chats de la APP). Para que ande: el Cerebro reinstala el cartero (1.7.0) y le pasa al Runner el paso b nuevo de `INSTRUCCIONES_RUNNER`. Sin medir si la app pregunta cada vez. Al ABRIR un chat va con el clic |
 | a | todo chat abierto se ve (faltaban «Pagos», «MaKo en WhatsApp», «Runner» y uno de la nube) | sin empezar: mirar los filtros de cartero.mjs (`chatsDeLaApp`: `enCwds`, `esElCartero`) y la sección «Sin asignar», que va plegada |
 
 ## PRIORIDAD DEL 17/10: escribirle a Claude Code desde el Second Brain (tanda 5) — HECHA, falta probarla
