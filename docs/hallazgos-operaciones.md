@@ -1534,7 +1534,54 @@ medir: el dato malo quedó como vigente ocho horas. El diagnóstico obvio («tom
 era a medias: el código ya estaba bien y el problema era el dato viejo que había quedado.
 
 **Arreglo:** se reescribió `claude1.json` con la captura de Martín. El original está en `claude1.json.mal-17-10`.
-El Ops Center 5 suma «medido hace X» y apaga una medición vieja.
+El Ops Center 5 suma «medido hace X» y apaga una medición vieja: desde las 6 horas (`USO_VENCIDO_MS`, lib/centro-uso.ts) la
+cuenta dice «Sin medir hace X», su barra se apaga y el número del botón no la usa (sin otra cuenta al día, «—»). Una cuenta
+sin Runner y con número dice «Sin Runner · se mide a mano».
 
 **Regla:** cuando se arregla un error que ESCRIBE datos, en el mismo trabajo se buscan y corrigen los datos que ya
 escribió. Un dato sin fecha a la vista que nadie vuelve a medir se lee como vigente.
+
+## El menú que se cerraba solo, las fotos que no se veían y lo demás de WhatsApp (17/10/2026, quinto Ops Center)
+
+**El menú de un mensaje se cerraba solo: no era un redibujo, era Android.** Martín: «al mantener apretado un mensaje, el
+menú se cierra solo enseguida». Lo obvio era que el refresco (cada 2,5 s) desmontara el menú. Su captura es de un ANDROID
+(Samsung), no del iPhone que decía el relevo: Android dispara su propio `contextmenu` al mantener apretado, unos ms DESPUÉS
+de los 450 ms en que se abre el menú, y el menú de la casa (MenuContextual) se cierra con cualquier `contextmenu` afuera
+(su regla del clic derecho), con `resize` (el teclado que se cierra) y con `blur`. **Regla:** lo que se abre manteniendo
+apretado va en la hoja de WhatsApp (`HojaMensajeWA`, MensajeWA.tsx), que sólo cierra un toque que EMPIEZA con ella abierta,
+Escape, el «atrás» o elegir algo; levantar el dedo que la abrió no elige nada. Está en AGENTS.md (el Centro).
+
+**La foto adjunta no se veía en la burbuja: no era la URL firmada ni el mensaje optimista.** La burbuja nunca dibujó
+imágenes: el trabajo guarda sólo los NOMBRES y el bucket BORRA el binario cuando la PC lo baja (es la protección del canal,
+lib/operaciones-adjuntos.ts). No hay de dónde firmar una URL después de entregado. Se resolvió del lado del navegador que la
+mandó: el original en memoria y una miniatura de 640 px en IndexedDB (`enviado:<id>`, fotos-enviadas.ts). En otro
+dispositivo se ve el nombre, como un documento de WhatsApp.
+
+**Las listas numeradas de Martín se renumeraban.** Un `<ol>` numera desde 1, y con un renglón en el medio cada tramo vuelve a
+1. La burbuja dibuja la marca que escribió (`marcas` en `bloquesDeMensaje`, lib/centro-caja.ts).
+
+**«Uso y Runners» no scrolleaba hasta el final en el teléfono: era la hoja, no la lista.** SheetM mide el cuerpo con el alto
+de «alto» y en «medio» lo corre hacia abajo: lo último queda DEBAJO de la pantalla aunque se scrollee hasta el fondo. Esa hoja
+abre ahora en «alto»; el defecto es de todas las hojas que abren en «medio» con cuerpo largo (docs/hallazgos-mobile.md).
+
+**El «atrás» cierra la capa de arriba con la MISMA URL.** Una entrada más en el historial con la URL de ahora (con su `?sheet=`):
+SheetM ve su parámetro y no se cierra; el visor o la hoja del mensaje sí (`useAtrasCierra`, atras.ts). Y en un portal: dentro de
+la hoja del teléfono (que se mueve con `transform`) un `position: fixed` queda encerrado en ella.
+
+**Lo que se dibuja dentro del hilo no importa CSS, y el motor no importa valores de un `'use client'`.** El hilo se dibuja en los
+tests (en node un `.css` no carga): el visor salió de AdjuntosCaja.tsx (que trae chat.css) a Visor.tsx, y pegar a pegar.ts. Y
+useCentro.ts no lleva `'use client'`: lo que llama de las fotos vive en fotos-enviadas.ts (tests/frontera-use-client.test.ts lo
+cazó en `antes-de-subir`, no el tsc acotado).
+
+**Vive en:** app/admin/operaciones/MensajeWA.tsx (`HojaMensajeWA`), atras.ts, Visor.tsx, FotosEnviadas.tsx y fotos-enviadas.ts,
+Microfono.tsx (`BotonMandar`), Emojis.tsx, MiFoto.tsx, pegar.ts · lib/centro-chats.ts (`avisaYaEsta`, `segundoRenglon`) ·
+lib/centro-uso.ts (`USO_VENCIDO_MS`) · tests/centro-ops5.test.ts.
+
+**Sin hacer:**
+- la foto enviada en OTRO dispositivo (hoy, su nombre): pide guardar una miniatura en el servidor, que es un binario de Martín
+  que queda contra la regla de lib/operaciones-adjuntos.ts; es una decisión, no un arreglo;
+- las miniaturas `enviado:*` de IndexedDB no se barren nunca (app/admin/operaciones/adjuntos-guardados.ts);
+- el aviso de «Completado» sin ver es por dispositivo (localStorage), no viaja al teléfono (useCentro.ts → `vistos`);
+- SheetM en «medio» con un cuerpo largo, para todas las hojas (app/m/_ui/SheetM.tsx);
+- nada de esto se vio en una pantalla real: ni la hoja del mensaje en el Android de Martín, ni los globos, ni los emojis.
+

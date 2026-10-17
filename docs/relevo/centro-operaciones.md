@@ -1,6 +1,28 @@
-# Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~16:00; cuenta 4, `claude4`)
+# Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~19:30; cuenta 4, `claude4`)
 
-## PARA EL QUINTO OPS CENTER (17/10, ~16:00): lo que dejó el cuarto, y lo que sigue
+## PARA EL SEXTO OPS CENTER (17/10, ~19:30): lo que dejó el quinto, y lo que sigue
+
+El quinto (agente «Ops Center 5» del Cerebro, cuenta 4, rama `ops5-1710`, worktree `C:/dev/wt-ops4`) hizo el pedido de Martín
+de las 17:54 (WhatsApp como referencia de todo) y los que sumó el Cerebro (17:55 y 18:06), en dos puntas, sin tocar el cartero.
+Lo que costó, en docs/hallazgos-operaciones.md → «El menú que se cerraba solo, las fotos que no se veían y lo demás de WhatsApp».
+
+| Qué (en palabras de producto) | Commit |
+|---|---|
+| Mantener apretado un mensaje abre la hoja de WhatsApp y queda abierta; el chat a todo el ancho con UN botón (micrófono o flecha); el «atrás» cierra la foto y no el chat; «Completado» y su aviso en la fila; las listas con SUS números; las fotos enviadas en su burbuja; el Uso con «Medido hace X» y apagado pasadas 6 h; «Uso y Runners» sin lo repetido y en «alto» | VERDE `549c9ebb6` |
+| Globos con colita y la foto de Martín; lo especial como tarjeta de color; pegar una imagen la adjunta; emojis junto al campo; el «+» como el «Adjuntar» de WhatsApp; «Borrador:» en la lista; en el teléfono la cabecera del chat pegada arriba con la criatura y «Tu foto de perfil» | ver `git log` (punta 2) |
+
+**Lo que sigue, en este orden:**
+1. **Que Martín lo vea en SU teléfono, que es un ANDROID** (la captura de las 18:06 es de un Samsung): la hoja del mensaje, los
+   globos, los emojis y la cabecera pegada. Nada de esto se miró en una pantalla real (tests y tipos).
+2. **SheetM en «medio» no deja ver el final de un cuerpo largo** (app/m/_ui/SheetM.tsx; docs/hallazgos-mobile.md): hoy sólo «Uso y
+   Runners» abre en «alto». El arreglo es de SheetM, para todas las hojas: avisarle al dueño de app/m/_ui.
+3. **La foto enviada en otro dispositivo** (hoy sale su nombre): pide una miniatura en el servidor, que contradice «el binario no
+   queda» (lib/operaciones-adjuntos.ts). Es una decisión de Martín, no un arreglo.
+4. Barrer las miniaturas `enviado:*` de IndexedDB (app/admin/operaciones/adjuntos-guardados.ts) y que el aviso de «Completado» sin
+   ver viaje entre dispositivos (hoy localStorage, useCentro.ts → `vistos`).
+5. Lo que seguía del cuarto (abajo): el cierre estructurado `--tareas` (después del 20/10), «Cámbiale el nombre», Destacados.
+
+## LO QUE DEJÓ EL CUARTO OPS CENTER (17/10, ~16:00), Y LO SUYO QUE SIGUE
 
 El cuarto (agente «Ops Center 4» del Cerebro, cuenta 4, rama `ops4-1710`, worktree `C:/dev/wt-ops4`) hizo los cuatro pedidos de
 Martín de las 14:44 y los pendientes de abajo, cada uno en su commit y pasado al Cerebro como VERDE. Lo que costó, en

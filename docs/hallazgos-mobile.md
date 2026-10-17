@@ -1480,3 +1480,20 @@ Test: tests/m-hoy-hojas.test.ts (probado rompiéndolo). **Nadie lo miró en un t
 hojas de General, abrir hola-mako.com/general en el celular y tocar la segunda.
 **Vive en:** app/m/hoy/page.tsx · app/m/hoy/modelo.ts · app/m/hoy/hoy.css.
 *17/10/2026, claude4 (chat Dashboard).*
+
+## Una hoja en «medio» no deja ver el final de su cuerpo (17/10/2026, lo halló el Ops Center)
+
+**Síntoma:** Martín, en «Uso y Runners» del Ops Center: «esa sección se traba y no se puede scrollear hasta el final».
+
+**Causa:** SheetM (app/m/_ui/SheetM.tsx) mide el panel con el alto de «alto» y en «medio» lo CORRE hacia abajo
+(`translateY(hPanel − hMedio)`). El cuerpo scrollea dentro de ese panel, así que al llegar al fondo lo último queda debajo de la
+pantalla. El pie sí se compensa (sube lo mismo); el cuerpo no. Desde el cuerpo el gesto sólo baja la hoja (cerrar), nunca la
+sube a «alto»: sin agarrar la manija no hay forma de ver el final. Lo obvio era «un contenedor con alto fijo o un overflow
+hidden» y no era eso.
+
+**Arreglo hecho:** esa hoja abre en `snap="alto"` (app/m/operaciones/CentroAppMovil.tsx).
+
+**Sin hacer (es de SheetM, para todas):** en «medio», sumarle al cuerpo un `padding-bottom` igual al corrimiento (el mismo
+número que ya se usa para el pie), o subir a «alto» cuando el cuerpo llega al fondo. Toda hoja que abre en «medio» con un
+cuerpo más largo que el 55% de la pantalla tiene el mismo defecto.
+
