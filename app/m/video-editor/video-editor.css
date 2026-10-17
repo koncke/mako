@@ -1,0 +1,119 @@
+/* =============================================================================
+   /m/video-editor — lo propio del Video Editor del teléfono (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-video-editor-*: Next deja la hoja cargada al salir de la ruta. Sólo tokens de
+   app/globals.css. El editor de un proyecto es OSCURO como CapCut: va adentro de `.ce` (los tokens de
+   app/video-editor/capcut-theme.css: --cc-*), y lo de encima del fondo oscuro usa esos tokens. */
+
+/* ── El inicio: «Nuevo proyecto» grande arriba, como CapCut del teléfono ─── */
+.m-video-editor-nuevo {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 96px; margin: 0 0 18px;
+  border: 0; border-radius: var(--r-lg); background: var(--primary); color: var(--on-primary);
+  font: inherit; font-size: 17px; font-weight: 650; cursor: pointer;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 28%, transparent);
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.m-video-editor-nuevo:active:not(:disabled) { transform: scale(.98); }
+.m-video-editor-nuevo:disabled { opacity: .85; cursor: progress; }
+.m-video-editor-nuevo .mk-spin { border-color: color-mix(in srgb, var(--on-primary) 40%, transparent); border-top-color: var(--on-primary); }
+/* La miniatura 9:16 de una fila (como las de Video Generator). El ícono queda debajo por si no hay imagen. */
+.m-video-editor-mini {
+  position: relative; flex: none; display: grid; place-items: center; width: 40px; height: 64px; border-radius: 7px; overflow: hidden;
+  background: var(--sidebar-2); color: var(--sidebar-text);
+}
+.m-video-editor-mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.m-video-editor-mas {
+  display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 999px;
+  background: none; color: var(--dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+
+/* ── El editor: oscuro, a pantalla completa, en columna ──────────────────── */
+.m-video-editor-ed {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  background: var(--cc-app, var(--sidebar)); color: var(--cc-text, var(--on-sidebar));
+}
+.m-video-editor-barra {
+  flex: none; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  height: 52px; padding: 0 10px 0 6px;
+}
+.m-video-editor-boton {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; color: inherit; text-decoration: none;
+}
+.m-video-editor-barra__nombre {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
+  font-size: 15px; font-weight: 600;
+}
+.m-video-editor-exportar {
+  min-height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: var(--primary); color: var(--on-primary);
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+/* El reproductor del motor llena lo que queda arriba. */
+.m-video-editor-escenario { position: relative; flex: 1; min-height: 200px; padding: 0 6px; }
+
+/* El cabezal: el tiempo, la barra para arrastrar y el total. */
+.m-video-editor-cabezal { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 14px 2px; }
+.m-video-editor-cabezal__t { flex: none; min-width: 38px; font-size: 12px; font-variant-numeric: tabular-nums; opacity: .8; text-align: center; }
+.m-video-editor-cabezal input { flex: 1; min-width: 0; height: 44px; accent-color: var(--primary); }
+
+/* La tira de clips de la pista principal (se desliza de costado) y el «+» del final. */
+.m-video-editor-tira {
+  flex: none; display: flex; align-items: center; gap: 3px; height: 72px; padding: 6px 14px;
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+}
+.m-video-editor-tira::-webkit-scrollbar { display: none; }
+.m-video-editor-clip {
+  position: relative; flex: 0 0 auto; display: grid; place-items: center; height: 56px; padding: 0; overflow: hidden;
+  border: 2px solid transparent; border-radius: 6px; background: var(--cc-raised, var(--sidebar-2)); color: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-video-editor-clip[aria-pressed="true"] { border-color: #fff; }
+.m-video-editor-clip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.m-video-editor-clip__seg {
+  position: absolute; right: 4px; bottom: 3px; padding: 0 4px; border-radius: 4px;
+  background: rgba(0, 0, 0, .55); color: #fff; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.m-video-editor-mas-clip {
+  flex: none; display: grid; place-items: center; width: 56px; height: 56px; margin-left: 6px; padding: 0;
+  border: 0; border-radius: 8px; background: #fff; color: #000; cursor: pointer;
+}
+
+/* La barra de herramientas de abajo (la de CapCut del teléfono): ícono arriba, nombre abajo, se desliza. */
+.m-video-editor-herramientas {
+  flex: none; display: flex; gap: 4px; padding: 4px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  overflow-x: auto; scrollbar-width: none; border-top: 1px solid rgba(255, 255, 255, .08);
+}
+.m-video-editor-herramientas::-webkit-scrollbar { display: none; }
+.m-video-editor-herramienta {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-width: 68px; min-height: 60px; padding: 0 6px; border: 0; background: none; color: inherit; font: inherit; font-size: 11px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.m-video-editor-herramienta:disabled { opacity: .35; cursor: default; }
+/* El ícono de Rehacer es la flecha del set: se gira para que apunte hacia adelante. */
+.m-video-editor-herramienta[data-h="rehacer"] svg { transform: rotate(-90deg); }
+.m-video-editor-compu { flex: none; margin: 0; padding: 0 14px 6px; font-size: 11px; line-height: 1.4; opacity: .55; text-align: center; }
+
+/* ── Exportar: la capa con el avance y, al terminar, «Guardar en el teléfono» ── */
+.m-video-editor-export {
+  position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 24px;
+  background: rgba(0, 0, 0, .6);
+}
+.m-video-editor-export__caja {
+  width: min(340px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 22px 18px;
+  border-radius: 16px; background: var(--cc-panel, var(--sidebar-2)); color: var(--cc-text, var(--on-sidebar)); text-align: center;
+}
+.m-video-editor-export__t { margin: 0; font-size: 17px; font-weight: 650; }
+.m-video-editor-export__nota { margin: 0; font-size: 13px; opacity: .7; }
+.m-video-editor-export__barra { height: 6px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, .15); }
+.m-video-editor-export__barra i { display: block; height: 100%; background: var(--primary); transition: width .2s linear; }
+.m-video-editor-export__boton {
+  min-height: 48px; border: 0; border-radius: 10px; background: var(--primary); color: var(--on-primary);
+  font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
+}
+.m-video-editor-export__boton--sec { background: rgba(255, 255, 255, .1); color: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-video-editor-nuevo { transition: none; }
+  .m-video-editor-export__barra i { transition: none; }
+}
