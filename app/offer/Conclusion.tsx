@@ -30,7 +30,7 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import {
-  DIMENSIONES, avisosAfirmables, dimensionLabel,
+  DIMENSIONES, FUENTE_PUNTAJE, avisosAfirmables, dimensionLabel,
   type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type NotaDimension, type OfferSesionVista, type PropuestaOferta,
 } from '@/lib/offer-marco';
 import {
@@ -201,6 +201,8 @@ function Heroe({ conclusion }: { conclusion: ConclusionOferta }) {
       </div>
       <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginInline: 'auto' }}>
         <Anillo total={conclusion.calculo.total} />
+        {/* El puntaje dice de dónde sale (tarjeta #888): lo calcula el sistema con las notas del diagnóstico. */}
+        <span style={{ marginTop: -4, fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>{FUENTE_PUNTAJE}</span>
         <ChipEstado calculo={conclusion.calculo} />
       </div>
     </section>

@@ -84,10 +84,10 @@ import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
 import { MARCA_COMPLETAR, faltanMinimas, type ArchiveroDoc, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, conArchivero, conRespuestaInferida,
-  diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
-  faseVigenteDe, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
-  repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado,
+  MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
+  diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
+  faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
+  repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
@@ -756,19 +756,28 @@ async function diagnosticarSesion(id: number, inicio: number): Promise<{ ok: tru
   // facturación sale del diagnóstico de fase que VALE ahora (releído después de asegurarlo).
   const faseAhora = faseVigenteDe(ctx);
   const banda = faseAhora && Number.isInteger(faseAhora.respuestas?.[0]) ? faseAhora.respuestas[0] : ctx.foco.bandaFacturacion;
-  const avisos = avisosAntesDelDiagnostico({ foco: { ...ctx.foco, bandaFacturacion: banda }, piezas: fila.piezas, tasas: ctx.tasasEmbudo });
+  const avisos = avisosAntesDelDiagnostico({ foco: { ...ctx.foco, bandaFacturacion: banda }, piezas: fila.piezas, embudo: ctx.embudoOffer });
+  const alertas = [...(avisos.foco ? [avisos.foco] : []), ...avisos.otras];
   const ia = await diagnosticoOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto, embudo: ctx.embudo, inicio,
-    alertas: [...(avisos.foco ? [avisos.foco] : []), ...avisos.otras],
+    alertas,
   });
   if (!ia.ok) return { ok: false, status: 502, error: ia.error };
+  // Cada número del diagnóstico dice de dónde sale, o no aparece (17/10/2026, tarjeta #888: el «43» de Código
+  // Inmobiliario). Lo que dio el dueño queda, lo que calculó el sistema lleva su fuente y la frase con una cifra
+  // inventada sale (`diagnosticoConFuentes`).
+  const diagnostico = diagnosticoConFuentes(ia.valor, {
+    delNegocio: cifrasConPorcentaje([...valoresDeLasPiezas(fila.piezas), ...fuentesDelDueno(fila), ctx.texto]),
+    conFuente: cifrasConFuente(ctx.embudoOffer, fila.piezas),
+    deLosAvisos: cifrasConPorcentaje(alertas),
+  });
   // Con las PIEZAS: sin ellas no hay control final, y «lista para vender» volvería a mirar sólo las notas.
-  const calculo = calcularDiagnostico(ia.valor.dimensiones, { foco: avisos.foco, otras: avisos.otras, piezas: fila.piezas });
+  const calculo = { ...calcularDiagnostico(diagnostico.dimensiones, { foco: avisos.foco, otras: avisos.otras, piezas: fila.piezas }), cifrasConFuente: true };
   const at = new Date().toISOString();
   await actualizarSesion(id, (f) => {
     // Si el dueño escribió mientras MaKo diagnosticaba, este diagnóstico ya no describe la conversación.
     if (f.mensajes.length !== fila.mensajes.length) throw new ErrorOffer('La conversación cambió mientras MaKo la leía. Vuelve a tocar «Armar mi oferta».', 409);
-    return { borrador: { diagnostico: ia.valor, calculo, modelo: ia.modelo, at } };
+    return { borrador: { diagnostico, calculo, modelo: ia.modelo, at } };
   });
   return { ok: true };
 }
@@ -875,11 +884,7 @@ async function generarSesion(id: number, inicio: number): Promise<{ ok: true; fi
   // Las cifras que SÍ dio el negocio salen de lo que escribió el dueño, sus documentos y lo que tenía cargado
   // (las piezas las suma el parse): toda otra cifra de resultados, de prueba, de bonos o de valor pasa a
   // «[completar]» (tarjeta «cifras», 12/10/2026). El nombre del negocio no puede ir en el del método.
-  const fuentes = [
-    ...fila.mensajes.filter((m) => m.de === 'yo').map((m) => m.texto),
-    ...fila.documentos.map((d) => d.texto),
-    ctx.texto,
-  ];
+  const fuentes = [...fuentesDelDueno(fila), ctx.texto];
   const negocio = await nombreNegocioOffer().catch(() => '');
   const ia = await propuestaOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto,

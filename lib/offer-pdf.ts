@@ -18,7 +18,7 @@
 // =============================================================================
 
 import {
-  DIMENSIONES, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, loQueMeGusto, paraSubirCadaParte,
+  DIMENSIONES, FUENTE_PUNTAJE, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, loQueMeGusto, paraSubirCadaParte,
   type ConclusionOferta, type PropuestaOferta, type PuntoControl,
 } from './offer-marco';
 import { CANALES, dimensionDeFase, faseDef, repartoTexto, type Diagnostico } from './fase-diagnostico';
@@ -129,6 +129,8 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
   const estado = lista ? 'Lista para vender' : `Lo que más frena: ${dimensionLabel(c.calculo.cuello)}`;
   doc.textoEn(xEstado, yp + 28, estado, { tam: 12, fuente: 'Helvetica-Bold', color: lista ? C.bien : C.ojo });
   doc.barra(xEstado, yp + 40, W - (xEstado - X) - 18, 8, c.calculo.total / 100, lista ? C.bien : colorNota(Math.round(c.calculo.total / 10)));
+  // De dónde sale el puntaje (tarjeta #888): el promedio de las notas de abajo, lo calcula el sistema.
+  doc.textoEn(xEstado, yp + 62, FUENTE_PUNTAJE, { tam: 8.5, color: C.tenue });
   doc.y = yp + altoPanel + 22;
   // El control final del marco (tarjeta «lista», 12/10/2026): si no está lista, qué punto falta.
   const faltan = (c.calculo.controlFinal ?? []).filter((x) => !x.ok);

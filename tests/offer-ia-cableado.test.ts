@@ -459,8 +459,17 @@ test('«A definir»: avisos antes de la IA, el control final con las piezas, el 
   const diag = funcion(RUTA, 'diagnosticarSesion');
   const iAvisos = diag.indexOf('avisosAntesDelDiagnostico(');
   assert.ok(iAvisos > 0 && iAvisos < diag.indexOf('await diagnosticoOffer('), 'los avisos van ANTES de la IA (la de Foco tiene que verlos)');
-  assert.match(diag, /alertas: \[\.\.\.\(avisos\.foco \? \[avisos\.foco\] : \[\]\), \.\.\.avisos\.otras\],/);
-  assert.match(diag, /calcularDiagnostico\(ia\.valor\.dimensiones, \{ foco: avisos\.foco, otras: avisos\.otras, piezas: fila\.piezas \}\)/);
+  assert.match(diag, /const alertas = \[\.\.\.\(avisos\.foco \? \[avisos\.foco\] : \[\]\), \.\.\.avisos\.otras\];/);
+  assert.match(diag, /await diagnosticoOffer\(\{[\s\S]*?\n    alertas,\n  \}\);/);
+  // Cada número del diagnóstico dice de dónde sale (#888, 17/10/2026): lo de la IA pasa por `diagnosticoConFuentes`
+  // ANTES del cálculo, con las tres fuentes, y la conclusión queda marcada.
+  const iFuentes = diag.indexOf('diagnosticoConFuentes(ia.valor, {');
+  assert.ok(iFuentes > diag.indexOf('await diagnosticoOffer(') && iFuentes < diag.indexOf('calcularDiagnostico('), 'las cifras se revisan antes del cálculo');
+  assert.match(diag, /delNegocio: cifrasConPorcentaje\(\[\.\.\.valoresDeLasPiezas\(fila\.piezas\), \.\.\.fuentesDelDueno\(fila\), ctx\.texto\]\),/);
+  assert.match(diag, /conFuente: cifrasConFuente\(ctx\.embudoOffer, fila\.piezas\),/);
+  assert.match(diag, /deLosAvisos: cifrasConPorcentaje\(alertas\),/);
+  assert.match(diag, /calcularDiagnostico\(diagnostico\.dimensiones, \{ foco: avisos\.foco, otras: avisos\.otras, piezas: fila\.piezas \}\), cifrasConFuente: true \}/);
+  assert.match(diag, /return \{ borrador: \{ diagnostico, calculo, modelo: ia\.modelo, at \} \};/);
   assert.doesNotMatch(RUTA, /alertaFoco\(/, 'el foco sale de avisosAntesDelDiagnostico (con las otras ofertas)');
   // La IA del diagnóstico lee los avisos (sin envolverlos: los escribe el código).
   const dIA = IA.slice(IA.indexOf('export async function diagnosticoOffer('), IA.indexOf('function diagnosticoParaPrompt('));
@@ -469,7 +478,7 @@ test('«A definir»: avisos antes de la IA, el control final con las piezas, el 
   // Generar: las fuentes de las cifras y el nombre del negocio; lo provisional; el PDF en el MISMO CAS.
   const gen = funcion(RUTA, 'generarSesion');
   assert.match(gen, /reglas: \{ fuentes, negocio \}/);
-  assert.match(gen, /\.\.\.fila\.mensajes\.filter\(\(m\) => m\.de === 'yo'\)\.map\(\(m\) => m\.texto\),/);
+  assert.match(gen, /const fuentes = \[\.\.\.fuentesDelDueno\(fila\), ctx\.texto\];/);
   assert.match(gen, /const provisional = provisionalDe\(borrador\.diagnostico\);/);
   const cas = gen.slice(gen.indexOf('actualizarSesion(id, (f) => {'), gen.indexOf("await marcar('of_conclusion')"));
   assert.match(cas, /\.\.\.\(provisional \? \{ provisional \} : \{\}\),/);
@@ -482,7 +491,7 @@ test('«A definir»: avisos antes de la IA, el control final con las piezas, el 
   // GET /api/offer/pdf?id=&v=: la versión pedida o la última; nunca otra.
   const PDF = sinComentarios(leer('app/api/offer/pdf/route.ts'));
   assert.match(PDF, /if \(version != null && \(!Number\.isInteger\(version\) \|\| version <= 0\)\) return Response\.json\(/);
-  assert.match(PDF, /const conclusion = conclusionDeVersion\(fila\.conclusiones, version\);\n\s*if \(!conclusion\) return Response\.json\(\{ ok: false, error: `Esta oferta no tiene la versión \$\{version\}\.` \}, \{ status: 404 \}\);/);
+  assert.match(PDF, /const guardada = conclusionDeVersion\(fila\.conclusiones, version\);\n\s*const conclusion = guardada \? conclusionVisible\(guardada, fila\) : null;\n\s*if \(!conclusion\) return Response\.json\(\{ ok: false, error: `Esta oferta no tiene la versión \$\{version\}\.` \}, \{ status: 404 \}\);/);
   assert.match(PDF, /pdfDeOferta\(conclusion, /);
 });
 

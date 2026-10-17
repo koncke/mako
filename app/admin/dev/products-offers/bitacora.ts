@@ -408,6 +408,22 @@ export const BITACORA: Hito[] = [
       'tests/offer-cifras-y-marcas.test.ts — 14 roturas, todas caen',
     ],
   },
+  {
+    fecha: '17 oct', hora: '07:46', chat: 'Offer', sesion: 'local_76bc176e-dac3-4c50-a67c-f62d5fbe9e5e', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada número del diagnóstico dice de dónde sale (el «43» de Código Inmobiliario)',
+    puntos: [
+      'El «43%» era un cálculo mal armado: dividía las 9 ventas de los últimos 90 días por las 21 llamadas a las que asistieron, y 4 de esas ventas nunca pasaron por una llamada. Ahora se cuenta a la misma gente: de las 13 personas calificadas que asistieron, compraron 6.',
+      'Cada aviso dice de dónde sale su número: «tu CRM, del 19/07 al 16/10», «lo que me dijiste», «tus productos en MaKo» o tu diagnóstico de fase. El puntaje dice que es el promedio de las 9 notas.',
+      'Lo que escribe la IA se revisa número por número: el que diste queda, el del CRM lleva «(según tu CRM)» al lado, y una frase con un número que no sale de ningún lado no aparece.',
+      'Las ofertas ya armadas (la de Código Inmobiliario) se ven sin el 43% ni las frases que lo repetían.',
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — `EmbudoOffer`, los avisos con su fuente, `diagnosticoConFuentes` y `conclusionParaMostrar`',
+      'lib/analisis-negocio.ts — `compraron` de los que asistieron (la misma gente)',
+      'tests/offer-cifras-con-fuente.test.ts — 15 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
 ];
 
 export const PARTES: Parte[] = [

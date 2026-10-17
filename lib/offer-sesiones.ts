@@ -32,7 +32,7 @@ import {
   type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezasSabidas,
 } from './offer-marco';
 import {
-  INTENTOS_CAS, adjuntoDe, construirArbol, esperaCAS, ligadaParaVista, mensajeParaVista, ofertaDesdePropuesta, ofertaYaAnotada, primerMensaje,
+  INTENTOS_CAS, adjuntoDe, conclusionVisible, construirArbol, esperaCAS, ligadaParaVista, mensajeParaVista, ofertaDesdePropuesta, ofertaYaAnotada, primerMensaje,
   sanearArmado, armadoParaVista, sanearDocumentos, sanearMensajes, sanearPiezas,
   type ArmadoOffer,
   type DocumentoGuardado, type MensajeGuardado, type SesionParaArbol,
@@ -144,7 +144,8 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
     mensajes: f.mensajes.map((m) => mensajeParaVista(f.id, m)),
     piezas: f.piezas,
     docs: f.documentos.map(adjuntoDe),
-    conclusion: f.conclusiones.length ? f.conclusiones[f.conclusiones.length - 1] : null,
+    // Lo guardado antes del 17/10/2026 sin los avisos del embudo de entonces (el «43%» sin fuente, tarjeta #888).
+    conclusion: f.conclusiones.length ? conclusionVisible(f.conclusiones[f.conclusiones.length - 1], f) : null,
     versiones: f.conclusiones.length,
     // Sólo si lo guardado es la versión VIGENTE: después de afinar y concluir una v2, la v2 no está
     // guardada aunque la v1 sí, y mostrarla como «Guardada» escondía el botón (revisión 11/10).

@@ -22,7 +22,7 @@
 import type { NextRequest } from 'next/server';
 import { adminDeWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { leerFila, nombreNegocioOffer } from '@/lib/offer-sesiones';
-import { conclusionDeVersion } from '@/lib/offer-reglas';
+import { conclusionDeVersion, conclusionVisible } from '@/lib/offer-reglas';
 import { pdfDeOferta, nombreArchivoOferta } from '@/lib/offer-pdf';
 import { pdfDeLoQueVendes, nombreArchivoLoQueVendes } from '@/lib/lo-que-vendes-pdf';
 import { tzDeWorkspace } from '@/lib/timezone';
@@ -61,7 +61,9 @@ export async function GET(req: NextRequest) {
         });
       }
       if (!fila.conclusiones.length) return Response.json({ ok: false, error: 'Esta oferta todavía no tiene conclusión.' }, { status: 404 });
-      const conclusion = conclusionDeVersion(fila.conclusiones, version);
+      // Lo guardado antes del 17/10/2026, sin los avisos del embudo de entonces (el «43%» sin fuente, tarjeta #888).
+      const guardada = conclusionDeVersion(fila.conclusiones, version);
+      const conclusion = guardada ? conclusionVisible(guardada, fila) : null;
       if (!conclusion) return Response.json({ ok: false, error: `Esta oferta no tiene la versión ${version}.` }, { status: 404 });
       const [negocio, zona] = await Promise.all([
         nombreNegocioOffer().catch(() => ''),

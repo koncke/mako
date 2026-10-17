@@ -45,16 +45,13 @@ import { getDiagnosticoFase } from './fase-store';
 import { vozDelNegocio } from './nutricion-generator';
 import { CANALES, esCanal, faseContextoTexto, type CanalId, type Diagnostico } from './fase-diagnostico';
 import { analisisNegocio } from './analisis-negocio';
-import { analisisAMarkdown } from './analisis-modelo';
-import { estadoDiagnostico, faseVigenteDe, recortar, semillaDePiezas, semillaDeProducto, type MensajeGuardado, type TasasEmbudo } from './offer-reglas';
+import { embudoDeAnalisis, embudoParaPrompt, estadoDiagnostico, faseVigenteDe, recortar, semillaDePiezas, semillaDeProducto, type EmbudoOffer, type MensajeGuardado } from './offer-reglas';
 import type { PiezasSabidas } from './offer-marco';
 import { resolverOfertaPrincipal, type Oferta } from './oferta-modelo';
 import type { Producto } from './productos';
 
 /** Lo que entra del contexto en un pedido. El resto del presupuesto es para documentos y conversación. */
 export const TOPE_CONTEXTO = 12_000;
-/** El embudo, aparte (sólo en el diagnóstico). */
-export const TOPE_EMBUDO = 4_000;
 /** La voz, aparte (el turno y la oferta). Las guías destiladas medidas en prod el 14/10/2026: 1.055 y 1.502. */
 export const TOPE_VOZ = 2_000;
 
@@ -65,13 +62,17 @@ export type FunnelDeLaSesion = { id: number; nombre: string; canal: CanalId | nu
 export type ContextoOffer = {
   /** El texto acotado que lee el modelo (sin el embudo). '' si el negocio todavía no cargó nada. */
   texto: string;
-  /** El embudo de los últimos 90 días en markdown, o '' (si no se pidió o no hay datos). */
+  /**
+   * El embudo de los últimos 90 días para el prompt (`embudoParaPrompt`: las mismas cuentas que los avisos, con su
+   * fuente), o '' (si no se pidió o no hay datos).
+   */
   embudo: string;
   /**
-   * Las tasas del mismo embudo, como NÚMEROS, para los avisos de dónde se cortan las ventas y de cuándo
-   * subir el precio (lib/offer-reglas.ts → `alertasEmbudo`, `alertasPrecio`). null si no se pidió o falló.
+   * El mismo embudo en CUENTAS de la misma gente, para los avisos de dónde se cortan las ventas y de cuándo subir el
+   * precio (lib/offer-reglas.ts → `alertasEmbudo`, `alertasPrecio`) y para saber de dónde sale cada cifra
+   * (`cifrasConFuente`). null si no se pidió, falló o las cuentas no cierran.
    */
-  tasasEmbudo: TasasEmbudo | null;
+  embudoOffer: EmbudoOffer | null;
   /** Lo que ya se sabe de cada pieza, sacado de la oferta PRINCIPAL que el negocio cargó (la v1). */
   semilla: PiezasSabidas;
   /**
@@ -170,16 +171,10 @@ export async function contextoOffer(opts: {
     vozDelNegocio().catch(logFallo('la voz del negocio')),
   ]);
   const principal = await ofertaPrincipal(answers ?? {}).catch(logFallo('la oferta principal'));
-  let embudoMd: string | null = null;
-  try { embudoMd = analisis ? analisisAMarkdown(analisis) : null; } catch (e) { logFallo('el embudo en texto')(e); }
-  const tasasEmbudo: TasasEmbudo | null = analisis
-    ? {
-      show: analisis.tasas.show_rate, cierreCalificados: analisis.tasas.tasa_cierre_sobre_calificados,
-      cierreAsistencias: analisis.tasas.tasa_cierre_sobre_asistencias, asistieron: analisis.calificacion.asistieron ?? 0,
-      // Sin el dato, NaN: `cierreConfiable` no lo cuenta como cero y no afirma el cierre sobre calificadas.
-      sinMarcar: analisis.calificacion.sin_marcar ?? Number.NaN,
-    }
-    : null;
+  // El embudo en CUENTAS de la misma gente (17/10/2026, tarjeta #888): los avisos y el prompt dicen lo mismo y de
+  // dónde sale. Antes el prompt llevaba el informe entero del análisis, con la tasa del período que daba el «43%».
+  let embudoOffer: EmbudoOffer | null = null;
+  try { embudoOffer = embudoDeAnalisis(analisis); } catch (e) { logFallo('el embudo en cuentas')(e); }
 
   const todasOfertas = ofertas ?? [];
   const listaOfertas = todasOfertas.filter((o) => o.activa);
@@ -250,8 +245,8 @@ export async function contextoOffer(opts: {
 
   return {
     texto: recortar(bloques.join('\n\n'), TOPE_CONTEXTO),
-    embudo: embudoMd?.trim() ? recortar(embudoMd.trim(), TOPE_EMBUDO) : '',
-    tasasEmbudo,
+    embudo: embudoParaPrompt(embudoOffer),
+    embudoOffer,
     semilla,
     semillaSesion,
     foco: { productosActivos: listaProductos.length, ofertasActivas: listaOfertas.length, bandaFacturacion: banda },

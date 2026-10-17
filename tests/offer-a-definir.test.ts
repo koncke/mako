@@ -22,13 +22,19 @@ import {
 } from '../lib/offer-marco';
 import {
   OPCION_ASI_ESTA_BIEN, OPCION_PULIR, TOPES_PROPUESTA, VALOR_TOTAL_SIN_DATO, alertaFoco, alertaMargen, alertasEmbudo,
-  alertasPrecio, avisosAntesDelDiagnostico, calcularDiagnostico, cierreConfiable, cifrasDelNegocio, claveCifra, conclusionDeVersion,
+  alertasPrecio, avisosAntesDelDiagnostico, calcularDiagnostico, cifrasDelNegocio, claveCifra, conclusionDeVersion,
   duracionEnDias, filtrarCifras, mensajePdf, ofertasDeclaradas, parseDiagnostico, parsePropuesta, porcentajeAlFirmar,
   provisionalDe, resultadoMedible, respuestaSinIA, sanearMensajes,
+  type EmbudoOffer,
 } from '../lib/offer-reglas';
 
 const AT = '2026-10-12T12:00:00.000Z';
 const pieza = (valor: string) => ({ valor, fuente: 'chat' as const, at: AT });
+/** Un embudo de 90 días (lib/offer-reglas.ts → `EmbudoOffer`): por defecto, 40 que asistieron sobre 89 llamadas marcadas. */
+const embudo = (c: Partial<Omit<EmbudoOffer, 'llamadas'>> & { llamadas?: Partial<EmbudoOffer['llamadas']> } = {}): EmbudoOffer => ({
+  desde: '2026-07-19', hasta: '2026-10-16', agendas: 100, calificados: 30, sinCalificar: 0, compraron: 6, compraronCalificados: 6, ...c,
+  llamadas: { asistieron: 40, noAsistieron: 49, sinMarcar: 0, ...c.llamadas },
+});
 const notas = (ns: number[]): NotaDimension[] =>
   ns.map((n, i) => ({ id: `D${i + 1}` as NotaDimension['id'], nota: n, porque: 'p', mejora: 'm' }));
 
@@ -177,67 +183,58 @@ test('6 · los avisos: margen bajo 60%, dónde se cortan las ventas, cuándo sub
   assert.equal(ofertasDeclaradas('No, sólo esta'), 0);
   assert.equal(ofertasDeclaradas('dos más'), 2);
   assert.equal(ofertasDeclaradas('sin dato: no quiso decir'), null);
-  assert.match(alertaFoco({ productosActivos: 1, ofertasActivas: 1, bandaFacturacion: 1, otrasDeclaradas: 2 }) ?? '', /^Vendes 3 ofertas \(contando las que no están cargadas en MaKo\)/);
+  assert.match(alertaFoco({ productosActivos: 1, ofertasActivas: 1, bandaFacturacion: 1, otrasDeclaradas: 2 }) ?? '', /^Vendes 3 ofertas, contando las que me dijiste que no están cargadas en MaKo/);
   // Margen: precio y costo leídos de lo que escribió el dueño; el aviso dice los números.
   assert.match(alertaMargen({ precio: pieza('2.000 USD'), costo: pieza('900 USD por cliente, atiendo 10 a la vez') }) ?? '', /2\.000 USD.*900 USD.*55%/);
   assert.equal(alertaMargen({ precio: pieza('2.000 USD'), costo: pieza('400 USD por cliente') }), null);
   assert.equal(alertaMargen({ precio: pieza('2.000 USD'), costo: pieza('15.000 pesos') }), null, 'monedas distintas: no se compara');
-  // Embudo: contra los rangos del §6.4, con datos suficientes.
-  const tasas = { show: 0.45, cierreCalificados: 0.18, cierreAsistencias: 0.15, asistieron: 40, sinMarcar: 0 };
+  // Embudo: contra los rangos del §6.4, con datos suficientes, en cuentas y con su fuente (17/10/2026, #888).
+  const tasas = embudo();
   const emb = alertasEmbudo(tasas);
   assert.equal(emb.length, 2);
-  assert.match(emb[0], /^Asiste el 45%/);
-  assert.match(emb[1], /^Cierras el 18%/);
-  assert.deepEqual(alertasEmbudo({ ...tasas, asistieron: 4 }), [], 'con 4 asistencias es ruido');
+  assert.match(emb[0], /^De 89 primeras llamadas con la asistencia marcada \(tu CRM, del 19\/07 al 16\/10\), vinieron 40: el 45%/);
+  assert.match(emb[1], /^De las 30 personas calificadas que asistieron a la primera llamada \(tu CRM, del 19\/07 al 16\/10\), compraron 6: el 20%/);
+  assert.deepEqual(alertasEmbudo(embudo({ llamadas: { asistieron: 4, noAsistieron: 4 }, calificados: 4, compraron: 1, compraronCalificados: 1 })), [], 'con 8 llamadas marcadas es ruido');
   // Precio: el % cobrado al firmar y el cierre.
   assert.equal(porcentajeAlFirmar('Me pagan el 100% al firmar'), 100);
   assert.equal(porcentajeAlFirmar('La mitad al firmar'), 50);
   assert.equal(porcentajeAlFirmar('Todo de contado'), 100);
-  assert.match(alertasPrecio({ cobro: 90 })[0], /90% al firmar: más de 75%/);
-  assert.match(alertasPrecio({ cobro: 30 })[0], /30% al firmar: menos de la mitad/);
+  assert.match(alertasPrecio({ cobro: 90 })[0], /90% al firmar, según me dijiste: más de 75%/);
+  assert.match(alertasPrecio({ cobro: 30 })[0], /30% al firmar, según me dijiste: menos de la mitad/);
   assert.deepEqual(alertasPrecio({ cobro: 60 }), []);
-  assert.match(alertasPrecio({ cobro: null, tasas: { show: 0.7, cierreCalificados: 0.4, cierreAsistencias: 0.3, asistieron: 20, sinMarcar: 0 } })[0], /40% de las llamadas calificadas/);
+  assert.match(alertasPrecio({ cobro: null, embudo: embudo({ calificados: 20, compraron: 8, compraronCalificados: 8 }) })[0], /De las 20 personas calificadas .*compraron 8: el 40%\. Más de 30%/);
   // Todo junto, en el orden en que lo lee la IA.
   const todo = avisosAntesDelDiagnostico({
     foco: { productosActivos: 1, ofertasActivas: 1, bandaFacturacion: null },
     piezas: { otras: pieza('3: dos cursos y una mentoría'), precio: pieza('1.000 USD'), costo: pieza('700 USD'), cobro: pieza('100%') },
-    tasas,
+    embudo: tasas,
   });
   assert.match(todo.foco ?? '', /^Vendes 4 ofertas/);
   assert.equal(todo.otras.length, 4);
 });
 
 // El PDF de un cliente dijo «Cierras el 170% de las llamadas calificadas» (12/10/2026) y le aconsejó subir el
-// precio: con asistencias sin calificar, «calificados» es un piso. Lo de acá fija que un aviso no afirme nunca un
-// cierre imposible, y que con el dato a medias sólo diga lo que las cotas permiten.
-// ROTURAS (14/10/2026, base 11 de 11 en verde, restaurado de memoria): alertasPrecio con t.cierreCalificados
-// crudo (el código de antes): 1 fallo, 10 pases · cierreConfiable sin mirar sinMarcar: 1 fallo, 10 pases · el
-// piso como techo en alertasEmbudo: 1 fallo, 10 pases.
-test('6b · el cierre: nunca arriba de 100%, y con calificaciones sin marcar sólo lo que el piso o el techo permiten', () => {
-  const caso = { show: 0.7, cierreCalificados: 1.7, cierreAsistencias: 0.45, asistieron: 20, sinMarcar: 12 };
-  const todos = [...alertasPrecio({ cobro: null, tasas: caso }), ...alertasEmbudo(caso)];
-  for (const a of todos) assert.doesNotMatch(a, /\b([1-9]\d{2,})%/, `un porcentaje imposible: ${a}`);
-  // Más de 30% sobre TODAS las llamadas: el de las calificadas es igual o mayor, así que el consejo vale.
-  assert.deepEqual(alertasPrecio({ cobro: null, tasas: caso }), ['Cierras el 45% de todas las llamadas, y de las calificadas más: más de 30% es señal de que hay margen para subir el precio.']);
-  // Los dos escalones contados de menos: no se dice ningún cierre.
-  const roto = { ...caso, cierreAsistencias: 1.2, sinMarcar: 0 };
-  assert.deepEqual(alertasPrecio({ cobro: null, tasas: roto }), []);
+// precio, y a Código Inmobiliario «Cierras el 43% de todas las llamadas» (16/10/2026): 9 cierres del período sobre 21
+// asistencias del período, con 4 ventas que nunca pasaron por una llamada. Desde el 17/10 (#888) el cierre se cuenta
+// sobre la MISMA gente, así que no puede pasar de 100%; un embudo que no cierra no dice nada.
+// ROTURAS: ver tests/offer-cifras-con-fuente.test.ts (ahí se prueba rompiéndolo el embudo en cuentas).
+test('6b · el cierre: sobre la misma gente, nunca arriba de 100%, y bajo 25% sólo sobre los calificados', () => {
+  // Los dos escalones contados de menos (compran más de los que asistieron): no se dice ningún cierre.
+  const roto = embudo({ compraron: 50, compraronCalificados: 6 });
+  assert.deepEqual(alertasPrecio({ cobro: null, embudo: roto }), []);
   assert.deepEqual(alertasEmbudo(roto), []);
-  assert.deepEqual(cierreConfiable(roto), { exacto: null, piso: null, techo: null });
-  // Bajo 25% con calificaciones sin marcar: el techo lo permite, con «menos del».
-  const bajo = { ...caso, cierreCalificados: 0.2, cierreAsistencias: 0.1 };
-  assert.deepEqual(alertasEmbudo(bajo).filter((a) => a.startsWith('Cierras')), ['Cierras menos del 20% de las llamadas calificadas (hay asistencias sin calificar): por debajo de 25% (lo sano es de 25% a 40%). Las ventas se cortan en la llamada: antes de cambiar la oferta, revisa el cierre.']);
-  assert.deepEqual(alertasPrecio({ cobro: null, tasas: bajo }), [], 'el piso de 10% no dice nada sobre «más de 30%»');
-  // Sin saber cuántas faltan marcar, no hay número exacto; el piso de 20% y el techo de 40% no disparan nada.
-  const sinDato = { ...caso, cierreCalificados: 0.4, cierreAsistencias: 0.2, sinMarcar: Number.NaN };
-  assert.deepEqual(cierreConfiable(sinDato), { exacto: null, piso: 0.2, techo: 0.4 });
-  assert.deepEqual(alertasPrecio({ cobro: null, tasas: sinDato }), []);
-  assert.deepEqual(alertasEmbudo(sinDato).filter((a) => a.startsWith('Cierras')), []);
+  // Pocos calificados: el cierre va sobre TODOS los que asistieron, y con eso no se afirma «por debajo de 25%» (pueden
+  // ser los que no calificaban), pero sí «más de 30%».
+  const pocos = embudo({ calificados: 5, compraronCalificados: 2, compraron: 2 });
+  assert.deepEqual(alertasEmbudo(pocos).filter((a) => a.includes('compraron')), [], 'el 5% sobre todos no dice que la llamada cierre mal');
+  const muchos = embudo({ calificados: 5, compraronCalificados: 5, compraron: 14 });
+  assert.deepEqual(alertasPrecio({ cobro: null, embudo: muchos }), ['De las 40 personas que asistieron a la primera llamada (tu CRM, del 19/07 al 16/10), compraron 14: el 35%. Más de 30% es señal de que hay margen para subir el precio.']);
+  for (const a of [...alertasPrecio({ cobro: null, embudo: muchos }), ...alertasEmbudo(muchos)]) assert.doesNotMatch(a, /\b([1-9]\d{2,})%/, `un porcentaje imposible: ${a}`);
 });
 
 // rotura (alertaFoco con el umbral viejo de 6 sin facturación): 2 fallos, 8 pases (cae también el 6, que cuenta las otras ofertas sin facturación). rotura (que salga con 10.000 o más): 1 fallo, 9 pases.
 test('7 · foco: sin la facturación sale desde 3 ofertas; con 10.000 al mes o más no sale', () => {
-  assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 0, bandaFacturacion: null }) ?? '', /^Tienes 3 productos activos: en la fase 1/);
+  assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 0, bandaFacturacion: null }) ?? '', /^Tienes 3 productos activos en MaKo: en la fase 1/);
   assert.equal(alertaFoco({ productosActivos: 2, ofertasActivas: 0, bandaFacturacion: null }), null);
   assert.equal(alertaFoco({ productosActivos: 8, ofertasActivas: 8, bandaFacturacion: 2 }), null);
   assert.equal(alertaFoco({ productosActivos: 1, ofertasActivas: 1, bandaFacturacion: 3, otrasDeclaradas: 5 }), null);
