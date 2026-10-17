@@ -19,6 +19,8 @@
   confirme el deploy. Verlo con clics inspeccionando el ws3.
 - #883 (Sidebar): el onboarding ya no fuerza el oscuro desde la D; el único color fijo (`#fff` del botón principal) pasó a
   `var(--on-primary)` en la E.
+- **La estrella NO está hecha** (Ops Center 3, 17/10 ~12:30; la toma el próximo Ops Center). Cuando llegue, el cambio es
+  una línea en app/onboarding/CriaturaMako.tsx (escrito ahí, con la API de `Criatura`).
 
 ## ESTADO AL 17/10/2026 ~08:30 AR
 
