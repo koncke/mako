@@ -438,6 +438,10 @@ export function soloCopy(crudo: string): string {
  * texto que le llega al modelo.
  */
 export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
+  {
+    ruta: 'lib/ai-avatar/voces-galeria.ts',
+    porque: 'los ids públicos de las voces de ElevenLabs son hexadecimales y uno contiene «aca»; el texto que se muestra (nombre, tono) está en tú',
+  },
   // ── Palabras de otro: no son copy nuestro, son citas ────────────────────────
   {
     ruta: 'app/admin/dev/',

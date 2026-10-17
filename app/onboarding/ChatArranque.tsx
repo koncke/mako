@@ -26,7 +26,7 @@ import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { DIAL_DEFAULT } from '@/lib/paises';
 import { tipoCrmPorId } from '@/lib/pipeline';
-import { tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
+import { rutaDeEntrada, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
 import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { OfferApp, type ArranqueOffer } from '../offer/OfferApp';
@@ -162,7 +162,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
-    if (t === 'listo') return <TarjetaListo modo={vista.modo} plan={plan} />;
+    if (t === 'listo') return <TarjetaListo modo={vista.modo} plan={plan} entrada={rutaDeEntrada(vista.interes ?? undefined)} />;
     return null;
   };
 
@@ -276,7 +276,7 @@ function TarjetaPdf({ sesionId }: { sesionId: number }) {
 }
 
 /** Lo que quedó armado, con links que la persona elige (el chat no se va solo a ningún lado). */
-function TarjetaListo({ modo, plan }: { modo: VistaArranque['modo']; plan: EstadoPlan }) {
+function TarjetaListo({ modo, plan, entrada }: { modo: VistaArranque['modo']; plan: EstadoPlan; entrada: string }) {
   return (
     <div className="arr-links">
       {modo === 'oferta' && <Link href="/crm" className="arr-link">Abrir mi CRM</Link>}
@@ -285,14 +285,15 @@ function TarjetaListo({ modo, plan }: { modo: VistaArranque['modo']; plan: Estad
       {typeof plan === 'object' && (
         <Link href={plan.url} className="arr-link">{plan.n > 0 ? `Mi plan de arranque · ${plan.n} tareas` : 'Mi plan de arranque'}</Link>
       )}
-      <Link href={modo === 'oferta' ? '/general' : '/plan'} className="arr-link arr-link--principal">Entrar a MaKo</Link>
+      {/* Entra a lo que dijo que quiere resolver primero (`rutaDeEntrada`, 17/10/2026). */}
+      <Link href={modo === 'oferta' ? entrada : '/plan'} className="arr-link arr-link--principal">Entrar a MaKo</Link>
     </div>
   );
 }
 
 const CSS_ARRANQUE = `
 .arr-capa {
-  position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column;
+  position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; left: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column;
   font-family: 'Geist', sans-serif; color: var(--ink);
 }
 .arr-cabecera {

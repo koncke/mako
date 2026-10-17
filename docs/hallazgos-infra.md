@@ -6517,8 +6517,9 @@ alcanzar, aunque se cumpliera al pie de la letra:
   `git grep`, `readdir`/`glob`, o 20+ archivos nombrados), los que **nombran** un archivo cambiado y los que lo **importan**,
   directo o transitivo (grafo por regex sobre los 5.800 `.ts/.tsx/.mjs`, ~4 s). Los corre con `node --import tsx --test` en tandas de
   6, a 2 procesos, esperando RAM.
-- `scripts/antes-de-subir.mjs`: guardas del push + `tsc` acotado (cambiados + quienes los importan, un nivel) + tests afectados, y
-  termina en UNA línea: `VERDE <sha>` o `ROJO: <qué>`. **El Cerebro no integra una punta sin esa línea** (AGENTS.md).
+- `scripts/antes-de-subir.mjs`: guardas del push + `tsc` acotado (sólo lo CAMBIADO; `--importadores` suma a quienes lo importan) + tests
+  afectados, y termina en UNA línea: `VERDE <sha>` o `ROJO: <qué>` (`VERDE <sha> (tipos: los chequea Actions)` si el tsc no entró en RAM).
+  **El Cerebro no integra una punta sin esa línea** (AGENTS.md).
 - `scripts/modulos-ts.mjs`: la guarda de la clase 51/52 (todo `.ts` es un módulo), en `guardas-push.sh`.
 - `.github/workflows/integracion.yml`: **falla rápido** — guardas → afectados contra `origin/main` → tipos → los demás tests; las
   dos fases suman la suite entera y no repiten ninguno. Un rojo se ve en ~3 min, no en ~11 (Tests: 508 s, Tipos: 137 s).
@@ -6547,6 +6548,12 @@ alcanzar, aunque se cumpliera al pie de la letra:
   `app/web-generator/editor/insertar.ts` («toggleEtiqueta no existe en ChainedCommands») que el tsc completo no da: ese archivo no estaba en
   el alcance, llegaba por arrastre. Por eso **sólo bloquean los errores de los archivos del alcance**; los de arrastre se muestran y los decide
   Actions. Reproducidos con el tsc real: run 31 (TS2554 en `crm-campo-inline.test.ts`) y run 10 (TS2741).
+- **Un gate que no corre en la PC con la que se trabaja no se usa** (primer push real del Cerebro, 17/10, ~14 chats abiertos, `claude.exe` 4,9 GB y Chrome
+  2,9): el `tsc` acotado con importadores (188 archivos) pedía 4,3 GB y había 1,3 libres — se quedó esperando. Tres correcciones, de lo que ya
+  estaba medido y no se había mirado: (1) el vigía de RAM sólo mata `tsc`, eslint, vitest, jest, playwright y `next build` — **nunca un `node --test`** —,
+  así que el margen de 0,3 GB sobre la zona roja para los tests sobraba (de 1,55 a 1,3 GB para un proceso); (2) el alcance local del `tsc` pasa a lo
+  CAMBIADO (33-102 archivos en los replays en vez de 168-935; el replay sigue en 20/20 porque los rojos de «Tipos» estaban en lo cambiado o los frena
+  `modulos-ts`); (3) el paso de tipos espera 90 s, no 15 min, y si no entra dice «tipos: los chequea Actions» y sigue — lo mismo vale para el lock.
 - **La profundidad del grafo casi no ahorra**: con 120 archivos cambiados, 457 tests con todos los saltos, 356 con `--profundidad 1`. Lo grande
   son las barredoras (110-150) y los que nombran un archivo: la palanca existe (`--profundidad N`, y el VERDE pasa a `PARCIAL`), pero no es la que
   acorta la espera.
@@ -6555,7 +6562,8 @@ alcanzar, aunque se cumpliera al pie de la letra:
 - Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y
   por eso `origin/main` tiene que estar mergeado en la rama del jefe.
 - Un test que arma la ruta con una interpolación (`` `lib/${x}.ts` ``) y no importa ni nombra: no sale por esa vía (sí si barre).
-- Los errores de tipos que aparecen a DOS saltos del cambio (el `tsc` acotado sólo suma quienes lo importan, un nivel).
+- Los errores de tipos en quienes IMPORTAN lo que cambiaste: en local el `tsc` acotado mira sólo lo cambiado (con `--importadores`, un nivel más). Los cubre
+  el tsc completo de Actions, que corre justo después de los afectados.
 - Diferencias de Linux contra Windows: sólo las ve Actions.
 - Una barredora ESCONDIDA en un ayudante que el test importa (hoy ningún `tests/_*.ts` barre, pero un test nuevo podría importar uno que sí): se
   detecta por el texto del test, no por el de sus imports.
