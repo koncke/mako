@@ -18,10 +18,11 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ubicarPanel } from '@/app/_components/PortadaPicker';
 import { PanelEstilo } from '@/app/dashboard/PanelEstilo';
-import { DENSIDADES, type TabFicha } from '@/lib/ficha/catalogo';
-import type { CambioFicha, FichaEfectiva } from '@/lib/ficha/config';
+import { DENSIDADES, type LugarFicha } from '@/lib/ficha/catalogo';
+import { lugarDe, type CambioFicha, type FichaEfectiva } from '@/lib/ficha/config';
 
-export function EstiloDeLaHoja({ ef, tab, onCambio }: { ef: FichaEfectiva; tab: TabFicha; onCambio: (c: CambioFicha) => void }) {
+// Desde el 17/10/2026 `tab` es una de las cuatro tabs o una hoja propia (`LugarFicha`): la épica se lee y se cambia igual.
+export function EstiloDeLaHoja({ ef, tab, onCambio }: { ef: FichaEfectiva; tab: LugarFicha; onCambio: (c: CambioFicha) => void }) {
   const [abierto, setAbierto] = useState(false);
   const botonRef = useRef<HTMLButtonElement>(null);
   return (
@@ -36,7 +37,7 @@ export function EstiloDeLaHoja({ ef, tab, onCambio }: { ef: FichaEfectiva; tab: 
 }
 
 function Panel({ ancla, ef, tab, onCambio, onCerrar }: {
-  ancla: HTMLElement | null; ef: FichaEfectiva; tab: TabFicha; onCambio: (c: CambioFicha) => void; onCerrar: () => void;
+  ancla: HTMLElement | null; ef: FichaEfectiva; tab: LugarFicha; onCambio: (c: CambioFicha) => void; onCerrar: () => void;
 }) {
   const [montado, setMontado] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -92,7 +93,7 @@ function Panel({ ancla, ef, tab, onCambio, onCerrar }: {
       }}>
       <div className="lk-estilo-tit">Esta tab</div>
       <div className="fb-aviso">
-        <Switch label="Vista épica" checked={ef.epica[tab]} onChange={(v) => onCambio({ op: 'epica', tab, epica: v })} />
+        <Switch label="Vista épica" checked={lugarDe(ef, tab).epica} onChange={(v) => onCambio({ op: 'epica', tab, epica: v })} />
       </div>
       <div className="lk-estilo-tit" style={{ marginTop: 12 }}>Tarjetas</div>
       <div className="fb-segmentos" role="group" aria-label="Tamaño de las tarjetas">

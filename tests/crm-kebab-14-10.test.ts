@@ -120,7 +120,7 @@ test('se fue la PERILLA, no la función: lo que configuraban los modales tiene o
   // debería ser el desplegable de "Estilo de la hoja"»), no en la barra lateral.
   // Probado rompiéndolo (16/10/2026): sacar el botón de la barra de edición → 1 fallo.
   assert.match(sinComentarios(leer('app/crm/lead-view/ficha/EstiloDeLaHoja.tsx')), /<PanelEstilo\b/, 'la ficha perdió su estilo');
-  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx')), /<EstiloDeLaHoja ef=\{estilo\.ef\} tab=\{estilo\.tab\} onCambio=\{estilo\.onCambio\} \/>/);
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx')), /<EstiloDeLaHoja ef=\{efectiva\} tab=\{tab\} onCambio=\{cambiar\} \/>/);
 
   // El motor NO se apaga con el botón: lo pidió el chat de Automations hasta que sus
   // plantillas lo reemplacen. El flag sigue a mano por la API de MaKo.

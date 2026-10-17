@@ -9605,8 +9605,8 @@ pediría adivinar por el título del evento y leer el calendario con un cron (Go
 **Decisión: no se hace** hasta que Google lo exponga; el modal lo dice en una línea (app/crm/EventosDeEtapaModal.tsx).
 
 **Sin hacer (con su archivo):**
-- «Estilo de la hoja» (app/crm/lead-view/ficha/EstiloDeLaHoja.tsx, del chat Dashboard) todavía habla de las cuatro tabs:
-  en una hoja propia lo usa un PUENTE en FichaPorBloques.tsx (`estiloDe`). Cuando acepte un `LugarFicha`, el puente se va.
+- ~~El puente de «Estilo de la hoja»~~ Hecho el 17/10/2026: EstiloDeLaHoja.tsx es del CRM (Dashboard comparte sólo
+  PanelEstilo) y ahora recibe un `LugarFicha`; el puente `estiloDe` de FichaPorBloques.tsx se fue.
 - El desplegable de las hojas es una copia de la anatomía de `MenuHojas` (app/dashboard/Cabecera.tsx): unificarlos.
 - Cuando MaKo cambia la ficha desde el chat de edición, la ficha no se relee sola (hay que cerrar y abrir).
 - Las hojas propias no salen en el teléfono (/m) ni son lugar donde «Solucionar» busca primero (son el último).

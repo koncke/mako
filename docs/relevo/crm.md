@@ -39,7 +39,7 @@ ruta /crm/[id] (404 sólo en el build parcial) y nada en producción (la extensi
    antes o después del deploy; `node scripts/apply-migration.mjs supabase/migrations/0309_pagos_funnel.sql`). Ver
    docs/hallazgos-pagos.md, «Cada pago guarda de qué funnel es».
 4. **T2 de la ficha v2**: Reuniones y Tracking rehechos, y la tarjeta del lead en el kanban personalizable (§0-Ω11).
-5. Los pendientes de la cosecha del 17/10 (el puente de «Estilo de la hoja», unificar el desplegable con `MenuHojas`,
+5. Los pendientes de la cosecha del 17/10 (unificar el desplegable con `MenuHojas`,
    releer la ficha cuando MaKo la cambia desde el chat, las hojas propias en el teléfono).
 
 ## 0-Ω12. FEEDBACK DE MARTÍN DEL 16/10/2026 a la tarde — LO PRIMERO PARA QUIEN SIGA
