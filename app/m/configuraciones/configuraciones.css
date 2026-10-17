@@ -1,0 +1,48 @@
+/* =============================================================================
+   /m/configuraciones — «Configuración del negocio» y sus secciones. Clases `.m-configuraciones-*`, sólo tokens de
+   app/globals.css. Lo importan el índice y cada sección (equipo, integraciones, notificaciones, fiscal, plan).
+   ============================================================================= */
+
+/* Un campo de una hoja (invitar, una identidad fiscal, un destinatario): 16 px para que iOS no haga zoom, 44 de alto. */
+.m-configuraciones-campo { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; }
+.m-configuraciones-campo > span { font-size: var(--fs-sm); color: var(--dim); padding: 0 4px; }
+.m-configuraciones-entrada {
+  box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 14px; border-radius: var(--r-md);
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 16px; line-height: 1.4;
+}
+.m-configuraciones-entrada:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-configuraciones-entrada::placeholder { color: var(--faint); }
+textarea.m-configuraciones-entrada { min-height: 88px; resize: none; }
+/* El país y el número, en una fila (como «Agregar teléfono» de Contactos). */
+.m-configuraciones-tel { display: flex; gap: 8px; }
+.m-configuraciones-tel select.m-configuraciones-entrada { flex: none; width: 112px; padding-right: 8px; }
+.m-configuraciones-tel input { flex: 1; min-width: 0; }
+
+/* Lo que no salió: el punto rojo y el texto en TINTA (el rojo como texto no pasa AA a este tamaño). Lo bueno, con verde. */
+[data-m] .m-configuraciones-aviso { display: flex; gap: 8px; align-items: baseline; margin: 8px 4px 12px; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink); }
+[data-m] .m-configuraciones-aviso::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--good); transform: translateY(-1px); }
+[data-m] .m-configuraciones-aviso[data-tono='warn']::before { background: var(--warn); }
+[data-m] .m-configuraciones-aviso[data-tono='bad']::before { background: var(--bad); }
+
+/* El texto de una hoja de detalle (lo que hace una integración, el porqué de una baja). */
+[data-m] .m-configuraciones-texto { margin: 4px 4px 14px; font-size: var(--fs-md); line-height: 1.5; color: var(--ink); }
+[data-m] .m-configuraciones-texto--gris { color: var(--dim); }
+
+/* La acción que borra, al final de una hoja: roja, como el «Eliminar» de Ajustes de iOS. */
+.m-configuraciones-borrar {
+  display: block; width: 100%; min-height: 48px; margin-top: 4px; border: 0; border-radius: var(--r-md);
+  background: none; color: var(--bad); font: inherit; font-size: var(--fs-md); font-weight: 600; cursor: pointer;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.m-configuraciones-borrar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-configuraciones-borrar:disabled { opacity: .45; }
+
+/* La foto de una persona del equipo, en el lugar del avatar de iniciales (40 px). */
+.m-configuraciones-foto { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; display: block; }
+
+/* El rol de una persona, a la derecha de su fila (gris, como el valor de una fila de Ajustes). */
+.m-configuraciones-rol { font-size: var(--fs-md); color: var(--dim); }
+
+/* «Darme de baja»: el texto de una fila que corta algo, en rojo, como en Ajustes › Suscripciones de iOS. */
+.m-configuraciones-rojo { color: var(--bad); }

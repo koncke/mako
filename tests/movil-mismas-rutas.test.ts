@@ -155,7 +155,8 @@ test('el teléfono ve la página de /m en la MISMA URL (rewrite), con la query o
 });
 
 test('el proxy no toca /api, lo público, el login, el repartidor ni lo que se usa en la computadora', () => {
-  for (const p of ['/api/crm', '/api/v1/leads', '/privacidad', '/vsl', '/login', '/onboarding', '/integraciones', '/m.js', '/']) {
+  // /integraciones salió el 17/10/2026 (tiene su pantalla, «Mobile 2»); /metodo sigue en la computadora.
+  for (const p of ['/api/crm', '/api/v1/leads', '/privacidad', '/vsl', '/login', '/onboarding', '/metodo', '/m.js', '/']) {
     assert.deepEqual(pm(p), { tipo: 'seguir' }, p);
   }
   // El repartidor en un TELÉFONO se resuelve en el borde (14/10/2026): un 307 a General, con la query.
@@ -195,11 +196,11 @@ test('¿es la vista del teléfono?: /m siempre; una URL de escritorio, sólo en 
   assert.equal(esVistaMovil('/crm', '', true), true);
   assert.equal(esVistaMovil('/crm', '', false), false);
   assert.equal(esVistaMovil('/configuraciones', 'tab=notif', true), true);
-  for (const p of ['/integraciones', '/onboarding', '/privacidad', '/inicio']) assert.equal(esVistaMovil(p, '', true), false, p);
+  for (const p of ['/metodo', '/onboarding', '/privacidad', '/inicio']) assert.equal(esVistaMovil(p, '', true), false, p);
   // La ruta interna que lee el shell.
   assert.equal(rutaInterna('/crm/12/resumen'), '/m/crm/12');
   assert.equal(rutaInterna('/video-generator', `plan=${UUID}`), `/m/video/${UUID}`);
-  assert.equal(rutaInterna('/integraciones'), null);
+  assert.equal(rutaInterna('/metodo'), null);
 });
 
 // ── El proxy DE VERDAD ─────────────────────────────────────────────────────────────────────

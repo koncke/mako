@@ -754,3 +754,6 @@
   .m-kb__etapa b[data-late], .m-kb-tj[data-se-va], .m-kb-tj[data-llego] { animation: none; }
   .m-kb-tj:active, .m-kb-tj[data-agarrada] { transform: none; }
 }
+
+/* FilaEnComputadoraM (app/m/_ui/EnComputadoraM.tsx): el motivo, en el cuerpo de su hoja. */
+[data-m] .m-en-compu__motivo { margin: 4px 0 8px; font-size: 16px; line-height: 1.5; color: var(--ink); }

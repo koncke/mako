@@ -17,7 +17,7 @@
 //
 // Las familias del MODO Dev (ADMIN_FAMILIAS) no se recorren: se llega por `dev-entrar`, que es sólo de escritorio.
 //
-// Verificado ROMPIÉNDOLO (17/10/2026, scratchpad/romper.py: cada rotura sobre el archivo real, restaurado de memoria y
+// Verificado ROMPIÉNDOLO (17/10/2026, scratchpad/mobile2/romper_m2.py: cada rotura sobre el archivo real, restaurado de memoria y
 // comparado por hash), de a una; base 5 pasan / 0 fallan:
 //   · la key `email` renombrada en SOLO_ESCRITORIO                          → 3 / 2 (email sin marca + la marca fantasma)
 //   · `crm` anotado en EN_CAMINO (ya tiene pantalla)                         → 4 / 1 (la marca vieja)
