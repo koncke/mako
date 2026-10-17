@@ -535,6 +535,19 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'reserva la reunión en Calendly (o acuña un link de un solo uso) y deja el evento en el historial del lead',
   },
   {
+    // 4c (16/10/2026, Martín por Cerebro: «acciones de Calendly para el paso ⚡ Acción»). Lo único de Calendly que un
+    // flujo hace solo sin inventar un dato: crear pide la hora que elige el lead, y editar no existe en su API.
+    id: 'cancelar_reunion_calendly', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cancelar su reunión de Calendly',
+    descripcion: 'PROPONE cancelar en Calendly la PRÓXIMA reunión de un lead (la primera que todavía no empezó), buscada por su email en la cuenta de Calendly del negocio. Calendly le avisa al lead, con el motivo si lo hay, y su aviso la marca cancelada en el CRM. Si no tiene ninguna por delante, no hay nada que cancelar. Calendly no deja mover ni renombrar una reunión: para reagendar, mándale su link. El lead necesita email.',
+    parametros: [
+      leadId('id del lead (con email cargado).'),
+      { nombre: 'motivo', tipo: 'string', max: 500, descripcion: 'opcional: el motivo que le llega al lead con la cancelación.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: CALENDLY,
+    reversible: false, escribe: 'cancela la reunión en Calendly (le llega el aviso al lead) y lo deja en el historial del lead',
+  },
+  {
     id: 'proponer_lead', area: 'crm', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/crm/revisar',
     titulo: 'Proponer alta de un lead',
     descripcion: 'PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK a /crm/revisar/<id>, donde una persona ve los datos, corrige y confirma; recién ahí se crea el lead (avisando duplicados). Úsala cuando pidan agregar a alguien al CRM. Necesita al menos el nombre; el teléfono es lo que después lo cruza con su WhatsApp. Pasa el link tal cual y no pidas confirmación por el chat. Para varios contactos a la vez usa proponer_leads.',

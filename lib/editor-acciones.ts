@@ -182,11 +182,11 @@ export const ICONO_AREA: Readonly<Record<AreaAccion, NombreIconoMenu>> = { CRM: 
  * Los BLOQUES de un área: adentro de un área se separan con una línea, no con otro clic. Tres niveles
  * (CRM › Etiquetas › Agregar) eran un clic de más sobre once acciones que ya se buscan escribiendo.
  */
-export const GRUPOS_ACCION = ['Etapa y funnels', 'Etiquetas', 'Ficha', 'Equipo', 'Automatizaciones', 'Cliente', 'Chat'] as const;
+export const GRUPOS_ACCION = ['Etapa y funnels', 'Etiquetas', 'Ficha', 'Agenda', 'Equipo', 'Automatizaciones', 'Cliente', 'Chat'] as const;
 export type GrupoAccion = (typeof GRUPOS_ACCION)[number];
 /** El área de cada bloque. `Automatizaciones` sólo tiene las que el selector no ofrece (`FUERA_DEL_SELECTOR`). */
 export const AREA_DE_GRUPO: Readonly<Record<GrupoAccion, AreaAccion>> = {
-  'Etapa y funnels': 'CRM', Etiquetas: 'CRM', Ficha: 'CRM', Equipo: 'CRM', Automatizaciones: 'CRM',
+  'Etapa y funnels': 'CRM', Etiquetas: 'CRM', Ficha: 'CRM', Agenda: 'CRM', Equipo: 'CRM', Automatizaciones: 'CRM',
   Cliente: 'Customer Success', Chat: 'WhatsApp',
 };
 
@@ -251,6 +251,7 @@ export const ACCIONES_DEL_FLUJO: readonly AccionDelFlujo[] = [
   { id: 'marcar_calificado', titulo: 'Marcar calificado', que: 'Marca si era un buen fit', grupo: 'Ficha', icono: 'calificado' },
   { id: 'ignorar_datos_sin_marcar', titulo: 'Ignorar sus datos sin marcar', que: 'Deja de contar en «Datos sin marcar»', grupo: 'Ficha', icono: 'silenciar' },
   { id: 'reactivar_datos_sin_marcar', titulo: 'Volver a contar sus datos', que: 'Vuelve a contar en «Datos sin marcar»', grupo: 'Ficha', icono: 'avisar' },
+  { id: 'cancelar_reunion_calendly', titulo: 'Cancelar su reunión', que: 'Cancela en Calendly su próxima reunión', grupo: 'Agenda', icono: 'calendario' },
   { id: 'asignar_closer_setter', titulo: 'Asignar closer o setter', que: 'Le asigna alguien del equipo', grupo: 'Equipo', icono: 'persona-mas' },
   { id: 'avisar_al_equipo', titulo: 'Avisar al equipo', que: 'Manda un aviso al grupo de WhatsApp', grupo: 'Equipo', icono: 'mako' },
   { id: 'inscribir_lead_secuencia', titulo: 'Inscribir en otra automatización', que: 'Lo mete en otra automatización', grupo: 'Automatizaciones', icono: 'accion' },
