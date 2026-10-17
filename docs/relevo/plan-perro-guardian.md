@@ -1,6 +1,29 @@
 # Retomar: Plan · Perro Guardián
 
-## ⏩ Lo último (14/10, cuenta `claude2`): cierre por pedido de Martín
+## ⏩ Lo último (17/10, cuenta `claude4`, agente «Pendientes B5» del Cerebro, rama `pend-b5-1710`)
+
+**Hecho (cada uno con su test probado rompiéndolo; el detalle, en docs/hallazgos-plan.md, entradas del 17/10):**
+- Una reunión larga se lee en varias corridas (la extracción mira el reloj y ANOTA las partes leídas; la que sigue lee
+  sólo lo que falta, en un borrador `fathom:<id>:partes-…`). Y la revisión adversarial del Cerebro, arreglada.
+- «Leí tu reunión y te dejé las tareas» es una automatización de SuperAdmin (`reunion_tareas_al_plan`). ⚠️ **Su fila se
+  crea DESPUÉS del deploy:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts
+  --eventos=reunion_tareas_al_plan --aplicar` (nace pausada; nacía apagado y no le llegaba a nadie; el ws 13 lo tenía
+  apagado a mano: antes de prenderla, una CONDITION que lo excluya).
+- `puntuarPlan` no pisa lo fijado; `cambiar_fecha_tarea_plan` por WhatsApp; «ya lo hice» ofrece cerrar la tarea.
+- Cerradas en el Plan del ws 9 con su prueba: #850 y las del Dashboard en producción (#857, #858, #859, #860, #862,
+  #872, #876). **#896 se cierra cuando suba** la serie semanal por funnels (commit fb6454a83).
+
+**Sin hacer, con su archivo:**
+- **El aviso de «esta reunión no se pudo leer»**: sería otro evento de la plataforma, con el molde de
+  `reunion_tareas_al_plan` (lib/reunion-plan-aviso.ts) desde `registrarNoLeida` (lib/reunion-descartadas.ts).
+- **El tablero del cliente muestra las tareas de la Retro y corta en 1.000** (`listTareas`, lib/todo.ts): sin tocar.
+- **«Re-priorizar todo» en el tablero de un cliente puede sacar una tarea del proyecto de su reunión** (el Perro reparte
+  la bandeja por tema, lib/plan-repriorizar.ts): sin tocar.
+- **El filtro «Responsable» del tablero del dueño** pide una migración (`plan_tareas.responsable_tipo`) que numera el
+  Cerebro; y «Re-priorizar todo» en el teléfono es de Mobile (app/m/plan).
+- **Nada se miró arrastrando en un navegador** (sin RAM para un `next dev`).
+
+## ⏩ Antes (14/10, cuenta `claude2`): cierre por pedido de Martín
 
 **Lo PRIMERO que espera a Martín:** confirmar el borrador con lo de sus últimas 3 reuniones y su
 feedback de 18 puntos → **https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6** (50 ítems,
