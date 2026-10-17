@@ -23,6 +23,18 @@ configurar eso así ya comenzamos».
 - **No verificado:** la pantalla real (no se levantó `next dev`, que no entra en la RAM). El chequeo de tipos acotado
   dio 0 errores en los 13 archivos tocados, y los tests del Centro y del Second Brain están en verde (151).
 
+**También en esta punta, del reparto del Cerebro (docs/relevo/cerebro.md, «Al Centro»):** el panel de Uso ya no le
+ofrece `claude4 -n Runner` a la cuenta 4, que no tiene función en el `$PROFILE`. Ahora le dice que abra su Runner en
+la app (`tieneTerminal`, lib/runner.ts, con test).
+
+**Lo que sigue del reparto del Cerebro, antes de las tandas:** Martín quiere abrir un chat de terminal con «un clic + el
+permiso de la PC», nunca pegando un comando en PowerShell. Va con diseño primero. Lo que se sabe:
+- una sesión de la app ya crea chats visibles de la APP (`start_session`, hallazgos-operaciones, «La cuenta 4»);
+- lo que no puede crear es uno de TERMINAL, que vive en otra carpeta de config;
+- el clic tiene que llegar a la PC por el cartero, como un trabajo firmado que el Runner ejecuta, y abrir la terminal
+  con la función de la cuenta. Eso cambia lo que el Runner tiene permitido hacer, así que necesita el OK de Martín:
+  es configuración de su PC.
+
 **La prueba de punta a punta la hace Martín.** Abre `/second-brain` → «Claude Code» → «Cerebro», escribe algo y lo
 manda. Tiene que ver el tick y la respuesta del Cerebro. Si la caja dice «Pégale tu Token al Runner», copia el Token
 desde ahí y se lo pega al Runner de la cuenta 4.
@@ -48,7 +60,7 @@ Orden: **10, 8, 7 y 9**, después la **6** y después «Skills». La etapa 2 est
 | 2 | «Pregúntale a MaKo» es el Second Brain; `/mako` y `/mako-doer` redirigen; «Antes» | `1af0906b6` + `1971c9a89` |
 | 3 | El teléfono: `/m/second-brain` es el chat, el Mapa en `/m/second-brain/mapa` | `36fcaa16e` |
 | 4 | Los adjuntos se guardan en el Archivero (mig **0305**) + lo que encontró la revisión | `4da56c37c` + `129eed9b9` |
-| **5** | **El Centro como adaptador: Claude Code desde el Second Brain** | **la punta del 17/10** |
+| **5** | **El Centro como adaptador: Claude Code desde el Second Brain** | **`8835e17aa` (la punta del 17/10)** |
 | 7, 8, 9, 10 | La parte de SERVIDOR, sin pantalla todavía (abajo) | `440bd6eea` |
 | 6 | Sin empezar | — |
 

@@ -906,7 +906,7 @@ CentroApp, CentroAppMovil, ChatSecondBrain y SecondBrainCentroM montan esas piez
 - `CUENTAS` en `app/admin/dev/_registro/tipos.ts`, porque un hito firmado con una cuenta que no está ahí rompe /admin/dev;
 - la regex de `scripts/gen-dev-historial.mjs`, que hasta el 17/10 era `claude1|claude2` y dejaba sin cuenta, sin avisar, todo lo de la 3.
 
-Lo que NO se toca es `CUENTAS_TERMINAL` (lib/runner.ts), salvo que la cuenta tenga su función en el `$PROFILE`: si no, el Centro ofrece un comando que falla. Pasó: el panel de Uso le ofreció a Martín `claude4 -n Runner` y PowerShell contestó «not recognized». Lo arregla el chat del Centro.
+Lo que NO se toca es `CUENTAS_TERMINAL` (lib/runner.ts), salvo que la cuenta tenga su función en el `$PROFILE`: si no, el Centro ofrece un comando que falla. Pasó: el panel de Uso le ofreció a Martín `claude4 -n Runner` y PowerShell contestó «not recognized». Arreglado el 17/10: sólo se ofrece comando a una cuenta con su función en el `$PROFILE` (`tieneTerminal`, lib/runner.ts). A la de la app se le dice «Abre su Runner en la app de Claude para conectarlo», y «Nuevo chat» no arranca en ella. Lo fija tests/runner-cuenta-app.test.ts.
 
 **Cómo se supo que era otra cuenta sin preguntar.** `get_usage` dio 0% con reset el 20/10 19:59 UTC; la 3 renueva el 21/10 08:59 UTC. El `userEmail` del contexto traía un gmail que no era de ninguna de las tres, así que esta vez sí describía la cuenta abierta. `list_sessions` vino vacío porque la barra está partida por cuenta. El aviso de «99% semanal» del hook era de la cuenta 3 y no aplicaba.
 

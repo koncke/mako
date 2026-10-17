@@ -58,7 +58,7 @@ import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import type { MunecosElegidos } from '@/lib/centro-munecos';
 import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
 import { TicketeraCentro } from './TicketeraCentro';
-import { comandoNuevoChat } from '@/lib/runner';
+import { comandoNuevoChat, tieneTerminal } from '@/lib/runner';
 import { BotonUso } from './Uso';
 import { MunecoNuevo, NuevoChat, type BorradorNuevoChat } from './NuevoChat';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
@@ -157,7 +157,7 @@ export function CentroApp({
 
         <nav className="co-lista" aria-label="Chats">
           {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude, con un muñeco gris de lugar vacío (NuevoChat.tsx). */}
-          <button type="button" className="co-fila co-fila--nuevo" onClick={() => setNuevo({ nombre: '', cuenta: actual?.cuenta ?? 'claude1' })}>
+          <button type="button" className="co-fila co-fila--nuevo" onClick={() => setNuevo({ nombre: '', cuenta: actual?.cuenta && tieneTerminal(actual.cuenta) ? actual.cuenta : 'claude1' })}>
             <MunecoNuevo />
             <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
           </button>
