@@ -66,9 +66,26 @@ no los sabe leer (las tres skills instaladas dejarían de autenticar).
   Paso a paso en `docs/verificacion-google.md`.
 - **El punto 14 de Customer Success** (conectar el correo con Google/Gmail, como el QR del WhatsApp):
   espera esa verificación.
-- **Chatwoot tanda 2: borrar el cascarón** `lib/chatwoot.ts` cuando entre la rama
-  `wip/api-acciones-0910` (worktree `C:/dev/mako-api`), que tiene cambiados los archivos que lo
-  importan. Y `'lead.wa_entrante'` (`lib/flujos-tipos.ts`) quedó sin emisor.
+- **Chatwoot tanda 2 (17/10/2026, medido): el cascarón `lib/chatwoot.ts` SIGUE, con 2 importadores en vez de 5.**
+  La razón de esperar a `wip/api-acciones-0910` ya no es cierta: esa rama es del 09/10: tiene 2 commits «WIP (sin terminar, NO
+  pushear)» con 222 archivos tocados, y la API de MaKo que sirve vive hoy en main. Salieron de la lista `app/crm/actions.ts` (dos llamadas que contestaban
+  `null`), `lib/nutricion.ts` (el paso por el oficial queda en fallo con su porqué, sin llamar a nada) y `lib/meta-templates.ts`
+  (su `getWabaConfig` local tira lo mismo que tiraba). **Quedan `lib/api-mako/areas/whatsapp.helpers.ts` y
+  `whatsapp.run.ts`**: 8 operaciones del REGISTRO de la API de MaKo que sólo existen para el WhatsApp oficial
+  (`listar_conversaciones_whatsapp_oficial`, `hilo_contacto_whatsapp_oficial`, `contacto_chatwoot_por_telefono`,
+  `salud_webhook_chatwoot`, `marcar_leido_whatsapp_oficial`, `crear_contacto_chatwoot_lead`, `reparar_webhook_chatwoot`,
+  `bloquear_contacto_whatsapp_oficial`) y que contestan «no hay canal oficial» desde el 09/10. Retirarlas es cambiar el contrato
+  de la API (su def, `rest.ts`, `docs/api-mako*.md`, `tests/api-mako-http.snapshot.txt`, `tests/editor-acciones.test.ts`) y
+  **es del chat de la API de MaKo**, no se hizo desde Infra. Cuando salgan, `lib/chatwoot.ts` se borra entero (el test
+  `tests/sin-chatwoot.test.ts` falla con «ya no lo importa» hasta que se saque de `IMPORTADORES`). Y `'lead.wa_entrante'`
+  (`lib/flujos-tipos.ts`) quedó sin emisor.
+- **La columna `crm_etiquetas.chatwoot_label` (mig 0224): migración escrita, SIN APLICAR.**
+  `supabase/migrations/0314_quitar_crm_etiquetas_chatwoot_label.sql` (`drop column if exists`; la 0313 era la más alta en main y en
+  todos los worktrees al 17/10 — **renumerarla si el Cerebro ya dio la 0314**). Antes se midió que nadie la lee ni la escribe:
+  `lib/etiquetas.ts` pide sus columnas por nombre sin ella, y `lib/datos-mau.ts` ya la OMITE al copiar. Tenía 2 filas con valor
+  (`docs/hallazgos-comunicacion.md`): se pierden a propósito. **No se corrió contra producción.** Aplicarla:
+  `node scripts/apply-migration.mjs supabase/migrations/0314_quitar_crm_etiquetas_chatwoot_label.sql`; después sacar
+  `'chatwoot_label'` del `omitir` de `lib/datos-mau.ts` y de la lista de `tests/sin-chatwoot.test.ts`.
 - **Verlo con clics**: el formulario de integraciones nuevo (ws3).
 - ~~Un uso real de una skill después de convertir los tokens~~: medido el 13/10 en sólo lectura
   (`app_settings.api_tokens_uso`). La skill del ws11 autenticó el 11/10 a las 23:25 UTC, dos días después de la

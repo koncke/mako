@@ -104,7 +104,6 @@ import { getDiagnosticoFase } from '@/lib/fase-store';
 import { alinearEtapaVista } from '@/lib/etapa-historial';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
-import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } from '@/lib/lead-insights';
 import { duracionDeReunionEnAgendaMin, moverEventoDeReunion, permisoCalendarioGoogle } from '@/lib/google-calendar';
 import { motivoFijo } from '@/lib/agenda-sin-ia';
@@ -856,9 +855,6 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
     // tarjeta del tablero, el filtro de origen y la ficha.
     origen_lead: ORIGEN_LEAD.carga_manual.id,
   });
-  // Alta del chat: contacto + conversación en Chatwoot (silencioso) para que
-  // todo lead con teléfono tenga su hilo de WhatsApp desde el día cero.
-  if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono);
   // (setter/closer se auto-asignan dentro de createLead si hay un único vendedor.)
   bust(TAG.leads);
   revalidatePath('/crm');
@@ -1143,8 +1139,7 @@ export async function createLeadAction(formData: FormData): Promise<void> {
 
 /**
  * Crea un lead desde una conversación de WhatsApp (plan #381): el contacto no
- * estaba en el CRM. Usa la MISMA vía que el alta manual (createLead) + asegura el
- * contacto en Chatwoot. Devuelve el id para abrir la ficha en el acto. La
+ * estaba en el CRM. Usa la MISMA vía que el alta manual (createLead). Devuelve el id para abrir la ficha en el acto. La
  * conversación se enlaza sola al lead por teléfono en la próxima carga.
  *
  * ⚠️ DEVUELVE EL CHOQUE, NO LO TIRA. Un `throw` de una server action llega al navegador
@@ -1181,7 +1176,6 @@ export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: str
     // ⚠️ `destino.casa` ya pasó por `casaParaEscribir`: el default va NULL. createLead escribe
     // lo que le llega, y con el id del default escrito el lead no sale en NINGÚN tablero.
     const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
-    if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono).catch(() => {});
     bust(TAG.leads);
     revalidatePath('/crm');
     revalidatePath('/whatsapp');
