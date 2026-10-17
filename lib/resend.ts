@@ -16,6 +16,7 @@ import { credWs, credDelCliente, envCred, esDeLaPlataforma } from './credenciale
 import { getSettingEstricto } from './settings';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
+import { esKeySoloEnvio, KEY_SOLO_ENVIO_DE_MAKO, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
 import {
   remitenteDelNegocio, remitenteDelPaso, sanearRemitente, dominioDe, esDominioDeMako, SIN_EMAIL_PROPIO,
   type VeredictoRemitente,
@@ -296,9 +297,11 @@ export type ResendDomain = {
 
 export type DomainResult = { ok: true; domain: ResendDomain } | { ok: false; error: string };
 
-async function resendFetch(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; body: unknown }> {
+// `deMako`: la key de esta llamada es la de la PLATAFORMA (la que el negocio no puede tocar). Lo usa `errorDeResend`.
+async function resendFetch(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; body: unknown; deMako?: boolean }> {
   const key = await resendKey();
   if (!key) return { ok: false, status: 0, body: { message: 'RESEND_API_KEY no configurada' } };
+  const deMako = await esDeLaPlataforma('RESEND_API_KEY', key).catch(() => false);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       ...init,
@@ -308,10 +311,22 @@ async function resendFetch(path: string, init?: RequestInit): Promise<{ ok: bool
     const text = await res.text();
     let body: unknown = text;
     try { body = text ? JSON.parse(text) : {}; } catch { /* deja texto */ }
-    return { ok: res.ok, status: res.status, body };
+    return { ok: res.ok, status: res.status, body, deMako };
   } catch (err) {
     return { ok: false, status: 0, body: { message: err instanceof Error ? err.message : String(err) } };
   }
+}
+
+/**
+ * EL ERROR DE UNA LLAMADA A /domains, EN PALABRAS (#875). Una key de sólo envío no es «Resend 401»: si es la de MaKo,
+ * el problema es nuestro (y queda en el log, fuerte); si es la del negocio, se le dice cuál crear (lib/resend-errores.ts).
+ */
+function errorDeResend(r: { status: number; body: unknown; deMako?: boolean }, fallback: string): string {
+  if (esKeySoloEnvio(r.body)) {
+    if (r.deMako) console.error('[resend] la key de la PLATAFORMA es de sólo envío: no da de alta ni verifica dominios (#875, docs/hallazgos-comunicacion.md)');
+    return r.deMako ? KEY_SOLO_ENVIO_DE_MAKO : KEY_SOLO_ENVIO_TUYA;
+  }
+  return errMsg(r.body, fallback);
 }
 
 function errMsg(body: unknown, fallback: string): string {
@@ -353,12 +368,12 @@ export async function createResendDomain(name: string, region = 'sa-east-1'): Pr
       if (existente) return getResendDomain(existente.id);
     }
   }
-  return { ok: false, error: errMsg(r.body, `Resend ${r.status}`) };
+  return { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
 }
 
 export async function getResendDomain(id: string): Promise<DomainResult> {
   const r = await resendFetch(`/domains/${encodeURIComponent(id)}`);
-  if (!r.ok) return { ok: false, error: errMsg(r.body, `Resend ${r.status}`) };
+  if (!r.ok) return { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
   const d = parseDomain(r.body);
   return d ? { ok: true, domain: d } : { ok: false, error: 'respuesta inválida de Resend' };
 }
@@ -367,12 +382,12 @@ export async function getResendDomain(id: string): Promise<DomainResult> {
 // getResendDomain — la verificación puede tardar minutos.
 export async function verifyResendDomain(id: string): Promise<{ ok: boolean; error?: string }> {
   const r = await resendFetch(`/domains/${encodeURIComponent(id)}/verify`, { method: 'POST' });
-  return r.ok ? { ok: true } : { ok: false, error: errMsg(r.body, `Resend ${r.status}`) };
+  return r.ok ? { ok: true } : { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
 }
 
 export async function listResendDomains(): Promise<{ ok: true; domains: Array<{ id: string; name: string; status: string }> } | { ok: false; error: string }> {
   const r = await resendFetch('/domains');
-  if (!r.ok) return { ok: false, error: errMsg(r.body, `Resend ${r.status}`) };
+  if (!r.ok) return { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
   const data = typeof r.body === 'object' && r.body && 'data' in r.body ? (r.body as { data?: unknown }).data : null;
   const arr = Array.isArray(data) ? data : [];
   return {

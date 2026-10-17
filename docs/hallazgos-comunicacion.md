@@ -10025,3 +10025,22 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
 (`grupoJidEstricto`, `SIN_GRUPO_MAKO`) · `lib/avisos.ts` (`emitirAviso`) · `lib/notificaciones.ts` (`SalidaAviso`,
 `anotarSalida`, `SIN_RUIDO`) · `lib/flujos.ts` (`emitirTarjetaDelEvento`) · `lib/campanita.ts` ·
 `app/_components/CampanitaAvisos.tsx` · `app/automations/FlujoLienzo.tsx` (`EnvioDeMako`)
+
+## «Tu API key es restringida»: la key de la PLATAFORMA es de sólo envío (17/10/2026, tarjeta #875)
+
+- ⚠️ **No era la key de Mauricio: era la de MaKo.** El alta de un dominio («Opción A», app/api/email/dominio) usa
+  `resendKey()`, que en el ws1 es la fila de la plataforma (`migracion-env`, 16/07/2026). Esa key es de **sólo envío**:
+  medido el 17/10 con GET /domains → 401 `restricted_api_key`. Manda bien los correos de MaKo, pero no da de alta ni
+  verifica el dominio de NADIE. La key del `.env.local` de desarrollo es otra, con acceso completo (ve hola-mako.com
+  verificado): la de producción no es ésa porque el arranque PISA el entorno con la fila (`aplicarAEnv`).
+- **Lo que queda SIN HACER (de Martín: es su cuenta de Resend):** poner en la fila del ws1 (`credenciales`,
+  `RESEND_API_KEY`) una key con «Full access» de la misma cuenta. Hasta entonces ningún negocio puede conectar su
+  dominio desde MaKo, y el mensaje ya lo dice como problema nuestro.
+- **El código ahora dice de quién es la key** (lib/resend-errores.ts, `errorDeResend` en lib/resend.ts): la de MaKo →
+  «es un problema de MaKo, no tuyo»; la del negocio → «crea una con Full access». Y la verificación de Integraciones
+  dejó de llamar «API key inválida» a una key que manda (`metodo-verificar.ts`).
+- Medido el 17/10: ws10 y ws11 tienen su propia key con acceso completo (ws11 con su dominio en `failed`); ws3 y ws13,
+  ninguna.
+
+**Vive en:** `lib/resend.ts` (`resendFetch`, `errorDeResend`) · `lib/resend-errores.ts` · `lib/metodo-verificar.ts`
+(`email`) · `lib/credenciales.ts` (`aplicarAEnv`) · test: `tests/resend-key-solo-envio.test.ts`
