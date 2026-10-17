@@ -44,7 +44,7 @@ const VECINOS_POR_NODO = 4;
 const VACIAS = new Set(('el la los las un una unos unas de del al a y o u e en con sin por para que qué cual cuál cuales '
   + 'como cómo cuando cuándo donde dónde quien quién es son esta este esto estos estas ese esa eso mi mis tu tus su sus '
   + 'lo le les se me te nos ya hay ser tengo tiene tienen tenemos hace hacer puedo puede sobre entre mas más muy todo '
-  + 'toda todos todas algo alguno dame decime dime muestra mostrame quiero necesito saber cuanto cuánto cuantos cuántos').split(' '));
+  + 'toda todos todas algo alguno dame dime muestra muestrame quiero necesito saber cuanto cuánto cuantos cuántos').split(' '));
 
 /**
  * Las palabras del dueño que no están en ningún nodo, y el ÁREA a la que llevan. Es el puente lexical que en GraphRAG

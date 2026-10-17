@@ -47,6 +47,13 @@ con la puerta del Second Brain. La medición: `scripts/medir-recuperacion.ts`.
 - **Medir fuera de Next** pide `--conditions=react-server` (si no, `server-only` revienta al importar) y el `.env.local`
   del clon principal (los worktrees no lo tienen; apunta a PRODUCCIÓN, por eso el script no escribe). `listLeads` es una
   lectura cacheada de Next y afuera no lee: en la medición falta el nodo de los leads; en producción está.
+- **El detector de voseo mira TODO el repo, también una lista de palabras vacías en lib/** (`tests/espanol-neutro`, «ninguna
+  pantalla del repo le habla al cliente de vos»): «decime» y «mostrame» en la lista de `VACIAS` lo pusieron en rojo en el
+  `antes-de-subir`. Si un detector de lo que escribe el usuario necesita nombrar el voseo, va en `FUERA_DE_ALCANCE` de
+  ese test con el porqué; acá alcanzó con sacarlas.
+- **Sin RAM para el build parcial, una prueba de humo sí entra:** `renderToString` en Node de la pantalla (VistaCerebro,
+  el Grafo de la construcción, ConstruccionM) con `require.extensions['.css'] = () => {}` precargado. Caza los errores de
+  EJECUCIÓN que el tsc no ve. `--conditions=react-server` acá NO va: rompe `react-dom/server`.
 - **Lo que quedó SIN hacer:** que el turno de MaKo pida nodos en vez de mandar el contexto entero. Hoy
   `buildSystemPrompt` (lib/mako-context.ts) va en modo completo en cada mensaje (8-11 kB, `lib/agente-contexto.ts`). Es un
   cambio del turno de MaKo, no del grafo: las dos operaciones ya están para que lo use.
