@@ -28,14 +28,16 @@ const norm = (s: string): string => (s || '').normalize('NFD').replace(/[̀-ͯ]/
 // borde después de la «ó» (AGENTS.md, «La voz de MaKo es rioplatense»). Igual todo se prueba
 // sobre el texto SIN tildes, donde `\b` alcanza.
 // Sin «creo» («te creo», «ya lo creo») ni «paso» («te paso el link» suele traer el link).
-const VERBOS_ACCION = 'busco|reviso|cargo|anoto|agendo|armo|chequeo|averiguo|preparo|consulto|miro';
+// «aviso», «arreglo», «resuelvo», «soluciono»: «ya le aviso al equipo y te lo arreglo» (17/10/2026, la rotura del test del
+// ticket) es una promesa que el turno no cumple, y no la veía nadie.
+const VERBOS_ACCION = 'busco|reviso|cargo|anoto|agendo|armo|chequeo|averiguo|preparo|consulto|aviso|arreglo|resuelvo|soluciono|miro';
 const PROMESAS: RegExp[] = [
   // «déjame ver / revisar / chequear…», «dejame que lo mire»
   /\bdeja(?:me|nos)\s+(?:que\s+)?(?:ver|revisar|chequear|buscar|mirar|fijarme|consultar|confirmar|cargar|armar|agendar|anotar|preparar|averiguar|lo\s+\w+|la\s+\w+)\b/,
   // «dame un segundo», «dame unos minutos»
   /\bdame\s+(?:un|unos)\s+(?:segundo|segundito|momento|momentito|minuto|minutito)s?\b/,
   // «ya te lo busco», «ahora lo reviso», «enseguida te cargo»
-  new RegExp(`\\b(?:ya|ahora|enseguida|al toque|en un (?:momento|minuto|rato|segundo))\\s+(?:(?:te|lo|la|los|las|se|me)\\s+){0,2}(?:${VERBOS_ACCION})\\b`),
+  new RegExp(`\\b(?:ya|ahora|enseguida|al toque|en un (?:momento|minuto|rato|segundo))\\s+(?:(?:te|lo|la|los|las|se|me|le|les)\\s+){0,2}(?:${VERBOS_ACCION})\\b`),
   // «te cargo las tareas», «te lo agendo», «te armo el plan» (presente con valor de futuro)
   new RegExp(`\\bte\\s+(?:(?:lo|la|los|las)\\s+)?(?:${VERBOS_ACCION.replace('|miro', '')})\\b`),
   // «voy a revisar», «voy a cargarte»
