@@ -238,14 +238,12 @@ test('el aviso de código viejo: rótulo propio, texto determinista y link que a
   assert.ok(/'tracking-desactualizado': 'landing'/.test(cat), 'el aviso tiene que salir con el rótulo de landing, no con el de sistema');
 
   const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
-  // ⚠️ `texto` y NO `contexto`: con contexto lo redacta el modelo, y acá viaja un
-  // LINK exacto. Regla de la casa: un dato exacto no lo transporta un LLM.
+  // ⚠️ NUNCA `contexto`: con contexto lo redacta el modelo, y acá viaja un LINK exacto. Regla de la casa: un dato exacto
+  // no lo transporta un LLM. Desde el 17/10/2026 («nada por detrás», lote 3) van los DATOS (`datosPixelViejo`, con el link
+  // como dato) y el texto es el de su automatización de SuperAdmin (tests/tracking-evento.test.ts).
   const i = cron.indexOf("emitirDelCatalogo('tracking-desactualizado'");
-  // Se corta en el cierre de ESA llamada: el `tracking-apagado` de más abajo sí
-  // usa `contexto` (su texto lo puede redactar el modelo, no lleva link), y con
-  // una ventana fija el test lo leía como si fuera de este aviso.
   const bloque = cron.slice(i, cron.indexOf('});', i));
-  assert.ok(/texto:/.test(bloque), 'el mensaje tiene que ser determinista: el link no lo puede escribir el modelo');
+  assert.ok(/datos: datosPixelViejo\(\{/.test(bloque), 'el mensaje tiene que ser determinista: el link no lo puede escribir el modelo');
   assert.ok(!/contexto:/.test(bloque), 'volvió el contexto: el modelo puede reescribir mal la URL');
   assert.ok(/linkLanding\(/.test(bloque), 'el aviso tiene que llevar el link exacto');
   assert.ok(/\/integraciones\?abrir=landing/.test(cron), 'el link tiene que abrir el LUGAR donde se resuelve, no la pantalla entera');
@@ -1126,11 +1124,12 @@ test('el aviso de Pixel viejo dice CUÁL página', () => {
   const cron = leer('../app/api/cron/tracking-vigilante/route.ts');
   assert.ok(/verificarPagina\(u\)/.test(cron), 'hay que preguntar por CADA página, no por el workspace');
   assert.ok(/v\?\.instalada && v\.vieja/.test(cron), 'solo se nombran las que de verdad quedaron atrás');
-  assert.ok(/Tu página \*\$\{atrasadas\[0\]\}\*/.test(cron), 'con una, se la nombra');
-  assert.ok(/Estas páginas tienen una versión vieja/.test(cron), 'con varias, se listan');
-  // Si ninguna se puede evaluar, el mensaje sigue siendo el genérico: callarse
-  // porque no se sabe cuál sería perder el aviso entero.
-  assert.ok(/'El código que tienes instalado es de una versión vieja\.'/.test(cron), 'sin poder evaluar, el aviso igual sale');
+  // Desde el 17/10/2026 (lote 3) las páginas van como DATO (`pixel_paginas`, una lista) y el texto es el de su automatización:
+  // con una o con varias, se nombran; si ninguna se pudo evaluar, su renglón no va y el aviso igual sale (callarse porque no
+  // se sabe cuál sería perder el aviso entero). Lo ejecuta tests/tracking-evento.test.ts.
+  assert.ok(/paginas: atrasadas, noGraba: noGrabanTodas\(versionesAtrasadas, instalada\)/.test(cron), 'las páginas atrasadas tienen que viajar al aviso');
+  const plantillas = leer('../lib/plantillas-automatizaciones.ts');
+  assert.ok(/📄 Las páginas:\{\{pixel_paginas\}\}/.test(plantillas), 'el texto tiene que nombrar las páginas');
   // El cron corre SIN sesión, así que no puede usar la action (pide el permiso
   // de la tab, que solo existe dentro de una request de usuario).
   assert.ok(/async function paginasDelWorkspace/.test(cron), 'el cron necesita su propio lector');
