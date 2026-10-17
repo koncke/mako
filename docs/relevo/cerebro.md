@@ -198,8 +198,27 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   1. el panel de Uso ofrece `claude4 -n Runner` y la 4 no tiene función en el $PROFILE;
   2. Martín quiere «un clic + el permiso de la PC», nunca PowerShell;
   3. después, mandar prompts desde el Second Brain (la tanda 5, adelantada).
-- **Llamadas del 16/10 («Revisión de MaKo» con Código Inmobiliario y «Mau <> Martin») ESPERAN EL OK de Martín para repartirse.**
-  El reparto propuesto está en el chat del Cerebro: Automations (#868 Brigitte primero), CRM, Dashboard, Centro, Pagos,
-  Web Generator, Offer, Video Editor, MaKo Mobile y Plan. La revisión de la extracción (proyecto equivocado, detalles
-  inventados, ~12 faltantes) está en hallazgos-plan.md. El arreglo del extractor va a un chat «Plan».
-- **wt-push-q:** el alta de la cuenta 4 (6d3626f95, f73ffa21b) y esta cosecha.
+- **Llamadas del 16/10, REPARTIDAS con el OK de Martín (17/10 ~01:00).** Cada jefe abierto recibió sus tarjetas:
+  - Automations: #868 Brigitte primero, después #845, #850, #851, #852, #849, #847, #882, #846, #869, #873, #874 y #875;
+  - CRM: #855, #854, #856, #843, #844, #880, #890 y #891;
+  - Dashboard: #857, #858, #859, #860, #862, #876 y #886;
+  - Centro: #848, #864, #883 y #884;
+  - Pagos: #866, #867 y #871.
+  La revisión de la extracción está en hallazgos-plan.md.
+- **Plan ordenado (17/10 ~01:30):** 35 tarjetas pasaron del proyecto del cliente al de su tab. #878 y #879 fueron a
+  «Cliente: Mauricio», #875 a Email, y #877 se cerró (la cuenta ya se compró). Se borró «Cliente: Mauricio Bustos» (P84), un
+  duplicado que creó la importación. Las 13 que el extractor dejó afuera son #880-#892.
+- **Jefes sin abrir, por RAM, con sus tarjetas esperando:**
+  - Plan: #870 y el arreglo del extractor (hallazgos-plan);
+  - Video Editor: #853, el editor que se rompe;
+  - Web Generator: #861 y #863;
+  - Offer: #865, #887 y #888;
+  - MaKo Mobile: #872, y las listas de Markdown del hilo del teléfono.
+- **Abiertos después:**
+  - «MaKo en WhatsApp» (`local_d3ed9496…`): el VIGÍA de los grupos de clientes, cada 15 min, que depura cada falla. Primer caso: ws18 (Pablo Chavez), con Calendar conectado y MaKo diciendo que no puede escribir. Tarjeta #885. No toca lib/doer-herramientas.ts hasta que pase la punta del corte de PII de Onboarding.
+  - «Pagos» (`local_d0cd6fc8…`).
+- **Ticketera `acceso-repo-mauricio` → A (sólo lectura), 17/10 00:46, SIN APLICAR.** El modo automático frenó el cambio
+  de permisos en GitHub y también el `recoger`. Lo hace Martín: GitHub → hola-mako/dashboard-marketing → Settings →
+  Collaborators → mauriciobustoseguia y mbustos-digital de Write a Read. Tarjeta #892.
+- **wt-push-q:** el alta de la cuenta 4 y la cosecha ya están en main (run 79 verde, deploy Ready). Este relevo sube con la
+  próxima punta.
