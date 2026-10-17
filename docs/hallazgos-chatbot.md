@@ -5082,7 +5082,10 @@ historia. Eran TRES cosas apiladas, y ninguna era «la automatización está mal
   #2731, del 16/10), así que el cambio avisa a lo sumo por ella. Respaldo de la fila en el scratchpad de la sesión
   74712af3 (`respaldo-266-ws15.json`); se deshace volviendo a `trigger_tipo: manual` y `disparadores: null`.
 
-**Sin hacer:** que pegar en otro negocio mapee la etapa o la pida, en vez de dejarla manual (tarjeta #882); y que una
+**Hecho después (17/10, #882):** pegar en otro negocio busca la MISMA etapa en un embudo de acá (en uno → ése; en varios →
+todos, y lo dice; en ninguno → «Elige qué la dispara»): lib/copia-disparador.ts, tests/copia-disparador.test.ts. La otra
+mitad de #882 (crear al instante con loader por cualquier vía: el chat, la plantilla, la copia) sigue sin hacer.
+**Sin hacer:** que una
 automatización SIN disparador no se pueda prender callada (o que la lista diga «Manual: sólo si la mandas a mano»).
 Prender #247 lo decide Joan.
 
