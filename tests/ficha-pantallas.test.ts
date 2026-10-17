@@ -117,8 +117,11 @@ test('en una pantalla TÁCTIL (un iPad): 44 px de toque y campos de 16 px, por c
   assert.match(leer('app/crm/lead-view/CabeceraLead.tsx'), /@media \(pointer: coarse\)\{\s*\.cl-cab \.cl-acc button\{ min-height:var\(--touch\); \}/);
 });
 
-test('las pestañas no se cortan: bajan de renglón, nunca scrollean de costado', () => {
+// ⚠️ REESCRITO EL 17/10/2026: ya no hay fila de pestañas (las hojas van en el desplegable del título, como el
+//    Dashboard). Lo que se fija es lo mismo: el nombre de la hoja baja de renglón y nada scrollea de costado.
+test('el título de la hoja no se corta: baja de renglón, nunca scrollea de costado', () => {
   const tabs = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
-  assert.match(tabs, /<div role="tablist" style=\{\{ display: 'flex', flexWrap: 'wrap', minWidth: 0, flex: 1 \}\}>/);
+  assert.match(tabs, /\.lt-tit \{[^}]*overflow-wrap: anywhere;/);
+  assert.match(tabs, /\.lt-hoja-nombre \{[^}]*text-overflow: ellipsis;/, 'en el desplegable, un nombre largo se corta con «…»');
   assert.doesNotMatch(tabs, /overflowX|overflow-x/);
 });

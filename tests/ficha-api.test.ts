@@ -34,7 +34,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cambioDeInputApi, salidaFichaApi, CAMBIOS_API, CAMBIO_DE_OTRA_OP, ANCHOS_API, ICONOS_BLOQUE, ICONO_DE_SIEMPRE } from '../lib/ficha/api';
+import { cambioDeInputApi, salidaFichaApi, CAMBIOS_API, CAMBIO_API_DE_OP, CAMBIO_DE_OTRA_OP, ANCHOS_API, ICONOS_BLOQUE, ICONO_DE_SIEMPRE } from '../lib/ficha/api';
 import { fichaEfectiva, RESPALDO_VACIO } from '../lib/ficha/config';
 import { TABS_FICHA } from '../lib/ficha/catalogo';
 import { IDS_PLANTILLA } from '../lib/ficha/plantillas';
@@ -85,7 +85,12 @@ test('la def dice lo mismo que la traducción, y cambiar es del admin y se confi
   const p = (nombre: string) => cambiar.parametros.find((x) => x.nombre === nombre)!;
   assert.deepEqual([...p('cambio').enum!], [...CAMBIOS_API]);
   assert.deepEqual([...p('ancho').enum!], [...ANCHOS_API]);
-  assert.deepEqual([...p('tab').enum!], [...TABS_FICHA]);
+  // ⚠️ SIN ENUM DESDE EL 17/10/2026: `tab` es una de las cuatro tabs o el id de una hoja propia (h-…). Lo que fijaba el
+  //    enum lo fija la traducción: las cuatro pasan, una hoja propia pasa y lo que no es ninguna de las dos, no.
+  assert.equal(p('tab').enum, undefined);
+  for (const tab of TABS_FICHA) assert.ok(!('error' in cambioDeInputApi({ cambio: 'epica', tab, epica: true })), `la tab «${tab}» tiene que pasar`);
+  assert.ok(!('error' in cambioDeInputApi({ cambio: 'epica', tab: 'h-abc123', epica: true })), 'una hoja propia tiene que pasar');
+  assert.ok('error' in cambioDeInputApi({ cambio: 'epica', tab: 'inventada', epica: true }), 'una tab que no existe no pasa');
   // ⚠️ REESCRITO EL 16/10/2026: `plantilla` ya no tiene enum, a propósito. Con `tab` es la plantilla de ESA tab (los
   //    ids de lib/ficha/plantillas-tab.ts, que crecen con las de Pagos), y el enum de las nueve de la ficha pagaba
   //    peso en el turno de WhatsApp. Lo que fijaba el enum (que un id que no existe no pase) lo fija ahora la
@@ -114,13 +119,15 @@ test('preparar ensaya el cambio sobre la ficha de hoy; ejecutar escribe y vence 
 // de un bloque y la API no (15/10/2026). Esto fija que TODO cambio que manda la pantalla tenga su `cambio` en la
 // API, salvo «Deshacer» (`restaurar`: el `antes` vive en la memoria de la pantalla y el funnel no tiene historial).
 test('todo lo que hace «Personalizar» en la pantalla lo puede hacer MaKo, ícono incluido', () => {
-  const API_DE_OP: Record<string, string> = { tema: 'estilo' };
+  // Las del motor que en la API se llaman distinto (las hojas propias, 17/10/2026, llevan guion: el patrón lo acepta).
+  const API_DE_OP = CAMBIO_API_DE_OP;
   // 16/10/2026: la galería de una tab (GaleriaTab.tsx y su lógica, galeria.ts) también manda cambios: elegir una
   // plantilla de tab y lo que armó MaKo. Lo que va por OTRA operación (`armar`: pasa por la IA) tiene que existir.
   // Y desde el mismo día el estilo y la vista épica viven en «Estilo de la hoja» (EstiloDeLaHoja.tsx).
-  const ficha = ['Armador.tsx', 'FichaPorBloques.tsx', 'PanelFicha.tsx', 'AgregarBloque.tsx', 'useFichaDelFunnel.ts', 'GaleriaTab.tsx', 'galeria.ts', 'EstiloDeLaHoja.tsx']
+  // 17/10/2026: la barra lateral (PanelFicha.tsx) se fue; lo suyo pasó a la galería y al «⋮» de cada hoja.
+  const ficha = ['Armador.tsx', 'FichaPorBloques.tsx', 'AgregarBloque.tsx', 'useFichaDelFunnel.ts', 'GaleriaTab.tsx', 'galeria.ts', 'EstiloDeLaHoja.tsx']
     .map((f) => sinComentarios(leer(`app/crm/lead-view/ficha/${f}`))).join('\n');
-  const ops = new Set([...ficha.matchAll(/\bop: '([a-z]+)'/g)].map((m) => m[1]));
+  const ops = new Set([...ficha.matchAll(/\bop: '([a-z-]+)'/g)].map((m) => m[1]));
   assert.ok(ops.size >= 10, `encontré ${ops.size} cambios en la pantalla: el test no está leyendo lo que debe`);
   for (const op of ops) {
     if (op === 'restaurar') continue;
@@ -128,7 +135,7 @@ test('todo lo que hace «Personalizar» en la pantalla lo puede hacer MaKo, íco
     if (otra) { assert.ok(porId(otra), `la pantalla hace «${op}» y la API no tiene ${otra}`); continue; }
     assert.ok((CAMBIOS_API as readonly string[]).includes(API_DE_OP[op] ?? op), `la pantalla hace «${op}» y cambiar_ficha_funnel no`);
   }
-  for (const op of ['nombre', 'epica', 'armar']) assert.ok(ops.has(op), `la pantalla ya no hace «${op}»: el test no está leyendo lo que debe`);
+  for (const op of ['nombre', 'epica', 'armar', 'hoja', 'quitar-hoja', 'mover-hoja']) assert.ok(ops.has(op), `la pantalla ya no hace «${op}»: el test no está leyendo lo que debe`);
 
   // El ícono: los mismos que ofrece la pantalla (una sola lista), y «de-siempre» vuelve al del catálogo.
   assert.deepEqual(cambioDeInputApi({ cambio: 'icono', tab: 'resumen', bloque: 'notas', icono: 'nota' }), { op: 'icono', tab: 'resumen', bloque: 'notas', icono: 'nota' });

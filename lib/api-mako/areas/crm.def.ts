@@ -427,21 +427,24 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_ficha_funnel', area: 'crm', tipo: 'lectura',
     titulo: 'Ver la ficha de un CRM',
-    descripcion: 'Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué; por tab (Resumen, Reuniones, Pagos y Tracking) su nombre, su plantilla, si va épica y sus bloques en orden con su ancho, su diseño y su ícono; de qué «datos sin marcar» avisa y por qué no de los otros, y el estilo. Trae también, por tab, los bloques que se pueden sumar y su galería de plantillas (las sugeridas primero), y los íconos de un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.',
+    descripcion: 'Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué; por tab (Resumen, Reuniones, Pagos y Tracking) y por hoja propia su nombre, su plantilla, si va épica y sus bloques en orden con su ancho, su diseño y su ícono; de qué «datos sin marcar» avisa y por qué no de los otros, y el estilo. Trae también, por tab, los bloques que se pueden sumar y su galería de plantillas (las sugeridas primero), y los íconos de un bloque. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.',
     parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
     id: 'cambiar_ficha_funnel', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cambiar la ficha de un CRM',
-    descripcion: 'PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, la densidad, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.',
+    // (17/10/2026) La lista de cambios vive en la descripción de `cambio`: repetirla acá pagaba peso en el turno de
+    // WhatsApp, y las hojas propias necesitaban ese lugar (tests/ficha-api.test.ts, «no crece»).
+    descripcion: 'PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: sus bloques, sus avisos, el estilo, las plantillas, las tabs y las hojas propias. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.',
     parametros: [
       { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' },
       {
-        nombre: 'cambio', tipo: 'string', obligatorio: true, enum: ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver', 'nombre', 'epica'],
-        descripcion: 'qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), su ancho, diseno, icono u opciones, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa).',
+        nombre: 'cambio', tipo: 'string', obligatorio: true, enum: ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver', 'nombre', 'epica', 'nueva_hoja', 'quitar_hoja', 'mover_hoja'],
+        descripcion: 'qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), su ancho, diseno, icono u opciones, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), volver a la plantilla (con tab, sólo esa), o nueva_hoja, quitar_hoja o mover_hoja (id en tab).',
       },
-      { nombre: 'tab', tipo: 'string', enum: [...TABS_FICHA], descripcion: 'la tab.' },
+      // Sin enum desde el 17/10/2026: además de las cuatro tabs, el id de una hoja propia (h-…, de ver_ficha_funnel).
+      { nombre: 'tab', tipo: 'string', max: 20, descripcion: 'resumen, reuniones, pagos, tracking o id de hoja.' },
       // Sin enum, a propósito: son 56 ids y el ToolDef viaja en cada turno. preparar() valida y devuelve los disponibles.
       { nombre: 'bloque', tipo: 'string', max: 40, descripcion: 'el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web.' },
       { nombre: 'lugar', tipo: 'number', entero: true, minimo: 1, maximo: 40, descripcion: 'en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final.' },

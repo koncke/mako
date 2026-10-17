@@ -38,7 +38,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   avisanDelLead, partirDatosDelLead, ignoradosDelLead, cambioDeIgnorados, IGNORABLES, NO_IGNORABLES, type IgnoradosDelLead,
 } from '../lib/datos-aviso';
@@ -171,16 +171,18 @@ test('desde la ficha, los avisos son los del funnel del lead (en «Personalizar�
   // 1. La ficha lee la de SU funnel: la casa del lead.
   const acc = sinComentarios(leer('app/crm/actions.ts'));
   assert.match(tramo(acc, 'export async function getLeadFullAction', '\nexport '), /fichaDelFunnelDelLead\(lead\.funnel_id \?\? null\)/);
-  // 2. Los interruptores del panel de «Personalizar» mandan un cambio de aviso…
-  const panel = sinComentarios(leer('app/crm/lead-view/ficha/PanelFicha.tsx'));
-  assert.match(panel, /onCambio\(\{ op: 'aviso', paso: d\.id, avisa: v \}\)/, 'el panel de la ficha no cambia los avisos');
-  assert.match(panel, /ef\.avisos\.find\(\(a\) => a\.id === d\.id\)/, 'el panel no muestra los avisos de la ficha del funnel');
+  // 2. «Obligatorio» en la barra de cada bloque manda un cambio de aviso… (⚠️ REESCRITO EL 17/10/2026: la barra
+  //    lateral con los interruptores se fue — Martín, 16/10: «Avisos de datos sin marcar deja de ser una lista de
+  //    interruptores: cada bloque tiene la opción "Obligatorio"».)
+  const armador = sinComentarios(leer('app/crm/lead-view/ficha/Armador.tsx'));
+  assert.match(armador, /onCambio\(\{ op: 'aviso', paso: p, avisa: !obligatorio \}\)/, '«Obligatorio» no cambia los avisos');
   // 3. …que la ficha guarda en ESE funnel (el de `data.ficha`), no en el negocio.
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(ficha, /useFichaDelFunnel\(data\.ficha \?\? null,/);
-  // 16/10/2026: el panel recibe además la tab que se personaliza (su nombre, su plantilla y su épica) y cómo abrir su
-  // galería; los avisos siguen yendo por el mismo `cambiar` sobre la ficha de `ff.ficha`.
-  assert.match(ficha, /<PanelFicha ficha=\{ff\.ficha\} tab=\{tab\} onCambio=\{cambiar\} onPlantillas=/);
+  // …con los avisos de la ficha del funnel (`efectiva.avisos`) y por el mismo `cambiar` sobre la ficha de `ff.ficha`.
+  assert.match(ficha, /avisaDe=\{\(p\) => efectiva\.avisos\.find\(\(a\) => a\.id === p\)\?\.avisa \?\? true\}/, 'el armador no lee los avisos de la ficha del funnel');
+  assert.match(ficha, /onCambio=\{cambiar\}/);
+  assert.ok(!existsSync(new URL('../app/crm/lead-view/ficha/PanelFicha.tsx', import.meta.url)), 'volvió la barra lateral de «Personalizar»');
   const hook = sinComentarios(leer('app/crm/lead-view/ficha/useFichaDelFunnel.ts'));
   // Desde el 16/10/2026 la cola y el deshacer viven en guardado-ficha.ts (puro, lo ejecuta
   // tests/ficha-guardado.test.ts): el funnel sale de la ficha que se ve ahí, y el hook lo pasa a la acción.

@@ -33,10 +33,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { COLUMNA_MIN_INFO, GRILLA_INFO_PRINCIPAL, columnasInfoPrincipal } from '../app/crm/lead-view/info-principal-grilla';
-import { ALTO_MINIMO_DEL_PANEL, ARRIBA_DEL_PANEL, altoDelPanel } from '../app/crm/lead-view/ficha/armar';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const leer = (p: string) => readFileSync(resolve(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
@@ -76,20 +75,15 @@ test('«Información principal»: dos columnas como mucho y una cuando la tarjet
   assert.doesNotMatch(card, /repeat\(2, minmax\(0, 1fr\)\)/, 'volvió el 2×2 fijo');
 });
 
-test('el panel de «Personalizar» cabe en lo que se VE del contenedor que scrollea', () => {
-  // El pop-up a 1440×900: el cuerpo que scrollea mide 635 px; el panel va pegado a 58 de su borde.
-  assert.equal(altoDelPanel(635), 635 - ARRIBA_DEL_PANEL - 12);
-  assert.ok(ARRIBA_DEL_PANEL + altoDelPanel(635) <= 635, 'el panel termina adentro del área visible');
-  assert.ok(ARRIBA_DEL_PANEL + altoDelPanel(503) <= 503, 'y a 1024×768 (503 visibles)');
-  assert.equal(altoDelPanel(100), ALTO_MINIMO_DEL_PANEL, 'en una ventana muy baja, un piso');
-  // La hoja: el mismo «top» que la cuenta, y el alto desde la variable que mide el panel.
-  const panel = reglaQueEmpieza('.fb-panel { position: sticky');
-  assert.match(panel, new RegExp(`top: ${ARRIBA_DEL_PANEL}px`), 'la hoja y la cuenta tienen que decir el mismo «top»');
-  assert.match(panel, /max-height: var\(--fb-panel-alto,/, 'el alto máximo sale de lo que se ve, no de la ventana');
-  // El panel lo mide: el contenedor que scrollea (o la ventana) y `altoDelPanel`.
-  const pf = sinComentarios(leer('app/crm/lead-view/ficha/PanelFicha.tsx'));
-  assert.match(pf, /setProperty\('--fb-panel-alto', `\$\{altoDelPanel\(sc \? sc\.clientHeight : window\.innerHeight\)\}px`\)/);
-  assert.match(pf, /<aside ref=\{ref\} className="fb-panel"/, 'la medida tiene que caer en el panel');
+// ⚠️ REESCRITO EL 17/10/2026: el panel de la derecha se FUE (Martín, 16/10: «En la vista de edición, elimina la
+//    sidebar»). Lo que el banco del 16/10 encontró en él (terminaba 200 px por debajo del pop-up) ya no puede pasar:
+//    personalizando, la ficha usa todo el ancho, y lo que el panel hacía está en la galería y en el «⋮» de cada hoja.
+test('personalizando no hay barra lateral: la ficha usa todo el ancho', () => {
+  assert.ok(!existsSync(resolve(RAIZ, 'app/crm/lead-view/ficha/PanelFicha.tsx')), 'volvió la barra lateral');
+  assert.match(reglaQueEmpieza('.fb-edicion {'), /display: block;/, 'la edición volvió a partirse en dos columnas');
+  assert.doesNotMatch(leer('app/crm/lead-view/ficha/ficha-css.ts'), /\.fb-panel \{/, 'quedó la regla del panel');
+  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
+  assert.doesNotMatch(ficha, /<PanelFicha\b/);
 });
 
 test('el bloque elegido lleva su nombre en la barra, que sale desde el rótulo y no lo tapa', () => {
@@ -112,7 +106,10 @@ test('editando, la grilla le deja a los marcos el aire de los costados', () => {
   assert.ok(Number(pad![2]) >= sale, `los costados (${pad![2]} px) tienen que cubrir lo que sale el marco (${sale} px)`);
 });
 
-test('la plantilla elegida se lee entera: el desplegable ocupa el ancho del panel', () => {
-  const pf = sinComentarios(leer('app/crm/lead-view/ficha/PanelFicha.tsx'));
-  assert.match(pf, /ariaLabel="Usar otra plantilla"\s*width="100%"/);
+// La plantilla de toda la ficha ya no es un desplegable que se cortaba («La de MaKo (Llamad…»): son tarjetas de la
+// galería, con su nombre entero (17/10/2026).
+test('la plantilla de toda la ficha se elige en la galería, como templates', () => {
+  const gal = sinComentarios(leer('app/crm/lead-view/ficha/GaleriaTab.tsx'));
+  assert.match(gal, /<span>Para toda la ficha<\/span>/);
+  assert.match(gal, /onTocar: \(\) => onTodaLaFicha\(p\.id === deMako \? null : p\.id\)/, 'la de MaKo se elige como «la de MaKo»');
 });
