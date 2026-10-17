@@ -31,6 +31,8 @@ era Chats.
 - **El día del hilo sale de la zona del NEGOCIO.** `armarHilo` de escritorio usa la hora local porque dibuja en el
   navegador; el teléfono dibuja en el server (UTC) y un mensaje de las 22 h de Buenos Aires caía en el día siguiente
   (`diasDelHilo`, app/m/chats/hilo-modelo.ts).
+- El botón «WhatsApp» de la ficha del teléfono abre la conversación en Chats con `rutaChatsDeLead`, la función de
+  escritorio (antes, el hilo de sólo WhatsApp `/m/crm/<id>/chat`, que sigue existiendo).
 - Los rótulos (bandejas, Mostrar, Orden, canales) se escriben una vez en app/m/chats/modelo.ts y
   tests/m-chats.test.ts los cruza contra app/chats/PanelBandejas.tsx y ListaChats.tsx.
 - **Los tests que fijan rutas del teléfono no son sólo los `movil-*`**: tests/chats-verificacion.test.ts esperaba
@@ -67,8 +69,6 @@ onboarding pendiente) la consola registra el error de React #310 dentro del AppR
   (escritorio: app/chats/Composer.tsx y VentanaChat.tsx); buscar en el servidor un lead sin mensajes
   (`listarChats({ buscar })`); la página no se vio con chats reales (el ws9 no tiene y el ws1 no se toca): mirarla
   en el ws3 cuando termine el onboarding, con un Instagram conectado.
-- El botón «WhatsApp» de la ficha del lead (app/m/crm/[id]/FichaLead.tsx) sigue yendo al hilo de sólo WhatsApp
-  (`/m/crm/<id>/chat`); escritorio lleva a Chats (`rutaChatsDeLead`). Es del chat del CRM.
 
 **Vive en:** app/m/chats/ (`modelo.ts`, `hilo-modelo.ts`, `datos.ts`, `ListaChats.tsx`, `[clave]/`) ·
 lib/chats.ts (`paginasWhatsapp`) · lib/movil-rutas.ts (`rutaMovil`, `rutaEscritorio`) · app/m/_ui/cabecera.ts

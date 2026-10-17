@@ -41,6 +41,9 @@ import {
   ComputadoraM, FilaDatoM, FilaM, IconoM, ListaM, SeccionM, SheetM, PieM, SkeletonFilas, useToastM, useConexion,
 } from '@/app/m/_ui';
 import { haptico } from '@/lib/haptico';
+// «WhatsApp» abre la conversación del lead en Chats (todos sus canales), con la MISMA función que escritorio
+// (17/10/2026; antes iba al hilo de sólo WhatsApp, /m/crm/<id>/chat, que sigue existiendo).
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { useDictadoVivo, unirDictado } from '@/app/plan/board/dictado-vivo';
 import { duracionReunionAction, linkDeAgendaAction, reagendarReunionAction } from '@/app/crm/actions';
 import { huecosR2Action, reservarR2Action } from '@/app/crm/agendar-r2-actions';
@@ -184,7 +187,7 @@ export function FichaLead(p: FichaLeadProps) {
           </button>
         )}
         {puedeWa ? (
-          <Link className="m-crm-acc" href={`/m/crm/${p.id}/chat`} aria-label={`WhatsApp con ${p.nombre}`}>
+          <Link className="m-crm-acc" href={rutaChatsDeLead(p.id)} aria-label={`WhatsApp con ${p.nombre}`}>
             <IconoMenu nombre="whatsapp" size={24} />WhatsApp
           </Link>
         ) : (
