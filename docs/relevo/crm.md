@@ -6,6 +6,29 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω14. 17/10/2026 (chat «CRM», cuenta `claude4`): las seis tarjetas de la revisión de las llamadas del 16/10
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: cada punta se le pasa al Cerebro.** El orden lo dio el
+Cerebro (detalle de cada una en C:/dev/auditoria-1610.json, por `num`):
+- **#854** `8c160becf`: «Calificado» se pinta al tocarlo; el aviso a Meta va de fondo (`after()` en `updateLead`).
+- **#897** `2cfe12c5d`: la mitad de «Firmado» que faltaba, DESCARTADA con el porqué (docs/hallazgos-pagos.md). Lo
+  principal (cada pago con su funnel, mig 0310) ya estaba en producción desde el run 87.
+- **#893** `7096f40c1`: una campaña o un conjunto de Meta va a uno o varios funnels (`meta.campanas.tambien`); la celda
+  «Producto» con casillas; MaKo: `ver_campanas_funnels` y `asignar_campana_funnels`.
+- **#856** `5a1f4949b`: investigado con fuentes oficiales — lo enviado a Meta no se corrige (docs/hallazgos-ads.md).
+- **#880** `c3f0d449e`: las plantillas del Resumen arrancan con lo esencial («Antes de la llamada» 18 → 13).
+- **#844** `886318974`: el buscador de Instagram dice por qué no encuentra; por nombre no hay fuente gratis.
+- Cosecha: `f0a1d5565` (docs/hallazgos-crm.md, «Lo que dejó la revisión del 16/10…»).
+
+**Cuando el Cerebro diga que están en producción:** el «Ya está» en el chat, el hito «Hecho» en
+app/admin/dev/crm/bitacora.ts (con `revisar` y `sesion`) y cerrar cada tarjeta en el Plan con su prueba.
+
+**Sin hacer (con su archivo):** el envío a Meta que espere el «Deshacer» (lib/leads.ts); el lead que vuelve por otra
+campaña no se suma a sus funnels (lib/leads.ts, rama `existing`); las plantillas de Pagos (lib/ficha/plantillas-pagos.ts,
+apagar avisos es otra decisión); buscar Instagram por nombre necesita una fuente paga (app/api/crm/instagram-buscar).
+Y lo de antes: «Llevar a MaKo Partners» espera que Clients avise que su núcleo está en main
+(app/crm/menu-contextual-crm.ts y el «⋯» de app/crm/lead-view/ficha/FichaPorBloques.tsx).
+
 ## 0-Ω13. 17/10/2026 (chat «CRM», cuenta `claude4`): el feedback del 16/10 hecho, en la rama `crm-ficha-v2`
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`, con origin/main mergeado (20b19dc5f). **Sin subir: se le pasa al Cerebro.**
