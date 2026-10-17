@@ -580,4 +580,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/general',
   },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'General en el celular: pasar de una hoja a otra (#872)',
+    pedido: 'Ahí yo me llevo como feedback ponerlo en la vista de mobile, porque actualmente solamente se puede…',
+    puntos: ['De la llamada Mau <> Martín del 16/10 (33:14): Mauricio, en su celular, creó plantillas de General y sólo veía una hoja. Lo repartió el Cerebro al chat Dashboard el 17/10 (dueño de las hojas de General).'],
+  },
+  {
+    fecha: '17 oct', hora: '08:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'General en el celular con todas sus hojas',
+    puntos: [
+      'Si tu General tiene más de una hoja, en el celular aparecen arriba sus nombres: tocas uno y ves esa hoja.',
+      'Con más de tres hojas, los nombres se deslizan de costado en vez de cortarse.',
+      'El link de cada hoja es el mismo en la computadora y en el celular.',
+    ],
+    archivos: ['app/m/hoy/page.tsx', 'app/m/hoy/modelo.ts', 'app/m/hoy/hoy.css', 'tests/m-hoy-hojas.test.ts — probado rompiéndolo'],
+    revisar: '/general',
+  },
 ];

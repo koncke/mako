@@ -147,3 +147,17 @@ export function filaTrimestre(v: {
     nota: leido ? null : 'No se pudo leer',
   };
 }
+
+// ── Las hojas de General (#872, 17/10/2026) ──────────────────────────────────────────────
+
+/** Hasta cuántas hojas el segmentado entra a lo ancho; con más, se desliza de costado (las etiquetas no se cortan). */
+export const HOJAS_SIN_DESLIZAR = 3;
+
+/**
+ * Las hojas de General como opciones del segmentado: cada una es un link a `/general?hoja=<id>`, la MISMA URL que
+ * escritorio (el teléfono la reescribe a /m/hoy con la query entera, lib/movil-desvio.ts). Una hoja sin nombre dice
+ * «Sin nombre»: un botón vacío no se puede tocar a ciegas.
+ */
+export function opcionesDeHojas(hojas: ReadonlyArray<{ id: string; nombre: string }>): Array<{ id: string; label: string; href: string }> {
+  return hojas.map((h) => ({ id: h.id, label: h.nombre.trim() || 'Sin nombre', href: `/general?hoja=${encodeURIComponent(h.id)}` }));
+}
