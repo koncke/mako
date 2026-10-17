@@ -406,14 +406,15 @@ export const FAMILIAS: NavFamilia[] = [
         {
           // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen… una
           // "galería" de ejemplos o temas… en imagen, video y voz». Las cuatro secciones copian las de HeyGen.
-          // La ve sólo el super admin hasta que la valide: `adminOnly` acá y la puerta en app/ai-avatar/acceso.ts.
+          // La ve sólo el super admin hasta que la valide: `adminOnly` acá y la puerta en app/ai-avatar/acceso.ts. En Sales
+          // Machine desde el día que nació (Content Machine se fue el mismo 17/10), y sus secciones en inglés, como toda tab.
           key: 'ai-avatar', adminOnly: true, label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
           match: starts('/ai-avatar'),
           secciones: [
-            { key: 'ai-avatar-crear', adminOnly: true, label: 'Crear video', href: '/ai-avatar', icon: 'videogen', match: (p) => p === '/ai-avatar' || p === '/ai-avatar/' },
-            { key: 'ai-avatar-avatares', adminOnly: true, label: 'Avatares', href: '/ai-avatar/avatares', icon: 'perfil', match: starts('/ai-avatar/avatares') },
-            { key: 'ai-avatar-voces', adminOnly: true, label: 'Voces', href: '/ai-avatar/voces', icon: 'mic', match: starts('/ai-avatar/voces') },
-            { key: 'ai-avatar-plantillas', adminOnly: true, label: 'Plantillas', href: '/ai-avatar/plantillas', icon: 'grid', match: starts('/ai-avatar/plantillas') },
+            { key: 'ai-avatar-crear', adminOnly: true, label: 'Create video', href: '/ai-avatar', icon: 'videogen', match: (p) => p === '/ai-avatar' || p === '/ai-avatar/' },
+            { key: 'ai-avatar-avatares', adminOnly: true, label: 'Avatars', href: '/ai-avatar/avatares', icon: 'perfil', match: starts('/ai-avatar/avatares') },
+            { key: 'ai-avatar-voces', adminOnly: true, label: 'Voices', href: '/ai-avatar/voces', icon: 'mic', match: starts('/ai-avatar/voces') },
+            { key: 'ai-avatar-plantillas', adminOnly: true, label: 'Templates', href: '/ai-avatar/plantillas', icon: 'grid', match: starts('/ai-avatar/plantillas') },
           ],
         },
         {
