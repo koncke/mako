@@ -100,7 +100,7 @@ curl -L \
 
 ### `GET /api/v1/general/objetivos` — Objetivos con su avance real
 
-Los objetivos ACTIVOS de un trimestre más los ANUALES del mismo año, cada uno con su avance leído de los datos (cobrado, firmado, cierres, agendas, leads; o el avance manual si la métrica es «libre»), el % de la meta y el ritmo prorrateado linealmente. `actual: null` significa «no se pudo leer» con el motivo en `error`: NUNCA es cero. Úsala para «¿cuánto llevo del objetivo?» o para conseguir el id de un objetivo antes de editarlo o cerrarlo. Sin parámetros usa el trimestre en curso.
+Los objetivos ACTIVOS de un trimestre más los ANUALES del mismo año, cada uno con su avance leído de los datos (cobrado, firmado, cierres, agendas, leads; o el avance manual si la métrica es «libre»), el % de la meta y el ritmo prorrateado linealmente. `actual: null` significa «no se pudo leer» con el motivo en `error`: NUNCA es cero. Úsala para «¿cuánto llevo del objetivo?» o para conseguir el id de un objetivo antes de editarlo o cerrarlo. Cada objetivo dice de qué funnels suma (`funnel_ids`, vacío = todo el negocio) y la respuesta trae `funnels_del_negocio` (id y nombre) para elegirlos en guardar_objetivo. Sin parámetros usa el trimestre en curso.
 
 - **Ruta por operación:** `GET /api/v1/general/listar_objetivos`
 - **Token detallado:** permiso `general=read` (Solo lectura en «General»)
@@ -472,6 +472,7 @@ Propone crear (sin id) o editar (con id) un objetivo del año o del trimestre: t
 | `metrica` | string (cash_usd \\| sold_usd \\| cierres \\| agendas \\| leads \\| libre) | no | De dónde sale el número real: cash_usd (cobrado), sold_usd (firmado), cierres, agendas, leads, o libre (lo carga la persona). Obligatorio al crear; al editar, omitir = queda la actual. |
 | `metaValor` | number | no | La meta, en USD para cash_usd y sold_usd, en cantidad para el resto. Obligatorio al crear; al editar, omitir = queda la actual. |
 | `avanceManual` | number | no | Solo para metrica = libre: cuánto se lleva. En las demás se ignora. Al editar, omitir = queda el avance actual. |
+| `funnels` | string | no | De qué funnels suma el avance: «todos» (el negocio entero) o ids separados por coma de funnels_del_negocio (listar_objetivos), p. ej. «1,29» para el funnel del VSL y el de renovación. Cada pago o cierre cuenta en el funnel donde estaba el lead ese día. No aplica a metrica = libre. Al crear, omitir = todos; al editar, omitir = quedan los actuales. |
 
 ```bash
 curl -L \
@@ -509,6 +510,7 @@ Propone crear (sin id) o editar (con id) un KPI: nombre, cadencia, compromiso po
 | `objectiveId` | string | no | id del objetivo del que cuelga (de listar_objetivos). Al crear, omitir = KPI suelto. Al editar, omitir = sigue colgando de donde estaba; «ninguno» lo descuelga a propósito. |
 | `umbralVerde` | number | no | % del compromiso a partir del cual es verde. Al crear, default 100; al editar, omitir = queda el actual. |
 | `umbralAmbar` | number | no | % del compromiso a partir del cual es ámbar; no puede superar al verde. Al crear, default 70; al editar, omitir = queda el actual. |
+| `funnels` | string | no | Solo un KPI automático que sale del CRM (agendas, leads_nuevos, cierres, cash_usd, sold_usd): de qué funnels cuenta. «todos» o ids separados por coma de funnels_del_negocio (listar_objetivos). Al crear, omitir = todos; al editar, omitir = quedan los actuales. |
 
 ```bash
 curl -L \
@@ -639,7 +641,7 @@ curl -L \
 
 ### `POST /api/v1/general/hojas/{hoja}/bloques` — Agregar un bloque a una hoja de General
 
-Propone agregar UN bloque de General (el objetivo y la acción del día, los OKRs, los KPIs, el semáforo, las prioridades y los proyectos del Plan, mi día, las próximas llamadas, los pendientes del CRM, el funnel de hoy, a quién cobrarle, el mes o las próximas publicaciones) al final de una hoja de General, con sus opciones. «El funnel de hoy» y «A quién cobrarle» se pueden atar a UN funnel (sin funnel: el principal, o todo el negocio). Pide los ids y las opciones de cada bloque con listar_hojas_general.
+Propone agregar UN bloque de General (el objetivo y la acción del día, los OKRs, los KPIs, el semáforo, las prioridades y los proyectos del Plan, mi día, las próximas llamadas, los pendientes del CRM, el funnel de hoy, a quién cobrarle, el mes o las próximas publicaciones) al final de una hoja de General, con sus opciones. «El funnel de hoy» se ata a UN funnel y «A quién cobrarle» a uno o varios (sin funnel: el principal, o todo el negocio). Pide los ids y las opciones de cada bloque con listar_hojas_general.
 
 - **Ruta por operación:** `POST /api/v1/general/agregar_bloque_general`
 - **Token detallado:** permiso `general=write` (Lectura y escritura en «General»)
@@ -658,7 +660,7 @@ Propone agregar UN bloque de General (el objetivo y la acción del día, los OKR
 | `hoja` | string | no | id de la hoja (de listar_hojas_general). Si se omite, la primera. |
 | `bloque` | string (cabecera \\| accion \\| objetivos \\| kpis \\| semaforo \\| tareas \\| prioridades \\| deadlines \\| proyectos \\| agenda \\| llamadas \\| pendientes \\| funnel \\| cobranza \\| mes \\| publicaciones) | sí | id del bloque de General. |
 | `titulo` | string | no | Un título propio para el bloque (vacío = el de siempre). |
-| `funnel` | string | no | Sólo para el funnel de hoy y a quién cobrarle: el funnel (su id o su nombre, de listar_hojas_general). Sin esto, el principal o todo el negocio. |
+| `funnel` | string | no | Sólo para el funnel de hoy (UNO) y a quién cobrarle (uno o VARIOS, separados por coma): el funnel o los funnels (su id o su nombre, de listar_hojas_general). Sin esto, el principal o todo el negocio. |
 | `opciones` | object | no | Las opciones del bloque, como {opción: valor} (las de cada bloque, con sus valores, en listar_hojas_general). Una que el bloque no tiene es un error; sin esto, las de entrada. |
 | `opciones.detalle` | string | no | cabecera (Qué muestra): simple, completo |
 | `opciones.fondo` | string | no | cabecera (Fondo): claro, oscuro · accion (Fondo): claro, oscuro · objetivos (Fondo): claro, oscuro · kpis (Fondo): claro, oscuro · semaforo (Fondo): claro, oscuro · tareas (Fondo): claro, oscuro · prioridades (Fondo): claro, oscuro · deadlines (Fondo): claro, oscuro · proyectos (Fondo): claro, oscuro · agenda (Fondo): claro, oscuro · llamadas (Fondo): claro, oscuro · pendientes (Fondo): claro, oscuro · funnel (Fondo): claro, oscuro · cobranza (Fondo): claro, oscuro · mes (Fondo): claro, oscuro · publicaciones (Fondo): claro, oscuro |
@@ -730,7 +732,7 @@ Propone cambiar las opciones de UN bloque que ya está en una hoja de General (c
 | `opciones.orden` | string | no | proyectos (Cuáles): prioridad, deadline |
 | `opciones.comparar` | string | no | mes (El mes anterior): si, no |
 | `titulo` | string | no | Un título propio (texto vacío = el de siempre). Sin esto, no se toca. |
-| `funnel` | string | no | Sólo para el funnel de hoy y a quién cobrarle: el funnel (id o nombre), o «ninguno» para volver al principal o a todo el negocio. |
+| `funnel` | string | no | Sólo para el funnel de hoy (UNO) y a quién cobrarle (uno o VARIOS, separados por coma): el funnel o los funnels (id o nombre), o «ninguno» para volver al principal o a todo el negocio. |
 
 ```bash
 curl -L \

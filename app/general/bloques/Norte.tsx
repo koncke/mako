@@ -18,7 +18,7 @@ import { LinkIntegracion } from '../../_components/ConectarIntegracion';
 import { KpisCard } from '../KpisCard';
 import { EditarObjetivo } from '../EditarObjetivo';
 import type { DatosGeneral, OkrVista, AlertaVista } from '../datos-tipos';
-import { Cabeza, Fallo, Placeholder } from './comun';
+import { Cabeza, DeQueFunnels, Fallo, Placeholder } from './comun';
 import { OKRS_MUESTRA, ALERTAS_MUESTRA } from './muestras';
 
 type D<K extends keyof DatosGeneral> = DatosGeneral[K];
@@ -76,7 +76,7 @@ function TarjetaOkr({ o, anio, quarter }: { o: OkrVista; anio: number; quarter: 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
         <span style={S.okrTit}>{o.titulo}</span>
         <span style={S.okrMeta} className="gb-num">{fmtOkr(o.actual, o.unidad)} de {fmtOkr(o.metaValor, o.unidad)}{o.quarter == null ? ` · año ${anio}` : ''}</span>
-        <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><Estado o={o} /></span>
+        <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><Estado o={o} /><DeQueFunnels ids={o.funnelIds} /></span>
       </div>
     </div>
   );
@@ -97,6 +97,7 @@ function FilaOkr({ o, anio, quarter }: { o: OkrVista; anio: number; quarter: num
       <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={S.okrMeta} className="gb-num">{fmtOkr(o.actual, o.unidad)} de {fmtOkr(o.metaValor, o.unidad)}</span>
         <Estado o={o} />
+        <DeQueFunnels ids={o.funnelIds} />
         {o.quarter == null && <span className="gb-chip">Año {anio}</span>}
       </span>
     </div>

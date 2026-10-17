@@ -26,9 +26,9 @@ export const masDias = (n: number): string => { const d = new Date(); d.setDate(
 const a = (dias: number, h: number, m = 0): string => { const d = new Date(); d.setDate(d.getDate() + dias); d.setHours(h, m, 0, 0); return d.toISOString(); };
 
 export const OKRS_MUESTRA: OkrVista[] = [
-  { id: 'm1', titulo: 'Facturar $30,000 en el trimestre', metrica: 'cash_usd', metricaLabel: 'Cobrado', unidad: 'usd', metaValor: 30000, quarter: 4, avanceManual: null, actual: 18600, pct: 62, atrasado: false, fraccion: 0.55, principal: true },
-  { id: 'm2', titulo: 'Cerrar 40 clientes nuevos', metrica: 'cierres', metricaLabel: 'Cierres', unidad: 'cantidad', metaValor: 40, quarter: 4, avanceManual: null, actual: 17, pct: 43, atrasado: true, fraccion: 0.55, principal: false },
-  { id: 'm3', titulo: '120 reuniones agendadas', metrica: 'agendas', metricaLabel: 'Reuniones agendadas', unidad: 'cantidad', metaValor: 120, quarter: 4, avanceManual: null, actual: 74, pct: 62, atrasado: false, fraccion: 0.55, principal: false },
+  { id: 'm1', titulo: 'Facturar $30,000 en el trimestre', metrica: 'cash_usd', metricaLabel: 'Cobrado', unidad: 'usd', metaValor: 30000, quarter: 4, avanceManual: null, funnelIds: [], actual: 18600, pct: 62, atrasado: false, fraccion: 0.55, principal: true },
+  { id: 'm2', titulo: 'Cerrar 40 clientes nuevos', metrica: 'cierres', metricaLabel: 'Cierres', unidad: 'cantidad', metaValor: 40, quarter: 4, avanceManual: null, funnelIds: [], actual: 17, pct: 43, atrasado: true, fraccion: 0.55, principal: false },
+  { id: 'm3', titulo: '120 reuniones agendadas', metrica: 'agendas', metricaLabel: 'Reuniones agendadas', unidad: 'cantidad', metaValor: 120, quarter: 4, avanceManual: null, funnelIds: [], actual: 74, pct: 62, atrasado: false, fraccion: 0.55, principal: false },
 ];
 
 const proyecto = (id: string, name: string, emoji: string, color: string, score: number, deadline: string): Label =>

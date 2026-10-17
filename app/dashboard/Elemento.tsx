@@ -56,7 +56,8 @@ import { ElementoIA, PropsIA } from './ElementoIA';
 import { ElementoAccion, PropsAccion } from './ElementoAccion';
 import { PiezaEntidad, PropsEntidad } from './entidades/PiezaEntidad';
 import { ElementoGeneral, useEnGeneral, useFunnelsGeneral, useGeneral, useVariablesInforme } from './ElementoGeneral';
-import { PIEZAS_GENERAL, VARIABLES_TEXTO, conVariables, esPiezaGeneral, opcionDe, opcionesDePieza, piezaPorFunnel } from '@/lib/general-piezas';
+import { PIEZAS_GENERAL, VARIABLES_TEXTO, atarFunnels, conVariables, esPiezaGeneral, funnelsDeBloque, opcionDe, opcionesDePieza, piezaPorFunnel, piezaPorVariosFunnels } from '@/lib/general-piezas';
+import { ElegirFunnels } from '../components/ElegirFunnels';
 import { Dropdown } from '@/app/components/Dropdown';
 
 /**
@@ -1050,36 +1051,47 @@ function PropsGeneral({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial<El
   const pieza = g?.pieza;
   if (!pieza || !g) return null;
   const funnel = g.funnel ?? null;
+  // Los elegidos como lista, se hayan guardado como uno o como varios (lib/general-piezas.ts, `funnelsDeBloque`).
+  const elegidos = funnelsDeBloque(g);
   // Un bloque que se ata a un funnel: sin elegir, el principal («Tu funnel hoy») o todo el negocio («A quién cobrarle»).
   // Uno elegido que ya no está se muestra igual, marcado: un valor que no está entre las opciones no se ve, y el primer
   // clic escribiría otro.
   const conFunnel = piezaPorFunnel(pieza) && funnels;
+  const varios = piezaPorVariosFunnels(pieza);
   const perdido = !!conFunnel && funnel != null && !funnels.some((f) => f.id === funnel);
   const opciones = opcionesDePieza(pieza);
   const extra = general?.configurar(e) ?? null;
   const cambiarOpcion = (id: string, v: string) => onCambiar({ general: { ...g, opciones: { ...(g.opciones ?? {}), [id]: v } } });
+  // Sin `funnel` ni `funnels`: lo que se elija vuelve a entrar por `atarFunnels`, en la forma que el bloque guarda.
+  const { funnel: _f, funnels: _fs, ...sinFunnels } = g;
   return (
     <>
       <Seccion titulo="Bloque">
         <Dropdown value={pieza} ariaLabel="Qué bloque es"
           options={PIEZAS_GENERAL.map((p) => ({ value: p.id, label: p.nombre, sub: p.linea, icono: p.icono as NombreIconoMenu }))}
           onChange={(v) => {
-            // El funnel viaja sólo con los bloques que lo usan, y las opciones no se arrastran a otro bloque.
-            if (esPiezaGeneral(v)) onCambiar({ general: funnel != null && piezaPorFunnel(v) ? { pieza: v, funnel } : { pieza: v } });
+            // El funnel viaja sólo con los bloques que lo usan (varios a uno, sólo si era uno), y las opciones no se
+            // arrastran a otro bloque.
+            if (esPiezaGeneral(v)) onCambiar({ general: { pieza: v, ...atarFunnels(v, elegidos) } });
           }} />
       </Seccion>
-      {conFunnel && (
+      {conFunnel && varios && (
+        <Seccion titulo="Funnels">
+          <ElegirFunnels funnels={funnels} valor={elegidos} todos="Todo el negocio" ariaLabel="De qué funnels"
+            onCambiar={(ids) => onCambiar({ general: { ...sinFunnels, ...atarFunnels(pieza, ids) } })} />
+        </Seccion>
+      )}
+      {conFunnel && !varios && (
         <Seccion titulo="Funnel">
           <Dropdown value={funnel != null ? String(funnel) : ''} ariaLabel="De qué funnel"
             options={[
-              { value: '', label: pieza === 'cobranza' ? 'Todo el negocio' : 'El principal', icono: 'etapa' },
+              { value: '', label: 'El principal', icono: 'etapa' },
               ...funnels.map((f) => ({ value: String(f.id), label: f.nombre, icono: 'etapa' as const })),
               ...(perdido ? [{ value: String(funnel), label: 'Un funnel que ya no está', icono: 'cerrar' as const }] : []),
             ]}
             onChange={(v) => {
               const n = Number(v);
-              const { funnel: _f, ...resto } = g;
-              onCambiar({ general: n > 0 ? { ...resto, funnel: n } : resto });
+              onCambiar({ general: n > 0 ? { ...sinFunnels, funnel: n } : sinFunnels });
             }} />
         </Seccion>
       )}
