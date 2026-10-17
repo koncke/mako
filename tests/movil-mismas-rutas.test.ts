@@ -59,7 +59,10 @@ function paginasDeM(): string[] {
         // Las «Coming soon» (17/10/2026): una pantalla para todas, por la key del ítem de nav.ts.
         .replace(/pronto\/\[key\]/, 'pronto/closing-script')
         // UN ticket de «Reportar problema» (17/10/2026): en la computadora, /tickets?t=12.
-        .replace(/tickets\/\[id\]/, 'tickets/12'));
+        .replace(/tickets\/\[id\]/, 'tickets/12')
+        // Knowledge (17/10/2026): un curso y una clase; en la computadora, `?curso=<slug>&clase=<n>`.
+        .replace(/conocimientos\/\[slug\]\/\[n\]/, 'conocimientos/curso-vsl/3')
+        .replace(/conocimientos\/\[slug\]/, 'conocimientos/curso-vsl'));
     }
   };
   recorrer(join(RAIZ, 'app', 'm'));

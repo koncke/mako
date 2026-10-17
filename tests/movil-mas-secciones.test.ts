@@ -204,6 +204,8 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
     offer: ['oferta', 'funnel'],
     copywriting: ['tab'],
+    // La API de MaKo (17/10/2026): docs · tokens · registro, en los dos lados.
+    'api-mako': ['tab'],
     curso: ['producto'],
     comunidad: ['producto', 'post'],
   });

@@ -54,7 +54,9 @@ export type IdSeccionMas =
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
-  | 'mensajes' | 'modelos-ia' | 'contexto';
+  | 'mensajes' | 'modelos-ia' | 'contexto' | 'conocimientos'
+  // La API de MaKo (17/10/2026): del menú de la foto, sólo el admin del negocio (key `api-mako` de USER_NAV).
+  | 'api-mako';
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
 export type IdBarra = DestinoMovil | IdSeccionMas;
 
@@ -189,6 +191,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'mensajes', label: 'MaKo Messages', href: '/m/mensajes', icon: 'mako', navKey: 'mensajes', familia: null, oculta: true, superAdmin: true },
   { id: 'modelos-ia', label: 'AI Models', href: '/m/modelos-ia', icon: 'mako', navKey: 'modelos-ia', familia: null, oculta: true, superAdmin: true },
   { id: 'contexto', label: 'MaKo Context', href: '/m/contexto', icon: 'contexto', navKey: 'contexto', familia: null, oculta: true, superAdmin: true },
+  { id: 'api-mako', label: 'API', href: '/m/api-mako', icon: 'api', navKey: 'api-mako', familia: null, oculta: true },
+  // Knowledge (el portal de cursos del equipo): /m/conocimientos, un curso en /<slug> y una clase en /<slug>/<n>.
+  { id: 'conocimientos', label: 'Knowledge', href: '/m/conocimientos', icon: 'contexto', navKey: 'conocimientos', familia: null, oculta: true, superAdmin: true },
 ];
 
 /**
@@ -199,6 +204,7 @@ const UNA_A_UNA: Readonly<Record<string, string>> = {
   '/mensajes': '/m/mensajes',
   '/modelos-ia': '/m/modelos-ia',
   '/contexto': '/m/contexto',
+  '/api-mako': '/m/api-mako',
 };
 
 /**
@@ -238,6 +244,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel'], // app/offer/page.tsx (el «Analizar oferta →» del CRM)
   copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
+  'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Clients › Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Clients › Community; `?post=N` abre ESE post)
 };
@@ -377,8 +384,6 @@ export const EN_CAMINO: Readonly<Record<string, string>> = {
   'video-editor': 'Mobile 1', reels: 'Mobile 1',
   'ai-avatar-crear': 'Mobile 1', 'ai-avatar-avatares': 'Mobile 1', 'ai-avatar-voces': 'Mobile 1', 'ai-avatar-plantillas': 'Mobile 1',
   'image-editor': 'Mobile 1', carousels: 'Mobile 1', stories: 'Mobile 1', 'admin-copywriting': 'Mobile 1',
-  // «Mobile 2» (17/10/2026): negocio y configuración.
-  'api-mako': 'Mobile 2', conocimientos: 'Mobile 2',
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
   agencia: 'sin dueño', 'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño', 'admin-cobros': 'sin dueño',
   'admin-agente': 'sin dueño',
@@ -626,6 +631,17 @@ export function rutaMovil(href: string | null | undefined): string | null {
     return sec ? `${RUTA_CONFIG_M}/${sec}` : RUTA_CONFIG_M;
   }
   if (p === '/marketing/salud') return `${RUTA_CONFIG_M}/integraciones`;
+  // Knowledge (17/10/2026): la computadora guarda dónde estás en el `#hash` (app/conocimientos/posicion.ts), que no llega
+  // al server; lo que sí llega son los links de antes, `?curso=<slug>&clase=<n>`, que la computadora traduce sola. Con eso
+  // el teléfono abre el curso o la clase, y vuelve por la misma forma.
+  if (p === '/conocimientos') {
+    const curso = q.get('curso')?.trim();
+    if (!curso) return '/m/conocimientos';
+    const clase = Number(q.get('clase'));
+    return `/m/conocimientos/${encodeURIComponent(curso)}${Number.isSafeInteger(clase) && clase > 0 ? `/${clase}` : ''}`;
+  }
+  // La API lee `?tab=` (docs · tokens · registro) en los dos lados: viaja (`QUERY_DE_SECCION`).
+  if (p === '/api-mako') return aSeccion('api-mako', q);
   if (UNA_A_UNA[p]) return UNA_A_UNA[p];
   for (const k of CLAVES_NEGOCIO_M) {
     if (p !== SECCIONES_NEGOCIO_M[k]) continue;
@@ -779,6 +795,14 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/operaciones') destino = '/admin/operaciones';
   else if (p === '/m/tickets') destino = '/tickets';
   else if (p === RUTA_CONFIG_M) destino = '/configuraciones';
+  else if (p === '/m/conocimientos') destino = '/conocimientos';
+  else if ((m = p.match(/^\/m\/conocimientos\/([^/]+)(?:\/(\d+))?$/))) {
+    destino = '/conocimientos';
+    let curso = m[1];
+    try { curso = decodeURIComponent(curso); } catch { /* un % suelto: va tal cual */ }
+    q.set('curso', curso);
+    if (m[2]) q.set('clase', m[2]);
+  }
   else if (Object.values(UNA_A_UNA).includes(p)) destino = Object.keys(UNA_A_UNA).find((k) => UNA_A_UNA[k] === p) ?? null;
   else if ((m = p.match(/^\/m\/configuraciones\/([^/]+)$/)) && esSeccionNegocioM(m[1])) destino = SECCIONES_NEGOCIO_M[m[1]];
   else if ((m = p.match(/^\/m\/tickets\/(\d+)$/))) { destino = '/tickets'; q.set('t', m[1]); }
