@@ -48,6 +48,35 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Unificar Email en Chats» no era mudar una bandeja: Email no tiene bandeja (17/10/2026)
+
+El pedido fue «eliminar las tabs de Email y WhatsApp y unificarlo todo en Chats». Lo obvio era mover la bandeja de
+Email a Chats. **No hay bandeja de email en ningún lado:** /email es marketing (secuencias, envíos masivos y el dominio
+de Resend), y lo que LLEGA por email sólo dispara automatizaciones (`lib/email-entrante.ts`): `email_entrantes` guarda
+el SOBRE (de, para, asunto), no el cuerpo, y «Receiving» de Resend todavía no está prendido. Y /whatsapp sí tiene cosas
+que Chats no (ver «Ocultos» y desocultar, borrar historial, gestionar líneas, Chatbot ON/OFF, la alarma de número caído).
+
+**La regla:** sacar una tab de la barra no es borrar su página. /whatsapp y /email siguen y se entra desde Chats (el
+«+» de Canales y el pie de la Bandeja); estando ahí la barra marca Chats (`RUTAS_DE_CHATS` en nav.ts). Email como
+CANAL de la bandeja (recibir el cuerpo y los adjuntos, responder en el hilo con `In-Reply-To`) es una feature nueva,
+no una mudanza: está en [diseno-sidebar.md](diseno-sidebar.md) §5.
+
+**Lo que se aprendió haciéndolo** (la segunda entrega, el mismo día):
+- **El webhook de Resend trae el SOBRE, no el email.** El cuerpo, los encabezados y la LISTA de adjuntos se piden con
+  `GET /emails/receiving/{id}`; cada adjunto, con `GET /emails/receiving/{email_id}/attachments/{id}`, que devuelve un
+  `download_url` firmado que VENCE (`expires_at`). Guardar la URL en la fila es guardar un link roto: el archivo se baja
+  y se sube a un bucket propio (`chats-email`, privado). Con la key con que se reclamó el dominio (`resendKey`).
+- **Lo lento del webhook va en `after()`.** Bajar cuerpo y adjuntos tarda segundos; si la respuesta tarda, Resend
+  (Svix) reintenta, y el reintento choca con la deduplicación de `email_entrantes` ANTES de llegar a la bandeja: el
+  email quedaba disparado y sin hilo. Con `after(() => runWithWorkspace(ws, …))` se contesta primero; el workspace se
+  pasa a mano porque el contexto no viaja solo al callback.
+- **Un `.or()` de PostgREST armado con un valor del navegador es una inyección de filtro.** El hilo de un `em:<email>`
+  busca por lead O por dirección: son dos lecturas (`.eq` y `.in`, que escapan) y se unen en memoria. Y la dirección
+  se valida con los caracteres de RFC 5322 (sin comas, paréntesis ni comillas) antes de ser una clave.
+- `sendEmail` no aceptaba adjuntos: suma `attachments` (base64) sin tocar a nadie más.
+
+**Vive en:** `lib/chats-email.ts`, `lib/chats-email-reglas.ts`, `lib/resend.ts` (receiving) · `tests/chats-email.test.ts`
+
 ## El chat de MaKo por WhatsApp: sólo grupos, sin autor, y 14 horas de memoria (16/10/2026)
 
 Medido leyendo `origin/main` para sumar «el chat de MaKo en WhatsApp» al Second Brain (docs/diseno-mako-ai-native.md, (c)).

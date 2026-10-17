@@ -356,7 +356,8 @@ test('la pantalla abre con el guard de super admin, está en la barra y el .md v
   assert.match(page, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\(/);
   assert.ok(existsSync(join(raiz, `${CARPETA}/page.tsx`)));
   const nav = sinComentarios(leer('app/_components/nav.ts'));
-  assert.match(nav, /key: 'admin-offer-playbook', label: 'Offer Playbook', href: '\/admin\/offer-playbook'/);
+  // Desde el 17/10/2026 es una sección de Offer para el super admin (rótulo «Playbook»).
+  assert.match(nav, /key: 'admin-offer-playbook', label: 'Offer Playbook', seccion: 'Playbook', href: '\/admin\/offer-playbook'/);
   const cfg = sinComentarios(leer('next.config.ts'));
   assert.match(cfg, /'\/admin\/offer-playbook':\s*\[[^\]]*'\.\/docs\/offer-marco\.md'/);
 });

@@ -35,5 +35,8 @@ export default async function ChatsPage() {
   await guardOnboarding();
   // El mismo criterio que /whatsapp («puedeAgregarLinea»): conectar un canal es config sensible.
   const esAdmin = rolWs == null || rolWs === 'admin';
-  return <ChatsApp ws={ws} esAdmin={esAdmin} productos={productos} />;
+  // Email dejó de ser tab el 17/10/2026 y se entra desde Chats: a quien su página deja pasar (`requireRolWs(['setter'])`
+  // en app/email/page.tsx: admin y setter; el closer no la tenía).
+  const veEmail = rolWs !== 'closer';
+  return <ChatsApp ws={ws} esAdmin={esAdmin} veEmail={veEmail} productos={productos} />;
 }

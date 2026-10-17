@@ -301,7 +301,15 @@ EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUT
  * `app/`. El test `plan-proyectos-catalogo.test.ts` verifica que la lista siga siendo
  * exactamente la de nav.ts, así que el día que se agregue una quinta familia, falla.
  */
-export const FAMILIAS_SIDEBAR = ['Operate', 'Analyze', 'Sales Machine', 'Content Machine', 'Customer Success'] as const;
+export const FAMILIAS_SIDEBAR = ['Operate', 'Sales Machine'] as const;
+
+/**
+ * Las familias que la barra TUVO hasta el 17/10/2026 (docs/diseno-sidebar.md: Analyze, Content Machine y Customer Success
+ * se repartieron entre Operate y Sales Machine). Siguen prohibidas como proyecto INVENTADO: el modelo las conoce de los
+ * planes viejos, y un proyecto «Analyze» se solaparía con las mismas tabs que antes agrupaba. Lo que el catálogo ya tiene
+ * con ese nombre («Content Machine») sigue valiendo: el catálogo se consulta antes.
+ */
+export const FAMILIAS_RETIRADAS = ['Analyze', 'Content Machine', 'Customer Success'] as const;
 
 /** Un verbo de hacer al principio = es el título de una TAREA, no el nombre de una tab. */
 const VERBO_DE_TAREA =
@@ -328,7 +336,7 @@ export function puedeSerProyectoNuevo(nombre: string): { ok: true } | { ok: fals
   if (n.length < 4) return { ok: false, motivo: 'el nombre tiene menos de 4 caracteres' };
   if (delCatalogo(n)) return { ok: false, motivo: 'ya está en el catálogo: no es nuevo' };
   const nuc = nucleo(n);
-  if (FAMILIAS_SIDEBAR.some((f) => nucleo(f) === nuc)) {
+  if ([...FAMILIAS_SIDEBAR, ...FAMILIAS_RETIRADAS].some((f) => nucleo(f) === nuc)) {
     return { ok: false, motivo: `«${n}» es una FAMILIA del sidebar (la caja que agrupa proyectos), no un proyecto` };
   }
   const palabras = nuc.split(/\s+/).filter(Boolean);
