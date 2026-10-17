@@ -24,10 +24,12 @@ import { tokenAgenteVisible } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
+import { esVistaTicketera } from '@/app/tickets/decisiones/reglas';
 // La Ticketera vive adentro de Ops Center (16/10/2026): sus hojas las importa la página (CambioVista.tsx lo explica).
 import '@/app/tickets/decisiones/mazo.css';
 import '@/app/tickets/decisiones/vistas.css';
 import '@/app/admin/runway/decisiones.css';
+import '@/app/tickets/bandeja/bandeja.css';
 
 export type QuerySecondBrain = { chat?: string; panel?: string; area?: string; centro?: string; ticketera?: string };
 
@@ -70,7 +72,7 @@ export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio }: {
 }) {
   const chat = enteroDe(q.chat);
   const claveCentro = q.centro || (chat == null && q.chat ? q.chat : null);
-  const ticketera = centro && (q.ticketera === 'lista' || q.ticketera === 'tarjetas') ? q.ticketera : null;
+  const ticketera = centro && esVistaTicketera(q.ticketera) ? q.ticketera : null;
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín). */}

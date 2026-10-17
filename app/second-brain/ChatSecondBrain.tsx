@@ -42,7 +42,9 @@ import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operacione
 import { claveParaUrl, seguirChat } from '@/lib/centro-chats';
 import { ChatDelCentro, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
-import type { VistaTicketera } from '@/app/tickets/decisiones/CambioVista';
+import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
+import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
+import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { MunecoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { Microfono } from '@/app/admin/operaciones/Microfono';
@@ -149,7 +151,7 @@ type Props = {
   /** `?centro=`: el chat de Claude Code que se abre al entrar. */
   centroInicial: string | null;
   /** `?ticketera=`: Ops Center abre con la Ticketera entera (las rutas viejas de la Ticketera traen acá). */
-  ticketeraInicial?: VistaTicketera | null;
+  ticketeraInicial?: VistaDeTicketera | null;
   /** Qué se abre sin nada en la URL: el jefe del Second Brain (/second-brain) o el Cerebro (/admin/operaciones). */
   inicio?: 'second-brain' | 'centro';
 };
@@ -190,7 +192,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     return entrada ? { centro: entrada } : null;
   });
   const [conChat, setConChat] = useState(chatInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
-  const [ticketera, setTicketera] = useState<VistaTicketera | null>(ticketeraInicial);
+  const [ticketera, setTicketera] = useState<VistaDeTicketera | null>(ticketeraInicial);
   const [items, setItems] = useState<ItemHilo[]>([]);
   const [cargado, setCargado] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -294,11 +296,13 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const qTicketera = useSearchParams().get('ticketera');
   useEffect(() => {
     if (!ops) return;
-    const v: VistaTicketera | null = qTicketera === 'lista' || qTicketera === 'tarjetas' ? qTicketera : null;
+    const v: VistaDeTicketera | null = esVistaTicketera(qTicketera) ? qTicketera : null;
     setTicketera(v);
     if (v) setConChat(true);
   }, [qTicketera, ops]);
-  const abrirTicketera = (v: VistaTicketera) => { setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
+  // Los tickets de los usuarios que esperan a Martín: el número del botón (17/10/2026, app/tickets/bandeja/).
+  const ticketsPorDecidir = useTicketsPorDecidir(ops);
+  const abrirTicketera = (v: VistaDeTicketera) => { setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
   const cerrarTicketera = () => { setTicketera(null); anotarParam('ticketera', null); };
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
@@ -535,9 +539,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
               la Ticketera»), como «Buscar» y «Biblioteca» en la barra de ChatGPT. */}
           {centro && (
             <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketera != null}
-              onClick={() => (ticketera ? cerrarTicketera() : abrirTicketera('tarjetas'))}>
+              onClick={() => (ticketera ? cerrarTicketera() : abrirTicketera('tickets'))}>
               <Icon name="soporte" size={17} />Ticketera
-              {centro.pendientesTicketera > 0 && <span className="co-acceso__n">{centro.pendientesTicketera}</span>}
+              {(ticketsPorDecidir ?? 0) > 0 && <span className="co-acceso__n">{ticketsPorDecidir}</span>}
             </button>
           )}
           {centro && (
@@ -609,7 +613,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       </aside>
 
       {centro && ticketera ? (
-        <TicketeraCentro
+        <TicketeraCentro cerebro={cerebroDelCentro(centro)}
           decisiones={centro.decisionesOk ? centro.decisiones : null} vista={ticketera} onVista={abrirTicketera}
           responder={centro.responderAca} deshacer={centro.deshacerAca}
           onVolver={() => { cerrarTicketera(); setConChat(false); }}
