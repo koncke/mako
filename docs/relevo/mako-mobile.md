@@ -13,6 +13,8 @@ Cerebro integra y pushea.
 - `86ba6dae6` Chats del teléfono = la bandeja unificada de escritorio (WhatsApp de cada línea, Instagram, Messenger,
   Email): bandejas, filtro, «Sin responder», buscador, y cada conversación en su pantalla (`/chats?c=<clave>`) con
   Cerrar/Reabrir y responder por el canal elegido. Los links `?c=`/`?lead=` abren la conversación.
+- `9cb1f7c69` Offer: la píldora del funnel ya no toca la cabecera. Y el botón «WhatsApp» de la ficha abre la
+  conversación en Chats (`rutaChatsDeLead`, como escritorio), en la punta final.
 - `9ab522794` El Second Brain del teléfono dibuja el markdown de MaKo (listas y títulos) con el `<Markdown>` de escritorio.
 
 **Auditado a 390 px de verdad** (Chrome headless con UA de iPhone contra `next start` local, base de producción,
@@ -34,9 +36,7 @@ ws: 9, mfa: 'dev'` (sin `ws`, el Plan lee el tablero de cliente). Parar el serve
    no tiene chats y el ws1 no se toca.
 2. Chats: adjuntos y notas de voz, notas internas, asignar, mover de etapa y posponer (app/chats/Composer.tsx y
    VentanaChat.tsx tienen todo eso en escritorio); y buscar en el servidor un lead sin mensajes.
-3. Del CRM (su chat): el botón «WhatsApp» de la ficha del teléfono sigue yendo al hilo de sólo WhatsApp; escritorio
-   va a Chats (`rutaChatsDeLead`).
-4. Lo que quedaba de las tandas 1-3 de More sigue en hallazgos-mobile.md («Sin hacer» de cada tanda).
+3. Lo que quedaba de las tandas 1-3 de More sigue en hallazgos-mobile.md («Sin hacer» de cada tanda).
 
 ## 16/10/2026 ~04:40 (cuenta 3) — MORE COMPLETO, TANDA 3 DE 3: Ads Writer, Curso y Comunidad (SIN COMMIT)
 

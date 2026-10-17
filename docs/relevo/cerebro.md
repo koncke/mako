@@ -408,3 +408,10 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - **MaKo Mobile 86ba6dae6 quedó AFUERA:** rompe tests/chats-datos.test.ts:514 (la línea de WhatsApp con un 4º argumento) y tests/chats-verificacion.test.ts:96 (el lead abre /m/chats/lead:7 en vez de /m/crm/7/chat). Ya se lo devolví al agente.
 - **En wt-push-q para la tanda que sigue:** Infra 4d10a74a1 (las dos fases con `--compartir`, tandas de 100; reemplaza al 5e9570953).
 - **DECIDIDO, falta avisarle a Infra** (tope de 10): SÍ al `npm test` completo y aislado UNA vez por semana, con un workflow programado de ~11 min. Cuesta ~45 min al mes y caza un falso verde por contagio ahora que Actions comparte proceso.
+- **16:15 UTC:** el run 113 (23da7a136) y el 114 (c3e6c2e4a) dieron verde. El 114 trae Infra 4d10a74a1 y MaKo Mobile c1f930979 + 9cb1f7c69. Subo d89fb57fd (el botón WhatsApp de la ficha del teléfono va a Chats).
+  - **MaKo Mobile TERMINÓ** (agente). Lo pendiente está en docs/relevo/mako-mobile.md. Con d89fb57fd en producción: correr el cierre 103d1f01 del cartero.
+  - **Para Infra (tope de 10), los tiempos del run 113** (la fase 1 con `--compartir=barredoras`, la 2 con `--compartir`):
+    - afectados 202 s (antes 279): 298 aislados en 8 tandas + 146 barredoras en 2 grupos de 37 y 34 s;
+    - tipos 155 s;
+    - los demás 68 s (antes 182): 692 compartidos en 2 grupos de 38 y 22 s + 49 aislados;
+    - total del job ≈ 485 s (antes ≈ 676 s); 0 flaky.
