@@ -10310,7 +10310,11 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   una PERSONA confirmó la acción. No van a una automatización: van a «Fuera del alcance».
 
 **La familia «tracking y landing» del lote 3 está entera, y la de «anuncios y Meta» también. De «reuniones» quedan**
-**`reunion-tareas-al-plan` y `lead-no-confirmo`.** Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
+**`reunion-tareas-al-plan` y `lead-no-confirmo`.**
+- `lead-no-confirmo` NO es una mudanza de texto: sale con `emitirAviso` directo cuando una automatización con objetivo
+  «preparar» termina sin respuesta (lib/nutricion-desenlace.ts). Lo correcto es que esa automatización lleve VISIBLE su
+  tarjeta «avisar al equipo» al final del camino sin respuesta: es un cambio del motor y de las plantillas, aparte.
+- `reunion-tareas-al-plan` vive en lib/reunion-auto.ts, del Plan (su chat trabaja la extracción de Fathom): se coordina. Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
 Plan, pagos, reportes por email, mensajes al lead: docs/inventario-nada-por-detras.md).
 
 **Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `lib/prueba-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
