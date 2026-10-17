@@ -11,116 +11,61 @@
 //
 // ⚠️ La pantalla se refresca sola cada pocos segundos con la pestaña a la vista (el estado de los chats y la
 // cola), y además se tira hacia abajo (PantallaM). Los pushes de Vercel llegan después de dibujar.
+// ⚠️ Desde el 17/10 el motor (refresco, cola, firma, lo recién mandado) es el de la computadora y el del Second Brain:
+// app/admin/operaciones/useCentro.ts.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { FilaM, ListaM, SheetM, useToastM } from '@/app/m/_ui';
-import type { PedidoP } from '@/lib/progreso-reglas';
-import type { LecturaPushes } from '@/lib/progreso';
-import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { carteroVivo } from '@/lib/operaciones-reglas';
-import { completarChats, esperasPorChat, type ChatCentro, type DecisionEspera, type TrabajoP } from '@/lib/centro-chats';
-import type { MunecosElegidos } from '@/lib/centro-munecos';
-import { fotoCentroAction, pushesCentroAction } from '@/app/admin/operaciones/acciones';
-import { copiar, useFirma } from '@/app/admin/operaciones/mandar';
+import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { RunnerMovil } from './RunnerMovil';
 import { ChatsM } from './ChatsMovil';
 import { usoPrincipal } from '@/lib/centro-uso';
 import { hace } from '@/lib/progreso-reglas';
-import type { AccionResponder } from '@/app/admin/runway/decisiones';
 
-const REFRESCO_MS = 8000;
-
-/** Lo de la cola que dibuja un chat (la misma forma que en la computadora). */
-const trabajoDe = (p: Pedido): TrabajoP => ({
-  id: p.id, destino: p.destino, destino_titulo: p.destino_titulo, destino_cuenta: p.destino_cuenta, created_at: p.created_at,
-  texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
-});
-
-export function CentroAppMovil({ base, colaInicial, carterosIniciales, decisionesIniciales, munecosIniciales, pedidos, ahora: ahoraServer, sub, responder, tabs }: {
-  /** La mitad de la lista que sale de las bitácoras (lib/centro-chats.ts → chatsDeBitacoras). */
-  base: ChatCentro[];
-  colaInicial: Pedido[] | null;
-  carterosIniciales: EstadoCarteros | null;
-  decisionesIniciales: DecisionEspera[] | null;
-  /** Los muñecos que Martín eligió, por nombre (lib/centro-munecos-db.ts). */
-  munecosIniciales: MunecosElegidos;
-  pedidos: PedidoP[];
-  ahora: number;
-  sub: string;
-  /** La acción de la Ticketera: contestar la pregunta de un chat acá es contestarla allá. */
-  responder: AccionResponder;
-  /** Los nombres de las tabs: el jefe de un chat se llama como una (app/admin/operaciones/tabs.ts). */
-  tabs: readonly string[];
-}) {
-  const [cola, setCola] = useState<Pedido[]>(colaInicial ?? []);
-  const [locales, setLocales] = useState<TrabajoP[]>([]);
-  const [estado, setEstado] = useState<EstadoCarteros | null>(carterosIniciales);
-  const [decisiones, setDecisiones] = useState<DecisionEspera[]>(decisionesIniciales ?? []);
-  const [ahora, setAhora] = useState(ahoraServer);
-  const [pushes, setPushes] = useState<LecturaPushes | null>(null);
-  const [runners, setRunners] = useState(false);
-  const [munecos, setMunecos] = useState<MunecosElegidos>(munecosIniciales);
+export function CentroAppMovil(datos: DatosCentro) {
   const toast = useToastM();
-  const firma = useFirma(sub);
+  const k = useCentro(datos, (t) => toast(t));
+  const { carteros, ahora, estado, firma } = k;
+  const [runners, setRunners] = useState(false);
 
-  // Lo recién mandado se ve enseguida; cuando el refresco lo trae de la cola, se usa el de la cola.
-  const trabajos = useMemo(() => {
-    const deCola = cola.map(trabajoDe);
-    return [...locales.filter((l) => !deCola.some((w) => w.id === l.id)), ...deCola];
-  }, [cola, locales]);
-  const carteros = useMemo(() => estado?.carteros ?? [], [estado]);
-  const esperas = useMemo(() => esperasPorChat(decisiones, carteros), [decisiones, carteros]);
-  const chats = useMemo(() => completarChats(base, { carteros, trabajos, ahora }), [base, carteros, trabajos, ahora]);
-
-  const refrescar = useCallback(async () => {
-    const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) setDecisiones(f.decisiones); }
-    setAhora(Date.now());
-  }, []);
-  useEffect(() => {
-    const t = setInterval(() => { if (document.visibilityState === 'visible') refrescar(); }, REFRESCO_MS);
-    return () => clearInterval(t);
-  }, [refrescar]);
-  useEffect(() => { let vivo = true; pushesCentroAction().then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
-
-  // Lo contestado arriba de la caja se ve en el acto (el refresco trae la verdad).
-  const responderAca: AccionResponder = async (prev, fd) => {
-    const r = await responder(prev, fd);
-    if (r.ok) {
-      const id = Number(fd.get('id'));
-      const clave = String(fd.get('clave') ?? '');
-      const texto = String(fd.get('texto') ?? '').trim();
-      setDecisiones((ds) => ds.map((d) => (d.id !== id ? d : { ...d, respuesta: clave, respuestaTexto: texto || null, respondidaAt: new Date().toISOString(), recogidaAt: null })));
-    }
-    return r;
-  };
-  const pendientes = decisiones.filter((d) => !d.respuesta && d.urgencia !== 'aviso').length;
-
-  const copiarClave = async () => { if (firma.clave) toast(await copiar(firma.clave.spki) ? 'Copiado: pégalo en el Runner' : 'No pude copiar'); };
-  const crearClave = async () => { toast((await firma.crear()) ? 'Token creado' : 'No pude crear tu Token'); };
-  const activos = carteros.filter((k) => carteroVivo(k, ahora)).length;
-  const principal = usoPrincipal(carteros.map((k) => ({ cuenta: k.cuenta, cuota: k.cuota ?? null })), ahora);
+  const activos = carteros.filter((c) => carteroVivo(c, ahora)).length;
+  const principal = usoPrincipal(carteros.map((c) => ({ cuenta: c.cuenta, cuota: c.cuota ?? null })), ahora);
 
   return (
     <>
       {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). */}
       <ListaM etiqueta="Ticketera">
-        <FilaM icono="soporte" titulo="Ticketera" segunda={pendientes ? `${pendientes} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tarjetas" navegacion />
+        <FilaM icono="soporte" titulo="Ticketera" segunda={k.pendientesTicketera ? `${k.pendientesTicketera} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tarjetas" navegacion />
       </ListaM>
-      <ChatsM
-        decisiones={decisiones} responder={responderAca} tabs={tabs}
-        chats={chats} carteros={carteros} pedidos={pedidos} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : null} ahora={ahora}
-        esperas={esperas} firma={firma} onEnviado={(t) => { setLocales((l) => [t, ...l]); refrescar(); }}
-        munecos={munecos} onMunecos={setMunecos}
-      />
+      <ChatsMDelCentro centro={k} />
       {/* El Uso de las cuentas y sus Runners, en una fila que dice siempre el número (Uso.tsx, la de la computadora). */}
       <ListaM etiqueta="Uso">
         <FilaM icono="config" titulo="Uso y Runners" segunda={[principal ? `Semana ${principal.pct}%${principal.viejo && principal.medido != null ? ` · ${hace(principal.medido, ahora)}` : ''}` : null, `${activos} de ${carteros.length} Runners activos`].filter(Boolean).join(' · ')}
           onClick={() => setRunners(true)} navegacion />
       </ListaM>
       <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners">
-        <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={crearClave} onCopiarClave={copiarClave} />
+        <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave} />
       </SheetM>
     </>
+  );
+}
+
+/** ChatsMovil.tsx enchufado al motor del Centro: lo usan este Centro y el Second Brain del teléfono (por partes). */
+export function ChatsMDelCentro({ centro: k, parte, tituloChats, abierto, onAbierto }: {
+  centro: Centro;
+  parte?: 'lista' | 'hoja';
+  tituloChats?: string;
+  abierto?: string | null;
+  onAbierto?: (clave: string | null) => void;
+}) {
+  return (
+    <ChatsM
+      parte={parte} tituloChats={tituloChats} abierto={abierto} onAbierto={onAbierto}
+      decisiones={k.decisiones} responder={k.responderAca} tabs={k.tabs}
+      chats={k.chats} carteros={k.carteros} pedidos={k.pedidos} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
+      esperas={k.esperas} firma={k.firma} onEnviado={k.anotarEnviado}
+      munecos={k.munecos} onMunecos={k.setMunecos}
+    />
   );
 }

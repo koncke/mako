@@ -6489,6 +6489,7 @@ PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) p
 | `fueraDeHorario` | string (espera \\| igual) | no | opcional, sólo en una automatización con horario de oficina: «espera» (lo de fábrica) la manda cuando abre; «igual», a cualquier hora. |
 | `canal` | string (grupo \\| email) | no | opcional: «email» le escribe un correo al equipo del negocio (sus destinatarios de Notificaciones) en vez de mandarlo al grupo de WhatsApp. Por email va un solo texto, sin audio ni archivos, y con asunto. Sin elegir, el grupo. |
 | `asunto` | string | no | el asunto del correo, obligatorio con canal «email». Admite los mismos datos {{…}} que el texto. |
+| `sinGrupo` | string (app \\| email) | no | opcional, sólo por el grupo: qué pasa si el negocio NO tiene grupo de MaKo. «app» (lo de fábrica) lo deja en la campanita de la app y en el teléfono; «email» además le escribe un correo al equipo del negocio (sus destinatarios de Notificaciones). |
 
 ```bash
 curl -L \

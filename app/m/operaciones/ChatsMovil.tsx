@@ -14,6 +14,11 @@
 // ⚠️ MANDAR DESDE EL TELÉFONO pasa por el MISMO camino que la computadora (app/admin/operaciones/mandar.ts →
 // encolarPedidoAction, con su `puedeOperar`): se firma con la clave de ESTE teléfono, y la PC tiene que
 // aceptarla (cartero.mjs clave). Hasta entonces la caja lo dice y ofrece copiar la clave.
+// ⚠️ EN DOS PARTES desde el 17/10 (tanda 5: los chats de Claude Code en el Second Brain del teléfono): `parte="lista"`
+// dibuja sólo las filas (van ADENTRO de la hoja «Tus chats» de /m/second-brain) y `parte="hoja"` sólo la hoja de la
+// conversación, que tiene que vivir AFUERA de esa hoja: si viviera adentro, cerrar «Tus chats» la desmontaría (una
+// hoja sobre otra REEMPLAZA, SheetM.tsx). El chat abierto lo lleva el padre (`abierto` / `onAbierto`). Sin `parte`,
+// todo junto, como en /m/operaciones.
 
 import '@/app/admin/operaciones/centro.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -55,7 +60,14 @@ const edad = (t: number | null, ahora: number): string => {
   return `${Math.round(s / 86_400)} d`;
 };
 
-export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos, decisiones, responder, tabs }: {
+export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado, munecos, onMunecos, decisiones, responder, tabs, parte, tituloChats = 'Chats', abierto: abiertoFuera, onAbierto }: {
+  /** Sólo las filas o sólo la hoja de la conversación (ver arriba); sin esto, las dos. */
+  parte?: 'lista' | 'hoja';
+  /** El título de la sección de los jefes (en el Second Brain, «Claude Code»: «Chats» ahí son los de MaKo). */
+  tituloChats?: string;
+  /** El chat abierto, cuando lo lleva el padre (las dos partes por separado). */
+  abierto?: string | null;
+  onAbierto?: (clave: string | null) => void;
   tabs: readonly string[];
   /** Las tarjetas de la Ticketera: cada chat contesta las suyas al final de su conversación, pegadas a la caja. */
   decisiones: readonly Decision[];
@@ -76,7 +88,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   munecos: MunecosElegidos;
   onMunecos: (m: MunecosElegidos) => void;
 }) {
-  const [abierto, setAbierto] = useState<string | null>(null);
+  const [abiertoPropio, setAbiertoPropio] = useState<string | null>(null);
+  const abierto = abiertoFuera !== undefined ? abiertoFuera : abiertoPropio;
+  const setAbierto = (clave: string | null) => { if (onAbierto) onAbierto(clave); else setAbiertoPropio(clave); };
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
   const [borradores, setBorradores] = useState<Record<string, string>>({});
   const [alcance, setAlcance] = useState<Alcance>('solo_esto');
@@ -100,7 +114,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
 
   const secciones = useMemo(() => seccionesDeChats(chats, tabs), [chats, tabs]);
 
-  if (!chats.length) return <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />;
+  if (!chats.length) return parte === 'hoja' ? null : <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />;
 
   const envio = elegido ? comoSale(elegido, carteros, firma.clave === undefined ? undefined : firma.clave?.id ?? null, ahora) : null;
   const texto = elegido ? borradores[elegido.clave] ?? '' : '';
@@ -187,9 +201,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     )
   ) : undefined;
 
+  const conLista = parte !== 'hoja';
+  const conHoja = parte !== 'lista';
   return (
     <>
-      {/* «Nuevo chat», arriba de todos (NuevoChat.tsx): el comando para abrirlo en la PC. */}
+      {/* «Nuevo chat», arriba de todos (NuevoChat.tsx): el comando para abrirlo en la PC. Sólo en el Centro: en el
+          Second Brain, «Nuevo chat» es el de MaKo. */}
+      {!parte && <>
       <ListaM etiqueta="Nuevo chat">
         <FilaM leading={<MunecoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevo({ nombre: '', cuenta: 'claude1' })} navegacion />
       </ListaM>
@@ -202,12 +220,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
         ) : undefined}>
         {nuevo && <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={async (t) => toast((await copiar(t)) ? 'Copiado' : 'No pude copiar')} />}
       </SheetM>
-      {secciones.map(({ clave: k, titulo, chats: lista }) => {
+      </>}
+      {conLista && secciones.map(({ clave: k, titulo, chats: lista }) => {
         const todas = enteras.has(k);
         const corte = todas ? lista : lista.slice(0, VISIBLES);
         return (
-          <SeccionM key={k} titulo={titulo ?? (k === SECCION_CEREBRO ? CEREBRO : 'Chats')}>
-            <ListaM etiqueta={titulo ?? (k === SECCION_CEREBRO ? CEREBRO : 'Chats')}>
+          <SeccionM key={k} titulo={titulo ?? (k === SECCION_CEREBRO ? CEREBRO : tituloChats)}>
+            <ListaM etiqueta={titulo ?? (k === SECCION_CEREBRO ? CEREBRO : tituloChats)}>
               {(k === SECCION_CHATS
                 ? porJefe(corte).flatMap((g) => [
                   ...(g.chat ? [{ c: g.chat, sub: false }] : []),
@@ -244,7 +263,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
       {/* ⚠️ UNA SOLA HOJA: en el teléfono nunca hay dos (SheetM → «Una hoja sobre otra REEMPLAZA»), así que las opciones,
           Renombrar y el muñeco se abren ADENTRO de la de la conversación, con su «‹» para volver, como una navegación de
           iOS dentro de una hoja. Abrirlas en una hoja nueva cerraba la conversación, y con ella la hoja nueva. */}
-      <SheetM abierto={!!elegido} onCerrar={cerrarHoja} snap="alto"
+      {conHoja && <SheetM abierto={!!elegido} onCerrar={cerrarHoja} snap="alto"
         titulo={renombre ? 'Renombrar' : eligiendo ? 'Su muñeco' : elegido?.titulo ?? 'Chat'}
         ocupado={!!renombre?.mandando || !!eligiendo?.guardando}
         pie={renombre ? (
@@ -298,7 +317,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}
           </div>
         )}
-      </SheetM>
+      </SheetM>}
     </>
   );
 }

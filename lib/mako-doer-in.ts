@@ -19,7 +19,7 @@ import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion } from '@/lib/respuesta-doer';
 import { recetasDelTurno } from '@/lib/doer-recetas';
 import { evaluarPermiso } from '@/lib/veto-claude';
-import { causaDelFallo, textoFalloIA, linkKeysIA } from '@/lib/fallo-ia-texto';
+import { causaDelFallo, textoFalloIA, linkKeysIA, sinRedPorDatos, textoSinRedPorDatos } from '@/lib/fallo-ia-texto';
 import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
 import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
@@ -27,7 +27,8 @@ import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId } from '@/lib/api-mako/registro';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
-import { herramientasDelTurno, preguntoReunionOTarea } from '@/lib/doer-herramientas';
+import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, SIN_DATOS_DE_CLIENTES } from '@/lib/doer-herramientas';
+import { listarPendientes } from '@/lib/api-mako/acciones';
 import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
@@ -911,9 +912,6 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * El camino barato de acá al lado ya lo sabía y lo dice en su propio system
      * (`cheapSys`): era la tercera escritura de la misma regla y la única que faltaba.
      */
-    const bloqueTools = tools.length
-      ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
-      : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea («eso lo miro y te lo paso») y nada más.';
     // ⚠️ HOY, EN LA ZONA DEL NEGOCIO. Sin esto el modelo no sabe qué día es, y «agendá una
     // visita el jueves» le pedía ADIVINAR la fecha: una fecha adivinada es una invitación
     // real para el día equivocado (07/10/2026, al sumar agendar por WhatsApp). El resumen
@@ -921,13 +919,27 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // esto. Sólo con herramientas: sin ellas no hay nada que agendar, y el bloque de arriba
     // ya prohíbe inventar fechas.
     const tzHoy = tools.length ? await tzDeWorkspace(wsData).catch(() => TZ_DEFAULT) : null;
-    const ctxHoy = tzHoy
-      ? `\n\nHOY ES ${hoyLegible(tzHoy)} (zona ${tzHoy}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.`
-      : '';
-    // El pedido de agenda en curso, sólo si el turno trae la herramienta que lo sigue (un
-    // prompt que nombra algo que no viajó es una trampa, ver DOER_WA_TOOLS).
-    const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
-    const system = `${base}\n\n${DOER_WA_VOZ}${bloqueTools}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+    /**
+     * El system para UNAS herramientas. Todo lo que nombra herramientas sale de la lista que
+     * se le pasa: la red de plataforma lo vuelve a armar con las suyas, sin las que leen datos
+     * de clientes (`turnoParaLaRed`), y un prompt que nombra una que no viajó es una trampa.
+     * `tools` es la lista de ESTE system (la del turno, o la de la red), y `aviso` una línea más
+     * después del bloque de herramientas.
+     */
+    const armarSystem = (tools: typeof turno.tools, aviso = ''): string => {
+      const permitidasDelTurno = new Set(tools.map((t) => t.name));
+      const bloqueTools = tools.length
+        ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
+        : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea («eso lo miro y te lo paso») y nada más.';
+      const ctxHoy = tools.length && tzHoy
+        ? `\n\nHOY ES ${hoyLegible(tzHoy)} (zona ${tzHoy}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.`
+        : '';
+      // El pedido de agenda en curso, sólo si el turno trae la herramienta que lo sigue (un
+      // prompt que nombra algo que no viajó es una trampa, ver DOER_WA_TOOLS).
+      const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
+      return `${base}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+    };
+    const system = armarSystem(tools);
     if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
@@ -1409,8 +1421,30 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             //
             // Solo se llega acá con `!respuesta`, o sea cuando lo del cliente ya
             // falló. Y solo proveedores GRATIS: pagar por él es otra decisión.
-            if (!respuesta) {
+            //
+            // ⛔ Y NUNCA CON DATOS DE LOS CLIENTES DEL NEGOCIO (17/10/2026). Las keys gratis
+            // de la agencia son el plan gratis de Gemini y de Groq, que entrena con lo que
+            // recibe, y el corte de `chatCheapCascade` no llega a este bucle. Lo decide
+            // `turnoParaLaRed` (lib/doer-herramientas.ts), POR TURNO: si lo que se pidió es
+            // de clientes, o hay una pendiente que los nombra, se corta y el aviso lo arma el
+            // `catch` de abajo; si no, corre SIN las herramientas que los leen, con el system
+            // armado para las que quedan. Las pendientes son las que ve `listar_pendientes`
+            // (las del grupo y las de la API del negocio); si no se pueden leer, cuentan.
+            const turnoRed = respuesta ? null : turnoParaLaRed({
+              tools, delRegistro: turno.delRegistro,
+              tiposPendientes: await listarPendientes(ctxApi).then((ps) => ps.map((p) => p.operacion)).catch(() => ['(no se pudieron leer las pendientes)']),
+            });
+            if (turnoRed?.cortar) {
+              erroresPlataforma.push(`red gratis salteada: el turno lleva datos de clientes (${turnoRed.cortar.slice(0, 5).join(', ')}) y el plan gratis entrena con lo que recibe`);
+              console.warn(`[mako-doer-in] ws=${wsData} red de plataforma salteada: el turno lleva datos de clientes (${turnoRed.cortar.join(', ').slice(0, 300)})`);
+            }
+            if (!respuesta && turnoRed && !turnoRed.cortar) {
               const red = await provsGratisDePlataforma().catch(() => []);
+              const toolsRed = turnoRed.tools;
+              const systemRed = turnoRed.sacadas.length
+                ? armarSystem(toolsRed, `\n\n${SIN_DATOS_DE_CLIENTES}`)
+                : system;
+              if (turnoRed.sacadas.length) console.warn(`[mako-doer-in] ws=${wsData} red de plataforma SIN ${turnoRed.sacadas.length} herramientas con datos de clientes (${turnoRed.sacadas.join(', ').slice(0, 300)})`);
               // ⚠️ CON PRESUPUESTO DE TIEMPO. La agencia tiene 11 keys gratis
               // cargadas y probarlas todas puede ser un minuto largo: del otro lado
               // hay alguien mirando el chat, y a los 40 s ya no importa si la
@@ -1435,13 +1469,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 }
                 probados++;
                 try {
-                  const rp = await chatCheapTools(system, msgs, tools, nuevoIntento(), {
+                  const rp = await chatCheapTools(systemRed, msgs, toolsRed, nuevoIntento(), {
                     provider: r.provider, clave: r.clave, wsKey: await wsSuperAdmin(),
                     // 10 s por proveedor: con 25 s de presupuesto entran al menos
                     // dos intentos reales aunque uno quede colgado.
                     timeoutMs: 10_000,
                     feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500,
-                    toolChoicePrimerPaso: forzarTool ? 'required' : undefined,
+                    toolChoicePrimerPaso: forzarTool && toolsRed.length ? 'required' : undefined,
                     // El motivo lo deja VISIBLE en el Saldo de IA: un respaldo que se
                     // vuelve permanente tiene que poder verse, o el cliente que
                     // necesita cargar su key nunca se entera.
@@ -1544,7 +1578,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           // nuestro va al log, que es donde se diagnostica.
           const causa = causaDelFallo(errsIA, nKeys, { probadas: ee?.probadas, contestaron: ee?.contestaron });
           const eraDePlan = esCargaDePlan(texto) || (esRutaPlan(ruta.motivo) && !intencion.dudosa);
-          respuesta = causa === 'proveedor_caido'
+          // Sin keys propias y con la red cortada por datos de clientes, «carga una key, son gratis» no dice por qué
+          // nuestra IA no lo cubrió: lo dice `textoSinRedPorDatos`. Con keys que fallaron, su causa sigue siendo la verdad.
+          const sinRedPorSusDatos = sinRedPorDatos(errsPlat) && causa === 'sin_keys';
+          respuesta = sinRedPorSusDatos
+            ? textoSinRedPorDatos(linkApp('/integraciones?abrir=gemini', wsData), eraDePlan ? 'armar el borrador' : 'contestar')
+            : causa === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
             : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys);
           avisoDeSistema = true; // no es un turno de MaKo: ver `avisoDeSistema`
@@ -1555,7 +1594,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           // de contarlo: «¿cuántas veces salió?» dejó de tener respuesta. Va por el mismo
           // molde que `anotarRebote429`: una fila de US$0 en el mismo gráfico que el dueño
           // mira, con el motivo escrito.
-          void recordUsage('cartel-ia', `cartel:${causa}`, {}, `ws${wsData} · ${intencion.intencion} · ${nKeys} keys · ${ee?.probadas ?? 0} probadas · ${ee?.contestaron ?? 0} contestaron · ${errsIA.join(' · ').slice(0, 200)}`, 'mako', 1).catch(() => {});
+          void recordUsage('cartel-ia', `cartel:${sinRedPorSusDatos ? 'sin_red_por_datos' : causa}`, {}, `ws${wsData} · ${intencion.intencion} · ${nKeys} keys · ${ee?.probadas ?? 0} probadas · ${ee?.contestaron ?? 0} contestaron · ${errsIA.join(' · ').slice(0, 200)}`, 'mako', 1).catch(() => {});
 
           // ⚠️ Y EL MENSAJE SE SALVA IGUAL. El aviso de arriba explica POR QUÉ falló —y
           // con una cuota agotada eso es lo accionable—, pero por sí solo manda al dueño

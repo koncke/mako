@@ -1271,6 +1271,16 @@ código nuevo:
   puedo mandar un prompt por allí»): la caja de `Conversacion.tsx` y la del teléfono firman por `mandar.ts`. Un
   formulario aparte para mandar no vuelve. Y la caja no manda lo que la PC va a rechazar ni dice «sale ya» sobre lo que
   espera: lo decide `comoSale` (lib/centro-chats.ts), con test.
+- **EL CENTRO SE MONTA EN OTRA PÁGINA POR SU MOTOR, NUNCA COPIÁNDOLO** (17/10/2026; Martín: «quiero mandar prompts por
+  MaKo en el Second Brain»). Son tres piezas:
+  - `useCentro` (app/admin/operaciones/useCentro.ts): el refresco, la cola, la firma, la caja y el «⋯»;
+  - `PiezasCentro.tsx`: la fila, la lista, la conversación y los menús;
+  - `datosDelCentroSiOpera` (app/admin/operaciones/datos.ts): la lectura del servidor, con `puedeOperar` ADENTRO y antes
+    de leer.
+
+  Hoy las montan /admin/operaciones, /m/operaciones, /second-brain y /m/second-brain. Una pantalla nueva con los chats
+  de Claude Code usa las mismas piezas: nada de estado propio ni de leer la cola por fuera. Lo fija
+  tests/second-brain-centro.test.ts.
 - **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
   que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
   GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue
@@ -4063,7 +4073,11 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
   (no «Claude vetado» ni «falló»: molde, el `catch` de `lib/lead-insights.ts`). Una feature nueva que lea leads, conversaciones o llamadas se marca
   `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
-  misma regla él mismo: el corte de la cascada no lo cubre. Una regla que corta de más tampoco está
+  misma regla él mismo: el corte de la cascada no lo cubre. Si la red manda HERRAMIENTAS de la API, «¿lee datos de
+  clientes?» lo contesta el registro (`leeDatosDeClientes`: `DATOS_DE_CLIENTES_POR_AREA` y la marca `datosDeClientes`
+  de cada operación), y se corta por lo que el turno PIDE, no por lo que viaja (molde: `turnoParaLaRed`,
+  lib/doer-herramientas.ts, 17/10/2026). Una operación nueva que lea leads, conversaciones, llamadas o cobros en un
+  área marcada sin datos de clientes lleva `datosDeClientes: true`. Una regla que corta de más tampoco está
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).

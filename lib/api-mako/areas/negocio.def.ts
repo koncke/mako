@@ -181,6 +181,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'listar_lead_magnets', area: 'negocio', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Lead magnets del negocio',
     descripcion: 'Los lead magnets (entregables tangibles de la oferta): id, nombre, tipo (dashboard, planilla, documento, metodología…), qué es, la línea de FOMO para anuncios y el enlace donde está el material (`enlace: null` = no tiene dónde mandarlo). Úsala antes de escribir un anuncio o una secuencia que ofrezca algo, o antes de proponer editar_lead_magnet.',
     parametros: [],
@@ -188,6 +189,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'siguiente_pregunta_lead_magnet', area: 'negocio', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Siguiente pregunta sobre lead magnet',
     descripcion: 'MaKo arma la siguiente pregunta (de a una, adaptada a lo ya contestado) para encontrar el elemento tangible de la oferta, o dice que ya alcanza (`terminado: true`, como mucho 4). No guarda nada. Al terminar, propone generar_lead_magnets con las respuestas.',
     parametros: [
@@ -361,6 +363,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'generar_lead_magnets', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    datosDeClientes: false,
     titulo: 'Generar lead magnets con MaKo',
     descripcion: 'PROPONE que MaKo proponga de 1 a 3 lead magnets (el elemento tangible de la oferta, con su línea de FOMO) desde el perfil y el panorama, opcionalmente con las respuestas del dueño. REEMPLAZA los lead magnets guardados, salvo los que tienen enlace al material, que se conservan (los usan las secuencias). Deja un link para confirmar; al confirmar invoca IA.',
     parametros: [
@@ -371,6 +374,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'editar_lead_magnet', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    datosDeClientes: false,
     titulo: 'Editar un lead magnet',
     descripcion: 'PROPONE cambiar UN lead magnet por id (nombre, tipo, qué es, línea de FOMO, enlace). Lo que no venga conserva su valor, incluido el enlace. El enlace tiene que empezar con http:// o https://. Para sumar uno nuevo con enlace, usa crear_lead_magnet. Deja un link para revisar y confirmar.',
     parametros: [

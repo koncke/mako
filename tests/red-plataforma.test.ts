@@ -87,7 +87,9 @@ test('La red de plataforma es solo GRATIS y solo último recurso', () => {
   const doer = leer('../lib/mako-doer-in.ts');
   const j = doer.indexOf('provsGratisDePlataforma()');
   assert.ok(j > 0, 'el doer dejó de usar la red de plataforma');
-  assert.ok(doer.slice(j - 200, j).includes('if (!respuesta)'),
+  // Desde el 17/10/2026 la condición suma el corte por datos de clientes (`turnoRed`, lib/doer-herramientas.ts):
+  // lo que se fija es que EMPIECE por «sin respuesta del cliente».
+  assert.match(doer.slice(j - 200, j), /if \(!respuesta(?:\)| && )/,
     'la red de plataforma dejó de ser el ÚLTIMO recurso: le gastaría cuota a la agencia teniendo el cliente la suya');
 });
 

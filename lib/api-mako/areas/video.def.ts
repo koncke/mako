@@ -129,6 +129,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'listar_lugares_grabacion', area: 'video', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Lugares de grabación',
     descripcion: 'El catálogo de lugares donde se puede ambientar un anuncio (auto, oficina, cocina…), con qué es cada uno, cuándo conviene y cuántos fondos distintos tiene. Con `camara` filtra los lugares compatibles con la cámara de un formato (la `camara` sale de listar_formatos_video).',
     parametros: [
@@ -166,6 +167,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_voz_cliente', area: 'video', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Voz y acento del cliente',
     descripcion: 'Lo que el cliente declaró sobre su forma de hablar: el acento guardado y si lo eligió él o fue una sugerencia por zona horaria, sus muletillas, cuántos audios de muestra subió y si tiene una voz clonada (con fecha). No consulta ElevenLabs: que el clon siga existiendo allá no está verificado. Úsala antes de hablar de cómo va a sonar un anuncio.',
     parametros: [],

@@ -35,7 +35,7 @@ import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
 import { reclamarEspaciado } from './espaciado';
 import { AVISOS_POR_EVENTO, ESTADO_EVENTO, esperaApertura, filaDeIdCorrida, pasosParaRetomar, type FilaParaRetomar } from './aviso-evento';
 import { CLAVE_MENSAJE_MAKO } from './variables-aviso';
-import { avisoPorEmail, textoDePreparadas, type PartePreparada } from './mako-tarjeta';
+import { avisoPorEmail, llegoLaTarjeta, textoDePreparadas, type PartePreparada } from './mako-tarjeta';
 import type { ParteMensaje } from './mensaje-partes';
 import type { HechosLead } from './flujo-grafo';
 import { datoDeCampo, hechosDelEvento, soloDatosDelEvento } from './dato-evento';
@@ -425,7 +425,7 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
       const propio = (paso.texto ?? '').trim();
       // La tarjeta «MaKo en WhatsApp» de un EVENTO DE MAKO sale como el aviso de siempre (ver la función), y con su
       // lista (undécima tanda), por partes y tal cual.
-      if (ctx.aviso) return emitirTarjetaDelEvento(flujoId, { texto: propio, partes: paso.partes, email: paso.email }, ws, ctx, ctx.aviso);
+      if (ctx.aviso) return emitirTarjetaDelEvento(flujoId, { texto: propio, partes: paso.partes, email: paso.email, sinGrupo: paso.sinGrupo }, ws, ctx, ctx.aviso);
       const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
       // `conVariables` pone los datos con LA regla de todo envío (`textoConDatos`, undécima tanda): el renglón que nombra
       // un dato sin valor se va entero; lo que no es del catálogo queda crudo (y Publicar ya no lo deja pasar).
@@ -529,7 +529,7 @@ function nombreDelAviso(flujoId: string): string {
  * su asunto resuelto con los mismos datos y sin push (`avisoPorEmail`, lib/mako-tarjeta.ts). Sin partes: es un texto.
  */
 async function emitirTarjetaDelEvento(
-  flujoId: string, tarjeta: { texto: string; partes?: ParteMensaje[]; email?: { asunto: string } }, ws: number, ctx: CtxFlujo, aviso: { id: string; titulo: string },
+  flujoId: string, tarjeta: { texto: string; partes?: ParteMensaje[]; email?: { asunto: string }; sinGrupo?: 'email' }, ws: number, ctx: CtxFlujo, aviso: { id: string; titulo: string },
 ): Promise<boolean> {
   // ⚠️ `{{mensaje_mako}}` SE SIGUE INYECTANDO hasta la limpieza (docs/diseno-undecima-tanda.md §8.7): #239 y #240 lo usan
   // hasta que el script de flujos las archive. Ya no se ofrece ni se publica (`problemasDeTokens`, lib/tokens-del-flujo.ts).
@@ -562,10 +562,10 @@ async function emitirTarjetaDelEvento(
     ...(ctx.leadId ? { lead: { id: ctx.leadId, nombre: ctx.leadNombre ?? null } } : {}),
     estado: porEmail?.estado ?? ESTADO_EVENTO,
     ...(porEmail ? { asuntoEmail: porEmail.asuntoEmail, push: porEmail.push, rotulo: false as const } : partes ? { partes, rotulo: false as const } : {}),
+    ...(!porEmail && tarjeta.sinGrupo === 'email' ? { sinGrupo: 'email' as const } : {}),
   });
   if (!r.ok) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió`);
   else if (porEmail && !r.email) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió por email (ws ${wsDestino}: ¿sin destinatarios?)`);
-  else if (partes && !r.wa && r.waError) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió al grupo — ${r.waError}`);
-  // LLEGÓ = al grupo o por email (16/10/2026): el feed y el push los escribe igual, y no avisan a nadie que no esté mirando.
-  return r.ok && (r.wa || r.email === true);
+  else if (partes && !r.wa && r.waError && !r.sinGrupo) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió al grupo — ${r.waError}`);
+  return llegoLaTarjeta(r);
 }

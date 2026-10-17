@@ -6547,3 +6547,19 @@ errores visibles:
   deja con `--conservar`) y el gasto de IA (`anthropic_usage`, es gasto real: `--excluir`).
 
 *16/10/2026, chat «Offer» (claude3), recorriendo el onboarding nuevo en el ws3.*
+
+## `zip-extension` en un worktree de Windows: la huella sale con los CRLF del disco (17/10/2026)
+
+**Síntoma:** recién generado el zip, `node scripts/zip-extension.mjs --check` dice «quedó viejo: la
+extensión cambió», sin haber tocado nada más.
+
+**Causa:** con `core.autocrlf=true` el checkout deja en CRLF los archivos de `extension/` que no se
+editaron, y git los guarda en LF. Generando, el script hashea el DISCO (CRLF en los intactos, LF en
+los que se reescribieron con una herramienta que escribe LF); el `--check` hashea `HEAD` (todo LF).
+Mismo contenido para git, otra huella. `grep -c $'\r$'` de Git Bash dice 0 sobre esos archivos: se
+ve comparando tamaños (`wc -c` contra `git show HEAD:…`).
+
+**Regla:** antes de `node scripts/zip-extension.mjs` en un worktree, normalizar `extension/` a LF
+(`sed -i 's/\r$//' extension/*.js extension/*.html extension/*.json` — para git no es un cambio) y
+recién ahí generar. Vive en `scripts/zip-extension.mjs` (`leer`): lo que falta es que el generador
+normalice él mismo.
