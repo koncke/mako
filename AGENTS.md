@@ -464,6 +464,9 @@ versión anterior. O sea el modo de falla de siempre: no se rompe nada para el c
 
 # Hay dos cuentas de Claude trabajando sobre este repo
 
+> Desde el 16/10/2026 son **cuatro** (`claude1` … `claude4`), todas de Martín. El titular de cada una está en
+> `~/.claude/cuentas.tsv`, y la 4 corre sólo en la app (`~/.claude`). Lo de abajo vale igual para las cuatro.
+
 No estás solo en este clon. Hay **dos cuentas** (`claude1` / `claude2` en el `$PROFILE`)
 con cuotas desfasadas: una corre miércoles a viernes, la otra sábado a martes. En
 principio no coinciden, pero pueden.
@@ -552,7 +555,7 @@ Reglas que salen de eso:
   que sobrevive.
 - **Dos sesiones no editan la misma skill ni el mismo prompt a la vez.** Se pisan igual
   que el código, pero el efecto aparece días después y en otro lado.
-- **Cerrá cada commit con el trailer `Claude-Cuenta: claude1` o `claude2`.** Las dos
+- **Cerrá cada commit con el trailer `Claude-Cuenta: claude1` … `claude4`.** Las
   cuentas commitean con el mismo autor sobre el mismo clon, así que git no las distingue
   y sin el trailer no hay forma de saber a cuál preguntarle por una decisión. Lo leen
   `/admin/docs` (la ficha de cada documento) y el Change History de `/admin/ui`; donde
