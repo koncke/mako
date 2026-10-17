@@ -69,7 +69,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.8.1';
+export const VERSION = '1.9.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -85,6 +85,8 @@ const LATIDO_VENCE_MS = 6 * 60 * 1000;
 /** Un cierre que MaKo no aceptó se vuelve a subir en cada vuelta, hasta este tope (su acuse puede llegar después). */
 const CIERRE_VENCE_MS = 24 * 3600 * 1000;
 const CIERRES = path.join(DIR, 'cierres');
+/** Los adjuntos de cada trabajo (1.9.0): una carpeta por id, `adjuntos/<id>/`. Se borran a los VENCE_DIAS. */
+const ADJUNTOS = path.join(DIR, 'adjuntos');
 /** La cuota de cada cuenta, como la anota la barra de estado de su Runner (`uso`). */
 const USO = path.join(DIR, 'uso');
 /** Lo que se le pasa al Runner con `--settings`: su barra de estado anota la cuota (lib/runner.ts). */
@@ -172,6 +174,96 @@ const MAX_TEXTO = 8000;
 const MODELOS = ['opus', 'sonnet', 'haiku'];
 const ESFUERZOS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const VENCE_DIAS = 14;
+// Los adjuntos (1.9.0, 17/10/2026; copia de lib/operaciones-reglas.ts → problemaDeAdjuntos, con test diferencial).
+export const MIMES_ADJUNTO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+export const MAX_ADJUNTOS = 4;
+export const MAX_BYTES_ADJUNTOS = 4 * 1024 * 1024;
+const MAX_NOMBRE_ADJUNTO = 120;
+/** La extensión con la que se guarda: la decide el TIPO (validado por los bytes), nunca el nombre que trajo. */
+const EXT_ADJUNTO = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' };
+
+export function problemaDeAdjuntos(x) {
+  if (!Array.isArray(x) || !x.length || x.length > MAX_ADJUNTOS) return 'adjuntos inválidos';
+  const refs = new Set();
+  let total = 0;
+  for (const a of x) {
+    if (!a || typeof a !== 'object' || Array.isArray(a)) return 'adjuntos inválidos';
+    if (typeof a.ref !== 'string' || !UUID_RE.test(a.ref) || refs.has(a.ref)) return 'adjuntos inválidos';
+    refs.add(a.ref);
+    if (typeof a.nombre !== 'string' || !a.nombre.trim() || a.nombre.length > MAX_NOMBRE_ADJUNTO || /[\u0000-\u001f]/.test(a.nombre)) return 'adjuntos inválidos';
+    if (!MIMES_ADJUNTO.includes(a.mime)) return 'adjuntos inválidos';
+    if (typeof a.bytes !== 'number' || !Number.isInteger(a.bytes) || a.bytes < 1) return 'adjuntos inválidos';
+    if (typeof a.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(a.sha256)) return 'adjuntos inválidos';
+    total += a.bytes;
+  }
+  return total > MAX_BYTES_ADJUNTOS ? 'adjuntos inválidos' : null;
+}
+
+/** Qué es un archivo por sus PRIMEROS BYTES (copia de lib/mako-adjuntos.ts → tipoPorFirma, con test diferencial). Un
+ *  ejecutable («MZ», un script) no es ninguno de los cinco: no baja. */
+export function mimePorFirma(b) {
+  const es = (off, ...xs) => xs.every((x, i) => b[off + i] === x);
+  if (b.length >= 3 && es(0, 0xff, 0xd8, 0xff)) return 'image/jpeg';
+  if (b.length >= 8 && es(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
+  if (b.length >= 6 && es(0, 0x47, 0x49, 0x46, 0x38)) return 'image/gif';
+  if (b.length >= 12 && es(0, 0x52, 0x49, 0x46, 0x46) && es(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp';
+  if (b.length >= 5 && es(0, 0x25, 0x50, 0x44, 0x46, 0x2d)) return 'application/pdf';
+  return null;
+}
+
+/** El nombre en disco: el número, lo legible del nombre (sin su extensión) y la extensión del TIPO. */
+export function nombreEnDisco(i, nombre, mime) {
+  const base = String(nombre ?? '').replace(/\.[^.]*$/, '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'adjunto';
+  return `${i + 1}-${base}.${EXT_ADJUNTO[mime]}`;
+}
+
+/**
+ * Baja los adjuntos de un trabajo YA VERIFICADO a `adjuntos/<id>/` y devuelve sus rutas. Lo que baja tiene que tener el
+ * tamaño, el sha256 y el tipo (por sus bytes) que dice el texto firmado: si algo no coincide, no queda nada y tira.
+ * La URL la arma la PC (su `url` y el `ref` firmado): de MaKo no se usa ninguna dirección.
+ */
+export async function bajarAdjuntos(url, token, id, adjuntos, dir = ADJUNTOS) {
+  if (!UUID_RE.test(id)) throw new Error('id inválido');
+  const carpeta = path.join(dir, id);
+  fs.rmSync(carpeta, { recursive: true, force: true });
+  fs.mkdirSync(carpeta, { recursive: true });
+  try {
+    const rutas = [];
+    for (const [i, a] of adjuntos.entries()) {
+      const r = await fetch(`${url}/api/operaciones/cartero?pedido=${id}&adjunto=${a.ref}`, {
+        headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(60_000),
+      });
+      if (!r.ok) throw new Error(`MaKo no lo dio (${r.status})`);
+      const largo = Number(r.headers.get('content-length'));
+      if (Number.isFinite(largo) && largo > a.bytes) throw new Error('pesa más de lo firmado');
+      const b = Buffer.from(await r.arrayBuffer());
+      if (b.length !== a.bytes) throw new Error('no pesa lo firmado');
+      if (crypto.createHash('sha256').update(b).digest('hex') !== a.sha256) throw new Error('no es el archivo firmado');
+      if (mimePorFirma(b) !== a.mime) throw new Error('no es una foto ni un PDF');
+      const ruta = path.join(carpeta, nombreEnDisco(i, a.nombre, a.mime));
+      fs.writeFileSync(ruta, b, { flag: 'wx' });
+      rutas.push(ruta);
+    }
+    return rutas;
+  } catch (e) {
+    fs.rmSync(carpeta, { recursive: true, force: true });
+    throw e;
+  }
+}
+
+/** Las carpetas de adjuntos de más de VENCE_DIAS: el trabajo ya venció, y el chat ya los leyó o no los va a leer. */
+function limpiarAdjuntos(ahora = Date.now()) {
+  let viejas = [];
+  try { viejas = fs.readdirSync(ADJUNTOS).filter((d) => UUID_RE.test(d)); } catch { return; }
+  for (const d of viejas) {
+    try {
+      const f = path.join(ADJUNTOS, d);
+      if (ahora - fs.statSync(f).mtimeMs > VENCE_DIAS * 86_400_000) fs.rmSync(f, { recursive: true, force: true });
+    } catch { /* la limpieza nunca frena la vuelta */ }
+  }
+}
+
 /** La forma de un `ref` de la Ticketera (copia de REF_DECISION, app/admin/runway/decisiones.ts). */
 export const REF_DECISION = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
@@ -189,6 +281,7 @@ export function leerFirmable(texto, ahora) {
   if (o.alcance !== 'solo_esto' && o.alcance !== 'de_ahora_en_mas') return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !MODELOS.includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !ESFUERZOS.includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
+  if (o.adjuntos !== undefined) { const m = problemaDeAdjuntos(o.adjuntos); if (m) return { ok: false, motivo: m }; }
   const creado = typeof o.creado === 'string' ? Date.parse(o.creado) : NaN;
   const vence = typeof o.vence === 'string' ? Date.parse(o.vence) : NaN;
   if (!Number.isFinite(creado) || !Number.isFinite(vence)) return { ok: false, motivo: 'fechas inválidas' };
@@ -502,7 +595,7 @@ function verChats(cuenta, cfg = config(), runners = carpetasConRunner(cfg, dirPr
 }
 
 // ── el mensaje que recibe el chat ────────────────────────────────────────────────────────────
-function mensaje(p) {
+function mensaje(p, rutas = []) {
   const fecha = new Date(p.creado).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const alcance = p.alcance === 'de_ahora_en_mas'
     ? 'Y DE AHORA EN MÁS: además de hacerlo, dejá la regla escrita donde corresponda (AGENTS.md, una memoria o un hallazgo) y decí dónde en el cierre.'
@@ -512,6 +605,8 @@ function mensaje(p) {
     '',
     p.texto,
     '',
+    // Las fotos y los PDF que mandó con el trabajo, ya en esta PC (1.9.0): el chat los abre con Read.
+    ...(rutas.length ? ['Adjuntos (los bajó el Runner a esta PC; ábrelos con Read):', ...rutas.map((r) => `- ${r}`), ''] : []),
     `— Alcance: ${alcance}`,
     '— Al terminar, dejá el cierre en cuatro renglones (y la prueba, si la hay: un commit, un deploy, una medición):',
     `node "${ESTE}" cierre ${p.id} --decidido "…" --hecho "…" --comprobado "…" --sigue "…" --prueba "…"`,
@@ -622,9 +717,13 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     if (yaSalio(id)) { rechazar('Ya se había entregado: no sale dos veces'); continue; }
     const chat = chats.get(l.p.destino);
     if (!chat?.vivo || !chat.pipe) { rechazar('El chat se cerró: ábrelo y vuelve a mandarlo'); continue; }
+    let rutas = [];
+    if (l.p.adjuntos) {
+      try { rutas = await bajarAdjuntos(url, cfg.token, id, l.p.adjuntos); } catch (e) { rechazar(`No pude bajar un adjunto (${e.message}): vuelve a mandarlo`); continue; }
+    }
     escribirJson(path.join(BUZON, `${id}.json`), {
       id, reclamado: new Date().toISOString(), clave: quien, dir: chat.dir,
-      to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensaje(l.p),
+      to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensaje(l.p, rutas),
       ...comoCorre(l.p),
     });
     log(`[${cuenta}] BUZON ${id} → ${chat.titulo} (${rotuloDir(chat.dir)})`);
@@ -650,6 +749,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     log(`[${cuenta}] AVISO ${id} (${a.ref}) → ${chat.titulo}`);
   }
   if (salida.avisosError) log(`[${cuenta}] los avisos de la Ticketera no se pudieron calcular: ${salida.avisosError}`);
+  limpiarAdjuntos();
   return {
     vencidos: salida.vencidos ?? 0, acuses: salida.acuses ?? 0, cierres: salida.cierres ?? 0,
     avisos, avisosError: salida.avisosError ?? null,

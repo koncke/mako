@@ -64,6 +64,7 @@ function Trabajo({ w, quien }: { w: TrabajoP; quien: Quien }) {
           {w.texto ?? ''}
           <span className="co-burbuja__pie">{Number.isFinite(t) ? horaAR(t) : ''}<Tick estado={estado} /></span>
         </p>
+        {w.adjuntos?.length ? <p className="co-nota">{`Adjuntó ${w.adjuntos.join(' · ')}`}</p> : null}
         {mal && <p className="co-nota co-nota--mal">{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}</p>}
       </div>
       {c && (

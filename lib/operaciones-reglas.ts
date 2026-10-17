@@ -14,6 +14,8 @@
 // prueba que los dos lados leen lo mismo).
 // =============================================================================
 
+import { TOPE_ADJUNTOS, TOPE_TOTAL_BYTES } from './mako-adjuntos';
+
 export const VERSION_PEDIDO = 1 as const;
 /** Tope del texto de un pedido. Se RECHAZA, no se recorta (AGENTS.md: un tope en un texto que
  *  escribe una persona rechaza). */
@@ -73,7 +75,68 @@ export type PayloadPedido = {
   /** null o ausente = «Automático»: no se toca el modelo del chat. */
   modelo?: Modelo | null;
   esfuerzo?: Esfuerzo | null;
+  /** Las fotos y los PDF que van con el trabajo (17/10/2026). Ausente = sin adjuntos: el texto firmado es el de siempre. */
+  adjuntos?: AdjuntoPedido[];
 };
+
+// ── Los adjuntos de un trabajo (17/10/2026) ──────────────────────────────────────────────────────────────────────────
+// Martín: adjuntar imágenes y archivos en la caja, y pegar una captura con Ctrl+V, y que lleguen al chat. Dio el OK de que
+// un archivo baje a la PC, con estas condiciones, que no se negocian:
+//   · baja SÓLO lo que nombra un trabajo FIRMADO: el `sha256` de cada archivo lo calcula el navegador sobre los bytes que
+//     sube y va adentro de la firma; la PC lo compara con lo que baja. Con MaKo comprometida, lo peor es que no baje;
+//   · a una carpeta fija por trabajo (`~/.claude/operaciones/adjuntos/<id>/`), con un nombre que arma la PC;
+//   · con el tipo y el tamaño validados (por los primeros bytes, no por la extensión), y nunca un ejecutable: sólo las
+//     fotos y el PDF que ya acepta el chat con MaKo (lib/mako-adjuntos.ts), con los mismos topes;
+//   · el chat recibe la RUTA local en el mensaje (scripts/operaciones/cartero.mjs → bajarAdjuntos).
+export const MIMES_ADJUNTO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'] as const;
+export type MimeAdjunto = (typeof MIMES_ADJUNTO)[number];
+/** Cuántos archivos y cuántos bytes en total: los del chat con MaKo (Vercel corta un POST de más de ~4,5 MB). */
+export const MAX_ADJUNTOS = TOPE_ADJUNTOS;
+export const MAX_BYTES_ADJUNTOS = TOPE_TOTAL_BYTES;
+export const MAX_NOMBRE_ADJUNTO = 120;
+/** `ref`: dónde lo guardó MaKo (un uuid); `bytes` y `sha256`: los del archivo que salió del navegador. */
+export type AdjuntoPedido = { ref: string; nombre: string; mime: MimeAdjunto; bytes: number; sha256: string };
+
+/** null si los adjuntos de un texto firmado valen; si no, el motivo. La MISMA regla que el cartero (test diferencial). */
+export function problemaDeAdjuntos(x: unknown): string | null {
+  if (!Array.isArray(x) || !x.length || x.length > MAX_ADJUNTOS) return 'adjuntos inválidos';
+  const refs = new Set<string>();
+  let total = 0;
+  for (const a of x) {
+    if (!a || typeof a !== 'object' || Array.isArray(a)) return 'adjuntos inválidos';
+    const o = a as Record<string, unknown>;
+    if (typeof o.ref !== 'string' || !UUID_RE.test(o.ref) || refs.has(o.ref)) return 'adjuntos inválidos';
+    refs.add(o.ref);
+    if (typeof o.nombre !== 'string' || !o.nombre.trim() || o.nombre.length > MAX_NOMBRE_ADJUNTO || /[\u0000-\u001f]/.test(o.nombre)) return 'adjuntos inválidos';
+    if (!(MIMES_ADJUNTO as readonly unknown[]).includes(o.mime)) return 'adjuntos inválidos';
+    if (typeof o.bytes !== 'number' || !Number.isInteger(o.bytes) || o.bytes < 1) return 'adjuntos inválidos';
+    if (typeof o.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(o.sha256)) return 'adjuntos inválidos';
+    total += o.bytes;
+  }
+  return total > MAX_BYTES_ADJUNTOS ? 'adjuntos inválidos' : null;
+}
+
+/** El cartero que baja adjuntos. Con uno de antes, el trabajo saldría SIN sus archivos y nadie lo diría: la caja no ofrece
+ *  adjuntar hasta que el Runner de esa cuenta suba esta versión (o una más nueva). */
+export const VERSION_ADJUNTOS = '1.9.0';
+export function aceptaAdjuntos(version: string | null | undefined): boolean {
+  const v = /^(\d+)\.(\d+)\.(\d+)/.exec(version ?? '');
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(VERSION_ADJUNTOS)!;
+  if (!v) return false;
+  for (let i = 1; i <= 3; i++) if (Number(v[i]) !== Number(m[i])) return Number(v[i]) > Number(m[i]);
+  return true;
+}
+
+/** Los nombres de los adjuntos de un texto firmado, para dibujarlos en la conversación (vacío si no tiene). */
+export function nombresDeAdjuntos(firmado: string | null | undefined): string[] {
+  try {
+    const o = JSON.parse(firmado ?? '') as { adjuntos?: unknown };
+    if (!Array.isArray(o.adjuntos)) return [];
+    return o.adjuntos.map((a) => (a as { nombre?: unknown })?.nombre).filter((n): n is string => typeof n === 'string' && !!n.trim()).slice(0, MAX_ADJUNTOS).map((n) => n.slice(0, MAX_NOMBRE_ADJUNTO));
+  } catch {
+    return [];
+  }
+}
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -88,12 +151,14 @@ export function armarFirmable(p: PayloadPedido): string {
     // Sólo si se eligieron: sin ellos, el texto firmado es el de siempre.
     ...(p.modelo ? { modelo: p.modelo } : {}),
     ...(p.esfuerzo ? { esfuerzo: p.esfuerzo } : {}),
+    // Los adjuntos, sólo si hay: sin ellos, el texto firmado es el de siempre.
+    ...(p.adjuntos?.length ? { adjuntos: p.adjuntos.map((a) => ({ ref: a.ref, nombre: a.nombre, mime: a.mime, bytes: a.bytes, sha256: a.sha256 })) } : {}),
   });
 }
 
 export function nuevoPayload(entrada: {
   id: string; texto: string; destino: string; cuenta: string | null; titulo: string | null; alcance: Alcance;
-  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null;
+  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; adjuntos?: readonly AdjuntoPedido[];
 }, ahora: number): PayloadPedido {
   return {
     v: VERSION_PEDIDO,
@@ -107,6 +172,7 @@ export function nuevoPayload(entrada: {
     vence: new Date(ahora + VENCE_DIAS * 86_400_000).toISOString(),
     modelo: entrada.modelo ?? null,
     esfuerzo: entrada.esfuerzo ?? null,
+    ...(entrada.adjuntos?.length ? { adjuntos: [...entrada.adjuntos] } : {}),
   };
 }
 
@@ -129,6 +195,7 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (!(ALCANCES as readonly unknown[]).includes(o.alcance)) return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !(MODELOS as readonly unknown[]).includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !(ESFUERZOS as readonly unknown[]).includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
+  if (o.adjuntos !== undefined) { const m = problemaDeAdjuntos(o.adjuntos); if (m) return { ok: false, motivo: m }; }
   const creado = typeof o.creado === 'string' ? Date.parse(o.creado) : NaN;
   const vence = typeof o.vence === 'string' ? Date.parse(o.vence) : NaN;
   if (!Number.isFinite(creado) || !Number.isFinite(vence)) return { ok: false, motivo: 'fechas inválidas' };
@@ -143,6 +210,7 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
       cuenta: (o.cuenta as string | null) ?? null, titulo: (o.titulo as string | null) ?? null,
       alcance: o.alcance as Alcance, creado: o.creado as string, vence: o.vence as string,
       modelo: (o.modelo as Modelo | null | undefined) ?? null, esfuerzo: (o.esfuerzo as Esfuerzo | null | undefined) ?? null,
+      ...(o.adjuntos !== undefined ? { adjuntos: o.adjuntos as AdjuntoPedido[] } : {}),
     },
   };
 }

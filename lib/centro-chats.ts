@@ -78,6 +78,8 @@ export type TrabajoP = {
   id: string; destino: string; destino_titulo: string | null; destino_cuenta: string | null; created_at: string;
   texto?: string; estado?: EstadoPedido; motivo?: string | null;
   entregado_at?: string | null; cerrado_at?: string | null; cierre?: Cierre | null;
+  /** Los nombres de lo que se adjuntó (17/10/2026). */
+  adjuntos?: string[];
 };
 
 const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
