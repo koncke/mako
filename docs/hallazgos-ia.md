@@ -4205,6 +4205,8 @@ corta antes») y los tests ahora preguntan qué hay antes de la llamada.
   catálogo), los gráficos con IA (`lib/graficos-ia-red.ts`; `dashboard-conclusiones` es `pii`), la transcripción de
   audio (`transcribirAudio`) y el guion de audio de Automations (`app/api/chat-agent/redactar`). Son de otras áreas: la
   regla de AGENTS.md les pide aplicarla ellos mismos.
+  (17/10: el doer ya corta, ver «La red gratis del doer de WhatsApp y los datos de clientes», más abajo; los gráficos
+  y el audio también, `red gratis salteada`. El guion de Automations sigue sin el corte.)
 - **Las otras ~50 llamadas sin red** siguen sin ella: el coordinador decide el orden sobre `docs/mapa-ia-24h.md`.
   Segunda tanda, el mismo día y sin datos de clientes (red gratis): el diagnóstico de una landing (ya la tenía desde el
   15/10; ahora con test de punta a punta), importar un archivo para armar la landing, carruseles/reels/stories
@@ -4389,7 +4391,7 @@ sólo con sus keys propias. El turno con herramientas no tiene red: para el ws1 
   `provsGratisDePlataforma`; `mako-doer-in` es `pii` en el catálogo). Es el agujero más grande de esta familia: con
   las keys de un negocio caídas, la conversación con sus leads va a las keys gratis de la agencia. Arreglarlo cambia
   lo que contesta MaKo por WhatsApp a quien no tiene keys propias (con datos de clientes se cortaría), así que se
-  escaló al coordinador en vez de tocarlo.
+  escaló al coordinador en vez de tocarlo. **Cerrado el 17/10** (la entrada que sigue a la del modelo de OpenRouter).
 - El ws1 sigue teniendo esas dos filas copiadas. Ya no se usan como suyas; borrarlas es una decisión aparte.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
@@ -4420,3 +4422,46 @@ pedidos largos (`nemotron-3-super-120b-a12b:free`); sigue existiendo y se quedan
   que falta.
 
 · *2026-10-16 chat «Onboarding» (claude3)*
+
+## La red gratis del doer de WhatsApp y los datos de clientes: se corta lo pedido, no lo que viaja (17/10/2026)
+
+**Vive en:** `lib/doer-herramientas.ts` (`turnoParaLaRed`, `llevaDatosDeClientes`, `SIN_DATOS_DE_CLIENTES`) ·
+`lib/api-mako/tipos.ts` (`DATOS_DE_CLIENTES_POR_AREA`, el campo `datosDeClientes` de cada operación) ·
+`lib/api-mako/registro.ts` (`leeDatosDeClientes`) · `lib/mako-doer-in.ts` («LA RED DE PLATAFORMA», `armarSystem`) ·
+`lib/fallo-ia-texto.ts` (`textoSinRedPorDatos`) · `tests/doer-red-datos-clientes.test.ts`
+
+El bucle propio del doer sobre `provsGratisDePlataforma` no heredaba el corte de la cascada: con las keys de un negocio
+caídas (o sin keys, que desde el 15/10 es cualquier cliente nuevo), la conversación sobre sus leads iba al plan gratis
+de Gemini y Groq de la agencia, que entrena con lo que recibe.
+
+**El diagnóstico obvio era el equivocado: «si viaja una herramienta que lee leads, se corta».** Las herramientas de
+siempre (`buscar_leads`, `ficha_lead`, `historial_whatsapp`…) viajan en CUALQUIER consulta, y «hola MaKo, ¿cómo
+estás?» se clasifica `consultar` (medido con `clasificarIntencion` + `herramientasDelTurno`). Sin keys propias, MaKo
+habría contestado «esto lleva datos de tus clientes» a un saludo y a «¿qué tengo pendiente en el plan?». Lo que se
+mira es lo que la persona PIDIÓ: el registro suma herramientas por las áreas que nombró (`delRegistro`), y si TODAS
+leen datos de clientes («¿qué leads entraron hoy?», «agéndame una reunión con Juan») se corta. Si no, la red corre SIN
+las que los leen, con el system armado para las que quedan (un prompt que nombra una que no viajó es una trampa). Y
+se corta siempre que haya una pendiente vigente con datos de clientes: su resumen va en el system.
+
+**«¿Lee datos de clientes?» lo contesta el registro, no una lista de nombres:** un `Record` por área (un área nueva no
+compila sin decidirlo) y la def pisa a su área. En las áreas «sin datos», una operación con nombre sospechoso (lead,
+llamada, chat, cobro…) tiene que declarar la marca; si no, el test cae. Lo que el registro no conoce cuenta como que sí.
+
+**El aviso no dice «Conecta tu Claude».** El turno con herramientas corre sólo con las keys baratas del negocio
+(`chatCheapTools`); la clave de Anthropic del negocio mueve sólo la cascada de texto. Mandarlo a conectar su Claude
+sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA», con el link a /integraciones.
+
+### Lo que quedó SIN hacer
+
+- **El historial del grupo viaja igual**: si en un turno anterior MaKo nombró a un lead, ese texto va en `msgs` a la
+  red. El corte es por lo que trae ESTE turno.
+- **El Dashboard entero cuenta como datos de clientes** (`metricas: true`: algunas de sus lecturas listan leads uno por
+  uno), así que «¿cuánto vendí este mes?» se corta para un negocio sin keys. Afinarlo es marcar `datosDeClientes:
+  false` operación por operación en `metricas.def.ts`.
+- **Con una pendiente de un lead, también se corta la charla** de ese grupo hasta que la pendiente vence o se resuelve.
+- **El guion de audio de Automations** (`app/api/chat-agent/redactar`) tiene su propia red sin el corte: es de
+  Automations.
+- **Nada se probó contra la red de verdad**: los turnos se arman con lo que corre, pero sin un workspace sin keys
+  mandando un WhatsApp real.
+
+· *2026-10-17 chat «Onboarding» (claude4)*

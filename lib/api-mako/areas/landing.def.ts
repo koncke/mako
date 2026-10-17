@@ -162,6 +162,7 @@ export const DEFS: readonly OperacionDef[] = [
   // lo usaba; el scroll y los clics los mide el Pixel por página.
   {
     id: 'ver_grabaciones_prueba', area: 'landing', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Grabación de una prueba',
     descripcion: 'Si la prueba del Pixel quedó grabada, cuánto duró y si ya se puede ver. La grabación se termina de guardar unos minutos después de la prueba: «lista: false» recién terminada no es un error. Para mirarla, la persona aprieta «Ver la grabación» en Integraciones → Landing (manda el link). Devuelve grabada: false si no llegó o si la grabación está apagada en el negocio.',
     parametros: [
@@ -171,6 +172,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_grabaciones_lead', area: 'landing', tipo: 'lectura',
+    datosDeClientes: true,
     titulo: 'Grabaciones de la visita de un lead',
     descripcion: 'Las grabaciones de lo que hizo UN lead en la landing: cuántas hay, cuándo, cuánto duró cada una y si ya se pueden ver, con el link a su ficha, donde se miran. Si no hay ninguna, dice POR QUÉ (grabación apagada, código viejo en la página, visita anterior a la retención…). Úsala cuando pregunten «¿qué hizo esta persona en mi página?». Necesita el id del lead.',
     parametros: [
@@ -301,6 +303,7 @@ export const DEFS: readonly OperacionDef[] = [
   // y nadie los podía leer. «Toda feature nueva va a la API de MaKo». Sin datos de quién: van por todos lados.
   {
     id: 'ver_rechazos_pago_landing', area: 'landing', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Pagos rechazados de una landing',
     descripcion: 'Cuántos pedidos del Botón de pago de una landing creada en el editor del Web Generator se rechazaron en los últimos días, y por qué: tope_email (la misma persona repitió muchas veces), techo (la landing pasó los pedidos por hora), dominio_ajeno (el formulario vino de otro dominio) o producto (un producto que la landing publicada no ofrece). Sin datos de quién. sin_tabla true = todavía no se cuentan. Úsala cuando pregunten por qué no les llegan pagos de una landing. Necesita el id (de listar_landings_creadas).',
     parametros: [P_ID_CREADA, { nombre: 'dias', rotulo: 'Días', tipo: 'number', entero: true, minimo: 1, maximo: 400, descripcion: 'Cuántos días mirar, contando hoy. Por defecto 30.' }],
