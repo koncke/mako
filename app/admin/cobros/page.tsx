@@ -22,6 +22,8 @@ import { PRECIO_GROWTH, PRECIO_GRUPAL, PRECIO_PRO } from '@/app/admin/estrategia
 import { cobrosDeMakoAction } from './actions';
 import VenderPlan from './VenderPlan';
 import ListaCobrosMako from './ListaCobrosMako';
+import PrecioClienteAgencia from './PrecioClienteAgencia';
+import { precioClienteAgenciaAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +42,7 @@ export default async function CobrosPage() {
   }
 
   const conPasarela = datos.pasarelas.length > 0;
+  const precio = await precioClienteAgenciaAction();
   return (
     <Pagina>
       <PageHeader
@@ -57,6 +60,8 @@ export default async function CobrosPage() {
           accion={{ label: 'Ir a Integraciones', href: `/integraciones?ws=${datos.ws}` }}
         />
       )}
+      {/* El precio de un cliente de agencia (#866): con él, «Abrir cuenta» de una agencia muestra el link del primer mes. */}
+      {precio.ok && <PrecioClienteAgencia inicial={precio.precio} conMercadoPago={datos.pasarelas.includes('mercadopago')} />}
       {(conPasarela || datos.cobros.length > 0) && <ListaCobrosMako cobros={datos.cobros} truncado={datos.truncado} />}
     </Pagina>
   );

@@ -16,7 +16,7 @@
 
 import { useEffect, useState, useTransition, type CSSProperties } from 'react';
 import { Button, Confirm, Toast, useToast } from '@/app/_ui';
-import { cobradoDelLead, esCuotaDevuelta, type CuotaParaCobrado } from '@/lib/cobrado-lead';
+import { cobradoDelLead, esCuotaDeBaja, esCuotaDevuelta, noEsDeuda, type CuotaParaCobrado } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead, renglonDeCuota, usd } from '@/lib/pagos-vistazo';
 import { ajustarSobre, type PlanUniforme } from '@/lib/pagos-campo';
 import { planEnLead } from '@/lib/muestra-pagos';
@@ -25,7 +25,7 @@ import { marcaDato } from '@/lib/datos-aviso';
 import type { VentaTipo } from '@/lib/venta-tipo';
 import type { Pago } from '@/lib/pagos';
 import { ajustarPlanAction, cambiarEstadoSuscripcionAction, cortarRecordatoriosCuotaAction, editarCuotaAction, guardarCuotasAction, guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
-import { proteccionesDeCuotasAction, quitarCuotaAction } from './cuotas-actions';
+import { bajaDelClienteAction, proteccionesDeCuotasAction, quitarCuotaAction } from './cuotas-actions';
 import type { Proteccion } from '@/lib/pagos-campo';
 import { cancelarSuscripcionAction } from '@/app/crm/[id]/cobros-actions';
 import { quitarSinCobroAction } from '@/app/crm/[id]/deal-actions';
@@ -141,8 +141,10 @@ export function Cuotas(props: PropsBloque) {
   const [, start] = useTransition();
   const [armando, setArmando] = useState(false);
   const pagos = [...data.pagos].sort((a, b) => a.numero - b.numero);
-  const vivas = pagos.filter((q) => !esCuotaDevuelta(q));
+  const vivas = pagos.filter((q) => !noEsDeuda(q));
   const devueltas = pagos.filter((q) => esCuotaDevuelta(q));
+  // Las de un cliente que se dio de baja (#871): se ven, sin botón, y no son deuda.
+  const deBaja = pagos.filter((q) => esCuotaDeBaja(q));
   const conPlan = planEnLead(lead);
   // Lo que protege a cada impaga (un link sin pagar, un recordatorio corriendo): el server no deja editarla, y el
   // renglón lo dice antes y ofrece cortar el recordatorio. Se relee cuando cambian las cuotas.
@@ -184,9 +186,26 @@ export function Cuotas(props: PropsBloque) {
   });
   const becado = lead.venta_tipo === 'sin_cobro';
 
+  // «Baja del cliente» (#871): lo que no pagó deja de ser deuda y lo cobrado queda. Con confirmación, y se deshace.
+  // Una suscripción no: se cancela en su bloque.
+  const impagasVivas = vivas.filter((q) => !q.pagado);
+  const puedeDarDeBaja = !becado && lead.venta_tipo !== 'suscripcion' && impagasVivas.length > 0;
+  const [preguntarBaja, setPreguntarBaja] = useState(false);
+  const [enBaja, setEnBaja] = useState(false);
+  const baja = (deshacer: boolean) => start(async () => {
+    setEnBaja(true);
+    const r = await bajaDelClienteAction(lead.id, deshacer);
+    setEnBaja(false);
+    setPreguntarBaja(false);
+    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+    refrescarCobros(lead.id);
+    ctx.releer();
+    show(deshacer ? 'Baja deshecha' : 'Cliente dado de baja', deshacer ? undefined : () => baja(true));
+  });
+
   // «Sólo la próxima»: la vencida más vieja o la que vence primero, y cuántas más hay.
   const proxima = vivas.filter((q) => !q.pagado && q.fecha_esperada).sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)))[0] ?? null;
-  const lista = diseno === 'proxima' ? (proxima ? [proxima] : []) : [...vivas, ...devueltas];
+  const lista = diseno === 'proxima' ? (proxima ? [proxima] : []) : [...vivas, ...deBaja, ...devueltas];
 
   return (
     <Tarjeta titulo={titulo} marca={marcaDato('plan')}
@@ -206,7 +225,7 @@ export function Cuotas(props: PropsBloque) {
           const montoEditable = r.editable && !prot.includes('link') && !prot.includes('recordatorio');
           const fechaEditable = r.editable && !prot.includes('recordatorio');
           return (
-            <div key={q.id} style={{ ...renglon, borderColor: BORDE[r.estado] ?? 'var(--border)', opacity: r.estado === 'devuelta' ? 0.7 : 1 }}>
+            <div key={q.id} style={{ ...renglon, borderColor: BORDE[r.estado] ?? 'var(--border)', opacity: r.estado === 'devuelta' || r.estado === 'baja' ? 0.7 : 1 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{r.nombre}</span>
                 <span style={{ fontSize: 14, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', minWidth: 70 }}>
@@ -240,6 +259,21 @@ export function Cuotas(props: PropsBloque) {
         })}
       </div>
       {diseno === 'proxima' && vivas.filter((q) => !q.pagado).length > 1 && <p style={nada}>Y {vivas.filter((q) => !q.pagado).length - 1} cuota(s) más.</p>}
+      {deBaja.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, color: 'var(--dim)' }}>
+            Se dio de baja{deBaja[0].baja_at ? ` el ${fmtDDMMYYYY(deBaja[0].baja_at.slice(0, 10))}` : ''} · quedó sin cobrar {usd(deBaja.reduce((s, q) => s + Number(q.monto_usd), 0))}
+          </span>
+          {!editando && <Button variant="tertiary" size="sm" loading={enBaja} onClick={() => baja(true)}>Deshacer la baja</Button>}
+        </div>
+      )}
+      {preguntarBaja && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Confirm title="¿Se dio de baja?" confirmLabel="Dar de baja" cancelLabel="No" loading={enBaja}
+            message={`Lo que no pagó (${usd(impagasVivas.reduce((s, q) => s + Number(q.monto_usd), 0))}) deja de ser deuda y no se le recuerda. Lo cobrado queda.`}
+            onCancel={() => setPreguntarBaja(false)} onConfirm={() => baja(false)} />
+        </div>
+      )}
       {aQuitar && (
         <div onClick={(e) => e.stopPropagation()}>
           <Confirm title={`¿Quitar ${renglonDeCuota(aQuitar, ctx.hoy).nombre.toLowerCase()}?`} confirmLabel="Quitarla" cancelLabel="No"
@@ -256,6 +290,7 @@ export function Cuotas(props: PropsBloque) {
                 <Button variant="secondary" size="sm" onClick={() => setArmando(true)}>{conPlan ? 'Cambiar el plan' : 'Armar el plan'}</Button>
               )}
               <Button variant="tertiary" size="sm" onClick={cobrar.agregarCuota}>+ Agregar una cuota</Button>
+              {puedeDarDeBaja && <Button variant="tertiary" size="sm" onClick={() => setPreguntarBaja(true)}>Baja del cliente</Button>}
             </div>
           )
       )}

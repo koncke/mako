@@ -154,7 +154,9 @@ test('cada turno re-POSTea el pedido ORIGINAL con las respuestas acumuladas (y l
     { pedido: PEDIDO, modo: 'editar', secuenciaId: 7, pasos: [] });
   // El cableado: una respuesta manda el pedido de la ronda, no el rótulo que tocó.
   const turno = tramo(CHAT, 'const turno = async (', '\n  };', 7000);
-  assert.match(turno, /const enCurso = respuesta && ronda\s*\? \{ pedido: ronda\.pedido, respuestas: \[\.\.\.ronda\.respuestas, respuesta\] \}\s*: \{ pedido: dicho, respuestas: \[\] as RespuestaMako\[\] \};/);
+  // (16/10/2026: con un mensaje que traía algo más —los pedidos sueltos—, MaKo recibe sólo lo de esta automatización:
+  // `pedido`; tests/automations-pedidos-chat.test.ts.)
+  assert.match(turno, /const enCurso = respuesta && ronda\s*\? \{ pedido: ronda\.pedido, respuestas: \[\.\.\.ronda\.respuestas, respuesta\] \}\s*: \{ pedido: pedido \?\? dicho, respuestas: \[\] as RespuestaMako\[\] \};/);
   // Decimotercera: con el lienzo VACÍO crea sobre ESTA fila; con tarjetas, edita el borrador que se manda.
   assert.match(turno, /const modo = crea \? 'crear' : 'editar';\n\s+const base = modo === 'editar' \? p\.pasos : undefined;/);
   assert.match(turno, /pedido: enCurso\.pedido, modo, respuestas: enCurso\.respuestas, secuenciaId: p\.secuenciaId,/);
@@ -266,7 +268,8 @@ test('abierto al entrar: el lienzo con makoAlAbrir monta el chat; ?mako=1 y la f
   assert.match(PERFIL, /if \(makoAlAbrir !== makoPedido\) \{\s*setMakoPedido\(makoAlAbrir\);\s*if \(makoAlAbrir && !editandoIA\) abrirMako\(\);\s*\}/);
   // La lista lo pasa a ESA automatización (después de elegirla: `cambiarA` lo limpia).
   assert.match(LISTA, /export type AbrirSecuencia = \{ id: number; mako\?: true; pedido\?: string \};/);
-  assert.match(LISTA, /setAbrirVisto\(abrir\);\s*elegir\(abrir\.id\);\s*setMakoPara\(abrir\.mako \? abrir\.id : null\);/);
+  // (17/10/2026: «crea otra» desde el chat de la abierta cambia sin la pregunta de lo no publicado: `creaDesdeElChat`.)
+  assert.match(LISTA, /setAbrirVisto\(abrir\);\s*if \(!creaDesdeElChat\.current\) elegir\(abrir\.id\);\s*else if \(abrir\.id !== selId\) \{ setSinPublicar\(false\); cambiarA\(abrir\.id\); \}\s*(?:\/\/[^\n]*\n\s*)*setMakoPara\(abrir\.mako \? abrir\.id : null\);/);
   assert.match(LISTA, /makoAlAbrir=\{makoPara === sel\.id\}/);
   assert.match(tramo(LISTA, 'const cambiarA = (id: number) => {', '\n  };', 900), /setMakoPara\(null\);/);
   // La tab: la fila que nace con un pedido de «Pídeselo a MaKo» (decimotercera, punto 2), y el link `?sec=<id>&mako=1`.

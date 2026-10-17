@@ -2155,9 +2155,10 @@ export async function silenciarEntregaDeEtapa(
 
 /**
  * La etapa EFECTIVA del lead (`pipelineStageOf`: el override o la derivada) y su embudo, para el evento de la
- * RESERVA (undécima tanda, M1). Se lee DESPUÉS de que el webhook escribió la reserva, así que es la etapa a la que
- * la reserva lo acaba de llevar. `null` = no se pudo leer: el evento sigue sólo con los triggers de antes (y lo de
- * la etapa lo levanta el barrido de la hora), nunca con «todas».
+ * RESERVA (undécima tanda, M1) y, desde el 17/10/2026, el del LEAD NUEVO (#868: nace en «Lead entrante»). Se lee
+ * DESPUÉS de que el webhook (o el poll) escribió el lead, así que es la etapa a la que acaba de llegar. `null` = no se
+ * pudo leer: el evento sigue sólo con los triggers de antes (y lo de la etapa lo levanta el barrido de la hora), nunca
+ * con «todas».
  */
 async function etapaDeLaReserva(db: Awaited<ReturnType<typeof getTenantDb>>, leadId: number): Promise<{ etapa: string; funnelId: number | null } | null> {
   const { data, error } = await db.from('leads')
@@ -2190,7 +2191,9 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     // automatizaciones cuyo CRON es la etapa EFECTIVA del lead (`etapa_actual`). Una reserva cambia la etapa
     // DERIVADA sin escribir `pipeline_stage`, así que sin esto «Un Lead Agendó Llamada» (CRON «Agenda R1») entraba
     // por el barrido de la hora: el aviso «Nuevo agendado» y la preparación, hasta una hora tarde.
-    const claves = evento === 'agenda_nueva' ? [...(TRIGGERS_POR_EVENTO[evento] ?? []), TRIGGER_ETAPA] : TRIGGERS_POR_EVENTO[evento] ?? [];
+    // Y el LEAD NUEVO (17/10/2026, #868): «Un Lead Entró» cuelga de «Lead entrante» y sólo entraba por el barrido.
+    const conSuEtapa = evento === 'agenda_nueva' || evento === 'lead_nuevo';
+    const claves = conSuEtapa ? [...(TRIGGERS_POR_EVENTO[evento] ?? []), TRIGGER_ETAPA] : TRIGGERS_POR_EVENTO[evento] ?? [];
     if (!claves.length) return 0;
     // VARIOS CRON (mig 0241): una vista por CRON; un Recurrente (con horario) no responde a eventos.
     const todas = (await getSecuenciasActivas()).flatMap((s) => vistasPorDisparador(s)).filter((s) => claves.includes(s.trigger_tipo) && !s.cron);
@@ -2218,7 +2221,7 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     // tolera el id que no existe cayendo a `propio`, que no junta a nadie de más).
     // La RESERVA (M1) pregunta lo mismo con la etapa EFECTIVA del lead y su embudo, leídos acá; las de la familia
     // de antes siguen de largo (`deLaEtapaYLasDemas`). Sin poder leer el lead, sólo las de antes.
-    if (evento === 'etapa' || evento === 'agenda_nueva') {
+    if (evento === 'etapa' || conSuEtapa) {
       const donde = evento === 'etapa' ? { etapa: ctx?.etapa ?? null, funnelId: ctx?.funnelId ?? null } : await etapaDeLaReserva(supabase, leadId);
       const conAmbito: Array<(typeof delEvento)[number] & { ambito: AmbitoFunnel }> = [];
       for (const sec of delEvento) {

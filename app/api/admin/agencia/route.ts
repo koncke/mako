@@ -20,9 +20,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { pendientesDeAprobar, agenciasHabilitadas, altasPendientes, todasLasCarteras } from '@/lib/agencia';
 import { esWsValido, ESTADOS_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
-import { listarUsuarios } from '@/lib/usuarios';
-import { invitarPorEmail } from '@/lib/invitaciones';
-import { getWorkspace } from '@/lib/workspace';
+import { avisarClienteAprobado } from '@/lib/agencia-habilitar';
 import { revocarAgenteTokenSiPerdioAcceso } from '@/lib/agente-token';
 
 export const dynamic = 'force-dynamic';
@@ -94,45 +92,9 @@ export async function POST(req: NextRequest) {
   // acceso: el token del propio dueño del negocio no se toca. Best-effort (no tira).
   if (estado !== 'aprobado') await revocarAgenteTokenSiPerdioAcceso(clienteWs);
 
-  /**
-   * APROBAR ES EL MOMENTO EN QUE EL CLIENTE SE ENTERA.
-   *
-   * ⚠️ ANTES NO PASABA NADA, y se midió: Código abrió una cuenta el 28/09, el super
-   * admin la aprobó, y no le llegó nada a nadie — el workspace quedó con cero usuarios.
-   * Ahora el alta CREA a su admin (silencioso) y la firma es la que le manda el acceso.
-   * Es la regla de la casa: la agencia PROPONE la cuenta, una persona la confirma, y
-   * recién ahí existe para el de afuera. Avisarle antes sería contarle que tiene un
-   * acceso que todavía no está autorizado.
-   *
-   * ⚠️ Y EL MAIL NO PUEDE TUMBAR LA APROBACIÓN: si falla, la fila ya está aprobada y
-   * lo correcto es decirlo y ofrecer reenviarlo desde su equipo, no deshacer una
-   * decisión que se tomó. Por eso el aviso viaja en la respuesta en vez de un 500.
-   */
-  let aviso: { tono: 'ok' | 'warn'; texto: string } | null = null;
-  if (estado === 'aprobado') {
-    try {
-      const admin = (await listarUsuarios()).find(
-        (u) => u.workspace_id === clienteWs && (u.rol_ws ?? 'admin') === 'admin',
-      );
-      if (!admin) {
-        aviso = { tono: 'warn', texto: 'Aprobado, pero ese cliente no tiene ningún usuario: nadie puede entrar todavía.' };
-      } else if (admin.invitacion_enviada_at) {
-        // Ya se le avisó alguna vez: no se le escribe de nuevo por una re-aprobación.
-        aviso = { tono: 'ok', texto: `Aprobado. A ${admin.email} ya se le había mandado el acceso.` };
-      } else {
-        const ws = await getWorkspace(clienteWs);
-        const inv = await invitarPorEmail({ email: admin.email, nombre: admin.nombre, workspace: ws?.nombre, rolWs: admin.rol_ws });
-        // ⚠️ `inv.enviado`, NO `inv`: `invitarPorEmail` devuelve SIEMPRE un objeto, también
-        // cuando el mail no salió (remitente de prueba, Resend que rechaza). Con `inv ? …` la
-        // pantalla decía «Se le mandó el acceso» sobre un mail que nunca existió (06/10/2026).
-        aviso = inv.enviado
-          ? { tono: 'ok', texto: `Aprobado. Se le mandó el acceso a ${admin.email}.` }
-          : { tono: 'warn', texto: `Aprobado, pero no pude mandarle el acceso a ${admin.email}${inv.error ? ` (${inv.error})` : ''}. Reenvíaselo desde su equipo.` };
-      }
-    } catch (e) {
-      aviso = { tono: 'warn', texto: `Aprobado, pero falló el aviso al cliente: ${e instanceof Error ? e.message : String(e)}` };
-    }
-  }
+  // APROBAR ES EL MOMENTO EN QUE EL CLIENTE SE ENTERA. El aviso vive en lib/agencia-habilitar.ts desde el 17/10/2026,
+  // porque el PAGO del primer mes también aprueba (#866) y tiene que decir lo mismo. El mail no tumba la aprobación.
+  const aviso = estado === 'aprobado' ? await avisarClienteAprobado(clienteWs) : null;
 
   return NextResponse.json({ ok: true, fila: data, aviso });
 }

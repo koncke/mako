@@ -34,6 +34,7 @@ asignar_closer_setter
 asignar_oferta_lead
 audios_requeridos
 avisar_al_equipo
+baja_del_cliente
 borrar_analisis_landing
 borrar_avatar_negocio
 borrar_borrador_landing

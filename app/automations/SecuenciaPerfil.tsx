@@ -165,7 +165,7 @@ export type FrenoDeProbar = FrenoDelFlujo & { medio?: Medio; linea?: string | nu
 /** El ícono de cada opción de la «Reentrada» (del set de la casa). */
 const ICONO_REENTRADA: Readonly<Record<Reentrada, string>> = { una_vez: 'check', otra_reunion: 'calendario', siempre: 'repetir' };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako, onMakoTrabajando }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako, onMakoTrabajando, onCrearOtra, onListaCambio }: {
   /**
    * EL CHAT DE MaKo ESTÁ ABIERTO (decimocuarta tanda, punto 3: «El chat de MaKo, debe ser como los otros chats, que se
    * abran al costado, no en el medio del flujo»). Lo lee la tab para reservarle el muelle de la DERECHA, el de «Probar»
@@ -177,6 +177,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * terminó»). La tab espera a que termine para abrir el recorrido (`useRecorridoAutomations`, ChatAgentApp).
    */
   onMakoTrabajando?: (trabajando: boolean) => void;
+  /** Los pedidos sueltos del chat de MaKo (16/10/2026, ./pedidos-chat.ts): crear OTRA por la puerta de «Pídeselo a MaKo». */
+  onCrearOtra?: (pedido: string) => Promise<boolean>;
+  /** Se eliminó o volvió OTRA automatización desde el chat: la lista se vuelve a leer. */
+  onListaCambio?: () => void;
   /**
    * ABRIR CON EL CHAT DE MaKo ABIERTO (duodécima tanda, §2.5 y §3.6): la recién creada con «Pídeselo a MaKo» y el link
    * `?sec=<id>&mako=1` (también el de la API). Se mira el FLANCO (false → true), también con el lienzo ya montado, y
@@ -1080,7 +1084,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         <div data-crear-ia="editar" data-muelle="mako" style={{ position: 'absolute', ...muelleChat, display: probarAbierto ? 'none' : 'flex', flexDirection: 'column', zIndex: chatTrabajando ? Z_CHAT_ENCIMA : 4 }}>
           <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
             <ChatMako secuenciaId={secuencia.id} pasos={pasos} publicadas={secuencia.pasos?.length ?? 0} onListo={alListoIA} onCerrar={() => setEditandoIA(false)}
-              onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)} />
+              onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)}
+              nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} />
           </div>
         </div>
       )}

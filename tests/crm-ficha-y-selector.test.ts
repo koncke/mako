@@ -295,8 +295,8 @@ test('el selector de producto llega al borde, alineado con «+ Nuevo lead»', ()
   const orden = ['<SelectorFunnel', '<VistaSelector', '<Buscador', '<CrmFilterMenu', '<AccionesHeader'].map((x) => fila.indexOf(x));
   assert.ok(orden.every((i) => i > 0), `falta un control de la fila: ${orden.join(', ')}`);
   assert.deepEqual([...orden].sort((a, b) => a - b), orden, 'el orden de la fila es funnel · vista · buscar · filtrar · acciones');
-  // El cubo: el ícono fijo del desplegable, el `producto` del set de los menús.
-  assert.match(bloque, /icono=\{<IconoMenu nombre="producto" size=\{15\} \/>\}/, 'el desplegable de funnels perdió el cubo');
+  // El cubo: el ícono fijo del desplegable, el del funnel en toda la app (app/_ui/icono-funnel.ts).
+  assert.match(bloque, /icono=\{<IconoFunnel \/>\}/, 'el desplegable de funnels perdió el cubo');
   // Y adentro de las acciones, «+ Nuevo lead» primero y el «⋯» al final.
   const acc = tb.slice(tb.indexOf('export function AccionesHeader'), tb.indexOf('export function VistaSelector'));
   assert.ok(acc.indexOf('+ Nuevo lead') > 0 && acc.indexOf('+ Nuevo lead') < acc.indexOf('<KebabIcon />'), 'el «⋯» va a la derecha del todo, después de «+ Nuevo lead»');

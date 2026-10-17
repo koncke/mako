@@ -420,8 +420,9 @@ function ChatAgentInner() {
   // lienzo. Si la fila no se pudo crear, el pedido no se pierde: vuelve a la barra de la galería (`pedidoSinCrear`).
   // Si MaKo falla después, la fila queda (vacía, pausada) con el error en su chat y el pedido de vuelta en la barra: no
   // es una fantasma, es una automatización a la que se le puede volver a pedir.
+  // Contesta si la fila nació (17/10/2026: la burbuja de «crea otra» del chat de MaKo no dice «Creada» sin saberlo).
   const crearNueva = async (pedido?: string) => {
-    if (creandoNueva.current) return;
+    if (creandoNueva.current) return false;
     creandoNueva.current = true;
     setErrCrear(null);
     const temporal = -Date.now();
@@ -429,7 +430,7 @@ function ChatAgentInner() {
     setAbrirSec({ id: temporal });
     try {
       const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_vacia' }) })).json();
-      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); if (pedido) setPedidoSinCrear(pedido); return; }
+      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); if (pedido) setPedidoSinCrear(pedido); return false; }
       // (Acá se guardaba `arranque`: el tipo de CRON elegido en «¿Qué la dispara?» del modal, que abría su CRON en
       // ese tipo. Se fue con esos botones en la décima tanda: «eso ya lo hacemos dentro en el CRON».)
       const id = Number(r.secuenciaId);
@@ -438,7 +439,8 @@ function ChatAgentInner() {
       // monta con el chat abierto y el pedido puesto.
       if (pedido) { setPedidoSinCrear(null); setAbrirSec({ id, mako: true, pedido }); }
       await load();
-    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); if (pedido) setPedidoSinCrear(pedido); } finally { setCreando(null); creandoNueva.current = false; }
+      return true;
+    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); if (pedido) setPedidoSinCrear(pedido); return false; } finally { setCreando(null); creandoNueva.current = false; }
   };
   /** «＋ Nueva»: la galería. «Lienzo en blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia). */
   const abrirGaleria = () => { setErrCrear(null); setGaleria(true); };
@@ -775,6 +777,8 @@ function ChatAgentInner() {
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
           abrir={abrirSec} onElegida={escribirSec} onMakoTrabajando={setMakoTrabajando}
+          /* Los pedidos sueltos del chat de MaKo (16/10/2026): «créame otra…» entra por la puerta de «Pídeselo a MaKo». */
+          onCrearOtra={crearNueva}
           handoffs={sinCaso}
           /* EL MENÚ, antes del buscador de la lista (undécima tanda, punto 9): «Configuraciones» (el horario de
              oficina y los límites, en un modal: el admin edita, el resto ve) y «Tutorial» (el recorrido). Son de la

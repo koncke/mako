@@ -70,6 +70,7 @@ import { useImperativeHandle, useState, useTransition } from 'react';
 import type { CSSProperties, Ref } from 'react';
 import { Confirm, SANS, MONO } from '@/app/_ui';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
+import { IconoFunnel } from '@/app/_ui/iconos-menu';
 import { Dropdown } from '@/app/components/Dropdown';
 import type { Stage } from '@/lib/pipeline';
 import type { MiembroEquipo } from './actions';
@@ -119,13 +120,6 @@ function IconoPersona() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-function IconoProducto() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M20.6 7.8 12 3 3.4 7.8 12 12.6z" /><path d="M3.4 7.8v8.4L12 21v-8.4" /><path d="M20.6 7.8v8.4L12 21" />
     </svg>
   );
 }
@@ -370,7 +364,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
           {destinos.length > 0 && (
             <Dropdown
               value="" resetAfterSelect placeholder="Funnel" ariaLabel={`Agregar ${cuantos} a otro funnel`}
-              icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
+              icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoFunnel /></span>}
               buttonStyle={estiloDrop}
               options={destinos.map((p) => ({ value: String(p.fid ?? 'default'), label: p.nombre }))}
               onChange={(v) => agregarAFunnel(v === 'default' ? null : Number(v))} />
