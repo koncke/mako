@@ -119,7 +119,7 @@ export function CarouselsM({ perfilCargado }: { perfilCargado: boolean }) {
     <>
       {!perfilCargado && (
         <ListaM>
-          <FilaM icono="cerebro" titulo="MaKo todavía no conoce tu negocio" segunda="Sin eso, los carruseles salen genéricos" href={rutaSeccion('archivero')} />
+          <FilaM icono="cerebro" titulo="MaKo todavía no conoce tu negocio" segunda="Sin eso, salen genéricos" href={rutaSeccion('archivero')} />
         </ListaM>
       )}
 

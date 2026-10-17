@@ -6,3 +6,4 @@
 .m-admin-copywriting-ejemplo { padding: 2px 4px 8px; }
 [data-m] .m-admin-copywriting-fuente { margin: 0 0 10px; font-size: var(--fs-sm); color: var(--dim); }
 [data-m] .m-admin-copywriting-texto { margin: 0; font-size: 16px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.m-admin-copywriting-sembrar { margin-top: 12px; }

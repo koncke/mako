@@ -50,9 +50,20 @@
 }
 /* El reproductor del motor llena lo que queda arriba. */
 .m-video-editor-escenario { position: relative; flex: 1; min-height: 200px; padding: 0 6px; }
+/* ⚠️ Del reproductor de escritorio (app/video-editor/_opencut/preview/components) el teléfono esconde su cabecera
+   («Reproductor ≡», cabecera.tsx) y su fila de abajo (toolbar.tsx): el tiempo HH:MM:SS:FF y sus cuatro menús no entran
+   en 390 px y se pisaban con ▶ (medido 17/10/2026). ▶ y el tiempo van en la fila del cabezal. Se eligen por sus
+   clases de Tailwind: tests/m-creacion.test.ts falla si esas clases cambian en el motor (y el teléfono las mostraría). */
+.m-video-editor-escenario [class~="bg-[var(--cc-panel-head)]"],
+.m-video-editor-escenario [class~="grid-cols-[1fr_auto_1fr]"] { display: none; }
 
 /* El cabezal: el tiempo, la barra para arrastrar y el total. */
-.m-video-editor-cabezal { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 14px 2px; }
+.m-video-editor-cabezal { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 14px 2px 6px; }
+.m-video-editor-play {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 999px;
+  background: none; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.m-video-editor-play:disabled { opacity: .35; }
 .m-video-editor-cabezal__t { flex: none; min-width: 38px; font-size: 12px; font-variant-numeric: tabular-nums; opacity: .8; text-align: center; }
 .m-video-editor-cabezal input { flex: 1; min-width: 0; height: 44px; accent-color: var(--primary); }
 
@@ -90,8 +101,8 @@
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .m-video-editor-herramienta:disabled { opacity: .35; cursor: default; }
-/* El ícono de Rehacer es la flecha del set: se gira para que apunte hacia adelante. */
-.m-video-editor-herramienta[data-h="rehacer"] svg { transform: rotate(-90deg); }
+/* Deshacer es la flecha circular del set, espejada (Rehacer, la misma sin espejar). */
+.m-video-editor-herramienta[data-h="deshacer"] svg { transform: scaleX(-1); }
 .m-video-editor-compu { flex: none; margin: 0; padding: 0 14px 6px; font-size: 11px; line-height: 1.4; opacity: .55; text-align: center; }
 
 /* ── Exportar: la capa con el avance y, al terminar, «Guardar en el teléfono» ── */

@@ -91,7 +91,8 @@ export function InicioImagenM({ disenos: iniciales, tamanos }: { disenos: Resume
       )}
 
       {disenos.length === 0 ? (
-        <VacioM frase="Todavía no tienes diseños." accion={{ rotulo: 'Crear un diseño', onClick: () => { setError(''); setHoja('crear'); } }} />
+        // Sin botón propio: el «+» de abajo es el que crea (dos botones para lo mismo, no).
+        <VacioM frase="Todavía no tienes diseños." />
       ) : visibles.length === 0 ? (
         <VacioM frase="Ningún diseño con ese nombre." />
       ) : (

@@ -17,7 +17,7 @@
 import './admin-copywriting.css';
 import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
-import { HOME_MOVIL } from '@/lib/movil-rutas';
+import { HOME_MOVIL, RUTA_MAS } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
 import { listEjemplos, metodoSembrado } from '@/lib/copywriting-metodo';
 import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
@@ -34,7 +34,7 @@ export default async function CopyMethodPagina() {
   const datos = await Promise.all([metodoSembrado(), listEjemplos()]).catch(() => null);
   return (
     <PantallaM>
-      <CabeceraM titulo="Copy Method" padre={{ href: '/m/copywriting', label: 'Ads Writer' }} />
+      <CabeceraM titulo="Copy Method" padre={{ href: RUTA_MAS, label: 'More' }} />
       <SeccionesTabM etiqueta={nombreTab('copywriting')} secciones={secciones} activa="admin-copywriting" />
       {datos
         ? <CopyMethodM metodo={datos[0]} ejemplos={datos[1]} />

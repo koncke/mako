@@ -83,18 +83,22 @@ export function CopyMethodM({ metodo, ejemplos }: { metodo: boolean; ejemplos: E
   return (
     <>
       <SeccionM titulo="Metodología">
+        {/* El estado es una fila; volver a sembrar escribe el conocimiento de TODOS los clientes, así que va en su
+            botón, como en escritorio, y no en el toque de la fila. */}
         <ListaM>
           <FilaM
             icono="contexto"
             titulo="Metodología de copywriting"
             segunda="Eleva toda la redacción de MaKo"
             pill={<PildoraM tono={metodo ? 'good' : 'warn'}>{metodo ? 'Cargada' : 'Sin cargar'}</PildoraM>}
-            enCurso={ocupado === 'sembrar'}
-            deshabilitada={!enLinea || ocupado != null}
-            onClick={() => void sembrar()}
-            etiqueta={metodo ? 'Volver a sembrar la metodología' : 'Cargar la metodología'}
           />
         </ListaM>
+        <div className="m-admin-copywriting-sembrar">
+          <Button variant={metodo ? 'secondary' : 'primary'} size="lg" full loading={ocupado === 'sembrar'}
+            disabled={!enLinea || ocupado != null} onClick={() => void sembrar()}>
+            {metodo ? 'Volver a sembrar' : 'Cargar metodología'}
+          </Button>
+        </div>
       </SeccionM>
 
       <SeccionM titulo="Ejemplos reales">

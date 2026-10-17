@@ -5,8 +5,9 @@
 // =============================================================================
 // Copiado de la estructura del editor de CapCut para el teléfono, oscuro y a pantalla completa:
 //   · arriba, ✕ (vuelve a los proyectos), el nombre y «Exportar»;
-//   · el reproductor (el MISMO de escritorio: PreviewPanel del motor, con su fila de tiempo y ▶);
-//   · el cabezal, para moverse por el video con el dedo;
+//   · el reproductor (el MISMO de escritorio: PreviewPanel del motor; su cabecera «Reproductor ≡» y su fila de abajo se
+//     esconden, ./video-editor.css);
+//   · ▶ y el cabezal, para moverse por el video con el dedo;
 //   · la tira de clips de la pista principal (tocar uno lo elige y lleva el cabezal a su inicio) y el «+» del final,
 //     que agrega clips de la galería del teléfono, como el «+» de la línea de tiempo de CapCut;
 //   · abajo, la barra de herramientas que se desliza: Dividir · Eliminar · Deshacer · Rehacer · Agregar.
@@ -138,15 +139,25 @@ function Editor() {
   );
 }
 
-/** El cabezal: arrastrar con el dedo mueve el video (lo que en CapCut es deslizar la línea de tiempo). */
+/**
+ * La fila de reproducir de CapCut del teléfono: ▶ y el cabezal, que se arrastra con el dedo (lo que en CapCut es
+ * deslizar la línea de tiempo). Reemplaza la fila de abajo del reproductor de escritorio, que el teléfono esconde
+ * (./video-editor.css: el tiempo en HH:MM:SS:FF y sus cuatro menús no entran en 390 px y se pisaban con ▶).
+ */
 function Cabezal() {
   const editor = useEditor();
+  const reproduciendo = useEditor((e) => e.playback.getIsPlaying());
   const ahora = useEditor((e) => e.playback.getCurrentTime());
   const total = useEditor((e) => e.timeline.getTotalDuration());
   const max = Math.max(0, mediaTimeToSeconds({ time: total }));
   const valor = Math.min(max, mediaTimeToSeconds({ time: ahora }));
   return (
     <div className="m-video-editor-cabezal">
+      {/* ▶ / ❚❚: la acción del motor (`invokeAction('toggle-play')`, la barra espaciadora de escritorio). */}
+      <button type="button" className="m-video-editor-play" aria-label={reproduciendo ? 'Pausar' : 'Reproducir'}
+        disabled={max <= 0} onClick={() => invokeAction('toggle-play')}>
+        <Icon name={reproduciendo ? 'pausa' : 'play'} size={22} />
+      </button>
       <span className="m-video-editor-cabezal__t">{reloj(ahora)}</span>
       <input
         type="range"
@@ -233,8 +244,9 @@ function Herramientas() {
   const herramientas: Array<{ id: string; label: string; icono: string; on: () => void; apagada?: boolean }> = [
     { id: 'dividir', label: 'Dividir', icono: 'tijera', on: () => invokeAction('split') },
     { id: 'eliminar', label: 'Eliminar', icono: 'trash', on: () => invokeAction('delete-selected'), apagada: !hayElegido },
+    // La flecha circular del set: espejada es «deshacer», tal cual es «rehacer» (las dos de CapCut).
     { id: 'deshacer', label: 'Deshacer', icono: 'regenerar', on: () => invokeAction('undo'), apagada: !puedeDeshacer },
-    { id: 'rehacer', label: 'Rehacer', icono: 'flecha', on: () => invokeAction('redo'), apagada: !puedeRehacer },
+    { id: 'rehacer', label: 'Rehacer', icono: 'regenerar', on: () => invokeAction('redo'), apagada: !puedeRehacer },
   ];
   return (
     <nav className="m-video-editor-herramientas" aria-label="Herramientas" data-m-sin-pull>

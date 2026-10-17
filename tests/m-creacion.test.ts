@@ -195,3 +195,18 @@ test('abrir una pantalla de AI Avatar no gasta nada: ninguna page llama a lo que
   assert.ok(crear.includes('Cada toma gasta créditos de tu cuenta de Flow.'));
   assert.match(crear, /onClick=\{\(\) => void generar\(\)\}/);
 });
+
+// Roto 17/10/2026: el selector de la fila de abajo del reproductor borrado de app/m/video-editor/video-editor.css → 6/1.
+test('el editor de video del teléfono esconde la cabecera y la fila de abajo del reproductor de escritorio, por sus clases', () => {
+  // Si el motor les cambia la clase, el teléfono las vuelve a mostrar: el tiempo HH:MM:SS:FF y los cuatro menús no entran
+  // en 390 px y se pisan con ▶ (medido 17/10/2026). Este test lo dice antes.
+  const css = readFileSync(join(RAIZ, 'app/m/video-editor/video-editor.css'), 'utf8');
+  const motor: Array<[string, string]> = [
+    ['app/video-editor/_opencut/preview/components/cabecera.tsx', 'bg-[var(--cc-panel-head)]'],
+    ['app/video-editor/_opencut/preview/components/toolbar.tsx', 'grid-cols-[1fr_auto_1fr]'],
+  ];
+  for (const [archivo, clase] of motor) {
+    assert.ok(readFileSync(join(RAIZ, archivo), 'utf8').includes(clase), `${archivo} ya no usa «${clase}»: el teléfono la mostraría`);
+    assert.ok(css.includes(`.m-video-editor-escenario [class~="${clase}"]`), `video-editor.css no esconde «${clase}»`);
+  }
+});

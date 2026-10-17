@@ -137,7 +137,7 @@ export function ReelsM({ historial: inicial, perfilListo }: { historial: PiezaGu
     <>
       {!perfilListo && (
         <ListaM>
-          <FilaM icono="cerebro" titulo="MaKo todavía no conoce tu negocio" segunda="Sin eso, los guiones salen genéricos" href={rutaSeccion('archivero')} />
+          <FilaM icono="cerebro" titulo="MaKo todavía no conoce tu negocio" segunda="Sin eso, salen genéricos" href={rutaSeccion('archivero')} />
         </ListaM>
       )}
 

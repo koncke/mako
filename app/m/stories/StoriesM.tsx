@@ -71,7 +71,7 @@ export function StoriesM({ perfilListo }: { perfilListo: boolean }) {
     <>
       {!perfilListo && (
         <ListaM>
-          <FilaM icono="cerebro" titulo="MaKo todavía no conoce tu negocio" segunda="Sin eso, las stories salen genéricas" href={rutaSeccion('archivero')} />
+          <FilaM icono="cerebro" titulo="MaKo todavía no conoce tu negocio" segunda="Sin eso, salen genéricas" href={rutaSeccion('archivero')} />
         </ListaM>
       )}
 

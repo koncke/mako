@@ -1,7 +1,7 @@
 /* La barra de secciones del teléfono (SeccionesTabM.tsx). Los valores son los de `.m-seg` (app/m/m.css), con la
    tira deslizable en vez de columnas iguales que recortan. Sólo tokens de app/globals.css. */
 .barra {
-  display: flex; gap: 2px; margin: 0 0 14px; padding: 3px; border-radius: var(--r-md);
+  position: relative; display: flex; gap: 2px; margin: 0 0 14px; padding: 3px; border-radius: var(--r-md);
   background: color-mix(in srgb, var(--ink) 7%, var(--bg));
   overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch;
 }
