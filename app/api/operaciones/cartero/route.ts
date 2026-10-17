@@ -19,7 +19,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { cicloCartero, hayParaElCartero, tokenDelCarteroValido } from '@/lib/operaciones';
 import { adjuntoParaElCartero } from '@/lib/operaciones-adjuntos';
 import { guardarPasos } from '@/lib/centro-pasos-db';
-import { planDesdeElChat } from '@/lib/centro-plan-chat';
 import { CUENTA_RE } from '@/lib/operaciones-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -79,13 +78,6 @@ export async function POST(req: NextRequest) {
       if (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta)) return NextResponse.json({ error: 'falta la cuenta' }, { status: 400 });
       const chats = await guardarPasos(o.cuenta, o.pasos);
       return NextResponse.json({ ok: true, chats });
-    }
-    // ?plan=1 (cartero 1.15.4): un chat maneja el Plan de SU jefe a pedido de Martín: leer las abiertas o cerrar una.
-    // Lo que puede y lo que no, en lib/centro-plan-chat.ts (⚠️ revisión de seguridad).
-    if (req.nextUrl.searchParams.has('plan')) {
-      if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
-      const r = await planDesdeElChat(cuerpo);
-      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     const salida = await cicloCartero(token, cuerpo);
     if (!salida) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
