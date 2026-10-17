@@ -29,6 +29,7 @@ import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando }
 // (la lista se dibuja también sin ninguna automatización).
 import { MenuAutomations } from './ConfiguracionesBoton';
 import { GaleriaPlantillas, type CreadaGaleria } from './GaleriaPlantillas';
+import type { PlantillaAutomatizacion } from '@/lib/plantillas-automatizaciones';
 import { leerCopia, firmaDeCopia, tokenDeTexto } from '@/lib/flujo-copia';
 import { resumenDePegado } from './copia-flujo-cliente';
 // (Acá se importaba lib/chatbot-mensajes-mako.ts: el endpoint de Notificaciones y el link `?aviso=` de los
@@ -457,15 +458,47 @@ function ChatAgentInner() {
    * CREAR DESDE LO COPIADO (copiar flujo, 10/10/2026): el aviso al entrar a la tab y «Pegar lo copiado» del
    * modal. Nace APAGADA (lib/flujo-copia-negocio.ts); lo que no existe en este negocio queda vacío y en rojo.
    */
+  // ⚠️ CON EL CARGADOR DE «＋ NUEVA» (#882, 17/10/2026: «sea cual sea la vía... debería automáticamente crearlo y de
+  // última tener un loader»): la fila aparece YA, elegida, con el lienzo abierto y su loader, mientras el server pega.
   const crearDesdeCopia = async (texto: string) => {
+    if (creandoNueva.current) return;
+    creandoNueva.current = true;
     setErrCrear(null);
+    const temporal = -Date.now();
+    setCreando({ temporal, id: null });
+    setAbrirSec({ id: temporal });
     try {
       const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_desde_copia', copia: texto }) })).json();
       if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo pegar'); return; }
+      const id = Number(r.secuenciaId);
+      setCreando({ temporal, id });
       setErrCrear(typeof r.aviso === 'string' ? r.aviso : null);
       await load();
-      setAbrirSec({ id: Number(r.secuenciaId) });
-    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); }
+      setAbrirSec({ id });
+    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
+  };
+  /**
+   * UNA PLANTILLA, AL INSTANTE (#882, 17/10/2026): se cierra la galería y la fila aparece YA con el cargador, como
+   * «＋ Nueva». Sin la pregunta de la etapa del modal: el lienzo abre con su CRON abierto (`cron: true`) para elegirla
+   * ahí, con el MISMO desplegable. Lo que el server no pudo poner va pegado al botón (`aviso`).
+   */
+  const crearDePlantilla = async (pl: PlantillaAutomatizacion) => {
+    if (creandoNueva.current) return;
+    creandoNueva.current = true;
+    setGaleria(false);
+    setErrCrear(null);
+    const temporal = -Date.now();
+    setCreando({ temporal, id: null });
+    setAbrirSec({ id: temporal });
+    try {
+      const r = await (await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear_desde_plantilla', plantilla: pl.id }) })).json();
+      if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); return; }
+      const id = Number(r.secuenciaId);
+      setCreando({ temporal, id });
+      setErrCrear(typeof r.aviso === 'string' && r.aviso ? r.aviso : null);
+      await load();
+      setAbrirSec(pl.cron.pide ? { id, cron: true } : { id });
+    } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
   };
   /**
    * «COPIASTE UN FLUJO, ¿LO CREO?» (10/10/2026: «al entrar a la tab de automations, si detecta que tenes
@@ -797,7 +830,7 @@ function ChatAgentInner() {
         <GaleriaPlantillas productos={productos} onCerrar={() => setGaleria(false)}
           onBlanco={() => { setGaleria(false); void crearNueva(); }}
           onPegar={(t) => { setGaleria(false); void crearDesdeCopia(t); }}
-          onCreada={(r) => void alCrearDePlantilla(r)}
+          onCreada={(r) => void alCrearDePlantilla(r)} onCrearPlantilla={(pl) => void crearDePlantilla(pl)}
           onPedirAMako={pedirAMako} pedidoInicial={pedidoSinCrear} />
       )}
 

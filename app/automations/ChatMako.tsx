@@ -25,7 +25,8 @@
 //     `scrollHeight = 0`, le ponía `height: 0px` y no volvía a medir hasta que cambiara el texto. El campo quedaba en el
 //     relleno, con el ejemplo escribiéndose fuera de la vista y la barra de scroll. Ahora la barra es `ComposerWhatsApp`,
 //     que mide con el borde y tiene `minHeight`: un alto de 0 no lo colapsa.
-//   · PUNTO 4: el logo de MaKo (`MakoLogo`, el del ✦ de la cabecera de una automatización), no la estrella de texto.
+//   · PUNTO 4: el logo de MaKo, no la estrella de texto. Y desde el 17/10/2026 (punto 8 del feedback del 16/10, como el CRM
+//     en 8db1e3cbc) el MUÑECO de la tab («Automations», app/admin/operaciones/Muneco.tsx), que trabaja mientras MaKo arma.
 //   · PUNTO 7: lo que propone «MaKo te ayuda a escribirlo» en una tarjeta entra a ESTE hilo (lo guarda la ruta del ✦,
 //     app/api/chat-agent/redactar/route.ts) con una línea que dice en qué tarjeta se apretó (`tarjeta`). Si el chat
 //     está abierto, lo suma al momento (`useEscucharChatMako`, ./chat-mako-eventos.ts).
@@ -45,7 +46,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Button } from '@/app/_ui';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
-import { MakoLogo } from '@/app/_components/MakoBrand';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { transcribirNota } from '@/app/_components/useDictar';
 import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
@@ -362,7 +363,7 @@ export function ChatMako(p: ChatMakoProps) {
 
   const cabecera = (
     <div data-cabecera-mako="" style={S.cabecera}>
-      <MakoLogo size={30} animate={false} />
+      <span role="img" aria-label="MaKo" style={{ display: 'inline-flex', flex: 'none' }}><Muneco titulo="Automations" animo={trabajando ? 'trabajando' : 'despierto'} size={30} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={S.nombre}>MaKo</div>
         <div style={{ ...S.estado, color: trabajando ? 'var(--mako-ink)' : 'var(--faint)' }}>{trabajando ? ESTADO_ESCRIBIENDO : ESTADO_EN_LINEA}</div>

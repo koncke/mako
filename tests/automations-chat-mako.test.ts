@@ -265,7 +265,8 @@ test('abierto al entrar: el lienzo con makoAlAbrir monta el chat; ?mako=1 y la f
   // Por `abrirMako`, la del ✦, en el flanco y sólo si está cerrado.
   assert.match(PERFIL, /if \(makoAlAbrir !== makoPedido\) \{\s*setMakoPedido\(makoAlAbrir\);\s*if \(makoAlAbrir && !editandoIA\) abrirMako\(\);\s*\}/);
   // La lista lo pasa a ESA automatización (después de elegirla: `cambiarA` lo limpia).
-  assert.match(LISTA, /export type AbrirSecuencia = \{ id: number; mako\?: true; pedido\?: string \};/);
+  // (17/10, #882) Detrás puede venir `cron`: abrir con su CRON abierto (tests/crear-al-instante.test.ts).
+  assert.match(LISTA, /export type AbrirSecuencia = \{ id: number; mako\?: true; pedido\?: string(?:; cron\?: true)? \};/);
   assert.match(LISTA, /setAbrirVisto\(abrir\);\s*elegir\(abrir\.id\);\s*setMakoPara\(abrir\.mako \? abrir\.id : null\);/);
   assert.match(LISTA, /makoAlAbrir=\{makoPara === sel\.id\}/);
   assert.match(tramo(LISTA, 'const cambiarA = (id: number) => {', '\n  };', 900), /setMakoPara\(null\);/);

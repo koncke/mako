@@ -111,7 +111,7 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   assert.match(lista, /const makoVisible = makoAbierto && !!sel && !creandoSel && caja\.w > 0;/);
   // (15/10/2026: con la lista de contactos, «Probar» pide más ancho, `probarConContactos`; lo sigue decidiendo `muelles`.)
   assert.match(lista, /const m = calcularMuelles\(caja, \{ listaAbierta: true, probarAbierto: probarVisible \|\| makoVisible, editorAbierto: true, probarConContactos: probarVisible && probarContactos \}\);/);
-  assert.match(lista, /makoAlAbrir=\{makoPara === sel\.id\} onChatMako=\{setMakoAbierto\}/);
+  assert.match(lista, /makoAlAbrir=\{makoPara === sel\.id\}(?: cronAlAbrir=\{cronPara === sel\.id\})? onChatMako=\{setMakoAbierto\}/);
   assert.match(lista, /insetDer=\{m\.insets\.der \|\| undefined\}\n\s+muelles=\{m\}/);
   assert.match(lista, /\{probarVisible && sel && m\.probar && \(\n\s+<div data-muelle="probar" style=\{\{ position: 'absolute', left: m\.probar\.left, top: m\.probar\.top, width: m\.probar\.width, height: m\.probar\.height, zIndex: 3, display: 'flex' \}\}>\n\s+<PanelProbar\n/);
   assert.match(lista, /style=\{\{ width: '100%', height: '100%' \}\}/);

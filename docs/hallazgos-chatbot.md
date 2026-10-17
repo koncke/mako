@@ -5084,7 +5084,9 @@ historia. Eran TRES cosas apiladas, y ninguna era «la automatización está mal
 
 **Hecho después (17/10, #882):** pegar en otro negocio busca la MISMA etapa en un embudo de acá (en uno → ése; en varios →
 todos, y lo dice; en ninguno → «Elige qué la dispara»): lib/copia-disparador.ts, tests/copia-disparador.test.ts. La otra
-mitad de #882 (crear al instante con loader por cualquier vía: el chat, la plantilla, la copia) sigue sin hacer.
+mitad de #882 (crear al instante con loader por cualquier vía): HECHA el 17/10 — la plantilla y la copia usan el cargador de
+«＋ Nueva» (la fila aparece YA con el lienzo y su loader), y la plantilla ya no pregunta la etapa en el modal: el lienzo abre
+con su CRON abierto (`cronAlAbrir`). El chat ya lo hacía. Sin mirar en pantalla (tests/crear-al-instante.test.ts).
 **Sin hacer:** que una
 automatización SIN disparador no se pueda prender callada (o que la lista diga «Manual: sólo si la mandas a mano»).
 Prender #247 lo decide Joan.
@@ -5223,3 +5225,15 @@ test: `tests/crear-ia-revision-corrige.test.ts`
 (`enviarTexto`) · `lib/evolution-envio.ts` (`crearBorrador`, `enviarBorrador`) · `lib/nutricion.ts` ·
 `app/automations/FlujoLienzo.tsx` · mig `0309_wa_borradores_sin_vista_previa.sql` · test:
 `tests/whatsapp-sin-vista-previa.test.ts`
+
+## El chat de MaKo con el muñeco de la tab (17/10/2026, punto 8 del feedback del 16/10)
+
+- **Se copió del CRM (8db1e3cbc) sólo el muñeco**, no el hilo: el chat de Automations tiene OTRO modelo de mensajes (las
+  preguntas de MaKo con sus opciones, las rondas, el archivo y la copia pegada; lib/automatizacion-chat.ts y
+  lib/flujo-ia-cliente.ts) que `HiloMako` (app/_chat/, sobre app/m/mako/chat-ui.ts) no dibuja. Pasarlo entero es una
+  reescritura, y la PC no daba para mirarla en pantalla. Queda para cuando se pueda ver.
+- ⚠️ **Un `.css` importado en un componente que los tests IMPORTAN los rompe a todos** (`SyntaxError: Unexpected token '.'`:
+  Node no carga hojas de estilo). La hoja del muñeco (app/admin/operaciones/centro.css, todo con prefijo `.co-` y `.mun-`)
+  va en app/automations/page.tsx, que los tests sólo LEEN.
+
+**Vive en:** `app/automations/ChatMako.tsx` (la cabecera) · `app/automations/page.tsx` · test: `tests/chat-mako-muneco.test.ts`
