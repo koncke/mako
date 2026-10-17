@@ -10,7 +10,7 @@
 //   · app/m/operaciones/CentroAppMovil.tsx y app/m/second-brain/SecondBrainCentroM.tsx (el teléfono).
 //
 // Lo que hace: la cola y los Runners que se refrescan cada 8 s con la pestaña a la vista; los pushes de Vercel
-// DESPUÉS de dibujar; la Ticketera de cada chat; el borrador y el alcance de la caja; mandar (por mandar.ts, el ÚNICO
+// DESPUÉS de dibujar; la Ticketera de cada chat; el borrador de la caja (que nunca se pierde); mandar (por mandar.ts, el ÚNICO
 // camino firmado); y el «⋯» de cada chat (Renombrar, que también es un trabajo firmado, y Cambiar su muñeco).
 //
 // ⚠️ SIN 'use client' A PROPÓSITO, como mandar.ts: es un hook que sólo importan componentes de cliente.
@@ -19,14 +19,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  DESTINO_NUEVO, DESTINO_RE, aceptaAbrir, aceptaAdjuntos, problemaDeNombreNuevo, type AdjuntoPedido, type Alcance, type TurnoChat,
+  DESTINO_NUEVO, DESTINO_RE, aceptaAbrir, aceptaAdjuntos, problemaDeNombreNuevo, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
 import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { idLocal, problemaDeSeleccion, tipoDeElegido } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
-  comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
+  claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
@@ -36,7 +36,9 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { contestarPreguntaAction, fotoCentroAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { contestarPreguntaAction, fotoCentroAction, guardarBorradorAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
+import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
 
@@ -97,7 +99,23 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const [pushes, setPushes] = useState<LecturaPushes | null>(null);
   const [munecos, setMunecos] = useState<MunecosElegidos>(d.munecosIniciales);
   const [borradores, setBorradores] = useState<Record<string, string>>({});
-  const [alcance, setAlcance] = useState<Alcance>('solo_esto');
+  // ── El borrador nunca se pierde (17/10/2026, la B) ──────────────────────────────────────────────────────────
+  // Uno por chat, por su DIRECCIÓN (la sesión: no cambia al renombrarlo). Se guarda mientras se escribe en el navegador
+  // (localStorage) y, con más espera, en MaKo (cruza al teléfono); vuelve al abrir el chat (`cargarBorrador`, el más
+  // nuevo de los dos) y se borra sólo cuando el mensaje SALIÓ (`limpiarBorrador`). `editado`: cuándo se tocó acá por
+  // última vez, para que uno que llega de MaKo más viejo no pise lo que se está escribiendo.
+  const editado = useRef<Record<string, number>>({});
+  const relojes = useRef<Record<string, { local?: number; remota?: number }>>({});
+  const guardarLocal = (dir: string, b: Borrador) => { try { window.localStorage.setItem(claveDeBorrador(dir), JSON.stringify(b)); } catch { /* es una comodidad */ } };
+  const cargarBorrador = useCallback((c: ChatCentro, remoto: Borrador | null | undefined) => {
+    const dir = claveParaUrl(c);
+    let local: Borrador | null = null;
+    try { local = leerBorrador(JSON.parse(window.localStorage.getItem(claveDeBorrador(dir)) ?? 'null')); } catch { /* sin localStorage */ }
+    const vale = borradorQueVale(local, remoto ?? null);
+    if (!vale || (editado.current[c.clave] ?? 0) >= vale.at) return;
+    editado.current[c.clave] = vale.at;
+    setBorradores((b) => (b[c.clave] === vale.texto ? b : { ...b, [c.clave]: vale.texto }));
+  }, []);
   /** La cuenta elegida para cada chat (ausente = «Automático»): se recuerda mientras la pantalla está abierta. */
   const [cuentaDe, setCuentaDe] = useState<Record<string, string>>({});
   /** El modelo y el esfuerzo del próximo trabajo (null = «Automático»): vuelven a Automático después de mandar. */
@@ -127,14 +145,30 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
     const locales = c.miembros.filter((m) => DESTINO_RE.test(m));
     if (!locales.length) return;
-    const r = await turnosCentroAction(locales).catch(() => null);
+    const r = await turnosCentroAction(locales, claveParaUrl(c)).catch(() => null);
     if (r?.ok) {
       setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
       setPreguntas((q) => ({ ...q, [c.clave]: r.preguntas ?? [] }));
+      // El borrador de MaKo: el del teléfono, si es más nuevo que lo de acá.
+      cargarBorrador(c, r.borrador ?? null);
     }
-  }, []);
+  }, [cargarBorrador]);
   /** La conversación avisa qué chat se está mirando (o null al cerrarla). */
-  const mirar = useCallback((c: ChatCentro | null) => { mirado.current = c; if (c) void pedirTurnos(c); }, [pedirTurnos]);
+  const mirar = useCallback((c: ChatCentro | null) => {
+    mirado.current = c;
+    if (!c) return;
+    // Lo que quedó escrito en este navegador vuelve en el acto; lo de MaKo llega con los turnos.
+    cargarBorrador(c, null);
+    void pedirTurnos(c);
+    // Y los archivos que quedaron sin mandar (IndexedDB), si la caja está vacía.
+    if (!(adjuntosRef.current[c.clave]?.length)) {
+      void leerAdjuntosGuardados(claveParaUrl(c)).then((fs) => {
+        if (!fs.length || adjuntosRef.current[c.clave]?.length) return;
+        adjuntosRef.current = { ...adjuntosRef.current, [c.clave]: fs.map((f): AdjuntoCaja => ({ id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f) })) };
+        setAdjuntos(adjuntosRef.current);
+      });
+    }
+  }, [pedirTurnos, cargarBorrador]);
   const turnosDe = (c: ChatCentro): TurnoChat[] => turnos[c.clave] ?? [];
   const preguntasDe = (c: ChatCentro): PreguntaChat[] => preguntas[c.clave] ?? [];
 
@@ -211,7 +245,31 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const cuentasDe = (c: ChatCentro) => ({ opciones: cuentasDelChat(c, carteros, ahora), automatica: sesionAutomatica(c, carteros, ahora)?.cuenta ?? null });
   const envioDe = (c: ChatCentro): Envio => comoSale(destinoDeChat(c), carteros, claveFirma, ahora);
   const borradorDe = (clave: string) => borradores[clave] ?? '';
-  const ponerBorrador = (clave: string, t: string) => setBorradores((b) => ({ ...b, [clave]: t }));
+  const direccionDe = (clave: string) => { const c = chats.find((x) => x.clave === clave); return c ? claveParaUrl(c) : null; };
+  const ponerBorrador = (clave: string, t: string) => {
+    setBorradores((b) => ({ ...b, [clave]: t }));
+    const dir = direccionDe(clave);
+    if (!dir) return;
+    const at = Date.now();
+    editado.current[clave] = at;
+    const e = relojes.current[clave] ?? (relojes.current[clave] = {});
+    window.clearTimeout(e.local); window.clearTimeout(e.remota);
+    e.local = window.setTimeout(() => guardarLocal(dir, { texto: t, at }), ESPERA_LOCAL_MS);
+    e.remota = window.setTimeout(() => { void guardarBorradorAction(dir, t, at).catch(() => null); }, ESPERA_REMOTA_MS);
+  };
+  /** Después de que el mensaje SALIÓ: la caja vacía, acá, en MaKo (en el acto, sin espera) y sus archivos guardados. */
+  const limpiarBorrador = (clave: string) => {
+    setBorradores((b) => ({ ...b, [clave]: '' }));
+    const dir = direccionDe(clave);
+    const e = relojes.current[clave];
+    if (e) { window.clearTimeout(e.local); window.clearTimeout(e.remota); }
+    if (!dir) return;
+    const at = Date.now();
+    editado.current[clave] = at;
+    guardarLocal(dir, { texto: '', at });
+    void guardarBorradorAction(dir, '', at).catch(() => null);
+    void guardarAdjuntos(dir, []);
+  };
 
   /** Lo que se acaba de mandar, para que se vea en su chat mientras llega el refresco. */
   const anotarEnviado = (t: TrabajoP) => { setLocales((l) => [t, ...l]); refrescar(); };
@@ -256,15 +314,21 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const antes = adjuntosRef.current[clave] ?? [];
     const problema = problemaDeSeleccion([...antes.map((a) => a.file.size), ...listos.map((f) => f.size)]);
     if (problema) { avisar(problema, 'bad'); return; }
-    ponerAdjuntos(clave, [...antes, ...listos.map((f): AdjuntoCaja => ({
+    const todos = [...antes, ...listos.map((f): AdjuntoCaja => ({
       id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
-    }))]);
+    }))];
+    ponerAdjuntos(clave, todos);
+    const dir = direccionDe(clave);
+    if (dir) void guardarAdjuntos(dir, todos.map((a) => a.file));
   };
   const quitarAdjunto = (clave: string, id: string) => {
     const antes = adjuntosRef.current[clave] ?? [];
     const a = antes.find((x) => x.id === id);
     if (a) URL.revokeObjectURL(a.url);
-    ponerAdjuntos(clave, antes.filter((x) => x.id !== id));
+    const quedan = antes.filter((x) => x.id !== id);
+    ponerAdjuntos(clave, quedan);
+    const dir = direccionDe(clave);
+    if (dir) void guardarAdjuntos(dir, quedan.map((x) => x.file));
   };
   /** Después de mandar: la caja queda vacía. */
   const vaciarAdjuntos = (clave: string) => {
@@ -273,7 +337,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   };
 
   async function mandar(c: ChatCentro) {
-    const texto = borradorDe(c.clave);
+    // Lo que sale es Markdown de verdad: las viñetas de la caja («• ») vuelven a ser «- » (lib/centro-caja.ts).
+    const texto = textoParaMandar(borradorDe(c.clave));
     const archivos = adjuntosRef.current[c.clave] ?? [];
     const d = destinoDeChat(c);
     if (!d.sesion || !envioDe(c).puede || enviando || (!texto.trim() && !archivos.length)) return;
@@ -287,7 +352,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     }
     // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
     const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, alcance, como, subidos);
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, 'solo_esto', como, subidos);
     setEnviando(false);
     if (!r.ok) { avisar(r.error, 'bad'); return; }
     anotarEnviado({
@@ -295,8 +360,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
     });
     vaciarAdjuntos(c.clave);
-    ponerBorrador(c.clave, '');
-    setAlcance('solo_esto');
+    limpiarBorrador(c.clave);
     setModelo(null);
     setEsfuerzo(null);
   }
@@ -383,7 +447,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     turnosDe, preguntasDe, contestarPregunta, mirar,
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     avance, cambiarAvance,
-    envioDe, borradorDe, ponerBorrador, alcance, setAlcance, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
+    envioDe, borradorDe, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     puedeAbrirEn, apertura, abrirChat,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,

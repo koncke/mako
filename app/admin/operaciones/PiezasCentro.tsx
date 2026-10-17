@@ -187,12 +187,24 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
         items: k.adjuntosDe(chat.clave), puede: k.puedeAdjuntar(chat),
         onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id),
       }}
-      alcance={k.alcance} onAlcance={k.setAlcance} enviando={k.enviando}
+      enviando={k.enviando} resumenEnvio={resumenDeEnvio(k, chat)}
       onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
       onVolver={onVolver}
       selectores={<SelectoresDeEnvio centro={k} chat={chat} />}
     />
   );
+}
+
+/** Lo elegido que no es «Automático» (la cuenta, el modelo, el esfuerzo), para verlo al lado del «+» sin abrirlo. */
+export function resumenDeEnvio(k: Centro, chat: ChatCentro): string | null {
+  const partes: string[] = [];
+  const cuenta = k.cuentaElegida(chat.clave);
+  if (cuenta !== AUTOMATICO) partes.push(nombreCuenta(cuenta) ?? cuenta);
+  if (aceptaModelo(k.destinoDeChat(chat).sesion)) {
+    if (k.modelo) partes.push(NOMBRE_MODELO[k.modelo]);
+    if (k.esfuerzo) partes.push(NOMBRE_ESFUERZO[k.esfuerzo]);
+  }
+  return partes.length ? partes.join(' · ') : null;
 }
 
 /**
@@ -207,27 +219,37 @@ export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: C
   const destino = k.destinoDeChat(chat);
   const conModelo = aceptaModelo(destino.sesion);
   const libre = (n: number | null) => (n == null ? '' : ` · ${n}% libre`);
+  // Un renglón por cosa, con su nombre a la izquierda: viven adentro del «+» de la caja (AdjuntosCaja.tsx → MasCaja).
   return (
     <>
       {opciones.length > 0 && (
-        <select className="co-chip co-envio-sel" aria-label="Cuenta" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
-          onChange={(e) => k.elegirCuenta(chat.clave, e.target.value)} disabled={k.enviando}>
-          <option value={AUTOMATICO}>{automatica ? `Automático · ${nombreCuenta(automatica)}` : 'Automático'}</option>
-          {opciones.map((o) => <option key={o.cuenta} value={o.cuenta}>{`${nombreCuenta(o.cuenta)}${libre(o.libre)}`}</option>)}
-        </select>
+        <label className="co-envio-fila">
+          <span>Cuenta</span>
+          <select className="co-chip co-envio-sel" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
+            onChange={(e) => k.elegirCuenta(chat.clave, e.target.value)} disabled={k.enviando}>
+            <option value={AUTOMATICO}>{automatica ? `Automático · ${nombreCuenta(automatica)}` : 'Automático'}</option>
+            {opciones.map((o) => <option key={o.cuenta} value={o.cuenta}>{`${nombreCuenta(o.cuenta)}${libre(o.libre)}`}</option>)}
+          </select>
+        </label>
       )}
-      <select className="co-chip co-envio-sel" aria-label="Modelo" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
-        title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
-        onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
-        <option value={AUTOMATICO}>Modelo automático</option>
-        {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
-      </select>
-      <select className="co-chip co-envio-sel" aria-label="Esfuerzo" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
-        title={conModelo ? 'Cuánto piensa' : 'El esfuerzo se elige sólo en los chats de la app'}
-        onChange={(e) => k.setEsfuerzo(e.target.value === AUTOMATICO ? null : e.target.value as Esfuerzo)}>
-        <option value={AUTOMATICO}>Esfuerzo automático</option>
-        {ESFUERZOS.map((x) => <option key={x} value={x}>{NOMBRE_ESFUERZO[x]}</option>)}
-      </select>
+      <label className="co-envio-fila">
+        <span>Modelo</span>
+        <select className="co-chip co-envio-sel" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+          title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
+          onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
+          <option value={AUTOMATICO}>Automático</option>
+          {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
+        </select>
+      </label>
+      <label className="co-envio-fila">
+        <span>Esfuerzo</span>
+        <select className="co-chip co-envio-sel" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+          title={conModelo ? 'Cuánto piensa' : 'El esfuerzo se elige sólo en los chats de la app'}
+          onChange={(e) => k.setEsfuerzo(e.target.value === AUTOMATICO ? null : e.target.value as Esfuerzo)}>
+          <option value={AUTOMATICO}>Automático</option>
+          {ESFUERZOS.map((x) => <option key={x} value={x}>{NOMBRE_ESFUERZO[x]}</option>)}
+        </select>
+      </label>
     </>
   );
 }

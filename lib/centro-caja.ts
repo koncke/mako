@@ -1,0 +1,107 @@
+// =============================================================================
+// La caja del Ops Center: las listas mientras se escribe y el borrador que nunca se pierde (17/10/2026; puro, con test)
+// =============================================================================
+// Martín (feedback del 17/10, la B): las listas de Markdown en vivo («1. », «- » y «* » se vuelven lista mientras
+// escribe; Enter sigue la lista y un Enter en un ítem vacío la corta), también en los mensajes que se ven; y «el borrador
+// nunca se pierde»: uno por chat, guardado mientras escribe, que vuelve al abrir ese chat y se borra sólo cuando el
+// mensaje SALIÓ.
+//
+// LA CAJA ES UN <textarea>: no hay negritas ni sangría que dibujar. «Se vuelve lista» es que el guion se cambia por la
+// viñeta («• ») en el acto, y que Enter arma el ítem siguiente. Lo que SALE lleva Markdown de verdad (`textoParaMandar`:
+// «• » → «- »), porque lo lee un chat de Claude Code; y la burbuja lo dibuja como lista (`bloquesDeMensaje`).
+// ⚠️ SIN `server-only`: lo usan las dos pantallas y el servidor (el borrador de MaKo).
+
+export const VINETA = '• ';
+const ITEM_RE = /^(\s*)(•|-|\*|(\d{1,3})[.)])\s(.*)$/;
+
+/** El renglón donde está el cursor: dónde empieza y dónde termina. */
+function renglon(t: string, i: number): { ini: number; fin: number; texto: string } {
+  const ini = t.lastIndexOf('\n', i - 1) + 1;
+  const f = t.indexOf('\n', i);
+  const fin = f < 0 ? t.length : f;
+  return { ini, fin, texto: t.slice(ini, fin) };
+}
+
+/**
+ * Lo escrito, con las viñetas en vivo: un «- » o «* » al principio de un renglón pasa a «• » (el cursor se queda donde
+ * estaba). Sólo el renglón donde se escribe, y sólo si recién se tipeó el espacio: pegar un texto no se toca.
+ */
+export function conVinetas(t: string, cursor: number): { texto: string; cursor: number } {
+  const r = renglon(t, cursor);
+  const m = /^(\s*)[-*] /.exec(r.texto);
+  if (!m || cursor !== r.ini + m[0].length) return { texto: t, cursor };
+  const nuevo = `${m[1]}${VINETA}${r.texto.slice(m[0].length)}`;
+  return { texto: t.slice(0, r.ini) + nuevo + t.slice(r.fin), cursor: r.ini + m[1].length + VINETA.length };
+}
+
+/**
+ * Enter dentro de una lista: sigue con el ítem siguiente («• » o el número que sigue); en un ítem VACÍO, corta la lista
+ * (le saca la viñeta). null = el renglón no es de una lista: Enter hace lo de siempre (manda).
+ */
+export function enterEnLista(t: string, ini: number, fin: number): { texto: string; cursor: number } | null {
+  if (ini !== fin) return null;
+  const r = renglon(t, ini);
+  const m = ITEM_RE.exec(r.texto);
+  if (!m) return null;
+  const [, sangria, marca, num, resto] = m;
+  if (!resto.trim() && ini === r.fin) {
+    // Ítem vacío: se corta la lista y el renglón queda en blanco.
+    return { texto: t.slice(0, r.ini) + t.slice(r.fin), cursor: r.ini };
+  }
+  const siguiente = num != null ? `${Number(num) + 1}${marca.slice(-1)} ` : marca === '•' ? VINETA : `${marca} `;
+  const inserto = `\n${sangria}${siguiente}`;
+  return { texto: t.slice(0, ini) + inserto + t.slice(ini), cursor: ini + inserto.length };
+}
+
+/** Lo que sale de la caja: las viñetas de la pantalla, como Markdown de verdad. */
+export const textoParaMandar = (t: string): string => t.replace(/^(\s*)• /gm, '$1- ').trim();
+
+export type BloqueMensaje = { tipo: 'parrafo'; texto: string } | { tipo: 'lista'; numerada: boolean; items: string[] };
+
+/** Lo que dice una burbuja, en párrafos y listas (para dibujar «1. » y «- » como lista, como Claude). */
+export function bloquesDeMensaje(t: string): BloqueMensaje[] {
+  const out: BloqueMensaje[] = [];
+  for (const linea of t.replace(/\r\n?/g, '\n').split('\n')) {
+    const m = ITEM_RE.exec(linea);
+    const ultimo = out[out.length - 1];
+    if (m) {
+      const numerada = m[3] != null;
+      if (ultimo?.tipo === 'lista' && ultimo.numerada === numerada) ultimo.items.push(m[4]);
+      else out.push({ tipo: 'lista', numerada, items: [m[4]] });
+    } else if (ultimo?.tipo === 'parrafo') {
+      ultimo.texto += `\n${linea}`;
+    } else {
+      out.push({ tipo: 'parrafo', texto: linea });
+    }
+  }
+  return out
+    .map((b) => (b.tipo === 'parrafo' ? { ...b, texto: b.texto.replace(/^\n+|\n+$/g, '') } : b))
+    .filter((b) => b.tipo === 'lista' || b.texto !== '');
+}
+
+// ── El borrador (B, «el borrador nunca se pierde») ───────────────────────────────────────────────────────────────
+/** Lo más largo que se guarda de un borrador (lo que entra en un trabajo firmado). */
+export const MAX_BORRADOR = 8000;
+/** Cuánto espera sin teclear para guardarlo en el navegador, y en MaKo (que cruza al teléfono). */
+export const ESPERA_LOCAL_MS = 400;
+export const ESPERA_REMOTA_MS = 2000;
+
+export type Borrador = { texto: string; at: number };
+
+/** La clave del borrador de un chat: su sesión (no cambia al renombrarlo), o su clave si no tiene. */
+export const claveDeBorrador = (direccion: string) => `centro.borrador.${direccion}`;
+
+/** Un borrador guardado, validado. null = no hay, o no vale. */
+export function leerBorrador(x: unknown): Borrador | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  if (typeof o.texto !== 'string' || typeof o.at !== 'number' || !Number.isFinite(o.at)) return null;
+  return { texto: o.texto.slice(0, MAX_BORRADOR), at: o.at };
+}
+
+/** Entre el del navegador y el de MaKo, el más NUEVO. Uno vacío más nuevo gana: es que se mandó (o se borró) en otro lado. */
+export function borradorQueVale(local: Borrador | null, remoto: Borrador | null): Borrador | null {
+  if (!local) return remoto;
+  if (!remoto) return local;
+  return remoto.at > local.at ? remoto : local;
+}

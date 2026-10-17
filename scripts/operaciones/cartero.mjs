@@ -80,7 +80,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.14.0';
+export const VERSION = '1.14.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -806,11 +806,13 @@ function verChats(cuenta, cfg = config(), runners = carpetasConRunner(cfg, dirPr
 }
 
 // ── el mensaje que recibe el chat ────────────────────────────────────────────────────────────
-function mensaje(p, rutas = []) {
+export function mensaje(p, rutas = []) {
   const fecha = new Date(p.creado).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-  const alcance = p.alcance === 'de_ahora_en_mas'
-    ? 'Y DE AHORA EN MÁS: además de hacerlo, dejá la regla escrita donde corresponda (AGENTS.md, una memoria o un hallazgo) y decí dónde en el cierre.'
-    : 'Sólo esto.';
+  // «Sólo esto» se fue de la caja (1.14.1, 17/10/2026: «la IA decide sola si guarda una regla»): ya no se nombra. Un
+  // trabajo firmado antes con «Y de ahora en más» lo sigue diciendo.
+  const regla = p.alcance === 'de_ahora_en_mas'
+    ? '— Y DE AHORA EN MÁS: además de hacerlo, dejá la regla escrita donde corresponda (AGENTS.md, una memoria o un hallazgo) y decí dónde en el cierre.'
+    : '— Si de esto sale una regla para lo que viene, dejala escrita donde corresponda (AGENTS.md, una memoria o un hallazgo) y decí dónde en el cierre; si no, no.';
   return [
     `Pedido de Martín desde el Centro de Operaciones (firmado en su dispositivo, ${fecha}).`,
     '',
@@ -818,7 +820,7 @@ function mensaje(p, rutas = []) {
     '',
     // Las fotos y los PDF que mandó con el trabajo, ya en esta PC (1.9.0): el chat los abre con Read.
     ...(rutas.length ? ['Adjuntos (los bajó el Runner a esta PC; ábrelos con Read):', ...rutas.map((r) => `- ${r}`), ''] : []),
-    `— Alcance: ${alcance}`,
+    regla,
     '— Al terminar, dejá el cierre en cuatro renglones (y la prueba, si la hay: un commit, un deploy, una medición):',
     `node "${ESTE}" cierre ${p.id} --decidido "…" --hecho "…" --comprobado "…" --sigue "…" --prueba "…"`,
     '— Si dejaste algo para mirar en MaKo, sumá --revisar con su ruta (por ejemplo --revisar "/crm?lead=12"): Martín lo revisa desde el Centro.',

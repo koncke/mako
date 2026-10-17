@@ -25,6 +25,7 @@ import { Muneco, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
 import { PreguntaChat, type Responder } from './PreguntaChat';
+import { bloquesDeMensaje } from '@/lib/centro-caja';
 
 /** «10:52», con el reloj de Argentina. */
 const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -49,6 +50,22 @@ export function Tick({ estado }: { estado: EstadoPedido }) {
   return <span className="co-tick co-tick--mal" title={ROTULO[estado]}><Icon name="x" size={12} /></span>;
 }
 
+/** Lo que escribió Martín, con sus listas («1. », «- ») dibujadas como lista, como Claude (17/10/2026, la B). Sin listas,
+ *  el texto tal cual (la burbuja respeta los renglones). */
+function TextoMio({ texto }: { texto: string }) {
+  const bloques = bloquesDeMensaje(texto);
+  if (!bloques.some((b) => b.tipo === 'lista')) return <>{texto}</>;
+  return (
+    <>
+      {bloques.map((b, i) => (b.tipo === 'parrafo'
+        ? <span key={i} className="co-burbuja__p">{b.texto}</span>
+        : b.numerada
+          ? <ol key={i} className="co-burbuja__lista">{b.items.map((x, j) => <li key={j}>{x}</li>)}</ol>
+          : <ul key={i} className="co-burbuja__lista">{b.items.map((x, j) => <li key={j}>{x}</li>)}</ul>))}
+    </>
+  );
+}
+
 /** Quién habla del otro lado: el empleado (su título decide su muñeco). */
 /** El empleado del chat: su nombre y, si Martín le eligió uno, su muñeco. */
 type Quien = { titulo: string; aspecto?: Aspecto | null };
@@ -66,10 +83,10 @@ function Trabajo({ w, quien, vivo, ahora }: { w: TrabajoP; quien: Quien; vivo?: 
   return (
     <>
       <div className="co-yo">
-        <p className="co-burbuja">
-          {w.texto ?? ''}
+        <div className="co-burbuja">
+          <TextoMio texto={w.texto ?? ''} />
           <span className="co-burbuja__pie">{Number.isFinite(t) ? horaAR(t) : ''}<Tick estado={estado} /></span>
-        </p>
+        </div>
         {w.adjuntos?.length ? <p className="co-nota">{`Adjuntó ${w.adjuntos.join(' · ')}`}</p> : null}
         {mal && <p className="co-nota co-nota--mal">{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}</p>}
         {va && (
@@ -116,11 +133,11 @@ function Turno({ t, quien }: { t: TurnoChat; quien: Quien }) {
   }
   return (
     <div className="co-yo">
-      <p className="co-burbuja">
+      <div className="co-burbuja">
         {t.rol === 'otro' && <span className="co-burbuja__cita">{t.de ?? 'Otro chat'}</span>}
-        {t.texto}
+        <TextoMio texto={t.texto} />
         <span className="co-burbuja__pie">{hora}</span>
-      </p>
+      </div>
     </div>
   );
 }

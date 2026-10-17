@@ -28,6 +28,8 @@ import { leerTurnos } from '@/lib/centro-turnos-db';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { leerAbiertas, leerPreguntas, marcarContestada } from '@/lib/centro-preguntas-chat-db';
 import { eleccionValida, textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
+import { guardarBorradorDe, leerBorradorDe } from '@/lib/centro-borradores-db';
+import type { Borrador } from '@/lib/centro-caja';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
@@ -60,14 +62,28 @@ export async function pushesCentroAction(): Promise<LecturaPushes> {
 
 /** Lo que se dijo en un chat (sus sesiones, las de todas sus cuentas), para su conversación (17/10/2026: «los chats no
  *  se entienden»). Lo pide la pantalla al abrir un chat y en cada refresco de ese chat; los demás no viajan. */
-export async function turnosCentroAction(locales: string[]): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[] } | { ok: false; error: string }> {
+export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   if (!Array.isArray(locales)) return { ok: false, error: 'Falta el chat.' };
   const validos = locales.filter((l): l is string => typeof l === 'string');
-  // Las preguntas del chat viajan con lo que se dijo en él: son parte de su conversación (17/10/2026).
-  const [turnos, preguntas] = await Promise.all([leerTurnos(validos), leerPreguntas(validos)]);
-  return { ok: true, turnos, preguntas };
+  // Las preguntas del chat y su borrador viajan con lo que se dijo en él: son parte de su conversación (17/10/2026).
+  const [turnos, preguntas, borrador] = await Promise.all([
+    leerTurnos(validos), leerPreguntas(validos), typeof direccion === 'string' ? leerBorradorDe(direccion) : Promise.resolve(null),
+  ]);
+  return { ok: true, turnos, preguntas, borrador };
+}
+
+/** Guarda el borrador de un chat en MaKo, para que cruce al teléfono (17/10/2026, la B). Sólo si es más nuevo. */
+export async function guardarBorradorAction(direccion: string, texto: string, at: number): Promise<{ ok: true; borrador: Borrador } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof direccion !== 'string' || typeof texto !== 'string' || typeof at !== 'number' || !Number.isFinite(at)) return { ok: false, error: 'Falta el borrador.' };
+  try {
+    return { ok: true, borrador: await guardarBorradorDe(direccion, { texto, at: Math.min(at, Date.now() + 60_000) }) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
 }
 
 /**

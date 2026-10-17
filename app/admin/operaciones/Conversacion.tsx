@@ -17,7 +17,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
-import type { Alcance, TurnoChat } from '@/lib/operaciones-reglas';
+import type { TurnoChat } from '@/lib/operaciones-reglas';
+import { conVinetas, enterEnLista } from '@/lib/centro-caja';
 import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, yaEstaDelChat, type CarteroP, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
@@ -27,17 +28,19 @@ import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
 import { Microfono } from './Microfono';
-import { BotonAdjuntar, ListaAdjuntos, alPegar, type AdjuntosDeCaja } from './AdjuntosCaja';
+import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { RielAvance } from './Avance';
 import { Muneco, animoDe } from './Muneco';
 
 const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 
 export function Conversacion({
-  chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
+  chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
   avance, onAvance, aspecto, onMuneco, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
-  preguntasChat = [], onResponder,
+  preguntasChat = [], onResponder, resumenEnvio = null,
 }: {
+  /** Lo elegido para mandar que no es «Automático» (la cuenta, el modelo), en chico al lado del «+». */
+  resumenEnvio?: string | null;
   /** Las preguntas del chat como formulario en su conversación (17/10/2026), y cómo se contestan (useCentro.ts). */
   preguntasChat?: readonly PreguntaChatT[];
   onResponder?: Responder;
@@ -47,7 +50,7 @@ export function Conversacion({
   adjuntos?: AdjuntosDeCaja;
   /** Lo que se le dijo y lo que contestó, del transcript (useCentro.ts → turnosDe): la conversación de verdad. */
   turnos?: readonly TurnoChat[];
-  /** A qué cuenta va y con qué modelo y esfuerzo corre (PiezasCentro.tsx → SelectoresDeEnvio), en la barrita de la caja. */
+  /** A qué cuenta va y con qué modelo y esfuerzo corre (PiezasCentro.tsx → SelectoresDeEnvio), adentro del «+» de la caja. */
   selectores?: ReactNode;
   /** Las tarjetas de la Ticketera que ESTE chat espera (lib/centro-preguntas.ts): se contestan arriba de la caja. */
   preguntas: readonly Decision[];
@@ -72,8 +75,6 @@ export function Conversacion({
   envio: Envio;
   texto: string;
   onTexto: (t: string) => void;
-  alcance: Alcance;
-  onAlcance: (a: Alcance) => void;
   enviando: boolean;
   onMandar: () => void;
   onCrearClave: () => void;
@@ -86,6 +87,8 @@ export function Conversacion({
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
+  /** Dónde va el cursor después de que una lista cambió el texto (la viñeta, el ítem siguiente). */
+  const cursor = useRef<number | null>(null);
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [chat.clave, lineas.length]);
@@ -95,13 +98,20 @@ export function Conversacion({
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+    if (cursor.current != null) { el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
   }, [texto]);
   // Elegir un chat deja el cursor en su caja, como cualquier app de chat.
   useEffect(() => { if (envio.puede) caja.current?.focus({ preventScroll: true }); }, [chat.clave, envio.puede]);
 
   const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Enter manda; Shift+Enter baja de renglón. Mientras se compone un acento (IME), Enter es del teclado.
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onMandar(); }
+    // Enter manda; Shift+Enter baja de renglón. Mientras se compone un acento (IME), Enter es del teclado. Adentro de una
+    // lista, Enter arma el ítem siguiente y en uno vacío la corta (lib/centro-caja.ts → enterEnLista).
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      const l = enterEnLista(texto, e.currentTarget.selectionStart, e.currentTarget.selectionEnd);
+      if (l) { cursor.current = l.cursor; onTexto(l.texto); return; }
+      onMandar();
+    }
   };
 
   const estado = textoDeEnvio(envio);
@@ -159,23 +169,23 @@ export function Conversacion({
               ref={caja}
               rows={1}
               value={texto}
-              onChange={(e) => onTexto(e.target.value)}
+              onChange={(e) => {
+                // «- » y «* » al principio de un renglón se vuelven viñeta mientras se escribe (lib/centro-caja.ts).
+                const v = conVinetas(e.target.value, e.target.selectionStart);
+                if (v.texto !== e.target.value) cursor.current = v.cursor;
+                onTexto(v.texto);
+              }}
               onKeyDown={tecla}
               onPaste={(e) => alPegar(e, adjuntos)}
               placeholder={`Escribe a ${chat.titulo}`}
               aria-label={`Escribe a ${chat.titulo}`}
               disabled={enviando}
             />
+            {/* Abajo, un solo «+» con lo que se adjunta y con qué corre (17/10/2026, la B); «Sólo esto» se fue: el chat
+                decide solo si de lo pedido sale una regla. */}
             <div className="co-caja__barra">
-              <button
-                type="button" className="co-chip" aria-pressed={alcance === 'de_ahora_en_mas'}
-                title="Con «Y de ahora en más», el chat deja la regla escrita además de hacerlo"
-                onClick={() => onAlcance(alcance === 'solo_esto' ? 'de_ahora_en_mas' : 'solo_esto')}
-              >
-                {alcance === 'solo_esto' ? 'Sólo esto' : 'Y de ahora en más'}
-              </button>
-              {selectores}
-              <BotonAdjuntar a={adjuntos} apagado={enviando} />
+              <MasCaja a={adjuntos} apagado={enviando} resumen={resumenEnvio}>{selectores}</MasCaja>
+              <span className="co-caja__hueco" aria-hidden />
               <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} apagado={enviando} />
               <button type="button" className="co-enviar" onClick={onMandar} disabled={enviando || (!texto.trim() && !adjuntos?.items.length)} aria-label="Firmar y mandar" title="Firmar y mandar (Enter)">
                 {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}

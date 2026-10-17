@@ -607,4 +607,25 @@ export const BITACORA: Hito[] = [
       'tests/centro-preguntas-chat.test.ts, tests/centro-feedback-17-10.test.ts, tests/cartero-carpetas.test.ts',
     ],
   },
+  {
+    fecha: '17 oct', hora: '10:21', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La caja con un solo «+», listas mientras escribes, y el borrador que nunca se pierde',
+    pedido: 'el borrador nunca se pierde',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Abajo, un solo «+»: «Importar archivo» e «Imagen», y adentro la cuenta, el modelo y el esfuerzo.',
+      '«Sólo esto» se fue: el chat decide solo si de lo que pediste sale una regla.',
+      'Lo que adjuntas se ve como en Claude, una miniatura sin nombre; tocarla la amplía, también un PDF.',
+      'Un «- », «* » o «1. » se vuelve lista mientras escribes; Enter sigue la lista y en un ítem vacío la corta.',
+      'Lo que escribes queda guardado en cada chat (y cruza al teléfono) hasta que sale; las fotos sin mandar, también.',
+    ],
+    archivos: [
+      'lib/centro-caja.ts — las listas en vivo y qué borrador vale',
+      'app/admin/operaciones/AdjuntosCaja.tsx — el «+», las miniaturas y el visor',
+      'lib/centro-borradores-db.ts, app/admin/operaciones/adjuntos-guardados.ts — el borrador en MaKo y los archivos en el navegador',
+      'scripts/operaciones/cartero.mjs — 1.14.1: el mensaje ya no nombra «Sólo esto»',
+      'tests/centro-caja.test.ts, tests/centro-feedback-17-10.test.ts',
+    ],
+  },
 ];

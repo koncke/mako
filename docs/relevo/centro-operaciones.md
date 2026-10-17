@@ -4,7 +4,7 @@
 urgente (la pantalla dice en qué está lo que mandaste), el renombre que no te saca del chat, la lista sin «Sin asignar»,
 la A (las preguntas como formulario, con el cartero **1.14.0**), la H (fuera los tres puntos) y la I («Second Brain» abre
 sólo el grafo). Lo que costó, en docs/hallazgos-operaciones.md → «El chat abierto, el "Trabajando…" y las preguntas».
-**Sigue:** B, C y D, E, F, G y los links azules, en ese orden. Para la E hay que volver a avisarle al Cerebro: toca
+**Sigue:** C y D, E, F, G y los links azules, en ese orden (la B quedó hecha después, con el cartero 1.14.1). Para la E hay que volver a avisarle al Cerebro: toca
 cartero.mjs (los pasos del turno abierto).
 
 Lo tomó el 17/10 a la mañana el chat «Ops Center» de la cuenta 4, el segundo de ese día (el primero cerró con el
@@ -107,7 +107,7 @@ Ticketera): un canal PROPIO del Centro, no admin_decisiones.
   falta: que el Cerebro instale el cartero 1.14.0 al integrarla (sin eso `preguntar` no existe en la PC), y avisarle al
   chat Ticketera que las preguntas de los chats ya no van al mazo.
 
-**B) La caja** (sus puntos 4, 14 y 15, y las listas):
+**B) HECHA (17/10, cartero 1.14.1), menos «Tareas vinculadas (N)», que va con la D. La caja** (sus puntos 4, 14 y 15, y las listas). Las reglas en lib/centro-caja.ts; el «+» y las miniaturas en AdjuntosCaja.tsx:
 - abajo, un solo «+» con un desplegable bien diseñado. Adentro: «Importar archivo» e «Imagen» como dos botones (copiar
   el diseño de la caja de MaKo Mobile o del Second Brain), la cuenta, el modelo y el esfuerzo, y «Tareas vinculadas
   (N)» (ver D);
