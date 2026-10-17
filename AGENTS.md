@@ -1699,7 +1699,9 @@ envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una acla
   arreglo es suyo.
 - **El texto dice lo que YA pasó**, en palabras del cliente y de tú: qué le falló, que ya anda y cómo probarlo. Sin
   promesas ni groserías (se rechaza, no se corrige). Un aviso por arreglo.
-- **El primero de cada negocio, Martín lo ve antes**: es un mensaje real al grupo de un cliente.
+- **NO necesita el OK de Martín** (17/10/2026, 10:09: «No necesitas mi aprobacion, manda el mensaje tranquilamente al
+  grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
+  lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 

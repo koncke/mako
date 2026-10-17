@@ -34,8 +34,10 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
   Con una aclaración de que sos el "Desarrollador"»): `scripts/avisar-arreglo-al-grupo.mts` + `lib/aviso-arreglo.ts`
   (50a24c25c). Prueba la producción con git + Vercel, firma «👨‍💻 Desarrollador de MaKo», un aviso por clave, tope de 3
   por negocio en 24 h, el ws1 sólo con `--ws1-seguro`. La regla, en AGENTS.md («Un jefe que arregla algo que le falló
-  a un CLIENTE…»). **El vigía sigue sin escribir en los grupos, salvo ESTE aviso**, y el primero de cada negocio lo
-  aprueba Martín.
+  a un CLIENTE…»). **El vigía sigue sin escribir en los grupos, salvo ESTE aviso, y el aviso NO necesita el OK de
+  Martín** (17/10 10:09: «No necesitas mi aprobacion, manda el mensaje tranquilamente al grupo»): lo manda el jefe que
+  arregló. Si el clasificador de permisos de Claude Code lo bloquea, se le dice a Martín en una línea, en este chat,
+  con el comando exacto.
 
 ## 3. Lo que quedó a medio hacer o sin verificar, y dónde vive
 
@@ -85,8 +87,9 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
    (clasificarIntencion + herramientasDelTurno) y mirando el modelo de la fila; arreglá con su test probado rompiéndolo,
    cosechá en docs/hallazgos-comunicacion.md y pasale la punta al Cerebro (por su id, no por el nombre) con una línea
    para Martín. NO escribas en el grupo de un cliente ni le mandes nada a nadie, salvo el aviso de arreglo: cuando un
-   arreglo tuyo esté en producción, avísalo con scripts/avisar-arreglo-al-grupo.mts (sin --enviar primero; el primero
-   de cada negocio lo aprueba Martín). Se lee producción y se prueba en el ws3.»
+   arreglo tuyo esté en producción, avísalo con scripts/avisar-arreglo-al-grupo.mts (con NODE_OPTIONS=--conditions=
+   react-server; no necesita el OK de Martín; si el clasificador lo bloquea, díselo a Martín en una línea con el comando
+   exacto). Se lee producción y se prueba en el ws3.»
 3. Un incidente ya contado no vuelve (la clave queda en el estado). Para releer un tramo: `--desde <ISO> --estado
    <otro archivo>`.
 

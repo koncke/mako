@@ -2,7 +2,7 @@
 // avisar-arreglo-al-grupo — el aviso «ya quedó arreglado» de un jefe al grupo de MaKo de UN cliente
 // =============================================================================
 // Uso (desde un worktree, con el .env.local del clon, que es PRODUCCIÓN):
-//   npx tsx scripts/avisar-arreglo-al-grupo.mts --ws 13 --clave conv:12345 --commit 618c79c45 \
+//   NODE_OPTIONS=--conditions=react-server npx tsx scripts/avisar-arreglo-al-grupo.mts --ws 13 --clave conv:12345 --commit 618c79c45 \
 //       --texto "Ya quedó arreglado: …" --origen "MaKo en WhatsApp" [--ws1-seguro] [--enviar]
 //
 // SIN `--enviar` NO MANDA NADA: prueba la producción y muestra el texto que saldría. Así se mira antes de mandar.

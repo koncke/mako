@@ -163,7 +163,9 @@ AGENTS.md). Lo que costó medir:
   eco vuelve como `fromMe` y no está en el anillo, el doer lo procesa como un mensaje de la persona. Medido el 17/10:
   desde el 01/10 ningún aviso del catálogo entró así, pero la guarda del doer no lo distingue.
 - ⚠️ **Y el clasificador de permisos de Claude Code bloquea correr el script, aunque sin `--enviar` no mande nada**: lo
-  lee como una transacción real. El primer aviso de cada negocio lo aprueba Martín de todas formas.
+  lee como una transacción real. Martín dijo que el aviso no necesita su OK; cuando el clasificador lo frena, se le pasa
+  el comando exacto en el chat del jefe para que lo apruebe ahí. Y sin `NODE_OPTIONS=--conditions=react-server` el
+  script se cae al importar (`server-only`), ANTES de mandar o reservar nada.
 
 **Lo que quedó sin hacer:**
 - **Nada se probó contra una agenda real.** El ws18 tiene Google conectado y es un cliente: la primera prueba es su
