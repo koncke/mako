@@ -114,7 +114,10 @@ test('reparte: MaKo reclama sólo lo que un Runner alcanza, y cada Runner entreg
     assert.deepEqual([...subido.entregables].sort(), [local(1), local(3)], 'B no tiene Runner: MaKo no reclama lo suyo');
     assert.equal(subido.chats.find((c) => c.local === local(2))?.runner, false);
     assert.equal(subido.chats.find((c) => c.local === local(3))?.runner, true);
-    assert.equal(subido.chats.some((c) => /Runner/.test(String(c.titulo))), false, 'el Runner no es un chat');
+    // Desde la 1.10.0 (17/10/2026, Martín: «todo chat abierto se ve») el Runner SÍ se sube, marcado: se ve en la lista y
+    // nunca recibe (no está en `entregables`, arriba). tests/centro-runner-nube.test.ts fija el resto.
+    const runners = subido.chats.filter((c) => /Runner/.test(String(c.titulo)));
+    assert.ok(runners.length > 0 && runners.every((c) => c.esRunner === true), 'el Runner se ve, marcado');
     assert.equal(subido.chats.some((c) => 'dir' in c || 'pipe' in c), false, 'ni la carpeta ni el canal salen de la PC');
     // (2) Éste entrega sólo lo de su carpeta; lo de C lo lleva el Runner de C.
     assert.deepEqual(o.entregar.map((e) => e.id), [id(1)]);

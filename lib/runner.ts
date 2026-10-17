@@ -53,6 +53,7 @@ export const INSTRUCCIONES_RUNNER = `Eres el Runner del Centro de Operaciones: e
 
 1. Ahora, una vez: corre \`${COMANDO_RUNNER} estado\` y dime en una línea en qué carpeta corres, por qué cuentas das la vuelta y si quedó el token.
 2. Programa con CronCreate una tarea cada 2 minutos, sólo de esta sesión, que haga:
+   0. Sólo si tienes la herramienta list_sessions (el Runner de la app; si aparece como diferida, cárgala con ToolSearch): corre list_sessions y anota los chats de la nube, los que su sessionId NO empieza con local_, en UN comando: \`${COMANDO_RUNNER} nube <sessionId> "<título>" <sessionId> "<título>" …\` (sin ninguno, \`${COMANDO_RUNNER} nube\` solo). Si no la tienes, sáltalo.
    a. \`${COMANDO_RUNNER} ciclo\` (da la vuelta por las cuentas de tu carpeta).
    b. Por cada elemento de \`entregar\`: si trae \`modelo\` o \`esfuerzo\`, ANTES cámbiale eso al chat \`sesion\` con set_session_model (el modelo es la familia: opus, sonnet o haiku; si la app no acepta ese nombre, usa el id de esa familia que te lista) y set_session_effort; si no se puede, sigue igual. Después manda su \`mensaje\` TAL CUAL con SendMessage a su dirección \`to\` (empieza con \`uds:\`). Si salió: \`${COMANDO_RUNNER} acuse <id> ok\`. Si falló: \`${COMANDO_RUNNER} acuse <id> error <el motivo en una frase>\`.
    c. Si no hay nada para entregar, termina la vuelta sin escribir nada.

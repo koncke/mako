@@ -146,6 +146,9 @@ export function nombresDeAdjuntos(firmado: string | null | undefined): string[] 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const CUENTA_RE = /^claude\d{1,2}$/;
+/** El id de un chat de la NUBE (17/10/2026): lo que no es de esta PC (`local_…`/`cli_…`). Lo anota el Runner de la app con
+ *  lo que le da list_sessions (cartero.mjs → `nube`). Sólo se ve: no tiene canal para entregarle. */
+export const NUBE_RE = /^(?!local_|cli_)[A-Za-z][A-Za-z0-9_-]{5,100}$/;
 
 /** El texto que se firma. El orden de las claves es fijo, pero nadie tiene que reproducirlo:
  *  se guarda y se verifica este mismo string. */
@@ -260,6 +263,10 @@ export type ChatCartero = {
    * sin Runner en su carpeta no recibe. Falta (undefined) en lo que subió un cartero de antes de la 1.4.0.
    */
   runner?: boolean;
+  /** Es un Runner (cartero 1.10.0): se ve en la lista, pero no se le escribe ni se le entrega nada. */
+  esRunner?: true;
+  /** Es un chat de la nube (cartero 1.10.0): se ve en la lista; no está en esta PC, así que no recibe. `local` es su id. */
+  nube?: true;
 };
 
 const corto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -271,8 +278,9 @@ export function sanearChats(x: unknown): ChatCartero[] {
   for (const c of x.slice(0, 400)) {
     if (!c || typeof c !== 'object') continue;
     const o = c as Record<string, unknown>;
-    const local = corto(o.local, 60);
-    if (!DESTINO_RE.test(local) || vistos.has(local)) continue;
+    const nube = o.nube === true;
+    const local = corto(o.local, nube ? 101 : 60);
+    if (!(nube ? NUBE_RE : DESTINO_RE).test(local) || vistos.has(local)) continue;
     vistos.add(local);
     const cuenta = corto(o.cuenta, 12);
     const act = corto(o.actividad, 40);
@@ -284,6 +292,9 @@ export function sanearChats(x: unknown): ChatCartero[] {
       estado: o.estado === 'busy' || o.estado === 'idle' ? o.estado : null,
       actividad: act && Number.isFinite(Date.parse(act)) ? act : null,
       ...(typeof o.runner === 'boolean' ? { runner: o.runner } : {}),
+      ...(o.esRunner === true ? { esRunner: true as const } : {}),
+      // Uno de la nube nunca está vivo para la PC: no tiene canal.
+      ...(nube ? { nube: true as const, vivo: false } : {}),
     });
   }
   return out;
@@ -295,7 +306,8 @@ export function sanearChats(x: unknown): ChatCartero[] {
  * lista (un cartero de antes), todos sus vivos, como siempre.
  */
 export function sanearEntregables(x: unknown, chats: readonly ChatCartero[]): string[] {
-  const vivos = chats.filter((c) => c.vivo).map((c) => c.local);
+  // Al Runner no se le entrega nada, y uno de la nube no tiene canal: nunca se reclama un trabajo para ellos.
+  const vivos = chats.filter((c) => c.vivo && !c.esRunner && !c.nube).map((c) => c.local);
   if (!Array.isArray(x)) return vivos;
   const pedidos = new Set(x.filter((v): v is string => typeof v === 'string'));
   return vivos.filter((l) => pedidos.has(l));
