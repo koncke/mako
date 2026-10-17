@@ -45,6 +45,8 @@ import { filasDeModulos } from '@/lib/curso-modulos-datos';
 import { derivarModulos, type FilaModulo } from '@/lib/curso-modulos';
 import type { Progreso } from '@/lib/curso';
 import { clienteDelWorkspace, estadoGuardadoDe, marcarEstadoCliente } from './cs.helpers';
+import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
+import { cobrosDeClientesDeAgencia } from '@/lib/agencia-cobro';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -200,6 +202,26 @@ export const RUNNERS: Runners = {
    * El acceso es lo único que puede faltar sin tumbar la respuesta: vuelve `null` y la nota
    * lo dice (es lo mismo que hace la tab Curso).
    */
+  // #866 y #867 (17/10/2026): lo que una agencia tiene que pagar por sus clientes. Los links no pasan por el modelo: la
+  // persona los tiene en su tarjeta de Customer Success. Fuera de una agencia, lo dice.
+  ver_pagos_clientes_agencia: {
+    leer: async (_input, ctx) => {
+      if (!(await esAgencia(ctx.ws))) return fallo('Este negocio no es una agencia: no paga clientes en MaKo.');
+      const [cobros, cartera] = await Promise.all([cobrosDeClientesDeAgencia(ctx.ws), carteraDeAgencia(ctx.ws)]);
+      const nombres = new Map<number, string>();
+      for (const w of await Promise.all(Object.keys(cobros).map((k) => getWorkspace(Number(k)).catch(() => null)))) if (w) nombres.set(Number(w.id), w.nombre);
+      const estado = new Map(cartera.map((f) => [Number(f.cliente_ws), f.estado]));
+      return json({
+        clientes: Object.entries(cobros).map(([k, c]) => ({
+          cliente_ws: Number(k), nombre: nombres.get(Number(k)) ?? null, cuenta: estado.get(Number(k)) ?? null,
+          primer_mes_sin_pagar: !!c.pagar,
+          renovacion: c.renovacion ? { desde: c.renovacion.desde, activada: c.renovacion.activada } : null,
+        })),
+        nota: 'Los links están en Customer Success, en la tarjeta de cada cliente: «Pagar su mes» o «Activar renovación».',
+      });
+    },
+  },
+
   ver_avance_curso_cs: {
     leer: async (input) => {
       const leadId = num(input, 'leadId');

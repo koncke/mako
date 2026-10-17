@@ -2725,6 +2725,10 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.
   La tarjeta de antes lo hacía, y decía «Pagado por completo» de una mensualidad activa y dibujaba como deuda una
   cuota DEVUELTA ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
+- **Una suma de lo que falta cobrar excluye con `noEsDeuda`, no con `esCuotaDevuelta` sola** (17/10/2026): la cuota
+  devuelta y la de un cliente que se dio de baja (#871) quedan las dos impagas y SIN vencimiento. Toda lectura que decide
+  «vencida» por la fecha ya las deja afuera; la que suma lo impago sin fecha tiene que preguntarlo, y leer con `*` (no una
+  lista con `baja_at`, que rompe sin la mig 0307). tests/pagos-baja.test.ts barre `!esCuotaDevuelta(` en app/ y lib/.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
