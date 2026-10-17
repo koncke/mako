@@ -118,7 +118,8 @@ test('avisos: una REENTREGA del webhook no corre el flujo otra vez', () => {
   const calcom = leer('../app/api/webhooks/calcom/route.ts');
   const calendly = leer('../app/api/webhooks/calendly/route.ts');
   assert.equal((calcom.match(/dispararEvento\('lead\.agendo', \{[^}]*dedupKey: `calcom:/g) ?? []).length, 2, 'Cal.com reentrega: sus dos dispararEvento llevan la clave');
-  assert.equal((calendly.match(/dispararEvento\('lead\.(agendo|cancelo)', \{[^}]*dedupKey: `calendly/g) ?? []).length, 3, 'Calendly reentrega: sus tres dispararEvento llevan la clave');
+  // (17/10, lote 2) La de la cancelación sale de `claveCancelada` (lib/reunion-cancelada.ts), la misma que frena el aviso.
+  assert.equal((calendly.match(/dispararEvento\('lead\.(agendo|cancelo)', \{[^}]*dedupKey: (`calendly|claveCancelada\()/g) ?? []).length, 3, 'Calendly reentrega: sus tres dispararEvento llevan la clave');
 });
 
 test('avisos: un flujo corre sólo si su aviso está PRENDIDO, con la misma pregunta que la pantalla', () => {

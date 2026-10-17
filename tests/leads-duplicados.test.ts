@@ -149,7 +149,10 @@ test('CABLEADO: un webhook que FUSIONA dos contactos lo avisa', () => {
   // NO se frena la fusión: frenarla convertiría un webhook —que corre sin nadie
   // mirando— en una cola de decisiones, y el resultado sería el de los ocho leads
   // esperando. Se hace, y se cuenta.
-  assert.ok(/dedupTtlMin: 60/.test(leads), 'diez avisos por el mismo patrón se leen como ruido y se silencian');
+  // (17/10/2026, «nada por detrás» lote 2) El freno es POR LEAD: con 60 min SIN clave, la fusión de OTRO lead en esa hora
+  // no se avisaba, y este aviso es lo único que hace visible un match equivocado. Una reentrega del mismo lead no se
+  // repite (tests/lead-fusionado-evento.test.ts). La hora sigue: `DEDUP_FUSION_MIN` (lib/lead-fusionado.ts).
+  assert.ok(/dedupKey: claveFusion\(lead\.id\), dedupTtlMin: DEDUP_FUSION_MIN,/.test(leads), 'el mismo lead fusionado dos veces avisaría dos');
   const i = leads.indexOf('async function avisarFusion');
   assert.ok(/catch \(e\)/.test(leads.slice(i, i + 1800)), 'el aviso no puede tumbar la ingesta');
   const cat = leer('../lib/avisos-catalogo.ts');
