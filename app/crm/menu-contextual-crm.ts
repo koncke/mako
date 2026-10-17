@@ -30,6 +30,7 @@
 import type { ReactElement } from 'react';
 import type { EntradaMenuContextual, ItemMenuContextual } from '@/app/_ui/MenuContextual';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 
 export type IdOpcionCrm =
   // un lead
@@ -153,7 +154,7 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   lote_etiqueta: { texto: 'Agregar etiqueta', icono: 'etiqueta-mas' },
   lote_closer: { texto: 'Asignar closer', icono: 'persona' },
   lote_setter: { texto: 'Asignar setter', icono: 'persona' },
-  lote_funnel: { texto: 'Agregar a un funnel', icono: 'producto' },
+  lote_funnel: { texto: 'Agregar a un funnel', icono: ICONO_FUNNEL },
   lote_limpiar: { texto: 'Quitar la selección', icono: 'quitar' },
   lote_eliminar: { texto: 'Eliminar', icono: 'borrar', peligro: true },
   col_nuevo_lead: { texto: 'Nuevo lead', icono: 'persona-mas' },

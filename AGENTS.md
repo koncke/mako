@@ -4743,6 +4743,9 @@ Martín, a un cliente: «si tienes varios CRM que sea una selección múltiple y
   ESE día. El número y su desglose usan la misma, o no cuadran.
 - **Lo que es UNO por naturaleza sigue siendo uno**: las etapas de un kanban, dónde nace un lead, a qué etapa mueve un
   evento o una etiqueta. La pregunta es si se SUMA (varios) o si se UBICA (uno).
+- **Un funnel se dibuja con el CUBO, y sólo con ése** (`IconoFunnel` / `ICONO_FUNNEL`, app/_ui/icono-funnel.ts): en el
+  control que elige funnels, no en cada renglón. Martín, 17/10: «Los íconos del CRM no son esos... Es el cubo... Hay que
+  unificar los íconos». El embudo (`Icon name="funnel"`) es FILTRAR, no un funnel. tests/icono-funnel.test.ts lo fija.
 
 # Si la misma pregunta se contesta en DOS lugares, el BORRADO va por una función
 

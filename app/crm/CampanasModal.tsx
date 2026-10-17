@@ -42,7 +42,8 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { createPortal } from 'react-dom';
 import { Modal, Confirm, Spinner, Toast, useToast, Button, SANS, MONO } from '@/app/_ui';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
-import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 import { useVerMas } from '@/app/plan/board/VerMas';
 import { ProductoCelda, type ItemCampana } from '@/app/ads-manager/ProductoCelda';
 import type { CampanaAsignada } from '@/lib/campana-config';
@@ -302,7 +303,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
       { v: 'otra', label: 'No activas', icono: 'pausar' },
     ] },
     { titulo: 'Funnel', valor: filtroAsig, set: setFiltroAsig, opciones: [
-      { v: 'este', label: `En ${nombreProducto}`, icono: 'producto' },
+      { v: 'este', label: `En ${nombreProducto}`, icono: ICONO_FUNNEL },
       { v: 'otro', label: 'En otro funnel', icono: 'mover' },
       { v: 'sin', label: 'Sin asignar', icono: 'quitar' },
     ] },
@@ -466,7 +467,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
               {/* «Si estoy editando un funnel siempre se asigna a ese que estoy parado» (12/10/2026):
                   un botón, no un desplegable de funnels. Pasa por el mismo camino (la previa y su
                   pregunta si trae leads de otro lado). */}
-              <Button size="sm" disabled={trabajando} icon={<IconoProducto />}
+              <Button size="sm" disabled={trabajando} icon={<IconoFunnel />}
                 aria-label={`Asignar ${elegidos.length} a ${nombreProducto}`}
                 onClick={() => void elegirProductoLote(valorDeProducto(funnelId))}>
                 Asignar a este funnel
@@ -551,13 +552,6 @@ const vacio = (color = 'var(--dim)'): CSSProperties => ({
   fontFamily: SANS, fontSize: 13.5, color, padding: '28px 12px', margin: 0, textAlign: 'center',
 });
 
-function IconoProducto() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M20.6 7.8 12 3 3.4 7.8 12 12.6z" /><path d="M3.4 7.8v8.4L12 21v-8.4" /><path d="M20.6 7.8v8.4L12 21" />
-    </svg>
-  );
-}
 
 /** Un encabezado que ORDENA. Mismo molde que `ThCrm` del tablero: la flecha sólo en la
  *  activa, y `aria-sort` para quien no la ve. */

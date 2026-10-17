@@ -554,4 +554,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/general',
   },
+  {
+    fecha: '17 oct', hora: '—', chat: 'Dashboard', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'El ícono del CRM es el cubo, en todos lados',
+    pedido: 'Los íconos del CRM no son esos... Es el cubo que tenemos en el CRM... Hay que unificar los íconos',
+    puntos: ['Llegó por el Cerebro, con la captura del desplegable «De qué funnels» del OKR.'],
+  },
+  {
+    fecha: '17 oct', hora: '05:08', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Un funnel se dibuja con el cubo en toda la app',
+    puntos: [
+      '«De qué funnels» (OKR y KPIs) y el funnel de «Tu funnel hoy» llevan el cubo en el desplegable, como el selector del CRM, y ya no un ícono de etapas en cada renglón.',
+      'Había cuatro dibujos para un funnel: el cubo del CRM, otro cubo dibujado a mano en tres lugares del CRM (acciones en lote, asignar campañas y el funnel de la ficha), el embudo en el selector de Offer y el de las etapas. Ahora es uno solo.',
+      'El embudo sigue siendo el ícono de filtrar: ese no se tocó.',
+    ],
+    archivos: [
+      'app/_ui/icono-funnel.ts — el ícono del funnel, en un solo lugar',
+      'app/_ui/iconos-menu.tsx — `IconoFunnel`, el dibujo',
+      'app/components/ElegirFunnels.tsx · app/dashboard/Elemento.tsx · app/crm/ · app/offer/SelectorFunnel.tsx · app/m/offer/OfferM.tsx',
+      'tests/icono-funnel.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/general',
+  },
 ];
