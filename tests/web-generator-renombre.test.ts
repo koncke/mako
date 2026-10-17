@@ -84,7 +84,10 @@ function lineasDeCodigo(src: string): Array<[number, string]> {
  * con el fin de la cadena, `?`, `#` o un `/` (sus subrutas: `/<id>`, `/crear`, `/analizar`).
  * `/api/landing-generator/…` y `/admin/dev/landing-generator` arrancan con otra cosa: no cazan.
  */
-const LINK_VIEJO = /['"`]\/landing-generator(['"`?#/]|$)/;
+// 17/10/2026 (deuda de la tanda 7, «el guard de links viejos no ve uno absoluto»): también con el dominio adelante
+// (`https://hola-mako.com/landing-generator/12`) o con la base en una variable (`${APP_BASE_URL}/landing-generator`).
+// Rotura: el patrón de antes (sólo comillas) → 1 fallo, el de los absolutos de abajo.
+const LINK_VIEJO = /(['"`}]|https?:\/\/[^\s'"`/]+)\/landing-generator(['"`?#/]|$)/;
 
 test('destinoWebGenerator: el MISMO camino bajo /web-generator, con la query ENTERA', () => {
   assert.equal(RUTA_WEB_GENERATOR, '/web-generator');
@@ -164,7 +167,11 @@ test('⚠️ nada del producto ENLAZA la página vieja: es un redirect, y la ún
   for (const ok of ["'/api/landing-generator/replicar'", '`/api/landing-generator/diagnostico/pagina?url=`', "'/admin/dev/landing-generator'", "'./landing-generator/bitacora'"]) {
     assert.doesNotMatch(ok, LINK_VIEJO, ok);
   }
-  for (const malo of ["'/landing-generator'", '`/landing-generator/${id}`', "'/landing-generator?diagnostico=1'", '"/landing-generator/crear"']) {
+  for (const ok of ["'https://hola-mako.com/api/landing-generator/replicar'", '`${base}/api/landing-generator`', '`${base}/admin/dev/landing-generator`']) {
+    assert.doesNotMatch(ok, LINK_VIEJO, ok);
+  }
+  for (const malo of ["'/landing-generator'", '`/landing-generator/${id}`', "'/landing-generator?diagnostico=1'", '"/landing-generator/crear"',
+    "'https://hola-mako.com/landing-generator/12'", '`${APP_BASE_URL}/landing-generator?ws=3`']) {
     assert.match(malo, LINK_VIEJO, malo);
   }
   // Las únicas excepciones del producto: la página que redirige y la lista de alias.
