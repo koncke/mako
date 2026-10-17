@@ -636,12 +636,14 @@ test('la biblioteca de imágenes por la API: lectura, por http, y UNA implementa
 
 // ── 4. Las copias de reglas de la pantalla, y lo demás ─────────────────────────
 
-test('«Restablecer estilo» toca las MISMAS claves que el panel Estilo (EstiloSeccion.tsx)', () => {
-  const src = sinComentarios(leer('app/web-generator/editor/paneles/EstiloSeccion.tsx'));
-  const bloque = src.slice(src.indexOf('export const ESTILO_RESTABLECIDO'), src.indexOf('};', src.indexOf('export const ESTILO_RESTABLECIDO')));
-  const claves = [...bloque.matchAll(/^\s+([a-zA-Z]+): ATTRS_TARJETA_DEFAULT\./gm)].map((m) => m[1]).sort();
-  assert.ok(claves.length >= 8, `leí ${claves.length} claves del panel`);
-  assert.deepEqual(Object.keys(ESTILO_RESTABLECIDO_API).sort(), claves);
+// 17/10/2026: «Restablecer estilo» y el tema sugerido viven en lib/editor-landing/reglas-pantalla.ts y las dos puntas los
+// importan (antes la API tenía copias y esto comparaba las claves leyendo el fuente). Rotura: volver a copiarlo → 1 fallo.
+test('«Restablecer estilo» y el tema sugerido son los MISMOS del panel y de Crear con IA (no copias)', async () => {
+  const { ESTILO_RESTABLECIDO } = await import('../app/web-generator/editor/paneles/EstiloSeccion');
+  assert.equal(ESTILO_RESTABLECIDO_API, ESTILO_RESTABLECIDO);
+  assert.ok(Object.keys(ESTILO_RESTABLECIDO_API).length >= 8);
+  const { temaSugerido } = await import('../app/web-generator/crear/SelectorTemaCrear');
+  assert.equal(temaSugeridoApi, temaSugerido);
 });
 
 test('ver_secciones_landing: también las ocultas, con su id y la posición de cada bloque', () => {

@@ -24,6 +24,7 @@
 
 import { sanearContenido, sanearConfig } from '@/lib/editor-landing/validar';
 import { hacerInicio, rutaLibre } from '@/lib/editor-landing/paginas-reglas';
+import { ESTILO_RESTABLECIDO, temaSugerido } from '@/lib/editor-landing/reglas-pantalla';
 import {
   NODO, TOPES, ATTRS_TARJETA_DEFAULT, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA,
   FONDOS_TARJETA, DEGRADADOS, VARIANTES_BOTON, TIPOS_CAMPO, nuevoId, parrafo, titulo as nodoTitulo, docPagina,
@@ -34,7 +35,6 @@ import { tarjetaDesdeEsquema, MAX_PUNTOS, MAX_PUNTO, MAX_TITULO_SECCION } from '
 import { attrsInsertado, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
 import { claseDeProveedor, nombreDeProveedor } from '@/lib/embeds';
 import { TEMAS, TEMA_DEFAULT_ID, FUENTES, REDONDECES, esOscuro, sanearTemaPropio } from '@/lib/editor-landing/temas';
-import { PLANTILLAS, type CategoriaPlantilla } from '@/lib/editor-landing/plantillas';
 import { TOPE_TEMAS } from '@/lib/editor-landing/server-reglas';
 import { FORMATOS, PROPORCIONES, formatoDe, proporcionDe, diapositivaFija, type ConfigLanding, type TemaPropio, type Comentario, type ParamsGeneracion } from '@/lib/editor-landing/api-tipos';
 import { precioDe, type EstadoCobroLanding } from '@/lib/editor-landing/pago-landing';
@@ -354,19 +354,8 @@ export function planAcomodarSeccion(c: LandingContenido, e: { seccion?: unknown;
   return { error: 'Acción desconocida.' };
 }
 
-/** «Restablecer estilo» (EstiloSeccion.tsx, `ESTILO_RESTABLECIDO`): la imagen y el diseño se quedan. El test compara las claves. */
-export const ESTILO_RESTABLECIDO_API: Readonly<Partial<AttrsTarjeta>> = {
-  fondo: ATTRS_TARJETA_DEFAULT.fondo,
-  fondoColor: ATTRS_TARJETA_DEFAULT.fondoColor,
-  fondoDegradado: ATTRS_TARJETA_DEFAULT.fondoDegradado,
-  ancho: ATTRS_TARJETA_DEFAULT.ancho,
-  alineacion: ATTRS_TARJETA_DEFAULT.alineacion,
-  alto: ATTRS_TARJETA_DEFAULT.alto,
-  superposicion: ATTRS_TARJETA_DEFAULT.superposicion,
-  imagenAjuste: ATTRS_TARJETA_DEFAULT.imagenAjuste,
-  imagenFocoX: ATTRS_TARJETA_DEFAULT.imagenFocoX,
-  imagenFocoY: ATTRS_TARJETA_DEFAULT.imagenFocoY,
-};
+/** «Restablecer estilo»: el MISMO del panel Estilo (lib/editor-landing/reglas-pantalla.ts; hasta el 17/10/2026, una copia). */
+export const ESTILO_RESTABLECIDO_API: Readonly<Partial<AttrsTarjeta>> = ESTILO_RESTABLECIDO;
 
 const NOMBRE_ATTR: Readonly<Record<string, string>> = {
   diseno: 'imagen de acento', imagenSrc: 'imagen', ancho: 'ancho', alineacion: 'alineación', alto: 'alto', fondo: 'fondo',
@@ -1072,17 +1061,8 @@ export function pedidoEnBlanco(e: { tema?: unknown; formato?: unknown; titulo?: 
   return { pedido: { accion: 'crear', ...(titulo ? { titulo } : {}), config }, nombreTema: t.nombre };
 }
 
-/** El tema que MaKo sugiere para un objetivo (COPIA de `temaSugerido`, app/web-generator/crear/SelectorTemaCrear.tsx, 'use client'). */
-const CATEGORIA_DE_OBJETIVO: Record<ObjetivoLanding, CategoriaPlantilla> = {
-  agendar: 'Agendar',
-  vender: 'Vender',
-  registrar: 'Captar contactos',
-  descargar: 'Captar contactos',
-};
-export function temaSugeridoApi(objetivo: ObjetivoLanding): string {
-  const id = PLANTILLAS.find((p) => p.categoria === CATEGORIA_DE_OBJETIVO[objetivo])?.tema;
-  return id && TEMAS.some((t) => t.id === id) ? id : TEMA_DEFAULT_ID;
-}
+/** El tema que MaKo sugiere para un objetivo: el MISMO de Crear con IA (lib/editor-landing/reglas-pantalla.ts; antes, una copia). */
+export const temaSugeridoApi = temaSugerido;
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const NOMBRE_COLOR_TEMA: Record<string, string> = { acento: 'acento', texto: 'texto', titulos: 'títulos', fondo: 'fondo', fondoSeccion: 'fondo de las secciones', boton: 'botón', textoBoton: 'texto del botón', enlaces: 'enlaces' };
