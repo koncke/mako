@@ -675,7 +675,22 @@ export async function setSecuenciaActiva(id: number, activa: boolean): Promise<v
       .update({ proximo_envio_at: ahora, updated_at: ahora })
       .eq('secuencia_id', id).in('estado', ['activa', 'respondio']).lt('proximo_envio_at', ahora);
     if (eV) console.error(`[nutricion] reactivar la ${id}: lo vencido durante la pausa sale en la corrida de la hora (${eV.message})`);
+    // ACTIVAR PRENDE EL ENVÍO DE WHATSAPP DEL NEGOCIO (17/10/2026, #851, decisión de Martín: lib/envio-al-activar.ts).
+    // Un error acá no deshace la activación: el cartel de /automations dice que el envío está apagado.
+    await prenderEnvioAlActivar(supabase, id).catch((e) => console.error(`[nutricion] activar la ${id}: no pude prender el envío de WhatsApp (${e instanceof Error ? e.message : String(e)})`));
   }
+}
+
+/** Si la automatización le escribe al lead por WhatsApp y el envío del negocio está apagado, lo prende. Devuelve si lo prendió. */
+async function prenderEnvioAlActivar(supabase: Awaited<ReturnType<typeof getTenantDb>>, id: number): Promise<boolean> {
+  const { data, error } = await supabase.from('nutricion_secuencias').select('pasos').eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  const pasos = Array.isArray((data as { pasos?: unknown } | null)?.pasos) ? ((data as { pasos: PasoGrafo[] }).pasos) : [];
+  const [{ leEscribeAlLeadPorWhatsapp }, { envioWhatsappHabilitado, setEnvioWhatsapp }] = await Promise.all([import('./envio-al-activar'), import('./envio-flags')]);
+  if (!leEscribeAlLeadPorWhatsapp(pasos) || (await envioWhatsappHabilitado())) return false;
+  await setEnvioWhatsapp(true);
+  console.log(`[nutricion] activar la ${id}: se prendió el envío de WhatsApp del negocio (decisión del 17/10/2026)`);
+  return true;
 }
 
 /**

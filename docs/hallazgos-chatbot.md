@@ -5111,3 +5111,21 @@ Prender #247 lo decide Joan.
 **Vive en:** `lib/probar-grupo.ts` (`soloAlGrupo`, `ENCABEZADO_PRUEBA`, `partesDeBurbujas`) · `lib/probar-grupo-envio.ts`
 · `app/api/chat-agent/simulador/route.ts` (`enviar-grupo`) · `app/automations/PanelProbar.tsx` (`enElGrupo`, `alGrupo`) ·
 tests: `tests/probar-en-el-grupo.test.ts`, `tests/probar-grupo-mako.test.ts`
+
+## «El envío de WhatsApp está apagado» con la línea conectada: el interruptor escondido (17/10/2026, tarjeta #851)
+
+- ⚠️ **No era la línea: era un SEGUNDO interruptor.** `envio_whatsapp_enabled` (lib/envio-flags.ts) es fail-closed para
+  los clientes. Medido el 17/10: prendido sólo en ws1, ws11 y ws13. Pablo (ws18) y Brigitte (ws15) tenían la línea
+  conectada y el envío apagado: una automatización «Activa» que le escribe al lead no mandaba nada. Era el cartel amarillo
+  que Martín vio en la revisión («qué raro que esté conectado y te salga…»).
+- **Decisión de Martín (Ticketera `envio-whatsapp-al-activar`, «B · Sí, y prenderlo ya»):** activar una automatización
+  que le escribe al lead por WhatsApp prende el envío del negocio (`prenderEnvioAlActivar` en `setSecuenciaActiva`, la
+  regla en lib/envio-al-activar.ts). Sólo prende; apagarlo sigue siendo a mano en /whatsapp, y el cartel lo dice.
+- **Prendido el 17/10 en ws15 y ws18.** Antes se midió el riesgo de prender de golpe (con el envío apagado el tick no mueve
+  nada y lo vencido se acumula): las únicas automatizaciones activas que le escriben al lead estaban en ws1 y ws13, ya
+  prendidos. Se deshace con `envio_whatsapp_enabled = 'false'` en esos dos.
+- **«Que salte el QR al Probar o Publicar sin WhatsApp» ya estaba** (décima tanda: el 409 de Publicar, Activar y Probar
+  abren `ConectarMedio` ahí mismo). Lo que se vio en la llamada fue el interruptor, no la falta de línea.
+
+**Vive en:** `lib/envio-al-activar.ts` · `lib/nutricion.ts` (`setSecuenciaActiva`, `prenderEnvioAlActivar`) ·
+`lib/envio-flags.ts` · test: `tests/envio-al-activar.test.ts`
