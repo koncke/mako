@@ -1208,7 +1208,7 @@ curl -L \
 
 ### `POST /api/v1/plan/cambiar_fecha_tarea_plan` — Cambiar la fecha límite de una tarea
 
-Pone, cambia o quita la fecha límite (deadline) de UNA tarea del plan y deja rastro en el historial. Úsala para «movela al viernes» cuando es una TAREA del plan (una reunión de la agenda se mueve con su propia herramienta). La fecha va en YYYY-MM-DD, de hoy en adelante, en la zona del negocio; «quitar: true» la deja sin fecha. No toca el Quarter, ni la prioridad, ni una tarea que se repite (esa no lleva fecha).
+Pone, cambia o quita la fecha límite de UNA tarea del plan (YYYY-MM-DD, de hoy en adelante). Una reunión de la agenda se mueve con otra herramienta.
 
 - **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)
 - **Token clásico:** alcance mínimo proponer
