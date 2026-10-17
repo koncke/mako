@@ -51,7 +51,7 @@ lo saca el CRM: no tocarlo.
 | Webhooks y cron | `app/api/webhooks/{stripe,mercadopago}`, `lib/cobros-webhook.ts`, `lib/cobros-eventos.ts`, `app/api/cron/cobros-reconciliar` (también corre las renovaciones de agencia) |
 | La tab Pagos del lead | `app/crm/lead-view/ficha/{reglas-pagos.ts, registro-pagos.tsx, pagos/}` · lo que dice: `lib/pagos-vistazo.ts` · lo cobrado: `lib/cobrado-lead.ts` |
 | La baja del cliente | `lib/pagos-baja.ts` (el único que escribe `baja_at`) · `noEsDeuda` en lib/cobrado-lead.ts |
-| El cliente de agencia | `lib/agencia-cobro.ts` (link, renovación, lo que ve la agencia) · `lib/agencia-cobro-reglas.ts` (puro) · `lib/agencia-habilitar.ts` (el pago aprueba; el aviso que comparte con la firma del super admin) · `app/customer-success/CuentaDeMaKo.tsx` |
+| El cliente de agencia | `lib/agencia-cobro.ts` (link, renovación, lo que ve la agencia) · `lib/agencia-cobro-reglas.ts` (puro) · `lib/agencia-habilitar.ts` (el pago aprueba; el aviso que comparte con la firma del super admin) · `app/partners/PartnersApp.tsx` (lo que ve la agencia, en /partners desde el 17/10/2026) |
 | Páginas públicas | `app/pagar/[token]`, `/listo`, `app/api/pagar/email`, `app/reembolsos`, `/terminos` §8 |
 | API de MaKo | área `cobros` (`lib/api-mako/areas/cobros.*`, con `baja_del_cliente`) y `ver_pagos_clientes_agencia` en el área `cs` |
 | Super admin | `/admin/cobros` (vender un plan, el precio del cliente de agencia, cada alta) |

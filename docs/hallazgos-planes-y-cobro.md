@@ -818,7 +818,7 @@ Sin él (o sin la Mercado Pago de MaKo conectada) la cuenta queda como siempre: 
 |---|---|
 | **Cliente de agencia:** que MaKo tenga su Mercado Pago conectada (ws9 tenía 0 claves de pasarela el 17/10) y el precio en pesos cargado. Sin las dos cosas no sale ningún link | `/integraciones?ws=9`, `/admin/cobros` («Cliente de agencia») |
 | **Cliente de agencia:** medir con claves de prueba que MP acepte `start_date` en una suscripción sin plan, que no cobre al autorizarla, y que el preapproval quede `authorized` | `lib/mercadopago-api.ts` (`crearSuscripcionMp`), `lib/cobros.ts` (`anotarAutorizacionMp`) |
-| **Cliente de agencia:** nada le avisa a la agencia cuando se crea su renovación: la ve en su tarjeta de Customer Success. Y si no la autoriza, el acceso no se corta (no existe el estado de suscripción por workspace) | `lib/agencia-cobro.ts` (`renovacionesDeAgencia`), `app/customer-success/CuentaDeMaKo.tsx` |
+| **Cliente de agencia:** nada le avisa a la agencia cuando se crea su renovación: la ve en /partners (MaKo Partners). Y si no la autoriza, el acceso no se corta (no existe el estado de suscripción por workspace) | `lib/agencia-cobro.ts` (`renovacionesDeAgencia`), `app/partners/PartnersApp.tsx` |
 | **Cliente de agencia:** la suscripción de agencia (los 97) se vende como cualquier plan desde «Vender un plan»; no está atada a sus clientes | `app/admin/cobros/VenderPlan.tsx` |
 | Que el corte por capa llegue a la API | las 246 rutas de `app/api` que no la miran |
 | El cartel de «no está en tu plan» | los 56 call-sites de `lib/tab-access.ts` + `app/_ui/Estados.tsx:251` |
