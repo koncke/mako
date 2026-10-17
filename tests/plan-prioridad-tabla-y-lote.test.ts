@@ -374,7 +374,8 @@ test('LAS TRES BARRAS DE LAS VISTAS DE TARJETAS ESTÁN PEGADAS', () => {
     assert.match(antes, /position: 'sticky'/, `una barra de lote quedó sin pegar (caracter ${i}): se va con el scroll`);
   }
   // Las dos de Recurrentes pueden estar vivas a la vez: con las dos en `top: 8` se tapan.
-  assert.match(SHELL, /position: 'sticky', top: 66/, 'las dos barras de Recurrentes volvieron al mismo `top`: se pisan');
+  // Desde el 17/10/2026 (#850) los dos `top` suman `--pegado-arriba`, la barra de inspección (tests/barra-inspeccion-alto.test.ts).
+  assert.match(SHELL, /position: 'sticky', top: 'calc\(66px \+ var\(--pegado-arriba, 0px\)\)'/, 'las dos barras de Recurrentes volvieron al mismo `top`: se pisan');
 });
 
 // ── Verificado rompiéndolo (04/10/2026), con los números ─────────────────────

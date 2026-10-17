@@ -1163,6 +1163,14 @@ details[open] > summary .chev {
 [data-alerta-voz] { --barra-agencia: 64px; }
 [data-barra-agencia][data-alerta-voz] { --barra-agencia: 114px; }
 [data-barra-agencia] body, [data-alerta-voz] body { padding-top: var(--barra-agencia); }
+/* ⚠️ LO QUE SE PEGA ARRIBA AL SCROLLEAR, EN LA PÁGINA O EN UN MODAL (17/10/2026, #850). Una barra `sticky` se pega a su
+   ancestro que scrollea: en la página es la VENTANA, y ahí la tapa la barra de inspección; adentro de un modal es su
+   cuerpo, y ahí la barra no está. Las barras de lote del Plan, del CRM y de Customer Success viven en los dos lugares,
+   así que no les sirve `--barra-agencia` a secas (en el modal quedarían 50 px más abajo). `--pegado-arriba` vale el alto
+   de la barra en la página y 0 adentro de cualquier modal: `top: calc(8px + var(--pegado-arriba, 0px))`.
+   Lo fija tests/barra-inspeccion-alto.test.ts (6). */
+:root { --pegado-arriba: var(--barra-agencia); }
+[aria-modal="true"] { --pegado-arriba: 0px; }
 /* Con la alerta sola, SOLO el riel del Sidebar ([data-sidebar]): la regla genérica estiraba
    al alto de la ventana cualquier <aside> de las pantallas admin mientras la voz estuviera
    caída (revisión del 11/09/2026). */

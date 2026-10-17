@@ -3449,7 +3449,7 @@ function Kanban({ tasks, tablero, board, orden, dir, frenanA, ask, sel, setSel, 
           scrolleás: con un tablero de 19.000px, una barra que se va con el scroll obliga a
           volver arriba para usarla. */}
       {elegidas.length > 0 && (
-        <div style={{ gridColumn: '1 / -1', position: 'sticky', top: 8, zIndex: 20 }}>
+        <div style={{ gridColumn: '1 / -1', position: 'sticky', top: 'calc(8px + var(--pegado-arriba, 0px))', zIndex: 20 }}>
           <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
         </div>
       )}
@@ -5129,7 +5129,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
                            ⚠️ Y ÉSTA VA EN `top: 8` Y LA DE TAREAS MÁS ABAJO: en esta vista
                            las dos selecciones pueden estar vivas a la vez, y las dos en el
                            mismo `top` se pisan cuando los dos grupos están en pantalla. */
-                        <div style={{ gridColumn: '1 / -1', position: 'sticky', top: 8, zIndex: 20 }}>
+                        <div style={{ gridColumn: '1 / -1', position: 'sticky', top: 'calc(8px + var(--pegado-arriba, 0px))', zIndex: 20 }}>
                           <AccionesLoteProyectos elegidos={proyectos.filter((l) => selProy.has(l.id))} board={board} onLimpiar={() => setSelProy(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
                         </div>
                       )}
@@ -5160,7 +5160,7 @@ function RecurrentesView({ tareas, proyectos, board, topProjectId, tabla, onOpen
                         /* ⚠️ `top: 66` Y NO 8: en esta vista la barra de PROYECTOS también
                            puede estar viva, y las dos pegadas al mismo borde se tapan entre
                            sí. 66 = los 8 de la de arriba + sus 50 de alto + 8 de aire. */
-                        <div style={{ gridColumn: '1 / -1', position: 'sticky', top: 66, zIndex: 19 }}>
+                        <div style={{ gridColumn: '1 / -1', position: 'sticky', top: 'calc(66px + var(--pegado-arriba, 0px))', zIndex: 19 }}>
                           <AccionesLote elegidas={tareas.filter((t) => selTareas.has(t.id))} board={board} ask={ask} onLimpiar={() => setSelTareas(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
                         </div>
                       )}
@@ -5549,7 +5549,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
              se deriva de que la selección esté vacía (ver `desplegadoPorSeleccion`). Así
              vale igual para los seis caminos internos de la barra, para la casilla de la
              tarjeta y para el que se invente mañana. */
-          <div style={{ position: 'sticky', top: 8, zIndex: 20 }}>
+          <div style={{ position: 'sticky', top: 'calc(8px + var(--pegado-arriba, 0px))', zIndex: 20 }}>
             <AccionesLoteProyectos elegidos={shown.filter(({ l }) => selProy.has(l.id)).map(({ l }) => l)} board={board}
               onLimpiar={() => setSelProy(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
           </div>
