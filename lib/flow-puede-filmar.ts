@@ -69,9 +69,23 @@ export type OperacionMinima = {
   rpcidsPreferidos?: readonly string[];
 };
 
+/**
+ * Lo que contesta el motor por interfaz de la pestaña de Flow
+ * (`extension/flow-interfaz.js`, mensaje `INTERFAZ_ESTADO`).
+ *
+ * `null` = la extensión tiene el motor pero la pestaña no contestó: no hay
+ * pestaña, está dormida, o el script no se pudo poner. Es «no puede», no «no sé».
+ */
+export type EstadoInterfaz = { puede?: boolean; porQue?: string } | null;
+
 export type Ensayo = {
   /** ¿Saldría el pedido si llegara un trabajo ahora mismo? */
   puede: boolean;
+  /**
+   * Con qué se filmaría. `interfaz` = apretando los botones reales de Flow;
+   * `plantilla` = repitiendo un pedido de BOQ aprendido (extensiones ≤ 0.68).
+   */
+  motor?: 'interfaz' | 'plantilla';
   /** El `op` de la primera operación que falla, para que el popup sepa qué enseñar. */
   falta: string | null;
   /**
@@ -187,7 +201,20 @@ export function ensayarOperacion(
 export function puedeFilmar(
   plantillas: Record<string, PlantillaGuardada | null | undefined>,
   necesarias: readonly OperacionMinima[],
+  interfaz?: EstadoInterfaz,
 ): Ensayo {
+  // ⚠️ CON EL MOTOR POR INTERFAZ, LA PLANTILLA NO DECIDE NADA. El server le manda
+  // los trabajos con `motor: 'interfaz'` a toda extensión que lo tiene, y esos
+  // trabajos se hacen apretando «Start generation» en la pestaña: una plantilla
+  // aprendida no participa. Juzgar por ella daría un verde sobre una pestaña que
+  // no puede generar, o un rojo («enséñame») sobre una que sí — y «enséñame»
+  // cuesta un crédito de la persona por algo que ya no se usa.
+  //
+  // `undefined` es una extensión sin el motor: ahí sigue mandando la plantilla.
+  if (interfaz !== undefined) {
+    if (interfaz && interfaz.puede === true) return { puede: true, falta: null, porQue: '', motor: 'interfaz' };
+    return { puede: false, falta: null, porQue: (interfaz && interfaz.porQue) || 'INTERFAZ_MUDA', motor: 'interfaz' };
+  }
   if (!necesarias || !necesarias.length) {
     return { puede: false, falta: null, porQue: 'SIN_CATALOGO' };
   }
