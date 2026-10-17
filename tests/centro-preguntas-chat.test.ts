@@ -103,9 +103,9 @@ test('5. el servidor marca contestada sólo con el trabajo firmado que dice lo e
 
 test('6. la PC y el servidor validan IGUAL: lo que arma `preguntar` lo acepta MaKo tal cual, y lo que una rechaza, la otra también', async () => {
   const { armarPregunta, sesionQuePregunta } = await import('../scripts/operaciones/cartero.mjs');
-  assert.equal(sesionQuePregunta({ CLAUDE_CODE_HOST_SESSION_ID: S1 } as NodeJS.ProcessEnv), S1, 'en la app, su sesión');
-  assert.equal(sesionQuePregunta({ CLAUDE_CODE_SESSION_ID: ID } as NodeJS.ProcessEnv), `cli_${ID}`, 'en la terminal, cli_<id>');
-  assert.equal(sesionQuePregunta({} as NodeJS.ProcessEnv), null);
+  assert.equal(sesionQuePregunta({ CLAUDE_CODE_HOST_SESSION_ID: S1 } as unknown as NodeJS.ProcessEnv), S1, 'en la app, su sesión');
+  assert.equal(sesionQuePregunta({ CLAUDE_CODE_SESSION_ID: ID } as unknown as NodeJS.ProcessEnv), `cli_${ID}`, 'en la terminal, cli_<id>');
+  assert.equal(sesionQuePregunta({} as unknown as NodeJS.ProcessEnv), null);
   const escrito = {
     pregunta: '  ¿Abro   la ventana?  ', contexto: 'Una línea.\r\nOtra línea.', varias: true, recomendada: 0,
     opciones: [{ titulo: 'Sí, ábrela', detalle: 'Ahora' }, { titulo: 'No' }],
