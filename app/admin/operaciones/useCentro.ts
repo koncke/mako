@@ -28,6 +28,7 @@ import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
+  avisaYaEsta, type VistosDeChats,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
@@ -42,6 +43,7 @@ import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
+import { recordarEnviadas } from './fotos-enviadas';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
@@ -182,9 +184,23 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     }
   }, [cargarBorrador]);
   /** La conversación avisa qué chat se está mirando (o null al cerrarla). */
+  // ── Los «Completado» sin ver (17/10/2026, Martín: «un aviso en la tarjeta del chat cuando trae un "Ya está"») ──────
+  // Como el globito de no leídos de WhatsApp, por dispositivo (localStorage): un chat que se abrió después de su «Ya está»
+  // ya no lo avisa. `desde` es la primera vez que este navegador abrió el Ops Center: lo de antes no se avisa (si no, todos
+  // los chats saldrían con aviso el primer día).
+  const [vistos, setVistos] = useState<VistosDeChats | null>(null);
+  const [mirando, setMirando] = useState<string | null>(null);
+  useEffect(() => { setVistos(leerVistos(Date.now())); }, []);
+  const verChat = useCallback((clave: string) => {
+    setVistos((v) => { const n = { desde: v?.desde ?? Date.now(), chats: { ...v?.chats, [clave]: Date.now() } }; guardarVistos(n); return n; });
+  }, []);
   const mirar = useCallback((c: ChatCentro | null) => {
+    // El que se deja también queda visto: lo que llegó mientras estaba abierto ya se vio.
+    if (mirado.current && mirado.current.clave !== c?.clave) verChat(mirado.current.clave);
     mirado.current = c;
+    setMirando(c?.clave ?? null);
     if (!c) return;
+    verChat(c.clave);
     // Lo que quedó escrito en este navegador vuelve en el acto; lo de MaKo llega con los turnos.
     cargarBorrador(c, null);
     void pedirTurnos(c);
@@ -238,6 +254,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // En qué está: el paso que está dando AHORA, si la PC lo subió; si no, el título de lo que tiene en curso.
   const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, pasosPorChat.get(k)?.at(-1)?.texto ?? enQueTrabaja(l)])), [lineasDe, pasosPorChat]);
   const pasosDe = (c: ChatCentro): PasoDelTurno[] => pasosPorChat.get(c.clave) ?? SIN_PASOS;
+  /** Los chats cuyo último mensaje es un «Ya está» que este dispositivo todavía no vio (lib/centro-chats.ts → avisaYaEsta). */
+  const yaSinVer = useMemo(() => new Set([...previas].filter(([k, p]) => k !== mirando && avisaYaEsta(p, vistos, k)).map(([k]) => k)), [previas, vistos, mirando]);
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
@@ -399,6 +417,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim() || TEXTO_SOLO_ADJUNTOS,
       estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
     });
+    // Las fotos se quedan en este navegador para dibujarlas en su burbuja (FotosEnviadas.tsx: el bucket las borra al entregar).
+    if (subidos.length) recordarEnviadas(r.id, archivos.map((a) => a.file));
     vaciarAdjuntos(c.clave);
     limpiarBorrador(c.clave);
     citar(c.clave, null);
@@ -504,7 +524,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, pasosDe,
-    lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
+    lineasDe, previas, enCursos, yaSinVer, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     puedeAbrirEn, apertura, abrirChat,
@@ -516,3 +536,18 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 }
 
 export type Centro = ReturnType<typeof useCentro>;
+
+// Los «Completado» vistos, en este navegador (una comodidad: sin localStorage, ningún aviso queda pegado para siempre:
+// `desde` es ahora y nada viejo avisa).
+const CLAVE_VISTOS = 'ops-center:vistos';
+function leerVistos(ahora: number): VistosDeChats {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(CLAVE_VISTOS) ?? 'null') as Partial<VistosDeChats> | null;
+    if (v && typeof v.desde === 'number' && v.chats && typeof v.chats === 'object') return { desde: v.desde, chats: v.chats };
+  } catch { /* sin localStorage */ }
+  const nuevo = { desde: ahora, chats: {} };
+  guardarVistos(nuevo);
+  return nuevo;
+}
+function guardarVistos(v: VistosDeChats) { try { window.localStorage.setItem(CLAVE_VISTOS, JSON.stringify(v)); } catch { /* es una comodidad */ } }
+

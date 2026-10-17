@@ -18,6 +18,7 @@ import { Icon } from '@/app/_components/icons';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { ACCEPT_ADJUNTOS_CHAT } from '@/lib/mako-adjuntos';
 import type { AdjuntoCaja } from './useCentro';
+import { Visor } from './Visor';
 
 /** Lo que la caja necesita para adjuntar. `puede` = false: el Runner todavía no baja adjuntos (no se ofrece). */
 export type AdjuntosDeCaja = {
@@ -61,22 +62,7 @@ export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
 
 /** El adjunto ampliado, antes de mandar: la foto entera, o el PDF en su visor. Escape o tocar afuera lo cierra. */
 function VerAdjunto({ x, onCerrar }: { x: AdjuntoCaja; onCerrar: () => void }) {
-  useEffect(() => {
-    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar(); };
-    window.addEventListener('keydown', tecla);
-    return () => window.removeEventListener('keydown', tecla);
-  }, [onCerrar]);
-  return (
-    <div className="co-ver" role="dialog" aria-modal="true" aria-label={x.file.name} onClick={onCerrar}>
-      <div className="co-ver__marco" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="co-ver__cerrar" onClick={onCerrar} aria-label="Cerrar"><Icon name="x" size={18} /></button>
-        {x.tipo === 'image'
-          // eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:)
-          ? <img className="co-ver__img" src={x.url} alt={x.file.name} />
-          : <iframe className="co-ver__pdf" src={x.url} title={x.file.name} />}
-      </div>
-    </div>
-  );
+  return <Visor url={x.url} nombre={x.file.name} tipo={x.tipo} onCerrar={onCerrar} />;
 }
 
 /**

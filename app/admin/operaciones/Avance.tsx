@@ -49,12 +49,14 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback }: {
   // El primer renglón es el título; lo demás, el detalle (los chats contestan en Markdown).
   const cuerpo = t.texto.trim().split('\n').slice(1).join('\n').trim();
   const suyas = tareas.filter((x) => x.ya === t.uuid);
-  const titulo = n?.titulo ?? 'Ya está';
+  // En pantalla un «Ya está» se dice «Completado» (Martín, 17/10/2026). El chat lo sigue escribiendo «Ya está»: es lo que
+  // lee el servidor (`esYaEsta`, el Plan automático) y no se toca.
+  const titulo = n?.titulo && n.titulo !== 'Ya está' ? n.titulo : 'Completado';
   return (
-    <article className="co-ya" aria-label={`Ya está: ${titulo}`}>
+    <article className="co-ya" aria-label={`Completado: ${titulo}`}>
       <header className="co-ya__cab">
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
-        <span className="co-ya__rotulo">Ya está</span>
+        <span className="co-ya__rotulo">Completado</span>
       </header>
       <p className="co-ya__titulo">{titulo}</p>
       {cuerpo && <div className="co-ya__md co-el__md"><Markdown text={cuerpo} enlaces /></div>}

@@ -485,7 +485,19 @@ export function historialDelChat(
  * El segundo renglón de una fila de la lista, como en WhatsApp y Linear: lo ÚLTIMO que pasó en ese chat. Si es
  * un trabajo propio, con su tick; si es lo que pidió Martín por otro lado, con «Tú:». null = nada todavía.
  */
-export type VistaPrevia = { texto: string; propio: boolean; tick: EstadoPedido | null; instante: number };
+/** `ya`: lo último es un «Ya está» del chat (17/10/2026, Martín: «un aviso en la tarjeta del chat cuando trae un "Ya está"»).
+ *  Su texto va sin el «Ya está» de adelante: la fila lo dibuja con su sello «Completado». */
+export type VistaPrevia = { texto: string; propio: boolean; tick: EstadoPedido | null; instante: number; ya?: true };
+
+/** Lo que este dispositivo ya vio de cada chat: `desde` = la primera vez que abrió el Ops Center; `chats` = cuándo abrió cada uno. */
+export type VistosDeChats = { desde: number; chats: Record<string, number> };
+
+/** ¿La fila de este chat avisa su «Ya está»? Sólo si lo último es un «Ya está» que llegó después de la última vez que se abrió
+ *  el chat (o, si nunca se abrió, después de `desde`). Sin saber qué se vio (`vistos` null, antes de leer), no avisa. */
+export function avisaYaEsta(p: VistaPrevia | null | undefined, vistos: VistosDeChats | null, clave: string): boolean {
+  if (!p?.ya || !vistos) return false;
+  return p.instante > (vistos.chats[clave] ?? vistos.desde);
+}
 
 export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
   let mejor: VistaPrevia | null = null;
@@ -506,7 +518,10 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
       if (r && t != null) ver({ texto: renglon(resumenDeRespuesta(l.pregunta, r)), propio: true, tick: null, instante: t });
     } else if (l.tipo === 'turno') {
       // Lo que contestó (o lo que se le dijo): lo último que pasó en la conversación. El turno de un trabajo ya está.
-      if (!(l.turno.rol === 'yo' && l.turno.trabajo)) ver({ texto: renglon(l.turno.texto), propio: l.turno.rol === 'yo', tick: null, instante: l.instante });
+      if (l.turno.rol === 'el' && esYaEsta(l.turno.texto)) {
+        const titulo = renglon(l.turno.texto).replace(/^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i, '').trim();
+        ver({ texto: titulo || 'Completado', propio: false, tick: null, instante: l.instante, ya: true });
+      } else if (!(l.turno.rol === 'yo' && l.turno.trabajo)) ver({ texto: renglon(l.turno.texto), propio: l.turno.rol === 'yo', tick: null, instante: l.instante });
     } else {
       ver({ texto: renglon(l.pedido.texto), propio: true, tick: null, instante: l.instante });
       if (l.tipo === 'pedido') for (const s of l.pasos) if (s.instante != null) ver({ texto: renglon(s.titulo), propio: false, tick: null, instante: s.instante });

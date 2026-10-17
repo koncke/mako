@@ -90,17 +90,19 @@ function NombreDeCuenta({ cuenta, datos, onRenombrar }: { cuenta: string; datos:
   );
 }
 
-function Barra({ titulo, v, ahora }: { titulo: string; v: UsoVentana | null; ahora: number }) {
+function Barra({ titulo, v, ahora, vencida }: { titulo: string; v: UsoVentana | null; ahora: number; vencida?: string | null }) {
+  // Vencida (medida hace más de 6 horas, lib/centro-uso.ts → USO_VENCIDO_MS): la barra se apaga y dice desde cuándo no se
+  // mide, nunca el porcentaje como si fuera de ahora.
   const lleno = v?.pct ?? 0;
-  const tono = lleno >= 90 ? 'mal' : lleno >= 75 ? 'ojo' : 'bien';
+  const tono = vencida ? 'apagado' : lleno >= 90 ? 'mal' : lleno >= 75 ? 'ojo' : 'bien';
   return (
-    <div className="co-uso__ventana">
+    <div className={`co-uso__ventana${vencida ? ' co-uso__ventana--vencida' : ''}`}>
       <div className="co-uso__fila">
         <span className="co-uso__nombre">{titulo}</span>
-        <span className={`co-uso__pct${v ? '' : ' co-uso__pct--sin'}`}>{!v ? 'Sin medir' : v.pct == null ? 'Se reinició' : `${v.pct}% usado`}</span>
+        <span className={`co-uso__pct${v && !vencida ? '' : ' co-uso__pct--sin'}`}>{vencida ?? (!v ? 'Sin medir' : v.pct == null ? 'Se reinició' : `${v.pct}% usado`)}</span>
       </div>
-      <div className="co-uso__barra" aria-hidden><span className={`co-uso__lleno co-uso__lleno--${tono}`} style={{ width: `${lleno}%` }} /></div>
-      {v && v.reinicia != null && !v.reinicio && <p className="co-uso__reinicio">{`Se reinicia ${textoReinicio(v.reinicia, ahora)}`}</p>}
+      <div className="co-uso__barra" aria-hidden><span className={`co-uso__lleno co-uso__lleno--${tono}`} style={{ width: `${vencida ? 0 : lleno}%` }} /></div>
+      {v && !vencida && v.reinicia != null && !v.reinicio && <p className="co-uso__reinicio">{`Se reinicia ${textoReinicio(v.reinicia, ahora)}`}</p>}
     </div>
   );
 }
@@ -108,9 +110,10 @@ function Barra({ titulo, v, ahora }: { titulo: string; v: UsoVentana | null; aho
 /** Lo que dice el renglón del Runner de una cuenta: sin Runner declarado es «Sin Runner todavía», sin botón ni comando.
  *  Una cuenta que da vueltas es «Runner activo» la recorra su terminal o el Runner de la app (17/10/2026: «Sin el Runner de
  *  su terminal» se repetía aunque el Runner anduviera, y lo que importa —si se midió la de 5 horas— ya lo dice su barra). */
-function textoRunner(estado: EstadoRunnerUso, vistoAt: string | null, ahora: number): string {
+function textoRunner(estado: EstadoRunnerUso, vistoAt: string | null, ahora: number, conCuota: boolean): string {
   if (estado !== 'apagado') return 'Runner activo';
-  return vistoAt ? `Runner sin conexión · ${hace(Date.parse(vistoAt), ahora)}` : 'Sin Runner todavía';
+  // Sin Runner pero con un número: se midió a mano (la cuenta 1, 17/10/2026).
+  return vistoAt ? `Runner sin conexión · ${hace(Date.parse(vistoAt), ahora)}` : conCuota ? 'Sin Runner · se mide a mano' : 'Sin Runner todavía';
 }
 
 /** Cada cuenta con su plan, su Runner y sus dos ventanas (la computadora y el teléfono). */
@@ -122,8 +125,9 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
         const vivo = estado !== 'apagado';
         const u = usoDeCuenta(k.cuota, ahora);
         const plan = k.cuota?.plan ?? null;
-        // «Medido hace X» en toda cuenta que no está midiendo en vivo (también con su Runner apagado) y en toda medición vieja.
-        const medido = u.medido != null && (u.viejo || estado !== 'mide');
+        // «Medido hace X» SIEMPRE que haya un número (17/10/2026, Martín: el Uso mostraba datos viejos como de ahora), y
+        // pasadas las 6 horas las barras se apagan con «Sin medir hace X» (lib/centro-uso.ts → USO_VENCIDO_MS).
+        const vencida = u.medido != null && u.vencido ? `Sin medir ${hace(u.medido, ahora)}` : null;
         return (
           <section key={k.cuenta} className="co-uso__cuenta" aria-label={nombreCuenta(k.cuenta) ?? k.cuenta}>
             <div className="co-uso__fila">
@@ -139,14 +143,14 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
               </span>
               <span className="co-uso__runner">
                 <span className={`co-punto co-punto--${vivo ? 'trabajando' : 'viejo'}`} aria-hidden />
-                {textoRunner(estado, k.vistoAt, ahora)}
+                {textoRunner(estado, k.vistoAt, ahora, !!k.cuota)}
               </span>
             </div>
             {u.cinco || u.semana ? (
               <>
-                <Barra titulo="Sesión de 5 horas" v={u.cinco} ahora={ahora} />
-                <Barra titulo="Semana" v={u.semana} ahora={ahora} />
-                {medido && <p className="co-uso__reinicio">{`Medido ${hace(u.medido, ahora)}`}</p>}
+                <Barra titulo="Sesión de 5 horas" v={u.cinco} ahora={ahora} vencida={vencida} />
+                <Barra titulo="Semana" v={u.semana} ahora={ahora} vencida={vencida} />
+                {u.medido != null && !vencida && <p className="co-uso__reinicio co-uso__medido">{`Medido ${hace(u.medido, ahora)}`}</p>}
               </>
             ) : (
               <p className="co-uso__reinicio">Su uso aparece cuando su Runner esté conectado</p>

@@ -22,7 +22,7 @@ import { conVinetas, enterEnLista } from '@/lib/centro-caja';
 import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
-import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MensajeWA } from './MensajeWA';
+import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from './MensajeWA';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { PasoDelTurno } from '@/lib/centro-pasos';
 import type { Aspecto } from '@/lib/centro-munecos';
@@ -32,7 +32,7 @@ import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
-import { Microfono } from './Microfono';
+import { BotonMandar } from './Microfono';
 import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { TareasVinculadas, irAlTurno } from './Avance';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from './ConLinks';
@@ -171,13 +171,13 @@ export function Conversacion({
   const [cuantos, setCuantos] = useState(TANDA_HILO);
   useEffect(() => { setCuantos(TANDA_HILO); }, [chat.clave]);
   const verTodo = useCallback(() => setCuantos(Number.MAX_SAFE_INTEGER), []);
-  const [menuWA, setMenuWA] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
+  const [menuWA, setMenuWA] = useState<MenuAbiertoWA | null>(null);
   const [panelWA, setPanelWA] = useState<{ tipo: 'info' | 'reenviar'; m: MensajeWA } | null>(null);
   const [reenviando, setReenviando] = useState(false);
   useEffect(() => { setMenuWA(null); setPanelWA(null); }, [chat.clave]);
   const marcas = wa?.marcas ?? SIN_MARCAS;
   const accionesWA = useMemo<AccionesWA>(() => ({
-    abrirMenu: (m, x, y) => setMenuWA({ m, x, y }),
+    abrirMenu: (m, x, y, tactil) => setMenuWA({ m, x, y, tactil }),
     responder: (m) => {
       ultimos.current.wa?.onCitar({ de: m.de, texto: m.texto, id: m.id });
       window.setTimeout(() => caja.current?.focus(), 0);
@@ -256,41 +256,39 @@ export function Conversacion({
             {/* Respondiendo a un mensaje: su cita arriba de la caja, con la ✕ para soltarla (WhatsApp). */}
             {wa?.cita && <CitaCaja cita={wa.cita} onQuitar={() => wa.onCitar(null)} verTodo={verTodo} />}
             <ListaAdjuntos a={adjuntos} />
-            {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}
-            <div className="co-caja__campo">
-            {conLinks && <ResalteDeLinks texto={texto} capa={(el) => { resalte.current = el; }} />}
-            <textarea
-              ref={caja}
-              className={conLinks ? 'co-caja__texto--resalte' : undefined}
-              onScroll={(e) => { if (resalte.current) resalte.current.scrollTop = e.currentTarget.scrollTop; }}
-              rows={1}
-              value={texto}
-              onChange={(e) => {
-                // «- » y «* » al principio de un renglón se vuelven viñeta mientras se escribe (lib/centro-caja.ts).
-                const v = conVinetas(e.target.value, e.target.selectionStart);
-                if (v.texto !== e.target.value) cursor.current = v.cursor;
-                onTexto(v.texto);
-              }}
-              onKeyDown={tecla}
-              onPaste={(e) => alPegar(e, adjuntos)}
-              placeholder={`Escribe a ${chat.titulo}`}
-              aria-label={`Escribe a ${chat.titulo}`}
-              disabled={enviando}
-            />
-            </div>
-            <LinksDeLaCaja texto={texto} />
-            {/* Abajo, un solo «+» con lo que se adjunta y con qué corre (17/10/2026, la B); «Sólo esto» se fue: el chat
-                decide solo si de lo pedido sale una regla. */}
-            <div className="co-caja__barra">
-              <MasCaja a={adjuntos} apagado={enviando} resumen={resumenEnvio}>
+            {/* UNA FILA, como WhatsApp (17/10/2026; Martín: «que ocupe todo el ancho, con el "+" incluido... el botón de audio
+                y el de enviar son UNO»): el «+» a la izquierda, el campo en el medio y un solo botón a la derecha (Microfono.tsx
+                → BotonMandar). Lo elegido en el «+» que no es «Automático» va abajo, en la línea de estado. */}
+            <div className="co-caja__fila">
+              <MasCaja a={adjuntos} apagado={enviando} resumen={null}>
                 {(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>}
               </MasCaja>
-              <span className="co-caja__hueco" aria-hidden />
-              <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} apagado={enviando} />
-              <button type="button" className="co-enviar" onClick={onMandar} disabled={enviando || (!texto.trim() && !adjuntos?.items.length)} aria-label="Firmar y mandar" title="Firmar y mandar (Enter)">
-                {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
-              </button>
+              {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}
+              <div className="co-caja__campo">
+              {conLinks && <ResalteDeLinks texto={texto} capa={(el) => { resalte.current = el; }} />}
+              <textarea
+                ref={caja}
+                className={conLinks ? 'co-caja__texto--resalte' : undefined}
+                onScroll={(e) => { if (resalte.current) resalte.current.scrollTop = e.currentTarget.scrollTop; }}
+                rows={1}
+                value={texto}
+                onChange={(e) => {
+                  // «- » y «* » al principio de un renglón se vuelven viñeta mientras se escribe (lib/centro-caja.ts).
+                  const v = conVinetas(e.target.value, e.target.selectionStart);
+                  if (v.texto !== e.target.value) cursor.current = v.cursor;
+                  onTexto(v.texto);
+                }}
+                onKeyDown={tecla}
+                onPaste={(e) => alPegar(e, adjuntos)}
+                placeholder={`Escribe a ${chat.titulo}`}
+                aria-label={`Escribe a ${chat.titulo}`}
+                disabled={enviando}
+              />
+              </div>
+              <BotonMandar valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} enviando={enviando}
+                hayQueMandar={!!texto.trim() || !!adjuntos?.items.length} onMandar={onMandar} titulo="Firmar y mandar (Enter)" />
             </div>
+            <LinksDeLaCaja texto={texto} />
           </div>
         ) : envio.por === 'leyendo_clave' ? (
           <div className="co-caja co-caja--quieta" aria-busy="true"><p>&nbsp;</p></div>
@@ -301,7 +299,7 @@ export function Conversacion({
             {envio.por === 'clave_no_aceptada' && <button type="button" className="co-chip" onClick={onCopiarClave}><Icon name="copy" size={14} />Copiar Token</button>}
           </div>
         )}
-        <p className="co-caja__estado" aria-live="polite">{envio.puede ? faltaMic ?? estado ?? '' : ''}</p>
+        <p className="co-caja__estado" aria-live="polite">{envio.puede ? faltaMic ?? estado ?? resumenEnvio ?? '' : ''}</p>
       </div>
       </div>
       </div>

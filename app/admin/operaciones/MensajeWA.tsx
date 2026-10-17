@@ -21,7 +21,10 @@
 // ⚠️ EN EL TELÉFONO LA BURBUJA NO SE SELECCIONA (como en WhatsApp: se copia desde el menú): mantener apretado abriría la
 //    lupa de iOS en vez del menú. En la computadora el texto se sigue seleccionando con el mouse.
 
-import { createContext, useContext, useRef, useState, type ReactNode, type PointerEvent, type WheelEvent } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type PointerEvent, type WheelEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { useAtrasCierra } from './atras';
 import { MenuContextual, type EntradaMenuContextual, type ItemMenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import { haptico } from '@/lib/haptico';
@@ -37,7 +40,8 @@ export type { MensajeWA } from '@/lib/centro-mensajes';
 
 /** Lo que el padre (la conversación de la computadora o la hoja del teléfono) hace con un mensaje. */
 export type AccionesWA = {
-  abrirMenu: (m: MensajeWA, x: number, y: number) => void;
+  /** `tactil`: lo abrió un dedo (mantener apretado). Va la hoja de WhatsApp en el teléfono (HojaMensajeWA), no el menú. */
+  abrirMenu: (m: MensajeWA, x: number, y: number, tactil?: boolean) => void;
   responder: (m: MensajeWA) => void;
   reaccionar: (id: IdMensaje, emoji: string | null) => void;
   /** Dibujar todos los mensajes (la conversación abre con los últimos): ir a uno viejo lo necesita. */
@@ -87,12 +91,13 @@ export function Deslizable({ m, className, children }: { m: MensajeWA | null; cl
     gesto.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, tipo: e.pointerType, eje: null, listo: false };
     cortarLargo();
     const { clientX: x, clientY: y } = e;
+    const tactil = e.pointerType !== 'mouse';
     largo.current = window.setTimeout(() => {
       largo.current = null;
       gesto.current = null;
       tragar.current = true;
       haptico('medium');
-      wa.abrirMenu(m, x, y);
+      wa.abrirMenu(m, x, y, tactil);
     }, LARGO_MS);
   };
   const alMover = (e: PointerEvent<HTMLDivElement>) => {
@@ -235,9 +240,12 @@ export function BarraFijados({ marcas, lineas, titulo, onSoltar, verTodo }: {
   );
 }
 
-/** El menú de un mensaje, con la fila de reacciones arriba. Elegir algo lo cierra. */
+/** Lo abierto del menú de un mensaje: dónde, y si lo abrió un dedo. */
+export type MenuAbiertoWA = { m: MensajeWA; x: number; y: number; tactil?: boolean };
+
+/** El menú de un mensaje, con la fila de reacciones arriba. Elegir algo lo cierra. Abierto con el dedo, la hoja de WhatsApp. */
 export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir }: {
-  abierto: { m: MensajeWA; x: number; y: number } | null;
+  abierto: MenuAbiertoWA | null;
   marcas: MarcasChat;
   onCerrar: () => void;
   /** `reaccion:<emoji>` o una opción de `opcionesDelMensaje`. */
@@ -253,6 +261,7 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir }: {
     );
   }
   if (!abierto) return null;
+  if (abierto.tactil) return <HojaMensajeWA m={abierto.m} marcas={marcas} onCerrar={onCerrar} onElegir={onElegir} />;
   const { m } = abierto;
   const actual = marcas.reacciones[m.id] ?? null;
   const iconos: Record<string, ItemMenuContextual['icono']> = {
@@ -277,6 +286,76 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir }: {
         onElegir(m, id);
       }}
       items={items} />
+  );
+}
+
+/**
+ * MANTENER APRETADO EN EL TELÉFONO, COMO WHATSAPP (17/10/2026; Martín: «el menú se cierra solo enseguida y se lleva la fila de
+ * emojis y la referencia... tiene que quedar abierto hasta que se toque afuera»). Copiado de WhatsApp en el iPhone: el fondo
+ * se oscurece y se desenfoca, arriba la fila de reacciones, en el medio el mensaje (la referencia) y abajo las opciones.
+ *
+ * POR QUÉ SE CERRABA SOLO: el menú de la casa (MenuContextual) se cierra con cualquier `contextmenu` afuera (es su regla para
+ * el clic derecho), con `resize` y con `blur`. Android dispara su propio `contextmenu` al mantener apretado, DESPUÉS de los
+ * 450 ms en que se abre el menú, y en el iPhone abrirlo saca el foco de la caja (se cierra el teclado: `resize`). El menú se
+ * abría y se cerraba en el mismo gesto. Esta hoja sólo se cierra con un toque que EMPIEZA afuera después de abrirla, con
+ * Escape, con el «atrás» (atras.ts) o eligiendo algo; levantar el dedo que la abrió no elige nada.
+ */
+export function HojaMensajeWA({ m, marcas, onCerrar, onElegir }: {
+  m: MensajeWA; marcas: MarcasChat; onCerrar: () => void; onElegir: (m: MensajeWA, id: string) => void;
+}) {
+  // Un toque cuenta sólo si su dedo bajó con la hoja ya abierta: el que la abrió todavía está apoyado.
+  const listo = useRef(false);
+  const [confirmar, setConfirmar] = useState(false);
+  useAtrasCierra(true, onCerrar);
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCerrar(); } };
+    document.addEventListener('keydown', tecla, true);
+    return () => document.removeEventListener('keydown', tecla, true);
+  }, [onCerrar]);
+  if (typeof document === 'undefined') return null;
+  const vale = (e: { detail: number }) => listo.current || e.detail === 0;
+  const actual = marcas.reacciones[m.id] ?? null;
+  const elegir = (id: string) => (e: ReactMouseEvent) => {
+    if (!vale(e)) return;
+    if (id === 'eliminar') { setConfirmar(true); return; }
+    onElegir(m, id);
+  };
+  const iconos: Record<string, ReactNode> = {
+    responder: <IconoMenu nombre="cita" />, reenviar: <IconoMenu nombre="enviar" />, copiar: <IconoMenu nombre="copiar" />,
+    info: <IconoMenu nombre="ver" />, fijar: <IconoMenu nombre="fijar" />, eliminar: <IconoMenu nombre="borrar" />,
+    destacar: <EstrellaWA llena={marcas.destacados.includes(m.id)} size={17} />,
+  };
+  return createPortal(
+    <div className={`co-wa-hoja${m.propio ? ' co-wa-hoja--yo' : ''}`} role="dialog" aria-modal="true" aria-label="Opciones del mensaje"
+      onPointerDownCapture={() => { listo.current = true; }}
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={(e) => { if (e.target === e.currentTarget && vale(e)) onCerrar(); }}>
+      <div className="co-wa-hoja__col">
+        <div className="co-wa-hoja__reacciones" role="group" aria-label="Reaccionar">
+          {REACCIONES.map((e) => (
+            <button key={e} type="button" className="co-wa-hoja__emoji" data-actual={actual === e ? 'true' : undefined}
+              aria-label={actual === e ? `Quitar ${e}` : `Reaccionar con ${e}`} onClick={elegir(`reaccion:${e}`)}>{e}</button>
+          ))}
+        </div>
+        <div className="co-wa-hoja__msg">{renglonDeCita(m.texto, 280)}</div>
+        <div className="co-wa-hoja__acciones" role="menu">
+          {confirmar ? (
+            <>
+              <p className="co-wa-hoja__pregunta">¿Eliminar el mensaje? Sólo para ti</p>
+              <button type="button" role="menuitem" className="co-wa-hoja__accion co-wa-hoja__accion--peligro" onClick={(e) => { if (vale(e)) onElegir(m, 'eliminar'); }}>
+                <span>Eliminar para mí</span>{iconos.eliminar}
+              </button>
+              <button type="button" role="menuitem" className="co-wa-hoja__accion" onClick={(e) => { if (vale(e)) setConfirmar(false); }}><span>Cancelar</span></button>
+            </>
+          ) : opcionesDelMensaje(m, marcas).map((o) => (
+            <button key={o.id} type="button" role="menuitem" className={`co-wa-hoja__accion${o.id === 'eliminar' ? ' co-wa-hoja__accion--peligro' : ''}`} onClick={elegir(o.id)}>
+              <span>{o.label}</span>{iconos[o.id]}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

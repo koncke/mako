@@ -33,3 +33,42 @@ export function Microfono({ valor, onValor, onError, apagado }: {
     </button>
   );
 }
+
+/**
+ * EL BOTÓN DE LA CAJA ES UNO, COMO EN WHATSAPP (17/10/2026; Martín: «el botón de audio y el de enviar son UNO»): el micrófono
+ * cuando no hay nada para mandar, y la flecha apenas hay texto o un adjunto. Mientras dicta sigue siendo el micrófono (lo
+ * dictado va entrando en la caja y la flecha le sacaría el botón de terminar); al terminar, pasa a la flecha.
+ * WhatsApp graba una nota de voz manteniendo apretado; acá se DICTA con un toque y el texto queda en la caja para leerlo
+ * antes de mandarlo (la regla de arriba: nada transcrito sale sin que Martín lo vea).
+ */
+export function BotonMandar({ valor, onValor, onError, apagado, enviando, hayQueMandar, onMandar, titulo = 'Firmar y mandar' }: {
+  valor: string;
+  onValor: (v: string) => void;
+  onError: (m: string) => void;
+  /** La caja no deja hacer nada (se está mandando). */
+  apagado?: boolean;
+  enviando: boolean;
+  /** Hay texto o un adjunto: el botón es la flecha. */
+  hayQueMandar: boolean;
+  onMandar: () => void;
+  titulo?: string;
+}) {
+  const d = useDictar(valor, onValor, onError);
+  if (enviando) return <button type="button" className="co-enviar" disabled aria-label="Mandando"><span className="co-enviar__giro" aria-hidden /></button>;
+  if (hayQueMandar && !d.escuchando && !d.subiendo) {
+    return (
+      <button type="button" className="co-enviar" onClick={onMandar} disabled={apagado} aria-label={titulo} title={titulo}>
+        <Icon name="flecha" size={18} />
+      </button>
+    );
+  }
+  const rotulo = d.subiendo ? 'Transcribiendo…' : d.escuchando ? 'Te escucho: toca para terminar' : 'Dictar';
+  return (
+    <button type="button" className="co-enviar co-enviar--mic" data-escuchando={d.escuchando ? '' : undefined} onClick={d.alternar}
+      disabled={apagado || d.subiendo} title={rotulo} aria-label={d.escuchando ? 'Terminar de dictar' : 'Dictar'} aria-pressed={d.escuchando}>
+      {d.subiendo ? <span className="co-mic__txt">…</span>
+        : d.escuchando && !d.enVivo ? <span className="co-mic__txt">{`${d.segundos}s`}</span>
+          : <Icon name="mic" size={18} />}
+    </button>
+  );
+}

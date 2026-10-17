@@ -68,7 +68,7 @@ test('un número viejo no se muestra como de ahora: pasado el reinicio no vale, 
   assert.equal(despues.cinco?.reinicio, true);
   assert.equal(despues.semana?.pct, 47);
   assert.equal(despues.viejo, true, 'medido hace más de 30 minutos');
-  assert.deepEqual(usoDeCuenta(null, AHORA), { cinco: null, semana: null, medido: null, viejo: true });
+  assert.deepEqual(usoDeCuenta(null, AHORA), { cinco: null, semana: null, medido: null, viejo: true, vencido: true });
 });
 
 test('el botón muestra la semana MÁS usada entre las cuentas con un dato vigente', () => {
@@ -83,10 +83,13 @@ test('el botón muestra la semana MÁS usada entre las cuentas con un dato vigen
   // Una medida hace tres días no le gana a una de recién, aunque diga más (revisión adversarial, 16/10/2026).
   const vieja = { cuenta: 'claude1', cuota: cuota({ semana: { pct: 85, reinicia: '2026-10-21T09:00:00Z' }, medido: '2026-10-13T12:00:00Z' }) };
   assert.equal(usoPrincipal([vieja, cuentas[2]], AHORA)?.cuenta, 'claude3');
-  // Y si sólo hay viejas, sale con su edad.
-  const sola = usoPrincipal([vieja], AHORA);
+  // Y si sólo hay viejas de menos de 6 horas, sale con su edad.
+  const deHoras = { cuenta: 'claude1', cuota: cuota({ semana: { pct: 85, reinicia: '2026-10-21T09:00:00Z' }, medido: '2026-10-16T10:00:00Z' }) };
+  const sola = usoPrincipal([deHoras], AHORA);
   assert.equal(sola?.viejo, true);
-  assert.equal(sola?.medido, Date.parse('2026-10-13T12:00:00Z'));
+  assert.equal(sola?.medido, Date.parse('2026-10-16T10:00:00Z'));
+  // Pasadas las 6 horas ya no es un dato (17/10/2026, Martín: «el Uso muestra datos viejos»): el botón dice «—», no 85%.
+  assert.equal(usoPrincipal([vieja], AHORA), null, 'una medición de hace tres días no es el número del botón');
 });
 
 test('el Runner del Uso: activo sólo si su terminal mide; si otro Runner recorre la cuenta, se dice', () => {
@@ -294,8 +297,9 @@ test('el desplegable: las cuatro cuentas, su plan, las dos ventanas, «Medido ha
   const t = tarjetas(h);
   assert.equal(t.length, 4, 'las cuatro cuentas');
   assert.deepEqual(t.map((x) => x.slice(0, 8)), ['Cuenta 1', 'Cuenta 2', 'Cuenta 3', 'Cuenta 4'], 'en orden 1-4');
-  // 1: vivo y al día: plan, las dos ventanas con su reinicio, y NADA de «Medido» (está midiendo en vivo).
-  assert.match(t[0], /^Cuenta 1 Max Runner activo Sesión de 5 horas 12% usado Se reinicia a las 14:00 Semana 47% usado Se reinicia el mié 21 a las 06:00$/);
+  // 1: vivo y al día: plan, las dos ventanas con su reinicio, y desde el 17/10 también cuándo se midió (Martín: el Uso
+  //    mostraba datos viejos como de ahora; «Medido hace X» va siempre que haya un número).
+  assert.match(t[0], /^Cuenta 1 Max Runner activo Sesión de 5 horas 12% usado Se reinicia a las 14:00 Semana 47% usado Se reinicia el mié 21 a las 06:00 Medido hace 5 min$/);
   // 2: Runner apagado: dice hace cuánto y cuándo se midió, con las dos ventanas.
   assert.match(t[1], /Runner sin conexión · hace 4 h/);
   assert.match(t[1], /Sesión de 5 horas 12% usado/);

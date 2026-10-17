@@ -27,7 +27,8 @@ import { Muneco, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
 import { PreguntaChat, type Responder } from './PreguntaChat';
-import { bloquesDeMensaje } from '@/lib/centro-caja';
+import { TEXTO_SOLO_ADJUNTOS, bloquesDeMensaje } from '@/lib/centro-caja';
+import { AdjuntosEnBurbuja } from './FotosEnviadas';
 import { ConLinks } from './ConLinks';
 import { memo } from 'react';
 import { idDeLinea, leerCita, leerReenvio, mensajeDeLinea, sinOcultos, type MarcasChat } from '@/lib/centro-mensajes';
@@ -80,7 +81,8 @@ function TextoConListas({ texto }: { texto: string }) {
       {bloques.map((b, i) => (b.tipo === 'parrafo'
         ? <span key={i} className="co-burbuja__p"><ConLinks texto={b.texto} /></span>
         : b.numerada
-          ? <ol key={i} className="co-burbuja__lista">{b.items.map((x, j) => <li key={j}><ConLinks texto={x} /></li>)}</ol>
+          // Con SUS números, tal cual (WhatsApp): un <ol> solo renumera desde 1 (lib/centro-caja.ts → `marcas`).
+          ? <ol key={i} className="co-burbuja__lista co-burbuja__lista--num">{b.items.map((x, j) => <li key={j}><span className="co-burbuja__num">{b.marcas[j]}</span><ConLinks texto={x} /></li>)}</ol>
           : <ul key={i} className="co-burbuja__lista">{b.items.map((x, j) => <li key={j}><ConLinks texto={x} /></li>)}</ul>))}
     </>
   );
@@ -107,12 +109,13 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
   return (
     <>
       <Deslizable m={mensajeDeLinea(l, quien.titulo)} className="co-yo">
-        <div className="co-burbuja">
-          <TextoMio texto={w.texto ?? ''} lineas={wa.lineas} />
+        <div className={`co-burbuja${w.adjuntos?.length ? ' co-burbuja--con-adjuntos' : ''}`}>
+          {/* Las fotos arriba del texto, como WhatsApp (FotosEnviadas.tsx: por qué no se veían y de dónde salen). */}
+          {w.adjuntos?.length ? <AdjuntosEnBurbuja id={w.id} nombres={w.adjuntos} /> : null}
+          {!(w.adjuntos?.length && w.texto === TEXTO_SOLO_ADJUNTOS) && <TextoMio texto={w.texto ?? ''} lineas={wa.lineas} />}
           <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{Number.isFinite(t) ? horaAR(t) : ''}<Tick estado={estado} /></span>
         </div>
         <ReaccionWA id={id} marcas={wa.marcas} />
-        {w.adjuntos?.length ? <p className="co-nota">{`Adjuntó ${w.adjuntos.join(' · ')}`}</p> : null}
         {mal && <p className="co-nota co-nota--mal">{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}</p>}
         {va && (
           <p className={`co-envio co-envio--${va.fase}${va.porQue ? ' co-envio--tarda' : ''}`} role="status">
