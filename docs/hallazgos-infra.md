@@ -6912,6 +6912,9 @@ borraron; **10 tenían commits que no están en ninguna rama remota** (no son vi
 **Regla**: antes de borrar, el criterio es «mirar que no tenga trabajo sin guardar» de verdad (cambios, commits sin subir, actividad de hoy), con el
 árbol en una lista en seco que se puede leer. **Vive en:** `docs/relevo/infra-y-build.md` §7.4 · el procedimiento: `git worktree list --porcelain`,
 `git merge-base --is-ancestor <HEAD> origin/main`, `git status --porcelain`, `git worktree remove <ruta>`.
+
+---
+
 ## El disco lleno (17/10/2026)
 
 **Síntoma.** El C: llegó al 100% (2,6 GB libres de 455) y la PC volvió a la firma del 08/10 (ver «`.next/dev` llegó a
