@@ -25,6 +25,8 @@ import { etapaVigenteDe } from './funnel-etapas';
 import { DEFAULT_STAGES, type StageDerivable } from './pipeline';
 import { respuestasGuardadas } from './optin-respuestas';
 import { entradaSocialGuardada, COMO_ENTRO } from './canal-social';
+// La regla de la ficha para «el ingreso estimado no aplica» (PURA: sin React ni server actions).
+import { ingresoNoAplica } from '@/app/crm/lead-view/ficha/resumen/logica';
 
 /** Una etapa del funnel del lead, lo que hace falta para rotularla. */
 export type EtapaParaModelo = { key: string; label?: string | null; kind?: string };
@@ -86,7 +88,13 @@ export function datosDeLaFicha(l: LeadParaModelo, oferta: OfertaParaModelo | nul
     if (v) out[k] = v;
   }
   const estimado = num(l.ingreso_estimado);
-  if (estimado != null && estimado > 0 && l.estado_lead !== 'ganado') out.ingreso_estimado_usd = estimado;
+  // La MISMA regla que la ficha (`ingresoNoAplica`): si una pantalla y MaKo no coinciden, uno de los dos miente.
+  if (estimado != null && estimado > 0) {
+    if (!ingresoNoAplica(l.estado_lead)) out.ingreso_estimado_usd = estimado;
+    // Que se oculte NO es que no exista: sin esto el modelo lee la ausencia como «no tiene estimado» (la queja del 14/10: «dice
+    // no hay sobre algo que el equipo ve»). La marca no trae la cifra, sólo dice por qué no está.
+    else out.ingreso_estimado_oculto = 'es un lead ganado: lo real es el monto de cierre, no lo que se estimaba';
+  }
   const tipo = txt(l.venta_tipo, 30);
   if (tipo) out.venta_tipo = tipo;
   if (tipo === 'suscripcion') {

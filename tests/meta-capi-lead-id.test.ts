@@ -176,10 +176,12 @@ test('el cliente HTTP lee el cuerpo del 200 y manda la hora del hecho', () => {
 
 test('la calificación del CRM manda los dos eventos, con lead_id y con event_id', () => {
   const calif = bloque(leer('lib/leads.ts'), 'if (fireCalificado) {', '// Auto-etiqueta de WhatsApp');
-  assert.ok(calif.length < 2500, `el recorte mide ${calif.length}`);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026 (#856): el bloque suma la espera del «Deshacer», la relectura y la marca
+  // de «ya se mandó», y manda con el lead RELEÍDO (`hoy`), no con la foto del guardado.
+  assert.ok(calif.length < 4500, `el recorte mide ${calif.length}`);
   assert.match(calif, /for \(const eventName of EVENTOS_CALIFICADO\)/);
   assert.match(calif, /eventIdCalificado\(id\)/);
-  assert.match(calif, /metaLeadId: merged\.meta_lead_id/);
+  assert.match(calif, /metaLeadId: hoy!\.meta_lead_id/);
   assert.match(calif, /eventTime: new Date\(\)/);
   // ⚠️ `Lead` ES EL EVENTO DEL LEAD CRUDO y se mudó al webhook: si vuelve a salir
   // de acá, las dos etapas del embudo viajan otra vez con el mismo nombre y Meta no

@@ -1,7 +1,7 @@
 // =============================================================================
 // Las seis fallas BAJAS de la revisión de b2 (Pagos campo por campo, 14/10/2026)
 // =============================================================================
-// docs/relevo/crm-tanda-b1.md, «Revisión de b2 · Pagos». Lo puro se ejecuta; el cableado se lee del FUENTE, como en
+// la revisión de b2 · Pagos (el volcado crm-tanda-b1.md se borró el 17/10/2026: `git show 86bc162be:docs/relevo/crm-tanda-b1.md`). Lo puro se ejecuta; el cableado se lee del FUENTE, como en
 // tests/pagos-escritura.test.ts (lib/pagos.ts, lib/cobros.ts y las acciones son `server-only`):
 //   1. una suscripción de la pasarela ACTIVA le gana a la manual cancelada, y un pago de suscripción nuevo la reabre;
 //   2. volver a cobrar una cuota a mano limpia la moneda, el monto original, el concepto y el método de la vez anterior;

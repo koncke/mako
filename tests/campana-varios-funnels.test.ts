@@ -95,3 +95,19 @@ test('las pantallas: la celda tiene casillas y la ✕ del funnel saca sólo ese 
   assert.match(seccion, /alternarFunnelCampanaAction\(funnelId, \{ tipo: a\.tipo, id: a\.id, nombre: a\.nombre, campanaId: a\.campanaId \}\)/);
   assert.doesNotMatch(seccion, /quitarCampanaAction/, 'la ✕ de un funnel no puede sacar la campaña de los demás');
 });
+
+// #893, la otra mitad (17/10/2026): un lead que YA existía y vuelve por una campaña de otro funnel se SUMA a los funnels
+// de esa campaña (agregar, nunca mover), como el nuevo. Antes quedaba sólo en el suyo, con una línea en el historial.
+// Verificado rompiéndolo: `funnelsDeCampanaParaSumar` sin sacar la casa → 7 / 1 (éste); el `if (porCampana.asignada)`
+// del lead existente sin el `agregarAProducto` → 7 / 1 (éste).
+test('el lead que vuelve por una campaña de otro funnel se suma a ése (sin salir del suyo)', async () => {
+  const { funnelsDeCampanaParaSumar } = await import('../lib/lead-funnel-reglas');
+  // Casa 7; la campaña es del 9 y también del 12 y del negocio (null = el 1).
+  assert.deepEqual(funnelsDeCampanaParaSumar(7, { funnelId: 9, otros: [12, 7] }, 1), [9, 12], 'sin su casa');
+  assert.deepEqual(funnelsDeCampanaParaSumar(null, { funnelId: null, otros: [9] }, 1), [9], 'su casa es el del negocio');
+  assert.deepEqual(funnelsDeCampanaParaSumar(7, { funnelId: null, otros: [] }, null), [], 'el del negocio sin su id no se suma');
+  assert.deepEqual(funnelsDeCampanaParaSumar(7, { funnelId: 7, otros: [] }, 1), [], 'volvió por una campaña de su propio funnel');
+  const src = readFileSync(join(import.meta.dirname, '..', 'lib', 'leads.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const rama = src.slice(src.indexOf('  if (existing) {', src.indexOf('export async function upsertLeadFromMeta(')), src.indexOf('  // INSERT nuevo — fechas de agenda/J1 NULL'));
+  assert.match(rama, /for \(const f of await funnelsAlVolver\(existing\.funnel_id \?\? null, porCampana\)\) \{\s*try \{\s*await agregarAProducto\(existing\.id, f, \{ autor: 'Meta' \}\);/);
+});

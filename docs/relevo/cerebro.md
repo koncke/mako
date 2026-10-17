@@ -441,3 +441,17 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - B6.json (18 de editores y super admin): va después de Mobile 1.
 - **Candado de lo pesado:** C:/dev/pesado.lock (tsc, build, Chrome, más de 30 tests). Los Mobile usan además C:/dev/mobile-build.lock.
 - **Revisión adversarial:** toda punta «⚠️ REVISAR» (plata, seguridad, envíos) pasa por un workflow de revisión antes de subir.
+- **20:45 UTC — corte de consumo.** La SEMANAL de la cuenta 4 llegó a 71% (17 puntos en 1,5 h, por 7 agentes y 4 revisiones). Cada agente entrega lo urgente y cierra. Features y pulido van a los relevos «para después del 20/10». B6 no se lanzó. Los refutadores del guion de revisión pasaron a Sonnet.
+  - En producción (run 124): el Ops Center en el teléfono (los 4 puntos de las 14:44), con el cartero 1.15.5 INSTALADO. Cerrados en el Centro: 6cb02e4a y b32ebe58. Contestados: a6256280 (regla «en producción sólo lo desplegado», en la memoria) y 864f2de1 (borrar archivos de Martín y la hibernación: NO, es una regla dura; le pasé los pasos).
+  - Subido a8bbf0015 (run 125):
+    - B1 9e3f1460c (seguridad; la revisión no encontró roturas para clientes);
+    - Ops4 af531f4ea (Plan desde el chat de sólo lectura, cartero 1.15.7 SIN instalar hasta producción);
+    - B3 42e586a8f (la migración 0316 SIN aplicar; el código anda sin ella).
+  - **Después del deploy:**
+    - instalar el cartero 1.15.7;
+    - crear la fila del mail «Tu contraseña cambió» desde su plantilla en el ws9 (B1);
+    - al Runner le falta el paso 2d (`otraVez`) de lib/runner.ts. No es urgente: sin él, lo nuevo espera el cron de 2 min.
+  - **Rechazados por la revisión, devueltos:**
+    - B5 1fced50fe: 9 defectos; el más grave, el historial del grupo a la IA gratis;
+    - B4 65e299c2e: 9 defectos; las cuotas destildadas en el ws1 quedan impagas, el cron de pausa pausa a quien paga y la capa pm ve «No está en tu plan». Se le pidió una punta sin esas tres piezas.
+  - B1 sigue con 4 agujeros viejos de datos a la IA gratis (el texto del turno, el glosario en el system, wsDeGrupoJid→ws1, anthropic-usage→ws1). B2 está terminando su VERDE.

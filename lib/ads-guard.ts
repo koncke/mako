@@ -12,16 +12,25 @@
 // =============================================================================
 
 import 'server-only';
-
+import { getSesionAdmin } from './auth';
 import { adminDeWorkspaceActual } from './workspace';
 
+/** El super admin entró sin un negocio elegido: no hay cuenta de Meta sobre la que operar. */
+const SIN_NEGOCIO = 'sin-negocio' as const;
+
 /**
- * El workspace sobre el que esta sesión puede operar Ads Manager, o null.
+ * El workspace sobre el que esta sesión puede operar Ads Manager; `'sin-negocio'` si es el super
+ * admin sin un negocio elegido; o null si no puede.
  *
- * En POSITIVO: nombra lo que PASA, no lo que se excluye. Pasa UNO, y nada más:
- *   · el admin DE ESTE workspace (adminDeWorkspaceActual, lib/workspace.ts).
- *   Hasta el 17/10/2026 pasaba también el admin de AGENCIA sin workspace propio, y operaba
- *   OWNER_WS: el ws1, que es Mauricio, un CLIENTE (su cuenta publicitaria).
+ * En POSITIVO: pasa UNO, y nada más: el admin DE ESTE workspace (adminDeWorkspaceActual,
+ * lib/workspace.ts), sea el admin del negocio o el super admin mirándolo con `?ws=`.
+ *
+ * ⚠️ EL SUPER ADMIN SIN NEGOCIO NO CAE AL ws1 (17/10/2026). Hasta ese día devolvía `OWNER_WS`: «el
+ * admin de agencia sin workspace propio opera el ws1, como siempre». Ese contrato es de cuando MaKo
+ * era el dashboard de la agencia de Mauricio. Hoy el ws1 es un CLIENTE con plata real, y Martín
+ * abriendo /ads-manager sin el `?ws=` pausaba, represupuestaba o borraba campañas de Mauricio (y
+ * veía su cuenta como si fuera «la» cuenta: `credWs` sin workspace también cae al ws1). Sin negocio
+ * elegido no se opera nada: se pide elegirlo (tests/ads-guard-sin-negocio.test.ts).
  *
  * ⚠️ SIGUE EXIGIENDO ROL ADMIN, y eso no es un detalle heredado: con las
  * credenciales por workspace, el rol es LO ÚNICO que separa a un closer o un
@@ -32,14 +41,12 @@ import { adminDeWorkspaceActual } from './workspace';
  * ⚠️ Y el ws sale SIEMPRE del request. Jamás del body ni del query: eso sería un
  * IDOR con la cuenta publicitaria de otro cliente del otro lado.
  */
-async function wsQuePuedeOperar(): Promise<number | null> {
+async function wsQuePuedeOperar(): Promise<number | typeof SIN_NEGOCIO | null> {
   const admin = await adminDeWorkspaceActual();
   if (admin != null) return admin;
   // adminDeWorkspaceActual devuelve null por DOS motivos distintos —no es admin, o
-  // es admin y no resolvió workspace—. El de agencia sin workspace operaba el ws1 «como siempre»,
-  // y el ws1 es Mauricio, un CLIENTE: su cuenta publicitaria. Desde el 17/10/2026, nadie (medido
-  // ese día: el único admin de plataforma tiene workspace propio).
-  return null;
+  // es admin y no resolvió workspace—. El segundo, si es el super admin, se dice.
+  return (await getSesionAdmin()) != null ? SIN_NEGOCIO : null;
 }
 
 /**
@@ -49,12 +56,33 @@ async function wsQuePuedeOperar(): Promise<number | null> {
  */
 export async function wsDeAdsManager(): Promise<number | Response> {
   const ws = await wsQuePuedeOperar();
+  if (ws === SIN_NEGOCIO) return sinNegocio();
   return ws != null ? ws : sinPermiso();
 }
 
 /** null = puede seguir. Response = el 403 ya armado. */
 export async function guardAdsWs(): Promise<Response | null> {
-  return (await wsQuePuedeOperar()) != null ? null : sinPermiso();
+  const ws = await wsQuePuedeOperar();
+  if (ws === SIN_NEGOCIO) return sinNegocio();
+  return ws != null ? null : sinPermiso();
+}
+
+/** ¿El super admin está mirando el Ads Manager sin un negocio elegido? Para que la página lo diga. */
+export async function adsSinNegocio(): Promise<boolean> {
+  return (await wsQuePuedeOperar()) === SIN_NEGOCIO;
+}
+
+/** El super admin sin negocio: qué falta y dónde se elige. Nunca «no tienes permiso», que manda a buscar mal. */
+function sinNegocio(): Response {
+  return Response.json(
+    {
+      ok: false,
+      error:
+        'Elige primero el negocio cuyos anuncios quieres ver: sin un negocio elegido, MaKo no opera ' +
+        'ninguna cuenta de Meta. Entra desde el panel de administración al negocio y vuelve a abrir Ads Manager.',
+    },
+    { status: 409 },
+  );
 }
 
 /**

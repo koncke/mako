@@ -111,7 +111,8 @@ test('preparar ensaya el cambio sobre la ficha de hoy; ejecutar escribe y vence 
   assert.match(preparar, /const r = aplicarCambio\(f\.guardada, c, f\.eleccion\.id, f\.respaldo\);/, 'lo que se sabe sin escribir falla en preparar (AGENTS.md)');
   assert.match(preparar, /if \(!r\.cambio\) return \{ error: 'La ficha ya está así\.', yaEstaba: true \};/);
   const ejecutar = cuerpo.slice(cuerpo.indexOf('ejecutar:'));
-  assert.match(ejecutar, /await cambiarFichaDeFunnel\(Number\(payload\.embudoId\), c\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: con el autor, para el historial de la ficha (lib/ficha/historial.ts).
+  assert.match(ejecutar, /await cambiarFichaDeFunnel\(Number\(payload\.embudoId\), c, \{ autor: 'MaKo' \}\)/);
   assert.match(ejecutar, /invalidar\('leads'\)/);
 });
 

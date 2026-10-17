@@ -37,14 +37,12 @@
 //  · agregar_conjunto: addAdsetToCampaign (lib/meta-ads-create.ts) SÍ es reutilizable,
 //    pero pide un AdSetSpec entero (segmentación, optimización, anuncios adentro) como
 //    parámetro objeto. Hay que decidir su forma; no se calla.
-//  · editar_publico_conjunto: updateAdsetTargeting SÍ existe, pero REEMPLAZA el
-//    targeting completo, y la ruta adset-targeting NO mergea: reenvía lo que le llega.
-//    El merge vive en el NAVEGADOR (EditarPublicoModal superpone sobre el crudo, y los
-//    lugares pasan por aplicarLugares de lib/meta-geo.ts). Un parámetro parcial por la
-//    API borraría la segmentación. Falta una función en la lib que lea el crudo y
-//    superponga en el server; si se expone, va con confirmacion 'pantalla' y rolMinimo
-//    'admin' (cambiar lugares reinicia el aprendizaje del conjunto). Hasta el 07/10 este
-//    comentario decía «la ruta mergea antes», que era falso.
+//  (editar_publico_conjunto YA NO está omitida: desde el 17/10/2026 es
+//   proponer_editar_publico_conjunto. La superposición sobre el crudo vive en el SERVER
+//   —editarPublicoConjunto, lib/meta-ads-create.ts, con aplicarCambiosDePublico de
+//   lib/publico-cambios.ts— y no sólo en el navegador: un parámetro parcial ya no borra
+//   la segmentación. Va con confirmación en pantalla y rol admin: cambiar el público
+//   reinicia el aprendizaje del conjunto.)
 // =============================================================================
 
 import type { Gating, OperacionDef, Parametro } from '../tipos';
@@ -133,7 +131,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_rendimiento_anuncios', area: 'ads', tipo: 'lectura',
     titulo: 'Rendimiento por anuncio en un rango',
-    descripcion: 'El rendimiento de cada anuncio CON GASTO en un rango de fechas, de la base de MaKo (Meta sincronizado + CRM): gasto en USD derivado, leads de Meta y del CRM, agendas, cierres y cash del CRM, días corriendo, veredicto Recon (explorando, validada, falso_positivo, apagar, pausada), hook rate, hold rate, CTR, CPL, CPM, frecuencia e impresiones. Ordenado por gasto. Úsala para «¿qué anuncio rinde mejor?», «¿cuál apago?». Los anuncios sin gasto en el rango no aparecen.',
+    descripcion: 'El rendimiento de cada anuncio CON GASTO en un rango de fechas, de la base de MaKo (Meta sincronizado + CRM): gasto en USD derivado, leads que reporta Meta (`leads_meta`), leads que entraron al CRM desde ese anuncio en el rango (`leads_crm`; la diferencia es la fuga de captura), la meta de leads con la que se valida un anuncio (`meta_leads_para_validar`, una vara fija, no un dato del anuncio), agendas que reporta Meta (`agendas_meta`), cierres y cash del CRM de ese anuncio (de cualquier fecha), días corriendo, veredicto Recon (explorando, validada, falso_positivo, apagar, pausada), hook rate, hold rate, CTR, CPL, CPM, frecuencia e impresiones. Ordenado por gasto. Úsala para «¿qué anuncio rinde mejor?», «¿cuál apago?». Los anuncios sin gasto en el rango no aparecen.',
     parametros: [
       { nombre: 'desde', tipo: 'string', max: 10, descripcion: 'YYYY-MM-DD. Default: 29 días antes de hoy (zona del negocio).' },
       { nombre: 'hasta', tipo: 'string', max: 10, descripcion: 'YYYY-MM-DD. Default: hoy (zona del negocio).' },
@@ -496,6 +494,26 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'description', tipo: 'string', max: 255, descripcion: 'descripción nueva.' },
       { nombre: 'cta_type', tipo: 'string', enum: ['LEARN_MORE', 'SIGN_UP', 'SUBSCRIBE', 'GET_OFFER', 'BOOK_TRAVEL', 'CONTACT_US', 'APPLY_NOW', 'DOWNLOAD', 'GET_QUOTE', 'SEE_MORE', 'WATCH_MORE', 'SHOP_NOW', 'MESSAGE_PAGE', 'WHATSAPP_MESSAGE', 'NO_BUTTON'], descripcion: 'botón nuevo.' },
       { nombre: 'destination_url', tipo: 'string', max: 1000, descripcion: 'URL de destino nueva, exacta con https.' },
+    ],
+    canales: TODOS, costo: 'dinero', gating: G_META_ADMIN,
+  },
+  {
+    id: 'proponer_editar_publico_conjunto', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    titulo: 'Editar el público de un conjunto',
+    descripcion: 'PROPONE cambiar a quién le llega un conjunto que ya corre: género, edades, públicos personalizados, ubicaciones (Facebook, Instagram…), Advantage+ y agregar un punto del mapa con un radio (un pin). Lo que no se manda NO se toca: intereses, idiomas, exclusiones y los lugares que ya tenía se conservan (MaKo lee el público de Meta y cambia sólo lo pedido). Cambiar el público manda el conjunto a revisión y reinicia su aprendizaje. Se confirma en una pantalla. Antes: ver_publico_conjunto_meta.',
+    escribe: 'reescribe la segmentación del conjunto en Meta (vuelve a revisión y reinicia el aprendizaje)',
+    parametros: [
+      P_ADSET,
+      { nombre: 'genero', tipo: 'string', enum: ['all', 'h', 'm'], descripcion: 'all = todos, h = hombres, m = mujeres.' },
+      { nombre: 'edadMin', tipo: 'number', entero: true, minimo: 18, maximo: 65, descripcion: 'edad mínima (18 a 65).' },
+      { nombre: 'edadMax', tipo: 'number', entero: true, minimo: 18, maximo: 65, descripcion: 'edad máxima (18 a 65; 65 es «65 o más»).' },
+      { nombre: 'publicos', tipo: 'string[]', max: 50, vaciaEsValor: true, descripcion: 'ids de los públicos personalizados (de listar_publicos_meta): la lista ENTERA nueva; [] los saca.' },
+      { nombre: 'ubicaciones', tipo: 'string[]', max: 4, enum: ['facebook', 'instagram', 'audience_network', 'messenger'], descripcion: 'dónde se muestra: la lista entera. Para dejarlas automáticas, usa ubicacionesAutomaticas.' },
+      { nombre: 'ubicacionesAutomaticas', tipo: 'boolean', descripcion: 'true = Meta elige las ubicaciones (saca la lista).' },
+      { nombre: 'advantage', tipo: 'boolean', descripcion: 'Advantage+ audience: true deja que Meta amplíe el público.' },
+      { nombre: 'pinLat', tipo: 'number', minimo: -90, maximo: 90, descripcion: 'para AGREGAR un punto del mapa: latitud (con pinLng).' },
+      { nombre: 'pinLng', tipo: 'number', minimo: -180, maximo: 180, descripcion: 'longitud del punto (con pinLat).' },
+      { nombre: 'pinRadioKm', tipo: 'number', minimo: 1, maximo: 80, descripcion: 'radio alrededor del punto, en km (default 5).' },
     ],
     canales: TODOS, costo: 'dinero', gating: G_META_ADMIN,
   },

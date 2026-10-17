@@ -84,9 +84,9 @@ export function destinoDeVuelta(volver: string): string {
 }
 
 /** Cómo terminó el último intento. Lo lee el formulario de Meta (vía la ruta de credenciales). */
-export type ResultadoConexionMeta = 'ok' | 'cancelado' | 'vencido' | 'no-permitido' | 'no-disponible' | 'meta-fallo';
+export type ResultadoConexionMeta = 'ok' | 'cancelado' | 'vencido' | 'no-permitido' | 'no-disponible' | 'meta-fallo' | 'sin-permisos';
 
-const RESULTADOS: readonly ResultadoConexionMeta[] = ['ok', 'cancelado', 'vencido', 'no-permitido', 'no-disponible', 'meta-fallo'];
+const RESULTADOS: readonly ResultadoConexionMeta[] = ['ok', 'cancelado', 'vencido', 'no-permitido', 'no-disponible', 'meta-fallo', 'sin-permisos'];
 
 export function leerResultadoMeta(v: string | null | undefined): ResultadoConexionMeta | null {
   return RESULTADOS.includes(v as ResultadoConexionMeta) ? (v as ResultadoConexionMeta) : null;

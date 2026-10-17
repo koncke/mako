@@ -20,6 +20,7 @@ import {
   PRIORIDADES, TIPOS, decisionDeAprobar, pedidoAlCerebro, ROTULO_ESTADO_CLIENTE, estadoParaElCliente,
   type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket,
 } from '@/lib/tickets-reglas';
+import { avisoAlCliente, entregaAlCerebro } from '@/lib/tickets-aviso';
 import type { Evento, FilaTicket } from '@/lib/tickets-db';
 import {
   anotarDespachoAction, autoArregloAction, cambiarPrioridadAction, corregirTipoAction, decidirTicketAction, leerBandejaAction,
@@ -65,11 +66,13 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
   const [grupo, setGrupo] = useState('decidir');
   const [elegido, setElegido] = useState<number | null>(null);
   const [cargando, startCargar] = useTransition();
+  // «Hace cuánto» de los avisos: se fija al leer, no al dibujar.
+  const [ahoraLista, setAhoraLista] = useState(() => Date.now());
 
   const cargar = useCallback(() => startCargar(async () => {
     const r = await leerBandejaAction();
     if (!r.ok) { setError(r.error); return; }
-    setError(null); setTickets(r.tickets); setAutoArreglo(r.autoArreglo);
+    setError(null); setTickets(r.tickets); setAutoArreglo(r.autoArreglo); setAhoraLista(Date.now());
   }), []);
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -129,7 +132,10 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
                     <span className="tickets-bandeja__num">#{t.id}</span>
                     <span className="tickets-bandeja__titulo">{t.titulo}</span>
                     <Tag>{corto(t.tipo)}</Tag>
-                    <span className="tickets-bandeja__quien">{t.negocio ?? `ws ${t.workspace_id}`} · {t.usuario_nombre || t.usuario_email}</span>
+                    <span className="tickets-bandeja__quien">
+                      {t.negocio ?? `ws ${t.workspace_id}`} · {t.usuario_nombre || t.usuario_email}
+                      {avisoAlCliente(t, ahoraLista)?.tono === 'bad' ? ' · ⚠ sin avisar' : ''}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -153,10 +159,12 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
   const [dup, setDup] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [haciendo, startHacer] = useTransition();
+  // Para los avisos («hace cuánto no sale»): se fija al leer el ticket, no al dibujar.
+  const [ahora, setAhora] = useState(() => Date.now());
 
   const leer = useCallback(async () => {
     const r = await verTicketBandejaAction(id);
-    if (r.ok) { setT(r.ticket); setEventos(r.eventos); } else setError(r.error);
+    if (r.ok) { setT(r.ticket); setEventos(r.eventos); setAhora(Date.now()); } else setError(r.error);
   }, [id]);
   useEffect(() => { void leer(); }, [leer]);
 
@@ -232,6 +240,12 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
     ['Zona', c.zona], ['Hora', c.hora ? fecha(c.hora) : undefined],
   ];
   const pideTexto = modo === 'rechazar' || modo === 'preguntar' || modo === 'responder';
+  // Si el aviso llegó (al cliente, cuando se cierra o se le pregunta; al Cerebro, cuando lo entrega el Runner).
+  const avisos: Array<[string, NonNullable<ReturnType<typeof avisoAlCliente>>]> = [];
+  const alCliente = avisoAlCliente(t, ahora);
+  if (alCliente) avisos.push(['Cliente', alCliente]);
+  const alCerebro = entregaAlCerebro(t, ahora);
+  if (alCerebro) avisos.push(['Cerebro', alCerebro]);
   return (
     <aside className="tickets-bandeja__detalle" aria-label={`Ticket #${t.id}`}>
       <header className="tickets-bandeja__cab">
@@ -282,6 +296,21 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
         <section className="tickets-bandeja__bloque">
           <h3>Lo que lee el cliente</h3>
           <p className="tickets-bandeja__escrito">{t.respuesta}</p>
+        </section>
+      )}
+
+      {avisos.length > 0 && (
+        <section className="tickets-bandeja__bloque" aria-label="Avisos">
+          <h3>Avisos</h3>
+          <ul className="tickets-bandeja__avisos">
+            {avisos.map(([quien, v]) => (
+              <li key={quien}>
+                <span className="tickets-bandeja__aviso-quien">{quien}</span>
+                <Status tono={v.tono}>{v.texto}</Status>
+                {v.desde ? <span className="tickets-bandeja__dato">{fecha(v.desde)}</span> : null}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

@@ -54,7 +54,9 @@ import {
   type RespuestaQA,
   type EstadoLead,
   enriquecerLead,
+  valorDelHistorial,
 } from '@/lib/leads';
+import { camposPisados } from '@/lib/historial-pisado';
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { agregarAProducto } from '@/lib/lead-funnel';
@@ -87,7 +89,7 @@ import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra,
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
 import {
   VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline,
-  esCampoContacto, mismoDatoDeContacto, mismoValorDeCampo, valorGuardadoDeCampo, YA_LO_CAMBIARON,
+  esCampoDeshacible, mismoDatoDeContacto, mismoValorDeCampo, valorGuardadoDeCampo, YA_LO_CAMBIARON,
 } from './campo-inline';
 // El usuario de Instagram del ALTA (punto 28) se normaliza con la MISMA regla que el de la ficha.
 import { usuarioInstagram } from './campo-inline';
@@ -105,7 +107,6 @@ import { getDiagnosticoFase } from '@/lib/fase-store';
 import { alinearEtapaVista } from '@/lib/etapa-historial';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
-import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } from '@/lib/lead-insights';
 import { duracionDeReunionEnAgendaMin, moverEventoDeReunion, permisoCalendarioGoogle } from '@/lib/google-calendar';
 import { motivoFijo } from '@/lib/agenda-sin-ia';
@@ -165,7 +166,6 @@ import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type Pla
 import { avisoDeConservadas } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
-import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
 import { TOPE_NOTA, BUCKET_NOTAS_LEAD, pathEsNotaDelLead } from './notas-reglas';
@@ -861,44 +861,10 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
     // tarjeta del tablero, el filtro de origen y la ficha.
     origen_lead: ORIGEN_LEAD.carga_manual.id,
   });
-  // Alta del chat: contacto + conversación en Chatwoot (silencioso) para que
-  // todo lead con teléfono tenga su hilo de WhatsApp desde el día cero.
-  if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono);
   // (setter/closer se auto-asignan dentro de createLead si hay un único vendedor.)
   bust(TAG.leads);
   revalidatePath('/crm');
   return { id: created.id };
-}
-
-/**
- * Alta desde el MODAL del tablero: crea y devuelve el id, sin navegar.
- *
- * Devuelve el error en vez de tirarlo porque el que llama es un modal abierto
- * encima del tablero: una excepción ahí sube al error boundary y se lleva puesta la
- * pantalla entera, con los filtros y el scroll que este cambio vino a preservar.
- */
-/**
- * Un producto nuevo con su tablero, sin salir del CRM.
- *
- * Devuelve el error en vez de tirarlo: el que llama es un modal abierto encima del
- * tablero, y una excepción ahí sube al error boundary y se lleva la pantalla entera.
- */
-/**
- * ⚠️ RECIBE EL CANAL, y es lo que hace que el tablero nuevo sea DISTINTO del de al lado.
- * Sin él, el funnel nacía sin etapas y caía a la plantilla genérica — que en un workspace
- * que nunca tocó su funnel es idéntica a la del negocio.
- */
-export async function crearProductoAction(nombre: string, canal?: string | null): Promise<{ funnelId: number } | { error: string }> {
-  await exigirSesion();
-  try {
-    const { funnelId } = await crearProductoConFunnel(nombre, canal);
-    bust(TAG.leads);
-    revalidatePath('/crm');
-    revalidatePath('/funnel');
-    return { funnelId };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'No se pudo crear el funnel.' };
-  }
 }
 
 /**
@@ -1152,8 +1118,7 @@ export async function createLeadAction(formData: FormData): Promise<void> {
 
 /**
  * Crea un lead desde una conversación de WhatsApp (plan #381): el contacto no
- * estaba en el CRM. Usa la MISMA vía que el alta manual (createLead) + asegura el
- * contacto en Chatwoot. Devuelve el id para abrir la ficha en el acto. La
+ * estaba en el CRM. Usa la MISMA vía que el alta manual (createLead). Devuelve el id para abrir la ficha en el acto. La
  * conversación se enlaza sola al lead por teléfono en la próxima carga.
  *
  * ⚠️ DEVUELVE EL CHOQUE, NO LO TIRA. Un `throw` de una server action llega al navegador
@@ -1191,7 +1156,6 @@ export async function crearLeadDesdeWhatsappAction(nombre: string, telefono: str
     // ⚠️ `destino.casa` ya pasó por `casaParaEscribir`: el default va NULL. createLead escribe
     // lo que le llega, y con el id del default escrito el lead no sale en NINGÚN tablero.
     const created = await createLead({ nombre: n, telefono: t, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
-    if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono).catch(() => {});
     bust(TAG.leads);
     revalidatePath('/crm');
     revalidatePath('/whatsapp');
@@ -1237,10 +1201,11 @@ export async function marcarPagoAction(
   fechaPago: string | null,
 ): Promise<{ quitada: boolean }> {
   await exigirAccesoAMarcarPago(pagoId, leadId);
-  const { quitada } = await marcarPago(pagoId, pagado, fechaPago);
+  const { quitada, porLink } = await marcarPago(pagoId, pagado, fechaPago);
   // `quitada`: era un pago que nació cobrado (suelto o mensualidad a mano) y deshacerlo lo quitó (mig 0295).
+  // `porLink`: su link ya se había cobrado y quedó cobrada con ESE pago; el historial ya lo escribió la pasarela.
   // Queda registrado en Change History (marcar y desmarcar).
-  await logLeadEvent(
+  if (!porLink) await logLeadEvent(
     leadId,
     pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado',
     pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada',
@@ -1495,56 +1460,11 @@ export async function bulkIgnoreEmpresaAction(leadIds: number[]): Promise<{ upda
   return { updated };
 }
 
-// ── Ignorar "Datos sin marcar" a nivel LEAD (individual + en masa) ──
-// A diferencia de empresa_omitido (ignora un campo), esto silencia TODO el
-// worklist del lead: deja de notificar en el CRM general y de sumar al conteo,
-// pero los mismos avisos siguen vivos en la ficha (con opción de reactivar).
-
-/** Ignora los datos sin marcar de UN lead (deja de contar en el worklist). */
-export async function ignorarPendientesAction(leadId: number): Promise<void> {
-  await exigirSesion();
-  const db = await getTenantDb();
-  const { error } = await db.from('leads').update({ pendientes_ignorados: new Date().toISOString() }).eq('id', leadId);
-  if (error) throw new Error(`No se pudo ignorar: ${error.message}`);
-  await logLeadEvent(leadId, 'Datos sin marcar', 'ignorados', await autorActual()).catch(() => {});
-  bust(TAG.leads);
-  revalidatePath('/crm');
-  revalidatePath('/general');
-}
-
-/** Ignora los datos sin marcar de MUCHOS leads de una (worklist en masa). */
-export async function ignorarPendientesMasaAction(leadIds: number[]): Promise<{ updated: number }> {
-  await exigirSesion();
-  const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0);
-  if (!ids.length) return { updated: 0 };
-  const db = await getTenantDb();
-  const ahora = new Date().toISOString();
-  let updated = 0;
-  for (let i = 0; i < ids.length; i += 100) {
-    const chunk = ids.slice(i, i + 100);
-    try {
-      const { data, error } = await db.from('leads').update({ pendientes_ignorados: ahora }).in('id', chunk).select('id');
-      if (error) { console.error('[bulk] ignorar pendientes:', error.message); continue; }
-      updated += (data ?? []).length;
-    } catch (e) { console.error('[bulk] ignorar pendientes excepción:', e); }
-  }
-  bust(TAG.leads);
-  revalidatePath('/crm');
-  revalidatePath('/general');
-  return { updated };
-}
-
-/** Reactiva los avisos de un lead ignorado (vuelve al worklist normal). */
-export async function reactivarPendientesAction(leadId: number): Promise<void> {
-  await exigirSesion();
-  const db = await getTenantDb();
-  const { error } = await db.from('leads').update({ pendientes_ignorados: null }).eq('id', leadId);
-  if (error) throw new Error(`No se pudo reactivar: ${error.message}`);
-  await logLeadEvent(leadId, 'Datos sin marcar', 'reactivados', await autorActual()).catch(() => {});
-  bust(TAG.leads);
-  revalidatePath('/crm');
-  revalidatePath('/general');
-}
+// ⛔ ACÁ VIVÍAN `ignorarPendientesAction`, `ignorarPendientesMasaAction` y `reactivarPendientesAction`, BORRADAS EL
+// 17/10/2026: nadie las llamaba (CrmBoard sólo las importaba), escribían la marca VIEJA del lead entero
+// (`leads.pendientes_ignorados`, mig 0109) y no tenían corte de sesión (sin cookie, el ws1). Ignorar y volver a avisar
+// van por `escribirDatosIgnorados` (lib/datos-aviso-config.ts): la ✕ de «A revisar», el dato suelto de la ficha y la
+// API de MaKo. La marca vieja se sigue LEYENDO en las filas de antes, y volver a avisar la limpia.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Exportar leads (plan #364)
@@ -2460,12 +2380,13 @@ export async function deshacerCampoLeadAction(id: number, campo: string, antes: 
 
 /**
  * El mismo «Deshacer» para los datos de contacto que se guardan por `saveLeadMetaAction` (el email, el teléfono, la
- * empresa, las redes, la dirección y el sexo del Resumen): sólo si el dato sigue diciendo lo que se escribió.
+ * empresa, las redes, la dirección y el sexo del Resumen, y el nombre de «Información principal»): sólo si el dato
+ * sigue diciendo lo que se escribió.
  */
 export async function deshacerContactoLeadAction(id: number, campo: string, antes: string | null, esperado: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
   const sesion = await getUsuarioActual().catch(() => null);
   if (!sesion) return { ok: false, error: 'Tu sesión venció' };
-  if (!esCampoContacto(campo)) return { ok: false, error: 'Ese dato no se edita aquí' };
+  if (!esCampoDeshacible(campo)) return { ok: false, error: 'Ese dato no se edita aquí' };
   try {
     const lead = await getLead(id);
     if (!lead) return { ok: false, error: 'No encontré el lead' };
@@ -2675,6 +2596,9 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
   if (!REVERTIBLES.has(row.campo)) throw new Error(`"${row.campo}" no se puede deshacer automáticamente.`);
 
   const before = await getLead(leadId).catch(() => null);
+  // Lo mismo que `revertMoveAction`: no pisa lo que cambió otra persona después de esta línea.
+  if (!before) throw new Error('No pude leer el lead para deshacer.');
+  if (camposPisados([row], (c) => valorDelHistorial(before, c)).length) throw new Error(`${YA_LO_CAMBIARON}: ${row.campo}`);
   const v = row.valor_anterior; // string | null (formato de auditVal)
   const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
 
@@ -2738,7 +2662,7 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
  * sola pasada, respetando las invariantes (estado y monto van en el mismo
  * updateLead para que "cerro=true ⇒ monto" no se pise). Queda auditado.
  */
-export async function revertMoveAction(leadId: number, createdAt: string): Promise<void> {
+export async function revertMoveAction(leadId: number, createdAt: string): Promise<void | { error: string }> {
   await exigirSesion();
   const allAudit = await getLeadAudit(leadId);
   const grupo = allAudit.filter(
@@ -2751,14 +2675,23 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   const STATUS = new Set(['Etapa', 'Estado']);
   if (grupo.some((r) => STATUS.has(r.campo))) {
     const ultimo = allAudit.filter((r) => STATUS.has(r.campo)).reduce((mx, r) => (r.created_at > mx ? r.created_at : mx), '');
-    if (ultimo && createdAt !== ultimo) throw new Error('Solo se puede deshacer el último cambio de estado. Vuelve de a uno, empezando por el más reciente.');
+    if (ultimo && createdAt !== ultimo) return { error: 'Solo se puede deshacer el último cambio de estado. Vuelve de a uno, empezando por el más reciente.' };
   }
 
   const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
 
+  // ⚠️ NO PISA LO QUE CAMBIÓ OTRA PERSONA DESPUÉS (17/10/2026, docs/relevo/crm.md §0-Ω10): cada dato del grupo tiene
+  // que seguir diciendo lo que escribió esta línea. Si no, no se escribe nada y se dice cuál (`camposPisados`).
+  const actual = await getLead(leadId).catch(() => null);
+  if (!actual) throw new Error('No pude leer el lead para deshacer.');
+  const pisados = camposPisados(grupo, (c) => valorDelHistorial(actual, c));
+  // Se DEVUELVE y no se tira: en producción Next esconde el mensaje de un error de server action, y éste
+  // es justo el que la persona tiene que leer.
+  if (pisados.length) return { error: `${YA_LO_CAMBIARON}: ${pisados.join(', ')}` };
+
   // El plazo de una suscripción CANCELADA no se revierte (`plazoSeRevierte`): se corta ANTES de escribir nada del grupo.
-  if (grupo.some((r) => r.campo === CAMPO_SUS_MESES) && !plazoSeRevierte(canceladaDe(await getLead(leadId).catch(() => null)))) {
-    throw new Error(PLAZO_DE_CANCELADA);
+  if (grupo.some((r) => r.campo === CAMPO_SUS_MESES) && !plazoSeRevierte(canceladaDe(actual))) {
+    return { error: PLAZO_DE_CANCELADA };
   }
 
   const upd: Parameters<typeof updateLead>[1] = {};

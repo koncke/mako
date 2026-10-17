@@ -34,12 +34,11 @@
 //     el motivo por `updateLead` justamente para que esta invariante se le aplique
 //     (`VIA_INLINE` en app/crm/campo-inline.ts).
 //
-// Y lo que NO cambia, a propósito: un MOVIMIENTO de etapa (`setPipelineStage`) manda
-// SIEMPRE `estado_lead`, así que pasar un Ganado a una etapa abierta sigue limpiando
-// la venta — es lo pedido para un movimiento. Ojo que eso vale también entre dos
-// etapas abiertas (Facturando → Falta pago): el estado viaja igual y la venta se
-// limpia igual que antes de este cambio. Lo mismo `setMeetingManual` cuando reabre un
-// desenlace terminal.
+// Y un MOVIMIENTO de etapa (`setPipelineStage`) manda `estado_lead` SÓLO SI CAMBIA
+// (`estadoDelMovimiento`, abajo; 17/10/2026): pasar un Ganado a una etapa abierta sigue
+// limpiando la venta —es lo pedido para un movimiento—, y entre dos etapas abiertas
+// (Facturando → Falta pago) la venta queda. Hasta el 17/10 el estado viajaba siempre y esa
+// venta se borraba. `setMeetingManual` sigue limpiándola cuando reabre un desenlace terminal.
 //
 // ⚠️ Y lo que esta regla deja de hacer, también a propósito: ya no «cura» de rebote un
 // lead incoherente cuando se le corrige otra cosa. Un ganado sin fecha de cierre no
@@ -152,4 +151,17 @@ export function desenlaceAlGuardar(actual: Desenlace, cambio: CambioDeDesenlace,
   }
 
   return m;
+}
+
+/**
+ * Lo que un MOVIMIENTO de etapa manda del desenlace: el estado de la etapa destino, SÓLO si es otro
+ * que el que el lead tiene guardado. Sin el de antes (no se pudo leer), se manda: sincronizar de más
+ * es lo de siempre; no sincronizar dejaría la etapa y el estado diciendo cosas distintas.
+ *
+ * Mandado siempre, `desenlaceAlGuardar` lo leía como una decisión de la venta y le borraba el monto
+ * y la fecha de cierre a un lead que pasaba de «Facturando» a «Falta pago» (§5 punto 3 de
+ * docs/relevo/crm.md, opción b, 17/10/2026).
+ */
+export function estadoDelMovimiento(antes: EstadoLead | null | undefined, destino: EstadoLead): CambioDeDesenlace {
+  return antes != null && antes === destino ? {} : { estado_lead: destino };
 }

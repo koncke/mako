@@ -223,7 +223,7 @@ export const AREAS: AreaDev[] = [
     slug: 'contracts-receipts', titulo: 'Contracts & Receipts', familia: 'Operate', grupo: 'CRM',
     estado: 'parcial',
     alcance: 'El plan de cobranza por cuotas del lead y los papeles que lo respaldan: contrato, comprobante y datos fiscales, subidos a Storage y leídos por IA para autocompletar el deal.',
-    vive: ['lib/pagos.ts', 'app/crm/[id]/deal-actions.ts', 'app/crm/[id]/DealDetailsCard.tsx', 'app/api/extract-contract/route.ts', 'app/api/extract-receipt/route.ts', 'app/api/extract-deal-fiscal/route.ts', 'app/api/extract-fiscal/route.ts', 'app/api/doc/route.ts'],
+    vive: ['lib/pagos.ts', 'app/crm/[id]/deal-actions.ts', 'app/customer-success/PagosCliente.tsx', 'app/api/extract-contract/route.ts', 'app/api/extract-receipt/route.ts', 'app/api/extract-deal-fiscal/route.ts', 'app/api/extract-fiscal/route.ts', 'app/api/doc/route.ts'],
     hallazgos: 'hallazgos-crm',
     nota: 'Son CUATRO rutas extract-*, no cinco: la quinta que aparece al grepear es app/api/mako/onboarding/extract, que pertenece al onboarding. Y sigue viva la trampa: saveLeadPlanManual (lib/pagos.ts:210) hard-setea estado_lead=\'ganado\' y cerro=true, así que guardar cuotas CIERRA el lead — por eso DealDetailsCard solo la llama si cuotasDirty. El doc de hallazgos-crm ubica ese bug en app/leads/[id]/deal-actions.ts: esa ruta ya no existe, hoy es app/crm/[id]/deal-actions.ts.',
   },

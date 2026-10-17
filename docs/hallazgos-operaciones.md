@@ -1486,7 +1486,9 @@ cierre, con un commit verificable) o lo hace Martín. Quedó `plan prioridades`,
   `NuevoChat`, montados sobre el mismo `useCentro`.
 - ~~El chat «Cartero» con su cron~~: corre desde el 15/10 en la cuenta 3 («pasó hace 41 s») y la PC acepta un Token
   (`cartero.mjs estado`, 15/10). Falta que Martín lo renombre a «Runner» (la línea, en docs/relevo/centro-operaciones.md).
-- **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
+- ~~**La Ticketera no muestra si el aviso llegó**~~: hecho el 17/10. La bandeja de los tickets dibuja `avisado_at` (al cliente) y
+  `aviso_estado` (al Cerebro) en un bloque «Avisos», y el mazo viejo dice en cada contestada si el aviso llegó al chat. Medido
+  antes: ninguna de las dos pantallas los leía. Ver docs/hallazgos-ticketera.md → «La Ticketera no mostraba si el aviso llegó».
 - **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
 - **El chat Runner en cada cuenta que esté corriendo** (15/10): sin él, lo que se escribe en la caja queda «escrito».
   Sus instrucciones se copian desde el Centro (Runners → Nuevo Runner; viven en `lib/runner.ts`). Y el Token de cada
@@ -1519,3 +1521,20 @@ cierre, con un commit verificable) o lo hace Martín. Quedó `plan prioridades`,
 - **Etapa 2 (la cuota)** y **etapa 3 (el señalador)**.
 - **Proponer un pedido desde un chat de MaKo** con `confirmacion: 'pantalla'` (se firma en la pantalla):
   no está en el registro.
+
+## El Uso de la cuenta 1 mostraba los números de la cuenta 4 (17/10/2026)
+
+**Síntoma:** a las 17:48, Martín ve en Claude que la cuenta de Mauricio (claude1) va 97% en la semanal y se restablece
+el miércoles. El Centro decía 33% y «el martes».
+
+**Causa:** `cartero medir` 1.14.2 escribía en `uso/<cuenta>.json` la cuenta de la configuración, no la que estaba
+activa. A las 09:26 guardó los números de la cuenta 4, que era la del Runner (get_usage), en `claude1.json`. La 1.14.3
+arregló el código, pero nadie corrigió el archivo que ya estaba mal. Como la cuenta 1 no tiene Runner, nadie la volvió a
+medir: el dato malo quedó como vigente ocho horas. El diagnóstico obvio («toma la info de otra cuenta en cada medición»)
+era a medias: el código ya estaba bien y el problema era el dato viejo que había quedado.
+
+**Arreglo:** se reescribió `claude1.json` con la captura de Martín. El original está en `claude1.json.mal-17-10`.
+El Ops Center 5 suma «medido hace X» y apaga una medición vieja.
+
+**Regla:** cuando se arregla un error que ESCRIBE datos, en el mismo trabajo se buscan y corrigen los datos que ya
+escribió. Un dato sin fecha a la vista que nadie vuelve a medir se lee como vigente.

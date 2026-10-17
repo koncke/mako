@@ -16,6 +16,7 @@
 
 import { CONTRATO, areasDelMensaje, sinPrefijoDeLote, type Intencion, type VeredictoIntencion } from './mako-intencion';
 import { toolsDelRegistro, porId, leeDatosDeClientes, type Vista } from './api-mako/registro';
+import { llevaDatosPersonales } from './mako-pedidos';
 import type { ToolDef } from './anthropic';
 import type { Area } from './api-mako/tipos';
 
@@ -101,7 +102,17 @@ export function turnoParaLaRed<T extends { name: string }>(p: {
   delRegistro: readonly { name: string }[];
   /** Los `tipo` de las pendientes vigentes que ve el turno. */
   tiposPendientes: readonly string[];
+  /** El TEXTO de este turno (lo que escribió, o la transcripción de su nota de voz). */
+  texto: string;
+  /** ¿Trae un archivo o una imagen? Lo que hay adentro no se puede mirar antes de mandarlo. */
+  conAdjuntos: boolean;
 }): TurnoDeLaRed<T> {
+  // ⛔ LO QUE VIAJA ES EL TURNO MISMO (17/10/2026, revisión del Cerebro): «anotá: llamar a Juan Pérez 11 2233 4455,
+  // juan@mail.com» no pide ninguna herramienta de clientes y llevaba el teléfono y el mail tal cual. Un email o un
+  // teléfono en el texto (`llevaDatosPersonales`, la misma regla del chat de cada tab) corta; un adjunto, también:
+  // lo que trae adentro no se mira antes de mandarlo.
+  if (llevaDatosPersonales(p.texto, 'general')) return { cortar: ['el mensaje trae un email o un teléfono'] };
+  if (p.conAdjuntos) return { cortar: ['el mensaje trae un archivo o una imagen'] };
   const pendientes = p.tiposPendientes.filter(llevaDatosDeClientes);
   if (pendientes.length) return { cortar: pendientes.map((t) => `pendiente ${t}`) };
   if (p.delRegistro.length && p.delRegistro.every((t) => llevaDatosDeClientes(t.name))) {

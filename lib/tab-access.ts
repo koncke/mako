@@ -19,9 +19,10 @@
 
 import 'server-only';
 import { redirect } from 'next/navigation';
-import { getCapaActual, getRolWsEfectivo, rutaConWs } from './workspace';
+import { getCapaActual, getRolWsEfectivo, negocioPausadoDeLaSesion, rutaConWs } from './workspace';
 import { onboardingPendiente } from './onboarding-state';
 import { capaDef, tabEnCapa, type CapaId } from './capas';
+import { CORTE_POR_PLAN_PRENDIDO } from './api-tab';
 import type { RolWorkspace } from './auth-session';
 
 /**
@@ -65,6 +66,9 @@ export async function requireSesion(): Promise<RolWorkspace> {
   // sesión no hay pestaña que preservar, y arrastrar el id de un cliente a la pantalla
   // de login sería mostrar a quién se estaba mirando en una URL que se comparte sola.
   if (rol == null) redirect('/login');
+  // Un negocio PAUSADO (por el super admin, o porque se terminó lo pagado: lib/plan-acceso.ts) no se abre: la pantalla
+  // dice por qué en vez de mostrar una app vacía (getWorkspaceActual ya devuelve null para esa sesión). 17/10/2026.
+  if ((await negocioPausadoDeLaSesion()) != null) redirect('/cuenta-pausada');
   return rol;
 }
 
@@ -83,7 +87,10 @@ export async function requireSesion(): Promise<RolWorkspace> {
 export async function requireCapa(nav: string, opts?: { gateOnboarding?: boolean }): Promise<void> {
   await requireSesion();
   const capa = await getCapaActual();
-  if (!tabEnCapa(nav, capa)) redirect(await rutaConWs(homeDeCapa(capa)));
+  // «No está en tu plan» se DICE (17/10/2026): antes era un redirect mudo a la casa del plan, que se leía como «la app
+  // está rota». La pantalla (app/no-esta-en-tu-plan) nombra la tab y ofrece ver el plan o volver al inicio.
+  // (Con el cartel APAGADO, lib/api-tab.ts, vuelve a la casa del plan.)
+  if (!tabEnCapa(nav, capa)) redirect(await rutaConWs(CORTE_POR_PLAN_PRENDIDO ? `/no-esta-en-tu-plan?tab=${encodeURIComponent(nav)}` : homeDeCapa(capa)));
   // El onboarding se gatea ACÁ y no en cada página. Antes quedaba librado a que
   // el autor se acordara de una segunda línea, y en 2 de las 7 páginas que usan
   // este guard el `return <PanelActivacion/>` se colaba EN EL MEDIO: la tab se

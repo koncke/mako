@@ -119,7 +119,8 @@ test('⚠️ barrido: toda suma de lo impago sin fecha excluye la baja (usa `noE
   assert.deepEqual(viejas, [], 'una suma de deuda con !esCuotaDevuelta( cuenta a quien se dio de baja: usa !noEsDeuda(');
   // Las que filtran en memoria leen con `*`: traen `baja_at` si existe, y sin la migración 0307 no rompen (pedido del Cerebro).
   assert.doesNotMatch(leer('lib/pagos.ts') + leer('lib/cobros.ts') + leer('lib/graficos-datos-extra.ts'), /select\([^)]*baja_at|'pagos', '[^']*baja_at/, 'una lista con baja_at rompe sin la migración');
-  assert.match(leer('lib/pagos.ts'), /\.select\('\*, leads\(nombre, monto_cierre_usd, fecha_cierre\)'\)/);
+  // Paginado desde el 17/10/2026 (leerTodo): las columnas van en su tercer argumento.
+  assert.match(leer('lib/pagos.ts'), /leerTodo<Record<string, unknown>>\(supabase, 'pagos', '\*, leads\(nombre, monto_cierre_usd, fecha_cierre\)'\)/);
 });
 
 test('sólo lib/pagos-baja.ts escribe la baja, y una suscripción no se da de baja (se cancela)', () => {

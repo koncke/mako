@@ -35,10 +35,12 @@ import { leerAbiertas } from '@/lib/centro-preguntas-chat-db';
 import { leerCuentasConNombre } from '@/lib/centro-titulares-db';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { CentroAppMovil } from './CentroAppMovil';
-import { TicketeraMovil } from './TicketeraMovil';
+import { TicketeraMovil, TicketsMovil } from './TicketeraMovil';
+import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { nombresDeTabs } from '@/app/admin/operaciones/tabs';
 import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
 // La Ticketera vive adentro del Centro (16/10/2026): sus hojas las importa la página.
+import '@/app/tickets/bandeja/bandeja.css';
 import '@/app/tickets/decisiones/mazo.css';
 import '@/app/tickets/decisiones/vistas.css';
 import '@/app/admin/runway/decisiones.css';
@@ -59,13 +61,14 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   if (!puedeOperar(admin, plataforma)) {
     return <PantallaM>{cabecera}<VacioM frase="Entra como super admin, con tu segundo factor, para usar el Centro." /></PantallaM>;
   }
-  // La Ticketera entera (la fila de arriba de los chats, y las rutas de antes): pantalla de trabajo, como era.
+  // La Ticketera entera (las filas de arriba de los chats, y las rutas de antes): pantalla de trabajo, como era.
+  // `tickets` (17/10/2026) es LA Ticketera —los tickets de los usuarios—; `tarjetas` y `lista` son las preguntas de los chats.
   const { ticketera } = await searchParams;
   if (ticketera === 'tarjetas' || ticketera === 'lista') {
     const lectura = await leerDecisiones().catch(() => null);
     return (
       <PantallaM>
-        <CabeceraM titulo="Ticketera" trabajo padre={{ href: RUTA, label: 'Centro' }} />
+        <CabeceraM titulo="Preguntas de los chats" trabajo padre={{ href: RUTA, label: 'Centro' }} />
         <TicketeraMovil
           lectura={lectura ?? { ok: false, faltaTabla: false, error: 'no se pudieron leer' }}
           vistaInicial={ticketera} responder={responderDecision} deshacer={deshacerDecision}
@@ -87,23 +90,33 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   const decisiones = tarjetas?.ok ? tarjetas.decisiones : null;
   // Todas las fechas (16/10/2026): lo terminado hace rato va corto (lib/progreso-reglas.ts → pedidosDelCentro).
   const pedidos = pedidosDelCentro(areas, ahora);
+  const datos: DatosCentro = {
+    base: chatsDeBitacoras({ areas, pedidos, ahora, dias: DIAS_HISTORIAL }),
+    colaInicial: cola,
+    carterosIniciales: estado,
+    decisionesIniciales: decisiones,
+    munecosIniciales: munecos,
+    preguntasAbiertasIniciales: abiertas,
+    cuentasIniciales: cuentas,
+    pedidos,
+    ahora,
+    sub: admin.sub,
+    responder: responderDecision,
+    tabs: nombresDeTabs(),
+  };
+  // Los tickets de los usuarios necesitan el motor del Centro entero: «Aprobar» le firma el ticket al chat «Cerebro».
+  if (ticketera === 'tickets') {
+    return (
+      <PantallaM>
+        <CabeceraM titulo="Ticketera" trabajo padre={{ href: RUTA, label: 'Centro' }} />
+        <TicketsMovil {...datos} />
+      </PantallaM>
+    );
+  }
   return (
     <PantallaM>
       {cabecera}
-      <CentroAppMovil
-        base={chatsDeBitacoras({ areas, pedidos, ahora, dias: DIAS_HISTORIAL })}
-        colaInicial={cola}
-        carterosIniciales={estado}
-        decisionesIniciales={decisiones}
-        munecosIniciales={munecos}
-        preguntasAbiertasIniciales={abiertas}
-        cuentasIniciales={cuentas}
-        pedidos={pedidos}
-        ahora={ahora}
-        sub={admin.sub}
-        responder={responderDecision}
-        tabs={nombresDeTabs()}
-      />
+      <CentroAppMovil {...datos} />
     </PantallaM>
   );
 }

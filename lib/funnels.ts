@@ -10,7 +10,7 @@
 //   getFunnelDefault()   → el funnel DEL NEGOCIO. Catálogos, prompts, el editor
 //                          de /funnel, las columnas del board. Pregunta «¿cómo
 //                          vende este cliente?».
-//   getFunnelDeLead(l)   → el funnel POR EL QUE ENTRÓ ESE LEAD. Requisitos de
+//   getFunnelDeLead(l)   → el funnel DONDE VIVE ESE LEAD (su casa). Requisitos de
 //                          etapa, validación de un movimiento, la ficha.
 //                          Pregunta «¿qué recorrido le toca a ÉL?».
 //
@@ -27,7 +27,7 @@
 
 import 'server-only';
 import type { Stage, FunnelTransition, EntradaId } from './pipeline';
-import { DEFAULT_PIPELINE, mergeFunnelData, parseEntradas, suppressedInicial } from './pipeline';
+import { DEFAULT_PIPELINE, apagadasAlCrear, mergeFunnelData, parseEntradas } from './pipeline';
 import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import { casaParaEscribir } from './lead-funnel-reglas';
@@ -154,17 +154,26 @@ export async function funnelsConUmbrales(): Promise<Array<{
   }
 }
 
+/**
+ * La fila de UN embudo del workspace actual (el `.eq('workspace_id')` lo pone getTenantDb).
+ * `null` = no existe en este workspace (o es de otro); `undefined` = falló la lectura. No es lo mismo.
+ */
+async function filaDe(funnelId: number): Promise<FilaFunnel | null | undefined> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase.from('funnels').select(COLS).eq('id', funnelId).limit(1);
+  if (error) {
+    console.error(`[funnels] no se pudo leer el funnel #${funnelId}: ${error.message}`);
+    return undefined;
+  }
+  return ((data ?? []) as unknown as FilaFunnel[])[0] ?? null;
+}
+
 /** Un funnel concreto del workspace actual (el `.eq('workspace_id')` lo pone getTenantDb). */
 export async function getFunnelDe(funnelId: number): Promise<FunnelConfig> {
   try {
-    const supabase = await getTenantDb();
-    const { data, error } = await supabase.from('funnels').select(COLS).eq('id', funnelId).limit(1);
-    if (error) {
-      console.error(`[funnels] getFunnelDe(${funnelId}): ${error.message}`);
-      return buildFunnel(DEFAULT_PIPELINE, [], { origen: 'error' });
-    }
-    const fila = ((data ?? []) as unknown as FilaFunnel[])[0];
-    if (!fila) return buildFunnel(DEFAULT_PIPELINE, [], { origen: 'sin-fila' });
+    const fila = await filaDe(funnelId);
+    if (fila === undefined) return buildFunnel(DEFAULT_PIPELINE, [], { origen: 'error' });
+    if (fila === null) return buildFunnel(DEFAULT_PIPELINE, [], { origen: 'sin-fila' });
     return filaAFunnel(fila);
   } catch (e) {
     console.error(`[funnels] getFunnelDe(${funnelId}): ${e instanceof Error ? e.message : String(e)}`);
@@ -172,21 +181,77 @@ export async function getFunnelDe(funnelId: number): Promise<FunnelConfig> {
   }
 }
 
-/** Lo mínimo que hace falta de un lead para saber qué funnel le toca. */
-export type LeadConFunnel = { id: number };
+/**
+ * Lo mínimo que hace falta de un lead para saber qué funnel le toca. `funnel_id` es su CASA
+ * (`leads.funnel_id`, NULL = el del negocio). Si el objeto no la trae (`undefined`: un `select`
+ * que no la pidió), se lee de la base: adivinar «el del negocio» es justo el bug de abajo.
+ */
+export type LeadConFunnel = { id: number; funnel_id?: number | null };
 
 /**
- * El funnel POR EL QUE ENTRÓ ESE LEAD — el que decide sus requisitos de etapa.
+ * El funnel DONDE VIVE ESE LEAD (su casa): el que decide sus requisitos de etapa, la etapa que le
+ * dice MaKo y la que dibuja la ficha.
  *
- * ⚠️ HOY DEVUELVE EL DEFAULT, y eso es correcto: en F1 cada workspace tiene
- * exactamente un funnel, así que el del lead ES el del negocio. Lo que aporta
- * esta función hoy es la MARCA: cada call-site ya declaró cuál de las dos
- * preguntas hace, y el día que exista `lead_participaciones` (F3, la 0128 del
- * doc) cambia el CUERPO de acá y ni un call-site más. Sin la marca, ese día hay
- * que volver a auditar 33 lugares a mano.
+ * ⚠️ HASTA EL 17/10/2026 DEVOLVÍA EL DEL NEGOCIO PARA TODOS, con un comentario que lo daba por
+ * correcto «porque cada workspace tiene un solo funnel». Dejó de serlo cuando llegaron los N CRM
+ * (mig 0170) y nadie volvió acá: un lead del CRM «Webinar» movido a «Grupo WhatsApp» (una etapa
+ * que sólo existe ahí) se evaluaba contra las etapas del CRM principal, `etapaVigenteDe` lo tomaba
+ * por huérfano y devolvía la derivada. MaKo decía «Lead entrante» mientras el tablero, la API
+ * (`productos_del_lead`) y el teléfono decían «Grupo», le proponía moverlo desde donde no estaba, y
+ * la ficha pedía los requisitos de las etapas de otro CRM (docs/relevo/crm-tanda-b1.md, «Revisión de
+ * b4»). La marca de los 33 call-sites ya estaba: cambió el CUERPO y ni un llamador.
+ *
+ * Una casa que no es de este workspace o que ya no existe cae al del negocio (como el tablero
+ * principal, que es donde se ve ese lead); una lectura caída también, y lo loguea.
  */
-export async function getFunnelDeLead(_lead: LeadConFunnel): Promise<FunnelConfig> {
+export async function getFunnelDeLead(lead: LeadConFunnel): Promise<FunnelConfig> {
+  try {
+    const casa = lead.funnel_id !== undefined ? lead.funnel_id : await casaLeida(lead.id);
+    if (casa == null) return getFunnelDefault();
+    const fila = await filaDe(Number(casa));
+    if (fila) return filaAFunnel(fila);
+  } catch (e) {
+    console.error(`[funnels] getFunnelDeLead(${lead.id}): ${e instanceof Error ? e.message : String(e)}`);
+  }
   return getFunnelDefault();
+}
+
+/** `leads.funnel_id` de UN lead. `null` si es del negocio, no existe o no se pudo leer (lo loguea). */
+async function casaLeida(leadId: number): Promise<number | null> {
+  const { data, error } = await (await getTenantDb()).from('leads').select('funnel_id').eq('id', leadId).limit(1);
+  if (error) {
+    console.error(`[funnels] no se pudo leer la casa del lead ${leadId}: ${error.message}`);
+    return null;
+  }
+  const f = ((data ?? []) as Array<{ funnel_id: number | null }>)[0]?.funnel_id;
+  return f == null ? null : Number(f);
+}
+
+/**
+ * Las etapas de la casa de VARIOS leads, leyendo cada embudo UNA vez (una lista de MaKo trae hasta 20
+ * leads de CRM distintos). Mismo criterio que `getFunnelDeLead`: lo que no se puede leer, el del negocio.
+ */
+export async function etapasDeLeads(ids: readonly number[]): Promise<Map<number, Stage[]>> {
+  const out = new Map<number, Stage[]>();
+  if (!ids.length) return out;
+  const casas = new Map<number, number | null>();
+  try {
+    const { data, error } = await (await getTenantDb()).from('leads').select('id, funnel_id').in('id', [...ids]);
+    if (error) console.error(`[funnels] etapasDeLeads: ${error.message}`);
+    for (const f of (data ?? []) as Array<{ id: number; funnel_id: number | null }>) {
+      casas.set(Number(f.id), f.funnel_id == null ? null : Number(f.funnel_id));
+    }
+  } catch (e) {
+    console.error(`[funnels] etapasDeLeads: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const porCasa = new Map<string, Promise<Stage[]>>();
+  const de = (casa: number | null) => {
+    const k = String(casa);
+    if (!porCasa.has(k)) porCasa.set(k, getFunnelDeLead({ id: 0, funnel_id: casa }).then((f) => f.stages));
+    return porCasa.get(k)!;
+  };
+  for (const id of ids) out.set(id, await de(casas.get(id) ?? null));
+  return out;
 }
 
 /** Etapas del pipeline del NEGOCIO — las consume el Kanban del CRM. */
@@ -336,6 +401,14 @@ export async function canalesYEntradasDeFunnels(): Promise<Array<{ canal: string
  *
  * Guardar ES declarar: la fila queda con `declarado = true`, que es lo que hace que
  * `origen` pase a 'declarado' y los prompts puedan afirmar el funnel.
+ *
+ * ⚠️ COMPARE-AND-SET SOBRE `updated_at` (17/10/2026, docs/relevo/crm.md §0-Ω7). Leer, mergear y
+ * escribir son tres pasos: si otro admin (o MaKo, o la ficha por bloques, que guarda `data.ficha`
+ * en la misma columna) guardaba en el medio, el `update` escribía el `data` armado sobre la foto
+ * VIEJA y le borraba lo suyo sin un error. Ahora el `update` sólo pega si la fila sigue siendo la
+ * que se leyó; si no, se relee y se vuelve a mergear sobre lo nuevo (como `cambiarFichaDeFunnel`,
+ * lib/ficha/config-server.ts). Y una lectura caída TIRA: antes mergeaba sobre `{}` y borraba todo
+ * lo que no fuera pipeline y suppressed.
  */
 export async function saveFunnelDe(
   funnelId: number,
@@ -344,23 +417,29 @@ export async function saveFunnelDe(
   extra?: Record<string, unknown>,
 ): Promise<void> {
   const supabase = await getTenantDb();
-  // El previo se lee para el MERGE. Sin maybeSingle: con `.limit(1)` una fila de
-  // más no rompe el guardado, solo mergea contra la primera.
-  const { data: actual } = await supabase.from('funnels').select('data').eq('id', funnelId).limit(1);
-  const previo = ((actual ?? []) as Array<{ data: unknown }>)[0]?.data ?? {};
-  const { data: tocadas, error } = await supabase
-    .from('funnels')
-    .update({
-      data: mergeFunnelData(previo, pipeline, suppressed, extra),
-      declarado: true,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', funnelId)
-    .select('id');
-  if (error) throw new Error(`Error guardando el funnel: ${error.message}`);
-  // Un UPDATE que no tocó nada devuelve ok y cero filas: sin este guard, el
-  // editor diría «guardado» sobre un funnel de otro workspace o ya borrado.
-  if (!((tocadas ?? []) as unknown[]).length) throw new Error(`Error guardando el funnel: no existe el funnel #${funnelId} en este workspace.`);
+  for (let intento = 0; intento < 4; intento++) {
+    // Sin maybeSingle: con `.limit(1)` una fila de más no rompe el guardado, solo mergea contra la primera.
+    const { data: actual, error: eLee } = await supabase.from('funnels').select('data, updated_at').eq('id', funnelId).limit(1);
+    if (eLee) throw new Error(`Error guardando el funnel: ${eLee.message}`);
+    const fila = ((actual ?? []) as Array<{ data: unknown; updated_at: string | null }>)[0];
+    // Sin fila: el funnel es de otro workspace o ya no existe. Sin este corte, el editor diría
+    // «guardado» sobre algo que no escribió.
+    if (!fila) throw new Error(`Error guardando el funnel: no existe el funnel #${funnelId} en este workspace.`);
+    let q = supabase
+      .from('funnels')
+      .update({
+        data: mergeFunnelData(fila.data ?? {}, pipeline, suppressed, extra),
+        declarado: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', funnelId);
+    if (fila.updated_at) q = q.eq('updated_at', fila.updated_at);
+    const { data: tocadas, error } = await q.select('id');
+    if (error) throw new Error(`Error guardando el funnel: ${error.message}`);
+    if (((tocadas ?? []) as unknown[]).length) return;
+    // Cero filas con la fila leída: otro guardó en el medio. Se relee y se vuelve a mergear.
+  }
+  throw new Error('Otra persona estaba guardando este CRM al mismo tiempo. Intenta de nuevo.');
 }
 
 /**
@@ -641,9 +720,7 @@ export async function crearFunnel(input: {
    * Lo que el llamador manda se RESPETA y se suma — la plantilla `presencial` trae la suya
    * por un motivo propio— y se unen sin duplicar.
    */
-  const apagadas = tienePipeline
-    ? [...new Set([...(input.suppressed ?? []), ...suppressedInicial(input.pipeline!)])]
-    : (input.suppressed ?? []);
+  const apagadas = tienePipeline ? apagadasAlCrear(input.pipeline!, input.suppressed) : (input.suppressed ?? []);
   const { data, error } = await supabase
     .from('funnels')
     .insert({

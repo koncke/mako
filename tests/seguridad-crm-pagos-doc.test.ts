@@ -51,6 +51,11 @@
 //   · sin la guarda en reconciliarYGuardar (el paso de la reconciliación)                 → 6 / 1
 //   · sin la guarda en saveCuotasAction                                                  → 5 / 2
 //   · saveCuotasAction sin el corte por sesión                                           → 6 / 1
+// AL DÍA CON EL BORRADO DE «EDITAR DEAL» (17/10/2026): `saveCuotasAction` y `saveDealSectionsAction` se fueron con su
+// pantalla. Los casos sin sesión y del lead ajeno que las usaban corren ahora con `registrarPagoSueltoAction` (la
+// acción de la ficha que inserta en `pagos`), y el del documento fiscal pasó a fijar la lista cerrada de campos
+// del deal. Re-medido: con el código como está, 7 / 0; sin el `haySesion()` de registrarPagoSueltoAction → 6 / 1;
+// sin el `asegurarLeadDelNegocio` de registrarPagoSuelto → 6 / 1 (la regla del barrido).
 // Correr: node --import tsx --test tests/seguridad-crm-pagos-doc.test.ts
 
 import { test } from 'node:test';
@@ -210,7 +215,9 @@ async function hijo(): Promise<void> {
   const fecha = '2026-10-14';
 
   // ── Sin sesión: las acciones de la ficha no escriben nada (ni con un lead propio) ──
-  await correr('sinSesion.saveCuotasAction', () => acciones.saveCuotasAction(LEAD_PROPIO, [{ monto: 1, fecha: '2026-12-01', pagado: true }]),
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: era `saveCuotasAction`, borrada con Editar deal. El pago suelto es la
+  // acción de la ficha que hoy inserta en `pagos`.
+  await correr('sinSesion.registrarPagoSueltoAction', () => acciones.registrarPagoSueltoAction(LEAD_PROPIO, { monto: 1, fecha }),
     () => { sesion = null; });
   sesion = { sub: '1', email: 'admin@a.test', nombre: 'Admin A', rol: 'user', ws: WS_A, rolWs: 'admin', exp: 9e9 };
 
@@ -225,8 +232,9 @@ async function hijo(): Promise<void> {
   await correr('ajeno.registrarCobroDeProveedor', () => pagos.registrarCobroDeProveedor({
     leadId: LEAD_AJENO, cobroId: 1, proveedor: 'stripe', proveedorPagoId: 'pi_prueba', montoUsd: 10, montoOriginal: 10, moneda: 'USD', fechaPago: fecha,
   }));
-  await correr('ajeno.saveCuotasAction', () => acciones.saveCuotasAction(LEAD_AJENO, [{ monto: 1, fecha: '2026-12-01', pagado: true }]));
-  await correr('ajeno.saveDealSectionsAction', () => acciones.saveDealSectionsAction(LEAD_AJENO, { deal_fiscal: { razon: 'x' } }));
+  // (`saveCuotasAction` y `saveDealSectionsAction` se borraron el 17/10/2026 con Editar deal: la acción de la ficha
+  // que queda escribiendo en `pagos` es el pago suelto.)
+  await correr('ajeno.registrarPagoSueltoAction', () => acciones.registrarPagoSueltoAction(LEAD_AJENO, { monto: 1, fecha }));
 
   // ── El lead PROPIO sigue andando como siempre ─────────────────────────────
   // Dos cuotas: la impaga que ya había se ACTUALIZA (la reconciliación por id no borra e inserta) y la segunda
@@ -236,24 +244,8 @@ async function hijo(): Promise<void> {
     cuotas: [{ monto_usd: 50, fecha_esperada: '2026-12-01' }, { monto_usd: 50, fecha_esperada: '2027-01-01' }],
   }));
   await correr('propio.registrarPagoSuelto', () => pagos.registrarPagoSuelto(LEAD_PROPIO, { monto: 25, fecha }));
-  // El documento lo pone la base: un doc_path armado a mano, y la foto vieja de la pantalla (sin el documento).
-  await correr('propio.fiscalArmado', async () => {
-    try {
-      await acciones.saveDealSectionsAction(LEAD_PROPIO, { deal_fiscal: { razon: 'Nueva SA', doc_path: DOC_AJENO, doc_nombre: 'constancia.pdf' } });
-    } catch (e) {
-      // revalidatePath necesita el runtime de Next: corre DESPUÉS de escribir, y acá no hay Next.
-      if (!/static generation store/.test(e instanceof Error ? e.message : '')) throw e;
-    }
-    return leadEnBase(LEAD_PROPIO)?.deal_fiscal;
-  });
-  await correr('propio.fiscalFotoVieja', async () => {
-    try {
-      await acciones.saveDealSectionsAction(LEAD_PROPIO, { deal_fiscal: { razon: 'Foto vieja SA' } });
-    } catch (e) {
-      if (!/static generation store/.test(e instanceof Error ? e.message : '')) throw e;
-    }
-    return leadEnBase(LEAD_PROPIO)?.deal_fiscal;
-  });
+  // (El documento fiscal armado a mano lo escribía `saveDealSectionsAction`, borrada el 17/10/2026: los bloques de
+  // Pagos escriben campo por campo y `doc_path` no está entre sus campos. Lo fija el test de abajo, sobre el fuente.)
 
   // ── Firmar: sólo rutas de ESTE lead en ESTE negocio ───────────────────────
   const pedir = async (ruta: { GET: (r: never) => Promise<Response> }, url: string) => {
@@ -306,7 +298,7 @@ if (process.env.SEG_PAGOS_DOC_HIJO === '1') {
 
   test('un lead de OTRO negocio: ningún escritor de pagos le escribe nada, ni la ficha ni la pasarela', () => {
     const ajenos = Object.keys(R).filter((k) => k.startsWith('ajeno.'));
-    assert.equal(ajenos.length, 7, 'faltan escenarios del lead ajeno');
+    assert.equal(ajenos.length, 6, 'faltan escenarios del lead ajeno');
     for (const k of ajenos) {
       assert.match(R[k].error ?? '', /No encontré (ese|este) lead/, `${k}: tenía que cortar con «no encontré el lead», y dio ${R[k].error}`);
       // Lo que importa: NADA escrito. Ni la cuota (la fila cruzada), ni el lead, ni el historial.
@@ -315,7 +307,7 @@ if (process.env.SEG_PAGOS_DOC_HIJO === '1') {
   });
 
   test('sin sesión, las acciones de la ficha no escriben nada (ni con un lead propio)', () => {
-    const r = R['sinSesion.saveCuotasAction'];
+    const r = R['sinSesion.registrarPagoSueltoAction'];
     assert.match(r.error ?? '', /sesión no está activa/, `tenía que cortar por la sesión, y dio ${r.error}`);
     assert.deepEqual(r.escrituras, [], `escribió sin sesión: ${r.escrituras.join(' · ')}`);
   });
@@ -328,24 +320,16 @@ if (process.env.SEG_PAGOS_DOC_HIJO === '1') {
     assert.ok(R['propio.registrarPagoSuelto'].escrituras.includes('PATCH pagos (1)'), 'el pago suelto se inserta y se MARCA cobrado');
   });
 
-  test('el documento fiscal lo pone la base, no el navegador (y una foto vieja ya no lo borra)', () => {
-    const armado = R['propio.fiscalArmado'];
-    assert.equal(armado.error, null, String(armado.error));
-    assert.deepEqual(armado.valor, { razon: 'Nueva SA', doc_path: DOC_PROPIO, doc_nombre: 'mio.pdf' }, 'el doc_path armado a mano llegó a la base');
-    const vieja = R['propio.fiscalFotoVieja'];
-    assert.equal(vieja.error, null, String(vieja.error));
-    assert.deepEqual(vieja.valor, { razon: 'Foto vieja SA', doc_path: DOC_PROPIO, doc_nombre: 'mio.pdf' }, 'guardar sin el documento lo borró');
-
-    // Los bordes, con la función recortada del fuente.
-    type F = { razon?: string | null; doc_path?: string | null; doc_nombre?: string | null } | null | undefined;
-    const fiscalConDocDeLaBase = traer<(nuevo: unknown, enBase: F) => F>('app/crm/[id]/deal-actions.ts', 'fiscalConDocDeLaBase');
-    const enBase = { razon: 'Vieja SA', doc_path: DOC_PROPIO, doc_nombre: 'mio.pdf' };
-    assert.deepEqual(fiscalConDocDeLaBase({ razon: 'X', doc_path: DOC_AJENO, doc_nombre: 'y.pdf' }, null), { razon: 'X' }, 'sin documento en la base, el del navegador no entra');
-    assert.deepEqual(fiscalConDocDeLaBase({ razon: 'X', doc_path: DOC_AJENO }, { doc_path: null }), { razon: 'X' });
-    assert.deepEqual(fiscalConDocDeLaBase(null, enBase), { doc_path: DOC_PROPIO, doc_nombre: 'mio.pdf' }, 'vaciar la sección no borra el documento');
-    assert.equal(fiscalConDocDeLaBase(null, null), null);
-    assert.throws(() => fiscalConDocDeLaBase('7/50/x.pdf', enBase), /Datos fiscales inválidos/);
-    assert.throws(() => fiscalConDocDeLaBase([DOC_AJENO], enBase), /Datos fiscales inválidos/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: el que escribía `deal_fiscal` ENTERO desde el navegador
+  // (`saveDealSectionsAction`) se borró con Editar deal. Lo que queda escribiendo el deal son los bloques, campo por
+  // campo, contra una lista cerrada: `doc_path` y `doc_nombre` NO están, así que sólo los escribe la subida.
+  // Verificado rompiéndolo: con `doc_path: 'Documento'` sumado a `CAMPOS_DEAL.fiscal` → cae éste.
+  test('el documento fiscal lo pone la subida, no el navegador: ningún escritor del deal acepta doc_path', async () => {
+    const { CAMPOS_DEAL, esCampoDeal } = await import('../lib/pagos-campo');
+    assert.equal(esCampoDeal('fiscal', 'doc_path'), false);
+    assert.equal(esCampoDeal('fiscal', 'doc_nombre'), false);
+    assert.ok(!Object.keys(CAMPOS_DEAL.fiscal).some((k) => k.startsWith('doc_')), 'un campo del documento entró a la lista editable');
+    assert.doesNotMatch(sinComentarios(leer('app/crm/[id]/deal-actions.ts')), /saveDealSectionsAction|deal_fiscal:/, 'volvió un guardado del deal entero');
   });
 
   test('/api/doc y /api/contract firman SÓLO rutas de este lead en este negocio', () => {
@@ -442,7 +426,8 @@ if (process.env.SEG_PAGOS_DOC_HIJO === '1') {
     }
     // Que el barrido vea a los escritores de hoy (si dejara de verlos, pasaría sin mirar nada). savePlanPagos y
     // saveLeadPlanManual escriben por la reconciliación; los cubre el caso ajeno de arriba, ejecutándolos.
-    for (const f of ['escribirReconciliacion←reconciliarYGuardar', 'cobrarCuota', 'registrarPagoSuelto', 'registrarCobroDeProveedor', 'saveCuotasAction']) {
+    // (`saveCuotasAction` salió de la lista el 17/10/2026: se borró con Editar deal.)
+    for (const f of ['escribirReconciliacion←reconciliarYGuardar', 'cobrarCuota', 'registrarPagoSuelto', 'registrarCobroDeProveedor']) {
       assert.ok(guardadas.includes(f), `el barrido no encontró el insert de ${f}`);
     }
   });

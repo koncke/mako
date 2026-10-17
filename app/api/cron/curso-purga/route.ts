@@ -6,13 +6,12 @@
 // quedó de una clase o una nota borrada. El qué y el porqué viven en lib/curso-purga.ts; la regla
 // de qué se puede borrar, pura y con test, en app/customer-success/curso/reglas.ts.
 //
-// ⚠️ POR DEFAULT ES UN MODO PRUEBA: lista, cruza y devuelve los candidatos con su peso, y NO borra.
-// Borra sólo con un '1' explícito (`pideBorrarPurga`):
-//   GET /api/cron/curso-purga             → prueba: qué borraría y cuánto pesa
-//   GET /api/cron/curso-purga?borrar=1    → borra UNA vez, a mano, después de leer la prueba
-//   CURSO_PURGA_BORRAR=1 en el entorno    → el cron diario borra (lo que la prende de verdad)
-// El contenido de los buckets nunca se midió: sin esto, lo primero que hacía en producción era
-// un `remove` real.
+// ⚠️ BORRA DESDE EL 17/10/2026 (`pideBorrarPurga`): se midió en producción en modo prueba y había
+// CERO huérfanos (el porqué y los números, en la función). El modo prueba queda con un '0' explícito:
+//   GET /api/cron/curso-purga             → borra (lo que hace el cron diario)
+//   GET /api/cron/curso-purga?borrar=0    → prueba: qué borraría y cuánto pesa, sin tocar nada
+//   CURSO_PURGA_BORRAR=0 en el entorno    → apaga el borrado del cron (vuelve a contar)
+//   GET /api/cron/curso-purga?borrar=1    → borra aunque el entorno lo apague (a mano)
 //
 // ⚠️ NO ITERA WORKSPACES, a propósito: el bucket es uno para toda la plataforma y la pregunta es
 // «¿lo usa ALGUIEN?». Correrlo adentro de un inquilino sería cruzar el bucket contra las clases de

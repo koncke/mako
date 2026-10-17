@@ -166,6 +166,10 @@
       "schedule": "35 10 * * *"
     },
     {
+      "path": "/api/cron/agente-purga",
+      "schedule": "20 6 * * *"
+    },
+    {
       "path": "/api/cron/cs-sesiones-entrega",
       "schedule": "52 * * * *"
     },

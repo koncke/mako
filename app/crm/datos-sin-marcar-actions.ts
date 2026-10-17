@@ -117,7 +117,7 @@ export async function guardarAvisosDatosAction(apagados: string[], funnelId?: nu
     let limpios: StepId[];
     if (funnelId === undefined) limpios = await guardarApagados(apagados);
     else {
-      const r = await cambiarFichaDeFunnel(funnelId, { op: 'avisos', apagados: sanearApagados(apagados) });
+      const r = await cambiarFichaDeFunnel(funnelId, { op: 'avisos', apagados: sanearApagados(apagados) }, { autor: await autor() });
       if (!r.ok) return r;
       limpios = r.ficha.efectiva.apagados;
     }

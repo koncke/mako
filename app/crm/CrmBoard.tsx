@@ -55,9 +55,6 @@ import {
   markManualNutritionAction,
   markMeetingManualAction,
   bulkFillLeadFieldAction,
-  ignorarPendientesAction,
-  reactivarPendientesAction,
-  ignorarPendientesMasaAction,
   reagendarReunionAction,
   permisoCalendarioAction,
   duracionReunionAction,
@@ -128,6 +125,7 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
+import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -449,6 +447,7 @@ export function CrmBoard({
   ordenManual = {},
   cursoAlGanar = null,
   partners = false,
+  puedeCrearCrm = false,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -498,6 +497,8 @@ export function CrmBoard({
    * admin, que es lo que exigen /partners y `llevarAPartnersAction`.
    */
   partners?: boolean;
+  /** ¿Quien mira puede crear un CRM? (el admin: `crearCrmAction`). Sin esto, «Nuevo CRM» no se ofrece. */
+  puedeCrearCrm?: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -1994,7 +1995,7 @@ export function CrmBoard({
   // ve el problema: la columna que sobra o el nombre que no es el del negocio se notan
   // mirando el tablero, no el mapa.
   const [renombrando, setRenombrando] = useState<string | null>(null);
-  const [borrarEtapa, setBorrarEtapa] = useState<{ key: string; label: string } | null>(null);
+  const [borrarEtapa, setBorrarEtapa] = useState<{ key: string; label: string; n: number } | null>(null);
   const [errorEtapa, setErrorEtapa] = useState<string | null>(null);
 
   /**
@@ -2033,8 +2034,8 @@ export function CrmBoard({
    * deshacer que dura 5 segundos». Acá el conteo es gratis: el tablero ya lo tiene
    * dibujado al lado del nombre de la columna.
    *
-   * Con leads adentro sigue preguntando, porque ahí el deshacer no alcanza — entre medio
-   * quedan fuera del embudo.
+   * Con leads adentro sigue preguntando, porque ahí el deshacer no alcanza — entre medio se ven en otra columna
+   * (`avisoAlQuitarEtapa`, ./aviso-quitar-etapa.ts: la MISMA frase que el pop-up de etapas).
    */
   const quitarColumna = async (c: Stage) => {
     // ⚠️ SE CUENTAN TODOS LOS LEADS DE LA COLUMNA, no los que deja ver el filtro. Con un filtro
@@ -2042,7 +2043,7 @@ export function CrmBoard({
     // (docs/relevo/crm.md, «Lo que quedó sin hacer», 12/10/2026). Lo fija
     // tests/quitar-columna-cuenta-todos.test.ts.
     const cuantos = leads.filter((l) => effStage(l) === c.key).length;
-    if (cuantos > 0) { setBorrarEtapa({ key: c.key, label: c.label }); return; }
+    if (cuantos > 0) { setBorrarEtapa({ key: c.key, label: c.label, n: cuantos }); return; }
     const r = await opEtapa({ op: 'eliminar', key: c.key });
     if (!r?.ok) return;
     const d = r.deshacer;
@@ -2867,7 +2868,7 @@ export function CrmBoard({
           diferencia es la caja, no el ancho. Va ANTES de los avisos. El esqueleto (app/crm/loading.tsx)
           dibuja la misma caja. */}
       <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, marginBottom: 16, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 1px 2px rgba(18,21,27,.04)' }}>
-        <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />
+        <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} puedeCrear={!!puedeCrearCrm} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />
         <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
         <>
           <Buscador value={search} onChange={setSearch} />
@@ -3920,7 +3921,7 @@ export function CrmBoard({
       {borrarEtapa && (
         <ConfirmDialog
           title={`Eliminar la etapa «${borrarEtapa.label}»`}
-          message="Los leads que estén ahí pasan a la primera etapa del funnel. La nutrición que salía de esta etapa también se va."
+          message={avisoAlQuitarEtapa(borrarEtapa.n)}
           confirmLabel="Eliminar la etapa"
           loading={isPending}
           onConfirm={() => { void opEtapa({ op: 'eliminar', key: borrarEtapa.key }); }}

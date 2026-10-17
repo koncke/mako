@@ -19,6 +19,53 @@ la tab **`/instagram`**, que se retiró el 06/10 y hoy sólo redirige.
 
 ---
 
+## 17/10/2026 · los pendientes B4 (rama `pend-b4-1710`, agente «Pendientes B4: Ads y plata»)
+
+Lo aprendido está en `docs/hallazgos-ads.md` → «Los pendientes del 17/10 (B4)». Hecho:
+
+| Qué | Dónde |
+|---|---|
+| MaKo ya no inventa los leads de Meta por anuncio (`meta_leads` era la META de 10) | lib/ads-rendimiento.ts |
+| El super admin sin negocio elegido no opera la cuenta del ws1 (409 «Elige primero el negocio») | lib/ads-guard.ts |
+| Editar el público por la API de MaKo (`proponer_editar_publico_conjunto`) y crear un pin pegando coordenadas o el link largo de Maps | lib/publico-cambios.ts · lib/meta-geo.ts |
+| Escribir en Meta expira el árbol de ESE negocio (`metaHealth:ws:N`): la tabla ve lo escrito | lib/meta-health.ts · lib/meta-write.ts |
+| «Conectar con Meta» avisa si el token vino sin permisos de anuncios | app/api/integraciones/meta/callback/route.ts |
+| El DM pagado de Instagram no deja un lead huérfano con el anuncio | lib/zernio-entrante.ts |
+| La API de Ads Manager y Meta no contesta a un negocio cuyo plan no incluye la tab | lib/api-tab.ts |
+
+**Ya estaba:** la ruta del público (`adset-targeting`) comprueba la cuenta desde el 13/10 (`e4fb140b`).
+**Decisiones tomadas** (no se re-preguntan): la 2 (el pin: pegar el punto, sin librería ni CSP), la 4 (la barra de lote
+queda oscura), la 5 (la publicación a medias dice lo mismo) y la 6 (el ojo queda).
+**Medido:** ws13 y ws14 siguen con «Joan P2P app» y ws11 con «Lidermente_Agent»: nadie reconectó. Si esas apps siguen en
+desarrollo lo dice una corrida en seco (`validate_only`) sobre SU cuenta: lo decide Martín.
+
+### ⚠️ APAGADOS por la revisión adversarial del 17/10 (para después del 20/10): se prenden SÓLO con su arreglo y su revisión
+
+La revisión de 65e299c2e confirmó 9 defectos reales, todos en tres cambios que quedaron en el código con un interruptor en
+`false` (el informe: scratchpad/revision-b4.md de la sesión del Cerebro del 17/10):
+
+| Interruptor | Qué apaga | Los defectos que hay que arreglar antes de prenderlo |
+|---|---|---|
+| `CORTE_DE_ACCESO_PRENDIDO` (lib/plan-acceso-reglas.ts) | El cron que pausa y reabre por falta de pago, y que un negocio pausado no se abra (/cuenta-pausada, el 403 de la API) | (alta) el cron sólo ve los cobros con `alta_ws`: un plan nuevo vendido a una cuenta que ya existía (`ya_tenia_cuenta`) queda afuera y la pausa no se levanta aunque pague · (media) un primer pago DEVUELTO con la suscripción activa da «vencido» y pausa a quien paga (un reembolso no cancela la suscripción) · (media/baja) las cuotas de los lugares se leen sin paginar (`plan-acceso.ts:84`) · (baja) el tope de 5 y el orden de los pasos |
+| `CORTE_POR_PLAN_PRENDIDO` (lib/api-tab.ts) | El corte de la API por plan y el cartel «no está en tu plan» (`requireCapa` vuelve al redirect a la casa del plan) | (baja, de cara al cliente) un negocio con capa `pm` entra por /inicio a /general y ve «No está en tu plan»: el repartidor de /inicio manda a una tab que esa capa no tiene |
+| `MIRAR_LINK_ANTES_DE_MARCAR` (lib/pagos.ts) | Preguntarle a la pasarela antes de marcar una cuota a mano | (alta) con un link en estado «pagado», `asentarLinkPagadoDeCuota` (lib/cobros.ts) da la cuota por cobrada aunque `aplicarPagoAprobado` no marque nada: una cuota destildada por error (ws1) ya no se puede volver a marcar y queda IMPAGA para siempre, y cada intento repite «Entró un pago» · (media) el paso 1 tiene que exigir que la cuota NO esté asentada por ese pago, no sólo que el cobro esté pagado |
+
+Con los tres en `false` el producto se comporta como antes del 17/10 en esas tres cosas (marcar a mano vuelve a poder contar
+dos veces un link pagado sin asentar; quien no paga sigue entrando). Los tests que dependen de ellos fijan que están
+apagados (tests/plan-acceso.test.ts, tests/api-tab.test.ts, tests/pagos-link-ya-pagado.test.ts).
+
+**Lo que quedó SIN hacer, con el porqué (para después del 20/10: corte de consumo del Cerebro, 17/10):**
+- **El Autopilot (punto 18).** El motor, el cron, la pantalla, la API, renumerar la 0275 al primer número libre mirando
+  todos los worktrees, aplicarla, mirarlo en ws3 y la revisión adversarial: no entró en esta corrida (tamaño). La base
+  sigue en `refs/wip/autopilot-base-1410`; el contrato, en `docs/diseno-ads-autopilot.md`.
+- **Subir un anuncio de IMAGEN desde MaKo.** El Image Editor guarda sólo una `miniatura` del diseño (no la imagen a
+  tamaño real) y las imágenes de escena de Flow vencen a las ~6 h: falta de DÓNDE sacarla. La pieza es «Usar en un
+  anuncio» en el Image Editor (exportar el PNG y subirlo a `adimages`), que es de esa área.
+- **Variaciones de gancho**: dependen de que el puente traiga el video de Flow (Content Machine).
+- **Lo que espera a Meta** («Conectar con Meta» para todos, leads en vivo, bloquear apps ajenas, el tutorial sin app
+  propia): sigue esperando el App Review.
+- **Mirar en pantalla el onboarding del Ads Manager (#801)**: no hubo RAM para un build (`/ads-manager?ws=3`).
+
 ## Retomado el 13/10/2026 (cuenta 2): lo que se fue cerrando
 
 Pedido de Martín, por el chat «Estrategia 3 CUENTAS»: continuar y cerrar lo planificado acá, sumar la

@@ -173,6 +173,24 @@ export async function procesarEventoSocial(e: EventoSocial, body: unknown): Prom
  * DM pagado en `meta_ad_id` y la entrada (`entradaSocialDe`)— no lo vuelve a escribir nadie. Y su
  * línea en el historial, que hasta acá no existía: el lead de Instagram aparecía sin decir de dónde.
  */
+/** El lead que perdió el compare-and-set se borra y le pasa al que ganó lo que éste no tenga. Nunca tira. */
+async function quitarHuerfano(huerfano: number, ganador: number | null, anuncioId: string | null, entrada: unknown): Promise<void> {
+  const db = await getTenantDb();
+  if (ganador != null && ganador !== huerfano) {
+    if (anuncioId) {
+      const { error } = await db.from('leads').update({ meta_ad_id: anuncioId }).eq('id', ganador).is('meta_ad_id', null);
+      if (error) console.warn(`[zernio-entrante] no pude pasarle el anuncio al lead ${ganador}: ${error.message}`);
+    }
+    if (entrada) {
+      const { error } = await db.from('leads').update({ entrada_social: entrada }).eq('id', ganador).is('entrada_social', null);
+      if (error) console.warn(`[zernio-entrante] no pude pasarle la entrada al lead ${ganador}: ${error.message}`);
+    }
+  }
+  if (ganador === huerfano) return;
+  const { error } = await db.from('leads').delete().eq('id', huerfano);
+  if (error) console.error(`[zernio-entrante] el lead ${huerfano} quedó huérfano (no pude quitarlo): ${error.message}`);
+}
+
 async function crearLeadDe(e: EventoSocial, filaId: number): Promise<number | null> {
   try {
     const entrada = entradaSocialDe(e);
@@ -195,8 +213,16 @@ async function crearLeadDe(e: EventoSocial, filaId: number): Promise<number | nu
     if (error) throw new Error(error.message);
     if (!(data ?? []).length) {
       const { data: actual } = await db.from('ig_conversaciones').select('lead_id').eq('id', filaId).maybeSingle();
-      console.warn(`[zernio-entrante] la persona ${e.participanteId} ya tenía lead: el ${lead.id} quedó sin unir`);
-      return (actual as { lead_id?: number | null } | null)?.lead_id ?? null;
+      const ganador = (actual as { lead_id?: number | null } | null)?.lead_id ?? null;
+      // ⚠️ DOS MENSAJES JUNTOS DE LA MISMA PERSONA NUEVA (17/10/2026): en un anuncio de DM, Meta manda el primero sin
+      // `referral` y el segundo con el anuncio, casi a la vez. Los dos ven `lead_id` null, los dos crean un lead y gana
+      // uno. El que perdió quedaba HUÉRFANO con el anuncio y la entrada: le contaba al anuncio un lead que nunca agenda,
+      // y el real quedaba sin atribuir (docs/relevo/crm-tanda-b1.md, b4). Ahora el huérfano se borra —lo creó esta misma
+      // llamada: no tiene charla ni historial, y `createLead` no dispara nada— y el anuncio y la entrada pasan al que
+      // ganó, sólo si no los tiene (compare-and-set: no se pisa lo que ya dijo el otro mensaje).
+      await quitarHuerfano(lead.id, ganador, e.anuncioId ?? null, entrada);
+      console.warn(`[zernio-entrante] la persona ${e.participanteId} ya tenía lead (${ganador}): el ${lead.id} quedó sin unir y se quitó`);
+      return ganador;
     }
     // Sólo el lead que QUEDÓ unido: el que perdió el compare-and-set no es el de esta persona.
     // `logLeadEvent` no tira (un historial caído no deshace el alta).

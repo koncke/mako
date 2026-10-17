@@ -6,6 +6,34 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω15. 17/10/2026 (chat «Pendientes B2: CRM y clientes», cuenta `claude4`): los pendientes del CRM del 17/10
+
+Rama `pend-b2-1710` en `C:/dev/wt-pend-b2`. **Sin subir: la punta se le pasa al Cerebro.** El porqué de cada cosa, y
+las trampas, en docs/hallazgos-crm.md («Los pendientes del CRM del 17/10»). Acá, qué quedó y qué falta.
+
+**Hecho (cada uno con su test probado rompiéndolo):** `getFunnelDeLead` lee la casa del lead (y MaKo, `buscar_leads`,
+dice la etapa de SU CRM); mover entre dos etapas abiertas no borra la venta (opción b del §5.3, decidida con criterio);
+el «Deshacer» del historial no pisa lo que cambió otro y sus «no» llegan a la pantalla; `saveFunnelDe` no borra el
+`data` con la lectura caída y es compare-and-set; un alta con funnel ajeno nace en el CRM del negocio; «Nuevo CRM» sólo
+lo ve el admin y siembra sus etapas en el MISMO insert; el aviso al quitar una etapa dice cuántos leads tiene;
+`pagina_registro` y `visitor_id` en «A revisar»; #856 (el «Calificado» espera el Deshacer y no se manda dos veces) y #893
+(el lead que vuelve por otra campaña se suma a ese funnel); se borraron las server actions exportadas sin llamador (las
+tres de ignorar a nivel lead y `crearProductoAction`); los siete bloques de la charla del Resumen (sólo lectura); el
+historial de la ficha con «Volver a como estaba»; la ficha que edita MaKo se relee.
+
+**Medido, nada que hacer:** CRM de webinar viejos (0), plazos viejos de etapa (0 funnels con `umbrales.porEtapa`).
+
+**Sin hacer, con el archivo (para después del 20/10: el Cerebro cortó por consumo con la semana al 71%):**
+- La T2 de la ficha: Reuniones y Tracking nativos (app/crm/lead-view/ficha/registro-reuniones.tsx,
+  registro-tracking.tsx) y la tarjeta del kanban personalizable (app/crm/CrmBoard.tsx). Es una feature entera.
+- El desplegable de hojas unificado con `MenuHojas` (app/crm/lead-view/LeadTabs.tsx): se ve en un navegador y no hubo.
+- Convertir las filas viejas de `pendientes_ignorados` a la marca por dato y borrar la columna: una migración de datos
+  de clientes; la lectura vieja sigue viva en el tablero.
+- Los bloques de la charla con acciones (mandar, contestar): cada una es una puerta nueva a un envío.
+- Mirar la ficha en producción y en un iPad: sin navegador conectado el 17/10.
+- **Decisión abierta que sigue siendo de Martín: §5.1** (ganar en un producto agregado no marca ganado al lead). De ella
+  depende la invitación al curso en un segundo producto (docs/relevo/customer-success.md).
+
 ## 0-Ω14. 17/10/2026 (chat «CRM», cuenta `claude4`): las seis tarjetas de la revisión de las llamadas del 16/10
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: cada punta se le pasa al Cerebro.** El orden lo dio el
@@ -379,7 +407,8 @@ Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se
 
 **CIERRE DEL 14/10 ~15:10: la cuenta claude2 llegó al 98% semanal.** Frené la tanda B1 (`wf_0132bb27-e06`) y NO se pusheó
 nada de la tanda B. En producción está hasta la tanda A (fb1410, en `45fe2cb7f`, deploy Ready). Lo que devolvió cada agente
-(contrato del motor, pendientes, hallazgos, revisiones) está volcado en **docs/relevo/crm-tanda-b1.md**.
+(contrato del motor, pendientes, hallazgos, revisiones) estuvo volcado en `docs/relevo/crm-tanda-b1.md`, que se borró el 17/10/2026: lo que sigue
+vigente está en **docs/relevo/crm-pendientes-b1.md**, los hallazgos en `docs/hallazgos-crm.md` y el texto original en `git show 86bc162be:docs/relevo/crm-tanda-b1.md`.
 Estado de cada frente; todos salen de `crm-bloques` @ `2c19b2d69`:
 - **b1, motor** (`wtc-b1`, rama `crm-bloques-b1`): TERMINADO en 5 commits, de `1c930ec33` a `d04040305`: catálogo, plantillas, config por
   funnel, avisos por funnel, ops ver/cambiar_ficha_funnel y los dos ignorados. Le falta su revisión.
@@ -391,7 +420,7 @@ Estado de cada frente; todos salen de `crm-bloques` @ `2c19b2d69`:
   ALTAS de plata.** Una: `ajustarPlanAction` recibe un Partial y lo escribe como el plan entero, y borra cuotas o corre los
   vencimientos. Otra: en el modo 'lista', una cuota protegida termina en «insertar». Hay además seis medias (dedup de la cobranza
   con un id que sobrevive, un link vivo de una cuota cobrada a mano, «Sin cobro» con impagas vivas, una cuota nacida después de
-  la foto, Editar deal que ignora en silencio, cancelar pisa el plazo). El detalle está en crm-tanda-b1.md. Trae migración XXXX.
+  la foto, Editar deal que ignora en silencio, cancelar pisa el plazo). (Esas fallas se arreglaron: ver `docs/hallazgos-crm.md`, «Las seis bajas de b2» y las dos entradas de arriba.) Trae migración XXXX.
 - **b3, «Nuevo CRM»** (`wtc-b3`): 3 commits, `54b6bde61`..`8b3392d15`: presets, el modal por tipo y las ops tipos_de_crm/crear_crm.
   No tiene revisión (no era invisible).
 - **b4, captura** (`wtc-b4`): 2 commits, `6b11f7602` y `cab2e72d3`. La revisión dice que va bien, con una media: la etapa

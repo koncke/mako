@@ -18,7 +18,7 @@ import { leerTodo } from './supabase-paginado';
 import { linkApp } from './app-url';
 import { firmarAccesoCurso, leerAccesoCurso, firmarAccesoLider, leerAccesoLider, type AccesoCurso } from './curso-acceso';
 import { saneaAlcance, type AlcanceCurso } from './curso-alcance';
-import { saneaProductos, productosVisibles, productosTrasInvitar } from './curso-invitar-reglas';
+import { saneaProductos, productosVisibles, productosTrasInvitar, productosTrasQuitar } from './curso-invitar-reglas';
 import { saneaBloqueo, type Desbloqueo } from './curso-bloqueo';
 import {
   pctVisto, sanearValores, respuestaCompleta, progresoEfectivo, areasDelCliente, nombreDeArea, leerCalificacion, tieneTarea,
@@ -683,6 +683,27 @@ export function linkDeLiderLeido(a: EstadoAccesoLider, ws: number, leadId: numbe
 
 /** La URL pública del portal para un token. Sin `?ws=`: el workspace viaja adentro de la firma. */
 export const urlDeToken = (token: string): string => linkApp(`/compartido/curso/${token}`, null);
+
+/**
+ * Le saca UN curso al acceso del cliente (`productosTrasQuitar`, la regla, con su porqué). No corta el acceso ni lo
+ * saca del kanban: deja de ver ESE curso en su portal. Devuelve el «no» con su texto (no tira por una regla).
+ *
+ * ⚠️ LEE Y DESPUÉS ESCRIBE, como `marcarInvitacion`: una invitación a otro curso en el mismo instante podría pisarse.
+ * La aprieta una persona desde la ficha; si pasara, la invitación se vuelve a mandar.
+ */
+export async function quitarCursoDelAcceso(leadId: number, productoId: number): Promise<{ ok: true; productos: number[] } | { ok: false; error: string }> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('curso_accesos').select('id, productos').eq('lead_id', leadId).is('area', null).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return { ok: false, error: 'Todavía no se le abrió ningún curso.' };
+  const { productosDelCliente } = await import('@/app/customer-success/entrega');
+  const fila = data as { id: number; productos?: unknown };
+  const r = productosTrasQuitar(saneaProductos(fila.productos), (await productosDelCliente(leadId)).productos, productoId);
+  if (!r.ok) return r;
+  const { error: e2 } = await db.from('curso_accesos').update({ productos: r.productos }).eq('id', fila.id);
+  if (e2) throw new Error(e2.message);
+  return r;
+}
 
 /**
  * Deja escrito que la invitación SALIÓ: a qué dirección, cuándo y quién. Lo llama quien manda el

@@ -80,8 +80,11 @@ test('nadie vuelve a copiar el predicado viejo en app/ ni lib/', () => {
 
 test('la cuota que cobró una pasarela no se «deshace» a mano en la ficha', () => {
   // Desmarcarla dejaría el cobro pagado y la cuota sin pagar; lo que la revierte es «Devolver».
-  const card = codigo('app/crm/[id]/DealDetailsCard.tsx');
-  assert.match(card, /\{esPasarela\(p\.proveedor\)\s*\?\s*<span[^>]*>por \{NOMBRE_PASARELA\[p\.proveedor\]\}<\/span>\s*:\s*<button[^>]*onClick=\{\(\) => desmarcarPago\(p\)\}>deshacer<\/button>\}/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: la tarjeta vieja (DealDetailsCard) se borró. En los bloques de Pagos la
+  // regla vive en lo que dice cada cuota (lib/pagos-vistazo.ts) y la cuota sólo ofrece «Deshacer» con `accion`.
+  // Verificado rompiéndolo: con `accion: 'deshacer'` también para la pasarela → cae éste.
+  assert.match(codigo('lib/pagos-vistazo.ts'), /accion: pasarela \? 'ninguna' : 'deshacer'/);
+  assert.match(codigo('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /\{r\.accion === 'deshacer' && <Button[^>]*onClick=\{\(\) => cobrar\.desmarcar\(q\)\}>Deshacer<\/Button>\}/);
 });
 
 test('el módulo es puro: lo importan server, cliente y tests', () => {

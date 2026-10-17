@@ -240,5 +240,6 @@ test('armar_tab_ficha: del admin, se confirma por chat, va al final del CRM (el 
   const cuerpo = run.slice(run.indexOf('armar_tab_ficha: {'), run.indexOf('// ── Acciones heredadas', run.indexOf('armar_tab_ficha: {')));
   assert.match(cuerpo, /await generarTabIA\(pedido, tab,/);
   assert.match(cuerpo, /const r = aplicarCambio\(f\.guardada, c, f\.eleccion\.id, f\.respaldo\);/);
-  assert.match(cuerpo, /await cambiarFichaDeFunnel\(Number\(payload\.embudoId\), c\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: con el autor, para el historial de la ficha (lib/ficha/historial.ts).
+  assert.match(cuerpo, /await cambiarFichaDeFunnel\(Number\(payload\.embudoId\), c, \{ autor: 'MaKo' \}\)/);
 });

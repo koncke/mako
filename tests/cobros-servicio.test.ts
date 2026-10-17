@@ -131,13 +131,19 @@ test('reembolsar y cancelar llevan la clave DETERMINÍSTICA del cobro, y una sol
 });
 
 test('reconciliar: suscripción → la FACTURA, pago único → el payment intent; nunca el id de la sesión', () => {
+  // Desde el 17/10/2026 la lectura del link vive en `pagoDelLinkEnLaPasarela`: la comparten el cron y el «marcar a
+  // mano» (`asentarLinkPagadoDeCuota`), así que la regla se mira ahí y el cron tiene que pasar por ella.
   const rc = bloque('export async function reconciliarCobros(');
-  assert.match(rc, /const pagoId = c\.tipo === 'suscripcion' \? s\.invoice : s\.paymentIntent;/);
-  assert.match(rc, /if \(pagoId\) \{\s*const r = await aplicarPagoAprobado\(c, \{ proveedorPagoId: pagoId,/);
-  assert.doesNotMatch(rc, /\?\?\s*s\.id\b/, 'el id de la sesión como pago: la factura llega después como una RENOVACIÓN');
-  assert.doesNotMatch(rc, /proveedorPagoId:\s*(?:s\.id|c\.proveedor_ref|c\.token)\b/);
+  assert.match(rc, /const pago = await pagoDelLinkEnLaPasarela\(c, stripe, mp\);\s*if \(pago\) \{\s*const r = await aplicarPagoAprobado\(c, pago\);/);
+  const lee = bloque('async function pagoDelLinkEnLaPasarela(');
+  assert.match(lee, /const pagoId = c\.tipo === 'suscripcion' \? s\.invoice : s\.paymentIntent;/);
+  assert.match(lee, /if \(pagoId\) return \{ proveedorPagoId: pagoId,/);
+  for (const f of [rc, lee]) {
+    assert.doesNotMatch(f, /\?\?\s*s\.id\b/, 'el id de la sesión como pago: la factura llega después como una RENOVACIÓN');
+    assert.doesNotMatch(f, /proveedorPagoId:\s*(?:s\.id|c\.proveedor_ref|c\.token)\b/);
+  }
   // Y Mercado Pago sólo aplica lo que cobró la cuenta del negocio, para ESTE cobro.
-  assert.match(rc, /x\.estado === 'approved' && x\.cobradorId === mp\.userId && x\.referencia === c\.token/);
+  assert.match(lee, /x\.estado === 'approved' && x\.cobradorId === mp\.userId && x\.referencia === c\.token/);
 });
 
 // Revisión del 11/10/2026: el cron REPARA los cobros «pagados a medias» (el cobro pasa a pagado antes de

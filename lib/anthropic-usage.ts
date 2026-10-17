@@ -44,6 +44,25 @@ async function wsDeProveedor(provider?: string | null): Promise<number> {
   } catch { return ws; }
 }
 
+/**
+ * El workspace de una FILA de gasto: el de `wsDeProveedor`, salvo que eso sea el ws1 por ser «la key de la agencia» y el
+ * pedido sea de OTRO negocio. Ahí va a la PLATAFORMA (`wsSuperAdmin`).
+ *
+ * ⛔ Hasta el 17/10/2026 iba al ws1 (revisión del Cerebro): el gasto de Claude de cualquier negocio sin key propia se le
+ * anotaba a Mauricio, que es un CLIENTE, y su panel de gasto mostraba el `motivo` de cada fila —«Analizar la llamada de
+ * …»— del trabajo de OTROS negocios. El ws1 se queda con lo suyo; la key de la agencia la paga la plataforma.
+ * El saldo de Claude que se carga a mano sigue en el ws1 (`getSaldo`, abajo): mudarlo es otra decisión.
+ */
+async function wsDeLaFila(provider?: string | null): Promise<number> {
+  const ws = await wsDeProveedor(provider);
+  if (ws !== OWNER_WS) return ws;
+  let actual: number | null = null;
+  try { actual = await getWorkspaceActual(); } catch { actual = null; }
+  if (actual === OWNER_WS) return OWNER_WS;
+  const { wsSuperAdmin } = await import('./workspace');
+  return wsSuperAdmin().catch(() => WS_NINGUNO);
+}
+
 export type UsageInfo = {
   inputTokens: number;
   outputTokens: number;
@@ -139,7 +158,7 @@ async function insertUsage(row: Record<string, unknown>, wsForzado?: number): Pr
     // `wsForzado`: el que llama sabe de quién es la fila mejor que `wsDeProveedor`. Es el caso del
     // crédito de Claude de la plataforma (16/10/2026): sin clave propia, `wsDeProveedor` lo mandaba
     // al ws1, que es un cliente, y Mauricio habría visto un gasto de Claude que no es suyo.
-    const ws = wsForzado ?? await wsDeProveedor(row.provider as string | undefined);
+    const ws = wsForzado ?? await wsDeLaFila(row.provider as string | undefined);
     await getSupabaseServer().from('anthropic_usage').insert({ workspace_id: ws, ...row });
   } catch (e) {
     console.warn(`[anthropic-usage] no se registró el uso: ${e instanceof Error ? e.message : String(e)}`);

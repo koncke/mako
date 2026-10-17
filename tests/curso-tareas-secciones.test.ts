@@ -269,6 +269,8 @@ const SUMIDEROS = [
   'sanearValores', 'respuestaCompleta', 'respuestaDe', 'camposParaAlumno', 'valoresAprobables', 'validarPropuesta',
   'tieneTarea', 'htmlsDeTareas', 'erroresDeCampos', 'sanearCamposDelServidor', 'validarCamposEntrada', 'gruposPorTarea',
   'camposConRespuesta', 'tareasDeClase', 'gruposDeCampos',
+  // (17/10/2026) La vista previa del «Comentar» (lib/curso.ts): miran el TIPO y dejan pasar la sección tal cual.
+  'hayComentarSinPost', 'conPostDeComentar',
 ];
 
 /** Lo que el guard no mira, por archivo (y, si hace falta, por lo que dice la línea), con su motivo. */

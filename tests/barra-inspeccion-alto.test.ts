@@ -91,7 +91,7 @@ test('4. el panel de la ficha del CRM y la lateral del Web Generator bajan con l
 test('5. lo que se pega a la VENTANA y no es <aside> se pega debajo de la barra', () => {
   // Relevados el 17/10 (de 18 `sticky`/`fixed` con top 0 en app/, éstos son los que scrollean con la ventana y la regla
   // de los <aside> no toma). Los que se pegan adentro de un modal o de un panel con scroll van en 0: ahí la barra no está.
-  assert.match(leer('app/crm/[id]/EditarDeal.tsx'), /<div style=\{\{ position: 'sticky', top: 'var\(--barra-agencia, 0px\)', zIndex: 20,/, 'la barra de «Editando el deal»');
+  // (La barra de «Editando el deal» se fue el 17/10/2026 con EditarDeal: el deal se edita en sus bloques de Pagos.)
   const est = sinComentariosCss(leer('app/admin/estrategia/estrategia.css'));
   assert.match(est, /\.est-det\[open\] > \.est-det-cab \{\s*position: sticky; top: var\(--barra-agencia, 0px\);/, 'la cabecera abierta de /admin/estrategia');
   const gh = sinComentariosCss(leer('app/api-mako/github.css'));

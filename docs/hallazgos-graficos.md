@@ -1393,3 +1393,11 @@ API): seis agentes en paralelo (P1 elementos, P2a Closing, P2b modo closer, P3 A
 integración, commit `6e85d8d7`. Las cohortes en «Todo» y la guarda de «Marcar cobrada» se cerraron ahí
 (decisiones 3 y 2). La topbar de Looker y Compartir (feedback de nueve puntos, 11/10 a la tarde): dos
 agentes en paralelo (TOPBAR y COMPARTIR) + integración en un worktree limpio.*
+---
+
+## La tabla de cuotas no dice «Pendiente» de una cuota devuelta o de baja (17/10/2026)
+
+Con «Todo», `filasPagos` pintaba «Pendiente» la cuota de un cliente dado de baja (#871) o devuelta por un reembolso, y la
+sumaba en `pendiente`. Ahora dice «De baja» o «Devuelta» y no suma: la regla de toda suma de lo impago (`noEsDeuda`,
+lib/cobrado-lead.ts). Se lee con `*` porque `baja_at` es de la mig 0307 y una lista explícita rompe la tabla sin ella.
+**Vive en:** lib/graficos-datos.ts (`filasPagos`) · tests/graficos-cuota-baja.test.ts · *17/10/2026, agente B4.*

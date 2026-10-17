@@ -12,6 +12,7 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
+import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
 import { faltaColumnaFunnel } from './funnels-elegidos';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
@@ -30,6 +31,7 @@ import { keyEspaciado } from './espaciado';
 import { AVISOS_DE_CUOTA, claveDedupCuota, cuotasReprogramadas } from './cobranza';
 import { plazoAlReactivar } from './suscripcion-manual';
 import { laCobraLaPasarela } from './cobros-reglas';
+import type { Pasarela } from './cobros-tipos';
 
 export type Pago = {
   id: number;
@@ -157,6 +159,9 @@ export async function asegurarLeadDelNegocio(leadId: number): Promise<void> {
  *
  * ⚠️ TIRA si no pudo leer: «no pude ver si tiene un link» NO es «no tiene». Con un default vacío, una falla de
  * lectura dejaba borrar la cuota de un link que el cliente está por pagar.
+ * El riesgo de que eso trabara SIEMPRE guardar cuotas y cerrar en Ganado era que PostgREST rechazara el `.in` sobre
+ * `ctx->>cuotaId`. Medido el 17/10/2026 contra producción (sólo lectura): lo acepta (200) y filtra bien un `in` sobre
+ * un camino jsonb (docs/hallazgos-pagos.md). Lo que queda es una falla PASAJERA: contesta el error y se reintenta.
  */
 export async function proteccionesDeCuotas(leadId: number, ids: readonly number[]): Promise<Map<number, Proteccion[]>> {
   const out = new Map<number, Proteccion[]>();
@@ -478,11 +483,40 @@ async function quitarSiNacioCobrada(pagoId: number, fila: { lead_id: number; cob
   return cambios.borrar.some((b) => b.id === pagoId);
 }
 
+/**
+ * ⚠️ APAGADO. APAGADO por la revisión adversarial del 17/10/2026 (scratchpad/revision-b4.md, cosechada en el relevo del área): se prende SÓLO con su arreglo y su revisión.
+ * Defecto: con un link en estado «pagado», `asentarLinkPagadoDeCuota` da la cuota por cobrada aunque
+ * `aplicarPagoAprobado` no marque nada: una cuota destildada por error ya no se puede volver a marcar (queda impaga para
+ * siempre) y cada intento repite «Entró un pago». Con esto en false, marcar a mano es lo de antes del 17/10.
+ */
+export const MIRAR_LINK_ANTES_DE_MARCAR: boolean = false;
+
+/**
+ * ¿Un link de esta cuota ya se COBRÓ y todavía no se asentó? Si sí, lo asienta por el camino de la pasarela y
+ * devuelve cuál (la cuota ya está cobrada con ESE pago: no se marca a mano). La regla vive en
+ * `asentarLinkPagadoDeCuota` (lib/cobros.ts). Si no se pudo mirar (sin workspace, la base no contestó), null: la marca
+ * a mano sigue como siempre, porque trabarla es peor (docs/hallazgos-pagos.md §4).
+ */
+async function linkYaPagado(pagoId: number): Promise<Pasarela | null> {
+  if (!MIRAR_LINK_ANTES_DE_MARCAR) return null; // apagado: se marca a mano como siempre
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return null;
+    const { asentarLinkPagadoDeCuota } = await import('./cobros');
+    const r = await asentarLinkPagadoDeCuota(ws, pagoId);
+    return r.asentado ? r.pasarela : null;
+  } catch (e) {
+    console.error(`[pagos] no pude mirar los links de la cuota ${pagoId} antes de marcarla:`, e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
 export async function marcarPago(
   pagoId: number,
   pagado: boolean,
   fechaPago: string | null = new Date().toISOString().slice(0, 10),
-): Promise<{ quitada: boolean }> {
+  opts: { mirarLinks?: boolean } = {},
+): Promise<{ quitada: boolean; porLink: Pasarela | null }> {
   const supabase = (await getTenantDb());
   const { data: pago, error: getErr } = await supabase
     .from('pagos')
@@ -490,6 +524,13 @@ export async function marcarPago(
     .eq('id', pagoId)
     .single();
   if (getErr) throw new Error(`Error leyendo pago ${pagoId}: ${getErr.message}`);
+
+  // ⚠️ MARCAR A MANO una cuota cuyo link ya se pagó contaba la plata dos veces (17/10/2026): ver
+  // `linkYaPagado`. Por defecto se mira; sólo no lo miran la pasarela misma y quien ya lo miró.
+  if (pagado && !pago.pagado && opts.mirarLinks !== false) {
+    const porLink = await linkYaPagado(pagoId);
+    if (porLink) return { quitada: false, porLink };
+  }
 
   const { error } = await supabase
     .from('pagos')
@@ -526,7 +567,7 @@ export async function marcarPago(
     }
     await anularLinksAlCobrar(pagoId, pago.cobro_id ?? null);
   }
-  return { quitada };
+  return { quitada, porLink: null };
 }
 
 /**
@@ -545,7 +586,7 @@ export async function cobrarCuota(
   pagoId: number,
   leadId: number,
   datos: { monto?: number | null; fecha: string; hora?: string | null; resto?: RestoDeCobro } & DatosDeMoneda,
-): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null }> {
+): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null; porLink: Pasarela | null }> {
   if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
   // La cuota ya se lee con `lead_id`, pero la diferencia de abajo es un INSERT con ese leadId.
   await asegurarLeadDelNegocio(leadId);
@@ -559,6 +600,12 @@ export async function cobrarCuota(
   // diciendo «MX$8.600». En una cuota a mano, lo que no vino se limpia; lo de la pasarela no se toca.
   const aMano = !fila.proveedor;
   const original = Number(fila.monto_usd) || 0;
+  // ⚠️ Si un link de la cuota ya se cobró, la cuota queda cobrada con ESE pago y no se toca nada más: ni el monto, ni
+  // la diferencia, ni la moneda (17/10/2026, `linkYaPagado`). Antes la plata se contaba dos veces.
+  if (!fila.pagado) {
+    const porLink = await linkYaPagado(pagoId);
+    if (porLink) return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink };
+  }
   const monto = datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 ? centavos(datos.monto) : null;
   // La moneda en que se cobró (decisión 7). `monto` sigue siendo DÓLARES; sin `moneda`, todo como siempre.
   const enMonedaR = datos.moneda ? pagoEnMoneda({ montoUsd: monto ?? original, moneda: datos.moneda, montoOriginal: datos.montoOriginal }) : null;
@@ -587,10 +634,10 @@ export async function cobrarCuota(
     }
   }
 
-  await marcarPago(pagoId, true, datos.fecha);
+  await marcarPago(pagoId, true, datos.fecha, { mirarLinks: false });
   return {
     original, monto, pendiente: pend > 0 ? pend : null, descuento,
-    moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null,
+    moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null, porLink: null,
   };
 }
 
@@ -860,7 +907,7 @@ export async function registrarCobroDeProveedor(p: {
         if (error.code === PG_DUPLICADO) return { pagoId: p.pagoId, yaEstaba: true };
         throw new Error(`Error marcando la cuota ${p.pagoId}: ${error.message}`);
       }
-      await marcarPago(p.pagoId, true, p.fechaPago);
+      await marcarPago(p.pagoId, true, p.fechaPago, { mirarLinks: false });
       return { pagoId: p.pagoId, yaEstaba: false };
     }
   }
@@ -878,7 +925,7 @@ export async function registrarCobroDeProveedor(p: {
       const { data: marcada, error } = await db.from('pagos').update(marca).eq('id', casa.id).eq('lead_id', p.leadId).is('proveedor_pago_id', null).select('id');
       if (error && error.code !== PG_DUPLICADO) throw new Error(`Error saldando la cuota ${casa.id}: ${error.message}`);
       if (!error && marcada && marcada.length) {
-        await marcarPago(casa.id, true, p.fechaPago);
+        await marcarPago(casa.id, true, p.fechaPago, { mirarLinks: false });
         return { pagoId: casa.id, yaEstaba: false };
       }
       // Otro escritor la tomó en el medio, o fue la reentrega: se sigue como si no hubiera.
@@ -941,7 +988,7 @@ export async function remarcarCobroDeProveedor(p: {
     const { error: e1 } = await db.from('pagos').update({ fecha_esperada: p.fechaPago }).eq('id', data.id).is('fecha_esperada', null);
     if (e1) throw new Error(`Error reponiendo el vencimiento del cobro ${p.proveedorPagoId}: ${e1.message}`);
   }
-  await marcarPago(Number(data.id), true, p.fechaPago);
+  await marcarPago(Number(data.id), true, p.fechaPago, { mirarLinks: false });
   return { remarcado: true };
 }
 
@@ -995,14 +1042,12 @@ export async function desmarcarCobroDeProveedor(p: {
 /** Cash collected de un período: Σ pagos pagado=true con fecha_pago en rango. */
 export async function getCashCollectedPeriodo(start: string, end: string): Promise<number> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('pagos')
-    .select('monto_usd')
-    .eq('pagado', true)
-    .gte('fecha_pago', start)
-    .lte('fecha_pago', end);
-  if (error) throw new Error(`Error sumando cash del período: ${error.message}`);
-  return (data ?? []).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
+  // PAGINADO (17/10/2026): PostgREST corta en 1.000 filas SIN error, y un negocio con más cuotas cobradas en el
+  // período daba de menos. Lo mismo en las demás lecturas de cobranza de abajo (docs/hallazgos-pagos.md).
+  const data = await leerTodo<{ monto_usd: number | null }>(supabase, 'pagos', 'id, monto_usd', {
+    filtros: (q) => q.eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end),
+  }).catch((e: unknown) => { throw new Error(`Error sumando cash del período: ${e instanceof Error ? e.message : String(e)}`); });
+  return data.reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
 }
 
 /**
@@ -1013,13 +1058,10 @@ export async function getCashCollectedPeriodo(start: string, end: string): Promi
  */
 export async function getOutstandingPeriodo(start: string, _end: string): Promise<number> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('pagos')
-    .select('monto_usd')
-    .eq('pagado', false)
-    .gte('fecha_esperada', start);
-  if (error) throw new Error(`Error sumando outstanding del período: ${error.message}`);
-  return (data ?? []).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
+  const data = await leerTodo<{ monto_usd: number | null }>(supabase, 'pagos', 'id, monto_usd', {
+    filtros: (q) => q.eq('pagado', false).gte('fecha_esperada', start),
+  }).catch((e: unknown) => { throw new Error(`Error sumando outstanding del período: ${e instanceof Error ? e.message : String(e)}`); });
+  return data.reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
 }
 
 // Desglose por lead de las 3 métricas de Revenue (para los pop-ups).
@@ -1037,21 +1079,26 @@ async function _getRevenueBreakdowns(start: string, end: string): Promise<Revenu
   const supabase = (await getTenantDb());
   // Cash con el funnel que guardó cada pago (#897, mig 0310): el desglose de un OKR de UNOS funnels filtra igual que su
   // número. Sin la columna, se reintenta sin ella (la regla de siempre).
-  const cashSin = () => supabase.from('pagos').select('monto_usd, fecha_pago, numero, lead_id, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end);
-  const [soldRes, cashCon, outRes] = await Promise.all([
+  type FilaCash = { monto_usd: unknown; fecha_pago: unknown; numero: unknown; lead_id: unknown; funnel_id?: unknown; leads: unknown };
+  type FilaOut = { monto_usd: unknown; fecha_esperada: unknown; numero: unknown; lead_id: unknown; leads: unknown };
+  // PAGINADAS (17/10/2026): los pop-ups del Revenue listan cuotas, y PostgREST corta en 1.000 sin error.
+  const enPeriodo = (q: ConsultaPaginada) => q.eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end);
+  const cashDe = (cols: string) => leerTodo<FilaCash>(supabase, 'pagos', cols, { filtros: enPeriodo });
+  const [soldRes, cashData, outData] = await Promise.all([
     // Sin los «sin cobro» (#747): el desglose cuenta lo MISMO que el «N cierres» de
     // getRevenuePeriod, o el pop-up lista un cierre más que el número de arriba.
     supabase.from('leads').select('id, nombre, monto_cierre_usd, fecha_cierre').eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO).gte('fecha_cierre', start).lte('fecha_cierre', end),
-    supabase.from('pagos').select('monto_usd, fecha_pago, numero, lead_id, funnel_id, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end),
-    supabase.from('pagos').select('monto_usd, fecha_esperada, numero, lead_id, leads(nombre)').eq('pagado', false).gte('fecha_esperada', start),
+    // Sin la columna del funnel (mig 0310), se reintenta sin ella (la regla de siempre).
+    cashDe('id, monto_usd, fecha_pago, numero, lead_id, funnel_id, leads(nombre)')
+      .catch((e: unknown) => (faltaColumnaFunnel(e) ? cashDe('id, monto_usd, fecha_pago, numero, lead_id, leads(nombre)') : Promise.reject(e)))
+      .catch((e: unknown) => { throw new Error(`Cash detalle: ${e instanceof Error ? e.message : String(e)}`); }),
+    leerTodo<FilaOut>(supabase, 'pagos', 'id, monto_usd, fecha_esperada, numero, lead_id, leads(nombre)', {
+      filtros: (q) => q.eq('pagado', false).gte('fecha_esperada', start),
+    }).catch((e: unknown) => { throw new Error(`Outstanding detalle: ${e instanceof Error ? e.message : String(e)}`); }),
   ]);
-  type FilaCash = { monto_usd: unknown; fecha_pago: unknown; numero: unknown; lead_id: unknown; funnel_id?: unknown; leads: unknown };
-  const cashRes: { data: FilaCash[] | null; error: { message: string } | null } = cashCon.error && faltaColumnaFunnel(cashCon.error)
-    ? await cashSin()
-    : cashCon;
   if (soldRes.error) throw new Error(`Sold detalle: ${soldRes.error.message}`);
-  if (cashRes.error) throw new Error(`Cash detalle: ${cashRes.error.message}`);
-  if (outRes.error) throw new Error(`Outstanding detalle: ${outRes.error.message}`);
+  const cashRes = { data: cashData };
+  const outRes = { data: outData };
 
   const cuotaLabel = (n: number) => (n === 0 ? 'cobro inicial' : `cuota ${n}`);
   const sold: RevItem[] = (soldRes.data ?? []).map((r) => ({ nombre: (r.nombre as string) ?? '—', monto: Number(r.monto_cierre_usd ?? 0), fecha: (r.fecha_cierre as string | null) ?? null, leadId: Number(r.id) }))
@@ -1069,14 +1116,11 @@ async function _getRevenueBreakdowns(start: string, end: string): Promise<Revenu
  */
 export async function getOutstandingTotal(): Promise<number> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('pagos')
-    // `*`: la regla mira proveedor, cobro_id y `baja_at` (mig 0307); con la lista, una base sin la migración rompía el número.
-    .select('*')
-    .eq('pagado', false);
-  if (error) throw new Error(`Error sumando outstanding: ${error.message}`);
+  // `*`: la regla mira proveedor, cobro_id y `baja_at` (mig 0307); con la lista, una base sin la migración rompía el número.
+  const data = await leerTodo<Pago>(supabase, 'pagos', '*', { eq: { pagado: false } })
+    .catch((e: unknown) => { throw new Error(`Error sumando outstanding: ${e instanceof Error ? e.message : String(e)}`); });
   // Sin las de un cliente dado de baja (#871, `noEsDeuda`): impagas y sin vencimiento, como las devueltas.
-  return (data ?? []).filter((p) => !noEsDeuda(p)).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
+  return data.filter((p) => !noEsDeuda(p)).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
 }
 
 export type OutstandingLead = {
@@ -1109,11 +1153,10 @@ async function _getOutstandingDetalle(
   hasta: string | null = null,
 ): Promise<{ items: OutstandingLead[]; total: number; cuotas: RevItem[] }> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('pagos')
-    // `*`: la regla (`noEsDeuda`) mira proveedor, cobro_id y `baja_at` (mig 0307), y con `*` una base sin la migración no rompe.
-    .select('*, leads(nombre, monto_cierre_usd, fecha_cierre)');
-  if (error) throw new Error(`Error leyendo detalle de outstanding: ${error.message}`);
+  // `*`: la regla (`noEsDeuda`) mira proveedor, cobro_id y `baja_at` (mig 0307), y con `*` una base sin la migración no rompe.
+  // PAGINADO: «A quién cobrarle» y el Outstanding salen de acá; sin paginar, pasadas las 1.000 cuotas daban de menos.
+  const data = await leerTodo<Record<string, unknown>>(supabase, 'pagos', '*, leads(nombre, monto_cierre_usd, fecha_cierre)')
+    .catch((e: unknown) => { throw new Error(`Error leyendo detalle de outstanding: ${e instanceof Error ? e.message : String(e)}`); });
 
   type Row = {
     id: number;
@@ -1208,13 +1251,11 @@ async function _getCuotasPendientes(
   diasAviso = 3,
 ): Promise<{ vencidas: CuotaPendiente[]; porVencer: CuotaPendiente[] }> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('pagos')
-    .select('id, lead_id, numero, monto_usd, fecha_esperada, leads(nombre)')
-    .eq('pagado', false)
-    .not('fecha_esperada', 'is', null)
-    .order('fecha_esperada', { ascending: true });
-  if (error) throw new Error(`Error listando cuotas pendientes: ${error.message}`);
+  // PAGINADO, con un orden ÚNICO (vencimiento + id): con uno que empata, las páginas se pisan (lib/supabase-paginado.ts).
+  const data = await leerTodo<Record<string, unknown>>(supabase, 'pagos', 'id, lead_id, numero, monto_usd, fecha_esperada, leads(nombre)', {
+    orden: ['fecha_esperada', 'id'],
+    filtros: (q) => q.eq('pagado', false).not('fecha_esperada', 'is', null),
+  }).catch((e: unknown) => { throw new Error(`Error listando cuotas pendientes: ${e instanceof Error ? e.message : String(e)}`); });
 
   const [hy, hm, hd] = hoy.split('-').map(Number);
   const hoyUTC = Date.UTC(hy, hm - 1, hd);
