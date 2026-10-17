@@ -40,6 +40,7 @@ import { PARTES as AIRUNTIMECASCA_PARTES, BITACORA as AIRUNTIMECASCA_BITACORA } 
 import { PARTES as CAROUSELS_PARTES, BITACORA as CAROUSELS_BITACORA } from './carousels/bitacora';
 import { PARTES as PUENTEFLOW_PARTES, BITACORA as PUENTEFLOW_BITACORA } from './puente-flow/bitacora';
 import { PARTES as AIAVATAR_PARTES, BITACORA as AIAVATAR_BITACORA } from './ai-avatar/bitacora';
+import { PARTES as TICKETERA_PARTES, BITACORA as TICKETERA_BITACORA } from './reportar-problema/bitacora';
 import { PARTES as CONOCIMIENTOS_PARTES, BITACORA as CONOCIMIENTOS_BITACORA } from './conocimientos/bitacora';
 import { PARTES as CRM_PARTES, BITACORA as CRM_BITACORA } from './crm/bitacora';
 import { AUDITORIA as CRM_AUDITORIA } from './crm/auditoria';
@@ -124,6 +125,7 @@ const REGISTROS: Record<string, Registro> = {
   'image-editor': { partes: IMAGEEDITOR_PARTES, bitacora: IMAGEEDITOR_BITACORA },
   'puente-flow': { partes: PUENTEFLOW_PARTES, bitacora: PUENTEFLOW_BITACORA },
   'ai-avatar': { partes: AIAVATAR_PARTES, bitacora: AIAVATAR_BITACORA },
+  'reportar-problema': { partes: TICKETERA_PARTES, bitacora: TICKETERA_BITACORA },
 };
 
 /** Un área sin registro devuelve vacío: la pantalla muestra sus estados vacíos. */

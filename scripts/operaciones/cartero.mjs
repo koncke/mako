@@ -65,6 +65,10 @@
 //                                  los corre el Runner de la app en cada vuelta, antes de `ciclo`
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
+//   preguntar <archivo.json>       (1.14.0) lo corre un CHAT que necesita una decisión de Martín: la pregunta va a su
+//                                  conversación del Ops Center como un formulario de opciones, y la respuesta le llega
+//                                  como un trabajo firmado. El archivo: { pregunta, contexto?, opciones: [{ titulo,
+//                                  detalle? }], recomendada?: <índice>, varias?: true }
 //   esperar [cuenta] [--max-seg N] (opción C, a probar) espera hasta que haya algo y sale con 2
 //   uso                            lo corre la BARRA DE ESTADO del Runner (runner-settings.json): anota la cuota de
 //                                  la cuenta de su terminal y escribe la línea de la barra
@@ -76,7 +80,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.12.0';
+export const VERSION = '1.14.2';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -92,6 +96,11 @@ const LATIDO_VENCE_MS = 6 * 60 * 1000;
 /** Un cierre que MaKo no aceptó se vuelve a subir en cada vuelta, hasta este tope (su acuse puede llegar después). */
 const CIERRE_VENCE_MS = 24 * 3600 * 1000;
 const CIERRES = path.join(DIR, 'cierres');
+/** Las preguntas de los chats (1.14.0): `preguntas/<uuid>.json` hasta que MaKo dice que entraron (`preguntasIds`). Las
+ *  reglas de una pregunta válida son las de lib/centro-preguntas-chat.ts (el servidor las vuelve a aplicar). */
+const PREGUNTAS = path.join(DIR, 'preguntas');
+/** Una pregunta que MaKo no aceptó en un día no se sube más (el chat ya siguió, o la armó mal). */
+const PREGUNTA_VENCE_MS = 24 * 3600 * 1000;
 /** Los adjuntos de cada trabajo (1.9.0): una carpeta por id, `adjuntos/<id>/`. Se borran a los VENCE_DIAS. */
 const ADJUNTOS = path.join(DIR, 'adjuntos');
 /** Los chats de la NUBE de cada cuenta (1.10.0): no quedan en ningún archivo de la PC; los anota el Runner de la app, que
@@ -797,11 +806,13 @@ function verChats(cuenta, cfg = config(), runners = carpetasConRunner(cfg, dirPr
 }
 
 // ── el mensaje que recibe el chat ────────────────────────────────────────────────────────────
-function mensaje(p, rutas = []) {
+export function mensaje(p, rutas = []) {
   const fecha = new Date(p.creado).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-  const alcance = p.alcance === 'de_ahora_en_mas'
-    ? 'Y DE AHORA EN MÁS: además de hacerlo, dejá la regla escrita donde corresponda (AGENTS.md, una memoria o un hallazgo) y decí dónde en el cierre.'
-    : 'Sólo esto.';
+  // «Sólo esto» se fue de la caja (1.14.1, 17/10/2026: «la IA decide sola si guarda una regla»): ya no se nombra. Un
+  // trabajo firmado antes con «Y de ahora en más» lo sigue diciendo.
+  const regla = p.alcance === 'de_ahora_en_mas'
+    ? '— Y DE AHORA EN MÁS: además de hacerlo, dejá la regla escrita donde corresponda (AGENTS.md, una memoria o un hallazgo) y decí dónde en el cierre.'
+    : '— Si de esto sale una regla para lo que viene, dejala escrita donde corresponda (AGENTS.md, una memoria o un hallazgo) y decí dónde en el cierre; si no, no.';
   return [
     `Pedido de Martín desde el Centro de Operaciones (firmado en su dispositivo, ${fecha}).`,
     '',
@@ -809,7 +820,7 @@ function mensaje(p, rutas = []) {
     '',
     // Las fotos y los PDF que mandó con el trabajo, ya en esta PC (1.9.0): el chat los abre con Read.
     ...(rutas.length ? ['Adjuntos (los bajó el Runner a esta PC; ábrelos con Read):', ...rutas.map((r) => `- ${r}`), ''] : []),
-    `— Alcance: ${alcance}`,
+    regla,
     '— Al terminar, dejá el cierre en cuatro renglones (y la prueba, si la hay: un commit, un deploy, una medición):',
     `node "${ESTE}" cierre ${p.id} --decidido "…" --hecho "…" --comprobado "…" --sigue "…" --prueba "…"`,
     '— Si dejaste algo para mirar en MaKo, sumá --revisar con su ruta (por ejemplo --revisar "/crm?lead=12"): Martín lo revisa desde el Centro.',
@@ -872,6 +883,9 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   const acuses = archivosAcuse.map((f) => leerJson(f, null)).filter(Boolean);
   const archivosCierre = listar(CIERRES);
   const cierres = archivosCierre.map((f) => leerJson(f, null)).filter(Boolean);
+  // Las preguntas de los chats (1.14.0): son de la PC, como los cierres; las sube la vuelta que pase primero.
+  const archivosPregunta = listar(PREGUNTAS);
+  const preguntas = archivosPregunta.map((f) => leerJson(f, null)).filter(Boolean);
   // Lo que ALGÚN Runner de la PC puede entregar: el chat vivo, con un Runner abierto en su carpeta. MaKo reclama
   // sólo eso; lo demás queda escrito y sale cuando se abra ese Runner (no se vence en el buzón).
   const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner && !c.esRunner).map((c) => c.local);
@@ -887,6 +901,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
       // Ni la dirección del canal, ni la carpeta, ni dónde está el transcript salen de la PC.
       chats: [...[...chats.values()].map(({ pipe, dir, transcript, ...c }) => c), ...enNube],
       entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta), turnos,
+      ...(preguntas.length ? { preguntas } : {}),
       // Las cuentas en las que esta PC abre chats (1.11.0): MaKo le da un trabajo «nuevo» sólo a quien lo declara.
       abre: puedeAbrir(cfg, cuenta) ? [cuenta] : [],
     }),
@@ -908,6 +923,15 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     try { edad = Date.now() - fs.statSync(f).mtimeMs; } catch { continue; }
     if (c && aplicados.has(c.id)) fs.rmSync(f, { force: true });
     else if (edad > CIERRE_VENCE_MS) { fs.rmSync(f, { force: true }); log(`CIERRE ${c?.id ?? path.basename(f)} no entró en un día: se descarta`); }
+  }
+  // Una pregunta se borra cuando MaKo dice que entró (`preguntasIds`); la que no, se vuelve a subir hasta un día.
+  const entraron = new Set(Array.isArray(salida.preguntasIds) ? salida.preguntasIds : []);
+  for (const f of archivosPregunta) {
+    const q = leerJson(f, null);
+    let edad = 0;
+    try { edad = Date.now() - fs.statSync(f).mtimeMs; } catch { continue; }
+    if (q && entraron.has(q.id)) fs.rmSync(f, { force: true });
+    else if (edad > PREGUNTA_VENCE_MS) { fs.rmSync(f, { force: true }); log(`PREGUNTA ${q?.id ?? path.basename(f)} no entró en un día: se descarta`); }
   }
 
   const ahora = Date.now();
@@ -1054,6 +1078,32 @@ function cuotaDe(cuenta) {
   return c;
 }
 
+/**
+ * La cuota que mide el Runner de la APP con get_usage (17/10/2026, pedido de Martín: «comienza a medir el % de la ventana
+ * de 5 hs»). La app no tiene barra de estado, así que `uso` nunca escribía nada para una cuenta de la app y el Ops Center
+ * decía «Sesión de 5 horas: Sin medir». Cada vuelta el Runner llama a get_usage y pasa las dos ventanas acá.
+ * Escribe lo mismo que la barra de estado (USO/<cuenta>.json, que sube `cuotaDe`) y las dos líneas que lee el corte del
+ * 97% (~/.claude/guardia/corte-97.mjs): uso-cinco.txt y uso-semanal.txt, con la cuenta como 4º campo.
+ */
+export function medir(cuenta, args, ahora = Date.now()) {
+  const [p5, r5, ps, rs] = args;
+  const v = (p, r) => {
+    const n = Number(p);
+    if (p == null || p === '' || !Number.isFinite(n)) return null;
+    const t = Date.parse(String(r ?? ''));
+    return { pct: Math.min(100, Math.max(0, Math.round(n))), reinicia: Number.isFinite(t) ? new Date(t).toISOString() : null };
+  };
+  const cinco = v(p5, r5);
+  const semana = v(ps, rs);
+  if (!cinco && !semana) throw new Error('uso: medir <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
+  const medido = new Date(ahora).toISOString();
+  escribirJson(path.join(USO, `${cuenta}.json`), { cinco, semana, medido, api: null });
+  const linea = (w) => `${w.pct} ${w.reinicia ?? '-'} ${medido} ${cuenta}\n`;
+  if (cinco) fs.writeFileSync(path.join(path.dirname(USO_APP), 'uso-cinco.txt'), linea(cinco));
+  if (semana) fs.writeFileSync(USO_APP, linea(semana));
+  return { cinco, semana, medido };
+}
+
 // ── quién entrega qué ────────────────────────────────────────────────────────────────────────
 /** La marca de «lo tiene este Runner», al lado de lo del buzón. */
 const manoDe = (f) => f.replace(/\.json$/, '.mano');
@@ -1151,10 +1201,65 @@ function cierre(id, args) {
   log(`CIERRE ${id}`);
 }
 
+// ── Preguntar (1.14.0, 17/10/2026) ───────────────────────────────────────────────────────────────────────────
+// Martín: «Ops Center me está preguntando algo y me pide que responda, en lugar de darme las opciones tipo multiple
+// select». Un chat que necesita una decisión escribe la pregunta en un archivo y corre `preguntar <archivo>`: va a SU
+// conversación del Ops Center como el formulario de AskUserQuestion, y la respuesta le llega como un trabajo firmado
+// («Respuesta a tu pregunta «…» [pregunta <id>]: …»). Se valida ACÁ con las mismas reglas que el servidor
+// (lib/centro-preguntas-chat.ts), para que el chat sepa en el acto qué corregir: una pregunta que no vale se rechaza
+// entera, nunca se recorta.
+const TOPES_PREGUNTA = { pregunta: 300, contexto: 600, titulo: 80, detalle: 240, min: 2, max: 6 };
+
+/** La sesión del chat que corre esto: la de la app (`local_…`) o la de la terminal (`cli_…`). null = no se sabe. */
+export function sesionQuePregunta(env = process.env) {
+  const app = String(env.CLAUDE_CODE_HOST_SESSION_ID ?? '');
+  if (DESTINO_RE.test(app)) return app;
+  const cli = `cli_${String(env.CLAUDE_CODE_SESSION_ID ?? '')}`;
+  return DESTINO_RE.test(cli) ? cli : null;
+}
+
+/** Valida lo que escribió el chat y devuelve la pregunta lista para subir, o tira con lo que hay que corregir. */
+export function armarPregunta(x, local, ahora = new Date()) {
+  if (!x || typeof x !== 'object') throw new Error('el archivo tiene que ser un objeto JSON');
+  const t = (v, max, campo, obligatorio, renglones = false) => {
+    if (v == null || (typeof v === 'string' && !v.trim())) { if (obligatorio) throw new Error(`falta ${campo}`); return null; }
+    if (typeof v !== 'string') throw new Error(`${campo} tiene que ser texto`);
+    const limpio = (renglones ? v.replace(/\r\n?/g, '\n').replace(/[^\S\n]+/g, ' ') : v.replace(/\s+/g, ' ')).trim();
+    if (limpio.length > max) throw new Error(`${campo} se pasa de ${max} caracteres: acórtalo`);
+    return limpio;
+  };
+  const pregunta = t(x.pregunta, TOPES_PREGUNTA.pregunta, 'pregunta', true);
+  const contexto = t(x.contexto, TOPES_PREGUNTA.contexto, 'contexto', false, true);
+  if (!Array.isArray(x.opciones) || x.opciones.length < TOPES_PREGUNTA.min || x.opciones.length > TOPES_PREGUNTA.max) {
+    throw new Error(`opciones: de ${TOPES_PREGUNTA.min} a ${TOPES_PREGUNTA.max}, cada una { titulo, detalle? }`);
+  }
+  const opciones = x.opciones.map((o, i) => ({
+    titulo: t(o?.titulo, TOPES_PREGUNTA.titulo, `opciones[${i}].titulo`, true),
+    detalle: t(o?.detalle, TOPES_PREGUNTA.detalle, `opciones[${i}].detalle`, false),
+  }));
+  if (new Set(opciones.map((o) => o.titulo.toLowerCase())).size !== opciones.length) throw new Error('dos opciones se llaman igual');
+  const recomendada = x.recomendada == null ? null : Number.isInteger(x.recomendada) && x.recomendada >= 0 && x.recomendada < opciones.length ? x.recomendada : undefined;
+  if (recomendada === undefined) throw new Error('recomendada es el índice (desde 0) de una de las opciones');
+  return { id: crypto.randomUUID(), local, pregunta, contexto, opciones, recomendada, varias: x.varias === true, at: ahora.toISOString() };
+}
+
+function preguntar(archivo) {
+  const local = sesionQuePregunta();
+  if (!local) throw new Error('no sé qué sesión eres: corre esto desde el chat que pregunta');
+  if (!archivo) throw new Error('falta el archivo: preguntar <archivo.json>');
+  let x;
+  try { x = JSON.parse(fs.readFileSync(archivo, 'utf8')); } catch (e) { throw new Error(`no pude leer ${archivo} como JSON: ${e.message}`); }
+  const q = armarPregunta(x, local);
+  escribirJson(path.join(PREGUNTAS, `${q.id}.json`), q);
+  log(`PREGUNTA ${q.id} de ${local}`);
+  return { ok: true, id: q.id, sesion: local, sigue: 'Termina tu turno: Martín la contesta en tu chat del Ops Center y la respuesta te llega como un mensaje.' };
+}
+
 const archivoDeEsteModulo = () => path.resolve(decodeURIComponent(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')));
 
 function instalar() {
   fs.mkdirSync(CIERRES, { recursive: true });
+  fs.mkdirSync(PREGUNTAS, { recursive: true });
   const origen = archivoDeEsteModulo();
   if (origen !== path.resolve(ESTE)) fs.copyFileSync(origen, ESTE);
   if (!fs.existsSync(CFG)) escribirJson(CFG, { url: 'https://hola-mako.com', token: '', cwds: CWDS_DEFAULT, carteros: {}, carpetas: {} });
@@ -1322,6 +1427,7 @@ if (esMain) {
       case 'pendientes': { const propio = dirPropio(); exigirRunner(propio); imprimir(pendientes(cuentaOpcional(), propio)); break; }
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
+      case 'preguntar': imprimir(preguntar(resto[0])); break;
       case 'abrir': imprimir(abrir()); break;
       // El permiso local para abrir chats desde MaKo: lo prende Martín, una vez, pidiéndoselo al Runner.
       case 'abrir-permitir': {
@@ -1337,6 +1443,12 @@ if (esMain) {
         const c = cuentaOpcional() ?? cuentaDeLaApp(cfg, dirPropio(cfg));
         if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: nube --cuenta claudeN <id> <título> …');
         imprimir({ ok: true, cuenta: c, chats: anotarNube(c, resto) }); break;
+      }
+      case 'medir': {
+        const cfg = config();
+        const c = cuentaOpcional() ?? cuentaDeLaApp(cfg, dirPropio(cfg));
+        if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: medir --cuenta claudeN <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
+        imprimir({ ok: true, cuenta: c, ...medir(c, resto) }); break;
       }
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
       case 'vigilar': { const i = resto.indexOf('--max-seg'); imprimir(await vigilar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) : 100)); break; }

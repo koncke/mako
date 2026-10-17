@@ -28,7 +28,10 @@ import { OTRA, URGENCIAS, motivoRespuestaInvalida, repartir, type Decision } fro
  * eran y SIN PERDER LA QUERY: las tienen avisos, links y favoritos viejos.
  */
 export const CENTRO = '/admin/operaciones';
-export type VistaDeTicketera = 'tarjetas' | 'lista';
+/** `tickets` (17/10/2026): la bandeja de los tickets de los USUARIOS (app/tickets/bandeja/), que es la Ticketera desde
+ *  ese día. `tarjetas` y `lista` son el mazo viejo de las preguntas de los chats, hasta que ande el formulario de opciones
+ *  dentro de cada chat de Ops Center. */
+export type VistaDeTicketera = 'tickets' | 'tarjetas' | 'lista';
 export function aLaTicketera(vista: VistaDeTicketera, query: Readonly<Record<string, string | string[] | undefined>> = {}, base = CENTRO): string {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(query)) {
@@ -38,9 +41,14 @@ export function aLaTicketera(vista: VistaDeTicketera, query: Readonly<Record<str
   q.set('ticketera', vista);
   return `${base}?${q.toString()}`;
 }
-/** Las dos vistas de la Ticketera. El mazo es la de entrada; la lista, la secundaria. */
+/** Las dos vistas del mazo viejo. El mazo es la de entrada; la lista, la secundaria. */
 export const TICKETERA = aLaTicketera('tarjetas');
 export const TICKETERA_LISTA = aLaTicketera('lista');
+/** La Ticketera desde el 17/10/2026: los tickets de los usuarios (Martín: «La ticketera desde ahora será exclusiva para
+ *  los tickets levantados por los usuarios»). El ítem «Ticketera» de la barra y el botón de Ops Center van acá. */
+export const TICKETERA_TICKETS = aLaTicketera('tickets');
+/** ¿Es una vista de la Ticketera de Ops Center? (lo que acepta `?ticketera=`). */
+export const esVistaTicketera = (v: unknown): v is VistaDeTicketera => v === 'tickets' || v === 'tarjetas' || v === 'lista';
 
 /** Las pendientes en el orden del tablero: primero lo que frena a un chat, al final los avisos. */
 export function colaInicial(ds: readonly Decision[]): Decision[] {

@@ -82,9 +82,13 @@ export type Hito = {
   /** La página de MaKo donde Martín mira lo que se hizo (una ruta interna, «/crm?lead=12»): el Centro la pone en la
    *  sub-tab «Review» con el link «Revisar» (16/10/2026). */
   revisar?: string;
+  /** Los tickets de clientes que arregla esto («#12» → 12). Cuando el DEPLOY trae este hito, el ticket se cierra solo y
+   *  al cliente le llega el aviso por donde lo levantó (lib/tickets-cierre.ts, 17/10/2026): la bitácora viaja en el
+   *  build, así que dice lo DESPLEGADO, no lo commiteado. */
+  tickets?: number[];
 };
 
-export type Parte = { titulo: string; detalle: string; estado: 'hecha' | 'sigue' | 'cola' };
+export type Parte ={ titulo: string; detalle: string; estado: 'hecha' | 'sigue' | 'cola' };
 
 /** Lo que expone cada área para su tab. */
 /**

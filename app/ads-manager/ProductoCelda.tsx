@@ -13,6 +13,11 @@
 // ⚠️ «Sin asignar» NO es lo mismo que el principal: sin asignación, el lead ruta por
 // las reglas de siempre; con el principal, alguien lo decidió. Por eso quitar es una
 // opción propia y no «elegir el principal».
+//
+// ⚠️ UNO O VARIOS (#893, 17/10/2026): el desplegable tiene casillas. El PRIMERO que se
+// marca es la casa del lead; los demás lo suman (`tambien`, lib/campana-config.ts).
+// Marcar el primero pregunta como siempre (asignar); sumar otro pregunta sólo si hay leads
+// para traer; desmarcar no saca a nadie.
 // =============================================================================
 
 'use client';
@@ -21,15 +26,15 @@ import { useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui';
 import {
-  asignarCampanaAction, previaCampanaAction, quitarCampanaAction, deshacerAsignacionAction,
+  alternarFunnelCampanaAction, asignarCampanaAction, previaCampanaAction, quitarCampanaAction, deshacerAsignacionAction,
   type ProductoNombre,
 } from '../crm/campanas-actions';
-import type { CampanaAsignada } from '@/lib/campana-config';
-import { hayQuePreguntar, preguntaAsignar, valorDeProducto as valorDe, funnelDeValor as funnelDe, type PorProducto } from '@/lib/campana-asignar';
+import { funnelsDeAsignada, type CampanaAsignada } from '@/lib/campana-config';
+import { hayQuePreguntar, preguntaAsignar, preguntaSumar, valorDeProducto as valorDe, funnelDeValor as funnelDe, type PorProducto } from '@/lib/campana-asignar';
 
 export type ItemCampana = { tipo: 'campana' | 'conjunto'; id: string; nombre: string; campanaId?: string };
 
-type Pide = { funnelId: number | null; producto: string; aTraer: number; desde: string | null; porProducto: PorProducto[] };
+type Pide = { funnelId: number | null; producto: string; aTraer: number; desde: string | null; porProducto: PorProducto[]; sumar?: true };
 
 export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignadas, show, disabled, buttonStyle }: {
   item: ItemCampana;
@@ -57,7 +62,8 @@ export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignad
   const [pide, setPide] = useState<Pide | null>(null);
 
   const nombreDe = (funnelId: number | null) => productos.find((p) => p.id === funnelId)?.nombre ?? 'otro funnel';
-  const actual = asignada ? valorDe(asignada.funnelId) : '';
+  // Los marcados, la casa primero. Sin asignar, «Sin asignar» (o lo que hereda de su campaña).
+  const marcados = asignada ? funnelsDeAsignada(asignada).map(valorDe) : [''];
 
   const asignar = async (funnelId: number | null, traer: boolean) => {
     setOcupada(true);
@@ -79,8 +85,30 @@ export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignad
     }
   };
 
+  /** Sumar o sacar UN funnel de una campaña que ya tiene casa. Sacar no pregunta: nadie sale de donde está. */
+  const alternar = async (funnelId: number | null, traer: boolean) => {
+    setOcupada(true);
+    setPide(null);
+    try {
+      const r = await alternarFunnelCampanaAction(funnelId, item, traer);
+      if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+      onAsignadas(r.asignadas);
+      const n = r.movidos.length;
+      const sumo = !!r.antes && !funnelsDeAsignada(r.antes).includes(funnelId);
+      show(n ? `${n} ${n === 1 ? 'lead traído' : 'leads traídos'}` : sumo ? 'Funnel sumado' : 'Funnel quitado', async () => {
+        const d = await deshacerAsignacionAction(item.id, r.antes, r.movidos);
+        if (d.ok) onAsignadas(d.asignadas); else show(d.error, undefined, 'bad');
+      });
+    } catch {
+      show('No se pudo guardar', undefined, 'bad');
+    } finally {
+      setOcupada(false);
+    }
+  };
+
   const elegir = async (valor: string) => {
-    if (ocupada || valor === actual) return;
+    if (ocupada) return;
+    if (valor === '' && !asignada) return;
 
     if (valor === '') {
       const antes = asignada ?? null;
@@ -89,9 +117,10 @@ export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignad
         const r = await quitarCampanaAction(item.id);
         if (!r.ok) { show(r.error, undefined, 'bad'); return; }
         onAsignadas(r.asignadas);
+        // El deshacer de asignar: la devuelve ENTERA, con sus otros funnels.
         show('Quitada', async () => {
           if (!antes) return;
-          const d = await asignarCampanaAction(antes.funnelId, item, false);
+          const d = await deshacerAsignacionAction(item.id, antes, []);
           if (d.ok) onAsignadas(d.asignadas);
         });
       } catch {
@@ -103,6 +132,8 @@ export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignad
     }
 
     const funnelId = funnelDe(valor);
+    // Ya asignada: la casilla suma o saca ESE funnel. Sacar va directo.
+    if (asignada && marcados.includes(valor)) { await alternar(funnelId, false); return; }
     setOcupada(true);
     let previa: Awaited<ReturnType<typeof previaCampanaAction>>;
     try {
@@ -115,22 +146,27 @@ export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignad
     setOcupada(false);
     if (!previa.ok) { show(previa.error, undefined, 'bad'); return; }
 
-    const desde = asignada ? nombreDe(asignada.funnelId) : null;
-    if (!hayQuePreguntar(previa.aTraer, desde)) { await asignar(funnelId, true); return; }
-    setPide({ funnelId, producto: nombreDe(funnelId), aTraer: previa.aTraer, desde, porProducto: previa.porProducto });
+    if (asignada) {
+      if (previa.aTraer === 0) { await alternar(funnelId, true); return; }
+      setPide({ funnelId, producto: nombreDe(funnelId), aTraer: previa.aTraer, desde: null, porProducto: previa.porProducto, sumar: true });
+      return;
+    }
+    if (!hayQuePreguntar(previa.aTraer, null)) { await asignar(funnelId, true); return; }
+    setPide({ funnelId, producto: nombreDe(funnelId), aTraer: previa.aTraer, desde: null, porProducto: previa.porProducto });
   };
 
   const opciones = [
     { value: '', label: heredadoDe ? `${heredadoDe} · por su campaña` : 'Sin asignar' },
     ...productos.map((p) => ({ value: valorDe(p.id), label: p.nombre })),
   ];
-  const txt = pide ? preguntaAsignar(pide) : null;
+  const txt = pide ? (pide.sumar ? preguntaSumar(pide) : preguntaAsignar(pide)) : null;
 
   return (
     <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-block' }}>
       <Dropdown
-        value={actual}
+        value=""
         options={opciones}
+        varios={marcados}
         onChange={elegir}
         width={168}
         placeholder="Sin asignar"
@@ -144,7 +180,7 @@ export function ProductoCelda({ item, productos, asignada, heredadoDe, onAsignad
           confirmLabel={txt.confirmar}
           cancelLabel={txt.cancelar}
           tone="primary"
-          onConfirm={() => { void asignar(pide.funnelId, true); }}
+          onConfirm={() => { void (pide.sumar ? alternar(pide.funnelId, true) : asignar(pide.funnelId, true)); }}
           onCancel={() => setPide(null)}
         />
       )}
