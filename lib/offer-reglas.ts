@@ -964,6 +964,32 @@ export function ofertaYaAnotada(cur: { ofertaId: number | null; ofertaVersion: n
 }
 
 /**
+ * A qué funnels va la oferta al guardarla (17/10/2026, tarjeta #895: «una oferta se guarda en uno o varios funnels»).
+ *  · `elegidos` null (un pedido sin elección: MaKo Mobile, una versión vieja de la pantalla): el de la conversación,
+ *    como antes; una conversación sin funnel (la v1) no se liga a ninguno.
+ *  · `elegidos` vacío: TODOS los funnels activos (la convención de `ElegirFunnels`: vacío = todos).
+ *  · Si no, los elegidos, sin repetir y en el orden en que se eligieron.
+ */
+export function destinoDeLaOferta(p: { funnelConversacion: number | null; elegidos: readonly number[] | null | undefined; activos: readonly number[] }): number[] {
+  if (p.elegidos == null) return p.funnelConversacion != null ? [p.funnelConversacion] : [];
+  if (!p.elegidos.length) return [...new Set(p.activos)];
+  return [...new Set(p.elegidos)];
+}
+
+/**
+ * Los avisos de ligar la oferta a VARIOS funnels, en uno: el primero que se arregla reintentando manda (es el que pide
+ * volver a tocar «Guardar»); si no, el primero. Sin avisos, nada.
+ */
+export function juntarLigas(rs: ReadonlyArray<{ aviso?: string; avisoReintentable?: boolean }>): { aviso?: string; avisoReintentable?: boolean } {
+  const conAviso = rs.filter((r) => r.aviso?.trim());
+  if (!conAviso.length) return {};
+  const reintentable = conAviso.find((r) => r.avisoReintentable);
+  const r = reintentable ?? conAviso[0];
+  const mas = conAviso.length - 1;
+  return { aviso: mas ? `${r.aviso} (y ${mas} aviso${mas === 1 ? '' : 's'} más)` : r.aviso, avisoReintentable: !!reintentable };
+}
+
+/**
  * `OfferSesionVista.ligada`: false SÓLO si hay oferta guardada, la conversación tiene funnel y la lectura
  * dijo que falta la liga (`leida === false`). Una lectura que no se hizo o falló (`undefined`) es true:
  * invitar a reintentar en falso es peor que un «Guardada» de más.

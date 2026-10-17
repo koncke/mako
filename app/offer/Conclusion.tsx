@@ -35,12 +35,13 @@ import {
   type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type NotaDimension, type OfferSesionVista, type PropuestaOferta,
 } from '@/lib/offer-marco';
 import {
-  anchoDeNota, controlFinalDe, esSeccionProvisional, guardadaVisible, partirCompletar, propuestoPorMakoDe, provisionalDe, textoDeEstado, tiene,
+  anchoDeNota, controlFinalDe, esSeccionProvisional, guardadaVisible, textoGuardada, partirCompletar, propuestoPorMakoDe, provisionalDe, textoDeEstado, tiene,
   tonoDeNota, VARIABLE_LABEL,
   type AvisoGuardado, type Provisional, type PuntoVisible,
 } from './ayudas';
 import { descargarPdf, mensajeDeError } from './offer-api';
 import { VistaPdf } from './VistaPdf';
+import { ElegirFunnels, type FunnelElegible } from '@/app/components/ElegirFunnels';
 
 const LECTURA = 880;
 
@@ -213,7 +214,14 @@ function Heroe({ conclusion }: { conclusion: ConclusionOferta }) {
 
 // ── Las acciones ─────────────────────────────────────────────────────────────
 
-function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVista; onSeguir: () => void; onGuardar: () => Promise<AvisoGuardado | null> }) {
+function BarraAcciones({ sesion, funnels, onSeguir, onGuardar }: {
+  sesion: OfferSesionVista; funnels: readonly FunnelElegible[]; onSeguir: () => void; onGuardar: (funnelIds?: number[]) => Promise<AvisoGuardado | null>;
+}) {
+  // En qué funnels se guarda (17/10/2026, #895: «uno o varios»). Con más de un funnel en el negocio se elige, con el de
+  // la conversación marcado de entrada; vacío es «Todos los funnels» (la convención de ElegirFunnels). Con uno solo, o en
+  // una conversación de la v1 sin funnel, no hay nada que elegir y se guarda como antes.
+  const elegible = sesion.funnelId != null && funnels.length > 1;
+  const [elegidos, setElegidos] = useState<number[]>(sesion.funnelId != null ? [sesion.funnelId] : []);
   const [bajando, setBajando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,7 +247,7 @@ function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVis
     setError(null);
     // El aviso anterior se reemplaza recién con la respuesta: borrarlo antes haría que, mientras se
     // reintenta, el botón (con su giro) se cambie por «Guardada» sin que nada se haya ligado todavía.
-    try { setAviso(await onGuardar()); } catch (e) { setError(mensajeDeError(e)); } finally { setGuardando(false); }
+    try { setAviso(await onGuardar(elegible ? elegidos : undefined)); } catch (e) { setError(mensajeDeError(e)); } finally { setGuardando(false); }
   };
 
   return (
@@ -253,9 +261,18 @@ function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVis
           ? (
             // No es un botón apagado: un botón que no hace nada se lee como roto. Es el estado.
             <span role="status" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 12px', minHeight: 'var(--touch)', color: 'var(--good)', fontWeight: 600, fontSize: 'var(--fs-md)' }}>
-              <IconoMenu nombre="check" size={17} />Guardada
+              <IconoMenu nombre="check" size={17} />{textoGuardada(sesion.guardadaEn)}
             </span>
           )
+          : elegible
+            ? (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', flex: '1 1 260px', minWidth: 0 }}>
+                <div style={{ flex: '1 1 180px', minWidth: 0, maxWidth: 320 }}>
+                  <ElegirFunnels funnels={funnels} valor={elegidos} onCambiar={setElegidos} ariaLabel="En qué funnels guardarla" disabled={guardando} />
+                </div>
+                <Button variant="tertiary" size="lg" loading={guardando} onClick={() => void guardar()}>Guardar</Button>
+              </div>
+            )
           // v2: la conversación es de un FUNNEL, y guardar liga la oferta a ese funnel (el contrato con el
           // motor). Una de la v1 (sin funnel) la guarda como oferta del negocio, como antes.
           : (
@@ -610,7 +627,7 @@ export const PESTANAS: ReadonlyArray<{ id: Pestana; label: string }> = [
   { id: 'oferta', label: 'Oferta nueva' },
 ];
 
-export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar = true, pestanaInicial = PESTANAS[0].id }: {
+export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, funnels = [], conProbar = true, pestanaInicial = PESTANAS[0].id }: {
   sesion: OfferSesionVista;
   conclusion: ConclusionOferta;
   /**
@@ -623,14 +640,16 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar 
   /** Vuelve al chat (la conclusión sigue a un clic, con «Ver mi oferta»). */
   onSeguir: () => void;
   /** Guarda la oferta nueva (v2: ligada al funnel de la conversación). Tira si falla; devuelve el aviso del motor, si hay. */
-  onGuardar: () => Promise<AvisoGuardado | null>;
+  onGuardar: (funnelIds?: number[]) => Promise<AvisoGuardado | null>;
+  /** Los funnels del negocio, para elegir en cuáles se guarda (#895). Sin ellos, se guarda en el de la conversación. */
+  funnels?: readonly FunnelElegible[];
 }) {
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
   const id = useId();
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
       <div style={{ maxWidth: LECTURA, marginInline: 'auto', padding: '2px 2px 40px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <BarraAcciones sesion={sesion} onSeguir={onSeguir} onGuardar={onGuardar} />
+        <BarraAcciones sesion={sesion} funnels={funnels} onSeguir={onSeguir} onGuardar={onGuardar} />
         <div role="tablist" aria-label="Qué ver" className="of-seg" style={{ alignSelf: 'flex-start', marginTop: 4 }}>
           {PESTANAS.map((p) => (
             <button key={p.id} type="button" role="tab" id={`${id}-tab-${p.id}`} aria-controls={`${id}-panel`}

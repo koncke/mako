@@ -373,8 +373,10 @@ test('«Guardar»: la oferta nueva se liga al funnel, principal sólo si no ten�
   assert.match(liga, /if \(estado === 'no-existe'\) \{\n\s*return \{ aviso: '[^']+', avisoReintentable: false \};/);
   assert.equal([...liga.matchAll(/return \{ aviso: AVISO_LIGA_REINTENTABLE, avisoReintentable: true \};/g)].length, 2, 'sólo la base caída es reintentable');
   const guardar = SES.slice(SES.indexOf('export async function guardarComoOferta('), SES.indexOf('async function descartarOferta('));
-  // La liga corre en el camino idempotente, en el que ganó otro pedido y en el normal.
-  assert.equal([...guardar.matchAll(/await ligarAlFunnel\(f\.funnelId, /g)].length, 3, 'la liga corre en los tres caminos');
+  // La liga corre en el camino idempotente, en el que ganó otro pedido y en el normal. Desde el 17/10/2026 (#895) a
+  // los funnels ELEGIDOS (uno o varios; sin elección, el de la conversación): tests/offer-guardar-funnels.test.ts.
+  assert.match(guardar, /const ligar = async \(ofertaId: number\) => ligarAFunnels\(await destinoAhora\(f\.funnelId, elegidos\), ofertaId\);/);
+  assert.equal([...guardar.matchAll(/\.\.\.\(await ligar\(/g)].length, 3, 'la liga corre en los tres caminos');
   // Nunca pisa la oferta que se analizaba: el upsert de guardar va SIN id (fila nueva).
   assert.match(guardar, /ofertaId = await upsertOferta\(\{ \.\.\.base, nombre \}\);/);
   // La anotación MIRA lo que hay (compare-and-set): si otro pedido ya anotó esta versión, gana ésa y la
@@ -422,7 +424,9 @@ test('las conversaciones: el árbol las lee TODAS, el CAS espera creciente, «Nu
   assert.match(vista, /ofertaGuardadaId: f\.ofertaId,/);
   assert.match(vista, /ligada: ligadaParaVista\(f, nombres\.ligada\),/);
   const nombres = SES.slice(SES.indexOf('export async function nombresDeSesion('), SES.indexOf('export async function vistaSesion('));
-  assert.match(nombres, /db\.from\('funnel_ofertas'\)\.select\('id'\)\.eq\('funnel_id', f\.funnelId as number\)\.eq\('oferta_id', f\.ofertaId as number\)\.limit\(1\);/);
+  // Desde el 17/10/2026 (#895) la oferta puede estar en VARIOS funnels: la liga se mira a cualquiera
+  // (tests/offer-guardar-funnels.test.ts).
+  assert.match(nombres, /db\.from\('funnel_ofertas'\)\.select\('funnel_id'\)\.eq\('oferta_id', f\.ofertaId as number\)/);
   assert.match(nombres, /out\.ligada = !\(\(fun\.data \?\? \[\]\) as unknown\[\]\)\.length;/);
 });
 

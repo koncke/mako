@@ -457,6 +457,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/offer',
   },
+  {
+    fecha: '17 oct', hora: '10:05', chat: 'Offer', sesion: 'local_76bc176e-dac3-4c50-a67c-f62d5fbe9e5e', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una oferta se guarda en uno o varios funnels',
+    puntos: [
+      'Al guardar la oferta, eliges en qué funnels va: el de la conversación viene marcado, y puedes sumar otros o elegir todos. Es el mismo selector de los objetivos de /general.',
+      'Ya guardada, dice dónde quedó: «Guardada en Negocio que escala y Renovación».',
+      'Con un solo funnel en el negocio no aparece el selector: se guarda en ése, como antes.',
+      'MaKo también lo hace desde el chat (guardar_oferta_analisis), con tu «sí».',
+    ],
+    archivos: [
+      'app/offer/Conclusion.tsx — el selector (`ElegirFunnels`) y «Guardada en …»',
+      'lib/offer-sesiones.ts — `guardarComoOferta` liga a cada funnel elegido',
+      'lib/api-mako/areas/negocio.run.ts — guardar_oferta_analisis',
+      'tests/offer-guardar-funnels.test.ts — 9 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
 ];
 
 export const PARTES: Parte[] = [

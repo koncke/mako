@@ -33,8 +33,9 @@
 //   · 'diagnosticar'   { sesionId }              → { ok: true }  (deja el diagnóstico en el borrador)
 //   · 'generar'        { sesionId }              → { sesion }  (versión nueva de la conclusión, y en el chat un
 //                                                   mensaje de MaKo con el PDF de esa versión: `pdf: { version }`)
-//   · 'guardar-oferta' { sesionId }              → { ofertaId, sesion, aviso?, avisoReintentable? }  (fila
-//                                                   NUEVA de `ofertas`, ligada al funnel de la conversación.
+//   · 'guardar-oferta' { sesionId, funnelIds? }  → { ofertaId, sesion, aviso?, avisoReintentable? }  (fila
+//                                                   NUEVA de `ofertas`, ligada a los funnels elegidos (#895: uno o
+//                                                   varios; [] = todos); sin `funnelIds`, al de la conversación.
 //                                                   `aviso` = no se pudo ligar; `avisoReintentable` dice si
 //                                                   volver a tocar «Guardar» lo puede arreglar)
 //   · 'renombrar'      { id, titulo }            → { sesion }
@@ -79,6 +80,7 @@ import { onboardingPendiente } from '@/lib/onboarding-state';
 import { transcribirAudio, SttSinEscucha, errorDeCascada } from '@/lib/ai-cheap';
 import { extraerLanding } from '@/lib/landing-fetch';
 import { leerFunnels } from '@/lib/funnels';
+import { sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { listarOfertas } from '@/lib/ofertas';
 import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
@@ -280,7 +282,9 @@ export async function POST(req: NextRequest) {
         case 'guardar-oferta': {
           const id = entero(body.sesionId);
           if (!id) return no(400, 'Falta la conversación a guardar.');
-          const { ofertaId, fila, aviso, avisoReintentable } = await guardarComoOferta(id);
+          // Uno o varios funnels (#895). Sin la clave (MaKo Mobile, una pestaña vieja), el de la conversación; [] = todos.
+          const elegidos = body.funnelIds === undefined ? null : sanearFunnelIds(body.funnelIds);
+          const { ofertaId, fila, aviso, avisoReintentable } = await guardarComoOferta(id, elegidos);
           return ok({ ofertaId, sesion: await vistaSesion(fila), ...(aviso ? { aviso, avisoReintentable: avisoReintentable === true } : {}) });
         }
 

@@ -808,11 +808,12 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const onSesionArranque = arranque?.onSesion;
   useEffect(() => { if (sesion && onSesionArranque) onSesionArranque(sesion); }, [sesion, onSesionArranque]);
 
-  const guardarOferta = async (): Promise<AvisoGuardado | null> => {
+  /** Guarda la oferta en los funnels elegidos (#895: uno o varios; [] = todos). Sin `funnelIds`, en el de la conversación. */
+  const guardarOferta = async (funnelIds?: number[]): Promise<AvisoGuardado | null> => {
     const id = sesionRef.current?.id;
     if (id == null) return null;
     const e = epoca.current;
-    const r = await llamarOffer<{ ofertaId: number; sesion: OfferSesionVista; aviso?: unknown; avisoReintentable?: unknown }>({ action: 'guardar-oferta', sesionId: id }, TOPE.corto);
+    const r = await llamarOffer<{ ofertaId: number; sesion: OfferSesionVista; aviso?: unknown; avisoReintentable?: unknown }>({ action: 'guardar-oferta', sesionId: id, ...(funnelIds ? { funnelIds } : {}) }, TOPE.corto);
     aplicarSesion(r.sesion, e);
     // Guardarla la liga al funnel y puede mover la conversación de rama (de «oferta nueva» a la oferta).
     void refrescarArbol();
@@ -822,6 +823,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   };
 
   // ── Lo que se dibuja ───────────────────────────────────────────────────────
+  // Los funnels del negocio, para elegir en cuáles guardar la oferta (#895): los del árbol, con el nombre que ve el dueño.
+  const funnelsElegibles = useMemo(() => arbol.funnels.map((f) => ({ id: f.id, nombre: f.nombre })), [arbol]);
   const conclusion = sesion?.conclusion ?? null;
   const puedeConcluir = !!sesion?.puedeConcluir;
   // En el arranque, fuera de la oferta, lo que ocupa es guardar SU respuesta: la oferta que se arma por
@@ -989,6 +992,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
             conclusion={conclusion}
             onSeguir={() => setVerConclusion(false)}
             onGuardar={guardarOferta}
+            funnels={funnelsElegibles}
             conProbar={!arranque}
           />
         </Modal>

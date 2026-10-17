@@ -461,13 +461,18 @@ export type OfferSesionVista = {
    */
   ofertaGuardadaId: number | null;
   /**
-   * false SÓLO si tocar «Guardar en este funnel» lo puede arreglar: hay oferta guardada (`ofertaGuardadaId`),
-   * la conversación tiene funnel, ese funnel existe y la oferta NO está en `funnel_ofertas` de ese funnel
-   * (la liga había fallado). true en todo lo demás: v1 sin funnel, nada guardado, ya ligada, o el funnel se
+   * false SÓLO si tocar «Guardar» lo puede arreglar: hay oferta guardada (`ofertaGuardadaId`), la conversación tiene
+   * funnel, ese funnel existe y la oferta NO está en `funnel_ofertas` de NINGÚN funnel (la liga había fallado; desde el
+   * 17/10/2026, #895, se puede guardar en otros funnels que el de la conversación). true en todo lo demás: v1 sin funnel, nada guardado, ya ligada, o el funnel se
    * borró (reintentar no lo arregla). ⚠️ La lectura es TOLERANTE: si falla, true — mostrar «Guardada» de
    * más es un rótulo; invitar a reintentar en falso es mandar a repetir algo que no se arregla repitiendo.
    */
   ligada: boolean;
+  /**
+   * Los funnels donde está la oferta guardada (17/10/2026, #895: una oferta se guarda en uno o VARIOS funnels), con el
+   * nombre que ve el dueño. Vacío sin oferta guardada o si no se pudo leer (`nombresDeSesion`, tolerante).
+   */
+  guardadaEn: Array<{ id: number; nombre: string }>;
   /**
    * El armado en el servidor (mig 0296, `armadoParaVista` en lib/offer-reglas.ts): en curso con su paso, o
    * fallido con el error. null = no hay ninguno. Mientras corre, la pantalla relee hasta que aparezca la
