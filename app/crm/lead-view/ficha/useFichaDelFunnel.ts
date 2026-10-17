@@ -13,7 +13,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { CambioFicha } from '@/lib/ficha/config';
 import type { FichaDelFunnel } from '@/lib/ficha/config-server';
 import { cambiarFichaFunnelAction, leerFichaFunnelAction } from '../../ficha-actions';
-import { crearGuardado, type EstadoGuardado, type Guardado } from './guardado-ficha';
+import { crearGuardado, masNueva, type EstadoGuardado, type Guardado } from './guardado-ficha';
 
 /** Lo que cambia los AVISOS de «datos sin marcar»: después de guardarlo, la cabecera se recuenta. */
 export const cambiaAvisos = (c: CambioFicha): boolean =>
@@ -22,8 +22,11 @@ export const cambiaAvisos = (c: CambioFicha): boolean =>
 export function useFichaDelFunnel(base: FichaDelFunnel | null, o: { onGuardado: (c: CambioFicha) => void; onError: (msg: string) => void }) {
   // Lo de esta sesión gana sobre lo que trajo la ficha mientras sea el MISMO funnel: una relectura que
   // salió antes de guardar no puede pisar lo que ya se ve (y se guardó).
+  // ⚠️ SALVO QUE LO QUE TRAJO SEA MÁS NUEVO (17/10/2026, `masNueva`): cuando MaKo cambia la ficha desde el chat de
+  // «Editar», la ficha se relee, y con lo de esta sesión ganando siempre, el cambio no se veía hasta cerrar y abrir.
+  // Gana la foto con el `updated_at` más nuevo; sin versión (una lectura vieja), lo de siempre.
   const [local, setLocal] = useState<FichaDelFunnel | null>(null);
-  const actual = local && base && local.funnel.id === base.funnel.id ? local : base;
+  const actual = local && base && local.funnel.id === base.funnel.id && !masNueva(base, local) ? local : base;
   const actualRef = useRef(actual);
   useLayoutEffect(() => { actualRef.current = actual; });
   const cb = useRef(o);

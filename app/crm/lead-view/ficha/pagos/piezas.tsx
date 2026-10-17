@@ -3,7 +3,7 @@
 // =============================================================================
 // ficha/pagos/piezas — lo que comparten los bloques de Pagos: la tarjeta y los modales de cobro a mano
 // =============================================================================
-// Los modales vienen de DealDetailsCard (app/crm/[id]/DealDetailsCard.tsx), con dos cosas que allá no tenían:
+// Los modales vinieron de DealDetailsCard (la tarjeta vieja del deal, borrada el 17/10/2026), con dos cosas que allá no tenían:
 //   · LA MONEDA (decisión 7: la moneda va por negocio y cada pago guarda la suya). Allá decía «Monto (USD)» y nada
 //     más. Acá el valor inicial es la moneda del negocio (`useMonedaDelNegocio`); en otra que no sea USD se pide
 //     también cuánto es en dólares, que es lo que suman el Dashboard y la cobranza (lib/pagos-campo.ts,

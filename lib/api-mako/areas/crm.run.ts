@@ -932,7 +932,7 @@ export const RUNNERS: Runners = {
     ejecutar: (payload) => seguro('cambiar la ficha', async () => {
       const c = sanearCambio(payload.cambio);
       if ('error' in c) return { ok: false, resumen: c.error };
-      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c);
+      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c, { autor: 'MaKo' });
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.cambio) return { ok: false, resumen: 'La ficha ya estaba así: no se cambió nada.' };
       // Los avisos de la ficha cambian lo que cuenta «Datos sin marcar» (la caché de leads).
@@ -968,7 +968,7 @@ export const RUNNERS: Runners = {
     ejecutar: (payload) => seguro('armar la tab', async () => {
       const c = sanearCambio(payload.cambio);
       if ('error' in c) return { ok: false, resumen: c.error };
-      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c);
+      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c, { autor: 'MaKo' });
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.cambio) return { ok: false, resumen: 'La tab ya estaba así: no se cambió nada.' };
       return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };
@@ -1573,8 +1573,7 @@ export const RUNNERS: Runners = {
       try {
         const r = await crearCrm(String(payload.nombre), siembra);
         invalidar('pipeline', 'leads');
-        const aviso = r.etapasDelTipo ? '' : ' Quedó con las etapas de su canal: ajústalas desde el lápiz del CRM.';
-        return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).${aviso}`, datos: { embudoId: r.funnelId, productoId: r.productoId } };
+        return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).`, datos: { embudoId: r.funnelId, productoId: r.productoId } };
       } catch (e) {
         // `crearProductoConFunnel` tira con un mensaje para la persona (nombre vacío o reservado).
         return { ok: false, resumen: e instanceof Error ? e.message : String(e) };

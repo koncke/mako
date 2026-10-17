@@ -76,5 +76,26 @@ test('el alta entra por el CRM y NO manda a otra pantalla', () => {
   assert.ok(/crearCrmAction\(/.test(tb), 'contra la acción del alta');
   const nc = readFileSync(join(import.meta.dirname, '../lib/nuevo-crm.ts'), 'utf8')
     .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.ok(/crearProductoConFunnel\(nombre, siembra\.canal\)/.test(nc), 'el alta de un tipo dejó de pasar por la cadena producto → oferta → funnel');
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: las etapas del tipo viajan como tercer argumento (ver el
+  // test de abajo), así que la llamada ya no cierra después del canal.
+  assert.ok(/crearProductoConFunnel\(nombre, siembra\.canal, \{/.test(nc), 'el alta de un tipo dejó de pasar por la cadena producto → oferta → funnel');
+});
+
+test('crear un CRM con su tipo es UNA escritura del embudo, no dos', () => {
+  // Hasta el 17/10/2026 `crearCrm` creaba el embudo con la plantilla del CANAL y después le pisaba
+  // las etapas del TIPO con `saveFunnelDe`: si esa segunda fallaba, el CRM quedaba con otras etapas
+  // y sin entrada (docs/relevo/crm-tanda-b1.md, b3). Ahora las etapas, las apagadas y la entrada
+  // van en el insert de `crearFunnel`.
+  // Verificado rompiéndolo (el archivo da 6 / 0): con el `saveFunnelDe` de vuelta en lib/nuevo-crm.ts,
+  // 5 / 1 (este); con `pipeline: tpl?.pipeline` fijo en producto-con-funnel.ts, 5 / 1 (este); con
+  // `crearFunnel` sin `extra`, 5 / 1 (este).
+  const nc = readFileSync(join(import.meta.dirname, '../lib/nuevo-crm.ts'), 'utf8')
+    .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/saveFunnelDe/.test(nc), 'el alta volvió a escribir las etapas en un segundo paso');
+  assert.match(nc, /pipeline: siembra\.pipeline/, 'las etapas del tipo no viajan al alta');
+  assert.match(nc, /suppressed: siembra\.suppressed/, 'las nutriciones apagadas del tipo no viajan al alta');
+  assert.match(nc, /extra: \{ entradas: siembra\.entradas \}/, 'la entrada del tipo no viaja al alta');
+  const pf = fuente.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(pf, /pipeline: propias \? propias\.pipeline : tpl\?\.pipeline/, 'el embudo nace con la plantilla del canal aunque vengan las etapas del tipo');
+  assert.match(pf, /extra: siembra\?\.extra/, 'el embudo nace sin la entrada');
 });

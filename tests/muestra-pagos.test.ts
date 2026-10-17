@@ -66,15 +66,16 @@ test('las DOS puertas de la ficha usan la misma regla, con las mismas señales',
   assert.match(ruta, /await getLeadFullAction\(idNum\)/, 'la ruta lee las señales con la action del pop-up');
 });
 
-test('la tarjeta: sin deal dibuja SÓLO los links; con deal, los links van debajo de Pagos', () => {
-  const card = codigo('app/crm/[id]/DealDetailsCard.tsx');
-  assert.match(card, /const conDeal = !!d \|\| tieneDeal\(\{ estado: lead\.estado_lead, etapa: pipelineStageOf\(lead\), cuotas: pagos\.length, planEnLead: planEnLead\(lead\) \}\);/);
-  assert.match(card, /if \(!conDeal\) \{\s*return \(\s*<div[^>]*>\s*\{feedback && [^\n]*\n\s*\{seccionLinks\}\s*<\/div>/);
-  assert.match(card, /<CobrarConLink lead=\{/);
-  assert.match(card, /<CobrosDelLead cobros=\{cobros\}/);
-  // Las tres puertas montan la tarjeta: los datos de los cobros los trae ella por actions.
-  assert.match(card, /opcionesCobroAction\(lead\.id\)/);
-  assert.match(card, /cobrosDelLeadAction\(lead\.id\)/);
+// ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: la tarjeta vieja (DealDetailsCard) se borró. En los bloques, «sin deal sólo los
+// links» es que el bloque `links-de-pago` no tiene `estaVacio` (se dibuja siempre) y los del deal sí. Verificado
+// rompiéndolo: con `estaVacio` puesto en `links-de-pago` → cae éste.
+test('los bloques: sin deal se dibujan SÓLO los links; los del deal se callan', () => {
+  const reglas = codigo('app/crm/lead-view/ficha/reglas-pagos.ts');
+  assert.match(reglas, /'links-de-pago': \{ disenos: \['lista', 'pendiente'\] \},/, 'los links dejaron de dibujarse siempre');
+  assert.match(reglas, /venta: \{ estaVacio: sinDealSalvo\('monto'\)/);
+  const bloques = codigo('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
+  assert.match(bloques, /<CobrarConLink lead=\{/);
+  assert.match(bloques, /<CobrosDelLead cobros=\{lista\}/);
 });
 
 test('el módulo es puro: lo importan la ruta (server) y el modal (cliente)', () => {

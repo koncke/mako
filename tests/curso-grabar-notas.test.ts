@@ -284,13 +284,18 @@ test('la purga lee TODOS los workspaces, lista ANTES de leer, y vuelve a pregunt
   assert.match(bloque(src, 'async function listarBucket('), /if \(error\) throw/);
 });
 
-test('pideBorrarPurga: borra SÓLO con un «1» explícito, en la URL o en el entorno', () => {
-  assert.equal(pideBorrarPurga(null, undefined), false, 'sin nada tiene que ser el modo prueba');
-  assert.equal(pideBorrarPurga(undefined, ''), false);
-  assert.equal(pideBorrarPurga('1', undefined), true);
-  assert.equal(pideBorrarPurga(null, '1'), true);
-  for (const malo of ['', '0', 'true', 'TRUE', 'si', 'yes', ' 1', '1 ', '01']) {
-    assert.equal(pideBorrarPurga(malo, malo), false, `borró con ${JSON.stringify(malo)}`);
+// ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: la purga se PRENDIÓ después de medirla en producción en modo prueba (cero
+// huérfanos; los números en `pideBorrarPurga`). Lo que se fija ahora es el interruptor: el modo prueba sólo con un
+// «0» explícito. Verificado rompiéndolo: con la regla vieja (`query === '1' || env === '1'`) → cae éste.
+test('pideBorrarPurga: borra por default; el modo prueba es un «0» explícito, en la URL o en el entorno', () => {
+  assert.equal(pideBorrarPurga(null, undefined), true, 'sin nada, el cron diario borra');
+  assert.equal(pideBorrarPurga(undefined, ''), true);
+  assert.equal(pideBorrarPurga('0', undefined), false, '?borrar=0 es la corrida de prueba');
+  assert.equal(pideBorrarPurga(null, '0'), false, 'CURSO_PURGA_BORRAR=0 apaga el cron');
+  assert.equal(pideBorrarPurga('1', '0'), true, '?borrar=1 a mano gana sobre el interruptor');
+  assert.equal(pideBorrarPurga('0', '1'), false, '?borrar=0 a mano nunca borra');
+  for (const otro of ['', 'true', 'TRUE', 'si', ' 0', '0 ']) {
+    assert.equal(pideBorrarPurga(null, otro), true, `el interruptor se apagó con ${JSON.stringify(otro)}`);
   }
 });
 

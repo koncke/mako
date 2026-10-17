@@ -2,8 +2,8 @@
 // /crm/[id] — detalle del lead en tabs: Resumen / Tracking / Reuniones / …
 // =============================================================================
 // Header fijo (etapa, nombre, acciones rápidas) + tabs. ⚠️ YA NO HAY MODO EDICIÓN:
-// cada dato se corrige donde se lee (ver `app/crm/campo-inline.ts`). `?edit=1` abre
-// el editor del DEAL, que es lo único que sigue teniendo pantalla propia.
+// cada dato se corrige donde se lee (ver `app/crm/campo-inline.ts`), también los del DEAL (sus bloques de
+// la tab Pagos): `?edit=1` y su editor se borraron el 17/10/2026.
 //
 // ⚠️ ESTA PANTALLA ES LA MISMA FICHA QUE EL POP-UP DEL TABLERO, Y DESDE EL 14/10/2026 LEE LO MISMO:
 // `getLeadFullAction`, la lectura del pop-up, y monta las MISMAS tabs (`FichaPorBloques`, adentro de
@@ -22,10 +22,10 @@ import { getLeadFullAction } from '../actions';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string; solucionar?: string }> }) {
+export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; solucionar?: string }> }) {
   await requireCapa('crm');
   await guardOnboarding();
-  const [{ id: idStr }, { tab, edit, solucionar }] = await Promise.all([params, searchParams]);
+  const [{ id: idStr }, { tab, solucionar }] = await Promise.all([params, searchParams]);
   const idNum = Number(idStr);
   if (!Number.isFinite(idNum)) notFound();
 
@@ -38,7 +38,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           ficha por otra puerta. */}
       <div style={{ maxWidth: ANCHO_FICHA_LEAD, margin: '0 auto' }}>
         <BackButton />
-        <LeadDetailBody data={data} initialTab={tab} initialEdit={edit === '1'} initialSolucionar={solucionar === '1'} />
+        <LeadDetailBody data={data} initialTab={tab} initialSolucionar={solucionar === '1'} />
       </div>
     </main>
   );

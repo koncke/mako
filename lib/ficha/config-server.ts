@@ -20,6 +20,7 @@ import 'server-only';
 // =============================================================================
 
 import { getTenantDb } from '../workspace';
+import { conEntrada, sanearHistorial, type EntradaHistorialFicha } from './historial';
 import { filaAFunnel, FUNNEL_DEFAULT_NOMBRE, type FilaFunnel } from '../funnel-fila';
 import { resumenDelNegocio } from '../resumen-ficha-config';
 import { apagadosDelNegocio } from '../datos-aviso-config';
@@ -28,7 +29,7 @@ import type { CanalId } from '../fase-diagnostico';
 import type { StepId } from '../stage-requirements';
 import { elegirPlantilla, type EleccionPlantilla } from './plantillas';
 import {
-  aplicarCambio, apagadosDeLaCasa, fichaEfectiva, sanearFicha, normalizar,
+  aplicarCambio, apagadosDeLaCasa, describirCambio, fichaEfectiva, sanearFicha, normalizar,
   type CambioFicha, type FichaEfectiva, type FichaGuardada, type RespaldoNegocio,
 } from './config';
 
@@ -45,6 +46,12 @@ export type FichaDelFunnel = {
   efectiva: FichaEfectiva;
   /** El respaldo del negocio con que se armó (para validar un cambio sin releer). */
   respaldo: RespaldoNegocio;
+  /**
+   * `funnels.updated_at` de la fila con que se armó. Lo usa la pantalla para saber cuál de dos fotos es la más NUEVA
+   * (17/10/2026): lo guardado en esta sesión ganaba siempre a una relectura, así que lo que MaKo cambiaba desde el chat
+   * de «Editar» no se veía hasta cerrar y abrir la ficha (./useFichaDelFunnel.ts).
+   */
+  version?: string | null;
 };
 
 /** Lo que el negocio ya eligió (el respaldo). Cada lectura cae a «nada elegido» si falla: lo dicen sus módulos. */
@@ -74,6 +81,7 @@ function armar(f: FilaConFicha, canalNegocio: CanalId | null, respaldo: Respaldo
     eleccion, guardada,
     efectiva: fichaEfectiva(eleccion.id, guardada, respaldo),
     respaldo,
+    version: f.updated_at ?? null,
   };
 }
 
@@ -90,6 +98,12 @@ async function filaDe(funnelId: number | null): Promise<FilaConFicha | null> {
     : await q.order('es_default', { ascending: false }).order('orden', { ascending: true }).order('id').limit(1);
   if (error) throw new Error(`no se pudo leer el funnel: ${error.message}`);
   return ((data ?? []) as unknown as FilaConFicha[])[0] ?? null;
+}
+
+/** El historial de la ficha de UN funnel (la más nueva primero). `null` si ese funnel no es de este workspace. Tira si no se pudo leer. */
+export async function historialDeFicha(funnelId: number | null): Promise<{ funnelId: number; entradas: EntradaHistorialFicha[] } | null> {
+  const fila = await filaDe(funnelId);
+  return fila ? { funnelId: Number(fila.id), entradas: sanearHistorial(dataDe(fila).fichaHistorial) } : null;
 }
 
 /** La ficha de UN funnel (null = el del negocio). `null` si ese funnel no es de este workspace. Tira si no se pudo leer. */
@@ -123,7 +137,11 @@ export type ResultadoGuardarFicha =
  * Aplica UN cambio a la ficha de un funnel y lo guarda. `antes` es lo guardado justo antes (para
  * «Deshacer»: `{ op: 'restaurar', ficha: antes, esperado: ficha.guardada }`). `cambio: false` = ya estaba así y no se escribió nada.
  */
-export async function cambiarFichaDeFunnel(funnelId: number | null, c: CambioFicha): Promise<ResultadoGuardarFicha> {
+export async function cambiarFichaDeFunnel(
+  funnelId: number | null, c: CambioFicha,
+  /** Quién lo cambia, para el historial de la ficha (`data.fichaHistorial`, lib/ficha/historial.ts). */
+  opts?: { autor?: string },
+): Promise<ResultadoGuardarFicha> {
   const [canal, respaldo] = await Promise.all([canalDelNegocio(), respaldoDelNegocio()]);
   for (let intento = 0; intento < 4; intento++) {
     const fila = await filaDe(funnelId);
@@ -136,13 +154,17 @@ export async function cambiarFichaDeFunnel(funnelId: number | null, c: CambioFic
     if (!r.cambio) return { ok: true, ficha: armar(fila, canal, respaldo), antes, cambio: false };
     const nueva: Record<string, unknown> = { ...data };
     if (Object.keys(r.ficha).length) nueva.ficha = r.ficha; else delete nueva.ficha;
+    const ahora = new Date().toISOString();
+    // ⚠️ EL HISTORIAL VA EN LA MISMA ESCRITURA (17/10/2026): quién, qué y cómo estaba. Con el compare-and-set de abajo,
+    // no hay un cambio sin su línea ni una línea sin su cambio (lib/ficha/historial.ts).
+    nueva.fichaHistorial = conEntrada(data.fichaHistorial, { at: ahora, autor: opts?.autor?.trim() || 'Alguien', que: describirCambio(c), antes });
     const db = await getTenantDb();
-    let q = db.from('funnels').update({ data: nueva, updated_at: new Date().toISOString() }).eq('id', fila.id);
+    let q = db.from('funnels').update({ data: nueva, updated_at: ahora }).eq('id', fila.id);
     if (fila.updated_at) q = q.eq('updated_at', fila.updated_at);
     const { data: tocadas, error } = await q.select('id');
     if (error) return { ok: false, error: 'No se pudo guardar la ficha.' };
     if (((tocadas ?? []) as unknown[]).length) {
-      return { ok: true, ficha: armar({ ...fila, data: nueva }, canal, respaldo), antes, cambio: true };
+      return { ok: true, ficha: armar({ ...fila, data: nueva, updated_at: ahora }, canal, respaldo), antes, cambio: true };
     }
     // Cero filas: otro guardó en el medio. Se relee y se vuelve a aplicar sobre lo nuevo.
   }

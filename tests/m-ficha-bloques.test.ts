@@ -219,7 +219,13 @@ test('el Resumen nativo en el teléfono: una fila por bloque, y se calla lo que 
   // Todo bloque del Resumen con componente tiene su versión de teléfono, salvo los que el teléfono no destila: los
   // duplicados (abrir otra ficha es de la computadora) y la respuesta destacada (necesita las respuestas de Meta y de
   // la landing, que el teléfono no lee).
-  const sinTelefono = new Set(['posibles-duplicados', 'respuesta-destacada']);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026 (chat «Pendientes B2: CRM»): los siete bloques de la CHARLA del Resumen
+  // (app/crm/lead-view/ficha/resumen/charla.tsx) tampoco se destilan acá: leen al montarse, en la computadora, y en el
+  // teléfono la charla vive en su propia pestaña (Chats). Si el teléfono los quiere, es una pieza de MaKo Mobile.
+  const sinTelefono = new Set([
+    'posibles-duplicados', 'respuesta-destacada',
+    'charla-whatsapp', 'charla-dm', 'pase-a-humano', 'cambios-de-mako', 'mensaje-listo', 'automatizaciones-en-curso', 'lo-que-le-mandamos',
+  ]);
   for (const id of Object.keys(REGLAS_RESUMEN)) {
     if (sinTelefono.has(id)) continue;
     assert.ok(PIEZA_DE_BLOQUE[id as keyof typeof PIEZA_DE_BLOQUE], `«${id}» no tiene versión de teléfono`);

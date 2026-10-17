@@ -51,9 +51,10 @@ import {
   clasesDelProducto, claseDeId, progresoDelCliente, avanceDelCliente, accesoDe, linkDeAcceso, marcarInvitacion,
   revocarAcceso, reactivarAcceso, sesionesDe, agendarSesion, borrarSesion, aprobarTarea, productosDelAlumno,
   ubicacionEnEntregaDe, accesosDeLideres, linkDeAccesoLider, linkDeLiderLeido, guardarAlcance, ponerDesbloqueo,
-  accesoParaPantalla,
+  accesoParaPantalla, quitarCursoDelAcceso,
   type EstadoAccesoLider, type Sesion,
 } from '@/lib/curso-datos';
+import { logLeadEvent } from '@/lib/leads';
 import { mandarLinkDelCurso } from '@/lib/curso-mensajes';
 import { urlEntregaParaEquipo, darOtroIntento } from '@/lib/curso-entregas';
 import { nombreDeArea, type Clase, type EstadoTarea, type Progreso } from '@/lib/curso';
@@ -442,6 +443,26 @@ export async function guardarAlcanceCursoAction(leadId: number, productoId: numb
     return { ok: true, acceso: await accesoActual(leadId, await getWorkspaceActual()) };
   } catch (e) {
     return mal(e, 'No se guardaron los permisos.');
+  }
+}
+
+/**
+ * «Sacarle este curso» (17/10/2026): su acceso deja de abrir ESE curso, sin cortarle los demás ni sacarlo del kanban
+ * (`quitarCursoDelAcceso`, lib/curso-datos.ts; la regla en `productosTrasQuitar`). Queda en su historial. Devuelve el
+ * acceso como quedó, para que la ficha no recargue.
+ */
+export async function quitarCursoDelAccesoAction(leadId: number, productoId: number): Promise<{ ok: true; acceso: AccesoFicha } | Fallo> {
+  try {
+    const p = await puerta(leadId);
+    if (!p.ok) return p;
+    if (!Number.isInteger(productoId) || productoId <= 0) return { ok: false, error: 'Ese producto no existe.' };
+    const r = await quitarCursoDelAcceso(leadId, productoId);
+    if (!r.ok) return r;
+    const nombre = (await nombresDeCursos([productoId], { conTitulo: true })).get(productoId)?.trim() || 'un curso';
+    await logLeadEvent(leadId, 'Curso', `Se le sacó «${nombre}» de su acceso`, await autorActual());
+    return { ok: true, acceso: await accesoActual(leadId, await getWorkspaceActual()) };
+  } catch (e) {
+    return mal(e, 'No se le pudo sacar el curso.');
   }
 }
 

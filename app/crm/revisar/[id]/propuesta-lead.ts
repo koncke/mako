@@ -18,6 +18,7 @@
 
 import { recalcular, type FilaImport } from '@/app/crm/leads-importar';
 import { respuestasGuardadas, type RespuestaOptin } from '@/lib/optin-respuestas';
+import { normalizarUrl } from '@/lib/landing-paginas';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
@@ -80,6 +81,11 @@ export type Atribucion = {
   fbclid?: string;
   /** Lo que contestó en el formulario de la landing (mig 0274). */
   optin_respuestas?: RespuestaOptin[];
+  /**
+   * La página donde se registró (mig 0290), normalizada. La manda el opt-in en `datos.leads[]`; hasta el 17/10/2026
+   * nadie la copiaba y el lead que nacía al confirmar quedaba sin página para siempre (no hay backfill, a propósito).
+   */
+  pagina_registro?: string;
 };
 
 const CAMPOS_ATRIB = ['visitor_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid'] as const;
@@ -102,6 +108,9 @@ export function atribucionDePropuesta(origen: string | null, datos: Record<strin
     // Ya llegan saneadas de la ruta; se vuelven a sanear porque se leen de la base.
     const resp = respuestasGuardadas(c.respuestas);
     if (resp.length) a.optin_respuestas = resp;
+    // La ruta ya la manda normalizada; se vuelve a pasar por `normalizarUrl` porque se lee de la base.
+    const pagina = normalizarUrl(str(c.pagina_registro));
+    if (pagina) a.pagina_registro = pagina;
     out[`p${i}`] = a;
   });
   return out;

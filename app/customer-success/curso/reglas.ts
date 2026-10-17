@@ -800,15 +800,22 @@ export function decidirPurga(p: {
 }
 
 /**
- * ¿Esta vuelta de la purga BORRA, o sólo cuenta? Borra únicamente con un `'1'` explícito: en la
- * URL (`?borrar=1`, una corrida a mano después de leer la de prueba) o en el entorno
- * (`CURSO_PURGA_BORRAR=1`, que es lo que prende el cron diario). Cualquier otra cosa —ausente,
- * vacía, `'true'`, `'0'`— es modo PRUEBA.
+ * ¿Esta vuelta de la purga BORRA, o sólo cuenta?
  *
- * ⚠️ EL DEFAULT ES NO BORRAR, a propósito: el contenido de los buckets nunca se midió, y sin esto
- * lo primero que hacía el cron en producción era un `remove` real. Primero se lee la salida en
- * modo prueba (qué borraría y cuánto pesa), y recién ahí se prende.
+ * ⚠️ PRENDIDA DESDE EL 17/10/2026. Hasta ahí el default era NO borrar, porque el contenido de los
+ * buckets nunca se había medido: el modo prueba existía para leer su salida y recién ahí prenderla.
+ * Se midió en producción ese día (sólo lectura, la misma regla `decidirPurga`): `curso-videos` 0
+ * archivos, `curso-notas` 0, `curso-adjuntos` 2 (los dos con su fila), `comunidad-adjuntos` 0 →
+ * CERO huérfanos. Prenderla no borra nada hoy y deja de acumular mañana (el Storage tiene 5 GiB para
+ * toda la plataforma); cada borrado sigue siendo fail-closed (lib/curso-purga.ts).
+ *
+ * Modo PRUEBA sólo con un `'0'` explícito: en la URL (`?borrar=0`, una corrida a mano para mirar qué
+ * borraría) o en el entorno (`CURSO_PURGA_BORRAR=0`, el interruptor para apagar el cron). `?borrar=1`
+ * borra aunque el entorno la apague (una corrida a mano). Cualquier otra cosa —ausente, vacía,
+ * `'true'`— borra.
  */
 export function pideBorrarPurga(query: string | null | undefined, env: string | null | undefined): boolean {
-  return query === '1' || env === '1';
+  if (query === '1') return true;
+  if (query === '0') return false;
+  return env !== '0';
 }

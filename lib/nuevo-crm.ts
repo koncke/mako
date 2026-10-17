@@ -14,40 +14,27 @@ import 'server-only';
 // =============================================================================
 
 import { crearProductoConFunnel } from './producto-con-funnel';
-import { saveFunnelDe } from './funnels';
-import { apagadasAlCrear, type SiembraCrm } from './pipeline';
+import type { SiembraCrm } from './pipeline';
 
-export type CrmCreado = {
-  productoId: number;
-  ofertaId: number;
-  funnelId: number;
-  /** false = el CRM quedó creado con las etapas de su canal, sin las del tipo ni la entrada. */
-  etapasDelTipo: boolean;
-  /** Si `etapasDelTipo` es false, por qué (para decirlo, no para tirarlo). */
-  motivo?: string;
-};
+export type CrmCreado = { productoId: number; ofertaId: number; funnelId: number };
 
 /**
- * Crea el producto, su oferta y su embudo (`crearProductoConFunnel`, la cadena entera) y le
- * escribe las etapas y la entrada del tipo.
+ * Crea el producto, su oferta y su embudo (`crearProductoConFunnel`, la cadena entera) con las
+ * etapas, las nutriciones apagadas y la entrada del TIPO, en el MISMO insert del embudo.
  *
- * ⚠️ SON DOS ESCRITURAS, y la segunda puede fallar con el CRM ya creado. `crearProductoConFunnel`
- * sólo sabe sembrar la plantilla del CANAL (`templateDeCanal`), y un tipo trae sus nombres (DM
- * funnel: «Lead entrante (comentó)») o directamente otras etapas (dos reuniones sobre `llamadas`,
- * LinkedIn con la conversación antes de la llamada). Si la segunda falla NO se tira: el CRM
- * existe y se ve en el desplegable, así que tirar haría que la persona lo vuelva a crear y quede
- * duplicado. Vuelve `etapasDelTipo: false` con el motivo, y las etapas se ajustan en su lápiz.
- * Lo que lo deja en UNA sola escritura es que `crearProductoConFunnel` reciba las etapas.
+ * ⚠️ HASTA EL 17/10/2026 ERAN DOS ESCRITURAS: el embudo nacía con la plantilla de su CANAL y
+ * después `saveFunnelDe` le pisaba las etapas del tipo. Si la segunda fallaba, el CRM quedaba
+ * creado con otras etapas y sin entrada, y la pantalla sólo podía avisarlo (`etapasDelTipo:
+ * false`). Un tipo trae sus nombres (DM funnel: «Lead entrante (comentó)») o directamente otras
+ * etapas (dos reuniones sobre `llamadas`, LinkedIn con la conversación antes de la llamada), así
+ * que ese CRM a medias no era el que se eligió. Ahora la fila nace entera o no nace.
+ * Las apagadas las suma `crearFunnel` (`apagadasAlCrear`) sobre las etapas del TIPO: las ids de
+ * `suppressed` salen de las claves del pipeline.
  */
 export async function crearCrm(nombre: string, siembra: SiembraCrm): Promise<CrmCreado> {
-  const creado = await crearProductoConFunnel(nombre, siembra.canal);
-  try {
-    // Las apagadas se vuelven a calcular sobre las etapas del TIPO: las ids de `suppressed` salen
-    // de las claves del pipeline, y las que calculó el alta eran las de la plantilla del canal.
-    await saveFunnelDe(creado.funnelId, siembra.pipeline, apagadasAlCrear(siembra.pipeline, siembra.suppressed), { entradas: siembra.entradas });
-    return { ...creado, etapasDelTipo: true };
-  } catch (e) {
-    console.error(`[nuevo-crm] el funnel #${creado.funnelId} quedó con las etapas de su canal: ${e instanceof Error ? e.message : String(e)}`);
-    return { ...creado, etapasDelTipo: false, motivo: e instanceof Error ? e.message : String(e) };
-  }
+  return crearProductoConFunnel(nombre, siembra.canal, {
+    pipeline: siembra.pipeline,
+    suppressed: siembra.suppressed,
+    extra: { entradas: siembra.entradas },
+  });
 }
