@@ -26,7 +26,8 @@ import { VOCES_GALERIA, ACENTOS_GALERIA } from '../lib/ai-avatar/voces-galeria';
 import { puestaPorId } from '../lib/puestas-data';
 import { RUTA_SUBIDA, rutaDeSubida } from '../lib/flow-interfaz';
 
-const ACTIONS = readFileSync(join(process.cwd(), 'app/ai-avatar/actions.ts'), 'utf8');
+// Sin los \r de Windows: los cortes buscan '\n}\n', y un checkout con autocrlf no los tiene (17/10, chequeo del Cerebro).
+const ACTIONS = readFileSync(join(process.cwd(), 'app/ai-avatar/actions.ts'), 'utf8').replace(/\r\n/g, '\n');
 
 test('todo formato de una plantilla existe en el Video Generator', () => {
   for (const p of PLANTILLAS_AVATAR) assert.ok(puestaPorId(p.puestaId), `${p.id}: el formato «${p.puestaId}» no existe`);
