@@ -359,6 +359,17 @@ test('agrupar con compartir: los que sólo leen salen de la fila y van juntos; l
   assert.equal(sin.orden.length, 6, 'sin compartir, cada uno en su proceso como siempre');
 });
 
+test("agrupar con compartir='barredoras' (lo que usa Actions en la fase 1): sólo comparten las barredoras, no el resto de los afectados", () => {
+  const tests = new Map([
+    ['tests/barre.test.ts', [{ tipo: 'barre', detalle: 'git ls-files' }]],
+    ['tests/nombra.test.ts', [{ tipo: 'nombra', detalle: 'lib/x.ts' }]],
+    ['tests/importa.test.ts', [{ tipo: 'importa', detalle: 'a → b' }]],
+  ]);
+  const compartibles = new Set(['tests/barre.test.ts', 'tests/nombra.test.ts', 'tests/importa.test.ts']);
+  assert.deepEqual(agrupar(tests, compartibles, { compartir: 'barredoras' }).compartidos, ['tests/barre.test.ts']);
+  assert.deepEqual(agrupar(tests, compartibles, { compartir: 'todo' }).compartidos, ['tests/barre.test.ts', 'tests/importa.test.ts', 'tests/nombra.test.ts']);
+});
+
 test('seleccionar marca como compartible a todo test que no toca estado global, importe o no código del repo', () => {
   const repo: Record<string, string> = {
     'lib/x.ts': 'export const x = 1;',

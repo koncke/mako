@@ -6603,6 +6603,13 @@ alcanzar, aunque se cumpliera al pie de la letra:
   suma `node_modules/next/types/global.d.ts` y `image-types/global.d.ts` a `files` si existen (`next-env.d.ts` está en .gitignore y un worktree no lo tiene). Reproducido con un
   archivo de 3 líneas: antes, sólo el TS2352; después, también el TS2345 del run 100. La cura del código es `as unknown as NodeJS.ProcessEnv`. Quedan los límites ya escritos:
   un tipo que agrega OTRO archivo con `declare module` y lo que sólo ve el completo por `include` (el acotado nunca es «el repo»).
+- **El verde de Actions sólo bajó de 14 a 12 min con `auto` = todos los núcleos** (run 102: 683 s; el run 101, rojo en Tipos, sumó 477 s = ~64 s de arranque + afectados
+  270 s + tipos 143 s: los afectados bajaron 333 → 270 s y los demás casi nada, 217 → ~206 s). **El diagnóstico (mío) de que «un solo proceso dejaba un núcleo parado» era sólo
+  una parte**: con 2 procesos los tests casi no ganaron, y lo mismo se vio local (48 archivos: 232 s con 1 proceso, 182 s con 2, en una PC de 12 núcleos). El costo es el
+  ARRANQUE de cada archivo de test —node, `tsx`, compilar el archivo: ~0,4 s × ~1.100 ≈ los 508 s del `npm test` viejo— más las ~150 barredoras que releen los mismos 5.400
+  archivos. Lo que lo evita es no arrancar cada archivo: correr juntos los que no tocan estado global (`--compartir`). Experimento en el workflow, **a medir con el próximo verde**:
+  fase 1 comparte sólo las barredoras (`--compartir=barredoras`) y fase 2 todo lo compartible (`--compartir`); estimación SIN medir en Linux: ~8-9 min facturables. Reversible con
+  `--sin-compartir` en esos dos pasos. Si un rojo de Actions aparece donde el modo compartido local dio verde, sospechar primero del contagio entre tests.
 
 **Lo que NO cubre** (y por qué Actions sigue corriendo todo):
 - Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y
