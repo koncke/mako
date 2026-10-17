@@ -508,7 +508,8 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // ⚠️ Desde el 16/10/2026 la Ticketera vive ADENTRO del Centro (Martín: «elimines la ruta de la ticketera y lo
         // pongas dentro del centro de operaciones»): este ítem es un atajo a esa vista (`TICKETERA`, ?ticketera=), no
         // otra pantalla. Su `match` es el de la ruta vieja: en el Centro se marca el ítem del Centro.
-        { key: 'admin-ticketera', label: 'Ticketera', href: '/admin/operaciones?ticketera=tarjetas', icon: 'soporte', match: starts('/tickets/decisiones') },
+        // ⚠️ Y desde el 17/10/2026 abre los tickets de los USUARIOS (`?ticketera=tickets`, docs/diseno-ticketera-usuarios.md).
+        { key: 'admin-ticketera', label: 'Ticketera', href: '/admin/operaciones?ticketera=tickets', icon: 'soporte', match: starts('/tickets/decisiones') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar
@@ -659,6 +660,8 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-video-editor', label: 'Video Editor', href: '/admin/dev/video-editor', icon: 'tijera', match: starts('/admin/dev/video-editor') },
           { key: 'dev-image-editor', label: 'Image Editor', href: '/admin/dev/image-editor', icon: 'imagegen', match: starts('/admin/dev/image-editor') },
           { key: 'dev-puente-flow', label: 'Puente a Google Flow', href: '/admin/dev/puente-flow', icon: 'videogen', match: starts('/admin/dev/puente-flow') },
+          // La Ticketera de los usuarios (17/10/2026): el área se llama como su jefe; el slug es el de «Reportar problema».
+          { key: 'dev-reportar-problema', label: 'Ticketera', href: '/admin/dev/reportar-problema', icon: 'soporte', match: starts('/admin/dev/reportar-problema') },
           // El editor de landings copiado de Gamma (11/10/2026): su registro lleva el pedido literal
           // de Martín y lo que quedó sin hacer (app/admin/dev/landing-generator/bitacora.ts).
           { key: 'dev-landing-generator', label: 'Web Generator', href: '/admin/dev/landing-generator', icon: 'web', match: starts('/admin/dev/landing-generator') },
@@ -725,7 +728,8 @@ export const USER_NAV: NavItem[] = [
   // es a dónde vas cuando algo se rompió. Al lado de las tabs competiría todo el
   // día con lo que sí estás haciendo; en el menú del perfil está donde todo el
   // mundo lo busca, junto a la cuenta y arriba de «Cerrar sesión».
-  { key: 'tickets', label: 'Reportar problema', href: '/tickets', icon: 'soporte', comingSoon: true, rolesWs: ['closer', 'setter'], match: starts('/tickets') },
+  // Desde el 17/10/2026 existe (docs/diseno-ticketera-usuarios.md): la ven TODOS los roles y todas las capas.
+  { key: 'tickets', label: 'Reportar problema', href: '/tickets', icon: 'soporte', rolesWs: ['closer', 'setter'], match: starts('/tickets') },
 ];
 
 /** Todos los ítems de producto, aplanados (para buscar por key o por ruta). */

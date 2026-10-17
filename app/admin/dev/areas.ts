@@ -1146,10 +1146,16 @@ export const AREAS: AreaDev[] = [
     proyectos: ['Feature: Configuraciones y equipo'],
   },
   {
-    slug: 'reportar-problema', titulo: 'Reportar problema', familia: 'Platform',
-    estado: 'por-construir', verEnApp: '/tickets',
-    alcance: 'Hoy es un ComingSoon a propósito: no hay tabla de tickets ni destino al que mandarlos. El nombre es la acción, no el objeto del sistema.',
-    vive: ['app/tickets/page.tsx', 'app/_components/ComingSoon.tsx'],
+    // Desde el 17/10/2026 es la Ticketera de los usuarios entera (el jefe se llama «Ticketera»); el slug queda.
+    slug: 'reportar-problema', titulo: 'Ticketera', familia: 'Platform',
+    estado: 'parcial', verEnApp: '/tickets',
+    alcance: 'El cliente levanta un ticket desde el chat de MaKo o en «Reportar problema»; el triage separa el bug evidente (se arregla solo) de lo nuevo (decide Martín); la decisión va firmada al Cerebro y el ticket se cierra solo cuando se despliega. Falta enchufar la entrega del bug automático en el cartero, la bandeja en el teléfono y WhatsApp.',
+    vive: [
+      'app/tickets/page.tsx', 'app/tickets/TicketsCliente.tsx', 'app/tickets/acciones.ts', 'app/tickets/tickets.css', 'app/tickets/bandeja/',
+      'lib/tickets-reglas.ts', 'lib/tickets-db.ts', 'lib/tickets-cierre.ts', 'lib/tickets-aviso.ts', 'lib/tickets-runner.ts',
+      'lib/api-mako/areas/tickets.def.ts', 'lib/api-mako/areas/tickets.run.ts', 'app/api/cron/tickets/route.ts', 'scripts/tickets.ts',
+      'supabase/migrations/0311_tickets_usuarios.sql', 'tests/tickets.test.ts', 'tests/tickets-triage.test.ts', 'docs/diseno-ticketera-usuarios.md',
+    ],
     proyectos: ['Feature: Feedback y errores'],
   },
   {
