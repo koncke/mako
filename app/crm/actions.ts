@@ -1448,53 +1448,11 @@ export async function bulkIgnoreEmpresaAction(leadIds: number[]): Promise<{ upda
   return { updated };
 }
 
-// ── Ignorar "Datos sin marcar" a nivel LEAD (individual + en masa) ──
-// A diferencia de empresa_omitido (ignora un campo), esto silencia TODO el
-// worklist del lead: deja de notificar en el CRM general y de sumar al conteo,
-// pero los mismos avisos siguen vivos en la ficha (con opción de reactivar).
-
-/** Ignora los datos sin marcar de UN lead (deja de contar en el worklist). */
-export async function ignorarPendientesAction(leadId: number): Promise<void> {
-  const db = await getTenantDb();
-  const { error } = await db.from('leads').update({ pendientes_ignorados: new Date().toISOString() }).eq('id', leadId);
-  if (error) throw new Error(`No se pudo ignorar: ${error.message}`);
-  await logLeadEvent(leadId, 'Datos sin marcar', 'ignorados', await autorActual()).catch(() => {});
-  bust(TAG.leads);
-  revalidatePath('/crm');
-  revalidatePath('/general');
-}
-
-/** Ignora los datos sin marcar de MUCHOS leads de una (worklist en masa). */
-export async function ignorarPendientesMasaAction(leadIds: number[]): Promise<{ updated: number }> {
-  const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0);
-  if (!ids.length) return { updated: 0 };
-  const db = await getTenantDb();
-  const ahora = new Date().toISOString();
-  let updated = 0;
-  for (let i = 0; i < ids.length; i += 100) {
-    const chunk = ids.slice(i, i + 100);
-    try {
-      const { data, error } = await db.from('leads').update({ pendientes_ignorados: ahora }).in('id', chunk).select('id');
-      if (error) { console.error('[bulk] ignorar pendientes:', error.message); continue; }
-      updated += (data ?? []).length;
-    } catch (e) { console.error('[bulk] ignorar pendientes excepción:', e); }
-  }
-  bust(TAG.leads);
-  revalidatePath('/crm');
-  revalidatePath('/general');
-  return { updated };
-}
-
-/** Reactiva los avisos de un lead ignorado (vuelve al worklist normal). */
-export async function reactivarPendientesAction(leadId: number): Promise<void> {
-  const db = await getTenantDb();
-  const { error } = await db.from('leads').update({ pendientes_ignorados: null }).eq('id', leadId);
-  if (error) throw new Error(`No se pudo reactivar: ${error.message}`);
-  await logLeadEvent(leadId, 'Datos sin marcar', 'reactivados', await autorActual()).catch(() => {});
-  bust(TAG.leads);
-  revalidatePath('/crm');
-  revalidatePath('/general');
-}
+// ⛔ ACÁ VIVÍAN `ignorarPendientesAction`, `ignorarPendientesMasaAction` y `reactivarPendientesAction`, BORRADAS EL
+// 17/10/2026: nadie las llamaba (CrmBoard sólo las importaba), escribían la marca VIEJA del lead entero
+// (`leads.pendientes_ignorados`, mig 0109) y no tenían corte de sesión (sin cookie, el ws1). Ignorar y volver a avisar
+// van por `escribirDatosIgnorados` (lib/datos-aviso-config.ts): la ✕ de «A revisar», el dato suelto de la ficha y la
+// API de MaKo. La marca vieja se sigue LEYENDO en las filas de antes, y volver a avisar la limpia.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Exportar leads (plan #364)

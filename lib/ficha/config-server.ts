@@ -45,6 +45,12 @@ export type FichaDelFunnel = {
   efectiva: FichaEfectiva;
   /** El respaldo del negocio con que se armó (para validar un cambio sin releer). */
   respaldo: RespaldoNegocio;
+  /**
+   * `funnels.updated_at` de la fila con que se armó. Lo usa la pantalla para saber cuál de dos fotos es la más NUEVA
+   * (17/10/2026): lo guardado en esta sesión ganaba siempre a una relectura, así que lo que MaKo cambiaba desde el chat
+   * de «Editar» no se veía hasta cerrar y abrir la ficha (./useFichaDelFunnel.ts).
+   */
+  version?: string | null;
 };
 
 /** Lo que el negocio ya eligió (el respaldo). Cada lectura cae a «nada elegido» si falla: lo dicen sus módulos. */
@@ -74,6 +80,7 @@ function armar(f: FilaConFicha, canalNegocio: CanalId | null, respaldo: Respaldo
     eleccion, guardada,
     efectiva: fichaEfectiva(eleccion.id, guardada, respaldo),
     respaldo,
+    version: f.updated_at ?? null,
   };
 }
 
@@ -137,12 +144,13 @@ export async function cambiarFichaDeFunnel(funnelId: number | null, c: CambioFic
     const nueva: Record<string, unknown> = { ...data };
     if (Object.keys(r.ficha).length) nueva.ficha = r.ficha; else delete nueva.ficha;
     const db = await getTenantDb();
-    let q = db.from('funnels').update({ data: nueva, updated_at: new Date().toISOString() }).eq('id', fila.id);
+    const ahora = new Date().toISOString();
+    let q = db.from('funnels').update({ data: nueva, updated_at: ahora }).eq('id', fila.id);
     if (fila.updated_at) q = q.eq('updated_at', fila.updated_at);
     const { data: tocadas, error } = await q.select('id');
     if (error) return { ok: false, error: 'No se pudo guardar la ficha.' };
     if (((tocadas ?? []) as unknown[]).length) {
-      return { ok: true, ficha: armar({ ...fila, data: nueva }, canal, respaldo), antes, cambio: true };
+      return { ok: true, ficha: armar({ ...fila, data: nueva, updated_at: ahora }, canal, respaldo), antes, cambio: true };
     }
     // Cero filas: otro guardó en el medio. Se relee y se vuelve a aplicar sobre lo nuevo.
   }
