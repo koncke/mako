@@ -47,6 +47,7 @@ import { fraseEntregaAlBorrar } from '@/lib/servicio-etapas';
 import { sugerirProductos } from '@/lib/productos-ia';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { construirVault } from '@/lib/vault';
+import { indiceDelCerebro, recuperar } from '@/lib/cerebro-recuperar';
 import { matchNodo, type CampoCerebro } from '@/lib/buscar-cerebro';
 import { AREAS as AREAS_CEREBRO, type AreaId } from '@/lib/cerebro-modelo';
 import {
@@ -399,6 +400,22 @@ export const RUNNERS: Runners = {
         ? `\n\n---\n_Se cortó en ${TOPE_VAULT_CHARS} caracteres. Quedaron afuera ${afuera.length} de ${archivos.length} archivos: ${afuera.join(', ')}. Pídelos con menos áreas._\n`
         : '';
       return `# Segundo cerebro (${archivos.length} archivos)${md}${pie}`;
+    },
+  },
+
+  indice_segundo_cerebro: {
+    leer: async () => indiceDelCerebro(await construirCerebro()),
+  },
+
+  recuperar_del_segundo_cerebro: {
+    leer: async (input) => {
+      const p = recuperar(await construirCerebro(), {
+        pregunta: str(input, 'pregunta'),
+        ids: Array.isArray(input.ids) ? (input.ids as unknown[]).map(String) : [],
+        profundidad: typeof input.profundidad === 'number' ? input.profundidad : undefined,
+        presupuesto: typeof input.presupuesto === 'number' ? input.presupuesto : undefined,
+      });
+      return `${p.texto}\n\n_${p.modo === 'indice' ? 'La pregunta no nombra ningún dato: va el índice.' : `${p.nodos.length} datos, ~${p.tokens} tokens.`}_`;
     },
   },
 

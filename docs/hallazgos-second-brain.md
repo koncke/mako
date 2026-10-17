@@ -23,6 +23,34 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## Que el grafo sirva a los chats: la vista local y lo que ahorra, medido (17/10/2026, punto 13c)
+
+`lib/cerebro-recuperar.ts` (puro): el ÍNDICE (carpetas y áreas con su conteo, una línea y ejemplos con id) y la VISTA
+LOCAL (semillas de la pregunta + vecinos a un salto, una línea por dato, con presupuesto de tokens). Por la API de MaKo:
+`indice_segundo_cerebro` y `recuperar_del_segundo_cerebro` (`GET /negocio/segundo-cerebro/indice|recuperar`), gratis y
+con la puerta del Second Brain. La medición: `scripts/medir-recuperacion.ts`.
+
+- **Lo medido (ws 3 y ws 9, sólo lectura, 17/10/2026):** la vista local promedia **190 y 118 tokens** por pregunta, contra
+  **678 y 459** del grafo entero en líneas (lo que hoy manda la búsqueda con MaKo a la IA: −72 % y −74 %) y **1.606 y
+  1.105** del vault (lo que devuelve `leer_segundo_cerebro_como_archivos`: −88 % y −89 %). El índice, ~300 tokens, una vez
+  por chat. Los dos workspaces son CHICOS (25 y 18 datos): la vista cuesta lo que pide la pregunta y no crece con el grafo,
+  así que en un negocio de 70 datos el ahorro es mayor. El ws 1 no se midió, a propósito (el script lo rechaza).
+- **La búsqueda del grafo no sirve tal cual para una pregunta.** `matchNodo` pide TODAS las palabras de la consulta en el
+  mismo nodo: «¿cuánto cobro por la mentoría?» no matchea nada nunca. La vista puntúa palabra por palabra (3 en el
+  nombre, 1 en el detalle), saca las palabras vacías y deja los números cortos («el avatar 3»).
+- **El puente que en GraphRAG hacen los embeddings, acá es un mapa chico de sinónimos** («cobro», «precio», «vendo» →
+  la oferta y los productos; «leads», «etapa» → el funnel). Ningún nodo dice «cobro»; sin el puente, la pregunta más
+  común del dueño no encontraba su oferta. Sin IA: recuperar no cuesta un token de modelo.
+- **La línea de un vecino tiene que ser corta.** Con la línea larga para todos (cada nodo con sus vecinos), la pregunta de
+  los leads costaba **708 tokens contra 678 del grafo entero**: cada etapa repetía la cadena de las otras. Las semillas
+  van completas y los vecinos en una línea con sangría, sin sus vecinos y con dos datos (603 en el ws 3).
+- **Medir fuera de Next** pide `--conditions=react-server` (si no, `server-only` revienta al importar) y el `.env.local`
+  del clon principal (los worktrees no lo tienen; apunta a PRODUCCIÓN, por eso el script no escribe). `listLeads` es una
+  lectura cacheada de Next y afuera no lee: en la medición falta el nodo de los leads; en producción está.
+- **Lo que quedó SIN hacer:** que el turno de MaKo pida nodos en vez de mandar el contexto entero. Hoy
+  `buildSystemPrompt` (lib/mako-context.ts) va en modo completo en cada mensaje (8-11 kB, `lib/agente-contexto.ts`). Es un
+  cambio del turno de MaKo, no del grafo: las dos operaciones ya están para que lo use.
+
 ## La construcción de MaKo, como segunda capa del super admin (17/10/2026, punto 13b)
 
 `lib/cerebro-construccion.ts` (puro) arma el grafo de las áreas con bitácora, sus últimos hitos y los chats jefe;

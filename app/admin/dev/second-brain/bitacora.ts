@@ -29,7 +29,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Bajarse el cerebro', detalle: 'ZIP con carpetas numeradas, un .md por nodo, frontmatter con la procedencia y enlaces [[wiki]] que abren en Obsidian · respeta lo que estás viendo', estado: 'hecha' },
   { titulo: 'Conectar tu Claude', detalle: 'Se fue del Second Brain el 17/10 (el Centro conecta a Claude por defecto); el token se sigue acuñando en /integraciones · falta publicar plugin/ como marketplace público', estado: 'sigue' },
   { titulo: 'La pantalla del grafo, otra vez (feedback del 17/10)', detalle: 'Sólo el grafo, siempre en oscuro, con «Second Brain» arriba · los controles adentro del lienzo · al tocar un nodo nada aparece abajo: la barra lateral nueva', estado: 'hecha' },
-  { titulo: 'Reconstruir cómo nacen los nodos (punto 13)', detalle: 'Offer, funnels, leads, hojas del dashboard y chats como nodos con su tipo y su fecha · el nodo que viaja al entrar · la capa «Construcción» del super admin · la recuperación por vista local para los chats (docs/diseno-second-brain-grafo.md)', estado: 'sigue' },
+  { titulo: 'Reconstruir cómo nacen los nodos (punto 13)', detalle: 'Offer, funnels, leads, OKR/KPI y chats como nodos con su tipo y su fecha · el nodo que viaja · la capa «Construcción» del super admin · la vista local para los chats (−72/−89 % de tokens, medido) · falta que el turno de MaKo la use', estado: 'sigue' },
   { titulo: 'La cobertura de los datos', detalle: 'construirCerebro() hace 21 lecturas sobre ~70 tablas, y el brief entra por CUATRO listas hardcodeadas mientras getSchema() lee el esquema vivo', estado: 'sigue' },
   { titulo: 'El aire vacío y el layout que se recalcula', detalle: 'El bbox es cuadrado y el lienzo apaisado: 56-67% del ancho sin usar · local graph (barato) vs layout elíptico (le cambia el mapa a todos) · la huella no la consume nadie', estado: 'cola' },
   { titulo: 'Que el cerebro CONCLUYA', detalle: 'Hoy dibuja lo que el cliente cargó; todavía no conecta señales de otras tabs ni saca conclusiones propias', estado: 'cola' },
@@ -439,5 +439,23 @@ export const BITACORA: Hito[] = [
       'tests/second-brain-construccion.test.ts',
     ],
     revisar: '/admin/operaciones?panel=mapa&capa=construccion',
+  },
+  {
+    fecha: '17 oct', hora: '08:10', chat: 'Second Brain', sesion: 'local_26ff7b73-b712-4726-9882-89617840bf7c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los chats traen del Second Brain sólo lo que necesitan: un 72-89 % menos de tokens',
+    pedido: 'MUY IMPORTANTE: que sirva para los CHATS. El grafo modulariza los datos del negocio para AHORRAR TOKENS: un chat (MaKo o un jefe) trae sólo los nodos que le hacen falta y no todo el contexto.',
+    puntos: [
+      'Un chat pide primero el índice de tu negocio (unos 300 tokens) y después sólo los datos que nombra su pregunta, con sus vecinos.',
+      'Medido en dos negocios reales: 118-190 tokens por pregunta, contra 459-678 del grafo entero y 1.105-1.606 del Second Brain en archivos.',
+      'Está en la API de MaKo para MaKo y para los chats de Claude Code, y no gasta IA.',
+      'Falta que el chat de MaKo lo use en cada mensaje en vez del contexto entero: es el paso siguiente.',
+    ],
+    archivos: [
+      'lib/cerebro-recuperar.ts — el índice y la vista local (puro)',
+      'lib/api-mako/areas/negocio.def.ts, negocio.run.ts — indice_segundo_cerebro y recuperar_del_segundo_cerebro',
+      'scripts/medir-recuperacion.ts — la medición, de sólo lectura',
+      'tests/second-brain-recuperar.test.ts',
+    ],
   },
 ];

@@ -83,7 +83,7 @@ export const RECETA = {
 
 /** Grado de cada nodo (cuántas aristas lo tocan). Alimenta el radio y el ranking de
  *  etiquetas: en un grafo, «importante» es «muy conectado». */
-export function gradosDe(nodos: NodoCerebro[], aristas: AristaCerebro[]): Record<string, number> {
+export function gradosDe(nodos: readonly Pick<NodoCerebro<string>, 'id'>[], aristas: AristaCerebro[]): Record<string, number> {
   const g: Record<string, number> = {};
   for (const n of nodos) g[n.id] = 0;
   for (const a of aristas) { if (a.de in g) g[a.de]++; if (a.a in g) g[a.a]++; }

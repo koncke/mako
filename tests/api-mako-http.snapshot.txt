@@ -231,6 +231,7 @@ guardar_version_landing
 huecos_secuencias
 ignorar_datos_sin_marcar
 importar_borrador_landing
+indice_segundo_cerebro
 iniciar_experimento
 inscripciones_lead
 insertar_elemento_dashboard
@@ -425,6 +426,7 @@ reactivar_datos_sin_marcar
 recomendar_formatos_creativo
 reconciliar_plantillas
 recortar_clip_video
+recuperar_del_segundo_cerebro
 reducir_ruido_video
 reembolsar_cobro
 reemplazar_clip_video

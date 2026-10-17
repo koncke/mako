@@ -506,6 +506,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/negocio/productos/generaciones', 'sugerir_productos'],
   ['DELETE', '/negocio/productos/{id}', 'borrar_producto'],
   ['GET', '/negocio/segundo-cerebro/archivos', 'leer_segundo_cerebro_como_archivos'],
+  ['GET', '/negocio/segundo-cerebro/indice', 'indice_segundo_cerebro'],
+  ['GET', '/negocio/segundo-cerebro/recuperar', 'recuperar_del_segundo_cerebro'],
   // ── contenido ─────────────────────────────────────────────────────────────
   ['GET', '/contenido/angulos', 'catalogo_angulos_guion'],
   ['GET', '/contenido/anuncios', 'listar_anuncios_planteados'],

@@ -94,8 +94,11 @@ vault con tope de 60.000 caracteres).
 HTTP con el token del workspace; MaKo la usa como herramienta. Pasar el turno de MaKo a pedir nodos en vez de
 mandar todo es un cambio de `lib/mako-context.ts` y va aparte, con la medición en la mano.
 
-**La medición** se hace con un caso real (el workspace de prueba, el 3; nunca el 1): las mismas preguntas contra el
-contexto entero y contra la recuperación, en caracteres y tokens. El número queda en los hallazgos.
+**La medición** (`scripts/medir-recuperacion.ts`, sólo lectura, nunca el ws 1), 17/10/2026, cinco preguntas de todos los
+días: la vista local promedia **190 tokens en el ws 3 y 118 en el ws 9**, contra **678 y 459** del grafo entero en
+líneas (−72 % y −74 %) y **1.606 y 1.105** del vault (−88 % y −89 %); el índice, ~300 tokens una vez por chat. Los dos
+workspaces son chicos; la vista no crece con el grafo, así que en uno grande el ahorro es mayor. El detalle, en
+`docs/hallazgos-second-brain.md`.
 
 ## Lo que se depreca
 
