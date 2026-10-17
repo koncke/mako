@@ -21,7 +21,7 @@ import { capaDef } from './capas';
 import {
   TOPE_POR_DIA, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
-  ESTADOS, PRIORIDADES, esTipo, mismoTelefono, sanearContexto, telefonoDelActor, TOPES,
+  ESTADOS, PRIORIDADES, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
 } from './tickets-reglas';
 
 const T = 'tickets';
@@ -120,19 +120,25 @@ export async function identidadDe(ws: number, email: string, nombreSesion = ''):
 /**
  * Quién es el que pide por un canal: un email (la app) o `whatsapp:<teléfono>` (el doer de WhatsApp, que no sabe el
  * email). Por WhatsApp se busca en el negocio UNA persona con ese teléfono en su perfil: si la hay, el ticket es suyo y lo
- * ve también en /tickets; si no (o hay dos), queda con el teléfono como identidad. null = el actor no se entiende.
+ * ve también en /tickets; si no (o hay dos), queda con el teléfono como identidad. Sin teléfono (un `@lid` de un grupo),
+ * el doer manda `whatsapp:<pushName>` y queda con ese nombre (`nombreDelActor`). null = el actor no se entiende.
  */
 export async function identidadDelActor(ws: number, actor: string | null | undefined): Promise<Identidad | null> {
-  const a = String(actor ?? '').trim().toLowerCase();
-  if (a.includes('@')) return identidadDe(ws, a);
+  const crudo = String(actor ?? '').trim();
+  const a = crudo.toLowerCase();
+  if (!a.startsWith('whatsapp:')) return a.includes('@') ? identidadDe(ws, a) : null;
+  const plan = async () => { const w = await getWorkspace(ws).catch(() => null); return w ? capaDef((w as { capa?: string | null }).capa ?? null).nombre : null; };
   const tel = telefonoDelActor(a);
-  if (!tel) return null;
-  const { data } = await getSupabaseServer().from('usuarios').select('email, perfil')
-    .eq('workspace_id', ws).neq('estado', 'suspendido').limit(200);
-  const iguales = (data ?? []).filter((u) => mismoTelefono((u.perfil as { telefono?: string } | null)?.telefono, tel));
-  if (iguales.length === 1) return identidadDe(ws, String(iguales[0].email));
-  const w = await getWorkspace(ws).catch(() => null);
-  return { ws, email: `whatsapp:${tel}`, nombre: '', usuarioId: null, rol: 'por WhatsApp', plan: w ? capaDef((w as { capa?: string | null }).capa ?? null).nombre : null };
+  if (tel) {
+    const { data } = await getSupabaseServer().from('usuarios').select('email, perfil')
+      .eq('workspace_id', ws).neq('estado', 'suspendido').limit(200);
+    const iguales = (data ?? []).filter((u) => mismoTelefono((u.perfil as { telefono?: string } | null)?.telefono, tel));
+    if (iguales.length === 1) return identidadDe(ws, String(iguales[0].email));
+    return { ws, email: `whatsapp:${tel}`, nombre: '', usuarioId: null, rol: 'por WhatsApp', plan: await plan() };
+  }
+  const n = nombreDelActor(crudo);
+  if (!n) return null;
+  return { ws, email: n.clave, nombre: n.nombre, usuarioId: null, rol: 'por WhatsApp', plan: await plan() };
 }
 
 // ── El interruptor y el tope del día ──────────────────────────────────────────────────────────────────────────────

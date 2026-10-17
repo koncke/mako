@@ -345,6 +345,19 @@ export const ACTOR_WHATSAPP_RE = /^whatsapp:\+?(\d{8,15})$/;
 export const telefonoDelActor = (actor: string): string | null => ACTOR_WHATSAPP_RE.exec(actor.trim().toLowerCase())?.[1] ?? null;
 
 /**
+ * Cuando WhatsApp no da un teléfono (un `@lid`, el id anónimo de algunos grupos), el doer manda `whatsapp:<pushName>`
+ * (sin «+»: así se distingue). Es lo único que hay: el nombre que la persona puso en su WhatsApp. Devuelve la clave con la
+ * que se guarda (`whatsapp:` + el nombre en minúsculas, sin símbolos) y el nombre tal cual. null = no es ese formato.
+ */
+export function nombreDelActor(actor: string): { clave: string; nombre: string } | null {
+  const m = /^whatsapp:(?!\+?\d+$)(.{1,60})$/.exec(actor.trim());
+  if (!m) return null;
+  const nombre = m[1].replace(/[\u0000-\u001f]/g, '').trim();
+  const slug = nombre.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return slug ? { clave: `whatsapp:${slug}`, nombre } : null;
+}
+
+/**
  * ¿Es el mismo teléfono? Por los últimos 8 dígitos: el JID de WhatsApp y el que cargó la persona difieren en el prefijo
  * (`+54 9 11…` contra `011 15…`, el 9 de Argentina que agrega WhatsApp). Con menos de 8 dígitos no se compara.
  */
@@ -417,6 +430,18 @@ export function errorParaTicket(herramienta: string, out: unknown): ErrorDelTurn
   error = error.trim();
   if (!error || NO_ES_NUESTRO.test(error)) return null;
   return { herramienta: herramienta.slice(0, 80), error: error.slice(0, 1000) };
+}
+
+/**
+ * La propuesta que arma el CÓDIGO cuando algo falló en el turno y el modelo no propuso el ticket: un bug con el pedido
+ * textual de la persona. La usa el doer de WhatsApp (lib/mako-doer-in.ts), que se lo PROPONE a la persona; el chat de la
+ * app ya no: lo registra solo (`registrarError`, lib/errores-app.ts). `tituloOperacion` = el nombre humano de la operación.
+ */
+export function propuestaPorFallo(e: ErrorDelTurno, pedido: string, tituloOperacion: string | null): { tipo: TipoTicket; titulo: string; descripcion: string } {
+  const que = (tituloOperacion || e.herramienta).replace(/\s+/g, ' ').trim();
+  const titulo = `No se pudo: ${que}`.slice(0, TOPES.titulo);
+  const p = pedido.trim().replace(/\s+/g, ' ');
+  return { tipo: 'bug', titulo, descripcion: p ? `Le pedí a MaKo: «${p.slice(0, 600)}», y falló.` : 'MaKo intentó hacerlo y falló.' };
 }
 
 // ── El pedido al Cerebro (lo FIRMA Martín en su dispositivo) ──────────────────────────────────────────────────────

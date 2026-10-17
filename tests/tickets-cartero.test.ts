@@ -15,14 +15,16 @@
 // del servidor · el servidor pidiendo una versión que el cartero no tiene · `hay` contando tickets para un Runner viejo ·
 // el cartero sin validar el número · el aviso mostrado como conversación · el runner exigiendo un email otra vez (esta
 // última pasó la primera vez: el patrón aparecía en las dos operaciones y la rotura tocaba una; ahora se cuentan las dos).
+// Y después (base 6 / 0, `romper-cerebro.mjs`): la PC sin mirar que el destino sea el Cerebro → 5 / 1; un teléfono tomado
+// como nombre de WhatsApp → 5 / 1.
 // =============================================================================
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { VERSION_CARTERO_TICKETS, mensajeTicket, versionAlMenos } from '../lib/tickets-aviso';
-import { mismoTelefono, telefonoDelActor } from '../lib/tickets-reglas';
+import { VERSION_CARTERO_TICKETS, esElCerebro, mensajeTicket, versionAlMenos } from '../lib/tickets-aviso';
+import { mismoTelefono, nombreDelActor, propuestaPorFallo, telefonoDelActor } from '../lib/tickets-reglas';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -36,6 +38,18 @@ test('el texto fijo al Cerebro es el MISMO en el cartero y en el servidor', asyn
   for (const malo of [0, -3, 2.5, Number.NaN, 2e9, '12']) {
     assert.throws(() => cartero.mensajeTicket(malo, '/r'), `el cartero acepta ${String(malo)}`);
   }
+});
+
+test('la PC vuelve a mirar que el destino SEA el Cerebro, igual que el servidor', async () => {
+  // Rota: sacar `if (!esElCerebro(chat.titulo))` del loop del cartero → este test falla (con MaKo comprometida, el
+  // aviso de un bug podría ir a cualquier chat vivo y mandarlo a «arreglar» algo).
+  const cartero = await import('../scripts/operaciones/cartero.mjs');
+  for (const t of ['Cerebro', ' cerébro ', 'CEREBRO', 'Cerebro › Pagos', 'CRM', 'El Cerebro', '']) {
+    assert.equal(cartero.esElCerebro(t), esElCerebro(t), `«${t}» se lee distinto en la PC y en el servidor`);
+  }
+  const c = sinComentarios(leer('scripts/operaciones/cartero.mjs'));
+  const loop = c.slice(c.indexOf('for (const t of salida.tickets ?? [])'));
+  assert.match(loop.slice(0, loop.indexOf('escribirJson')), /if \(!esElCerebro\(chat\.titulo\)\) \{ rechazarId\(id,/);
 });
 
 test('el cartero entiende los tickets: su versión llega a la que pide el servidor', async () => {
@@ -79,6 +93,14 @@ test('por WhatsApp: quién lo pidió es su teléfono, y se le atribuye a la pers
   assert.ok(mismoTelefono('5491123456789', '+54 11 2345-6789'));
   assert.ok(!mismoTelefono('5491123456789', '+54 11 2345-6780'));
   assert.ok(!mismoTelefono('1234567', '1234567'), 'con menos de 8 dígitos no se compara');
+  // Sin teléfono (un `@lid` de un grupo), el doer manda el nombre de WhatsApp: queda con ése.
+  assert.deepEqual(nombreDelActor('whatsapp:Ana Pérez'), { clave: 'whatsapp:ana-perez', nombre: 'Ana Pérez' });
+  assert.equal(nombreDelActor('whatsapp:+5491123456789'), null, 'un teléfono no es un nombre');
+  assert.equal(nombreDelActor('ana@negocio.com'), null);
+  assert.equal(nombreDelActor('whatsapp:!!!'), null);
+  // `propuestaPorFallo` la usa el doer de WhatsApp (lib/mako-doer-in.ts): sacarla rompe su rama al integrar.
+  const p = propuestaPorFallo({ herramienta: 'mover_lead', error: 'boom' }, 'mové a Juan a agendado', 'Mover un lead de etapa');
+  assert.deepEqual([p.tipo, p.titulo], ['bug', 'No se pudo: Mover un lead de etapa']);
   const run = sinComentarios(leer('lib/api-mako/areas/tickets.run.ts'));
   // Las DOS operaciones (levantar_ticket y mis_tickets) resuelven quién es por `identidadDelActor`.
   assert.equal(run.split('const quien = await identidadDelActor(ctx.ws, ctx.actor);').length - 1, 2);

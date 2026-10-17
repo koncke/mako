@@ -843,6 +843,14 @@ export function mensajeAviso(ref, repo) {
 }
 
 /**
+ * ¿Este chat es el Cerebro? Por el título, sin tildes ni mayúsculas: la copia en JS de `esElCerebro` de
+ * lib/tickets-aviso.ts (tests/tickets-cartero.test.ts compara las dos). La PC lo vuelve a mirar ANTES de escribir el
+ * buzón aunque el destino lo haya elegido MaKo: con MaKo comprometida, el aviso de un bug podría ir a cualquier chat
+ * vivo y mandarlo a «arreglar» algo (revisión de Ops Center 3, 17/10/2026).
+ */
+export const esElCerebro = (titulo) => String(titulo ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim() === 'cerebro';
+
+/**
  * El aviso de un BUG DEL TRIAGE al Cerebro (1.15.0, 17/10/2026; la Ticketera de los usuarios). Lo único que viene de MaKo
  * es el NÚMERO del ticket, validado: el texto es fijo y no lleva nada del cliente (lo lee el Cerebro con
  * `scripts/tickets.ts ver`). Es la copia en JS de `mensajeTicket` de lib/tickets-aviso.ts: tests/tickets-cartero.test.ts
@@ -1026,6 +1034,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     if (yaSalio(id)) { rechazarId(id, 'Ya se había entregado: no sale dos veces'); continue; }
     const chat = chats.get(t.destino);
     if (!chat?.vivo || !chat.pipe || chat.esRunner) { rechazarId(id, 'El Cerebro se cerró antes de avisarle'); continue; }
+    if (!esElCerebro(chat.titulo)) { rechazarId(id, 'El destino no es el chat «Cerebro»'); continue; }
     escribirJson(path.join(BUZON, `${id}.json`), {
       id, tipo: 'ticket', reclamado: new Date().toISOString(), clave: null, dir: chat.dir,
       to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensajeTicket(t.numero, repo),
