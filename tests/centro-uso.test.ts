@@ -16,6 +16,18 @@
 //   · la barra sellando siempre la hora de la corrida → 1 fallo; sin comparar el reinicio de la semanal de la app → 1;
 //   · la 5 horas de la terminal viajando siempre con la de la app → 1; el botón sin mirar la edad → 1;
 //   · «Runner activo» con sólo visto_at → 1. Restaurado de memoria: 10 pases.
+//
+// 17/10/2026 (Martín: «Tampoco sale el uso de las otras 2 cuentas, y no sale qué plan tiene, o el uso de 5 horas»): se
+// suman 3 tests (el plan, las cuatro cuentas, el desplegable dibujado con renderToStaticMarkup). Contra la base en verde
+// de 15 pases (este archivo + tests/runner-cuenta-app.test.ts), una rotura por vez:
+//   · `Barra` devolviendo null sin ventana (como antes: la de 5 horas desaparecía) → 1 fallo (el desplegable);
+//   · «Medido hace X» sólo si la medición es vieja, sin mirar si el Runner mide en vivo → 1 fallo (el desplegable);
+//   · sin el chip del plan → 1 fallo (el desplegable); un punto menos en el botón (`slice(0, 3)`) → 1 (el desplegable);
+//   · `cuentasDeUso` devolviendo sólo los carteros → 2 fallos (las cuatro cuentas + el desplegable);
+//   · extras ordenadas por texto en vez de por número (claude10 antes que claude5) → 1 fallo (las cuatro cuentas);
+//   · `sanearCuota` soltando el plan → 1 fallo (el plan); `sanearPlan` sin limpiar los raros → 1 fallo (el plan);
+//   · «Pega su comando en PowerShell» de vuelta en Uso.tsx → 2 fallos (el desplegable + runner-cuenta-app).
+//   Restaurado byte a byte (el script lo comprueba en un finally): 15 pases.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +36,10 @@ import { createServer } from 'node:http';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { cuotaDeBarraDeEstado, estadoRunnerUso, sanearCuota, textoReinicio, usoDeCuenta, usoPrincipal, type Cuota } from '../lib/centro-uso';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { cuentasDeUso, cuotaDeBarraDeEstado, estadoRunnerUso, PLAN_MAX, sanearCuota, sanearPlan, textoReinicio, usoDeCuenta, usoPrincipal, type Cuota } from '../lib/centro-uso';
+import { BotonUso, ListaUso } from '../app/admin/operaciones/Uso';
 
 const RAIZ = join(import.meta.dirname, '..');
 const CARTERO = join(RAIZ, 'scripts/operaciones/cartero.mjs');
@@ -229,6 +244,76 @@ test('la semanal de la app: una de otra cuenta no se usa, y con ella no viaja un
   } finally {
     pc.cerrar();
   }
+});
+
+test('el plan de la cuenta se sanea: texto corto, sin caracteres raros; sin plan, la cuota no trae la clave', () => {
+  assert.equal(sanearPlan('Max 5x'), 'Max 5x');
+  assert.equal(sanearPlan('  max \n  20x\t'), 'max 20x', 'espacios y saltos, a uno');
+  assert.equal(sanearPlan('Máx+'), 'Máx+', 'acentos, «+» y «-» pasan');
+  assert.equal(sanearPlan('Pro\u0000​'), 'Pro', 'caracteres de control o invisibles, afuera');
+  assert.doesNotMatch(sanearPlan('<img src=x onerror=1>') ?? '', /[<>=]/, 'ninguna etiqueta');
+  assert.ok((sanearPlan('x'.repeat(100)) ?? '').length <= PLAN_MAX, 'corto');
+  for (const nada of [5, null, undefined, {}, '', '   ', '***']) assert.equal(sanearPlan(nada), null, JSON.stringify(nada));
+  // En la cuota: viaja saneado, y sin plan (o con uno que no vale) la clave no existe (la PC arma la suya sin ella).
+  assert.equal(sanearCuota({ ...cuota(), plan: ' Max ' })?.plan, 'Max');
+  assert.equal('plan' in (sanearCuota(cuota()) ?? {}), false);
+  assert.equal('plan' in (sanearCuota({ ...cuota(), plan: 5 }) ?? {}), false);
+});
+
+test('las cuatro cuentas salen siempre y en orden, con o sin Runner', () => {
+  // Martín (17/10/2026): «Tampoco sale el uso de las otras 2 cuentas». La lista salía de los carteros: sin Runner, la cuenta no existía.
+  const vacia = cuentasDeUso([]);
+  assert.deepEqual(vacia.map((c) => c.cuenta), ['claude1', 'claude2', 'claude3', 'claude4']);
+  for (const c of vacia) assert.deepEqual({ v: c.vistoAt, q: c.cuota }, { v: null, q: null }, `${c.cuenta} sin Runner`);
+  const visto = '2026-10-16T12:59:30Z';
+  const hay = cuentasDeUso([{ cuenta: 'claude4', vistoAt: visto, cuota: cuota() }, { cuenta: 'claude2', vistoAt: visto }]);
+  assert.deepEqual(hay.map((c) => c.cuenta), ['claude1', 'claude2', 'claude3', 'claude4'], 'en orden aunque lleguen desordenadas');
+  assert.deepEqual(hay[1], { cuenta: 'claude2', vistoAt: visto, cuota: null }, 'sin `cuota` en el Runner: null, no undefined');
+  assert.equal(hay[3].cuota?.semana?.pct, 47);
+  assert.equal(hay[0].vistoAt, null);
+  // Un Runner de una cuenta que el registro no conoce no se pierde: va al final, por número (no por texto).
+  const raras = cuentasDeUso([{ cuenta: 'claude10', vistoAt: visto }, { cuenta: 'claude5', vistoAt: visto }]);
+  assert.deepEqual(raras.map((c) => c.cuenta), ['claude1', 'claude2', 'claude3', 'claude4', 'claude5', 'claude10']);
+  assert.deepEqual(cuentasDeUso([], ['claude9']).map((c) => c.cuenta), ['claude9'], 'la lista de cuentas se puede dar');
+});
+
+/** Lo que se lee de cada cuenta del desplegable, en texto plano (una entrada por cuenta). */
+const tarjetas = (h: string) => h.split('<section').slice(1).map((s) => `<section${s}`.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
+
+test('el desplegable: las cuatro cuentas, su plan, las dos ventanas, «Medido hace X» y ningún comando', () => {
+  const visto = '2026-10-16T12:59:30Z';
+  const cuentas = cuentasDeUso([
+    // 1: Runner de su terminal midiendo, medición de hace 5 minutos, con plan.
+    { cuenta: 'claude1', vistoAt: visto, cuota: cuota({ plan: 'Max' }) },
+    // 2: Runner declarado pero apagado hace 4 horas; la medición, de hace 3 horas.
+    { cuenta: 'claude2', vistoAt: '2026-10-16T09:00:00Z', cuota: cuota({ medido: '2026-10-16T10:00:00Z' }) },
+    // 4: la de la app: otro Runner la recorre pero sólo trae la semanal (sin 5 horas), de hace 5 minutos.
+    { cuenta: 'claude4', vistoAt: visto, cuota: cuota({ cinco: null, plan: 'Max 20x' }) },
+  ]);
+  const h = renderToStaticMarkup(createElement(ListaUso, { cuentas, ahora: AHORA }));
+  const t = tarjetas(h);
+  assert.equal(t.length, 4, 'las cuatro cuentas');
+  assert.deepEqual(t.map((x) => x.slice(0, 8)), ['Cuenta 1', 'Cuenta 2', 'Cuenta 3', 'Cuenta 4'], 'en orden 1-4');
+  // 1: vivo y al día: plan, las dos ventanas con su reinicio, y NADA de «Medido» (está midiendo en vivo).
+  assert.match(t[0], /^Cuenta 1 Max Runner activo Sesión de 5 horas 12% usado Se reinicia a las 14:00 Semana 47% usado Se reinicia el mié 21 a las 06:00$/);
+  // 2: Runner apagado: dice hace cuánto y cuándo se midió, con las dos ventanas.
+  assert.match(t[1], /Runner sin conexión · hace 4 h/);
+  assert.match(t[1], /Sesión de 5 horas 12% usado/);
+  assert.match(t[1], /Semana 47% usado/);
+  assert.match(t[1], /Medido hace 3 h$/);
+  assert.doesNotMatch(t[1], /Max/, 'sin plan en la cuota, no se muestra ninguno');
+  // 3: sin Runner ni cuota: lo dice en pocas palabras, sin botón.
+  assert.equal(t[2], 'Cuenta 3 Sin Runner todavía Su uso aparece cuando su Runner esté conectado');
+  // 4: la ventana de 5 horas NO desaparece: dice «Sin medir». Y como no mide en vivo, lleva «Medido hace 5 min» aunque sea de recién.
+  assert.match(t[3], /^Cuenta 4 Max 20x Sin el Runner de su terminal/);
+  assert.match(t[3], /Sesión de 5 horas Sin medir Semana 47% usado/);
+  assert.match(t[3], /Medido hace 5 min$/);
+  // Ningún comando ni botón de copiar (Martín: «no quiero copiar en PowerShell, que se instale todo solo»).
+  assert.doesNotMatch(h, /PowerShell|<button|Copiar|comando/i);
+  // El botón cerrado: un punto por cuenta (cuatro) y el conteo sobre las cuatro.
+  const boton = renderToStaticMarkup(createElement(BotonUso, { cuentas, ahora: AHORA, onRunners: () => {}, onNuevo: () => {} }));
+  assert.equal((boton.match(/co-punto /g) ?? []).length, 4);
+  assert.match(boton, /title="1 de 4 Runners activos"/);
 });
 
 const leerJson = (f: string) => JSON.parse(readFileSync(f, 'utf8'));

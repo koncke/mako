@@ -19,7 +19,9 @@
 
 import { useId, useState } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { ROTULO_NODO, VISOR_REVISAR, conteoAvance, gruposDelAvance, hrefRevisar, mensajeDeCommit, nombreCuenta, porRevisar, type ChatCentro, type EstadoNodo, type NodoAvance } from '@/lib/centro-chats';
+import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
+import Link from '@/app/_ui/Link';
+import { ROTULO_NODO, conteoAvance, destinoDeReview, gruposDelAvance, mensajeDeCommit, nombreCuenta, porRevisar, type ChatCentro, type EstadoNodo, type NodoAvance } from '@/lib/centro-chats';
 import { ROTULO_TIPO, diaDeNovedad, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
 import { SeccionPlan, usePlanDelChat, type PlanDelChat } from './PlanJefe';
 import { proyectoDelChat } from '@/lib/centro-plan-reglas';
@@ -138,21 +140,39 @@ function ConPlan({ chat, nodos, pushes, ahora }: { chat: string; nodos: readonly
 /** El chat de la barra: su título trae el Plan de su jefe, y su clave y su sesión arman el link «Revisar». */
 type ChatDeBarra = Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'>;
 
-/** Lo que el chat terminó y dejó para mirar, con «Revisar» (la sub-tab «Review»). */
+/**
+ * Las tabs del menú, en el MISMO orden que `nombresDeTabs` (app/admin/operaciones/tabs.ts): el nombre de una tab se repite
+ * entre la barra del cliente y la del super admin, y la del producto va primero (lib/centro-chats.ts → `rutaDeLaTab`).
+ * Se importa `nav.ts` acá y no se trae del servidor: es una tabla pura que el Sidebar ya lleva al navegador (a diferencia
+ * de las áreas de tabs.ts), y así la sub-tab funciona igual en la computadora y en el teléfono sin pasar una prop por
+ * cada pantalla (tests/centro-revisar.test.ts vigila que el orden sea el mismo).
+ */
+const TABS_DEL_MENU = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV];
+
+/**
+ * Todo lo que el chat terminó, con «Revisar» (la sub-tab «Review»). Con página propia, «Revisar» lleva a ella (o al
+ * visor); sin ella, a la tab del jefe del chat (Martín, 17/10/2026); si el jefe no es una tab, la fila va sin botón.
+ */
 function ListaReview({ nodos, chat, ahora }: { nodos: readonly NodoAvance[]; chat?: ChatDeBarra; ahora: number }) {
   if (!nodos.length) return <p className="co-avance__vacio">Nada para revisar todavía.</p>;
   return (
     <ol className="co-review">
       {nodos.map((n) => {
-        const href = chat ? hrefRevisar(n, chat) : n.revisar?.pagina ?? null;
+        const destino = destinoDeReview(n, chat, TABS_DEL_MENU);
+        const aria = `Revisar: ${n.titulo}`;
         return (
           <li key={n.id} className="co-review__fila">
             <span className="co-nodo__rombo" aria-hidden><Rombo estado="hecho" /></span>
             <span className="co-review__titulo" title={n.titulo}>{n.titulo}</span>
             <span className="co-nodo__dia">{diaDeNovedad(n.instante, ahora)}</span>
-            {href && (
-              <a className="co-chip co-review__ir" href={href} {...(VISOR_REVISAR ? {} : { target: '_blank', rel: 'noreferrer' })}
-                aria-label={`Revisar: ${n.titulo}`}>Revisar</a>
+            {/* La tab va con el Link de la casa (se lleva el ?ws=) y en otra pestaña, como la página: «Revisar» no te saca de
+                la conversación. Sólo el visor abre adentro. */}
+            {destino?.via === 'tab' && (
+              <Link className="co-chip co-review__ir" href={destino.href} target="_blank" rel="noreferrer" aria-label={aria}>Revisar</Link>
+            )}
+            {destino && destino.via !== 'tab' && (
+              <a className="co-chip co-review__ir" href={destino.href} {...(destino.via === 'visor' ? {} : { target: '_blank', rel: 'noreferrer' })}
+                aria-label={aria}>Revisar</a>
             )}
           </li>
         );

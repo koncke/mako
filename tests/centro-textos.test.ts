@@ -41,7 +41,7 @@ const visibles = (src: string) => [...cadenas(src), ...textoJsx(src)]
   .filter((t) => t && (/\s/.test(t) || /^[A-ZÁÉÍÓÚ¿¡]/.test(t)) && !t.startsWith('@/') && !/^\.{0,2}\//.test(t));
 
 const PANTALLAS = [
-  'app/admin/operaciones/CentroApp.tsx', 'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
+  'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
   'app/admin/operaciones/PanelRunner.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/mandar.ts',
   'app/admin/operaciones/page.tsx', 'app/admin/operaciones/loading.tsx',
   'app/admin/operaciones/Avance.tsx',
@@ -49,6 +49,8 @@ const PANTALLAS = [
   'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx', 'app/m/operaciones/page.tsx',
   // Desde el 17/10 (tanda 5): el motor y las piezas del Centro que monta el Second Brain.
   'app/admin/operaciones/useCentro.ts', 'app/admin/operaciones/PiezasCentro.tsx', 'app/m/second-brain/SecondBrainCentroM.tsx',
+  // Ops Center (17/10): la pantalla única del super admin y su armado.
+  'app/second-brain/ChatSecondBrain.tsx', 'app/second-brain/pagina.tsx',
 ];
 const PROHIBIDO: Array<[RegExp, string]> = [
   [/\bcarteros?\b/i, 'el cartero se llama Runner en pantalla'],

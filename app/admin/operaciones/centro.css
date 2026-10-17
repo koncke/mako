@@ -876,7 +876,7 @@
   .co-elegir__mosaicos { grid-template-columns: repeat(4, 1fr); }
 }
 
-/* El Uso de las tres cuentas y sus Runners (Uso.tsx): el botón de abajo y su desplegable, copiado de claude.ai →
+/* El Uso de las cuatro cuentas y sus Runners (Uso.tsx): el botón de abajo y su desplegable, copiado de claude.ai →
    Configuración → Uso (el nombre de la ventana, la barra, el «% usado» y cuándo se reinicia). */
 .co-uso { position: relative; }
 .co-uso__principal { margin-left: 2px; font-weight: 700; }
@@ -898,13 +898,30 @@
 .co-uso__cab { margin: 0 2px 8px; font-weight: 600; }
 .co-uso__lista { display: flex; flex-direction: column; gap: 10px; }
 .co-uso__cuenta { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 8px; }
-.co-uso__fila { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.co-uso__fila { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
 .co-uso__titulo { font-weight: 600; font-size: var(--fs-sm); }
+.co-uso__quien { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+/* El plan de la cuenta («Max», «Pro»), al lado de su nombre: sólo sale si la PC lo sabe. */
+.co-uso__plan {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--primary-bg);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary-strong);
+  white-space: nowrap;
+  text-transform: capitalize;
+}
 .co-uso__runner { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--dim); }
 .co-uso__hacer { margin: 0; font-size: var(--fs-meta); color: var(--warn); line-height: 1.35; }
 .co-uso__ventana { display: flex; flex-direction: column; gap: 4px; }
 .co-uso__nombre { font-size: var(--fs-sm); }
 .co-uso__pct { font-size: var(--fs-sm); color: var(--dim); }
+.co-uso__pct--sin { color: var(--faint); }
 .co-uso__barra { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .co-uso__lleno { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
 .co-uso__lleno--ojo { background: var(--warn); }

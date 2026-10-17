@@ -678,12 +678,52 @@ const paraRevisar = (pagina: unknown, sesion: string | null): NodoAvance['revisa
 
 // ── «Review» (Martín, 16/10/2026, punto 6): lo que el chat implementó y hay que ir a revisar ─────────────────
 // «que graficamente me diga que tengo que ir a revisar de las cosas que ha implementado, si puede dejarme el link...».
-// Un nodo va a Review cuando está TERMINADO y dejó una página. El visor es de «Centro de Operaciones › Review»; el
-// contrato (qué recibe y adónde vuelve la devolución) está en docs/relevo/centro-operaciones.md.
+// El visor es de «Centro de Operaciones › Review»; el contrato (qué recibe y adónde vuelve la devolución) está en
+// docs/relevo/centro-operaciones.md.
+//
+// ⚠️ UN NODO VA A REVIEW CUANDO ESTÁ TERMINADO, DEJE O NO UNA PÁGINA (Martín, 17/10/2026, mirando producción: «Se
+// terminaron y pushearon cosas y no las puedo ver en Review, me dice "Nada para revisar todavía"»). Hasta el 16/10 la
+// regla era «terminado Y con `revisar`», y como el `revisar` sólo lo deja un chat que lo escribe en su cierre o en su
+// bitácora (casi ninguno lo hacía), la sub-tab quedaba vacía con el trabajo ya en producción. Sin página propia, el link
+// es la TAB de su área (`rutaDeLaTab`): la del jefe del chat; un chat «Sin asignar» no tiene tab y la fila va sin botón.
 
-/** Lo terminado que dejó algo para mirar, lo más nuevo arriba. */
+/** Todo lo terminado, deje o no una página para mirar, lo más nuevo arriba. */
 export const porRevisar = (nodos: readonly NodoAvance[]): NodoAvance[] =>
-  nodos.filter((n) => n.estado === 'hecho' && n.revisar).sort((a, b) => b.instante - a.instante);
+  nodos.filter((n) => n.estado === 'hecho').sort((a, b) => b.instante - a.instante);
+
+/**
+ * La ruta de la tab que se llama como el jefe de un chat («CRM» para «CRM › Lead Detail», ver `partesDelNombre`):
+ * la del primer ítem de `items` con ese nombre, sin mayúsculas ni tildes (la misma comparación que `seccionesDeChats`).
+ * null = el jefe no es una tab.
+ * ⚠️ El ORDEN de `items` manda, porque un nombre se repite: «CRM» es `/crm` en la barra del cliente y `/admin/dev/crm`
+ * en la del super admin. La tab del producto va primero (`[...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV]`, como
+ * `nombresDeTabs`); con el orden al revés, Review mandaría a la ficha de desarrollo en vez de a la pantalla.
+ */
+export function rutaDeLaTab(jefe: string, items: ReadonlyArray<{ label: string; href: string }>): string | null {
+  const k = normal(jefe);
+  if (!k) return null;
+  const it = items.find((i) => normal(i.label) === k);
+  // Sólo una ruta interna: un href que no empieza con «/» (o es «//host») no es una tab de MaKo.
+  return it && it.href.startsWith('/') && !it.href.startsWith('//') ? it.href : null;
+}
+
+/** Adónde lleva el «Revisar» de una fila de Review: al visor, a su página, o a la tab del jefe (`via`). */
+export type DestinoReview = { href: string; via: 'visor' | 'pagina' | 'tab' };
+
+/**
+ * El destino de una fila de Review. Con página propia (`revisar`): igual que siempre (`hrefRevisar`). Sin ella: la tab
+ * del jefe del chat. null = no hay a dónde llevarlo (sin página y el jefe no es una tab, o no se sabe el chat): la fila se
+ * ve igual, sin botón.
+ */
+export function destinoDeReview(
+  n: Pick<NodoAvance, 'id' | 'revisar'>, chat: Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'> | undefined,
+  items: ReadonlyArray<{ label: string; href: string }>,
+): DestinoReview | null {
+  const propio = chat ? hrefRevisar(n, chat) : n.revisar?.pagina ?? null;
+  if (propio) return { href: propio, via: chat && VISOR_REVISAR ? 'visor' : 'pagina' };
+  const tab = chat ? rutaDeLaTab(partesDelNombre(chat.titulo).jefe, items) : null;
+  return tab ? { href: tab, via: 'tab' } : null;
+}
 
 export const RUTA_REVISAR = '/admin/operaciones/revisar';
 /**

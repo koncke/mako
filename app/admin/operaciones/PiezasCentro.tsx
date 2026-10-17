@@ -5,8 +5,18 @@
 // =============================================================================
 // La tanda 5 de docs/diseno-mako-ai-native.md: el Centro es un ADAPTADOR. Lo que dibuja una fila de la barra, la lista
 // con el Cerebro y los jefes, la conversación con su caja y el «⋯» de cada chat se sacaron de CentroApp.tsx (sin
-// cambiarles nada) para que /second-brain monte los MISMOS, sobre el mismo motor (useCentro.ts). Dónde se copió cada
-// cosa sigue en el encabezado de CentroApp.tsx.
+// cambiarles nada) para que /second-brain monte los MISMOS, sobre el mismo motor (useCentro.ts).
+//
+// DESDE EL 17/10 HAY UNA SOLA PANTALLA, «OPS CENTER» (Martín: «El Second Brain y el Centro deberían ser exactamente lo
+// mismo en SuperAdmin»): app/second-brain/ChatSecondBrain.tsx monta estas piezas en /second-brain y en
+// /admin/operaciones, y CentroApp.tsx se borró. Lo que se copió de dónde (capturas miradas el 15/10; la lista entera, en
+// docs/hallazgos-operaciones.md):
+//   · Grok Bot (xAI) — cada chat es un «empleado» con su muñeco, y el que espera algo lo muestra con su globito;
+//   · Claude Code web y Claude web — la barra: accesos con ícono arriba, filas de una línea, lo de la cuenta abajo;
+//   · Codex (escritorio) — «Mostrar más» y la hora a la derecha;
+//   · los hilos de Discord — el sub-chat «CRM › Lead Detail» debajo de su jefe, corrido a la derecha;
+//   · ChatGPT y Claude — el «⋯» de cada fila con Renombrar y Cambiar su muñeco;
+//   · claude.ai → Configuración → Uso — el desplegable «Uso» (Uso.tsx).
 
 import { useMemo, useState } from 'react';
 import { Button, Field, Input, Modal } from '@/app/_ui';
@@ -20,8 +30,14 @@ export { buscarChats } from '@/lib/centro-chats';
 import { elegidoPara } from '@/lib/centro-munecos';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
+import { comandoNuevoChat, tieneTerminal } from '@/lib/runner';
+import { nombreValido } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
+import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
+import { BotonUso } from './Uso';
+import { cuentasDeUso } from '@/lib/centro-uso';
+import { MunecoNuevo, NuevoChat, type BorradorNuevoChat } from './NuevoChat';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import type { Centro } from './useCentro';
@@ -183,6 +199,46 @@ export function MenusCentro({ centro: k }: { centro: Centro }) {
             <Button loading={eligiendo.guardando} onClick={() => void k.guardarElegido(eligiendo.aspecto)}>Guardar muñeco</Button>
           </>}>
           <ElegirMuneco titulo={deMuneco.titulo} animo={animoDe(deMuneco)} aspecto={eligiendo.aspecto} onCambio={(a) => k.setEligiendo({ ...eligiendo, aspecto: a })} />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/** Abajo de la barra: el Uso de las cuentas y sus Runners, en un desplegable siempre a la vista (Uso.tsx), con la lista
+ *  y el alta de Runners en un modal de alto fijo (AGENTS.md → «Una caja cuyo alto es un TOPE»). */
+export function PieCentro({ centro: k }: { centro: Centro }) {
+  const [runner, setRunner] = useState<VistaRunner | null>(null);
+  return (
+    <>
+      <div className="co-barra__abajo">
+        {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
+        <BotonUso cuentas={cuentasDeUso(k.carteros)} ahora={k.ahora} onRunners={() => setRunner('lista')} onNuevo={() => setRunner('nuevo')} />
+      </div>
+      {runner && (
+        <Modal titulo={<TituloRunner vista={runner} onVista={setRunner} />} onCerrar={() => setRunner(null)} ancho={640} alto="min(600px, 90dvh)">
+          <PanelRunner vista={runner} onVista={setRunner} estado={k.estado} clave={k.firma.clave} ahora={k.ahora} onCrearClave={() => void k.crearClave()} onCopiar={k.copiarConAviso} />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/** «Nuevo chat» de Claude Code, arriba de sus chats, con un muñeco gris de lugar vacío (NuevoChat.tsx). Arranca en la
+ *  cuenta del chat abierto si tiene terminal; si no, en la 1. */
+export function NuevoChatCentro({ centro: k, cuentaDelAbierto }: { centro: Centro; cuentaDelAbierto: string | null }) {
+  const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
+  return (
+    <>
+      <button type="button" className="co-fila co-fila--nuevo"
+        onClick={() => setNuevo({ nombre: '', cuenta: cuentaDelAbierto && tieneTerminal(cuentaDelAbierto) ? cuentaDelAbierto : 'claude1' })}>
+        <MunecoNuevo />
+        <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
+      </button>
+      {nuevo && (
+        <Modal titulo="Nuevo chat" onCerrar={() => setNuevo(null)} ancho={520}
+          pie={<Button disabled={!nombreValido(nuevo.nombre.trim()).ok} onClick={() => { void k.copiarConAviso(comandoNuevoChat(nuevo.cuenta, nuevo.nombre), 'Copiado: pégalo en PowerShell'); setNuevo(null); }}>Copiar comando</Button>}>
+          <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={k.copiarConAviso} />
         </Modal>
       )}
     </>

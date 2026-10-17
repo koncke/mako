@@ -15,11 +15,29 @@
 // «se reinició»), y una medición de hace más de 30 minutos lleva su edad.
 // ⚠️ SIN `server-only`: lo usan el servidor (al guardar) y la pantalla (al dibujar).
 
+import { CUENTAS } from '../app/admin/dev/_registro/tipos';
+
 export type Ventana = { pct: number; reinicia: string | null };
-/** La cuota de una cuenta como la sube su Runner. */
-export type Cuota = { cinco: Ventana | null; semana: Ventana | null; medido: string };
+/**
+ * La cuota de una cuenta como la sube su Runner. `plan` («Max», «Pro»): lo que la PC sepa del plan de la cuenta (17/10/2026,
+ * Martín: «no sale qué plan tiene»). ⚠️ Sin `plan` la clave NO existe (no `plan: null`): la PC (cartero.mjs) arma la cuota
+ * sin esa clave y tests/centro-uso.test.ts compara las dos lecturas con deepEqual. Se lee siempre con `cuota.plan ?? null`.
+ */
+export type Cuota = { cinco: Ventana | null; semana: Ventana | null; medido: string; plan?: string | null };
 
 const ISO = (v: unknown): string | null => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : null);
+
+/** Lo más largo que mide el plan en pantalla («Max 20x», «Enterprise»). */
+export const PLAN_MAX = 24;
+/**
+ * El plan que sube una PC, saneado: texto corto con letras, números, espacio, punto, «+» y «-» (nada de etiquetas ni
+ * símbolos raros: se dibuja en un chip). null = no vino o quedó vacío.
+ */
+export function sanearPlan(x: unknown): string | null {
+  if (typeof x !== 'string') return null;
+  const t = x.normalize('NFC').replace(/[^\p{L}\p{N} .+-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, PLAN_MAX).trim();
+  return t || null;
+}
 
 function ventana(x: unknown): Ventana | null {
   if (!x || typeof x !== 'object') return null;
@@ -37,7 +55,8 @@ export function sanearCuota(x: unknown): Cuota | null {
   const cinco = ventana(o.cinco);
   const semana = ventana(o.semana);
   if (!medido || (!cinco && !semana)) return null;
-  return { cinco, semana, medido };
+  const plan = sanearPlan(o.plan);
+  return plan ? { cinco, semana, medido, plan } : { cinco, semana, medido };
 }
 
 /** Una medición de hace más que esto lleva su edad al lado. */
@@ -79,6 +98,27 @@ export function usoPrincipal(cuotas: readonly { cuenta: string; cuota: Cuota | n
     if (!u.viejo) { if (!fresco || pct > fresco.pct) fresco = este; } else if (!viejo || pct > viejo.pct) viejo = este;
   }
   return fresco ?? viejo;
+}
+
+/** Una cuenta en el desplegable del Uso: su Runner (visto_at) y su cuota; sin Runner, `vistoAt: null, cuota: null`. */
+export type CuentaDeUso = { cuenta: string; vistoAt: string | null; cuota: Cuota | null };
+
+/**
+ * LAS CUATRO CUENTAS, SIEMPRE, en orden (17/10/2026, Martín: «Tampoco sale el uso de las otras 2 cuentas»). La lista del
+ * Uso salía de los carteros, o sea de las cuentas con un Runner declarado: una cuenta sin Runner no aparecía, y parecía
+ * que no existía. Ahora se parte del registro de cuentas (app/admin/dev/_registro/tipos.ts → CUENTAS) y a cada una se le
+ * pone su Runner si lo tiene; la que no, queda `vistoAt: null, cuota: null` («Sin Runner todavía»). Un Runner de una
+ * cuenta que el registro no conoce no se pierde: va al final, por número.
+ * `cuentas` por parámetro para que el test no dependa del registro.
+ */
+export function cuentasDeUso(
+  carteros: readonly { cuenta: string; vistoAt: string | null; cuota?: Cuota | null }[],
+  cuentas: readonly string[] = Object.keys(CUENTAS),
+): CuentaDeUso[] {
+  const porCuenta = new Map(carteros.map((k) => [k.cuenta, { cuenta: k.cuenta, vistoAt: k.vistoAt ?? null, cuota: k.cuota ?? null }] as const));
+  const conocidas = new Set(cuentas);
+  const extra = [...porCuenta.keys()].filter((c) => !conocidas.has(c)).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+  return [...cuentas, ...extra].map((c) => porCuenta.get(c) ?? { cuenta: c, vistoAt: null, cuota: null });
 }
 
 /**
