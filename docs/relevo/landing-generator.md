@@ -14,7 +14,7 @@ más tocado; «Ver el tráfico →»). Detalle: docs/hallazgos-editor-landing.md
 (pausar, scrollear con el recorrido abierto), una landing de afuera ya analizada (tiene que traer sus comentarios), y
 «Dominios» con una raíz recién conectada (el www recién aparece al verificar).
 
-**Lo que sigue, con su archivo:**
+**Lo que sigue, con su archivo** — todo **para después del 20/10** (corte de consumo del Cerebro, 17/10):
 1. **El aviso al negocio de un pago rechazado o una pasarela caída** (decidido el 14/10, `landing-aviso-rechazo`). No
    se hizo por no pisar al chat Automations, que reescribía el motor de avisos ese día. El plan, copiando
    `pago_recibido`: un evento de MaKo `pago_fallido` en `EVENTOS_MAKO` (lib/disparadores.ts, `trae: ['lead', 'pago']`),
