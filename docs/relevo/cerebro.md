@@ -377,3 +377,5 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - el chequeo liviano es guardas + los tests cambiados + frontera, link-con-workspace y puente-panel-copy.
 
 - **13:45 UTC, en wt-push-q para la tanda que sigue al 106:** #880 reaplicada (revert del revert + 33c94ee2d con el test del teléfono), Automations ab756dca0 (VERDE), Ops Center 3 857b80c98 (merge + relevo), Onboarding ea513a3aa (docs) y Offer c17ee4835 (VERDE: #888 #865 #887 #895; el choque de imports de Conclusion.tsx quedó con los dos lados). Chequeo liviano + push apenas termine el 106.
+
+- **14:30 UTC:** el run 107 cayó en Tipos (app/onboarding/arranque-ui.ts sin `guardadaEn`, que Offer #895 hizo obligatorio). Arreglado en 0d2ebd214, que ya está subido y lleva TODO: Offer, Automations, #880, Dashboard, Plan, MaKo en WhatsApp (aviso de arreglo y ticket desde el grupo) e Infra `--rapido`. Esperan: Sidebar `sidebar-email` (mig 0312) y Ticketera punta 2. El aviso a Joan lo tiene que aprobar Martín en el chat de MaKo en WhatsApp, porque el clasificador lo frenó. Falta abrir el Ops Center 4.
