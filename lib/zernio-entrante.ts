@@ -221,7 +221,7 @@ async function crearLeadDe(e: EventoSocial, filaId: number): Promise<number | nu
       // llamada: no tiene charla ni historial, y `createLead` no dispara nada— y el anuncio y la entrada pasan al que
       // ganó, sólo si no los tiene (compare-and-set: no se pisa lo que ya dijo el otro mensaje).
       await quitarHuerfano(lead.id, ganador, e.anuncioId ?? null, entrada);
-      console.warn(`[zernio-entrante] la persona ${e.participanteId} ya tenía lead (${ganador}): el ${lead.id} se quitó`);
+      console.warn(`[zernio-entrante] la persona ${e.participanteId} ya tenía lead (${ganador}): el ${lead.id} quedó sin unir y se quitó`);
       return ganador;
     }
     // Sólo el lead que QUEDÓ unido: el que perdió el compare-and-set no es el de esta persona.

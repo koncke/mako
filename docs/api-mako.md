@@ -4593,10 +4593,11 @@ curl -L \
   "https://hola-mako.com/api/v1/ads/anuncios/AD_ID"
 ```
 
-### `POST /api/v1/ads/proponer_editar_publico_conjunto` — Editar el público de un conjunto
+### `PATCH /api/v1/ads/conjuntos/{adsetId}/segmentacion` — Editar el público de un conjunto
 
 PROPONE cambiar a quién le llega un conjunto que ya corre: género, edades, públicos personalizados, ubicaciones (Facebook, Instagram…), Advantage+ y agregar un punto del mapa con un radio (un pin). Lo que no se manda NO se toca: intereses, idiomas, exclusiones y los lugares que ya tenía se conservan (MaKo lee el público de Meta y cambia sólo lo pedido). Cambiar el público manda el conjunto a revisión y reinicia su aprendizaje. Se confirma en una pantalla. Antes: ver_publico_conjunto_meta.
 
+- **Ruta por operación:** `POST /api/v1/ads/proponer_editar_publico_conjunto`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
@@ -4623,7 +4624,12 @@ PROPONE cambiar a quién le llega un conjunto que ya corre: género, edades, pú
 | `pinRadioKm` | number | no | radio alrededor del punto, en km (default 5). |
 
 ```bash
-
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/conjuntos/ADSET_ID/segmentacion"
 ```
 
 ### `POST /api/v1/ads/publicos` — Crear un público de retargeting

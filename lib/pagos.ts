@@ -483,6 +483,25 @@ async function quitarSiNacioCobrada(pagoId: number, fila: { lead_id: number; cob
   return cambios.borrar.some((b) => b.id === pagoId);
 }
 
+/**
+ * ¿Un link de esta cuota ya se COBRÓ y todavía no se asentó? Si sí, lo asienta por el camino de la pasarela y
+ * devuelve cuál (la cuota ya está cobrada con ESE pago: no se marca a mano). La regla vive en
+ * `asentarLinkPagadoDeCuota` (lib/cobros.ts). Si no se pudo mirar (sin workspace, la base no contestó), null: la marca
+ * a mano sigue como siempre, porque trabarla es peor (docs/hallazgos-pagos.md §4).
+ */
+async function linkYaPagado(pagoId: number): Promise<Pasarela | null> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return null;
+    const { asentarLinkPagadoDeCuota } = await import('./cobros');
+    const r = await asentarLinkPagadoDeCuota(ws, pagoId);
+    return r.asentado ? r.pasarela : null;
+  } catch (e) {
+    console.error(`[pagos] no pude mirar los links de la cuota ${pagoId} antes de marcarla:`, e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
 export async function marcarPago(
   pagoId: number,
   pagado: boolean,
@@ -540,25 +559,6 @@ export async function marcarPago(
     await anularLinksAlCobrar(pagoId, pago.cobro_id ?? null);
   }
   return { quitada, porLink: null };
-}
-
-/**
- * ¿Un link de esta cuota ya se COBRÓ y todavía no se asentó? Si sí, lo asienta por el camino de la pasarela y
- * devuelve cuál (la cuota ya está cobrada con ESE pago: no se marca a mano). La regla vive en
- * `asentarLinkPagadoDeCuota` (lib/cobros.ts). Si no se pudo mirar (sin workspace, la base no contestó), null: la marca
- * a mano sigue como siempre, porque trabarla es peor (docs/hallazgos-pagos.md §4).
- */
-async function linkYaPagado(pagoId: number): Promise<Pasarela | null> {
-  try {
-    const ws = await getWorkspaceActual();
-    if (ws == null) return null;
-    const { asentarLinkPagadoDeCuota } = await import('./cobros');
-    const r = await asentarLinkPagadoDeCuota(ws, pagoId);
-    return r.asentado ? r.pasarela : null;
-  } catch (e) {
-    console.error(`[pagos] no pude mirar los links de la cuota ${pagoId} antes de marcarla:`, e instanceof Error ? e.message : String(e));
-    return null;
-  }
 }
 
 /**

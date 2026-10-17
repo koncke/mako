@@ -578,13 +578,13 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
 
     // 5. La plataforma: el alta automática de MaKo (decisión de Martín, 11/10/2026).
     await altaSiCorresponde(actual);
-    // 5a. El negocio que se había PAUSADO por falta de pago y acaba de pagar su plan vuelve a entrar en el acto, sin
+    // 5b. La plataforma: el primer mes de un CLIENTE DE AGENCIA lo habilita solo (#866, 17/10/2026). No tira.
+    if (!renovacion) await habilitarClienteDeAgencia(actual);
+    // 5c. El negocio que se había PAUSADO por falta de pago y acaba de pagar su plan vuelve a entrar en el acto, sin
     //     esperar al cron (lib/plan-acceso.ts, 17/10/2026). Best effort: el cron lo vuelve a mirar en media hora.
     if (actual.alta_ws != null) {
       await revisarAccesosPorPago({ soloWs: actual.alta_ws }).catch((e) => console.warn(`[cobros] no pude revisar el acceso del negocio ${actual.alta_ws}:`, e instanceof Error ? e.message : String(e)));
     }
-    // 5b. La plataforma: el primer mes de un CLIENTE DE AGENCIA lo habilita solo (#866, 17/10/2026). No tira.
-    if (!renovacion) await habilitarClienteDeAgencia(actual);
 
     // 6. Automations, DESPUÉS del CRM (con `fecha_primer_pago` ya escrita, el WhatsApp al lead sale solo y no
     //    como borrador, y la condición «Pagó» da bien): el aviso «Entró un pago» al grupo del equipo (un Evento

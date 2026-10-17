@@ -94,7 +94,7 @@ Queda un ajuste chico: marcar a mano una cuota cuyo link ya se pagó pero no se 
 | Si `rk_` lee `GET /v1/account`; si la `notification_url` de MP llega firmada; si MP respeta el vencimiento de una preferencia anulada; `coverage_applied` de un contracargo de MP; el estado de una suscripción de MP al llegar su `end_date`; **que MP acepte `start_date` y no cobre al autorizar**; un pago de punta a punta | las claves de PRUEBA de Martín | `lib/cobros-conexion.ts`, `lib/mercadopago-api.ts`, `app/api/webhooks/mercadopago/route.ts` |
 | Vender planes de MaKo a México | Martín, Ticketera `cobrar-mako-en-mexico`. Con la A, se integra `pagos-mexico-guarda` (a075e1ae5) | `lib/cobros.ts` (`crearCobro`), `lib/cobros-reglas.ts` |
 | La garantía del programa grupal | Martín, Ticketera `garantia-grupal` | `app/reembolsos/page.tsx` |
-| Cortar el acceso a quien no paga (un plan dado de baja, una renovación de agencia sin autorizar) | no existe el estado de suscripción por workspace | docs/hallazgos-planes-y-cobro.md, «Lo que quedó SIN hacer» |
+| ~~Cortar el acceso a quien no paga~~ **Hecho el 17/10/2026 (B4)**: el cron de la pasarela pausa y reabre (lib/plan-acceso.ts) | — | docs/hallazgos-planes-y-cobro.md, «Quien deja de pagar deja de entrar» |
 
 ## Para que Martín lo use
 
