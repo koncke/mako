@@ -8,7 +8,7 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
-import { guardarFotosDelWorkspace, type ResultadoFotos } from '@/lib/fotos-contacto';
+import { guardarFotosDelWorkspace, renombrarFotosAdivinables, type ResultadoFotos, type ResultadoRenombre } from '@/lib/fotos-contacto';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -21,12 +21,26 @@ export async function GET(req: NextRequest) {
   const denied = checkCronAuth(req);
   if (denied) return denied;
 
-  let workspaces;
+  let todos;
   try {
-    workspaces = (await listarWorkspaces()).filter((w) => w.estado === 'activo');
+    todos = await listarWorkspaces();
   } catch (e) {
     console.error('[cron:fotos-contacto] listarWorkspaces falló:', e);
     return Response.json({ ok: false, error: 'no se pudo listar workspaces' }, { status: 500 });
+  }
+
+  const workspaces = todos.filter((w) => w.estado === 'activo');
+
+  // Primero, las copias con nombre ADIVINABLE (lib/fotos-contacto-ruta.ts), en TODOS los negocios:
+  // en uno pausado la foto está igual de a la vista. Cuando no queda ninguna, son lecturas vacías.
+  const renombres: Array<{ ws: number } & ResultadoRenombre> = [];
+  for (const w of todos) {
+    try {
+      const r = await renombrarFotosAdivinables(w.id);
+      if (r.viejas || r.fallaron || r.errores.length) renombres.push({ ws: w.id, ...r });
+    } catch (e) {
+      renombres.push({ ws: w.id, viejas: 0, renombradas: 0, fallaron: 1, errores: [e instanceof Error ? e.message : String(e)] });
+    }
   }
 
   const porWs: Array<{ ws: number } & ResultadoFotos> = [];
@@ -40,6 +54,6 @@ export async function GET(req: NextRequest) {
       errores.push({ ws: w.id, error: e instanceof Error ? e.message : String(e) });
     }
   }
-  console.log(`[cron:fotos-contacto] ${JSON.stringify({ porWs: porWs.map(({ errores: _e, ...x }) => x), errores })}`);
-  return Response.json({ ok: true, porWs, errores });
+  console.log(`[cron:fotos-contacto] ${JSON.stringify({ renombres, porWs: porWs.map(({ errores: _e, ...x }) => x), errores })}`);
+  return Response.json({ ok: true, renombres, porWs, errores });
 }
