@@ -31,6 +31,7 @@ import {
   getVideosLanding, getVideosOcultos, videosDetectados,
 } from '@/lib/landing-token';
 import { analizarLanding as detectarPiezas, estadoVideo, hostDePieza } from '@/lib/landing-analisis';
+import { fetchSeguro } from '@/lib/fetch-seguro';
 import { loQueSabemos } from '@/lib/landing-vigilancia';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { replayDePrueba, replayDeLead } from '@/lib/replay-leer';
@@ -306,7 +307,7 @@ export const RUNNERS: Runners = {
       // de lib/landing-analisis, fuera de esta área).
       const destino = await validarDestino(l.url);
       if (!destino.ok) return errorLectura(`No salgo a leer ${l.url}: ${destino.error}`);
-      const [a, token] = await Promise.all([detectarPiezas(l.url), tokenPixelExistente()]);
+      const [a, token] = await Promise.all([detectarPiezas(l.url, fetchSeguro), tokenPixelExistente()]);
       if (!a.ok || a.error) {
         return json({ url: l.url, leida: false, error: a.error, nota: 'No se pudo leer la página: esto es «no sé», no «no tiene nada». Reintenta más tarde.' });
       }
