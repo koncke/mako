@@ -15,9 +15,9 @@ import { ErrorM, FilaM, ListaM, PildoraM, SeccionM, SheetM, SkeletonFilas, Vacio
 
 const RUTA = '/api/admin/modelos';
 
-export function ModelosIAM({ leido }: { leido: number }) {
+export function ModelosIAM({ iniciales }: { iniciales: Item[] | null }) {
   const toast = useToastM();
-  const [items, setItems] = useState<Item[] | null>(null);
+  const [items, setItems] = useState<Item[] | null>(iniciales);
   const [error, setError] = useState<string | null>(null);
   const [abierta, setAbierta] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -32,8 +32,11 @@ export function ModelosIAM({ leido }: { leido: number }) {
       setError('No se pudieron leer los modelos. Revisa tu conexión.');
     }
   }, []);
-  // `leido` cambia con cada pasada del server (tirar hacia abajo): se vuelve a pedir.
-  useEffect(() => { void cargar(); }, [cargar, leido]);
+  // ⚠️ ABRE CON LO QUE LEYÓ EL SERVER (17/10/2026, «que el teléfono ande más rápido»): sin esto la pantalla pintaba un
+  // esqueleto y recién después pedía la lista (otra ida y vuelta, 0,3-0,8 s medidos a 390 px). La página la monta con
+  // `key` nuevo en cada pasada del server, así que tirar hacia abajo trae lo nuevo. Si la lectura del server falló
+  // (`null`), se pide como en la computadora.
+  useEffect(() => { if (iniciales == null) void cargar(); }, [cargar, iniciales]);
 
   /** Guarda un modelo (o vuelve al default con `null`), igual que `guardar` de ModelosIA.tsx. */
   const guardar = async (feature: string, ref: Ref | null) => {

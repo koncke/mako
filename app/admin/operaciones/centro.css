@@ -129,8 +129,9 @@
 .co-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-fila[aria-current='true'] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(18, 21, 27, .04); }
 .co-fila { align-items: center; gap: 12px; }
-/* El Cerebro (el orquestador) va aparte, arriba de los jefes: no es uno más. */
-.co-cuenta--cerebro { padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+/* El Cerebro va arriba de los jefes, en la MISMA lista (17/10/2026, Martín: «"Chats" - "Cerebro" y "Nuevo chat" no deben
+   estar separados... Todos juntos»): sin filete ni hueco; lo distingue su criatura, la estrella de MaKo. */
+.co-cuenta--cerebro + .co-cuenta { margin-top: 0; }
 
 /* «Nuevo chat»: el primer renglón, con el muñeco de un lugar vacío (gris y transparente). */
 .co-fila--nuevo { margin-bottom: 4px; color: var(--dim); }
@@ -1095,3 +1096,105 @@ a.co-link:hover { color: var(--primary-strong); }
 }
 .co-caja__link:hover { text-decoration: underline; }
 .co-caja__link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): deslizar a la derecha responde, mantener apretado o el
+   clic derecho abren el menú, la cita se toca, los fijados van arriba. Copiado de WhatsApp en el iPhone y de WhatsApp Web. ── */
+.co-wa { position: relative; touch-action: pan-y; }
+.co-el-wa { align-self: stretch; display: flex; flex-direction: column; }
+/* La flechita de responder asoma por la izquierda mientras la burbuja sigue al dedo. */
+.co-wa__resp {
+  position: absolute; left: -34px; top: 50%; width: 28px; height: 28px; margin-top: -14px;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--surface-2); color: var(--dim); opacity: var(--co-wa-resp, 0); pointer-events: none;
+}
+.co-wa__resp svg { transform: rotate(-90deg); }
+/* La flechita de opciones de WhatsApp Web: aparece al pasar por encima; en un teléfono no está (se mantiene apretado). */
+.co-wa__mas {
+  position: absolute; top: 2px; right: 2px; z-index: 2; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; background: var(--surface); color: var(--dim);
+  box-shadow: 0 1px 3px rgba(18, 21, 27, .14); opacity: 0; cursor: pointer; transition: opacity .12s ease;
+}
+.co-wa__mas:focus-visible { opacity: 1; outline: none; box-shadow: var(--focus-ring); }
+@media (hover: hover) { .co-wa:hover > .co-wa__mas { opacity: 1; } }
+@media (hover: none) { .co-wa__mas { display: none; } }
+/* En el teléfono la burbuja no se selecciona: mantener apretado es el menú (se copia desde ahí, como en WhatsApp). */
+@media (pointer: coarse) { .co-wa { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } }
+.co-wa__marcas { display: inline-flex; align-items: center; gap: 2px; margin-right: 4px; color: var(--faint); vertical-align: -1px; }
+.co-wa__reaccion {
+  position: relative; z-index: 1; align-self: flex-end; margin: -10px 10px 0 0; padding: 0 6px; height: 24px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font: inherit; font-size: 14px; line-height: 22px;
+  box-shadow: 0 1px 2px rgba(18, 21, 27, .08); cursor: pointer;
+}
+.co-el__cuerpo > .co-wa__reaccion { align-self: flex-start; margin: 0; }
+.co-wa__emoji { font-size: 20px; line-height: 1; padding: 3px; border-radius: 50%; }
+.co-wa__emoji[data-actual] { background: var(--primary-bg); }
+/* Ir a un mensaje (su cita, un fijado): se marca un momento. */
+.co-wa--visto .co-burbuja, .co-wa--visto .co-el__cuerpo { animation: co-visto 1.6s ease; }
+@media (prefers-reduced-motion: reduce) { .co-wa--visto .co-burbuja, .co-wa--visto .co-el__cuerpo { animation: none; } }
+/* La cita: la barra de color a la izquierda, quién en negrita y un renglón (WhatsApp). */
+.co-cita {
+  display: flex; flex-direction: column; gap: 1px; width: 100%; min-width: 0; margin: 0 0 6px; padding: 5px 8px;
+  border: 0; border-left: 3px solid var(--primary); border-radius: 6px; background: var(--velo-hover);
+  font: inherit; font-size: var(--fs-meta); line-height: 1.35; color: var(--dim); text-align: left; white-space: normal;
+}
+.co-cita--ir { cursor: pointer; }
+.co-cita--ir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-cita__de { font-weight: 600; color: var(--primary-strong); }
+.co-cita__texto { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-reenviado { display: block; margin-bottom: 2px; font-size: var(--fs-meta); font-style: italic; color: var(--faint); }
+.co-cita-caja { display: flex; align-items: center; gap: 6px; padding: 0 0 6px; }
+.co-cita-caja .co-cita { margin: 0; flex: 1; }
+.co-cita-caja__quitar {
+  flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--dim);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.co-cita-caja__quitar:hover { background: var(--velo-hover); }
+/* Los fijados, arriba de la conversación: uno a la vista y una rayita por cada uno (WhatsApp). */
+.co-fijados { display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--dim); font-size: var(--fs-meta); }
+.co-fijados__puntos { display: flex; flex-direction: column; gap: 2px; }
+.co-fijados__puntos i { display: block; width: 2px; height: 7px; border-radius: 1px; background: var(--border-strong); }
+.co-fijados__puntos i[data-actual] { background: var(--primary); }
+.co-fijados__ir { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.co-fijados__soltar { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--faint); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.co-fijados__soltar:hover { background: var(--velo-hover); }
+/* Info y Reenviar: el panel de un mensaje (un modal en la computadora, la hoja en el teléfono). */
+.co-info-wa { display: flex; flex-direction: column; gap: 12px; }
+.co-info-wa__texto { margin: 0; padding: 9px 12px; border-radius: 12px; background: var(--primary-bg); font-size: var(--fs-md); }
+.co-info-wa__dl { margin: 0; display: grid; gap: 8px; }
+.co-info-wa__dl > div { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-md); }
+.co-info-wa__dl dt { color: var(--dim); }
+.co-info-wa__dl dd { margin: 0; color: var(--ink); text-align: right; }
+.co-reenviar { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.co-reenviar__buscar { height: 38px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); font: inherit; font-size: 16px; color: var(--ink); }
+.co-reenviar__lista { margin: 0; padding: 0; list-style: none; max-height: min(360px, 50dvh); overflow-y: auto; }
+.co-reenviar__fila { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 6px; border-radius: 8px; cursor: pointer; font-size: var(--fs-md); }
+.co-reenviar__fila:hover { background: var(--velo-hover); }
+.co-reenviar__pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* Las cuentas del Uso con su nombre y su email (17/10/2026, la G): el logo de Claude, el nombre editable con su lápiz y el
+   email debajo en gris, como el selector de cuentas de Google. */
+.co-uso__quien { align-items: flex-start; gap: 8px; }
+.co-uso__quien > svg { margin-top: 2px; }
+.co-uso__nombres { display: flex; flex-direction: column; min-width: 0; }
+.co-uso__linea { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.co-uso__titulo { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.co-uso__email { font-size: var(--fs-meta); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-uso__lapiz { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--faint); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: .7; }
+.co-uso__lapiz:hover, .co-uso__lapiz:focus-visible { opacity: 1; background: var(--velo-hover); outline: none; }
+.co-uso__editar { display: inline-flex; flex-direction: column; gap: 2px; }
+.co-uso__input { width: 180px; max-width: 100%; height: 26px; padding: 0 8px; border: 1px solid var(--primary-weak); border-radius: 6px; background: var(--surface); font: inherit; font-size: var(--fs-sm); color: var(--ink); }
+.co-uso__error { font-size: var(--fs-meta); color: var(--bad); }
+@media (pointer: coarse) { .co-uso__input { font-size: 16px; height: 34px; } .co-uso__lapiz { width: 32px; height: 32px; } }
+
+/* Los pasos en vivo de un chat que trabaja (17/10/2026, la E): los de antes apagados y tachados de a uno, el de ahora con
+   los puntitos, como la lista de pasos de Claude Code. */
+.co-trabajando__cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.co-pasos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1px; }
+.co-pasos__hecho { font-size: var(--fs-meta); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-pasos__hecho::before { content: "✓ "; color: var(--good); }
+.co-trabajando .co-trabajando__texto { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+.co-trabajando .co-trabajando__puntos { vertical-align: middle; }
+
+/* «Ver mensajes anteriores»: la conversación abre con los últimos (17/10/2026, Hilo.tsx → TANDA_HILO). */
+.co-anteriores { align-self: center; margin: 2px 0 6px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+.co-anteriores:hover { background: var(--velo-hover); }

@@ -41,6 +41,16 @@ export function conLaBaseDeLaPlataforma<T>(fn: () => Promise<T>): Promise<T> {
 }
 const enLaBase = (): boolean => editandoLaBase.getStore() === true;
 
+/**
+ * El store que lista y edita /mensajes (17/10/2026: vivía en app/api/admin/plantillas/route.ts como `enSuStore`; lo
+ * comparte la pantalla del teléfono, que lee en el server). En el workspace de la PLATAFORMA es la BASE que heredan todos
+ * los negocios; en el de un cliente que el super admin está mirando, el store de ése.
+ */
+export async function enElStoreDeLaPestana<T>(fn: () => Promise<T>): Promise<T> {
+  const [ws, base] = await Promise.all([getWorkspaceActual(), wsSuperAdmin()]);
+  return ws === base ? conLaBaseDeLaPlataforma(fn) : fn();
+}
+
 /** Exportado SÓLO como tipo, para lib/plantillas-ocultas.ts (puro, con test): `import type` no arrastra `server-only`. */
 export type EntradaStore = {
   texto?: string;      // referencia editada (pisa el ejemplo del catálogo)

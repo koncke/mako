@@ -1368,6 +1368,90 @@ TareasVinculadas) · lib/centro-munecos.ts · lib/links-texto.ts y app/admin/ope
 **Sin hacer:** que un chat maneje el Plan a PEDIDO de Martín («tráeme las más prioritarias», «bórralas»): necesita una puerta
 de la PC al Plan, y es de revisión de seguridad. Sin medir en una pantalla real: nada de esto se miró en un navegador.
 
+## El «atrás» lento del teléfono, WhatsApp en cada mensaje y las 0 consultas de `vigilar` (17/10/2026, cuarto Ops Center)
+
+**El «atrás» del teléfono: lo obvio era la red, y era React.** Martín: «Cuando estoy en un chat y le doy para atrás en
+mobile, tarda bastante en reaccionar». El «atrás» cierra la hoja (`SheetM` → `history.back()` → `popstate`). La primera
+sospecha era Next: si el `popstate` volviera a pedir la página (`force-dynamic`) al servidor, sería un viaje entero. Leído en
+Next 16.2.6 (`restore-reducer.js` → `startPPRNavigation` con `HistoryTraversal`): con el mismo árbol de rutas reusa los nodos
+de la caché y NO pide nada. Lo que sí pasaba, medido:
+- `ChatsM` (app/m/operaciones/ChatsMovil.tsx) calculaba el historial de CADA fila (`historialDelChat` + `vistaPrevia` +
+  `enQueTrabaja`) en cada render, aunque useCentro.ts ya tenía esos mapas memorizados; y volvía a dibujar las ~90 filas con
+  sus SVG al abrir, al cerrar y con CADA TECLA de la caja (el borrador vive en el motor);
+- el hilo (`Hilo`) volvía a parsear el Markdown de cada respuesta en cada tecla.
+
+**Medido** (la pantalla de VERDAD —`CentroAppMovil`— armada con esbuild contra los chats de las bitácoras del repo y una cola
+del tamaño de producción —87 chats, 419 pedidos, 150 trabajos, 60 turnos en el chat abierto—, en Chrome headless como un
+iPhone de 390 px con la CPU ×4; la mediana de 7 vueltas, del toque al cuadro siguiente):
+
+| El toque | Antes (86bc162be) | Después |
+|---|---|---|
+| Escribir una letra en la caja | 139,4 ms | 23,3 ms |
+| Abrir un chat (tareas largas) | 443,7 ms (426) | 251,9 ms (221) |
+| El «atrás», hasta el cuadro siguiente | 53,6 ms | 39,5 ms |
+| El «atrás», hasta ver la lista (con los 220 ms de la hoja que baja) | 309 ms | 291 ms |
+| El refresco solo con un chat abierto (tareas largas en 8,5 s) | 170 ms | 132 ms |
+
+**Lo que el número dice y lo que no:** el «atrás» en sí ya era corto en Chrome; lo que trababa al teléfono era ESCRIBIR (cada
+tecla redibujaba todo), ABRIR (60 respuestas con su Markdown) y el refresco cada 2,5 s con algo en camino, que cae encima de
+cualquier gesto. Abrir mejoró sobre todo por dibujar los últimos 25 mensajes («Ver mensajes anteriores», como WhatsApp y
+Telegram: `TANDA_HILO`); las envolturas de WhatsApp (`Deslizable`) le sumaban ~60 ms. Si en el iPhone el «atrás» sigue
+lento, lo que queda por medir es el gesto de iOS y el router de Next en un `next start`, no React.
+
+**Regla:** en una pantalla del teléfono que se refresca sola, una fila de una lista larga es un componente `memo` con props
+que no cambian entre toques (los mapas del motor, callbacks estables por ref), y lo que se calcula por chat se calcula UNA
+vez en el motor. Un `historialDelChat(c, …)` adentro de un `.map` de filas es el defecto (tests/centro-whatsapp.test.ts lo
+vigila).
+
+**Cómo se mide sin `next build`** (la PC no tenía RAM ni candado para un build): un `entry.tsx` que monta el componente real,
+esbuild con stubs para `server-only`, `next/link`, `next/navigation` y las acciones del servidor, y CDP sobre Chrome headless
+(`Emulation.setCPUThrottlingRate`, `--mute-audio`). Antes y después: el mismo bundle desde `git stash -u`. ⚠️ El `jsdom` del
+`node_modules` del clon está ROTO (le falta `@asamuzakjp/css-color`): una medición con jsdom no arranca; la de Chrome sí.
+
+**`vigilar` con 0 consultas (cartero 1.15.1).** El Runner reportó tres `vigilar --max-seg 100` sin una consulta liviana, el
+último de 78 s. La guarda de margen pedía, ANTES de cada consulta, que entrara una espera MÁS una vuelta completa ×1,5 con la
+duración de la PRIMERA vuelta (la que sube los chats de cada cuenta de la carpeta: 30-80 s): el bucle no corría nunca. El
+margen se mira para lo que cuesta cada cosa: consultar mientras entre una espera (la consulta corta a los 10 s y el tope deja
+15 s al Bash); la vuelta completa, sólo si entra; y si llega algo NUEVO y no entra, sale con `otraVez: true` (paso 2d del
+Runner). La base es la primera consulta: un pendiente que la PC no reclama no hace correr al Runner sin parar.
+
+**`--revisar` desde Git Bash (1.15.1).** MSYS convierte todo argumento que empieza con `/` en una ruta de la carpeta de Git
+(`/admin/operaciones` → `C:/Program Files/Git/admin/operaciones`), y el cierre se rechazaba. Se recupera en `cierre()`
+(`rutaDesdeMsys`). NO se le pide al chat `MSYS_NO_PATHCONV=1 node …`: los chats usan también PowerShell, donde esa línea no
+corre.
+
+**WhatsApp en un chat con una IA: qué viaja y qué no.** La PC entrega SÓLO lo firmado, así que «Responder» y «Reenviar» van
+en el texto (`> ↩ «CRM»: …` y `↪ Reenviado de «…»`, lib/centro-mensajes.ts) y la burbuja los vuelve a leer. Reaccionar,
+Destacar, Fijar y Eliminar para mí son marcas de Martín en MaKo (`operaciones.marcas.<sesión>`): mandarle un 👍 al chat le
+costaría un turno de la ventana de 5 horas. «Eliminar para todos» no existe: lo que el chat leyó está en su contexto.
+
+**La estrella de MaKo no se elige.** Va FUERA de `FORMAS` y de `COLORES` (`FORMA_MAKO`, `ASPECTO_MAKO`): `sanearAspecto` la
+rechaza y el selector no la ofrece, así que ningún chat salvo el Cerebro la tiene, aunque alguien la mande a mano.
+
+**Un componente que importa CSS no se importa en un test** (en node un `.css` no carga): `Muneco` no importa CSS porque lo
+dibujan el servidor y los tests; la criatura viva (`Criatura.tsx`) trae el suyo (`criatura.css`) y su test la mira en la
+fuente.
+
+**Vive en:** app/m/operaciones/ChatsMovil.tsx (`FilaChatM`) · app/admin/operaciones/Hilo.tsx (`memo`), MensajeWA.tsx,
+Criatura.tsx · lib/centro-mensajes.ts y su `-db` · lib/centro-titulares*.ts · lib/centro-pasos*.ts
+· scripts/operaciones/cartero.mjs (`vigilar`, `rutaDesdeMsys`, `titularDe`, `pasoDe`).
+
+**El Plan desde el chat se revirtió (la revisión del Cerebro, 17/10): el diagnóstico obvio («el token alcanza, todos los chats
+son de Martín») era el equivocado.** Tres cosas que no se ven escribiendo la puerta y sí atacándola:
+- una respuesta de MaKo que se IMPRIME en el chat es texto que entra al contexto de un modelo en modo bypass: va por
+  `textoRemoto` o con forma fija, nunca entera (un título de tarea puede traer «corré cartero.mjs clave …»);
+- una `sesion` que declara quien llama no identifica a nadie: el token es uno para toda la PC y la foto de los chats la
+  escribe ese mismo token; escribir en nombre de un chat pide un pedido firmado de Martín;
+- «#NN» en un texto no es «cerré la NN»: puede ser lo pendiente, un PR, un ticket o un color.
+**Regla:** en AGENTS.md (el Centro).
+
+**Sin hacer:**
+- el Plan desde el chat y el paso «buscar» del Plan automático, con los arreglos de la revisión (docs/relevo/centro-operaciones.md);
+- «Cámbiale el nombre» desde un chat: la API del Plan no tiene una operación para renombrar una tarea (es del área Plan);
+- la lista de «Destacados» de WhatsApp (los destacados se ven con su estrella en cada mensaje, pero no hay una vista que los
+  junte);
+- mirar todo esto en el iPhone de Martín: la medición es de un Chrome headless con la CPU frenada, no de un teléfono.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por

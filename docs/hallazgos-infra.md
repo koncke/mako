@@ -23,6 +23,7 @@ habilita a darle mejores prompts al otro Claude».
 - El repo es **CRLF**: un reemplazo por bloque buscó `'\n];\n'`, no matcheó, se fue 700 líneas más abajo y **borró 76 KB con exit 0** → [Editar este repo](#editar-este-repo-archivos-grandes-saltos-de-línea-y-nombres).
 - Con **`npm run dev` (`-H 127.0.0.1`) toda pantalla del TELÉFONO da `ERR_TOO_MANY_REDIRECTS`** en local: el rewrite a `/m` sale como externo y vuelve a entrar al proxy. Con `-H localhost`, 200 → [Tests y entorno local](#️-con-npm-run-dev--h-127001-ninguna-pantalla-del-teléfono-se-puede-mirar-en-local-15102026).
 - Verificar contra **`127.0.0.1` en vez de `localhost`** deja la página entera y sin hidratar, sin un solo error en el navegador — y las dos explicaciones que uno tiene a mano («rompí yo», «lo rompió la otra sesión») parecen confirmarse → [Tests y entorno local](#️-127001-no-es-localhost-para-el-dev-server-la-página-se-ve-entera-y-no-hidrata).
+- **El disco lleno (17/10)**: lo MÁS grande no estaba en ningún worktree sino en la caché de `tsx` de `%TEMP%` (7,7 GB que nadie podaba); los `.next` quietos y las copias de `node_modules` sumaron 15 GB más. La regla: un worktree nuevo usa un junction al `node_modules` del clon (salvo `next build` con Turbopack) y su `.next` se borra al terminar → [El disco lleno](#el-disco-lleno-17102026).
 - **21 de 101 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
@@ -6911,3 +6912,100 @@ borraron; **10 tenían commits que no están en ninguna rama remota** (no son vi
 **Regla**: antes de borrar, el criterio es «mirar que no tenga trabajo sin guardar» de verdad (cambios, commits sin subir, actividad de hoy), con el
 árbol en una lista en seco que se puede leer. **Vive en:** `docs/relevo/infra-y-build.md` §7.4 · el procedimiento: `git worktree list --porcelain`,
 `git merge-base --is-ancestor <HEAD> origin/main`, `git status --porcelain`, `git worktree remove <ruta>`.
+## El disco lleno (17/10/2026)
+
+**Síntoma.** El C: llegó al 100% (2,6 GB libres de 455) y la PC volvió a la firma del 08/10 (ver «`.next/dev` llegó a
+51 GB y trabó la máquina entera»): builds y `tsc` que no terminan, todo lento. Esa tarde se liberaron **~30 GB** (de 4,4
+a 34 GB libres; el libre de arranque era 7,8 GB, pero un `next build` ajeno se comió 3,4 GB mientras se medía).
+
+**El diagnóstico obvio —«son los worktrees»— estaba a medias.** Los `.next` y los `node_modules` copiados de worktrees
+quietos fueron ~15 GB, sí. Pero lo MÁS grande no estaba en ningún worktree: era la caché de `tsx` en
+`%LOCALAPPDATA%\Temp\tsx-marti` (**7,7 GB, 215.902 archivos**, una semana entera sin podar), que nadie sabía que
+existía. Y lo que llena de verdad un disco de 455 GB no es el código sino lo de Martín y el sistema (última tabla).
+
+### Qué ocupaba el espacio y se borró (todo se regenera solo)
+
+| Qué | Liberó | Dónde vive |
+|---|---:|---|
+| `.next` de 5 worktrees quietos (en `wt-2fa` y `wt-centro` sólo había `.next/dev`: 3,4 y 2,0 GB) | 9,2 GB | `wt-2fa`, `wt-centro`, `wt-chatbot`, `.claude/worktrees/wt-mobile`, `wt-crm-ficha2` |
+| Caché de `tsx` | 7,7 GB | `%LOCALAPPDATA%\Temp\tsx-marti` |
+| 5 copias REALES de `node_modules` (1,2-1,5 GB cada una), cambiadas por junction | 5,6 GB | `wt-crm-ficha2`, `wt-offer-aviso`, `wt-video-editor`, `mako-api`, `wt-centro` |
+| `npm cache clean --force` | 2,1 GB | `%LOCALAPPDATA%\npm-cache` |
+| 374 carpetas de perfiles de Chrome headless | 2,0 GB | `Temp\scoped_dir*`, `mako-cdp-*`, `mako-movil-*`, `cmp-*`, `playwright_chromiumdev_profile-*` |
+| 649 `*.tmp` de 3 a 6 MB | 1,4 GB | `Temp\<guid>.tmp` |
+| Navegadores viejos de Playwright (queda la más nueva de cada familia) | 1,1 GB | `ms-playwright\chromium-1234`, `chromium_headless_shell-1234` y `-1243`, `webkit-2336` |
+| Sesiones de `Temp\claude\…` con más de 3 días | 0,5 GB | `Temp\claude\<proyecto>\<sesión>` |
+| pip, uv, `CrashDumps`, `node-compile-cache`, logs de `C:\dev` de más de 2 días | ~0,5 GB | `%LOCALAPPDATA%` |
+
+### Qué se puede borrar siempre, sin riesgo
+
+- **`tsx-marti`**: `cmd /c "del /f /q %TEMP%\tsx-marti\*"` (2 minutos para 215 mil archivos; el que tenga un proceso
+  abierto se salta solo).
+- **`.next` y `.next/dev` de un worktree sin proceso**: antes, `Get-CimInstance Win32_Process -Filter "Name='node.exe'"` y
+  que la ruta del worktree no aparezca en ninguna `CommandLine` (un build vivo se ve como
+  `…\wt-X\node_modules\.bin\..\next\dist\bin\next build` y `…\wt-X\.next\build\postcss.js`), y ningún archivo tocado en los
+  últimos 10 minutos. Se borra con `cmd /c rd /s /q` (mucho más rápido que `Remove-Item`). `rd` NO sigue los junctions
+  `.next/node_modules/sharp-<hash>`: saca el enlace y el clon queda intacto (verificado después: su `node_modules` seguía
+  con 577 carpetas, `sharp`, `postcss`, `next`).
+- **Un `node_modules` REAL en un worktree que nadie usa**: `rd /s /q` y recién cuando `Test-Path` da False,
+  `mklink /J <wt>\node_modules <clon>\node_modules`.
+- **Cachés**: `npm cache clean --force`, `pip cache purge`, `uv cache clean`, las versiones viejas de `ms-playwright`.
+- **`Temp`**: los `*.tmp` de más de 10 minutos, los perfiles de Chrome headless (cuando ningún Chrome los tiene
+  abierto), `node-compile-cache`, y las carpetas de `Temp\claude\…` de sesiones con más de 3 días **sin tocar** — nunca la
+  sesión viva ni una escrita en las últimas 3 horas.
+
+### La regla
+
+> **Un worktree nuevo usa un junction al `node_modules` del clon principal, no una copia, salvo que necesite `next
+> build` con Turbopack; y su `.next` se borra al terminar.**
+
+Por qué: cada copia real son 1,2-1,5 GB y cinco olvidadas fueron 5,6 GB; un `.next/dev` sin podar llega a 3 GB en un
+worktree donde se probó una sola vez. La excepción es real: el junction de NTFS no le sirve a Turbopack (ver «Sesiones
+paralelas y las dos cuentas», punto 1), y ahí la copia vive en un worktree descartable que se desarma al terminar. Y al
+desarmar un worktree con junction, el junction se saca PRIMERO y solo (misma sección): un borrado recursivo lo sigue y
+vacía el `node_modules` del clon.
+
+### Trampas del barrido (lo obvio estaba mal)
+
+- **El «libre» no es un número fijo mientras otro chat construye.** Un `next build --debug-build-paths` de otro worktree
+  escribió ~3,4 GB en minutos: lo libre bajó de 7,8 a 4,4 GB sin que yo borrara nada. Se mide antes y después **del mismo
+  paso**, y no se descuenta un build vivo como si fuera ruido del disco.
+- **`du` desde Git Bash no sirve acá**: 10 minutos sin terminar sobre ocho `.next`. Se mide con
+  `[IO.Directory]::EnumerateFiles(…)` con tope de tiempo, o directo con el libre antes y después de un `rd /s /q`. Y en
+  PowerShell 5.1 ese `EnumerateFiles` **SIGUE los junctions**: `C:\dev\push-ads`, `push-crm`, `push-crm2`, `push-ig` y
+  `ver-ads` «pesan» 1,15 GB cada una (5,8 GB inventados) y son una carpeta con sólo un junction a `node_modules`.
+- **`rd /s /q` puede quedar a medias con «Access is denied»** sobre un `.node` o un `.map` (`next-swc.win32-x64-msvc.node`
+  en `mako-api`, `objectSpread.js.map` en `wt-centro`) sin ningún proceso con esa ruta en su línea de comandos; y entonces
+  `mklink` falla con «Cannot create a file when that file already exists». Se reintenta unos minutos después (pasó solo).
+  El junction se crea sólo cuando la carpeta ya no existe.
+- **«Sin actividad en 2 días» no se mide con el reflog.** El `logs/HEAD` de 40 worktrees decía «hace 21 horas»: los
+  tocó el mismo trabajo masivo esa noche. Ninguno se borró; los que tienen `git log origin/main..HEAD` vacío y
+  `git status --porcelain` vacío (decenas) son candidatos recién cuando pasen 2 días sin movimiento.
+
+### Lo que NO se tocó y pesa (es de Martín o del sistema; decide él)
+
+| Qué | Tamaño | Ruta |
+|---|---:|---|
+| Descargas (videos de VSL y clases; el más grande, `VSL crudo.mp4` 4,7 GB) | 31,4 GB | `C:\Users\marti\Downloads` |
+| Cachés y proyectos de CapCut | 27,2 GB | `%LOCALAPPDATA%\CapCut` |
+| Archivo de paginación + hibernación (`powercfg -h off` como admin libera los 6,4) | 26,2 + 6,4 GB | `C:\pagefile.sys`, `C:\hiberfil.sys` |
+| Chrome (el modelo de IA que baja solo `OptGuideOnDeviceModel` 4,0; `Profile 1` 3,5; `Default` 2,2; `Profile 2` 2,1) | 17,2 GB | `%LOCALAPPDATA%\Google\Chrome\User Data` |
+| App de escritorio de Claude (`vm_bundles` 8,4) | 9,9 GB | `%APPDATA%\Claude` |
+| Videos | 9,6 GB | `C:\Users\marti\Videos` |
+| Transcripts de Claude Code (**no se tocan**: `projects` 7,9) | 8,3 GB | `C:\Users\marti\.claude` |
+| Cursos bajados con DownloadHelper | 8,1 GB | `C:\Users\marti\dwhelper` |
+| `gabi_v2_final.mp4` 3,0, `gabi_v2_base.mp4` 2,2, `gabi_test.mp4` 0,7 y `gabi_cuts\` (todo del 09/06) | 8,1 GB | `C:\Temp` |
+| Paquetes de Windows, Microsoft, Programs, Notion, Edge, `C:\cursos` | 4,5 + 3,0 + 2,8 + 2,3 + 1,4 + 1,3 GB | `%LOCALAPPDATA%\Packages` … `C:\cursos` |
+
+La Papelera no se pudo medir (devuelve 0 sin admin) y no se vació.
+
+### Quedó sin hacer
+
+- **Tres scripts abren Chrome headless con un perfil nuevo en `Temp` y nunca lo borran** (`mkdtempSync(join(tmpdir(),
+  'mako-cdp-'))`, 0 `rmSync`; 15 a 60 MB por corrida): `scripts/mirar-consola.mjs:25`, `scripts/mirar-pantalla.mjs:55`,
+  `scripts/onboarding-vg-recorrer.mjs:25`. Falta el borrado en un `finally`.
+- **Nada poda `tsx-marti`**: junta ~1 GB por día. Falta decidir una tarea semanal que lo vacíe.
+- **Los 40 clones `C:\dev\ref-*` (2,6 GB, del 17/10 a las 05:0x, material del chat de AI Avatar)** se regeneran con
+  `git clone`, pero son su referencia: no se tocaron.
+- **Scratchpads de sesiones de menos de 3 días**, que cumplen el criterio en 1 o 2 días: `Temp\claude\…\f3876a09…\scratchpad`
+  (`gh` 2,6 GB y `presenton-*` 0,7 GB, sin tocar desde el 11/10), `4eb065fe…` (1,6 GB), `eb5e2cd4…` y `e86e3994…` (0,4 GB c/u).

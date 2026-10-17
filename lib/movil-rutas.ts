@@ -44,6 +44,8 @@ import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
 import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from './ruta-web-generator';
 import { SECCIONES_COMUNIDAD as SECCIONES_COMUNIDAD_CLIENTS } from './clients-rutas';
 import { rutaDeTabVieja } from './ajustes-secciones';
+// Las tabs de CREACIÓN (17/10/2026): sus filas ocultas y su ida y vuelta viven en ./movil-creacion.ts.
+import { SECCIONES_CREACION, rutaEscritorioCreacion, rutaMovilCreacion, type IdCreacion } from './movil-creacion';
 
 /** Los cinco destinos FIJOS de la barra. `hoy` es General (la portada; su ruta interna es /m/hoy). */
 export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
@@ -54,9 +56,11 @@ export type IdSeccionMas =
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
-  | 'mensajes' | 'modelos-ia' | 'contexto' | 'conocimientos'
+  | 'mensajes' | 'modelos-ia' | 'contexto' | 'conocimientos' | 'agente' | 'cobros'
   // La API de MaKo (17/10/2026): del menú de la foto, sólo el admin del negocio (key `api-mako` de USER_NAV).
-  | 'api-mako';
+  | 'api-mako'
+  // Las de CREACIÓN (17/10/2026, Mobile 1): lib/movil-creacion.ts.
+  | IdCreacion;
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
 export type IdBarra = DestinoMovil | IdSeccionMas;
 
@@ -167,8 +171,11 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // sección que el teléfono muestra (Video Generator; Ads Writer, la única de Copywriting que ve un
   // cliente). `copywriting` NO sirve de navKey: no está en TODOS_LOS_ITEMS (itemsDe aplana las
   // secciones) y la de ADMIN_NAV es otra tab (/admin/copywriting), así que puedeVerKey diría que no.
-  // Image (la copia de Canva) no entró en la tanda del 15/10/2026: si va al teléfono, es una fila acá.
+  // Image (la copia de Canva) no entró en la tanda del 15/10/2026; entró el 17/10/2026, debajo de Video.
   { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'sales' },
+  // Image (17/10/2026): la tab unificada abre su Editor, la copia de Canva (app/m/image-editor), como en escritorio
+  // (`resolverTab` lleva a la primera sección que no es «pronto»). Sus otras secciones van en la barra de arriba.
+  { id: 'image', label: 'Image', titulo: 'Image Editor', href: '/m/image-editor', icon: 'imagegen', navKey: 'image-editor', familia: 'sales' },
   { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'sales' },
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
@@ -194,6 +201,11 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'api-mako', label: 'API', href: '/m/api-mako', icon: 'api', navKey: 'api-mako', familia: null, oculta: true },
   // Knowledge (el portal de cursos del equipo): /m/conocimientos, un curso en /<slug> y una clase en /<slug>/<n>.
   { id: 'conocimientos', label: 'Knowledge', href: '/m/conocimientos', icon: 'contexto', navKey: 'conocimientos', familia: null, oculta: true, superAdmin: true },
+  // Billing y Client Agents (menú de la foto del super admin): lo vendido de MaKo y en qué trabajan los clientes.
+  { id: 'cobros', label: 'Billing', href: '/m/cobros', icon: 'tag', navKey: 'admin-cobros', familia: null, oculta: true, superAdmin: true },
+  { id: 'agente', label: 'Client Agents', href: '/m/agente', icon: 'mako', navKey: 'admin-agente', familia: null, oculta: true, superAdmin: true },
+  // Las pantallas de CREACIÓN (17/10/2026), todas ocultas: lib/movil-creacion.ts dice por qué.
+  ...SECCIONES_CREACION,
 ];
 
 /**
@@ -205,6 +217,8 @@ const UNA_A_UNA: Readonly<Record<string, string>> = {
   '/modelos-ia': '/m/modelos-ia',
   '/contexto': '/m/contexto',
   '/api-mako': '/m/api-mako',
+  '/admin/cobros': '/m/cobros',
+  '/admin/agente': '/m/agente',
 };
 
 /**
@@ -380,13 +394,10 @@ export const SOLO_ESCRITORIO: Readonly<Record<string, string>> = {
  * falla si la encuentra con pantalla y todavía anotada.
  */
 export const EN_CAMINO: Readonly<Record<string, string>> = {
-  // «Mobile 1» (17/10/2026): las tabs de creación, editores y writers.
-  'video-editor': 'Mobile 1', reels: 'Mobile 1',
-  'ai-avatar-crear': 'Mobile 1', 'ai-avatar-avatares': 'Mobile 1', 'ai-avatar-voces': 'Mobile 1', 'ai-avatar-plantillas': 'Mobile 1',
-  'image-editor': 'Mobile 1', carousels: 'Mobile 1', stories: 'Mobile 1', 'admin-copywriting': 'Mobile 1',
+  // «Mobile 1» y «Mobile 2» (17/10/2026): las tabs de creación (lib/movil-creacion.ts), la API de MaKo y Knowledge ya
+  // tienen su pantalla.
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
-  agencia: 'sin dueño', 'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño', 'admin-cobros': 'sin dueño',
-  'admin-agente': 'sin dueño',
+  agencia: 'sin dueño', 'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
 };
 
 /** Lo que More dice de una tab EN CAMINO (sin motivo propio): corto, y sin prometer una fecha. */
@@ -708,6 +719,9 @@ export function rutaMovil(href: string | null | undefined): string | null {
   const landing = p.match(/^\/(?:web-generator|landing-generator)\/(\d+)$/);
   if (landing) return `/m/landing/${landing[1]}`;
   if (dentro(p, RUTA_WEB_GENERATOR) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => dentro(p, r))) return '/m/landing';
+  // Las tabs de CREACIÓN (17/10/2026): Video Editor, Image Editor, AI Avatar, Reels, Stories y Carousels.
+  const creacion = rutaMovilCreacion(p, q);
+  if (creacion) return creacion;
   // Las «Coming soon» (17/10/2026), AL FINAL: una tab que tenga su pantalla de verdad la nombra más arriba y gana.
   const pronto = TODOS_LOS_ITEMS.find((i) => i.comingSoon && i.match(p));
   if (pronto) return `${RUTA_PRONTO}/${pronto.key}`;
@@ -834,6 +848,8 @@ export function rutaEscritorio(href: string): string {
   else if ((m = p.match(/^\/m\/landing\/([^/]+)$/))) destino = `${RUTA_WEB_GENERATOR}/${m[1]}`;
   else if (p === '/m/landing') destino = RUTA_WEB_GENERATOR;
   else if ((m = p.match(/^\/m\/pronto\/([^/]+)$/))) destino = itemPronto(m[1])?.href ?? null;
+  // Las tabs de CREACIÓN (17/10/2026): la carpeta de /m se llama como la ruta de escritorio (lib/movil-creacion.ts).
+  if (!destino) destino = rutaEscritorioCreacion(p);
   if (!destino) return href;
   const resto = q.toString();
   return `${destino}${resto ? `?${resto}` : ''}${hash ? `#${hash}` : ''}`;

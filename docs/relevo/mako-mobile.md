@@ -3,6 +3,91 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 17/10/2026 ~15:55 (claude4, el cuarto Ops Center) — LO QUE HACE LENTO AL TELÉFONO, visto desde el Ops Center
+
+Martín: «Cuando estoy en un chat y le doy para atrás en mobile, tarda bastante en reaccionar... En general en mobile no
+funciona rápido todo como debería». El Ops Center lo midió y lo arregló en SUS pantallas (docs/hallazgos-operaciones.md,
+«El "atrás" lento del teléfono»). Lo que vale para las pantallas de /m de los demás, para que cada dueño lo mire en la suya:
+- **Medido en el Centro:** una lista larga que calcula algo POR FILA en el render (un historial, una vista previa) y una
+  conversación que vuelve a parsear su Markdown se redibujan enteras con CADA TECLA de una caja y con cada hoja que abre o
+  cierra, si el estado de la caja vive arriba de la lista. El arreglo: la fila como `memo` con props estables (los datos
+  calculados una vez, en un `useMemo` del padre o del motor) y callbacks estables por ref (AGENTS.md, la regla del Centro).
+  Buscar en cada /m: un `.map(` de filas que llama una función cara adentro, y una caja controlada cuyo estado vive en el
+  mismo componente que la lista.
+- **Sin medir (sospecha, para quien tenga una pantalla con muchas hojas):** cada `SheetM` que abre o cierra pasa por el
+  router de Next (`pushState` parcheado → `ACTION_RESTORE` en una transición, node_modules/next/dist/client/components/
+  app-router.js): vuelve a dibujar el árbol de la página. Leído en Next 16.2.6, NO pide nada al servidor con el mismo
+  árbol, así que el costo es de React, no de red. Si una pantalla con hojas sigue lenta después de memorizar sus filas,
+  medir eso antes de tocar SheetM (es de todos).
+- **Cómo medir sin `next build`:** esbuild del componente real con stubs + Chrome headless con la CPU ×4 (la receta, en el
+  hallazgo del Centro). El `jsdom` del clon está roto: no sirve para esto.
+
+## 17/10/2026 (claude4, «Mobile 1») — LAS TABS DE CREACIÓN EN EL TELÉFONO
+
+Pedido de Martín (17/10, 12:56, desde el Centro): «Implementa completamente MaKo Mobile en todas las tabs… Siempre copia
+de otras apps que ya lo hacen bien». Tres agentes en paralelo; éste, las tabs de creación. Rama `mobile-creacion-1710`
+(C:/dev/wt-mobile), con `origin/integracion` (Mobile 2) mergeada; el Cerebro integra y pushea.
+
+**Hecho (cada una, la misma ruta, el mismo motor y los mismos datos que escritorio):**
+- Video Editor (CapCut del celular): inicio con «Nuevo proyecto» desde la galería y la lista de proyectos; el editor a
+  pantalla completa con el reproductor del motor, ▶ y cabezal, la tira de clips, Dividir · Eliminar · Deshacer · Rehacer
+  y Exportar (MP4) con «Guardar en el teléfono».
+- Image Editor (Canva del celular): inicio con diseños recientes, buscador y el «+» con seis tamaños; el diseño se abre en
+  el MISMO editor de escritorio, que ya tenía su modo de pantalla chica.
+- AI Avatar (HeyGen): Create video · Avatars · Voices · Templates, sólo para el super admin; generar pide el toque y
+  muestra que gasta créditos de Flow.
+- Reels (compositor de Instagram), Stories (visor de historias de Instagram), Carousels (post de carrusel de Instagram) y
+  Copy Method (swipe file de Readwise).
+- La barra de secciones de escritorio en Video, Image, Copywriting y AI Avatar; Image es fila de More.
+- Las «Coming soon» son de Mobile 2 (`/m/pronto/<key>`).
+
+**Mirado a 390 px** (Chrome headless con UA de iPhone contra `next start`, ws9 sólo leyendo): todas, sin errores de JS ni
+desborde; el Video Editor de punta a punta (proyecto con dos clips, dividir, deshacer, exportar) y el Image Editor con su
+API simulada. Receta nueva: `--debug-build-paths` con la CARPETA de una página `[param]` (`app/m/video-editor/**`), no
+su ruta con corchetes; y el script de Chrome que intercepta `/api/image-editor/*` (docs/hallazgos-mobile.md).
+
+**Lo que falta, en orden:**
+1. Mirarlo en un teléfono de verdad: el Video Editor (que dibuje y exporte en Safari de iOS, y «Guardar en el teléfono»),
+   el Image Editor (los gestos con el dedo) y el visor de Stories.
+2. AI Avatar: que escritorio filme con `app/ai-avatar/filmar.ts` (hoy tiene su copia en AiAvatarCliente.tsx; es del chat
+   «AI Avatar»), y probar generar un look desde el teléfono con el puente vivo.
+3. More no se marca en la barra de abajo en AI Avatar (no tiene fila en SECCIONES_MAS a propósito:
+   docs/hallazgos-mobile.md). Lo decide quien tenga More (Mobile 2).
+4. Video Editor del teléfono sin texto, audio, efectos, «Relación» ni «Editar con IA» (app/m/video-editor/EditorVideoM.tsx).
+
+## 17/10/2026 (claude4) — «Mobile 2»: TODA tab del nav con su lugar en el teléfono, y las pantallas de negocio
+
+Pedido de Martín (17/10, 12:56): «Implementa completamente MaKo Mobile en todas las tabs, porque hay muchas que aun no se
+pueden acceder». Lo hizo el agente «Mobile 2» en `C:/dev/wt-general-epico`, rama `mobile-negocio-1710` (sale de
+origin/main 2420cccb1). El Cerebro integra y pushea.
+
+**Hecho (pasado como VERDE):** 745429706 (More derivado de la sidebar, el guardián, las «Coming soon» y Reportar
+problema) · 80b500b6c (Configuración del negocio: Equipo, Integraciones, Notificaciones, Fiscal y Tu plan) · 0807386c1
+(MaKo Messages, AI Models y MaKo Context) · 81abf3e7d (API y Knowledge). Después, Billing y Client Agents, y las pantallas
+que abren con lo que leyó el server (más rápido). La regla quedó en AGENTS.md: «toda tab nueva del nav tiene su pantalla
+en el teléfono en el mismo trabajo» (tests/movil-toda-tab.test.ts).
+
+**Mirado a 390 px** (Chrome headless con UA de iPhone, `next start` local, ws9 sólo leyendo): More, Reportar problema y
+un ticket, Closing Script, Configuración del negocio con Equipo, Integraciones, Notificaciones y Fiscal, MaKo Messages,
+AI Models, MaKo Context, API (las tres pestañas), Knowledge (la biblioteca y un curso), Billing, Client Agents y la barra
+de secciones de Automations. Ninguna tiró error de JS ni desbordó a lo ancho. Las que abren con lo del server ya no
+piden nada al navegador al abrir (MaKo Context completa a ~0,9 s; antes, ~1,45 s).
+
+**Lo que falta, en orden:**
+1. Strategy, Offer Playbook y MaKo WhatsApp: siguen en `EN_CAMINO` «sin dueño» (lib/movil-rutas.ts). Se ven en More
+   como «En la computadora».
+2. Lo de Mobile 1 en `EN_CAMINO`: al llegar cada pantalla, su línea sale en el MISMO commit, o el guardián falla.
+3. MaKo Partners para el super admin: la sidebar se lo muestra, el teléfono no (`puedeVerKey` y `requireMovil` no saben de
+   `adminShell`). Está anotado en tests/movil-toda-tab.test.ts como diferencia conocida.
+4. Conectar una integración desde el teléfono (hoy abre ESA integración en la computadora), y General y Método de
+   Configuración del negocio.
+5. Mirar en un teléfono de verdad y con un cliente: el ws3 tiene el onboarding pendiente y tapa /m. Una clase de
+   Knowledge con su video no se llegó a mirar (la medición pidió una clase que no existía).
+6. /mensajes de ESCRITORIO siembra la lista con otro store que el que edita su ruta (docs/hallazgos-mobile.md). No se tocó.
+7. /automations del teléfono (no es de Mobile 2): con el ws9, 0,57 s hasta el primer byte y 3,7 s hasta DOMContentLoaded,
+   medido el 17/10 a 390 px. Vale mirarlo por el pedido de Martín de que el teléfono ande más rápido.
+Detalle y trampas: docs/hallazgos-mobile.md → «Toda tab del nav con su lugar en el teléfono…».
+
 ## 17/10/2026 (claude4) — REDISEÑO del CRM y el Plan copiando Pipedrive, HubSpot, Todoist y Linear
 
 Pedido de Martín (17/10, 12:56): «Implementa completamente MaKo Mobile en todas las tabs... Y rediseña las actuales de
