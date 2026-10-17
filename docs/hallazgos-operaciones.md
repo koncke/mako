@@ -1273,6 +1273,30 @@ no que se leyó.
 ninguna (operaciones_carteros.visto_at quieto), y no tomaba mensajes nuevos. Se destrabó al parar su turno con
 stop_session y reprogramar el cron con `vigilar` (1.12.0). Si vuelve a pasar, mirar visto_at antes de creerle al Runner.
 
+## Los dos topes de la app sobre el Cerebro cuando Martín no le escribe (17/10/2026)
+
+**Síntoma:** con Martín hablando sólo por el Ops Center, el Cerebro se queda sin poder repartir. Le pasaron dos cosas:
+- `start_session` contesta «Start sessions only on the user's own words to you here» al abrir el chat de MaKo Mobile.
+- Al avisar los «Ya está» del run 110, el mensaje número 11 contesta «Not delivered: this session has already messaged
+  Claude Desktop sessions 10 times since your user last typed here» y no sale.
+
+**Causa:** la app no toma un pedido firmado que llega por el Runner como si Martín lo hubiera escrito en el chat del
+Cerebro. Para ella, un turno que empieza con un mensaje de otra sesión o con una tarea de fondo es automático. Con eso
+aplica dos frenos anti-bucle:
+- **no abre sesiones;** sólo deja PROPONER, con una tarjeta, y a Martín no le gustan;
+- **corta los SendMessage a sesiones de Claude Desktop al décimo** hasta que Martín escriba en el chat del Cerebro.
+
+El diagnóstico obvio («el Runner no tiene permisos») era el equivocado: el pedido llegó bien. El tope es del chat que
+reparte. A un subagente lanzado con Agent no se le aplica.
+
+**Regla:**
+- Un pedido del Ops Center que necesita un chat NUEVO arranca como `Agent` en segundo plano, con el brief completo y su
+  cosecha. Arranca sin tarjeta, pero no aparece en la lista del Ops Center. Si Martín lo quiere ver ahí, se le abre su
+  chat en el próximo mensaje que escriba en el Cerebro.
+- Los avisos de una tanda se mandan juntos y sólo a quien tiene algo nuevo. Si el lote pasa de diez, primero van los
+  que cambian lo que hace un chat (un rojo, una punta que esperar) y después los «Ya está». Lo que no salió queda en
+  docs/relevo/cerebro.md para mandarlo después del próximo mensaje de Martín.
+
 ## El chat abierto, el «Trabajando…» y las preguntas de los chats (17/10/2026, Ops Center de la cuenta 4)
 
 **Renombrar sacaba del chat, y redirigir después no alcanzaba.** Martín: «me dejó en una tab tipo "No existe este

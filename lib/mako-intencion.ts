@@ -654,7 +654,9 @@ const INTERROGATIVO = /\b(cu[aá]nt[oa]s?|qu[eé]|cu[aá]l(es)?|qui[eé]n(es)?|c
 // herramienta de agenda, y MaKo contestó «no tengo acceso para mover eventos de tu calendario». Es la gemela de
 // «reagendá» (07/10): `\bprograma` no matchea adentro de «reprograma», porque entre «re» y «programa» no hay borde.
 // «programa» suelto es el sustantivo («el programa»); «reprograma» suelto no lo es.
-const VERBO_AGENDAR = /(?<!\b(?:mi|tu|su|la|de|en|mis|tus|sus|una|esta)\s)\bagenda\s+(?:me|le|les|nos|una?|la|el|a)\b|\b(?:re)?agend(?:ame|ale|ales|ala|alo|alas|alos|anos)\b|\breagenda\b|\b(?:re)?programa(?:me|mela|melo|la|le|lo|las|los|nos)\b|\breprograma\b|\b(?:me|nos|le|les)\s+(?:la\s+|lo\s+)?(?:re)?agend(?:as|aras|arias)\b/;
+// ⚠️ Y el infinitivo con el pronombre pegado, «agendarle a Pablo lo que te pidió en el calendario» (17/10/2026, ws18):
+// «agendar» sólo, como orden, exige reunión y día (lo dicta una tarea); con el pronombre pegado ya no es un título.
+const VERBO_AGENDAR = /(?<!\b(?:mi|tu|su|la|de|en|mis|tus|sus|una|esta)\s)\bagenda\s+(?:me|le|les|nos|una?|la|el|a)\b|\b(?:re)?agend(?:ame|ale|ales|ala|alo|alas|alos|anos)\b|\b(?:re)?agendar(?:le|les|lo|la|los|las|me|nos|selo|sela)\b|\breagenda\b|\b(?:re)?programa(?:me|mela|melo|la|le|lo|las|los|nos)\b|\breprograma\b|\b(?:me|nos|le|les)\s+(?:la\s+|lo\s+)?(?:re)?agend(?:as|aras|arias)\b/;
 const VERBO_SOBRE_REUNION = /\b(?:crea(?:me|la|le)?|arma(?:me|la|le)?|pon(?:e|eme|ela|me|la|le)|mueve(?:la|lo|me)?|move(?:la|lo|me|las|los)|pasa(?:la|lo|me|las|los)?|cambia(?:la|lo|le|me|las|los)?|cancela(?:la|lo|me|las|los)?|borra(?:la|lo|me|las|los)?|elimina(?:la|lo|me|las|los)?|edita(?:la|lo|le)?|modifica(?:la|lo|le)?|suspende(?:la|lo)?|renombra(?:la|lo)?)\b/;
 // Las formas con modal: es como pide un cliente que tutea («me puedes agendar…»).
 const MODAL_AGENDA = /\b(?:puedes|podes|podrias|podras|puede|podria|quiero|queria|necesito|hay que|vamos a)\s+(?:me\s+|nos\s+|le\s+)?(?:re)?(agendar|crear|armar|poner|mover|pasar|cambiar|cancelar|borrar|eliminar|editar|modificar|programar|suspender|renombrar)(?:me|la|lo|le|nos|las|los)?\b/;
@@ -663,6 +665,8 @@ const TIEMPO_AGENDA = /\b(?:hoy|manana|lunes|martes|miercoles|jueves|viernes|sab
 const ARRANCA_PREGUNTANDO = /^(?:que|cuant[oa]s?|cual(?:es)?|quien(?:es)?|cuando|donde|como|por ?que|hay|tengo|tenes|tienes)\b/;
 // Lo que se dice antes del pedido y no cambia nada: el nombre, un «che», un «porfa».
 const PRELUDIO = /^(?:[\s,.:;!¡¿?-]*(?:mako|che|porfa|por favor|oye|ey|hola|buenas)\b)*[\s,.:;!¡¿?-]*/;
+/** Dónde se agenda: «en el calendario», «en mi agenda». Con un verbo de agendar, alcanza para saber que es la agenda. */
+const LUGAR_AGENDA = /\b(?:calendario|calendar|agenda)\b/;
 
 /**
  * Lo que escribió la persona en un LOTE, sin el encabezado que le pone el doer
@@ -701,8 +705,8 @@ function esPedidoAgenda(n: string): boolean {
   // la misma lista sin saltos. Con otro infinitivo después de una coma o un punto, no es una
   // orden (medido por el revisor el 09/10: sin esto, esa tanda llegaba como agenda).
   if (/^(?:re)?agendar\b/.test(t) && !t.includes('\n') && reunion && tiempo && !OTRO_INFINITIVO.test(t)) return true;
-  // «agendar» sólo quiere decir una cosa: con un día, una hora o una reunión alcanza.
-  if (agendar && (tiempo || reunion)) return true;
+  // «agendar» sólo quiere decir una cosa: con un día, una hora, una reunión o el calendario alcanza.
+  if (agendar && (tiempo || reunion || LUGAR_AGENDA.test(t))) return true;
   // «cambiá», «pasá», «cancelá» quieren decir muchas: hace falta la reunión, y además un
   // día u hora, o que el mensaje ARRANQUE con el verbo (ahí es una orden, no una idea).
   return sobre && reunion && (tiempo || VERBO_SOBRE_REUNION.test(t.slice(0, 14)) || /^(?:me |nos )?(?:puedes|podes|podrias)/.test(t));

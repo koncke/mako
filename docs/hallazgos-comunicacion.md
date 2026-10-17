@@ -156,6 +156,13 @@ cosas más, del ws13 y del ws9:
   trampa que «reagendá» del 07/10, y su familia no se buscó entonces**: `\bprograma` no matchea adentro de «reprograma»
   (entre «re» y «programa» no hay borde de palabra). Al arreglar un prefijo, enumerá TODOS los verbos de la regla que lo
   admiten, no sólo el que se vio.
+- **«Mago, probá de vuelta agendarle a Pablo lo que te pidió en el calendario»** (ws18, 17/10 13:30): default, sin agenda,
+  «no tengo acceso para agendar citas en tu calendario» — con Google conectado. Dos huecos: el infinitivo con pronombre
+  («agendarle») no era el verbo, y «calendario» no contaba como lugar de la agenda. ⚠️ **Y lo que pedía «de vuelta» (la
+  visita a Nancy) era de 15 horas antes: quedó FUERA de las 14 horas de memoria del grupo** (`HORAS_CONTEXTO`, a
+  propósito). Con la herramienta en la mesa MaKo puede preguntar qué agendar o mirar el día, pero no recuerda el pedido:
+  esto es lo que dice la entrada de arriba, «lo de antes vuelve como HECHO, no como turno viejo». Un pedido que MaKo no
+  pudo cumplir no queda en ningún lado del que se pueda retomar.
 
 **Levantar un ticket desde el grupo (17/10, con la Ticketera).** El doer le pasa al ticket QUIÉN escribió y el contexto
 del turno, y el código lo propone cuando una herramienta de MaKo falló (el molde del chat de la app). Tres cosas que no
@@ -170,8 +177,13 @@ se ven:
   escribe el código, después del saneo, y termina pidiendo el «sí» (si no, el saneo la leería como promesa). Al
   probarlo rompiéndolo apareció un agujero del detector: «ya le aviso al equipo y te lo arreglo» no era una promesa para
   `promesasDe` («aviso» y «arreglo» no estaban, ni el «le» del «ya le…»).
-- ⚠️ **Hasta la próxima punta de la Ticketera, `preparar()` contesta «No sé quién eres»** para un actor `whatsapp:…`:
-  el ticket no se levanta y no se rompe nada (el código no agrega la línea si la propuesta falló).
+- **Desde la tarde del 17/10 la falla ya no se PREGUNTA: se registra sola** («Y todo lo solucionás automáticamente»).
+  El doer llama `registrarError` (lib/errores-app.ts, agrupa por huella) con `identidadDelActor(ws, actor)`, y a la
+  persona se le dice sólo si entró como ticket (`ok && ticketId`): el ruido de la IA vuelve `ok: false`. ⚠️ **La línea
+  de la app no sirve en WhatsApp**: «te aviso por aquí cuando esté arreglado» es una promesa a futuro y la marcarían el
+  saneo y el vigía. La del doer dice lo que ya pasó, y el aviso de arreglado llega solo por el grupo (el negocio queda
+  como afectado por `identidad.ws`). `levantar_ticket` sigue viajando para lo que pide la persona («reporta esto», algo
+  que no existe).
 
 **El aviso «ya quedó arreglado» al grupo del cliente (17/10, pedido de Martín por el Ops Center).** Cambió la regla del
 vigía: ahora un jefe SÍ escribe en el grupo de un cliente, pero sólo para avisar que algo que le falló ya anda en

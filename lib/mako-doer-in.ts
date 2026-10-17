@@ -26,8 +26,10 @@ import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId, aToolDef } from '@/lib/api-mako/registro';
-import { errorParaTicket, propuestaPorFallo, type ErrorDelTurno } from '@/lib/tickets-reglas';
-import { actorDeWhatsApp, LINEA_TICKET_PROPUESTO } from '@/lib/doer-ticket';
+import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
+import { actorDeWhatsApp, LINEA_ERROR_AVISADO } from '@/lib/doer-ticket';
+import { registrarError } from '@/lib/errores-app';
+import { identidadDelActor } from '@/lib/tickets-db';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, SIN_DATOS_DE_CLIENTES } from '@/lib/doer-herramientas';
 import { listarPendientes } from '@/lib/api-mako/acciones';
@@ -1792,16 +1794,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       }
     }
 
-    // ── El ticket que propone el CÓDIGO ─────────────────────────────────────────
-    // Una herramienta de MaKo falló en este turno y el modelo no propuso mandárselo al equipo: lo propone el código, con
-    // el error que vio (el molde de lib/mako-turno-app.ts). Queda como pendiente: un «sí» lo manda. La línea que lo dice
-    // la escribe el código, después del saneo: el modelo no sabe que la pendiente existe.
-    if (erroresDelTurno.length && !ticketPropuesto && respuesta && !avisoDeSistema) {
+    // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
+    // Martín (17/10/2026): «Y todo lo solucionás automáticamente». Ya no se le pregunta a la persona «¿se lo aviso al
+    // equipo?»: el error se registra (agrupado por huella, lib/errores-app.ts, el molde del chat de la app) y la primera vez
+    // es un ticket de bug que va solo al Cerebro. A la persona se le dice SÓLO si entró (`ok && ticketId`): lo que falló
+    // porque el proveedor de IA no contestó es ruido y vuelve `ok: false`. El negocio queda como afectado por la identidad
+    // (`identidad.ws`), y por eso el aviso «ya quedó arreglado» le llega a ESTE grupo (lib/aviso-arreglo.ts).
+    // La línea la escribe el código, después del saneo, y dice lo que ya pasó: nada de «te aviso».
+    if (erroresDelTurno.length && !ticketPropuesto) {
       const e = erroresDelTurno[0];
-      const prop = await runRegistro(LEVANTAR_TICKET, propuestaPorFallo(e, texto, porId(e.herramienta)?.titulo ?? null))
-        .catch((x) => { console.error(`[mako-doer-in] ws=${wsData} no pude proponer el ticket: ${x instanceof Error ? x.message : String(x)}`); return null; });
-      if (prop && !errorParaTicket(LEVANTAR_TICKET, prop) && !(prop as { isError?: unknown }).isError) respuesta = `${respuesta}\n\n${LINEA_TICKET_PROPUESTO}`;
-      else if (prop) console.warn(`[mako-doer-in] ws=${wsData} el ticket propuesto no quedó: ${String((prop as { content?: unknown }).content ?? '').slice(0, 200)}`);
+      const quien = await identidadDelActor(wsData, ctxApi.actor).catch(() => null);
+      const reg = await registrarError({ origen: 'mako', nombre: e.herramienta, mensaje: e.error }, quien);
+      if (reg.ok && reg.ticketId && respuesta && !avisoDeSistema) respuesta = `${respuesta}\n\n${LINEA_ERROR_AVISADO}`;
+      else if (!reg.ok) console.warn(`[mako-doer-in] ws=${wsData} la falla de ${e.herramienta} no se registró (${reg.motivo})`);
     }
 
     // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan
