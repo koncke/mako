@@ -28,6 +28,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { tokenVencido, type MotivoFalla } from './flow-protocolo';
+import { RUTA_SUBIDA } from './flow-interfaz';
 
 /** Tipos de trabajo que la extensión sabe ejecutar. */
 export type TipoTrabajo =
@@ -316,6 +317,72 @@ export async function resolver(ws: number, id: number, resultado: unknown): Prom
     // que no salió y que reintentara; si además reintentó, termina con dos.
     // Es la misma condición que el cierre por abandono usa del otro lado.
     .eq('estado', 'tomado');
+}
+
+/**
+ * El navegador sigue trabajando estos trabajos: se les renueva el `tomado_at`.
+ *
+ * ⚠️ SIN ESTO, EL RESCATE DE COLGADOS COBRA DOS VECES. Un trabajo del motor por
+ * interfaz queda `tomado` mientras la pestaña genera —un video tarda minutos, y
+ * los que esperan su turno, más—. El RPC devuelve a la cola todo lo tomado hace
+ * más de diez minutos, y en la ventana entre que lo suelta y que alguien lo vuelve
+ * a tomar, `estadoTomaAction` lo da por abandonado («nadie levantó el trabajo»)
+ * con el clip ya pagado del lado de Google.
+ *
+ * Sólo los que siguen `tomado` y son de ESTE workspace: un id ajeno o uno ya
+ * cerrado no se toca.
+ */
+export async function seguirTomados(ws: number, ids: unknown): Promise<void> {
+  const lista = (Array.isArray(ids) ? ids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 50);
+  if (!lista.length) return;
+  const db = await runWithWorkspace(ws, () => getTenantDb());
+  const { error } = await db
+    .from('flow_trabajos')
+    .update({ tomado_at: new Date().toISOString() })
+    .eq('workspace_id', ws)
+    .eq('estado', 'tomado')
+    .in('id', lista);
+  if (error) console.error('[flow] seguirTomados:', error.message);
+}
+
+/** El bucket público donde quedan los clips (y, con el motor por interfaz, las imágenes). */
+const BUCKET_MEDIOS = 'video-clips';
+
+/**
+ * A cada trabajo de interfaz que lleva `ruta` se le acuña la firma para subir su
+ * medio a Storage, AL ENTREGARLO.
+ *
+ * La pestaña baja el archivo con la sesión de Google de la persona —que el
+ * servidor no tiene— y lo sube con esta firma. Se firma al entregar y no al
+ * encolar por la misma razón que el montaje: una firma acuñada al encolar puede
+ * vencer mientras el trabajo espera.
+ *
+ * Una ruta con otra forma no se firma: el pedido lo escribe nuestro código, pero
+ * la firma es un permiso de escritura y se da sólo para lo que se sabe pedir.
+ */
+export async function firmarSubidas(ws: number, trabajos: Trabajo[]): Promise<Trabajo[]> {
+  const apikey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? null;
+  const out: Trabajo[] = [];
+  for (const t of trabajos) {
+    const ruta = typeof t.pedido?.ruta === 'string' ? t.pedido.ruta : '';
+    if (t.pedido?.motor !== 'interfaz' || !RUTA_SUBIDA.test(ruta)) { out.push(t); continue; }
+    try {
+      const db = await runWithWorkspace(ws, () => getTenantDb());
+      const { data, error } = await db.storage.from(BUCKET_MEDIOS).createSignedUploadUrl(ruta, { upsert: true });
+      if (error || !data?.signedUrl) throw new Error(error?.message || 'sin firma');
+      const publica = db.storage.from(BUCKET_MEDIOS).getPublicUrl(ruta).data?.publicUrl || '';
+      out.push({
+        ...t,
+        pedido: { ...t.pedido, subida: { url: data.signedUrl, publica, apikey, nombre: ruta.split('/').pop() } },
+      });
+    } catch (e) {
+      // Sin firma igual se genera: la pestaña devuelve la url de Flow y el
+      // servidor intenta bajarla él. Perder la firma no puede costar el clip.
+      console.error('[flow] firmarSubidas:', t.id, String(e));
+      out.push(t);
+    }
+  }
+  return out;
 }
 
 /**
