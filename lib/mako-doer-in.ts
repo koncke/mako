@@ -32,7 +32,8 @@ import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
-import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
+import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
+import { sanearSalida, promesasDe } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
@@ -259,7 +260,13 @@ function hoyLegible(tz: string): string {
 
 const DOER_WA_VOZ = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
-SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTA ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.`;
+SI NO ENTENDISTE SI TE ESTÁN PIDIENDO ALGO O SOLO CONTÁNDOTE ALGO: contesta como en una charla y, si te parece que hay algo para anotar en el plan, PREGUNTA ("¿te lo anoto como tarea?"). ⛔ No crees un borrador que no te pidieron: al cliente le llega un link a revisar un plan que no pidió y no entiende de dónde salió.
+
+⛔ NO PROMETAS LO QUE NO HACES EN ESTE MISMO MENSAJE: nada de "déjame ver", "ya te lo cargo", "dame un segundo". Tu respuesta es el FINAL del turno: no hay un después en el que vuelvas con el dato. Si hay que mirar o hacer algo, hazlo AHORA y contesta con lo que pasó; si no puedes, dilo en una línea y di cómo se hace. Para ofrecer, PREGUNTA ("¿te lo cargo al plan?").
+
+⛔ NO AFIRMES EL ESTADO DE UNA INTEGRACIÓN (Google Calendar, Calendly, Meta…) que no leíste en este turno: decir "no está conectado" sobre una cuenta conectada es mentirle al cliente.
+
+LA VOZ EN EL GRUPO: directa y cálida, SIN groserías ni lunfardo. Nada de "cagada", "cagar", "carajo", "boludo", "vendehumo", "clavarte", "bótame" ni nada parecido: en el grupo de un negocio también lee su equipo.`;
 
 /**
  * ⚠️ EL PROTOCOLO DE HERRAMIENTAS, Y SOLO VA SI DE VERDAD SE MANDAN HERRAMIENTAS.
@@ -799,6 +806,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // hacer lo que ofreció (lib/mako-intencion.ts, regla 3-ter). Se mira sólo el final del
     // historial: un ofrecimiento de hace diez mensajes no lo contesta un «sí» de ahora.
     const ultimoDeMako = historial.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
+    /**
+     * EL PEDIDO QUE MaKo PROMETIÓ CUMPLIR, si su último mensaje prometió algo («Eso lo miro y te lo paso»). Es el último
+     * de los tres anteriores de la persona que pidió algo de verdad: entre el pedido y el reclamo suele haber un «ok»
+     * (13/10/2026, ws13: «pasame las reuniones de hoy» → «ok» → «Eso lo miro…» → «Pasamelo»).
+     */
+    const pedidoPrometido = typeof ultimoDeMako === 'string' && promesasDe(ultimoDeMako).length
+      ? historial.filter((r) => r.role === 'user').slice(-3).reverse()
+        .map((r) => (typeof r.content === 'string' ? r.content : ''))
+        .map((c) => ({ c, v: c ? clasificarIntencion(c) : null }))
+        .find((x) => x.v && x.v.intencion !== 'charlar' && !x.v.dudosa) ?? null
+      : null;
     const intencion = clasificarIntencion(texto, {
       hayMedia: !!mediaBlocks,
       hayPendientes: vigentes.length > 0,
@@ -810,6 +828,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // «la reunión» / «la tarea» contestan «¿La reunión o la tarea?» sólo si MaKo hizo ESA
       // pregunta: después de cualquier otra, «la agenda de mañana?» es una consulta.
       preguntoReunionOTarea: preguntoReunionOTarea(typeof ultimoDeMako === 'string' ? ultimoDeMako : null),
+      // «El nombre es Nancy y la dirección es Alem 1987» contesta el «pásame el nombre y la dirección» de MaKo a un
+      // pedido de visita (16/10/2026, ws18): sigue ESE pedido, con la agenda. Se miran los dos últimos de la persona:
+      // a veces MaKo pide un dato y después otro.
+      siguePedidoDeAgenda: makoPidioDatos(typeof ultimoDeMako === 'string' ? ultimoDeMako : null)
+        && historial.filter((r) => r.role === 'user').slice(-2).some((r) => typeof r.content === 'string' && esPedidoDeAgenda(r.content)),
+      pedidoPrometido: pedidoPrometido?.v?.intencion,
     });
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
@@ -874,7 +898,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       : false;
     // El «sí» a un ofrecimiento elige las herramientas por lo que se ofreció y por lo último
     // que pidió la persona: «sí, dale» no nombra nada.
-    const ultimoPedido = historial.slice().reverse().find((r) => r.role === 'user')?.content;
+    // Si reclama una promesa, el pedido es el que MaKo prometió cumplir, no el «ok» que vino después.
+    const ultimoPedido = intencion.reclamaPromesa && pedidoPrometido ? pedidoPrometido.c : historial.slice().reverse().find((r) => r.role === 'user')?.content;
     const contextoDelSi = intencion.sigueOfrecimiento
       ? [typeof ultimoPedido === 'string' ? ultimoPedido : '', typeof ultimoDeMako === 'string' ? ultimoDeMako : ''].filter(Boolean).join('\n')
       : null;
@@ -913,7 +938,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      */
     const bloqueTools = tools.length
       ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
-      : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea («eso lo miro y te lo paso») y nada más.';
+      : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea: que desde este mensaje no lo puedes mirar y que te lo pida directo («¿qué tareas tengo hoy?»). ⛔ No prometas mirarlo después: no hay un después.';
     // ⚠️ HOY, EN LA ZONA DEL NEGOCIO. Sin esto el modelo no sabe qué día es, y «agendá una
     // visita el jueves» le pedía ADIVINAR la fecha: una fecha adivinada es una invitación
     // real para el día equivocado (07/10/2026, al sumar agendar por WhatsApp). El resumen
@@ -1028,7 +1053,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       const d = porId(n);
       return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
     });
+    /**
+     * CUÁNTAS HERRAMIENTAS CORRIERON EN EL TURNO. Las mira el saneo de la salida: una promesa («déjame ver el plan») en
+     * un turno que no corrió NINGUNA no se cumple nunca (lib/doer-salida.ts). Cuenta también lo que el memo devuelve de
+     * un intento anterior: eso SÍ se hizo. Lo de UN intento se mide como la diferencia antes y después de la llamada.
+     */
+    let corridasDelTurno = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
+      corridasDelTurno++;
       const previo = memo.previo(name);
       if (previo) {
         console.warn(`[mako-doer-in] ws=${wsData} ${name}: ya corrió en un intento anterior de este turno; se devuelve lo que dejó`);
@@ -1140,11 +1172,20 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      */
     let avisoDeSistema = false;
 
-    if (ruta.tier === 'cheap' && !mediaBlocks) {
+    /**
+     * ⚠️ EL CAMINO BARATO NO VA SIN HERRAMIENTAS CUANDO EL CLASIFICADOR PIDIÓ HERRAMIENTAS.
+     *
+     * El router (`rutearDoer`) contesta CUÁNTO gastar y lee «sí», «ok», «dale» como charla. El 13/10/2026 (ws13) «Si 18 de
+     * noviembre» —la fecha que MaKo le había pedido para agendar un cumpleaños— salió por acá, sin una sola herramienta,
+     * y MaKo contestó «te lo agendo de una». Con el clasificador diciendo qué HACER (agendar, leer, cargar), lo barato
+     * sólo va si es charla de verdad o si la clasificación fue una duda.
+     */
+    const pideHerramientas = intencion.intencion !== 'charlar' && !intencion.dudosa;
+    if (ruta.tier === 'cheap' && !mediaBlocks && !pideHerramientas) {
       // Charla trivial: respuesta corta con la voz de MaKo, SIN tools ni Opus. Si
       // falla la IA barata, caemos al doer normal (nunca dejamos al dueño sin respuesta).
       try {
-        const cheapSys = `${base}\n\nEs un saludo o charla casual por WhatsApp, sin pedido concreto. Responde CORTO (1-2 frases), cálido y en la voz de MaKo. No inventes datos ni números; si te piden algo con datos del negocio, di que lo miras enseguida.`;
+        const cheapSys = `${base}\n\nEs un saludo o charla casual por WhatsApp, sin pedido concreto. Responde CORTO (1-2 frases), cálido y en la voz de MaKo. No inventes datos ni números; si te piden algo con datos del negocio, pide que te lo pregunten directo (no prometas mirarlo: este mensaje es todo lo que haces). Sin groserías ni lunfardo.`;
         respuesta = (await chatCheap({ system: cheapSys, user: texto, maxTokens: 350, feature: 'mako-doer-in', motivo: `${ruta.motivo} «${recorte}»` })).trim();
       } catch (e) {
         console.warn('[mako-doer-in] cheap falló, uso doer:', e instanceof Error ? e.message : String(e));
@@ -1298,6 +1339,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // key que se destraba sola. Es el caso de Brigitte (07/10/2026, una sola key):
                 // ver lib/ia-rotacion-modelo.ts.
                 const esperaCuotaMaxMs = nInst === instancias.length - 1 ? 30_000 : 0;
+                const corridasAntes = corridasDelTurno;
                 const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
                 /**
                  * ⚠️ ESTA SALIDA ERA MUDA, Y POR ESO EL CLIENTE LEYÓ «TE QUEDASTE SIN CUOTA».
@@ -1360,6 +1402,25 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                   if (r2.text && !r2.text.startsWith('(')) {
                     texto2 = r2.text;
                     vv = validarRespuestaDoer(r2.text, { motivoRuta: ruta.motivo, linkBorrador });
+                  }
+                }
+
+                /**
+                 * ⚠️ PROMETIÓ Y NO HIZO NADA: se reintenta UNA vez con la herramienta obligatoria.
+                 *
+                 * EL CASO (16/10/2026, ws18, gemini-flash-lite). «¿qué tiene que hacer Pablo hoy, qué tareas les
+                 * quedan?» llegó con `ver_plan` y `listar_tareas_plan` en la mesa, y el modelo contestó en 28 tokens
+                 * «Déjame ver el plan y las tareas para Pablo en este momento», sin llamar a ninguna. Es la misma
+                 * señal que el link inventado: el modelo sabe que había que hacer algo, y lo dice en vez de hacerlo.
+                 * Sólo si este intento no corrió nada y el turno trae herramientas; lo que quede, lo saca el saneo
+                 * de la salida (más abajo, `sanearSalida`).
+                 */
+                if (!linkBorrador && corridasDelTurno === corridasAntes && tools.length && promesasDe(texto2).length) {
+                  console.warn(`[mako-doer-in] ${prov} prometió sin hacer («${promesasDe(texto2).join('», «')}») → reintento con la herramienta obligatoria`);
+                  const r3 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}» · prometió sin hacer`, toolChoicePrimerPaso: 'required' });
+                  if (r3.text && !r3.text.startsWith('(')) {
+                    const v3 = validarRespuestaDoer(r3.text, { motivoRuta: ruta.motivo, linkBorrador });
+                    if (v3.ok || v3.razon === 'sin-borrador' || linkBorrador) { texto2 = r3.text; vv = v3; }
                   }
                 }
 
@@ -1632,6 +1693,26 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // Y el de una acción que se confirma en PANTALLA: si el link real no está TAL CUAL
     // en la respuesta, lo escribe el código. Ver conLinksDeAccion.
     respuesta = conLinksDeAccion(respuesta, [...linksAccion]);
+
+    /**
+     * ⚠️ LO QUE NO SALE AL GRUPO: una promesa que el turno no cumplió y una grosería (lib/doer-salida.ts).
+     *
+     * El 16/10/2026, en el grupo del ws18, MaKo mandó «Déjame ver el plan…» y «te cargo las tareas del plan» sin
+     * haber corrido una sola herramienta, y «la cagada es real», «quedé como un vendehumo», «para no clavarte»,
+     * «bótame». El prompt lo pide (DOER_WA_VOZ) y esto lo mira al salir: saca la ORACIÓN, no reescribe. Sólo sobre
+     * el texto del modelo: los carteles (`avisoDeSistema`) y los mensajes canónicos del borrador y del lead son nuestros.
+     * Lo que se saca queda en el Saldo de IA como una fila de US$0 (el molde de `cartel-ia`): es lo que lee el vigía
+     * (scripts/vigia-mako-grupos.mts), porque al historial va la respuesta ya saneada.
+     */
+    if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
+      const saneo = sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0 });
+      if (saneo.promesas.length || saneo.groserias.length) {
+        const que = [saneo.promesas.length ? `promesa sin hacer: «${saneo.promesas.join('», «')}»` : '', saneo.groserias.length ? `grosería: ${saneo.groserias.join(', ')}` : ''].filter(Boolean).join(' · ');
+        console.error(`[mako-doer-in] ws=${wsData} SANEADA (${que}) · ${intencion.intencion} · ${tools.length} herramientas, ${corridasDelTurno} corridas · ruta «${ruta.motivo}»`);
+        void recordUsage('saneo-doer', saneo.promesas.length ? 'saneo:promesa' : 'saneo:voz', {}, `ws${wsData} · ${intencion.intencion} · ${tools.length} tools · ${corridasDelTurno} corridas · ${que}`.slice(0, 200), 'mako', 1).catch(() => {});
+        respuesta = saneo.texto;
+      }
+    }
 
     // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan
     // las DOS ramas —la IA barata y Claude— y las dos tenían el mismo agujero.

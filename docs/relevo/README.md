@@ -38,6 +38,7 @@ El flujo, entonces: Martín abre un chat con el título de siempre y pega **una 
 | Image Editor (el Canva de MaKo, sobre Doory) | `Leé docs/relevo/image-editor.md y seguimos desde ahí.` |
 | Graphics (la tab Dashboard) | `Leé docs/relevo/dashboard.md y seguimos desde ahí.` |
 | General (vistas personalizables, pagos de Mauricio y el Calendario) | `Leé docs/relevo/general-y-calendario.md y seguimos desde ahí.` |
+| MaKo en WhatsApp (el doer de los grupos y su vigía) | `Lee docs/relevo/mako-en-whatsapp.md y seguimos desde ahí.` |
 
 Y los de ÁREA, que no tienen un chat con ese nombre pero sí briefing propio —se pegan en el
 chat que toque ese código: `seguridad-aislamiento.md`, `pixel-clarity-landing.md`,
