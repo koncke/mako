@@ -18,8 +18,14 @@
 // CERO: en el ws1, «Renovación» tiene 0 leads con casa ahí y 5 agregados (medido el 17/10/2026). Por eso acá cada
 // cosa cuenta en el funnel donde estaba el lead EN ESE MOMENTO: su casa, o el último funnel al que se lo agregó en
 // esa fecha o antes (`funnelDelMomento`). Cada pago va a UN solo funnel, así que «VSL + Renovación» suma el total
-// sin contar nada dos veces. Lo que no resuelve: una cuota vieja de la venta del VSL que se cobra DESPUÉS de agregar
-// al lead a Renovación cuenta en Renovación. El arreglo de fondo es que el pago guarde su funnel (CRM, sin hacer).
+// sin contar nada dos veces. Lo que no resolvía: una cuota vieja de la venta del VSL que se cobra DESPUÉS de agregar
+// al lead a Renovación contaba en Renovación.
+// ⚠️ DESDE EL 17/10/2026 (#897, mig 0309) EL PAGO GUARDA SU FUNNEL (`pagos.funnel_id`): un trigger lo fija al CREAR la
+// fila con esta misma regla (el funnel del lead ese día), así la cuota de la venta del VSL sigue siendo del VSL aunque
+// se cobre después de agregarlo a Renovación. Un hecho con `funnel` manda sobre `funnelDelMomento`; sin él (la columna
+// todavía no está, o un pago sin lead), la regla de siempre. Medido ese día: con las dos reglas los pagos cobrados de
+// hoy caen en el MISMO funnel (en el ws1, los 33 en «Negocio que ESCALA»: los 5 leads de Renovación se agregaron el
+// 13/10 y todos sus pagos son de antes), así que el backfill no movió ningún número.
 // =============================================================================
 
 /** Lo guardado (`funnel_ids` de la base, un número suelto de antes, una lista del navegador) como lista limpia. */
@@ -79,8 +85,21 @@ export function funnelDelMomento(casa: number | null, agregados: readonly Agrega
   return mejor ? mejor.funnel : casa;
 }
 
-/** Un hecho que cuenta para un OKR o un KPI: de qué lead es, cuándo pasó y cuánto suma (1 si se cuenta). */
-export type Hecho = { lead: number | null; fecha: string | null; valor: number };
+/**
+ * Un hecho que cuenta para un OKR o un KPI: de qué lead es, cuándo pasó y cuánto suma (1 si se cuenta). `funnel`: el
+ * que guardó el pago (mig 0309); cuando está, manda.
+ */
+export type Hecho = { lead: number | null; fecha: string | null; valor: number; funnel?: number | null };
+
+/**
+ * ¿El error es que `pagos.funnel_id` todavía no existe (la mig 0309 sin aplicar)? Los lectores reintentan sin la columna
+ * y cuentan con la regla de siempre: nunca un cero ni una pantalla caída por una migración que falta.
+ */
+export function faltaColumnaFunnel(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : String(e);
+  const code = typeof e === 'object' && e && 'code' in e ? String((e as { code: unknown }).code) : '';
+  return /funnel_id/.test(m) && (code === '42703' || /does not exist|no existe/i.test(m));
+}
 
 /**
  * La suma de los hechos que caen en los funnels elegidos. `casas` y `agregados` son de los leads de los hechos; un
@@ -98,14 +117,16 @@ export function sumarEnFunnels(
 /** Los ítems (un pago, un cierre del desglose) que caen en los funnels elegidos, con la misma regla que la suma. */
 export function filtrarEnFunnels<T>(
   items: readonly T[],
-  de: (x: T) => { lead: number | null | undefined; fecha: string | null | undefined },
+  de: (x: T) => { lead: number | null | undefined; fecha: string | null | undefined; funnel?: number | null },
   elegidos: readonly number[],
   casas: ReadonlyMap<number, number | null>,
   agregados: ReadonlyMap<number, readonly Agregado[]>,
 ): T[] {
   const set = new Set(elegidos);
   return items.filter((x) => {
-    const { lead, fecha } = de(x);
+    const { lead, fecha, funnel } = de(x);
+    // El que guardó el pago (mig 0309) manda: es el de cuando se creó, no el de cuando se cobró.
+    if (funnel != null) return set.has(funnel);
     if (lead == null || !fecha) return false;
     const f = funnelDelMomento(casas.get(lead) ?? null, agregados.get(lead) ?? [], fecha);
     return f != null && set.has(f);
