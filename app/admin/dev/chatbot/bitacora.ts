@@ -1865,4 +1865,29 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "17 oct", hora: "04:35", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: Crear con IA no se cuelga, el CRON sólo dispara, links sin vista previa y el error de Resend en palabras (#847, #846, #869, #875)",
+    puntos: [
+      "En producción desde el run 92, con la migración 0309 aplicada.",
+      "Crear con IA: si lo que pediste choca con una regla, lo corrige en segundos en vez de probar proveedor tras proveedor con el mismo error (era lo de Joan: 2,5 min y un error).",
+      "El CRON queda con el disparo: el número es de cada WhatsApp y la reentrada va debajo de cada WhatsApp (de toda la automatización).",
+      "«Vista previa del link» en cada WhatsApp con un link: apagado, sale como texto, también en el borrador y en las pruebas.",
+      "El error de Resend dice de quién es la key y qué hacer. Falta lo de Martín: una key con «Full access» en la fila del ws1.",
+    ],
+    commits: [
+      { sha: "a0feecde9", msg: "Automations: «Crear con IA» corrige en vez de repetir el error (#847)", lineas: 162, archivos: 6 },
+      { sha: "8ed3d3d73", msg: "Automations: el CRON sólo dispara; la reentrada va en cada WhatsApp (#846)", lineas: 159, archivos: 5 },
+      { sha: "951d52db3", msg: "Automations: los links de un WhatsApp, con o sin vista previa (#869)", lineas: 354, archivos: 21 },
+      { sha: "cbdc0db4b", msg: "Email: una key de Resend de sólo envío, dicha en palabras y con su dueño (#875)", lineas: 148, archivos: 6 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Crear con IA se quedó pensando» · El CRON sólo dispara · Los links con o sin vista previa",
+      "docs/hallazgos-comunicacion.md — «Tu API key es restringida»: la key de la PLATAFORMA es de sólo envío",
+      "docs/hallazgos-infra.md — Los logs de producción de AYER se leen con vercel logs",
+    ],
+    revisar: "/automations",
+  },
 ];
