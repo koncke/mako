@@ -343,3 +343,35 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   los confirma Martín de a uno (propuesta en /plan/revisar), salvo los que yo cerré con evidencia de la auditoría.
 - **Trampa de hoy:** en Git Bash, `--revisar "/ruta"` se convierte en ruta de disco → `MSYS_NO_PATHCONV=1` (se lo pasé
   al Ops Center 3).
+
+## 17/10 ~10:30 AR (13:30 UTC) — ESTADO PARA RETOMAR (contexto del Cerebro al ~91%)
+
+- **Producción: run 103.** Lleva MaKo «reprogramar» y Dashboard (#876, #872, #857, #858 y Experiments).
+- **Run 104 rojo:** CRM #880 rompió tests/m-ficha-bloques. Lo saqué con un REVERT (c3f0d449e revertido); CRM lo vuelve a mandar con el test del teléfono ajustado.
+- **Run 105 rojo:** lib/vista-de-otro.ts (Onboarding E) enlazaba /customer-success. Ahora va a /partners, y clients-rutas quedó al día.
+- **Run 106 (f99e1e375), corriendo:**
+  - Second Brain 233b57297;
+  - Clients 3eaaabf96;
+  - Ops Center 3 C/D/F + links (cd233436f, `maxDuration = 300` en la ruta del cartero);
+  - MaKo en WhatsApp f00d84362 (ticket desde el grupo);
+  - Onboarding E (#881 y #850), la barra de lote del CRM, y las bitácoras de Pagos y CRM.
+- **Cartero instalado: 1.14.3** (`medir` con la cuenta activa). El Runner mide cada vuelta (tarea 3169963f).
+- **Ops Center 3 CERRÓ al 80%.** Hay que abrir un **Ops Center 4** con docs/relevo/centro-operaciones.md. Pendientes:
+  - E (los pasos en vivo) y G (nombre y email de las cuentas), con los borradores en side-session-notes;
+  - la lista sin «Sin asignar»;
+  - el diseño del teléfono (el Uso arriba);
+  - el bug de `vigilar` con 0 consultas;
+  - el cierre con MSYS_NO_PATHCONV;
+  - el Plan a pedido desde el chat, que pide revisión de seguridad.
+  - Sólo puedo abrirlo en un turno que empiece con un mensaje de Martín; las tarjetas no le gustan.
+- **Esperan:**
+  - Sidebar `sidebar-email` (VERDE, mig 0312; después de Clients en main);
+  - CRM #880 rehecho;
+  - Ticketera punta 2 (cartero 1.15.0 sobre 1.14.3, el bug automático; pedir revisión del cartero) y los errores de toda la app;
+  - MaKo en WhatsApp: `avisar_arreglo_al_grupo` y el aviso a Joan;
+  - Automations `undecima`, Offer, Plan, Infra `--rapido`.
+- **Cuando el 106 esté en producción:** avisar el «Ya está» a Second Brain, Clients, Ops Center (que cerró: lo dice el 4), MaKo en WhatsApp y Onboarding (E). Después, avisarle a Sidebar que mergee Clients y a CRM que enchufe LlevarAPartners.
+- **Herramientas del Cerebro** (scratchpad de la sesión):
+  - unir-filas.cjs resuelve el índice docs/hallazgos.md fila por fila;
+  - afectados.cjs;
+  - el chequeo liviano es guardas + los tests cambiados + frontera, link-con-workspace y puente-panel-copy.
