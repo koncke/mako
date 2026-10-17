@@ -9701,3 +9701,91 @@ contestó) y la lista lo dice (`avisoSinResultados`); el campo ya no promete bus
 app/ads-manager/ProductoCelda.tsx · lib/ficha/plantillas-resumen.ts · lib/instagram-buscar.ts ·
 app/api/crm/instagram-buscar/route.ts · tests: calificado-al-instante, campana-varios-funnels, ficha-plantillas-simples,
 instagram-buscar-aviso · *17/10/2026, chat «CRM» (claude4).*
+
+## Los pendientes del CRM del 17/10 (chat «Pendientes B2»): lo que no se ve en el código (17/10/2026)
+
+**1. `getFunnelDeLead` devolvía el CRM del negocio para TODOS, con un comentario que lo daba por correcto.** El comentario
+decía «hoy es correcto: en F1 cada workspace tiene exactamente un funnel». Dejó de ser cierto con los N CRM (mig 0170) y
+nadie volvió: un lead del CRM «Webinar» en «Grupo» se evaluaba contra las etapas del principal, `etapaVigenteDe` lo daba
+por huérfano y devolvía la derivada. MaKo decía «Lead entrante», el tablero «Grupo», y la ficha pedía requisitos de otras
+etapas. **La regla:** un comentario que justifica un atajo con «hoy pasa X» es una medición con fecha; cuando X cambia, el
+atajo se vuelve bug sin tocar una línea. Lo arregló el cuerpo (la marca de los 33 call-sites ya estaba): lee
+`leads.funnel_id` (de la base si el objeto no la trae) y cae al del negocio sólo si la casa no existe.
+- ⚠️ **`getFunnelDe(id)` con un id que no existe NO falla**: devuelve el pipeline genérico con `origen: 'sin-fila'`, y el
+  mismo `'sin-fila'` sale de una fila real con `declarado = false`. Para saber si la fila existe hay que mirar la FILA
+  (`filaDe`, lib/funnels.ts), no el `origen`.
+
+**2. Los CRM de webinar viejos: medido, no hay ninguno.** El pendiente era «¿algún CRM de plantilla `vsl` deja en la
+primera columna a leads con fecha de webinar?». En producción (17/10, sólo lectura): ningún funnel tiene `plantilla = 'vsl'`
+ni las claves viejas (`registro`, `webinar`, `checkout`, `grupo`), y 0 leads cuelgan de uno así. Nada que migrar.
+
+**3. Mover entre dos etapas abiertas ya no borra la venta (decidido con criterio: la opción b del §5.3 del relevo).** El
+movimiento mandaba SIEMPRE `estado_lead`, y `desenlaceAlGuardar` lo leía como una decisión de la venta: «Facturando →
+Falta pago» le vaciaba monto y fecha de cierre cargados por el plan de pagos. Ahora va sólo si el estado CAMBIA
+(`estadoDelMovimiento`, lib/lead-desenlace.ts). Reabrir un Ganado la sigue limpiando; sin poder leer el lead, se manda
+como siempre.
+
+**4. El «Deshacer» del historial no pisa a otro, y la ETAPA no se compara.** Cada dato del grupo tiene que seguir diciendo
+lo que escribió esa línea (`camposPisados`, lib/historial-pisado.ts, contra `valorDelHistorial` con el MISMO formato de
+`auditVal`). La etapa queda afuera a propósito: la que se ve es derivada (fechas, asistencias) y cambia sola, así que
+comparar daba falsos «ya lo cambiaron»; para la etapa ya manda la regla de «sólo el último cambio de estado».
+- ⚠️ **Un «no» tirado desde una server action no llega a la pantalla en producción** (Next esconde el mensaje).
+  `revertMoveAction` ahora DEVUELVE sus tres «no» (`{ error }`). Si la persona tiene que leer el porqué, se devuelve.
+
+**5. `saveFunnelDe` con la lectura caída BORRABA el `data` del funnel.** Mergeaba sobre `{}` si el select fallaba, y el
+update escribía `pipeline` + `suppressed` sobre nada: la ficha, las entradas, los umbrales y lo demás se iban. Ahora la
+lectura caída tira, y el update es compare-and-set sobre `updated_at` con relectura (como `cambiarFichaDeFunnel`).
+
+**6. El alta con un funnel ajeno nace en el CRM del negocio (decidido con criterio).** `createLead` escribía el
+`funnel_id` que mandaba el navegador o el webhook. Uno de otro negocio (o que no se pudo comprobar) dejaba al lead fuera de
+todos los tableros. Ahora `casaDelAlta` (lib/lead-funnel-reglas.ts) lo valida contra la fila leída CON el workspace; si no
+es de acá, nace en el del negocio con su log: un alta no se pierde por un id malo, y el del negocio con su id va NULL.
+
+**7. #856: el «Calificado» espera el «Deshacer» y se re-pregunta al salir; la marca de «ya se mandó» es el historial.**
+`after()` + 8 s (el toast dura 5), relee el lead y manda sólo si sigue calificado y no hay una línea «Meta ya recibió que
+está calificado» (`LINEA_CALIFICADO_EN_META`). Sin columna nueva: es un hecho del lead y se lee en su historial. Sin poder
+releer, no sale (una señal a Meta no se deshace). Lo mandado antes del 17/10 no tiene la línea: volver a marcarlo pasadas
+las 48 h del dedup de Meta todavía puede contar dos veces, una sola vez.
+
+**8. #893, la otra mitad: el lead que vuelve por una campaña de otro funnel se SUMA a ése** (`funnelsDeCampanaParaSumar`):
+agregar, nunca mover (la decisión del 06/10), como el lead nuevo de la campaña.
+
+**9. Los plazos viejos de etapa: medido, no hay ninguno.** Ningún funnel tiene `data.umbrales.porEtapa` con algo (17/10):
+el aviso del lead quieto no manda nada y no hay qué borrar. El backend queda inerte, como estaba escrito.
+
+**10. Server actions EXPORTADAS sin llamador y sin corte de sesión.** `ignorarPendientesAction`,
+`ignorarPendientesMasaAction` y `reactivarPendientesAction` (CrmBoard sólo las importaba) escribían la marca VIEJA del lead
+entero (`pendientes_ignorados`) y sin cookie caían al ws1. Lo mismo `crearProductoAction`. **La regla:** una server action
+exportada es un endpoint aunque la pantalla no la llame; sin llamador, se borra (no se deja «por si acaso»).
+
+**11. La ficha que edita MaKo no se releía porque lo de la sesión ganaba SIEMPRE.** `useFichaDelFunnel` prefería lo
+guardado en la pestaña a cualquier relectura del mismo funnel (para que una relectura vieja no pise). Cada foto trae ahora
+su `version` (`funnels.updated_at`) y gana la más nueva (`masNueva`). ⚠️ Los dos formatos de fecha no se comparan como
+texto: PostgREST devuelve `…+00:00` y `toISOString()` `…Z`; va con `Date.parse`.
+
+**12. El historial de la ficha vive en el `data` del funnel, no en una tabla.** `data.fichaHistorial` (las últimas 20), en
+el MISMO update compare-and-set que la ficha: no hay cambio sin línea ni línea sin cambio, y no hizo falta migración ni
+una tabla de inquilino más (que pide TENANT_TABLES y TABLAS_DE_INQUILINO). «Volver a como estaba» es un `restaurar` más.
+
+**13. Los siete bloques de la charla del Resumen leen al montarse y sólo muestran.** Lo que se sabe antes de leer los calla
+(sin teléfono no hay WhatsApp; sin @ ni entrada por redes no hay DM; sin email ni teléfono no hubo envíos). Mandar,
+contestar o confirmar sigue en su pantalla: un bloque que manda es una puerta nueva a un envío. El teléfono no los destila
+(tests/m-ficha-bloques.test.ts, excepción con motivo).
+
+**14. Trampa del arnés de roturas: el ancla de la rotura tiene que ser ÚNICA.** Reemplaza la PRIMERA coincidencia, y un
+comentario de cabecera citaba el mismo texto que el código (`listaFijaDeCs('cs-pagos')`): la «rotura» cayó en el
+comentario y el test dio verde. Se ancló en la línea de código entera.
+
+**Lo que quedó SIN hacer (con su archivo):** la T2 de la ficha (Reuniones y Tracking nativos, y la tarjeta del kanban
+personalizable: app/crm/lead-view/ficha/registro-reuniones.tsx, registro-tracking.tsx, app/crm/CrmBoard.tsx); unificar el
+desplegable de hojas con `MenuHojas` (app/crm/lead-view/LeadTabs.tsx); convertir las filas viejas de
+`pendientes_ignorados` y borrar la columna (una migración de datos); los bloques de la charla sin acciones (mandar,
+contestar); medir la ficha en producción y mirarla en un iPad (sin navegador conectado el 17/10).
+
+**Vive en:** lib/funnels.ts · lib/mako-tools.ts · lib/lead-desenlace.ts · lib/historial-pisado.ts · lib/leads.ts
+(`setPipelineStage`, `createLead`, `upsertLeadFromMeta`, `valorDelHistorial`) · lib/lead-funnel-reglas.ts ·
+lib/meta-capi-payload.ts · app/crm/actions.ts · lib/ficha/historial.ts · lib/ficha/config-server.ts ·
+app/crm/lead-view/ficha/useFichaDelFunnel.ts · guardado-ficha.ts · HistorialFicha.tsx · resumen/charla.tsx ·
+resumen/charla-actions.ts · tests: crm-funnel-del-lead, updatelead-no-borra-venta, crm-deshacer-no-pisa,
+crm-alta-funnel-ajeno, calificado-al-instante, campana-varios-funnels, crm-una-marca-de-ignorados, ficha-relee-lo-de-mako,
+ficha-historial, ficha-resumen-charla · *17/10/2026, chat «Pendientes B2: CRM y clientes» (claude4).*

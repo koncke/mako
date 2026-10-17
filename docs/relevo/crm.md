@@ -6,6 +6,34 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω15. 17/10/2026 (chat «Pendientes B2: CRM y clientes», cuenta `claude4`): los pendientes del CRM del 17/10
+
+Rama `pend-b2-1710` en `C:/dev/wt-pend-b2`. **Sin subir: la punta se le pasa al Cerebro.** El porqué de cada cosa, y
+las trampas, en docs/hallazgos-crm.md («Los pendientes del CRM del 17/10»). Acá, qué quedó y qué falta.
+
+**Hecho (cada uno con su test probado rompiéndolo):** `getFunnelDeLead` lee la casa del lead (y MaKo, `buscar_leads`,
+dice la etapa de SU CRM); mover entre dos etapas abiertas no borra la venta (opción b del §5.3, decidida con criterio);
+el «Deshacer» del historial no pisa lo que cambió otro y sus «no» llegan a la pantalla; `saveFunnelDe` no borra el
+`data` con la lectura caída y es compare-and-set; un alta con funnel ajeno nace en el CRM del negocio; «Nuevo CRM» sólo
+lo ve el admin y siembra sus etapas en el MISMO insert; el aviso al quitar una etapa dice cuántos leads tiene;
+`pagina_registro` y `visitor_id` en «A revisar»; #856 (el «Calificado» espera el Deshacer y no se manda dos veces) y #893
+(el lead que vuelve por otra campaña se suma a ese funnel); se borraron las server actions exportadas sin llamador (las
+tres de ignorar a nivel lead y `crearProductoAction`); los siete bloques de la charla del Resumen (sólo lectura); el
+historial de la ficha con «Volver a como estaba»; la ficha que edita MaKo se relee.
+
+**Medido, nada que hacer:** CRM de webinar viejos (0), plazos viejos de etapa (0 funnels con `umbrales.porEtapa`).
+
+**Sin hacer, con el archivo:**
+- La T2 de la ficha: Reuniones y Tracking nativos (app/crm/lead-view/ficha/registro-reuniones.tsx,
+  registro-tracking.tsx) y la tarjeta del kanban personalizable (app/crm/CrmBoard.tsx). Es una feature entera.
+- El desplegable de hojas unificado con `MenuHojas` (app/crm/lead-view/LeadTabs.tsx): se ve en un navegador y no hubo.
+- Convertir las filas viejas de `pendientes_ignorados` a la marca por dato y borrar la columna: una migración de datos
+  de clientes; la lectura vieja sigue viva en el tablero.
+- Los bloques de la charla con acciones (mandar, contestar): cada una es una puerta nueva a un envío.
+- Mirar la ficha en producción y en un iPad: sin navegador conectado el 17/10.
+- **Decisión abierta que sigue siendo de Martín: §5.1** (ganar en un producto agregado no marca ganado al lead). De ella
+  depende la invitación al curso en un segundo producto (docs/relevo/customer-success.md).
+
 ## 0-Ω14. 17/10/2026 (chat «CRM», cuenta `claude4`): las seis tarjetas de la revisión de las llamadas del 16/10
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: cada punta se le pasa al Cerebro.** El orden lo dio el

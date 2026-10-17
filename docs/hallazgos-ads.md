@@ -4141,9 +4141,9 @@ servidor sólo dice, en el método por FBP, «If you send us two consecutive ser
 do not discard either». O sea: el dedup entre dos envíos nuestros es lo esperable, no una garantía escrita.
 
 **La regla que queda:** lo que viaja a Meta es definitivo. El «Deshacer» del CRM vuelve la ficha atrás, pero la
-conversión ya contó. **Sin hacer:** que el envío espere la ventana del «Deshacer» y relea el lead antes de mandar
-(`after()` en `updateLead`, lib/leads.ts, que desde #854 ya va de fondo); y una marca nuestra de «ya se mandó» para que
-volver a marcar después de 48 h no cuente dos veces (sigue sin columna).
+conversión ya contó. **Hecho el 17/10 (chat «Pendientes B2»):** el envío espera 8 s (el toast del «Deshacer» dura 5), relee el lead
+y manda sólo si sigue calificado; la marca de «ya se mandó» es una línea del historial del lead, sin columna (detalle en
+docs/hallazgos-crm.md, «Los pendientes del CRM del 17/10», punto 7).
 
 **Fuentes (Meta for Developers, leídas el 17/10/2026):**
 [Deduplicación](https://developers.facebook.com/documentation/ads-commerce/conversions-api/deduplicate-pixel-and-server-events) ·

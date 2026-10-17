@@ -117,6 +117,29 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
 
 ---
 
+## 0-Ω. 17/10/2026 (chat «Pendientes B2: CRM y clientes», cuenta `claude4`): los pendientes de CS y Cursos
+
+Rama `pend-b2-1710` en `C:/dev/wt-pend-b2`. **Sin subir: la punta se le pasa al Cerebro.** El porqué y las trampas, en
+docs/hallazgos-customer-success.md («Los pendientes de Customer Success y Cursos del 17/10»).
+
+**Hecho (cada uno con su test probado rompiéndolo):** la tab Pagos del cliente es la del CRM en bloques
+(app/customer-success/PagosCliente.tsx) y el deal (servicio, promesa, obligaciones) quedó en el Resumen; se borraron
+DealDetailsCard, EditarDeal y `?edit=1`; «Sacarle este curso» en la ficha (FichaCurso.tsx); la purga del curso BORRA por
+default (medido: cero huérfanos) y barre `curso-entregas`; la vista previa del «Comentar» dice qué post es.
+
+**Medido:** las llamadas de entrega se analizan todos los días (193 en v3); **10 quedaron en `error` del 05 al 12/10 por
+falta de crédito de Anthropic, sin reintento** (no se reintentaron: gasta crédito). La invitación al curso al ganar en un
+segundo producto no sale, y hoy no le pasa a nadie (ningún negocio tiene prendido el curso al ganar).
+
+**Sin hacer, con el archivo:**
+- La llamada del curso leída de Calendly (app/api/cron/curso-sesiones): crear sesiones solas le
+  avisa a clientes reales; falta decidir qué evento de Calendly es la llamada de entrega.
+- Importar cursos de Skool o Hotmart: Skool no tiene API de contenido; Hotmart pide credenciales del productor.
+- Reordenar el curso con el dedo, y el recorrido entero en el ws3: se verifican en un navegador y no hubo.
+- Las imágenes huérfanas de un borrador y la portada de un módulo vinculado que se borra (lib/curso-purga.ts): cosméticas.
+- La invitación en un segundo producto: depende de la decisión §5.1 del relevo del CRM.
+- El toggle «Etapa del kanban» ya pregunta a dónde van los clientes (QuitarEtapa, desde el 08/10): falta probarlo en la app.
+
 ## 0. 13/10/2026: lo planificado que se cerró, y lo que sigue
 
 Pedido de Martín (por «Estrategia 3 CUENTAS»): «dile a esos chats que continúen y cierren lo que ya
