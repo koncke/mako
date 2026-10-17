@@ -40,7 +40,7 @@ import { Conversacion } from './Conversacion';
 import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
 import { BotonUso } from './Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
-import { MunecoNuevo, NuevoChat, type BorradorNuevoChat } from './NuevoChat';
+import { MunecoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from './NuevoChat';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import type { Centro } from './useCentro';
@@ -289,6 +289,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
  *  cuenta del chat abierto si tiene terminal; si no, en la 1. */
 export function NuevoChatCentro({ centro: k, cuentaDelAbierto }: { centro: Centro; cuentaDelAbierto: string | null }) {
   const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
+  const [abriendo, setAbriendo] = useState(false);
   return (
     <>
       <button type="button" className="co-fila co-fila--nuevo"
@@ -298,8 +299,16 @@ export function NuevoChatCentro({ centro: k, cuentaDelAbierto }: { centro: Centr
       </button>
       {nuevo && (
         <Modal titulo="Nuevo chat" onCerrar={() => setNuevo(null)} ancho={520}
-          pie={<Button disabled={!nombreValido(nuevo.nombre.trim()).ok} onClick={() => { void k.copiarConAviso(comandoNuevoChat(nuevo.cuenta, nuevo.nombre), 'Copiado: pégalo en PowerShell'); setNuevo(null); }}>Copiar comando</Button>}>
-          <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={k.copiarConAviso} />
+          // «Abrir» primero (el clic, 17/10/2026); copiar el comando queda de segunda opción mientras el Runner no abra.
+          pie={<>
+            <Button variant={k.puedeAbrirEn(nuevo.cuenta) ? 'secondary' : 'primary'} disabled={!nombreValido(nuevo.nombre.trim()).ok}
+              onClick={() => { void k.copiarConAviso(comandoNuevoChat(nuevo.cuenta, nuevo.nombre), 'Copiado: pégalo en PowerShell'); setNuevo(null); }}>Copiar comando</Button>
+            {k.puedeAbrirEn(nuevo.cuenta) && (
+              <Button loading={abriendo} disabled={abriendo || !sePuedeAbrir(nuevo, true)}
+                onClick={async () => { setAbriendo(true); const ok = await k.abrirChat(nuevo); setAbriendo(false); if (ok) setNuevo(null); }}>Abrir</Button>
+            )}
+          </>}>
+          <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={k.copiarConAviso} puedeAbrir={k.puedeAbrirEn(nuevo.cuenta)} estado={k.apertura} />
         </Modal>
       )}
     </>

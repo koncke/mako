@@ -124,10 +124,13 @@ export function problemaDeAdjuntos(x: unknown): string | null {
 /** El cartero que baja adjuntos. Con uno de antes, el trabajo saldría SIN sus archivos y nadie lo diría: la caja no ofrece
  *  adjuntar hasta que el Runner de esa cuenta suba esta versión (o una más nueva). */
 export const VERSION_ADJUNTOS = '1.9.1';
-export function aceptaAdjuntos(version: string | null | undefined): boolean {
+export const aceptaAdjuntos = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ADJUNTOS);
+
+/** ¿La versión de un cartero es ésta o una más nueva? Por número: «1.10.0» es mayor que «1.9.1». Sin versión, no. */
+export function versionAlMenos(version: string | null | undefined, minima: string): boolean {
   const v = /^(\d+)\.(\d+)\.(\d+)/.exec(version ?? '');
-  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(VERSION_ADJUNTOS)!;
-  if (!v) return false;
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(minima);
+  if (!v || !m) return false;
   for (let i = 1; i <= 3; i++) if (Number(v[i]) !== Number(m[i])) return Number(v[i]) > Number(m[i]);
   return true;
 }
@@ -167,6 +170,7 @@ export function sanearAbre(x: unknown): string[] {
 }
 /** El cartero que abre chats (`abrir`): con uno de antes, el trabajo quedaría escrito para siempre. */
 export const VERSION_ABRIR = '1.11.0';
+export const aceptaAbrir = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ABRIR);
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
