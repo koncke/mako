@@ -117,8 +117,8 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_funnel', area: 'crm', tipo: 'lectura',
     titulo: 'Etapas del funnel del negocio',
-    descripcion: 'La estructura del proceso comercial configurado en /funnel: el pipeline activo en orden (con su tipo: entrada, reunión, pago, cierre), las etapas de nutrición y las de descarte, con su key. Úsala antes de proponer un cambio de etapa o de filtrar leads para usar las keys REALES del negocio y no un embudo genérico. No pide parámetros.',
-    parametros: [],
+    descripcion: 'La estructura del proceso comercial configurado en /funnel: el pipeline activo en orden (con su tipo: entrada, reunión, pago, cierre), las etapas de nutrición y las de descarte, con su key. Úsala antes de proponer un cambio de etapa o de filtrar leads para usar las keys REALES del negocio y no un embudo genérico. Con embudoId, las de otro CRM.',
+    parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {

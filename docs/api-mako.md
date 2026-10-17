@@ -1507,7 +1507,7 @@ curl -L \
 
 ### `GET /api/v1/crm/etapas` — Etapas del funnel del negocio
 
-La estructura del proceso comercial configurado en /funnel: el pipeline activo en orden (con su tipo: entrada, reunión, pago, cierre), las etapas de nutrición y las de descarte, con su key. Úsala antes de proponer un cambio de etapa o de filtrar leads para usar las keys REALES del negocio y no un embudo genérico. No pide parámetros.
+La estructura del proceso comercial configurado en /funnel: el pipeline activo en orden (con su tipo: entrada, reunión, pago, cierre), las etapas de nutrición y las de descarte, con su key. Úsala antes de proponer un cambio de etapa o de filtrar leads para usar las keys REALES del negocio y no un embudo genérico. Con embudoId, las de otro CRM.
 
 - **Ruta por operación:** `GET /api/v1/crm/ver_funnel`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1516,7 +1516,9 @@ La estructura del proceso comercial configurado en /funnel: el pipeline activo e
 - **Costo:** gratis
 - **Requiere la tab:** crm
 
-_Sin parámetros._
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
 
 ```bash
 curl -L \
