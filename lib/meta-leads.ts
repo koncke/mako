@@ -12,7 +12,7 @@ import { upsertLeadFromMeta } from './leads';
 import { credWs } from './credenciales';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import { META_PAGE_ID } from './config';
-import { esDelWebhookTodavia } from './meta-leads-poll-reglas';
+import { esDelWebhookTodavia, esNuevoParaElNegocio } from './meta-leads-poll-reglas';
 
 export const META_GRAPH_VERSION = process.env.META_API_VERSION || 'v24.0';
 
@@ -92,6 +92,8 @@ export type PollLeadsResult = {
   existentes: number;
   /** los de menos de 5 minutos, que se dejan para el webhook (lib/meta-leads-poll-reglas.ts). */
   del_webhook: number;
+  /** los creados recientes que el poll ANUNCIÓ: el aviso, los flujos y las automatizaciones (`alNacerLeadDeMeta`, #868). */
+  anunciados: number;
   errores: number;
   detalle_errores?: string[];
 };
@@ -165,6 +167,7 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
   let creados = 0;
   let existentes = 0;
   let delWebhook = 0;
+  let anunciados = 0;
   const ahoraMs = Date.now();
   const errores: string[] = [];
 
@@ -195,7 +198,7 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
         vistos++;
         try {
           const { email, nombre, telefono, empresa, noReconocidos } = parseLeadFields(lr.field_data);
-          const { created } = await upsertLeadFromMeta({
+          const { created, lead } = await upsertLeadFromMeta({
             email,
             nombre,
             telefono,
@@ -219,6 +222,19 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
           });
           if (created) creados++;
           else existentes++;
+          // ⚠️ LO INMEDIATO TAMBIÉN DESDE ACÁ (17/10/2026, #868): una página sin suscribir no recibe el webhook nunca, y
+          // sus leads entraban sin disparar ninguna automatización. Sólo uno recién creado y RECIENTE: un rescate de
+          // días no se anuncia como nuevo (`esNuevoParaElNegocio`). Import dinámico: el motor no viaja con cada importador.
+          if (created && esNuevoParaElNegocio(lr.created_time, ahoraMs)) {
+            const ws = await getWorkspaceActual();
+            if (ws != null) {
+              const { alNacerLeadDeMeta } = await import('./meta-lead-nuevo');
+              await alNacerLeadDeMeta(ws, { id: lead.id, nombre: lead.nombre, telefono: lead.telefono }, {
+                fieldData: lr.field_data ?? null, campana: lr.campaign_name ?? null,
+              });
+              anunciados++;
+            }
+          }
         } catch (err) {
           errores.push(`lead ${lr.id}: ${err instanceof Error ? err.message : String(err)}`);
         }
@@ -234,6 +250,7 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
     creados,
     existentes,
     del_webhook: delWebhook,
+    anunciados,
     errores: errores.length,
     ...(errores.length > 0 ? { detalle_errores: errores.slice(0, 10) } : {}),
   };

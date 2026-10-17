@@ -276,6 +276,10 @@ const PARTES_DE_LO_ABIERTO: Partial<Readonly<Record<Area, RegExp>>> = {
   metricas: /^(?:graficos?|metricas?)$/,
   video: /^(?:clips?|escenas?)$/,
   general: /^(?:bloques?|graficos?|metricas?|numeros?|tareas?|proyectos?|prioridades?|deadlines?|kpis?|objetivos?|okrs?|metas?|semaforos?|dia|agenda|cobros?)$/,
+  // Automations (17/10/2026): una automatización tiene TARJETAS —un WhatsApp, un email, una espera, una condición, el
+  // aviso de MaKo— y un disparador. «Agrega un email de bienvenida» es una tarjeta más de la abierta, no ir a Email
+  // Marketing; «borra el mensaje de Cobranza» es un cambio de Cobranza, no archivarla (`decidir`).
+  chatbot: /^(?:mensajes?|tarjetas?|pasos?|esperas?|delays?|condicion(?:es)?|ramas?|flechas?|textos?|audios?|notas?|archivos?|e?mails?|correos?|whatsapps?|disparadores?|crons?|etiquetas?|acciones?|preguntas?|respuestas?)$/,
 };
 
 const esParteDeLoAbierto = (tab: Area, palabra: string | undefined): boolean =>
@@ -380,6 +384,29 @@ function referenciaEn(original: string, pl: string): string | null {
   return mejor ? original.slice(mejor.desde, mejor.hasta).trim() : null;
 }
 
+/**
+ * LO QUE VA JUSTO ANTES DE UN NOMBRE CUANDO ES UNA COMPARACIÓN (17/10/2026, la revisión del chat de Automations): «que el
+ * mensaje diga lo mismo que en Cobranza», «hazla como la de Bienvenida», «igual que Pagos». Ahí el nombre es un DATO del
+ * cambio de lo abierto, no el objeto del pedido: tomado como «sobre Cobranza», el mensaje entero se iba a la burbuja y la
+ * IA del chat no recibía nada. Sobre el texto plano, anclado al final de lo que precede al nombre.
+ */
+const RE_ANTES_COMPARA = /\b(?:como|que|igual(?:es)?(?:\s+(?:que|a))?|parecid[oa]s?\s+a|basad[oa]s?\s+en|segun|copiad[oa]s?\s+de|copia\s+de)(?:\s+(?:en|a|al|de|del|el|la|lo|los|las|esa|ese|esta|este|mi|mis|tu|tus|su|sus))*\s*$/;
+const esComparacion = (plAntes: string): boolean => RE_ANTES_COMPARA.test(plAntes.replace(/[^a-z0-9\s]+/g, ' '));
+
+/** El primer sustantivo después del verbo («borra EL MENSAJE de…» → «mensaje»), saltando el relleno. */
+function sustantivoTrasVerbo(l: Lectura): string | undefined {
+  const v = l.verbos[0];
+  if (!v) return undefined;
+  const re = /[a-z0-9]+/g;
+  re.lastIndex = v.hasta;
+  for (let saltos = 0; saltos <= 3; saltos++) {
+    const m = re.exec(l.pl);
+    if (!m) return undefined;
+    if (!RELLENO.has(m[0])) return m[0];
+  }
+  return undefined;
+}
+
 /** Lo que las reglas leen de un pedazo de texto. */
 type Lectura = { original: string; pl: string; verbos: VerboEn[]; areas: AreaEn[]; objeto: { area: Area; frase: string } | null; referencia: string | null };
 
@@ -421,7 +448,29 @@ export function partirPedidos(texto: string): PedidoCrudo[] {
     cortar(m.index, m.index + m[0].length);
   }
   cortar(original.length, original.length);
-  return pedazos.slice(0, MAX_PEDIDOS).map(etiquetarConReglas);
+  return pedazos.flatMap(partirPorY).slice(0, MAX_PEDIDOS).map(etiquetarConReglas);
+}
+
+/**
+ * «A Y <VERBO> B» SE PARTE SÓLO SI B NOMBRA OTRO OBJETO Y A NO (17/10/2026, la revisión del chat de Automations): «borra
+ * la tarjeta del delay y elimina la otra automatización» eran dos pedidos y salía uno, sobre «la otra»: la parte de lo
+ * abierto se descartaba sin aviso. Por eso no se parte siempre: «Crea otra landing y ponle el título X» es UN pedido sobre
+ * la nueva (la referencia está en A), y partido mandaría «ponle el título X» a lo abierto. Sobre el plano, cortando el
+ * original en las mismas posiciones.
+ */
+function partirPorY(texto: string): string[] {
+  const pl = plano(texto);
+  const re = /\s+y\s+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(pl))) {
+    const desde = m.index + m[0].length;
+    if (verbosEn(pl.slice(desde))[0]?.desde !== 0) continue;
+    const a = texto.slice(0, m.index).replace(/[\s,;:-]+$/g, '');
+    const b = texto.slice(desde);
+    if (!/[a-z0-9]/.test(plano(a))) continue;
+    if (referenciaEn(a, plano(a)) == null && referenciaEn(b, plano(b)) != null) return [a, ...partirPorY(b)];
+  }
+  return [texto];
 }
 
 // ── El resolver ──────────────────────────────────────────────────────────────
@@ -466,12 +515,18 @@ const nombreDe = (o: ObjetoChat): string => (o.nombre || '').trim() || 'esta';
  */
 function referidos(l: Lectura, ref: string | null, otros: readonly ObjetoChat[], tab: Area): { como: 'nombre' | 'otro'; lista: ObjetoChat[] } | null {
   const t = ` ${comparable(l.original)} `;
+  // Un nombre cuenta si ALGUNA vez aparece fuera de una comparación (`esComparacion`): «lo mismo que en Cobranza» es un
+  // dato del cambio de lo abierto, no un pedido sobre Cobranza.
   const porNombre = otros.filter((o) => {
     const n = comparable(o.nombre);
-    return n.length >= 3 && t.includes(` ${n} `);
+    if (n.length < 3) return false;
+    for (let i = t.indexOf(` ${n} `); i >= 0; i = t.indexOf(` ${n} `, i + 1)) if (!esComparacion(t.slice(0, i + 1))) return true;
+    return false;
   });
-  const deX = /\b(?:l[ao]s?|el)\s+de\s+([a-z0-9]{3,})/.exec(l.pl);
-  const entreComillas = /«([^»]{2,80})»|"([^"]{2,80})"|“([^”]{2,80})”/.exec(l.original);
+  const deXCrudo = /\b(?:l[ao]s?|el)\s+de\s+([a-z0-9]{3,})/.exec(l.pl);
+  const deX = deXCrudo && !esComparacion(l.pl.slice(0, deXCrudo.index)) ? deXCrudo : null;
+  const comillasCrudo = /«([^»]{2,80})»|"([^"]{2,80})"|“([^”]{2,80})”/.exec(l.original);
+  const entreComillas = comillasCrudo && !esComparacion(plano(l.original.slice(0, comillasCrudo.index))) ? comillasCrudo : null;
   const pista = deX?.[1] ?? (entreComillas ? comparable(entreComillas[1] ?? entreComillas[2] ?? entreComillas[3] ?? '') : '');
   const porPista = pista ? otros.filter((o) => ` ${comparable(o.nombre)} `.includes(` ${pista} `) || (pista.length >= 4 && comparable(o.nombre).includes(pista))) : [];
   const nombrados = [...new Set([...porNombre, ...porPista])];
@@ -561,7 +616,10 @@ function decidir(c: PedidoCrudo, ctx: ContextoPedidos): Decision {
   }
   const otros = (ctx.objetos ?? []).filter((o) => o.id !== actual?.id);
   const r = referidos(l, c.referencia, otros, tab);
-  if (r) return { pedido: sobreOtro(c, r.lista, ctx), ambiguo: false, frase: null };
+  // ⚠️ BORRAR UNA PARTE DE OTRO NO ES BORRAR EL OTRO (17/10/2026): «borra el mensaje de Cobranza» es un cambio de
+  // Cobranza; tomado como borrar, el chat ofrecía archivar la automatización entera.
+  const borraUnaParte = c.verbo === 'borrar' && esParteDeLoAbierto(tab, sustantivoTrasVerbo(l));
+  if (r) return { pedido: sobreOtro(borraUnaParte ? { ...c, verbo: 'editar' } : c, r.lista, ctx), ambiguo: false, frase: null };
   // «Elimina esta landing»: borrar lo ABIERTO tampoco va por el camino de siempre (el editor no borra).
   if (c.verbo === 'borrar' && deEstaTab && actual && !parte) return { pedido: sobreOtro(c, [actual], ctx), ambiguo: false, frase: null };
   return { pedido: { sobre: 'actual', texto: c.texto }, ambiguo: false, frase: null };

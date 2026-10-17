@@ -40,7 +40,7 @@ import { getJuntasProximas } from '@/lib/queries';
 import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
 import { avisoDeConservadas } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
-import { cobradoDelLead, esCuotaDevuelta } from '@/lib/cobrado-lead';
+import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { listarCobros } from '@/lib/cobros';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
@@ -501,14 +501,16 @@ export const RUNNERS: Runners = {
         cobrado_usd: suma(cuotas.filter((c) => c.pagada)),
         // Sin las DEVUELTAS (un reembolso de la pasarela): no son deuda, y con ellas este número no coincidía con
         // `cobrado.pendiente_usd` de la misma respuesta (revisión del 14/10/2026; MaKo podía citar cualquiera).
-        por_cobrar_usd: suma(cuotas.filter((c, i) => !c.pagada && !esCuotaDevuelta(plan.pagos[i]))),
+        // Ni las de un cliente que se dio de baja (#871): tampoco son deuda.
+        por_cobrar_usd: suma(cuotas.filter((c, i) => !c.pagada && !noEsDeuda(plan.pagos[i]))),
         cobrado: {
           texto: cob.texto, estado: cob.semaforo.texto, tono: cob.semaforo.tono,
           cobrado_usd: cob.cobradoUsd, total_usd: cob.totalUsd, pendiente_usd: cob.pendienteUsd, vencido_usd: cob.vencidoUsd, porcentaje: cob.pct,
           proxima: cob.proxima ? { pago_id: cob.proxima.pagoId, vence: cob.proxima.fecha, monto_usd: cob.proxima.montoUsd } : null,
           ...(cob.suscripcion ? { suscripcion: { estado: cob.suscripcion.estado, mensualidad: cob.suscripcion.mensualidadTexto, fin_del_plazo: cob.suscripcion.finPlazo, proxima_renovacion: cob.suscripcion.proximaRenovacion, renovacion_fallida: cob.suscripcion.renovacionFallida, cobra: cob.suscripcion.fuente, meses_sin_registrar: cob.suscripcion.sinRegistrar } } : {}),
           ...(cob.monedas.length ? { en_otras_monedas: cob.monedas } : {}),
-          ...(cob.cuadra && !cob.cuadra.cuadra ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
+          ...(cob.baja ? { baja_del_cliente: { quedo_sin_cobrar_usd: cob.baja.usd, desde: cob.baja.at, nota: 'Se dio de baja: lo que no pagó no es deuda ni se le recuerda. Se deshace con baja_del_cliente (deshacer: true).' } } : {}),
+          ...(cob.cuadra && !cob.cuadra.cuadra && !cob.baja ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
           ...(cob.seDibuja ? {} : { nota: cob.tipo === 'sin_cobro' ? 'Becado: no tiene cobrado.' : 'Sin venta ni cuotas cargadas.' }),
         },
         // ⚠️ EL ESTADO DE CUENTA Y LOS MOVIMIENTOS SON LOS DE LA TAB PAGOS (16/10/2026, lib/pagos-vistazo.ts): qué debe,

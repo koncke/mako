@@ -895,6 +895,67 @@ CentroApp, CentroAppMovil, ChatSecondBrain y SecondBrainCentroM montan esas piez
 - `app/m/operaciones/ChatsMovil.tsx` (`parte`);
 - `tests/second-brain-centro.test.ts`.
 
+## Ops Center: una sola pantalla, Review con todo y el Uso de las cuatro cuentas (17/10/2026)
+
+**El pedido.** Martín, mirando /admin/operaciones en producción (17/10, ~01:30), por el Cerebro, en siete puntos. Esta
+punta trae tres:
+- el 2: «El Second Brain y el Centro deberían ser exactamente lo mismo en SuperAdmin», con «Ops Center» de nombre y
+  «Second brain» como sub-tab debajo de la Ticketera;
+- el 4: «no sale el uso de las otras 2 cuentas, y no sale qué plan tiene, o el uso de 5 horas»;
+- el 6: «Se terminaron y pushearon cosas y no las puedo ver en Review».
+
+Los puntos 4 y 6 los hicieron dos subagentes Sonnet en el mismo worktree, con archivos que no se pisaban.
+
+**Una sola pantalla, dos puertas.** El atajo era redirigir /admin/operaciones a /second-brain, o montar `CentroApp`
+adentro del Second Brain (salían dos barras). Ninguno sirve:
+- con la redirección, la barra marca la entrada equivocada y se pierde la guarda propia de la página del Centro;
+- montar `CentroApp` es la copia que ya se había descartado.
+
+Quedaron dos PUERTAS, cada una con su guarda: la de MaKo en /second-brain y `puedeOperar` en /admin/operaciones. Las dos
+llaman a `PantallaSecondBrain` (app/second-brain/pagina.tsx), que también arma el Mapa. `CentroApp.tsx` se borró.
+- **`?chat=` decía dos cosas.** En /second-brain es el número de una conversación con MaKo; en /admin/operaciones, la
+  clave de un chat de Claude Code (los links de siempre). Ahora un número es MaKo y cualquier otra cosa, Claude Code, con
+  `chatDeClave` (también acepta la sesión).
+- **«Second Brain» como sub-tab cambia la LISTA, no el panel.** Tocarlo muestra los chats con MaKo y el Mapa; si no, la
+  lista son los chats de Claude Code. Volver te deja en el último chat de Claude Code que tenías abierto.
+- **Tres tests leían la FORMA de las páginas, no lo que protegen**: second-brain-chat, operaciones y
+  tickets-decisiones-mazo («leerDecisiones() después de puedeOperar», «responder={responderDecision}» en la página).
+  Ahora la lectura vive en datos.ts. Se reescribieron para seguir protegiendo lo mismo donde vive ahora: la guarda antes
+  de leer, una sola acción que contesta, el Mapa sólo adentro de su `if`.
+
+**Review: el diagnóstico obvio era el equivocado.** Parecía que los chats no terminaban o que el estado fallaba, y lo
+terminado estaba bien. Lo que lo dejaba afuera era `&& n.revisar` en `porRevisar`: sólo entraba lo que tenía página
+propia, y casi ningún chat la deja. Ahora entra todo lo terminado. Sin página, el link lleva a la tab del jefe
+(`rutaDeLaTab`, `destinoDeReview`).
+- **El orden de los ítems manda.** 27 nombres se repiten entre la barra del cliente y la del super admin («CRM» es `/crm`
+  y `/admin/dev/crm`). La tab del producto va primero, como en `nombresDeTabs`, y un test lee los dos órdenes.
+- **Un jefe válido no siempre es una tab.** 63 de las 130 áreas no tienen ítem en la barra («Closing Analyst», «Puente a
+  Google Flow»): su Review va sin botón.
+- **Renombrar la tab cambió adónde lleva un chat.** Con «Ops Center», un chat «Centro de Operaciones» lleva a la ficha de
+  desarrollo (`/admin/dev/centro-operaciones`), no a la pantalla. Para que lleve a /admin/operaciones hay que renombrar
+  el chat a «Ops Center».
+
+**El Uso: la ventana de 5 horas faltaba por la PANTALLA.** `Barra` devolvía null sin la ventana, y la cuenta de la app
+sólo trae la semanal. Mirar el dato era el diagnóstico equivocado. Del lado de la PC hay otra causa: cartero.mjs
+descarta la de 5 horas si tiene más de 30 minutos. Además:
+- **La lista del Uso salía de los carteros**: una cuenta sin Runner no aparecía y parecía que no existía. Ahora
+  `cuentasDeUso` da siempre las cuatro (`CUENTAS`), con «Sin Runner todavía».
+- **El plan** («Max») entra por `Cuota.plan`. La PC todavía no lo manda. Sin plan, la clave NO existe (no `plan: null`),
+  porque el test diferencial de la barra de estado compara con `deepEqual`.
+- **centro-textos se corta en el primer archivo que falta (ENOENT)** y no revisa los que siguen. Mientras CentroApp.tsx
+  no estaba, nadie miraba Uso.tsx.
+- **`renderToStaticMarkup` sirve para probar una pantalla sin navegador**, si el componente no tiene hooks
+  (`ListaUso`) o se dibuja cerrado (`BotonUso`).
+- **Un archivo borrado del disco y no de git rompe 23 guardas de OTRAS áreas.** Las guardas que recorren el árbol leen
+  `git ls-files`, y CentroApp.tsx seguía en el índice: ENOENT en la del CRM, la de cobros, la de cursos… Parecía que el
+  cambio había roto medio repo. Un archivo que se borra va con `git rm`, en el mismo momento.
+
+**Vive en:**
+- app/second-brain/pagina.tsx y ChatSecondBrain.tsx (`enSB`, `irAlSecondBrain`, `irAClaudeCode`, la Ticketera);
+- app/admin/operaciones/page.tsx y PiezasCentro.tsx (`PieCentro`, `NuevoChatCentro`);
+- lib/centro-chats.ts (`porRevisar`, `rutaDeLaTab`, `destinoDeReview`) y lib/centro-uso.ts (`cuentasDeUso`, `sanearPlan`);
+- tests/centro-revisar.test.ts, centro-uso.test.ts y tickets-decisiones-mazo.test.ts.
+
 ## La cuenta 4, y una sesión de la app SÍ abre chats visibles (17/10/2026)
 
 **Una sesión de la app ya puede crear chats.** Lo de arriba («el Centro no puede abrir un chat de Claude Code (medido)», 16/10) quedó viejo para la app de escritorio. La noche del 16 al 17/10, el Cerebro de la cuenta 4 abrió siete chats con `mcp__ccd_session__start_session`: CRM, Onboarding, Centro de Operaciones, Automations, Runner, Video Generator y Dashboard. Cada uno llevaba título y brief, y quedó en la barra lateral. La herramienta aparece como diferida y se carga con ToolSearch. El chat creado arranca solo con su brief y le avisa a quien lo abrió cuando termina un turno. Lo que sigue sin poder hacer una sesión de la app es abrir una de TERMINAL (otra carpeta de config). Para eso, Martín pidió (17/10) «un clic + el permiso de la PC», nunca pegar un comando: está repartido al chat del Centro.

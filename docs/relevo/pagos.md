@@ -1,130 +1,74 @@
-# Relevo — la pasarela de pagos (Stripe y Mercado Pago)
+# Relevo — Pagos: la pasarela (Stripe y Mercado Pago), los cobros de MaKo y la tab Pagos del lead
 
-**Al 11/10/2026.** Pedido de Martín: «Esta tab se llama "Integraciones". Quiero que implementes end-to-end la
-integración con Mercado Pago y con Stripe, tipo pasarela de pagos... Lo voy a utilizar yo como superadmin para
-vender MaKo, pero también los usuarios pueden alojarlo... revisa si hay que meterlo en diferentes lugares, como
-la API de MaKo, como automatios, como el CRM, etc...».
+**Al 17/10/2026, ~02:30 AR (cuenta 4, `claude4`).** El chat jefe «Pagos». Lo aprendido vive en
+[hallazgos-pagos.md](../hallazgos-pagos.md) (la tab y las cuotas) y en
+[hallazgos-planes-y-cobro.md](../hallazgos-planes-y-cobro.md) → «La pasarela» (Stripe, Mercado Pago, el plan de MaKo y
+el cliente de agencia). La historia de cada cambio está en `git log`.
 
-**16/10/2026 — LA TAB PAGOS DEL LEAD, EN BLOQUES: EN PRODUCCIÓN** (runs 34, 36 y 38; la mig 0295 aplicada y verificada
-en el catálogo). Pedido de Martín, que pasó Cerebro: «la tab de PAGOS que está un desastre también en funcionalidad,
-no se entiende... NO tengas miedo a ELIMINAR todo». La sesión cerró al 96% del uso semanal de la cuenta 3.
+## Lo de esta sesión (rama `pagos-agencia-clientes`, en `C:/dev/wt-pagos`; pasada al Cerebro, sin pushear)
 
-- **El marco** (tabs, armador, plantillas, galería) es del chat CRM. **El contenido** es de Pagos:
-  `app/crm/lead-view/ficha/{reglas-pagos.ts, registro-pagos.tsx, pagos/}`, las filas de Pagos del catálogo y de la §3
-  del diseño, las listas de Pagos de `lib/ficha/plantillas.ts` y `lib/ficha/plantillas-pagos.ts` (la galería).
-- **El relevamiento, las trampas y lo que quedó sin hacer** están en [hallazgos-pagos.md](../hallazgos-pagos.md).
+| Commit | Qué |
+|---|---|
+| `88be542a5` | **#871 «Baja del cliente»** en las cuotas: lo que no pagó deja de ser deuda en todos lados y lo cobrado queda. Mig **0307** (`pagos.baja_at`, `pagos.baja_vencia`). Botón en el bloque `cuotas`, «Deshacer la baja», y la API `baja_del_cliente` |
+| `05f288bac` | La baja tolera una base sin la 0307 (lecturas con `*`), pedido del Cerebro |
+| `b6dd0a6be` | **#866 y #867, el cliente de una agencia**: al abrirle la cuenta, el link de Mercado Pago de su primer mes; pagarlo lo habilita solo; su mes corre desde que termina el onboarding, y ahí nace la suscripción mensual (`start_date`). Mig **0308** (columnas en `cobros`). Precio en `/admin/cobros`. API `ver_pagos_clientes_agencia` |
 
-**Lo que sigue, en orden** (nada empezado):
-1. **Verla en el navegador**, en escritorio y en el teléfono, con tres casos: un ganado con cuotas, una suscripción
-   y un lead abierto. Cerebro se lo pidió a Martín. Hay que mirar que cada bloque se calle o se dibuje como dicen
-   `reglas-pagos.ts` y docs/hallazgos-pagos.md §2.
-2. **Sacar el cast de `epico`.** El CRM ya lo puso en `PropsBloque` (sale en el run 47). Se cambia `esEpico` en
-   `app/crm/lead-view/ficha/pagos/bloques-cobro.tsx` por `props.epico`. Es un cambio chico.
-3. **`PlantillaTab`.** Cuando el CRM cree `lib/ficha/plantillas-tab.ts`, el tipo local de
-   `lib/ficha/plantillas-pagos.ts` se cambia por su import.
-4. **Customer Success (tanda T3, con el CRM).** Su tab Pagos sigue montando DealDetailsCard
-   (`app/customer-success/FichaPestanas.tsx:84`). Al pasarla a bloques se borran juntos DealDetailsCard, EditarDeal,
-   `?edit=1`, «Completar con IA», `saveDealSectionsAction` y `saveCuotasAction`, con las aserciones que los fijan.
-5. **Lo que quedó abierto a propósito** (hallazgos-pagos.md §4): marcar a mano una cuota cuyo link se pagó y todavía
-   no se asentó la cuenta dos veces cuando entra el cron (`lib/pagos.ts`, `cobrarCuota`); y los bloques sin componente
-   (`confirmacion-de-pago`, `recordatorios-de-cobro`, `excepciones`, `cliente-en-cs`).
+Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
 
-## Lo que hay que leer primero
+## Lo que sigue, en orden
 
-1. [docs/diseno-pasarela-pagos.md](../diseno-pasarela-pagos.md) — el contrato (y su §4.10: lo que cambió al construirlo).
-2. [docs/hallazgos-planes-y-cobro.md](../hallazgos-planes-y-cobro.md) → «La pasarela» — lo que costó, y la tabla
-   «Lo que quedó SIN hacer» (las filas que empiezan con **Pasarela:**).
-3. AGENTS.md → «Un cobro pasa por `lib/cobros.ts`, y la clave de una pasarela se lee con `credDelCliente`».
+1. **Que Martín conecte la Mercado Pago de MaKo** en `/integraciones?ws=9` y cargue el **precio en pesos** del cliente de
+   agencia en `/admin/cobros`. El 17/10 el ws9 tenía 0 claves de pasarela y 0 cobros. Sin las dos cosas, abrir la
+   cuenta de un cliente de agencia queda como antes (espera la aprobación) y no sale ningún link.
+2. **Medir con claves de PRUEBA** que MP acepte `start_date` en una suscripción sin plan y no cobre al autorizarla. Va
+   con el resto de lo que espera esas claves (tabla de abajo).
+3. **Mirarlo en el navegador, en el ws3 (nunca ws1)**: la tab Pagos con un ganado con cuotas, una suscripción y un lead
+   abierto; la «Baja del cliente» sobre un ganado con cuotas vencidas; y la tarjeta de un cliente de agencia («Pagar su
+   mes», «Activar renovación»). No se pudo: no hubo RAM para `next dev` (receta en docs/hallazgos-crm.md).
+4. **La T3 (Customer Success en bloques) va con el CRM, al final.** Al pasarla, se borran juntos DealDetailsCard,
+   EditarDeal, `?edit=1`, «Completar con IA», `saveDealSectionsAction` y `saveCuotasAction`.
+5. **`pagos-mexico-guarda` (a075e1ae5) NO se integra** hasta que Martín conteste `cobrar-mako-en-mexico` en la Ticketera.
+
+Hechos y tachados: `PlantillaTab` (ya importa lib/ficha/plantillas-tab.ts). El cast de `epico` en `bloques-cobro.tsx`
+lo saca el CRM: no tocarlo.
 
 ## Decisiones de Martín (no se re-preguntan)
 
-- Al pagar un plan de MaKo, **alta automática** (workspace + mail de acceso; en la página de retorno puede cambiar
-  la cuenta de Google con la que entra).
-- Cada cliente conecta **pegando sus claves** (BYOK), no OAuth/Connect.
-- En Automations, **«Pagos» es un botón propio** del CRON (grilla 4+3).
+- Al pagar un plan de MaKo, **alta automática** (workspace + mail de acceso).
+- Cada cliente conecta su pasarela **pegando sus claves** (BYOK), no OAuth/Connect.
+- En Automations, **«Pagos» es un botón propio** del CRON.
+- **Cliente de agencia** (16/10, llamada con Código Inmobiliario): **US$47 por cliente y US$97 la suscripción de
+  agencia**; el link al cargarlo, sin que él apruebe; y el mes corre desde el fin del onboarding (lo aceptó Joan).
+- **Baja del cliente** (16/10, llamada con Mauricio): una opción en las cuotas que conserva lo cobrado.
 
 ## Dónde vive cada cosa
 
 | Qué | Dónde |
 |---|---|
-| Datos | `supabase/migrations/0255_cobros_pasarela.sql` (`cobros`, `pasarela_eventos`, columnas de proveedor en `pagos`) |
+| Datos | mig 0255 (`cobros`, `pasarela_eventos`), 0295 (`nacio_cobrada`, un link vivo por cuota), 0307 (la baja), 0308 (el cliente de agencia) |
 | El servicio (crear, aplicar, reembolsar, reconciliar, alta) | `lib/cobros.ts` · lo puro en `lib/cobros-reglas.ts`, `lib/cobros-tipos.ts`, `lib/pasarela-moneda.ts` |
-| Proveedores y firmas | `lib/stripe-api.ts`, `lib/stripe-form.ts`, `lib/mercadopago-api.ts`, `lib/pasarela-firma.ts` |
-| Conectar en /integraciones | `lib/cobros-conexion.ts` + los tres registros (catálogo, campos, ping) y el logo |
-| Webhooks y cron | `app/api/webhooks/stripe`, `app/api/webhooks/mercadopago`, `lib/cobros-webhook.ts`, `lib/cobros-eventos.ts`, `lib/pasarela-eventos.ts`, `app/api/cron/cobros-reconciliar` |
-| Páginas públicas | `app/pagar/[token]` (redirige al checkout vivo), `app/pagar/[token]/listo`, `app/api/pagar/email`, `app/reembolsos`, `/terminos` §8 |
-| Ficha del lead | `app/crm/[id]/cobros-actions.ts`, `CobrarConLink.tsx`, `CobrosDelLead.tsx` (montados en `DealDetailsCard`) |
-| API de MaKo | área `cobros` (`lib/api-mako/areas/cobros.*`), el doer (`esPedidoDeCobro`), `{{link_pago}}` |
-| Super admin | `/admin/cobros` (vender un plan, ver cada alta) |
-| Automations | CRON «Pagos» (`TRIGGER_PAGO`, `lib/pago-entrante.ts`) y el evento de MaKo «Entra un pago» (`mako-pago`) |
+| Proveedores y firmas | `lib/stripe-api.ts`, `lib/mercadopago-api.ts`, `lib/pasarela-firma.ts` |
+| Webhooks y cron | `app/api/webhooks/{stripe,mercadopago}`, `lib/cobros-webhook.ts`, `lib/cobros-eventos.ts`, `app/api/cron/cobros-reconciliar` (también corre las renovaciones de agencia) |
+| La tab Pagos del lead | `app/crm/lead-view/ficha/{reglas-pagos.ts, registro-pagos.tsx, pagos/}` · lo que dice: `lib/pagos-vistazo.ts` · lo cobrado: `lib/cobrado-lead.ts` |
+| La baja del cliente | `lib/pagos-baja.ts` (el único que escribe `baja_at`) · `noEsDeuda` en lib/cobrado-lead.ts |
+| El cliente de agencia | `lib/agencia-cobro.ts` (link, renovación, lo que ve la agencia) · `lib/agencia-cobro-reglas.ts` (puro) · `lib/agencia-habilitar.ts` (el pago aprueba; el aviso que comparte con la firma del super admin) · `app/customer-success/CuentaDeMaKo.tsx` |
+| Páginas públicas | `app/pagar/[token]`, `/listo`, `app/api/pagar/email`, `app/reembolsos`, `/terminos` §8 |
+| API de MaKo | área `cobros` (`lib/api-mako/areas/cobros.*`, con `baja_del_cliente`) y `ver_pagos_clientes_agencia` en el área `cs` |
+| Super admin | `/admin/cobros` (vender un plan, el precio del cliente de agencia, cada alta) |
 
-## Para que Martín lo use
-
-1. Conectar la Stripe o la Mercado Pago **de MaKo** desde `/integraciones?ws=9` (el workspace de la plataforma: sin el
-   `?ws=9`, si su sesión está en otro workspace, la clave quedaría en ése).
-2. En Mercado Pago, pegar en su panel («Tus integraciones → Webhooks») la URL que muestra la tarjeta y copiar de ahí la
-   clave secreta.
-3. Vender: `/admin/cobros` → «Vender un plan». El link que sale es `hola-mako.com/pagar/<token>`.
-4. Para recibir el aviso en el grupo: Automations → galería → «Aviso de pago recibido».
-5. Revisar los BORRADORES de `/reembolsos` y de la sección 8 de `/terminos`.
-
-## Lo que falta verificar con claves reales
-
-- Si una clave restringida de Stripe (`rk_`) puede leer `GET /v1/account` (si no, el tutorial tiene que pedir `sk_`).
-- Si la `notification_url` de Mercado Pago llega firmada y con `data.id` en el query.
-- Un pago de punta a punta en modo prueba (Stripe `sk_test_`; en MP los pagos de prueba NO avisan: entran por el cron
-  de reconciliación, cada 30 min).
-
-**13/10/2026:** las tres siguen sin hacer. No se pueden medir sin las claves de prueba de Martín (se las pidió el chat de
-Integraciones). Lo demás de la pasarela está cerrado: el commit que había quedado suelto en el worktree
-`C:/dev/wt-pagos-auto` ya está en `main` como `67b7695d`.
-
-**14/10/2026 — la revisión de b2 (Pagos campo por campo, rama del CRM `crm-bloques-b2`):** las dos ALTAS y las seis
-MEDIAS están cerradas. Las altas y tres medias, en commits del chat CRM sobre `crm-bloques-b2`; las otras tres
-medias (la cuota reprogramada sin recordatorio, el link vivo de una cuota cobrada a mano, el plazo de la suscripción
-al reactivar), en la rama `pagos-b2-medias` del chat de Pagos, que el CRM mergea en b2. Nada de esto está en `main`
-todavía: entra cuando Estrategia integre la tanda B. Quedan las seis BAJAS de esa revisión (lista en
-docs/hallazgos-crm.md, «Una cuota reprogramada…»). La migración XXXX de b2 ahora suma `leads.suscripcion_meses_antes`.
-Después se cerraron también las seis BAJAS (docs/hallazgos-crm.md, «Las seis bajas de b2»). Todo vive en UNA rama,
-`crm-bloques-b2`, y espera la decisión de integrar (tablero, ref `crm-bloques-b2-integrar`). Las ramas `pagos-pasarela` y
-`pagos-automations` no tienen nada que no esté en `main`: se pueden borrar (las borra su chat, no éste).
-
-**15/10/2026 — `pagos-pendientes` (cda1bf49f), integrada por Estrategia en la tanda con b2; sale con el próximo push.**
-Quitar la clave de una pasarela desconecta del todo (campos, ruteo y el aviso de MaKo en la cuenta de Stripe), las
-claves de cobro del ws1 ya no van a `process.env`, el «ya es de otro» del cambio de email gasta el intento y los avisos
-de MP sin dueño dejan una fila por día. Lo aprendido, en docs/hallazgos-integraciones.md («Quitar la clave de una
-pasarela…», «Prohibir el lector no alcanza…») y docs/hallazgos-planes-y-cobro.md. Las ramas `pagos-automations` y su
-worktree están borradas; `pagos-rojo-cobranza` no tiene nada fuera de `main`.
-
-### Lo que está QUIETO, y qué lo destraba
+## Lo que está QUIETO, y qué lo destraba
 
 | Qué | Lo destraba | Dónde |
 |---|---|---|
-| Si una clave restringida (`rk_`) lee `GET /v1/account`; si la `notification_url` de MP llega firmada y con `data.id` en el query; si MP respeta el vencimiento de una preferencia anulada con el checkout ya abierto; qué dice `coverage_applied` de un contracargo de MP; en qué estado queda una suscripción de MP al llegar su `end_date`; un pago de punta a punta en modo prueba | las claves de PRUEBA de Martín (Stripe `sk_test_`/`rk_test_`, una cuenta de prueba de MP) | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts`, `app/api/webhooks/mercadopago/route.ts` |
-| Vender planes de MaKo a México (la primera venta arranca el reloj del RFC) | Martín, en la Ticketera: `cobrar-mako-en-mexico` (A: bloquear México y Paddle para el 1/11, la recomendada). Con la A, se integra la rama `pagos-mexico-guarda` (a075e1ae5), ya escrita y probada: frena el plan de MaKo a un teléfono +52 o sin código de país | `lib/cobros.ts` (`crearCobro`), `lib/cobros-reglas.ts` (`motivoParaNoVenderMako`) |
-| La garantía del programa grupal (`/reembolsos`) | Martín, en la Ticketera: `garantia-grupal` (A: 100% después de la primera sesión, la recomendada). El plazo de respuesta (5 días hábiles) y cancelar sin escribir los decidió Estrategia el 15/10 | `app/reembolsos/page.tsx` |
+| Si `rk_` lee `GET /v1/account`; si la `notification_url` de MP llega firmada; si MP respeta el vencimiento de una preferencia anulada; `coverage_applied` de un contracargo de MP; el estado de una suscripción de MP al llegar su `end_date`; **que MP acepte `start_date` y no cobre al autorizar**; un pago de punta a punta | las claves de PRUEBA de Martín | `lib/cobros-conexion.ts`, `lib/mercadopago-api.ts`, `app/api/webhooks/mercadopago/route.ts` |
+| Vender planes de MaKo a México | Martín, Ticketera `cobrar-mako-en-mexico`. Con la A, se integra `pagos-mexico-guarda` (a075e1ae5) | `lib/cobros.ts` (`crearCobro`), `lib/cobros-reglas.ts` |
+| La garantía del programa grupal | Martín, Ticketera `garantia-grupal` | `app/reembolsos/page.tsx` |
+| Cortar el acceso a quien no paga (un plan dado de baja, una renovación de agencia sin autorizar) | no existe el estado de suscripción por workspace | docs/hallazgos-planes-y-cobro.md, «Lo que quedó SIN hacer» |
 
-Las otras cuatro «decisiones de Martín» que estaban acá se DECIDIERON el 15/10 con la vara de AGENTS.md (copiar a Stripe y
-Mercado Pago, o contestar con lo escrito): el lead ganado que recibe un reembolso se queda donde está; un pago único que
-paga una suscripción sigue de pago único y la mensualidad cuenta en el MRR; un flujo puede reembolsar (lo decidió Martín
-el 08/10); y un contracargo se muestra y desmarca la cuota sólo si la plata salió. El porqué, en
-docs/hallazgos-planes-y-cobro.md → «Cuatro «decisiones de Martín» que no eran suyas». Antes de mandar CUALQUIER
-pregunta a la Ticketera: `node --import tsx scripts/decisiones.ts listar`, y la vara de AGENTS.md.
+## Para que Martín lo use
 
-### Lo que sigue SIN bloqueo (código; casi todo vive en archivos de b2, así que va DESPUÉS de que b2 esté en `main`)
-
-En este orden, de lo que más plata toca a lo que menos:
-1. ~~Un link de MP anulado se puede pagar igual y nadie avisa~~ → HECHO el 15/10 (rama `pagos-mp-anulado`): al anular, MaKo vence la preferencia de MP (o cancela la suscripción sin autorizar); si igual entra un pago, lo dice el cobro y el historial («la plata entró dos veces» si la cuota ya estaba cobrada), y el cron relee los anulados.
-2. ~~Un reembolso de Stripe se da por hecho con `pending`~~ → HECHO el 15/10 (rama `pagos-reembolso-stripe`): se escucha `refund.failed` y una devolución que falla se revierte (cobro y cuota); los avisos ya registrados se ponen al día antes de reembolsar.
-3. ~~El Outstanding del Dashboard cuenta como deuda las cuotas devueltas~~ → HECHO el 15/10 (rama `pagos-outstanding-devueltas`): el Outstanding, «A quién cobrarle» y el Revenue con «Todo» sacan las devueltas con `esCuotaDevuelta`.
-3b. ~~Contracargos~~ → HECHO el 15/10 (rama `pagos-contracargos`): Stripe escucha las disputas y mueve la cuota con lo que dice la disputa releída; Mercado Pago se cuenta sin mover la cuota (su documentación se contradice; medirlo es de la fila de claves de prueba). El cron pone al día los avisos de Stripe una vez por día.
-3c. ~~El MRR cuenta la mensualidad de un link de suscripción pagado por un lead de pago único~~ → HECHO el 15/10 (rama `pagos-mrr-cobros`, `mrrDeLaPasarela`).
-4. ~~Un producto de suscripción con plazo se cobra sin fin~~ → HECHO el 15/10 (rama `pagos-suscripcion-plazo`): `cancel_at` en Stripe al primer pago, `end_date` en MP al crear, y el lead ganado con su plazo.
-5. ~~La fecha de la cuota y el MRR al cancelar~~ → HECHO el 15/10 (rama `pagos-fecha-cuota`): la cuota con la fecha del pago, y la cancelada por la pasarela sale del MRR en el acto (la que terminó su plazo, no se marca cancelada).
-6. ~~En `/mako/revisar`, el `cobroId` de un reembolso se puede editar~~ → HECHO el 15/10 (rama `pagos-revisar-reembolso`, `fijoAlRevisar`). Cerrado también en Ads, Email, WhatsApp y el chatbot (rama `pagos-fijo-ads-email`), con un barrido que lo exige en toda acción de plata o envío.
-7. ~~El cambio de email tras el alta: falta un código al email ACTUAL~~ → HECHO el 15/10 de OTRA manera (rama `pagos-email-aviso`): un código bloqueaba al que tipeó mal su email; va un aviso al email anterior, como Google y GitHub.
-7b. ~~Cancelar uno mismo~~ → HECHO el 15/10 (rama `pagos-portal-plan`): el botón «Darme de baja» de «Configuración del negocio →
-   Tu plan», propio de MaKo (Stripe al final del período, Mercado Pago en el acto, con código de baja por email); /reembolsos y
-   /terminos remiten ahí. Cancelar corta la plata, NO el acceso (no
-   existe el estado de suscripción por workspace): eso sigue a mano.
-8. Más grandes, con su propio diseño: precios en moneda local en el catálogo (`lib/productos.ts`), `crear_link_pago` en el «⚡ Acción» (área de Automations, `lib/editor-acciones.ts`), y los topes de `/api/pagar/email` fuera de la memoria (`lib/rate-limit.ts`). Estrategia (15/10): las dos primeras NO, son producto que nadie pidió (la poda); la de los topes se revisó y se decidió que NO hace falta, con el porqué en docs/hallazgos-planes-y-cobro.md («Lo que contesta ANTES de gastar el intento…»).
+1. Conectar la Stripe o la Mercado Pago **de MaKo** desde `/integraciones?ws=9` (con el `?ws=9`: si no, la clave queda en
+   el workspace que esté mirando). En Mercado Pago, pegar en su panel la URL que muestra la tarjeta.
+2. Vender un plan: `/admin/cobros` → «Vender un plan». El link es `hola-mako.com/pagar/<token>`.
+3. Cliente de agencia: `/admin/cobros` → «Cliente de agencia», el monto en pesos de los US$47.
+4. El aviso en el grupo: Automations → galería → «Aviso de pago recibido».

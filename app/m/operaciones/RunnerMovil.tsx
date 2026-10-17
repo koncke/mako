@@ -17,6 +17,7 @@ import { carteroVivo } from '@/lib/operaciones-reglas';
 import { nombreCuenta, type CarteroP } from '@/lib/centro-chats';
 import type { ClaveDispositivo } from '@/app/admin/operaciones/clave-dispositivo';
 import { ListaUso } from '@/app/admin/operaciones/Uso';
+import { cuentasDeUso } from '@/lib/centro-uso';
 
 export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave }: {
   carteros: CarteroP[] | null;
@@ -29,10 +30,11 @@ export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClav
   const activos = (carteros ?? []).filter((k) => carteroVivo(k, ahora)).length;
   return (
     <>
-      {/* El Uso de cada cuenta, lo primero (Martín: «Falta el poder visualizar el USO»): la misma pieza que la computadora. */}
-      {carteros && carteros.length > 0 && (
+      {/* El Uso de las CUATRO cuentas, lo primero (Martín: «Falta el poder visualizar el USO», «Tampoco sale el uso de las
+          otras 2 cuentas»): la misma pieza que la computadora; la cuenta sin Runner sale igual, diciendo «Sin Runner todavía». */}
+      {carteros && (
         <SeccionM titulo="Uso">
-          <ListaUso cuentas={carteros.map((k) => ({ cuenta: k.cuenta, vistoAt: k.vistoAt, cuota: k.cuota ?? null }))} ahora={ahora} />
+          <ListaUso cuentas={cuentasDeUso(carteros)} ahora={ahora} />
         </SeccionM>
       )}
       {/* La sección dice el número, como la cabecera de la computadora. */}

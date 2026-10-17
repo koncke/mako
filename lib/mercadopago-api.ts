@@ -106,7 +106,7 @@ export async function crearPreferenciaMp(
  */
 export async function crearSuscripcionMp(
   token: string,
-  p: { idem: string; concepto: string; monto: number; moneda: string; email: string; token: string; volverUrl: string; finAt?: string | null },
+  p: { idem: string; concepto: string; monto: number; moneda: string; email: string; token: string; volverUrl: string; finAt?: string | null; inicioAt?: string | null },
 ): Promise<R<{ id: string; url: string }>> {
   const r = await llamar(token, 'POST', '/preapproval', {
     reason: p.concepto.slice(0, 200),
@@ -117,6 +117,10 @@ export async function crearSuscripcionMp(
       frequency: 1, frequency_type: 'months', transaction_amount: Math.round(p.monto * 100) / 100, currency_id: p.moneda.toUpperCase(),
       // El PLAZO de un producto con fin (15/10/2026): sin `end_date` se cobraba para siempre.
       ...(p.finAt ? { end_date: p.finAt } : {}),
+      // CUÁNDO EMPIEZA A COBRAR (17/10/2026, #867, la renovación de un cliente de agencia): el primer cobro es en
+      // `start_date`, no al autorizar. Es el parámetro DOCUMENTADO de creación; mover la fecha de una suscripción ya
+      // autorizada no lo está (docs/hallazgos-pagos.md, «El mes de un cliente de agencia»).
+      ...(p.inicioAt ? { start_date: p.inicioAt } : {}),
     },
     status: 'pending',
   }, p.idem);
