@@ -1422,6 +1422,9 @@ tests/experimentos-existentes-en-la-hoja.test.ts · *17/10/2026, B5 (claude4)*
   `lib/creaciones.ts`, rama `api-acciones-1310`) y el Dashboard está en `POR_ENCHUFAR`. Cuando llegue a main: pasarlo a
   `ENCHUFADOS` (`lib/creaciones-reglas.ts`), su enchufe en `lib/creaciones-enchufes.ts` reusando `hojaParaOtroNegocio` y
   `hojaConIdsNuevos` (`lib/graficos-copia.ts`), y `<BotonPublicar tipo="dashboard" …>` en el ⋮ de la hoja.
+  ⚠️ (17/10, B5) `hojaParaOtroNegocio` SOLA no alcanza: deja intactos los filtros fijos, y uno sobre un closer manda su
+  nombre a la galería. Va `hojaParaCopiar` primero. Y quien nunca guardó su informe trae el INICIAL (`estado: 'inicial'`):
+  no se le suman esas hojas. HECHO y sin subir en la rama `pend-b5-publicar-dash` (`cc07af5ea`), para después del 20/10.
 - **El teléfono (`/m/dashboard`)** le sigue mostrando Marketing y Comercial fijos a quien no tiene informe (en
   escritorio arranca en blanco con «＋ Nuevo Dashboard»).
 - **El AI Analyst no dice qué modelo contestó** (falta `respondioOut` en `chatCheapCascade`,

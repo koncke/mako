@@ -23,6 +23,21 @@
   Cerebro; y «Re-priorizar todo» en el teléfono es de Mobile (app/m/plan).
 - **Nada se miró arrastrando en un navegador** (sin RAM para un `next dev`).
 
+**Para después del 20/10** (corte de consumo del Cerebro el 17/10: la semanal iba 71%; sólo subió el arreglo de la
+revisión). Lo que quedó de la lista de B5, con su área:
+- **«Publicar en Creaciones» desde el ⋮ del Dashboard: HECHO y SIN SUBIR**, en la rama `pend-b5-publicar-dash`
+  (`cc07af5ea`, con su test probado rompiéndolo y su cosecha en docs/hallazgos-creaciones.md de esa rama). Antes de mergearla:
+  `tests/api-mako-rest.test.ts` dio 2 fallos en esa rama (sin mirar si ya estaban en main) y falta un antes-de-subir.
+- Dashboard / Experiments: la tasa de cierre de un experimento; los bloques de General que sigan los filtros
+  (docs/relevo/dashboard.md, docs/relevo/general-y-calendario.md).
+- Calendario: la vista de CS/comunidad y «agendar llamada» (docs/relevo/general-y-calendario.md). El turno de Pablo
+  (ws 18) espera un pedido real: el arreglo `8d90f8357` llegó después de su último turno.
+- Second Brain: las pantallas y las Skills; el grafo por turno; el vigía en el servidor (área del Ops Center).
+- Avisos (área de Automations): el número de WhatsApp, el apagado «ya avisado», los 32 ejemplos, `CADENCIA_MIN`.
+- Hotmart → Pagos y los avisos del lead: piden diseño con los chats de Automations y Pagos.
+- Retirar `/api/mako-doer`: lo leen tests de otras áreas y es del Ops Center.
+- Varias líneas de WhatsApp por negocio, y las verificaciones a ojo en el navegador (sin RAM).
+
 ## ⏩ Antes (14/10, cuenta `claude2`): cierre por pedido de Martín
 
 **Lo PRIMERO que espera a Martín:** confirmar el borrador con lo de sus últimas 3 reuniones y su

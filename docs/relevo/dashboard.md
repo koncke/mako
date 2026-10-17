@@ -3,6 +3,10 @@
 <sub>Escrito el 17/10/2026 ~10:30 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
 en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
 
+> **Para después del 20/10 (17/10, B5):** «Publicar en Creaciones» desde el ⋮ de la hoja está HECHO y SIN SUBIR en la rama
+> `pend-b5-publicar-dash` (`cc07af5ea`). Antes de mergearla: 2 fallos de `tests/api-mako-rest.test.ts` en esa rama, sin
+> mirar, y un antes-de-subir. El porqué de cada decisión, en docs/hallazgos-creaciones.md de esa rama.
+
 ## Cómo se trabaja acá
 
 - Rama `dashboard-bloques`, worktree `C:/dev/wt-dashboard`. Se MEZCLA origin/main (nunca rebase) y se commitea por ruta
