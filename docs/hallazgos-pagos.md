@@ -324,6 +324,8 @@ avance de un OKR (lib/objectives-fuentes.ts), los gráficos de pagos (lib/grafic
 
 ### Marcar a mano una cuota cuyo link ya se cobró contaba la plata dos veces
 
+⚠️ **APAGADO desde la revisión adversarial del 17/10** (interruptor en `false`; los defectos que la frenaron y lo que hay que arreglar, en docs/relevo/pagos.md → «APAGADOS»).
+
 - **Síntoma.** El cliente paga el link; antes de que el aviso o el cron lo asienten, el closer marca la cuota a mano.
   `marcarPago` anulaba el link (ya pagado) y, al llegar el aviso, el pago entraba como OTRA cuota cobrada.
 - **El diagnóstico obvio era el equivocado: «frenar la marca si la cuota tiene un link».** Eso traba la cuota para siempre

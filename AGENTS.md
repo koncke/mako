@@ -9203,6 +9203,10 @@ Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra
 
 # Lo que paga el negocio decide qué abre: un negocio PAUSADO no se abre, y una API de una sola tab va en `TAB_DE_API`
 
+⚠️ **Desde la revisión del 17/10/2026, los tres cortes de abajo están APAGADOS** (`CORTE_DE_ACCESO_PRENDIDO`,
+`CORTE_POR_PLAN_PRENDIDO` y `MIRAR_LINK_ANTES_DE_MARCAR` en `false`; los defectos, en docs/relevo/pagos.md). Las reglas
+valen para el día que se prendan: no se prende ninguno sin su arreglo y su revisión.
+
 Desde el 17/10/2026 (docs/hallazgos-planes-y-cobro.md → «Quien deja de pagar deja de entrar»):
 
 - **El workspace de una sesión sale de `getWorkspaceActual()`, y para un negocio pausado es `null`** (lo pausa /admin o

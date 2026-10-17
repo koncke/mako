@@ -25,7 +25,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from './supabase';
 import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CAPA_DEFAULT, capaDef, esCapaValida, tabEnCapa, type CapaId } from './capas';
-import { HEADER_RUTA, tabDeRutaApi } from './api-tab';
+import { CORTE_POR_PLAN_PRENDIDO, HEADER_RUTA, tabDeRutaApi } from './api-tab';
+import { CORTE_DE_ACCESO_PRENDIDO } from './plan-acceso-reglas';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
 import { WS_HEADER, conWs, parseWs } from './ws-tab';
 import { contextoDeAgencia } from './agencia';
@@ -320,7 +321,8 @@ const wsPropioDeLaSesion = cache(async (): Promise<number | null> => {
  * ¿Este negocio está pausado? (`workspaces.estado`). Por request. ⚠️ FAIL-OPEN: si la base no contesta, NO está
  * pausado — un error pasajero no puede dejar a todos los clientes afuera (el mismo criterio que getUsuarioActual).
  */
-export const negocioPausado = cache(async (ws: number): Promise<boolean> => (await filaDelNegocio(ws))?.estado === 'pausado');
+// Con el corte de acceso APAGADO (lib/plan-acceso-reglas.ts) ningún negocio cuenta como pausado: se abre como siempre.
+export const negocioPausado = cache(async (ws: number): Promise<boolean> => CORTE_DE_ACCESO_PRENDIDO && (await filaDelNegocio(ws))?.estado === 'pausado');
 
 /** El estado y la capa de un negocio, por request; null si la base no contestó (quien lo usa decide fail-open). */
 const filaDelNegocio = cache(async (ws: number): Promise<{ estado: string | null; capa: string | null } | null> => {
@@ -337,6 +339,7 @@ const filaDelNegocio = cache(async (ws: number): Promise<{ estado: string | null
  * sin ella (un render, un cron) o sin poder leer la capa, no. Fail-open, como `negocioPausado`.
  */
 const apiFueraDelPlan = cache(async (ws: number): Promise<boolean> => {
+  if (!CORTE_POR_PLAN_PRENDIDO) return false; // apagado (lib/api-tab.ts)
   let ruta: string | null = null;
   try { ruta = (await headers()).get(HEADER_RUTA); } catch { return false; }
   const tab = tabDeRutaApi(ruta);

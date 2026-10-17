@@ -20,7 +20,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
 import {
-  CLAVE_CORTE, leerCorte, pasoDeAcceso, vigenciaDelLugar,
+  CLAVE_CORTE, CORTE_DE_ACCESO_PRENDIDO, leerCorte, pasoDeAcceso, vigenciaDelLugar,
   type CobroDelLugar, type CorteGuardado, type PagoDelLugar, type Paso,
 } from './plan-acceso-reglas';
 
@@ -67,6 +67,7 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
   const out: Revision = { revisados: 0, cortados: [], reabiertos: [], soltados: [], postergados: [], errores: 0, enSeco, pasos: [] };
+  if (!CORTE_DE_ACCESO_PRENDIDO) return out; // apagado (lib/plan-acceso-reglas.ts): no lee ni escribe nada
 
   const cobros = await cobrosDeLugares(plataforma);
   const porWs = new Map<number, FilaCobro[]>();

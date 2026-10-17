@@ -484,12 +484,21 @@ async function quitarSiNacioCobrada(pagoId: number, fila: { lead_id: number; cob
 }
 
 /**
+ * ⚠️ APAGADO. APAGADO por la revisión adversarial del 17/10/2026 (scratchpad/revision-b4.md, cosechada en el relevo del área): se prende SÓLO con su arreglo y su revisión.
+ * Defecto: con un link en estado «pagado», `asentarLinkPagadoDeCuota` da la cuota por cobrada aunque
+ * `aplicarPagoAprobado` no marque nada: una cuota destildada por error ya no se puede volver a marcar (queda impaga para
+ * siempre) y cada intento repite «Entró un pago». Con esto en false, marcar a mano es lo de antes del 17/10.
+ */
+export const MIRAR_LINK_ANTES_DE_MARCAR: boolean = false;
+
+/**
  * ¿Un link de esta cuota ya se COBRÓ y todavía no se asentó? Si sí, lo asienta por el camino de la pasarela y
  * devuelve cuál (la cuota ya está cobrada con ESE pago: no se marca a mano). La regla vive en
  * `asentarLinkPagadoDeCuota` (lib/cobros.ts). Si no se pudo mirar (sin workspace, la base no contestó), null: la marca
  * a mano sigue como siempre, porque trabarla es peor (docs/hallazgos-pagos.md §4).
  */
 async function linkYaPagado(pagoId: number): Promise<Pasarela | null> {
+  if (!MIRAR_LINK_ANTES_DE_MARCAR) return null; // apagado: se marca a mano como siempre
   try {
     const ws = await getWorkspaceActual();
     if (ws == null) return null;

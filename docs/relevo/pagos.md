@@ -20,6 +20,21 @@ Lo aprendido: `docs/hallazgos-pagos.md` §5 y `docs/hallazgos-planes-y-cobro.md`
 **Medido** (sólo lectura): el `in` sobre `ctx->>cuotaId` no traba guardar cuotas ni cerrar en Ganado. **0 cobros en
 producción** el 17/10: el corte por falta de pago no toca a nadie hoy.
 
+### ⚠️ APAGADOS por la revisión adversarial del 17/10 (para después del 20/10): se prenden SÓLO con su arreglo y su revisión
+
+La revisión de 65e299c2e confirmó 9 defectos reales, todos en tres cambios que quedaron en el código con un interruptor en
+`false` (el informe: scratchpad/revision-b4.md de la sesión del Cerebro del 17/10):
+
+| Interruptor | Qué apaga | Los defectos que hay que arreglar antes de prenderlo |
+|---|---|---|
+| `CORTE_DE_ACCESO_PRENDIDO` (lib/plan-acceso-reglas.ts) | El cron que pausa y reabre por falta de pago, y que un negocio pausado no se abra (/cuenta-pausada, el 403 de la API) | (alta) el cron sólo ve los cobros con `alta_ws`: un plan nuevo vendido a una cuenta que ya existía (`ya_tenia_cuenta`) queda afuera y la pausa no se levanta aunque pague · (media) un primer pago DEVUELTO con la suscripción activa da «vencido» y pausa a quien paga (un reembolso no cancela la suscripción) · (media/baja) las cuotas de los lugares se leen sin paginar (`plan-acceso.ts:84`) · (baja) el tope de 5 y el orden de los pasos |
+| `CORTE_POR_PLAN_PRENDIDO` (lib/api-tab.ts) | El corte de la API por plan y el cartel «no está en tu plan» (`requireCapa` vuelve al redirect a la casa del plan) | (baja, de cara al cliente) un negocio con capa `pm` entra por /inicio a /general y ve «No está en tu plan»: el repartidor de /inicio manda a una tab que esa capa no tiene |
+| `MIRAR_LINK_ANTES_DE_MARCAR` (lib/pagos.ts) | Preguntarle a la pasarela antes de marcar una cuota a mano | (alta) con un link en estado «pagado», `asentarLinkPagadoDeCuota` (lib/cobros.ts) da la cuota por cobrada aunque `aplicarPagoAprobado` no marque nada: una cuota destildada por error (ws1) ya no se puede volver a marcar y queda IMPAGA para siempre, y cada intento repite «Entró un pago» · (media) el paso 1 tiene que exigir que la cuota NO esté asentada por ese pago, no sólo que el cobro esté pagado |
+
+Con los tres en `false` el producto se comporta como antes del 17/10 en esas tres cosas (marcar a mano vuelve a poder contar
+dos veces un link pagado sin asentar; quien no paga sigue entrando). Los tests que dependen de ellos fijan que están
+apagados (tests/plan-acceso.test.ts, tests/api-tab.test.ts, tests/pagos-link-ya-pagado.test.ts).
+
 **Lo que quedó SIN hacer, con el porqué (para después del 20/10: corte de consumo del Cerebro, 17/10):**
 - **Precios en moneda local en el catálogo** (`lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts`): pide una columna
   nueva en `productos` (migración) y su pantalla; no entró en esta corrida.

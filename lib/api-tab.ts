@@ -17,6 +17,13 @@
 // sume a ciegas (tests/api-tab.test.ts).
 // =============================================================================
 
+/**
+ * ⚠️ EL CORTE DE LA API POR PLAN Y EL CARTEL «NO ESTÁ EN TU PLAN» ESTÁN APAGADOS. APAGADO por la revisión adversarial del 17/10/2026 (scratchpad/revision-b4.md, cosechada en el relevo del área): se prende SÓLO con su arreglo y su revisión.
+ * Defecto: un negocio con capa `pm` entra por /inicio a /general y ve «No está en tu plan». Con esto en false, la API no
+ * se corta por plan y `requireCapa` vuelve al redirect a la casa del plan.
+ */
+export const CORTE_POR_PLAN_PRENDIDO: boolean = false;
+
 /** El header por el que el proxy le dice al server qué ruta se pidió. Lo pone SÓLO el proxy (borra el que mande el cliente). */
 export const HEADER_RUTA = 'x-mako-ruta';
 

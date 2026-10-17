@@ -19,6 +19,14 @@
 //   · Los planes son MENSUALES (todos los que vende /admin/cobros). Un plan anual pediría el período en el cobro.
 // =============================================================================
 
+/**
+ * ⚠️ EL CORTE DE ACCESO ESTÁ APAGADO. APAGADO por la revisión adversarial del 17/10/2026 (scratchpad/revision-b4.md, cosechada en el relevo del área): se prende SÓLO con su arreglo y su revisión.
+ * Defectos: el cron sólo ve los cobros con `alta_ws` (un plan vendido a una cuenta que ya existía, `ya_tenia_cuenta`,
+ * queda afuera); un primer pago devuelto con la suscripción activa pausa a quien paga; las cuotas se leen sin paginar.
+ * Con esto en false: el cron no pausa ni reabre nada y un negocio pausado se abre como siempre.
+ */
+export const CORTE_DE_ACCESO_PRENDIDO: boolean = false;
+
 /** Días entre que se termina lo pagado y que se corta el acceso. */
 export const GRACIA_DIAS = 5;
 const DIA_MS = 86_400_000;

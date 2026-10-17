@@ -22,6 +22,7 @@ import { redirect } from 'next/navigation';
 import { getCapaActual, getRolWsEfectivo, negocioPausadoDeLaSesion, rutaConWs } from './workspace';
 import { onboardingPendiente } from './onboarding-state';
 import { capaDef, tabEnCapa, type CapaId } from './capas';
+import { CORTE_POR_PLAN_PRENDIDO } from './api-tab';
 import type { RolWorkspace } from './auth-session';
 
 /**
@@ -88,7 +89,8 @@ export async function requireCapa(nav: string, opts?: { gateOnboarding?: boolean
   const capa = await getCapaActual();
   // «No está en tu plan» se DICE (17/10/2026): antes era un redirect mudo a la casa del plan, que se leía como «la app
   // está rota». La pantalla (app/no-esta-en-tu-plan) nombra la tab y ofrece ver el plan o volver al inicio.
-  if (!tabEnCapa(nav, capa)) redirect(await rutaConWs(`/no-esta-en-tu-plan?tab=${encodeURIComponent(nav)}`));
+  // (Con el cartel APAGADO, lib/api-tab.ts, vuelve a la casa del plan.)
+  if (!tabEnCapa(nav, capa)) redirect(await rutaConWs(CORTE_POR_PLAN_PRENDIDO ? `/no-esta-en-tu-plan?tab=${encodeURIComponent(nav)}` : homeDeCapa(capa)));
   // El onboarding se gatea ACÁ y no en cada página. Antes quedaba librado a que
   // el autor se acordara de una segunda línea, y en 2 de las 7 páginas que usan
   // este guard el `return <PanelActivacion/>` se colaba EN EL MEDIO: la tab se

@@ -133,3 +133,11 @@ test('a la agencia que mira un cliente pausado, la pantalla le dice qué hacer e
   assert.match(p, /const esAgencia = cliente != null;/);
   assert.match(fuente('app/cuenta-pausada/SalirDeLaCuenta.tsx'), /fetch\('\/api\/agencia\/entrar', \{ method: 'DELETE' \}\)[^\n]*window\.location\.href = '\/partners'/);
 });
+
+// La revisión adversarial del 17/10 frenó el corte de acceso (el cron sólo ve `alta_ws`; un pago devuelto con la
+// suscripción activa pausa a quien paga; las cuotas sin paginar): queda APAGADO hasta su arreglo y su revisión.
+test('el corte de acceso por falta de pago está APAGADO: el cron no toca nada y un pausado se abre como siempre', () => {
+  assert.match(fuente('lib/plan-acceso-reglas.ts'), /export const CORTE_DE_ACCESO_PRENDIDO: boolean = false;/);
+  assert.match(fuente('lib/plan-acceso.ts'), /if \(!CORTE_DE_ACCESO_PRENDIDO\) return out;/);
+  assert.match(fuente('lib/workspace.ts'), /export const negocioPausado = cache\(async \(ws: number\): Promise<boolean> => CORTE_DE_ACCESO_PRENDIDO && /);
+});

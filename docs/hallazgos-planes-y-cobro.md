@@ -816,6 +816,8 @@ Sin él (o sin la Mercado Pago de MaKo conectada) la cuenta queda como siempre: 
 
 ## Quien deja de pagar deja de entrar, y el plan corta también la API (17/10/2026)
 
+⚠️ **APAGADO desde la revisión adversarial del 17/10** (interruptor en `false`; los defectos que la frenaron y lo que hay que arreglar, en docs/relevo/pagos.md → «APAGADOS»).
+
 *Corrida «Implemente todos los pendientes al 100%», agente B4, rama `pend-b4-1710`.*
 
 ### El estado de suscripción por negocio no necesitaba una tabla: se DERIVA de los cobros

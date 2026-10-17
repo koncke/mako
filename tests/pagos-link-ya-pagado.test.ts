@@ -134,8 +134,12 @@ const correr = async <T>(fn: () => Promise<T>): Promise<T> => {
   return runWithWorkspace(WS, fn);
 };
 const marcoAMano = () => escrituras.some((e) => e.startsWith('PATCH pagos') && e.includes('"pagado":true'));
+// ⚠️ APAGADO desde la revisión adversarial del 17/10 (`MIRAR_LINK_ANTES_DE_MARCAR`, lib/pagos.ts): con un link «pagado»
+// daba la cuota por cobrada aunque nada la marcara. Los dos casos que dependen de mirarlo se saltean mientras esté en false.
+const PRENDIDO = /export const MIRAR_LINK_ANTES_DE_MARCAR: boolean = true;/.test(fuente('lib/pagos.ts'));
+const SIN_MIRAR = PRENDIDO ? false : 'apagado hasta su arreglo (revisión del 17/10)';
 
-test('el link ya se cobró: la cuota queda con ESE pago y la marca a mano no se hace', async () => {
+test('el link ya se cobró: la cuota queda con ESE pago y la marca a mano no se hace', { skip: SIN_MIRAR }, async () => {
   const { marcarPago } = await import('../lib/pagos');
   sembrar({ asentado: true, pasarela: 'mercadopago' });
   const r = await correr(() => marcarPago(CUOTA, true, '2026-10-16'));
@@ -163,7 +167,7 @@ test('la pasarela no contesta: la marca a mano NO se traba', async () => {
   assert.ok(marcoAMano());
 });
 
-test('cobrar con otro monto: si el link ya se cobró no toca el monto ni deja una diferencia de algo ya pagado', async () => {
+test('cobrar con otro monto: si el link ya se cobró no toca el monto ni deja una diferencia de algo ya pagado', { skip: SIN_MIRAR }, async () => {
   const { cobrarCuota } = await import('../lib/pagos');
   sembrar({ asentado: true, pasarela: 'stripe' });
   const r = await correr(() => cobrarCuota(CUOTA, LEAD, { monto: 200, fecha: '2026-10-16' }));
@@ -195,4 +199,9 @@ test('asentarLinkPagadoDeCuota: primero repara el pagado sin su cuota (sin red),
   assert.ok(iRepara > 0 && iPregunta > iRepara, 'el orden: reparar lo que ya se sabe antes de ir a la red');
   assert.match(cuerpoF, /\.eq\('workspace_id', ws\)\.eq\('pago_id', pagoId\)/, 'los links de ESTA cuota de ESTE negocio');
   assert.match(cuerpoF, /catch \(e\) \{\s*sinLeer\+\+;/, 'una pasarela que no contesta no corta: sigue');
+});
+
+test('mirar el link antes de marcar a mano está APAGADO hasta su arreglo', () => {
+  assert.match(fuente('lib/pagos.ts'), /if \(!MIRAR_LINK_ANTES_DE_MARCAR\) return null;/);
+  assert.equal(PRENDIDO, false);
 });

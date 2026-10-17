@@ -87,6 +87,14 @@ test('una API fuera del plan no recibe workspace', () => {
 
 test('«no está en tu plan» se dice: requireCapa manda al cartel, no a la casa', () => {
   const t = fuente('lib/tab-access.ts');
-  assert.match(t, /if \(!tabEnCapa\(nav, capa\)\) redirect\(await rutaConWs\(`\/no-esta-en-tu-plan\?tab=\$\{encodeURIComponent\(nav\)\}`\)\);/);
+  // Con el interruptor (APAGADO desde la revisión del 17/10: lib/api-tab.ts) vuelve a la casa del plan.
+  assert.match(t, /if \(!tabEnCapa\(nav, capa\)\) redirect\(await rutaConWs\(CORTE_POR_PLAN_PRENDIDO \? `\/no-esta-en-tu-plan\?tab=\$\{encodeURIComponent\(nav\)\}` : homeDeCapa\(capa\)\)\);/);
   assert.match(fuente('app/no-esta-en-tu-plan/page.tsx'), /<PermissionState motivo="plan"/);
+});
+
+// La revisión adversarial del 17/10 frenó el corte por plan y el cartel (una capa `pm` veía «No está en tu plan» al
+// entrar a /general): quedan APAGADOS hasta su arreglo y su revisión. Si alguien lo prende sin eso, esto lo dice.
+test('el corte de la API por plan y el cartel están APAGADOS hasta su arreglo', () => {
+  assert.match(fuente('lib/api-tab.ts'), /export const CORTE_POR_PLAN_PRENDIDO: boolean = false;/);
+  assert.match(fuente('lib/workspace.ts'), /if \(!CORTE_POR_PLAN_PRENDIDO\) return false;/);
 });
