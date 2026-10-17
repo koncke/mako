@@ -23,7 +23,7 @@ historial de la ficha con «Volver a como estaba»; la ficha que edita MaKo se r
 
 **Medido, nada que hacer:** CRM de webinar viejos (0), plazos viejos de etapa (0 funnels con `umbrales.porEtapa`).
 
-**Sin hacer, con el archivo:**
+**Sin hacer, con el archivo (para después del 20/10: el Cerebro cortó por consumo con la semana al 71%):**
 - La T2 de la ficha: Reuniones y Tracking nativos (app/crm/lead-view/ficha/registro-reuniones.tsx,
   registro-tracking.tsx) y la tarjeta del kanban personalizable (app/crm/CrmBoard.tsx). Es una feature entera.
 - El desplegable de hojas unificado con `MenuHojas` (app/crm/lead-view/LeadTabs.tsx): se ve en un navegador y no hubo.

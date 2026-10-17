@@ -131,7 +131,7 @@ default (medido: cero huérfanos) y barre `curso-entregas`; la vista previa del 
 falta de crédito de Anthropic, sin reintento** (no se reintentaron: gasta crédito). La invitación al curso al ganar en un
 segundo producto no sale, y hoy no le pasa a nadie (ningún negocio tiene prendido el curso al ganar).
 
-**Sin hacer, con el archivo:**
+**Sin hacer, con el archivo (para después del 20/10: el Cerebro cortó por consumo con la semana al 71%):**
 - La llamada del curso leída de Calendly (app/api/cron/curso-sesiones): crear sesiones solas le
   avisa a clientes reales; falta decidir qué evento de Calendly es la llamada de entrega.
 - Importar cursos de Skool o Hotmart: Skool no tiene API de contenido; Hotmart pide credenciales del productor.
