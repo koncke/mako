@@ -1143,6 +1143,10 @@ al Plan: el Plan son los pedidos y los trabajos, y un «Ya está» cierra uno de
   para ese barrido es un server usando una referencia de cliente. El Cerebro mudó la función a
   app/m/mako/achicar-imagen.ts, sin la directiva. Antes de pasar una punta se corren también ese test y los barridos que
   recorren el repo (`grep -lE "ls-files|archivosDelRepo|readdirSync" tests/*.test.ts`), no sólo los del área.
+- **Un test con una ruta de Windows (`C:\dev\x`, la ruta de un archivo de la PC) rompe la guarda de rutas**
+  (tests/rutas-windows-en-tests.test.ts) si no está en `PERMITIDOS` de scripts/rutas-windows-en-tests.mjs, con su
+  motivo. Pasó tres veces seguidas el 17/10 (adjuntos, Runner y nube, el clic): los tests del área pasaban y caía el
+  barrido. La línea va en el MISMO commit que el test.
 - **Tres tests fijaban la FORMA de una línea** (el import de mandar.ts, la llamada a `firma.mandar`, `mensaje(l.p)`).
   Un cambio que sólo agrega un argumento los rompía. Se abrieron para seguir exigiendo lo mismo.
 

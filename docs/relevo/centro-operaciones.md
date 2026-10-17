@@ -11,24 +11,21 @@ los "Ya está" en Review, el Runner y la nube» (17/10). Lo pedido, textual, est
 | # | Qué | Commit | Estado |
 |---|---|---|---|
 | 1 | «Second Brain», debajo de la Ticketera, abre el GRAFO (computadora y teléfono) | `9b4ba4eda` + `3cd7776d3` | **en producción** (run 90); el «Ya está» ya se dijo |
-| 2 | Adjuntar fotos y PDF en la caja, y pegar una captura con Ctrl+V, hasta la PC | `f9409f98b` | en integración (run 91) |
-| 2b | Los dos defectos de la revisión de seguridad: la bajada sin tope de RAM, y lo `tomado` sin salida | `2955b1ec6` | en integración, con la 4 |
-| 3 | Review lista cada «Ya está» de un chat como un hecho, con su ruta | `b644d149e` | en integración (run 91) |
-| 4 | El Runner y los chats de la nube en la lista (cartero 1.10.0) | `78165968b` | en integración, con la 2b |
-| 5 | El clic sin PowerShell (docs/diseno-nuevo-chat-un-clic.md) | — | **a medir con Martín** antes de construir (abre una ventana en su pantalla) |
+| 2 | Adjuntar fotos y PDF en la caja, y pegar una captura con Ctrl+V, hasta la PC | `f9409f98b` | **en producción** (run 92); «Ya está» dicho |
+| 2b | Los dos defectos de la revisión de seguridad: la bajada sin tope de RAM, y lo `tomado` sin salida | `2955b1ec6` | **en producción** (run 92) |
+| 3 | Review lista cada «Ya está» de un chat como un hecho, con su ruta | `b644d149e` | **en producción** (run 92); «Ya está» dicho |
+| 4 | El Runner y los chats de la nube en la lista (cartero 1.10.0, instalado) | `78165968b` | **en producción** (run 92); «Ya está» dicho |
+| 5 | El clic sin PowerShell: medido (con Martín), el diseño corregido y cosechado | `7fc2b2a9a` | hecho |
+| 5a | El trabajo «abrir» del lado de la PC y de MaKo (cartero 1.11.0: `abrir`, `abrir-permitir`) | `cd1587939` | en la revisión de seguridad del Cerebro |
+| 5b | «Abrir» en «Nuevo chat», computadora y teléfono | `3af6a4e5e` | pasada al Cerebro |
 
-**Lo que hace el Cerebro con eso**:
-- instala directamente el cartero **1.10.0** (no la 1.9.0: tenía los defectos);
-- le pasa al Runner de la app el paso 0 nuevo de `INSTRUCCIONES_RUNNER` (lib/runner.ts): anotar la nube con
-  `cartero.mjs nube`.
+**Lo que hace el Cerebro con la 5:** cuando la 5a pase su revisión de seguridad, instala el cartero **1.11.0** y le pasa
+al Runner los pasos nuevos de `INSTRUCCIONES_RUNNER` (lib/runner.ts): el 2c, correr `abrir` si `ciclo` trae aperturas, y
+el 5, el permiso. «Abrir» aparece en «Nuevo chat» sólo para una cuenta de terminal cuyo Runner ya tiene la 1.11.0
+(`puedeAbrirEn`). Mientras tanto queda «Copiar comando», como antes.
 
-Hasta entonces, la caja no muestra el «+» para adjuntar: lo habilita `aceptaAdjuntos` desde la 1.9.1.
-
-**Arreglos del Cerebro que hay que traer** (merge de `origin/integracion` cuando suba):
-- `dc159c742`: `achicarImagen` se mudó a `app/m/mako/achicar-imagen.ts`, sin `'use client'`. useCentro.ts no tiene la
-  directiva, y traerse un VALOR de un módulo `'use client'` rompía `tests/frontera-use-client.test.ts`;
-- `852198de7`: tests/centro-adjuntos.test.ts en la lista de `scripts/rutas-windows-en-tests.mjs`. Hay que sumar ahí
-  también tests/centro-runner-nube.test.ts, que tiene el mismo `C:\dev\x` como cwd.
+**Los arreglos del Cerebro ya están en la rama** (merge `07d8d43d2`): `achicarImagen` en un archivo sin `'use client'`
+(`dc159c742`), y los tests del Ops Center en la lista de `scripts/rutas-windows-en-tests.mjs` (`852198de7`, `c0a62a84d`).
 
 **Antes de pasar una punta** se corren, además de centro-*, operaciones*, second-brain*, cartero*,
 puente-panel-copy y progreso:
@@ -36,21 +33,24 @@ puente-panel-copy y progreso:
 - los barridos que recorren el repo: `grep -lE "ls-files|archivosDelRepo|readdirSync" tests/*.test.ts`.
 
 **Lo que sigue, en este orden:**
-1. **La punta 5, medida con Martín presente.** Desde la herramienta Bash de una sesión de la app se lanza
-   `powershell.exe -NoExit -EncodedCommand <claude2 -n 'Prueba del clic' '<mensaje corto>'>` con `spawn(…, { detached:
-   true, stdio: 'ignore' })`. Martín dice si vio la ventana y si el chat arrancó con el mensaje. Con eso se construye
-   lo del diseño (el trabajo «abrir» con `destino: 'nuevo'`, `abre`, `aperturas/`, `abrir`, `abrir-permitir`). Toca
-   cartero.mjs: avisar ANTES al Cerebro.
-2. Lo que quedó de la tabla del 17/10 (abajo): el plan y la ventana de 5 h de la cuenta de la app en el Uso (punto 4).
-3. Las tandas 8, 7, 9 y 6 del Second Brain, y «Skills».
+1. **Lo que salga de la revisión de seguridad de la 5a** (el Cerebro lo pasa con el escenario): arreglarlo como punta
+   aparte, con su test probado rompiéndolo, antes que nada.
+2. **El caso de la cuenta de la app en el clic**: sólo puede PROPONER el chat (una tarjeta que Martín toca en la app).
+   Sin diseñar del todo: está en docs/diseno-nuevo-chat-un-clic.md, «Sin medir todavía».
+3. **Sacar los «Copiar comando» que quedan** cuando el clic ande en las tres terminales: PanelRunner.tsx (abrir un
+   Runner de terminal) y el de «Nuevo chat». Martín: ningún «Pega su comando en PowerShell» en ninguna pantalla.
+4. Lo que quedó de la tabla del 17/10 (abajo): el plan y la ventana de 5 h de la cuenta de la app en el Uso (punto 4).
+5. Las tandas 8, 7, 9 y 6 del Second Brain, y «Skills».
 
 **Lo que Martín tiene que hacer por el Ops Center:**
-- con la 1.10.0 instalada, probar un adjunto de punta a punta: una captura con Ctrl+V a un chat, y que el chat abra la
-  ruta que le llegó;
-- estar presente para la medición de la punta 5.
+- probar un adjunto de punta a punta (la 1.10.0 ya está instalada): una captura con Ctrl+V a un chat, y que el chat abra
+  la ruta que le llegó;
+- cuando el Cerebro instale la 1.11.0: decirle al Runner «prende la apertura de chats» (una vez), y probar «Nuevo chat» →
+  «Abrir» con una cuenta de terminal. Si la ventana aparece pero el chat no arranca con su mensaje, es lo que falta medir
+  (`claudeN -n '<nombre>' '<pedido>'`).
 
 **Regla de Martín (17/10, en AGENTS.md):** el «Ya está» de lo que llegó a producción lo escribe CADA chat en Ops Center,
-con la ruta donde se prueba, cuando el Cerebro avisa que llegó. De las puntas 2, 2b, 3 y 4 todavía no se escribió.
+con la ruta donde se prueba, cuando el Cerebro avisa que llegó. Dicho de las puntas 1 a 4; falta el de la 5 cuando llegue.
 
 ## FEEDBACK DE MARTÍN DEL 17/10 (~01:30 y ~01:45), mirando producción — su estado
 
@@ -62,7 +62,7 @@ con la ruta donde se prueba, cuando el Cerebro avisa que llegó. De las puntas 2
 | c | «que "Second brain" sea la sub tab debajo de la Ticketera» | **hecho**, y desde la punta 1 abre el grafo |
 | 3 | elegir la cuenta al mandar, con «Automático» por defecto | **hecho** (computadora y teléfono) |
 | 4 | el Uso de las CUATRO cuentas, con su plan, la de 5 horas y la semanal | **hecho en la pantalla**; falta que la PC mande el plan y la 5 h de la cuenta de la app |
-| 5 | ningún «Pega su comando en PowerShell»: el clic más el permiso de la PC | la punta 5, a medir |
+| 5 | ningún «Pega su comando en PowerShell»: el clic más el permiso de la PC | la punta 5: medida, 5a en revisión, 5b pasada; quedan los «Copiar comando» de PanelRunner y de «Nuevo chat» hasta que ande |
 | 6 | Review con TODO lo terminado; sin ruta, la tab de su área | **hecho**, y desde la punta 3 también los «Ya está» |
 | 7 | elegir el modelo y el esfuerzo al mandar o abrir un chat | **hecho al mandar** (sólo chats de la APP). Sin medir si la app pregunta cada vez. Al ABRIR, va con el clic |
 | a | todo chat abierto se ve | **hecho** con la punta 4: «Sin asignar» abierta, el Runner marcado y la nube con su chip. Sin medir la forma de una fila de la nube |
