@@ -16,7 +16,7 @@
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { PREFIJO_APP } from '../canal';
-import { crearTicket, identidadDe, misTickets } from '@/lib/tickets-db';
+import { crearTicket, identidadDelActor, misTickets } from '@/lib/tickets-db';
 import { ROTULO_ESTADO_CLIENTE, estadoParaElCliente, sanearAlta, sanearContexto, type Canal, type ContextoTicket } from '@/lib/tickets-reglas';
 
 const json = (o: unknown): string => JSON.stringify(o);
@@ -63,8 +63,9 @@ function canalDe(ctx: Ctx, navegador: string | undefined): Canal {
 export const RUNNERS: Runners = {
   levantar_ticket: {
     preparar: async (input, ctx) => {
-      const actor = ctx.actor?.trim().toLowerCase();
-      if (!actor || !actor.includes('@')) return { error: 'No sé quién eres: levántalo desde «Reportar problema», en el menú de tu perfil.' };
+      // Un email (la app) o `whatsapp:<teléfono>` (el doer de WhatsApp): `identidadDelActor` (lib/tickets-db.ts).
+      const quien = await identidadDelActor(ctx.ws, ctx.actor);
+      if (!quien) return { error: 'No sé quién eres: levántalo desde «Reportar problema», en el menú de tu perfil.' };
       const a = sanearAlta({ tipo: input.tipo, titulo: input.titulo, descripcion: input.descripcion });
       if (!a.ok) return { error: a.motivo };
       const pedido = await delPedido();
@@ -82,14 +83,14 @@ export const RUNNERS: Runners = {
         payload: {
           tipo: a.alta.tipo, titulo: a.alta.titulo, descripcion: a.alta.descripcion,
           ...(contexto.noExiste ? { noExiste: true } : {}),
-          canal: canalDe(ctx, pedido.navegador), email: actor, contexto,
+          canal: canalDe(ctx, pedido.navegador), email: quien.email, contexto,
         },
         resumen: `Mandarle al equipo de MaKo: «${a.alta.titulo}»`,
       };
     },
     ejecutar: async (p, ctx) => seguro('mandar el ticket', async () => {
-      const email = typeof p.email === 'string' ? p.email : ctx.actor ?? '';
-      const identidad = await identidadDe(ctx.ws, email);
+      const identidad = await identidadDelActor(ctx.ws, typeof p.email === 'string' ? p.email : ctx.actor);
+      if (!identidad) return { ok: false, resumen: 'No sé quién lo pidió: levántalo desde «Reportar problema».' };
       const r = await crearTicket({
         identidad, tipo: (p.tipo as never) ?? null, declaradoPor: 'mako',
         titulo: String(p.titulo ?? ''), descripcion: String(p.descripcion ?? ''),
@@ -105,9 +106,9 @@ export const RUNNERS: Runners = {
 
   mis_tickets: {
     leer: async (_input, ctx): Promise<SalidaLectura> => {
-      const actor = ctx.actor?.trim().toLowerCase();
-      if (!actor) return { content: json({ ok: false, error: 'No sé quién eres: tus tickets están en «Reportar problema», en el menú de tu perfil.' }), isError: true };
-      const r = await misTickets(ctx.ws, actor);
+      const quien = await identidadDelActor(ctx.ws, ctx.actor);
+      if (!quien) return { content: json({ ok: false, error: 'No sé quién eres: tus tickets están en «Reportar problema», en el menú de tu perfil.' }), isError: true };
+      const r = await misTickets(ctx.ws, quien.email);
       if (!r.ok) return { content: json({ ok: false, error: r.faltaTabla ? 'Los tickets todavía no están disponibles.' : 'No pude leer tus tickets ahora.' }), isError: !r.faltaTabla };
       return json({
         ok: true,

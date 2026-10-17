@@ -42,6 +42,8 @@ import { guardarPreguntas } from './centro-preguntas-chat-db';
 import { sanearPreguntas } from './centro-preguntas-chat';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 import { borrarAdjuntosDe } from './operaciones-adjuntos';
+import { acusarTicket, ticketsParaElCartero, ticketsSinEntregar, type TicketParaEntregar } from './tickets-runner';
+import { VERSION_CARTERO_TICKETS, esElCerebro, versionAlMenos } from './tickets-aviso';
 
 const T_PEDIDOS = 'operaciones_pedidos';
 const T_CARTEROS = 'operaciones_carteros';
@@ -211,6 +213,10 @@ export type SalidaCiclo = {
   /** Las preguntas de los chats que entraron (17/10/2026, `cartero.mjs preguntar`): la PC borra ésas y vuelve a subir las
    *  demás, el molde de `cierresIds`. */
   preguntasIds: string[];
+  /** Los bugs del triage que este Runner le entrega al Cerebro con un texto FIJO (cartero 1.15.0, lib/tickets-runner.ts).
+   *  Un cartero de antes no los recibe (`VERSION_CARTERO_TICKETS`). */
+  tickets: TicketParaEntregar[];
+  ticketsError: string | null;
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -279,10 +285,15 @@ export async function hayParaElCartero(cuentas: readonly string[], abre: readonl
   const validas = [...new Set(cuentas.filter((c) => CUENTA_RE.test(c)))].slice(0, 10);
   if (!validas.length) return 0;
   const db = getSupabaseServer();
-  const { data: filas, error } = await db.from(T_CARTEROS).select('cuenta, chats').in('cuenta', validas);
+  const { data: filas, error } = await db.from(T_CARTEROS).select('cuenta, chats, version').in('cuenta', validas);
   if (error) throw new Error(error.message);
   const vivos = (filas ?? []).flatMap((f) => sanearChats(f.chats)
     .filter((c) => c.vivo && c.runner !== false && !c.esRunner && !c.nube).map((c) => c.local));
+  // Un bug del triage para el Cerebro (cartero 1.15.0): cuenta SÓLO si el chat «Cerebro» está vivo en una de estas cuentas
+  // y su Runner lo entiende. Con un Runner de antes, contarlo haría que `vigilar` salga apenas entra, en cada vuelta, por
+  // algo que la vuelta no le va a dar nunca.
+  const conCerebro = (filas ?? []).some((f) => versionAlMenos(f.version as string | null, VERSION_CARTERO_TICKETS)
+    && sanearChats(f.chats).some((c) => c.vivo && c.runner !== false && !c.esRunner && !c.nube && esElCerebro(c.titulo)));
   let n = 0;
   if (vivos.length) {
     const { count, error: e } = await db.from(T_PEDIDOS).select('id', { count: 'exact', head: true })
@@ -297,6 +308,7 @@ export async function hayParaElCartero(cuentas: readonly string[], abre: readonl
     if (e) throw new Error(e.message);
     n += count ?? 0;
   }
+  if (conCerebro) n += await ticketsSinEntregar();
   return n;
 }
 
@@ -367,6 +379,10 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     const { data: av } = await db.from(T_DECISIONES).update({ aviso_estado: a.estado, aviso_motivo: a.motivo, aviso_at: ahoraIso })
       .eq('aviso_id', a.id).eq('aviso_estado', 'tomado').select('id');
     acuses += (av ?? []).length;
+    if ((av ?? []).length) continue;
+    // Un bug del triage que el Runner le entregó al Cerebro (cartero 1.15.0): el mismo formato de id. Si falta la mig 0311,
+    // no puede existir un acuse así, y el error se ignora.
+    acuses += await acusarTicket(a, ahoraIso).catch(() => 0);
   }
 
   // Los cierres que dejaron los chats: sólo sobre un pedido ENTREGADO.
@@ -433,5 +449,13 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     avisosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
+  // Los bugs del triage para el Cerebro (cartero 1.15.0), aparte como los avisos: si fallan, lo demás sale igual.
+  let tickets: TicketParaEntregar[] = [];
+  let ticketsError: string | null = null;
+  try {
+    if (vivos.length) tickets = await ticketsParaElCartero(version, chats, new Set(vivos), ahoraIso);
+  } catch (err) {
+    ticketsError = err instanceof Error ? err.message.slice(0, 200) : 'error';
+  }
+  return { pedidos, avisos, avisosError, tickets, ticketsError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
 }

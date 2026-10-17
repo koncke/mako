@@ -15,6 +15,7 @@ import { WsFetch } from './_components/WsFetch';
 import { TemaCandidato } from './_components/TemaCandidato';
 import { PuenteEnlace } from './video-generator/PuenteEnlace';
 import { ZonaDelNegocio } from './_components/ZonaDelNegocio';
+import { ReportadorDeErrores } from './_components/ReportarErrores';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
@@ -245,6 +246,8 @@ export default async function RootLayout({
               {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para
                   todas sus pantallas. Ver app/_components/SeccionesTab.tsx. */}
               <HideOnPublicLanding><SeccionesTab /></HideOnPublicLanding>
+              {/* Los errores sueltos de la ventana van solos a la Ticketera (17/10/2026): sólo con sesión, nunca en lo público. */}
+              {sesion && <HideOnPublicLanding><ReportadorDeErrores /></HideOnPublicLanding>}
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}

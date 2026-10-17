@@ -34,7 +34,9 @@ import { chatClaudeTools, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
 import { aToolDef, porId } from '@/lib/api-mako/registro';
-import { errorParaTicket, propuestaPorFallo, type ErrorDelTurno } from '@/lib/tickets-reglas';
+import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
+import { identidadDe } from '@/lib/tickets-db';
+import { registrarError } from '@/lib/errores-app';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import type { Ctx } from '@/lib/api-mako/tipos';
@@ -235,6 +237,8 @@ const AVISO_NO_PUDE = 'No pude contestar ahora. Tu mensaje quedó guardado.';
  *  que MaKo pueda proponerlo cuando la persona pide algo que la app todavía no tiene (docs/diseno-ticketera-usuarios.md). */
 const LEVANTAR_TICKET = 'levantar_ticket';
 const TICKET_TOOLS: ToolDef[] = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToolDef(d)] : []; })();
+/** Lo que el CÓDIGO le dice a la persona cuando lo que falló ya entró a la Ticketera (no lo escribe el modelo). */
+const AVISE_AL_EQUIPO = 'Le avisé al equipo de MaKo: te aviso por aquí cuando esté arreglado.';
 const AVISO_NO_LEI = (nombre: string) => `No pude leer «${nombre}».`;
 
 /**
@@ -449,13 +453,20 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     }
     if (fallo) console.error(`[mako-turno-app] ws=${ws} sesión=${s.id} ${intencion.intencion}: ${fallo.slice(0, 300)}`);
 
-    // ── El ticket que propone el CÓDIGO ─────────────────────────────────────────
-    // Algo de MaKo falló en este turno y el modelo no propuso mandárselo al equipo: lo propone el código, con el
-    // error que vio. Es una propuesta (una tarjeta con un botón): la persona decide si lo manda.
-    if (erroresDelTurno.length && !ticketPropuesto) {
-      const e = erroresDelTurno[0];
-      await runRegistro(LEVANTAR_TICKET, propuestaPorFallo(e, textoPersona || textoMemoria, porId(e.herramienta)?.titulo ?? null))
-        .catch((x) => console.error(`[mako-turno-app] ws=${ws} no pude proponer el ticket: ${x instanceof Error ? x.message : String(x)}`));
+    // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
+    // Martín (17/10/2026): «córrelo en toda la app: MaKo en los chats de la app... Y todo lo solucionas
+    // automáticamente». Ya no se le propone una tarjeta a la persona: el error se registra (agrupado por huella,
+    // lib/errores-app.ts) y la primera vez es un ticket de bug que va solo al Cerebro. A la persona se le dice SÓLO si
+    // entró, y el aviso de que está arreglado le llega en ESTE hilo. Lo que falló porque el proveedor de IA no
+    // contestó (un 503, el cupo) no es un bug de MaKo: lo descarta `esRuido`.
+    const fallasDeMako = [
+      ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error })),
+      ...(fallo ? [{ nombre: 'responder', mensaje: fallo }] : []),
+    ];
+    if (fallasDeMako.length && !ticketPropuesto) {
+      const quien = await identidadDe(ws, persona.actor).catch(() => null);
+      const r = await registrarError({ origen: 'mako', ...fallasDeMako[0], hilo: String(s.id) }, quien);
+      if (r.ok && r.ticketId) paraLaPersona.push(AVISE_AL_EQUIPO);
     }
 
     // ── Lo que sale ────────────────────────────────────────────────────────────

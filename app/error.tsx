@@ -27,13 +27,42 @@
 
 import { useEffect, useState } from 'react';
 
+/**
+ * Le avisa a la Ticketera (17/10/2026, Martín: «córrelo en toda la app... Y todo lo solucionas automáticamente»): el
+ * servidor lo agrupa por huella y la primera vez es un ticket de bug que va solo al Cerebro (lib/errores-app.ts). Sin
+ * imports, por lo de arriba. Un error del SERVIDOR llega acá sin su mensaje (sólo el digest): ése lo reporta el servidor
+ * mismo (instrumentation.ts → onRequestError), y mandarlo también abriría un segundo ticket del mismo error.
+ * Devuelve si ENTRÓ: la pantalla sólo dice «ya le avisamos» si es verdad.
+ */
+async function avisarAlEquipo(error: Error & { digest?: string }): Promise<boolean> {
+  try {
+    if (error?.digest && /Server Components render|omitted in production/i.test(error?.message ?? '')) return false;
+    const r = await fetch('/api/errores', {
+      method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        nombre: error?.name || 'Error', mensaje: String(error?.message || '(sin mensaje)').slice(0, 500),
+        stack: String(error?.stack || '').slice(0, 4000), digest: error?.digest,
+        ruta: `${window.location.pathname}${window.location.search}`, navegador: navigator.userAgent,
+        pantalla: `${window.innerWidth}x${window.innerHeight}`,
+      }),
+    });
+    return r.status === 204;
+  } catch {
+    return false;
+  }
+}
+
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [copiado, setCopiado] = useState(false);
+  const [avisado, setAvisado] = useState(false);
 
   useEffect(() => {
     // Queda en la consola del navegador además de en pantalla: si alguien SÍ
     // puede abrirla, el stack completo está ahí.
     console.error('[pantalla rota]', error);
+    let vivo = true;
+    void avisarAlEquipo(error).then((ok) => { if (vivo) setAvisado(ok); });
+    return () => { vivo = false; };
   }, [error]);
 
   const detalle = [
@@ -50,7 +79,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Esta pantalla se rompió al dibujarse</div>
         <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--dim, #5b6472)', margin: '0 0 16px' }}>
           Tus datos están a salvo: lo que falló es el dibujo de esta pantalla en este dispositivo, no lo que tienes guardado.
-          Prueba de nuevo, y si vuelve a pasar, copia el detalle y envíaselo a quien te dio el acceso.
+          {avisado ? 'Ya le avisamos al equipo de MaKo: se está arreglando. Mientras tanto, prueba de nuevo.' : 'Prueba de nuevo, y si vuelve a pasar, copia el detalle y envíaselo a quien te dio el acceso.'}
         </p>
         <pre style={{ margin: '0 0 16px', padding: '12px 14px', borderRadius: 10, background: 'var(--surface-2, #f4f5f7)', border: '1px solid var(--border, #e5e7eb)', fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: "'Geist Mono', ui-monospace, monospace" }}>{detalle}</pre>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

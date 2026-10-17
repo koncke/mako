@@ -1164,6 +1164,7 @@ export const AREAS: AreaDev[] = [
       'app/tickets/page.tsx', 'app/tickets/TicketsCliente.tsx', 'app/tickets/acciones.ts', 'app/tickets/tickets.css', 'app/tickets/bandeja/',
       'lib/tickets-reglas.ts', 'lib/tickets-db.ts', 'lib/tickets-cierre.ts', 'lib/tickets-aviso.ts', 'lib/tickets-runner.ts',
       'lib/api-mako/areas/tickets.def.ts', 'lib/api-mako/areas/tickets.run.ts', 'app/api/cron/tickets/route.ts', 'scripts/tickets.ts',
+      'lib/errores-app.ts', 'lib/errores-app-reglas.ts', 'app/api/errores/route.ts', 'app/_components/ReportarErrores.tsx', 'supabase/migrations/0313_errores_app.sql', 'tests/errores-app.test.ts', 'tests/tickets-cartero.test.ts',
       'supabase/migrations/0311_tickets_usuarios.sql', 'tests/tickets.test.ts', 'tests/tickets-triage.test.ts', 'docs/diseno-ticketera-usuarios.md',
     ],
     proyectos: ['Feature: Feedback y errores'],

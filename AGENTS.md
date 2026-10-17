@@ -1387,7 +1387,10 @@ código nuevo:
   Lo fija tests/centro-abrir.test.ts.
 - **Lo único que el cartero entrega SIN firma es un texto FIJO que arma él**: el aviso de una respuesta
   de la Ticketera (`mensajeAviso`, scripts/operaciones/cartero.mjs) lleva sólo el `ref` validado y el
-  comando para leerla. Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra.
+  comando para leerla, y el bug del triage de un ticket de cliente (`mensajeTicket`, 1.15.0) lleva sólo el NÚMERO.
+  Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra. Y si `hayParaElCartero` cuenta algo
+  nuevo, lo cuenta sólo para un Runner de la versión que lo entrega: con uno de antes, `vigilar` saldría en cada
+  vuelta por algo que nunca le llega (tests/tickets-cartero.test.ts).
 - **Una tarjeta de la Ticketera se publica con `destino`** (la sesión que pregunta, `local_…`/`cli_…`):
   `chat` es un nombre y con un nombre no se sabe a quién avisar (lib/decisiones-aviso.ts).
 - **En la pantalla, lo que despacha el Centro es un «trabajo»; «pedido» es lo que pide Martín.** Martín,
@@ -5723,6 +5726,16 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
   cuando el build lo trae, el cron lo cierra y le avisa al cliente por donde lo levantó. No se cierra a mano.
 - **Lo del cliente filtra por SU workspace Y SU email** (lib/tickets-db.ts); lo de Martín pasa por `puedeOperar`. Lo fija
   tests/tickets.test.ts.
+- **Un error de la app NO se reporta a mano: va solo a `registrarError`** (lib/errores-app.ts, 17/10/2026; Martín: «córrelo
+  en toda la app... Y todo lo solucionas automáticamente»). Lo llaman los boundaries, el reportador de la ventana,
+  `onRequestError` y el turno del chat. Lo que gobierna código nuevo:
+  - un boundary nuevo (`error.tsx` de una sección) manda a `/api/errores` SIN importar nada de la app, como `app/error.tsx`;
+  - un chat de MaKo con su propio turno registra lo que falló con `registrarError({ origen: 'mako', … })`, nunca le pide
+    a la persona que lo reporte;
+  - la HUELLA no lleva el stack ni números: el stack de producción cambia en cada deploy y abriría un ticket por deploy;
+  - un error que no es de MaKo (el proveedor de IA, la red, una extensión) se suma a `RUIDO` (lib/errores-app-reglas.ts),
+    no se filtra en quien llama.
+  Lo fija tests/errores-app.test.ts.
 
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 
