@@ -107,6 +107,7 @@ import { FILAS_PORTADA_EN_PILA, acentoDeBloque, marcoDePortada } from '@/lib/gra
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
 import { useGeneral } from './ElementoGeneral';
+import { RedDeBloque } from './RedDeBloque';
 import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
 import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
 import type { Resultado } from '@/lib/graficos-agregar';
@@ -1174,9 +1175,13 @@ export function EditorInforme({
       // Lo mismo un texto, un enlace, una sección o una acción: en el teléfono un título envuelve en más renglones que en el
       // escritorio, y con el alto de la grilla salía con una barra de scroll adentro del título.
       const lugar = enPila && (bloque || ELEMENTOS_ALTO_LIBRE_EN_PILA.has(c.tipo)) ? { ...base, height: 'auto', minHeight: 0 } : base;
+      // La RED POR TARJETA (./RedDeBloque.tsx): un elemento que tira al dibujarse dice «Este bloque no cargó» y la hoja
+      // sigue en pie. Un bloque de General trae además la suya (./ElementoGeneral.tsx), la del teléfono.
       return (
         <div key={c.id} data-comp={c.id} className={`lk-comp ${bloque ? 'lk-comp--general' : 'lk-comp--elemento'}${portada ? ` ${portada.clase}` : ''}${elegido || marcada ? ' lk-comp--sel' : ''}`} style={lugar} onClick={alClic} data-forma={portada?.forma}>
-          <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} ctx={ctxDe(c)} />
+          <RedDeBloque nombre={c.texto.trim() || c.tipo} reiniciarCon={[c]}>
+            <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} ctx={ctxDe(c)} />
+          </RedDeBloque>
         </div>
       );
     }
@@ -1241,8 +1246,12 @@ export function EditorInforme({
             : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} conReproductor={conReproductor} />;
           // Las acciones EN LA FILA (`tabla.acciones`: «Marcar cobrada»…) van sólo mirando y con sesión: sin este
           // provider la tabla no dibuja la columna (useColumnaAcciones devuelve null).
-          return c.tabla?.acciones && !editando && !compartido
+          const conAcciones = c.tabla?.acciones && !editando && !compartido
             ? <AccionesFilaProvider g={c} efectivo={ef} onCambio={refrescar}>{cuerpo}</AccionesFilaProvider> : cuerpo;
+          // La red por tarjeta: un gráfico que tira dice «Este bloque no cargó» con su título arriba, y la hoja sigue en
+          // pie. Vuelve a intentar cuando cambia el gráfico o le llegan datos nuevos (`datos[c.id]`, no `est`: sin datos,
+          // `est` es un objeto nuevo en cada render).
+          return <RedDeBloque nombre={tituloDe(c)} reiniciarCon={[c, datos[c.id]]}>{conAcciones}</RedDeBloque>;
         })()}
       </div>
     );

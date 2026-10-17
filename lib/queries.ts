@@ -24,7 +24,9 @@ import {
   type EstadoLead,
   type EstadoMadurez,
 } from './leads';
-import { getPipelineStagesDefault } from './funnels';
+import { getFunnelDe, getPipelineStagesDefault } from './funnels';
+import type { Stage } from './pipeline';
+import { filtrarPorFunnels } from './funnels-elegidos-server';
 import { hayPasoDeWizard, tabDeSolucion, type Step } from './stage-requirements';
 // Un becado (#747) es cliente y no es venta: las sumas de lo vendido lo excluyen.
 import { VENTA_SIN_COBRO } from './venta-tipo';
@@ -1272,7 +1274,53 @@ export type FunnelMes = {
    * la segunda además pagaría otra lectura a la base.
    */
   roles: RolesComerciales;
+  /** #896: los funnels medidos, si se eligieron (sin esto: el negocio entero, como siempre). */
+  funnels?: number[];
+  /**
+   * Con funnels elegidos, lo que viene de Meta (impresiones, clics, formularios, gasto) es de TODA la cuenta: Meta no
+   * dice a qué funnel va cada uno. Lo que sale de los leads sí es del funnel. Quien lo muestre, lo dice.
+   */
+  pautaDeTodaLaCuenta?: boolean;
 };
+
+/** Los funnels elegidos no comparten sus pasos comerciales: no se pueden sumar en un solo embudo. */
+export class FunnelsConEtapasDistintas extends Error {}
+
+/**
+ * Las etapas de los funnels ELEGIDOS, para medirlos juntos (#896). Uno: las suyas. Varios: tienen que compartir sus pasos
+ * comerciales (`pasosComercialesDe`: qué cuenta de entrada y de salida en cada paso); si no, TIRA
+ * `FunnelsConEtapasDistintas`: un embudo de dos reuniones y uno sin reuniones no se suman paso por paso.
+ */
+async function etapasDeFunnels(ids: readonly number[]): Promise<Stage[]> {
+  const fs = await Promise.all(ids.map((id) => getFunnelDe(id)));
+  const firma = (st: Stage[]) => JSON.stringify(pasosComercialesDe(st).map((p) => [p.key, p.entrada, p.salida]));
+  const primera = firma(fs[0].stages);
+  if (fs.some((f) => firma(f.stages) !== primera)) {
+    throw new FunnelsConEtapasDistintas('Esos funnels tienen etapas distintas: no se pueden medir juntos. Pídelos de a uno.');
+  }
+  return fs[0].stages;
+}
+
+/**
+ * #896: las filas de leads que cuentan en ESTOS funnels: cada una en el funnel donde estaba ESE día (su casa, o el último
+ * al que se la agregó para esa fecha: `funnelDelMomento`, lib/funnels-elegidos.ts), la misma regla que el OKR. Sin
+ * funnels, todas (y no se lee nada más).
+ */
+async function enLosFunnels<T extends { id: number }>(filas: readonly T[], funnels: readonly number[], fecha: (x: T) => string | null): Promise<T[]> {
+  return funnels.length ? filtrarPorFunnels(filas.map((x) => ({ ...x, leadId: Number(x.id), fecha: fecha(x) })), funnels) : [...filas];
+}
+
+/**
+ * #896: las altas del período en ESTOS funnels. Con funnels no se pueden contar con un COUNT (hay que saber de cuál es
+ * cada una): van como filas PAGINADAS (el tope de 1000 de PostgREST) y se reparten con `enLosFunnels`.
+ */
+async function altasEnFunnels(supabase: Awaited<ReturnType<typeof getTenantDb>>, desde: string, hasta: string, funnels: readonly number[]): Promise<{ entradas: number; ganadas: number }> {
+  const filas = await leerTodo<{ id: number; estado_lead: string | null; created_at: string }>(supabase, 'leads', 'id, estado_lead, created_at', {
+    orden: 'id', filtros: (q) => q.gte('created_at', desde).lte('created_at', hasta),
+  });
+  const en = await enLosFunnels(filas, funnels, (x) => x.created_at.slice(0, 10));
+  return { entradas: en.length, ganadas: en.filter((x) => x.estado_lead === 'ganado').length };
+}
 
 // Mínimo de denominador para tratar un % como confiable (Fase 7)
 export const MIN_MUESTRA = 3;
@@ -1281,15 +1329,16 @@ export async function getFunnelEtapas(
   start: string,
   end: string,
   sourceMap?: Record<string, 'ok' | 'stale' | 'off'>,
+  funnels: readonly number[] = [],
 ): Promise<FunnelMes> {
   const supabase = (await getTenantDb());
 
-  // El funnel del workspace. No entra por parámetro a propósito: ninguno de los
-  // cuatro llamadores lo tiene en la mano, y un parámetro opcional que nadie pasa
-  // es un segundo lugar donde esta pregunta se puede contestar distinto.
-  // Que la lectura falle NO cambia nada: `pasosComercialesDe(null)` cae al tramo de
-  // dos reuniones, que es exactamente lo que esta función hacía siempre.
-  const stages = await getPipelineStagesDefault().catch(() => null);
+  // El funnel del workspace (sin `funnels`) o el de los funnels ELEGIDOS (#896, 17/10/2026: la API de MaKo
+  // `diagnosticar_funnel` los recibe; Martín: «esa configuración seguro debe faltar en varios lugares»).
+  // Que la lectura del default falle NO cambia nada: `pasosComercialesDe(null)` cae al tramo de dos reuniones,
+  // que es exactamente lo que esta función hacía siempre. Con funnels elegidos, si no comparten sus pasos
+  // comerciales no se pueden sumar en un solo embudo: TIRA `FunnelsConEtapasDistintas` (no se adivina cuál vale).
+  const stages = funnels.length ? await etapasDeFunnels(funnels) : await getPipelineStagesDefault().catch(() => null);
   const pasosComerciales = pasosComercialesDe(stages);
   const roles = rolesComercialesDe(stages);
   // Los contadores de la cohorte del ALTA sólo los pide el tramo SIN reuniones, y
@@ -1305,28 +1354,30 @@ export async function getFunnelEtapas(
   const altaDesde = `${start}T00:00:00Z`;
   const altaHasta = `${end}T23:59:59Z`;
 
-  const [mkt, leadsRes, altasRes, altasGanadasRes] = await Promise.all([
+  const conFunnels = funnels.length > 0;
+  const [mkt, leadsRes, altasRes, altasGanadasRes, altasF] = await Promise.all([
     getMarketingWindow(start, end),
     supabase
       .from('leads')
-      .select('asistio_j1, calificado, estado_lead, fecha_junta_1')
+      .select('id, asistio_j1, calificado, estado_lead, fecha_junta_1')
       .gte('fecha_junta_1', start)
       .lte('fecha_junta_1', end),
-    necesitaEntradas
+    necesitaEntradas && !conFunnels
       ? supabase.from('leads').select('id', { count: 'exact', head: true })
           .gte('created_at', altaDesde).lte('created_at', altaHasta)
       : Promise.resolve(null),
-    necesitaEntradas
+    necesitaEntradas && !conFunnels
       ? supabase.from('leads').select('id', { count: 'exact', head: true })
           .eq('estado_lead', 'ganado')
           .gte('created_at', altaDesde).lte('created_at', altaHasta)
       : Promise.resolve(null),
+    necesitaEntradas && conFunnels ? altasEnFunnels(supabase, altaDesde, altaHasta, funnels) : Promise.resolve(null),
   ]);
 
   if (leadsRes.error) throw new Error(`Funnel leads falló: ${leadsRes.error.message}`);
   if (altasRes?.error) throw new Error(`Funnel altas falló: ${altasRes.error.message}`);
   if (altasGanadasRes?.error) throw new Error(`Funnel altas ganadas falló: ${altasGanadasRes.error.message}`);
-  const rows = leadsRes.data ?? [];
+  const rows = await enLosFunnels(leadsRes.data ?? [], funnels, (r) => r.fecha_junta_1);
 
   const total_j1 = rows.length;
   const asistencias = rows.filter((r) => r.asistio_j1 === true).length;
@@ -1336,15 +1387,17 @@ export async function getFunnelEtapas(
 
   // Un contador por nombre del NEGOCIO. Los pasos del tramo nombran de acá, así
   // que la pregunta «de dónde sale este número» se contesta en un solo lugar.
+  // ⚠️ Con funnels elegidos, `forms` sigue siendo de TODA la cuenta de Meta (los formularios instantáneos no dicen a
+  // qué funnel van): quien lo muestre lo dice (`pautaDeTodaLaCuenta`). Las agendas salen de los leads del funnel.
   const contadores: Record<ContadorComercial, number> = {
     forms: mkt.leads_count,
-    agendas: mkt.reuniones_en_ventana,
+    agendas: conFunnels ? total_j1 : mkt.reuniones_en_ventana,
     r1_cohorte: total_j1,
     asistencias,
     limpias,
     cierres_cohorte: cierres,
-    entradas: altasRes?.count ?? 0,
-    cierres_entradas: altasGanadasRes?.count ?? 0,
+    entradas: altasF ? altasF.entradas : altasRes?.count ?? 0,
+    cierres_entradas: altasF ? altasF.ganadas : altasGanadasRes?.count ?? 0,
   };
 
   const pctDe = (salida: number, entrada: number): number | null =>
@@ -1460,7 +1513,7 @@ export async function getFunnelEtapas(
     ? pool.reduce((peor, e) => (severidad(e) > severidad(peor) ? e : peor))
     : null;
 
-  return { etapas, cuelloKey: cuello?.key ?? null, roles };
+  return { etapas, cuelloKey: cuello?.key ?? null, roles, ...(conFunnels ? { funnels: [...funnels], pautaDeTodaLaCuenta: true } : {}) };
 }
 
 // =============================================================================

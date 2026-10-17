@@ -13,6 +13,8 @@ import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
 import { TemaCandidato } from './_components/TemaCandidato';
+import { ModoArranque } from './_components/ModoArranque';
+import { ModoDelUsuario } from './_components/ModoDelUsuario';
 import { PuenteEnlace } from './video-generator/PuenteEnlace';
 import { ZonaDelNegocio } from './_components/ZonaDelNegocio';
 import { ReportadorDeErrores } from './_components/ReportarErrores';
@@ -170,6 +172,11 @@ export default async function RootLayout({
             /admin/ui?tab=temas. Va acá arriba a propósito: su <script> tiene
             que correr ANTES del primer pintado o la app parpadea del tema viejo
             al nuevo en cada navegación. No pinta nada cuando no hay tema. */}
+        {/* El claro/oscuro de cada persona (17/10/2026, tarjeta #883): claro por defecto, oscuro sólo si lo eligió en el
+            interruptor de la barra. Va ANTES del taller de paletas: el script tiene que correr antes del primer pintado.
+            Sólo con sesión: una página pública no se pinta con la preferencia de nadie. */}
+        {sesion && <ModoArranque />}
+        {sesion && <ModoDelUsuario />}
         {esAdmin && <TemaCandidato />}
         {/* La zona del negocio sale de la ubicación de SUS admins (decisión 4 de la décima, 11/10/2026). No pinta
             nada; quién cuenta como admin propio lo decide el server (app/_components/zona-actions.ts). */}

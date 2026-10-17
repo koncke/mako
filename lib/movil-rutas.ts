@@ -25,6 +25,11 @@
 // falta uno de los cuatro primeros, su lugar lo toma la PRIMERA sección de More que sí vea
 // (`barraMovil`).
 //
+// ⚠️ 17/10/2026, LA SIDEBAR NUEVA (docs/diseno-sidebar.md): las familias son DOS, Operate y Sales Machine (Analyze,
+// Content Machine y Customer Success se fueron: Dashboard y Clients a Operate, Video y Copywriting a Sales Machine), y
+// Second Brain va ARRIBA de todo, sin título, como en escritorio (con el Ops Center para el super admin, en /m/mas).
+// Experiments salió de la barra (su página sigue). «Calendario» es «Calendar», «Clientes» es «Clients».
+//
 // 15/10/2026 (Martín: «Implementá TODAS las tabs que construimos, todo»): More suma las siete que el
 // prototipo v3 ya dibujaba — Calendario, Second Brain, Experiments, Offer, Copywriting, Curso y
 // Comunidad —, cada una en su lugar de la sidebar. Con eso la capa pm (Plan, MaKo, Dashboard y
@@ -43,7 +48,7 @@ export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
-  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'mako';
+  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'mako';
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
 export type IdBarra = DestinoMovil | IdSeccionMas;
 
@@ -77,17 +82,19 @@ export type DefSeccionMas = {
   icon: string;
   /** La key de nav.ts que la gatea (la MISMA que pide `requireMovil({ navKey })` en su page). */
   navKey: string;
-  /** La familia de la sidebar (app/_components/nav.ts) bajo la que se lista en More; null = MaKo, al final. */
+  /** La familia de la sidebar (app/_components/nav.ts) bajo la que se lista en More; null = arriba, sin título. */
   familia: FamiliaMas | null;
+  /**
+   * La página existe y un link de escritorio la abre en el teléfono, pero NO es una fila de More ni sube a la barra
+   * (17/10/2026: salió de la sidebar de escritorio, nav.ts → SIN_FILA). Sin esto, borrar la fila rompía `rutaMovil`.
+   */
+  oculta?: true;
 };
 
 /** Las familias de la sidebar, con su nombre de escritorio y en su orden (una caja de More cada una). */
 export const FAMILIAS_MAS = [
   { id: 'operate', label: 'Operate' },
-  { id: 'analyze', label: 'Analyze' },
   { id: 'sales', label: 'Sales Machine' },
-  { id: 'content', label: 'Content Machine' },
-  { id: 'customer', label: 'Customer Success' },
 ] as const;
 export type FamiliaMas = (typeof FAMILIAS_MAS)[number]['id'];
 
@@ -128,33 +135,37 @@ export const TITULO_INBOX = 'Avisos';
  * MOVIL_ACTIVO prendido). Sin app/m/<carpeta>/page.tsx, todo eso es un 404 (el mismo test lo nombra).
  */
 export const SECCIONES_MAS: readonly DefSeccionMas[] = [
-  // Operate (General, Plan y CRM están en la barra; Chats, WhatsApp y Email, en Chats).
-  { id: 'calendario', label: 'Calendario', href: '/m/calendario', icon: 'calendario', navKey: 'calendario', familia: 'operate' },
+  // Operate (General, Plan y CRM están en la barra; Chats también, y adentro de Chats se configuran WhatsApp y Email).
+  { id: 'calendario', label: 'Calendar', href: '/m/calendario', icon: 'calendario', navKey: 'calendario', familia: 'operate' },
+  { id: 'dashboard', label: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'operate' },
   { id: 'ads', label: 'Ads Manager', href: '/m/ads', icon: 'grid', navKey: 'ads-manager', familia: 'operate' },
-  // Analyze (Competitor Spy es «pronto» y sólo del super admin: no viene).
-  { id: 'second-brain', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'second-brain', familia: 'analyze' },
-  { id: 'dashboard', label: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'analyze' },
-  { id: 'experimentos', label: 'Experiments', href: '/m/experimentos', icon: 'experiments', navKey: 'experimentos', familia: 'analyze' },
-  // Sales Machine (lo «pronto» es del super admin).
+  // Clients (vino de Customer Success el 17/10/2026). Las páginas de escritorio de Curso y Comunidad piden la capa de
+  // `customer-success` (requireCapa) y las keys `cs-curso`/`cs-comunidad` dan lo mismo en las cuatro capas
+  // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
+  { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'operate' },
+  // MaKo Partners (17/10/2026): sólo el admin de una agencia (`soloCapas` del ítem de nav.ts, que `puedeVerKey` mira).
+  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: 'operate' },
+  // Sales Machine (lo «pronto» es del super admin). Desde el 17/10/2026 trae Video y Copywriting (ex Content Machine).
   { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'sales' },
   { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'sales' },
   { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'chatbot', navKey: 'setting', familia: 'sales' },
-  // Content Machine. Video y Copywriting son tabs UNIFICADAS de escritorio: la key que gatea es la de la
+  // Video y Copywriting son tabs UNIFICADAS de escritorio: la key que gatea es la de la
   // sección que el teléfono muestra (Video Generator; Ads Writer, la única de Copywriting que ve un
   // cliente). `copywriting` NO sirve de navKey: no está en TODOS_LOS_ITEMS (itemsDe aplana las
   // secciones) y la de ADMIN_NAV es otra tab (/admin/copywriting), así que puedeVerKey diría que no.
   // Image (la copia de Canva) no entró en la tanda del 15/10/2026: si va al teléfono, es una fila acá.
-  { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'content' },
-  { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'content' },
-  // Customer Success. Las páginas de escritorio de Curso y Comunidad piden la capa de `customer-success`
-  // (requireCapa) y las keys `cs-curso`/`cs-comunidad` dan lo mismo en las cuatro capas
-  // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
-  { id: 'cs', label: 'Clientes', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'customer' },
-  { id: 'curso', label: 'Curso', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: 'customer' },
-  { id: 'comunidad', label: 'Comunidad', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: 'customer' },
-  // «Second Brain» desde el 16/10/2026, como la barra de escritorio (app/_components/nav.ts → MAKO_NAV).
-  // Lleva al MISMO lugar que la fila de Analyze: el chat con MaKo (tanda 3, 16/10/2026). La ve quien no ve aquélla.
+  { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'sales' },
+  { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'sales' },
+  // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
+  // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
   { id: 'mako', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'mako', familia: null },
+  // OCULTAS (17/10/2026): sus páginas siguen y un link de escritorio las abre en el teléfono (`rutaMovil` las busca por
+  // id), pero no son filas de More ni suben a la barra: en escritorio salieron de la sidebar (nav.ts → SIN_FILA).
+  { id: 'second-brain', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'second-brain', familia: null, oculta: true },
+  { id: 'experimentos', label: 'Experiments', href: '/m/experimentos', icon: 'experiments', navKey: 'experimentos', familia: null, oculta: true },
+  // Course y Community: sub-tabs de Clients desde el 17/10/2026 (arriba de las tres pantallas, app/m/cs/SeccionesClientsM.tsx).
+  { id: 'curso', label: 'Classroom', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: null, oculta: true },
+  { id: 'comunidad', label: 'Community', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: null, oculta: true },
 ];
 
 /** El nombre de la PANTALLA de una sección (la cabecera, su «volver» y la pestaña): `titulo` o, si no, el de la fila. */
@@ -203,6 +214,8 @@ export function puedeVerKey(key: string, rol: RolMovil, capa: string | null | un
   // null = sin rol resuelto (sin sesión): no ve nada gateado. El guard de la página ya lo
   // manda a /login; acá no se adivina a favor.
   const porRol = rol === 'admin' ? true : rol ? (item.rolesWs ?? []).includes(rol) : false;
+  // `soloCapas` (MaKo Partners): sólo esas capas, como en la barra (lib/nav-visibilidad.ts); el rol ya pidió admin.
+  if (item.soloCapas && !item.soloCapas.includes(capa ?? '')) return false;
   return porRol && tabEnCapa(key, capa);
 }
 
@@ -225,9 +238,9 @@ function veSeccion(s: DefSeccionMas, rol: RolMovil, capa: string | null | undefi
   return true;
 }
 
-/** Las secciones de More que este rol y esta capa ven, en orden. */
+/** Las secciones de More que este rol y esta capa ven, en orden (las `oculta` nunca: no son filas). */
 export function seccionesMasVisibles(rol: RolMovil, capa: string | null | undefined): DefSeccionMas[] {
-  return SECCIONES_MAS.filter((s) => veSeccion(s, rol, capa));
+  return SECCIONES_MAS.filter((s) => !s.oculta && veSeccion(s, rol, capa));
 }
 
 /**
@@ -257,21 +270,19 @@ export type GrupoMas = { familia: FamiliaMas | null; titulo: string | null; secc
 /**
  * Las secciones que /m/mas lista para este rol, SIN las que subieron a la barra (una cosa
  * en un solo lugar, como el «More» de iOS). Agrupadas por FAMILIA de la sidebar, en su orden;
- * MaKo al final, sin título (en escritorio también vive fuera de las familias).
+ * Second Brain PRIMERO y sin título (17/10/2026: en escritorio va arriba de todo, fuera de las familias).
  */
 export function gruposMas(rol: RolMovil, capa: string | null | undefined): GrupoMas[] {
   const enBarra = new Set<string>(barraMovil(rol, capa).map((b) => b.id));
   const visibles = seccionesMasVisibles(rol, capa).filter((s) => !enBarra.has(s.id));
-  // «Second Brain» una sola vez (16/10/2026): la fila de MaKo lleva al mismo lugar que la de Analyze, y sólo la ve quien
-  // no ve aquélla — como la entrada de abajo de la barra de escritorio (app/_components/Sidebar.tsx).
-  const lista = visibles.some((s) => s.id === 'second-brain') ? visibles.filter((s) => s.id !== 'mako') : visibles;
+  const lista = visibles;
   const grupos: GrupoMas[] = [];
+  const sueltas = lista.filter((s) => s.familia === null);
+  if (sueltas.length) grupos.push({ familia: null, titulo: null, secciones: sueltas });
   for (const f of FAMILIAS_MAS) {
     const xs = lista.filter((s) => s.familia === f.id);
     if (xs.length) grupos.push({ familia: f.id, titulo: f.label, secciones: xs });
   }
-  const sueltas = lista.filter((s) => s.familia === null);
-  if (sueltas.length) grupos.push({ familia: null, titulo: null, secciones: sueltas });
   return grupos;
 }
 

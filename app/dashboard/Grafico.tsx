@@ -167,7 +167,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
   // El hueco de la ola 2: un tipo con dibujo propio (el mapa de calor de página) recibe todo y dibuja él.
   const Propio = DIBUJOS_PROPIOS[g.tipo];
   const cuerpo = ((): ReactNode => {
-    if (Propio) return <Propio g={g} estado={estado} tema={tema} onDetalle={onDetalle} efectivo={efectivo} />;
+    if (Propio) return <Propio g={g} estado={estado} tema={tema} onDetalle={onDetalle} efectivo={efectivo} conEnlaces={conReproductor} />;
     if (TIPOS_CON_DIBUJO_PROPIO.includes(g.tipo)) return <Mensaje>Este gráfico todavía no se puede dibujar</Mensaje>;
     const r0 = estado.resultado;
     if (!r0) return <Mensaje>{estado.error ?? <Spinner size={20} />}</Mensaje>;

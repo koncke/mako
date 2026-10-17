@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// Las insignias de canal de Chats: WhatsApp, Instagram y Messenger
+// Las insignias de canal de Chats: WhatsApp, Instagram, Messenger y Email (17/10/2026)
 // =============================================================================
 // Copiadas de respond.io (docs/diseno-chats.md §3): el avatar de cada fila lleva abajo a la
 // derecha una insignia REDONDA de 16 px —el ícono de 12 + un aro de 2 px del color del fondo—
@@ -28,6 +28,7 @@ const NOMBRE: Record<CanalChat, string> = {
   whatsapp: 'WhatsApp',
   instagram: 'Instagram',
   messenger: 'Messenger',
+  email: 'Email',
 };
 
 // El trazo de WhatsApp (globo con el teléfono), en 24×24.
@@ -48,6 +49,18 @@ export function IconoCanal({ canal, size = 24 }: { canal: CanalChat; size?: numb
         <circle cx="12" cy="12" r="12" fill="#25D366" />
         {/* El glifo entero al 62 %, centrado: a 12 px de diámetro un glifo más grande toca el borde. */}
         <path d={WA} fill="#fff" transform="translate(4.56 4.56) scale(0.62)" />
+      </svg>
+    );
+  }
+  if (canal === 'email') {
+    // El sobre, en el azul de la casa (respond.io usa un gris neutro para el email; el azul se distingue mejor de
+    // Messenger en el anillo de 12 px de la insignia).
+    return (
+      <svg {...comun}>
+        <title>{NOMBRE[canal]}</title>
+        <circle cx="12" cy="12" r="12" fill="#5E81AC" />
+        <rect x="6" y="7.6" width="12" height="8.8" rx="1.6" fill="none" stroke="#fff" strokeWidth="1.6" />
+        <path d="m6.6 8.6 5.4 4 5.4-4" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -104,7 +117,7 @@ export function InsigniaCanal({ canal, size = 16 }: { canal: CanalChat; size?: n
   );
 }
 
-/** El nombre visible de un canal («WhatsApp», «Instagram», «Messenger»). */
+/** El nombre visible de un canal («WhatsApp», «Instagram», «Messenger», «Email»). */
 export function nombreCanal(canal: CanalChat): string {
   return NOMBRE[canal];
 }

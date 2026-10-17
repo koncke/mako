@@ -660,7 +660,10 @@ function ChatAgentInner() {
     // del editor arranca a 28 px del borde y el lienzo queda adentro de un marco — que
     // es lo que Martín marcó tres veces. Ahora el título y los avisos llevan el suyo y
     // el lienzo llega al borde de la tab.
-    <main style={{ flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    // La clase `mk-alto-tab` (ui.css) le resta al alto la barra de la tab unificada, que el super admin ve desde el
+    // 17/10/2026 con «MaKo Messages»; gana sobre el `height` de acá con !important (el estilo en línea es el ancla de
+    // tests/automations-recorrido.test.ts).
+    <main style={{ flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} className="mk-alto-tab">
       {/* ⚠️ EL ENCABEZADO SE DESARMÓ EL 05/10/2026, y lo que se fue no fue por estética
           (Martín, textual): «Elimina las pestañas, ya no hay "Email" si todo se crea en
           un mismo lugar… Ya no hay plantillas si todo es lo mismo… Y la pestaña de

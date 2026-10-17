@@ -179,4 +179,33 @@ export const BITACORA: Hito[] = [
       'app/admin/dev/[area]/RegistroArea.tsx — las dos tabs, con el badge de cada una',
     ],
   },
+  {
+    fecha: '17 oct', hora: '06:20', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'La sidebar nueva: Ops Center arriba, dos familias, todo en inglés',
+    pedido: "\"Ops Center\" no debería estar en la sección de Admin en la sidebar: debería estar donde \"Second Brain\", con una criatura tipo ícono, moviéndose como siempre... Lo mismo para los otros workspaces, ya que Second Brain sigue estando en la sección de \"analize\" y no debería. Dashboard debería estar dentro de la sección \"Operate\", ya que se quedaría sola \"analize\", y la deprecamos. Y también elimina \"Content Machine\" y que todo esté dentro de \"Sales Machine\"... Y mejora el diseño de la sidebar: investiga, copia de otras apps... Y \"Calendario\" debería ser \"Calendar\": siempre todo en inglés los nombres de las tabs. También quiero eliminar todas las tabs de la sidebar de \"Admin\": estoy seguro de que la mayoría ya tienen lugares donde podrían vivir...",
+    puntos: ['Llegó por el Cerebro, con el pedido de unificar Email y WhatsApp en Chats (esa parte está en la bitácora de Chats).'],
+  },
+  {
+    fecha: '17 oct', hora: '09:40', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La sidebar nueva, copiada de Linear, Notion y Attio',
+    puntos: [
+      'Arriba, sin rótulo: Ops Center (sólo el super admin) y Second Brain (todos), cada uno con su criatura del Ops Center, que flota y parpadea.',
+      'Dos familias: Operate (General, Plan, Calendar, Dashboard · CRM, Chats, Ads Manager · Clients) y Sales Machine (Offer · Web Generator, Automations · Video, AI Avatar, Image, Copywriting). Las familias van abiertas y cada una se pliega sola; sin cajas.',
+      'Las tabs de Admin viven en la tab que hace su trabajo, sólo para el super admin: MaKo WhatsApp en Chats, MaKo Messages en Automations, Strategy y Playbook en Offer, el método en Copywriting, Billing y Agents en Clients. Contexto, Modelos IA, Conocimientos y Dev, en el menú de la foto.',
+      'Ninguna ruta cambió. El mapa de cada tab, en docs/diseno-sidebar.md.',
+    ],
+    archivos: ['app/_components/nav.ts', 'app/_components/Sidebar.tsx', 'app/_components/Criatura.tsx', 'lib/movil-rutas.ts', 'app/m/mas/page.tsx', 'tests/sidebar-nueva.test.ts'],
+    revisar: '/general',
+  },
+  {
+    fecha: '17 oct', hora: '11:30', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Claro u oscuro, lo elige cada persona en la computadora',
+    puntos: [
+      'El interruptor de luna y sol vuelve al lado de la foto de la barra (con la barra abierta). Claro por defecto: oscuro sólo si la persona lo elige, nunca por el sistema.',
+      'La elección se aplica antes de pintar y se mantiene al navegar; nunca en una página pública.',
+      'Queda pendiente por área: 43 archivos con un fondo blanco escrito a mano y las pantallas que fuerzan oscuro (el onboarding, avisado).',
+    ],
+    archivos: ['app/_components/ModoArranque.tsx', 'app/_components/ModoDelUsuario.tsx', 'app/_components/TemaCandidato.tsx', 'tests/tema-por-persona.test.ts'],
+    revisar: '/general',
+  },
 ];

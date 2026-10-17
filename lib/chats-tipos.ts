@@ -12,19 +12,21 @@
 // sin lead, cada identidad es su propio contacto (`wa:<linea>:<id>`, `ig:<conv>`, `fb:<conv>`). Las
 // claves las arma y las parsea lib/chats-reglas.ts.
 
-export type CanalChat = 'whatsapp' | 'instagram' | 'messenger';
+// `email` desde el 17/10/2026 (Martín: «eliminar las tabs de Email y WhatsApp y unificarlo todo en Chats»): lo que llega
+// y lo que se contesta por email, con su hilo y sus adjuntos (lib/chats-email.ts, mig 0312).
+export type CanalChat = 'whatsapp' | 'instagram' | 'messenger' | 'email';
 export type EstadoChat = 'abierta' | 'cerrada' | 'pospuesta';
 export type FormatoMsg = 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'otro';
 
 export type IdentidadCanal = {
   canal: CanalChat;
-  /** whatsapp: instance_name de la línea · instagram/messenger: zernio_account_id */
+  /** whatsapp: instance_name de la línea · instagram/messenger: zernio_account_id · email: el dominio del negocio (o null) */
   cuenta: string | null;
   /** 'WhatsApp (Ventas)' · 'Instagram' · 'Messenger' */
   rotulo: string;
   /** '+52 55 1234 5678' · '@usuario' · null */
   destino: string | null;
-  /** whatsapp: chatJid · instagram/messenger: ig_conversaciones.id (string) */
+  /** whatsapp: chatJid · instagram/messenger: ig_conversaciones.id (string) · email: la dirección del contacto */
   ref: string;
   /** whatsapp: dígitos del teléfono (para el POST de envío) · social: null */
   telefono: string | null;
@@ -88,7 +90,13 @@ export type MensajeChat = {
   error: string | null;
   /** Sólo tipo 'evento': el texto en partes, las negritas marcadas («Cerrada por **Martín**»). */
   partes?: ParteTexto[];
+  /** Sólo email: el asunto. */
+  asunto?: string | null;
+  /** Sólo email: sus adjuntos (un email trae varios; `url` firmada por 10 minutos, null si no se pudo bajar). */
+  adjuntos?: AdjuntoChat[];
 };
+
+export type AdjuntoChat = { nombre: string; mime: string; url: string | null };
 
 export type BorradorChat = { id: number; texto: string; linea: string | null; createdAt: string; origen: string | null };
 
