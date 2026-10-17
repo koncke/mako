@@ -24,7 +24,8 @@ import { cookies, headers } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from './supabase';
 import { getSesionAdmin, getUsuarioActual } from './auth';
-import { CAPA_DEFAULT, capaDef, esCapaValida, type CapaId } from './capas';
+import { CAPA_DEFAULT, capaDef, esCapaValida, tabEnCapa, type CapaId } from './capas';
+import { HEADER_RUTA, tabDeRutaApi } from './api-tab';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
 import { WS_HEADER, conWs, parseWs } from './ws-tab';
 import { contextoDeAgencia } from './agencia';
@@ -291,6 +292,9 @@ const resolverDesdeCookies = cache(async (): Promise<number | null> => {
     //    o el cobro cuando se termina lo pagado (lib/plan-acceso.ts). Al super admin no lo toca: es la rama de arriba.
     const propio = await wsPropioDeLaSesion();
     if (propio != null && (await negocioPausado(propio))) return null;
+    // 6) Y una API de una tab que el PLAN del negocio no incluye, tampoco (17/10/2026, lib/api-tab.ts): la página ya
+    //    cortaba (requireCapa); el `fetch` a su API contestaba igual.
+    if (propio != null && (await apiFueraDelPlan(propio))) return null;
     return propio;
   }
   // Sin sesión resuelta: distinguir "no hay cookie de sesión" (cron / webhook /
@@ -316,12 +320,29 @@ const wsPropioDeLaSesion = cache(async (): Promise<number | null> => {
  * ¿Este negocio está pausado? (`workspaces.estado`). Por request. ⚠️ FAIL-OPEN: si la base no contesta, NO está
  * pausado — un error pasajero no puede dejar a todos los clientes afuera (el mismo criterio que getUsuarioActual).
  */
-export const negocioPausado = cache(async (ws: number): Promise<boolean> => {
+export const negocioPausado = cache(async (ws: number): Promise<boolean> => (await filaDelNegocio(ws))?.estado === 'pausado');
+
+/** El estado y la capa de un negocio, por request; null si la base no contestó (quien lo usa decide fail-open). */
+const filaDelNegocio = cache(async (ws: number): Promise<{ estado: string | null; capa: string | null } | null> => {
   try {
-    const { data, error } = await getSupabaseServer().from('workspaces').select('estado').eq('id', ws).maybeSingle();
-    if (error) return false;
-    return (data as { estado?: string } | null)?.estado === 'pausado';
-  } catch { return false; }
+    const { data, error } = await getSupabaseServer().from('workspaces').select('estado, capa').eq('id', ws).maybeSingle();
+    if (error) return null;
+    const f = data as { estado?: string | null; capa?: string | null } | null;
+    return { estado: f?.estado ?? null, capa: f?.capa ?? null };
+  } catch { return null; }
+});
+
+/**
+ * ¿Este pedido es a una API de una tab que el plan del negocio no incluye? La ruta la pone el proxy (`HEADER_RUTA`);
+ * sin ella (un render, un cron) o sin poder leer la capa, no. Fail-open, como `negocioPausado`.
+ */
+const apiFueraDelPlan = cache(async (ws: number): Promise<boolean> => {
+  let ruta: string | null = null;
+  try { ruta = (await headers()).get(HEADER_RUTA); } catch { return false; }
+  const tab = tabDeRutaApi(ruta);
+  if (!tab) return false;
+  const fila = await filaDelNegocio(ws);
+  return fila != null && !tabEnCapa(tab, fila.capa);
 });
 
 /**

@@ -86,7 +86,9 @@ export async function requireSesion(): Promise<RolWorkspace> {
 export async function requireCapa(nav: string, opts?: { gateOnboarding?: boolean }): Promise<void> {
   await requireSesion();
   const capa = await getCapaActual();
-  if (!tabEnCapa(nav, capa)) redirect(await rutaConWs(homeDeCapa(capa)));
+  // «No está en tu plan» se DICE (17/10/2026): antes era un redirect mudo a la casa del plan, que se leía como «la app
+  // está rota». La pantalla (app/no-esta-en-tu-plan) nombra la tab y ofrece ver el plan o volver al inicio.
+  if (!tabEnCapa(nav, capa)) redirect(await rutaConWs(`/no-esta-en-tu-plan?tab=${encodeURIComponent(nav)}`));
   // El onboarding se gatea ACÁ y no en cada página. Antes quedaba librado a que
   // el autor se acordara de una segunda línea, y en 2 de las 7 páginas que usan
   // este guard el `return <PanelActivacion/>` se colaba EN EL MEDIO: la tab se
