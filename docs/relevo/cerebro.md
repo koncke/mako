@@ -177,3 +177,29 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   onboarding sin el análisis de Offer, «Skills» en el Second Brain, el PDF y la guía del «⋯», Google Calendar.
 - ⚠️ **Nadie lo miró en pantalla**: la PC no tuvo RAM para `next dev` en toda la noche. Lo primero de la próxima
   sesión local es recorrerlo en el ws3 (receta en docs/hallazgos-crm.md).
+
+## CUENTA 4 (17/10, ~00:00-01:30 AR) — el Cerebro sigue en la cuenta 4 (claude4), semanal al 0%, renueva el mar 20/10 16:59
+
+- **Alta de la cuenta 4:** cuentas.tsv, marcador, cartero (carpeta 7d03ccd6 → claude4, fuente «app»), `CUENTAS` de
+  /admin/dev y la regex del historial. Los cinco lugares, en hallazgos-operaciones.md («La cuenta 4…»).
+- **Jefes abiertos por el Cerebro con start_session** (ya se puede: hallazgos-operaciones), cada uno con su brief:
+  - CRM (`local_64949e84…`)
+  - Onboarding (`local_0702928b…`)
+  - Centro de Operaciones (`local_aac76313…`)
+  - Automations (`local_f74a2156…`)
+  - Runner (`local_354ef1cd…`, la vuelta de cada 2 min de la app)
+  - Video Generator (`local_54b66516…`: el puente a Flow con el MÉTODO de flow-mcp; el repo no tiene licencia, así que no se copia código)
+  - Dashboard (`local_ca08f72a…`: los OKR con varios CRM)
+- **Sin abrir por RAM** (0,75 GB libres con 8 chats): Pagos, Web Generator, Offer, Video Editor, MaKo Mobile y Plan. Se abren a
+  medida que un jefe cierre.
+- **Migraciones:** la 0306 es de Dashboard (`funnel_ids` en objectives y kpis; la aplica el Cerebro antes del deploy que la
+  lee). La próxima libre es la 0307. La 0304 sigue reservada para el Image Editor.
+- **Al Centro, en este orden:**
+  1. el panel de Uso ofrece `claude4 -n Runner` y la 4 no tiene función en el $PROFILE;
+  2. Martín quiere «un clic + el permiso de la PC», nunca PowerShell;
+  3. después, mandar prompts desde el Second Brain (la tanda 5, adelantada).
+- **Llamadas del 16/10 («Revisión de MaKo» con Código Inmobiliario y «Mau <> Martin») ESPERAN EL OK de Martín para repartirse.**
+  El reparto propuesto está en el chat del Cerebro: Automations (#868 Brigitte primero), CRM, Dashboard, Centro, Pagos,
+  Web Generator, Offer, Video Editor, MaKo Mobile y Plan. La revisión de la extracción (proyecto equivocado, detalles
+  inventados, ~12 faltantes) está en hallazgos-plan.md. El arreglo del extractor va a un chat «Plan».
+- **wt-push-q:** el alta de la cuenta 4 (6d3626f95, f73ffa21b) y esta cosecha.
