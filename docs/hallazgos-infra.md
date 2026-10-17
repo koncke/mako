@@ -6610,6 +6610,11 @@ alcanzar, aunque se cumpliera al pie de la letra:
   archivos. Lo que lo evita es no arrancar cada archivo: correr juntos los que no tocan estado global (`--compartir`). Experimento en el workflow, **a medir con el próximo verde**:
   fase 1 comparte sólo las barredoras (`--compartir=barredoras`) y fase 2 todo lo compartible (`--compartir`); estimación SIN medir en Linux: ~8-9 min facturables. Reversible con
   `--sin-compartir` en esos dos pasos. Si un rojo de Actions aparece donde el modo compartido local dio verde, sospechar primero del contagio entre tests.
+- **Un `tsc` «acotado» NO es chico: un archivo de `app/` o `lib/` arrastra ~1.800 archivos y ~2,5 GB** (medido el 17/10: 1 archivo → compila 1.835 y reporta 2.533 MB, 50 s; 10 →
+  2.196 y 2.729 MB, 70 s; 60 → 3.476 y 2.514 MB, 96 s). «Acotado» acota LO QUE SE REPORTA, no lo que se carga. El tope de 2 GB que le había puesto a los alcances chicos hacía que
+  muriera sin heap a partir de ~10 archivos, y eso se leía como «no terminó» y se SALTABA con un aviso: los tipos casi no se chequeaban. Ahora el mínimo es 3 GB (piso de RAM ~4 GB), así que
+  en una PC con 14 chats los tipos se van a saltar seguido (la línea final dice `sin tipos`) — es la realidad de este programa de TypeScript, no un defecto del script. Un `tsc`
+  que corre de verdad con un archivo de tests que importa poco (el caso del propio test de esta herramienta) tarda 2 s.
 
 **Lo que NO cubre** (y por qué Actions sigue corriendo todo):
 - Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y
