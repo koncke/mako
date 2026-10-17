@@ -80,7 +80,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.14.1';
+export const VERSION = '1.14.2';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1078,6 +1078,32 @@ function cuotaDe(cuenta) {
   return c;
 }
 
+/**
+ * La cuota que mide el Runner de la APP con get_usage (17/10/2026, pedido de Martín: «comienza a medir el % de la ventana
+ * de 5 hs»). La app no tiene barra de estado, así que `uso` nunca escribía nada para una cuenta de la app y el Ops Center
+ * decía «Sesión de 5 horas: Sin medir». Cada vuelta el Runner llama a get_usage y pasa las dos ventanas acá.
+ * Escribe lo mismo que la barra de estado (USO/<cuenta>.json, que sube `cuotaDe`) y las dos líneas que lee el corte del
+ * 97% (~/.claude/guardia/corte-97.mjs): uso-cinco.txt y uso-semanal.txt, con la cuenta como 4º campo.
+ */
+export function medir(cuenta, args, ahora = Date.now()) {
+  const [p5, r5, ps, rs] = args;
+  const v = (p, r) => {
+    const n = Number(p);
+    if (p == null || p === '' || !Number.isFinite(n)) return null;
+    const t = Date.parse(String(r ?? ''));
+    return { pct: Math.min(100, Math.max(0, Math.round(n))), reinicia: Number.isFinite(t) ? new Date(t).toISOString() : null };
+  };
+  const cinco = v(p5, r5);
+  const semana = v(ps, rs);
+  if (!cinco && !semana) throw new Error('uso: medir <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
+  const medido = new Date(ahora).toISOString();
+  escribirJson(path.join(USO, `${cuenta}.json`), { cinco, semana, medido, api: null });
+  const linea = (w) => `${w.pct} ${w.reinicia ?? '-'} ${medido} ${cuenta}\n`;
+  if (cinco) fs.writeFileSync(path.join(path.dirname(USO_APP), 'uso-cinco.txt'), linea(cinco));
+  if (semana) fs.writeFileSync(USO_APP, linea(semana));
+  return { cinco, semana, medido };
+}
+
 // ── quién entrega qué ────────────────────────────────────────────────────────────────────────
 /** La marca de «lo tiene este Runner», al lado de lo del buzón. */
 const manoDe = (f) => f.replace(/\.json$/, '.mano');
@@ -1417,6 +1443,12 @@ if (esMain) {
         const c = cuentaOpcional() ?? cuentaDeLaApp(cfg, dirPropio(cfg));
         if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: nube --cuenta claudeN <id> <título> …');
         imprimir({ ok: true, cuenta: c, chats: anotarNube(c, resto) }); break;
+      }
+      case 'medir': {
+        const cfg = config();
+        const c = cuentaOpcional() ?? cuentaDeLaApp(cfg, dirPropio(cfg));
+        if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: medir --cuenta claudeN <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
+        imprimir({ ok: true, cuenta: c, ...medir(c, resto) }); break;
       }
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
       case 'vigilar': { const i = resto.indexOf('--max-seg'); imprimir(await vigilar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) : 100)); break; }
