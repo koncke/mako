@@ -11,7 +11,7 @@ Llegó por el Cerebro. Textual en sus mensajes; cada punto, con su estado:
 
 | # | Pedido | Estado |
 |---|---|---|
-| 1 | «los chats no se entienden»: la conversación como un chat de verdad, con lo que Martín escribió y lo que el chat le CONTESTÓ (el texto final de cada turno, del transcript). Los hitos van a la barra del Plan | **hecho, sin migración** (app_settings). Para que ande: cartero 1.8.0 instalado. Sin mirarlo con chats reales |
+| 1 | «los chats no se entienden»: la conversación como un chat de verdad, con lo que Martín escribió y lo que el chat le CONTESTÓ (el texto final de cada turno, del transcript). Los hitos van a la barra del Plan | **hecho, sin migración** (app_settings): de cada turno, el primer texto («Voy a trabajar en…») y el último («Ya está»). «Sin noticias del Runner desde las…» con la foto vieja. Para que ande: cartero 1.8.0 instalado. Sin mirarlo con chats reales |
 | 2 | «El Second Brain y el Centro deberían ser exactamente lo mismo en SuperAdmin» | **hecho**: Ops Center, una pantalla con dos puertas (app/second-brain/pagina.tsx) |
 | b | «que quede el nombre de "Ops Center"» | **hecho** (barra, teléfono, título) |
 | c | «que "Second brain" sea la sub tab debajo de la Ticketera» | **hecho** (también en el teléfono, una fila debajo de «Ticketera») |
@@ -27,7 +27,17 @@ Llegó por el Cerebro. Textual en sus mensajes; cada punto, con su estado:
    «Copiar comando» en PanelRunner.tsx (los Runners de terminal) y en «Nuevo chat» (`NuevoChatCentro`, PiezasCentro.tsx).
    Antes de construir, medir con Martín despierto que la ventana se vea. Toca cartero.mjs: avisar ANTES al Cerebro.
 2. **El punto «a»: el Runner y los chats de la nube** (el detalle está en la tabla).
-3. Después, las tandas 8, 7, 9 y 6 del Second Brain, y «Skills».
+3. **Adjuntar en la caja (con el OK de Martín, 17/10).** Imágenes y archivos en la caja del Centro y del Second Brain,
+   también pegando una captura con Ctrl+V, y que el chat destino los reciba. Lo que no se negocia:
+   - el archivo baja sólo con un pedido firmado;
+   - va a una carpeta fija de la PC, una por pedido;
+   - con el tipo y el tamaño validados, y nunca un ejecutable;
+   - el chat recibe la RUTA local.
+
+   La caja del Second Brain ya sube adjuntos (tanda 4): copiar de ahí la elección y la vista previa.
+4. **Los «Ya está» en Review.** La conversación ya los muestra (vienen del transcript). Falta que Review los liste como
+   algo hecho, con su ruta. `cartero.mjs hecho` no hace falta.
+5. Después, las tandas 8, 7, 9 y 6 del Second Brain, y «Skills».
 
 **Regla nueva de Martín (17/10, en AGENTS.md):** el «Ya está» de lo que llegó a producción lo escribe CADA chat en Ops
 Center, no el Cerebro. Cuando el Cerebro avise que una punta está en Ready, se escribe «Ya está» en este chat.
