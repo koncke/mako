@@ -28,12 +28,16 @@ ofrece `claude4 -n Runner` a la cuenta 4, que no tiene función en el `$PROFILE`
 la app (`tieneTerminal`, lib/runner.ts, con test).
 
 **Lo que sigue del reparto del Cerebro, antes de las tandas:** Martín quiere abrir un chat de terminal con «un clic + el
-permiso de la PC», nunca pegando un comando en PowerShell. Va con diseño primero. Lo que se sabe:
-- una sesión de la app ya crea chats visibles de la APP (`start_session`, hallazgos-operaciones, «La cuenta 4»);
-- lo que no puede crear es uno de TERMINAL, que vive en otra carpeta de config;
-- el clic tiene que llegar a la PC por el cartero, como un trabajo firmado que el Runner ejecuta, y abrir la terminal
-  con la función de la cuenta. Eso cambia lo que el Runner tiene permitido hacer, así que necesita el OK de Martín:
-  es configuración de su PC.
+permiso de la PC», nunca pegando un comando en PowerShell. **El diseño está escrito: docs/diseno-nuevo-chat-un-clic.md**
+(17/10, sin construir).
+- Para las cuentas de terminal: un trabajo firmado con `destino: 'nuevo'`, que la PC abre en PowerShell.
+- El permiso de la PC es el de Claude Code sobre `cartero.mjs abrir`, más uno local que Martín prende una vez en el
+  Runner.
+- Para la cuenta de la app no se puede desde MaKo: `start_session` se rechaza en los turnos del cron y en los de un
+  mensaje.
+
+Antes de construir hay que medir tres cosas (están en el diseño). Una es que la ventana se vea, y abre una ventana en la
+pantalla de Martín: hacerlo con él despierto. Toca cartero.mjs, que corre el Runner: avisar ANTES al Cerebro.
 
 **La prueba de punta a punta la hace Martín.** Abre `/second-brain` → «Claude Code» → «Cerebro», escribe algo y lo
 manda. Tiene que ver el tick y la respuesta del Cerebro. Si la caja dice «Pégale tu Token al Runner», copia el Token
