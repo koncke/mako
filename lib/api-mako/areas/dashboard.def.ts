@@ -42,6 +42,13 @@
 // SIN `server-only` y sin importar valores de módulos que lo tengan (AGENTS.md, regla 6 de la API).
 
 import type { Gating, OperacionDef, Parametro } from '../tipos';
+import { AJUSTES_TEMA } from '@/lib/graficos-temas';
+
+/** Los ajustes del estilo de una hoja (17/10/2026), del mismo catálogo que el panel «Estilo de la hoja». */
+const CAMPOS_AJUSTES: readonly Parametro[] = AJUSTES_TEMA.map((a) => ({
+  nombre: a.id, tipo: 'string' as const, enum: [...a.valores.map((v) => v.id), 'plantilla'],
+  descripcion: `${a.grupo}, ${a.nombre}: ${a.valores.map((v) => `${v.id} (${v.nombre})`).join(', ')}; «plantilla» vuelve al de la plantilla.`,
+}));
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Nombres de personas (el equipo, los leads): no salen a un token que vive en la máquina de un tercero. */
@@ -229,7 +236,8 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'nombre', tipo: 'string', max: 40, rotulo: 'Nombre', descripcion: 'El nombre nuevo de la pestaña.' },
       { nombre: 'emoji', tipo: 'string', max: 16, rotulo: 'Emoji', descripcion: 'Un emoji al lado del título. «-» lo saca.' },
       { nombre: 'subtitulo', tipo: 'string', max: 140, rotulo: 'Subtítulo', descripcion: 'La línea de abajo del título. «-» la saca.' },
-      { nombre: 'tema', tipo: 'string', max: 40, rotulo: 'Estilo', descripcion: 'El estilo de la página: mako, minimal, suave, contraste, elevada o editorial (la lista en ver_catalogo_dashboard).' },
+      { nombre: 'tema', tipo: 'string', max: 40, rotulo: 'Estilo', descripcion: 'El estilo de la página: mako, minimal, suave, contraste, elevada o editorial (la lista en ver_catalogo_dashboard). Cambiarlo vuelve los ajustes a los de ese estilo.' },
+      { nombre: 'ajustes', tipo: 'object', rotulo: 'Ajustes del estilo', descripcion: 'Lo que se ajusta encima del estilo, como {ajuste: valor}: el fondo, las esquinas, el borde, la sombra y los títulos de las tarjetas, y los valores, la leyenda y la cuadrícula de los gráficos. Los que no pases quedan como están.', campos: CAMPOS_AJUSTES },
       { nombre: 'posicion', tipo: 'number', entero: true, minimo: 1, maximo: 20, rotulo: 'Posición', descripcion: 'En qué lugar queda la pestaña, contando desde 1 (la primera).' },
     ],
     confirmacion: 'chat', reversible: true,

@@ -7430,7 +7430,16 @@ Cambia cómo se llama o se ve una hoja del Dashboard: nombre, emoji, subtítulo,
 | `nombre` | string | no | El nombre nuevo de la pestaña. |
 | `emoji` | string | no | Un emoji al lado del título. «-» lo saca. |
 | `subtitulo` | string | no | La línea de abajo del título. «-» la saca. |
-| `tema` | string | no | El estilo de la página: mako, minimal, suave, contraste, elevada o editorial (la lista en ver_catalogo_dashboard). |
+| `tema` | string | no | El estilo de la página: mako, minimal, suave, contraste, elevada o editorial (la lista en ver_catalogo_dashboard). Cambiarlo vuelve los ajustes a los de ese estilo. |
+| `ajustes` | object | no | Lo que se ajusta encima del estilo, como {ajuste: valor}: el fondo, las esquinas, el borde, la sombra y los títulos de las tarjetas, y los valores, la leyenda y la cuadrícula de los gráficos. Los que no pases quedan como están. |
+| `ajustes.fondo` | string (surface \\| surface-2 \\| transparente \\| plantilla) | no | Tarjetas, Fondo: surface (Blanco), surface-2 (Gris), transparente (Sin caja); «plantilla» vuelve al de la plantilla. |
+| `ajustes.esquinas` | string (rectas \\| suaves \\| redondas \\| plantilla) | no | Tarjetas, Esquinas: rectas (Rectas), suaves (Suaves), redondas (Redondas); «plantilla» vuelve al de la plantilla. |
+| `ajustes.borde` | string (no \\| suave \\| fuerte \\| plantilla) | no | Tarjetas, Borde: no (Sin borde), suave (Suave), fuerte (Marcado); «plantilla» vuelve al de la plantilla. |
+| `ajustes.sombra` | string (no \\| si \\| plantilla) | no | Tarjetas, Sombra: no (Sin sombra), si (Flotan); «plantilla» vuelve al de la plantilla. |
+| `ajustes.titulos` | string (normal \\| mayus \\| plantilla) | no | Tarjetas, Títulos: normal (Normal), mayus (MAYÚSCULAS); «plantilla» vuelve al de la plantilla. |
+| `ajustes.etiquetas` | string (no \\| si \\| plantilla) | no | Gráficos, Valores: no (Ocultos), si (A la vista); «plantilla» vuelve al de la plantilla. |
+| `ajustes.leyenda` | string (arriba \\| abajo \\| no \\| plantilla) | no | Gráficos, Leyenda: arriba (Arriba), abajo (Abajo), no (Sin leyenda); «plantilla» vuelve al de la plantilla. |
+| `ajustes.cuadricula` | string (no \\| si \\| plantilla) | no | Gráficos, Cuadrícula: no (Sin líneas), si (Con líneas); «plantilla» vuelve al de la plantilla. |
 | `posicion` | number | no | En qué lugar queda la pestaña, contando desde 1 (la primera). |
 
 ```bash

@@ -40,7 +40,7 @@ import {
   tituloDe,
   type Componente, type Elemento, type Grafico, type Hoja,
 } from '@/lib/graficos-catalogo';
-import { PLANTILLAS_TEMA } from '@/lib/graficos-temas';
+import { AJUSTES_TEMA, PLANTILLAS_TEMA, type IdAjuste } from '@/lib/graficos-temas';
 import { PLANTILLAS_HOJA, instanciarPlantilla, plantillaHojaDe, tableroInicial } from '@/lib/graficos-plantillas';
 import { cortarEnHoyDe, datosDeGraficos, hastaDeFuente, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
@@ -673,12 +673,28 @@ export const RUNNERS: Runners = {
         if (!PLANTILLAS_TEMA.some((x) => x.id === tema)) return { error: `El estilo ${comillas(tema)} no existe.`, disponibles: PLANTILLAS_TEMA.map((x) => x.id) };
         cambio.tema = tema; que.push(`estilo ${tema}`); antes.push(`tema ${h.tema.plantilla}`);
       }
+      // Los ajustes encima del estilo (17/10/2026): sólo los del catálogo, con un valor suyo o «plantilla».
+      const crudos = input.ajustes;
+      if (crudos != null) {
+        if (typeof crudos !== 'object' || Array.isArray(crudos)) return { error: 'Los ajustes van como {ajuste: valor}.' };
+        const ajustes: Partial<Record<IdAjuste, string>> = {};
+        for (const [k, v] of Object.entries(crudos as Record<string, unknown>)) {
+          const a = AJUSTES_TEMA.find((x) => x.id === k);
+          const valores: ReadonlyArray<{ id: string }> = a?.valores ?? [];
+          if (!a) return { error: `No hay un ajuste ${comillas(k)}.`, disponibles: AJUSTES_TEMA.map((x) => x.id) };
+          if (typeof v !== 'string' || (v !== 'plantilla' && !valores.some((x) => x.id === v))) return { error: `${comillas(k)} va con uno de: ${[...valores.map((x) => x.id), 'plantilla'].join(', ')}.` };
+          ajustes[a.id] = v;
+          que.push(`${a.nombre.toLowerCase()} ${v === 'plantilla' ? 'como la plantilla' : a.valores.find((x) => x.id === v)?.nombre ?? v}`);
+          antes.push(`ajustes.${a.id} ${h.tema[a.id] ?? 'plantilla'}`);
+        }
+        if (Object.keys(ajustes).length) cambio.ajustes = ajustes;
+      }
       const posicion = num(input, 'posicion');
       if (posicion !== undefined) {
         cambio.posicion = posicion; que.push(`lugar ${posicion}`);
         antes.push(`posicion ${r.lectura.tablero.hojas.findIndex((x) => x.id === h.id) + 1}`);
       }
-      if (!que.length) return { error: 'Di qué cambiar de la hoja: nombre, emoji, subtítulo, estilo o posición.' };
+      if (!que.length) return { error: 'Di qué cambiar de la hoja: nombre, emoji, subtítulo, estilo, ajustes o posición.' };
       return {
         cambio,
         que: `Cambiar la hoja ${comillas(h.nombre)}: ${que.join(', ')}`,

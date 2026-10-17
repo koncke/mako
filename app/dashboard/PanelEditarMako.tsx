@@ -20,15 +20,22 @@
 //   · «DESHACER» SÓLO MIENTRAS LA HOJA SIGUE SIENDO LA QUE DEJÓ MaKo (la misma referencia): después de otro cambio,
 //     deshacer el de MaKo borraría también el de la persona. Para eso está el Ctrl+Z del editor.
 //   · EL HILO ES DE LA SESIÓN, por hoja (lo guarda el editor): no se persiste en la etapa 1.
+//
+// LA CARA DEL SECOND BRAIN (17/10/2026, como el chat del CRM en 8db1e3cbc): donde iba el logo de MaKo va el MUÑECO de
+// la tab («Dashboard» o «General», lib/centro-munecos.ts), trabajando mientras piensa, y la caja dicta con el
+// micrófono del Second Brain (app/admin/operaciones/Microfono.tsx). El hilo NO es `HiloMako` (app/_chat/): lo de MaKo
+// acá es «lo que cambió» con su Deshacer y los pedidos de otra hoja, que el modelo de mensajes del teléfono no tiene.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { sanearHoja, type Hoja } from '@/lib/graficos-catalogo';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { TURNOS_IA, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
 import { GRAMATICA } from '@/lib/mako-gramatica';
-import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
+import { Microfono } from '@/app/admin/operaciones/Microfono';
+import '@/app/admin/operaciones/centro.css';
 import { PLAZO_PEDIDOS_MS, pedirPedidos } from '@/app/web-generator/cliente';
-import { CSS_PANEL_LATERAL, LogoMako } from './PanelAnalista';
+import { CSS_PANEL_LATERAL } from './PanelAnalista';
 import { TextoConLink } from './NuevaHoja';
 import {
   TAB_DEL_INFORME, burbujasDeHoja, interpretacionDe, pulsarHoja, textoActual, trasCrear, vistaDeBurbujaHoja,
@@ -210,13 +217,16 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
 
   const sugerencias = informe === 'general' ? SUGERENCIAS_GENERAL : SUGERENCIAS_DASHBOARD;
   const segundos = desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0;
+  // El muñeco de la tab: el mismo que tiene en el Centro de Operaciones.
+  const tab = informe === 'general' ? 'General' : 'Dashboard';
+  const animo = pensando ? 'trabajando' : 'despierto';
 
   return (
     <aside className="an em" aria-label="Editar con MaKo" onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}>
       <style>{CSS_PANEL_LATERAL + CSS}</style>
       <div className="an-cab">
-        <LogoMako lado={24} />
+        <Muneco titulo={tab} animo={animo} size={26} />
         <span className="an-tit">Editar con MaKo</span>
         <button type="button" className="an-x" onClick={onCerrar} aria-label="Cerrar" title="Cerrar">×</button>
       </div>
@@ -224,7 +234,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
       <div className="em-hilo" aria-live="polite">
         {!hilo.length && (
           <div className="em-vacio">
-            <LogoMako lado={40} />
+            <Muneco titulo={tab} animo={animo} size={64} />
             <p className="em-hola">¿Qué le cambio a esta hoja?</p>
             <p className="em-sub">Pídelo con tus palabras.</p>
             <div className="em-sugs">
@@ -242,7 +252,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
             const v = vistaDeBurbujaHoja(m.burbuja);
             return (
               <div key={i} className="em-el" data-pedido={m.burbuja.tipo}>
-                <span className="em-logo"><LogoMako lado={22} /></span>
+                <span className="em-logo"><Muneco titulo={tab} animo="despierto" size={26} /></span>
                 <div className="em-el-cuerpo">
                   <p className={v.error ? 'em-err' : 'em-texto'}>{v.texto}</p>
                   {v.link && <a className="em-link" href={v.link.href}>{v.link.texto} →</a>}
@@ -261,7 +271,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
           const puede = !!m.aplicada && !m.deshecho && !!m.hojaId && leerHoja(m.hojaId) === m.aplicada;
           return (
             <div key={i} className="em-el">
-              <span className="em-logo"><LogoMako lado={22} /></span>
+              <span className="em-logo"><Muneco titulo={tab} animo="despierto" size={26} /></span>
               <div className="em-el-cuerpo">
                 {m.texto && <p className="em-texto">{m.texto}</p>}
                 {m.cambios.length > 0 && <ul className="em-cambios">{m.cambios.map((c, n) => <li key={n}>{c}</li>)}</ul>}
@@ -274,7 +284,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
         })}
         {pensando && (
           <div className="em-pensando" role="status">
-            <span className="em-rotulo">✦ {GRAMATICA.analizando.rotulo}</span>
+            <Muneco titulo={tab} animo="trabajando" size={26} />
+            <span className="em-rotulo">{GRAMATICA.analizando.rotulo}</span>
             <span className="em-dim">· {segundos} s</span>
             <button type="button" className="em-cancelar" onClick={cancelar}>Cancelar</button>
           </div>
@@ -291,7 +302,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void enviar(); }
           }} />
         <div className="em-caja-pie">
-          <BotonDictar titulo="Dictar el pedido" valor={texto} onValor={(v) => { setTexto(v.slice(0, TOPE_PEDIDO_IA)); setErrorDictado(null); }} onError={setErrorDictado} />
+          <Microfono valor={texto} onValor={(v) => { setTexto(v.slice(0, TOPE_PEDIDO_IA)); setErrorDictado(null); }} onError={setErrorDictado} apagado={pensando} />
           <button type="button" className="em-mandar" onClick={() => { void enviar(); }} disabled={!texto.trim() || pensando} aria-label="Mandar" title="Mandar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M12 19V5" /><path d="m5 12 7-7 7 7" />
