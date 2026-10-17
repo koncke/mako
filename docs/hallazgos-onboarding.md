@@ -2283,3 +2283,39 @@ del `switch`) · `app/api/onboarding/arranque/route.ts` (`responder`, `telefono`
 (la pantalla bloqueada) · `tests/onboarding-guardia.test.ts` (14 roturas, 14 caen)
 
 *17/10/2026, chat «Onboarding», cuenta claude4.*
+
+## El onboarding en claro, sin recuadro, y MaKo entra cuando la tocas (17/10/2026)
+
+**El pedido** (Martín, desde el Ops Center, con una imagen de referencia): «El onboarding, que sea white mode, como
+todo... En el onboarding elimina la animación del grafo... haz una buena entrada de la criatura de MaKo tipo motion
+graphics, y que al clickearla recién pase al siguiente mensaje... Y debe parpadear y reaccionar con las respuestas...
+Bien responsive... sin recuadro de chat, sin el bloque».
+
+**Cómo quedó:** el tema oscuro forzado se fue de la página (como en el Second Brain el 16/10). La cabecera es la de la
+referencia (la cara de MaKo, «MaKo» y «Tu onboarding», y una línea). Los mensajes van sueltos sobre el fondo, y el
+contenido es una columna de 960 px como máximo, con medidas propias en el celular. `EntradaMako` reemplaza al grafo:
+MaKo cae con un rebote, se abren dos anillos con chispas, saluda y **espera**. Recién al tocarla (o con Enter) vuela a su
+lugar de foto y empieza el chat. La cara reacciona: piensa mientras guarda, se alegra si la respuesta entró y duda si
+no se entendió.
+
+**Lo que conviene saber antes de tocarlo:**
+- **El recuadro no es del onboarding, es del motor de Offer** (`ChatOffer` y `ChatHilo`, con sus estilos en línea). Se
+  aplana con CSS acotado a `.arr-capa` y con `!important`, así la tab Offer conserva su caja. Si alguien cambia la
+  estructura de `ChatHilo`, el selector `.of-hilo-lista > div > div` puede dejar de apuntar a sus franjas.
+- **La estrella todavía no está:** la dibuja Ops Center 3 para todas las criaturas, y se le pidió el componente el
+  17/10. Hasta que llegue, `CriaturaMako` es un ADAPTADOR con el muñeco de hoy y los gestos en CSS. La pantalla sólo
+  conoce `reaccion`, y el test prohíbe dibujar el muñeco directo, así que cambiar a la estrella toca un solo archivo.
+- **«Al clickearla recién pase al siguiente mensaje»** se leyó como la ENTRADA: la toca para empezar. Si Martín quería
+  un clic por cada mensaje de MaKo, es otro cambio (en `mensajesDeArranque`, mostrar de a uno).
+
+### Lo que quedó SIN hacer
+
+- **Nadie lo miró en el navegador** (sin RAM para el recorrido local; el Cerebro lo deja para la prueba de Martín en el
+  ws3). En especial: el aplanado del hilo en Safari y el vuelo a la foto en el celular.
+- La estrella de verdad (Ops Center 3).
+
+**Vive en:** `app/onboarding/page.tsx` · `app/onboarding/ChatArranque.tsx` (la cabecera, el CSS sin recuadro, las
+reacciones) · `app/onboarding/EntradaMako.tsx` · `app/onboarding/CriaturaMako.tsx` · `tests/onboarding-arranque.test.ts`
+(10 roturas, 10 caen)
+
+*17/10/2026, chat «Onboarding», cuenta claude4.*

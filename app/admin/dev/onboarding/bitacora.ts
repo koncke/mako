@@ -642,4 +642,30 @@ export const BITACORA: Hito[] = [
       "tests/onboarding-lo-que-vende.test.ts — catorce roturas, todas caen",
     ],
   },
+  {
+    fecha: "17 oct", hora: "08:25", chat: "Onboarding", sesion: "local_0702928b-fa1b-49e2-ac90-85a94053d088", cuenta: "claude4",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El onboarding en claro y sin recuadro, que entiende tu nombre, con MaKo que entra cuando la tocas y una guardia contra el abuso",
+    puntos: [
+      "Lo que pidió Martín desde el Ops Center el 17/10, en cuatro partes. Salir de la vista del Cliente de Prueba vuelve a donde estabas (lo mandaba a los clientes de Código Inmobiliario por una relación ya revocada), el Reset volvió y la barra de «Inspeccionar» ya no tapa el onboarding.",
+      "Entiende lo que le dicen: «Soy Martín» es Martín, y si nombra su negocio se lo ofrece después. Suma dos preguntas de un toque: cómo llegó a MaKo y qué quiere resolver primero, que decide a qué pestaña entra al terminar.",
+      "Una guardia, porque lo paga Martín: no deja martillar mensajes, tiene un tope por onboarding, no le pasa a la IA un insulto ni un intento de sacarla de su papel, y a la tercera bloquea y le avisa al equipo por email. El super admin lo desbloquea desde la misma pantalla.",
+      "En claro y sin recuadro, como la referencia. MaKo entra con una animación, saluda y espera que la toques; reacciona a lo que contestas. La estrella de verdad la está haciendo Ops Center 3.",
+      "DÓNDE SE PRUEBA: en producción, en el Cliente de Prueba (ws 3), cuando esté desplegado. Nunca en el ws 1. No se miró en el navegador antes: la PC no tenía RAM.",
+    ],
+    revisar: "/onboarding?ws=3",
+    commits: [
+      { sha: "42ab78a", msg: "Inspeccionar el Cliente de Prueba: «Salir» vuelve a donde estabas, el Reset reaparece y la barra no tapa el onboarding", lineas: 107, archivos: 6 },
+      { sha: "47e77d4", msg: "Onboarding: entiende el nombre («Soy Martín» es Martín) y pregunta cómo llegaste y qué quieres resolver primero", lineas: 380, archivos: 9 },
+      { sha: "72fa11b", msg: "Onboarding: la guardia contra el abuso (ráfaga, tope por onboarding, troleo y bloqueo con aviso al equipo)", lineas: 537, archivos: 13 },
+      { sha: "d448170", msg: "Onboarding en claro y sin recuadro, como la referencia; MaKo entra cuando la tocas y reacciona a las respuestas", lineas: 540, archivos: 10 },
+    ],
+    archivos: [
+      "lib/agencia-cartera.ts — esCarteraVigente: una relación revocada ya no es dueña del cliente",
+      "lib/onboarding-arranque.ts — extraerNombre, las dos preguntas nuevas y a dónde entra al terminar",
+      "lib/onboarding-guardia.ts, -server.ts y onboarding-troleo.ts — la guardia",
+      "app/onboarding/EntradaMako.tsx y CriaturaMako.tsx — la entrada y la cara que reacciona",
+      "tests: inspeccionar-cliente-prueba, onboarding-preguntas, onboarding-guardia y onboarding-arranque — todos probados rompiéndolos",
+    ],
+  },
 ];

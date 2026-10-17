@@ -1,6 +1,31 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
-## ESTADO AL 17/10/2026 ~02:00 AR — LO PRIMERO PARA QUIEN SIGA
+## ESTADO AL 17/10/2026 ~08:30 AR — LO PRIMERO PARA QUIEN SIGA
+
+<sub>Chat «Onboarding», cuenta 4 (claude4). Las puntas de la mañana están en la rama onboarding-v3
+(C:/dev/wt-onboarding-v3) y se le pasaron al Cerebro; las de la noche (abajo) ya están en producción.</sub>
+
+**El pedido de Martín del 17/10 (Ops Center), entero y hecho en cuatro puntas, con su test probado rompiéndolo:**
+- **A `42ab78a34`** — «Salir de la vista» del Cliente de Prueba vuelve a donde estabas, y el Reset volvió. Las dos cosas las
+  causaba una relación de agencia REVOCADA (Código Inmobiliario → ws 3) que se contaba como vigente. La barra de
+  «Inspeccionar» ya no tapa el onboarding. Cosecha: docs/hallazgos-customer-success.md.
+- **B `47e77d40c`** — entiende el nombre («Soy Martín») y suma «¿Cómo llegaste a MaKo?» y «¿Qué quieres que MaKo
+  resuelva primero?» (decide a qué pestaña entra al terminar; quedan en `onboarding.encuesta` y en la API de MaKo).
+- **C `72fa11b56`** — la guardia contra el abuso: ráfaga por usuario e IP, tope de 60 turnos y 15 documentos por
+  onboarding, el troleo que no llega a la IA y el bloqueo a la tercera falta, con email al equipo. Lo desbloquea el
+  super admin mirando al cliente.
+- **D `d4481702d`** — en claro y sin recuadro, como la referencia; MaKo entra con una animación y espera que la toquen;
+  reacciona a las respuestas. La estrella la hace Ops Center 3 (pedida el 17/10, sin respuesta todavía): se enchufa
+  en `app/onboarding/CriaturaMako.tsx`, que hoy dibuja el muñeco.
+
+**Sin mirar en el navegador** (sin RAM; el Cerebro lo deja para la prueba de Martín en producción, en el ws 3). Cuando el
+Cerebro avise que está desplegado, el «Ya está» va en el chat de Onboarding con el link del ws 3.
+
+**Lo que sigue, si nadie dice otra cosa:** enchufar la estrella cuando Ops Center 3 la entregue; una pantalla del super
+admin que junte «cómo llegó» de todos los clientes; y lo que Martín encuentre en el ws 3. Detalle de cada cosa en
+docs/hallazgos-onboarding.md (las cuatro entradas del 17/10).
+
+## ESTADO AL 17/10/2026 ~02:00 AR (la noche: ya en producción)
 
 <sub>Escrito por el chat «Onboarding» de la cuenta 4 (claude4) al cerrar. Las dos puntas de esta sesión las sumó el
 Cerebro en wt-push-q; la 1 estaba corriendo en integracion al escribir esto.</sub>

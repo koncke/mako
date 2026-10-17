@@ -329,7 +329,7 @@ export const AREAS: AreaDev[] = [
     slug: 'onboarding', titulo: 'Onboarding Wizard', familia: 'Operate', grupo: 'Onboarding',
     estado: 'listo', verEnApp: '/onboarding',
     alcance: 'El shell bloqueante. Es el proyecto con MÁS tareas abiertas del tablero.',
-    vive: ['app/onboarding/page.tsx', 'app/onboarding/ChatArranque.tsx', 'app/onboarding/IntroMako.tsx', 'app/onboarding/arranque-ui.ts', 'app/onboarding/tabs-catalogo.ts', 'app/api/onboarding/arranque/route.ts', 'lib/onboarding-arranque.ts', 'lib/onboarding-arranque-server.ts', 'lib/secciones-negocio.ts', 'app/_components/WizardShell.tsx', 'app/_components/wizard-progreso.ts', 'lib/onboarding-state.ts', 'lib/onboarding.ts', 'lib/onboarding-extract.ts'],
+    vive: ['app/onboarding/page.tsx', 'app/onboarding/ChatArranque.tsx', 'app/onboarding/EntradaMako.tsx', 'app/onboarding/CriaturaMako.tsx', 'app/onboarding/arranque-ui.ts', 'app/onboarding/tabs-catalogo.ts', 'app/api/onboarding/arranque/route.ts', 'lib/onboarding-arranque.ts', 'lib/onboarding-arranque-server.ts', 'lib/secciones-negocio.ts', 'app/_components/WizardShell.tsx', 'app/_components/wizard-progreso.ts', 'lib/onboarding-state.ts', 'lib/onboarding.ts', 'lib/onboarding-extract.ts'],
     proyectos: ['Feature: Onboarding'],
   },
   {

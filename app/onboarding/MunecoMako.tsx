@@ -14,7 +14,8 @@
 // `Aspecto` cambia entre main (exige `accesorio`) y la rama del Centro que les sacó los accesorios. Un
 // objeto ya construido no pasa el chequeo de propiedades de más, así que compila con los dos.
 // ⚠️ LA TINTA VA FIJA: el muñeco dibuja ojos y boca con `var(--ink)`, que en tema oscuro es casi blanco, y
-// el verde pastel no cambia: los ojos quedaban blancos sobre el verde. El onboarding es oscuro siempre.
+// el verde pastel no cambia: los ojos quedaban blancos sobre el verde. (El onboarding es claro desde el 17/10/2026;
+// la tinta fija sirve igual en los dos temas.) La usa ./CriaturaMako.tsx, que le suma las reacciones.
 // ⚠️ Los estados (parpadeo, flotar) viven en centro.css (clases `.mun*`, sin raíz que las limite).
 // =============================================================================
 
