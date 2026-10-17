@@ -97,7 +97,7 @@ test('v3: CRM · Chats · General · Plan · More; More por las familias de la s
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
     // 17/10/2026, «Mobile 2»: las pantallas del menú de la foto, ocultas (More arma su fila desde USER_NAV).
-    ['tickets', 'tickets', null, true],
+    ['tickets', 'tickets', null, true], ['configuraciones', 'configuraciones', null, true],
   ]);
 });
 
@@ -193,8 +193,11 @@ test('el mapa escritorio → móvil de los links que salen', () => {
   assert.equal(rutaEscritorio('/m/chats/ig%3A77?ws=3'), '/chats?ws=3&c=ig%3A77');
   assert.equal(rutaEscritorio('/m/chats?linea=mako_ws3&chat=1%40s.whatsapp.net'), '/chats?linea=mako_ws3&chat=1%40s.whatsapp.net');
   assert.equal(rutaMovil('/chats?lead=abc'), '/m/chats');
-  assert.equal(rutaMovil('/configuraciones?tab=notif'), '/m/cuenta');
-  assert.equal(rutaMovil('/configuraciones'), null);
+  // «Configuración del negocio» tiene su pantalla desde el 17/10/2026, y el `?tab=` viejo va a donde lo manda la computadora
+  // (`rutaDeTabVieja`): `notif` a las Notificaciones DEL NEGOCIO (antes, «Tu cuenta»).
+  assert.equal(rutaMovil('/configuraciones?tab=notif'), '/m/configuraciones/notificaciones');
+  assert.equal(rutaMovil('/configuraciones?tab=criterio'), '/m/configuraciones');
+  assert.equal(rutaMovil('/configuraciones'), '/m/configuraciones');
   assert.equal(rutaMovil('/m/plan'), '/m/plan');
   // Un link que YA es de /m conserva la query que su pantalla lee, pero nunca un `?ws=` viejo
   // (conWs no pisa el que ya está: ganaría el del link, no el de la persona).
@@ -212,7 +215,8 @@ test('el mapa v2: cada pantalla de escritorio de una sección de More cae en su 
   assert.equal(rutaMovil('/dashboard?hoja=comercial&ws=3'), '/m/dashboard?hoja=comercial');
   // Otra hoja abre su pantalla (la página resuelve el id o la plantilla, como escritorio).
   assert.equal(rutaMovil('/dashboard?hoja=closing'), '/m/dashboard/closing');
-  assert.equal(rutaMovil('/marketing/salud'), null, 'la salud de Meta no es el Dashboard');
+  // La salud de Meta no es el Dashboard: es Integraciones (el ítem de nav.ts la marca), con su pantalla desde el 17/10/2026.
+  assert.equal(rutaMovil('/marketing/salud'), '/m/configuraciones/integraciones', 'la salud de Meta no es el Dashboard');
   assert.equal(rutaMovil('/ads-manager'), '/m/ads');
   assert.equal(rutaMovil('/ads-manager/123?ws=4'), '/m/ads');
   assert.equal(rutaMovil('/customer-success'), '/m/cs');
@@ -278,7 +282,7 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
 });
 
 test('un link sin equivalente móvil cae en la home', () => {
-  assert.equal(rutaMovilOHome('/configuraciones'), HOME_MOVIL);
+  assert.equal(rutaMovilOHome('/metodo'), HOME_MOVIL);
   assert.equal(rutaMovilOHome('/whatsapp'), '/m/chats');
   assert.equal(rutaMovilOHome('/ads-manager'), '/m/ads');
   assert.equal(rutaMovilOHome(undefined), HOME_MOVIL);

@@ -11,7 +11,7 @@
 //     pantalla de la computadora) · Seguridad (/m/cuenta/seguridad) · Notificaciones (una hoja con los
 //     avisos de ESTE teléfono) · Instalar la app (los pasos, o el aviso de Chrome);
 //   · Modo oscuro (la misma preferencia que el botón de la barra de escritorio);
-//   · «Configuración del negocio · En la computadora», sólo para quien lo administra;
+//   · «Configuración del negocio», sólo para quien lo administra (su pantalla, /m/configuraciones, desde el 17/10/2026);
 //   · Cerrar sesión.
 // «Versión de computadora» NO se repite acá: vive una sola vez, en More (app/m/mas/VersionComputadora.tsx).
 //
@@ -49,7 +49,7 @@ import { esIOS, estaInstalada, pedirInstalacion, puedeOfrecerInstalacion, suscri
 import { activarAvisos, desactivarAvisos, estadoSuscripcion, probar, type EstadoAvisos } from '@/lib/push-cliente';
 import { PUSH_SOLO_ADMINS, PUSH_TIPOS, type AvisoWaDef, type NotifPush } from '@/lib/notif-catalogo';
 import {
-  AvatarM, CerrarSesion, ComputadoraM, FilaM, InterruptorM, ListaM, SalirDeLaVista, SeccionM, SheetM, useConexion, useToastM,
+  AvatarM, CerrarSesion, FilaM, InterruptorM, ListaM, SalirDeLaVista, SeccionM, SheetM, useConexion, useToastM,
 } from '../_ui';
 import type { Perfil, VistaPerfil } from '@/lib/perfil';
 import { SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
@@ -152,7 +152,13 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
         <ModoOscuro />
       </ListaM>
 
-      {datos.negocio && <ComputadoraM que={datos.negocio} />}
+      {/* «Configuración del negocio» tiene su pantalla en el teléfono desde el 17/10/2026 (/m/configuraciones): hasta ese
+          día esta fila decía «En la computadora». */}
+      {datos.negocio && (
+        <ListaM>
+          <FilaM navegacion icono="config" titulo={datos.negocio} href="/m/configuraciones" />
+        </ListaM>
+      )}
 
       <ListaM>
         <div className="m-cuenta-boton"><CerrarSesion variante="tertiary" /></div>
