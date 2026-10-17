@@ -98,7 +98,11 @@ test('en un pop-up no hay General que dibujar: el saneo tira el bloque (y el que
 // funnel ya no está» sobre un funnel vivo, o contaría el principal con otro elegido.
 test('un bloque se ata a un funnel sólo si sabe, y el bloque elige el suyo por el id', () => {
   assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'funnel', funnel: 12 } })?.general, { pieza: 'funnel', funnel: 12 });
-  assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'cobranza', funnel: '7' } })?.general, { pieza: 'cobranza', funnel: 7 });
+  // 17/10/2026: «A quién cobrarle» suma VARIOS funnels (`funnels`); el `funnel` que tenía guardado se lee como lista de uno.
+  assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'cobranza', funnel: '7' } })?.general, { pieza: 'cobranza', funnels: [7] });
+  assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'cobranza', funnels: [1, '29', 1, -3] } })?.general, { pieza: 'cobranza', funnels: [1, 29] });
+  // «Tu funnel hoy» cuenta las etapas de UNO: con varios no se ata a ninguno (el principal), no elige uno al azar.
+  assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'funnel', funnels: [1, 29] } })?.general, { pieza: 'funnel' });
   assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'kpis', funnel: 12 } })?.general, { pieza: 'kpis' }, 'los KPIs miden el negocio entero');
   for (const malo of [-1, 0, 1.5, 'x', null]) assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'funnel', funnel: malo } })?.general, { pieza: 'funnel' });
   assert.deepEqual(PIEZAS_GENERAL.filter((p) => piezaPorFunnel(p.id)).map((p) => p.id).sort(), ['cobranza', 'funnel']);
@@ -110,9 +114,9 @@ test('un bloque se ata a un funnel sólo si sabe, y el bloque elige el suyo por 
   assert.match(datos, /deQuien: deQuien == null \? null :/);
   const bloque = leer('app/general/bloques/Negocio.tsx');
   assert.match(bloque, /const f = funnel \? d\.d\.find\(\(x\) => x\.id === funnel\) : d\.d\.find\(\(x\) => x\.principal\) \?\? d\.d\[0\];/, 'el funnel de hoy no busca el elegido por su id');
-  assert.match(bloque, /if \(funnel && d\.d\.deQuien\) filas = filas\.filter\(\(c\) => d\.d\.deQuien\?\.\[c\.leadId\]\?\.includes\(funnel\)\);/, 'la cobranza no filtra por el funnel elegido');
+  assert.match(bloque, /if \(filtra && d\.d\.deQuien\) filas = filas\.filter\(\(c\) => d\.d\.deQuien\?\.\[c\.leadId\]\?\.some\(\(f\) => elegidos\.includes\(f\)\)\);/, 'la cobranza no filtra por los funnels elegidos');
   // Un filtro que no se pudo armar no es «nadie debe»: la cobranza de un funnel sin saber de quién es cada cliente lo dice.
-  assert.match(bloque, /if \(funnel && d\.d\.deQuien == null\) return <Cobranza filas=\{\[\]\} tz=\{d\.d\.tz\} error="No pude leer de qué funnel es cada cliente\."/);
+  assert.match(bloque, /if \(filtra && d\.d\.deQuien == null\) return <Cobranza filas=\{\[\]\} tz=\{d\.d\.tz\} error="No pude leer de qué funnel es cada cliente\."/);
 });
 
 test('el informe con que arranca es la General de siempre, con la cabecera arriba', () => {

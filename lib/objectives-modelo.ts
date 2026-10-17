@@ -73,6 +73,8 @@ export type Objective = {
   orden: number;
   estado: 'activo' | 'cerrado';
   origen: string;
+  /** Los funnels cuyo avance suma (mig 0306). Vacío = todos, el negocio entero (lib/funnels-elegidos.ts). */
+  funnelIds: number[];
 };
 
 /**
@@ -121,6 +123,8 @@ export type Kpi = {
   orden: number;
   activo: boolean;
   origen: string;
+  /** Los funnels que cuenta, sólo con una fuente `porFunnel` (mig 0306). Vacío = todos. */
+  funnelIds: number[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -351,15 +355,17 @@ export type FuenteDef = {
   unidad: UnidadObjetivo;
   /** Qué mide, en una línea. Es lo que lee la persona al elegir la fuente. */
   que: string;
+  /** Sale del CRM (de un lead o de su pago), así que se puede contar por funnel (mig 0306). */
+  porFunnel?: true;
 };
 
 const FUENTES_DEF = [
   { id: 'inversion_usd', label: 'Inversión en anuncios', unidad: 'usd', que: 'Lo gastado en Meta en el período, convertido a USD.' },
-  { id: 'agendas', label: 'Reuniones agendadas', unidad: 'cantidad', que: 'Leads con R1 en el período.' },
-  { id: 'leads_nuevos', label: 'Leads nuevos', unidad: 'cantidad', que: 'Contactos que entraron al CRM en el período.' },
-  { id: 'cierres', label: 'Cierres', unidad: 'cantidad', que: 'Leads ganados en el período, sin los «Sin cobro».' },
-  { id: 'cash_usd', label: 'Cobrado', unidad: 'usd', que: 'Pagos cobrados en el período.' },
-  { id: 'sold_usd', label: 'Firmado', unidad: 'usd', que: 'Monto de los cierres del período. Comprometido, todavía no cobrado.' },
+  { id: 'agendas', label: 'Reuniones agendadas', unidad: 'cantidad', que: 'Leads con R1 en el período.', porFunnel: true },
+  { id: 'leads_nuevos', label: 'Leads nuevos', unidad: 'cantidad', que: 'Contactos que entraron al CRM en el período.', porFunnel: true },
+  { id: 'cierres', label: 'Cierres', unidad: 'cantidad', que: 'Leads ganados en el período, sin los «Sin cobro».', porFunnel: true },
+  { id: 'cash_usd', label: 'Cobrado', unidad: 'usd', que: 'Pagos cobrados en el período.', porFunnel: true },
+  { id: 'sold_usd', label: 'Firmado', unidad: 'usd', que: 'Monto de los cierres del período. Comprometido, todavía no cobrado.', porFunnel: true },
   { id: 'llamadas_analizadas', label: 'Llamadas analizadas', unidad: 'cantidad', que: 'Grabaciones que MaKo procesó en el período.' },
   { id: 'vsl_plays', label: 'Reproducciones del VSL', unidad: 'cantidad', que: 'Veces que alguien le dio play al VSL en el período.' },
   // ⚠️ `contenido_publicado` (las piezas que el programador de /instagram dejaba en
@@ -392,6 +398,12 @@ export const FUENTES_KPI: readonly FuenteDef[] = FUENTES_DEF;
 const FUENTES_POR_ID = new Map(FUENTES_DEF.map((f) => [f.id as string, f as FuenteDef]));
 export const fuenteKpi = (id: string | null | undefined): FuenteDef | undefined =>
   (id ? FUENTES_POR_ID.get(id) : undefined);
+
+/** ¿Este KPI automático se puede contar por funnel? Sólo lo que sale del CRM (la pauta y el VSL no son de un funnel). */
+export const fuentePorFunnel = (id: string | null | undefined): boolean => fuenteKpi(id)?.porFunnel === true;
+
+/** ¿Este OKR se puede sumar por funnel? Todas sus métricas salen del CRM, salvo «libre», que la carga la persona. */
+export const metricaPorFunnel = (m: string): boolean => m === 'cash_usd' || m === 'sold_usd' || m === 'cierres' || m === 'agendas' || m === 'leads';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El seed: qué KPIs propone MaKo

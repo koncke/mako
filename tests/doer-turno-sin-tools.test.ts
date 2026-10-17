@@ -77,8 +77,12 @@ test('⚠️ EL PROTOCOLO DE HERRAMIENTAS SÓLO VIAJA SI HAY HERRAMIENTAS', () =
   // Y el bloque cuelga del largo de la lista.
   assert.match(src, /const bloqueTools = tools\.length/,
     'el protocolo de herramientas volvió a mandarse siempre');
-  // El system se arma DESPUÉS de las tools: si vuelve arriba, no las puede mirar.
-  assert.ok(src.indexOf('const tools = toolsParaIntencion') < src.indexOf('const system = `${base}'),
+  // El system se arma DESPUÉS de las tools: si vuelve arriba, no las puede mirar. Desde el 17/10/2026 lo arma
+  // `armarSystem(tools)` (la red de plataforma lo rearma con las suyas); antes de eso este assert comparaba
+  // contra `const tools = toolsParaIntencion`, que ya vivía en lib/doer-herramientas.ts: un -1 que pasaba solo.
+  const iTools = src.indexOf('const { tools, ofrece } = turno;');
+  const iSystem = src.indexOf('const system = armarSystem(tools);');
+  assert.ok(iTools > 0 && iSystem > iTools,
     'el system volvió a armarse antes de saber cuántas herramientas tiene el turno');
 });
 

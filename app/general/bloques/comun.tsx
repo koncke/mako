@@ -47,7 +47,8 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
-import { useTituloPropio } from '../../dashboard/ElementoGeneral';
+import { useFunnelsGeneral, useTituloPropio } from '../../dashboard/ElementoGeneral';
+import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 
 export const CSS_BLOQUES = `
 .gb{--gb-losa:color-mix(in srgb,var(--ink) 4.5%,transparent);--gb-losa-2:color-mix(in srgb,var(--ink) 8%,transparent);
@@ -134,6 +135,16 @@ export function Fallo({ titulo, error }: { titulo: string; error: string }) {
       <span className="gb-fallo">{error}</span>
     </div>
   );
+}
+
+/**
+ * De qué funnels suma un OKR (mig 0306), como chip: «Renovación», «VSL y Renovación». Nada si suma todo el negocio (lo
+ * de siempre no se anuncia) o si la lista de funnels no se pudo leer.
+ */
+export function DeQueFunnels({ ids }: { ids: readonly number[] }) {
+  const funnels = useFunnelsGeneral();
+  if (!ids.length || !funnels) return null;
+  return <span className="gb-chip" title="Suma sólo estos funnels">{rotuloDeFunnels(ids, funnels)}</span>;
 }
 
 /** El instante de ahora, SÓLO en el navegador (null en el server y en el primer dibujo: los dos iguales). */

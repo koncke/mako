@@ -41,6 +41,12 @@ export const COMANDO_TERMINAL = (cuenta: string) => `${cuenta} -n ${NOMBRE_RUNNE
 export const comandoNuevoChat = (cuenta: string, nombre: string) => `${cuenta} -n '${nombre.trim().replace(/'/g, "''")}'`;
 /** Las cuentas de terminal del perfil de PowerShell de Martín (claude1, claude2 y claude3). */
 export const CUENTAS_TERMINAL = ['claude1', 'claude2', 'claude3'] as const;
+/**
+ * ¿La cuenta tiene su función en el `$PROFILE`? Sólo a ésas se les ofrece un comando de PowerShell. La 4 corre sólo en
+ * la app (17/10/2026): el panel de Uso le ofreció `claude4 -n Runner` a Martín y PowerShell contestó «not recognized».
+ * A una cuenta de la app se le dice que abra su Runner en la app, sin comando.
+ */
+export const tieneTerminal = (cuenta: string): boolean => (CUENTAS_TERMINAL as readonly string[]).includes(cuenta);
 
 /** Lo que Martín le pega al Runner de cada cuenta (`claude2 -n Runner` en PowerShell), para que entregue. */
 export const INSTRUCCIONES_RUNNER = `Eres el Runner del Centro de Operaciones: entregas a los chats de esta PC lo que Martín escribe en /admin/operaciones. No hagas nada más.

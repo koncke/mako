@@ -386,6 +386,8 @@ export const DEFS: readonly OperacionDef[] = [
       // del negocio (Notificaciones), desde equipo@hola-mako.com. Un texto y su asunto.
       { nombre: 'canal', tipo: 'string', enum: ['grupo', 'email'], descripcion: 'opcional: «email» le escribe un correo al equipo del negocio (sus destinatarios de Notificaciones) en vez de mandarlo al grupo de WhatsApp. Por email va un solo texto, sin audio ni archivos, y con asunto. Sin elegir, el grupo.' },
       { nombre: 'asunto', tipo: 'string', max: 160, descripcion: 'el asunto del correo, obligatorio con canal «email». Admite los mismos datos {{…}} que el texto.' },
+      // Sin grupo de MaKo (17/10/2026, lib/mako-tarjeta.ts `SinGrupo`): qué hace el aviso si el negocio no tiene grupo.
+      { nombre: 'sinGrupo', tipo: 'string', enum: ['app', 'email'], descripcion: 'opcional, sólo por el grupo: qué pasa si el negocio NO tiene grupo de MaKo. «app» (lo de fábrica) lo deja en la campanita de la app y en el teléfono; «email» además le escribe un correo al equipo del negocio (sus destinatarios de Notificaciones).' },
     ],
     reversible: true, escribe: 'manda un aviso al grupo de WhatsApp del negocio (o, con canal «email», un correo a su equipo) y deja una notificación en la app (no toca al lead)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB },

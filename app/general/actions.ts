@@ -24,8 +24,9 @@ import {
 } from '@/lib/objectives';
 import {
   type Cadencia, type MetricaObjetivo, type UnidadObjetivo, type FuenteKpi,
-  type CandidatoKpi, fuenteKpi,
+  type CandidatoKpi, fuenteKpi, metricaPorFunnel,
 } from '@/lib/objectives-modelo';
+import { sanearFunnelIds } from '@/lib/funnels-elegidos';
 
 const guard = () => requireRolWs([], { nav: 'general' });
 
@@ -58,11 +59,15 @@ export async function guardarObjectiveAction(input: {
   metrica: string;
   metaValor: number;
   avanceManual?: number | null;
+  /** De qué funnels suma (vacío = todos). Sin el campo, al editar queda el que estaba. */
+  funnelIds?: unknown;
 }): Promise<void> {
   await guard();
   const metrica = METRICAS.includes(input.metrica as MetricaObjetivo)
     ? (input.metrica as MetricaObjetivo)
     : 'cash_usd';
+  // «Libre» no sale del CRM: no tiene funnels que sumar, y unos que quedaran escritos volverían si cambia la métrica.
+  const funnelIds = input.funnelIds === undefined ? undefined : metricaPorFunnel(metrica) ? sanearFunnelIds(input.funnelIds) : [];
   const unidad: UnidadObjetivo = metrica === 'cash_usd' || metrica === 'sold_usd' ? 'usd' : 'cantidad';
   const q = input.quarter === null ? null : Math.max(1, Math.min(4, Math.trunc(input.quarter)));
   await upsertObjective({
@@ -77,6 +82,7 @@ export async function guardarObjectiveAction(input: {
     // quedara escrito y alguien cambiara la métrica, el número lo pisaría la
     // lectura real sin aviso — o peor, se mostraría el viejo.
     avanceManual: metrica === 'libre' ? (input.avanceManual ?? null) : null,
+    funnelIds,
   });
   bust();
 }
@@ -102,6 +108,8 @@ export async function guardarKpiAction(input: {
   fuenteId?: string | null;
   umbralVerde?: number;
   umbralAmbar?: number;
+  /** De qué funnels cuenta (vacío = todos; sólo una fuente del CRM). Sin el campo, al editar queda el que estaba. */
+  funnelIds?: unknown;
 }): Promise<void> {
   await guard();
   const cadencia: Cadencia = input.cadencia === 'diaria' ? 'diaria' : 'semanal';
@@ -130,6 +138,8 @@ export async function guardarKpiAction(input: {
     umbralAmbar: ambar,
     fuente: fuenteFinal,
     fuenteId: fuenteFinal === 'auto' ? (input.fuenteId ?? null) : null,
+    // upsertKpi los vacía si la fuente no es del CRM.
+    funnelIds: input.funnelIds === undefined ? undefined : sanearFunnelIds(input.funnelIds),
   });
   bust();
 }

@@ -153,6 +153,19 @@ function extraerJid(body: unknown): string | null {
 export async function getGrupoJidMaKo(ws: number): Promise<string | null> {
   return runWithWorkspace(ws, () => getSetting(KEY_GRUPO_JID));
 }
+
+/**
+ * EL GRUPO, CON «NO PUDE LEER» DISTINTO DE «NO TIENE» (17/10/2026): un error de lectura TIRA. `getGrupoJidMaKo` lo
+ * convierte en null (`getSetting`), y desde que la tarjeta MaKo hace algo cuando el negocio no tiene grupo (por email,
+ * `SinGrupo`, lib/mako-tarjeta.ts), un bache de la base mandaría un correo por cada aviso de cada negocio. Lo leen los
+ * dos envíos al grupo del negocio, y de ahí sale el marcador `sinGrupo`.
+ */
+async function grupoJidEstricto(ws: number): Promise<string | null> {
+  return runWithWorkspace(ws, () => getSettingEstricto(KEY_GRUPO_JID));
+}
+
+/** El motivo de un envío sin grupo. Se decide por el marcador `sinGrupo`, nunca comparando este texto. */
+export const SIN_GRUPO_MAKO = 'el negocio no tiene grupo de MaKo';
 async function guardarGrupoJid(ws: number, jid: string): Promise<void> {
   await runWithWorkspace(ws, () => setSetting(KEY_GRUPO_JID, jid));
 }
@@ -644,7 +657,8 @@ export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: numb
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
 }
 
-export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string };
+/** `sinGrupo`: el negocio NO TIENE grupo de MaKo, leído (17/10/2026). Ausente en cualquier otro error, también «no pude leer». */
+export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string; sinGrupo?: true };
 
 /** Saca el mensaje útil del body de error de Evolution (viene anidado y variado). Vive en lib/mako-tarjeta.ts
  *  (puro): lo usa también el envío por partes. */
@@ -653,8 +667,9 @@ const detalleEv = detalleEvolution;
 /** Manda un texto al grupo de MaKo del workspace (para el ruteo de avisos). */
 export async function enviarAlGrupoMaKo(ws: number, texto: string): Promise<EnvioGrupo> {
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
-  const jid = await getGrupoJidMaKo(ws);
-  if (!jid) return { ok: false, error: 'el workspace no tiene grupo de MaKo todavía' };
+  let jid: string | null;
+  try { jid = await grupoJidEstricto(ws); } catch (e) { return { ok: false, error: `no pude leer el grupo de MaKo: ${e instanceof Error ? e.message : String(e)}` }; }
+  if (!jid) return { ok: false, error: SIN_GRUPO_MAKO, sinGrupo: true };
   const delay = Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + Math.random() * 0.4));
   const instancia = await instanciaVoz();
   const r = await ev(`/message/sendText/${instancia}`, {
@@ -681,8 +696,9 @@ export async function enviarAlGrupoMaKo(ws: number, texto: string): Promise<Envi
 export async function enviarPartesAlGrupoMaKo(
   ws: number, partes: readonly PartePreparada[], d: { ev?: EvFn; esperar?: (ms: number) => Promise<void> } = {},
 ): Promise<EnvioPartes> {
-  const jid = await getGrupoJidMaKo(ws);
-  if (!jid) return { ok: false, salieron: 0, ids: [], error: 'el workspace no tiene grupo de MaKo todavía' };
+  let jid: string | null;
+  try { jid = await grupoJidEstricto(ws); } catch (e) { return { ok: false, salieron: 0, ids: [], error: `no pude leer el grupo de MaKo: ${e instanceof Error ? e.message : String(e)}` }; }
+  if (!jid) return { ok: false, salieron: 0, ids: [], error: SIN_GRUPO_MAKO, sinGrupo: true };
   return enviarPartesAJid(jid, partes, d);
 }
 

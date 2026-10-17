@@ -12,6 +12,7 @@ import type { CSSProperties } from 'react';
 import { fmtUSD, fmtNum } from '@/lib/format';
 import { estadoPendientes } from '@/lib/vista-general-modelo';
 import { opcionDe, numeroDe, type OpcionesElegidas } from '@/lib/general-piezas';
+import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import type { ConteoFunnel } from '@/lib/general-alcance';
 import type { MetricaMTD, ResumenComparativo } from '@/lib/queries';
 import type { CobroM } from '@/app/m/dashboard/modelo';
@@ -180,19 +181,24 @@ export function MuestraFunnel({ op }: { op?: OpcionesElegidas }) {
 
 // ── A quién cobrarle ────────────────────────────────────────────────────────────────────────────────────────────────
 
-export function BloqueCobranza({ d, funnel, funnels, op }: { d: DatosGeneral['cobranza']; funnel: number | null; funnels: DatosGeneral['funnels']; op?: OpcionesElegidas }) {
+/**
+ * `elegidos`: los funnels del bloque (desde el 17/10/2026, uno O VARIOS: la cobranza de «VSL + Renovación» es la unión de
+ * sus clientes). Vacío = todo el negocio. Un cliente es de un funnel por su casa o por estar agregado (`deQuien`).
+ */
+export function BloqueCobranza({ d, elegidos, funnels, op }: { d: DatosGeneral['cobranza']; elegidos: readonly number[]; funnels: DatosGeneral['funnels']; op?: OpcionesElegidas }) {
   const limite = numeroDe(opcionDe('cobranza', op, 'limite'));
   const soloVencidas = opcionDe('cobranza', op, 'cuales') === 'vencidas';
-  const nombreFunnel = funnel && funnels.ok ? funnels.d.find((f) => f.id === funnel)?.nombre ?? null : null;
+  const filtra = elegidos.length > 0;
+  const nombreFunnel = filtra && funnels.ok ? rotuloDeFunnels(elegidos, funnels.d) : null;
   const vacio = (
     <Placeholder muestra={<Cobranza filas={COBROS_MUESTRA.slice(0, Math.min(4, limite))} tz="" error={null} muestra sinCabeza />}
       texto={soloVencidas ? 'Ninguna cuota vencida.' : 'Nadie con cuotas por cobrar.'} accion={{ href: '/crm', rotulo: 'Abrir el CRM' }} />
   );
   if (!d.ok) return <Cobranza filas={[]} tz="" error={d.error} alcance={nombreFunnel} />;
   // Un filtro que no se pudo armar no es «nadie debe»: la cobranza de un funnel sin saber de quién es cada cliente lo dice.
-  if (funnel && d.d.deQuien == null) return <Cobranza filas={[]} tz={d.d.tz} error="No pude leer de qué funnel es cada cliente." alcance={nombreFunnel} />;
+  if (filtra && d.d.deQuien == null) return <Cobranza filas={[]} tz={d.d.tz} error="No pude leer de qué funnel es cada cliente." alcance={nombreFunnel} />;
   let filas: CobroM[] = d.d.cobros;
-  if (funnel && d.d.deQuien) filas = filas.filter((c) => d.d.deQuien?.[c.leadId]?.includes(funnel));
+  if (filtra && d.d.deQuien) filas = filas.filter((c) => d.d.deQuien?.[c.leadId]?.some((f) => elegidos.includes(f)));
   if (soloVencidas) filas = filas.filter((c) => c.urgencia === 'vencida');
   return <Cobranza filas={filas} tz={d.d.tz} error={null} alcance={nombreFunnel} limite={limite} vacio={vacio} />;
 }

@@ -11,7 +11,7 @@
 
 import { useMemo, type ReactNode } from 'react';
 import type { Elemento } from '@/lib/graficos-catalogo';
-import type { OpcionesElegidas, PiezaGeneral, ValoresVariables } from '@/lib/general-piezas';
+import { funnelsDeBloque, type OpcionesElegidas, type PiezaGeneral, type ValoresVariables } from '@/lib/general-piezas';
 import { ContextoGeneral, type ContextoDeGeneral } from '../dashboard/ElementoGeneral';
 import { EditarObjetivo } from './EditarObjetivo';
 import type { DatosGeneral } from './datos-tipos';
@@ -42,7 +42,7 @@ export function dibujarBloque(e: Elemento, d: DatosGeneral): ReactNode {
     case 'llamadas': return <BloqueLlamadas d={d.calendario} op={op} />;
     case 'pendientes': return <BloquePendientes d={d.pendientes} />;
     case 'funnel': return <BloqueFunnel d={d.funnels} funnel={funnel} op={op} />;
-    case 'cobranza': return <BloqueCobranza d={d.cobranza} funnel={funnel} funnels={d.funnels} op={op} />;
+    case 'cobranza': return <BloqueCobranza d={d.cobranza} elegidos={funnelsDeBloque(g)} funnels={d.funnels} op={op} />;
     case 'mes': return <BloqueMes d={d.mes} op={op} />;
     case 'publicaciones': return <BloquePublicaciones d={d.calendario} op={op} />;
   }

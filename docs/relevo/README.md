@@ -27,6 +27,7 @@ El flujo, entonces: Martín abre un chat con el título de siempre y pega **una 
 | Chatbot | `Leé docs/relevo/chatbot.md y seguimos desde ahí.` |
 | Customer Success | `Leé docs/relevo/customer-success.md y seguimos desde ahí.` |
 | Onboarding | `Leé docs/relevo/onboarding.md y seguimos desde ahí.` |
+| Video Generator (puente a Flow) | `Lee docs/relevo/video-generator.md y seguimos desde ahí.` |
 | Estrategia de ventas MaKo (tab Strategy y referidos) | `Leé docs/relevo/vender-mako-estrategia.md y seguimos desde ahí.` |
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 | Integración Mercado Pago y Stripe (la pasarela de pagos) | `Leé docs/relevo/pagos.md y seguimos desde ahí.` |

@@ -86,6 +86,13 @@ const fecha = (v: string | null | undefined) => { const t = v ? Date.parse(v) : 
 /** La clave de un chat conocido sólo por su título (lo anotado sin `sesion`). */
 export const claveDeNombre = (titulo: string) => `nombre:${normal(titulo)}`;
 
+/** Los chats que dicen lo buscado, sin tildes ni mayúsculas: la barra del Centro y la sección «Claude Code» del Second
+ *  Brain (17/10/2026). Sin nada buscado, todos. */
+export function buscarChats<T extends { titulo: string }>(chats: readonly T[], busca: string): T[] {
+  const f = normal(busca);
+  return f ? chats.filter((c) => normal(c.titulo).includes(f)) : [...chats];
+}
+
 /** A qué chat pertenece un paso o un hito: su sesión si la trae; si no, su título, aparte. */
 export function claveDe(x: { chat: string; sesion?: string | null }): string {
   return x.sesion && DESTINO_RE.test(x.sesion) ? x.sesion : claveDeNombre(x.chat);

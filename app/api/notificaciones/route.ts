@@ -35,12 +35,22 @@ export async function GET(req: NextRequest) {
   const limite = Number.isFinite(limitRaw) ? Math.min(Math.max(1, limitRaw), 100) : 30;
   const antesDe = req.nextUrl.searchParams.get('antes');
   const vistoHasta = await getNotifVistoHasta(ws);
-  const [items, noVistas] = await Promise.all([
-    listNotificaciones(ws, { limite, antesDe }),
-    contarNoVistas(ws, vistoHasta),
-  ]);
-  // `noVistas: null` = no se pudo contar: la pantalla no dibuja un cero que no midió.
-  return Response.json({ ok: true, items, noVistas, vistoHasta });
+  // `?contar=1` (la campanita de escritorio, 17/10/2026): sólo el número, que se pide en cada cambio de pantalla. La lista,
+  // recién al abrirla.
+  if (req.nextUrl.searchParams.get('contar') === '1') {
+    return Response.json({ ok: true, items: [], noVistas: await contarNoVistas(ws, vistoHasta), vistoHasta });
+  }
+  try {
+    const [items, noVistas] = await Promise.all([
+      // ESTRICTA (17/10/2026): «no pude leer» no se dibuja «Sin avisos todavía».
+      listNotificaciones(ws, { limite, antesDe, estricto: true }),
+      contarNoVistas(ws, vistoHasta),
+    ]);
+    // `noVistas: null` = no se pudo contar: la pantalla no dibuja un cero que no midió.
+    return Response.json({ ok: true, items, noVistas, vistoHasta });
+  } catch (err) {
+    return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {

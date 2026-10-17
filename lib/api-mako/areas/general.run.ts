@@ -37,7 +37,8 @@ import {
   upsertKpi, apagarKpi, registrarKpi, sembrarKpis, setCapacidad, type ObjectiveConAvance,
 } from '@/lib/objectives';
 import { leerFuente, fuentesConLector } from '@/lib/objectives-fuentes';
-import { elegirObjetivoPrincipal, fuenteKpi, periodoDe, quarterKey, progresoQuarter, type Cadencia, type Kpi } from '@/lib/objectives-modelo';
+import { elegirObjetivoPrincipal, fuenteKpi, fuentePorFunnel, metricaPorFunnel, periodoDe, quarterKey, progresoQuarter, type Cadencia, type Kpi } from '@/lib/objectives-modelo';
+import { leerFunnelIds, rotuloDeFunnels, sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { getTramoJ1J2Reciente } from '@/lib/queries';
 import { pendientesOnboarding } from '@/lib/onboarding-pendientes';
 import { objetivoPorId, registroKpiExistente, sanearObjetivo, sanearKpi, type ObjetivoFila } from './general.helpers';
@@ -49,7 +50,7 @@ import { ALCANCE_GENERAL, TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { generarHojaIA } from '@/lib/graficos-ia-generar';
 import { editarHojaIA } from '@/lib/graficos-ia-editar';
 import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
-import { PIEZAS_GENERAL, esPiezaGeneral, opcionesDePieza, piezaGeneral, piezaPorFunnel, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from '@/lib/general-piezas';
+import { PIEZAS_GENERAL, atarFunnels, esPiezaGeneral, funnelsDeBloque, opcionesDePieza, piezaGeneral, piezaPorFunnel, piezaPorVariosFunnels, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from '@/lib/general-piezas';
 import { leerFunnelsDeGeneral, type FunnelDeGeneral } from '@/lib/general-alcance';
 import { PLANTILLAS_GENERAL, elegirPersona, type PersonaGeneral } from '@/lib/general-plantillas';
 import { ETIQUETAS_GENERAL } from '@/lib/graficos-plantillas-etiquetas';
@@ -102,6 +103,29 @@ const diff = (campo: string, antes: string, despues: string): string =>
 const periodoTxt = (o: { quarter: number | null; anio: number }): string =>
   o.quarter === null ? `anual ${o.anio}` : quarterKey({ anio: o.anio, q: o.quarter });
 
+/**
+ * `funnels` de guardar_objetivo y guardar_kpi (mig 0306): «todos» o ids separados por coma, que tienen que ser funnels
+ * activos del negocio (los lista listar_objetivos en `funnels_del_negocio`). `null` = no vino: al editar queda el que
+ * estaba. Con la lista de funnels caída no se puede elegir: se dice, no se adivina.
+ */
+async function funnelsDelPedido(input: Record<string, unknown>): Promise<{ ids: number[]; nombres: FunnelDeGeneral[] } | { error: string } | null> {
+  const crudo = str(input, 'funnels');
+  if (crudo == null) return null;
+  const disponibles = await leerFunnelsDeGeneral();
+  if (/^tod[oa]s?$/i.test(crudo)) return { ids: [], nombres: disponibles ?? [] };
+  const partes = crudo.split(/[,\s]+/).filter(Boolean);
+  const ids = sanearFunnelIds(partes);
+  if (!ids.length || ids.length !== new Set(partes).size) return { error: `funnels: «${crudo}» no es «todos» ni una lista de ids de funnels separados por coma.` };
+  if (!disponibles) return { error: 'No se pudieron leer los funnels del negocio: ahora no se puede elegir de cuáles suma.' };
+  const faltan = ids.filter((id) => !disponibles.some((f) => f.id === id));
+  if (faltan.length) return { error: `No hay un funnel activo con id ${faltan.join(', ')}. Los del negocio están en listar_objetivos (funnels_del_negocio).` };
+  return { ids, nombres: disponibles };
+}
+
+/** «todo el negocio» o los nombres, para el resumen que se confirma en pantalla. */
+const funnelsTxt = (ids: readonly number[], nombres: readonly FunnelDeGeneral[]): string =>
+  (ids.length ? rotuloDeFunnels(ids, nombres) : 'todo el negocio');
+
 /** Un objetivo con avance, en la forma que lee el modelo: null ≠ 0, unidad y ventana dichas. */
 const objetivoParaModelo = (o: ObjectiveConAvance) => ({
   id: o.id,
@@ -112,6 +136,8 @@ const objetivoParaModelo = (o: ObjectiveConAvance) => ({
   metrica: o.metrica,
   unidad: o.unidad,
   meta: o.metaValor,
+  // Vacío = suma todo el negocio. Con ids, cada pago o cierre cuenta en el funnel donde estaba el lead ese día.
+  funnel_ids: o.funnelIds,
   actual: redondo(o.actual),
   ...(o.actual === null ? { error: o.error ?? 'no se pudo leer' } : {}),
   pct_de_la_meta: redondo(o.pct, 1),
@@ -131,6 +157,7 @@ const kpiDef = (k: Kpi) => ({
   id: k.id, nombre: k.nombre, cadencia: k.cadencia, compromiso: k.compromiso, unidad: k.unidad,
   umbral_verde_pct: k.umbralVerde, umbral_ambar_pct: k.umbralAmbar,
   fuente: k.fuente, fuente_id: k.fuenteId, objetivo_id: k.objectiveId, activo: k.activo, origen: k.origen,
+  funnel_ids: k.funnelIds,
 });
 
 const ADVERTENCIA_TC = 'Convertido a USD desde la moneda de la cuenta de Meta con un tipo de cambio fijo: es una aproximación.';
@@ -209,13 +236,15 @@ export const RUNNERS: Runners = {
       const actual = await quarterActual();
       const qt = { anio: num(input, 'anio') ?? actual.qt.anio, q: num(input, 'quarter') ?? actual.qt.q };
       const objs = await listObjectives(qt);
-      const con = await Promise.all(objs.map((o) => avanceDeObjetivo(o, actual.hoy)));
+      const [con, funnels] = await Promise.all([Promise.all(objs.map((o) => avanceDeObjetivo(o, actual.hoy))), leerFunnelsDeGeneral()]);
       return json({
         trimestre: quarterKey(qt), hoy: actual.hoy,
         dias_restantes_del_trimestre: progresoQuarter(qt, actual.hoy).diasRestantes,
-        nota: 'actual: null = no se pudo leer (motivo en error), NO es cero. El ritmo es un prorrateo lineal: di «a esta altura debería ir por», no «vas a llegar». unidad usd = dólares; cantidad = conteo.',
+        nota: 'actual: null = no se pudo leer (motivo en error), NO es cero. El ritmo es un prorrateo lineal: di «a esta altura debería ir por», no «vas a llegar». unidad usd = dólares; cantidad = conteo. funnel_ids vacío = suma todo el negocio.',
         total: con.length,
         objetivos: con.map(objetivoParaModelo),
+        // null = no se pudieron leer (no es «no hay»).
+        funnels_del_negocio: funnels?.map((f) => ({ id: f.id, nombre: f.nombre })) ?? null,
       });
     },
   },
@@ -471,6 +500,8 @@ export const RUNNERS: Runners = {
       const metricaIn = str(input, 'metrica');
       const metaIn = num(input, 'metaValor');
       const avanceIn = num(input, 'avanceManual');
+      const funnelsIn = await funnelsDelPedido(input);
+      if (funnelsIn && 'error' in funnelsIn) return { error: funnelsIn.error };
 
       // Con id se parte de la fila ACTUAL y se pisa solo lo que vino: la pantalla
       // genérica pinta el formulario con lo que mandó el modelo, así que un campo
@@ -511,9 +542,13 @@ export const RUNNERS: Runners = {
       }
 
       const u = s.unidad === 'usd' ? 'USD ' : '';
+      // Los funnels: omitidos = los que tenía (o todos, al crear); «libre» no suma funnels (la carga la persona).
+      const funnelsPrev = leerFunnelIds(previo?.funnel_ids);
+      const funnelIds = metricaPorFunnel(s.metrica) ? (funnelsIn ? funnelsIn.ids : funnelsPrev) : [];
+      const nombresFunnels = funnelsIn?.nombres ?? (funnelIds.length || funnelsPrev.length ? await leerFunnelsDeGeneral() ?? [] : []);
       const payload = {
         ...(id ? { id } : {}), anio: s.anio, quarter: s.quarter, titulo, metrica: s.metrica, unidad: s.unidad,
-        metaValor: s.metaValor, avanceManual: s.avanceManual,
+        metaValor: s.metaValor, avanceManual: s.avanceManual, funnelIds,
         // upsertObjective pisa orden con Date.now() y origen con 'user' si no viajan:
         // editar mandaría el objetivo al final (y cambiaría cuál manda en la cabecera).
         ...(previo ? { orden: previo.orden, origen: previo.origen } : {}),
@@ -521,7 +556,7 @@ export const RUNNERS: Runners = {
       if (!previo) {
         return {
           payload,
-          resumen: `Crear el objetivo «${titulo}» (${periodoTxt({ anio: s.anio, quarter: s.quarter })}): meta ${u}${s.metaValor} de ${s.metrica}${s.metrica === 'libre' && s.avanceManual !== null ? `, avance cargado ${s.avanceManual}` : ''}.`,
+          resumen: `Crear el objetivo «${titulo}» (${periodoTxt({ anio: s.anio, quarter: s.quarter })}): meta ${u}${s.metaValor} de ${s.metrica}${s.metrica === 'libre' && s.avanceManual !== null ? `, avance cargado ${s.avanceManual}` : ''}${metricaPorFunnel(s.metrica) ? `, suma ${funnelsTxt(funnelIds, nombresFunnels)}` : ''}.`,
         };
       }
       const uPrev = previo.unidad === 'usd' ? 'USD ' : '';
@@ -531,6 +566,7 @@ export const RUNNERS: Runners = {
         diff('período', periodoTxt(previo), periodoTxt({ anio: s.anio, quarter: s.quarter })),
         diff('métrica', previo.metrica, s.metrica),
         diff('meta', `${uPrev}${Number(previo.meta_valor)}`, `${u}${s.metaValor}`),
+        diff('suma', funnelsTxt(funnelsPrev, nombresFunnels), funnelsTxt(funnelIds, nombresFunnels)),
       ];
       if (previo.metrica === 'libre' || s.metrica === 'libre') {
         const txt = (v: number | null) => (v === null ? 'sin cargar' : String(v));
@@ -550,6 +586,7 @@ export const RUNNERS: Runners = {
         unidad: payload.unidad as ObjectiveConAvance['unidad'],
         metaValor: Number(payload.metaValor),
         avanceManual: payload.avanceManual == null ? null : Number(payload.avanceManual),
+        funnelIds: sanearFunnelIds(payload.funnelIds),
         ...(typeof payload.orden === 'number' ? { orden: payload.orden } : {}),
         ...(typeof payload.origen === 'string' ? { origen: payload.origen } : {}),
       });
@@ -569,6 +606,8 @@ export const RUNNERS: Runners = {
       const objectiveIn = str(input, 'objectiveId');
       const verdeIn = num(input, 'umbralVerde');
       const ambarIn = num(input, 'umbralAmbar');
+      const funnelsIn = await funnelsDelPedido(input);
+      if (funnelsIn && 'error' in funnelsIn) return { error: funnelsIn.error };
 
       const todos = await listKpis(false);
       // Con id se parte del KPI ACTUAL: upsertKpi escribe la fila entera, y lo que no
@@ -622,10 +661,15 @@ export const RUNNERS: Runners = {
         }
       }
 
+      // Los funnels: sólo un KPI automático del CRM los cuenta; omitidos = los que tenía.
+      const porFunnel = s.fuente === 'auto' && fuentePorFunnel(s.fuenteId);
+      if (funnelsIn?.ids.length && !porFunnel) return { error: 'Sólo un KPI automático que sale del CRM (agendas, leads nuevos, cierres, cobrado o firmado) se cuenta por funnel.' };
+      const funnelIds = porFunnel ? (funnelsIn ? funnelsIn.ids : previo?.funnelIds ?? []) : [];
+      const nombresFunnels = funnelsIn?.nombres ?? (funnelIds.length || previo?.funnelIds.length ? await leerFunnelsDeGeneral() ?? [] : []);
       const payload = {
         ...(id ? { id } : {}), objectiveId, nombre, cadencia: s.cadencia,
         compromiso: s.compromiso, unidad: s.unidad, fuente: s.fuente, fuenteId: s.fuenteId,
-        umbralVerde: s.umbralVerde, umbralAmbar: s.umbralAmbar,
+        umbralVerde: s.umbralVerde, umbralAmbar: s.umbralAmbar, funnelIds,
         // upsertKpi pisa orden con Date.now() y origen con 'user': un KPI sembrado
         // perdería su origen 'seed' y se iría al final del tablero.
         ...(previo ? { orden: previo.orden, origen: previo.origen } : {}),
@@ -636,7 +680,7 @@ export const RUNNERS: Runners = {
       if (!previo) {
         return {
           payload,
-          resumen: `Crear el KPI «${nombre}»: ${u}${s.compromiso} por ${porTxt(s.cadencia)}, ${fuenteTxt(s.fuente, s.fuenteId)}, verde desde ${s.umbralVerde}% y ámbar desde ${s.umbralAmbar}%, ${objectiveId ? `cuelga de ${objTxt}` : objTxt}.`,
+          resumen: `Crear el KPI «${nombre}»: ${u}${s.compromiso} por ${porTxt(s.cadencia)}, ${fuenteTxt(s.fuente, s.fuenteId)}${porFunnel ? ` de ${funnelsTxt(funnelIds, nombresFunnels)}` : ''}, verde desde ${s.umbralVerde}% y ámbar desde ${s.umbralAmbar}%, ${objectiveId ? `cuelga de ${objTxt}` : objTxt}.`,
         };
       }
       const uPrev = previo.unidad === 'usd' ? 'USD ' : '';
@@ -652,6 +696,7 @@ export const RUNNERS: Runners = {
         diff('fuente', fuenteTxt(previo.fuente, previo.fuenteId), fuenteTxt(s.fuente, s.fuenteId)),
         diff('umbrales', `verde ${previo.umbralVerde}% / ámbar ${previo.umbralAmbar}%`, `verde ${s.umbralVerde}% / ámbar ${s.umbralAmbar}%`),
         diff('objetivo', objPrevTxt, objTxt),
+        ...(porFunnel || previo.funnelIds.length ? [diff('cuenta', funnelsTxt(previo.funnelIds, nombresFunnels), funnelsTxt(funnelIds, nombresFunnels))] : []),
       ];
       return { payload, resumen: `Editar el KPI «${previo.nombre}»: ${partes.join('; ')}.` };
     },
@@ -667,6 +712,7 @@ export const RUNNERS: Runners = {
         fuenteId: typeof payload.fuenteId === 'string' ? payload.fuenteId : null,
         umbralVerde: Number(payload.umbralVerde),
         umbralAmbar: Number(payload.umbralAmbar),
+        funnelIds: sanearFunnelIds(payload.funnelIds),
         ...(typeof payload.orden === 'number' ? { orden: payload.orden } : {}),
         ...(typeof payload.origen === 'string' ? { origen: payload.origen } : {}),
       });
@@ -726,7 +772,7 @@ export const RUNNERS: Runners = {
       const base = {
         bloques: PIEZAS_GENERAL.map((b) => ({
           id: b.id, nombre: b.nombre, que_muestra: b.linea,
-          ...(piezaPorFunnel(b.id) ? { se_ata_a_un_funnel: true } : {}),
+          ...(piezaPorFunnel(b.id) ? { se_ata_a_un_funnel: true, ...(piezaPorVariosFunnels(b.id) ? { acepta_varios_funnels: true } : {}) } : {}),
           opciones: opcionesDePieza(b.id).map((o) => ({ id: o.id, nombre: o.nombre, valores: o.valores.map((v) => ({ id: v.id, nombre: v.nombre })), por_defecto: o.def })),
         })),
         plantillas: ordenarConSugeridas(PLANTILLAS_GENERAL, ETIQUETAS_GENERAL, senales)
@@ -743,7 +789,7 @@ export const RUNNERS: Runners = {
         hojas: l.tablero.hojas.map((h) => ({
           id: h.id, nombre: h.nombre, plantilla: h.plantilla ?? null,
           bloques: h.componentes.flatMap((c) => (esElemento(c) && c.tipo === 'general' && c.general
-            ? [{ id: c.id, bloque: c.general.pieza, ...(c.texto ? { titulo: c.texto } : {}), ...(c.general.funnel ? { funnel: c.general.funnel } : {}), ...(c.general.opciones ? { opciones: c.general.opciones } : {}) }] : [])),
+            ? [{ id: c.id, bloque: c.general.pieza, ...(c.texto ? { titulo: c.texto } : {}), ...(funnelsDeBloque(c.general).length ? { funnels: funnelsDeBloque(c.general) } : {}), ...(c.general.opciones ? { opciones: c.general.opciones } : {}) }] : [])),
           graficos: h.componentes.filter(esGrafico).map((g) => tituloDe(g)),
           textos: h.componentes.filter((c) => esElemento(c) && c.tipo === 'texto').map((c) => (esElemento(c) ? c.texto.slice(0, 80) : '')),
         })),
@@ -857,17 +903,17 @@ export const RUNNERS: Runners = {
       const titulo = (str(input, 'titulo') ?? '').slice(0, 80);
       // El funnel: sólo en los bloques que saben atarse a uno, y uno que EXISTE (por id o por nombre exacto).
       const pedidoFunnel = str(input, 'funnel');
-      let funnel: FunnelDeGeneral | null = null;
+      let elegidos: FunnelDeGeneral[] = [];
       if (pedidoFunnel) {
         const f = await funnelPedido(pieza, pedidoFunnel);
         if ('error' in f) return f;
-        funnel = f.funnel;
+        elegidos = f.funnels;
       }
       const op = opcionesPedidas(pieza, input.opciones);
       if ('error' in op) return op;
       return {
-        payload: { sub: e.persona.sub, hojaId: hoja.id, pieza, titulo, ...(funnel ? { funnel: funnel.id } : {}), ...(op.opciones ? { opciones: op.opciones } : {}) },
-        resumen: `Agregar «${piezaGeneral(pieza).nombre}»${funnel ? ` del funnel «${funnel.nombre}»` : ''} al final de la hoja «${hoja.nombre}» de General${titulo ? `, con el título «${titulo}»` : ''}.`,
+        payload: { sub: e.persona.sub, hojaId: hoja.id, pieza, titulo, ...(elegidos.length ? { funnels: elegidos.map((f) => f.id) } : {}), ...(op.opciones ? { opciones: op.opciones } : {}) },
+        resumen: `Agregar «${piezaGeneral(pieza).nombre}»${elegidos.length ? ` de ${elegidos.length > 1 ? 'los funnels' : 'el funnel'} ${nombresTxt(elegidos)}` : ''} al final de la hoja «${hoja.nombre}» de General${titulo ? `, con el título «${titulo}»` : ''}.`,
       };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
@@ -881,7 +927,8 @@ export const RUNNERS: Runners = {
         const info = piezaGeneral(pieza);
         const elemento = sanearElemento({
           id: nuevoId(), clase: 'elemento', tipo: 'general', texto: String(payload.titulo ?? ''),
-          general: { pieza, ...(typeof payload.funnel === 'number' ? { funnel: payload.funnel } : {}), ...(payload.opciones ? { opciones: sanearOpciones(pieza, payload.opciones) } : {}) },
+          // `funnels` (desde el 17/10) o `funnel` (una propuesta de antes, todavía sin confirmar): los dos, como lista.
+          general: { pieza, ...atarFunnels(pieza, funnelsDeBloque(payload)), ...(payload.opciones ? { opciones: sanearOpciones(pieza, payload.opciones) } : {}) },
           x: 0, y: abajoDeTodo(hoja.componentes), w: info.w, h: info.h,
         });
         if (!elemento) return { ok: false, resumen: 'El bloque no es válido: no se agregó.' };
@@ -920,12 +967,12 @@ export const RUNNERS: Runners = {
       if (titulo != null) { cambios.titulo = titulo.slice(0, 80); partes.push(titulo ? `el título a «${titulo.slice(0, 80)}»` : 'el título al de siempre'); }
       const pedidoFunnel = str(input, 'funnel');
       if (pedidoFunnel != null) {
-        if (/^ningun[oa]?$/i.test(pedidoFunnel.trim())) { cambios.funnel = null; partes.push('el funnel al de siempre'); }
+        if (/^ningun[oa]?$/i.test(pedidoFunnel.trim())) { cambios.funnels = null; partes.push('el funnel al de siempre'); }
         else {
           const f = await funnelPedido(pieza, pedidoFunnel);
           if ('error' in f) return f;
-          cambios.funnel = f.funnel.id;
-          partes.push(`el funnel a «${f.funnel.nombre}»`);
+          cambios.funnels = f.funnels.map((x) => x.id);
+          partes.push(`${f.funnels.length > 1 ? 'los funnels' : 'el funnel'} a ${nombresTxt(f.funnels)}`);
         }
       }
       if (!partes.length) return { error: 'No pasaste nada para cambiar (opciones, título o funnel).' };
@@ -942,11 +989,13 @@ export const RUNNERS: Runners = {
         const c = hoja?.componentes.find((x) => x.id === payload.elementoId);
         if (!hoja || !c || !esElemento(c) || c.tipo !== 'general' || !c.general) return { ok: false, resumen: 'Ese bloque ya no está en su General: no se cambió.' };
         const g = c.general;
-        const funnel = payload.funnel === null ? undefined : typeof payload.funnel === 'number' ? payload.funnel : g.funnel;
+        // null = «ninguno»; sin el campo, los que tenía. Una propuesta de antes del 17/10 trae `funnel` (uno).
+        const ids = payload.funnels === null || payload.funnel === null ? []
+          : 'funnels' in payload || 'funnel' in payload ? funnelsDeBloque(payload) : funnelsDeBloque(g);
         const crudo = {
           ...c,
           texto: typeof payload.titulo === 'string' ? payload.titulo : c.texto,
-          general: { pieza: g.pieza, ...(funnel != null ? { funnel } : {}), opciones: payload.opciones ?? g.opciones },
+          general: { pieza: g.pieza, ...atarFunnels(g.pieza, ids), opciones: payload.opciones ?? g.opciones },
         };
         const nuevo = sanearElemento(crudo);
         if (!nuevo) return { ok: false, resumen: 'El bloque no quedó válido: no se cambió.' };
@@ -962,16 +1011,28 @@ export const RUNNERS: Runners = {
   },
 };
 
-/** El funnel que se pidió para un bloque: sólo en los que saben atarse a uno, y uno que EXISTE (por id o por nombre exacto). */
-async function funnelPedido(pieza: PiezaGeneral, pedido: string): Promise<{ funnel: FunnelDeGeneral } | { error: string }> {
+/**
+ * El funnel (o los funnels) que se pidió para un bloque: sólo en los que saben atarse, y que EXISTAN (por id o por
+ * nombre exacto). «A quién cobrarle» acepta varios separados por coma (17/10/2026); «Tu funnel hoy», uno.
+ */
+async function funnelPedido(pieza: PiezaGeneral, pedido: string): Promise<{ funnels: FunnelDeGeneral[] } | { error: string }> {
   if (!piezaPorFunnel(pieza)) return { error: `«${piezaGeneral(pieza).nombre}» mide el negocio entero: no se ata a un funnel.` };
   const funnels = await leerFunnelsDeGeneral();
   if (!funnels) return { error: 'No pude leer los funnels del negocio: vuelve a pedirlo en un rato.' };
-  const n = pedido.trim().toLowerCase();
-  const hay = funnels.filter((f) => String(f.id) === n || f.nombre.trim().toLowerCase() === n);
-  if (hay.length !== 1) return { error: hay.length ? `Hay ${hay.length} funnels que se llaman «${pedido}»: pasa su id.` : `No hay un funnel «${pedido}». Son: ${funnels.map((f) => `${f.id} · ${f.nombre}`).join(', ')}.` };
-  return { funnel: hay[0] };
+  const partes = pedido.split(',').map((x) => x.trim()).filter(Boolean);
+  if (partes.length > 1 && !piezaPorVariosFunnels(pieza)) return { error: `«${piezaGeneral(pieza).nombre}» cuenta las etapas de UN funnel: pasa uno solo.` };
+  const elegidos: FunnelDeGeneral[] = [];
+  for (const p of partes) {
+    const n = p.toLowerCase();
+    const hay = funnels.filter((f) => String(f.id) === n || f.nombre.trim().toLowerCase() === n);
+    if (hay.length !== 1) return { error: hay.length ? `Hay ${hay.length} funnels que se llaman «${p}»: pasa su id.` : `No hay un funnel «${p}». Son: ${funnels.map((f) => `${f.id} · ${f.nombre}`).join(', ')}.` };
+    if (!elegidos.includes(hay[0])) elegidos.push(hay[0]);
+  }
+  if (!elegidos.length) return { error: 'No pasaste ningún funnel.' };
+  return { funnels: elegidos };
 }
+
+const nombresTxt = (fs: readonly FunnelDeGeneral[]) => fs.map((f) => `«${f.nombre}»`).join(' y ');
 
 /**
  * Las opciones que se pidieron para un bloque: un valor que no existe es un error (dice cuáles hay), no se tira en

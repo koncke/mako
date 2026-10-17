@@ -1198,6 +1198,264 @@ async function ejecutar(trabajo) {
   return { id: trabajo.id, ok: true, data };
 }
 
+// ── EL MOTOR POR INTERFAZ ────────────────────────────────────────────────────
+//
+// Generar video, generar imagen y subir la foto se hacen apretando los botones
+// reales de Flow en la pestaña de la persona (`flow-interfaz.js`). El porqué está
+// en la cabecera de ese archivo y en docs/hallazgos-generativa.md.
+//
+// ⚠️ UN TRABAJO DE INTERFAZ NO DEVUELVE SU RESULTADO EN EL MISMO CICLO. Un video
+// tarda minutos, y este ciclo no puede quedarse esperando: el latido es lo que le
+// dice a MaKo que el navegador está vivo (`VIVO_MS`, dos minutos). Así que:
+//
+//   · al llegar, el trabajo se anota en storage (`interfaz:<id>`, fase `espera`)
+//     y queda TOMADO del lado del server;
+//   · cada latido manda `enCurso` y el server le renueva el `tomado_at`, para que
+//     el rescate de diez minutos no lo reparta de nuevo mientras se trabaja;
+//   · de a UNO por vez, la pestaña lo corre y escribe en storage cómo va;
+//   · cuando termina, el latido siguiente manda el resultado con el id ORIGINAL.
+//
+// De a uno porque un video en reposo no tiene id en la grilla: se lo reconoce
+// por haberlo visto nacer arriba, y con dos en vuelo no se sabría cuál es cuál.
+
+const TIPO_INTERFAZ = { generar_clip: 'video', generar_imagen: 'imagen', subir_imagen: 'subida' };
+const CLAVE_INTERFAZ_IDS = 'interfazIds';
+const claveInterfaz = (id) => `interfaz:${id}`;
+const FASES_EN_CURSO = ['espera', 'preparando', 'enviado', 'generando'];
+/** Un trabajo que no pudo ni empezar en este rato se devuelve: no gastó nada. */
+const ESPERA_MAX_MS = 5 * 60 * 1000;
+/** Los registros cerrados se guardan un día, por si el server reparte de nuevo. */
+const REGISTRO_MAX_MS = 24 * 60 * 60 * 1000;
+let mudoSeguidas = 0;
+
+function esDeInterfaz(trabajo) {
+  return !!(trabajo && trabajo.pedido && trabajo.pedido.motor === 'interfaz' && TIPO_INTERFAZ[trabajo.tipo]);
+}
+
+async function registrosInterfaz() {
+  const ids = (await chrome.storage.local.get(CLAVE_INTERFAZ_IDS))[CLAVE_INTERFAZ_IDS] || [];
+  if (!ids.length) return [];
+  const v = await chrome.storage.local.get(ids.map(claveInterfaz));
+  return ids.map((id) => (v[claveInterfaz(id)] ? { ...v[claveInterfaz(id)], id } : null)).filter(Boolean);
+}
+
+async function guardarRegistro(id, cambios) {
+  const k = claveInterfaz(id);
+  const actual = (await chrome.storage.local.get(k))[k] || {};
+  await chrome.storage.local.set({ [k]: { ...actual, ...cambios, cuando: Date.now() } });
+  const ids = (await chrome.storage.local.get(CLAVE_INTERFAZ_IDS))[CLAVE_INTERFAZ_IDS] || [];
+  if (!ids.includes(id)) await chrome.storage.local.set({ [CLAVE_INTERFAZ_IDS]: [...ids, id] });
+}
+
+/** Lo que le contesta a MaKo un registro cerrado, con el id del trabajo ORIGINAL. */
+function resultadoDeRegistro(r) {
+  if (r.fase === 'listo') {
+    if (r.tipo === 'subida') return { id: r.id, ok: true, data: { motor: 'interfaz', media: { name: r.mediaId } } };
+    if (r.tipo === 'imagen') {
+      return { id: r.id, ok: true, data: { motor: 'interfaz', imagenes: [{ url: r.url || '', mediaId: r.mediaId || '' }], propio: !!r.propio } };
+    }
+    return { id: r.id, ok: true, data: { motor: 'interfaz', mediaId: r.mediaId || '', url: r.url || '', propio: !!r.propio } };
+  }
+  // ⚠️ SE REINTENTA SOLO CON `salio === false` EXPLÍCITO. Un registro que no lo
+  // dice —uno de una versión vieja, uno cortado a la mitad— se trata como pagado.
+  const salioNo = r.salio === false;
+  return {
+    id: r.id,
+    ok: false,
+    motivo: salioNo ? 'transitorio' : (r.motivo === 'contenido' ? 'contenido' : 'permanente'),
+    error: r.error || 'Flow no pudo generarlo.',
+    reintentable: salioNo && !r.noReintentar,
+  };
+}
+
+/** Llega un trabajo de interfaz: se anota y queda tomado. NUNCA se corre dos veces. */
+async function recibirDeInterfaz(trabajo) {
+  const previo = (await chrome.storage.local.get(claveInterfaz(trabajo.id)))[claveInterfaz(trabajo.id)];
+  if (previo) {
+    // Ya lo tenemos. Si terminó y el server lo vuelve a repartir (el rescate de
+    // colgados), se reenvía el resultado; si sigue en curso, no se hace nada.
+    if (previo.fase === 'listo' || previo.fase === 'fallo') await guardarRegistro(trabajo.id, { reportado: false });
+    return;
+  }
+  await guardarRegistro(trabajo.id, {
+    trabajoTipo: trabajo.tipo,
+    tipo: TIPO_INTERFAZ[trabajo.tipo],
+    fase: 'espera',
+    salio: false,
+    desde: Date.now(),
+    pedido: trabajo.pedido,
+  });
+}
+
+async function hablarConInterfaz(tabId, msg) {
+  try { return await chrome.tabs.sendMessage(tabId, msg); } catch { return null; }
+}
+
+/** Pone (o repone) el motor en la pestaña. Un script de una versión vieja no sirve. */
+async function asegurarInterfaz(tabId) {
+  const v = chrome.runtime.getManifest().version;
+  const r = await hablarConInterfaz(tabId, { tipo: 'INTERFAZ_ESTADO' });
+  if (r && r.version === v) return r;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['flow-interfaz.js'] });
+  } catch (e) {
+    console.warn('[mako] no se pudo poner el motor de interfaz:', e);
+    return null;
+  }
+  return hablarConInterfaz(tabId, { tipo: 'INTERFAZ_ESTADO' });
+}
+
+/** El estado del motor en la pestaña de Flow, para el juicio de «puede filmar». */
+async function estadoInterfaz() {
+  let tab;
+  try { tab = await pestanaDeFlow(); } catch (e) {
+    return { puede: false, porQue: String((e && e.message) || 'NO_FLOW_TAB') };
+  }
+  if (!esFlowNuevo(tab.url)) return { puede: false, porQue: 'INTERFAZ_FLOW_VIEJO' };
+  return (await asegurarInterfaz(tab.id)) || { puede: false, porQue: 'INTERFAZ_MUDA' };
+}
+
+/**
+ * La página de MAIN atrapa el `input.click()` del menú «Upload» y le entrega la
+ * foto, sin abrir el diálogo del sistema. Va en MAIN porque el clic lo hace el
+ * código de Flow, y ese no ve los prototipos del mundo aislado.
+ */
+function instalarAtrapaArchivo() {
+  if (window.__makoAtrapaArchivo) return;
+  window.__makoAtrapaArchivo = true;
+  let pendiente = null;
+  window.addEventListener('message', (ev) => {
+    if (ev.source !== window || !ev.data || !ev.data.makoArchivo) return;
+    pendiente = ev.data.makoArchivo;
+    setTimeout(() => { pendiente = null; }, 20000);
+  });
+  const entregar = (input) => {
+    const a = pendiente;
+    pendiente = null;
+    const bin = atob(a.b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const dt = new DataTransfer();
+    dt.items.add(new File([bytes], a.nombre, { type: a.tipo }));
+    input.files = dt.files;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const click = HTMLInputElement.prototype.click;
+  HTMLInputElement.prototype.click = function () {
+    if (this.type === 'file' && pendiente) return entregar(this);
+    return click.call(this);
+  };
+  const ver = HTMLInputElement.prototype.showPicker;
+  if (ver) {
+    HTMLInputElement.prototype.showPicker = function () {
+      if (this.type === 'file' && pendiente) return entregar(this);
+      return ver.call(this);
+    };
+  }
+}
+
+/** La misma url con `hl=en`: los rótulos que busca el motor son los de la interfaz en inglés. */
+function enIngles(url) {
+  try { const u = new URL(url); u.searchParams.set('hl', 'en'); return u.toString(); } catch { return url; }
+}
+
+/** Deja la pestaña lista para que el motor trabaje: despierta, en inglés y con el script. */
+async function pestanaParaInterfaz() {
+  const tab = await pestanaDeFlow();
+  if (!esFlowNuevo(tab.url) || !enProyectoDeFlow(tab.url)) throw new Error('NO_FLOW_TAB');
+  // Chrome duerme las pestañas que no se miran: la de Flow, mientras genera, no.
+  try { await chrome.tabs.update(tab.id, { autoDiscardable: false }); } catch { /* no es grave */ }
+  let est = await asegurarInterfaz(tab.id);
+  if (est && est.idioma && !/^en\b/.test(est.idioma) && !est.ocupado) {
+    await chrome.tabs.update(tab.id, { url: enIngles(tab.url) });
+    await esperarCarga(tab.id);
+    await new Promise((r) => setTimeout(r, 2500));
+    est = await asegurarInterfaz(tab.id);
+  }
+  if (!est) throw new Error('PUENTE_MUDO');
+  return { tab, est };
+}
+
+/**
+ * Un paso del motor por latido: cierra lo que quedó huérfano o arranca el
+ * siguiente. Nunca hay dos en vuelo.
+ */
+async function avanzarInterfaz({ arrancar = true } = {}) {
+  const regs = await registrosInterfaz();
+  const ahora = Date.now();
+
+  // Limpieza: lo cerrado y reportado hace más de un día ya no lo va a pedir nadie.
+  const viejos = regs.filter((r) => !FASES_EN_CURSO.includes(r.fase) && r.reportado && ahora - (r.cuando || 0) > REGISTRO_MAX_MS);
+  if (viejos.length) {
+    await chrome.storage.local.remove(viejos.map((r) => claveInterfaz(r.id)));
+    const quedan = regs.filter((r) => !viejos.includes(r)).map((r) => r.id);
+    await chrome.storage.local.set({ [CLAVE_INTERFAZ_IDS]: quedan });
+  }
+
+  const enVuelo = regs.find((r) => ['preparando', 'enviado', 'generando'].includes(r.fase));
+  if (enVuelo) {
+    // ¿Lo sigue alguien? Si la pestaña contesta y está libre, el script que lo
+    // seguía murió (una recarga, la pestaña cerrada): se cierra el registro. Si
+    // no contesta, se le dan tres latidos antes de darlo por perdido.
+    let est = null;
+    try { est = await hablarConInterfaz((await pestanaDeFlow()).id, { tipo: 'INTERFAZ_ESTADO' }); } catch { est = null; }
+    if (est && est.ocupado === enVuelo.id) { mudoSeguidas = 0; return; }
+    if (!est && ++mudoSeguidas < 3) return;
+    mudoSeguidas = 0;
+    if (ahora - (enVuelo.cuando || 0) < 20000) return;
+    await guardarRegistro(enVuelo.id, enVuelo.salio === false
+      ? { fase: 'fallo', motivo: 'transitorio', error: 'La pestaña de Flow se cerró antes de empezar.' }
+      : { fase: 'fallo', motivo: 'permanente', codigo: 'RECARGADA', error: 'La pestaña de Flow se recargó mientras generaba. Lo pedido quedó en tu proyecto de Flow y MaKo no lo volvió a pedir.' });
+    return;
+  }
+
+  const espera = regs.filter((r) => r.fase === 'espera').sort((a, b) => (a.desde || 0) - (b.desde || 0));
+  if (!espera.length) return;
+  const r = espera[0];
+  if (ahora - (r.desde || ahora) > ESPERA_MAX_MS) {
+    // No gastó nada: se devuelve para que lo tome otro latido (o se reintente).
+    await guardarRegistro(r.id, { fase: 'fallo', motivo: 'transitorio', error: 'No hubo una pestaña de Google Flow lista para hacerlo.' });
+    return;
+  }
+  // Con la sesión marcada o la pestaña sin poder filmar no se arranca nada: sólo
+  // se cierra lo que venció, que es lo que evita un «encolado» para siempre.
+  if (!arrancar) return;
+  // El ritmo de una persona: entre una generación y la siguiente, el cooldown
+  // del server y unos segundos más, que no son siempre los mismos.
+  const pausa = cooldownMs + 3000 + Math.floor(Math.random() * 9000);
+  if (ahora - (await ultimaLlamadaFlow()) < pausa) return;
+
+  let lista;
+  try { lista = await pestanaParaInterfaz(); } catch { return; }
+  if (r.tipo === 'subida') {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: lista.tab.id }, world: 'MAIN', func: instalarAtrapaArchivo });
+    } catch { /* el motor prueba con el input directo */ }
+  }
+  const pedido = { ...(r.pedido || {}), trabajoId: r.id, tipo: r.tipo };
+  const resp = await hablarConInterfaz(lista.tab.id, { tipo: 'INTERFAZ_CORRER', pedido });
+  if (!resp || !resp.aceptado) return;
+  // El pedido ya está en la pestaña: no se guarda dos veces (la foto pesa).
+  await guardarRegistro(r.id, { fase: 'preparando', pedido: null });
+  await marcarLlamadaFlow();
+}
+
+/** Lo que el latido le cuenta a MaKo del motor: lo terminado y lo que sigue en curso. */
+async function cosecharInterfaz() {
+  const regs = await registrosInterfaz();
+  const cerrados = regs.filter((r) => (r.fase === 'listo' || r.fase === 'fallo') && !r.reportado);
+  return {
+    resultados: cerrados.map(resultadoDeRegistro),
+    ids: cerrados.map((r) => r.id),
+    enCurso: regs.filter((r) => FASES_EN_CURSO.includes(r.fase)).map((r) => r.id),
+  };
+}
+
+async function marcarReportados(ids) {
+  for (const id of ids) await guardarRegistro(id, { reportado: true });
+}
+
 // ── El ciclo ─────────────────────────────────────────────────────────────────
 
 async function ciclo() {
@@ -1313,7 +1571,8 @@ async function ciclo() {
 
     if (enFlowNuevo) {
       const guardadas = (await chrome.storage.local.get(CLAVE_PLANTILLAS))[CLAVE_PLANTILLAS] || {};
-      const ensayo = puedeFilmar(guardadas, A_PEDIR);
+      // Con el motor por interfaz, lo que decide es la PESTAÑA: ver `puedeFilmar`.
+      const ensayo = puedeFilmar(guardadas, A_PEDIR, await estadoInterfaz());
       if (!ensayo.puede) {
         estado = 'sin_sesion';
         // ⚠️ DIAGNOSTICO, NO COPY. Termina en la base para quien lea buscando por
@@ -1524,6 +1783,10 @@ async function ciclo() {
     }
 
     const pendientes = (await chrome.storage.local.get('pendientes')).pendientes || [];
+    // Lo que el motor por interfaz terminó, con el id del trabajo original, y lo
+    // que sigue en curso (el server le renueva el `tomado_at`). Va aparte de
+    // `pendientes` porque se marca como reportado recién con el latido bueno.
+    const cosecha = await cosecharInterfaz().catch(() => ({ resultados: [], ids: [], enCurso: [] }));
 
     // Lo que este navegador aprendio de Flow, para que no se pierda con el perfil.
     // Se manda solo cuando CAMBIO: son decenas de KB y el latido es cada 15 s.
@@ -1566,7 +1829,8 @@ async function ciclo() {
       // Un artefacto que se distribuye COPIADO se desincroniza el mismo dia. Si
       // no dice su version, cada diagnostico arranca preguntando.
       body: JSON.stringify({
-        token, projectId, estado, detalle, resultados: pendientes, cuantos: LOTE,
+        token, projectId, estado, detalle, resultados: [...pendientes, ...cosecha.resultados], cuantos: LOTE,
+        enCurso: cosecha.enCurso,
         version: chrome.runtime.getManifest().version,
         // La MEDICION del captcha. Vivia solo en la consola del service worker, o
         // sea que para leerla habia que pedirle a una persona que abriera DevTools
@@ -1624,6 +1888,7 @@ async function ciclo() {
     // quedan y se reintentan — perder un resultado deja al cliente mirando
     // «generando…» sobre algo que en realidad terminó.
     await chrome.storage.local.set({ pendientes: [] });
+    await marcarReportados(cosecha.ids);
 
     if (typeof out.cooldownMs === 'number') cooldownMs = out.cooldownMs;
 
@@ -1761,7 +2026,10 @@ async function ciclo() {
 
     await anotarVersionEsperada(out.versionEsperada);
 
-    if (out.pausado || estado !== 'listo') return;
+    if (out.pausado || estado !== 'listo') {
+      try { await avanzarInterfaz({ arrancar: false }); } catch { /* sólo limpieza */ }
+      return;
+    }
 
     const cola = out.trabajos || [];
     const nuevos = [];
@@ -1789,6 +2057,13 @@ async function ciclo() {
       // guarda vale a traves de ciclos, de latidos y de reinicios del service
       // worker — y de paso desaparece la espera inutil despues del ultimo
       // trabajo, que era la mitad de lo que se venia a arreglar.
+      // ⚠️ LOS DE INTERFAZ NO SE CORREN ACÁ: se anotan y quedan tomados. Los corre
+      // `avanzarInterfaz`, de a uno, y su resultado viaja en un latido posterior.
+      // No pasan por el cooldown de abajo porque anotarlos no le habla a Google.
+      if (esDeInterfaz(t)) {
+        await recibirDeInterfaz(t);
+        continue;
+      }
       const falta = cooldownMs - (Date.now() - (await ultimaLlamadaFlow()));
       if (falta > 0) await new Promise((r) => setTimeout(r, falta));
       try {
@@ -1853,6 +2128,8 @@ async function ciclo() {
       await marcarLlamadaFlow();
       if (frenar) break;
     }
+    // Un paso del motor por interfaz: arranca el siguiente o cierra un huérfano.
+    try { await avanzarInterfaz(); } catch (e) { console.warn('[mako] motor de interfaz:', e); }
     if (nuevos.length) {
       await chrome.storage.local.set({ pendientes: nuevos });
       hizoAlgo = true;
@@ -2492,6 +2769,13 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     return false;
   }
 
+  // El reloj del motor por interfaz. La pestaña de Flow está de fondo y Chrome le
+  // frena los timers (hasta uno por minuto); el del service worker no.
+  if (msg?.tipo === 'INTERFAZ_DORMIR') {
+    setTimeout(() => responder({ ok: true }), Math.max(0, Math.min(Number(msg.ms) || 0, 30000)));
+    return true;
+  }
+
   // ⚠️ ESTADO SE LEE DE STORAGE, NO DE LOS GLOBALES.
   //
   // Contestaba `{ conectado: !!bearer }` de forma SINCRONA, leyendo un global que
@@ -2521,6 +2805,10 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         // «aprendio» sin decir QUE no es una respuesta cuando son cinco.
         let ops = {};
         let siguiente = null;
+        // El juicio entero, para que el popup no pueda leer «no falta nada que
+        // enseñar» como «puede filmar»: con el motor por interfaz no se enseña nada
+        // y aun así la pestaña puede no estar lista.
+        let juicio = null;
         // ⚠️ SI LA GUARDIA TUVO QUE DEVOLVER LA PESTAÑA, hay que decirlo. Sin esto,
         // la persona ve que Flow «se movió solo» y no sabe que fue MaKo — que es
         // peor que no haberla movido: parece que el navegador hace cosas raras.
@@ -2584,7 +2872,11 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           // Ademas es lo que hace que `cuantasListas` y `siguiente` no puedan
           // contradecirse: salen del mismo juicio.
           for (const o of A_PEDIR) ops[o.op] = ensayarOperacion(guardadas, o).puede;
-          const ensayo = puedeFilmar(guardadas, A_PEDIR);
+          // El MISMO juicio que el latido, con la misma pregunta a la pestaña: con el
+          // motor por interfaz no hay nada que enseñar, y el popup no puede pedirlo.
+          const ensayo = puedeFilmar(guardadas, A_PEDIR, await estadoInterfaz());
+          if (ensayo.motor === 'interfaz') for (const o of A_PEDIR) ops[o.op] = ensayo.puede;
+          juicio = { motor: ensayo.motor || 'plantilla', puede: ensayo.puede, porQue: ensayo.porQue };
           const falta = ensayo.falta ? A_PEDIR.find((o) => o.op === ensayo.falta) : null;
           siguiente = falta
             ? {
@@ -2636,6 +2928,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           espejoViejo,
           ops,
           siguiente,
+          juicio,
           // ⚠️ EL «N de M» CUENTA LO QUE SE PIDE, no todo lo que el puente necesita.
           // Contar las que se aprenden solas hace que el numero no baje haga lo que
           // haga la persona — un progreso que no se mueve se lee como que esta roto.

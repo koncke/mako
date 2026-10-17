@@ -107,6 +107,11 @@ export type Paso =
      * correo al equipo del negocio, con este asunto crudo (sus datos se resuelven al mandar). Lo pone `pasosDelEvento`.
      */
     email?: { asunto: string };
+    /**
+     * SÓLO la tarjeta MaKo de una fila de EVENTO (17/10/2026, `SinGrupo`, lib/mako-tarjeta.ts): sin grupo de MaKo, también
+     * un correo al equipo. Ausente = queda en la app. Lo pone `pasosDelEvento`.
+     */
+    sinGrupo?: 'email';
   }
   | PasoAccion
   | { tipo: 'esperar'; horas: number }

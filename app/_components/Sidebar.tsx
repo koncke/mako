@@ -35,6 +35,7 @@ import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
 import { SaldoMaKo } from './SaldoMaKo';
+import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -433,6 +434,8 @@ export function Sidebar() {
   }, [pathname]);
 
   const adminShell = rol === 'admin' && !impersonando;
+  /** La campanita de avisos: sólo quien administra el negocio (la ruta le devuelve vacío a un closer o setter). */
+  const veAvisos = rolWs === 'admin' || adminShell;
 
   // Filtro de tabs, dos ejes independientes:
   //  · ROL  — closer/setter solo ven las tabs anotadas con su rol en nav.ts.
@@ -583,7 +586,8 @@ export function Sidebar() {
     const chequear = () => {
       const encima = panelRef.current?.matches(':hover')
         || document.getElementById('grp-flyout')?.matches(':hover')
-        || document.getElementById('user-menu')?.matches(':hover');
+        || document.getElementById('user-menu')?.matches(':hover')
+        || document.getElementById(ID_PANEL_AVISOS)?.matches(':hover');
       if (encima) { collapseTimer.current = setTimeout(chequear, 180); return; }
       setExpanded(false);
     };
@@ -726,10 +730,15 @@ export function Sidebar() {
           {MAKO_NAV.filter((it) => adminShell || (puedeVer(it) && !veSecondBrainEnAnalyze)).map((it) => (
             <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
           ))}
-          <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}
-            style={identidadStyle(open, userOpen)}>
-            <Identidad open={open} nombre={nombreVisible} avatar={avatarVisible} subrotulo={impersonando ? 'Cliente' : 'Cuenta'} />
-          </button>
+          {/* LA CAMPANITA (17/10/2026, app/_components/CampanitaAvisos.tsx) va en la fila de la identidad y no en una propia:
+              la columna ya scrollea en 1024×768. Plegada, un punto sobre la foto. Sólo el admin: los avisos son del negocio. */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 2 }}>
+            <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}
+              style={{ ...identidadStyle(open, userOpen), flex: 1, minWidth: 0, width: 'auto' }}>
+              <Identidad open={open} nombre={nombreVisible} avatar={avatarVisible} subrotulo={impersonando ? 'Cliente' : 'Cuenta'} />
+            </button>
+            {veAvisos && <CampanitaAvisos open={open} pathname={pathname} onAbrir={() => { setUserOpen(false); setFlyout(null); }} />}
+          </div>
         </div>
       </div>
 

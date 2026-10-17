@@ -72,6 +72,7 @@ export const DEFS: readonly OperacionDef[] = [
     // 14/10/2026 (Martín: «agregar el calendly o cal, para agendar llamadas»). El MISMO link que «Crear › Agendar
     // llamada» de la pantalla (lib/agenda-link.ts): Calendly o, si no hay, Cal.com. No lee ninguna agenda.
     id: 'link_agenda_llamada', area: 'calendario', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Link para agendar una llamada',
     descripcion: 'La página pública de reserva del negocio para la primera reunión (R1) o la segunda (R2): la de Calendly o, si no tiene Calendly, la de Cal.com. Es lo que se manda para que alguien agende una llamada; la reserva entra sola al CRM y al Calendario. Si no hay ninguna conectada, devuelve `url: null` con el motivo. Para el link de Calendly con el nombre y el email de un lead ya puestos, usa link_agenda_calendly.',
     parametros: [

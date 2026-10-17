@@ -19,7 +19,7 @@ import { Icon } from '@/app/_components/icons';
 import { carteroVivo } from '@/lib/operaciones-reglas';
 import { nombreCuenta } from '@/lib/centro-chats';
 import { hace } from '@/lib/progreso-reglas';
-import { COMANDO_TERMINAL } from '@/lib/runner';
+import { COMANDO_TERMINAL, tieneTerminal } from '@/lib/runner';
 import { estadoRunnerUso, textoReinicio, usoDeCuenta, usoPrincipal, type Cuota, type UsoVentana } from '@/lib/centro-uso';
 
 export type CuentaUso = { cuenta: string; vistoAt: string | null; cuota: Cuota | null };
@@ -52,6 +52,8 @@ export function ListaUso({ cuentas, ahora, onCopiar }: {
         const estado = estadoRunnerUso(carteroVivo(k, ahora), k.cuota, ahora);
         const vivo = estado === 'mide';
         const u = usoDeCuenta(k.cuota, ahora);
+        // Sólo las cuentas con su función en el $PROFILE tienen comando; la de la app abre su Runner en la app.
+        const copiable = onCopiar && tieneTerminal(k.cuenta) ? onCopiar : null;
         return (
           <section key={k.cuenta} className="co-uso__cuenta" aria-label={nombreCuenta(k.cuenta) ?? k.cuenta}>
             <div className="co-uso__fila">
@@ -63,8 +65,8 @@ export function ListaUso({ cuentas, ahora, onCopiar }: {
             </div>
             {!vivo && (
               <div className="co-uso__fila">
-                <p className="co-uso__hacer">{onCopiar ? 'Pega su comando en PowerShell para conectarlo' : 'Abre su Runner en la PC para conectarlo'}</p>
-                {onCopiar && <button type="button" className="co-chip" onClick={() => onCopiar(COMANDO_TERMINAL(k.cuenta), 'Copiado: pégalo en PowerShell')}><Icon name="copy" size={14} />Copiar</button>}
+                <p className="co-uso__hacer">{copiable ? 'Pega su comando en PowerShell para conectarlo' : !tieneTerminal(k.cuenta) ? 'Abre su Runner en la app de Claude para conectarlo' : 'Abre su Runner en la PC para conectarlo'}</p>
+                {copiable && <button type="button" className="co-chip" onClick={() => copiable(COMANDO_TERMINAL(k.cuenta), 'Copiado: pégalo en PowerShell')}><Icon name="copy" size={14} />Copiar</button>}
               </div>
             )}
             {u.cinco || u.semana ? (

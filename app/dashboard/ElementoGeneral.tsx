@@ -25,7 +25,8 @@ import { createContext, useContext, type ReactNode } from 'react';
 import type { Elemento } from '@/lib/graficos-catalogo';
 import { conVariables, opcionDe, piezaGeneral, type OpcionesElegidas, type PiezaGeneral, type ValoresVariables } from '@/lib/general-piezas';
 
-export type FunnelElegible = { id: number; nombre: string };
+export type { FunnelElegible } from '../components/ElegirFunnels';
+import type { FunnelElegible } from '../components/ElegirFunnels';
 
 /** Lo que General le presta al editor (lo monta app/general/ProveedorGeneral.tsx). */
 export type ContextoDeGeneral = {
