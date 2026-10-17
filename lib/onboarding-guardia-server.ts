@@ -11,7 +11,7 @@ import { getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin, OWNER_WS, getWorkspace } from './workspace';
 import { clientIp, rateLimit } from './rate-limit';
 import { sendEmail } from './resend';
-import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
+import { EMAIL_MAKO, REMITENTE_MAKO, linkApp } from './app-url';
 import {
   CLAVE_GUARDIA, MENSAJE_BLOQUEADO, MENSAJE_FALTA, MENSAJE_RAPIDO, TOPES, conFalta, contar, decidir, desbloquear, falta, parseGuardia,
   type EstadoGuardia, type TipoPedido,
@@ -92,7 +92,7 @@ async function avisarBloqueo(ws: number, e: EstadoGuardia): Promise<void> {
     ...(e.ultimasFaltas ?? []).map((x) => `· ${x}`),
     '',
     'Mientras esté bloqueado no puede seguir el onboarding ni gastar IA. Para desbloquearlo, entra a su vista y toca «Desbloquear»:',
-    `${APP_BASE_URL}/onboarding?ws=${ws}`,
+    linkApp('/onboarding', ws),
   ].join('\n');
   const r = await runWithWorkspace(plataforma, () => sendEmail({
     from: REMITENTE_MAKO, replyTo: EMAIL_MAKO, to: para,
