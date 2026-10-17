@@ -5208,11 +5208,24 @@ test: `tests/equipo-contesto.test.ts`
   Lo que va después de `: usa "…": "…"` es sólo para el modelo (`paraLaPersona` lo corta).
 - ⚠️ **El log dice «resolvió con la RED DE PLATAFORMA» cuando `validar` acepta**, y con `pararEnRevision` acepta
   también una salida con errores para cortar la cascada: esa línea ya no prueba que la salida sirvió.
-- **Sin hacer:** un proveedor colgado sigue costando hasta 100 s por intento (`timeoutMs` de `pasada`). No se bajó: el
-  OpenRouter gratis tardó 97 s en una salida buena de ws10 el 16/10.
+- **Lo que faltaba, hecho (17/10, segunda mitad):** el tope de un intento bajó de 100 a 45 s (`INTENTO_CREAR_MS`).
+  ⚠️ **Lo de arriba se había dejado sin hacer por un dato mal leído**: «OpenRouter tardó 97 s en una salida buena de ws10».
+  En `anthropic_usage` (14 días, 36 llamadas), después de esa salida la cascada SIGUIÓ (otro OpenRouter a los 76 s y el
+  crédito de Claude), o sea que no se aceptó. Ninguna salida de más de 45 s fue la que quedó; las aceptadas tardan
+  segundos (mediana 11 s entre intentos). Un registro en `anthropic_usage` dice que llegó una respuesta, no que sirvió.
+- **«Que diga en qué está»:** la cascada avisa al ARRANCAR cada pedido a un proveedor (`alIntentar` de
+  `chatCheapCascade`, opcional y sin poder frenarla), y desde el segundo la fase dice «· intento 2» al lado del reloj. Lo
+  manda la ruta cuando pasa, no un temporizador del navegador: decir «probando otra IA» por tiempo sería inventarlo.
+- **El dictado no decía nada** mientras la nota de voz pasaba a texto (hasta 90 s, `transcribirNota`): `ChatHilo` lo
+  dice con la misma línea que usa para subir un audio.
+- **Sin hacer:** el orden `PROVS_CREAR_IA` sigue con Gemini primero. Groq contesta en 1,4-3,4 s (medido el 09/10 y el
+  16/10) y pondría lo común en segundos, pero cambia QUIÉN escribe los flujos y no hay una medición de calidad. Tampoco
+  se miró en pantalla.
 
-**Vive en:** `lib/flujo-ia-crear.ts` (`pasada`, `generar`) · `lib/flujo-ia.ts` (`validarIA`, el error de la reunión) ·
-test: `tests/crear-ia-revision-corrige.test.ts`
+**Vive en:** `lib/flujo-ia-crear.ts` (`pasada`, `generar`, `INTENTO_CREAR_MS`) · `lib/ai-cheap.ts` (`alIntentar`) ·
+`lib/flujo-ia-crear-core.ts` · `app/automations/stream-ia.ts` y `ChatMako.tsx` (el intento) ·
+`app/whatsapp/_shared/ChatHilo.tsx` (el dictado) · `lib/flujo-ia.ts` (`validarIA`, el error de la reunión) · tests:
+`tests/crear-ia-revision-corrige.test.ts`, `tests/crear-ia-intentos.test.ts`, `tests/flujo-ia-crear.test.ts`
 
 ## El CRON sólo dispara: «Número» y «Reentrada» fuera de su panel (17/10/2026, tarjeta #846)
 

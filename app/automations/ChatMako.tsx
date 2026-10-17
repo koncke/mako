@@ -617,6 +617,8 @@ function FasesIA({ estado, segundos, onCancelar }: {
       </span>
       <span style={S.rotulo}>{estado.fase ? TEXTO_FASE[estado.fase] : GRAMATICA.analizando.rotulo}</span>
       {estado.fase === 'revision' && estado.reparadas ? <span style={S.dim}>· {estado.reparadas} {estado.reparadas === 1 ? 'arreglo' : 'arreglos'}</span> : null}
+      {/* El anterior no sirvió y se prueba otro (#847: «que diga en qué está»): lo dice la ruta, no un reloj. */}
+      {estado.fase === 'modelo' && estado.intento && estado.intento > 1 ? <span style={S.dim}>· intento {estado.intento}</span> : null}
       {/* ⚠️ EL TOPE SALE DEL TOPE REAL (revisión, 09/10/2026): «75 s · hasta 1 min» se lee como colgado y la persona
           cancela un pedido que iba a terminar. */}
       <span style={{ ...S.dim, marginLeft: 'auto', whiteSpace: 'nowrap' }}>{segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>

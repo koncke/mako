@@ -330,8 +330,10 @@ export function ChatHilo({
   const enviarAudioPropio = async (grabado: Blob, secs: number) => {
     if (!onEnviarAudio || sending) return;
     setSending(true); setSendErr(null); stickRef.current = true;
+    // (17/10/2026, #847) La transcripción tarda hasta 90 s y no se veía nada: el chat «se quedaba pensando».
+    setAudioFase('Pasando el audio a texto…');
     try { if (!(await onEnviarAudio(grabado, secs))) setSendErr('No se pudo enviar el audio.'); }
-    finally { setSending(false); }
+    finally { setSending(false); setAudioFase(null); }
   };
   const puedeComponer = !readOnly && (!!onEnviarTexto || !!onEnviarArchivo);
   /** La vista previa tapa el hilo y la barra mientras haya archivos juntados (sin desmontarlos: la barra

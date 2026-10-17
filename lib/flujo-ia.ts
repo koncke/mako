@@ -3239,7 +3239,8 @@ export type GuardadoIA = Pick<ListoIA, 'pasos' | 'nombre' | 'orden' | 'disparado
 
 export type EventoIA =
   | { t: 'fase'; fase: 'contexto'; leyendo: LeyendoIA; texto: string }
-  | { t: 'fase'; fase: 'modelo' }
+  /** `intento`: desde el segundo pedido a un proveedor (el anterior no sirvió), cuál va (#847). */
+  | { t: 'fase'; fase: 'modelo'; intento?: number }
   | { t: 'fase'; fase: 'respuesta' }
   | { t: 'fase'; fase: 'revision'; reparadas: number }
   | ListoIA
