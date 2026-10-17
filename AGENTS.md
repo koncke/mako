@@ -124,8 +124,9 @@ ese día el push del coordinador murió con 240 MB libres. El runner tiene su pr
   `vercel.json`): cada build cuesta, y sólo `main` va a producción.
 - **El pre-push local queda liviano pero no desaparece** (`scripts/claude-hooks/pre-push`):
   a cualquier rama corre sólo las guardas baratas (`scripts/guardas-push.sh`, la MISMA lista
-  que corre Actions); a **`main`** corre además el `tsc` local completo por el lock, como
-  antes. Así `main` no recibe código sin chequear, venga por donde venga, y pushear directo a
+  que corre Actions); a **`integracion`** corre `antes-de-subir` (guardas + tipos acotados +
+  tests afectados; ver la sección de abajo; `MAKO_SIN_ANTES_DE_SUBIR=1` lo saltea); a **`main`**
+  corre además el `tsc` local completo por el lock, como antes. Así `main` no recibe código sin chequear, venga por donde venga, y pushear directo a
   `main` es el camino de emergencia (si Actions no corre o se acabaron los minutos).
 - ⚠️ **No medido todavía:** cuántos minutos gasta un run, que los tests den verde en Linux
   igual que en Windows (algunos pueden depender de archivos que sólo existen en la notebook),

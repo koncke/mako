@@ -6562,7 +6562,9 @@ alcanzar, aunque se cumpliera al pie de la letra:
 - Tests que arman un repo de git propio con `git init` bajo el `GIT_INDEX_FILE` temporal (hoy ninguno): el índice del script se les cruzaría.
 
 **Quedó SIN hacer:**
-- Instalar el pre-push nuevo en `.git/hooks` (`scripts/claude-hooks/pre-push`): lo comparten todos los chats, espera el visto del Cerebro.
+- (Hecho, para que nadie lo busque: el pre-push nuevo quedó instalado en `.git/hooks` el 17/10 a las 04:26 con el visto del Cerebro; el anterior, en
+  `.git/hooks/pre-push.antes-antes-de-subir`. Un árbol sin `scripts/antes-de-subir.mjs` se comporta como siempre. Si se reclona, se copia de
+  `scripts/claude-hooks/pre-push` como dice AGENTS.md.)
 - `~/.claude/guardia/memoria.mjs` no tiene `antes-de-subir`/`tests-afectados` en su lista de «pesado»: el script espera RAM él mismo,
   pero el hook de Claude no lo frena al lanzarlo (y es infraestructura compartida: se avisa antes).
 - Qué hacer con los 2.000 minutos: la decisión `minutos-github-actions` (A: tarjeta y tope en GitHub, B: runner propio, C: nada) la
