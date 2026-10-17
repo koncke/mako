@@ -4289,3 +4289,22 @@ clics llegan bien, porque esa parte no la tocó. Además la copia arranca el gra
   cambio de tipo en esa columna barre la API.
 
 *15/10/2026, chat «Landing Generator» (`claude1`).*
+
+## Landing Analyst: las páginas en error se reintentan solas, y «quitar» dura (17/10/2026)
+
+- **Síntoma.** La portada del ws1 estuvo en `error` desde el 20/09 y la de Leila (ws11) desde el 06/10
+  («Expected double-quoted property name in JSON»: una respuesta del modelo mal cerrada, que hoy el parser repara).
+  Nadie las volvía a mirar: el análisis automático toma sólo las declaradas SIN fila, y una fila en error es una fila.
+  La del ws1 ya estaba analizada el 15/10 (alguien la reintentó a mano); la de Leila seguía en error el 17/10.
+- **Decisión con criterio** (de las tres que dejó docs/relevo/pixel-clarity-landing.md §4.4): reintento automático con
+  tope. Una vez por día por página (`HORAS_REINTENTO_ERROR`), dos por corrida y negocio, la más vieja primero, con un
+  compare-and-set sobre `status` y `updated_at` (dos corridas a la vez no analizan dos veces). Una página que no se puede
+  bajar falla antes de la IA y no cuesta; una que sí, paga a lo sumo un análisis por día con la cascada gratis.
+- **«Quitar» no duraba** (§4.2): borraba la fila y, como la página seguía declarada, el cron de cada hora la volvía a
+  analizar y a pagar. Decisión: quitar = «no la analices sola» (`landing_analyst.quitadas` en `app_settings`, por
+  negocio); analizarla a mano la devuelve. Sin migración.
+- **Vive en:** `lib/landing-url.ts` (`erroresParaReintentar`, `QUITADAS_KEY`, `leerQuitadas`, `conQuitada`) ·
+  `lib/landing-analyst-auto.ts` · `lib/landing-analyst.ts` (`borrarAnalisis`, `marcarQuitada`) ·
+  `tests/landing-analyst-auto.test.ts` (A1-A8).
+
+*17/10/2026, «Pendientes B3» (`claude4`).*
