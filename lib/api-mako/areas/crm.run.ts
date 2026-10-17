@@ -1032,6 +1032,43 @@ export const RUNNERS: Runners = {
     proponerLegado: (input, ctx) => texto(legado(ctx)('proponer_agendar_reunion', input)),
     ejecutar: (payload, ctx) => ejecutarAccion(ctx.ws, 'agendar_reunion', payload),
   },
+  /**
+   * CANCELAR SU PRÓXIMA REUNIÓN DE CALENDLY (4c, lib/calendly-cancelar.ts). La reunión se elige en `preparar` y viaja
+   * en el payload: se cancela la que la persona VIO en el resumen. Al confirmar se vuelve a buscar y, si la próxima ya
+   * no es ésa (la cancelaron, la movieron, ya empezó), no se cancela otra. Sin ninguna por delante es «ya está así»:
+   * en un flujo, éxito sin nada que hacer (no una alarma al dueño en cada lead).
+   */
+  cancelar_reunion_calendly: {
+    preparar: async (input) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      if (!lead.email) return { error: `${lead.nombre} no tiene email cargado: Calendly busca la reunión por el email del invitado.` };
+      const { proximaReunionCalendly, CalendlyCancelarError } = await import('@/lib/calendly-cancelar');
+      let r: Awaited<ReturnType<typeof proximaReunionCalendly>>;
+      try { r = await proximaReunionCalendly(lead.email); } catch (e) {
+        return { error: e instanceof CalendlyCancelarError ? e.message : `No pude leer Calendly: ${e instanceof Error ? e.message : String(e)}` };
+      }
+      if (!r) return { error: `${lead.nombre} no tiene una reunión de Calendly por delante: no hay nada que cancelar.`, yaEstaba: true };
+      const cuando = new Date(r.inicioIso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+      return {
+        payload: { leadId: lead.id, leadNombre: lead.nombre, email: lead.email, uri: r.uri, reunion: r.nombre, inicioIso: r.inicioIso, motivo: s(input.motivo) ?? '' },
+        resumen: `Cancelar en Calendly «${r.nombre || 'la reunión'}» de ${lead.nombre} (${cuando}). A ${lead.nombre} le llega el aviso de Calendly.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const leadId = Number(payload.leadId);
+      const { proximaReunionCalendly, cancelarReunionCalendly } = await import('@/lib/calendly-cancelar');
+      try {
+        const ahora = await proximaReunionCalendly(String(payload.email ?? ''));
+        if (!ahora || ahora.uri !== payload.uri) return { ok: false, resumen: 'Esa reunión ya no es la próxima (la cancelaron, la movieron o ya empezó): no cancelé nada.' };
+        await cancelarReunionCalendly(String(payload.uri), String(payload.motivo ?? ''));
+      } catch (e) {
+        return { ok: false, resumen: `No se canceló en Calendly: ${e instanceof Error ? e.message : String(e)}` };
+      }
+      await anotar(leadId, 'Reunión cancelada en Calendly', `«${String(payload.reunion || 'Reunión')}»${payload.motivo ? ` · Motivo: ${String(payload.motivo)}` : ''}`, autorDe(ctx));
+      return { ok: true, resumen: `Cancelé en Calendly «${String(payload.reunion || 'la reunión')}» de ${String(payload.leadNombre ?? 'el lead')}.` };
+    },
+  },
   proponer_lead: {
     proponer: async (input, ctx) => {
       // La tool vieja guarda origen:'whatsapp' siempre: por la app o por HTTP la bandeja

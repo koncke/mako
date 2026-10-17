@@ -50,7 +50,7 @@ import {
   controlDe, monedaDe, rotuloDeOpcion, faltanDelFormulario, accionDelFlujo, SECCION_PUESTA, type OpcionesAccion,
 } from '@/lib/editor-acciones';
 import { SelectorEtiqueta } from './etiquetas-cliente';
-import { useOpcionesAccion, SelectorEtapa, SelectorProducto, SelectorSecuencia, SelectorPersona, CampoMonto, type Cambiar } from './CamposAccion';
+import { useOpcionesAccion, SelectorEtapa, SelectorProducto, SelectorCurso, SelectorSecuencia, SelectorPersona, CampoMonto, type Cambiar } from './CamposAccion';
 
 export type ValorAccion = { operacion?: string; params?: Record<string, unknown> };
 
@@ -318,6 +318,8 @@ function CampoParametro({ p, required, params, cambiar, opciones, pideLead, disa
       return <SelectorEtapa {...comun} params={params} opciones={opciones} cambiar={cambiar} />;
     case 'producto':
       return <SelectorProducto {...comun} valor={valor} opciones={opciones} onCambio={onCambio} />;
+    case 'curso':
+      return <SelectorCurso {...comun} valor={valor} opciones={opciones} onCambio={onCambio} />;
     case 'secuencia':
       return <SelectorSecuencia {...comun} valor={valor} opciones={opciones} onCambio={onCambio} />;
     case 'persona':
