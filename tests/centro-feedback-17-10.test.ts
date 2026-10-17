@@ -140,9 +140,11 @@ test('F: la Criatura, con 9 cuerpos, 9 colores y 9 caras, que pasea en su recuad
   assert.equal(new Set(FORMAS.map((forma) => pieza(createElement(Cuerpo, { forma, color: COLORES[0] })))).size, FORMAS.length, 'nueve cuerpos distintos');
   assert.equal(new Set(CARAS.map((cara) => pieza(createElement(Boca, { cara, y: 20 })))).size, CARAS.length, 'nueve caras distintas');
   // El que no se eligió sale de su nombre con las piezas de antes: las nuevas son sólo para elegir.
+  // `Forma` también admite la estrella del Cerebro (FORMA_MAKO), que no está en FORMAS: se busca como texto.
+  const formas: readonly string[] = FORMAS;
   for (let i = 0; i < 300; i++) {
     const a = aspectoDe(`Chat de prueba ${i}`);
-    assert.ok(FORMAS.indexOf(a.forma) < 7 && CARAS.indexOf(a.cara) < 6, `«Chat de prueba ${i}» no cambió de cara`);
+    assert.ok(formas.indexOf(a.forma) < 7 && CARAS.indexOf(a.cara) < 6, `«Chat de prueba ${i}» no cambió de cara`);
   }
   for (const f of ['app/admin/operaciones/PiezasCentro.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/ElegirMuneco.tsx']) {
     assert.doesNotMatch(codigo(f), /['"`>][^'"`<]*\b[Mm]uñeco\b/, `${f}: se llama «Criatura»`);
