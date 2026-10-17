@@ -344,6 +344,19 @@ export const FAMILIAS: NavFamilia[] = [
           ],
         },
         {
+          // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen… una
+          // "galería" de ejemplos o temas… en imagen, video y voz». Las cuatro secciones copian las de HeyGen.
+          // La ve sólo el super admin hasta que la valide: `adminOnly` acá y la puerta en app/ai-avatar/acceso.ts.
+          key: 'ai-avatar', adminOnly: true, label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
+          match: starts('/ai-avatar'),
+          secciones: [
+            { key: 'ai-avatar-crear', adminOnly: true, label: 'Crear video', href: '/ai-avatar', icon: 'videogen', match: (p) => p === '/ai-avatar' || p === '/ai-avatar/' },
+            { key: 'ai-avatar-avatares', adminOnly: true, label: 'Avatares', href: '/ai-avatar/avatares', icon: 'perfil', match: starts('/ai-avatar/avatares') },
+            { key: 'ai-avatar-voces', adminOnly: true, label: 'Voces', href: '/ai-avatar/voces', icon: 'mic', match: starts('/ai-avatar/voces') },
+            { key: 'ai-avatar-plantillas', adminOnly: true, label: 'Plantillas', href: '/ai-avatar/plantillas', icon: 'grid', match: starts('/ai-avatar/plantillas') },
+          ],
+        },
+        {
           key: 'image', label: 'Image', href: '/image-editor', icon: 'imagegen',
           match: (p) => starts('/image-editor')(p) || starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
           secciones: [
@@ -659,6 +672,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-video-editor', label: 'Video Editor', href: '/admin/dev/video-editor', icon: 'tijera', match: starts('/admin/dev/video-editor') },
           { key: 'dev-image-editor', label: 'Image Editor', href: '/admin/dev/image-editor', icon: 'imagegen', match: starts('/admin/dev/image-editor') },
           { key: 'dev-puente-flow', label: 'Puente a Google Flow', href: '/admin/dev/puente-flow', icon: 'videogen', match: starts('/admin/dev/puente-flow') },
+          { key: 'dev-ai-avatar', label: 'AI Avatar', href: '/admin/dev/ai-avatar', icon: 'perfil', match: starts('/admin/dev/ai-avatar') },
           // El editor de landings copiado de Gamma (11/10/2026): su registro lleva el pedido literal
           // de Martín y lo que quedó sin hacer (app/admin/dev/landing-generator/bitacora.ts).
           { key: 'dev-landing-generator', label: 'Web Generator', href: '/admin/dev/landing-generator', icon: 'web', match: starts('/admin/dev/landing-generator') },
