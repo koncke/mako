@@ -426,3 +426,18 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
 - **17:20 UTC:** sube Automations 034ae2e34, la familia «reuniones» del lote 3. El recordatorio de reunión ya no cae a la configuración de antes: estaba apagada en ws1 y ws11, así que no cambia lo que sale. El de 24 h del ws1 sale por la secuencia 212/213.
   - **DECIDIDO, falta decírselo a Automations y al Plan** (tope de 10): `reunion-tareas-al-plan` (lib/reunion-auto.ts) lo toma el chat **Plan**, que es el dueño del archivo, para que no haya dos escribiendo ahí.
   - `lead-no-confirmo` (la tarjeta «avisar al equipo» visible en la automatización «preparar») lo sigue Automations.
+
+## 17/10 ~15:00 AR (18:00 UTC) — ESTADO PARA RETOMAR (Cerebro)
+
+- **Producción: hasta el run 119** (86bc162be): More con todas las tabs, el guardián, Reportar problema en el teléfono, el rediseño de CRM y Plan del teléfono, y docs/pendientes.md.
+- **Lista de pendientes:** https://claude.ai/artifact/S7AyYhfn2CF652wGN953i4 (296 puntos). La copia del repo es docs/pendientes.md, y la actualiza SÓLO el Cerebro, con las listas de los agentes.
+- **Pedido ab083ae3** (Mobile en todas las tabs + rediseño + la lista de pendientes): la lista está hecha y Mobile 3 terminó. Siguen Mobile 1 (creación, C:/dev/wt-mobile) y Mobile 2 (negocio y More, C:/dev/wt-general-epico). El cierre va con lo último en producción.
+- **Pedido 41f3572c** (14:44): agentes lanzados, todos con worktree propio y node_modules por junction:
+  - Ops Center 4, en C:/dev/wt-ops4: Responder deslizando y el menú de WhatsApp, Chats+Cerebro+Nuevo chat juntos, el «atrás» lento, el Uso arriba y los pendientes del Centro;
+  - Limpieza de disco (Sonnet): estaba al 100%; el Cerebro ya liberó 5 GB;
+  - Pendientes B1 (seguridad y datos), B2 (CRM y clientes), B3 (Web y Offer), B4 (Ads y plata) y B5 (Plan, Dashboard y MaKo), en C:/dev/wt-pend-b1 a b5. Sus listas están en scratchpad/pend/B*.json.
+- **Sin agente todavía:**
+  - AUT.json (25 de Automations): el chat Automations está en «nada por detrás»; mandárselo cuando se pueda escribirle;
+  - B6.json (18 de editores y super admin): va después de Mobile 1.
+- **Candado de lo pesado:** C:/dev/pesado.lock (tsc, build, Chrome, más de 30 tests). Los Mobile usan además C:/dev/mobile-build.lock.
+- **Revisión adversarial:** toda punta «⚠️ REVISAR» (plata, seguridad, envíos) pasa por un workflow de revisión antes de subir.

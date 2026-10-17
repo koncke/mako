@@ -1,0 +1,7 @@
+/* =============================================================================
+   /m/contexto — MaKo Context en el teléfono. Clases `.m-contexto-*`, sólo tokens de app/globals.css. Los campos, avisos y
+   el «Borrar» rojo son los de Configuración del negocio (app/m/configuraciones/configuraciones.css), que esta pantalla importa.
+   ============================================================================= */
+
+/* El texto de un conocimiento, una fase o un prompt: alto, porque es lo que se vino a leer. */
+textarea.m-contexto-texto { min-height: 260px; line-height: 1.5; }
