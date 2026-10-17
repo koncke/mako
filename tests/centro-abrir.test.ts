@@ -49,6 +49,12 @@ const NOMBRES_MALOS = [
   '-n x', '--dangerously-skip-permissions', 'CRM\nOtro', 'CRM\r', 'a'.repeat(81), 'CRM%PATH%', 'CRM<x', 'C:\\Windows', '«CRM»', 'CRM\u202e',
 ];
 
+// ⚠️ SÓLO EN WINDOWS (17/10/2026, run 94): `abrir` arma la ruta del primer mensaje con forma de Windows y la valida
+// contra `^[A-Za-z]:\….txt$` (comandoDeApertura). En el Linux de Actions la carpeta temporal es /tmp/…, la ruta no
+// pasa la lista blanca y la apertura sale `no_entregado`, que es lo correcto ahí. Los tres tests de punta a punta corren
+// en la PC (donde vive el cartero) y se saltan en Linux; los de la lista blanca, la firma y el permiso corren en los dos.
+const SOLO_WINDOWS = process.platform === 'win32' ? false : 'la apertura arma rutas de Windows y sólo corre en la PC de Martín';
+
 test('el nombre de un chat nuevo va por una LISTA BLANCA, igual en MaKo y en la PC', async () => {
   const cartero = await import('../scripts/operaciones/cartero.mjs');
   for (const n of NOMBRES_BUENOS) {
@@ -150,7 +156,7 @@ async function pc(opciones: { abrir: boolean }) {
 // Lo que alguien pondría para que el primer mensaje termine siendo una opción o un comando.
 const VENENO = 'Hola " --dangerously-skip-permissions " \'; Remove-Item -Recurse C:\\ ; $(calc) `calc` & calc | calc\r\n%PATH%';
 
-test('de punta a punta: el primer mensaje va a un archivo, nunca a la línea de comandos', async () => {
+test('de punta a punta: el primer mensaje va a un archivo, nunca a la línea de comandos', { skip: SOLO_WINDOWS }, async () => {
   const x = await pc({ abrir: true });
   try {
     const ID = 'aaaaaaaa-0000-4000-8000-0000000000d1';
@@ -258,7 +264,7 @@ test('`abrir-permitir` falla CERRADO: sólo «on» u «off»; cualquier otra cos
   }
 });
 
-test('una apertura reclamada hace más de 30 minutos no se abre: ni en `abrir` ni si `abrir` no corre nunca', async () => {
+test('una apertura reclamada hace más de 30 minutos no se abre: ni en `abrir` ni si `abrir` no corre nunca', { skip: SOLO_WINDOWS }, async () => {
   const x = await pc({ abrir: true });
   try {
     const A = 'aaaaaaaa-0000-4000-8000-0000000000e1';
@@ -294,7 +300,7 @@ test('una apertura reclamada hace más de 30 minutos no se abre: ni en `abrir` n
   }
 });
 
-test('el lanzador se borra en la vuelta siguiente, y «ya abierto» se anota ANTES de lanzar', async () => {
+test('el lanzador se borra en la vuelta siguiente, y «ya abierto» se anota ANTES de lanzar', { skip: SOLO_WINDOWS }, async () => {
   const { utimesSync } = await import('node:fs');
   const x = await pc({ abrir: true });
   try {
