@@ -43,7 +43,7 @@ export function PlanPanel({ plan, suscripcion, emailMako }: { plan: string; susc
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
         {puedeDarseDeBaja && (
           <FilaAjustes icono="pausar" titulo="Darme de baja"
-            detalle={suscripcion?.proveedor === 'stripe' ? 'Lo sigues usando hasta el fin del mes pagado.' : 'Mercado Pago deja de cobrarlo desde ya.'}
+            detalle="Lo sigues usando hasta el fin del mes pagado."
             onClick={corriendo ? undefined : () => setPreguntar(true)} apilada />
         )}
       </GrupoAjustes>
@@ -57,7 +57,7 @@ export function PlanPanel({ plan, suscripcion, emailMako }: { plan: string; susc
         <ConfirmDialog titulo="¿Darte de baja?"
           detalle={suscripcion?.proveedor === 'stripe'
             ? 'No se te cobra el mes siguiente, y sigues usando MaKo hasta el fin del mes pagado.'
-            : 'Mercado Pago deja de cobrarlo desde ya. No se puede deshacer.'}
+            : 'Mercado Pago deja de cobrarlo desde ya, y sigues usando MaKo hasta el fin del mes pagado. No se puede deshacer.'}
           confirmLabel="Darme de baja" danger onCancel={() => setPreguntar(false)} onConfirm={darmeDeBaja} />
       )}
     </>

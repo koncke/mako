@@ -34,6 +34,7 @@ import { hoyEnWorkspace } from './timezone';
 import { capaDef, type CapaId } from './capas';
 import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
 import { habilitarClienteDeAgencia } from './agencia-habilitar';
+import { revisarAccesosPorPago } from './plan-acceso';
 import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { valoresDelPago } from './variables-del-lead';
 import {
@@ -577,6 +578,11 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
 
     // 5. La plataforma: el alta automática de MaKo (decisión de Martín, 11/10/2026).
     await altaSiCorresponde(actual);
+    // 5a. El negocio que se había PAUSADO por falta de pago y acaba de pagar su plan vuelve a entrar en el acto, sin
+    //     esperar al cron (lib/plan-acceso.ts, 17/10/2026). Best effort: el cron lo vuelve a mirar en media hora.
+    if (actual.alta_ws != null) {
+      await revisarAccesosPorPago({ soloWs: actual.alta_ws }).catch((e) => console.warn(`[cobros] no pude revisar el acceso del negocio ${actual.alta_ws}:`, e instanceof Error ? e.message : String(e)));
+    }
     // 5b. La plataforma: el primer mes de un CLIENTE DE AGENCIA lo habilita solo (#866, 17/10/2026). No tira.
     if (!renovacion) await habilitarClienteDeAgencia(actual);
 

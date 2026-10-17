@@ -19,7 +19,7 @@
 
 import 'server-only';
 import { redirect } from 'next/navigation';
-import { getCapaActual, getRolWsEfectivo, rutaConWs } from './workspace';
+import { getCapaActual, getRolWsEfectivo, negocioPausadoDeLaSesion, rutaConWs } from './workspace';
 import { onboardingPendiente } from './onboarding-state';
 import { capaDef, tabEnCapa, type CapaId } from './capas';
 import type { RolWorkspace } from './auth-session';
@@ -65,6 +65,9 @@ export async function requireSesion(): Promise<RolWorkspace> {
   // sesión no hay pestaña que preservar, y arrastrar el id de un cliente a la pantalla
   // de login sería mostrar a quién se estaba mirando en una URL que se comparte sola.
   if (rol == null) redirect('/login');
+  // Un negocio PAUSADO (por el super admin, o porque se terminó lo pagado: lib/plan-acceso.ts) no se abre: la pantalla
+  // dice por qué en vez de mostrar una app vacía (getWorkspaceActual ya devuelve null para esa sesión). 17/10/2026.
+  if ((await negocioPausadoDeLaSesion()) != null) redirect('/cuenta-pausada');
   return rol;
 }
 

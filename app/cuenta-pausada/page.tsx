@@ -1,0 +1,35 @@
+// =============================================================================
+// /cuenta-pausada — el negocio de esta sesión está pausado (17/10/2026)
+// =============================================================================
+// A dónde manda `requireSesion` (lib/tab-access.ts) a quien entra a un negocio pausado: por el super admin desde /admin,
+// o porque se terminó lo pagado (lib/plan-acceso.ts). Dice por qué y qué hacer, en vez de una app vacía. No pasa por
+// `requireSesion` (sería un círculo): mira la sesión y, si el negocio NO está pausado, vuelve a la app.
+
+import { redirect } from 'next/navigation';
+import { getRolWsEfectivo, negocioPausadoDeLaSesion } from '@/lib/workspace';
+import { corteDe } from '@/lib/plan-acceso';
+import { textoDelCorte } from '@/lib/plan-acceso-reglas';
+import { EMAIL_MAKO } from '@/lib/app-url';
+import { ButtonLink } from '@/app/_ui/Button';
+import { SalirDeLaCuenta } from './SalirDeLaCuenta';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default async function CuentaPausadaPage() {
+  if ((await getRolWsEfectivo()) == null) redirect('/login');
+  const ws = await negocioPausadoDeLaSesion();
+  if (ws == null) redirect('/inicio');
+  const corte = await corteDe(ws).catch(() => null);
+  const t = textoDelCorte(corte?.vigente ? corte : null);
+  return (
+    <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: '24px 16px', background: 'var(--bg)' }}>
+      <section style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '28px 24px', textAlign: 'center' }}>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{t.titulo}</h1>
+        <p style={{ margin: '12px 0 22px', fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--dim)' }}>{t.detalle}</p>
+        <ButtonLink href={`mailto:${EMAIL_MAKO}`} variant="primary">Escribir a MaKo</ButtonLink>
+        <div style={{ marginTop: 14 }}><SalirDeLaCuenta /></div>
+      </section>
+    </main>
+  );
+}

@@ -31,6 +31,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { rateLimitEstado, rateLimitVer, clientIp, type EstadoLimite } from '@/lib/rate-limit';
 import { APP_BASE_URL } from '@/lib/app-url';
+import { negocioPausado } from '@/lib/workspace';
 import { alcanceDeToken } from './alcance';
 import { canalKeyDe } from './canal';
 import { permisoAceptado } from './permisos';
@@ -139,6 +140,9 @@ export async function autenticar(req: Request, opts: { sinConsumir?: boolean } =
   }
   // Como GitHub: el token deja de valer cuando quien lo creó deja de administrar el negocio.
   if (r.clase === 'detallado' && r.sinCreador) return errorJson(401, mensajeSinCreador(r.nombre));
+  // Un negocio PAUSADO (por el super admin o porque se terminó lo pagado, lib/plan-acceso.ts) no se usa por la API
+  // tampoco (17/10/2026): el token sigue valiendo y vuelve a andar cuando se reactiva, por eso 403 y no 401.
+  if (await negocioPausado(r.ws)) return errorJson(403, 'La cuenta de este negocio está pausada: la API vuelve a andar cuando se reactive.');
   // Por workspace, nunca por el token: un secreto no es una clave de un Map.
   // `sinConsumir`: GET /api/v1/rate_limit mira la ventana sin gastarla, como en GitHub.
   const porWs = opts.sinConsumir ? rateLimitVer(`api-v1:ws:${r.ws}`, TOPE_POR_MINUTO_WS, 60_000) : rateLimitEstado(`api-v1:ws:${r.ws}`, TOPE_POR_MINUTO_WS, 60_000);

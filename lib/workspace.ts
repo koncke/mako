@@ -285,9 +285,13 @@ const resolverDesdeCookies = cache(async (): Promise<number | null> => {
     //    orden es el punto: si cayera después, la agencia vería SUS datos con la
     //    cara del cliente —sin 403 y sin nada roto—, que es el modo de falla que
     //    esta feature entera existe para evitar.
-    const cliente = await contextoDeAgencia();
-    if (cliente) return cliente;
-    return sesion.ws ?? null;                   // usuario → su workspace
+    // 5) ⚠️ UN NEGOCIO PAUSADO NO SE ABRE (17/10/2026): ni a su equipo ni a la agencia que lo mira. Fail-closed:
+    //    sin workspace no hay datos que leer ni escribir (getTenantDb → id imposible) y los guards cortan. Las
+    //    páginas mandan a /cuenta-pausada (`requireSesion`), que dice por qué. Lo pausa el super admin desde /admin,
+    //    o el cobro cuando se termina lo pagado (lib/plan-acceso.ts). Al super admin no lo toca: es la rama de arriba.
+    const propio = await wsPropioDeLaSesion();
+    if (propio != null && (await negocioPausado(propio))) return null;
+    return propio;
   }
   // Sin sesión resuelta: distinguir "no hay cookie de sesión" (cron / webhook /
   // público → dueño) de "hay cookie pero su fila ya no vale" (usuario suspendido
@@ -296,6 +300,38 @@ const resolverDesdeCookies = cache(async (): Promise<number | null> => {
   const tieneCookieSesion = Boolean(store.get(SESSION_COOKIE)?.value || store.get(LEGACY_COOKIE)?.value);
   return tieneCookieSesion ? null : OWNER_WS;
 });
+
+/**
+ * El negocio de una sesión que NO es del super admin: el cliente que mira la agencia (su cookie firmada, revalidada) o
+ * el propio. Sin mirar si está pausado: eso lo decide quien llama.
+ */
+const wsPropioDeLaSesion = cache(async (): Promise<number | null> => {
+  const sesion = await getUsuarioActual();
+  if (!sesion || sesion.legacy || sesion.rol === 'admin') return null;
+  const cliente = await contextoDeAgencia();
+  return cliente ?? sesion.ws ?? null;
+});
+
+/**
+ * ¿Este negocio está pausado? (`workspaces.estado`). Por request. ⚠️ FAIL-OPEN: si la base no contesta, NO está
+ * pausado — un error pasajero no puede dejar a todos los clientes afuera (el mismo criterio que getUsuarioActual).
+ */
+export const negocioPausado = cache(async (ws: number): Promise<boolean> => {
+  try {
+    const { data, error } = await getSupabaseServer().from('workspaces').select('estado').eq('id', ws).maybeSingle();
+    if (error) return false;
+    return (data as { estado?: string } | null)?.estado === 'pausado';
+  } catch { return false; }
+});
+
+/**
+ * El negocio PAUSADO de esta sesión, o null. Lo usa `requireSesion` (lib/tab-access.ts) para mandar a /cuenta-pausada
+ * en vez de mostrar una app vacía. El super admin nunca: él ve y reactiva desde /admin.
+ */
+export async function negocioPausadoDeLaSesion(): Promise<number | null> {
+  const ws = await wsPropioDeLaSesion();
+  return ws != null && (await negocioPausado(ws)) ? ws : null;
+}
 
 /** Workspace efectivo del request, o null si un admin no está impersonando. */
 /**
