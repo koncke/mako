@@ -42,6 +42,8 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
   descarta los cambios que vienen con `analizar`) y ofrece pasar a Analizar (docs/hallazgos-graficos.md).
 - **#886, la mitad del Dashboard** — el mapa de calor lleva «Analizar la estructura →» al diagnóstico del Web Generator
   de esa página (`?analizar=<url>`). La otra mitad (las métricas dentro del diagnóstico) es del chat Web Generator.
+- **#896** — `diagnosticar_funnel` de la API de MaKo mide uno o varios funnels (`getFunnelEtapas` con `funnels`); dos con
+  etapas distintas no se suman (el ws1 tiene ese caso) y lo de Meta es de toda la cuenta (docs/hallazgos-api-mako.md).
 - **Experiments se retiró y vive en el Dashboard:**
   - «probemos X» en «Editar con MaKo» agrega a la hoja un elemento «Experimento» (app/dashboard/ElementoExperimento.tsx):
     propuesta → «Arrancar» (mide el baseline) → antes/ahora en vivo → «Concluir» (veredicto y aprendizaje de MaKo).
@@ -53,9 +55,10 @@ encima de la plantilla; «Editar con MaKo» con el muñeco de la tab; el cubo de
 
 ## Lo que falta
 
-- **Lo que sigue del orden del Cerebro (17/10)**: #896 (la Retro ya no existe; queda que `diagnosticar_funnel` y
-  `ver_serie_funnel_semanal` de la API de MaKo acepten uno o varios funnels: `getFunnelEtapas`, lib/queries.ts). El detalle,
-  en C:/dev/auditoria-1610.json por su número.
+- **Del orden del Cerebro (17/10) quedan cabos**: `ver_serie_funnel_semanal` sigue midiendo el funnel principal
+  (`getFunnelSeries`, lib/queries.ts, tiene sus propias lecturas y va por `cachedRead`: la clave de caché tendría que llevar
+  los funnels); la mitad del Web Generator de #886. El detalle de cada pedido, en C:/dev/auditoria-1610.json por su número.
+- **Los «Ya está»**: cuando el Cerebro confirme en producción cada punta, escribirlos en este chat con su ruta (ws3).
 - **El chat Sidebar** dejó la key `experimentos` viva (ítem sin fila, sección oculta del teléfono), así que las dos
   redirecciones conservan su puerta. Si la saca, se van esas dos líneas y entra en `RETIRADAS` (tests/tabs-retiradas.test.ts).
   ⚠️ Su rama y la mía cambian tests/analisis-mudada.test.ts: al mezclar, mi versión más su parte de Offer/Analyze. Avisado.
