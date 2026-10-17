@@ -25,14 +25,15 @@ import { inscripcionesDeLead } from '@/lib/api-mako/areas/chatbot.helpers';
 import { conversacionesSocialesDe, mensajesSociales } from '@/lib/canal-zernio';
 
 const idValido = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x > 0;
-const conSesion = async (): Promise<boolean> => { try { return Boolean(await getUsuarioActual()); } catch { return false; } };
+const haySesion = async (): Promise<boolean> => { try { return Boolean(await getUsuarioActual()); } catch { return false; } };
 
 /** Un mensaje, como lo dibuja un bloque: de quién (nosotros o el lead), el texto y cuándo. */
 export type MensajeCorto = { deMi: boolean; texto: string; cuando: string | null };
 
 /** Los últimos mensajes del WhatsApp de la empresa con este lead (`hiloWhatsApp`, el del teléfono). */
 export async function charlaWhatsAppAction(leadId: number): Promise<{ mensajes: MensajeCorto[]; chatJid: string | null } | null> {
-  if (!idValido(leadId) || !(await conSesion())) return null;
+  if (!(await haySesion())) return null;
+  if (!idValido(leadId)) return null;
   try {
     const h = await hiloWhatsApp(leadId);
     if (!h) return null;
@@ -50,7 +51,8 @@ export async function charlaWhatsAppAction(leadId: number): Promise<{ mensajes: 
  */
 export type CharlaPorDm = { usuario: string | null; red: 'Instagram' | 'Messenger'; puedeEscribir: boolean; motivoNoEscribir: string | null; mensajes: MensajeCorto[] };
 export async function charlaDmAction(leadId: number): Promise<CharlaPorDm | null | 'sin-charla'> {
-  if (!idValido(leadId) || !(await conSesion())) return null;
+  if (!(await haySesion())) return null;
+  if (!idValido(leadId)) return null;
   try {
     const ms = (iso: string | null) => Date.parse(iso ?? '') || 0;
     const c = [...(await conversacionesSocialesDe({ leadId }))].sort((a, b) => ms(b.ultimaFecha) - ms(a.ultimaFecha))[0];
@@ -66,7 +68,8 @@ export async function charlaDmAction(leadId: number): Promise<CharlaPorDm | null
 /** Cuándo y por qué MaKo le pasó la charla a una persona (`chat_agent_handoffs`). Primero lo que sigue sin resolver. */
 export type PaseAHumano = { motivo: string | null; mensaje: string | null; escenario: string | null; cuando: string; resuelto: string | null };
 export async function paseAHumanoAction(leadId: number): Promise<PaseAHumano[] | null> {
-  if (!idValido(leadId) || !(await conSesion())) return null;
+  if (!(await haySesion())) return null;
+  if (!idValido(leadId)) return null;
   try {
     const db = await getTenantDb();
     const { data, error } = await db.from('chat_agent_handoffs').select('motivo, mensaje, escenario, created_at, resuelto_at')
@@ -84,7 +87,8 @@ export async function paseAHumanoAction(leadId: number): Promise<PaseAHumano[] |
 /** Lo que MaKo quiere cambiar en este lead y espera que alguien confirme (`mako_confirmaciones` pendientes). */
 export type CambioDeMako = { id: number; titulo: string; detalle: string | null; cuando: string };
 export async function cambiosDeMakoAction(leadId: number): Promise<CambioDeMako[] | null> {
-  if (!idValido(leadId) || !(await conSesion())) return null;
+  if (!(await haySesion())) return null;
+  if (!idValido(leadId)) return null;
   try {
     const db = await getTenantDb();
     const { data, error } = await db.from('mako_confirmaciones').select('id, titulo, detalle, created_at')
@@ -100,7 +104,8 @@ export async function cambiosDeMakoAction(leadId: number): Promise<CambioDeMako[
 /** Los mensajes que quedaron escritos y nadie mandó (`wa_borradores` pendientes: nutrición, MaKo, la llamada). */
 export type MensajeListo = { id: number; texto: string; origen: string | null; cuando: string; chatJid: string | null };
 export async function mensajesListosAction(leadId: number): Promise<MensajeListo[] | null> {
-  if (!idValido(leadId) || !(await conSesion())) return null;
+  if (!(await haySesion())) return null;
+  if (!idValido(leadId)) return null;
   try {
     const db = await getTenantDb();
     const { data, error } = await db.from('wa_borradores').select('id, texto, origen, created_at, chat_jid')
@@ -117,7 +122,8 @@ export async function mensajesListosAction(leadId: number): Promise<MensajeListo
 /** En qué automatizaciones está el lead: las que corren y las frenadas porque respondió. */
 export type AutomatizacionDelLead = { secuencia: string; estado: string; proximo: string | null; ultimo: string | null };
 export async function automatizacionesDelLeadAction(leadId: number): Promise<AutomatizacionDelLead[] | null> {
-  if (!idValido(leadId) || !(await conSesion())) return null;
+  if (!(await haySesion())) return null;
+  if (!idValido(leadId)) return null;
   try {
     const filas = await inscripcionesDeLead(leadId);
     // Las que siguen vivas: corriendo, o frenadas porque respondió (`respondio`). Terminada, cancelada o «no responde» ya no corre.
@@ -132,7 +138,8 @@ export async function automatizacionesDelLeadAction(leadId: number): Promise<Aut
 /** Lo que le mandaron las automatizaciones: cuántos toques, por canal, y cuántos abrió, clickeó o respondió. */
 export type LoQueLeMandamos = { toques: number; porCanal: Record<string, number>; abiertos: number; clics: number; respuestas: number; ultimo: string | null };
 export async function loQueLeMandamosAction(leadId: number): Promise<LoQueLeMandamos | null> {
-  if (!idValido(leadId) || !(await conSesion())) return null;
+  if (!(await haySesion())) return null;
+  if (!idValido(leadId)) return null;
   try {
     const db = await getTenantDb();
     const { data, error } = await db.from('nutricion_envios').select('canal, abierto_at, clic_at, respondio_at, created_at')
