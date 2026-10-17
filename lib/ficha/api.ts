@@ -13,6 +13,7 @@ import { bloqueDef, bloquesDeLaTab, bloquesDelLugar, esIdHoja, esLugarFicha, esT
 import { plantillaFicha, PLANTILLAS_FICHA } from './plantillas';
 import { galeriaDeTab, plantillaTabPorId, plantillasDeTab } from './plantillas-tab';
 import { DATOS_AVISABLES } from '../datos-aviso';
+import { AJUSTES_TEMA } from '../graficos-temas';
 import { NOMBRES_ICONO_MENU, type NombreIconoMenu } from '../../app/_ui/iconos-menu';
 
 /**
@@ -140,7 +141,21 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
         if (a && a !== 'ninguno' && !/^#[0-9a-f]{6}$/i.test(a)) return { error: 'El acento va en hex, #RRGGBB.' };
         tema.acento = a && a !== 'ninguno' ? a.toLowerCase() : null;
       }
-      if (!Object.keys(tema).length) return { error: 'Falta qué cambiar del estilo: tema, acento o tipografia.' };
+      // Los ajustes encima de la plantilla (17/10/2026), en `opcion` («esquinas=redondas, sombra=si»; «=plantilla» vuelve
+      // al de la plantilla). No van en parámetros propios: la def viaja en el turno de WhatsApp (tests/ficha-api.test.ts).
+      const pedidos = s(input.opcion);
+      if (pedidos) {
+        for (const par of pedidos.split(/[,;]+/).map((x) => x.trim()).filter(Boolean)) {
+          const [clave, valor] = par.split('=').map((x) => x.trim());
+          const a = AJUSTES_TEMA.find((x) => x.id === clave);
+          const valores: readonly string[] = a ? a.valores.map((x) => x.id) : [];
+          if (!a || !valor || (valor !== 'plantilla' && !valores.includes(valor))) {
+            return { error: `«${par}» no es un ajuste.`, disponibles: AJUSTES_TEMA.map((x) => `${x.id}=${x.valores.map((v) => v.id).join('|')}|plantilla`) };
+          }
+          tema[a.id] = valor === 'plantilla' ? null : valor;
+        }
+      }
+      if (!Object.keys(tema).length) return { error: 'Falta qué cambiar del estilo: tema, acento, tipografia u opcion.' };
       crudo = { op: 'tema', tema };
       break;
     }
@@ -202,7 +217,11 @@ export function salidaFichaApi(f: Pick<FichaDelFunnel, 'funnel' | 'eleccion' | '
     hojas: ef.hojas.map((h) => ({ id: h.id, nombre: h.nombre, epica: h.epica, bloques: h.bloques.map(bloqueDeSalida) })),
     nota: 'Si una tab sale en la ficha lo decide el CRM: Reuniones sólo con una etapa de reunión, Pagos con una venta o un cobro, Tracking con datos de la visita o del anuncio. Las hojas propias salen siempre, después de las tabs, y llevan cualquier bloque de la ficha.',
     avisos: ef.avisos.map((a) => ({ dato: a.id, nombre: a.label, avisa: a.avisa, por_que: POR_QUE[a.por] ?? a.por })),
-    estilo: { tema: ef.estilo.tema.plantilla, acento: ef.estilo.tema.acento, tipografia: ef.estilo.tema.fuente, densidad: ef.estilo.densidad },
+    estilo: {
+      tema: ef.estilo.tema.plantilla, acento: ef.estilo.tema.acento, tipografia: ef.estilo.tema.fuente, densidad: ef.estilo.densidad,
+      // Los ajustes encima de la plantilla y lo que acepta cada uno (se cambian con `opcion`: «esquinas=redondas»).
+      ajustes: AJUSTES_TEMA.map((a) => ({ ajuste: a.id, elegido: ef.estilo.tema[a.id] ?? 'plantilla', valores: a.valores.map((v) => v.id) })),
+    },
     plantillas: PLANTILLAS_FICHA.map((p) => ({ id: p.id, nombre: p.nombre })),
     densidades: DENSIDADES.map((x) => x.id),
     anchos: ANCHOS.map((a) => NOMBRE_ANCHO[a.id]),

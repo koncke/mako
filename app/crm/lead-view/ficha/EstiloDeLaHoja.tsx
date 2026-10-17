@@ -103,7 +103,8 @@ function Panel({ ancla, ef, tab, onCambio, onCerrar }: {
           </button>
         ))}
       </div>
-      <PanelEstilo tema={ef.estilo.tema} onCambiar={(tema) => onCambio({ op: 'tema', tema })} />
+      {/* Con los ajustes encima de la plantilla (fondo, esquinas, borde, sombra, títulos), los del Dashboard (17/10/2026). */}
+      <PanelEstilo tema={ef.estilo.tema} onCambiar={(tema) => onCambio({ op: 'tema', tema })} ajustes />
     </div>,
     document.body,
   );
