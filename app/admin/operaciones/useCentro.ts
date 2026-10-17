@@ -254,6 +254,18 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // En qué está: el paso que está dando AHORA, si la PC lo subió; si no, el título de lo que tiene en curso.
   const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, pasosPorChat.get(k)?.at(-1)?.texto ?? enQueTrabaja(l)])), [lineasDe, pasosPorChat]);
   const pasosDe = (c: ChatCentro): PasoDelTurno[] => pasosPorChat.get(c.clave) ?? SIN_PASOS;
+  // Los borradores guardados en este navegador, de TODOS los chats y no sólo del abierto (17/10/2026, Martín: «un borrador
+  // sin mandar se ve en la lista de chats», como WhatsApp): se leen una vez por chat, al aparecer en la lista.
+  const conBorradorLeido = useRef(new Set<string>());
+  const clavesDeChats = chats.map((c) => c.clave).join('\n');
+  useEffect(() => {
+    for (const c of chats) if (!conBorradorLeido.current.has(c.clave)) { conBorradorLeido.current.add(c.clave); cargarBorrador(c, null); }
+  }, [clavesDeChats]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** El renglón del borrador de un chat para su fila («Borrador: …»); null = no tiene. */
+  const borradorDeLista = (clave: string): string | null => {
+    const t = (borradores[clave] ?? '').split('\n').map((x) => x.trim()).find(Boolean);
+    return t ? t.replace(/^• /, '') : null;
+  };
   /** Los chats cuyo último mensaje es un «Ya está» que este dispositivo todavía no vio (lib/centro-chats.ts → avisaYaEsta). */
   const yaSinVer = useMemo(() => new Set([...previas].filter(([k, p]) => k !== mirando && avisaYaEsta(p, vistos, k)).map(([k]) => k)), [previas, vistos, mirando]);
 
@@ -525,8 +537,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, pendientesTicketera, refrescar, responderAca, deshacerAca,
-    envioDe, borradorDe, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
+    envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
+    /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */
+    sinAdjuntos: () => avisar('Este chat aún no recibe imágenes', 'bad'),
     puedeAbrirEn, apertura, abrirChat,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,

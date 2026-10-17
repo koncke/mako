@@ -16,6 +16,18 @@
 //   · `if (abierto.tactil)` fuera de MenuMensajeWA → cae 2;
 //   · BotonMandar sin mirar `hayQueMandar` (siempre la flecha) → cae 3;
 //   · `avisaYaEsta` sin comparar con lo visto (siempre true) → cae 8.
+//
+// La segunda punta (1, 4, 5, 6 y 10):
+//   1. cada mensaje en su globo con la colita: lo de Martín con SU foto, lo especial como tarjeta de color;
+//   4. pegar una imagen la adjunta (de `items` o de `files`; con texto escrito, gana el texto; un link no es texto);
+//   5. los emojis en su botón junto al campo (WhatsApp), donde está el cursor; el «+» ordenado como el «Adjuntar» de WhatsApp;
+//   6. un borrador sin mandar se ve en la fila: «Borrador: …» (de TODOS los chats, no sólo el abierto);
+//   10. en el teléfono la cabecera del chat queda pegada arriba y abre la criatura y «Tu foto de perfil».
+// Probado rompiéndolo:
+//   · <MiFoto /> fuera del trabajo en Hilo.tsx → cae 1;
+//   · alPegar sin mirar el texto (siempre la imagen) → cae 4;
+//   · `conEmoji` agregando al final en vez de en el cursor → cae 5;
+//   · `segundoRenglon` sin el borrador → cae 6.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,13 +37,16 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { LineaChat } from '../lib/centro-chats';
-import { avisaYaEsta, vistaPrevia } from '../lib/centro-chats';
+import { avisaYaEsta, segundoRenglon, vistaPrevia } from '../lib/centro-chats';
 import { TEXTO_SOLO_ADJUNTOS, bloquesDeMensaje } from '../lib/centro-caja';
 import { cuentasDeUso, usoDeCuenta, usoPrincipal, type Cuota } from '../lib/centro-uso';
 import { Hilo } from '../app/admin/operaciones/Hilo';
 import { ListaUso } from '../app/admin/operaciones/Uso';
 import { BotonMandar } from '../app/admin/operaciones/Microfono';
 import { YaEstaMensaje } from '../app/admin/operaciones/Avance';
+import { alPegar, archivosDelPortapapeles } from '../app/admin/operaciones/pegar';
+import type { AdjuntosDeCaja } from '../app/admin/operaciones/AdjuntosCaja';
+import { conEmoji } from '../app/admin/operaciones/Emojis';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -146,4 +161,87 @@ test('9: una medición de más de 6 horas se ve apagada y el botón no la usa; �
 test('18:06: «Uso y Runners» sin «N de N activos» repetido, y la hoja abre en «alto»', () => {
   assert.doesNotMatch(codigo('app/m/operaciones/RunnerMovil.tsx'), /activos/);
   assert.match(codigo('app/m/operaciones/CentroAppMovil.tsx'), /titulo="Uso y Runners" snap="alto"/);
+});
+
+test('1: cada mensaje en su globo con su colita; lo de Martín con SU foto, lo especial como tarjeta', () => {
+  const html = dibujar([
+    trabajo('Arreglá el filtro'),
+    turno('u1', 'el', 'Listo, lo miro', AHORA - 30_000),
+    turno('u2', 'el', 'Ya está: el filtro\nPruébalo en /crm', AHORA - 10_000),
+  ]);
+  assert.match(html, /class="co-burbuja"[\s\S]*?<\/div><span class="co-mifoto"/, 'su foto, al lado de su globo');
+  assert.match(html, /class="co-el co-el--especial"/, 'el «Completado» es una tarjeta especial');
+  const css = leer('app/admin/operaciones/centro.css');
+  assert.match(css, /\.co-yo \.co-burbuja::after \{[\s\S]*?clip-path/, 'la colita del globo de Martín');
+  assert.match(css, /\.co-el:not\(\.co-trabajando\) > \.co-el__cuerpo:not\(\.co-el__cuerpo--ancho\)::before \{[\s\S]*?clip-path/, 'y la del chat');
+  assert.match(codigo('app/admin/operaciones/MiFoto.tsx'), /fetch\('\/api\/perfil'\)/, 'la foto es la del perfil');
+});
+
+test('4: pegar una imagen la adjunta; con texto escrito gana el texto, y un link no es texto', () => {
+  const png = new File([new Uint8Array([137, 80, 78, 71])], 'captura.png', { type: 'image/png' });
+  const pegar = (texto: string, puede = true, enItems = false) => {
+    const sumados: File[][] = [];
+    let noPuede = 0;
+    let frenado = false;
+    const a: AdjuntosDeCaja = { items: [], puede, onSumar: (fs) => sumados.push(fs), onQuitar: () => {}, onNoPuede: () => { noPuede += 1; } };
+    const e = {
+      preventDefault: () => { frenado = true; },
+      clipboardData: {
+        files: enItems ? [] : [png],
+        items: enItems ? [{ kind: 'file', getAsFile: () => png }] : [],
+        getData: (t: string) => (t === 'text/plain' ? texto : ''),
+      },
+    };
+    alPegar(e as unknown as Parameters<typeof alPegar>[0], a);
+    return { sumados: sumados.flat().length, noPuede, frenado };
+  };
+  assert.deepEqual(pegar(''), { sumados: 1, noPuede: 0, frenado: true }, 'una captura sola');
+  assert.deepEqual(pegar('', true, true), { sumados: 1, noPuede: 0, frenado: true }, 'la imagen que viene sólo en `items`');
+  assert.deepEqual(pegar('https://hola-mako.com/foto.png'), { sumados: 1, noPuede: 0, frenado: true }, '«Copiar imagen» trae su dirección: gana la imagen');
+  assert.deepEqual(pegar('Ventas | 120'), { sumados: 0, noPuede: 0, frenado: false }, 'una celda de Excel: se pega el texto');
+  assert.deepEqual(pegar('', false), { sumados: 0, noPuede: 1, frenado: true }, 'un chat que no recibe adjuntos lo dice');
+  assert.equal(archivosDelPortapapeles({ files: [png] as unknown as FileList, items: [{ kind: 'file', getAsFile: () => png }] as unknown as DataTransferItemList }).length, 1, 'sin repetir');
+});
+
+test('5: los emojis donde está el cursor, en su botón junto al campo; el «+» como el «Adjuntar» de WhatsApp', () => {
+  assert.deepEqual(conEmoji('hola mundo', 4, 4, '👍'), { texto: 'hola👍 mundo', cursor: 6 });
+  assert.deepEqual(conEmoji('hola mundo', 5, 10, '🔥'), { texto: 'hola 🔥', cursor: 7 }, 'reemplaza lo seleccionado');
+  assert.deepEqual(conEmoji('hola', null, null, '✅'), { texto: 'hola✅', cursor: 5 }, 'sin cursor, al final');
+  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
+    assert.match(codigo(f), /<\/MasCaja>[\s\S]{0,120}<BotonEmojis campo=\{caja\}/, `${f}: la carita, junto al campo`);
+  }
+  const mas = codigo('app/admin/operaciones/AdjuntosCaja.tsx');
+  const rotulos = [...mas.matchAll(/<\/span><span>([^<]+)<\/span>\s*<\/button>/g)].map((m) => m[1]);
+  assert.deepEqual(rotulos, ['Documento', 'Fotos', 'Cámara'], 'los círculos de WhatsApp, en su orden');
+  assert.match(mas, /co-mas-caja__titulo">Con qué corre</);
+});
+
+test('6: un borrador sin mandar se ve en la fila («Borrador: …»), de todos los chats', () => {
+  const quieto = { estado: 'abierto' as const, viejo: false };
+  const previa = { texto: 'Listo', propio: false, tick: null, instante: AHORA };
+  assert.equal(segundoRenglon(quieto, 0, 'a medio escribir', previa), 'borrador', 'el borrador le gana a lo último que pasó');
+  assert.equal(segundoRenglon(quieto, 0, 'a medio escribir', { ...previa, ya: true }), 'borrador', 'y a un «Completado»');
+  assert.equal(segundoRenglon(quieto, 1, 'a medio escribir', previa), 'espera', 'lo que espera a Martín va primero');
+  assert.equal(segundoRenglon({ estado: 'trabajando', viejo: false }, 0, 'x', previa), 'vivo');
+  assert.equal(segundoRenglon(quieto, 0, null, previa), 'previa');
+  assert.equal(segundoRenglon(quieto, 0, '', null), null);
+  // Las dos listas usan ESE orden, y el chat abierto no muestra su borrador (se está escribiendo ahí).
+  const piezas = codigo('app/admin/operaciones/PiezasCentro.tsx');
+  assert.match(piezas, /switch \(segundoRenglon\(c, espera, borrador, p\)\)/);
+  assert.match(piezas, /borrador=\{actual \? null : k\.borradorDeLista\(c\.clave\)\}/);
+  const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
+  assert.match(movil, /const renglon = segundoRenglon\(c, espera, borrador, p\);/);
+  assert.match(movil, /borrador=\{f\.c\.clave === elegido\?\.clave \? null : centro\.borradorDeLista\(f\.c\.clave\)\}/);
+  assert.match(movil, /a\.borrador === b\.borrador/, 'la fila memorizada se redibuja si cambia su borrador');
+  // Los de TODOS los chats, no sólo los que se abrieron: se leen de este navegador al aparecer en la lista.
+  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /for \(const c of chats\) if \(!conBorradorLeido\.current\.has\(c\.clave\)\) \{[^}]*cargarBorrador\(c, null\)/);
+});
+
+test('10: en el teléfono la cabecera del chat queda pegada arriba y abre la criatura y «Tu foto de perfil»', () => {
+  const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
+  assert.match(movil, /className="m-operaciones-cabeza"/);
+  assert.match(leer('app/m/operaciones/operaciones.css'), /\.m-operaciones-cabeza \{ position: sticky; top: 0;/);
+  assert.match(movil, /titulo="Tu foto de perfil"/);
+  assert.match(movil, /fetch\('\/api\/perfil\/avatar', \{ method: 'POST', body: fd \}\)/, 'por la ruta del perfil, que mira los bytes');
+  assert.match(movil, /ponerMiFoto\(j\.url\)/, 'y se ve en el acto en los globos');
 });

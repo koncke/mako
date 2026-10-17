@@ -33,6 +33,7 @@ import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
 import { BotonMandar } from './Microfono';
+import { BotonEmojis } from './Emojis';
 import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { TareasVinculadas, irAlTurno } from './Avance';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from './ConLinks';
@@ -263,6 +264,8 @@ export function Conversacion({
               <MasCaja a={adjuntos} apagado={enviando} resumen={null}>
                 {(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>}
               </MasCaja>
+              {/* Los emojis, en su botón junto al campo (WhatsApp; Emojis.tsx). */}
+              <BotonEmojis campo={caja} valor={texto} onValor={onTexto} apagado={enviando} />
               {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}
               <div className="co-caja__campo">
               {conLinks && <ResalteDeLinks texto={texto} capa={(el) => { resalte.current = el; }} />}

@@ -34,7 +34,7 @@ import { comandoNuevoChat, tieneTerminal } from '@/lib/runner';
 import {
   AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
 } from '@/lib/centro-cuentas';
-import { nombreValido } from '@/lib/centro-chats';
+import { nombreValido, segundoRenglon } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
@@ -53,20 +53,22 @@ const VISIBLES = 14;
 /** El segundo renglón de la fila: mientras trabaja, EN QUÉ (Martín, 16/10/2026: «Cuando un chat dice "Trabajando..." debo
  *  saber en qué está trabajando»: el título de lo que tiene en curso, `enQueTrabaja`; «trabajando…» si no se sabe), si no
  *  lo último que pasó, con el tick si es un trabajo propio. */
-function Previa({ c, p, espera, enCurso }: { c: ChatCentro; p: VistaPrevia | null; espera: number; enCurso: string | null }) {
-  if (c.estado === 'trabajando' && !c.viejo) return <span className="co-fila__l2 co-fila__l2--vivo" title={enCurso ?? undefined}>{enCurso ?? 'trabajando…'}</span>;
-  // Lo que espera una respuesta de Martín le gana a lo último que pasó: es lo que lo frena.
-  if (espera > 0) return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
-  // Sin nada que contar, la fila es de un renglón: «Sin nada anotado» repetido en 40 filas no distingue a ninguna.
-  if (!p) return null;
-  // Lo último es un «Ya está» (17/10/2026): su sello «Completado» y lo que se hizo (la fila avisa si no se vio).
-  if (p.ya) return <span className="co-fila__l2"><SelloCompletado /><span className="co-fila__l2-texto">{p.texto}</span></span>;
-  return (
-    <span className="co-fila__l2">
-      {p.tick ? <Tick estado={p.tick} /> : p.propio ? 'Tú: ' : ''}
-      <span className="co-fila__l2-texto">{p.texto}</span>
-    </span>
-  );
+function Previa({ c, p, espera, enCurso, borrador }: { c: ChatCentro; p: VistaPrevia | null; espera: number; enCurso: string | null; borrador?: string | null }) {
+  // El orden lo decide `segundoRenglon` (lib/centro-chats.ts), el mismo del teléfono. Sin nada que contar, la fila es de un
+  // renglón: «Sin nada anotado» repetido en 40 filas no distingue a ninguna.
+  switch (segundoRenglon(c, espera, borrador, p)) {
+    case 'vivo': return <span className="co-fila__l2 co-fila__l2--vivo" title={enCurso ?? undefined}>{enCurso ?? 'trabajando…'}</span>;
+    case 'espera': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
+    case 'borrador': return <span className="co-fila__l2"><span className="co-borrador">Borrador:</span><span className="co-fila__l2-texto">{borrador}</span></span>;
+    case 'ya': return <span className="co-fila__l2"><SelloCompletado /><span className="co-fila__l2-texto">{p?.texto}</span></span>;
+    case 'previa': return (
+      <span className="co-fila__l2">
+        {p?.tick ? <Tick estado={p.tick} /> : p?.propio ? 'Tú: ' : ''}
+        <span className="co-fila__l2-texto">{p?.texto}</span>
+      </span>
+    );
+    default: return null;
+  }
 }
 
 /** El sello de un «Ya está» en la lista (17/10/2026: en pantalla «Ya está» se dice «Completado»). */
@@ -98,7 +100,7 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
             {/* El aviso de un «Ya está» sin ver, como el globito de no leídos de WhatsApp (verde, a la derecha). */}
             {k.yaSinVer.has(c.clave) && <span className="co-aviso-ya" role="status" aria-label="Completado sin ver"><Icon name="check" size={11} /></span>}
           </span>
-          <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} enCurso={k.enCursos.get(c.clave) ?? null} />
+          <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} enCurso={k.enCursos.get(c.clave) ?? null} borrador={actual ? null : k.borradorDeLista(c.clave)} />
         </span>
       </button>
       <button type="button" className="co-fila__mas" aria-label={`Opciones de ${c.titulo}`} title="Opciones"
@@ -203,7 +205,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       envio={k.envioDe(chat)} texto={k.borradorDe(chat.clave)} onTexto={(t) => k.ponerBorrador(chat.clave, t)}
       adjuntos={{
         items: k.adjuntosDe(chat.clave), puede: k.puedeAdjuntar(chat),
-        onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id),
+        onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id), onNoPuede: k.sinAdjuntos,
       }}
       enviando={k.enviando} resumenEnvio={resumenDeEnvio(k, chat)}
       onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}

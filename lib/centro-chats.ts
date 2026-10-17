@@ -489,6 +489,20 @@ export function historialDelChat(
  *  Su texto va sin el «Ya está» de adelante: la fila lo dibuja con su sello «Completado». */
 export type VistaPrevia = { texto: string; propio: boolean; tick: EstadoPedido | null; instante: number; ya?: true };
 
+/**
+ * Qué dice el segundo renglón de la fila de un chat, en este orden, en la computadora y en el teléfono: en qué trabaja, que
+ * espera una respuesta, el borrador sin mandar («Borrador: …», como WhatsApp, 17/10/2026), un «Completado», o lo último.
+ * null = la fila va de un renglón.
+ */
+export type SegundoRenglon = 'vivo' | 'espera' | 'borrador' | 'ya' | 'previa' | null;
+export function segundoRenglon(c: Pick<ChatCentro, 'estado' | 'viejo'>, espera: number, borrador: string | null | undefined, p: VistaPrevia | null | undefined): SegundoRenglon {
+  if (c.estado === 'trabajando' && !c.viejo) return 'vivo';
+  if (espera > 0) return 'espera';
+  if (borrador) return 'borrador';
+  if (!p) return null;
+  return p.ya ? 'ya' : 'previa';
+}
+
 /** Lo que este dispositivo ya vio de cada chat: `desde` = la primera vez que abrió el Ops Center; `chats` = cuándo abrió cada uno. */
 export type VistosDeChats = { desde: number; chats: Record<string, number> };
 

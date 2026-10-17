@@ -42,7 +42,9 @@ test('H: sin los tres puntos arriba de cada chat; en el teléfono, el muñeco ab
   assert.doesNotMatch(codigo('app/admin/operaciones/Conversacion.tsx'), /co-cab__mas|name="mas"/, 'la computadora');
   const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
   assert.doesNotMatch(movil, /m-operaciones-mas/, 'el teléfono');
-  assert.match(movil, /className="m-operaciones-muneco" onClick=\{\(\) => setOpciones\(true\)\}/, 'Renombrar sigue a mano en el teléfono');
+  // Desde el 17/10 a la tarde la criatura va en la cabecera pegada arriba (Martín: «en el teléfono no se puede editar la
+  // criatura»: el muñeco estaba arriba de todo de una conversación que abre en lo último, y nunca se veía).
+  assert.match(movil, /className="m-operaciones-hilo__meta m-operaciones-cabeza__boton" onClick=\{\(\) => setOpciones\(true\)\}/, 'Renombrar sigue a mano en el teléfono');
 });
 
 test('I: «Second Brain» abre sólo el grafo y no cambia de chat ni de lista; «Mapa» no está en el Ops Center', () => {

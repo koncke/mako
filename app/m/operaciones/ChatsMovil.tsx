@@ -27,7 +27,7 @@ import { Button, Field, Input } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { conVinetas, enterEnLista } from '@/lib/centro-caja';
 import {
-  SECCION_CHATS, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats, trabajaSinEscribir,
+  SECCION_CHATS, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, nombreCuenta, nombreValido, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, textoDeRenombre, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
@@ -43,6 +43,9 @@ import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
 import { guardarMunecoAction } from '@/app/admin/operaciones/acciones';
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
+import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
+import { MiFoto, ponerMiFoto } from '@/app/admin/operaciones/MiFoto';
+import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import { aspectoDe, elegidoPara, esCriaturaDeMako, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
@@ -80,20 +83,24 @@ type PropsFilaChatM = {
   onAbrir: (clave: string) => void;
   /** Trae un «Ya está» que este teléfono no vio (useCentro.ts → yaSinVer): el aviso verde a la derecha, como WhatsApp. */
   nuevo: boolean;
+  /** Lo escrito sin mandar (useCentro.ts → borradorDeLista): «Borrador: …», como WhatsApp. */
+  borrador: string | null;
 };
-const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, aspecto, ahora, onAbrir, nuevo }: PropsFilaChatM) {
-  const vivo = c.estado === 'trabajando' && !c.viejo;
+const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, aspecto, ahora, onAbrir, nuevo, borrador }: PropsFilaChatM) {
+  const renglon = segundoRenglon(c, espera, borrador, p);
   return (
     <FilaM
       // Un sub-chat va corrido a la derecha, con su muñeco más chico y sólo lo que va después de «›».
       leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={aspecto} animo={animoDe(c)} size={sub ? 32 : 40} espera={espera} /></span>}
       titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
-      segunda={vivo
-        ? <span className="m-operaciones-vivo">{enCurso ?? 'trabajando…'}</span>
-        : espera > 0 ? <span className="m-operaciones-espera">Espera tu respuesta</span>
-        : p?.ya ? <span className="m-operaciones-previa"><SelloCompletado />{p.texto}</span>
-        : p ? <span className="m-operaciones-previa">{p.tick ? <Tick estado={p.tick} /> : p.propio ? 'Tú: ' : ''}{p.texto}</span>
-          : undefined}
+      // El orden lo decide `segundoRenglon` (lib/centro-chats.ts), el mismo de la computadora.
+      segunda={renglon ? {
+        vivo: <span className="m-operaciones-vivo">{enCurso ?? 'trabajando…'}</span>,
+        espera: <span className="m-operaciones-espera">Espera tu respuesta</span>,
+        borrador: <span className="m-operaciones-previa"><span className="co-borrador">Borrador:</span>{borrador}</span>,
+        ya: <span className="m-operaciones-previa"><SelloCompletado />{p?.texto}</span>,
+        previa: <span className="m-operaciones-previa">{p?.tick ? <Tick estado={p.tick} /> : p?.propio ? 'Tú: ' : ''}{p?.texto}</span>,
+      }[renglon] : undefined}
       riel={<span className="m-operaciones-riel"><span className={`m-operaciones-hace${nuevo ? ' co-fila__hace--nuevo' : ''}`}>{edad(c.actividad, ahora)}</span>
         {nuevo && <span className="co-aviso-ya" role="status" aria-label="Completado sin ver"><Icon name="check" size={11} /></span>}</span>}
       onClick={() => onAbrir(c.clave)}
@@ -106,7 +113,7 @@ const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, 
  *  de cada chat y de cada vista previa aunque nada haya cambiado, y sin esto las 90 filas se volvían a dibujar en cada uno. */
 function mismaFila(a: PropsFilaChatM, b: PropsFilaChatM): boolean {
   return a.c.clave === b.c.clave && a.c.titulo === b.c.titulo && a.c.estado === b.c.estado && a.c.viejo === b.c.viejo && a.c.nube === b.c.nube
-    && a.sub === b.sub && a.enCurso === b.enCurso && a.espera === b.espera && a.aspecto === b.aspecto && a.onAbrir === b.onAbrir && a.nuevo === b.nuevo
+    && a.sub === b.sub && a.enCurso === b.enCurso && a.espera === b.espera && a.aspecto === b.aspecto && a.onAbrir === b.onAbrir && a.nuevo === b.nuevo && a.borrador === b.borrador
     && a.previa?.texto === b.previa?.texto && a.previa?.tick === b.previa?.tick && a.previa?.propio === b.previa?.propio && a.previa?.ya === b.previa?.ya
     && edad(a.c.actividad, a.ahora) === edad(b.c.actividad, b.ahora);
 }
@@ -155,6 +162,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const [abriendo, setAbriendo] = useState(false);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ aspecto: Aspecto; guardando: boolean } | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const fotoInput = useRef<HTMLInputElement>(null);
   const toast = useToastM();
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   // El chat abierto se sigue aunque lo renombren (17/10/2026): su clave es su nombre, y si ya no está se lo busca por las
@@ -266,7 +275,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // Las fotos y los PDF de la caja (17/10/2026): el estado es del motor (useCentro.ts), el mismo de la computadora.
   const adjuntos: AdjuntosDeCaja | undefined = centro && elegido ? {
     items: centro.adjuntosDe(elegido.clave), puede: centro.puedeAdjuntar(elegido),
-    onSumar: (fs) => void centro.sumarAdjuntos(elegido.clave, fs), onQuitar: (id) => centro.quitarAdjunto(elegido.clave, id),
+    onSumar: (fs) => void centro.sumarAdjuntos(elegido.clave, fs), onQuitar: (id) => centro.quitarAdjunto(elegido.clave, id), onNoPuede: centro.sinAdjuntos,
   } : undefined;
 
   // Mandar es el del motor (useCentro.ts → mandar): el mismo de la computadora, con la cita si responde a un mensaje.
@@ -307,6 +316,21 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     setEligiendo(null);
     toast('Criatura guardada');
   }
+  // Tu foto de perfil desde el teléfono (17/10/2026): la sube como /perfil (su ruta, que mira los bytes) y la guarda en tu
+  // perfil; todos los globos la muestran en el acto (MiFoto.tsx → ponerMiFoto).
+  async function subirFoto(f: File) {
+    setSubiendoFoto(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', f.size > 1_500_000 ? await achicarImagen(f) : f);
+      const j = await (await fetch('/api/perfil/avatar', { method: 'POST', body: fd })).json() as { ok?: boolean; url?: string; error?: string };
+      if (!j.ok || !j.url) { toast(j.error ?? 'No pude subir la foto'); return; }
+      const g = await (await fetch('/api/perfil', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'perfil', perfil: { avatarUrl: j.url } }) })).json() as { ok?: boolean; error?: string };
+      if (!g.ok) { toast(g.error ?? 'No pude guardar la foto'); return; }
+      ponerMiFoto(j.url);
+      toast('Foto guardada');
+    } catch { toast('No pude subir la foto'); } finally { setSubiendoFoto(false); }
+  }
   const abrirMuneco = () => { if (elegido) setEligiendo({ aspecto: aspectoDe(elegido.titulo, elegidoPara(munecos, elegido.titulo)), guardando: false }); };
   const cerrarHoja = () => { setAbierto(null); setOpciones(false); setRenombre(null); setEligiendo(null); setMenuWA(null); setPanelWA(null); };
   const cita = elegido ? centro.citaDe(elegido.clave) : null;
@@ -325,6 +349,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
               {(cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>}
             </MasCaja>
           )}
+          {/* Los emojis, en su botón junto al campo (WhatsApp; Emojis.tsx). */}
+          <BotonEmojis campo={caja} valor={texto} onValor={ponerTexto} apagado={enviando} />
           <div className="co-caja__campo">
           {hayLinks(texto) && <ResalteDeLinks texto={texto} capa={(el) => { resalte.current = el; }} />}
           <textarea
@@ -413,7 +439,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             {filas.map((f) => (f.tipo === 'mas'
               ? <FilaM key={`mas-${f.k}`} titulo={`Ver los ${f.n} chats`} onClick={() => setEnteras((s) => new Set(s).add(f.k))} navegacion />
               : <FilaChatM key={f.c.clave} c={f.c} sub={f.sub} previa={centro.previas.get(f.c.clave) ?? null} enCurso={centro.enCursos.get(f.c.clave) ?? null}
-                espera={esperaDe(f.c, esperas)} aspecto={elegidoPara(munecos, f.c.titulo)} ahora={ahora} onAbrir={abrirEstable} nuevo={centro.yaSinVer.has(f.c.clave)} />))}
+                espera={esperaDe(f.c, esperas)} aspecto={elegidoPara(munecos, f.c.titulo)} ahora={ahora} onAbrir={abrirEstable} nuevo={centro.yaSinVer.has(f.c.clave)}
+                borrador={f.c.clave === elegido?.clave ? null : centro.borradorDeLista(f.c.clave)} />))}
           </ListaM>
         </SeccionM>
       )}
@@ -455,7 +482,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             {elegido.sesiones.length > 0 && <FilaM icono="pen" titulo="Renombrar" onClick={() => { setOpciones(false); setRenombre({ texto: elegido.titulo, error: null, mandando: false }); }} navegacion />}
             {/* El Cerebro es siempre la estrella de MaKo: su criatura no se cambia. */}
             {!esCriaturaDeMako(elegido.titulo) && <FilaM icono="perfil" titulo="Cambiar su criatura" onClick={() => { setOpciones(false); abrirMuneco(); }} navegacion />}
+            {/* Tu foto, la que va al lado de tus mensajes (MiFoto.tsx): la del perfil, cambiada desde acá. */}
+            <FilaM leading={<MiFoto size={40} />} titulo="Tu foto de perfil" segunda={subiendoFoto ? 'Subiendo…' : 'Va al lado de tus mensajes'}
+              onClick={() => { if (!subiendoFoto) fotoInput.current?.click(); }} navegacion />
           </ListaM>
+        )}
+        {elegido && !renombre && !eligiendo && opciones && (
+          <input ref={fotoInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void subirFoto(f); }} />
         )}
         {elegido && panelWA && (panelWA.tipo === 'info'
           ? <InfoMensaje m={panelWA.m} />
@@ -467,15 +500,21 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           }} />)}
         {elegido && !renombre && !eligiendo && !opciones && !panelWA && (
           <div className="m-operaciones-hilo" ref={hilo}>
-            {/* Los fijados, pegados arriba de la conversación (WhatsApp): tocar va al mensaje. */}
-            <div className="m-operaciones-fijados"><BarraFijados marcas={marcas} lineas={lineas} titulo={elegido.titulo} onSoltar={(id) => void centro.marcar(elegido, { tipo: 'fijar', id, si: false })} verTodo={verTodo} /></div>
-            <div className="m-operaciones-hilo__meta">
-              {/* Sin «⋯» desde el 17/10/2026: tocar el muñeco abre Renombrar y Cambiar su muñeco. */}
-              <button type="button" className="m-operaciones-muneco" onClick={() => setOpciones(true)} aria-label={`Opciones de ${elegido.titulo}`}>
-                <Muneco titulo={elegido.titulo} aspecto={elegidoPara(munecos, elegido.titulo)} animo={animoDe(elegido)} size={28} />
+            {/* LA CABECERA DEL CHAT, SIEMPRE A LA VISTA (17/10/2026; Martín: «en el teléfono no se puede editar la foto de perfil
+                ni la criatura»): estaba arriba de todo de la conversación, que abre en lo último, así que nunca se veía. Ahora
+                va pegada arriba, como la de WhatsApp: tocarla abre la info (Renombrar, su criatura y tu foto). Debajo, los
+                fijados. */}
+            <div className="m-operaciones-cabeza">
+              <button type="button" className="m-operaciones-hilo__meta m-operaciones-cabeza__boton" onClick={() => setOpciones(true)} aria-label={`Info de ${elegido.titulo}: su criatura, tu foto y renombrar`}>
+                <Muneco titulo={elegido.titulo} aspecto={elegidoPara(munecos, elegido.titulo)} animo={animoDe(elegido)} size={32} />
+                <span className="m-operaciones-cabeza__texto">
+                  {[...new Set(elegido.sesiones.map((s) => s.cuenta).filter((x): x is string => !!x))].map((x) => <span key={x} className="co-chip-cuenta">{nombreCuenta(x)}</span>)}
+                  {metaDe(elegido)}
+                </span>
+                <span className="m-operaciones-cabeza__ir" aria-hidden>›</span>
               </button>
-              {[...new Set(elegido.sesiones.map((s) => s.cuenta).filter((x): x is string => !!x))].map((x) => <span key={x} className="co-chip-cuenta">{nombreCuenta(x)}</span>)}
-              {metaDe(elegido)}
+              {/* Los fijados, pegados arriba de la conversación (WhatsApp): tocar va al mensaje. */}
+              <div className="m-operaciones-fijados"><BarraFijados marcas={marcas} lineas={lineas} titulo={elegido.titulo} onSoltar={(id) => void centro.marcar(elegido, { tipo: 'fijar', id, si: false })} verTodo={verTodo} /></div>
             </div>
             <ContextoWA.Provider value={accionesWA}>
               <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}

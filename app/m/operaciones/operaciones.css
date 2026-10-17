@@ -94,3 +94,14 @@
 [data-m] .m-operaciones-fijados { position: sticky; top: 0; z-index: 3; margin: 0 -16px; background: var(--bg); }
 [data-m] .m-operaciones-fijados:empty { display: none; }
 [data-m] .m-operaciones-fijados .co-fijados { padding-inline: 16px; }
+
+/* La cabecera del chat, pegada arriba de la hoja como la de WhatsApp (17/10/2026): la criatura, la cuenta y el estado;
+   tocarla abre la info (Renombrar, su criatura y tu foto). Los fijados van debajo, en el mismo bloque pegado. */
+[data-m] .m-operaciones-cabeza { position: sticky; top: 0; z-index: 3; margin: 0 -16px; padding: 0 16px; background: var(--bg); }
+[data-m] .m-operaciones-cabeza .m-operaciones-fijados { position: static; margin: 0 -16px; }
+[data-m] .m-operaciones-cabeza__boton {
+  width: 100%; margin: 0; padding: 6px 0 8px; border: 0; border-bottom: 1px solid var(--border); background: none;
+  font: inherit; text-align: left; cursor: pointer;
+}
+[data-m] .m-operaciones-cabeza__texto { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+[data-m] .m-operaciones-cabeza__ir { flex: none; font-size: 22px; line-height: 1; color: var(--faint); }

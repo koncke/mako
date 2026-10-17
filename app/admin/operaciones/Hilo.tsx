@@ -10,6 +10,11 @@
 //   · ✓✓ azul   → hecho o comprobado: el chat dejó su cierre (que va abajo, como respuesta);
 //   · ✕         → no se pudo / no sé si llegó / cancelado, con el motivo debajo.
 //
+// LOS GLOBOS (17/10/2026, Martín: «Cada mensaje dentro de su globo, con la colita que apunta a la foto o a la criatura. De
+// su lado va SU foto de perfil. Los mensajes especiales se tienen que ver más llamativos»): copiado de un grupo de
+// WhatsApp. Lo de Martín, verde-azul a la derecha con la colita arriba hacia SU foto (MiFoto.tsx); lo del chat, en un globo
+// blanco a la izquierda con la colita hacia su criatura. Lo especial (un «Completado», una pregunta, un aviso) no va en
+// globo: es una tarjeta con su color (`co-el--especial`, `co-aviso`), para que se distinga de una respuesta.
 // ⚠️ SIN 'use client' Y SIN HOOKS, a propósito: el teléfono la usa sin llevarse la pantalla de escritorio
 // (AGENTS.md → MaKo Mobile). Las clases son las de centro.css, que importa quien la monta.
 // ⚠️ Las horas son las de Argentina (el reloj de Martín), calculadas con el `ahora` que llega de afuera: el
@@ -29,6 +34,7 @@ import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reg
 import { PreguntaChat, type Responder } from './PreguntaChat';
 import { TEXTO_SOLO_ADJUNTOS, bloquesDeMensaje } from '@/lib/centro-caja';
 import { AdjuntosEnBurbuja } from './FotosEnviadas';
+import { MiFoto } from './MiFoto';
 import { ConLinks } from './ConLinks';
 import { memo } from 'react';
 import { idDeLinea, leerCita, leerReenvio, mensajeDeLinea, sinOcultos, type MarcasChat } from '@/lib/centro-mensajes';
@@ -115,8 +121,10 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
           {!(w.adjuntos?.length && w.texto === TEXTO_SOLO_ADJUNTOS) && <TextoMio texto={w.texto ?? ''} lineas={wa.lineas} />}
           <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{Number.isFinite(t) ? horaAR(t) : ''}<Tick estado={estado} /></span>
         </div>
+        <MiFoto />
         <ReaccionWA id={id} marcas={wa.marcas} />
-        {mal && <p className="co-nota co-nota--mal">{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}</p>}
+        {/* Un aviso se ve como aviso (17/10/2026: «los mensajes especiales se tienen que ver más llamativos»). */}
+        {mal && <p className="co-nota co-nota--mal co-aviso" role="alert"><Icon name="x" size={12} />{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}</p>}
         {va && (
           <p className={`co-envio co-envio--${va.fase}${va.porQue ? ' co-envio--tarda' : ''}`} role="status">
             <span className="co-envio__paso">{va.texto}</span>
@@ -160,7 +168,7 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
   if (t.rol === 'el' && esYaEsta(t.texto)) {
     return (
       <Deslizable m={m} className="co-el-wa">
-        <div className="co-el" id={`co-turno-${t.uuid}`}>
+        <div className="co-el co-el--especial" id={`co-turno-${t.uuid}`}>
         <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
         <div className="co-el__cuerpo co-el__cuerpo--ancho">
           <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} />
@@ -192,6 +200,7 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
         <TextoMio texto={t.texto} lineas={wa.lineas} />
         <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{hora}</span>
       </div>
+      {t.rol === 'yo' ? <MiFoto /> : <span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span>}
       <ReaccionWA id={id} marcas={wa.marcas} />
     </Deslizable>
   );
@@ -205,7 +214,7 @@ function Linea({ l, pushes, ahora, quien, vivo, onResponder, extras, wa }: { l: 
   if (l.tipo === 'pregunta') {
     // Lo que el chat pregunta: un mensaje suyo, con el formulario de opciones adentro (PreguntaChat.tsx, 17/10/2026).
     return (
-      <div className="co-el">
+      <div className="co-el co-el--especial">
         <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
         <div className="co-el__cuerpo co-el__cuerpo--ancho">
           <PreguntaChat p={l.pregunta} onResponder={onResponder} enviada={!!l.trabajo} />
@@ -225,6 +234,7 @@ function Linea({ l, pushes, ahora, quien, vivo, onResponder, extras, wa }: { l: 
           {textoDeRespuesta(l.decision)}
           <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{horaAR(l.instante)}</span>
         </p>
+        <MiFoto />
         <ReaccionWA id={id} marcas={wa.marcas} />
       </Deslizable>
     );
@@ -233,6 +243,7 @@ function Linea({ l, pushes, ahora, quien, vivo, onResponder, extras, wa }: { l: 
     return (
       <div className="co-yo">
         <p className="co-burbuja">{l.pedido.texto}<span className="co-burbuja__pie">{horaAR(l.instante)}</span></p>
+        <MiFoto />
         <p className="co-nota">{l.trabajaron.length ? `Lo trabajó ${l.trabajaron.join(', ')}` : 'Nadie lo tomó todavía'}</p>
       </div>
     );
@@ -241,6 +252,7 @@ function Linea({ l, pushes, ahora, quien, vivo, onResponder, extras, wa }: { l: 
     <>
       <div className="co-yo">
         <p className="co-burbuja">{l.pedido.texto}<span className="co-burbuja__pie">{horaAR(l.instante)}</span></p>
+        <MiFoto />
         {l.desde && <p className="co-nota">{`Lo pediste en ${l.desde}`}</p>}
       </div>
       {l.pasos.map((s, j) => {
