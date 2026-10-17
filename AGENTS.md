@@ -4541,9 +4541,13 @@ Un `<button>` con un párrafo adentro se anuncia leyendo el párrafo entero, as�
 
 # Una pantalla oscura se hace redefiniendo TOKENS, no reglas
 
-La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). No hay
-`prefers-color-scheme` ni modo oscuro global, y no se está agregando uno. Cuando una
-pantalla tiene que ser oscura —hoy solo `/second-brain`— se marca `<html data-tema="oscuro">`
+La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). **Desde el 17/10/2026 cada persona
+puede elegir oscuro** (tarjeta #883): el interruptor al lado de la foto de la barra (`InterruptorModo`) guarda
+`mako.modo` en su navegador, `ModoArranque` lo aplica antes del primer pintado y `ModoDelUsuario` lo sostiene al
+navegar. **Claro por defecto y nunca `prefers-color-scheme`**: oscuro sólo si la persona lo eligió. Una pantalla nueva
+consume tokens (`var(--surface)`, `var(--ink)`…) y así respeta la elección sin hacer nada; un color escrito a mano
+(`#fff`) es una pantalla que se queda clara en el oscuro de alguien. Cuando una pantalla tiene que ser oscura SIEMPRE
+—el editor de video, como CapCut— se marca `<html data-tema="oscuro">`
 y se redefinen los tokens en `app/globals.css`. Todo lo que ya consume `var(--surface)`,
 `var(--ink)`, `var(--border)`… se da vuelta solo. El inventario de esa pantalla contó **40
 usos** repartidos en tres archivos: tocarlos uno por uno era garantizar que el próximo se

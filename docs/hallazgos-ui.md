@@ -57,6 +57,25 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 
 ---
 
+## El oscuro de cada persona: no faltaba el interruptor, faltaba el arranque — y el taller lo borraba (17/10/2026)
+
+Tarjeta #883: «que cada persona elija tema claro u oscuro en la computadora (hoy sólo en el teléfono)». Lo obvio era
+«montar el interruptor»: `InterruptorModo` (el de nordtheme) existía y guardaba `mako.modo`. Lo que de verdad faltaba:
+- **Nadie aplicaba la elección en la computadora.** El teléfono tiene su script antes del primer pintado
+  (app/m/_ui/tema.ts); el escritorio no tenía ninguno, así que la elección sólo existía mientras no se recargara.
+  Ahora `ModoArranque` (script, sólo con sesión, nunca en una página pública) y `ModoDelUsuario` (lo vuelve a poner al
+  navegar: el shell de /m lo saca al salir y una pantalla que lo PRESTA también).
+- **El taller de paletas del super admin borraba el modo en CADA render** fuera del Cliente de Diseño
+  (`TemaCandidato`, `removeAttribute(ATTR_MODO)` en un efecto sin dependencias), y sacar un tema borraba la elección
+  guardada. Eran de cuando el modo era parte del tema en prueba. Ahora el taller toca sólo el tema.
+- **`modoPreferido` seguía al sistema** sin elección: un Windows en oscuro abría MaKo en oscuro. Claro por defecto.
+- Lo que sigue sin respetar el oscuro son los colores escritos a mano: medido el 17/10, **43 archivos** con un fondo
+  `#fff`/`white` literal (Dashboard, Automations, login, Ads Manager…), y las pantallas que FUERZAN oscuro (onboarding
+  —que Martín quiere claro—, ads-writer, video). Pendiente, por área.
+
+**Vive en:** `app/_components/ModoArranque.tsx`, `ModoDelUsuario.tsx`, `TemaCandidato.tsx`, `InterruptorModo.tsx` ·
+`tests/tema-por-persona.test.ts`
+
 ## La sidebar nueva: sacar una fila de nav.ts cierra puertas que no son de la barra (17/10/2026)
 
 Martín pidió deprecar Analyze, Content Machine y Admin, y sacar WhatsApp y Email de la barra (el diseño:

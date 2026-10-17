@@ -38,6 +38,7 @@ import { Icon } from './icons';
 import { Criatura } from './Criatura';
 import { SaldoMaKo } from './SaldoMaKo';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
+import { InterruptorModo } from './InterruptorModo';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -769,6 +770,9 @@ export function Sidebar() {
               <Identidad open={open} nombre={nombreVisible} avatar={avatarVisible} subrotulo={impersonando ? 'Cliente' : 'Cuenta'} />
             </button>
             {veAvisos && <CampanitaAvisos open={open} pathname={pathname} onAbrir={() => { setUserOpen(false); setFlyout(null); }} />}
+            {/* EL CLARO/OSCURO DE CADA PERSONA (17/10/2026, tarjeta #883): el interruptor de nordtheme, al lado de la foto,
+                donde vivía. Sólo con la barra abierta: plegada no entra en la fila. Claro por defecto (ModoArranque). */}
+            {open && <InterruptorModo compacto />}
           </div>
         </div>
       </div>
