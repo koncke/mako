@@ -36,6 +36,7 @@ import {
   type Filtro, type Fila, type Resultado,
 } from './graficos-agregar';
 import { ESTADO_COBRADO } from './graficos-acciones';
+import { esCuotaDeBaja, noEsDeuda } from './cobrado-lead';
 import { ubicarLeads } from './funnels-elegidos-server';
 import { faltaColumnaFunnel, funnelDelMomento } from './funnels-elegidos';
 import { diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, gano, rotuloMadurez, tramosDelCiclo } from './graficos-datos-puro';
@@ -277,7 +278,7 @@ async function filasFormularios(rg: Rango): Promise<Fila[]> {
     .filter((x) => enRango(x.f, rg));
 }
 
-type FPago = { id: number; lead_id: number | null; numero: number | null; monto_usd: number | null; fecha_esperada: string | null; pagado: boolean | null; fecha_pago: string | null; funnel_id?: number | null };
+type FPago = { id: number; lead_id: number | null; numero: number | null; monto_usd: number | null; fecha_esperada: string | null; pagado: boolean | null; fecha_pago: string | null; funnel_id?: number | null; proveedor?: string | null; cobro_id?: number | null; baja_at?: string | null };
 /**
  * Las cuotas. La fecha `vencimiento` mira hacia ADELANTE (`futuro`, contrato v5): «Próximos 30 días» trae lo
  * que vence. ⚠️ «Vencido» se decide con el HOY DEL NEGOCIO (su zona, `hoyEnWorkspace`), no con el de
@@ -288,7 +289,9 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
   const col = fecha === 'pago' ? 'fecha_pago' : 'fecha_esperada';
   // Con el funnel que guardó cada pago (#897, mig 0310); sin la columna, la regla de siempre (abajo).
   const leerPagos = (cols: string) => leer<FPago>('pagos', cols, rg, { col, extra: (q) => (fecha === 'pago' ? q.eq('pagado', true) : q) });
-  const rows = await leerPagos('id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago, funnel_id')
+  // `*` y no la lista (17/10/2026): la cuota DEVUELTA o DE BAJA se reconoce por `proveedor`, `cobro_id` y `baja_at` (mig 0307),
+  // y con `*` una base sin la migración no rompe la tabla (la regla de lib/cobrado-lead.ts, `noEsDeuda`).
+  const rows = await leerPagos('*')
     .catch((e: unknown) => { if (faltaColumnaFunnel(e)) return leerPagos('id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago'); throw e; });
   const ids = rows.map((x) => x.lead_id).filter((x): x is number => x != null);
   const [nom, hoy, donde, rot] = await Promise.all([
@@ -306,7 +309,10 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
   return rows.map((x) => {
     const monto = num(x.monto_usd);
     // `ESTADO_COBRADO` es el mismo rótulo que mira la acción «Marcar cobrada» para no ofrecerla dos veces.
-    const estado = x.pagado ? ESTADO_COBRADO : x.fecha_esperada && x.fecha_esperada < hoy ? 'Vencido' : 'Pendiente';
+    // ⚠️ Una cuota DEVUELTA o DE BAJA (impaga y sin vencimiento) no es «Pendiente»: no se le debe a nadie (17/10/2026).
+    const fuera = !x.pagado && noEsDeuda({ ...x, pagado: false });
+    const estado = x.pagado ? ESTADO_COBRADO : fuera ? (esCuotaDeBaja({ pagado: false, baja_at: x.baja_at }) ? 'De baja' : 'Devuelta')
+      : x.fecha_esperada && x.fecha_esperada < hoy ? 'Vencido' : 'Pendiente';
     const lead = x.lead_id != null ? String(x.lead_id) : null;
     // La fecha que manda: la del cobro si se cobró, la del vencimiento si no.
     const cuando = (x.pagado ? x.fecha_pago : null) ?? x.fecha_esperada;
@@ -315,7 +321,7 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
     return {
       f: fecha === 'pago' ? x.fecha_pago : x.fecha_esperada,
       d: { estado, cliente: lead != null ? nom.get(lead) ?? null : null, cuota: x.numero != null ? `Cuota ${x.numero}` : null, producto: funnel != null ? rot.producto(funnel) : null },
-      v: { monto, cobrado: x.pagado ? monto : 0, pendiente: x.pagado ? 0 : monto, pagos: 1 },
+      v: { monto, cobrado: x.pagado ? monto : 0, pendiente: x.pagado || fuera ? 0 : monto, pagos: 1 },
       u: { clientes: lead },
       // Los DOS ids de la MISMA fila: marcarPagoAction no comprueba que la cuota sea de ese lead
       // (relevo de los botones de acción), así que el par nunca se arma en el navegador.
