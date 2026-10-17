@@ -28,6 +28,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { asegurarLeadDePrueba } from '@/lib/lead-de-prueba';
 import { linkApp } from '@/lib/app-url';
 import { emitirDelCatalogo } from '@/lib/avisos';
+import { datosPruebaGrabada } from '@/lib/prueba-aviso';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,9 +45,6 @@ const VENTANA_H = 12;
 
 /** Cuántos marcadores se recuerdan. Es una lista de anti-repetición, no un log. */
 const RECORDAR = 40;
-
-/** El salto de línea de WhatsApp, sin escaparlo dentro de un template literal. */
-const NL = String.fromCharCode(10);
 
 /** Lo guardado puede ser cualquier cosa: lo escribe este cron, pero el setting es
  *  texto libre y una lista corrupta no puede hacer que el cron deje de correr. */
@@ -128,13 +126,10 @@ export async function GET(req: NextRequest) {
         const links = [...porLead.entries()].map(([id, donde]) => ({ donde, url: linkApp(`/crm/${id}`, w.id) }));
         if (!links.length) return null;
 
-        // El texto lo arma el CÓDIGO: acá viajan links con un id, y un dato exacto
-        // que pasa por un modelo deja de ser exacto.
-        const texto = links.length === 1
-          ? `Ya puedes ver la grabación de tu prueba en *${links[0].donde}* 👉 ${links[0].url}`
-          : `Ya puedes ver las grabaciones de tus pruebas:${NL}${links.map((l) => `• *${l.donde}* 👉 ${l.url}`).join(NL)}`;
-
-        const r = await emitirDelCatalogo('prueba-grabada', { ws: w.id, texto });
+        // Los links los arma el CÓDIGO (llevan un id, y un dato exacto que pasa por un modelo deja de serlo). ⚠️ DESDE EL
+        // 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `prueba_grabada`, «nada por detrás», lote 3):
+        // acá va la lista, que sirve para una grabación y para varias.
+        const r = await emitirDelCatalogo('prueba-grabada', { ws: w.id, datos: datosPruebaGrabada(links) });
 
         // ⚠️ SE MARCAN AVISADAS PASE LO QUE PASE con el envío. Si el aviso falló
         // —WhatsApp caído, plantilla apagada— reintentar cada 15 minutos durante

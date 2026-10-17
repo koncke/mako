@@ -13,6 +13,7 @@ import { revalidatePath } from 'next/cache';
 import { getSetting, setSetting } from '@/lib/settings';
 import { requireRolWs } from '@/lib/tab-access';
 import { emitirDelCatalogo } from '@/lib/avisos';
+import { datosPruebaRecibida } from '@/lib/prueba-aviso';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { contarEventosDePrueba } from '@/lib/landing-token';
 import { programarAnalisisDeclaradas } from '@/lib/landing-analyst-auto';
@@ -173,8 +174,9 @@ export async function finPruebaAction(prueba: string): Promise<{ ok: boolean }> 
     // el mensaje prometía «el link de Clarity» a todo negocio y no le llegaba a nadie.
     await emitirDelCatalogo('prueba-recibida', {
       ws,
-      // El texto lo arma el CÓDIGO: acá viaja un conteo exacto y un dominio.
-      texto: `Listo, recibí tu prueba del Pixel${pagina ? ` en *${pagina}*` : ''}: ${eventos} ${eventos === 1 ? 'evento' : 'eventos'}. Te aviso cuando la grabación esté lista.`,
+      // Un conteo exacto y un dominio, por código. ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin
+      // (evento `prueba_recibida`, «nada por detrás», lote 3).
+      datos: datosPruebaRecibida({ eventos, pagina }),
     });
     return { ok: true };
   } catch {

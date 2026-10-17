@@ -45,6 +45,7 @@ import { datosRecordatorioDueno } from '../lib/curso-mensajes-texto';
 import { datosPuenteAusente } from '../lib/flow-puente-aviso';
 import { datosLandingCambio, datosPixelViejo, datosTrackingApagado } from '../lib/tracking-aviso';
 import { datosOptin } from '../lib/optin-aviso';
+import { datosPruebaGrabada, datosPruebaRecibida } from '../lib/prueba-aviso';
 import { datosDelReporte } from '../lib/reporte-destino';
 import { datosOfertaLista } from '../lib/oferta-lista';
 import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
@@ -134,6 +135,9 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     pixel: set(datosPixelViejo({ paginas: ['https://a.com'], noGraba: true, novedades: 'la grabación', link: 'https://hola-mako.com/integraciones' })),
     // Y la persona que dejó sus datos en la landing, que pasa la ruta del formulario (`datosOptin`), con un duplicado.
     optin: set(datosOptin({ nombre: 'Sofía', telefono: '+52 1', email: 's@x.com', respuestas: [['¿Qué buscas?', 'Vender']], campana: 'oct', funnels: 2, link: 'https://hola-mako.com/crm/1', revisar: true, duplicados: [{ lead: { nombre: 'Ana' } as never, motivo: 'email', texto: 'mismo email (s@x.com)' }] }) as Record<string, string>),
+    // Y la prueba del Pixel: la que se cerró y sus grabaciones (lib/prueba-aviso.ts).
+    prueba: set(datosPruebaRecibida({ eventos: 3, pagina: 'a.com' })),
+    grabaciones: set(datosPruebaGrabada([{ donde: 'a.com', url: 'https://hola-mako.com/crm/1' }])),
     landing: set(datosLandingCambio({ pagina: 'https://a.com', agregaste: 'un video', todasSinMedir: false, sacaste: 'la agenda', link: 'https://hola-mako.com/integraciones' })),
     // 16/10/2026: y el reporte de los lunes ya armado, que pasa el cron (`datosDelReporte`, lib/reporte-destino.ts).
     reporte: set(datosDelReporte({ titulo: 'Reporte semanal · 05/10/2026–11/10/2026', texto: '🗓️ *Reporte semanal*' })),

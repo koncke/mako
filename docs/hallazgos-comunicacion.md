@@ -10282,8 +10282,14 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   (es una propuesta), así que de su ficha no se puede leer nada. El «con quién choca» dejó de ser una frase armada
   (`textoDuplicado`) y son dos datos: a quién se parece y en qué coincide.
 
-**Lo que quedó SIN hacer de la familia:** `prueba-grabada` y `prueba-recibida`.
+- **La prueba del Pixel** (`prueba-recibida`, #277; `prueba-grabada`, #278): el singular y el plural estaban escritos en
+  el código. La de la grabación es una LISTA en su renglón (sirve para una y para varias); la otra, los eventos con su
+  unidad y la página en un renglón opcional. ⚠️ Dos fuentes distintas aunque sean de la misma prueba: con una sola, cada
+  automatización ofrecía en su «{ }» el dato de la otra, que su evento no trae.
 
-**Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
+**La familia «tracking y landing» del lote 3 está entera.** Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
+Plan, pagos, reportes por email, mensajes al lead: docs/inventario-nada-por-detras.md).
+
+**Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `lib/prueba-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
 `pixel_viejo`, `landing_cambio`) · `lib/variables-aviso.ts` · `lib/plantillas-automatizaciones.ts` (`mako-tracking-apagado`,
-`mako-pixel-viejo`, `mako-landing-cambio`, `mako-lead-de-landing`) · tests: `tests/tracking-evento.test.ts`, `tests/optin-evento.test.ts`
+`mako-pixel-viejo`, `mako-landing-cambio`, `mako-lead-de-landing`) · tests: `tests/tracking-evento.test.ts`, `tests/optin-evento.test.ts`, `tests/prueba-pixel-evento.test.ts`

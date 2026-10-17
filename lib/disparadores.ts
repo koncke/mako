@@ -195,7 +195,7 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer'
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
   | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio'
-  | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing';
+  | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing' | 'prueba_recibida' | 'prueba_grabada';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -225,7 +225,7 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'reporte' | 'oferta' | 'anuncios'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'reporte' | 'oferta' | 'anuncios'>; retirado?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -307,6 +307,9 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // ALGUIEN DEJÓ SUS DATOS EN LA LANDING DE UN NEGOCIO (17/10/2026, lote 3): entró solo al CRM o quedó a revisar porque se
   // parece a uno que ya está (la CONDITION `optin_revisar`). Todo viaja como datos: a revisar, todavía no hay lead.
   { subtipo: 'lead_de_landing', aviso: 'lead-de-landing', label: 'Alguien deja sus datos en la landing de un negocio', trae: ['optin'], plataforma: true },
+  // LA PRUEBA DEL PIXEL DE UN NEGOCIO (17/10/2026, lote 3): la que se cerró (cuántos eventos llegaron) y la grabación lista.
+  { subtipo: 'prueba_recibida', aviso: 'prueba-recibida', label: 'Un negocio cierra una prueba del Pixel', trae: ['prueba'], plataforma: true },
+  { subtipo: 'prueba_grabada', aviso: 'prueba-grabada', label: 'Ya se puede ver la grabación de la prueba de un negocio', trae: ['grabaciones'], plataforma: true },
 ];
 
 /**

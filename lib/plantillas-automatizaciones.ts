@@ -880,6 +880,34 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // LA PRUEBA DEL PIXEL QUE SE CERRÓ (17/10/2026, «nada por detrás», lote 3): cuántos eventos llegaron y en qué página.
+    id: 'mako-prueba-recibida',
+    nombre: 'Llegó la Prueba del Pixel de un Negocio',
+    emoji: '✅',
+    linea: 'Le avisa al grupo de un negocio cuántos eventos llegaron de su prueba del Pixel, y que la grabación viene.',
+    origen: 'cerrar una prueba del Pixel en Integraciones',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'prueba_recibida' },
+    pasos: [
+      mako('pr_mk', '✅ Listo, recibí tu prueba del Pixel\n📄 En *{{prueba_pagina}}*\n📊 {{prueba_eventos}}\nTe aviso cuando la grabación esté lista. — MaKo', null),
+    ],
+  },
+  {
+    // LA GRABACIÓN DE LA PRUEBA, LISTA (17/10/2026, lote 3): una por lead de prueba, en una lista (sirve para una y varias).
+    id: 'mako-prueba-grabada',
+    nombre: 'Ya Está la Grabación de una Prueba',
+    emoji: '🎥',
+    linea: 'Le avisa al grupo de un negocio que ya puede ver la grabación de su prueba del Pixel, con el link.',
+    origen: 'el cron prueba-grabacion, cuando la grabación está lista',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'prueba_grabada' },
+    pasos: [
+      mako('pg_mk', '🎥 Ya puedes ver cómo se vio tu prueba del Pixel:{{prueba_grabaciones}}\n\n— MaKo', null),
+    ],
+  },
+  {
     // LA LANDING QUE CAMBIÓ LO QUE SE MIDE (17/10/2026, lote 3): se le agregó o se le sacó un video, un formulario o la
     // agenda. Si lo agregado se puede medir lo pregunta la CONDITION (`landing_medible`); lo agregado y lo sacado, cada uno
     // en su renglón opcional.

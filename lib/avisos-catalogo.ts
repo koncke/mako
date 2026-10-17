@@ -342,6 +342,9 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'landing-cambio',
   // Alguien dejó sus datos en la landing (17/10/2026, lote 3): entró solo o quedó a revisar.
   'lead-de-landing',
+  // La prueba del Pixel (17/10/2026, lote 3): la que se cerró y la grabación lista.
+  'prueba-recibida',
+  'prueba-grabada',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -636,7 +639,11 @@ https://hola-mako.com/integraciones?abrir=landing
     //
     // Es la diferencia entre esperar y dudar, y cuesta un mensaje.
     disparador: 'Al terminar una prueba del Pixel: se cierra la ventana de la prueba o se aprieta «Terminar».',
-    ejemplo: `🟢 Listo, recibí tu prueba del Pixel en *tupagina.com*: 23 eventos. Te aviso cuando la grabación esté lista — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `prueba_recibida`, lote 3).
+    ejemplo: `✅ Listo, recibí tu prueba del Pixel
+📄 En *tupagina.com*
+📊 23 eventos
+Te aviso cuando la grabación esté lista. — MaKo`,
   },
   {
     id: 'prueba-grabada', titulo: 'La grabación de tu prueba ya está lista', categoria: 'aviso',
@@ -649,7 +656,11 @@ https://hola-mako.com/integraciones?abrir=landing
     // Hasta el 06/10/2026 era de Clarity, esperaba 45 minutos a que Microsoft
     // procesara la sesión y mandaba a su panel, con login aparte.
     disparador: 'Cron cada 15 minutos: la grabación de una prueba del Pixel se terminó de guardar. Sólo si la grabación está prendida en el negocio.',
-    ejemplo: `🟢 Ya puedes ver la grabación de tu prueba en *tupagina.com* 👉 https://hola-mako.com/crm/1842 — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `prueba_grabada`, lote 3).
+    ejemplo: `🎥 Ya puedes ver cómo se vio tu prueba del Pixel:
+• *tupagina.com* 👉 https://hola-mako.com/crm/1842
+
+— MaKo`,
   },
   {
     id: 'lead-no-confirmo', titulo: 'Agendó, no confirmó y hay que llamarlo', categoria: 'accion', porDefecto: 'on',

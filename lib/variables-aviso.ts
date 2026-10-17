@@ -109,7 +109,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'reporte' | 'oferta' | 'anuncios';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'reporte' | 'oferta' | 'anuncios';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -155,6 +155,9 @@ export type VariableAviso = {
    *               tracking-vigilante (lib/tracking-aviso.ts).
    * · `optin`   — necesita a LA PERSONA QUE DEJÓ SUS DATOS en la landing de un negocio (el evento `lead_de_landing`): la
    *               pasa la ruta del formulario (`datosOptin`, lib/optin-aviso.ts), también cuando todavía no hay lead.
+   * · `prueba` / `grabaciones` — necesitan la PRUEBA DEL PIXEL de un negocio: la que se cerró (`prueba_recibida`) o las
+   *               grabaciones que ya se pueden ver (`prueba_grabada`). Los pasan /integraciones y el cron prueba-grabacion
+   *               (lib/prueba-aviso.ts).
    * · `reporte` — necesita el REPORTE SEMANAL ya armado de un negocio (el evento de la plataforma `reporte_semanal`): lo
    *               pasa el cron de los lunes (`datosDelReporte`, lib/reporte-destino.ts).
    * · `oferta`  — necesita la OFERTA QUE MaKo TERMINÓ DE ARMAR (el evento de la plataforma `oferta_lista`): lo pasa el
@@ -162,7 +165,7 @@ export type VariableAviso = {
    * · `anuncios` — necesita la CUENTA PUBLICITARIA que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`): lo
    *               pasa el cron de las alertas críticas (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'reporte' | 'oferta' | 'anuncios';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'reporte' | 'oferta' | 'anuncios';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -448,6 +451,10 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'optin_ya_tienes', label: 'A quién se parece', ejemplo: '«Ana Ruiz»', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
   { key: 'optin_coincide', label: 'En qué coincide', ejemplo: 'teléfono (+52 1 55 1234 5678)', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
   { key: 'optin_link', label: 'Link a la ficha (o a revisarlo)', ejemplo: 'https://hola-mako.com/crm/2498', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  // ── LA PRUEBA DEL PIXEL (17/10/2026, lote 3): la pasan /integraciones y el cron prueba-grabacion (lib/prueba-aviso.ts).
+  { key: 'prueba_eventos', label: 'Cuántos eventos llegaron', ejemplo: '3 eventos', alcance: 'prueba', grupo: 'landing', rama: 'La prueba del Pixel', fuente: 'prueba', soloPara: 'equipo' },
+  { key: 'prueba_pagina', label: 'En qué página', ejemplo: 'tu-pagina.com', alcance: 'prueba', grupo: 'landing', rama: 'La prueba del Pixel', fuente: 'prueba', soloPara: 'equipo' },
+  { key: 'prueba_grabaciones', label: 'Las grabaciones, con su link', ejemplo: '• *tu-pagina.com* 👉 https://hola-mako.com/crm/2498', alcance: 'grabaciones', grupo: 'landing', rama: 'La prueba del Pixel', fuente: 'grabaciones', soloPara: 'equipo' },
   // ── El reporte de los lunes YA ARMADO (16/10/2026, el evento de la plataforma `reporte_semanal`): lo pasa el cron.
   //    Son los números del negocio (Meta, ventas, cobranza), por eso van en el Dashboard.
   { key: 'reporte_titulo', label: 'Título del reporte', ejemplo: 'Reporte semanal · 05/10/2026–11/10/2026', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
@@ -627,6 +634,9 @@ export type ContextoDatos = {
   conLanding?: boolean;
   /** La persona que dejó sus datos en la landing de un negocio (el evento `lead_de_landing`). */
   conOptin?: boolean;
+  /** La prueba del Pixel de un negocio: la que se cerró, o sus grabaciones listas. */
+  conPrueba?: boolean;
+  conGrabaciones?: boolean;
   /** El reporte semanal ya armado de un negocio (el evento de la plataforma `reporte_semanal`). */
   conReporte?: boolean;
   /** La oferta que MaKo terminó de armar (el evento de la plataforma `oferta_lista`). */
@@ -671,6 +681,8 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'pixel') return opts.conPixel === true;
   if (a === 'landing') return opts.conLanding === true;
   if (a === 'optin') return opts.conOptin === true;
+  if (a === 'prueba') return opts.conPrueba === true;
+  if (a === 'grabaciones') return opts.conGrabaciones === true;
   if (a === 'reporte') return opts.conReporte === true;
   if (a === 'oferta') return opts.conOferta === true;
   if (a === 'anuncios') return opts.conAnuncios === true;
