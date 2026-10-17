@@ -13,6 +13,7 @@ docs/hallazgos-operaciones.md → «El "atrás" lento del teléfono, WhatsApp en
 | Cada cuenta del Uso con su nombre editable, su email y el logo de Claude; fuera «Abre su Runner…» y los botones de Runners (la G) | `5e50843a9` (cartero 1.15.2) | REVISAR: cartero (sube el titular de cuentas.tsv) |
 | Mientras un chat trabaja, sus pasos en vivo (la E) | `01f5fc8d7` (cartero 1.15.3) | REVISAR: cartero (lee los transcripts de los chats ocupados) y una escritura nueva en la ruta del cartero |
 | ~~El Plan automático usa `cerrarPorYaEsta`~~ y ~~el Plan desde el chat (`cartero.mjs plan`)~~ | `3e4e092ef`, `2a6ef912f` | **REVERTIDOS** (`c1ced5358`, `a211ab957`): la revisión del Cerebro encontró 9 defectos (abajo) |
+| «Tráeme las más prioritarias» desde un chat, de SÓLO LECTURA (un chat no cierra tareas); sin el paso «buscar» | ver `git log` (cartero **1.15.7**) | REVISAR (seguridad): la puerta `?plan=1` |
 | `vigilar` corta en su `fin` también al subir los pasos (lo chico de la revisión) | ver `git log` (cartero **1.15.5**) | REVISAR: cartero |
 | El teléfono rápido: escribir, abrir (los últimos 25 mensajes) y el refresco | `7c08e7a6d`, `b1f368c96` | — |
 | La criatura viva (`Criatura.tsx`: parpadea, entra, invita y reacciona) para el Onboarding y la barra | `257fe05f7` | — |
@@ -24,7 +25,16 @@ Onboarding (`local_0702928b…`) y a Sidebar (`local_789aebfb…`) que `Criatura
 `aab915c7e`).
 
 **Lo que sigue, en este orden:**
-0. **Volver a traer el Plan desde el chat y el paso «buscar», arreglados** (la revisión del Cerebro, 17/10, informe en el scratchpad
+0. **La segunda revisión (763ac6e51) encontró 9 defectos más y el Cerebro decidió el rediseño (cartero 1.15.7, ⚠️ REVISAR):**
+   un chat NO cierra tareas; `plan prioridades --trabajo <id>` queda de SÓLO LECTURA, con el jefe y el proyecto del PEDIDO
+   firmado (no de la sesión que declara la PC) y sin respuestas a preguntas (`[pregunta …]`); el paso «buscar» se fue.
+   **Lo que falta, después del 20/10 (corte de consumo del Cerebro):** el cierre ESTRUCTURADO
+   `cartero.mjs cierre <id> … --tareas 870,872 --prueba <commit>`: el servidor cierra sólo esos números, sólo del proyecto
+   del jefe del pedido (su `destino_titulo`), y sólo cuando el commit esté en main (GitHub `compare/main...<sha>` con el token
+   de la plataforma, lib/github-commits.ts; hoy da 404). La evidencia es el `--hecho`; si algo falla queda abierta con su
+   motivo y se mira en el ciclo siguiente, con espera (sin bucle). Va en `sanearCierres` (lib/operaciones-reglas.ts) y una
+   cola en app_settings aplicada en `after()`, como el Plan automático.
+   Lo que había pedido la primera revisión (hecho y después reemplazado por el rediseño) (la revisión del Cerebro, 17/10, informe en el scratchpad
    del cuarto: `scratchpad/ops4/revision.md`; otra punta con ⚠️ REVISAR):
    - `plan prioridades` / `plan cerrar` imprimían la respuesta de MaKo ENTERA: va por `textoRemoto` o con forma fija;
    - `?plan=1` cerraba sólo con el token, y la `sesion` la declara quien llama (un chat suplanta a otro jefe): cerrar pide un

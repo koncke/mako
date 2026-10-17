@@ -65,6 +65,8 @@
 //                                  los corre el Runner de la app en cada vuelta, antes de `ciclo`
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
+//   plan prioridades --trabajo <id> [--n 10]   (1.15.7) lo corre un CHAT a pedido FIRMADO de Martín (el id de ese pedido):
+//                                  las abiertas del proyecto de su jefe, de SÓLO LECTURA. Un chat no cierra tareas.
 //   preguntar <archivo.json>       (1.14.0) lo corre un CHAT que necesita una decisión de Martín: la pregunta va a su
 //                                  conversación del Ops Center como un formulario de opciones, y la respuesta le llega
 //                                  como un trabajo firmado. El archivo: { pregunta, contexto?, opciones: [{ titulo,
@@ -82,7 +84,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.15.5';
+export const VERSION = '1.15.7';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1439,6 +1441,41 @@ export function armarPregunta(x, local, ahora = new Date()) {
   return { id: crypto.randomUUID(), local, pregunta, contexto, opciones, recomendada, varias: x.varias === true, at: ahora.toISOString() };
 }
 
+/**
+ * «Tráeme las más prioritarias» desde un chat (1.15.7, 17/10/2026): el Plan del jefe al que Martín le mandó ESE pedido
+ * firmado (`--trabajo <id>`: el id que trae el pedido, el de su `cierre`), de SÓLO LECTURA (lib/centro-plan-chat.ts). Un chat
+ * no cierra tareas: después de dos revisiones del Cerebro, cerrar leyendo texto quedó afuera (Martín las marca hechas).
+ * ⚠️ LO QUE VUELVE DE MAKO SE IMPRIME CON FORMA FIJA Y POR `textoRemoto`: un título del Plan es texto que entra al contexto
+ *    de un chat en modo bypass. ⚠️ REVISAR (seguridad).
+ */
+export function salidaDelPlan(o) {
+  if (!o || typeof o !== 'object' || o.ok !== true) return { ok: false, error: textoRemoto(o?.error) || 'MaKo no contestó' };
+  const fecha = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.slice(0, 10)) ? v.slice(0, 10) : null);
+  const prioridad = (v) => (['alta', 'media', 'baja', 'futuro'].includes(v) ? v : null);
+  const tareas = (Array.isArray(o.tareas) ? o.tareas : []).slice(0, 20).map((t) => ({
+    num: Number.isInteger(t?.num) ? t.num : null, titulo: textoRemoto(t?.titulo).slice(0, 120), prioridad: prioridad(t?.prioridad), deadline: fecha(t?.deadline),
+  }));
+  return { ok: true, proyecto: textoRemoto(o.proyecto).slice(0, 80) || null, tareas };
+}
+async function planDelChat(args) {
+  const cfg = config();
+  if (!cfg.token) throw new Error('falta el token del Runner en esta PC');
+  const v = (k) => { const i = args.indexOf(`--${k}`); return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? String(args[i + 1]) : ''; };
+  const op = args[0];
+  const trabajo = v('trabajo');
+  if (!UUID_RE.test(trabajo)) throw new Error('falta --trabajo <id>: el id del pedido firmado de Martín que lo pide (el de su cierre)');
+  if (op !== 'prioridades') throw new Error('uso: plan prioridades --trabajo <id> [--n 10] (un chat no cierra tareas: Martín las marca hechas en el Centro)');
+  const cuerpo = { op, trabajo, n: Number(v('n')) || 10 };
+  const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
+  const r = await fetch(`${url}/api/operaciones/cartero?plan=1`, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
+    body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(90_000),
+  });
+  const o = await r.json().catch(() => ({}));
+  if (!r.ok && !o?.error) throw new Error(`MaKo contestó ${Number(r.status) || 0}`);
+  return salidaDelPlan(o);
+}
+
 function preguntar(archivo) {
   const local = sesionQuePregunta();
   if (!local) throw new Error('no sé qué sesión eres: corre esto desde el chat que pregunta');
@@ -1648,6 +1685,7 @@ if (esMain) {
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
       case 'preguntar': imprimir(preguntar(resto[0])); break;
+      case 'plan': imprimir(await planDelChat(resto)); break;
       case 'abrir': imprimir(abrir()); break;
       // El permiso local para abrir chats desde MaKo: lo prende Martín, una vez, pidiéndoselo al Runner.
       case 'abrir-permitir': {
