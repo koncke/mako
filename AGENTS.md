@@ -1590,6 +1590,33 @@ CLIENTE después — un aviso que el dueño tenía apagado moría para todos sus
 interruptor de cada uno decorativo para ese camino. No da error: el aviso no sale, que es
 indistinguible de «no pasó nada que avisar».
 
+⛔ **Y NUNCA `?? OWNER_WS`** (17/10/2026: había 40 en el código vivo, más sus primos `.catch(() =>
+OWNER_WS)`, `catch { return OWNER_WS }` y `? OWNER_WS : null`). «Si no sé de qué negocio es, lo tiro al de
+Mauricio» es una fuga de un cliente real sin un error. `getWorkspaceActual()` devuelve null SÓLO con una
+cookie de sesión que no resuelve contra la base (suspendido, borrado) —medido ese día: todo usuario de
+producción tiene workspace—, así que null es justo el caso que no puede caer en nadie:
+
+- lo que **escribe, manda o gasta** → `await wsObligatorio()` (lib/workspace.ts), que TIRA;
+- lo que **sólo lee** → `(await getWorkspaceActual()) ?? WS_NINGUNO` (-1: vuelve vacío, como `getTenantDb`).
+
+Lo fija `tests/sin-fallback-owner-ws.test.ts`. Un cron o un webhook SIN cookie todavía resuelve al ws1 por
+el default del resolver (`resolverDesdeCookies`): eso es otra decisión, anotada en
+docs/relevo/seguridad-aislamiento.md.
+
+# Lo que entra sin pasar por una pantalla: sesión, tope y destino, en el código de la puerta
+
+Tres reglas del 17/10/2026, cada una con su guard que barre en positivo (las listas de excepciones llevan su porqué):
+
+- **Toda server action de `app/crm` arranca con `await exigirSesion();`** (lib/sesion-accion.ts): una acción
+  es un POST con un id que viaja en el bundle, y el proxy sólo valida la FIRMA de la cookie (la de un
+  suspendido vale 30 días). `tests/crm-acciones-sesion.test.ts`. Leer `getUsuarioActual()` no es cortar.
+- **Toda ruta PÚBLICA que escribe lleva tope de pedidos** (`limitePorIp`/`limitePorClave`, lib/limite-publico.ts)
+  o su excusa escrita en `tests/rutas-publicas-limite.test.ts`. Topes generosos (un NAT de operador es mucha
+  gente, y un 429 en el opt-in es un lead perdido); los webhooks se eximen (firma, y un 429 los deshabilita).
+- **Una URL que escribe un cliente (o su agente) se baja con `fetchSeguro`** (lib/fetch-seguro.ts):
+  `validarDestino` en CADA salto, IP clavada, techo de tamaño. `fetch` sigue los redirects sin mirarlos, y
+  validar sólo el primero es el agujero. `tests/landing-analisis-ssrf.test.ts`.
+
 # El remitente de un NEGOCIO nunca es MaKo, y lo que firma MaKo sale por la key de MaKo
 
 Decisión de Martín (11/10/2026): «Quítale a Mauricio que pueda mandar email con MaKo. Nadie debería poder.» El porqué
