@@ -30,6 +30,7 @@ import 'server-only';
 import { listReunionesRecientes, extraerTareasDeReunion, cacheKeyReunion, ROL_CONSULTOR, ROL_DESCONOCIDO, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
 import { crearPropuesta, getPropuestaPorRef, resolverProcesandoSinCompromisos, type PropuestaTarea } from './plan-propuesta';
 import { refDelResto, sinLasYaPropuestas, unirLeidas } from './lectura-por-partes';
+import { datosReunionesAlPlan, type DatosReunionesAlPlan, type ReunionAlPlan } from './reunion-plan-aviso';
 import { leerParcial, anotarParcial, cerrarParcial } from './reunion-parcial';
 import { criterioDelWorkspace } from './plan-criterio';
 import { juzgarConCriterio, type SalidaJuez } from './plan-criterio-juez';
@@ -70,21 +71,9 @@ const TIPOS_AL_PLAN: readonly TipoReunion[] = ['equipo', 'entrega'];
 
 const KEY_VISTA = (recordingId: number): string => `mako.reunion.auto.${recordingId}`;
 
-/** Una reunión ya procesada en esta corrida (para redactar el aviso al final). */
-type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number;
-  /**
-   * Cuántas dejó AFUERA el criterio (descartadas + acuerdos internos), que llegan al
-   * borrador destildadas y con su razón.
-   *
-   * ⚠️ VIAJA HASTA EL MENSAJE Y SE DICE. El aviso contaba sólo lo tildado, así que un
-   * criterio que descarta 32 de 40 manda «sacé 8 compromisos tuyos» — y nadie abre un
-   * modal por 8. Las 32 quedaban «auditables» en una pantalla que nadie iba a abrir, que
-   * es justo lo contrario de lo que la tercera cubeta viene a hacer.
-   */
-  descartadas?: number;
-  partesFallidas?: number; recordingId: number; propId: string;
-  /** Esta vuelta COMPLETÓ una lectura a medias (17/10/2026): son las tareas que faltaban, en un borrador aparte. */
-  resto?: boolean };
+/** Una reunión ya procesada en esta corrida (para el aviso al final). La forma vive con el aviso: lib/reunion-plan-aviso.ts. */
+type ReunionHecha = ReunionAlPlan;
+export type { ReunionHecha };
 
 /**
  * Lo que ya propusieron las vueltas anteriores de ESTA reunión: el borrador de la reunión y los que la completaron
@@ -97,62 +86,22 @@ async function tareasYaPropuestas(ref: string, refs: readonly string[]): Promise
 }
 
 /**
- * El mensaje al grupo. Dos formas: una reunión (frase suelta) o varias (viñetas con
- * fecha y hora). Tope de 4 viñetas para que no sea un ladrillo en el teléfono.
+ * LOS DATOS del aviso «Leí tu reunión y te dejé las tareas en el Plan» (17/10/2026, «nada por detrás»). El TEXTO es el de la
+ * automatización de SuperAdmin (evento `reunion_tareas_al_plan`, lib/plantillas-automatizaciones.ts): hasta ese día lo armaba
+ * `textoAviso` acá y PISABA la plantilla de /mensajes. Las reglas del número siguen (lib/reunion-plan-aviso.ts): el grande es
+ * el de TAREAS PROPIAS, las de los demás aparte, lo que el criterio dejó afuera y lo leído a medias se DICEN.
  *
- * REGLA: el número grande es el de TAREAS PROPIAS, porque es exactamente el que va a
- * ver en el botón "Agregar N al plan". Las de los demás se mencionan aparte y no se
- * suman: si no, el mensaje promete más de lo que la pantalla muestra.
+ * EL LINK ES EL DE LA REVISIÓN DE ESE BORRADOR — `/plan/revisar/<id>`. Antes iba a `/plan` a secas y te dejaba parado en el
+ * tablero esperando un modal; con VARIAS, cada reunión lleva el suyo en su renglón (son borradores distintos).
+ *
+ * Exportada para REENVIAR el aviso de una reunión ya leída sin re-analizarla (scripts/reavisar-reunion.mts): los datos
+ * tienen que ser los MISMOS que manda el cron; copiarlos en el script sería la segunda copia que se queda vieja.
  */
-export type { ReunionHecha };
-/** Exportada para poder REENVIAR el aviso de una reunión ya leída sin re-analizarla
- *  (scripts/reavisar-reunion.mts). El mensaje tiene que ser el MISMO que manda el cron:
- *  copiarlo en el script sería la segunda copia que se queda vieja. */
-export function textoAviso(hechas: ReunionHecha[], tz: string): string {
-  // EL LINK ES EL DE LA REVISIÓN DE ESE BORRADOR — `/plan/revisar/<id>`, el mismo
-  // formato con el que MaKo manda cualquier otro borrador. Antes iba a `/plan` a secas:
-  // del otro lado te dejaba parado en el tablero esperando que saltara solo un modal
-  // —que con varias reuniones las mezcla, y si ya no te queda nada tuyo no salta—, así
-  // que el mensaje prometía una revisión y el link no llevaba a ninguna. Con VARIAS,
-  // cada reunión lleva el suyo en su viñeta: son borradores distintos y cada uno se
-  // confirma por separado.
-  const linkDe = (h: ReunionHecha) => linkApp(`/plan/revisar/${h.propId}`, wsEnContexto());
-  const totalMias = hechas.reduce((s, h) => s + h.mias, 0);
-  const totalOtras = hechas.reduce((s, h) => s + h.otras, 0);
-  const tuyas = `*${totalMias} ${totalMias === 1 ? 'tarea tuya' : 'tareas tuyas'}*`;
-  const deOtros = totalOtras > 0 ? ` (y ${totalOtras} de los demás, para repartir)` : '';
-  // LO QUE EL CRITERIO DEJÓ AFUERA, dicho. No es un detalle técnico: es la única señal
-  // de que hay algo que revisar. Sin esto, «sacé 8» sobre una reunión de 40 se lee como
-  // una reunión chica y las otras 32 no las mira nadie.
-  const totalFuera = hechas.reduce((s, h) => s + (h.descartadas ?? 0), 0);
-  const dejadas = totalFuera > 0
-    ? `\n\nOtras ${totalFuera} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.`
-    : '';
-
-  // `partesFallidas` viajaba hasta acá dentro de `ReunionHecha` y NO SE USABA: el aviso
-  // decía «saqué N tareas tuyas» con el mismo tono hubiera leído la reunión entera o la
-  // mitad. Un aviso que no distingue las dos cosas es peor que no avisar, porque el dueño
-  // la da por cerrada. Ahora lo dice, y dice qué va a pasar.
-  const cojas = hechas.filter((h) => (h.partesFallidas ?? 0) > 0);
-  const aviso = cojas.length
-    ? `\n\n⚠️ ${cojas.length === 1 ? 'Una parte de la reunión no la pude leer' : `No pude leer algunos tramos de ${cojas.length} reuniones`} — puede faltar contenido. La dejo abierta y lo reintento solo.`
-    : '';
-
-  if (hechas.length === 1) {
-    const h = hechas[0];
-    const cuando = fechaHoraEnTz(h.fecha, tz);
-    // LA QUE COMPLETA UNA LECTURA A MEDIAS (17/10/2026): son las que faltaban, no una reunión nueva.
-    const leí = h.resto ? 'Terminé de leer tu reunión' : 'Leí tu reunión';
-    const mas = h.resto ? ' más' : '';
-    return `📝 ${leí}${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${mas}${deOtros} y te las dejé en el plan para que las confirmes:\n${linkDe(h)}${dejadas}${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
-  }
-
-  const filas = hechas.slice(0, 4).map((h) => {
-    const cuando = fechaHoraEnTz(h.fecha, tz);
-    return `• *${h.titulo || 'Reunión'}*${cuando ? ` — ${cuando}` : ''}\n   ${h.mias} ${h.mias === 1 ? 'tarea tuya' : 'tuyas'}${h.otras ? ` · ${h.otras} de otros` : ''}\n   ${linkDe(h)}`;
+export function datosAviso(hechas: ReunionHecha[], tz: string): DatosReunionesAlPlan {
+  return datosReunionesAlPlan(hechas, {
+    cuando: (h) => fechaHoraEnTz(h.fecha, tz) || null,
+    link: (h) => linkApp(`/plan/revisar/${h.propId}`, wsEnContexto()),
   });
-  const resto = hechas.length > 4 ? `\n…y ${hechas.length - 4} ${hechas.length - 4 === 1 ? 'reunión más' : 'reuniones más'}.` : '';
-  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n\n')}${resto}\n\nEn total ${tuyas}${deOtros}. Cada una se revisa en su propio link, ahí arriba.${dejadas}${aviso}\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`;
 }
 
 export type ResultadoReunionesAuto = {
@@ -687,7 +636,8 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   // va a ver en la pantalla: SOLO las tareas propias.
   if (hechas.length) {
     const tz = await zonaDelNegocio(ws);
-    const aviso = await emitirDelCatalogo('reunion-tareas-al-plan', { ws, texto: textoAviso(hechas, tz) });
+    // El TEXTO es el de su automatización de SuperAdmin (evento `reunion_tareas_al_plan`): acá van sólo los datos.
+    const aviso = await emitirDelCatalogo('reunion-tareas-al-plan', { ws, datos: { ...datosAviso(hechas, tz) } });
     if (aviso.wa) out.avisados += 1;
     else { out.sinAviso += 1; out.avisoError = aviso.waError ?? 'no se pudo mandar el WhatsApp'; }
   }

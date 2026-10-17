@@ -7137,3 +7137,23 @@ se corrige alrededor de ella con `respetarFijadas` (`curvaSinPisarFijadas`, app/
 Retro, su otro llamador, se retiró—: el arreglo es para el día que vuelva un «re-puntuar todo» con el modelo. Quien la
 llame tiene que mandar `fijada` y `num` (sin eso, como antes). **Vive en:** lib/mako-guardian.ts (`GuardTaskIn`,
 `puntuarPlan`) · app/plan/board/lugar-al-soltar.ts · tests/plan-repuntuar-fijadas.test.ts · *17/10/2026, B5 (claude4)*
+
+## «Leí tu reunión y te dejé las tareas»: una automatización de SuperAdmin, y no le llegaba a nadie (17/10/2026)
+
+**Lo que era:** el aviso `reunion-tareas-al-plan` lo armaba `textoAviso` (lib/reunion-auto.ts) y salía con `texto`, que
+PISA la plantilla de /mensajes: el negocio editaba un texto que nunca salía («nada por detrás»).
+
+**El diagnóstico obvio era el equivocado:** «mudarlo cambia lo que reciben los negocios». Medido en producción: el aviso
+no tiene `porDefecto` en el catálogo, así que NACÍA APAGADO (`estaPrendida`), y ningún negocio lo había prendido (el
+ws 13 lo tenía apagado a mano). No le llegaba a nadie. Por eso su fila de SuperAdmin nace PAUSADA y nada cambia para
+nadie hasta que Martín la prenda.
+
+**Lo que queda:** el evento de la plataforma `reunion_tareas_al_plan` (plantilla `mako-reunion-tareas-al-plan`). El cron
+pasa los hechos (`datosReunionesAlPlan`, lib/reunion-plan-aviso.ts, pura) y lo que el código elegía —una reunión o varias,
+si completa una lectura a medias— lo preguntan dos CONDITION (`plan_varias`, `plan_resto`). Lo que falta se lleva su
+renglón: «0 de los demás» no viaja.
+
+**Sin hacer:** la fila se crea DESPUÉS del deploy (`scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan
+--aplicar`; el simulacro ya pasó). Y el aviso de «esta reunión no se pudo leer» sigue sin existir: sería otro evento igual.
+**Vive en:** lib/reunion-plan-aviso.ts · lib/reunion-auto.ts (`datosAviso`) · lib/plantillas-automatizaciones.ts ·
+lib/disparadores.ts · lib/variables-aviso.ts · tests/reunion-tareas-al-plan-evento.test.ts · *17/10/2026, B5 (claude4)*

@@ -347,6 +347,8 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'prueba-grabada',
   // El lead que completó el formulario de Meta (17/10/2026, lote 3; nace PAUSADA, como nacía apagado).
   'lead-formulario-meta',
+  // Las tareas de las reuniones que MaKo dejó en el Plan (17/10/2026, «nada por detrás»; nace PAUSADA, como nacía apagado).
+  'reunion-tareas-al-plan',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -898,7 +900,9 @@ https://hola-mako.com/crm/482/resumen
     id: 'reunion-tareas-al-plan', titulo: 'Reunión de equipo nueva → tareas esperando confirmación', categoria: 'accion',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron fathom-plan: caen grabaciones nuevas de reuniones de EQUIPO, MaKo las lee y deja los borradores pendientes en el plan. UN aviso por corrida, no uno por reunión.',
-    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Ana <> Pablo* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://hola-mako.com/plan\n\nEntras una vez, revisas todo junto y con un toque quedan cargadas. — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `reunion_tareas_al_plan`, «nada por
+    // detrás»): el código manda sólo los datos (lib/reunion-plan-aviso.ts).
+    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 oct · 15:30\n   4 tareas tuyas · 3 de otros\n   https://hola-mako.com/plan/revisar/prop1\n\n• *Ana <> Pablo* — mié 28 oct · 18:00\n   3 tareas tuyas · 4 de otros\n   https://hola-mako.com/plan/revisar/prop2\n\nEn total *7 tareas tuyas*. Cada una se revisa en su propio link, ahí arriba.\n👥 Y 7 de los demás, para repartir.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`,
   },
   {
     id: 'tareas-autocompletadas', titulo: 'MaKo cerró tareas que ya estaban hechas', categoria: 'aviso',
