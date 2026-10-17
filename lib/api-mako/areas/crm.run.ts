@@ -43,6 +43,7 @@ import { avisoDeConservadas } from '@/lib/pagos-campo';
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { listarCobros } from '@/lib/cobros';
+import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { getWorkspaceActual } from '@/lib/workspace';
@@ -133,6 +134,9 @@ const CAMPOS_CONTACTO = ['nombre', 'email', 'telefono', 'empresa', 'web', 'insta
 /** El lead por id, o null (no existe en ESTE workspace o falló la lectura). No lanza. */
 const leadDe = (id: unknown): Promise<Lead | null> => (typeof id === 'number' ? getLead(id).catch(() => null) : Promise.resolve(null));
 const noExiste = (id: unknown) => `No existe el lead #${String(id)} en este workspace. Búscalo con buscar_leads.`;
+/** La cuota que se pidió marcar ya la había cobrado su link (17/10/2026): queda con ese pago, no se marca dos veces. */
+const yaCobradaPorLink = (p: Pasarela) =>
+  `Esa cuota ya estaba pagada por su link de ${NOMBRE_PASARELA[p]}: quedó cobrada con ese pago (no la marqué a mano, para no contar la plata dos veces).`;
 
 /** Lecturas por lead: el «no existe» es un error del que llama (400), no nuestro. */
 async function conLead(input: Record<string, unknown>, fn: (lead: Lead) => Promise<SalidaLectura>) {
@@ -1412,12 +1416,14 @@ export const RUNNERS: Runners = {
         const r = await cobrarCuota(Number(payload.pagoId), Number(payload.leadId), {
           monto: payload.montoUsd, fecha: fechaPago, resto: payload.resto === 'descuento' ? 'descuento' : 'pendiente',
         });
+        if (r.porLink) { invalidar('pagos', 'leads'); return { ok: true, resumen: yaCobradaPorLink(r.porLink) }; }
         const nota = `Cuota cobrada (${fechaPago}) · USD ${r.monto} (era de USD ${r.original})${r.pendiente != null ? ` · quedan USD ${r.pendiente} pendientes` : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : ''}`;
         await logLeadEvent(Number(payload.leadId), 'Pago registrado', nota, autorDe(ctx));
         invalidar('pagos', 'leads');
         return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${r.monto} USD${r.pendiente != null ? `; quedan ${r.pendiente} USD pendientes en una cuota nueva` : ''}.` };
       }
-      const { quitada } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
+      const { quitada, porLink } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
+      if (porLink) { invalidar('pagos', 'leads'); return { ok: true, resumen: yaCobradaPorLink(porLink) }; }
       await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada', autorDe(ctx));
       invalidar('pagos', 'leads');
       // Un pago que nació cobrado (suelto o mensualidad a mano) no vuelve como deuda: se quita (mig 0295).

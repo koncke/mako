@@ -101,7 +101,7 @@ test('deshacer un pago que NACIÓ cobrado lo quita: no queda una deuda vencida q
   const { marcarPago } = await import('../lib/pagos');
   sembrar({ nacio_cobrada: true });
   const r = await correr(() => marcarPago(910, false, null));
-  assert.deepEqual(r, { quitada: true });
+  assert.deepEqual(r, { quitada: true, porLink: null });
   assert.ok(escrituras.includes('DELETE pagos'), escrituras.join(' | '));
   assert.equal(db.pagos.length, 0, 'la fila tenía que irse');
 });
@@ -110,7 +110,7 @@ test('deshacer una cuota del PLAN la deja impaga, como siempre (no se borra)', a
   const { marcarPago } = await import('../lib/pagos');
   sembrar({ nacio_cobrada: false });
   const r = await correr(() => marcarPago(910, false, null));
-  assert.deepEqual(r, { quitada: false });
+  assert.deepEqual(r, { quitada: false, porLink: null });
   assert.ok(!escrituras.includes('DELETE pagos'));
   assert.deepEqual([db.pagos[0].pagado, db.pagos[0].fecha_pago], [false, null]);
   // Sin la columna (la base sin la mig 0295), marcar sigue andando: se lee `*`, no la lista de columnas. La base de
@@ -119,13 +119,13 @@ test('deshacer una cuota del PLAN la deja impaga, como siempre (no se borra)', a
   assert.match(p.slice(p.indexOf('export async function marcarPago('), p.indexOf('export async function cobrarCuota(')), /\.from\('pagos'\)\s*\.select\('\*'\)\s*\.eq\('id', pagoId\)/);
   sembrar({});
   delete (db.pagos[0] as Fila).nacio_cobrada;
-  assert.deepEqual(await correr(() => marcarPago(910, false, null)), { quitada: false });
+  assert.deepEqual(await correr(() => marcarPago(910, false, null)), { quitada: false, porLink: null });
 });
 
 test('lo que cobró la pasarela no se quita a mano aunque diga que nació cobrado (se revierte con «Devolver»)', async () => {
   const { marcarPago } = await import('../lib/pagos');
   sembrar({ nacio_cobrada: true, proveedor: 'stripe', cobro_id: 3 });
-  assert.deepEqual(await correr(() => marcarPago(910, false, null)), { quitada: false });
+  assert.deepEqual(await correr(() => marcarPago(910, false, null)), { quitada: false, porLink: null });
   assert.equal(db.pagos.length, 1);
 });
 
@@ -143,12 +143,12 @@ test('un pago suelto nace con la marca; la mensualidad de Editar deal también',
 test('la pantalla, la API y Customer Success saben que se quitó: el Deshacer lo vuelve a registrar, no re-marca una fila que no existe', () => {
   const acc = fuente('app/crm/actions.ts');
   const fn = acc.slice(acc.indexOf('export async function marcarPagoAction('), acc.indexOf('export async function deleteLeadAction('));
-  assert.match(fn, /const \{ quitada \} = await marcarPago\(pagoId, pagado, fechaPago\);/);
+  assert.match(fn, /const \{ quitada, porLink \} = await marcarPago\(pagoId, pagado, fechaPago\);/);
   assert.match(fn, /return \{ quitada \};/);
   const cobrar = fuente('app/crm/lead-view/ficha/pagos/cobrar.tsx');
   const des = cobrar.slice(cobrar.indexOf('const desmarcar = (q: Pago)'), cobrar.indexOf('const leadCobro ='));
   assert.ok(des.indexOf('if (quitada) {') > 0 && des.indexOf('await registrarPagoSueltoAction(lead.id, {') > des.indexOf('if (quitada) {'), 'el Deshacer de un pago quitado lo vuelve a registrar');
-  assert.match(fuente('lib/api-mako/areas/crm.run.ts'), /const \{ quitada \} = await marcarPago\(Number\(payload\.pagoId\), pagado, fechaPago\);/);
+  assert.match(fuente('lib/api-mako/areas/crm.run.ts'), /const \{ quitada, porLink \} = await marcarPago\(Number\(payload\.pagoId\), pagado, fechaPago\);/);
   assert.match(fuente('app/crm/[id]/DealDetailsCard.tsx'), /if \(r\?\.quitada\) setFeedback\(\{ kind: 'ok', msg: 'Pago quitado\.' \}\); else setPagoToast\(/);
 });
 

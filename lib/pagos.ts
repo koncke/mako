@@ -30,6 +30,7 @@ import { keyEspaciado } from './espaciado';
 import { AVISOS_DE_CUOTA, claveDedupCuota, cuotasReprogramadas } from './cobranza';
 import { plazoAlReactivar } from './suscripcion-manual';
 import { laCobraLaPasarela } from './cobros-reglas';
+import type { Pasarela } from './cobros-tipos';
 
 export type Pago = {
   id: number;
@@ -157,6 +158,9 @@ export async function asegurarLeadDelNegocio(leadId: number): Promise<void> {
  *
  * ⚠️ TIRA si no pudo leer: «no pude ver si tiene un link» NO es «no tiene». Con un default vacío, una falla de
  * lectura dejaba borrar la cuota de un link que el cliente está por pagar.
+ * El riesgo de que eso trabara SIEMPRE guardar cuotas y cerrar en Ganado era que PostgREST rechazara el `.in` sobre
+ * `ctx->>cuotaId`. Medido el 17/10/2026 contra producción (sólo lectura): lo acepta (200) y filtra bien un `in` sobre
+ * un camino jsonb (docs/hallazgos-pagos.md). Lo que queda es una falla PASAJERA: contesta el error y se reintenta.
  */
 export async function proteccionesDeCuotas(leadId: number, ids: readonly number[]): Promise<Map<number, Proteccion[]>> {
   const out = new Map<number, Proteccion[]>();
@@ -482,7 +486,8 @@ export async function marcarPago(
   pagoId: number,
   pagado: boolean,
   fechaPago: string | null = new Date().toISOString().slice(0, 10),
-): Promise<{ quitada: boolean }> {
+  opts: { mirarLinks?: boolean } = {},
+): Promise<{ quitada: boolean; porLink: Pasarela | null }> {
   const supabase = (await getTenantDb());
   const { data: pago, error: getErr } = await supabase
     .from('pagos')
@@ -490,6 +495,13 @@ export async function marcarPago(
     .eq('id', pagoId)
     .single();
   if (getErr) throw new Error(`Error leyendo pago ${pagoId}: ${getErr.message}`);
+
+  // ⚠️ MARCAR A MANO una cuota cuyo link ya se pagó contaba la plata dos veces (17/10/2026): ver
+  // `linkYaPagado`. Por defecto se mira; sólo no lo miran la pasarela misma y quien ya lo miró.
+  if (pagado && !pago.pagado && opts.mirarLinks !== false) {
+    const porLink = await linkYaPagado(pagoId);
+    if (porLink) return { quitada: false, porLink };
+  }
 
   const { error } = await supabase
     .from('pagos')
@@ -526,7 +538,26 @@ export async function marcarPago(
     }
     await anularLinksAlCobrar(pagoId, pago.cobro_id ?? null);
   }
-  return { quitada };
+  return { quitada, porLink: null };
+}
+
+/**
+ * ¿Un link de esta cuota ya se COBRÓ y todavía no se asentó? Si sí, lo asienta por el camino de la pasarela y
+ * devuelve cuál (la cuota ya está cobrada con ESE pago: no se marca a mano). La regla vive en
+ * `asentarLinkPagadoDeCuota` (lib/cobros.ts). Si no se pudo mirar (sin workspace, la base no contestó), null: la marca
+ * a mano sigue como siempre, porque trabarla es peor (docs/hallazgos-pagos.md §4).
+ */
+async function linkYaPagado(pagoId: number): Promise<Pasarela | null> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return null;
+    const { asentarLinkPagadoDeCuota } = await import('./cobros');
+    const r = await asentarLinkPagadoDeCuota(ws, pagoId);
+    return r.asentado ? r.pasarela : null;
+  } catch (e) {
+    console.error(`[pagos] no pude mirar los links de la cuota ${pagoId} antes de marcarla:`, e instanceof Error ? e.message : String(e));
+    return null;
+  }
 }
 
 /**
@@ -545,7 +576,7 @@ export async function cobrarCuota(
   pagoId: number,
   leadId: number,
   datos: { monto?: number | null; fecha: string; hora?: string | null; resto?: RestoDeCobro } & DatosDeMoneda,
-): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null }> {
+): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null; porLink: Pasarela | null }> {
   if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
   // La cuota ya se lee con `lead_id`, pero la diferencia de abajo es un INSERT con ese leadId.
   await asegurarLeadDelNegocio(leadId);
@@ -559,6 +590,12 @@ export async function cobrarCuota(
   // diciendo «MX$8.600». En una cuota a mano, lo que no vino se limpia; lo de la pasarela no se toca.
   const aMano = !fila.proveedor;
   const original = Number(fila.monto_usd) || 0;
+  // ⚠️ Si un link de la cuota ya se cobró, la cuota queda cobrada con ESE pago y no se toca nada más: ni el monto, ni
+  // la diferencia, ni la moneda (17/10/2026, `linkYaPagado`). Antes la plata se contaba dos veces.
+  if (!fila.pagado) {
+    const porLink = await linkYaPagado(pagoId);
+    if (porLink) return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink };
+  }
   const monto = datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 ? centavos(datos.monto) : null;
   // La moneda en que se cobró (decisión 7). `monto` sigue siendo DÓLARES; sin `moneda`, todo como siempre.
   const enMonedaR = datos.moneda ? pagoEnMoneda({ montoUsd: monto ?? original, moneda: datos.moneda, montoOriginal: datos.montoOriginal }) : null;
@@ -587,10 +624,10 @@ export async function cobrarCuota(
     }
   }
 
-  await marcarPago(pagoId, true, datos.fecha);
+  await marcarPago(pagoId, true, datos.fecha, { mirarLinks: false });
   return {
     original, monto, pendiente: pend > 0 ? pend : null, descuento,
-    moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null,
+    moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null, porLink: null,
   };
 }
 
@@ -860,7 +897,7 @@ export async function registrarCobroDeProveedor(p: {
         if (error.code === PG_DUPLICADO) return { pagoId: p.pagoId, yaEstaba: true };
         throw new Error(`Error marcando la cuota ${p.pagoId}: ${error.message}`);
       }
-      await marcarPago(p.pagoId, true, p.fechaPago);
+      await marcarPago(p.pagoId, true, p.fechaPago, { mirarLinks: false });
       return { pagoId: p.pagoId, yaEstaba: false };
     }
   }
@@ -878,7 +915,7 @@ export async function registrarCobroDeProveedor(p: {
       const { data: marcada, error } = await db.from('pagos').update(marca).eq('id', casa.id).eq('lead_id', p.leadId).is('proveedor_pago_id', null).select('id');
       if (error && error.code !== PG_DUPLICADO) throw new Error(`Error saldando la cuota ${casa.id}: ${error.message}`);
       if (!error && marcada && marcada.length) {
-        await marcarPago(casa.id, true, p.fechaPago);
+        await marcarPago(casa.id, true, p.fechaPago, { mirarLinks: false });
         return { pagoId: casa.id, yaEstaba: false };
       }
       // Otro escritor la tomó en el medio, o fue la reentrega: se sigue como si no hubiera.
@@ -941,7 +978,7 @@ export async function remarcarCobroDeProveedor(p: {
     const { error: e1 } = await db.from('pagos').update({ fecha_esperada: p.fechaPago }).eq('id', data.id).is('fecha_esperada', null);
     if (e1) throw new Error(`Error reponiendo el vencimiento del cobro ${p.proveedorPagoId}: ${e1.message}`);
   }
-  await marcarPago(Number(data.id), true, p.fechaPago);
+  await marcarPago(Number(data.id), true, p.fechaPago, { mirarLinks: false });
   return { remarcado: true };
 }
 

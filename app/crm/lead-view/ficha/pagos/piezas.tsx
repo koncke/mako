@@ -186,6 +186,8 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }
         const r = await marcarPagoManualAction(cuota.id, leadId, { monto: p.monto, fecha, hora: hora || null, resto, moneda: p.moneda, montoOriginal: p.montoOriginal, metodo: metodo || null });
         // ⚠️ DESHACER SÓLO SI SE COBRÓ EXACTO LO DE LA CUOTA (revisión del 16/10/2026): con un descuento o un pago de
         // más el pendiente también es null, y desmarcar no devuelve el monto: la cuota quedaba debiendo lo cobrado.
+        // El link ya se había cobrado (17/10/2026): quedó con ese pago y no hay nada que deshacer acá.
+        if (r.porLink) { onHecho('Ya pagada por link', false); return; }
         onHecho(r.pendiente != null ? `${nombre} cobrada · quedan ${usd(r.pendiente)} pendientes` : `${nombre} marcada como pagada`, r.pendiente == null && p.monto === valorUsd);
       } catch (e) { setError(msg(e)); }
     });

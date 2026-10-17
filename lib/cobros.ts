@@ -1226,26 +1226,10 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
 
   for (const c of pendientes) {
     try {
-      if (c.proveedor === 'stripe' && stripe && c.proveedor_ref) {
-        const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
-        if (s.ok && s.estado === 'complete' && s.pagoEstado === 'paid' && s.referencia === c.token) {
-          // ⚠️ EL MISMO id QUE USA EL WEBHOOK, o la primera cuota se duplica: en una suscripción es la
-          // FACTURA (después llega `invoice.paid` con ese mismo id), en un pago único el payment intent.
-          // Sin factura todavía, no se aplica: entra por `invoice.paid` o en la próxima vuelta. Usar el
-          // id de la sesión acá hacía que la factura se leyera después como una RENOVACIÓN.
-          const pagoId = c.tipo === 'suscripcion' ? s.invoice : s.paymentIntent;
-          if (pagoId) {
-            const r = await aplicarPagoAprobado(c, { proveedorPagoId: pagoId, suscripcionId: s.subscription });
-            if (r.nuevo) cambiados++;
-          }
-        }
-      } else if (c.proveedor === 'mercadopago' && mp) {
-        const b = await buscarPagosMp(mp.token, c.token);
-        const aprobado = b.ok ? b.pagos.find((x) => x.estado === 'approved' && x.cobradorId === mp.userId && x.referencia === c.token) : undefined;
-        if (aprobado) {
-          const r = await aplicarPagoAprobado(c, { proveedorPagoId: aprobado.id, monto: aprobado.monto, moneda: aprobado.moneda, suscripcionId: aprobado.preapprovalId, pagadoAt: aprobado.fecha });
-          if (r.nuevo) cambiados++;
-        }
+      const pago = await pagoDelLinkEnLaPasarela(c, stripe, mp);
+      if (pago) {
+        const r = await aplicarPagoAprobado(c, pago);
+        if (r.nuevo) cambiados++;
       }
     } catch (e) {
       errores++;
@@ -1253,6 +1237,90 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
     }
   }
   return { revisados: pendientes.length + pagados.length, cambiados, errores };
+}
+
+type PagoDeLaPasarela = Parameters<typeof aplicarPagoAprobado>[1];
+
+/**
+ * ¿La pasarela COBRÓ este link? Lo que se le pasa a `aplicarPagoAprobado`, o null si no (o si todavía no se puede
+ * asentar). Lo usan el cron (`reconciliarCobros`) y el «marcar a mano» (`asentarLinkPagadoDeCuota`). Tira si la
+ * pasarela no contesta: quien llama decide qué hace con eso.
+ */
+async function pagoDelLinkEnLaPasarela(c: Cobro, stripe: CredStripe | null, mp: CredMp | null): Promise<PagoDeLaPasarela | null> {
+  if (c.proveedor === 'stripe' && stripe && c.proveedor_ref) {
+    const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
+    if (!s.ok) throw new Error(`Stripe no contestó por el link ${c.id}: ${s.error}`);
+    if (s.estado === 'complete' && s.pagoEstado === 'paid' && s.referencia === c.token) {
+      // ⚠️ EL MISMO id QUE USA EL WEBHOOK, o la primera cuota se duplica: en una suscripción es la
+      // FACTURA (después llega `invoice.paid` con ese mismo id), en un pago único el payment intent.
+      // Sin factura todavía, no se aplica: entra por `invoice.paid` o en la próxima vuelta. Usar el
+      // id de la sesión acá hacía que la factura se leyera después como una RENOVACIÓN.
+      const pagoId = c.tipo === 'suscripcion' ? s.invoice : s.paymentIntent;
+      if (pagoId) return { proveedorPagoId: pagoId, suscripcionId: s.subscription };
+    }
+    return null;
+  }
+  if (c.proveedor === 'mercadopago' && mp) {
+    const b = await buscarPagosMp(mp.token, c.token);
+    if (!b.ok) throw new Error(`Mercado Pago no contestó por el link ${c.id}: ${b.error}`);
+    const aprobado = b.pagos.find((x) => x.estado === 'approved' && x.cobradorId === mp.userId && x.referencia === c.token);
+    return aprobado ? { proveedorPagoId: aprobado.id, monto: aprobado.monto, moneda: aprobado.moneda, suscripcionId: aprobado.preapprovalId, pagadoAt: aprobado.fecha } : null;
+  }
+  return null;
+}
+
+/** Lo que pasó al mirar los links de una cuota antes de marcarla a mano. */
+export type LinkDeCuota =
+  | { asentado: true; pasarela: Pasarela }
+  | { asentado: false; sinLeer: number };
+
+/**
+ * ANTES DE MARCAR A MANO UNA CUOTA (17/10/2026): ¿alguno de sus links ya se pagó y todavía no se asentó? Si sí, se
+ * asienta ACÁ por el camino de la pasarela (`aplicarPagoAprobado`: la cuota queda cobrada con ESE pago) y la marca a
+ * mano no se hace.
+ *
+ * ⚠️ POR QUÉ: entre que el cliente paga el link y que el aviso o el cron lo asientan, la cuota sigue impaga. Si el
+ * closer la marcaba a mano en ese rato, `marcarPago` anulaba el link (ya pagado) y, cuando llegaba el aviso, el pago
+ * entraba como OTRA cuota cobrada: lo cobrado se contaba dos veces (docs/hallazgos-pagos.md §4). Frenar la marca no
+ * servía: si el pago entró por otro monto, la cuota quedaba trabada para siempre. Preguntarle a la pasarela no traba
+ * nada: si no cobró, se marca como siempre.
+ *
+ * Mira dos cosas: el link `pagado` en MaKo cuya cuota no se asentó (el aviso se cortó a la mitad; no hace falta red)
+ * y el link vivo (`pendiente`/`fallido`) que la pasarela ya cobró. Si la pasarela no contesta, sigue (`sinLeer`): la
+ * marca a mano no se traba, y si el pago entra después, `aplicarPagoAprobado` lo dice («la plata entró dos veces»).
+ */
+export async function asentarLinkPagadoDeCuota(ws: number, pagoId: number): Promise<LinkDeCuota> {
+  const { data, error } = await getSupabaseServer().from('cobros').select(COLS_COBRO)
+    .eq('workspace_id', ws).eq('pago_id', pagoId).in('estado', ['pendiente', 'fallido', 'pagado']);
+  if (error) throw new Error(`No pude leer los links de la cuota ${pagoId}: ${error.message}`);
+  const links = (data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
+  if (!links.length) return { asentado: false, sinLeer: 0 };
+
+  // 1. Pagado en MaKo y sin su cuota: se repara como lo repara el cron (es idempotente).
+  for (const c of links) {
+    if (c.estado !== 'pagado' || !c.proveedor_pago_id || !c.lead_id || c.monto_usd == null) continue;
+    await aplicarPagoAprobado(c, { proveedorPagoId: c.proveedor_pago_id, pagadoAt: c.pagado_at });
+    return { asentado: true, pasarela: c.proveedor };
+  }
+  // 2. Vivo en MaKo: se le pregunta a la pasarela.
+  const vivos = links.filter((c) => c.estado === 'pendiente' || c.estado === 'fallido');
+  if (!vivos.length) return { asentado: false, sinLeer: 0 };
+  const [stripe, mp] = await Promise.all([credStripe(ws), credMp(ws)]);
+  let sinLeer = 0;
+  for (const c of vivos) {
+    let pago: PagoDeLaPasarela | null;
+    try {
+      pago = await pagoDelLinkEnLaPasarela(c, stripe, mp);
+    } catch (e) {
+      sinLeer++;
+      console.warn(`[cobros] no pude mirar el link ${c.id} antes de marcar a mano la cuota ${pagoId}:`, e instanceof Error ? e.message : String(e));
+      continue;
+    }
+    if (!pago) continue;
+    await aplicarPagoAprobado(c, pago);
+    return { asentado: true, pasarela: c.proveedor };
+  }
+  return { asentado: false, sinLeer };
 }
 
 /** Los workspaces con alguna pasarela conectada (para el cron). Lee la tabla de ruteo, que es en claro. */

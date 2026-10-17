@@ -12,7 +12,7 @@
 
 import { revalidatePath, updateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
-import { getTenantDb } from '@/lib/workspace';
+import { getRolWsEfectivo, getTenantDb } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { getLead, logLeadChanges, logLeadEvent, type Lead } from '@/lib/leads';
 import {
@@ -21,6 +21,7 @@ import {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import { formatoMonto } from '@/lib/pasarela-moneda';
+import type { Pasarela } from '@/lib/cobros-tipos';
 import { ROTULO_METODO, avisoDeConservadas, etiquetaDePago, lineasDeCuotas } from '@/lib/pagos-campo';
 
 /**
@@ -33,6 +34,16 @@ async function haySesion(): Promise<boolean> {
   try { return Boolean(await getUsuarioActual()); } catch { return false; }
 }
 const SIN_SESION = 'Tu sesión no está activa en este negocio. Recarga la página.';
+/**
+ * Las identidades fiscales son CONFIGURACIÓN DEL NEGOCIO (la razón social con la que factura): sólo el admin las
+ * crea, cambia o borra (17/10/2026). La pantalla ya era sólo del admin (`requireRolWs([])` en /configuraciones/fiscal),
+ * pero una server action es una puerta propia: un closer la podía llamar y borrar la razón social. Leerlas, sí,
+ * cualquiera con sesión (el deal las muestra). Mismo molde que la moneda del negocio (pagos-campo-actions.ts).
+ */
+const SOLO_ADMIN_FISCAL = 'Sólo el administrador de este negocio puede cambiar sus datos fiscales.';
+async function esAdminDelNegocio(): Promise<boolean> {
+  try { return (await getRolWsEfectivo()) === 'admin'; } catch { return false; }
+}
 
 /** «USD 500» o, si se cobró en otra moneda, «MXN 8,600 (USD 500)», con el método y el concepto si vinieron. */
 function textoDelPago(montoUsd: number, d: DatosDeMoneda & { moneda?: string | null; montoOriginal?: number | null }): string {
@@ -105,6 +116,7 @@ export type IdentidadFiscalInput = {
 /** Crea o edita una identidad fiscal. Marcar default desmarca el resto. */
 export async function saveIdentidadFiscalAction(input: IdentidadFiscalInput): Promise<void> {
   if (!(await haySesion())) throw new Error(SIN_SESION);
+  if (!(await esAdminDelNegocio())) throw new Error(SOLO_ADMIN_FISCAL);
   const nombre = input.nombre?.trim();
   if (!nombre) throw new Error('La razón social / nombre es obligatoria.');
   const db = await getTenantDb();
@@ -133,6 +145,7 @@ export async function saveIdentidadFiscalAction(input: IdentidadFiscalInput): Pr
 /** Borra una identidad fiscal. Los leads que la referenciaban muestran "—". */
 export async function deleteIdentidadFiscalAction(id: number): Promise<void> {
   if (!(await haySesion())) throw new Error(SIN_SESION);
+  if (!(await esAdminDelNegocio())) throw new Error(SOLO_ADMIN_FISCAL);
   const { error } = await (await getTenantDb()).from('identidades_fiscales').delete().eq('id', id);
   if (error) throw new Error(`Error borrando la identidad fiscal: ${error.message}`);
   revalidatePath('/configuraciones');
@@ -427,10 +440,18 @@ export type PagoManualInput = {
  * y sin `moneda` es USD: es lo que manda la pantalla de hoy. El valor inicial del selector es la moneda del negocio
  * (`monedaDelNegocioAction`, app/crm/[id]/pagos-campo-actions.ts), no una suposición del server.
  */
-export async function marcarPagoManualAction(pagoId: number, leadId: number, datos: PagoManualInput): Promise<{ pendiente: number | null }> {
+export async function marcarPagoManualAction(pagoId: number, leadId: number, datos: PagoManualInput): Promise<{ pendiente: number | null; porLink: Pasarela | null }> {
   if (!(await haySesion())) throw new Error(SIN_SESION);
   // La regla y la escritura viven en lib/pagos.ts (`cobrarCuota`): la usa también la API de MaKo.
   const r = await cobrarCuota(pagoId, leadId, datos);
+  // El link de la cuota ya se había cobrado: quedó cobrada con ESE pago, y el historial ya lo dice la pasarela.
+  if (r.porLink) {
+    bust(TAG.pagos, TAG.leads);
+    revalidarLead(leadId);
+    revalidatePath('/dashboard');
+    revalidatePath('/general');
+    return { pendiente: null, porLink: r.porLink };
+  }
   const resto = r.pendiente != null
     ? ` · quedan USD ${r.pendiente} pendientes`
     : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : '';
@@ -444,7 +465,7 @@ export async function marcarPagoManualAction(pagoId: number, leadId: number, dat
   revalidarLead(leadId);
   revalidatePath('/dashboard');
   revalidatePath('/general');
-  return { pendiente: r.pendiente };
+  return { pendiente: r.pendiente, porLink: null };
 }
 
 /**
