@@ -6596,6 +6596,25 @@ alcanzar, aunque se cumpliera al pie de la letra:
   errores de tipos de archivos que cambiaron: sólo salen si el `tsc` acotado entró en RAM). **Se pidió «sin tsc» y se desvió a propósito:** el primer VERDE rápido de
   esta punta (sin tipos) lo dio el mismo script cuyo test tenía 5 errores de tipos, que vio sólo el modo completo. Si el `tsc` no entra, el VERDE lo dice
   («sin tipos…») y los decide Actions, igual que los saltos lejanos.
+- **El `tsc` ACOTADO daba verde donde el completo daba rojo** (run 100 de Actions y el que le siguió, mismo archivo, dos errores distintos). Un test pasaba `{}` donde se pide un
+  `NodeJS.ProcessEnv`: el completo da TS2345, y al castear con `as NodeJS.ProcessEnv`, TS2352. **El diagnóstico obvio —«el acotado no mira ese archivo»— era el equivocado: SÍ lo
+  miraba.** Lo que cambiaba era el MUNDO: el completo carga `next-env.d.ts`, que trae `next/types/global.d.ts`, y ese hace OBLIGATORIO `NODE_ENV` en `ProcessEnv`; un archivo
+  suelto sólo tenía `@types/node`, donde `{}` es un `ProcessEnv` válido (la línea del `as` con una propiedad que no está sí daba rojo, por eso no se notó). Ahora `armarTsconfig`
+  suma `node_modules/next/types/global.d.ts` y `image-types/global.d.ts` a `files` si existen (`next-env.d.ts` está en .gitignore y un worktree no lo tiene). Reproducido con un
+  archivo de 3 líneas: antes, sólo el TS2352; después, también el TS2345 del run 100. La cura del código es `as unknown as NodeJS.ProcessEnv`. Quedan los límites ya escritos:
+  un tipo que agrega OTRO archivo con `declare module` y lo que sólo ve el completo por `include` (el acotado nunca es «el repo»).
+- **El verde de Actions sólo bajó de 14 a 12 min con `auto` = todos los núcleos** (run 102: 683 s; el run 101, rojo en Tipos, sumó 477 s = ~64 s de arranque + afectados
+  270 s + tipos 143 s: los afectados bajaron 333 → 270 s y los demás casi nada, 217 → ~206 s). **El diagnóstico (mío) de que «un solo proceso dejaba un núcleo parado» era sólo
+  una parte**: con 2 procesos los tests casi no ganaron, y lo mismo se vio local (48 archivos: 232 s con 1 proceso, 182 s con 2, en una PC de 12 núcleos). El costo es el
+  ARRANQUE de cada archivo de test —node, `tsx`, compilar el archivo: ~0,4 s × ~1.100 ≈ los 508 s del `npm test` viejo— más las ~150 barredoras que releen los mismos 5.400
+  archivos. Lo que lo evita es no arrancar cada archivo: correr juntos los que no tocan estado global (`--compartir`). Experimento en el workflow, **a medir con el próximo verde**:
+  fase 1 comparte sólo las barredoras (`--compartir=barredoras`) y fase 2 todo lo compartible (`--compartir`); estimación SIN medir en Linux: ~8-9 min facturables. Reversible con
+  `--sin-compartir` en esos dos pasos. Si un rojo de Actions aparece donde el modo compartido local dio verde, sospechar primero del contagio entre tests.
+- **Un `tsc` «acotado» NO es chico: un archivo de `app/` o `lib/` arrastra ~1.800 archivos y ~2,5 GB** (medido el 17/10: 1 archivo → compila 1.835 y reporta 2.533 MB, 50 s; 10 →
+  2.196 y 2.729 MB, 70 s; 60 → 3.476 y 2.514 MB, 96 s). «Acotado» acota LO QUE SE REPORTA, no lo que se carga. El tope de 2 GB que le había puesto a los alcances chicos hacía que
+  muriera sin heap a partir de ~10 archivos, y eso se leía como «no terminó» y se SALTABA con un aviso: los tipos casi no se chequeaban. Ahora el mínimo es 3 GB (piso de RAM ~4 GB), así que
+  en una PC con 14 chats los tipos se van a saltar seguido (la línea final dice `sin tipos`) — es la realidad de este programa de TypeScript, no un defecto del script. Un `tsc`
+  que corre de verdad con un archivo de tests que importa poco (el caso del propio test de esta herramienta) tarda 2 s.
 
 **Lo que NO cubre** (y por qué Actions sigue corriendo todo):
 - Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y
