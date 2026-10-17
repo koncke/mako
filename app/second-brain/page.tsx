@@ -13,6 +13,9 @@
 //   · el MAPA (el grafo, las áreas, la skill de Claude con su token) es del admin con la tab en su capa: el mismo corte
 //     que las rutas de app/api/second-brain (`soloAdminDeTab`). A quien no le toca, no se le CALCULA: lo que no se
 //     ve no viaja (tests/second-brain-chat.test.ts).
+//   · y una TERCERA, desde el 17/10 (tanda 5): los chats de Claude Code de Martín —el Cerebro y cada jefe— son del
+//     Centro de Operaciones y se leen sólo para quien `puedeOperar` (app/admin/operaciones/datos.ts). A los demás no
+//     se les lee la cola.
 // ⚠️ EL MAPA SE CALCULA SÓLO CUANDO SE PIDE (`?panel=mapa`, o un `?area=` de los links de siempre): construir el
 //    cerebro son 21 lecturas, y el chat no lo necesita para el primer dibujo.
 //
@@ -29,6 +32,7 @@ import { construirCerebro } from '@/lib/cerebro-grafo';
 import { tokenAgenteVisible } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
+import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -38,10 +42,13 @@ const enteroDe = (v: string | undefined): number | null => {
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 
-export default async function SecondBrainPage({ searchParams }: { searchParams: Promise<{ chat?: string; panel?: string; area?: string }> }) {
+export default async function SecondBrainPage({ searchParams }: { searchParams: Promise<{ chat?: string; panel?: string; area?: string; centro?: string }> }) {
   await requireRolWs(['closer', 'setter'], { nav: 'mako' });
   const veMapa = await esAdminDeTab('second-brain');
-  const { chat, panel, area } = await searchParams;
+  const { chat, panel, area, centro: claveCentro } = await searchParams;
+  // Los chats de Claude Code (el Cerebro y cada jefe), sólo para quien `puedeOperar`: la guarda va ADENTRO, antes de
+  // leer la cola (app/admin/operaciones/datos.ts). Tanda 5: «quiero mandar prompts por MaKo en el Second Brain».
+  const centro = await datosDelCentroSiOpera().catch(() => null);
 
   let mapa: ReactNode = null;
   if (veMapa && (panel === 'mapa' || !!area)) {
@@ -67,7 +74,8 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín): se fueron TemaOscuro y
           TemaOscuroScript, que la pintaban oscura. */}
-      <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={enteroDe(chat)} />
+      <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={enteroDe(chat)}
+        centro={centro} centroInicial={centro && typeof claveCentro === 'string' && claveCentro ? claveCentro : null} />
     </Pagina>
   );
 }
