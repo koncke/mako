@@ -108,7 +108,8 @@ test('la pantalla dice por qué y qué hacer', () => {
 
 test('un negocio pausado no se abre: ni la app ni la API (el super admin, sí)', () => {
   const ws = fuente('lib/workspace.ts');
-  assert.match(ws, /const propio = await wsPropioDeLaSesion\(\);\s*if \(propio != null && \(await negocioPausado\(propio\)\)\) return null;\s*return propio;/);
+  // Lo primero que se mira del negocio propio es si está pausado (después viene el corte de la API por plan, lib/api-tab.ts).
+  assert.match(ws, /const propio = await wsPropioDeLaSesion\(\);\s*if \(propio != null && \(await negocioPausado\(propio\)\)\) return null;/);
   assert.match(ws, /if \(!sesion \|\| sesion\.legacy \|\| sesion\.rol === 'admin'\) return null;/, 'el super admin no pasa por el corte');
   assert.match(fuente('lib/tab-access.ts'), /if \(\(await negocioPausadoDeLaSesion\(\)\) != null\) redirect\('\/cuenta-pausada'\);/);
   assert.match(fuente('lib/api-mako/http.ts'), /if \(await negocioPausado\(r\.ws\)\) return errorJson\(403,/);
