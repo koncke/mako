@@ -35,8 +35,9 @@ ruta /crm/[id] (404 sólo en el build parcial) y nada en producción (la extensi
    (app/crm/actions.ts). Si en producción sigue lento, partir esa action con tiempos por lectura.
 2. ~~Google Calendar en «Asignar evento»~~ (punto 3): **decidido que no**, porque la API de Google no expone las páginas
    de reserva ni de cuál viene una reserva; el modal lo dice (docs/hallazgos-crm.md, «Las tabs como HOJAS…» §6).
-3. **#897: que cada pago guarde de qué funnel es** (lleva migración: pedirle el número al Cerebro, la próxima libre era la
-   0309). La regla para contar un pago en un funnel ya existe: lib/funnels-elegidos.ts (`funnelDelMomento`).
+3. ~~#897: que cada pago guarde de qué funnel es~~ **Hecho en la rama** (mig 0310 escrita, SIN APLICAR: aditiva, da igual
+   antes o después del deploy; `node scripts/apply-migration.mjs supabase/migrations/0310_pagos_funnel.sql`). Ver
+   docs/hallazgos-pagos.md, «Cada pago guarda de qué funnel es».
 4. **T2 de la ficha v2**: Reuniones y Tracking rehechos, y la tarjeta del lead en el kanban personalizable (§0-Ω11).
 5. Los pendientes de la cosecha del 17/10 (el puente de «Estilo de la hoja», unificar el desplegable con `MenuHojas`,
    releer la ficha cuando MaKo la cambia desde el chat, las hojas propias en el teléfono).

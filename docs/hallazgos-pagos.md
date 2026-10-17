@@ -265,3 +265,27 @@ No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
 | El teléfono muestra el saldo pero no cobra: no hay «Mandar link» | app/m/crm/[id]/FichaLead.tsx | El teléfono destila. El cobro con link en el teléfono es otra pieza |
 | Marcar a mano una cuota cuyo link ya se pagó pero no se asentó: después el cron la asienta como otra cuota y lo cobrado se cuenta dos veces | lib/pagos.ts, `cobrarCuota` | Frenarlo puede trabar una cuota para siempre si el pago entró por otro monto. Se ve el link pagado en «Links de pago» |
 | `epico` ya está en PropsBloque; falta sacar el cast | pagos/bloques-cobro.tsx, `esEpico` | Lo hace el CRM (se lo pasó Pagos el 16/10) |
+
+| ~~`epico` llega en PropsBloque en la próxima tanda del CRM. Hasta entonces se lee con un cast~~ Hecho el 17/10/2026: se lee `props.epico`, y un test barre la ficha por casts así | pagos/bloques-cobro.tsx | `e92688cd2` |
+| ~~`PlantillaTab` está declarado localmente~~ Ya se importa de lib/ficha/plantillas-tab.ts (visto el 17/10/2026) | lib/ficha/plantillas-pagos.ts | Hecho |
+
+## Cada pago guarda de qué funnel es (#897, mig 0310, 17/10/2026)
+
+**El síntoma:** un OKR de «Renovación» (mig 0306, varios funnels) daba 0 en el ws1, y lo obvio era «el reparto por funnel
+está mal». **No lo estaba.** Medido en la base (sólo lectura): los 5 leads de Renovación se agregaron el 13/10 y TODOS sus
+pagos (mayo a septiembre) son de antes: con cualquier regla son del funnel del VSL. El 0 es verdad.
+
+**Lo que sí estaba mal, y se arregló:** el reparto miraba dónde estaba el lead EL DÍA DEL PAGO, así que una cuota de la
+venta del VSL cobrada DESPUÉS de agregarlo a Renovación contaba en Renovación. Ahora `pagos.funnel_id` se fija al CREAR
+el pago (un trigger `before insert`, con la misma regla de lib/funnels-elegidos.ts) y los tres lectores lo prefieren: el
+avance de un OKR (lib/objectives-fuentes.ts), los gráficos de pagos (lib/graficos-datos.ts) y el desglose de /general
+(lib/pagos.ts → lib/funnels-elegidos-server.ts). Si la columna no está, reintentan sin ella (`faltaColumnaFunnel`).
+- **Medido antes de escribir el backfill:** con la regla vieja y la nueva, los pagos cobrados caen en el mismo funnel en
+  todos los workspaces (ws1: 33, US$74.910; ws11: 7). No movió ningún número de hoy.
+- **El trigger y no cada escritura:** los pagos nacen en la ficha, la API de MaKo, los webhooks de Stripe y Mercado Pago y
+  el plan de cuotas; uno solo, y sólo llena lo que viene vacío.
+- **Lo que no resuelve:** un pago suelto de la venta VIEJA registrado a mano después de agregar al lead a otro funnel se
+  guarda en el nuevo (el día de su creación ya estaba ahí). Si pasa, se corrige el `funnel_id` de esa fila.
+
+**Vive en:** supabase/migrations/0310_pagos_funnel.sql · lib/funnels-elegidos.ts · tests/pagos-funnel.test.ts ·
+*17/10/2026, chat «CRM» (claude4).*
