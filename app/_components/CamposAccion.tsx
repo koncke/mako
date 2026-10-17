@@ -28,13 +28,13 @@ function pedirOpciones(): Promise<OpcionesAccion> {
     .then((r) => r.json())
     .then((j: Partial<OpcionesAccion> & { ok?: boolean; error?: string }) => {
       if (!j.ok) throw new Error(j.error || 'No se pudieron leer las opciones.');
-      return { productos: j.productos ?? null, equipo: j.equipo ?? null, secuencias: j.secuencias ?? null };
+      return { productos: j.productos ?? null, equipo: j.equipo ?? null, secuencias: j.secuencias ?? null, cursos: j.cursos ?? null };
     })
     .catch((e) => { opcionesP = null; throw e; });
   return opcionesP;
 }
 
-const SIN_LEER: OpcionesAccion = { productos: null, equipo: null, secuencias: null };
+const SIN_LEER: OpcionesAccion = { productos: null, equipo: null, secuencias: null, cursos: null };
 
 /**
  * Las opciones de los controles. `undefined` mientras llegan; si la lectura entera falla, todas las
@@ -138,6 +138,23 @@ export function SelectorSecuencia({ label, required, disabled, valor, opciones, 
       options={conLaPuesta((lista ?? []).map((s) => ({ value: String(s.id), label: s.nombre })), puesto, `Automatización ${puesto} (ya no está)`)}
       placeholder={lista === undefined ? CARGANDO : lista === null ? NO_SE_PUDO : 'Elige la automatización'}
       error={lista === null ? NO_SE_PUDO : undefined} disabled={disabled || !lista} search ariaLabel={label} />
+  );
+}
+
+// ── El curso (#874) ──────────────────────────────────────────────────────────────────────────
+
+/** El curso de una acción de curso: los productos con clases (`cursos` de /api/flujos/opciones). Vacío = «Sin elegir». */
+export function SelectorCurso({ label, required, disabled, valor, opciones, onCambio }: Comun & {
+  valor: unknown; opciones: OpcionesAccion | undefined; onCambio: (v: number | undefined) => void;
+}) {
+  const puesto = typeof valor === 'number' ? String(valor) : '';
+  const lista = opciones?.cursos;
+  const base = [...(required ? [] : [{ value: '', label: 'Los que ya ve' }]), ...(lista ?? []).map((c) => ({ value: String(c.productoId), label: c.nombre }))];
+  return (
+    <Select label={label} required={required} value={puesto} onChange={(v) => onCambio(v ? Number(v) : undefined)}
+      options={conLaPuesta(base, puesto, `Curso ${puesto} (ya no está)`)}
+      placeholder={lista === undefined ? CARGANDO : lista === null ? NO_SE_PUDO : 'Elige el curso'}
+      error={lista === null ? NO_SE_PUDO : undefined} disabled={disabled || !lista} ariaLabel={label} />
   );
 }
 

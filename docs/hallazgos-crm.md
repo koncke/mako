@@ -9615,3 +9615,23 @@ pediría adivinar por el título del evento y leer el calendario con un cron (Go
 
 **Vive en:** lib/ficha/config.ts (`hojas`, `lugarDe`), app/crm/lead-view/LeadTabs.tsx, ficha/FichaPorBloques.tsx,
 lib/mako-analyst-lead-reglas.ts (`PISTA_EDICION_FICHA`), lib/mako-turno-app.ts (`pista`) · *17/10/2026, chat «CRM» (claude4).*
+
+## «Cancelar su reunión» de Calendly: lo único que un flujo puede hacer solo con Calendly (17/10/2026, 4c)
+
+- **Crear y editar no se ofrecen, a propósito.** Martín pidió «acciones de Calendly (crear y editar eventos)» para la
+  ⚡ Acción. Reservar pide la hora EXACTA que elige el lead (`proponer_agendar_reunion`): un flujo que reserva solo
+  inventa la hora. Y la API de Calendly no deja mover ni renombrar una reunión (sólo cancelarla; reagendar lo hace el
+  invitado con su link). Queda `cancelar_reunion_calendly` (lib/calendly-cancelar.ts), en el bloque «Agenda» del
+  selector de ⚡ Acción.
+- **La reunión se elige al proponer y se vuelve a mirar al confirmar:** se cancela la que la persona vio en el resumen.
+  Si la próxima ya no es ésa (la cancelaron, la movieron o ya empezó), no se cancela otra. Se busca por el email del
+  invitado en la organización del token, y sólo las que todavía no empezaron. Sin ninguna por delante es «ya está así»
+  (`yaEstaba`): en un flujo, éxito sin alarma al dueño en cada lead.
+- ⚠️ **Una acción nueva del CRM le roba lugar al presupuesto de herramientas del WhatsApp de MaKo.** Con «reunión» en
+  su descripción, entraba en «movela al viernes» y dejaba afuera a `listar_tareas_plan` (tests/agenda-whatsapp.test.ts).
+  Va en `NO_MUEVEN_DE_DIA` (cancelar no es mover) y en `DE_CALENDLY` (un negocio sin Calendly no la recibe).
+- **Sin probar contra un Calendly de verdad:** cancelar le manda un correo al invitado. Se probó contra un Calendly de
+  mentira (la búsqueda, el filtro de las que ya empezaron, el POST con el motivo).
+
+**Vive en:** `lib/calendly-cancelar.ts` · `lib/api-mako/areas/crm.def.ts` y `crm.run.ts` (`cancelar_reunion_calendly`) ·
+`lib/editor-acciones.ts` (bloque «Agenda») · `lib/doer-herramientas.ts` · test: `tests/calendly-cancelar.test.ts`
