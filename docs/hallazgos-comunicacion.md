@@ -10301,7 +10301,16 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   («sin teléfono», «Sin preguntas extra en el formulario.»): un dato que falta se lleva su renglón, y la frase de relleno es
   un texto que nadie editó. El nombre y el link salen del lead (`trae: ['lead', 'meta']`); lo del formulario, de sus datos.
 
-**La familia «tracking y landing» del lote 3 está entera, y la de «anuncios y Meta» también.** Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
+- **El recordatorio de la reunión tenía su camino viejo**: sin automatización caía a la configuración de antes
+  (`chatbot.recordatorio_reunion`), con textos que no se ven en ninguna. Medido el 17/10: ningún negocio activo tenía la
+  fila, y ws1 y ws11 tenían la configuración apagada, así que sacarlo no cambia lo que sale. Y el webhook de Fathom seguía
+  armando un texto que desde el 16/10 sólo rotulaba el feed cuando no hay fila: también se fue (`textoAvisoPostLlamada` queda
+  sin usos en el código, sólo en tests: borrarlo es aparte).
+- **No todo lo que llega es de MaKo:** los mails de Calendly y de Google Calendar los escribe el proveedor y salen porque
+  una PERSONA confirmó la acción. No van a una automatización: van a «Fuera del alcance».
+
+**La familia «tracking y landing» del lote 3 está entera, y la de «anuncios y Meta» también. De «reuniones» quedan**
+**`reunion-tareas-al-plan` y `lead-no-confirmo`.** Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
 Plan, pagos, reportes por email, mensajes al lead: docs/inventario-nada-por-detras.md).
 
 **Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `lib/prueba-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
