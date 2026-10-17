@@ -222,3 +222,34 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   Collaborators → mauriciobustoseguia y mbustos-digital de Write a Read. Tarjeta #892.
 - **wt-push-q:** el alta de la cuenta 4 y la cosecha ya están en main (run 79 verde, deploy Ready). Este relevo sube con la
   próxima punta.
+
+## 17/10 ~01:15 AR — la app se cayó (01:05) y GitHub quedó sin acceso
+
+- **Caída de la app a las 01:05, por RAM:** coincidió con nueve chats trabajando y una tanda de tests del Cerebro. El
+  relevo automático retomó los ocho jefes. El Runner conservó su tarea de cada 2 min (44297a23). **Con 9-10 chats NO correr
+  tandas de tests en el Cerebro**: que lo cubran los tests que corrió cada jefe y el run de Actions.
+- **⚠️ GITHUB SIN ACCESO DESDE LA PC.** El git de la PC (Git Credential Manager, token `gho_`) estaba logueado como
+  **mbustos-digital**, uno de los dos usuarios de Mauricio. Tras la decisión de la Ticketera (`acceso-repo-mauricio` → A),
+  ese usuario recibe 404, así que fetch y push dan «Repository not found». Todos los pushes de la PC salían con su usuario. Para
+  arreglarlo, una de dos:
+  - Martín loguea git con SU usuario: `cmdkey /delete:git:https://github.com` y después un `git fetch` en el clon, que abre el login;
+  - o, si mbustos-digital es suyo, le devuelve Write.
+  Sin esto no sale nada.
+- **Esperando en wt-push-q para el primer push:**
+  - la punta 1 de Automations (2c64c61aa: «Sin grupo de MaKo» y la campanita; sin migraciones);
+  - la punta 1 de Onboarding (24ce402a8: el doer de WhatsApp sin datos de clientes en la red gratis, por turno; sin migraciones);
+  - este relevo.
+  Al subir, avisarle a «MaKo en WhatsApp» que ya puede tocar lib/doer-herramientas.ts.
+- **Migraciones asignadas:**
+  - 0306: Dashboard (`funnel_ids` en objectives y kpis);
+  - 0307: Pagos (`pagos.baja_at`, #871);
+  - 0308: Pagos (las columnas de `cobros` para el cliente de una agencia, #866 y #867).
+  La próxima libre es la 0309. Las aplica el Cerebro antes del deploy que las lee.
+- **Mensajes que no salieron:** la app frena los mensajes entre chats después de ~10 automáticos hasta que Martín escribe. Quedaron
+  sin enviar el OK de la 0307/0308 a Pagos y el aviso de GitHub a todos los jefes menos Automations.
+- **Nube / RAM (pedido de Martín: «comprar RAM» como Grok Bot):** `list_start_targets` da nube NO disponible
+  («no_readable_git_checkout»: la carpeta del proyecto en la app es la de OneDrive de arriba, no el repo) y ningún SSH
+  guardado. Dos caminos:
+  - Nube de Claude Code: incluida en el plan. Hace falta abrir el proyecto en la carpeta del repo, crear el entorno en
+    claude.ai/code con las variables del .env.local y la GitHub App en la org hola-mako;
+  - un servidor propio por SSH: es gasto, así que lo decide Martín.
