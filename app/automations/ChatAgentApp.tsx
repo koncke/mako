@@ -799,10 +799,12 @@ function ChatAgentInner() {
           onPedirAMako={pedirAMako} pedidoInicial={pedidoSinCrear} />
       )}
 
-      {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. */}
+      {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. Debajo de la barra de inspección
+          (17/10/2026, #850): en la revisión del 16/10, inspeccionando a Brigitte, este cartel quedaba tapado («acá hay un
+          cartel que no llego a ver»). */}
       {ofrecerCopia && (
         <div role="dialog" aria-label="Crear lo copiado" style={{
-          position: 'fixed', top: 18, left: '50%', transform: 'translateX(-50%)', zIndex: 58,
+          position: 'fixed', top: 'calc(18px + var(--barra-agencia, 0px))', left: '50%', transform: 'translateX(-50%)', zIndex: 58,
           display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px 10px 16px', borderRadius: 14,
           background: 'var(--surface)', border: '1px solid var(--border-strong)', boxShadow: '0 12px 32px rgba(0,0,0,.16)', fontSize: 13.5, color: 'var(--ink)',
         }}>
