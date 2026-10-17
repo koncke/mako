@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   if (auth) return auth;
   const inicio = Date.now();
   const deadline = inicio + 270_000;
-  const revisados: Array<{ ws: number; declaradas: number; analizadas: number; fallidas: number; cortadas: number }> = [];
+  const revisados: Array<{ ws: number; declaradas: number; analizadas: number; fallidas: number; cortadas: number; reintentadas: number }> = [];
   const sinTiempo: Array<{ ws: number; url: string }> = [];
   const errores: Array<{ ws: number; error: string }> = [];
 
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         return asegurarAnalisisDeDeclaradas({ deadline });
       });
       if (!r) continue;
-      revisados.push({ ws: w.id, declaradas: r.declaradas, analizadas: r.analizadas.length, fallidas: r.fallidas.length, cortadas: r.cortadas });
+      revisados.push({ ws: w.id, declaradas: r.declaradas, analizadas: r.analizadas.length, fallidas: r.fallidas.length, cortadas: r.cortadas, reintentadas: r.reintentadas });
       for (const url of r.sinTiempo) sinTiempo.push({ ws: w.id, url });
     } catch (e) {
       errores.push({ ws: w.id, error: e instanceof Error ? e.message : String(e) });
@@ -57,7 +57,8 @@ export async function GET(req: NextRequest) {
   const analizadas = revisados.reduce((n, r) => n + r.analizadas, 0);
   // Log SIEMPRE, también cuando no hubo nada que hacer: un cron mudo y uno que no
   // corrió se ven iguales.
-  console.log(`[cron:landing-analyst-auto] revisados=${revisados.length} analizadas=${analizadas} sinTiempo=${sinTiempo.length} errores=${errores.length} ms=${ms}`);
+  const reintentadas = revisados.reduce((n, r) => n + r.reintentadas, 0);
+  console.log(`[cron:landing-analyst-auto] revisados=${revisados.length} analizadas=${analizadas} reintentadas=${reintentadas} sinTiempo=${sinTiempo.length} errores=${errores.length} ms=${ms}`);
   const ok = errores.length === 0 || revisados.length > 0;
   return Response.json({ ok, revisados, sinTiempo, errores, ms }, { status: ok ? 200 : 500 });
 }

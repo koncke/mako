@@ -33,7 +33,8 @@ import { bloqueadaParaGuardar } from './landing-extraer';
 import { LINEA_LEIDA_EN_NAVEGADOR, lineasProbadas, mensajeEnNavegador, motivoDeError } from './editor-landing/lectura-reglas';
 import type { Lectura, MotivoEnNavegador } from './editor-landing/lectura-tipos';
 import { esPreviewDeEditor } from './landing-paginas';
-import { analisisCortado, direccionParaBajar, visitasDeLaLanding } from './landing-url';
+import { analisisCortado, conQuitada, direccionParaBajar, leerQuitadas, QUITADAS_KEY, visitasDeLaLanding } from './landing-url';
+import { getSetting, setSetting } from './settings';
 // La profundidad del VSL NO se calcula acá: se reusa el módulo que ya resolvió
 // el problema (mig 0121 — el player de Panda no le da la duración al navegador,
 // así que el dato crudo son los segundos y el % se deriva). Su regla, que este
@@ -764,6 +765,8 @@ export async function analizarLanding(
 
   const row = filaAnalizada(pagina, comp, res.analysis, res.model);
   await upsertRow(row);
+  // Analizarla A MANO la devuelve a Landing Analyst si la habían quitado (`borrarAnalisis`).
+  if (opts.origen !== 'auto') await marcarQuitada(url, false);
 
   // El onboarding de esta tab se completa USÁNDOLA (ver TAB_ONBOARDINGS): el
   // paso que bloquea es haber analizado una página, y el del seguimiento se
@@ -983,9 +986,30 @@ export async function listarAnalizadas(): Promise<Array<{ url: string; leer: str
 }
 
 
-/** Borra el análisis de una landing (la saca de la lista, no borra tracking). */
+/**
+ * Borra el análisis de una landing (la saca de la lista, no borra tracking).
+ *
+ * ⚠️ Y LA ANOTA COMO QUITADA (17/10/2026): si sigue declarada en el Pixel, el análisis automático de cada hora la
+ *    volvía a analizar (y a pagar la IA), y «quitar» no duraba (docs/relevo/pixel-clarity-landing.md §4.2). Decisión
+ *    con criterio, entre las tres del relevo: quitar = «no la analices sola». Analizarla a mano la devuelve
+ *    (`analizarLanding`), y sacarla del Pixel también la deja afuera. Si anotarla falla, el borrado ya se hizo: queda
+ *    en el log.
+ */
 export async function borrarAnalisis(url: string): Promise<void> {
   const supabase = (await getTenantDb());
-  const { error } = await supabase.from('landing_analyses').delete().eq('url', claveDeLanding(url));
+  const clave = claveDeLanding(url);
+  const { error } = await supabase.from('landing_analyses').delete().eq('url', clave);
   if (error) throw new Error(`Error borrando el análisis: ${error.message}`);
+  await marcarQuitada(clave, true);
+}
+
+/** Anota (o saca) una página de las quitadas de Landing Analyst. Nunca tira: es accesorio al borrado o al análisis. */
+async function marcarQuitada(url: string, quitada: boolean): Promise<void> {
+  try {
+    const antes = await getSetting(QUITADAS_KEY);
+    if (!quitada && !leerQuitadas(antes).includes(claveDeLanding(url))) return;
+    await setSetting(QUITADAS_KEY, conQuitada(antes, url, quitada));
+  } catch (e) {
+    console.error(`[landing-analyst] no pude ${quitada ? 'anotar' : 'sacar'} ${url} de las quitadas: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }

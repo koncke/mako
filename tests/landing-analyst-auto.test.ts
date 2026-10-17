@@ -27,7 +27,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { analisisCortado, faltanAnalizar, claveDeLanding, MINUTOS_CORTE_ANALISIS } from '../lib/landing-url';
+import {
+  analisisCortado, faltanAnalizar, claveDeLanding, MINUTOS_CORTE_ANALISIS,
+  conQuitada, erroresParaReintentar, leerQuitadas, HORAS_REINTENTO_ERROR, REINTENTOS_POR_CORRIDA,
+} from '../lib/landing-url';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -39,7 +42,7 @@ test('falta analizar lo declarado SIN fila, normalizado como Landing Analyst', (
     faltanAnalizar(['https://www.x.com/', 'https://x.com/oferta?utm_source=fb', 'https://y.com'], ['https://x.com']),
     ['https://x.com/oferta', 'https://y.com'],
   );
-  // Una página con fila —aunque esté en error— NO vuelve: reintentar es de la persona.
+  // Una página con fila —aunque esté en error— no entra acá (la que está en error la toma erroresParaReintentar).
   assert.deepEqual(faltanAnalizar(['https://x.com'], ['https://x.com']), []);
   // Y la fila también se normaliza: una guardada con www es la misma página.
   assert.deepEqual(faltanAnalizar(['https://x.com'], ['https://www.x.com/']), []);
@@ -107,4 +110,72 @@ test('⚠️ «Buscar mis páginas» no vuelve a analizar una página que se est
   assert.match(sync, /f\.status === 'pendiente' && !analisisCortado\(f\.status, f\.updated_at, ahora\)/, 'un pendiente reciente volvió a contar como fallo');
   assert.match(sync, /filas\.filter\(\(f\) => !enCurso\(f\)\)/, 'refrescar todo vuelve a correr el que está corriendo');
   assert.match(sync, /\(f\.status === 'pendiente' && !enCurso\(f\)\)/, 'los reintentos toman un pendiente en curso');
+});
+
+// =============================================================================
+// 17/10/2026: las páginas en ERROR se reintentan solas (una vez por día, con tope) y «quitar» dura.
+// =============================================================================
+// El caso (docs/relevo/pixel-clarity-landing.md §2, §4.2 y §4.4): la portada del ws1 quedó en error el 20/09 y la de
+// Leila (ws11) el 06/10, y nada las volvía a mirar; y «quitar» una página borraba la fila, pero como seguía declarada
+// el cron de cada hora la volvía a analizar. Decisiones con criterio, escritas en lib/landing-url.ts.
+//
+// PROBADO ROMPIÉNDOLO (17/10/2026, arnés que restaura de memoria y compara el sha256). Base: 12 / 0.
+//   A1  el reintento sin esperar las 24 h ......................................... 11 / 1
+//   A2  el reintento sin tope por corrida ......................................... 11 / 1
+//   A3  reintenta también las que NO están declaradas ............................. 11 / 1
+//   A4  faltanAnalizar sin las quitadas ........................................... 11 / 1
+//   A5  el auto sin reintentar los errores ........................................ 11 / 1
+//   A6  el reclamo del reintento sin comparar updated_at .......................... 11 / 1
+//   A7  borrarAnalisis sin anotarla como quitada .................................. 11 / 1
+//   A8  analizarla a mano no la devuelve ......................................... 11 / 1
+// Restaurado: 12 / 0.
+
+test('una declarada en error se reintenta sola UNA vez por día, la más vieja primero, con tope por corrida', () => {
+  const ahora = Date.parse('2026-10-17T12:00:00Z');
+  const hace = (h: number) => new Date(ahora - h * 3_600_000).toISOString();
+  const filas = [
+    { url: 'https://leila.com', status: 'error', updated_at: hace(24 * 11) },          // la de Leila, 11 días
+    { url: 'https://reciente.com', status: 'error', updated_at: hace(HORAS_REINTENTO_ERROR - 1) },
+    { url: 'https://ok.com', status: 'analizada', updated_at: hace(500) },
+    { url: 'https://suelta.com', status: 'error', updated_at: hace(500) },            // NO declarada
+    { url: 'https://b.com', status: 'error', updated_at: hace(30) },
+    { url: 'https://c.com', status: 'error', updated_at: hace(48) },
+  ];
+  const declaradas = ['https://www.leila.com/', 'https://reciente.com', 'https://ok.com', 'https://b.com', 'https://c.com'];
+  const r = erroresParaReintentar(declaradas, filas, ahora).map((f) => f.url);
+  assert.equal(REINTENTOS_POR_CORRIDA, 2);
+  assert.deepEqual(r, ['https://leila.com', 'https://c.com'], 'la más vieja primero, con tope; ni la reciente ni la suelta');
+  // La que falló hace menos de un día espera (sola, sin el tope de por medio).
+  assert.deepEqual(erroresParaReintentar(['https://reciente.com'], filas, ahora), []);
+  // Una quitada no se reintenta.
+  assert.deepEqual(erroresParaReintentar(declaradas, filas, ahora, ['leila.com']).map((f) => f.url), ['https://c.com', 'https://b.com']);
+});
+
+test('«quitar» dura: la lista de quitadas, y faltanAnalizar no la vuelve a tomar', () => {
+  assert.deepEqual(leerQuitadas(null), []);
+  assert.deepEqual(leerQuitadas('no es json'), []);
+  assert.deepEqual(leerQuitadas('{"a":1}'), []);
+  const una = conQuitada(null, 'https://www.x.com/oferta/?utm=1', true);
+  assert.deepEqual(leerQuitadas(una), ['https://x.com/oferta'], 'se guarda la LLAVE de Landing Analyst');
+  assert.deepEqual(leerQuitadas(conQuitada(una, 'x.com/oferta', true)), ['https://x.com/oferta'], 'sin repetir');
+  assert.deepEqual(leerQuitadas(conQuitada(una, 'https://x.com/oferta', false)), [], 'analizarla a mano la devuelve');
+  assert.deepEqual(faltanAnalizar(['https://x.com/oferta', 'https://y.com'], [], leerQuitadas(una)), ['https://y.com']);
+});
+
+test('el auto reintenta los errores con un compare-and-set, y lee las quitadas', () => {
+  const src = sinComentarios(leer('lib/landing-analyst-auto.ts'));
+  assert.match(src, /leerQuitadas\(await getSetting\(QUITADAS_KEY\)\)/);
+  assert.match(src, /faltanAnalizar\(declaradas, filas\.map\(\(f\) => f\.url\), quitadas\)/);
+  const i = src.indexOf('erroresParaReintentar(declaradas, filas, ahora, quitadas)');
+  assert.ok(i > 0, 'el auto no reintenta los errores');
+  const bucle = src.slice(i, src.indexOf('return r;', i));
+  assert.match(bucle, /\.eq\('status', 'error'\)\.eq\('updated_at', f\.updated_at as string\)/, 'dos corridas a la vez analizarían dos veces');
+  assert.match(bucle, /analizarLanding\(f\.url, undefined, \{ origen: 'auto' \}\)/);
+});
+
+test('borrar un análisis la anota como quitada; analizarla a mano la saca', () => {
+  const src = sinComentarios(leer('lib/landing-analyst.ts'));
+  const borrar = src.slice(src.indexOf('export async function borrarAnalisis'), src.indexOf('async function marcarQuitada'));
+  assert.match(borrar, /await marcarQuitada\(clave, true\)/);
+  assert.match(src, /if \(opts\.origen !== 'auto'\) await marcarQuitada\(url, false\);/);
 });

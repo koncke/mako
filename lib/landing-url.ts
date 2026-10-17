@@ -86,13 +86,17 @@ export const MINUTOS_CORTE_ANALISIS = 15;
  * Es un CÁLCULO y no un disparo «cuando se agrega una página»: así cubre todos los
  * caminos que agregan una (la pantalla del Pixel, la API de MaKo, el formato viejo,
  * un setting editado a mano) sin que ninguno tenga que acordarse de avisar. Una
- * página que ya tiene fila —analizada, en error o pendiente— NO vuelve: volver a
- * analizar es una decisión de la persona, y una página que no se puede leer sola
- * pediría pegar el texto en cada guardado.
+ * página que ya tiene fila —analizada, en error o pendiente— NO entra acá: una
+ * analizada no se repite sola, y la que quedó en error la reintenta, espaciada,
+ * `erroresParaReintentar`.
+ *
+ * `quitadas` (17/10/2026): las que la persona QUITÓ de Landing Analyst (`QUITADAS_KEY`). Quitar borraba la fila y,
+ * como la página seguía declarada en el Pixel, el cron de cada hora la volvía a analizar (y a pagar la IA): «quitar»
+ * no duraba. Ahora quitar es «no la analices sola»; analizarla a mano la devuelve.
  */
-export function faltanAnalizar(declaradas: string[], existentes: string[]): string[] {
+export function faltanAnalizar(declaradas: string[], existentes: string[], quitadas: readonly string[] = []): string[] {
   const ya = new Set<string>();
-  for (const e of existentes) { try { ya.add(claveDeLanding(e)); } catch { /* una fila rota no tapa nada */ } }
+  for (const e of [...existentes, ...quitadas]) { try { ya.add(claveDeLanding(e)); } catch { /* una fila rota no tapa nada */ } }
   const out: string[] = [];
   for (const d of declaradas) {
     let u: string;
@@ -101,6 +105,62 @@ export function faltanAnalizar(declaradas: string[], existentes: string[]): stri
     out.push(u);
   }
   return out;
+}
+
+/**
+ * Cada cuánto se reintenta SOLA una página declarada cuyo análisis quedó en error, y cuántas por corrida (el cron es
+ * horario y recorre todos los negocios).
+ *
+ * El caso (docs/relevo/pixel-clarity-landing.md §2 y §4.4): la portada del ws1 quedó en `error` el 20/09 y la de
+ * Leila (ws11) el 06/10 —«Expected double-quoted property name in JSON», una respuesta del modelo mal cerrada—, y
+ * nada las volvía a mirar: el análisis automático sólo toma las declaradas SIN fila, y una fila en error es una fila.
+ * La de Leila seguía así el 17/10. Decisión (17/10/2026, con criterio, entre las tres que dejó el relevo): reintento
+ * automático CON TOPE. Una vez por día por página: una página que no se puede bajar (403, armada en el navegador)
+ * falla antes de la IA y no cuesta nada; una que sí se baja paga a lo sumo un análisis por día con la cascada
+ * gratis del negocio. El botón «Reintentar» de la pantalla sigue para no esperar.
+ */
+export const HORAS_REINTENTO_ERROR = 24;
+export const REINTENTOS_POR_CORRIDA = 2;
+
+/** Las declaradas en error hace más de `HORAS_REINTENTO_ERROR`, la más vieja primero, con tope por corrida. */
+export function erroresParaReintentar<F extends { url: string; status: string | null; updated_at: string | null }>(
+  declaradas: readonly string[], filas: readonly F[], ahora: number, quitadas: readonly string[] = [],
+): F[] {
+  const clave = (u: string): string | null => { try { return claveDeLanding(u); } catch { return null; } };
+  const fuera = new Set(quitadas.map(clave).filter((x): x is string => x !== null));
+  const decl = new Set(declaradas.map(clave).filter((x): x is string => x !== null && !fuera.has(x)));
+  return filas
+    .filter((f) => {
+      if (f.status !== 'error' || !f.updated_at) return false;
+      const k = clave(f.url);
+      const t = Date.parse(f.updated_at);
+      return k !== null && decl.has(k) && Number.isFinite(t) && ahora - t >= HORAS_REINTENTO_ERROR * 3_600_000;
+    })
+    .sort((a, b) => (a.updated_at ?? '').localeCompare(b.updated_at ?? ''))
+    .slice(0, REINTENTOS_POR_CORRIDA);
+}
+
+/** Las páginas que la persona quitó de Landing Analyst (`app_settings`, por negocio): no se analizan solas. */
+export const QUITADAS_KEY = 'landing_analyst.quitadas';
+
+/** La lista guardada, saneada: llaves de `claveDeLanding`, sin repetir. Un valor roto es una lista vacía. */
+export function leerQuitadas(raw: string | null | undefined): string[] {
+  let v: unknown;
+  try { v = JSON.parse(raw ?? '[]'); } catch { return []; }
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const x of v) {
+    if (typeof x !== 'string') continue;
+    try { const k = claveDeLanding(x); if (!out.includes(k)) out.push(k); } catch { /* se ignora */ }
+  }
+  return out;
+}
+
+/** La lista con `url` adentro (quitar) o afuera (analizarla a mano la devuelve), como se guarda. */
+export function conQuitada(raw: string | null | undefined, url: string, quitada: boolean): string {
+  const k = claveDeLanding(url);
+  const lista = leerQuitadas(raw).filter((x) => x !== k);
+  return JSON.stringify(quitada ? [...lista, k] : lista);
 }
 
 /** ¿Un `pendiente` lleva tanto que el trabajo de fondo murió? */
