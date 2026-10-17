@@ -82,6 +82,7 @@ import {
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import { esperaQueAbra } from '@/lib/mako-tarjeta';
+import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
@@ -644,6 +645,47 @@ export async function vozDeAIStepQueFalta(pasos: readonly PasoGrafo[]): Promise<
   const [{ getVozCliente }, { vozQueFalta }] = await Promise.all([import('@/app/video-generator/voz-cliente'), import('@/lib/ai-step-voz')]);
   const v = await getVozCliente();
   return vozQueFalta(pasos, { propia: !!v.clon, otras: (v.otras ?? []).map((o) => o.voiceId) });
+}
+
+/** El hecho `equipoContestoEnEsta` de una inscripción, sólo si el flujo lo pregunta (si no, nada: no se paga la lectura). */
+async function equipoDeLaInscripcion(pasos: readonly PasoGrafo[], inscripcionId: number): Promise<{ equipoContestoEnEsta?: boolean | null }> {
+  if (!usaEquipoContesto(pasos)) return {};
+  return {
+    equipoContestoEnEsta: await equipoContestoDesdeElAviso(inscripcionId).catch((e) => {
+      console.error(`[nutricion] equipo_contesto de la inscripción ${inscripcionId}: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    }),
+  };
+}
+
+/**
+ * ¿ALGUIEN DEL GRUPO DE MAKO ESCRIBIÓ DESDE EL ÚLTIMO AVISO DE ESTA INSCRIPCIÓN? (17/10/2026, tarjeta #849, la condición
+ * «El equipo no contestó en el grupo»). El aviso es la última tarjeta MaKo que corrió para esta inscripción (su fila de
+ * `nutricion_envios`, `asunto: 'avisar_al_equipo'`, estado 'accion'); lo que escribe la gente del grupo queda en
+ * `mako_doer_conv` como `role: 'user'` (lib/mako-doer-in.ts). `null` = no se sabe: sin aviso todavía, sin grupo, o no se
+ * pudo leer. Una condición con «no sé» no se cumple, ni negada. Lo que se decide con las filas: `contestoElEquipo`.
+ * ⚠️ La fila del grupo se escribe al cerrar la ventana de 8 s del buffer (lib/mako-doer-buffer.ts): una respuesta de hace
+ * segundos puede no estar. Por eso va después de una espera, no pegada al aviso.
+ * ⚠️ Sólo queda lo que el grupo le pasa a MaKo: en modo 'ventana' (opt-in) un texto que no lo nombra se descarta antes
+ * de guardarse. Medido el 17/10: todos los grupos en 'libre' (el default).
+ */
+async function equipoContestoDesdeElAviso(inscripcionId: number): Promise<boolean | null> {
+  const db = await getTenantDb();
+  const ws = await getWorkspaceActual();
+  if (ws == null) return null;
+  const { data: env, error: eEnv } = await db.from('nutricion_envios').select('created_at')
+    .eq('inscripcion_id', inscripcionId).eq('asunto', OP_AVISAR).eq('estado', 'accion')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (eEnv) throw new Error(eEnv.message);
+  const desde = (env as { created_at?: string } | null)?.created_at;
+  if (!desde) return null;
+  const { grupoJidEstricto } = await import('./mako-grupo');
+  const jid = await grupoJidEstricto(ws);
+  if (!jid) return null;
+  const { data: filas, error: eConv } = await db.from('mako_doer_conv').select('role, wa_message_id')
+    .eq('workspace_id', ws).eq('grupo_jid', jid).gt('created_at', desde).limit(200);
+  if (eConv) throw new Error(eConv.message);
+  return contestoElEquipo((filas ?? []) as TurnoDelGrupo[]);
 }
 
 /**
@@ -4121,7 +4163,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const leidos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
         // Los hechos son del LEAD (una lectura por lote); las etapas del CRON son de ESTA automatización.
         // Y si el lead contestó desde que entró, también es de ESTA inscripción (`contestoEnEsta`, la condición `contesto`).
-        const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta } : null;
+        const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta, ...(await equipoDeLaInscripcion(sec.pasos, insc.id)) } : null;
         // Un flujo con carril ancla su DELAY «antes de la reunión» en la reunión CON HORA (M3 a; sin ella y con
         // fecha, `sin_hora` cierra ese hilo, M3 g). Uno sin carril no tiene esa espera: lo de siempre.
         const reunionConHoraMs = tieneCarril(sec.pasos) ? await reunionConHoraDe(lead) : undefined;
@@ -4230,7 +4272,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const idxCond = condicionDeArriba(sec.pasos, insc.paso_actual);
         if (idxCond != null) {
           const leidos = await hechosDe(insc.lead_id);
-          const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta } : null;
+          const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta, ...(await equipoDeLaInscripcion(sec.pasos, insc.id)) } : null;
           if (hechos && !condicionSigueLlevando(sec.pasos, idxCond, insc.paso_actual, hechos)) {
             const ahora = sec.pasos[insc.paso_actual];
             if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
@@ -5883,6 +5925,7 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
           console.error(`[nutricion] «Si responde», hechos del lead ${leadId}:`, e instanceof Error ? e.message : String(e));
           return null;
         }))?.get(leadId) ?? null;
+        if (hechos && inscId != null) hechos = { ...hechos, ...(await equipoDeLaInscripcion(pasos, inscId)) };
       }
       if (!hechos) { hecho.push('No pude leer lo que la condición necesita: me detuve ahí.'); noPudoDecidir = true; break; }
       // Adentro de «Si responde» el lead acaba de contestar (`contestoEnEsta`, la condición `contesto`).
