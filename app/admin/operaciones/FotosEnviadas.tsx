@@ -18,50 +18,16 @@
 
 import { useEffect, useState } from 'react';
 import { IconoChat } from '@/app/m/mako/iconos';
-import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
+import { leerFotosEnviadas, fotosYaLeidas, type Foto } from './fotos-enviadas';
 import { Visor } from './Visor';
-
-type Foto = { url: string; nombre: string };
-/** Lo ya leído de cada trabajo (por su id): la burbuja se vuelve a dibujar con cada refresco y no relee IndexedDB. */
-const leidas = new Map<string, Foto[]>();
-const direccionDe = (id: string) => `enviado:${id}`;
-const LADO_MINIATURA = 640;
-
-async function miniatura(f: File): Promise<File> {
-  try {
-    const bmp = await createImageBitmap(f);
-    const k = Math.min(1, LADO_MINIATURA / Math.max(bmp.width, bmp.height));
-    const lienzo = document.createElement('canvas');
-    lienzo.width = Math.max(1, Math.round(bmp.width * k));
-    lienzo.height = Math.max(1, Math.round(bmp.height * k));
-    lienzo.getContext('2d')?.drawImage(bmp, 0, 0, lienzo.width, lienzo.height);
-    bmp.close();
-    const blob = await new Promise<Blob | null>((ok) => lienzo.toBlob(ok, 'image/jpeg', 0.78));
-    return blob ? new File([blob], f.name, { type: 'image/jpeg' }) : f;
-  } catch { return f; }
-}
-
-/** Lo llama el motor (useCentro.ts → mandar) apenas el trabajo salió: la foto se ve en el acto y queda para después. */
-export function recordarEnviadas(id: string, archivos: readonly File[]) {
-  const fotos = archivos.filter((f) => f.type.startsWith('image/'));
-  if (!fotos.length) return;
-  leidas.set(id, fotos.map((f) => ({ url: URL.createObjectURL(f), nombre: f.name })));
-  void Promise.all(fotos.map(miniatura)).then((ms) => guardarAdjuntos(direccionDe(id), ms));
-}
 
 /** Lo adjuntado en una burbuja propia: las fotos que este navegador tiene, y el nombre de lo demás. */
 export function AdjuntosEnBurbuja({ id, nombres }: { id: string; nombres: readonly string[] }) {
-  const [fotos, setFotos] = useState<Foto[] | null>(() => leidas.get(id) ?? null);
+  const [fotos, setFotos] = useState<Foto[] | null>(() => fotosYaLeidas(id));
   const [viendo, setViendo] = useState<Foto | null>(null);
   useEffect(() => {
-    const ya = leidas.get(id);
-    if (ya) { setFotos(ya); return; }
     let vivo = true;
-    void leerAdjuntosGuardados(direccionDe(id)).then((fs) => {
-      const lista = fs.map((f) => ({ url: URL.createObjectURL(f), nombre: f.name }));
-      leidas.set(id, lista);
-      if (vivo) setFotos(lista);
-    });
+    void leerFotosEnviadas(id).then((lista) => { if (vivo) setFotos(lista); });
     return () => { vivo = false; };
   }, [id]);
   const conFoto = new Set((fotos ?? []).map((f) => f.nombre));

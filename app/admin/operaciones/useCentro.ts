@@ -43,7 +43,7 @@ import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
-import { recordarEnviadas } from './FotosEnviadas';
+import { recordarEnviadas } from './fotos-enviadas';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
