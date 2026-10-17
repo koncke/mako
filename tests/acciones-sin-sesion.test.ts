@@ -70,7 +70,8 @@ test('las acciones de «A revisar» (datos sin marcar) exigen sesión adentro', 
 test('las acciones de la ficha por bloques exigen sesión adentro', () => {
   const src = sinComentarios(leer('app/crm/ficha-actions.ts'));
   const exportadas = [...src.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
-  assert.deepEqual(exportadas, ['leerFichaFunnelAction', 'cambiarFichaFunnelAction']);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: el historial de la ficha (leerlo y volver a una versión), con el mismo corte.
+  assert.deepEqual(exportadas, ['leerFichaFunnelAction', 'cambiarFichaFunnelAction', 'historialFichaAction', 'volverFichaAction']);
   for (const fn of exportadas) {
     const ini = src.indexOf(`export async function ${fn}`);
     const fin = src.indexOf('\nexport ', ini + 10);

@@ -928,7 +928,7 @@ export const RUNNERS: Runners = {
     ejecutar: (payload) => seguro('cambiar la ficha', async () => {
       const c = sanearCambio(payload.cambio);
       if ('error' in c) return { ok: false, resumen: c.error };
-      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c);
+      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c, { autor: 'MaKo' });
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.cambio) return { ok: false, resumen: 'La ficha ya estaba así: no se cambió nada.' };
       // Los avisos de la ficha cambian lo que cuenta «Datos sin marcar» (la caché de leads).
@@ -964,7 +964,7 @@ export const RUNNERS: Runners = {
     ejecutar: (payload) => seguro('armar la tab', async () => {
       const c = sanearCambio(payload.cambio);
       if ('error' in c) return { ok: false, resumen: c.error };
-      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c);
+      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c, { autor: 'MaKo' });
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.cambio) return { ok: false, resumen: 'La tab ya estaba así: no se cambió nada.' };
       return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };

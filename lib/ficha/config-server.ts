@@ -20,6 +20,7 @@ import 'server-only';
 // =============================================================================
 
 import { getTenantDb } from '../workspace';
+import { conEntrada, sanearHistorial, type EntradaHistorialFicha } from './historial';
 import { filaAFunnel, FUNNEL_DEFAULT_NOMBRE, type FilaFunnel } from '../funnel-fila';
 import { resumenDelNegocio } from '../resumen-ficha-config';
 import { apagadosDelNegocio } from '../datos-aviso-config';
@@ -28,7 +29,7 @@ import type { CanalId } from '../fase-diagnostico';
 import type { StepId } from '../stage-requirements';
 import { elegirPlantilla, type EleccionPlantilla } from './plantillas';
 import {
-  aplicarCambio, apagadosDeLaCasa, fichaEfectiva, sanearFicha, normalizar,
+  aplicarCambio, apagadosDeLaCasa, describirCambio, fichaEfectiva, sanearFicha, normalizar,
   type CambioFicha, type FichaEfectiva, type FichaGuardada, type RespaldoNegocio,
 } from './config';
 
@@ -99,6 +100,12 @@ async function filaDe(funnelId: number | null): Promise<FilaConFicha | null> {
   return ((data ?? []) as unknown as FilaConFicha[])[0] ?? null;
 }
 
+/** El historial de la ficha de UN funnel (la más nueva primero). `null` si ese funnel no es de este workspace. Tira si no se pudo leer. */
+export async function historialDeFicha(funnelId: number | null): Promise<{ funnelId: number; entradas: EntradaHistorialFicha[] } | null> {
+  const fila = await filaDe(funnelId);
+  return fila ? { funnelId: Number(fila.id), entradas: sanearHistorial(dataDe(fila).fichaHistorial) } : null;
+}
+
 /** La ficha de UN funnel (null = el del negocio). `null` si ese funnel no es de este workspace. Tira si no se pudo leer. */
 export async function leerFichaDeFunnel(funnelId: number | null): Promise<FichaDelFunnel | null> {
   const [fila, canal, respaldo] = await Promise.all([filaDe(funnelId), canalDelNegocio(), respaldoDelNegocio()]);
@@ -130,7 +137,11 @@ export type ResultadoGuardarFicha =
  * Aplica UN cambio a la ficha de un funnel y lo guarda. `antes` es lo guardado justo antes (para
  * «Deshacer»: `{ op: 'restaurar', ficha: antes, esperado: ficha.guardada }`). `cambio: false` = ya estaba así y no se escribió nada.
  */
-export async function cambiarFichaDeFunnel(funnelId: number | null, c: CambioFicha): Promise<ResultadoGuardarFicha> {
+export async function cambiarFichaDeFunnel(
+  funnelId: number | null, c: CambioFicha,
+  /** Quién lo cambia, para el historial de la ficha (`data.fichaHistorial`, lib/ficha/historial.ts). */
+  opts?: { autor?: string },
+): Promise<ResultadoGuardarFicha> {
   const [canal, respaldo] = await Promise.all([canalDelNegocio(), respaldoDelNegocio()]);
   for (let intento = 0; intento < 4; intento++) {
     const fila = await filaDe(funnelId);
@@ -143,8 +154,11 @@ export async function cambiarFichaDeFunnel(funnelId: number | null, c: CambioFic
     if (!r.cambio) return { ok: true, ficha: armar(fila, canal, respaldo), antes, cambio: false };
     const nueva: Record<string, unknown> = { ...data };
     if (Object.keys(r.ficha).length) nueva.ficha = r.ficha; else delete nueva.ficha;
-    const db = await getTenantDb();
     const ahora = new Date().toISOString();
+    // ⚠️ EL HISTORIAL VA EN LA MISMA ESCRITURA (17/10/2026): quién, qué y cómo estaba. Con el compare-and-set de abajo,
+    // no hay un cambio sin su línea ni una línea sin su cambio (lib/ficha/historial.ts).
+    nueva.fichaHistorial = conEntrada(data.fichaHistorial, { at: ahora, autor: opts?.autor?.trim() || 'Alguien', que: describirCambio(c), antes });
+    const db = await getTenantDb();
     let q = db.from('funnels').update({ data: nueva, updated_at: ahora }).eq('id', fila.id);
     if (fila.updated_at) q = q.eq('updated_at', fila.updated_at);
     const { data: tocadas, error } = await q.select('id');
