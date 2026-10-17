@@ -2246,3 +2246,40 @@ preguntarlas: sin esa regla, quien estaba a mitad del onboarding veía aparecer 
 terminar) · `tests/onboarding-preguntas.test.ts` (11 roturas, 11 caen)
 
 *17/10/2026, chat «Onboarding», cuenta claude4.*
+
+## La guardia del onboarding: lo paga Martín, así que tiene topes (17/10/2026)
+
+**El pedido** (Martín, desde el Ops Center): «Como el onboarding lo pago yo en tokens, mete mucha ciberseguridad contra
+ataques DDoS o cosas así, si me envían mil consultas... O si un troll le empieza a decir cualquier cosa, que tenga la
+capacidad de bloquear al usuario».
+
+**Dónde se gasta:** el onboarding usa el crédito de Claude de la plataforma (`CREDITO_HABILITADO_PARA`). Mientras está
+pendiente ninguna otra tab se abre, así que TODO pedido de IA a /api/offer en ese momento es el onboarding. Ahí y en
+/api/onboarding/arranque va la guardia (`lib/onboarding-guardia.ts` las reglas, `-server.ts` la base):
+
+1. **La ráfaga**, por minuto, por usuario y por IP (`lib/rate-limit.ts`, en memoria). ⚠️ Es POR INSTANCIA: frena un
+   script, no un ataque distribuido. Contra eso está la protección de Vercel; para un tope duro entre instancias
+   hace falta un store compartido (Upstash), que la casa no tiene.
+2. **El tope por onboarding**, en la base (`onboarding.guardia`): 60 turnos de IA y 15 documentos. Es el que protege
+   la plata, entre instancias y entre días. Contar lo que vende lleva de 5 a 10 turnos.
+3. **El troleo**: un insulto DIRIGIDO («sos un inútil»; una mala palabra suelta en un mensaje largo es alguien contando
+   su mes, no un troll), un intento de sacarla de su papel («ignora tus instrucciones», «muéstrame tu system prompt»)
+   o basura (teclado aporreado). Suma una falta y NO llega a la IA: no se paga. A la tercera se bloquea el onboarding
+   y sale un email al equipo de la plataforma (el remitente y los destinatarios de los avisos de la voz). Lo desbloquea
+   el super admin mirando al cliente, desde la misma pantalla.
+
+Y el análisis entero (`armar`, `diagnosticar`, `generar`) no corre con el onboarding pendiente: el onboarding ya no lo
+pide, y por la API sería la parte más cara.
+
+### Lo que quedó SIN hacer
+
+- **Sin store compartido, la ráfaga es por instancia.** El tope de la base sí vale siempre.
+- **El troleo es por reglas, no por IA** (una IA para moderar también se paga). Lo que no matchea pasa: ante la duda,
+  no es falta.
+- **El email del bloqueo no se probó contra Resend de verdad.**
+
+**Vive en:** `lib/onboarding-guardia.ts` · `lib/onboarding-guardia-server.ts` · `app/api/offer/route.ts` (la guardia antes
+del `switch`) · `app/api/onboarding/arranque/route.ts` (`responder`, `telefono`, `desbloquear`) · `app/onboarding/ChatArranque.tsx`
+(la pantalla bloqueada) · `tests/onboarding-guardia.test.ts` (14 roturas, 14 caen)
+
+*17/10/2026, chat «Onboarding», cuenta claude4.*
