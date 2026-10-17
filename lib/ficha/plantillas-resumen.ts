@@ -7,16 +7,11 @@
 // mismas listas ARMADAS: con su ancho y su diseño, como un registro de Attio (los HIGHLIGHTS arriba: la calificación,
 // cuánto lleva en la etapa, lo que vale) y las tarjetas de a dos por fila de la columna del medio de HubSpot.
 //
-// ⚠️ LO ESENCIAL PRIMERO; LO DEMÁS SE AGREGA (#880, 17/10/2026). Martín, en la revisión del 16/10 (33:31): «revisar
-//    todos los templates, porque eso dentro un lead creo que es un template que está muy grande, entonces los templates
-//    tienen que ser como más simples». Salieron de las de entrada los bloques que ya tienen su tab o se agregan con
-//    «＋»: la charla de WhatsApp (de ancho completo y con su raya aunque no haya charla; queda en «La charla»), el video
-//    visto (Tracking), lo cobrado (Pagos, salvo en el evento y el carrito, donde es la pregunta), los cambios de MaKo,
-//    las automatizaciones en curso y el origen donde la bajada no lo promete.
-// ⚠️ CADA UNA TIENE LOS BLOQUES DE LA LISTA DE SU TIPO QUE AVISAN (lib/ficha/plantillas.ts): la plantilla del FUNNEL
+// ⚠️ CADA UNA TIENE, COMO MÍNIMO, LOS BLOQUES DE LA LISTA DE SU TIPO (lib/ficha/plantillas.ts): la plantilla del FUNNEL
 //    decide los avisos de «datos sin marcar», y cada aviso que queda prendido tiene que tener dónde llenarse en el
-//    Resumen de entrada. Lo fija tests/ficha-resumen.test.ts. Hasta el 17/10 exigía la lista ENTERA, que es más que su
-//    motivo y era lo que hacía grandes a las plantillas.
+//    Resumen de entrada. Lo fija tests/ficha-resumen.test.ts («no se pierde ningún bloque de la lista de su tipo»).
+//    Los que todavía no tienen componente (la charla, los cambios de MaKo, el video) van igual: no se dibujan hasta que
+//    lo tengan, y el día que lo tengan aparecen solos.
 // ⚠️ Y LA DE ENTRADA DE CADA TIPO TRAE «REDES Y WEB» E «INGRESO ESTIMADO» (verificación del 16/10/2026): el contacto de
 //    antes (InfoPrincipalCard) los mostraba ADENTRO en todos los funnels (la web, Instagram y el ingreso son los de
 //    fábrica de `crm.resumen.campos`), y al partirlos en sus bloques cinco de éstas los dejaban afuera: un lead del ws 11
@@ -44,6 +39,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
     bloques: [
       { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
       { id: 'posibles-duplicados', ancho: 12, diseno: 'banner' },
+      { id: 'cambios-de-mako', ancho: 12 },
       { id: 'calificacion', ancho: 4, diseno: 'botones' },
       { id: 'tiempo-en-etapa', ancho: 4, diseno: 'barra' },
       { id: 'ingreso-estimado', ancho: 4, diseno: 'numero' },
@@ -51,6 +47,10 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'setter-y-closer', ancho: 6, diseno: 'cajas' },
       { id: 'contacto', ancho: 6, diseno: 'grilla' },
       { id: 'lo-que-contesto', ancho: 6, diseno: 'lista' },
+      { id: 'video-visto', ancho: 6 },
+      { id: 'cobrado', ancho: 6, diseno: 'chip' },
+      { id: 'charla-whatsapp', ancho: 12 },
+      { id: 'origen', ancho: 6, diseno: 'migas' },
       { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
       { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
@@ -71,7 +71,11 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'setter-y-closer', ancho: 6, diseno: 'chips' },
       { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
       { id: 'ingreso-estimado', ancho: 4, diseno: 'fila' },
+      { id: 'charla-whatsapp', ancho: 12 },
+      { id: 'lo-que-contesto', ancho: 6, diseno: 'lista' },
       { id: 'lo-que-le-mandamos', ancho: 6 },
+      { id: 'automatizaciones-en-curso', ancho: 12 },
+      { id: 'origen', ancho: 12, diseno: 'linea' },
       { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'tres' },
@@ -93,6 +97,8 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'origen', ancho: 6, diseno: 'migas' },
       { id: 'setter-y-closer', ancho: 6, diseno: 'cajas' },
       { id: 'proxima-reunion', ancho: 12, diseno: 'renglon' },
+      { id: 'charla-whatsapp', ancho: 12 },
+      { id: 'automatizaciones-en-curso', ancho: 12 },
       { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'caja' },
@@ -112,7 +118,10 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
       { id: 'lo-que-contesto', ancho: 6, diseno: 'lista' },
       { id: 'pagina-de-registro', ancho: 6, diseno: 'fila' },
+      { id: 'origen', ancho: 12, diseno: 'linea' },
       { id: 'proxima-reunion', ancho: 12, diseno: 'renglon' },
+      { id: 'charla-whatsapp', ancho: 12 },
+      { id: 'automatizaciones-en-curso', ancho: 6 },
       { id: 'lo-que-le-mandamos', ancho: 6 },
       { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
@@ -131,11 +140,13 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'charla-whatsapp', ancho: 12 },
       { id: 'mensaje-listo', ancho: 12 },
       { id: 'publicacion-de-entrada', ancho: 6, diseno: 'linea' },
+      { id: 'origen', ancho: 6, diseno: 'linea' },
       { id: 'contacto', ancho: 6, diseno: 'renglon' },
       { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
       { id: 'setter-y-closer', ancho: 6, diseno: 'chips' },
       { id: 'tiempo-en-etapa', ancho: 3, diseno: 'chip' },
       { id: 'ingreso-estimado', ancho: 3, diseno: 'numero' },
+      { id: 'automatizaciones-en-curso', ancho: 12 },
       { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'tres' },
@@ -154,7 +165,8 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'ingreso-estimado', ancho: 4, diseno: 'numero' },
       { id: 'setter-y-closer', ancho: 4, diseno: 'renglon' },
       { id: 'lo-que-le-mandamos', ancho: 12 },
-      { id: 'charla-dm', ancho: 12 },
+      { id: 'charla-whatsapp', ancho: 6 },
+      { id: 'charla-dm', ancho: 6 },
       { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'tres' },
@@ -173,6 +185,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'lo-que-contesto', ancho: 6, diseno: 'lista' },
       { id: 'redes-y-web', ancho: 6, diseno: 'chips' },
       { id: 'ingreso-estimado', ancho: 4, diseno: 'fila' },
+      { id: 'charla-whatsapp', ancho: 12 },
       { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'caja' },
@@ -224,6 +237,7 @@ export const PLANTILLAS_TAB_RESUMEN: PlantillaTab[] = [
       { id: 'lo-que-contesto', ancho: 12, diseno: 'lista' },
       { id: 'origen', ancho: 6, diseno: 'migas' },
       { id: 'pagina-de-registro', ancho: 6, diseno: 'fila' },
+      { id: 'publicacion-de-entrada', ancho: 6, diseno: 'linea' },
       { id: 'motivo-de-salida', ancho: 6, diseno: 'texto' },
       { id: 'plazo-nutricion', ancho: 4, diseno: 'cuenta' },
       { id: 'notas', ancho: 12, diseno: 'caja' },
