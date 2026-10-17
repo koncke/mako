@@ -132,5 +132,9 @@ test('una lectura PARCIAL no se cachea, no se cierra y no se anuncia como entera
   // (17/10/2026: también sin una lectura que salteó partes o que completa otra: `&& !previa && !completando`.)
   assert.match(auto, /if \(tareas\.length && !parcial(?: && [^)]*)?\)/, 'el caché vuelve a guardar lecturas parciales');
   assert.match(auto, /if \(!parcial\) \{\s*\n\s*await setSetting\(KEY_VISTA/, 'la reunión vuelve a cerrarse leída a medias');
-  assert.match(auto, /const cojas = hechas\.filter/, 'el aviso no distingue una lectura parcial de una entera');
+  // (17/10/2026: el aviso es una automatización de SuperAdmin y sus datos los arma lib/reunion-plan-aviso.ts: ahí se cuenta
+  // lo leído a medias, `plan_a_medias`.)
+  const aviso = readFileSync(resolve(RAIZ, 'lib', 'reunion-plan-aviso.ts'), 'utf8');
+  assert.match(aviso, /const cojas = hechas\.filter\(\(h\) => \(h\.partesFallidas \?\? 0\) > 0\)/, 'el aviso no distingue una lectura parcial de una entera');
+  assert.match(aviso, /plan_a_medias:/);
 });

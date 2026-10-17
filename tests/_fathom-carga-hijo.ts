@@ -90,7 +90,10 @@ let respuestaCruce: Array<{ i: number; accion: 'enriquece'; idExistente: string;
 const crucesPedidos: Array<{ candidatas: number; universo: number; conReloj: boolean }> = [];
 
 const TABLAS = ['workspaces', 'plan_propuestas', 'experimento_tareas', 'tarea_categorias', 'plan_tareas', 'plan_proyectos',
-  'plan_dependencias', 'leads', 'app_settings', 'usuarios', 'credenciales', 'anthropic_usage', 'plan_reuniones_descartadas'] as const;
+  'plan_dependencias', 'leads', 'app_settings', 'usuarios', 'credenciales', 'anthropic_usage', 'plan_reuniones_descartadas',
+  // 17/10/2026: el aviso «Leí tu reunión» sale por su automatización de SuperAdmin (evento `reunion_tareas_al_plan`): lee
+  // las filas de la plataforma y escribe el feed. Vacías: sin fila, no sale nada (es lo que pasa hasta que se cree).
+  'nutricion_secuencias', 'notificaciones'] as const;
 const db: Record<string, Fila[]> = Object.fromEntries(TABLAS.map((t) => [t, [] as Fila[]]));
 let siguienteId = 1000;
 /** Las llamadas que NO fueron a la base: cada una es un intento de hablar con una IA. */
