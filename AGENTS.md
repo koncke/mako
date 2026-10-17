@@ -1074,7 +1074,11 @@ Ocho cosas que no se ven en el código y ya mordieron:
    veces; con presupuesto, eso es plata. La contracara: lo reclamado no vuelve a
    `pendiente`, así que **todo lo que se pueda saber sin escribir falla en `preparar()`**
    —un candado en `ejecutar()` consume la pendiente aunque rechace— y lo lento no sale por
-   `/api/v1`, que corta a 60 s.
+   `/api/v1`, que corta a 60 s. **Lo que sólo se sabe AL confirmar** (quién confirma: una escritura
+   firmada que llega sin nadie que firme) se declara en el runner como `faltaParaConfirmar`, que
+   `confirmarPendiente` pregunta ANTES de reclamar (y la pantalla genérica, antes de marcarla aplicada);
+   sin eso, un «sí» por un token clásico o por WhatsApp dejaba la pendiente en `error` para el admin que
+   sí la podía confirmar (comunidad, 17/10/2026).
 4. **Una acción de pantalla no tiene gemela de chat.** Si queda una tool vieja en
    `MAKO_ACCION_TOOLS` con el mismo nombre, el doer de WhatsApp la prefiere y pide un «sí».
    Al pasar una operación a `pantalla`, se saca la vieja; `confirmarPendiente` cierra sin

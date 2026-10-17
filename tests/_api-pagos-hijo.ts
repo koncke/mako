@@ -120,10 +120,11 @@ async function main() {
     reset();
     db.pagos.find((p) => p.id === 7)!.pagado = true;
     const conMoneda = await enA(() => marcar.preparar({ pagoId: 7, leadId: 101, pagado: false, moneda: 'ARS', montoOriginal: 5 }, ctx(WS_A)));
+    const soloMetodo = await enA(() => marcar.preparar({ pagoId: 7, leadId: 101, pagado: false, metodo: 'efectivo' }, ctx(WS_A)));
     const leadAjeno = await enA(() => marcar.preparar({ pagoId: 8, leadId: 202, pagado: true, fechaPago: '2026-10-17', moneda: 'ARS', montoOriginal: 5 }, ctx(WS_A)));
     const cuotaAjena = await enA(() => marcar.preparar({ pagoId: 8, leadId: 101, pagado: true, fechaPago: '2026-10-17' }, ctx(WS_A)));
     const sueltoAjeno = await enA(() => suelto.preparar({ leadId: 202, montoUsd: 100, fechaPago: '2026-10-17' }, ctx(WS_A)));
-    out.ajenos = { conMoneda, leadAjeno, cuotaAjena, sueltoAjeno, pagosDeB: pagosDe(202) };
+    out.ajenos = { conMoneda, soloMetodo, leadAjeno, cuotaAjena, sueltoAjeno, pagosDeB: pagosDe(202) };
   }
   out.ia = [...ia];
   process.stdout.write(`\n@@JSON@@${JSON.stringify(out)}@@FIN@@\n`);

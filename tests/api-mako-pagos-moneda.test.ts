@@ -11,9 +11,16 @@
 // QUEDA ESCRITO cuando se corren los runners de verdad contra una base de mentira con dos negocios
 // (tests/_api-pagos-hijo.ts).
 //
-// PROBADO ROMPIÉNDOLO (17/10/2026), una rotura por vez con tests/../romper (reemplaza, corre, restaura byte a byte).
+// PROBADO ROMPIÉNDOLO (17/10/2026), una rotura por vez con un arnés que reemplaza en el fuente, corre y restaura byte a byte.
 // Con el código como está: 9 pases, 0 fallos. Rota (pases / fallos):
-//   · (se completa con los números de la corrida al final de la sesión; ver docs/hallazgos-api-mako.md)
+//   · `montoOriginal` sin moneda deja de rechazarse (pagos-campo.ts)                          → 7 / 2
+//   · registrar_pago_suelto sin pasarle la moneda a registrarPagoSuelto                       → 8 / 1
+//   · marcar_pago_cobrado sólo va por cobrarCuota con montoUsd (como antes del 17/10)         → 8 / 1
+//   · el resumen de registrar_pago_suelto sin el aviso de «queda en dólares»                  → 8 / 1
+//   · registrar_pago_suelto sin los cuatro parámetros nuevos                                  → 8 / 1
+//   · desmarcar una cuota acepta moneda, método o concepto (se ignoraban en silencio)          → 8 / 1  (antes del caso soloMetodo: 9 / 0, sobrevivía)
+//   · avisoMonedaPorOmision que nunca avisa                                                    → 7 / 2
+//   · sin los dólares de la cuota como default al saldarla en otra moneda                      → 7 / 2
 // Correr: MAKO_TESTS_SIN_ESPERA=1 node --test --import tsx tests/api-mako-pagos-moneda.test.ts
 // =============================================================================
 
@@ -87,7 +94,7 @@ type Hijo = {
   cuotaEnPesos: { prep: { payload: Record<string, unknown>; resumen: string }; ejec: { ok: boolean; resumen: string }; filas: Array<Record<string, unknown>>; historial: string[] };
   cuotaComoSiempre: { ejec: { ok: boolean }; filas: Array<Record<string, unknown>> };
   cuotaDeMenosEnPesos: { prep: { resumen: string }; filas: Array<Record<string, unknown>> };
-  ajenos: { conMoneda: { error: string }; leadAjeno: { error: string }; cuotaAjena: { error: string }; sueltoAjeno: { error: string }; pagosDeB: Array<Record<string, unknown>> };
+  ajenos: { conMoneda: { error: string }; soloMetodo: { error: string }; leadAjeno: { error: string }; cuotaAjena: { error: string }; sueltoAjeno: { error: string }; pagosDeB: Array<Record<string, unknown>> };
   ia: string[];
 };
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_api-pagos-hijo.ts')], {
@@ -159,6 +166,8 @@ test('cobrada por menos Y en otra moneda: la diferencia queda pendiente EN DÓLA
 test('⚠️ lo de OTRO negocio no existe, y desmarcar no lleva moneda', () => {
   const a = H.ajenos;
   assert.match(a.conMoneda.error, /sólo al marcar/);
+  // Un método o un concepto SIN moneda al desmarcar se ignoraban en silencio: lo ataja la guarda de «sólo al cobrar», no la del monto.
+  assert.match(a.soloMetodo.error, /van sólo al marcar la cuota como cobrada/);
   assert.match(a.leadAjeno.error, /No existe el lead #202/);
   assert.match(a.cuotaAjena.error, /no es de Ana/);
   assert.match(a.sueltoAjeno.error, /No existe el lead #202/);

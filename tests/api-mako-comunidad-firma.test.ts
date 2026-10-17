@@ -13,7 +13,22 @@
 //   3. el área está enchufada en el registro, sale SÓLO por HTTP, sus datos cuentan como de clientes y nombrarla en un mensaje
 //      no le suma herramientas al doer.
 //
-// PROBADO ROMPIÉNDOLO: los números por rotura están en docs/hallazgos-api-mako.md («La comunidad por la API»).
+// PROBADO ROMPIÉNDOLO (17/10/2026), una rotura por vez con un arnés que restaura byte a byte. Con el código como está: 7 / 0.
+// Rota (pases / fallos):
+//   · el ctx del detallado sin `persona` (http.ts)                                            → 6 / 1
+//   · `personaDe` acepta el actor fuera de la bandeja                                          → 5 / 2
+//   · `firmaDelEquipo` firma una cuenta de otro negocio                                        → 5 / 2
+//   · `firmaDelEquipo` firma una cuenta suspendida                                             → 6 / 1
+//   · un token sin persona propone igual (y falla recién al escribir)                          → 6 / 1
+//   · al escribir sin persona firma el actor neutral                                           → 5 / 2
+//   · la comunidad no cuenta como datos de clientes                                            → 6 / 1
+//   · «comunidad» a secas trae el área (pisa a creaciones)                                     → 6 / 1
+//   · una ruta REST menos (en tests/api-mako-rest.test.ts, base 8 / 0)                         → 6 / 2
+//   · confirmarPendiente no pregunta la firma antes de reclamar                                → 6 / 1
+//   · una de las once que firman sin `faltaParaConfirmar`                                      → 6 / 1
+//   · comentar_post vuelve a chat (resumen de 120 letras)                                      → 6 / 1
+//   · borrar_post con el id editable al revisar                                                → 6 / 1
+//   · ver_avisos anota los avisos de los eventos próximos / la campana siempre anota           → 6 / 1 (cada una)
 // Correr: MAKO_TESTS_SIN_ESPERA=1 node --test --import tsx tests/api-mako-comunidad-firma.test.ts
 // =============================================================================
 
@@ -22,8 +37,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { REGISTRO, porArea } from '../lib/api-mako/registro';
-import { AREAS, AREA_INFO, DATOS_DE_CLIENTES_POR_AREA } from '../lib/api-mako/tipos';
+import { REGISTRO, porArea, porId } from '../lib/api-mako/registro';
+import { AREAS, AREA_INFO, DATOS_DE_CLIENTES_POR_AREA, esAccion } from '../lib/api-mako/tipos';
 import { areasDelMensaje } from '../lib/mako-intencion';
 import { personaDe } from '../lib/api-mako/areas/comunidad.helpers';
 
@@ -86,7 +101,9 @@ test('⚠️ un «sí» que no se puede cumplir no quema la pendiente: la firma 
   const acc = sinComentarios(leer('lib/api-mako/acciones.ts'));
   const confirmar = acc.slice(acc.indexOf('export async function confirmarPendiente'));
   assert.ok(confirmar.indexOf('faltaParaConfirmar') > 0 && confirmar.indexOf('faltaParaConfirmar') < confirmar.indexOf('reclamarPendiente(ctx.ws, p.id)'), 'el control va DESPUÉS de reclamar: la pendiente queda quemada');
+  assert.match(confirmar, /if \(registrada\) \{\s*const falta = await \(run as \{[^}]*\}\)\.faltaParaConfirmar\?\.\(p\.payload, ctx\);\s*if \(falta\) return \{ error: falta \};/, 'el control está apagado o no corta');
   const generica = acc.slice(acc.indexOf('export async function aplicarPropuestaGenerica'));
+  assert.match(generica, /const falta = await run\.faltaParaConfirmar\?\.\(prep\.payload, ctx\);\s*if \(falta\) return \{ ok: false, resumen: falta \};/, 'la pantalla genérica no corta');
   assert.ok(generica.indexOf('faltaParaConfirmar') > 0 && generica.indexOf('faltaParaConfirmar') < generica.indexOf('marcarAplicada('), 'la pantalla genérica marca aplicada antes de preguntar');
   // Las once que firman lo declaran.
   const run = sinComentarios(leer('lib/api-mako/areas/comunidad.run.ts'));

@@ -14,7 +14,22 @@
 // Las dos primeras se prueban EJECUTANDO los runners de verdad contra una base de mentira con dos negocios
 // (tests/_api-acciones-hijo.ts): lo que se mira es lo que QUEDA ESCRITO y que lo de otro negocio no existe.
 //
-// PROBADO ROMPIÉNDOLO (17/10/2026): los números por rotura están en docs/hallazgos-api-mako.md («Cinco cosas…»).
+// PROBADO ROMPIÉNDOLO (17/10/2026), una rotura por vez con un arnés que restaura byte a byte. Con el código como está: 16 / 0.
+// Rota (pases / fallos):
+//   · sacarDeSecuencia deja `proximo_envio_at` en la fila cancelada                           → 15 / 1
+//   · la inscripción se lee sin filtrar por secuencia                                          → 0 / 1  (el hijo se cae: el lead tiene dos)
+//   · un handoff deja de salir                                                                 → 14 / 2
+//   · lo terminado deja de ser «ya terminó»                                                    → 13 / 3
+//   · un producto de otro negocio pasa en guardar_landing                                      → 0 / 1  (el hijo se cae al nombrarlo)
+//   · guardar sin `productos` los saca (`{ funnelIds: productos ?? [] }`)                     → 15 / 1
+//   · `productos` sin vaciaEsValor                                                             → 15 / 1
+//   · un flujo puede duplicar una automatización                                               → 15 / 1
+//   · el código del dashboard pasa por el resumen (el modelo)                                  → 15 / 1
+//   · compactarFicha no hace nada                                                              → 14 / 2
+//   · compactarFicha sin la marca `ficha_acortada`                                             → 15 / 1
+//   · el contexto de MaKo Analyst no acorta la ficha antes de recortarla                       → 15 / 1
+//   · el estimado de un ganado se muestra                                                      → 15 / 1
+//   · el estimado oculto sin decir por qué                                                     → 15 / 1
 // Correr: MAKO_TESTS_SIN_ESPERA=1 node --test --import tsx tests/api-mako-acciones-1710.test.ts
 // =============================================================================
 

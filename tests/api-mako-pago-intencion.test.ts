@@ -11,7 +11,15 @@
 // `esPedidoDeCobro` (lib/mako-intencion.ts). Lo que NO tiene que cambiar —la cuota de IA, una pregunta, «anotá en el
 // plan…», lo que pagó mi socio por la comida— está fijado acá también.
 //
-// PROBADO ROMPIÉNDOLO: ver la cabecera de tests/api-mako-pagos-moneda.test.ts y docs/hallazgos-api-mako.md.
+// PROBADO ROMPIÉNDOLO (17/10/2026), una rotura por vez con un arnés que restaura byte a byte. Con el código como está: 3 / 0.
+// Rota (pases / fallos), todas lib/mako-intencion.ts:
+//   · sin el tipo `pago` (sin verbo de cobro)                                                → 2 / 1
+//   · sin el tipo `cuota` (con verbo de cobro)                                               → 2 / 1
+//   · la cuota de IA o de WhatsApp cuenta como cuota de pago (sin `CUOTA_DE_USO`)             → 2 / 1  (antes de sumar «cortale el recordatorio de la cuota diaria de WhatsApp»: 3 / 0)
+//   · «pagó» sin tilde es su propio objeto (se busca el objeto CON el verbo)                   → 2 / 1
+//   · una pregunta de pago («¿ya te pagó Ana?») se ejecuta                                      → 2 / 1
+//   · el pago sin el área `cobros` (sin ver_moneda_negocio)                                   → 2 / 1
+//   · la cuota sin el área `crm` (sin cobranza_lead)                                          → 2 / 1
 // Correr: MAKO_TESTS_SIN_ESPERA=1 node --test --import tsx tests/api-mako-pago-intencion.test.ts
 // =============================================================================
 
@@ -84,6 +92,7 @@ test('⚠️ cambiar, mandar el link o cortar el recordatorio de una cuota trae 
 test('lo que NO es un pago ni una cuota del plan sigue siendo lo que era', () => {
   const no = [
     'aumentá la cuota de IA',                              // la cuota del NEGOCIO
+    'cortale el recordatorio de la cuota diaria de WhatsApp', // «cuota» + «recordatorio» sin ser un pago
     'la cuota diaria de WhatsApp está llena',
     'cuántas cuotas tiene el plan de Ana',                  // una pregunta
     '¿ya te pagó Ana la cuota 2?',                          // una pregunta se contesta
