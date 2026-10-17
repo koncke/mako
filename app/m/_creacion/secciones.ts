@@ -4,9 +4,9 @@
 // En escritorio, Video, Image, Copywriting y AI Avatar son tabs con SECCIONES (nav.ts → `secciones`), y arriba de
 // cada una va la barra de secciones (app/_components/SeccionesTab.tsx) con las que esa persona puede ver. El teléfono
 // la DESTILA: las mismas secciones, en el mismo orden y con el mismo nombre, con la MISMA regla
-// (`seccionesVisibles`, lib/nav-visibilidad.ts) y cada una a su pantalla del teléfono (`rutaMovil`). La que no
-// tiene pantalla en el teléfono (Copy Method, una herramienta del super admin) no se ofrece: llevaría a la cubierta
-// «se usa en la computadora».
+// (`seccionesVisibles`, lib/nav-visibilidad.ts) y cada una a su pantalla del teléfono (`rutaMovil`). Una que no
+// tuviera pantalla en el teléfono no se ofrece: llevaría a la cubierta «se usa en la computadora» (hasta el 17/10/2026
+// era Copy Method; ese día tuvo la suya, app/m/admin/copywriting).
 //
 // Lo dibuja <SeccionesTabM> (app/m/_ui). Vive acá y no en lib/movil-creacion.ts porque necesita `rutaMovil`, y
 // lib/movil-rutas.ts importa aquel módulo (un import de vuelta deja sus listas en `undefined`).

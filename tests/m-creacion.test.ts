@@ -8,14 +8,15 @@
 //   · que la puerta del teléfono sea la de escritorio: la MISMA key de nav.ts que pide cada page de escritorio, una
 //     key que exista (`puedeVerKey` dice que no, en silencio, a una que no está), y AI Avatar con su segunda puerta;
 //   · la barra de secciones de cada tab: las de escritorio, con la regla del Sidebar (`adminOnly` sólo para el super
-//     admin sin mirar a un cliente), y sin la que no tiene pantalla en el teléfono (Copy Method);
+//     admin sin mirar a un cliente);
 //   · los editores son pantallas de trabajo (sin la barra de abajo desde el HTML del server);
 //   · el teléfono no COPIA lo de escritorio: los textos de «Copiar» viven en módulos puros que usan los dos lados;
 //   · abrir una pantalla de AI Avatar no gasta nada: ninguna page llama a lo que encola trabajo en Flow.
 //
 // Verificado ROMPIÉNDOLO (17/10/2026, scratchpad/romper.py: trece roturas sobre el archivo real, de a una, restaurando
 // de memoria y comparando el hash): base 6 pasan / 0 fallan; cada rotura, 5 / 1 en el test que la vigila (anotada
-// arriba de cada uno; la de `rutaMovilCreacion` después de las «pronto» tumba dos, 4 / 2); restaurado, 6 / 0.
+// arriba de cada uno; la línea de creación de `rutaMovil` borrada y la ruta de Copy Method borrada tumban dos, 4 / 2);
+// restaurado, 6 / 0.
 // =============================================================================
 
 import test from 'node:test';
@@ -34,7 +35,7 @@ const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\
 const leer = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8'));
 
 // Roto 17/10/2026: la línea de creación de `rutaMovil` borrada (las rutas caían en las «pronto» o en null) → 4/2 (éste
-// y el de la puerta); `noSub` sin 'presentador' → 5/1; la query de `/ai-avatar/avatares`
+// y el de la puerta); la ruta de Copy Method borrada → 4/2 (éste y el de la barra); `noSub` sin 'presentador' → 5/1; la query de `/ai-avatar/avatares`
 // sin `plantilla` → 5/1; `rutaEscritorioCreacion` sin el chequeo de la vuelta (una /m inventada se traducía) → 5/1.
 test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, con lo que escritorio lee de la query', () => {
   const casos: Array<[string, string | null]> = [
@@ -52,6 +53,7 @@ test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, co
     ['/ai-avatar/plantillas', '/m/ai-avatar/plantillas'],
     ['/ai-avatar/inventada', null],
     ['/reels', '/m/reels'], ['/stories', '/m/stories'], ['/carousels', '/m/carousels'],
+    ['/admin/copywriting', '/m/admin/copywriting'],
     // Las «Coming soon» de una tab con secciones van a la pantalla «pronto» de Mobile 2, no a una de acá.
     ['/image-generator', '/m/pronto/image-generator'], ['/youtube-writer', '/m/pronto/youtube-writer'],
     // Lo que no es de creación no se toca (y /reelsx no es /reels).
@@ -116,9 +118,8 @@ const SUPER: VistaNav = { adminShell: true, rolWs: 'admin', capa: 'superadmin' }
 const CLIENTE: VistaNav = { adminShell: false, rolWs: 'admin', capa: 'completo' };
 const keys = (xs: ReturnType<typeof seccionesTabM>) => xs.map((x) => x.key);
 
-// Roto 17/10/2026: `seccionesTabM` sin filtrar por `rutaMovil` (Copy Method en la barra) → 5/1; con `adminShell` del
-// cliente en true (Reels a la vista de un cliente) → 5/1.
-test('la barra de secciones de cada tab: las de escritorio, con la regla del Sidebar, y sólo con pantalla en el teléfono', () => {
+// Roto 17/10/2026: con `adminShell` del cliente en true (Reels a la vista de un cliente) → 5/1.
+test('la barra de secciones de cada tab: las de escritorio, con la regla del Sidebar, cada una a su pantalla del teléfono', () => {
   assert.deepEqual(keys(seccionesTabM('video', SUPER)), ['video-editor', 'video-generator', 'reels']);
   assert.deepEqual(keys(seccionesTabM('video', CLIENTE)), ['video-editor', 'video-generator']);
   assert.deepEqual(seccionesTabM('video', CLIENTE).map((s) => [s.label, s.href]), [['Editor', '/m/video-editor'], ['Create with AI', '/m/video']]);
@@ -126,9 +127,10 @@ test('la barra de secciones de cada tab: las de escritorio, con la regla del Sid
   assert.deepEqual(seccionesTabM('image', CLIENTE).map((s) => [s.key, s.pronto]), [
     ['image-editor', false], ['image-generator', true], ['thumbnails', true], ['carousels', false],
   ]);
-  // Copywriting: Copy Method es una herramienta del super admin sin pantalla en el teléfono; a un cliente le queda
-  // sólo Ads Writer (y con una sección la barra no se dibuja).
-  assert.deepEqual(keys(seccionesTabM('copywriting', SUPER)), ['ideas', 'ads-writer', 'youtube-writer', 'stories']);
+  // Copywriting: el super admin ve también Copy Method (su herramienta, `adminOnly`); a un cliente le queda sólo Ads
+  // Writer (y con una sección la barra no se dibuja).
+  assert.deepEqual(keys(seccionesTabM('copywriting', SUPER)), ['ideas', 'ads-writer', 'youtube-writer', 'stories', 'admin-copywriting']);
+  assert.equal(seccionesTabM('copywriting', SUPER).find((s) => s.key === 'admin-copywriting')?.href, '/m/admin/copywriting');
   assert.deepEqual(keys(seccionesTabM('copywriting', CLIENTE)), ['ads-writer']);
   assert.deepEqual(keys(seccionesTabM('ai-avatar', SUPER)), ['ai-avatar-crear', 'ai-avatar-avatares', 'ai-avatar-voces', 'ai-avatar-plantillas']);
   assert.deepEqual(keys(seccionesTabM('ai-avatar', CLIENTE)), []);

@@ -337,9 +337,8 @@ export const SOLO_ESCRITORIO: Readonly<Record<string, string>> = {
  * falla si la encuentra con pantalla y todavía anotada.
  */
 export const EN_CAMINO: Readonly<Record<string, string>> = {
-  // «Mobile 1» (17/10/2026): las tabs de creación. Video Editor, Reels, AI Avatar, Image Editor, Carousels y Stories
-  // ya tienen su pantalla (lib/movil-creacion.ts); queda Copy Method.
-  'admin-copywriting': 'Mobile 1',
+  // «Mobile 1» (17/10/2026): las tabs de creación (Video Editor, Reels, AI Avatar, Image Editor, Carousels, Stories y
+  // Copy Method) ya tienen su pantalla: lib/movil-creacion.ts.
   // «Mobile 2» (17/10/2026): negocio y configuración.
   integraciones: 'Mobile 2', 'api-mako': 'Mobile 2', configuraciones: 'Mobile 2',
   contexto: 'Mobile 2', 'modelos-ia': 'Mobile 2', conocimientos: 'Mobile 2', mensajes: 'Mobile 2',

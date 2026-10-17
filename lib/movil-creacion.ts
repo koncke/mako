@@ -79,6 +79,8 @@ export const RUTAS_CREACION: readonly RutaCreacion[] = [
   { base: '/reels' },
   { base: '/stories' },
   { base: '/carousels' },
+  // Copy Method (Copywriting › Method), la herramienta del super admin: su carpeta es app/m/admin/copywriting.
+  { base: '/admin/copywriting' },
 ];
 
 const conQuery = (path: string, q: URLSearchParams, claves: readonly string[] | undefined): string => {
