@@ -318,3 +318,28 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
 - **Con la RAM al límite (16 chats):** en local, guardas + los tests de lo cambiado + frontera; lo pesado lo corre Actions, que falla rápido (~2 min).
 - **Auditoría de las 54 tarjetas de las llamadas:** 12 cerradas en el Plan; las demás repartidas a sus chats (C:/dev/auditoria-1610.json).
 - **Runner:** si MaKo no recibe vueltas (operaciones_carteros.visto_at quieto), stop_session al Runner y mandarle de nuevo sus pasos. `vigilar` a veces hace 0 consultas: bug pasado al Ops Center 3.
+
+## 17/10 ~09:30 AR (12:30 UTC) — ESTADO PARA RETOMAR (contexto del Cerebro al 84%)
+
+- **Producción: run 102.** Lleva Pagos #891, Video Editor #853, CRM #854/#893, Onboarding A-D, Ops Center 3 (A, B, en
+  qué está cada mensaje, renombre), la Ticketera punta 1, el workflow más barato de Infra (12 min el verde) y AI Avatar.
+- **Run 103 (57e27c4bc), corriendo:** MaKo en WhatsApp «reprogramar» (cliente roto) y Dashboard (#876, #872, #857,
+  #858 y Experiments).
+- **En wt-push-q sin subir (va después del 103):**
+  - Second Brain 233b57297 (#848/#864/#884 y el grafo 11-13);
+  - Clients b63e5ddcf (Clients + MaKo Partners; los choques del índice ya resueltos);
+  - el cartero **1.14.3** (`medir` con la cuenta activa), YA instalado en la PC.
+  - Su chequeo liviano corre en segundo plano (C:/dev/guardas12.txt).
+- **Puntas que esperan su VERDE:**
+  - Sidebar → tomar `sidebar-email` (puntas 1 y 2 juntas, mig 0312, que es suya);
+  - Automations `undecima`;
+  - Offer c17ee4835;
+  - Plan;
+  - Ops Center 3: C/D/E/F/G, la lista, el teléfono y el bug de vigilar.
+  - La próxima migración libre es la **0313**.
+- **Runner:** tarea 3169963f con `medir` (0b) y `vigilar`. Con la 1.14.3 anota claude4. Si se traba: stop_session y
+  mandarle sus pasos de nuevo.
+- **Cada vez que algo llega a producción:** avisar al jefe para que escriba su «Ya está» en su chat. Los cierres del Plan
+  los confirma Martín de a uno (propuesta en /plan/revisar), salvo los que yo cerré con evidencia de la auditoría.
+- **Trampa de hoy:** en Git Bash, `--revisar "/ruta"` se convierte en ruta de disco → `MSYS_NO_PATHCONV=1` (se lo pasé
+  al Ops Center 3).
