@@ -8,6 +8,7 @@
 // sale de lib/offer-marco.ts y no se copia aquí.
 
 import { familiaDeArchivo } from '@/lib/formatos-archivo';
+import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import {
   MARCA_COMPLETAR, PIEZAS, PUNTOS_CONTROL,
   type AdjuntoVista, type FuentePieza, type PuntoControl, type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
@@ -247,6 +248,15 @@ export type AvisoGuardado = { texto: string; reintentable: boolean };
  * Con «Guardada» en el lugar del botón no había nada que tocar y la oferta quedaba suelta para
  * siempre (revisión del 11/10).
  */
+/**
+ * Lo que dice el estado de una oferta guardada (#895): «Guardada en VSL y Renovación», con los nombres (no «2 funnels»).
+ * Sin funnels leídos, «Guardada» a secas.
+ */
+export function textoGuardada(guardadaEn: ReadonlyArray<{ id: number; nombre: string }> | null | undefined): string {
+  const xs = (guardadaEn ?? []).filter((x) => x && Number.isFinite(x.id));
+  return xs.length ? `Guardada en ${rotuloDeFunnels(xs.map((x) => x.id), xs)}` : 'Guardada';
+}
+
 export function guardadaVisible(ofertaId: number | null, ligada: boolean | undefined, aviso: AvisoGuardado | null): boolean {
   if (ofertaId == null) return false;
   if (aviso && aviso.texto.trim()) return !aviso.reintentable;
