@@ -76,7 +76,7 @@ test('2 · la propuesta armada sale con lo estimado marcado, y eso va a «Lo que
   assert.equal(p.numeros[2], NUMEROS[2]);
   assert.equal(p.numeros[3], `Llamadas necesarias: 25 ${MARCA_ESTIMADO}`);
   assert.equal(p.numeros[4], NUMEROS[4]);
-  const numeros = p.propuestoPorMako.filter((x) => x.seccion === 'Números').map((x) => x.que);
+  const numeros = (p.propuestoPorMako ?? []).filter((x) => x.seccion === 'Números').map((x) => x.que);
   assert.deepEqual(numeros, [LTV, 'Llamadas necesarias: 25']);
 });
 
