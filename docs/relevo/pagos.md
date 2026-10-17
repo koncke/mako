@@ -25,6 +25,9 @@ Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
 3. **Mirarlo en el navegador, en el ws3 (nunca ws1)**: la tab Pagos con un ganado con cuotas, una suscripción y un lead
    abierto; la «Baja del cliente» sobre un ganado con cuotas vencidas; y la tarjeta de un cliente de agencia («Pagar su
    mes», «Activar renovación»). No se pudo: no hubo RAM para `next dev` (receta en docs/hallazgos-crm.md).
+   **Casos cargados en el ws3 el 17/10** (no había ningún ganado con cuotas ni suscripción): el lead **2739** «Francisco
+   (prueba de Pagos)», US$6.000 con US$4.000 cobrados y dos cuotas vencidas, y el **2740** «Suscripción (prueba de
+   Pagos)», US$800 por mes con un mes sin registrar. El lead abierto es el 2664.
 4. **La T3 (Customer Success en bloques) va con el CRM, al final.** Al pasarla, se borran juntos DealDetailsCard,
    EditarDeal, `?edit=1`, «Completar con IA», `saveDealSectionsAction` y `saveCuotasAction`.
 5. **`pagos-mexico-guarda` (a075e1ae5) NO se integra** hasta que Martín conteste `cobrar-mako-en-mexico` en la Ticketera.

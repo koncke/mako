@@ -18,12 +18,15 @@
 //    Centro y la del Second Brain, tests/operaciones.test.ts), y cada acción la vuelve a pedir (acciones.ts).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DESTINO_RE, aceptaAdjuntos, type AdjuntoPedido, type Alcance, type TurnoChat } from '@/lib/operaciones-reglas';
+import {
+  DESTINO_NUEVO, DESTINO_RE, aceptaAbrir, aceptaAdjuntos, problemaDeNombreNuevo, type AdjuntoPedido, type Alcance, type TurnoChat,
+} from '@/lib/operaciones-reglas';
+import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { idLocal, problemaDeSeleccion, tipoDeElegido } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
-  comoSale, completarChats, enQueTrabaja, esperasPorChat, historialDelChat, nombreValido, textoDeEnvio, textoDeRenombre, vistaPrevia,
+  comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
@@ -195,6 +198,25 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   /** Lo que se acaba de mandar, para que se vea en su chat mientras llega el refresco. */
   const anotarEnviado = (t: TrabajoP) => { setLocales((l) => [t, ...l]); refrescar(); };
 
+  // ── «Nuevo chat» con un clic (17/10/2026, docs/diseno-nuevo-chat-un-clic.md) ──────────────────────────────────
+  // Martín: «un clic + el permiso de la PC», nunca pegar un comando en PowerShell. Es un trabajo firmado con
+  // `destino: 'nuevo'`, por el MISMO camino que todo lo demás (mandar.ts); lo abre la PC (cartero.mjs → `abrir`).
+  /** ¿Se abre un chat en esa cuenta desde acá? Una terminal, y su Runner con el cartero que abre (1.11.0). */
+  const puedeAbrirEn = (cuenta: string) => tieneTerminal(cuenta) && carteros.some((k) => k.cuenta === cuenta && aceptaAbrir(k.version));
+  /** Cómo va el último que se pidió abrir (un trabajo `nuevo` no es de ningún chat de la lista). */
+  const apertura = estadoDeApertura(trabajos);
+  async function abrirChat(b: { nombre: string; cuenta: string; texto?: string }): Promise<boolean> {
+    const nombre = b.nombre.replace(/\s+/g, ' ').trim();
+    if (problemaDeNombreNuevo(nombre)) { avisar('Sólo letras y números', 'bad'); return false; }
+    if (!puedeAbrirEn(b.cuenta)) { avisar('Todavía no abre chats', 'bad'); return false; }
+    const texto = b.texto?.trim() || primerMensajeNuevo(nombre);
+    const r = await firma.mandar({ sesion: DESTINO_NUEVO, cuenta: b.cuenta, titulo: nombre }, texto, 'solo_esto');
+    if (!r.ok) { avisar(r.error, 'bad'); return false; }
+    anotarEnviado({ id: r.id, destino: DESTINO_NUEVO, destino_titulo: nombre, destino_cuenta: b.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    avisar('Se abre en 2 minutos', 'good');
+    return true;
+  }
+
   // ── Los adjuntos de la caja (17/10/2026): fotos y PDF, también pegando una captura con Ctrl+V ─────────────
   const adjuntosDe = (clave: string) => adjuntos[clave] ?? [];
   /** ¿Baja adjuntos el Runner de la cuenta a la que sale? Con un cartero de antes de la 1.9.0 el trabajo llegaría SIN
@@ -326,6 +348,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     avance, cambiarAvance,
     envioDe, borradorDe, ponerBorrador, alcance, setAlcance, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
+    puedeAbrirEn, apertura, abrirChat,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
     renombrando, setRenombrando, deRenombre, renombrar,

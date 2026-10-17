@@ -26,8 +26,8 @@ local de la PC de Martín ni sus chats: lo esencial de eso está acá abajo.
    tiene cada área.
 3. El relevo del área que vayas a tocar (docs/relevo/<área>.md: crm, onboarding, centro-operaciones, video-editor,
    pagos, …) y su docs/hallazgos-<área>.md.
-4. La checklist que mira Martín: **/admin/runway/checklist** (app/admin/runway/checklist/datos.ts). Al terminar algo
-   de «Lo que queda», agrega su ítem a «Lo que se hizo» con un id NUEVO y saca el pendiente; un id nunca se reusa.
+4. ~~La checklist /admin/runway/checklist~~ se BORRÓ el 17/10 (pedido de Martín). Lo que se termina lo dice el chat de
+   esa área en el Ops Center (/admin/operaciones): un «Ya está» con su link para revisar, nunca una lista aparte.
 
 ## Por dónde seguir (en este orden)
 

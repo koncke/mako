@@ -47,6 +47,7 @@ import { hoyEnTijuana } from '@/lib/date-utils';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { emitirDelCatalogo } from '@/lib/avisos';
+import { datosCancelada, claveCancelada, DEDUP_CANCELADA_MIN } from '@/lib/reunion-cancelada';
 import { linkResumenLead } from '@/lib/lead-resumen';
 import { dispararEvento } from '@/lib/flujos';
 import { enrolarPorEvento } from '@/lib/nutricion';
@@ -683,15 +684,15 @@ export async function POST(request: NextRequest) {
         // Con evento vinculado, la R la dice su etapa. La cancelación NO mueve la tarjeta (borra la fecha, como
         // antes): es lo de HubSpot con Calendly, que marca la reunión cancelada y deja el negocio donde está.
         const tipoCancelada = decidirReserva(vinculada.ruta, clasificarJunta(payload.scheduled_event, cfgJuntas)).reunion;
+        // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `reunion_cancelada`, «nada por
+        // detrás», lote 2): acá van sólo los datos. Y con FRENO: una reentrega de Calendly lo repetía (no había ninguno).
         await emitirDelCatalogo('reunion-cancelada', {
-          // La pregunta vieja («¿le mando un WhatsApp para conseguir otro
-          // horario?») no tenía a dónde ir: nadie escuchaba la respuesta. Ahora
-          // MaKo sí puede reagendar en Calendly desde el chat, así que se dice
-          // exactamente qué escribirle para que pase (ver lib/calendly-agenda.ts).
-          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} (era el ${fmtFechaHoraLocal(startTimeIso, tzWs)}) y todavía no reagendó.\n\n👉 Mira el resumen del lead:\n${linkResumenLead(lead.id, ws)}\n\nSi consigues otro horario, dime *«reagéndale la ${tipoCancelada} a ${lead.nombre}»*.\n\n— MaKo`,
+          lead: { id: lead.id, nombre: lead.nombre },
+          datos: datosCancelada({ reunion: tipoCancelada, cuando: fmtFechaHoraLocal(startTimeIso, tzWs) }),
+          dedupKey: claveCancelada(payload.scheduled_event?.uri, lead.id, startTimeIso), dedupTtlMin: DEDUP_CANCELADA_MIN,
         });
         // Flujos configurados por el dueño: disparar 'lead.cancelo'.
-        await dispararEvento('lead.cancelo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: tipoCancelada, dedupKey: `calendly-cancelo:${payload.scheduled_event?.uri ?? lead.id}|${startTimeIso}` });
+        await dispararEvento('lead.cancelo', { ws, leadId: lead.id, leadNombre: lead.nombre, reunion: tipoCancelada, dedupKey: claveCancelada(payload.scheduled_event?.uri, lead.id, startTimeIso) });
         console.log(`[webhook:calendly] cancelación lead id=${lead.id} fecha=${fechaCancelada}: ${cambio} ms=${ms}`);
         return Response.json({ ok: true, event: body.event, lead_id: lead.id, cambio, ms });
       } catch (err) {
