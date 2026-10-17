@@ -223,4 +223,20 @@ export const BITACORA: Hito[] = [
       'docs/editor-video/inventario-copia-capcut.md — el inventario de la copia',
     ],
   },
+  {
+    fecha: '17 oct', hora: '07:46', chat: 'AI Avatar', sesion: 'local_54b66516-3407-49c7-8bd9-ee08d420db69', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Sin aceleración gráfica el editor ya no se rompe al entrar (tarjeta #853)',
+    puntos: [
+      '«Esta pantalla se rompió al dibujarse» al entrar: sin WebGPU ni WebGL2 el reproductor igual arrancaba el compositor en un efecto, que tira «GPU context not initialized». Medido con el WASM del editor en un Chrome sin ventana.',
+      'A Chrome le pasa cuando su proceso de GPU se cae (un video pesado alcanza) y queda así hasta reiniciarlo: por eso no dejaba entrar ni recargando.',
+      'Ahora el editor anda sin vista previa y dice «Reinicia el navegador»; el aviso dejó de mandar a «abrir el editor en Chrome». Lo pidió el Cerebro desde la tarjeta #853 (llamadas del 16/10).',
+    ],
+    commits: [
+      { sha: 'f961b926', msg: 'Video Editor: sin aceleración gráfica ya no se rompe al entrar (tarjeta #853)', lineas: 160, archivos: 4 },
+    ],
+    archivos: [
+      'app/video-editor/_opencut/preview/components/index.tsx — el reproductor no monta ni dibuja sin GPU',
+      'tests/video-editor-sin-gpu.test.ts — la premisa medida con el WASM y la guarda',
+    ],
+  },
 ];
