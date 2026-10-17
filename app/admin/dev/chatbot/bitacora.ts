@@ -1815,4 +1815,31 @@ FEEDBACK PROBAR:
       "docs/hallazgos-comunicacion.md — La campanita de escritorio y el «sin grupo de MaKo»: lo que hay que saber antes de tocarlos",
     ],
   },
+  {
+    fecha: "17 oct", hora: "05:30", chat: "Automations", cuenta: "claude4",
+    sesion: "local_797d5445-2365-464d-ae3d-1d71aa7baa8c",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Brigitte primero: sus automatizaciones vuelven a responder a los leads, la barra de inspección deja de tapar, «Probar en el grupo» y la campanita",
+    puntos: [
+      "Los leads del formulario de Brigitte entraban al CRM sin disparar nada: el poll de Meta ahora hace lo mismo que el webhook, y un lead nuevo entra al instante a la automatización de su etapa.",
+      "La automatización que Joan armó en la llamada había quedado sin disparador al pegarla: ahora escucha «Lead entrante».",
+      "Activar una automatización prende el envío de WhatsApp del negocio (decisión de Martín); ya prendido para Brigitte y Pablo.",
+      "Inspeccionando un cliente, la barra de arriba ya no tapa el título ni «Probar».",
+      "Una automatización que sólo le habla al grupo de MaKo se prueba en el grupo, sin pedir remitente.",
+      "La tarjeta MaKo elige qué pasa sin grupo de MaKo (queda en la app o por email) y hay campanita de avisos en escritorio.",
+    ],
+    commits: [
+      { sha: "e94f798a3", msg: "Automations: «Sin grupo de MaKo» en la tarjeta y la campanita de escritorio", lineas: 935, archivos: 21 },
+      { sha: "04e704dcb", msg: "Automations (#868, Brigitte): un lead de formulario dispara sus automatizaciones entre por donde entre", lineas: 369, archivos: 13 },
+      { sha: "6a30310ce", msg: "Inspeccionando un cliente, la barra de arriba ya no tapa las pantallas (#850)", lineas: 111, archivos: 4 },
+      { sha: "416a50a5e", msg: "Automations (#852): «Probar en el grupo» para las automatizaciones que sólo le hablan al grupo de MaKo", lineas: 287, archivos: 7 },
+      { sha: "949995786", msg: "Automations (#851): activar una automatización prende el envío de WhatsApp del negocio", lineas: 102, archivos: 4 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — Las automatizaciones de Brigitte (ws15) no respondían a los leads nuevos",
+      "docs/hallazgos-chatbot.md — «El envío de WhatsApp está apagado» con la línea conectada: el interruptor escondido",
+      "docs/hallazgos-ui.md — La barra de inspección tapaba las pantallas de alto fijo",
+      "docs/hallazgos-comunicacion.md — La campanita y «Sin grupo de MaKo», construidas",
+    ],
+  },
 ];
