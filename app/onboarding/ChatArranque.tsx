@@ -292,7 +292,7 @@ function TarjetaListo({ modo, plan }: { modo: VistaArranque['modo']; plan: Estad
 
 const CSS_ARRANQUE = `
 .arr-capa {
-  position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column;
+  position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; left: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column;
   font-family: 'Geist', sans-serif; color: var(--ink);
 }
 .arr-cabecera {
