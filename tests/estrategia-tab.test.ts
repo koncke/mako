@@ -107,14 +107,15 @@ test('la captación de cada torta sale del MISMO techo que dibuja «Lo que cuest
 });
 
 test('referidos: los costos de la decisión del 10/10 y cada uno debajo de su techo', () => {
-  // Martín escribió 81,50 (techo), 78,23, 80,56 y 124,99. El 124,99 sale de
-  // redondear 45,435 antes de sumar; calculado de una vez da 124,98.
+  // Martín escribió 81,50 (techo), 78,23, 80,56 y 124,99. El del 97 quedó en 130,46 (17/10/2026, docs/referidos.md:56):
+  // con el 50% del 1er mes ese mes ya es un pago, y «pagó 2 meses» es el mes 2 (r, no r²).
+  // Rotura: LLEGA_97 con r² otra vez → 1 fallo (éste).
   assert.ok(Math.abs(TECHO_PRO - 81.5) < 0.05, `techo del 47: ${TECHO_PRO}`);
   assert.equal(TECHO_GROWTH, 158.07);
   const costos = Object.fromEntries(COSTO_REFERIDO.map((c) => [c.clave, c.usd]));
   assert.equal(costos.pro, 78.23);
   assert.equal(costos.revendedor, 80.56);
-  assert.ok(Math.abs(costos.growth - 124.99) <= 0.01, `97 referido: ${costos.growth}`);
+  assert.equal(costos.growth, 130.46, `97 referido: ${costos.growth}`);
   for (const c of COSTO_REFERIDO) assert.ok(c.usd <= c.techo, `${c.label}: ${c.usd} > techo ${c.techo}`);
 });
 

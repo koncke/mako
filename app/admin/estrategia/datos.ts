@@ -256,7 +256,9 @@ const rMensual = (p: UnitPlan) => {
   return (p.grrAnual / 100) ** (1 / 12);
 };
 const LLEGA_47 = rMensual(PRO) ** 2; // 0,8847² = 0,7827
-const LLEGA_97 = rMensual(GROWTH) ** 2; // 0,9356² = 0,8754
+// 17/10/2026 (docs/propuesta-tabs-strategy.md → «Arreglos que no necesitan decisión»): con el 50% del 1er mes, ese mes
+// YA es un pago, así que «pagó 2 meses» es el mes 2: r y no r² (docs/referidos.md:56, la cuenta que manda: US$130,46).
+const LLEGA_97 = rMensual(GROWTH); // 0,9356
 /** Un 47 descontado de un plan de 97 le saca a MaKo 47 × 90,87/97 = 44,03 netos. */
 const CREDITO_POR_UN_47 = PRO.precioListaUsd * (GROWTH.netoUsd / GROWTH.precioListaUsd);
 /** El que llega por el 97: como mucho 50% del 1er mes («si no, no es rentable»). */
@@ -270,7 +272,7 @@ export const COSTO_REFERIDO: CostoReferido[] = [
   // 43,77 + 47 × 0,7827 = 80,56
   { clave: 'revendedor', label: `${num(PRO.precioListaUsd)} de un revendedor`, usd: r2(PRO.netoUsd + PRO.precioListaUsd * LLEGA_47), techo: TECHO_PRO,
     cuenta: `${num(PRO.netoUsd, 2)} + ${num(PRO.precioListaUsd)} en efectivo × ${num(LLEGA_47, 4)}` },
-  // 45,44 + 90,87 × 0,8754 = 124,98 (Martín escribió 124,99 redondeando 45,435 antes de sumar)
+  // 45,44 + 90,87 × 0,9356 = 130,46 (docs/referidos.md; era 124,98, con r² como si el 1er mes no fuera un pago)
   { clave: 'growth', label: `Cliente de ${num(GROWTH.precioListaUsd)}`, usd: r2(GROWTH.netoUsd * DESCUENTO_MAX_97 + GROWTH.netoUsd * LLEGA_97), techo: TECHO_GROWTH,
     cuenta: `${num(GROWTH.netoUsd * DESCUENTO_MAX_97, 2)} del ${num(DESCUENTO_MAX_97 * 100)}% + ${num(GROWTH.netoUsd, 2)} × ${num(LLEGA_97, 4)}` },
 ];
