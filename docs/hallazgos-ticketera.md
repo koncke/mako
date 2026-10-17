@@ -45,6 +45,9 @@ siquiera se pedía (`COLS`). Lo único visible era el renglón del historial `Av
 - «sin avisar» se cuenta desde el CIERRE (`resuelto_at` / `decidido_at`), no desde `updated_at`, que se mueve al cambiar la prioridad;
 - el umbral es el doble del cron (30 min): antes de eso es «Avisando…», después es «no salió».
 
+⚠️ **Con datos reales no se pudo probar**: el 17/10 ~15:55 AR la tabla `tickets` de producción tenía **0 filas** (conteo de sólo
+lectura, sin leer ningún texto). Los avisos están fijados por tests con filas armadas a mano; el primer ticket real es la prueba que falta.
+
 La bandeja ahora tiene un bloque «Avisos» en cada ticket y marca «⚠ sin avisar» en la lista; el mazo viejo dice en cada contestada si
 el aviso llegó al chat (`vistaDelAviso`). Las reglas están en lib/tickets-aviso.ts y lib/decisiones-aviso.ts (puras, con test).
 
