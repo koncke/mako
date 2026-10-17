@@ -4,8 +4,8 @@
 en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
 
 > **Para después del 20/10 (17/10, B5):** «Publicar en Creaciones» desde el ⋮ de la hoja está HECHO y SIN SUBIR en la rama
-> `pend-b5-publicar-dash` (`cc07af5ea`). Antes de mergearla: 2 fallos de `tests/api-mako-rest.test.ts` en esa rama, sin
-> mirar, y un antes-de-subir. El porqué de cada decisión, en docs/hallazgos-creaciones.md de esa rama.
+> `pend-b5-publicar-dash` (`cc07af5ea`). Antes de mergearla: un antes-de-subir (sus 2 fallos de
+> `tests/api-mako-rest.test.ts` eran la ruta REST de otra operación, arreglada en `d535f4a1a`). El porqué de cada decisión, en docs/hallazgos-creaciones.md de esa rama.
 
 ## Cómo se trabaja acá
 

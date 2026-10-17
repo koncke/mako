@@ -27,7 +27,7 @@
 revisión). Lo que quedó de la lista de B5, con su área:
 - **«Publicar en Creaciones» desde el ⋮ del Dashboard: HECHO y SIN SUBIR**, en la rama `pend-b5-publicar-dash`
   (`cc07af5ea`, con su test probado rompiéndolo y su cosecha en docs/hallazgos-creaciones.md de esa rama). Antes de mergearla:
-  `tests/api-mako-rest.test.ts` dio 2 fallos en esa rama (sin mirar si ya estaban en main) y falta un antes-de-subir.
+  un antes-de-subir (sus 2 fallos de `tests/api-mako-rest.test.ts` eran la ruta REST que faltaba, arreglada en `d535f4a1a`).
 - Dashboard / Experiments: la tasa de cierre de un experimento; los bloques de General que sigan los filtros
   (docs/relevo/dashboard.md, docs/relevo/general-y-calendario.md).
 - Calendario: la vista de CS/comunidad y «agendar llamada» (docs/relevo/general-y-calendario.md). El turno de Pablo
