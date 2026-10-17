@@ -122,6 +122,11 @@ cosas más, del ws13 y del ws9:
   verdad: en el medio suele haber un «ok») y sus herramientas.
 - **«Voy a agendar… ¿Confirmas con un «sí»?»** se leía como promesa: es la propuesta de siempre. Fue un falso positivo
   del propio detector, y por eso existe la regla de la pregunta final.
+- **«MaKo reprogramame la reunión de ayer… reprogramámela para el lunes a las 12»** (ws13, 17/10 11:46, lo primero que el
+  vigía encontró en vivo): default, sin agenda, y «no tengo acceso para mover o reprogramar eventos». ⚠️ **Es la MISMA
+  trampa que «reagendá» del 07/10, y su familia no se buscó entonces**: `\bprograma` no matchea adentro de «reprograma»
+  (entre «re» y «programa» no hay borde de palabra). Al arreglar un prefijo, enumerá TODOS los verbos de la regla que lo
+  admiten, no sólo el que se vio.
 
 **Lo que quedó sin hacer:**
 - **Nada se probó contra una agenda real.** El ws18 tiene Google conectado y es un cliente: la primera prueba es su

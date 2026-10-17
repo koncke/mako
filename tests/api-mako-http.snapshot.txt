@@ -30,6 +30,7 @@ archivar_etiqueta
 archivar_secuencia
 armar_tab_ficha
 asegurar_plantilla_reporte
+asignar_campana_funnels
 asignar_closer_setter
 asignar_oferta_lead
 audios_requeridos
@@ -480,6 +481,7 @@ ver_borrador_plan
 ver_cac_acumulado
 ver_cac_mensual
 ver_cambios_landing
+ver_campanas_funnels
 ver_capacidad_instalada
 ver_catalogo_dashboard
 ver_ciclo_venta

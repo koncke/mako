@@ -1,0 +1,55 @@
+// =============================================================================
+// Ticketera — el registro de construcción del área (los tickets que levantan los usuarios)
+// =============================================================================
+// Alcance: el cliente levanta un ticket al equipo de MaKo (desde el chat de MaKo o en «Reportar problema»), el triage
+// decide si es un bug evidente que se arregla solo o algo que decide Martín, la decisión va firmada al Cerebro, y el
+// ticket se cierra solo cuando el arreglo está en producción. El diseño: docs/diseno-ticketera-usuarios.md; lo que
+// costó: docs/hallazgos-ticketera.md.
+//
+// NO es un changelog: va el pedido textual, la trampa y lo que quedó sin hacer.
+
+import type { Hito, Parte } from '../_registro/tipos';
+
+const CH = 'Ticketera';
+const SESION = 'local_03731046-a5b3-418b-a947-6b4c6b294ce9';
+
+export const PARTES: Parte[] = [
+  { titulo: 'El ticket y su historial', detalle: 'Mig 0311: quién lo levantó (foto de su rol y su plan), el contexto que junta el sistema, el triage con su porqué; RLS y revoke', estado: 'hecha' },
+  { titulo: 'Levantarlo desde el chat de MaKo', detalle: 'MaKo propone la tarjeta cuando algo falló (lo detecta el código) o cuando piden algo que la app no tiene (el modelo); la persona toca un botón', estado: 'hecha' },
+  { titulo: '«Reportar problema» del cliente', detalle: 'Un campo, tres opciones y «Tus tickets» con la conversación (Intercom + el «Mis solicitudes» de Zendesk)', estado: 'hecha' },
+  { titulo: 'La bandeja de Martín', detalle: 'Linear Triage adentro de Ops Center: de quién, el reporte, el porqué del triage y Aprobar · Rechazar · Duplicado · Preguntar · Responder', estado: 'hecha' },
+  { titulo: 'El bug automático llega solo al Cerebro', detalle: 'El Runner le escribe un texto fijo con el número: falta enchufarlo en el cartero (Ops Center) y reinstalarlo', estado: 'sigue' },
+  { titulo: 'La bandeja en el teléfono', detalle: 'Hoy la Ticketera del teléfono sigue siendo el mazo de las preguntas de los chats', estado: 'cola' },
+  { titulo: 'Levantarlo por WhatsApp', detalle: 'La operación ya está en el registro; enchufarla al doer de WhatsApp es del chat «MaKo en WhatsApp»', estado: 'cola' },
+];
+
+export const BITACORA: Hito[] = [
+  {
+    fecha: '17 oct', hora: '03:46', chat: 'Cerebro', sesion: 'local_797d5445-2365-464d-ae3d-1d71aa7baa8c', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'La Ticketera pasa a ser la de los tickets de los usuarios, end-to-end',
+    pedido: 'La ticketera desde ahora será exclusiva para los tickets levantados por los usuarios. Implementa end-to-end la ticketera para los usuarios, copia el diseño y la funcionalidad de alguna muy conocida... Y obvio el ticket me tiene que llegar con el reporte de a quién pertenece... con cada decisión que yo tome debería mandarse al cerebro y que decida si abre un nuevo chat o se lo envía a algún jefe... un bug evidente que debería funcionar bien debe solucionarse automáticamente, pero si alguien pide implementar algo nuevo, eso sí depende de mi decisión... Para el usuario debe ser fácil levantar un ticket... Tal vez en los mismos chats de MaKo... Y que MaKo le proponga levantarlo si detecta que intentó algo y falló, o si pidió algo que todavía no está en la app.',
+    puntos: [
+      'Lo repartió el Cerebro a un jefe nuevo, «Ticketera», con la migración 0311 y la regla de no pushear: la punta va al Cerebro con `antes-de-subir` en VERDE.',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '05:45', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los clientes levantan tickets desde el chat de MaKo, y te llegan con el reporte de quién es',
+    revisar: '/admin/operaciones?ticketera=tickets',
+    puntos: [
+      '**Se copió de quién lo resolvió**: el lado del cliente, de Intercom (el ticket nace de la conversación; cinco estados en sus palabras); la bandeja, de Linear Triage; el arreglo automático, del método de Sentry Seer y de la lista de lo que GitHub no le da a su agente. Sentry, Sweep y AutoCodeRover tienen licencias que no dejan copiar: no entró ni una línea, sólo el método.',
+      '**El triage no paga ningún modelo, y es una decisión**: el error lo registró el código al fallar, el tipo lo propuso MaKo con la IA que ya leía esa conversación, y las palabras se leen con reglas. El juicio caro («¿es de verdad un bug?») lo hace el Cerebro antes de tocar código, y si no lo es lo devuelve (`scripts/tickets.ts reclasificar`).',
+      '**Se arregla solo** sólo lo que el sistema VIO fallar o «antes andaba y dejó de andar», sin señales de pedido y fuera de cobros, accesos, borrados y envíos. Lo demás espera a Martín con el porqué escrito, que se corrige en un clic. Hay interruptor y un tope de 8 por día.',
+      '**El cierre lo dice el deploy, no un commit**: quien arregla anota `tickets: [n]` en el hito de su bitácora, y cuando el build lo trae el cron cierra el ticket y le avisa al cliente por donde lo levantó (su chat, un push, o el grupo de WhatsApp).',
+      '⚠️ **Lo que falta**: enchufar la entrega del bug automático en el cartero (Ops Center), la bandeja en el teléfono y el canal de WhatsApp (chat «MaKo en WhatsApp»).',
+    ],
+    archivos: [
+      'lib/tickets-reglas.ts: el triage, el contexto, lo que ve el cliente y el pedido al Cerebro',
+      'lib/tickets-db.ts: la base, con el corte por inquilino adentro',
+      'lib/api-mako/areas/tickets.def.ts: levantar_ticket y mis_tickets',
+      'app/tickets/bandeja/BandejaTickets.tsx: la bandeja de Martín',
+      'lib/tickets-cierre.ts y app/api/cron/tickets: el cierre y el aviso',
+      'scripts/tickets.ts: lo que usa el Cerebro',
+    ],
+  },
+];

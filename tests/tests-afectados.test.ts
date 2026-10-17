@@ -5,21 +5,26 @@
 // tests de su área (17/10/2026: runs 80, 82, 85 y 89). El repo falso de abajo tiene la misma FORMA
 // que los de verdad: si el selector deja de elegir alguno de esos tests, este archivo se pone rojo.
 //
-// ⚠️ PROBADO ROMPIÉNDOLO (17/10/2026), con el repo falso de abajo:
-//   · `seleccionar` sin la pasada transitiva (BFS que corta en el primer salto) → el caso del run 80 (editor-acciones,
-//     a DOS saltos del cambio) y el del run 85 por la barra dejan de salir: 3 aserciones rojas de 24.
-//   · `rutasNombradas` sin juntar los trozos del `join(...)` → medios-automatizacion (run 85) no sale: 2 rojas.
-//   · `sinComentarios` apagado → `AGENTS.md` citado en un comentario vuelve a seleccionar al test: 1 roja.
-//   · `motivoBarredora` sin `ls-files` → la guarda de voseo (run 80) y la de zona (run 82) ya no corren siempre: 2 rojas.
+// ⚠️ PROBADO ROMPIÉNDOLO (17/10/2026, medido: se rompe una pieza, se corren las 24 pruebas de este archivo, se restaura):
+//   · `seleccionar` sin la pasada transitiva (profundidad 1) → 2 rojas: editor-acciones (run 80, a DOS saltos del cambio) y el
+//     test que lanza un ayudante.
+//   · `rutasNombradas` sin juntar los trozos del `join(...)` → 1 roja (medios-automatizacion, run 85, nombraba PanelProbar así).
+//   · `sinComentarios` apagado → 3 rojas: el propio, `AGENTS.md` citado en un comentario (167 falsos positivos medidos) y la de
+//     «un archivo que ningún test mira se avisa» (AGENTS.md pasaba a ser un archivo «nombrado»).
+//   · `motivoBarredora` sin `ls-files` → 2 rojas: la suya y la guarda de voseo (run 80), que dejaría de correr siempre.
+//   · `correrTests` sin reintento (REINTENTO_MAX = 0) → 1 roja: el archivo que sólo falla con 2 procesos dejaría de ser FLAKY.
 // =============================================================================
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { sinModulo } from '../scripts/modulos-ts.mjs';
 import { heapPara } from '../scripts/antes-de-subir.mjs';
 import {
-  alcanceTsc, clavesDe, especificadores, leerResultado, motivoBarredora, pisoRam, resolver, resolverNombre,
-  rutasNombradas, rutasSinExtension, seleccionar, sinComentarios, UMBRAL_NOMBRA_MUCHOS,
+  alcanceTsc, clavesDe, concurrenciaAuto, correrTests, especificadores, leerResultado, motivoBarredora, pisoRam, resolver,
+  resolverNombre, rutasNombradas, rutasSinExtension, seleccionar, sinComentarios, UMBRAL_NOMBRA_MUCHOS,
 } from '../scripts/tests-afectados.mjs';
 
 const existeEn = (...rutas: string[]) => { const s = new Set(rutas); return (r: string) => s.has(r); };
@@ -279,4 +284,40 @@ test('alcanceTsc suma los archivos que AUMENTAN tipos de la misma carpeta (TipTa
   assert.deepEqual([...r.aumentan].sort(), ['app/vsl/Landing.tsx', 'app/web-generator/editor/extensiones/marcas.ts']);
   assert.deepEqual(alcanceTsc({ cambiados: ['app/web-generator/editor/insertar.ts'], archivos, importadoPor: r.importadoPor, aumentan: r.aumentan }),
     ['app/web-generator/editor/extensiones/marcas.ts', 'app/web-generator/editor/insertar.ts'], 'la de app/vsl es de otra zona: no se suma');
+});
+
+// ---------------------------------------------------------------------------
+// La concurrencia de Actions, y los rojos que son de la CARGA
+// ---------------------------------------------------------------------------
+
+test('concurrenciaAuto: todos los núcleos, entre 2 y 4 (el default de node deja un núcleo parado: UN proceso en un runner de 2 vCPU)', () => {
+  const n = concurrenciaAuto();
+  assert.ok(n >= 2 && n <= 4, `dio ${n}`);
+});
+
+test('correrTests: un archivo rojo con 2 procesos que pasa SOLO es FLAKY y no frena; uno que sigue rojo, sí', async () => {
+  const previo = process.env.CI;
+  process.env.CI = '1';                       // sin espera de RAM: el resultado no puede depender de cuántos chats haya abiertos
+  const dir = mkdtempSync(join(tmpdir(), 'flaky-'));
+  try {
+    const marca = JSON.stringify(join(dir, 'marca'));
+    const cuerpo = (t: string) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { existsSync, writeFileSync } from 'node:fs';\n${t}\n`;
+    writeFileSync(join(dir, 'flaky.test.ts'), cuerpo(`test('rojo la primera vez', () => { if (!existsSync(${marca})) { writeFileSync(${marca}, '1'); assert.fail('la carga'); } });`));
+    writeFileSync(join(dir, 'verde.test.ts'), cuerpo("test('verde', () => assert.ok(true));"));
+    writeFileSync(join(dir, 'rojo.test.ts'), cuerpo("test('siempre rojo', () => assert.fail('de verdad'));"));
+    const lineas: string[] = [];
+    const comun = { tanda: 2, concurrencia: 2, cortar: false, env: process.env, carpetaTmp: dir, out: (s: string) => { lineas.push(s); } };
+
+    const a = await correrTests({ ...comun, lista: [join(dir, 'flaky.test.ts'), join(dir, 'verde.test.ts')] });
+    assert.equal(a.rojos.size, 0, 'pasó solo: no es un rojo');
+    assert.equal(a.flaky.length, 1, 'pero se informa, no se esconde');
+    assert.match(lineas.join('\n'), /FLAKY/);
+
+    const b = await correrTests({ ...comun, lista: [join(dir, 'rojo.test.ts'), join(dir, 'verde.test.ts')] });
+    assert.equal(b.rojos.size, 1, 'un rojo de verdad sigue siendo rojo después de repetirlo solo');
+    assert.equal(b.flaky.length, 0);
+  } finally {
+    if (previo === undefined) delete process.env.CI; else process.env.CI = previo;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

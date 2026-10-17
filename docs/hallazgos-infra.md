@@ -6522,7 +6522,8 @@ alcanzar, aunque se cumpliera al pie de la letra:
   **El Cerebro no integra una punta sin esa línea** (AGENTS.md).
 - `scripts/modulos-ts.mjs`: la guarda de la clase 51/52 (todo `.ts` es un módulo), en `guardas-push.sh`.
 - `.github/workflows/integracion.yml`: **falla rápido** — guardas → afectados contra `origin/main` → tipos → los demás tests; las
-  dos fases suman la suite entera y no repiten ninguno. Un rojo se ve en ~3 min, no en ~11 (Tests: 508 s, Tipos: 137 s).
+  dos fases suman la suite entera y no repiten ninguno. Medido con la API: un rojo cuesta 2 min facturables (run 94, 107 s), no 5-10.
+  El verde salió caro (ver «El verde caro» abajo) y se corrigió.
 - `scripts/replay-fallos-ci.mjs` + `docs/fallos-ci-integracion.jsonl`: **la prueba**. Para cada uno de los 17 runs rojos toma el
   árbol exacto de la cabeza que falló (sin checkout: `ls-tree` + `cat-file --batch`) y la base REAL, el último run verde anterior,
   y pregunta si el rojo habría salido: **17/17 runs, 20/20 rojos**. Un rojo nuevo se suma al `.jsonl` y se vuelve a correr.
@@ -6554,6 +6555,19 @@ alcanzar, aunque se cumpliera al pie de la letra:
   así que el margen de 0,3 GB sobre la zona roja para los tests sobraba (de 1,55 a 1,3 GB para un proceso); (2) el alcance local del `tsc` pasa a lo
   CAMBIADO (33-102 archivos en los replays en vez de 168-935; el replay sigue en 20/20 porque los rojos de «Tipos» estaban en lo cambiado o los frena
   `modulos-ts`); (3) el paso de tipos espera 90 s, no 15 min, y si no entra dice «tipos: los chequea Actions» y sigue — lo mismo vale para el lock.
+- **El verde caro: fallar rápido costó 3 min facturables en el 85 % de los runs** (medido con la API por el Cerebro, 17/10). Run 94, ROJO: 2 min
+  facturables (107 s; antes 5-10). Run 95, VERDE: 14 (781 s) contra ~11 de antes: afectados 333 s + tipos 148 s + los demás 217 s + `npm ci` 29 s +
+  checkout 29 s; las dos fases de tests sumaron 550 s contra los 508 s del `npm test`. Con ~85 % de runs verdes, lo que se perdió en el verde pesó más
+  que lo que se ahorró en el rojo. **El diagnóstico obvio («las tandas chicas») era sólo una parte (~42 s de arranques)**: `--concurrencia auto` no
+  pasaba bandera y node usa `núcleos − 1` — en un runner de 2 vCPU, UN proceso a la vez y un núcleo parado, igual que el `npm test` viejo (por eso
+  508 s para 1.100 archivos: ~0,46 s por archivo, de suponer que sobre todo el arranque de `tsx`). Ahora `auto` = todos los núcleos (2-4), la fase 2 va en UNA corrida
+  (`--tanda 1000`) y cada fase imprime sus segundos en el resumen del run. **Estimación, no medición**: 550 s de tests → ~300-350 s, o sea ~9 min
+  facturables; falta el run siguiente para confirmarlo (el Cerebro lo mide con `/actions/runs/{id}/timing`; no se hizo en paralelo el `tsc` con los
+  tests porque con 2 núcleos ocupados por los tests casi no suma).
+- **Más procesos en paralelo sacan rojos de la CARGA**: con 2 procesos en la PC saturada `tests/ads-video-procesando.test.ts` falló (`esperarVideoListo` con
+  `topeMs: 40` ms, y la segunda lectura llegó tarde) y pasó solo. No es una colisión de estado, es un tope de tiempo demasiado justo — y habría sido
+  un rojo falso de 11-14 min en Actions. Por eso `correrTests` repite de a UNO los archivos rojos de una tanda con paralelismo (hasta 8): si pasan, salen
+  como `FLAKY` (no frenan, pero se ven en la salida) y si siguen rojos, son rojos. El test flaky sigue sin arreglarse (es de Ads): conviene subirle `topeMs` de 40 a 300.
 - **La profundidad del grafo casi no ahorra**: con 120 archivos cambiados, 457 tests con todos los saltos, 356 con `--profundidad 1`. Lo grande
   son las barredoras (110-150) y los que nombran un archivo: la palanca existe (`--profundidad N`, y el VERDE pasa a `PARCIAL`), pero no es la que
   acorta la espera.
@@ -6681,6 +6695,16 @@ muestra, y el diagnóstico obvio (la RAM) es el equivocado: no es un rojo ni un 
 
 *17/10/2026, chat «Automations» (claude4), al abrir C:/dev/wt-aut-pedidos para la rama de los pedidos sueltos.*
 
+## El tsc acotado de las pantallas del Ops Center: una lista larga muere, en tandas pasa (17/10/2026)
+
+Con ~14 chats abiertos y 1,5 GB libres, `scripts/tsc-acotado.mjs` sobre 25 archivos del Ops Center salió 99 dos veces:
+con el heap de siempre lo mató el vigía de RAM («código 1, 0 bytes de salida»), y con `--heap=1800` se quedó sin heap
+(«código 134»). Las pantallas arrastran casi toda la app por sus imports (app/_ui, el Second Brain, el teléfono), así que
+achicar el heap no ayuda. **Lo que anduvo:** tandas de 3 a 5 archivos con `--heap=2300`, y las librerías y los tests en
+otra tanda: las cinco dieron ✓. Un 99 sigue sin ser un verde: se vuelve a correr en tandas, nunca se da por bueno.
+
+*17/10/2026, chat «Ops Center» (claude4), en C:/dev/wt-centro-chat.*
+
 ## Los logs de producción de AYER se leen con `vercel logs --since/--until` (17/10/2026)
 
 **Síntoma:** «Crear con IA se quedó pensando» en una llamada de la noche anterior. En la base no había rastro del
@@ -6697,3 +6721,20 @@ motivo: `anthropic_usage` anota cada respuesta que LLEGÓ (proveedor, tokens, ho
 - Juntos, `anthropic_usage` (QUÉ contestó y cuándo) y el log (POR QUÉ no sirvió) reconstruyen una corrida de IA.
 
 *17/10/2026, chat «Automations» (claude4), tarjeta #847.*
+
+## Verde en la PC, rojo en Linux, y al revés: los tests que dependen del sistema (17/10/2026)
+
+Hoy cayó dos veces la misma clase, una para cada lado:
+- **Rojo en Linux (run 94):** tests/centro-abrir.test.ts arma rutas con forma de Windows (`C:\…\x.txt`) a propósito,
+  porque el cartero sólo corre en la PC. En Actions la carpeta temporal es /tmp/…, la lista blanca la rechaza y la
+  apertura sale `no_entregado`. Esos tres tests llevan `{ skip: SOLO_WINDOWS }`: corren en la PC y se saltan en Linux.
+- **Rojo en la PC (chequeo local):** tests/ai-avatar.test.ts recortaba una función buscando `'\n}\n'`. Con autocrlf
+  el archivo trae `\r\n`, el corte daba -1 y el test leía el archivo entero. Ahora normaliza los saltos al leer.
+
+**Regla:** un test que lee código como texto normaliza `\r\n` al leer. Un test que depende del sistema (rutas de
+Windows, explorer.exe) lo dice con un `skip` con su motivo. La guarda rutas-windows-en-tests sólo ve las rutas
+LITERALES en el test, no las que arma el código.
+
+**Y una trampa al escribir esta misma entrada:** el `\r\n` pasado por `node -e '…'` desde el Bash se convirtió en un
+salto de línea de verdad y partió una fila del índice en dos. Texto con barras invertidas va con el editor, no por el
+shell (memoria heredoc-come-backslash).

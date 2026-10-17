@@ -357,6 +357,10 @@ export type Ctx = {
   /** El token detallado que pidió (id y nombre), para el rastro: va en el `actor` de lo
    *  que confirma y en `api_llamadas`. */
   token?: { id: string; nombre: string };
+  /** Lo que el TURNO sabe para un ticket (lib/tickets-reglas.ts, `ContextoTicket`): lo que pidió la persona, lo que
+   *  contestó MaKo y los errores que registró el código al correr las herramientas. Lo pone el chat que corre el turno
+   *  (lib/mako-turno-app.ts) y lo lee `levantar_ticket`: así el error de un ticket nunca lo escribe el modelo. */
+  contextoTicket?: () => Record<string, unknown>;
 };
 
 // ── Lo que devuelven los runners ─────────────────────────────────────────────

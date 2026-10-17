@@ -1738,9 +1738,9 @@ test('el lead NACE en el embudo de su landing', () => {
   // compartido y no por un lector propio de la ruta. Si este orden se diera vuelta, una
   // campaña asignada a un producto dejaría de enrutar en cuanto su landing tenga otro.
   assert.ok(/funnelDeCampana\(\{ campaignId: atrib\.utm_campaign, adId: atrib\.utm_content \}\)/.test(src), 'el opt-in tiene que preguntar por la campaña con el utm_campaign');
-  // ⚠️ Y la campaña asignada es UNA, la landing puede ser VARIAS: asignar una
-  // campaña a un producto es decir a qué producto van sus leads, no a cuáles.
-  assert.ok(/porCampana\.asignada \? \[porCampana\.funnelId\] : funnelesDeLaLanding/.test(src), 'la campaña asignada manda, y manda a UN producto; sin asignar decide la landing');
+  // ⚠️ Y cuando manda la campaña, manda ENTERA (#893, 17/10/2026): su casa primero y sus otros funnels; la landing con
+  // varios no la amplía. Sin asignar, decide la landing.
+  assert.ok(/porCampana\.asignada \? \[porCampana\.funnelId, \.\.\.porCampana\.otros\] : funnelesDeLaLanding/.test(src), 'la campaña asignada manda con su casa y sus otros funnels; sin asignar decide la landing');
 });
 
 // =============================================================================

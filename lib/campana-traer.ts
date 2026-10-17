@@ -21,7 +21,7 @@ import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import { idDelFunnelDefault } from './funnels';
 import { casaParaEscribir } from './lead-funnel-reglas';
-import type { CampanaAsignada } from './campana-config';
+import { funnelsDeAsignada, type CampanaAsignada } from './campana-config';
 import {
   mapaDeAnuncios, repartirPorItem,
   type LeadAtribuible, type FilaConNombre, type Anuncio,
@@ -90,7 +90,7 @@ export async function planDeTraidaLote(
     funnel_id: casaParaEscribir(l.funnel_id == null ? null : Number(l.funnel_id), defaultId),
   }));
   const conjuntosDeOtro = new Set(
-    asignadas.filter((a) => a.tipo === 'conjunto' && a.funnelId !== destino).map((a) => a.id),
+    asignadas.filter((a) => a.tipo === 'conjunto' && !funnelsDeAsignada(a).includes(destino)).map((a) => a.id),
   );
   return repartirPorItem(items, destino, normalizados, anuncios, conjuntosDeOtro, enDestino);
 }
