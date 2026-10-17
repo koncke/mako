@@ -17,10 +17,10 @@ import 'server-only';
 // es el ESTADO (AGENTS.md, «Un canal PROPONE»): si el push no llega, el ticket igual dice «Resuelto».
 
 import { getSupabaseServer } from './supabase';
-import { runWithWorkspace } from './workspace';
+import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
 import { anotarDelCerebro } from './tickets-db';
-import { textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
+import { OPERACION_AVISO_ARREGLO, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
 
 const T = 'tickets';
 
@@ -105,7 +105,7 @@ async function avisarUno(f: FilaAviso): Promise<boolean> {
   }
   // Por donde lo levantó.
   const hilo = f.contexto?.chat?.hilo ?? '';
-  if ((f.canal === 'chat_app' || f.canal === 'chat_movil') && /^\d{1,12}$/.test(hilo)) {
+  if ((f.canal === 'chat_app' || f.canal === 'chat_movil' || f.canal === 'sistema') && /^\d{1,12}$/.test(hilo)) {
     try {
       const { appendMessage } = await import('./chart-chats');
       await runWithWorkspace(ws, () => appendMessage(Number(hilo), 'assistant', texto));
@@ -122,6 +122,25 @@ async function avisarUno(f: FilaAviso): Promise<boolean> {
       const r = await enviarAlGrupoMaKo(ws, sanearSalida(texto, { corrioHerramientas: true }).texto);
       if (r.ok) salio.push('whatsapp');
     } catch (e) { console.error(`[tickets] WhatsApp de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  // Un error que la app vio sola (lib/errores-app.ts): cuando está ARREGLADO, a cada negocio que lo vio se le avisa en su
+  // grupo con la herramienta de «MaKo en WhatsApp» (`avisar_arreglo_al_grupo`, firmada «Desarrollador»), por la MISMA
+  // puerta que un paso de un flujo. Mientras esa operación no exista, el registro contesta que no es una acción y no sale
+  // nada. El texto lo arma el código: nada que haya escrito un cliente.
+  if (f.canal === 'sistema') {
+    if (f.estado === 'resuelto') {
+      try {
+        const { negociosAfectados } = await import('./errores-app');
+        const { ejecutarDesdeFlujo } = await import('./api-mako/flujo');
+        const negocios = new Set([...(await negociosAfectados(f.id)), ...(ws !== (await wsSuperAdmin()) ? [ws] : [])]);
+        for (const n of negocios) {
+          const r = await ejecutarDesdeFlujo(OPERACION_AVISO_ARREGLO, { ticket: f.id, texto: textoArregloAlGrupo(f) }, { ws: n, origen: 'ticketera', nombre: `Arreglo del ticket #${f.id}` });
+          if (r.ok) salio.push(`grupo de ws ${n}`);
+        }
+      } catch (e) { console.error(`[tickets] aviso al grupo de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
+    }
+    // Lo vea o no un cliente, el ticket del sistema ya está en /tickets y en la bandeja: no se reintenta para siempre.
+    if (!salio.length) salio.push('tickets');
   }
   // Por el formulario no hay canal de vuelta más que /tickets: el estado ya está ahí, y eso cuenta como avisado.
   if (f.canal === 'formulario' || f.canal === 'api') salio.push('tickets');

@@ -100,6 +100,32 @@ ticket tomara el `ctx.actor` de la confirmación, sería del admin. El email va 
 
 ---
 
+## Los errores de la app: la huella no puede llevar el stack, y un error del servidor llega sin mensaje (17/10/2026)
+
+Martín: «córrelo en toda la app... Y todo lo solucionas automáticamente». Tres cosas que no se ven en el código:
+
+- **El reflejo es agrupar por stack, y abre un ticket por deploy.** En producción el stack del navegador está minificado y
+  los archivos llevan un hash que cambia en cada build (`page-abc123.js` → `page-zz9999.js`). La huella es el tipo, el
+  mensaje sin números ni citas y la pantalla sin ids (`huellaDe`, lib/errores-app-reglas.ts). El stack se guarda, pero
+  no agrupa.
+- **Un error del SERVIDOR le llega al navegador sin su mensaje**: Next lo cambia por «An error occurred in the Server
+  Components render… omitted in production» y deja sólo el `digest`. Si el boundary lo reportara, todos los errores del
+  servidor caerían en UNA huella sin información. Lo reporta el servidor (`onRequestError`, instrumentation.ts) con el
+  error real, y el boundary lo saltea.
+- **Lo que parece un error de MaKo a veces es del proveedor de IA.** Un 503 o el cupo de Gemini hacen que MaKo «no pueda
+  contestar», y el Cerebro no lo arregla: va a `RUIDO`, igual que una pestaña vieja después de un deploy
+  (`ChunkLoadError`), una extensión del navegador o la red cortada.
+
+**La decisión que cambió**: un error en un chat de MaKo ya no se le propone a la persona como tarjeta («¿se lo mando al
+equipo?»): se registra solo, y a la persona se le dice «le avisé al equipo» sólo si entró. La tarjeta queda para lo que
+pide algo que la app no tiene (`levantar_ticket` con `noExiste`).
+
+⚠️ **Una trampa del entorno que costó un rojo silencioso**: un script de Python pasado por el heredoc de la herramienta
+Bash convirtió el `\b` de una regex en un carácter de control (el retroceso). La regex quedó «válida» y sin hacer nada.
+Lo cazó la revisión del archivo con `cat -A`. Para editar código con barras, el editor; nunca un heredoc.
+
+---
+
 ## Lo que quedó sin hacer
 
 | Qué | Dónde | Por qué |
@@ -107,5 +133,6 @@ ticket tomara el `ctx.actor` de la confirmación, sería del admin. El email va 
 | La bandeja en el teléfono | app/m/operaciones/TicketeraMovil.tsx | Hoy la Ticketera del teléfono sigue siendo el mazo |
 | «Tus tickets» en el teléfono | app/m (no existe) | `rutaMovil('/tickets')` es null: en el teléfono se levanta y se consulta por el chat de MaKo (`mis_tickets`) |
 | Levantarlo por WhatsApp | lib/mako-doer-in.ts | Es del chat «MaKo en WhatsApp»: el registro ya acepta `actor: 'whatsapp:<teléfono>'` (lo atribuye a la persona del negocio con ese teléfono) y el aviso de vuelta pasa por `sanearSalida` |
+| El aviso de arreglado al grupo del negocio | lib/tickets-cierre.ts | Llama a `avisar_arreglo_al_grupo` de «MaKo en WhatsApp», que todavía no existe: hasta entonces no sale |
 | Adjuntar una captura a mano | app/tickets | El contexto automático cubre el caso del chat |
 | Borrar el mazo de las preguntas de los chats | app/tickets/decisiones, app/admin/runway | Cuando ande el formulario de opciones dentro de cada chat (Ops Center) |

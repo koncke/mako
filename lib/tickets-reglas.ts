@@ -38,7 +38,8 @@ export type EstadoTicket = (typeof ESTADOS)[number];
 export const PRIORIDADES = ['urgente', 'alta', 'media', 'baja'] as const;
 export type Prioridad = (typeof PRIORIDADES)[number];
 
-export const CANALES = ['chat_app', 'chat_movil', 'whatsapp', 'formulario', 'api'] as const;
+/** `sistema` (mig 0313): un error que la app vio sola (lib/errores-app.ts), no una persona. */
+export const CANALES = ['chat_app', 'chat_movil', 'whatsapp', 'formulario', 'api', 'sistema'] as const;
 export type Canal = (typeof CANALES)[number];
 
 /** Las acciones de Martín (las de Linear Triage: Accept · Decline · Duplicate, más «Responder» y «Preguntar»). */
@@ -174,8 +175,8 @@ export type Triage = {
 export type EntradaTriage = {
   /** Lo que eligió la persona en el formulario, o lo que propuso MaKo en el chat (null = nadie lo dijo). */
   tipoDeclarado: TipoTicket | null;
-  /** Quién declaró el tipo: MaKo leyó la conversación; la persona eligió una opción. */
-  declaradoPor: 'mako' | 'persona' | null;
+  /** Quién declaró el tipo: MaKo leyó la conversación; la persona eligió una opción; el sistema vio fallar algo. */
+  declaradoPor: 'mako' | 'persona' | 'sistema' | null;
   titulo: string;
   descripcion: string;
   contexto: ContextoTicket;
@@ -243,11 +244,12 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
   if (palabrasPedido) { pPedido += 2; porque.push('Pide algo nuevo con sus palabras («quiero que…», «se podría…»).'); }
   if (palabrasPregunta) { pPregunta += 1; }
   if (e.tipoDeclarado) {
-    const peso = e.declaradoPor === 'mako' ? 2 : 1.5;
+    const peso = e.declaradoPor === 'persona' ? 1.5 : 2;
     if (e.tipoDeclarado === 'bug') pBug += peso;
     if (e.tipoDeclarado === 'pedido') pPedido += peso;
     if (e.tipoDeclarado === 'pregunta') pPregunta += peso;
-    porque.push(`${e.declaradoPor === 'mako' ? 'MaKo lo propuso' : 'La persona lo marcó'} como «${TIPOS.find((t) => t.clave === e.tipoDeclarado)!.corto.toLowerCase()}».`);
+    const quien = e.declaradoPor === 'sistema' ? 'La app lo detectó sola' : e.declaradoPor === 'mako' ? 'MaKo lo propuso' : 'La persona lo marcó';
+    porque.push(`${quien} como «${TIPOS.find((t) => t.clave === e.tipoDeclarado)!.corto.toLowerCase()}».`);
   }
   const tipo: TipoTicket = pBug >= pPedido && pBug >= pPregunta && pBug > 0 ? 'bug'
     : pPedido >= pPregunta && pPedido > 0 ? 'pedido'
@@ -417,17 +419,6 @@ export function errorParaTicket(herramienta: string, out: unknown): ErrorDelTurn
   return { herramienta: herramienta.slice(0, 80), error: error.slice(0, 1000) };
 }
 
-/**
- * La propuesta que arma el CÓDIGO cuando algo falló en el turno y el modelo no propuso el ticket: un bug con el pedido
- * textual de la persona. `tituloOperacion` es el nombre humano de la operación («Mover un lead de etapa»).
- */
-export function propuestaPorFallo(e: ErrorDelTurno, pedido: string, tituloOperacion: string | null): { tipo: TipoTicket; titulo: string; descripcion: string } {
-  const que = (tituloOperacion || e.herramienta).replace(/\s+/g, ' ').trim();
-  const titulo = `No se pudo: ${que}`.slice(0, TOPES.titulo);
-  const p = pedido.trim().replace(/\s+/g, ' ');
-  return { tipo: 'bug', titulo, descripcion: p ? `Le pedí a MaKo: «${p.slice(0, 600)}», y falló.` : 'MaKo intentó hacerlo y falló.' };
-}
-
 // ── El pedido al Cerebro (lo FIRMA Martín en su dispositivo) ──────────────────────────────────────────────────────
 // Martín: «con cada decisión que yo tome debería mandarse al cerebro y que decida si abre un nuevo chat o se lo envía a
 // algún jefe». El texto lleva el ticket entero, para que el Cerebro decida sin abrir nada, y el texto del cliente va
@@ -488,6 +479,15 @@ export function ticketsDeHitos(registros: ReadonlyArray<{ area: string; bitacora
 }
 
 // ── El aviso al cliente ───────────────────────────────────────────────────────────────────────────────────────────
+/** La operación de «MaKo en WhatsApp» que avisa en el grupo de un negocio que un error ya está arreglado (firmada
+ *  «Desarrollador»). La llama el cierre de un ticket del SISTEMA (lib/tickets-cierre.ts). */
+export const OPERACION_AVISO_ARREGLO = 'avisar_arreglo_al_grupo';
+
+/** El texto del aviso al grupo: qué se rompió (el título, que arma el código) y que ya está. Nada de un cliente. */
+export function textoArregloAlGrupo(t: Pick<AvisoCliente, 'id' | 'titulo'>): string {
+  return `Arreglamos un error que apareció en MaKo: «${t.titulo}». Ya está funcionando (ticket #${t.id}).`;
+}
+
 export type AvisoCliente = { id: number; titulo: string; estado: string; respuesta: string | null; duplicado_de: number | null };
 
 /** El texto del aviso: dice QUÉ pasó con SU ticket, con el número y el título, y lo que le escribió el equipo. */

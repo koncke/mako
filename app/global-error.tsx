@@ -11,9 +11,30 @@
 // Por contrato de Next tiene que dibujar su propio <html> y <body>: reemplaza al
 // documento entero, así que no puede apoyarse en NADA de la app —ni tokens de
 // color, ni fuentes, ni componentes—. Todo literal y a mano, a propósito.
+//
+// Y desde el 17/10/2026 le avisa a la Ticketera, como app/error.tsx (allá está el porqué): el mismo pedido, a mano.
 // =============================================================================
 
+import { useEffect } from 'react';
+
+/** Copia de `avisarAlEquipo` de app/error.tsx: un boundary no importa nada de la app. */
+function avisarAlEquipo(error: Error & { digest?: string }): void {
+  try {
+    if (error?.digest && /Server Components render|omitted in production/i.test(error?.message ?? '')) return;
+    void fetch('/api/errores', {
+      method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        nombre: error?.name || 'Error', mensaje: String(error?.message || '(sin mensaje)').slice(0, 500),
+        stack: String(error?.stack || '').slice(0, 4000), digest: error?.digest,
+        ruta: `${window.location.pathname}${window.location.search}`, navegador: navigator.userAgent,
+        pantalla: `${window.innerWidth}x${window.innerHeight}`,
+      }),
+    }).catch(() => {});
+  } catch { /* nunca rompe nada */ }
+}
+
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => { avisarAlEquipo(error); }, [error]);
   const detalle = `Error: ${error?.message || '(sin mensaje)'}${error?.digest ? `\nDigest: ${error.digest}` : ''}`;
   return (
     <html lang="es">
