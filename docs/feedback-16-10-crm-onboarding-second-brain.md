@@ -1,0 +1,157 @@
+# Feedback de Martín del 16/10/2026: CRM, Onboarding y Second Brain
+
+Lo mandó al Cerebro el 16/10 a la tarde con cinco capturas (el editor de etapas con «Asignar campañas», el «Ver» de
+datos sin marcar de la ficha, «A revisar», la ficha de un cliente en /customer-success y la de un lead en /crm). Pidió
+«Guarda todo este feedback para las próximas cuentas» e «implementa lo que puedas del CRM, sobre todo las cosas
+simples». La cuenta 3 estaba al 97% semanal: se hizo lo simple (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`,
+`f777d1d4f`, `7c0d07b9d`, `c52533e94` y `8cd7447e6`) y el resto queda acá, **con su archivo**, para la cuenta que siga. Aparte, el mismo día: **Second Brain en
+modo claro** (`b401cd017`, «pon en white mode la tab de Second Brain»). Las citas son textuales.
+
+**Quién lo retoma:** el chat **CRM** (relevo: docs/relevo/crm.md, que apunta acá), el chat **Onboarding**
+(docs/relevo/onboarding.md) y el chat **Centro de Operaciones** para el Second Brain (docs/relevo/centro-operaciones.md).
+
+## Decisiones tomadas al leerlo (no se le vuelven a preguntar)
+
+- **El punto 5 del CRM reemplaza al 4.4.** Martín se corrigió en el mismo mensaje: «En lugar de hacer lo que te dije
+  de "Toda la ficha", del placeholder, etc... Mejor que todas esas opciones sean TEMPLATES, y que el sistema para
+  cambiar de hoja sea exactamente el mismo que tenemos en Dashboard y General». No se hace el placeholder.
+- **La pestaña «MaKo Analyst» se va** y su lugar es «AI Analyst» en el «⋯» de la ficha (punto 10).
+- **«A revisar → Ignorar todos» ignora los leads de la LISTA** (los que se ven, con su tope), no la cola entera del
+  workspace: si quedan más, la lista se rellena y se vuelve a tocar. Es reversible lead por lead («Ver más» →
+  «Volver a avisar»), por eso no pide confirmación.
+- **«Sin empresa ·» se va, la empresa no**: si el lead tiene empresa sigue en el subtítulo. Lo que sobraba era el hueco
+  dicho en voz alta.
+- **Onboarding: la oferta deja de ser el corazón.** El onboarding junta lo que vende el usuario y lo ordena en un PDF
+  (para el contexto de MaKo); el ANÁLISIS de la oferta queda en la tab Offer, después. Esto cambia lo decidido el
+  16/10 a la mañana («el onboarding ES el chat de Offer»).
+
+## CRM
+
+### Hecho (commits `9f595cc6f`, `4e9411a71`, `f0c8f0da0`, `f777d1d4f`, `7c0d07b9d`, `c52533e94` y `8cd7447e6`)
+- [x] **3.** «Asignar evento» en el «⋯» de cada etapa de REUNIÓN (`c7f7b5609`, app/crm/EventosDeEtapaModal.tsx), con
+  el logo de Meet y el diseño de la tabla de campañas: marcar vincula, desmarcar quita, «Traer aquí» mueve uno que
+  está en otra etapa, «Crear un evento en Calendly / Cal.com» abre su página y «Actualizar» lo trae. **Google
+  Calendar no** (el motor sólo conoce Calendly y Cal.com), y crear el evento NO es «ahí mismo»: sus APIs no crean
+  tipos de evento desde acá. Nadie lo miró con una cuenta de Calendly real.
+- [x] **Galería (pedido aparte del 16/10, `5863e9734`).** «Si el usuario aún no eligió plantilla no le salte toda la
+  plantilla abajo con el botón de "usar sugerida"» y «en los workspace que ya tienen leads, simplemente ponles las
+  plantillas sugeridas... que no aparezca el "¿Qué vas a crear hoy?"»: la galería ya no se abre sola (cada tab usa
+  su sugerida, sin escribir nada), y tocar un template lo elige y cierra. La barra «Usar» queda sólo para lo que arma
+  MaKo con la caja. `abreSola`, `cerradas` y «Ahora no» quedaron sin uso en FichaPorBloques.tsx: borrarlos.
+- [x] **4.6, «Obligatorio» (`7ce7578ee`).** En la barra de cada bloque (modo edición, app/crm/lead-view/ficha/
+  Armador.tsx): prende o apaga, por funnel, el aviso de los datos que el bloque dibuja (`cubreDe`), menos la asistencia
+  de una reunión pasada (avisa siempre). Es el mismo `op: 'aviso'` que los interruptores de la barra lateral: cuando
+  esa sección se borre, no se pierde nada.
+- [x] **6, el engranaje (`0c51fcf1c`).** El engranaje de «A revisar» abre la ficha del PRIMER lead de la lista (uno de
+  verdad, no ficticio: uno de ejemplo pediría datos inventados en la ficha) con «Datos sin marcar» abierto; ahí el
+  basurero pregunta «¿Ignorar siempre?» y el sí apaga el aviso de ese dato en el funnel (con Deshacer). Sin leads en la
+  lista abre el modal de interruptores de siempre (app/crm/lead-view/AvisosDatosModal.tsx), que se borra cuando haya
+  un lead de ejemplo de verdad.
+- [x] **4, la velocidad (en parte, `f808b91d0`).** En getLeadFullAction (app/crm/actions.ts) cinco lecturas que no
+  dependían de nada (insight generado, equipo, CRMs, señales de cobro y el resumen del negocio, que esperaba a TODO)
+  arrancan junto con las nueve de arriba. **No se midió contra producción**: medir el pop-up antes y después; lo
+  que siga lento probablemente está en `leerInsumosDatosLead`, `getTrackingEvents` o `replayDeLead`.
+- [x] **10, en parte.** «Personalizar» pasó a ser «Editar», en azul como el del Dashboard; ya editando, «Ver» con borde
+  (app/crm/lead-view/ficha/FichaPorBloques.tsx y ficha-css.ts). Al lado, el «⋯» (`588c1ffec`) con **«AI Analyst»** —un
+  panel aparte a la IZQUIERDA, por portal, y la ficha (pop-up `data-ficha-overlay`, ruta `data-ficha-ruta`) se corre
+  para dejarle lugar— y «Copiar el link». La pestaña «MaKo Analyst» se fue; `?tab=insights` y «Ver análisis» abren el
+  panel. Y (`0e45837fd`) «Exportar (CSV)»: los datos del lead en dos columnas (app/crm/lead-view/ficha/
+  exportar-lead.ts, con la celda de la casa, que se mudó a lib/csv-celda.ts). Falta en el «⋯»: el PDF (pide una hoja
+  de impresión de la ficha) y la guía de edición; y que al EDITAR se abra solo el chat, para editar la vista.
+  Nadie lo miró en pantalla: revisar el panel sobre el pop-up a 1440 y 1024.
+- [x] **6, en parte.** El «Ver» de datos sin marcar de la ficha tiene la fila de «A revisar»: el ícono del bloque
+  (`ICONO_DATO` en app/crm/lead-view/DatosSinMarcarCard.tsx), el basurero rojo para ignorar, la flecha azul para
+  completar, la cabecera con el número en su chip. Test: tests/datos-ficha-como-a-revisar.test.ts. Falta lo de
+  «Elegir qué datos te avisa MaKo» (el lead ficticio y «¿Ignorar siempre?» → desmarca «Obligatorio»).
+- [x] **8, en parte.** El botón y el panel de MaKo del CRM, a la IZQUIERDA (app/crm/mako-crm/PanelMakoCrm.tsx): el
+  layout le reserva siempre a la barra su ancho plegado (`RAIL`, app/_components/Sidebar.tsx), así que el botón va a
+  `RAIL + 20` y el panel abre desde `RAIL`. Y (`2eb7b00e3`) con el MUÑECO del CRM en vez de la estrella (el de
+  app/admin/operaciones/Muneco.tsx, que sale del nombre de la tab). Y (`8db1e3cbc`) el CHAT con la cara del Second
+  Brain: app/crm/mako-crm/ChatMakoCrm.tsx dibuja con app/_chat/HiloMako.tsx (el muñeco del CRM, las mismas tarjetas)
+  y la caja del Second Brain con el micrófono que DICTA (antes mandaba una nota de voz). Falta el muñeco en los chats
+  de las demás tabs (Dashboard, …). Nadie lo miró en pantalla.
+- [x] **7.** Se borró la vista `/crm?pendientes=1` entera (y el «marcar en lote» que vivía en ella): la URL vieja abre el
+  tablero; los datos sin marcar se resuelven en «A revisar», que abre la ficha encima. Test:
+  tests/worklist-pendientes.test.ts. El ejemplo de app/admin/ui/Gramatica.tsx ya no manda ahí (`c57c29ded`).
+- [x] **4, en parte.** «Templates» en la barra de edición (era «Plantillas»), y la galería sin «Ahora no» (la primera
+  vez se elige un template) ni «Vista previa: …» (app/crm/lead-view/ficha/GaleriaTab.tsx). Y (`b1de6bcef`) el
+  desplegable **«Estilo de la hoja»** arriba, como el del Dashboard (app/crm/lead-view/ficha/EstiloDeLaHoja.tsx): la
+  vista épica de la tab, el tamaño de las tarjetas y el tema. De la barra lateral (PanelFicha.tsx) se fueron el nombre
+  de la tab (doble clic en la pestaña), su plantilla, la épica y el estilo; QUEDAN la plantilla de toda la ficha y los
+  avisos, que se van con los puntos 5 y 6. Falta mejorar el «Estilo de la hoja» del Dashboard («quedó limitado»).
+- [x] **1.** Renombrar un CRM: el desplegable cambia al instante (el pop-up le avisa el nombre al mandarlo) y el
+  editor ya no muestra el nombre viejo. La causa: desde el 13/10 el CRM tiene nombre propio y `embudoEnDetalleAction`
+  (app/crm/actions.ts) seguía devolviendo el del PRODUCTO; ahora usa `nombreVisible`, como el desplegable. Guardar al
+  salir del campo y al cerrar ya estaba (app/crm/EtapasModal.tsx). Test: tests/crm-renombrar-16-10.test.ts.
+- [x] **2.** El «⋯» de «Lead entrante» dice «Asignar campañas» con el logo de Meta (app/crm/CrmBoard.tsx).
+- [x] **6, en parte.** En «A revisar» (app/_components/MakoConfirmGate.tsx): el número va pegado al nombre, la primera
+  fila no tiene raya (no choca con la de la cabecera) y la ✕ es un basurero rojo.
+- [x] **7, en parte.** «Ver todos» pasó a ser «Ignorar todos»; «Revisar» abre la ficha con el «Ver» de los datos sin
+  marcar ya desplegado (LeadEditModal → LeadSheet → DatosSinMarcarCard `abrirAlMontar`).
+- [x] **9, en parte.** Subtítulo sin «Sin empresa ·»; la foto pasó de 64 a 88 (como la de Clientes) y el nombre va
+  arriba de su fila, pegado a la cara (app/crm/lead-view/CabeceraLead.tsx). **Nadie lo miró en pantalla** (la máquina
+  no tenía RAM para `next dev`): mirarlo a 1440, 1024 y 390.
+
+### Sin hacer
+3. ~~«Asignar evento» en las etapas de reunión~~ (hecho, ver arriba; queda Google Calendar).
+   Lo de antes, para el contexto: **«Asignar evento» en las etapas de reunión.** «...con el logo de Meet, y que ahí se puedan seleccionar de la misma
+   manera (en diseño) que la lista de campañas, la lista de eventos de Calendly o Cal o Calendar... Y que tenga la
+   opción ahí mismo de crear un nuevo evento para asignarse a esa etapa.» El MOTOR ya está en producción (mig 0293,
+   app/crm/agenda-evento-actions.ts, lib/agenda-evento-etapa.ts); falta la pantalla, que era el punto 3 del relevo de
+   CRM (worktree C:/dev/wt-crm-agenda, mergear main antes). Nuevo: el «⋯» de la etapa con «Asignar evento», la tabla con
+   el diseño de la de campañas, Google Calendar además de Calendly y Cal.com, y «crear evento» ahí mismo.
+4. **La ficha en modo edición.**
+   - «Primero mejora la eficiencia al abrir el detail de un lead, tarda un montón en cargar.» Una primera pasada ya
+     está (ver «Hecho»); falta MEDIR el pop-up en producción y atacar lo que siga lento.
+   - «Elimina la opción de "Vista previa: Antes de la llamada" y la de "Ahora no"» (app/crm/lead-view/ficha/
+     GaleriaTab.tsx: la barra «Vista previa» lleva el botón que elige, así que se va JUNTO con el rediseño del punto 5).
+   - «En la vista de edición, elimina la sidebar» (app/crm/lead-view/ficha/PanelFicha.tsx), porque: el **Nombre** se
+     cambia en el título mismo; **«Plantilla»** ya está en la barra de edición y se llama **«Templates»**; **«Vista
+     épica»** pasa a ser el desplegable **«Estilo de la hoja»** del Dashboard (app/dashboard/EditorInforme.tsx) — «que
+     también en los otros lugares deberías mejorar ese desplegable de estilos, ya que quedó limitado»; **«Toda la
+     ficha»** → ver punto 5; **«Avisos de datos sin marcar»** deja de ser una lista de interruptores: cada bloque tiene
+     la opción **«Obligatorio»**, y eso es lo que lo manda a «datos sin marcar».
+5. **Templates con miniaturas propias y el cambio de hoja del Dashboard.** «Las miniaturas de los TEMPLATES son todos
+   iguales en todas las tabs, y no debería ser así... Mejor que todas esas opciones sean TEMPLATES, y que el sistema
+   para cambiar de hoja sea exactamente el mismo que tenemos en Dashboard y General, el desplegable del título con las
+   secciones, entonces ahí mismo se puede crear otra hoja... Y que no salgan las opciones de "Toda la ficha" esos deben
+   ser templates... Pero para eso debes crear y mejorar los templates, con sus miniaturas.» Las tabs de la ficha pasan a
+   ser HOJAS como las del Dashboard.
+6. **El «Ver» de datos sin marcar de la ficha, igual que «A revisar».** «...Solo que en lugar de foto de perfil del
+   lead, un ícono del bloque que falta marcar.» (app/crm/lead-view/DatosSinMarcarCard.tsx → `Desplegable`.) Y
+   **«Elegir qué datos te avisa MaKo»** (el engranaje de «A revisar», hoy app/crm/lead-view/AvisosDatosModal.tsx con
+   interruptores) «debería abrirme el detalle de un lead "ficticio" con el desplegable de "Datos sin marcar" abierto,
+   y dentro de ese otro desplegable el botón de Basura rojo, y cuando le doy me pregunta ¿Ignorar siempre? y si le doy
+   que sí, se desmarca de obligatorio ese bloque».
+8. **El botón de MaKo a la IZQUIERDA y el chat del CRM con la cara del Second Brain.** «El botón de MaKo siempre a la
+   izquierda, no a la derecha... aún no se aplicó el diseño de los chats tipo "Second Brain" al chat del CRM... En
+   lugar de la estrella de MaKo el ícono debería ser el muñequito que se asignó para CRM, para Dashboard, o para cada
+   tab.» (El chat del CRM: app/crm/mako-crm/ChatMakoCrm.tsx; los muñecos por tab salen del Centro de Operaciones.)
+   El botón ya está a la izquierda (ver «Hecho»).
+9. **El resto del punto 9.** «Como ahora "Resumen" y todas las tabs serán como en dashboard o general, el
+   desplegable... Quiero que esté alineado al título del nombre de la persona. No más a la izquierda.»
+10. **«Editar» en azul + «⋯» como el Dashboard, sin «Personalizar».** El «⋯»: exportar la hoja del lead, compartir, el
+    tutorial de cómo editar y **«AI Analyst»**, que abre el chat de MaKo para analizar a ESE lead — reemplaza la
+    pestaña «MaKo Analyst» (app/crm/lead-view/AnalystDelLead.tsx, MakoAnalystLead.tsx; FichaPorBloques.tsx la arma con
+    `key: 'insights'`). «Es importante que cuando se abra el chat de MaKo al costado izquierdo, todo el modal del
+    detail se desplace a la derecha para darle espacio, y que sean modales diferentes el chat y el detail... Al momento
+    de EDITAR, también debería salir automáticamente este modal, pero ahora ya no para analizar al lead, sino para
+    editar la vista.»
+
+## Onboarding
+
+1. «Sería bueno que la funcionalidad de "OFFER" no esté en el onboarding, sino que ya luego del onboarding el usuario
+   pueda ir a analizar su oferta allí... Pero simular "Offer" en el onboarding simplemente para organizar en un PDF lo
+   que vende el usuario. Y eso le sirve a MaKo para crear las cosas que necesite...» Vive en app/onboarding/
+   ChatArranque.tsx y lib/onboarding-arranque.ts (el paso de la oferta). Lo que se saca es el diagnóstico y la oferta
+   mejorada; lo que queda es preguntar qué vende y armar el PDF con eso.
+
+## Second Brain
+
+1. **«Skills», como skills.sh.** «Quiero copiar y replicar a "Skill.sh" en un botón que sea algo como "Skills", para
+   poder tener un repo de skills y traer skills al second brain de todo tipo... Pero a diferencia de la dificultad que
+   tiene hoy en día de conectar una skill, entre buscarlas e instalarlas, MaKo te las ofrece con la misma dinámica que
+   skill.sh y cuando le das "agregar" se instalan solas... Y se crea un chat con esa skill y todos lo pueden utilizar o
+   algo así... Y funcionaría tanto con Claude como GPT dependiendo de que hayas conectado a tu cuenta de MaKo.»
+   Antes de diseñarlo, mirar skills.sh entero (copiar tal cual, regla de la casa). Corre con la IA que el cliente
+   conectó: el crédito de Claude de la plataforma es sólo para el onboarding.

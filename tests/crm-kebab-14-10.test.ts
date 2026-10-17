@@ -113,7 +113,12 @@ test('se fue la PERILLA, no la función: lo que configuraban los modales tiene o
   assert.deepEqual(puertas('AvisosDatosModal'), ['app/_components/MakoConfirmGate.tsx'], 'el modal de avisos volvió a la ficha');
   const panel = sinComentarios(leer('app/crm/lead-view/ficha/PanelFicha.tsx'));
   assert.match(panel, /op: 'aviso', paso: d\.id, avisa: v/, 'la ficha perdió los interruptores de «datos sin marcar»');
-  assert.match(panel, /<PanelEstilo\b/, 'la ficha perdió su estilo');
+  // Desde el 16/10/2026 el estilo vive en «Estilo de la hoja», arriba en la barra de edición (Martín: «"Vista épica"
+  // debería ser el desplegable de "Estilo de la hoja"»), no en la barra lateral.
+  // Probado rompiéndolo (16/10/2026): sacar el botón de la barra de edición → 1 fallo.
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/EstiloDeLaHoja.tsx')), /<PanelEstilo\b/, 'la ficha perdió su estilo');
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx')), /<EstiloDeLaHoja ef=\{efectiva\} tab=\{tab\} onCambio=\{cambiar\} \/>/);
+  assert.doesNotMatch(panel, /<PanelEstilo\b|label="Vista épica"/, 'el estilo volvió a la barra lateral');
 
   // El motor NO se apaga con el botón: lo pidió el chat de Automations hasta que sus
   // plantillas lo reemplacen. El flag sigue a mano por la API de MaKo.

@@ -8,15 +8,16 @@
 // `visible()` como en la ruta: ningún id se inventa acá.
 //
 // Cada test se probó ROMPIÉNDOLO (arnés que restaura de memoria y verifica el hash), con la base en verde. Los
-// números de cada rotura están en el comentario de su test: R1–R13 se midieron con 12 tests, R14 con 13.
+// números de cada rotura están en el comentario de su test: R1–R13 se midieron con 12 tests, R14 con 13 y R20–R27
+// con 18.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FEATURE_PEDIDOS, dudaDeLasReglas, interpretarCon, leerRespuestaIA, llevaDatosPersonales, partirPedidos,
-  resolverPedidos, type ContextoPedidos, type ObjetoChat, type OperacionChat, type PedirEtiquetas,
+  FEATURE_PEDIDOS, MAX_OBJETOS, TABS_CON_OBJETOS_EN_EL_NAVEGADOR, dudaDeLasReglas, interpretarCon, leerRespuestaIA,
+  llevaDatosPersonales, objetosDelNavegador, partirPedidos, probarEnOrden, productoDelPedido, resolverPedidos, type ContextoPedidos, type ObjetoChat, type OperacionChat, type PedirEtiquetas,
 } from '../lib/mako-pedidos';
 import { REGISTRO, ordenarPorRelevancia, porId, visible, type Vista } from '../lib/api-mako/registro';
 import { AREA_INFO, esAccion, esLectura, type OperacionDef } from '../lib/api-mako/tipos';
@@ -270,11 +271,10 @@ test('con datos de clientes (un email, un teléfono, una tab de leads), la IA nu
   assert.equal(llevaDatosPersonales('Llama al +52 55 1234 5678 mañana', 'landing'), true);
   assert.equal(llevaDatosPersonales('Mueve a Juan a la etapa de cierre', 'crm'), true);
   assert.equal(llevaDatosPersonales(E2, 'landing'), false);
-  // La IA real lo pasa a la cascada y lo aplica en su red propia (AGENTS.md: «un camino con su PROPIA red aplica la
-  // misma regla él mismo»), sin nada que la corte antes.
+  // La IA real usa las keys del negocio (son suyas) y aplica la regla en su red propia (AGENTS.md: «un camino con su
+  // PROPIA red aplica la misma regla él mismo»), sin nada que la corte antes.
   const ia = leer('lib/mako-pedidos-ia.ts').replace(/^\s*\/\/.*$/gm, '');
   assert.match(ia, /const pii = llevaDatosPersonales\(texto, ctx\.tab\)/);
-  assert.match(ia, /hastaMs: [^\n]*, pii,/);
   assert.match(ia, /if \(pii\) return null;\s*\n\s*const \[wsSA, wsActual\]/);
   assert.doesNotMatch(ia, /docsIADisponible|cheapDisponible|hayIAPara/);
 });
@@ -288,6 +288,7 @@ test('la feature de la IA está en el catálogo, con default GRATIS', () => {
 });
 
 // Rotura R17 (pedirle `redDePlataforma: true` a la cascada, que prueba primero el crédito de Claude): 11 de 12.
+// Rotura R31 (Gemini primero otra vez en `PROVS_PEDIDOS`): 18 de 19.
 // Y el guard del voseo SÍ barre estos archivos nuevos (están con `git add -N`): con «Decime su nombre» en
 // lib/mako-pedidos.ts, tests/puente-panel-copy.test.ts da 8 de 9 (R19).
 test('NUNCA Claude: ni la red de la cascada (que arranca por el crédito de Claude) ni chatClaude; el núcleo es puro', () => {
@@ -295,11 +296,171 @@ test('NUNCA Claude: ni la red de la cascada (que arranca por el crédito de Clau
   assert.doesNotMatch(ia, /redDePlataforma/);
   assert.doesNotMatch(ia, /conCreditoDeLaPlataforma|chatClaude|from '\.\/anthropic'/);
   assert.match(ia, /provsGratisDePlataforma\(\)/);
-  assert.match(ia, /PROVS_PEDIDOS: readonly ProvName\[\] = \['gemini', 'groq', 'openrouter', 'mistral'\]/);
+  // Groq primero (medido el 16/10 en ws9: 1,4 s contra 6,6-10,9 s de Gemini), y sin la cascada, cuyo preámbulo
+  // se comía el plazo (ver el test de `probarEnOrden`).
+  assert.match(ia, /PROVS_PEDIDOS: readonly ProvName\[\] = \['groq', 'gemini', 'openrouter', 'mistral'\]/);
+  assert.doesNotMatch(ia, /chatCheapCascade\(/);
+  assert.equal((ia.match(/probarEnOrden\(/g) ?? []).length, 2, 'las keys del negocio y la red: las dos por probarEnOrden');
   assert.match(ia, /^import 'server-only';/m);
   const nucleo = leer('lib/mako-pedidos.ts');
   assert.doesNotMatch(nucleo, /^import 'server-only'/m);
   assert.doesNotMatch(nucleo, /from '\.\/api-mako\/registro'|from '@\/lib\/api-mako\/registro'/);
   // No es pública.
   assert.doesNotMatch(leer('lib/rutas-publicas.ts'), /mako\/pedidos/);
+});
+
+// ── La IA de verdad no llegaba nunca a un proveedor (16/10/2026, medido en producción) ──────────────────────
+// La primera versión iba por `chatCheapCascade`: su preámbulo (cuotas del día y la clave de Anthropic del negocio,
+// ~3 s) y su mínimo de 15 s por intento se comían el plazo, y salía «sin tiempo» sin probar a nadie: 0 filas de
+// `mako-pedidos` en `anthropic_usage`. Los demás tests no lo veían: usan un doble de la IA. Éste corre el bucle
+// con un RELOJ falso: cada `pedir` avanza el reloj lo que tarda (o su tope, si no llega).
+// Roturas (sobre 19 tests): R28 (el mínimo de la cascada: `minIntentoMs` 1.500 → 15.000 en el bucle) → 18 de 19;
+// R29 (el tope del intento sin recortar a lo que queda) → 18 de 19; R30 (validar ignorado) → 18 de 19.
+test('probarEnOrden: arranca YA, en orden, cada intento acotado a lo que queda, y salta lo que no valida', async () => {
+  let reloj = 0;
+  const llamadas: string[] = [];
+  /** Cada cuenta: cuánto tarda y qué contesta (o null = falla). */
+  const tarda: Record<string, [number, string | null]> = { 'groq-1': [6_000, '{}'], 'groq-2': [1_400, 'malo'], 'gemini-1': [1_000, '{"ok":1}'], 'gemini-2': [500, '{"ok":2}'] };
+  const pedir = async (c: { prov: string; clave: string }, timeoutMs: number) => {
+    llamadas.push(`${c.clave}@${reloj}/${timeoutMs}`);
+    const [ms, resp] = tarda[c.clave];
+    if (ms > timeoutMs) { reloj += timeoutMs; throw new Error('timeout'); }
+    reloj += ms;
+    if (resp == null) throw new Error('falla');
+    return resp;
+  };
+  const cuentas = [{ prov: 'groq', clave: 'groq-1' }, { prov: 'groq', clave: 'groq-2' }, { prov: 'gemini', clave: 'gemini-1' }, { prov: 'gemini', clave: 'gemini-2' }];
+  const validar = (t: string) => t.startsWith('{"ok"');
+  const r = await probarEnOrden(cuentas, pedir, validar, { hasta: 7_000, intentoMs: 4_000, minIntentoMs: 1_500, ahora: () => reloj });
+  assert.equal(r, '{"ok":1}');
+  // El primero arranca en 0 con el intento entero; el que no llega se corta a los 4 s; «malo» no valida y se sigue;
+  // el tercero arranca con lo que queda (7.000 - 5.400 = 1.600 ≥ 1.500) acotado a eso.
+  assert.deepEqual(llamadas, ['groq-1@0/4000', 'groq-2@4000/3000', 'gemini-1@5400/1600']);
+  // Con menos de `minIntentoMs` por delante no se arranca otro.
+  reloj = 0; llamadas.length = 0;
+  assert.equal(await probarEnOrden(cuentas, pedir, validar, { hasta: 5_000, intentoMs: 4_000, minIntentoMs: 1_500, ahora: () => reloj }), null);
+  assert.deepEqual(llamadas, ['groq-1@0/4000']);
+  // Sin cuentas, null sin tirar.
+  assert.equal(await probarEnOrden([], pedir, validar, { hasta: 7_000, intentoMs: 4_000, minIntentoMs: 1_500, ahora: () => 0 }), null);
+});
+
+// ── «Para mi otro producto» (16/10/2026, visto con clics: el esquema salía sobre la oferta principal) ─────────
+// Roturas (sobre 20 tests): R32 (elegir el primero en vez de preguntar: `candidatos: lista…` → `objeto: lista[0]`)
+// → 19 de 20; R33 (sin la excepción de «otro producto» con uno solo) → 19 de 20; R34 (la ruta lee los productos
+// en cada mensaje: sin `!pedidos.some(… 'nuevo')`) → 19 de 20.
+test('«para mi otro producto»: el que nombra, o la pregunta con los del catálogo; nunca el primero de la lista', () => {
+  const P1: ObjetoChat = { id: '1', nombre: 'Curso de inversión' };
+  const P2: ObjetoChat = { id: '2', nombre: 'Mentoría 1 a 1' };
+  const P3: ObjetoChat = { id: '3', nombre: 'Taller de ventas' };
+  const P4: ObjetoChat = { id: '4', nombre: 'Comunidad' };
+  const P5: ObjetoChat = { id: '5', nombre: 'Libro' };
+  const todos = [P1, P2, P3, P4, P5];
+  const E2_NUEVO = 'quiero que me crees otra landing para mi otro producto';
+  const r = productoDelPedido(E2_NUEVO, todos);
+  assert.deepEqual(r, { objeto: null, candidatos: [P1, P2, P3, P4], pregunta: '¿Para cuál producto?' }, 'pregunta, con los primeros 4 del catálogo');
+  assert.deepEqual(productoDelPedido('Créame otra landing para la Mentoría 1 a 1', todos), { objeto: P2, candidatos: [], pregunta: null }, 'el que nombra, aunque no diga «producto»');
+  assert.deepEqual(productoDelPedido('Créame otra landing para un producto', [P3]), { objeto: P3, candidatos: [], pregunta: null }, 'uno solo: ése');
+  assert.equal(productoDelPedido(E2_NUEVO, [P3]), null, '«otro producto» con uno solo no es ése: no se sabe cuál');
+  assert.equal(productoDelPedido('Créame otra landing', todos), null, 'sin hablar de un producto, como siempre');
+  assert.equal(productoDelPedido(E2_NUEVO, []), null, 'sin catálogo, como siempre');
+  // La ruta los lee sólo si hay un pedido NUEVO, sólo para el admin, los activos.
+  const ruta = leer('app/api/mako/pedidos/route.ts').replace(/^\s*\/\/.*$/gm, '');
+  assert.match(ruta, /if \(rol !== 'admin' \|\| !pedidos\.some\(\(p\) => p\.sobre === 'nuevo'\)\) return pedidos;/);
+  assert.match(ruta, /await listProductos\(true\)/);
+  assert.match(ruta, /pedidos: await conProductos\(r\.pedidos, rol\)/);
+});
+
+// ── Los vecinos: Image Editor, Dashboard y Video Editor (16/10/2026, pedido de Cerebro) ──────────────────────
+// `AREA_KEYWORDS` es por ÁREA y «parte de lo abierto» es por TAB: «página» es palabra de `landing`, pero en un
+// diseño del Image Editor es una página del diseño; «gráfico» es de `metricas`, y en el Dashboard es parte de la
+// hoja abierta. Los objetos de cada tab, como los arma la ruta (el orden de su lista).
+const D1: ObjetoChat = { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e51', nombre: 'Flyer promo de verano', tocadoAt: '2026-10-16T08:00:00Z' };
+const D2: ObjetoChat = { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e52', nombre: 'Banner del webinar', tocadoAt: '2026-10-15T08:00:00Z' };
+const D3: ObjetoChat = { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e53', nombre: 'Historia de testimonios', tocadoAt: '2026-10-14T08:00:00Z' };
+const H1: ObjetoChat = { id: 'marketing', nombre: 'Marketing' };
+const H2: ObjetoChat = { id: 'comercial', nombre: 'Comercial' };
+const H3: ObjetoChat = { id: 'closing', nombre: 'Closing' };
+const P1: ObjetoChat = { id: 'p-1', nombre: 'Anuncio curso', tocadoAt: '2026-10-16T07:00:00Z' };
+const P2: ObjetoChat = { id: 'p-2', nombre: 'Reel testimonios', tocadoAt: '2026-10-15T07:00:00Z' };
+const ctxDe = (tab: ContextoPedidos['tab'], actual: ObjetoChat, objetos: ObjetoChat[]): ContextoPedidos =>
+  ({ tab, actual, objetos, operaciones: opsDe(VISTA_ADMIN), ordenar, ws: WS });
+const sobre = async (t: string, ctx: ContextoPedidos) => (await interpretarCon(t, ctx, null)).pedidos;
+
+// Roturas (sobre 18 tests): R20 (`PARTES_DE_LO_ABIERTO.imagen` fuera) y R21 (el corte `if (parte && actual)` del
+// área ajena fuera): 17 de 18 cada una, cae éste.
+test('Image Editor: «otra página» es del diseño abierto; «otro diseño», un diseño; «otra landing», el Web Generator', async () => {
+  const ctx = ctxDe('imagen', D1, [D1, D2, D3]);
+  for (const t of ['Crea otra página con la promo', 'Borra la otra página', 'Agrega una página con los precios']) {
+    assert.deepEqual(await sobre(t, ctx), [{ sobre: 'actual', texto: t }], t);
+  }
+  const [nuevo] = await sobre('Créame otro diseño para la promo de invierno', ctx);
+  assert.ok(nuevo.sobre === 'nuevo' && nuevo.operacion === 'crear_diseno_imagen', JSON.stringify(nuevo));
+  const [otro] = await sobre('Borra el otro diseño', ctx);
+  assert.ok(otro.sobre === 'otro' && otro.objeto === null && otro.confirmar, JSON.stringify(otro));
+  assert.deepEqual(otro.sobre === 'otro' ? otro.candidatos.map((o) => o.id) : [], [D2.id, D3.id], 'los dos más recientes');
+  assert.equal(otro.sobre === 'otro' ? otro.operacion : null, 'borrar_diseno_imagen');
+  const [porNombre] = await sobre('Cambia el título del banner del webinar', ctx);
+  assert.ok(porNombre.sobre === 'otro' && porNombre.objeto?.id === D2.id, JSON.stringify(porNombre));
+  const [landing] = await sobre('Créame otra landing para la promo', ctx);
+  assert.ok(landing.sobre === 'otra-tab' && landing.area === 'landing', JSON.stringify(landing));
+});
+
+// Rotura R22 (`PARTES_DE_LO_ABIERTO.metricas` fuera): 17 de 18, cae éste.
+test('Dashboard: «otro gráfico» es de la hoja abierta; «otra hoja», una hoja nueva; «la hoja Comercial», ésa', async () => {
+  const ctx = ctxDe('metricas', H1, [H1, H2, H3]);
+  for (const t of ['Crea otro gráfico con el CAC', 'Agrega otro gráfico de inversión', 'Borra el otro gráfico']) {
+    assert.deepEqual(await sobre(t, ctx), [{ sobre: 'actual', texto: t }], t);
+  }
+  const [nueva] = await sobre('Crea otra hoja para el equipo comercial', ctx);
+  assert.ok(nueva.sobre === 'nuevo' && nueva.operacion === 'crear_hoja_dashboard', JSON.stringify(nueva));
+  const [cual] = await sobre('Borra la otra hoja', ctx);
+  assert.ok(cual.sobre === 'otro' && cual.objeto === null && cual.candidatos.length === 2 && cual.confirmar, JSON.stringify(cual));
+  assert.equal(cual.sobre === 'otro' ? cual.operacion : null, 'borrar_hoja_dashboard');
+  const [esa] = await sobre('Borra la hoja Comercial', ctx);
+  assert.ok(esa.sobre === 'otro' && esa.objeto?.id === H2.id && esa.confirmar, JSON.stringify(esa));
+});
+
+// Rotura R23 (`PARTES_DE_LO_ABIERTO.video` fuera): 17 de 18, cae éste.
+test('Video Editor: «el otro clip» es del proyecto abierto; «el otro video», el otro proyecto', async () => {
+  const ctx = ctxDe('video', P1, [P1, P2]);
+  for (const t of ['Borra el otro clip', 'Corta la otra escena a la mitad']) {
+    assert.deepEqual(await sobre(t, ctx), [{ sobre: 'actual', texto: t }], t);
+  }
+  const [otro] = await sobre('Borra el otro video', ctx);
+  assert.ok(otro.sobre === 'otro' && otro.objeto?.id === P2.id && otro.confirmar, JSON.stringify(otro));
+});
+
+// Rotura R24 (aceptar ids repetidos): 17 de 18. Rotura R25 (sin el tope de MAX_OBJETOS): 17 de 18. Cae éste.
+test('los objetos del navegador (sólo el Video Editor): validados, sin repetidos, con tope y sin tirar nunca', () => {
+  assert.deepEqual([...TABS_CON_OBJETOS_EN_EL_NAVEGADOR], ['video']);
+  for (const malo of [null, undefined, 'x', 3, { id: 'a' }]) assert.deepEqual(objetosDelNavegador(malo), []);
+  const r = objetosDelNavegador([
+    { id: 'p-1', nombre: '  Anuncio   curso ', tocadoAt: '2026-10-16T07:00:00.000Z' },
+    { id: 'p-1', nombre: 'repetido' },
+    { id: 7, nombre: 'Con id numérico', tocadoAt: 'ayer' },
+    { id: '', nombre: 'sin id' }, { id: 'x'.repeat(65), nombre: 'id largo' }, { id: 'p-3' }, 'basura', null,
+    { id: 'p-4', nombre: 'n'.repeat(300) },
+  ]);
+  assert.deepEqual(r.map((o) => o.id), ['p-1', '7', 'p-4']);
+  assert.equal(r[0].nombre, 'Anuncio curso');
+  assert.equal(r[0].tocadoAt, '2026-10-16T07:00:00.000Z');
+  assert.equal(r[1].tocadoAt, null, 'una fecha que no se entiende no ordena');
+  assert.equal(r[2].nombre.length, 200);
+  const muchos = Array.from({ length: MAX_OBJETOS + 50 }, (_, i) => ({ id: `p${i}`, nombre: `P ${i}` }));
+  assert.equal(objetosDelNavegador(muchos).length, MAX_OBJETOS);
+});
+
+// Rotura R26 (el Dashboard sin su puerta: `rol !== 'admin' || …` fuera): 17 de 18. Rotura R27 (los objetos del
+// navegador en TODAS las tabs): 17 de 18. Cae éste.
+test('la ruta: cada tab con la MISMA puerta que su pantalla, y los objetos del navegador sólo donde viven ahí', () => {
+  const ruta = leer('app/api/mako/pedidos/route.ts').replace(/^\s*\/\/.*$/gm, '');
+  const cuerpo = (desde: string) => { const i = ruta.indexOf(desde); assert.ok(i >= 0, desde); return ruta.slice(i, ruta.indexOf('\n  }\n', i)); };
+  const imagen = cuerpo("if (tab === 'imagen') {");
+  assert.match(imagen, /if \(rol !== 'admin' \|\| !\(await veEditorImagen\(\)\.catch\(\(\) => false\)\)\) return \[\];/);
+  assert.match(imagen, /listarDisenos\(ws\)/);
+  const dashboard = cuerpo("if (tab === 'metricas') {");
+  assert.match(dashboard, /if \(rol !== 'admin' \|\| !tabEnCapa\('graphics', await getCapaActual\(\)\.catch\(\(\) => null\)\)\) return \[\];/);
+  assert.match(dashboard, /const l = await leerTablero\(\);\s*if \(l\.estado !== 'propio'\) return \[\];/, 'quien nunca guardó ve la pantalla sin páginas');
+  assert.match(dashboard, /hojasVisibles\(l\.tablero\)/);
+  assert.match(ruta, /const objetos = TABS_CON_OBJETOS_EN_EL_NAVEGADOR\.includes\(tab\) \? objetosDelNavegador\(body\.objetos\) : await objetosDeTab\(tab, rol, ws\);/);
 });

@@ -461,6 +461,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     ruta: 'lib/puestas-data.ts',
     porque: 'marcasDeVoseo(): es el detector que marca el voseo en un guion generado',
   },
+  {
+    ruta: 'lib/offer-quien-hace.ts',
+    porque: 'detectores de Offer (16/10/2026): reconocen «lo hacemos por vos» en lo que escribió el dueño o la IA para avisar que una oferta promete hacerlo por el cliente; no es copy, nada de ahí se muestra',
+  },
   // ── La voz de MaKo cuando le habla al DUEÑO, que es rioplatense a propósito ──
   // AGENTS.md: «La voz de MaKo es rioplatense, y el texto DEL CLIENTE no». Estos
   // tres son del lado del dueño, así que el voseo no es un error: es la regla.

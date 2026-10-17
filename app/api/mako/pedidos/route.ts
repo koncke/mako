@@ -4,7 +4,8 @@
 // El punto de enganche COMPARTIDO de los chats (docs/diseno-mako-pedidos.md): el del Web Generator primero, el de
 // Automations después, y cualquier chat nuevo. ANTES de mandarle el mensaje a su modelo, el chat pregunta acá:
 //
-//   body:      { texto: string, tab: Area, actualId?: string | number | null, actualNombre?: string }
+//   body:      { texto: string, tab: Area, actualId?: string | number | null, actualNombre?: string,
+//                objetos?: { id, nombre, tocadoAt? }[] }  ← sólo en TABS_CON_OBJETOS_EN_EL_NAVEGADOR (el Video Editor)
 //   respuesta: { ok: true, pedidos: PedidoResuelto[], propuesta: { texto, botones: ['Sí','Después'] } | null,
 //                origen: 'reglas' | 'ia' }   ·   { ok: false, error } con 400 / 401 / 429
 //
@@ -30,8 +31,14 @@ import { esAccion, esLectura, type Area, type Ctx, type OperacionDef, type Rol }
 import { listar as listarLandings } from '@/lib/editor-landing/server';
 // Puro: las filas de la lista de Automations como objetos del chat (16/10/2026).
 import { objetosDeAutomatizaciones } from '@/app/automations/pedidos-chat';
+import { veEditorImagen } from '@/lib/image-editor/acceso';
+import { listarDisenos } from '@/lib/image-editor/server';
+import { leerInformeGeneral, leerTablero } from '@/lib/graficos-tablero';
+import { hojasVisibles } from '@/lib/graficos-catalogo';
 import { interpretarMensaje } from '@/lib/mako-pedidos-ia';
-import type { ContextoPedidos, ObjetoChat, OperacionChat, OrdenarOperaciones } from '@/lib/mako-pedidos';
+import { TABS_CON_OBJETOS_EN_EL_NAVEGADOR, objetosDelNavegador, productoDelPedido } from '@/lib/mako-pedidos';
+import type { ContextoPedidos, ObjetoChat, OperacionChat, OrdenarOperaciones, PedidoResuelto } from '@/lib/mako-pedidos';
+import { listProductos } from '@/lib/productos';
 
 export const dynamic = 'force-dynamic';
 // La IA tiene 7,5 s de plazo (lib/mako-pedidos-ia.ts); el resto es leer la vista y los objetos.
@@ -45,9 +52,32 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
  * Los objetos de una tab del negocio, la última tocada arriba. UNA función por área: un chat nuevo agrega la suya
- * acá. Las que no están devuelven [] y el resolver pregunta «¿Cuál?» en vez de adivinar.
+ * acá. Las que no están devuelven [] y el resolver pregunta «¿Cuál?» en vez de adivinar. Cada una con la MISMA
+ * puerta que su pantalla: sin eso, alguien leería por acá los nombres de lo que su pantalla le esconde. Las tabs
+ * cuyos objetos viven en el navegador (el Video Editor) no pasan por acá: los manda su chat (`objetos`).
  */
-async function objetosDeTab(tab: Area, rol: Rol, rolWs: string | null): Promise<ObjetoChat[]> {
+async function objetosDeTab(tab: Area, rol: Rol, ws: number, rolWs: string | null): Promise<ObjetoChat[]> {
+  if (tab === 'imagen') {
+    // La puerta del Image Editor (lib/image-editor/acceso.ts: admin y la tab en su capa) y su lista, la del inicio
+    // del editor: sin los borrados, la última editada primero.
+    if (rol !== 'admin' || !(await veEditorImagen().catch(() => false))) return [];
+    const r = await listarDisenos(ws);
+    if (!r.ok) {
+      console.warn(`[api:mako/pedidos] no pude listar los diseños: ${r.error}`);
+      return [];
+    }
+    return r.disenos.map((d) => ({ id: d.id, nombre: d.titulo, tocadoAt: d.actualizado }));
+  }
+  if (tab === 'metricas') {
+    // Las HOJAS del Dashboard: las del informe de QUIEN MIRA (es por persona, lib/graficos-tablero.ts), en el orden
+    // de sus pestañas. La puerta del área en la API (`{ tab: 'graphics', rolMinimo: 'admin' }`): el closer y el
+    // setter ven sólo SU hoja, en memoria, y no tienen «otra». Quien nunca guardó un informe ve la pantalla SIN
+    // páginas (app/dashboard/page.tsx): el inicial no es una lista de hojas suyas. Con la lectura caída, [].
+    if (rol !== 'admin' || !tabEnCapa('graphics', await getCapaActual().catch(() => null))) return [];
+    const l = await leerTablero();
+    if (l.estado !== 'propio') return [];
+    return hojasVisibles(l.tablero).map((h) => ({ id: h.id, nombre: h.nombre }));
+  }
   if (tab === 'landing') {
     // La misma puerta que el Web Generator (app/api/landing-generator/route.ts): admin y la tab en su capa. Sin
     // eso, un closer leería por acá los nombres de las landings que su pantalla le esconde.
@@ -59,6 +89,15 @@ async function objetosDeTab(tab: Area, rol: Rol, rolWs: string | null): Promise<
       return [];
     }
     return r.docs.filter((d) => !d.papelera).map((d) => ({ id: String(d.id), nombre: d.titulo, tocadoAt: d.actualizado }));
+  }
+  if (tab === 'general') {
+    // Las HOJAS de General (16/10/2026, el chat «Editar con MaKo» de su hoja abierta): las del informe de General de
+    // QUIEN MIRA (por persona, `general.informe.<sub>`), con la puerta de su pantalla (app/general/page.tsx,
+    // `requireRolWs([])` = el admin) y la tab en la capa. Quien nunca armó su General ve la pantalla en blanco: [].
+    if (rol !== 'admin' || !tabEnCapa('general', await getCapaActual().catch(() => null))) return [];
+    const l = await leerInformeGeneral();
+    if (l.estado !== 'propio') return [];
+    return hojasVisibles(l.tablero).map((h) => ({ id: h.id, nombre: h.nombre }));
   }
   if (tab === 'chatbot') {
     // Automations (16/10/2026): la MISMA puerta que su lista (GET /api/chat-agent/secuencias): admin y setter. Las del
@@ -75,6 +114,24 @@ async function objetosDeTab(tab: Area, rol: Rol, rolWs: string | null): Promise<
     return objetosDeAutomatizaciones((data ?? []) as Array<{ id: unknown; nombre?: unknown; updated_at?: unknown }>);
   }
   return [];
+}
+
+/**
+ * «Créame otra landing para mi otro producto»: a cada pedido NUEVO se le dice con qué producto del negocio
+ * (`productoDelPedido`, lib/mako-pedidos.ts). Los productos se leen SÓLO si hay un pedido nuevo (no en cada mensaje),
+ * los activos y en el orden del catálogo, y sólo para el admin (el catálogo es del CRM y de Second Brain). Si la
+ * lectura falla, el pedido sigue como siempre.
+ */
+async function conProductos(pedidos: PedidoResuelto[], rol: Rol): Promise<PedidoResuelto[]> {
+  if (rol !== 'admin' || !pedidos.some((p) => p.sobre === 'nuevo')) return pedidos;
+  const productos: ObjetoChat[] = await listProductos(true)
+    .then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre })))
+    .catch((e) => { console.warn(`[api:mako/pedidos] no pude leer los productos: ${msg(e)}`); return []; });
+  return pedidos.map((p) => {
+    if (p.sobre !== 'nuevo') return p;
+    const producto = productoDelPedido(p.texto, productos);
+    return producto ? { ...p, producto } : p;
+  });
 }
 
 const aOperacion = (d: OperacionDef): OperacionChat => ({
@@ -95,7 +152,7 @@ export async function POST(req: Request) {
   if (!rolWs) return err(401, 'Tu sesión venció.');
   if (ws == null) return err(400, 'Elige una cuenta primero.');
 
-  let body: { texto?: unknown; tab?: unknown; actualId?: unknown; actualNombre?: unknown };
+  let body: { texto?: unknown; tab?: unknown; actualId?: unknown; actualNombre?: unknown; objetos?: unknown };
   try { body = await req.json(); } catch { return err(400, 'Pedido inválido.'); }
   const texto = typeof body?.texto === 'string' ? body.texto.trim() : '';
   if (!texto) return err(400, 'Falta el mensaje.');
@@ -109,7 +166,8 @@ export async function POST(req: Request) {
     const ctxApi: Ctx = { ws, canal: 'app', canalKey: canalKeyDe('app', `ws${ws}`), alcance: 'proponer', rol, actor: sesion.email || sesion.sub };
     const vista = await vistaDe(ctxApi);
     const operaciones = REGISTRO.filter((d) => (esAccion(d) || esLectura(d)) && visible(d, vista)).map(aOperacion);
-    const objetos = await objetosDeTab(tab, rol, rolWs);
+    // Donde los objetos viven en el navegador, los manda el chat (validados); en las demás, los arma el servidor.
+    const objetos = TABS_CON_OBJETOS_EN_EL_NAVEGADOR.includes(tab) ? objetosDelNavegador(body.objetos) : await objetosDeTab(tab, rol, ws, rolWs);
 
     const idActual = typeof body.actualId === 'number' || typeof body.actualId === 'string' ? String(body.actualId).trim() : '';
     const nombreActual = typeof body.actualNombre === 'string' ? body.actualNombre.trim().slice(0, 200) : '';
@@ -119,7 +177,7 @@ export async function POST(req: Request) {
 
     const ctx: ContextoPedidos = { tab, actual, objetos, operaciones, ws, ordenar };
     const r = await interpretarMensaje(texto, ctx);
-    return Response.json({ ok: true, ...r });
+    return Response.json({ ok: true, ...r, pedidos: await conProductos(r.pedidos, rol) });
   } catch (e) {
     console.error(`[api:mako/pedidos] ${msg(e)}`);
     // Sin interpretación, el chat sigue por su camino de siempre con el mensaje entero.

@@ -40,6 +40,18 @@
 //     llama a las dos; el plan como booleano y `grabable` se fijan ahora ahí.
 //   Re-medido: base 11/0; `datosSinMarcarDeLead` sin `grabable` → 10/1; getLeadFullAction contando con
 //   `faltantesDeLead` por su cuenta → 10/1; el celular de «Personalizar» sin apilar → 10/1.
+//
+// ⚠️ CUATRO TESTS REESCRITOS EL 16/10/2026 (el Resumen nativo: cada bloque del Resumen tiene su componente y la
+// plantilla de entrada del Resumen es la armada, lib/ficha/plantillas-resumen.ts). Cambió lo que hay, no lo que se fija:
+//   · lo que se dibuja de un lead nuevo ya no es contacto · calificación · notas: son los HIGHLIGHTS (calificación,
+//     tiempo en la etapa, ingreso), el equipo, el contacto, las redes y las notas. «Sin componente no se dibuja» se prueba
+//     con un bloque que sigue sin él (`charla-whatsapp`), no con `redes-y-web`, que ahora lo tiene;
+//   · «Solucionar» el setter va al RESUMEN (el bloque `setter-y-closer`), y la fecha de la junta también cuando la
+//     próxima reunión la pide (la carga ahí); sin la reunión dibujada, sigue yendo a Reuniones;
+//   · el diseño que el componente no sabe dibujar se prueba con `direccion` («Tarjeta con el mapa» no está hecho):
+//     la próxima reunión ya dibuja los cuatro del catálogo.
+//   Re-verificado rompiéndolo (16/10/2026, base 11/0): el contacto sin `incluye: ['cohorte']` → 10 / 1; el setter y
+//   closer que se calla siempre (no está en el Resumen) → 9 / 2.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -97,12 +109,15 @@ test('la grilla es la del Dashboard, y una fila que no se llena se estira', () =
 test('mirando, lo vacío no se dibuja ni deja hueco; editando, se dibuja marcado como vacío', () => {
   const ctx = ctxDe();
   const mirando = bloquesDeLaGrilla(respaldo.tabs.resumen, { reglasDe, vacio: vacioCon(ctx), editando: false, verPrivado: true });
-  // Un lead nuevo: sin reunión por delante, sin respuestas, sin origen, sin salida y fuera de la nutrición manual.
-  assert.deepEqual(mirando.map((b) => b.def.id), ['contacto', 'calificacion', 'notas']);
-  assert.deepEqual(mirando.map((b) => b.span), [12, 12, 12], 'la calificación queda sola entre dos de ancho completo: se estira');
-  const editando = bloquesDeLaGrilla(respaldo.tabs.resumen, { reglasDe, vacio: vacioCon(ctx), editando: true, verPrivado: true });
+  // Un lead nuevo: sin nada que hacer, sin email ni teléfono, sin reunión por delante, sin respuestas, sin origen, sin
+  // salida y fuera de la nutrición manual. Quedan los highlights, el equipo, el contacto, las redes y las notas.
+  assert.deepEqual(mirando.map((b) => b.def.id), ['calificacion', 'tiempo-en-etapa', 'ingreso-estimado', 'setter-y-closer', 'contacto', 'redes-y-web', 'notas']);
+  assert.deepEqual(mirando.map((b) => b.span), [4, 4, 4, 6, 6, 12, 12], 'las redes quedan solas en su fila: se estiran');
+  const conUnoSinComponente: BloquePuesto[] = [...respaldo.tabs.resumen, { id: 'charla-whatsapp', ancho: 12, diseno: 'ultimo' }];
+  const editando = bloquesDeLaGrilla(conUnoSinComponente, { reglasDe, vacio: vacioCon(ctx), editando: true, verPrivado: true });
   assert.ok(editando.some((b) => b.def.id === 'origen' && b.vacio), 'editando, lo vacío se ve (para moverlo o sacarlo)');
-  assert.ok(!editando.some((b) => b.def.id === 'redes-y-web'), 'lo que no tiene componente no se dibuja ni editando');
+  assert.ok(!reglasDe('charla-whatsapp'));
+  assert.ok(!editando.some((b) => b.def.id === 'charla-whatsapp'), 'lo que no tiene componente no se dibuja ni editando');
 
   const perdido = ctxDe({ estado_lead: 'perdido', utm_source: 'ig' });
   const ids = bloquesDeLaGrilla(respaldo.tabs.resumen, { reglasDe, vacio: vacioCon(perdido), editando: false, verPrivado: true }).map((b) => b.def.id);
@@ -119,20 +134,20 @@ test('«Solucionar» va a la tab donde ESTA ficha dibuja el campo, entre las que
   const o = { listaDe: (t: TabFicha) => respaldo.tabs[t], reglasDe, vacio: vacioCon(ctx), verPrivado: true };
   const todas: TabFicha[] = ['resumen', 'tracking', 'reuniones', 'pagos'];
   assert.equal(tabDelDato('telefono', todas, o), 'resumen');
-  assert.equal(tabDelDato('setter', todas, o), 'reuniones', 'el setter vive adentro de la reunión (ReunionesCard)');
-  // Con el banner «Va bien» DIBUJADO (la R1 por delante): igual va a Reuniones, porque el banner no tiene el
-  // campo de la fecha. Con un lead sin reunión el banner ni se dibuja y esto no probaba nada (15/10/2026).
-  const conR1 = ctxDe({ fecha_junta_1: '2026-10-20', asistio_j1: null });
-  const oR1 = { ...o, vacio: vacioCon(conR1) };
-  assert.ok(bloquesDeLaGrilla(respaldo.tabs.resumen, { reglasDe, vacio: vacioCon(conR1), editando: false, verPrivado: true }).some((b) => b.def.id === 'proxima-reunion'));
-  assert.equal(tabDelDato('fechaJ1', todas, oR1), 'reuniones', 'el banner «Va bien» del Resumen no tiene el campo de la fecha');
+  assert.equal(tabDelDato('setter', todas, o), 'resumen', 'el setter tiene su bloque en el Resumen (setter-y-closer)');
+  // La fecha de la junta: la próxima reunión la CARGA cuando la etapa la pide (la R1 agendada sin fecha de junta).
+  // Sin la reunión dibujada (un lead sin nada agendado), sigue yendo a Reuniones.
+  const pideFecha = ctxDe({ fecha_agenda: '2099-10-20', asistio_j1: null }, { faltantes: [{ id: 'fechaJ1', label: 'Fecha R1' }] });
+  assert.ok(bloquesDeLaGrilla(respaldo.tabs.resumen, { reglasDe, vacio: vacioCon(pideFecha), editando: false, verPrivado: true }).some((b) => b.def.id === 'proxima-reunion'));
+  assert.equal(tabDelDato('fechaJ1', todas, { ...o, vacio: vacioCon(pideFecha) }), 'resumen', 'la próxima reunión carga la fecha que la etapa pide');
+  assert.equal(tabDelDato('fechaJ1', todas, o), 'reuniones', 'sin la reunión dibujada en el Resumen, a la reunión');
   // ⚠️ CAMBIADO A PROPÓSITO EL 16/10/2026 (la tab Pagos en bloques, docs/hallazgos-pagos.md): `venta` ya no es la
   // tarjeta entera que se dibujaba siempre. Sin deal se calla, SALVO que se esté pidiendo su dato (la etapa de cierre
   // de un funnel propio pide el monto antes de que el lead figure ganado). Las dos cosas, ejecutadas:
   const pidiendoMonto = ctxDe({}, { faltantes: [{ id: 'monto', label: 'Monto de cierre' }] });
   assert.equal(tabDelDato('monto', todas, { ...o, vacio: vacioCon(pidiendoMonto) }), 'pagos', 'el dato pedido se carga en Pagos');
   assert.equal(tabDelDato('monto', todas, { ...o, vacio: vacioCon(ctxDe({ estado_lead: 'ganado' })) }), 'pagos');
-  assert.equal(tabDelDato('setter', ['resumen', 'pagos'], o), null, 'sin la tab Reuniones, el asistente');
+  assert.equal(tabDelDato('setter', ['tracking', 'pagos'], o), null, 'sin una tab que lo dibuje, el asistente');
   assert.equal(tabDelDato('motivo', todas, o), null, 'un lead que no salió no dibuja el motivo: el asistente');
 });
 
@@ -140,10 +155,9 @@ test('«Agregar bloque» ofrece sólo lo que tiene componente y no está puesto'
   const lista = respaldo.tabs.resumen;
   const ofrece = (l: readonly BloquePuesto[], buscar?: string) => ofrecerEnAgregar('resumen', l, { registrado: (id) => !!reglasDe(id), verPrivado: true, buscar }).map((d) => d.id);
   assert.ok(!ofrece(lista).includes('notas'), 'lo puesto no se ofrece otra vez');
-  assert.ok(!ofrece(lista).includes('redes-y-web'), 'lo que no tiene componente no se ofrece («pronto» no)');
-  // Uno que NO está puesto y no tiene componente: con `redes-y-web` sólo, esto pasaba porque ya estaba puesto.
-  assert.ok(!lista.some((p) => p.id === 'siguiente-accion') && !reglasDe('siguiente-accion'));
-  assert.ok(!ofrece(lista).includes('siguiente-accion'), 'lo que no tiene componente no se ofrece («pronto» no)');
+  // Uno que NO está puesto y no tiene componente (16/10/2026: `siguiente-accion` ya lo tiene; `charla-whatsapp`, no).
+  assert.ok(!lista.some((p) => p.id === 'charla-whatsapp') && !reglasDe('charla-whatsapp'));
+  assert.ok(!ofrece(lista).includes('charla-whatsapp'), 'lo que no tiene componente no se ofrece («pronto» no)');
   const sinNotas = lista.filter((p) => p.id !== 'notas');
   assert.ok(ofrece(sinNotas).includes('notas'));
   assert.deepEqual(ofrece(sinNotas, 'NOTA'), ['notas'], 'el buscador no distingue mayúsculas');
@@ -156,11 +170,12 @@ test('mover, el diseño y el estilo de la ficha', () => {
   assert.equal(lugarAlSoltar(2, 2), null);
   assert.equal(lugarAlSoltar(2, 3), null, 'soltarlo justo después de sí mismo no lo mueve');
 
-  const def = bloqueDef('proxima-reunion')!;
-  const r = REGLAS['proxima-reunion']!;
-  assert.equal(disenoADibujar({ id: 'proxima-reunion', ancho: 12, diseno: 'automatico' }, def, r), 'banner', 'un diseño que el componente no sabe dibujar cae al que sabe');
-  assert.deepEqual(disenosOfrecidos(def, r).map((d) => d.id), ['banner', 'renglon'], 'en el orden del componente: el primero es el suyo');
-  assert.deepEqual(disenosOfrecidos(bloqueDef('notas')!, REGLAS.notas!), [], 'con un solo diseño, no se ofrece «Diseño»');
+  const def = bloqueDef('direccion')!;
+  const r = REGLAS.direccion!;
+  assert.equal(disenoADibujar({ id: 'direccion', ancho: 6, diseno: 'mapa' }, def, r), 'fila', 'un diseño que el componente no sabe dibujar cae al que sabe');
+  assert.deepEqual(disenosOfrecidos(def, r), [], 'con un solo diseño, no se ofrece «Diseño»');
+  const motivo = bloqueDef('motivo-de-salida')!;
+  assert.deepEqual(disenosOfrecidos(motivo, { disenos: ['chips', 'texto'] }).map((d) => d.id), ['chips', 'texto'], 'en el orden del componente: el primero es el suyo');
 
   assert.deepEqual(estiloDeFicha({ tema: TEMA_BASE, densidad: 'normal' }), { clases: [], vars: {} }, 'con el estilo de siempre no se pisa nada');
   assert.deepEqual(estiloDeFicha({ tema: TEMA_BASE, densidad: 'compacta' }).clases, ['fb-dens-compacta']);
@@ -179,7 +194,8 @@ test('«Personalizar» es sólo del admin, y sólo con la ficha del funnel leíd
   const panel = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(panel, /const puede = puedePersonalizar\(data\);/);
   assert.match(panel, /const boton = puede \? \(/, 'el botón «Personalizar» se dibuja sólo con `puede`');
-  assert.match(panel, />\{enEdicion \? 'Ver' : 'Personalizar'\}|\{enEdicion \? 'Ver' : 'Personalizar'\}/);
+  // «Editar» desde el 16/10/2026 (era «Personalizar»): el mismo botón que el Dashboard.
+  assert.match(panel, /\{enEdicion \? 'Ver' : 'Editar'\}/);
   assert.doesNotMatch(panel, /nombre="configurar"/, '«Personalizar» es un botón con texto, no un engranaje');
   const acc = sinComentarios(leer('app/crm/actions.ts'));
   assert.match(acc, /puedeEditarFicha: rol === 'admin'/, 'el server dice que sólo el admin personaliza');

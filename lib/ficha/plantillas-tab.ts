@@ -16,10 +16,15 @@
 //   · una ÉPICA por tab (pocas cosas, en grande: la vista épica de General y de MaKo Mobile v3);
 //   · en Pagos, las del chat Pagos (./plantillas-pagos.ts) cuando las haya; mientras ese archivo esté vacío, las de
 //     hoy partidas. ⚠️ Las de Pagos las escribe Pagos: este archivo sólo las importa (acordado el 16/10/2026).
+//   · en el Resumen (16/10/2026, el Resumen nativo), las suyas (./plantillas-resumen.ts): las mismas listas de cada tipo
+//     ARMADAS, con su ancho y su diseño, la épica y «Para llamarlo». Las partidas de hoy dejan de ofrecerse ahí, pero
+//     sus ids siguen valiendo (una ficha que ya eligió una la conserva: `porId`).
 //
-// ⚠️ LA DE ENTRADA DE UNA TAB ES LA QUE YA SE VEÍA. Para el tipo de funnel X, la primera plantilla de la galería
-//    con X en `sugeridaPara`; las partidas de hoy la tienen por construcción, así que un funnel que nadie tocó se
-//    ve exactamente como antes. La épica no se sugiere: se elige.
+// ⚠️ LA DE ENTRADA DE UNA TAB es, para el tipo de funnel X, la primera plantilla de la galería con X en `sugeridaPara`.
+//    En Tracking y Reuniones son las partidas de hoy, así que un funnel que nadie tocó se ve como antes. En Pagos y en
+//    el Resumen son las ARMADAS de su archivo, con los mismos bloques de la lista de su tipo como mínimo (los avisos
+//    siguen teniendo dónde llenarse): ahí un funnel sin tocar cambia de diseño a propósito (Martín, 16/10/2026:
+//    «completamente diferente en diseño y funcionalidad»). La épica no se sugiere: se elige.
 // ⚠️ «SUGERIDO» ES LA REGLA DE LA CASA (lib/plantillas-sugeridas.ts, docs/plantillas-sugeridas.md): primero, hasta
 //    MAX_SUGERIDAS, con un rótulo sutil. La señal acá es el TIPO del funnel (`elegirPlantilla`: sus etapas de
 //    reunión, su canal efectivo y por dónde entra la gente), que es lo analizado de ESE funnel. `sugeridasDeTab` es
@@ -34,6 +39,7 @@ import { MAX_SUGERIDAS } from '../plantillas-sugeridas';
 import { vaEnTab, bloqueDef, TABS_FICHA, type Ancho, type BloqueId, type TabFicha } from './catalogo';
 import { PLANTILLAS_FICHA, listaDePlantilla, plantillaFicha, type PlantillaId } from './plantillas';
 import { PLANTILLAS_TAB_PAGOS } from './plantillas-pagos';
+import { PLANTILLAS_TAB_RESUMEN } from './plantillas-resumen';
 
 /**
  * Una plantilla de UNA tab. ⚠️ ES EL CONTRATO CON EL CHAT PAGOS (16/10/2026): no se cambia sin avisarle.
@@ -109,16 +115,7 @@ const DERIVADAS = new Map<TabFicha, readonly PlantillaTab[]>();
  * trae las suyas (./plantillas-pagos.ts).
  */
 const EPICAS: Readonly<Partial<Record<TabFicha, PlantillaTab>>> = {
-  resumen: {
-    id: 'resumen-epica', tab: 'resumen', nombre: 'Épica', bajada: 'Lo que toca hacer y su contacto, en grande.', epico: true,
-    bloques: [
-      { id: 'siguiente-accion', ancho: 12, diseno: 'banner' },
-      { id: 'contacto', ancho: 12, diseno: 'botonera' },
-      { id: 'proxima-reunion', ancho: 6, diseno: 'numero' },
-      { id: 'tiempo-en-etapa', ancho: 4, diseno: 'numero' },
-      { id: 'notas', ancho: 12, diseno: 'ultima' },
-    ],
-  },
+  // La del Resumen vive con las suyas (./plantillas-resumen.ts, mismo id `resumen-epica`).
   reuniones: {
     id: 'reuniones-epica', tab: 'reuniones', nombre: 'Épica', bajada: 'La reunión y lo que salió, en grande.', epico: true,
     bloques: [
@@ -140,10 +137,13 @@ const EPICAS: Readonly<Partial<Record<TabFicha, PlantillaTab>>> = {
 
 /** Las de Pagos que valen: las de su archivo que son de Pagos (una de otra tab no entra a esta galería). */
 const dePagos = (): PlantillaTab[] => PLANTILLAS_TAB_PAGOS.filter((p) => p.tab === 'pagos');
+/** Las del Resumen, con la misma regla. */
+const deResumen = (): PlantillaTab[] => PLANTILLAS_TAB_RESUMEN.filter((p) => p.tab === 'resumen');
 
 /** La galería de una tab en su orden de siempre: «En blanco», la épica, las de cada tipo y la completa al final. */
 export function plantillasDeTab(tab: TabFicha): readonly PlantillaTab[] {
   if (tab === 'pagos' && dePagos().length) return [enBlanco('pagos'), ...dePagos()];
+  if (tab === 'resumen' && deResumen().length) return [enBlanco('resumen'), ...deResumen()];
   const epica = EPICAS[tab];
   return [enBlanco(tab), ...(epica ? [epica] : []), ...derivadas(tab)];
 }

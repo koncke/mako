@@ -11,7 +11,7 @@ import { type ExportFormat, exportFormats, DEFAULT_EXPORT_OPTIONS } from './engi
 import { downloadFiles, runExport } from './engine/export/exporter'
 import { useNotesOpen } from './panels/notesVisibility'
 import { useTimelineView } from './workspace/timelineVisibility'
-import { type PanelDefinition } from './panels/registry'
+import { PANEL_IA, type PanelDefinition } from './panels/registry'
 import { preloadDialog } from './dialogs/registry'
 import { useVisiblePanels } from './panels/useVisiblePanels'
 import { SaveStatus } from './SaveStatus'
@@ -152,7 +152,9 @@ export function CompactTools() {
   const all = visible.filter((p) => p.slot !== 'end' && (!readOnly || p.readOnly))
   // Las mismas pestañas del riel (`rail`); si ningún panel las marca todavía, todas las herramientas.
   const rail = all.filter((p) => p.rail)
-  const tools = rail.length > 0 ? rail : all
+  // Y al final, el chat «MaKo IA» (en el escritorio es el botón redondo del pie del riel).
+  const ia = rail.length > 0 ? all.filter((p) => p.id === PANEL_IA) : []
+  const tools = rail.length > 0 ? [...rail, ...ia] : all
   if (!compact || tools.length === 0) return null
   return (
     <Toolbar label={t.chrome.tools} className={styles.compactTools}>

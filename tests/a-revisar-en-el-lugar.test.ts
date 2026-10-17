@@ -22,6 +22,10 @@
 // ⚠️ Y OTRA VEZ CON LA FILA POR LEAD (14/10/2026, base 4/0): revisar al ÚLTIMO dato
 // (`p.pasos[p.pasos.length - 1]?.id`) → 3 / 1; `ignorablesDe` sin el filtro de NO_IGNORABLES → 3 / 1;
 // sin el tope de leads → 3 / 1; un segundo tope por dato de vuelta → 3 / 1.
+// ⚠️ CAMBIÓ A PROPÓSITO EL 16/10/2026 (Martín): «Revisar» abre la ficha con el «Ver» de los datos sin marcar YA
+// desplegado (en vez de llevar al primer dato), y «Ver todos» (la cola de /crm?pendientes=1) pasó a ser «Ignorar
+// todos». Probado rompiéndolo (base 4/0): volver a `paso: p.pasos[0]?.id` → 3 / 1; no pasarle `verDatos` a la
+// ficha → 3 / 1; volver a poner «Ver todos» → 3 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,16 +35,22 @@ const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n').repla
 const gate = leer('app/_components/MakoConfirmGate.tsx');
 const ruta = leer('app/api/datos-sin-marcar-count/route.ts');
 
-test('revisar abre la ficha del lead EN EL LUGAR, llevando al primer dato', () => {
+test('revisar abre la ficha del lead EN EL LUGAR, con el «Ver» de sus datos abierto', () => {
   assert.match(gate, /fetch\('\/api\/datos-sin-marcar-count\?lista=1'\)/);
   const ini = gate.indexOf('{filas.map(');
   const filas = gate.slice(ini, gate.indexOf('{verMas && ignorados.map(', ini));
   assert.ok(filas.length > 200, 'no encontré las filas');
-  assert.match(filas, /onClick=\{\(\) => setFicha\(\{ id: p\.lead_id, nombre: p\.lead_nombre, paso: p\.pasos\[0\]\?\.id \}\)\}/, 'revisar volvió a llevar a otra pantalla, o no al primer dato');
+  assert.match(filas, /onClick=\{\(\) => setFicha\(\{ id: p\.lead_id, nombre: p\.lead_nombre, ver: true \}\)\}/, 'revisar volvió a llevar a otra pantalla, o no abre el «Ver»');
   assert.doesNotMatch(filas, /irAPendientes/);
-  assert.match(gate, /<LeadEditModal leadId=\{ficha\.id\} seed=\{\{ nombre: ficha\.nombre \}\} solucionar=\{ficha\.paso\}/, 'la ficha no se entera de qué dato solucionar');
-  // La cola entera sigue a un clic.
-  assert.match(gate, />Ver todos<\/button>/);
+  assert.match(gate, /<LeadEditModal leadId=\{ficha\.id\} seed=\{\{ nombre: ficha\.nombre \}\} verDatos=\{ficha\.ver\}/, 'la ficha no se entera de que abra el «Ver»');
+  // La cola de /crm?pendientes=1 ya no se ofrece desde acá: en su lugar, ignorar la lista de una vez.
+  assert.doesNotMatch(gate, />Ver todos<\/button>|qs\.set\('pendientes'|irAPendientes/);
+  assert.match(gate, /onClick=\{ignorarTodos\}[\s\S]{0,200}>Ignorar todos<\/button>/);
+  // Y la ficha lo cumple: el modal se lo pasa a la hoja y la hoja a la tarjeta, que se monta abierta.
+  assert.match(leer('app/crm/LeadEditModal.tsx'), /verDatosAlAbrir=\{verDatos\}/);
+  // (O el engranaje, que la abre para elegir qué avisa MaKo: tests/a-revisar-engranaje.test.ts.)
+  assert.match(leer('app/crm/LeadSheet.tsx'), /<DatosSinMarcarCard [^>]*abrirAlMontar=\{verDatosAlAbrir \|\| avisosAlAbrir\}/);
+  assert.match(leer('app/crm/lead-view/DatosSinMarcarCard.tsx'), /useEffect\(\(\) => \{ if \(abrirAlMontar\) setAbierto\(true\); \}, \[abrirAlMontar\]\);/);
 });
 
 test('ignorar no se ofrece para la asistencia de una reunión pasada', () => {

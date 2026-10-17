@@ -159,7 +159,8 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   col_nuevo_lead: { texto: 'Nuevo lead', icono: 'persona-mas' },
   col_izquierda: { texto: 'Mover a la izquierda', icono: 'mover' },
   col_derecha: { texto: 'Mover a la derecha', icono: 'mover' },
-  col_campanas: { texto: 'Campañas de Meta', icono: 'anuncio' },
+  // «Asignar campañas» desde el 16/10/2026, como el «⋯» (que lleva el logo de Meta; acá van sólo los íconos de la casa).
+  col_campanas: { texto: 'Asignar campañas', icono: 'anuncio' },
   col_curso_prender: { texto: 'Invitar al curso al ganar', icono: 'curso' },
   col_curso_apagar: { texto: 'Dejar de invitar al curso', icono: 'curso' },
   col_renombrar: { texto: 'Cambiar el nombre', icono: 'renombrar' },

@@ -4,7 +4,9 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { getSupabaseServer } from './supabase';
 import { PREFIJO_CHAT_PERSONA } from './chart-chats-reglas';
+import { esRutaDeChatDeAlguno } from './chat-mako-bloques';
 
 export type ChartMsg = { role: 'user' | 'assistant'; content: string; created_at?: string };
 export type ChartSession = {
@@ -133,6 +135,11 @@ export async function setArchived(id: number, archived: boolean): Promise<void> 
 }
 export async function deleteSession(id: number): Promise<void> {
   const supabase = (await getTenantDb());
+  // Los adjuntos guardados de la conversación (mig 0305) se van con ella: el binario no queda suelto en el bucket.
+  const { data: conBloques } = await supabase.from('chart_chats').select('bloques').eq('session_id', id).not('bloques', 'is', null);
+  const paths = (conBloques ?? []).flatMap((r) => (Array.isArray((r as { bloques?: unknown }).bloques) ? (r as { bloques: unknown[] }).bloques : []))
+    .map((b) => (b && typeof b === 'object' ? (b as { path?: unknown }).path : null)).filter(esRutaDeChatDeAlguno);
+  if (paths.length) await getSupabaseServer().storage.from(BUCKET_ADJUNTOS).remove(paths).catch(() => null);
   await supabase.from('chart_chats').delete().eq('session_id', id);
   const { error } = await supabase.from('chart_sessions').delete().eq('id', id);
   if (error) throw new Error(`deleteSession falló: ${error.message}`);
@@ -149,12 +156,70 @@ export async function getSessionMessages(sessionId: number): Promise<ChartMsg[]>
   return (data ?? []) as ChartMsg[];
 }
 
-export async function appendMessage(sessionId: number, role: 'user' | 'assistant', content: string): Promise<void> {
+/**
+ * Guarda un mensaje. Devuelve su id y si quedaron sus `bloques` (los adjuntos, mig 0305).
+ *
+ * ⚠️ SIN LA COLUMNA `bloques` (un deploy antes de la 0305) EL MENSAJE IGUAL SE GUARDA, sin ellos, y vuelve
+ *    `conBloques: false`: quien subió los binarios los borra. Lo que escribió la persona no se pierde nunca por esto.
+ */
+export async function appendMessage(
+  sessionId: number, role: 'user' | 'assistant', content: string, bloques?: readonly unknown[],
+): Promise<{ id: number | null; conBloques: boolean }> {
   const supabase = (await getTenantDb());
-  const { error } = await supabase.from('chart_chats').insert({ session_id: sessionId, role, content });
-  if (error) throw new Error(`appendMessage falló: ${error.message}`);
+  const fila: Record<string, unknown> = { session_id: sessionId, role, content };
+  let conBloques = !!bloques?.length;
+  let r = await supabase.from('chart_chats').insert(conBloques ? { ...fila, bloques } : fila).select('id').single();
+  if (r.error && conBloques && faltaLaColumna(r.error)) {
+    conBloques = false;
+    r = await supabase.from('chart_chats').insert(fila).select('id').single();
+  }
+  if (r.error) throw new Error(`appendMessage falló: ${r.error.message}`);
   // bump updated_at para ordenar las sesiones por actividad
   await supabase.from('chart_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
+  const id = Number((r.data as { id?: unknown } | null)?.id);
+  return { id: Number.isInteger(id) && id > 0 ? id : null, conBloques };
+}
+
+/** El bucket de los adjuntos del chat (el de El Archivero; la carpeta es `<ws>/chat/`, lib/chat-mako-bloques.ts). */
+export const BUCKET_ADJUNTOS = 'archivero';
+
+/** ¿El error es de una columna `bloques` que la base todavía no tiene (la 0305 sin aplicar)? */
+function faltaLaColumna(e: { code?: string; message?: string }): boolean {
+  return (e.code === '42703' || e.code === 'PGRST204') && /bloques/.test(e.message ?? '');
+}
+
+/** Un mensaje guardado con sus adjuntos (`bloques`, crudos: los sanea quien los usa, lib/chat-mako-bloques.ts). */
+export type ChartMsgConBloques = ChartMsg & { id: number; bloques: unknown };
+
+/**
+ * Los mensajes de una conversación con su id y sus `bloques`. Para el chat con MaKo (lib/mako-turno-app.ts): el
+ * resto de la casa sigue con `getSessionMessages`, que no los trae. Sin la columna (la 0305 sin aplicar), sin bloques.
+ */
+export async function getSessionMessagesConBloques(sessionId: number): Promise<ChartMsgConBloques[]> {
+  const supabase = (await getTenantDb());
+  const leer = (cols: string) => supabase.from('chart_chats').select(cols).eq('session_id', sessionId).order('created_at', { ascending: true });
+  let r = await leer('id, role, content, created_at, bloques');
+  if (r.error && faltaLaColumna(r.error)) r = await leer('id, role, content, created_at');
+  if (r.error) throw new Error(`getSessionMessagesConBloques falló: ${r.error.message}`);
+  return ((r.data ?? []) as unknown as Array<ChartMsg & { id: number; bloques?: unknown }>).map((m) => ({ ...m, bloques: m.bloques ?? null }));
+}
+
+/** Un mensaje por su id: la conversación a la que pertenece y sus `bloques` crudos. null si no está (o no es de este ws). */
+export async function getMensajeConBloques(msgId: number): Promise<{ session_id: number; bloques: unknown } | null> {
+  if (!Number.isInteger(msgId) || msgId <= 0) return null;
+  const { data, error } = await (await getTenantDb()).from('chart_chats').select('session_id, bloques').eq('id', msgId).maybeSingle();
+  if (error) {
+    if (faltaLaColumna(error)) return null;
+    throw new Error(`getMensajeConBloques falló: ${error.message}`);
+  }
+  const d = data as { session_id?: unknown; bloques?: unknown } | null;
+  return d && typeof d.session_id === 'number' ? { session_id: d.session_id, bloques: d.bloques ?? null } : null;
+}
+
+/** Reescribe los `bloques` de un mensaje (lo que pasó en El Archivero). */
+export async function setBloques(msgId: number, bloques: readonly unknown[]): Promise<void> {
+  const { error } = await (await getTenantDb()).from('chart_chats').update({ bloques }).eq('id', msgId);
+  if (error) throw new Error(`setBloques falló: ${error.message}`);
 }
 
 /** Título corto para una sesión nueva, a partir de la primera pregunta del user. */

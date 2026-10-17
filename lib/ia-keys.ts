@@ -147,3 +147,28 @@ export const esClaveDeCuenta = (clave: string): boolean => clave.endsWith(SUFIJO
 
 /** Todos los rótulos de cuenta del catálogo: van a la whitelist junto con las keys. */
 export const CLAVES_CUENTA: string[] = PROVS_MULTIKEY.flatMap((p) => clavesDe(p).map(claveCuentaDe));
+
+/**
+ * Las keys que un negocio puede usar como PROPIAS: las de su fila que NO son una copia de una de la plataforma.
+ *
+ * ⚠️ Medido el 16/10/2026: la `GEMINI_API_KEY` de la fila del ws1 (Mauricio, un cliente) es la MISMA que una de
+ * la plataforma, y su `OPENAI_API_KEY` también. Toda cascada prueba primero las keys «del negocio», así que los
+ * pedidos del ws1 con datos de SUS clientes (el turno con herramientas, el análisis del lead, las notas de voz)
+ * iban a la key gratis de la agencia, que entrena con lo que recibe. El corte por datos de clientes mira sólo la
+ * red de la plataforma, y por esta puerta no pasaba. Es la regla de la clave de Anthropic del negocio
+ * (`evaluarClaveDelNegocio`) y de la de Resend (`esDeLaPlataforma`): una key de la plataforma copiada en la fila
+ * de un cliente sigue siendo de la plataforma. Fuera de acá, sólo entra por la red, que corta con datos de clientes.
+ *
+ * Pura, para que tenga test: `huellas` son las de las keys de la plataforma (`null` = no se pudieron leer) y
+ * `huella` la función que las calcula. El workspace de la plataforma usa las suyas tal cual. Si no se sabe cuáles
+ * son las de la plataforma, no se arriesga ninguna: fail-closed.
+ */
+export function sinCopiasDeLaPlataforma<T extends { key: string }>(
+  provs: T[],
+  p: { ws: number | null; wsPlataforma: number | null; huellas: ReadonlySet<string> | null; huella: (k: string) => string },
+): T[] {
+  if (p.wsPlataforma != null && p.ws === p.wsPlataforma) return provs;
+  if (p.wsPlataforma == null || p.huellas == null) return [];
+  const huellas = p.huellas;
+  return provs.filter((x) => !huellas.has(p.huella(x.key)));
+}

@@ -148,13 +148,21 @@ const sinComentarios = (src: string) => src
 const SHELL = sinComentarios(leer('app/plan/board/BoardShell.tsx'));
 const REPRIO = sinComentarios(leer('lib/plan-reprio.ts'));
 
-test('el Kanban manda el lugar SÓLO ordenado por prioridad de mayor a menor', () => {
+// ⚠️ ACTUALIZADO A PROPÓSITO EL 16/10/2026 («hacer el kanban un kanban», decisión 2). Este test
+// fijaba que el Kanban mandara el lugar al pop-up SÓLO ordenado por prioridad de mayor a menor
+// (la rotura 6 de arriba). Desde ese día las columnas del Kanban de tareas son el ESTADO y soltar
+// MUEVE (`board.mover`: columna y lugar, sin pop-up): «cuando tú muevas una tarjeta, yo no
+// debería preguntarte cuál es la nueva prioridad» → «Es correcto» (Mauricio, 12/10). La regla de
+// este archivo (`hacerLugar`, `sugerirNumero`) sigue viva para las TABLAS y el detalle, que siguen
+// abriendo el pop-up; lo que se fija ahora es que el Kanban ya no la use.
+// Re-probado ROMPIÉNDOLO (16/10/2026): con `setSoltada({ entidad: 'tarea', id, destino })` de
+// vuelta en el soltar del Kanban → 21 pass / 1 fail; con `sugerirNumero(` en el drop → 21 / 1.
+test('el Kanban ya no manda el lugar al pop-up: soltar MUEVE de columna y de lugar (16/10/2026)', () => {
   const a = SHELL.indexOf('function Kanban(');
-  const kanban = SHELL.slice(a, SHELL.indexOf('\nfunction ', a + 1));
+  const kanban = SHELL.slice(a, SHELL.indexOf('\nfunction CampoMotivo(', a + 1));
   assert.ok(kanban.length > 1000 && kanban.length < 40000, `el recorte del Kanban mide ${kanban.length}`);
-  assert.match(kanban, /const porPrioridad = sortMode === 'score' && sortDir === 'desc';/);
-  assert.match(kanban, /if \(!porPrioridad \|\| !yo\) \{ onSoltar\(id, p, base\); return; \}/);
-  assert.match(kanban, /onSoltar\(id, p, sugerirNumero\(col, \{ id, num: yo\.num \}, lugar, p, base\), lugar\);/);
+  assert.doesNotMatch(kanban, /sugerirNumero|lugarEn\(|setSoltada|onSoltar\(/);
+  assert.match(kanban, /soltarEn\(id, e, ordenAlSoltar\(otros, idx\)\);/);
 });
 
 test('el pop-up le pasa el lugar a quien escribe, y deja aplicar el mismo número', () => {

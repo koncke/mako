@@ -464,6 +464,9 @@ versión anterior. O sea el modo de falla de siempre: no se rompe nada para el c
 
 # Hay dos cuentas de Claude trabajando sobre este repo
 
+> Desde el 16/10/2026 son **cuatro** (`claude1` … `claude4`), todas de Martín. El titular de cada una está en
+> `~/.claude/cuentas.tsv`, y la 4 corre sólo en la app (`~/.claude`). Lo de abajo vale igual para las cuatro.
+
 No estás solo en este clon. Hay **dos cuentas** (`claude1` / `claude2` en el `$PROFILE`)
 con cuotas desfasadas: una corre miércoles a viernes, la otra sábado a martes. En
 principio no coinciden, pero pueden.
@@ -552,7 +555,7 @@ Reglas que salen de eso:
   que sobrevive.
 - **Dos sesiones no editan la misma skill ni el mismo prompt a la vez.** Se pisan igual
   que el código, pero el efecto aparece días después y en otro lado.
-- **Cerrá cada commit con el trailer `Claude-Cuenta: claude1` o `claude2`.** Las dos
+- **Cerrá cada commit con el trailer `Claude-Cuenta: claude1` … `claude4`.** Las
   cuentas commitean con el mismo autor sobre el mismo clon, así que git no las distingue
   y sin el trailer no hay forma de saber a cuál preguntarle por una decisión. Lo leen
   `/admin/docs` (la ficha de cada documento) y el Change History de `/admin/ui`; donde
@@ -638,6 +641,9 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   número después de recorrer `git worktree list` y listar cada `supabase/migrations/`. Si
   renumerás, borrá el archivo viejo del clon: un `0190_secuencia_cron.sql` huérfano en otro
   worktree se aplica solo el día que alguien corre las migraciones en orden.
+  ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
+  todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
+  («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.
 - ⚠️ **`git add <ruta>` NO acota el commit: se commitea TODO el índice.** Si otra sesión ya
   stageó algo, `git add mi-archivo && git commit` se lo lleva adentro de tu commit, con tu
   mensaje y tu trailer. Pasó el 05/10/2026: un commit de docs salió con una baja ajena de 430
@@ -852,6 +858,27 @@ desde afuera (Customer Success, un analyst, un export) tiene que poder con los d
 de texto contiene al numérico, al revés hay que inventar una conversión que después miente.
 Cuál de los dos te toca lo decide `lib/tablero-actual.ts`, y ahí se decide una sola vez.
 
+⚠️ **Y la excepción, a propósito: lo que escribe una ACCIÓN no viaja en el guardado.** La columna
+del kanban (`estado`), su motivo y el lugar (`orden`) los escribe `repo.mover` por columna
+(`moverTarea` / `moverPlanTarea`); `editPatch` no los manda y `guardarPlanTarea` los saca del
+payload y relee la fila. Con ellos adentro del upsert de la fila entera, una pestaña vieja devuelve
+de columna lo que se movió desde otra. Y un campo DERIVADO de otro (el estado desde el avance) se
+recalcula sólo si la fuente CAMBIÓ contra la fila guardada (`estadoAlGuardar`): recalculado en cada
+guardado, deshacía los arrastres (16/10/2026, docs/hallazgos-plan.md → «El kanban es de ESTADO desde
+el 16/10/2026»).
+
+⚠️ **Y lo que el server DERIVA, la pantalla lo deriva IGUAL en el estado optimista** —con la misma
+función y en el choke point de los cambios—: el server pasa a «Completada» la tarjeta que llega al
+100%, y si `useBoard` sólo cambia `progress`, la tarjeta queda tachada en su columna vieja hasta el
+F5 (`conAvance` → `avanceLocal`, 16/10/2026).
+
+⚠️ **Un «Deshacer» vuelve TODO lo que el cambio movió en UNA escritura** (estado, avance y motivo:
+`trasMover(…, avance)`). Devolver el avance con un segundo guardado el server lo lee como «cambió el
+avance» y recalcula la columna; y el del teléfono, que no lo mandaba, reabría al 0%. **Y «¿cambió el
+avance?» necesita el último valor que la base le confirmó a ESA pestaña** (`progresoGuardado`, en las
+dos mitades): contra la fila sola, una pestaña vieja reabre lo que se completó en otro lado
+(16/10/2026, revisión adversarial).
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
@@ -1061,8 +1088,12 @@ el mensaje entero sigue como antes. El contrato y el enganche: `docs/diseno-mako
   propósito (para sumar herramientas): «cambia el precio», «quita el video» o «un formulario para
   leads» nombran otra área y son cambios de lo abierto. Otra tab sólo si el verbo CREA un objeto
   de esa área, o lo etiquetó la IA (validada).
-- **Los objetos de la tab los da la ruta (`objetosDeTab`), una función por área**, nunca el
-  navegador: con eso se resuelve «la otra» y, con dos candidatos, se pregunta con los dos.
+- **Los objetos de la tab los da la ruta (`objetosDeTab`), una función por área y con la MISMA
+  puerta que su pantalla**, nunca el navegador: con eso se resuelve «la otra» y, con dos
+  candidatos, se pregunta con los dos. La única excepción son los objetos que SÓLO viven en el
+  navegador (los proyectos del Video Editor, en IndexedDB): `TABS_CON_OBJETOS_EN_EL_NAVEGADOR`.
+- **Si una palabra nombra una PARTE de lo abierto depende de la TAB, no del área**: «página» es
+  de `landing`, pero en el Image Editor es una página del diseño. Va en `PARTES_DE_LO_ABIERTO`.
 
 # Un permiso de UN inquilino sobre OTRO son DOS decisiones, y ninguna se deriva de la otra
 
@@ -1279,6 +1310,13 @@ código nuevo:
     («Chatbot», un sub-chat cerrado) va al jefe que se llama como el área de su bitácora (`completarChats`, el paso 3).
     No hay sección «Antes del 16/10»; un jefe sin chat abierto se lista sólo si tiene algo sin terminar. Anotar en la
     bitácora del área que se tocó es lo que hace que el trabajo aparezca en su jefe.
+  - **El chat con MaKo de un cliente es la pieza de `/second-brain`** (16/10/2026, etapa 2 de docs/diseno-mako-ai-native.md):
+    la cara del Centro (app/_chat/, centro.css), el turno del teléfono (lib/mako-turno-app.ts) por `/api/mako/chat`.
+    Una página que entra a más gente y muestra una parte sólo al admin la corta EN EL SERVIDOR con `esAdminDeTab`
+    (lib/puerta-admin-tab.ts), y no la calcula para los demás.
+    **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
+    escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
+    quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
@@ -2053,7 +2091,14 @@ proyecto por proyecto con las tres preguntas, con la fuente al lado.
 
 # Si la pantalla agrupa por BANDAS, un reorden que no cambia de banda es invisible
 
-El Kanban del plan agrupa por `prioFromScore` (`app/plan/board/types.ts`): **ALTA ≥ 75 ·
+⚠️ **Desde el 16/10/2026 el Kanban de TAREAS ya no agrupa por banda**: sus columnas son el ESTADO
+(Por iniciar · En proceso · Atorada · Completada, y «No cumplen tu criterio» sólo si hay), el orden
+dentro de cada una es el MANUAL (`orden`, `enOrdenManual` en app/plan/board/kanban.ts) y la prioridad
+es un filtro y un chip — soltar mueve de columna con `board.mover` y no pregunta ningún número. Lo de
+abajo sigue valiendo para lo que SÍ agrupa por banda: la grilla de PROYECTOS y la escalera de
+proyectos (docs/hallazgos-plan.md → «El kanban es de ESTADO desde el 16/10/2026»).
+
+La grilla de proyectos del plan agrupa por `prioFromScore` (`app/plan/board/types.ts`): **ALTA ≥ 75 ·
 MEDIA ≥ 50 · BAJA ≥ 25 · A FUTURO < 25**. Con 40 proyectos arriba de 75, ordenarlos entre
 sí de 99 a 76 no mueve ni una columna — y para el que mira es indistinguible de no haber
 hecho nada. El dueño reportó el mismo problema dos veces sobre un orden que ya estaba bien
@@ -2129,6 +2174,21 @@ el historial, no la columna.
 
 # Crear tareas dispara al Perro, y el Perro re-curva TODOS los proyectos
 
+⚠️ **Desde el 16/10/2026 cargar tareas de una reunión NO dispara al Perro ni a ninguna IA**: «Cargar»
+un borrador (`aplicarPropuestas`) y el alta desde el modal de una reunión (`crearDesdeReunion`) crean
+LIBRES (score 0, «Por iniciar») y deciden el proyecto sin modelo (`destinoSinIA`, lib/plan-bandeja.ts;
+lo que nada reclama va a la bandeja «Sin proyecto»). La IA de esa carga corre donde nadie espera: el
+cruce anti-duplicados en el cron y en la lectura en segundo plano (lib/reunion-cruce.ts), y la
+prioridad en «Re-priorizar todo». **Código nuevo que cargue tareas en un pedido no llama a un modelo
+ni espera uno**; y un resultado de IA hecho en segundo plano se SELLA sólo si corrió (`cruzado_at`):
+«no se pudo» no es «no había nada». ⚠️ **Y se escribe en la MISMA escritura que hace visible el
+borrador** (`cruzarTareas` antes de `crearPropuesta` / `marcarProcesado`), con el sello que va y viene
+con esas tareas: cruzado DESPUÉS, el modal tomaba las filas sin la marca y su autosave la borraba
+(16/10/2026, revisión adversarial). Una fila «procesando» que deja un lector la cierra CUALQUIER lector
+que termine esa reunión, y el reintento no la cuenta como hecha (una lectura cortada no corre su `finally`). Lo de abajo sigue valiendo para los caminos que todavía lo
+llaman (el doer de WhatsApp, `priorizar-nuevas`, crear un proyecto a mano) — docs/hallazgos-plan.md
+→ «Fathom sin fricción».
+
 `aplicarPropuesta` corre la priorización sobre el tablero entero, no sólo sobre lo que
 acabás de crear: al volver, los scores que habías fijado a mano ya no están. Medido el
 25/09/2026 — se ordenaron los 70 proyectos por las tres fases, se crearon nueve tareas, y
@@ -2141,6 +2201,42 @@ el tablero volvió con el más alto en **70** y un proyecto de fase 2 primero.
   Lector de reuniones» —correcto por tema— cuando el compromiso con el cliente las agrupa
   en «el Plan y el Perro Guardián», que es el que tiene la fecha. Después de crear, se
   comprueba DÓNDE cayó cada una.
+
+# Un trabajo LARGO del Plan es una FILA que se drena por tandas, y lo que escribe lo pinta la pantalla
+
+«Re-priorizar todo» (16/10/2026, docs/hallazgos-plan.md → su entrada) es el molde, y lo que exige a
+cualquier proceso que recorra el tablero entero en segundo plano:
+
+- **La fila es el estado, no el `await`.** La foto de lo que entra, el cursor, el estado y el último
+  error viven en la base (`plan_repriorizaciones`, mig 0301). Lo drenan DOS caminos —el sondeo de la
+  pantalla abierta, que empuja la tanda siguiente en `after()`, y un cron cada minuto para cuando nadie
+  mira— y tomar una tanda es un compare-and-set (`vuelta`) con un candado que vence (`tomada_hasta`).
+  «Uno a la vez» lo garantiza un índice único PARCIAL; el que choca (23505) recibe el que ya corre.
+- **Una tanda que falla se reintenta ENTERA, esperando, y a la tercera se corta**, con el error en la
+  fila aunque después salga. Nunca se saltea: una tanda salteada es un trabajo «hecho» con veinte
+  tareas sin tocar. Y nunca se arranca una tanda sin el reloj que necesita: `after()` comparte el
+  `maxDuration` de la ruta, y desde la API de MaKo (que corta a 60 s, y donde no se sabe quién
+  confirma) no se empuja nada — lo levanta el cron.
+- **Lo que el server escribe mientras la pestaña está abierta VIAJA a la pestaña** (un `GuardPatch` por
+  tarea, aplicado con `aplicarPerroServer` sin volver a guardar). Los dos tableros guardan la fila
+  ENTERA desde el navegador: un número que la pantalla no se enteró vuelve a la base en el próximo
+  guardado de cualquier campo. Incluye `scoreBase` (el reparto curva desde ahí) y la entrada de
+  historial.
+- **Una entrada de historial de algo que se puede repetir lleva id DETERMINISTA** (trabajo + tarea): la
+  segunda pasada la reemplaza en vez de apilar otra. Y lleva el número de ANTES: sin deshacer, el
+  historial es lo único que deja volver a mano.
+- **Sólo tareas del PLAN** (`esDelPlanCliente`): `experimento_tareas` también guarda lo que propuso una
+  Retro y los pasos de un experimento, que tienen su propia rendición de cuentas.
+- **Lo que espera a un modelo decide contra la fila RELEÍDA justo antes de escribirla**, no contra la
+  foto de antes de la llamada (30 a 90 s en los que la persona sigue usando el tablero): con la foto, una
+  prioridad fijada a mano en ese minuto quedaba con el número de la IA y con el candado puesto, y se
+  borraba el historial de un arrastre (16/10/2026, revisión adversarial).
+- **El intento se cuenta al TOMAR la tanda, no en el `catch`**: una función que Vercel corta no corre su
+  `catch`, y una tanda que se muere siempre se repetía para siempre sin pasar a «error».
+- **Una pantalla que depende de que los cambios le VIAJEN mira también los trabajos que no arrancó** (al
+  volver a la pestaña y cada `VIGILANCIA_MS`), y al abrir no repinta cambios viejos encima de lo que una
+  persona cambió después (cada cambio lleva su hora, `cambiosDesde`). Docs/hallazgos-plan.md → «La
+  revisión adversarial del kanban».
 
 # Una regla que se aplica AL ESCRIBIR no arregla ni una fila ya escrita
 
@@ -3971,6 +4067,11 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+  ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
+  lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
+  `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las
+  keys SÓLO por ahí: un bucle nuevo de IA no lee una key con `credWs` (que al ws1 le presta la del entorno) ni arma su
+  propia lista. Lo fija `tests/ia-keys-propias.test.ts`.
 - **La red va como OPCIÓN del que llama, nunca fija en una función compartida** (`EnVivo`,
   `lib/setting-simulador.ts`, 16/10/2026). Una lectura de la API que un agente externo puede llamar
   en bucle no la pide: gastaría la cuota gratis de la agencia, que es de la que viven las respuestas
@@ -4746,7 +4847,9 @@ Medido el 23/09/2026: el slider de prioridad salió a producción con
 `fetch('/api/plan-board')` adentro. Esa ruta abre con `getSesionAdmin()`, así que **cada
 cliente tenía un control cuya única respuesta posible era «solo admin»** — y además
 `score_manual` (mig 0143) es una columna que la tabla del cliente no tiene, o sea que
-tampoco había dónde escribirlo. Con el mismo molde salieron ese día otros tres: la casilla
+tampoco había dónde escribirlo (⚠️ 16/10/2026: eso era FALSO —la 0143 la agregó también a
+`experimento_tareas`—, y tres comentarios lo repetían; nadie la usaba en el cliente hasta «Re-priorizar
+todo», docs/hallazgos-plan.md). Con el mismo molde salieron ese día otros tres: la casilla
 de prioridad del alta, el arrastre del Kanban y el botón de dictar.
 
 **La escritura entra por el `Repo`, y el que no la implementa NO DIBUJA EL CONTROL.** Es
@@ -7133,7 +7236,10 @@ lo remató con la versión de producto: *«para los 50 clientes que lo usen pued
 las tareas, y encima cuando quiera modificarlo no lo deje»*.
 
 - **Una corrida automática NO escribe `score_manual`.** Lo pone la persona al debatir una
-  prioridad, y nadie más. Si una corrida quiere conservar un orden, escribe el `score` y la
+  prioridad, y nadie más. ⚠️ Y desde el 16/10/2026 vale en las DOS mitades: el tablero del cliente lo
+  pone con su slider y lo saca con `prioridadAlPerro`, y todo proceso que re-puntúe tareas del cliente
+  («Re-priorizar todo») lo LEE — la razón escrita («La fijaste a mano») no sirve de marca: la pantalla
+  guarda otro texto. Si una corrida quiere conservar un orden, escribe el `score` y la
   `score_razon`, que es discutible, y se va.
 - **Toda prioridad que pone la IA tiene que poder cambiarse a mano en la pantalla**, sin
   debate previo y sin fricción. Si el modelo se equivoca —y se va a equivocar— la salida no
@@ -8495,6 +8601,19 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   minúsculas en `CambioFicha`, con su `cambio` en la API (tests/ficha-api.test.ts sólo ve esa forma). Un bloque
   recibe `epico` y decide cómo se agranda. Lo que no se ve en el código: docs/hallazgos-crm.md → «La ficha
   personalizable POR TAB».
+- **Un bloque de la ficha es NATIVO** (16/10/2026, el Resumen; Martín: «completamente diferente en diseño y
+  funcionalidad»): lee su dato de `LeadFullData` o con SU acción al montarse, escribe su campo con los primitivos de
+  app/crm/lead-view/CampoEditable.tsx (guardan, dejan el historial y «Deshacer»; nunca una tarjeta vieja envuelta), lo
+  que DICE va en un módulo puro con test (`ficha/resumen/logica.ts`), recibe `epico` (un protagonista, sin metadata) y,
+  si no tiene nada, devuelve null (el marco no deja hueco). Lo que le pide a la ficha (cambiar de tab, «Solucionar») va
+  por `CtxFicha`. Una plantilla de tab que es la de ENTRADA de un tipo tiene, como mínimo, los bloques de la lista de
+  ese tipo (los avisos siguen a la plantilla del funnel). Y su versión de teléfono, en `PIEZA_DE_BLOQUE`. Lo que no se
+  ve: docs/hallazgos-crm.md → «El Resumen NATIVO de la ficha».
+  ⚠️ Al PARTIR un bloque (achicar su `incluye`), lo que salía de adentro entra como bloque en cada plantilla de entrada
+  que lo tenía: «los bloques de su tipo» mira ids, no contenido (tests/ficha-resumen-lo-de-antes.test.ts). Un «Deshacer»
+  de un campo manda lo que escribió y el server no deshace si hoy dice otra cosa (`deshacerCampoLeadAction`). Antes de
+  borrar una tarjeta, se mudan las decisiones de sus comentarios `⚠️`. Lo que no se ve: docs/hallazgos-crm.md → «La
+  verificación del Resumen nativo».
 
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 
@@ -8614,6 +8733,29 @@ docs/diseno-mako-ai-native.md; molde: `lib/editor-video/chat-hilo.ts`, el del Vi
 - **La persona sale de la sesión** (`personaDeSesion`), nunca del pedido; y dos pestañas se unen por id de mensaje
   ante el 409 del compare-and-set, sin pisarse.
 
+# Un chat que edita lo abierto (Video Editor, Image Editor y los que vengan): proponer, no aplicar
+
+Martín quiere el chat en todas las tabs (16/10/2026). Los dos que hay (`app/video-editor/_opencut/chat/`,
+`app/image-editor/mako/chat/`) comparten las reglas; uno nuevo las copia:
+- **Pedir SÓLO arma la propuesta**: la IA devuelve operaciones de un catálogo cerrado, se validan otra vez en el
+  navegador y se prueban sobre una COPIA para mostrar «Original | Modificado». Nada se toca hasta «Aceptar».
+- **Aceptar vuelve a aplicar sobre lo de AHORA, por id**, en UN paso de deshacer; lo que se borró o se bloqueó en el
+  medio se descarta con su motivo. Las refs que ve la IA no pueden depender de la posición, o la propuesta apunta a otro.
+- **Lo que el motor ignora en silencio se revisa ANTES** (una fuente que el editor no tiene, un efecto que no existe)
+  y se descarta con su motivo; lo que el motor necesita listo (las fuentes) se carga antes de aplicar.
+- **«Restaurar» es el deshacer de ESE paso**, sólo si nada cambió después; si no, se dice «Ctrl+Z».
+Lo que costó, en docs/hallazgos-editor-imagen.md y docs/hallazgos-video-editor.md.
+
+# Una acción de pantalla PROPIA nueva decide qué pasa en un FLUJO
+
+`ejecutarDesdeFlujo` (lib/api-mako/flujo.ts) aplica en el acto lo que un paso propone, y toda propuesta que no conoce
+la manda a `aplicarPropuestaGenerica`, que la busca en `propuestas`. Una acción con su propia tabla de propuestas que
+no se decide ahí FALLA en cada corrida del flujo, y el editor de Automations igual la ofrece como «⚡ Acción». Se
+agrega su rama de aplicar (como el plan o los borradores de WhatsApp) o se la saca de los flujos (como las del Video
+Editor, que se aceptan en el navegador: `enElEditorDeVideo`). Y antes de commitear operaciones nuevas, se mide el
+turno de WhatsApp (`toolsDelRegistro` con el presupuesto de 12.000): una acción puede entrar sin la lectura que
+necesita para tener el id (docs/hallazgos-api-mako.md, 16/10/2026).
+
 # El onboarding es una conversación: lo que gobierna una pregunta nueva
 
 Desde el 16/10/2026 /onboarding es el CHAT DE ARRANQUE (`app/onboarding/ChatArranque.tsx`, sobre el motor de
@@ -8643,6 +8785,15 @@ chat». Lo que costó, en `docs/hallazgos-onboarding.md` y `docs/hallazgos-offer
   deja el trabajo a medias, y una recarga ve lo mismo. Cada escritura de fondo lleva su `intento` (un trabajo
   viejo que termina tarde no pisa el nuevo) y lo que corre tiene un vencimiento. El molde: el armado de la
   oferta (`armar` / `armarPorDetras` en app/api/offer/route.ts, mig 0296).
+- **En Offer, una regla que depende del TICKET (precio mínimo, duración, cuotas, la pregunta de la escalera) se
+  condiciona al nivel** (`nivelDeOferta`, lib/offer-reglas.ts), que decide el código con el precio. El marco daba
+  por hecho el alto ticket, y convirtió una entrada de 800 MXN al mes en un programa de 1.000 USD. Lo que el
+  modelo tiene que saber del negocio va pegado a un bloque que ya está en el prompt (`bloqueNivel` en las piezas),
+  nunca en un slot nuevo: un prompt editado en /configuraciones no lo tendría.
+- **En Offer, lo que trae el modelo se normaliza en UNA entrada** (`aObjeto`, lib/offer-reglas.ts), no en cada
+  lector: el modelo escribía «[Completar: …]» y todo lo que busca la marca es exacto, así que el hueco se guardaba
+  como dato. Y **un campo nuevo de `OfferMensaje` va también a `sanearMensajes`**, que es una lista blanca: sin eso
+  se ve al llegar y se pierde al reabrir la conversación.
 
 # Una reserva de agenda decide a DÓNDE va por un solo camino, y la agenda tiene tres fuentes de ruteo
 

@@ -415,8 +415,14 @@ export const FAMILIAS: NavFamilia[] = [
  * monta el MISMO MakoChat contra otro endpoint, así que para el usuario eran
  * dos tabs que hacen lo mismo.
  */
+/*
+ * ⚠️ DESDE EL 16/10/2026 SE LLAMA «SECOND BRAIN» Y LLEVA A /second-brain (etapa 2 de docs/diseno-mako-ai-native.md):
+ * el chat con MaKo es la puerta del Second Brain. LA CLAVE SIGUE SIENDO `mako`: de ella cuelgan el chat del teléfono,
+ * la bandeja (/mako/pendientes), Inbox y la puerta del chat (`puedeVerKey('mako')`); cambiarla los apagaba a todos.
+ * Al admin que ya ve «Second Brain» en Analyze, el Sidebar no le dibuja esta (una entrada por persona).
+ */
 export const MAKO_NAV: NavItem[] = [
-  { key: 'mako', label: 'Pregúntale a MaKo', href: '/mako', icon: 'mako', rolesWs: ['closer', 'setter'], match: (p) => starts('/mako')(p) || starts('/mako-doer')(p) },
+  { key: 'mako', label: 'Second Brain', href: '/second-brain', icon: 'cerebro', rolesWs: ['closer', 'setter'], match: (p) => starts('/second-brain')(p) || starts('/mako')(p) || starts('/mako-doer')(p) },
 ];
 
 /**

@@ -138,14 +138,19 @@ test('los valores salen del catálogo, no de una cadena en el call site', () => 
   }
 });
 
-test('la ficha tiene un renglón por cada valor del catálogo, y ninguno de más', () => {
+test('la ficha tiene un renglón por cada valor del catálogo, y ninguno de más', async () => {
   // El `default` de labelOrigen afirmaba «Orgánico / manual», que son dos hechos del
   // negocio sobre una columna de la que no se sabe ninguno. Ya había pasado dos veces
   // (con Cal.com y con 'landing'): una lista de cases que crece cuando alguien se
   // queja es una lista que va a volver a fallar.
-  const src = leer('app/crm/lead-view/OrigenCard.tsx');
-  const desde = src.indexOf('function labelOrigen');
-  assert.ok(desde > 0, 'no encontré labelOrigen: ¿se renombró?');
+  // ⚠️ 16/10/2026 (el Resumen nativo): OrigenCard se fue y su `labelOrigen` es `canalDeEntrada`, en el módulo puro de
+  // los bloques del Resumen. Además de leer sus cases, se EJECUTA: ningún id del catálogo cae al default.
+  // Re-verificado rompiéndolo: sin `case 'carga_manual'` → 1 fallo.
+  const src = leer('app/crm/lead-view/ficha/resumen/logica.ts');
+  const desde = src.indexOf('export function canalDeEntrada');
+  assert.ok(desde > 0, 'no encontré canalDeEntrada: ¿se renombró?');
+  const { canalDeEntrada } = await import('../app/crm/lead-view/ficha/resumen/logica');
+  for (const id of Object.keys(ORIGEN_LEAD)) assert.notEqual(canalDeEntrada(id).texto, canalDeEntrada(null).texto, `«${id}» cae al default`);
   const hasta = src.indexOf('\n}', desde);
   const bloque = src.slice(desde, hasta);
   const cases = new Set([...soloCodigo(bloque).matchAll(/case '([a-z_]+)':/g)].map((m) => m[1]));

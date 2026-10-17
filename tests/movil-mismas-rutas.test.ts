@@ -70,7 +70,8 @@ test('cada página de app/m tiene una URL de escritorio (sin /m) y esa URL vuelv
     const url = rutaEscritorio(r);
     assert.ok(!/^\/m(\/|$|\?)/.test(url), `${r} → ${url}: la URL sigue mostrando /m`);
     // /m sólo reparte (va a la home): su vuelta es Today.
-    const esperado = r === '/m' ? '/m/hoy' : r;
+    // /m/mako es el chat de antes: redirige al Second Brain (16/10/2026), y su vuelta es ésa.
+    const esperado = r === '/m' ? '/m/hoy' : r === '/m/mako' ? '/m/second-brain' : r;
     assert.equal(rutaInterna(url.split('?')[0], url.split('?')[1] ?? ''), esperado, `${r} → ${url} → no vuelve`);
   }
 });
@@ -78,7 +79,7 @@ test('cada página de app/m tiene una URL de escritorio (sin /m) y esa URL vuelv
 test('la URL de escritorio de cada pantalla es la que ya usa la computadora', () => {
   const casos: [string, string][] = [
     ['/m/hoy', '/general'], ['/m/crm', '/crm'], ['/m/crm/12', '/crm/12'], ['/m/inbox', '/mako/pendientes'],
-    ['/m/plan', '/plan'], ['/m/mako', '/mako'], ['/m/cuenta', '/perfil'], ['/m/dashboard', '/dashboard'],
+    ['/m/plan', '/plan'], ['/m/mako', '/second-brain'], ['/m/cuenta', '/perfil'], ['/m/dashboard', '/dashboard'],
     ['/m/ads', '/ads-manager'], ['/m/cs', '/customer-success'], ['/m/automations', '/automations'],
     ['/m/video', '/video-generator'], [`/m/video/${UUID}`, `/video-generator?plan=${UUID}`],
     ['/m/landing', '/web-generator'], ['/m/landing/42', '/web-generator/42'],
@@ -92,6 +93,12 @@ test('la URL de escritorio de cada pantalla es la que ya usa la computadora', ()
     ['/m/mas', '/mas'], ['/m/configurar', '/configurar'], ['/m/cuenta/instalar', '/perfil/instalar'], ['/m/crm/12/chat', '/crm/12/chat'],
   ];
   for (const [interna, url] of casos) assert.equal(rutaEscritorio(interna), url, interna);
+  // El Mapa del Second Brain (16/10/2026): en escritorio es un panel del chat (`?panel=mapa`); en el teléfono, su
+  // propia página, porque /m/second-brain es el chat. Un `?area=` sin el panel cae en el chat, y la página lo manda
+  // al Mapa si es del admin (app/m/second-brain/page.tsx).
+  assert.equal(rutaEscritorio('/m/second-brain/mapa?area=voz'), '/second-brain?area=voz&panel=mapa');
+  assert.equal(rutaMovil('/second-brain?panel=mapa&area=voz&ws=3'), '/m/second-brain/mapa?area=voz');
+  assert.equal(rutaMovil('/second-brain?area=voz'), '/m/second-brain?area=voz');
   // La query y el `#` viajan; lo que no es /m no se toca.
   assert.equal(rutaEscritorio('/m/inbox?vista=avisos&ws=3#x'), '/mako/pendientes?vista=avisos&ws=3#x');
   assert.equal(rutaEscritorio('/m/dashboard?hoja=comercial'), '/dashboard?hoja=comercial');

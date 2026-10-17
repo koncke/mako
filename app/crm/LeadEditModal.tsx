@@ -33,6 +33,8 @@ export function LeadEditModal({
   seed,
   focus,
   solucionar,
+  verDatos,
+  avisos,
   onClose,
 }: {
   leadId: number;
@@ -41,6 +43,10 @@ export function LeadEditModal({
   focus?: string;
   /** Abrir YA llevando a ese dato sin marcar (lo pide «A revisar»). */
   solucionar?: StepId;
+  /** Abrir con el «Ver» de los datos sin marcar ya desplegado (lo pide «A revisar» desde el 16/10/2026). */
+  verDatos?: boolean;
+  /** Abrir para elegir qué avisa MaKo (el engranaje de «A revisar», 16/10/2026). */
+  avisos?: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -105,5 +111,5 @@ export function LeadEditModal({
   // focus viejo de los desgloses → tab del preview.
   const initialTab = focus === 'plan-pagos' ? 'cobranza' : 'resumen';
 
-  return <LeadSheet data={data} onClose={close} initialTab={initialTab} solucionarAlAbrir={solucionar} />;
+  return <LeadSheet data={data} onClose={close} initialTab={initialTab} solucionarAlAbrir={solucionar} verDatosAlAbrir={verDatos} avisosAlAbrir={avisos} />;
 }

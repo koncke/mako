@@ -71,9 +71,12 @@ test('cada destino y cada sección de More hereda una key que EXISTE en nav.ts, 
   // v3 (Martín, 14/10/2026): «el ícono del medio, abajo, va a ser General», y es donde se abre.
   assert.equal(DESTINOS_MOVIL[2].href, HOME_MOVIL);
   assert.equal(DESTINOS_MOVIL[DESTINOS_MOVIL.length - 1].href, RUTA_MAS, 'More va al final');
-  // Ninguna sección de More comparte ruta con un destino de la barra.
-  const hrefs = [...DESTINOS_MOVIL, ...SECCIONES_MAS].map((d) => d.href);
+  // Ninguna sección de More comparte ruta con un destino de la barra ni con otra sección, salvo el Second Brain
+  // (16/10/2026): la fila de Analyze (el admin) y la de abajo (closer y setter) son el MISMO chat, y nadie ve las
+  // dos (`gruposMas`; el test del admin de un cliente completo, abajo).
+  const hrefs = [...DESTINOS_MOVIL, ...SECCIONES_MAS.filter((s) => s.id !== 'mako')].map((d) => d.href);
   assert.equal(new Set(hrefs).size, hrefs.length);
+  assert.equal(SECCIONES_MAS.find((s) => s.id === 'mako')?.href, SECCIONES_MAS.find((s) => s.id === 'second-brain')?.href);
 });
 
 test('v3: CRM · Chats · General · Plan · More; More por las familias de la sidebar', () => {
@@ -97,11 +100,12 @@ test('admin de un cliente completo: la barra de cinco y More con todo, una caja 
   assert.deepEqual(barra('admin', 'completo'), ['crm', 'chats', 'hoy', 'plan', 'mas']);
   assert.deepEqual(mas('admin', 'completo'), [
     ['calendario', 'ads'], ['second-brain', 'dashboard', 'experimentos'], ['offer', 'landing', 'automations'],
-    ['video', 'copywriting'], ['cs', 'curso', 'comunidad'], ['mako'],
+    ['video', 'copywriting'], ['cs', 'curso', 'comunidad'],
   ]);
-  // Cada caja lleva el nombre de su familia en la sidebar; MaKo va última y sin título, como en escritorio.
+  // Cada caja lleva el nombre de su familia en la sidebar. La de abajo, sin título, no está: su única fila era el chat
+  // con MaKo, que desde el 16/10/2026 es el Second Brain de Analyze (como en escritorio, una entrada por persona).
   assert.deepEqual(familias('admin', 'completo'),
-    ['Operate', 'Analyze', 'Sales Machine', 'Content Machine', 'Customer Success', null]);
+    ['Operate', 'Analyze', 'Sales Machine', 'Content Machine', 'Customer Success']);
 });
 
 test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () => {
@@ -150,7 +154,7 @@ test('el lugar activo de una ruta', () => {
   // Una sección de More (y sus subpantallas) y la cuenta marcan More.
   assert.equal(destinoActivo('/m/ads'), 'mas');
   assert.equal(destinoActivo('/m/video/12'), 'mas');
-  assert.equal(destinoActivo('/m/mako'), 'mas');
+  assert.equal(destinoActivo('/m/second-brain'), 'mas');
   assert.equal(destinoActivo('/m/cuenta'), 'mas');
   // Salvo que haya subido a la barra: ahí se marca a sí misma.
   const pm = barraMovil('admin', 'pm');

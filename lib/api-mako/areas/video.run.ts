@@ -20,7 +20,9 @@
 // =============================================================================
 
 import 'server-only';
-import type { Runners } from '../tipos';
+import type { Ctx, Propuesto, Runners } from '../tipos';
+import { OPERACIONES_API, operacionDesdeInput, type OperacionApi } from '@/lib/editor-video/chat-api';
+import { proponerOperacion } from '@/lib/editor-video/propuestas-server';
 import type { PlanGuardado } from '@/app/video-generator/video-datos';
 import { guionesDisponibles } from '@/app/video-generator/guiones-datos';
 import { formatosOfrecidos, puestaDe } from '@/app/video-generator/formatos-datos';
@@ -34,6 +36,9 @@ import type { Camara } from '@/lib/puestas-data';
 import { CREDITOS_POR_DURACION, creditosDeClip } from '@/lib/costo-clip';
 import { plantillasParaApi } from '@/lib/editor-video/plantillas';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
+import { NOTA_COPIA, proyectoEntero, proyectoEnLista } from '@/lib/editor-video/espejo';
+import { leerEspejo, listarEspejos, resolverProyecto } from '@/lib/editor-video/espejo-server';
+import { linkApp } from '@/lib/app-url';
 import { causaDeMotivo, causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { getEstadoTab, onboardingTabPendiente, tabOnboardingDef } from '@/lib/tab-onboarding-state';
 import {
@@ -83,6 +88,48 @@ async function anuncioDe(planId: string | null): Promise<{ item: PlanGuardado; h
     return { error: `No hay un anuncio con planId «${planId}» en este negocio. El historial guarda los últimos 10 (hoy hay ${historial.length}); un anuncio viejo puede haberse caído del tope. Pide la lista con listar_anuncios_video.` };
   }
   return { item, historial };
+}
+
+/** Lo que acompaña a cada propuesta del editor: no está aplicada, y dónde se acepta. */
+const NOTA_PROPUESTA =
+  'Quedó PROPUESTO, no aplicado: se acepta en el editor, en su chat «Editar con IA», en el navegador donde vive el proyecto (el link lo abre ahí). Lo que se pida por este mismo canal en este rato se suma a la misma propuesta.';
+
+/**
+ * Una operación del chat «Editar con IA», propuesta por la API: la forma la valida la MISMA función que al chat
+ * (`operacionDesdeInput`), las refs se revisan contra la copia del proyecto, y queda en la propuesta abierta del canal.
+ */
+async function proponerEnElEditor(o: OperacionApi, input: Record<string, unknown>, ctx: Ctx): Promise<Propuesto> {
+  // Por id o por nombre: en un turno de WhatsApp la acción entra y la lista de proyectos puede no entrar (medido el 16/10).
+  const cual = await resolverProyecto(ctx.ws, str(input, 'proyecto') ?? '');
+  if (!cual.ok) return { error: 'motivo' in cual ? `No se puede proponer: ${cual.motivo}.` : cual.sinTabla ? 'Los proyectos del editor todavía no se guardan en MaKo.' : 'No se pudo leer el proyecto.' };
+  const proyecto = cual.proyecto;
+  const v = operacionDesdeInput(o, input);
+  if (!v.ok) return { error: `No se puede proponer: ${v.motivo}.` };
+  const r = await proponerOperacion({ ws: ctx.ws, canal: ctx.canal, canalKey: ctx.canalKey, actor: ctx.actor ?? null, proyecto, titulo: o.titulo, op: v.op });
+  if (!r.ok) {
+    if ('motivo' in r) return { error: `No se puede proponer: ${r.motivo}.` };
+    return { error: r.sinTabla ? 'Las propuestas del Video Editor todavía no se guardan en MaKo.' : 'No se pudo dejar la propuesta.' };
+  }
+  return {
+    id: r.id,
+    url: linkApp(`/video-editor/${proyecto}?propuesta=${r.id}`, ctx.ws),
+    nueva: r.nueva,
+    extra: {
+      cambios: r.lineas,
+      nota: NOTA_PROPUESTA,
+      ...(r.sinRevisar ? { aviso: 'El proyecto es muy grande para revisarlo aquí: lo revisa el editor al aceptarlo.' } : {}),
+    },
+  };
+}
+
+/** El runner de una operación del editor: propone; `ejecutar` existe porque el tipo lo pide, y se niega. */
+function enElEditor(id: string) {
+  const o = OPERACIONES_API.find((x) => x.id === id);
+  if (!o) throw new Error(`api-mako: «${id}» no es una operación del editor (lib/editor-video/chat-api.ts)`);
+  return {
+    proponer: (input: Record<string, unknown>, ctx: Ctx) => proponerEnElEditor(o, input, ctx),
+    ejecutar: async () => ({ ok: false, resumen: 'Este cambio se acepta en el editor, con el link de la propuesta: no por aquí.' }),
+  };
 }
 
 const resumenPedido = (p: string): string => {
@@ -488,6 +535,70 @@ export const RUNNERS: Runners = {
   listar_plantillas_video: {
     leer: async () => json(plantillasParaApi(await senalesDelNegocio().catch(() => null))),
   },
+
+  // La COPIA de lectura de los proyectos del editor, que el editor sube mientras se edita (mig 0299,
+  // lib/editor-video/espejo.ts). Sin la tabla todavía, se dice; nunca se inventa una lista vacía como «no hay».
+  listar_proyectos_video: {
+    leer: async (_input, ctx) => {
+      const r = await listarEspejos(ctx.ws);
+      if (!r.ok) return json(r.sinTabla ? { proyectos: [], aviso: 'Los proyectos del editor todavía no se guardan en MaKo.' } : { error: 'No se pudieron leer los proyectos.' });
+      return json({
+        total: r.filas.length,
+        proyectos: r.filas.map((f) => proyectoEnLista(f, linkApp(`/video-editor/${f.proyecto_id}`, ctx.ws))),
+        ...(r.filas.length ? { nota: NOTA_COPIA } : { aviso: 'Todavía no hay proyectos: aparecen al abrirlos en el editor.' }),
+      });
+    },
+  },
+
+  ver_proyecto_video: {
+    leer: async (input, ctx) => {
+      // Por id o por nombre (`elegirProyecto`, lib/editor-video/espejo.ts): en WhatsApp la lista puede no entrar al turno.
+      const cual = await resolverProyecto(ctx.ws, str(input, 'proyecto') ?? '');
+      if (!cual.ok) return json({ error: 'motivo' in cual ? cual.motivo : cual.sinTabla ? 'Los proyectos del editor todavía no se guardan en MaKo.' : 'No se pudo leer el proyecto.' });
+      const proyecto = cual.proyecto;
+      const r = await leerEspejo(ctx.ws, proyecto);
+      if (!r.ok) return json({ error: r.sinTabla ? 'Los proyectos del editor todavía no se guardan en MaKo.' : 'No se pudo leer el proyecto.' });
+      if (!r.fila) return json({ error: `No hay un proyecto «${proyecto}» (los de listar_proyectos_video).` });
+      return json(proyectoEntero(r.fila, linkApp(`/video-editor/${r.fila.proyecto_id}`, ctx.ws)));
+    },
+  },
+
+  // Las operaciones del chat «Editar con IA» (lib/editor-video/chat-api.ts): cada una PROPONE en el proyecto y se
+  // acepta en el editor. Ninguna escribe la línea de tiempo: `ejecutar` existe porque el tipo lo pide, y se niega.
+  agregar_texto_video: { ...enElEditor('agregar_texto_video') },
+  cambiar_texto_video: { ...enElEditor('cambiar_texto_video') },
+  reemplazar_clip_video: { ...enElEditor('reemplazar_clip_video') },
+  borrar_elementos_video: { ...enElEditor('borrar_elementos_video') },
+  mover_elemento_video: { ...enElEditor('mover_elemento_video') },
+  cambiar_duracion_video: { ...enElEditor('cambiar_duracion_video') },
+  dividir_clip_video: { ...enElEditor('dividir_clip_video') },
+  recortar_clip_video: { ...enElEditor('recortar_clip_video') },
+  cambiar_volumen_video: { ...enElEditor('cambiar_volumen_video') },
+  silenciar_clip_video: { ...enElEditor('silenciar_clip_video') },
+  poner_fundido_video: { ...enElEditor('poner_fundido_video') },
+  reducir_ruido_video: { ...enElEditor('reducir_ruido_video') },
+  normalizar_audio_video: { ...enElEditor('normalizar_audio_video') },
+  separar_audio_video: { ...enElEditor('separar_audio_video') },
+  ocultar_elemento_video: { ...enElEditor('ocultar_elemento_video') },
+  cambiar_velocidad_video: { ...enElEditor('cambiar_velocidad_video') },
+  poner_transicion_video: { ...enElEditor('poner_transicion_video') },
+  poner_animacion_video: { ...enElEditor('poner_animacion_video') },
+  poner_filtro_video: { ...enElEditor('poner_filtro_video') },
+  poner_efecto_video: { ...enElEditor('poner_efecto_video') },
+  agregar_capa_efecto_video: { ...enElEditor('agregar_capa_efecto_video') },
+  ajustar_color_video: { ...enElEditor('ajustar_color_video') },
+  cambiar_estilo_texto_video: { ...enElEditor('cambiar_estilo_texto_video') },
+  transformar_elemento_video: { ...enElEditor('transformar_elemento_video') },
+  reflejar_clip_video: { ...enElEditor('reflejar_clip_video') },
+  revertir_clip_video: { ...enElEditor('revertir_clip_video') },
+  congelar_cuadro_video: { ...enElEditor('congelar_cuadro_video') },
+  reemplazar_en_subtitulos_video: { ...enElEditor('reemplazar_en_subtitulos_video') },
+  resaltar_palabras_video: { ...enElEditor('resaltar_palabras_video') },
+  generar_subtitulos_video: { ...enElEditor('generar_subtitulos_video') },
+  cortar_frase_video: { ...enElEditor('cortar_frase_video') },
+  cortar_tramo_video: { ...enElEditor('cortar_tramo_video') },
+  eliminar_muletillas_video: { ...enElEditor('eliminar_muletillas_video') },
+  usar_plantilla_video: { ...enElEditor('usar_plantilla_video') },
 
   ver_contexto_video: {
     leer: async () => {

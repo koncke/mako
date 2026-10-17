@@ -30,6 +30,17 @@
 //   · la cabecera con `seccion.label` en vez de `tituloSeccion`       → 5 / 2 (+ cabecera)
 // ⚠️ La primera versión de la ida y vuelta recorría QUERY_DE_SECCION y nada más: borrar 'post' daba 6 / 1,
 // porque el lazo dejaba de preguntar por él. Por eso la tabla está escrita a mano en el test.
+//
+// El Second Brain es el chat con MaKo (16/10/2026, etapa 2 de docs/diseno-mako-ai-native.md, tanda 3). Roto de a
+// uno sobre los ocho tests del teléfono que lo miran (movil-rutas, movil-mas-secciones, movil-shell,
+// movil-mismas-rutas, m-second-brain, puerta-admin-tab, mako-doer-plazo, m-mako-chat), base 76 / 0:
+//   · `gruposMas` sin sacar la fila de abajo cuando se ve la de Analyze      → 74 / 2
+//   · la fila de abajo a /m/mako (dos rutas para un chat)                     → 72 / 4
+//   · el Mapa (/m/second-brain/mapa) con la key 'mako'                        → 75 / 1
+//   · `esTrabajo` sin /m/second-brain                                         → 74 / 2
+//   · `rutaMovil` sin mirar `?panel=mapa`                                     → 74 / 2
+//   · `rutaEscritorio` del Mapa sin `panel=mapa`                              → 74 / 2
+//   · el chat con la key 'second-brain' (deja afuera a closer y setter)       → 73 / 3
 // =============================================================================
 
 import test from 'node:test';
@@ -127,14 +138,14 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
   for (const capa of Object.keys(CAPAS) as CapaId[]) {
     for (const rol of ['closer', 'setter', null] as const) assert.deepEqual(ve(rol, capa), [], `${rol} en ${capa}`);
   }
-  // More entero del admin de un cliente completo: una caja por familia, en su orden, y MaKo al final.
+  // More entero del admin de un cliente completo: una caja por familia, en su orden. Sin la fila de abajo desde el
+  // 16/10/2026: el chat con MaKo ES el Second Brain, y el admin ya lo tiene en Analyze (una entrada por persona).
   assert.deepEqual(gruposMas('admin', 'completo').map((g) => [g.titulo, g.secciones.map((s) => s.id)]), [
     ['Operate', ['calendario', 'ads']],
     ['Analyze', ['second-brain', 'dashboard', 'experimentos']],
     ['Sales Machine', ['offer', 'landing', 'automations']],
     ['Content Machine', ['video', 'copywriting']],
     ['Customer Success', ['cs', 'curso', 'comunidad']],
-    [null, ['mako']],
   ]);
   // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la
   // sidebar (Calendario y Dashboard), y en More le queda MaKo.
@@ -153,7 +164,10 @@ test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo
   };
   for (const [id, archivo] of Object.entries(conRol) as [IdSeccionMas, string][]) {
     const s = seccion(id);
-    assert.ok(leer(archivo).includes(`requireRolWs([], { nav: '${s.navKey}' })`), `${archivo} ya no se gatea con «${s.navKey}»`);
+    // El Second Brain de escritorio es el CHAT con MaKo desde el 16/10/2026 (entra más gente): lo que es del admin de la
+    // tab es el MAPA, que es lo que muestra la sección del teléfono, y se corta con la puerta de sus rutas.
+    const guarda = id === 'second-brain' ? `esAdminDeTab('${s.navKey}')` : `requireRolWs([], { nav: '${s.navKey}' })`;
+    assert.ok(leer(archivo).includes(guarda), `${archivo} ya no se gatea con «${s.navKey}»`);
     assert.equal(filaDeSidebar(s.navKey)?.item.rolesWs, undefined, `${s.navKey}: la sidebar se la da a otro rol y la página no`);
   }
   // Curso y Comunidad piden en escritorio la capa de Customer Success (`requireCapa`), y la sidebar, sólo el admin.
@@ -198,8 +212,9 @@ test('la cabecera de cada sección vuelve a More, con el nombre de la pantalla; 
   for (const id of SIETE) {
     const s: DefSeccionMas = seccion(id);
     // Offer es, en escritorio, un chat con MaKo por funnel; en el v3, la pantalla del chat (sin título
-    // grande, el composer en la franja del pulgar): como /m/mako, sin la barra de abajo.
-    assert.deepEqual(cabeceraPorRuta(s.href), t(tituloSeccion(s), id === 'offer'), s.href);
+    // grande, el composer en la franja del pulgar): como el chat de MaKo, sin la barra de abajo. Y el Second Brain ES
+    // ese chat desde el 16/10/2026.
+    assert.deepEqual(cabeceraPorRuta(s.href), t(tituloSeccion(s), id === 'offer' || id === 'second-brain'), s.href);
     assert.equal(nivel(s.href), 1, s.href);
     assert.equal(tituloDe(s.href), `MaKo - ${tituloSeccion(s)}`, s.href);
   }
@@ -224,7 +239,13 @@ test('cada sección de More TIENE su página, con el guard de SU key', () => {
   for (const s of SECCIONES_MAS) {
     const archivo = `app/m/${s.href.slice('/m/'.length)}/page.tsx`;
     if (!existsSync(join(RAIZ, archivo))) { faltan.push(`${archivo} (no existe)`); continue; }
-    if (!leer(archivo).includes(`requireMovil({ navKey: '${s.navKey}' })`)) faltan.push(`${archivo} (sin requireMovil({ navKey: '${s.navKey}' }))`);
+    // El Second Brain es el CHAT con MaKo desde el 16/10/2026 (entra con la key 'mako', como la fila de abajo): lo que es
+    // del admin de la tab es su Mapa, que vive en su propia página con la key 'second-brain'.
+    const [pagina, key] = s.id === 'second-brain' ? [archivo, 'mako'] : [archivo, s.navKey];
+    if (!leer(pagina).includes(`requireMovil({ navKey: '${key}' })`)) faltan.push(`${pagina} (sin requireMovil({ navKey: '${key}' }))`);
+    if (s.id === 'second-brain' && !leer('app/m/second-brain/mapa/page.tsx').includes(`requireMovil({ navKey: '${s.navKey}' })`)) {
+      faltan.push(`app/m/second-brain/mapa/page.tsx (sin requireMovil({ navKey: '${s.navKey}' }))`);
+    }
   }
   assert.deepEqual(faltan, []);
 });

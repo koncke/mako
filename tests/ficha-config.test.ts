@@ -16,6 +16,23 @@
 //   · `normalizar` sin borrar una tab igual a la de la plantilla                   → 9 / 1
 //   · quitar `contacto` permitido                                                  → 9 / 1
 //   · una asistencia que se deja apagar a mano                                      → 9 / 1
+//
+// ⚠️ DOS ASERCIONES REESCRITAS EL 16/10/2026 (el Resumen nativo): el Resumen de entrada de cada tipo es su plantilla
+// ARMADA (lib/ficha/plantillas-resumen.ts), con otro orden y, en las de llamada, con las redes ya puestas. Lo que se
+// fija no cambia: (1) LinkedIn prendido a propósito suma las redes después del contacto en un Resumen que no las trae
+// (ahora el del carrito, «Si compró»); (2) devolver un bloque a su lugar deja la ficha sin nada guardado (las notas
+// del carrito van décimas, al final). Re-verificado rompiéndolo: `listaDeIds` sin sumar las redes → 9 / 1.
+//
+// ⚠️ TRES ASERCIONES REESCRITAS EL 16/10/2026 (verificación de la tanda 1): las plantillas de entrada del Resumen ahora
+// traen «Redes y web» e «Ingreso estimado» en los nueve tipos, porque el contacto de antes los mostraba ADENTRO
+// (tests/ficha-resumen-lo-de-antes.test.ts). Las tres leían una plantilla concreta como dato del test, y por eso cambian:
+//   (1) «un Resumen que no trae las redes» ya no es el del carrito: es la ÉPICA elegida a mano (la regla, igual: LinkedIn
+//       prendido a propósito suma las redes después del contacto);
+//   (2) «el primer cambio arranca de lo que se veía» compara con el Resumen que se VE (la plantilla de la tab), no con la
+//       lista del tipo: daban lo mismo por casualidad (las dos de 15);
+//   (3) devolver las notas «a su lugar» las pone en SU lugar (el que tenían), no en el décimo fijo.
+// Re-verificado rompiéndolo (base 10/0): `listaDeIds` sin sumar las redes → 9 / 1; el primer cambio arrancando de la
+// lista del tipo (`listaDeEntrada`) en vez de lo que se veía → 8 / 2.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -73,9 +90,11 @@ test('lo que nadie tocó sigue a la plantilla, con el respaldo del negocio', () 
   assert.ok(ids(f.tabs.resumen).includes('direccion'), 'la dirección prendida entra al Resumen');
   assert.ok(!ids(f.tabs.resumen).includes('ingreso-estimado'), 'ingreso apagado');
   assert.ok(!ids(f.tabs.reuniones).includes('cohorte'), 'cohorte apagada');
-  // Una llamada no trae redes: LinkedIn prendido a propósito la suma, después del contacto.
-  const una = ids(fichaEfectiva('una-llamada', {}, negocio).tabs.resumen);
-  assert.equal(una[una.indexOf('contacto') + 1], 'redes-y-web');
+  // La épica no trae redes: LinkedIn prendido a propósito las suma, después del contacto.
+  const epica: FichaGuardada = { plantillasTab: { resumen: 'resumen-epica' } };
+  const carrito = ids(fichaEfectiva('carrito', epica, negocio).tabs.resumen);
+  assert.ok(!ids(fichaEfectiva('carrito', epica, RESPALDO_VACIO).tabs.resumen).includes('redes-y-web'));
+  assert.equal(carrito[carrito.indexOf('contacto') + 1], 'redes-y-web');
   // Sin ninguna red, sin bloque.
   const sinRedes = listaDeEntrada(plantillaFicha('prospeccion'), 'resumen', { resumen: { web: false, instagram: false }, apagados: [] });
   assert.ok(!ids(sinRedes).includes('redes-y-web'));
@@ -113,7 +132,7 @@ test('los cambios: poner, mover, ancho, diseño, y lo que no se puede', () => {
   const R = RESPALDO_VACIO;
   const puesto = ok(aplicarCambio({}, { op: 'poner', tab: 'resumen', bloque: 'sexo', lugar: 2 }, 'landing', R));
   assert.equal(ids(puesto.ficha.tabs!.resumen!)[1], 'sexo');
-  assert.equal(ids(puesto.ficha.tabs!.resumen!).length, listaDePlantilla(plantillaFicha('landing'), 'resumen').length + 1, 'el primer cambio arranca de lo que se veía');
+  assert.equal(ids(puesto.ficha.tabs!.resumen!).length, fichaEfectiva('landing', {}, R).tabs.resumen.length + 1, 'el primer cambio arranca de lo que se veía');
   const movido = ok(aplicarCambio(puesto.ficha, { op: 'mover', tab: 'resumen', bloque: 'sexo', lugar: 99 }, 'landing', R));
   assert.equal(ids(movido.ficha.tabs!.resumen!).at(-1), 'sexo', 'un lugar fuera de rango va al final');
   const ancho = ok(aplicarCambio(movido.ficha, { op: 'ancho', tab: 'resumen', bloque: 'sexo', ancho: 3 }, 'landing', R));
@@ -135,8 +154,9 @@ test('los cambios: poner, mover, ancho, diseño, y lo que no se puede', () => {
 
 test('sólo lo cambiado: volver a la plantilla, cambiar de plantilla y deshacer', () => {
   const R = RESPALDO_VACIO;
+  const lugarDeNotas = ids(fichaEfectiva('carrito', {}, R).tabs.resumen).indexOf('notas') + 1;
   const quitado = ok(aplicarCambio({}, { op: 'quitar', tab: 'resumen', bloque: 'notas' }, 'carrito', R));
-  const devuelto = ok(aplicarCambio(quitado.ficha, { op: 'poner', tab: 'resumen', bloque: 'notas', lugar: 8 }, 'carrito', R));
+  const devuelto = ok(aplicarCambio(quitado.ficha, { op: 'poner', tab: 'resumen', bloque: 'notas', lugar: lugarDeNotas }, 'carrito', R));
   assert.deepEqual(devuelto.ficha, {}, 'volver a dejarla como la plantilla no deja nada guardado');
   // El panel de avisos manda la lista ENTERA de lo que no avisa: lo que la plantilla apagaba y no está en la
   // lista pasa a avisar; se guarda sólo lo que difiere (el setter ya venía apagado, no se guarda).

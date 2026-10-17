@@ -23,19 +23,24 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
-import { bloqueDef, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
+import { bloqueDef, FUENTES_RESPUESTA, REDES, type BloqueId, type FuenteRespuesta, type Red, type TabFicha } from '@/lib/ficha/catalogo';
 import type { BloquePuesto, CambioFicha } from '@/lib/ficha/config';
 import { tituloDeBloque } from '@/lib/ficha/registro';
 // La MISMA lista que ofrece la API de MaKo (cambiar_ficha_funnel, cambio icono): una sola fuente.
 import { ICONOS_BLOQUE } from '@/lib/ficha/api';
-import { anchosDeLaBarra, bloquesDeLaGrilla, compartiendoFila, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
+import { NO_IGNORABLES } from '@/lib/datos-aviso';
+import type { StepId } from '@/lib/stage-requirements';
+import { anchosDeLaBarra, bloquesDeLaGrilla, compartiendoFila, cubreDe, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
 import { Flotante } from './Flotante';
 import type { CtxFicha } from './tipos';
+import { NOMBRE_FUENTE, preguntasDelLead } from './resumen/logica';
 
 type Soltar = { indice: number; lado: 'antes' | 'despues' };
 
-export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar, epico = false, dispositivo = 'escritorio' }: {
+export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar, epico = false, dispositivo = 'escritorio', avisaDe }: {
+  /** ¿Ese dato entra en «datos sin marcar» en este funnel? Lo usa «Obligatorio» de la barra del bloque. */
+  avisaDe?: (paso: StepId) => boolean;
   tab: TabFicha;
   /** La lista ENTERA de la tab (la ficha efectiva del funnel), con lo que no se dibuja. */
   lista: readonly BloquePuesto[];
@@ -156,8 +161,9 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
           </span>
         )}
         {elegido && (
-          <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} incluidos={incluidos} onCambio={onCambio}
-            onQuitar={() => onSel(null)} onMoverTeclado={conTeclado} />
+          <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} incluidos={incluidos} onCambio={onCambio} avisaDe={avisaDe}
+            onQuitar={() => onSel(null)} onMoverTeclado={conTeclado}
+            preguntas={b.def.opciones?.includes('pregunta') ? preguntasDelLead(ctx.data) : []} />
         )}
         {/* ⚠️ `inert` EDITANDO: personalizar la ficha no es editar el lead. Sin esto, un clic para elegir el
             bloque abría el campo de adentro (la tarjeta entera abre su edición, `CajaCampo`). */}
@@ -192,10 +198,18 @@ function padreQueScrollea(el: HTMLElement): HTMLElement | null {
   return null;
 }
 
-type Menu = { tipo: 'diseno' | 'icono'; ancla: HTMLElement } | null;
+type Menu = { tipo: 'diseno' | 'icono' | 'opciones'; ancla: HTMLElement } | null;
 
-/** La barra del bloque elegido: su nombre (en el lugar del rótulo), arrastrar, ancho, diseño, ícono y quitar. */
-function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onMoverTeclado }: {
+/** Cómo se llama cada red en el menú de opciones. */
+const NOMBRE_RED: Readonly<Record<Red, string>> = { web: 'Web', instagram: 'Instagram', youtube: 'YouTube', linkedin: 'LinkedIn' };
+
+/**
+ * La barra del bloque elegido: su nombre (en el lugar del rótulo), arrastrar, ancho, diseño, opciones, ícono y quitar.
+ * OPCIONES (16/10/2026): lo que el bloque declara configurar adentro (`def.opciones`): qué redes van en «Redes y web»,
+ * qué fuentes en «Lo que contestó» y qué pregunta en «Respuesta destacada» (de las que contestó ESTE lead).
+ */
+function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onMoverTeclado, preguntas, avisaDe }: {
+  avisaDe?: (paso: StepId) => boolean;
   tab: TabFicha;
   b: BloqueEnGrilla;
   icono: NombreIconoMenu;
@@ -204,13 +218,28 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
   onCambio: (c: CambioFicha) => void;
   onQuitar: () => void;
   onMoverTeclado: (dir: -1 | 1) => void;
+  /** Las preguntas que contestó este lead (para «Respuesta destacada»). */
+  preguntas: readonly string[];
 }) {
   const [menu, setMenu] = useState<Menu>(null);
+  const op = b.def.opciones ?? [];
+  const redes: readonly Red[] = b.puesto.opciones?.redes ?? REDES;
+  const fuentes: readonly FuenteRespuesta[] = b.puesto.opciones?.fuentes ?? FUENTES_RESPUESTA;
+  const pregunta = b.puesto.opciones?.pregunta ?? null;
+  const opciones = (o: { redes?: Red[]; fuentes?: FuenteRespuesta[]; pregunta?: string }) => onCambio({ op: 'opciones', tab, bloque: id, n: b.n, opciones: o });
+  /** Prender o apagar uno de una lista, sin perder el orden de siempre. */
+  const alternar = <T extends string>(todos: readonly T[], hoy: readonly T[], x: T): T[] => todos.filter((t) => (t === x ? !hoy.includes(x) : hoy.includes(t)));
   const disenos = disenosOfrecidos(b.def, b.reglas);
   const diseno = disenoADibujar(b.puesto, b.def, b.reglas);
   const id: BloqueId = b.def.id;
   const quitable = b.def.quitable || b.def.tab !== tab;
-  const abrir = (tipo: 'diseno' | 'icono') => (e: { currentTarget: HTMLElement }) => {
+  // «OBLIGATORIO» (16/10/2026, Martín: «si hoy en día clickeo en cada bloque ahí debería haber una opción de
+  // "Obligatorio" y que eso sea lo que hace ese dato que ingrese a "datos sin marcar"»). Los datos que el bloque
+  // dibuja (`cubreDe`), menos la asistencia de una reunión pasada, que avisa siempre. Es el mismo aviso por funnel que
+  // los interruptores de la barra lateral (`op: 'aviso'`): prender o apagar acá los mueve a todos juntos.
+  const cubre = avisaDe ? cubreDe(b.def, b.reglas).filter((p) => !NO_IGNORABLES.has(p)) : [];
+  const obligatorio = cubre.length > 0 && cubre.every((p) => avisaDe!(p));
+  const abrir = (tipo: 'diseno' | 'icono' | 'opciones') => (e: { currentTarget: HTMLElement }) => {
     const ancla = e.currentTarget;
     setMenu((m) => (m?.tipo === tipo ? null : { tipo, ancla }));
   };
@@ -244,6 +273,24 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
           </button>
         </>
       )}
+      {op.length > 0 && (
+        <>
+          {sep}
+          <button type="button" className="fb-herr" aria-haspopup="menu" aria-expanded={menu?.tipo === 'opciones'} onClick={abrir('opciones')}>
+            Opciones <span aria-hidden>▾</span>
+          </button>
+        </>
+      )}
+      {cubre.length > 0 && (
+        <>
+          {sep}
+          <button type="button" className="fb-herr" aria-pressed={obligatorio}
+            title={obligatorio ? 'Si falta, entra en «datos sin marcar». Toca para que no avise.' : 'Toca para que, si falta, entre en «datos sin marcar».'}
+            onClick={() => { for (const p of cubre) if (avisaDe!(p) === obligatorio) onCambio({ op: 'aviso', paso: p, avisa: !obligatorio }); }}>
+            {obligatorio ? '✓ ' : ''}Obligatorio
+          </button>
+        </>
+      )}
       {sep}
       <button type="button" className="fb-herr" title="Ícono" aria-label="Ícono" aria-haspopup="menu" aria-expanded={menu?.tipo === 'icono'} onClick={abrir('icono')}>
         <IconoMenu nombre={icono} size={15} />
@@ -261,6 +308,32 @@ function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onM
                 {d.nombre}
               </button>
             ))}
+          </div>
+        </Flotante>
+      )}
+      {menu?.tipo === 'opciones' && (
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={260} etiqueta="Opciones del bloque">
+          <div role="menu">
+            {op.includes('redes') && REDES.map((r) => (
+              <button key={r} type="button" role="menuitemcheckbox" aria-checked={redes.includes(r)} className="fb-opcion"
+                onClick={() => opciones({ redes: alternar(REDES, redes, r) })}>
+                <span aria-hidden>{redes.includes(r) ? '✓' : ''}</span> {NOMBRE_RED[r]}
+              </button>
+            ))}
+            {op.includes('fuentes') && FUENTES_RESPUESTA.map((f) => (
+              <button key={f} type="button" role="menuitemcheckbox" aria-checked={fuentes.includes(f)} className="fb-opcion"
+                onClick={() => opciones({ fuentes: alternar(FUENTES_RESPUESTA, fuentes, f) })}>
+                <span aria-hidden>{fuentes.includes(f) ? '✓' : ''}</span> {NOMBRE_FUENTE[f]}
+              </button>
+            ))}
+            {op.includes('pregunta') && (preguntas.length || pregunta ? (
+              [...(pregunta && !preguntas.includes(pregunta) ? [pregunta] : []), ...preguntas].map((q) => (
+                <button key={q} type="button" role="menuitemradio" aria-checked={q === pregunta} className="fb-opcion"
+                  onClick={() => { setMenu(null); if (q !== pregunta) opciones({ pregunta: q }); }}>
+                  {q}
+                </button>
+              ))
+            ) : <div className="fb-vacio-menu">Este lead no contestó nada. Elige la pregunta en uno que sí.</div>)}
           </div>
         </Flotante>
       )}

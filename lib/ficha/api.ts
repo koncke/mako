@@ -9,7 +9,7 @@
 
 import type { FichaDelFunnel } from './config-server';
 import { sanearCambio, type CambioFicha } from './config';
-import { bloqueDef, bloquesDeLaTab, esTabFicha, vaEnTab, NOMBRE_TAB, TABS_FICHA, ANCHOS, DENSIDADES, type Ancho } from './catalogo';
+import { bloqueDef, bloquesDeLaTab, esTabFicha, vaEnTab, NOMBRE_TAB, TABS_FICHA, ANCHOS, DENSIDADES, REDES, FUENTES_RESPUESTA, type Ancho } from './catalogo';
 import { plantillaFicha, PLANTILLAS_FICHA } from './plantillas';
 import { galeriaDeTab, plantillaTabPorId, plantillasDeTab } from './plantillas-tab';
 import { DATOS_AVISABLES } from '../datos-aviso';
@@ -21,7 +21,7 @@ import { NOMBRES_ICONO_MENU, type NombreIconoMenu } from '../../app/_ui/iconos-m
  *    de un bloque se sumó el 15/10/2026 porque la pantalla lo cambiaba y MaKo no (AGENTS.md, toda feature va a la
  *    API). Deshacer no tiene op: la pantalla guarda el `antes` en memoria y el funnel no tiene historial.
  */
-export const CAMBIOS_API = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver', 'nombre', 'epica'] as const;
+export const CAMBIOS_API = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver', 'nombre', 'epica'] as const;
 /**
  * Lo que hace la pantalla y va por OTRA operación de la API, no por cambiar_ficha_funnel: armar una tab con un pedido
  * («¿Qué vas a crear hoy?») pasa por la IA y es `armar_tab_ficha` (lib/api-mako/areas/crm.def.ts).
@@ -62,6 +62,21 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
       if (!ic) return { error: `Falta el ícono: uno de la lista «iconos» de ver_ficha_funnel, o «${ICONO_DE_SIEMPRE}».` };
       if (ic !== ICONO_DE_SIEMPRE && !(ICONOS_BLOQUE as readonly string[]).includes(ic)) return { error: 'Ese ícono no es del set.', disponibles: ICONOS_BLOQUE };
       crudo = { op: 'icono', ...base, icono: ic === ICONO_DE_SIEMPRE ? null : ic };
+      break;
+    }
+    case 'opciones': {
+      // (16/10/2026) Lo que «Personalizar» elige adentro de un bloque (Opciones): las redes de redes-y-web, las fuentes de
+      // lo-que-contesto o la pregunta de respuesta-destacada. UN parámetro de texto (`opcion`) y no tres: la def viaja en
+      // el turno de WhatsApp. Qué es lo dice el bloque.
+      const def = bloque ? bloqueDef(bloque) : undefined;
+      const op = s(input.opcion);
+      if (!def?.opciones?.length) return { error: 'Ese bloque no tiene opciones: sólo redes-y-web (redes), lo-que-contesto (fuentes) y respuesta-destacada (pregunta).' };
+      if (!op) return { error: 'Falta la opcion.' };
+      if (def.opciones.includes('pregunta')) { crudo = { op: 'opciones', ...base, opciones: { pregunta: op } }; break; }
+      const validos: readonly string[] = def.opciones.includes('redes') ? REDES : FUENTES_RESPUESTA;
+      const pide = op.toLowerCase().split(/[\s,;]+/).filter(Boolean);
+      if (!pide.length || pide.some((x) => !validos.includes(x))) return { error: 'Hay una que no existe.', disponibles: [...validos] };
+      crudo = { op: 'opciones', ...base, opciones: def.opciones.includes('redes') ? { redes: pide } : { fuentes: pide } };
       break;
     }
     case 'aviso': {

@@ -60,7 +60,8 @@ test('las DOS puertas de la ficha usan la misma regla, con las mismas señales',
   assert.match(ficha, /const verPagos = muestraPagos\(/, 'la tab no sale de muestraPagos');
   assert.match(ficha, /\.\.\.\(verPagos \? \['pagos' as const\] : \[\]\)/, 'la tab Pagos no mira verPagos');
   assert.match(ficha, /planEnLead: planEnLead\(lead\)/, 'el plan no sale de planEnLead');
-  assert.match(codigo('app/crm/actions.ts'), /senalesDeCobroAction\(id\)\]\);/);
+  // Desde el 16/10/2026 la lectura arranca temprano (getLeadFullAction, «tarda un montón en cargar») y entra al mismo Promise.all.
+  assert.match(codigo('app/crm/actions.ts'), /const cobroP = temprano\(senalesDeCobroAction\(id\)\);[\s\S]*funnelsP, cobroP\]\);/);
   assert.match(ficha, /muestraPagos\(\{ estado: lead\.estado_lead, etapa, cuotas: pagos\.length, planEnLead: planEnLead\(lead\), \.\.\.data\.cobro \}\)/);
   assert.match(ruta, /await getLeadFullAction\(idNum\)/, 'la ruta lee las señales con la action del pop-up');
 });

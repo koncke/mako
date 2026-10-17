@@ -4,27 +4,28 @@
 // PanelFicha — el panel de la derecha mientras se personaliza la ficha (el de propiedades del Dashboard)
 // =============================================================================
 // Martín (14/10/2026): «edita todo en la misma tab... no los hagas con un modal diferente... y que ahí mismo
-// se configure qué datos sin marcar notifica». Primero, LA TAB QUE SE ESTÁ MIRANDO (16/10/2026, Martín: «Que se
-// pueda cambiar el nombre de las tabs internas... que se pueda ver "epico"»): su nombre (también con doble clic en la
-// pestaña), su plantilla (la galería, ./GaleriaTab.tsx), la vista épica y «Volver a la plantilla» de esa tab. Después,
-// de TODA la ficha de este funnel:
+// se configure qué datos sin marcar notifica». Primero, LA TAB QUE SE ESTÁ MIRANDO: su plantilla y «Volver a la
+// plantilla». Después, de TODA la ficha de este funnel:
 //   · LA PLANTILLA de toda la ficha y por qué la eligió MaKo, otra a mano, y «Volver toda la ficha».
-//   · EL ESTILO: el PanelEstilo del Dashboard (plantilla de estilo, color y letra; lib/graficos-temas.ts, no
-//     uno nuevo) y el tamaño de las tarjetas (la densidad).
 //   · LOS AVISOS de «datos sin marcar» de este funnel, con su interruptor. Reemplazan al modal de avisos. Las
 //     asistencias van sin interruptor: una reunión que ya pasó siempre avisa (NO_IGNORABLES).
 // Todo guarda solo (useFichaDelFunnel). El aviso corto de arriba dice a quién le cambia.
+//
+// ⚠️ SE ESTÁ VACIANDO (16/10/2026, Martín: «En la vista de edición, elimina la sidebar»). Ya se fueron: el NOMBRE de la
+// tab (se cambia con doble clic en la pestaña), su PLANTILLA (el botón «Templates» de arriba), la VISTA ÉPICA y el
+// ESTILO (el desplegable «Estilo de la hoja», ./EstiloDeLaHoja.tsx). Lo que queda espera al rediseño:
+// la plantilla de toda la ficha pasa a ser templates, y los avisos pasan a «Obligatorio» en cada bloque
+// (docs/feedback-16-10-crm-onboarding-second-brain.md, puntos 4, 5 y 6).
 // =============================================================================
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { Switch } from '@/app/_ui/Toggle';
 import { Dropdown } from '@/app/components/Dropdown';
-import { PanelEstilo } from '@/app/dashboard/PanelEstilo';
 import { DATOS_AVISABLES, NO_IGNORABLES } from '@/lib/datos-aviso';
-import { DENSIDADES, NOMBRE_TAB, type TabFicha } from '@/lib/ficha/catalogo';
+import { NOMBRE_TAB, type TabFicha } from '@/lib/ficha/catalogo';
 import { PLANTILLAS_FICHA, plantillaFicha, type PlantillaId } from '@/lib/ficha/plantillas';
 import { plantillaTabPorId } from '@/lib/ficha/plantillas-tab';
-import { TOPE_NOMBRE_TAB, type CambioFicha } from '@/lib/ficha/config';
+import type { CambioFicha } from '@/lib/ficha/config';
 import type { FichaDelFunnel } from '@/lib/ficha/config-server';
 import { altoDelPanel } from './armar';
 
@@ -57,18 +58,12 @@ export function PanelFicha({ ficha, tab, onCambio, onPlantillas }: {
 
       <section className="fb-panel-sec" aria-label="Esta tab">
         <div className="fb-panel-sub">Esta tab</div>
-        <label className="lk-estilo-tit" htmlFor={`fb-nombre-${tab}`} style={{ display: 'block' }}>Nombre</label>
-        <NombreTab key={`${tab}:${ef.nombres[tab]}`} id={`fb-nombre-${tab}`} valor={ef.nombres[tab]} deSiempre={NOMBRE_TAB[tab]}
-          onGuardar={(nombre) => onCambio({ op: 'nombre', tab, nombre })} />
-        <div className="lk-estilo-tit">Plantilla</div>
-        <div className="fb-panel-fila">
-          <span className="fb-panel-valor">{pt?.nombre ?? 'Sugerida'}</span>
-          <button type="button" className="fb-boton-texto" onClick={onPlantillas}>Cambiar</button>
-        </div>
-        <div className="fb-aviso" style={{ marginTop: 8 }}>
-          <Switch label="Vista épica" checked={ef.epica[tab]} onChange={(v) => onCambio({ op: 'epica', tab, epica: v })} />
-        </div>
-        <button type="button" className="fb-boton-texto" style={{ marginTop: 8 }} disabled={!tabTocada} onClick={() => onCambio({ op: 'volver', tab })}
+        {/* Desde el 16/10/2026 el NOMBRE se cambia en la pestaña (doble clic), la PLANTILLA en «Templates» y la VISTA
+            ÉPICA en «Estilo de la hoja» (./EstiloDeLaHoja.tsx), los dos arriba, en la barra de edición: «"Nombre" se
+            debería poder cambiar ahí mismo en el título... "Plantilla" ya está en la topbar... "Vista épica" debería
+            ser el desplegable de "Estilo de la hoja"» (Martín). */}
+        <span className="fb-panel-valor">{pt?.nombre ?? 'Sugerida'}</span>
+        <button type="button" className="fb-boton-texto" style={{ marginTop: 8, display: 'block' }} disabled={!tabTocada} onClick={() => onCambio({ op: 'volver', tab })}
           title="Sus bloques, su nombre y su vista como los trae su plantilla.">
           Volver a la plantilla
         </button>
@@ -95,20 +90,6 @@ export function PanelFicha({ ficha, tab, onCambio, onPlantillas }: {
             Volver toda la ficha
           </button>
         </div>
-      </section>
-
-      <section className="fb-panel-sec" aria-label="Estilo de la ficha">
-        <div className="fb-panel-sub">Estilo</div>
-        <div className="lk-estilo-tit">Tarjetas</div>
-        <div className="fb-segmentos" role="group" aria-label="Tamaño de las tarjetas">
-          {DENSIDADES.map((d) => (
-            <button key={d.id} type="button" className="fb-herr" aria-pressed={ef.estilo.densidad === d.id}
-              onClick={() => { if (ef.estilo.densidad !== d.id) onCambio({ op: 'densidad', densidad: d.id }); }}>
-              {d.nombre}
-            </button>
-          ))}
-        </div>
-        <PanelEstilo tema={ef.estilo.tema} onCambiar={(tema) => onCambio({ op: 'tema', tema })} />
       </section>
 
       <section className="fb-panel-sec" aria-label="Avisos de datos sin marcar">
@@ -139,26 +120,6 @@ export function PanelFicha({ ficha, tab, onCambio, onPlantillas }: {
   );
 }
 
-/**
- * El nombre de la tab: guarda al salir o con Enter, Escape vuelve al de antes. Vacío = el de siempre. Va también con
- * doble clic en la pestaña (../LeadTabs.tsx); acá es para una pantalla táctil, donde el doble clic no se descubre.
- */
-function NombreTab({ id, valor, deSiempre, onGuardar }: { id: string; valor: string; deSiempre: string; onGuardar: (v: string | null) => void }) {
-  const [v, setV] = useState(valor);
-  const guardar = () => {
-    const t = v.trim();
-    if (t === valor || (!t && valor === deSiempre)) { setV(valor); return; }
-    onGuardar(t || null);
-  };
-  return (
-    <input id={id} className="fb-campo" value={v} maxLength={TOPE_NOMBRE_TAB} placeholder={deSiempre}
-      onChange={(e) => setV(e.target.value)} onBlur={guardar}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-        if (e.key === 'Escape') { e.stopPropagation(); setV(valor); }
-      }} />
-  );
-}
 
 /**
  * El alto máximo del panel es lo que se VE del contenedor que scrollea (el cuerpo del pop-up, o la ventana en

@@ -448,6 +448,9 @@ export function Sidebar() {
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
   const vistaNav = { adminShell, rolWs, capa };
   const puedeVer = (it: NavItem) => puedeVerItem(it, vistaNav);
+  /** ¿Ve «Second Brain» en Analyze (el admin de la tab)? Entonces la entrada de abajo, que lleva al mismo lugar, sobra. */
+  const itemSecondBrain = FAMILIAS.flatMap(itemsDe).find((it) => it.key === 'second-brain');
+  const veSecondBrainEnAnalyze = !!itemSecondBrain && puedeVer(itemSecondBrain);
 
   const familiasProducto = FAMILIAS
     .map((f) => {
@@ -719,7 +722,8 @@ export function Sidebar() {
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />
           {/* MaKo también para el super admin: es una capacidad global, y si va a
               vender el producto usándolo, no puede ser lo único que le falte. */}
-          {MAKO_NAV.filter((it) => adminShell || puedeVer(it)).map((it) => (
+          {/* Desde el 16/10/2026 es «Second Brain» (el chat con MaKo): a quien ya lo ve en Analyze no se le repite. */}
+          {MAKO_NAV.filter((it) => adminShell || (puedeVer(it) && !veSecondBrainEnAnalyze)).map((it) => (
             <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
           ))}
           <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}

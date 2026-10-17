@@ -40,7 +40,9 @@ import { EditableInline } from '@/app/_components/EditableInline';
 import { fondoPortada, esFoto, urlPortada } from '@/lib/portadas';
 import { AudienciaModal } from './AudienciaModal';
 import { LapizPrioridad, MoverPrioridadModal } from './PrioridadAMano';
-import { lugarEn, sugerirNumero, type Lugar } from './lugar-al-soltar';
+// El LUGAR al soltar lo siguen usando el pop-up de prioridad de las TABLAS y del detalle; el Kanban
+// de tareas ya no (16/10/2026: soltar mueve de columna, `board.mover`).
+import { type Lugar } from './lugar-al-soltar';
 import { MakoProyectoModal } from './MakoProyecto';
 import { useVerMas } from './VerMas';
 // ⚠️ EL DESPLEGABLE, SU DIÁLOGO Y LA LISTA DE OPCIONES VIENEN DE ACÁ Y NO DE `lib/`, y el
@@ -68,7 +70,12 @@ import { matchTarea, coincide, CAMPOS_POR_DEFECTO, type CampoBusqueda } from '@/
 import { RichText, mdAHtml, stripHtml, FOCO_BARRA } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
+import { esProyectoBandeja, PROYECTO_SIN_PROYECTO, EMOJI_SIN_PROYECTO, COLOR_SIN_PROYECTO, QUE_SIN_PROYECTO } from '@/lib/plan-bandeja';
+import { type BoardTask, type Label, type Prio, type EstadoTarea, type Check, type Actor, type Fuente, type FuenteTipo, type PrioFiltro, ACTOR_LABEL, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio, estadoDe, prioFiltroDe, PFILTRO_LABEL, PRIOS_FILTRO } from './types';
+// EL KANBAN POR ESTADO (16/10/2026): columnas, orden manual, lugar al soltar y los dos filtros
+// nuevos (Prioridad y Responsable). Puro y compartido con el teléfono: ver app/plan/board/kanban.ts.
+import { columnasPorEstado, ordenAlSoltar, pasaPrioYResponsable, esPrioFiltro, esResponsableFiltro, COLOR_ESTADO, COLOR_PRIO_FILTRO, RESPONSABLES_FILTRO, RESPONSABLE_LABEL, type ResponsableFiltro } from './kanban';
+import { ESTADOS, MOTIVO_ATORADA_MAX, etiquetaEstado } from '@/lib/todo-estados';
 import { resolverDeps, type EstadoDeps, type Dep } from './dependencias';
 import { prioridadesDelTablero } from './prioridades';
 import { ESCALERA } from './types';
@@ -78,6 +85,7 @@ import { apiPlan } from './repo-plan';
 import Link from '@/app/_ui/Link';
 import { diasQuieta, diasAlDeadline, ajusteTemporal } from './envejecer';
 import { ExportarModal } from './ExportarModal';
+import { useRepriorizar, LineaRepriorizar, RepriorizarIcon } from './Repriorizar';
 import { NotasLista } from './NotasLista';
 // Los cuatro títulos del `detalle` salen del contrato, no de una copia local: son
 // EXACTOS y el que los escribe, el que los valida y el que ahora los pliega tienen que
@@ -392,7 +400,9 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   const [peekProjId, setPeekProjId] = useState<string | null>(null); // proyecto abierto DESDE una tarea (encima de ella; feedback jul-19)
   const [nuevoProj, setNuevoProj] = useState(false);
   const [nuevaTareaProj, setNuevaTareaProj] = useState<string | null>(null); // proyecto donde crear la tarea nueva
-  const [nuevaTareaPrio, setNuevaTareaPrio] = useState<Prio | null>(null);   // columna desde la que se creó (precompleta la prioridad)
+  // La COLUMNA desde la que se creó: la tarea nace con ESE estado (decisión 4 del 16/10/2026).
+  // Hasta ese día era la BANDA de prioridad de la columna, que se mandaba como sugerencia al Perro.
+  const [nuevaTareaEstado, setNuevaTareaEstado] = useState<EstadoTarea | null>(null);
   const [eliminarTaskId, setEliminarTaskId] = useState<string | null>(null);
   const [eliminarProjId, setEliminarProjId] = useState<string | null>(null);
   const [asignarTaskId, setAsignarTaskId] = useState<string | null>(null);
@@ -444,6 +454,24 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // Es un Set y no un valor unico porque «hoy Y esta semana» es una pregunta legitima
   // —lo urgente mas lo que se viene— y con un radio habria que elegir una.
   const [fCuando, setFCuando] = usePrefSet<Cuando>('tablero.cuando', esCuando);
+  /**
+   * LA PRIORIDAD PASA A SER UN FILTRO (decisión 3 del 16/10/2026): «el alta, medio y baja
+   * prioridad podría ser un filtro» / «No la quitaría» (Mauricio, 12/10). Alta · Media · Baja · A
+   * futuro · Sin priorizar (score 0, la tarea libre: `prioFiltroDe`). Y «Responsable»: míos /
+   * de clientes / de terceros / sin asignar (`responsable_tipo`, mig 0159), sólo en el tablero
+   * que tiene el dato (`repo.responsables`). Se recuerdan como los demás: son preferencias.
+   */
+  const [fPrio, setFPrio] = usePrefSet<PrioFiltro>('tablero.prioridad', esPrioFiltro);
+  const [fResp, setFResp] = usePrefSet<ResponsableFiltro>('tablero.responsable', esResponsableFiltro);
+  /**
+   * EL ORDEN DENTRO DE CADA COLUMNA DEL KANBAN, aparte del de Proyectos (`sortMode`). Arranca en
+   * MANUAL —el orden que dejó la mano, decisión 2 del 16/10/2026— y con una clave NUEVA a
+   * propósito: con la de siempre (`orden.modo`, que todos tienen guardada en «Por prioridad»)
+   * el kanban abriría ordenado por score en cada navegador, y un arrastre dentro de la columna
+   * no se vería nunca. «Que no se maneje con deadlines» (Mauricio, 8/9).
+   */
+  const [ordenKanban, setOrdenKanban] = usePref<OrdenModo>('orden.kanban', 'manual', esUnoDe('manual', 'score', 'creacion', 'deadline', 'az'));
+  const [dirKanban, setDirKanban] = usePref<'desc' | 'asc'>('orden.kanban.dir', 'asc', esUnoDe('desc', 'asc'));
   /**
    * EL CLIENTE DEL FILTRO (un leadId), o `null`. UNO SOLO: «¿de quién es esto?» tiene una
    * respuesta por tarjeta, y el botón que lo pone («Ver en el Plan», en la ficha) habla de UN
@@ -514,7 +542,6 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const welcomeDetectRef = useRef(false);
   const welcomeAutoRef = useRef(false);
-  const guardianNuevasRef = useRef(false); // el Perro re-puntúa las tareas nuevas UNA vez al entrar
   // Borradores PENDIENTES (plan_propuestas): las tareas que MaKo sacó sola de tu última
   // reunión de equipo, o las que te mandó otra persona. Se muestran de a una.
   const [pendientes, setPendientes] = useState<PropuestaPendiente[]>([]);
@@ -544,6 +571,13 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   const pendientesRef = useRef(false);
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
+  // «RE-PRIORIZAR TODO» (16/10/2026, decisión 9): arranca el trabajo en segundo plano, mira su
+  // avance y pinta lo que ya escribió el server —sin volver a guardarlo— para que un guardado de
+  // esta pestaña no le devuelva a una tarjeta el número viejo. Sin `repo.repriorizar` no se dibuja.
+  const rpUI = useRepriorizar(board.repo?.repriorizar, {
+    aplicar: (tareas, proyectos) => board.aplicarPerroServer(tareas, proyectos),
+    avisar: (m) => board.showUndo(m),
+  });
   // El aviso de gasto de IA lo muestra el toast GLOBAL <IaUsageToast> (app/layout.tsx),
   // que sale ante CUALQUIER operación de IA. Antes el board tenía SU PROPIO cartel →
   // salían DOS avisos apilados por la misma operación (feedback jul-19). showUsage queda
@@ -706,91 +740,26 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   const recibidasOculto = !!(openId || openProj || peekProjId || datosOpen || cargandoBorrador
     || (extraerReunion && !borradorReunion));
 
-  // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
-  // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
-  // ESTRUCTURAL (se agregó/quitó/completó una tarea, o cambió un proyecto). Si nada
-  // cambió, NO gasta tokens (feedback #1/#14). La "firma" ignora los scores para no
-  // re-dispararse a sí misma cuando el guardián aplica los suyos.
-  const repriorizando = useRef(false);
-  const lastReprioSig = useRef(''); // dedup: no re-puntuar dos veces la misma firma
-  const planSignature = () => {
-    const t = tasks.filter((x) => x.progress < 100).map((x) => x.id).sort().join(',');
-    const p = labels.map((l) => l.id).sort().join(',');
-    return `${t}|${p}`;
-  };
-  const rePriorizar = async (sig?: string) => {
-    if (repriorizando.current) return;
-    const sigNow = sig ?? planSignature();
-    if (lastReprioSig.current === sigNow) return; // ya se corrió para esta firma
-    repriorizando.current = true;
-    // ⚠️ LOS PROYECTOS NO VIAJAN ACÁ, y es a propósito. Los juzga `priorizarProyectosOwner`
-    // (server-side) con la metodología completa y con datos para juzgar. Mandarlos también
-    // desde acá —como `{ id, nombre }`, dos palabras— era el SEGUNDO productor del mismo
-    // número, y el que producía el peor: el modelo decidía si «Feature: Closing Analyst»
-    // mueve la aguja sin ver ni una de sus tareas.
-    const proyectos: Array<{ id: string; nombre: string }> = [];
-    // scoreActual: el guardián mantiene el score previo salvo razón concreta (estabilidad).
-    //
-    // ⚠️ EL `detalle` VA RECORTADO A 1500, igual que en `puntuarNuevas`. Sin el recorte este
-    // payload medía 990.903 caracteres ≈ 275.000 tokens sobre el tablero real (550 tareas ×
-    // detalle de hasta 6.000 chars, el 87% del total) — y el límite diario de una cuenta de
-    // Gemini son 250.000. O sea: una sola corrida se comía el día entero, y como esta feature
-    // tiene `fallback: []` la llamada no degradaba, FALLABA. Colgada de un setTimeout que
-    // dispara con solo tener el board abierto y cambiar una tarea.
-    const tareasIn = tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: (t.detalle ?? '').slice(0, 1500), proyecto: board.labelById(t.labels[0])?.name ?? '', deadline: t.deadline, avance: t.progress, origen: t.origen, scoreActual: t.score }));
-    if (tareasIn.length < 2) { repriorizando.current = false; return; }
-    try {
-      const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proyectos, tareas: tareasIn }) }).then((r) => r.json());
-      // `ok:true` con listas vacías NO es éxito: es el Perro que no pudo puntuar (se le
-      // cortó la respuesta). Marcar esa firma como "ya corrida" la quemaba para toda la
-      // sesión: el foco y las prioridades se quedaban clavados y nadie se enteraba —
-      // exactamente lo que se veía como "las 3 prioridades no se actualizan solas".
-      const hubo = (j.tareas?.length ?? 0) + (j.proyectos?.length ?? 0) > 0;
-      if (j.ok && hubo) {
-        board.applyGuardian(j.tareas || [], j.proyectos || []);
-        showUsage(j.usage, 're-priorización del plan');
-        lastReprioSig.current = sigNow; // recién ACÁ se da por atendida
-      } else {
-        console.error('[board] el Perro no devolvió prioridades:', j.error ?? '(sin error explícito)');
-      }
-    } catch (e) { console.error('[board] falló la re-priorización:', e instanceof Error ? e.message : String(e)); }
-    repriorizando.current = false;
-  };
-  // Re-priorización: SOLO cuando el plan cambia DE VERDAD MIENTRAS lo usás (agregar/
-  // borrar/completar una tarea, o cambiar un proyecto). NUNCA al entrar a la tab ni al
-  // refrescar (feedback: no debe correr en cada refresh). Para eso guardamos la firma
-  // de ARRANQUE como línea base en un ref (por sesión): la primera firma con la que
-  // hidrata el board NO dispara nada; solo disparan las divergencias posteriores.
-  const planSig = planSignature();
-  const baseSig = useRef<string | null>(null);
-  // Cuando la ruta de reunión/archivo del DUEÑO puntúa server-side (repo.priorizarNuevas),
-  // suprimimos el re-scoreo client-side de ese cambio para no correr el Perro dos veces.
-  const skipRePrio = useRef(false);
-  useEffect(() => {
-    if (tasks.length < 2 || !planSig) return;
-    // primer render con datos → fijamos la línea base y NO corremos (es "entrar a la tab").
-    if (baseSig.current === null) { baseSig.current = planSig; return; }
-    if (planSig === baseSig.current) return; // sin cambios estructurales reales
-    const id = setTimeout(() => { baseSig.current = planSig; if (skipRePrio.current) return; void rePriorizar(planSig); }, 2500);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planSig]);
-  // PUNTO 4: las tareas que carga MaKo (WhatsApp/Fathom) las puntúa el Perro Guardián
-  // SERVER-SIDE al crearlas (ver priorizarNuevasOwner) → llegan ya con score + razón. Este
-  // disparador queda solo como FALLBACK: si alguna tarea nueva NO tiene razón (el server no
-  // llegó a puntuarla), corremos la re-priorización client-side una vez. Si ya están
-  // puntuadas, NO re-puntuamos todo el plan (era caro y redundante).
-  useEffect(() => {
-    if (guardianNuevasRef.current || !hayWelcome) return;
-    guardianNuevasRef.current = true;
-    if (!welcomeTasks.some((t) => !t.scoreRazon)) return; // ya las puntuó el server
-    // Igual que el disparador de arriba: si el Perro SERVER-SIDE está corriendo sobre
-    // estas mismas tareas, no lo pisamos con una corrida client-side (puntuaba dos veces
-    // y la segunda le ganaba a la del server).
-    const id = setTimeout(() => { if (skipRePrio.current) return; void rePriorizar(); }, 1500);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hayWelcome]);
+  // ── ⛔ LA RE-PUNTUACIÓN OCULTA DEL NAVEGADOR SE APAGÓ (16/10/2026, decisión 8) ──────────
+  //
+  // Acá vivían `rePriorizar` y sus dos disparadores: uno que corría el Perro sobre TODO el plan
+  // abierto cada vez que cambiaba la «firma» (agregar, borrar o completar una tarea, tocar un
+  // proyecto), 2,5 s después y sin que nadie lo pidiera, y otro que lo corría al entrar si «lo
+  // que cargó MaKo» traía alguna tarea sin razón. Las dos le reescribían el score a cada tarjeta
+  // abierta desde la pestaña del navegador —una llamada de IA con hasta 300.000 caracteres por
+  // cambio— y eran justo «el cruce» que el pedido saca: «Quiero hacerlo "libre", que se creen
+  // sin prioridad, y luego de última un botón en los 3 puntos de arriba del plan para
+  // "re-priorizar" todo» (Martín, 16/10/2026). Medido el 15/10: un alta «re-curvó 22 de 175
+  // tareas y re-priorizó 62 de 70 proyectos».
+  //
+  // NO SE REEMPLAZA ACÁ: lo reemplaza el botón «Re-priorizar todo» del menú de los tres puntos,
+  // que corre en el server, en segundo plano y por tandas (decisión 9, otra tanda). Hasta que
+  // exista, una tarea nace «Sin priorizar» y se prioriza a mano (el slider del detalle).
+  //
+  // ⚠️ Y NO VUELVE COMO «FALLBACK»: si una pantalla quiere puntuar, lo pide la PERSONA. Un
+  // efecto que llama a la IA porque cambió algo en el estado del navegador es una llamada que
+  // nadie decidió, que se repite en cada pestaña abierta y que pisa lo que la persona acaba de
+  // ordenar a mano.
   /**
    * EL FILTRO DE CLIENTE, COMO PREDICADO: uno para tareas y uno para proyectos, y los llaman
    * TODAS las vistas — `passes` (Tareas, Kanban y tabla), las dos listas de Recurrentes, la
@@ -814,7 +783,10 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   /** La capa «Cliente» del menú «Filtrar». `undefined` embebido: ver `fCliente`. */
   const opcionesCli = useMemo(() => (embebido ? [] : opcionesDeCliente(clientes, [...tasks, ...labels])), [embebido, clientes, tasks, labels]);
   const menuCli: FiltroCliente | undefined = embebido ? undefined : { opciones: opcionesCli, valor: fCliente, nombre: nombreFiltroCli, set: setFCliente };
-  const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && (fCuando.size === 0 || fCuando.has(cuandoDe(t, hoyISO()))) && pasaEstado(t.progress, doneFilter) && pasaCliente(t);
+  // Los dos filtros del 16/10/2026 (Prioridad y Responsable) van en el MISMO predicado que el
+  // resto, así los cumplen el Kanban y la tabla a la vez. `repo.responsables` falso = el tablero
+  // no tiene el dato y el filtro ni se dibuja ni se aplica (`pasaPrioYResponsable`).
+  const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && (fCuando.size === 0 || fCuando.has(cuandoDe(t, hoyISO()))) && pasaEstado(t.progress, doneFilter) && pasaCliente(t) && pasaPrioYResponsable(t, fPrio, repo.responsables ? fResp : null);
   /**
    * LO QUE SE VE EN «TAREAS» (Kanban y tabla): el universo CON FIN, salvo que estés
    * buscando.
@@ -905,8 +877,9 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   //
   // Recibe el grafo YA resuelto (`estDeps`, memoizado arriba) y el filtro de cliente: con
   // filtro cambia el norte de LA VISTA (`objetivoVista`, lo que Prioridades dibuja a la
-  // izquierda y con qué desempata) pero NO `topProjectId`, que decide en qué COLUMNA cae
-  // cada tarjeta del Kanban — un filtro que mueve tarjetas de columna no filtra: reordena.
+  // izquierda y con qué desempata) pero NO `topProjectId` — el norte del TABLERO, que no es
+  // de ninguna vista. (Hasta el 16/10/2026 se decía que decidía la columna de cada tarjeta del
+  // Kanban; desde ese día las columnas son el estado, y nunca la decidió: `displayPrio` lo ignora.)
   const prio = prioridadesDelTablero({ tareas: tasks, proyectos: labels, estDeps, filtro: filtroCli });
   const objetivoPrincipal = prio.objetivoPrincipal;
   const topProjectId = objetivoPrincipal?.id ?? null;
@@ -1079,14 +1052,22 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     }
     return l;
   };
-  // resumen del plan para que el guardián compare al debatir/crear
-  const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
-
-  // crear una tarea: el usuario propone proyecto(s) + prioridad; el GUARDIÁN la puntúa
-  // (arrancando de la sugerencia del usuario) y decide su columna final (#10).
-  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string; deadline: string; fijarPrioridad: boolean }) => {
+  // CREAR UNA TAREA: nace LIBRE (16/10/2026, decisión 6 de «hacer el kanban un kanban»).
+  //
+  // «Quiero hacerlo "libre", que se creen sin prioridad, y luego de última un botón en los 3
+  // puntos de arriba del plan para "re-priorizar" todo» (Martín, 16/10/2026). Así que el alta ya
+  // NO llama al Perro: la tarea nace con score 0 = «Sin priorizar» (`sinPriorizar`, types.ts) en
+  // la columna que se pidió, y la puntúa «Re-priorizar todo» cuando la persona lo decide.
+  //
+  // ⛔ ACÁ CORRÍA EL PERRO EN CADA ALTA, en las dos mitades: `repo.priorizarNuevas` en segundo
+  // plano en el tablero del dueño, y un `debatir` contra /api/mako-guardian en el del cliente,
+  // con un número de arranque inventado (`userScore || 50`). Era una llamada de IA por cada
+  // tarjeta y un número que nadie había decidido — lo que el pedido saca.
+  //
+  // Lo que SÍ se respeta: si la PERSONA fijó la prioridad (`fijarPrioridad` con un número), se
+  // fija a mano como siempre (`prioridadManual`, con su candado). Eso no es el Perro: es ella.
+  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string; deadline: string; fijarPrioridad: boolean; estado?: EstadoTarea }) => {
     let labelIds = d.labelIds;
-    const proyIds: string[] = [];
     // Si el usuario dijo que el proyecto todavía no existe, lo creamos inline. Nace en 50
     // (la escala es 1-100; el 5 viejo lo dejaba último siempre) y con alta en el historial,
     // igual que un proyecto creado desde WhatsApp.
@@ -1096,78 +1077,29 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       // y descarta los NaN. Era la causa de las tareas huérfanas.
       const canon = await board.createLabel({ id: uid(), emoji: d.nuevoProyEmoji || '🏷', name: d.nuevoProyecto.trim(), color: SWATCHES[labels.length % SWATCHES.length], score: 50, detalle: '', historial: [{ id: uid(), ts: Date.now(), actor: 'user', text: 'Creó el proyecto — alta manual' }] });
       labelIds = [canon.id];
-      proyIds.push(canon.id);
     }
-    const starter = d.userScore || 50;
-    const t = await board.create(d.title, prioFromScore(starter), labelIds.length ? labelIds : undefined, { detalle: d.detalle });
+    const fija = d.fijarPrioridad && d.userScore > 0;
+    const score = fija ? Math.max(1, Math.min(100, Math.round(d.userScore))) : 0;
+    const t = await board.create(d.title, prioFromScore(score), labelIds.length ? labelIds : undefined, { detalle: d.detalle, score, estado: d.estado });
     if (!t) return null;
-    // La FECHA que puso la persona, antes que nada: el Perro propone una solo si no hay.
+    // La FECHA que puso la persona.
     if (d.deadline) board.setDeadline(t.id, d.deadline, '');
-    // ⚠️ Y SI LA PRIORIDAD LA PUSO ELLA, SE FIJA ANTES DE LLAMAR AL PERRO. «Si el usuario
-    // ya puso la prioridad, el Perro no la pisa»: el que la respeta es
-    // `priorizarNuevasOwner`, que mira `score_manual` — o sea que el candado tiene que
-    // estar puesto cuando la corrida lee la fila, no después.
-    if (d.fijarPrioridad && board.repo.prioridadManual) {
+    if (fija && board.repo.prioridadManual) {
       try {
-        const r = await board.repo.prioridadManual('tarea', t.id, starter);
+        const r = await board.repo.prioridadManual('tarea', t.id, score);
         board.aplicarCascadaManual('tarea', { id: t.id, score: r.score, razon: 'Prioridad fijada a mano', texto: `La creaste con prioridad ${r.score}` }, r.movidos);
+        return { id: t.id, score: r.score, razon: 'Prioridad fijada a mano', respuesta: '', prio: prioFromScore(r.score) };
       } catch (e) { console.warn('[alta] fijar prioridad', e); }
     }
-    // Los HECHOS que aportó el usuario (no su número: la prioridad la decide el Perro).
-    const partes: string[] = [];
-    if (d.argumento) partes.push(d.argumento);
-    if (!labelIds.length && d.motivoNinguno) partes.push(`Sin proyecto: ${d.motivoNinguno}.`);
-    // El número que movió el dueño en el slider viaja como SUGERENCIA declarada, no como
-    // ancla: el Perro tiene que puntuarla contra la pirámide del plan y puede ignorarla
-    // por completo. Decírselo explícito es lo que evita que la tome de punto de partida
-    // — un modelo al que le mostrás un número tiende a quedarse cerca de ese número.
-    partes.push(d.fijarPrioridad
-      ? `(El dueño YA FIJÓ la prioridad en ${starter}/100 a mano: no la discutas ni la cambies. Escríbele la descripción y nada más.)`
-      : `(El dueño SUGIRIÓ ${starter}/100 al crearla. Es una sugerencia, no un dato: puntúala tú contra el resto del plan y, si no se sostiene, corrígela sin problema.)`);
-    const contexto = partes.join(' ');
-
-    // UNIFICACIÓN: una tarea cargada a mano recibe EXACTAMENTE el mismo trato que una de
-    // WhatsApp o de una reunión → el Perro server-side, que la ancla contra la pirámide del
-    // plan (no contra el número que propuso el usuario), le arma la checklist y le describe
-    // el proyecto nuevo. El debate 1-a-1 quedaba de rubber-stamp: su veredicto más duro
-    // ("rechaza") dejaba la tarea justo donde el usuario la había puesto.
-    if (board.repo?.priorizarNuevas) {
-      // ⚠️ EL PERRO CORRE EN SEGUNDO PLANO, Y ESO ES EL CAMBIO. Antes el modal se quedaba
-      // en «El Perro Guardián está priorizando la tarea…» hasta que volvían TRES llamadas
-      // a un modelo: entre 10 y 20 segundos mirando un cartel para cargar una línea. Se
-      // crea, se cierra, y cuando el Perro contesta el tablero se actualiza solo.
-      skipRePrio.current = true;
-      marcarTrabajando([t.id, ...proyIds], true);
-      void (async () => {
-        try {
-          const r = await board.repo!.priorizarNuevas!([t.id], proyIds, contexto || '(sin argumento del usuario: puntúala por impacto objetivo contra el resto del plan)');
-          if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
-        } catch (e) { console.warn('[alta] priorizarNuevas', e); }
-        finally {
-          marcarTrabajando([t.id, ...proyIds], false);
-          setTimeout(() => { skipRePrio.current = false; }, 3500);
-        }
-      })();
-      return { id: t.id, score: t.score, razon: '', respuesta: '', prio: displayPrio(t, topProjectId) };
-    } else {
-      // Board del cliente (sin Perro server-side): debate client-side, como antes.
-      const argFinal = contexto || '(sin argumento: puntúalo por impacto objetivo comparándolo con el resto del plan)';
-      try {
-        const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: d.title + (d.detalle ? `\n\n${d.detalle}` : ''), scoreActual: starter, argumento: argFinal, plan: planResumen, uso: 'Nueva tarea' }) }).then((r) => r.json());
-        if (j.ok && typeof j.score === 'number') {
-          board.setScore(t.id, j.score, `Priorizada al crear · score ${j.score}`, 'ia', j.razon);
-          showUsage(j.usage, 'nueva tarea');
-          return { id: t.id, score: j.score, razon: j.razon ?? '', respuesta: j.respuesta ?? '', prio: displayPrio({ ...t, score: j.score }, topProjectId) };
-        }
-      } catch { /* fallback abajo */ }
-    }
-    // Sin veredicto: devolvemos el score REAL con el que quedó la fila (antes se mostraba
-    // el número que había tipeado el usuario, que no era el guardado).
-    return { id: t.id, score: t.score, razon: '', respuesta: 'No pude priorizar ahora; quedó con una prioridad provisoria. Puedes debatirla después.', prio: displayPrio(t, topProjectId) };
+    return { id: t.id, score: t.score, razon: '', respuesta: '', prio: displayPrio(t, topProjectId) };
   };
 
-  // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad
-  // sugerida; al cambiar la firma del plan, el guardián las re-puntúa solo (una corrida).
+  // G3: crear en lote las tareas que MaKo sacó de una reunión (el modal de Fathom, la lectura a
+  // mano). Nacen LIBRES y SIN IA (16/10/2026, «Fathom sin fricción»: «que se creen sin prioridad»):
+  // score 0 = «Sin priorizar», en «Por iniciar», y sin el Perro — que acá corría con `await` después
+  // de crear, puntuando y re-curvando el tablero con la pantalla esperando. La prioridad la pone
+  // «Re-priorizar todo». Es el gemelo de `aplicarPropuestas` (lib/plan-propuesta.ts), el otro
+  // camino de alta desde una reunión, y los dos cambiaron juntos.
   // Deshacer = borrar las que se acaban de crear (fue una acción revisada, no un click suelto).
   type CandReunion = { titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null; proyectoNombre?: string; minuto?: number; minutos?: number[] };
   /**
@@ -1214,10 +1146,6 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     const altaText = fuente?.tipo === 'fathom' ? `Creó la tarjeta — de la reunión «${fuente.etiqueta ?? ''}» (Fathom)`
       : fuente?.tipo === 'archivo' ? `Creó la tarjeta — del archivo «${fuente.etiqueta ?? ''}»`
         : undefined;
-    // Si el board del dueño puede correr el Perro server-side, lo hace ÉL (mismo trato
-    // que WhatsApp) y suprimimos el re-scoreo client-side para no puntuar dos veces.
-    const usaServerPerro = !!board.repo?.priorizarNuevas;
-    if (usaServerPerro) skipRePrio.current = true;
     // El MINUTO en que se dijo, por tarjeta: el mismo chip que traen las que vienen del
     // borrador. Sin esto, las creadas por el botón manual nacían sin forma de volver al
     // momento de la grabación — dos tarjetas de la misma reunión, una con contexto y la
@@ -1261,14 +1189,24 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       nuevosProy.set(norm(nom), canon.id);
     }
 
+    // LA BANDEJA «Sin proyecto» (16/10/2026): lo que la reunión no mandó a ningún proyecto va ahí,
+    // igual que en la carga de un borrador (lib/plan-bandeja.ts), y lo reparte «Re-priorizar todo».
+    // Se busca —o se crea— UNA vez, y sólo si alguna la necesita.
+    let bandeja: string | null = labels.find((l) => esProyectoBandeja(l.name))?.id ?? null;
+    const aBandeja = async (): Promise<string> => {
+      if (bandeja) return bandeja;
+      const canon = await board.createLabel({
+        id: uid(), emoji: EMOJI_SIN_PROYECTO, name: PROYECTO_SIN_PROYECTO, color: COLOR_SIN_PROYECTO, score: 1, detalle: QUE_SIN_PROYECTO,
+        historial: [{ id: uid(), ts: Date.now(), actor: 'ia', text: `Creó la bandeja «${PROYECTO_SIN_PROYECTO}» — de la reunión «${fuente?.etiqueta ?? ''}»` }],
+      });
+      bandeja = canon.id;
+      return canon.id;
+    };
     const ids: string[] = [];
     for (const c of cands) {
-      // el detalle va DENTRO del alta: si se escribiera después, el Perro server-side
-      // podría leer la fila antes de que llegue y puntuar solo con el título.
-      // `[]` explícito, NO undefined: si la IA no le encontró proyecto, la tarea queda
-      // suelta y se ve como tal. Con undefined heredaba el primer proyecto del tablero.
-      const proy = c.proyectoId ?? (c.proyectoNombre ? nuevosProy.get(norm(c.proyectoNombre)) ?? null : null);
-      const t = await board.create(c.titulo, c.prioridad, proy ? [proy] : [], { origen: 'ia', fuente: fuenteDe(c), altaText, detalle: c.detalle });
+      const proy = c.proyectoId ?? (c.proyectoNombre ? nuevosProy.get(norm(c.proyectoNombre)) ?? null : null) ?? await aBandeja();
+      // `score: 0` = nace LIBRE («Sin priorizar»): la prioridad que sugirió la extracción no se usa.
+      const t = await board.create(c.titulo, c.prioridad, [proy], { origen: 'ia', fuente: fuenteDe(c), altaText, detalle: c.detalle, score: 0 });
       if (!t) continue;
       ids.push(t.id);
     }
@@ -1276,22 +1214,8 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       const extra = repetidas.length ? ` · ${textoRepetidas(repetidas.length)}, no las dupliqué` : '';
       board.showUndo(`${ids.length} tarea${ids.length > 1 ? 's' : ''} de la reunión al plan${extra}`, () => ids.forEach((id) => board.removeSilent(id)));
     }
-    // UNIFICACIÓN (#1): el Perro server-side puntúa/describe estas tareas nuevas y les arma
-    // checklist, igual que las de WhatsApp — y con el MISMO contexto (de dónde salieron),
-    // que antes no le pasábamos: puntuaba "(sin brief adicional)".
-    if (usaServerPerro && ids.length) {
-      const contexto = fuente?.tipo === 'fathom' ? `Salieron de la reunión «${fuente.etiqueta ?? ''}» (Fathom): son compromisos que se asumieron ahí.`
-        : fuente?.tipo === 'archivo' ? `Salieron del archivo «${fuente.etiqueta ?? ''}» que subió el dueño.`
-          : '';
-      const proyIds = [...new Set(cands.map((c) => c.proyectoId).filter((x): x is string => !!x))];
-      try {
-        const r = await board.repo!.priorizarNuevas!(ids, proyIds, contexto);
-        // Traer el veredicto a la pantalla. Sin esto la UI mostraba el score adivinado por
-        // la extracción y el próximo guardado del board le pisaba encima al Perro.
-        if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
-      } catch (e) { console.warn('[reunion] priorizarNuevas', e); skipRePrio.current = false; }
-    }
-    if (usaServerPerro) setTimeout(() => { skipRePrio.current = false; }, 3500);
+    // ⛔ ACÁ CORRÍA EL PERRO (`repo.priorizarNuevas`, con `await`): puntuaba, describía y armaba la
+    // checklist de estas tareas, y re-curvaba el tablero. Se fue el 16/10/2026 (ver arriba).
   };
 
   return (
@@ -1403,7 +1327,10 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
             «Filtrar» siguen afuera, por lo que dice el comentario de arriba: sus tres
             preguntas se derivan del deadline y del score. */}
         {(view === 'tareas' || view === 'proyectos' || view === 'recurrentes') && <VistaToggle tabla={tabla} onSet={setTabla} />}
-        {view === 'tareas' && <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} fCuando={fCuando} setFCuando={setFCuando} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} cliente={menuCli} />}
+        {/* «Ordenar» en Tareas es el orden DENTRO de cada columna del Kanban (`ordenKanban`, con
+            «Manual» primero y por defecto); Proyectos sigue con el suyo (`sortMode`). */}
+        {view === 'tareas' && <FilterMenu soloIcono={compacto} labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} fCuando={fCuando} setFCuando={setFCuando} sortMode={ordenKanban} setSortMode={setOrdenKanban} sortDir={dirKanban} setSortDir={setDirKanban} ordenOps={ORDEN_OPS_KANBAN} cliente={menuCli}
+          fPrio={fPrio} setFPrio={setFPrio} {...(repo.responsables ? { fResp, setFResp } : {})} />}
         {view === 'proyectos' && <FilterMenu soloIcono={compacto} doneFilter={doneFilter} setDoneFilter={setDoneFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} cliente={menuCli} />}
         {/* ⚠️ SIN «CUÁNDO» Y SIN ORDENAR: los dos salen del deadline, y una recurrente no
             tiene. Dibujarlos acá sería ofrecer tres controles que devuelven la lista igual.
@@ -1473,12 +1400,25 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           </button>
           </>), menu: { icono: <UploadIcon />, label: 'Importar archivos',
             desc: 'Notas, transcripciones, PDFs, capturas o audios', onClick: () => setImportar(true) } }] : []),
+          /* «RE-PRIORIZAR TODO» (16/10/2026). Corre en segundo plano: el menú se cierra y el tablero
+             sigue usable; el avance va en la línea chica de abajo del header. Si ya hay uno
+             corriendo, la fila muestra su avance en vez de arrancar otro (uno a la vez por tablero). */
+          ...(rpUI.disponible ? [{ key: 'repriorizar', nodo: (
+          <button type="button" onClick={() => { void rpUI.iniciar(); }} aria-label="Re-priorizar todo" title={rpUI.linea ?? 'Re-priorizar todo: MaKo le pone prioridad y proyecto a cada tarea, en segundo plano'}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', color: rpUI.linea ? 'var(--primary)' : 'var(--dim)' }}>
+            <RepriorizarIcon />
+          </button>
+          ), menu: { icono: <RepriorizarIcon />, label: 'Re-priorizar todo',
+            desc: rpUI.linea ?? 'MaKo ordena todo en segundo plano', onClick: () => { void rpUI.iniciar(); } } }] : []),
           /* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
              igual en el tablero del dueño que en el del cliente, y baja al instante. */
           { key: 'exportar', nodo: <ExportarBoton onAbrir={() => setExportar(true)} />,
             menu: { icono: <DescargarIcon />, label: 'Exportar el tablero',
               desc: 'Baja las tareas y los proyectos a un archivo', onClick: () => setExportar(true) } },
         ]} />}
+        {/* La LÍNEA CHICA de «Re-priorizar todo»: su propio renglón del header (que envuelve), así
+            que no empuja ni tapa nada. Mientras corre, el avance; si se cortó, con «Reintentar». */}
+        <LineaRepriorizar trabajo={rpUI.trabajo} cortado={rpUI.cortado} onReintentar={() => { void rpUI.iniciar(); }} onCerrar={rpUI.cerrarCortado} />
 
       </header>
 
@@ -1501,12 +1441,12 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
                 Es el mismo tratamiento y el mismo lugar que el de la tabla de PROYECTOS
                 (`＋ Crear proyecto`): dos tablas hermanas no ofrecen la misma acción de dos
                 formas distintas.
-                Sin prioridad preelegida (`setNuevaTareaPrio(null)`): en el Kanban el botón
-                vive DENTRO de una columna y por eso hereda su banda; acá no hay columna de
-                dónde heredarla, y la pone el Perro en la misma corrida en la que escribe el
-                detalle — que es la regla de no pedir un número sobre algo que no existe. */}
+                Sin columna preelegida (`setNuevaTareaEstado(null)`): en el Kanban el botón
+                vive DENTRO de una columna y la tarea nace en ese estado; acá no hay columna,
+                así que nace en «Por iniciar». Y sin prioridad, en los dos: nace «Sin
+                priorizar» (16/10/2026). */}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => { setNuevaTareaPrio(null); setNuevaTarea(true); }}
+              <button onClick={() => { setNuevaTareaEstado(null); setNuevaTarea(true); }}
                 style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
                 ＋ Nueva tarea
               </button>
@@ -1521,7 +1461,11 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
                  cliente no tiene con qué escribir una prioridad a mano, así que ahí la
                  tabla no dibuja el agarre en vez de ofrecer un gesto que contesta 403. */
               onSoltar={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined} /></div>
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, destino, sugerido, lugar })} />)}
+          /* EL KANBAN POR ESTADO (16/10/2026). Soltar MUEVE (`board.mover`) y no abre el pop-up de
+             prioridad: «cuando tú muevas una tarjeta, yo no debería preguntarte cuál es la nueva
+             prioridad» → «Es correcto» (Mauricio, 12/10). `tablero` = `conFin` sin filtrar: decide
+             si existe la columna «No cumplen tu criterio». */
+          : <Kanban tasks={visibles} tablero={conFin} board={board} orden={ordenKanban} dir={dirKanban} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(e) => { setNuevaTareaEstado(e ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} pasaCliente={pasaClienteProy} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
         {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId}
@@ -1575,7 +1519,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           }}
           onClose={() => setSoltada(null)} />
       )}
-      {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
+      {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} estadoInicial={nuevaTareaEstado} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={(ancla) => setPortadaDe({ id: openProjLabel.id, ancla })} onIcono={(ancla) => setIconoDe({ id: openProjLabel.id, ancla })} onEncuadre={(y) => board.patchLabelLog(openProjLabel.id, { portadaY: y }, 'Acomodó la portada')}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined} onClose={() => setOpenProj(null)} />}
@@ -1692,7 +1636,6 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
             .catch(() => { /* si falla, queda lo que ya habíamos pintado */ })
             .finally(() => setCargandoBorrador(null));
         }}
-        existentes={tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle }))}
         onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onAmpliar={ampliarDesdeReunion} onClose={() => { setExtraerReunion(false); setReunionArchivo(null); }} />}
       {exportar && <ExportarModal tasks={tasks} labels={labels} titulo={repo.labelPlural === 'Proyectos' ? 'Plan' : repo.labelPlural} onClose={() => setExportar(false)} />}
       {/* Borrar es UNA pregunta con dos botones: ya no se le pide permiso al Perro. La
@@ -2318,10 +2261,16 @@ function PlanIcon({ size = 24 }: { size?: number }) {
  * deadline no es «la más lejana»: es una que no contestó la pregunta, y mezclarla entre las
  * que sí tienen fecha hace que el orden deje de significar «qué vence antes».
  */
-type OrdenModo = 'score' | 'creacion' | 'deadline' | 'az';
+type OrdenModo = 'manual' | 'score' | 'creacion' | 'deadline' | 'az';
 const ORDEN_OPS: Array<[OrdenModo, string]> = [['score', 'Por prioridad'], ['deadline', 'Por deadline'], ['creacion', 'Por creación'], ['az', 'Alfabético']];
+/**
+ * EL KANBAN DE TAREAS SUMA «MANUAL», PRIMERO Y POR DEFECTO (16/10/2026): el orden que dejó la
+ * mano dentro de cada columna (`enOrdenManual`, kanban.ts). Proyectos no lo tiene: su grilla
+ * sigue agrupada por banda y ordenada por un criterio.
+ */
+const ORDEN_OPS_KANBAN: Array<[OrdenModo, string]> = [['manual', 'Manual'], ...ORDEN_OPS];
 /** El mismo rótulo, corto, para los chips del filtro de proyectos. */
-const ORDEN_CORTO: Record<OrdenModo, string> = { score: 'Prioridad', deadline: 'Deadline', creacion: 'Creación', az: 'A-Z' };
+const ORDEN_CORTO: Record<OrdenModo, string> = { manual: 'Manual', score: 'Prioridad', deadline: 'Deadline', creacion: 'Creación', az: 'A-Z' };
 /**
  * LA DIRECCIÓN CON LA QUE ARRANCA CADA CRITERIO, que no es la misma para los cuatro.
  *
@@ -2330,7 +2279,7 @@ const ORDEN_CORTO: Record<OrdenModo, string> = { score: 'Prioridad', deadline: '
  * Un orden que hay que invertir a mano apenas se elige no es un orden: es un paso de más.
  * Invertirlo sigue estando a un click.
  */
-const DIR_NATURAL: Record<OrdenModo, 'desc' | 'asc'> = { score: 'desc', deadline: 'asc', creacion: 'desc', az: 'asc' };
+const DIR_NATURAL: Record<OrdenModo, 'desc' | 'asc'> = { manual: 'asc', score: 'desc', deadline: 'asc', creacion: 'desc', az: 'asc' };
 
 /**
  * ⛔ ACÁ ESTABA `comenzadas` («progreso entre 1 y 99»), y se fue el 24/09/2026: «elimina el
@@ -2515,6 +2464,41 @@ function PerroTrabajando({ que }: { que: string }) {
  * proyecto». Eran dos copias del mismo bloque, con dos `<details>` cada una, y ya habían
  * divergido (el de proyectos no mostraba el ajuste por tiempo).
  */
+/**
+ * LA COLUMNA DE UNA TAREA EN EL DETALLE (16/10/2026): en qué estado está, para moverla sin
+ * arrastrar, y el motivo de «Atorada». Escribe por `board.mover` (estado; el lugar se queda si
+ * no cambia de columna, y si cambia va arriba de la nueva) y `board.setMotivoAtorada`.
+ */
+function BloqueColumna({ t, board }: { t: BoardTask; board: Board }) {
+  const e = estadoDe(t);
+  const [motivo, setMotivo] = useState(t.motivoAtorada ?? '');
+  // El motivo que llega de afuera (el campo del kanban, otra pestaña) pisa el borrador sólo
+  // si no se está escribiendo uno distinto.
+  const guardado = t.motivoAtorada ?? '';
+  const [base, setBase] = useState(guardado);
+  if (guardado !== base) { setBase(guardado); setMotivo(guardado); }
+  const rotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--faint)' };
+  const guardarMotivo = () => { const m = motivo.trim(); if (m !== guardado) board.setMotivoAtorada(t.id, m || null); };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <span style={{ ...rotulo, flex: 'none' }}>Columna</span>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLOR_ESTADO[e], flex: 'none' }} />
+        <select value={e} onChange={(ev) => { void board.mover(t.id, ev.target.value as EstadoTarea); }} aria-label="Columna del kanban"
+          style={{ flex: 1, minWidth: 0, padding: '5px 6px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontWeight: 600, fontFamily: SANS, cursor: 'pointer' }}>
+          {ESTADOS.filter((x) => x.key === e || x.key !== 'hecho' || !esRecurrente(t)).map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+        </select>
+      </label>
+      {e === 'en_seguimiento' && (
+        <input value={motivo} maxLength={MOTIVO_ATORADA_MAX} onChange={(ev) => setMotivo(ev.target.value)}
+          onBlur={guardarMotivo} onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.currentTarget as HTMLInputElement).blur(); }}
+          placeholder="¿Qué la frena? (opcional)" aria-label={`Por qué está ${etiquetaEstado(e).toLowerCase()}`}
+          style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: `1px dashed ${COLOR_ESTADO.en_seguimiento}`, background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS, outline: 'none' }} />
+      )}
+    </div>
+  );
+}
+
 function BloquePrioridad({ etiqueta, chip, color, titulo, razon, impacto, esfuerzo, tiempo, puedeEditar, onEditar }: {
   /** «BAJA», «ALTA»… Sólo las tareas tienen banda; un proyecto es su número. */
   etiqueta?: string;
@@ -2602,9 +2586,21 @@ function BloquePrioridad({ etiqueta, chip, color, titulo, razon, impacto, esfuer
    con el impacto y el esfuerzo: la razón no es un bloque aparte, es lo que explica el
    número que está al lado. */
 // score del guardián (1-100), coloreado por la columna que define.
-function ScoreBadge({ score }: { score: number }) {
+/**
+ * EL CHIP DE PRIORIDAD de la tarjeta del Kanban (16/10/2026). Desde que las columnas son el
+ * estado, la prioridad ya no la dice la columna: la dice este chip (el número en el color de su
+ * banda, el mismo punto del filtro «Prioridad») y se filtra. Una tarea LIBRE (score 0, nadie la
+ * juzgó todavía) dice «Sin priorizar» — no «A futuro», que es un juicio (`prioFiltroDe`).
+ */
+function PrioChip({ score }: { score: number }) {
+  const f = prioFiltroDe({ score });
+  if (f !== 'sin_priorizar') return <ScoreBadge score={score} titulo={`Prioridad ${PFILTRO_LABEL[f]} · ${score}`} />;
+  const c = COLOR_PRIO_FILTRO.sin_priorizar;
+  return <span title="Nadie le puso prioridad todavía" style={{ display: 'inline-flex', alignItems: 'center', flex: 'none', fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, border: `1px dashed ${c}88`, borderRadius: 5, padding: '1px 5px', whiteSpace: 'nowrap' }}>Sin priorizar</span>;
+}
+function ScoreBadge({ score, titulo }: { score: number; titulo?: string }) {
   const c = PCOLOR[prioFromScore(score)];
-  return <span title="Prioridad del guardián (1-100)" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, background: c + '18', border: `1px solid ${c}33`, borderRadius: 5, padding: '1px 5px 1px 4px' }}><ScoreIcon size={10} color={c} />{score}</span>;
+  return <span title={titulo ?? 'Prioridad del guardián (1-100)'} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, background: c + '18', border: `1px solid ${c}33`, borderRadius: 5, padding: '1px 5px 1px 4px' }}><ScoreIcon size={10} color={c} />{score}</span>;
 }
 // Chip de FUENTE (feedback jul-19): DE DÓNDE salió la tarjeta — Fathom (reunión),
 // WhatsApp, un archivo, Claude Code (con nombre + link del chat), o MaKo. Distinto de
@@ -2876,7 +2872,7 @@ function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; no
   return <span style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.45, fontWeight: 700, flex: 'none' }}>{ini}</span>;
 }
 
-// ── tarjeta (cuadrada, estilo CRM; la columna la decide el guardián, no se arrastra) ─
+// ── tarjeta (cuadrada, estilo CRM; desde el 16/10/2026 la columna es su ESTADO y se arrastra) ─
 // El emoji de una tarea = el de su proyecto principal (feedback jul-18): más simple
 // y coherente que un emoji propio por tarea. Sin proyecto → 📌.
 const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.labels[0])?.emoji || t.emoji || '📌';
@@ -2925,7 +2921,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
   // pasando porque lo necesita para saber cuál excluir al calcular el hueco, pero acá
   // adentro lo único que cambia de aspecto durante un arrastre con mouse es NADA.
   void oculta;
-  // A qué proyecto pertenece. El kanban agrupa por PRIORIDAD, así que sin esto una
+  // A qué proyecto pertenece. El kanban agrupa por ESTADO (antes, por prioridad), así que sin esto una
   // columna es una lista de tareas sueltas y hay que abrir cada una para saber de qué
   // parte del plan es. Va en el lugar del emoji —que ya era el del proyecto, solo que
   // mudo— para no gastar una fila: la card mide 138px fijos y el título necesita sus
@@ -2951,7 +2947,8 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
       // vista Recurrentes significa otra cosa (el RITMO, mig 0165), que es una escritura que
       // los dos tableros sí tienen. Un componente compartido que decide solo qué se puede
       // escribir es cómo el slider de prioridad salió a producción contestándole «solo
-      // admin» a todos los clientes; el que sabe es el que monta.
+      // admin» a todos los clientes; el que sabe es el que monta. (Desde el 16/10/2026 el
+      // Kanban la habilita con `repo.mover`: arrastrar es cambiar de columna, no de prioridad.)
       draggable={!!onAgarrar}
       data-card
       // ⚠️ LA COPIA QUE VIAJA CON EL CURSOR NO LA DIBUJA EL NAVEGADOR: LA DIBUJAMOS NOSOTROS.
@@ -3053,7 +3050,7 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
             movimiento sigue entero en el detalle (`TiempoLinea`), que es donde se
             discute un número. La ALARMA (`WarnMark`) se queda: esa pide una acción. */}
         {warn && <WarnMark title="Falta el deadline" onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
-        {!sinRanking && <ScoreBadge score={t.score} />}
+        {!sinRanking && <PrioChip score={t.score} />}
       </div>
       {/* TÍTULO DE DOS LÍNEAS, con el entero en el `title`. Primero fue una sola —«los
           títulos son muy largos, tiene que poner una cantidad máxima de caracteres»— y con
@@ -3064,6 +3061,12 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
           de feo con palabras cortas, se queda corto con palabras largas, y además miente en
           el `title`. Con el clamp, el corte lo decide el ancho real de la card. */}
       <div title={t.title} style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
+      {/* POR QUÉ ESTÁ ATORADA, en una línea (16/10/2026): «porque el cliente no da o porque yo
+          no tengo dinero… o los recursos» (Mauricio). Cabe en los 138 px fijos: el hueco de
+          abajo (`flex: 1`) es justo lo que cede. El entero, en el `title`. */}
+      {estadoDe(t) === 'en_seguimiento' && t.motivoAtorada && (
+        <div title={t.motivoAtorada} style={{ marginTop: 4, fontSize: 11.5, lineHeight: 1.35, color: COLOR_ESTADO.en_seguimiento, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>⏸ {t.motivoAtorada}</div>
+      )}
       {/* ⚠️ EL DEADLINE VA EN SU PROPIO RENGLÓN, y dice el plazo. Acá había un
           `deadline.slice(5)` — «09-25»: sin día de la semana, sin año y, sobre todo, sin
           decir si ya se venció. «Me gusta este formato, que también dice los días
@@ -3273,29 +3276,40 @@ function BloqueoChip({ porQue, compacto = false }: { porQue: string[]; compacto?
   );
 }
 
-// ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
+// ── vista Kanban: las columnas son el ESTADO (16/10/2026); ancho completo ──────────
+//
+// «Hacer el kanban un kanban» (Martín, sobre la reunión con Mauricio del 12/10): «el espíritu
+// más importante del Kanban es el flujo… No la clasificación». Las columnas son Por iniciar ·
+// En proceso · Atorada · Completada, y «No cumplen tu criterio» al final sólo si el tablero
+// tiene alguna (`columnasPorEstado`, kanban.ts). Hasta el 16/10 eran las cuatro BANDAS de
+// prioridad (`displayPrio`) y soltar abría el pop-up del 1 al 100; ahora soltar MUEVE
+// (`board.mover`: estado y lugar) y la prioridad es un filtro y un chip.
+//
+// Lo que NO cambió, a propósito: el gesto. La copia que sigue al cursor, el hueco que dice dónde
+// va a caer, el auto-scroll, los rectángulos medidos una sola vez y el arrastre con el dedo son
+// los MISMOS (`useArrastreCopia`, `useArrastreTactil`): «copiá la animación que ya existe».
+
 /**
  * Dónde se va a insertar la tarjeta que estás arrastrando: qué columna y en qué POSICIÓN.
  *
  * «No solo desplazar de columna, sino de fila: puedo moverla abajo o arriba, y se tiene que
  * ver en la animación que la estoy moviendo un espacio donde estoy por dejar caer a la
- * tarjeta» (23/09/2026). Hasta acá el arrastre sólo sabía de columnas, así que soltar en
- * cualquier lado de «Alta» daba siempre el mismo número —el representativo de la banda— y
- * el pop-up abría en 88 sin importar si la habías dejado arriba de todo o al fondo.
+ * tarjeta» (23/09/2026). Con el orden MANUAL (el de siempre desde el 16/10) el lugar es el
+ * dato: el `orden` nuevo sale de la de arriba y la de abajo (`ordenAlSoltar`).
  */
-type Insercion = { destino: Prio; idx: number };
+type Insercion = { destino: EstadoTarea; idx: number };
 
 /**
- * El número que le corresponde a una tarjeta soltada ENTRE otras dos.
+ * El número que le corresponde a una tarjeta soltada ENTRE otras dos — hoy sólo lo usa la
+ * grilla de PROYECTOS, que sigue agrupada por banda. (El Kanban de tareas lo usaba hasta el
+ * 16/10/2026, cuando sus columnas pasaron a ser el estado.)
  *
  * Es el punto medio entre la de arriba y la de abajo, que es lo que hace que el orden que
  * dibujaste con la mano sea el orden que queda. Los bordes tienen su caso: arriba de todo
  * son dos puntos más que la primera, abajo de todo dos menos que la última, y en una columna
  * vacía el representativo de la banda, que es lo único que se sabe.
  *
- * ⚠️ Sale una SUGERENCIA, no el número final: el pop-up siempre pregunta. «Que siempre salga
- * el pop-up para cambiar la prioridad del 1 al 100» — soltar dice dónde, la persona dice
- * cuánto.
+ * ⚠️ Sale una SUGERENCIA, no el número final: el pop-up siempre pregunta.
  */
 function scoreEntre(items: { score: number }[], idx: number, destino: Prio): number {
   const arriba = items[idx - 1];
@@ -3307,26 +3321,45 @@ function scoreEntre(items: { score: number }[], idx: number, destino: Prio): num
   return scoreFromPrio[destino];
 }
 
-function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, sel, setSel, onOpen, onNew, onWarn, onOpenProj, onEliminar, onSoltar }: {
-  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: OrdenModo; sortDir: 'desc' | 'asc'; frenanA: (id: string) => string[]; ask: (msg: string, onOk: () => void) => void; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void; onEliminar: (id: string) => void;
+/** Cuántas tarjetas de «Completada» se ven al principio (el resto, con «Ver más»). */
+const COMPLETADAS_A_LA_VISTA = 20;
+
+function Kanban({ tasks, tablero, board, orden, dir, frenanA, ask, sel, setSel, onOpen, onNew, onWarn, onOpenProj, onEliminar }: {
+  tasks: BoardTask[];
+  /**
+   * EL TABLERO DE LA VISTA, sin filtros: decide si existe la columna «No cumplen tu criterio».
+   * Con lo filtrado, la columna aparecería y desaparecería al filtrar y movería el tablero.
+   */
+  tablero: BoardTask[];
+  board: Board;
+  /**
+   * Cómo se ordena DENTRO de cada columna. `manual` es el de siempre (decisión 2 del 16/10): el
+   * orden que dejó la mano. Los otros siguen en «Ordenar», pero con ellos el lugar no se puede
+   * elegir —lo decide el criterio—, así que soltar sólo cambia de columna (arriba de todo).
+   */
+  orden: OrdenModo; dir: 'desc' | 'asc';
+  frenanA: (id: string) => string[]; ask: (msg: string, onOk: () => void) => void; onOpen: (id: string) => void;
+  /** El «＋» de una columna: la tarea nace con ESE estado (decisión 4 del 16/10/2026). */
+  onNew: (estado?: EstadoTarea) => void;
+  onWarn: (id: string) => void; onOpenProj: (id: string) => void; onEliminar: (id: string) => void;
   /**
    * LO TILDADO, Y VIENE DE AFUERA. Vivía acá adentro hasta el 04/10/2026, y por eso se
    * perdía al conmutar a la tabla: este componente se desmonta entero. Lo guarda
    * `BoardShell`, que es el ancestro que las dos formas comparten.
    */
   sel: ReadonlySet<string>; setSel: Dispatch<SetStateAction<ReadonlySet<string>>>;
-  /**
-   * soltaste una tarjeta: NO se fija sola, se pregunta el número — con el que sugiere la
-   * POSICIÓN. `lugar` viaja sólo cuando la columna está ordenada por prioridad de mayor a
-   * menor: ahí la posición ES la prioridad y el server corre a las de abajo para cumplirla
-   * (`hacerLugar`, lugar-al-soltar.ts). Ordenada por nombre o por fecha, el lugar no dice nada.
-   */
-  onSoltar: (id: string, destino: Prio, sugerido?: number, lugar?: Lugar) => void;
 }) {
   // Dónde caería si soltaras ahora. Es estado y no un ref porque se DIBUJA: el hueco entre
   // las tarjetas es la única forma de saber dónde va a caer antes de soltarla.
   const [ins, setIns] = useState<Insercion | null>(null);
   const [arrastrado, setArrastrado] = useState<string | null>(null);
+  /**
+   * LA TARJETA QUE ACABA DE CAER EN «ATORADA»: abre, debajo de ella, un campo chico para el
+   * motivo. OPCIONAL Y NO BLOQUEA (decisión 1 del 16/10/2026): la tarjeta ya se movió; el campo
+   * se cierra solo si se va sin escribir. «porque el cliente no da o porque yo no tengo
+   * dinero… o los recursos» (Mauricio, 12/10) — es lo que se lee después en la tarjeta.
+   */
+  const [motivoDe, setMotivoDe] = useState<string | null>(null);
   /**
    * LO SELECCIONADO EN EL KANBAN. «Que pueda seleccionar varias tarjetas también en la vista
    * kanban» (24/09/2026).
@@ -3371,30 +3404,48 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, s
     if (!id) { setIns(null); rects.current = {}; pararScroll(); soltarCopia(); return; }
     if (desde) montarCopia(desde.nodo, desde.dx, desde.dy);
     const out: Record<string, number[]> = {};
-    for (const col of document.querySelectorAll<HTMLElement>('[data-prio]')) {
-      const prio = col.dataset.prio ?? '';
-      out[prio] = [...col.querySelectorAll<HTMLElement>('[data-card]')].map((el) => {
+    for (const col of document.querySelectorAll<HTMLElement>('[data-columna]')) {
+      const clave = col.dataset.columna ?? '';
+      out[clave] = [...col.querySelectorAll<HTMLElement>('[data-card]')].map((el) => {
         const r = el.getBoundingClientRect();
         return r.top + r.height / 2 + window.scrollY;
       });
     }
     rects.current = out;
   }, [pararScroll, soltarCopia, montarCopia]);
+  const manual = orden === 'manual';
+  // La CAPACIDAD, no el tablero: sin `repo.mover` (una demo armada a mano) no hay arrastre.
+  const puedeMover = !!board.repo.mover;
   // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
-  const dir = sortDir === 'asc' ? 1 : -1;
+  const cmp = comparar(orden, dir === 'asc' ? 1 : -1);
+  const columnas = columnasPorEstado(tasks, tablero, manual
+    ? undefined
+    : (items) => [...items].sort((a, b) => cmp({ score: a.score, titulo: a.title, deadline: a.deadline, creado: a.num }, { score: b.score, titulo: b.title, deadline: b.deadline, creado: b.num }) || b.num - a.num));
+  /**
+   * SOLTAR = MOVER. Sin pop-up de prioridad (decisión 2 del 16/10/2026). Si entra a «Atorada»
+   * desde otra columna, abre el campo del motivo — ya, sin esperar al server: si el server dice
+   * que no, la tarjeta vuelve a su columna y el campo deja de dibujarse solo.
+   */
+  const soltarEn = (id: string, destino: EstadoTarea, ordenNuevo?: number) => {
+    const t = board.tasks.find((x) => x.id === id);
+    if (!t) return;
+    if (destino === 'en_seguimiento' && estadoDe(t) !== 'en_seguimiento') setMotivoDe(id);
+    void board.mover(id, destino, ordenNuevo);
+  };
   // EL ARRASTRE CON EL DEDO. El mouse sigue por HTML5 drag-and-drop (ya funciona y ya está
   // probado); esto corre sólo cuando el puntero NO es un mouse. Ver arrastre-tactil.ts: ahí
   // están las cuatro trampas que hacen que un arrastre táctil se pelee con el scroll, con
-  // los clicks de adentro de la tarjeta y con el click fantasma del final.
-  const prioDe = useCallback((id: string) => {
+  // los clicks de adentro de la tarjeta y con el click fantasma del final. Con el dedo no hay
+  // hueco: la tarjeta va arriba de la columna destino.
+  const colDe = useCallback((id: string) => {
     const t = tasks.find((x) => x.id === id);
-    return t ? displayPrio(t, topProjectId) : null;
-  }, [tasks, topProjectId]);
-  const tactil = useArrastreTactil(onSoltar, prioDe, !!board.repo.prioridadManual);
+    return t ? estadoDe(t) : null;
+  }, [tasks]);
+  const tactil = useArrastreTactil<EstadoTarea>((id, destino) => soltarEn(id, destino), colDe, puedeMover);
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '18px 30px 30px', flex: '1 0 auto', alignItems: 'flex-start' }} className="mako-board">
-      <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
-      {/* La barra ocupa el ancho de las cuatro columnas y queda pegada arriba mientras
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))`, gap: 14, padding: '18px 30px 30px', flex: '1 0 auto', alignItems: 'flex-start' }} className="mako-board">
+      <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important;padding:14px 16px 24px!important}}`}</style>
+      {/* La barra ocupa el ancho de todas las columnas y queda pegada arriba mientras
           scrolleás: con un tablero de 19.000px, una barra que se va con el scroll obliga a
           volver arriba para usarla. */}
       {elegidas.length > 0 && (
@@ -3402,124 +3453,170 @@ function Kanban({ tasks, board, topProjectId, sortMode, sortDir, frenanA, ask, s
           <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
         </div>
       )}
-      {PRIOS.map((p) => {
-        const cmp = comparar(sortMode, dir);
-        const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) =>
-          (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0)
-          || cmp({ score: a.score, titulo: a.title, deadline: a.deadline, creado: a.num }, { score: b.score, titulo: b.title, deadline: b.deadline, creado: b.num })
-          || b.num - a.num);
-        // El hueco se dibuja en la posición exacta donde va a caer, y sólo en la columna
-        // sobre la que está el puntero.
-        const hueco = (i: number) => (ins?.destino === p && ins.idx === i
-          ? <div key={`hueco-${i}`} style={{ flex: 'none', height: 64, borderRadius: 10, border: `2px dashed ${PCOLOR[p]}`, background: PCOLOR[p] + '12', transition: 'height .12s' }} />
-          : null);
-        return (
-          <section key={p}
-            // Soltar una tarjeta acá ABRE EL POP-UP del 1 al 100; la columna solo dice la
-            // banda. `preventDefault` en dragOver es lo que habilita el drop (sin él, el
-            // navegador lo rechaza y no pasa nada, que se lee como que el arrastre no anda).
-            // ⚠️ ACÁ ESTABA EL BUG, Y NO EN LA TARJETA. «No entiendo por qué en CRM
-            // funciona bien y aquí no»: el CRM re-renderiza cuando cambiás DE COLUMNA —
-            // cuatro veces en todo el arrastre— y esta versión leía el
-            // `getBoundingClientRect` de las 55 tarjetas de «Alta» y volvía a dibujar el
-            // tablero entero (334 tarjetas) en CADA evento de `dragover`, o sea ~60 veces
-            // por segundo. Con el DOM reconstruyéndose así, el arrastre se ve exactamente
-            // como se reportó: la tarjeta «no se agarra» y queda un fantasma congelado.
-            //
-            // La lección ya estaba escrita —y probada— en `arrastre-tactil.ts`: «leer
-            // layout en cada movimiento es lo que hace que un arrastre se sienta
-            // pegajoso». Los rectángulos se miden UNA vez, al empezar, y en coordenadas de
-            // PÁGINA para que sobrevivan al scroll.
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = 'move';
-              empujarScroll(e.clientY);
-              const y = e.clientY + window.scrollY;
-              const medidas = rects.current[p] ?? [];
-              let idx = medidas.length;
-              for (let i = 0; i < medidas.length; i++) { if (y < medidas[i]) { idx = i; break; } }
-              // Y sólo se re-renderiza cuando el DESTINO cambia de verdad.
-              setIns((prev) => (prev && prev.destino === p && prev.idx === idx ? prev : { destino: p, idx }));
-            }}
-            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIns((prev) => (prev?.destino === p ? null : prev)); }}
-            onDrop={(e) => {
-              e.preventDefault();
-              const id = e.dataTransfer.getData('text/plain');
-              rects.current = {};
-              pararScroll();
-              const crudo = ins?.destino === p ? ins.idx : items.length;
-              setIns(null);
-              setArrastrado(null);
-              // La lista SIN la que se está moviendo: si se la deja adentro, el punto medio
-              // se calcula contra su propio número y la tarjeta «no se mueve».
-              //
-              // ⚠️ Y POR ESO EL ÍNDICE HAY QUE CORRERLO. `idx` se midió contra los
-              // rectángulos DIBUJADOS, que incluyen a la tarjeta agarrada —al nodo origen no
-              // se le toca el tamaño, así que sigue ocupando su lugar—, y el número se
-              // calcula contra la lista sin ella: bajando una tarjeta dentro de su propia
-              // columna, cada posición de abajo se corre una. Sin el corrimiento el punto
-              // medio sale entre el par equivocado y la tarjeta cae un lugar más arriba del
-              // hueco que se estuvo viendo todo el arrastre — «la solté acá y quedó allá».
-              // La grilla de proyectos y las tablas ya lo hacían; el Kanban era el único de
-              // los tres que no, y un mismo gesto no puede dar tres números distintos.
-              const otros = items.filter((t) => t.id !== id);
-              const iYo = items.findIndex((t) => t.id === id);
-              const idx = Math.max(0, Math.min(iYo >= 0 && crudo > iYo ? crudo - 1 : crudo, otros.length));
-              if (!id) return;
-              const base = scoreEntre(otros, idx, p);
-              // ⚠️ EL PUNTO MEDIO SOLO NO ALCANZA: entre dos tarjetas con el MISMO número no hay
-              // número que deje a la soltada en el medio, y el desempate por `num` la corría 1 a
-              // 3 lugares en el 76% de los lugares (medido el 06/10/2026). Con la columna por
-              // prioridad de mayor a menor, el número sale de `sugerirNumero` —el que deja la
-              // tarjeta ahí corriendo a las de abajo— y el lugar viaja para que el server lo
-              // cumpla con el tablero recién leído. El universo es el tablero ENTERO y no lo que
-              // dejó el buscador: el server no ve los filtros.
-              const porPrioridad = sortMode === 'score' && sortDir === 'desc';
-              const yo = board.tasks.find((t) => t.id === id);
-              if (!porPrioridad || !yo) { onSoltar(id, p, base); return; }
-              const compite = (t: BoardTask) => t.progress < 100 && !esRecurrente(t);
-              const lugar = lugarEn(otros, idx, compite);
-              const col = board.tasks.filter((t) => t.id !== id && compite(t)).map((t) => ({ id: t.id, score: t.score, num: t.num }));
-              onSoltar(id, p, sugerirNumero(col, { id, num: yo.num }, lugar, p, base), lugar);
-            }}
-            // `data-prio` es cómo el arrastre táctil sabe dónde está cada columna: al armarse
-            // el gesto mide estos cuatro rectángulos UNA vez y después no vuelve a leer layout.
-            data-prio={p}
-            style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: (tactil.sobre === p || ins?.destino === p) ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + ((tactil.sobre === p || ins?.destino === p) ? PCOLOR[p] : 'var(--border)'), borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10, transition: 'background .12s, border-color .12s' }}>
-            <ColHeader p={p} count={items.length} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
-              {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas) */}
-              <button onClick={() => onNew(p)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
-              {items.length === 0 && !hueco(0) && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
-              {/* EL HUECO. Es lo que convierte «la estoy soltando en Alta» en «la estoy
-                  soltando ACÁ»: sin él, el número que propone el pop-up sale de una posición
-                  que nadie vio. Tiene el alto de una tarjeta para que lo de abajo se corra
-                  de verdad, como en el CRM. */}
-              {hueco(0)}
-              {items.map((t, i) => (
-                <Fragment key={t.id}>
-                  {/* `warn`: el triangulito rojo de «alta sin fecha». `!esRecurrente(t)`
-                      porque una recurrente no puede tener deadline, así que titilaría para
-                      siempre — es el mismo corte que el detalle hace en su rótulo. */}
-                  <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && !t.deadline && !esRecurrente(t)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} onEliminar={onEliminar} tactil={tactil} onAgarrar={board.repo.prioridadManual ? agarrar : undefined} oculta={arrastrado === t.id} elegida={sel.has(t.id)} haySeleccion={sel.size > 0} onElegir={alternarSel} />
-                  {hueco(i + 1)}
-                </Fragment>
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      {columnas.map(({ estado: e, label, items }) => (
+        <ColumnaKanban key={e} estado={e} label={label} items={items} board={board} manual={manual} puedeMover={puedeMover}
+          ins={ins} setIns={setIns} rects={rects} empujarScroll={empujarScroll} pararScroll={pararScroll}
+          arrastrado={arrastrado} setArrastrado={setArrastrado} agarrar={agarrar} tactil={tactil}
+          soltarEn={soltarEn} motivoDe={motivoDe} setMotivoDe={setMotivoDe}
+          frenanA={frenanA} sel={sel} alternarSel={alternarSel} onOpen={onOpen} onNew={onNew} onWarn={onWarn} onOpenProj={onOpenProj} onEliminar={onEliminar} />
+      ))}
     </div>
   );
 }
-function ColHeader({ p, count }: { p: Prio; count: number }) {
+
+/**
+ * UNA COLUMNA DEL KANBAN. Es un componente aparte sólo por «Completada»: es la única que crece
+ * sin techo (en el tablero del dueño, 248 de 424 el 16/10/2026) y la única que se corta con
+ * «Ver más» (`useVerMas`, que es un hook). Las demás se ven enteras, como siempre.
+ */
+function ColumnaKanban({ estado: e, label, items, board, manual, puedeMover, ins, setIns, rects, empujarScroll, pararScroll, arrastrado, setArrastrado, agarrar, tactil, soltarEn, motivoDe, setMotivoDe, frenanA, sel, alternarSel, onOpen, onNew, onWarn, onOpenProj, onEliminar }: {
+  estado: EstadoTarea; label: string; items: BoardTask[]; board: Board; manual: boolean; puedeMover: boolean;
+  ins: Insercion | null; setIns: Dispatch<SetStateAction<Insercion | null>>; rects: { current: Record<string, number[]> };
+  empujarScroll: (y: number) => void; pararScroll: () => void;
+  arrastrado: string | null; setArrastrado: (id: string | null) => void;
+  agarrar: (id: string | null, desde?: { nodo: HTMLElement; dx: number; dy: number }) => void;
+  tactil: ArrastreTactil<EstadoTarea>;
+  soltarEn: (id: string, destino: EstadoTarea, orden?: number) => void;
+  motivoDe: string | null; setMotivoDe: (id: string | null) => void;
+  frenanA: (id: string) => string[]; sel: ReadonlySet<string>; alternarSel: (id: string) => void;
+  onOpen: (id: string) => void; onNew: (estado?: EstadoTarea) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void; onEliminar: (id: string) => void;
+}) {
+  const color = COLOR_ESTADO[e];
+  const { visibles, boton } = useVerMas(items, { inicial: e === 'hecho' ? COMPLETADAS_A_LA_VISTA : Number.MAX_SAFE_INTEGER, estilo: 'texto' });
+  // El hueco se dibuja en la posición exacta donde va a caer, sólo en la columna sobre la que
+  // está el puntero y sólo con el orden manual (con otro orden el lugar lo decide el criterio).
+  const hueco = (i: number) => (ins?.destino === e && ins.idx === i
+    ? <div key={`hueco-${i}`} style={{ flex: 'none', height: 64, borderRadius: 10, border: `2px dashed ${color}`, background: color + '12', transition: 'height .12s' }} />
+    : null);
+  const encima = tactil.sobre === e || ins?.destino === e;
+  return (
+    <section
+      // ⚠️ `preventDefault` en dragOver es lo que habilita el drop (sin él, el navegador lo
+      // rechaza y no pasa nada, que se lee como que el arrastre no anda).
+      // ⚠️ Y NO SE LEE LAYOUT ACÁ. «No entiendo por qué en CRM funciona bien y aquí no»: una
+      // versión vieja leía el `getBoundingClientRect` de todas las tarjetas y re-dibujaba el
+      // tablero entero en CADA `dragover` (~60 por segundo), y el arrastre se veía con la
+      // tarjeta «que no se agarra» y un fantasma congelado. Los rectángulos se miden UNA vez,
+      // al empezar, en coordenadas de PÁGINA (`agarrar`), y sólo se re-dibuja cuando el
+      // DESTINO cambia de verdad.
+      onDragOver={puedeMover ? (ev) => {
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'move';
+        empujarScroll(ev.clientY);
+        let idx = -1;
+        if (manual) {
+          const y = ev.clientY + window.scrollY;
+          const medidas = rects.current[e] ?? [];
+          idx = medidas.length;
+          for (let i = 0; i < medidas.length; i++) { if (y < medidas[i]) { idx = i; break; } }
+        }
+        setIns((prev) => (prev && prev.destino === e && prev.idx === idx ? prev : { destino: e, idx }));
+      } : undefined}
+      onDragLeave={puedeMover ? (ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setIns((prev) => (prev?.destino === e ? null : prev)); } : undefined}
+      onDrop={puedeMover ? (ev) => {
+        ev.preventDefault();
+        const id = ev.dataTransfer.getData('text/plain');
+        rects.current = {};
+        pararScroll();
+        const crudo = ins?.destino === e ? ins.idx : -1;
+        setIns(null);
+        setArrastrado(null);
+        if (!id) return;
+        const yo = board.tasks.find((t) => t.id === id);
+        if (!yo) return;
+        // Sin orden manual, el lugar no se elige: va arriba de la columna (el server lo pone).
+        if (!manual || crudo < 0) { if (estadoDe(yo) !== e) soltarEn(id, e); return; }
+        // La lista SIN la que se está moviendo: si se la deja adentro, el punto medio se
+        // calcula contra su propio `orden` y la tarjeta «no se mueve».
+        //
+        // ⚠️ Y POR ESO EL ÍNDICE HAY QUE CORRERLO. `idx` se midió contra los rectángulos
+        // DIBUJADOS, que incluyen a la tarjeta agarrada —al nodo origen no se le toca el tamaño,
+        // así que sigue ocupando su lugar—, y el lugar se calcula contra la lista sin ella:
+        // bajando una tarjeta dentro de su propia columna, cada posición de abajo se corre una.
+        // Sin el corrimiento la tarjeta cae un lugar más arriba del hueco que se estuvo viendo
+        // todo el arrastre — «la solté acá y quedó allá».
+        //
+        // ⚠️ CONTRA LA COLUMNA ENTERA (`items`), NO CONTRA LO QUE SE VE: «Completada» se corta con
+        // «Ver más», y soltar al fondo de lo visible tiene que caer ANTES de la primera escondida.
+        // Lo visible es un prefijo de `items`, así que el índice medido vale igual.
+        const otros = items.filter((t) => t.id !== id);
+        const iYo = items.findIndex((t) => t.id === id);
+        const idx = Math.max(0, Math.min(iYo >= 0 && crudo > iYo ? crudo - 1 : crudo, otros.length));
+        // Soltada en el mismo lugar de la misma columna: no es un cambio.
+        if (iYo >= 0 && idx === iYo) return;
+        soltarEn(id, e, ordenAlSoltar(otros, idx));
+      } : undefined}
+      // `data-columna` es cómo los dos arrastres saben dónde está cada columna: al armarse el
+      // gesto miden estos rectángulos UNA vez y después no vuelven a leer layout.
+      data-columna={e}
+      aria-label={`${label}: ${items.length}`}
+      style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: encima ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (encima ? color : 'var(--border)'), borderTop: '3px solid ' + color, borderRadius: 14, padding: 10, transition: 'background .12s, border-color .12s' }}>
+      <ColHeader label={label} color={color} count={items.length} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
+        {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas). Nace
+            en ESTA columna: es la decisión 4 del 16/10/2026. */}
+        <button onClick={() => onNew(e)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
+          aria-label={`Nueva tarea en ${label}`}
+          onMouseEnter={(ev) => { ev.currentTarget.style.borderColor = 'var(--primary)'; ev.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(ev) => { ev.currentTarget.style.borderColor = 'var(--border-strong)'; ev.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
+        {items.length === 0 && !hueco(0) && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
+        {/* EL HUECO. Es lo que convierte «la estoy soltando en En proceso» en «la estoy
+            soltando ACÁ». Tiene el alto de una tarjeta para que lo de abajo se corra de
+            verdad, como en el CRM. */}
+        {hueco(0)}
+        {visibles.map((t, i) => (
+          <Fragment key={t.id}>
+            {/* `warn`: el triangulito rojo de «alta sin fecha». `!esRecurrente(t)` porque una
+                recurrente no puede tener deadline, así que titilaría para siempre. Mira la
+                PRIORIDAD (no la columna): una Alta sin fecha falta en cualquier estado. */}
+            <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t) === 'alta' && t.progress < 100 && !t.deadline && !esRecurrente(t)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} onEliminar={onEliminar} tactil={tactil} onAgarrar={puedeMover ? agarrar : undefined} oculta={arrastrado === t.id} elegida={sel.has(t.id)} haySeleccion={sel.size > 0} onElegir={alternarSel} />
+            {motivoDe === t.id && e === 'en_seguimiento' && (
+              <CampoMotivo inicial={t.motivoAtorada ?? ''}
+                onGuardar={(m) => { setMotivoDe(null); if (m.trim() !== (t.motivoAtorada ?? '')) board.setMotivoAtorada(t.id, m.trim() || null); }}
+                onCerrar={() => setMotivoDe(null)} />
+            )}
+            {hueco(i + 1)}
+          </Fragment>
+        ))}
+        {boton}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * EL MOTIVO DE «ATORADA», en un campo chico debajo de la tarjeta que acaba de caer ahí. Enter
+ * guarda, Esc cierra; si se va con texto, se guarda (es lo que se escribió), y si se va vacío,
+ * se cierra sin escribir nada. Una línea: lo que se lee en la tarjeta (`MOTIVO_ATORADA_MAX`).
+ */
+function CampoMotivo({ inicial, onGuardar, onCerrar }: { inicial: string; onGuardar: (m: string) => void; onCerrar: () => void }) {
+  const [v, setV] = useState(inicial);
+  const listo = useRef(false);
+  const guardar = () => { if (listo.current) return; listo.current = true; onGuardar(v); };
+  const cerrar = () => { if (listo.current) return; listo.current = true; onCerrar(); };
+  return (
+    <div onClick={(ev) => ev.stopPropagation()}
+      style={{ display: 'flex', alignItems: 'center', gap: 6, border: `1px dashed ${COLOR_ESTADO.en_seguimiento}`, borderRadius: 10, padding: '5px 6px 5px 10px', background: 'var(--surface)', marginTop: -3 }}>
+      <input autoFocus value={v} maxLength={MOTIVO_ATORADA_MAX} onChange={(ev) => setV(ev.target.value)}
+        onKeyDown={(ev) => { if (ev.key === 'Enter') guardar(); if (ev.key === 'Escape') cerrar(); }}
+        onBlur={() => { if (v.trim()) guardar(); else cerrar(); }}
+        placeholder="¿Qué la frena? (opcional)" aria-label="Por qué está atorada"
+        style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 12.5, fontFamily: SANS, padding: '4px 0' }} />
+      {/* `onMouseDown` + preventDefault: el click no le saca el foco al campo antes de guardar. */}
+      <button type="button" onMouseDown={(ev) => ev.preventDefault()} onClick={guardar} disabled={!v.trim()}
+        style={{ flex: 'none', border: 'none', borderRadius: 7, padding: '5px 9px', background: v.trim() ? COLOR_ESTADO.en_seguimiento : 'var(--surface-2)', color: v.trim() ? '#fff' : 'var(--faint)', fontSize: 12, fontWeight: 700, cursor: v.trim() ? 'pointer' : 'default', fontFamily: SANS }}>Guardar</button>
+      <button type="button" onMouseDown={(ev) => ev.preventDefault()} onClick={cerrar} aria-label="Sin motivo" title="Sin motivo"
+        style={{ flex: 'none', width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0 }}>✕</button>
+    </div>
+  );
+}
+
+function ColHeader({ label, color, count }: { label: string; color: string; count: number }) {
   return (
     <div style={{ flex: 'none', marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 3px 8px' }}>
-        <span style={{ width: 9, height: 9, borderRadius: '50%', background: PCOLOR[p], flex: 'none' }} />
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)' }}>{PLABEL[p]}</span>
-        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px' }}>{count}</span>
+        <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, flex: 'none' }} />
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px', flex: 'none' }}>{count}</span>
       </div>
     </div>
   );
@@ -3703,7 +3800,7 @@ const ORIGEN_OPS: Array<[string, string]> = [
   ['whatsapp', '💬 WhatsApp'], ['fathom', '🎙️ Reunión · Fathom'], ['claude-code', '⌨️ Claude Code'],
   ['archivo', '📄 Archivos subidos'], ['mako', '✨ MaKo'], ['manual', '✍️ Manual'],
 ];
-type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden' | 'cuando' | 'cliente';
+type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden' | 'cuando' | 'cliente' | 'prioridad' | 'responsable';
 /**
  * La capa «Cliente» del menú. UNA elección (radio) y no un `Set` como las demás: «¿de quién
  * es?» tiene una respuesta por tarjeta, y el link que la pone habla de un cliente.
@@ -3712,7 +3809,7 @@ type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden' | 'cuando
  * (ver `fCliente`). El menú sólo lo muestra y lo cambia.
  */
 type FiltroCliente = { opciones: Array<{ leadId: number; nombre: string }>; valor: number | null; nombre: string | null; set: (v: number | null) => void };
-function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, fCuando, setFCuando, sortMode, setSortMode, sortDir, setSortDir, soloIcono, cliente }: {
+function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, fCuando, setFCuando, sortMode, setSortMode, sortDir, setSortDir, ordenOps = ORDEN_OPS, soloIcono, cliente, fPrio, setFPrio, fResp, setFResp }: {
   /** sin lugar: queda el embudo solo (la palabra son ~55px). */
   soloIcono?: boolean;
   /** La capa «Cliente». Ausente = no se dibuja (embebido, ver `fCliente`). */
@@ -3723,6 +3820,12 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   fCuando?: Set<Cuando>; setFCuando?: (s: Set<Cuando>) => void;
   sortMode?: OrdenModo; setSortMode?: (m: OrdenModo) => void;
   sortDir?: 'desc' | 'asc'; setSortDir?: (d: 'desc' | 'asc') => void;
+  /** Los criterios de «Ordenar». El Kanban de tareas suma «Manual» (`ORDEN_OPS_KANBAN`). */
+  ordenOps?: Array<[OrdenModo, string]>;
+  /** PRIORIDAD como filtro (16/10/2026). Ausente = no se dibuja (Proyectos, Recurrentes). */
+  fPrio?: Set<PrioFiltro>; setFPrio?: (s: Set<PrioFiltro>) => void;
+  /** RESPONSABLE (16/10/2026). Ausente = el tablero no tiene el dato (`repo.responsables`). */
+  fResp?: Set<ResponsableFiltro>; setFResp?: (s: Set<ResponsableFiltro>) => void;
 }) {
   const [open, setOpen] = useState(false);
   // Drill-down (feedback: la lista apilada obligaba a un scroll gigante). En 'root' se
@@ -3748,11 +3851,13 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   const cerrar = () => { setOpen(false); setVista('root'); };
   // ⚠️ EL CLIENTE CUENTA EN EL NÚMERO DEL BOTÓN, y «Limpiar» también lo saca: es un filtro
   // más de esta barra, y un botón que dice «sin filtros» con el tablero filtrado miente.
-  const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (fCuando?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0) + (cliente?.valor != null ? 1 : 0);
-  const limpiarTodo = () => { setFLabels?.(new Set()); setFOrigen?.(new Set()); setFCuando?.(new Set()); setDoneFilter('all'); cliente?.set(null); };
+  const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (fCuando?.size ?? 0) + (fPrio?.size ?? 0) + (fResp?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0) + (cliente?.valor != null ? 1 : 0);
+  const limpiarTodo = () => { setFLabels?.(new Set()); setFOrigen?.(new Set()); setFCuando?.(new Set()); setFPrio?.(new Set()); setFResp?.(new Set()); setDoneFilter('all'); cliente?.set(null); };
   const toggle = (id: string) => { if (!fLabels || !setFLabels) return; const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
   const toggleOrigen = (tipo: string) => { if (!fOrigen || !setFOrigen) return; const c = new Set(fOrigen); if (c.has(tipo)) c.delete(tipo); else c.add(tipo); setFOrigen(c); };
   const toggleCuando = (v: Cuando) => { if (!fCuando || !setFCuando) return; const c = new Set(fCuando); if (c.has(v)) c.delete(v); else c.add(v); setFCuando(c); };
+  const togglePrio = (v: PrioFiltro) => { if (!fPrio || !setFPrio) return; const c = new Set(fPrio); if (c.has(v)) c.delete(v); else c.add(v); setFPrio(c); };
+  const toggleResp = (v: ResponsableFiltro) => { if (!fResp || !setFResp) return; const c = new Set(fResp); if (c.has(v)) c.delete(v); else c.add(v); setFResp(c); };
   const ops = estadoLabels ?? ESTADO_OPS;
   const check = (on: boolean): CSSProperties => ({ width: 14, height: 14, borderRadius: 4, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
   const radio = (on: boolean): CSSProperties => ({ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', flex: 'none', boxShadow: on ? 'inset 0 0 0 2px var(--surface)' : 'none' });
@@ -3764,8 +3869,13 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   const origenResumen = !fOrigen?.size ? 'Todos' : (fOrigen.size === 1 ? (ORIGEN_OPS.find(([t]) => fOrigen.has(t))?.[1].replace(/^\S+\s/, '') ?? '1') : `${fOrigen.size} elegidos`);
   const cuandoResumen = !fCuando?.size ? 'Todas'
     : fCuando.size === 1 ? CUANDO_LABEL[[...fCuando][0]] : `${fCuando.size} ventanas`;
-  const modeLabel = ORDEN_OPS.find(([v]) => v === sortMode)?.[1] ?? 'Por prioridad';
-  const ordenResumen = `${modeLabel} ${sortDir === 'asc' ? '↑' : '↓'}`;
+  const modeLabel = ordenOps.find(([v]) => v === sortMode)?.[1] ?? 'Por prioridad';
+  // «Manual» no tiene dirección: es el orden que dejó la mano.
+  const ordenResumen = sortMode === 'manual' ? modeLabel : `${modeLabel} ${sortDir === 'asc' ? '↑' : '↓'}`;
+  const resumenDe = <T extends string>(set: Set<T> | undefined, rotulo: Record<T, string>) =>
+    !set?.size ? 'Todas' : set.size === 1 ? rotulo[[...set][0]] : `${set.size} elegidas`;
+  const prioResumen = resumenDe(fPrio, PFILTRO_LABEL);
+  const respResumen = resumenDe(fResp, RESPONSABLE_LABEL);
 
   // Categorías del menú. ORDENAR va PRIMERO (pedido de Martín). El resto: las que
   // apliquen (en la vista Proyectos no va "Proyecto", etc.).
@@ -3775,6 +3885,9 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   // es que le toca HOY, no en que estado esta cada cosa.
   if (fCuando && setFCuando) cats.push({ key: 'cuando', label: 'Cuando', resumen: cuandoResumen, activo: !!fCuando.size });
   cats.push({ key: 'estado', label: 'Estado', resumen: estadoLabel, activo: doneFilter !== 'all' });
+  // La prioridad, ahora que las columnas son el estado (16/10/2026), y de quién es.
+  if (fPrio && setFPrio) cats.push({ key: 'prioridad', label: 'Prioridad', resumen: prioResumen, activo: !!fPrio.size });
+  if (fResp && setFResp) cats.push({ key: 'responsable', label: 'Responsable', resumen: respResumen, activo: !!fResp.size });
   if (labels && labels.length > 0) cats.push({ key: 'proyecto', label: 'Proyecto', resumen: proyResumen, activo: !!fLabels?.size });
   if (fOrigen && setFOrigen) cats.push({ key: 'origen', label: 'Origen', resumen: origenResumen, activo: !!fOrigen.size });
   // Sin clientes no se dibuja: una capa con sólo «Todos» es un control que no hace nada.
@@ -3889,6 +4002,21 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
                   </>
                 );
               })()}
+              {/* El punto de color es el del CHIP de la tarjeta: es cómo se lee cuál es cuál
+                  sin abrir nada (la columna ya no lo dice desde el 16/10/2026). */}
+              {vista === 'prioridad' && PRIOS_FILTRO.map((v) => (
+                <button key={v} onClick={() => togglePrio(v)} style={rowBtn}>
+                  <span style={check(!!fPrio?.has(v))}>{fPrio?.has(v) ? '✓' : ''}</span>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', flex: 'none', background: v === 'sin_priorizar' ? 'transparent' : COLOR_PRIO_FILTRO[v], border: v === 'sin_priorizar' ? `1.5px dashed ${COLOR_PRIO_FILTRO[v]}` : 'none' }} />
+                  <span>{PFILTRO_LABEL[v]}</span>
+                </button>
+              ))}
+              {vista === 'responsable' && RESPONSABLES_FILTRO.map((v) => (
+                <button key={v} onClick={() => toggleResp(v)} style={rowBtn}>
+                  <span style={check(!!fResp?.has(v))}>{fResp?.has(v) ? '✓' : ''}</span>
+                  <span>{RESPONSABLE_LABEL[v]}</span>
+                </button>
+              ))}
               {vista === 'cuando' && CUANDO_OPS.map((v) => (
                 <button key={v} onClick={() => toggleCuando(v)} style={rowBtn}>
                   <span style={check(!!fCuando?.has(v))}>{fCuando?.has(v) ? '✓' : ''}</span>
@@ -3935,13 +4063,14 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
               {vista === 'orden' && (
                 // Toggle clásico: 1 clic ordena, otro clic sobre el MISMO invierte la
                 // dirección (flecha ↓/↑). Clic en el otro criterio arranca en ↓ (desc).
-                ORDEN_OPS.map(([v, label]) => {
+                // «Manual» no se invierte: no es un criterio, es el lugar que dejó la mano.
+                ordenOps.map(([v, label]) => {
                   const activo = sortMode === v;
                   return (
-                    <button key={v} onClick={() => { if (activo) setSortDir?.(sortDir === 'desc' ? 'asc' : 'desc'); else { setSortMode?.(v); setSortDir?.(DIR_NATURAL[v]); } }}
+                    <button key={v} onClick={() => { if (activo) { if (v !== 'manual') setSortDir?.(sortDir === 'desc' ? 'asc' : 'desc'); } else { setSortMode?.(v); setSortDir?.(DIR_NATURAL[v]); } }}
                       style={{ ...rowBtn, justifyContent: 'space-between', background: activo ? 'var(--primary-bg)' : 'transparent', fontWeight: activo ? 700 : 500 }}>
                       <span>{label}</span>
-                      <span style={{ fontSize: 15, lineHeight: 1, color: activo ? 'var(--primary)' : 'var(--faint)', width: 14, textAlign: 'center' }}>{activo ? (sortDir === 'asc' ? '↑' : '↓') : ''}</span>
+                      <span style={{ fontSize: 15, lineHeight: 1, color: activo ? 'var(--primary)' : 'var(--faint)', width: 14, textAlign: 'center' }}>{activo ? (v === 'manual' ? '✓' : sortDir === 'asc' ? '↑' : '↓') : ''}</span>
                     </button>
                   );
                 })
@@ -4000,6 +4129,8 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
   onOpenProj?: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onBack?: () => void; escDisabled?: boolean; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
+  // «Sin priorizar» (score 0) no es «A futuro»: es que nadie la juzgó todavía (16/10/2026).
+  const prioChip = prioFiltroDe(t);
   const topeada = prioEfectiva !== prioFromScore(t.score);
   // ¿Se repite para siempre? Sale del contrato, nunca de `t.recurrente`.
   const repite = esRecurrente(t);
@@ -4104,8 +4235,12 @@ export function TaskModal({ t, board, topProjectId, suggestMako = false, trabaja
           {/* EL ANCHO DE LA COLUMNA, `COL_DER`: mismo número acá y en el proyecto. */}
           <div style={{ width: COL_DER, flex: 'none', minWidth: 0, borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
             {trabajando && <PerroTrabajando que="tu plan, para ponerle proyecto, prioridad y detalle" />}
+            {/* LA COLUMNA, también desde el detalle (16/10/2026): es el otro camino para mover
+                —sin arrastrar, con el teclado— y el único para escribirle el motivo a una
+                «Atorada» después. Escribe por `board.mover`, igual que el arrastre. */}
+            {board.repo.mover && <BloqueColumna t={t} board={board} />}
             <BloquePrioridad
-              etiqueta={PLABEL[prioEfectiva].toUpperCase()} color={PCOLOR[prioEfectiva]} titulo={t.title}
+              etiqueta={(prioChip === 'sin_priorizar' ? PFILTRO_LABEL.sin_priorizar : PLABEL[prioEfectiva]).toUpperCase()} color={COLOR_PRIO_FILTRO[prioChip === 'sin_priorizar' ? 'sin_priorizar' : prioEfectiva]} titulo={t.title}
               chip={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 12, fontWeight: 700, color: PCOLOR[prioEfectiva], whiteSpace: 'nowrap' }}><ScoreIcon size={12} color={PCOLOR[prioEfectiva]} />{t.score}</span>}
               razon={t.scoreRazon} impacto={t.impacto} esfuerzo={t.esfuerzo}
               tiempo={<TiempoLinea t={t} />}

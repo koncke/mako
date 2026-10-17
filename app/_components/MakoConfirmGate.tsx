@@ -46,7 +46,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { esVistaSinChrome } from './PublicRouteGate';
 import { useVistaMovil } from './VistaMovil';
@@ -102,6 +102,9 @@ const iconoBtn: CSSProperties = {
 /** Revisar: AZUL y con la flecha («Que el botón de revisar sea azul y con una flecha, no un lapiz»). */
 const revisarBtn: CSSProperties = { ...iconoBtn, border: 'none', background: 'var(--primary)', color: '#fff' };
 
+/** Ignorar: un BASURERO ROJO («El icono de "X" debería ser un basurero color rojo», Martín, 16/10/2026). */
+const ignorarBtn: CSSProperties = { ...iconoBtn, color: 'var(--bad)', borderColor: 'color-mix(in srgb, var(--bad) 40%, var(--border))' };
+
 /**
  * La cara del lead, con la cadena de la cabecera de su ficha (`useCaraDelLead`): lo elegido → la
  * foto guardada → Gravatar → iniciales.
@@ -122,8 +125,6 @@ function CaraFila({ nombre, cara }: { nombre: string; cara?: Cara | null }) {
 
 function Tarjeta() {
   const pathname = usePathname();
-  // Sólo para que «Ver todos» vuelva al mismo tablero (ver irAPendientes).
-  const funnelParam = useSearchParams().get('funnel');
   const router = useRouter();
   // El resumen del lead vive bajo /crm pero se abre desde WhatsApp, en el
   // celular y con la reunión por empezar: no es lugar para esto. Ver esVistaSinChrome.
@@ -147,7 +148,10 @@ function Tarjeta() {
   const [verMas, setVerMas] = useState(false);
   const [config, setConfig] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ficha, setFicha] = useState<{ id: number; nombre: string; paso?: StepId } | null>(null);
+  // `ver`: la ficha abre con el «Ver» de los datos sin marcar YA desplegado («Cuando le doy click a revisar en el
+  // desplegable del CRM, me debe abrir el detail del lead con el desplegable de "Ver" abierto», Martín, 16/10/2026).
+  // `avisos`: la abrió el ENGRANAJE para elegir qué avisa MaKo (el basurero pregunta «¿Ignorar siempre?»).
+  const [ficha, setFicha] = useState<{ id: number; nombre: string; ver: true; avisos?: true } | null>(null);
   // Sube cuando se cierra una ficha: lo que se arregló adentro sale de la lista.
   const [releer, setReleer] = useState(0);
   const panelRef = useRef<HTMLElement | null>(null);
@@ -203,18 +207,6 @@ function Tarjeta() {
     };
   }, [abierta, ficha, config]);
 
-  /**
-   * La puerta a la cola. Conserva el `?funnel=` que esté puesto: la vista de datos sin
-   * marcar vive dentro del CRM y salir de ella tiene que devolver al mismo producto.
-   * El `?ws=` lo pone solo el router de `app/_ui/Link` — es una de las cuatro formas de
-   * navegar de esta casa y la única que no pierde al cliente que se está mirando.
-   */
-  const irAPendientes = useCallback(() => {
-    const qs = new URLSearchParams();
-    if (funnelParam) qs.set('funnel', funnelParam);
-    qs.set('pendientes', '1');
-    router.push(`/crm?${qs.toString()}`);
-  }, [router, funnelParam]);
 
   /**
    * Ignorar (la ✕) o volver a avisar los datos de UN lead, de una vez. La lista se arregla al toque
@@ -238,6 +230,27 @@ function Tarjeta() {
       .then((r) => { if (!r.ok) setError(r.error); setReleer((n) => n + 1); })
       .catch(() => { setError(`No se pudo guardar (${l.lead_nombre}).`); setReleer((n) => n + 1); });
   }, []);
+
+  /**
+   * «Ignorar todos» (16/10/2026, en lugar de «Ver todos», que llevaba a la cola de /crm?pendientes=1): ignora los
+   * ignorables de cada lead de la lista, de una vez, y relee una sola vez. Lo ignorado vuelve con «Ver más» →
+   * «Volver a avisar», lead por lead. La asistencia de una reunión pasada no se ignora (NO_IGNORABLES).
+   */
+  const ignorarTodos = useCallback(() => {
+    const leads = filas.filter((l) => ignorablesDe(l).length > 0);
+    if (!leads.length) return;
+    setError(null);
+    const ids = new Set(leads.map((l) => l.lead_id));
+    setFilas((xs) => xs.flatMap((x) => {
+      if (!ids.has(x.lead_id)) return [x];
+      const quedan = x.pasos.filter((p) => NO_IGNORABLES.has(p.id));
+      return quedan.length || x.porOtraCosa ? [{ ...x, pasos: quedan }] : [];
+    }));
+    void Promise.all(leads.map((l) => ignorarDatosDelLeadAction(l.lead_id, ignorablesDe(l), true)
+      .then((r) => (r.ok ? null : r.error))
+      .catch(() => `No se pudo guardar (${l.lead_nombre}).`)))
+      .then((errores) => { const e = errores.find(Boolean); if (e) setError(e); setReleer((n) => n + 1); });
+  }, [filas]);
 
   if (!enCrm || !cargado || sinMarcar === 0) return null;
 
@@ -265,17 +278,21 @@ function Tarjeta() {
   }
 
   /** Una fila: la cara, el nombre (sin bajada) y cuántos datos le faltan. */
-  const fila = (key: string, l: LeadARevisar, acciones: ReactNode) => {
+  // ⚠️ LA PRIMERA FILA VA SIN RAYA: la cabecera ya tiene la suya abajo y dos rayas juntas se leen como un hueco
+  // (Martín, 16/10/2026). Y el número va PEGADO AL NOMBRE, no a la derecha: el nombre cede y un espacio empuja los
+  // botones.
+  const fila = (key: string, l: LeadARevisar, acciones: ReactNode, primera = false) => {
     const nombre = l.lead_nombre?.trim() || 'Sin nombre';
     const n = l.pasos.length;
     return (
-      <li key={key} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 0', borderTop: '1px solid var(--border)' }}>
+      <li key={key} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 0', borderTop: primera ? 'none' : '1px solid var(--border)' }}>
         <CaraFila nombre={nombre} cara={l.cara} />
-        <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</span>
+        <span style={{ flex: '0 1 auto', minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</span>
         {n > 0 && (
           <span aria-label={`${n} ${n === 1 ? 'dato' : 'datos'}`} title={l.pasos.map((p) => p.label).join(' · ')}
             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 20, padding: '0 6px', flex: 'none', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{n}</span>
         )}
+        <span aria-hidden style={{ flex: 1 }} />
         {acciones}
       </li>
     );
@@ -287,7 +304,12 @@ function Tarjeta() {
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>A revisar</span>
         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{total}</span>
         {/* El engranaje: de qué datos avisa MaKo (13/10/2026: «en el título del desplegable»). */}
-        <button type="button" onClick={() => setConfig(true)} title="Elegir de qué datos te avisa MaKo" aria-label="Elegir de qué datos te avisa MaKo"
+        {/* ⚠️ EL ENGRANAJE ABRE UNA FICHA, no el modal de interruptores (16/10/2026, Martín: «debería abrirme el detalle
+            de un lead... con el desplegable de "Datos sin marcar" abierto, y dentro... el botón de Basura rojo, y
+            cuando le doy me pregunta ¿Ignorar siempre?»). Es la del primer lead de la lista (uno de verdad: uno de
+            ejemplo pediría datos inventados); sin leads en la lista, el modal de siempre. */}
+        <button type="button" onClick={() => { const p = filas[0]; if (p) setFicha({ id: p.lead_id, nombre: p.lead_nombre, ver: true, avisos: true }); else setConfig(true); }}
+          title="Elegir de qué datos te avisa MaKo" aria-label="Elegir de qué datos te avisa MaKo"
           style={{ ...iconoBtn, border: 'none', background: 'none', marginLeft: 'auto' }}>
           <IconoMenu nombre="configurar" size={16} />
         </button>
@@ -299,26 +321,26 @@ function Tarjeta() {
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '4px 15px 12px' }}>
         {/* ⚠️ UNA FILA POR LEAD (14/10/2026), con la ✕ que ignora y la flecha azul que revisa.
-            Revisar abre la ficha encima de la página y la lleva al PRIMER dato que falta; la cola
-            entera sigue a un clic («Ver todos»). Lo ignorado se esconde detrás de «Ver más». */}
+            Revisar abre la ficha encima de la página con el «Ver» de sus datos sin marcar abierto (16/10/2026);
+            «Ignorar todos» ignora la lista de una vez. Lo ignorado se esconde detrás de «Ver más». */}
         {error && <p role="alert" style={{ margin: '8px 0 0', fontSize: 12.5, color: 'var(--bad)', fontWeight: 600 }}>{error}</p>}
         <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {filas.map((p) => fila(`${p.lead_id}`, p, (
+          {filas.map((p, i) => fila(`${p.lead_id}`, p, (
             <>
               {ignorablesDe(p).length > 0 && (
-                <button type="button" style={iconoBtn} onClick={() => ignorarLead(p, true)}
+                <button type="button" style={ignorarBtn} onClick={() => ignorarLead(p, true)}
                   title="Ignorar" aria-label={`Ignorar los datos de ${p.lead_nombre}`}>
-                  <IconoMenu nombre="cerrar" size={15} />
+                  <IconoMenu nombre="borrar" size={15} />
                 </button>
               )}
-              <button type="button" style={revisarBtn} onClick={() => setFicha({ id: p.lead_id, nombre: p.lead_nombre, paso: p.pasos[0]?.id })}
+              <button type="button" style={revisarBtn} onClick={() => setFicha({ id: p.lead_id, nombre: p.lead_nombre, ver: true })}
                 title="Revisar" aria-label={`Revisar a ${p.lead_nombre}`}>
                 <IconoMenu nombre="mover" size={15} />
               </button>
             </>
-          )))}
+          ), i === 0))}
           {verMas && ignorados.length > 0 && (
-            <li style={{ padding: '10px 0 2px', borderTop: '1px solid var(--border)', fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)' }}>Ignorados</li>
+            <li style={{ padding: '10px 0 2px', borderTop: filas.length ? '1px solid var(--border)' : 'none', fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)' }}>Ignorados</li>
           )}
           {verMas && ignorados.map((x) => fila(`ign:${x.lead_id}`, x, (
             <button type="button" style={iconoBtn} onClick={() => ignorarLead(x, false)}
@@ -332,12 +354,14 @@ function Tarjeta() {
             <button type="button" onClick={() => setVerMas(true)}
               style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>Ver más</button>
           )}
-          <button type="button" onClick={() => { setAbierta(false); irAPendientes(); }}
-            style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Ver todos</button>
+          {filas.some((l) => ignorablesDe(l).length > 0) && (
+            <button type="button" onClick={ignorarTodos}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Ignorar todos</button>
+          )}
         </div>
       </div>
       {ficha && (
-        <LeadEditModal leadId={ficha.id} seed={{ nombre: ficha.nombre }} solucionar={ficha.paso}
+        <LeadEditModal leadId={ficha.id} seed={{ nombre: ficha.nombre }} verDatos={ficha.ver} avisos={ficha.avisos}
           onClose={() => { setFicha(null); setReleer((n) => n + 1); router.refresh(); }} />
       )}
       {config && <AvisosDatosModal onCerrar={() => setConfig(false)} onGuardado={() => setReleer((n) => n + 1)} />}

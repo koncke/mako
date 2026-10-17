@@ -105,7 +105,8 @@ test('MaKo Analyst: el chat atado al lead en las dos puertas, y el análisis de 
   assert.match(pieza, /\{hayAnalisis && \(\s*<details/, 'lo de antes va plegado (details) y sólo si hay algo');
   // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: el chat se monta una vez, en la ficha compartida; cada puerta
   // le dice cuánto alto le queda visible.
-  assert.match(FICHA, /<AnalystDelLead[\s\S]*?alto=\{altoChat\}/);
+  // Desde el 16/10/2026 el chat vive en el panel «AI Analyst» (a la izquierda, alto completo), no en una pestaña.
+  assert.match(FICHA, /<AnalystDelLead[\s\S]*?alto="calc\(100vh - 90px\)"/);
   assert.match(SHEET, /<FichaPorBloques[\s\S]*?altoChat=\{ALTO_CHAT_EN_EL_POPUP\}/);
   assert.match(BODY, /<FichaPorBloques[\s\S]*?altoChat=\{ALTO_CHAT_EN_LA_RUTA\}/);
   for (const src of [SHEET, PAGE, BODY, FICHA]) assert.doesNotMatch(src, /<GeneratedInsightCard/, 'el análisis viejo no se monta suelto');

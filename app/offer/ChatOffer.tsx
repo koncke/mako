@@ -60,7 +60,7 @@ import { conWs } from '@/lib/ws-tab';
 import type { AdjuntoVista, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { AvatarMako } from './AvatarMako';
 import { ChipArchivo } from './ChipArchivo';
-import { esOpcionArmar, horaDe, nombrePdfVersion, notaDelAdjunto, pdfDeMensaje, ticksDe } from './ayudas';
+import { esOpcionArmar, esOpcionNinguna, horaDe, nombrePdfVersion, notaDelAdjunto, pdfDeMensaje, ticksDe } from './ayudas';
 import { descargarPdf, mensajeDeError } from './offer-api';
 import { GenerandoEnChat, type PasoGeneracion } from './Generando';
 
@@ -143,7 +143,7 @@ const ID_ARMANDO = '__of-armando';
 export type AudioEnEspera = { url: string; secs: number };
 
 export function ChatOffer({
-  sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onReintentar,
+  sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onVarias, onReintentar,
   texto, onTexto, onEnviar, ocupado, vista, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
   error, onError, armando = null, onVerOferta = null, avatar, extra, soloTexto = false, placeholder, errorExtra,
 }: {
@@ -161,6 +161,11 @@ export function ChatOffer({
   opcionesHabilitadas: boolean;
   /** El índice de la opción en `opciones` del último mensaje (el ORIGINAL: el de una pregunta del diagnóstico). */
   onOpcion: (idx: number) => void;
+  /**
+   * Las opciones marcadas de un mensaje con `varias` (16/10/2026), en el orden en que están. Sin esto, cada opción
+   * se manda sola con un toque, como siempre (el chat de arranque no lo pasa).
+   */
+  onVarias?: (idxs: number[]) => void;
   /** «Reintentar» la respuesta de MaKo al último mensaje; null = no hay nada sin contestar. */
   onReintentar: (() => void) | null;
   texto: string;
@@ -199,6 +204,7 @@ export function ChatOffer({
   const inputDoc = useRef<HTMLInputElement>(null);
   const inputFoto = useRef<HTMLInputElement>(null);
   const [encima, setEncima] = useState(false);
+  const [marcadas, setMarcadas] = useState<{ de: string; idxs: number[] }>({ de: '', idxs: [] });
 
   const mensajes = sesion.mensajes;
   const ultimo = mensajes[mensajes.length - 1];
@@ -311,6 +317,16 @@ export function ChatOffer({
   const opciones = !pendiente && ultimo?.de === 'mako'
     ? (ultimo.opciones ?? []).map((t, idx) => ({ t: t.trim(), idx })).filter((o) => o.t)
     : [];
+  // Con `varias`, cada opción se marca y se desmarca, y «Enviar» las manda juntas. «Armar mi oferta» y la que dice
+  // que no hay ninguna («No, sólo ésta») siguen saliendo con un toque. Lo marcado cuelga del id del mensaje: con el
+  // mensaje siguiente arranca vacío solo, sin un efecto que lo limpie.
+  const varias = !!onVarias && ultimo?.de === 'mako' && ultimo.varias === true && !ultimo.pregunta;
+  const marcadasAhora = varias && marcadas.de === ultimo?.id ? marcadas.idxs : [];
+  const tocar = (idx: number, t: string, armar: boolean) => {
+    if (!varias || armar || esOpcionNinguna(t)) { onOpcion(idx); return; }
+    const idxs = marcadasAhora.includes(idx) ? marcadasAhora.filter((i) => i !== idx) : [...marcadasAhora, idx].sort((a, b) => a - b);
+    setMarcadas({ de: ultimo!.id, idxs });
+  };
   const encimaDelComposer = opciones.length || onReintentar ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 10 }}>
       {onReintentar && (
@@ -320,17 +336,26 @@ export function ChatOffer({
         </div>
       )}
       {opciones.length > 0 && (
-        <div role="group" aria-label="Respuestas rápidas" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <div role="group" aria-label={varias ? 'Respuestas rápidas: puedes marcar varias' : 'Respuestas rápidas'} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          {varias && <span className="of-pill-ayuda">Puedes marcar varias</span>}
           {opciones.map(({ t, idx }) => {
             const armar = !ultimo?.pregunta && (esOpcionArmar(t, opcionArmar) || esOpcionArmar(t, opcionActualizar)) && sesion.puedeConcluir;
+            const marcable = varias && !armar && !esOpcionNinguna(t);
+            const marcada = marcable && marcadasAhora.includes(idx);
             return (
-              <button key={`${idx}-${t}`} type="button" className={`of-pill${armar ? ' of-pill--mako' : ''}`}
-                disabled={!opcionesHabilitadas} onClick={() => onOpcion(idx)}>
+              <button key={`${idx}-${t}`} type="button" className={`of-pill${armar ? ' of-pill--mako' : ''}${marcada ? ' of-pill--marcada' : ''}`}
+                disabled={!opcionesHabilitadas} onClick={() => tocar(idx, t, armar)} {...(marcable ? { 'aria-pressed': marcada } : {})}>
                 {armar && <MakoStar size={14} animate={false} />}
+                {marcada && <span aria-hidden>✓</span>}
                 {t}
               </button>
             );
           })}
+          {marcadasAhora.length > 0 && (
+            <Button size="sm" disabled={!opcionesHabilitadas} onClick={() => { onVarias?.(marcadasAhora); setMarcadas({ de: '', idxs: [] }); }}>
+              Enviar ({marcadasAhora.length})
+            </Button>
+          )}
         </div>
       )}
     </div>

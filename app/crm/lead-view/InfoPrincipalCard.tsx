@@ -53,7 +53,14 @@ function IconMail() {
 // #8: enviar un WhatsApp por el número NO oficial (Evolution) a este lead, con
 // confirmación + advertencia de baneo. Manual = directo (la regla anti-ban del
 // motor es solo para lo automático); sale con demora "humana".
-function EnviarNoOficial({ leadId, nombre, telefono }: { leadId: number; nombre: string; telefono: string }) {
+//
+// ⚠️ EXPORTADO (16/10/2026): el bloque `contacto` del Resumen (lead-view/ficha/resumen/) usa ESTE envío, no una copia,
+// y en su botonera grande lo abre con su propio botón (`boton`). La tarjeta de Customer Success sigue igual.
+export function EnviarNoOficial({ leadId, nombre, telefono, boton }: {
+  leadId: number; nombre: string; telefono: string;
+  /** Otro disparador (el botón grande de la botonera): recibe cómo abrir el envío. Sin él, el cuadradito verde. */
+  boton?: (abrir: () => void) => ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [texto, setTexto] = useState('');
   const [sending, setSending] = useState(false);
@@ -75,7 +82,9 @@ function EnviarNoOficial({ leadId, nombre, telefono }: { leadId: number; nombre:
   const btn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--wa, #1c8a54)', cursor: 'pointer', flex: 'none' };
   return (
     <>
-      <button type="button" onClick={() => { setOpen(true); setMsg(null); }} aria-label="Enviar WhatsApp no oficial" title="Enviar por WhatsApp no oficial (Evolution)" style={btn}><IconWhatsApp /></button>
+      {boton
+        ? boton(() => { setOpen(true); setMsg(null); })
+        : <button type="button" onClick={() => { setOpen(true); setMsg(null); }} aria-label="Enviar WhatsApp no oficial" title="Enviar por WhatsApp no oficial (Evolution)" style={btn}><IconWhatsApp /></button>}
       {open && (
         // `data-no-abre`: este pop-up vive ADENTRO de la tarjeta del teléfono (`CajaCampo`), y sin la
         // marca un clic en su fondo o en su texto abriría además la edición del número.

@@ -73,4 +73,40 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'id', tipo: 'string', enum: CAPACIDADES.map((c) => c.id), descripcion: 'id de UNA capacidad para traer solo esa. Sin id, trae todas.' }],
     salida: 'json', canales: TODOS, costo: 'gratis',
   },
+  // ── Los chats con MaKo del Second Brain (16/10/2026, etapa 2 de docs/diseno-mako-ai-native.md) ──────────────
+  // Sólo desde el chat de la app: la persona sale de la conversación del turno (`app:<id>` → su chart_key), nunca de un
+  // parámetro. Por WhatsApp no hay «chats» y por HTTP no hay persona.
+  {
+    id: 'listar_chats_mako', area: 'mako', tipo: 'lectura',
+    titulo: 'Los chats de esta persona con MaKo',
+    descripcion: 'Lista los chats que la persona tiene con MaKo en el Second Brain (el chat «Second Brain» y sus sub-chats): id, título y cuándo se movió por última vez. Úsala cuando pregunte por algo que habló en OTRO chat («¿qué te dije del precio?», «en el chat de la campaña…») y después lee ese chat con hilo_chat_mako. No requiere parámetros.',
+    parametros: [],
+    salida: 'json', canales: ['app'], costo: 'gratis',
+  },
+  {
+    id: 'hilo_chat_mako', area: 'mako', tipo: 'lectura',
+    titulo: 'Leer otro chat con MaKo',
+    descripcion: 'Trae los últimos mensajes de UNO de los chats de la persona con MaKo (el id sale de listar_chats_mako), para retomar lo que se habló sin pedírselo de nuevo. Sólo los de esta misma persona: el de otra no existe.',
+    parametros: [{ nombre: 'id', tipo: 'number', entero: true, obligatorio: true, descripcion: 'id del chat (de listar_chats_mako).' }],
+    salida: 'json', canales: ['app'], costo: 'gratis',
+  },
+  // Etapa 2 de docs/diseno-mako-ai-native.md, tandas 7 y 9 (16/10/2026): el riel «Lo que hizo» y renombrar un chat.
+  {
+    id: 'lo_que_hizo_chat_mako', area: 'mako', tipo: 'lectura',
+    titulo: 'Lo que MaKo hizo en un chat',
+    descripcion: 'Las acciones que MaKo propuso en UNO de los chats de la persona en el Second Brain y cómo quedó cada una (esperando el ok, en curso, hecha, cancelada, vencida, falló), la más reciente primero. Sin id, las de ESTE chat. Úsala cuando pregunte «¿qué hiciste?» o «¿se mandó lo de ayer?», y antes de proponer algo que quizás ya propusiste.',
+    parametros: [{ nombre: 'id', tipo: 'number', entero: true, descripcion: 'id del chat (de listar_chats_mako); sin él, este chat.' }],
+    salida: 'json', canales: ['app'], costo: 'gratis',
+  },
+  {
+    id: 'renombrar_chat_mako', area: 'mako', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Renombrar un chat con MaKo',
+    descripcion: 'PROPONE cambiarle el nombre a uno de los chats de la persona en el Second Brain; queda pendiente de confirmación y NO se ejecuta hasta el «sí». El id sale de listar_chats_mako (sin id, este chat). El chat «Second Brain» no se renombra.',
+    escribe: 'cambia el nombre del chat en la barra del Second Brain',
+    parametros: [
+      { nombre: 'id', tipo: 'number', entero: true, descripcion: 'id del chat (de listar_chats_mako); sin él, este chat.' },
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre nuevo, no vacío.' },
+    ],
+    canales: ['app'], costo: 'gratis',
+  },
 ];

@@ -20,15 +20,31 @@
 // pierda un campo — ya pasó tres veces en este archivo (prioridad, Quarter,
 // recurrencia).
 
-import { type BoardTask, type Label, prioFromScore, scoreFromPrio } from './types';
+import { type BoardTask, type Label, prioFromScore } from './types';
 import type { Tarea, Categoria } from '@/lib/todo';
 
 export const toBoard = (t: Tarea): BoardTask => ({
   // El board del cliente (experimento_tareas) todavía no persiste emoji por tarea:
   // default 📌. El emoji-por-tarea con memoria vive en el board del dueño (SEED).
   id: String(t.id), num: t.id, emoji: '📌', title: t.titulo, detalle: t.detalle ?? '',
-  priority: prioFromScore(t.score || scoreFromPrio[t.prioridad]), score: t.score || scoreFromPrio[t.prioridad],
+  // ⚠️ EL 0 SE QUEDA EN 0 (16/10/2026): es «Sin priorizar» (`sinPriorizar`, types.ts), una
+  // tarea que nació libre y nadie juzgó todavía. Hasta hoy acá decía `t.score ||
+  // scoreFromPrio[t.prioridad]`, o sea que un 0 se dibujaba como 62 («Media», el default de la
+  // columna `prioridad`): la tarea libre no se podía ver, y el próximo `editPatch` mandaba
+  // `score: 62` y la volvía «priorizada» sin que nadie lo decidiera. Medido el 16/10: 0 filas
+  // de `experimento_tareas` tienen score 0, así que esto no le cambia la columna a ninguna
+  // tarjeta que ya exista.
+  priority: prioFromScore(t.score), score: t.score,
   scoreRazon: t.score_razon ?? undefined,
+  // EL CANDADO de «la fijaste a mano» (columna de la mig 0143, que el cliente no leía hasta el
+  // 16/10/2026). Se LEE para que la tarjeta lo diga y
+  // ofrezca devolvérselo a MaKo; NO va en `editPatch`: lo escriben sólo `prioridadManual` y
+  // `prioridadAlPerro` (TodoBoard.tsx), o una pestaña vieja lo abriría al guardar.
+  scoreManual: t.score_manual,
+  // LA COLUMNA DEL KANBAN y su motivo (migs 0159 y 0294), y el lugar dentro de ella. Van en el
+  // mapper de ENTRADA o la tarjeta nace en «Por iniciar» en cada carga aunque la fila diga otra
+  // cosa. NO van en `editPatch` (TodoBoard.tsx): los escribe la acción `mover`.
+  estado: t.estado, motivoAtorada: t.motivo_atorada, orden: t.orden,
   progress: t.progreso, deadline: t.deadline ?? '', quarter: t.quarter ?? undefined, recurrente: t.recurrente, recurrencia: t.recurrencia,
   labels: t.categorias.map(String), checklist: t.checklist, historial: t.historial,
   origen: t.origen === 'manual' ? 'user' : 'ia', enPrioridad: t.en_prioridad,
@@ -38,6 +54,9 @@ export const toBoard = (t: Tarea): BoardTask => ({
   // aunque la fila tenga el cliente escrito — y peor: el próximo `editPatch` lo mandaría
   // como `null` y borraría la asignación sin que nadie la tocara.
   clienteLeadId: t.cliente_lead_id, clienteNombre: t.cliente_nombre,
+  // QUIÉN LA HACE (mig 0159): lo mira el filtro «Responsable» del kanban (16/10/2026). Se LEE y
+  // nada más: `editPatch` no lo manda, así que ningún guardado del tablero lo puede borrar.
+  responsableTipo: t.responsable_tipo,
   // ⚠️ LOS CINCO DE #157. El panel de una tarea los dibuja para los DOS tableros; del
   // lado del cliente el camino entero faltaba, así que se editában, contestaba 200 y
   // al recargar volvían como estaban. `notas` entra como '' y no undefined: es un

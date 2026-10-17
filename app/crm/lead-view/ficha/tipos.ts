@@ -51,6 +51,16 @@ export type CtxFicha = {
   releer: () => void;
   /** Aplicar en el acto lo que una acción ya escribió en el lead, y releer el resto. */
   parchear: (patch: Partial<Lead>) => void;
+  /**
+   * (16/10/2026) Ir a otra pestaña de la ficha por su CLAVE (la de `?tab=`: 'reuniones', 'cobranza', 'insights'…). La
+   * siguiente acción del Resumen lleva a donde se resuelve («Ver llamada», «Ver análisis»).
+   */
+  irATab: (clave: string) => void;
+  /**
+   * (16/10/2026) «Solucionar» un dato sin marcar desde un bloque: el MISMO camino que la cabecera (va a la tab donde
+   * esta ficha dibuja su campo y lo señala; sin ninguna, el asistente). Lo usa «Completar» de la siguiente acción.
+   */
+  solucionar: (paso: StepId) => void;
 };
 
 /** Lo que recibe el componente de un bloque. */

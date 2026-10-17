@@ -44,8 +44,8 @@ import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 
-/** Vista del tablero. "pendientes" (datos sin marcar) es UNA VISTA: reemplaza el board entero. */
-export type CrmVista = 'kanban' | 'tabla' | 'pendientes';
+/** Vista del tablero. La de «pendientes» (datos sin marcar) se borró el 16/10/2026: se resuelven en «A revisar». */
+export type CrmVista = 'kanban' | 'tabla';
 /** Categorías del menú de filtros. El buscador NO es una categoría (no genera chip). */
 export type FiltroCat = 'banda' | 'etapa' | 'origen' | 'creativo' | 'orden';
 

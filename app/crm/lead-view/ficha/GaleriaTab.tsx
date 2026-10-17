@@ -36,7 +36,7 @@ import { EJEMPLOS_TAB, esLaDeHoy, miniaturaDe, rotuloUsar, type VistaGaleria } f
 /** El tope de la ruta (`maxDuration = 100`) + margen: el `fetch` no puede esperar para siempre. */
 const TOPE_CLIENTE_MS = 105_000;
 
-export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onUsar, onCerrar, primeraVez, registrado }: {
+export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, onUsar, onCerrar, registrado }: {
   tab: TabFicha;
   ficha: FichaDelFunnel;
   /** El nombre que se dibuja de la tab (el del admin, o el de siempre). */
@@ -44,11 +44,12 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onUsar, onCe
   /** Lo que se está mirando (la tab de abajo se dibuja con eso). null = lo de hoy (la plantilla en uso o la sugerida). */
   vista: VistaGaleria | null;
   onVista: (v: VistaGaleria) => void;
+  /** Tocar una plantilla la ELIGE: guarda y cierra, sin vista previa (16/10/2026). */
+  onElegir: (v: VistaGaleria) => void;
   /** Elegir lo que se mira: guarda el cambio y cierra. */
   onUsar: () => void;
-  /** «Ahora no» (la primera vez) o «Cerrar» (abierta desde «Personalizar»): se queda la de hoy. */
+  /** «Cerrar»: se queda la de hoy. */
   onCerrar: () => void;
-  primeraVez: boolean;
   /** ¿El bloque tiene componente? (lo que se dibuja: la miniatura no muestra lo que no se vería). */
   registrado: (id: BloqueId) => boolean;
 }) {
@@ -118,9 +119,10 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onUsar, onCe
   return (
     <>
       <section className="fb-galeria" aria-label={`Plantillas de ${nombreTab}`}>
-        <button type="button" className="fb-boton-texto fb-galeria-cerrar" onClick={onCerrar}
-          title={primeraVez ? 'Se queda la sugerida' : 'Se queda la de hoy'}>
-          {primeraVez ? 'Ahora no' : 'Cerrar'}
+        {/* Sin «Ahora no» desde el 16/10/2026 (Martín): la galería se abre sólo con «Templates» y «Cerrar» se queda con
+            la de hoy. */}
+        <button type="button" className="fb-boton-texto fb-galeria-cerrar" onClick={onCerrar} title="Se queda la de hoy">
+          Cerrar
         </button>
         {/* 1 · ¿Qué vas a crear hoy? — LA caja de la casa (la de «Nueva hoja», Automations y el Web Generator). */}
         <div className="gp cp-casa fb-galeria-caja" data-pedido-mako="">
@@ -147,13 +149,14 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onUsar, onCe
           {galeria.map(({ plantilla: p, porque }) => {
             const blanco = p.bloques.length === 0;
             const piezas = blanco ? [] : miniaturaDe(p, ficha.respaldo, registrado);
-            const mirada = mira.tipo === 'plantilla' && mira.id === p.id;
+            // Sin nada mirándose (no hay lo que armó MaKo abajo), la marcada es la que la tab ya usa.
+            const mirada = vista ? mira.tipo === 'plantilla' && mira.id === p.id : p.id === enUso;
             const marca = p.id === enUso ? 'En uso' : porque ? 'Sugerido' : null;
             return (
               <button key={p.id} type="button" className="fb-gal-carta" aria-pressed={mirada} data-plantilla={p.id}
                 data-sugerida={porque ? 'si' : undefined} title={porque ? `${p.bajada} ${porque}` : p.bajada}
-                aria-label={`Mirar la plantilla ${p.nombre}${porque ? ` (sugerida: ${porque})` : ''}`}
-                onClick={() => { setAviso(null); onVista({ tipo: 'plantilla', id: p.id }); }}>
+                aria-label={`Usar la plantilla ${p.nombre}${porque ? ` (sugerida: ${porque})` : ''}`}
+                onClick={() => { setAviso(null); onElegir({ tipo: 'plantilla', id: p.id }); }}>
                 {blanco ? (
                   <span className="fb-gal-mini fb-gal-mini--vacia"><span aria-hidden>＋</span></span>
                 ) : (
@@ -174,14 +177,16 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onUsar, onCe
         </div>
       </section>
 
-      {/* 3 · Lo que se mira, con los datos de este lead (la tab de abajo) y el botón que lo elige. */}
-      <div className="fb-gal-barra" role="region" aria-label="Vista previa">
+      {/* 3 · SÓLO para lo que armó MaKo con la caja: se mira abajo, con los datos de este lead, y se elige acá. Una
+          plantilla de la grilla se elige con un toque y no se previsualiza: «si el usuario aún no eligió plantilla no
+          le salte toda la plantilla abajo con el botón de "usar sugerida"... Es confuso eso» (Martín, 16/10/2026). */}
+      {vista?.tipo === 'mako' && <div className="fb-gal-barra" role="region" aria-label={`Elegir ${mirando}`}>
+        {/* Sin «Vista previa: …» (16/10/2026, mismo pedido): la tab de abajo ya ES la vista previa. */}
         <span className="fb-gal-barra-txt">
-          Vista previa: <strong>{mirando}</strong>
-          {aviso && <span className="fb-gal-barra-aviso"> · {aviso}</span>}
+          {aviso && <span className="fb-gal-barra-aviso">{aviso}</span>}
         </span>
         <Button size="sm" onClick={onUsar} disabled={yaEsta || pensando}>{yaEsta ? 'En uso' : rotuloUsar(mira, sugerida)}</Button>
-      </div>
+      </div>}
     </>
   );
 }

@@ -92,7 +92,20 @@ const botonSecundario: CSSProperties = {
   color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS,
 };
 
-export function NotasCard({ leadId }: { leadId: number }) {
+export function NotasCard({ leadId, titulo = 'Notas', limite, plegada = false, epico = false }: {
+  leadId: number;
+  /** El rótulo de la tarjeta (en la ficha por bloques, el título del bloque). */
+  titulo?: string;
+  /**
+   * Cuántas notas se ven (16/10/2026, los diseños «Últimas 3» y «La última» del bloque `notas` del Resumen); las demás,
+   * con «Ver todas». Sin él, todas: Customer Success la monta así.
+   */
+  limite?: number;
+  /** La caja para escribir empieza cerrada, detrás de «Agregar nota» (los mismos dos diseños). */
+  plegada?: boolean;
+  /** La vista épica de la tab: la nota en grande. */
+  epico?: boolean;
+}) {
   const refrescarFicha = useRefrescarFicha();
   const tz = useTzWorkspace();
   const [notas, setNotas] = useState<LeadAuditRowFull[]>([]);
@@ -150,6 +163,10 @@ export function NotasCard({ leadId }: { leadId: number }) {
   const [editando, setEditando] = useState<{ id: number; texto: string } | null>(null);
   const refEdicion = useAltoQueSigue(editando?.texto ?? '');
   const [aBorrar, setABorrar] = useState<LeadAuditRowFull | null>(null);
+  // Los diseños cortos del bloque: la caja detrás de un botón y sólo las últimas notas a la vista.
+  const [cajaAbierta, setCajaAbierta] = useState(!plegada);
+  const [todas, setTodas] = useState(false);
+  const visibles = limite && !todas ? notas.slice(0, limite) : notas;
 
   useEffect(() => {
     let alive = true;
@@ -215,8 +232,9 @@ export function NotasCard({ leadId }: { leadId: number }) {
 
   return (
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 14 }}>Notas</div>
+      <div style={{ ...sectLabel, marginBottom: 14 }}>{titulo}</div>
 
+      {cajaAbierta ? (<>
       <textarea
         ref={refNueva}
         value={texto}
@@ -252,13 +270,16 @@ export function NotasCard({ leadId }: { leadId: number }) {
           {pending && !editando && !aBorrar ? 'Guardando…' : 'Agregar nota'}
         </button>
       </div>
+      </>) : (
+        <button type="button" onClick={() => setCajaAbierta(true)} style={{ ...botonSecundario, alignSelf: 'flex-start' }}>+ Agregar nota</button>
+      )}
 
       <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {cargando && <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--faint)' }}><Spinner size={14} /> Cargando notas</div>}
         {!cargando && notas.length === 0 && (
-          <div style={{ fontSize: 13.5, color: 'var(--faint)', fontStyle: 'italic', padding: '4px 0' }}>Todavía no hay notas. Escribe la primera arriba.</div>
+          <div style={{ fontSize: 13.5, color: 'var(--faint)', fontStyle: 'italic', padding: '4px 0' }}>{cajaAbierta ? 'Todavía no hay notas. Escribe la primera arriba.' : 'Todavía no hay notas.'}</div>
         )}
-        {notas.map((n) => {
+        {visibles.map((n) => {
           const enEdicion = editando?.id === n.id;
           // `valor_anterior` en una nota es la versión ORIGINAL: sólo existe si alguien la editó
           // (app/crm/notas-actions.ts). Es lo que dice el «editada» del pie.
@@ -298,7 +319,7 @@ export function NotasCard({ leadId }: { leadId: number }) {
               ) : (
                 <>
                   {(n.valor_nuevo ?? '').trim() && (
-                    <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{n.valor_nuevo}</div>
+                    <div style={{ fontSize: epico ? 'clamp(18px, .8vw + 13px, 24px)' : 14, fontWeight: epico ? 600 : undefined, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{n.valor_nuevo}</div>
                   )}
                   {n.archivo_nombre && (
                     <button type="button" onClick={() => void abrirAdjunto(n.id)} title={`Abrir ${n.archivo_nombre}`}
@@ -328,6 +349,9 @@ export function NotasCard({ leadId }: { leadId: number }) {
             </div>
           );
         })}
+        {limite != null && !todas && notas.length > limite && (
+          <button type="button" onClick={() => setTodas(true)} style={{ ...botonSecundario, alignSelf: 'flex-start' }}>Ver todas ({notas.length})</button>
+        )}
       </div>
 
       {aBorrar && (

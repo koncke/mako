@@ -23,6 +23,103 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## Los adjuntos del chat se guardan: tres llamadores, un turno, y El Archivero que MUEVE (16/10/2026)
+
+Tanda 4 de la etapa 2 (docs/diseno-mako-ai-native.md). Pedido de Martín: «los adjuntos se guardan en el archivero».
+
+- **`turnoApp` tiene TRES llamadores, no dos.** El Second Brain y el teléfono, sí, pero también el MaKo Analyst de un
+  lead (`/api/crm/analyst` → `turnoDelLead`). La primera versión guardaba y archivaba para todos: el PDF de un LEAD
+  (su contrato, su propuesta) iba a El Archivero del negocio y `answersConDocumento` pisaba el perfil con sus datos.
+  Lo cazó la revisión adversarial, no un test. Ahora guardar es una opción de quien llama (`guardarAdjuntos`), y sólo
+  la prenden `/api/mako/chat` y `/api/m/mako`.
+- **`registrarDocumentoSinPisar` MUEVE su origen, no lo copia.** «Se hace cargo del binario»: al volver, el archivo
+  quedó en `<ws>/<id>` o se borró. Si el chat le pasaba su propio adjunto, la miniatura se rompía. Le va una COPIA
+  (`<ws>/chatdoc/<uuid>`), y cada uno es dueño de lo suyo: el del chat se va con la conversación, el de El Archivero
+  con su pantalla. Sólo el PDF del ADMIN: El Archivero alimenta el perfil del negocio.
+- **El plazo de lo que corre en `after()` se mide desde que EMPEZÓ el pedido.** Con fotos (visión, ~52 s cada una) leer
+  los archivos lleva minutos. Contado desde después, el plazo pasaba el `maxDuration` y la función podía morir con
+  el binario ya movido y sin su fila.
+- **Un `<img src>` no pasa por el `fetch` de la casa** (WsFetch): el `?ws=` va a mano con `conWs`. Sin él, el super
+  admin mirando un cliente pide el archivo en SU workspace y no lo encuentra.
+- **La pantalla nunca ve el path.** Ve `<id del mensaje>:<n>`, y la ruta busca el path de nuevo, mira de quién es la
+  conversación y firma 300 s. El path de la base se sanea (`esRutaDeChat`) antes de firmarlo o borrarlo.
+- **Un test de una regex necesita un caso hecho SÓLO del alfabeto permitido.** Un uuid aflojado a `[0-9a-f./-]+`
+  pasaba todos los casos malos, porque todos tenían una letra fuera del hexa («x», «.jpg»). Lo cazan `3/chat/..` y
+  `3/chat/abc`.
+- **Pegar desde Excel o Word trae texto Y una imagen.** Interceptar los archivos del portapapeles sin mirar si hay
+  `text/plain` le robaba el texto a la persona.
+- La migración 0305 sólo agrega, y el código la tolera ausente: sin la columna el mensaje se guarda sin bloques y el
+  binario se borra en el acto.
+- **El número de una migración lo da el Cerebro, no un barrido.** Salió como 0303 después de recorrer todas las ramas
+  y los worktrees: estaba libre en todos. Pero 0303-0304 estaban RESERVADAS para el Image Editor, sin archivo en
+  ningún árbol, y la 0299 del plan ya era de Video Editor. Quedó 0305.
+
+**SIN HACER:**
+- `chart_sessions.previa` (la segunda línea de la barra), que pedía el plan: no se hizo.
+- El teléfono no tiene vista previa local de los archivos mientras salen: muestra los nombres hasta que vuelven.
+- Tandas 7 a 10: está la parte de servidor, falta la pantalla. Detalle en docs/relevo/centro-operaciones.md.
+
+**Vive en:** `lib/chat-mako-bloques.ts` (puro) · `lib/chat-mako-adjuntos.ts` · `lib/chart-chats.ts` · `lib/mako-turno-app.ts`
+(`guardarAdjuntos`, `urlDeAdjunto`) · `app/api/mako/chat/route.ts` · `app/_chat/ArchivosHilo.tsx` ·
+tests/chat-mako-bloques.test.ts, tests/second-brain-chat.test.ts (dieciséis roturas)
+
+## «Pregúntale a MaKo» es el Second Brain: la clave se queda, y lo de antes se lee (16/10/2026)
+
+Tanda 2 de la etapa 2 (docs/diseno-mako-ai-native.md).
+
+- **La entrada de la barra cambió de nombre, no de clave.** Se llama «Second Brain», lleva a `/second-brain` y su clave
+  sigue siendo `mako`. De esa clave cuelgan el chat del teléfono, la bandeja (`/mako/pendientes`), Inbox y la puerta
+  del chat (`puedeVerKey('mako')`): cambiarla los apagaba a todos, sin un error.
+- **Una entrada por persona.** Al admin que ya ve «Second Brain» en Analyze, el Sidebar no le dibuja la de abajo.
+- **El título de la pestaña ahora lleva la marca** («MaKo - Second Brain»): «Pregúntale a MaKo» ya la traía en el
+  nombre y por eso no la sumaba. No es un bug.
+- **«Antes»: los chats de /mako, de sólo lectura**, con SU regla de quién ve qué: el admin, los del workspace; los demás,
+  los suyos (lib/chat-mako-indice.ts, la regla de chart-insights). Son de un chat sin herramientas: no se continúan, se
+  sigue en uno nuevo. `/mako` y `/mako-doer` redirigen con `rutaConWs`.
+- **La API lee los chats de la persona sin que la persona sea un parámetro.** `listar_chats_mako` y `hilo_chat_mako`
+  (canal `app`) toman la conversación del turno de su clave de canal (`app:<id>`), y de ahí la base `mako-movil:<persona>`
+  de su `chart_key`. Un `id` de otra persona no existe. Así no hizo falta sumar la persona al `Ctx` de todas las
+  operaciones.
+
+**SIN HACER:**
+- Retirar `/api/mako-doer`: su única pantalla era `MakoDoerTab`, que se fue. `tests/mako-doer-plazo.test.ts` todavía
+  lo nombra.
+- ~~En el teléfono, la fila «Second Brain» (el chat) y la del Mapa son dos.~~ Hecho en la tanda 3: ver
+  [hallazgos-mobile.md](hallazgos-mobile.md), «El Second Brain del teléfono es el chat con MaKo».
+
+**Vive en:** `app/_components/nav.ts` (`MAKO_NAV`) · `app/_components/Sidebar.tsx` · `lib/chat-mako-indice.ts` ·
+`lib/api-mako/areas/mako.def.ts` · `app/mako/page.tsx`
+
+## El Second Brain es un chat: dos puertas, y el Mapa sólo cuando se pide (16/10/2026)
+
+**El pedido.** Martín, por el coordinador: «Termina con todo, faltan mis pedidos del Second Brain»; la etapa 2 de
+`docs/diseno-mako-ai-native.md`. Primera tanda: `/second-brain` pasa a ser el chat con MaKo, con la cara del Centro de
+Operaciones (barra de chats, conversación, caja con micrófono, la tarjeta que se confirma), y el grafo es «Mapa».
+
+- **Dos puertas, las dos en el servidor.**
+  - **El chat es de todos los que tienen MaKo** (closer y setter incluidos): `requireRolWs(['closer', 'setter'], { nav: 'mako' })`,
+    la misma clave del chat del teléfono.
+  - **El Mapa es del admin con la tab en su capa**: `esAdminDeTab('second-brain')` (`lib/puerta-admin-tab.ts`), la MISMA
+    regla de las rutas del Second Brain, sin una copia. A quien no le toca no se le calcula.
+- **El Mapa se calcula sólo cuando la URL lo pide** (`?panel=mapa`, o un `?area=` de los links de siempre).
+  `construirCerebro()` son 21 lecturas, y el chat no las necesita para el primer dibujo.
+- **La ruta del chat no puede ir en `app/api/second-brain/`.** Esa carpeta es sólo del admin por test
+  (`tests/puerta-admin-tab.test.ts`), y un closer recibiría 403. Va en `app/api/mako/chat`, con la puerta de MaKo
+  (`personaDelRequest`).
+- **El jefe «Second Brain» son las conversaciones del teléfono** (`mako-movil:u<id>`): no hubo nada que migrar.
+  - El jefe es la MÁS VIEJA, y las demás son sus sub-chats. Con la más reciente, el jefe saltaba de fila cada vez
+    que se escribía en otra.
+  - Un chat nuevo se crea con el primer mensaje, no al apretar «Nuevo chat».
+- **Los sub-chats heredan el muñeco del jefe sólo si el jefe está en `EQUIPO`** (`lib/centro-munecos.ts`). Sin
+  esa entrada, cada sub-chat salía con una forma y un color distintos. «Second Brain» es la gota.
+- **Trampas del entorno que muerden a cualquier pantalla de acá:**
+  - la capa superadmin tiene `userNavKeys: null`, así que pasa `requireCapa` con cualquier clave, pero el Sidebar
+    no le dibuja la entrada;
+  - la capa `pm` no tiene `second-brain`: ve el chat y no el Mapa.
+
+**Vive en:** `app/second-brain/page.tsx` · `app/second-brain/ChatSecondBrain.tsx` · `app/api/mako/chat/route.ts` ·
+`app/_chat/` · `lib/chat-mako-reglas.ts` · `tests/second-brain-chat.test.ts` · `tests/chat-mako-reglas.test.ts`
+
 ## Las doce métricas que deciden si se parece
 
 **Síntoma.** Se rehace el grafo con d3-force, se mira, parece una nube. El dueño lo mira y

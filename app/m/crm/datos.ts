@@ -44,7 +44,8 @@ import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
 import type { Lead } from '@/lib/leads';
-import { piezasDelTelefono, saldoDelTelefono, tabsQueVe, type PiezaPuesta, type SaldoTelefono } from './ficha-bloques';
+import { piezasDelTelefono, resumenDelTelefono, saldoDelTelefono, tabsQueVe, type PiezaPuesta, type ResumenTelefono, type SaldoTelefono } from './ficha-bloques';
+import { tiempoEnEtapaAction } from '@/app/crm/lead-view/ficha/resumen/bloques-actions';
 import { listarCobros } from '@/lib/cobros';
 import { cobradoDelLead } from '@/lib/cobrado-lead';
 import { estadoDeCuenta } from '@/lib/pagos-vistazo';
@@ -78,6 +79,11 @@ export type FichaV2 = {
   sinMarcar: number | null;
   /** El estado de cuenta en una fila (la pieza `saldo`), con la MISMA cuenta que el escritorio. null = nada que contar. */
   saldo: SaldoTelefono | null;
+  /**
+   * Las filas del Resumen nativo (16/10/2026): la siguiente acción, el equipo, la calificación, cuánto lleva en la
+   * etapa… (`resumenDelTelefono`, ./ficha-bloques.ts). null = sin el lead (no se dibuja ninguna).
+   */
+  resumen: ResumenTelefono | null;
 };
 
 /**
@@ -144,11 +150,14 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
   const [f, lead] = await Promise.all([fichaMovil(leadId), getLead(leadId).catch(() => null)]);
   if (!f) return null;
   const casa = f.casa ?? f.productos[0] ?? null;
+  // Cuánto lleva en su etapa: la MISMA lectura que el bloque de escritorio (`tiempoEnEtapaAction`), sólo si la ficha
+  // del funnel pone ese bloque (no se paga una lectura del historial para una fila que no se dibuja).
   const [audit, stages, delFunnel] = await Promise.all([
     getLeadAuditAction(leadId).catch((e) => { console.error(`[m/crm] historial ${leadId}: ${msg(e)}`); return []; }),
     casa ? etapasDeProducto(casa.funnelId).catch(() => []) : Promise.resolve([]),
     fichaDelFunnel(lead),
   ]);
+  const enEtapa = delFunnel.piezas.some((x) => x.pieza === 'en-etapa') ? await tiempoEnEtapaAction(leadId).catch(() => null) : null;
   const etiqueta = (v: string) => stages.find((s) => s.key === v)?.label ?? stages.find((s) => s.label === v)?.label;
   const ahora = Date.now();
   const notasTodas = audit.filter((r) => r.campo === 'Nota' && (r.valor_nuevo ?? '').trim());
@@ -168,6 +177,10 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
     totalNotas: notasTodas.length,
     actividad,
     ...delFunnel,
+    resumen: lead ? resumenDelTelefono(lead, {
+      etapa: casa?.etapa ?? null, hoy: f.hoy, ahoraMs: ahora,
+      siguiente: f.siguiente, enEtapa,
+    }) : null,
   };
 }
 

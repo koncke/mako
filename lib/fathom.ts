@@ -28,6 +28,9 @@ export function verifyFathomSignature(rawBody: string, headers: FathomSigHeaders
 export type FathomInvitee = { name?: string; email?: string; is_external?: boolean };
 export type FathomTranscriptEntry = { speaker?: { matched_calendar_invitee_email?: string | null } };
 export type FathomWebhookPayload = {
+  /** El id de la grabación (el mismo `recording_id` de la API). Lo usa el Plan para leer ESA
+   *  reunión al terminar (app/api/webhooks/fathom, 16/10/2026); si no viene, mira la ventana. */
+  recording_id?: number;
   title?: string;
   meeting_type?: string;
   url?: string;

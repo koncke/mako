@@ -36,10 +36,14 @@ import { EtiquetasDelLead, versionDeEtiquetas } from './lead-view/EtiquetasDelLe
 
 const SANS = "'Geist', sans-serif";
 
-export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
+export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDatosAlAbrir, avisosAlAbrir }: {
   data: LeadFullData; onClose: () => void; initialTab?: string;
   /** Abrir llevando a ese dato sin marcar («A revisar» del CRM, 13/10/2026). Se aplica UNA vez. */
   solucionarAlAbrir?: StepId;
+  /** Abrir con el «Ver» de los datos sin marcar desplegado («A revisar» del CRM, 16/10/2026). */
+  verDatosAlAbrir?: boolean;
+  /** Abrir para ELEGIR QUÉ AVISA MaKo (el engranaje de «A revisar»): el basurero ignora en todo el funnel. */
+  avisosAlAbrir?: boolean;
 }) {
   // ⚠️ LA FICHA SE RELEE CUANDO CAMBIA LA CASA DEL LEAD. Sus datos los trajo una action al abrir
   // (LeadEditModal) y el `router.refresh()` no los toca: si desde el desplegable de productos se
@@ -185,7 +189,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
 
   return (
     <FichaCambioProvider value={releer}>
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: `${MARGEN_FICHA_LEAD}px clamp(10px,3vw,20px)` }}>
+    <div data-ficha-overlay onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: `${MARGEN_FICHA_LEAD}px clamp(10px,3vw,20px)` }}>
       {/* ⚠️ MÁS ANCHO (punto 14 del 12/10/2026: «bastante más ancho, para aprovechar más el
           espacio»): eran 760. El número vive en lead-view/ficha-medidas.ts, que también lee el
           esqueleto de carga. Sin `aria-labelledby`: el nombre ahora es un campo editable, y un
@@ -212,7 +216,8 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
             <>
               <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={stageKey} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
               {datos && (
-                <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato} onCambio={releer} />
+                <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato} onCambio={releer} abrirAlMontar={verDatosAlAbrir || avisosAlAbrir}
+                  ignorarSiempre={avisosAlAbrir ? { funnelId: lead.funnel_id ?? null } : undefined} />
               )}
             </>
           }

@@ -40,6 +40,10 @@
 // =============================================================================
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { EstiloDeLaHoja } from './EstiloDeLaHoja';
+import { csvDelLead, nombreArchivoLead } from './exportar-lead';
+import { Dropdown } from '@/app/components/Dropdown';
 import dynamic from 'next/dynamic';
 import { deriveStageKey } from '@/lib/pipeline';
 import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
@@ -67,19 +71,12 @@ import { SelectorDispositivo } from './SelectorDispositivo';
 import { CLAVE_DE_TAB, dispositivoVisto, estiloDeFicha, indiceDeOcurrencia, puedePersonalizar, tabDelDato, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
 import { CSS_FICHA } from './ficha-css';
-import { abreSola, cambioDeVista, claveCerrada, fichaConVista, type VistaGaleria } from './galeria';
+import { cambioDeVista, fichaConVista, type VistaGaleria } from './galeria';
 import type { CtxFicha } from './tipos';
 
-// La galería sólo la ve el admin, y casi siempre una vez por tab: su código (la caja de la casa, el micrófono) no
-// viaja con la ficha de todos. Se abre después de montar (`montado`), así que no hace falta en el server.
+// La galería sólo la ve el admin (desde «Templates»): su código (la caja de la casa, el micrófono) no viaja con la
+// ficha de todos, y no hace falta en el server.
 const GaleriaTab = dynamic(() => import('./GaleriaTab').then((m) => m.GaleriaTab), { ssr: false });
-
-/** Lee «Ahora no» del navegador. Puede no haber almacenamiento (una ventana privada, un iframe): entonces, nada. */
-function leerCerradas(funnelId: number): Set<string> {
-  const out = new Set<string>();
-  try { for (const tab of TABS_FICHA) { const k = claveCerrada(funnelId, tab); if (window.localStorage.getItem(k) === '1') out.add(k); } } catch { /* sin almacenamiento */ }
-  return out;
-}
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -130,20 +127,6 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // cerraron con «Ahora no» en este navegador y si ya se montó (se abre sola recién ahí: el server no sabe lo cerrado).
   const [galeria, setGaleria] = useState<TabFicha | null>(null);
   const [vistas, setVistas] = useState<Partial<Record<TabFicha, VistaGaleria>>>({});
-  const [montado, setMontado] = useState(false);
-  const [cerradas, setCerradas] = useState<Set<string>>(() => new Set());
-  const funnelId = ff.ficha?.funnel.id ?? null;
-  useEffect(() => {
-    setMontado(true);
-    if (funnelId != null) setCerradas(leerCerradas(funnelId));
-  }, [funnelId]);
-
-  const ctx: CtxFicha = {
-    data, lead, stages, etapa, hoy,
-    rol: data.rol ?? 'otro', esAdmin: data.rol === 'admin', verPrivado: !!data.verPrivado,
-    releer: refrescar,
-    parchear: parchear ?? (() => refrescar()),
-  };
 
   // Las tabs que salen, con sus reglas de siempre (las de las dos puertas).
   const verReuniones = tieneEtapaDeReunion(stages);
@@ -151,6 +134,35 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   const verTracking = data.verTracking ?? true;
   const delLead: TabFicha[] = ['resumen', ...(verTracking ? ['tracking' as const] : []), ...(verReuniones ? ['reuniones' as const] : []), ...(verPagos ? ['pagos' as const] : [])];
   const tabsBloques: TabFicha[] = enEdicion ? ['resumen', 'tracking', ...(verReuniones ? ['reuniones' as const] : []), 'pagos'] : delLead;
+
+  // «Solucionar» un dato: a la tab donde se dibuja su campo, y señalado. Lo piden la cabecera (`pedido`, una vez por
+  // pedido) y, desde el 16/10/2026, los bloques (`ctx.solucionar`: «Completar» de la siguiente acción). Un solo camino.
+  const [irA, setIrA] = useState<{ key: string; n: number } | null>(null);
+  // ⚠️ «AI ANALYST» YA NO ES UNA PESTAÑA (16/10/2026, Martín: «"AI Analyst" que abra el chat de MaKo para analizar el
+  // detail de ese lead en específico... Esto reemplaza a la tab de "MaKo Analyst"... cuando se abra el chat de MaKo al
+  // costado izquierdo, todo el modal del detail se desplace a la derecha»). Es un panel aparte, a la izquierda, que
+  // se abre desde el «⋯». Lo que pedía la pestaña vieja (`?tab=insights`, «Ver análisis» de la siguiente acción) lo
+  // abre a él.
+  const [analyst, setAnalyst] = useState(initialTab === 'insights');
+  const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
+  const ctx: CtxFicha = {
+    data, lead, stages, etapa, hoy,
+    rol: data.rol ?? 'otro', esAdmin: data.rol === 'admin', verPrivado: !!data.verPrivado,
+    releer: refrescar,
+    parchear: parchear ?? (() => refrescar()),
+    irATab: (clave) => { if (clave === 'insights') { setAnalyst(true); return; } setIrA({ key: clave, n: Date.now() }); },
+    solucionar: (paso) => solucionar(paso, Date.now()),
+  };
+  function solucionar(paso: StepId, n: number) {
+    setEditando(false);
+    const t = tabDelDato(paso, delLead, {
+      listaDe: (tab) => efectiva.tabs[tab], reglasDe: entradaDe, vacio: (p, r) => !!r.estaVacio?.(ctx, p), verPrivado: ctx.verPrivado,
+    });
+    if (!t) { onNoEsta(); return; }
+    const d = [...(data.datos?.avisar ?? []), ...(data.datos?.ocultos ?? [])].find((x) => x.id === paso);
+    setIrA({ key: CLAVE_DE_TAB[t], n });
+    setSenal({ id: paso, label: d?.label ?? 'este dato' });
+  }
 
   // Un cambio de la ficha, con la selección que le sigue: el bloque movido sigue elegido, el recién puesto
   // queda elegido, y lo que cambia la lista entera la suelta.
@@ -188,43 +200,30 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     return () => document.removeEventListener('keydown', tecla);
   }, [enEdicion, sel, efectiva, ff, cambiar]);
 
-  // «Solucionar» un dato: a la tab donde se dibuja su campo, y señalado. Una vez por pedido.
-  const [irA, setIrA] = useState<{ key: string; n: number } | null>(null);
-  const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
+  // El «Solucionar» de la cabecera, una vez por pedido.
   useEffect(() => {
-    if (!pedido) return;
-    setEditando(false);
-    const t = tabDelDato(pedido.id, delLead, {
-      listaDe: (tab) => efectiva.tabs[tab], reglasDe: entradaDe, vacio: (p, r) => !!r.estaVacio?.(ctx, p), verPrivado: ctx.verPrivado,
-    });
-    if (!t) { onNoEsta(); return; }
-    const d = [...(data.datos?.avisar ?? []), ...(data.datos?.ocultos ?? [])].find((x) => x.id === pedido.id);
-    setIrA({ key: CLAVE_DE_TAB[t], n: pedido.n });
-    setSenal({ id: pedido.id, label: d?.label ?? 'este dato' });
+    if (pedido) solucionar(pedido.id, pedido.n);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo cuando llega un pedido nuevo
   }, [pedido?.n]);
 
   // ── La galería de una tab ─────────────────────────────────────────────────────────────────
-  const galeriaAbierta = (tab: TabFicha): boolean => !!ff.ficha && puede && (galeria === tab || abreSola({
-    puede, montado, editando: enEdicion, configurada: efectiva.configuradas.includes(tab),
-    cerrada: funnelId != null && cerradas.has(claveCerrada(funnelId, tab)),
-  }));
+  // ⚠️ YA NO SE ABRE SOLA (16/10/2026, Martín: «en los casos de los workspace que ya tienen leads, simplemente ponles
+  // las plantillas sugeridas, es decir que no aparezca el "¿Qué vas a crear hoy?"»). Una tab sin configurar ya se
+  // dibuja con su sugerida (`efectiva`), sin escribir nada; la galería se abre sólo con «Templates». Con eso se fueron
+  // `abreSola` y el «Ahora no» que se recordaba en el navegador.
+  const galeriaAbierta = (tab: TabFicha): boolean => !!ff.ficha && puede && galeria === tab;
   const soltarGaleria = (tab: TabFicha) => {
     setGaleria((g) => (g === tab ? null : g));
     setVistas((v) => { const n = { ...v }; delete n[tab]; return n; });
   };
-  /** «Ahora no» (la primera vez): se recuerda en este navegador, por funnel y tab. La tab se queda con la sugerida. */
-  const cerrarGaleria = (tab: TabFicha) => {
-    if (galeria !== tab && funnelId != null) {
-      const k = claveCerrada(funnelId, tab);
-      try { window.localStorage.setItem(k, '1'); } catch { /* sin almacenamiento: vuelve a abrirse la próxima vez */ }
-      setCerradas((s) => new Set(s).add(k));
-    }
-    soltarGaleria(tab);
-  };
   /** «Usar»: lo que se mira (o, sin mirar nada, la de hoy, que queda elegida). */
   const usarGaleria = (tab: TabFicha) => {
     const v = vistas[tab] ?? { tipo: 'plantilla' as const, id: efectiva.plantillasTab[tab] };
+    cambiar(cambioDeVista(v, tab));
+    soltarGaleria(tab);
+  };
+  /** Tocar una plantilla de la galería: queda elegida y la galería se cierra (sin vista previa, 16/10/2026). */
+  const elegirGaleria = (tab: TabFicha, v: VistaGaleria) => {
     cambiar(cambioDeVista(v, tab));
     soltarGaleria(tab);
   };
@@ -243,19 +242,23 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     const epico = ef.epica[tab];
     const galeriaNodo = conGaleria && ff.ficha ? (
       <GaleriaTab tab={tab} ficha={ff.ficha} nombreTab={efectiva.nombres[tab]} vista={vista}
-        onVista={(v) => setVistas((x) => ({ ...x, [tab]: v }))} onUsar={() => usarGaleria(tab)} onCerrar={() => cerrarGaleria(tab)}
-        primeraVez={galeria !== tab} registrado={(id) => !!entradaDe(id)} />
+        onVista={(v) => setVistas((x) => ({ ...x, [tab]: v }))} onElegir={(v) => elegirGaleria(tab, v)} onUsar={() => usarGaleria(tab)} onCerrar={() => soltarGaleria(tab)}
+        registrado={(id) => !!entradaDe(id)} />
     ) : null;
+    // ⚠️ CON LA GALERÍA ABIERTA Y NADA PARA MIRAR, ABAJO NO VA NADA (16/10/2026): antes se dibujaba la tab entera con
+    // la sugerida y un «Usar la sugerida», y Martín: «Es confuso eso». Abajo sólo se mira lo que armó MaKo.
+    const sinVistaPrevia = conGaleria && !vista;
     // ⚠️ LA ÉPICA ES DE LA TAB: el titular gigante es su nombre (el de General y MaKo Mobile v3), con más aire.
     const armador = (
       <>
         {!enEdicion && galeriaNodo}
-        <div className={epico ? 'fb-tab fb-tab--epica' : 'fb-tab'}>
+        {!sinVistaPrevia && <div className={epico ? 'fb-tab fb-tab--epica' : 'fb-tab'}>
           {epico && <h2 className="fb-titular">{efectiva.nombres[tab]}</h2>}
           <Armador tab={tab} lista={ef.tabs[tab]} ctx={ctx} editando={enEdicion && !conGaleria} epico={epico}
             sel={sel?.tab === tab ? sel.indice : null} onSel={(i) => setSel(i == null ? null : { tab, indice: i })}
-            onCambio={cambiar} onAgregar={(ancla) => setAgregar({ tab, ancla })} dispositivo={dispositivo} />
-        </div>
+            onCambio={cambiar} onAgregar={(ancla) => setAgregar({ tab, ancla })}
+            avisaDe={(p) => efectiva.avisos.find((a) => a.id === p)?.avisa ?? true} dispositivo={dispositivo} />
+        </div>}
       </>
     );
     if (!enEdicion || !ff.ficha) return armador;
@@ -272,11 +275,14 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
               <IconoMenu nombre="agregar" size={15} /> Agregar bloque <span aria-hidden>▾</span>
             </button>
             <button type="button" className="fb-herr" aria-pressed={conGaleria} onClick={() => { setSel(null); setAgregar(null); if (conGaleria) soltarGaleria(tab); else setGaleria(tab); }}>
-              <IconoMenu nombre="archivo" size={15} /> Plantillas
+              {/* «Templates» desde el 16/10/2026 («"Plantilla" ya está en la topbar de edición, y debería llamarse
+                  "Templates"», Martín). */}
+              <IconoMenu nombre="archivo" size={15} /> Templates
             </button>
             <div className="fb-barra-fin">
               {!delLead.includes(tab) && <span className="fb-panel-linea" style={{ margin: 0, padding: '0 8px' }}>Este lead no ve esta tab.</span>}
               <SelectorDispositivo valor={dispositivo} onCambiar={setDispositivo} />
+              <EstiloDeLaHoja ef={efectiva} tab={tab} onCambio={cambiar} />
             </div>
           </div>
           {galeriaNodo}
@@ -320,17 +326,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     ...(tabsBloques.includes('tracking') ? [deTab('tracking')] : []),
     ...(tabsBloques.includes('reuniones') ? [deTab('reuniones')] : []),
     ...(tabsBloques.includes('pagos') ? [{ ...deTab('pagos'), badge: pagos.filter((p) => !p.pagado).length }] : []),
-    // MaKo Analyst es un chat atado a este lead (punto 19 del 12/10/2026), con el análisis de las llamadas
-    // debajo, plegado y sólo si hay algo. La `key` sigue siendo 'insights': viaja en los links (`?tab=`).
-    {
-      key: 'insights', label: 'MaKo Analyst',
-      content: (
-        <AnalystDelLead lead={lead} stages={stages} tienePlan={pagos.length > 0} inicial={data.insightGen}
-          faltantesIniciales={data.faltantesInsight}
-          llamadas={data.insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
-          alto={altoChat} />
-      ),
-    },
+    // «MaKo Analyst» dejó de ser una pestaña el 16/10/2026: es el panel «AI Analyst» (ver `analyst`).
     // El recorrido junto al registro de cambios: la otra mitad de «qué pasó».
     {
       key: 'actividad', label: 'Historial',
@@ -351,14 +347,75 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     <button type="button" className="fb-personalizar" aria-pressed={enEdicion}
       title={enEdicion ? 'Volver a la ficha' : 'Armar la ficha de este funnel'}
       onClick={() => { setEditando((v) => !v); setSel(null); setAgregar(null); setGaleria(null); setVistas({}); }}>
-      <IconoMenu nombre={enEdicion ? 'ver' : 'editar'} size={15} /> {enEdicion ? 'Ver' : 'Personalizar'}
+      {/* «Editar» en azul, como el Dashboard («Obvio que el botón de "Personalizar" debe eliminarse... Que sea igual
+          que en dashboard o general... El botón en azul de "Editar"», Martín, 16/10/2026). */}
+      <IconoMenu nombre={enEdicion ? 'ver' : 'editar'} size={15} /> {enEdicion ? 'Ver' : 'Editar'}
     </button>
   ) : undefined;
+
+  // El «⋯» al lado de «Editar», como el del Dashboard. Lo ve todo el que ve la ficha (el AI Analyst era una pestaña
+  // de todos); «Editar» sigue siendo sólo del admin.
+  /** «Exportar (CSV)»: los datos de este lead, en dos columnas (./exportar-lead.ts). */
+  const exportarCsv = () => {
+    const csv = csvDelLead([
+      ['Lead', `#${lead.id}`], ['Nombre', lead.nombre], ['Email', lead.email], ['Teléfono', lead.telefono],
+      ['Empresa', lead.empresa], ['Web', lead.web], ['Instagram', lead.instagram],
+      ['Etapa', stages.find((x) => x.key === etapa)?.label ?? etapa], ['Campaña', data.campana?.texto], ['Anuncio', data.adNombre],
+      ['Creado', lead.created_at?.slice(0, 10)],
+    ]);
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = nombreArchivoLead(lead.id, lead.nombre);
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    show('CSV descargado');
+  };
+  const copiarLink = () => {
+    const ws = new URLSearchParams(window.location.search).get('ws');
+    const url = `${window.location.origin}/crm/${lead.id}${ws ? `?ws=${encodeURIComponent(ws)}` : ''}`;
+    void navigator.clipboard?.writeText(url).then(() => show('Link copiado'), () => show('No se pudo copiar', undefined, 'bad'));
+  };
+  const menu = (
+    <Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha ariaLabel="Más opciones de la ficha"
+      buttonStyle={{ width: 32, height: 32, padding: 0, justifyContent: 'center', border: '1px solid var(--border-strong)', borderRadius: 999, background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
+      options={[
+        { value: 'analyst', label: 'AI Analyst', icono: 'mako' },
+        { value: 'link', label: 'Copiar el link', icono: 'link' },
+        { value: 'csv', label: 'Exportar (CSV)', icono: 'descargar' },
+      ]}
+      onChange={(v) => { if (v === 'analyst') setAnalyst(true); else if (v === 'link') copiarLink(); else if (v === 'csv') exportarCsv(); }} />
+  );
+  const acciones = <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{boton}{menu}</span>;
+
+  // El panel del AI Analyst: aparte de la ficha (por portal), a la izquierda, y la ficha se corre a la derecha para
+  // dejarle lugar (el `<style>` vive sólo mientras está abierto). El clic adentro no cierra la ficha: el evento sube
+  // por el árbol de React hasta la caja de la ficha, que lo frena.
+  const panelAnalyst = analyst && typeof document !== 'undefined' ? createPortal(
+    <aside aria-label={`AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()}
+      style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 90, width: 'min(420px, 100vw)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.18)' }}>
+      <style>{'[data-ficha-overlay]{padding-left:calc(min(420px, 100vw) + 20px)!important}[data-ficha-ruta]{padding-left:min(420px, 100vw)}'}</style>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
+        <IconoMenu nombre="mako" size={18} />
+        <strong style={{ flex: 1, fontSize: 15, color: 'var(--ink)' }}>AI Analyst</strong>
+        <button type="button" onClick={() => setAnalyst(false)} title="Cerrar" aria-label="Cerrar el AI Analyst"
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, border: 'none', borderRadius: 8, background: 'none', color: 'var(--dim)', cursor: 'pointer', padding: 0 }}>
+          <IconoMenu nombre="cerrar" size={16} />
+        </button>
+      </header>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 12px' }}>
+        <AnalystDelLead lead={lead} stages={stages} tienePlan={pagos.length > 0} inicial={data.insightGen}
+          faltantesIniciales={data.faltantesInsight}
+          llamadas={data.insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
+          alto="calc(100vh - 90px)" />
+      </div>
+    </aside>,
+    document.body,
+  ) : null;
 
   return (
     <div className={['fb', enEdicion && 'fb--editando', ...estilo.clases].filter(Boolean).join(' ')} style={estilo.vars as CSSProperties}>
       <style>{CSS_FICHA}</style>
-      <LeadTabs initial={initialTab} onChange={onTab} irA={irA} fija={{ fondo: fondoTabs }} actions={boton} tabs={tabs}
+      <LeadTabs initial={initialTab} onChange={onTab} irA={irA} fija={{ fondo: fondoTabs }} actions={acciones} tabs={tabs}
         maxNombre={TOPE_NOMBRE_TAB} onRenombrar={enEdicion ? (key, nombre) => {
           const tab = TABS_FICHA.find((t) => CLAVE_DE_TAB[t] === key);
           if (tab) cambiar({ op: 'nombre', tab, nombre: nombre || null });
@@ -372,6 +429,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
           onElegir={(id) => ponerBloque(agregar.tab, id)} onCerrar={() => setAgregar(null)} />
       )}
       <Toast state={toast} onClose={clear} />
+      {panelAnalyst}
     </div>
   );
 }

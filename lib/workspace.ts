@@ -186,6 +186,13 @@ const TENANT_TABLES = new Set<string>([
   'chat_estado', 'chat_leidos', 'chat_eventos',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros',
+  // Las reuniones de Fathom que el cron descartó por tipo (mig 0300, 16/10/2026). Sin esta línea
+  // getTenantDb() es PASSTHROUGH y la lista «Descartadas» de un negocio mostraría las de todos.
+  'plan_reuniones_descartadas',
+  // «Re-priorizar todo»: un trabajo por tablero, con su foto y su avance (mig 0301, 16/10/2026). Sin
+  // esta línea getTenantDb() es PASSTHROUGH: el tablero de un negocio vería —y empujaría— el trabajo
+  // de otro, y «uno a la vez» se contaría entre todos los negocios.
+  'plan_repriorizaciones',
   // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0255). Sin esta línea getTenantDb() es
   // PASSTHROUGH y la tab Pagos de una ficha listaría los cobros de TODOS los negocios. Las rutas
   // públicas (/pagar/<token>) y los webhooks leen con service role y ws explícito, a propósito.
@@ -223,9 +230,15 @@ const TENANT_TABLES = new Set<string>([
   // El Image Editor (la copia de Canva, mig 0278): los diseños y «Subidos». N filas por workspace:
   // sin esta línea el inicio del editor de un negocio listaría los diseños de TODOS.
   'image_disenos', 'image_subidos',
+  // El hilo del chat «MaKo IA» del Image Editor (mig 0303): una fila por persona y diseño, N por workspace.
+  'image_editor_chats',
   // El hilo del chat «Editar con IA» del Video Editor (mig 0298): una fila por persona y proyecto,
   // N por workspace. Sin esta línea un negocio podría leer el hilo de otro con el mismo proyecto.
   'video_editor_chats',
+  // La copia de lectura de cada proyecto del Video Editor, para la API de MaKo (mig 0299): N por workspace.
+  'video_editor_proyectos',
+  // Lo que la API de MaKo propone en un proyecto del editor (mig 0300): N por workspace.
+  'video_editor_propuestas',
   // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
   // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que

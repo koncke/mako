@@ -196,7 +196,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
       <SheetM abierto={!!nuevo && !elegido} onCerrar={() => setNuevo(null)} titulo="Nuevo chat"
         pie={nuevo ? (
           <PieM consecuencia="Pégalo en PowerShell, en la PC.">
-            <Button variant="primary" size="lg" full disabled={!nombreValido(nuevo.nombre.trim())}
+            <Button variant="primary" size="lg" full disabled={!nombreValido(nuevo.nombre.trim()).ok}
               onClick={async () => { toast((await copiar(comandoNuevoChat(nuevo.cuenta, nuevo.nombre))) ? 'Copiado' : 'No pude copiar'); setNuevo(null); }}>Copiar comando</Button>
           </PieM>
         ) : undefined}>

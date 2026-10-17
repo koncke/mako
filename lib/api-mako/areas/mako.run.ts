@@ -18,6 +18,12 @@ import { rutaDePropuesta, PANTALLA_DE_PROPUESTA } from '@/lib/propuestas-tipos';
 import { listPropuestasPendientes } from '@/lib/plan-propuesta';
 import { CAPACIDADES } from '@/lib/mako-capacidades';
 import { TODOS_LOS_ITEMS } from '@/app/_components/nav';
+import { chatsDelSecondBrain, hiloDelSecondBrain } from '@/lib/chat-mako-indice';
+import { arbolDelJefe, JEFE_SECOND_BRAIN, sesionDelCanal, tituloDe } from '@/lib/chat-mako-reglas';
+import { loQueHizo } from '@/lib/chat-mako-hecho';
+import { nombreValido } from '@/lib/centro-chats';
+import { renameSession, type ChartSession } from '@/lib/chart-chats';
+import { canalKeyDeSesion } from '@/lib/mako-turno-app-reglas';
 import { linkApp } from '@/lib/app-url';
 import { linkPantalla } from '../link';
 
@@ -278,4 +284,81 @@ export const RUNNERS: Runners = {
       });
     },
   },
+  // Los chats con MaKo del Second Brain: la persona sale de la conversación del turno, nunca de un parámetro.
+  listar_chats_mako: {
+    leer: async (_input, ctx) => {
+      const sid = sesionDelCanal(ctx.canalKey);
+      const chats = sid == null ? null : await chatsDelSecondBrain(sid);
+      if (!chats) return fallo('Esto sólo se puede desde un chat con MaKo en la app.');
+      const { jefe } = arbolDelJefe(chats.map((c) => ({ id: c.id, titulo: c.titulo, pinned: c.pinned, updatedAt: c.updated_at })));
+      return json({
+        chats: chats.map((c) => ({
+          id: c.id, titulo: c.id === jefe?.id ? JEFE_SECOND_BRAIN : tituloDe(c), ultimo_movimiento: c.updated_at,
+          ...(c.id === sid ? { es_este_chat: true } : {}),
+        })),
+      });
+    },
+  },
+  hilo_chat_mako: {
+    leer: async (input, ctx) => {
+      const sid = sesionDelCanal(ctx.canalKey);
+      if (sid == null) return fallo('Esto sólo se puede desde un chat con MaKo en la app.');
+      const id = num(input, 'id');
+      const h = id == null ? null : await hiloDelSecondBrain(sid, id);
+      if (!h) return fallo(`No encuentro el chat ${id ?? ''} entre los tuyos. Pide la lista con listar_chats_mako.`);
+      // Los últimos 30 mensajes, cada uno acotado: el turno re-manda la conversación en cada paso.
+      return json({
+        titulo: tituloDe(h.sesion),
+        mensajes: h.mensajes.slice(-30).map((m) => ({ de: m.role === 'user' ? 'persona' : 'mako', texto: m.content.slice(0, 1500), fecha: m.created_at ?? null })),
+      });
+    },
+  },
+  // El riel «Lo que hizo» y el «⋯» de cada chat (tandas 7 y 9): siempre sobre un chat de la persona del turno.
+  lo_que_hizo_chat_mako: {
+    leer: async (input, ctx) => {
+      const c = await chatDeLaPersona(ctx, num(input, 'id'));
+      if ('error' in c) return fallo(c.error);
+      const hecho = await loQueHizo(ctx.ws, [canalKeyDeSesion(c.chat.id)]);
+      return json({ chat: c.titulo, acciones: hecho.map((h) => ({ que: h.resumen, estado: h.estado, cuando: h.at })) });
+    },
+  },
+  renombrar_chat_mako: {
+    preparar: async (input, ctx) => {
+      const c = await chatDeLaPersona(ctx, num(input, 'id'));
+      if ('error' in c) return { error: c.error };
+      if (c.esJefe) return { error: NO_RENOMBRA_JEFE };
+      const v = nombreValido(str(input, 'nombre') ?? '');
+      if (!v.ok) return { error: v.error };
+      return { payload: { id: c.chat.id, nombre: v.nombre }, resumen: `Renombrar el chat «${c.titulo}» a «${v.nombre}»` };
+    },
+    ejecutar: async (p, ctx) => {
+      // Se vuelve a mirar al confirmar: la tarjeta pudo quedar abierta mientras el chat cambiaba.
+      const c = await chatDeLaPersona(ctx, typeof p.id === 'number' ? p.id : null);
+      if ('error' in c) return { ok: false, resumen: c.error };
+      if (c.esJefe) return { ok: false, resumen: NO_RENOMBRA_JEFE };
+      const v = nombreValido(String(p.nombre ?? ''));
+      if (!v.ok) return { ok: false, resumen: v.error };
+      await renameSession(c.chat.id, v.nombre);
+      return { ok: true, resumen: `Listo: el chat se llama «${v.nombre}».` };
+    },
+  },
 };
+
+const NO_ES_DE_LA_APP = 'Esto sólo se puede desde un chat con MaKo en la app.';
+const NO_RENOMBRA_JEFE = 'El chat «Second Brain» no se renombra: es el principal.';
+
+/**
+ * Un chat del Second Brain de la persona de ESTE turno (`id`, o el del turno sin él), con su título. La persona sale
+ * de la conversación del turno (`ctx.canalKey`), nunca de un parámetro: un id de otra persona no existe.
+ */
+async function chatDeLaPersona(ctx: Ctx, id: number | null): Promise<{ chat: ChartSession; titulo: string; esJefe: boolean } | { error: string }> {
+  const sid = sesionDelCanal(ctx.canalKey);
+  const chats = sid == null ? null : await chatsDelSecondBrain(sid);
+  if (sid == null || !chats) return { error: NO_ES_DE_LA_APP };
+  const buscado = id ?? sid;
+  const chat = chats.find((c) => c.id === buscado);
+  if (!chat) return { error: `No encuentro el chat ${buscado} entre los tuyos. Pide la lista con listar_chats_mako.` };
+  const { jefe } = arbolDelJefe(chats.map((c) => ({ id: c.id, titulo: c.titulo, pinned: c.pinned, updatedAt: c.updated_at })));
+  const esJefe = chat.id === jefe?.id;
+  return { chat, titulo: esJefe ? JEFE_SECOND_BRAIN : tituloDe(chat), esJefe };
+}

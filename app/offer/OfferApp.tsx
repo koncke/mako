@@ -69,7 +69,7 @@ import { leerAdjuntos } from './adjuntos-envio';
 import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
 import {
   ACTUALIZAR_PDF, TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, quedoGuardado, reemplaza,
-  resumenDe, type AvisoGuardado,
+  resumenDe, unirOpciones, type AvisoGuardado,
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
 import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, subirArchivo } from './offer-api';
@@ -696,6 +696,15 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     });
   };
 
+  /** Las opciones marcadas de una pregunta que se contesta con varias: salen como UNA respuesta, «A, b y c». */
+  const elegirVarias = (idxs: number[]) => {
+    const s = sesionRef.current;
+    const ultimo = s?.mensajes[s.mensajes.length - 1];
+    if (!s || ultimo?.de !== 'mako' || !ultimo.varias || !puedeMandar) return;
+    const texto = unirOpciones(idxs.map((i) => (ultimo.opciones ?? [])[i] ?? ''));
+    if (texto) void mandar({ texto, docs: [], fuente: 'tu respuesta' });
+  };
+
   // ── El selector: abrir una conversación o empezar una ──────────────────────
   const abrirSesion = async (id: number) => {
     // La que ya está abierta no se vuelve a pedir: re-abrirla descartaría lo que esté en vuelo
@@ -935,6 +944,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
               opcionActualizar={opcionActualizar}
               opcionesHabilitadas={opcionesHabilitadas}
               onOpcion={alElegirOpcion}
+              onVarias={elegirVarias}
               onReintentar={sinContestar ? () => void reintentarRespuesta() : null}
               texto={texto}
               onTexto={setTexto}

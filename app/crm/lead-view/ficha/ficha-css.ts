@@ -36,6 +36,10 @@ export const CSS_FICHA = `
 .fb-nada { margin: 4px 0; font-size: 13.5px; color: var(--faint); }
 @media (max-width: 1024px) { .fb-bloque { grid-column: span var(--fb-span-t, 12); } }
 @media (max-width: 720px) { .fb-bloque { grid-column: 1 / -1; } }
+/* Un bloque que lee lo suyo al montarse y no tuvo nada que decir (los duplicados, el estado de cuenta) no deja hueco
+   mirando; personalizando, lo dice en su marco, como lo vacío (16/10/2026, el Resumen nativo). */
+.fb:not(.fb--editando) .fb-bloque:has(> .fb-cuerpo:empty) { display: none; }
+.fb--editando .fb-cuerpo:empty::before { content: 'Sin datos en este lead'; display: flex; align-items: center; justify-content: center; min-height: 64px; border-radius: 14px; background: var(--surface-2); color: var(--faint); font-size: 13px; }
 
 .fb-dens-compacta .fb-cuerpo > section:not(.fb-propio) { padding: 14px 16px !important; border-radius: 12px; }
 .fb-dens-amplia .fb-cuerpo > section:not(.fb-propio) { padding: 28px 30px !important; }
@@ -116,10 +120,12 @@ export const CSS_FICHA = `
 .fb-boton-texto { border: none; background: none; padding: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--primary); cursor: pointer; }
 .fb-boton-texto:disabled { color: var(--faint); cursor: default; }
 .fb-error { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--bad); }
-.fb-personalizar { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong);
-  background: var(--surface); color: var(--ink); font-family: 'Geist', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.fb-personalizar:hover { border-color: var(--primary); color: var(--primary); }
-.fb-personalizar[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--surface); }
+/* «Editar» va AZUL (16/10/2026, como el del Dashboard); ya editando, «Ver» va con borde, para volver. */
+.fb-personalizar { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--primary);
+  background: var(--primary); color: #fff; font-family: 'Geist', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.fb-personalizar:hover { filter: brightness(.94); }
+.fb-personalizar[aria-pressed="true"] { background: var(--surface); border-color: var(--border-strong); color: var(--ink); }
+.fb-personalizar[aria-pressed="true"]:hover { filter: none; border-color: var(--primary); color: var(--primary); }
 /* «Personalizar» NO va en una pantalla de celular, como en HubSpot, donde la vista del registro en la app del
    celular se arma desde la computadora (documentación oficial, knowledge.hubspot.com). Un teléfono de verdad
    ni llega aquí: ve la ficha de MaKo Mobile (app/m/crm/[id]), que sigue a esta y no tiene editor. Lo que se

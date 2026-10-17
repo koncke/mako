@@ -24,7 +24,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { abreSola, cambioDeVista, claveCerrada, esLaDeHoy, fichaConVista, miniaturaDe, rotuloUsar, EJEMPLOS_TAB } from '../app/crm/lead-view/ficha/galeria';
+import { cambioDeVista, esLaDeHoy, fichaConVista, miniaturaDe, rotuloUsar, EJEMPLOS_TAB } from '../app/crm/lead-view/ficha/galeria';
 import { anchoEnDispositivo, bloquesDeLaGrilla, spansPorDispositivo, COLS_FICHA } from '../app/crm/lead-view/ficha/armar';
 import { aplicarCambio, fichaEfectiva, RESPALDO_VACIO } from '../lib/ficha/config';
 import { plantillaTabPorId } from '../lib/ficha/plantillas-tab';
@@ -38,20 +38,26 @@ const sinComentarios = (x: string) => x.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 const R = RESPALDO_VACIO;
 const base = (g = {}) => ({ eleccion: { id: 'dos-reuniones' as const }, guardada: g, respaldo: R, efectiva: fichaEfectiva('dos-reuniones', g, R) });
 
-test('se abre SOLA sólo para quien personaliza, en una tab sin configurar, sin «Ahora no», montada y fuera de «Personalizar»', () => {
-  const si = { puede: true, configurada: false, cerrada: false, montado: true, editando: false };
-  assert.equal(abreSola(si), true);
-  assert.equal(abreSola({ ...si, puede: false }), false, 'un no-admin ve la sugerida, nunca la galería');
-  assert.equal(abreSola({ ...si, configurada: true }), false);
-  assert.equal(abreSola({ ...si, cerrada: true }), false, '«Ahora no» no vuelve a abrirla en este navegador');
-  assert.equal(abreSola({ ...si, montado: false }), false, 'el server no sabe lo cerrado: se abre después de montar');
-  assert.equal(abreSola({ ...si, editando: true }), false, 'personalizando se abre con «Plantillas»');
-  assert.equal(claveCerrada(30, 'pagos'), 'mako.ficha.galeria-cerrada.30.pagos');
-  // «Ahora no» vive en el navegador, no en la ficha: la pantalla nunca manda un cambio al cerrar.
+test('la galería YA NO SE ABRE SOLA: cada tab usa su sugerida y se abre con «Templates» (16/10/2026)', () => {
+  // Martín: «en los casos de los workspace que ya tienen leads, simplemente ponles las plantillas sugeridas, es decir
+  // que no aparezca el "¿Qué vas a crear hoy?"». Se fueron `abreSola` y el «Ahora no» que se recordaba en el navegador.
+  // Probado rompiéndolo (16/10/2026): devolverle `abreSola(` a `galeriaAbierta` → este test falla.
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
-  const cerrar = ficha.slice(ficha.indexOf('const cerrarGaleria'), ficha.indexOf('const usarGaleria'));
-  assert.match(cerrar, /window\.localStorage\.setItem\(k, '1'\)/);
-  assert.doesNotMatch(cerrar, /cambiar\(/, 'cerrar no es elegir: no escribe la ficha del funnel');
+  assert.match(ficha, /const galeriaAbierta = \(tab: TabFicha\): boolean => !!ff\.ficha && puede && galeria === tab;/);
+  assert.doesNotMatch(ficha, /abreSola\(|galeria-cerrada|localStorage/, 'volvió la apertura sola o su «Ahora no»');
+  assert.match(ficha, /onCerrar=\{\(\) => soltarGaleria\(tab\)\}/, 'cerrar no es elegir: no escribe la ficha del funnel');
+});
+
+test('sin plantilla elegida abajo no va NADA, y tocar una plantilla la elige (16/10/2026)', () => {
+  // «Si el usuario aún no eligió plantilla no le salte toda la plantilla abajo con el botón de "usar sugerida"... Es
+  // confuso eso» (Martín). Probado rompiéndolo (16/10/2026): la barra «Usar» para cualquier vista → 1 fallo; la tab
+  // de abajo dibujada sin vista → 1 fallo; la carta mirando en vez de elegir → 1 fallo.
+  const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
+  const gal = sinComentarios(leer('app/crm/lead-view/ficha/GaleriaTab.tsx'));
+  assert.match(ficha, /const sinVistaPrevia = conGaleria && !vista;/);
+  assert.match(ficha, /\{!sinVistaPrevia && <div className=\{epico \? 'fb-tab fb-tab--epica' : 'fb-tab'\}>/);
+  assert.match(gal, /onClick=\{\(\) => \{ setAviso\(null\); onElegir\(\{ tipo: 'plantilla', id: p\.id \}\); \}\}/);
+  assert.match(gal, /\{vista\?\.tipo === 'mako' && <div className="fb-gal-barra"/, 'la barra «Usar» es sólo para lo que armó MaKo');
 });
 
 test('MIRAR NO GUARDA NADA: la tab de abajo es la que QUEDARÍA, y «Usar» manda ese mismo cambio', () => {

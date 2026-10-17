@@ -202,13 +202,18 @@ test('las DOS fichas pasan el ingreso estimado y el Instagram a «Información p
     assert.match(fuente(f), /<FichaPorBloques\b/, `${f}: no monta la ficha compartida`);
     assert.doesNotMatch(fuente(f), /<InfoPrincipalCard\b/, `${f}: vuelve a montar la tarjeta a mano`);
   }
+  // ⚠️ REESCRITO EL 16/10/2026 (el Resumen nativo): el contacto ya no es InfoPrincipalCard ENTERA (sigue en Customer
+  // Success). El ingreso estimado es su bloque (`ingreso-estimado`) y el Instagram va en `redes-y-web`, con los MISMOS
+  // campos de la ficha (MontoEditable, InstagramEditable, TelefonoEditable). Re-verificado rompiéndolo: el bloque del
+  // ingreso sin `campo="ingreso_estimado"` → 1 fallo.
   {
-    const f = 'app/crm/lead-view/ficha/registro-resumen.tsx';
-    const s = fuente(f);
-    const i = s.indexOf('<InfoPrincipalCard');
-    const tag = s.slice(i, s.indexOf('/>', i));
-    assert.match(tag, /ingresoEstimado=\{lead\.ingreso_estimado \?\? null\}/, `${f}: falta el ingreso estimado`);
-    assert.match(tag, /instagram=\{lead\.instagram \?\? null\}/, `${f}: falta el Instagram`);
+    const datos = fuente('app/crm/lead-view/ficha/resumen/datos.tsx');
+    assert.match(datos, /<MontoEditable leadId=\{lead\.id\} campo="ingreso_estimado" valor=\{valor\}/, 'el bloque del ingreso estimado');
+    const contacto = fuente('app/crm/lead-view/ficha/resumen/contacto.tsx');
+    assert.match(contacto, /<InstagramEditable leadId=\{lead\.id\} valor=\{lead\.instagram \?\? null\} \/>/, 'el Instagram de las redes');
+    assert.match(contacto, /<TelefonoEditable valor=\{tel\} onGuardar=\{guardar\('telefono', lead\.telefono\)\} \/>/, 'el teléfono con el país primero');
+    const reg = fuente('app/crm/lead-view/ficha/registro-resumen.tsx');
+    assert.ok(!reg.includes('<InfoPrincipalCard'), 'volvió la tarjeta de antes envuelta');
   }
   const card = fuente('app/crm/lead-view/InfoPrincipalCard.tsx');
   assert.match(card, /<MontoEditable leadId=\{leadId\} campo="ingreso_estimado"/);
@@ -234,11 +239,15 @@ test('un clic en cualquier parte de la tarjeta abre el campo, y un clic de un po
     assert.match(cuerpo(ed, firma), /data-campo-abrir/, `${firma} sin disparador marcado`);
   }
   // Y las tarjetas de un solo campo la usan: «que quede bien en todas las tarjetas».
+  // ⚠️ 16/10/2026: MotivoYPlazoCard y CalificacionCard se fueron con el Resumen nativo; sus cajas son las de los
+  // bloques (el motivo, el plazo y el ingreso en datos.tsx; la calificación en calificacion.tsx). Y cada fila de
+  // propiedad editable de un bloque es una caja (`Prop`, piezas.tsx).
   const usos: Array<[string, number]> = [
     ['app/crm/lead-view/ReunionesCard.tsx', 5],
-    ['app/crm/lead-view/MotivoYPlazoCard.tsx', 2],
-    ['app/crm/lead-view/CalificacionCard.tsx', 1],
+    ['app/crm/lead-view/ficha/resumen/datos.tsx', 4],
+    ['app/crm/lead-view/ficha/resumen/calificacion.tsx', 1],
   ];
+  assert.match(fuente('app/crm/lead-view/ficha/resumen/piezas.tsx'), /return editable \? <CajaCampo marca=\{marca\}>\{fila\}<\/CajaCampo> :/, 'la fila de propiedad editable no abre su campo'); 
   // (Desde el 13/10/2026 una caja puede llevar `marca`: lo que busca «solucionar» un dato sin marcar.)
   for (const [f, n] of usos) assert.equal((fuente(f).match(/<CajaCampo (?:marca=\{[^}]*\} )?style=/g) ?? []).length, n, f);
   assert.match(fuente('app/crm/lead-view/InfoPrincipalCard.tsx'), /editable \? <CajaCampo style=\{celda\}(?: marca=\{marca\})?>/);

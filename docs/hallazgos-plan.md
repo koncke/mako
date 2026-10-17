@@ -38,6 +38,10 @@ cada jefe»). Las dos cosas viven acá:
 - **Un campo nuevo de la extracción muere en TRES `map` escritos a mano, y ninguno da error**: entre «el modelo contestó» y «la tarea nació» hay cuatro saltos y dos altas distintas → [De la reunión a la tarea](#-un-campo-nuevo-de-la-extracción-muere-en-tres-map-escritos-a-mano-y-ninguno-da-error).
 - **El juez del criterio de compromisos de Mauricio tiene CERO call sites**: módulo entero, con prompt, saneo y 16 tests, que no corre sobre ninguna reunión → [De la reunión a la tarea](#-el-juez-del-criterio-de-mauricio-tiene-cero-call-sites).
 - **El texto del SEED de `PlanBoard.tsx` describe el pasado, no el presente**: un agente que lo grepea lee «el board vive en localStorage con el Repo en no-op» y lo reporta como estado actual, tres meses después de que dejó de ser cierto → [El board](#el-board-plan).
+- **Que una reunión «desapareciera» no quiere decir que la descartó el clasificador**: del 08 al 15/10 el ws1 perdió diez y el clasificador no descartó ninguna — falló la LECTURA y salió de la ventana de 26 h. Lo que el cron no lee (por tipo o por falla) queda en `plan_reuniones_descartadas` → [Fathom sin fricción](#fathom-sin-fricción-dónde-se-iba-el-tiempo-y-las-reuniones-que-desaparecían-16102026).
+- **El kanban de tareas es de ESTADO desde el 16/10/2026, y la columna la escribe `mover`, nunca el guardado de la fila**: con la tarjeta entera viajando en cada guardado, corregir un título devolvía de columna una tarjeta arrastrada y `taskToRow` pisaba el orden manual en 424 de 424 filas → [El kanban es de ESTADO](#el-kanban-es-de-estado-desde-el-16102026).
+- **Lo que corre en segundo plano decide contra la fila RELEÍDA y escribe en la MISMA escritura que lo hace visible**: con la foto vieja, «Re-priorizar todo» pisaba una prioridad fijada en ese minuto (con el candado puesto) y el cruce de Fathom llegaba tarde y duplicaba tarjetas → [La revisión adversarial del kanban](#la-revisión-adversarial-del-kanban-un-error-con-muchas-caras-y-lo-que-quedó-sin-hacer-16102026).
+- **`experimento_tareas.score_manual` EXISTE desde la 0143**, aunque tres comentarios (y AGENTS.md) decían que no: el candado del cliente no necesitaba una columna sino un escritor. Y lo que un trabajo escribe en segundo plano tiene que llegar a la pestaña abierta, o el próximo guardado lo deshace → [«Re-priorizar todo»](#re-priorizar-todo-cómo-corre-en-segundo-plano-y-dónde-no-alcanza-16102026).
 
 ---
 
@@ -420,7 +424,7 @@ La vista de super admin y la del cliente son **la misma pantalla**, y nunca se r
 
 ### Las decisiones de forma del board que ya están tomadas
 
-- **Prioridades arriba, kanban abajo.** Las 4 columnas de prioridad son fijas, no editables, y ocupan todo el ancho; los proyectos existen para agrupar tareas. «Dentro del gran proyecto 'Hacer MaKo DOER' entran muuchas tareas» (2026-07-12).
+- **Prioridades arriba, kanban abajo.** ~~Las 4 columnas de prioridad son fijas~~ — **desde el 16/10/2026 las columnas son el ESTADO** (Por iniciar · En proceso · Atorada · Completada, y «No cumplen tu criterio» al final sólo si tiene tareas) y la prioridad pasa a ser FILTRO y chip: «el espíritu más importante del Kanban es el flujo… No la clasificación» (Mauricio, 12/10). Siguen sin ser editables y ocupando todo el ancho; los proyectos existen para agrupar tareas. «Dentro del gran proyecto 'Hacer MaKo DOER' entran muuchas tareas» (2026-07-12). Ver [El kanban es de ESTADO](#el-kanban-es-de-estado-desde-el-16102026).
 - **El To-Do es su propia tab con kanban completo** (columnas y proyectos editables, checklists, adjuntos), tomando como base el tablero de `/martinkoncke` y la estética del CRM — que ya es un kanban que funciona, así evitamos inventar dos lenguajes visuales (2026-07-12).
 - **Toda preview usa las cards REALES.** El formato de las tarjetas de un modal tiene que ser idéntico al del kanban y al de proyectos: «la preview de esas tienen que ser IGUALES a como ya los tenemos, para no confundir» (2026-07-22).
 - **Toda acción irreversible o generada por IA pasa por un modal de confirmación que PREVISUALIZA lo que va a pasar** — «de lo contrario, se van a crear muchas tareas que pueden estar mal» (2026-07-17).
@@ -2404,12 +2408,357 @@ el test `tests/todo-estados.test.ts` compara los dos. El veredicto del juez (`cr
 estado: mover la tarjeta no lo toca, y la API del cliente no lo escribe.
 
 **Quedó sin hacer:** promover una tarea desde `no_cumple` todavía no exige motivo en el server
-(`moverTarea`, lib/todo.ts) — hoy no hay filas en ese estado, así que no hay por dónde entrar. Va con
-la columna de 08-T27. Los campos del CRITERIO (`criterio_*`, `cita`, `tema`) todavía no los escribe
+(`moverTarea`, lib/todo.ts). ~~Hoy no hay filas en ese estado, así que no hay por dónde entrar~~ — desde el
+16/10/2026 sí lo hay: la columna «No cumplen tu criterio», el bloque «Columna» del detalle y `mover_tarea_plan`
+([El kanban es de ESTADO](#el-kanban-es-de-estado-desde-el-16102026)). Va con la columna de 08-T27. Los campos del CRITERIO (`criterio_*`, `cita`, `tema`) todavía no los escribe
 nadie: llegan con la extracción con criterio. Los de QUIÉN sí, desde el tablero único (abajo).
 
 **Vive en:** lib/todo-estados.ts · lib/todo.ts (`estadoOk`, `editarTarea`, `crearTarea`) ·
 supabase/migrations/0159 · app/api/todo/route.ts · *2026-09-17*
+
+## El kanban es de ESTADO desde el 16/10/2026
+
+**El pedido.** Mauricio, en la reunión de Fathom 191993679 (12/10): «el espíritu más importante del Kanban es el
+flujo… No la clasificación»; columnas «por iniciar… en proceso… atorada y resuelta o ya completada»; la prioridad
+«podría ser un filtro» («No la quitaría»); y a «cuando tú muevas una tarjeta, yo no debería preguntarte cuál es la nueva
+prioridad», «Es correcto». El 8/9 (181015620) ya había pedido «una columna dentro del Kanban que dice tareas que no
+cumplieron tu criterio». Martín, el 16/10: «Hacer el kanban un kanban… Quiero hacerlo "libre", que se creen sin
+prioridad».
+
+**Lo que revoca.** Dos decisiones de este documento: «las 4 columnas de prioridad son fijas» ([Las decisiones de forma
+del board](#las-decisiones-de-forma-del-board-que-ya-están-tomadas)) y la del 23/09, «soltar dice DÓNDE, la persona dice
+CUÁNTO: el pop-up pregunta igual» ([Un arrastre que sólo sabe de
+columnas…](#un-arrastre-que-sólo-sabe-de-columnas-propone-siempre-el-mismo-número)). Desde hoy, en los dos tableros y en
+el teléfono:
+
+- **Columnas = estado**: Por iniciar (`por_hacer`) · En proceso (`en_curso`) · Atorada (`en_seguimiento` re-etiquetado,
+  con un motivo opcional de ≤ 200 caracteres) · Completada (`hecho`), y «No cumplen tu criterio» (`no_cumple`) al final
+  sólo si tiene tareas. «Atorada» cambió de sentido: no es «se espera a otro» sino «frenada por algo de afuera», y sigue
+  contando como pendiente.
+- **Soltar mueve sin pop-up**, y dentro de la columna manda el orden MANUAL. El pop-up del 1 al 100 sigue donde la
+  pantalla todavía ordena por número: las tablas, la grilla de proyectos y el lápiz del detalle.
+- **La prioridad es filtro y chip** (Alta / Media / Baja / A futuro / Sin priorizar). Las tareas nacen LIBRES: score 0 =
+  «Sin priorizar», que NO es «A futuro».
+
+**Lo que no se ve leyendo el código:**
+
+- **El retroceso estaba escrito desde la 0159.** `editPatch` (TodoBoard.tsx) manda la tarjeta ENTERA en cada guardado,
+  avance incluido, y `editarTarea` recalculaba el estado desde el avance cada vez. Con columnas de prioridad no se veía;
+  con columnas de estado, corregirle una tilde a una tarjeta arrastrada a «En proceso» al 0% la devolvía a «Por
+  iniciar». Un campo derivado se recalcula sólo si la fuente CAMBIÓ, contra la FILA (`estadoAlGuardar`) **y** contra lo
+  último que la base le confirmó a ESA pestaña (`progresoGuardado`): sin la segunda capa, una pestaña vieja del dueño
+  reabría al 40% una tarea completada desde el teléfono (lo encontró la revisión; el cliente ya la tenía).
+- **El orden manual se habría deshecho solo**: `taskToRow` escribía `orden = num` en cada guardado del dueño (424 de 424
+  filas). Lo que escribe una ACCIÓN —estado, motivo, lugar— no viaja en el upsert de la fila entera: lo escribe `mover`,
+  y el guardado lo saca del payload y relee la fila. Si viajara, una pestaña abierta hace una hora devolvería de columna
+  lo que se movió en otra, o lo que movió MaKo por la API.
+- **`moverTarea` «ya estaba listo» y no lo estaba**: cero llamadores desde la 0051, un estado inventado se convertía en
+  «Por iniciar» y contestaba 200, reordenar dentro de «Completada» re-sellaba `hecho_at`, y sacar una tarjeta de ahí la
+  dejaba abierta al 100% (medio sistema pregunta `progress < 100`). `trasMover` es ahora UNA regla para las dos mitades
+  y la pantalla: Completada = 100%, reabrir = 0%, el motivo sólo vive en «Atorada».
+- **Lo que el server deriva, la pantalla lo deriva igual.** El server pasaba a «Completada» la tarjeta que llegaba al
+  100% y el estado optimista sólo cambiaba `progress`: quedaba tachada en «En proceso» hasta el F5. Misma función
+  (`avanceLocal`), en el choke point de `useBoard` (`conAvance`), no en cada botón.
+- **Un Deshacer devuelve TODO en UNA escritura.** El del teléfono reabría al 0% una tarea que estaba al 40% (y una
+  «Atorada» volvía sin motivo); el del escritorio devolvía el avance con un SEGUNDO guardado que el server leía como
+  «cambió el avance», y una «Por iniciar» al 40% quedaba «En proceso» en la base. El avance de antes viaja en el mismo
+  `mover` (`trasMover(…, avance)`).
+- **`toBoard` convertía el 0 en 62** (`t.score || …`): «Sin priorizar» no se podía ni ver, y el próximo guardado
+  escribía 62. Medido: 0 filas con score 0 en las dos tablas, así que el arreglo no movió a nadie. `prioFromScore(0)`
+  sigue siendo la banda «futuro» (la usan el reparto y las cuentas); el chip y el filtro preguntan `prioFiltroDe`. Y el
+  reparto diario (`recurvarPlanOwner`) excluye y cuenta las libres y las de «No cumplen»: si no, a la mañana siguiente
+  sacaba de «Sin priorizar» cada tarea libre.
+- **Un default nuevo para una preferencia necesita una clave nueva.** «Ordenar» era una sola preferencia para Tareas y
+  Proyectos, guardada en «Por prioridad» en casi todos los navegadores: con esa clave el kanban habría abierto por score
+  y el orden manual no se habría visto nunca (`orden.kanban`, default «Manual»).
+- **Cuando una lista cambia de semántica, la lógica optimista de «salida» se revisa entera.** El teléfono marcaba como
+  «se fue» lo completado; con columnas por estado lo completado sigue en la lista, la marca no se soltaba y la tarea
+  quedaba escondida en Prioridades aunque la reabrieran.
+- **«No cumplen tu criterio» ahora se alcanza a mano** (arrastre, el detalle, `mover_tarea_plan`), y Prioridades
+  preguntaba `progress < 100`: ofrecía como «lo de ahora» algo que el criterio descartó. Ahora mira `estado`; quedan
+  otras cuentas sin revisar (abajo, en lo sin hacer).
+- **El responsable sólo existe en la mitad del cliente.** `plan_tareas` no tiene `responsable_tipo` ni quien lo
+  escriba: el filtro «Responsable» es una capacidad del tablero y el del dueño no lo dibuja (metería el 100% en «Sin
+  asignar»). Y la base tiene un cuarto valor que la decisión no nombraba, `tercero`, con su propia opción.
+- **La re-puntuación oculta del navegador tenía DOS disparos** (al cambiar la firma, y al entrar si «lo que cargó MaKo»
+  traía una tarea sin razón). Se fueron los dos: la prioridad la ponen el slider o «Re-priorizar todo».
+
+**La migración 0294** (aplicada el 16/10): `plan_tareas.estado` con el CHECK de `experimento_tareas` y backfill desde el
+avance (ws 9: 248 `hecho`, 11 `en_curso`, 165 `por_hacer` de 424), `motivo_atorada` en las dos tablas, y el `orden`
+inicial de cada columna reescrito (mayor score arriba; en Completada, la más reciente) porque el de antes no lo había
+elegido nadie, protegido por la columna nueva para que volver a correrla no pise un arrastre. Va ANTES del deploy; las
+dos sentencias de reconciliación de su cabecera, DESPUÉS.
+
+**La regla:** la columna la escribe `mover` (`moverTarea` / `moverPlanTarea` / la op `mover_tarea_plan`), nunca el
+guardado de la fila; el avance mueve la columna sólo cuando cambia; la prioridad se filtra con `prioFiltroDe`.
+`mover_tarea_plan` no ofrece «Completada», a propósito: completar por la API sigue yendo por `proponer_cierre_tareas`,
+que exige evidencia.
+
+**Vive en:** lib/todo-estados.ts (`estadoAlGuardar`, `trasMover`, `ordenEntre`) · lib/todo.ts (`moverTarea`,
+`editarTarea`) · lib/plan-board.ts (`taskToRow`, `guardarPlanTarea`, `moverPlanTarea`, `recurvarPlanOwner`) ·
+app/plan/board/kanban.ts · app/plan/board/useBoard.ts (`mover`, `conAvance`, `deshacerMover`) ·
+app/plan/board/BoardShell.tsx (`Kanban`, `CampoMotivo`, `BloqueColumna`, `FilterMenu`) · app/plan/TodoBoard.tsx
+(`editPatch`) · app/plan/board/desde-todo.ts · app/m/plan/tableros.ts + ListaPlan.tsx + lib/plan-mover.ts ·
+supabase/migrations/0294 · tests: plan-kanban-modelo, plan-kanban-server, plan-kanban-pantalla, m-plan-tableros ·
+*2026-10-16*
+
+## Fathom sin fricción: dónde se iba el tiempo y las reuniones que desaparecían (16/10/2026)
+
+**El pedido.** Martín (16/10): «optimiza la velocidad de importación de tareas de Fathom… Que hoy en día tardan un montón
+porque "cruzan" con las otras tareas... Quiero que elimines eso y toda la fricción». Mauricio (12/10): que se lea solo
+«pero que no se cargue al Kanban… que tú decidas si las quieres cargar», y «que extraiga más rápido».
+
+**Dónde se iba el tiempo** (medido antes de tocar nada). Tres esperas, las tres con la pantalla delante:
+
+- **«Cargar» un borrador** de cuatro tareas (tres nuevas, una repetida) hacía EN EL PEDIDO 3 llamadas de IA en el
+  tablero del cliente y 4 en el del dueño (3 y 5 intentos de red): el ruteo del Perro, el Perro por tandas de 10 —que
+  re-curvaba el tablero entero: el 15/10 un alta «re-curvó 22 de 175 tareas y re-priorizó 62 de 70 proyectos»— y las
+  checklists. Ahora, 0 (`tests/fathom-sin-friccion.test.ts`, con el mismo borrador).
+- **El modal cruzaba en el navegador al abrirse** (`cruzarCandidatas`): de 20 a 40 s con «Agregar» apagado.
+- **«Extraer» una reunión a mano era sincrónico**: de 1 a 5 minutos con el modal abierto.
+
+**Qué quedó en el pedido y qué se fue.** En el pedido quedó sólo lo que tarda milisegundos: el anti-duplicado
+`mismaTarea` y el proyecto sin modelo (`destinoSinIA`: lo que nombra la tarea → un proyecto que existe → uno del
+catálogo → el del cliente de la reunión → la bandeja «Sin proyecto»). Las tareas nacen libres en «Por iniciar». Al
+server se fueron el cruce (a las tres lecturas —el cron, la manual y la de archivos— y a un barrido de pendientes) y la
+lectura a mano (en `after()`, con un borrador «procesando» que el modal consulta y que se puede cerrar).
+
+**Las reglas que quedan:**
+
+- **Cargar no llama a ningún modelo, y un nombre que inventó la extracción NO abre un proyecto**: la tarea va a la
+  bandeja, con el nombre propuesto escrito en su historial. La bandeja es un proyecto, pero nunca un DESTINO (los ruteos
+  del Perro la sacan de la lista, `esProyectoBandeja`); la vacía «Re-priorizar todo».
+- **Una tarea de reunión sin fecha entra SIN fecha.** Antes la fechaba el Perro al cargar (ver [Un borrador no puede
+  pedir «sin fecha»](#un-borrador-no-puede-pedir-sin-fecha-el-perro-le-pone-fecha-a-toda-tarea-nueva-09102026)); ahora la
+  fecha es la que dijo la reunión o la que pone la persona, y «Re-priorizar todo» no toca fechas. Va con Mauricio:
+  «que no se maneje con deadlines» (08-T51).
+- **El cruce se escribe en la MISMA escritura que hace visible el borrador, no después.** ⚠️ La decisión 7 decía «en el
+  cron DESPUÉS de `crearPropuesta`», y ese «después» era el hueco: durante el minuto del cruce el modal tomaba las filas
+  sin la marca `enriquece`, su autosave las guardaba así —con el sello ya puesto, así que el barrido no volvía— y
+  «Cargar» creaba una tarjeta duplicada (reproducido por la revisión). Ahora `cruzarTareas` corre antes de
+  `crearPropuesta` / `marcarProcesado`, y una copia vieja que llega sin la marca recupera la del server
+  (`conCruceGuardado`, en el autosave y en «Agregar»).
+- **Un sello va con los datos que lo ganaron.** `cruzado_at` se pone sólo si el cruce CORRIÓ («no se pudo» no es «no
+  había nada», y lo segundo no se vuelve a pagar) y se borra cuando una lectura nueva reemplaza las tareas: antes,
+  «Volver a analizar» un borrador sellado no cruzaba nunca lo nuevo.
+- **Una reunión la leen TRES caminos** (el cron, el webhook y el botón): hay un candado por reunión
+  (`mako.reunion.leyendo.<id>`, compare-and-set, vence a los 330 s). Y **toda salida de un lector cierra la fila que
+  otro dejó esperándolo**: si el cron ganaba el candado y la reunión no tenía compromisos, la fila «procesando» del modal
+  quedaba en «Leyendo…» para siempre (ahora `resolverProcesandoSinCompromisos`); y si la lectura del modal se moría
+  (Vercel no corre ni el `catch` ni el `finally`), el cron la salteaba porque «ya hay borrador». Ahora
+  `existePropuestaRef` no cuenta las «procesando», y tocar la fila relanza la lectura si nadie la está leyendo.
+- **«No contestó» no es «vacío».** `extraerTareasDeReunion` se tragaba un 503 de Fathom y devolvía vacío sin
+  `partesFallidas`: la reunión se cerraba como «sin compromisos» para siempre, y con el webhook (lee en el minuto en que
+  termina la reunión) eso es más probable. Ahora `FathomSinRespuestaError`, después de sus reintentos, cuenta como tramo
+  fallido; un 4xx sigue siendo vacío.
+
+**Las reuniones que desaparecían: el diagnóstico obvio era el equivocado.** La decisión decía «9 de 10 reuniones del ws1
+entre el 08 y el 15/10 desaparecieron sin rastro» y culpaba al clasificador. Medido en producción: 11 reuniones (5 de
+entrega, 6 de equipo), **cero descartadas por tipo**, y 10 sin borrador porque falló la LECTURA (la IA del negocio no
+contesta desde el 08/10; ver la entrada del 15/10) y salieron de la ventana de 26 h. Por eso la tabla nueva
+(`plan_reuniones_descartadas`, mig 0300) guarda también `tipo = 'fallo'`, y la lista del modal se llama «Sin leer» y no
+«Descartadas»: «descartada» diría que MaKo decidió no leerla, cuando no pudo. Las diez se anotaron a mano el 16/10 para
+que aparezcan con «Reintentar»; una vuelta que sale bien y vacía saca la reunión de la lista. El webhook usa ahora la
+misma vara que el cron (`wsEnLaRonda`: workspace activo y con Fathom conectado); antes leía también para uno pausado.
+
+**Trampas del entorno:**
+
+- **PostgREST con `resolution=ignore-duplicates` NO devuelve la fila ignorada** (es un `ON CONFLICT DO NOTHING`), y el
+  candado cuenta con eso para saber quién ganó. Un mock que la devuelve le dice «ganaste» a los dos.
+- **Medir «cero IA» con un `fetch` de mentira sólo vale en el ws 1.** `credWs` cae al env sólo para `OWNER_WS`; en otro
+  workspace la cascada se rinde ANTES del `fetch`, y el código viejo también da 0. Y el primer paso de la red es `GET
+  openrouter.ai/api/v1/credits`: contarlo es contar el intento.
+- **Una ruta de Next se corre entera en un test** reemplazando `next/server` (`after`) y `@/lib/auth` en `Module._load`
+  ANTES de cargarla (tests/_fathom-carga-hijo.ts).
+- **`/api/v1` tiene `maxDuration = 60`** y una lectura tarda de 1 a 5 min: «Leer igual» no es una operación de la API de
+  MaKo. Ver la lista sí lo es (`listar_reuniones_fathom` → `sin_leer`).
+- **El webhook de Fathom SÍ está registrado** (`webhook_routing` de los ws 1, 9 y 11) y dispara la misma lectura del
+  cron para esa grabación (`soloRecording`); por eso no se tocó la frecuencia del cron. El ws 4 tiene clave y secreto
+  pero no su fila de ruteo: su webhook se ignora.
+
+**Vive en:** lib/plan-propuesta.ts (`aplicarPropuestas`, `crearPropuesta`, `existePropuestaRef`,
+`resolverProcesandoSinCompromisos`) · lib/plan-bandeja.ts · lib/todo-rutear.ts (`rutearSinIA`) · lib/reunion-cruce.ts
+(`cruzarTareas`) + lib/cruce-borrador.ts · lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts ·
+lib/reunion-leyendo.ts · lib/reunion-descartadas.ts + mig 0300 · lib/plan-fathom.ts + lib/fathom-api.ts ·
+lib/cron-workspaces.ts · app/api/plan-fathom/route.ts · app/api/webhooks/fathom/route.ts ·
+app/plan/board/TareasRecibidasModal.tsx + ReunionExtractModal.tsx · tests/fathom-sin-friccion.test.ts · *2026-10-16*
+
+## «Re-priorizar todo»: cómo corre en segundo plano y dónde no alcanza (16/10/2026)
+
+**El pedido.** Martín (16/10): «luego de última un botón en los 3 puntos de arriba del plan para "re-priorizar" todo, y
+eso puede correr en segundo plano y no impedir que el usuario siga utilizando todo».
+
+**Cómo corre.** La entrada está en los tres puntos de los dos tableros (`repo.repriorizar`) y en la API de MaKo
+(`repriorizar_plan`, por chat; `ver_repriorizacion_plan`, también por HTTP). Arrancar saca la FOTO de las tareas
+abiertas del Plan y deja una fila en `plan_repriorizaciones` (mig 0301). La drenan, de a 20, el SONDEO del tablero
+abierto (cada 4 s pregunta el avance y empuja la tanda siguiente en `after()`) y un cron cada minuto
+(`/api/cron/plan-repriorizar`, para la pestaña cerrada o lo que arrancó MaKo). Cada tarea recibe el número del Perro de
+siempre (`puntuarNuevas`, la red gratis), un proyecto si estaba en «Sin proyecto» y una entrada de historial de MaKo con
+el número de antes («62 → 48»). En el dueño, al final, corren el reparto y el juicio de los proyectos. No toca fechas,
+ni el detalle, ni lo fijado a mano, ni lo de la Retro o los experimentos.
+
+**Lo escrito era falso: `experimento_tareas.score_manual` EXISTE desde la 0143.** Tres comentarios y AGENTS.md decían
+que no, y la 0301 se escribió creyéndoles (aplicarla contestó «already exists, skipping»). Faltaba quién la usara: el
+Perro del cliente sólo puntuaba lo que NACÍA, así que nadie la escribía ni la leía. Desde el 16/10 el slider del cliente
+la pone, `prioridadAlPerro` la saca, `toBoard` la lee y `editPatch` NO la manda. **La razón escrita no sirve de
+marca**: el slider guarda «La fijaste a mano» y la pantalla se queda con «Prioridad fijada a mano», que el próximo
+guardado sube.
+
+**Las reglas que quedan** (las que gobiernan código nuevo están también en AGENTS.md → «Un trabajo LARGO del Plan…»):
+
+- **Un trabajo largo es una FILA, no un `await`**: foto, cursor (`hechas`), estado y último error viven en la base;
+  tomar una tanda es un compare-and-set sobre `vuelta` con un candado que vence (`tomada_hasta`, 240 s). «Uno a la vez»
+  lo garantiza un índice único PARCIAL, y el que choca (23505) recibe el que ya corre.
+- **El intento se cuenta al TOMAR la tanda, no en el `catch`.** Una función que Vercel corta no corre su `catch`, y con
+  la pestaña abierta una tanda lenta se repetía cada ~4 min para siempre sin pasar a «error» (lo encontró la revisión).
+  Una tanda que falla se reintenta ENTERA, esperando (20 s y 60 s: la cuota de Gemini es por minuto), y a la tercera se
+  corta el trabajo; el error queda en la fila aunque el reintento salga.
+- **Lo que espera a un modelo decide contra la fila RELEÍDA justo antes de escribir.** Con la foto del principio de la
+  tanda, una prioridad fijada a mano mientras el modelo pensaba quedaba con el número de la IA *y con el candado
+  puesto*, se borraba la entrada «Movió a En proceso» y se le cambiaba el proyecto a una que ya habían sacado de la
+  bandeja (reproducido por la revisión).
+- **Lo que el trabajo escribe VIAJA a la pestaña abierta, o el próximo guardado lo deshace**, porque los dos tableros
+  guardan la fila entera. La fila guarda cada cambio con su hora y la pantalla lo pinta con `aplicarPerroServer`, sin
+  volver a guardarlo. Eso destapó que `aplicarPerroServer` no actualizaba `scoreBase` (el siguiente guardado del dueño
+  le devolvía al reparto el juicio viejo). Y la pestaña que NO arrancó el trabajo (WhatsApp, el teléfono, otra pestaña)
+  también mira, cada 45 s y al volver a la pestaña; al abrir con uno corriendo pinta sólo lo de los últimos segundos
+  (`cambiosDesde`), no todo encima de lo que alguien cambió después.
+- **La entrada de historial de algo repetible lleva id DETERMINISTA** (`rp<trabajo>-<tarea>`): una tanda cortada se
+  repite entera y la segunda pasada reemplaza la entrada en vez de apilar otra.
+- **La vara no lleva las «Sin priorizar»** (no son un juicio sino su ausencia: con 60 en 0, el modelo vería medio
+  tablero en el fondo), **ni lo que se repite, ni la Retro ni los experimentos**. Y entran sólo tareas del Plan
+  (`esDelPlanCliente`).
+- **La bandeja sale por una lista CERRADA** (los proyectos que existen; en el cliente, también el catálogo y un
+  «Cliente: X» del CRM). Lo que el modelo propone abrir no se crea en un trabajo que corre sin nadie mirando (`via` en
+  `rutearTareasCliente`).
+- **Desde la API no se empuja trabajo con un reloj que no se conoce**: una tanda necesita 75 s y `/api/v1` corta a 60.
+  `repriorizar_plan` deja la fila y el cron la levanta dentro del minuto. Y arrancar no sale por HTTP: llama al Perro.
+
+**⚠️ El diagnóstico obvio que era el equivocado.** Un revisor midió como «hasta 90 s» (lo que tarda el Perro) la
+ventana en que la pestaña que arrancó el trabajo podía deshacerlo. En una TANDA no: el modelo contesta ANTES de la
+primera escritura, y las veinte escrituras más la publicación de los cambios son una ráfaga de segundos. Los 90 s eran
+reales sólo en el CIERRE del dueño, que escribía el reparto y RECIÉN DESPUÉS juzgaba los proyectos (una llamada larga)
+antes de publicarlo. Ahora el reparto se publica antes del juicio.
+
+**Medido en producción (16/10, sólo lectura):** abiertas del Plan, 185 en el ws1 (`experimento_tareas`) y 176 en el ws9
+(`plan_tareas`); CERO fijadas a mano abiertas, CERO en «Sin proyecto» y CERO «Sin priorizar». O sea: **la primera
+corrida re-puntúa todo lo que ya tiene número** (361 tareas entre los dos), no sólo lo que entró libre.
+
+**Trampas del entorno:**
+
+- **`after()` comparte el `maxDuration` de la ruta** (120 s en `/api/todo` y `/api/plan-board`): no se arranca una tanda
+  con menos de 75 s por delante, ni el cierre del dueño (70 proyectos en una llamada) con menos de 100.
+- **Un PostgREST de mentira que compara `lt.`/`gt.` como texto miente con ids** («1009» < «999»).
+  `tests/_postgrest-de-mentira.ts` compara número con número y simula los índices únicos parciales (409 / 23505): es el
+  que tienen que usar los hijos que vengan (hay otras tres copias).
+- **El `tsc-acotado` sólo ve lo que se le nombra**: `app/experimentos/_demo.ts` arrastraba desde la tanda 1 un rojo de
+  tipos (`motivo_atorada` obligatorio) que sólo hubiera visto el tsc completo de CI.
+
+**Vive en:** lib/plan-repriorizar-nucleo.ts (la foto, la tanda, la vara, `trasFalla`, `cambiosDesde`, `VIGILANCIA_MS`) ·
+lib/plan-repriorizar.ts (`procesarTanda`, `avanzarRepriorizacion`, el cierre, el cron) ·
+app/api/cron/plan-repriorizar/route.ts · app/plan/board/Repriorizar.tsx · app/plan/TodoBoard.tsx y
+app/plan/board/repo-plan.ts (la capacidad y el candado del cliente) · lib/api-mako/areas/plan.def.ts y plan.run.ts ·
+mig 0301 · tests/plan-repriorizar.test.ts + tests/_plan-repriorizar-hijo.ts · *2026-10-16*
+
+## La revisión adversarial del kanban: un error con muchas caras, y lo que quedó sin hacer (16/10/2026)
+
+Dos revisores (motor y datos; segundo plano e IA) leyeron la rama `plan-kanban` entera y reprodujeron los defectos
+corriendo las funciones reales contra el PostgREST de mentira: 25 hallazgos, 21 reales y arreglados. Casi todos eran
+**el mismo error**: algo que corre en segundo plano (o en otra pestaña) decide con una foto vieja, o escribe su
+resultado en un momento distinto del que lo hace visible, y en ese hueco alguien más escribe. Ningún test lo cazaba,
+porque los tests corren de a un actor por vez. Cada cara está contada en su entrada:
+
+| Lo que se veía | Dónde está la causa y la regla |
+|---|---|
+| Una prioridad fijada a mano quedaba con el número de la IA y el candado puesto | «Re-priorizar todo»: releer antes de escribir |
+| Una pestaña que no vio arrancar el trabajo deshacía lo escrito | «Re-priorizar todo»: lo que viaja a la pestaña |
+| Una tanda cortada por Vercel se repetía para siempre | «Re-priorizar todo»: el intento al tomar |
+| Una reunión quedaba en «Leyendo…» para siempre | Fathom sin fricción: toda salida cierra la fila |
+| El cruce no llegaba al modal y «Cargar» duplicaba | Fathom sin fricción: la misma escritura |
+| «Volver a analizar» nunca cruzaba lo nuevo | Fathom sin fricción: el sello va con sus datos |
+| Un 503 de Fathom cerraba la reunión como vacía | Fathom sin fricción: «no contestó» no es «vacío» |
+| Los Deshacer dejaban la base distinta de la pantalla | El kanban es de ESTADO: una escritura |
+| Una pestaña vieja del dueño reabría lo completado | El kanban es de ESTADO: `progresoGuardado` |
+
+Y uno que no era de concurrencia: `ver_tarea_plan` devolvía la prioridad cruda («media» para una «Sin priorizar» del
+cliente, por `prioridadOk(undefined)`) y no la columna. Era el mismo error que la rama ya había arreglado en
+`tareaCompacta`, pero en la vista de detalle.
+
+**Cuando el diagnóstico obvio era el equivocado** (lo que más tiempo ahorra la próxima vez):
+
+- «El clasificador hizo desaparecer 9 de 10 reuniones» → cero descartadas: falló la LECTURA.
+- «La ventana es de hasta 90 s en cada tanda» → sólo en el cierre del dueño.
+- «`experimento_tareas` no tiene `score_manual`» (AGENTS.md y tres comentarios) → existe desde la 0143.
+- «`moverTarea` ya está listo» (el relevamiento) → cero llamadores y tres bugs.
+- «Para el orden manual alcanza con que la pantalla lo use» → `taskToRow` lo pisaba en cada guardado.
+- «El cruce, en el cron después de `crearPropuesta`» (decisión 7) → ese «después» era el duplicado.
+- **Un test en verde por la razón equivocada**: el de «el webhook no lee un workspace pausado» pausaba uno SIN
+  credenciales, así que `wsEnLaRonda` decía «no» por falta de claves y la rotura «sin mirar el estado» pasaba (0 de
+  28). Ahora pausa el ws 1, que sí tiene Fathom.
+
+**Trampas del entorno de esta corrida:**
+
+- **`lib/plan-propuesta.ts` quedó guardado como BINARIO** desde la tanda 3: un `\r\r\n` en la línea 26 (un script que
+  escribió CRLF sobre CRLF) y git lo marca `i/-text` (`git ls-files --eol`). Con `core.autocrlf=true`, el `git add` lo
+  pasaba entero a LF —un diff de archivo completo contra main—: se commitea con `git -c core.autocrlf=false add`.
+- **Un script de Python que lee con saltos universales y escribe con `newline=''` pasa el archivo a LF sin decir
+  nada** (AGENTS.md → «El fin de línea es POR ARCHIVO»).
+- **`tests/_plan-kanban-hijo.ts` y `tests/_fathom-carga-hijo.ts` no se chequean juntos** con `tsc-acotado`: los dos
+  declaran funciones globales con el mismo nombre. Van de a uno.
+- **No hay `next dev` en esta máquina**: nada de la rama se miró en el navegador. Escritorio y teléfono están probados
+  por tests (582 en el área) y tipos.
+
+**Lo que quedó SIN hacer, con dónde vive:**
+
+*El kanban*
+
+- **Mirarlo en el navegador**, escritorio y teléfono (`/plan`, `/plan/agencia`, `/m/plan`).
+- **Las dos sentencias de reconciliación de la 0294, después del deploy** (cabecera de
+  supabase/migrations/0294_plan_kanban_estado.sql): tareas del dueño completadas o reabiertas entre la migración y el
+  deploy.
+- **El kanban del cliente sigue mostrando las tareas de la Retro y de los experimentos**: `listTareas` (lib/todo.ts) no
+  filtra. La SPEC lo pedía y ninguna tanda lo hizo; «Re-priorizar todo» sí las excluye (`esDelPlanCliente`).
+- **El filtro «Responsable» no existe en el tablero del dueño**: `plan_tareas` necesita `responsable_tipo` (migración
+  aditiva) y alguien que lo escriba.
+- **Cuentas que siguen preguntando `progress < 100`** y contarían una tarea del dueño movida a «No cumplen tu
+  criterio»: `hoyDelTablero` (app/plan/board/hoy.ts: «Hoy» y «Semana» del teléfono, y Today); lib/plan-hoy.ts sólo la
+  saca en el cliente. El cruce (`abiertasConDetalle`, lib/reunion-cruce.ts) también la mira, y una reunión que repite un
+  compromiso descartado amplía esa tarjeta: se dejó así, es el criterio de `mismaTarea`.
+- **Soltar entre dos tarjetas con el mismo `orden`** la deja donde diga el desempate: `ordenEntre(a, a)` devuelve `a`
+  (lib/todo-estados.ts). Los empates los crean las altas sin `orden`, como las recurrentes
+  (lib/plan-recurrentes-generar.ts). Arreglarlo es renumerar la columna.
+- **Soltar en «Atorada» y escribir el motivo en seguida son dos `mover`**: si llegaran al revés, el historial (que se
+  escribe entero) pierde una entrada.
+- La vista Tabla no muestra la columna; el comentario de app/customer-success/KanbanEntrega.tsx todavía dice que el
+  arrastre con el dedo está «tipado contra las bandas de prioridad»; sacar una tarea de «No cumplen» no exige motivo
+  (`moverTarea`).
+
+*Fathom*
+
+- **Siguen llamando al Perro al crear**: el doer de WhatsApp (`tareas_plan`, lib/mako-doer-acciones.ts), las acciones
+  `priorizar-nuevas` (app/api/todo/route.ts y app/api/plan-board/route.ts) y crear un proyecto a mano (BoardShell,
+  `createLabel`).
+- **⚠️ Una lectura PARCIAL con tareas no se completa nunca, aunque el comentario diga que sí.** lib/reunion-auto.ts deja
+  la reunión abierta «y el próximo cron completa lo que falta» (el bloque de `parcial`), pero el cron la saltea porque
+  ya tiene borrador: `existePropuestaRef` sólo ignora las «procesando».
+- **El modal de una reunión ya leída (la rama de caché, `asegurarBorrador`) no cruza**: si su borrador no estaba
+  sellado, SU «Agregar» (`crearDesdeReunion`) puede duplicar. Lo cubren el barrido del cron y el «Cargar» de la lista.
+- **Nadie avisa cuando una reunión pasa a «Sin leer»**: se ve sólo abriendo el modal. Y las diez del ws1 del 08 al 15/10
+  siguen sin leerse hasta que una key del negocio conteste.
+- El cron gasta hasta ~60 s por reunión en el cruce antes de mirar la siguiente (lib/reunion-auto.ts); el ws 4 no tiene
+  su fila de `webhook_routing`; «Leer igual» no es una operación de la API.
+
+*«Re-priorizar todo»*
+
+- **El teléfono no tiene la entrada**: `/m/plan` no monta `BoardShell` (app/m/plan/page.tsx).
+- **El tablero del cliente no re-juzga sus proyectos**: no tiene un Perro de proyectos.
+- **Las ventanas que quedan, chicas y conocidas**: entre releer una tarea y escribirla; la ráfaga de una tanda más el
+  sondeo de 4 s; hasta 45 s en una pestaña que no arrancó el trabajo. La cura de fondo es que guardar una tarjeta no
+  mande la fila entera (`editPatch` en app/plan/TodoBoard.tsx, `taskToRow` en lib/plan-board.ts), y es otro trabajo.
+- Arrancar desde el tablero agenda dos `after()`; el compare-and-set hace que trabaje uno solo.
+
+**Vive en:** la sección «revisión adversarial» de tests/plan-kanban-server.test.ts, tests/plan-repriorizar.test.ts y
+tests/fathom-sin-friccion.test.ts (con sus hijos), cada rotura anotada · *2026-10-16*
 
 ## Tablero único: el cliente va en el BORRADOR, y el tipo de responsable se calcula al aplicar
 
@@ -3357,8 +3706,11 @@ propone el slider es el **punto medio entre la de arriba y la de abajo**. Los bo
 su caso: arriba de todo, dos puntos más que la primera; abajo, dos menos que la última; en
 una columna vacía, el representativo de la banda, que es lo único que se sabe.
 
-- **Sigue siendo una SUGERENCIA.** El pop-up pregunta igual: soltar dice DÓNDE, la persona
-  dice CUÁNTO.
+- ~~**Sigue siendo una SUGERENCIA.** El pop-up pregunta igual: soltar dice DÓNDE, la persona
+  dice CUÁNTO.~~ **Revocado el 16/10/2026 para el kanban de TAREAS**: sus columnas son el estado y soltar mueve sin
+  preguntar ningún número («cuando tú muevas una tarjeta, yo no debería preguntarte cuál es la nueva
+  prioridad», Mauricio, 12/10). Sigue valiendo donde la pantalla ordena por número: las tablas y la
+  grilla de proyectos ([El kanban es de ESTADO](#el-kanban-es-de-estado-desde-el-16102026)).
 - **El hueco es lo que hace que la posición exista para quien mira.** Sin él, el número sale
   de un lugar que nadie vio. Tiene el alto de una tarjeta para que lo de abajo se corra de
   verdad, como en el CRM.
@@ -3610,6 +3962,12 @@ Y lo esperable de toda alta, que conviene anticipar cuando se le dice a alguien 
 el Perro re-curvó las tareas no fijadas (103 de 187) y subió el proyecto que recibió trabajo
 nuevo («Feature: Cobros y planes», 80 → 81). Rutea por TEMA: dos de las siete cayeron en otro
 proyecto que el propuesto.
+
+**Actualización (16/10/2026): en este camino el problema se dio vuelta.** Cargar un borrador ya no llama al Perro
+(ver [Fathom sin fricción](#fathom-sin-fricción-dónde-se-iba-el-tiempo-y-las-reuniones-que-desaparecían-16102026)), así que una tarea sin `deadline` en el borrador
+entra SIN fecha, y «Re-priorizar todo» no toca fechas: la fecha es la que dijo la reunión o la que pone la persona.
+El `sinFecha` sigue faltando en los caminos que todavía llaman al Perro al crear (el doer de WhatsApp y
+`priorizar-nuevas`).
 
 **Vive en:** lib/plan-propuesta.ts (`PropuestaTarea`, `aplicarPropuestas`) · lib/plan-board.ts
 (`priorizarNuevasOwner`) · *2026-10-09*
@@ -6509,7 +6867,12 @@ marcarla la quemaba para siempre. Lo que no tiene es un FINAL para el fallo que 
 la ventana, o falla N veces seguidas por la misma causa), lo que se perdió queda ESCRITO donde el dueño lo lea,
 con la reunión nombrada. Un reintento sin final es una pérdida silenciosa con un paso más.
 
-**Sin hacer:** el aviso de «esta reunión no se pudo leer» al salir de la ventana; no reintentar mientras las
+**Actualización (16/10/2026):** el final ya existe en parte. Lo que el cron no pudo leer queda ESCRITO
+(`plan_reuniones_descartadas`, mig 0300, `tipo = 'fallo'`) y se ve en el modal de Fathom, en «Sin leer»,
+con «Reintentar»; las diez del ws1 del 08 al 15/10 se anotaron a mano ese día. Ver [Fathom sin
+fricción](#fathom-sin-fricción-dónde-se-iba-el-tiempo-y-las-reuniones-que-desaparecían-16102026).
+
+**Sin hacer:** el AVISO de «esta reunión no se pudo leer» (hoy se ve sólo abriendo el modal); no reintentar mientras las
 keys del negocio estén todas caídas (lo toma Automations con el freno de claves caídas,
 docs/diseno-ia-claves-caidas.md); y recuperar las reuniones del ws1 del 08 al 15/10, que ya salieron de la
 ventana (se pueden extraer a mano desde /plan cuando haya una key que conteste).
@@ -6525,3 +6888,35 @@ app/api/cron/fathom-plan/route.ts · *2026-10-15*
 **Ojo al tocarlo:** el rótulo se sanea DESPUÉS de `resolverDueño`, que decide el email y «es mío» con el texto crudo; sanear antes cambiaría a quién se le reparten las tareas.
 
 **Vive en:** `lib/tarea-dueno.ts` (`rotuloDePersona`, `fuenteDicha`, `OTRA_PERSONA`) · `lib/plan-fathom.ts` (`coerceCandidatas`, el prompt) · `tests/tarea-dueno.test.ts`
+
+## La extracción del 16/10 leída contra las dos transcripciones: buena cosecha, mal archivada (17/10/2026)
+
+Martín pidió revisar si la extracción funciona. Se leyeron completas las dos llamadas suyas del 16/10: «Revisión de MaKo» con Código Inmobiliario (Fathom 193666833, 123 min) y «Mau <> Martin» (193681029, 121 min). Se contrastaron con las 37 tarjetas que dejaron (#843-#879).
+
+**Lo que anda.** Cada tarjeta trae el minuto y el link, y la cita textual es fiel. No junta cosas distintas. De lo que Martín dijo «me lo llevo», casi todo está.
+
+**Lo que no anda, en orden de daño:**
+1. **El proyecto.** Las 26 tarjetas de la revisión cayeron en «Cliente: Código Inmobiliario». Las 11 de Mauricio cayeron en «Cliente: Mauricio Bustos», un proyecto que la importación CREÓ a las 23:43. Son bugs y features de MaKo (Automations, CRM, Dashboard, Pagos…), así que en el tablero del dueño van al proyecto de la TAB (lib/plan-proyectos-catalogo.ts). La regla «el proyecto lo define la reunión» (memoria `proyecto-lo-define-la-reunion`) la dictó Mauricio para SUS reuniones con SUS clientes, donde lo que sale es trabajo de ese cliente. Aplicada sin mirar de quién es el tablero, archiva el producto como si fuera la entrega a un cliente. **El diagnóstico obvio («la IA eligió mal») es el equivocado:** `lib/reunion-cliente.ts` IGNORA lo que eligió el modelo cuando detecta cliente.
+2. **Detalles inventados.** El prompt pide detalle largo y el modelo rellena con datos que nadie dijo: «Claude 3.5 Sonnet de 200k» (#865), «Sendgrid / Resend o similar» (#875), «Baileys» (#851; MaKo usa Evolution), «inicio de 2025» (#878; la llamada nunca nombra un año), «suscripción Pro/Team… segunda cuenta» (#877; era la quinta y ya se compró), y un «React Error Boundary» supuesto (#853). Un dato técnico inventado en una tarjeta lo toma por cierto el chat que la trabaja.
+3. **El nombre del que habla.** Fathom rotula a Martín «Martin Carballo» y la tarjeta lo copia. Además, la diarización le atribuye a Joan frases de Martín (01:54-01:57 de la revisión).
+4. **Lo que faltó** (~12). De la revisión:
+   - los templates de la ficha son muy grandes (00:33:31);
+   - al inspeccionar sale primero el perfil de Mauricio (00:47:15);
+   - crear un flujo por cualquier vía debe crearlo con loader, y pegar uno copiado a otro negocio da «su etapa no está en su negocio» (00:48:01);
+   - la opción de modo oscuro (00:29:02);
+   - que el Second Brain guarde solo (00:28:04);
+   - Pablo no pudo agendar en el Calendario (01:26:22);
+   - juntar el análisis de landing del Dashboard con el de Web Generator (01:29:51);
+   - Offer: la vista PDF primero y un «43» que nadie sabe de dónde salió (01:48:49);
+   - en Chats, sacar la tab de email (01:16:00).
+
+   De la de Mauricio:
+   - un cobro «venció ayer» que estaba pagado (00:28:53, a verificar);
+   - «quitar» un pago no se aplicó al primer intento (00:27:46);
+   - revisar el acceso de administrador de Mauricio al repo de Martín (01:02:45).
+
+**Lo que NO es una falla:** todas nacen «Sin priorizar» (score 0). Es a propósito desde el 16/10 (`lib/plan-board.ts`, paso 3), y el que prioriza es «Re-priorizar todo». Lo que sí se pierde es la prioridad DICHA: Joan marcó a Brigitte como «la más prioritaria» y la tarjeta #868 nace igual que las demás.
+
+**Trampa al medirlo:** `fetchAllMeetings({ recordedAfter })` devolvió reuniones de septiembre. Fathom ignora `recorded_after` (ya anotado arriba en este documento); el filtro real lo hace `listReunionesRecientes`. Un script que llama a la lib de abajo se trae todo.
+
+**Vive en:** `lib/reunion-cliente.ts` (la regla del cliente) · `lib/plan-proyectos-catalogo.ts` · `lib/plan-fathom.ts` (`PLAN_FATHOM_SYSTEM_TEMPLATE`, el pedido de detalle) · tarjetas #843-#879 del ws9

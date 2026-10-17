@@ -40,9 +40,10 @@ import { Composer, type Envio } from './Composer';
 import { SheetPropuesta } from './SheetPropuesta';
 import { postConProgreso } from './subir';
 import {
-  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, duracion, fuenteDelTurno, idLocal, itemsDeRespuesta,
-  itemsDeSesion, leerRespuesta, type EstadoPropuesta, type ItemHilo,
+  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, archivosDeRespuesta, duracion, fuenteDelTurno, idLocal, itemsDeRespuesta,
+  itemsDeSesion, leerRespuesta, textoConArchivos, type EstadoPropuesta, type ItemHilo,
 } from './chat-ui';
+import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
 
 const RUTA = '/api/m/mako';
 /** El maxDuration de /api/m/mako es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
@@ -51,7 +52,12 @@ const TOPE_MS = 425_000;
 type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
 
-export function ChatMako({ sesionesIniciales, inicial }: { sesionesIniciales: SesionChat[]; inicial: Abierta | null }) {
+export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null }: {
+  sesionesIniciales: SesionChat[];
+  inicial: Abierta | null;
+  /** El Mapa del Second Brain (sólo el admin, lo decide el servidor): va arriba de la hoja «Tus chats» (16/10/2026). */
+  hrefMapa?: string | null;
+}) {
   const ws = useWs();
   const { enLinea } = useConexion();
   const [sesiones, setSesiones] = useState<SesionChat[]>(sesionesIniciales);
@@ -187,7 +193,9 @@ export function ChatMako({ sesionesIniciales, inicial }: { sesionesIniciales: Se
         return;
       }
       const r = l.datos;
-      marcar(idU, { estado: undefined, error: undefined });
+      // Los archivos volvieron guardados (mig 0305): la burbuja pasa a mostrarlos como quedaron.
+      const guardados = archivosDeRespuesta(r);
+      marcar(idU, { estado: undefined, error: undefined, ...(guardados.length ? { archivos: guardados, adjuntos: undefined } : {}) });
       setItems((xs) => {
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
         return [...xs, ...itemsDeRespuesta(r, vistas)];
@@ -246,6 +254,8 @@ export function ChatMako({ sesionesIniciales, inicial }: { sesionesIniciales: Se
 
       <SheetM abierto={hojaChats} onCerrar={() => setHojaChats(false)} titulo="Tus chats" id="chats" snap="medio"
         pie={<PieM><Button variant="primary" size="lg" full onClick={nuevoChat}>Nuevo chat</Button></PieM>}>
+        {/* El grafo del negocio, arriba de los chats: como «Mapa» en la barra del Second Brain de escritorio. */}
+        {hrefMapa && <ListaM><FilaM navegacion titulo="Mapa" icono="cerebro" href={hrefMapa} /></ListaM>}
         {sesiones.length === 0
           ? <VacioM frase="Todavía no hay chats." />
           : (
@@ -281,14 +291,17 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
 }) {
   if (x.k === 'msg') {
     const tuyo = x.role === 'user';
+    // Con los archivos a la vista, sin el «(envió una imagen: x)» que el turno guarda para el modelo.
+    const t = x.archivos?.length ? textoConArchivos(x.texto) : x.texto;
     return (
       <li className={`m-mako-msg ${tuyo ? 'm-mako-msg--yo' : 'm-mako-msg--mk'}`} data-estado={x.estado}>
         <div className="m-mako-burbuja">
           {x.voz && <NotaDeVoz url={x.voz.url} secs={x.voz.secs} />}
-          {x.adjuntos && x.adjuntos.length > 0 && (
+          {x.archivos && x.archivos.length > 0 && <ArchivosHilo archivos={x.archivos} />}
+          {!x.archivos?.length && x.adjuntos && x.adjuntos.length > 0 && (
             <p className="m-mako-adjuntos">{x.adjuntos.join(' · ')}</p>
           )}
-          {x.texto && <div className={x.voz ? 'm-mako-transcripcion' : 'm-mako-texto'}>{tuyo ? x.texto : conNegritas(x.texto)}</div>}
+          {t && <div className={x.voz ? 'm-mako-transcripcion' : 'm-mako-texto'}>{tuyo ? t : conNegritas(t)}</div>}
         </div>
         {x.estado === 'error' ? (
           <p className="m-mako-falla" role="alert">

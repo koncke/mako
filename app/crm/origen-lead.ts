@@ -58,7 +58,7 @@ export type OrigenLeadDef = {
    * el filtro arma sus opciones con este mismo string.
    *
    * La ficha usa otro, más largo, porque ahí hay lugar para una frase
-   * (`labelOrigen` en lead-view/OrigenCard.tsx). No es la misma cadena repetida:
+   * (`canalDeEntrada` en lead-view/ficha/resumen/logica.ts). No es la misma cadena repetida:
    * son dos superficies con dos techos distintos, y el guard de
    * tests/crm-origen-lead.test.ts exige que las dos cubran los mismos ids.
    */

@@ -84,7 +84,10 @@ import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, type FilaImport } from './leads-importar';
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
-import { VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline } from './campo-inline';
+import {
+  VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline,
+  esCampoContacto, mismoDatoDeContacto, mismoValorDeCampo, valorGuardadoDeCampo, YA_LO_CAMBIARON,
+} from './campo-inline';
 // El usuario de Instagram del ALTA (punto 28) se normaliza con la MISMA regla que el de la ficha.
 import { usuarioInstagram } from './campo-inline';
 // Qué grabación es de la R2: la MISMA función que reparte los análisis entre los
@@ -299,6 +302,16 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // La pestaña «Tracking» (punto 18): arranca acá para correr en paralelo con todo lo de abajo, y
   // no tira nunca (lib/tracking-ficha-server.ts).
   const verTrackingP = verTrackingDeLead(lead.funnel_id);
+  // ⚠️ LO QUE NO DEPENDE DE NADA DE ABAJO ARRANCA YA (16/10/2026, Martín: «mejora la eficiencia al abrir el detail de un
+  // lead, tarda un montón en cargar»). Estas cinco lecturas esperaban a que terminaran las nueve de abajo —y el
+  // resumen del negocio, a TODO— sin usar nada de ellas. `temprano` les cuelga un catch mudo para que un rechazo antes
+  // de su `await` no sea un «unhandled rejection»; el `await` de abajo lo sigue tirando igual que antes.
+  const temprano = <T,>(pr: Promise<T>): Promise<T> => { pr.catch(() => {}); return pr; };
+  const insightGenP = temprano(getUltimoInsightGenerado(id));
+  const equipoP = temprano(getEquipoAction());
+  const funnelsP = listarFunnels().catch(() => []);
+  const cobroP = temprano(senalesDeCobroAction(id));
+  const resumenP = temprano(resumenDelNegocio());
   // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
   // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del
   // teléfono: con insumos propios, el número volvía a dar distinto en cada pantalla.
@@ -329,7 +342,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // calor del proyecto), y se fueron el 06/10/2026 con Clarity entero: la grabación
   // la hace MaKo y se dibuja adentro de la ficha. Nunca rompe la ficha:
   // `replayDeLead` no tira y distingue «no pude leer».
-  const [insightGen, equipo, replay, funnels, cobro] = await Promise.all([getUltimoInsightGenerado(id), getEquipoAction(), replayDeLead(lead.visitor_id, ultimaActividad), listarFunnels().catch(() => []), senalesDeCobroAction(id)]);
+  const [insightGen, equipo, replay, funnels, cobro] = await Promise.all([insightGenP, equipoP, replayDeLead(lead.visitor_id, ultimaActividad), funnelsP, cobroP]);
   const { pagos, stages, respuestas } = insumos;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
@@ -347,7 +360,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
   const [ficha, rolWs] = await Promise.all([fichaP, rolP]);
   const rol = rolDeFicha(rolWs);
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenDelNegocio(), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
     ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin' };
 }
 
@@ -2386,6 +2399,52 @@ export async function guardarCampoLeadAction(id: number, campo: string, valor: V
   revalidatePath('/general');
 }
 
+/**
+ * EL «DESHACER» DE UN CAMPO DE LA FICHA, SIN PISAR A OTRO (verificación de la ficha v2, 16/10/2026).
+ *
+ * El aviso «Guardado · Deshacer» vive 5 segundos y su Deshacer escribía `antes` a ciegas: si en ese medio otra persona
+ * (o el webhook de Calendly, el motor, Fathom) cambió el MISMO campo, se lo pisaba. Ahora viaja lo que el guardado
+ * escribió (`esperado`) y sólo se deshace si el campo sigue diciendo eso (`mismoValorDeCampo`, app/crm/campo-inline.ts).
+ * Si no, no escribe y lo dice. Escribir es `guardarCampoLeadAction`: el mismo camino, el mismo historial y el mismo
+ * aviso a Meta. Devuelve el resultado (no tira): en producción Next esconde el mensaje de un error de server action.
+ */
+export async function deshacerCampoLeadAction(id: number, campo: string, antes: ValorInline, esperado: ValorInline): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sesion = await getUsuarioActual().catch(() => null);
+  if (!sesion) return { ok: false, error: 'Tu sesión venció' };
+  if (!esCampoInline(campo)) return { ok: false, error: 'Ese campo no se edita aquí' };
+  try {
+    const lead = await getLead(id);
+    if (!lead) return { ok: false, error: 'No encontré el lead' };
+    const hoy = valorGuardadoDeCampo(campo, lead as unknown as Record<string, unknown>, etiquetaEsR2);
+    if (!mismoValorDeCampo(campo, hoy, valorDeCampo(campo, esperado))) return { ok: false, error: YA_LO_CAMBIARON };
+    await guardarCampoLeadAction(id, campo, antes);
+    return { ok: true };
+  } catch (e) {
+    console.error(`[crm] deshacer ${campo} del lead ${id}:`, e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo deshacer' };
+  }
+}
+
+/**
+ * El mismo «Deshacer» para los datos de contacto que se guardan por `saveLeadMetaAction` (el email, el teléfono, la
+ * empresa, las redes, la dirección y el sexo del Resumen): sólo si el dato sigue diciendo lo que se escribió.
+ */
+export async function deshacerContactoLeadAction(id: number, campo: string, antes: string | null, esperado: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sesion = await getUsuarioActual().catch(() => null);
+  if (!sesion) return { ok: false, error: 'Tu sesión venció' };
+  if (!esCampoContacto(campo)) return { ok: false, error: 'Ese dato no se edita aquí' };
+  try {
+    const lead = await getLead(id);
+    if (!lead) return { ok: false, error: 'No encontré el lead' };
+    if (!mismoDatoDeContacto(campo, (lead as unknown as Record<string, unknown>)[campo], esperado)) return { ok: false, error: YA_LO_CAMBIARON };
+    await saveLeadMetaAction(id, { [campo]: antes } as LeadMetaInput);
+    return { ok: true };
+  } catch (e) {
+    console.error(`[crm] deshacer ${campo} del lead ${id}:`, e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo deshacer' };
+  }
+}
+
 export type MiembroEquipo = { nombre: string; email: string; foto_url: string | null };
 
 /**
@@ -3029,13 +3088,15 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
       ok: true,
       embudo: {
         id: funnelId ?? null,
-        // ⚠️ EL NOMBRE ES EL DEL PRODUCTO, que es lo que el tipo de acá arriba declara y
-        // lo que el desplegable ya mostraba. Devolver `cfg.nombre` pelado ponía «Funnel
-        // principal» en el título del pop-up mientras el selector decía «Negocio que
-        // Escala» — y como el título es un input, renombrar arrancaba desde el valor
-        // equivocado. Se pide sólo por ESTE id: el mapa entero es para el desplegable.
-        nombre: (cfg.id != null ? (await productosPorFunnel([cfg.id])).get(cfg.id) : null)?.trim()
-          || cfg.nombre || 'Tu funnel',
+        // ⚠️ EL NOMBRE ES EL QUE DIBUJA EL DESPLEGABLE (`nombreVisible`), con la misma regla. Hasta el 16/10/2026
+        // acá mandaba siempre el PRODUCTO —la regla de antes del 13/10, cuando el CRM no tenía nombre propio— y
+        // renombrar escribe `funnels.nombre`: el desplegable mostraba el nombre nuevo y el título del pop-up el
+        // viejo (Martín: «en el modal ya me aparece bien el nombre y luego en la edición del CRM me aparece el
+        // viejo nombre»). «Funnel principal» sigue cayendo al producto, como en el desplegable.
+        nombre: nombreVisible({
+          nombre: cfg.nombre ?? '',
+          producto: cfg.id != null ? (await productosPorFunnel([cfg.id])).get(cfg.id) ?? null : null,
+        }) || 'Tu funnel',
         esDefault: cfg.esDefault,
         etapas: propias,
         fijas,

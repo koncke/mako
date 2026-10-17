@@ -28,7 +28,7 @@
 ## Índice
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
-- **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
+- **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
 - **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `armar_tab_ficha`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
@@ -40,7 +40,7 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
@@ -743,7 +743,7 @@ curl -L \
 
 ## Plan — `plan`
 
-Tab **Plan** (`/plan`). 17 lecturas · 8 acciones.
+Tab **Plan** (`/plan`). 18 lecturas · 9 acciones.
 
 ### `GET /api/v1/plan/resumen` — Ver el plan del negocio
 
@@ -789,7 +789,7 @@ curl -L \
 
 ### `GET /api/v1/plan/tareas/ficha` — Ficha completa de una tarea
 
-Todo lo de UNA tarea: título, detalle, score y su razón, deadline y su razón, avance, historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.
+Todo lo de UNA tarea: título, detalle, score y su razón, prioridad («sin_priorizar» si nadie la puntuó), la columna del kanban (estado) y, si está Atorada, por qué; deadline y su razón, avance, historial reciente (quién tocó qué: user, ia = MaKo, code = Claude Code), fuente (reunión, WhatsApp, archivo), notas, quarter y qué la bloquea. Pide por id, o por número visible (#412) en el tablero del super-admin.
 
 - **Ruta por operación:** `GET /api/v1/plan/ver_tarea_plan`
 - **Token detallado:** permiso `plan=read` (Solo lectura en «Plan»)
@@ -877,6 +877,27 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/plan/prioridades"
+```
+
+### `GET /api/v1/plan/repriorizacion` — Avance de «Re-priorizar todo»
+
+El último «Re-priorizar todo» de este tablero: si sigue corriendo, cuántas tareas lleva de cuántas, cuántas puntuó, cuántas sacó de «Sin proyecto», cuántas fijadas a mano respetó y el último error. No requiere parámetros.
+
+- **Ruta por operación:** `GET /api/v1/plan/ver_repriorizacion_plan`
+- **Token detallado:** permiso `plan=read` (Solo lectura en «Plan»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** todo
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/plan/repriorizacion"
 ```
 
 ### `GET /api/v1/plan/tareas/vencidas` — Tareas vencidas o por vencer
@@ -1040,7 +1061,7 @@ curl -L \
 
 ### `GET /api/v1/plan/borradores/{id}/estado` — Estado de un borrador
 
-Estado liviano de un borrador que MaKo puede estar llenando en segundo plano (archivos subidos): procesando, pendiente, aplicada, descartada o fallado, cuántas tareas lleva y el resumen. Sirve para sondear sin traer todo el contenido.
+Estado liviano de un borrador que MaKo puede estar llenando en segundo plano (archivos subidos o una reunión leída a mano): procesando, pendiente, aplicada, descartada o fallado, cuántas tareas lleva y el resumen. Sirve para sondear sin traer todo el contenido.
 
 - **Ruta por operación:** `GET /api/v1/plan/ver_estado_borrador`
 - **Token detallado:** permiso `plan=read` (Solo lectura en «Plan»)
@@ -1183,6 +1204,37 @@ curl -L \
   -d '{"progreso":0}'
 ```
 
+### `PUT /api/v1/plan/tareas/{id}/estado` — Mover una tarea de columna
+
+Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Atorada admite un motivo corto. No toca la prioridad. Sacarla de Completada la reabre en 0%; para completarla usa proponer_cierre_tareas.
+
+- **Ruta por operación:** `POST /api/v1/plan/mover_tarea_plan`
+- **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el estado, el lugar en la columna y el historial de la tarea (plan_tareas o experimento_tareas)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** todo
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | id de la tarea (de listar_tareas_plan), o «#412». |
+| `estado` | string (por_hacer \\| en_curso \\| en_seguimiento \\| no_cumple) | sí | la columna destino. |
+| `motivo` | string | no | solo con en_seguimiento: por qué está atorada, en una línea. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/plan/tareas/ID/estado" \
+  -d '{"estado":"por_hacer"}'
+```
+
 ### `POST /api/v1/plan/dependencias` — Declarar una dependencia
 
 Declara que una tarea o proyecto depende de otro: «B no puede empezar hasta que A termine» (bloquea) o «A va antes pero no frena a B» (ordena), con la razón. Antes de proponerla verifica que las dos puntas existan y que no se forme un círculo. No escribe puntos: la urgencia sube sola por la cadena. Solo en el tablero del super-admin.
@@ -1280,7 +1332,7 @@ curl -L \
 
 ### `POST /api/v1/plan/borradores` — Proponer tareas al plan
 
-PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir va escrito en el `detalle` de la tarea: el alta NO hace preguntas, y la prioridad y la fecha las decide el Perro Guardián al aplicar. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.
+PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando pasan una lista de cosas para el plan, aunque venga desordenada. Resuelve lo DEDUCIBLE antes (a qué proyecto va y si ya existe, con listar_tareas_plan). Lo que no puedas deducir va escrito en el `detalle` de la tarea: el alta NO hace preguntas y las tareas entran sin prioridad. Devuelve un LINK: pásalo TAL CUAL, sin pedir «sí» ni repetir la lista. Nada se crea hasta que la persona confirma en esa pantalla.
 
 - **Ruta por operación:** `POST /api/v1/plan/proponer_tareas_plan`
 - **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)
@@ -1299,7 +1351,7 @@ PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando p
 | `tareas.detalle` | string | no | EL CAMPO MÁS IMPORTANTE: qué es, por qué, qué sería «listo» y todo el contexto que dio la persona. Lo que no quede aquí se pierde. |
 | `tareas.proyecto` | string | no | NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó. |
 | `tareas.deadline` | string | no | fecha límite AAAA-MM-DD, solo si la dijeron. |
-| `tareas.prioridad` | string (alta \\| media \\| baja \\| futuro) | no | se ignora al aplicar: la decide el Perro Guardián. |
+| `tareas.prioridad` | string (alta \\| media \\| baja \\| futuro) | no | se ignora al aplicar: la tarea entra sin prioridad. |
 
 ```bash
 curl -L \
@@ -2038,7 +2090,7 @@ curl -L \
 
 ### `PATCH /api/v1/crm/ficha` — Cambiar la ficha de un CRM
 
-PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, el tamaño de las tarjetas, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.
+PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, su ancho, diseño o ícono, el aviso de un dato sin marcar, el estilo, la densidad, la plantilla (de la ficha o de una tab), el nombre de una tab, su vista épica, o volver a la plantilla. Los ids salen de ver_ficha_funnel. «Contacto» no se quita y las asistencias siempre avisan. Solo el administrador. Sin embudoId, el CRM principal.
 
 - **Ruta por operación:** `POST /api/v1/crm/cambiar_ficha_funnel`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2054,7 +2106,7 @@ PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `embudoId` | number | no | el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio. |
-| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver \\| nombre \\| epica) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho, diseno o icono de un bloque, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa). |
+| `cambio` | string (poner \\| quitar \\| mover \\| ancho \\| diseno \\| icono \\| opciones \\| aviso \\| estilo \\| densidad \\| plantilla \\| volver \\| nombre \\| epica) | sí | qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), su ancho, diseno, icono u opciones, aviso (con aviso y avisa), estilo (tema, acento o tipografia), densidad, plantilla, nombre o epica de una tab (con tab), o volver a la plantilla (con tab, sólo esa). |
 | `tab` | string (resumen \\| reuniones \\| pagos \\| tracking) | no | la tab. |
 | `bloque` | string | no | el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web. |
 | `lugar` | number | no | en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final. |
@@ -2062,6 +2114,7 @@ PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), p
 | `diseno` | string | no | en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel). |
 | `icono` | string | no | en icono: el id (de los iconos de ver_ficha_funnel), o de-siempre: el del bloque. |
 | `n` | number | no | si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero. |
+| `opcion` | string | no | en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada. |
 | `aviso` | string | no | en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel). |
 | `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
 | `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |
@@ -12241,7 +12294,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 13 lecturas · 0 acciones.
+Tab **Video Generator** (`/video-generator`). 15 lecturas · 34 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -12475,6 +12528,50 @@ curl -L \
   "https://hola-mako.com/api/v1/video/plantillas"
 ```
 
+### `GET /api/v1/video/proyectos` — Proyectos del Video Editor
+
+Los proyectos del Video Editor (/video-editor) de este negocio, del más reciente al más viejo: id, nombre, duración, cuándo se editó por última vez y el link para abrirlo. Es una COPIA que el editor sube mientras se edita: el proyecto vive en el navegador de quien lo edita, así que lo último puede tardar unos segundos en aparecer, y uno que no se abrió desde el 16/10/2026 todavía no está. El link lo abre en ese navegador; en otro, el editor no lo tiene. Para ver la línea de tiempo de uno, ver_proyecto_video.
+
+- **Ruta por operación:** `GET /api/v1/video/listar_proyectos_video`
+- **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos"
+```
+
+### `GET /api/v1/video/proyectos/{proyecto}` — Línea de tiempo de un proyecto
+
+La línea de tiempo de un proyecto del Video Editor, tal como la lee su chat «Editar con IA»: la duración total, el lienzo, las pistas (la principal marcada) con cada elemento —su ref corta (v1 video, i2 foto, t3 texto, a4 audio, s5 sticker…), inicio y fin en segundos, el texto o el nombre, el volumen y lo que tiene puesto (transición, animación, filtro, estilo)—, los medios de Multimedia (m1, m2…) y los nombres disponibles (transiciones, animaciones, filtros, efectos, curvas de velocidad, fuentes). Es la copia que subió el editor (dice cuándo): cambiarla no se puede desde aquí, porque el proyecto vive en el navegador de quien lo edita; se cambia en el editor o pidiéndoselo a su chat. Si el proyecto es muy grande, avisa en vez de mandarla.
+
+- **Ruta por operación:** `GET /api/v1/video/ver_proyecto_video`
+- **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO"
+```
+
 ### `GET /api/v1/video/contexto` — Requisitos para filmar
 
 Si el cliente tiene lo que hace falta para filmar: cuántas fotos de su cara hay cargadas, si MaKo ya describió a la persona, qué acento se va a usar y de dónde salió (declarado por el cliente, deducido de la zona horaria o por defecto), sus muletillas, y si el perfil del negocio está empezado y qué grupos le faltan. No devuelve las fotos ni la descripción. Úsala antes de decir que el cliente ya puede filmar, o cuando un clip sale con otra persona u otro acento.
@@ -12539,6 +12636,1108 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/video/onboarding"
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/agregar-texto` — Agregar un texto al video
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido.
+
+- **Ruta por operación:** `POST /api/v1/video/agregar_texto_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `texto` | string | sí | Lo que dice, hasta 200 caracteres. |
+| `inicio` | number | sí | En qué segundo aparece. |
+| `duracion` | number | sí | Cuántos segundos dura. |
+| `ref` | string | no | Opcional: una ref nueva («n1», «n2»…) para que otra operación de la misma propuesta la cambie. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/agregar-texto" \
+  -d '{"texto":"TEXTO","inicio":0,"duracion":0.2}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/cambiar-texto` — Cambiar un texto del video
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Cambia lo que dice un texto que ya existe. Un texto con "hueco" (de una plantilla) se vuelve a partir en renglones y a ubicar solo, y admite hasta "max_caracteres".
+
+- **Ruta por operación:** `POST /api/v1/video/cambiar_texto_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `texto` | string | sí | El texto nuevo. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/cambiar-texto" \
+  -d '{"ref":"REF","texto":"TEXTO"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/reemplazar-clip` — Reemplazar el archivo de un clip
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Sustituye el archivo de un clip de video o imagen por un medio de "medios" ("medio": su ref, "m1"…), como «Reemplazar el clip»: conserva dónde está, cuánto dura, la transición, las animaciones, los efectos y la velocidad; del medio se usa el principio. Un video tiene que durar al menos lo que recorre el clip (su largo × su velocidad); una foto sirve siempre. En una MUESTRA de plantilla ("muestra": true) cubre el mismo recuadro y llena también las otras muestras de su "hueco" (el video tiene que alcanzar para la más larga); si el clip trae "acepta", sólo ese tipo. No agrega clips nuevos ni cambia audios.
+
+- **Ruta por operación:** `POST /api/v1/video/reemplazar_clip_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `medio` | string | sí | La ref del medio de Multimedia («m1», «m2»…), de "medios" en ver_proyecto_video. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/reemplazar-clip" \
+  -d '{"ref":"REF","medio":"MEDIO"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/borrar` — Borrar elementos del video
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Borra uno o varios elementos (también una capa de efecto).
+
+- **Ruta por operación:** `POST /api/v1/video/borrar_elementos_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `refs` | string[] | sí | Las refs de lo que se borra (v1, t2…). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/borrar" \
+  -d '{"refs":[]}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/mover` — Mover un elemento en el tiempo
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Mueve un elemento en el tiempo, dentro de su pista, sin pisar a otro.
+
+- **Ruta por operación:** `POST /api/v1/video/mover_elemento_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `inicio` | number | sí | El segundo donde empieza ahora. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/mover" \
+  -d '{"ref":"REF","inicio":0}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/duracion` — Cambiar la duración de un elemento
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Cambia cuánto dura un texto, una imagen, un sticker, una forma o una capa de efecto (corre su final). Un video o un audio se acorta con recortar.
+
+- **Ruta por operación:** `POST /api/v1/video/cambiar_duracion_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `duracion` | number | sí | Cuántos segundos dura. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/duracion" \
+  -d '{"ref":"REF","duracion":0.2}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/dividir` — Dividir un clip
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Corta un elemento en ese segundo de la línea de tiempo; queda en dos partes.
+
+- **Ruta por operación:** `POST /api/v1/video/dividir_clip_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `en` | number | sí | El segundo de la línea de tiempo donde se corta. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/dividir" \
+  -d '{"ref":"REF","en":0}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/recortar` — Recortar un clip
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Como arrastrar los bordes del clip: "inicio" lleva el borde izquierdo a ese segundo y "fin" el derecho (pon uno o los dos). Lo que queda afuera se esconde, no se mueve el resto del clip. Achicar siempre se puede; alargar un video o un audio, sólo hasta el material escondido que indica "recorte":[antes, después] en segundos.
+
+- **Ruta por operación:** `POST /api/v1/video/recortar_clip_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `inicio` | number | no | Opcional: el segundo donde empieza ahora. |
+| `fin` | number | no | Opcional: el segundo donde termina ahora. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/recortar" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/volumen` — Cambiar el volumen
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Volumen de un video o un audio, en dB (0 = original, −6 ≈ la mitad, de −60 a 20).
+
+- **Ruta por operación:** `POST /api/v1/video/cambiar_volumen_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `db` | number | sí | En dB, de -60 a 20 (0 es el original). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/volumen" \
+  -d '{"ref":"REF","db":-60}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/silenciar` — Silenciar un clip
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Silencia o devuelve el sonido de un video o un audio.
+
+- **Ruta por operación:** `POST /api/v1/video/silenciar_clip_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `silenciado` | boolean | sí | true silencia; false le devuelve el sonido. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/silenciar" \
+  -d '{"ref":"REF","silenciado":true}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/fundido` — Poner un fundido de sonido
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Aparición y desaparición progresiva del SONIDO de un video o un audio, en segundos (0 = sin fundido; pon uno o los dos). Entre los dos no pueden pasar el largo del clip.
+
+- **Ruta por operación:** `POST /api/v1/video/poner_fundido_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `entrada` | number | no | Opcional: segundos del fundido al empezar. |
+| `salida` | number | no | Opcional: segundos del fundido al terminar. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/fundido" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/reducir-ruido` — Reducir el ruido
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Prende o apaga «Reducir el ruido» de un video o un audio.
+
+- **Ruta por operación:** `POST /api/v1/video/reducir_ruido_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `activo` | boolean | sí | true lo prende; false lo apaga. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/reducir-ruido" \
+  -d '{"ref":"REF","activo":true}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/normalizar` — Normalizar la intensidad
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Normalizar la intensidad»: mide el sonido del clip y lo lleva a un volumen parejo. "objetivo": "predeterminado" (−23 LUFS), "tiktok" (−12) o "youtube" (−14). "activo":false la apaga. Medir tarda: se aplica al final, después de las demás.
+
+- **Ruta por operación:** `POST /api/v1/video/normalizar_audio_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `activo` | boolean | sí | true lo prende; false lo apaga. |
+| `objetivo` | string (predeterminado \\| tiktok \\| youtube) | no | Opcional: la intensidad objetivo. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/normalizar" \
+  -d '{"ref":"REF","activo":true}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/separar-audio` — Extraer el audio de un clip
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Extraer audio»: el sonido de un video pasa a su propia pista de audio ("separado":true); con false vuelve al video y se borra el extraído. El audio nuevo no tiene ref en este pedido.
+
+- **Ruta por operación:** `POST /api/v1/video/separar_audio_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `separado` | boolean | sí | true lo separa en su pista; false lo vuelve a unir. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/separar-audio" \
+  -d '{"ref":"REF","separado":true}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/ocultar` — Ocultar un elemento
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Oculta o vuelve a mostrar un elemento visual sin borrarlo.
+
+- **Ruta por operación:** `POST /api/v1/video/ocultar_elemento_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `oculto` | boolean | sí | true lo oculta; false lo vuelve a mostrar. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/ocultar" \
+  -d '{"ref":"REF","oculto":true}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/velocidad` — Cambiar la velocidad
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Velocidad de un video o un audio. "x": constante, de 0.1 a 100 (1 = normal, 2 = el doble de rápido, 0.5 = cámara lenta); el clip se alarga o se acorta y lo que sigue en la pista se corre si hace falta. Conserva el tono; "cambiar_tono":true lo cambia (como cinta). O en vez de "x", "curva": un id de DISPONIBLES.curvas_velocidad (sólo video; "ninguna" la quita).
+
+- **Ruta por operación:** `POST /api/v1/video/cambiar_velocidad_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `x` | number | no | Opcional: veces la original, de 0.1 a 100 (2 = el doble de rápido). Va «x» o «curva». |
+| `curva` | string | no | Opcional: el id de DISPONIBLES.curvas_velocidad; «ninguna» la saca. Va «x» o «curva». |
+| `cambiar_tono` | boolean | no | Opcional: true cambia el tono con la velocidad. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/velocidad" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/transicion` — Poner una transición
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Transición en el corte entre un clip de video o imagen ("ref", el de la IZQUIERDA del corte) y el que empieza justo donde termina, en la misma pista. "id" es uno de DISPONIBLES.transiciones (copia el id exacto; no inventes otros); "ninguna" la quita. "duracion" en segundos (opcional; 0.5 si no tenía), desde 0.1 y como mucho la mitad del clip más corto del corte. Para todos los cortes, una por corte.
+
+- **Ruta por operación:** `POST /api/v1/video/poner_transicion_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `id` | string | sí | El id de DISPONIBLES.transiciones de ver_proyecto_video (copia el id exacto); «ninguno» lo saca. |
+| `duracion` | number | no | Opcional: en segundos. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/transicion" \
+  -d '{"ref":"REF","id":"ID"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/animacion` — Poner una animación
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Animación de un elemento visual. "tipo": "entrada" (al empezar), "salida" (al terminar), "combinado" (sólo video e imagen: una vez a lo largo del clip; saca la entrada y la salida) o "bucle" (sólo texto, sticker y forma: se repite; "duracion" es lo que dura cada vuelta, hasta 5 s). "id" es uno de DISPONIBLES.animaciones.<tipo> (copia el id exacto; no inventes otros); "ninguna" la quita. "duracion" en segundos es opcional (la del preset; el combinado, el clip entero). Entrada + salida no pasan el largo del clip.
+
+- **Ruta por operación:** `POST /api/v1/video/poner_animacion_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `tipo` | string (entrada \\| salida \\| combinado \\| bucle) | sí | Cuándo anima. |
+| `id` | string | sí | El id de DISPONIBLES.animaciones.<tipo> de ver_proyecto_video (copia el id exacto); «ninguno» lo saca. |
+| `duracion` | number | no | Opcional: en segundos. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/animacion" \
+  -d '{"ref":"REF","tipo":"entrada","id":"ID"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/filtro` — Poner un filtro
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Filtro de color de un clip de video o imagen (uno por clip: el nuevo reemplaza al anterior). "id" es uno de DISPONIBLES.filtros (copia el id exacto; no inventes otros); "ninguno" lo quita. "intensidad" de 0 a 100 (100 si no la pones).
+
+- **Ruta por operación:** `POST /api/v1/video/poner_filtro_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `id` | string | sí | El id de DISPONIBLES.filtros de ver_proyecto_video (copia el id exacto); «ninguno» lo saca. |
+| `intensidad` | number | no | Opcional: de 0 a 100. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/filtro" \
+  -d '{"ref":"REF","id":"ID"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/efecto` — Poner un efecto
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Efecto de video sobre un clip de video o imagen (se suman). "id" es uno de DISPONIBLES.efectos (copia el id exacto; no inventes otros); "quitar":true saca ese efecto del clip.
+
+- **Ruta por operación:** `POST /api/v1/video/poner_efecto_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `id` | string | sí | El id de DISPONIBLES.efectos de ver_proyecto_video (copia el id exacto). |
+| `quitar` | boolean | no | Opcional: true saca ese efecto. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/efecto" \
+  -d '{"ref":"REF","id":"ID"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/capa-efecto` — Agregar una capa de efecto
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Un filtro ("tipo":"filtro") o un efecto ("tipo":"efecto") como CAPA en su propia pista: afecta a todo lo que se ve debajo mientras dura (sirve para «todo el video» o para un tramo). "id" es uno de DISPONIBLES.filtros o DISPONIBLES.efectos (copia el id exacto; no inventes otros). "ref" nueva opcional ("n1"…) para seguir operando sobre la capa.
+
+- **Ruta por operación:** `POST /api/v1/video/agregar_capa_efecto_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `tipo` | string (filtro \\| efecto) | sí | Un filtro o un efecto, sobre todo lo de abajo. |
+| `id` | string | sí | El id de DISPONIBLES.filtros o DISPONIBLES.efectos de ver_proyecto_video. |
+| `inicio` | number | sí | En qué segundo empieza. |
+| `duracion` | number | sí | Cuántos segundos dura. |
+| `ref` | string | no | Opcional: una ref nueva («n1», «n2»…) para que otra operación de la misma propuesta la cambie. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/capa-efecto" \
+  -d '{"tipo":"filtro","id":"ID","inicio":0,"duracion":0.2}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/ajustar-color` — Ajustar el color de un clip
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Ajustar» el color de un clip de video o imagen. Cada valor reemplaza al actual (0 = sin cambio): temperatura (-50 a 50), tinte (-50 a 50), saturacion (-50 a 50), brillo (-50 a 50), contraste (-50 a 50), exposicion (-50 a 50), luminosidad (-50 a 50), iluminar (-50 a 50), sombras (-50 a 50), blancos (-50 a 50), negros (-50 a 50), claridad (-50 a 50), enfocar (0 a 100), granulado (0 a 100), desvanecer (0 a 100), vineta (0 a 100). Pon sólo los que cambian.
+
+- **Ruta por operación:** `POST /api/v1/video/ajustar_color_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `temperatura` | number | no | Opcional: de -50 a 50. |
+| `tinte` | number | no | Opcional: de -50 a 50. |
+| `saturacion` | number | no | Opcional: de -50 a 50. |
+| `brillo` | number | no | Opcional: de -50 a 50. |
+| `contraste` | number | no | Opcional: de -50 a 50. |
+| `exposicion` | number | no | Opcional: de -50 a 50. |
+| `luminosidad` | number | no | Opcional: de -50 a 50. |
+| `iluminar` | number | no | Opcional: de -50 a 50. |
+| `sombras` | number | no | Opcional: de -50 a 50. |
+| `blancos` | number | no | Opcional: de -50 a 50. |
+| `negros` | number | no | Opcional: de -50 a 50. |
+| `claridad` | number | no | Opcional: de -50 a 50. |
+| `enfocar` | number | no | Opcional: de 0 a 100. |
+| `granulado` | number | no | Opcional: de 0 a 100. |
+| `desvanecer` | number | no | Opcional: de 0 a 100. |
+| `vineta` | number | no | Opcional: de 0 a 100. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/ajustar-color" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/estilo-texto` — Cambiar el estilo de un texto
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Estilo de un texto (pon sólo lo que cambia): "fuente" (nombre exacto de una Google Font, p. ej. las de DISPONIBLES.fuentes_sugeridas), "tamano" (1 a 300; el predeterminado es 15), "color" (#RRGGBB), "negrita", "cursiva", "subrayado" (true/false), "mayusculas" ("ninguno", "mayusculas", "minusculas", "titulo"), "alineacion" ("izquierda", "centro", "derecha"), "espaciado" (entre letras, -20 a 100), "interlineado" (0.5 a 4), "trazo" (#RRGGBB lo prende con ese color, false lo apaga) y "grosor_trazo" (0 a 100), "sombra" (true, #RRGGBB o false), "fondo" (#RRGGBB o false) y "opacidad_fondo" (0 a 100), "resplandor" (#RRGGBB o false). En un subtítulo no se cambian fuente, tamaño, negrita, cursiva ni espaciado.
+
+- **Ruta por operación:** `POST /api/v1/video/cambiar_estilo_texto_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `fuente` | string | no | Opcional: el nombre de una fuente (DISPONIBLES.fuentes_sugeridas, o cualquiera de Google Fonts). |
+| `tamano` | number | no | Opcional: de 1 a 300. |
+| `color` | string | no | Un color #RRGGBB. |
+| `negrita` | boolean | no | Opcional. |
+| `cursiva` | boolean | no | Opcional. |
+| `subrayado` | boolean | no | Opcional. |
+| `mayusculas` | string (ninguno \\| mayusculas \\| minusculas \\| titulo) | no | Opcional. |
+| `alineacion` | string (izquierda \\| centro \\| derecha) | no | Opcional. |
+| `espaciado` | number | no | Opcional: de -20 a 100. |
+| `interlineado` | number | no | Opcional: de 0.5 a 4. |
+| `trazo` | string | no | Un color #RRGGBB, o «no» para sacarlo. |
+| `grosor_trazo` | number | no | Opcional: de 0 a 100. |
+| `sombra` | string | no | Opcional: un color #RRGGBB, «si» con la de siempre o «no» para sacarla. |
+| `fondo` | string | no | Un color #RRGGBB, o «no» para sacarlo. |
+| `opacidad_fondo` | number | no | Opcional: de 0 a 100. |
+| `resplandor` | string | no | Un color #RRGGBB, o «no» para sacarlo. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/estilo-texto" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/transformar` — Mover o escalar en el cuadro
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Posición, tamaño y mezcla de un elemento visual (pon sólo lo que cambia): "x" y "y" en píxeles del LIENZO desde el centro (x positiva a la derecha, y positiva hacia ARRIBA; el borde está a ±ancho/2 y ±alto/2), "escala" en % (100 = como entró, 1 a 500), "rotacion" en grados (−360 a 360; para girar 90° suma 90 a la actual), "opacidad" (0 a 100), "mezcla" (normal, pantalla, oscurecer, iluminar, superposicion, luz-intensa, luz-tenue, profundidad-del-color, desvanecimiento-del-color, multiplicar).
+
+- **Ruta por operación:** `POST /api/v1/video/transformar_elemento_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `x` | number | no | Opcional: píxeles desde el centro del lienzo (a la derecha, positivo). |
+| `y` | number | no | Opcional: píxeles desde el centro del lienzo (hacia ARRIBA, positivo). |
+| `escala` | number | no | Opcional: en %, de 1 a 500. |
+| `rotacion` | number | no | Opcional: en grados, de -360 a 360. |
+| `opacidad` | number | no | Opcional: de 0 a 100. |
+| `mezcla` | string (normal \\| pantalla \\| oscurecer \\| iluminar \\| superposicion \\| luz-intensa \\| luz-tenue \\| profundidad-del-color \\| desvanecimiento-del-color \\| multiplicar) | no | Opcional: el modo de mezcla. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/transformar" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/reflejar` — Reflejar un clip
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Espejo de un clip de video o imagen: "horizontal" (izquierda ↔ derecha) y/o "vertical" (cabeza abajo), true o false.
+
+- **Ruta por operación:** `POST /api/v1/video/reflejar_clip_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `horizontal` | boolean | no | Opcional: true lo da vuelta de lado. |
+| `vertical` | boolean | no | Opcional: true lo da vuelta de arriba abajo. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/reflejar" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/revertir` — Reproducir un clip al revés
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Pasa un clip de video hacia atrás ("revertido":true) o lo devuelve al derecho (false). Procesa el archivo y tarda: se aplica al final, después de las demás.
+
+- **Ruta por operación:** `POST /api/v1/video/revertir_clip_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `revertido` | boolean | sí | true lo pasa al revés; false lo devuelve. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/revertir" \
+  -d '{"ref":"REF","revertido":true}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/congelar` — Congelar un cuadro
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Congela el cuadro de ese segundo de un clip de video: lo divide ahí, mete una imagen fija de 3 s y corre lo que sigue en la pista. Se aplica al final, después de las demás.
+
+- **Ruta por operación:** `POST /api/v1/video/congelar_cuadro_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `en` | number | sí | El segundo de la línea de tiempo que se congela. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/congelar" \
+  -d '{"ref":"REF","en":0}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/reemplazar-en-subtitulos` — Reemplazar palabras en los subtítulos
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Busca un texto en TODOS los subtítulos y lo cambia por otro, sin distinguir mayúsculas («Buscar y reemplazar»).
+
+- **Ruta por operación:** `POST /api/v1/video/reemplazar_en_subtitulos_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `buscar` | string | sí | Lo que se busca en todos los subtítulos. |
+| `reemplazo` | string | no | Opcional: lo que va en su lugar (vacío lo saca). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/reemplazar-en-subtitulos" \
+  -d '{"buscar":"BUSCAR"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/resaltar-palabras` — Resaltar la palabra que se dice
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. El karaoke de TODOS los subtítulos («Animaciones de subtítulos»): "modo":"palabra" pinta del "color" sólo la palabra que se está diciendo; "frase" pinta todo lo ya dicho; "ninguno" lo apaga. "opacidad_no_dichas" (0 a 100; 100 = igual que lo dicho) atenúa lo que todavía no se dijo. "color" (#RRGGBB) y "opacidad_no_dichas" son opcionales: sin ellos quedan los de ahora ("resaltar" en "estilo_subtitulos"). Necesita subtítulos con tiempos por palabra ("transcripcion_por_palabra": true).
+
+- **Ruta por operación:** `POST /api/v1/video/resaltar_palabras_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `modo` | string (palabra \\| frase \\| ninguno) | sí | Cómo se resalta mientras se dice; «ninguno» lo saca. |
+| `color` | string | no | Un color #RRGGBB. |
+| `opacidad_no_dichas` | number | no | Opcional: de 0 a 100. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/resaltar-palabras" \
+  -d '{"modo":"palabra"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/generar-subtitulos` — Generar los subtítulos
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Subtítulos automáticos de todo el video: transcribe la voz en el navegador (gratis) con el idioma y la plantilla elegidos en Subtítulos. Se aplica al final.
+
+- **Ruta por operación:** `POST /api/v1/video/generar_subtitulos_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/generar-subtitulos"
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/cortar-frase` — Cortar una frase dicha
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Saca del video el tramo donde se DICE esa frase: corta el video y el subtítulo, y lo que viene después se corre. Busca palabra por palabra en los subtítulos con tiempos por palabra ("transcripcion_por_palabra"), sin mayúsculas ni puntuación: copia la frase como aparece en el subtítulo. Sin "vez", todas las veces que se dice; "vez":1 sólo la primera, 2 la segunda… Se aplica al final, después de las demás.
+
+- **Ruta por operación:** `POST /api/v1/video/cortar_frase_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `frase` | string | sí | Las palabras exactas, como están en los subtítulos. |
+| `vez` | number | no | Opcional: cuál de las veces que se dice (1 = la primera). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/cortar-frase" \
+  -d '{"frase":"FRASE"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/cortar-tramo` — Cortar un tramo del video
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Saca de la línea de tiempo el tramo de "inicio" a "fin" (segundos de la LÍNEA DE TIEMPO que ves): corta el video de la pista principal y lo que va con él, y lo que viene después se corre hacia atrás. Se aplica al final; no lo combines con otros cambios que muevan la pista principal (borrar, recortar, velocidad, mover, congelar u otros cortes de frase): pídelo aparte.
+
+- **Ruta por operación:** `POST /api/v1/video/cortar_tramo_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `inicio` | number | sí | El segundo donde empieza lo que se saca. |
+| `fin` | number | sí | El segundo donde termina lo que se saca. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/cortar-tramo" \
+  -d '{"inicio":0,"fin":0}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/eliminar-muletillas` — Eliminar las muletillas
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Saca del video todas las muletillas («eh», «este», «o sea»…) que se identifiquen en los subtítulos con tiempos por palabra. Se aplica al final, después de las demás.
+
+- **Ruta por operación:** `POST /api/v1/video/eliminar_muletillas_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/eliminar-muletillas"
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/usar-plantilla` — Armar una plantilla de anuncio
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Arma una PLANTILLA de anuncio vertical, como «Utilizar plantilla»: pasa el lienzo a 9:16 y pone sus clips, textos, animaciones y transiciones. SÓLO con la línea de tiempo VACÍA, y sola en la propuesta. "textos": [{hueco, texto}] con lo que DICTA la persona (lo que no se llena queda con el texto de ejemplo); "clips": [{hueco, medio}] con la ref de un medio de "medios" (un video tiene que durar al menos los segundos del hueco; una foto sirve siempre). Las plantillas y sus huecos, en listar_plantillas_video.
+
+- **Ruta por operación:** `POST /api/v1/video/usar_plantilla_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `id` | string (gancho \\| gancho-escrito \\| testimonio \\| antes-despues \\| beneficios \\| oferta \\| oferta-glitch) | sí | La plantilla (listar_plantillas_video). |
+| `textos` | object[] | no | Opcional: lo que dicta la persona para cada hueco de texto. |
+| `textos.hueco` | string | sí | El nombre del hueco de texto. |
+| `textos.texto` | string | sí | Lo que dice, hasta el máximo del hueco. |
+| `clips` | object[] | no | Opcional: el medio de Multimedia para cada hueco de clip. |
+| `clips.hueco` | string | sí | El nombre del hueco de clip. |
+| `clips.medio` | string | sí | La ref del medio («m1», «m2»…). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/usar-plantilla" \
+  -d '{"id":"gancho"}'
 ```
 
 ## Image Editor (diseños) — `imagen`
@@ -14357,7 +15556,7 @@ curl -L \
 
 ## MaKo (pendientes, propuestas, chats) — `mako`
 
-Tab **Pregúntale a MaKo** (`/mako`). 6 lecturas · 0 acciones · 2 controles.
+Tab **Second Brain** (`/second-brain`). 6 lecturas · 0 acciones · 2 controles.
 
 ### `GET /api/v1/mako/pendientes` — Acciones pendientes de confirmar
 

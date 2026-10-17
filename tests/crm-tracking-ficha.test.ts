@@ -155,7 +155,9 @@ test('la pestaña se lee de dónde vino → qué hizo → evento por evento', as
   assert.ok(PLANTILLA_RESPALDO.tabs.resumen!.includes('origen'), 'falta Origen del lead en el Resumen de la ficha de respaldo');
   assert.ok(bloqueDef('origen')!.tambienEn.includes('tracking'), 'el origen también se puede poner en Tracking');
   assert.ok(PLANTILLA_RESPALDO.tabs.tracking!.includes('visitas'), 'falta la tarjeta de comportamiento en Tracking');
-  assert.ok(leer('../app/crm/lead-view/ficha/registro-resumen.tsx').includes('<OrigenCard'), 'el origen no tiene su bloque');
+  // 16/10/2026 (el Resumen nativo): OrigenCard se fue; el origen es su propio bloque (resumen/origen.tsx).
+  // Re-verificado rompiéndolo (base 11/0): el registro sin el origen → 10 / 1.
+  assert.match(leer('../app/crm/lead-view/ficha/registro-resumen.tsx'), /origen: \{ Componente: Origen, /, 'el origen no tiene su bloque');
 
   // Y adentro de la tarjeta, «Actividad registrada» va último de lo nuestro. El ancla
   // de la sección «Comportamiento» es su estilo: `card` se usa una sola vez acá, y la

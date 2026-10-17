@@ -35,7 +35,7 @@ export function NuevoChat({ borrador, onCambio, onCopiar }: {
   onCopiar: (texto: string, aviso: string) => void;
 }) {
   const nombre = borrador.nombre.trim();
-  const valido = nombreValido(nombre);
+  const valido = nombreValido(nombre).ok;
   const comando = valido ? comandoNuevoChat(borrador.cuenta, nombre) : null;
   return (
     <div className="co-nuevo">

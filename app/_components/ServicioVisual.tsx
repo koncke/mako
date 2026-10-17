@@ -130,6 +130,21 @@ export function LogoMeta({ size = 16 }: { size?: number }) {
   );
 }
 
+/**
+ * Una cámara de videollamada en los verdes de Google Meet, al lado del texto «Asignar evento» de las etapas de reunión
+ * (16/10/2026, Martín: «"Asignar evento" con el logo de Meet»). Dibujo propio y simple, sin <BrandDefs>.
+ */
+export function LogoMeet({ size = 16 }: { size?: number }) {
+  return (
+    <svg aria-hidden width={size} height={size} viewBox="0 0 24 24" style={{ flex: 'none' }}>
+      <rect x="2" y="6" width="13.5" height="12" rx="2.6" fill="#00AC47" />
+      <path d="M15.5 10.4 21.2 6.6c.36-.24.8.02.8.44v9.9c0 .42-.44.68-.8.44l-5.7-3.8z" fill="#00832D" />
+      <rect x="2" y="6" width="5" height="5" rx="2.2" fill="#2684FC" />
+      <rect x="2" y="13" width="5" height="5" rx="2.2" fill="#FFBA00" />
+    </svg>
+  );
+}
+
 // ── <defs> de todos los símbolos de marca (una sola vez en la página) ─────────
 export function BrandDefs() {
   return (

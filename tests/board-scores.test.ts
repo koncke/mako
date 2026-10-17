@@ -17,6 +17,11 @@ test('prioFromScore — cortes en 75 / 50 / 25', () => {
   assert.equal(prioFromScore(49), 'baja');
   assert.equal(prioFromScore(25), 'baja');
   assert.equal(prioFromScore(24), 'futuro');
+  // ⚠️ El 0 sigue siendo la BANDA 'futuro' A PROPÓSITO (16/10/2026, «hacer el kanban un kanban»):
+  // `prioFromScore` es la banda de un NÚMERO y la usan el reparto y las cuentas. Pero desde ese día
+  // el 0 es «Sin priorizar» (una tarea que nació libre y nadie juzgó) y lo que lee la persona —el
+  // chip y el filtro— pregunta por `prioFiltroDe`, que contesta 'sin_priorizar'. Si alguien cambia
+  // esta línea para que el 0 deje de ser 'futuro', que mire primero tests/plan-kanban-modelo.test.ts.
   assert.equal(prioFromScore(0), 'futuro');
 });
 

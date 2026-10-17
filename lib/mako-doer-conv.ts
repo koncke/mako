@@ -48,3 +48,28 @@ export async function historialGrupo(ws: number, grupoJid: string, limite = 24):
     return rows.map((r) => ({ role: r.role === 'assistant' ? 'assistant' : 'user', content: r.content } as TurnoConv));
   });
 }
+
+export type FilaConv = { role: 'user' | 'assistant'; content: string; created_at: string };
+
+/**
+ * El hilo de un grupo para LEERLO en pantalla (el Second Brain, tanda 8 de docs/diseno-mako-ai-native.md, 16/10/2026),
+ * por páginas: los `limite` anteriores a `antes`, en orden cronológico, y si hay más atrás.
+ * ⚠️ NO ES `historialGrupo`: ése es el CONTEXTO del modelo (14 h, 24 turnos) y no mira el error. Éste es estricto: si la
+ *    base no contesta, tira, porque una lista vacía en pantalla diría «no hay mensajes».
+ */
+export async function hiloDelGrupo(
+  ws: number, grupoJid: string, { antes = null, limite = 60 }: { antes?: string | null; limite?: number } = {},
+): Promise<{ filas: FilaConv[]; hayMas: boolean }> {
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    let q = db.from('mako_doer_conv').select('role, content, created_at').eq('grupo_jid', grupoJid);
+    if (antes) q = q.lt('created_at', antes);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(limite + 1);
+    if (error) throw new Error(`hiloDelGrupo falló: ${error.message}`);
+    const rows = (data ?? []) as Array<{ role: string; content: string; created_at: string }>;
+    return {
+      filas: rows.slice(0, limite).reverse().map((r) => ({ role: r.role === 'assistant' ? 'assistant' : 'user', content: r.content, created_at: r.created_at })),
+      hayMas: rows.length > limite,
+    };
+  });
+}

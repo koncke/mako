@@ -9,9 +9,11 @@
 // El área es /video-generator: un guion ya escrito se reparte en tomas, cada
 // escenario tiene su imagen en Google Flow, se filma toma por toma con los créditos
 // de la suscripción del CLIENTE y un worker propio monta el anuncio.
-// Una sola operación es del Video EDITOR (/video-editor): listar_plantillas_video, el
-// catálogo de sus plantillas de anuncio. Del editor no hay más: sus proyectos viven en el
-// navegador (docs/hallazgos-video-editor.md → «La API de MaKo y el chat al costado»).
+// Del Video EDITOR (/video-editor) hay tres lecturas: listar_plantillas_video (el catálogo de
+// sus plantillas de anuncio) y, desde el 16/10/2026, listar_proyectos_video y ver_proyecto_video,
+// que leen la COPIA que el editor sube de cada proyecto (mig 0299, lib/editor-video/espejo.ts):
+// los proyectos viven en el navegador (docs/hallazgos-video-editor.md → «La API de MaKo y el
+// chat al costado»), así que nada de acá escribe una línea de tiempo.
 //
 // ⚠️ EN v1 ENTRAN SOLO LECTURAS. Todo lo que encola, genera, regenera, monta o
 // reintenta queda afuera (veredicto §8 de docs/api-mako-diseno.md): gasta créditos
@@ -25,9 +27,15 @@
 // clips y mide el costo.
 //
 // ⚠️ Saldo y costo de créditos de Flow: sin 'http' (saldos de un tercero).
+//
+// ⚠️ LA EXCEPCIÓN A «SOLO LECTURAS», del 16/10/2026: las operaciones del chat «Editar con IA» del Video Editor
+// (lib/editor-video/chat-api.ts, una por operación del chat). Son ACCIONES que sólo PROPONEN: no gastan nada y no
+// escriben la línea de tiempo (vive en el navegador): dejan el cambio en una propuesta del proyecto, que una persona
+// acepta en el editor (`confirmacion: 'pantalla'`, pantalla /video-editor; lib/editor-video/propuestas.ts).
 // =============================================================================
 
 import type { OperacionDef, Parametro } from '../tipos';
+import { OPERACIONES_API, PARAM_PROYECTO, descripcionApi } from '../../editor-video/chat-api';
 
 const TODOS: ['whatsapp', 'app', 'http'] = ['whatsapp', 'app', 'http'];
 const SIN_HTTP: ['whatsapp', 'app'] = ['whatsapp', 'app'];
@@ -136,6 +144,20 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
   },
   {
+    id: 'listar_proyectos_video', area: 'video', tipo: 'lectura',
+    titulo: 'Proyectos del Video Editor',
+    descripcion: 'Los proyectos del Video Editor (/video-editor) de este negocio, del más reciente al más viejo: id, nombre, duración, cuándo se editó por última vez y el link para abrirlo. Es una COPIA que el editor sube mientras se edita: el proyecto vive en el navegador de quien lo edita, así que lo último puede tardar unos segundos en aparecer, y uno que no se abrió desde el 16/10/2026 todavía no está. El link lo abre en ese navegador; en otro, el editor no lo tiene. Para ver la línea de tiempo de uno, ver_proyecto_video.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
+  },
+  {
+    id: 'ver_proyecto_video', area: 'video', tipo: 'lectura',
+    titulo: 'Línea de tiempo de un proyecto',
+    descripcion: 'La línea de tiempo de un proyecto del Video Editor, tal como la lee su chat «Editar con IA»: la duración total, el lienzo, las pistas (la principal marcada) con cada elemento —su ref corta (v1 video, i2 foto, t3 texto, a4 audio, s5 sticker…), inicio y fin en segundos, el texto o el nombre, el volumen y lo que tiene puesto (transición, animación, filtro, estilo)—, los medios de Multimedia (m1, m2…) y los nombres disponibles (transiciones, animaciones, filtros, efectos, curvas de velocidad, fuentes). Es la copia que subió el editor (dice cuándo): cambiarla no se puede desde aquí, porque el proyecto vive en el navegador de quien lo edita; se cambia en el editor o pidiéndoselo a su chat. Si el proyecto es muy grande, avisa en vez de mandarla.',
+    parametros: [PARAM_PROYECTO],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
+  },
+  {
     id: 'ver_contexto_video', area: 'video', tipo: 'lectura',
     titulo: 'Requisitos para filmar',
     descripcion: 'Si el cliente tiene lo que hace falta para filmar: cuántas fotos de su cara hay cargadas, si MaKo ya describió a la persona, qué acento se va a usar y de dónde salió (declarado por el cliente, deducido de la zona horaria o por defecto), sus muletillas, y si el perfil del negocio está empezado y qué grupos le faltan. No devuelve las fotos ni la descripción. Úsala antes de decir que el cliente ya puede filmar, o cuando un clip sale con otra persona u otro acento.',
@@ -175,4 +197,13 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: GATING,
   },
+  // Las operaciones del chat «Editar con IA»: PROPONEN en un proyecto y se aceptan en el editor (ver la cabecera).
+  ...OPERACIONES_API.map((o): OperacionDef => ({
+    id: o.id, area: 'video', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/video-editor', reversible: true,
+    titulo: o.titulo,
+    descripcion: descripcionApi(o),
+    escribe: 'deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta',
+    parametros: [PARAM_PROYECTO, ...o.parametros],
+    canales: TODOS, costo: 'gratis', gating: GATING_EDITOR,
+  })),
 ];

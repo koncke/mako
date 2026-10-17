@@ -360,6 +360,54 @@ export const BITACORA: Hito[] = [
       'tests/offer-armado-servidor.test.ts — 14 roturas, todas caen',
     ],
   },
+  {
+    fecha: '16 oct', hora: '09:20', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El PDF en dos partes: tu oferta de hoy, y la propuesta que te armo',
+    puntos: [
+      'Primero, lo que MaKo encontró en tu oferta de hoy: lo que le gustó (una lista, no una sola frase) y lo que cambiaría y cómo, parte por parte.',
+      'Después, en otra página, la propuesta que te arma, con su nombre arriba. La portada ya no pone el nombre de la oferta nueva sobre el puntaje de la actual.',
+      'Lo pidió Martín en la llamada con Leila del 12/10: «de tu oferta me gustó esto, esto y esto… y por el otro lado, esta es la propuesta que yo te armo».',
+    ],
+    commits: [
+      { sha: '79cd546', msg: 'Offer: el PDF en dos partes, «Tu oferta hoy» y «La propuesta que te armo»', lineas: 242, archivos: 7 },
+    ],
+    archivos: [
+      'lib/offer-pdf.ts — las dos partes, la segunda en página nueva',
+      'lib/offer-marco.ts — «Lo que me gustó» y «Para subir cada parte», con lo que ya deja el diagnóstico',
+      'tests/offer-pdf.test.ts — 11 roturas, todas caen',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '09:49', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una oferta de entrada no se vuelve un alto ticket',
+    puntos: [
+      'MaKo sabe si la oferta es una entrada o un alto ticket por su precio. A una entrada la mejora en su nivel y le pregunta qué vende DESPUÉS, en vez de convertirla en un programa caro.',
+      'Pregunta quién hace el trabajo (tu cliente solo, con tu acompañamiento o lo haces tú por él) y no promete «implementamos» si es un curso.',
+      'La oferta sale con las palabras del cliente, sin jerga de consultor, y avisa si se le cuela alguna. Y ya no ofrece «avanzar con el diagnóstico», un paso que no existía.',
+    ],
+    commits: [
+      { sha: 'd5f3428', msg: 'Offer: una entrada no es un alto ticket; quién hace el trabajo; las palabras del cliente; sin el paso de «diagnóstico» que no existe', lineas: 473, archivos: 8 },
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — el nivel por el precio, la escalera, los avisos de jerga y de quién hace el trabajo',
+      'lib/offer-ia.ts — los tres prompts sin el alto ticket por defecto',
+      'tests/offer-nivel-y-voz.test.ts — 15 roturas, todas caen',
+    ],
+  },
+  {
+    fecha: '16 oct', hora: '10:50', chat: 'Offer', sesion: 'local_34d54ef6-523c-46f8-b83f-9fd310dfd667', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las otras ofertas se marcan varias',
+    puntos: [
+      'Cuando MaKo pregunta qué otras ofertas vendes, puedes marcar varias y mandarlas juntas. «No, sólo ésta» sigue saliendo con un toque.',
+      'La oferta ya no promete «liberar 10 horas semanales» si no lo dijiste: un tiempo que el cliente gana queda para completar, como cualquier número que no diste.',
+      'Los datos para completar se marcan siempre, también cuando la IA los escribe con mayúscula, y no se guardan en tu oferta como si fueran reales.',
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — el tiempo que es un resultado, la marca normalizada y las opciones que se suman',
+      'app/offer/ChatOffer.tsx — las chips que se marcan y «Enviar»',
+      'tests/offer-cifras-y-marcas.test.ts — 14 roturas, todas caen',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

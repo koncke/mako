@@ -36,7 +36,7 @@ import { Toast, useToast } from '@/app/_ui/Toast';
 import { Dropdown } from '@/app/components/Dropdown';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { splitTelefono } from '@/lib/paises';
-import { guardarCampoLeadAction } from '../actions';
+import { deshacerCampoLeadAction, guardarCampoLeadAction } from '../actions';
 import { opcionesEquipo } from '../equipo-opciones';
 import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
 import { ChipTri } from './chip-tri';
@@ -69,8 +69,8 @@ const MONO = "'Geist Mono', monospace";
 // `document.body`, pero React hace burbujear su clic por el árbol de COMPONENTES hasta acá: sin el
 // `contains`, elegir una opción del menú volvía a abrirlo.
 //
-// ⚠️ ES UN COMPONENTE, NO UN ESTILO EXPORTADO: las tarjetas que la montan (MotivoYPlazoCard,
-// ReunionesCard, CalificacionCard) no son 'use client', y un VALOR importado de un 'use client'
+// ⚠️ ES UN COMPONENTE, NO UN ESTILO EXPORTADO: las tarjetas que la montan (ReunionesCard, y hasta el 16/10/2026
+// MotivoYPlazoCard y CalificacionCard) no son 'use client', y un VALOR importado de un 'use client'
 // llega al server como una referencia de cliente, no como el objeto (AGENTS.md, la frontera).
 
 const INTERACTIVO = 'button, a, input, select, textarea, label, [contenteditable="true"], [role="group"], [role="listbox"], [role="option"], [data-no-abre]';
@@ -152,8 +152,12 @@ const disparador: CSSProperties = {
  * El deshacer escribe en el SERVER (vuelve a llamar a la action con el valor de
  * antes): revertir sólo la pantalla sería mentir hasta el próximo F5. Es el mismo
  * criterio que `InfoPrincipalCard` ya usa para el nombre y el teléfono.
+ *
+ * ⚠️ Y NO PISA A OTRO (16/10/2026): manda también lo que este guardado escribió, y el
+ * server no deshace si en esos 5 segundos alguien (u otro camino) cambió el campo
+ * (`deshacerCampoLeadAction`). Entonces lo dice y relee.
  */
-function useGuardarCampo(leadId: number, campo: CampoInline) {
+export function useGuardarCampo(leadId: number, campo: CampoInline) {
   const refrescarFicha = useRefrescarFicha();
   const { toast, show, clear } = useToast();
   const [, startGuardar] = useTransition();
@@ -164,8 +168,11 @@ function useGuardarCampo(leadId: number, campo: CampoInline) {
         refrescarFicha();
         show('Guardado', () => {
           startGuardar(async () => {
-            try { await guardarCampoLeadAction(leadId, campo, antes); refrescarFicha(); }
-            catch { show('No se pudo deshacer', undefined, 'bad'); }
+            try {
+              const r = await deshacerCampoLeadAction(leadId, campo, antes, nuevo);
+              refrescarFicha();
+              if (!r.ok) show(r.error, undefined, 'bad');
+            } catch { show('No se pudo deshacer', undefined, 'bad'); }
           });
         });
       } catch (e) {
@@ -310,6 +317,46 @@ export function TriEditable({ leadId, campo, valor, si, no, titulo, bloqueado = 
           <ChipTri valor={valor} si={si} no={no} />
         </button>
       )}
+      <Toast state={toast} onClose={clear} />
+    </>
+  );
+}
+
+// ── Tri-estado a la vista (la calificación del Resumen, 16/10/2026) ──────────
+
+/**
+ * Los TRES botones siempre a la vista (sí / no / sin marcar), sin abrir nada: el diseño «Tres botones» del bloque
+ * `calificacion` (docs/diseno-ficha-bloques.md §3). Escribe por el MISMO camino que `TriEditable`
+ * (`guardarCampoLeadAction` → `updateLead`, el único que avisa a Meta) y con el mismo «Deshacer». Bloqueado, se ven
+ * los tres apagados con el elegido marcado: la pregunta no se responde, pero tampoco se esconde.
+ */
+export function TriBotones({ leadId, campo, valor, si, no, titulo, bloqueado = false, marca }: {
+  leadId: number;
+  campo: Extract<CampoInline, 'asistio_j1' | 'asistio_j2' | 'calificado'>;
+  valor: boolean | null;
+  si: string;
+  no: string;
+  titulo: string;
+  bloqueado?: boolean;
+  /** Lo que busca «Solucionar» (`marcaDato`). */
+  marca?: string;
+}) {
+  const { guardar, toast, clear } = useGuardarCampo(leadId, campo);
+  const opciones = [
+    { v: true, rotulo: si, clave: 'si' },
+    { v: false, rotulo: no, clave: 'no' },
+    { v: null, rotulo: 'Sin marcar', clave: 'nada' },
+  ] as const;
+  return (
+    <>
+      <span className="fr-seg fr-seg--llena" role="group" aria-label={titulo} data-recorrido={marca}>
+        {opciones.map((o) => (
+          <button key={o.clave} type="button" data-v={o.clave} aria-pressed={valor === o.v} disabled={bloqueado}
+            onClick={() => { if (o.v !== valor) guardar(o.v, valor); }}>
+            {o.rotulo}
+          </button>
+        ))}
+      </span>
       <Toast state={toast} onClose={clear} />
     </>
   );

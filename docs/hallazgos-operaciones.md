@@ -760,6 +760,13 @@ de adjuntar archivos o imagenes al chat».
 · `lib/centro-chats.ts` (`porRevisar`, `enlaceRevisar`) · `app/admin/operaciones/Microfono.tsx` ·
 `tests/centro-revisar.test.ts`
 
+## «Copiar comando» con el nombre vacío: un objeto nunca es falso (16/10/2026)
+
+`nombreValido` devuelve `{ ok, … }`, y en tres lugares se lo usaba como booleano: `!nombreValido(…)` en
+`CentroApp.tsx` y `ChatsMovil.tsx` daba siempre `false`, y `valido ?` en `NuevoChat.tsx` siempre verdadero. Con el
+nombre vacío se armaba `claude1 -n ''`. **El typecheck no lo ve**: un objeto en una condición es TypeScript válido.
+Lo encontró el relevamiento de la etapa 2, no un test. Se mira `.ok`, y `tests/centro-fila.test.ts` lo fija.
+
 ## El Plan adentro de cada jefe: las operaciones de la API, aplicadas en el acto, por una RUTA (16/10/2026)
 
 **El pedido.** «Los chats y el Centro deberían poder conectarse con el PLAN... Crear tareas nuevas, marcar como
@@ -839,6 +846,23 @@ chats con los nombres de las tabs que sean "jefes"», y que el orquestador no es
 
 **Vive en:** `lib/centro-chats.ts` (`CEREBRO`, `esCerebro`, `seccionesDeChats`) · `app/admin/operaciones/tabs.ts` ·
 `tests/centro-jefes.test.ts`
+
+## La cuenta 4, y una sesión de la app SÍ abre chats visibles (17/10/2026)
+
+**Una sesión de la app ya puede crear chats.** Lo de arriba («el Centro no puede abrir un chat de Claude Code (medido)», 16/10) quedó viejo para la app de escritorio. La noche del 16 al 17/10, el Cerebro de la cuenta 4 abrió siete chats con `mcp__ccd_session__start_session`: CRM, Onboarding, Centro de Operaciones, Automations, Runner, Video Generator y Dashboard. Cada uno llevaba título y brief, y quedó en la barra lateral. La herramienta aparece como diferida y se carga con ToolSearch. El chat creado arranca solo con su brief y le avisa a quien lo abrió cuando termina un turno. Lo que sigue sin poder hacer una sesión de la app es abrir una de TERMINAL (otra carpeta de config). Para eso, Martín pidió (17/10) «un clic + el permiso de la PC», nunca pegar un comando: está repartido al chat del Centro.
+
+**Sumar una cuenta son cinco lugares, y uno NO.** Los cinco:
+- una línea en `~/.claude/cuentas.tsv`;
+- el marcador `~/.claude/cuenta-activa.txt`;
+- el cartero: `cartero.mjs cartero claudeN app ~/.claude` y `cartero.mjs carpeta <uuid> claudeN`. El uuid es la carpeta NUEVA que aparece en `%APPDATA%\Claude\claude-code-sessions` el día que se loguea;
+- `CUENTAS` en `app/admin/dev/_registro/tipos.ts`, porque un hito firmado con una cuenta que no está ahí rompe /admin/dev;
+- la regex de `scripts/gen-dev-historial.mjs`, que hasta el 17/10 era `claude1|claude2` y dejaba sin cuenta, sin avisar, todo lo de la 3.
+
+Lo que NO se toca es `CUENTAS_TERMINAL` (lib/runner.ts), salvo que la cuenta tenga su función en el `$PROFILE`: si no, el Centro ofrece un comando que falla. Pasó: el panel de Uso le ofreció a Martín `claude4 -n Runner` y PowerShell contestó «not recognized». Lo arregla el chat del Centro.
+
+**Cómo se supo que era otra cuenta sin preguntar.** `get_usage` dio 0% con reset el 20/10 19:59 UTC; la 3 renueva el 21/10 08:59 UTC. El `userEmail` del contexto traía un gmail que no era de ninguna de las tres, así que esta vez sí describía la cuenta abierta. `list_sessions` vino vacío porque la barra está partida por cuenta. El aviso de «99% semanal» del hook era de la cuenta 3 y no aplicaba.
+
+**Vive en:** `~/.claude/cuentas.tsv` · `~/.claude/operaciones/config.json` · `app/admin/dev/_registro/tipos.ts` · `scripts/gen-dev-historial.mjs` · docs/relevo/cerebro.md («CUENTA 4»)
 
 ## Lo que creí medido y no estaba al día
 

@@ -2,8 +2,8 @@
 // /plan/revisar/[id] — pantalla de revisión de un BORRADOR de MaKo (mig 0094)
 // =============================================================================
 // MaKo (WhatsApp) arma el borrador y manda el link acá. El dueño O EL CLIENTE responde
-// las preguntas de a una (wizard) y confirma → se crean las tareas (dueño: plan_tareas +
-// Perro; cliente: su board lib/todo). Guard = cualquier sesión; getPropuesta scopea al
+// las preguntas de a una (wizard) y confirma → se crean las tareas (dueño: plan_tareas;
+// cliente: su board lib/todo; sin IA desde el 16/10/2026). Guard = cualquier sesión; getPropuesta scopea al
 // workspace del que mira (así un cliente solo ve SUS borradores).
 
 import { redirect } from 'next/navigation';

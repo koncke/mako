@@ -120,8 +120,16 @@
     var(--cv-header-gradient) border-box;
   color: var(--cv-color-brand);
   box-shadow: var(--cv-shadow-sm);
-  cursor: default;
-  opacity: 0.75;
+  cursor: pointer;
+  transition: box-shadow var(--cv-duration-fast) var(--cv-ease-out);
+}
+.ai:hover {
+  box-shadow: var(--cv-shadow-md);
+}
+/* Abierto: el aro se rellena con el degradado, como la pestaña abierta del riel. */
+.ai[aria-expanded='true'] {
+  background: var(--cv-header-gradient);
+  color: #fff;
 }
 .ai:focus-visible {
   outline: none;

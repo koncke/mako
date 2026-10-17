@@ -64,13 +64,15 @@ test('CABLEADO: una lectura auxiliar caída no se convierte en "todo al día"', 
   );
 });
 
-test('CABLEADO: el ✓ verde solo se pinta si la lista se pudo calcular entera', () => {
+// ⚠️ LA VISTA «PENDIENTES» SE BORRÓ EL 16/10/2026 (Martín: «Elimina completamente lo de "/crm?pendientes"... Si quiero
+// ir a corregir un dato sin marcar se debe abrir la ficha del lead, nunca redirección a otra ruta»). Con ella se fue
+// el cartel «✓ Todo marcado» que este test cuidaba; queda que no vuelva, y que la página siga produciendo un aviso.
+// Probado rompiéndolo (16/10/2026, base 6/0): devolverle 'pendientes' a CrmVista → 5 / 1; volver a poner
+// `showSinMarcar` en el tablero → 5 / 1.
+test('CABLEADO: la vista «pendientes» no vuelve, y una lectura caída sigue siendo un aviso', () => {
   const board = leer('../app/crm/CrmBoard.tsx');
-  const i = board.indexOf('Todo marcado');
-  assert.notEqual(i, -1, 'no encontré el cartel de "todo al día"');
-  // El cartel tiene que estar guardado por el aviso, no colgar de marcar.length solo.
-  const alrededor = board.slice(Math.max(0, i - 700), i + 200);
-  assert.ok(/aviso\s*$|aviso\b/.test(alrededor), 'el ✓ tiene que depender de que no haya aviso');
+  assert.doesNotMatch(board, /function SinMarcar\b|showSinMarcar|params\.set\('pendientes'/, 'volvió la vista de pendientes');
+  assert.match(leer('../app/crm/CrmToolbar.tsx'), /export type CrmVista = 'kanban' \| 'tabla';/);
   const page = leer('../app/crm/page.tsx');
   assert.ok(page.includes('marcarAviso'), 'la página tiene que pasarle el aviso al board');
   assert.ok(

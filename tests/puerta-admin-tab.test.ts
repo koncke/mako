@@ -55,8 +55,12 @@ const rutasDe = (base: string) => (readdirSync(join(RAIZ, base), { recursive: tr
 
 /** La tab que pide cada carpeta de rutas, y la página que la pide igual. */
 const AREAS = [
-  { rutas: [...rutasDe('app/api/experimentos'), ...rutasDe('app/api/retro')], nav: 'experimentos', pagina: 'app/experimentos/page.tsx', minimo: 6 },
-  { rutas: rutasDe('app/api/second-brain'), nav: 'second-brain', pagina: 'app/second-brain/page.tsx', minimo: 2 },
+  { rutas: [...rutasDe('app/api/experimentos'), ...rutasDe('app/api/retro')], nav: 'experimentos', pagina: 'app/experimentos/page.tsx', minimo: 6,
+    puerta: "requireRolWs([], { nav: 'experimentos' })" },
+  // La página del Second Brain es el CHAT con MaKo desde el 16/10/2026 (entra con la puerta de MaKo, closer y setter
+  // incluidos): lo que es del admin de la tab es el MAPA, y lo corta con la misma regla que estas rutas.
+  { rutas: rutasDe('app/api/second-brain'), nav: 'second-brain', pagina: 'app/second-brain/page.tsx', minimo: 2,
+    puerta: "esAdminDeTab('second-brain')" },
 ] as const;
 
 test('Experiments y Second Brain: TODO handler de TODA ruta arranca con la puerta de su tab (una ruta nueva nace cerrada)', () => {
@@ -92,9 +96,11 @@ test('lib/puerta-admin-tab.ts: entra el admin y NADIE más (en positivo), y sól
 });
 
 test('la tab que pide cada ruta es la misma que pide su página (escritorio y teléfono)', () => {
-  for (const { nav, pagina } of AREAS) {
-    assert.ok(fuente(pagina).includes(`requireRolWs([], { nav: '${nav}' })`), `${pagina} ya no pide la tab '${nav}': la ruta y la página dejaron de cerrar lo mismo`);
+  for (const { nav, pagina, puerta } of AREAS) {
+    assert.ok(fuente(pagina).includes(puerta), `${pagina} ya no pide la tab '${nav}': la ruta y la página dejaron de cerrar lo mismo`);
     const movil = pagina.replace(/^app\//, 'app/m/');
-    assert.ok(fuente(movil).includes(`requireMovil({ navKey: '${nav}' })`), `${movil} ya no pide la tab '${nav}'`);
+    // El Second Brain del teléfono también es el chat con MaKo (16/10/2026): lo del admin de la tab es su Mapa.
+    const guardaMovil = nav === 'second-brain' ? puerta : `requireMovil({ navKey: '${nav}' })`;
+    assert.ok(fuente(movil).includes(guardaMovil), `${movil} ya no pide la tab '${nav}'`);
   }
 });

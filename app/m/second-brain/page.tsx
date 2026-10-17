@@ -1,63 +1,55 @@
 // =============================================================================
-// /m/second-brain — «Second Brain» en el teléfono: buscar un dato, mirar tu negocio y subirle algo
+// /m/second-brain — «Second Brain» en el teléfono: el chat con MaKo
 // =============================================================================
-// La tab de escritorio (app/second-brain) es una pantalla oscura con el mapa (Grafo.tsx), la barra
-// «Buscar un dato» arriba del lienzo y, al costado, la columna «Tu negocio»: los dos accesos (Tu Norte,
-// Tu cuello de botella) y las cinco carpetas (Negocio · Oferta · Mercado · Mensaje · Funnel) con sus
-// áreas y su conteo, o «falta». Ésta la DESTILA en ese orden: el buscador, el mapa en chico (la misma
-// foto, las mismas posiciones), «Tu negocio» y las carpetas con sus áreas.
+// Etapa 2 de docs/diseno-mako-ai-native.md, tanda 3 (16/10/2026): como en escritorio, el Second Brain es el CHAT con
+// MaKo (el de siempre del teléfono, app/m/mako/ChatMako.tsx, con su micrófono y sus adjuntos), y lo que era esta
+// pantalla —el buscador, el mapa en chico, las carpetas y el Archivero— es el «Mapa» (/m/second-brain/mapa), que el
+// admin abre desde la hoja «Tus chats». Una sola entrada «Second Brain» por persona, como la barra de escritorio.
 //
-// Referencias: Obsidian para el teléfono (la búsqueda arriba, el explorador por carpetas, la nota que se
-// abre con sus propiedades y sus enlaces) y Notion para el teléfono (la página abierta como hoja, las
-// propiedades como filas nombre → valor, el «+» arriba a la derecha para capturar). El mapa chico es una
-// isla oscura, como el lienzo de escritorio: `data-tema="oscuro"` redefine los TOKENS en esa caja.
-//
-// Lo que se hace acá: buscar (por nombre o en todo, y con MaKo, la misma ruta de escritorio
-// /api/second-brain/buscar), abrir un área y un dato (sus datos, lo que MaKo explica, de dónde salió y
-// con qué se conecta), mirar un documento y SUBIRLE algo al Archivero (un archivo, una foto o una web:
-// las mismas rutas de escritorio, lib/archivero-subida.ts). Editar cada área, el mapa entero, Exportar y
-// Claude: en la computadora.
-//
-// Quién: la regla del Sidebar para `second-brain` (sólo el admin), y cada ruta del Archivero vuelve a
-// mirarlo (`resolverWsAdmin`). ⚠️ El workspace es el del request: `construirCerebro()` lee con
-// getSetting/getTenantDb. `?area=` (y `?vista=`) son las claves de escritorio (QUERY_DE_SECCION): un link
-// de otra pantalla (`rutaSeccion`) abre esa área.
-// =============================================================================
+// ⚠️ DOS PUERTAS, LAS DOS EN EL SERVIDOR (las mismas de escritorio, app/second-brain/page.tsx):
+//   · el CHAT, con la clave `mako` (closer y setter incluidos), la misma de /api/m/mako;
+//   · el MAPA, con `esAdminDeTab('second-brain')`: a quien no le toca no se le ofrece ni se le manda.
+// ⚠️ Un link de otra pantalla con `?area=` (las claves de escritorio: QUERY_DE_SECCION, `rutaSeccion`) o el
+//    `?panel=mapa` de escritorio llevan al Mapa, si es del admin.
 
-import './second-brain.css';
+import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
-import { construirCerebro } from '@/lib/cerebro-grafo';
-import type { Cerebro } from '@/lib/cerebro-modelo';
-import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
-import { SecondBrainM } from './SecondBrainM';
-import { areaDeParam } from './modelo';
+import { esAdminDeTab } from '@/lib/puerta-admin-tab';
+import { rutaConWs } from '@/lib/workspace';
+import { personaDelRequest, listarSesiones, abrirSesion } from '@/lib/mako-turno-app';
+import { ErrorM } from '@/app/m/_ui';
+import { ChatMako } from '../mako/ChatMako';
+import '../mako/mako.css';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+// El chat corre acá sus server actions (confirmar una tarjeta: app/m/mako/acciones.ts), y confirmar replicar_landing
+// corre ~275 s: el mismo techo que tenía /m/mako (tests/mako-doer-plazo.test.ts).
+export const maxDuration = 420;
+
+const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function SecondBrainPagina({ searchParams }: {
-  searchParams: Promise<{ area?: string | string[] }>;
+  searchParams: Promise<{ area?: string | string[]; vista?: string | string[]; panel?: string | string[] }>;
 }) {
-  await requireMovil({ navKey: 'second-brain' });
+  await requireMovil({ navKey: 'mako' });
+  const veMapa = await esAdminDeTab('second-brain');
   const sp = await searchParams;
 
-  let cerebro: Cerebro;
-  try {
-    cerebro = await construirCerebro();
-  } catch (e) {
-    console.error('[m/second-brain] construirCerebro:', e instanceof Error ? e.message : e);
-    return (
-      <PantallaM>
-        <ErrorM frase="No pude leer tu Second Brain. No es nada tuyo." />
-        <ComputadoraM que="El mapa, Exportar y Claude" />
-      </PantallaM>
-    );
+  if (veMapa && (uno(sp.panel) === 'mapa' || uno(sp.area))) {
+    const q = new URLSearchParams();
+    for (const k of ['area', 'vista'] as const) { const v = uno(sp[k]); if (v) q.set(k, v); }
+    redirect(await rutaConWs(`/m/second-brain/mapa${q.size ? `?${q}` : ''}`));
   }
 
-  return (
-    <PantallaM>
-      <SecondBrainM cerebro={cerebro} areaInicial={areaDeParam(sp.area)} />
-      <ComputadoraM que="El mapa, Exportar y Claude" />
-    </PantallaM>
-  );
+  const persona = await personaDelRequest();
+  if ('error' in persona) return <ErrorM frase={persona.error} />;
+  try {
+    const sesiones = await listarSesiones(persona);
+    const ultima = sesiones[0] ?? null;
+    const inicial = ultima ? await abrirSesion(persona, ultima.id) : null;
+    return <ChatMako sesionesIniciales={sesiones} inicial={inicial} hrefMapa={veMapa ? '/m/second-brain/mapa' : null} />;
+  } catch (e) {
+    console.error('[m/second-brain] abrir:', e instanceof Error ? e.message : e);
+    return <ErrorM frase="No pude cargar el chat." />;
+  }
 }

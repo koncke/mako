@@ -209,7 +209,7 @@ function Cargando() {
  */
 const RESPIRO_NOMBRE_MS = 1200;
 
-export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
+export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado }: {
   /** El embudo que se edita. `null`/`undefined` = el del negocio. */
   funnelId?: number | null;
   /** Cómo se llama, para pintar el título sin esperar la lectura. */
@@ -235,6 +235,12 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
    */
   semilla?: { etapas: EtapaDelFunnel[]; fijas: EtapaDelFunnel[]; nutricionEtapas?: EtapaDelFunnel[] } | null;
   onCerrar: () => void;
+  /**
+   * El nombre nuevo, AL MANDARLO (y el anterior si el server lo rechaza): el desplegable del tablero lo dibuja ya,
+   * sin esperar al `router.refresh()` («Si se cambió pero luego de unos segundos y debería ser automático»,
+   * Martín, 16/10/2026).
+   */
+  onRenombrado?: (nombre: string) => void;
 }) {
   const router = useRouter();
   const ws = useWs();
@@ -465,8 +471,8 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
     /** El pop-up ya se cerró: lo que conteste el server no tiene dónde dibujarse. */
     cerrado: false,
   });
-  const ctx = useRef({ router, funnelId, onCerrar, setError });
-  useEffect(() => { ctx.current = { router, funnelId, onCerrar, setError }; });
+  const ctx = useRef({ router, funnelId, onCerrar, setError, onRenombrado });
+  useEffect(() => { ctx.current = { router, funnelId, onCerrar, setError, onRenombrado }; });
   // Mientras nadie escribió, la base es lo que contestó el server.
   useEffect(() => { if (emb && nombreTxt == null) nombreRef.current.base = emb.nombre; }, [emb, nombreTxt]);
 
@@ -482,13 +488,14 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
     if (!limpio || limpio === n.base) return;
     const previo = n.base;
     n.base = limpio;
+    ctx.current.onRenombrado?.(limpio);
     void renombrarEmbudoAction(ctx.current.funnelId ?? null, limpio)
       .then((r) => {
-        if (!r.ok) { n.base = previo; if (!n.cerrado) ctx.current.setError(r.error); return; }
+        if (!r.ok) { n.base = previo; ctx.current.onRenombrado?.(previo); if (!n.cerrado) ctx.current.setError(r.error); return; }
         if (!n.cerrado) ctx.current.setError(null);
         if (refrescar || n.cerrado) { n.sucio = false; ctx.current.router.refresh(); } else n.sucio = true;
       })
-      .catch(() => { n.base = previo; });
+      .catch(() => { n.base = previo; ctx.current.onRenombrado?.(previo); });
   }, []);
 
   /** Manda YA lo pendiente (al salir del campo, al cerrar, al esconder la pestaña). */

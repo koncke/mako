@@ -23,10 +23,17 @@
 import type {
   MensajeChat, PropuestaPantalla, RespuestaTurno, ResultadoTarjeta, TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
-import { ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES } from '@/lib/mako-adjuntos';
+import { ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, type TipoAdjunto } from '@/lib/mako-adjuntos';
+import type { EstadoArchivero } from '@/lib/chat-mako-bloques';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 
 // ── El hilo ──────────────────────────────────────────────────────────────────
+
+/**
+ * Un archivo de un mensaje de la persona. Guardado (mig 0305): `ref`, que se pide a /api/mako/chat?adjunto=. Recién
+ * elegido, mientras sale: `local`, la vista previa del navegador (un `blob:`), que no se guarda.
+ */
+export type ArchivoHilo = { nombre: string; tipo: TipoAdjunto; ref?: string; local?: string; archivero?: EstadoArchivero };
 
 export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'hecho' | 'cancelada' | 'vencida' | 'resuelta' | 'fallo';
 
@@ -39,8 +46,10 @@ export type ItemHilo =
       at: string | null;
       /** una nota de voz de ESTA sesión de la pantalla: se escucha y debajo va lo que se entendió */
       voz?: { url: string; secs: number } | null;
-      /** los nombres de lo que se adjuntó (no se guardan: al recargar no vuelven) */
+      /** los nombres de lo que se adjuntó, en el teléfono mientras sale */
       adjuntos?: string[];
+      /** los archivos del mensaje: guardados (vuelven al recargar) o recién elegidos */
+      archivos?: ArchivoHilo[];
       /** enviando · error (no llegó: se puede reintentar) · incierto (no sé si llegó) */
       estado?: 'enviando' | 'error' | 'incierto';
       error?: string;
@@ -56,7 +65,22 @@ export const idLocal = (pre: string): string => `${pre}-${Date.now().toString(36
 
 const aMensaje = (m: MensajeChat, i: number): ItemHilo => ({
   k: 'msg', id: `m${i}-${m.created_at ?? ''}`, role: m.role, texto: m.content, at: m.created_at ?? null,
+  ...(m.adjuntos?.length ? { archivos: m.adjuntos } : {}),
 });
+
+/** Los archivos guardados del mensaje de la persona que devolvió un turno (para cambiar la vista previa por ellos). */
+export const archivosDeRespuesta = (r: RespuestaTurno): ArchivoHilo[] => r.mensajes.find((m) => m.role === 'user')?.adjuntos ?? [];
+
+/**
+ * Lo que se lee en la burbuja de un mensaje CON sus archivos a la vista: sin el «(envió una imagen: x)» que el turno
+ * guarda para la memoria del modelo (`placeholderDeAdjunto`), que al lado de la miniatura sobra.
+ */
+export const textoConArchivos = (texto: string): string =>
+  // El cierre se busca hasta « — » o el final: un nombre con paréntesis («plano (v2).jpg») no corta antes.
+  texto.replace(/^\(envió (?:una imagen|un PDF|\d+ archivos)(?:: .*?)?\)(?: — |$)/, '');
+
+/** El link de un archivo guardado (sin el `?ws=`: en un `<img src>` lo pone quien lo dibuja, con `conWs`). */
+export const rutaDeArchivo = (ref: string): string => `/api/mako/chat?adjunto=${encodeURIComponent(ref)}`;
 
 const aPropuesta = (t: TarjetaPendiente): ItemHilo => ({ k: 'propuesta', id: `p${t.pendienteId}`, t, estado: 'pendiente' });
 
