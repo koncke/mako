@@ -54,7 +54,7 @@ era Chats.
   manda al admin a `/general?ws=9`, y con `?ws=9` el admin «está mirando un cliente»: el Plan lee el tablero de
   CLIENTE del ws9 y dice «No hay tareas abiertas». Parecía un bug del Plan del teléfono; era la sesión de prueba.
 - El ws3 tiene el onboarding pendiente y tapa todo /m (`/configurar`): las tabs se miraron en el ws9 sólo leyendo,
-  y el ws3 sirvió para ver el onboarding (el chat de Offer anda a 390 px).
+  y el ws3 sirvió para ver el onboarding (el chat de Offer anda a 390 px). La píldora del funnel de Offer tocaba la línea de la cabecera: 8 px arriba (app/m/offer/offer.css).
 
 **Lo que se vio y no es nuestro:** al redirigir el server en medio del render (`/general` → `/configurar` con el
 onboarding pendiente) la consola registra el error de React #310 dentro del AppRouter de Next; la página llega bien.
@@ -69,7 +69,6 @@ onboarding pendiente) la consola registra el error de React #310 dentro del AppR
   en el ws3 cuando termine el onboarding, con un Instagram conectado.
 - El botón «WhatsApp» de la ficha del lead (app/m/crm/[id]/FichaLead.tsx) sigue yendo al hilo de sólo WhatsApp
   (`/m/crm/<id>/chat`); escritorio lleva a Chats (`rutaChatsDeLead`). Es del chat del CRM.
-- La píldora del funnel de Offer queda pegada a la cabecera (4 px; app/m/offer).
 
 **Vive en:** app/m/chats/ (`modelo.ts`, `hilo-modelo.ts`, `datos.ts`, `ListaChats.tsx`, `[clave]/`) ·
 lib/chats.ts (`paginasWhatsapp`) · lib/movil-rutas.ts (`rutaMovil`, `rutaEscritorio`) · app/m/_ui/cabecera.ts
