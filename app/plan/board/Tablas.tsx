@@ -744,7 +744,7 @@ type Seleccion = { ids: ReadonlySet<string>; set: Dispatch<SetStateAction<Readon
  * que está encima.
  */
 export function BarraPegada({ children }: { children: ReactNode }) {
-  return <div style={{ position: 'sticky', top: 8, zIndex: 20 }}>{children}</div>;
+  return <div style={{ position: 'sticky', top: 'calc(8px + var(--pegado-arriba, 0px))', zIndex: 20 }}>{children}</div>;
 }
 
 export function TablaProyectos({ filas, board, topProjectId, hoy, onOpen, onDeadline, labelPlural, onSoltar, seleccion, soloLectura = false, sinRanking = false }: {

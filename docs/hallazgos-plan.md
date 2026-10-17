@@ -7062,6 +7062,14 @@ quedó afuera `listar_tareas_plan`, la que el turno necesita (lo cazó antes-de-
 La descripción de una operación compite por el presupuesto de herramientas de WhatsApp (`ordenarPorRelevancia`): nombrar
 otra operación le suma las palabras de su id. Se dejó como estaba.
 
+**Dos defectos del «Marcar hecha» del Centro** (17/10, después del deploy; los encontró Offer con la #888 del ws 9):
+- **La API valida el largo ANTES de correr.** Una evidencia de 440 caracteres no se recortaba en el cierre: se rechazaba
+  el cierre entero («supera el tope de 400»). El recorte de `pruebaConRuta` llega tarde, en `ejecutar`. Quien llama
+  recorta antes (`inputDeCierre`, lib/centro-plan-reglas.ts).
+- **«Ya no estaba abierta» tapaba el error real.** Se miraba sólo el proyecto del jefe, y una tarea de OTRO proyecto
+  daba «no está». Ahora se mira todo el tablero (`listado`), y esa frase sale sólo si el Plan dice que la tarea no
+  existe (`errorDeCierre`).
+
 **El «Ya está» de un chat** (`cerrarPorYaEsta`, lib/centro-plan.ts) cierra:
 - las tarjetas que nombra por número (#870);
 - si no nombra ninguna, la abierta del proyecto del jefe cuyo título ENTERO, de tres palabras o más, aparece en el

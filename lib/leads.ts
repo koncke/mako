@@ -102,6 +102,11 @@ export type Lead = {
    */
   funnel_id?: number | null;
   /**
+   * La cuenta de MaKo Partners que se le abrió a este lead (mig 0175, `leads.cliente_ws`): el workspace de su cuenta.
+   * null = todavía no la tiene. La lee el CRM para ofrecer «Llevar a MaKo Partners» o «Ver en MaKo Partners».
+   */
+  cliente_ws?: number | null;
+  /**
    * NO es una columna: lo pone `listLeadsDeFunnel` cuando el lead está en ese tablero como
    * AGREGADO (una fila de `lead_funnel`, mig 0207) y no porque sea su casa. Trae el id del
    * producto, y en ese caso `pipeline_stage` ya viene reemplazado por la etapa de la fila.
@@ -412,6 +417,9 @@ const LISTA_COLS =
   // `origen_lead`, y el tablero no veía ninguno de los dos. `funnel_id` sigue AFUERA a
   // propósito (ver su comentario en el tipo `Lead`).
   'utm_content, meta_campaign_id, adset_id_origen, origen_lead, ' +
+  // La cuenta de MaKo Partners del lead (mig 0175): el menú del tablero ofrece «Ver en MaKo Partners» en vez de
+  // «Llevar a MaKo Partners» (17/10/2026).
+  'cliente_ws, ' +
   'respuesta_objetivo, respuesta_facturacion, respuesta_colaboradores, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor';
 
 export const listLeads = cachedRead('listLeads', _listLeads, { tags: [TAG.leads], revalidate: TTL.user });

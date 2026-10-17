@@ -168,8 +168,13 @@ async function tomarLock(maxMs = 10 * 60 * 1000) {
 }
 const soltarLock = () => { try { if (duenoDelLock() === process.pid) unlinkSync(LOCK); } catch { /* ya no es mío */ } };
 
-/** Heap según cuántos archivos hay que compilar (el tsc suma lo que esos archivos importan: ~1.000 para 170). */
-export const heapPara = (n) => (n > 600 ? 5120 : n > 250 ? 4096 : n > 120 ? 3072 : 2048);
+/**
+ * Heap según cuántos archivos hay que compilar. ⚠️ El `tsc` suma TODO lo que esos archivos importan, y en este repo un solo archivo de app/ o lib/ ya arrastra ~1.800
+ * archivos y ~2,5 GB (medido el 17/10/2026: 1 archivo → 1.835 archivos y 2.533 MB; 10 → 2.196 y 2.729 MB; 60 → 3.476 y 2.514 MB, 96 s). Con un tope de 2 GB (lo que
+ * había puesto antes para alcances chicos) el `tsc` moría sin heap a partir de ~10 archivos, y eso se leía como «no terminó» y se SALTABA: los tipos casi nunca se
+ * chequeaban. Por eso el mínimo es 3 GB (y el piso de RAM, ~4 GB: en una PC con 14 chats abiertos los tipos se van a saltar seguido, y lo dice la línea final).
+ */
+export const heapPara = (n) => (n > 600 ? 5120 : n > 120 ? 4096 : 3072);
 const pisoTsc = (heapMb) => (() => heapMb / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB);
 
 // ⚠️ EL TIPO NO ES UN CANDADO QUE SE ARREGLE ESPERANDO (17/10/2026). El primer push del Cerebro con el pre-push nuevo se trabó en

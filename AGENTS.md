@@ -434,6 +434,10 @@ calcular, la segunda fase cae a `npm test`. Medido con la API (`/actions/runs/{i
 facturables (run 94: 107 s; antes 5-10). El VERDE (run 95: 781 s) subió de ~11 a 14 porque `--concurrencia auto` dejaba el default de
 node (núcleos − 1 = UN proceso en un runner de 2 vCPU): ahora `auto` usa todos los núcleos, la segunda fase va en UNA sola corrida
 de `node --test`, y un archivo que sólo falla con varios procesos se repite solo y, si pasa, sale como FLAKY (no frena, pero se ve).
+Eso bajó el verde de 14 a 12 min (run 102: 683 s), no a los ~9 estimados: con 2 procesos los tests casi no ganaron, porque el costo es el
+ARRANQUE de cada archivo (~0,4 s × ~1.100), no el cómputo. El experimento que sigue (a medir con el próximo run verde): en Actions los afectados
+comparten procesos SÓLO en sus barredoras (`--compartir=barredoras`) y los demás tests comparten todo lo compartible (`--compartir`). Si un run
+da un rojo raro o el tiempo no baja, `--sin-compartir` en esos dos pasos del workflow lo deja como era.
 
 **La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 21 runs rojos de Actions
 (`docs/fallos-ci-integracion.jsonl`) sobre el árbol exacto de la cabeza que falló y con la base real (el último verde):
@@ -477,6 +481,10 @@ eran del código:
   de Node entran por `next-env.d.ts` (generado: un worktree ni lo tiene): sin esto sale
   «Cannot find name 'process'» (TS2580). Medido el 16/10 con
   `app/web-generator/editor/insertar.ts`: 1 error sin esto, 0 con esto.
+- **Los `.d.ts` globales de Next** (`node_modules/next/types/global.d.ts` y `image-types/global.d.ts`) en `files`, si existen. En el
+  completo entran por `next-env.d.ts` y hacen OBLIGATORIO `NODE_ENV` en `NodeJS.ProcessEnv`: el 17/10/2026 un test pasaba `{}` como
+  `ProcessEnv` (run 100 de Actions), el acotado dio verde y el completo dio rojo DOS veces (TS2345, y al castear con
+  `as NodeJS.ProcessEnv`, TS2352 — la cura es `as unknown as NodeJS.ProcessEnv`). Sin esto el acotado tampoco veía eso.
 
 Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
 

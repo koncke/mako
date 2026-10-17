@@ -71,6 +71,14 @@ jobs:
       # de los runs. Causa: `--concurrencia auto` dejaba el default de node (núcleos − 1 = UN proceso en un runner de 2 vCPU) y las
       # tandas chicas sumaban 42 s de arranques. Ahora `auto` = todos los núcleos (2-4 procesos), y los demás tests van en UNA sola
       # corrida de `node --test` (--tanda 1000): sin arranques por tanda y sin núcleos parados al final de cada una.
+      #
+      # ⚠️ Y NO ALCANZÓ (run 102, el primer verde con ese recorte): 12 min facturables, 683 s, contra 14 y 781 s. Los números: el run 101 (rojo en Tipos) sumó
+      # 477 s = ~64 s de arranque + afectados 270 s + tipos 143 s, o sea que los afectados bajaron 333 → 270 s y los demás casi nada (217 → ~206 s):
+      # con 2 procesos casi no se ganó. El costo es el ARRANQUE de cada archivo de test (node + tsx + compilar: ~0,4 s × ~1.100 archivos ≈ lo que tardaba
+      # `npm test`), no el cómputo, y las ~150 barredoras que releen los mismos 5.400 archivos. Lo que lo evita es correr los tests que no tocan estado
+      # global JUNTOS en un proceso (`--compartir`, scripts/cache-lecturas.cjs): localmente la suite entera pasó de ~50 min a 260 s. EXPERIMENTO a medir en el
+      # run que sigue: los afectados comparten sólo sus barredoras (`--compartir=barredoras`: lo que más pesa y menos riesgo tiene) y los demás comparten todo
+      # lo compartible (`--compartir`). Todo rojo de un proceso compartido se repite AISLADO antes de contarse. Si algo raro: `--sin-compartir` vuelve a como era.
       - name: Guardas del push
         run: sh scripts/guardas-push.sh origin
 
@@ -79,7 +87,7 @@ jobs:
           set +e
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
           SECONDS=0
-          node scripts/tests-afectados.mjs --base origin/main --cortar --concurrencia auto --tanda 40
+          node scripts/tests-afectados.mjs --base origin/main --cortar --concurrencia auto --tanda 40 --compartir=barredoras
           c=$?
           echo "afectados: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$c" -eq 2 ]; then echo "::warning::no pude calcular los tests afectados: la fase siguiente corre la suite completa"; exit 0; fi
@@ -98,7 +106,7 @@ jobs:
         run: |
           set +e
           SECONDS=0
-          node scripts/tests-afectados.mjs --base origin/main --resto --concurrencia auto --tanda 1000
+          node scripts/tests-afectados.mjs --base origin/main --resto --concurrencia auto --tanda 1000 --compartir
           c=$?
           echo "los demás: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$c" -eq 2 ]; then echo "::warning::sin plan de afectados: corro la suite completa"; npm test; exit $?; fi

@@ -97,3 +97,22 @@ test('5. lo que se pega a la VENTANA y no es <aside> se pega debajo de la barra'
   const gh = sinComentariosCss(leer('app/api-mako/github.css'));
   assert.match(gh, /\.gh-docs-sidebar \{ position: sticky; top: var\(--barra-agencia, 0px\); align-self: start; max-height: calc\(100vh - var\(--barra-agencia, 0px\)\);/, 'el índice de las docs de la API (es un <nav>)');
 });
+
+test('6. las barras de lote del Plan y de Customer Success: debajo de la barra en la página, en su lugar en un modal', () => {
+  // Viven en la página (se pegan a la VENTANA, que la barra tapa) y adentro de modales (se pegan a su cuerpo, donde la
+  // barra no está). `--pegado-arriba` vale la barra en la página y 0 en un modal. MEDIDO en Chrome sin ventana el 17/10
+  // (scratchpad css850/prueba2.html, el CSS real): en la página 58, en el modal 8.
+  // Roturas (arnés `romper-lote.js`, con plan-prioridad-tabla-y-lote; base 32 / 0): sin el reset de [aria-modal] → 31 / 1
+  // · BarraPegada en top 8 → 31 / 1 · la de Customer Success en top 8 → 31 / 1 · la de 66 del Kanban → 30 / 2.
+  const css = sinComentariosCss(leer('app/globals.css'));
+  assert.match(css, /:root \{ --pegado-arriba: var\(--barra-agencia\); \}/);
+  assert.match(css, /\[aria-modal="true"\] \{ --pegado-arriba: 0px; \}/, 'sin esto, en un modal la barra de lote baja 50 px');
+  const ocho = "top: 'calc(8px + var(--pegado-arriba, 0px))'";
+  const cuenta = (src: string, trozo: string) => src.split(trozo).length - 1;
+  for (const [archivo, n] of [['app/plan/board/Tablas.tsx', 1], ['app/plan/board/BoardShell.tsx', 3], ['app/customer-success/LoteClientes.tsx', 1]] as const) {
+    const src = leer(archivo);
+    assert.equal(cuenta(src, ocho), n, `${archivo}: las barras de lote no descuentan la barra de inspección`);
+    assert.doesNotMatch(src, /position: 'sticky', top: (8|66), zIndex/, `${archivo}: una barra de lote volvió a un top fijo`);
+  }
+  assert.equal(cuenta(leer('app/plan/board/BoardShell.tsx'), "top: 'calc(66px + var(--pegado-arriba, 0px))'"), 1, 'la segunda barra del Kanban (66)');
+});

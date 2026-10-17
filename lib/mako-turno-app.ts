@@ -460,8 +460,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // entró, y el aviso de que está arreglado le llega en ESTE hilo. Lo que falló porque el proveedor de IA no
     // contestó (un 503, el cupo) no es un bug de MaKo: lo descarta `esRuido`.
     const fallasDeMako = [
-      ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error })),
-      ...(fallo ? [{ nombre: 'responder', mensaje: fallo }] : []),
+      // `etiqueta`: el nombre humano de la operación («Mover un lead de etapa»), para el título que lee el cliente.
+      ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error, etiqueta: porId(e.herramienta)?.titulo })),
+      ...(fallo ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
     ];
     if (fallasDeMako.length && !ticketPropuesto) {
       const quien = await identidadDe(ws, persona.actor).catch(() => null);
