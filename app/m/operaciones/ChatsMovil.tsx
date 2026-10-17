@@ -34,7 +34,7 @@ import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { Pregunta } from '@/app/admin/operaciones/Pregunta';
-import { MunecoNuevo, NuevoChat, type BorradorNuevoChat } from '@/app/admin/operaciones/NuevoChat';
+import { MunecoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from '@/app/admin/operaciones/NuevoChat';
 import { comandoNuevoChat } from '@/lib/runner';
 import { Hilo, Tick } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
@@ -105,6 +105,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const [enviando, setEnviando] = useState(false);
   const [opciones, setOpciones] = useState(false);
   const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
+  const [abriendo, setAbriendo] = useState(false);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ aspecto: Aspecto; guardando: boolean } | null>(null);
   const toast = useToastM();
@@ -253,13 +254,20 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
         <FilaM leading={<MunecoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevo({ nombre: '', cuenta: 'claude1' })} navegacion />
       </ListaM>
       <SheetM abierto={!!nuevo && !elegido} onCerrar={() => setNuevo(null)} titulo="Nuevo chat"
-        pie={nuevo ? (
+        // «Abrir» con un clic cuando el Runner de esa cuenta abre (17/10/2026); si no, copiar el comando, como antes.
+        pie={nuevo ? (centro?.puedeAbrirEn(nuevo.cuenta) ? (
+          <PieM consecuencia="Se abre en la PC en 2 minutos.">
+            <Button variant="primary" size="lg" full loading={abriendo} disabled={abriendo || !sePuedeAbrir(nuevo, true)}
+              onClick={async () => { setAbriendo(true); const ok = await centro.abrirChat(nuevo); setAbriendo(false); if (ok) setNuevo(null); }}>Abrir</Button>
+          </PieM>
+        ) : (
           <PieM consecuencia="Pégalo en PowerShell, en la PC.">
             <Button variant="primary" size="lg" full disabled={!nombreValido(nuevo.nombre.trim()).ok}
               onClick={async () => { toast((await copiar(comandoNuevoChat(nuevo.cuenta, nuevo.nombre))) ? 'Copiado' : 'No pude copiar'); setNuevo(null); }}>Copiar comando</Button>
           </PieM>
-        ) : undefined}>
-        {nuevo && <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={async (t) => toast((await copiar(t)) ? 'Copiado' : 'No pude copiar')} />}
+        )) : undefined}>
+        {nuevo && <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={async (t) => toast((await copiar(t)) ? 'Copiado' : 'No pude copiar')}
+          puedeAbrir={!!centro?.puedeAbrirEn(nuevo.cuenta)} estado={centro?.apertura ?? null} />}
       </SheetM>
       </>}
       {conLista && secciones.map(({ clave: k, titulo, chats: lista }) => {
