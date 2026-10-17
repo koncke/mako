@@ -11,7 +11,7 @@
 // Lógica pura y aparte del componente para poder probarla (tests/titulo-tab).
 
 import { TODOS_LOS_ITEMS, ADMIN_NAV, USER_NAV, type NavItem } from '@/app/_components/nav';
-import { DESTINOS_MOVIL, RUTA_INBOX, SECCIONES_MAS, TITULO_INBOX, tituloSeccion } from './movil-rutas';
+import { DESTINOS_MOVIL, RUTA_INBOX, SECCIONES_MAS, TITULO_INBOX, rutaEscritorio, tituloSeccion } from './movil-rutas';
 
 export const MARCA = 'MaKo';
 
@@ -94,8 +94,19 @@ function conMarca(label: string): string {
   return /\bmako\b/i.test(limpio) ? limpio : `${MARCA} - ${limpio}`;
 }
 
+/**
+ * Pantallas del teléfono que se titulan como SU URL de escritorio (17/10/2026, «Mobile 2»): una «Coming soon»
+ * (/m/pronto/closing-script es «Closing Script») y cada sección de «Configuración del negocio» (/m/configuraciones/equipo
+ * es «Equipo», como /equipo). Sin esto caían en el prefijo de su dueño (`/m` → «MaKo» a secas).
+ */
+const COMO_ESCRITORIO = /^\/m\/(?:pronto|configuraciones)\/[^/]+$/;
+
 export function tituloDe(pathname: string): string {
   if (pathname === '/login') return MARCA;
+  if (COMO_ESCRITORIO.test(pathname)) {
+    const escritorio = rutaEscritorio(pathname).split('?')[0];
+    if (escritorio !== pathname) return tituloDe(escritorio);
+  }
   for (const k of EXTRA_KEYS) if (pathname === k || pathname.startsWith(k + '/')) return conMarca(EXTRA[k]);
   const item = TODOS.find((i) => i.match(pathname));
   const label = item?.label ?? desdeLaRuta(pathname);

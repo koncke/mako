@@ -13,47 +13,18 @@
 // =============================================================================
 
 import { useState } from 'react';
-import { useWs } from '@/app/_ui/Link';
-import { Button } from '@/app/_ui/Button';
-import { conWs } from '@/lib/ws-tab';
-import { cookieVistaEscritorio } from '@/lib/movil-dispositivo';
 import type { FilaMas } from '@/lib/movil-rutas';
+import { FilaEnComputadoraM } from '../_ui/EnComputadoraM';
 import { FilaM } from '../_ui/FilaM';
-import { ListaM, PieM } from '../_ui/Piezas';
+import { ListaM } from '../_ui/Piezas';
 import { SheetM } from '../_ui/SheetM';
 
 type Computadora = Extract<FilaMas, { tipo: 'computadora' }>;
 type Grupo = Extract<FilaMas, { tipo: 'grupo' }>;
 
-/** Abre la pantalla de escritorio en este teléfono: la cookie de «Versión completa» y la URL con su `?ws=`. */
-function abrirEnComputadora(href: string, ws: number | null) {
-  document.cookie = cookieVistaEscritorio();
-  window.location.href = conWs(href, ws);
-}
-
+/** La tab sin pantalla del teléfono: la fila «En la computadora» de app/m/_ui (la hoja con el motivo y la salida). */
 export function FilaComputadoraM({ fila }: { fila: Computadora }) {
-  const ws = useWs();
-  const [abierta, setAbierta] = useState(false);
-  return (
-    <>
-      <FilaM navegacion icono={fila.icon} titulo={fila.label} segunda="En la computadora" onClick={() => setAbierta(true)} />
-      <SheetM
-        abierto={abierta}
-        onCerrar={() => setAbierta(false)}
-        titulo={fila.label}
-        id="computadora"
-        pie={(
-          <PieM>
-            <Button variant="primary" size="lg" full onClick={() => abrirEnComputadora(fila.href, ws)}>
-              Abrir en la computadora
-            </Button>
-          </PieM>
-        )}
-      >
-        <p className="m-mas-motivo">{fila.motivo}</p>
-      </SheetM>
-    </>
-  );
+  return <FilaEnComputadoraM icono={fila.icon} titulo={fila.label} href={fila.href} motivo={fila.motivo} />;
 }
 
 export function FilaGrupoM({ fila }: { fila: Grupo }) {
