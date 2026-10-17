@@ -7,7 +7,7 @@
 // último verde a la cabeza es lo que Actions tuvo que chequear de nuevo— y pregunta:
 //   · si el rojo fue un test: ¿tests-afectados.mjs lo habría elegido?
 //   · si fue un error de tipos: ¿el archivo con el error estaría en lo que compila el tsc acotado
-//     (scripts/antes-de-subir.mjs → alcanceTsc: lo cambiado + quienes lo importan, un nivel)?
+//     (scripts/antes-de-subir.mjs → alcanceTsc: lo CAMBIADO, que es el default en local; con --importadores, también quienes lo importan)?
 // No hace checkout: lee los objetos de git (`ls-tree` + `cat-file --batch`), ~2 s por run.
 //
 // Uso:  node scripts/replay-fallos-ci.mjs            # la tabla, y exit 1 si alguno NO sale

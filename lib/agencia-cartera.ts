@@ -88,6 +88,18 @@ export function esWsValido(v: unknown): v is number {
 }
 
 /**
+ * ¿Esta fila dice que el cliente ES de esa agencia hoy? Pendiente o aprobada, sí; REVOCADA, no: es historia.
+ *
+ * ⚠️ Medido el 17/10/2026: el Cliente de Prueba (ws 3) tiene una fila de Código Inmobiliario (ws 13) revocada el 28/09
+ * («El ws3 es el Cliente de Prueba, no un cliente de Codigo»). Contada como dueña, «Salir de la vista» llevaba a la
+ * cartera de Código Inmobiliario y el panel de pruebas (con su Reset) se escondía: «no se puede reiniciar como
+ * antes». Martín reportó los dos. Lo usan `agenciaDeCliente` (lib/agencia.ts) y `wsDePrueba` (app/api/datos-mau).
+ */
+export function esCarteraVigente(f: Pick<FilaCartera, 'estado'>): boolean {
+  return f.estado === 'pendiente' || f.estado === 'aprobado';
+}
+
+/**
  * A dónde vuelve alguien cuando aprieta «Salir de la vista».
  *
  * ⚠️ NO es una constante, y ése era el bug. La salida estaba cableada a '/admin'

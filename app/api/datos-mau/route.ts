@@ -20,6 +20,7 @@
 import { NextResponse } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { agenciasDeCliente } from '@/lib/agencia';
+import { esCarteraVigente } from '@/lib/agencia-cartera';
 import { esClienteDePrueba } from '@/lib/auth-session';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { AMBITOS, ambitosCompletados, completarConDatosDelDueno, eliminarDatosDelDueno, type AmbitoKey } from '@/lib/datos-mau';
@@ -50,7 +51,10 @@ async function wsDePrueba(): Promise<number | null> {
   // probar». El que decide si se puede ENTRAR es otro guard; éste decide si se
   // pueden volcar los datos de un cliente real adentro, que es más destructivo
   // y por lo tanto más restrictivo.
-  if ((await agenciasDeCliente(ws)).length > 0) return null;
+  //
+  // ⚠️ Menos las REVOCADAS (`esCarteraVigente`, 17/10/2026): una revocada es historia, y la del ws 3 (Código
+  // Inmobiliario, revocada el 28/09) escondía el Reset del Cliente de Prueba.
+  if ((await agenciasDeCliente(ws)).some(esCarteraVigente)) return null;
 
   return ws;
 }

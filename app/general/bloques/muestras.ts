@@ -104,13 +104,22 @@ export const ALERTAS_MUESTRA: AlertaVista[] = [
   { nivel: 'verde', titulo: 'Los anuncios entregan bien', href: '/marketing', hrefLabel: 'Ver' },
 ];
 
+/**
+ * El OKR de ejemplo de la Meta objetivo. ⚠️ TIPADO, NUNCA `{…} as ObjectiveConAvance`: el `as` acepta un objeto al que
+ * le FALTA un campo obligatorio. Así se rompió /general el 17/10/2026: e5ded0af8 sumó `funnelIds` al OKR, el ejemplo
+ * quedó sin él y `CuerpoMeta` lee `objetivo.funnelIds.length` → «Cannot read properties of undefined (reading
+ * 'length')» en todo negocio SIN OKR (el placeholder dibuja este ejemplo al montar; en el teléfono, la portada).
+ * Con el tipo declarado, el próximo campo obligatorio rompe el tsc acá y no la pantalla (tests/general-meta-muestra.test.ts).
+ */
+const OBJETIVO_MUESTRA: ObjectiveConAvance = {
+  id: 'mo', anio: 2026, quarter: 4, titulo: 'Facturar $30,000 en el trimestre', metrica: 'cash_usd', metaValor: 30000, unidad: 'usd',
+  avanceManual: null, orden: 0, estado: 'activo', origen: 'muestra', funnelIds: [], actual: 18600, pct: 62, desde: '2026-10-01', hasta: '2026-12-31',
+  ritmo: { esperado: 16500, desvio: 2100, desvioPct: 13, llegadaEstimada: null, alDia: true },
+};
+
 /** La Meta objetivo de ejemplo (lo que se pisa sobre los datos de verdad del bloque: el período y la capacidad son reales). */
 export const META_MUESTRA = {
-  objetivo: {
-    id: 'mo', anio: 2026, quarter: 4, titulo: 'Facturar $30,000 en el trimestre', metrica: 'cash_usd', metaValor: 30000, unidad: 'usd',
-    avanceManual: null, orden: 0, estado: 'activo', origen: 'muestra', actual: 18600, pct: 62, desde: '2026-10-01', hasta: '2026-12-31',
-    ritmo: { esperado: 16500, desvio: 2100, desvioPct: 13, llegadaEstimada: null, alDia: true },
-  } as ObjectiveConAvance,
+  objetivo: OBJETIVO_MUESTRA,
   desglose: null,
   complemento: { label: 'Vendido', valor: '$24,000', pie: '', desglose: null },
   fraccion: 0.55,

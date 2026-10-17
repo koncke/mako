@@ -48,6 +48,7 @@ export function placeholderDe(etapa: EtapaArranque): string | undefined {
   switch (etapa) {
     case 'nombre': return 'Tu nombre';
     case 'negocio': return 'El nombre de tu negocio';
+    case 'origen': return 'Cómo llegaste';
     case 'objetivo': return 'Tu objetivo';
     case 'que_hace': return 'A qué se dedica';
     case 'codigo': return 'El código de 6 dígitos';
@@ -63,5 +64,5 @@ export function placeholderDe(etapa: EtapaArranque): string | undefined {
 export function ladoDeLaPregunta(etapa: EtapaArranque, modo: 'oferta' | 'plan' = 'plan'): 'antes' | 'despues' {
   // El diagnóstico va antes en modo 'plan' (no hay oferta) y después en 'oferta' (después de lo que vende).
   if (etapa === 'fase') return modo === 'oferta' ? 'despues' : 'antes';
-  return etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
+  return etapa === 'nombre' || etapa === 'negocio' || etapa === 'origen' || etapa === 'interes' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
 }
