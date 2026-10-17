@@ -14,6 +14,7 @@
 
 import '../configuraciones.css';
 import { requireMovil } from '@/lib/movil-guard';
+import { destinatariosDelNegocio } from '@/lib/destinatarios-negocio';
 import { CabeceraM, PantallaM } from '@/app/m/_ui';
 import { NotificacionesNegocioM } from './NotificacionesNegocioM';
 
@@ -21,10 +22,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function NotificacionesNegocioMovil() {
   await requireMovil({ navKey: 'configuraciones' });
+  // La MISMA lectura que GET /api/perfil/destinatarios, en el server.
+  const iniciales = await destinatariosDelNegocio().catch(() => null);
   return (
     <PantallaM>
       <CabeceraM titulo="Notificaciones" />
-      <NotificacionesNegocioM leido={Date.now()} />
+      <NotificacionesNegocioM key={Date.now()} iniciales={iniciales} />
     </PantallaM>
   );
 }

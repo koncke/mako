@@ -15,6 +15,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { requireMovil } from '@/lib/movil-guard';
 import { HOME_MOVIL } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
+import { getModelosConfig } from '@/lib/model-registry';
 import { PantallaM } from '@/app/m/_ui';
 import { ModelosIAM } from './ModelosIAM';
 
@@ -23,9 +24,11 @@ export const dynamic = 'force-dynamic';
 export default async function ModelosIAMovil() {
   if (!(await getSesionAdmin())) redirect(await rutaConWs(HOME_MOVIL));
   await requireMovil();
+  // La MISMA lectura que GET /api/admin/modelos.
+  const iniciales = await getModelosConfig().catch(() => null);
   return (
     <PantallaM>
-      <ModelosIAM leido={Date.now()} />
+      <ModelosIAM key={Date.now()} iniciales={iniciales} />
     </PantallaM>
   );
 }

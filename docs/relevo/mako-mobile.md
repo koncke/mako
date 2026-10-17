@@ -35,6 +35,40 @@ su ruta con corchetes; y el script de Chrome que intercepta `/api/image-editor/*
 3. More no se marca en la barra de abajo en AI Avatar (no tiene fila en SECCIONES_MAS a propósito:
    docs/hallazgos-mobile.md). Lo decide quien tenga More (Mobile 2).
 4. Video Editor del teléfono sin texto, audio, efectos, «Relación» ni «Editar con IA» (app/m/video-editor/EditorVideoM.tsx).
+
+## 17/10/2026 (claude4) — «Mobile 2»: TODA tab del nav con su lugar en el teléfono, y las pantallas de negocio
+
+Pedido de Martín (17/10, 12:56): «Implementa completamente MaKo Mobile en todas las tabs, porque hay muchas que aun no se
+pueden acceder». Lo hizo el agente «Mobile 2» en `C:/dev/wt-general-epico`, rama `mobile-negocio-1710` (sale de
+origin/main 2420cccb1). El Cerebro integra y pushea.
+
+**Hecho (pasado como VERDE):** 745429706 (More derivado de la sidebar, el guardián, las «Coming soon» y Reportar
+problema) · 80b500b6c (Configuración del negocio: Equipo, Integraciones, Notificaciones, Fiscal y Tu plan) · 0807386c1
+(MaKo Messages, AI Models y MaKo Context) · 81abf3e7d (API y Knowledge). Después, Billing y Client Agents, y las pantallas
+que abren con lo que leyó el server (más rápido). La regla quedó en AGENTS.md: «toda tab nueva del nav tiene su pantalla
+en el teléfono en el mismo trabajo» (tests/movil-toda-tab.test.ts).
+
+**Mirado a 390 px** (Chrome headless con UA de iPhone, `next start` local, ws9 sólo leyendo): More, Reportar problema y
+un ticket, Closing Script, Configuración del negocio con Equipo, Integraciones, Notificaciones y Fiscal, MaKo Messages,
+AI Models, MaKo Context, API (las tres pestañas), Knowledge (la biblioteca y un curso), Billing, Client Agents y la barra
+de secciones de Automations. Ninguna tiró error de JS ni desbordó a lo ancho. Las que abren con lo del server ya no
+piden nada al navegador al abrir (MaKo Context completa a ~0,9 s; antes, ~1,45 s).
+
+**Lo que falta, en orden:**
+1. Strategy, Offer Playbook y MaKo WhatsApp: siguen en `EN_CAMINO` «sin dueño» (lib/movil-rutas.ts). Se ven en More
+   como «En la computadora».
+2. Lo de Mobile 1 en `EN_CAMINO`: al llegar cada pantalla, su línea sale en el MISMO commit, o el guardián falla.
+3. MaKo Partners para el super admin: la sidebar se lo muestra, el teléfono no (`puedeVerKey` y `requireMovil` no saben de
+   `adminShell`). Está anotado en tests/movil-toda-tab.test.ts como diferencia conocida.
+4. Conectar una integración desde el teléfono (hoy abre ESA integración en la computadora), y General y Método de
+   Configuración del negocio.
+5. Mirar en un teléfono de verdad y con un cliente: el ws3 tiene el onboarding pendiente y tapa /m. Una clase de
+   Knowledge con su video no se llegó a mirar (la medición pidió una clase que no existía).
+6. /mensajes de ESCRITORIO siembra la lista con otro store que el que edita su ruta (docs/hallazgos-mobile.md). No se tocó.
+7. /automations del teléfono (no es de Mobile 2): con el ws9, 0,57 s hasta el primer byte y 3,7 s hasta DOMContentLoaded,
+   medido el 17/10 a 390 px. Vale mirarlo por el pedido de Martín de que el teléfono ande más rápido.
+Detalle y trampas: docs/hallazgos-mobile.md → «Toda tab del nav con su lugar en el teléfono…».
+
 ## 17/10/2026 (claude4) — REDISEÑO del CRM y el Plan copiando Pipedrive, HubSpot, Todoist y Linear
 
 Pedido de Martín (17/10, 12:56): «Implementa completamente MaKo Mobile en todas las tabs... Y rediseña las actuales de

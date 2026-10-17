@@ -20,24 +20,13 @@
 
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
-import { getSupabaseServer } from '@/lib/supabase';
+// La lectura vive en lib/agente-sesiones.ts desde el 17/10/2026: la comparte el teléfono (app/m/agente).
+import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { Pagina, PageHeader, EmptyState } from '@/app/_ui';
 import { MONO } from '@/app/_ui/tokens';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-type Fila = {
-  id: number;
-  workspace_id: number;
-  sesion_id: string;
-  empezo_en: string | null;
-  termino_en: string | null;
-  acta: { titulo?: string; resumen?: string; turnos?: number; herramientas?: number } | null;
-  turnos: Array<{ ts: string; texto: string }> | null;
-  redacciones: number;
-  created_at: string;
-};
 
 const cuando = (iso: string | null): string => {
   if (!iso) return '—';
@@ -48,15 +37,8 @@ const cuando = (iso: string | null): string => {
 export default async function AgenteAdminPage() {
   if (!(await getSesionAdmin())) redirect('/');
 
-  const svc = getSupabaseServer();
   // Sin scope de workspace, a propósito: ver el porqué en la cabecera.
-  const [{ data: filas }, { data: wss }] = await Promise.all([
-    svc.from('agente_sesiones').select('*').order('created_at', { ascending: false }).limit(200),
-    svc.from('workspaces').select('id, nombre'),
-  ]);
-
-  const sesiones = (filas ?? []) as Fila[];
-  const nombreWs = new Map(((wss ?? []) as Array<{ id: number; nombre: string }>).map((w) => [w.id, w.nombre]));
+  const { sesiones, nombreWs } = await leerSesionesAgente();
 
   // Cuántas sesiones por cliente: la respuesta más barata a «quién lo está usando».
   const porCliente = new Map<number, number>();

@@ -102,6 +102,7 @@ test('v3: CRM · Chats · General · Plan · More; More por las familias de la s
     // Las del super admin (su página pregunta `getSesionAdmin`, como la de escritorio).
     ['mensajes', 'mensajes', null, true], ['modelos-ia', 'modelos-ia', null, true], ['contexto', 'contexto', null, true],
     ['api-mako', 'api-mako', null, true], ['conocimientos', 'conocimientos', null, true],
+    ['cobros', 'admin-cobros', null, true], ['agente', 'admin-agente', null, true],
     // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
     // (secciones de Video, Image y Copywriting: lib/movil-creacion.ts y tests/m-creacion.test.ts).
     ['video-editor', 'video-editor', null, true], ['reels', 'reels', null, true],

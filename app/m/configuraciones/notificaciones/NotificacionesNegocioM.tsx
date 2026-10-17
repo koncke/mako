@@ -21,10 +21,10 @@ import { copiarTexto } from '@/app/m/copywriting/api';
 type Canal = 'whatsapp' | 'email';
 type Guardado = { ok: boolean; error?: string; destinatarios?: Destinatarios; noAgregados?: { telefono: string; motivo: string }[]; linkGrupo?: string | null };
 
-export function NotificacionesNegocioM({ leido }: { leido: number }) {
+export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatarios: Destinatarios; tieneGrupo: boolean } | null }) {
   const toast = useToastM();
-  const [dest, setDest] = useState<Destinatarios | null>(null);
-  const [tieneGrupo, setTieneGrupo] = useState(false);
+  const [dest, setDest] = useState<Destinatarios | null>(iniciales?.destinatarios ?? null);
+  const [tieneGrupo, setTieneGrupo] = useState(iniciales?.tieneGrupo ?? false);
   const [errCarga, setErrCarga] = useState<string | null>(null);
   const [agregar, setAgregar] = useState<Canal | null>(null);
   const [quitar, setQuitar] = useState<{ canal: Canal; valor: string } | null>(null);
@@ -42,7 +42,10 @@ export function NotificacionesNegocioM({ leido }: { leido: number }) {
       setErrCarga('No se pudieron cargar los destinatarios. Revisa tu conexión.');
     }
   }, []);
-  useEffect(() => { void cargar(); }, [cargar, leido]);
+  // ⚠️ ABRE CON LO QUE LEYÓ EL SERVER (17/10/2026, «que el teléfono ande más rápido»): sin esto pintaba un esqueleto y
+  // recién después pedía la lista (otra ida y vuelta). La página la monta con `key` nuevo en cada pasada del server
+  // (tirar hacia abajo trae lo nuevo); si el server no pudo leer (`null`), se pide como en la computadora.
+  useEffect(() => { if (iniciales == null) void cargar(); }, [cargar, iniciales]);
 
   /** Guarda las DOS listas. Devuelve si quedó guardado (lo que no, vuelve atrás). */
   const guardar = async (telefonos: string[], emails: string[]): Promise<boolean> => {

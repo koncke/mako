@@ -19,10 +19,10 @@ import { abrirEnComputadora } from '@/app/m/_ui/EnComputadoraM';
 
 const RUTA = '/api/admin/plantillas';
 
-export function MensajesM({ leido }: { leido: number }) {
+export function MensajesM({ iniciales }: { iniciales: PlantillaVista[] | null }) {
   const toast = useToastM();
   const ws = useWs();
-  const [lista, setLista] = useState<PlantillaVista[] | null>(null);
+  const [lista, setLista] = useState<PlantillaVista[] | null>(iniciales);
   const [error, setError] = useState<string | null>(null);
   const [abierta, setAbierta] = useState<PlantillaVista | null>(null);
   const [guardando, setGuardando] = useState<string | null>(null);
@@ -37,8 +37,11 @@ export function MensajesM({ leido }: { leido: number }) {
       setError('No se pudieron leer los mensajes. Revisa tu conexión.');
     }
   }, []);
-  // `leido` cambia con cada pasada del server (tirar hacia abajo): se vuelve a pedir.
-  useEffect(() => { void cargar(); }, [cargar, leido]);
+  // ⚠️ ABRE CON LO QUE LEYÓ EL SERVER (17/10/2026, «que el teléfono ande más rápido»): sin esto la pantalla pintaba un
+  // esqueleto y recién después pedía la lista (otra ida y vuelta, 0,3-0,8 s medidos a 390 px). La página la monta con
+  // `key` nuevo en cada pasada del server, así que tirar hacia abajo trae lo nuevo. Si la lectura del server falló
+  // (`null`), se pide como en la computadora.
+  useEffect(() => { if (iniciales == null) void cargar(); }, [cargar, iniciales]);
 
   const prender = async (p: PlantillaVista, enabled: boolean) => {
     if (guardando) return;
