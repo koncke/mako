@@ -25,6 +25,40 @@ Cerebro: lo mandó a Video Generator a las 07:55 UTC, el buzón salió a las 07:
    dormida (`visto_at` viejo) o la cuota se acabó (`cuota` al 100%). Las piezas: `motivoDeEspera`
    (lib/operaciones-reglas.ts), `Tick` y `ROTULO` (Hilo.tsx), `sinNoticiasDesde`.
 
+**Estado del urgente:** la parte 1 (`vigilar`, cartero 1.12.0) está hecha y pasada al Cerebro (ver la tabla de
+abajo). La parte 2, que la pantalla diga en qué está, queda para el próximo Ops Center.
+
+## Dos pedidos más de Martín (17/10, ~05:00 AR), para hacer DESPUÉS del urgente y ANTES de la A
+
+**El renombre te deja en «No existe este chat».** «Le pedí que renombre el chat, lo hizo, pero falta que
+automáticamente me posicione en el mismo chat que estaba, porque me dejó en una tab tipo "No existe este chat".» La URL
+elige el chat por NOMBRE (`?centro=nombre:video generator`), y al renombrarlo el nombre viejo deja de existir. El arreglo:
+- el chat abierto se sigue por un id estable: la sesión `local_…`, o el jefe con su clave. `chatDeClave`
+  (lib/centro-chats.ts) ya acepta una sesión;
+- si llega una URL con un nombre que ya no está, se busca en los renombres recientes y se redirige al chat nuevo, sin
+  mostrar «No existe este chat». Los renombres los manda la caja como trabajo (`textoDeRenombre`), así que se puede
+  guardar el par viejo→nuevo al mandarlo;
+- lo mismo en el teléfono, con su test probado rompiéndolo.
+
+**La lista de chats: fuera «Sin asignar», y arriba lo que importa.** «No entiendo el desplegable de "Sin asignar", no
+tiene sentido, elimínalo... Y que los chats trabajando siempre estén arriba... Y los que tienen notificaciones también.»
+1. Fuera el grupo y el desplegable «Sin asignar»: los chats van en una sola lista (`seccionesDeChats`,
+   lib/centro-chats.ts).
+2. El orden: primero los que están TRABAJANDO, después los que tienen NOTIFICACIONES sin leer (lo que espera a Martín),
+   y después el resto por actividad reciente. El Cerebro sigue fijo donde está.
+3. «Mostrar 12 más» queda para el resto: nunca esconde uno que trabaja o que tiene notificaciones.
+
+Va en la computadora y en el teléfono, con su test probado rompiéndolo.
+
+**Acordado con el chat Ticketera** (17/10, `local_03731046…`, rama `ticketera`):
+- la bandeja de tickets de clientes (`?ticketera=tickets`) la construye ella, con el cambio mínimo en TicketeraCentro.tsx
+  y en el botón «Ticketera» de ChatSecondBrain.tsx. Se coordina con el chat Second Brain, que toca otra parte de ese
+  archivo;
+- el mazo viejo queda como `?ticketera=tarjetas` hasta que ande el formulario de la A;
+- el aviso de un ticket-bug al Cerebro lo escribe ELLA en cartero.mjs. Va con el molde de `mensajeAviso` (texto fijo,
+  sólo el número), parte de la 1.12.0 integrada y sube a la 1.13.0. Tiene que contar sus tickets en
+  `hayParaElCartero`, o `vigilar` no se entera. **El Ops Center lo revisa antes de que el Cerebro lo integre.**
+
 ## EL FEEDBACK DE MARTÍN DEL 17/10 (~04:45 AR) — A a I, VA ANTES QUE TODO, en este orden
 
 Llegó por el Cerebro, con capturas: la caja con 4 chips, «Plan 1/1» con «Review», la tarjeta «Cuenta 3/4» con «Sin
@@ -131,6 +165,8 @@ chat, y la entrada «Mapa» se va. Reparto acordado con el chat Second Brain:
 | 5 | El clic sin PowerShell: medido (con Martín), el diseño corregido y cosechado | `7fc2b2a9a` | hecho |
 | 5a | El trabajo «abrir» del lado de la PC y de MaKo (cartero 1.11.0: `abrir`, `abrir-permitir`) | `cd1587939` | en la revisión de seguridad del Cerebro |
 | 5b | «Abrir» en «Nuevo chat», computadora y teléfono | `3af6a4e5e` | pasada al Cerebro |
+| 5c | Los defectos de la revisión del clic (`abrir-permitir` cerrado, aperturas que vencen; cartero 1.11.1) | `327dcb86d` | pasada, va con la 5a y la 5b |
+| vigilar | El urgente, parte 1: la entrega en segundos (cartero 1.12.0, `?hay=`, el paso 2a del Runner) | ver `git log` | pasada al Cerebro, va con la 5a, 5b y 5c |
 
 **Lo que hace el Cerebro con la 5:** cuando la 5a pase su revisión de seguridad, instala el cartero **1.11.0** y le pasa
 al Runner los pasos nuevos de `INSTRUCCIONES_RUNNER` (lib/runner.ts): el 2c, correr `abrir` si `ciclo` trae aperturas, y

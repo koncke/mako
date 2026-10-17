@@ -53,6 +53,8 @@
 //   repo <ruta>                    el clon desde el que los chats leen la Ticketera (default: el de
 //                                  OneDrive); va en el aviso de una respuesta
 //   estado [cuenta]                qué tiene configurado, en qué carpeta corre y qué ve
+//   vigilar [cuenta] [--max-seg N] (1.12.0) lo que corre el cron del Runner: la vuelta, y espera hasta N s (tope 105)
+//                                  consultando cada pocos segundos; sale apenas hay algo para entregar o abrir
 //   ciclo [cuenta]                 una vuelta: sube lo que ve y los acuses; dice qué entregar. Sin
 //                                  cuenta, por todas las de su carpeta
 //   pendientes [cuenta]            lo del buzón que le toca mandar a ESTE Runner (su carpeta)
@@ -74,7 +76,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.11.1';
+export const VERSION = '1.12.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1184,6 +1186,75 @@ function estado(cuenta) {
   };
 }
 
+// ── vigilar (1.12.0, 17/10/2026): que lo que manda Martín salga en SEGUNDOS ──────────────────────────────────────────────
+// Martín: «Envié un mensaje y no pasó nada por varios segundos... Debería automáticamente comenzar a trabajar». Medido: el
+// Runner da una vuelta cada 2 minutos, y un trabajo esperaba hasta 2 minutos en la cola. `vigilar` es lo que corre el
+// cron del Runner en lugar de `ciclo`: la vuelta completa al empezar, y después una consulta LIVIANA cada pocos segundos
+// (`?hay=`: un número, sin subir nada); apenas hay algo, la vuelta completa y sale con lo que hay que entregar.
+// ⚠️ TIENE QUE TERMINAR BAJO LOS 120 s DEL BASH DEL RUNNER, aun con MaKo lento: no arranca una vuelta completa si la
+//    última, con margen, no entra en lo que queda (`TOPE_VIGILAR_SEG`).
+// ⚠️ SI LA CONSULTA LIVIANA FALLA, CAE A LA VUELTA COMPLETA (con su espera mínima entre una y otra), no al silencio.
+/** Cada cuánto pregunta (los tests lo achican con CARTERO_VIGILAR_MS). */
+const CADA_VIGILAR_MS = Math.max(100, Number(process.env.CARTERO_VIGILAR_MS) || 4000);
+/** Entre dos vueltas completas, como mínimo: si `hay` dice que sí y la vuelta no reclama nada, no se repite cada 4 s. */
+const ENTRE_VUELTAS_MS = Math.max(CADA_VIGILAR_MS, Number(process.env.CARTERO_ENTRE_VUELTAS_MS) || 30_000);
+/** El tope de todo `vigilar`: el Bash del Runner corta a los 120 s. */
+export const TOPE_VIGILAR_SEG = 105;
+
+/** La consulta liviana: cuántos trabajos esperan a las cuentas de esta carpeta (o a la pedida). */
+async function hayAlgo(cuenta, cfg = config(), propio = dirPropio(cfg)) {
+  const cuentas = cuenta ? [cuenta] : cuentasDeLaCarpeta(cfg, propio);
+  if (!cuentas.length || !cfg.token) return 0;
+  const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
+  const abre = cuentas.filter((c) => puedeAbrir(cfg, c));
+  const r = await fetch(`${url}/api/operaciones/cartero?hay=${cuentas.join(',')}&abre=${abre.join(',')}`, {
+    headers: { authorization: `Bearer ${cfg.token}` }, signal: AbortSignal.timeout(10_000),
+  });
+  if (!r.ok) throw new Error(`MaKo contestó ${Number(r.status) || 0}`);
+  const o = await r.json().catch(() => ({}));
+  return Math.max(0, Number(o?.hay) || 0);
+}
+
+/** Vigila hasta `maxSeg` (tope TOPE_VIGILAR_SEG) y devuelve lo mismo que `ciclo`, más cuánto vigiló. */
+async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
+  const inicio = ahora();
+  const fin = inicio + Math.min(Math.max(Number(maxSeg) || 100, 1), TOPE_VIGILAR_SEG) * 1000;
+  const cfg = config();
+  const propio = dirPropio(cfg);
+  let t0 = ahora();
+  let r = await vuelta(cuenta);
+  let ultima = ahora();
+  let dura = Math.max(ultima - t0, 2000);
+  let consultas = 0;
+  const hayQueEntregar = (x) => (x.entregar?.length ?? 0) > 0 || (x.aperturas ?? 0) > 0;
+  while (!hayQueEntregar(r)) {
+    // ¿Entra otra espera y, con margen, otra vuelta completa? Si no, se termina acá.
+    if (ahora() + CADA_VIGILAR_MS + dura * 1.5 > fin) break;
+    await new Promise((ok) => setTimeout(ok, CADA_VIGILAR_MS));
+    // Lo que otro Runner ya dejó en el buzón de esta carpeta: sale sin preguntarle a nadie.
+    const locales = pendientes(cuenta, propio);
+    if (locales.length) { r = { ...r, entregar: locales }; break; }
+    let hay = 0;
+    let fallo = false;
+    try { hay = await hayAlgo(cuenta, cfg, propio); consultas++; } catch (e) { fallo = true; log(`VIGILAR: la consulta falló (${textoRemoto(e.message)}): cae a la vuelta completa`); }
+    if ((hay > 0 || fallo) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && ahora() + dura * 1.5 <= fin) {
+      t0 = ahora();
+      r = await vuelta(cuenta);
+      ultima = ahora();
+      dura = Math.max(ultima - t0, 2000);
+      if (!hayQueEntregar(r) && hay > 0) { // dijo que sí y no reclamó nada: espera antes de otra vuelta completa
+        const hasta = ahora() + ENTRE_VUELTAS_MS;
+        while (ahora() < hasta && ahora() + CADA_VIGILAR_MS + dura * 1.5 <= fin) {
+          await new Promise((ok) => setTimeout(ok, CADA_VIGILAR_MS));
+          const loc = pendientes(cuenta, propio);
+          if (loc.length) { r = { ...r, entregar: loc }; break; }
+        }
+      }
+    }
+  }
+  return { ...r, vigilo: Math.round((ahora() - inicio) / 1000), consultas };
+}
+
 async function esperar(cuenta, maxSeg) {
   const fin = Date.now() + maxSeg * 1000;
   while (Date.now() < fin) {
@@ -1268,9 +1339,10 @@ if (esMain) {
         imprimir({ ok: true, cuenta: c, chats: anotarNube(c, resto) }); break;
       }
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
+      case 'vigilar': { const i = resto.indexOf('--max-seg'); imprimir(await vigilar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) : 100)); break; }
       case 'esperar': { const i = resto.indexOf('--max-seg'); await esperar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) || 3000 : 3000); break; }
       default:
-        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | nube | abrir | abrir-permitir | esperar | uso\n');
+        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | nube | abrir | abrir-permitir | vigilar | esperar | uso\n');
         process.exit(1);
     }
   } catch (e) {
