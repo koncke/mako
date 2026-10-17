@@ -9187,3 +9187,20 @@ Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra
 - **Un estado que se corrige con un fetch nace con lo que sabe el server, nunca con un literal**: el Sidebar nacía con
   «Mauricio Bustos», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
   usan el layout y `/api/auth/me`, y de ningún otro lado.
+
+# Lo que paga el negocio decide qué abre: un negocio PAUSADO no se abre, y una API de una sola tab va en `TAB_DE_API`
+
+Desde el 17/10/2026 (docs/hallazgos-planes-y-cobro.md → «Quien deja de pagar deja de entrar»):
+
+- **El workspace de una sesión sale de `getWorkspaceActual()`, y para un negocio pausado es `null`** (lo pausa /admin o
+  el cron de la pasarela cuando se terminó lo pagado, lib/plan-acceso.ts). Código nuevo que resuelva el negocio por otro
+  lado —`sesion.ws` directo, la cookie, un token— tiene que preguntar `negocioPausado(ws)` (lib/workspace.ts); la API de
+  MaKo ya lo hace en `autenticar`. Al super admin no lo toca.
+- **Una ruta nueva de `app/api` que usa UNA sola tab va en `TAB_DE_API` (lib/api-tab.ts)**: así un plan que no compró esa
+  tab no la usa por `fetch`. Una que usan varias tabs, NO (va en `COMPARTIDAS`): cortarla por carpeta rompe lo que el plan
+  sí compra. `tests/api-tab.test.ts` barre que nadie llame una de la tabla desde otra tab.
+- **«No está en tu plan» lo dice `requireCapa`, en un solo lugar** (redirige a /no-esta-en-tu-plan): una página nueva no
+  arma su propio cartel ni su propio redirect.
+- **Marcar a mano una cuota pasa por `marcarPago` o `cobrarCuota`** (lib/pagos.ts), que le preguntan antes a la pasarela
+  si su link ya se cobró. Un camino de la PASARELA que marca una cuota pasa `{ mirarLinks: false }`: si no, se pregunta a
+  sí misma.
