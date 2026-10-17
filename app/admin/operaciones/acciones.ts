@@ -32,6 +32,13 @@ import { guardarBorradorDe, leerBorradorDe } from '@/lib/centro-borradores-db';
 import type { Borrador } from '@/lib/centro-caja';
 import { leerTareasDelChat } from '@/lib/centro-plan-auto';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
+import { leerMarcasDe, marcarDe } from '@/lib/centro-mensajes-db';
+import { guardarAlias, leerCuentasConNombre } from '@/lib/centro-titulares-db';
+import { CUENTA_RE } from '@/lib/operaciones-reglas';
+import { aliasValido, type CuentasConNombre } from '@/lib/centro-titulares';
+import { leerPasos } from '@/lib/centro-pasos-db';
+import type { PasosPorChat } from '@/lib/centro-pasos';
+import { sanearCambio, type MarcasChat } from '@/lib/centro-mensajes';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
@@ -41,14 +48,18 @@ const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo
  *  de la lista; las preguntas mismas viajan con los turnos del chat abierto). */
 export type FotoCentro = {
   ok: true; pedidos: Pedido[]; carteros: EstadoCarteros; decisiones: DecisionEspera[] | null; preguntasAbiertas: Record<string, number>;
+  /** El nombre y el email de cada cuenta (la G, 17/10/2026). */
+  cuentas: CuentasConNombre;
+  /** Lo que están haciendo AHORA los chats ocupados (la E): sus últimos pasos, si se subieron hace poco. */
+  pasos: PasosPorChat;
 } | { ok: false; error: string };
 
 export async function fotoCentroAction(): Promise<FotoCentro> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
-    const [pedidos, carteros, decisiones, preguntasAbiertas] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas()]);
-    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas };
+    const [pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas(), leerCuentasConNombre(), leerPasos()]);
+    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
@@ -64,17 +75,47 @@ export async function pushesCentroAction(): Promise<LecturaPushes> {
 
 /** Lo que se dijo en un chat (sus sesiones, las de todas sus cuentas), para su conversación (17/10/2026: «los chats no
  *  se entienden»). Lo pide la pantalla al abrir un chat y en cada refresco de ese chat; los demás no viajan. */
-export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null; tareas: TareaDelChat[] } | { ok: false; error: string }> {
+export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null; tareas: TareaDelChat[]; marcas: MarcasChat | null } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   if (!Array.isArray(locales)) return { ok: false, error: 'Falta el chat.' };
   const validos = locales.filter((l): l is string => typeof l === 'string');
   // Las preguntas del chat y su borrador viajan con lo que se dijo en él: son parte de su conversación (17/10/2026).
-  const [turnos, preguntas, borrador, tareas] = await Promise.all([
+  // Y las marcas de Martín en sus mensajes (reacciones, destacados, fijados, eliminados para él: lib/centro-mensajes.ts).
+  const [turnos, preguntas, borrador, tareas, marcas] = await Promise.all([
     leerTurnos(validos), leerPreguntas(validos), typeof direccion === 'string' ? leerBorradorDe(direccion) : Promise.resolve(null),
-    leerTareasDelChat(validos),
+    leerTareasDelChat(validos), typeof direccion === 'string' ? leerMarcasDe(direccion) : Promise.resolve(null),
   ]);
-  return { ok: true, turnos, preguntas, borrador, tareas };
+  return { ok: true, turnos, preguntas, borrador, tareas, marcas };
+}
+
+/** El nombre que Martín le pone a una cuenta en el Uso (la G, 17/10/2026). Vacío vuelve al del titular. Vive en MaKo, nunca
+ *  en cuentas.tsv: ése es de la PC y del hook del 97%. */
+export async function guardarAliasCuentaAction(cuenta: string, alias: string): Promise<{ ok: true; cuentas: CuentasConNombre } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof cuenta !== 'string' || !CUENTA_RE.test(cuenta) || typeof alias !== 'string') return { ok: false, error: 'Elige la cuenta otra vez.' };
+  const v = aliasValido(alias);
+  if (!v.ok) return v;
+  try {
+    return { ok: true, cuentas: await guardarAlias(cuenta, v.alias) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Una marca de Martín sobre un mensaje (17/10/2026, lo de WhatsApp): reaccionar, destacar, fijar o eliminar para él. NO
+ *  va al chat: se guarda en MaKo para que se vea igual en la computadora y en el teléfono. */
+export async function marcarMensajeAction(direccion: string, cambio: unknown): Promise<{ ok: true; marcas: MarcasChat } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  const c = sanearCambio(cambio);
+  if (typeof direccion !== 'string' || !c) return { ok: false, error: 'Elige el mensaje otra vez.' };
+  try {
+    return { ok: true, marcas: await marcarDe(direccion, c) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
 }
 
 /** Guarda el borrador de un chat en MaKo, para que cruce al teléfono (17/10/2026, la B). Sólo si es más nuevo. */

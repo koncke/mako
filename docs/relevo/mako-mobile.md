@@ -3,6 +3,25 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 17/10/2026 ~15:55 (claude4, el cuarto Ops Center) — LO QUE HACE LENTO AL TELÉFONO, visto desde el Ops Center
+
+Martín: «Cuando estoy en un chat y le doy para atrás en mobile, tarda bastante en reaccionar... En general en mobile no
+funciona rápido todo como debería». El Ops Center lo midió y lo arregló en SUS pantallas (docs/hallazgos-operaciones.md,
+«El "atrás" lento del teléfono»). Lo que vale para las pantallas de /m de los demás, para que cada dueño lo mire en la suya:
+- **Medido en el Centro:** una lista larga que calcula algo POR FILA en el render (un historial, una vista previa) y una
+  conversación que vuelve a parsear su Markdown se redibujan enteras con CADA TECLA de una caja y con cada hoja que abre o
+  cierra, si el estado de la caja vive arriba de la lista. El arreglo: la fila como `memo` con props estables (los datos
+  calculados una vez, en un `useMemo` del padre o del motor) y callbacks estables por ref (AGENTS.md, la regla del Centro).
+  Buscar en cada /m: un `.map(` de filas que llama una función cara adentro, y una caja controlada cuyo estado vive en el
+  mismo componente que la lista.
+- **Sin medir (sospecha, para quien tenga una pantalla con muchas hojas):** cada `SheetM` que abre o cierra pasa por el
+  router de Next (`pushState` parcheado → `ACTION_RESTORE` en una transición, node_modules/next/dist/client/components/
+  app-router.js): vuelve a dibujar el árbol de la página. Leído en Next 16.2.6, NO pide nada al servidor con el mismo
+  árbol, así que el costo es de React, no de red. Si una pantalla con hojas sigue lenta después de memorizar sus filas,
+  medir eso antes de tocar SheetM (es de todos).
+- **Cómo medir sin `next build`:** esbuild del componente real con stubs + Chrome headless con la CPU ×4 (la receta, en el
+  hallazgo del Centro). El `jsdom` del clon está roto: no sirve para esto.
+
 ## 17/10/2026 (claude4, «Mobile 1») — LAS TABS DE CREACIÓN EN EL TELÉFONO
 
 Pedido de Martín (17/10, 12:56, desde el Centro): «Implementa completamente MaKo Mobile en todas las tabs… Siempre copia

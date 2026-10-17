@@ -138,6 +138,46 @@ test('con MaKo lento termina a tiempo: no arranca una vuelta que no entra', asyn
   }
 });
 
+// EL BUG DE LAS 0 CONSULTAS (1.15.1, 17/10/2026). El Runner: tres `vigilar --max-seg 100` seguidos sin una consulta liviana, el
+// último de 78 s. La guarda pedía que entrara una consulta MÁS una vuelta completa ×1,5 con `dura` la de la primera vuelta (la
+// que sube los chats de cada cuenta de la carpeta, 30-80 s): el bucle no corría nunca. Contra un MaKo lento (vueltas de 2,5 s y
+// un tope de 6 s) se reproduce igual.
+// Probado ROMPIÉNDOLO (17/10/2026, base en 9 pases): la guarda de antes (`ahora() + CADA_VIGILAR_MS + dura * 1.5 > fin`) → 2
+// fallos (0 consultas en el primero; el segundo sale al final sin `otraVez`); `otraVez` sin la base (cualquier `hay` > 0) → 1
+// fallo (el pendiente trabado).
+test('con la primera vuelta lenta, IGUAL consulta liviano: el bug de las 0 consultas', async () => {
+  const x = await pc({ hay: () => 0, lento: 2500 });
+  try {
+    const { salida } = await x.vigilar(6);
+    assert.ok(salida.consultas >= 3, `consultó ${salida.consultas} veces`);
+    assert.equal(x.cuenta.vueltas, 1);
+  } finally {
+    x.cerrar();
+  }
+});
+
+test('si llega algo nuevo y la vuelta completa no entra, sale YA con `otraVez` (el Runner lo corre de nuevo)', async () => {
+  const x = await pc({ hay: (n) => (n >= 3 ? 1 : 0), lento: 2500 });
+  try {
+    const { salida, ms } = await x.vigilar(6);
+    assert.equal((salida as { otraVez?: boolean }).otraVez, true);
+    assert.ok(ms < 4800, `salió a los ${ms} ms, no al final`);
+    assert.equal(x.cuenta.vueltas, 1, 'la segunda no entraba: la da el próximo vigilar');
+  } finally {
+    x.cerrar();
+  }
+});
+
+test('un pendiente que esta PC no reclama no hace correr al Runner sin parar', async () => {
+  const x = await pc({ hay: () => 1, lento: 2500 });
+  try {
+    const { salida } = await x.vigilar(6);
+    assert.equal((salida as { otraVez?: boolean }).otraVez, undefined, 'ya estaba antes de la primera consulta: no es nuevo');
+  } finally {
+    x.cerrar();
+  }
+});
+
 test('la consulta devuelve sólo un número, con el token, y los «nuevo» sólo de quien abre; el Runner corre `vigilar`', async () => {
   const ruta = sinComentarios(leer('app/api/operaciones/cartero/route.ts'));
   const get = ruta.slice(ruta.indexOf('export async function GET'), ruta.indexOf('export async function POST'));
@@ -150,6 +190,7 @@ test('la consulta devuelve sólo un número, con el token, y los «nuevo» sólo
   assert.doesNotMatch(hay, /\.(update|insert|upsert|delete)\(/, 'no escribe nada');
   const { INSTRUCCIONES_RUNNER, COMANDO_RUNNER } = await import('../lib/runner');
   assert.ok(INSTRUCCIONES_RUNNER.includes(`${COMANDO_RUNNER} vigilar --max-seg 100`));
+  assert.match(INSTRUCCIONES_RUNNER, /otraVez: true`.*córrelo de nuevo en el acto/, 'el Runner sabe qué hacer con `otraVez`');
   const cartero = await import('../scripts/operaciones/cartero.mjs');
   assert.ok(cartero.TOPE_VIGILAR_SEG <= 105, 'bajo los 120 s del Bash, con margen');
 });
