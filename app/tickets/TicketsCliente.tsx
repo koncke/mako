@@ -13,37 +13,10 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { Button, EmptyState, ErrorState, Status, Textarea, type Tono } from '@/app/_ui';
 import { TIPOS, TOPES, type EstadoCliente, type TicketCliente, type TipoTicket } from '@/lib/tickets-reglas';
 import { contestarTicketAction, levantarTicketAction, verMiTicketAction } from './acciones';
+// El contexto y el «hace un rato» los comparte con el teléfono (app/m/tickets): una sola copia.
+import { contextoDelNavegador, hace } from './navegador';
 
 const TONO_ESTADO: Record<EstadoCliente, Tono> = { recibido: 'neutral', en_curso: 'info', tu_respuesta: 'warn', resuelto: 'good', cerrado: 'neutral' };
-
-const rtf = typeof Intl !== 'undefined' ? new Intl.RelativeTimeFormat('es', { numeric: 'auto' }) : null;
-function hace(iso: string): string {
-  const s = (Date.parse(iso) - Date.now()) / 1000;
-  if (!rtf || !Number.isFinite(s)) return '';
-  const a = Math.abs(s);
-  if (a < 60) return 'recién';
-  if (a < 3600) return rtf.format(Math.round(s / 60), 'minute');
-  if (a < 86_400) return rtf.format(Math.round(s / 3600), 'hour');
-  return rtf.format(Math.round(s / 86_400), 'day');
-}
-
-/** Lo que el NAVEGADOR sabe de dónde venía la persona. Se limpia en el servidor (`sanearContexto`). */
-function contextoDelNavegador(): Record<string, unknown> {
-  try {
-    let ruta: string | undefined;
-    if (document.referrer) {
-      const u = new URL(document.referrer);
-      if (u.origin === window.location.origin && !u.pathname.startsWith('/tickets')) ruta = `${u.pathname}${u.search}`;
-    }
-    return {
-      ...(ruta ? { ruta } : {}), chat: { donde: 'reportar-problema' },
-      navegador: navigator.userAgent, pantalla: `${window.innerWidth}x${window.innerHeight}`,
-      zona: Intl.DateTimeFormat().resolvedOptions().timeZone, idioma: navigator.language, hora: new Date().toISOString(),
-    };
-  } catch {
-    return {};
-  }
-}
 
 export function TicketsCliente({ tickets: iniciales, error, abierto: abiertoInicial }: {
   tickets: TicketCliente[]; error: string | null; abierto: TicketCliente | null;

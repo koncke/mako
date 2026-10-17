@@ -50,7 +50,7 @@ import { join } from 'node:path';
 import { FAMILIAS, MAKO_NAV, type NavItem } from '../app/_components/nav';
 import { CAPAS, tabEnCapa, type CapaId } from '../lib/capas';
 import {
-  DESTINOS_MOVIL, FAMILIAS_MAS, QUERY_DE_SECCION, RUTA_MAS, SECCIONES_MAS, barraMovil, gruposMas, puedeVerKey,
+  DESTINOS_MOVIL, EN_CAMINO, FAMILIAS_MAS, QUERY_DE_SECCION, RUTA_MAS, SECCIONES_MAS, SOLO_ESCRITORIO, barraMovil, gruposMas, puedeVerKey,
   rutaEscritorio, rutaInterna, rutaMovil, seccionesMasVisibles, tituloSeccion, type DefSeccionMas, type IdSeccionMas,
   type RolMovil,
 } from '../lib/movil-rutas';
@@ -125,16 +125,17 @@ test('cada fila de More es la de la sidebar: el nombre, el ícono, la familia y 
   }
   // Y lo que la sidebar le muestra a un cliente (sin lo «pronto» ni lo del super admin) está en la barra, en
   // More, o acá con su motivo. Una tab nueva de la sidebar no se olvida en silencio.
-  const FUERA: Record<string, string> = {
-    general: 'es General, la del medio de la barra',
-  };
+  // Desde el 17/10/2026 una tab sin sección del teléfono tiene su marca en lib/movil-rutas.ts (SOLO_ESCRITORIO o
+  // EN_CAMINO)) y More la muestra «En la computadora»; lo fija tests/movil-toda-tab.test.ts.
+  const FUERA: Record<string, string> = { general: 'es General, la del medio de la barra' };
+  const marcada = (keys: string[]) => keys.some((k) => SOLO_ESCRITORIO[k] || EN_CAMINO[k]);
   const visible = (t: NavItem) => !t.adminOnly && !t.comingSoon;
   for (const f of FAMILIAS) {
     for (const t of [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)]) {
       if (!visible(t) || (t.secciones && !t.secciones.some(visible))) continue;
       const keys = [t.key, ...(t.secciones ?? []).map((x) => x.key)];
       const esta = DESTINOS_MOVIL.some((d) => d.navKey && keys.includes(d.navKey)) || SECCIONES_MAS.some((s) => keys.includes(s.navKey));
-      assert.ok(esta || FUERA[t.key], `«${t.label}» (${f.label}) está en la sidebar y no en el teléfono, sin un motivo en FUERA`);
+      assert.ok(esta || FUERA[t.key] || marcada(keys), `«${t.label}» (${f.label}) está en la sidebar y no en el teléfono, sin un motivo en FUERA`);
       assert.ok(!(esta && FUERA[t.key]), `«${t.label}» está en el teléfono y también en FUERA`);
     }
   }
@@ -257,7 +258,8 @@ test('cada sección de More TIENE su página, con el guard de SU key', () => {
     // El Second Brain es el CHAT con MaKo desde el 16/10/2026 (entra con la key 'mako', como la fila de abajo): lo que es
     // del admin de la tab es su Mapa, que vive en su propia página con la key 'second-brain'.
     const [pagina, key] = s.id === 'second-brain' ? [archivo, 'mako'] : [archivo, s.navKey];
-    if (!leer(pagina).includes(`requireMovil({ navKey: '${key}' })`)) faltan.push(`${pagina} (sin requireMovil({ navKey: '${key}' }))`);
+    // Con opciones de la misma puerta, también (`onboarding: false` en «Reportar problema», como su `gateOnboarding: false`).
+    if (!new RegExp(String.raw`requireMovil\(\{ navKey: '${key}'(, [^}]*)? \}\)`).test(leer(pagina))) faltan.push(`${pagina} (sin requireMovil({ navKey: '${key}' }))`);
     if (s.id === 'second-brain' && !leer('app/m/second-brain/mapa/page.tsx').includes(`requireMovil({ navKey: '${s.navKey}' })`)) {
       faltan.push(`app/m/second-brain/mapa/page.tsx (sin requireMovil({ navKey: '${s.navKey}' }))`);
     }

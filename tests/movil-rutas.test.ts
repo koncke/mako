@@ -96,6 +96,8 @@ test('v3: CRM · Chats · General · Plan · More; More por las familias de la s
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
+    // 17/10/2026, «Mobile 2»: las pantallas del menú de la foto, ocultas (More arma su fila desde USER_NAV).
+    ['tickets', 'tickets', null, true],
     // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
     // (secciones de Video, Image y Copywriting: lib/movil-creacion.ts y tests/m-creacion.test.ts).
     ['video-editor', 'video-editor', null, true], ['reels', 'reels', null, true],
@@ -252,7 +254,7 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
     ['/offer', '/m/offer'], ['/offer?oferta=7&funnel=2', '/m/offer?oferta=7&funnel=2'], ['/offer-analyst', '/m/offer'],
     ['/ads-writer', '/m/copywriting'], ['/ads-writer?tab=analizar', '/m/copywriting?tab=analizar'], ['/content-machine', '/m/copywriting'],
     // Lo demás de la tab Copywriting tiene pantalla en el teléfono desde el 17/10/2026: Stories la suya
-    // (tests/m-creacion.test.ts), y las «Coming soon», la de /m/pronto.
+    // (tests/m-creacion.test.ts), y las «Coming soon», la de /m/pronto (tests/movil-toda-tab.test.ts).
     ['/youtube-writer', '/m/pronto/youtube-writer'], ['/stories', '/m/stories'], ['/ideas', '/m/pronto/ideas'],
     // Curso y Comunidad ANTES que Clientes (`dentro(p, '/customer-success')` se quedaba con las dos).
     ['/customer-success/curso', '/m/curso'], ['/customer-success/curso?producto=3', '/m/curso?producto=3'],

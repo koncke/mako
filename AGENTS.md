@@ -9014,6 +9014,15 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   página de escritorio lee la URL, las claves van en `QUERY_DE_SECCION`: un push vuelve a la computadora por
   `rutaEscritorio`, y la clave que se cae al ir al teléfono se cae también allá. Una tab UNIFICADA de escritorio se
   gatea con la key de la sección que muestra (`ads-writer`, no `copywriting`: esa no está en TODOS_LOS_ITEMS).
+- **TODA TAB NUEVA DEL NAV TIENE SU PANTALLA EN EL TELÉFONO EN EL MISMO TRABAJO** (17/10/2026, Martín: «Implementa
+  completamente MaKo Mobile en todas las tabs, porque hay muchas que aun no se pueden acceder»). Una tab, una sección
+  de una tab unificada o un ítem del menú de la foto que se suma a nav.ts sale con su página de app/m (y su fila en
+  `rutaMovil`/`rutaEscritorio`) o con una marca en lib/movil-rutas.ts: `SOLO_ESCRITORIO` con el motivo que lee la
+  persona («no disponible» no es un motivo), o `EN_CAMINO` con el chat que la escribe, sólo mientras la escribe.
+  More se DERIVA de la sidebar (`masCompleto`, con `puedeVerItem`): la tab aparece sola, con su pantalla o como «En la
+  computadora» con su hoja. `tests/movil-toda-tab.test.ts` recorre nav.ts y falla con una key sin estado, con una
+  ruta del teléfono sin página, y con una marca que quedó vieja (la tab ya tiene pantalla). Una «Coming soon» no se
+  anota: usa /m/pronto/<key> sola.
 - **Una pantalla que deja de ser fila de la sidebar NO se borra de nav.ts: va a `SIN_FILA`** (17/10/2026), y su fila
   de More queda con `oculta: true`. `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS`: sin el ítem, la
   puerta del teléfono se cierra para todos, sin error; y `rutaMovil` tira si la fila de More no está. La sidebar

@@ -36,8 +36,9 @@
 // Calendario) llena los huecos de CRM y Chats con Calendario y Dashboard, y More le queda en MaKo.
 // =============================================================================
 
-import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
+import { FAMILIAS, SUPERADMIN_MENU, TODOS_LOS_ITEMS, USER_NAV, type NavItem } from '@/app/_components/nav';
 import { tabEnCapa } from './capas';
+import { puedeVerItem, resolverTab, type VistaNav } from './nav-visibilidad';
 import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
 import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from './ruta-web-generator';
@@ -51,6 +52,8 @@ export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
 export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
   | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'mako'
+  // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
+  | 'tickets'
   | IdCreacion;
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
 export type IdBarra = DestinoMovil | IdSeccionMas;
@@ -172,6 +175,10 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Course y Community: sub-tabs de Clients desde el 17/10/2026 (arriba de las tres pantallas, app/m/cs/SeccionesClientsM.tsx).
   { id: 'curso', label: 'Classroom', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: null, oculta: true },
   { id: 'comunidad', label: 'Community', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: null, oculta: true },
+  // EL MENÚ DE LA FOTO (17/10/2026, «Mobile 2»): sus filas de More salen de USER_NAV (`masCompleto`), así que acá van
+  // OCULTAS: la fila da la cabecera (título y «volver»), el título de la pestaña y la puerta (`requireMovil({ navKey })`),
+  // y nunca sube a la barra de un rol.
+  { id: 'tickets', label: 'Reportar problema', href: '/m/tickets', icon: 'soporte', navKey: 'tickets', familia: null, oculta: true },
   // Las pantallas de CREACIÓN (17/10/2026), todas ocultas: lib/movil-creacion.ts dice por qué.
   ...SECCIONES_CREACION,
 ];
@@ -292,6 +299,143 @@ export function gruposMas(rol: RolMovil, capa: string | null | undefined): Grupo
     if (xs.length) grupos.push({ familia: f.id, titulo: f.label, secciones: xs });
   }
   return grupos;
+}
+
+// =============================================================================
+// TODA TAB DEL NAV TIENE SU LUGAR EN EL TELÉFONO (17/10/2026)
+// =============================================================================
+// Martín (17/10, desde el Centro de Operaciones): «Implementa completamente MaKo Mobile en todas las tabs, porque hay
+// muchas que aun no se pueden acceder». Lo que pasaba: More se armaba SÓLO con `SECCIONES_MAS`, así que una tab de la
+// sidebar sin pantalla del teléfono no aparecía en ningún lado (Image, AI Avatar, todo el menú de la foto), y su URL le
+// mostraba al teléfono la cubierta «se usa en la computadora» sin que nadie lo hubiera decidido.
+//
+// Desde acá, cada tab que dibuja el escritorio está en UNO de tres estados, y tests/movil-toda-tab.test.ts recorre
+// nav.ts y falla con la que no:
+//   · tiene PANTALLA: `rutaMovil(su href)` da una página de app/m que existe;
+//   · es SÓLO DE ESCRITORIO, a propósito: `SOLO_ESCRITORIO`, con el motivo que lee la persona;
+//   · su pantalla está EN CAMINO: `EN_CAMINO`, con el chat que la escribe. El guardián la cuenta como pendiente, y
+//     FALLA si ya tiene pantalla y sigue anotada (el Cerebro la saca al integrar).
+// More (`masCompleto`) se DERIVA de lo que dibuja la sidebar, con la regla de la sidebar (lib/nav-visibilidad.ts), y no
+// de una lista al lado: una tab nueva aparece sola, con pantalla o como «En la computadora».
+// =============================================================================
+
+/**
+ * Las tabs (keys de nav.ts) que NO van al teléfono, a propósito. El valor es lo que More le dice a la persona al tocar la
+ * fila (una o dos frases, sin voseo), arriba del botón que la abre igual en la versión de computadora.
+ */
+export const SOLO_ESCRITORIO: Readonly<Record<string, string>> = {
+  // Un MODO, no una pantalla: /admin/dev reemplaza la barra entera por el mapa de las 122 áreas (Sidebar → familiasDev).
+  'dev-entrar': 'Dev cambia la barra entera por los registros de cada área, los docs y el grafo. Se recorre con pantalla ancha.',
+  // /email es la CONFIGURACIÓN del canal desde el 17/10/2026 (los emails se leen en Chats): el dominio son registros DNS y
+  // las secuencias, un editor por etapa. Chats del teléfono ya dice «Conectar canales · En la computadora».
+  email: 'Conectar el dominio y armar las secuencias se hace en la computadora. Los emails se leen y contestan en Chats.',
+};
+
+/**
+ * Las tabs cuya pantalla del teléfono está EN CAMINO, con el chat que la escribe. En More se ven como «En la
+ * computadora» hasta que llega su pantalla. ⚠️ Una tab sale de acá en el MISMO commit que su pantalla: el guardián
+ * falla si la encuentra con pantalla y todavía anotada.
+ */
+export const EN_CAMINO: Readonly<Record<string, string>> = {
+  // «Mobile 1» (17/10/2026): las tabs de creación. Video Editor, Reels, AI Avatar, Image Editor, Carousels y Stories
+  // ya tienen su pantalla (lib/movil-creacion.ts); queda Copy Method.
+  'admin-copywriting': 'Mobile 1',
+  // «Mobile 2» (17/10/2026): negocio y configuración.
+  integraciones: 'Mobile 2', 'api-mako': 'Mobile 2', configuraciones: 'Mobile 2',
+  contexto: 'Mobile 2', 'modelos-ia': 'Mobile 2', conocimientos: 'Mobile 2', mensajes: 'Mobile 2',
+  // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
+  agencia: 'sin dueño', 'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño', 'admin-cobros': 'sin dueño',
+  'admin-agente': 'sin dueño',
+};
+
+/** Lo que More dice de una tab EN CAMINO (sin motivo propio): corto, y sin prometer una fecha. */
+export const MOTIVO_EN_CAMINO = 'Su versión del teléfono está en camino. Por ahora se usa en la computadora.';
+
+/**
+ * Las tabs «Coming soon» (nav.ts → `comingSoon`) se DERIVAN, no se anotan: en escritorio abren la pantalla
+ * «Coming soon» y en el teléfono, la suya (app/m/pronto/[key]). Una tab que deja de ser «pronto» pierde esta pantalla
+ * sola, y el guardián le pide la de verdad.
+ */
+export const RUTA_PRONTO = '/m/pronto';
+export function itemPronto(key: string): NavItem | null {
+  return TODOS_LOS_ITEMS.find((i) => i.comingSoon && i.key === key) ?? null;
+}
+
+/** Una fila de More. `pantalla` abre la del teléfono; `computadora`, la hoja con el motivo y «Abrir en la computadora». */
+export type FilaMas =
+  | { tipo: 'pantalla'; key: string; label: string; icon: string; href: string; seccion: IdSeccionMas | null }
+  | { tipo: 'computadora'; key: string; label: string; icon: string; href: string; motivo: string }
+  /** Un desplegable de la sidebar («Coming soon»): en el teléfono, una hoja con sus filas. */
+  | { tipo: 'grupo'; key: string; label: string; icon: string; filas: FilaMas[] };
+
+/** Una caja de More: arriba (sin título), una por familia de la sidebar, el menú de la foto y el del super admin. */
+export type GrupoMasCompleto = { id: 'arriba' | FamiliaMas | 'menu' | 'superadmin'; titulo: string | null; filas: FilaMas[] };
+
+/** El motivo de una tab sin pantalla: el de SOLO_ESCRITORIO de su key (o de una de sus secciones), o «en camino». */
+function motivoDe(keys: readonly string[]): string {
+  for (const k of keys) if (SOLO_ESCRITORIO[k]) return SOLO_ESCRITORIO[k];
+  return MOTIVO_EN_CAMINO;
+}
+
+/** La fila de More de un ítem que dibuja la sidebar, por su ruta: la pantalla del teléfono o la computadora. */
+function filaDeItem(it: NavItem, keys: readonly string[]): FilaMas {
+  const destino = rutaMovil(it.href);
+  if (destino) return { tipo: 'pantalla', key: it.key, label: it.label, icon: it.icon, href: destino, seccion: seccionDeRuta(destino)?.id ?? null };
+  return { tipo: 'computadora', key: it.key, label: it.label, icon: it.icon, href: it.href, motivo: motivoDe(keys) };
+}
+
+/**
+ * More ENTERO para esta persona (17/10/2026): lo que dibuja la sidebar de escritorio, en su orden, con la regla de la
+ * sidebar (`puedeVerItem`/`resolverTab`), menos lo que ya está en la barra.
+ *   · arriba: Second Brain (el Ops Center lo pone la página, con su propia pregunta de super admin);
+ *   · Operate y Sales Machine: cada tab con pantalla es SU fila de `gruposMas` (la regla del teléfono, que además saca
+ *     el Dashboard al closer sin su hoja); la que no tiene, una fila «En la computadora»; un desplegable, una hoja;
+ *   · el menú de la foto (sin «Tu cuenta», que es la primera fila de More) y, sólo para el super admin sin mirar un
+ *     cliente, el suyo (`SUPERADMIN_MENU`).
+ */
+export function masCompleto(rol: RolMovil, capa: string | null | undefined, adminShell: boolean): GrupoMasCompleto[] {
+  const vista: VistaNav = { adminShell, rolWs: rol ?? '', capa: capa ?? '' };
+  const conPantalla = gruposMas(rol, capa);
+  const out: GrupoMasCompleto[] = [];
+  const arriba = conPantalla.find((g) => g.familia === null);
+  if (arriba) {
+    out.push({ id: 'arriba', titulo: null, filas: arriba.secciones.map((s) => ({ tipo: 'pantalla' as const, key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id })) });
+  }
+  const enBarra = new Set(DESTINOS_MOVIL.map((d) => d.navKey).filter((k): k is string => k != null));
+  FAMILIAS.forEach((f, i) => {
+    const familia = FAMILIAS_MAS[i];
+    if (!familia) return;
+    const deFamilia = conPantalla.find((g) => g.familia === familia.id)?.secciones ?? [];
+    const usadas = new Set<IdSeccionMas>();
+    const filas: FilaMas[] = [];
+    for (const t of f.bloques.flat()) {
+      const visible = resolverTab(t, vista);
+      if (!visible) continue;
+      const keys = [t.key, ...(t.secciones ?? []).map((s) => s.key)];
+      if (keys.some((k) => enBarra.has(k))) continue;
+      const s = deFamilia.find((x) => keys.includes(x.navKey));
+      if (s) { usadas.add(s.id); filas.push({ tipo: 'pantalla', key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id }); continue; }
+      // Tiene sección en el teléfono pero la regla del teléfono no se la muestra (o subió a la barra): nada.
+      if (SECCIONES_MAS.some((x) => keys.includes(x.navKey))) continue;
+      filas.push(filaDeItem(visible, keys));
+    }
+    for (const g of f.grupos ?? []) {
+      const items = g.items.filter((it) => puedeVerItem(it, vista));
+      if (items.length) filas.push({ tipo: 'grupo', key: g.key, label: g.label, icon: g.icon, filas: items.map((it) => filaDeItem(it, [it.key])) });
+    }
+    // Lo que la regla del teléfono muestra y la sidebar no (no debería pasar): se queda, como antes del 17/10/2026.
+    for (const s of deFamilia) {
+      if (!usadas.has(s.id)) filas.push({ tipo: 'pantalla', key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id });
+    }
+    if (filas.length) out.push({ id: familia.id, titulo: familia.label, filas });
+  });
+  // El menú de la foto, como lo dibuja el Sidebar (`!soloSeccion`, `adminOnly` sólo para el super admin), sin Tu cuenta.
+  const menu = USER_NAV
+    .filter((it) => it.key !== 'perfil' && !it.soloSeccion && (!it.adminOnly || adminShell) && puedeVerItem(it, vista))
+    .map((it) => filaDeItem(it, [it.key]));
+  if (menu.length) out.push({ id: 'menu', titulo: null, filas: menu });
+  if (adminShell) out.push({ id: 'superadmin', titulo: null, filas: SUPERADMIN_MENU.map((it) => filaDeItem(it, [it.key])) });
+  return out;
 }
 
 /** La sección de More dueña de esta ruta (`/m/ads/123` → Ads Manager), o null. */
@@ -424,6 +568,12 @@ export function rutaMovil(href: string | null | undefined): string | null {
     return RUTA_CHATS;
   }
   if (p === '/plan' || p === '/plan/agencia' || p === '/todo') return '/m/plan';
+  // «Reportar problema» (17/10/2026): la lista, y UN ticket por su `?t=` (el link del aviso), como en la computadora.
+  // Sólo /tickets: /tickets/decisiones es la Ticketera del Centro (arriba) y /tickets/bandeja, la del super admin.
+  if (p === '/tickets') {
+    const t = Number(q.get('t'));
+    return Number.isSafeInteger(t) && t > 0 ? `/m/tickets/${t}` : '/m/tickets';
+  }
   if (p === '/perfil' || (p === '/configuraciones' && q.get('tab') === 'notif')) return '/m/cuenta';
   // Las secciones de More (v2). Cada una cae en su sección. Donde el id es EL MISMO en los dos
   // lados (el plan de un video, una landing de landing_docs), va a la pantalla de ESA cosa; un
@@ -482,9 +632,12 @@ export function rutaMovil(href: string | null | undefined): string | null {
   const landing = p.match(/^\/(?:web-generator|landing-generator)\/(\d+)$/);
   if (landing) return `/m/landing/${landing[1]}`;
   if (dentro(p, RUTA_WEB_GENERATOR) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => dentro(p, r))) return '/m/landing';
-  // Las tabs de CREACIÓN (17/10/2026): Video Editor, Image Editor, AI Avatar, Reels, Stories, Carousels y las «pronto».
+  // Las tabs de CREACIÓN (17/10/2026): Video Editor, Image Editor, AI Avatar, Reels, Stories y Carousels.
   const creacion = rutaMovilCreacion(p, q);
   if (creacion) return creacion;
+  // Las «Coming soon» (17/10/2026), AL FINAL: una tab que tenga su pantalla de verdad la nombra más arriba y gana.
+  const pronto = TODOS_LOS_ITEMS.find((i) => i.comingSoon && i.match(p));
+  if (pronto) return `${RUTA_PRONTO}/${pronto.key}`;
   return null;
 }
 
@@ -567,6 +720,8 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/decisiones') { destino = '/admin/operaciones'; q.set('ticketera', 'lista'); }
   else if (p === '/m/tickets/decisiones') { destino = '/admin/operaciones'; q.set('ticketera', 'tarjetas'); }
   else if (p === '/m/operaciones') destino = '/admin/operaciones';
+  else if (p === '/m/tickets') destino = '/tickets';
+  else if ((m = p.match(/^\/m\/tickets\/(\d+)$/))) { destino = '/tickets'; q.set('t', m[1]); }
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
   else if (p === '/m/cuenta/seguridad') destino = '/perfil/seguridad';
   else if (p === '/m/cuenta') destino = '/perfil';
@@ -594,6 +749,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/video') destino = '/video-generator';
   else if ((m = p.match(/^\/m\/landing\/([^/]+)$/))) destino = `${RUTA_WEB_GENERATOR}/${m[1]}`;
   else if (p === '/m/landing') destino = RUTA_WEB_GENERATOR;
+  else if ((m = p.match(/^\/m\/pronto\/([^/]+)$/))) destino = itemPronto(m[1])?.href ?? null;
   // Las tabs de CREACIÓN (17/10/2026): la carpeta de /m se llama como la ruta de escritorio (lib/movil-creacion.ts).
   if (!destino) destino = rutaEscritorioCreacion(p);
   if (!destino) return href;

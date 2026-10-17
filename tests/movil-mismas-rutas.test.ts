@@ -55,7 +55,11 @@ function paginasDeM(): string[] {
         .replace(/video\/\[id\]/, `video/${UUID}`)
         .replace(/landing\/\[id\]/, 'landing/42')
         .replace(/dashboard\/\[hoja\]/, 'dashboard/mi-hoja')
-        .replace(/chats\/\[clave\]/, 'chats/lead%3A12'));
+        .replace(/chats\/\[clave\]/, 'chats/lead%3A12')
+        // Las «Coming soon» (17/10/2026): una pantalla para todas, por la key del ítem de nav.ts.
+        .replace(/pronto\/\[key\]/, 'pronto/closing-script')
+        // UN ticket de «Reportar problema» (17/10/2026): en la computadora, /tickets?t=12.
+        .replace(/tickets\/\[id\]/, 'tickets/12'));
     }
   };
   recorrer(join(RAIZ, 'app', 'm'));
