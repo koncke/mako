@@ -800,6 +800,21 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // La copia del recordatorio de clases (17/10/2026, «nada por detrás», lote 2): un renglón por sección, y cada lista es
+    // un dato que sólo viene si tiene a alguien (`datosRecordatorioDueno`): la sección vacía se va entera.
+    id: 'mako-curso-recordatorio',
+    nombre: 'MaKo Recordó sus Clases a los Clientes',
+    emoji: '📚',
+    linea: 'Le cuenta al grupo de un negocio a qué clientes del curso les recordó sus videos, y a quién no.',
+    origen: 'el cron del curso (curso-sesiones), una vez por corrida y por negocio',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'curso_recordatorio' },
+    pasos: [
+      mako('cr_mk', 'Recordé sus videos pendientes a {{recordatorio_cuantos}} con {{recordatorio_dias}} días sin entrar:{{recordatorio_enviados}}\nNo llegó el recordatorio a:{{recordatorio_no_llego}}\nNo pude escribir a:{{recordatorio_sin_escribir}}', null),
+    ],
+  },
+  {
     // El reporte de los lunes (16/10/2026, docs/diseno-avisos-plataforma.md §6): lo arma el cron de cada negocio con sus
     // preferencias, y sale POR EMAIL al equipo del negocio, como hasta hoy (nunca por WhatsApp: `REPORTE_POR_WHATSAPP`).
     // El asunto y el cuerpo son los de `despacharReporte` (lib/notify.ts). Sin firma: el correo ya la lleva al pie.

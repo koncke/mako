@@ -332,6 +332,8 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'reunion-cancelada',
   // El contacto que entró y se sumó a un lead que ya estaba (17/10/2026, lote 2), con el freno por lead.
   'lead-fusionado',
+  // La copia del recordatorio de clases (17/10/2026, lote 2): evento de la plataforma con su texto en la fila.
+  'curso-recordatorio-clases',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -765,7 +767,8 @@ Escríbele hoy o agenda una sesión.`,
     id: 'curso-recordatorio-clases', titulo: 'Recordatorio de clases', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron curso-sesiones (cada hora, de 9 a 21): a un cliente invitado al curso que lleva 3 días sin entrar al portal se le recuerdan los videos sin ver de su etapa, uno cada 3 días como mucho. Esta es la copia: a quién y qué.',
-    ejemplo: `Les recordé sus videos pendientes a 2 clientes con 3 días sin entrar:
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `curso_recordatorio`, lote 2).
+    ejemplo: `Recordé sus videos pendientes a 2 clientes con 3 días sin entrar:
 · *Ana Ruiz* (*Norte*): Cómo leer tu tablero, Tu primera meta
 · *Luis Paz* (*Contexto*): Bienvenida al programa`,
   },

@@ -194,7 +194,7 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
 export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer'
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
-  | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado';
+  | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -224,7 +224,7 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'reporte' | 'oferta' | 'anuncios'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'reporte' | 'oferta' | 'anuncios'>; retirado?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -292,6 +292,9 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // ENTRA UN CONTACTO QUE YA ESTABA (17/10/2026, lote 2: el freno estaba al revés, sin clave). Meta, Calendly o Cal.com
   // lo encuentran por teléfono o email y MaKo lo suma al lead de siempre (`avisarFusion`, lib/leads.ts, `datosFusion`).
   { subtipo: 'lead_fusionado', aviso: 'lead-fusionado', label: 'Entra un contacto que un negocio ya tenía y MaKo lo suma a su lead', trae: ['lead', 'fusion'], plataforma: true },
+  // MaKO LES RECORDÓ SUS CLASES A LOS CLIENTES DE UN NEGOCIO (17/10/2026, lote 2): la copia al grupo de una corrida del cron
+  // curso-sesiones (lib/curso-mensajes.ts, `datosRecordatorioDueno`). No es de UN lead: lleva a todos los de la corrida.
+  { subtipo: 'curso_recordatorio', aviso: 'curso-recordatorio-clases', label: 'MaKo les recuerda sus clases a los clientes de un negocio', trae: ['recordatorio'], plataforma: true },
 ];
 
 /**

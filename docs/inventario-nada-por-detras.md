@@ -57,7 +57,9 @@ faltaba. 243 entradas crudas, 132 únicas por el lugar del envío. Las líneas c
 - **Lote 2, 17/10/2026:** `reunion-cancelada` es el evento de la plataforma `reunion_cancelada` (fila #269 del ws 9, creada antes
   del deploy): el webhook de Calendly pasa sólo el lead y la reunión, y una reentrega ya no lo repite (`claveCancelada`).
   `lead-fusionado` es el evento `lead_fusionado` (fila #270): el freno pasó a ser POR LEAD (sin clave, la fusión de otro
-  lead en la hora se perdía). Quedan 6 del lote 2.
+  lead en la hora se perdía). `curso-recordatorio-clases` (la copia a Mauricio, inventariada como `curso-recordatorio-dueno`)
+  es el evento `curso_recordatorio` (fila #271). Quedan 5 del lote 2: los dos del segundo motor (`store-flujo-*`) y
+  `insistencias-drenar`, que son un cambio de arquitectura propio; `flow-puente-ausente` y `voz-mako-caida-email`.
 
 ## El orden
 

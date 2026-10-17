@@ -109,7 +109,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'reporte' | 'oferta' | 'anuncios';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'reporte' | 'oferta' | 'anuncios';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -146,6 +146,8 @@ export type VariableAviso = {
    *               webhook de Calendly (`datosCancelada`, lib/reunion-cancelada.ts).
    * · `fusion`  — necesita el CONTACTO QUE ENTRÓ Y SE SUMÓ a un lead que ya estaba (el evento de la plataforma
    *               `lead_fusionado`): lo pasa la ingesta de leads (`datosFusion`, lib/lead-fusionado.ts).
+   * · `recordatorio` — necesita la CORRIDA DEL RECORDATORIO DE CLASES de un negocio (el evento de la plataforma
+   *               `curso_recordatorio`): lo pasa el cron curso-sesiones (`datosRecordatorioDueno`, lib/curso-mensajes-texto.ts).
    * · `reporte` — necesita el REPORTE SEMANAL ya armado de un negocio (el evento de la plataforma `reporte_semanal`): lo
    *               pasa el cron de los lunes (`datosDelReporte`, lib/reporte-destino.ts).
    * · `oferta`  — necesita la OFERTA QUE MaKo TERMINÓ DE ARMAR (el evento de la plataforma `oferta_lista`): lo pasa el
@@ -153,7 +155,7 @@ export type VariableAviso = {
    * · `anuncios` — necesita la CUENTA PUBLICITARIA que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`): lo
    *               pasa el cron de las alertas críticas (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'reporte' | 'oferta' | 'anuncios';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'reporte' | 'oferta' | 'anuncios';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -391,6 +393,13 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'fusion_canal', label: 'Por dónde entró', ejemplo: 'Calendly', alcance: 'fusion', grupo: 'crm', rama: 'La fusión', fuente: 'fusion', soloPara: 'equipo' },
   { key: 'fusion_porque', label: 'Por qué es el mismo', ejemplo: 'mismo teléfono', alcance: 'fusion', grupo: 'crm', rama: 'La fusión', fuente: 'fusion', soloPara: 'equipo' },
   { key: 'fusion_link', label: 'Link a su tarjeta', ejemplo: 'https://hola-mako.com/crm/1842', alcance: 'fusion', grupo: 'crm', rama: 'La fusión', fuente: 'fusion', soloPara: 'equipo' },
+  // ── La corrida del recordatorio de clases (17/10/2026, el evento de la plataforma `curso_recordatorio`): la pasa el cron.
+  //    Cada lista arranca con su salto de línea y sólo viene si tiene a alguien: así su renglón se va entero.
+  { key: 'recordatorio_cuantos', label: 'A cuántos se les recordó', ejemplo: '2 clientes', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
+  { key: 'recordatorio_dias', label: 'Días sin entrar', ejemplo: '3', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
+  { key: 'recordatorio_enviados', label: 'A quién y qué', ejemplo: '· *Ana Ruiz* (*Norte*): Cómo leer tu tablero', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
+  { key: 'recordatorio_no_llego', label: 'A quién no le llegó', ejemplo: '· *Eva Sol*: la línea está desconectada', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
+  { key: 'recordatorio_sin_escribir', label: 'A quién no se le pudo escribir', ejemplo: '· *Juan Gil*: sin teléfono', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
   // ── El reporte de los lunes YA ARMADO (16/10/2026, el evento de la plataforma `reporte_semanal`): lo pasa el cron.
   //    Son los números del negocio (Meta, ventas, cobranza), por eso van en el Dashboard.
   { key: 'reporte_titulo', label: 'Título del reporte', ejemplo: 'Reporte semanal · 05/10/2026–11/10/2026', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
@@ -560,6 +569,8 @@ export type ContextoDatos = {
   conCancelada?: boolean;
   /** El contacto que entró y se sumó a un lead que ya estaba (el evento de la plataforma `lead_fusionado`). */
   conFusion?: boolean;
+  /** La corrida del recordatorio de clases de un negocio (el evento de la plataforma `curso_recordatorio`). */
+  conRecordatorio?: boolean;
   /** El reporte semanal ya armado de un negocio (el evento de la plataforma `reporte_semanal`). */
   conReporte?: boolean;
   /** La oferta que MaKo terminó de armar (el evento de la plataforma `oferta_lista`). */
@@ -598,6 +609,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'grabacion') return opts.conGrabacion === true;
   if (a === 'cancelada') return opts.conCancelada === true;
   if (a === 'fusion') return opts.conFusion === true;
+  if (a === 'recordatorio') return opts.conRecordatorio === true;
   if (a === 'reporte') return opts.conReporte === true;
   if (a === 'oferta') return opts.conOferta === true;
   if (a === 'anuncios') return opts.conAnuncios === true;
