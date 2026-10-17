@@ -13,9 +13,8 @@ import { Button } from '@/app/_ui/Button';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import type { ResumenDiseno } from '@/lib/image-editor/tipos';
-import {
-  BotonFlotanteM, FilaM, HuecoFlotanteM, ListaM, PieM, SeccionM, SheetM, VacioM, useConexion, useToastM,
-} from '@/app/m/_ui';
+import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useConexion, useToastM } from '@/app/m/_ui';
+import { BotonFlotanteM, HuecoFlotanteM } from '@/app/m/_ui/BotonFlotanteM';
 import { ErrorLineaM } from '../_creacion/escritor';
 import { borrarDisenoMAction, crearDisenoMAction } from './actions';
 

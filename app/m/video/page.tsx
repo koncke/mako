@@ -14,7 +14,8 @@
 
 import './video.css';
 import { requireMovil } from '@/lib/movil-guard';
-import { ComputadoraM, PantallaM, SeccionesTabM, VacioM } from '@/app/m/_ui';
+import { ComputadoraM, PantallaM, VacioM } from '@/app/m/_ui';
+import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 // La barra de secciones de la tab Video (Editor · Create with AI · Reels), como en escritorio (17/10/2026).
 import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
 import { leerVideos } from './datos';

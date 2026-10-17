@@ -13,7 +13,8 @@
 import '../ai-avatar.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { RUTA_MAS } from '@/lib/movil-rutas';
-import { CabeceraM, PantallaM, SeccionesTabM } from '@/app/m/_ui';
+import { CabeceraM, PantallaM } from '@/app/m/_ui';
+import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 import { nombreTab, seccionesTabM, vistaDe } from '../../_creacion/secciones';
 import { requireAiAvatarM } from '../puerta';
 import { PlantillasM } from './PlantillasM';

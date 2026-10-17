@@ -20,7 +20,8 @@
 import './carousels.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { perfilNegocioTexto } from '@/lib/onboarding';
-import { PantallaM, SeccionesTabM } from '@/app/m/_ui';
+import { PantallaM } from '@/app/m/_ui';
+import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
 import { CarouselsM } from './CarouselsM';
 

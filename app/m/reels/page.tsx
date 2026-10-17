@@ -21,7 +21,8 @@
 import './reels.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { estadoContextoReels, leerHistorial } from '@/app/reels/reels-datos';
-import { PantallaM, SeccionesTabM } from '@/app/m/_ui';
+import { PantallaM } from '@/app/m/_ui';
+import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
 import { ReelsM } from './ReelsM';
 

@@ -39,7 +39,8 @@ import { getDrafts } from '@/lib/ads-analyst';
 import { getAvatares } from '@/lib/avatares';
 import { getRazonesEstricto } from '@/lib/api-mako/areas/contenido.helpers';
 import { tabDeUrl } from '@/app/ads-writer/tabs';
-import { PantallaM, SeccionesTabM } from '@/app/m/_ui';
+import { PantallaM } from '@/app/m/_ui';
+import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 // La barra de secciones de la tab Copywriting (Ideas · Ads Writer · YouTube Writer · Stories), como en escritorio
 // (17/10/2026). A un cliente le queda sólo Ads Writer, y con una sección la barra no se dibuja.
 import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';

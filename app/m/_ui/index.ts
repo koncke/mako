@@ -39,5 +39,5 @@ export {
   RUBBER, VELOCIDAD_FLICK, HISTERESIS, UMBRAL_SWIPE, UMBRAL_PULL, RETENCION_PULL,
   type Muestra, type SnapSheet,
 } from './gestos';
-export { SeccionesTabM, type SeccionTabM } from './SeccionesTabM';
-export { BotonFlotanteM, HuecoFlotanteM } from './BotonFlotanteM';
+// SeccionesTabM y BotonFlotanteM (17/10/2026) NO se exportan acá: llevan su .module.css, y este índice lo importan
+// tests de node (tests/m-*.test.ts), que no cargan CSS. Se importan por su ruta: '@/app/m/_ui/SeccionesTabM'.

@@ -20,7 +20,8 @@ import './image-editor.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { listarDisenos } from '@/lib/image-editor/server';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
-import { ComputadoraM, ErrorM, PantallaM, SeccionesTabM } from '@/app/m/_ui';
+import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
+import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 import { nombreTab, seccionesTabM, vistaDe } from '../_creacion/secciones';
 import { InicioImagenM } from './InicioImagenM';
 
