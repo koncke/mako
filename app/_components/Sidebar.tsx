@@ -153,7 +153,7 @@ export function identidadStyle(open: boolean, activo: boolean): CSSProperties {
 export function Identidad({ open, nombre, avatar, subrotulo }: {
   open: boolean; nombre: string; avatar?: string; subrotulo: string;
 }) {
-  const iniciales = nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || 'MB';
+  const iniciales = nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase();
   return (
     <>
       {/* Las iniciales van sobre AZUL, no sobre el dorado: una foto de perfil
@@ -337,7 +337,13 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
   );
 }
 
-export function Sidebar() {
+/**
+ * Quién es y a quién mira, como lo sabe el server al dibujar (app/layout.tsx). Es el PRIMER cuadro: después
+ * lo confirman `/api/perfil` y `/api/auth/me` como siempre. `clienteNombre` = se está mirando a ese cliente.
+ */
+export type SidebarInicial = { nombre: string; rol: string; clienteNombre: string | null };
+
+export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const pathname = usePathname() || '';
   const searchParams = useSearchParams();
   const [sinMarcar, setSinMarcar] = useState(0);
@@ -348,13 +354,15 @@ export function Sidebar() {
   // se medía con getBoundingClientRect() mientras el ancho estaba animándose
   // de 68 a 244, así que el menú quedaba clavado encima de la barra.
   const [flyout, setFlyout] = useState<{ key: string; top: number } | null>(null);
-  const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
+  // #881: nacía con 'Mauricio Bustos' (de cuando la app era de una sola cuenta) y sin saber que se inspeccionaba,
+  // así que al entrar a un cliente el primer cuadro mostraba a Mauricio. Ahora nace con lo que dijo el server.
+  const [perfilNombre, setPerfilNombre] = useState(inicial?.nombre ?? '');
   const [perfilAvatar, setPerfilAvatar] = useState('');
-  const [rol, setRol] = useState<string>('');
+  const [rol, setRol] = useState<string>(inicial?.rol ?? '');
   const [rolWs, setRolWs] = useState<string>('');
   const [capa, setCapa] = useState<string>('');
-  const [impersonando, setImpersonando] = useState(false);
-  const [clienteNombre, setClienteNombre] = useState('');
+  const [impersonando, setImpersonando] = useState(inicial?.clienteNombre != null);
+  const [clienteNombre, setClienteNombre] = useState(inicial?.clienteNombre ?? '');
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
   /** El panel que se ensancha. Se le consulta `:hover` antes de plegar. */

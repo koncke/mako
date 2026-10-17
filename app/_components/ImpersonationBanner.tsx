@@ -10,26 +10,31 @@ import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { PanelAgencia } from './PanelAgencia';
 import { WS_PARAM } from '@/lib/ws-tab';
+import type { VistaDeOtro } from '@/lib/vista-de-otro';
 
 const MONO = "'Geist Mono', monospace";
 
-export function ImpersonationBanner() {
+/**
+ * `inicial` lo arma el layout en el server (lib/vista-de-otro.ts): con eso la barra sale en el PRIMER cuadro
+ * (#881). Antes nacía vacía y aparecía cuando contestaba `/api/auth/me`, corriendo la pantalla 50 px.
+ */
+export function ImpersonationBanner({ inicial = null }: { inicial?: VistaDeOtro | null }) {
   const pathname = usePathname() || '';
   const sp = useSearchParams();
   // El `?ws=` es parte de la identidad de lo que se está mirando: sin él en las
   // dependencias, cambiar de cliente en la misma pestaña dejaba el nombre viejo
   // en el cartel mientras los datos de abajo ya eran de otro.
   const wsUrl = sp.get(WS_PARAM) ?? '';
-  const [cliente, setCliente] = useState<string | null>(null);
+  const [cliente, setCliente] = useState<string | null>(inicial?.clienteNombre ?? null);
   const [saliendo, setSaliendo] = useState(false);
   // Cómo se entró y a dónde se vuelve. Los dos los manda `/api/auth/me`, porque
   // la respuesta depende del ROL y el navegador no lo puede decidir.
-  const [modoAgencia, setModoAgencia] = useState(false);
-  const [salida, setSalida] = useState('/customer-success');
+  const [modoAgencia, setModoAgencia] = useState(inicial?.modoAgencia ?? false);
+  const [salida, setSalida] = useState(inicial?.salida ?? '/customer-success');
   // De qué agencia es este cliente, cuando la hay. Lo DERIVA el server: un
   // parámetro de la URL se perdería en la primera navegación (ninguna de las
   // cuatro formas de navegar re-pega nada que no sea `?ws=`).
-  const [agencia, setAgencia] = useState<{ ws: number; nombre: string } | null>(null);
+  const [agencia, setAgencia] = useState<{ ws: number; nombre: string } | null>(inicial?.agencia ?? null);
 
   useEffect(() => {
     let alive = true;

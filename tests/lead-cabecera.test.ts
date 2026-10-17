@@ -226,12 +226,16 @@ test('el pop-up es más ancho, y la ruta usa el mismo ancho', () => {
 
 test('la fila de pestañas queda pegada arriba en las dos puertas, contra el ancestro que scrollea', () => {
   const tabs = codigo('app/crm/lead-view/LeadTabs.tsx');
-  assert.match(tabs, /\.\.\.\(fija \? \{ position: 'sticky' as const, top: 0, zIndex: 5, background: fija\.fondo/);
+  assert.match(tabs, /\.\.\.\(fija \? \{ position: 'sticky' as const, top: fija\.arriba \?\? 0, zIndex: 5, background: fija\.fondo/);
   // ⚠️ Desde el 14/10/2026 la fila la dibuja la ficha compartida (FichaPorBloques), con el fondo que le
   // pasa cada puerta.
-  assert.match(FICHA, /fija=\{\{ fondo: fondoTabs \}\}/);
+  assert.match(FICHA, /fija=\{\{ fondo: fondoTabs, arriba: arribaTabs \}\}/);
   assert.match(SHEET, /fondoTabs="var\(--surface\)"/);
   assert.match(BODY, /fondoTabs="var\(--bg\)"/);
+  // En la ruta se pega a la VENTANA: debajo de la barra de inspección (#850, 17/10/2026). En el pop-up scrollea
+  // adentro de la ficha: en 0.
+  assert.match(BODY, /arribaTabs="var\(--barra-agencia, 0px\)"/);
+  assert.doesNotMatch(SHEET, /arribaTabs=/);
   // En el pop-up el que scrollea es el cuerpo, que TIENE ALTO (flex: 1 en un panel topeado), y la
   // cabecera queda afuera de él: fija.
   const iCab = SHEET.indexOf('<CabeceraLead');
