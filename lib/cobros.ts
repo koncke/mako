@@ -40,7 +40,7 @@ import {
   esDevolucionFallida, montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoDevolucionFallida, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
-import { esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
+import { esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
 import { motivoSinDatos, type FaseContracargo } from './cobros-eventos';
 import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
@@ -205,11 +205,12 @@ type CuotaDelLink = { id: number; numero: number; monto_usd: number };
  */
 async function cuotaParaLink(leadId: number, pagoId: number): Promise<{ ok: true; cuota: CuotaDelLink; pendiente: Cobro | null } | { ok: false; error: string }> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('pagos').select('id, numero, monto_usd, pagado, proveedor_pago_id, proveedor, cobro_id, fecha_esperada').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  const { data, error } = await db.from('pagos').select('id, numero, monto_usd, pagado, proveedor_pago_id, proveedor, cobro_id, fecha_esperada, baja_at').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
   if (error) return { ok: false, error: `No pude leer la cuota: ${error.message}` };
   if (!data) return { ok: false, error: 'Esa cuota no es de este lead.' };
-  const q = data as { id: number; numero: number; monto_usd: number; pagado: boolean; proveedor_pago_id: string | null; proveedor: string | null; cobro_id: number | null; fecha_esperada: string | null };
+  const q = data as { id: number; numero: number; monto_usd: number; pagado: boolean; proveedor_pago_id: string | null; proveedor: string | null; cobro_id: number | null; fecha_esperada: string | null; baja_at: string | null };
   if (q.pagado) return { ok: false, error: 'Esa cuota ya está cobrada.' };
+  if (esCuotaDeBaja(q)) return { ok: false, error: 'El cliente se dio de baja: deshaz la baja para cobrarle esa cuota.' };
   if (q.proveedor_pago_id || esCuotaDevuelta(q)) return { ok: false, error: 'Esa cuota ya pasó por la pasarela.' };
   const montoUsd = Number(q.monto_usd);
   if (!Number.isFinite(montoUsd) || montoUsd <= 0) return { ok: false, error: 'Esa cuota no tiene monto.' };

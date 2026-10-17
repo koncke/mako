@@ -22,7 +22,7 @@ import {
   type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal,
 } from './pagos-campo';
 import { getLead, logLeadChanges, logLeadEvent } from './leads';
-import { esCuotaDevuelta } from './cobrado-lead';
+import { esCuotaDeBaja, esCuotaDevuelta, noEsDeuda } from './cobrado-lead';
 import { normalizarMoneda } from './pasarela-moneda';
 import { cambiarSettingSi, getSettingEstricto, getSetting, setSetting } from './settings';
 import { keyEspaciado } from './espaciado';
@@ -53,6 +53,9 @@ export type Pago = {
   metodo?: string | null;
   /** Nació ya cobrada: un pago suelto o una mensualidad registrada a mano (mig 0295). Deshacerla la quita. */
   nacio_cobrada?: boolean | null;
+  /** El cliente se dio de baja (mig 0307, lib/pagos-baja.ts): impaga y sin vencimiento; el que tenía, en `baja_vencia`. */
+  baja_at?: string | null;
+  baja_vencia?: string | null;
   created_at: string;
 };
 
@@ -179,7 +182,8 @@ async function cuotasParaReconciliar(leadId: number): Promise<CuotaExistente[]> 
   const prot = await proteccionesDeCuotas(leadId, pagos.filter((q) => !q.pagado).map((q) => q.id));
   return pagos.map((q) => ({
     id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado,
-    devuelta: esCuotaDevuelta(q), protegida: prot.get(q.id) ?? [],
+    // La de un cliente dado de baja (#871) queda fuera del plan como la devuelta: ni se casa, ni se reescribe, ni se borra.
+    devuelta: noEsDeuda(q), protegida: prot.get(q.id) ?? [],
   }));
 }
 
@@ -385,12 +389,13 @@ export async function editarCuota(
   cambio: { monto?: number | null; fecha?: string | null },
 ): Promise<{ antes: { monto_usd: number; fecha_esperada: string | null }; despues: { monto_usd: number; fecha_esperada: string | null }; numero: number }> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('pagos').select('id, numero, monto_usd, fecha_esperada, pagado, proveedor, cobro_id').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  const { data, error } = await db.from('pagos').select('id, numero, monto_usd, fecha_esperada, pagado, proveedor, cobro_id, baja_at').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
   if (error) throw new Error(`Error leyendo la cuota ${pagoId}: ${error.message}`);
   if (!data) throw new Error('Esa cuota no existe en este lead.');
-  const q = data as { numero: number; monto_usd: number; fecha_esperada: string | null; pagado: boolean; proveedor: string | null; cobro_id: number | null };
+  const q = data as { numero: number; monto_usd: number; fecha_esperada: string | null; pagado: boolean; proveedor: string | null; cobro_id: number | null; baja_at: string | null };
   if (q.pagado) throw new Error('Esa cuota ya está cobrada: para corregirla, desmárcala primero.');
   if (esCuotaDevuelta(q)) throw new Error('Esa cuota se devolvió: no se edita.');
+  if (esCuotaDeBaja(q)) throw new Error('El cliente se dio de baja: deshaz la baja para editar esa cuota.');
   const antes = { monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada };
   const despues = { ...antes };
   if (cambio.monto !== undefined) {
@@ -1057,10 +1062,11 @@ export async function getOutstandingTotal(): Promise<number> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
-    .select('monto_usd, pagado, fecha_esperada, proveedor, cobro_id')
+    .select('monto_usd, pagado, fecha_esperada, proveedor, cobro_id, baja_at')
     .eq('pagado', false);
   if (error) throw new Error(`Error sumando outstanding: ${error.message}`);
-  return (data ?? []).filter((p) => !esCuotaDevuelta(p)).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
+  // Sin las de un cliente dado de baja (#871, `noEsDeuda`): impagas y sin vencimiento, como las devueltas.
+  return (data ?? []).filter((p) => !noEsDeuda(p)).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
 }
 
 export type OutstandingLead = {
@@ -1095,7 +1101,7 @@ async function _getOutstandingDetalle(
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
-    .select('id, lead_id, numero, monto_usd, fecha_esperada, pagado, proveedor, cobro_id, leads(nombre, monto_cierre_usd, fecha_cierre)');
+    .select('id, lead_id, numero, monto_usd, fecha_esperada, pagado, proveedor, cobro_id, baja_at, leads(nombre, monto_cierre_usd, fecha_cierre)');
   if (error) throw new Error(`Error leyendo detalle de outstanding: ${error.message}`);
 
   type Row = {
@@ -1107,6 +1113,7 @@ async function _getOutstandingDetalle(
     pagado: boolean;
     proveedor: string | null;
     cobro_id: number | null;
+    baja_at: string | null;
     leads: { nombre: string; monto_cierre_usd: number | null; fecha_cierre: string | null } | { nombre: string; monto_cierre_usd: number | null; fecha_cierre: string | null }[] | null;
   };
 
@@ -1126,7 +1133,8 @@ async function _getOutstandingDetalle(
   for (const [leadId, rows] of porLead) {
     // ⚠️ Sin las DEVUELTAS por un reembolso (15/10/2026): sin ventana, una cuota devuelta (impaga y sin vencimiento)
     // sumaba como deuda en el Outstanding y en «A quién cobrarle». Con ventana ya quedaba afuera (no tiene vencimiento).
-    let noPagados = rows.filter((r) => !r.pagado && !esCuotaDevuelta(r));
+    // Y sin las de un cliente que se dio de baja (#871): «A quién cobrarle» no le cobra a quien se fue.
+    let noPagados = rows.filter((r) => !r.pagado && !noEsDeuda(r));
     // Filtro de fecha de Comercial: "lo que se está por cobrar en el intervalo"
     // = cuotas SIN pagar cuyo VENCIMIENTO (fecha_esperada) cae dentro de la
     // ventana. Sin ventana, es el outstanding total a hoy.
@@ -1372,7 +1380,7 @@ export async function escribirVenta(leadId: number, cambio: CambioVenta, opts: {
   }
   const cuotas = await getPagosByLead(leadId);
   const cobradas = cuotas.filter((q) => q.pagado).length;
-  const impagas = cuotas.filter((q) => !q.pagado && !esCuotaDevuelta(q)).length;
+  const impagas = cuotas.filter((q) => !q.pagado && !noEsDeuda(q)).length;
   const p = patchDeVenta(fila as FilaVenta, cambio, { hayCobradas: cobradas > 0, impagas });
   if (!p.ok) {
     if ('usarQuitarSinCobro' in p && p.usarQuitarSinCobro) {

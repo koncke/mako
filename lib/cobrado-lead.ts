@@ -41,6 +41,9 @@ export type CuotaParaCobrado = {
   monto_original?: number | string | null;
   proveedor?: string | null;
   cobro_id?: number | null;
+  /** El cliente se dio de baja (mig 0307): impaga, no es deuda. `baja_vencia` es el vencimiento que tenía. */
+  baja_at?: string | null;
+  baja_vencia?: string | null;
 };
 
 /** Lo que necesita de un cobro de la pasarela (`cobros`, o el `CobroVisible` de la ficha). */
@@ -105,6 +108,8 @@ export type Cobrado = {
   monedas: Array<{ moneda: string; monto: number }>;
   /** Sólo un pago único con cuotas y monto de cierre: si el plan suma lo mismo que el cierre. */
   cuadra: null | { cuadra: boolean; diferenciaUsd: number };
+  /** El cliente se dio de baja (#871): lo que quedó sin cobrar y cuándo. null si no hay cuotas de baja. */
+  baja: null | { usd: number; at: string | null };
 };
 
 const redondo = (n: number) => Math.round(n * 100) / 100;
@@ -133,10 +138,30 @@ export function sumarMeses(iso: string, meses: number): string {
 export const esCuotaDevuelta = (q: Pick<CuotaParaCobrado, 'pagado' | 'fecha_esperada' | 'proveedor' | 'cobro_id'>): boolean =>
   !q.pagado && !q.fecha_esperada && (!!q.proveedor || q.cobro_id != null);
 
+/**
+ * ¿Es una cuota de un cliente que se DIO DE BAJA (#871, mig 0307)? Impaga, con `baja_at`: lo que no pagó deja de ser
+ * deuda y queda en la tabla para el historial (lib/pagos-baja.ts). Cobrada, ya no es «de baja»: el cliente volvió y
+ * pagó esa cuota.
+ */
+export const esCuotaDeBaja = (q: Pick<CuotaParaCobrado, 'pagado' | 'baja_at'>): boolean => !q.pagado && !!q.baja_at;
+
+/**
+ * ¿La cuota QUEDA FUERA de la deuda? La devuelta por un reembolso y la de un cliente dado de baja. Toda lectura que
+ * suma lo que falta cobrar sobre filas sin vencimiento usa ESTA y no `esCuotaDevuelta`: las dos quedan impagas y sin
+ * fecha, y la que sólo mira la devuelta vuelve a contar a quien se fue (tests/pagos-baja.test.ts lo barre).
+ */
+export const noEsDeuda = (q: Pick<CuotaParaCobrado, 'pagado' | 'fecha_esperada' | 'proveedor' | 'cobro_id' | 'baja_at'>): boolean =>
+  esCuotaDevuelta(q) || esCuotaDeBaja(q);
+
 export function cobradoDelLead(e: EntradaCobrado): Cobrado {
   const tipo = ventaTipoDe(e.ventaTipo);
   const hoy = e.hoy;
-  const cuotas = e.pagos.filter((q) => !esCuotaDevuelta(q));
+  const cuotas = e.pagos.filter((q) => !noEsDeuda(q));
+  // Lo que quedó sin cobrar de un cliente que se dio de baja (#871): no es deuda, pero se dice.
+  const deBaja = e.pagos.filter(esCuotaDeBaja);
+  const baja = deBaja.length
+    ? { usd: redondo(deBaja.reduce((s, q) => s + num(q.monto_usd), 0)), at: deBaja.map((q) => q.baja_at as string).sort().pop() ?? null }
+    : null;
   const cobradas = cuotas.filter((q) => q.pagado);
   const impagas = cuotas.filter((q) => !q.pagado);
   const cobradoUsd = redondo(cobradas.reduce((s, q) => s + num(q.monto_usd), 0));
@@ -155,7 +180,7 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
   }
   const monedas = [...porMoneda].map(([moneda, monto]) => ({ moneda, monto }));
   const conteo = { total: cuotas.length, cobradas: cobradas.length, vencidas: vencidas.length, porVencer: porVencer.length };
-  const base = { tipo, cobradoUsd, pendienteUsd, vencidoUsd, proxima, cuotas: conteo, monedas };
+  const base = { tipo, cobradoUsd, pendienteUsd, vencidoUsd, proxima, cuotas: conteo, monedas, baja };
 
   // ── Becado: no tiene cobrado ──
   if (tipo === VENTA_SIN_COBRO) {
@@ -235,10 +260,12 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
   const totalUsd = sumaCuotas > 0 ? Math.max(sumaCuotas, cierre) : cierre > 0 ? cierre : null;
   const sinCuota = cierre > 0 && cuotas.length > 0 ? redondo(cierre - sumaCuotas) : 0;
   const pct = totalUsd ? Math.min(100, Math.round((cobradoUsd / totalUsd) * 100)) : null;
-  const seDibuja = cuotas.length > 0 || cierre > 0;
+  const seDibuja = cuotas.length > 0 || cierre > 0 || !!baja;
   const semaforo: Cobrado['semaforo'] =
     !seDibuja ? { tono: 'gris', texto: 'Sin venta' }
     : vencidas.length ? { tono: 'rojo', texto: 'Cuota vencida' }
+    // Se fue y no queda nada vivo por cobrar: ni «falta cargar el resto» (lo que no pagó no es un resto) ni verde.
+    : baja && pendienteUsd <= 0 ? { tono: 'gris', texto: 'Se dio de baja' }
     : cuotas.length === 0 ? { tono: 'ambar', texto: 'Sin cuotas cargadas' }
     : pendienteUsd <= 0 && sinCuota > 0.5 ? { tono: 'ambar', texto: 'Falta cargar el resto' }
     : pendienteUsd <= 0 && cobradoUsd > 0 ? { tono: 'verde', texto: 'Pagado por completo' }

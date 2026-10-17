@@ -138,8 +138,9 @@ test('⚠️ la moneda del negocio no se escribe sin negocio (setSetting caería
 
 // ── 6 · Un solo «por cobrar» en cobranza_lead ─────────────────────────────
 
-test('⚠️ cobranza_lead: por_cobrar_usd sin las cuotas devueltas, como cobrado.pendiente_usd', () => {
+test('⚠️ cobranza_lead: por_cobrar_usd sin las cuotas devueltas (ni las de un cliente dado de baja), como cobrado.pendiente_usd', () => {
   const run = fuente('lib/api-mako/areas/crm.run.ts');
-  assert.match(run, /por_cobrar_usd: suma\(cuotas\.filter\(\(c, i\) => !c\.pagada && !esCuotaDevuelta\(plan\.pagos\[i\]\)\)\),/);
+  // `noEsDeuda` = devuelta o de baja (#871, 17/10/2026; tests/pagos-baja.test.ts).
+  assert.match(run, /por_cobrar_usd: suma\(cuotas\.filter\(\(c, i\) => !c\.pagada && !noEsDeuda\(plan\.pagos\[i\]\)\)\),/);
   assert.doesNotMatch(run, /por_cobrar_usd: suma\(cuotas\.filter\(\(c\) => !c\.pagada\)\)/);
 });

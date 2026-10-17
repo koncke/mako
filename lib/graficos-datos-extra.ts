@@ -61,7 +61,7 @@ import { diasAntes, hoyEnTijuana, TZ_TIJUANA } from './date-utils';
 import { hoyEnWorkspace } from './timezone';
 import { getMrrActivo } from './queries';
 import { getOutstandingDetalle } from './pagos';
-import { esCuotaDevuelta } from './cobrado-lead';
+import { noEsDeuda } from './cobrado-lead';
 import { armarCobranza, nombreCuota } from './datos-comercial';
 import { cartera } from './cs-cartera';
 import {
@@ -624,7 +624,7 @@ async function filasEjecucion(): Promise<Fila[]> {
 // ── CRM y ventas: lo que eran los bloques de Comercial (v5) ─────────────────────────────
 
 type FLeadVenta = { id: number; fecha_cierre: string | null; cerro: boolean | null; estado_lead: string | null; venta_tipo: string | null; monto_cierre_usd: number | null };
-type FCuota = { id: number; lead_id: number | null; monto_usd: number | null; fecha_pago: string | null; fecha_esperada: string | null; proveedor?: string | null; cobro_id?: number | null };
+type FCuota = { id: number; lead_id: number | null; monto_usd: number | null; fecha_pago: string | null; fecha_esperada: string | null; proveedor?: string | null; cobro_id?: number | null; baja_at?: string | null };
 /**
  * Lo vendido, lo cobrado y lo pendiente, cada uno por SU fecha, en una lectura: el viejo bloque Revenue. Lo
  * vendido son los cierres que son venta (`gano`, la definición del Dashboard) por fecha de cierre; lo cobrado,
@@ -638,10 +638,11 @@ async function filasRevenue(rg: Rango): Promise<Fila[]> {
     leer<FLeadVenta>('leads', 'id, fecha_cierre, cerro, estado_lead, venta_tipo, monto_cierre_usd', rg, { col: 'fecha_cierre' }),
     leer<FCuota>('pagos', 'id, lead_id, monto_usd, fecha_pago, fecha_esperada', rg, { col: 'fecha_pago', extra: (q) => q.eq('pagado', true) }),
     leer<FCuota>('pagos', 'id, lead_id, monto_usd, fecha_pago, fecha_esperada', rg, { col: 'fecha_esperada', extra: (q) => q.eq('pagado', false) }),
-    todo ? leer<FCuota>('pagos', 'id, lead_id, monto_usd, fecha_pago, fecha_esperada, proveedor, cobro_id', { ...rg, sinRango: true }, { extra: (q) => q.eq('pagado', false).is('fecha_esperada', null) }) : Promise.resolve([] as FCuota[]),
+    todo ? leer<FCuota>('pagos', 'id, lead_id, monto_usd, fecha_pago, fecha_esperada, proveedor, cobro_id, baja_at', { ...rg, sinRango: true }, { extra: (q) => q.eq('pagado', false).is('fecha_esperada', null) }) : Promise.resolve([] as FCuota[]),
   ]);
   // Las sin fecha son deuda… salvo las DEVUELTAS por un reembolso, que también quedan impagas y sin vencimiento (15/10/2026).
-  const sinFechaDeuda = sinFecha.filter((x) => !esCuotaDevuelta({ pagado: false, fecha_esperada: x.fecha_esperada, proveedor: x.proveedor ?? null, cobro_id: x.cobro_id ?? null }));
+  // Y las de un cliente que se DIO DE BAJA (#871, 17/10/2026): la baja las deja igual, impagas y sin vencimiento.
+  const sinFechaDeuda = sinFecha.filter((x) => !noEsDeuda({ pagado: false, fecha_esperada: x.fecha_esperada, proveedor: x.proveedor ?? null, cobro_id: x.cobro_id ?? null, baja_at: x.baja_at ?? null }));
   const out: Fila[] = [];
   for (const x of cierres) {
     if (!gano(x)) continue;

@@ -58,7 +58,7 @@ const IDS = ['listar_cobros', 'ver_cobro', 'crear_link_pago', 'anular_link_pago'
 // §3), con su forma fijada en tests/api-mako-pagos-campo.test.ts.
 const IDS_PAGOS_CAMPO = [
   'ver_moneda_negocio', 'cambiar_moneda_negocio', 'editar_dato_deal', 'editar_obligacion_deal', 'editar_venta_lead',
-  'editar_cuota', 'crear_link_cuota', 'cortar_recordatorio_cuota', 'estado_suscripcion_manual',
+  'editar_cuota', 'crear_link_cuota', 'cortar_recordatorio_cuota', 'estado_suscripcion_manual', 'baja_del_cliente',
 ];
 const accion = (id: string): AccionDef => {
   const d = porId(id);
@@ -68,7 +68,7 @@ const accion = (id: string): AccionDef => {
 
 // ── 1. La forma ───────────────────────────────────────────────────────────────
 
-test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus operaciones (las seis de la pasarela y las nueve de Pagos)', () => {
+test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus operaciones (las seis de la pasarela y las diez de Pagos)', () => {
   assert.ok(AREAS.indexOf('cobros') >= 0 && AREAS.indexOf('cobros') === AREAS.indexOf('mako') - 1, 'el orden de AREAS es el del catálogo');
   assert.deepEqual(AREA_INFO.cobros, { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' });
   assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO].sort());
