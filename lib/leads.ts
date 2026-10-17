@@ -33,13 +33,15 @@ import { getUsuarioActual } from './auth';
 import { after } from 'next/server';
 import { sendMetaCAPIEvent } from './meta-capi';
 import { esSexo } from './resumen-ficha';
-import { EVENTOS_CALIFICADO, eventIdCalificado } from './meta-capi-payload';
+import {
+  ESPERA_AVISO_CALIFICADO_MS, EVENTOS_CALIFICADO, LINEA_CALIFICADO_EN_META, avisaCalificadoAMeta, eventIdCalificado,
+} from './meta-capi-payload';
 // Cuándo se descarta el «calificado»: puro y compartido con la ficha y con el
 // canal de MaKo, para que los tres apliquen la MISMA regla.
 import { calificadoSeDescarta } from './calificado-reunion';
 // Qué deriva `updateLead` del desenlace (estado ↔ cerro, motivo, venta) y CUÁNDO:
 // puro y con test (tests/updatelead-no-borra-venta.test.ts).
-import { desenlaceAlGuardar } from './lead-desenlace';
+import { desenlaceAlGuardar, estadoDelMovimiento } from './lead-desenlace';
 import { yaGuardado } from './lead-respuestas';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 // Qué reunión anula una cancelación: puro y con test (tests/recordatorio-lead.test.ts).
@@ -54,6 +56,7 @@ import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, derive
 // LEAD (no el del negocio): lo que valida un movimiento son los requisitos del
 // recorrido de ESE lead.
 import { getPipelineStagesDeLead, idDelFunnelDefault } from './funnels';
+import { casaDelAlta } from './lead-funnel-reglas';
 import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
 import { stepsForStage, funnelReqInfo, pasosResueltos, type Step, type StageReqValues } from './stage-requirements';
 import type { VentaTipo } from './venta-tipo';
@@ -897,6 +900,42 @@ export async function moverLeadDeFunnel(leadId: number, funnelId: number | null)
   // ⚠️ El caché lo invalida la ACTION, no esta función: `lib/leads.ts` no importa `bust`
   // y meterlo acá sumaría una dependencia de Next a un módulo que hoy es sólo datos.
 }
+/**
+ * ¿La calificación de este lead ya entró a Meta alguna vez? La marca es la línea `LINEA_CALIFICADO_EN_META` del
+ * historial (#856). Si no se puede leer, contesta `false`: dentro de las 48 h el `event_id` estable igual deduplica, y
+ * perder una conversión real por una lectura caída es peor que el doble conteo de un caso raro.
+ */
+async function calificadoYaEnMeta(leadId: number): Promise<boolean> {
+  try {
+    const { data, error } = await (await getTenantDb()).from('lead_audit').select('id')
+      .eq('lead_id', leadId).eq('campo', 'Meta').eq('valor_nuevo', LINEA_CALIFICADO_EN_META).limit(1);
+    if (error) { console.error(`[updateLead] lead ${leadId}: no pude leer si la calificación ya fue a Meta: ${error.message}`); return false; }
+    return ((data ?? []) as unknown[]).length > 0;
+  } catch (e) {
+    console.error(`[updateLead] lead ${leadId}: no pude leer si la calificación ya fue a Meta:`, e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
+/** La casa con la que nace un lead: el funnel pedido, si es de ESTE negocio (`casaDelAlta`). Nunca tira. */
+async function casaParaElAlta(supabase: SupabaseClient, pedido: number | null | undefined): Promise<number | null> {
+  if (pedido == null) return null;
+  try {
+    // getTenantDb pone el `.eq('workspace_id')`: un funnel de otro negocio no vuelve.
+    const { data, error } = await supabase.from('funnels').select('id, es_default').eq('id', pedido).limit(1);
+    if (error) {
+      console.error(`[leads] alta: no pude comprobar el funnel #${pedido}, entra al del negocio: ${error.message}`);
+      return null;
+    }
+    const fila = ((data ?? []) as Array<{ id: number; es_default: boolean | null }>)[0] ?? null;
+    if (!fila) console.error(`[leads] alta: el funnel #${pedido} no es de esta cuenta, entra al del negocio`);
+    return casaDelAlta(pedido, fila);
+  } catch (e) {
+    console.error(`[leads] alta: no pude comprobar el funnel #${pedido}: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 export async function createLead(input: LeadCreateInput & { permitirDuplicado?: boolean }): Promise<Lead> {
   if (!input.nombre || !input.nombre.trim()) {
     throw new Error('Nombre es requerido');
@@ -907,6 +946,9 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
   }
   const supabase = (await getTenantDb());
   const solo = await vendedorUnicoDelWorkspace(); // #2: auto-asignar si hay 1 vendedor
+  // ⚠️ LA CASA TIENE QUE SER DE ESTE NEGOCIO (17/10/2026): el id lo manda el navegador o un webhook.
+  // Uno ajeno (o que no se pudo comprobar) nace en el CRM del negocio, con su log (`casaDelAlta`).
+  const casa = await casaParaElAlta(supabase, input.funnel_id);
   const fila: Record<string, unknown> = {
       nombre: input.nombre.trim(),
       email: input.email?.trim() || null,
@@ -932,7 +974,7 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       utm_campaign: input.utm_campaign?.trim() || null,
       utm_content: input.utm_content?.trim() || null,
       fbclid: input.fbclid?.trim() || null,
-      funnel_id: input.funnel_id ?? null,
+      funnel_id: casa,
       // ⚠️ SÓLO SI VINO: un insert que NOMBRA una columna que no existe se rechaza ENTERO. Sin
       // la mig 0258 aplicada, un alta sin Instagram tiene que seguir entrando; con Instagram,
       // el error dice qué columna falta en vez de perder el lead en silencio.
@@ -1098,28 +1140,41 @@ export async function updateLead(
     // Los dos nombres de la calificación, con el MISMO event_id: el estándar para
     // que Meta pueda optimizar sin que nadie declare nada, el propio para medirlo
     // con su nombre. El id es estable por lead, así que marcar → desmarcar → marcar
-    // deja de mandar dos conversiones.
+    // dentro de las 48 h del dedup de Meta deja de mandar dos conversiones.
     // ⚠️ DE FONDO (#854): el guardado esperaba a Meta, dos envíos en serie, y la ficha
     // no pintaba «Calificado» hasta entonces. Va en `after()` con el workspace
     // capturado (sin él, el píxel y el historial serían de otro); sin request, en línea.
+    // ⚠️ Y ESPERA EL «DESHACER», Y SE RE-PREGUNTA AL SALIR (#856, 17/10/2026). Lo que llega a
+    // Meta no se corrige (docs/hallazgos-ads.md): salía en el acto, así que un «Calificado»
+    // deshecho al segundo ya había viajado. Ahora espera la ventana del toast, relee el lead y
+    // sale sólo si sigue calificado y si nunca se mandó (la línea `LINEA_CALIFICADO_EN_META`
+    // del historial: pasadas las 48 h del dedup de Meta, volver a marcar contaba dos veces).
     const eventId = eventIdCalificado(id);
     const ws = await getWorkspaceActual();
-    const avisarAMeta = async () => {
+    const avisarAMeta = async (esperar: boolean) => {
+      if (esperar) await new Promise((r) => setTimeout(r, ESPERA_AVISO_CALIFICADO_MS));
+      const hoy = await getLead(id).catch(() => null);
+      if (!avisaCalificadoAMeta({ sigueCalificado: hoy ? hoy.calificado === true : null, yaSeMando: await calificadoYaEnMeta(id) })) {
+        if (!hoy) console.error(`[updateLead] lead ${id}: no pude releerlo, la calificación no se manda a Meta`);
+        return;
+      }
+      let entro = false;
       for (const eventName of EVENTOS_CALIFICADO) {
         try {
           const r = await sendMetaCAPIEvent({
             eventName,
-            email: merged.email,
-            phone: merged.telefono,
+            email: hoy!.email,
+            phone: hoy!.telefono,
             // El identificador de más prioridad de Meta, y lo único que mueve la
             // Cobertura de leads. Un lead que no vino de un formulario no lo tiene:
             // `leadIdDeMeta` lo filtra, porque uno inválido hace que Meta rechace.
-            metaLeadId: merged.meta_lead_id,
+            metaLeadId: hoy!.meta_lead_id,
             // El hecho es ESTE cambio de etapa, no la hora de otra cosa.
             eventTime: new Date(),
             eventId,
             customData: { lead_type: 'calificado', value: 1 },
           });
+          if (r.ok) entro = true;
           // ⚠️ Lo que Meta rechaza no puede fallar en silencio. El log de Vercel no lo
           // lee nadie y a los 60 minutos no existe: la línea va al historial de la
           // ficha, que es donde el dueño mira. Y sólo el rechazo real — que al lead le
@@ -1131,9 +1186,11 @@ export async function updateLead(
           console.error(`[updateLead] error firing ${eventName} CAPI event:`, err);
         }
       }
+      if (entro) await logLeadEvent(id, 'Meta', LINEA_CALIFICADO_EN_META, 'MaKo');
     };
-    if (ws == null) await avisarAMeta();
-    else try { after(() => runWithWorkspace(ws, avisarAMeta)); } catch { await runWithWorkspace(ws, avisarAMeta); }
+    // En línea (sin request: un script, un webhook sin workspace) no espera: no hay toast que deshacer.
+    if (ws == null) await avisarAMeta(false);
+    else try { after(() => runWithWorkspace(ws, () => avisarAMeta(true))); } catch { await runWithWorkspace(ws, () => avisarAMeta(false)); }
   }
 
   // Auto-etiqueta de WhatsApp: si cambió la etapa derivada del lead, ajustamos la
@@ -1731,6 +1788,17 @@ function auditVal(v: unknown): string | null {
   if (typeof v === 'boolean') return v ? 'Sí' : 'No';
   if (Array.isArray(v)) return v.length ? `${v.length} link(s)` : null;
   return String(v);
+}
+
+/**
+ * Lo que el historial diría HOY de un campo de este lead (`campo` = la etiqueta de la línea, «Monto de
+ * cierre»), con el MISMO formato con que se escribió la línea. `undefined` = no es una columna del
+ * historial (la etapa se calcula). Lo usa el «Deshacer» del historial para no pisar lo que cambió otra
+ * persona después (`camposPisados`, lib/historial-pisado.ts).
+ */
+export function valorDelHistorial(lead: Lead, campo: string): string | null | undefined {
+  const f = AUDIT_FIELDS.find((x) => x.label === campo);
+  return f ? auditVal(lead[f.k]) : undefined;
 }
 
 // Ventana del anti-duplicado. Un mismo movimiento pasa hoy por DOS capas que
@@ -2876,7 +2944,14 @@ export async function setPipelineStage(
   //    falla (p.ej. monto inválido), propagamos el error y NO tocamos el override:
   //    antes el error se tragaba y el tablero quedaba mostrando una etapa cuyo
   //    estado_lead nunca cambió (Revenue/CAPI divergían en silencio).
-  const sync: LeadUpdateInput = { estado_lead: estado };
+  //
+  //    ⚠️ EL ESTADO VIAJA SÓLO SI CAMBIA (17/10/2026, §5 punto 3 de docs/relevo/crm.md, opción b).
+  //    Mandarlo siempre hacía que `desenlaceAlGuardar` tomara el movimiento por una decisión de la
+  //    venta: pasar de «Facturando» a «Falta pago» (abierto → abierto) le borraba el monto y la fecha
+  //    de cierre cargados por el plan de pagos o el editor del deal, sin un error. Ganado → abierta
+  //    sigue limpiando la venta (el estado cambia), y un lead cuyo estado no coincide con su etapa se
+  //    sincroniza igual. Sin `antes` (no se pudo leer) va como siempre (`estadoDelMovimiento`).
+  const sync: LeadUpdateInput = { ...estadoDelMovimiento(antes?.estado_lead, estado) };
   if (estado === 'ganado' && opts?.monto != null) sync.monto_cierre_usd = opts.monto;
   if ((estado === 'perdido' || estado === 'descalificado') && opts?.motivo != null) {
     sync.motivo_perdida = opts.motivo;
@@ -2890,8 +2965,8 @@ export async function setPipelineStage(
   if (NUTRI_KEYS.includes(stageKey)) {
     sync.nutricion_realizada = true;
   }
-  // (El disparo de la etapa DERIVADA de `updateLead`, M1-b, no se cruza con este movimiento: `sync` siempre trae
-  // `estado_lead`, y un cambio de estado no dispara; sin cambio de estado, sólo una asistencia que se limpia —el
+  // (El disparo de la etapa DERIVADA de `updateLead`, M1-b, no se cruza con este movimiento: un cambio de estado no
+  // dispara, y sin cambio de estado —traiga o no `estado_lead` el `sync`— sólo una asistencia que se limpia —el
   // «Reagenda R1»— lo deja en «Agenda R1», que es justo la etapa que se escribe abajo.)
   await updateLead(id, sync);
 
