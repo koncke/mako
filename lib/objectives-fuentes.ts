@@ -23,11 +23,13 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
-import { leerPorPaginas } from './supabase-paginado';
+import { leerPorPaginas, leerTodo, type ConsultaPaginada as Consulta } from './supabase-paginado';
 import { conversorGastoMeta } from './moneda-meta';
 import type { FuenteDef, FuenteId } from './objectives-modelo';
-import { FUENTES_KPI } from './objectives-modelo';
+import { FUENTES_KPI, fuentePorFunnel } from './objectives-modelo';
 import { VENTA_SIN_COBRO } from './venta-tipo';
+import { sumarEnFunnels, type Hecho } from './funnels-elegidos';
+import { ubicarLeads, idsDeLeads } from './funnels-elegidos-server';
 
 /** Lo que devuelve toda fuente. `valor: null` = no se pudo leer, con el motivo al lado. */
 export type LecturaFuente = { valor: number | null; error?: string };
@@ -191,21 +193,72 @@ const LECTORES: Record<FuenteId, Lector> = {
   // con la tab Instagram: ver FUENTES_DEF en lib/objectives-modelo.ts.
 };
 
+// ── Por funnel (mig 0306) ─────────────────────────────────────────────────────
+// Con funnels elegidos ya no alcanza un `count`: hay que saber de qué lead es cada hecho y DÓNDE estaba ese lead ese
+// día (lib/funnels-elegidos.ts explica por qué no alcanza con la casa: en el ws1 «Renovación» tiene sólo agregados).
+// Se traen las filas del período (paginado, con orden) y se reparten con `sumarEnFunnels`.
+
+
+type FilaDeLead = { id: number; funnel_id: number | null; monto_cierre_usd?: number | null } & Record<string, unknown>;
+
+/** Los hechos del período de una fuente del CRM, con la casa de cada lead cuando la fuente ES de leads. */
+async function hechosDelPeriodo(fuenteId: string, desde: string, hasta: string): Promise<{ hechos: Hecho[]; casas: Map<number, number | null> | null }> {
+  const db = await getTenantDb();
+  const deLeads = async (col: string, extra: (q: Consulta) => Consulta, monto: boolean, hastaCol = hasta) => {
+    const filas = await leerTodo<FilaDeLead>(db, 'leads', `id, funnel_id, ${col}${monto ? ', monto_cierre_usd' : ''}`, {
+      orden: 'id', filtros: (q) => extra(q.gte(col, desde).lte(col, hastaCol)),
+    });
+    const casas = new Map<number, number | null>();
+    const hechos: Hecho[] = filas.map((f) => {
+      casas.set(Number(f.id), f.funnel_id == null ? null : Number(f.funnel_id));
+      return { lead: Number(f.id), fecha: (f[col] as string | null) ?? null, valor: monto ? Number(f.monto_cierre_usd ?? 0) : 1 };
+    });
+    return { hechos, casas };
+  };
+  // Los mismos universos que los lectores de arriba: sin los «sin cobro» (#747), R1 con fecha, el último día entero.
+  const ganados = (q: Consulta) => q.eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO);
+  if (fuenteId === 'cierres') return deLeads('fecha_cierre', ganados, false);
+  if (fuenteId === 'sold_usd') return deLeads('fecha_cierre', ganados, true);
+  if (fuenteId === 'agendas') return deLeads('fecha_junta_1', (q) => q.not('fecha_junta_1', 'is', null), false);
+  if (fuenteId === 'leads_nuevos') return deLeads('created_at', (q) => q, false, finDeDia(hasta));
+  if (fuenteId === 'cash_usd') {
+    const pagos = await leerTodo<{ id: number; lead_id: number | null; monto_usd: number | null; fecha_pago: string | null }>(
+      db, 'pagos', 'id, lead_id, monto_usd, fecha_pago',
+      { orden: 'id', filtros: (q) => q.eq('pagado', true).gte('fecha_pago', desde).lte('fecha_pago', hasta) },
+    );
+    return { hechos: pagos.map((p) => ({ lead: p.lead_id == null ? null : Number(p.lead_id), fecha: p.fecha_pago, valor: Number(p.monto_usd ?? 0) })), casas: null };
+  }
+  throw new Error(`la fuente ${fuenteId} no se cuenta por funnel`);
+}
+
+/** Una fuente del CRM contada en ESTOS funnels. Si algo no se pudo leer, null con el motivo: nunca un cero. */
+async function leerEnFunnels(fuenteId: string, desde: string, hasta: string, elegidos: readonly number[]): Promise<LecturaFuente> {
+  try {
+    const { hechos, casas: crudas } = await hechosDelPeriodo(fuenteId, desde, hasta);
+    const { casas, agregados } = await ubicarLeads(idsDeLeads(hechos), crudas);
+    return { valor: sumarEnFunnels(hechos, elegidos, casas, agregados) };
+  } catch (e) {
+    return fallo(e);
+  }
+}
+
 /**
- * Lee una fuente automática en un período.
+ * Lee una fuente automática en un período, de todo el negocio o de ESTOS funnels (`funnelIds`; vacío = todos).
+ * Una fuente que no es del CRM (la pauta, el VSL) ignora los funnels: no tiene de dónde saberlos.
  *
  * ⚠️ Un `fuenteId` que no está en el catálogo NO devuelve cero: devuelve null con
  * el motivo. Un KPI apuntando a una fuente que ya no existe —renombrada, sacada—
  * tiene que decir que no se puede leer; pintarlo de rojo sería acusar a la persona
  * de no hacer algo por un problema nuestro.
  */
-export async function leerFuente(fuenteId: string | null | undefined, desde: string, hasta: string): Promise<LecturaFuente> {
+export async function leerFuente(fuenteId: string | null | undefined, desde: string, hasta: string, funnelIds: readonly number[] = []): Promise<LecturaFuente> {
   if (!fuenteId) return { valor: null, error: 'el KPI no declara fuente' };
   // El id llega de la BASE, o sea que es un `string` cualquiera y no un `FuenteId`.
   // El lookup se hace sobre el registro sin castear el argumento: si no está, la
   // salida es «no pude leer» con el nombre adentro — nunca un cero.
   const lector = (LECTORES as Record<string, Lector | undefined>)[fuenteId];
   if (!lector) return { valor: null, error: `fuente desconocida: ${fuenteId}` };
+  if (funnelIds.length && fuentePorFunnel(fuenteId)) return leerEnFunnels(fuenteId, desde, hasta, funnelIds);
   return lector(desde, hasta);
 }
 

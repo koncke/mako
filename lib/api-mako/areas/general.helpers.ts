@@ -24,17 +24,23 @@ export const METRICAS_OBJETIVO: readonly MetricaObjetivo[] = ['cash_usd', 'sold_
 export type ObjetivoFila = {
   id: string; anio: number; quarter: number | null; titulo: string; metrica: string; meta_valor: number;
   unidad: string; avance_manual: number | null; orden: number | null; origen: string | null; estado: string;
+  /** De qué funnels suma (mig 0306); sin la columna todavía, no viene (= todos). */
+  funnel_ids?: unknown;
 };
+
+const COLS_OBJETIVO = 'id, anio, quarter, titulo, metrica, meta_valor, unidad, avance_manual, orden, origen, estado';
 
 /** Un objetivo por id, ACTIVO o CERRADO (listObjectives solo trae los activos). Trae la
  *  fila COMPLETA: editar parte de ella y completa lo omitido con lo que ya está, incluidos
  *  orden y origen (upsertObjective los pisa con Date.now() y 'user' si no viajan). */
 export async function objetivoPorId(id: string): Promise<ObjetivoFila | null> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('objectives')
-    .select('id, anio, quarter, titulo, metrica, meta_valor, unidad, avance_manual, orden, origen, estado').eq('id', id).maybeSingle();
+  const leer = (cols: string) => db.from('objectives').select(cols).eq('id', id).maybeSingle();
+  let { data, error } = await leer(`${COLS_OBJETIVO}, funnel_ids`);
+  // Sin la mig 0306 la columna no está (42703): se lee sin ella, como lib/objectives.ts.
+  if (error && error.code === '42703' && error.message.includes('funnel_ids')) ({ data, error } = await leer(COLS_OBJETIVO));
   if (error) throw new Error(`api-mako: objetivoPorId falló: ${error.message}`);
-  return (data as ObjetivoFila | null) ?? null;
+  return (data as unknown as ObjetivoFila | null) ?? null;
 }
 
 /** El valor ya registrado de un KPI en la clave de un período, o null si no hay fila. */

@@ -154,14 +154,14 @@ export const PIEZAS_GENERAL = [
   },
   { id: 'pendientes', nombre: 'Pendientes del CRM', icono: 'check', linea: 'Los leads que falta marcar para que el tablero sea confiable.', w: 6, h: 6, opciones: [FONDO] },
   {
-    id: 'funnel', nombre: 'Tu funnel hoy', icono: 'etapa', linea: 'Cuántos leads hay ahora en cada etapa de tu funnel.', w: 6, h: 8, porFunnel: true,
+    id: 'funnel', nombre: 'Tu funnel hoy', icono: 'etapa', linea: 'Cuántos leads hay ahora en cada etapa de tu funnel.', w: 6, h: 8, porFunnel: 'uno',
     opciones: [
       { id: 'estilo', nombre: 'Cómo se ve', def: 'embudo', valores: [{ id: 'embudo', nombre: 'Embudo', icono: 'etapa' }, { id: 'barras', nombre: 'Barras', icono: 'grafico' }] },
       FONDO,
     ],
   },
   {
-    id: 'cobranza', nombre: 'A quién cobrarle', icono: 'dinero', linea: 'La próxima cuota de cada cliente, con «Marcar cobrada».', w: 6, h: 8, porFunnel: true,
+    id: 'cobranza', nombre: 'A quién cobrarle', icono: 'dinero', linea: 'La próxima cuota de cada cliente, con «Marcar cobrada».', w: 6, h: 8, porFunnel: 'varios',
     opciones: [
       { id: 'cuales', nombre: 'Cuáles', def: 'todas', valores: [{ id: 'todas', nombre: 'Todas' }, { id: 'vencidas', nombre: 'Sólo vencidas' }] },
       { id: 'limite', nombre: 'Cuántas', def: '4', valores: [{ id: '4', nombre: '4' }, { id: '6', nombre: '6' }, { id: '10', nombre: '10' }, { id: 'todas', nombre: 'Todas' }] },
@@ -184,7 +184,7 @@ export const PIEZAS_GENERAL = [
     ],
   },
 ] as const satisfies ReadonlyArray<{
-  id: string; nombre: string; icono: string; linea: string; w: number; h: number; porFunnel?: true; opciones?: readonly OpcionDeBloque[];
+  id: string; nombre: string; icono: string; linea: string; w: number; h: number; porFunnel?: 'uno' | 'varios'; opciones?: readonly OpcionDeBloque[];
 }>;
 
 export type PiezaGeneral = (typeof PIEZAS_GENERAL)[number]['id'];
@@ -193,10 +193,41 @@ export const esPiezaGeneral = (x: unknown): x is PiezaGeneral => PIEZAS_GENERAL.
 export const piezaGeneral = (id: PiezaGeneral) => PIEZAS_GENERAL.find((p) => p.id === id)!;
 
 /**
- * Los bloques que se atan a UN funnel (el pedido del 13/10: «e incluso asignarles ofertas y/o funnels»). Sin funnel
+ * Los bloques que se atan a funnels (el pedido del 13/10: «e incluso asignarles ofertas y/o funnels»). Sin funnel
  * elegido, «Tu funnel hoy» cuenta el principal y «A quién cobrarle» todo el negocio. El resto mide el negocio entero.
  */
 export const piezaPorFunnel = (id: PiezaGeneral): boolean => 'porFunnel' in piezaGeneral(id);
+
+/**
+ * ¿Uno o varios? (17/10/2026, Martín: «que sea una selección múltiple y que puedas seleccionar 1 o varios»). «Tu funnel
+ * hoy» cuenta las etapas de UN funnel (cada funnel tiene las suyas): uno. «A quién cobrarle» es una lista de clientes,
+ * y la de dos funnels es la unión: varios.
+ */
+export const piezaPorVariosFunnels = (id: PiezaGeneral): boolean => {
+  const p = piezaGeneral(id);
+  return 'porFunnel' in p && p.porFunnel === 'varios';
+};
+
+/**
+ * Los funnels de un bloque como lista, se hayan guardado como se hayan guardado: `funnels` (varios, desde el 17/10) o
+ * `funnel` (uno; lo de antes se lee como una lista de uno, sin migrar nada). Enteros positivos, sin repetir.
+ */
+export function funnelsDeBloque(g: { funnel?: unknown; funnels?: unknown }): number[] {
+  const crudo = Array.isArray(g.funnels) ? g.funnels : g.funnel != null ? [g.funnel] : [];
+  const out: number[] = [];
+  for (const x of crudo) {
+    const n = typeof x === 'number' ? x : typeof x === 'string' && /^\d+$/.test(x.trim()) ? Number(x.trim()) : NaN;
+    if (Number.isSafeInteger(n) && n > 0 && !out.includes(n)) out.push(n);
+  }
+  return out.slice(0, 20);
+}
+
+/** Cómo se guardan los funnels de un bloque: `funnel` en los de uno, `funnels` en los de varios; nada si no sabe o no hay. */
+export function atarFunnels(id: PiezaGeneral, ids: readonly number[]): { funnel?: number; funnels?: number[] } {
+  if (!piezaPorFunnel(id) || !ids.length) return {};
+  if (piezaPorVariosFunnels(id)) return { funnels: [...ids] };
+  return ids.length === 1 ? { funnel: ids[0] } : {};
+}
 
 /** Las opciones que un bloque ofrece (vacío = ninguna). */
 export const opcionesDePieza = (id: PiezaGeneral): readonly OpcionDeBloque[] => {

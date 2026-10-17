@@ -116,6 +116,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   },
   {
     id: 'ver_cobro_landing', area: 'landing', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Qué cobra una landing',
     descripcion: 'Con qué cobra una landing del editor del Web Generator: las pasarelas conectadas del negocio (cobra por Stripe), los productos activos del catálogo con su precio, y cada botón de la landing con el producto que cobra (o null). Úsala antes de cobrar_producto_landing o quitar_cobro_landing. Necesita el id (de listar_landings_creadas).',
     parametros: [P_ID],
@@ -347,6 +348,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   },
   {
     id: 'quitar_cobro_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    datosDeClientes: false,
     titulo: 'Que un botón deje de cobrar',
     descripcion: `Hace que un botón de una landing del editor del Web Generator deje de cobrar su producto («Quitar cobro» del editor): queda sin destino. La landing publicada sigue cobrando hasta que se vuelva a publicar. Se vuelve a cobrar con cobrar_producto_landing. Si cobran dos, pide cuál por su texto. ${VERSION}`,
     parametros: [P_ID, { nombre: 'boton', rotulo: 'Botón', tipo: 'string', max: 120, descripcion: 'El texto del botón, si hay más de uno que cobra.' }],

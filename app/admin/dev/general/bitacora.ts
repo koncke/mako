@@ -528,4 +528,30 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/general/bloques/', 'app/general/Cobranza.tsx', 'app/general/KpisCard.tsx', 'lib/general-piezas.ts', 'lib/general-plantillas.ts', 'lib/graficos-temas.ts'],
   },
+  {
+    fecha: '17 oct', hora: '00:10', chat: 'Dashboard', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Un OKR que suma varios CRM',
+    pedido: 'Un cliente, por WhatsApp: «martin al momento de poner un OKR objetivo se referencia vs el funnel VSL de negocio que escala y no del funnel de renovacion. Hay forma de relacionar ambos o hago OKR para cada uno y si es el caso, como le digo de donde tomar los ingresos?». Martín: «Buenas pregunta! Voy a agregar la opción de poder referenciar a varios CRM… Claro, lo mejor es lo que me dijiste, que se pueda referenciar a los CRM, entonces si tienes varios CRM que sea una selección múltiple y que puedas seleccionar 1 o varios». Y al Cerebro: «estoy seguro que no solamente en los OKR, esa configuración seguro debe faltar en varios lugares».',
+    puntos: ['Llegó por el Cerebro con la captura del WhatsApp.'],
+  },
+  {
+    fecha: '17 oct', hora: '04:14', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los OKR, los KPIs y «A quién cobrarle» eligen uno o varios funnels',
+    puntos: [
+      'Al crear o editar un OKR aparece «De qué funnels»: uno, varios o todo el negocio. Un OKR que ya tenías sigue sumando todo el negocio, igual que antes.',
+      'Lo mismo en los KPIs automáticos que salen del CRM y en el bloque «A quién cobrarle». La tarjeta del OKR dice de qué funnels suma.',
+      'Cada pago cuenta en el funnel donde estaba el cliente ese día: los 5 clientes de «Renovación» del ws1 están agregados (su casa es el VSL), así que contarlos por su casa daba siempre cero.',
+      'Hoy «Renovación» suma 0 porque esos clientes todavía no tienen pagos después del 13/10; cuando se cobre una renovación, cae ahí.',
+      'En el Dashboard, los pagos tienen funnel: «Cobrado por funnel» y una hoja filtrada por funnel ya cuentan la plata.',
+      'MaKo también lo sabe: puede crear o editar un OKR o un KPI de uno o varios funnels.',
+    ],
+    archivos: [
+      'lib/funnels-elegidos.ts — la regla (a qué funnel va cada pago), con test',
+      'lib/funnels-elegidos-server.ts — dónde está cada lead (su casa y los funnels a los que se lo agregó)',
+      'app/components/ElegirFunnels.tsx — la pieza de selección múltiple',
+      'app/general/EditarObjetivo.tsx · app/general/KpisCard.tsx · app/general/bloques/Negocio.tsx',
+      'supabase/migrations/0306_okr_kpi_varios_funnels.sql — `funnel_ids` en objectives y kpis',
+    ],
+    revisar: '/general',
+  },
 ];

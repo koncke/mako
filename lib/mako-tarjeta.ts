@@ -86,6 +86,25 @@ export const ROTULO_CANAL_MAKO: Readonly<Record<CanalMako, string>> = { grupo: '
 /** ¿La tarjeta sale por email? Sin elegir, no: el grupo. */
 export const esPorEmail = (params: Params): boolean => params?.canal === 'email';
 
+/**
+ * QUÉ HACE LA TARJETA SI EL NEGOCIO NO TIENE GRUPO DE MAKO (17/10/2026, docs/hallazgos-comunicacion.md, «La campanita de
+ * escritorio y el «sin grupo de MaKo»»). Hasta ese día se perdía sin decirlo: el envío fallaba, el registro anotaba un
+ * fallo y la alerta de anuncios del ws4 volvía cada hora. 'app' (de fábrica: sin elegir, esto) lo deja en la campanita
+ * de la app y en el teléfono; 'email' además le escribe al equipo del negocio. De fábrica 'app' a propósito: con 'email'
+ * el día del deploy todos los negocios sin grupo empezaban a recibir correos que nadie pidió. El molde es
+ * `fueraDeHorario`: una opción VISIBLE de la tarjeta, donde se piensa ese envío.
+ *
+ * ⚠️ «No tiene grupo» es un HECHO leído con `getSettingEstricto` (el marcador `sinGrupo` de `enviarAlGrupoMaKo`,
+ * lib/mako-grupo.ts), nunca un error de lectura: con un bache de la base, «por email» mandaría un correo por cada aviso
+ * de cada negocio.
+ */
+export type SinGrupo = 'app' | 'email';
+export const SINES_GRUPO: readonly SinGrupo[] = ['app', 'email'];
+export const ROTULO_SIN_GRUPO: Readonly<Record<SinGrupo, string>> = { app: 'Queda en la app', email: 'Por email' };
+
+/** Qué hace la tarjeta sin grupo de MaKo. Sin elegir, queda en la app. */
+export const sinGrupoDeMako = (params: Params): SinGrupo => (params?.sinGrupo === 'email' ? 'email' : 'app');
+
 /** El asunto de una tarjeta por email, crudo (con sus datos «{{…}}» sin resolver). */
 export const asuntoDeMako = (params: Params): string => (typeof params?.asunto === 'string' ? params.asunto : '');
 
@@ -161,7 +180,7 @@ export function pasoDeMako<T extends { accion?: { params?: Record<string, unknow
 }
 
 /** Lo que el editor manda al cambiar (un diff de la forma guardada). */
-export type CambioDeMako = Partial<{ tipo: string; cuerpo: string; audio_id: number | null; media_id: number | null; partes: unknown[]; fueraDeHorario: FueraDeHorario; canal: CanalMako; asunto: string }>;
+export type CambioDeMako = Partial<{ tipo: string; cuerpo: string; audio_id: number | null; media_id: number | null; partes: unknown[]; fueraDeHorario: FueraDeHorario; canal: CanalMako; asunto: string; sinGrupo: SinGrupo }>;
 
 /**
  * El cambio del editor, de vuelta a los `params` de la tarjeta.
@@ -174,11 +193,15 @@ export type CambioDeMako = Partial<{ tipo: string; cuerpo: string; audio_id: num
  */
 export function paramsDeMako(params: Params, cambio: CambioDeMako): Record<string, unknown> {
   const actual = formaGuardada(partesDeMako(params));
-  const { fueraDeHorario, canal, asunto, ...delMensaje } = cambio;
+  const { fueraDeHorario, canal, asunto, sinGrupo, ...delMensaje } = cambio;
   const junto = { ...actual, ...delMensaje, canal: 'whatsapp', proveedor: 'no_oficial' } as PasoConPartes;
   if (junto.tipo === 'ia') junto.tipo = 'texto';
-  // Por dónde y el asunto (16/10/2026) pasan por `paramsConPartes`, que es quien decide qué se guarda.
-  const conEnvio = { ...(params ?? {}), ...(canal !== undefined ? { canal } : {}), ...(asunto !== undefined ? { asunto } : {}) };
+  // Por dónde, el asunto (16/10/2026) y qué hace sin grupo (17/10/2026) pasan por `paramsConPartes`, que es quien decide
+  // qué se guarda.
+  const conEnvio = {
+    ...(params ?? {}), ...(canal !== undefined ? { canal } : {}), ...(asunto !== undefined ? { asunto } : {}),
+    ...(sinGrupo !== undefined ? { sinGrupo } : {}),
+  };
   const out = paramsConPartes(conEnvio, partesDe(junto));
   return fueraDeHorario && FUERAS_DE_HORARIO.includes(fueraDeHorario) ? { ...out, fueraDeHorario } : out;
 }
@@ -186,7 +209,7 @@ export function paramsDeMako(params: Params, cambio: CambioDeMako): Record<strin
 /**
  * LOS `params` DE UNA TARJETA CON ESTA LISTA (la única que escribe la forma: `paramsDeMako` y `partirConEspera`,
  * lib/flujo-edicion.ts, pasan por acá). `partes` explícita aunque esté vacía, `mensaje` como espejo, y del resto
- * sólo `leadId`, `titulo`, `fueraDeHorario` y, por email, `canal` y `asunto`.
+ * sólo `leadId`, `titulo`, `fueraDeHorario`, `sinGrupo` y, por email, `canal` y `asunto`.
  */
 export function paramsConPartes(params: Params, lista: readonly ParteMensaje[]): Record<string, unknown> {
   const partes = sanearPartes(lista);
@@ -198,6 +221,9 @@ export function paramsConPartes(params: Params, lista: readonly ParteMensaje[]):
     // Por email, con su asunto (aunque esté a medio escribir: el freno de Publicar lo pide). Sin elegir, el grupo:
     // no se escribe nada, y una tarjeta de antes queda como estaba.
     ...(esPorEmail(params) ? { canal: 'email', asunto: asuntoDeMako(params).slice(0, TOPE_ASUNTO_MAKO) } : {}),
+    // Sin grupo, «por email» (17/10/2026). Sin elegir, queda en la app: no se escribe nada. Viaja aunque la tarjeta vaya
+    // por email (ahí no se usa): volver al grupo no tiene por qué perder lo elegido.
+    ...(sinGrupoDeMako(params) === 'email' ? { sinGrupo: 'email' } : {}),
     mensaje: textoDePartes(partes),
     partes,
   };
@@ -298,7 +324,7 @@ export type RespuestaEv = { ok: boolean; status: number; body: unknown };
 export type EvFn = (path: string, init?: { method?: string; body?: string }) => Promise<RespuestaEv>;
 
 /** Cuántas salieron, sus ids de WhatsApp y, si una falló, por qué. */
-export type EnvioPartes = { ok: boolean; salieron: number; ids: string[]; error?: string };
+export type EnvioPartes = { ok: boolean; salieron: number; ids: string[]; error?: string; /** El negocio no tiene grupo de MaKo (leído, no supuesto). */ sinGrupo?: true };
 
 /** El mensaje útil del cuerpo de un error de Evolution (viene anidado y variado). */
 export function detalleEvolution(body: unknown): string {
@@ -400,6 +426,8 @@ export type AvisoDeTarjeta = {
   /** Por email: el asunto ya resuelto, y sin push (la tarjeta dice email, no «suena el teléfono»). */
   asuntoEmail?: string;
   push?: false;
+  /** Sin grupo de MaKo, también por email (17/10/2026). Ausente = queda en la app. */
+  sinGrupo?: 'email';
 };
 
 /**
@@ -445,6 +473,8 @@ export function armarAvisoDeTarjeta(
   const base = {
     tipo: TIPO_AVISO_TARJETA, titulo, categoria: 'accion' as const, semaforo: 'amarillo' as const,
     ...(lead ? { lead: { id: lead.id, nombre: lead.nombre }, link: `/crm/${lead.id}` } : {}),
+    // Sin grupo de MaKo (17/10/2026): lo que eligió la tarjeta. Por email ya va al correo: no hay nada que elegir.
+    ...(sinGrupoDeMako(payload) === 'email' && !esPorEmail(payload) ? { sinGrupo: 'email' as const } : {}),
   };
   // POR EMAIL (16/10/2026): el texto tal cual, al correo del equipo. Sin partes: por email va un texto
   // (`problemaDeEmailMako` lo frena al publicar, y acá no viaja otra cosa aunque llegara).
@@ -477,7 +507,13 @@ export function armarAvisoDeTarjeta(
 }
 
 /** Lo que `emitirAviso` devuelve y esta tarjeta lee (lib/avisos.ts, `EmitirAvisoResult`). */
-export type ResultadoAviso = { ok: boolean; wa: boolean; deduped: boolean; apagado?: boolean; agrupado?: boolean; waError?: string; email?: boolean };
+export type ResultadoAviso = {
+  ok: boolean; wa: boolean; deduped: boolean; apagado?: boolean; agrupado?: boolean; waError?: string; email?: boolean;
+  /** La fila de la campanita (null: no se pudo escribir). */
+  feedId?: number | null;
+  /** El negocio no tiene grupo de MaKo, y lo que se hizo en su lugar (17/10/2026, `SinGrupo`). */
+  sinGrupo?: SinGrupo;
+};
 
 /**
  * LO QUE LA TARJETA LE CONTESTA AL MOTOR. Un `ok: false` queda como 'fallo' en `nutricion_envios`, con el motivo.
@@ -496,6 +532,32 @@ export function resultadoDelAviso(r: ResultadoAviso, lead: { nombre: string } | 
   if (!r.ok) return { ok: false, resumen: 'No pude avisarle al equipo.' };
   // Por email (16/10/2026), «le escribí» sólo si salió alguno: sin destinatarios, o con Resend caído, es un fallo.
   if (porEmail) return r.email ? { ok: true, resumen: 'Le escribí al equipo.' } : { ok: false, resumen: 'No salió el email: el negocio no tiene a quién escribirle en Notificaciones, o el correo falló.' };
+  // SIN GRUPO DE MAKO (17/10/2026): lo que la tarjeta eligió. Quedar en la app es lo que pidió, no un fallo; un correo que
+  // no salió, o una campanita que no se pudo escribir, sí.
+  if (r.sinGrupo) {
+    const enApp = r.feedId != null;
+    if (r.sinGrupo === 'email') {
+      if (r.email) return { ok: true, resumen: 'El negocio no tiene grupo de MaKo: le escribí al equipo por email.' };
+      return { ok: false, resumen: `El negocio no tiene grupo de MaKo y el email no salió (nadie en Notificaciones, o el correo falló)${enApp ? ': quedó en la app.' : '.'}` };
+    }
+    return enApp
+      ? { ok: true, resumen: 'El negocio no tiene grupo de MaKo: quedó en la app.' }
+      : { ok: false, resumen: 'El negocio no tiene grupo de MaKo, y no pude dejarlo en la app.' };
+  }
   if (!r.wa && r.waError) return { ok: false, resumen: `No salió al grupo: ${r.waError}`.slice(0, 300) };
   return { ok: true, resumen: 'Le avisé al equipo.' };
+}
+
+/**
+ * ¿LLEGÓ LA TARJETA DE UN EVENTO? Al grupo o por email (16/10/2026). El feed y el push los escribe igual y no avisan a
+ * nadie que no esté mirando, salvo en UN caso (17/10/2026): el negocio NO TIENE grupo de MaKo y la tarjeta dice «queda en
+ * la app». Ahí la campanita ES el destino elegido, y si no contara, la alerta de anuncios del ws4 (sin grupo) volvía cada
+ * hora sin techo (`vecesDelEstado`, lib/alerta-critica-texto.ts) y llenaba la campanita: 63 filas en 24 h, medido el
+ * 17/10. Con «por email» y el correo que no salió (nadie en Notificaciones) también quedó en la app: reintentar cada hora
+ * no le crea un grupo ni un destinatario, sólo suma filas. «No pude dejarlo en la app» (`feedId` null) no llegó.
+ */
+export function llegoLaTarjeta(r: { ok: boolean; wa: boolean; email?: boolean; sinGrupo?: SinGrupo; feedId?: number | null }): boolean {
+  if (!r.ok) return false;
+  if (r.wa || r.email === true) return true;
+  return !!r.sinGrupo && r.feedId != null;
 }

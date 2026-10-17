@@ -7096,3 +7096,101 @@ dos imágenes DISTINTAS para ubicar cada mediaId. El repo conocía el modo sólo
 `lib/flow.ts:156-166`), y `tieneCaraParcheable` (`lib/flow-plantillas.ts:520`) sólo lee el JSON REST.
 **Regla:** una operación nueva NO entra en `A_PEDIR` sin un «listo» por operación: `puedeFilmar` deja el puente en
 `sin_sesion` y todos los clientes del Video Generator dejan de filmar.
+
+## El motor por interfaz reemplaza al replay de BOQ (17/10/2026)
+
+**Vive en:** `extension/flow-interfaz.js` (el motor, content script de flow.google.com) ·
+`extension/background.js` (sección «EL MOTOR POR INTERFAZ») · `lib/flow-interfaz.ts` (el contrato
+del lado de MaKo) · `lib/flow-cola.ts` (`seguirTomados`, `firmarSubidas`) · `lib/flow-puede-filmar.ts`
+(el juicio, ahora con la pestaña) · `app/video-generator/video-action.ts` · tests
+`flow-interfaz-motor.test.ts` y `flow-interfaz.test.ts`.
+
+Pedido de Martín (17/10, 00:30): terminar la conexión con Flow copiando el método del video
+«I Fully Automated Google Flow Using Claude Code» y del repo `GTAI-1/flow-mcp`, y decir si la
+extensión se depreca.
+
+### Qué hace flow-mcp, y qué se tomó de él
+
+Es un servidor MCP **local**: abre un Chrome propio (perfil en `~/.flow-mcp/chrome-profile`), lo
+maneja por CDP con Playwright y **aprieta los botones reales de Flow** buscándolos por su nombre
+accesible en inglés (`?hl=en`): `Settings trigger` → radios Image/Video, Frames/Ingredients,
+aspecto, `Select model family`, 720p, duración, x1, y el precio que Flow cotiza («N credits») antes
+de generar; `Add ingredients to the prompt box` → listbox `Asset list` → `Add to prompt`; el
+prompt en `.ProseMirror`; `Start generation`; y espera la baldosa nueva en
+`flow-grid-tile-container`. Una generación por vez, 25-70 s entre una y otra. No reproduce
+llamadas internas ni toca el captcha: lo acuña la página, como cuando genera una persona.
+
+⚠️ **No tiene licencia** (la API de GitHub da `license: null`): todos los derechos reservados. Se
+estudió el MÉTODO y se reescribió con código propio; ningún archivo suyo entra al repo. Y no sirve
+tal cual para MaKo: corre en UNA PC con su propio Chrome, y MaKo genera en el navegador de CADA
+cliente con SU cuenta. Por eso **la extensión no se depreca**: es lo único que corre ahí. Lo que
+cambió es su motor.
+
+### Por qué el motor por interfaz reemplaza al de BOQ
+
+El replay copiaba el pedido que la persona enseñó y le cambiaba el texto. Cada rechazo de Google
+destapó una pieza efímera más que había que reponer a mano —el `at`, el token de reCAPTCHA de un
+solo uso (código 7), los ids de cliente en mayúsculas (código 13)—, y las dos que quedaron sin
+resolver eran las que hacen al producto: **la cara** (el replay reproduce el tipo de generación que
+se enseñó: sin referencia sale otra persona) y **el sondeo del video** (payload posicional, `rpcid`
+que rota con cada bundle). Era mantenimiento continuo contra un protocolo privado.
+
+La interfaz no rota con el bundle, y la propia página acuña captcha, ids y `at`. Lo que se cambia
+es un riesgo por otro, y hay que decirlo: el motor es **frágil a cambios de layout/rótulos** (están
+en UNA tabla, `R`, y la sonda los cuenta) en vez de frágil a cada deploy de Google.
+
+### Las trampas, en el orden en que muerden
+
+1. **La pestaña de fondo no tiene reloj.** Chrome frena los timers de una pestaña oculta y, pasados
+   5 minutos, alinea los encadenados a **un minuto**. La de Flow casi siempre está de fondo (la
+   persona mira MaKo). Cada espera del motor (`dormir`) es un mensaje al service worker, que
+   contesta con SU reloj; el `setTimeout` de la página queda sólo de respaldo.
+2. **Un video en reposo no tiene id en el DOM**, sólo una miniatura `/asb/` que Google re-firma, y
+   Angular rehace los nodos de la grilla. «La baldosa de arriba es otro elemento» NO prueba que sea
+   nueva: con eso se entregaba el último video ya terminado. El nuevo se reconoce **por haberlo visto
+   nacer** arriba (titulado con el prompt o contando %), de a uno por vez.
+3. **En `/project/<p>/edit/<m>` el primer uuid es el del PROYECTO.** El id del video es el que va
+   después de `/edit/`. Lo destapó el DOM del test antes de correrlo.
+4. **El latido no puede esperar a Flow**: `VIVO_MS` son dos minutos y un video tarda más. El trabajo
+   se anota en storage (`interfaz:<id>`), queda `tomado`, y el resultado viaja en un latido
+   posterior con el id ORIGINAL.
+5. **…y entonces el rescate de 10 minutos lo repartiría de nuevo.** Peor: entre que el RPC lo suelta
+   y alguien lo toma, `estadoTomaAction` lo cierra como «nadie levantó el trabajo» con el clip ya
+   pagado. Cada latido manda `enCurso` y el route renueva el `tomado_at` (`seguirTomados`) ANTES de
+   tomar, que es donde el RPC rescata.
+6. **La plata: `salio` se escribe ANTES del clic** en «Start generation», y un trabajo con
+   `salio: true` no vuelve a apretar nunca: si su pestaña se recargó, se cierra como `RECARGADA`
+   («quedó en tu proyecto de Flow»). Sólo se reintenta con `salio === false` explícito, y ni así si
+   repetir no cambia nada (`noReintentar`: el tope de créditos, la foto que no está).
+7. **Flow cotiza antes de cobrar**: el motor lee «N credits» y no aprieta por encima de
+   `TOPE_CREDITOS` (video 15 = Omni 720p 10 s; imagen 0). Si no puede leer el precio, tampoco.
+8. **El nombre accesible del selector de modelo es fijo** («Select model family»): el modelo puesto
+   se lee de su TEXTO.
+9. **Una url que pide la sesión de Google contesta 200 con la página de login.** `guardarClip`
+   miraba `ok` y tamaño y la guardaba como .mp4. Ahora rechaza `text/html`. El camino normal ni la
+   usa: la pestaña baja el archivo con su sesión y lo sube a Storage con una firma que el route
+   acuña al ENTREGAR el trabajo (`firmarSubidas`, sólo rutas con la forma de `RUTA_SUBIDA`).
+
+### Cómo convive con lo que había
+
+- El server decide el pedido por la **versión** del último latido (`usaInterfaz`, ≥ 0.69.0). Una
+  extensión vieja sigue recibiendo el pedido de BOQ; las dos formas no viajan juntas (la foto pesa).
+- `puedeFilmar(plantillas, A_PEDIR, interfaz)`: con el motor, decide la pestaña y la plantilla no
+  participa. Sin esto el popup pedía «enséñame» (un crédito) para algo que ya no se usa, o daba
+  verde sobre una pestaña muda. El popup tiene su rama para «interfaz pero no puede».
+- La foto se sube por el menú «Upload»: un script en MAIN atrapa el `input.click()` y le entrega el
+  archivo sin abrir el diálogo del sistema.
+
+### Lo que quedó SIN medir (a la fecha de este commit)
+
+Escrito contra los rótulos que flow-mcp midió el 16/10; **no se corrió todavía en la pestaña de un
+cliente** (el Chrome de Martín no estaba conectado a esta cuenta). Lo que se mide con UNA llamada a
+`INTERFAZ_SONDA` (`extension/flow-interfaz.js` → `sonda()`), antes de gastar un crédito:
+- si las opciones del selector de ingredientes exponen `data-media-id` (si no, `adjuntar` no
+  encuentra la cara y falla con `SIN_REFERENCIA`, sin gastar);
+- si el clic sintético abre los menús de Flow con la pestaña de fondo;
+- de dónde sale el `<video>` en `/edit/<id>` y si su url se puede bajar sin cookies (decide si
+  `propio` es el camino o el respaldo);
+- si «Upload» usa `input.click()`, `showPicker()` u otra cosa.
+Y sin construir: cuando la cara guardada (`KEY_CARAS_FLOW`) no está en el proyecto, nada la vuelve a
+subir sola (`video-action.ts`, `caraEnFlow`); la persona ve «Tu foto no está en este proyecto de Flow».

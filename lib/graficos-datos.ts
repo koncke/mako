@@ -36,6 +36,8 @@ import {
   type Filtro, type Fila, type Resultado,
 } from './graficos-agregar';
 import { ESTADO_COBRADO } from './graficos-acciones';
+import { ubicarLeads } from './funnels-elegidos-server';
+import { funnelDelMomento } from './funnels-elegidos';
 import { diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, gano, rotuloMadurez, tramosDelCiclo } from './graficos-datos-puro';
 import { carteraEnEntrega } from '@/app/customer-success/entrega';
 import { repartirEnEtapas } from './servicio-etapas';
@@ -287,18 +289,30 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
   const rows = await leer<FPago>('pagos', 'id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago', rg, {
     col, extra: (q) => (fecha === 'pago' ? q.eq('pagado', true) : q),
   });
-  const [nom, hoy] = await Promise.all([
-    nombres('leads', rows.map((x) => x.lead_id).filter((x): x is number => x != null)),
+  const ids = rows.map((x) => x.lead_id).filter((x): x is number => x != null);
+  const [nom, hoy, donde, rot] = await Promise.all([
+    nombres('leads', ids),
     hoyEnWorkspace().catch(() => hoyEnTijuana()),
+    // El funnel de cada cuota (17/10/2026, «¿cómo le digo de dónde tomar los ingresos?»): un pago no lo guarda, así que
+    // es el funnel donde estaba el lead ese día (lib/funnels-elegidos.ts). La MISMA regla que el avance de un OKR.
+    // Si no se pudo saber, la cuota queda sin funnel (una dimensión vacía), no se cae cada gráfico de pagos.
+    ubicarLeads([...new Set(ids)]).catch((e) => {
+      console.error('[graficos] pagos sin funnel:', e instanceof Error ? e.message : e);
+      return { casas: new Map<number, number | null>(), agregados: new Map() };
+    }),
+    rotulosDelCrm(),
   ]);
   return rows.map((x) => {
     const monto = num(x.monto_usd);
     // `ESTADO_COBRADO` es el mismo rótulo que mira la acción «Marcar cobrada» para no ofrecerla dos veces.
     const estado = x.pagado ? ESTADO_COBRADO : x.fecha_esperada && x.fecha_esperada < hoy ? 'Vencido' : 'Pendiente';
     const lead = x.lead_id != null ? String(x.lead_id) : null;
+    // La fecha que manda: la del cobro si se cobró, la del vencimiento si no.
+    const cuando = (x.pagado ? x.fecha_pago : null) ?? x.fecha_esperada;
+    const funnel = x.lead_id != null && cuando ? funnelDelMomento(donde.casas.get(x.lead_id) ?? null, donde.agregados.get(x.lead_id) ?? [], cuando) : null;
     return {
       f: fecha === 'pago' ? x.fecha_pago : x.fecha_esperada,
-      d: { estado, cliente: lead != null ? nom.get(lead) ?? null : null, cuota: x.numero != null ? `Cuota ${x.numero}` : null },
+      d: { estado, cliente: lead != null ? nom.get(lead) ?? null : null, cuota: x.numero != null ? `Cuota ${x.numero}` : null, producto: funnel != null ? rot.producto(funnel) : null },
       v: { monto, cobrado: x.pagado ? monto : 0, pendiente: x.pagado ? 0 : monto, pagos: 1 },
       u: { clientes: lead },
       // Los DOS ids de la MISMA fila: marcarPagoAction no comprueba que la cuota sea de ese lead

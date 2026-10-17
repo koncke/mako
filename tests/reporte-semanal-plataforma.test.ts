@@ -169,7 +169,7 @@ test('lo emite el cron de cada negocio y lo corre la fila de la plataforma; sin 
 // rotura 11 (`emitirAviso` ignora el `push: false`): 5 pass / 1 fail, cae éste.
 test('el runner de los eventos y el envío respetan el email, y el editor ofrece «Por dónde»', () => {
   const flujos = leer('lib/flujos.ts');
-  assert.match(flujos, /emitirTarjetaDelEvento\(flujoId, \{ texto: propio, partes: paso\.partes, email: paso\.email \}/);
+  assert.match(flujos, /emitirTarjetaDelEvento\(flujoId, \{ texto: propio, partes: paso\.partes, email: paso\.email, sinGrupo: paso\.sinGrupo \}/);
   assert.match(flujos, /const porEmail = tarjeta\.email \? avisoPorEmail\(\(await resolver\(tarjeta\.email\.asunto\)\) \|\| aviso\.titulo\) : null;/);
   assert.match(flujos, /titulo: porEmail\?\.titulo \?\? aviso\.titulo, texto,/);
   assert.match(flujos, /estado: porEmail\?\.estado \?\? ESTADO_EVENTO,/);

@@ -132,10 +132,12 @@ test('El interruptor y el canal son DOS preguntas, y apagar los dos canales apag
   // Probado rompiéndolo: volviendo el gate a `if (!canal.activo)` -> 1 falla / 9 pasan.
   const src = leer('../lib/avisos.ts');
   assert.ok(
-    /if \(!canal\.activo \|\| \(!canal\.wa && !canal\.email\)\)/.test(src),
+    // (17/10/2026: se calcula antes de escribir la fila, para que la fila diga si quedó apagada.)
+    /const apagado = !canal\.activo \|\| \(!canal\.wa && !canal\.email\);/.test(src) && /if \(apagado\) \{/.test(src),
     'el gate del choke point volvió a mirar un solo valor: «sólo por email» deja de existir',
   );
-  assert.ok(/const email = canal\.email \? await enviarAvisoPorEmail/.test(src), 'el envío por email dejó de colgar del canal elegido');
+  // `let` desde el 17/10/2026: sin grupo de MaKo, la tarjeta que eligió «por email» también lo manda (sin duplicarlo).
+  assert.ok(/let email = canal\.email \? await enviarAvisoPorEmail/.test(src), 'el envío por email dejó de colgar del canal elegido');
 });
 
 test('⚠️ TODO lo que sale de la plantilla se lee en el WORKSPACE DEL AVISO', () => {

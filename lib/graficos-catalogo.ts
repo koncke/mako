@@ -33,7 +33,7 @@ import {
   type Area, type ClaseDim, type Dimension, type Formato, type Fuente, type Metrica,
 } from './graficos-constructores';
 import { FUENTES_EXTRA } from './graficos-fuentes-extra';
-import { esPiezaGeneral, piezaPorFunnel, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from './general-piezas';
+import { atarFunnels, esPiezaGeneral, funnelsDeBloque, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from './general-piezas';
 import { idDeParte, idLibre, migrarBloquesV5 } from './graficos-migrar-v5';
 import { identidadDe } from './graficos-identidad';
 
@@ -223,7 +223,9 @@ const FUENTES_BASE: readonly Fuente[] = [
     // v5: el vencimiento MIRA HACIA ADELANTE (`futuro`): «lo que vence este mes» no se corta en hoy. Con el
     // corte, la plantilla «Cobranza» no contaba lo que vencía después de hoy (bug vivo del relevo v5).
     fechas: [{ id: 'vencimiento', nombre: 'Vencimiento', futuro: true }, { id: 'pago', nombre: 'Pagado' }],
-    dimensiones: [...TIEMPO, cat('estado', 'Estado'), cat('cliente', 'Cliente'), cat('cuota', 'Cuota')],
+    // `producto` (17/10/2026): el funnel de cada cuota, el de donde estaba el lead ese día (lib/funnels-elegidos.ts):
+    // «Cobrado por funnel» y la hoja filtrada por funnel cuentan la plata con la misma regla que un OKR.
+    dimensiones: [...TIEMPO, cat('estado', 'Estado'), cat('producto', 'Producto'), cat('cliente', 'Cliente'), cat('cuota', 'Cuota')],
     metricas: [m('monto', 'Monto', 'usd'), m('cobrado', 'Cobrado', 'usd'), menos(m('pendiente', 'Pendiente', 'usd')), m('pagos', 'Cuotas'), dist('clientes', 'Clientes')],
   },
   {
@@ -751,7 +753,7 @@ export const COMPARTIDOS_DECLARADOS: readonly Campo[] = [
   { id: 'conjunto', nombre: 'Conjunto', en: { meta: 'conjunto', presupuesto: 'conjunto', guiones: 'conjunto' } },
   { id: 'anuncio', nombre: 'Anuncio', en: { meta: 'anuncio', leads: 'anuncio' } },
   { id: 'pagina', nombre: 'Página', en: { visitas: 'pagina', vsl: 'pagina', replays: 'pagina', clics: 'pagina', scroll: 'pagina', toques: 'pagina', retencion_vsl: 'pagina', landing_analisis: 'pagina', ubicacion: 'pagina' } },
-  { id: 'producto', nombre: 'Producto', en: { leads: 'producto', entrega: 'producto', cartera: 'producto' } },
+  { id: 'producto', nombre: 'Producto', en: { leads: 'producto', entrega: 'producto', cartera: 'producto', pagos: 'producto' } },
   { id: 'closer', nombre: 'Closer', en: { leads: 'closer', llamadas: 'closer', llamadas_venta: 'closer', llamadas_dimensiones: 'closer' } },
   { id: 'automatizacion', nombre: 'Automatización', en: { inscripciones: 'automatizacion', envios: 'automatizacion' } },
   // v5 (contrato, «Campos COMPARTIDOS nuevos»): el video del VSL y su curva, la línea de WhatsApp, el setter y
@@ -1162,10 +1164,11 @@ export type Elemento = {
   /**
    * Bloque de General (14/10/2026): cuál (lib/general-piezas.ts). `texto` es su título; vacío = el de siempre.
    * `funnel`: el funnel al que se ata, sólo en los bloques que saben (`piezaPorFunnel`); sin él, el de siempre.
+   * `funnels`: los funnels, en los bloques que suman varios (`piezaPorVariosFunnels`, 17/10/2026); sin ellos, todos.
    * `opciones`: lo elegido en el panel (cuántas, cómo se ve…), sólo lo que el bloque declara (`opcionesDePieza`) y
    * distinto de su default.
    */
-  general?: { pieza: PiezaGeneral; funnel?: number; opciones?: OpcionesElegidas };
+  general?: { pieza: PiezaGeneral; funnel?: number; funnels?: number[]; opciones?: OpcionesElegidas };
   /** La portada (15/10/2026), como la de un gráfico: un bloque de General o un texto pintados con su color. */
   portada?: string;
   x: number; y: number; w: number; h: number;
@@ -1664,11 +1667,12 @@ export function sanearElemento(raw: unknown, ctx: ContextoSaneo = {}): Elemento 
     // Un bloque de General vive en una hoja (en un pop-up no hay General que dibujar), y uno que no dice cuál, no dibuja nada.
     const pieza = esObj(o.general) ? o.general.pieza : null;
     if (ctx.enPopup || !esPiezaGeneral(pieza)) return null;
-    const funnel = esObj(o.general) ? Number(o.general.funnel) : NaN;
+    // Uno (`funnel`) o varios (`funnels`) según el bloque; un `funnel` de antes en uno de varios se lee como lista de uno.
+    const ids = esObj(o.general) ? funnelsDeBloque(o.general) : [];
     const opciones = sanearOpciones(pieza, esObj(o.general) ? o.general.opciones : null);
     tipoEspecial.general = {
       pieza,
-      ...(piezaPorFunnel(pieza) && Number.isInteger(funnel) && funnel > 0 ? { funnel } : {}),
+      ...atarFunnels(pieza, ids),
       ...(opciones ? { opciones } : {}),
     };
   }
