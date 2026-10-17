@@ -1206,10 +1206,11 @@ curl -L \
   -d '{"progreso":0}'
 ```
 
-### `POST /api/v1/plan/cambiar_fecha_tarea_plan` — Cambiar la fecha límite de una tarea
+### `PUT /api/v1/plan/tareas/{id}/fecha` — Cambiar la fecha límite de una tarea
 
 Pone, cambia o quita la fecha límite de UNA tarea del plan (YYYY-MM-DD, de hoy en adelante). Una reunión de la agenda se mueve con otra herramienta.
 
+- **Ruta por operación:** `POST /api/v1/plan/cambiar_fecha_tarea_plan`
 - **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -1226,7 +1227,12 @@ Pone, cambia o quita la fecha límite de UNA tarea del plan (YYYY-MM-DD, de hoy 
 | `quitar` | boolean | no | true para dejarla sin fecha límite. |
 
 ```bash
-
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/plan/tareas/ID/fecha"
 ```
 
 ### `PUT /api/v1/plan/tareas/{id}/estado` — Mover una tarea de columna

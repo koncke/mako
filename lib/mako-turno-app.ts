@@ -185,7 +185,7 @@ export async function urlDeAdjunto(persona: PersonaChat, ref: unknown): Promise<
 // ── El system del turno ──────────────────────────────────────────────────────
 
 const VOZ_APP = `CONTEXTO: estás en el chat de MaKo en el TELÉFONO de la persona (el dueño del negocio o alguien de su equipo). Responde breve y claro (2-5 líneas), sin volcar JSON ni tecnicismos. Ves el historial de este chat: úsalo y no pidas datos que ya te dieron.
-LA VOZ: directa y cálida, SIN groserías ni lunfardo (nada de "cagada", "carajo", "boludo", "vendehumo" ni parecido): este chat lo usan los clientes de MaKo y su equipo.`;
+LA VOZ: directa y cálida, SIN groserías ni lunfardo (ninguna mala palabra ni insulto, tampoco en broma): este chat lo usan los clientes de MaKo y su equipo.`;
 
 /** El protocolo de herramientas: SÓLO si viajan herramientas (AGENTS.md, «Un prompt que
  *  ORDENA usar algo que no se mandó…»). */
