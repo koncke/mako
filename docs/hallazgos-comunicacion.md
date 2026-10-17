@@ -10147,6 +10147,15 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
 - **La fila va ANTES del deploy** (sin camino viejo, sin fila no sale): la #269 del ws 9 se creó con
   `scripts/mudanza-avisos-plataforma.mts --eventos=reunion_cancelada --aplicar`. El código de producción de antes no la lee.
 
-**Vive en:** `lib/reunion-cancelada.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
+- **El contacto fusionado (`lead-fusionado`, fila #270) tenía el freno AL REVÉS:** 60 min SIN clave, así que la fusión
+  de OTRO lead en esa hora no se avisaba, y es lo único que hace visible un match equivocado (dos personas con el número
+  de la recepción). Ahora es por lead (`claveFusion`). tests/leads-duplicados.test.ts fijaba el `60` sin clave con la
+  razón de antes («diez avisos son ruido»): se cambió la razón, no se aflojó. Su link es el de la TARJETA (`/crm/<id>`),
+  no el del resumen: va en su propio dato (`fusion_link`) para que el texto sea el de siempre.
+- **Lo que se va al mudar, a propósito:** el camino viejo le pegaba arriba el rótulo de barras («━━ … ━━»,
+  `encabezadoAviso`); la tarjeta «tal cual» no lo lleva, como en las mudanzas de Fathom y de la línea (lo que se ve en
+  la tarjeta es lo que llega). La comparación letra por letra es del CUERPO.
+
+**Vive en:** `lib/reunion-cancelada.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
 (`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
 · test: `tests/reunion-cancelada-evento.test.ts`
