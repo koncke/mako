@@ -3,6 +3,41 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 17/10/2026 (claude4) — END TO END: Chats con todos los canales y la primera auditoría MIRADA a 390 px
+
+Pedido de Martín (17/10, 10:35): «Implementa end to end MaKo mobile, hay muchas cosas que faltan o podrían
+mejorarse». Rama `mobile-e2e-1710` en `C:/dev/wt-mobile` (sale de origin/main con la sidebar nueva, f3d6f0612). El
+Cerebro integra y pushea.
+
+**Hecho (commits en la rama, pasados al Cerebro como VERDE):**
+- `86ba6dae6` Chats del teléfono = la bandeja unificada de escritorio (WhatsApp de cada línea, Instagram, Messenger,
+  Email): bandejas, filtro, «Sin responder», buscador, y cada conversación en su pantalla (`/chats?c=<clave>`) con
+  Cerrar/Reabrir y responder por el canal elegido. Los links `?c=`/`?lead=` abren la conversación.
+- `9ab522794` El Second Brain del teléfono dibuja el markdown de MaKo (listas y títulos) con el `<Markdown>` de escritorio.
+
+**Auditado a 390 px de verdad** (Chrome headless con UA de iPhone contra `next start` local, base de producción,
+ws9 sólo leyendo y ws3 para el onboarding): General, CRM, ficha, chat del lead, Chats, Plan, More, Avisos, Clients,
+Classroom, Community, Calendar, Dashboard, Ads Manager, Tu cuenta, Offer, Second Brain y su Mapa, Ads Writer,
+Automations, Web Generator, Video, /configurar y el onboarding. Ninguna tiró error de JS ni desbordó a lo ancho.
+Lo único roto para un cliente era Chats (arriba). Detalle y trampas del entorno: docs/hallazgos-mobile.md → «Chats
+del teléfono con todos los canales…».
+
+**Cómo volver a mirarlo (receta corta):** copiar `node_modules` de verdad (robocopy, ~1 min) y `.env.local` al
+worktree; `next build --debug-build-paths "app/m/<3 a 8 páginas>/page.tsx,app/api/auth/me/**"`; sumar a
+`.next/routes-manifest.json` → `dynamicRoutes` las páginas con `[param]` de `.next/app-path-routes-manifest.json`
+(regex `^/m/chats/([^/]+?)(?:/)?$`, routeKeys `nxtPclave`); `next start -H localhost -p 3217` (NUNCA `-H 127.0.0.1`:
+bucle de redirects); la cookie `mako_session` firmada con `crearToken` de lib/auth-session.ts con `rol: 'admin',
+ws: 9, mfa: 'dev'` (sin `ws`, el Plan lee el tablero de cliente). Parar el server antes de cada build.
+
+**Lo que falta, en orden:**
+1. Mirar Chats con chats reales en un teléfono (ws3 cuando termine su onboarding, con Instagram conectado): el ws9
+   no tiene chats y el ws1 no se toca.
+2. Chats: adjuntos y notas de voz, notas internas, asignar, mover de etapa y posponer (app/chats/Composer.tsx y
+   VentanaChat.tsx tienen todo eso en escritorio); y buscar en el servidor un lead sin mensajes.
+3. Del CRM (su chat): el botón «WhatsApp» de la ficha del teléfono sigue yendo al hilo de sólo WhatsApp; escritorio
+   va a Chats (`rutaChatsDeLead`).
+4. Lo que quedaba de las tandas 1-3 de More sigue en hallazgos-mobile.md («Sin hacer» de cada tanda).
+
 ## 16/10/2026 ~04:40 (cuenta 3) — MORE COMPLETO, TANDA 3 DE 3: Ads Writer, Curso y Comunidad (SIN COMMIT)
 
 Misma rama (`movil-more-9`, en `C:/dev/wt-mobile`); el orquestador commitea por ruta y otra sesión pushea. Con esta
