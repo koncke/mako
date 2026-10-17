@@ -82,7 +82,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.15.0';
+export const VERSION = '1.15.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1238,6 +1238,18 @@ async function vuelta(cuenta) {
   return { carpeta: rotuloDir(propio), cuentas: porCuenta, entregar: pendientes(null, propio), aperturas: listar(APERTURAS).length };
 }
 
+/**
+ * Una ruta de MaKo que Git Bash convirtió en una de Windows (1.15.1, 17/10/2026; lo vieron el Runner y el Cerebro):
+ * `cierre … --revisar "/admin/operaciones"` llegaba como `C:/Program Files/Git/admin/operaciones`, porque MSYS traduce
+ * todo argumento que empieza con `/` a la carpeta de Git, y el cierre se rechazaba. Se recupera la `/ruta` de lo que va
+ * después de `…/Git/`. NO se le pide al chat `MSYS_NO_PATHCONV=1 node …` en el mensaje: en PowerShell esa línea no corre, y
+ * los chats usan las dos. Lo que no viene así, tal cual.
+ */
+export function rutaDesdeMsys(v) {
+  const m = /^[A-Za-z]:[\\/](?:[^?#]*?[\\/])?Git[\\/]([^\\/].*)$/.exec(String(v ?? ''));
+  return m ? `/${m[1].replace(/\\/g, '/')}` : String(v ?? '');
+}
+
 function cierre(id, args) {
   if (!UUID_RE.test(id ?? '')) throw new Error('id inválido');
   const v = (k) => { const i = args.indexOf(`--${k}`); return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? String(args[i + 1]).slice(0, 600) : ''; };
@@ -1245,7 +1257,7 @@ function cierre(id, args) {
   if (!c.hecho && !c.decidido) throw new Error('el cierre necesita al menos --hecho o --decidido');
   // La página de MaKo donde Martín mira lo que hiciste (la sub-tab «Review» del Centro). Sólo una ruta interna: lo
   // demás se rechaza acá, y el servidor lo vuelve a sanear (lib/operaciones-reglas.ts → rutaParaRevisar).
-  const revisar = v('revisar');
+  const revisar = rutaDesdeMsys(v('revisar'));
   if (revisar) {
     if (!/^\/(?![/\\])\S{0,299}$/.test(revisar)) throw new Error('--revisar es una ruta de MaKo que empieza con /, como /crm?lead=12');
     c.revisar = revisar;
@@ -1373,7 +1385,14 @@ async function hayAlgo(cuenta, cfg = config(), propio = dirPropio(cfg)) {
   return Math.max(0, Number(o?.hay) || 0);
 }
 
-/** Vigila hasta `maxSeg` (tope TOPE_VIGILAR_SEG) y devuelve lo mismo que `ciclo`, más cuánto vigiló. */
+/** Vigila hasta `maxSeg` (tope TOPE_VIGILAR_SEG) y devuelve lo mismo que `ciclo`, más cuánto vigiló.
+ *  ⚠️ EL BUG DE LAS 0 CONSULTAS (1.15.1, 17/10/2026; el Runner: tres `vigilar --max-seg 100` seguidos sin una sola consulta
+ *  liviana, el último de 78 s). La guarda del margen pedía que entrara una consulta MÁS una vuelta completa (×1,5) antes de
+ *  consultar, con `dura` la de la PRIMERA vuelta, que sube los chats de cada cuenta de la carpeta (30-80 s): nunca entraba,
+ *  el bucle no corría y la entrega en segundos no pasaba. Ahora el margen se mira para lo que cuesta cada cosa: se CONSULTA
+ *  mientras entre una espera (la consulta corta a los 10 s y el tope deja 15 s al Bash); la vuelta completa, sólo si entra;
+ *  y si hay algo y la vuelta no entra, sale YA con `otraVez: true` para que el Runner lo vuelva a correr en el acto (el
+ *  nuevo `vigilar` arranca con la vuelta completa). */
 async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
   const inicio = ahora();
   const fin = inicio + Math.min(Math.max(Number(maxSeg) || 100, 1), TOPE_VIGILAR_SEG) * 1000;
@@ -1385,9 +1404,13 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
   let dura = Math.max(ultima - t0, 2000);
   let consultas = 0;
   const hayQueEntregar = (x) => (x.entregar?.length ?? 0) > 0 || (x.aperturas ?? 0) > 0;
+  let otraVez = false;
+  // Lo que la primera consulta ya ve y la vuelta del principio no reclamó (un trabajo que esta PC no entrega): con eso de
+  // base, `otraVez` sale sólo por algo NUEVO. Sin la base, un pendiente trabado haría correr al Runner sin parar.
+  let base = null;
   while (!hayQueEntregar(r)) {
-    // ¿Entra otra espera y, con margen, otra vuelta completa? Si no, se termina acá.
-    if (ahora() + CADA_VIGILAR_MS + dura * 1.5 > fin) break;
+    // ¿Entra otra espera con su consulta? Si no, se termina acá. (La vuelta completa se mira aparte, abajo.)
+    if (ahora() + CADA_VIGILAR_MS > fin) break;
     await new Promise((ok) => setTimeout(ok, CADA_VIGILAR_MS));
     // Lo que otro Runner ya dejó en el buzón de esta carpeta: sale sin preguntarle a nadie.
     const locales = pendientes(cuenta, propio);
@@ -1395,11 +1418,16 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
     let hay = 0;
     let fallo = false;
     try { hay = await hayAlgo(cuenta, cfg, propio); consultas++; } catch (e) { fallo = true; log(`VIGILAR: la consulta falló (${textoRemoto(e.message)}): cae a la vuelta completa`); }
-    if ((hay > 0 || fallo) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && ahora() + dura * 1.5 <= fin) {
+    if (!fallo && base == null) base = hay;
+    const entraVuelta = ahora() + dura * 1.5 <= fin;
+    // Hay algo NUEVO y la vuelta completa no entra en este Bash: sale ya y lo dice; el Runner corre `vigilar` otra vez.
+    if (!entraVuelta && hay > (base ?? 0)) { otraVez = true; break; }
+    if ((hay > 0 || fallo) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && entraVuelta) {
       t0 = ahora();
       r = await vuelta(cuenta);
       ultima = ahora();
       dura = Math.max(ultima - t0, 2000);
+      base = null; // lo que esta vuelta no reclamó es la base nueva
       if (!hayQueEntregar(r) && hay > 0) { // dijo que sí y no reclamó nada: espera antes de otra vuelta completa
         const hasta = ahora() + ENTRE_VUELTAS_MS;
         while (ahora() < hasta && ahora() + CADA_VIGILAR_MS + dura * 1.5 <= fin) {
@@ -1410,7 +1438,7 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
       }
     }
   }
-  return { ...r, vigilo: Math.round((ahora() - inicio) / 1000), consultas };
+  return { ...r, vigilo: Math.round((ahora() - inicio) / 1000), consultas, ...(otraVez ? { otraVez: true } : {}) };
 }
 
 async function esperar(cuenta, maxSeg) {
