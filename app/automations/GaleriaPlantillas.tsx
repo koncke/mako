@@ -143,6 +143,12 @@ export function GaleriaPlantillas(p: {
   /** La que se creó desde una plantilla: quien monta la abre. */
   onCreada: (r: CreadaGaleria) => void;
   /**
+   * CREAR AL INSTANTE (#882, 17/10/2026; Martín: «cuando se crea un nuevo flujo, sea cual sea la vía... debería
+   * automáticamente crearlo y de última tener un loader»). Con esto, tocar una plantilla NO pregunta la etapa: quien monta
+   * cierra la galería, la crea con el cargador de «＋ Nueva» y abre su lienzo con el CRON abierto para elegirla ahí.
+   */
+  onCrearPlantilla?: (pl: PlantillaAutomatizacion) => void;
+  /**
    * «Pídeselo a MaKo» (decimotercera tanda, punto 2): el pedido escrito o dictado. Quien monta cierra el modal, crea la
    * fila YA y abre su lienzo con el chat de MaKo trabajando. Sin esto, la barra no se dibuja.
    */
@@ -214,6 +220,7 @@ export function GaleriaPlantillas(p: {
   const elegir = (pl: PlantillaAutomatizacion) => {
     if (enVuelo.current) return;
     setError(null);
+    if (p.onCrearPlantilla) { p.onCrearPlantilla(pl); return; }
     if (preguntaEtapa(pl, p.productos, etiquetas)) { setElegida(pl); setValor(''); return; }
     void crear(pl, null);
   };

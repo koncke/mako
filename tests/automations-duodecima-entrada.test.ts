@@ -128,10 +128,12 @@ test('el <Toast> vive en la lista, fuera de la capa de Probar, y no en PanelProb
 
 // ── 5. El aviso rojo de la línea ─────────────────────────────────────────────────────────────────────────────
 
-test('el aviso rojo abre ConectarMedio, sin salir a /whatsapp', () => {
+// Desde el 17/10/2026 (#851, Martín: «Que no aparezca ningún mensaje») el aviso rojo NO está: el QR lo abren el chip
+// «Sin conectar» de la tarjeta, Publicar, Activar y Probar (tests/medios-automatizacion.test.ts). Lo que sigue valiendo
+// de la duodécima: nada saca de la tab a /whatsapp.
+test('sin el aviso rojo de la línea (#851), y nada saca de la tab a /whatsapp', () => {
   const app = APP();
   assert.doesNotMatch(app, /href="\/whatsapp"|import Link/, 'volvió el link a /whatsapp');
-  assert.match(app, /import \{ ConectarMedio \} from '\.\/ConectarMedio';/);
-  assert.match(app, /<button type="button" onClick=\{\(\) => setConectarWa\(true\)\}/);
-  assert.match(app, /\{conectarWa && \(\n\s+<ConectarMedio medio="whatsapp" onCerrar=\{\(\) => setConectarWa\(false\)\}/);
+  assert.doesNotMatch(app, /Volver a conectarlo|Tienes automatizaciones activas y/, 'volvió el cartel rojo');
+  assert.doesNotMatch(app, /setConectarWa/, 'volvió el modal del cartel rojo');
 });

@@ -10177,6 +10177,16 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   `encabezadoAviso`); la tarjeta «tal cual» no lo lleva, como en las mudanzas de Fathom y de la línea (lo que se ve en
   la tarjeta es lo que llega). La comparación letra por letra es del CUERPO.
 
-**Vive en:** `lib/reunion-cancelada.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
+- **Una copia con LISTAS también entra en una fila literal** (`curso-recordatorio-clases`, fila #271): cada sección va
+  en su renglón y su lista es UN dato que arranca con su salto de línea y sólo viene si tiene a alguien
+  (`datosRecordatorioDueno`). Así la sección vacía no trae su dato y `sinRenglonesVacios` se lleva el renglón ENTERO,
+  encabezado incluido. El runner de eventos no recorta los datos (`emitirTarjetaDelEvento` → `textoConDatos`).
+- ⚠️ **El «Le/Les» del texto viejo era una frase armada en el código:** una fila no lo puede decir sin dos casos. La
+  redacción quedó buena para uno y para varios («Recordé… a 1 cliente», «No llegó el recordatorio a:»).
+- ⚠️ **El emisor va con el id LITERAL** (`emitirDelCatalogo('curso-recordatorio-clases', …)`): tests/plantillas-viejas.test.ts
+  busca a cada emisor por él, y con el id en una constante decía «nada lo emite».
+- El color del feed (amarillo cuando a alguien no le llegó) se pierde: el evento usa el semáforo del catálogo.
+
+**Vive en:** `lib/reunion-cancelada.ts` · `lib/curso-mensajes-texto.ts` (`datosRecordatorioDueno`) · `lib/curso-mensajes.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
 (`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
 · test: `tests/reunion-cancelada-evento.test.ts`

@@ -232,6 +232,13 @@ export type FilaCondicion = {
    * Vacío o ausente = cualquier reunión. Sólo en las condiciones del catálogo con `reuniones: true`.
    */
   reuniones?: string[];
+  /**
+   * LAS ELEGIDAS de una de lista con `varios` (#894, 17/10/2026: «Está en el funnel de» con varios es «A o B» en una sola
+   * fila). TODAS, en orden, y la primera repetida en `valor`: así lo que sólo lee `valor` (una fila de antes, la pregunta
+   * de «falta elegir») sigue valiendo. Ausente con una sola. Se lee SIEMPRE con `valoresDeFila`
+   * (lib/condiciones-catalogo.ts), nunca a mano.
+   */
+  valores?: string[];
 };
 
 /** Una rama de la condición. Gana la PRIMERA que se cumple, de arriba hacia abajo. */

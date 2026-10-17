@@ -3876,6 +3876,23 @@ nació mirando una sola punta. Lo mismo vale para «demasiado lento / demasiado 
 «muy chico / muy grande», «cero resultados / demasiados resultados»: una distribución tiene
 dos colas, y la que no se mira es por donde entra.
 
+# Una tasa cuenta a la MISMA gente, y un número que ve el cliente dice de dónde sale
+
+El 16/10/2026, en la revisión con Código Inmobiliario, Martín leyó en el diagnóstico de Offer «Cierras el 43% de las
+llamadas» y preguntó «¿de dónde sacó ese número?». Lo calculaba el código: las 9 ventas del PERÍODO sobre las 21
+asistencias del PERÍODO, y 4 de esas ventas nunca habían pasado por una llamada. Sobre la misma gente eran 6 de 21.
+
+- **Numerador y denominador salen de la MISMA lectura** («de los que asistieron, cuántos compraron»), no de dos conteos
+  del mismo rango de fechas. Si sólo hay conteos del período, se dice como tal («ventas del período»), nunca «cierras el X%».
+- **Un número que ve un cliente lleva su fuente al lado** («tu CRM, del 19/07 al 16/10», «según me dijiste», «en MaKo»).
+  Lo que la IA escribe con cifras se revisa cifra por cifra contra lo que dio el dueño y lo que calculó el código
+  (lib/offer-reglas.ts → `diagnosticoConFuentes`): una cifra sin fuente saca su frase.
+- **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Cristian: …») vuelve «dicho por el
+  dueño» a todo número del 0 al 59 si se cuentan (`cifrasDelNegocio` ya no las lee).
+- **Un conteo no le da fuente a un porcentaje**: «43 llamadas» y «43%» son claves distintas (`claveConFuente`).
+
+Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario».
+
 # Dos números que se comparan salen de UN juicio — no de una fórmula sobre el otro
 
 Si en la misma pantalla un número se lee CONTRA otro —el score de un proyecto y el de sus

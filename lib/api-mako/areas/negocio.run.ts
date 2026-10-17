@@ -23,7 +23,9 @@ import { contextoParaAgente, seccionContexto, type SeccionAgente } from '@/lib/a
 import { getFile, urlDescarga, urlPreview } from '@/lib/archivero';
 import { generarPreguntasCerradas, getSchema } from '@/lib/onboarding';
 import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
-import { leerSesion, listarSesionesOffer } from '@/lib/offer-sesiones';
+import { guardarComoOferta, leerSesion, listarSesionesOffer } from '@/lib/offer-sesiones';
+import { leerFunnels } from '@/lib/funnels';
+import { rotuloDeFunnels, sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { PUNTOS_CONTROL, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
 import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
@@ -235,6 +237,9 @@ export const RUNNERS: Runners = {
         id: s.id, titulo: s.titulo, estado: s.estado,
         funnel: s.funnelNombre || null, oferta_analizada: s.ofertaBaseNombre || null,
         versiones: s.versiones, guardada_como_oferta: s.ofertaId != null,
+        // #895: en qué funnels está guardada (uno o varios) y los del negocio, para guardar_oferta_analisis.
+        guardada_en: s.guardadaEn,
+        funnels_del_negocio: ((await leerFunnels().catch(() => null)) ?? []).map((f) => ({ id: f.id, nombre: (f.producto ?? '').trim() || f.nombre })),
       };
       const c = s.conclusion;
       if (!c) return json({ conversacion, analisis: null, link, nota: 'Esta conversación todavía no tiene una oferta armada.' });
@@ -268,6 +273,44 @@ export const RUNNERS: Runners = {
         nota: '«[completar]» es un dato que el negocio no dio y MaKo no inventa. `propuesto_por_mako` es lo que MaKo propuso sin que el negocio lo dijera: se presenta como propuesta. El PDF de cada versión se baja desde la tab.',
       });
     },
+  },
+
+  // #895: lo mismo que «Guardar» de la tab, en uno o varios funnels (guardarComoOferta, lib/offer-sesiones.ts).
+  guardar_oferta_analisis: {
+    preparar: seguro(async (input) => {
+      let id = typeof input.id === 'number' && Number.isInteger(input.id) && input.id > 0 ? input.id : null;
+      if (id == null) id = (await listarSesionesOffer()).find((s) => s.total != null)?.id ?? null;
+      if (id == null) return { error: 'Todavía no hay ninguna oferta armada en la tab Offer.' };
+      const s = await leerSesion(id);
+      if (!s) return { error: 'No existe una conversación de Offer con ese id en este negocio. Pide la lista con listar_analisis_oferta.' };
+      if (!s.conclusion) return { error: 'Esa conversación todavía no tiene una oferta armada: primero hay que tocar «Armar mi oferta» en la tab.' };
+      const crudo = str(input, 'funnels');
+      const disponibles = ((await leerFunnels().catch(() => null)) ?? []).map((f) => ({ id: f.id, nombre: (f.producto ?? '').trim() || f.nombre }));
+      let funnelIds: number[] | null = null;
+      if (crudo) {
+        if (/^tod[oa]s?$/i.test(crudo)) funnelIds = [];
+        else {
+          const partes = crudo.split(/[,\s]+/).filter(Boolean);
+          const ids = sanearFunnelIds(partes);
+          if (!ids.length || ids.length !== new Set(partes).size) return { error: `funnels: «${crudo}» no es «todos» ni una lista de ids de funnels separados por coma.` };
+          const faltan = ids.filter((x) => !disponibles.some((f) => f.id === x));
+          if (faltan.length) return { error: `No hay un funnel activo con id ${faltan.join(', ')}. Los del negocio están en ver_analisis_oferta (funnels_del_negocio).` };
+          funnelIds = ids;
+        }
+      }
+      const donde = funnelIds == null
+        ? (s.funnelId != null ? `el funnel de la conversación («${s.funnelNombre || `#${s.funnelId}`}»)` : 'el negocio, sin funnel')
+        : funnelIds.length ? rotuloDeFunnels(funnelIds, disponibles) : 'todos los funnels';
+      const nombre = s.conclusion.propuesta.nombre || s.titulo;
+      return { payload: { id, funnelIds }, resumen: `Guardar la oferta «${nombre}» (versión ${s.conclusion.version}) en ${donde}.` };
+    }),
+    ejecutar: sinLanzar(async (payload) => {
+      const funnelIds = payload.funnelIds == null ? null : sanearFunnelIds(payload.funnelIds);
+      const r = await guardarComoOferta(Number(payload.id), funnelIds);
+      const s = await leerSesion(Number(payload.id));
+      const donde = s?.guardadaEn.length ? ` en ${rotuloDeFunnels(s.guardadaEn.map((x) => x.id), s.guardadaEn)}` : '';
+      return { ok: true, resumen: `Listo: la oferta quedó guardada${donde} (oferta #${r.ofertaId}).${r.aviso ? ` ${r.aviso}` : ''}`, datos: { ofertaId: r.ofertaId } };
+    }),
   },
 
   listar_preguntas_diagnostico_fase: {

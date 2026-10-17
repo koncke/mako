@@ -121,11 +121,24 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_analisis_oferta', area: 'negocio', tipo: 'lectura',
     titulo: 'La conclusión de un análisis de oferta',
-    descripcion: 'La última versión de la oferta que armó MaKo en la tab Offer: el diagnóstico (nota total 0-100, si está lista para vender, la dimensión más baja, la tesis, lo más fuerte y los 3 cambios), los avisos que calculó el código, el control final, y la oferta propuesta (nombre, frase, para quién, la ruta por fases, qué incluye, garantía, bonos, precio, lo que propuso MaKo y el negocio no dijo, lo que falta completar y lo que quedó provisional). Sin id, la conversación más reciente que ya tiene una oferta. El PDF se baja desde la tab (el link va en la respuesta).',
+    descripcion: 'La última versión de la oferta que armó MaKo en la tab Offer: el diagnóstico (nota total 0-100, si está lista para vender, la dimensión más baja, la tesis, lo más fuerte y los 3 cambios), los avisos que calculó el código, el control final, y la oferta propuesta (nombre, frase, para quién, la ruta por fases, qué incluye, garantía, bonos, precio, lo que propuso MaKo y el negocio no dijo, lo que falta completar y lo que quedó provisional). Trae también en qué funnels está guardada (guardada_en) y los funnels del negocio (funnels_del_negocio) para guardar_oferta_analisis. Sin id, la conversación más reciente que ya tiene una oferta. El PDF se baja desde la tab (el link va en la respuesta).',
     parametros: [
       { nombre: 'id', tipo: 'number', entero: true, minimo: 1, descripcion: 'id de la conversación (de listar_analisis_oferta). Sin id, la más reciente con una oferta armada.' },
     ],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
+  },
+  // #895 (17/10/2026): guardar la oferta armada en UNO O VARIOS funnels, lo mismo que «Guardar» de la tab. Por chat,
+  // con su «sí»: escribe una oferta del negocio y sus ligas a los funnels.
+  {
+    id: 'guardar_oferta_analisis', area: 'negocio', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Guardar la oferta armada en funnels',
+    descripcion: 'PROPONE guardar la oferta que armó MaKo en la tab Offer (la última versión de una conversación) como oferta del negocio, en UNO O VARIOS funnels (queda pendiente hasta el «sí»). Sin funnels, en el de la conversación; «todos», en todos los funnels activos. Si ya estaba guardada, la suma a los que falten. Los funnels del negocio y dónde está guardada salen de ver_analisis_oferta (funnels_del_negocio, guardada_en).',
+    parametros: [
+      { nombre: 'id', tipo: 'number', entero: true, minimo: 1, descripcion: 'id de la conversación (de listar_analisis_oferta). Sin id, la más reciente con una oferta armada.' },
+      { nombre: 'funnels', tipo: 'string', max: 200, descripcion: 'En qué funnels: «todos» o ids separados por coma de funnels_del_negocio (ver_analisis_oferta), p. ej. «1,29». Sin esto, el funnel de la conversación.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
+    reversible: false, escribe: 'una fila en ofertas (si la versión no estaba guardada) y su liga a cada funnel elegido (funnel_ofertas)',
   },
   {
     id: 'listar_preguntas_diagnostico_fase', area: 'negocio', tipo: 'lectura',

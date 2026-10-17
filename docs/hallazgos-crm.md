@@ -9670,6 +9670,10 @@ MaKo, las automatizaciones y el origen donde la bajada no lo promete. «Antes de
 funnels (los que tienen reunión), pasó de 18 a 13.
 - Medido en la base (sólo lectura): casi todos los funnels siguen la plantilla de entrada sin tocarla, así que el
   recorte les llega a todos; uno que armó su Resumen a mano (el ws1, «Negocio que ESCALA») no cambia.
+- ⚠️ **EL TELÉFONO SIGUE A LAS PLANTILLAS** (app/m/crm/ficha-bloques.ts: la ficha de MaKo Mobile destila la ficha del
+  funnel), y tests/m-ficha-bloques.test.ts fija qué ve cada una. La primera punta de #880 frenó el run 104 por eso: se
+  corrieron los tests de la ficha y del CRM, no los del teléfono. **Una punta que toque lib/ficha/ corre también
+  `tests/m-*.test.ts`.**
 - El motivo de salida y el plazo de la nutrición son «con raya» en el catálogo pero se callan cuando no aplican
   (`vacio`): contarlos como peso visual engaña.
 

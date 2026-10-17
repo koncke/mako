@@ -295,7 +295,10 @@ export async function POST(req: NextRequest) {
         };
 
         send({ t: 'fase', fase: 'modelo' });
-        const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir, motivo: 'Editar una automatización con IA' });
+        const g = await generar({
+          system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir, motivo: 'Editar una automatización con IA',
+          alIntento: (n) => { if (n > 1) send({ t: 'fase', fase: 'modelo', intento: n }); },
+        });
         if ('error' in g) {
           await anotar([mensajeChat('mako', g.error, 'app')]);
           send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) });

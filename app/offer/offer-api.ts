@@ -166,3 +166,22 @@ export async function descargarPdf(sesionId: number, version?: number | null): P
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/**
+ * Las páginas del PDF en SVG, para verlo en la pantalla antes de descargarlo (17/10/2026, tarjeta #887). Es el MISMO
+ * documento que baja `descargarPdf` (GET /api/offer/pdf?…&vista=paginas). Tira con el mensaje del servidor.
+ */
+export async function paginasPdf(sesionId: number, version?: number | null): Promise<string[]> {
+  let r: Response;
+  try {
+    r = await fetch(`${urlPdf(sesionId, version)}&vista=paginas`, { signal: AbortSignal.timeout(TOPE.pdf) });
+  } catch (e) {
+    throw new Error(esCorte(e) ? 'El PDF tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.');
+  }
+  type Cuerpo = { ok?: unknown; paginas?: unknown; error?: unknown };
+  const j: Cuerpo | null = await r.json().then((x: unknown) => (x && typeof x === 'object' ? (x as Cuerpo) : null), () => null);
+  if (!r.ok || j?.ok !== true || !Array.isArray(j.paginas)) {
+    throw new Error(typeof j?.error === 'string' && j.error ? j.error : 'No se pudo armar el PDF.');
+  }
+  return (j.paginas as unknown[]).filter((p): p is string => typeof p === 'string' && p.startsWith('<svg'));
+}

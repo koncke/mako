@@ -174,12 +174,12 @@ test('el cálculo: total = promedio × 10, cuello con empate a la de más arriba
 // 12/10/2026 (tarjeta «foco»): con la facturación desconocida sale desde 3 (antes, desde 6). Sus roturas, en
 // tests/offer-a-definir.test.ts.
 test('la alerta de foco: negocio chico (o sin facturación conocida) con 3 o más productos u ofertas', () => {
-  assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 1, bandaFacturacion: 0 }) ?? '', /^Tienes 3 productos activos y tu negocio factura menos de \$3\.000 al mes/);
-  assert.match(alertaFoco({ productosActivos: 1, ofertasActivas: 4, bandaFacturacion: 1 }) ?? '', /^Tienes 4 ofertas activas y tu negocio factura menos de \$10\.000/);
+  assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 1, bandaFacturacion: 0 }) ?? '', /^Tienes 3 productos activos en MaKo, y según tu diagnóstico de fase facturas menos de \$3\.000 al mes/);
+  assert.match(alertaFoco({ productosActivos: 1, ofertasActivas: 4, bandaFacturacion: 1 }) ?? '', /^Tienes 4 ofertas activas en MaKo, y según tu diagnóstico de fase facturas menos de \$10\.000/);
   assert.equal(alertaFoco({ productosActivos: 2, ofertasActivas: 2, bandaFacturacion: 1 }), null);
   assert.equal(alertaFoco({ productosActivos: 20, ofertasActivas: 3, bandaFacturacion: 2 }), null);
-  assert.match(alertaFoco({ productosActivos: 6, ofertasActivas: 0, bandaFacturacion: null }) ?? '', /^Tienes 6 productos activos: en la fase 1/);
-  assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 3, bandaFacturacion: null }) ?? '', /^Tienes 3 productos activos: en la fase 1/);
+  assert.match(alertaFoco({ productosActivos: 6, ofertasActivas: 0, bandaFacturacion: null }) ?? '', /^Tienes 6 productos activos en MaKo: en la fase 1/);
+  assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 3, bandaFacturacion: null }) ?? '', /^Tienes 3 productos activos en MaKo: en la fase 1/);
   assert.equal(alertaFoco({ productosActivos: 2, ofertasActivas: 2, bandaFacturacion: null }), null);
 });
 
