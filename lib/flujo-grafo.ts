@@ -1566,6 +1566,13 @@ export type HechosLead = {
    * se sabe, y la condición da «no sé».
    */
   contestoEnEsta?: boolean | null;
+  /**
+   * ¿Alguien del GRUPO de MaKo escribió desde el último aviso de ESTA automatización a este lead? (17/10/2026, tarjeta #849,
+   * la condición «El equipo no contestó en el grupo», `equipo_contesto`.) Como `contestoEnEsta`, es de la inscripción: lo
+   * pone el motor (`equipoContestoDesdeElAviso`, lib/nutricion.ts) sólo si el flujo la usa, y «Probar» en false (en una
+   * prueba nadie del equipo contesta). Ausente o null = no se sabe (sin aviso todavía, sin grupo, no se pudo leer).
+   */
+  equipoContestoEnEsta?: boolean | null;
   creadoMs: number | null;
   tieneTelefono: boolean;
   tieneEmail: boolean;

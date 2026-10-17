@@ -5082,7 +5082,10 @@ historia. Eran TRES cosas apiladas, y ninguna era «la automatización está mal
   #2731, del 16/10), así que el cambio avisa a lo sumo por ella. Respaldo de la fila en el scratchpad de la sesión
   74712af3 (`respaldo-266-ws15.json`); se deshace volviendo a `trigger_tipo: manual` y `disparadores: null`.
 
-**Sin hacer:** que pegar en otro negocio mapee la etapa o la pida, en vez de dejarla manual (tarjeta #882); y que una
+**Hecho después (17/10, #882):** pegar en otro negocio busca la MISMA etapa en un embudo de acá (en uno → ése; en varios →
+todos, y lo dice; en ninguno → «Elige qué la dispara»): lib/copia-disparador.ts, tests/copia-disparador.test.ts. La otra
+mitad de #882 (crear al instante con loader por cualquier vía: el chat, la plantilla, la copia) sigue sin hacer.
+**Sin hacer:** que una
 automatización SIN disparador no se pueda prender callada (o que la lista diga «Manual: sólo si la mandas a mano»).
 Prender #247 lo decide Joan.
 
@@ -5158,3 +5161,29 @@ tests: `tests/probar-en-el-grupo.test.ts`, `tests/probar-grupo-mako.test.ts`
 
 **Vive en:** `lib/envio-al-activar.ts` · `lib/nutricion.ts` (`setSecuenciaActiva`, `prenderEnvioAlActivar`) ·
 `lib/envio-flags.ts` · test: `tests/envio-al-activar.test.ts`
+
+## «El equipo no contestó en el grupo»: la condición que mira el grupo de MaKo (17/10/2026, tarjeta #849)
+
+- **De dónde sale el dato:** lo que escribe el grupo queda en `mako_doer_conv` como `role: 'user'` (lib/mako-doer-in.ts,
+  `guardarTurno`), y el aviso de la automatización es su fila de `nutricion_envios` (`asunto: OP_AVISAR`, estado
+  'accion'). La condición `equipo_contesto` pregunta: ¿alguna fila `user` del grupo desde el ÚLTIMO aviso de ESTA
+  inscripción? Sin aviso todavía, sin grupo de MaKo (el aviso salió por email) o sin poder leer: `null`, y no se cumple
+  ni negada. No se inventa que «nadie contestó».
+- ⚠️ **La tabla guarda sólo lo que MaKo procesa.** En modo 'ventana' (opt-in por grupo) un texto que no nombra a MaKo se
+  descarta ANTES de guardarse (`procesarDoer`, el `skip: 'no lo nombran…'`): ahí un «ya lo llamo» no contaría. Medido el
+  17/10: todos los grupos en 'libre' (el default). Si alguien pasa un grupo de cliente a 'ventana', esta condición miente.
+- ⚠️ **No dice QUIÉN contestó:** la tabla no guarda el autor. Cualquier fila `user` cuenta, también un «ok» o una pregunta
+  a MaKo de otra cosa. El eco del propio aviso (una fila `user` con el id de WhatsApp de una de MaKo) se descarta.
+- ⚠️ **La fila se escribe al cerrar el buffer de 8 s** (lib/mako-doer-buffer.ts): la condición va detrás de una espera,
+  no pegada al aviso.
+- **Se evalúa en los TRES lugares donde el motor decide una condición:** la corrida, el reintento antes de mandar
+  (`condicionDeArriba`) y adentro de «Si responde» (`elegirSalida`, que se olvida fácil: arma sus propios hechos). Sólo
+  si el flujo la pregunta (`usaEquipoContesto`): son dos consultas más por inscripción. «Probar» la da en false.
+- ⚠️ **Cada condición nueva le cuesta tokens a «Crear con IA»:** el bloque CONDICIONES del prompt lleva todos los ids
+  del desplegable, y tests/crear-ia-tercera.test.ts estaba en ~4.005 de 4.000 con este id. Se pagó sacando una frase
+  repetida del system («Devuelves el flujo como un objeto JSON», que ya dice el cierre). La próxima condición también va
+  a chocar: hay que recortar algo, no subir el techo (es el de Groq).
+
+**Vive en:** `lib/equipo-contesto.ts` · `lib/nutricion.ts` (`equipoDeLaInscripcion`, `equipoContestoDesdeElAviso`) ·
+`lib/condiciones-catalogo.ts` (`equipo_contesto`) · `lib/flujo-grafo.ts` (`equipoContestoEnEsta`) ·
+test: `tests/equipo-contesto.test.ts`

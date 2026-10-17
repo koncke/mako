@@ -19,6 +19,7 @@
 //   R3 sin CRON de etapa devuelve false (no «no sé»)                                → 6 / 1
 //   R4 el motor (control) evalúa con los hechos del lead pelados                    → 6 / 1
 //   R5 «Probar»: el lead de prueba sin `etapasDelCron`                              → 6 / 1
+//   R6 (17/10, con el `equipoDeLaInscripcion` de #849) la corrida sin el embudo     → 6 / 1
 //
 // Correr: node --import tsx --test tests/plazo-etapa-automatizacion.test.ts
 // =============================================================================
@@ -103,7 +104,9 @@ test('la plantilla «Un Lead No Avanzó»: espera, pregunta por la etapa del CRO
 
 test('el motor evalúa con las etapas de ESA automatización, en los dos lugares donde decide', () => {
   const src = sinComentarios(leer('lib/nutricion.ts'));
-  assert.match(src, /const hechos = leidos \? \{ \.\.\.conEtapasDelCron\(leidos, sec\.disparadores \?\? disparadoresDe\(sec\), sec\.funnel_id \?\? null\), contestoEnEsta: enRespuesta \} : null;/);
+  // (17/10/2026, #849: detrás puede venir `equipoDeLaInscripcion`, la condición «Contestó el equipo». Lo que se exige no
+  //  cambia: las etapas del CRON de ESA automatización y el «contestó en esta».)
+  assert.match(src, /const hechos = leidos \? \{ \.\.\.conEtapasDelCron\(leidos, sec\.disparadores \?\? disparadoresDe\(sec\), sec\.funnel_id \?\? null\), contestoEnEsta: enRespuesta(?:, \.\.\.\(await equipoDeLaInscripcion\(sec\.pasos, insc\.id\)\))? \} : null;/);
   // (14/10/2026: adentro de «Si responde» además el lead acaba de contestar, `contestoEnEsta: true`.)
   assert.match(src, /elegirSalida\(p, \{ \.\.\.conEtapasDelCron\(hechos, secuencia\.disparadores \?\? disparadoresDe\(secuencia\), secuencia\.funnel_id \?\? null\), contestoEnEsta: true \}\)/);
 });

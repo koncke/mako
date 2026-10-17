@@ -28,6 +28,7 @@ import { setSecuenciaPasos, type PasoSecuencia } from './nutricion';
 import { guardarDisparadores } from './disparadores-guardar';
 import { guardarPosicionesSecuencia, type DbPosiciones } from './secuencia-posiciones';
 import { productosConEtapas, TriggerInvalidoError } from './setting-secuencias';
+import { cronParaEsteNegocio } from './copia-disparador';
 import { nombreLibre } from './plantillas-automatizaciones';
 import { emojiDeSecuencia } from './flujo-conversacion';
 import { leerCopia, limpiarReferencias, tokenDeBytes, tokenDeTexto, LARGO_TOKEN, type CopiaFlujo, type Existentes, type PasoCopiado } from './flujo-copia';
@@ -146,6 +147,17 @@ export async function crearDesdeCopia(copia: CopiaFlujo): Promise<CreadaDesdeCop
     } catch (e) {
       if (!(e instanceof TriggerInvalidoError)) throw e;
       aviso = 'Elige qué la dispara: su etapa no está en tu negocio.';
+      // ⚠️ EL EMBUDO ES DEL OTRO NEGOCIO, LA ETAPA CASI SIEMPRE ESTÁ (17/10/2026, #882): la misma etapa en un embudo de
+      // acá (lib/copia-disparador.ts). Así la copia de Joan no nacía en «manual» (#266, ws15). Si tampoco, queda el aviso.
+      const deAca = cronParaEsteNegocio(copia.disparadores, await productosConEtapas());
+      if (deAca) {
+        try {
+          await guardarDisparadores(id, deAca.lista);
+          aviso = deAca.aviso;
+        } catch (e2) {
+          if (!(e2 instanceof TriggerInvalidoError)) throw e2;
+        }
+      }
     }
   }
   return { id, nombre, aviso };

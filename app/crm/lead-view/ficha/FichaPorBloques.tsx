@@ -347,13 +347,6 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     </MiniaturaFicha>
   );
 
-  // ⚠️ «ESTILO DE LA HOJA» (./EstiloDeLaHoja.tsx) LO ESTÁ VOLVIENDO PIEZA COMPARTIDA EL CHAT DASHBOARD (17/10/2026) y
-  // todavía habla de las cuatro tabs: en una hoja propia se le pasa la épica de la hoja en el lugar del Resumen y su
-  // cambio se traduce a la hoja. Cuando acepte un lugar, este puente se va (docs/relevo/crm.md lo anota).
-  const estiloDe = (l: LugarFicha): { ef: FichaEfectiva; tab: TabFicha; onCambio: (c: CambioFicha) => void } => esTabFicha(l)
-    ? { ef: efectiva, tab: l, onCambio: cambiar }
-    : { ef: { ...efectiva, epica: { ...efectiva.epica, resumen: lugarDe(efectiva, l).epica } }, tab: 'resumen', onCambio: (c) => cambiar(c.op === 'epica' ? { ...c, tab: l } : c) };
-
   const contenidoDe = (tab: LugarFicha): ReactNode => {
     const conGaleria = galeriaAbierta(tab) && !!ff.ficha;
     const vista = conGaleria ? vistas[tab] ?? null : null;
@@ -383,7 +376,6 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
       </>
     );
     if (!enEdicion || !ff.ficha) return armador;
-    const estilo = estiloDe(tab);
     return (
       <div className="fb-edicion">
         <div style={{ minWidth: 0 }}>
@@ -404,7 +396,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
             <div className="fb-barra-fin">
               {esTabFicha(tab) && !delLead.includes(tab) && <span className="fb-barra-linea">Este lead no ve esta tab.</span>}
               <SelectorDispositivo valor={dispositivo} onCambiar={setDispositivo} />
-              <span data-recorrido="fb-estilo" style={{ display: 'inline-flex' }}><EstiloDeLaHoja ef={estilo.ef} tab={estilo.tab} onCambio={estilo.onCambio} /></span>
+              <span data-recorrido="fb-estilo" style={{ display: 'inline-flex' }}><EstiloDeLaHoja ef={efectiva} tab={tab} onCambio={cambiar} /></span>
             </div>
           </div>
           {galeriaNodo}

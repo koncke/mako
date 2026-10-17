@@ -69,7 +69,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.8.0';
+export const VERSION = '1.8.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -248,17 +248,23 @@ function textoDe(content) {
 }
 
 /**
- * Los turnos de unas líneas del transcript, en orden. `pendiente` es la última respuesta de MaKo de un turno que todavía
- * no terminó (viene de la vuelta anterior y vuelve, actualizada): la respuesta de un turno es su ÚLTIMO texto, y se da
- * por cerrada con el próximo mensaje que se le escribe o con el fin del turno (`stop_hook_summary`). Puro.
+ * Los turnos de unas líneas del transcript, en orden. De lo que escribe el chat salen DOS cosas por turno (Martín, 17/10:
+ * cada chat abre su trabajo con «Voy a trabajar en…» y lo cierra con su «Ya está»):
+ *   · su PRIMER texto, en el acto: es lo que va a hacer, y se ve mientras trabaja;
+ *   · su ÚLTIMO texto, cuando el turno termina (el próximo mensaje que se le escribe, o `stop_hook_summary`), si es otro.
+ * `pendiente` es el turno que todavía no terminó (`{ primero, ultimo }`): viene de la vuelta anterior y vuelve. Puro.
  *   · `yo`: lo que se le escribió (Martín en la app, o un trabajo del Centro: `trabajo` = su id, que el Centro ya muestra);
  *   · `otro`: lo que le mandó otra sesión (`de`: su nombre);
  *   · `el`: lo que contestó.
  */
+/**
+ * @param {string[]} lineas
+ * @param {{ primero: string | null, ultimo: { uuid: string, texto: string, at: string } | null } | null} [pendiente]
+ */
 export function turnosDeLineas(lineas, pendiente = null) {
   const turnos = [];
   let p = pendiente;
-  const cerrar = () => { if (p) { turnos.push({ uuid: p.uuid, rol: 'el', de: null, texto: p.texto, at: p.at, trabajo: null }); p = null; } };
+  const cerrar = () => { const t = cierreDe(p); if (t) turnos.push(t); p = null; };
   for (const l of lineas) {
     let o;
     try { o = JSON.parse(l); } catch { continue; }
@@ -267,7 +273,11 @@ export function turnosDeLineas(lineas, pendiente = null) {
       // Lo que escribe la app en nombre del modelo («You've hit your session limit…») no es una respuesta del chat.
       if (o.isApiErrorMessage || o.message?.model === '<synthetic>') continue;
       const t = textoDe(o.message?.content).trim();
-      if (t && typeof o.uuid === 'string') p = { uuid: o.uuid, texto: t.slice(0, TOPE_TURNO), at: o.timestamp };
+      if (!t || typeof o.uuid !== 'string') continue;
+      const ultimo = { uuid: o.uuid, texto: t.slice(0, TOPE_TURNO), at: o.timestamp };
+      // El primer texto del turno sale ya: «Voy a trabajar en…».
+      if (!p?.primero) turnos.push({ uuid: o.uuid, rol: 'el', de: null, texto: ultimo.texto, at: ultimo.at, trabajo: null });
+      p = { primero: p?.primero ?? o.uuid, ultimo };
       continue;
     }
     if (o.type === 'system' && o.subtype === 'stop_hook_summary') { cerrar(); continue; }
@@ -292,6 +302,12 @@ export function turnosDeLineas(lineas, pendiente = null) {
     turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
   }
   return { turnos, pendiente: p };
+}
+
+/** El cierre de un turno: su último texto, si no es el mismo que ya salió como el primero. null = nada que sumar. */
+export function cierreDe(p) {
+  const u = p?.ultimo;
+  return u && u.uuid !== p.primero ? { uuid: u.uuid, rol: 'el', de: null, texto: u.texto, at: u.at, trabajo: null } : null;
 }
 
 /** Lo nuevo del transcript de un chat desde la vuelta anterior. Devuelve los turnos y la marca nueva (se guarda sólo si
@@ -324,9 +340,12 @@ function turnosNuevos(c) {
   const corte = buf.lastIndexOf(0x0a);
   const completo = corte >= 0 ? buf.subarray(0, corte + 1) : Buffer.alloc(0);
   const offset = inicio + completo.length;
-  const r = turnosDeLineas(completo.toString('utf8').split('\n').filter(Boolean), marca?.pendiente ?? null);
+  // La 1.8.0 guardaba sólo la última respuesta ({ uuid, texto, at }); la 1.8.1, el turno abierto ({ primero, ultimo }).
+  const viejo = marca?.pendiente;
+  const pendiente = viejo && typeof viejo.uuid === 'string' ? { primero: null, ultimo: viejo } : viejo ?? null;
+  const r = turnosDeLineas(completo.toString('utf8').split('\n').filter(Boolean), pendiente);
   // Un chat que no está trabajando ya terminó su turno: su última respuesta es la que vale.
-  if (r.pendiente && !ocupado) { r.turnos.push({ uuid: r.pendiente.uuid, rol: 'el', de: null, texto: r.pendiente.texto, at: r.pendiente.at, trabajo: null }); r.pendiente = null; }
+  if (r.pendiente && !ocupado) { const t = cierreDe(r.pendiente); if (t) r.turnos.push(t); r.pendiente = null; }
   return { turnos: r.turnos.map((t) => ({ local: c.local, ...t })), marca: { archivo, transcript: c.transcript, offset, pendiente: r.pendiente } };
 }
 

@@ -23,7 +23,7 @@ import { Button, Field, Input, Modal } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
-  SECCION_CEREBRO, SECCION_CHATS, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats,
+  SECCION_CEREBRO, SECCION_CHATS, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
   type ChatCentro, type VistaPrevia,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
@@ -44,6 +44,9 @@ import { MunecoNuevo, NuevoChat, type BorradorNuevoChat } from './NuevoChat';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import type { Centro } from './useCentro';
+
+/** «10:52», con el reloj de Argentina (el de Martín). */
+const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 /** Cuántos chats se ven antes de «Mostrar más» (como los proyectos de Codex). */
 const VISIBLES = 14;
@@ -114,8 +117,13 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
   const secciones = useMemo(() => seccionesDeChats(visibles, k.tabs), [visibles, k.tabs]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
+  // Sin ningún Runner dando vueltas, lo de abajo es una foto: se dice desde cuándo, en vez de mostrarlos «quietos».
+  const sinNoticias = sinNoticiasDesde(k.carteros, k.ahora);
   return (
     <>
+      {sinNoticias != null && (
+        <p className="co-lista__vacio" role="status">{`Sin noticias del Runner desde las ${horaAR(sinNoticias)}`}</p>
+      )}
       {secciones.map(({ clave, titulo, chats: lista }) => {
         const plegada = plegadas.has(clave) && !buscando;
         const todas = enteras.has(clave) || buscando;
@@ -193,19 +201,19 @@ export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: C
   return (
     <>
       {opciones.length > 0 && (
-        <select className="co-chip co-elegir" aria-label="Cuenta" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
+        <select className="co-chip co-envio-sel" aria-label="Cuenta" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
           onChange={(e) => k.elegirCuenta(chat.clave, e.target.value)} disabled={k.enviando}>
           <option value={AUTOMATICO}>{automatica ? `Automático · ${nombreCuenta(automatica)}` : 'Automático'}</option>
           {opciones.map((o) => <option key={o.cuenta} value={o.cuenta}>{`${nombreCuenta(o.cuenta)}${libre(o.libre)}`}</option>)}
         </select>
       )}
-      <select className="co-chip co-elegir" aria-label="Modelo" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+      <select className="co-chip co-envio-sel" aria-label="Modelo" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
         title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
         onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
         <option value={AUTOMATICO}>Modelo automático</option>
         {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
       </select>
-      <select className="co-chip co-elegir" aria-label="Esfuerzo" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+      <select className="co-chip co-envio-sel" aria-label="Esfuerzo" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
         title={conModelo ? 'Cuánto piensa' : 'El esfuerzo se elige sólo en los chats de la app'}
         onChange={(e) => k.setEsfuerzo(e.target.value === AUTOMATICO ? null : e.target.value as Esfuerzo)}>
         <option value={AUTOMATICO}>Esfuerzo automático</option>
