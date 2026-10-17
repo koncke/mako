@@ -89,3 +89,8 @@
 [data-m] .m-operaciones-caja .co-caja__resalte { padding: 11px 15px; font-size: 16px; line-height: 1.35; }
 [data-m] .m-operaciones-caja textarea.co-caja__texto--resalte { position: relative; color: transparent; caret-color: var(--ink); background: transparent; }
 [data-m] .m-operaciones-caja .co-caja__links { padding: 0 4px; }
+
+/* Los fijados de la conversación (17/10/2026, lo de WhatsApp): pegados arriba de la hoja mientras se scrollea. */
+[data-m] .m-operaciones-fijados { position: sticky; top: 0; z-index: 3; margin: 0 -16px; background: var(--bg); }
+[data-m] .m-operaciones-fijados:empty { display: none; }
+[data-m] .m-operaciones-fijados .co-fijados { padding-inline: 16px; }

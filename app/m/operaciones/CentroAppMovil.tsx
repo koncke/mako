@@ -40,13 +40,13 @@ export function CentroAppMovil(datos: DatosCentro) {
         {/* Ops Center (17/10/2026): «que "Second brain" sea la sub tab debajo de la Ticketera», como en la computadora.
             Abre el GRAFO («debería saltar el grafo»): `?panel=mapa` lleva al Mapa a quien lo ve, y al chat a quien no. */}
         <FilaM icono="cerebro" titulo="Second Brain" href="/m/second-brain?panel=mapa" navegacion />
-      </ListaM>
-      <ChatsMDelCentro centro={k} />
-      {/* El Uso de las cuentas y sus Runners, en una fila que dice siempre el número (Uso.tsx, la de la computadora). */}
-      <ListaM etiqueta="Uso">
+        {/* El Uso de las cuentas y sus Runners, ARRIBA de los chats y junto a Second Brain (Martín, 17/10/2026: «El botón de
+            USO en mobile debe ir arriba de los chats junto a Second Brain»; antes había que bajar hasta el final de la
+            lista). Dice siempre el número (Uso.tsx, la de la computadora). */}
         <FilaM icono="config" titulo="Uso y Runners" segunda={[principal ? `Semana ${principal.pct}%${principal.viejo && principal.medido != null ? ` · ${hace(principal.medido, ahora)}` : ''}` : null, `${activos} de ${carteros.length} Runners activos`].filter(Boolean).join(' · ')}
           onClick={() => setRunners(true)} navegacion />
       </ListaM>
+      <ChatsMDelCentro centro={k} />
       <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners">
         <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave} />
       </SheetM>

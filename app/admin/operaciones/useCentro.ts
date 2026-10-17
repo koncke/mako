@@ -36,7 +36,8 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { contestarPreguntaAction, fotoCentroAction, guardarBorradorAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { contestarPreguntaAction, fotoCentroAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
@@ -44,6 +45,8 @@ import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
+/** Una lista vacía que no cambia entre renders: las piezas memorizadas comparan por identidad. */
+const SIN_TAREAS: TareaDelChat[] = [];
 /** Con algo en camino (escrito o tomado), la pantalla mira más seguido: sale en segundos y tiene que verse (17/10/2026). */
 const REFRESCO_APURADO_MS = 2500;
 
@@ -140,6 +143,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // Y sus tareas del Plan (la C y la D): las que armaron su «Voy a trabajar en…» y su «Ya está».
   const [tareas, setTareas] = useState<Record<string, TareaDelChat[]>>({});
   const [abiertas, setAbiertas] = useState<Record<string, number>>(d.preguntasAbiertasIniciales ?? {});
+  // Lo de WhatsApp en cada mensaje (17/10/2026, lib/centro-mensajes.ts): las marcas de Martín, guardadas en MaKo, y la cita
+  // de la caja de cada chat (responder a un mensaje), que viaja en el texto firmado.
+  const [marcas, setMarcas] = useState<Record<string, MarcasChat>>({});
+  const [citas, setCitas] = useState<Record<string, Cita | null>>({});
   const mirado = useRef<ChatCentro | null>(null);
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
     const locales = c.miembros.filter((m) => DESTINO_RE.test(m));
@@ -149,6 +156,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
       setPreguntas((q) => ({ ...q, [c.clave]: r.preguntas ?? [] }));
       setTareas((x) => ({ ...x, [c.clave]: r.tareas ?? [] }));
+      if (r.marcas) { const m = r.marcas; setMarcas((x) => ({ ...x, [c.clave]: m })); }
       // El borrador de MaKo: el del teléfono, si es más nuevo que lo de acá.
       cargarBorrador(c, r.borrador ?? null);
     }
@@ -171,7 +179,19 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   }, [pedirTurnos, cargarBorrador]);
   const turnosDe = (c: ChatCentro): TurnoChat[] => turnos[c.clave] ?? [];
   const preguntasDe = (c: ChatCentro): PreguntaChat[] => preguntas[c.clave] ?? [];
-  const tareasDe = (c: ChatCentro): TareaDelChat[] => tareas[c.clave] ?? [];
+  const tareasDe = (c: ChatCentro): TareaDelChat[] => tareas[c.clave] ?? SIN_TAREAS;
+  const marcasDe = (c: ChatCentro): MarcasChat => marcas[c.clave] ?? SIN_MARCAS;
+  /** Una marca de Martín (reaccionar, destacar, fijar, eliminar para él): se ve en el acto y se guarda en MaKo. Si no se
+   *  pudo guardar, vuelve atrás y lo dice. */
+  const marcar = async (c: ChatCentro, cambio: CambioMarca) => {
+    const antes = marcas[c.clave] ?? SIN_MARCAS;
+    setMarcas((x) => ({ ...x, [c.clave]: aplicarMarca(x[c.clave] ?? SIN_MARCAS, cambio) }));
+    const r = await marcarMensajeAction(claveParaUrl(c), cambio).catch(() => null);
+    if (r?.ok) setMarcas((x) => ({ ...x, [c.clave]: r.marcas }));
+    else { setMarcas((x) => ({ ...x, [c.clave]: antes })); avisar(r?.error ?? 'No pude guardarlo', 'bad'); }
+  };
+  const citaDe = (clave: string): Cita | null => citas[clave] ?? null;
+  const citar = (clave: string, cita: Cita | null) => setCitas((x) => ({ ...x, [clave]: cita }));
 
 
   const trabajos = useMemo(() => {
@@ -333,7 +353,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   async function mandar(c: ChatCentro) {
     // Lo que sale es Markdown de verdad: las viñetas de la caja («• ») vuelven a ser «- » (lib/centro-caja.ts).
-    const texto = textoParaMandar(borradorDe(c.clave));
+    // Con la cita arriba si responde a un mensaje (lib/centro-mensajes.ts → armarConCita): la PC entrega sólo lo firmado.
+    const texto = armarConCita(citas[c.clave] ?? null, textoParaMandar(borradorDe(c.clave)));
     const archivos = adjuntosRef.current[c.clave] ?? [];
     const d = destinoDeChat(c);
     if (!d.sesion || !envioDe(c).puede || enviando || (!texto.trim() && !archivos.length)) return;
@@ -356,8 +377,26 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     });
     vaciarAdjuntos(c.clave);
     limpiarBorrador(c.clave);
+    citar(c.clave, null);
     setModelo(null);
     setEsfuerzo(null);
+  }
+
+  /** Reenviar un mensaje a otros chats (lo de WhatsApp, 17/10/2026): a cada uno le sale un trabajo FIRMADO con «↪ Reenviado
+   *  de «…»» arriba, por el mismo camino que la caja. Devuelve cuántos salieron. */
+  async function reenviar(origen: ChatCentro, texto: string, destinos: readonly ChatCentro[]): Promise<number> {
+    const sale = armarReenvio(origen.titulo, texto);
+    let ok = 0;
+    for (const c of destinos.slice(0, TOPE_REENVIO)) {
+      const d = destinoDeChat(c);
+      if (!d.sesion || !envioDe(c).puede) { avisar(`${c.titulo}: ${textoDeEnvio(envioDe(c)) ?? 'no recibe ahora'}`, 'bad'); continue; }
+      const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, sale, 'solo_esto');
+      if (!r.ok) { avisar(r.error, 'bad'); continue; }
+      ok += 1;
+      anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: sale, estado: 'escrito', motivo: null, cierre: null });
+    }
+    if (ok) avisar(ok === 1 ? 'Reenviado' : `Reenviado a ${ok} chats`, 'good');
+    return ok;
   }
 
   // ── Contestar una pregunta del chat (17/10/2026, el formulario de su conversación) ──────────────────────────────
@@ -440,6 +479,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   return {
     chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
+    marcasDe, marcar, citaDe, citar, reenviar,
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,

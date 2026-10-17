@@ -32,6 +32,8 @@ import { guardarBorradorDe, leerBorradorDe } from '@/lib/centro-borradores-db';
 import type { Borrador } from '@/lib/centro-caja';
 import { leerTareasDelChat } from '@/lib/centro-plan-auto';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
+import { leerMarcasDe, marcarDe } from '@/lib/centro-mensajes-db';
+import { sanearCambio, type MarcasChat } from '@/lib/centro-mensajes';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
@@ -64,17 +66,32 @@ export async function pushesCentroAction(): Promise<LecturaPushes> {
 
 /** Lo que se dijo en un chat (sus sesiones, las de todas sus cuentas), para su conversación (17/10/2026: «los chats no
  *  se entienden»). Lo pide la pantalla al abrir un chat y en cada refresco de ese chat; los demás no viajan. */
-export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null; tareas: TareaDelChat[] } | { ok: false; error: string }> {
+export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null; tareas: TareaDelChat[]; marcas: MarcasChat | null } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   if (!Array.isArray(locales)) return { ok: false, error: 'Falta el chat.' };
   const validos = locales.filter((l): l is string => typeof l === 'string');
   // Las preguntas del chat y su borrador viajan con lo que se dijo en él: son parte de su conversación (17/10/2026).
-  const [turnos, preguntas, borrador, tareas] = await Promise.all([
+  // Y las marcas de Martín en sus mensajes (reacciones, destacados, fijados, eliminados para él: lib/centro-mensajes.ts).
+  const [turnos, preguntas, borrador, tareas, marcas] = await Promise.all([
     leerTurnos(validos), leerPreguntas(validos), typeof direccion === 'string' ? leerBorradorDe(direccion) : Promise.resolve(null),
-    leerTareasDelChat(validos),
+    leerTareasDelChat(validos), typeof direccion === 'string' ? leerMarcasDe(direccion) : Promise.resolve(null),
   ]);
-  return { ok: true, turnos, preguntas, borrador, tareas };
+  return { ok: true, turnos, preguntas, borrador, tareas, marcas };
+}
+
+/** Una marca de Martín sobre un mensaje (17/10/2026, lo de WhatsApp): reaccionar, destacar, fijar o eliminar para él. NO
+ *  va al chat: se guarda en MaKo para que se vea igual en la computadora y en el teléfono. */
+export async function marcarMensajeAction(direccion: string, cambio: unknown): Promise<{ ok: true; marcas: MarcasChat } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  const c = sanearCambio(cambio);
+  if (typeof direccion !== 'string' || !c) return { ok: false, error: 'Elige el mensaje otra vez.' };
+  try {
+    return { ok: true, marcas: await marcarDe(direccion, c) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
 }
 
 /** Guarda el borrador de un chat en MaKo, para que cruce al teléfono (17/10/2026, la B). Sólo si es más nuevo. */

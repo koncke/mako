@@ -27,7 +27,7 @@ import {
   type ChatCentro, type VistaPrevia,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
-import { elegidoPara } from '@/lib/centro-munecos';
+import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
 import { comandoNuevoChat, tieneTerminal } from '@/lib/runner';
@@ -177,7 +177,16 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       tareas={k.tareasDe(chat)}
       aspecto={elegidoPara(k.munecos, chat.titulo)}
-      onMuneco={() => k.abrirMuneco(chat)}
+      // El Cerebro es siempre la estrella de MaKo: tocarla no abre el selector.
+      onMuneco={esCriaturaDeMako(chat.titulo) ? undefined : () => k.abrirMuneco(chat)}
+      lineas={k.lineasDe.get(chat.clave)}
+      // Lo de WhatsApp (17/10/2026): las marcas y la cita de este chat, reenviar a otros y copiar (MensajeWA.tsx).
+      wa={{
+        marcas: k.marcasDe(chat), onMarcar: (c) => void k.marcar(chat, c),
+        cita: k.citaDe(chat.clave), onCitar: (c) => k.citar(chat.clave, c),
+        chats: k.chats, onReenviar: (texto, claves) => k.reenviar(chat, texto, k.chats.filter((c) => claves.includes(c.clave))),
+        onCopiar: (t) => void k.copiarConAviso(t, 'Copiado'),
+      }}
       espera={esperaDe(chat, k.esperas)}
       preguntas={preguntasDelChat(chat, k.decisiones, k.carteros)}
       respuestas={respuestasDelChat(chat, k.decisiones, k.carteros)}
@@ -263,7 +272,8 @@ export function MenusCentro({ centro: k }: { centro: Centro }) {
         <MenuContextual punto={{ x: menu.x, y: menu.y }} titulo={delMenu.titulo} onCerrar={k.cerrarMenu} onElegir={k.elegirEnMenu}
           items={[
             ...(delMenu.sesiones.length ? [{ id: 'renombrar', label: 'Renombrar', icono: 'renombrar' as const }] : []),
-            { id: 'muneco', label: 'Cambiar su criatura', icono: 'emoji' as const },
+            // El Cerebro es siempre la estrella de MaKo (lib/centro-munecos.ts → ASPECTO_MAKO): su criatura no se cambia.
+            ...(esCriaturaDeMako(delMenu.titulo) ? [] : [{ id: 'muneco', label: 'Cambiar su criatura', icono: 'emoji' as const }]),
           ]} />
       )}
       {renombrando && deRenombre && (
