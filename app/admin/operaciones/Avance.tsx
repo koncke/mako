@@ -163,7 +163,8 @@ function ListaReview({ nodos, chat, ahora }: { nodos: readonly NodoAvance[]; cha
         return (
           <li key={n.id} className="co-review__fila">
             <span className="co-nodo__rombo" aria-hidden><Rombo estado="hecho" /></span>
-            <span className="co-review__titulo" title={n.titulo}>{n.titulo}</span>
+            {/* Un «Ya está» muestra entero lo que dijo el chat al pasar por encima. */}
+            <span className="co-review__titulo" title={n.origen === 'ya_esta' ? n.prompt : n.titulo}>{n.titulo}</span>
             <span className="co-nodo__dia">{diaDeNovedad(n.instante, ahora)}</span>
             {/* La tab va con el Link de la casa (se lleva el ?ws=) y en otra pestaña, como la página: «Revisar» no te saca de
                 la conversación. Sólo el visor abre adentro. */}
@@ -186,9 +187,12 @@ function ListaReview({ nodos, chat, ahora }: { nodos: readonly NodoAvance[]; cha
  * 2 sub tab internas... "Plan", lo que está actualmente, y otra "Review"»). Copiado del control segmentado de Linear
  * (Activity / Comments): dos botones pegados, el elegido con fondo; «Review» con su número cuando hay algo.
  */
-function SubTabs({ nodos, pushes, ahora, chat }: { nodos: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; chat?: ChatDeBarra }) {
+function SubTabs({ nodos, yaEsta = [], pushes, ahora, chat }: {
+  nodos: readonly NodoAvance[]; yaEsta?: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; chat?: ChatDeBarra;
+}) {
   const [vista, setVista] = useState<'plan' | 'review'>('plan');
-  const revisar = porRevisar(nodos);
+  // Lo terminado del Plan y los «Ya está» que dijo el chat (lib/centro-chats.ts → yaEstaDelChat), juntos y por hora.
+  const revisar = porRevisar([...nodos, ...yaEsta]);
   return (
     <>
       <div className="co-subtabs" role="tablist" aria-label="Plan o Review">
@@ -208,8 +212,10 @@ function SubTabs({ nodos, pushes, ahora, chat }: { nodos: readonly NodoAvance[];
   );
 }
 
-export function RielAvance({ nodos, pushes, ahora, onCerrar, chat }: {
+export function RielAvance({ nodos, yaEsta, pushes, ahora, onCerrar, chat }: {
   nodos: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; onCerrar: () => void;
+  /** Los «Ya está» del chat: van a Review, no al Plan. */
+  yaEsta?: readonly NodoAvance[];
   /** Con el chat, la barra trae el Plan de su jefe y arma «Revisar» (sin él, sólo el avance). */
   chat?: ChatDeBarra;
 }) {
@@ -226,7 +232,7 @@ export function RielAvance({ nodos, pushes, ahora, onCerrar, chat }: {
           </button>
         </div>
         <div className="co-riel__cuerpo">
-          <SubTabs key={chat?.clave} nodos={nodos} pushes={pushes} ahora={ahora} chat={chat} />
+          <SubTabs key={chat?.clave} nodos={nodos} yaEsta={yaEsta} pushes={pushes} ahora={ahora} chat={chat} />
         </div>
       </div>
     </aside>
@@ -234,7 +240,9 @@ export function RielAvance({ nodos, pushes, ahora, onCerrar, chat }: {
 }
 
 /** La barra compacta del teléfono: el conteo, y la lista al tocarla (la de «Tu oferta 8/13»). */
-export function BarraAvanceMovil({ nodos, pushes, ahora, chat }: { nodos: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; chat?: ChatDeBarra }) {
+export function BarraAvanceMovil({ nodos, yaEsta, pushes, ahora, chat }: {
+  nodos: readonly NodoAvance[]; yaEsta?: readonly NodoAvance[]; pushes: readonly PushP[] | null; ahora: number; chat?: ChatDeBarra;
+}) {
   const [abierta, setAbierta] = useState(false);
   const id = useId();
   return (
@@ -247,7 +255,7 @@ export function BarraAvanceMovil({ nodos, pushes, ahora, chat }: { nodos: readon
       </button>
       {abierta && (
         <div id={id} className="co-avance-movil__lista">
-          <SubTabs key={chat?.clave} nodos={nodos} pushes={pushes} ahora={ahora} chat={chat} />
+          <SubTabs key={chat?.clave} nodos={nodos} yaEsta={yaEsta} pushes={pushes} ahora={ahora} chat={chat} />
         </div>
       )}
     </div>
