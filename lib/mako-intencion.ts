@@ -434,7 +434,51 @@ const SEGUNDA_COBRO = /\b(?:le|les|me)\s+(?:mandas|envias|pasas|generas|creas|ar
  *  «anulá el link de pago pendiente de Ana» es un cobro, no una tarea. */
 const DEL_PLAN_COBRO = /\b(?:(?:al|el|mi|en el) plan|a la lista|tareas?|recordame|recuerdame|anotame|apuntame|no me olvide)\b/;
 
-export type PedidoDeCobro = { tipo: 'link' | 'anular' | 'reembolso' | 'suscripcion' };
+// ── UNA CUOTA DEL PLAN (17/10/2026) ──────────────────────────────────────────────────────────────
+// El 14/10 el área `cobros` sumó nueve operaciones que escriben la tab Pagos campo por campo (editar_cuota,
+// crear_link_cuota, cortar_recordatorio_cuota…) y SÓLO viajaban cuando el mensaje nombraba un link de pago:
+// «cambiale el vencimiento a la cuota 3», «mandale el link de la cuota 2» y «cortale el recordatorio de la cuota 2»
+// caían sin área (el tercero ni era un cobro para este clasificador) y el modelo se quedaba con las herramientas del
+// Plan. LA SEÑAL ES EL OBJETO —una cuota con su número o su ordinal, o la palabra con su vencimiento, su recordatorio o
+// su link— más un verbo de pedido. «Cuota» sola NO: es también la cuota de WhatsApp y de IA del negocio.
+const NUMERO_DE_CUOTA = '(?:\\d{1,2}|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)';
+const OBJETO_CUOTA = new RegExp(
+  `\\bcuotas?\\s+(?:n(?:u|ú)mero\\s+|nro\\.?\\s*|#\\s*)?${NUMERO_DE_CUOTA}\\b` +
+  '|\\b(?:primera|segunda|tercera|cuarta|quinta|sexta|ultima|siguiente|proxima)s?\\s+cuotas?\\b|\\bcuota inicial\\b|\\bcobro inicial\\b',
+);
+/** Una cuota sin número, pero atada a algo que sólo una cuota de pago tiene. */
+const CUOTA_Y_SU_DATO = /\bcuotas?\b.*\b(?:vencimiento|vence|recordatorios?|links?)\b|\b(?:vencimiento|vence|recordatorios?|links?)\b.*\bcuotas?\b/;
+/** La cuota del NEGOCIO (de WhatsApp, de IA, de envíos): no es un pago. */
+const CUOTA_DE_USO = /\bcuotas? (?:diaria|mensual|semanal|de (?:ia|whatsapp|mensajes?|tokens?|envios?|email|correos?|uso|almacenamiento))\b/;
+/** Verbos de cambiar una cuota, con pronombre pegado: «cambiale», «ponele», «moveme», «cortale». */
+const VERBO_CUOTA_PEGADO = /\b(?:cambia|ajusta|mueve|move|corre|pon|pone|sube|baja|corrige|edita|actualiza|reprograma|posterga|adelanta|modifica|quita|saca|corta|manda|envia|pasa|genera|crea|arma)(?:le|les|me|lo|la|selo|sela)\b/;
+/** Voseo con tilde (texto CRUDO): «cambiá», «poné», «corregí», «cortá». */
+const VERBO_CUOTA_TILDE = /(?:^|[\s,.;:!¡¿?"'(])(?:cambiá|ajustá|mové|corré|poné|subí|bajá|corregí|editá|actualizá|reprogramá|postergá|adelantá|modificá|quitá|sacá|cortá|mandá|enviá|pasá|generá|creá|armá)(?=[\s,.;:!?"')]|$)/i;
+/** La forma suelta (tuteo o voseo sin tilde): sólo si es lo PRIMERO del mensaje. */
+const VERBO_CUOTA_SUELTO = /^(?:cambia|ajusta|mueve|corre|pon|pone|sube|baja|corrige|edita|actualiza|reprograma|posterga|adelanta|modifica|quita|saca|corta|manda|envia|pasa|genera|crea|arma)\b/;
+/** Con un modal: «¿puedes cambiar el vencimiento de la cuota 3?», «necesito mover la cuota 2». */
+const MODAL_CUOTA = /\b(?:puedes|podes|podrias|quiero|queria|necesito|hay que|vamos a|tenes que|tienes que)\s+(?:me\s+|le\s+|nos\s+)?(?:cambiar|ajustar|mover|corregir|editar|actualizar|reprogramar|postergar|adelantar|modificar|quitar|sacar|cortar|mandar|enviar|pasar|generar|crear|armar)\b/;
+
+// ── UN PAGO QUE LLEGÓ (17/10/2026) ──────────────────────────────────────────────────────────────
+// «Juan me pagó 500 mil pesos», «ya me pagó la cuota 2», «registrá un pago de 500 de Ana» salían `capturar`, dudosas
+// y con DOS herramientas (medido con tsx contra `herramientasDelTurno` el 17/10/2026): MaKo no tenía
+// `registrar_pago_suelto` ni `marcar_pago_cobrado` en el turno, así que ni siquiera podía cargarlo (y si lo cargaba por
+// otro lado, sin moneda, los pesos entraban como dólares: el pedido de Mauricio). La señal es el HECHO (alguien pagó,
+// transfirió, depositó) más lo que se pagó (una cuota, un pago, un monto), o el pedido de registrarlo. Una pregunta
+// («¿ya te pagó Ana?») se contesta, no se ejecuta.
+const PAGO_DICHO_CON_PRONOMBRE = /\b(?:me|nos)\s+(?:pago|pagaron|transfirio|transfirieron|deposito|depositaron|abono|abonaron)\b/;
+/** Con tilde (texto CRUDO): «Pedro pagó 200», «Ana transfirió 300». Sin tilde «pago» es también el sustantivo. */
+const PAGO_DICHO_CON_TILDE = /(?:^|[\s,.;:!¡¿?"'(])(?:pagó|transfirió|depositó|abonó)(?=[\s,.;:!?"')]|$)/i;
+/** Lo que se pagó: una cuota, un pago, un anticipo, una seña, un monto. */
+const OBJETO_DE_PAGO = /\b(?:cuotas?|pagos?|anticipos?|adelantos?|senas?|abonos?|pesos|dolares|usd|euros?)\b|\d/;
+const REGISTRA_TILDE = /(?:^|[\s,.;:!¡¿?"'(])(?:registrá|cargá|marcá|anotá)(?=[\s,.;:!?"')]|$)/i;
+const REGISTRA_PEGADO = /\b(?:registra|carga|marca|anota)(?:le|les|me|lo|la|selo|sela)\b/;
+const REGISTRA_SUELTO = /^(?:registra|carga|marca|anota)\b/;
+const REGISTRA_MODAL = /\b(?:puedes|podes|podrias|quiero|queria|necesito|hay que|vamos a|tenes que|tienes que)\s+(?:me\s+|le\s+|nos\s+)?(?:registrar|cargar|marcar|anotar)\b/;
+/** Lo que se registra: un pago, un cobro, un anticipo, o una cuota «como cobrada». */
+const OBJETO_A_REGISTRAR = /\b(?:pagos?|cobros?|anticipos?|adelantos?|senas?)\b|\bcuotas?\b.*\b(?:cobrad|pagad)\w*|\b(?:cobrad|pagad)\w*\b/;
+
+export type PedidoDeCobro = { tipo: 'link' | 'anular' | 'reembolso' | 'suscripcion' | 'cuota' | 'pago' };
 
 /** Lo que suma cada tipo a la relevancia del presupuesto: pone primero su herramienta (y, en
  *  un link, `listar_productos`, que da el productoId). */
@@ -443,6 +487,8 @@ export const RELEVANCIA_COBROS: Readonly<Record<PedidoDeCobro['tipo'], string>> 
   anular: 'anular link pago cobro listar cobros',
   reembolso: 'reembolsar cobro listar cobros pagado devolver',
   suscripcion: 'cancelar suscripcion cobro listar cobros',
+  cuota: 'editar cuota vencimiento monto recordatorio cortar link cuota cobranza lead cobros pagos',
+  pago: 'registrar pago suelto marcar pago cobrado cuota cobranza lead moneda del negocio cobros pagos',
 };
 
 /** Las áreas de cada tipo. Un link necesita además el CRM: el productoId sale de
@@ -452,6 +498,10 @@ export const AREAS_COBROS: Readonly<Record<PedidoDeCobro['tipo'], Area[]>> = {
   anular: ['cobros'],
   reembolso: ['cobros'],
   suscripcion: ['cobros'],
+  // La cuota se identifica con `cobranza_lead` (su pago_id) y el lead con `buscar_leads`: las dos son del CRM.
+  cuota: ['cobros', 'crm'],
+  // Registrar un pago es del CRM (`registrar_pago_suelto`, `marcar_pago_cobrado`); `cobros` trae `ver_moneda_negocio`.
+  pago: ['crm', 'cobros'],
 };
 
 /**
@@ -467,14 +517,25 @@ export function esPedidoDeCobro(texto: string): PedidoDeCobro | null {
   // Un volcado sigue siendo material: «Idea: links de pago automáticos», una lista de cosas.
   if (ENCABEZADO_VOLCADO.test(crudo) || INFINITIVO_TITULO.test(crudo) || esLista(crudo)) return null;
   const arranque = n.replace(PRELUDIO_CRM, '');
+  // Una cuota del plan: lo suyo gana sólo si NO es uno de los cobros de arriba (un reembolso de la cuota 2 es un reembolso).
+  const cuota = (OBJETO_CUOTA.test(n) || CUOTA_Y_SU_DATO.test(n)) && !CUOTA_DE_USO.test(n)
+    && (VERBO_CUOTA_PEGADO.test(n) || VERBO_CUOTA_TILDE.test(crudo) || VERBO_CUOTA_SUELTO.test(arranque) || MODAL_CUOTA.test(n));
   const verbo = VERBO_COBRO_PEGADO.test(n) || VERBO_COBRO_TILDE.test(crudo) || VERBO_COBRO_SUELTO.test(arranque) || MODAL_COBRO.test(n) || SEGUNDA_COBRO.test(n);
-  if (!verbo) return null;
+  // Un pago que llegó, dicho o pedido (no una pregunta): «Juan me pagó 500 mil pesos», «registrá un pago de 500».
+  const esPregunta = /^[¿]/.test(crudo) || /\?\s*$/.test(crudo);
+  // Lo que se pagó se busca SIN el verbo: «pagó» sin tilde es «pago», que sería su propio objeto («me pagó la comida»).
+  const sinElVerbo = norm(crudo.replace(/\b(?:pag[oó]|transfiri[oó]|deposit[oó]|abon[oó])\b/gi, ' ')).replace(PAGO_DICHO_CON_PRONOMBRE, ' ');
+  const pago = !esPregunta && (
+    ((PAGO_DICHO_CON_PRONOMBRE.test(n) || PAGO_DICHO_CON_TILDE.test(crudo)) && OBJETO_DE_PAGO.test(sinElVerbo))
+    || ((REGISTRA_TILDE.test(crudo) || REGISTRA_PEGADO.test(n) || REGISTRA_SUELTO.test(arranque) || REGISTRA_MODAL.test(n)) && OBJETO_A_REGISTRAR.test(n))
+  );
+  if (!verbo) return cuota ? { tipo: 'cuota' } : pago ? { tipo: 'pago' } : null;
   if (OBJETO_REEMBOLSO.test(n)) return { tipo: 'reembolso' };
   if (OBJETO_SUSCRIPCION.test(n) && VERBO_BAJA.test(n)) return { tipo: 'suscripcion' };
   const link = OBJETO_LINK_PAGO.test(n) || (NOMBRA_PASARELA.test(n) && /\bcobr/.test(n));
   if (link && VERBO_ANULAR.test(n)) return { tipo: 'anular' };
   if (link || OBJETO_SUSCRIPCION.test(n)) return { tipo: 'link' };
-  return null;
+  return cuota ? { tipo: 'cuota' } : pago ? { tipo: 'pago' } : null;
 }
 
 // ── Señales ──────────────────────────────────────────────────────────────────

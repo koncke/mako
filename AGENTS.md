@@ -1105,6 +1105,11 @@ Ocho cosas que no se ven en el código y ya mordieron:
    `toolsDelRegistro` suelto, el test de agenda dio verde mientras 3 de sus 5 pedidos llegaban
    sin la herramienta (08/10/2026). Y el presupuesto de 12.000 caracteres ordena por
    relevancia CONTRA EL TEXTO: sumar un área sin sumar relevancia no trae la acción.
+   **Y una operación que mueve plata lleva SU frase en esa lista, con la forma en que la dice el dueño**
+   («Juan me pagó 500 mil pesos», «cambiale el vencimiento a la cuota 3»): las nueve de Pagos campo por
+   campo (14/10/2026) salieron con su def perfecta y ninguna frase, y tres días después «ya me pagó la cuota 2»
+   caía `capturar` con DOS herramientas — MaKo no podía registrar un pago, con o sin moneda
+   (`tests/api-mako-pago-intencion.test.ts`, docs/hallazgos-api-mako.md → «Pendientes B1 de la API»).
 
 **Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
 docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
