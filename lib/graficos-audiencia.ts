@@ -31,6 +31,7 @@
 import { SinConexionError, type Fila } from './graficos-agregar';
 import type { Rango } from './graficos-lectura';
 import type { Desglose, FilaInsights } from './meta-desgloses';
+import { desdeQueGuardaMeta } from './meta-rango';
 
 /** La acción con la que se cuenta una agenda, la misma que contaba la ruta vieja: el evento custom del Pixel. */
 export const ACCION_AGENDA = 'offsite_conversion.fb_pixel_custom';
@@ -47,17 +48,8 @@ export function lecturaDe(dimension: string | null, desglose: string | null = nu
   return LECTURA[dimension ?? ''] ?? LECTURA[desglose ?? ''] ?? 'age,gender';
 }
 
-/**
- * Desde cuándo se puede pedir: Meta guarda 37 meses y un `since` más viejo es un error (#3018,
- * medido el 11/10/2026: «cannot be beyond 37 months from the current date»; desde 2023-09-12
- * contestó bien). Se pide desde ahí, con dos días de margen por la zona de la cuenta: más atrás
- * no hay nada que traer, así que el total es el de todo lo que Meta tiene.
- */
-export function desdeQueGuardaMeta(desde: string, hoy: string): string {
-  const [y, m, d] = hoy.split('-').map(Number);
-  const tope = new Date(Date.UTC(y, m - 1 - 37, d + 2)).toISOString().slice(0, 10);
-  return desde < tope ? tope : desde;
-}
+/** Desde cuándo se puede pedir (Meta guarda 37 meses): la regla vive en lib/meta-rango.ts, para todas las lecturas de Meta. */
+export { desdeQueGuardaMeta };
 
 /** Lo que se le puede inyectar a `filasAudiencia` en un test. En producción no se pasa nada. */
 export type DepsAudiencia = {

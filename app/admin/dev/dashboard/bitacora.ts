@@ -532,4 +532,21 @@ export const BITACORA: Hito[] = [
       'AGENTS.md: un merge que salió fast-forward no dejó commit tuyo; enmendarlo reescribe el de otra sesión.',
     ],
   },
+  {
+    fecha: '16 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'La hoja Ads Analyst lee y carga mal las métricas (#876)',
+    pedido: 'Bueno, no sé por qué, hay algunos datos que me lo trae, yo me llevo para trabajar eso, pero hay algunos datos que me lo están leyendo',
+    puntos: ['De la llamada Mau <> Martín del 16/10 (53:01), al abrir un anuncio ganador de la hoja Ads Analyst recién creada en el negocio de Mauricio. Lo repartió el Cerebro al chat Dashboard el 17/10, primero por impacto.'],
+  },
+  {
+    fecha: '17 oct', hora: '08:10', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El anuncio de Ads Analyst trae sus números, su diario y su audiencia',
+    puntos: [
+      'Al abrir un anuncio de la hoja Ads Analyst (en «Tus anuncios ganadores» o en los guiones), ahora aparecen los números, el día a día y la audiencia, no sólo el video y el guion.',
+      'La hoja mira «Todo» y Meta guarda los últimos 37 meses: se le pide desde ahí, en vez de recibir un error.',
+      'Lo mismo en el detalle de una campaña o un conjunto y en el resumen de la cuenta del Ads Manager.',
+    ],
+    archivos: ['lib/meta-rango.ts', 'app/api/ad-insights/route.ts', 'app/api/entity-insights/route.ts', 'lib/meta-desgloses.ts', 'tests/meta-rango.test.ts', 'docs/hallazgos-ads.md'],
+    revisar: '/dashboard',
+  },
 ];

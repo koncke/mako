@@ -3358,6 +3358,12 @@ CAC y MaKo. `spend`, `balanceMxn` y compañía están en la moneda de la CUENTA 
 llamen distinto. `tests/moneda-meta.test.ts` barre `lib/` y `app/` y falla nombrando el
 archivo si un lector vuelve a asumir pesos.
 
+⚠️ **Y EL PERÍODO: Meta guarda 37 meses, y un `since` más viejo es un ERROR (#3018), no un
+recorte.** El «Todo» de una hoja arranca en 2020: el 16/10/2026 el pop-up de un anuncio de Ads
+Analyst se quedó sin números, diario ni audiencia por eso (#876). Todo `time_range` con un
+período libre se arma con `timeRangeMeta` (`lib/meta-rango.ts`); `tests/meta-rango.test.ts`
+barre `lib/` y `app/` y falla si uno se arma a mano.
+
 # Un estimador que devuelve CERO no es un validador
 
 Meta tiene dos endpoints que contestan «¿a cuántas personas llega esta segmentación?», y
