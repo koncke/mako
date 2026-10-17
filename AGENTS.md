@@ -879,6 +879,13 @@ avance?» necesita el último valor que la base le confirmó a ESA pestaña** (`
 dos mitades): contra la fila sola, una pestaña vieja reabre lo que se completó en otro lado
 (16/10/2026, revisión adversarial).
 
+⚠️ **Y «el proyecto lo define la reunión» vale SÓLO en el tablero de un cliente** (#870, 17/10/2026). En el
+del dueño, una llamada con un cliente de MaKo deja trabajo de las tabs: cada tarea va al proyecto que eligió la
+extracción. Lo decide `proyectoQueManda` (lib/reunion-cliente.ts), y nadie más llama a
+`nombreDeProyectoPara` para pisar el proyecto de una reunión. **Y el proyecto de un cliente se busca por su LEAD**
+(`proyectoDelCliente`, lib/reunion-cliente-reglas.ts) y nace con su `cliente_lead_id`. Por nombre solo, el ws1
+terminó con tres proyectos para el mismo cliente.
+
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,

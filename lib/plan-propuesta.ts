@@ -724,7 +724,10 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           // cadena que arranca en el prompt de extracción. Si se cae acá, todo lo de
           // arriba está escrito y no se ofrece.
           // SIN `prioridad`: nacen libres (score 0). Y SIN IA: el proyecto lo decide `destinoSinIA`.
-          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, recurrente: t.recurrente, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente, { sinIA: true, clienteDeLaReunion: !!prop?.clienteNombre });
+          // ⚠️ `clienteDeLaReunion: false` SIEMPRE en el tablero del dueño (#870): el cliente de la llamada no
+          // abre un «Cliente: X» nuevo. Así nació «Cliente: Mauricio Bustos» al lado de «Cliente: Mauricio» el
+          // 16/10. Lo que un cliente dice de MaKo va a su tab; un proyecto que no existe va a la bandeja.
+          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, recurrente: t.recurrente, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente, { sinIA: true, clienteDeLaReunion: false });
           idsCreadas.push(...r.ids);
           // Mismo orden que `base` (agregarTareasPlanOwner filtra solo los títulos
           // vacíos, y acá no hay ninguno): la tarea i quedó con el id i.
@@ -760,7 +763,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           // bandeja lo decide «Re-priorizar todo», no esta carga (ver lib/plan-bandeja.ts).
           const destinos = await rutearSinIA(
             base.map((t) => ({ titulo: t.titulo, detalle: t.detalle, proyectoSugerido: t.proyecto })),
-            { clienteDeLaReunion: !!prop?.clienteNombre },
+            { clienteDeLaReunion: !!prop?.clienteNombre, cliente: prop?.clienteLeadId ? { leadId: prop.clienteLeadId, nombre: prop.clienteNombre ?? '' } : undefined },
           ).catch((e) => { console.error('[plan-propuesta] rutear sin IA:', e instanceof Error ? e.message : String(e)); return [] as Awaited<ReturnType<typeof rutearSinIA>>; });
           for (let bi = 0; bi < base.length; bi++) {
             const t = base[bi];
@@ -771,9 +774,13 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
               let catId = byName.get(k);
               if (catId == null) {
                 const cat = delCatalogoTodo(nombre);
+                // El proyecto del cliente de la reunión nace ATADO a su lead (#870): la próxima reunión lo
+                // encuentra por el dato (`proyectoDelCliente`), no por cómo se escribió su nombre.
+                const atado = d.via === 'cliente-de-la-reunion' && (prop?.clienteLeadId ?? 0) > 0
+                  ? { lead_id: prop!.clienteLeadId!, nombre: prop!.clienteNombre ?? null } : undefined;
                 const c = d.via === 'bandeja'
                   ? await crearCategoria(PROYECTO_SIN_PROYECTO, COLOR_SIN_PROYECTO, EMOJI_SIN_PROYECTO, 1, QUE_SIN_PROYECTO)
-                  : await crearCategoria(nombre, cat?.color ?? '#2F6FED', cat?.emoji);
+                  : await crearCategoria(nombre, cat?.color ?? '#2F6FED', cat?.emoji, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, atado);
                 catId = c.id; byName.set(k, c.id);
               }
               const tarea = await crearTarea({

@@ -619,6 +619,50 @@ async function main() {
     if (antesEnv.secreto === undefined) delete process.env.FATHOM_WEBHOOK_SECRET;
   }
 
+  // ── #870 (17/10/2026): la reunión con un cliente en los DOS tableros. Sólo con `cliente870`, no con `todo`:
+  // lo pide tests/reunion-cliente-870.test.ts y no cambia la salida que leen los otros.
+  if (modo === 'cliente870') {
+    const pp = await import('../lib/plan-propuesta');
+    const rc = await import('../lib/reunion-cliente');
+    const cli = { leadId: 31, nombre: 'Macario Romero Valencia', empresa: 'Congelados HMO', email: 'mromero@grupo21.com.mx', via: 'email-invitado' as const, confianza: 'alta' as const };
+
+    // EL DUEÑO: la reunión con un cliente NO manda el proyecto, y su «Cliente: X» no se abre.
+    reset(); sembrarWorkspace('superadmin');
+    db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pcrm', pid: 'P1', name: 'Feature: CRM', emoji: '🧲', color: '#000', score: 80, detalle: '', historial: [], orden: 1 });
+    db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pmau', pid: 'P2', name: 'Cliente: Mauricio', emoji: '🤝', color: '#000', score: 50, detalle: '', historial: [], orden: 2 });
+    const mandaDueno = await runWithWorkspace(WS_DUENO, () => rc.proyectoQueManda({ ...cli, leadId: 0, nombre: 'Mauricio Bustos', empresa: 'Mauricio Bustos', via: 'workspace-cliente' }));
+    borrador(WS_DUENO, 'p870d', [
+      { titulo: 'Arreglar el guardado de la ficha', detalle: 'No guarda al cambiar de etapa.', proyecto: 'Feature: CRM' },
+      { titulo: 'Revisar el acceso de Mauricio al repo', detalle: 'Pasarlo a lectura.', proyecto: 'Cliente: Mauricio Bustos' },
+    ], { cliente_nombre: 'Mauricio Bustos', cliente_lead_id: null });
+    await runWithWorkspace(WS_DUENO, () => pp.aplicarPropuestas([{ id: 'p870d' }]));
+    const proyDe = (labels: unknown) => ((labels as string[]) ?? []).map((id) => db.plan_proyectos.find((p) => p.id === id)?.name ?? `?${id}`);
+    out.dueno870 = {
+      manda: mandaDueno,
+      proyectos: db.plan_proyectos.map((p) => p.name),
+      creadas: db.plan_tareas.map((t) => ({ titulo: t.title, proyectos: proyDe(t.labels) })),
+    };
+
+    // EL CLIENTE: la reunión manda, y el proyecto del cliente se encuentra por su LEAD aunque el borrador
+    // traiga el nombre de uno que ya se unió («Cliente: Congelados HMO»).
+    reset(); sembrarWorkspace('completo');
+    db.tarea_categorias.push(defaults('tarea_categorias', { workspace_id: WS_CLIENTE, id: 47, nombre: 'Cliente: Macario Romero — HMO', cliente_lead_id: 31, color: '#111' }));
+    db.tarea_categorias.push(defaults('tarea_categorias', { workspace_id: WS_CLIENTE, id: 76, nombre: 'Cliente: Baja Teriyaki', cliente_lead_id: 14, color: '#111' }));
+    const mandaCliente = await runWithWorkspace(WS_CLIENTE, () => rc.proyectoQueManda(cli));
+    const nuevo = await runWithWorkspace(WS_CLIENTE, () => rc.proyectoDeCliente({ ...cli, leadId: 99, nombre: 'Ana Pérez', empresa: 'Panadería Sol' }));
+    borrador(WS_CLIENTE, 'p870c', [
+      { titulo: 'Enviar el contrato del proyecto ganado', detalle: 'Para pedir el anticipo.', proyecto: 'Cliente: Congelados HMO' },
+    ], { cliente_nombre: 'Macario Romero Valencia', cliente_lead_id: 31 });
+    await runWithWorkspace(WS_CLIENTE, () => pp.aplicarPropuestas([{ id: 'p870c' }]));
+    const catDe = (ids: unknown) => ((ids as number[]) ?? []).map((id) => db.tarea_categorias.find((c) => c.id === id)?.nombre ?? `?${id}`);
+    out.cliente870 = {
+      manda: mandaCliente,
+      categorias: db.tarea_categorias.map((c) => ({ nombre: c.nombre, lead: c.cliente_lead_id ?? null })),
+      nuevoId: nuevo,
+      creadas: db.experimento_tareas.map((t) => ({ titulo: t.titulo, proyectos: catDe(t.categorias) })),
+    };
+  }
+
   out.sinMock = [...sinMock];
   process.stdout.write('@@RESULTADO@@' + JSON.stringify(out));
 }

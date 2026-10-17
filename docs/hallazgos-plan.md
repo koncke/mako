@@ -6920,3 +6920,59 @@ Martín pidió revisar si la extracción funciona. Se leyeron completas las dos 
 **Trampa al medirlo:** `fetchAllMeetings({ recordedAfter })` devolvió reuniones de septiembre. Fathom ignora `recorded_after` (ya anotado arriba en este documento); el filtro real lo hace `listReunionesRecientes`. Un script que llama a la lib de abajo se trae todo.
 
 **Vive en:** `lib/reunion-cliente.ts` (la regla del cliente) · `lib/plan-proyectos-catalogo.ts` · `lib/plan-fathom.ts` (`PLAN_FATHOM_SYSTEM_TEMPLATE`, el pedido de detalle) · tarjetas #843-#879 del ws9
+
+## La reunión con un cliente: en el tablero del dueño NO manda, y un cliente tiene UN proyecto (17/10/2026, #870)
+
+**Síntoma, en los dos tableros a la vez (llamadas del 16/10):**
+- **Tablero de Martín (ws9):** las 26 tarjetas de la revisión con Código Inmobiliario cayeron en «Cliente: Código
+  Inmobiliario». Las 11 de «Mau <> Martin» cayeron en «Cliente: Mauricio Bustos», un proyecto que la importación CREÓ al
+  lado de «Cliente: Mauricio». Eran bugs y features de MaKo.
+- **Tablero de Mauricio (ws1):** de la «Junta Monserrat HMO», 7 de 15 tareas cayeron en «Sin proyecto». Y el mismo
+  cliente (lead 31, Congelados HMO / Macario Romero) tenía TRES proyectos: «hay dos Macarios», dijo él en vivo.
+
+**Causa: una sola regla, aplicada sin mirar de quién es el tablero ni con qué dato se busca.**
+1. «El proyecto lo define la reunión» la dictó Mauricio para SUS clientes. El servidor la aplicaba en todos los
+   tableros e IGNORABA lo que había elegido el modelo. En el del dueño, una llamada con un cliente de MaKo deja trabajo
+   de las tabs.
+2. El proyecto del cliente se buscaba sólo por NOMBRE, y el nombre cambia: el CRM dice «Congelados HMO», la persona es
+   «Macario Romero Valencia» y el dueño lo llamó «Cliente: Macario Romero — HMO». Cada vía que no lo encontraba abría
+   otro. El dato duro (`tarea_categorias.cliente_lead_id`) existía y nadie lo leía; tampoco se escribía al crear.
+3. En el tablero del dueño, `nombreDeProyectoPara` buscaba en `tarea_categorias`, que es la tabla del tablero de un
+   CLIENTE (la del dueño es `plan_proyectos`). Por eso nunca encontraba «Cliente: Mauricio» y devolvía el nombre
+   canónico, que `destinoSinIA` creaba como «proyecto del cliente de la reunión».
+4. «Junta Monserrat HMO» no tenía un solo email de cliente: Fathom devolvió sólo al que grabó. Además, el título no
+   nombra la empresa entera.
+
+**El diagnóstico obvio era el equivocado:** «la IA eligió mal el proyecto». El modelo había elegido bien; el
+servidor lo pisaba.
+
+**La regla que queda** (lib/reunion-cliente-reglas.ts, pura y con test):
+- **`clienteManda(tablero)`**: la reunión manda el proyecto SÓLO en el tablero de un cliente. Hay UN lugar que lo
+  decide, `proyectoQueManda` (lib/reunion-cliente.ts), y lo llaman la ruta del modal, la lectura en segundo plano y
+  el cron.
+- En el tablero del dueño, «Cargar» nunca abre un «Cliente: X» (`clienteDeLaReunion: false`). Lo que propone la
+  extracción y no existe va a la bandeja.
+- El modal ya no pregunta «¿a qué cliente va?» en el tablero del dueño. Dice «Reunión con X: cada tarea va a su tab».
+- **`proyectoDelCliente`**: primero el proyecto atado al lead. Después, por nombre sin el prefijo y en cualquier
+  orden; al revés, sólo con dos palabras o más. Una categoría atada a OTRO lead nunca es suya.
+- El proyecto nuevo de un cliente nace con su `cliente_lead_id`, en `proyectoDeCliente` y en «Cargar».
+- Un borrador viejo que trae el nombre de un proyecto que ya se unió va al que el cliente tiene hoy, buscado por el
+  lead del borrador (`rutearSinIA`).
+- **`clientePorTitulo`**: la SIGLA de la empresa tal como está en el CRM (HMO, TEXX) o la empresa entera en cualquier
+  orden («Baja Teriyaki» por «Teriyaki baja»). Nunca un nombre de pila. El falso positivo medido es «NADIA PIEDAD
+  CALDERON… Mentoría», que no es «Nadia H Tremari».
+
+**Datos arreglados el 17/10:** `scripts/unir-proyectos-de-cliente.ts`, con foto en C:/dev/backup-unir-proyectos-1.json.
+- En el ws1 quedó «Cliente: Macario Romero — HMO» (#47, el más viejo, el que eligió Mauricio a mano), atado al lead 31.
+- Absorbió a #151 y #153, y las 7 de la bandeja: 44 tareas.
+- Ningún otro workspace tenía duplicados.
+- El ws9 ya lo había ordenado el Cerebro esa madrugada (35 tarjetas a su tab y P84 borrado).
+
+**Sin hacer:**
+- Que el Perro de «Re-priorizar todo» sepa de la regla. Hoy reparte la bandeja por tema, y en el tablero de un
+  cliente eso puede sacar una tarea del proyecto de su reunión.
+- La vía B del docstring de `resolverClienteDeReunion` («reuniones previas con el mismo título»). Nunca se escribió.
+
+**Vive en:** lib/reunion-cliente-reglas.ts · lib/reunion-cliente.ts (`proyectoQueManda`, `nombreDeProyectoPara`,
+`porTitulo`) · lib/plan-propuesta.ts (`aplicarPropuestas`) · lib/todo-rutear.ts (`rutearSinIA`) ·
+app/api/plan-fathom/route.ts (`clienteParaElModal`) · tests/reunion-cliente-870.test.ts
