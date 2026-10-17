@@ -211,8 +211,7 @@ test('las pantallas de /automations cuentan como WhatsApp sólo los MENSAJES', (
   // Probado rompiéndolo: volver a `!esPasoAccion(p)` → 1 rojo.
   const perfil = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
   assert.match(perfil, /const mensajes = pasos\.filter\(\(p\) => esNodoMensaje\(p\)\);\n\s+const soloWa = mensajes\.length > 0 && mensajes\.every/);
-  const app = sinComentarios(leer('../app/automations/ChatAgentApp.tsx'));
-  assert.match(app, /p\.canal === 'whatsapp' && !esPasoAccion\(p\)/);
+  // (La tab contaba igual para su cartel del envío apagado, que se fue el 17/10/2026 con #851.)
 });
 
 test('el ejecutor: el id de un borrador sale SIN la query, y cada forma propia se aplica entera', () => {

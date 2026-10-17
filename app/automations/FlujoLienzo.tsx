@@ -40,7 +40,7 @@ import {
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Icon } from '@/app/_components/icons';
 import { Toast, useToast, Switch } from '@/app/_ui';
-import { sinVistaPrevia, tieneLink } from '@/lib/mensaje-partes';
+import { sinVistaPrevia } from '@/lib/mensaje-partes';
 import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, partirConEspera, type Edicion } from '@/lib/flujo-edicion';
 import { insertarDesdeLienzo } from '@/lib/flujo-conversacion';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
@@ -76,7 +76,7 @@ import { Ticks } from '@/app/whatsapp/_shared/Ticks';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
-import { TRIGGER_RECORDATORIO, DATOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
+import { TRIGGER_RECORDATORIO, DATOS_RECORDATORIO, ofreceVistaPrevia } from '@/lib/recordatorio-automatizacion';
 import { aplicarVariables } from '@/lib/template-vars';
 import { datosOfrecidos, type ContextoDatos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
@@ -1261,8 +1261,9 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       chatMako={chatMako}
     />
     {/* LA VISTA PREVIA DE LOS LINKS (#869, Mauricio: «es más discreto»): de ESTA tarjeta, sólo si lleva un link (o si ya
-        se apagó: que se pueda volver a prender). Apagada, el link sale como texto, sin la tarjeta (`sinVistaPrevia`). */}
-    {noOficial && !recordatorio && (tieneLink(paso) || sinVistaPrevia(paso)) && (
+        se apagó: que se pueda volver a prender). Apagada, el link sale como texto, sin la tarjeta (`sinVistaPrevia`).
+        También en el recordatorio de la reunión, cuyo texto de fábrica trae el link (`ofreceVistaPrevia`). */}
+    {noOficial && ofreceVistaPrevia(paso, recordatorio) && (
       <div data-vista-previa style={{ flex: 'none', marginTop: 10 }}>
         <Switch checked={!sinVistaPrevia(paso)} onChange={(v) => cambiar({ sin_vista_previa: !v }, true)} label="Vista previa del link" />
       </div>

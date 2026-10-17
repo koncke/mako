@@ -18,7 +18,6 @@
 import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { Reentrada } from '@/lib/reentrada';
-import { Icon } from '@/app/_components/icons';
 // El router de la casa y no el de next: conserva el ?ws= (el super admin mirando OTRO negocio). (El link a
 // /whatsapp del aviso rojo se fue en la duodécima tanda: el QR se abre acá mismo.)
 import { useRouter } from '@/app/_ui/Link';
@@ -48,9 +47,9 @@ import type { CronAviso } from '@/lib/cron-aviso';
 // el 12/10/2026 (duodécima tanda, §2.12), con Martín, textual: «hoy hay un onboarding dentro de la tab que debería
 // quitarse... vos entrás en la tab por primera vez y tenés que ver el lienzo y tiene que salir el tutorial, y cuando
 // creás un paso que requiera WhatsApp... ahí que salte el QR. Que no haya ninguna fricción». El QR es el modal de
-// cada medio (`ConectarMedio`): lo abren la tarjeta, Probar, Publicar, el CRON y el aviso rojo de abajo.
+// cada medio (`ConectarMedio`): lo abren la tarjeta, Probar, Publicar y el CRON (el aviso rojo de la línea se fue el
+// 17/10, #851).
 import { marcarWhatsappAlCargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';
-import { ConectarMedio } from './ConectarMedio';
 // El recorrido guiado de la tab (décima tanda, GENERAL 8), montado como el de CURSO. Se vuelve a ver con
 // «Tutorial» del menú (`MenuAutomations`).
 import { RecorridoAutomations, useRecorridoAutomations } from './RecorridoAutomations';
@@ -68,7 +67,6 @@ import type { Estrategia } from '@/lib/setting-estrategia';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import type { ParteMensaje } from '@/lib/mensaje-partes';
 import type { CanalSocial } from '@/lib/canal-social';
-import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import type { MetricasSecuencia } from '@/lib/setting-metricas';
 
 export type PasoSecuenciaDto = {
@@ -294,8 +292,6 @@ function ChatAgentInner() {
    * decimoquinta tanda ya no salta solo al crear una tarjeta).
    * «¿Ya cargó?» es `secuencias !== null`: mientras tanto, el spinner de «Abriendo Automations…».
    */
-  /** El modal del QR que abre el aviso rojo de la línea (`ConectarMedio`), sin salir de la tab. */
-  const [conectarWa, setConectarWa] = useState(false);
   // Estado del WhatsApp del negocio. Arranca en 'desconocido' a propósito: hasta
   // que la API conteste, la pantalla no afirma que esta conectado NI que no.
   const [canal, setCanal] = useState<{ estado: string; desde: string | null; desvinculado?: boolean }>({ estado: 'desconocido', desde: null });
@@ -304,15 +300,6 @@ function ChatAgentInner() {
   // del WhatsApp en el onboarding, donde afirmar «desconectado» sobre un corte
   // momentaneo mandaba a re-escanear un QR que no hacia falta.
   const canalCaido = canal.estado === 'desconectado' || canal.estado === 'sin_vincular';
-  /**
-   * ¿El envío REAL de WhatsApp de este negocio está prendido? (#328). Es un interruptor
-   * aparte de la línea: con la línea conectada y esto en `false` no sale nada, y la
-   * pantalla no lo decía — el ws1 estuvo así desde el 29/09 con dos secuencias activas.
-   * `null` = no se sabe todavía (o no se pudo leer): no se afirma nada.
-   */
-  const [envioWa, setEnvioWa] = useState<boolean | null>(null);
-  const [prendiendo, setPrendiendo] = useState(false);
-  const [errEnvio, setErrEnvio] = useState<string | null>(null);
 
   /** Cuándo se firmó la URL que se está mostrando de cada audio (ver el merge de abajo). */
   const firmaAudio = useRef(new Map<number, number>());
@@ -338,7 +325,6 @@ function ChatAgentInner() {
       setNegocio(j.negocio ?? '');
       setCanal(j.canal ?? { estado: 'desconocido', desde: null });
       estadoCanal = typeof j.canal?.estado === 'string' ? j.canal.estado : 'desconocido';
-      setEnvioWa(typeof j.envioWhatsapp === 'boolean' ? j.envioWhatsapp : null);
       setError(null);
     } catch {
       setError(errorCarga ?? 'Sin conexión — recarga la página.');
@@ -662,24 +648,7 @@ function ChatAgentInner() {
 
   // ⛔ ACÁ IBA LA PUERTA DEL QR (`if (enOnboarding) {…<EvolutionConnect inline>…}`): sin línea vinculada, la tab
   // ERA el QR. Se fue el 12/10/2026 (duodécima tanda, §2.12): al entrar se ve el lienzo y el recorrido, y el QR
-  // salta cuando una tarjeta lo necesita, o desde el aviso rojo de la línea (`ConectarMedio`, abajo).
-
-  /** Prende el envío real de WhatsApp (#328). Lo valida el server: exige un número conectado. */
-  async function prenderEnvio() {
-    setPrendiendo(true); setErrEnvio(null);
-    try {
-      const r = await fetch('/api/whatsapp/envio', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: true }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.ok) { setErrEnvio(j.error || 'No se pudo prender.'); return; }
-      setEnvioWa(Boolean(j.envioHabilitado));
-    } catch {
-      setErrEnvio('Sin conexión.');
-    } finally {
-      setPrendiendo(false);
-    }
-  }
+  // salta cuando una tarjeta lo necesita (`ConectarMedio`). El aviso rojo de la línea se fue el 17/10 (#851).
 
   return (
     // ⚠️ LA TAB ESTIRA CON FLEX Y NO SCROLLEA: el lienzo de abajo se lleva todo el alto
@@ -721,79 +690,12 @@ function ChatAgentInner() {
           Lo que una pantalla sin cabecera SÍ necesita es que el editor diga qué se está
           editando: el nombre vive flotando sobre el lienzo, y es editable. */}
 
-      {/* EL NÚMERO CAÍDO CON LAS SECUENCIAS EN VERDE.
-          Una secuencia dice «Activa» y eso se lee como que está enviando. Si el
-          WhatsApp del negocio está desconectado, no envía nada: cada paso falla
-          y se reintenta al día siguiente, para siempre y sin síntoma. Pasó en la
-          cuenta del dueño — la sesión se cayó el 3/09, la tab siguió en verde, y
-          el primer lead real de la secuencia recién prendida no recibió nada.
-          El estado del número solo se veía en el onboarding, o sea justo hasta
-          que el dueño lo terminaba.
-          Solo se avisa si hay alguna secuencia ACTIVA: con todo pausado, el
-          número desconectado no rompe nada y el aviso sería ruido. */}
-      {canalCaido && (secuencias ?? []).some((s) => s.activa) && (
-        <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ color: 'var(--bad)', display: 'inline-flex' }}><Icon name="alert" size={17} /></span>
-          <div style={{ fontSize: '13.5px', color: 'var(--ink)', flex: 1, minWidth: 220 }}>
-            {canal.estado === 'sin_vincular' ? (
-              <>Tienes automatizaciones activas y <strong>todavía no vinculaste tu WhatsApp</strong>. No se está enviando nada.</>
-            ) : (
-              canal.desvinculado ? (
-                // ⚠️ EL DUEÑO LEYO «tu WhatsApp esta desconectado», ABRIO WHATSAPP
-                // Y LO ENCONTRO PERFECTO. Y era cierto: su TELEFONO anda. Lo que
-                // se cayo es el dispositivo vinculado que usa MaKo, y eso no se
-                // nota desde el telefono salvo mirando «Dispositivos vinculados».
-                // Nombrar el hecho —y decir que su telefono esta bien— es la
-                // diferencia entre un aviso que se cree y uno que se descarta.
-                <>Tienes automatizaciones activas y <strong>WhatsApp cerró la sesión del dispositivo vinculado</strong>
-                  {canal.desde ? <> el {new Date(canal.desde).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}</> : null}.
-                  {' '}Tu teléfono está bien: lo que hay que volver a vincular es el dispositivo que usa MaKo.
-                  {' '}Mientras tanto no se envía nada.</>
-              ) : (
-                <>Tienes automatizaciones activas y <strong>tu WhatsApp está desconectado</strong>
-                  {canal.desde ? <> desde el {new Date(canal.desde).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}</> : null}.
-                  {' '}No se está enviando nada: cada mensaje falla y se reintenta al día siguiente.</>
-              )
-            )}
-          </div>
-          {/* EL QR AHÍ MISMO (duodécima tanda, §2.12): era un link a /whatsapp, que sacaba de la tab. Es el MISMO
-              modal que el chip «Sin conectar» de la tarjeta (`ConectarMedio`): la línea por default, que se reconecta
-              si se cayó. Al quedar conectada, el aviso se va sin esperar al recargue, y se marca el paso (#745). */}
-          <button type="button" onClick={() => setConectarWa(true)} style={{ ...btnDark, whiteSpace: 'nowrap' }}>
-            {canal.estado === 'sin_vincular' ? 'Vincular WhatsApp' : 'Volver a conectarlo'}
-          </button>
-        </div>
-      )}
-      {conectarWa && (
-        <ConectarMedio medio="whatsapp" onCerrar={() => setConectarWa(false)} onConectado={() => {
-          setConectarWa(false);
-          setCanal({ estado: 'conectado', desde: null });
-          void marcarPasoWhatsapp().catch(() => {});
-          void load();
-        }} />
-      )}
-
-      {/* EL ENVÍO APAGADO CON LAS SECUENCIAS EN VERDE (#328). Es un interruptor aparte de
-          la línea: con el número conectado y esto apagado no sale nada, y sólo se veía en la
-          pastilla de /whatsapp. Medido el 06/10: el ws1 lo tenía apagado desde el 29/09 con
-          dos secuencias activas. No se dice POR QUÉ se apagó: no queda registrado quién lo
-          tocó, y una causa inventada es peor que ninguna. Con la línea caída no va: el aviso
-          rojo de arriba ya dice que no sale nada. */}
-      {!canalCaido && envioWa === false && (secuencias ?? []).some((s) => s.activa && s.pasos.some((p) => p.canal === 'whatsapp' && !esPasoAccion(p))) && (
-        <div style={{ flex: 'none', background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ color: 'var(--warn)', display: 'inline-flex' }}><Icon name="alert" size={17} /></span>
-          <div style={{ fontSize: '13.5px', color: 'var(--ink)', flex: 1, minWidth: 220 }}>
-            <strong>El envío de WhatsApp está apagado.</strong> Tus automatizaciones activas no mandan nada.
-            {errEnvio && <span style={{ color: 'var(--bad)' }}> {errEnvio}</span>}
-          </div>
-          {rolAdmin && (
-            <button onClick={() => void prenderEnvio()} disabled={prendiendo} style={{ ...btnDark, whiteSpace: 'nowrap', opacity: prendiendo ? 0.6 : 1 }}>
-              {prendiendo ? 'Prendiendo…' : 'Prender el envío'}
-            </button>
-          )}
-        </div>
-      )}
-
+      {/* ⛔ ACÁ IBAN DOS CARTELES (#851, 17/10/2026; Martín: «eliminar el mensaje del envío de WhatsApp está apagado. Que
+          no aparezca ningún mensaje», y también el de «Tienes automatizaciones activas y tu WhatsApp está desconectado»):
+          el rojo de la línea caída (con «Volver a conectarlo») y el amarillo del envío apagado (con «Prender el envío»).
+          Lo que dicen lo dice cada tarjeta: el chip «Sin conectar» de un WhatsApp FRENA Publicar, Activar y Probar, y los
+          cuatro abren el QR ahí mismo (`ConectarMedio`). Y el envío apagado ya no se queda apagado: activar una
+          automatización que le escribe al lead lo prende (`prenderEnvioAlActivar`, lib/envio-al-activar.ts). */}
       {error && (
         <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>
       )}

@@ -21,7 +21,7 @@
 // Sin `server-only`: lo leen el lienzo, la ruta que publica, el emisor y los tests.
 
 import { claseDe, idDe, nodoPorId, raizSalida, type PasoGrafo } from './flujo-grafo';
-import { lineaDelPaso } from './mensaje-partes';
+import { lineaDelPaso, sinVistaPrevia, tieneLink } from './mensaje-partes';
 import { TOQUES, TEXTO_DEFAULT, VARIABLES, problemaDelTexto, type ConfigRecordatorio, type Toque } from './recordatorio-lead';
 
 /** El CRON del recordatorio. NO lo inscribe el motor de nutrición: lo lee el emisor (ver la cabecera). */
@@ -60,7 +60,21 @@ export type ToqueDeAutomatizacion = {
   linea: string | null;
   /** La tarjeta del mensaje, para abrirla cuando algo falla. */
   paso: string;
+  /** El link sale como texto, sin la tarjeta de vista previa (`sinVistaPrevia` del paso, #869). Ausente = con tarjeta. */
+  sinVistaPrevia?: true;
 };
+
+/**
+ * ¿La tarjeta del WhatsApp ofrece el interruptor «Vista previa del link»? (#869, 17/10/2026). Si lleva un link, o si ya se
+ * apagó (que se pueda volver a prender). En el RECORDATORIO, además, la vacía (sale el texto de fábrica, que trae
+ * `{{link}}`) y la que escribe `{{link}}`: hasta hoy quedaba afuera, y el link de la reunión salía siempre con tarjeta.
+ */
+export function ofreceVistaPrevia(p: PasoGrafo, recordatorio: boolean): boolean {
+  if (tieneLink(p) || sinVistaPrevia(p)) return true;
+  if (!recordatorio) return false;
+  const escrito = typeof p.cuerpo === 'string' ? p.cuerpo.trim() : '';
+  return !escrito || /\{\{\s*link\s*\}\}/.test(escrito);
+}
 
 const esToque = (n: unknown): n is Toque => (TOQUES as readonly unknown[]).includes(n);
 
@@ -102,7 +116,7 @@ export function toquesDeLaAutomatizacion(pasos: readonly PasoGrafo[]): { toques:
     const texto = escrito || TEXTO_DEFAULT[min];
     const p = problemaDelTexto(texto);
     if (p) return mal(p, msgId);
-    toques.push({ min, texto, linea: lineaDelPaso(msg), paso: msgId });
+    toques.push({ min, texto, linea: lineaDelPaso(msg), paso: msgId, ...(sinVistaPrevia(msg) ? { sinVistaPrevia: true as const } : {}) });
     cur = msg.siguiente ?? null;
     if (cur && vistos.has(cur)) return mal('El recordatorio no puede volver atrás.', msgId);
   }

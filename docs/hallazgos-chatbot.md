@@ -5302,3 +5302,41 @@ selector múltiple para el catálogo `producto`. No se miró en pantalla.
 **Vive en:** `lib/condiciones-catalogo.ts` (`valoresDeFila`, `conValores`, `en_producto`) · `lib/flujo-grafo.ts`
 (`FilaCondicion.valores`) · `lib/nutricion-grafo-motor.ts` (`sanearFila`) · `app/automations/EditorCondicion.tsx` ·
 `app/components/ElegirFunnels.tsx` (`sinTodos`) · test: `tests/condicion-varios-funnels.test.ts`
+
+## Los dos carteles de arriba de Automations, fuera (17/10/2026, tarjeta #851, segunda mitad)
+
+- **Martín los pidió afuera, textual**: «eliminar el mensaje del envío de WhatsApp está apagado. Que no aparezca ningún
+  mensaje», y también el rojo «Tienes automatizaciones activas y tu WhatsApp está desconectado». Se fueron los dos, con
+  su botón («Volver a conectarlo», «Prender el envío») y el estado que sólo usaban ellos (`envioWa`, `prenderEnvio`, el
+  modal del QR de arriba).
+- **Lo que decían no se perdió, se mudó**: el chip «Sin conectar» de cada WhatsApp FRENA Publicar, Activar y Probar, y
+  los cuatro abren el QR ahí mismo (`ConectarMedio`, tests/medios-automatizacion.test.ts). El envío apagado ya no se queda
+  apagado: activar una automatización que le escribe al lead lo prende (`prenderEnvioAlActivar`, más arriba en este
+  documento). ⚠️ Lo que SÍ deja de verse: una línea que se cae DESPUÉS de publicar, con todo activo. El rojo existía por
+  eso (el 3/09 la sesión del ws1 se cayó sin síntoma). Hoy lo avisa «Se Cortó el WhatsApp de un Negocio» (la #253
+  de SuperAdmin, evento `whatsapp_caido`, activa: mirado el 17/10), no la tab.
+- La API de las secuencias sigue trayendo `envioWhatsapp`; la tab ya no lo mira. El interruptor sigue en /whatsapp.
+
+**Vive en:** `app/automations/ChatAgentApp.tsx` (el comentario ⛔ donde estaban) · tests que fijaban los carteles,
+actualizados con el porqué.
+
+## El link de la reunión, con o sin la vista previa (17/10/2026, tarjeta #869, lo que faltaba)
+
+- **El recordatorio de la reunión había quedado afuera a propósito** del interruptor «Vista previa del link»: el lienzo
+  no lo dibujaba ahí (`noOficial && !recordatorio`) y su emisor (lib/reunion-recordatorio.ts) mandaba sin la opción. Y
+  justo esa automatización es la que más links manda: sus tres textos de fábrica traen `{{link}}`.
+- **El toque lleva el interruptor de SU tarjeta** (`toquesDeLaAutomatizacion` → `sinVistaPrevia`), y el emisor se lo
+  pasa a `enviarYEspejar`. La configuración de antes (sin fila de automatización) no tiene dónde guardarlo: sale con
+  tarjeta, como siempre.
+- **Cuándo se ofrece** (`ofreceVistaPrevia`, una sola regla para el lienzo): con un link en el texto o ya apagado, como
+  en cualquier WhatsApp; en el recordatorio, además, con la tarjeta VACÍA (sale el texto de fábrica) o con `{{link}}`
+  escrito. Mirar sólo `tieneLink` lo escondía siempre: el link del recordatorio es una variable, no una URL.
+
+**Lo que quedó SIN hacer:** nadie comprobó en vivo que Evolution 2.3.7 respete `linkPreview: false` (es mandarse un
+«Probar en mi WhatsApp» con el interruptor apagado: sale a un teléfono de verdad, lo hace quien lo tenga en la mano). Y
+en la llamada quedó «en nuestro caso se va a mandar sin»: apagarlo en las automatizaciones de MaKo es tocar sus tarjetas
+en producción, no se hizo.
+
+**Vive en:** `lib/recordatorio-automatizacion.ts` (`ofreceVistaPrevia`, `toquesDeLaAutomatizacion`) ·
+`lib/reunion-recordatorio.ts` (`toquesDelNegocio`, el envío) · `app/automations/FlujoLienzo.tsx` · test:
+`tests/recordatorio-vista-previa.test.ts`
