@@ -52,7 +52,7 @@ export type PayloadPedido = {
   /** El id del chat: `local_…` para uno de la app de escritorio, `cli_…` para una sesión de
    *  terminal. Nunca el nombre: se repiten entre cuentas y dentro de una. */
   destino: string;
-  /** claude1 / claude2 / claude3, o null si el cartero no lo sabe. Informativo. */
+  /** claude1 … claude4, o null si el cartero no lo sabe. Informativo. */
   cuenta: string | null;
   /** El título del chat al firmar. Informativo: el cartero entrega por `destino`. */
   titulo: string | null;

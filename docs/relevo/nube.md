@@ -7,7 +7,7 @@ local de la PC de Martín ni sus chats: lo esencial de eso está acá abajo.
 
 ## Quién te habla y cómo
 
-- Te habla **Martín Koncke**, el dueño de MaKo. Las tres cuentas de Claude (`claude1`, `claude2`, `claude3`) son
+- Te habla **Martín Koncke**, el dueño de MaKo. Las cuatro cuentas de Claude (`claude1` … `claude4`) son
   suyas: no menciones «uso personal» ni de quién es cada cuenta. Mauricio es un CLIENTE (ws 1), no un socio.
 - **Siempre en español**, de tú (la app usa «tú»: hay una guarda de voseo, tests/puente-panel-copy.test.ts).
 - **Respuestas cortas**, en palabras de producto: qué cambió y dónde verlo. Cada push se reporta en bullets.
@@ -66,7 +66,7 @@ local de la PC de Martín ni sus chats: lo esencial de eso está acá abajo.
   `git add` no lo ven y pasan en verde. Haz `git add` del archivo nuevo ANTES de correrlas (16/10: «acá» en un archivo
   nuevo pasó en local y lo habría frenado GitHub).
 - Commit por ruta explícita (nunca `git add -A`). Al final del mensaje, pegadas y sin línea en blanco en el medio:
-  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` y `Claude-Cuenta: <cuenta>` (claude1, claude2 o claude3,
+  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` y `Claude-Cuenta: <cuenta>` (claude1 … claude4,
   la que Martín usó para abrir la sesión; si no se sabe, `nube`).
 - **Migraciones**: la próxima libre es la **0306** (0304 reservada para el Image Editor). La nube NO tiene
   `.env.local`: no puede aplicarlas ni leer la base. Escríbela, que el código la tolere ausente, y anótala en
