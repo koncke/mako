@@ -785,6 +785,21 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // El contacto que entró y MaKo sumó a un lead que ya estaba (17/10/2026, «nada por detrás», lote 2): el texto que
+    // mandaba lib/leads.ts (`avisarFusion`), letra por letra, sin firma (no la tenía), con sus datos (`datosFusion`).
+    id: 'mako-lead-fusionado',
+    nombre: 'Se Juntó un Contacto con un Lead',
+    emoji: '🟡',
+    linea: 'Le avisa al grupo de un negocio que entró un contacto que ya tenía y MaKo lo sumó a ese lead.',
+    origen: 'la ingesta de leads (Meta, Calendly, Cal.com), cuando encuentra el mismo teléfono o email',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_fusionado' },
+    pasos: [
+      mako('lf_mk', 'Entró un contacto por *{{fusion_canal}}* y lo sumé a *{{nombre_completo}}*, que ya tenías ({{fusion_porque}}). Si no era la misma persona, avísame y lo separo 👉 {{fusion_link}}', null),
+    ],
+  },
+  {
     // El reporte de los lunes (16/10/2026, docs/diseno-avisos-plataforma.md §6): lo arma el cron de cada negocio con sus
     // preferencias, y sale POR EMAIL al equipo del negocio, como hasta hoy (nunca por WhatsApp: `REPORTE_POR_WHATSAPP`).
     // El asunto y el cuerpo son los de `despacharReporte` (lib/notify.ts). Sin firma: el correo ya la lleva al pie.

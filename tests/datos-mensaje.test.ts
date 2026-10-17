@@ -40,6 +40,7 @@ import { datosDeLaPersona } from '../lib/aviso-evento';
 import { datosCaida, datosVolvio } from '../lib/linea-vigilancia';
 import { datosPostLlamada } from '../lib/reunion-grabada';
 import { datosCancelada } from '../lib/reunion-cancelada';
+import { datosFusion } from '../lib/lead-fusionado';
 import { datosDelReporte } from '../lib/reporte-destino';
 import { datosOfertaLista } from '../lib/oferta-lista';
 import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
@@ -118,6 +119,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     grabacion: set(datosPostLlamada({ reunion: 'R1', duracionMin: 42 })),
     // 17/10/2026: y la reunión que el lead canceló, que pasa el webhook de Calendly (`datosCancelada`).
     cancelada: set(datosCancelada({ reunion: 'R1', cuando: 'jueves 16 a las 11:00' })),
+    // Y el contacto que se sumó a un lead que ya estaba, que pasa la ingesta (`datosFusion`).
+    fusion: set(datosFusion({ canal: 'Meta', porQue: 'mismo teléfono', link: 'https://hola-mako.com/crm/1842' })),
     // 16/10/2026: y el reporte de los lunes ya armado, que pasa el cron (`datosDelReporte`, lib/reporte-destino.ts).
     reporte: set(datosDelReporte({ titulo: 'Reporte semanal · 05/10/2026–11/10/2026', texto: '🗓️ *Reporte semanal*' })),
     // Y la oferta que MaKo terminó de armar, que pasa el armado en el servidor (`datosOfertaLista`, lib/oferta-lista.ts).
