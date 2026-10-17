@@ -143,6 +143,31 @@ export function nombresDeAdjuntos(firmado: string | null | undefined): string[] 
   }
 }
 
+// ── Abrir un chat de terminal con un clic (17/10/2026, docs/diseno-nuevo-chat-un-clic.md) ──────────────────────────────
+// Martín: «un clic + el permiso de la PC», nunca pegar un comando en PowerShell. Es un trabajo firmado como cualquiera,
+// con `destino: 'nuevo'`: la `cuenta` dice en qué terminal, el `titulo` es el nombre del chat y el `texto` su primer
+// mensaje. La PC lo abre sólo con el permiso local prendido (cartero.mjs → `abrir-permitir`).
+// ⚠️ EL NOMBRE VA POR UNA LISTA BLANCA, no por «todo menos esto» (lo pidió la revisión de seguridad del Cerebro): con
+//    él se arma el comando que abre la ventana. Letras (con tildes y ñ), números, espacios y `› > - _ . , ( ) + :`,
+//    empezando con letra o número (nunca parece una opción). Sin comillas de ningún tipo: la función del perfil hace
+//    `claude @args`, y Windows PowerShell 5.1 parte en varios argumentos un texto con `"` al pasarlo a claude.exe. Por lo
+//    mismo el primer mensaje NO va como argumento: la PC lo escribe en un archivo y el chat arranca leyéndolo.
+export const DESTINO_NUEVO = 'nuevo';
+export const MAX_NOMBRE_NUEVO = 80;
+export const NOMBRE_NUEVO_RE = /^[\p{L}\p{N}][\p{L}\p{M}\p{N} ›>\-_.,()+:]*$/u;
+/** null si el nombre de un chat nuevo vale; si no, el motivo. La MISMA regla que el cartero (test diferencial). */
+export function problemaDeNombreNuevo(x: unknown): string | null {
+  if (typeof x !== 'string' || x.length > MAX_NOMBRE_NUEVO || !NOMBRE_NUEVO_RE.test(x) || x !== x.trim()) return 'nombre inválido';
+  return null;
+}
+/** Las cuentas en las que la PC dice que puede abrir un chat (cartero 1.11.0: una terminal y el permiso prendido). */
+export function sanearAbre(x: unknown): string[] {
+  if (!Array.isArray(x)) return [];
+  return [...new Set(x.filter((c): c is string => typeof c === 'string' && CUENTA_RE.test(c)))].slice(0, 10);
+}
+/** El cartero que abre chats (`abrir`): con uno de antes, el trabajo quedaría escrito para siempre. */
+export const VERSION_ABRIR = '1.11.0';
+
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const CUENTA_RE = /^claude\d{1,2}$/;
@@ -197,9 +222,14 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (typeof o.id !== 'string' || !UUID_RE.test(o.id)) return { ok: false, motivo: 'id inválido' };
   if (typeof o.texto !== 'string' || !o.texto.trim()) return { ok: false, motivo: 'sin texto' };
   if (o.texto.length > MAX_TEXTO) return { ok: false, motivo: `el texto pasa de ${MAX_TEXTO} caracteres` };
-  if (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino)) return { ok: false, motivo: 'destino inválido' };
+  const nuevo = o.destino === DESTINO_NUEVO;
+  if (!nuevo && (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino))) return { ok: false, motivo: 'destino inválido' };
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
   if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
+  // Un chat nuevo dice en qué cuenta y con qué nombre, y no lleva adjuntos (todavía no hay a quién dárselos).
+  if (nuevo && o.cuenta === null) return { ok: false, motivo: 'falta la cuenta' };
+  if (nuevo) { const m = problemaDeNombreNuevo(o.titulo); if (m) return { ok: false, motivo: m }; }
+  if (nuevo && o.adjuntos !== undefined) return { ok: false, motivo: 'un chat nuevo no lleva adjuntos' };
   if (!(ALCANCES as readonly unknown[]).includes(o.alcance)) return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !(MODELOS as readonly unknown[]).includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !(ESFUERZOS as readonly unknown[]).includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
@@ -214,7 +244,8 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   return {
     ok: true,
     p: {
-      v: VERSION_PEDIDO, id: o.id, texto: o.texto, destino: o.destino,
+      // `destino` ya se validó arriba (una sesión, o `nuevo`); el chequeo por `nuevo` no lo estrecha para TypeScript.
+      v: VERSION_PEDIDO, id: o.id, texto: o.texto, destino: o.destino as string,
       cuenta: (o.cuenta as string | null) ?? null, titulo: (o.titulo as string | null) ?? null,
       alcance: o.alcance as Alcance, creado: o.creado as string, vence: o.vence as string,
       modelo: (o.modelo as Modelo | null | undefined) ?? null, esfuerzo: (o.esfuerzo as Esfuerzo | null | undefined) ?? null,
@@ -451,6 +482,7 @@ export function motivoDeEspera(
   ahora: number,
 ): string | null {
   if (p.estado !== 'escrito') return null;
+  if (p.destino === DESTINO_NUEVO) return 'Espera que el Runner lo abra: con la apertura prendida en la PC';
   const chat = todosLosChats(carteros).find((x) => x.local === p.destino);
   const cuenta = chat?.cuenta ?? p.destino_cuenta;
   const suyo = carteros.find((k) => k.cuenta === cuenta);

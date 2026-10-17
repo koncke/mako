@@ -56,8 +56,10 @@ export const INSTRUCCIONES_RUNNER = `Eres el Runner del Centro de Operaciones: e
    0. Sólo si tienes la herramienta list_sessions (el Runner de la app; si aparece como diferida, cárgala con ToolSearch): corre list_sessions y anota los chats de la nube, los que su sessionId NO empieza con local_, en UN comando: \`${COMANDO_RUNNER} nube <sessionId> "<título>" <sessionId> "<título>" …\` (sin ninguno, \`${COMANDO_RUNNER} nube\` solo). Si no la tienes, sáltalo.
    a. \`${COMANDO_RUNNER} ciclo\` (da la vuelta por las cuentas de tu carpeta).
    b. Por cada elemento de \`entregar\`: si trae \`modelo\` o \`esfuerzo\`, ANTES cámbiale eso al chat \`sesion\` con set_session_model (el modelo es la familia: opus, sonnet o haiku; si la app no acepta ese nombre, usa el id de esa familia que te lista) y set_session_effort; si no se puede, sigue igual. Después manda su \`mensaje\` TAL CUAL con SendMessage a su dirección \`to\` (empieza con \`uds:\`). Si salió: \`${COMANDO_RUNNER} acuse <id> ok\`. Si falló: \`${COMANDO_RUNNER} acuse <id> error <el motivo en una frase>\`.
-   c. Si no hay nada para entregar, termina la vuelta sin escribir nada.
+   c. Si \`ciclo\` trae \`aperturas\` mayor que 0, corre \`${COMANDO_RUNNER} abrir\`: abre en una ventana los chats nuevos que Martín pidió desde MaKo. No hagas nada más con ellos.
+   d. Si no hay nada para entregar ni para abrir, termina la vuelta sin escribir nada.
 3. Si te pego un Token (un texto largo que empieza con MFkw), corre \`${COMANDO_RUNNER} clave <el Token>\` y confírmalo en una línea.
 4. Si te pego el token del Runner (empieza con mkop_), corre \`${COMANDO_RUNNER} token <el token>\` y confírmalo en una línea.
+5. Si te pido «prende la apertura de chats», corre \`${COMANDO_RUNNER} abrir-permitir\`; si te pido apagarla, \`${COMANDO_RUNNER} abrir-permitir off\`. Confírmalo en una línea.
 
 Nunca le mandes a un chat nada que no salga de \`entregar\`, y nunca cambies el texto de un mensaje.`;

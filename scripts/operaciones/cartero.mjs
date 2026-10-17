@@ -57,6 +57,8 @@
 //                                  cuenta, por todas las de su carpeta
 //   pendientes [cuenta]            lo del buzón que le toca mandar a ESTE Runner (su carpeta)
 //   acuse [cuenta] <id> ok | error <motivo>   lo anota el Runner después de cada SendMessage
+//   abrir                          (1.11.0) abre en una ventana los chats nuevos que Martín pidió con un clic
+//   abrir-permitir [off]           (1.11.0) el permiso local para abrirlos: lo prende Martín, una vez
 //   nube [<id> <título> …]         (1.10.0) los chats de la nube de la cuenta de la app, como los lista list_sessions;
 //                                  los corre el Runner de la app en cada vuelta, antes de `ciclo`
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
@@ -70,8 +72,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.10.0';
+export const VERSION = '1.11.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -92,6 +95,13 @@ const ADJUNTOS = path.join(DIR, 'adjuntos');
 /** Los chats de la NUBE de cada cuenta (1.10.0): no quedan en ningún archivo de la PC; los anota el Runner de la app, que
  *  los ve con list_sessions (`nube <id> <título> …`). `nube/<cuenta>.json`. */
 const NUBE = path.join(DIR, 'nube');
+/** Los chats nuevos que pidió Martín con un clic (1.11.0): `aperturas/<id>.json` mientras esperan a `abrir`, y después el
+ *  primer mensaje (`<id>.txt`) y el lanzador (`<id>.cmd`). Se borran a los VENCE_DIAS. */
+const APERTURAS = path.join(DIR, 'aperturas');
+/** Con qué se abre el `.cmd`: el Explorador, que vive fuera del job de la herramienta Bash (medido el 17/10: un hijo
+ *  `detached` muere con ella). Los tests lo cambian por un registrador (`CARTERO_ABRIDOR`, un JSON con el programa y sus
+ *  argumentos): es el entorno de la PC, el mismo que ya decide `CARTERO_DIR`. */
+const ABRIDOR = (() => { try { const a = JSON.parse(process.env.CARTERO_ABRIDOR ?? ''); if (Array.isArray(a) && a.length && a.every((x) => typeof x === 'string')) return a; } catch { /* el de siempre */ } return ['explorer.exe']; })();
 /** Lo anotado de la nube vale este rato: si el Runner dejó de anotarlo, esos chats no se suben como si siguieran ahí. */
 const NUBE_VENCE_MS = 10 * 60 * 1000;
 /** La cuota de cada cuenta, como la anota la barra de estado de su Runner (`uso`). */
@@ -299,9 +309,69 @@ export function leerNube(cuenta, ahora = Date.now(), dir = NUBE) {
   return n.chats.filter((c) => c && NUBE_RE.test(c.id ?? '') && typeof c.titulo === 'string').slice(0, 50);
 }
 
+/** El primer mensaje y el lanzador de una apertura, a los VENCE_DIAS: el chat ya lo leyó o no lo va a leer. */
+function limpiarAperturas(ahora = Date.now()) {
+  let archivos = [];
+  try { archivos = fs.readdirSync(APERTURAS).filter((n) => /\.(txt|cmd)$/.test(n)); } catch { return; }
+  for (const n of archivos) {
+    try {
+      const f = path.join(APERTURAS, n);
+      if (ahora - fs.statSync(f).mtimeMs > VENCE_DIAS * 86_400_000) fs.rmSync(f, { force: true });
+    } catch { /* la limpieza nunca frena la vuelta */ }
+  }
+}
+
 /** La cuenta de la app en la carpeta de este Runner: la única que ve list_sessions. */
 const cuentaDeLaApp = (cfg, dir) => Object.keys(cfg.carteros ?? {})
   .find((c) => CUENTA_RE.test(c) && fuentesDe(cfg.carteros[c]).some((f) => f.fuente === 'app' && mismoDir(f.configDir, dir))) ?? null;
+
+/**
+ * Abre los chats nuevos de la cola (1.11.0). Lo corre el Runner cuando `ciclo` dice `aperturas`. Para cada uno:
+ *   · lo toma con un rename (dos Runners no abren el mismo);
+ *   · vuelve a verificar la FIRMA sobre el mismo `firmado` que lee después, y el texto (id, destino, cuenta);
+ *   · mira el permiso local otra vez (se pudo apagar entre la vuelta y ahora);
+ *   · escribe el primer mensaje en `<id>.txt` y el `.cmd`, y lo abre con el Explorador.
+ * El acuse dice «se pidió abrir», no «abierto»: el Explorador devuelve 1 aunque abra (medido el 17/10). La prueba es que
+ * el chat aparezca en la lista.
+ */
+export function abrir(cfg = config(), ahora = Date.now()) {
+  const spkis = claves();
+  const viejo = new Set(leerJson(LEDGER, []));
+  const out = [];
+  for (const f of listar(APERTURAS)) {
+    const tomada = `${f}.tomada`;
+    try { fs.renameSync(f, tomada); } catch { continue; } // la tomó otro Runner
+    const a = leerJson(tomada, null);
+    fs.rmSync(tomada, { force: true });
+    const id = a?.id;
+    if (typeof id !== 'string' || !UUID_RE.test(id) || path.basename(f) !== `${id}.json`) continue;
+    const cuenta = typeof a.cuenta === 'string' && CUENTA_RE.test(a.cuenta) ? a.cuenta : null;
+    if (!cuenta) continue;
+    const acusar = (estado, motivo) => {
+      escribirJson(path.join(acusesDe(cuenta), `${id}.json`), { id, estado, motivo });
+      out.push({ id, estado, motivo });
+      log(`[${cuenta}] ABRIR ${id} ${estado}: ${motivo}`);
+    };
+    if (viejo.has(id) || fs.existsSync(path.join(ENTREGADOS, id))) { acusar('no_entregado', 'Ya se había abierto: no se abre dos veces'); continue; }
+    const firmado = typeof a.firmado === 'string' ? a.firmado : '';
+    if (!quienFirmo(firmado, typeof a.firma === 'string' ? a.firma : '', spkis)) { acusar('no_entregado', 'Pégale tu Token al Runner y vuelve a mandarlo'); continue; }
+    const l = leerFirmable(firmado, ahora);
+    if (!l.ok) { acusar('no_entregado', `Vuelve a mandarlo (${l.motivo})`); continue; }
+    if (l.p.id !== id || l.p.destino !== DESTINO_NUEVO || l.p.cuenta !== cuenta) { acusar('no_entregado', 'Vuelve a mandarlo: no coincide con la firma'); continue; }
+    if (!puedeAbrir(cfg, cuenta)) { acusar('no_entregado', 'Prende la apertura de chats en la PC: pídeselo al Runner'); continue; }
+    const txt = path.join(APERTURAS, `${id}.txt`);
+    const cmd = path.join(APERTURAS, `${id}.cmd`);
+    let lanzador;
+    try { lanzador = archivoCmd(comandoDeApertura(cuenta, l.p.titulo, txt)); } catch (e) { acusar('no_entregado', `Vuelve a mandarlo (${e.message})`); continue; }
+    fs.writeFileSync(txt, l.p.texto);
+    fs.writeFileSync(cmd, lanzador);
+    spawnSync(ABRIDOR[0], [...ABRIDOR.slice(1), cmd], { timeout: 15_000 });
+    fs.mkdirSync(ENTREGADOS, { recursive: true });
+    fs.writeFileSync(path.join(ENTREGADOS, id), '');
+    acusar('entregado', `Se pidió abrir «${l.p.titulo}» en la terminal de la cuenta ${cuenta.replace('claude', '')}: mira que aparezca en la lista`);
+  }
+  return out;
+}
 
 /** Las carpetas de adjuntos de más de VENCE_DIAS: el trabajo ya venció, y el chat ya los leyó o no los va a leer. */
 function limpiarAdjuntos(ahora = Date.now()) {
@@ -315,6 +385,41 @@ function limpiarAdjuntos(ahora = Date.now()) {
   }
 }
 
+// Abrir un chat de terminal con un clic (1.11.0; copia de lib/operaciones-reglas.ts, con test diferencial).
+export const DESTINO_NUEVO = 'nuevo';
+const MAX_NOMBRE_NUEVO = 80;
+/** Lista blanca: letras, números, espacios y `› > - _ . , ( ) + :`, empezando con letra o número. Sin comillas. */
+export const NOMBRE_NUEVO_RE = /^[\p{L}\p{N}][\p{L}\p{M}\p{N} ›>\-_.,()+:]*$/u;
+export function problemaDeNombreNuevo(x) {
+  if (typeof x !== 'string' || x.length > MAX_NOMBRE_NUEVO || !NOMBRE_NUEVO_RE.test(x) || x !== x.trim()) return 'nombre inválido';
+  return null;
+}
+/** La ruta del primer mensaje: sólo letras, números y `\ : . _ -` (la carpeta fija de la PC y el id). */
+const RUTA_TXT_RE = /^[A-Za-z]:\\[A-Za-z0-9\\._-]+\.txt$/;
+
+/**
+ * El comando de PowerShell que abre el chat nuevo. Se arma SÓLO con valores que pasan su lista blanca: la cuenta contra
+ * CUENTA_RE (la función del perfil), el nombre contra NOMBRE_NUEVO_RE y la ruta del primer mensaje contra RUTA_TXT_RE. El
+ * texto del primer mensaje NO entra acá: el chat arranca con un pedido fijo que lo manda a leer el archivo.
+ */
+export function comandoDeApertura(cuenta, titulo, rutaTxt) {
+  if (!CUENTA_RE.test(cuenta ?? '')) throw new Error('cuenta inválida');
+  if (problemaDeNombreNuevo(titulo)) throw new Error('nombre inválido');
+  if (!RUTA_TXT_RE.test(rutaTxt ?? '')) throw new Error('ruta inválida');
+  return `${cuenta} -n '${titulo}' 'Lee el archivo ${rutaTxt} y haz lo que dice: es el primer mensaje de Martín.'`;
+}
+
+/** El `.cmd` que abre el Explorador: sólo `powershell.exe -NoExit -EncodedCommand <base64>`; ningún texto de nadie. */
+export function archivoCmd(comando) {
+  const b64 = Buffer.from(comando, 'utf16le').toString('base64');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) throw new Error('codificación inválida');
+  return `@echo off\r\npowershell.exe -NoExit -EncodedCommand ${b64}\r\n`;
+}
+
+/** ¿Esta PC abre chats de esa cuenta? Con el permiso local prendido (`abrir-permitir`) y una terminal declarada. */
+export const puedeAbrir = (cfg, cuenta) => cfg?.abrir === true && CUENTA_RE.test(cuenta ?? '')
+  && fuentesDe(cfg.carteros?.[cuenta]).some((f) => f.fuente === 'cli');
+
 /** La forma de un `ref` de la Ticketera (copia de REF_DECISION, app/admin/runway/decisiones.ts). */
 export const REF_DECISION = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
@@ -326,9 +431,13 @@ export function leerFirmable(texto, ahora) {
   if (typeof o.id !== 'string' || !UUID_RE.test(o.id)) return { ok: false, motivo: 'id inválido' };
   if (typeof o.texto !== 'string' || !o.texto.trim()) return { ok: false, motivo: 'sin texto' };
   if (o.texto.length > MAX_TEXTO) return { ok: false, motivo: `el texto pasa de ${MAX_TEXTO} caracteres` };
-  if (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino)) return { ok: false, motivo: 'destino inválido' };
+  const nuevo = o.destino === DESTINO_NUEVO;
+  if (!nuevo && (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino))) return { ok: false, motivo: 'destino inválido' };
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
   if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
+  if (nuevo && o.cuenta === null) return { ok: false, motivo: 'falta la cuenta' };
+  if (nuevo) { const m = problemaDeNombreNuevo(o.titulo); if (m) return { ok: false, motivo: m }; }
+  if (nuevo && o.adjuntos !== undefined) return { ok: false, motivo: 'un chat nuevo no lleva adjuntos' };
   if (o.alcance !== 'solo_esto' && o.alcance !== 'de_ahora_en_mas') return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !MODELOS.includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !ESFUERZOS.includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
@@ -736,6 +845,8 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
       // Ni la dirección del canal, ni la carpeta, ni dónde está el transcript salen de la PC.
       chats: [...[...chats.values()].map(({ pipe, dir, transcript, ...c }) => c), ...enNube],
       entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta), turnos,
+      // Las cuentas en las que esta PC abre chats (1.11.0): MaKo le da un trabajo «nuevo» sólo a quien lo declara.
+      abre: puedeAbrir(cfg, cuenta) ? [cuenta] : [],
     }),
     signal: AbortSignal.timeout(30_000),
   });
@@ -771,6 +882,13 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     if (!l.ok) { rechazar(`Vuelve a mandarlo (${l.motivo})`); continue; }
     if (l.p.id !== id) { rechazar('Vuelve a mandarlo: el id no coincide con la firma'); continue; }
     if (yaSalio(id)) { rechazar('Ya se había entregado: no sale dos veces'); continue; }
+    // Un chat nuevo (1.11.0): `ciclo` no abre nada; lo deja en la cola, y lo abre `abrir`, que vuelve a verificar todo.
+    if (l.p.destino === DESTINO_NUEVO) {
+      if (l.p.cuenta !== cuenta || !puedeAbrir(cfg, cuenta)) { rechazar('Prende la apertura de chats en la PC: pídeselo al Runner'); continue; }
+      escribirJson(path.join(APERTURAS, `${id}.json`), { id, cuenta, firmado, firma, reclamado: new Date().toISOString() });
+      log(`[${cuenta}] APERTURA ${id} → «${l.p.titulo}»`);
+      continue;
+    }
     const chat = chats.get(l.p.destino);
     if (!chat?.vivo || !chat.pipe) { rechazar('El chat se cerró: ábrelo y vuelve a mandarlo'); continue; }
     if (chat.esRunner) { rechazar('Al Runner no se le escribe: elige otro chat'); continue; }
@@ -807,6 +925,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   }
   if (salida.avisosError) log(`[${cuenta}] los avisos de la Ticketera no se pudieron calcular: ${salida.avisosError}`);
   limpiarAdjuntos();
+  limpiarAperturas();
   return {
     vencidos: salida.vencidos ?? 0, acuses: salida.acuses ?? 0, cierres: salida.cierres ?? 0,
     avisos, avisosError: salida.avisosError ?? null,
@@ -965,12 +1084,12 @@ async function vuelta(cuenta) {
   if (!cuentas.length) {
     throw new Error(`esta carpeta (${rotuloDir(propio)}) no es de ninguna cuenta: node cartero.mjs cartero <claudeN> cli ${rotuloDir(propio)}`);
   }
-  if (cuenta) return { ...(await ciclo(cuenta, cfg, propio, runners)), entregar: pendientes(cuenta, propio) };
+  if (cuenta) return { ...(await ciclo(cuenta, cfg, propio, runners)), entregar: pendientes(cuenta, propio), aperturas: listar(APERTURAS).length };
   const porCuenta = {};
   for (const c of cuentas) {
     try { porCuenta[c] = await ciclo(c, cfg, propio, runners); } catch (e) { porCuenta[c] = { error: e.message }; log(`[${c}] CICLO falló: ${e.message}`); }
   }
-  return { carpeta: rotuloDir(propio), cuentas: porCuenta, entregar: pendientes(null, propio) };
+  return { carpeta: rotuloDir(propio), cuentas: porCuenta, entregar: pendientes(null, propio), aperturas: listar(APERTURAS).length };
 }
 
 function cierre(id, args) {
@@ -1091,6 +1210,13 @@ if (esMain) {
       case 'pendientes': { const propio = dirPropio(); exigirRunner(propio); imprimir(pendientes(cuentaOpcional(), propio)); break; }
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
+      case 'abrir': imprimir(abrir()); break;
+      // El permiso local para abrir chats desde MaKo: lo prende Martín, una vez, pidiéndoselo al Runner.
+      case 'abrir-permitir': {
+        const prendido = resto[0] !== 'off';
+        escribirJson(CFG, { ...config(), abrir: prendido });
+        imprimir({ ok: true, abrir: prendido }); break;
+      }
       case 'nube': {
         const cfg = config();
         const c = cuentaOpcional() ?? cuentaDeLaApp(cfg, dirPropio(cfg));
@@ -1100,7 +1226,7 @@ if (esMain) {
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
       case 'esperar': { const i = resto.indexOf('--max-seg'); await esperar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) || 3000 : 3000); break; }
       default:
-        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | nube | esperar | uso\n');
+        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | nube | abrir | abrir-permitir | esperar | uso\n');
         process.exit(1);
     }
   } catch (e) {

@@ -1271,6 +1271,15 @@ código nuevo:
   recibe la ruta. Un campo que cambia lo que la PC HACE (no sólo lo que dice) no se ofrece hasta que el Runner tenga la
   versión que lo entiende (`aceptaAdjuntos`): uno de antes lo ignoraría y nadie lo sabría. Lo fija
   tests/centro-adjuntos.test.ts.
+- **Un proceso en la PC se abre sólo desde un trabajo FIRMADO y con el permiso local prendido** (17/10/2026, el clic de
+  «Nuevo chat», `destino: 'nuevo'`). Hay que cumplir cuatro cosas:
+  - el comando se arma SÓLO con valores que pasan una lista blanca: la cuenta contra `CUENTA_RE`, el nombre contra
+    `NOMBRE_NUEVO_RE` y la ruta contra la suya;
+  - el texto de una persona nunca va a la línea de comandos: va a un archivo, y el proceso lo lee de ahí;
+  - quien lo abre (`cartero.mjs abrir`) vuelve a verificar la firma sobre el mismo texto que usa;
+  - se lanza por el Explorador, nunca `detached`: medido, muere con la herramienta.
+
+  Lo fija tests/centro-abrir.test.ts.
 - **Lo único que el cartero entrega SIN firma es un texto FIJO que arma él**: el aviso de una respuesta
   de la Ticketera (`mensajeAviso`, scripts/operaciones/cartero.mjs) lleva sólo el `ref` validado y el
   comando para leerla. Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra.

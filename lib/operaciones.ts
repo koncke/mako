@@ -31,7 +31,7 @@ import 'server-only';
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
-  CUENTA_RE, POR_VUELTA, TOMADO_VENCE_MS, claveIdDe, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
+  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, claveIdDe, sanearAbre, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
 import { sanearCuota, type Cuota } from './centro-uso';
@@ -339,6 +339,20 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
       .eq('estado', 'escrito').in('destino', vivos).order('created_at', { ascending: true }).limit(POR_VUELTA);
     if (eCand) throw new Error(eCand.message);
     for (const { id } of cand ?? []) {
+      const { data } = await db.from(T_PEDIDOS)
+        .update({ estado: 'tomado', tomado_at: ahoraIso, updated_at: ahoraIso })
+        .eq('id', id).eq('estado', 'escrito').select('id, firmado, firma');
+      if (data && data[0]) pedidos.push(data[0] as PedidoParaEntregar);
+    }
+  }
+  // Los chats NUEVOS de esta cuenta (cartero 1.11.0, «un clic»): sólo a un cartero que dice que los abre (`abre`: una
+  // terminal de esa cuenta y el permiso local prendido). Sin eso quedan escritos, y la pantalla dice qué hacer.
+  if (sanearAbre(e.abre).includes(cuenta) && pedidos.length < POR_VUELTA) {
+    const { data: nuevos, error: eNuevos } = await db.from(T_PEDIDOS).select('id')
+      .eq('estado', 'escrito').eq('destino', DESTINO_NUEVO).eq('destino_cuenta', cuenta)
+      .order('created_at', { ascending: true }).limit(POR_VUELTA - pedidos.length);
+    if (eNuevos) throw new Error(eNuevos.message);
+    for (const { id } of nuevos ?? []) {
       const { data } = await db.from(T_PEDIDOS)
         .update({ estado: 'tomado', tomado_at: ahoraIso, updated_at: ahoraIso })
         .eq('id', id).eq('estado', 'escrito').select('id, firmado, firma');
