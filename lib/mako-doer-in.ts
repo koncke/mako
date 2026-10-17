@@ -37,6 +37,7 @@ import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
+import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { sanearSalida, promesasDe } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
@@ -1891,7 +1892,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // Lo que escribió el CÓDIGO (la agenda) va al final, cada bloque como su propio
       // mensaje. Va acá y no antes porque los reemplazos de arriba (el borrador, el
       // lead, el cartel) pisan `respuesta`, y el validador no tiene por qué leerlo.
-      const enviar = [...partes, ...paraLaPersona];
+      // Los links a MaKo que escribió el MODELO salen con el `?ws=` del grupo (lib/links-con-ws.ts): sin él, el
+      // equipo de MaKo o una agencia los abría en SU workspace (medido 17/10/2026: ws13, ws15 y ws18).
+      const enviar = [...partes, ...paraLaPersona].map((t) => linksConWs(t, wsData, APP_URL));
       const idsEnv: string[] = [];
       for (let i = 0; i < enviar.length; i++) {
         if (i > 0) await new Promise((r) => setTimeout(r, 700));
