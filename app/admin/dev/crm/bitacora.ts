@@ -2495,4 +2495,21 @@ export const BITACORA: Hito[] = [
     archivos: ['supabase/migrations/0310_pagos_funnel.sql — la columna, el trigger y el backfill', 'lib/funnels-elegidos.ts — la regla y `faltaColumnaFunnel`', 'tests/pagos-funnel.test.ts'],
     revisar: '/general',
   },
+  {
+    fecha: '17 oct', hora: '03:47', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Estilo de la hoja» de la ficha del lead con los ajustes del Dashboard, también en las hojas propias',
+    puntos: [
+      'En producción desde el run 90.',
+      'En «Editar» de la ficha, «Estilo de la hoja» suma encima de la plantilla: el fondo, las esquinas, el borde, la sombra y los títulos de las tarjetas. Sin tocar, la ficha se ve igual que antes.',
+      'Funciona igual en las hojas propias que se crean con «Nueva hoja», también la vista épica.',
+      'MaKo también los cambia («pon las esquinas redondas en la ficha»).',
+    ],
+    commits: [
+      { sha: '4398b2078', msg: 'Ficha del lead: «Estilo de la hoja» con los ajustes del Dashboard', lineas: 118, archivos: 7 },
+      { sha: '4e330cbee', msg: 'Ficha del lead: «Estilo de la hoja» recibe la hoja tal cual, también una hoja propia', lineas: 33, archivos: 6 },
+    ],
+    archivos: ['app/crm/lead-view/ficha/EstiloDeLaHoja.tsx', 'lib/ficha/config.ts (el cambio `tema`)', 'tests/ficha-estilo-ajustes.test.ts'],
+    revisar: '/crm',
+  },
 ];
