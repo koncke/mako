@@ -215,7 +215,7 @@ export const RUNNERS: Runners = {
         ultima_visita: ult.ultima,
         recibio_en_ultimos_dias: vivo, ventana_dias: LANDING_VENTANA_DIAS,
         version_instalada: version.instalada || null, version_actual: SNIPPET_VERSION, codigo_viejo: version.viejo,
-        nota: 'La versión instalada es la del último evento del negocio entero (sin eventos versionados cuenta como 1). Con más de una página, usa verificar_pagina_pixel para cada una. Si la consulta falla, recibio_en_ultimos_dias sale false y ultima_visita sale null: ese null o ese false también pueden ser un error de lectura, no la prueba de que no llega nada.',
+        nota: 'La versión instalada es la más vieja entre las páginas declaradas con visitas en los últimos 7 días (lo que cada página SIRVE si se pudo leer; si no, lo que mandaron sus visitas): la misma vara del aviso de adentro. 0 = nunca pegó el Pixel. Con más de una página, usa verificar_pagina_pixel para cada una. Si la consulta falla, recibio_en_ultimos_dias sale false y ultima_visita sale null: ese null o ese false también pueden ser un error de lectura, no la prueba de que no llega nada.',
       });
     },
   },

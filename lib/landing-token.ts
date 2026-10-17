@@ -181,8 +181,16 @@ export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
 export async function snippetDesactualizado(): Promise<{ viejo: boolean; instalada: number }> {
   const token = (await getSetting(LANDING_TOKEN_KEY))?.trim();
   if (!token) return { viejo: false, instalada: 0 };
-  const instalada = Number(await getSetting(SNIPPET_VERSION_KEY)) || 1;
-  return { viejo: instalada < PIXEL_MINIMO_AVISO, instalada };
+  // ⚠️ LA MISMA VARA QUE EL AVISO DE ADENTRO (17/10/2026, docs/relevo/pixel-clarity-landing.md §2). Esto leía el setting
+  //    del WORKSPACE (lo escribe el último evento, venga de la página que venga, y sin fila contaba como v1), y lo leen
+  //    el pulso «Lo que mide tu Pixel», lo que contesta MaKo (`ver_estado_pixel`), el «Verificar» y el WhatsApp del
+  //    vigilante; el aviso fijo de la esquina decide por PÁGINA, mirando lo que la página sirve y sólo las páginas con
+  //    visitas (`estadoPixel`). Podían decir «al día» y «viejo» a la vez. Ahora todos preguntan a `estadoPixel`.
+  //    Import dinámico: pixel-estado importa este módulo.
+  const { estadoPixel } = await import('./pixel-estado');
+  const e = await estadoPixel();
+  // Corta en PIXEL_MINIMO_AVISO (el default de `estadoPixel`), no en la última versión (09/10/2026).
+  return { viejo: e.viejo, instalada: e.instalada ?? 0 };
 }
 
 /**

@@ -182,6 +182,16 @@ export function anotarVersionDePagina(
 export type PaginaPixel = { url: string; version: number | null; fuente: 'pagina' | 'visitas' | 'negocio' };
 
 /**
+ * Cuántos días sin una sola visita hacen que una página declarada deje de pedir que repeguen el Pixel (17/10/2026).
+ *
+ * El caso (docs/relevo/pixel-clarity-landing.md §2 y §4.3): una landing DADA DE BAJA con una v18 dejaba el aviso fijo
+ * de la esquina —que no se puede cerrar— para siempre. Decisión con criterio, de las tres del relevo: exigir visitas
+ * recientes, como ya hace el WhatsApp (48 h sobre el negocio entero). Por PÁGINA y con 7 días: con 48 h, una landing
+ * viva de poco tráfico prendía y apagaba el aviso día por medio.
+ */
+export const DIAS_PAGINA_VIVA = 7;
+
+/**
  * ¿Hay que pedir que repeguen el Pixel? Mira cada página declarada.
  *
  *   · sin fila de versión del negocio → no hay aviso (nunca pegó el Pixel; ver
@@ -200,12 +210,21 @@ export function veredictoPixel(e: {
   paginas: string[];
   servidas?: Record<string, number | null>;
   minimo?: number;
+  /**
+   * Las claves (`clavePagina`) de las páginas con alguna visita en los últimos `DIAS_PAGINA_VIVA` días. Con esto, una
+   * página sin visitas no cuenta (una landing dada de baja), y sin ninguna visita no hay aviso (el Pixel no manda nada:
+   * eso lo dice «El Pixel dejó de mandar datos», no éste). Sin esto (undefined), como antes.
+   */
+  vivas?: ReadonlySet<string>;
 }): { viejo: boolean; instalada: number | null; paginas: PaginaPixel[] } {
   const minimo = e.minimo ?? PIXEL_MINIMO_AVISO;
   const delNegocio = pixelParaActualizar(e.guardada);
   if (delNegocio.instalada == null) return { viejo: false, instalada: null, paginas: [] };
+  if (e.vivas && e.vivas.size === 0) return { viejo: false, instalada: delNegocio.instalada, paginas: [] };
   if (!e.paginas.length) return { viejo: delNegocio.instalada < minimo, instalada: delNegocio.instalada, paginas: [] };
-  const paginas: PaginaPixel[] = e.paginas.map((url) => {
+  const vivas = e.vivas ? e.paginas.filter((url) => { const k = clavePagina(url); return !!k && e.vivas!.has(k); }) : e.paginas;
+  if (!vivas.length) return { viejo: false, instalada: delNegocio.instalada, paginas: [] };
+  const paginas: PaginaPixel[] = vivas.map((url) => {
     const k = clavePagina(url);
     const servida = k ? e.servidas?.[k] : undefined;
     if (typeof servida === 'number') return { url, version: servida, fuente: 'pagina' };
@@ -219,7 +238,7 @@ export function veredictoPixel(e: {
 }
 
 /** Las páginas que conviene ir a mirar: las que, sin mirarlas, darían «vieja». */
-export function paraMirar(e: { guardada: string | null | undefined; mapa: MapaVersiones; paginas: string[]; minimo?: number }): string[] {
+export function paraMirar(e: { guardada: string | null | undefined; mapa: MapaVersiones; paginas: string[]; minimo?: number; vivas?: ReadonlySet<string> }): string[] {
   const v = veredictoPixel({ ...e, servidas: {} });
   return v.paginas.filter((p) => p.version != null && p.version < (e.minimo ?? PIXEL_MINIMO_AVISO)).map((p) => p.url);
 }
