@@ -15,6 +15,10 @@
 //   · sin mirar los turnos ya vistos → 1 fallo (2);
 //   · `conResultado` sin el tope de intentos → 1 fallo (3);
 //   · la vuelta aplicando en el acto (sin `after`) → 1 fallo (4).
+//   5. (17/10/2026, juntado con el cierre por «Ya está» del chat Plan) un «Ya está» SIN su «Voy a…» busca primero las
+//      tarjetas que nombra (#870) o cuyo título dice, y si cierra alguna no crea otra. Probado rompiéndolo: `proximoPaso`
+//      sin el paso «buscar» → 1 fallo; `conResultado` creando igual aunque cerró → 1 fallo; `aplicarPlanDeLosChats` sin
+//      `cerrarPorYaEsta` → 1 fallo (todos en el 5).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -91,4 +95,20 @@ test('4. la vuelta anota rápido y aplica después de contestar, con el actor de
   assert.match(auto, /actor: 'MaKo · Ops Center'/, 'el historial dice que fue MaKo');
   assert.match(auto, /sumarTareaAlPlan\(ctx,[\s\S]*cerrarTareaDelPlan\(ctx,/, 'por las operaciones de la API de MaKo, como todo el Centro');
   assert.doesNotMatch(auto, /from\('plan_tareas'\)/, 'ninguna escritura directa al tablero');
+});
+
+test('5. un «Ya está» sin su «Voy a…» busca primero sus tarjetas; si cerró alguna, no crea otra', () => {
+  const y = dice('Ya está: cerré la #870 (el filtro del CRM).');
+  let lista: TareaDelChat[] = anotarTurnos([], [y], 'CRM');
+  assert.equal(lista[0].yaTexto, y.texto, 'guarda el texto: con él se buscan las tarjetas');
+  assert.equal(proximoPaso(lista)?.accion, 'buscar');
+  const cerro = conResultado(lista, lista[0], { buscada: true, cerradas: 1 });
+  assert.deepEqual([cerro[0].estado, proximoPaso(cerro)], ['hecha', null], 'cerró la #870: nada que crear');
+  lista = conResultado(lista, lista[0], { buscada: true, cerradas: 0 });
+  assert.equal(proximoPaso(lista)?.accion, 'crear', 'no había ninguna: se crea y se cierra como antes');
+  // Con su «Voy a…», el cierre es el de siempre (por el id de la tarea que creó).
+  const conVoy = anotarTurnos([], [dice('Voy a trabajar en la lista.'), dice('Ya está: la lista.')], 'CRM');
+  assert.equal(proximoPaso(conVoy)?.accion, 'crear');
+  const auto = leer('lib/centro-plan-auto.ts');
+  assert.match(auto, /p\.accion === 'buscar'[\s\S]{0,300}cerrarPorYaEsta\(ctx, p\.t\.chat/);
 });
