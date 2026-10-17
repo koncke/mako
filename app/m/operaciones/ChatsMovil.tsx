@@ -95,7 +95,16 @@ const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, 
       chevron={false}
     />
   );
-});
+}, mismaFila);
+
+/** Dos filas se ven igual si lo que DIBUJAN es igual: el refresco (cada 8 s, cada 2,5 s con algo en camino) arma objetos nuevos
+ *  de cada chat y de cada vista previa aunque nada haya cambiado, y sin esto las 90 filas se volvían a dibujar en cada uno. */
+function mismaFila(a: Parameters<typeof FilaChatM>[0], b: Parameters<typeof FilaChatM>[0]): boolean {
+  return a.c.clave === b.c.clave && a.c.titulo === b.c.titulo && a.c.estado === b.c.estado && a.c.viejo === b.c.viejo && a.c.nube === b.c.nube
+    && a.sub === b.sub && a.enCurso === b.enCurso && a.espera === b.espera && a.aspecto === b.aspecto && a.onAbrir === b.onAbrir
+    && a.previa?.texto === b.previa?.texto && a.previa?.tick === b.previa?.tick && a.previa?.propio === b.previa?.propio
+    && edad(a.c.actividad, a.ahora) === edad(b.c.actividad, b.ahora);
+}
 
 export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, munecos, onMunecos, decisiones, responder, parte, tituloChats = 'Chats', abierto: abiertoFuera, onAbierto, centro }: {
   /** El motor del Centro (useCentro.ts): con él, la caja elige la cuenta, el modelo y el esfuerzo (17/10/2026), igual que

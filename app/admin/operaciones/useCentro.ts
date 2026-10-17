@@ -50,6 +50,9 @@ const REFRESCO_MS = 8000;
 /** Una lista vacía que no cambia entre renders: las piezas memorizadas comparan por identidad. */
 const SIN_TAREAS: TareaDelChat[] = [];
 const SIN_PASOS: PasoDelTurno[] = [];
+/** Los mismos turnos (por su uuid y su texto, que es lo que se dibuja). */
+const mismosTurnos = (a: readonly TurnoChat[] | undefined, b: readonly TurnoChat[]) =>
+  !!a && a.length === b.length && a.every((x, i) => x.uuid === b[i].uuid && x.texto.length === b[i].texto.length);
 /** Con algo en camino (escrito o tomado), la pantalla mira más seguido: sale en segundos y tiene que verse (17/10/2026). */
 const REFRESCO_APURADO_MS = 2500;
 
@@ -169,7 +172,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (!locales.length) return;
     const r = await turnosCentroAction(locales, claveParaUrl(c)).catch(() => null);
     if (r?.ok) {
-      setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
+      // Si no cambió nada, se queda el MISMO arreglo: así la conversación memorizada no se vuelve a dibujar en cada refresco.
+      setTurnos((t) => (mismosTurnos(t[c.clave], r.turnos) ? t : { ...t, [c.clave]: r.turnos }));
       setPreguntas((q) => ({ ...q, [c.clave]: r.preguntas ?? [] }));
       setTareas((x) => ({ ...x, [c.clave]: r.tareas ?? [] }));
       if (r.marcas) { const m = r.marcas; setMarcas((x) => ({ ...x, [c.clave]: m })); }

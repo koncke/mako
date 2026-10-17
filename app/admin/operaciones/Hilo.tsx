@@ -141,6 +141,12 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
   );
 }
 
+/** El Markdown de una respuesta, MEMORIZADO por su texto: es lo más caro de dibujar, y el refresco (cada 8 s, o 2,5 s con
+ *  algo en camino) vuelve a armar la conversación aunque la respuesta sea la misma. */
+const MarkdownDeTurno = memo(function MarkdownDeTurno({ texto }: { texto: string }) {
+  return <Markdown text={texto} enlaces />;
+});
+
 /** Un turno: lo de Martín a la derecha en su burbuja; lo de otra sesión, igual pero con su nombre; lo que contestó el chat,
  *  a la izquierda con su muñeco, en Markdown (los chats contestan con listas y negritas), como Claude y ChatGPT. */
 function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; quien: Quien; vivo?: VivoDelHilo; extras?: ExtrasDelHilo; wa: DelHiloWA }) {
@@ -168,7 +174,7 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
         <div className="co-el" id={`co-turno-${t.uuid}`}>
         <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
         <div className="co-el__cuerpo">
-          <div className="co-el__texto co-el__md"><Markdown text={t.texto} enlaces /></div>
+          <div className="co-el__texto co-el__md"><MarkdownDeTurno texto={t.texto} /></div>
           <p className="co-el__rotulo"><MarcasEnHora id={id} marcas={wa.marcas} />{hora}</p>
           <ReaccionWA id={id} marcas={wa.marcas} />
         </div>
