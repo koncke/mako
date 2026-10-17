@@ -38,11 +38,11 @@ import { AREAS, NIVEL1, AUTORIA_TEXTO, radioNodo, type Cerebro, type NodoCerebro
 // 'use client' (AGENTS.md, MaKo Mobile: lo que /m reusa se muda a lib; nunca una copia).
 import {
   AUTORIA_CORTA, OPACIDAD_PENDIENTE, agruparConexiones, contarPorArea, esImagenDocumento, gradosDe, rellenoNodo, rutaVistaDocumento, sePuedeVerDocumento,
-  tipoDeNodo,
+  claveVistos, fechaCortaNodo, idsVistos, nuevosDesde, tipoDeNodo, ultimosDelCerebro,
 } from '@/lib/cerebro-areas';
 import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
 import type { NodoFisico, Simulacion } from './fisica';
-import { Button } from '@/app/_ui';
+import { Button, ButtonLink } from '@/app/_ui';
 import { FiltroMapa, type PanelAbierto } from './FiltroMapa';
 import { cuentaFiltros, filtroVacio, pasaFiltro, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import { NoResults } from '@/app/_ui/Estados';
@@ -82,12 +82,20 @@ type Vista = { k: number; x: number; y: number };
 /** Cuántas conexiones se ven en la barra lateral antes de «Ver las N». */
 const TOPE_CONEXIONES = 6;
 
-/** «12 oct»: cuándo apareció un dato, corto (el texto que se dibuja es corto). Sin fecha legible, nada. */
-function fechaCorta(iso?: string | null): string | null {
-  if (!iso) return null;
-  const t = Date.parse(iso);
-  return Number.isFinite(t) ? new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' }) : null;
-}
+/** EL NODO QUE VIAJA (Martín, 17/10/2026: «cada vez que se agrega un nodo, una animación sutil de un nodo que viaja
+ *  dentro de la tab»). Cuánto dura un viaje, cada cuánto sale el siguiente y cuántos viajan como mucho: más de seis
+ *  seguidos ya no es «sutil», es un desfile. */
+const MS_VIAJE = 950;
+const MS_ENTRE_VIAJES = 420;
+const TOPE_VIAJEROS = 6;
+/** Lo que tarda lo que ya estaba en deslizarse a su lugar nuevo cuando llega un grafo nuevo (el grafo vivo). */
+const MS_DESLIZAR = 800;
+/** Cuánto atrasa cada punto del rastro respecto de la cabeza (en fracción del viaje); los dos últimos son la cabeza. */
+const ATRASO_RASTRO = [0.18, 0.12, 0.06, 0, 0];
+type Viaje = { id: string; inicio: number; desde: Punto; color: string; llego?: boolean };
+
+/** «12 oct»: la regla que comparte el teléfono (lib/cerebro-areas.ts). */
+const fechaCorta = fechaCortaNodo;
 
 /** El atributo `draggable` es de HTML y React lo rechaza en un `<svg>`, así que el
  *  drag-and-drop nativo se corta acá: sin esto, arrastrar sobre un nodo levanta el
@@ -526,6 +534,22 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   const t0 = useRef(0);
   const animRef = useRef<number | null>(null);
 
+  /** UNA VUELTA DEL GRAFO VIVO: cuando llega un grafo nuevo, lo que ya estaba se DESLIZA de su base vieja a la nueva
+   *  en vez de volver a nacer desde afuera. `t` es cuándo empezó, en el reloj del bucle. */
+  const deslizarRef = useRef<{ desde: Map<string, { x: number; y: number }>; t: number } | null>(null);
+  /** Los nodos que entran viajando. El ref lo lee el bucle (sin renders por frame); el estado monta sus puntos. */
+  const viajesRef = useRef<Viaje[]>([]);
+  const viajeroRefs = useRef(new Map<string, SVGGElement | null>());
+  const [viajes, setViajes] = useState<Viaje[]>([]);
+  /** Los que todavía no llegaron: su nodo y sus aristas no se dibujan hasta que el viajero aterriza. */
+  const [esperando, setEsperando] = useState<ReadonlySet<string>>(() => new Set());
+  /** Los que ya aterrizaron: su pop va sin retardo y con el anillo de llegada. */
+  const [llegados, setLlegados] = useState<ReadonlySet<string>>(() => new Set());
+  const alLlegar = useCallback((ids: string[]) => {
+    setEsperando((prev) => { const s2 = new Set(prev); for (const id of ids) s2.delete(id); return s2; });
+    setLlegados((prev) => new Set([...prev, ...ids]));
+  }, []);
+
   /** Escribe TODO en el DOM: los nodos y los extremos de cada arista. NO pasa por React
    *  —un setState por frame durante un arrastre son 60 renders de 50 nodos— y sobre todo
    *  es UN SOLO lugar.
@@ -540,9 +564,16 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   const pintar = useCallback((tMs: number) => {
     const base = baseRef.current;
     const pos = new Map<string, { x: number; y: number }>();
+    // El deslizamiento de una vuelta del grafo vivo: easeInOutCubic de la base vieja a la nueva.
+    const des = deslizarRef.current;
+    const ud = des ? Math.min(1, Math.max(0, (tMs - des.t) / MS_DESLIZAR)) : 1;
+    const ed = ud < 0.5 ? 4 * ud * ud * ud : 1 - Math.pow(-2 * ud + 2, 3) / 2;
+    if (des && ud >= 1) deslizarRef.current = null;
     for (const n of nodos) {
-      const b = base.get(n.id) ?? posiciones[n.id];
-      if (!b) continue;
+      const fin = base.get(n.id) ?? posiciones[n.id];
+      if (!fin) continue;
+      const ini = des && ud < 1 ? des.desde.get(n.id) : undefined;
+      const b = ini ? { x: ini.x + (fin.x - ini.x) * ed, y: ini.y + (fin.y - ini.y) * ed } : fin;
       const h = hashDe(n.id);
       // FLOTACIÓN: dos senoides de períodos que no son múltiplos entre sí, con fase
       // derivada del hash del id — el nodo flota igual en cada visita.
@@ -578,7 +609,34 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
       l.setAttribute('x2', (b.x - (dx / d) * rb).toFixed(2));
       l.setAttribute('y2', (b.y - (dy / d) * rb).toFixed(2));
     });
-  }, [aristas, porId, radioMundo, nodos, posiciones, ordenEntrada]);
+    // ── LOS QUE VIAJAN ──────────────────────────────────────────────────────
+    // Del borde de lo que se ve hasta el lugar de su nodo, por una curva suave (bezier cuadrática con el control corrido
+    // a un costado del tramo), con un rastro de tres puntos que se apagan. Persigue la posición VIVA del nodo (que
+    // flota), así que aterriza justo encima de él. Al llegar, su nodo aparece con el pop y un anillo.
+    const llegaron: string[] = [];
+    for (const v of viajesRef.current) {
+      const el = viajeroRefs.current.get(v.id);
+      if (!el) continue;
+      const u = (tMs - v.inicio) / MS_VIAJE;
+      const dest = pos.get(v.id);
+      if (v.llego || u < 0 || !dest) { el.setAttribute('opacity', '0'); continue; }
+      if (u >= 1) { el.setAttribute('opacity', '0'); v.llego = true; llegaron.push(v.id); continue; }
+      el.setAttribute('opacity', '1');
+      const dx = dest.x - v.desde.x;
+      const dy = dest.y - v.desde.y;
+      const cx = (v.desde.x + dest.x) / 2 - dy * 0.18;
+      const cy = (v.desde.y + dest.y) / 2 + dx * 0.18;
+      const hijos = el.children;
+      for (let k = 0; k < hijos.length; k++) {
+        const t = Math.min(1, Math.max(0, u - (ATRASO_RASTRO[k] ?? 0)));
+        const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const a = 1 - e;
+        hijos[k].setAttribute('cx', (a * a * v.desde.x + 2 * a * e * cx + e * e * dest.x).toFixed(2));
+        hijos[k].setAttribute('cy', (a * a * v.desde.y + 2 * a * e * cy + e * e * dest.y).toFixed(2));
+      }
+    }
+    if (llegaron.length) alLlegar(llegaron);
+  }, [aristas, porId, radioMundo, nodos, posiciones, ordenEntrada, alLlegar]);
 
   // ⚠️ `pintar` VA POR REF Y NO POR DEPENDENCIA, y no es una optimización: es un bug.
   // `pintar` depende de `ordenEntrada`, que depende de `montados` — o sea de QUÉ SE VE.
@@ -595,15 +653,29 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
 
   // El bucle. Corre siempre salvo que el usuario pida movimiento reducido, en cuyo caso
   // se pinta UNA vez en las posiciones finales y no se enciende nada.
+  // ⚠️ ARRANCA UNA SOLA VEZ, AL MONTAR (17/10/2026). Antes dependía de `posiciones` y eso estaba bien mientras el grafo
+  // llegaba una vez; con el grafo VIVO (VistaCerebro lo vuelve a pedir) cada vuelta reiniciaba el reloj y el mapa
+  // entero volvía a nacer desde afuera. Las posiciones nuevas las toma el efecto de abajo, deslizando.
+  const sinMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   useEffect(() => {
-    baseRef.current = new Map(Object.entries(posiciones));
-    const reduce = typeof window !== 'undefined'
-      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) { pintarRef.current(99_999); return; }
+    if (sinMovimiento()) { pintarRef.current(99_999); return; }
     t0.current = performance.now();
     const latir = () => { pintarRef.current(performance.now() - t0.current); animRef.current = requestAnimationFrame(latir); };
     animRef.current = requestAnimationFrame(latir);
     return () => { if (animRef.current != null) cancelAnimationFrame(animRef.current); animRef.current = null; };
+  }, []);
+
+  // Las posiciones de CADA grafo: la primera vez se ponen; las siguientes (una vuelta del grafo vivo), lo que ya estaba
+  // se desliza a su lugar nuevo y la física de arrastre se rearma con el grafo nuevo.
+  const primerGrafo = useRef(true);
+  useEffect(() => {
+    const nuevas = new Map(Object.entries(posiciones));
+    if (primerGrafo.current) { primerGrafo.current = false; baseRef.current = nuevas; if (sinMovimiento()) pintarRef.current(99_999); return; }
+    deslizarRef.current = { desde: new Map(baseRef.current), t: performance.now() - t0.current };
+    baseRef.current = nuevas;
+    simRef.current?.destruir();
+    simRef.current = null;
+    if (sinMovimiento()) pintarRef.current(99_999);
   }, [posiciones]);
 
   useEffect(() => () => { simRef.current?.destruir(); simRef.current = null; }, []);
@@ -884,7 +956,11 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   /** Los pares del nodo fijado que tienen valor: nada se dibuja vacío. */
   const datosSel = useMemo(() => (nodoSel?.datos ?? []).filter((d) => d.v && d.v.trim()), [nodoSel]);
   const puedeVerDoc = !!nodoSel && nodoSel.id.startsWith('doc:') && sePuedeVer(nodoSel.mime);
-  const puedeEditar = !!nodoSel && !!onEditarArea && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:');
+  // Lo que se edita en OTRA pantalla (una oferta en Offer, un funnel en el CRM) lleva ahí; el «Editar» del área es
+  // para lo que se edita acá.
+  const puedeEditar = !!nodoSel && !!onEditarArea && !nodoSel.href && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:');
+  /** «Lo último»: los datos más recientes, en el navegador. */
+  const ultimos = useMemo(() => ultimosDelCerebro(nodos), [nodos]);
 
   const vb = `${encuadre.x} ${encuadre.y} ${encuadre.lado} ${encuadre.lado}`;
 
@@ -1088,6 +1164,45 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     document.addEventListener('fullscreenchange', alSalir);
     return () => { ro.disconnect(); document.removeEventListener('fullscreenchange', alSalir); };
   }, [ajustar]);
+
+  // ── EL NODO QUE VIAJA ─────────────────────────────────────────────────────
+  // Lo NUEVO es lo que no estaba la última vez que esta persona miró el grafo de este negocio. El navegador guarda los
+  // ids que vio (localStorage: es una comodidad de quien mira; sin él, o la primera vez, no viaja nada y no pasa nada
+  // malo). Corre al montar y con cada grafo nuevo del grafo vivo. Los más recientes primero (por `nace`), hasta seis.
+  useEffect(() => {
+    // La regla de qué es nuevo es la del teléfono (lib/cerebro-areas.ts): una sola.
+    const clave = claveVistos(cerebro.negocio, wsDeBusqueda(window.location.search));
+    let antes: unknown = null;
+    try { antes = JSON.parse(window.localStorage.getItem(clave) ?? 'null'); } catch { antes = null; }
+    try { window.localStorage.setItem(clave, JSON.stringify(idsVistos(nodos))); } catch { /* es una comodidad */ }
+    const nuevos = (nuevosDesde(antes, nodos, TOPE_VIAJEROS) ?? []).filter((n) => visiblesIds.has(n.id));
+    if (!nuevos.length || sinMovimiento()) return;
+    // Salen del BORDE de lo que se ve, del lado de su destino, un poco afuera: entran «desde la tab».
+    const caja = svgRef.current?.getBoundingClientRect();
+    const a = caja ? aMundoReal(caja.left, caja.top) : null;
+    const b = caja ? aMundoReal(caja.right, caja.bottom) : null;
+    if (!a || !b) return;
+    const cx = (a.x + b.x) / 2;
+    const cy = (a.y + b.y) / 2;
+    const hw = (Math.abs(b.x - a.x) / 2) * 1.08;
+    const hh = (Math.abs(b.y - a.y) / 2) * 1.08;
+    // Después de la entrada del mapa entero (hasta ~1,6 s): un viaje encima de la cascada no se ve.
+    const arranque = Math.max(performance.now() - t0.current + 150, 1700);
+    const lista: Viaje[] = nuevos.flatMap((n, i) => {
+      const p = baseRef.current.get(n.id) ?? posiciones[n.id];
+      if (!p) return [];
+      let dx = p.x - cx;
+      let dy = p.y - cy;
+      if (Math.hypot(dx, dy) < 1) { dx = -1; dy = -1; }
+      const t = Math.min(hw / Math.max(Math.abs(dx), 1e-6), hh / Math.max(Math.abs(dy), 1e-6));
+      return [{ id: n.id, inicio: arranque + i * MS_ENTRE_VIAJES, desde: { x: cx + dx * t, y: cy + dy * t }, color: rellenoNodo(n) }];
+    });
+    viajesRef.current = lista;
+    setViajes(lista);
+    setEsperando(new Set(lista.map((v) => v.id)));
+    setLlegados(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodos]);
 
 
   return (
@@ -1340,6 +1455,11 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
            en opacity 0, que en SVG cuesta lo mismo que dibujarlo (medido, está en el
            documento). El desmonte lo hace React cuando la lista de salida se vacía. */
         .cbg .cbg-fuera .cbg-pop { animation: cbg-out .24s cubic-bezier(.4,0,.7,.2) forwards; }
+        /* El nodo que espera a su viajero no se ve (ni recibe el puntero); al aterrizar, su pop arranca sin retardo. */
+        .cbg .cbg-espera { opacity: 0; pointer-events: none; }
+        .cbg .cbg-viajeros { pointer-events: none; }
+        .cbg .cbg-anillo { transform-box: fill-box; transform-origin: center; animation: cbg-anillo .9s cubic-bezier(.2,.7,.3,1) forwards; }
+        @keyframes cbg-anillo { from { opacity: .75; transform: scale(1); } to { opacity: 0; transform: scale(2.8); } }
         @keyframes cbg-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(.6); } }
 
         /* EL HOVER: entra rápido, sale lento. Tres señales, ninguna cromática. */
@@ -1387,7 +1507,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .cbg .cbg-pop, .cbg .cbg-fuera .cbg-pop { animation: none; }
+          .cbg .cbg-pop, .cbg .cbg-fuera .cbg-pop, .cbg .cbg-anillo { animation: none; }
           .cbg .cbg-cuerpo, .cbg .cbg-nodo circle, .cbg .cbg-arista, .cbg .cbg-et { transition: none; }
           .cbg .cbg-nodo:hover .cbg-cuerpo, .cbg .cbg-nodo.cbg-sel .cbg-cuerpo { transform: none; }
         }
@@ -1598,6 +1718,8 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                   // esta línea miraba el nodo en foco y el área, e ignoraba el filtro de
                   // «Ver» y la búsqueda.
                   if (!visible(na) || !visible(nb)) return null;
+                  // Un nodo que todavía viaja no tiene aristas: aparecen cuando aterriza.
+                  if (esperando.has(e.de) || esperando.has(e.a)) return null;
                   const op = cerca ? (viva ? 1 : ATENUADO) : areaFoco ? (enFoco ? 1 : ATENUADO) : 1;
                   return (
                     <line
@@ -1635,7 +1757,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                   <g
                     key={n.id}
                     ref={(el) => { nodoRefs.current.set(n.id, el); }}
-                    className={`cbg-nodo${esSel ? ' cbg-sel' : ''}${saliendo.has(n.id) ? ' cbg-fuera' : ''}`}
+                    className={`cbg-nodo${esSel ? ' cbg-sel' : ''}${saliendo.has(n.id) ? ' cbg-fuera' : ''}${esperando.has(n.id) ? ' cbg-espera' : ''}`}
                     // Enganche de las pruebas (scripts/probar-solape.mjs). El id no se
                     // puede sacar del DOM de otra forma: las clases son todas iguales y
                     // la posición la reescribe el rAF, así que sin esto no hay manera de
@@ -1665,15 +1787,19 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                           La salida va toda junta: es UN gesto —«esto se fue»— y
                           escalonarla no significa nada. */}
                       <g
-                        key={saliendo.has(n.id) ? 'fuera' : 'dentro'}
+                        key={saliendo.has(n.id) ? 'fuera' : esperando.has(n.id) ? 'espera' : 'dentro'}
                         className="cbg-pop"
-                        style={{ animationDelay: saliendo.has(n.id) ? '0ms' : `${Math.min(i * 12, 700)}ms` }}
+                        style={{ animationDelay: saliendo.has(n.id) || llegados.has(n.id) ? '0ms' : `${Math.min(i * 12, 700)}ms` }}
                       >
                         <g className="cbg-cuerpo">
                           <circle r={Math.max(r + 8 / kr, 16 / kr)} fill="transparent" />
                           <circle r={r} fill={rellenoDe(n)} opacity={opacidadDe(n)} />
                           {esSel && (
                             <circle r={r + 1.2 / kr} fill="none" stroke="var(--ink)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+                          )}
+                          {/* El anillo de llegada: una sola onda que se abre y se apaga cuando el viajero aterriza. */}
+                          {llegados.has(n.id) && (
+                            <circle className="cbg-anillo" r={r} fill="none" stroke={rellenoDe(n)} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
                           )}
                         </g>
                         {/* El nodo en foco y sus vecinos SIEMPRE llevan etiqueta: es lo
@@ -1693,6 +1819,19 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                   </g>
                 );
               })}
+
+              {/* Los viajeros: tres puntos de rastro, el halo y la cabeza (en ese orden: el bucle los ubica por índice). */}
+              <g className="cbg-viajeros" aria-hidden>
+                {viajes.map((v) => (
+                  <g key={v.id} ref={(el) => { viajeroRefs.current.set(v.id, el); }} opacity={0}>
+                    <circle r={2.4 / kr} fill={v.color} opacity={0.16} />
+                    <circle r={3.2 / kr} fill={v.color} opacity={0.3} />
+                    <circle r={4 / kr} fill={v.color} opacity={0.5} />
+                    <circle r={13 / kr} fill={v.color} opacity={0.14} />
+                    <circle r={6 / kr} fill={v.color} />
+                  </g>
+                ))}
+              </g>
             </g>
           </svg>
 
@@ -1899,9 +2038,14 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
           {/* Las acciones: un documento se MIRA (sólo si se puede previsualizar: un .docx no), y un dato se EDITA en su
               área. La carpeta madre y la raíz no ofrecen editar: no tienen un área única, y un botón que no lleva a
               donde dice es peor que ninguno. */}
-          {(puedeVerDoc || puedeEditar) && (
+          {(puedeVerDoc || puedeEditar || nodoSel.href) && (
             <div className="cbg-det__acciones">
               {puedeVerDoc && <Button variant="primary" full onClick={() => setVerDoc(nodoSel)}>Ver el documento</Button>}
+              {nodoSel.href && (
+                <ButtonLink href={nodoSel.href} variant={puedeVerDoc ? 'secondary' : 'primary'} full>
+                  {`Abrir en ${nodoSel.abrirEn ?? 'su pantalla'}`}
+                </ButtonLink>
+              )}
               {puedeEditar && (
                 <Button variant={nodoSel.autoria === 'pendiente' ? 'primary' : 'secondary'} full onClick={() => onEditarArea?.(nodoSel.area)}>
                   {nodoSel.autoria === 'pendiente' ? `Completar ${areaDe(nodoSel.area).nombre}` : `Editar ${areaDe(nodoSel.area).nombre}`}
@@ -1932,6 +2076,22 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                     <span className="cbg-nav-txt">{a.label}</span>
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Lo último que entró al grafo, del más nuevo al más viejo (el `nace` de cada dato). */}
+            {ultimos.length > 0 && (
+              <div className="cbg-nav__carpeta">
+                <p className="cbg-nav-carpeta" style={{ cursor: 'default' }}>Lo último</p>
+                <div className="cbg-nav__areas">
+                  {ultimos.map((n) => (
+                    <button key={n.id} type="button" className="cbg-nav-fila" onClick={() => irA(n.id)} title={`Ir a ${n.etiqueta}`}>
+                      <span className="cbg-punto" style={{ background: rellenoDe(n) }} />
+                      <span className="cbg-nav-txt">{n.etiqueta}</span>
+                      <span className="cbg-nav__conteo">{fechaCorta(n.nace)}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 

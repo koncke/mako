@@ -399,4 +399,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/operaciones?panel=mapa',
   },
+  {
+    fecha: '17 oct', hora: '06:10', chat: 'Second Brain', sesion: 'local_26ff7b73-b712-4726-9882-89617840bf7c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grafo suma lo que el negocio tiene hoy, y lo nuevo entra viajando',
+    pedido: 'RECONSTRUIR AL 100% la lógica de agregar nodos, con todo lo que hay hoy. Cada vez que se agrega un nodo, una animación sutil de un nodo que viaja dentro de la tab.',
+    puntos: [
+      'Entran tus ofertas de Offer con sus productos y su lead magnet, todos tus funnels, tus leads (un punto con sus números, y cuántos hay en cada etapa), tus objetivos y KPIs, y tus chats de Offer y con MaKo.',
+      'Cada punto dice qué es y cuándo entró. Lo que se edita en otra pantalla lleva un botón «Abrir en Offer» o «Abrir en el CRM».',
+      'Lo nuevo desde tu última visita entra viajando desde el borde hasta su lugar, de a uno. La barra lateral suma «Lo último».',
+      'Con la pestaña abierta, el grafo se actualiza solo cada 3 minutos; lo que ya estaba se desliza a su lugar nuevo.',
+    ],
+    archivos: [
+      'lib/cerebro-vivo.ts — lo vivo del negocio, como nodos (puro)',
+      'lib/cerebro-grafo.ts — sus lecturas y la huella del contenido',
+      'app/api/second-brain/cerebro/route.ts — el grafo vivo',
+      'app/second-brain/Grafo.tsx — el viaje, el deslizamiento y «Lo último»',
+      'tests/second-brain-vivo.test.ts',
+    ],
+    revisar: '/admin/operaciones?panel=mapa',
+  },
 ];

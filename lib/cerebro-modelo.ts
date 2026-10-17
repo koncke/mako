@@ -169,6 +169,10 @@ export type NodoCerebro = {
   /** Cuándo apareció su fila (ISO), el `valid_at` de Graphiti. De ahí salen «lo último» y el nodo que viaja al
    *  entrar. null = la fuente no guarda fecha propia. */
   nace?: string | null;
+  /** Dónde se edita, cuando NO es acá (una oferta en Offer, un funnel en el CRM): la barra lateral lleva ahí con
+   *  «Abrir en <abrirEn>» en vez de prometer un «Editar» de un área que no lo tiene. */
+  href?: string;
+  abrirEn?: string;
 };
 
 /** Una arista se dibuja solo si SIGNIFICA algo verificable. `motivo` es lo que se
@@ -212,4 +216,7 @@ export type Cerebro = {
    */
   posiciones: Record<string, Punto>;
   encuadre: Encuadre;
+  /** La huella del CONTENIDO (ids, nombres, textos, datos y aristas). El grafo vivo la manda al pedir de nuevo
+   *  (`/api/second-brain/cerebro?huella=`) y sólo se redibuja si cambió. */
+  huella?: string;
 };

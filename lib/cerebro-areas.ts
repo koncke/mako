@@ -77,17 +77,39 @@ export function rutaVistaDocumento(idNodo: string): string {
 const TIPO_FIJO: Record<string, string> = {
   raiz: 'Tu negocio', fase: 'Fase del negocio', cuello: 'Cuello de botella', canal: 'Canal de venta', objetivo: 'Objetivo',
   voz: 'Voz de marca', persona: 'Cara de marca', vozcom: 'Voz comercial', glosario: 'Vocabulario',
+  leads: 'Leads', chats: 'Chats con MaKo',
 };
 const TIPO_POR_PREFIJO: ReadonlyArray<readonly [string, string]> = [
   ['doc:', 'Documento'], ['pan:', 'Resumen'], ['campo:', 'Dato del negocio'], ['prod:', 'Producto'],
   ['ent:', 'Lead magnet'], ['av:', 'Avatar'], ['raz:', 'Razón de compra'], ['fmt:', 'Formato de anuncio'],
   ['etapa:', 'Etapa del funnel'], ['sec:', 'Nutrición'], ['land:', 'Landing'], ['audio:', 'Audio'],
+  ['oferta:', 'Oferta'], ['lm:', 'Lead magnet'], ['funnel:', 'Funnel'], ['okr:', 'Objetivo'], ['kpi:', 'KPI'],
+  ['offerchat:', 'Chat de Offer'], ['chat:', 'Chat con MaKo'],
   ['area:', 'Área'], ['n1:', 'Carpeta'], ['falta:', 'Falta'],
 ];
 export function tipoDeNodo(n: Pick<NodoCerebro, 'id' | 'tipo'>): string {
   if (n.tipo?.trim()) return n.tipo.trim();
   if (TIPO_FIJO[n.id]) return TIPO_FIJO[n.id];
   return TIPO_POR_PREFIJO.find(([p]) => n.id.startsWith(p))?.[1] ?? 'Dato';
+}
+
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+/**
+ * «12 oct»: cuándo apareció un dato (el `nace` de un nodo), corto. Sale del TEXTO de la fecha (`YYYY-MM-DD…`) y no de
+ * `toLocaleDateString`: el grafo se dibuja también en el servidor, y con la zona horaria del servidor un dato de las
+ * 23 h caía en otro día que en el navegador (un aviso de hidratación, y una fecha que salta). Sin fecha legible, null.
+ */
+export function fechaCortaNodo(iso?: string | null): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  return m ? `${Number(m[3])} ${MESES[Number(m[2]) - 1] ?? ''}`.trim() : null;
+}
+
+/** Los datos más recientes (por `nace`), para «Lo último»: sin la estructura, sin lo que falta y sin los que no tienen fecha. */
+export function ultimosDelCerebro(nodos: readonly NodoCerebro[], cuantos = 5): NodoCerebro[] {
+  return nodos
+    .filter((n) => !esEstructura(n) && n.autoria !== 'pendiente' && !!fechaCortaNodo(n.nace))
+    .sort((a, b) => (b.nace ?? '').localeCompare(a.nace ?? ''))
+    .slice(0, cuantos);
 }
 
 /** La autoría en una palabra, para la pastilla de la barra lateral (la frase larga es AUTORIA_TEXTO). */
@@ -112,4 +134,34 @@ export function agruparConexiones<T extends { nodo: Pick<NodoCerebro, 'area'> }>
     else grupos.push({ area: c.nodo.area, items: [c] });
   }
   return grupos;
+}
+
+/**
+ * La clave del navegador donde se guardan los ids que esta persona VIO del grafo de este negocio (el nodo que viaja).
+ * Lleva una huella del nombre del negocio y el `?ws=` de la pestaña (el super admin mirando a un cliente): dos
+ * negocios no se pisan los vistos. Es una comodidad de quien mira (localStorage), nunca un dato del negocio.
+ */
+export function claveVistos(negocio: string, ws: string | null): string {
+  let h = 2166136261;
+  const t = negocio || 'negocio';
+  for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return `mako.sb.vistos.${(h >>> 0).toString(36)}.${ws ?? 'actual'}`;
+}
+
+/** Los ids que se guardan como vistos: los DATOS del grafo (sin la estructura ni lo que falta). */
+export const idsVistos = (nodos: readonly NodoCerebro[]): string[] =>
+  nodos.filter((n) => !esEstructura(n) && n.autoria !== 'pendiente').map((n) => n.id);
+
+/**
+ * Lo NUEVO desde la última vez: los datos que no estaban en lo guardado, del más reciente al más viejo (por `nace`),
+ * hasta `tope`. `null` = no había nada guardado (la primera vez, o el navegador lo borró): no viaja nada, que es mejor
+ * que hacer viajar el grafo entero como si todo fuera nuevo.
+ */
+export function nuevosDesde(guardado: unknown, nodos: readonly NodoCerebro[], tope = 6): NodoCerebro[] | null {
+  if (!Array.isArray(guardado)) return null;
+  const vistos = new Set(guardado.filter((x): x is string => typeof x === 'string'));
+  return nodos
+    .filter((n) => !esEstructura(n) && n.autoria !== 'pendiente' && !vistos.has(n.id))
+    .sort((a, b) => (b.nace ?? '').localeCompare(a.nace ?? ''))
+    .slice(0, tope);
 }

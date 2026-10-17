@@ -23,6 +23,39 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## Lo que el negocio TIENE, como nodos, y el nodo que viaja (17/10/2026, punto 13a)
+
+`lib/cerebro-vivo.ts` (puro) suma ofertas, lead magnets, funnels, leads, objetivos/KPI y chats; las lecturas van en el
+mismo `Promise.all` de `construirCerebro`. El diseño: `docs/diseno-second-brain-grafo.md`.
+
+- **«Los gráficos del negocio» no son las hojas del Dashboard.** Esas viven en `graficos.tablero.<persona>`
+  (`lib/graficos-tablero.ts`): son la vista de cada persona, no un dato del negocio. Lo que el negocio se propuso medir
+  son los objetivos y los KPI (`objectives`, `kpis`, los números de /general): ésos entran.
+- **Dos fuentes para el Lead Magnet.** El editor del área (`EntregableView`) escribe `mako.entregable` (nodos `ent:`);
+  Offer escribe la tabla `lead_magnets` (mig 0169). Los dos entran; si uno se llama igual que otro, es el mismo.
+- **Los roles de `oferta_productos` son `principal`, `bump` e `incluido`** (mig 0169), no «bono/upsell» como sugiere la
+  pantalla de Offer.
+- **Las listas de siempre no traen `created_at`** (`listarOfertas`, `listarFunnels`, `listObjectives`…). El `nace` sale
+  de una lectura chica por tabla (`id, created_at`, en paralelo: `fechasDeAlta`). Lo que no tiene fecha va `null`: las
+  claves de `app_settings` (avatares, razones, fase) sólo tienen `updated_at` y no se inventa un nacimiento.
+- **Los chats con MaKo son de la PERSONA, no del negocio.** Los pasa sólo la pantalla (`lib/cerebro-chats.ts`); el ZIP y
+  la API arman el grafo sin ellos. Un chat se cuelga de lo que NOMBRA su título (la búsqueda del grafo al revés: el
+  título es el pajar y el nombre del nodo la consulta); los que no nombran nada van juntos en un nodo.
+- **`toLocaleString('es')` no agrupa los números de cuatro cifras** (`minimumGroupingDigits: 2` del español): la misma
+  pantalla decía «USD 1500» y «USD 12.000». El punto de miles va a mano (`miles`, `lib/cerebro-vivo.ts`).
+- **Una fecha que se dibuja en el servidor y en el navegador sale del TEXTO, no de `toLocaleDateString`**: con la zona
+  horaria del servidor, un dato de las 23 h caía en otro día (aviso de hidratación y una fecha que salta).
+  `fechaCortaNodo` (`lib/cerebro-areas.ts`).
+- **El bucle de dibujo dependía de `posiciones`, y con un grafo VIVO eso rearma el mapa entero.** Mientras el grafo
+  llegaba una vez daba igual; con la pantalla pidiéndolo cada 3 minutos, cada vuelta reiniciaba el reloj de la entrada y
+  todo volvía a nacer desde afuera. Ahora el bucle arranca al montar y las posiciones nuevas DESLIZAN lo que ya estaba
+  (`deslizarRef`, 800 ms). La física de arrastre se rearma con el grafo nuevo (cachea los radios).
+- **El nodo que viaja necesita saber qué vio la persona**, y eso es una comodidad de quien mira: `localStorage`, con una
+  huella del negocio y el `?ws=` en la clave (`claveVistos`). La primera vez no viaja nada (`nuevosDesde` da `null`):
+  hacer viajar el grafo entero como si todo fuera nuevo sería un desfile.
+- **En el teléfono el viaje es SMIL, no CSS.** Cada punto sale de su propio lugar del borde, y un `var(--dx)` por punto no
+  es un token de la casa: `tests/m-second-brain.test.ts` exige que cada `var()` exista en app/globals.css.
+
 ## La pantalla sólo dibuja el grafo: oscuro, la barra lateral, y nada abajo (17/10/2026)
 
 Feedback de Martín del 17/10, puntos 11 y 12. El diseño entero está en `docs/diseno-second-brain-grafo.md`.

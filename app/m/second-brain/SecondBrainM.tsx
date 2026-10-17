@@ -16,13 +16,15 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useWs } from '@/app/_ui/Link';
-import { Button } from '@/app/_ui/Button';
+import { Button, ButtonLink } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
 import { conWs } from '@/lib/ws-tab';
 import type { AreaId, Cerebro, NodoCerebro } from '@/lib/cerebro-modelo';
 import {
-  AUTORIA_CORTA, agruparConexiones, contarPorArea, rellenoNodo, rutaVistaDocumento, sePuedeVerDocumento, tipoDeNodo, OPACIDAD_PENDIENTE,
+  AUTORIA_CORTA, agruparConexiones, claveVistos, contarPorArea, fechaCortaNodo, idsVistos, nuevosDesde, rellenoNodo, rutaVistaDocumento,
+  sePuedeVerDocumento, tipoDeNodo, ultimosDelCerebro, OPACIDAD_PENDIENTE,
 } from '@/lib/cerebro-areas';
+import { wsDeBusqueda } from '@/lib/ws-tab';
 import { AUTORIA_TEXTO } from '@/lib/cerebro-modelo';
 import {
   CabeceraM, ComputadoraM, FilaDatoM, FilaM, ListaM, PieM, SeccionM, SegmentadoM, SheetM, SkeletonFilas, VacioM,
@@ -36,12 +38,8 @@ import { SUBTITULO_SECOND_BRAIN, TITULO_SECOND_BRAIN } from '@/app/second-brain/
 
 type Hoja = { tipo: 'area'; area: AreaId } | { tipo: 'dato'; id: string };
 
-/** «12 oct»: cuándo apareció un dato (la barra lateral de la computadora lo dice igual). */
-function fechaCorta(iso?: string | null): string | null {
-  if (!iso) return null;
-  const t = Date.parse(iso);
-  return Number.isFinite(t) ? new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' }) : null;
-}
+/** «12 oct»: la misma regla de la barra lateral de la computadora (lib/cerebro-areas.ts). */
+const fechaCorta = fechaCortaNodo;
 type EstadoIA = { pensando: boolean; ids: string[] | null; explico: string };
 const SIN_IA: EstadoIA = { pensando: false, ids: null, explico: '' };
 
@@ -68,8 +66,9 @@ function ParLargo({ k, v }: { k: string; v: string }) {
   );
 }
 
-/** La foto del mapa: las mismas posiciones del server, sin gestos, adentro del lienzo oscuro. */
-function MapaChico({ cerebro }: { cerebro: Cerebro }) {
+/** La foto del mapa: las mismas posiciones del server, sin gestos, adentro del lienzo oscuro. Los puntos NUEVOS desde
+ *  la última visita entran viajando desde el borde izquierdo, de a uno (el nodo que viaja de la computadora, en chico). */
+function MapaChico({ cerebro, nuevos }: { cerebro: Cerebro; nuevos: readonly string[] }) {
   const { puntos, lineas } = useMemo(() => miniMapa(cerebro, 340, 200), [cerebro]);
   if (!puntos.length) return null;
   return (
@@ -78,7 +77,19 @@ function MapaChico({ cerebro }: { cerebro: Cerebro }) {
         <g className="m-second-brain-mapa__aristas">
           {lineas.map((l, i) => <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />)}
         </g>
-        {puntos.map((p) => <circle key={p.id} cx={p.x} cy={p.y} r={p.r} fill={p.color} opacity={p.opacidad} />)}
+        {puntos.map((p) => {
+          const i = nuevos.indexOf(p.id);
+          if (i < 0) return <circle key={p.id} cx={p.x} cy={p.y} r={p.r} fill={p.color} opacity={p.opacidad} />;
+          // SMIL y no una animación CSS: cada punto sale de SU lugar en el borde, y un `var()` local por punto no es un
+          // token de la casa (tests/m-second-brain.test.ts). Con movimiento reducido, `nuevos` llega vacío.
+          const desde = `${300 + i * 380}ms`;
+          return (
+            <circle key={`${p.id}-nuevo`} cx={-12} cy={p.y} r={p.r} fill={p.color} opacity={0}>
+              <animate attributeName="cx" from={-12} to={p.x} begin={desde} dur="950ms" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".2 .7 .3 1" />
+              <animate attributeName="opacity" from={0} to={p.opacidad} begin={desde} dur="300ms" fill="freeze" />
+            </circle>
+          );
+        })}
       </svg>
     </div>
   );
@@ -115,6 +126,18 @@ export function SecondBrainM({ cerebro, areaInicial }: { cerebro: Cerebro; areaI
   ), []);
 
   const conteo = useMemo(() => contarPorArea(cerebro.nodos), [cerebro.nodos]);
+  // Lo nuevo desde la última visita, con la MISMA regla y la misma clave que la computadora (lib/cerebro-areas.ts).
+  const [nuevos, setNuevos] = useState<string[]>([]);
+  useEffect(() => {
+    const clave = claveVistos(cerebro.negocio, wsDeBusqueda(window.location.search));
+    let antes: unknown = null;
+    try { antes = JSON.parse(window.localStorage.getItem(clave) ?? 'null'); } catch { antes = null; }
+    try { window.localStorage.setItem(clave, JSON.stringify(idsVistos(cerebro.nodos))); } catch { /* es una comodidad */ }
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    setNuevos((nuevosDesde(antes, cerebro.nodos) ?? []).map((n) => n.id));
+  }, [cerebro]);
+  /** «Lo último»: lo mismo que el navegador de la computadora (lib/cerebro-areas.ts). */
+  const ultimos = useMemo(() => ultimosDelCerebro(cerebro.nodos), [cerebro.nodos]);
   const { norte, cuello } = useMemo(() => accesos(cerebro.nodos), [cerebro.nodos]);
   const total = useMemo(() => totalBuscable(cerebro), [cerebro]);
 
@@ -194,6 +217,14 @@ export function SecondBrainM({ cerebro, areaInicial }: { cerebro: Cerebro; areaI
         </PieM>
       );
     }
+    // Lo que se edita en otra pantalla (una oferta en Offer, un funnel en el CRM) lleva ahí, como en la barra lateral.
+    if (nodoAbierto?.href) {
+      return (
+        <PieM>
+          <ButtonLink href={nodoAbierto.href} variant="primary" size="lg" full>{`Abrir en ${nodoAbierto.abrirEn ?? 'su pantalla'}`}</ButtonLink>
+        </PieM>
+      );
+    }
     if (nodoAbierto && nodoAbierto.id.startsWith('doc:') && sePuedeVerDocumento(nodoAbierto.mime)) {
       return (
         <PieM>
@@ -216,7 +247,7 @@ export function SecondBrainM({ cerebro, areaInicial }: { cerebro: Cerebro; areaI
       <section className="m-second-brain-lienzo" data-tema="oscuro" aria-label={TITULO_SECOND_BRAIN}>
         <h1 className="m-second-brain-titulo" data-m-titulo-grande>{TITULO_SECOND_BRAIN}</h1>
         <p className="m-second-brain-sub">{SUBTITULO_SECOND_BRAIN}</p>
-        {cerebro.cuenta.total > 0 && <MapaChico cerebro={cerebro} />}
+        {cerebro.cuenta.total > 0 && <MapaChico cerebro={cerebro} nuevos={nuevos} />}
       </section>
 
       <div className="m-second-brain-buscar" role="search">
@@ -309,6 +340,14 @@ export function SecondBrainM({ cerebro, areaInicial }: { cerebro: Cerebro; areaI
               <ListaM etiqueta={R.negocio}>
                 {norte && <FilaM leading={<Punto color={rellenoNodo(norte)} />} titulo={R.norte} segunda={norte.etiqueta} onClick={() => abrirNodo(norte)} />}
                 {cuello && <FilaM leading={<Punto color={rellenoNodo(cuello)} />} titulo={R.cuello} segunda={cuello.etiqueta} onClick={() => abrirNodo(cuello)} />}
+              </ListaM>
+            </SeccionM>
+          )}
+
+          {ultimos.length > 0 && (
+            <SeccionM titulo="Lo último">
+              <ListaM etiqueta="Lo último">
+                {ultimos.map((n) => filaNodo(n, `${fechaCorta(n.nace)} · ${areaPorId(n.area).nombre}`))}
               </ListaM>
             </SeccionM>
           )}

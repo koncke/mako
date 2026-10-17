@@ -20,6 +20,7 @@ import Link from '@/app/_ui/Link';
 import { VistaCerebro } from './VistaCerebro';
 import { ChatSecondBrain } from './ChatSecondBrain';
 import { construirCerebro } from '@/lib/cerebro-grafo';
+import { chatsMakoDeQuienMira } from '@/lib/cerebro-chats';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
 // La Ticketera vive adentro de Ops Center (16/10/2026): sus hojas las importa la página (CambioVista.tsx lo explica).
 import '@/app/tickets/decisiones/mazo.css';
@@ -43,7 +44,8 @@ export async function mapaDelSecondBrain(): Promise<ReactNode> {
       las etapas, la nutrición y cómo entra tu gente.
     </p>
   );
-  const cerebro = await construirCerebro();
+  // Con los chats con MaKo de quien mira: son suyos, así que sólo los suma la pantalla (lib/cerebro-chats.ts).
+  const cerebro = await construirCerebro({ chatsMako: await chatsMakoDeQuienMira() });
   return <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} />;
 }
 

@@ -38,16 +38,20 @@ El id es estable y sale de la clave de la fuente (un id inestable rearma el mapa
 | Plano del resumen, dato del brief, voz, cara | `mako.archivero.*`, `mako.personalidad`, `mako.persona` | `pan:`, `campo:`, `voz` | como hoy | cliente |
 | **Oferta** (nuevo) | `ofertas` | `oferta:<id>` | sus productos (`oferta_productos`), sus funnels (`funnel_ofertas`), su lead magnet | cliente |
 | Producto | `productos` | `prod:<id>` | la oferta que lo incluye (antes: el campo del brief) | cliente |
-| **Lead magnet** (nuevo, reemplaza `ent:`) | `lead_magnets` (y `mako.entregable` si no hay) | `lm:<id>` | la oferta | cliente |
+| **Lead magnet de Offer** (nuevo) | `lead_magnets` (los de `mako.entregable` siguen como `ent:`; si uno se llama igual, es el mismo y no entra dos veces) | `lm:<id>` | su oferta | cliente |
 | **Funnel** (nuevo: todos, no sólo el default) | `funnels` | `funnel:<id>` | sus ofertas; el default además tiene sus etapas | cliente |
 | Etapa del funnel | el funnel default | `etapa:<clave>` | la cadena de etapas; **los leads de hoy van como DATO** (cuántos hay en cada una), nunca un nodo por lead | cliente |
-| **Leads** (nuevo, agregado) | `leads` + `lead_funnel` | `leads:<funnel>` | un nodo por funnel: cuántos, cuántos nuevos en 7 días, de dónde vienen | cliente |
+| **Leads** (nuevo, agregado) | `leads`, contados con la regla del CRM (`conteoPorEtapa`) | `leads` | UN nodo: cuántos, cuántos nuevos en 7 días, de dónde vienen, cuántos sin closer ni setter; colgado del funnel principal | cliente |
 | Avatar, razón, formato | `mako.avatares`, `mako.razones`, `mako.formatos_recom` | `av:`, `raz:`, `fmt:` | como hoy | cliente |
 | Nutrición, landing, audio, vocabulario | como hoy | `sec:`, `land:`, `audio:`, `glosario` | como hoy | cliente |
-| **Hoja del dashboard** (nuevo) | `graficos.tablero.<sub>` | `hoja:<id>` | lo que mide (leads → el funnel, ventas → productos, pauta → avatares) | cliente |
+| **Objetivo y KPI** (nuevo: «los gráficos y los datos del negocio») | `objectives`, `kpis` (los números de /general) | `okr:<id>`, `kpi:<id>` | el KPI mide su objetivo; los dos, sus funnels | cliente |
 | **Chat con MaKo** (nuevo) | `chart_sessions` de quien mira | `chat:<id>` | el área de lo que habló (por las palabras de su título) | sólo quien mira: es SU chat |
-| **Chat de Offer** (nuevo) | `offer_sesiones` | `offer:<id>` | la oferta que armó | cliente |
+| **Chat de Offer** (nuevo) | `offer_sesiones` (las 6 más recientes) | `offerchat:<id>` | la oferta principal | cliente |
 | Área MaKo, chat jefe, bitácora, hito | `app/admin/dev/areas.ts`, `registros.ts`, `operaciones/tabs.ts` | `dev:`, `jefe:`, `hito:` | hito → área → familia; jefe → área | **sólo el super admin**, capa «Construcción» |
+
+**Las hojas del Dashboard no entran** (se pensó al revés al empezar): viven en `graficos.tablero.<persona>`, son la
+vista de CADA persona sobre los datos, no un dato del negocio. Los números que el negocio se propuso medir son los
+objetivos y los KPI, y ésos sí entran.
 
 Quedan afuera, como hoy y por lo mismo: un nodo por lead o por mensaje (volumen), la semilla de catálogo de MaKo
 disfrazada de dato del cliente, y la actividad del Plan (son tareas, no conocimiento). Los topes de forma del grafo

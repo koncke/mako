@@ -12,6 +12,7 @@
 import '../second-brain.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { construirCerebro } from '@/lib/cerebro-grafo';
+import { chatsMakoDeQuienMira } from '@/lib/cerebro-chats';
 import type { Cerebro } from '@/lib/cerebro-modelo';
 import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { SecondBrainM } from '../SecondBrainM';
@@ -28,7 +29,7 @@ export default async function MapaSecondBrainPagina({ searchParams }: {
 
   let cerebro: Cerebro;
   try {
-    cerebro = await construirCerebro();
+    cerebro = await construirCerebro({ chatsMako: await chatsMakoDeQuienMira() });
   } catch (e) {
     console.error('[m/second-brain/mapa] construirCerebro:', e instanceof Error ? e.message : e);
     return (

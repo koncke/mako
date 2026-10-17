@@ -16,7 +16,7 @@
 // EL FILTRO VIVE ACÁ y no adentro del grafo porque «Exportar» tiene que bajar el MISMO recorte que se está mirando.
 // =============================================================================
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AREAS, type AreaId, type Cerebro } from '@/lib/cerebro-modelo';
 import { vistaValida } from '@/lib/secciones-negocio';
@@ -27,10 +27,33 @@ import { AreasHub } from './AreasHub';
 import { BotonExportar } from './BotonExportar';
 import { useVolverDelGrafo } from './volver';
 
+/** Cada cuánto el grafo se vuelve a pedir mientras la pestaña está a la vista (el grafo VIVO). */
+const MS_GRAFO_VIVO = 180_000;
+
 export const TITULO_SECOND_BRAIN = 'Second Brain';
 export const SUBTITULO_SECOND_BRAIN = 'Todo lo que MaKo sabe de tu negocio.';
 
-export function VistaCerebro({ cerebro, funnelPanel }: { cerebro: Cerebro; funnelPanel: ReactNode }) {
+export function VistaCerebro({ cerebro: delServidor, funnelPanel }: { cerebro: Cerebro; funnelPanel: ReactNode }) {
+  // ── EL GRAFO VIVO (punto 13, 17/10/2026) ──────────────────────────────────
+  // El grafo llega del servidor y se vuelve a pedir cada 3 minutos mientras la pestaña está a la vista. Con la huella
+  // del que ya se tiene: si nada cambió, no viaja el grafo ni se redibuja. Si cambió, los nodos nuevos entran VIAJANDO
+  // y lo que ya estaba se desliza a su lugar (Grafo.tsx). Un fallo no hace nada: el grafo que se ve sigue siendo verdad.
+  const [cerebro, setCerebro] = useState(delServidor);
+  useEffect(() => { setCerebro(delServidor); }, [delServidor]);
+  const huella = cerebro.huella ?? null;
+  useEffect(() => {
+    let vivo = true;
+    const t = window.setInterval(async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const r = await fetch(`/api/second-brain/cerebro${huella ? `?huella=${encodeURIComponent(huella)}` : ''}`, { signal: AbortSignal.timeout(60_000) });
+        const j = await r.json() as { ok?: boolean; igual?: boolean; cerebro?: Cerebro };
+        if (vivo && j?.ok && !j.igual && j.cerebro) setCerebro(j.cerebro);
+      } catch { /* sin red: se queda el que se ve */ }
+    }, MS_GRAFO_VIVO);
+    return () => { vivo = false; window.clearInterval(t); };
+  }, [huella]);
+
   // `?area=oferta` abre el editor de esa sección de entrada: otras pantallas mandan acá a hacer algo concreto (el
   // selector de oferta del CRM manda a crear una). Se valida contra AREAS: un valor cualquiera no abre nada.
   const params = useSearchParams();
