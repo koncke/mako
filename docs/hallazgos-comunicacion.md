@@ -48,6 +48,19 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Unificar Email en Chats» no era mudar una bandeja: Email no tiene bandeja (17/10/2026)
+
+El pedido fue «eliminar las tabs de Email y WhatsApp y unificarlo todo en Chats». Lo obvio era mover la bandeja de
+Email a Chats. **No hay bandeja de email en ningún lado:** /email es marketing (secuencias, envíos masivos y el dominio
+de Resend), y lo que LLEGA por email sólo dispara automatizaciones (`lib/email-entrante.ts`): `email_entrantes` guarda
+el SOBRE (de, para, asunto), no el cuerpo, y «Receiving» de Resend todavía no está prendido. Y /whatsapp sí tiene cosas
+que Chats no (ver «Ocultos» y desocultar, borrar historial, gestionar líneas, Chatbot ON/OFF, la alarma de número caído).
+
+**La regla:** sacar una tab de la barra no es borrar su página. /whatsapp y /email siguen y se entra desde Chats (el
+«+» de Canales y el pie de la Bandeja); estando ahí la barra marca Chats (`RUTAS_DE_CHATS` en nav.ts). Email como
+CANAL de la bandeja (recibir el cuerpo y los adjuntos, responder en el hilo con `In-Reply-To`) es una feature nueva,
+no una mudanza: está en [diseno-sidebar.md](diseno-sidebar.md) §5.
+
 ## El chat de MaKo por WhatsApp: sólo grupos, sin autor, y 14 horas de memoria (16/10/2026)
 
 Medido leyendo `origin/main` para sumar «el chat de MaKo en WhatsApp» al Second Brain (docs/diseno-mako-ai-native.md, (c)).

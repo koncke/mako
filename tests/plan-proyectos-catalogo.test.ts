@@ -32,7 +32,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  puedeSerProyectoNuevo, FAMILIAS_SIDEBAR, delCatalogo, canonNombre, nucleo,
+  puedeSerProyectoNuevo, FAMILIAS_SIDEBAR, FAMILIAS_RETIRADAS, delCatalogo, canonNombre, nucleo,
   CATALOGO_PROYECTOS, PREFIJO_FEATURE, PREFIJO_AGENTE,
 } from '../lib/plan-proyectos-catalogo';
 import { FAMILIAS } from '../app/_components/nav';
@@ -52,8 +52,9 @@ test('EL CASO REAL: los cinco nombres del 11 y 12/8, uno por uno', () => {
 test('el MODELO no puede inventar un proyecto con el nombre de una familia del sidebar', () => {
   // Una familia agrupa diez proyectos: un proyecto con ese nombre se solapa con seis tabs
   // a la vez. Se excluye «Content Machine», que el dueño decidió sumar al catálogo el
-  // 12/8 — ver el test de abajo, que cubre justamente esa asimetría.
-  for (const f of FAMILIAS_SIDEBAR) {
+  // 12/8 — ver el test de abajo, que cubre justamente esa asimetría. Y las RETIRADAS el 17/10/2026 (Analyze, Content
+  // Machine, Customer Success) siguen prohibidas: el modelo las conoce de los planes viejos.
+  for (const f of [...FAMILIAS_SIDEBAR, ...FAMILIAS_RETIRADAS]) {
     if (delCatalogo(f)) continue;
     for (const n of [f, `${PREFIJO_FEATURE}${f}`, `${PREFIJO_AGENTE}${f}`, f.toUpperCase()]) {
       const v = puedeSerProyectoNuevo(n);

@@ -22,14 +22,17 @@ import { PASOS_COMUNIDAD, TAB_COMUNIDAD, cambiosDeOnboarding, lineaOnboarding, p
 const todos = FAMILIAS.flatMap(itemsDe);
 const item = todos.find((i) => i.key === 'cs-comunidad');
 
-test('la barra tiene «Comunidad» (key cs-comunidad) en la familia Customer Success', () => {
+// Desde el 17/10/2026 Customer Success dejó de ser familia: Clientes, Curso y Comunidad son UNA tab, «Clients», adentro de
+// Operate (docs/diseno-sidebar.md), con los nombres en inglés.
+test('la barra tiene «Community» (key cs-comunidad) en la tab Clients de Operate', () => {
   assert.ok(item, 'falta el ítem cs-comunidad');
-  assert.equal(item.label, 'Comunidad');
+  assert.equal(item.label, 'Community');
   assert.equal(item.href, '/customer-success/comunidad');
   assert.ok(NOMBRES_ICONO.includes(item.icon), `el ícono «${item.icon}» no existe: dibujaría un punto`);
-  // Desde el 12/10/2026 Customer Success es una FAMILIA propia (antes, un desplegable de Operate).
-  const familia = FAMILIAS.find((f) => f.bloques.some((b) => b.some((i) => i.key === 'cs-comunidad')));
-  assert.equal(familia?.label, 'Customer Success', 'va en la familia Customer Success');
+  const familia = FAMILIAS.find((f) => itemsDe(f).some((i) => i.key === 'cs-comunidad'));
+  assert.equal(familia?.label, 'Operate', 'va en Operate');
+  const tab = familia!.bloques.flat().find((i) => i.secciones?.some((s) => s.key === 'cs-comunidad'));
+  assert.equal(tab?.label, 'Clients', 'es una sección de la tab Clients');
   assert.ok(!FAMILIAS.find((f) => f.key === 'operate')?.grupos?.some((g) => g.items.some((i) => i.key === 'cs-comunidad')), 'volvió al desplegable de Operate');
 });
 

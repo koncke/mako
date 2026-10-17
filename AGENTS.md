@@ -8769,6 +8769,11 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   página de escritorio lee la URL, las claves van en `QUERY_DE_SECCION`: un push vuelve a la computadora por
   `rutaEscritorio`, y la clave que se cae al ir al teléfono se cae también allá. Una tab UNIFICADA de escritorio se
   gatea con la key de la sección que muestra (`ads-writer`, no `copywriting`: esa no está en TODOS_LOS_ITEMS).
+- **Una pantalla que deja de ser fila de la sidebar NO se borra de nav.ts: va a `SIN_FILA`** (17/10/2026), y su fila
+  de More queda con `oculta: true`. `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS`: sin el ítem, la
+  puerta del teléfono se cierra para todos, sin error; y `rutaMovil` tira si la fila de More no está. La sidebar
+  (familias, lo de arriba y el menú de la foto) la edita UN solo chat, el jefe «Sidebar»: los demás le pasan nombre,
+  ruta, key y roles (docs/diseno-sidebar.md).
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.

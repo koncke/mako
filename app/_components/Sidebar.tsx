@@ -3,8 +3,9 @@
 // =============================================================================
 // Sidebar — navegación por intención (rail de iconos ⇄ familias con sus ítems)
 // =============================================================================
-// Plegado: un rail con el icono de cada FAMILIA y su pregunta como tooltip.
-// Expandido (al pasar el cursor): las familias, con la de tu ruta desplegada.
+// Plegado: un rail con los íconos de los destinos, las familias separadas por una línea.
+// Expandido (al pasar el cursor): arriba Ops Center y Second Brain con sus criaturas, y las familias abiertas, cada una
+// plegable sola (17/10/2026, copiado de Linear, Notion y Attio: docs/diseno-sidebar.md).
 //
 // DOS NIVELES, y la diferencia es la que hace que la barra no sea una lista de
 // todo:
@@ -28,12 +29,13 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, MAKO_NAV, USER_NAV, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, ARRIBA, USER_NAV, SUPERADMIN_MENU, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { puedeVerItem, resolverTab } from '@/lib/nav-visibilidad';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
+import { Criatura } from './Criatura';
 import { SaldoMaKo } from './SaldoMaKo';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 
@@ -46,6 +48,7 @@ const ICO = 19;
 const ICO_HIJO = 17;
 
 function ItemIcon({ item, size = ICO }: { item: NavItem; size?: number }) {
+  if (item.criatura) return <Criatura nombre={item.criatura} size={size} />;
   if (item.icon === 'mako') return <MakoStar size={size} color="var(--mako)" />;
   // El color lo hereda de la fila (currentColor): así el hover lo pinta también,
   // sin que el ícono se quede apagado cuando el texto ya se encendió.
@@ -66,6 +69,21 @@ function Contador({ n, compacto }: { n: number; compacto?: boolean }) {
 }
 
 type Tema = 'oscuro' | 'claro';
+
+/**
+ * Las familias que el usuario plegó, en el navegador (17/10/2026). Es una comodidad de esta persona en esta
+ * computadora, no un dato: si el almacenamiento no está (ventana privada, bloqueado), todas abiertas.
+ */
+const PLEGADAS = 'mk-nav-plegadas';
+function leerPlegadas(): ReadonlySet<string> {
+  try {
+    const v: unknown = JSON.parse(window.localStorage.getItem(PLEGADAS) ?? '[]');
+    return new Set(Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string') : []);
+  } catch { return new Set(); }
+}
+function guardarPlegadas(s: ReadonlySet<string>) {
+  try { window.localStorage.setItem(PLEGADAS, JSON.stringify([...s])); } catch { /* sin almacenamiento: no se recuerda */ }
+}
 
 /**
  * El estilo de UNA fila, compartido por familias, ítems, grupos, desplegables y
@@ -228,20 +246,21 @@ function GrupoFila({ g, open, pathname, abierto, onAbrir, onCerrar }: {
 }
 
 /**
- * Una familia: su rótulo y, si está desplegada, sus destinos.
+ * Una familia: su rótulo y, si no está plegada, sus destinos.
  *
- * CÓMO SE DISTINGUE DE UNA TAB. El intento anterior le puso una superficie
- * propia al rótulo, y salió peor: una franja clara con texto es exactamente lo
- * que hace un item ACTIVO, así que la sección parecía la tab seleccionada.
+ * DESDE EL 17/10/2026, COMO LINEAR, NOTION Y ATTIO (docs/diseno-sidebar.md, «Lo que se copió»): el rótulo es un
+ * LETRERO chico y tenue, sin fondo y sin ícono, con el chevron al lado; los destinos van sueltos, sin la caja que los
+ * englobaba. Con dos familias (Operate y Sales Machine) la caja ya no separa nada: la separa el rótulo, y la barra se lee
+ * de un vistazo en vez de como cajas apiladas. Las familias NO son un acordeón: todas abiertas de entrada, y cada una se
+ * pliega sola (se recuerda en el navegador). Es lo que hacen las tres: el acordeón te obligaba a abrir Sales Machine para
+ * ver Automations y te cerraba Operate.
  *
- * Ahora al revés, que es lo que hacen Linear, Notion y Attio: el rótulo no es
- * una fila, es un LETRERO. No tiene fondo, ni en reposo ni al pasar el cursor;
- * es chico, tenue y en versalitas; y una línea fina lo separa de la sección de
- * arriba. Los destinos son lo único con superficie, borde e indicador. La
- * jerarquía queda al derecho: lo que orienta retrocede, lo que se toca manda.
+ * El rótulo sigue sin superficie propia (el intento anterior con fondo hacía que la sección pareciera la tab
+ * seleccionada): lo único con superficie, borde e indicador son los destinos. Lo que orienta retrocede, lo que se toca
+ * manda.
  *
- * Plegada vale lo mismo: el ícono de la familia va tenue y chico, los de las
- * tabs enteros, y la línea separa. Ninguna de las dos señales es el color.
+ * Plegada la BARRA (el rail de íconos), el rótulo es una línea fina: los íconos de los destinos trabajan solos. Una
+ * familia plegada por el usuario muestra su ícono, que la despliega, y su contador.
  */
 export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamilia, contadorItem, onToggle, flyoutKey, onAbrirFlyout, onCerrarFlyout, onEntrarComoDueno }: {
   f: FamiliaVista; primera: boolean; open: boolean; pathname: string; abiertaEsta: boolean;
@@ -260,65 +279,48 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
 }) {
   const activa = [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)].some((i) => i.match(pathname));
   return (
-    <div style={{ marginTop: primera ? 0 : 16 }}>
-      {/* El rótulo va AFUERA de la caja y más grande que las tabs. Es la
-          diferencia que faltaba: no es una fila más de la lista, es el título
-          de lo que viene abajo. */}
-      <button type="button" className="mk-seccion"
-        onClick={() => onToggle(f.key)}
-        title={open ? undefined : `${f.label} · ${f.pregunta}`}
-        aria-expanded={abiertaEsta}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 9, width: '100%',
-          justifyContent: open ? 'flex-start' : 'center',
-          padding: open ? '0 2px 7px' : '0 0 7px',
-          // Sin esto, durante los 200 ms en que la barra se abre o se pliega, un rótulo de dos
-          // palabras («Customer Success») baja de renglón y la barra salta 16 a 32 px: el clic
-          // que iba a OPERATE cae en otra cosa. Lo fija tests/barra-clic-operate.test.ts.
-          whiteSpace: 'nowrap',
-          border: 'none', background: 'transparent', cursor: 'pointer',
-          fontFamily: MONO, fontSize: 12, letterSpacing: '.17em',
-          textTransform: 'uppercase', fontWeight: 700,
-          // El rótulo va CLARO y las tabs tenues: al revés de lo que tenía
-          // antes. Es el título de lo que viene abajo, no una fila apagada.
-          color: 'var(--on-sidebar)',
-          opacity: activa ? 1 : 0.78,
-        }}>
-        <span style={{ position: 'relative', display: 'flex', flex: 'none', color: 'inherit' }}>
-          <Icon name={f.icon} size={open ? 15 : 17} />
-          {/* Plegada, la sección igual avisa: es lo único que se ve de lo que
-              no está desplegado. */}
-          {!open && !abiertaEsta && <Contador n={contadorFamilia} compacto />}
-        </span>
-        {open && <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}</span>}
-        {/* El número vive en la familia SOLO mientras está cerrada. Abierta, baja
-            a la tab que lo debe: si no, te dice que hay 14 cosas pendientes pero
-            no cuál de las siete filas las tiene. */}
-        {open && !abiertaEsta && <Contador n={contadorFamilia} />}
-        {open && <span style={{ flex: 'none', fontSize: 10, opacity: 0.75, transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>}
-      </button>
+    <div style={{ marginTop: primera ? 0 : 14 }}>
+      {open ? (
+        <button type="button" className="mk-seccion"
+          onClick={() => onToggle(f.key)}
+          title={f.pregunta}
+          aria-expanded={abiertaEsta}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+            padding: '0 10px 6px',
+            // Sin esto, durante los 200 ms en que la barra se abre o se pliega, un rótulo de dos
+            // palabras («Sales Machine») baja de renglón y la barra salta: el clic que iba a un
+            // destino cae en otra cosa. Lo fija tests/barra-clic-operate.test.ts.
+            whiteSpace: 'nowrap',
+            border: 'none', background: 'transparent', cursor: 'pointer',
+            fontFamily: MONO, fontSize: 10.5, letterSpacing: '.15em',
+            textTransform: 'uppercase', fontWeight: 600,
+            color: 'var(--sidebar-text)',
+            opacity: activa ? 1 : 0.85,
+          }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}</span>
+          <span className="mk-seccion__chev" aria-hidden style={{ flex: 'none', fontSize: 10, transform: abiertaEsta ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+          <span style={{ flex: 1 }} />
+          {/* El número vive en la familia SOLO mientras está plegada. Abierta, baja a la tab que lo debe: si no, te
+              dice que hay 14 cosas pendientes pero no cuál de las filas las tiene. */}
+          {!abiertaEsta && <Contador n={contadorFamilia} />}
+        </button>
+      ) : abiertaEsta ? (
+        <div aria-hidden style={{ height: 1, background: 'var(--sidebar-line)', opacity: 0.7, margin: '2px 14px 8px' }} />
+      ) : (
+        <button type="button" className="mk-navrow" onClick={() => onToggle(f.key)} title={`${f.label} · ${f.pregunta}`} aria-expanded={false} style={filaStyle(false)}>
+          <span style={{ position: 'relative', display: 'flex', flex: 'none', color: 'inherit' }}>
+            <Icon name={f.icon} size={ICO_HIJO} />
+            <Contador n={contadorFamilia} compacto />
+          </span>
+        </button>
+      )}
       {abiertaEsta && (
-        // Y las tabs van ADENTRO de una caja. El rótulo afuera + la caja adentro
-        // es lo que hace que se lean como dos cosas distintas sin depender del
-        // tamaño del texto ni del color, que era lo que se confundía.
-        // La caja tiene que VERSE. El 3,5% de blanco de antes era invisible
-        // sobre el #14161B de la barra, así que el «englobar» no se leía. Con
-        // fondo al 6% y un borde al 8% el bloque existe, y el rótulo de arriba
-        // queda claramente afuera de él.
-        <div style={{
-          display: 'flex', flexDirection: 'column',
-          background: 'rgba(255,255,255,.06)',
-          border: '1px solid rgba(255,255,255,.08)',
-          borderRadius: 'var(--r-lg)',
-          padding: open ? 5 : '5px 3px',
-        }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           {f.bloques.map((bloque, i) => (
-            // Los bloques de adentro de una familia se separan con una línea:
-            // adentro de la caja no compite con nada.
-            <div key={i} style={{
-              display: 'flex', flexDirection: 'column', gap: 1,
-              ...(i > 0 ? { marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,.06)' } : {}),
-            }}>
+            // Los bloques de adentro de una familia se separan con AIRE, no con una línea: sin la caja, una línea entre
+            // filas sueltas se lee como el final de la sección.
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 1, ...(i > 0 ? { marginTop: 7 } : {}) }}>
               {bloque.map((it) => (
                 <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)}
                   onClick={it.entrarComoDueno ? () => onEntrarComoDueno?.(it.href) : undefined} />
@@ -326,7 +328,7 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
             </div>
           ))}
           {f.grupos.map((g) => (
-            <div key={g.key} style={{ marginTop: f.bloques.length ? 6 : 0, paddingTop: f.bloques.length ? 6 : 0, borderTop: f.bloques.length ? '1px solid rgba(255,255,255,.06)' : undefined }}>
+            <div key={g.key} style={{ marginTop: f.bloques.length ? 7 : 0 }}>
               <GrupoFila g={g} open={open} pathname={pathname} abierto={flyoutKey === g.key}
                 onAbrir={onAbrirFlyout} onCerrar={onCerrarFlyout} />
             </div>
@@ -451,9 +453,12 @@ export function Sidebar() {
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
   const vistaNav = { adminShell, rolWs, capa };
   const puedeVer = (it: NavItem) => puedeVerItem(it, vistaNav);
-  /** ¿Ve «Second Brain» en Analyze (el admin de la tab)? Entonces la entrada de abajo, que lleva al mismo lugar, sobra. */
-  const itemSecondBrain = FAMILIAS.flatMap(itemsDe).find((it) => it.key === 'second-brain');
-  const veSecondBrainEnAnalyze = !!itemSecondBrain && puedeVer(itemSecondBrain);
+  /**
+   * Lo de ARRIBA de todo (17/10/2026): Ops Center sólo en la barra del super admin (`adminOnly`) y Second Brain para todos
+   * los que tienen MaKo. Al super admin se le dibuja Second Brain aunque su capa no lo nombre: es una capacidad global y
+   * si va a vender el producto usándolo no puede ser lo único que le falte (lo mismo que hacía la entrada de abajo).
+   */
+  const arriba = ARRIBA.filter((it) => (it.adminOnly ? adminShell : adminShell || puedeVer(it)));
 
   const familiasProducto = FAMILIAS
     .map((f) => {
@@ -473,15 +478,9 @@ export function Sidebar() {
     .filter((f) => f.bloques.length > 0 || f.grupos.length > 0);
 
   /**
-   * El super admin ve LAS MISMAS familias de producto que un cliente, y además
-   * Admin y Dev al final. Dos decisiones adentro de esta línea:
-   *
-   * · Van al FINAL y no al principio: el trabajo diario es el producto; Admin y
-   *   Dev son a dónde vas cuando pasó otra cosa.
-   * · A las dos de admin NO se les aplica `puedeVer`. El filtro por capa es «qué
-   *   contrató este cliente», y la agencia no contrató nada: son sus
-   *   herramientas. Pasarlas por el filtro sería atarlas a un catálogo comercial
-   *   que no las contempla.
+   * El super admin ve LAS MISMAS familias de producto que un cliente. Hasta el 17/10/2026 veía además «Admin» al
+   * final; sus herramientas se repartieron en las tabs que hacen su trabajo (secciones `adminOnly`), el Ops Center
+   * subió arriba de todo y lo que es configuración de la plataforma está en el menú de la foto (nav.ts → HERRAMIENTAS).
    */
   /**
    * MODO DEV. `/admin/dev` no es una sección más de Admin: es otro modo, y la
@@ -500,9 +499,7 @@ export function Sidebar() {
     //  es opcional en NavFamilia y obligatorio en la vista: se normaliza
     // acá, igual que con las de admin, y no se afloja el tipo de la vista.
     ? familiasDev().map((f) => ({ ...f, grupos: f.grupos ?? [] }))
-    : adminShell
-      ? [...familiasProducto, ...ADMIN_FAMILIAS.filter((f) => f.key !== 'dev').map((f) => ({ ...f, grupos: f.grupos ?? [] }))]
-      : familiasProducto;
+    : familiasProducto;
 
   const todosDe = (f: typeof familias[number]) => [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)];
 
@@ -529,27 +526,43 @@ export function Sidebar() {
     f.notifica ? sumaDeContadores(todosDe(f).map((i) => i.key), valorDe) : 0;
 
   /**
-   * QUÉ FAMILIA ESTÁ DESPLEGADA. Es estado, no algo derivado del cursor: si se
-   * recalculara en cada render, abrir Analyze y mover el mouse la cerraba y
-   * volvía a Operate — que era exactamente el bug.
+   * QUÉ FAMILIAS ESTÁN PLEGADAS (17/10/2026). Las de producto van TODAS abiertas y cada una se pliega sola, como las
+   * secciones de Linear y Notion; lo plegado se recuerda en el navegador (`PLEGADAS`). En el MODO DEV sigue el acordeón
+   * de antes —una sola abierta—, porque allá son ocho familias y 122 áreas y abiertas todas no entran.
    *
-   * La elección del usuario MANDA y se queda. Lo único que la pisa es navegar a
-   * una tab de otra familia: ahí se abre la familia donde estás parado, porque
-   * ya te fuiste de la otra. Es el patrón de React de «ajustar estado cuando
-   * cambia una prop», hecho en render y no en un efecto (un efecto pintaría un
-   * frame con la familia equivocada).
+   * Es estado, no algo derivado del cursor: si se recalculara en cada render, mover el mouse la cerraba. Lo único que
+   * pisa la elección del usuario es navegar a una tab de una familia plegada: se abre la familia donde estás parado.
+   * Es el patrón de React de «ajustar estado cuando cambia una prop», hecho en render y no en un efecto (un efecto
+   * pintaría un frame con la familia equivocada).
    */
-  // Busca en TODAS las familias visibles, no solo en las de producto: si no, un
-  // super admin parado en /admin/docs no abría ninguna sección y la barra le
-  // quedaba con Operate desplegada, que no es donde está.
+  // Busca en TODAS las familias, no solo en las de producto: si no, un super admin parado en /admin/docs no abría
+  // ninguna sección en el modo Dev.
   const familiaDeRuta = [...FAMILIAS, ...ADMIN_FAMILIAS].find((f) => itemsDe(f).some((i) => i.match(pathname)))?.key ?? null;
   const [rutaVista, setRutaVista] = useState(familiaDeRuta);
-  const [abierta, setAbierta] = useState<string | null>(familiaDeRuta ?? 'operate');
+  const [abiertaDev, setAbiertaDev] = useState<string | null>(familiaDeRuta ?? 'operate');
+  const [plegadas, setPlegadas] = useState<ReadonlySet<string>>(() => new Set());
+  useEffect(() => { setPlegadas(leerPlegadas()); }, []);
   if (familiaDeRuta && familiaDeRuta !== rutaVista) {
     setRutaVista(familiaDeRuta);
-    setAbierta(familiaDeRuta);
+    setAbiertaDev(familiaDeRuta);
+    if (plegadas.has(familiaDeRuta)) {
+      const sinEsa = new Set(plegadas);
+      sinEsa.delete(familiaDeRuta);
+      setPlegadas(sinEsa);
+    }
   }
-  const desplegada = abierta;
+  const estaAbierta = (k: string) => (enDev ? abiertaDev === k : !plegadas.has(k));
+  const alternarFamilia = (k: string) => {
+    setExpanded(true);
+    if (enDev) { setAbiertaDev((prev) => (prev === k && open ? null : k)); return; }
+    setPlegadas((prev) => {
+      const n = new Set(prev);
+      // Plegada la barra (el rail), el ícono de una familia plegada sólo la despliega: no se pliega lo que no se ve.
+      if (n.has(k)) n.delete(k); else if (open) n.add(k);
+      guardarPlegadas(n);
+      return n;
+    });
+  };
 
   const grupoFlyout = flyout
     ? familias.flatMap((f) => f.grupos).find((g) => g.key === flyout.key) ?? null
@@ -655,6 +668,19 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', onDown);
   }, [userOpen]);
 
+  /** Una fila del menú de la foto. */
+  const filaMenu = (it: NavItem) => {
+    const on = it.match(pathname);
+    return (
+      <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)}
+        className="mk-navrow mk-navrow--claro" data-activo={on}
+        style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, fontSize: 'var(--fs-md)', fontWeight: on ? 600 : 500, textDecoration: 'none' }}>
+        <span style={{ display: 'flex', color: on ? 'var(--primary)' : 'var(--faint)' }}><Icon name={it.icon} size={17} /></span>
+        {it.label}
+      </Link>
+    );
+  };
+
   return (
     <aside data-sidebar style={{ width: RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
@@ -696,6 +722,17 @@ export function Sidebar() {
           </div>
         )}
 
+        {/* ARRIBA DE TODO (17/10/2026): Ops Center y Second Brain, con sus criaturas y sin rótulo — lo tuyo y tu IA antes
+            que el producto, como Inbox en Linear o Notion AI en Notion. Fuera de la columna que scrollea: siempre a la
+            vista. En el modo Dev no van: ahí la barra entera es otra. */}
+        {!enDev && arriba.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 'none', marginBottom: 16 }}>
+            {arriba.map((it) => (
+              <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
+            ))}
+          </div>
+        )}
+
         {/* Navegación. Con una familia abierta puede pasarse de alto en pantallas
             bajas: scrollea acá adentro, nunca corta. */}
         {/* El separador entre familias es el ESPACIO (marginBottom de cada una),
@@ -712,24 +749,18 @@ export function Sidebar() {
               vuelven a divergir a la tercera edición. */}
           {familias.map((f, i) => (
             <Familia key={f.key} f={f} primera={i === 0} open={open} pathname={pathname}
-              abiertaEsta={desplegada === f.key}
+              abiertaEsta={estaAbierta(f.key)}
               contadorFamilia={contadorDe(f)} contadorItem={contadorItem}
-              onToggle={(k) => { setExpanded(true); setAbierta((prev) => (prev === k && open ? null : k)); }}
+              onToggle={alternarFamilia}
               flyoutKey={flyout?.key ?? null}
               onAbrirFlyout={abrirFlyout} onCerrarFlyout={cerrarFlyout}
               onEntrarComoDueno={entrarComoDuenoYNavegar} />
           ))}
         </nav>
 
-        {/* MaKo (capacidad global) + perfil */}
+        {/* El perfil. Second Brain vivía acá abajo hasta el 17/10/2026: subió arriba de todo, con su criatura. */}
         <div style={{ marginTop: 'auto', paddingTop: 12, flex: 'none' }}>
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />
-          {/* MaKo también para el super admin: es una capacidad global, y si va a
-              vender el producto usándolo, no puede ser lo único que le falte. */}
-          {/* Desde el 16/10/2026 es «Second Brain» (el chat con MaKo): a quien ya lo ve en Analyze no se le repite. */}
-          {MAKO_NAV.filter((it) => adminShell || (puedeVer(it) && !veSecondBrainEnAnalyze)).map((it) => (
-            <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
-          ))}
           {/* LA CAMPANITA (17/10/2026, app/_components/CampanitaAvisos.tsx) va en la fila de la identidad y no en una propia:
               la columna ya scrollea en 1024×768. Plegada, un punto sobre la foto. Sólo el admin: los avisos son del negocio. */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -785,17 +816,15 @@ export function Sidebar() {
               </>
             )}
 
-            {USER_NAV.filter((it) => !it.soloSeccion && (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map((it) => {
-              const on = it.match(pathname);
-              return (
-                <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)}
-                  className="mk-navrow mk-navrow--claro" data-activo={on}
-                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, fontSize: 'var(--fs-md)', fontWeight: on ? 600 : 500, textDecoration: 'none' }}>
-                  <span style={{ display: 'flex', color: on ? 'var(--primary)' : 'var(--faint)' }}><Icon name={it.icon} size={17} /></span>
-                  {it.label}
-                </Link>
-              );
-            })}
+            {USER_NAV.filter((it) => !it.soloSeccion && (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map(filaMenu)}
+            {/* Lo que era la familia Admin y es CONFIGURACIÓN de la plataforma (17/10/2026): con qué sabe MaKo, con qué
+                modelos piensa, la formación del equipo y el modo Dev. Sólo el super admin sin mirar un cliente. */}
+            {adminShell && (
+              <>
+                <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
+                {SUPERADMIN_MENU.map(filaMenu)}
+              </>
+            )}
             <div style={{ height: 1, background: 'var(--border)', margin: '5px 0 0' }} />
             <button type="button" className="mk-salir"
               onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; }}

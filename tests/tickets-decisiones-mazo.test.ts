@@ -14,6 +14,7 @@ import { MazoDecisiones } from '../app/tickets/decisiones/Mazo';
 import { OTRA, RESUELTA, type Decision } from '../app/admin/runway/decisiones';
 import { rutaEscritorio, rutaMovil } from '../lib/movil-rutas';
 import { esTrabajo } from '../app/m/_ui/cabecera';
+import { ARRIBA } from '../app/_components/nav';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -132,8 +133,11 @@ test('en el teléfono, las rutas de antes van a la Ticketera del Centro, con la 
   assert.equal(rutaEscritorio('/m/tickets/decisiones'), '/admin/operaciones?ticketera=tarjetas');
   assert.equal(rutaEscritorio('/m/decisiones'), '/admin/operaciones?ticketera=lista');
   assert.equal(rutaMovil('/tickets'), null, 'la tab de los clientes no se toca');
-  assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /titulo="Ticketera" href=\{RUTA_TICKETERA\}/);
-  assert.match(leer('app/m/mas/page.tsx'), /const RUTA_TICKETERA = '\/m\/operaciones\?ticketera=tarjetas'/, 'More es un atajo a la Ticketera del Centro');
+  // Desde el 17/10/2026 More no tiene fila «Ticketera»: la puerta es el Ops Center de arriba (la Ticketera vive adentro),
+  // igual que en la sidebar de escritorio.
+  const mas = sinComentarios(leer('app/m/mas/page.tsx'));
+  assert.match(mas, /titulo="Ops Center" href=\{RUTA_CENTRO\}/);
+  assert.match(mas, /const RUTA_CENTRO = '\/m\/operaciones'/);
 });
 
 test('las rutas de antes no se pierden la query: un aviso que trae a una tarjeta sigue llegando', () => {
@@ -318,14 +322,21 @@ test('las dos páginas del mazo pasan el deshacer; la lista no lo necesita', () 
 //   · sin la línea del ítem en nav.ts      → 16 pases, 1 fallo
 //   · con el href apuntando a '/tickets'   → 16 pases, 1 fallo
 //   · con la key como 'dev-ticketera'      → 16 pases, 1 fallo
-test('la ticketera tiene su ítem en la barra de ADMIN, apuntando al mazo', () => {
+// ⚠️ DESDE EL 17/10/2026 LA PUERTA ES EL OPS CENTER DE ARRIBA (la familia Admin salió de la barra): su ítem marca
+// /tickets/decisiones, y el atajo de la Ticketera sigue entre las herramientas del super admin (HERRAMIENTAS en nav.ts),
+// sin dibujarse, para el título de esa ruta. Probado rompiéndolo: sacando `starts('/tickets/decisiones')` del match del
+// Ops Center → este test falla en el segundo assert.
+test('la ticketera tiene su puerta en la barra: el Ops Center de arriba, y su atajo apunta al mazo', () => {
+  const ops = ARRIBA.find((i) => i.key === 'admin-operaciones');
+  assert.ok(ops?.adminOnly, 'el Ops Center no está arriba, o lo ve un cliente');
+  assert.equal(ops!.match('/tickets/decisiones'), true, 'estando en la ticketera no se marca el Ops Center');
   const nav = leer('app/_components/nav.ts');
-  const admin = nav.slice(nav.indexOf('export const ADMIN_FAMILIAS'), nav.indexOf('export const ADMIN_NAV'));
-  assert.ok(admin.length > 500, `el recorte de ADMIN_FAMILIAS quedó en ${admin.length}: está mirando otra cosa`);
+  const admin = nav.slice(nav.indexOf('const HERRAMIENTAS'), nav.indexOf('export const FAMILIAS'));
+  assert.ok(admin.length > 500, `el recorte de HERRAMIENTAS quedó en ${admin.length}: está mirando otra cosa`);
 
   // Desde el 16/10/2026 es un atajo a la Ticketera ADENTRO del Centro (`TICKETERA`), no otra pantalla.
   const fila = admin.split('\n').find((l) => l.includes(`href: '${TICKETERA}'`));
-  assert.ok(fila, 'la ticketera no tiene ítem en ADMIN_FAMILIAS: en la computadora no hay puerta');
+  assert.ok(fila, 'la ticketera no tiene su atajo en HERRAMIENTAS');
   assert.match(fila!, /match:\s*starts\('\/tickets\/decisiones'\)/, 'el ítem no se marca como activo al estar en la ticketera');
 
   // La key no puede arrancar con 'dev-': ese prefijo lo reserva tests/dev-areas.test.ts
@@ -336,6 +347,6 @@ test('la ticketera tiene su ítem en la barra de ADMIN, apuntando al mazo', () =
   // Y el ítem viejo de «Reportar problema» sigue siendo otra cosa, en otro lado.
   assert.ok(
     nav.includes("href: '/tickets'") && !admin.includes("href: '/tickets'"),
-    'el ítem de Reportar problema no puede vivir en la familia ADMIN: es el soporte de cualquiera',
+    'el ítem de Reportar problema no puede vivir entre las herramientas del super admin: es el soporte de cualquiera',
   );
 });

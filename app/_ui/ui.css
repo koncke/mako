@@ -481,6 +481,26 @@
    tab seleccionada. Acá lo único que cambia es la opacidad. */
 .mk-seccion { transition: opacity .13s ease, color .13s ease; }
 .mk-seccion:hover { opacity: .95 !important; color: var(--on-sidebar); }
+/* El chevron del rótulo, como en Linear: tenue en reposo, entero al pasar el cursor por la sección. */
+.mk-seccion__chev { opacity: .45; transition: opacity .13s ease, transform .15s ease; }
+.mk-seccion:hover .mk-seccion__chev, .mk-seccion:focus-visible .mk-seccion__chev { opacity: 1; }
+
+/* ── Las CRIATURAS de la barra (17/10/2026) ───────────────────────────────
+   Ops Center y Second Brain llevan de ícono el muñeco de ese chat del Ops Center
+   (app/admin/operaciones/Muneco.tsx), y Martín lo pidió «moviéndose como siempre».
+   El movimiento del muñeco vive en app/admin/operaciones/centro.css, que sólo
+   carga la pantalla del Centro; la barra está en TODAS. Por eso va acá, con sus
+   propios nombres de animación y colgado de `.mk-criatura`: no pisa ni depende
+   del CSS del Centro. Mismo ritmo: flota y parpadea. */
+.mk-criatura .mun-cuerpo { animation: mk-criatura-flota 2.8s ease-in-out infinite; }
+.mk-criatura .mun-ojos--parpadeo { animation: mk-criatura-parpadeo 3.6s infinite; }
+@keyframes mk-criatura-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.4px); } }
+@keyframes mk-criatura-parpadeo { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.12); } }
+.mk-navrow:hover .mk-criatura .mun { transform: scale(1.08); transition: transform .14s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .mk-criatura .mun-cuerpo, .mk-criatura .mun-ojos--parpadeo { animation: none; }
+  .mk-navrow:hover .mk-criatura .mun { transform: none; }
+}
 .mk-seccion:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); border-radius: var(--r-sm); }
 
 /* La marca. Sin movimiento en reposo (regla del documento: los destellos son

@@ -125,7 +125,8 @@ test('la marca no se repite cuando ya está en el nombre de la sección', () => 
   // NOMBRE del proyecto en lib/plan-proyectos-catalogo.ts sigue siendo «Feature: Preguntale a MaKo»: ese es una CLAVE
   // guardada en la base, no copy, y renombrarlo huérfana las tarjetas.
   assert.equal(tituloDe('/mako'), 'MaKo - Second Brain', 'sin la marca en el nombre, la pestaña la suma (una vez)');
-  assert.equal(tituloDe('/agencia'), 'WhatsApp de MaKo');
+  // Desde el 17/10/2026 se llama «MaKo WhatsApp» (sección de Chats para el super admin; nombres en inglés).
+  assert.equal(tituloDe('/agencia'), 'MaKo WhatsApp');
 });
 
 test('las sub-rutas de /admin no se comen el título entre sí', () => {
@@ -166,6 +167,7 @@ test('una sub-ruta de /admin SIN item propio no se lee «Clientes»', () => {
   // una lista de exclusiones vieja de una al día.
   assert.equal(tituloDe('/admin/friccion'), 'MaKo - Admin');
   assert.equal(tituloDe('/admin/una-ruta-que-todavia-no-existe'), 'MaKo - Admin');
-  // Y la que SÍ tiene item propio sigue leyendo el suyo.
-  assert.equal(tituloDe('/admin/copywriting'), 'MaKo - Copywriting');
+  // Y la que SÍ tiene item propio sigue leyendo el suyo («Copy Method» desde el 17/10/2026: es una sección de
+  // Copywriting para el super admin, app/_components/nav.ts → HERRAMIENTAS).
+  assert.equal(tituloDe('/admin/copywriting'), 'MaKo - Copy Method');
 });

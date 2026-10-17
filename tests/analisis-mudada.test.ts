@@ -86,6 +86,7 @@ function linksVivos(ruta: string, conBarra: boolean, redirect: string): string[]
   return malos;
 }
 
+// Analyze se deprecó el 17/10/2026 (docs/diseno-sidebar.md): Dashboard pasó a Operate y Experiments salió de la barra.
 const ANALYZE = FAMILIAS.find((f) => f.key === 'analyze');
 const itemNav = (key: string): NavItem | undefined => TODOS_LOS_ITEMS.find((i) => i.key === key);
 
@@ -114,10 +115,13 @@ test('ningún archivo del producto enlaza a /analisis (el trimestre sí puede)',
     'hay links vivos a /analisis, que hoy sólo redirige: van a /experimentos?tab=analisis');
 });
 
-test('la barra: Análisis ya no es un ítem, y Experiments se marca en las rutas viejas', () => {
-  assert.ok(ANALYZE, 'desapareció la familia Analyze');
-  const todos = itemsDe(ANALYZE!);
+// Desde el 17/10/2026 Experiments tampoco es una fila (Analyze se deprecó; su trabajo va al chat de MaKo): su ítem vive en
+// SIN_FILA, para que el teléfono, el título de la pestaña y la API de MaKo lo sigan encontrando por key y por ruta.
+test('la barra: Análisis ya no es un ítem, y Experiments se encuentra en las rutas viejas aunque no sea una fila', () => {
+  assert.equal(ANALYZE, undefined, 'volvió la familia Analyze');
+  const todos = FAMILIAS.flatMap(itemsDe);
   assert.ok(!todos.some((i) => i.key === 'analisis'), 'volvió el ítem «Análisis» a la barra');
+  assert.ok(!todos.some((i) => i.key === 'experimentos'), 'Experiments volvió a ser una fila de la barra');
   assert.ok(!TODOS_LOS_ITEMS.some((i) => i.href === '/analisis' || i.href.startsWith('/analisis?')),
     'un ítem de la barra vuelve a apuntar a /analisis');
   const exp = itemNav('experimentos');
@@ -144,7 +148,6 @@ test('el informe de Análisis enlaza su rango a la tab, no a la ruta vieja', () 
 // suelta en Analyze, pegada a Second Brain. Verificado rompiéndolo: con Offer de vuelta en Analyze cae «Offer no es el
 // primer bloque de Sales Machine»; con Offer al final del bloque de Capturar, también.
 test('Offer: el primer bloque de Sales Machine apunta a /offer, y /offer-analyst sólo redirige', () => {
-  assert.ok(ANALYZE, 'desapareció la familia Analyze');
   const SALES = FAMILIAS.find((f) => f.key === 'create');
   assert.ok(SALES, 'desapareció la familia Sales Machine');
   const offer = itemNav('offer');
@@ -155,10 +158,11 @@ test('Offer: el primer bloque de Sales Machine apunta a /offer, y /offer-analyst
   assert.equal(offer!.match('/offer'), true);
   assert.equal(offer!.match('/offer-analyst'), true, 'la barra no marca Offer al llegar por la ruta vieja');
   // Una sola Offer en toda la barra, y en el primer bloque de Sales Machine (la oferta va antes que lo que la vende).
-  const analysts = ANALYZE!.grupos?.find((g) => g.key === 'analysts');
-  assert.ok(!analysts?.items.some((i) => i.key === 'offer'), 'Offer volvió al desplegable de Analysts');
-  assert.ok(!ANALYZE!.bloques.some((b) => b.some((i) => i.key === 'offer')), 'Offer volvió a Analyze');
-  assert.deepEqual(SALES!.bloques[0].map((i) => i.key), ['offer'], 'Offer no es el primer bloque de Sales Machine');
+  // Desde el 17/10/2026 es una tab UNIFICADA (Strategy y Playbook son sus secciones para el super admin) y Offer es la
+  // primera sección: a la que lleva la tab.
+  assert.equal(FAMILIAS.flatMap(itemsDe).filter((i) => i.key === 'offer').length, 1, 'hay dos Offer en la barra');
+  assert.equal(SALES!.bloques[0].length, 1, 'el primer bloque de Sales Machine tiene más que Offer');
+  assert.equal(SALES!.bloques[0][0].secciones?.[0]?.key ?? SALES!.bloques[0][0].key, 'offer', 'Offer no es el primer bloque de Sales Machine');
 
   const red = sinComentarios(leer('app/offer-analyst/page.tsx'));
   assert.match(red, /redirect\(await rutaConWs\('\/offer'\)\)/, '/offer-analyst dejó de redirigir a /offer con rutaConWs');

@@ -658,7 +658,8 @@ function ChatAgentInner() {
     // del editor arranca a 28 px del borde y el lienzo queda adentro de un marco — que
     // es lo que Martín marcó tres veces. Ahora el título y los avisos llevan el suyo y
     // el lienzo llega al borde de la tab.
-    <main style={{ flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    // Menos la barra de secciones (app/_components/SeccionesTab.tsx): el super admin la ve desde el 17/10/2026 con «MaKo Messages».
+    <main style={{ flex: 1, minWidth: 0, height: 'calc(100vh - var(--alto-secciones, 0px))', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* ⚠️ EL ENCABEZADO SE DESARMÓ EL 05/10/2026, y lo que se fue no fue por estética
           (Martín, textual): «Elimina las pestañas, ya no hay "Email" si todo se crea en
           un mismo lugar… Ya no hay plantillas si todo es lo mismo… Y la pestaña de

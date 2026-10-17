@@ -10,7 +10,12 @@
 //   · las secciones plegables (título 12/600 gris con su chevron): «MaKo» (Atiende MaKo · Borradores,
 //     lo que en respond.io es «AI Agents»), «Canales» (cada línea de WhatsApp, Instagram y Messenger,
 //     con «+» para conectar uno — sólo el admin), «Etapa» (el «Lifecycle»: punto de color y contador);
-//   · el pie: «Bloqueados».
+//   · el pie: «Email» (para quien tenía la tab) y «Bloqueados».
+//
+// ⚠️ DESDE EL 17/10/2026 CHATS ES LA ÚNICA TAB DE CONVERSACIONES (Martín: «eliminar las tabs de Email y WhatsApp y
+// unificarlo todo en Chats»). Lo que no es una conversación se CONFIGURA desde acá: el «+» de Canales conecta un
+// número de WhatsApp (/whatsapp) o el email del negocio (/email: dominio, secuencias y envíos), y el pie lleva a Email a
+// quien lo usaba como tab (admin y setter, el mismo guard de esa página). Ver docs/diseno-sidebar.md §Chats.
 //
 // EL NÚMERO, como respond.io (03-new-message-indicator): gris = conversaciones ABIERTAS; si alguna
 // tiene algo sin leer, en su lugar va la PÍLDORA AZUL con cuántas (conversaciones, no mensajes). Los
@@ -21,7 +26,8 @@
 // «Team Inbox» y «Custom Inbox» (vistas guardadas con filtros avanzados: v2, plano §0).
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Ban, ChevronDown, ChevronUp, FilePen, Inbox, PanelLeftClose, Plus, Search, SquareUser, UserRoundMinus, X } from 'lucide-react';
+import { Ban, ChevronDown, ChevronUp, FilePen, Inbox, Mail, PanelLeftClose, Plus, Search, SquareUser, UserRoundMinus, X } from 'lucide-react';
+import Link from '@/app/_ui/Link';
 import { Dropdown } from '@/app/components/Dropdown';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { CanalChat, ChatResumen, CuentaSocial, EtapaChat, LineaChat } from '@/lib/chats-tipos';
@@ -30,8 +36,9 @@ import { almacenLocal, guardarLocal, leerLocal } from './lista-reglas';
 import { IconoCanal } from './iconos-canal';
 import { portalRio } from './portal';
 
-/** Los canales que se pueden conectar desde el «+» de «Canales». */
-export type CanalConectable = CanalChat;
+/** Los canales que se pueden conectar desde el «+» de «Canales». El email todavía no es un canal de la bandeja: se
+ *  configura en /email (dominio, secuencias y envíos). */
+export type CanalConectable = CanalChat | 'email';
 
 type Seccion = 'mako' | 'canales' | 'etapa';
 
@@ -49,7 +56,7 @@ type Item = {
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
-export function PanelBandejas({ ws, conteos, filtro, onFiltro, lineas, cuentasSociales, etapas, chats, esAdmin, onConectar, onColapsar }: {
+export function PanelBandejas({ ws, conteos, filtro, onFiltro, lineas, cuentasSociales, etapas, chats, esAdmin, veEmail, onConectar, onColapsar }: {
   ws: number | null;
   conteos: ConteosBandeja;
   filtro: FiltroChats;
@@ -60,6 +67,8 @@ export function PanelBandejas({ ws, conteos, filtro, onFiltro, lineas, cuentasSo
   /** Para saber qué canales tienen conversaciones aunque su cuenta no se haya podido leer. */
   chats: ChatResumen[];
   esAdmin: boolean;
+  /** ¿Entra a /email? Admin y setter: el guard de esa página (`requireRolWs(['setter'])`). El closer no la tenía. */
+  veEmail: boolean;
   onConectar: (canal: CanalConectable) => void;
   onColapsar: () => void;
 }) {
@@ -186,8 +195,9 @@ export function PanelBandejas({ ws, conteos, filtro, onFiltro, lineas, cuentasSo
         { value: 'whatsapp', label: 'WhatsApp', icono: <IconoCanal canal="whatsapp" size={18} /> },
         { value: 'instagram', label: 'Instagram', icono: <IconoCanal canal="instagram" size={18} /> },
         { value: 'messenger', label: 'Messenger', icono: <IconoCanal canal="messenger" size={18} /> },
+        { value: 'email', label: 'Email', icono: <Mail size={18} strokeWidth={1.75} /> },
       ]}
-      onChange={(v) => { if (v === 'whatsapp' || v === 'instagram' || v === 'messenger') onConectar(v); }}
+      onChange={(v) => { if (v === 'whatsapp' || v === 'instagram' || v === 'messenger' || v === 'email') onConectar(v); }}
       buttonStyle={{ width: 24, height: 24, padding: 0, border: 'none', borderRadius: 6, background: 'transparent', color: 'var(--rio-text-2)', justifyContent: 'center' }}
     />
   ) : null;
@@ -219,7 +229,17 @@ export function PanelBandejas({ ws, conteos, filtro, onFiltro, lineas, cuentasSo
         {seccion('etapa', 'Etapa', porEtapa)}
         {nada && <div className="rio-lista-pie">Sin bandejas.</div>}
       </nav>
-      {pasa(bloqueados.label) && <div className="rio-bandejas-pie">{renglon(bloqueados)}</div>}
+      {(pasa(bloqueados.label) || (veEmail && pasa('Email'))) && (
+        <div className="rio-bandejas-pie">
+          {veEmail && pasa('Email') && (
+            <Link href="/email" className="rio-item" title="Dominio, secuencias y envíos">
+              <span className="rio-item-icono"><Mail size={18} strokeWidth={1.75} /></span>
+              <span className="rio-item-label">Email</span>
+            </Link>
+          )}
+          {pasa(bloqueados.label) && renglon(bloqueados)}
+        </div>
+      )}
     </aside>
   );
 }
