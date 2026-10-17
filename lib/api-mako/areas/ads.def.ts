@@ -133,7 +133,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_rendimiento_anuncios', area: 'ads', tipo: 'lectura',
     titulo: 'Rendimiento por anuncio en un rango',
-    descripcion: 'El rendimiento de cada anuncio CON GASTO en un rango de fechas, de la base de MaKo (Meta sincronizado + CRM): gasto en USD derivado, leads de Meta y del CRM, agendas, cierres y cash del CRM, días corriendo, veredicto Recon (explorando, validada, falso_positivo, apagar, pausada), hook rate, hold rate, CTR, CPL, CPM, frecuencia e impresiones. Ordenado por gasto. Úsala para «¿qué anuncio rinde mejor?», «¿cuál apago?». Los anuncios sin gasto en el rango no aparecen.',
+    descripcion: 'El rendimiento de cada anuncio CON GASTO en un rango de fechas, de la base de MaKo (Meta sincronizado + CRM): gasto en USD derivado, leads que reporta Meta (`leads_meta`), leads que entraron al CRM desde ese anuncio en el rango (`leads_crm`; la diferencia es la fuga de captura), la meta de leads con la que se valida un anuncio (`meta_leads_para_validar`, una vara fija, no un dato del anuncio), agendas que reporta Meta (`agendas_meta`), cierres y cash del CRM de ese anuncio (de cualquier fecha), días corriendo, veredicto Recon (explorando, validada, falso_positivo, apagar, pausada), hook rate, hold rate, CTR, CPL, CPM, frecuencia e impresiones. Ordenado por gasto. Úsala para «¿qué anuncio rinde mejor?», «¿cuál apago?». Los anuncios sin gasto en el rango no aparecen.',
     parametros: [
       { nombre: 'desde', tipo: 'string', max: 10, descripcion: 'YYYY-MM-DD. Default: 29 días antes de hoy (zona del negocio).' },
       { nombre: 'hasta', tipo: 'string', max: 10, descripcion: 'YYYY-MM-DD. Default: hoy (zona del negocio).' },
