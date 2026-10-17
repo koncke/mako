@@ -39,7 +39,8 @@ import {
 // La papelera de la casa, roja siempre (sexta tanda, general 9): la del menú de una tarjeta.
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Icon } from '@/app/_components/icons';
-import { Toast, useToast } from '@/app/_ui';
+import { Toast, useToast, Switch } from '@/app/_ui';
+import { sinVistaPrevia, tieneLink } from '@/lib/mensaje-partes';
 import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, partirConEspera, type Edicion } from '@/lib/flujo-edicion';
 import { insertarDesdeLienzo } from '@/lib/flujo-conversacion';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
@@ -1259,6 +1260,13 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       placeholder={paso.tipo === 'ia' ? 'Cómo responder' : undefined}
       chatMako={chatMako}
     />
+    {/* LA VISTA PREVIA DE LOS LINKS (#869, Mauricio: «es más discreto»): de ESTA tarjeta, sólo si lleva un link (o si ya
+        se apagó: que se pueda volver a prender). Apagada, el link sale como texto, sin la tarjeta (`sinVistaPrevia`). */}
+    {noOficial && !recordatorio && (tieneLink(paso) || sinVistaPrevia(paso)) && (
+      <div data-vista-previa style={{ flex: 'none', marginTop: 10 }}>
+        <Switch checked={!sinVistaPrevia(paso)} onChange={(v) => cambiar({ sin_vista_previa: !v }, true)} label="Vista previa del link" />
+      </div>
+    )}
     {/* La reentrada de la automatización (#846): debajo del WhatsApp, fuera del teléfono, como un ajuste. */}
     {pieWhatsApp && paso.canal === 'whatsapp' && (
       <div data-pie-whatsapp style={{ flex: 'none', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>{pieWhatsApp}</div>

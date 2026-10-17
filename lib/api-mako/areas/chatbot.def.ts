@@ -294,6 +294,18 @@ export const DEFS: readonly OperacionDef[] = [
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
+    // #869 (17/10/2026): el interruptor «Vista previa del link» de cada WhatsApp, también por MaKo.
+    id: 'vista_previa_links_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Vista previa de los links',
+    descripcion: 'PROPONE que los links de un mensaje de WhatsApp de una secuencia salgan SIN la tarjeta de vista previa (como texto, más discreto) o vuelvan a salir con ella. Vale para lo que sale solo, para el borrador que espera a que alguien lo mande y para las pruebas. Sólo un WhatsApp no oficial. Pide antes el orden del paso con ficha_secuencia_mensajes.',
+    parametros: [
+      pSecuenciaId, pOrden,
+      { nombre: 'vistaPrevia', tipo: 'boolean', obligatorio: true, descripcion: 'false para mandar los links sin la tarjeta; true para volver a mandarlos con ella.' },
+    ],
+    reversible: true, escribe: 'cambia pasos[orden].sin_vista_previa en nutricion_secuencias',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  {
     id: 'desarchivar_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Desarchivar una secuencia',
     descripcion: 'PROPONE devolver una secuencia archivada al listado. Vuelve PAUSADA aunque estuviera prendida al archivarse: para que mande, hay que activarla aparte con proponer_toggle_nutricion. Las inscripciones que se cancelaron al archivarla NO vuelven, y esos leads no pueden reingresar a esa secuencia. Pide antes el secuenciaId con listar_secuencias_archivadas.',

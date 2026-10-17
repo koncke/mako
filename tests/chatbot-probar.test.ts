@@ -178,7 +178,8 @@ test('la prueba real: sólo el admin, por la línea de la secuencia, y nada del 
   const prueba = PRUEBA();
   assert.match(prueba, /\.from\('nutricion_secuencias'\)\.select\('id, instance_name'\)\.eq\('id', p\.secuenciaId\)\.maybeSingle\(\)/);
   assert.match(prueba, /for \(const envio of planDePrueba\(mensaje, primero\)\)/);
-  assert.match(prueba, /enviarYEspejar\(\{ telefono, texto: envio\.texto, linea \}\)/);
+  // (17/10, #869) Detrás puede ir la vista previa del link (tests/whatsapp-sin-vista-previa.test.ts).
+  assert.match(prueba, /enviarYEspejar\(\{ telefono, texto: envio\.texto, linea(?:, sinVistaPrevia: mensaje\.sin_vista_previa === true)? \}\)/);
   assert.match(prueba, /enviarAudioYEspejar\(\{ telefono, base64: b64, mimetype: audio\.media_mime, linea \}\)/);
   assert.match(prueba, /const adj = await getAdjunto\(envio\.mediaId\);/);
   assert.match(prueba, /^import 'server-only';$/m);

@@ -10,6 +10,7 @@ import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
 import { enviarTexto, enviarMedia, enviarAudio } from '@/lib/evolution';
 import { subirMediaSaliente, extDeMime } from '@/lib/evolution-media';
+import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 
 const ahoraISO = () => new Date().toISOString();
 
@@ -58,8 +59,9 @@ export async function tieneBorradorPendienteDePaso(inscripcionId: number, paso: 
 // `linea`: por qué número sale (`evolution_instancias.instance_name`). Sin ella, la de por
 // default — lo de siempre. Ver lib/lineas-whatsapp.ts: una línea que no es del negocio no
 // manda nada, y el motivo vuelve como el error de este envío.
-export async function enviarYEspejar(params: { telefono: string; texto: string; leadId?: number | null; chatJid?: string | null; linea?: string | null }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
-  const r = await enviarTexto(params.telefono, params.texto, params.linea);
+// `sinVistaPrevia`: los links sin la tarjeta (`sinVistaPrevia` del paso, lib/mensaje-partes.ts; #869).
+export async function enviarYEspejar(params: { telefono: string; texto: string; leadId?: number | null; chatJid?: string | null; linea?: string | null; sinVistaPrevia?: boolean }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
+  const r = await enviarTexto(params.telefono, params.texto, params.linea, { sinVistaPrevia: params.sinVistaPrevia });
   if (!r.ok) return { ok: false, error: r.error };
   // Espejo del saliente SOLO si Evolution devolvió el id real: así el eco del
   // webhook (mismo id) hace dedup por wa_message_id. Sin id real, dejamos que el
@@ -152,6 +154,8 @@ export async function crearBorrador(input: {
   audioId?: number | null;
   /** Un paso de ARCHIVO: el archivo de la biblioteca. `texto` pasa a ser el pie. */
   adjuntoId?: number | null;
+  /** Sus links salen sin la tarjeta, como el mensaje que lo creó (#869, `sinVistaPrevia`). */
+  sinVistaPrevia?: boolean;
 }): Promise<void> {
   const supabase = await getTenantDb();
   // upsert anti-duplicado del toque (índice único parcial por inscripcion+paso).
@@ -170,11 +174,27 @@ export async function crearBorrador(input: {
     ...(Number(input.audioId) > 0 ? { audio_id: Number(input.audioId) } : {}),
     ...(Number(input.adjuntoId) > 0 ? { adjunto_id: Number(input.adjuntoId) } : {}),
   };
-  if (input.inscripcionId != null && input.paso != null) {
-    await supabase.from('wa_borradores').upsert(fila, { onConflict: 'workspace_id,inscripcion_id,paso', ignoreDuplicates: true });
-  } else {
-    await supabase.from('wa_borradores').insert(fila);
+  const escribir = (f: Record<string, unknown>) => (input.inscripcionId != null && input.paso != null
+    ? supabase.from('wa_borradores').upsert(f, { onConflict: 'workspace_id,inscripcion_id,paso', ignoreDuplicates: true })
+    : supabase.from('wa_borradores').insert(f));
+  // La marca va SÓLO cuando hay (como el audio): un borrador sin ella se escribe igual que siempre. Sin la columna
+  // (la migración de #869 sin aplicar), el borrador se escribe sin la marca: sale con la tarjeta, pero sale.
+  if (!input.sinVistaPrevia) { await escribir(fila); return; }
+  const { error } = await escribir({ ...fila, sin_vista_previa: true });
+  if (error && esColumnaInexistente(error)) {
+    console.error('[evolution-envio] wa_borradores sin la columna sin_vista_previa: el borrador sale con la vista previa');
+    await escribir(fila);
   }
+}
+
+/** ¿Este borrador manda sus links sin la tarjeta? Sin la columna (migración sin aplicar) o sin poder leer: con tarjeta. */
+async function borradorSinVistaPrevia(supabase: Awaited<ReturnType<typeof getTenantDb>>, id: number): Promise<boolean> {
+  const { data, error } = await supabase.from('wa_borradores').select('sin_vista_previa').eq('id', id).maybeSingle();
+  if (error) {
+    if (!esColumnaInexistente(error)) console.error(`[evolution-envio] la vista previa del borrador ${id}: ${error.message}`);
+    return false;
+  }
+  return (data as { sin_vista_previa?: boolean | null } | null)?.sin_vista_previa === true;
 }
 
 /**
@@ -315,7 +335,8 @@ export async function enviarBorrador(id: number, porEmail: string): Promise<{ ok
   // el borrador vuelve a quedar pendiente.
   const r = b.audio_id != null || b.adjunto_id != null
     ? await enviarMediaDelBorrador(b)
-    : await enviarYEspejar({ telefono: b.telefono, texto: b.texto, leadId: b.lead_id, chatJid: b.chat_jid, linea: b.instance_name });
+    // ⚠️ La vista previa se lee APARTE del claim: pedir la columna ahí, sin la migración aplicada, frenaría todo borrador.
+    : await enviarYEspejar({ telefono: b.telefono, texto: b.texto, leadId: b.lead_id, chatJid: b.chat_jid, linea: b.instance_name, sinVistaPrevia: await borradorSinVistaPrevia(supabase, b.id) });
   if (!r.ok) {
     // Falló el envío → devolvemos el borrador a 'pendiente' para reintentar.
     await supabase.from('wa_borradores').update({ estado: 'pendiente' }).eq('id', id);

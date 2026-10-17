@@ -5197,3 +5197,29 @@ test: `tests/crear-ia-revision-corrige.test.ts`
 
 **Vive en:** `app/automations/SecuenciaPerfil.tsx` (`controlReentrada`, `hayWhatsApp`) ·
 `app/automations/FlujoLienzo.tsx` (`pieWhatsApp`, `EditorMensaje`) · test: `tests/cron-solo-disparo.test.ts`
+
+## Los links de un WhatsApp, con o sin la vista previa (17/10/2026, tarjeta #869)
+
+- **Es de cada mensaje** (`sin_vista_previa: true` en el paso, lib/mensaje-partes.ts), como la línea: el interruptor
+  «Vista previa del link» aparece en la tarjeta sólo si un texto lleva un link (escrito, o un dato como
+  `{{reunion_link}}`). Apagada, Evolution recibe `linkPreview: false` en /message/sendText (v2.3.7). Sin el campo, con
+  la tarjeta, como siempre. Sólo el no oficial: el oficial es una plantilla de Meta.
+- ⚠️ **Un campo nuevo del paso se pierde al guardar si no pasa por `setSecuenciaPasos`**: el paso se RECONSTRUYE campo
+  por campo. Va `vistaPreviaAlGuardar` con la regla de `lineaAlGuardar` (con la clave, lo que llega; sin la clave —la
+  API, el generador—, lo de antes).
+- ⚠️ **El texto de un paso sale por SEIS caminos**, y el obvio es uno solo: el texto que sale solo, las partes
+  (`enviarPartesDelPaso`), el pie de un audio, el BORRADOR que espera al setter (cuatro `crearBorrador`), «Si
+  responde» (`mandarMensajeDeRespuesta`) y las dos pruebas (la del panel, que manda lo que el NAVEGADOR arma, y
+  `probar_secuencia`). Un borrador se manda después y sin el paso: la marca viaja en `wa_borradores.sin_vista_previa`
+  (mig 0309).
+- ⚠️ **Una columna nueva no se pide en el claim de un borrador.** `enviarBorrador` reclama con `update … select(…)`:
+  con la columna en el select y la migración sin aplicar, PostgREST rechaza el pedido y NO sale ningún borrador. Se lee
+  aparte (`borradorSinVistaPrevia`) y `crearBorrador` reintenta sin la marca ante un 42703: sin la columna, el
+  borrador sale con la tarjeta, pero sale.
+- **Sin verificar en vivo:** que Evolution 2.3.7 respete `linkPreview: false` se tomó de su contrato, no de un envío.
+  Se prueba con «Probar en mi WhatsApp» de una tarjeta con un link y el interruptor apagado.
+
+**Vive en:** `lib/mensaje-partes.ts` (`sinVistaPrevia`, `vistaPreviaAlGuardar`, `tieneLink`) · `lib/evolution.ts`
+(`enviarTexto`) · `lib/evolution-envio.ts` (`crearBorrador`, `enviarBorrador`) · `lib/nutricion.ts` ·
+`app/automations/FlujoLienzo.tsx` · mig `0309_wa_borradores_sin_vista_previa.sql` · test:
+`tests/whatsapp-sin-vista-previa.test.ts`
