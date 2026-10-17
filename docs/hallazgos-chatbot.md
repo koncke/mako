@@ -5237,3 +5237,26 @@ test: `tests/crear-ia-revision-corrige.test.ts`
   va en app/automations/page.tsx, que los tests sólo LEEN.
 
 **Vive en:** `app/automations/ChatMako.tsx` (la cabecera) · `app/automations/page.tsx` · test: `tests/chat-mako-muneco.test.ts`
+
+## «Está en el funnel de» con varios funnels: «A o B» en una sola fila (17/10/2026, tarjeta #894)
+
+- **La fila guarda TODAS en `valores` y repite la primera en `valor`.** Así lo que sólo mira `valor` (las filas de
+  antes, «falta elegir», los nombres de la tarjeta) sigue andando sin migrar nada. Pero se lee SIEMPRE con
+  `valoresDeFila` y se escribe con `conValores` (lib/condiciones-catalogo.ts): leer `valor` a mano decide con el
+  primero y se calla el resto.
+- ⚠️ **La quinta puerta otra vez**: `sanearFila` (lib/nutricion-grafo-motor.ts) arma la fila campo por campo, y sin la
+  línea de `valores` el primer guardado volvía «A o B» a «A» sin avisar. Un campo nuevo de la fila no existe hasta que
+  pasa por ahí (lo mismo que pasó con la unión y las reuniones de la cuarta tanda).
+- **El selector es `ElegirFunnels`, con `sinTodos`.** Su convención (vacío = todo el negocio, un renglón «Todos») sirve
+  para un OKR. En una condición está mal: vacío es «falta elegir». Con `sinTodos` no hay renglón «Todos», el botón dice
+  «Elige uno o varios» en rojo y apagar el último deja la fila incompleta.
+- Negada se lee «ni»: «No está en el funnel de «A» ni «B»» (el motor niega el «o» entero).
+
+**Lo que quedó SIN hacer:** «Crear con IA» todavía arma la condición con UN funnel: el prompt no explica las varias (el
+de Groq está al tope de 4.000 tokens) y `filaDelCatalogo` (lib/flujo-ia.ts) toma un solo nombre. La validación sí mira
+todas. Sólo `en_producto` tiene `varios`: otra de lista lo prende con `varios: true`, pero el editor sólo dibuja el
+selector múltiple para el catálogo `producto`. No se miró en pantalla.
+
+**Vive en:** `lib/condiciones-catalogo.ts` (`valoresDeFila`, `conValores`, `en_producto`) · `lib/flujo-grafo.ts`
+(`FilaCondicion.valores`) · `lib/nutricion-grafo-motor.ts` (`sanearFila`) · `app/automations/EditorCondicion.tsx` ·
+`app/components/ElegirFunnels.tsx` (`sinTodos`) · test: `tests/condicion-varios-funnels.test.ts`
