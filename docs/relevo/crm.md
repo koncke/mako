@@ -33,8 +33,8 @@ ruta /crm/[id] (404 sólo en el build parcial) y nada en producción (la extensi
 **SIN HACER, en este orden (con su archivo):**
 1. **Medir el pop-up en producción** (punto 4): en local, ~1,3 s del clic a la ficha, ~1,2 s es `getLeadFullAction`
    (app/crm/actions.ts). Si en producción sigue lento, partir esa action con tiempos por lectura.
-2. **Google Calendar en «Asignar evento»** (punto 3): el motor sólo conoce Calendly y Cal.com
-   (lib/agenda-evento-etapa.ts, app/crm/EventosDeEtapaModal.tsx).
+2. ~~Google Calendar en «Asignar evento»~~ (punto 3): **decidido que no**, porque la API de Google no expone las páginas
+   de reserva ni de cuál viene una reserva; el modal lo dice (docs/hallazgos-crm.md, «Las tabs como HOJAS…» §6).
 3. **#897: que cada pago guarde de qué funnel es** (lleva migración: pedirle el número al Cerebro, la próxima libre era la
    0309). La regla para contar un pago en un funnel ya existe: lib/funnels-elegidos.ts (`funnelDelMomento`).
 4. **T2 de la ficha v2**: Reuniones y Tracking rehechos, y la tarjeta del lead en el kanban personalizable (§0-Ω11).
