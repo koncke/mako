@@ -29,7 +29,7 @@ import { cookies } from 'next/headers';
 import { getSupabaseServer } from './supabase';
 import { getUsuarioActual } from './auth';
 import { AGENCIA_COOKIE, leerAgencia } from './auth-session';
-import { puedeEntrar, clientesAprobados, esWsValido, type FilaCartera } from './agencia-cartera';
+import { puedeEntrar, clientesAprobados, esCarteraVigente, esWsValido, type FilaCartera } from './agencia-cartera';
 
 /** Las columnas que la pantalla necesita, además de las tres del juicio. */
 export type FilaCarteraUI = FilaCartera & {
@@ -208,7 +208,9 @@ export const agenciaDeCliente = cache(async (clienteWs: number | null | undefine
   // salir lo mandaba dos niveles arriba de una.
   // El permiso lo sigue contestando `puedeEntrarAhora`, que es otra función y
   // mira 'aprobado'. Son dos preguntas y por eso son dos lecturas.
-  const duenos = await agenciasDeCliente(clienteWs);
+  // ⚠️ Pero una REVOCADA ya no es dueña (`esCarteraVigente`, 17/10/2026): con la del ws 3, «Salir» llevaba a la
+  // cartera de Código Inmobiliario.
+  const duenos = (await agenciasDeCliente(clienteWs)).filter(esCarteraVigente);
   // Con dos dueños la cadena es ambigua y no se afirma nada: elegir el primero
   // sería inventar un padre. Se distingue de «no tiene dueño» en el log, no en
   // el valor — las dos cosas significan «no hay escalón que mostrar».

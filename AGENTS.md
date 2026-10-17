@@ -379,8 +379,12 @@ o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `t
 Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sigue):
 1. **Las guardas del push** (`scripts/guardas-push.sh`, las mismas del pre-push y de Actions — incluida «todo `.ts` es un
    módulo»: un `.ts` sin `import`/`export` es un script global para `tsc` y choca con otros, runs 51 y 52).
-2. **El `tsc` ACOTADO** de lo que cambiaste **más los que lo importan, un nivel** (un test SIN tocar que llama a la firma
-   vieja de lo que cambiaste; en el run 31, un test llamaba con dos argumentos a una firma que pedía uno). Con el mismo lock y el mismo piso de RAM que
+2. **El `tsc` ACOTADO de lo que cambiaste** (un test que llama con dos argumentos a una firma que pide uno, run 31; una bitácora
+   sin `puntos`, run 10). `--importadores` suma a los que lo importan, un nivel, pero **no es el default**: el 17/10, con ~14 chats
+   abiertos, ese alcance (188 archivos) pedía 4,3 GB y la PC tenía 1,3 libres, y el primer push del Cerebro se trabó ahí. El tsc
+   completo de Actions, que corre justo después de los afectados, cubre a los importadores. **Si no entra en 90 s** (RAM o lock),
+   no espera 15 min ni sale con 99: dice «tipos: los chequea Actions», sigue con los tests y la línea final es
+   `VERDE <sha> (tipos: los chequea Actions)`. Con el mismo lock y el mismo piso de RAM que
    `typecheck-lock.mjs`: de a un `tsc` por máquina. **Sólo bloquean los errores de esos archivos**: `tsc` compila además lo que
    importan, y ahí un archivo suelto no ve los tipos que AGREGA otro (`declare module`), así que los de arrastre se muestran y los
    decide Actions.
@@ -462,6 +466,17 @@ Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
   sus consumidores.
 - **Salida 99 no es un verde**: el `tsc` no terminó (el vigía de RAM lo mató, o sin heap) y no se
   miró nada. 0 es «sin errores en esos archivos», no en el repo: el completo lo corre Actions.
+
+# Un objeto armado a mano se TIPA (`const x: T = …`), nunca `{…} as T`
+
+`{…} as T` compila aunque al objeto le FALTE un campo obligatorio de `T`: ni el acotado ni el
+completo lo ven. Cuando alguien suma un campo a `T`, los lectores reales lo traen y el objeto a mano
+no — y el `.length` sobre ese campo rompe la pantalla en el navegador. Pasó el 17/10/2026: e5ded0af8
+sumó `funnelIds` al OKR, el ejemplo de la Meta objetivo (`app/general/bloques/muestras.ts`) era un
+`as ObjectiveConAvance` sin él, y /general se rompía en todo negocio sin OKR
+(docs/hallazgos-objectives.md → «El ejemplo de la Meta objetivo sin `funnelIds`»). Vale para los
+datos de EJEMPLO, las muestras de un placeholder y los estados optimistas: con `const x: T` (o
+`satisfies T`) el próximo campo obligatorio rompe el tsc en ese archivo, no la pantalla.
 
 # La guardia de RAM puede demorar o negar: no es un error, y no se esquiva
 
