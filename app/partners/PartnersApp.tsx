@@ -188,7 +188,7 @@ export function PartnersApp({ cartera, vistaInicial, cuentaInicial, leadNuevo, p
               puedePedir={puedeAbrir && !superAdmin} puedeSumar={superAdmin}
               onError={(m) => { if (m) show(m, undefined, 'bad'); }} onPedido={() => router.refresh()} />
           ) : (
-            <p className="pt-nota">Cuando la cuenta quede habilitada, acá ves quién entra.</p>
+            <p className="pt-nota">Cuando la cuenta quede habilitada, aquí ves quién entra.</p>
           )}
         </Modal>
       )}
@@ -237,7 +237,7 @@ function Programa({ cartera }: { cartera: CarteraPartner }) {
   const usd = precio?.usd ?? 47;
   return (
     <ol className="pt-programa">
-      <li><b>Cada cliente tiene su propia cuenta de MaKo.</b> La abres tú, desde acá o desde el CRM.</li>
+      <li><b>Cada cliente tiene su propia cuenta de MaKo.</b> La abres tú, desde aquí o desde el CRM.</li>
       <li><b>Cuesta US${usd} al mes por cliente.</b>{precio?.mp ? ` Se paga en ${precio.mp.moneda}: ${precio.mp.monto.toLocaleString('es')}.` : ''} Al pagar su primer mes, la cuenta queda habilitada.</li>
       <li><b>Su mes corre desde que termina el onboarding.</b> Después se renueva solo, cada mes, y lo autorizas una vez.</li>
       <li><b>Entras a su cuenta con «Inspeccionar»</b> y pides sumar a su equipo a quien la va a usar.</li>

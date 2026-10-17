@@ -35,6 +35,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
 import { leerCursos } from './datos';
 import { CursoM } from './CursoM';
+import { SeccionesClientsM } from '@/app/m/cs/SeccionesClientsM';
 import { EN_LA_COMPUTADORA, R } from './modelo';
 
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,7 @@ export default async function CursoPagina() {
   if (!lectura.cursos.length) {
     return (
       <PantallaM>
+        <SeccionesClientsM activa="classroom" />
         <VacioM frase={`${R.sinServicios}.`} accion={{ rotulo: R.irAClientes, href: '/m/cs' }} />
       </PantallaM>
     );
@@ -63,6 +65,7 @@ export default async function CursoPagina() {
 
   return (
     <PantallaM>
+      <SeccionesClientsM activa="classroom" />
       <CursoM cursos={lectura.cursos} puedeEditar={lectura.puedeEditar} />
       <ComputadoraM que={EN_LA_COMPUTADORA} />
     </PantallaM>

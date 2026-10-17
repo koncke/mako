@@ -5574,6 +5574,11 @@ Lo que no se ve leyendo el código:
   el plan, el equipo ni el cobro (eran lecturas que cruzan de inquilino) y la ficha dice «MaKo Partners →» cuando el
   cliente además tiene cuenta. Abrir una cuenta es UNA implementación, `abrirCuentaDePartner` (lib/partners.ts);
   `crearCuentaMakoAction` la envuelve. Lo de Partners, en [hallazgos-partners.md](hallazgos-partners.md).
+- **⚠️ El teléfono lee rótulos de los archivos de ESCRITORIO por su ruta** (`tests/m-comunidad.test.ts`,
+  `tests/m-curso.test.ts`: «cada rótulo que el teléfono repite sigue, ENTERO, en su archivo de escritorio»). Pasar un
+  `page.tsx` a `pantalla.tsx` o cambiar «Ir a Clientes» por «Ir a Clients» en la computadora rompe esos dos, que NO
+  nombran «customer-success» en su nombre: la batería «de lo que cambió» elegida por nombre de archivo no los agarró.
+  Se eligen por CONTENIDO (`git grep -l <la carpeta> -- 'tests/*.test.ts'`).
 
 **Lo que quedó SIN hacer, con su archivo:**
 - **Código dormido en la tarjeta y la ficha** (`CuentaDeMaKo`, la tab Equipo, el chip del plan, «Nadie puede entrar»):

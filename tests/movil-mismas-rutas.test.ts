@@ -89,6 +89,8 @@ test('la URL de escritorio de cada pantalla es la que ya usa la computadora', ()
     ['/m/offer', '/offer'], ['/m/copywriting', '/ads-writer'],
     // Curso y Comunidad son sub-tabs de Clients desde el 17/10/2026 (docs/diseno-clients.md).
     ['/m/curso', '/clients/classroom'], ['/m/comunidad', '/clients/community'],
+    // MaKo Partners (17/10/2026): la misma ruta que la computadora.
+    ['/m/partners', '/partners'],
     ['/m/experimentos?tab=analisis', '/experimentos?tab=analisis'], ['/m/comunidad?post=12', '/clients/community?post=12'],
     // Lo que sólo existe en el teléfono lleva una URL sin /m, y la computadora la manda a lo suyo.
     ['/m/mas', '/mas'], ['/m/configurar', '/configurar'], ['/m/cuenta/instalar', '/perfil/instalar'], ['/m/crm/12/chat', '/crm/12/chat'],

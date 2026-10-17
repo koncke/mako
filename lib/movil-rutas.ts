@@ -434,6 +434,9 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (dentro(p, '/customer-success/curso')) return q.get('vista') === 'avance' ? '/m/cs' : aSeccion('curso', q);
   if (dentro(p, '/customer-success/comunidad')) return aSeccion('comunidad', q);
   if (dentro(p, '/customer-success')) return '/m/cs';
+  // MaKo Partners (17/10/2026): la cartera de cuentas de los clientes de la agencia. La pantalla del teléfono pregunta el
+  // programa (`esAgencia`) como la de escritorio.
+  if (dentro(p, '/partners')) return '/m/partners';
   if (dentro(p, RUTA_AUTOMATIONS) || dentro(p, '/setting') || RUTAS_VIEJAS_AUTOMATIONS.some((r) => dentro(p, r))) return '/m/automations';
   if (dentro(p, '/video-generator')) {
     const plan = q.get('plan') ?? '';
@@ -540,6 +543,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/curso') destino = '/clients/classroom';
   else if (p === '/m/comunidad') destino = '/clients/community';
   else if (p === '/m/cs') destino = '/clients';
+  else if (p === '/m/partners') destino = '/partners';
   else if (p === '/m/automations') destino = RUTA_AUTOMATIONS;
   else if ((m = p.match(/^\/m\/video\/([^/]+)$/))) { destino = '/video-generator'; q.set('plan', m[1]); }
   else if (p === '/m/video') destino = '/video-generator';

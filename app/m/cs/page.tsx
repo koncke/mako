@@ -38,6 +38,7 @@ import { esDelProducto } from '@/app/customer-success/pertenencia';
 import { accesoDeFila, estadoDeInvitacion } from '@/app/customer-success/curso-ficha-lectura';
 import { waMeHref } from '@/app/m/crm/reglas';
 import { ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
+import { SeccionesClientsM } from './SeccionesClientsM';
 import { CustomerSuccessM } from './CustomerSuccessM';
 import type { ClienteCs, CursoCs, ServicioCs } from './reglas';
 
@@ -131,6 +132,7 @@ export default async function CustomerSuccessMovil() {
   if (!entrega.servicios.length) {
     return (
       <PantallaM>
+        <SeccionesClientsM activa="clients" />
         <VacioM frase="Todavía no hay servicios para entregar." />
         <ComputadoraM que={COMPU} />
       </PantallaM>
@@ -179,6 +181,7 @@ export default async function CustomerSuccessMovil() {
 
   return (
     <PantallaM>
+      <SeccionesClientsM activa="clients" />
       <CustomerSuccessM servicios={servicios} clientes={clientes.filter((c) => enAlguno.has(c.id))} />
       <ComputadoraM que={COMPU} />
     </PantallaM>

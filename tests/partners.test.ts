@@ -18,6 +18,10 @@
 //   · `leadParaPartners` filtra por `estado_lead` (sólo ganados)                      → 1 fallo (2)
 //   · el resumen de `llevar_a_partners` lleva el link                                 → 1 fallo (4)
 //   · Program dice «primer mes gratis»                                                → 1 fallo (5)
+//   · /m/partners deja pasar a quien no es agencia (sin `esAgencia`)                  → 1 fallo (6)
+//   · PartnersM importa un VALOR de lib/partners.ts (server-only)                     → 1 fallo (6)
+//   · /m/curso dice que está en «clients»                                             → 1 fallo (6, el trío)
+//   · el trío dice «Comunidad» en vez de «Community»                                  → 1 fallo (6, el trío)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -140,4 +144,26 @@ test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no 
   assert.match(leer('app/partners/PartnersApp.tsx'), /<ModalLlevarAPartners leadId=\{alta\.leadId\}/);
   // Y la ficha de Clients lleva a Partners cuando el cliente también tiene cuenta.
   assert.match(leer('app/customer-success/FichaCliente.tsx'), /\{c\.clienteWs != null && !verCuentas && \(\s*<Link className="fc-partners" href=\{`\/partners\?cuenta=\$\{c\.clienteWs\}`\}/);
+});
+
+// ── 6. El teléfono ───────────────────────────────────────────────────────────────
+test('el teléfono: la MISMA puerta, los MISMOS datos y la MISMA alta que la computadora', () => {
+  const pagina = leer('app/m/partners/page.tsx');
+  assert.match(pagina, /if \(ws == null \|\| !\(await esAgencia\(ws\)\)\) redirect\(/, 'quien no es agencia vuelve a Clients');
+  assert.match(pagina, /cuentasDePartner\(ws\)/, 'la lista sale de lib/partners.ts, como en la computadora');
+  assert.match(pagina, /!cartera\.ok/, '«no pude leer» se dice: no es «todavía no tienes clientes»');
+  const app = leer('app/m/partners/PartnersM.tsx');
+  assert.match(app, /llevarAPartnersAction\(/, 'abrir una cuenta es UNA implementación');
+  assert.doesNotMatch(app, /^import (?!type )[^;]*from ['"]@\/lib\/partners['"]/m, 'lib/partners.ts es server-only: el teléfono importa sólo su tipo');
+});
+
+test('el teléfono: Clients, Community y Classroom llevan arriba el MISMO trío que la cabecera de escritorio', async () => {
+  const { SECCIONES_CLIENTS } = await import('../lib/clients-rutas');
+  const trio = leer('app/m/cs/SeccionesClientsM.tsx');
+  const labels = [...trio.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(labels, SECCIONES_CLIENTS.slice(0, 3).map((s) => s.label), 'mismos nombres y orden');
+  for (const [rel, activa] of [['app/m/cs/page.tsx', 'clients'], ['app/m/comunidad/page.tsx', 'community'], ['app/m/curso/page.tsx', 'classroom']]) {
+    const src = leer(rel);
+    assert.match(src, new RegExp(`<SeccionesClientsM activa="${activa}"`), `${rel} sin el trío`);
+  }
 });

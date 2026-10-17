@@ -57,6 +57,7 @@ test('v2: las secciones de More (y sus subrutas) van a su pantalla de /m, no a Â
     ['/dashboard', '/m/dashboard?hoja=comercial', '?hoja=comercial&ws=3'],
     ['/ads-manager', '/m/ads'], ['/ads-manager/120330001', '/m/ads'],
     ['/customer-success', '/m/cs'], ['/customer-success/curso', '/m/curso'], ['/customer-success/comunidad', '/m/comunidad'],
+    ['/partners', '/m/partners'], ['/partners', '/m/partners', '?cuenta=12'],
     ['/calendario', '/m/calendario'], ['/second-brain', '/m/second-brain'], ['/experimentos', '/m/experimentos'],
     ['/analisis', '/m/experimentos?tab=analisis'], ['/offer', '/m/offer'], ['/offer-analyst', '/m/offer'],
     ['/ads-writer', '/m/copywriting'],
