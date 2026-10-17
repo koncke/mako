@@ -31,7 +31,7 @@ import { LinkIntegracion } from '../../_components/ConectarIntegracion';
 import { DesgloseTrigger, type DesgloseData } from '../../_components/Desglose';
 import { EditarObjetivo, EditarCapacidad } from '../EditarObjetivo';
 import type { DatosGeneral } from '../datos-tipos';
-import { Cabeza, Fallo, Placeholder } from './comun';
+import { Cabeza, DeQueFunnels, Fallo, Placeholder } from './comun';
 import { META_MUESTRA, FOCO_MUESTRA } from './muestras';
 
 type Cab = Extract<DatosGeneral['cabecera'], { ok: true }>['d'];
@@ -83,7 +83,7 @@ function CuerpoMeta({ c, detalle }: { c: Cab; detalle: string }) {
             : numero}
           {/* «de $30,000 · Q4 2026»: la meta, y tocándola se edita (el OKR que manda, con su métrica de plata). */}
           <EditarObjetivo
-            objetivo={{ id: objetivo.id, titulo: objetivo.titulo, metrica: objetivo.metrica, metaValor: objetivo.metaValor, quarter: objetivo.quarter, avanceManual: objetivo.avanceManual }}
+            objetivo={{ id: objetivo.id, titulo: objetivo.titulo, metrica: objetivo.metrica, metaValor: objetivo.metaValor, quarter: objetivo.quarter, avanceManual: objetivo.avanceManual, funnelIds: objetivo.funnelIds }}
             anio={c.anio} quarter={c.quarter}
             disparador={(
               <span className="gb-d gb-num" style={{ cursor: 'pointer' }} title={`Editar la meta: ${objetivo.titulo}${objetivo.metrica !== 'libre' ? ` (${METRICA_LABEL[objetivo.metrica]})` : ''}`}>
@@ -91,6 +91,7 @@ function CuerpoMeta({ c, detalle }: { c: Cab; detalle: string }) {
               </span>
             )}
           />
+          {objetivo.funnelIds.length > 0 && <span><DeQueFunnels ids={objetivo.funnelIds} /></span>}
           {metaOk && objetivo.actual !== null && <Ritmo objetivo={objetivo} supera={supera} />}
           {objetivo.actual === null && (
             <span className="gb-d" style={{ color: 'var(--warn)' }}>

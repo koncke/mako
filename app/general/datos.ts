@@ -172,7 +172,7 @@ function datosDeCabecera(v: Vista): DatosGeneral['cabecera'] {
 function datosDeOkrs(v: Vista): DatosGeneral['okrs'] {
   const lista: OkrVista[] = v.objetivos.map((o) => ({
     id: o.id, titulo: o.titulo, metrica: o.metrica, metricaLabel: METRICA_LABEL[o.metrica], unidad: o.unidad,
-    metaValor: o.metaValor, quarter: o.quarter, avanceManual: o.avanceManual, actual: o.actual,
+    metaValor: o.metaValor, quarter: o.quarter, avanceManual: o.avanceManual, funnelIds: o.funnelIds, actual: o.actual,
     pct: o.pct == null ? null : Math.max(0, Math.min(100, Math.round(o.pct))),
     atrasado: o.ritmo ? o.ritmo.desvio < 0 : null,
     fraccion: fraccionDelObjetivo(o, v.progreso, v.hoy),
@@ -321,7 +321,7 @@ export async function armarDatosGeneral(): Promise<DatosGeneral> {
           id: k.id, nombre: k.nombre, cadencia: k.cadencia, compromiso: k.compromiso,
           unidad: k.unidad, fuente: k.fuente, fuenteId: k.fuenteId, objectiveId: k.objectiveId,
           valor: k.valor, error: k.error, estado: k.estado, pct: k.pct,
-          umbralVerde: k.umbralVerde, umbralAmbar: k.umbralAmbar,
+          umbralVerde: k.umbralVerde, umbralAmbar: k.umbralAmbar, funnelIds: k.funnelIds,
         })),
         candidatos: x.candidatos,
         objetivos: x.objetivos.map((o) => ({ id: o.id, titulo: o.titulo })),

@@ -17,7 +17,9 @@ import { useState, useTransition } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Modal, Button, TextField, Select } from '@/app/_ui';
 import { guardarObjectiveAction, cerrarObjectiveAction, setCapacidadAction } from './actions';
-import type { MetricaObjetivo } from '@/lib/objectives-modelo';
+import { metricaPorFunnel, type MetricaObjetivo } from '@/lib/objectives-modelo';
+import { ElegirFunnels } from '../components/ElegirFunnels';
+import { useFunnelsGeneral } from '../dashboard/ElementoGeneral';
 
 const METRICAS: Array<{ value: MetricaObjetivo; label: string; hint: string }> = [
   { value: 'cash_usd', label: 'Cobrado (USD)', hint: 'Lo que efectivamente entró en el período.' },
@@ -36,7 +38,7 @@ const hintDe = (m: string) => METRICAS.find((x) => x.value === m)?.hint ?? '';
  * tarjeta del bloque «OKRs» y su panel (app/general/bloques/).
  */
 export function EditarObjetivo({ objetivo, anio, quarter, disparador }: {
-  objetivo: { id: string; titulo: string; metrica: string; metaValor: number; quarter: number | null; avanceManual: number | null } | null;
+  objetivo: { id: string; titulo: string; metrica: string; metaValor: number; quarter: number | null; avanceManual: number | null; funnelIds?: number[] } | null;
   anio: number;
   quarter: number;
   disparador: React.ReactNode;
@@ -51,6 +53,11 @@ export function EditarObjetivo({ objetivo, anio, quarter, disparador }: {
   const [meta, setMeta] = useState(objetivo ? String(objetivo.metaValor) : '');
   const [anual, setAnual] = useState(objetivo ? objetivo.quarter === null : false);
   const [avance, setAvance] = useState(objetivo?.avanceManual != null ? String(objetivo.avanceManual) : '');
+  // De qué funnels suma (17/10/2026: «¿cómo le digo de dónde tomar los ingresos?»). Vacío = todo el negocio. Se
+  // ofrece con dos funnels o más (o si ya tenía uno elegido); sin la lista de funnels, no se manda y queda lo que había.
+  const funnels = useFunnelsGeneral();
+  const [funnelIds, setFunnelIds] = useState<number[]>(objetivo?.funnelIds ?? []);
+  const ofreceFunnels = !!funnels && (funnels.length > 1 || funnelIds.length > 0);
 
   const guardar = () => {
     setError(null);
@@ -64,6 +71,7 @@ export function EditarObjetivo({ objetivo, anio, quarter, disparador }: {
           metrica,
           metaValor: Number(meta) || 0,
           avanceManual: metrica === 'libre' && avance !== '' ? Number(avance) : null,
+          funnelIds: ofreceFunnels ? funnelIds : undefined,
         });
         setAbierto(false);
         router.refresh();
@@ -125,6 +133,10 @@ export function EditarObjetivo({ objetivo, anio, quarter, disparador }: {
               <TextField label="Avance de hoy" value={avance} onChange={(e) => setAvance(e.target.value)}
                 type="number" min="0" inputMode="decimal"
                 hint="Como MaKo no puede leer esta métrica, el número lo pones tú." />
+            )}
+            {ofreceFunnels && funnels && metricaPorFunnel(metrica) && (
+              <ElegirFunnels label="De qué funnels" hint="Elige uno o varios: el avance los suma."
+                funnels={funnels} valor={funnelIds} onCambiar={setFunnelIds} todos="Todo el negocio" />
             )}
             <Select label="Período" value={anual ? 'anual' : 'q'} onChange={(v) => setAnual(v === 'anual')}
               options={[

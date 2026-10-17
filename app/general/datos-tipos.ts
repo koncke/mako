@@ -36,6 +36,8 @@ export type OkrVista = {
   /** null = anual. */
   quarter: number | null;
   avanceManual: number | null;
+  /** De qué funnels suma (mig 0306). Vacío = todo el negocio. */
+  funnelIds: number[];
   /** null = no se pudo leer la métrica (nunca cero por error). */
   actual: number | null;
   /** 0..100 o null. */

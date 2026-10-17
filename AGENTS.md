@@ -4675,6 +4675,20 @@ del producto principal: «No se debe "Mover", se debe agregar al otro producto»
 arriba sigue valiendo para las entidades que SÍ son N (una tarea por tablero, una fila por
 cuota); la pregunta es la primera línea.
 
+# Elegir funnels: UNO O VARIOS, con una pieza y una regla (17/10/2026)
+
+Martín, a un cliente: «si tienes varios CRM que sea una selección múltiple y que puedas seleccionar 1 o varios».
+
+- **Una configuración que elige de qué funnels cuenta algo usa `ElegirFunnels`**
+  (app/components/ElegirFunnels.tsx): vacío = todo el negocio, y un valor viejo de UNO se lee como lista de uno
+  (`leerFunnelIds`, lib/funnels-elegidos.ts; `funnelsDeBloque` en los bloques de General), sin migrar a mano.
+- ⚠️ **Plata o cierres por funnel NO se cuentan por la casa del lead.** En el ws1 «Renovación» tenía 0 leads con casa y
+  5 agregados (`lead_funnel`): filtrar por `leads.funnel_id` da cero para todo funnel de agregados, en silencio. Se
+  reparte con `funnelDelMomento` sobre `ubicarLeads` (lib/funnels-elegidos-server.ts): el funnel donde estaba el lead
+  ESE día. El número y su desglose usan la misma, o no cuadran.
+- **Lo que es UNO por naturaleza sigue siendo uno**: las etapas de un kanban, dónde nace un lead, a qué etapa mueve un
+  evento o una etiqueta. La pregunta es si se SUMA (varios) o si se UBICA (uno).
+
 # Si la misma pregunta se contesta en DOS lugares, el BORRADO va por una función
 
 La regla de arriba autoriza partir un dato en dos claves, y está bien. Lo que no
