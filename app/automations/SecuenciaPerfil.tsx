@@ -178,7 +178,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   onMakoTrabajando?: (trabajando: boolean) => void;
   /** Los pedidos sueltos del chat de MaKo (16/10/2026, ./pedidos-chat.ts): crear OTRA por la puerta de «Pídeselo a MaKo». */
-  onCrearOtra?: (pedido: string) => void;
+  onCrearOtra?: (pedido: string) => Promise<boolean>;
   /** Se eliminó o volvió OTRA automatización desde el chat: la lista se vuelve a leer. */
   onListaCambio?: () => void;
   /**

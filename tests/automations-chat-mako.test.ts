@@ -268,7 +268,8 @@ test('abierto al entrar: el lienzo con makoAlAbrir monta el chat; ?mako=1 y la f
   assert.match(PERFIL, /if \(makoAlAbrir !== makoPedido\) \{\s*setMakoPedido\(makoAlAbrir\);\s*if \(makoAlAbrir && !editandoIA\) abrirMako\(\);\s*\}/);
   // La lista lo pasa a ESA automatización (después de elegirla: `cambiarA` lo limpia).
   assert.match(LISTA, /export type AbrirSecuencia = \{ id: number; mako\?: true; pedido\?: string \};/);
-  assert.match(LISTA, /setAbrirVisto\(abrir\);\s*elegir\(abrir\.id\);\s*setMakoPara\(abrir\.mako \? abrir\.id : null\);/);
+  // (17/10/2026: «crea otra» desde el chat de la abierta cambia sin la pregunta de lo no publicado: `creaDesdeElChat`.)
+  assert.match(LISTA, /setAbrirVisto\(abrir\);\s*if \(!creaDesdeElChat\.current\) elegir\(abrir\.id\);\s*else if \(abrir\.id !== selId\) \{ setSinPublicar\(false\); cambiarA\(abrir\.id\); \}\s*(?:\/\/[^\n]*\n\s*)*setMakoPara\(abrir\.mako \? abrir\.id : null\);/);
   assert.match(LISTA, /makoAlAbrir=\{makoPara === sel\.id\}/);
   assert.match(tramo(LISTA, 'const cambiarA = (id: number) => {', '\n  };', 900), /setMakoPara\(null\);/);
   // La tab: la fila que nace con un pedido de «Pídeselo a MaKo» (decimotercera, punto 2), y el link `?sec=<id>&mako=1`.

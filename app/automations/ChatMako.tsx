@@ -73,7 +73,7 @@ import { useEscucharChatMako } from './chat-mako-eventos';
 import Link from '@/app/_ui/Link';
 import {
   cuerpoPedidos, interpretacionDe, textoActual, burbujasDe, vistaDeBurbuja, pulsar, trasEliminar, trasRecuperar, trasCrear,
-  alTerminar, type BurbujaPedido, type EfectoPedido,
+  alTerminar, paraLienzoVacio, type BurbujaPedido, type EfectoPedido,
 } from './pedidos-chat';
 // Los POST de los pedidos sueltos viven aparte: este chat no hace POST propios (el stream lo lee sólo ./stream-ia.ts).
 import { pedirPedidos, pedirALaLista } from './pedidos-cliente';
@@ -112,21 +112,23 @@ export type ChatMakoProps = {
   onPedidoInicialUsado?: () => void;
   /** El nombre de esta automatización: los pedidos sueltos la distinguen de «la otra» (`cuerpoPedidos`). */
   nombre?: string;
-  /** «Crea otra automatización…» (los pedidos sueltos): la MISMA puerta que «Pídeselo a MaKo». Sin esto, no se ofrece. */
-  onCrearOtra?: (pedido: string) => void;
+  /**
+   * «Crea otra automatización…» (los pedidos sueltos): la MISMA puerta que «Pídeselo a MaKo». Sin esto, no se ofrece.
+   * Contesta si la fila nació: la burbuja no dice «Creada» sin saberlo.
+   */
+  onCrearOtra?: (pedido: string) => Promise<boolean>;
   /** Se eliminó o volvió OTRA automatización desde una burbuja: la lista se vuelve a leer. */
   onListaCambio?: () => void;
 };
 
 
-/** Lo de esta pantalla que no es del hilo guardado: lo que se escribió sin nada para la abierta, y las burbujas. */
+/**
+ * Lo de esta pantalla que no es del hilo guardado: lo que se escribió sin nada para la abierta, y las burbujas.
+ * ⚠️ SIN DEDUPLICAR (17/10/2026): un mensaje repetido trae sus burbujas otra vez. Las de antes se salteaban las «iguales»,
+ * y un mensaje mandado dos veces no dejaba ni burbuja ni turno de MaKo: se tragaba.
+ */
 type ExtraChat = { id: string; at: string; yo?: string; b?: BurbujaPedido };
 const PREFIJO_EXTRA = 'pedido:';
-
-/** Una clave por burbuja, para no repetir la misma al volver a mandar el mismo mensaje. */
-const claveBurbuja = (b: BurbujaPedido): string =>
-  b.tipo === 'crear' ? `crear:${b.pedido}` : b.tipo === 'eliminar' ? `eliminar:${b.objeto.id}` : b.tipo === 'elegir' ? `elegir:${b.candidatos.map((c) => c.id).join(',')}`
-    : b.tipo === 'abrir' ? `abrir:${b.objetos.map((o) => o.id).join(',')}` : b.tipo === 'ir' ? `ir:${b.link}` : b.tipo === 'aviso' ? `aviso:${b.texto}` : 'abierta';
 
 /** Lo que dice el campo en el lienzo, y con una pregunta abierta (la respuesta escrita es «Otra cosa»). */
 export const PLACEHOLDER_EDITAR = 'Pídele un cambio';
@@ -378,15 +380,15 @@ export function ChatMako(p: ChatMakoProps) {
     const crudo = await pedirPedidos(cuerpoPedidos(t, p.secuenciaId, p.nombre ?? ''));
     if (!vivo.current) return true;
     setInterpretando(false);
-    const i = interpretacionDe(crudo, t);
+    // Con el lienzo VACÍO, «crea una automatización…» es el pedido para ÉSTA, no una burbuja (`paraLienzoVacio`).
+    const leida = interpretacionDe(crudo, t);
+    const i = crea ? paraLienzoVacio(leida, t) : leida;
     const nuevas = burbujasDe(i, p.secuenciaId).filter((b) => b.tipo !== 'crear' || !!p.onCrearOtra);
     const actual = textoActual(i);
     if (!nuevas.length) return turno(t, null, origen, actual ?? undefined);
-    // Lo escrito queda en el hilo; las burbujas, debajo (las mismas no se repiten si se vuelve a mandar).
-    const ya = new Set(extrasRef.current.flatMap((x) => (x.b ? [claveBurbuja(x.b)] : [])));
+    // Lo escrito queda en el hilo; las burbujas, debajo.
     const base = Date.now();
-    const burbujas = nuevas.filter((b) => !ya.has(claveBurbuja(b)))
-      .map((b, k): ExtraChat => ({ id: `${PREFIJO_EXTRA}${nuevoId('mako')}`, at: new Date(base + 1 + k).toISOString(), b }));
+    const burbujas = nuevas.map((b, k): ExtraChat => ({ id: `${PREFIJO_EXTRA}${nuevoId('mako')}`, at: new Date(base + 1 + k).toISOString(), b }));
     if (!actual) {
       // Nada de esta automatización: MaKo no trabaja. Lo escrito se ve igual (sólo en esta pantalla).
       ponerExtras((xs) => [...xs, { id: `${PREFIJO_EXTRA}${nuevoId('yo')}`, at: new Date(base).toISOString(), yo: t }, ...burbujas]);
@@ -406,8 +408,10 @@ export function ChatMako(p: ChatMakoProps) {
     }
     if (ef.tipo === 'crear') {
       if (!p.onCrearOtra) { cambiar((b) => trasCrear(b, false)); return; }
-      p.onCrearOtra(ef.pedido);
-      cambiar((b) => trasCrear(b, true));
+      // «Creada» sólo si la fila nació. Si nació, el lienzo cambia a la nueva y este chat se desmonta.
+      const ok = await p.onCrearOtra(ef.pedido).catch(() => false);
+      if (!vivo.current) return;
+      cambiar((b) => trasCrear(b, ok));
       return;
     }
     const ok = await pedirALaLista(ef.cuerpo);

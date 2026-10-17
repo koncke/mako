@@ -22,6 +22,14 @@
 //   · el chat sin preguntarle a la ruta, la ruta sin la puerta de la lista o con las archivadas, el cliente que tira →
 //     12 / 1 cada uno, cae el 5;
 //   · la creación que esperaba sin salir, o «Sí» sin esperar a MaKo → 12 / 1 cada uno, cae el 3.
+//
+// 6. Las regresiones que la revisión frenó (arregladas el 17/10/2026). Probado rompiéndolo (arnés `romper.py` del
+// scratchpad + `roturas-chat.json`, md5 igual al restaurar; base 6 / 6):
+//   · `paraLienzoVacio` sin hacer nada → 5 / 1 (cae el 6); el chat sin usarlo con el lienzo vacío → 5 / 1 (cae el 5);
+//   · «Crear ahora» sin esperar a MaKo, «Deshacer» prometiendo los leads, «Creada» sin saberlo, y crear desde el chat
+//     con la pregunta de «Descartar cambios» → 5 / 1 cada uno, cae el 6.
+// Las del resolver (un nombre en una comparación, borrar una parte, «A y elimina la otra») están en
+// tests/mako-pedidos.test.ts, con sus roturas.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -32,7 +40,7 @@ import { REGISTRO, ordenarPorRelevancia, porId, visible, type Vista } from '../l
 import { esAccion, esLectura, type OperacionDef } from '../lib/api-mako/tipos';
 import {
   cuerpoPedidos, cuerpoEliminar, cuerpoRecuperar, interpretacionDe, textoActual, burbujasDe, vistaDeBurbuja, pulsar,
-  trasEliminar, trasRecuperar, trasCrear, alTerminar, objetosDeAutomatizaciones, rutaDeAutomatizacion, TEXTOS,
+  trasEliminar, trasRecuperar, trasCrear, alTerminar, objetosDeAutomatizaciones, rutaDeAutomatizacion, paraLienzoVacio, TEXTOS,
 } from '../app/automations/pedidos-chat';
 
 const leer = (r: string): string => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -68,7 +76,8 @@ test('1. «la otra automatización» con UNA sola otra: ésa, con confirmación,
   assert.equal(burbujas.length, 1);
   const b = burbujas[0];
   assert.equal(b.tipo, 'eliminar');
-  assert.match(vistaDeBurbuja(b).texto, /^¿Elimino «Seguimiento de agendados»\? Deja de enviar y sale de la lista\.$/);
+  // Los leads de adentro salen (archivar cancela las inscripciones) y «Deshacer» no los devuelve: se dice antes del sí.
+  assert.match(vistaDeBurbuja(b).texto, /^¿Elimino «Seguimiento de agendados»\? Deja de enviar, sale de la lista y los leads que tiene adentro salen\.$/);
   // «Sí, eliminarla» manda a la API de la lista ESA y sólo esa.
   const r = pulsar(b, 'eliminar', ABIERTA.id);
   assert.deepEqual(r.efecto, { tipo: 'eliminar', objeto: OTRA, cuerpo: { action: 'archivar', ids: [20] } });
@@ -157,14 +166,75 @@ test('5. el cableado: la ruta lista con la puerta de la lista, y el chat pregunt
   const iRuta = enviar.indexOf("const crudo = await pedirPedidos(cuerpoPedidos(t, p.secuenciaId, p.nombre ?? ''));");
   const iTurno = enviar.indexOf('return turno(t, null, origen, actual');
   assert.ok(iRuta > 0 && iTurno > iRuta, 'el chat tiene que preguntar a la ruta ANTES de mandarle a MaKo');
-  assert.match(enviar, /const i = interpretacionDe\(crudo, t\);/);
+  assert.match(enviar, /const leida = interpretacionDe\(crudo, t\);\n\s*const i = crea \? paraLienzoVacio\(leida, t\) : leida;/, 'con el lienzo vacío, «crea una…» es de ésta');
   // La ruta con su plazo, y nunca tira: sin respuesta, null (y el mensaje entero va a MaKo).
   const cliente = leer('app/automations/pedidos-cliente.ts');
   assert.match(cliente, /fetch\('\/api\/mako\/pedidos', \{\n\s*method: 'POST',[^\n]*signal: AbortSignal\.timeout\(ms\),/);
   assert.match(cliente, /\} catch \{\n\s*return null;\n\s*\}/);
   assert.match(chat, /: \{ pedido: pedido \?\? dicho, respuestas: \[\] as RespuestaMako\[\] \};/, 'MaKo recibe sólo lo de la abierta');
   // «Crear otra» entra por la puerta de «Pídeselo a MaKo», y la lista se relee al eliminar.
-  assert.match(leer('app/automations/ChatAgentApp.tsx'), /onCrearOtra=\{pedirAMako\}/);
-  assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /onCrearOtra=\{onCrearOtra\} onListaCambio=\{onReload\}/);
+  assert.match(leer('app/automations/ChatAgentApp.tsx'), /onCrearOtra=\{crearNueva\}/);
+  assert.match(leer('app/automations/SimuladorWhatsApp.tsx'), /onCrearOtra=\{onCrearOtra \? crearOtra : undefined\} onListaCambio=\{onReload\}/);
   assert.match(leer('app/automations/SecuenciaPerfil.tsx'), /nombre=\{secuencia\.nombre \?\? ''\} onCrearOtra=\{onCrearOtra\} onListaCambio=\{onListaCambio\}/);
+});
+
+// Las regresiones que la revisión del 16/10/2026 frenó antes de subir (docs/hallazgos-chatbot.md, «Los pedidos sueltos en
+// el chat de Automations»), arregladas el 17/10/2026. Cada una con el mensaje que la mostraba.
+test('6. las regresiones del 16/10: lienzo vacío, un nombre adentro de una edición, dos pedidos con «y», «Crear ahora» espera, lo que dice «Deshacer» y no tragarse un repetido', async () => {
+  // a. Con el lienzo VACÍO, «crea una automatización…» es el pedido para ÉSTA: todo a MaKo, sin burbuja.
+  const vacio = 'Crea una automatización que salude a los que agendan';
+  const v = await chat(vacio, [ABIERTA, OTRA]);
+  assert.equal(v.burbujas[0]?.tipo, 'crear', 'con tarjetas sigue siendo «otra»');
+  const vi = paraLienzoVacio(v.i, vacio);
+  assert.equal(textoActual(vi), vacio, 'con el lienzo vacío no llegaba a MaKo');
+  assert.deepEqual(burbujasDe(vi, ABIERTA.id), []);
+  // …y lo otro del mensaje sigue siendo burbuja.
+  const mixto = await chat('Crea una automatización que salude y elimina la otra automatización', [ABIERTA, OTRA]);
+  const mi = paraLienzoVacio(mixto.i, 'x');
+  assert.equal(textoActual(mi), 'Crea una automatización que salude');
+  assert.deepEqual(burbujasDe(mi, ABIERTA.id).map((b) => b.tipo), ['eliminar']);
+  // b. El nombre de otra DENTRO de una edición de la abierta no se lleva el mensaje.
+  const comp = 'Que el mensaje diga lo mismo que en Seguimiento de agendados';
+  const c = await chat(comp, [ABIERTA, OTRA]);
+  assert.equal(c.actual, comp);
+  assert.deepEqual(c.burbujas, []);
+  // …y borrar una PARTE de otra no ofrece archivarla: es abrirla.
+  const COBRANZA: ObjetoChat = { id: '40', nombre: 'Cobranza', tocadoAt: '2026-10-12T10:00:00Z' };
+  const parte = await chat('Borra el mensaje de Cobranza', [ABIERTA, OTRA, COBRANZA]);
+  assert.deepEqual(parte.burbujas.map((b) => b.tipo), ['abrir'], 'ofrecía archivar la automatización entera');
+  // (Con un nombre que lleva una palabra de otra área —«agendados» es del CRM— va entero a MaKo: tampoco archiva.)
+  const crm = await chat('Borra el mensaje de Seguimiento de agendados', [ABIERTA, OTRA]);
+  assert.ok(!crm.burbujas.some((b) => b.tipo === 'eliminar'));
+  // c. Dos pedidos unidos con «y»: lo de la abierta a MaKo y la otra en su burbuja (antes, lo de la abierta se perdía).
+  const dos = await chat('Borra la tarjeta del delay y elimina la otra automatización', [ABIERTA, OTRA]);
+  assert.equal(dos.actual, 'Borra la tarjeta del delay');
+  assert.deepEqual(dos.burbujas.map((b) => b.tipo), ['eliminar']);
+  // d. «Crear ahora» con MaKo trabajando también espera (crear desmonta este chat y cortaba la edición en vuelo).
+  const directa = burbujasDe({ pedidos: [{ sobre: 'nuevo', texto: 'créame otra para los que no pagan', operacion: null }], propuesta: null, origen: 'reglas' }, ABIERTA.id)[0];
+  assert.deepEqual(vistaDeBurbuja(directa).botones.map((x) => x.id), ['crear-ahora']);
+  const espera = pulsar(directa, 'crear-ahora', ABIERTA.id, { trabajando: true });
+  assert.equal(espera.efecto, null, '«Crear ahora» no esperaba a MaKo');
+  assert.equal(vistaDeBurbuja(espera.burbuja).nota, TEXTOS.esperando);
+  assert.equal(vistaDeBurbuja(espera.burbuja).botones[0]!.apagado, true);
+  assert.deepEqual(alTerminar(espera.burbuja).efecto, { tipo: 'crear', pedido: 'créame otra para los que no pagan' });
+  // …y «Creada» sólo si nació: un fallo vuelve a prender el botón.
+  const creando = pulsar(directa, 'crear-ahora', ABIERTA.id).burbuja;
+  assert.equal(vistaDeBurbuja(trasCrear(creando, false)).nota, TEXTOS.noCreo);
+  assert.equal(vistaDeBurbuja(trasCrear(creando, false)).botones[0]!.apagado, false);
+  // e. «Deshacer» no promete los leads.
+  assert.match(TEXTOS.recuperada, /sin sus leads/);
+  // f. El cableado: sin deduplicar, la creación espera su resultado, y lo no publicado de la abierta queda como borrador.
+  const chatSrc = leer('app/automations/ChatMako.tsx');
+  assert.doesNotMatch(chatSrc, /claveBurbuja|ya\.has\(/, 'un mensaje repetido se tragaba: ni burbuja ni MaKo');
+  assert.match(chatSrc, /const ok = await p\.onCrearOtra\(ef\.pedido\)\.catch\(\(\) => false\);/);
+  assert.match(chatSrc, /cambiar\(\(b\) => trasCrear\(b, ok\)\);/);
+  const lista = leer('app/automations/SimuladorWhatsApp.tsx');
+  assert.match(lista, /if \(!creaDesdeElChat\.current\) elegir\(abrir\.id\);\n\s*else if \(abrir\.id !== selId\) \{ setSinPublicar\(false\); cambiarA\(abrir\.id\); \}/,
+    'crear desde el chat preguntaba «Descartar cambios» y se llevaba lo que MaKo acababa de hacer');
+  assert.match(lista, /creaDesdeElChat\.current = true;\n\s*const ok = await onCrearOtra\(pedido\)\.catch\(\(\) => false\);\n\s*if \(!ok\) creaDesdeElChat\.current = false;/);
+  assert.match(lista, /useEffect\(\(\) => \{ if \(abrir\?\.pedido\) creaDesdeElChat\.current = false; \}, \[abrir\]\);/, 'se apaga en un efecto, no en el render');
+  assert.match(lista, /onCrearOtra=\{onCrearOtra \? crearOtra : undefined\}/);
+  const tab = leer('app/automations/ChatAgentApp.tsx');
+  assert.match(tab, /if \(creandoNueva\.current\) return false;/);
+  assert.match(tab, /await load\(\);\n\s*return true;/);
 });

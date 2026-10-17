@@ -220,10 +220,14 @@ aparece la burbuja (se deshace con su botón), así que no queda nada a medias q
 - **Image Editor y Dashboard**: sus objetos ya están (16/10); falta que sus chats llamen a la ruta. ⚠️ El Image Editor
   todavía NO TIENE chat (es la etapa 4 de docs/diseno-mako-ai-native.md): hay que construirle uno antes de engancharlo.
 
-- **Automations**: su función en `objetosDeTab` y el fetch de arriba en su chat. **16/10/2026: hecho en la rama
-  `wip/automations-pedidos`, SIN SUBIR**: la revisión encontró regresiones del chat de siempre, varias del resolver
-  (con el lienzo vacío, «crea una automatización» es de ESTA; un nombre de otra dentro de una edición no es un pedido
-  aparte). Detalle en docs/hallazgos-chatbot.md («Los pedidos sueltos en el chat de Automations»).
+- **Automations**: enganchado (16/10/2026) y con las regresiones de la revisión arregladas (17/10/2026): con el lienzo
+  vacío, «crea una automatización» es de ESTA (`paraLienzoVacio`); crear otra desde el chat no pregunta «Descartar
+  cambios» (lo de la abierta queda como borrador) y «Crear ahora» espera a MaKo como «Sí»; la burbuja no dice «Creada»
+  sin saberlo; eliminar avisa que los leads de adentro salen y «Deshacer» no los devuelve; sin deduplicar burbujas.
+  Tres reglas nuevas del RESOLVER, para todas las tabs: un nombre en una COMPARACIÓN («lo mismo que en X») es un dato de
+  lo abierto; borrar una PARTE de otro («borra el mensaje de X») es un cambio de ése, nunca archivarlo; y «A y <verbo> B»
+  se parte cuando sólo B nombra otro objeto. Detalle en docs/hallazgos-chatbot.md («Los pedidos sueltos en el chat de
+  Automations»).
 
 - **Image Editor**: sus objetos ya están (16/10); su chat («MaKo IA», 16/10: `app/image-editor/mako/chat/acciones.ts`,
   `pedirEdicion`) todavía no llama a la ruta: se engancha como el del Video Editor, antes de su IA, con `tab: 'imagen'`

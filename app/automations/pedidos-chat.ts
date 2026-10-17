@@ -22,13 +22,31 @@
 //    sin un id entero positivo. Es la línea que más importa de este archivo.
 // ⚠️ NUNCA LA ABIERTA: «elimina esta automatización» no se archiva por acá; se dice dónde está «Eliminar».
 // ⚠️ «CREAR» VA POR LA MISMA PUERTA QUE «PÍDESELO A MaKo» (`pedirAMako`, ./ChatAgentApp.tsx): la fila nace YA y su
-//    lienzo abre con el chat de MaKo y el pedido puesto. Con MaKo trabajando en la abierta, «Sí» espera a que termine.
+//    lienzo abre con el chat de MaKo y el pedido puesto. Con MaKo trabajando en la abierta, «Sí» y «Crear ahora» esperan
+//    a que termine. Lo no publicado de la abierta NO se pregunta: es un borrador que se guarda solo al irse
+//    (./useBorradorSecuencia.ts), y «Descartar cambios» se habría llevado lo que MaKo acaba de hacer.
+// ⚠️ LA BURBUJA NO DICE «CREADA» SIN SABERLO: `onCrearOtra` contesta si la fila nació (`trasCrear`).
+// ⚠️ «DESHACER» NO DEVUELVE LOS LEADS: archivar cancela las inscripciones vivas. Lo dice la pregunta y lo dice la nota.
 
 import type { Interpretacion, ObjetoChat } from '@/lib/mako-pedidos';
 // Puros y de la tab: validan la respuesta de la ruta igual para todos los chats (una regla, un lugar).
 import { interpretacionDe, textoActual, nombreCorto } from '@/app/web-generator/editor/pedidos-chat';
 
 export { interpretacionDe, textoActual };
+
+/**
+ * CON EL LIENZO VACÍO, «CREA UNA AUTOMATIZACIÓN…» ES EL PEDIDO PARA ÉSTA (17/10/2026, la revisión del 16/10). La fila
+ * vacía es justamente la que nació para eso (`crearNueva`), y MaKo crea SOBRE ella: tomado como «crear otra», salía una
+ * burbuja y MaKo no recibía nada. Todo pedido `nuevo` pasa a ser de la abierta; si no queda otra cosa (eliminar otra, otra
+ * tab), va el mensaje ENTERO, sin cortar, como cuando todo es de la abierta (`resolverPedidos`).
+ */
+export function paraLienzoVacio(i: Interpretacion, texto: string): Interpretacion {
+  if (!i.pedidos.some((p) => p.sobre === 'nuevo')) return i;
+  const resto = i.pedidos.filter((p) => p.sobre !== 'nuevo' && p.sobre !== 'actual');
+  const actuales = i.pedidos.filter((p) => p.sobre === 'nuevo' || p.sobre === 'actual').map((p) => p.texto.trim()).filter(Boolean);
+  const actual = { sobre: 'actual' as const, texto: resto.length ? actuales.join('\n') : texto.trim() };
+  return { ...i, pedidos: [actual, ...resto], propuesta: null };
+}
 
 /** El cuerpo de POST /api/mako/pedidos para el chat de Automations: la tab y la automatización abierta. */
 export function cuerpoPedidos(texto: string, secuenciaId: number, nombre: string): { texto: string; tab: 'chatbot'; actualId: number; actualNombre: string } {
@@ -112,7 +130,9 @@ export const TEXTOS = {
   eliminada: 'Eliminada: ya no envía.',
   noElimino: 'No se pudo eliminar.',
   recuperando: 'Recuperándola…',
-  recuperada: 'Volvió a la lista, pausada.',
+  // ⚠️ Sin sus leads (17/10/2026): archivar CANCELA las inscripciones vivas y desarchivar no las devuelve
+  // (lib/secuencias-huecos.ts). «Deshacer» no puede prometer más que eso.
+  recuperada: 'Volvió a la lista, pausada y sin sus leads.',
   laAbierta: 'Esta automatización está abierta: usa ⋯ › Eliminar en la lista.',
   cual: '¿Cuál? Dime su nombre.',
 } as const;
@@ -172,7 +192,7 @@ function botonesCrear(b: Extract<BurbujaPedido, { tipo: 'crear' }>): BotonVista[
     ({ id, texto, v, apagado: apagado || tambien, elegido: (apagado || tambien) && b.pulsado === id });
   // Esperando, «Sí» ya está dicho; «Después» sigue prendido por si cambia de idea.
   if (b.pregunta && !b.despues) return [boton('si', TEXTOS.si, 'primario', b.estado === 'esperando'), boton('despues', TEXTOS.despuesBoton, 'contorno')];
-  return [boton('crear-ahora', TEXTOS.crearAhora, b.despues ? 'secundario' : 'primario')];
+  return [boton('crear-ahora', TEXTOS.crearAhora, b.despues ? 'secundario' : 'primario', b.estado === 'esperando')];
 }
 
 export function vistaDeBurbuja(b: BurbujaPedido): VistaBurbuja {
@@ -204,7 +224,8 @@ export function vistaDeBurbuja(b: BurbujaPedido): VistaBurbuja {
       const nota = e === 'eliminando' ? TEXTOS.eliminando : e === 'error' ? TEXTOS.noElimino : e === 'recuperada' ? TEXTOS.recuperada : null;
       return {
         ...vacia,
-        texto: `¿Elimino «${nombre}»? Deja de enviar y sale de la lista.`,
+        // Los leads que tiene adentro salen (se cancelan) y «Deshacer» no los devuelve: se dice antes del sí.
+        texto: `¿Elimino «${nombre}»? Deja de enviar, sale de la lista y los leads que tiene adentro salen.`,
         botones: [
           { id: 'eliminar', texto: TEXTOS.siEliminar, v: 'primario', apagado, elegido: e === 'eliminando' || e === 'recuperada' },
           { id: 'no', texto: TEXTOS.no, v: 'contorno', apagado, elegido: e === 'no' },
@@ -251,8 +272,9 @@ export function pulsar(
   if (!prendido) return igual;
   if (b.tipo === 'crear') {
     if (boton === 'despues') return { burbuja: { ...b, despues: true, estado: 'lista', pulsado: null }, efecto: null };
-    // «¿Terminamos esto y después…?» → «Sí»: con MaKo trabajando en la abierta, primero eso.
-    if (boton === 'si' && op?.trabajando) return { burbuja: { ...b, estado: 'esperando', pulsado: 'si' }, efecto: null };
+    // «Sí» o «Crear ahora» con MaKo trabajando en la abierta: primero eso. Crear cambia de lienzo y desmonta este chat:
+    // en el acto cortaba la edición en vuelo (la revisión del 16/10 lo cazó en «Crear ahora», que no esperaba).
+    if ((boton === 'si' || boton === 'crear-ahora') && op?.trabajando) return { burbuja: { ...b, estado: 'esperando', pulsado: boton as BotonId }, efecto: null };
     return { burbuja: { ...b, estado: 'creando', pulsado: boton as BotonId }, efecto: { tipo: 'crear', pedido: b.pedido } };
   }
   if (b.tipo === 'eliminar') {
