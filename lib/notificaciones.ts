@@ -132,23 +132,58 @@ export async function crearNotificacion(n: NuevaNotificacion): Promise<number | 
   }
 }
 
-/** Los avisos del feed de `ws`, el más nuevo primero. `antesDe` pagina hacia atrás (un `createdAt`). */
-export async function listNotificaciones(ws: number, opts: { limite?: number; antesDe?: string | null } = {}): Promise<Notificacion[]> {
+/**
+ * QUÉ PASÓ CON EL AVISO, en `payload.salida` (17/10/2026). Hasta ese día la fila se escribía antes del interruptor y del
+ * envío y no decía si llegó: la campanita no podía distinguir un aviso que salió de uno que se perdió.
+ *   · `apagado`: el negocio lo apagó en Configuraciones › Notificaciones (quedó sólo en la app).
+ *   · `sin_automatizacion`: un evento de MaKo sin ninguna automatización prendida. Es la bitácora, no un aviso: se
+ *     escribe una por evento y sin dedup, y la lectura la esconde (`SIN_RUIDO`).
+ *   · `sin_grupo`: el negocio no tiene grupo de MaKo; quedó en la app (y `porEmail` si además salió el correo).
+ *   · `no_llego`: el grupo existe y el WhatsApp no salió.
+ * Ausente: salió como siempre (o es una fila de antes del 17/10).
+ */
+export type SalidaAviso = 'apagado' | 'sin_automatizacion' | 'sin_grupo' | 'no_llego';
+
+/**
+ * La lectura deja afuera la bitácora de los eventos sin automatización. Filtra en la LECTURA, sin borrar: la fila es el
+ * registro. `payload->>salida` nulo (todo lo de antes) pasa.
+ */
+const SIN_RUIDO = 'payload->>salida.is.null,payload->>salida.neq.sin_automatizacion';
+
+/** Reescribe el payload de una fila con lo que pasó al mandarla (`SalidaAviso`). Nunca rompe al aviso. */
+export async function anotarSalida(ws: number, id: number, payload: Record<string, unknown> & { salida: SalidaAviso }): Promise<void> {
+  try {
+    const { error } = await getSupabaseServer().from('notificaciones').update({ payload }).eq('id', id).eq('workspace_id', ws);
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    console.error(`[notificaciones] anotar la salida de #${id} (ws ${ws}) falló: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/**
+ * Los avisos del feed de `ws`, el más nuevo primero. `antesDe` pagina hacia atrás (un `createdAt`).
+ *
+ * `estricto` (17/10/2026, la campanita de escritorio): un error TIRA en vez de devolver `[]`. Sin él, «no pude leer» se
+ * dibuja «Sin avisos todavía.» con la base caída.
+ */
+export async function listNotificaciones(ws: number, opts: { limite?: number; antesDe?: string | null; estricto?: boolean } = {}): Promise<Notificacion[]> {
   const limite = Math.min(Math.max(1, Math.floor(opts.limite ?? 30)), 100);
   try {
     let q = getSupabaseServer().from('notificaciones').select(COLS)
       .eq('workspace_id', ws)
+      .or(SIN_RUIDO)
       .order('created_at', { ascending: false }).order('id', { ascending: false })
       .limit(limite);
     if (opts.antesDe && !Number.isNaN(Date.parse(opts.antesDe))) q = q.lt('created_at', opts.antesDe);
     const { data, error } = await q;
     if (error) {
-      if (tablaAusente(error)) { avisarSinTabla('listar'); return []; }
+      if (tablaAusente(error)) { avisarSinTabla('listar'); if (opts.estricto) throw new Error('no existe la tabla notificaciones'); return []; }
       throw new Error(error.message);
     }
     return ((data ?? []) as Row[]).map(rowToNotif);
   } catch (err) {
     console.error(`[notificaciones] listar (ws ${ws}) falló: ${err instanceof Error ? err.message : String(err)}`);
+    if (opts.estricto) throw err instanceof Error ? err : new Error(String(err));
     return [];
   }
 }
@@ -170,6 +205,7 @@ export async function contarNoVistas(ws: number, vistoHasta: string | null): Pro
       .from('notificaciones')
       .select('id', { count: 'exact', head: true })
       .eq('workspace_id', ws)
+      .or(SIN_RUIDO)
       .gt('created_at', desde);
     if (error) {
       // ⚠️ Con `head: true` una tabla inexistente contesta `count: null`, que se leería como

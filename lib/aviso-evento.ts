@@ -37,7 +37,7 @@ import { datoDeCampo, soloDatosDelEvento } from './dato-evento';
 import type { DatosDeLaCondicion } from './condiciones-catalogo';
 import { textoLoArmaElCodigo, type AvisoCatalogo } from './avisos-catalogo';
 // Puro: la tarjeta «MaKo en WhatsApp» por partes (undécima tanda). Qué partes tiene y si sale tal cual.
-import { esTarjetaTalCual, esperaQueAbra, partesDeMako, textoDePartes, esPorEmail, asuntoDeMako, problemaDeEmailMako } from './mako-tarjeta';
+import { esTarjetaTalCual, esperaQueAbra, partesDeMako, textoDePartes, esPorEmail, asuntoDeMako, problemaDeEmailMako, sinGrupoDeMako } from './mako-tarjeta';
 
 // ── Qué aviso es qué evento ─────────────────────────────────────────────────────────────────────
 
@@ -272,7 +272,9 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
         if (malEmail) return mal(MOTIVO_EVENTO.makoEmail, cur);
         if (esPorEmail(params) && citaSecreto(asuntoDeMako(params))) return mal(MOTIVO_EVENTO.secretoFuera, cur);
         const email = esPorEmail(params) ? { email: { asunto: asuntoDeMako(params) } } : {};
-        pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista, ...igual, ...email } : { tipo: 'mensaje', canal: 'aviso_dueno', texto, ...igual });
+        // Sin grupo de MaKo (17/10/2026): lo que eligió la tarjeta. Sin elegir, queda en la app (el paso no lleva nada).
+        const sinGrupo = !esPorEmail(params) && sinGrupoDeMako(params) === 'email' ? { sinGrupo: 'email' as const } : {};
+        pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista, ...igual, ...email, ...sinGrupo } : { tipo: 'mensaje', canal: 'aviso_dueno', texto, ...igual, ...sinGrupo });
         huella.push(`${cur}:mensaje`);
         makos += 1;
         cur = siguienteDe(pasosIn, i);
