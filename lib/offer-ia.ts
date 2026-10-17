@@ -45,7 +45,7 @@ import {
   type CalculoDiagnostico, type DiagnosticoOferta, type PiezasSabidas, type PropuestaOferta,
 } from './offer-marco';
 import {
-  conversacionParaPrompt, documentosParaPrompt, faltanDelArranqueParaPrompt, guiaDelArranque, guiaParaPrompt, parseDiagnostico, parsePropuesta, parseTurno,
+  conversacionParaPrompt, documentosParaPrompt, faltanDelArranqueParaPrompt, guiaDelArranque, guiaParaPrompt, parseDiagnostico, parseLectura, parsePropuesta, parseTurno,
   parseTurnoConDiagnostico, piezasParaPrompt, validadorConRespaldo, type ContextoReglas, type DocParaPrompt, type MensajeParaPrompt, type TurnoOffer,
 } from './offer-reglas';
 
@@ -212,6 +212,33 @@ ${IDIOMA}
 
 Devuelve SOLO un objeto JSON con esta forma exacta (las 9 dimensiones, en orden), sin texto fuera:
 ${FORMA_DIAGNOSTICO}`;
+
+/**
+ * La lectura de UNA parte de un documento largo (17/10/2026, tarjeta #865): el documento se lee entero, pedazo por pedazo
+ * (lib/offer-reglas.ts → `partirEnPartes`), y lo que viaja a los pedidos es lo que anotó esto de cada parte.
+ */
+export const OFFER_LECTURA_SYSTEM_TEMPLATE = `Eres MaKo. Te paso UNA PARTE de un documento largo que subió el dueño de un negocio: su oferta, su guion, una página, o la transcripción de una llamada de venta o de una reunión. Lo lees por partes para no perderte nada: de ESTA parte, anota todo lo que sirve para entender y armar su oferta.
+
+QUÉ ANOTAR (sólo lo que dice esta parte):
+- qué vende y cómo: formato, duración, entregables, quién hace el trabajo;
+- a quién: perfil, situación, lo que quiere y lo que le duele, con las palabras del cliente;
+- resultados, casos y testimonios, con sus números;
+- precio, formas de pago, garantía, bonos y urgencia;
+- objeciones y dudas, y cómo se contestaron;
+- en una llamada o una reunión, quién dijo cada cosa importante.
+
+REGLAS:
+1. Copia los números, montos, plazos y nombres TAL CUAL aparecen. No calcules, no redondees, no inventes.
+2. Las frases importantes del cliente o del dueño van textuales, entre «comillas».
+3. Sin opinar ni aconsejar: es una lectura, no un análisis.
+4. Si esta parte no trae nada de eso (saludos, logística, silencio), dilo en una línea.
+5. Hasta 2.500 caracteres.
+
+${SEGURIDAD}
+
+${IDIOMA}
+
+Devuelve SOLO un objeto JSON, sin texto fuera: {"lectura": "lo que dice esta parte"}`;
 
 export const OFFER_DIAGNOSTICO_USER_TEMPLATE = `LO QUE EL NEGOCIO YA TENÍA CARGADO:
 {{contexto}}
@@ -475,6 +502,21 @@ export async function turnoOffer(p: {
     // Con la obligatoria se busca un turno que la ADAPTE, y uno que sirve sin adaptarla no se tira: trae las
     // piezas que dio el dueño, y la pregunta sale ORIGINAL (revisión adversarial del 11/10/2026).
     parse: obligatorio ? parseTurnoConDiagnostico : parseTurno, parseFlojo: obligatorio ? parseTurno : undefined,
+  });
+}
+
+/**
+ * La lectura de UNA parte de un documento largo (#865). La parte va envuelta como dato: la escribió el dueño o sale de su
+ * archivo. Plazos cortos: son varias partes por documento y el dueño espera con el archivo en el chat.
+ */
+export async function lecturaDeParte(p: { nombre: string; parte: string; i: number; n: number; hastaMs: number }): Promise<ResultadoIA<string>> {
+  const system = await renderPrompt('offer.lectura.system', OFFER_LECTURA_SYSTEM_TEMPLATE, {});
+  const user = `DOCUMENTO «${p.nombre}», PARTE ${p.i + 1} DE ${p.n}:\n${contenidoNoConfiable(p.parte, 'documentos')}`;
+  return pedir({
+    system, user, maxTokens: 3_000, timeoutMs: 60_000, esfuerzo: 'low',
+    hastaMs: p.hastaMs, hastaRedMs: p.hastaMs + 30_000,
+    motivo: `Offer: leer «${p.nombre}» por partes (${p.i + 1} de ${p.n})`, tema: 'leer tu documento entero',
+    parse: parseLectura,
   });
 }
 

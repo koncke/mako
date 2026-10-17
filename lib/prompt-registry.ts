@@ -46,7 +46,7 @@ import { OFERTAS_SYSTEM_TEMPLATE, OFERTAS_USER_TEMPLATE } from './ofertas-ia';
 import {
   OFFER_TURNO_SYSTEM_TEMPLATE, OFFER_TURNO_USER_TEMPLATE, OFFER_ARRANQUE_SYSTEM_TEMPLATE,
   OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, OFFER_DIAGNOSTICO_USER_TEMPLATE,
-  OFFER_PROPUESTA_SYSTEM_TEMPLATE, OFFER_PROPUESTA_USER_TEMPLATE,
+  OFFER_PROPUESTA_SYSTEM_TEMPLATE, OFFER_PROPUESTA_USER_TEMPLATE, OFFER_LECTURA_SYSTEM_TEMPLATE,
 } from './offer-ia';
 import { EMAIL_GEN_SYSTEM_TEMPLATE } from '@/app/api/email/generar/route';
 import {
@@ -1363,6 +1363,13 @@ export const REGISTRY: Group[] = [
         variables: [v('contexto', 'lo que el negocio ya tenía cargado'), v('piezas', 'lo que dio el dueño de cada pieza'), v('diagnostico', 'el diagnóstico con el cálculo del sistema'), v('documentos', 'el texto de los documentos'), v('conversacion', 'los últimos 30 mensajes')], scope: 'full', sensitive: false,
         default: OFFER_PROPUESTA_USER_TEMPLATE,
         context: 'Los datos para escribir la oferta nueva, con el diagnóstico de la actual. Conserva los cinco slots y la orden del JSON del final.',
+      },
+      {
+        key: 'offer.lectura.system', source: 'override',
+        label: 'Leer un documento largo por partes (system)', kind: 'system', dynamic: false,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: OFFER_LECTURA_SYSTEM_TEMPLATE,
+        context: 'Un documento que no entra entero en un pedido (una transcripción de una llamada, un guion largo) se lee por partes, todas, y lo que viaja a la conversación, el diagnóstico y la oferta es lo que esto anota de cada una (17/10/2026: la llamada de venta del ws13 se leía hasta la mitad). Reglas que no se tocan: copiar números, montos y nombres tal cual, sin calcular ni inventar, y el JSON {"lectura": ...}. Si una parte no se puede leer, va tal cual.',
       },
     ],
   },

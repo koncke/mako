@@ -84,7 +84,7 @@ import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
 import { MARCA_COMPLETAR, faltanMinimas, type ArchiveroDoc, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
+  MAX_DOCS_SESION, TOPE_DOC_ENTERO, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
@@ -92,7 +92,7 @@ import {
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
 import { avisarOfertaLista } from '@/lib/oferta-lista-server';
-import { FEATURE_OFFER, diagnosticoOffer, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
+import { FEATURE_OFFER, diagnosticoOffer, lecturaDeParte, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
 import {
   ConflictoCAS, ErrorOffer, TITULO_DEFAULT, actualizarSesion, arbolOffer, audiosDe, borrarSesion, crearSesion, guardarComoOferta,
   leerFila, nombreNegocioOffer, sesionVaciaDe, vistaSesion, type FilaOffer,
@@ -258,7 +258,7 @@ export async function POST(req: NextRequest) {
         }
 
         case 'leer-link':
-          return await leerLink(body);
+          return await leerLink(body, inicio);
 
         case 'turno':
           return await turno(ws, body, inicio);
@@ -406,10 +406,12 @@ async function leer(ws: number, body: Record<string, unknown>, inicio: number): 
     const lectura = await archivoATexto(file, { feature: 'offer', motivo: `Offer: leer «${nombre}»`, redDePlataforma: true });
     const texto = (lectura.texto ?? '').trim();
     if (!texto) return no(422, lectura.warning || `No pude sacar texto de «${nombre}». Si es una foto o un escaneo borroso, prueba con otra versión o pega el texto en el chat.`);
-    const recortado = texto.length > TOPE_TEXTO_DOC;
+    // Entero (#865): uno que no entra en un pedido se lee por partes, todas, antes de guardarlo.
+    const porPartes = await leerPorPartes(texto, nombre, inicio);
     const doc: DocumentoGuardado = {
       id: randomUUID(), nombre, via: lectura.via, texto: texto.slice(0, TOPE_TEXTO_DOC), chars: texto.length,
-      ...(lectura.warning ? { aviso: recortar(lectura.warning, 200) } : recortado ? { aviso: `Leí sólo el principio (${TOPE_TEXTO_DOC.toLocaleString('es-MX')} de ${texto.length.toLocaleString('es-MX')} caracteres).` } : {}),
+      ...avisoDelDoc(lectura.warning, porPartes, texto.length),
+      ...(porPartes ? { lectura: porPartes.lectura, partes: porPartes.partes } : {}),
       at: new Date().toISOString(),
     };
     const { res, sesionId } = await guardarDocumento(body, doc);
@@ -426,6 +428,44 @@ async function leer(ws: number, body: Record<string, unknown>, inicio: number): 
       if (error) console.warn(`[offer:leer] no pude borrar ${path}: ${error.message}`);
     }
   }
+}
+
+/** Cuántas partes se leen a la vez: más, y las keys gratis de la cascada se quedan sin cuota por minuto. */
+const LECTORES = 2;
+/** Lo que puede esperar el dueño a que se lea un documento largo, desde que llegó el pedido. */
+const PLAZO_LECTURA_MS = 240_000;
+
+/**
+ * Un documento que no entra entero en un pedido, leído por partes (17/10/2026, tarjeta #865): se parte sin perder un
+ * carácter, la IA lee cada parte (de a `LECTORES`) y lo que vuelve es la lectura del documento entero. Una parte que la
+ * IA no pudo leer va tal cual. null si el documento entra entero.
+ */
+async function leerPorPartes(texto: string, nombre: string, inicio: number): Promise<{ lectura: string; partes: number; aviso: string | null } | null> {
+  if (texto.length <= TOPE_DOC_ENTERO) return null;
+  const partes = partirEnPartes(texto);
+  const lecturas: Array<string | null> = partes.map(() => null);
+  const hastaMs = inicio + PLAZO_LECTURA_MS;
+  let siguiente = 0;
+  const lector = async () => {
+    for (let i = siguiente++; i < partes.length; i = siguiente++) {
+      const r = await lecturaDeParte({ nombre, parte: partes[i], i, n: partes.length, hastaMs }).catch((e) => ({ ok: false as const, error: msg(e) }));
+      if (r.ok) lecturas[i] = r.valor;
+      else console.warn(`[offer:leer] «${nombre}», parte ${i + 1} de ${partes.length}: ${r.error}`);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(LECTORES, partes.length) }, lector));
+  return { lectura: lecturaPorPartes(lecturas, partes), partes: partes.length, aviso: avisoDeLectura(lecturas, partes.length) };
+}
+
+/**
+ * El aviso del chip de un documento: lo que dijo el lector del archivo, o una parte que no se pudo resumir, o (sin
+ * lectura por partes, que no debería pasar arriba de `TOPE_DOC_ENTERO`) que se guardó sólo el principio.
+ */
+function avisoDelDoc(warning: string | null | undefined, porPartes: { aviso: string | null } | null, chars: number): { aviso?: string } {
+  if (warning?.trim()) return { aviso: recortar(warning, 200) };
+  if (porPartes?.aviso) return { aviso: porPartes.aviso };
+  if (!porPartes && chars > TOPE_TEXTO_DOC) return { aviso: `Leí sólo el principio (${TOPE_TEXTO_DOC.toLocaleString('es-MX')} de ${chars.toLocaleString('es-MX')} caracteres).` };
+  return {};
 }
 
 /**
@@ -478,7 +518,7 @@ async function anotarArchivero(sesionId: number, docId: string, estado: Archiver
  * IP clavada (sin DNS rebinding) y techo de tamaño y de tiempo. NO hay otro fetch de URLs de usuarios acá.
  * Después de esto, la pantalla manda un 'turno' con `docIds: [doc.id]` (el texto puede ir vacío).
  */
-async function leerLink(body: Record<string, unknown>): Promise<Response> {
+async function leerLink(body: Record<string, unknown>, inicio: number): Promise<Response> {
   const url = cadena(body.url).slice(0, TOPE_URL);
   if (!url) return no(400, 'Pega el link de tu web o de tu landing.');
   // Se baja LA página que pegó, tal cual: `linkParaLeer` le saca sólo los parámetros de seguimiento y
@@ -503,26 +543,17 @@ async function leerLink(body: Record<string, unknown>): Promise<Response> {
   let host = url;
   try { host = new URL(pagina.urlFinal).host; } catch { /* queda el link tal cual */ }
   const texto = [`Página: ${pagina.urlFinal}`, pagina.titulo ? `# ${pagina.titulo}` : '', pagina.descripcion, pagina.texto].filter(Boolean).join('\n\n');
+  const nombreDoc = recortar(pagina.titulo ? `${pagina.titulo} (${host})` : host, 200);
+  const porPartes = await leerPorPartes(texto, nombreDoc, inicio);
   const doc: DocumentoGuardado = {
     id: randomUUID(),
-    nombre: recortar(pagina.titulo ? `${pagina.titulo} (${host})` : host, 200),
+    nombre: nombreDoc,
     via: 'web', texto: texto.slice(0, TOPE_TEXTO_DOC), chars: texto.length,
-    ...(avisoLink(texto.length) ?? {}),
+    ...avisoDelDoc(null, porPartes, texto.length),
+    ...(porPartes ? { lectura: porPartes.lectura, partes: porPartes.partes } : {}),
     at: new Date().toISOString(),
   };
   return (await guardarDocumento(body, doc)).res;
-}
-
-/**
- * El aviso del documento de un link: hoy, sólo si se leyó el principio.
- *
- * Tenía un segundo aviso —«leí la página sin el www.»— que dejó de tener sentido cuando `extraerLanding`
- * aprendió a bajar la URL tal cual: ya no se lee una página parecida, se lee la que pegó. Un aviso que
- * describe algo que ya no pasa es peor que ninguno.
- */
-function avisoLink(chars: number): { aviso: string } | null {
-  if (chars <= TOPE_TEXTO_DOC) return null;
-  return { aviso: `Leí sólo el principio (${TOPE_TEXTO_DOC.toLocaleString('es-MX')} de ${chars.toLocaleString('es-MX')} caracteres).` };
 }
 
 // ── turno ────────────────────────────────────────────────────────────────────
@@ -614,6 +645,12 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
   // viaja como documento de la conversación y el mensaje lleva el principio (`repartirTranscripcion`). El id
   // es fijo afuera del CAS: el callback puede correr varias veces.
   const docAudio = { id: randomUUID(), creado: false };
+  // Una transcripción que va a documento y no entra entera en un pedido se lee por partes ANTES del CAS (#865): el
+  // callback no espera a la IA y puede correr varias veces.
+  const audioPorPartes = transcripcion && [texto, transcripcion].filter((x) => x.trim()).join('\n\n').length > TOPE_MENSAJE
+    && MAX_DOCS_SESION > antes.documentos.length
+    ? await leerPorPartes(transcripcion, 'Transcripción del audio', inicio)
+    : null;
   const conMensaje = await actualizarSesion(sesionId, (f) => {
     const porId = new Map(f.documentos.map((d) => [d.id, d] as const));
     const faltan = docIds.filter((d) => !porId.has(d));
@@ -624,7 +661,12 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
       ? repartirTranscripcion(texto, transcripcion, { tope: TOPE_MENSAJE, topeDoc: TOPE_TEXTO_DOC, docsLibres: MAX_DOCS_SESION - f.documentos.length })
       : { cuerpo: texto, doc: null };
     const transcripta: DocumentoGuardado | null = reparto.doc
-      ? { id: docAudio.id, nombre: 'Transcripción del audio', via: 'audio', texto: reparto.doc.texto, chars: reparto.doc.chars, ...(reparto.doc.aviso ? { aviso: reparto.doc.aviso } : {}), at }
+      ? {
+        id: docAudio.id, nombre: 'Transcripción del audio', via: 'audio', texto: reparto.doc.texto, chars: reparto.doc.chars,
+        ...(reparto.doc.aviso ? { aviso: reparto.doc.aviso } : audioPorPartes?.aviso ? { aviso: audioPorPartes.aviso } : {}),
+        ...(audioPorPartes ? { lectura: audioPorPartes.lectura, partes: audioPorPartes.partes } : {}),
+        at,
+      }
       : null;
     docAudio.creado = !!transcripta;
     const adjuntos = [...docIds.map((d) => adjuntoDe(porId.get(d) as DocumentoGuardado)), ...(transcripta ? [adjuntoDe(transcripta)] : [])];

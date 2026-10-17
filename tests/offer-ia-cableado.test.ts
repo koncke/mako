@@ -152,6 +152,8 @@ const PROMPTS: Array<[string, string]> = [
   ['offer.arranque.system', 'OFFER_ARRANQUE_SYSTEM_TEMPLATE'],
   ['offer.diagnostico.system', 'OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE'], ['offer.diagnostico.user', 'OFFER_DIAGNOSTICO_USER_TEMPLATE'],
   ['offer.propuesta.system', 'OFFER_PROPUESTA_SYSTEM_TEMPLATE'], ['offer.propuesta.user', 'OFFER_PROPUESTA_USER_TEMPLATE'],
+  // Un documento largo se lee entero, por partes (17/10/2026, #865).
+  ['offer.lectura.system', 'OFFER_LECTURA_SYSTEM_TEMPLATE'],
 ];
 
 // v2: rotura (el slot {{diagnostico}} del turno sin declarar en el registro): 1 fallo, 9 pases.
@@ -162,7 +164,7 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
   assert.match(REG, /from '\.\/offer-ia';/);
   const enRegistro = [...REG.matchAll(/key: '(offer\.[\w.]+)'/g)].map((m) => m[1]).sort();
   const enCallSite = [...IA.matchAll(/renderPrompt\('(offer\.[\w.]+)'/g)].map((m) => m[1]).sort();
-  assert.deepEqual(enRegistro, PROMPTS.map(([k]) => k).sort(), 'las keys del registro no son las siete');
+  assert.deepEqual(enRegistro, PROMPTS.map(([k]) => k).sort(), 'las keys del registro no son las ocho');
   assert.deepEqual(enCallSite, enRegistro, 'el call site lee keys que el registro no tiene (o al revés)');
   for (const [key, constante] of PROMPTS) {
     const i = REG.indexOf(`key: '${key}'`);
@@ -182,7 +184,9 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
       assert.ok(template(constante).includes('${IDIOMA}'), `${key}: falta el bloque de idioma`);
       // El del onboarding NO lleva el marco, a propósito: el marco es la rúbrica del análisis, y ahí sólo se pregunta
       // qué vende (lleva las keys de las piezas, `claves`).
-      if (key !== 'offer.arranque.system') assert.ok(delTemplate.includes('marco'), `${key}: falta el marco`);
+      // Tampoco la lectura por partes (#865): anota lo que dice el documento, no lo juzga.
+      if (key === 'offer.lectura.system') assert.ok(!delTemplate.length, `${key}: la lectura de una parte no lleva slots`);
+      else if (key !== 'offer.arranque.system') assert.ok(delTemplate.includes('marco'), `${key}: falta el marco`);
       else assert.ok(delTemplate.includes('claves') && !delTemplate.includes('marco'), `${key}: el onboarding volvió a llevar el marco del análisis`);
     }
   }

@@ -6,9 +6,9 @@
 // de la v1 que quedan por compatibilidad (`listarSesionesOffer`, `semillaOffer`). Todo corre dentro del
 // workspace actual (`getTenantDb`, tabla en TENANT_TABLES).
 //
-// ⚠️ LA VISTA NUNCA LLEVA EL TEXTO DE LOS DOCUMENTOS. Vive en `documentos[].texto` (hasta 40.000
-//    caracteres cada uno, hasta 12) y sólo lo lee el motor para armar el prompt: bajarlo al navegador
-//    sería mandar en cada respuesta hasta medio MB que nadie dibuja.
+// ⚠️ LA VISTA NUNCA LLEVA EL TEXTO DE LOS DOCUMENTOS. Vive en `documentos[].texto` (hasta 300.000
+//    caracteres cada uno desde el 17/10/2026, #865, más su `lectura` por partes; hasta 12) y sólo lo lee el motor
+//    para armar el prompt: bajarlo al navegador sería mandar en cada respuesta megas que nadie dibuja.
 // ⚠️ TODA ESCRITURA ES COMPARE-AND-SET SOBRE `updated_at` (`actualizarSesion`). La pantalla sube varios
 //    archivos a la vez y cada «leer» agrega a `documentos`: con un read-modify-write pelado, dos lecturas
 //    en paralelo se pisan y un documento desaparece sin un error. Y un turno tarda hasta un minuto: lo

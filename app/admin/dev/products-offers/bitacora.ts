@@ -424,6 +424,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/offer',
   },
+  {
+    fecha: '17 oct', hora: '08:40', chat: 'Offer', sesion: 'local_76bc176e-dac3-4c50-a67c-f62d5fbe9e5e', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Offer lee entero un documento largo, por partes',
+    puntos: [
+      'La transcripción de la llamada de venta de Código Inmobiliario (64.462 caracteres) se guardaba cortada en 40.000, y MaKo leía unos 17.000. Ahora se guarda entera.',
+      'Un documento que no entra de una vez se lee por partes, todas: MaKo anota de cada una lo que sirve para la oferta (precios, casos, objeciones, las palabras del cliente) con los números tal cual, y eso es lo que usa la conversación, el diagnóstico y la oferta.',
+      'Vale para un archivo, para la página de un link y para la transcripción de un audio largo. Si una parte no se pudo resumir, va tal cual y el chip lo dice.',
+      'Probado con la IA de verdad en el ws3: una llamada de 43.000 caracteres, 3 partes en 18 segundos, y los 8 datos sembrados (el precio del final incluido) llegaron todos.',
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — `partirEnPartes`, `lecturaPorPartes`, `cuerpoDelDoc` y el tope de 300.000',
+      'lib/offer-ia.ts — `lecturaDeParte` y su prompt (editable en /configuraciones: «Leer un documento largo por partes»)',
+      'app/api/offer/route.ts — `leerPorPartes` en leer, leer-link y el audio',
+      'tests/offer-documento-entero.test.ts — 9 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
 ];
 
 export const PARTES: Parte[] = [

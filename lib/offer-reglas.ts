@@ -296,13 +296,98 @@ function sanearPdf(raw: unknown): MensajeGuardado['pdf'] {
 /**
  * Un documento leído, como se guarda en `offer_sesiones.documentos` (con su texto). `archivero` = qué pasó
  * al guardarlo también en El Archivero (lib/offer-marco.ts → ArchiveroDoc); lo escribe `conArchivero`.
+ * `lectura` y `partes`: un documento que no entra en un pedido se lee ENTERO por partes (`partirEnPartes`, #865), y
+ * lo que viaja a los pedidos es esa lectura (`cuerpoDelDoc`).
  */
-export type DocumentoGuardado = { id: string; nombre: string; via: string; texto: string; chars: number; aviso?: string; archivero?: ArchiveroDoc; at: string };
+export type DocumentoGuardado = {
+  id: string; nombre: string; via: string; texto: string; chars: number; aviso?: string; archivero?: ArchiveroDoc; at: string;
+  lectura?: string; partes?: number;
+};
 
-/** Tope del texto que se guarda de un documento. */
-export const TOPE_TEXTO_DOC = 40_000;
+/**
+ * Tope del texto que se guarda de un documento: unas 4 horas de transcripción. Hasta el 17/10/2026 era 40.000 y la
+ * llamada de venta del ws13 (64.462) se guardaba cortada; desde entonces se guarda entera y se lee por partes.
+ */
+export const TOPE_TEXTO_DOC = 300_000;
 /** Cuántos documentos admite una conversación. */
 export const MAX_DOCS_SESION = 12;
+
+// ── Un documento largo se lee ENTERO, por partes (17/10/2026, tarjeta #865) ──
+// Medido en el ws13: la transcripción de una llamada de venta tenía 64.462 caracteres, se guardó cortada en 40.000
+// («Leí sólo el principio») y en cada pedido la IA leía ~17.000, porque los documentos de un pedido comparten 24.000.
+// Lo que dijo el cliente en la segunda mitad de la llamada no llegaba nunca. Ahora:
+//  · se guarda el texto entero (hasta `TOPE_TEXTO_DOC`, unas 4 horas de transcripción);
+//  · uno que no entra en un pedido (`TOPE_DOC_ENTERO`) se parte en pedazos SIN PERDER un carácter (`partirEnPartes`),
+//    la IA lee CADA pedazo y anota lo que sirve para la oferta, y lo que viaja a los pedidos es esa lectura entera
+//    (`lecturaPorPartes`), en orden y con todas las partes;
+//  · un pedazo que la IA no pudo leer va tal cual: se lee igual, sin resumir, y el chip lo dice (`avisoDeLectura`).
+
+/** Lo más largo que entra entero en un pedido: más que esto, se lee por partes. */
+export const TOPE_DOC_ENTERO = 16_000;
+/** Lo que lee la IA de una vez al leer por partes (unos 4.000 tokens, cabe en cualquier modelo gratis de la cascada). */
+export const TOPE_PARTE = 16_000;
+/** Cuántas partes como mucho (con `TOPE_TEXTO_DOC` / `TOPE_PARTE` alcanza; es el techo de pedidos por documento). */
+export const MAX_PARTES = 20;
+
+/** Dónde conviene cortar, de mejor a peor: un párrafo, una línea, una frase, una palabra. */
+const CORTES = ['\n\n', '\n', '. ', ' '];
+
+/**
+ * El texto en pedazos de hasta `tope`, cortando donde menos se rompe (un párrafo, una línea, una frase, una palabra; si
+ * no hay nada de eso, a la fuerza). Unidos dan EXACTAMENTE el texto: `partes.join('') === texto`. Con más partes que
+ * `MAX_PARTES`, el tope crece para que entre todo (nunca se descarta la cola).
+ */
+export function partirEnPartes(texto: string, tope = TOPE_PARTE): string[] {
+  if (!texto) return [];
+  const t = Math.max(tope, Math.ceil(texto.length / MAX_PARTES));
+  const out: string[] = [];
+  let i = 0;
+  while (i < texto.length) {
+    if (texto.length - i <= t) { out.push(texto.slice(i)); break; }
+    const ventana = texto.slice(i, i + t);
+    let corte = -1;
+    for (const c of CORTES) {
+      const k = ventana.lastIndexOf(c);
+      // Un corte en la primera mitad deja una parte enana: mejor el siguiente separador.
+      if (k >= t / 2) { corte = k + c.length; break; }
+    }
+    if (corte <= 0) corte = t;
+    out.push(texto.slice(i, i + corte));
+    i += corte;
+  }
+  return out;
+}
+
+/** La lectura de una parte que devuelve la IA, o null: `{"lectura": "..."}` con algo adentro. */
+export const TOPE_LECTURA_PARTE = 3_000;
+export function parseLectura(raw: unknown): string | null {
+  const o = aObjeto(raw);
+  const t = o && typeof o.lectura === 'string' ? o.lectura.trim() : '';
+  return t ? recortar(t, TOPE_LECTURA_PARTE) : null;
+}
+
+/**
+ * La lectura del documento entero: cada parte en orden, con lo que la IA anotó o, si no pudo, el pedazo TAL CUAL (no se
+ * pierde: se lee sin resumir).
+ */
+export function lecturaPorPartes(lecturas: ReadonlyArray<string | null | undefined>, partes: readonly string[]): string {
+  const n = partes.length;
+  return partes.map((p, i) => {
+    const l = lecturas[i]?.trim();
+    return l ? `[Parte ${i + 1} de ${n}]\n${l}` : `[Parte ${i + 1} de ${n}, tal cual]\n${p.trim()}`;
+  }).join('\n\n');
+}
+
+/** El aviso del chip: sólo si una parte quedó sin leer (se manda tal cual). Leído entero, no hace falta decir nada. */
+export function avisoDeLectura(lecturas: ReadonlyArray<string | null | undefined>, n: number): string | null {
+  const sin = lecturas.map((l, i) => (l?.trim() ? 0 : i + 1)).filter(Boolean);
+  if (!sin.length) return null;
+  const cuales = sin.length === 1 ? `la parte ${sin[0]}` : `las partes ${sin.slice(0, -1).join(', ')} y ${sin[sin.length - 1]}`;
+  return `No pude resumir ${cuales} de ${n}: va${sin.length === 1 ? '' : 'n'} tal cual.`;
+}
+
+/** Lo que de un documento viaja a un pedido: su lectura por partes si la tiene, si no el texto. */
+export const cuerpoDelDoc = (d: { texto: string; lectura?: string }): string => (d.lectura?.trim() ? d.lectura : d.texto);
 
 export function sanearDocumentos(raw: unknown): DocumentoGuardado[] {
   if (!Array.isArray(raw)) return [];
@@ -318,6 +403,9 @@ export function sanearDocumentos(raw: unknown): DocumentoGuardado[] {
       ...(typeof o.aviso === 'string' && o.aviso.trim() ? { aviso: o.aviso } : {}),
       ...conArchiveroSaneado(o.archivero),
       at: typeof o.at === 'string' ? o.at : '',
+      // ⚠️ Lista blanca: sin estas dos, la próxima escritura de la conversación borraba la lectura por partes.
+      ...(typeof o.lectura === 'string' && o.lectura.trim() ? { lectura: o.lectura } : {}),
+      ...(typeof o.partes === 'number' && Number.isInteger(o.partes) && o.partes > 0 ? { partes: o.partes } : {}),
     });
   }
   return out;
@@ -2555,7 +2643,7 @@ export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_
   return lineas.join('\n');
 }
 
-export type DocParaPrompt = { id: string; nombre: string; texto: string; at: string };
+export type DocParaPrompt = { id: string; nombre: string; texto: string; at: string; lectura?: string; partes?: number };
 
 /**
  * Los documentos que la IA puede leer: los que viajaron en algún mensaje del dueño, más los del
@@ -2576,8 +2664,10 @@ export function docsDeLaConversacion<T extends { id: string }>(docs: T[], mensaj
  * resto (lo que quede). Dentro de cada tanda ningún documento se come el cupo de los demás: cada uno
  * recibe a lo sumo una parte igual, y lo que un documento corto no usa pasa a los otros.
  */
-export function documentosParaPrompt(docs: DocParaPrompt[], nuevos: string[] = [], tope = TOPE_DOCS_PROMPT): string {
-  if (!docs.length) return '';
+export function documentosParaPrompt(todos: DocParaPrompt[], nuevos: string[] = [], tope = TOPE_DOCS_PROMPT): string {
+  if (!todos.length) return '';
+  // Un documento largo viaja como su lectura por partes (#865): la del documento ENTERO, no su principio.
+  const docs = todos.map((d) => ({ ...d, texto: cuerpoDelDoc(d) }));
   const esNuevo = new Set(nuevos);
   const recientes = (a: DocParaPrompt, b: DocParaPrompt) => (b.at || '').localeCompare(a.at || '');
   const tanda1 = docs.filter((d) => esNuevo.has(d.id)).sort(recientes);
@@ -2602,7 +2692,8 @@ export function documentosParaPrompt(docs: DocParaPrompt[], nuevos: string[] = [
     .map((d) => {
       const c = cupos.get(d.id) ?? 0;
       const cuerpo = d.texto.length > c ? `${d.texto.slice(0, c)}\n[…recortado: ${d.texto.length - c} caracteres más]` : d.texto;
-      return `— «${d.nombre}»${esNuevo.has(d.id) ? ' (recién subido)' : ''} —\n${cuerpo}`;
+      const porPartes = d.lectura?.trim() && d.partes ? ` (leído entero, en ${d.partes} partes)` : '';
+      return `— «${d.nombre}»${esNuevo.has(d.id) ? ' (recién subido)' : ''}${porPartes} —\n${cuerpo}`;
     })
     .join('\n\n');
 }
