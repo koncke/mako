@@ -98,8 +98,9 @@ test('la página ya no dibuja el hub: el chat de arranque, o un redirect con el 
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/OnboardingTabs.tsx')), 'el hub volvió');
   const page = sinComentarios(leer('app/onboarding/page.tsx'));
   assert.doesNotMatch(page, /OnboardingTabs/);
-  // Desde el 16/10/2026 el onboarding es el chat de arranque (el wizard se borró).
-  assert.match(page, /if \(!done\) \{[\s\S]*<ChatArranque [\s\S]*\/><\/>;/, 'el chat de arranque dejó de dibujarse');
+  // Desde el 16/10/2026 el onboarding es el chat de arranque (el wizard se borró). Desde el 17/10 va solo, sin el tema
+  // oscuro forzado al lado (ya no es un fragmento).
+  assert.match(page, /if \(!done\) \{[\s\S]*<ChatArranque [\s\S]*\/>;/, 'el chat de arranque dejó de dibujarse');
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/OnboardingWizard.tsx')), 'volvió el wizard');
   assert.match(page, /redirect\(await rutaConWs\(destinoDeTabVieja\(tab\)\)\);/, 'sin el redirect (o sin el ?ws=) al lugar nuevo');
 });
