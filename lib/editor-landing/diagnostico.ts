@@ -441,6 +441,36 @@ export function claveSugerencia(objetivo: { docId: number } | { url: string }, h
   return `${de}:${hash53(`${normalizarCita(h.titulo)}|${normalizarCita(h.cita)}`)}`;
 }
 
+/**
+ * Los hallazgos de un análisis YA HECHO que todavía no son comentarios de esa landing (#863, 17/10/2026).
+ *
+ * El síntoma, en la revisión con Código Inmobiliario (Fathom 863534246, 01:34): Martín abrió el Diagnóstico de su
+ * landing y leyó «MaKo no encontró nada que señalar». ⚠️ EL DIAGNÓSTICO OBVIO («la IA no encontró nada», «el scraper no
+ * leyó la página») ERA EL EQUIVOCADO: la fila de `landing_analyses` de esa landing tenía 3 hallazgos con su cita. La
+ * había escrito el Landing Analyst (el análisis automático del Pixel, 06/10), que guarda la fila pero NO los
+ * comentarios (`landing_sugerencias`). Al abrir, el panel lista (`listar`): había veredicto, cero comentarios y no
+ * analiza solo (ya hay veredicto). Medido en producción el 17/10: 3 landings de clientes así (ws 11, 13 y 14), 3
+ * hallazgos cada una, 0 comentarios.
+ *
+ * Se comparan por la MISMA clave que deduplica al guardar (`claveSugerencia`): lo que la persona descartó tiene fila y
+ * no vuelve.
+ */
+export function hallazgosSinComentario(
+  objetivo: { docId: number } | { url: string },
+  guardadas: ReadonlyArray<{ hallazgo: Pick<HallazgoDiagnostico, 'titulo' | 'cita'> }>,
+  hallazgos: readonly HallazgoDiagnostico[],
+): HallazgoDiagnostico[] {
+  const ya = new Set(guardadas.map((s) => claveSugerencia(objetivo, s.hallazgo)));
+  const out: HallazgoDiagnostico[] = [];
+  for (const h of hallazgos) {
+    const k = claveSugerencia(objetivo, h);
+    if (ya.has(k)) continue;
+    ya.add(k);
+    out.push(h);
+  }
+  return out;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que dibuja el panel
 // ─────────────────────────────────────────────────────────────────────────────
