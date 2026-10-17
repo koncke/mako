@@ -140,7 +140,7 @@ test('el doer corre la red con lo que decide `turnoParaLaRed`, y no con el turno
   const bloque = doer.slice(iDecide, doer.indexOf('respondió con la RED DE PLATAFORMA', iRed));
   assert.match(bloque, /if \(turnoRed\?\.cortar\) \{[^}]*erroresPlataforma\.push\(`red gratis salteada:/, 'el corte no deja la marca que lee `sinRedPorDatos`');
   assert.match(bloque, /if \(!respuesta && turnoRed && !turnoRed\.cortar\)/, 'la red corre aunque el turno se haya cortado');
-  assert.match(bloque, /chatCheapTools\(systemRed, msgs, toolsRed,/, 'la red manda el system y las herramientas del turno entero');
+  assert.match(bloque, /chatCheapTools\(systemRed, soloElTurno\(msgs\), toolsRed,/, 'la red manda el system y las herramientas del turno entero');
   assert.doesNotMatch(bloque, /chatCheapTools\(system, msgs, tools,/, 'la red manda las herramientas del turno entero');
   assert.match(bloque, /armarSystem\(toolsRed, `\\n\\n\$\{SIN_DATOS_DE_CLIENTES\}`\)/, 'el system de la red nombra herramientas que no viajan');
 });
