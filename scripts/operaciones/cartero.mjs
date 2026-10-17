@@ -58,7 +58,7 @@
 //   pendientes [cuenta]            lo del buzón que le toca mandar a ESTE Runner (su carpeta)
 //   acuse [cuenta] <id> ok | error <motivo>   lo anota el Runner después de cada SendMessage
 //   abrir                          (1.11.0) abre en una ventana los chats nuevos que Martín pidió con un clic
-//   abrir-permitir [off]           (1.11.0) el permiso local para abrirlos: lo prende Martín, una vez
+//   abrir-permitir [on|off]        (1.11.0) el permiso local para abrirlos: lo prende Martín, una vez
 //   nube [<id> <título> …]         (1.10.0) los chats de la nube de la cuenta de la app, como los lista list_sessions;
 //                                  los corre el Runner de la app en cada vuelta, antes de `ciclo`
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
@@ -74,7 +74,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.11.0';
+export const VERSION = '1.11.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -113,6 +113,15 @@ const USO_APP = path.join(process.env.CARTERO_HOME || HOME, '.claude', 'uso-sema
 const LOG = path.join(DIR, 'cartero.log');
 /** Un pedido en el buzón sin acuse por más que esto pasa a «no sé si llegó». */
 const BUZON_VENCE_MS = 30 * 60 * 1000;
+/** Una apertura reclamada que no se abrió en este rato ya no se abre (1.11.1, la revisión de seguridad del Cerebro): la
+ *  vuelta se pudo cortar entre `ciclo` y `abrir` (la PC suspendida, el tope de 5 h, el primer `abrir` esperando un
+ *  permiso), y abrirla horas después, con MaKo ya dándola por perdida, abriría una ventana que nadie pidió AHORA (y dos,
+ *  si Martín la volvió a mandar). Es menos que las 2 h de TOMADO_VENCE_MS: el acuse llega con el trabajo todavía tomado. */
+export const APERTURA_VENCE_MS = 30 * 60 * 1000;
+/** El lanzador (`.cmd`) se borra en la vuelta siguiente: un `.cmd` que queda se puede volver a correr sin firma ni
+ *  permiso. El primer mensaje (`.txt`) se queda un rato más: el chat lo lee al arrancar. */
+const CMD_VENCE_MS = 2 * 60 * 1000;
+const TXT_VENCE_MS = 60 * 60 * 1000;
 /** Los chats que se ofrecen son los de estos directorios (los del clon y sus worktrees). */
 const CWDS_DEFAULT = [path.join(HOME, 'OneDrive', 'Escritorio', 'dashboard-marketing-main'), 'C:\\dev\\'];
 /** El clon, desde donde corre `scripts/decisiones.ts` (lee el `.env.local` de ahí). Se cambia con
@@ -309,15 +318,30 @@ export function leerNube(cuenta, ahora = Date.now(), dir = NUBE) {
   return n.chats.filter((c) => c && NUBE_RE.test(c.id ?? '') && typeof c.titulo === 'string').slice(0, 50);
 }
 
-/** El primer mensaje y el lanzador de una apertura, a los VENCE_DIAS: el chat ya lo leyó o no lo va a leer. */
+/** El lanzador, en la vuelta siguiente; el primer mensaje, a la hora (1.11.1). */
 function limpiarAperturas(ahora = Date.now()) {
   let archivos = [];
   try { archivos = fs.readdirSync(APERTURAS).filter((n) => /\.(txt|cmd)$/.test(n)); } catch { return; }
   for (const n of archivos) {
     try {
       const f = path.join(APERTURAS, n);
-      if (ahora - fs.statSync(f).mtimeMs > VENCE_DIAS * 86_400_000) fs.rmSync(f, { force: true });
+      if (ahora - fs.statSync(f).mtimeMs > (n.endsWith('.cmd') ? CMD_VENCE_MS : TXT_VENCE_MS)) fs.rmSync(f, { force: true });
     } catch { /* la limpieza nunca frena la vuelta */ }
+  }
+}
+
+/** Las aperturas reclamadas que ya no se abren: se toman (rename, como en `abrir`) y se acusan «no se abrió a tiempo». */
+function vencerAperturas(ahora = Date.now()) {
+  for (const f of listar(APERTURAS)) {
+    const a = leerJson(f, null);
+    if (!a || !aperturaVencida(a, ahora)) continue;
+    const tomada = `${f}.tomada`;
+    try { fs.renameSync(f, tomada); } catch { continue; } // la está abriendo (o venciendo) otro Runner
+    fs.rmSync(tomada, { force: true });
+    const id = a.id;
+    if (typeof id !== 'string' || !UUID_RE.test(id) || path.basename(f) !== `${id}.json` || !CUENTA_RE.test(a.cuenta ?? '')) continue;
+    escribirJson(path.join(acusesDe(a.cuenta), `${id}.json`), { id, estado: 'no_entregado', motivo: NO_A_TIEMPO });
+    log(`[${a.cuenta}] APERTURA ${id} vencida: no se abrió a tiempo`);
   }
 }
 
@@ -352,6 +376,7 @@ export function abrir(cfg = config(), ahora = Date.now()) {
       out.push({ id, estado, motivo });
       log(`[${cuenta}] ABRIR ${id} ${estado}: ${motivo}`);
     };
+    if (aperturaVencida(a, ahora)) { acusar('no_entregado', NO_A_TIEMPO); continue; }
     if (viejo.has(id) || fs.existsSync(path.join(ENTREGADOS, id))) { acusar('no_entregado', 'Ya se había abierto: no se abre dos veces'); continue; }
     const firmado = typeof a.firmado === 'string' ? a.firmado : '';
     if (!quienFirmo(firmado, typeof a.firma === 'string' ? a.firma : '', spkis)) { acusar('no_entregado', 'Pégale tu Token al Runner y vuelve a mandarlo'); continue; }
@@ -363,11 +388,12 @@ export function abrir(cfg = config(), ahora = Date.now()) {
     const cmd = path.join(APERTURAS, `${id}.cmd`);
     let lanzador;
     try { lanzador = archivoCmd(comandoDeApertura(cuenta, l.p.titulo, txt)); } catch (e) { acusar('no_entregado', `Vuelve a mandarlo (${e.message})`); continue; }
+    // «Ya abierto» se anota ANTES de lanzar, y sin pisar (`wx`): con dos Runners, el segundo no abre otra ventana.
+    fs.mkdirSync(ENTREGADOS, { recursive: true });
+    try { fs.writeFileSync(path.join(ENTREGADOS, id), '', { flag: 'wx' }); } catch { acusar('no_entregado', 'Ya se había abierto: no se abre dos veces'); continue; }
     fs.writeFileSync(txt, l.p.texto);
     fs.writeFileSync(cmd, lanzador);
     spawnSync(ABRIDOR[0], [...ABRIDOR.slice(1), cmd], { timeout: 15_000 });
-    fs.mkdirSync(ENTREGADOS, { recursive: true });
-    fs.writeFileSync(path.join(ENTREGADOS, id), '');
     acusar('entregado', `Se pidió abrir «${l.p.titulo}» en la terminal de la cuenta ${cuenta.replace('claude', '')}: mira que aparezca en la lista`);
   }
   return out;
@@ -419,6 +445,17 @@ export function archivoCmd(comando) {
 /** ¿Esta PC abre chats de esa cuenta? Con el permiso local prendido (`abrir-permitir`) y una terminal declarada. */
 export const puedeAbrir = (cfg, cuenta) => cfg?.abrir === true && CUENTA_RE.test(cuenta ?? '')
   && fuentesDe(cfg.carteros?.[cuenta]).some((f) => f.fuente === 'cli');
+
+/** Un texto que viene de MaKo y se le imprime al Runner (un modelo que puede correr `clave` y `abrir-permitir`): en un
+ *  renglón y hasta 200 caracteres (1.11.1). */
+export const textoRemoto = (x) => String(x ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim().slice(0, 200);
+
+/** ¿Esta apertura ya no se abre? Sin `reclamado` válido, o reclamada hace más de APERTURA_VENCE_MS. */
+export const aperturaVencida = (a, ahora = Date.now()) => {
+  const t = Date.parse(typeof a?.reclamado === 'string' ? a.reclamado : '');
+  return !Number.isFinite(t) || ahora - t > APERTURA_VENCE_MS || t > ahora + 60_000;
+};
+const NO_A_TIEMPO = 'No se abrió a tiempo: vuelve a mandarlo';
 
 /** La forma de un `ref` de la Ticketera (copia de REF_DECISION, app/admin/runway/decisiones.ts). */
 export const REF_DECISION = /^[a-z0-9][a-z0-9-]{1,63}$/;
@@ -823,6 +860,9 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     }
   }
 
+  // Las aperturas que ya no se abren (1.11.1): `abrir` puede no correr nunca, así que las vence la vuelta.
+  vencerAperturas();
+
   // Los acuses de TODAS las cuentas, y los cierres (que son de la PC). Juntos, porque MaKo aplica un cierre sólo
   // sobre un pedido ENTREGADO: si un Runner subiera los cierres sin el acuse que está en el buzón de otra cuenta, el
   // cierre no entraría (MaKo aplica cada acuse por su id, sin mirar la cuenta: subirlos en cualquier vuelta es seguro).
@@ -851,7 +891,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     signal: AbortSignal.timeout(30_000),
   });
   const salida = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(`MaKo contestó ${r.status}: ${salida.error ?? 'sin detalle'}`);
+  if (!r.ok) throw new Error(`MaKo contestó ${Number(r.status) || 0}: ${textoRemoto(salida.error) || 'sin detalle'}`);
 
   // Lo que se subió ya está en MaKo: se borra de acá (sólo lo que se listó ANTES de subir).
   for (const f of archivosAcuse) fs.rmSync(f, { force: true });
@@ -923,12 +963,13 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     avisos++;
     log(`[${cuenta}] AVISO ${id} (${a.ref}) → ${chat.titulo}`);
   }
-  if (salida.avisosError) log(`[${cuenta}] los avisos de la Ticketera no se pudieron calcular: ${salida.avisosError}`);
+  const avisosError = salida.avisosError ? textoRemoto(salida.avisosError) : null;
+  if (avisosError) log(`[${cuenta}] los avisos de la Ticketera no se pudieron calcular: ${avisosError}`);
   limpiarAdjuntos();
   limpiarAperturas();
   return {
-    vencidos: salida.vencidos ?? 0, acuses: salida.acuses ?? 0, cierres: salida.cierres ?? 0,
-    avisos, avisosError: salida.avisosError ?? null,
+    vencidos: Number(salida.vencidos) || 0, acuses: Number(salida.acuses) || 0, cierres: Number(salida.cierres) || 0,
+    avisos, avisosError,
   };
 }
 
@@ -1213,7 +1254,10 @@ if (esMain) {
       case 'abrir': imprimir(abrir()); break;
       // El permiso local para abrir chats desde MaKo: lo prende Martín, una vez, pidiéndoselo al Runner.
       case 'abrir-permitir': {
-        const prendido = resto[0] !== 'off';
+        // ⚠️ Es el único interruptor para CORTAR la apertura: falla cerrado (1.11.1). «OFF», «apagar» o «--off» prendían.
+        const que = String(resto[0] ?? '').trim().toLowerCase();
+        if (que !== '' && que !== 'on' && que !== 'off') throw new Error('uso: abrir-permitir [on|off]');
+        const prendido = que !== 'off';
         escribirJson(CFG, { ...config(), abrir: prendido });
         imprimir({ ok: true, abrir: prendido }); break;
       }

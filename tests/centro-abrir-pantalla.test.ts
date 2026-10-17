@@ -36,6 +36,7 @@ test('«Abrir» sólo con el cartero que abre; la versión se compara por númer
   const cartero = await import('../scripts/operaciones/cartero.mjs');
   assert.ok(aceptaAbrir(cartero.VERSION), `el cartero ${cartero.VERSION} abre (${VERSION_ABRIR})`);
   assert.equal(aceptaAbrir('1.10.0'), false, 'el instalado hoy no abre');
+  assert.equal(aceptaAbrir('1.11.0'), false, 'la 1.11.0 tenía los defectos de la revisión de seguridad: no habilita «Abrir»');
   assert.ok(aceptaAbrir('1.12.0') && aceptaAbrir('2.0.0') && aceptaAbrir('1.11.3'));
   assert.equal(aceptaAbrir(null), false);
   assert.ok(versionAlMenos('1.10.0', '1.9.1'), '«1.10.0» es mayor que «1.9.1» (como texto sería menor)');

@@ -169,7 +169,7 @@ export function sanearAbre(x: unknown): string[] {
   return [...new Set(x.filter((c): c is string => typeof c === 'string' && CUENTA_RE.test(c)))].slice(0, 10);
 }
 /** El cartero que abre chats (`abrir`): con uno de antes, el trabajo quedaría escrito para siempre. */
-export const VERSION_ABRIR = '1.11.0';
+export const VERSION_ABRIR = '1.11.1';
 export const aceptaAbrir = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ABRIR);
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

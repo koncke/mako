@@ -129,6 +129,21 @@ detalle está en docs/hallazgos-operaciones.md («El clic, medido»).
 - **el caso de la app**: si un Runner de la app puede dejar la PROPUESTA de un chat (la tarjeta), y cuántos clics le
   quedan a Martín.
 
+**Lo que dejó la revisión de seguridad del Cerebro (17/10, cartero 1.11.1):**
+- **El interruptor falla CERRADO.** `abrir-permitir` acepta sólo «on» u «off» (sin mayúsculas ni espacios); cualquier
+  otra cosa sale con error y no toca la configuración. En la 1.11.0, «OFF» o «apagar» PRENDÍAN la apertura.
+- **Una apertura vence a los 30 minutos de reclamada** (`APERTURA_VENCE_MS`, menos que las 2 h de `TOMADO_VENCE_MS`).
+  Si la vuelta se corta entre `ciclo` y `abrir`, no se abre horas después, cuando MaKo ya la dio por perdida (y dos
+  veces, si Martín la volvió a mandar). La vence `abrir` y también `ciclo`, porque `abrir` puede no correr nunca.
+- **El `.cmd` se borra en la vuelta siguiente**: no queda un lanzador que se pueda volver a correr sin firma ni permiso.
+  El `.txt` se queda una hora: el chat lo lee al arrancar.
+- **«Ya abierto» se anota ANTES de lanzar**, sin pisar: con dos Runners, el segundo no abre otra ventana.
+- **Lo que dice MaKo y se le imprime al Runner va en un renglón y hasta 200 caracteres.** Es texto remoto que entra al
+  contexto de un modelo que puede correr `clave` y `abrir-permitir`.
+- **La cuenta 3 arranca en modo `default`** (las 1 y 2 en `bypassPermissions`: es la configuración de Martín en
+  `~/.claude` y `~/.claude-martin`, no la trae el clic). En la 3, el primer «Lee el archivo» puede quedar esperando un
+  permiso en la ventana nueva.
+
 ## Archivos
 
 - **Servidor y PC:** lib/operaciones-reglas.ts (el `nuevo` en la lectura y su test diferencial) ·

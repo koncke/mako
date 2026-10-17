@@ -1191,8 +1191,26 @@ opción de Claude. Así quedó:
 **Sin medir:** que `claudeN -n '<nombre>' '<pedido>'` arranque la sesión interactiva con ese pedido (la ayuda de la CLI
 dice que sí), y el caso de la cuenta de la app (sólo puede PROPONER el chat).
 
-**Vive en:** docs/diseno-nuevo-chat-un-clic.md («3. La PC» y «Medido») · la nota de la medición, en la carpeta de notas
-compartida del Cerebro (`ops-center-medicion-clic-17-10.md`).
+**La revisión de seguridad del Cerebro sobre el clic (cartero 1.11.1) encontró dos defectos con forma de regla:**
+- **Un interruptor de seguridad que falla ABIERTO.** `const prendido = resto[0] !== 'off'` parece apagar con «off», pero
+  «OFF», «apagar», «--off» o «off » PRENDÍAN la apertura y contestaban ok. Era el único interruptor para cortarla. La
+  regla: un interruptor se compara contra una lista cerrada («on» u «off», normalizados), y cualquier otra cosa es un
+  error que no toca nada.
+- **Lo reclamado sin vencimiento en la PC.** `abrir` miraba sólo el `vence` de la firma (14 días), nunca cuándo se
+  reclamó. Si la vuelta se cortaba entre `ciclo` y `abrir`, la ventana podía abrirse días después, con MaKo ya dándola
+  por perdida y el acuse descartado; y si Martín la había vuelto a mandar, se abrían dos. Ahora una apertura vence a los
+  30 minutos, menos que las 2 horas de `TOMADO_VENCE_MS`, así el acuse llega con el trabajo todavía tomado. La vencen
+  `abrir` y la vuelta, porque `abrir` puede no correr nunca.
+
+Y tres endurecimientos baratos:
+- el `.cmd` se borra en la vuelta siguiente, porque se podía volver a correr sin firma;
+- «ya abierto» se anota ANTES de lanzar, con `wx`;
+- el error que manda MaKo va al contexto del Runner en un renglón y hasta 200 caracteres. Es texto remoto, y el Runner
+  es un modelo que puede correr `clave` y `abrir-permitir`.
+
+**Vive en:** docs/diseno-nuevo-chat-un-clic.md («3. La PC», «Medido» y «Lo que dejó la revisión») ·
+scripts/operaciones/cartero.mjs (`abrir`, `vencerAperturas`, `textoRemoto`) · tests/centro-abrir.test.ts · la nota de
+la medición, en la carpeta de notas compartida del Cerebro (`ops-center-medicion-clic-17-10.md`).
 
 ## Lo que creí medido y no estaba al día
 
