@@ -18,12 +18,12 @@
 //   · ChatGPT y Claude — el «⋯» de cada fila con Renombrar y Cambiar su muñeco;
 //   · claude.ai → Configuración → Uso — el desplegable «Uso» (Uso.tsx).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Field, Input, Modal } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
-  SECCION_CEREBRO, SECCION_CHATS, SECCION_SIN_ASIGNAR, esperaDe, partesDelNombre, porJefe, seccionesDeChats,
+  SECCION_CEREBRO, SECCION_CHATS, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
   type ChatCentro, type VistaPrevia,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
@@ -31,6 +31,9 @@ import { elegidoPara } from '@/lib/centro-munecos';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
 import { comandoNuevoChat, tieneTerminal } from '@/lib/runner';
+import {
+  AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
+} from '@/lib/centro-cuentas';
 import { nombreValido } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
@@ -41,6 +44,9 @@ import { MunecoNuevo, NuevoChat, type BorradorNuevoChat } from './NuevoChat';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import type { Centro } from './useCentro';
+
+/** «10:52», con el reloj de Argentina (el de Martín). */
+const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 /** Cuántos chats se ven antes de «Mostrar más» (como los proyectos de Codex). */
 const VISIBLES = 14;
@@ -80,6 +86,8 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
         <span className="co-fila__cuerpo">
           <span className="co-fila__l1">
             <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
+            {/* Un chat de la nube (lo anota el Runner de la app): se ve, con su marca, y no se le escribe desde acá. */}
+            {c.nube && <span className="co-chip-cuenta">Nube</span>}
             <span className="co-fila__hace">{edadCorta(c.actividad, k.ahora)}</span>
           </span>
           <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} enCurso={k.enCursos.get(c.clave) ?? null} />
@@ -105,12 +113,19 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   buscando: boolean;
   onElegir: (clave: string) => void;
 }) {
-  const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set([SECCION_SIN_ASIGNAR]));
+  // «Sin asignar» va ABIERTA desde el 17/10/2026 (Martín: «Hay chats que están corriendo acá que no se reflejan... ni
+  // como jefes ni como trabajadores»: «Pagos» y «MaKo en WhatsApp» estaban ahí, plegados). Todo chat abierto se ve.
+  const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set());
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
   const secciones = useMemo(() => seccionesDeChats(visibles, k.tabs), [visibles, k.tabs]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
+  // Sin ningún Runner dando vueltas, lo de abajo es una foto: se dice desde cuándo, en vez de mostrarlos «quietos».
+  const sinNoticias = sinNoticiasDesde(k.carteros, k.ahora);
   return (
     <>
+      {sinNoticias != null && (
+        <p className="co-lista__vacio" role="status">{`Sin noticias del Runner desde las ${horaAR(sinNoticias)}`}</p>
+      )}
       {secciones.map(({ clave, titulo, chats: lista }) => {
         const plegada = plegadas.has(clave) && !buscando;
         const todas = enteras.has(clave) || buscando;
@@ -149,8 +164,12 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
 
 /** La conversación de un chat con su caja: Conversacion.tsx, enchufada al motor. */
 export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; chat: ChatCentro; onVolver: () => void }) {
+  // Lo que se dijo en ESTE chat se pide mientras se lo mira (y se refresca con el resto).
+  const { mirar } = k;
+  useEffect(() => { mirar(chat); return () => mirar(null); }, [chat.clave, mirar]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Conversacion
+      turnos={k.turnosDe(chat)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       avance={k.avance} onAvance={k.cambiarAvance}
       aspecto={elegidoPara(k.munecos, chat.titulo)}
@@ -161,10 +180,52 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       respuestas={respuestasDelChat(chat, k.decisiones, k.carteros)}
       responder={k.responderAca}
       envio={k.envioDe(chat)} texto={k.borradorDe(chat.clave)} onTexto={(t) => k.ponerBorrador(chat.clave, t)}
+      adjuntos={{
+        items: k.adjuntosDe(chat.clave), puede: k.puedeAdjuntar(chat),
+        onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id),
+      }}
       alcance={k.alcance} onAlcance={k.setAlcance} enviando={k.enviando}
       onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
       onVolver={onVolver}
+      selectores={<SelectoresDeEnvio centro={k} chat={chat} />}
     />
+  );
+}
+
+/**
+ * A qué cuenta va lo que se escribe, y con qué modelo y esfuerzo corre (Martín, 17/10/2026: «debería poder seleccionar»
+ * la cuenta, con «Automático» si no elige, y «eligiendo qué modelo de IA debe correr»). Copiado del selector de modelo de
+ * Claude y ChatGPT, al lado de la caja: un desplegable chico por cosa, con «Automático» primero. La cuenta automática dice
+ * cuál sería; el modelo y el esfuerzo sólo se ofrecen en un chat de la app (los de terminal no se pueden cambiar desde
+ * afuera) y vuelven a «Automático» después de mandar. Las reglas: lib/centro-cuentas.ts.
+ */
+export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: ChatCentro }) {
+  const { opciones, automatica } = k.cuentasDe(chat);
+  const destino = k.destinoDeChat(chat);
+  const conModelo = aceptaModelo(destino.sesion);
+  const libre = (n: number | null) => (n == null ? '' : ` · ${n}% libre`);
+  return (
+    <>
+      {opciones.length > 0 && (
+        <select className="co-chip co-envio-sel" aria-label="Cuenta" title="A qué cuenta va" value={k.cuentaElegida(chat.clave)}
+          onChange={(e) => k.elegirCuenta(chat.clave, e.target.value)} disabled={k.enviando}>
+          <option value={AUTOMATICO}>{automatica ? `Automático · ${nombreCuenta(automatica)}` : 'Automático'}</option>
+          {opciones.map((o) => <option key={o.cuenta} value={o.cuenta}>{`${nombreCuenta(o.cuenta)}${libre(o.libre)}`}</option>)}
+        </select>
+      )}
+      <select className="co-chip co-envio-sel" aria-label="Modelo" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+        title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
+        onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
+        <option value={AUTOMATICO}>Modelo automático</option>
+        {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
+      </select>
+      <select className="co-chip co-envio-sel" aria-label="Esfuerzo" value={conModelo ? k.esfuerzo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
+        title={conModelo ? 'Cuánto piensa' : 'El esfuerzo se elige sólo en los chats de la app'}
+        onChange={(e) => k.setEsfuerzo(e.target.value === AUTOMATICO ? null : e.target.value as Esfuerzo)}>
+        <option value={AUTOMATICO}>Esfuerzo automático</option>
+        {ESFUERZOS.map((x) => <option key={x} value={x}>{NOMBRE_ESFUERZO[x]}</option>)}
+      </select>
+    </>
   );
 }
 

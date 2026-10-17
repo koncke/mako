@@ -23,7 +23,7 @@
 // =============================================================================
 
 import { contenidoNoConfiable } from '../prompt-render-pure';
-import { bloquesDeLaTab, NOMBRE_TAB, type Ancho, type BloqueDef, type BloqueId, type TabFicha } from './catalogo';
+import { bloquesDelLugar, esTabFicha, NOMBRE_TAB, type Ancho, type BloqueDef, type BloqueId, type LugarFicha } from './catalogo';
 import { sanearLista, type BloquePuesto } from './config';
 
 /** La feature del registro de modelos (lib/model-catalogo.ts): gratis, sin fila en CLAUDE_PERMITIDO. */
@@ -54,18 +54,21 @@ Reglas:
  * Los bloques que MaKo puede elegir en una tab: los del catálogo que tienen componente (`registrado`: el registro de la
  * pantalla, app/crm/lead-view/ficha/reglas.ts) y que no son privados (el coaching no va en la ficha de todos).
  */
-export function ofrecidosParaIA(tab: TabFicha, registrado: (id: BloqueId) => boolean): BloqueDef[] {
-  return bloquesDeLaTab(tab).filter((d) => registrado(d.id) && !d.privado);
+export function ofrecidosParaIA(tab: LugarFicha, registrado: (id: BloqueId) => boolean): BloqueDef[] {
+  return bloquesDelLugar(tab).filter((d) => registrado(d.id) && !d.privado);
 }
 
+/** Cómo se nombra el lugar en el catálogo y en los errores: la tab, o una hoja propia (17/10/2026: cualquier bloque). */
+const nombreDelLugar = (tab: LugarFicha): string => (esTabFicha(tab) ? `la tab «${NOMBRE_TAB[tab]}»` : 'una hoja propia (cualquier bloque de la ficha)');
+
 /** El catálogo de la tab, en el orden del menú: id — nombre · anchos · diseños. */
-export function catalogoDeTab(tab: TabFicha, ofrecidos: readonly BloqueDef[]): string {
+export function catalogoDeTab(tab: LugarFicha, ofrecidos: readonly BloqueDef[]): string {
   const filas = ofrecidos.map((d) => `- ${d.id} — ${d.titulo} · anchos: ${d.anchos.map((a) => NOMBRE_ANCHO[a]).join(', ')} · diseños: ${d.disenos.map((x) => `${x.id} (${x.nombre})`).join(', ')}`);
-  return `CATÁLOGO DE LA TAB «${NOMBRE_TAB[tab]}»:\n${filas.join('\n')}`;
+  return `${esTabFicha(tab) ? `CATÁLOGO DE LA TAB «${NOMBRE_TAB[tab]}»` : 'CATÁLOGO DE UNA HOJA PROPIA (cualquier bloque de la ficha)'}:\n${filas.join('\n')}`;
 }
 
 /** El mensaje user: el catálogo y el pedido, marcado como dato (no son instrucciones para el modelo). */
-export function userDeTab(pedido: string, tab: TabFicha, ofrecidos: readonly BloqueDef[]): string {
+export function userDeTab(pedido: string, tab: LugarFicha, ofrecidos: readonly BloqueDef[]): string {
   return `${catalogoDeTab(tab, ofrecidos)}\n\nEL PEDIDO:\n${contenidoNoConfiable(pedido.slice(0, TOPE_PEDIDO_TAB), 'pedido')}`;
 }
 
@@ -84,7 +87,7 @@ export type ResultadoTabIA = {
  * que se corrigió. Es inservible si no queda ningún bloque (aparte de lo que no se puede quitar) o si más de la mitad
  * de lo pedido no existe.
  */
-export function deIATab(obj: Record<string, unknown>, tab: TabFicha, ofrecidos: readonly BloqueDef[]): ResultadoTabIA {
+export function deIATab(obj: Record<string, unknown>, tab: LugarFicha, ofrecidos: readonly BloqueDef[]): ResultadoTabIA {
   const avisos: string[] = [];
   const errores: string[] = [];
   const crudos = Array.isArray(obj.bloques) ? obj.bloques : [];
@@ -96,7 +99,7 @@ export function deIATab(obj: Record<string, unknown>, tab: TabFicha, ofrecidos: 
     const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
     const id = typeof o.bloque === 'string' ? o.bloque.trim() : typeof o.id === 'string' ? o.id.trim() : '';
     const def = porId.get(id as BloqueDef['id']);
-    if (!def) { malos++; errores.push(`«${id || '(sin id)'}» no es un bloque del catálogo de ${NOMBRE_TAB[tab]}`); continue; }
+    if (!def) { malos++; errores.push(`«${id || '(sin id)'}» no es un bloque del catálogo de ${nombreDelLugar(tab)}`); continue; }
     if (pedidos.some((p) => p.id === id) && !def.varias) continue;
     const ancho = typeof o.ancho === 'string' ? ANCHO_DE[o.ancho.trim()] : undefined;
     if (ancho && !def.anchos.includes(ancho)) avisos.push(`${def.titulo} no va de ${o.ancho}: quedó de ${NOMBRE_ANCHO[def.ancho]}`);

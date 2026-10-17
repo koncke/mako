@@ -9,15 +9,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { NOMBRE_TAB, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
+import { esTabFicha, NOMBRE_TAB, type BloqueId, type LugarFicha } from '@/lib/ficha/catalogo';
 import type { BloquePuesto } from '@/lib/ficha/config';
 import { ofrecerEnAgregar } from './armar';
 import { entradaDe } from './registro';
 import { Flotante } from './Flotante';
 
-export function AgregarBloque({ ancla, tab, lista, verPrivado, onElegir, onCerrar }: {
+export function AgregarBloque({ ancla, tab, nombre, lista, verPrivado, onElegir, onCerrar }: {
   ancla: HTMLElement;
-  tab: TabFicha;
+  tab: LugarFicha;
+  /** El nombre que se dibuja de la tab o de la hoja propia. */
+  nombre: string;
   lista: readonly BloquePuesto[];
   verPrivado: boolean;
   onElegir: (id: BloqueId) => void;
@@ -29,7 +31,7 @@ export function AgregarBloque({ ancla, tab, lista, verPrivado, onElegir, onCerra
   useEffect(() => { input.current?.focus(); }, []);
   const opciones = ofrecerEnAgregar(tab, lista, { registrado: (id) => !!entradaDe(id), verPrivado, buscar });
   return (
-    <Flotante ancla={ancla} onCerrar={onCerrar} ancho={300} etiqueta={`Agregar un bloque a ${NOMBRE_TAB[tab]}`}>
+    <Flotante ancla={ancla} onCerrar={onCerrar} ancho={300} etiqueta={`Agregar un bloque a ${nombre}`}>
       <input ref={input} className="fb-buscar" type="search" value={buscar} placeholder="Buscar un bloque" aria-label="Buscar un bloque"
         onChange={(e) => setBuscar(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && opciones[0]) { e.preventDefault(); onElegir(opciones[0].id); } }} />
@@ -37,7 +39,8 @@ export function AgregarBloque({ ancla, tab, lista, verPrivado, onElegir, onCerra
         {opciones.map((def) => (
           <button key={def.id} type="button" role="menuitem" className="fb-opcion" onClick={() => onElegir(def.id)}>
             <IconoMenu nombre={def.icono} size={16} /> {def.titulo}
-            {def.tab !== tab && <span className="fb-opcion-linea">de {NOMBRE_TAB[def.tab]}</span>}
+            {/* En una hoja propia van los de todas las tabs: cada uno dice de cuál es. */}
+            {def.tab !== tab && (esTabFicha(tab) || def.tab !== 'resumen') && <span className="fb-opcion-linea">de {NOMBRE_TAB[def.tab]}</span>}
           </button>
         ))}
         {!opciones.length && <div className="fb-vacio-menu">{buscar.trim() ? 'Ninguno con ese nombre.' : 'Ya están todos.'}</div>}

@@ -646,6 +646,15 @@ export const CONDICIONES: readonly DefCondicion[] = [
     id: 'contesto', seccion: 'Mensajes', ambito: 'ambos', rotulo: ['Contestó desde que entró', 'No contestó desde que entró'], negable: true, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => tri(h.contestoEnEsta),
   },
+  {
+    // «EL EQUIPO NO CONTESTÓ EN EL GRUPO» (17/10/2026, tarjeta #849). Martín en la revisión del 16/10: «no es lo mismo de que
+    // no hubo respuesta del lead… no hubo respuesta de parte del dueño del negocio». Joan: «llega un lead, le avisa, espera
+    // cinco minutos y si el inmobiliario no responde en el grupo, que le envíe otro mensaje». Va DESPUÉS de una tarjeta MaKo
+    // y una espera: ¿alguien escribió en el grupo desde el último aviso de ESTA automatización a este lead? Es de la
+    // inscripción (`equipoContestoEnEsta`): la fuente es la base (`lead`) y la lectura del grupo la hace el motor.
+    id: 'equipo_contesto', seccion: 'Mensajes', ambito: 'ambos', rotulo: ['Contestó el equipo', 'No contestó el equipo'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    evaluar: (_f, h) => tri(h.equipoContestoEnEsta),
+  },
 
   // ── Instagram y Messenger (duodécima tanda) ──
   {

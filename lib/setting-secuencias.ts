@@ -32,7 +32,7 @@ import { aplicarVariables } from './template-vars';
 import { datosDeEjemplo, escenariosDeLaSecuencia, mensajesDelEscenario } from './simulador-grafo';
 import { esCanalSocial, NOMBRE_CANAL } from './canal-social';
 import { esPasoAccion } from './nutricion-paso-accion';
-import { partesDe } from './mensaje-partes';
+import { partesDe, sinVistaPrevia } from './mensaje-partes';
 import { emojiDeSecuencia } from './flujo-conversacion';
 import { leerPosicionesSecuencias, type DbPosiciones } from './secuencia-posiciones';
 import type { Posiciones } from './lienzo-posiciones';
@@ -781,7 +781,7 @@ export async function probarSecuencia(secuenciaId: number, op: { escenario?: num
           const rm = await enviarMediaYEspejar({ telefono: contacto.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: conRotulo(aplicarVariables(parte.cuerpo ?? '', vars)), linea: lineaSec });
           if (rm.ok) enviadosWa += 1; else { avisos.push(`Paso ${n} (archivo): ${rm.error ?? 'no salió'}`); break; }
         } else {
-          const r = await enviarYEspejar({ telefono: contacto.telefono, texto: conRotulo(aplicarVariables(parte.cuerpo, vars)), linea: lineaSec });
+          const r = await enviarYEspejar({ telefono: contacto.telefono, texto: conRotulo(aplicarVariables(parte.cuerpo, vars)), linea: lineaSec, sinVistaPrevia: sinVistaPrevia(paso) });
           if (r.ok) enviadosWa += 1; else { avisos.push(`Paso ${n} (WhatsApp): ${r.error ?? 'no salió'}`); break; }
         }
       }

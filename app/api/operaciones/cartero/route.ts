@@ -16,13 +16,39 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { cicloCartero } from '@/lib/operaciones';
+import { cicloCartero, tokenDelCarteroValido } from '@/lib/operaciones';
+import { adjuntoParaElCartero } from '@/lib/operaciones-adjuntos';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest) {
+const tokenDe = (req: NextRequest) => {
   const auth = req.headers.get('authorization') ?? '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+};
+
+/**
+ * GET ?pedido=<id>&adjunto=<ref> — los bytes de un adjunto (cartero 1.9.0, 17/10/2026). Sólo de un trabajo `tomado` cuyo
+ * texto firmado lo nombra (lib/operaciones-adjuntos.ts). La PC compara lo que baja con el sha256 firmado: esto no decide
+ * qué se acepta allá.
+ */
+export async function GET(req: NextRequest) {
+  const token = tokenDe(req);
+  if (!token) return NextResponse.json({ error: 'falta el token del cartero' }, { status: 401 });
+  try {
+    if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
+    const q = req.nextUrl.searchParams;
+    const b = await adjuntoParaElCartero(q.get('pedido') ?? '', q.get('adjunto') ?? '');
+    if (!b) return NextResponse.json({ error: 'no hay ese adjunto para entregar' }, { status: 404 });
+    return new NextResponse(new Uint8Array(b), {
+      headers: { 'content-type': 'application/octet-stream', 'content-length': String(b.length), 'cache-control': 'no-store' },
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'error' }, { status: 503 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const token = tokenDe(req);
   if (!token) return NextResponse.json({ error: 'falta el token del cartero' }, { status: 401 });
 
   let cuerpo: unknown;

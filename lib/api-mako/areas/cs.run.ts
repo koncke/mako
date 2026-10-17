@@ -29,7 +29,7 @@
 // =============================================================================
 
 import 'server-only';
-import type { Ejecutado, Preparado, Runners } from '../tipos';
+import type { Ctx, Ejecutado, Preparado, Runners } from '../tipos';
 import { cartera, type ClienteCartera, type EstadoCliente } from '@/lib/cs-cartera';
 import { claveNivel, conTrabajo, type ClaveNivel } from '@/lib/cs-senal';
 import { getWorkspace } from '@/lib/workspace';
@@ -47,6 +47,13 @@ import type { Progreso } from '@/lib/curso';
 import { clienteDelWorkspace, estadoGuardadoDe, marcarEstadoCliente } from './cs.helpers';
 import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
 import { cobrosDeClientesDeAgencia } from '@/lib/agencia-cobro';
+import { productosDelAlumno } from '@/lib/curso-datos';
+import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
+import { invitadoAlProducto, entroAlProducto, correoQueFallo } from '@/lib/curso-invitar-reglas';
+import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
+import { listProductos } from '@/lib/productos';
+import { productosDelCliente } from '@/app/customer-success/entrega';
+import { POR_MAKO } from '@/lib/cs-mover-etapa';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -58,6 +65,41 @@ const num = (i: In, k: string): number | null => (typeof i[k] === 'number' && Nu
 const str = (i: In, k: string): string => (typeof i[k] === 'string' ? (i[k] as string).trim() : '');
 
 const NO_ES_CLIENTE = (id: number | null) => `El lead #${id ?? '?'} no es un cliente ganado de este negocio. Los clientes salen de ver_cartera_cs.`;
+
+// ── Lo de `invitar_cliente_curso_cs` (#874, traído de wip/api-acciones-1410) ──────────────────────
+/** Una lista de textos: sin vacíos ni repetidos. */
+const textos = (i: In, k: string): string[] =>
+  Array.isArray(i[k]) ? [...new Set((i[k] as unknown[]).filter((x): x is string => typeof x === 'string').map((s) => s.trim()).filter(Boolean))] : [];
+const msgDe = (e: unknown) => (e instanceof Error && e.message ? e.message : String(e));
+/** Quién firma el historial: quien confirma (la sesión, o «API · token»), o MaKo. */
+const autorDe = (ctx: Ctx): string => ctx.actor?.trim() || POR_MAKO;
+/** preparar() no lanza: «no pude leer» se dice como lo que es, y no se escribe nada. */
+const revisando = (fn: (input: In, ctx: Ctx) => Promise<Preparado>) =>
+  async (input: In, ctx: Ctx): Promise<Preparado> => {
+    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisarlo (${msgDe(e)}). Reintenta en un momento.` }; }
+  };
+/** ejecutar() no lanza (tipos.ts): si algo falla, ok:false con el motivo. */
+const sinLanzar = (que: string, fn: (payload: In, ctx: Ctx) => Promise<Ejecutado>) =>
+  async (payload: In, ctx: Ctx): Promise<Ejecutado> => {
+    try { return await fn(payload, ctx); } catch (e) {
+      console.error(`[api-mako cs] ${que}:`, msgDe(e));
+      return { ok: false, resumen: `No se pudo ${que} (${msgDe(e)}).` };
+    }
+  };
+/** ¿Es un servicio del que es CLIENTE? La regla del kanban (`productosDelCliente`). */
+async function esServicioSuyo(leadId: number, productoId: number): Promise<boolean> {
+  return (await productosDelCliente(leadId)).productos.includes(productoId);
+}
+/** De esos productos, los que tienen al menos una clase, con su nombre (los que nombra el mail de la invitación). */
+async function cursosDe(ids: readonly number[]): Promise<Array<{ productoId: number; nombre: string }>> {
+  if (!ids.length) return [];
+  const [catalogo, clases] = await Promise.all([
+    listProductos(false),
+    Promise.all(ids.map(async (id) => [id, await clasesDelProducto(id)] as const)),
+  ]);
+  const nombre = new Map(catalogo.map((p) => [Number(p.id), p.nombre]));
+  return clases.filter(([, cs]) => cs.length > 0).map(([id]) => ({ productoId: id, nombre: nombre.get(id) ?? 'Producto' }));
+}
 
 // ⚠️ LA CARTERA SE REARMÓ EL 26/09/2026 Y DEJÓ DE SER LA DE UN CLIENTE. Se fueron
 // los campos del programa de 44 clases (bloques, clases vistas, bloque actual, links
@@ -320,5 +362,60 @@ export const RUNNERS: Runners = {
       if (err) return { ok: false, resumen: `No se pudo guardar el estado de ${cliente.nombre}: ${err}` };
       return { ok: true, resumen: `${cliente.nombre} quedó en «${estado}».`, datos: { leadId: cliente.id, estado } };
     },
+  },
+
+  invitar_cliente_curso_cs: {
+    preparar: revisando(async (input) => {
+      const leadId = num(input, 'leadId');
+      const cliente = await clienteDelWorkspace(leadId);
+      if (!cliente) return { error: NO_ES_CLIENTE(leadId) };
+      const acc = await accesoDe(cliente.id);
+      if (acc?.revocado) return { error: TEXTO_NO_INVITA.cortado };
+      // A UN CURSO (09/10/2026): con `productoId` se lo invita a ése, como la ficha y la tarjeta del kanban,
+      // y «ya invitado» / «ya entró» se preguntan POR ESE CURSO — las MISMAS reglas que `invitarAlCurso`
+      // (lib/curso-invitar-reglas.ts). Tiene que ser un servicio del que es cliente (la regla del kanban).
+      const productoId = num(input, 'productoId');
+      if (productoId != null && !(await esServicioSuyo(cliente.id, productoId))) return { error: `Ese servicio no es de ${cliente.nombre}.` };
+      const reenviar = input.reenviar === true;
+      const yaInvitado = productoId != null ? invitadoAlProducto(acc, productoId) : !!acc?.invitacionEnviadaAt;
+      const yaEntro = productoId != null ? entroAlProducto(acc, productoId) : (acc?.ingresos ?? 0) > 0;
+      if (!reenviar && yaInvitado) return { error: `${TEXTO_NO_INVITA['ya-invitado']} Para mandarla otra vez, pide reenviar: true.`, yaEstaba: true };
+      if (!reenviar && yaEntro) return { error: `${TEXTO_NO_INVITA['ya-entro']} Para mandarla igual, pide reenviar: true.`, yaEstaba: true };
+      // Los cursos que nombra el mail: ése, o (sin producto) los que ya VE — los mismos que arma `invitarAlCurso`.
+      const cursos = await cursosDe(productoId != null ? [productoId] : await productosDelAlumno(cliente.id));
+      if (!cursos.length) return { error: TEXTO_NO_INVITA['sin-clases'] };
+      const pedido = str(input, 'email');
+      const correo = emailNormalizado(pedido || cliente.email || '');
+      if (pedido && !emailUtilizable(correo)) return { error: 'Ese email no sirve.' };
+      if (!emailUtilizable(correo)) return { error: `${TEXTO_NO_INVITA['sin-email']} Pásalo en email.`, faltan: ['email'] };
+      const conWhatsapp = textos(input, 'canales').includes('whatsapp');
+      if (conWhatsapp && !cliente.telefono) return { error: `${cliente.nombre} no tiene teléfono en el CRM: el WhatsApp no saldría. Pídelo sólo por email.` };
+      return {
+        payload: { leadId: cliente.id, productoId, email: correo, canales: conWhatsapp ? ['email', 'whatsapp'] : ['email'], reenviar },
+        resumen: `Invitar a ${cliente.nombre} al curso (${cursos.map((c) => c.nombre).join(', ')}) por email a ${correo}${conWhatsapp ? ' y por WhatsApp' : ''}. Se le crea el acceso si no lo tenía${productoId != null ? ', y pasa a abrirle ese curso' : ''}.${pedido && !cliente.email ? ' El email queda guardado en el CRM.' : ''}`,
+      };
+    }),
+    ejecutar: sinLanzar('invitarlo', async (p, ctx) => {
+      if (!(await clienteDelWorkspace(Number(p.leadId)))) return { ok: false, resumen: NO_ES_CLIENTE(Number(p.leadId)) };
+      const productoId = typeof p.productoId === 'number' ? p.productoId : null;
+      // El núcleo vuelve a mirar todo (cortado, «de ese producto», el reclamo): entre la propuesta y el «sí» pudo cambiar.
+      const r = await invitarAlCurso({ ws: ctx.ws, leadId: Number(p.leadId), email: String(p.email), autor: autorDe(ctx), reenviar: p.reenviar === true, canales: p.canales, productoId });
+      if (r.tipo === 'error') return { ok: false, resumen: `No se pudo invitar: ${r.error}` };
+      if (r.tipo === 'no') return { ok: false, resumen: TEXTO_NO_INVITA[r.motivo] };
+      // ⚠️ EL ÉXITO SALE DE `enviado`, nunca de que haya un resultado. Y si no salió por CONFIGURACIÓN se
+      // dice de quién (lib/curso-invitar-reglas.ts): culpar al negocio de lo nuestro es el error medido.
+      if (!r.enviado) {
+        const quien = correoQueFallo({ error: r.fallo, via: r.via });
+        const de = quien === 'tuyo' ? ' Es la configuración del correo de tu negocio (su remitente o su key de Resend).'
+          : quien === 'mako' ? ' Es el correo de MaKo, no el de tu negocio.' : '';
+        return { ok: false, resumen: `No salió el correo a ${r.email}: ${r.fallo ?? 'el envío falló'}.${de}` };
+      }
+      const wa = r.whatsapp ? (r.whatsapp.enviado ? ' También salió por WhatsApp.' : ` El WhatsApp no salió (${r.whatsapp.motivo ?? 'sin motivo'}).`) : '';
+      return {
+        ok: true,
+        resumen: `Invitación enviada a ${r.email}.${r.anotado ? '' : ' ⚠️ Salió, pero no quedó anotada: no la reenvíes por eso.'}${wa}`,
+        datos: { leadId: Number(p.leadId), email: r.email, anotada: r.anotado, whatsapp: r.whatsapp ?? null },
+      };
+    }),
   },
 };

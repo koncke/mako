@@ -16,7 +16,7 @@
 import { NextResponse } from 'next/server';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
-import { esTabFicha } from '@/lib/ficha/catalogo';
+import { esLugarFicha } from '@/lib/ficha/catalogo';
 import { TOPE_PEDIDO_TAB } from '@/lib/ficha/ia';
 import { generarTabIA } from '@/lib/ficha/ia-generar';
 
@@ -36,7 +36,9 @@ export async function POST(req: Request) {
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return err(400, 'JSON inválido'); }
-  if (!esTabFicha(body?.tab)) return err(400, 'Esa tab no existe.');
+  // Una tab o una hoja propia (17/10/2026: «Nueva hoja» también se arma con la caja; la hoja todavía no existe y no hace
+  // falta: esto no lee ni guarda la ficha).
+  if (!esLugarFicha(body?.tab)) return err(400, 'Esa tab no existe.');
   const pedido = typeof body?.pedido === 'string' ? body.pedido.trim().slice(0, TOPE_PEDIDO_TAB) : '';
   if (!pedido) return err(400, 'Escribe qué quieres ver.');
 

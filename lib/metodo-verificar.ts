@@ -18,6 +18,7 @@ import { cuentaDeApify } from './apify';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
+import { esKeySoloEnvio, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
 import { problemaDelRemitente } from './resend-remitente';
 
 type Valores = Record<string, string>;
@@ -142,6 +143,9 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     const { status, body } = await fetchJson('https://api.resend.com/domains', {
       headers: { Authorization: `Bearer ${v.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     });
+    // Una key de SÓLO ENVÍO no es inválida (#875): manda, pero no deja ver ni verificar el dominio del remitente, y
+    // sin eso cada envío desde un dominio sin verificar fallaría callado. Se dice cuál crear.
+    if (status === 401 && esKeySoloEnvio(body)) return { ok: false, error: KEY_SOLO_ENVIO_TUYA };
     if (status === 401) return { ok: false, error: 'API key inválida.' };
     if (status >= 400) return { ok: false, error: `Resend respondió ${status}.` };
     const dominios = (body.data as Array<{ name?: string; status?: string }> | undefined) ?? [];

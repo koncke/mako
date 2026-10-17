@@ -190,10 +190,12 @@ test('MaKo Analyst (ex «Análisis») va pegado a Historial, en las DOS fichas',
   // ⚠️ Y DESDE EL 16/10/2026 «MaKo Analyst» NO ES UNA PESTAÑA: es el panel «AI Analyst» que abre el «⋯» (Martín:
   // «Esto reemplaza a la tab de "MaKo Analyst", se debería eliminar esa tab»). Probado rompiéndolo (16/10/2026, base
   // del archivo sin fallos): la pestaña de vuelta → 1 fallo; `irATab('insights')` sin abrir el panel → 1 fallo.
-  const esperado = ['Resumen', 'Tracking', 'Reuniones', 'Pagos', 'Historial'];
+  // ⚠️ Y DESDE EL 17/10/2026 las hojas propias y «Nueva hoja» (la que se está creando) van después de Pagos y ANTES del
+  // Historial: el Historial sigue siendo la última.
+  const esperado = ['Resumen', 'Tracking', 'Reuniones', 'Pagos', 'Nueva hoja', 'Historial'];
 
   const ficha = leer('../app/crm/lead-view/ficha/FichaPorBloques.tsx');
-  assert.deepEqual(etiquetas(ficha, 'const tabs: LeadTabDef[] = [').slice(0, 5), esperado, 'la ficha (las dos puertas)');
+  assert.deepEqual(etiquetas(ficha, 'const tabs: LeadTabDef[] = [').slice(0, 6), esperado, 'la ficha (las dos puertas)');
   for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx', '../app/crm/[id]/page.tsx']) {
     assert.ok(!leer(ruta).includes('tabs={['), `${ruta}: vuelve a declarar sus tabs a mano`);
   }
@@ -203,8 +205,9 @@ test('MaKo Analyst (ex «Análisis») va pegado a Historial, en las DOS fichas',
 
   // Los links viejos (`?tab=insights`) y «Ver análisis» de la siguiente acción abren el PANEL, no la primera pestaña.
   assert.doesNotMatch(ficha, /key: 'insights'/, 'volvió la pestaña MaKo Analyst');
-  assert.match(ficha, /const \[analyst, setAnalyst\] = useState\(initialTab === 'insights'\);/);
-  assert.match(ficha, /irATab: \(clave\) => \{ if \(clave === 'insights'\) \{ setAnalyst\(true\); return; \}/);
+  // 17/10/2026: el panel tiene dos modos («analizar» y «editar»); el link viejo abre el de analizar.
+  assert.match(ficha, /const \[panel, setPanel\] = useState<null \| 'analizar' \| 'editar'>\(initialTab === 'insights' \? 'analizar' : null\);/);
+  assert.match(ficha, /irATab: \(clave\) => \{ if \(clave === 'insights'\) \{ setPanel\('analizar'\); return; \}/);
   assert.match(ficha, /\{ value: 'analyst', label: 'AI Analyst', icono: 'mako' \}/, 'el «⋯» perdió el AI Analyst');
 });
 

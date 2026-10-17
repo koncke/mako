@@ -956,6 +956,113 @@ descarta la de 5 horas si tiene más de 30 minutos. Además:
 - lib/centro-chats.ts (`porRevisar`, `rutaDeLaTab`, `destinoDeReview`) y lib/centro-uso.ts (`cuentasDeUso`, `sanearPlan`);
 - tests/centro-revisar.test.ts, centro-uso.test.ts y tickets-decisiones-mazo.test.ts.
 
+## La conversación como un chat de verdad: lo que contestó sale del transcript (17/10/2026)
+
+**El pedido.** Martín, mirando el Centro en producción: «Y sobre todo, los chats no se entienden... No se entiende la
+conversación que se tiene». La conversación mostraba títulos de hitos («Corrección · 19:32 — …», «Hecho · 04:34 — …») y
+líneas como «Lo pediste en Estrategia 3 cuentas». Lo que el chat CONTESTÓ no estaba en ningún lado: el Centro sólo veía
+la bitácora, los trabajos y sus cierres.
+
+**Lo que contestó cada chat ya estaba en la PC.** Primero se pensó en «subir el transcript», y es el diagnóstico obvio
+equivocado: pesa decenas de MB y está lleno de herramientas y razonamiento. Lo que se encontró:
+- **El registro de cada sesión de la app** (`claude-code-sessions/<org>/<x>/local_*.json`) ya trae `lastTurnReport`
+  (el texto final del último turno), `postTurnSummary`, `model`, `effort`, `cliSessionId` y `cwd`.
+- **El transcript** está en `<carpeta de config>/projects/<cwd con todo lo que no es letra o número cambiado por «-»>/<sesión>.jsonl`.
+  Para un chat de la app, en `~/.claude` y con el `cliSessionId`; para uno de terminal, en su carpeta y con su
+  `sessionId`. Medido con el chat Onboarding de la cuenta 4.
+
+Así quedó:
+- La PC lee del transcript **sólo lo nuevo, por posición en BYTES** (`turnos/<local>.json`). Con posiciones en
+  caracteres, una tilde corría todo.
+- `turnosDeLineas` (pura, con test) saca lo que se le dijo y la respuesta FINAL de cada turno: el último texto antes del
+  próximo mensaje o del fin del turno (`stop_hook_summary`). Si un chat no está trabajando, su última respuesta ya vale.
+- MaKo guarda los últimos 60 turnos de cada chat en `app_settings`, **sin migración** (lib/centro-turnos-db.ts). La marca
+  de la PC avanza sólo si MaKo dice `turnosOk`.
+
+**Lo que hay que limpiar de un transcript, medido sobre uno real:**
+- los `<system-reminder>` vienen PEGADOS al prompt;
+- los mensajes de otras sesiones vienen envueltos en `<cross-session-message from=… name=…>`, con un renglón antes y
+  otro después;
+- los avisos automáticos (`<task-notification>` y compañía) no los dijo nadie;
+- la app escribe en nombre del modelo «You've hit your session limit…» (`isApiErrorMessage`, `model: '<synthetic>'`).
+
+**Un trabajo del Centro también llega como mensaje** («Pedido de Martín desde el Centro…», con su id en la línea del
+`cierre`). Se marca con ese id y no se dibuja dos veces, porque ya está con sus ticks.
+
+**Un mensaje nuevo cierra el turno anterior, aunque no se muestre.** El aviso de la Ticketera no se dibuja, pero termina
+el turno de antes. El test esperaba lo contrario y el que estaba mal era el test.
+
+**Los hitos siguen en el Plan.** `lineasDeConversacion` deja en la conversación los turnos, los trabajos y las respuestas
+a la Ticketera. `avanceDelChat` sigue leyendo los pedidos de la bitácora.
+
+**De cada turno salen DOS textos**, por la regla de Martín de que cada chat abre con «Voy a trabajar en…» y cierra con
+su «Ya está»:
+- el PRIMERO sale en el acto, y se ve mientras trabaja;
+- el ÚLTIMO sale al terminar, si es otro (`cierreDe`).
+
+La primera versión sólo guardaba el último, y un chat que trabajaba una hora no mostraba nada.
+
+**«Trabajando» y «dormido» con el Runner caído.** El estado de cada chat sale del registro vivo de la PC
+(`sessions/<pid>.json`, `busy` o `idle`), y lo sube el Runner en cada vuelta. Cuando la app se cayó, el Runner dejó de
+dar vueltas, y la pantalla mostró una foto de hacía 40 minutos como si fuera de ahora: caras dormidas y «13 %». Ahora:
+- la lista dice «Sin noticias del Runner desde las HH:MM» (`sinNoticiasDesde`);
+- con la foto vieja, la cara es «cansado» y no «dormido» (`animoDe`, Muneco.tsx);
+- un chat que trabaja sin haber escrito nada lo dice (`trabajaSinEscribir`).
+
+**Sin medir:** cómo se ve con chats reales. Hace falta el cartero 1.8.0 instalado y unas vueltas. La primera vuelta de
+cada chat sube la cola de su historia (los últimos 2 MB del transcript).
+
+**Del punto «a» (todo chat abierto se ve)**, se midió en la PC (17/10):
+- «Pagos» y «MaKo en WhatsApp» están en la carpeta de la cuenta 4 y el cartero los ve. Caían en «Sin asignar», que iba
+  PLEGADA; ahora va abierta.
+- «Runner» lo excluye el cartero a propósito: no se le puede escribir.
+- Los chats de la nube no quedan en ningún archivo de la PC.
+Las dos cosas que faltan, con su archivo, están en el relevo.
+
+**Vive en:** scripts/operaciones/cartero.mjs (`turnosDeLineas`, `turnosNuevos`, `turnosDeLaVuelta`, `carpetaDelCwd`) ·
+lib/operaciones-reglas.ts (`TurnoChat`, `sanearTurnos`, `unirTurnos`) · lib/centro-turnos-db.ts · lib/operaciones.ts
+(`cicloCartero` → `turnosOk`) · app/admin/operaciones/acciones.ts (`turnosCentroAction`) · lib/centro-chats.ts
+(`lineasDeConversacion`) · Hilo.tsx (`Turno`) · useCentro.ts (`mirar`, `turnosDe`) · tests/centro-turnos.test.ts
+
+## La cuenta «Automático», el modelo y el esfuerzo: lo que se elige y lo que no se puede (17/10/2026)
+
+**El pedido.** Martín, en el mismo feedback:
+- el punto 3: «Al enviar un prompt por el Second Brain no me deja seleccionar qué cuenta... Si no selecciono nada que lo
+  decida solo, pero debería poder seleccionar»;
+- el punto 7: «que los jefes y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y
+  eligiendo qué modelo de IA debe correr».
+
+**Elegir la cuenta es elegir a cuál de SUS sesiones va el trabajo.** Un chat es un nombre con una sesión por cuenta
+(`unirPorNombre`). La lectura obvia era «mandarlo a cualquier cuenta», y es la equivocada: una cuenta en la que el chat
+no está abierto no tiene a quién entregarle. Por eso el selector ofrece sólo las cuentas donde el chat vive, y abrirlo en
+otra es el «un clic» (docs/diseno-nuevo-chat-un-clic.md).
+
+«Automático» (`sesionAutomatica`, lib/centro-cuentas.ts) elige así:
+1. Primero la sesión que recibe ya: abierta, al día, con Runner en su carpeta y el de su cuenta vivo.
+2. Entre ésas, la de más cuota libre, y lo libre lo decide la ventana MÁS gastada (5 horas o semanal).
+3. Lo que no se sabe va después de lo que se sabe: tratar «sin dato» como «todo libre» mandaba todo a la cuenta sin
+   medir.
+
+**El modelo y el esfuerzo no se pueden cambiar en un chat de terminal.** `set_session_model` y `set_session_effort` son
+herramientas de la APP: un chat de terminal no tiene cómo recibir el cambio desde afuera, y la sesión no puede cambiarse
+el suyo (el sistema lo prohíbe: «a session must not silently re-price its own turns»). Así funciona:
+- en un chat de terminal, el selector aparece apagado y dice por qué;
+- en uno de la app, el modelo y el esfuerzo viajan FIRMADOS, opcionales: sin elegir nada, el texto firmado es idéntico al
+  de antes (la regla quedó en AGENTS.md);
+- la PC se los pasa al Runner con la sesión (`comoCorre`, cartero.mjs 1.7.0), y el Runner los aplica antes de entregar;
+- «Automático» no toca nada: lo decide el Cerebro;
+- vuelven a «Automático» después de mandar, como el alcance. Así el Runner no cambia el modelo en cada trabajo, y cada
+  cambio puede pedirle permiso a Martín en la app.
+
+**Sin medir:** si la app le pide permiso a Martín cada vez que el Runner cambia el modelo de OTRA sesión. La herramienta
+dice que sí («any other session, and the app asks the user first»), salvo en modo auto. Si pregunta siempre, el Runner se
+frena esperando: hay que mirarlo en la primera prueba.
+
+**Vive en:** lib/centro-cuentas.ts · lib/operaciones-reglas.ts (`MODELOS`, `ESFUERZOS`, `armarFirmable`) ·
+app/admin/operaciones/useCentro.ts y PiezasCentro.tsx (`SelectoresDeEnvio`) · app/m/operaciones/ChatsMovil.tsx ·
+scripts/operaciones/cartero.mjs (`comoCorre`) · lib/runner.ts (el paso b) · tests/centro-cuentas.test.ts,
+tests/operaciones.test.ts y tests/cartero-carpetas.test.ts
+
 ## La cuenta 4, y una sesión de la app SÍ abre chats visibles (17/10/2026)
 
 **Una sesión de la app ya puede crear chats.** Lo de arriba («el Centro no puede abrir un chat de Claude Code (medido)», 16/10) quedó viejo para la app de escritorio. La noche del 16 al 17/10, el Cerebro de la cuenta 4 abrió siete chats con `mcp__ccd_session__start_session`: CRM, Onboarding, Centro de Operaciones, Automations, Runner, Video Generator y Dashboard. Cada uno llevaba título y brief, y quedó en la barra lateral. La herramienta aparece como diferida y se carga con ToolSearch. El chat creado arranca solo con su brief y le avisa a quien lo abrió cuando termina un turno. Lo que sigue sin poder hacer una sesión de la app es abrir una de TERMINAL (otra carpeta de config). Para eso, Martín pidió (17/10) «un clic + el permiso de la PC», nunca pegar un comando: está repartido al chat del Centro.
@@ -972,6 +1079,43 @@ Lo que NO se toca es `CUENTAS_TERMINAL` (lib/runner.ts), salvo que la cuenta ten
 **Cómo se supo que era otra cuenta sin preguntar.** `get_usage` dio 0% con reset el 20/10 19:59 UTC; la 3 renueva el 21/10 08:59 UTC. El `userEmail` del contexto traía un gmail que no era de ninguna de las tres, así que esta vez sí describía la cuenta abierta. `list_sessions` vino vacío porque la barra está partida por cuenta. El aviso de «99% semanal» del hook era de la cuenta 3 y no aplicaba.
 
 **Vive en:** `~/.claude/cuentas.tsv` · `~/.claude/operaciones/config.json` · `app/admin/dev/_registro/tipos.ts` · `scripts/gen-dev-historial.mjs` · docs/relevo/cerebro.md («CUENTA 4»)
+
+## La conversación vacía: la PC avanzó sus marcas antes de que MaKo supiera guardar los turnos (17/10/2026)
+
+**Síntoma:** en el Ops Center, la conversación de cada chat salía vacía, aunque los chats llevaban horas trabajando.
+
+**Causa:** el cartero 1.8.0 lee cada transcript desde una marca en bytes (`~/.claude/operaciones/turnos/<local>.json`) y la
+avanza cuando la vuelta sale bien. Se instaló a las 02:54 AR, ANTES de que se desplegara el servidor que guarda los turnos.
+Las marcas quedaron al final de cada transcript, y lo anterior no se volvió a subir nunca.
+
+**Arreglo:** con el servidor ya en producción, apartar las marcas (`mv turnos/*.json turnos-respaldo-…/`). En la vuelta
+siguiente el Runner sube los últimos tres días de cada chat. Repetirlo no duplica nada, porque el servidor deduplica por
+uuid (lib/operaciones-reglas.ts, `unirTurnos`). Medido: 54 chats en `app_settings` (`operaciones.turnos.*`) a los 2 minutos.
+
+**Regla:** un cartero que AVANZA una marca se instala después del servidor que recibe lo que sube, nunca antes.
+
+## Los adjuntos a la PC: el tope de tamaño que no topaba y el «tomado» sin salida (17/10/2026)
+
+Antes de integrar la punta de adjuntos (cartero 1.9.0), una revisión con tres lentes (escritura en disco, quién puede
+qué, contenido) y una refutación por hallazgo encontró DOS defectos reales. Los arregló la 1.9.1:
+
+- **El tope de `content-length` no topaba.** Con una respuesta chunked, `Number(null)` da 0, que es finito, y pasa. Con
+  gzip, el fetch de Node descomprime solo y el header trae el tamaño comprimido. En los dos casos `await r.arrayBuffer()`
+  junta TODO en RAM antes de comparar con lo firmado: se reprodujo en Node 24.17 con 50 MB, y una bomba gzip de 4 MB llega
+  a ~4 GB. **Regla:** un tope de tamaño se aplica sobre los bytes que llegan (`for await` sobre `r.body`, cortando al pasar
+  lo firmado) y con `accept-encoding: identity`. El header es un dato del que manda, no un límite.
+- **Un pedido en 'tomado' no tenía salida.** Sólo el acuse lo sacaba: cancelar y vencer miraban 'escrito'. Con adjuntos,
+  la ventana entre reclamar y escribir el buzón pasó de milisegundos a decenas de segundos, y el Bash del Runner corta a
+  los 120 s. El pedido quedaba 'tomado' para siempre, MaKo seguía sirviendo el archivo y el binario no se borraba nunca.
+  **Regla:** todo estado intermedio de un trabajo tiene un vencimiento. Ahora 'tomado' vence a las 2 h, a 'incierto', y
+  el adjunto se sirve sólo en los 15 min siguientes a `tomado_at`.
+
+**Lo que quedó sin confirmar:** los hallazgos de severidad baja no pasaron por la refutación: el
+nombre que firma el navegador sin compararlo con lo subido, y lo subido que queda si el envío falla después de subir.
+Están en el journal de la corrida (subagents/workflows/wf_bce975b0-704 de la sesión del Cerebro).
+
+**Vive en:** `scripts/operaciones/cartero.mjs` (`bajarAdjuntos`) · `lib/operaciones.ts` (`cicloCartero`) ·
+`lib/operaciones-adjuntos.ts` (`adjuntoParaElCartero`) · tests/centro-adjuntos.test.ts
 
 ## Lo que creí medido y no estaba al día
 

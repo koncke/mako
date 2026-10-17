@@ -25,6 +25,9 @@
 //      Manda DE VERDAD un mensaje que apareció en el panel (lib/prueba-paso.ts). Sólo admin, con
 //      tope por (workspace, destino): 10 mensajes cada 10 minutos. `emisor` (sexta tanda): `{ linea }`
 //      (WhatsApp; '' = la de por default) o `{ remitente }` (email). Ausente = el de siempre.
+// POST { action: 'enviar-grupo', secuenciaId, partes, caso } → { salieron } (17/10/2026, #852)
+//      «Probar en el grupo»: una automatización que SÓLO le habla al grupo de MaKo se prueba en el grupo de verdad, con
+//      un encabezado de prueba (lib/probar-grupo-envio.ts). Sólo admin, con tope por negocio.
 // POST { secuenciaId, historial, audioBase64? } (sin action) → { respuesta, desenlace }
 //      El setter libre de antes. Queda por compatibilidad; el panel nuevo no lo usa.
 //
@@ -44,6 +47,8 @@ import { buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { escenariosDeRespuesta, normalizar, TOPE_NODOS, TOPE_GUIA, TOPE_OBJETIVO, TOPE_EJEMPLO, TOPE_EJEMPLOS, type PasoGrafo } from '@/lib/flujo-grafo';
 import { destinoDelQueMira, destinosGuardados, sanearDestinoPrueba, sanearMensajePrueba, sanearEmisorPrueba } from '@/lib/simulador-grafo';
 import { enviarPasoDePrueba, guardarDestinoDeQuienPrueba } from '@/lib/prueba-paso';
+import { enviarPruebaAlGrupo } from '@/lib/probar-grupo-envio';
+import { rateLimit } from '@/lib/rate-limit';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { getPromptText } from '@/lib/prompt-render';
 import { MENSAJE_LEAD_SYSTEM_TEMPLATE, userMensajeLead, mensajeLeadDe } from '@/lib/probar-lead';
@@ -217,6 +222,15 @@ export async function POST(req: NextRequest) {
       const emisor = sanearEmisorPrueba(body.emisor);
       const r = await enviarPasoDePrueba({ ws: a.ws, secuenciaId: id, destino, mensaje, primero: body.primero === true, emisor });
       return r.ok ? json({ ok: true, enviados: r.enviados }) : json({ ok: false, error: r.error }, 400);
+    }
+
+    // ── «Probar en el grupo» (17/10/2026, #852): la tarjeta MaKo de una automatización que sólo le habla al grupo ──
+    if (body.action === 'enviar-grupo') {
+      if (a.rol !== 'admin') return json({ ok: false, error: 'Solo el admin prueba de verdad.' }, 403);
+      // Es el grupo del equipo: un tope por negocio, como el de «Probar en WhatsApp» por destino.
+      if (!rateLimit(`probar-grupo:${a.ws}`, 12, 10 * 60_000)) return json({ ok: false, error: 'Muchas pruebas seguidas al grupo: espera unos minutos.' }, 429);
+      const r = await enviarPruebaAlGrupo({ ws: a.ws, secuenciaId: Number(body.secuenciaId), partes: body.partes, caso: body.caso });
+      return r.ok ? json({ ok: true, salieron: r.salieron }) : json({ ok: false, error: r.error }, 400);
     }
 
     // ── Guardar un «Nuevo número» / «Nuevo email» en los de QUIEN PRUEBA ───────

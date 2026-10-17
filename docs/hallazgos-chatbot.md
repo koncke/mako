@@ -5082,7 +5082,10 @@ historia. Eran TRES cosas apiladas, y ninguna era «la automatización está mal
   #2731, del 16/10), así que el cambio avisa a lo sumo por ella. Respaldo de la fila en el scratchpad de la sesión
   74712af3 (`respaldo-266-ws15.json`); se deshace volviendo a `trigger_tipo: manual` y `disparadores: null`.
 
-**Sin hacer:** que pegar en otro negocio mapee la etapa o la pida, en vez de dejarla manual (tarjeta #882); y que una
+**Hecho después (17/10, #882):** pegar en otro negocio busca la MISMA etapa en un embudo de acá (en uno → ése; en varios →
+todos, y lo dice; en ninguno → «Elige qué la dispara»): lib/copia-disparador.ts, tests/copia-disparador.test.ts. La otra
+mitad de #882 (crear al instante con loader por cualquier vía: el chat, la plantilla, la copia) sigue sin hacer.
+**Sin hacer:** que una
 automatización SIN disparador no se pueda prender callada (o que la lista diga «Manual: sólo si la mandas a mano»).
 Prender #247 lo decide Joan.
 
@@ -5117,3 +5120,135 @@ Prender #247 lo decide Joan.
 
 **Sin hacer:** verlo con clics en el ws3 (pedir «crea una…» con el lienzo vacío, «elimina la otra» con dos, y crear otra
 con un borrador). El link de «abre X» cuando el nombre de X lleva una palabra de otra área (arriba).
+
+## «Probar en el grupo»: la regla del 16/10 a la mañana, dada vuelta por Martín a la tarde (17/10/2026, tarjeta #852)
+
+- ⚠️ **«La prueba nunca le escribe al grupo de verdad» era una decisión de un chat, no de Martín**, y Martín la dio vuelta
+  en la revisión de esa misma tarde (44:06): «que se envíen las pruebas al grupo… si la automatización no tiene ningún
+  mensaje a clientes… que se pueda probar en el grupo de MaKo». Se conservó lo que la regla protegía: sólo una
+  automatización que SÓLO le habla al grupo (`soloAlGrupo`: ningún mensaje al lead ni AI Step), sólo el admin, con tope,
+  y cada envío abre con «🧪 Prueba de «X» · Caso N. No es un lead real.» (`ENCABEZADO_PRUEBA`).
+- **«¿Por qué me piden un remitente?» (Joan):** el botón de esas automatizaciones es «Probar en el grupo», sin «De» ni
+  «Para»: sale por la línea de MaKo al grupo del negocio. Con un mensaje al lead sigue «Probar en WhatsApp» con su
+  remitente, y la tarjeta del grupo de ESA prueba sigue sin salir de verdad.
+- **Lo que viaja lo valida el server como una tarjeta de verdad** (`problemaDePartesGrupo`, `prepararPartesGrupo`): el
+  texto llega con los datos DE EJEMPLO del panel (nunca de un lead), el audio sólo la Voz de MaKo, el archivo del
+  negocio; y la automatización tiene que ser del negocio. Una fila de un evento de SuperAdmin no lo ofrece (le escribe al
+  grupo de cada negocio, no hay uno).
+- **#845 (sacar la exclusión del número y el email de Martín): no hay ninguna.** Medido el 17/10: ninguna regla en el
+  código, `wa_bloqueados` vacía, ningún lead de Martín dado de baja. Lo que frena una prueba repetida con el mismo
+  contacto es el tope anti-spam (una por persona cada 20 h, `lib/limites-envio.ts`), la reentrada «Una sola vez» y el
+  embudo de la automatización (`ámbito`). Los leads de prueba de la llamada ya no existen: no se pudo saber cuál fue.
+
+**Vive en:** `lib/probar-grupo.ts` (`soloAlGrupo`, `ENCABEZADO_PRUEBA`, `partesDeBurbujas`) · `lib/probar-grupo-envio.ts`
+· `app/api/chat-agent/simulador/route.ts` (`enviar-grupo`) · `app/automations/PanelProbar.tsx` (`enElGrupo`, `alGrupo`) ·
+tests: `tests/probar-en-el-grupo.test.ts`, `tests/probar-grupo-mako.test.ts`
+
+## «El envío de WhatsApp está apagado» con la línea conectada: el interruptor escondido (17/10/2026, tarjeta #851)
+
+- ⚠️ **No era la línea: era un SEGUNDO interruptor.** `envio_whatsapp_enabled` (lib/envio-flags.ts) es fail-closed para
+  los clientes. Medido el 17/10: prendido sólo en ws1, ws11 y ws13. Pablo (ws18) y Brigitte (ws15) tenían la línea
+  conectada y el envío apagado: una automatización «Activa» que le escribe al lead no mandaba nada. Era el cartel amarillo
+  que Martín vio en la revisión («qué raro que esté conectado y te salga…»).
+- **Decisión de Martín (Ticketera `envio-whatsapp-al-activar`, «B · Sí, y prenderlo ya»):** activar una automatización
+  que le escribe al lead por WhatsApp prende el envío del negocio (`prenderEnvioAlActivar` en `setSecuenciaActiva`, la
+  regla en lib/envio-al-activar.ts). Sólo prende; apagarlo sigue siendo a mano en /whatsapp, y el cartel lo dice.
+- **Prendido el 17/10 en ws15 y ws18.** Antes se midió el riesgo de prender de golpe (con el envío apagado el tick no mueve
+  nada y lo vencido se acumula): las únicas automatizaciones activas que le escriben al lead estaban en ws1 y ws13, ya
+  prendidos. Se deshace con `envio_whatsapp_enabled = 'false'` en esos dos.
+- **«Que salte el QR al Probar o Publicar sin WhatsApp» ya estaba** (décima tanda: el 409 de Publicar, Activar y Probar
+  abren `ConectarMedio` ahí mismo). Lo que se vio en la llamada fue el interruptor, no la falta de línea.
+
+**Vive en:** `lib/envio-al-activar.ts` · `lib/nutricion.ts` (`setSecuenciaActiva`, `prenderEnvioAlActivar`) ·
+`lib/envio-flags.ts` · test: `tests/envio-al-activar.test.ts`
+
+## «El equipo no contestó en el grupo»: la condición que mira el grupo de MaKo (17/10/2026, tarjeta #849)
+
+- **De dónde sale el dato:** lo que escribe el grupo queda en `mako_doer_conv` como `role: 'user'` (lib/mako-doer-in.ts,
+  `guardarTurno`), y el aviso de la automatización es su fila de `nutricion_envios` (`asunto: OP_AVISAR`, estado
+  'accion'). La condición `equipo_contesto` pregunta: ¿alguna fila `user` del grupo desde el ÚLTIMO aviso de ESTA
+  inscripción? Sin aviso todavía, sin grupo de MaKo (el aviso salió por email) o sin poder leer: `null`, y no se cumple
+  ni negada. No se inventa que «nadie contestó».
+- ⚠️ **La tabla guarda sólo lo que MaKo procesa.** En modo 'ventana' (opt-in por grupo) un texto que no nombra a MaKo se
+  descarta ANTES de guardarse (`procesarDoer`, el `skip: 'no lo nombran…'`): ahí un «ya lo llamo» no contaría. Medido el
+  17/10: todos los grupos en 'libre' (el default). Si alguien pasa un grupo de cliente a 'ventana', esta condición miente.
+- ⚠️ **No dice QUIÉN contestó:** la tabla no guarda el autor. Cualquier fila `user` cuenta, también un «ok» o una pregunta
+  a MaKo de otra cosa. El eco del propio aviso (una fila `user` con el id de WhatsApp de una de MaKo) se descarta.
+- ⚠️ **La fila se escribe al cerrar el buffer de 8 s** (lib/mako-doer-buffer.ts): la condición va detrás de una espera,
+  no pegada al aviso.
+- **Se evalúa en los TRES lugares donde el motor decide una condición:** la corrida, el reintento antes de mandar
+  (`condicionDeArriba`) y adentro de «Si responde» (`elegirSalida`, que se olvida fácil: arma sus propios hechos). Sólo
+  si el flujo la pregunta (`usaEquipoContesto`): son dos consultas más por inscripción. «Probar» la da en false.
+- ⚠️ **Cada condición nueva le cuesta tokens a «Crear con IA»:** el bloque CONDICIONES del prompt lleva todos los ids
+  del desplegable, y tests/crear-ia-tercera.test.ts estaba en ~4.005 de 4.000 con este id. Se pagó sacando una frase
+  repetida del system («Devuelves el flujo como un objeto JSON», que ya dice el cierre). La próxima condición también va
+  a chocar: hay que recortar algo, no subir el techo (es el de Groq).
+
+**Vive en:** `lib/equipo-contesto.ts` · `lib/nutricion.ts` (`equipoDeLaInscripcion`, `equipoContestoDesdeElAviso`) ·
+`lib/condiciones-catalogo.ts` (`equipo_contesto`) · `lib/flujo-grafo.ts` (`equipoContestoEnEsta`) ·
+test: `tests/equipo-contesto.test.ts`
+
+## «Crear con IA se quedó pensando»: no era lento, era un error repetido cuatro veces (17/10/2026, tarjeta #847)
+
+- ⚠️ **El diagnóstico obvio (el modelo tarda, el loader no corta) era el equivocado.** ws13, 16/10 21:27-21:29 UTC:
+  Joan pidió «aviso al grupo con el día y hora de la reunión» para un pre-R1. Gemini, Groq dos veces y el Gemini de la
+  red escribieron JSON que se LEÍA, los cuatro rechazados por la MISMA regla de la revisión (un dato de la reunión sin
+  mirarla antes). Un Gemini de la red se colgó 100 s, el plazo se fue y el «Corregir» nunca corrió: 2,5 min y un error.
+  Se reconstruyó con `anthropic_usage` (qué llegó) y `vercel logs` (por qué no sirvió): ver hallazgos-infra.md.
+- **Un error de revisión casi siempre lo pide el PEDIDO**: otro proveedor con el mismo pedido lo repite. La primera
+  pasada para en el primer JSON que se lee y no pasa (`pararEnRevision`), y va al «Corregir», que le lista los
+  problemas. El «Corregir» sí prueba los demás proveedores (con los errores en el pedido, otro puede arreglarlo). Un JSON
+  que NO se lee sigue probando el siguiente, como antes.
+- **La regla de la reunión también vale para los avisos al equipo, a propósito** (tests/flujo-forma.test.ts, «Colgado
+  del CRON, sin nada: no»; la plantilla «Un Lead Agendó» le pone una condición delante). No se aflojó: el error ahora
+  dice el arreglo de UNA tarjeta (`"reunion_en_pie"` delante). Decía sólo «reunion_en», que pide horas.
+- **Un error de la revisión le habla a DOS lectores:** al modelo en el «Corregir» y a la persona en `falloDeRevision`.
+  Lo que va después de `: usa "…": "…"` es sólo para el modelo (`paraLaPersona` lo corta).
+- ⚠️ **El log dice «resolvió con la RED DE PLATAFORMA» cuando `validar` acepta**, y con `pararEnRevision` acepta
+  también una salida con errores para cortar la cascada: esa línea ya no prueba que la salida sirvió.
+- **Sin hacer:** un proveedor colgado sigue costando hasta 100 s por intento (`timeoutMs` de `pasada`). No se bajó: el
+  OpenRouter gratis tardó 97 s en una salida buena de ws10 el 16/10.
+
+**Vive en:** `lib/flujo-ia-crear.ts` (`pasada`, `generar`) · `lib/flujo-ia.ts` (`validarIA`, el error de la reunión) ·
+test: `tests/crear-ia-revision-corrige.test.ts`
+
+## El CRON sólo dispara: «Número» y «Reentrada» fuera de su panel (17/10/2026, tarjeta #846)
+
+- **El «Número» del CRON estaba de más:** desde la sexta tanda cada WhatsApp elige el suyo en la cabecera de su panel
+  (`CabeceraWhatsApp`, «sin "Toda la automatización"»), el motor usa `lineaDelPaso(paso) ?? sec.instance_name`, y una
+  respuesta sale por la línea donde escribió el lead (`lineaEntrante ?? secuencia.instance_name`). El selector del CRON
+  editaba ese respaldo. Se fue; `instance_name` sigue valiendo para lo que ya lo tenía.
+- **La «Reentrada» es de toda la automatización** (lib/reentrada.ts), así que no se volvió «de cada mensaje»: va debajo
+  de cada WhatsApp (`pieWhatsApp`, el MISMO control y el mismo guardado en todos) rotulada «toda la automatización». Un
+  flujo sin ningún WhatsApp (sólo email) la sigue teniendo en el CRON: si no, no habría dónde elegirla.
+- **Sin verificar en pantalla:** el pie suma ~70 px debajo del composer; el cuerpo del panel scrollea (Lienzo.tsx),
+  pero no se miró en un panel bajo.
+
+**Vive en:** `app/automations/SecuenciaPerfil.tsx` (`controlReentrada`, `hayWhatsApp`) ·
+`app/automations/FlujoLienzo.tsx` (`pieWhatsApp`, `EditorMensaje`) · test: `tests/cron-solo-disparo.test.ts`
+
+## Los links de un WhatsApp, con o sin la vista previa (17/10/2026, tarjeta #869)
+
+- **Es de cada mensaje** (`sin_vista_previa: true` en el paso, lib/mensaje-partes.ts), como la línea: el interruptor
+  «Vista previa del link» aparece en la tarjeta sólo si un texto lleva un link (escrito, o un dato como
+  `{{reunion_link}}`). Apagada, Evolution recibe `linkPreview: false` en /message/sendText (v2.3.7). Sin el campo, con
+  la tarjeta, como siempre. Sólo el no oficial: el oficial es una plantilla de Meta.
+- ⚠️ **Un campo nuevo del paso se pierde al guardar si no pasa por `setSecuenciaPasos`**: el paso se RECONSTRUYE campo
+  por campo. Va `vistaPreviaAlGuardar` con la regla de `lineaAlGuardar` (con la clave, lo que llega; sin la clave —la
+  API, el generador—, lo de antes).
+- ⚠️ **El texto de un paso sale por SEIS caminos**, y el obvio es uno solo: el texto que sale solo, las partes
+  (`enviarPartesDelPaso`), el pie de un audio, el BORRADOR que espera al setter (cuatro `crearBorrador`), «Si
+  responde» (`mandarMensajeDeRespuesta`) y las dos pruebas (la del panel, que manda lo que el NAVEGADOR arma, y
+  `probar_secuencia`). Un borrador se manda después y sin el paso: la marca viaja en `wa_borradores.sin_vista_previa`
+  (mig 0309).
+- ⚠️ **Una columna nueva no se pide en el claim de un borrador.** `enviarBorrador` reclama con `update … select(…)`:
+  con la columna en el select y la migración sin aplicar, PostgREST rechaza el pedido y NO sale ningún borrador. Se lee
+  aparte (`borradorSinVistaPrevia`) y `crearBorrador` reintenta sin la marca ante un 42703: sin la columna, el
+  borrador sale con la tarjeta, pero sale.
+- **Sin verificar en vivo:** que Evolution 2.3.7 respete `linkPreview: false` se tomó de su contrato, no de un envío.
+  Se prueba con «Probar en mi WhatsApp» de una tarjeta con un link y el interruptor apagado.
+
+**Vive en:** `lib/mensaje-partes.ts` (`sinVistaPrevia`, `vistaPreviaAlGuardar`, `tieneLink`) · `lib/evolution.ts`
+(`enviarTexto`) · `lib/evolution-envio.ts` (`crearBorrador`, `enviarBorrador`) · `lib/nutricion.ts` ·
+`app/automations/FlujoLienzo.tsx` · mig `0309_wa_borradores_sin_vista_previa.sql` · test:
+`tests/whatsapp-sin-vista-previa.test.ts`

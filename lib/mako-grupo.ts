@@ -160,7 +160,7 @@ export async function getGrupoJidMaKo(ws: number): Promise<string | null> {
  * `SinGrupo`, lib/mako-tarjeta.ts), un bache de la base mandaría un correo por cada aviso de cada negocio. Lo leen los
  * dos envíos al grupo del negocio, y de ahí sale el marcador `sinGrupo`.
  */
-async function grupoJidEstricto(ws: number): Promise<string | null> {
+export async function grupoJidEstricto(ws: number): Promise<string | null> {
   return runWithWorkspace(ws, () => getSettingEstricto(KEY_GRUPO_JID));
 }
 

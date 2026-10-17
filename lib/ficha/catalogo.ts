@@ -296,5 +296,28 @@ export function bloquesDeLaTab(tab: TabBloque): BloqueDef[] {
   return [...BLOQUES.filter((b) => b.tab === tab), ...BLOQUES.filter((b) => b.tab !== tab && b.tambienEn.includes(tab))];
 }
 
+// ── Las HOJAS PROPIAS (17/10/2026) ───────────────────────────────────────────
+// Martín, 16/10/2026: «que el sistema para cambiar de hoja sea exactamente el mismo que tenemos en Dashboard y General,
+// el desplegable del título con las secciones, entonces ahí mismo se puede crear otra hoja». Una hoja propia es la que
+// crea el admin con «Nueva hoja» (lib/ficha/config.ts, `FichaGuardada.hojas`): es del funnel, como las cuatro tabs, y
+// en ella va cualquier bloque de la ficha del lead (los de Customer Success, no: son de otra ficha). Su clave es `h-` y
+// unas letras, que no choca con ninguna tab ni con `actividad`.
+
+/** La clave de una hoja propia: `h-` y de 3 a 16 letras o números. */
+export type IdHoja = `h-${string}`;
+export const esIdHoja = (x: unknown): x is IdHoja => typeof x === 'string' && /^h-[a-z0-9]{3,16}$/.test(x);
+/** Donde se pone un bloque de la ficha del lead: una de las cuatro tabs o una hoja propia. */
+export type LugarFicha = TabFicha | IdHoja;
+export const esLugarFicha = (x: unknown): x is LugarFicha => esTabFicha(x) || esIdHoja(x);
+/** La tab de la ficha del lead de la que ES un bloque, o null si es de Customer Success. */
+export const casaDelBloque = (b: BloqueDef): TabFicha | null => (esTabFicha(b.tab) ? b.tab : null);
+/** ¿Este bloque va en este lugar? En una tab, su regla; en una hoja propia, todo bloque de la ficha del lead. */
+export const vaEnLugar = (b: BloqueDef, lugar: LugarFicha): boolean => (esTabFicha(lugar) ? vaEnTab(b, lugar) : casaDelBloque(b) !== null);
+/** Los bloques de un lugar, en el orden del menú. En una hoja propia, los de cada tab, en el orden de las tabs. */
+export function bloquesDelLugar(lugar: LugarFicha): BloqueDef[] {
+  if (esTabFicha(lugar)) return bloquesDeLaTab(lugar);
+  return TABS_FICHA.flatMap((t) => BLOQUES.filter((b) => b.tab === t));
+}
+
 /** Los bloques donde se completa un «dato sin marcar» (los que lo tienen en `avisa`). */
 export const bloquesQueAvisan = (paso: StepId): BloqueDef[] => BLOQUES.filter((b) => b.avisa.includes(paso));

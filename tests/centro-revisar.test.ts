@@ -134,8 +134,9 @@ test('la tab del jefe: el nombre de la barra, sin mayúsculas ni tildes, y la de
   // Con el orden al revés, la de desarrollo ganaría: por eso el orden va contado en la función y en la pantalla.
   assert.equal(rutaDeLaTab('CRM', [...TABS].reverse()), '/admin/dev/crm');
   // Lo que no es una tab de la barra no tiene ruta: el título que inventó la app, el orquestador, un área del producto
-  // sin tab propia («Closing Analyst», «Puente a Google Flow»: nombres válidos de jefe, pero sin pantalla), vacío.
-  for (const jefe of ['dashboard-marketing-7d', 'Sin asignar', 'Cerebro', 'Closing Analyst', 'Puente a Google Flow', '', '   ']) assert.equal(rutaDeLaTab(jefe, TABS), null, `«${jefe}»`);
+  // sin tab propia («Closing Analyst»: nombre válido de jefe, pero sin pantalla), vacío. («Puente a Google Flow» salió de
+  // esta lista el 17/10/2026: desde entonces tiene su página de desarrollo en la barra, /admin/dev/puente-flow.)
+  for (const jefe of ['dashboard-marketing-7d', 'Sin asignar', 'Cerebro', 'Closing Analyst', '', '   ']) assert.equal(rutaDeLaTab(jefe, TABS), null, `«${jefe}»`);
   // Sólo una ruta interna de MaKo.
   assert.equal(rutaDeLaTab('X', [{ label: 'X', href: 'https://evil.com' }]), null);
   assert.equal(rutaDeLaTab('X', [{ label: 'X', href: '//evil.com' }]), null);

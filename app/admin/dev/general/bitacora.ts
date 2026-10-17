@@ -544,7 +544,9 @@ export const BITACORA: Hito[] = [
       'Hoy «Renovación» suma 0 porque esos clientes todavía no tienen pagos después del 13/10; cuando se cobre una renovación, cae ahí.',
       'En el Dashboard, los pagos tienen funnel: «Cobrado por funnel» y una hoja filtrada por funnel ya cuentan la plata.',
       'MaKo también lo sabe: puede crear o editar un OKR o un KPI de uno o varios funnels.',
+      'En producción desde el run 81, con la migración 0306 aplicada (medido el 17/10 a las 05:20).',
     ],
+    commits: [{ sha: 'e5ded0af8', msg: 'OKR, KPIs y «A quién cobrarle» eligen uno o varios funnels (mig 0306)', lineas: 864, archivos: 36 }],
     archivos: [
       'lib/funnels-elegidos.ts — la regla (a qué funnel va cada pago), con test',
       'lib/funnels-elegidos-server.ts — dónde está cada lead (su casa y los funnels a los que se lo agregó)',
@@ -567,7 +569,9 @@ export const BITACORA: Hito[] = [
       '«De qué funnels» (OKR y KPIs) y el funnel de «Tu funnel hoy» llevan el cubo en el desplegable, como el selector del CRM, y ya no un ícono de etapas en cada renglón.',
       'Había cuatro dibujos para un funnel: el cubo del CRM, otro cubo dibujado a mano en tres lugares del CRM (acciones en lote, asignar campañas y el funnel de la ficha), el embudo en el selector de Offer y el de las etapas. Ahora es uno solo.',
       'El embudo sigue siendo el ícono de filtrar: ese no se tocó.',
+      'En producción desde el run 84.',
     ],
+    commits: [{ sha: '0d411b920', msg: 'Un funnel se dibuja con el cubo en toda la app (en el control, no en cada renglón)', lineas: 169, archivos: 18 }],
     archivos: [
       'app/_ui/icono-funnel.ts — el ícono del funnel, en un solo lugar',
       'app/_ui/iconos-menu.tsx — `IconoFunnel`, el dibujo',

@@ -13,6 +13,7 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
+import { faltaColumnaFunnel } from './funnels-elegidos';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from './pagos-diferencia';
 import {
@@ -1023,7 +1024,7 @@ export async function getOutstandingPeriodo(start: string, _end: string): Promis
 
 // Desglose por lead de las 3 métricas de Revenue (para los pop-ups).
 // leadId permite el botón "Editar lead" dentro del desglose.
-export type RevItem = { nombre: string; monto: number; fecha: string | null; detalle?: string; leadId?: number };
+export type RevItem = { nombre: string; monto: number; fecha: string | null; detalle?: string; leadId?: number; funnel?: number | null };
 export type RevenueBreakdowns = { sold: RevItem[]; cash: RevItem[]; outstanding: RevItem[] };
 
 const relNombre = (leads: unknown): string => {
@@ -1034,13 +1035,20 @@ const relNombre = (leads: unknown): string => {
 export const getRevenueBreakdowns = cachedRead('getRevenueBreakdowns', _getRevenueBreakdowns, { tags: [TAG.pagos, TAG.leads], revalidate: TTL.user });
 async function _getRevenueBreakdowns(start: string, end: string): Promise<RevenueBreakdowns> {
   const supabase = (await getTenantDb());
-  const [soldRes, cashRes, outRes] = await Promise.all([
+  // Cash con el funnel que guardó cada pago (#897, mig 0310): el desglose de un OKR de UNOS funnels filtra igual que su
+  // número. Sin la columna, se reintenta sin ella (la regla de siempre).
+  const cashSin = () => supabase.from('pagos').select('monto_usd, fecha_pago, numero, lead_id, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end);
+  const [soldRes, cashCon, outRes] = await Promise.all([
     // Sin los «sin cobro» (#747): el desglose cuenta lo MISMO que el «N cierres» de
     // getRevenuePeriod, o el pop-up lista un cierre más que el número de arriba.
     supabase.from('leads').select('id, nombre, monto_cierre_usd, fecha_cierre').eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO).gte('fecha_cierre', start).lte('fecha_cierre', end),
-    supabase.from('pagos').select('monto_usd, fecha_pago, numero, lead_id, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end),
+    supabase.from('pagos').select('monto_usd, fecha_pago, numero, lead_id, funnel_id, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end),
     supabase.from('pagos').select('monto_usd, fecha_esperada, numero, lead_id, leads(nombre)').eq('pagado', false).gte('fecha_esperada', start),
   ]);
+  type FilaCash = { monto_usd: unknown; fecha_pago: unknown; numero: unknown; lead_id: unknown; funnel_id?: unknown; leads: unknown };
+  const cashRes: { data: FilaCash[] | null; error: { message: string } | null } = cashCon.error && faltaColumnaFunnel(cashCon.error)
+    ? await cashSin()
+    : cashCon;
   if (soldRes.error) throw new Error(`Sold detalle: ${soldRes.error.message}`);
   if (cashRes.error) throw new Error(`Cash detalle: ${cashRes.error.message}`);
   if (outRes.error) throw new Error(`Outstanding detalle: ${outRes.error.message}`);
@@ -1048,7 +1056,7 @@ async function _getRevenueBreakdowns(start: string, end: string): Promise<Revenu
   const cuotaLabel = (n: number) => (n === 0 ? 'cobro inicial' : `cuota ${n}`);
   const sold: RevItem[] = (soldRes.data ?? []).map((r) => ({ nombre: (r.nombre as string) ?? '—', monto: Number(r.monto_cierre_usd ?? 0), fecha: (r.fecha_cierre as string | null) ?? null, leadId: Number(r.id) }))
     .sort((a, b) => b.monto - a.monto);
-  const cash: RevItem[] = (cashRes.data ?? []).map((r) => ({ nombre: relNombre(r.leads), monto: Number(r.monto_usd ?? 0), fecha: (r.fecha_pago as string | null) ?? null, detalle: cuotaLabel(Number(r.numero)), leadId: Number(r.lead_id) }))
+  const cash: RevItem[] = (cashRes.data ?? []).map((r) => ({ nombre: relNombre(r.leads), monto: Number(r.monto_usd ?? 0), fecha: (r.fecha_pago as string | null) ?? null, detalle: cuotaLabel(Number(r.numero)), leadId: Number(r.lead_id), funnel: r.funnel_id == null ? null : Number(r.funnel_id) }))
     .sort((a, b) => (a.fecha && b.fecha ? (a.fecha < b.fecha ? 1 : -1) : 0));
   const outstanding: RevItem[] = (outRes.data ?? []).map((r) => ({ nombre: relNombre(r.leads), monto: Number(r.monto_usd ?? 0), fecha: (r.fecha_esperada as string | null) ?? null, detalle: cuotaLabel(Number(r.numero)), leadId: Number(r.lead_id) }))
     .sort((a, b) => (a.fecha && b.fecha ? (a.fecha < b.fecha ? -1 : 1) : 0));

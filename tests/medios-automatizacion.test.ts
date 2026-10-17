@@ -194,7 +194,9 @@ test('la tarjeta lleva el chip y Probar dice «Conectar»', () => {
   assert.match(fl, /<button type="button" data-chip-medio data-no-pan /, 'sin data-no-pan el lienzo se come el clic del chip');
   const pp = fuente('app/automations/PanelProbar.tsx');
   assert.match(pp, /const sinConectar = medioProbar != null && estadoDe\(estadoMedio \?\? null, medioProbar, secuencia\.instance_name \?\? null\)\?\.conectado === false;/);
-  assert.match(pp, /\{rolAdmin && !real && !social && \(sinConectar\s*\? <Button size="sm" data-conectar-medio/);
+  // (17/10/2026, #852: cuando la automatización sólo le habla al grupo, el botón es «Probar en el grupo»; «Conectar» es
+  // el de las demás.)
+  assert.match(pp, /\{rolAdmin && !real && !social && !enElGrupo && \(sinConectar\s*\? <Button size="sm" data-conectar-medio/);
   const perfil = fuente('app/automations/SecuenciaPerfil.tsx');
   // Decimocuarta tanda (punto 4): el 409 abre el modal y NO deja el chip rojo «Conecta tu …» al lado de «Activar».
   assert.match(perfil, /const medio = rp\.medio \? medioDelError\(e\) : null;\s*if \(medio\) \{ setConectarMedio\(medio\); setBusy\(null\); return; \}/);

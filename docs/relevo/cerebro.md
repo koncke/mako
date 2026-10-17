@@ -253,3 +253,36 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - Nube de Claude Code: incluida en el plan. Hace falta abrir el proyecto en la carpeta del repo, crear el entorno en
     claude.ai/code con las variables del .env.local y la GitHub App en la org hola-mako;
   - un servidor propio por SSH: es gasto, así que lo decide Martín.
+
+## 17/10 ~03:20 AR — ESTADO PARA RETOMAR (el contexto del Cerebro llegó al 96%)
+
+- **wt-push-q = 5d18f155d, SIN SUBIR.** Espera a que termine el run 89 (20b129409: «Voy a trabajar en…» en vivo,
+  los selectores de 360 px arreglados). Trae: el grafo al tocar Second Brain (9b4ba4eda + 3cd7776d3), las bitácoras
+  de CRM (8a70d70a8 y 4e330cbee) y Automations 6122a1e3e (#882, #873, #849). Antes de pushear: `git fetch` +
+  `merge-base --is-ancestor origin/integracion HEAD`.
+- **APENAS EL RUN 89 ESTÉ EN PRODUCCIÓN:** borrar las marcas de `~/.claude/operaciones/turnos/*.json` (respaldo en
+  turnos-respaldo-0325/). Se avanzaron a las 02:54 AR, antes de que existiera el servidor de turnos, y por eso la
+  conversación del Ops Center sale vacía. El servidor deduplica por uuid (lib/operaciones-reglas.ts:293).
+- **Cartero de la PC: 1.8.1** (instalado). El Runner tiene su paso b del modelo (tarea 3ee7f888).
+- **Migraciones:** 0306 (Dashboard), 0307 y 0308 (Pagos) y 0310 (CRM, el pago guarda su funnel) están APLICADAS. La
+  **0309 está LIBRE** (Ops Center terminó sin migración). La próxima libre es la 0309 y después la 0311.
+- **Chats de la cuenta 4:**
+  - CRM `local_64949e84`
+  - Onboarding `local_0702928b`
+  - Automations `local_f74a2156` (con #847)
+  - Pagos `local_d0cd6fc8`
+  - Dashboard `local_ca08f72a`
+  - MaKo en WhatsApp `local_d3ed9496` (el vigía)
+  - Video Generator `local_54b66516`
+  - Runner `local_354ef1cd`
+  - **Ops Center nuevo** `local_49626440` (adjuntos → Review con los «Ya está» → el Runner y la nube en la lista → el clic)
+  - Ops Center viejo `local_aac76313` (cerrado, al 85%)
+  - **Infra** `local_1baeb7d9`: scripts/tests-afectados.mjs, para que no fallen más los pushes
+  - Web Generator, EN LA NUBE (task_fc296a8e): deja su rama `web-generator-nube`, que hay que ir a buscar.
+- **Reglas de Martín de esta noche** (todas en AGENTS.md y en la memoria):
+  - el «Ya está» y «Voy a trabajar en…» los dice cada chat en el Ops Center;
+  - TODO lo de un área lo dice su chat, no el Cerebro;
+  - el modelo justo para cada trabajo.
+- **Ticketera:**
+  - `envio-whatsapp-al-activar` → B, aplicado;
+  - `acceso-repo-mauricio` → A, SIN APLICAR: Mauricio sigue con escritura en GitHub y lo cambia Martín. El git de la PC ya entra como hola-mako.

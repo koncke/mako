@@ -67,9 +67,9 @@ export const idsDeLeads = (xs: readonly { lead: number | null | undefined }[]): 
  * que el número de arriba —si no, el pop-up lista lo que el número no suma—. Vacío = todos, sin leer nada. TIRA si
  * falla: quien llama decide (el hero de /general esconde el desglose y deja el número).
  */
-export async function filtrarPorFunnels<T extends { leadId?: number; fecha: string | null }>(items: readonly T[], elegidos: readonly number[]): Promise<T[]> {
+export async function filtrarPorFunnels<T extends { leadId?: number; fecha: string | null; funnel?: number | null }>(items: readonly T[], elegidos: readonly number[]): Promise<T[]> {
   if (!elegidos.length) return [...items];
   const hechos = items.map((x) => ({ lead: x.leadId ?? null, fecha: x.fecha }));
   const { casas, agregados } = await ubicarLeads(idsDeLeads(hechos));
-  return filtrarEnFunnels(items, (x) => ({ lead: x.leadId, fecha: x.fecha }), elegidos, casas, agregados);
+  return filtrarEnFunnels(items, (x) => ({ lead: x.leadId, fecha: x.fecha, funnel: x.funnel }), elegidos, casas, agregados);
 }

@@ -479,7 +479,13 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const hrefVolver = idElegido ? `${base}?chat=${idElegido}` : claveCentro ? `${base}?centro=${encodeURIComponent(claveCentro)}` : base;
   /** En Ops Center, ¿la lista es la del Second Brain (los chats con MaKo y el Mapa)? Fuera de Ops Center, siempre. */
   const enSB = !ops || mapa != null || (elegido == null ? inicio === 'second-brain' : !('centro' in elegido));
-  const irAlSecondBrain = () => elegir(arbol.jefe ? { id: arbol.jefe.id } : { virtual: 'jefe' });
+  // «Second Brain» abre el GRAFO en el panel (Martín, 17/10/2026: «Entro a la tab de Second Brain y me envía a un CHAT de
+  // Second Brain... cuando ahí debería saltar el grafo»); el chat con MaKo queda como una fila de la lista. Sin el Mapa
+  // (no es admin de la tab), el chat.
+  const irAlSecondBrain = () => {
+    if (veMapa) { if (ticketera) cerrarTicketera(); setConChat(true); router.push(hrefMapa); return; }
+    elegir(arbol.jefe ? { id: arbol.jefe.id } : { virtual: 'jefe' });
+  };
   const irAClaudeCode = () => {
     const ultimo = ultimoCentro.current && centro?.chats.some((x) => x.clave === ultimoCentro.current) ? ultimoCentro.current : null;
     const c = ultimo ?? (centro ? centroDeEntrada(centro) : null);
