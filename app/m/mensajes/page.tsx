@@ -18,6 +18,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { requireMovil } from '@/lib/movil-guard';
 import { HOME_MOVIL } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
+import { enElStoreDeLaPestana, listarPlantillas } from '@/lib/plantillas';
 import { PantallaM } from '@/app/m/_ui';
 import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
 import { MensajesM } from './MensajesM';
@@ -27,11 +28,13 @@ export const dynamic = 'force-dynamic';
 export default async function MensajesMovil() {
   if (!(await getSesionAdmin())) redirect(await rutaConWs(HOME_MOVIL));
   const ctx = await requireMovil();
+  // La MISMA lectura que GET /api/admin/plantillas (en la plataforma, la base que heredan todos).
+  const iniciales = await enElStoreDeLaPestana(() => listarPlantillas({ vista: 'agencia' })).catch(() => null);
   return (
     <PantallaM>
       <SeccionesTabM tab="automatizaciones" activa="mensajes"
         vista={{ adminShell: ctx.sesion.rol === 'admin' && !ctx.impersonando, rolWs: ctx.rol ?? '', capa: ctx.capa ?? '' }} />
-      <MensajesM leido={Date.now()} />
+      <MensajesM key={Date.now()} iniciales={iniciales} />
     </PantallaM>
   );
 }

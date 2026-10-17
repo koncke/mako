@@ -1,0 +1,93 @@
+/* =============================================================================
+   /m/ai-avatar — lo propio de AI Avatar (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-ai-avatar-*: Next deja la hoja cargada al salir de la ruta. Sólo tokens de app/globals.css,
+   salvo lo que va ENCIMA de una imagen o un video (blanco literal, como app/m/video/video.css). Un p con margen va
+   con [data-m] delante. */
+
+/* ── Los chips de filtro (HeyGen): una tira que se desliza ───────────────── */
+.m-ai-avatar-chips {
+  display: flex; gap: 8px; margin: 0 -16px 12px; padding: 0 16px;
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+}
+.m-ai-avatar-chips::-webkit-scrollbar { display: none; }
+.m-ai-avatar-chip {
+  flex: none; min-height: 44px; padding: 0 16px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+  font: inherit; font-size: var(--fs-sm); font-weight: 500; white-space: nowrap; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-ai-avatar-chip[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-strong); font-weight: 600; }
+
+/* ── La grilla de dos columnas de retratos 9:16 ──────────────────────────── */
+.m-ai-avatar-grilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 8px; }
+.m-ai-avatar-retrato, .m-ai-avatar-tema {
+  position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  padding: 0; border: 0; background: none; font: inherit; color: var(--ink); text-align: left; text-decoration: none;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+}
+.m-ai-avatar-retrato img {
+  display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: var(--r-md);
+  background: var(--surface-2); outline: 1px solid var(--border); outline-offset: 0;
+}
+.m-ai-avatar-retrato[aria-pressed="true"] img { outline: 3px solid var(--primary); outline-offset: 2px; }
+.m-ai-avatar-retrato__tilde {
+  position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 28px; height: 28px;
+  border-radius: 50%; background: var(--primary); color: var(--on-primary);
+}
+.m-ai-avatar-retrato__pie, .m-ai-avatar-tema__cat {
+  font-size: var(--fs-meta); color: var(--dim); line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.m-ai-avatar-tema__nombre { font-size: var(--fs-sm); font-weight: 600; line-height: 1.3; }
+.m-ai-avatar-tema[aria-pressed="true"] .m-ai-avatar-portada { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+/* La portada de un tema: su video, o el lugar escrito sobre gris. */
+.m-ai-avatar-portada {
+  display: block; width: 100%; aspect-ratio: 9 / 16; border-radius: var(--r-md); object-fit: cover;
+  background: var(--surface-2); outline: 1px solid var(--border);
+}
+.m-ai-avatar-portada--texto { display: flex; align-items: flex-end; padding: 12px; box-sizing: border-box; }
+.m-ai-avatar-portada--texto span { font-size: var(--fs-sm); line-height: 1.35; color: var(--dim); }
+
+/* Una toma (o un look en camino): el video, o el lugar vacío con su estado. */
+.m-ai-avatar-toma { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.m-ai-avatar-toma video { display: block; width: 100%; aspect-ratio: 9 / 16; border-radius: var(--r-md); background: #000; }
+.m-ai-avatar-toma__vacia {
+  display: grid; place-items: center; width: 100%; aspect-ratio: 9 / 16; padding: 12px; box-sizing: border-box;
+  border-radius: var(--r-md); background: var(--surface-2); text-align: center;
+  font-size: var(--fs-meta); line-height: 1.4; color: var(--dim);
+}
+.m-ai-avatar-toma__n { font-size: var(--fs-meta); color: var(--dim); }
+
+/* ── Create video: el avatar elegido arriba del guion ────────────────────── */
+.m-ai-avatar-elegido { display: flex; gap: 12px; align-items: center; margin: 0 0 16px; }
+.m-ai-avatar-elegido img { flex: none; width: 54px; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 8px; background: var(--surface-2); }
+[data-m] .m-ai-avatar-elegido__lugar { margin: 0 0 2px; font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
+.m-ai-avatar-link {
+  min-height: 44px; padding: 0; border: 0; background: none; font: inherit; font-size: var(--fs-sm);
+  font-weight: 600; color: var(--primary); cursor: pointer;
+}
+[data-m] .m-ai-avatar-nota { margin: 10px 4px 0; font-size: var(--fs-meta); color: var(--dim); }
+
+/* ── Avatars: tus fotos en una tira ──────────────────────────────────────── */
+.m-ai-avatar-fotos { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding: 4px 2px; }
+.m-ai-avatar-fotos::-webkit-scrollbar { display: none; }
+.m-ai-avatar-foto {
+  flex: none; padding: 0; border: 0; border-radius: var(--r-md); background: none; cursor: pointer;
+  outline: 1px solid var(--border); outline-offset: 0;
+}
+.m-ai-avatar-foto[aria-pressed="true"] { outline: 3px solid var(--primary); outline-offset: 2px; }
+.m-ai-avatar-foto img { display: block; width: 72px; height: 72px; object-fit: cover; border-radius: var(--r-md); }
+
+/* El botón redondo de escuchar (44 px). */
+.m-ai-avatar-play {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-ai-avatar-play[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-strong); }
+
+/* ── El detalle de una plantilla ─────────────────────────────────────────── */
+.m-ai-avatar-detalle__portada { width: min(220px, 60%); margin: 0 auto 14px; }
+[data-m] .m-ai-avatar-detalle__resumen { margin: 0 4px 14px; font-size: 15px; line-height: 1.5; color: var(--ink); text-align: center; }
