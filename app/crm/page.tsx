@@ -22,6 +22,7 @@ import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { credWs } from '@/lib/credenciales';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
 import { ofrecePartners } from './partners-crm';
+import { getRolWsEfectivo } from '@/lib/workspace';
 import { mapToCrmLead, etapasDelTablero } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
 import { leerOrdenManual } from '@/lib/crm-orden';
@@ -134,6 +135,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const pCurso = estadoCursoAlGanar(funnelId);
   // «Llevar a MaKo Partners» en el menú de un lead: sólo la agencia y su admin (app/crm/partners-crm.ts). Nunca tira.
   const pPartners = ofrecePartners();
+  // «Nuevo CRM» sólo al admin (17/10/2026): la acción ya cortaba (`crearCrmAction`), pero la opción se le ofrecía a un
+  // closer, que completaba los dos pasos y recién al final leía «Solo el administrador puede crear un CRM». La MISMA
+  // pregunta que la acción, para que las dos no digan cosas distintas. Sin poder leerlo, no se ofrece.
+  const pPuedeCrear = getRolWsEfectivo().then((r) => r === 'admin', () => false);
 
   try {
     // Las etapas van en la misma ola (antes serializaban al frente).
@@ -197,7 +202,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   // Con la etapa de ENTRADA pegada: a ella caen los agregados cuya etapa ya no existe acá.
   const validStageKeys = etapasDelTablero(stages);
-  const [[anunciosObj, adMap], ordenManual, cursoAlGanar, partners] = await Promise.all([pAtrib, pOrden, pCurso, pPartners]);
+  const [[anunciosObj, adMap], ordenManual, cursoAlGanar, partners, puedeCrearCrm] = await Promise.all([pAtrib, pOrden, pCurso, pPartners, pPuedeCrear]);
   const atrib = { anuncios: new Map(Object.entries(anunciosObj)), adMap };
   const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys, atrib));
 
@@ -249,6 +254,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       ordenManual={ordenManual}
       cursoAlGanar={cursoAlGanar}
       partners={partners}
+      puedeCrearCrm={puedeCrearCrm}
     />
     <PanelMakoCrm funnelId={funnelId} />
     </>

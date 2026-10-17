@@ -689,9 +689,11 @@ const NUEVA = '__nueva';
 /** El otro renglón que no es un funnel sino una salida: los que se eliminaron. */
 const ARCHIVADOS = '__archivados';
 
-export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
+export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: {
   funnels: { id: number; nombre: string; esDefault: boolean; producto?: string | null }[];
   activo: number | null;
+  /** Sólo el admin crea un CRM (`crearCrmAction`): a los demás no se les ofrece «Nuevo CRM». */
+  puedeCrear: boolean;
   /** Abre el pop-up de etapas de UN funnel de la lista, que no tiene por qué ser el activo. */
   onEditarEtapas: (funnelId: number, nombre: string) => void;
 }) {
@@ -758,7 +760,8 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // "Funnels" sino que "Nuevo CRM", así es más entendible y fácil... Y que la opción de
   // nuevo esté arriba del desplegable, no abajo». El que se está mirando sigue siendo el
   // primero de los TABLEROS: la salida para crear no es un tablero.
-  opciones.unshift({ value: NUEVA, label: 'Nuevo CRM', crear: true });
+  // ⚠️ Y SÓLO AL ADMIN (17/10/2026): a un closer se le ofrecía, completaba los dos pasos y recién al final leía que no.
+  if (puedeCrear) opciones.unshift({ value: NUEVA, label: 'Nuevo CRM', crear: true });
   // ⚠️ LA PUERTA DE VUELTA. Eliminar un producto lo ARCHIVA —la fila y sus leads quedan
   // enteros— pero sin una pantalla que los nombre, para la persona desapareció igual: una
   // copia de seguridad que nadie puede ver no es una copia de seguridad. El renglón sólo

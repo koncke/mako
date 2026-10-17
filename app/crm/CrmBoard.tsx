@@ -449,6 +449,7 @@ export function CrmBoard({
   ordenManual = {},
   cursoAlGanar = null,
   partners = false,
+  puedeCrearCrm = false,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -498,6 +499,8 @@ export function CrmBoard({
    * admin, que es lo que exigen /partners y `llevarAPartnersAction`.
    */
   partners?: boolean;
+  /** ¿Quien mira puede crear un CRM? (el admin: `crearCrmAction`). Sin esto, «Nuevo CRM» no se ofrece. */
+  puedeCrearCrm?: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -2867,7 +2870,7 @@ export function CrmBoard({
           diferencia es la caja, no el ancho. Va ANTES de los avisos. El esqueleto (app/crm/loading.tsx)
           dibuja la misma caja. */}
       <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, marginBottom: 16, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 1px 2px rgba(18,21,27,.04)' }}>
-        <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />
+        <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} puedeCrear={!!puedeCrearCrm} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />
         <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
         <>
           <Buscador value={search} onChange={setSearch} />
