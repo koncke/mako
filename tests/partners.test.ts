@@ -119,7 +119,7 @@ test('la API: ver y llevar, sin HTTP; llevar sólo el admin, confirmado por una 
   assert.equal(llevar.tipo, 'accion');
   assert.equal(llevar.confirmacion, 'chat');
   assert.equal(llevar.reversible, false);
-  assert.equal(llevar.gating.rolMinimo, 'admin');
+  assert.equal(llevar.gating?.rolMinimo, 'admin');
   assert.ok(!llevar.canales.includes('http' as never));
   const run = leer('lib/api-mako/areas/cs.run.ts');
   const bloque = run.slice(run.indexOf('llevar_a_partners: {'), run.indexOf('\n  },\n', run.indexOf('llevar_a_partners: {')));
