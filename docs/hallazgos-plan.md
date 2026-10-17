@@ -7076,10 +7076,13 @@ otra operación le suma las palabras de su id. Se dejó como estaba.
 Nada por parecido: cerrar la tarjeta equivocada esconde trabajo pendiente, y no cerrar una se arregla con un clic.
 
 **Sin hacer:**
-- Enchufar `cerrarPorYaEsta` donde el Ops Center detecta el «Ya está» (lib/centro-chats.ts, `esYaEsta`). Es del
-  Ops Center 3; se le pasó la firma el 17/10.
-- Que MaKo en WhatsApp ofrezca `cerrar_tareas_plan` cuando la persona dice «ya lo hice». Hoy lo elige por la
-  descripción, sin un test que lo mida.
+- ~~Enchufar `cerrarPorYaEsta`…~~ **Ya estaba** (medido el 17/10, B5): el Ops Center lo hizo a su manera en
+  lib/centro-plan-auto.ts (cd233436f): el «Ya está» de un chat cierra su tarea con `cerrarTareaDelPlan`.
+- ~~Que MaKo en WhatsApp ofrezca `cerrar_tareas_plan` al «ya lo hice»~~ **Hecho el 17/10 (B5):** medido antes, «ya lo
+  hice» era `capturar` (dudosa) y sin herramientas, o sea material para ANOTAR una tarea nueva. Ahora la regla
+  3-bis-ya de lib/mako-intencion.ts (`YA_HECHO`) lo lleva a `actuar` con el Plan: viajan cerrar y leer las tareas.
+  Un pedido concreto detrás («ya quedó lista, publicá la landing») gana su regla (lo cazó mako-intencion-landing).
+  Test: tests/mako-ya-lo-hice.test.ts.
 
 **Vive en:** lib/plan-cerrar.ts · lib/api-mako/areas/plan.def.ts y plan.run.ts (`cerrar_tareas_plan`) ·
 lib/centro-plan.ts (`cerrarTareaDelPlan`, `cerrarPorYaEsta`) · lib/centro-plan-reglas.ts (`tarjetasDelYaEsta`) ·

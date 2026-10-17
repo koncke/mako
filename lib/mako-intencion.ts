@@ -792,6 +792,15 @@ const DESTINO_TIEMPO = /^(?:hoy|manana|pasado manana|lunes|martes|miercoles|juev
 const OBJETO_PLAN = /\b(?:tareas?|proyectos?|plan|deadline|quarter|pendientes?)\b/;
 /** Lo que suma al presupuesto «la tarea»: buscarla y cambiarle la fecha. */
 const RELEVANCIA_TAREA_FECHA = 'cambiar fecha deadline quarter tarea plan buscar';
+
+// ── «YA LO HICE»: CERRAR LA TAREA DEL PLAN (17/10/2026) ──────────────────────────────────────────────────────────
+// docs/hallazgos-plan.md («Marcar hecha una tarea cuando algo YA ESTÁ»): que MaKo en WhatsApp ofrezca `cerrar_tareas_plan`
+// cuando la persona dice que ya hizo algo. Medido: «ya lo hice», «ya terminé la landing de octubre» y «ya está hecha la
+// #412» caían al default —`capturar`, dudosa, sin una herramienta—, o sea material para ANOTAR una tarea nueva: lo
+// contrario. Ahora es `actuar` con el Plan, y lo que entra es cerrar (una acción de chat: MaKo la PROPONE con la tarea
+// que encontró y la persona dice «sí») y leer las tareas para encontrarla. Una pregunta («¿ya lo hiciste?») no es esto.
+const YA_HECHO = /^(?:(?:bueno|listo|dale|ok|perfecto)[\s,.!]+)?ya\s+(?:(?:lo|la|los|las|le|me|nos)\s+)?(?:hice|hicimos|termine|terminamos|complete|completamos|resolvi|resolvimos|arregle|arreglamos|cerre|cerramos|subi|subimos|mande|mandamos|envie|enviamos|cargue|cargamos|grabe|grabamos|publique|publicamos|llame|llamamos|pague|pagamos|entregue|entregamos)\b|^(?:(?:bueno|listo|dale|ok|perfecto)[\s,.!]+)?ya\s+(?:esta|quedo|estan|quedaron)\s+(?:(?:hech|list|terminad|resuelt|complet|cerrad)[oa]s?|la\s+#?\d+|el\s+#?\d+)\b/;
+const RELEVANCIA_YA_HECHO = 'cerrar tareas plan hecha completada evidencia listar tareas buscar';
 /** Lo que suma un «movela al viernes»: reagendar, leer el día («qué tengo», el título de
  *  `agenda_del_dia`) y la tarea. Entran 15 de las ~100 de CRM y plan: medido el 09/10, con
  *  «buscar» y sin «tengo» la lectura del día quedaba afuera con «al viernes». */
@@ -966,6 +975,12 @@ export function clasificarIntencion(
   //            pedido, y en una pregunta MaKo ofrece), ni lo es un pedido sobre un lead o una landing.
   if (ctx.siguePedidoDeAgenda && t.length <= 200 && !esLista(t) && cuentaLinks(t) === 0 && !NEGATIVA.test(t) && !PREGUNTA.test(t) && !pedidoLead && !pedidoLanding) {
     return { intencion: 'actuar', dudosa: false, porque: 'le da los datos que MaKo pidió para un pedido de agenda', sigueOfrecimiento: true, areas: ['crm'], relevancia: RELEVANCIA_AGENDA };
+  }
+
+  // 3-bis-ya) DICE QUE YA HIZO ALGO (17/10/2026, ver `YA_HECHO`): cerrar la tarea del Plan, no anotar una nueva.
+  //          Un pedido concreto que viene detrás («ya quedó lista, publicá la landing») es ESE pedido: gana su regla.
+  if (YA_HECHO.test(nPersona) && t.length <= 200 && !PREGUNTA.test(t) && !esLista(t) && !pedidoLanding && !pedidoLead && !pedidoCobro && !pedidoAgenda) {
+    return { intencion: 'actuar', dudosa: false, porque: 'dice que ya hizo algo: se ofrece cerrar su tarea del Plan', areas: ['plan'], relevancia: RELEVANCIA_YA_HECHO };
   }
 
   // 3-ter) DICE QUE SÍ A LO QUE MaKo LE OFRECIÓ. Desde el 08/10/2026 MaKo, cuando contesta
