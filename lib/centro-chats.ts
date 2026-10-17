@@ -63,6 +63,10 @@ export type ChatCentro = {
   area?: string;
   /** Sus pedidos sin terminar (ids de PedidoP): un chat sin sesión sólo se lista si tiene alguno. */
   abiertos?: string[];
+  /** Es el Runner (cartero 1.10.0, 17/10/2026: «todo chat abierto se ve»): está en la lista, sin caja. */
+  esRunner?: true;
+  /** Está en la nube: lo anota el Runner de la app con list_sessions. Se ve con la marca «Nube», sin caja. */
+  nube?: true;
 };
 
 export type SesionDeChat = {
@@ -202,11 +206,14 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
     const visto = fecha(k.vistoAt);
     const viejo = visto == null || ahora - visto >= CARTERO_VIVO_MS;
     for (const ch of k.chats) {
-      if (!DESTINO_RE.test(ch.local)) continue;
+      if (!DESTINO_RE.test(ch.local) && !ch.nube) continue;
       const c = tomar(ch.local, ch.titulo, ch.cuenta ?? k.cuenta);
       c.titulo = ch.titulo;
       c.cuenta = ch.cuenta ?? k.cuenta;
-      c.estado = !ch.vivo ? 'cerrado' : ch.estado === 'busy' ? 'trabajando' : 'abierto';
+      if (ch.esRunner) c.esRunner = true;
+      if (ch.nube) c.nube = true;
+      // Uno de la nube está abierto mientras el Runner lo anota (no tiene canal en la PC: `vivo` es siempre false).
+      c.estado = ch.nube ? 'abierto' : !ch.vivo ? 'cerrado' : ch.estado === 'busy' ? 'trabajando' : 'abierto';
       c.vistoAt = visto;
       c.viejo = viejo;
       c.sinRunner = ch.vivo && ch.runner === false;
@@ -277,7 +284,8 @@ export const esCerebro = (titulo: string) => NOMBRES_DEL_CEREBRO.has(normal(titu
 export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
   const grupos = new Map<string, ChatCentro[]>();
   for (const c of chats) {
-    const k = esCerebro(c.titulo) ? 'cerebro' : normal(c.titulo) || c.clave;
+    // Uno de la nube no se une con el de la PC que se llama igual: es OTRA sesión, y no recibe (sería elegible como destino).
+    const k = c.nube ? `nube:${normal(c.titulo) || c.clave}` : esCerebro(c.titulo) ? 'cerebro' : normal(c.titulo) || c.clave;
     if (!grupos.has(k)) grupos.set(k, []);
     grupos.get(k)!.push(c);
   }
@@ -308,6 +316,8 @@ export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
       trabajos: unica(lista.flatMap((c) => c.trabajos)),
       miembros: unica(lista.flatMap((c) => c.miembros)),
       sesiones,
+      ...(lista.some((c) => c.esRunner) ? { esRunner: true as const } : {}),
+      ...(lista.every((c) => c.nube) ? { nube: true as const } : {}),
     });
   }
   return out;
@@ -464,6 +474,9 @@ export type Envio =
   | { puede: false; por: 'leyendo_clave' }
   /** Este dispositivo no tiene clave de firma: se crea una. */
   | { puede: false; por: 'sin_clave' }
+  /** Es el Runner o un chat de la nube (17/10/2026): se ven en la lista, pero no se les escribe desde acá. */
+  | { puede: false; por: 'runner' }
+  | { puede: false; por: 'nube' }
   /** La PC no acepta la clave de este dispositivo: se copia y se carga allá. */
   | { puede: false; por: 'clave_no_aceptada' }
   /** Sale: ya (`espera: null`), cuando el cartero de su cuenta dé una vuelta, o cuando se abra el chat. `donde`:
@@ -477,6 +490,10 @@ export function comoSale(
   claveId: string | null | undefined,
   ahora: number,
 ): Envio {
+  // El Runner y los de la nube, antes que nada: lo dice lo que subió la PC de esa sesión.
+  const subido = chat.sesion ? carteros.flatMap((k) => k.chats ?? []).find((x) => x.local === chat.sesion) : undefined;
+  if (subido?.esRunner) return { puede: false, por: 'runner' };
+  if (subido?.nube) return { puede: false, por: 'nube' };
   if (!chat.sesion || !DESTINO_RE.test(chat.sesion)) return { puede: false, por: 'sin_direccion' };
   if (claveId === undefined) return { puede: false, por: 'leyendo_clave' };
   if (claveId === null) return { puede: false, por: 'sin_clave' };
@@ -522,6 +539,8 @@ export function textoDeEnvio(e: Envio): string | null {
     if (e.por === 'sin_direccion') return 'Abre este chat en la app de Claude para poder escribirle.';
     if (e.por === 'sin_clave') return 'Crea tu Token para comenzar a chatear.';
     if (e.por === 'clave_no_aceptada') return 'Pégale tu Token al Runner para comenzar a chatear.';
+    if (e.por === 'runner') return 'El Runner entrega lo que escribes: no se le escribe.';
+    if (e.por === 'nube') return 'Este chat está en la nube: escríbele desde la app de Claude.';
     return null;
   }
   const n = e.cuenta ? e.cuenta.replace(/^claude/, '') : '?';

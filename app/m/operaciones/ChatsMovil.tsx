@@ -284,7 +284,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                     key={c.clave}
                     // Un sub-chat va corrido a la derecha, con su muñeco más chico y sólo lo que va después de «›».
                     leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={elegidoPara(munecos, c.titulo)} animo={animoDe(c)} size={sub ? 32 : 40} espera={espera} /></span>}
-                    titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}</span>}
+                    titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
                     segunda={vivo
                       ? <span className="m-operaciones-vivo">{enQueTrabaja(lineasC) ?? 'trabajando…'}</span>
                       : espera > 0 ? <span className="m-operaciones-espera">Espera tu respuesta</span>

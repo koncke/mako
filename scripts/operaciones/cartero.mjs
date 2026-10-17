@@ -57,6 +57,8 @@
 //                                  cuenta, por todas las de su carpeta
 //   pendientes [cuenta]            lo del buzón que le toca mandar a ESTE Runner (su carpeta)
 //   acuse [cuenta] <id> ok | error <motivo>   lo anota el Runner después de cada SendMessage
+//   nube [<id> <título> …]         (1.10.0) los chats de la nube de la cuenta de la app, como los lista list_sessions;
+//                                  los corre el Runner de la app en cada vuelta, antes de `ciclo`
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
 //   esperar [cuenta] [--max-seg N] (opción C, a probar) espera hasta que haya algo y sale con 2
@@ -69,7 +71,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const VERSION = '1.9.1';
+export const VERSION = '1.10.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -87,6 +89,11 @@ const CIERRE_VENCE_MS = 24 * 3600 * 1000;
 const CIERRES = path.join(DIR, 'cierres');
 /** Los adjuntos de cada trabajo (1.9.0): una carpeta por id, `adjuntos/<id>/`. Se borran a los VENCE_DIAS. */
 const ADJUNTOS = path.join(DIR, 'adjuntos');
+/** Los chats de la NUBE de cada cuenta (1.10.0): no quedan en ningún archivo de la PC; los anota el Runner de la app, que
+ *  los ve con list_sessions (`nube <id> <título> …`). `nube/<cuenta>.json`. */
+const NUBE = path.join(DIR, 'nube');
+/** Lo anotado de la nube vale este rato: si el Runner dejó de anotarlo, esos chats no se suben como si siguieran ahí. */
+const NUBE_VENCE_MS = 10 * 60 * 1000;
 /** La cuota de cada cuenta, como la anota la barra de estado de su Runner (`uso`). */
 const USO = path.join(DIR, 'uso');
 /** Lo que se le pasa al Runner con `--settings`: su barra de estado anota la cuota (lib/runner.ts). */
@@ -169,6 +176,8 @@ const cuentasDeLaCarpeta = (cfg, dir) => Object.keys(cfg.carteros ?? {})
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const CUENTA_RE = /^claude\d{1,2}$/;
+/** El id de un chat de la nube (copia de lib/operaciones-reglas.ts → NUBE_RE): lo que no es de esta PC. */
+export const NUBE_RE = /^(?!local_|cli_)[A-Za-z][A-Za-z0-9_-]{5,100}$/;
 const MAX_TEXTO = 8000;
 /** El modelo y el esfuerzo que eligió Martín (opcionales; copia de lib/operaciones-reglas.ts → MODELOS y ESFUERZOS). */
 const MODELOS = ['opus', 'sonnet', 'haiku'];
@@ -264,6 +273,35 @@ export async function bajarAdjuntos(url, token, id, adjuntos, dir = ADJUNTOS) {
     throw e;
   }
 }
+
+/**
+ * Anota los chats de la nube de una cuenta: `nube <id> <título> [<id> <título> …]` (sin nada, la deja vacía). Lo corre el
+ * Runner de la app en cada vuelta, con lo que le da list_sessions fuera de esta PC. Sólo se ven: no se les entrega nada.
+ */
+export function anotarNube(cuenta, pares, ahora = Date.now()) {
+  if (pares.length % 2) throw new Error('uso: nube <id> <título> [<id> <título> …]');
+  const chats = [];
+  for (let i = 0; i < pares.length; i += 2) {
+    const id = String(pares[i]).trim();
+    const titulo = String(pares[i + 1]).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 120) || '(sin título)';
+    if (!NUBE_RE.test(id)) throw new Error(`«${id.slice(0, 40)}» no es un chat de la nube (los de esta PC empiezan con local_)`);
+    if (!chats.some((c) => c.id === id)) chats.push({ id, titulo });
+  }
+  escribirJson(path.join(NUBE, `${cuenta}.json`), { at: new Date(ahora).toISOString(), chats: chats.slice(0, 50) });
+  return chats.length;
+}
+
+/** Lo anotado de la nube para una cuenta, si es de los últimos minutos. */
+export function leerNube(cuenta, ahora = Date.now(), dir = NUBE) {
+  const n = leerJson(path.join(dir, `${cuenta}.json`), null);
+  const at = Date.parse(n?.at ?? '');
+  if (!Number.isFinite(at) || ahora - at > NUBE_VENCE_MS || !Array.isArray(n.chats)) return [];
+  return n.chats.filter((c) => c && NUBE_RE.test(c.id ?? '') && typeof c.titulo === 'string').slice(0, 50);
+}
+
+/** La cuenta de la app en la carpeta de este Runner: la única que ve list_sessions. */
+const cuentaDeLaApp = (cfg, dir) => Object.keys(cfg.carteros ?? {})
+  .find((c) => CUENTA_RE.test(c) && fuentesDe(cfg.carteros[c]).some((f) => f.fuente === 'app' && mismoDir(f.configDir, dir))) ?? null;
 
 /** Las carpetas de adjuntos de más de VENCE_DIAS: el trabajo ya venció, y el chat ya los leyó o no los va a leer. */
 function limpiarAdjuntos(ahora = Date.now()) {
@@ -504,9 +542,11 @@ function chatsDeLaApp(cuenta, cwds, carpetas) {
         if (e.isDirectory() && prof < 3) recorrer(f, prof + 1);
         else if (e.isFile() && /^local_.*\.json$/.test(e.name)) {
           const o = leerJson(f, null);
-          if (!o || o.isArchived || !DESTINO_RE.test(o.sessionId ?? '') || !enCwds(o.cwd, cwds) || esElCartero(o.title)) continue;
+          if (!o || o.isArchived || !DESTINO_RE.test(o.sessionId ?? '') || !enCwds(o.cwd, cwds)) continue;
           out.set(o.sessionId, {
             local: o.sessionId, titulo: String(o.title || '(sin título)').slice(0, 120), cuenta,
+            // El Runner se ve en la lista (1.10.0, Martín: «todo chat abierto se ve»), marcado: no se le escribe.
+            ...(esElCartero(o.title) ? { esRunner: true } : {}),
             vivo: false, estado: null, pipe: null,
             actividad: o.lastActivityAt ? new Date(o.lastActivityAt).toISOString() : null,
             // Su transcript: los chats de la app los guarda en ~/.claude (también los de otra cuenta).
@@ -577,9 +617,10 @@ function leerRegistro(cuenta, configDir, fuente, cwds, chats) {
       const c = s.hostSessionId ? chats.get(s.hostSessionId) : null;
       if (c) Object.assign(c, { vivo: true, estado, pipe: s.messagingSocketPath, dir });
     } else if (UUID_RE.test(s.sessionId ?? '') && enCwds(s.cwd, cwds) && s.entrypoint !== 'claude-desktop'
-      && (s.kind == null || s.kind === 'interactive') && !esElCartero(s.name)) {
+      && (s.kind == null || s.kind === 'interactive')) {
       const local = `cli_${s.sessionId}`;
       chats.set(local, {
+        ...(esElCartero(s.name) ? { esRunner: true } : {}),
         local, titulo: String(s.name || `${path.basename(String(s.cwd || ''))} · ${s.sessionId.slice(0, 8)}`).slice(0, 120),
         cuenta, vivo: true, estado, pipe: s.messagingSocketPath, dir,
         actividad: s.updatedAt ? new Date(s.updatedAt).toISOString() : null,
@@ -682,16 +723,18 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   const cierres = archivosCierre.map((f) => leerJson(f, null)).filter(Boolean);
   // Lo que ALGÚN Runner de la PC puede entregar: el chat vivo, con un Runner abierto en su carpeta. MaKo reclama
   // sólo eso; lo demás queda escrito y sale cuando se abra ese Runner (no se vence en el buzón).
-  const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner).map((c) => c.local);
-  // Lo que se dijo en cada chat desde la vuelta anterior (sólo lo nuevo).
-  const { turnos, marcas } = turnosDeLaVuelta([...chats.values()]);
+  const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner && !c.esRunner).map((c) => c.local);
+  // Lo que se dijo en cada chat desde la vuelta anterior (sólo lo nuevo). Lo del Runner no: son sus vueltas.
+  const { turnos, marcas } = turnosDeLaVuelta([...chats.values()].filter((c) => !c.esRunner));
+  // Los chats de la nube que anotó el Runner de la app (no tienen canal ni transcript en esta PC: sólo se ven).
+  const enNube = leerNube(cuenta).map((n) => ({ local: n.id, titulo: n.titulo, cuenta, vivo: false, estado: null, actividad: null, nube: true }));
   const r = await fetch(`${url}/api/operaciones/cartero`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
     body: JSON.stringify({
       cuenta, version: VERSION,
       // Ni la dirección del canal, ni la carpeta, ni dónde está el transcript salen de la PC.
-      chats: [...chats.values()].map(({ pipe, dir, transcript, ...c }) => c),
+      chats: [...[...chats.values()].map(({ pipe, dir, transcript, ...c }) => c), ...enNube],
       entregables, claves: spkis.map(claveId), acuses, cierres, uso: cuotaDe(cuenta), turnos,
     }),
     signal: AbortSignal.timeout(30_000),
@@ -730,6 +773,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     if (yaSalio(id)) { rechazar('Ya se había entregado: no sale dos veces'); continue; }
     const chat = chats.get(l.p.destino);
     if (!chat?.vivo || !chat.pipe) { rechazar('El chat se cerró: ábrelo y vuelve a mandarlo'); continue; }
+    if (chat.esRunner) { rechazar('Al Runner no se le escribe: elige otro chat'); continue; }
     let rutas = [];
     if (l.p.adjuntos) {
       try { rutas = await bajarAdjuntos(url, cfg.token, id, l.p.adjuntos); } catch (e) { rechazar(`No pude bajar un adjunto (${e.message}): vuelve a mandarlo`); continue; }
@@ -753,7 +797,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     if (typeof a.destino !== 'string' || !DESTINO_RE.test(a.destino)) { rechazarId(id, 'Aviso con un destino inválido'); continue; }
     if (yaSalio(id)) { rechazarId(id, 'Ya se había entregado: no sale dos veces'); continue; }
     const chat = chats.get(a.destino);
-    if (!chat?.vivo || !chat.pipe) { rechazarId(id, 'El chat se cerró antes de avisar'); continue; }
+    if (!chat?.vivo || !chat.pipe || chat.esRunner) { rechazarId(id, 'El chat se cerró antes de avisar'); continue; }
     escribirJson(path.join(BUZON, `${id}.json`), {
       id, tipo: 'aviso', reclamado: new Date().toISOString(), clave: null, dir: chat.dir,
       to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensajeAviso(a.ref, repo),
@@ -1047,10 +1091,16 @@ if (esMain) {
       case 'pendientes': { const propio = dirPropio(); exigirRunner(propio); imprimir(pendientes(cuentaOpcional(), propio)); break; }
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
+      case 'nube': {
+        const cfg = config();
+        const c = cuentaOpcional() ?? cuentaDeLaApp(cfg, dirPropio(cfg));
+        if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: nube --cuenta claudeN <id> <título> …');
+        imprimir({ ok: true, cuenta: c, chats: anotarNube(c, resto) }); break;
+      }
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
       case 'esperar': { const i = resto.indexOf('--max-seg'); await esperar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) || 3000 : 3000); break; }
       default:
-        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | esperar | uso\n');
+        process.stderr.write('comandos: instalar | url | token | clave | cartero | carpeta | repo | estado | ciclo | pendientes | acuse | cierre | nube | esperar | uso\n');
         process.exit(1);
     }
   } catch (e) {
