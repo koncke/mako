@@ -19,25 +19,38 @@
 // y 9 caras»). Las piezas nuevas van AL FINAL de cada lista: el que no se eligió sale de su nombre con las de antes
 // (`DE_SIEMPRE`), así ningún chat cambia de cara por haber más opciones.
 export const FORMAS = ['circulo', 'cuadrado', 'hexagono', 'triangulo', 'frijol', 'gota', 'pildora', 'nube', 'diamante'] as const;
-export type Forma = (typeof FORMAS)[number];
+/** LA ESTRELLA DE MAKO (17/10/2026, Martín: «cerebro tiene la criatura de MaKo estrella, solo ese»): la chispa de la marca
+ *  como cuerpo, en su dorado. Va FUERA de `FORMAS` y de `COLORES` a propósito: no se elige ni sale en un sorteo
+ *  (`sanearAspecto` la rechaza), así que ningún otro chat puede tenerla. La dibujan el Cerebro y quien muestre a MaKo
+ *  (el onboarding y la barra la piden con `ASPECTO_MAKO`). */
+export const FORMA_MAKO = 'estrella';
+export const COLOR_MAKO = '--mako';
+export type Forma = (typeof FORMAS)[number] | typeof FORMA_MAKO;
 /** La paleta categórica de la casa (app/globals.css). Pasteles: el ojo oscuro se lee sobre todos. `--grafo-funnel`
  *  queda afuera a propósito: al lado de `--grafo-panorama` son dos verdes que no se distinguen en 38 px. */
 export const COLORES = [
   '--grafo-documentos', '--grafo-panorama', '--grafo-oferta', '--grafo-cliente', '--grafo-productos',
   '--grafo-entregables', '--grafo-avatares', '--grafo-razones', '--grafo-voz',
 ] as const;
-export type Color = (typeof COLORES)[number];
+export type Color = (typeof COLORES)[number] | typeof COLOR_MAKO;
 export const CARAS = ['sonrisa', 'risa', 'dientes', 'tranquila', 'asombro', 'lengua', 'beso', 'bigote', 'gato'] as const;
 /** Las piezas con las que se sortea el que no se eligió: las de antes del 17/10/2026 (ver arriba). */
 const DE_SIEMPRE = { formas: FORMAS.slice(0, 7), caras: CARAS.slice(0, 6) } as const;
 export type CaraMuneco = (typeof CARAS)[number];
 export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco };
 export type MunecosElegidos = Record<string, Aspecto>;
+/** La criatura de MaKo: la estrella dorada, sonriendo. */
+export const ASPECTO_MAKO: Aspecto = { forma: FORMA_MAKO, color: COLOR_MAKO, cara: 'sonrisa' };
 
 export const ROTULO_FORMA: Record<Forma, string> = {
   circulo: 'Círculo', cuadrado: 'Cuadrado', hexagono: 'Hexágono', triangulo: 'Triángulo', frijol: 'Frijol', gota: 'Gota', pildora: 'Píldora',
-  nube: 'Nube', diamante: 'Diamante',
+  nube: 'Nube', diamante: 'Diamante', estrella: 'Estrella de MaKo',
 };
+
+/** El Cerebro (el orquestador; «Estrategia 3 cuentas» es su nombre de antes, lib/centro-chats.ts → esCerebro) es MaKo. */
+const DEL_CEREBRO = new Set(['cerebro', 'estrategia 3 cuentas', 'estrategia']);
+export const esCriaturaDeMako = (titulo: string) => DEL_CEREBRO.has(normalDe(titulo));
+function normalDe(s: string) { return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 export const ROTULO_CARA: Record<CaraMuneco, string> = {
   sonrisa: 'Sonrisa', risa: 'Risa', dientes: 'Dientes', tranquila: 'Tranquila', asombro: 'Asombro', lengua: 'Lengua',
   beso: 'Beso', bigote: 'Bigote', gato: 'Gato',
@@ -97,6 +110,8 @@ function hash(s: string): number {
 
 /** El muñeco de un chat: lo que eligió Martín para ese nombre, o el que le toca por su nombre. */
 export function aspectoDe(titulo: string, elegido?: Aspecto | null): Aspecto {
+  // El Cerebro es SIEMPRE la estrella de MaKo, aunque se le haya elegido otra antes (Martín: «solo ese»).
+  if (esCriaturaDeMako(titulo)) return ASPECTO_MAKO;
   if (elegido) return elegido;
   const t = normal(titulo) || '?';
   const h = hash(t);

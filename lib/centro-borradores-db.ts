@@ -23,8 +23,12 @@ const PREFIJO = 'operaciones.borrador.';
 
 /** La clave de app_settings de un chat: su sesión tal cual; un nombre, por su huella (sin espacios ni tildes en la clave). */
 export function claveBorradorDe(direccion: string): string | null {
-  if (DESTINO_RE.test(direccion)) return PREFIJO + direccion;
-  if (direccion.startsWith('nombre:') && direccion.length <= 200) return PREFIJO + createHash('sha256').update(direccion).digest('hex').slice(0, 32);
+  return claveDeChatCon(PREFIJO, direccion);
+}
+/** Lo mismo con otro prefijo (las marcas de sus mensajes, lib/centro-mensajes-db.ts): una clave por chat, con el mismo molde. */
+export function claveDeChatCon(prefijo: string, direccion: string): string | null {
+  if (DESTINO_RE.test(direccion)) return prefijo + direccion;
+  if (direccion.startsWith('nombre:') && direccion.length <= 200) return prefijo + createHash('sha256').update(direccion).digest('hex').slice(0, 32);
   return null;
 }
 

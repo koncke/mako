@@ -15,16 +15,20 @@
 // de cada chat, con un chip»), y a la derecha el botón «Avance» abre la barra derecha con el roadmap de ESTE chat
 // (Avance.tsx), como la de Offer.
 
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { conVinetas, enterEnLista } from '@/lib/centro-caja';
-import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { Modal } from '@/app/_ui';
+import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
+import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MensajeWA } from './MensajeWA';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
+import type { PasoDelTurno } from '@/lib/centro-pasos';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
-import { Hilo } from './Hilo';
+import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
@@ -35,12 +39,30 @@ import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from './ConLinks';
 import { Muneco, animoDe } from './Muneco';
 
 const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
+const SIN_PUSHES: PushP[] = [];
+
+/** Lo de WhatsApp que la conversación necesita del motor (useCentro.ts): lo arma PiezasCentro.tsx → ChatDelCentro. */
+export type WaDeConversacion = {
+  marcas: MarcasChat;
+  onMarcar: (c: CambioMarca) => void;
+  cita: Cita | null;
+  onCitar: (c: Cita | null) => void;
+  chats: readonly ChatCentro[];
+  onReenviar: (texto: string, claves: string[]) => Promise<number>;
+  onCopiar: (texto: string) => void;
+};
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
   aspecto, onMuneco, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
-  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [],
+  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos,
 }: {
+  /** Los pasos en vivo de su turno abierto (la E): van en el «Trabajando…» del hilo. */
+  pasos?: readonly PasoDelTurno[];
+  /** La conversación ya calculada (useCentro.ts → lineasDe, memorizada): sin esto se calcula acá en cada render. */
+  lineas?: readonly LineaChat[];
+  /** Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): las marcas, la cita de la caja, reenviar y copiar. */
+  wa?: WaDeConversacion;
   /** Las tareas del Plan de este chat (lib/centro-plan-auto-reglas.ts): la tarjeta de cada «Ya está» y «Tareas vinculadas». */
   tareas?: readonly TareaDelChat[];
   /** Lo elegido para mandar que no es «Automático» (la cuenta, el modelo), en chico al lado del «+». */
@@ -71,8 +93,9 @@ export function Conversacion({
   ahora: number;
   /** El muñeco que Martín le eligió (o null: el de siempre). */
   aspecto: Aspecto | null;
-  /** Tocar al muñeco abre el selector (Martín: «que si le doy click pueda elegir cambiar a otro»). */
-  onMuneco: () => void;
+  /** Tocar al muñeco abre el selector (Martín: «que si le doy click pueda elegir cambiar a otro»). Sin esto (el Cerebro,
+   *  que es siempre la estrella de MaKo) la criatura no se toca. */
+  onMuneco?: () => void;
   envio: Envio;
   texto: string;
   onTexto: (t: string) => void;
@@ -82,7 +105,7 @@ export function Conversacion({
   onCopiarClave: () => void;
   onVolver: () => void;
 }) {
-  const lineas = historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
+  const lineas = lineasDeFuera ?? historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
   // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
@@ -128,7 +151,50 @@ export function Conversacion({
   const responderSobre = (titulo: string) => {
     const prefijo = `Sobre «${titulo}»: `;
     onTexto(texto.startsWith(prefijo) ? texto : prefijo + texto);
-    window.setTimeout(() => { const el = caja.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0);
+    enfocarCaja();
+  };
+  const enfocarCaja = () => window.setTimeout(() => { const el = caja.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0);
+
+  // ── Lo que la conversación le pasa al hilo, ESTABLE: el hilo está memorizado (Hilo.tsx) y una función o un objeto
+  //    nuevos en cada tecla lo volverían a dibujar entero ──────────────────────────────────────────────────────────
+  const ultimos = useRef({ onResponder, responderSobre, wa, chat });
+  useLayoutEffect(() => { ultimos.current = { onResponder, responderSobre, wa, chat }; });
+  const responderPregunta = useCallback<NonNullable<typeof onResponder>>((p, e, o) => ultimos.current.onResponder?.(p, e, o) ?? Promise.resolve(null), []);
+  const feedback = useCallback((titulo: string) => ultimos.current.responderSobre(titulo), []);
+  const animo = animoDe(chat);
+  const dato = trabajaSinEscribir(chat, lineas) ?? [cuenta, meta].filter(Boolean).join(' · ');
+  const quien = useMemo(() => ({ titulo: chat.titulo, aspecto, animo, dato }), [chat.titulo, aspecto, animo, dato]);
+  const vivo = useMemo(() => (carteros ? { chat, carteros } : undefined), [chat, carteros]);
+
+  // ── Lo de WhatsApp: el menú de un mensaje, su Info y Reenviar ───────────────────────────────────────────────────
+  // La conversación abre con los últimos mensajes (Hilo.tsx → TANDA_HILO); «Ver anteriores» o ir a uno viejo dibujan todos.
+  const [cuantos, setCuantos] = useState(TANDA_HILO);
+  useEffect(() => { setCuantos(TANDA_HILO); }, [chat.clave]);
+  const verTodo = useCallback(() => setCuantos(Number.MAX_SAFE_INTEGER), []);
+  const [menuWA, setMenuWA] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
+  const [panelWA, setPanelWA] = useState<{ tipo: 'info' | 'reenviar'; m: MensajeWA } | null>(null);
+  const [reenviando, setReenviando] = useState(false);
+  useEffect(() => { setMenuWA(null); setPanelWA(null); }, [chat.clave]);
+  const marcas = wa?.marcas ?? SIN_MARCAS;
+  const accionesWA = useMemo<AccionesWA>(() => ({
+    abrirMenu: (m, x, y) => setMenuWA({ m, x, y }),
+    responder: (m) => {
+      ultimos.current.wa?.onCitar({ de: m.de, texto: m.texto, id: m.id });
+      window.setTimeout(() => caja.current?.focus(), 0);
+    },
+    reaccionar: (id, emoji) => ultimos.current.wa?.onMarcar({ tipo: 'reaccion', id, emoji }),
+    verTodo,
+  }), [verTodo]);
+  const elegirEnMenu = (m: MensajeWA, id: string) => {
+    setMenuWA(null);
+    if (!wa) return;
+    if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); wa.onMarcar({ tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
+    if (id === 'responder') { accionesWA.responder(m); return; }
+    if (id === 'copiar') { wa.onCopiar(m.texto); return; }
+    if (id === 'reenviar' || id === 'info') { setPanelWA({ tipo: id, m }); return; }
+    if (id === 'destacar') { wa.onMarcar({ tipo: 'destacar', id: m.id, si: !marcas.destacados.includes(m.id) }); return; }
+    if (id === 'fijar') { wa.onMarcar({ tipo: 'fijar', id: m.id, si: !marcas.fijados.includes(m.id) }); return; }
+    if (id === 'eliminar') { wa.onMarcar({ tipo: 'ocultar', id: m.id }); if (wa.cita?.id === m.id) wa.onCitar(null); }
   };
 
   return (
@@ -137,9 +203,11 @@ export function Conversacion({
         <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
           <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
         </button>
-        <button type="button" className="co-cab__muneco" onClick={onMuneco} title="Cambiar su criatura" aria-label={`Cambiar la criatura de ${chat.titulo}`}>
-          <Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat)} size={34} espera={espera} />
-        </button>
+        {onMuneco ? (
+          <button type="button" className="co-cab__muneco" onClick={onMuneco} title="Cambiar su criatura" aria-label={`Cambiar la criatura de ${chat.titulo}`}>
+            <Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat)} size={34} espera={espera} />
+          </button>
+        ) : <span className="co-cab__muneco"><Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat)} size={34} espera={espera} /></span>}
         <div className="co-cab__texto">
           <h1 className="co-cab__titulo" title={chat.titulo}>{chat.titulo}</h1>
           <span className="co-cab__meta">
@@ -154,12 +222,30 @@ export function Conversacion({
 
       <div className="co-cuerpo">
       <div className="co-conv">
+      {/* Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje. */}
+      {wa && <BarraFijados marcas={marcas} lineas={lineas} titulo={chat.titulo} onSoltar={(id) => wa.onMarcar({ tipo: 'fijar', id, si: false })} verTodo={verTodo} />}
       <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
-          <Hilo lineas={lineas} pushes={pushes ?? []} ahora={ahora} vacio="Escríbele abajo para empezar." quien={{ titulo: chat.titulo, aspecto, animo: animoDe(chat), dato: trabajaSinEscribir(chat, lineas) ?? [cuenta, meta].filter(Boolean).join(' · ') }}
-            vivo={carteros ? { chat, carteros } : undefined} onResponder={onResponder} tareas={tareas} onFeedback={responderSobre} />
+          <ContextoWA.Provider value={wa ? accionesWA : null}>
+            <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
+              vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos}
+              mostrar={cuantos} onVerAnteriores={verTodo} />
+          </ContextoWA.Provider>
         </div>
       </div>
+      {wa && <MenuMensajeWA abierto={menuWA} marcas={marcas} onCerrar={() => setMenuWA(null)} onElegir={elegirEnMenu} />}
+      {wa && panelWA && (
+        <Modal titulo={panelWA.tipo === 'info' ? 'Info del mensaje' : 'Reenviar a…'} onCerrar={() => setPanelWA(null)} ancho={460}>
+          {panelWA.tipo === 'info'
+            ? <InfoMensaje m={panelWA.m} />
+            : <ReenviarA chats={wa.chats} origen={chat.clave} enviando={reenviando} onEnviar={async (claves) => {
+              setReenviando(true);
+              const ok = await wa.onReenviar(panelWA.m.texto, claves);
+              setReenviando(false);
+              if (ok) setPanelWA(null);
+            }} />}
+        </Modal>
+      )}
 
       <div className="co-caja-wrap">
         {/* Lo que el empleado espera de Martín, arriba de la caja, como AskUserQuestion de Claude Code (Pregunta.tsx).
@@ -167,6 +253,8 @@ export function Conversacion({
         {preguntas.length > 0 && <Pregunta key={chat.clave} preguntas={preguntas} responder={responder} />}
         {envio.puede ? (
           <div className="co-caja">
+            {/* Respondiendo a un mensaje: su cita arriba de la caja, con la ✕ para soltarla (WhatsApp). */}
+            {wa?.cita && <CitaCaja cita={wa.cita} onQuitar={() => wa.onCitar(null)} verTodo={verTodo} />}
             <ListaAdjuntos a={adjuntos} />
             {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}
             <div className="co-caja__campo">
@@ -195,7 +283,7 @@ export function Conversacion({
                 decide solo si de lo pedido sale una regla. */}
             <div className="co-caja__barra">
               <MasCaja a={adjuntos} apagado={enviando} resumen={resumenEnvio}>
-                {(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); irAlTurno(u); }} /></>}
+                {(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>}
               </MasCaja>
               <span className="co-caja__hueco" aria-hidden />
               <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} apagado={enviando} />
