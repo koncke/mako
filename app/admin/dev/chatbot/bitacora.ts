@@ -1816,8 +1816,8 @@ FEEDBACK PROBAR:
     ],
   },
   {
-    fecha: "17 oct", hora: "05:30", chat: "Automations", cuenta: "claude4",
-    sesion: "local_797d5445-2365-464d-ae3d-1d71aa7baa8c",
+    fecha: "17 oct", hora: "02:30", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
     actor: "claude", tipo: "implementacion",
     titulo: "Brigitte primero: sus automatizaciones vuelven a responder a los leads, la barra de inspección deja de tapar, «Probar en el grupo» y la campanita",
     puntos: [
@@ -1841,5 +1841,28 @@ FEEDBACK PROBAR:
       "docs/hallazgos-ui.md — La barra de inspección tapaba las pantallas de alto fijo",
       "docs/hallazgos-comunicacion.md — La campanita y «Sin grupo de MaKo», construidas",
     ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "17 oct", hora: "03:55", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: «Contestó el equipo», Supr borra las tarjetas del lazo, y pegar en otro negocio conserva el disparador (#849, #873, #882)",
+    puntos: [
+      "En producción desde el run 90.",
+      "Una CONDITION nueva, «Contestó el equipo / No contestó el equipo» (en Mensajes): mira si alguien escribió en el grupo de MaKo desde el último aviso de esa automatización. Para volver a avisar si nadie contestó, después de una espera.",
+      "Con varias tarjetas elegidas con el lazo, Supr o ⌫ las borra (y Ctrl+Z las devuelve). Nunca mientras escribes en un campo.",
+      "Pegar una automatización copiada en otro negocio busca la misma etapa en un embudo de allá: ya no queda en «manual».",
+    ],
+    commits: [
+      { sha: "6122a1e3e", msg: "Automations: la condición «Contestó el equipo» en el grupo de MaKo (#849)", lineas: 219, archivos: 11 },
+      { sha: "64ecf8a07", msg: "Automations (#873): Supr borra las tarjetas elegidas con el lazo", lineas: 46, archivos: 3 },
+      { sha: "fd602b4ab", msg: "Automations (#882): pegar una automatización en otro negocio conserva su disparador", lineas: 109, archivos: 4 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «El equipo no contestó en el grupo»: la condición que mira el grupo de MaKo",
+      "tests/equipo-contesto.test.ts · tests/lienzo-suprimir-varias.test.ts · tests/copia-disparador.test.ts",
+    ],
+    revisar: "/automations",
   },
 ];

@@ -22,7 +22,7 @@ import type { Area } from './api-mako/tipos';
 /** Las de Calendly. A un negocio sin Calendly no le sirven, y su receta («buscá el lead,
  *  pedile el email, ofrecé 3 huecos») le gana a la de Google: con un evento sin lead,
  *  empujaba a pedir un lead y un email que nadie nombró. */
-export const DE_CALENDLY: readonly string[] = ['listar_horarios_reunion', 'proponer_agendar_reunion', 'link_agenda_calendly'];
+export const DE_CALENDLY: readonly string[] = ['listar_horarios_reunion', 'proponer_agendar_reunion', 'link_agenda_calendly', 'cancelar_reunion_calendly'];
 
 /**
  * Lo que NO sirve para mover algo a otro DÍA y por eso no viaja cuando el veredicto es mover (`v.mover`).
@@ -30,8 +30,10 @@ export const DE_CALENDLY: readonly string[] = ['listar_horarios_reunion', 'propo
  * tarea plan»— es justo la relevancia de un «movela al viernes» (`RELEVANCIA_MOVER`): entraba primera al presupuesto
  * y dejaba afuera a `listar_tareas_plan`, la que el turno necesita para encontrar la tarea. El diagnóstico obvio
  * («las 34 acciones del Video Editor») era el equivocado: en ese turno no viaja ninguna de video.
+ * `cancelar_reunion_calendly` (4c, 17/10/2026) tampoco: cancelar no es mover, y con «reunión» en su descripción le
+ * ganaba el lugar a `listar_tareas_plan` (tests/agenda-whatsapp.test.ts).
  */
-export const NO_MUEVEN_DE_DIA: readonly string[] = ['mover_tarea_plan'];
+export const NO_MUEVEN_DE_DIA: readonly string[] = ['mover_tarea_plan', 'cancelar_reunion_calendly'];
 
 /** Lo que el doer le pasa al presupuesto del registro (los mismos números de siempre). */
 export const PRESUPUESTO_REGISTRO_CHARS = 12_000;
