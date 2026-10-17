@@ -307,9 +307,13 @@ export function motivoPrincipal(razones) {
 
 /**
  * Los .ts/.tsx que el tsc acotado tiene que compilar para que un cambio no llegue roto a Actions:
- * lo que el cambio toca (run 10: una bitácora sin `puntos`; runs 51 y 52: un ayudante de tests nuevo) y
- * los que lo IMPORTAN, un nivel (un test SIN tocar que llama a la firma vieja de lo que cambiaste: en el run 31 un test
- * llamaba con 2 argumentos a una firma que pedía 1). tsc suma solo lo que esos archivos importan.
+ * lo que el cambio toca (run 10: una bitácora sin `puntos`; run 31: un test que llamaba con 2 argumentos a una firma que
+ * pedía 1; runs 51 y 52: un ayudante de tests nuevo). tsc suma solo lo que esos archivos importan.
+ *
+ * `importadores: true` suma además los que importan lo cambiado, un nivel (un test SIN tocar que llama a la firma vieja de lo que
+ * cambiaste). NO es el default en local: el 17/10/2026, con ~14 chats abiertos, el alcance con importadores (188 archivos) pedía
+ * 4,3 GB y la PC tenía 1,3 libres — el gate se trababa y nadie lo iba a usar. El tsc completo de Actions, que corre justo después de
+ * los tests afectados, cubre a los importadores; los 4 rojos de «Tipos» del replay están en lo CAMBIADO o los frena modulos-ts.
  *
  * ⚠️ Y los archivos que AUMENTAN tipos (`declare module '…'` / `declare global`) de la misma carpeta de primer nivel
  * (`app/web-generator/…`): un archivo compilado SOLO no ve el tipo que agrega otro (la limitación que scripts/tsc-acotado.mjs ya
@@ -317,13 +321,13 @@ export function motivoPrincipal(razones) {
  * Cuando el archivo suelto NO está en el alcance sino que llega por arrastre, no alcanza con esto: ahí los errores no bloquean
  * (scripts/antes-de-subir.mjs → correrTsc). Medido el 17/10/2026 reproduciendo el run 10 con el tsc real.
  */
-export function alcanceTsc({ cambiados, archivos, importadoPor, aumentan = new Set() }) {
+export function alcanceTsc({ cambiados, archivos, importadoPor, aumentan = new Set(), importadores = false }) {
   const existentes = new Set(archivos);
   const esTs = (f) => /\.(?:ts|tsx|mts)$/.test(f) && !f.endsWith('.d.ts') && existentes.has(f);
   const alcance = new Set();
   for (const f of cambiados) {
     if (esTs(f)) alcance.add(f);
-    for (const quien of importadoPor.get(f) ?? []) if (esTs(quien)) alcance.add(quien);
+    if (importadores) for (const quien of importadoPor.get(f) ?? []) if (esTs(quien)) alcance.add(quien);
   }
   const zona = (f) => f.split('/').slice(0, 2).join('/');
   const zonas = new Set([...alcance].map(zona));
@@ -423,11 +427,14 @@ export function agrupar(tests) {
 // -----------------------------------------------------------------------------
 
 // El piso de RAM se DERIVA (como en typecheck-lock.mjs): la zona roja del vigía de ~/.claude/guardia
-// (por debajo de eso mata al proceso más grande) + lo que pide cada proceso de test (medido ~0,25-0,4
-// GB con tsx) + margen. Un número a ojo es un permiso para que lo maten.
+// (por debajo de eso mata al proceso PESADO más grande: tsc, eslint, vitest, next build — NUNCA un `node --test`) + lo que pide cada
+// proceso de test (medido ~0,25-0,4 GB con tsx) + margen. Un número a ojo es un permiso para que lo maten.
+// ⚠️ El margen era 0,3 (piso de 1,55 GB para un proceso) y el 17/10/2026, con ~14 chats abiertos y 1,1-1,5 GB libres, el gate
+// esperaba tanda tras tanda: «tiene que poder correr con 14 chats abiertos, o nadie lo va a usar». Los tests no los mata el vigía,
+// así que el margen sólo cuida no empujar a la zona roja a los tsc de los OTROS chats: 0,05 deja 1,3 GB para uno (y 1,65 para dos).
 export const ZONA_ROJA_VIGIA_GB = 0.9;
 const COSTO_PROCESO_GB = 0.35;
-const MARGEN_GB = 0.3;
+const MARGEN_GB = 0.05;
 const ESPERA_RAM_MAX_MS = 15 * 60 * 1000;
 const TOPE_TANDA_MS = 10 * 60 * 1000;
 export const pisoRam = (concurrencia) => ZONA_ROJA_VIGIA_GB + COSTO_PROCESO_GB * concurrencia + MARGEN_GB;

@@ -231,7 +231,7 @@ test('un test que el cambio mismo toca corre, y un archivo que ningún test mira
 // El tipo (scripts/antes-de-subir.mjs) y la guarda de módulos (scripts/modulos-ts.mjs)
 // ---------------------------------------------------------------------------
 
-test('alcanceTsc: lo cambiado y quienes lo importan, UN nivel; sin .d.ts, borrados ni lo que no es TS', () => {
+test('alcanceTsc: por default SÓLO lo cambiado (el gate tiene que entrar con 14 chats abiertos); con importadores, UN nivel más; sin .d.ts, borrados ni lo que no es TS', () => {
   const repo: Record<string, string> = {
     'lib/firma.ts': 'export const f = (a: number) => a;',
     'tests/crm-campo-inline.test.ts': "import { f } from '../lib/firma';\nf(1, 2);",       // una firma que cambió: el test no se tocó
@@ -241,9 +241,12 @@ test('alcanceTsc: lo cambiado y quienes lo importan, UN nivel; sin .d.ts, borrad
     'docs/nota.md': '# nota',
   };
   const r = seleccionar({ cambiados: ['lib/firma.ts', 'lib/tipos.d.ts', 'docs/nota.md', 'lib/borrado.ts'], archivos: Object.keys(repo), leer: (f: string) => repo[f] ?? null });
-  assert.deepEqual(alcanceTsc({ cambiados: ['lib/firma.ts', 'lib/tipos.d.ts', 'docs/nota.md', 'lib/borrado.ts'], archivos: Object.keys(repo), importadoPor: r.importadoPor }),
+  const cambiados = ['lib/firma.ts', 'lib/tipos.d.ts', 'docs/nota.md', 'lib/borrado.ts'];
+  assert.deepEqual(alcanceTsc({ cambiados, archivos: Object.keys(repo), importadoPor: r.importadoPor }), ['lib/firma.ts'],
+    'en local, sólo lo cambiado: 188 archivos con importadores pedían 4,3 GB y la PC tenía 1,3');
+  assert.deepEqual(alcanceTsc({ cambiados, archivos: Object.keys(repo), importadoPor: r.importadoPor, importadores: true }),
     ['lib/consumidor.ts', 'lib/firma.ts', 'tests/crm-campo-inline.test.ts'],
-    'el test que llama a la firma entra aunque no cambió; app/dos-saltos.tsx, a dos saltos, no');
+    'con --importadores el test que llama a la firma entra aunque no cambió; app/dos-saltos.tsx, a dos saltos, no');
 });
 
 test('sinModulo: un .ts sin import ni export es un script global (runs 51 y 52); `export {}` lo arregla', () => {
