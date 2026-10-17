@@ -1533,7 +1533,21 @@ código nuevo:
     manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
     firma, sin una puerta nueva a la PC.
   - **El muñeco que Martín elige se guarda por nombre** (app_settings del workspace de la plataforma,
-    lib/centro-munecos-db.ts) y se lee estricto antes de escribir.
+    lib/centro-munecos-db.ts) y se lee estricto antes de escribir. **El Cerebro es SIEMPRE la estrella de MaKo**
+    (`ASPECTO_MAKO`, 17/10/2026): va fuera de `FORMAS` y `COLORES`, así que nadie más la puede elegir ni guardar.
+  - **LO DE WHATSAPP EN CADA MENSAJE: lo que le llega al chat va en el TEXTO FIRMADO; lo demás es de Martín** (17/10/2026;
+    Martín: «agrega todas las funcionalidades de Whatsapp al mantener click en un mensaje»). Responder (la cita) y Reenviar
+    salen por mandar.ts con su marca en el texto (lib/centro-mensajes.ts → `armarConCita`, `armarReenvio`); reaccionar,
+    destacar, fijar y eliminar para mí se guardan en MaKo y NO van al chat (un emoji le costaría un turno). Una acción nueva
+    del menú sigue ese corte: si el chat tiene que enterarse, va firmada; si no, es una marca.
+  - **UN CHAT MANEJA EL PLAN DE SU JEFE CON `cartero.mjs plan`** (17/10/2026, cartero 1.15.4): si Martín pide «tráeme las
+    más prioritarias» o «ciérrala», el chat corre `node ~/.claude/operaciones/cartero.mjs plan prioridades` o
+    `plan cerrar #870 --evidencia "…"`. Sólo lee o cierra en el proyecto de SU jefe (lib/centro-plan-chat.ts); nada de
+    escribir el tablero por otro lado. Renombrar una tarea todavía no se puede (la API del Plan no lo tiene).
+  - **EN UNA LISTA DEL TELÉFONO QUE SE REFRESCA SOLA, CADA FILA ES `memo`** (17/10/2026; Martín: «le doy para atrás en
+    mobile, tarda bastante en reaccionar»): con props que no cambian entre toques (los mapas memorizados de useCentro.ts,
+    callbacks estables) y nada calculado por fila en el render. Escribir en la caja, abrir o cerrar una hoja no puede volver
+    a dibujar 90 filas ni el Markdown de una conversación entera (docs/hallazgos-operaciones.md, «El "atrás" lento»).
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 
