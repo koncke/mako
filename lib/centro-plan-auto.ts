@@ -23,7 +23,7 @@ import { canalKeyDe } from './api-mako/canal';
 import type { Ctx } from './api-mako/tipos';
 import { DESTINO_RE, type TurnoChat } from './operaciones-reglas';
 import { proyectoDelChat } from './centro-plan-reglas';
-import { cerrarPorYaEsta, cerrarTareaDelPlan, sumarTareaAlPlan } from './centro-plan';
+import { cerrarTareaDelPlan, sumarTareaAlPlan } from './centro-plan';
 import { anotarTurnos, conResultado, proximoPaso, sanearTareasDelChat, type TareaDelChat } from './centro-plan-auto-reglas';
 
 const PREFIJO = 'operaciones.plan-chat.';
@@ -83,14 +83,6 @@ export async function aplicarPlanDeLosChats(presupuestoMs: number): Promise<numb
       while (Date.now() + 70_000 < fin) {
         const p = proximoPaso(lista);
         if (!p) break;
-        if (p.accion === 'buscar') {
-          // Un «Ya está» sin su «Voy a trabajar en…»: primero las tarjetas que nombra (#870) o cuyo título dice.
-          const b = await cerrarPorYaEsta(ctx, p.t.chat, { texto: p.t.yaTexto ?? p.t.titulo }).catch(() => null);
-          lista = conResultado(lista, p.t, { buscada: true, cerradas: b?.ok ? b.cerradas.length : 0 });
-          await setSetting(PREFIJO + local, JSON.stringify(lista));
-          hechos++;
-          continue;
-        }
         const r = p.accion === 'crear'
           ? await sumarTareaAlPlan(ctx, p.t.chat, { titulo: p.t.titulo, detalle: 'Lo armó MaKo con el «Voy a trabajar en…» del chat.', proyecto: proyectoDelChat(p.t.chat) ?? p.t.chat }).catch(() => null)
           : await cerrarTareaDelPlan(ctx, p.t.chat, { id: p.t.tarea!, evidencia: `El chat «${p.t.chat}» dijo «Ya está».` }).catch(() => null);

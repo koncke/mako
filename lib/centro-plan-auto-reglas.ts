@@ -36,14 +36,7 @@ export type TareaDelChat = {
   estado: EstadoTareaDelChat;
   /** Cuántas veces el Plan no la pudo crear o cerrar: a la tercera queda `no_se_pudo` y no se reintenta. */
   intentos: number;
-  /** El texto del «Ya está» que la anotó SIN un «Voy a trabajar en…» (17/10/2026): con él se buscan primero las tarjetas que
-   *  nombra (#870) o cuyo título dice, para cerrar ésas en vez de crear una nueva (lib/centro-plan.ts → cerrarPorYaEsta). */
-  yaTexto?: string | null;
-  /** Ya se buscaron sus tarjetas y no había: ahora se crea y se marca hecha, como antes. */
-  buscada?: boolean;
 };
-/** Lo que se guarda de un «Ya está» para buscar sus tarjetas (los números y los títulos van arriba). */
-export const TOPE_YA_TEXTO = 600;
 
 /** Las que se guardan por chat (las más nuevas). */
 export const TAREAS_POR_CHAT = 40;
@@ -85,22 +78,16 @@ export function anotarTurnos(antes: readonly TareaDelChat[], turnos: readonly Tu
       vistos.add(t.uuid);
     } else if (esYaEsta(t.texto)) {
       if (abierta) abierta.ya = t.uuid;
-      else lista.push({ local: t.local, chat, titulo: tituloDeYa(t.texto), tarea: null, voy: null, ya: t.uuid, at: t.at, estado: 'pendiente', intentos: 0, yaTexto: t.texto.slice(0, TOPE_YA_TEXTO) });
+      else lista.push({ local: t.local, chat, titulo: tituloDeYa(t.texto), tarea: null, voy: null, ya: t.uuid, at: t.at, estado: 'pendiente', intentos: 0 });
       vistos.add(t.uuid);
     }
   }
   return lista.slice(-TAREAS_POR_CHAT);
 }
 
-/**
- * Lo próximo que hay que hacer en el Plan con la lista de un chat: crear una, marcar hecha una creada, o —con un «Ya está»
- * que llegó sin su «Voy a trabajar en…»— BUSCAR primero las tarjetas que nombra y cerrar ésas (17/10/2026: juntar el cierre
- * por «Ya está» del chat Plan con el Plan que se arma solo; sin esto, un «Ya está #870» creaba una tarea nueva y la cerraba,
- * y la #870 quedaba abierta). null = nada.
- */
-export function proximoPaso(lista: readonly TareaDelChat[]): { accion: 'crear' | 'cerrar' | 'buscar'; t: TareaDelChat } | null {
+/** Lo próximo que hay que hacer en el Plan con la lista de un chat: crear una, o marcar hecha una creada. null = nada. */
+export function proximoPaso(lista: readonly TareaDelChat[]): { accion: 'crear' | 'cerrar'; t: TareaDelChat } | null {
   for (const t of lista) {
-    if (t.estado === 'pendiente' && !t.voy && t.ya && t.yaTexto && !t.buscada) return { accion: 'buscar', t };
     if (t.estado === 'pendiente') return { accion: 'crear', t };
     if (t.estado === 'creada' && t.ya && t.tarea) return { accion: 'cerrar', t };
   }
@@ -108,12 +95,10 @@ export function proximoPaso(lista: readonly TareaDelChat[]): { accion: 'crear' |
 }
 
 /** La lista con lo que pasó en el Plan con una tarea (por su turno, que es único). */
-export function conResultado(lista: readonly TareaDelChat[], t: TareaDelChat, r: { ok: true; tarea?: string | null } | { ok: false } | { buscada: true; cerradas: number }): TareaDelChat[] {
+export function conResultado(lista: readonly TareaDelChat[], t: TareaDelChat, r: { ok: true; tarea?: string | null } | { ok: false }): TareaDelChat[] {
   const misma = (x: TareaDelChat) => x.local === t.local && x.voy === t.voy && x.ya === t.ya && x.at === t.at;
   return lista.map((x) => {
     if (!misma(x)) return x;
-    // La búsqueda de sus tarjetas: si cerró alguna, ésa era su tarea (hecha, sin crear otra); si no, se crea como antes.
-    if ('buscada' in r) return r.cerradas > 0 ? { ...x, estado: 'hecha', buscada: true, intentos: 0 } : { ...x, buscada: true };
     if (!r.ok) return { ...x, intentos: x.intentos + 1, estado: x.intentos + 1 >= MAX_INTENTOS ? 'no_se_pudo' : x.estado };
     if (x.estado === 'pendiente') return { ...x, tarea: r.tarea ?? null, estado: r.tarea ? 'creada' : 'no_se_pudo', intentos: 0 };
     return { ...x, estado: 'hecha', intentos: 0 };
@@ -131,11 +116,7 @@ export function sanearTareasDelChat(x: unknown): TareaDelChat[] {
     const local = s('local', 80); const titulo = s('titulo', 200); const at = s('at', 40); const chat = s('chat', 120);
     if (!local || !DESTINO_RE.test(local) || !titulo || !at || !Number.isFinite(Date.parse(at)) || chat == null) return [];
     const estado = ESTADOS.includes(o.estado as EstadoTareaDelChat) ? o.estado as EstadoTareaDelChat : 'pendiente';
-    const yaTexto = s('yaTexto', TOPE_YA_TEXTO);
-    return [{
-      local, chat, titulo, tarea: s('tarea', 80), voy: s('voy', 80), ya: s('ya', 80), at, estado, intentos: Number.isInteger(o.intentos) ? o.intentos as number : 0,
-      ...(yaTexto ? { yaTexto } : {}), ...(o.buscada === true ? { buscada: true } : {}),
-    }];
+    return [{ local, chat, titulo, tarea: s('tarea', 80), voy: s('voy', 80), ya: s('ya', 80), at, estado, intentos: Number.isInteger(o.intentos) ? o.intentos as number : 0 }];
   }).slice(-TAREAS_POR_CHAT);
 }
 
