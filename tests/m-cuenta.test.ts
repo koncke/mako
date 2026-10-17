@@ -108,11 +108,13 @@ test('mirando a un cliente, lo tuyo se esconde SÓLO junto con la salida', () =>
   assert.match(cuenta, /<CerrarSesion /);
 });
 
-test('«Configuración del negocio»: la regla del menú de la foto, y «En la computadora»', () => {
+// Desde el 17/10/2026 tiene SU pantalla en el teléfono (/m/configuraciones, «Mobile 2»): la fila lleva ahí, no a «En la
+// computadora».
+test('«Configuración del negocio»: la regla del menú de la foto, y su pantalla del teléfono', () => {
   const pagina = sinComentarios(leer('app/m/cuenta/page.tsx'));
   assert.match(pagina, /negocio: puedeVerKey\('configuraciones', ctx\.rol, ctx\.capa\) \? TITULO_NEGOCIO : null/);
   const cuenta = sinComentarios(leer('app/m/cuenta/CuentaM.tsx'));
-  assert.match(cuenta, /\{datos\.negocio && <ComputadoraM que=\{datos\.negocio\} \/>\}/);
+  assert.match(cuenta, /\{datos\.negocio && \(\s*<ListaM>\s*<FilaM navegacion icono="config" titulo=\{datos\.negocio\} href="\/m\/configuraciones" \/>/);
 });
 
 test('refrescar trae las preferencias nuevas y vuelve a leer el teléfono', () => {

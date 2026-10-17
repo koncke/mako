@@ -8,7 +8,7 @@
 //   · lee con `misTickets`/`miTicket` (filtran por SU workspace y SU email) y al navegador sólo va `paraElCliente`;
 //   · levanta y contesta con las acciones de escritorio, y el contexto del navegador es UNA copia.
 //
-// Verificado ROMPIÉNDOLO (17/10/2026, scratchpad/romper.py, de a una; base 5 / 0):
+// Verificado ROMPIÉNDOLO (17/10/2026, scratchpad/mobile2/romper_m2.py, de a una; base 5 / 0):
 //   · `rutaMovil('/tickets')` sin mirar `?t=`                 → 4 / 1 (el link del aviso caía en la lista)
 //   · `esTrabajo` sin el ticket                               → 4 / 1 (la barra de abajo tapaba la caja de responder)
 //   · la página sin `onboarding: false`                       → 4 / 1 (el trabado en el wizard no podía reportar)
