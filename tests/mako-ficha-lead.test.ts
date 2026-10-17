@@ -106,7 +106,8 @@ test('el cableado: ficha_lead y buscar_leads usan la etapa efectiva y la ficha c
   assert.match(ficha, /lead: \{ \.\.\.resumenLead\(lead, etapas\), \.\.\.datosDeLaFicha\(lead, oferta\) \},/);
   assert.match(ficha, /\.\.\.landingParaModelo\(lead\.optin_respuestas\),/);
   const buscar = src.slice(src.indexOf("case 'buscar_leads':"), src.indexOf("case 'ficha_lead':"));
-  assert.match(buscar, /\.map\(\(l\) => resumenLead\(l, etapas\)\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: cada lead con las etapas de SU casa (tests/crm-funnel-del-lead.test.ts).
+  assert.match(buscar, /resumenLead\(l, etapas\?\.get\(l\.id\) \?\? null\)/);
   // La descripción le dice al modelo qué es un campo que no viene (y que null no es «no contestó»).
   const desc = src.match(/name: 'ficha_lead',\s*description: '([^']+)'/)?.[1] ?? '';
   assert.match(desc, /formulario_landing; null = no hay nada guardado, NO que no contestó/);

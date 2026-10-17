@@ -21,7 +21,7 @@ import { estaPendiente } from './todo-estados';
 import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez, type Lead,
 } from './leads';
-import { getFunnelDefault, getPipelineStagesDeLead, getPipelineStagesDefault } from './funnels';
+import { etapasDeLeads, getFunnelDefault, getPipelineStagesDeLead } from './funnels';
 import { etapaParaModelo, datosDeLaFicha, landingParaModelo, type EtapaParaModelo, type OfertaParaModelo } from './mako-ficha-lead';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
@@ -209,15 +209,15 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     case 'buscar_leads': {
       const q = str(input, 'texto').trim().toLowerCase();
       if (!q) return 'Pasa un texto para buscar.';
-      // DEFAULT: las etapas del funnel DEL NEGOCIO, leídas UNA vez para la lista entera (es la lista
-      // de catálogo, como `etapasDelFunnelDefault` en lib/api-mako/areas/crm.helpers.ts): hoy es la
-      // misma que `getPipelineStagesDeLead`, que lee la ficha. Si la lectura falla, las de por defecto
+      // DE CADA LEAD: las etapas de SU casa (`etapasDeLeads`, lib/funnels.ts), cada CRM leído una vez
+      // para los 20. Hasta el 17/10/2026 eran las del negocio para todos, y un lead de otro CRM salía
+      // con una etapa derivada que contradecía al tablero. Si la lectura falla, las de por defecto
       // (`etapaParaModelo`), como la ficha: la etapa nunca sale null.
-      const [leads, etapas] = await Promise.all([listLeads(), getPipelineStagesDefault().catch(() => null)]);
-      const hits = leads
+      const encontrados = (await listLeads())
         .filter((l) => `${l.nombre ?? ''} ${l.email ?? ''} ${l.empresa ?? ''} ${l.telefono ?? ''} ${l.telefono_normalizado ?? ''}`.toLowerCase().includes(q))
-        .slice(0, 20)
-        .map((l) => resumenLead(l, etapas));
+        .slice(0, 20);
+      const etapas = await etapasDeLeads(encontrados.map((l) => l.id)).catch(() => null);
+      const hits = encontrados.map((l) => resumenLead(l, etapas?.get(l.id) ?? null));
       return JSON.stringify({ encontrados: hits.length, leads: hits });
     }
 
