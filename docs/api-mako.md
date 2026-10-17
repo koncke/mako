@@ -15716,7 +15716,7 @@ Desde qué nivel publican los alumnos (1 = todos; el equipo publica siempre) y l
 | --- | --- | --- | --- |
 | `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
 | `nivelParaPostear` | number | no | desde qué nivel publica un alumno (1 a 9). |
-| `zona` | string | no | la zona IANA del calendario (America/Mexico_City). |
+| `zona` | string | no | la zona IANA del calendario (America/Bogota). |
 
 ```bash
 curl -L \
@@ -15952,7 +15952,7 @@ Crea un evento en el calendario de una comunidad, suelto o que se repite: títul
 | `descripcion` | string | no | qué es y qué hay que llevar, en texto plano (hasta 4000 letras). |
 | `fecha` | string | sí | la fecha de la primera vez, YYYY-MM-DD, en la zona del evento. |
 | `hora` | string | sí | la hora de inicio HH:MM (24 h), en la zona del evento. |
-| `zona` | string | no | la zona horaria IANA (America/Mexico_City, America/Argentina/Buenos_Aires). Sin esto, la de la comunidad (o la del negocio). |
+| `zona` | string | no | la zona horaria IANA (America/Bogota, America/Argentina/Buenos_Aires). Sin esto, la de la comunidad (o la del negocio). |
 | `duracionMin` | number | no | cuánto dura, en minutos (30 a 1440). Sin esto, 60. |
 | `lugarTipo` | string (link \\| direccion) | no | link (una videollamada) o direccion (un lugar físico). Por default, link. |
 | `lugar` | string | no | el link de la llamada (https) o la dirección (hasta 300 letras). Sólo lo ven los alumnos que entran al evento. |
@@ -16005,7 +16005,7 @@ Edita un evento: lo que no se pasa queda igual. En una SERIE, `alcance` dice qu�
 | `descripcion` | string | no | qué es y qué hay que llevar, en texto plano (hasta 4000 letras). «-» la vacía. |
 | `fecha` | string | no | la fecha nueva, YYYY-MM-DD. En una serie, sin esto queda la de la ocurrencia elegida; con alcance todos, mover la fecha corre la serie entera los mismos días. |
 | `hora` | string | no | la hora de inicio HH:MM (24 h), en la zona del evento. |
-| `zona` | string | no | la zona horaria IANA (America/Mexico_City, America/Argentina/Buenos_Aires). |
+| `zona` | string | no | la zona horaria IANA (America/Bogota, America/Argentina/Buenos_Aires). |
 | `duracionMin` | number | no | cuánto dura, en minutos (30 a 1440). |
 | `lugarTipo` | string (link \\| direccion) | no | link (una videollamada) o direccion (un lugar físico). Por default, link. |
 | `lugar` | string | no | el link de la llamada (https) o la dirección (hasta 300 letras). Sólo lo ven los alumnos que entran al evento. «-» lo saca. |

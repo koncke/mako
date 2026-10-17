@@ -115,7 +115,7 @@ function camposEvento(crear: boolean): Parametro[] {
         : 'la fecha nueva, YYYY-MM-DD. En una serie, sin esto queda la de la ocurrencia elegida; con alcance todos, mover la fecha corre la serie entera los mismos días.',
     },
     { nombre: 'hora', tipo: 'string', obligatorio: crear || undefined, max: 5, descripcion: 'la hora de inicio HH:MM (24 h), en la zona del evento.' },
-    { nombre: 'zona', tipo: 'string', max: 60, descripcion: `la zona horaria IANA (America/Mexico_City, America/Argentina/Buenos_Aires).${crear ? ' Sin esto, la de la comunidad (o la del negocio).' : ''}` },
+    { nombre: 'zona', tipo: 'string', max: 60, descripcion: `la zona horaria IANA (America/Bogota, America/Argentina/Buenos_Aires).${crear ? ' Sin esto, la de la comunidad (o la del negocio).' : ''}` },
     { nombre: 'duracionMin', tipo: 'number', entero: true, minimo: DURACION_MIN, maximo: DURACION_MAX, descripcion: `cuánto dura, en minutos (${DURACION_MIN} a ${DURACION_MAX}).${crear ? ` Sin esto, ${DURACION_DEFAULT_API}.` : ''}` },
     { nombre: 'lugarTipo', tipo: 'string', enum: ['link', 'direccion'], descripcion: 'link (una videollamada) o direccion (un lugar físico). Por default, link.' },
     { nombre: 'lugar', tipo: 'string', max: TOPE_LUGAR, descripcion: `el link de la llamada (https) o la dirección (hasta ${TOPE_DIRECCION} letras). Sólo lo ven los alumnos que entran al evento.${crear ? '' : ` «${VACIAR}» lo saca.`}` },
@@ -452,7 +452,7 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       productoId,
       { nombre: 'nivelParaPostear', tipo: 'number', entero: true, minimo: 1, maximo: NIVEL_MAX, descripcion: `desde qué nivel publica un alumno (1 a ${NIVEL_MAX}).` },
-      { nombre: 'zona', tipo: 'string', max: 60, descripcion: 'la zona IANA del calendario (America/Mexico_City).' },
+      { nombre: 'zona', tipo: 'string', max: 60, descripcion: 'la zona IANA del calendario (America/Bogota).' },
     ],
     canales: HTTP, costo: 'gratis', gating: GATING_ADMIN,
     confirmacion: 'chat', reversible: true,

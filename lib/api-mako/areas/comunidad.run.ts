@@ -901,7 +901,7 @@ export const RUNNERS: Runners = {
       const nivel = typeof input.nivelParaPostear === 'number' ? input.nivelParaPostear : undefined;
       const zonaPedida = str(input, 'zona')?.trim();
       if (nivel === undefined && zonaPedida === undefined) return { error: 'Pasa nivelParaPostear, zona o los dos.', faltan: ['nivelParaPostear'] };
-      if (zonaPedida && zonaPedida !== VACIAR && !esZonaValida(zonaPedida)) return { error: `La zona «${zonaPedida}» no existe. Usa una IANA, como America/Mexico_City.` };
+      if (zonaPedida && zonaPedida !== VACIAR && !esZonaValida(zonaPedida)) return { error: `La zona «${zonaPedida}» no existe. Usa una IANA, como America/Bogota.` };
       const about = await aboutComunidad(lector(ctx, p.id));
       const nuevoNivel = nivel ?? about.nivelParaPostear;
       const nuevaZona = zonaPedida === undefined ? about.zona : zonaPedida === VACIAR ? null : zonaPedida;
