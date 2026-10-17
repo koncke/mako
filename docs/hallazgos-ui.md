@@ -3980,12 +3980,14 @@ quedar por detrás». En Automations se escondían el título y «Probar», y el
   Los cuatro van a `top: var(--barra-agencia, 0px)`. El resto se pega adentro de un modal o de un panel con scroll, donde
   la barra no llega, o son anclas de 0×0 que se ubican por JS.
 
+- **Las barras de lote: UNA variable que sabe si está en un modal** (la misma tarde). Las barras `sticky; top: 8` del Plan
+  (`BarraPegada`, las cuatro del Kanban, una de ellas en 66) y la de Customer Success viven en la página y también
+  adentro de modales. Sumarles `--barra-agencia` siempre las bajaba 50 px en el modal. `--pegado-arriba` (globals.css)
+  vale la barra en `:root` y 0 en `[aria-modal="true"]`: como las variables se heredan, todo lo de adentro de un modal
+  la ve en 0 sin que cada puerta lo diga. Medido en Chrome: en la página 58, en el modal 8. La del CRM la bajó su chat con
+  `--barra-agencia` (el tablero del CRM no vive en un modal).
+
 **Sin hacer:**
-- **Las barras de lote** (`sticky; top: 8`): `BarraPegada` en app/plan/board/Tablas.tsx:747, BoardShell.tsx (3452, 5132,
-  5163 con top 66, 5552), CrmBoard.tsx:2957 y customer-success/LoteClientes.tsx:229. En /plan se pegan a la ventana y
-  quedarían debajo de la barra, pero `BarraPegada` también vive adentro de la columna con scroll del modal de un proyecto.
-  Sumarles la barra siempre las correría 50 px en el modal: hace falta que cada puerta diga dónde se pega, como
-  `arribaTabs`.
 - **La regla de todo `<aside>` también pisa** el `top: 12; bottom: 12` del panel `<aside className="an">` de PanelAnalista.
   No se miró con la barra puesta.
 - **Una ruta pública** cargada en duro con una agencia adentro de un cliente queda con el hueco de la barra y sin barra
