@@ -25,6 +25,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { limitePorIp } from '@/lib/limite-publico';
 import { respuestasDelOptin } from '@/lib/optin-respuestas';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
@@ -92,6 +93,10 @@ const urlTxt = (v: unknown): string | null => {
 const ok = (extra: Record<string, unknown>) => NextResponse.json({ ok: true, ...extra }, { headers: CORS });
 
 export async function POST(req: NextRequest) {
+  // El tope por IP (lib/limite-publico.ts): un flood desde una IP le llenaba el CRM de basura a un
+  // cliente y le gastaba IA. Generoso a propósito: detrás de un NAT de operador hay mucha gente.
+  const frenado = limitePorIp(req, 'optin', 30, 60_000, CORS);
+  if (frenado) return frenado;
   let body: Record<string, unknown> = {};
   try { body = (await req.json()) as Record<string, unknown>; } catch { /* sin cuerpo */ }
 

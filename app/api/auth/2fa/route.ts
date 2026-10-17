@@ -17,6 +17,7 @@
 // intermedio en el mismo movimiento (lib/sesion-cookies.ts).
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { limitePorIp } from '@/lib/limite-publico';
 import { requiereCrearContrasena } from '@/lib/contrasena-reglas';
 import { tieneContrasena, guardarContrasena } from '@/lib/contrasena';
 import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
@@ -114,6 +115,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // El freno de intentos es POR CUENTA (lib/mfa.ts → intentar); esto corta el barrido desde una IP.
+  const frenado = limitePorIp(req, 'login-2fa', 30, 10 * 60_000);
+  if (frenado) return frenado;
   if (!origenValido(req)) return no('origen no permitido', 403);
   const q = await quien(req);
   if (!q) return no('vencido', 401);

@@ -15,6 +15,7 @@
 // =============================================================================
 
 import { after, NextResponse, type NextRequest } from 'next/server';
+import { limitePorIp } from '@/lib/limite-publico';
 import { getSupabaseServer } from '@/lib/supabase';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
 import { correoNormalizado, problemaDeContrasena } from '@/lib/contrasena-reglas';
@@ -48,9 +49,14 @@ export async function POST(req: NextRequest) {
   if (!origenValido(req)) return no('origen no permitido', 403);
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const accion = String(body.accion ?? '');
+  const frenadoGeneral = limitePorIp(req, 'restablecer', 30, 10 * 60_000);
+  if (frenadoGeneral) return frenadoGeneral;
 
   // ── Pedir el link ──────────────────────────────────────────────────────────
   if (accion === 'pedir') {
+    // Cada pedido manda un mail (Resend, plata y reputación del dominio) y tarda 700 ms a propósito.
+    const frenado = limitePorIp(req, 'restablecer-pedir', 5, 15 * 60_000);
+    if (frenado) return frenado;
     const t0 = Date.now();
     const email = correoNormalizado(body.email);
     try {
