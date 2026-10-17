@@ -42,6 +42,8 @@ veces). Al seguir, mergeá origin/integracion: ya va por la 1.14.3.
    título entero, y `cerrarTareaDelPlan` pasa a la operación nueva `cerrar_tareas_plan` (sin borrador). Cuando se integre,
    juntarlo con lo de acá (lib/centro-plan-auto.ts): el «Ya está» que no cierra la tarea de su «Voy a trabajar en…» puede
    probar `cerrarPorYaEsta`. OJO al mergear lib/centro-plan.ts: acá se sumó `tareaId` a lo que devuelve `sumarTareaAlPlan`.
+   Y un bug que vio Offer (#888 del ws 9): `cerrarTareaDelPlan` no recorta la evidencia (el tope es 400) y, si falla con una
+   tarea de OTRO proyecto, tapa el error con «Ya no estaba abierta.». Se lo pasé al chat Plan para su rama: verificar que entre.
 7. **La revisión del loop de tickets de Ticketera** (5d46eb4f7, cartero 1.15.0) ya la hice: OK, con dos notas que le pasé (que la PC
    compruebe que el destino es el Cerebro, y mergear la 1.14.3). Si vuelve con cambios, mirarlo otra vez antes de que se integre.
 
