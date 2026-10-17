@@ -27,14 +27,13 @@ import { Icon } from '@/app/_components/icons';
 import { haptico } from '@/lib/haptico';
 import { ejeDelGesto, rubberband } from '@/app/m/_ui/gestos';
 import { ROTULO } from '@/lib/operaciones-reglas';
-import { nombreCuenta, type ChatCentro, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { nombreCuenta, type ChatCentro, type LineaChat } from '@/lib/centro-chats';
 import {
-  REACCIONES, TOPE_REENVIO, buscarCitado, idDeLinea, idDelElemento, opcionesDelMensaje, renglonDeCita, textoDeLinea,
-  type Cita, type IdMensaje, type MarcasChat,
+  REACCIONES, TOPE_REENVIO, buscarCitado, idDeLinea, idDelElemento, mensajeDeLinea, opcionesDelMensaje, renglonDeCita,
+  type Cita, type IdMensaje, type MarcasChat, type MensajeWA,
 } from '@/lib/centro-mensajes';
 
-/** Un mensaje, para el menú y para responderlo. */
-export type MensajeWA = { id: IdMensaje; texto: string; de: string; propio: boolean; instante: number; trabajo: TrabajoP | null };
+export type { MensajeWA } from '@/lib/centro-mensajes';
 
 /** Lo que el padre (la conversación de la computadora o la hoja del teléfono) hace con un mensaje. */
 export type AccionesWA = {
@@ -56,15 +55,6 @@ export function irAlMensaje(id: IdMensaje | null) {
   el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   el.classList.add('co-wa--visto');
   window.setTimeout(() => el.classList.remove('co-wa--visto'), 1600);
-}
-
-/** El mensaje de una línea, con quién lo dijo. */
-export function mensajeDeLinea(l: LineaChat, titulo: string): MensajeWA | null {
-  const id = idDeLinea(l);
-  if (!id) return null;
-  const propio = l.tipo === 'trabajo' || l.tipo === 'respuesta' || (l.tipo === 'turno' && l.turno.rol !== 'el');
-  const de = l.tipo === 'turno' && l.turno.rol === 'otro' ? l.turno.de ?? 'Otro chat' : propio ? 'Tú' : titulo;
-  return { id, texto: textoDeLinea(l), de, propio, instante: l.instante, trabajo: l.tipo === 'trabajo' ? l.trabajo : null };
 }
 
 /**

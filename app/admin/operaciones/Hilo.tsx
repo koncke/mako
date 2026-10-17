@@ -30,8 +30,8 @@ import { PreguntaChat, type Responder } from './PreguntaChat';
 import { bloquesDeMensaje } from '@/lib/centro-caja';
 import { ConLinks } from './ConLinks';
 import { memo } from 'react';
-import { idDeLinea, leerCita, leerReenvio, sinOcultos, type MarcasChat } from '@/lib/centro-mensajes';
-import { CitaEnBurbuja, Deslizable, MarcasEnHora, ReaccionWA, mensajeDeLinea } from './MensajeWA';
+import { idDeLinea, leerCita, leerReenvio, mensajeDeLinea, sinOcultos, type MarcasChat } from '@/lib/centro-mensajes';
+import { CitaEnBurbuja, Deslizable, MarcasEnHora, ReaccionWA } from './MensajeWA';
 import type { PasoDelTurno } from '@/lib/centro-pasos';
 
 /** «10:52», con el reloj de Argentina. */

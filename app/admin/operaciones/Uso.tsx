@@ -24,7 +24,7 @@
 // el Runner anduviera): el nombre sale de lib/centro-titulares.ts (el que le puso Martín, o el titular de cuentas.tsv que
 // sube su Runner), copiado del selector de cuentas de Google (avatar, nombre y el email debajo, en gris).
 
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as TeclaReact } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { carteroVivo } from '@/lib/operaciones-reglas';
 import { nombreCuenta } from '@/lib/centro-chats';
@@ -63,7 +63,7 @@ function NombreDeCuenta({ cuenta, datos, onRenombrar }: { cuenta: string; datos:
     const error = await onRenombrar(cuenta, editando.texto);
     if (error) setEditando({ ...editando, guardando: false, error }); else setEditando(null);
   };
-  const tecla = (e: KeyboardEvent<HTMLInputElement>) => {
+  const tecla = (e: TeclaReact<HTMLInputElement>) => {
     if (e.key === 'Enter') { e.preventDefault(); void guardar(); }
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEditando(null); }
   };

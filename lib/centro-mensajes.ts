@@ -18,7 +18,7 @@
 //
 // ⚠️ SIN `server-only`: lo usan las pantallas, la acción y los tests.
 
-import type { LineaChat } from './centro-chats';
+import type { LineaChat, TrabajoP } from './centro-chats';
 import { textoDeRespuesta } from '../app/admin/runway/decisiones';
 
 /** El id de un mensaje de la conversación: `t:` un turno del transcript, `w:` un trabajo firmado, `r:` una respuesta a la
@@ -93,6 +93,19 @@ export function buscarCitado(lineas: readonly LineaChat[], cita: Pick<Cita, 'tex
     if (id && renglonDeCita(textoDeLinea(l), 100_000).startsWith(buscado)) return id;
   }
   return null;
+}
+
+/** Un mensaje, para el menú y para responderlo (app/admin/operaciones/MensajeWA.tsx). */
+export type MensajeWA = { id: IdMensaje; texto: string; de: string; propio: boolean; instante: number; trabajo: TrabajoP | null };
+
+/** El mensaje de una línea, con quién lo dijo («Tú» lo propio, el nombre del chat lo suyo, el de otra sesión lo de ella).
+ *  Vive acá y no en MensajeWA.tsx: el hilo (sin 'use client') no puede importar un VALOR de un módulo de cliente. */
+export function mensajeDeLinea(l: LineaChat, titulo: string): MensajeWA | null {
+  const id = idDeLinea(l);
+  if (!id) return null;
+  const propio = l.tipo === 'trabajo' || l.tipo === 'respuesta' || (l.tipo === 'turno' && l.turno.rol !== 'el');
+  const de = l.tipo === 'turno' && l.turno.rol === 'otro' ? l.turno.de ?? 'Otro chat' : propio ? 'Tú' : titulo;
+  return { id, texto: textoDeLinea(l), de, propio, instante: l.instante, trabajo: l.tipo === 'trabajo' ? l.trabajo : null };
 }
 
 /** El texto de un mensaje, para copiarlo, citarlo o reenviarlo. */

@@ -80,12 +80,12 @@ test('`vigilar` sube los pasos del chat ocupado mientras espera (con el token), 
     linea({ type: 'user', uuid: 'u1', timestamp: T(1), message: { content: 'Arreglá la lista' } }),
     usa('Bash', { command: 'npm test -- secreto', description: 'Corre los tests del Centro' }, T(2)),
   ].join('\n') + '\n');
-  const recibido: Array<{ url: string; cuerpo: Record<string, unknown> }> = [];
+  const recibido: Array<{ url: string; cuerpo: Record<string, unknown>; auth: string | undefined }> = [];
   const srv = createServer((req, res) => {
     if (req.method === 'GET') { res.setHeader('content-type', 'application/json'); res.end('{"hay":0}'); return; }
     let b = '';
     req.on('data', (c) => { b += c; }).on('end', () => {
-      recibido.push({ url: req.url ?? '', cuerpo: JSON.parse(b || '{}'), auth: req.headers.authorization } as never);
+      recibido.push({ url: req.url ?? '', cuerpo: JSON.parse(b || '{}'), auth: req.headers.authorization });
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify(req.url?.includes('pasos=1') ? { ok: true } : { pedidos: [], vencidos: 0 }));
     });
@@ -103,7 +103,7 @@ test('`vigilar` sube los pasos del chat ocupado mientras espera (con el token), 
     assert.ok(livianos.length >= 1, 'subió los pasos mientras esperaba');
     const p = (livianos[0].cuerpo.pasos as Record<string, Array<{ texto: string }>>)[LOCAL];
     assert.deepEqual(p.map((x) => x.texto), ['Corre los tests del Centro']);
-    assert.equal((livianos[0] as unknown as { auth: string }).auth, `Bearer mkop_${'x'.repeat(30)}`);
+    assert.equal(livianos[0].auth, `Bearer mkop_${'x'.repeat(30)}`);
     assert.ok(!JSON.stringify(recibido).includes('secreto'), 'el comando no viaja');
     const vuelta = recibido.find((r) => !r.url.includes('pasos=1'));
     assert.ok(vuelta && (vuelta.cuerpo.pasos as Record<string, unknown>)[LOCAL], 'la vuelta completa también los lleva');
