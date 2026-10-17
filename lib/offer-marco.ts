@@ -499,6 +499,21 @@ export function faltanMinimas(piezas: PiezasSabidas): PiezaKey[] {
   return PIEZAS_MINIMAS.filter((k) => !piezas[k]?.valor?.trim());
 }
 
+/**
+ * LO QUE PREGUNTA EL ONBOARDING (17/10/2026). Martín: «Sería bueno que la funcionalidad de "OFFER" no esté en el
+ * onboarding... Pero simular "Offer" en el onboarding simplemente para organizar en un PDF lo que vende el usuario. Y
+ * eso le sirve a MaKo para crear las cosas que necesite». El arranque conversa como Offer, pero sólo hasta saber QUÉ
+ * VENDE: qué es y qué recibe, para quién, qué le resuelve, qué logra y cuánto cuesta. Sin las piezas del análisis
+ * (cuántos pagaron, cuántos lograron el resultado, valor, costo, escalera), sin el diagnóstico de la oferta y sin la
+ * oferta mejorada: eso se hace después, en la tab Offer, sobre la MISMA conversación.
+ */
+export const PIEZAS_DEL_ARRANQUE: readonly PiezaKey[] = ['entregables', 'cliente', 'problema', 'resultado', 'precio'];
+
+/** Las piezas del arranque que faltan. «sin dato: …» cuenta como contestada (la persona ya dijo que no lo sabe). */
+export function faltanDelArranque(piezas: PiezasSabidas): PiezaKey[] {
+  return PIEZAS_DEL_ARRANQUE.filter((k) => !piezas[k]?.valor?.trim());
+}
+
 // ── El marco, en el texto que leen los modelos ───────────────────────────────
 // Compacto a propósito: viaja en CADA turno del chat. El detalle largo y las
 // discrepancias entre autores viven en docs/offer-marco.md.

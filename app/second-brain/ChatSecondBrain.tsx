@@ -47,8 +47,8 @@ import { achicarImagen } from '@/app/m/mako/subir';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
-  ARRANQUES_SECOND_BRAIN, AVISO_ANTES, JEFE_SECOND_BRAIN, SECCION_ANTES, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, edadCorta, filtrarSubs,
-  nombreDeSub, tituloDe,
+  ARRANQUES_SECOND_BRAIN, AVISO_ANTES, JEFE_SECOND_BRAIN, SECCION_ANTES, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, colgarIrA, edadCorta, filtrarSubs,
+  linksDePedidos, nombreDeSub, tituloDe, type IrA,
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes } from '@/lib/chat-mako-indice';
 import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
@@ -60,6 +60,11 @@ const RUTA = '/api/mako/chat';
 const TOPE_MS = 425_000;
 /** Lo que tarda en abrir una lista o un hilo antes de decir que no se pudo. */
 const TOPE_LECTURA_MS = 30_000;
+/** «Entender el pedido» (tanda 10): la ruta compartida de los chats, con la IA a 7,5 s (app/api/mako/pedidos). */
+const RUTA_PEDIDOS = '/api/mako/pedidos';
+const TOPE_PEDIDOS_MS = 15_000;
+/** El tope de texto de esa ruta: lo más largo no se le pregunta (contestaría 400). */
+const MAX_TEXTO_PEDIDOS = 4_000;
 
 type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
@@ -91,6 +96,20 @@ const postArchivos = <T,>(sessionId: number, mensaje: string, archivos: readonly
   for (const a of archivos) fd.append('adjuntos', a.file, a.file.name);
   return pedir<T>(RUTA, { method: 'POST', body: fd, signal: AbortSignal.timeout(TOPE_MS) });
 };
+
+/**
+ * Lo que la persona pidió que se hace en OTRA pantalla: el link para ir (tanda 10, docs/diseno-mako-pedidos.md). Se pide
+ * EN PARALELO al turno, y si falla o tarda no hay links y nada más: es un agregado, nunca frena la respuesta.
+ * ⚠️ El mensaje NO se parte (lib/chat-mako-reglas.ts → linksDePedidos): MaKo lo contesta entero y esto suma el link.
+ */
+async function linksDelPedido(texto: string): Promise<IrA[]> {
+  if (!texto.trim() || texto.length > MAX_TEXTO_PEDIDOS) return [];
+  const l = await pedir<unknown>(RUTA_PEDIDOS, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto, tab: 'mako' }),
+    signal: AbortSignal.timeout(TOPE_PEDIDOS_MS),
+  });
+  return l.ok ? linksDePedidos(l.datos) : [];
+}
 
 const anotarEnUrl = (id: number | null, centro: string | null) => {
   try {
@@ -267,6 +286,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial }: Omit<Props
   // ── El turno ──
   const mandar = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[]) => {
     setTrabajo({ desde: Date.now() });
+    // Arranca ya, junto con el turno (tarda segundos; el turno, decenas).
+    const irA = linksDelPedido(mensaje);
     try {
       let sid = sesionRef.current;
       if (sid == null) {
@@ -291,6 +312,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial }: Omit<Props
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
         return [...xs, ...itemsDeRespuesta(l.datos, vistas)];
       });
+      // Los links no demoran la respuesta: se cuelgan de ella cuando llegan.
+      void irA.then((links) => { if (links.length) setItems((xs) => colgarIrA(xs, links, idU)); });
       void cargarLista(); // el título y la hora de la fila
     } finally {
       ocupadoRef.current = false;

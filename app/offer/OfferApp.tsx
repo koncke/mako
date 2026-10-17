@@ -39,7 +39,9 @@
 //
 // MODO ARRANQUE (`arranque`): el mismo motor es el ONBOARDING de MaKo (app/onboarding/ChatArranque.tsx).
 // Sin selector ni bienvenida: la conversación nace sola en el funnel principal, y alrededor de ella van
-// los mensajes del arranque (quién es, el CRM, el teléfono), que contesta el arranque y no Offer.
+// los mensajes del arranque (quién es, el CRM, el teléfono), que contesta el arranque y no Offer. Desde el
+// 17/10/2026 la conversación del arranque sólo pregunta qué vende (`origen: 'arranque'` en cada turno) y no
+// arma la oferta: el análisis es de esta tab.
 //
 // El motor vive en app/api/offer/route.ts y lib/offer-sesiones.ts; acá sólo se llama al contrato
 // (./offer-api.ts) y se dibuja lo que vuelve.
@@ -165,8 +167,6 @@ export type ArranqueOffer = {
   avatar: (animar: boolean) => ReactNode;
   /** El funnel principal: si todavía no hay conversación y toca la oferta, se abre una ahí. */
   abrirEnFunnel: number | null;
-  /** Ya están las piezas y el diagnóstico: arranca a armar la oferta (una vez, por detrás). */
-  armar: boolean;
   /** Cada vez que la conversación cambia. */
   onSesion: (s: OfferSesionVista) => void;
   /** «Tu oferta» al costado: sólo desde que empieza la conversación de la oferta. */
@@ -391,6 +391,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
           action: 'turno', sesionId: id, texto: envio.texto, docIds,
           ...(audio ? { audio } : {}),
           ...(envio.respuesta ? { respuesta: envio.respuesta } : {}),
+          // En el onboarding MaKo sólo pregunta qué vende (el servidor lo confirma: onboarding pendiente).
+          ...(arranque ? { origen: 'arranque' } : {}),
         },
         TOPE.turno,
         'MaKo tardó demasiado en contestar. Prueba de nuevo.',
@@ -435,7 +437,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     setReintentando(true);
     try {
       const r = await llamarOffer<{ sesion: OfferSesionVista }>(
-        { action: 'turno', sesionId: id, reintentar: true },
+        { action: 'turno', sesionId: id, reintentar: true, ...(arranque ? { origen: 'arranque' } : {}) },
         TOPE.turno,
         'MaKo tardó demasiado en contestar. Prueba de nuevo.',
       );
@@ -786,17 +788,9 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     void nuevaSesion(funnelArranque, null).finally(() => { abriendoArranque.current = false; });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `nuevaSesion` cambia en cada render; manda el funnel
   }, [funnelArranque]);
-  // 2. Con las piezas y el diagnóstico, la oferta se arma POR DETRÁS mientras el arranque sigue (el CRM, el
-  //    teléfono). Una sola vez: si falla, el reintento es del botón de su mensaje, no un bucle.
-  const armoArranque = useRef(false);
-  const armarArranque = !!arranque?.armar;
-  useEffect(() => {
-    if (!armarArranque || armoArranque.current || !sesion || sesion.conclusion || sesion.armando?.corriendo || generando.current) return;
-    armoArranque.current = true;
-    void armar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `armar` cambia en cada render
-  }, [armarArranque, sesion]);
-  // 3. El arranque mira la conversación (las piezas, si ya está armada) para saber en qué etapa está.
+  // (Hasta el 17/10/2026 acá se armaba la oferta POR DETRÁS al tener las piezas. Ya no: el onboarding sólo ordena lo
+  // que vende, y el análisis y la oferta mejorada se hacen en la tab Offer.)
+  // 2. El arranque mira la conversación (las piezas, si ya está armada) para saber en qué etapa está.
   const onSesionArranque = arranque?.onSesion;
   useEffect(() => { if (sesion && onSesionArranque) onSesionArranque(sesion); }, [sesion, onSesionArranque]);
 
