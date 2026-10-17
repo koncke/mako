@@ -174,6 +174,14 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },
   {
+    id: 'ver_avatares', area: 'video', tipo: 'lectura',
+    datosDeClientes: false,
+    titulo: 'Avatares y looks de AI Avatar',
+    descripcion: 'Los looks que el cliente creó en la tab AI Avatar (su foto en una escena de la galería): el tema, si ya está listo para animar, si falló y por qué, y cuándo se pidió; más los temas de la galería que se pueden usar. No genera nada ni devuelve las imágenes. Úsala antes de decir que el cliente ya tiene un avatar listo para hablar.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
+  },
+  {
     id: 'estado_onboarding_video', area: 'video', tipo: 'lectura',
     titulo: 'Onboarding del Video Generator',
     descripcion: 'Los pasos de la configuración del Video Generator (extensión, fotos, acento, muletillas, voz y primer escenario) con cuáles están hechos y cuándo, cuáles faltan, y si la tab Ads Writer (que es requisito) sigue pendiente. Úsala para saber si el cliente ya puede filmar o hay que mandarlo a /video-generator a terminar de configurarlo.',

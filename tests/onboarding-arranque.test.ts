@@ -75,7 +75,10 @@ const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala'
 test('modo oferta: quién es → lo que vende → la fase → el CRM → el teléfono → cierra, sin esperar ninguna oferta', () => {
   assert.equal(etapaDeArranque({}, H), 'nombre');
   assert.equal(etapaDeArranque({ nombre: 'M' }, H), 'negocio');
-  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'objetivo');
+  // Las dos del 17/10 (cómo llegó y qué resolver primero) van antes del objetivo: tests/onboarding-preguntas.test.ts.
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'origen');
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', origen: 'Instagram' }, H), 'interes');
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', origen: 'Instagram', interes: 'ventas' }, H), 'objetivo');
   assert.equal(etapaDeArranque(QUIEN, H), 'oferta');
   // Con lo que vende, el diagnóstico de fase lo pregunta el arranque (la conversación ya no lo hace).
   assert.equal(etapaDeArranque(QUIEN, { ...H, loQueVende: true }), 'fase');
@@ -119,7 +122,7 @@ test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve c
   assert.equal(antes[0].opciones, undefined, 'una pregunta ya contestada no vuelve a ofrecer opciones');
   assert.match(antes[2].texto, /Un gusto, Martín/);
   assert.deepEqual(antes[2].opciones, ['Negocio que Escala']);
-  const { antes: aObj } = mensajesDeArranque({ nombre: 'M', negocio: 'N' }, H);
+  const { antes: aObj } = mensajesDeArranque({ nombre: 'M', negocio: 'N', origen: 'Instagram', interes: 'ventas' }, H);
   assert.deepEqual(aObj[aObj.length - 1].opciones, [...OBJETIVOS_SUGERIDOS]);
   // En la oferta, los mensajes del arranque terminan en el pase (lo demás lo dice Offer).
   const { antes: aOf, despues } = mensajesDeArranque(QUIEN, H);

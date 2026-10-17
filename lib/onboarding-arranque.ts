@@ -39,6 +39,7 @@
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, type CanalId } from './fase-diagnostico';
 import { TIPOS_CRM, type TipoCrm, type TipoCrmId } from './pipeline';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
+import { RUTA_AUTOMATIONS } from './ruta-automations';
 
 export type ModoArranque = 'oferta' | 'plan';
 
@@ -46,6 +47,13 @@ export type ModoArranque = 'oferta' | 'plan';
 export type EstadoArranque = {
   nombre?: string;
   negocio?: string;
+  /** El negocio que nombró junto con su nombre («Martín, de Acme»): se OFRECE en la pregunta del negocio, nunca
+   *  se da por contestada (en «Martín de Córdoba» lo de después del «de» es un lugar). */
+  negocioSugerido?: string;
+  /** «¿Cómo llegaste a MaKo?»: una opción de `ORIGENES` o lo que escribió (17/10/2026). */
+  origen?: string;
+  /** «¿Qué quieres que MaKo resuelva primero?» (modo 'oferta'): decide a qué pestaña entra al terminar. */
+  interes?: InteresId;
   objetivo?: string;
   /** Sólo en modo 'plan': en 'oferta' sale de la conversación de la oferta. */
   queHace?: string;
@@ -92,7 +100,7 @@ export type HechosArranque = {
 };
 
 export type EtapaArranque =
-  | 'nombre' | 'negocio' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'crm'
+  | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'crm'
   | 'telefono' | 'codigo' | 'cierre' | 'listo';
 
 /** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). */
@@ -116,9 +124,101 @@ const PREGUNTA_CANAL = '¿Dónde cierras la venta?';
 
 const TOPE_RESPUESTA = 300;
 
+/**
+ * LAS DOS PREGUNTAS NUEVAS (17/10/2026). Martín: «investiga las preguntas que nos hacen falta: me imagino "¿Cómo nos
+ * conociste?", "¿Qué funcionalidad de estas te interesa más?"». Lo que se midió antes de sumarlas: el abandono de una
+ * encuesta de bienvenida sube con cada pregunta (más rápido en las primeras), y una pregunta que no CAMBIA nada visible
+ * se saca. Por eso son de un toque, y cada una decide algo: el origen dice de dónde vienen los clientes (lo mira el
+ * super admin para la pauta) y el interés decide a qué pestaña entra al terminar. El detalle, en
+ * docs/hallazgos-onboarding.md.
+ */
+export const ORIGENES = ['Instagram', 'YouTube', 'TikTok', 'Un anuncio', 'Me lo recomendaron', 'Google', 'Otro'] as const;
+
+export type InteresId = 'anuncios' | 'ventas' | 'whatsapp' | 'organizar';
+export const INTERESES: ReadonlyArray<{ id: InteresId; label: string; ruta: string }> = [
+  { id: 'anuncios', label: 'Conseguir clientes con anuncios', ruta: '/ads-writer' },
+  { id: 'ventas', label: 'Ordenar mis ventas y seguimientos', ruta: '/crm' },
+  { id: 'whatsapp', label: 'Que WhatsApp responda solo', ruta: RUTA_AUTOMATIONS },
+  { id: 'organizar', label: 'Organizar mi plan y mi equipo', ruta: '/plan' },
+];
+
+/** El setting donde el cierre deja cómo llegó y qué quiere resolver primero. Lo lee `ver_estado_onboarding`. */
+export const CLAVE_ENCUESTA = 'onboarding.encuesta';
+
+/** A dónde entra al terminar: la pestaña de lo que quiere resolver primero, o /general. */
+export function rutaDeEntrada(interes: InteresId | undefined): string {
+  return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';
+}
+
+/** El interés de una respuesta: la opción tal cual, o lo escrito por sus palabras («los anuncios», «el WhatsApp»). */
+export function interesDe(texto: string): InteresId | null {
+  const t = (texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+  if (!t) return null;
+  const exacto = INTERESES.find((i) => i.label.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase() === t);
+  if (exacto) return exacto.id;
+  if (/anuncio|publicidad|\bads\b|meta|campan|conseguir/.test(t)) return 'anuncios';
+  if (/whats|wsp|wpp|mensaje|responda|chat/.test(t)) return 'whatsapp';
+  if (/venta|seguimiento|\bcrm\b|lead|cliente/.test(t)) return 'ventas';
+  if (/plan|equipo|tarea|organiz/.test(t)) return 'organizar';
+  return null;
+}
+
 /** El primer nombre, para saludar y ofrecerlo: «Martín Koncke» → «Martín». */
 export function primerNombre(nombre: string): string {
   return (nombre || '').trim().split(/\s+/)[0] ?? '';
+}
+
+const SALUDO = /^(?:hola+|holi|buenas(?:\s+(?:tardes|noches))?|buen(?:os)?\s+d[ií]as?|hey|qu[eé]\s+tal|saludos)\b[\s,!.¡]*/i;
+const PRESENTA = /^(?:(?:yo\s+)?soy|me\s+llamo|mi\s+nombre\s+es|me\s+dicen|puedes\s+llamarme|ll[aá]mame|dime|aqu[ií]|ac[aá])\b[\s,:]*/i;
+const PALABRAS_NO_NOMBRE = /^(?:el|la|los|las|un|una|de|del|y|que|con|en|mi|tu|su|por|para|due[ñn][oa]|y\s+tengo)$/i;
+
+/** Mayúscula la primera letra de cada palabra que vino toda en minúscula («martín» → «Martín»). */
+const conMayuscula = (s: string) => s.replace(/(^|\s)(\p{Ll})(\p{Ll}*)/gu, (_m, a: string, b: string, c: string) => `${a}${b.toUpperCase()}${c}`);
+
+/**
+ * EL NOMBRE, ENTENDIDO (17/10/2026). Martín: «le dije "Soy Martin" y me respondió "Un gusto, Soy. ¿Cómo se llama tu
+ * negocio?", eso es básico». Se saca el saludo y la presentación («hola, soy», «me llamo», «mi nombre es»), se corta en
+ * la primera coma o en lo que ya no es un nombre («Martín, el dueño de Acme»), y se queda con hasta tres palabras. Si
+ * nombró su negocio («Martín de Acme», «soy Martín, de Acme», «tengo una agencia que se llama Acme»), vuelve como
+ * SUGERENCIA para la pregunta siguiente. Sin nombre entendible («hola»), vuelve vacío y se vuelve a preguntar.
+ */
+export function extraerNombre(texto: string): { nombre: string; negocio: string | null } {
+  let t = limpiarRespuesta(texto).replace(/[!¡¿?]+/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(SALUDO, '').trim();
+  t = t.replace(PRESENTA, '').trim();
+  // «me dicen el Tano»: el artículo de un apodo no es parte del corte.
+  t = t.replace(/^(?:el|la)\s+(?=\p{Lu})/u, '');
+  // El negocio, si lo dijo: «… se llama Acme» / «… de Acme» / «… dueño de Acme».
+  let negocio: string | null = null;
+  const seLlama = /(?:se\s+llama|llamad[oa]|mi\s+(?:negocio|empresa|marca|agencia)\s+es)\s+(.+)$/i.exec(t);
+  if (seLlama) negocio = seLlama[1];
+  const partes = t.split(/[,.;:]| y | - /);
+  const cabeza = (partes[0] ?? '').trim();
+  const palabras = cabeza.split(/\s+/).filter(Boolean);
+  const nombre: string[] = [];
+  for (let i = 0; i < palabras.length && nombre.length < 3; i++) {
+    const p = palabras[i];
+    if (PALABRAS_NO_NOMBRE.test(p) || /\d/.test(p)) {
+      // «Martín de Acme»: lo que sigue al «de» es una sugerencia de negocio.
+      if (/^(?:de|del)$/i.test(p) && !negocio && i + 1 < palabras.length) negocio = palabras.slice(i + 1).join(' ');
+      break;
+    }
+    nombre.push(p);
+  }
+  if (!negocio) {
+    const deAlgo = /\b(?:de|del)\s+(?:la\s+empresa\s+|la\s+marca\s+)?(.+)$/i.exec(partes.slice(1).join(' ').trim());
+    if (deAlgo) negocio = deAlgo[1];
+  }
+  const limpio = (s: string | null) => (s ?? '').replace(/^(?:la|el)\s+/i, '').replace(/[«»"']/g, '').trim().slice(0, 80);
+  return { nombre: conMayuscula(nombre.join(' ')).slice(0, 60), negocio: limpio(negocio) || null };
+}
+
+/** El nombre del negocio, sin la frase alrededor: «Se llama Acme», «Mi negocio es Acme», «Es Acme» → «Acme». */
+export function extraerNegocio(texto: string): string {
+  let t = limpiarRespuesta(texto).replace(/[!¡¿?]+/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(/^(?:mi\s+(?:negocio|empresa|marca|agencia|emprendimiento)\s+)?(?:se\s+llama|es|son|somos)\s+/i, '');
+  t = t.replace(/^(?:la\s+empresa|la\s+marca|el\s+negocio)\s+(?:se\s+llama|es)\s+/i, '');
+  return t.replace(/[«»"]/g, '').replace(/[.]+$/, '').trim();
 }
 
 /**
@@ -210,6 +310,10 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
   if (h.terminado) return 'listo';
   if (!e.nombre) return 'nombre';
   if (!e.negocio) return 'negocio';
+  // Las dos del 17/10 van antes del objetivo. Una conversación que ya había pasado el objetivo (empezada antes)
+  // no vuelve atrás a preguntarlas.
+  if (!e.origen && !e.objetivo) return 'origen';
+  if (h.modo === 'oferta' && !e.interes && !e.objetivo) return 'interes';
   if (!e.objetivo) return 'objetivo';
   if (h.modo === 'plan') {
     if (!e.queHace) return 'que_hace';
@@ -247,12 +351,26 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
 
   // 1. Quién es. Un nombre que es un email (las altas sin nombre guardan el email) no se ofrece.
   const sugNombre = h.nombreCuenta.includes('@') ? '' : primerNombre(h.nombreCuenta);
-  preguntar(antes, 'nombre', '¡Hola! Soy MaKo. En unos minutos dejamos tu negocio listo para trabajar juntos. ¿Cómo te llamo?', e.nombre, sugNombre ? [sugNombre] : undefined);
+  // El texto del saludo es el de la referencia que mandó Martín el 17/10 (el chat sin recuadro).
+  preguntar(antes, 'nombre', '¡Hola! Soy MaKo. Para empezar, ¿cómo te llamas?', e.nombre, sugNombre ? [sugNombre] : undefined);
   if (etapa === 'nombre') return { antes, despues };
-  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio,
-    pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? [h.nombreWorkspace.trim()] : undefined);
+  // Lo que nombró junto con su nombre va primero; si no, el nombre del workspace (si parece un negocio).
+  const sugNegocio = [e.negocioSugerido, pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? h.nombreWorkspace.trim() : '']
+    .filter((x): x is string => !!x && !!x.trim())
+    .filter((x, i, xs) => xs.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
+  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio, sugNegocio.length ? sugNegocio : undefined);
   if (etapa === 'negocio') return { antes, despues };
-  preguntar(antes, 'objetivo', '¿Qué quieres lograr en los próximos 90 días?', e.objetivo, [...OBJETIVOS_SUGERIDOS]);
+  // Las dos del 17/10 (`ORIGENES`, `INTERESES`): sólo si se preguntaron o tocan ahora (una conversación de antes
+  // que ya pasó el objetivo no las dibuja vacías).
+  if (e.origen || etapa === 'origen') {
+    preguntar(antes, 'origen', `¡Qué bueno tenerte por aquí, ${nombre}! ¿Cómo llegaste a MaKo?`, e.origen, [...ORIGENES]);
+    if (etapa === 'origen') return { antes, despues };
+  }
+  if (h.modo === 'oferta' && (e.interes || etapa === 'interes')) {
+    preguntar(antes, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', INTERESES.find((i) => i.id === e.interes)?.label, INTERESES.map((i) => i.label));
+    if (etapa === 'interes') return { antes, despues };
+  }
+  preguntar(antes, 'objetivo', 'Y en los próximos 90 días, ¿qué quieres lograr?', e.objetivo, [...OBJETIVOS_SUGERIDOS]);
   if (etapa === 'objetivo') return { antes, despues };
 
   // 2a. Modo 'plan': a qué se dedica y el diagnóstico, con las preguntas originales.
@@ -370,10 +488,31 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   }
   const texto = limpiarRespuesta(opcion ?? r.texto ?? '');
 
-  if (etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace') {
+  if (etapa === 'nombre') {
+    // Una opción es el nombre tal cual; lo escrito se ENTIENDE («Soy Martín», «me llamo…», «Martín de Acme»).
+    if (opcion !== undefined && texto) return { ok: true, patch: { nombre: texto } };
+    const { nombre, negocio } = extraerNombre(texto);
+    if (!nombre) return { ok: false, error: 'No te entendí el nombre. ¿Cómo te llamo?' };
+    return { ok: true, patch: { nombre, ...(negocio ? { negocioSugerido: negocio } : {}) } };
+  }
+  if (etapa === 'negocio') {
+    const negocio = opcion !== undefined ? texto : extraerNegocio(texto);
+    if (!negocio) return { ok: false, error: '¿Cómo se llama tu negocio?' };
+    return { ok: true, patch: { negocio } };
+  }
+  if (etapa === 'origen') {
+    // Una opción o lo que escriba («por un amigo», «en un podcast»): las dos sirven para saber de dónde viene.
+    if (!texto) return { ok: false, error: 'Elige una opción o escríbelo.' };
+    return { ok: true, patch: { origen: texto } };
+  }
+  if (etapa === 'interes') {
+    const interes = interesDe(texto);
+    if (!interes) return { ok: false, error: 'Elige una de las opciones.' };
+    return { ok: true, patch: { interes } };
+  }
+  if (etapa === 'objetivo' || etapa === 'que_hace') {
     if (!texto) return { ok: false, error: 'Escríbeme tu respuesta.' };
-    const campo = etapa === 'nombre' ? 'nombre' : etapa === 'negocio' ? 'negocio' : etapa === 'objetivo' ? 'objetivo' : 'queHace';
-    return { ok: true, patch: { [campo]: texto } };
+    return { ok: true, patch: { [etapa === 'objetivo' ? 'objetivo' : 'queHace']: texto } };
   }
   if (etapa === 'fase') {
     // En modo 'oferta' cuenta lo que ya contestó en la conversación de la oferta (`conFaseDeOffer`).

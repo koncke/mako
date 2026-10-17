@@ -746,6 +746,14 @@ export const AREAS: AreaDev[] = [
     hallazgos: 'hallazgos-generativa',
   },
   {
+    slug: 'ai-avatar', titulo: 'AI Avatar', familia: 'Content Machine', grupo: 'Ads',
+    estado: 'parcial', verEnApp: '/ai-avatar',
+    alcance: 'La tab tipo HeyGen: crear un look (la foto de la persona en una escena de la galería), elegir voces de una galería en español o de la cuenta de ElevenLabs del cliente, y generar el video del avatar diciendo un guion. No genera por su cuenta: los looks y las tomas salen por el puente a Flow del Video Generator.',
+    vive: ['app/ai-avatar', 'lib/ai-avatar', 'lib/flow-cara.ts', 'docs/hallazgos-ai-avatar.md', 'app/admin/dev/ai-avatar/bitacora.ts'],
+    proyectos: ['Feature: AI Avatar'],
+    hallazgos: 'hallazgos-ai-avatar',
+  },
+  {
     slug: 'video-editor', titulo: 'Video Editor', familia: 'Content Machine', grupo: 'Ads',
     estado: 'parcial', verEnApp: '/video-editor',
     alcance: 'Un editor de video copiado de CapCut Desktop 9.3 (estructura, proporciones, colores medidos y los rótulos de su instalación en español), armado sobre el motor de OpenCut classic portado (MIT): línea de tiempo, keyframes, render WebGPU, exportar con WebCodecs. Proyectos y medios locales al navegador, separados por workspace. Recibe los anuncios de Video Generator con «Editar en el editor». Hasta que Martín lo valide, lo ve sólo el super admin.',
