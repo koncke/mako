@@ -25,7 +25,9 @@ import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji'
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
-import { porId } from '@/lib/api-mako/registro';
+import { porId, aToolDef } from '@/lib/api-mako/registro';
+import { errorParaTicket, propuestaPorFallo, type ErrorDelTurno } from '@/lib/tickets-reglas';
+import { actorDeWhatsApp, LINEA_TICKET_PROPUESTO } from '@/lib/doer-ticket';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, SIN_DATOS_DE_CLIENTES } from '@/lib/doer-herramientas';
 import { listarPendientes } from '@/lib/api-mako/acciones';
@@ -72,6 +74,9 @@ const KEY_SENT = (jid: string) => `mako.doer.sent.${jid}`;     // ids que MANDÓ
 const KEY_MODO = (jid: string) => `mako.doer.modo.${jid}`;     // 'libre' | 'ventana'
 const KEY_VENTANA = (jid: string) => `mako.doer.ventana.${jid}`; // ISO de vencimiento
 const VENTANA_MIN = 15;                       // duración de la ventana de charla libre
+/** Mandarle un ticket al equipo de MaKo (lib/api-mako/areas/tickets.def.ts), como en el chat de la app. */
+const LEVANTAR_TICKET = 'levantar_ticket';
+const TICKET_TOOLS = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToolDef(d)] : []; })();
 
 // La línea de voz de MaKo suele ser el número PROPIO del dueño: sus mensajes y los
 // de MaKo llegan los dos como fromMe. Guardamos los ids que enviamos para poder
@@ -543,7 +548,8 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     if (!textos.length) { await marcarProcesados(cola.map((m) => m.id)); return { engaged: false, skip: 'nada legible en el lote' }; }
     const ultimo = (cola[cola.length - 1].payload as MsgIn) ?? data;
     const sintetico: MsgIn = {
-      key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe },
+      // `participant`: quién escribió (el ticket lo lee, lib/doer-ticket.ts). Sin esto se perdía en todo lote.
+      key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
       pushName: ultimo.pushName,
       message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))) },
     };
@@ -879,14 +885,31 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * Sin repetidos: si el turno rota de proveedor, la herramienta vuelve a correr.
      */
     const paraLaPersona: string[] = [];
+    /**
+     * LOS ERRORES DE MaKo EN ESTE TURNO (lib/tickets-reglas.ts, `errorParaTicket`): van al ticket que se proponga, y si el
+     * modelo no lo propone, lo propone el código al final — el molde del chat de la app (lib/mako-turno-app.ts). Sólo
+     * las fallas de MaKo: un 400 corregible o «no está disponible en este chat» no son un bug.
+     */
+    const erroresDelTurno: ErrorDelTurno[] = [];
+    let ticketPropuesto = false;
     const ctxApi: CtxApi = {
       ws: wsData, canal: 'whatsapp', canalKey: jid, alcance: 'ejecutar', rol: 'admin', turnStart: Date.now(), mensajeUsuario: texto,
+      // Quién escribe, para el ticket: el doer no sabe su email (lib/doer-ticket.ts).
+      actor: actorDeWhatsApp(key?.participant, data.pushName),
+      // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
+      contextoTicket: () => ({
+        pedido: texto,
+        ...(typeof ultimoDeMako === 'string' && ultimoDeMako ? { respuestaMako: ultimoDeMako } : {}),
+        ...(erroresDelTurno[0] ? { error: erroresDelTurno[0].error, herramienta: erroresDelTurno[0].herramienta } : {}),
+      }),
       aPersona: (t) => {
         const x = paraWhatsApp(t);
         if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x);
       },
     };
-    const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS];
+    // `levantar_ticket` va con las de siempre, como en la app: es del área `mako` y ninguna palabra del pedido la trae.
+    // Viaja donde viajan las acciones (en una pregunta MaKo ofrece, en `capturar` no), lo decide `herramientasDelTurno`.
+    const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS];
     // Las herramientas del turno salen de UNA función pura (lib/doer-herramientas.ts), la
     // misma que usa tests/agenda-whatsapp.test.ts: el test armaba el turno a mano, sin el
     // clasificador, y daba verde mientras el turno real llegaba sin la herramienta.
@@ -1083,6 +1106,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
       memo.anotar(name, out);
+      // El ticket mismo no cuenta como falla a reportar: si el modelo lo llamó, ya se intentó (y si falló, proponerlo
+      // otra vez falla igual).
+      if (name === LEVANTAR_TICKET) ticketPropuesto = true;
+      else {
+        const errTicket = errorParaTicket(name, out);
+        if (errTicket) erroresDelTurno.push(errTicket);
+      }
       if (name === 'buscar_tutorial' && typeof out === 'string') textoTutorialSalida = out;
       // El pedido de agenda que queda ABIERTO para el próximo mensaje (ver arriba,
       // `agendaAbierta`), o que se cierra porque ya quedó propuesto.
@@ -1753,6 +1783,18 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       }
     }
 
+    // ── El ticket que propone el CÓDIGO ─────────────────────────────────────────
+    // Una herramienta de MaKo falló en este turno y el modelo no propuso mandárselo al equipo: lo propone el código, con
+    // el error que vio (el molde de lib/mako-turno-app.ts). Queda como pendiente: un «sí» lo manda. La línea que lo dice
+    // la escribe el código, después del saneo: el modelo no sabe que la pendiente existe.
+    if (erroresDelTurno.length && !ticketPropuesto && respuesta && !avisoDeSistema) {
+      const e = erroresDelTurno[0];
+      const prop = await runRegistro(LEVANTAR_TICKET, propuestaPorFallo(e, texto, porId(e.herramienta)?.titulo ?? null))
+        .catch((x) => { console.error(`[mako-doer-in] ws=${wsData} no pude proponer el ticket: ${x instanceof Error ? x.message : String(x)}`); return null; });
+      if (prop && !errorParaTicket(LEVANTAR_TICKET, prop) && !(prop as { isError?: unknown }).isError) respuesta = `${respuesta}\n\n${LINEA_TICKET_PROPUESTO}`;
+      else if (prop) console.warn(`[mako-doer-in] ws=${wsData} el ticket propuesto no quedó: ${String((prop as { content?: unknown }).content ?? '').slice(0, 200)}`);
+    }
+
     // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan
     // las DOS ramas —la IA barata y Claude— y las dos tenían el mismo agujero.
     //
@@ -1882,7 +1924,7 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
           const instancia = String((ultimo as { instance?: string }).instance ?? '');
           if (textos.length) {
             const sintetico: MsgIn = {
-              key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe },
+              key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
               pushName: ultimo.pushName,
               message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))) },
             };
