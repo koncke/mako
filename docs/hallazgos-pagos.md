@@ -284,6 +284,15 @@ avance de un OKR (lib/objectives-fuentes.ts), los gráficos de pagos (lib/grafic
   el plan de cuotas; uno solo, y sólo llena lo que viene vacío.
 - **Lo que no resuelve:** un pago suelto de la venta VIEJA registrado a mano después de agregar al lead a otro funnel se
   guarda en el nuevo (el día de su creación ya estaba ahí). Si pasa, se corrige el `funnel_id` de esa fila.
+- **«Firmado» de una renovación: DESCARTADO por ahora (la otra mitad de la tarjeta).** La revisión del 17/10 lo marcó
+  como a medias, y es cierto: «Firmado» (`sold_usd`) suma `leads.monto_cierre_usd` en `fecha_cierre`, y un lead tiene
+  UN solo trato. Ganar en el tablero de un funnel agregado sólo mueve `lead_funnel.etapa` (`moverEtapaEnProducto`,
+  lib/lead-funnel.ts): no hay monto ni fecha de esa renovación en ningún lado, y «corregir el cierre en el deal» la
+  cuenta pisando la venta del VSL. Contarla bien pide un trato POR FUNNEL (monto y fecha en `lead_funnel`, una pantalla
+  que los pida al ganar ahí, y los cuatro lectores de «Firmado»: objectives-fuentes, graficos-datos, pagos y el desglose)
+  y mueve el número de Revenue de todo el negocio. Para medir renovaciones, el OKR va con «Cobrado», que con esta
+  migración ya cae en el funnel correcto. Si se retoma, empieza en lib/lead-funnel.ts y en `hechosDelPeriodo`
+  (lib/objectives-fuentes.ts), con un `Hecho.funnel` explícito como el de los pagos.
 
 **Vive en:** supabase/migrations/0310_pagos_funnel.sql · lib/funnels-elegidos.ts · tests/pagos-funnel.test.ts ·
 *17/10/2026, chat «CRM» (claude4).*
