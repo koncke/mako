@@ -39,6 +39,8 @@ import {
 } from '@/lib/objectives-modelo';
 import { guardarKpiAction, apagarKpiAction, registrarKpiAction, sembrarKpisAction } from './actions';
 import { Cabeza } from './bloques/comun';
+import { ElegirFunnels } from '../components/ElegirFunnels';
+import { useFunnelsGeneral } from '../dashboard/ElementoGeneral';
 
 export type KpiVista = {
   id: string;
@@ -55,6 +57,8 @@ export type KpiVista = {
   pct: number | null;
   umbralVerde: number;
   umbralAmbar: number;
+  /** De qué funnels cuenta (mig 0306; sólo una fuente del CRM). Vacío = todo el negocio. */
+  funnelIds: number[];
 };
 
 export type CandidatoVista = { nombre: string; porque: string; cadencia: Cadencia; compromiso: number; unidad: UnidadObjetivo; fuente: 'auto' | 'manual' };
@@ -328,6 +332,10 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
   const [fuenteId, setFuenteId] = useState<string>(kpi?.fuenteId ?? FUENTES_KPI[0].id);
   const [objectiveId, setObjectiveId] = useState<string>(kpi?.objectiveId ?? objetivoPrincipalId ?? '');
   const [unidad, setUnidad] = useState<string>(kpi?.unidad ?? 'cantidad');
+  // De qué funnels cuenta (17/10/2026), con la misma pieza que el OKR: sólo lo que sale del CRM, y con dos funnels o más.
+  const funnels = useFunnelsGeneral();
+  const [funnelIds, setFunnelIds] = useState<number[]>(kpi?.funnelIds ?? []);
+  const ofreceFunnels = !!funnels && (funnels.length > 1 || funnelIds.length > 0);
 
   const def = FUENTES_KPI.find((f) => f.id === fuenteId);
 
@@ -340,6 +348,7 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
           compromiso: Number(compromiso) || 0, unidad, fuente,
           fuenteId: fuente === 'auto' ? fuenteId : null,
           umbralVerde: kpi?.umbralVerde, umbralAmbar: kpi?.umbralAmbar,
+          funnelIds: ofreceFunnels ? funnelIds : undefined,
         });
         onCerrar();
         router.refresh();
@@ -397,6 +406,11 @@ function EditorKpi({ kpi, objetivos, objetivoPrincipalId, onCerrar }: {
           <Select label="De dónde lo saca" value={fuenteId}
             onChange={(v) => { setFuenteId(v); const d = FUENTES_KPI.find((f) => f.id === v); if (d) setUnidad(d.unidad); }}
             options={FUENTES_KPI.map((f) => ({ value: f.id, label: f.label }))} hint={def?.que} />
+        )}
+
+        {fuente === 'auto' && def?.porFunnel && ofreceFunnels && funnels && (
+          <ElegirFunnels label="De qué funnels" hint="Elige uno o varios: cuenta lo de todos los que marques."
+            funnels={funnels} valor={funnelIds} onCambiar={setFunnelIds} todos="Todo el negocio" />
         )}
 
         {fuente === 'manual' && (

@@ -346,4 +346,20 @@ export const BITACORA: Hito[] = [
       'app/m/mako/ChatMako.tsx — la fila «Mapa» en la hoja',
     ],
   },
+  {
+    fecha: '17 oct', hora: '04:00', chat: 'Centro de Operaciones', sesion: 'local_aac76313-d8b5-4b86-85f4-e579e4f33304', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Desde el Second Brain le escribes a tus chats de Claude Code',
+    pedido: 'quiero dejar de mandar prompts por aquí, quiero mandar prompts por MaKo en el Second Brain, terminemos de configurar eso así ya comenzamos',
+    puntos: [
+      'En /second-brain, la barra suma «Claude Code»: el Cerebro y cada jefe con sus sub-chats. Elegir uno abre su conversación con la caja firmada.',
+      'En el teléfono, los mismos chats van debajo de los de MaKo en «Tus chats», y cada uno abre su conversación en una hoja.',
+      'Es el mismo Centro, no una copia: el motor y las piezas se comparten con /admin/operaciones. Sólo lo ve Martín, con su segundo factor.',
+    ],
+    archivos: [
+      'app/admin/operaciones/useCentro.ts, PiezasCentro.tsx, datos.ts — el motor, las piezas y la lectura guardada',
+      'app/second-brain/ChatSecondBrain.tsx — la sección «Claude Code»',
+      'app/m/second-brain/SecondBrainCentroM.tsx — el teléfono',
+    ],
+  },
 ];

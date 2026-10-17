@@ -90,9 +90,10 @@ function commitsDe(rutas) {
   }
   return salida.split(FIN).map((bloque) => bloque.trim()).filter(Boolean).map((bloque) => {
     const [sha, fecha, titulo, cuerpo = ''] = bloque.split(SEP);
-    // El trailer dice cuál de las dos cuentas lo hizo. Sin eso no hay a quién
-    // preguntarle por una decisión (ver docs/dos-cuentas.md).
-    const cuenta = /Claude-Cuenta:\s*(claude1|claude2)/.exec(cuerpo)?.[1] ?? '';
+    // El trailer dice qué cuenta lo hizo. Sin eso no hay a quién preguntarle por una
+    // decisión (ver docs/dos-cuentas.md). Con `claude1|claude2` fijos, los commits de la 3
+    // (desde el 10/10) y de la 4 (desde el 16/10) salían sin cuenta y sin ningún aviso.
+    const cuenta = /Claude-Cuenta:\s*(claude\d+)/.exec(cuerpo)?.[1] ?? '';
     // La primera línea del cuerpo que no sea un trailer: es el porqué.
     const porque = cuerpo
       .split('\n')

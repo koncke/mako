@@ -847,6 +847,71 @@ chats con los nombres de las tabs que sean "jefes"», y que el orquestador no es
 **Vive en:** `lib/centro-chats.ts` (`CEREBRO`, `esCerebro`, `seccionesDeChats`) · `app/admin/operaciones/tabs.ts` ·
 `tests/centro-jefes.test.ts`
 
+## El Centro adentro del Second Brain: se monta su MOTOR, no su pantalla (17/10/2026)
+
+**El pedido.** Martín, 17/10 de madrugada: «quiero dejar de mandar prompts por aquí, quiero mandar prompts por MaKo en el
+Second Brain, terminemos de configurar eso así ya comenzamos». Es la tanda 5 de docs/diseno-mako-ai-native.md («el Centro
+como adaptador de la pieza»), adelantada.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+- *Montar `CentroApp` adentro del Second Brain*: las dos páginas son la misma grilla `.co` (barra + panel), así que salen
+  dos barras de chats una al lado de la otra.
+- *Copiar el estado del Centro en `ChatSecondBrain`*: es justo la falla que el diseño ya marcaba («hoy está escrita dos
+  veces», CentroApp y ChatsMovil). Con tres copias del refresco, de la firma y del renombre, se separan en una semana.
+
+Lo que se monta es el MOTOR. `useCentro` tiene la cola y los Runners (cada 8 s), los pushes después de dibujar, la
+Ticketera de cada chat, el borrador y el alcance, `mandar` por `firma.mandar`, Renombrar y el muñeco. `PiezasCentro.tsx`
+tiene la fila, la lista, la conversación y los menús, y `datosDelCentroSiOpera` hace la lectura del servidor.
+CentroApp, CentroAppMovil, ChatSecondBrain y SecondBrainCentroM montan esas piezas. Cada pantalla pone sólo lo suyo:
+
+- el Centro, la Ticketera entera, los Runners y el comando de «Nuevo chat»;
+- el Second Brain, la sección «Claude Code».
+
+**Lo que costó ver:**
+- **Un hook no puede ser condicional, y el Second Brain lo abre todo el mundo.** El motor se monta en un componente
+  aparte (`ConCentro`) sólo cuando el servidor mandó los datos, y le pasa el motor al cuerpo por una función
+  (`children(k)`). Sin datos no corre ningún intervalo ni ninguna lectura de IndexedDB.
+- **La guarda va ADENTRO de la lectura, no en la página.** Las páginas del Centro tienen la guarda y la lectura en su
+  cuerpo, y el test las mira ahí. Una tercera página que leyera la cola por su cuenta tendría que acordarse de la guarda.
+  Por eso `datosDelCentroSiOpera` devuelve null si no `puedeOperar`, y lo hace en sus dos primeras líneas, antes de leer
+  nada (con test).
+- **`?chat=` ya era el número de una conversación con MaKo.** Un chat de Claude Code va en `?centro=<clave>`. Volver del
+  Mapa conserva cuál estaba abierto (`hrefVolver`); si no, la página rearmada abría el jefe de MaKo.
+- **En el teléfono, la conversación no puede vivir adentro de la hoja «Tus chats».** Una hoja sobre otra REEMPLAZA
+  (SheetM.tsx): al elegir un chat se cierra «Tus chats», y si la hoja de la conversación vivía adentro, se desmontaba
+  con ella. Así no se abría nunca, y sin error. Por eso ChatsM va en dos partes: `parte="lista"` adentro y
+  `parte="hoja"` afuera, con el chat abierto en el padre.
+- **El script que rompía el código para probar el test se cayó a mitad y dejó un archivo roto.** Python en esta PC
+  imprime en cp1252, y el «ℹ» de la salida de `node --test` lo tiró (UnicodeEncodeError) ANTES de restaurar. Se restauró
+  a mano. La regla para un script que rompe y restaura: `PYTHONIOENCODING=utf-8`, y la restauración en un `finally`.
+- **El chequeo de tipos acotado no entró en la RAM** con cuatro chats trabajando. La primera vez el vigía lo mató
+  (salida 99), y con el heap bajado se quedó sin memoria (134). Entró a la tercera, con 2,5 GB libres: 13 archivos sin
+  errores. Hay que esperar a que se libere la RAM: bajar el heap no lo hace entrar.
+
+**Vive en:**
+- `app/admin/operaciones/useCentro.ts`, `PiezasCentro.tsx` y `datos.ts`;
+- `app/second-brain/ChatSecondBrain.tsx` (`ConCentro`, la sección «Claude Code»);
+- `app/m/second-brain/SecondBrainCentroM.tsx`;
+- `app/m/operaciones/ChatsMovil.tsx` (`parte`);
+- `tests/second-brain-centro.test.ts`.
+
+## La cuenta 4, y una sesión de la app SÍ abre chats visibles (17/10/2026)
+
+**Una sesión de la app ya puede crear chats.** Lo de arriba («el Centro no puede abrir un chat de Claude Code (medido)», 16/10) quedó viejo para la app de escritorio. La noche del 16 al 17/10, el Cerebro de la cuenta 4 abrió siete chats con `mcp__ccd_session__start_session`: CRM, Onboarding, Centro de Operaciones, Automations, Runner, Video Generator y Dashboard. Cada uno llevaba título y brief, y quedó en la barra lateral. La herramienta aparece como diferida y se carga con ToolSearch. El chat creado arranca solo con su brief y le avisa a quien lo abrió cuando termina un turno. Lo que sigue sin poder hacer una sesión de la app es abrir una de TERMINAL (otra carpeta de config). Para eso, Martín pidió (17/10) «un clic + el permiso de la PC», nunca pegar un comando: está repartido al chat del Centro.
+
+**Sumar una cuenta son cinco lugares, y uno NO.** Los cinco:
+- una línea en `~/.claude/cuentas.tsv`;
+- el marcador `~/.claude/cuenta-activa.txt`;
+- el cartero: `cartero.mjs cartero claudeN app ~/.claude` y `cartero.mjs carpeta <uuid> claudeN`. El uuid es la carpeta NUEVA que aparece en `%APPDATA%\Claude\claude-code-sessions` el día que se loguea;
+- `CUENTAS` en `app/admin/dev/_registro/tipos.ts`, porque un hito firmado con una cuenta que no está ahí rompe /admin/dev;
+- la regex de `scripts/gen-dev-historial.mjs`, que hasta el 17/10 era `claude1|claude2` y dejaba sin cuenta, sin avisar, todo lo de la 3.
+
+Lo que NO se toca es `CUENTAS_TERMINAL` (lib/runner.ts), salvo que la cuenta tenga su función en el `$PROFILE`: si no, el Centro ofrece un comando que falla. Pasó: el panel de Uso le ofreció a Martín `claude4 -n Runner` y PowerShell contestó «not recognized». Arreglado el 17/10: sólo se ofrece comando a una cuenta con su función en el `$PROFILE` (`tieneTerminal`, lib/runner.ts). A la de la app se le dice «Abre su Runner en la app de Claude para conectarlo», y «Nuevo chat» no arranca en ella. Lo fija tests/runner-cuenta-app.test.ts.
+
+**Cómo se supo que era otra cuenta sin preguntar.** `get_usage` dio 0% con reset el 20/10 19:59 UTC; la 3 renueva el 21/10 08:59 UTC. El `userEmail` del contexto traía un gmail que no era de ninguna de las tres, así que esta vez sí describía la cuenta abierta. `list_sessions` vino vacío porque la barra está partida por cuenta. El aviso de «99% semanal» del hook era de la cuenta 3 y no aplicaba.
+
+**Vive en:** `~/.claude/cuentas.tsv` · `~/.claude/operaciones/config.json` · `app/admin/dev/_registro/tipos.ts` · `scripts/gen-dev-historial.mjs` · docs/relevo/cerebro.md («CUENTA 4»)
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -862,6 +927,10 @@ chats con los nombres de las tabs que sean "jefes"», y que el orquestador no es
 
 ## Lo que quedó sin hacer
 
+- **En el Second Brain (17/10) no están la Ticketera entera, los Runners con el Uso ni el «Nuevo chat» de Claude Code**:
+  siguen en /admin/operaciones. Cada chat sí muestra su pregunta arriba de la caja, y la caja ofrece crear y copiar el
+  Token. Si Martín los pide ahí, entran por la barra de `ChatSecondBrain.tsx` con `TicketeraCentro`, `BotonUso` y
+  `NuevoChat`, montados sobre el mismo `useCentro`.
 - ~~El chat «Cartero» con su cron~~: corre desde el 15/10 en la cuenta 3 («pasó hace 41 s») y la PC acepta un Token
   (`cartero.mjs estado`, 15/10). Falta que Martín lo renombre a «Runner» (la línea, en docs/relevo/centro-operaciones.md).
 - **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.

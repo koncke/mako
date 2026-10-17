@@ -25,7 +25,7 @@
 
 import type { ToolDef } from '@/lib/anthropic';
 import {
-  AREAS, AREA_INFO, esAccion, esControl, esLectura, alcanceMinimo,
+  AREAS, AREA_INFO, DATOS_DE_CLIENTES_POR_AREA, esAccion, esControl, esLectura, alcanceMinimo,
   type Alcance, type Area, type Canal, type OperacionDef,
 } from './tipos';
 import { permite } from './alcance';
@@ -108,6 +108,10 @@ export const porId = (id: string): OperacionDef | undefined => POR_ID.get((id ??
 export const porArea = (area: Area): readonly OperacionDef[] => POR_AREA[area] ?? [];
 
 export const esArea = (s: string): s is Area => (AREAS as readonly string[]).includes(s);
+
+/** ¿Lo que devuelve esta operación lleva datos de los clientes del negocio (leads, conversaciones, llamadas, cobros)?
+ *  Manda su def; si no dice nada, su área (`DATOS_DE_CLIENTES_POR_AREA`, tipos.ts). */
+export const leeDatosDeClientes = (d: OperacionDef): boolean => d.datosDeClientes ?? DATOS_DE_CLIENTES_POR_AREA[d.area];
 
 /** Con qué mira el catálogo quien pide. Es lo que decide qué VE, no solo qué puede
  *  llamar: a quien no le corresponde, la operación no existe (404, no 403). */

@@ -26,8 +26,9 @@ import {
   type MetricaObjetivo, type UnidadObjetivo, type FuenteKpi, type CandidatoKpi, type Capacidad,
   quarterDe, quarterKey, rangoQuarter, rangoAnio, progresoQuarter, ritmoObjetivo,
   periodoDe, estadoKpi, pctKpi, PESO_ESTADO, proponerCandidatos, capacidadDe,
-  nuevoId, MESES_ENTREGA_DEFAULT, type ProgresoQuarter, type Ritmo,
+  nuevoId, MESES_ENTREGA_DEFAULT, type ProgresoQuarter, type Ritmo, fuentePorFunnel,
 } from './objectives-modelo';
+import { leerFunnelIds } from './funnels-elegidos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Filas ↔ modelo
@@ -36,13 +37,13 @@ import {
 type ObjRow = {
   id: string; anio: number; quarter: number | null; titulo: string; metrica: string;
   meta_valor: number | string; unidad: string; avance_manual: number | string | null;
-  orden: number; estado: string; origen: string;
+  orden: number; estado: string; origen: string; funnel_ids?: unknown;
 };
 type KpiRow = {
   id: string; objective_id: string | null; nombre: string; cadencia: string;
   compromiso: number | string; unidad: string; umbral_verde: number | string;
   umbral_ambar: number | string; fuente: string; fuente_id: string | null;
-  orden: number; activo: boolean; origen: string;
+  orden: number; activo: boolean; origen: string; funnel_ids?: unknown;
 };
 
 const num = (v: number | string | null | undefined, def = 0): number => {
@@ -56,6 +57,7 @@ const aObjective = (r: ObjRow): Objective => ({
   metaValor: num(r.meta_valor), unidad: r.unidad as UnidadObjetivo,
   avanceManual: r.avance_manual === null ? null : num(r.avance_manual),
   orden: num(r.orden), estado: r.estado === 'cerrado' ? 'cerrado' : 'activo', origen: r.origen,
+  funnelIds: leerFunnelIds(r.funnel_ids),
 });
 
 const aKpi = (r: KpiRow): Kpi => ({
@@ -65,10 +67,24 @@ const aKpi = (r: KpiRow): Kpi => ({
   umbralVerde: num(r.umbral_verde, 100), umbralAmbar: num(r.umbral_ambar, 70),
   fuente: r.fuente === 'auto' ? 'auto' : 'manual', fuenteId: r.fuente_id,
   orden: num(r.orden), activo: r.activo !== false, origen: r.origen,
+  funnelIds: leerFunnelIds(r.funnel_ids),
 });
 
 const COLS_OBJ = 'id, anio, quarter, titulo, metrica, meta_valor, unidad, avance_manual, orden, estado, origen';
 const COLS_KPI = 'id, objective_id, nombre, cadencia, compromiso, unidad, umbral_verde, umbral_ambar, fuente, fuente_id, orden, activo, origen';
+
+// ── `funnel_ids` (mig 0306): de qué funnels suma un OKR o cuenta un KPI ───────
+// La migración va ANTES del deploy, pero si todavía no está, pedir la columna da 42703 (al leer) o PGRST204 (al
+// guardar). Al leer se reintenta sin ella: todo OKR/KPI queda en «todos los funnels», que es lo que medía antes.
+// Al guardar sin elegir funnels no se manda; CON funnels elegidos se falla con el motivo — tirar la elección en
+// silencio sería guardar otra cosa que lo que la persona vio.
+const COL_FUNNELS = 'funnel_ids';
+const faltaColFunnels = (e: { code?: string; message?: string } | null): boolean =>
+  !!e && (e.code === '42703' || e.code === 'PGRST204') && (e.message ?? '').includes(COL_FUNNELS);
+const SIN_MIGRACION_0306 = 'Para sumar funnels falta aplicar la migración 0306 (funnel_ids). Avísale al equipo de MaKo.';
+
+/** La columna a escribir: `undefined` = no se toca (al editar queda la que estaba), vacío = todos (NULL). */
+const colFunnels = (ids: readonly number[] | undefined) => (ids === undefined ? {} : { [COL_FUNNELS]: ids.length ? [...ids] : null });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El Q en curso
@@ -94,12 +110,14 @@ export async function quarterActual(): Promise<{ qt: Quarter; hoy: string; progr
  */
 export async function listObjectives(qt: Quarter): Promise<Objective[]> {
   const db = await getTenantDb();
-  const { data, error } = await db
-    .from('objectives').select(COLS_OBJ)
+  const leer = (cols: string) => db
+    .from('objectives').select(cols)
     .eq('anio', qt.anio).eq('estado', 'activo')
     .order('orden', { ascending: true });
+  let { data, error } = await leer(`${COLS_OBJ}, ${COL_FUNNELS}`);
+  if (faltaColFunnels(error)) ({ data, error } = await leer(COLS_OBJ));
   if (error) throw new Error(`listObjectives falló: ${error.message}`);
-  return ((data ?? []) as ObjRow[])
+  return ((data ?? []) as unknown as ObjRow[])
     .filter((r) => r.quarter === null || r.quarter === qt.q)
     .map(aObjective);
 }
@@ -131,19 +149,22 @@ export async function avanceDeObjetivo(o: Objective, hoy: string): Promise<Objec
     ? recalcularProgreso(rango.desde, rango.hasta, hoy, { anio: o.anio, q: 1 })
     : prog;
 
+  // Los funnels que suma (vacío = el negocio entero): cada pago o cierre cuenta en el funnel donde estaba el lead ese
+  // día (lib/funnels-elegidos.ts).
+  const fs = o.funnelIds;
   let lectura: LecturaFuente;
   if (o.metrica === 'libre') {
     lectura = { valor: o.avanceManual, error: o.avanceManual === null ? 'todavía nadie cargó el avance' : undefined };
   } else if (o.metrica === 'cash_usd') {
-    lectura = await leerFuente('cash_usd', rango.desde, rango.hasta);
+    lectura = await leerFuente('cash_usd', rango.desde, rango.hasta, fs);
   } else if (o.metrica === 'sold_usd') {
-    lectura = await leerFuente('sold_usd', rango.desde, rango.hasta);
+    lectura = await leerFuente('sold_usd', rango.desde, rango.hasta, fs);
   } else if (o.metrica === 'cierres') {
-    lectura = await leerFuente('cierres', rango.desde, rango.hasta);
+    lectura = await leerFuente('cierres', rango.desde, rango.hasta, fs);
   } else if (o.metrica === 'agendas') {
-    lectura = await leerFuente('agendas', rango.desde, rango.hasta);
+    lectura = await leerFuente('agendas', rango.desde, rango.hasta, fs);
   } else if (o.metrica === 'leads') {
-    lectura = await leerFuente('leads_nuevos', rango.desde, rango.hasta);
+    lectura = await leerFuente('leads_nuevos', rango.desde, rango.hasta, fs);
   } else {
     lectura = { valor: null, error: `métrica desconocida: ${o.metrica}` };
   }
@@ -187,12 +208,14 @@ export type ObjectiveInput = {
   avanceManual?: number | null;
   orden?: number;
   origen?: string;
+  /** De qué funnels suma. `undefined` = no se toca (al editar queda el que estaba); vacío = todos. */
+  funnelIds?: number[];
 };
 
 export async function upsertObjective(o: ObjectiveInput): Promise<string> {
   const db = await getTenantDb();
   const id = o.id ?? nuevoId('obj');
-  const { error } = await db.from('objectives').upsert({
+  const fila = {
     id,
     anio: o.anio,
     quarter: o.quarter,
@@ -204,7 +227,12 @@ export async function upsertObjective(o: ObjectiveInput): Promise<string> {
     orden: o.orden ?? Date.now(),
     origen: o.origen ?? 'user',
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'workspace_id,id' });
+  };
+  let { error } = await db.from('objectives').upsert({ ...fila, ...colFunnels(o.funnelIds) }, { onConflict: 'workspace_id,id' });
+  if (faltaColFunnels(error)) {
+    if (o.funnelIds?.length) throw new Error(SIN_MIGRACION_0306);
+    ({ error } = await db.from('objectives').upsert(fila, { onConflict: 'workspace_id,id' }));
+  }
   if (error) throw new Error(`upsertObjective falló: ${error.message}`);
   return id;
 }
@@ -227,11 +255,14 @@ export async function cerrarObjective(id: string): Promise<void> {
 
 export async function listKpis(soloActivos = true): Promise<Kpi[]> {
   const db = await getTenantDb();
-  let q = db.from('kpis').select(COLS_KPI).order('orden', { ascending: true });
-  if (soloActivos) q = q.eq('activo', true);
-  const { data, error } = await q;
+  const leer = (cols: string) => {
+    const q = db.from('kpis').select(cols).order('orden', { ascending: true });
+    return soloActivos ? q.eq('activo', true) : q;
+  };
+  let { data, error } = await leer(`${COLS_KPI}, ${COL_FUNNELS}`);
+  if (faltaColFunnels(error)) ({ data, error } = await leer(COLS_KPI));
   if (error) throw new Error(`listKpis falló: ${error.message}`);
-  return ((data ?? []) as KpiRow[]).map(aKpi);
+  return ((data ?? []) as unknown as KpiRow[]).map(aKpi);
 }
 
 export type KpiInput = {
@@ -247,12 +278,16 @@ export type KpiInput = {
   fuenteId?: string | null;
   orden?: number;
   origen?: string;
+  /** De qué funnels cuenta (sólo una fuente `porFunnel`). `undefined` = no se toca; vacío = todos. */
+  funnelIds?: number[];
 };
 
 export async function upsertKpi(k: KpiInput): Promise<string> {
   const db = await getTenantDb();
   const id = k.id ?? nuevoId('kpi');
-  const { error } = await db.from('kpis').upsert({
+  // Un KPI manual o de una fuente que no es del CRM no arrastra funnels: no tendría de dónde contarlos.
+  const funnelIds = k.funnelIds === undefined ? undefined : k.fuente === 'auto' && fuentePorFunnel(k.fuenteId) ? k.funnelIds : [];
+  const fila = {
     id,
     objective_id: k.objectiveId ?? null,
     nombre: k.nombre.trim() || 'KPI',
@@ -269,7 +304,12 @@ export async function upsertKpi(k: KpiInput): Promise<string> {
     orden: k.orden ?? Date.now(),
     origen: k.origen ?? 'user',
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'workspace_id,id' });
+  };
+  let { error } = await db.from('kpis').upsert({ ...fila, ...colFunnels(funnelIds) }, { onConflict: 'workspace_id,id' });
+  if (faltaColFunnels(error)) {
+    if (funnelIds?.length) throw new Error(SIN_MIGRACION_0306);
+    ({ error } = await db.from('kpis').upsert(fila, { onConflict: 'workspace_id,id' }));
+  }
   if (error) throw new Error(`upsertKpi falló: ${error.message}`);
   return id;
 }
@@ -346,7 +386,7 @@ export async function getTableroKpis(hoy: string): Promise<KpiEnTablero[]> {
     let valor: number | null;
     let error: string | undefined;
     if (k.fuente === 'auto') {
-      const l = await leerFuente(k.fuenteId, p.desde, p.hasta);
+      const l = await leerFuente(k.fuenteId, p.desde, p.hasta, k.funnelIds);
       valor = l.valor;
       error = l.error;
     } else if (errorRegistros) {

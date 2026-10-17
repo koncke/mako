@@ -177,3 +177,79 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   onboarding sin el análisis de Offer, «Skills» en el Second Brain, el PDF y la guía del «⋯», Google Calendar.
 - ⚠️ **Nadie lo miró en pantalla**: la PC no tuvo RAM para `next dev` en toda la noche. Lo primero de la próxima
   sesión local es recorrerlo en el ws3 (receta en docs/hallazgos-crm.md).
+
+## CUENTA 4 (17/10, ~00:00-01:30 AR) — el Cerebro sigue en la cuenta 4 (claude4), semanal al 0%, renueva el mar 20/10 16:59
+
+- **Alta de la cuenta 4:** cuentas.tsv, marcador, cartero (carpeta 7d03ccd6 → claude4, fuente «app»), `CUENTAS` de
+  /admin/dev y la regex del historial. Los cinco lugares, en hallazgos-operaciones.md («La cuenta 4…»).
+- **Jefes abiertos por el Cerebro con start_session** (ya se puede: hallazgos-operaciones), cada uno con su brief:
+  - CRM (`local_64949e84…`)
+  - Onboarding (`local_0702928b…`)
+  - Centro de Operaciones (`local_aac76313…`)
+  - Automations (`local_f74a2156…`)
+  - Runner (`local_354ef1cd…`, la vuelta de cada 2 min de la app)
+  - Video Generator (`local_54b66516…`: el puente a Flow con el MÉTODO de flow-mcp; el repo no tiene licencia, así que no se copia código)
+  - Dashboard (`local_ca08f72a…`: los OKR con varios CRM)
+- **Sin abrir por RAM** (0,75 GB libres con 8 chats): Pagos, Web Generator, Offer, Video Editor, MaKo Mobile y Plan. Se abren a
+  medida que un jefe cierre.
+- **Migraciones:** la 0306 es de Dashboard (`funnel_ids` en objectives y kpis; la aplica el Cerebro antes del deploy que la
+  lee). La próxima libre es la 0307. La 0304 sigue reservada para el Image Editor.
+- **Al Centro, en este orden:**
+  1. el panel de Uso ofrece `claude4 -n Runner` y la 4 no tiene función en el $PROFILE;
+  2. Martín quiere «un clic + el permiso de la PC», nunca PowerShell;
+  3. después, mandar prompts desde el Second Brain (la tanda 5, adelantada).
+- **Llamadas del 16/10, REPARTIDAS con el OK de Martín (17/10 ~01:00).** Cada jefe abierto recibió sus tarjetas:
+  - Automations: #868 Brigitte primero, después #845, #850, #851, #852, #849, #847, #882, #846, #869, #873, #874 y #875;
+  - CRM: #855, #854, #856, #843, #844, #880, #890 y #891;
+  - Dashboard: #857, #858, #859, #860, #862, #876 y #886;
+  - Centro: #848, #864, #883 y #884;
+  - Pagos: #866, #867 y #871.
+  La revisión de la extracción está en hallazgos-plan.md.
+- **Plan ordenado (17/10 ~01:30):** 35 tarjetas pasaron del proyecto del cliente al de su tab. #878 y #879 fueron a
+  «Cliente: Mauricio», #875 a Email, y #877 se cerró (la cuenta ya se compró). Se borró «Cliente: Mauricio Bustos» (P84), un
+  duplicado que creó la importación. Las 13 que el extractor dejó afuera son #880-#892.
+- **Jefes sin abrir, por RAM, con sus tarjetas esperando:**
+  - Plan: #870 y el arreglo del extractor (hallazgos-plan);
+  - Video Editor: #853, el editor que se rompe;
+  - Web Generator: #861 y #863;
+  - Offer: #865, #887 y #888;
+  - MaKo Mobile: #872, y las listas de Markdown del hilo del teléfono.
+- **Abiertos después:**
+  - «MaKo en WhatsApp» (`local_d3ed9496…`): el VIGÍA de los grupos de clientes, cada 15 min, que depura cada falla. Primer caso: ws18 (Pablo Chavez), con Calendar conectado y MaKo diciendo que no puede escribir. Tarjeta #885. No toca lib/doer-herramientas.ts hasta que pase la punta del corte de PII de Onboarding.
+  - «Pagos» (`local_d0cd6fc8…`).
+- **Ticketera `acceso-repo-mauricio` → A (sólo lectura), 17/10 00:46, SIN APLICAR.** El modo automático frenó el cambio
+  de permisos en GitHub y también el `recoger`. Lo hace Martín: GitHub → hola-mako/dashboard-marketing → Settings →
+  Collaborators → mauriciobustoseguia y mbustos-digital de Write a Read. Tarjeta #892.
+- **wt-push-q:** el alta de la cuenta 4 y la cosecha ya están en main (run 79 verde, deploy Ready). Este relevo sube con la
+  próxima punta.
+
+## 17/10 ~01:15 AR — la app se cayó (01:05) y GitHub quedó sin acceso
+
+- **Caída de la app a las 01:05, por RAM:** coincidió con nueve chats trabajando y una tanda de tests del Cerebro. El
+  relevo automático retomó los ocho jefes. El Runner conservó su tarea de cada 2 min (44297a23). **Con 9-10 chats NO correr
+  tandas de tests en el Cerebro**: que lo cubran los tests que corrió cada jefe y el run de Actions.
+- **⚠️ GITHUB SIN ACCESO DESDE LA PC.** El git de la PC (Git Credential Manager, token `gho_`) estaba logueado como
+  **mbustos-digital**, uno de los dos usuarios de Mauricio. Tras la decisión de la Ticketera (`acceso-repo-mauricio` → A),
+  ese usuario recibe 404, así que fetch y push dan «Repository not found». Todos los pushes de la PC salían con su usuario. Para
+  arreglarlo, una de dos:
+  - Martín loguea git con SU usuario: `cmdkey /delete:git:https://github.com` y después un `git fetch` en el clon, que abre el login;
+  - o, si mbustos-digital es suyo, le devuelve Write.
+  Sin esto no sale nada.
+- **Esperando en wt-push-q para el primer push:**
+  - la punta 1 de Automations (2c64c61aa: «Sin grupo de MaKo» y la campanita; sin migraciones);
+  - la punta 1 de Onboarding (24ce402a8: el doer de WhatsApp sin datos de clientes en la red gratis, por turno; sin migraciones);
+  - este relevo.
+  Al subir, avisarle a «MaKo en WhatsApp» que ya puede tocar lib/doer-herramientas.ts.
+- **Migraciones asignadas:**
+  - 0306: Dashboard (`funnel_ids` en objectives y kpis);
+  - 0307: Pagos (`pagos.baja_at`, #871);
+  - 0308: Pagos (las columnas de `cobros` para el cliente de una agencia, #866 y #867).
+  La próxima libre es la 0309. Las aplica el Cerebro antes del deploy que las lee.
+- **Mensajes que no salieron:** la app frena los mensajes entre chats después de ~10 automáticos hasta que Martín escribe. Quedaron
+  sin enviar el OK de la 0307/0308 a Pagos y el aviso de GitHub a todos los jefes menos Automations.
+- **Nube / RAM (pedido de Martín: «comprar RAM» como Grok Bot):** `list_start_targets` da nube NO disponible
+  («no_readable_git_checkout»: la carpeta del proyecto en la app es la de OneDrive de arriba, no el repo) y ningún SSH
+  guardado. Dos caminos:
+  - Nube de Claude Code: incluida en el plan. Hace falta abrir el proyecto en la carpeta del repo, crear el entorno en
+    claude.ai/code con las variables del .env.local y la GitHub App en la org hola-mako;
+  - un servidor propio por SSH: es gasto, así que lo decide Martín.

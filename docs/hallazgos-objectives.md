@@ -858,7 +858,55 @@ arnés de la sexta vuelta.
 llamadas, proyecto) · `lib/general-plantillas.ts` · `lib/graficos-temas.ts` (el tema «General»).
 *14/10/2026, claude1, chat General.*
 
+## Un OKR que suma varios funnels: el pago no es del funnel de la casa del lead (17/10/2026)
+
+**Síntoma.** Un cliente (el ws1, por WhatsApp a las 00:10): «al momento de poner un OKR objetivo se referencia vs el
+funnel VSL de negocio que escala y no del funnel de renovación… ¿cómo le digo de dónde tomar los ingresos?». Martín:
+«que sea una selección múltiple y que puedas seleccionar 1 o varios». Hoy el OKR no elegía nada: sumaba el negocio
+entero (`leerFuente` sin filtro).
+
+**El diagnóstico obvio era el equivocado.** «Filtrar por `leads.funnel_id`» —la regla de las métricas desde la mig 0207,
+«sólo la casa»— da **cero** para el funnel que trajo el pedido. Medido en la base el 17/10: en el ws1, «Renovación»
+(id 29) tiene **0 leads con casa ahí y 5 AGREGADOS** (`lead_funnel`, el 13/10); «Negocio que ESCALA» tiene los 1.164. Un
+funnel de renovación es, por construcción, gente que ya compró en otro: nunca va a ser su casa. Y un pago no guarda de
+qué funnel es: cuelga del lead.
+
+**La regla que quedó** (`funnelDelMomento`, lib/funnels-elegidos.ts, con test probado rompiéndolo): cada pago o cierre
+cuenta en el funnel donde estaba el lead **ese día** — su casa, o el último funnel al que se lo agregó en esa fecha o
+antes. Cada pago va a UN funnel, así que «VSL + Renovación» da el total sin contar nada dos veces. Medido con el lector
+de verdad contra el ws1: Q4 cobrado = 4.775 con «todos», 4.775 con el VSL, **0 con Renovación** (esos 5 clientes no
+tienen pagos después del 13/10: sus cuotas son de la venta del VSL) y 4.775 con los dos. Cuando se cobre una renovación
+como pago del lead, cae en Renovación.
+
+- **Vacío = todo el negocio**, que es lo que medía antes: un OKR viejo da el mismo número sin migrar nada. La columna
+  es `funnel_ids bigint[]` en `objectives` y en `kpis` (mig 0306); sin la migración aplicada, leer reintenta sin la
+  columna (42703) y guardar CON funnels falla diciéndolo (PGRST204).
+- **Lo que no resuelve:** una cuota vieja del VSL que se cobra DESPUÉS de agregar al lead a Renovación cuenta en
+  Renovación. Y «Firmado» nunca va a contar una renovación: ganar en el tablero de un agregado no escribe un cierre
+  (`fecha_cierre` y `monto_cierre_usd` son de la casa). Para renovaciones, el OKR va con «Cobrado».
+- **Los tres lectores usan la misma ubicación** (`ubicarLeads`, lib/funnels-elegidos-server.ts): el avance del OKR y
+  del KPI, el desglose del hero de /general (si no, el pop-up lista lo que el número no suma) y la dimensión
+  «Producto» de los pagos del Dashboard.
+
+**Vive en:** `lib/funnels-elegidos.ts` (la regla, pura) · `lib/funnels-elegidos-server.ts` · `lib/objectives-fuentes.ts`
+(`leerEnFunnels`) · `app/components/ElegirFunnels.tsx` (la pieza: el Dropdown con `varios` y «Todos» como renglón) ·
+`app/general/EditarObjetivo.tsx` · `app/general/KpisCard.tsx` · «A quién cobrarle» (`funnels` en el elemento, un
+`funnel` viejo se lee como lista de uno: `funnelsDeBloque`, lib/general-piezas.ts) · la API (`funnels` en
+guardar_objetivo y guardar_kpi; `funnels_del_negocio` en listar_objetivos).
+*17/10/2026, claude4, chat Dashboard.*
+
 ## Lo que quedó sin hacer
+
+- **Elegir funnels en el resto de la app (17/10/2026).** El inventario de cada configuración que elige UN funnel, con
+  archivo, línea y veredicto, está en la carpeta de notas del Cerebro (`dashboard-inventario-un-solo-funnel.md`) y se
+  repartió por tab: campañas → funnel (lib/campana-config.ts:62), la condición «Está en el funnel de» de las
+  automatizaciones (lib/condiciones-catalogo.ts:553), «Guardar en este funnel» de Offer (app/offer/Conclusion.tsx:259),
+  la retro y la API de métricas (lib/queries.ts:1292, siempre el principal) y `ver_funnel` sin parámetro
+  (lib/api-mako/areas/crm.def.ts:118). El arreglo de fondo de la regla de arriba es del CRM: que el PAGO guarde de qué
+  funnel es (tabla `pagos`, «Registrar otro pago» en app/crm/[id]/deal-actions.ts).
+- **El filtro «Producto» de los LEADS del Dashboard mira sólo la casa** (lib/graficos-datos.ts, `rot.producto(x.funnel_id)`):
+  filtrar una hoja por «Renovación» no muestra a los 5 agregados. No es la misma pregunta que la plata: un lead en dos
+  funnels contado en los dos duplica los totales. Sin decidir.
 
 - **General épico (14/10/2026):** «Mi día» quedó con la línea de tiempo de siempre, sólo con letra más grande
   (app/general/bloques/Agenda.tsx). Y los datos de ejemplo de «Avance promedio» (cursos) salen como un número y no como

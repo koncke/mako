@@ -166,6 +166,22 @@ export const CONECTA_TU_CLAUDE = 'Conecta tu Claude en Integraciones: lleva dato
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';
 
 /**
+ * El doer de WhatsApp sin keys propias y con un turno que lleva datos de clientes (17/10/2026): la red gratis no corre
+ * (`turnoParaLaRed`, lib/doer-herramientas.ts). ⚠️ NO dice «Conecta tu Claude» como `CONECTA_TU_CLAUDE`: el
+ * turno con herramientas corre sólo con las keys baratas del negocio (`chatCheapTools`), y la clave de Anthropic del
+ * negocio mueve sólo la cascada de texto (la segunda puerta del veto, docs/hallazgos-ia.md). Mandarlo a conectar su
+ * Claude sería mandarlo a hacer algo que no lo arregla.
+ */
+export function textoSinRedPorDatos(link: string, que: QueIntentaba = 'contestar'): string {
+  return [
+    `⚠️ No puedo ${que}: esto lleva datos de tus clientes, y sin una IA tuya no los mando a la IA gratis de MaKo, que entrena con lo que recibe.`,
+    '',
+    'Conecta tu propia API key de IA y lo hago 👇',
+    link,
+  ].join('\n');
+}
+
+/**
  * El mensaje. Tres reglas:
  *   1. Dice QUÉ pasó, sin adornos y sin echarse una culpa ajena.
  *   2. Dice QUÉ HACER, con el link a la pantalla exacta.

@@ -11,6 +11,9 @@
 //   · el MAPA, con `esAdminDeTab('second-brain')`: a quien no le toca no se le ofrece ni se le manda.
 // ⚠️ Un link de otra pantalla con `?area=` (las claves de escritorio: QUERY_DE_SECCION, `rutaSeccion`) o el
 //    `?panel=mapa` de escritorio llevan al Mapa, si es del admin.
+// ⚠️ Y una TERCERA desde el 17/10 (tanda 5): los chats de Claude Code de Martín (el Cerebro y cada jefe del Centro) van
+//    en la hoja «Tus chats» sólo para quien `puedeOperar`; la guarda va adentro de `datosDelCentroSiOpera`, antes de
+//    leer la cola (SecondBrainCentroM.tsx).
 
 import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
@@ -19,6 +22,8 @@ import { rutaConWs } from '@/lib/workspace';
 import { personaDelRequest, listarSesiones, abrirSesion } from '@/lib/mako-turno-app';
 import { ErrorM } from '@/app/m/_ui';
 import { ChatMako } from '../mako/ChatMako';
+import { SecondBrainCentroM } from './SecondBrainCentroM';
+import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 import '../mako/mako.css';
 
 export const dynamic = 'force-dynamic';
@@ -46,8 +51,9 @@ export default async function SecondBrainPagina({ searchParams }: {
   try {
     const sesiones = await listarSesiones(persona);
     const ultima = sesiones[0] ?? null;
-    const inicial = ultima ? await abrirSesion(persona, ultima.id) : null;
-    return <ChatMako sesionesIniciales={sesiones} inicial={inicial} hrefMapa={veMapa ? '/m/second-brain/mapa' : null} />;
+    const [inicial, centro] = await Promise.all([ultima ? abrirSesion(persona, ultima.id) : null, datosDelCentroSiOpera().catch(() => null)]);
+    const chat = { sesionesIniciales: sesiones, inicial, hrefMapa: veMapa ? '/m/second-brain/mapa' : null };
+    return centro ? <SecondBrainCentroM centro={centro} chat={chat} /> : <ChatMako {...chat} />;
   } catch (e) {
     console.error('[m/second-brain] abrir:', e instanceof Error ? e.message : e);
     return <ErrorM frase="No pude cargar el chat." />;

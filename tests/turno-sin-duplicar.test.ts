@@ -135,7 +135,8 @@ test('la misma pendiente en el mismo turno se reusa; otra o de antes, no', () =>
 
 test('cada corrida del doer abre un intento nuevo: ninguna recibe `runTool` pelado', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  const corridas = [...doer.matchAll(/chat(?:Cheap|Claude)Tools\(system, msgs, tools, ([^,]+),/g)].map((m) => m[1].trim());
+  // La red de plataforma corre con su propio system y sus herramientas (sin las que leen datos de clientes, 17/10/2026).
+  const corridas = [...doer.matchAll(/chat(?:Cheap|Claude)Tools\((?:system|systemRed), msgs, (?:tools|toolsRed), ([^,]+),/g)].map((m) => m[1].trim());
   assert.ok(corridas.length >= 6, `encontré ${corridas.length} corridas: cambió la forma y este test ya no mira nada`);
   assert.deepEqual(corridas.filter((c) => c !== 'nuevoIntento()'), [], 'una corrida que no abre intento repite las acciones');
   assert.match(doer, /const nuevoIntento = \(\) => \{ memo\.nuevoIntento\(\); return runTool; \};/);

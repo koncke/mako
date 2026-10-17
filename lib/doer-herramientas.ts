@@ -15,7 +15,7 @@
 // =============================================================================
 
 import { CONTRATO, areasDelMensaje, sinPrefijoDeLote, type Intencion, type VeredictoIntencion } from './mako-intencion';
-import { toolsDelRegistro, porId, type Vista } from './api-mako/registro';
+import { toolsDelRegistro, porId, leeDatosDeClientes, type Vista } from './api-mako/registro';
 import type { ToolDef } from './anthropic';
 import type { Area } from './api-mako/tipos';
 
@@ -45,6 +45,59 @@ export const PRESUPUESTO_REGISTRO_CHARS = 12_000;
 export function escribe(nombre: string): boolean {
   const d = porId(nombre);
   return !!d && d.tipo !== 'lectura';
+}
+
+/** ¿Esta herramienta, o esta pendiente por su `tipo`, lleva datos de los clientes del negocio? Lo dice el registro
+ *  (`leeDatosDeClientes`), nunca una lista de nombres. Lo que el registro no conoce cuenta como que sí: no saber no es
+ *  poder. El `tipo` de una pendiente resuelve igual que un id (el id o el slug viejo, `lead_etapa`). */
+export function llevaDatosDeClientes(nombre: string): boolean {
+  const d = porId(nombre);
+  return !d || leeDatosDeClientes(d);
+}
+
+/** La línea del system cuando la red corre sin las herramientas que leen datos de clientes: el modelo no las tiene, y
+ *  sin esto contesta como si hubiera mirado (o deduce de la conversación). */
+export const SIN_DATOS_DE_CLIENTES = 'EN ESTE TURNO NO PUEDES LEER LEADS, CONVERSACIONES, LLAMADAS NI COBROS: el negocio no tiene una IA propia que conteste, y esos datos no van a la de MaKo. Si lo que te piden los necesita, dilo en una línea y nada más; no los deduzcas de la conversación.';
+
+/** Lo que la red gratis hace con un turno: cortarlo (y por qué) o correrlo con estas herramientas. */
+export type TurnoDeLaRed<T> =
+  | { cortar: string[] }
+  | { cortar: null; tools: T[]; sacadas: string[] };
+
+/**
+ * ⛔ EL TURNO QUE PUEDE IR A LA RED GRATIS DE LA PLATAFORMA (17/10/2026).
+ *
+ * Las keys gratis de la agencia son el plan gratis de Gemini y de Groq, que entrena con lo que recibe, y los datos de
+ * los clientes de un cliente nunca van ahí (AGENTS.md, 16/10/2026). La cascada tiene su corte; el bucle propio del doer
+ * sobre `provsGratisDePlataforma` (lib/mako-doer-in.ts, «LA RED DE PLATAFORMA») no lo heredaba, y era el agujero más
+ * grande: con las keys de un negocio caídas, la conversación sobre sus leads iba a la key gratis de la agencia.
+ *
+ * POR TURNO y no por negocio. ⚠️ El diagnóstico obvio —«si viaja una herramienta que lee leads, se corta»— cortaba casi
+ * todo: las de siempre traen `buscar_leads` y `ficha_lead` en CUALQUIER consulta, y «hola MaKo, ¿cómo estás?» se
+ * clasifica `consultar` (medido el 17/10). Sin keys propias, MaKo contestaba «esto lleva datos de tus clientes» a un
+ * saludo. Así que:
+ *   - se CORTA si hay una pendiente vigente con datos de clientes (su resumen va en el system y `confirmar_accion`
+ *     devuelve lo que hizo), o si lo que la persona PIDIÓ es de clientes: el registro sumó herramientas por las áreas
+ *     que nombró y TODAS los leen («¿qué leads entraron hoy?», «agéndame una reunión con Juan»);
+ *   - si no, corre SIN las herramientas que los leen (`sacadas`), y el system se arma con las que quedan.
+ */
+export function turnoParaLaRed<T extends { name: string }>(p: {
+  tools: readonly T[];
+  /** Lo que el registro sumó por las áreas que nombró la persona (`Turno.delRegistro`). */
+  delRegistro: readonly { name: string }[];
+  /** Los `tipo` de las pendientes vigentes que ve el turno. */
+  tiposPendientes: readonly string[];
+}): TurnoDeLaRed<T> {
+  const pendientes = p.tiposPendientes.filter(llevaDatosDeClientes);
+  if (pendientes.length) return { cortar: pendientes.map((t) => `pendiente ${t}`) };
+  if (p.delRegistro.length && p.delRegistro.every((t) => llevaDatosDeClientes(t.name))) {
+    return { cortar: p.delRegistro.map((t) => t.name) };
+  }
+  const tools = p.tools.filter((t) => !llevaDatosDeClientes(t.name));
+  const sacadas = p.tools.filter((t) => llevaDatosDeClientes(t.name)).map((t) => t.name);
+  // Un turno que traía herramientas y se queda sin ninguna no tiene con qué hacer lo que se le pidió.
+  if (p.tools.length && !tools.length) return { cortar: sacadas };
+  return { cortar: null, tools, sacadas };
 }
 
 /**

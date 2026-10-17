@@ -105,7 +105,9 @@ test('en las pantallas del Centro no hay «pedidos»: son trabajos (la palabra e
   for (const f of ['app/admin/operaciones/CentroApp.tsx', 'app/admin/operaciones/Conversacion.tsx', 'app/admin/operaciones/Hilo.tsx',
     'app/admin/operaciones/PanelRunner.tsx', 'app/admin/operaciones/acciones.ts', 'app/admin/operaciones/page.tsx',
     'app/admin/operaciones/Avance.tsx', 'app/m/operaciones/RunnerMovil.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/operaciones/CentroAppMovil.tsx',
-    'app/m/operaciones/page.tsx']) {
+    'app/m/operaciones/page.tsx',
+    // Desde el 17/10 el motor y las piezas que /second-brain monta (tanda 5).
+    'app/admin/operaciones/useCentro.ts', 'app/admin/operaciones/PiezasCentro.tsx', 'app/m/second-brain/SecondBrainCentroM.tsx']) {
     const malos = textos(sinComentarios(leer(f))).filter((t) => /\bpedidos?\b/i.test(t));
     assert.deepEqual(malos, [], `${f}: en la pantalla se dice «trabajo»`);
   }
@@ -125,7 +127,9 @@ test('el Centro en el teléfono: el mismo guard antes de leer, manda por el mism
   for (const src of [pagina, vista, chats, pestanas]) {
     assert.doesNotMatch(src, /encolarPedido|cancelarPedido|crearTokenCartero/, 'el teléfono manda sólo por mandar.ts');
   }
-  assert.match(pestanas, /from '@\/app\/admin\/operaciones\/mandar'/, 'la firma es la de la computadora (useFirma)');
+  // Desde el 17/10 la firma llega por el motor del Centro (useCentro.ts), el mismo de la computadora y del Second Brain.
+  assert.match(pestanas, /from '@\/app\/admin\/operaciones\/useCentro'/, 'el teléfono usa el motor de la computadora');
+  assert.match(sinComentarios(leer('app/admin/operaciones/useCentro.ts')), /import \{ copiar, useFirma \} from '\.\/mandar';/, 'la firma es la de la computadora (useFirma)');
   const mandar = sinComentarios(leer('app/admin/operaciones/mandar.ts'));
   assert.match(mandar, /await encolarPedidoAction\(\{ firmado, firma, clavePublica: clave\.spki \}\)/, 'mandar.ts encola por la acción guardada, con el texto firmado tal cual');
   assert.doesNotMatch(mandar, /^'use client'/, 'sin use client: el teléfono no se lleva la pantalla de escritorio');
