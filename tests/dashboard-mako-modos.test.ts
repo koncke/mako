@@ -52,5 +52,6 @@ test('el panel de MaKo dice en qué modo está y deja pasar al otro', () => {
   assert.match(ed, /<PanelAnalista [^>]*onModo=\{conModosMako \? cambiarModoMako : undefined\}/);
   assert.match(ed, /<PanelEditarMako [^>]*onModo=\{conModosMako \? cambiarModoMako : undefined\}/);
   // Los modos, sólo si la persona tiene los dos (el AI Analyst no es del que sólo mira; editar, del que guarda).
-  assert.match(ed, /const conModosMako = !soloMirar && guardable && !enBlanco && !compartido;/);
+  // Y sólo EDITANDO (17/10/2026, tests/dashboard-mako-vista.test.ts): mirando, MaKo asesora y no ofrece pasar a Editar.
+  assert.match(ed, /const conModosMako = editando && !soloMirar && guardable && !enBlanco && !compartido;/);
 });

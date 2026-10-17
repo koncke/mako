@@ -470,3 +470,12 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - **Migraciones SIN aplicar:** 0314 (Chatwoot, de B1-infra) y 0316 (archivero_origen, de B3). El código anda sin ellas.
   - **Ops Center 5:** trabajando en los 11 puntos del chat (pedidos 9cbdcb57, c70103dc y 62187256).
   - **SEMANAL de la cuenta 4:** 76%.
+- **21:55 UTC:**
+  - **En producción:** el run 127 (B5 y la punta 1 del Ops Center 5) y el run 128 (la punta 2).
+  - **Cerrados en el Centro:** c70103dc, 62187256, 9cbdcb57 y 41f3572c.
+  - La fila #280 «Tareas de Reuniones al Plan» se creó PAUSADA. Martín la prende con una CONDITION que excluya al ws13.
+  - «Tu Contraseña Cambió» no sale con la mudanza: es un evento de persona. Se crea desde su plantilla en SuperAdmin.
+  - El teléfono de Martín es ANDROID (está en la memoria).
+  - docs/pendientes.md quedó marcado DESACTUALIZADO; se concilia después del 20/10.
+  - Todos los agentes terminaron; no queda ninguno corriendo.
+  - **SEMANAL cuenta 4:** ~76%. Lo que queda, en cada relevo «para después del 20/10».

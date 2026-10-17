@@ -72,9 +72,14 @@ function historialDe(hilo: readonly MensajeEdicion[]): TurnoEdicion[] {
   }).slice(-TURNOS_IA);
 }
 
-export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplicar, onDeshacer, onCrearHoja, onAbrirHoja, onArchivarHoja, onCerrar, textoInicial = '', onModo }: {
+export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplicar, onDeshacer, onCrearHoja, onAbrirHoja, onArchivarHoja, onCerrar, textoInicial = '', onModo, editando }: {
   /** La hoja abierta. */
   hoja: Hoja;
+  /**
+   * Si la persona está EDITANDO la hoja (17/10/2026). El editor sólo monta este panel editando, y la ruta no cambia nada
+   * sin esto (`permisoEdicionMako`): en vista, MaKo asesora.
+   */
+  editando: boolean;
   informe: 'dashboard' | 'general';
   /** El hilo de ESTA hoja (lo guarda el editor, así cerrar y abrir el panel no lo pierde). */
   hilo: readonly MensajeEdicion[];
@@ -156,7 +161,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
       if (deEstaHoja) {
         const res = await fetch('/api/graficos/editar', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hoja: enviada, pedido: deEstaHoja, historial, informe }), signal: c.signal,
+          // 17/10/2026: el server sólo cambia la hoja con el modo, «editando» y ESA hoja (`permisoEdicionMako`).
+          body: JSON.stringify({ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada.id }), signal: c.signal,
         });
         const j = await res.json().catch(() => null) as { ok?: boolean; respuesta?: unknown; cambios?: unknown; avisos?: unknown; hoja?: unknown; analizar?: unknown; error?: string; link?: string } | null;
         if (ctrl.current !== c) return;

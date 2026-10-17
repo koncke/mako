@@ -39,6 +39,21 @@ import { esPiezaGeneral, piezaGeneral } from './general-piezas';
 export const CLAVE_PROMPT_EDITAR = 'dashboard.editar-ia.system';
 
 /**
+ * UN MaKo EN VISTA ASESORA; SÓLO EDITA QUIEN ESTÁ EDITANDO, Y LO DECIDE EL SERVER (Martín, 17/10/2026 19:31: «al estar
+ * en VISTA del dashboard debería asesorar, no modificar el dashboard»). El botón de MaKo de la topbar abría «Editar con
+ * MaKo» también MIRANDO la hoja, y lo que devolvía entraba por `mutar` y lo escribía el autoguardado: «analizar» sólo
+ * frenaba los cambios si el MODELO marcaba el pedido como análisis. La ruta (app/api/graficos/editar) llama a esto ANTES
+ * de gastar un token: sin el modo «editar», sin «editando» y con otra hoja que la que se manda, no hay cambios.
+ * Test: tests/dashboard-mako-vista.test.ts.
+ */
+export function permisoEdicionMako(body: { modo?: unknown; editando?: unknown; hojaId?: unknown } | null | undefined, hojaId: string): { ok: true } | { ok: false; error: string } {
+  if (body?.modo !== 'editar' || body?.editando !== true || body?.hojaId !== hojaId) {
+    return { ok: false, error: 'Mirando la hoja, MaKo sólo la analiza. Para cambiarla, toca Editar.' };
+  }
+  return { ok: true };
+}
+
+/**
  * El system, registrado y editable en /configuraciones. SIN slots: el catálogo, la hoja, lo que se habló y el pedido van
  * en el user (`userDeEdicion`), así un override guardado no pierde un conjunto nuevo.
  * ⚠️ Es un template literal: adentro no va ningún backtick, y la ÚNICA interpolación es la lista de períodos.

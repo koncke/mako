@@ -1788,6 +1788,22 @@ hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con 
 tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
 pantalla, ni en el log.
 
+## Y un MaKo en vista asesora: sólo edita quien está editando, y lo decide el SERVER
+
+Le pasó a Mauricio (cliente, ws1) el 16/10/2026. Estaba MIRANDO una hoja del Dashboard, y el botón de MaKo de la
+topbar abría «Editar con MaKo». Lo que devolvía entraba por `mutar` y lo escribía el autoguardado. La regla «un análisis
+no toca la hoja» vivía en las dos capas, pero las dos dependían de que el MODELO marcara el pedido como análisis.
+Ninguna línea preguntaba si la persona estaba editando.
+
+- **El modo lo pone la PANTALLA, no el modelo ni la persona con un clic:** vista → analizar; editando → editar.
+- **La ruta que arma cambios exige el modo, el «editando» y la entidad que se edita**, y si falta algo contesta sin
+  cambios ANTES de gastar un token. El de la hoja es `permisoEdicionMako` (lib/graficos-ia-edicion.ts). Un chat de
+  MaKo nuevo con poder de cambiar algo trae el suyo.
+- **En vista, el MaKo de esa pantalla es el que analiza** (el AI Analyst en el Dashboard), y el panel que cambia no se
+  monta.
+- El plan para llevarlo a todos los chats de MaKo: [docs/diseno-chats-de-mako.md](docs/diseno-chats-de-mako.md).
+  El hallazgo: [docs/hallazgos-graficos.md](docs/hallazgos-graficos.md) → «Mirando, MaKo cambiaba la hoja».
+
 ## Y un canal de MaKo no promete: su respuesta es el FINAL del turno
 
 Un turno del doer (o de cualquier chat de MaKo) termina cuando contesta. No hay un «después» en el

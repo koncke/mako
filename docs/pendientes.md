@@ -1,5 +1,7 @@
 # Lo que quedó pendiente (17/10/2026)
 
+> ⚠️ **DESACTUALIZADO desde el 17/10/2026 a la noche.** Ese día los paquetes B1 a B5, MaKo Mobile y los Ops Center 4 y 5 cerraron muchos de estos puntos (runs 118 a 128). Cada uno dejó en el relevo de su área lo que cerró y lo que quedó «para después del 20/10». Antes de tomar un punto, mirá el relevo del área y el `git log` de su fuente. La conciliación de esta lista queda para cuando se renueve la ventana semanal (20/10).
+
 Inventario de TODO lo pendiente de las implementaciones de MaKo, pedido por Martín el 17/10. Salió de leer los 40 relevos
 (docs/relevo/), las secciones «sin hacer» de los 35 docs/hallazgos-*.md y las memorias. Cada punto se verificó contra el
 código de ese día, y una crítica sacó lo que ya estaba hecho. **Es una foto con fecha**: antes de tomar un punto, mirá su fuente.
