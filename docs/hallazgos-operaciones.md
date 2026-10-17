@@ -1080,6 +1080,79 @@ Lo que NO se toca es `CUENTAS_TERMINAL` (lib/runner.ts), salvo que la cuenta ten
 
 **Vive en:** `~/.claude/cuentas.tsv` · `~/.claude/operaciones/config.json` · `app/admin/dev/_registro/tipos.ts` · `scripts/gen-dev-historial.mjs` · docs/relevo/cerebro.md («CUENTA 4»)
 
+## Adjuntos hasta la PC, los «Ya está» en Review, el Runner y la nube en la lista (17/10/2026)
+
+**El pedido.** Martín: «Realmente quiero comenzar a dar feedback de las cosas pero me estás trabando». El relevo del
+Ops Center (cuenta 4) hizo cinco puntas chicas: el grafo al tocar «Second Brain», adjuntar en la caja, los «Ya está»
+en Review, el Runner y la nube en la lista, y el clic sin PowerShell (este último, a medir con Martín).
+
+**Adjuntos: lo que protege es la FIRMA, no el servidor.** Lo obvio era «MaKo valida el archivo y la PC lo baja». Pero
+con MaKo comprometida, MaKo es justamente quien miente. Así quedó:
+- el NAVEGADOR calcula el sha256 de los bytes que sube y lo firma con el trabajo (`subirAdjuntos`, mandar.ts);
+- si MaKo devuelve otro hash, la caja no firma;
+- la PC compara lo que baja con ESE hash, con el tamaño y con el tipo por los primeros bytes (`bajarAdjuntos`, cartero.mjs);
+- el nombre en disco lo arma la PC, con la extensión del TIPO y nunca la que trajo («virus.exe» de tipo PNG se guarda
+  como `2-virus.png`).
+
+**La revisión de seguridad del Cerebro encontró dos defectos que los tests no veían** (cartero 1.9.1). Los dos son
+trampas del entorno, no de la lógica:
+- **`Number(r.headers.get('content-length'))` da 0 cuando no hay header.** Una respuesta «chunked» no trae
+  content-length, el tope «pasaba», y `arrayBuffer()` leía todo a la RAM: 50 MB reproducidos en Node 24. Con gzip, el
+  content-length es el COMPRIMIDO. El arreglo: pedir `accept-encoding: identity`, rechazar lo comprimido y leer
+  `r.body` en partes, cortando apenas pasa lo firmado. El test manda 400 partes de 64 KB y mira que se corte en las
+  primeras.
+- **Un trabajo `tomado` no tenía salida.** El acuse era su único camino, y cancelar y vencer miran sólo lo `escrito`.
+  Con los adjuntos la ventana crece: el Runner baja el archivo entre reclamar y escribir el buzón, y su Bash corta a los
+  120 s. Ahora lo tomado sin acuse vence a las 2 horas (`TOMADO_VENCE_MS`) como «no sé si llegó» y borra sus adjuntos.
+  Además, MaKo da un adjunto sólo en los 15 minutos después de tomado.
+
+**Un campo que cambia lo que la PC HACE se habilita por versión.** La regla del campo opcional dice «un cartero de antes
+lo ignora». Con el modelo eso alcanzaba. Con un adjunto es una pérdida silenciosa: el trabajo saldría sin sus archivos y
+nadie lo diría. Por eso la caja no muestra el «+» hasta que el Runner de esa cuenta suba la versión que baja adjuntos
+(`aceptaAdjuntos`). La versión se compara por número: «1.10.0» es mayor que «1.9.1». La regla quedó en AGENTS.md.
+
+**La subida es una ruta y no una server action**: la action corta el cuerpo en 1 MB y una captura pesa más. El tope es
+el de Vercel (~4,5 MB, un 413 en texto plano), el mismo del chat con MaKo: 4 archivos y 4 MB en total. Una captura de
+hasta 1,5 MB va tal cual, porque el texto de una captura se lee mejor en PNG. Una foto más grande se achica.
+
+**Los «Ya está» en Review.** Cada «Ya está» es el último texto de un turno (rol `el`, del transcript). Va a Review y no
+al Plan: el Plan son los pedidos y los trabajos, y un «Ya está» cierra uno de ellos. Contarlo dos veces inflaría el
+«8/13». Sobre la ruta que deja:
+- lo que parece una ruta muchas veces es un ARCHIVO: `/c/dev/wt-centro-chat`, `app/x.tsx`, `cartero.mjs`;
+- `rutaDeYaEsta` los descarta y pasa cada candidato por `rutaParaRevisar`, la misma regla que Review.
+
+**El Runner y la nube en la lista** (cartero 1.10.0):
+- **El Runner ya no se esconde.** Esconderlo era una decisión vieja («al Runner no se le escribe»), y un test la fijaba
+  (cartero-carpetas: «el Runner no es un chat»). Martín la dio vuelta («todo chat abierto se ve»), así que el test ahora
+  fija la regla nueva. El Runner sube con `esRunner`: se ve, su caja dice por qué no, y nunca está en `entregables`
+  (ni en la PC ni en MaKo). Sus vueltas no se suben como conversación.
+- **Un chat de la nube no se une con el de la PC que se llama igual.** Por nombre se unían, y la sesión de la nube
+  quedaba elegible como destino sin tener canal. Su grupo es `nube:<nombre>`.
+- **Sin medir:** la forma real de una fila de `list_sessions` para un chat de la nube. El 17/10 no había ninguno en la
+  cuenta 4 (ni archivado). Por eso el id se acepta amplio (`NUBE_RE`: lo que no es `local_`/`cli_`).
+
+**Lo que costó del entorno:**
+- **El chat anterior seguía corriendo** cuando arrancó el relevo y commiteó en el mismo worktree entre dos comandos.
+  Antes de tocar nada hay que mirar `list_sessions {linked:true}` y `git log`, y pedirle que suelte el worktree.
+- **`git apply --3way` deja los archivos con CRLF** en este clon (`core.autocrlf=true`). Un script que reemplaza
+  texto con `\n` no lo encuentra («el texto aparece 0 veces»), sin romper nada. Pasó al rearmar la punta 4 sobre la 2b.
+- **Un heredoc con backticks en el Bash falla** («unexpected EOF»): los scripts de edición van a un archivo.
+- **El typecheck acotado con 13 archivos lo mató el vigía de RAM** (1,5 GB libres). En tandas de hasta 5 archivos pasó.
+- **Un hook sin `'use client'` no puede traerse un VALOR de un módulo `'use client'`** (`achicarImagen`, de
+  app/m/mako/subir.ts, en useCentro.ts). Los tests del Centro pasaban y el run cayó en tests/frontera-use-client.test.ts:
+  para ese barrido es un server usando una referencia de cliente. El Cerebro mudó la función a
+  app/m/mako/achicar-imagen.ts, sin la directiva. Antes de pasar una punta se corren también ese test y los barridos que
+  recorren el repo (`grep -lE "ls-files|archivosDelRepo|readdirSync" tests/*.test.ts`), no sólo los del área.
+- **Tres tests fijaban la FORMA de una línea** (el import de mandar.ts, la llamada a `firma.mandar`, `mensaje(l.p)`).
+  Un cambio que sólo agrega un argumento los rompía. Se abrieron para seguir exigiendo lo mismo.
+
+**Vive en:**
+- scripts/operaciones/cartero.mjs (`bajarAdjuntos`, `mimePorFirma`, `nombreEnDisco`, `anotarNube`, `leerNube`);
+- lib/operaciones-adjuntos.ts y app/api/operaciones/adjuntos/route.ts;
+- lib/operaciones-reglas.ts (`problemaDeAdjuntos`, `aceptaAdjuntos`, `NUBE_RE`, `TOMADO_VENCE_MS`);
+- lib/centro-chats.ts (`yaEstaDelChat`, `rutaDeYaEsta`, `comoSale`) y app/admin/operaciones/AdjuntosCaja.tsx;
+- tests/centro-adjuntos.test.ts, centro-ya-esta.test.ts y centro-runner-nube.test.ts.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -1095,6 +1168,15 @@ Lo que NO se toca es `CUENTAS_TERMINAL` (lib/runner.ts), salvo que la cuenta ten
 
 ## Lo que quedó sin hacer
 
+- **El clic sin PowerShell (punta 5, 17/10)**: el diseño está en docs/diseno-nuevo-chat-un-clic.md. Antes de construirlo
+  hay que medir con Martín presente que la ventana se vea, porque abre una ventana en su pantalla.
+- **Los adjuntos subidos y nunca firmados** (se cerró la pestaña entre subir y firmar) quedan en el bucket `archivero`,
+  con el prefijo `operaciones/`. No hay barrido (lib/operaciones-adjuntos.ts).
+- **Adjuntar texto** (txt, md, csv, un log): hoy la caja acepta sólo fotos y PDF, lo mismo que el chat con MaKo. Un
+  archivo de texto no tiene firma por bytes: hay que decidir cómo se valida antes de que baje a la PC.
+- **Escribirle a un chat de la nube**: hoy se ve y no tiene caja. `SendMessage` llega a las sesiones de la nube (lo
+  dice `ListAgents`), así que el Runner de la app podría entregarles. Sin medir.
+- **La forma de una fila de `list_sessions` para un chat de la nube**: medirla con el primero que haya.
 - **En el Second Brain (17/10) no están la Ticketera entera, los Runners con el Uso ni el «Nuevo chat» de Claude Code**:
   siguen en /admin/operaciones. Cada chat sí muestra su pregunta arriba de la caja, y la caja ofrece crear y copiar el
   Token. Si Martín los pide ahí, entran por la barra de `ChatSecondBrain.tsx` con `TicketeraCentro`, `BotonUso` y

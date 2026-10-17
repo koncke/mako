@@ -1,54 +1,71 @@
-# Relevo — Centro de Operaciones (17/10/2026; cuenta 4, `claude4`)
+# Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~08:00; cuenta 4, `claude4`)
 
-Lo retomó el chat «Centro de Operaciones» de la cuenta 4 el 17/10 a la madrugada, donde lo dejó el de la cuenta 3
-(16/10, 95% semanal). Lo que costó cada cosa está en `docs/hallazgos-operaciones.md` (la tanda 5, la entrada del
-17/10), `docs/hallazgos-second-brain.md` y `docs/hallazgos-mobile.md`. Lo pedido, textual, está en
-`app/admin/dev/second-brain/bitacora.ts` y `app/admin/dev/centro-operaciones/bitacora.ts`.
+Lo tomó el 17/10 a la mañana el chat «Ops Center» de la cuenta 4, el segundo de ese día (el primero cerró con el
+contexto al 87%). Lo que costó cada cosa está en `docs/hallazgos-operaciones.md`, en la entrada «Adjuntos hasta la PC,
+los "Ya está" en Review, el Runner y la nube» (17/10). Lo pedido, textual, está en
+`app/admin/dev/centro-operaciones/bitacora.ts` y `app/admin/dev/second-brain/bitacora.ts`. Worktree:
+`C:/dev/wt-centro-chat`, rama `centro-chat` (la sube el Cerebro; merge, nunca rebase).
 
-## FEEDBACK DE MARTÍN DEL 17/10 (~01:30 y ~01:45), mirando producción — VA ANTES QUE TODO, en este orden
+## Las cinco puntas del 17/10 (Martín: «quiero comenzar a dar feedback de las cosas pero me estás trabando»)
 
-Llegó por el Cerebro. Textual en sus mensajes; cada punto, con su estado:
+| # | Qué | Commit | Estado |
+|---|---|---|---|
+| 1 | «Second Brain», debajo de la Ticketera, abre el GRAFO (computadora y teléfono) | `9b4ba4eda` + `3cd7776d3` | **en producción** (run 90); el «Ya está» ya se dijo |
+| 2 | Adjuntar fotos y PDF en la caja, y pegar una captura con Ctrl+V, hasta la PC | `f9409f98b` | en integración (run 91) |
+| 2b | Los dos defectos de la revisión de seguridad: la bajada sin tope de RAM, y lo `tomado` sin salida | `2955b1ec6` | en integración, con la 4 |
+| 3 | Review lista cada «Ya está» de un chat como un hecho, con su ruta | `b644d149e` | en integración (run 91) |
+| 4 | El Runner y los chats de la nube en la lista (cartero 1.10.0) | `78165968b` | en integración, con la 2b |
+| 5 | El clic sin PowerShell (docs/diseno-nuevo-chat-un-clic.md) | — | **a medir con Martín** antes de construir (abre una ventana en su pantalla) |
+
+**Lo que hace el Cerebro con eso**:
+- instala directamente el cartero **1.10.0** (no la 1.9.0: tenía los defectos);
+- le pasa al Runner de la app el paso 0 nuevo de `INSTRUCCIONES_RUNNER` (lib/runner.ts): anotar la nube con
+  `cartero.mjs nube`.
+
+Hasta entonces, la caja no muestra el «+» para adjuntar: lo habilita `aceptaAdjuntos` desde la 1.9.1.
+
+**Arreglos del Cerebro que hay que traer** (merge de `origin/integracion` cuando suba):
+- `dc159c742`: `achicarImagen` se mudó a `app/m/mako/achicar-imagen.ts`, sin `'use client'`. useCentro.ts no tiene la
+  directiva, y traerse un VALOR de un módulo `'use client'` rompía `tests/frontera-use-client.test.ts`;
+- `852198de7`: tests/centro-adjuntos.test.ts en la lista de `scripts/rutas-windows-en-tests.mjs`. Hay que sumar ahí
+  también tests/centro-runner-nube.test.ts, que tiene el mismo `C:\dev\x` como cwd.
+
+**Antes de pasar una punta** se corren, además de centro-*, operaciones*, second-brain*, cartero*,
+puente-panel-copy y progreso:
+- `tests/frontera-use-client.test.ts`;
+- los barridos que recorren el repo: `grep -lE "ls-files|archivosDelRepo|readdirSync" tests/*.test.ts`.
+
+**Lo que sigue, en este orden:**
+1. **La punta 5, medida con Martín presente.** Desde la herramienta Bash de una sesión de la app se lanza
+   `powershell.exe -NoExit -EncodedCommand <claude2 -n 'Prueba del clic' '<mensaje corto>'>` con `spawn(…, { detached:
+   true, stdio: 'ignore' })`. Martín dice si vio la ventana y si el chat arrancó con el mensaje. Con eso se construye
+   lo del diseño (el trabajo «abrir» con `destino: 'nuevo'`, `abre`, `aperturas/`, `abrir`, `abrir-permitir`). Toca
+   cartero.mjs: avisar ANTES al Cerebro.
+2. Lo que quedó de la tabla del 17/10 (abajo): el plan y la ventana de 5 h de la cuenta de la app en el Uso (punto 4).
+3. Las tandas 8, 7, 9 y 6 del Second Brain, y «Skills».
+
+**Lo que Martín tiene que hacer por el Ops Center:**
+- con la 1.10.0 instalada, probar un adjunto de punta a punta: una captura con Ctrl+V a un chat, y que el chat abra la
+  ruta que le llegó;
+- estar presente para la medición de la punta 5.
+
+**Regla de Martín (17/10, en AGENTS.md):** el «Ya está» de lo que llegó a producción lo escribe CADA chat en Ops Center,
+con la ruta donde se prueba, cuando el Cerebro avisa que llegó. De las puntas 2, 2b, 3 y 4 todavía no se escribió.
+
+## FEEDBACK DE MARTÍN DEL 17/10 (~01:30 y ~01:45), mirando producción — su estado
 
 | # | Pedido | Estado |
 |---|---|---|
-| 1 | «los chats no se entienden»: la conversación como un chat de verdad, con lo que Martín escribió y lo que el chat le CONTESTÓ (el texto final de cada turno, del transcript). Los hitos van a la barra del Plan | **hecho, sin migración** (app_settings): de cada turno, el primer texto («Voy a trabajar en…») y el último («Ya está»). «Sin noticias del Runner desde las…» con la foto vieja. Para que ande: cartero 1.8.0 instalado. Sin mirarlo con chats reales |
+| 1 | «los chats no se entienden»: la conversación como un chat de verdad | **en producción** (run 90): de cada turno, el «Voy a trabajar en…» y el «Ya está»; «Sin noticias del Runner desde las…» con la foto vieja. El Cerebro borró las marcas viejas y el Runner volvió a subir las conversaciones (54 chats, 06:22 UTC) |
 | 2 | «El Second Brain y el Centro deberían ser exactamente lo mismo en SuperAdmin» | **hecho**: Ops Center, una pantalla con dos puertas (app/second-brain/pagina.tsx) |
-| b | «que quede el nombre de "Ops Center"» | **hecho** (barra, teléfono, título) |
-| c | «que "Second brain" sea la sub tab debajo de la Ticketera» | **hecho** (también en el teléfono, una fila debajo de «Ticketera») |
-| 3 | elegir la cuenta al mandar, con «Automático» por defecto (la de más cuota libre que pueda correr ese chat) | **hecho** (computadora y teléfono): sólo las cuentas donde el chat vive; abrirlo en otra es el clic |
-| 4 | el Uso de las CUATRO cuentas, con su plan, la de 5 horas y la semanal, y «medido hace X» | **hecho en la pantalla**; falta que la PC mande el plan y la 5 h de la cuenta de la app (cartero.mjs y el Runner) |
-| 5 | ningún «Pega su comando en PowerShell» en ninguna pantalla: el clic más el permiso de la PC | el Uso ya no lo dice; falta el clic (docs/diseno-nuevo-chat-un-clic.md), que saca los de PanelRunner y «Nuevo chat» |
-| 6 | Review con TODO lo terminado; sin ruta, la tab de su área | **hecho** |
-| 7 | elegir el modelo (Automático, Opus, Sonnet, Haiku) y el esfuerzo al mandar o abrir un chat | **hecho al mandar** (sólo chats de la APP). Para que ande: el Cerebro reinstala el cartero (1.7.0) y le pasa al Runner el paso b nuevo de `INSTRUCCIONES_RUNNER`. Sin medir si la app pregunta cada vez. Al ABRIR un chat va con el clic |
-| a | todo chat abierto se ve (faltaban «Pagos», «MaKo en WhatsApp», «Runner» y uno de la nube) | **en parte**: «Sin asignar» va abierta (ahí estaban Pagos y MaKo en WhatsApp). FALTA: (1) el Runner, porque cartero.mjs lo saca a propósito (`esElCartero` en `chatsDeLaApp` y `leerRegistro`); subirlo con una marca (`esRunner`), sacarlo de `entregables`, y que `comoSale` apague su caja («El Runner entrega lo que escribes: no se le escribe»); (2) los chats de la NUBE, que no quedan en ningún archivo de la PC: el Runner (una sesión de la app) los lista con `list_sessions` y se los pasa al cartero; se dibujan con la marca «en la nube» |
-
-**Lo que sigue, en este orden** (17/10, 07:30, cuenta 4 al 6% semanal; este chat ahora se llama «Ops Center»):
-1. **El punto 5: cero PowerShell, con el clic.** El diseño está en docs/diseno-nuevo-chat-un-clic.md. Quedan
-   «Copiar comando» en PanelRunner.tsx (los Runners de terminal) y en «Nuevo chat» (`NuevoChatCentro`, PiezasCentro.tsx).
-   Antes de construir, medir con Martín despierto que la ventana se vea. Toca cartero.mjs: avisar ANTES al Cerebro.
-2. **El punto «a»: el Runner y los chats de la nube** (el detalle está en la tabla).
-3. **Adjuntar en la caja (con el OK de Martín, 17/10).** Imágenes y archivos en la caja del Centro y del Second Brain,
-   también pegando una captura con Ctrl+V, y que el chat destino los reciba. Lo que no se negocia:
-   - el archivo baja sólo con un pedido firmado;
-   - va a una carpeta fija de la PC, una por pedido;
-   - con el tipo y el tamaño validados, y nunca un ejecutable;
-   - el chat recibe la RUTA local.
-
-   La caja del Second Brain ya sube adjuntos (tanda 4): copiar de ahí la elección y la vista previa.
-4. **Los «Ya está» en Review.** La conversación ya los muestra (vienen del transcript). Falta que Review los liste como
-   algo hecho, con su ruta. `cartero.mjs hecho` no hace falta.
-5. Después, las tandas 8, 7, 9 y 6 del Second Brain, y «Skills».
-
-**Para el chat «Ops Center» nuevo (17/10, 06:15):** este cerró con el contexto al 87%.
-- **En producción:** Ops Center (run 84), la cuenta y el modelo (run 86) y la conversación (run 87).
-- **Lo último** (`59972600b` y su arreglo) espera su run: el «Voy a trabajar en…», «Sin noticias del Runner» y
-  «Second Brain» que abre el grafo.
-- **El cartero quedó en la 1.8.1**: hay que reinstalarlo. Lee la marca de la 1.8.0 sin perder la respuesta pendiente.
-- **La clase `co-elegir` de los selectores** la renombró el Cerebro a `co-envio-sel` en wt-push-q (chocaba con la grilla
-  de ElegirMuneco). Al mergear, tomar la de él.
-
-**Regla nueva de Martín (17/10, en AGENTS.md):** el «Ya está» de lo que llegó a producción lo escribe CADA chat en Ops
-Center, no el Cerebro. Cuando el Cerebro avise que una punta está en Ready, se escribe «Ya está» en este chat.
+| b | «que quede el nombre de "Ops Center"» | **hecho** |
+| c | «que "Second brain" sea la sub tab debajo de la Ticketera» | **hecho**, y desde la punta 1 abre el grafo |
+| 3 | elegir la cuenta al mandar, con «Automático» por defecto | **hecho** (computadora y teléfono) |
+| 4 | el Uso de las CUATRO cuentas, con su plan, la de 5 horas y la semanal | **hecho en la pantalla**; falta que la PC mande el plan y la 5 h de la cuenta de la app |
+| 5 | ningún «Pega su comando en PowerShell»: el clic más el permiso de la PC | la punta 5, a medir |
+| 6 | Review con TODO lo terminado; sin ruta, la tab de su área | **hecho**, y desde la punta 3 también los «Ya está» |
+| 7 | elegir el modelo y el esfuerzo al mandar o abrir un chat | **hecho al mandar** (sólo chats de la APP). Sin medir si la app pregunta cada vez. Al ABRIR, va con el clic |
+| a | todo chat abierto se ve | **hecho** con la punta 4: «Sin asignar» abierta, el Runner marcado y la nube con su chip. Sin medir la forma de una fila de la nube |
 
 ## PRIORIDAD DEL 17/10: escribirle a Claude Code desde el Second Brain (tanda 5) — HECHA, falta probarla
 
