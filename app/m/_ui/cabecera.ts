@@ -57,6 +57,8 @@ const segmentos = (p: string) => p.split('/').filter(Boolean).length;
 const CHAT_LEAD = /^\/m\/crm\/([^/]+)\/chat$/;
 /** Una conversación de la pestaña Chats: `/m/chats/<clave>`. */
 const CHAT_DE_CHATS = /^\/m\/chats\/[^/]+$/;
+/** Un ticket de «Reportar problema»: `/m/tickets/<id>`. */
+const TICKET = /^\/m\/tickets\/\d+$/;
 
 /**
  * ¿Es una pantalla de trabajo por defecto? El chat de MaKo (y sus subpantallas), el chat de Offer,
@@ -76,7 +78,10 @@ export function esTrabajo(pathname: string | null | undefined): boolean {
     // sin título grande. Como el chat de MaKo: de trabajo desde el HTML del server.
     || dentro(p, '/m/offer')
     // UNA conversación de Chats (17/10/2026, /m/chats/<clave>): un chat, como el del lead. La lista no.
-    || CHAT_DE_CHATS.test(p);
+    || CHAT_DE_CHATS.test(p)
+    // UN ticket de «Reportar problema» (17/10/2026, /m/tickets/<id>): la conversación con el equipo y su caja de
+    // responder pegada abajo, como un chat. La lista no.
+    || TICKET.test(p);
 }
 
 /** El lugar de la barra cuya raíz es esta ruta (o null). */
