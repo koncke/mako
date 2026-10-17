@@ -6591,9 +6591,11 @@ alcanzar, aunque se cumpliera al pie de la letra:
   cambia `process.env`, un global, `Module._load` o el directorio de trabajo nunca se comparte (`PELIGRO_COMPARTIR`; lo que esa regex no vea se descubre por rojo
   y se resuelve igual); (b) el FALSO VERDE por contagio (un test que pasa sólo por lo que dejó otro): no hay forma de medirlo desde acá, y por eso Actions NO comparte
   procesos: sigue corriendo cada test aislado. Si alguna vez un run de Actions da un rojo que `antes-de-subir` dio verde, lo primero que hay que mirar es esto.
-- **`--rapido` y lo que cubre** (`node scripts/replay-fallos-ci.mjs --rapido`): profundidad 1 y sin tipos. De los 25 rojos de los 21 runs: **19 de los 20 de «Tests»**
-  (falta `agenda-whatsapp`, run 53, que está a DOS saltos del cambio) y **2 de los 5 de «Tipos»** (los que frena la guarda de módulos; 10, 31 y 100 son errores de
-  tipos de archivos que cambiaron, y los ve `--con-tipos` o el modo completo, 1-2 min más cuando la RAM alcanza). Los de tipos y los saltos lejanos los decide Actions.
+- **`--rapido` y lo que cubre** (`node scripts/replay-fallos-ci.mjs --rapido`): profundidad 1 y los tipos de lo cambiado si entran en RAM sin esperar. De los 25 rojos de los 21 runs: **19 de los 20 de «Tests»**
+  (falta `agenda-whatsapp`, run 53, que está a DOS saltos del cambio) y **los 5 de «Tipos»** (51 y 52 los frena la guarda de módulos, que corre siempre; 10, 31 y 100 son
+  errores de tipos de archivos que cambiaron: sólo salen si el `tsc` acotado entró en RAM). **Se pidió «sin tsc» y se desvió a propósito:** el primer VERDE rápido de
+  esta punta (sin tipos) lo dio el mismo script cuyo test tenía 5 errores de tipos, que vio sólo el modo completo. Si el `tsc` no entra, el VERDE lo dice
+  («sin tipos…») y los decide Actions, igual que los saltos lejanos.
 
 **Lo que NO cubre** (y por qué Actions sigue corriendo todo):
 - Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y
