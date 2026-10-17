@@ -210,6 +210,15 @@ export type EntradaTurnoApp = {
    */
   contexto?: string;
   /**
+   * Lo que la PANTALLA antepone al texto que se CLASIFICA (la intención y las herramientas del turno), no al que lee el
+   * modelo ni al que se guarda. Hoy: el chat de la ficha del lead mientras se EDITA la vista (17/10/2026, Martín: «Al
+   * momento de EDITAR, también debería salir automáticamente este modal, pero ahora ya no para analizar al lead, sino
+   * para editar la vista»). Medido ese día con el selector de herramientas: «hazla épica», «saca el bloque de notas» o
+   * «cambia el nombre de esta hoja» SOLOS no traen `cambiar_ficha_funnel` (se clasifican «capturar» o se quedan afuera
+   * del presupuesto); con «Cambia la ficha del CRM: » adelante, los seis pedidos medidos la traen.
+   */
+  pista?: string;
+  /**
    * Guardar los archivos (mig 0305) y pasar los PDF del admin a El Archivero. Lo prenden SÓLO el Second Brain y el chat
    * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
    */
@@ -312,7 +321,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const claveAgenda = `mako.doer.agenda.${canalKey}`;
     const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
     const ultimoDeMako = previos.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
-    const textoClasificar = adjuntos.length ? textoMemoria : textoPersona;
+    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${adjuntos.length ? textoMemoria : textoPersona}`;
     const intencion = clasificarIntencion(textoClasificar, {
       hayMedia: adjuntos.length > 0,
       hayPendientes: vigentes.length > 0,

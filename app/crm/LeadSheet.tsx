@@ -20,7 +20,7 @@ import { MoverEtapaConfirm } from './MoverEtapaConfirm';
 import { pideWizardAlElegir } from './mover-etapa';
 import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
-import { CabeceraLead } from './lead-view/CabeceraLead';
+import { CabeceraLead, SANGRIA_NOMBRE_LEAD } from './lead-view/CabeceraLead';
 import { FunnelYEtapa, useProductosDeLaFicha } from './lead-view/ProductoDelLead';
 import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_EL_POPUP, ALTO_FICHA_LEAD, MARGEN_FICHA_LEAD } from './lead-view/ficha-medidas';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
@@ -234,6 +234,8 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             data={vigente}
             initialTab={initialTab}
             fondoTabs="var(--surface)"
+            // El título de la hoja a la altura del nombre del lead: la cabecera va a sangre y este cuerpo tiene su padding.
+            sangria={`calc(${SANGRIA_NOMBRE_LEAD}px - clamp(16px,4vw,28px))`}
             altoChat={ALTO_CHAT_EN_EL_POPUP}
             pedido={pedido}
             onNoEsta={solucionar}

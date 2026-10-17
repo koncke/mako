@@ -18,7 +18,7 @@
 //    uno por fila; el aire lo pone ./ficha-css.ts (`fb-tab--epica`). Es la escala de General y de MaKo Mobile v3.
 // =============================================================================
 
-import { bloqueDef, bloquesDeLaTab, type Ancho, type BloqueDef, type BloqueId, type TabFicha } from '@/lib/ficha/catalogo';
+import { bloqueDef, bloquesDelLugar, esTabFicha, TABS_FICHA, type Ancho, type BloqueDef, type BloqueId, type IdHoja, type LugarFicha, type TabFicha } from '@/lib/ficha/catalogo';
 import type { BloquePuesto, EstiloFicha } from '@/lib/ficha/config';
 import type { StepId } from '@/lib/stage-requirements';
 import { TEMA_BASE, paletaDe, plantillaDe, varsDeTema } from '@/lib/graficos-temas';
@@ -32,6 +32,14 @@ export const COLS_FICHA = 12;
 export const CLAVE_DE_TAB: Readonly<Record<TabFicha, string>> = {
   resumen: 'resumen', reuniones: 'reuniones', pagos: 'cobranza', tracking: 'comportamiento',
 };
+/** La clave de `?tab=` de un lugar: la de la tab, o el id de la hoja propia (17/10/2026), que ya es una clave. */
+export const claveDeLugar = (l: LugarFicha): string => (esTabFicha(l) ? CLAVE_DE_TAB[l] : l);
+/** El lugar de una clave de `?tab=`, entre los que hay. */
+export function lugarDeClave(clave: string, hojas: readonly { id: IdHoja }[]): LugarFicha | null {
+  const tab = TABS_FICHA.find((t) => CLAVE_DE_TAB[t] === clave);
+  if (tab) return tab;
+  return hojas.find((h) => h.id === clave)?.id ?? null;
+}
 
 /** Un bloque que el armador va a dibujar. */
 export type BloqueEnGrilla = {
@@ -171,12 +179,12 @@ export function cubreDe(def: BloqueDef, reglas: ReglasBloque): StepId[] {
  * que tiene su campo. null = ningún bloque de la ficha lo tiene: queda el asistente («Completar datos»).
  * Reemplaza a `TAB_DE_DATO` (lib/datos-aviso.ts), que era un mapa fijo y no sabía de la ficha del funnel.
  */
-export function tabDelDato(paso: StepId, tabs: readonly TabFicha[], o: {
-  listaDe: (tab: TabFicha) => readonly BloquePuesto[];
+export function tabDelDato<T extends string>(paso: StepId, tabs: readonly T[], o: {
+  listaDe: (tab: T) => readonly BloquePuesto[];
   reglasDe: (id: BloqueId) => ReglasBloque | undefined;
   vacio: (puesto: BloquePuesto, reglas: ReglasBloque) => boolean;
   verPrivado: boolean;
-}): TabFicha | null {
+}): T | null {
   for (const tab of tabs) {
     const dibujados = bloquesDeLaGrilla(o.listaDe(tab), { reglasDe: o.reglasDe, vacio: o.vacio, editando: false, verPrivado: o.verPrivado });
     if (dibujados.some((b) => cubreDe(b.def, b.reglas).includes(paso))) return tab;
@@ -192,13 +200,13 @@ const sinTildes = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLo
  * filtrados por lo que se escribió en el buscador. Lo que todavía no tiene componente NO se ofrece: un
  * «pronto» en un menú es una promesa que no hace nada.
  */
-export function ofrecerEnAgregar(tab: TabFicha, lista: readonly BloquePuesto[], o: {
+export function ofrecerEnAgregar(tab: LugarFicha, lista: readonly BloquePuesto[], o: {
   registrado: (id: BloqueId) => boolean;
   verPrivado: boolean;
   buscar?: string;
 }): BloqueDef[] {
   const q = sinTildes(o.buscar?.trim() ?? '');
-  return bloquesDeLaTab(tab).filter((def) =>
+  return bloquesDelLugar(tab).filter((def) =>
     o.registrado(def.id)
     && (def.varias || !lista.some((p) => p.id === def.id))
     && (!def.privado || o.verPrivado)
@@ -262,20 +270,8 @@ export function dispositivoVisto(editando: boolean, elegido: DispositivoFicha): 
   return editando ? elegido : 'escritorio';
 }
 
-/**
- * EL ALTO DEL PANEL DE LA DERECHA mientras se personaliza (./PanelFicha.tsx). Va pegado (`sticky`) debajo de la
- * fila de tabs, a ARRIBA_DEL_PANEL del borde de lo que scrollea (./ficha-css.ts dice el mismo número), y su alto
- * máximo es LO QUE SE VE de ese contenedor, no la ventana: medido el 16/10/2026 en el banco, en el pop-up (la
- * cabecera y el pie del pop-up se comen ~265 px) el panel medía `100dvh - 120px` y terminaba 200 px por debajo
- * del área visible, así que los últimos avisos no se alcanzaban mientras la ficha fuera más larga que el panel.
- * Con un piso, para que en una ventana muy baja siga siendo un panel y no una tira.
- */
-export const ARRIBA_DEL_PANEL = 58;
-export const AIRE_ABAJO_DEL_PANEL = 12;
-export const ALTO_MINIMO_DEL_PANEL = 240;
-export function altoDelPanel(altoVisible: number): number {
-  return Math.max(ALTO_MINIMO_DEL_PANEL, Math.floor(altoVisible - ARRIBA_DEL_PANEL - AIRE_ABAJO_DEL_PANEL));
-}
+// (17/10/2026) Acá vivía el alto del panel de la derecha de «Personalizar» (`altoDelPanel`): el panel se fue (Martín,
+// 16/10: «En la vista de edición, elimina la sidebar»). Lo que se aprendió de él está en docs/hallazgos-crm.md.
 
 /** Los anchos de la barra del bloque: los cuatro, con los que el bloque no acepta apagados. */
 export function anchosDeLaBarra(def: BloqueDef): Array<{ id: Ancho; nombre: string; puede: boolean }> {

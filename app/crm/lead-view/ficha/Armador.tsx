@@ -23,7 +23,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
-import { bloqueDef, FUENTES_RESPUESTA, REDES, type BloqueId, type FuenteRespuesta, type Red, type TabFicha } from '@/lib/ficha/catalogo';
+import { bloqueDef, casaDelBloque, esTabFicha, FUENTES_RESPUESTA, REDES, type BloqueId, type FuenteRespuesta, type LugarFicha, type Red } from '@/lib/ficha/catalogo';
 import type { BloquePuesto, CambioFicha } from '@/lib/ficha/config';
 import { tituloDeBloque } from '@/lib/ficha/registro';
 // La MISMA lista que ofrece la API de MaKo (cambiar_ficha_funnel, cambio icono): una sola fuente.
@@ -41,7 +41,8 @@ type Soltar = { indice: number; lado: 'antes' | 'despues' };
 export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar, epico = false, dispositivo = 'escritorio', avisaDe }: {
   /** ¿Ese dato entra en «datos sin marcar» en este funnel? Lo usa «Obligatorio» de la barra del bloque. */
   avisaDe?: (paso: StepId) => boolean;
-  tab: TabFicha;
+  /** Una de las cuatro tabs o una hoja propia (17/10/2026). */
+  tab: LugarFicha;
   /** La lista ENTERA de la tab (la ficha efectiva del funnel), con lo que no se dibuja. */
   lista: readonly BloquePuesto[];
   ctx: CtxFicha;
@@ -145,6 +146,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
       // ⚠️ EL ANCHO VA EN VARIABLES, NO EN `gridColumn`: un estilo en línea le gana a todo @media, y la tablet
       // y el celular cortan las columnas por CSS (./ficha-css.ts, con los anchos de `spansPorDispositivo`).
       <div key={`${b.def.id}:${b.n}`} className={clases} style={{ '--fb-span': b.span, '--fb-span-t': b.spanTableta } as CSSProperties}
+        data-recorrido={editando && i === 0 ? 'fb-bloque' : undefined}
         draggable={editando || undefined}
         onDragStart={editando ? alArrastrar : undefined}
         onDragOver={editando ? alPasar : undefined}
@@ -170,7 +172,8 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
         <div className="fb-cuerpo" inert={editando || undefined}>
           {b.vacio
             ? <div className="fb-vacio">Sin datos en este lead</div>
-            : <Componente ctx={ctx} puesto={b.puesto} def={b.def} tab={tab} titulo={titulo} diseno={disenoADibujar(b.puesto, b.def, b.reglas)} ancho={b.puesto.ancho} icono={icono} editando={editando} epico={epico} />}
+            // En una hoja propia, cada bloque se dibuja como en su tab de siempre (`casaDelBloque`): PropsBloque.tab es eso.
+            : <Componente ctx={ctx} puesto={b.puesto} def={b.def} tab={esTabFicha(tab) ? tab : casaDelBloque(b.def) ?? 'resumen'} titulo={titulo} diseno={disenoADibujar(b.puesto, b.def, b.reglas)} ancho={b.puesto.ancho} icono={icono} editando={editando} epico={epico} />}
         </div>
       </div>
     );
@@ -210,7 +213,7 @@ const NOMBRE_RED: Readonly<Record<Red, string>> = { web: 'Web', instagram: 'Inst
  */
 function BarraBloque({ tab, b, icono, titulo, incluidos, onCambio, onQuitar, onMoverTeclado, preguntas, avisaDe }: {
   avisaDe?: (paso: StepId) => boolean;
-  tab: TabFicha;
+  tab: LugarFicha;
   b: BloqueEnGrilla;
   icono: NombreIconoMenu;
   titulo: string;

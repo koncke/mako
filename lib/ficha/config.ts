@@ -12,7 +12,11 @@
 //   · la plantilla, si alguien eligió otra que la que elige MaKo;
 //   · POR TAB (16/10/2026, Martín: «Que se pueda cambiar el nombre de las tabs internas... que hayan templates para
 //     "resumen", "tracking" y todas las tabs... que se pueda ver "epico"»): la plantilla de la tab elegida a mano
-//     (./plantillas-tab.ts), el nombre que le puso el admin y la vista épica, si difiere de la de su plantilla.
+//     (./plantillas-tab.ts), el nombre que le puso el admin y la vista épica, si difiere de la de su plantilla;
+//   · LAS HOJAS PROPIAS (17/10/2026, Martín: «el sistema para cambiar de hoja sea exactamente el mismo que tenemos en
+//     Dashboard y General, el desplegable del título con las secciones, entonces ahí mismo se puede crear otra hoja»):
+//     las que creó el admin con «Nueva hoja», en su orden, cada una con su nombre, sus bloques y su épica. No siguen a
+//     ninguna plantilla (se arman de una, una vez) y salen para todo lead del funnel, después de las cuatro tabs.
 //
 // ⚠️ EL RESPALDO DEL NEGOCIO (`crm.resumen.campos` y `crm.datos_aviso.apagados`) manda en lo que nadie tocó
 //    en ESE funnel: con Instagram apagado, `redes-y-web` sale sin Instagram; con el formulario de Meta
@@ -20,6 +24,8 @@
 //    alguien tocó ya no lo lee: lo que quedó guardado es lo que esa persona vio.
 // ⚠️ SACAR UN BLOQUE A MANO NO APAGA SU AVISO (§4): los apagados salen de la PLANTILLA, nunca de la lista
 //    que quedó. Y las asistencias (NO_IGNORABLES) nunca se apagan, ni a mano.
+// ⚠️ UNA HOJA PROPIA NO DECIDE AVISOS NI ES DONDE «SOLUCIONAR» VA PRIMERO: los avisos son del funnel y cada dato se
+//    completa en la tab de siempre que lo dibuja (`dondeSeCompleta`); la hoja propia es el último lugar donde se busca.
 // ⚠️ LA PLANTILLA DE UNA TAB NO TOCA LOS AVISOS: siguen saliendo de la plantilla del FUNNEL (la que elige MaKo o la
 //    elegida a mano). Elegir «En blanco» para Pagos no apaga el aviso del monto: cambia lo que se ve, no lo que falta.
 // ⚠️ UNA TAB «CONFIGURADA» ES UNA QUE ALGUIEN TOCÓ en este funnel (su lista, su plantilla, su nombre o su épica, o la
@@ -35,9 +41,9 @@ import { seVe, type ResumenElegido } from '../resumen-ficha';
 import { sanearTema, TEMA_BASE, type TemaHoja } from '../graficos-temas';
 import { esIconoMenu, type NombreIconoMenu } from '../../app/_ui/iconos-menu';
 import {
-  bloqueDef, esAncho, esBloqueId, esTabFicha, esDensidad, vaEnTab, REDES, FUENTES_RESPUESTA, TABS_FICHA, NOMBRE_TAB,
+  bloqueDef, esAncho, esBloqueId, esIdHoja, esLugarFicha, esTabFicha, esDensidad, vaEnLugar, REDES, FUENTES_RESPUESTA, TABS_FICHA, NOMBRE_TAB,
   DENSIDADES, DENSIDAD_BASE,
-  type Ancho, type BloqueDef, type BloqueId, type Densidad, type FuenteRespuesta, type Red, type TabFicha,
+  type Ancho, type BloqueDef, type BloqueId, type Densidad, type FuenteRespuesta, type IdHoja, type LugarFicha, type Red, type TabFicha,
 } from './catalogo';
 import {
   apagadosDePlantilla, esPlantillaId, listaDePlantilla, plantillaFicha, type PlantillaFicha, type PlantillaId,
@@ -85,6 +91,17 @@ export type FichaGuardada = {
   nombres?: Partial<Record<TabFicha, string>>;
   /** Por tab, la vista épica prendida o apagada a mano (sólo si difiere de la de su plantilla). */
   epica?: Partial<Record<TabFicha, boolean>>;
+  /** Las hojas propias, en su orden (después de las cuatro tabs). */
+  hojas?: HojaGuardada[];
+};
+
+/** Una hoja propia de la ficha: la crea el admin con «Nueva hoja». Guarda TODO (no sigue a ninguna plantilla). */
+export type HojaGuardada = {
+  id: IdHoja;
+  nombre: string;
+  bloques: BloquePuesto[];
+  /** La vista épica prendida. Sin el campo, apagada. */
+  epica?: true;
 };
 
 /** Lo que el negocio ya eligió antes de que la ficha fuera por funnel. */
@@ -106,6 +123,8 @@ export const TOPE_NOMBRE_TAB = 24;
  * datos no puede llamarse como ellas, o la fila tendría dos «Historial».
  */
 export const NOMBRES_DE_OTRAS_TABS: readonly string[] = ['MaKo Analyst', 'Historial'];
+/** Tope de hojas propias por funnel: el desplegable del título las lista todas, y una ficha no es un informe. */
+export const TOPE_HOJAS = 8;
 
 /** El nombre de una tab tal como llega: sin espacios de más ni caracteres de control, con tope. Vacío → null. */
 export function sanearNombreTab(raw: unknown): string | null {
@@ -140,12 +159,12 @@ export function sanearOpciones(def: BloqueDef, raw: unknown): OpcionesBloque | u
  * que el bloque no acepta cae al de entrada, un diseño que no existe al primero, un ícono que no es del
  * set se tira. Un id que no existe o que no va en esa tab devuelve null (se tira).
  */
-export function sanearPuesto(raw: unknown, tab: TabFicha): BloquePuesto | null {
+export function sanearPuesto(raw: unknown, tab: LugarFicha): BloquePuesto | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
   if (!esBloqueId(o.id)) return null;
   const def = bloqueDef(o.id)!;
-  if (!vaEnTab(def, tab)) return null;
+  if (!vaEnLugar(def, tab)) return null;
   const ancho = esAncho(o.ancho) && def.anchos.includes(o.ancho) ? o.ancho : def.ancho;
   const diseno = typeof o.diseno === 'string' && def.disenos.some((x) => x.id === o.diseno) ? o.diseno : def.disenos[0].id;
   const out: BloquePuesto = { id: def.id, ancho, diseno };
@@ -159,7 +178,7 @@ export function sanearPuesto(raw: unknown, tab: TabFicha): BloquePuesto | null {
  * La lista de una tab: sin ids rotos, sin repetidos (salvo los que van varias veces), con tope. En el
  * Resumen, `contacto` no se puede quitar: si falta, vuelve arriba de todo.
  */
-export function sanearLista(raw: unknown, tab: TabFicha): BloquePuesto[] {
+export function sanearLista(raw: unknown, tab: LugarFicha): BloquePuesto[] {
   const out: BloquePuesto[] = [];
   for (const x of Array.isArray(raw) ? raw : []) {
     if (out.length >= TOPE_BLOQUES_TAB) break;
@@ -171,8 +190,9 @@ export function sanearLista(raw: unknown, tab: TabFicha): BloquePuesto[] {
   return conFijos(out, tab);
 }
 
-/** Los bloques que no se pueden quitar de su tab principal (`contacto` en el Resumen), arriba si faltan. */
-function conFijos(l: BloquePuesto[], tab: TabFicha): BloquePuesto[] {
+/** Los bloques que no se pueden quitar de su tab principal (`contacto` en el Resumen), arriba si faltan. Una hoja propia no tiene. */
+function conFijos(l: BloquePuesto[], tab: LugarFicha): BloquePuesto[] {
+  if (!esTabFicha(tab)) return l;
   const faltan = TABS_FIJOS[tab].filter((id) => !l.some((p) => p.id === id));
   return faltan.length ? [...faltan.map((id) => puestoDeEntrada(id, RESPALDO_VACIO)), ...l] : l;
 }
@@ -229,6 +249,26 @@ export function sanearFicha(raw: unknown): FichaGuardada {
   if (nombres) out.nombres = nombres;
   const epica = porTab(o.epica, (v) => (typeof v === 'boolean' ? v : null));
   if (epica) out.epica = epica;
+  const hojas = sanearHojas(o.hojas);
+  if (hojas.length) out.hojas = hojas;
+  return out;
+}
+
+/**
+ * Las hojas propias tal como vengan: sólo las de clave válida y sin repetir, con nombre (sin él, «Hoja N»), sus
+ * bloques saneados para una hoja propia y la épica si es `true`. Con tope.
+ */
+export function sanearHojas(raw: unknown): HojaGuardada[] {
+  const out: HojaGuardada[] = [];
+  for (const x of Array.isArray(raw) ? raw : []) {
+    if (out.length >= TOPE_HOJAS) break;
+    if (!x || typeof x !== 'object' || Array.isArray(x)) continue;
+    const h = x as Record<string, unknown>;
+    if (!esIdHoja(h.id) || out.some((y) => y.id === h.id)) continue;
+    const hoja: HojaGuardada = { id: h.id, nombre: sanearNombreTab(h.nombre) ?? `Hoja ${out.length + 1}`, bloques: sanearLista(h.bloques, h.id) };
+    if (h.epica === true) hoja.epica = true;
+    out.push(hoja);
+  }
   return out;
 }
 
@@ -341,6 +381,8 @@ export type FichaEfectiva = {
    * todo el funnel). Las otras, la primera vez que entra un admin, abren la galería con «¿Qué vas a crear hoy?».
    */
   configuradas: TabFicha[];
+  /** Las hojas propias, en su orden: su nombre, sus bloques y su épica. */
+  hojas: Array<{ id: IdHoja; nombre: string; bloques: BloquePuesto[]; epica: boolean }>;
   /** Los datos que NO avisan en este funnel (nunca una asistencia). En el orden de DATOS_AVISABLES. */
   apagados: StepId[];
   /** Cada dato con su estado y su porqué, para el panel de avisos y para MaKo. */
@@ -422,10 +464,11 @@ export function fichaEfectiva(elegida: PlantillaId, guardada: FichaGuardada | nu
     if (guardada?.plantilla || g || guardada?.plantillasTab?.[tab] || guardada?.nombres?.[tab] || typeof guardada?.epica?.[tab] === 'boolean') configuradas.push(tab);
   }
   const avisos = estadoAvisos(p, guardada, respaldo);
+  const hojas = (guardada?.hojas ?? []).map((h) => ({ id: h.id, nombre: h.nombre, bloques: h.bloques.map((b) => conOpciones(b, respaldo)), epica: h.epica === true }));
   return {
     plantilla: id,
     plantillaAMano: !!guardada?.plantilla,
-    tabs, tocadas, plantillasTab, plantillasTabAMano, nombres, epica, configuradas,
+    tabs, tocadas, plantillasTab, plantillasTabAMano, nombres, epica, configuradas, hojas,
     apagados: avisos.filter((a) => !a.avisa).map((a) => a.id),
     avisos,
     estilo: {
@@ -440,6 +483,13 @@ export function plantillaTabQueManda(tab: TabFicha, tipo: PlantillaId, guardada:
   const elegida = guardada?.plantillasTab?.[tab];
   const pt = elegida ? plantillaTabPorId(elegida) : undefined;
   return pt && pt.tab === tab ? pt : plantillaTabDeEntrada(tab, tipo);
+}
+
+/** Una tab o una hoja propia, leída igual: su lista, su nombre y su épica. Una hoja que ya no existe, vacía. */
+export function lugarDe(f: Pick<FichaEfectiva, 'tabs' | 'nombres' | 'epica' | 'hojas'>, lugar: LugarFicha): { bloques: BloquePuesto[]; nombre: string; epica: boolean } {
+  if (esTabFicha(lugar)) return { bloques: f.tabs[lugar], nombre: f.nombres[lugar], epica: f.epica[lugar] };
+  const h = f.hojas.find((x) => x.id === lugar);
+  return h ? { bloques: h.bloques, nombre: h.nombre, epica: h.epica } : { bloques: [], nombre: '', epica: false };
 }
 
 /** La tab donde se completa un dato en ESTA ficha (la del primer bloque que lo pide), o null si ninguno lo tiene. */
@@ -467,15 +517,16 @@ export function bloquesDeTab(f: Pick<FichaEfectiva, 'tabs'>, tab: TabFicha, o: {
  * dos admins que cambian cosas distintas a la vez no se pisan. `lugar` y `n` cuentan desde 1, como una persona.
  */
 export type CambioFicha =
-  | { op: 'poner'; tab: TabFicha; bloque: BloqueId; lugar?: number; ancho?: Ancho; diseno?: string }
-  | { op: 'quitar'; tab: TabFicha; bloque: BloqueId; n?: number }
-  | { op: 'mover'; tab: TabFicha; bloque: BloqueId; lugar: number; n?: number }
-  | { op: 'ancho'; tab: TabFicha; bloque: BloqueId; ancho: Ancho; n?: number }
-  | { op: 'diseno'; tab: TabFicha; bloque: BloqueId; diseno: string; n?: number }
-  | { op: 'icono'; tab: TabFicha; bloque: BloqueId; icono: NombreIconoMenu | null; n?: number }
-  | { op: 'opciones'; tab: TabFicha; bloque: BloqueId; opciones: OpcionesBloque; n?: number }
+  // Los cambios de bloques, de nombre, de épica y de plantilla valen igual en una tab y en una hoja propia (`tab`).
+  | { op: 'poner'; tab: LugarFicha; bloque: BloqueId; lugar?: number; ancho?: Ancho; diseno?: string }
+  | { op: 'quitar'; tab: LugarFicha; bloque: BloqueId; n?: number }
+  | { op: 'mover'; tab: LugarFicha; bloque: BloqueId; lugar: number; n?: number }
+  | { op: 'ancho'; tab: LugarFicha; bloque: BloqueId; ancho: Ancho; n?: number }
+  | { op: 'diseno'; tab: LugarFicha; bloque: BloqueId; diseno: string; n?: number }
+  | { op: 'icono'; tab: LugarFicha; bloque: BloqueId; icono: NombreIconoMenu | null; n?: number }
+  | { op: 'opciones'; tab: LugarFicha; bloque: BloqueId; opciones: OpcionesBloque; n?: number }
   /** La lista entera de una tab (el arrastre de la pantalla). */
-  | { op: 'lista'; tab: TabFicha; bloques: BloquePuesto[] }
+  | { op: 'lista'; tab: LugarFicha; bloques: BloquePuesto[] }
   | { op: 'aviso'; paso: StepId; avisa: boolean }
   /** Todos los avisos de una vez: los que NO avisan (el panel «De qué te avisa MaKo»). */
   | { op: 'avisos'; apagados: StepId[] }
@@ -483,28 +534,41 @@ export type CambioFicha =
   | { op: 'densidad'; densidad: Densidad }
   /**
    * Volver a la plantilla: una tab (su lista, su nombre y su épica; la plantilla de la tab elegida queda), o toda la
-   * ficha (las tabs, sus plantillas, sus nombres, sus épicas y los avisos). El estilo queda.
+   * ficha (las tabs, sus plantillas, sus nombres, sus épicas y los avisos). El estilo y las hojas propias quedan: una
+   * hoja propia no viene de ninguna plantilla, y borrarla así sería perder lo que alguien armó.
    */
   | { op: 'volver'; tab?: TabFicha }
   /**
    * Usar otra plantilla para TODA la ficha (null = la que elige MaKo). Arranca de cero las tabs, sus plantillas, sus
-   * épicas y los avisos; el estilo y los nombres de las tabs quedan.
+   * épicas y los avisos; el estilo, los nombres de las tabs y las hojas propias quedan.
    */
   | { op: 'plantilla'; plantilla: PlantillaId | null; tab?: undefined }
   /**
    * Usar una plantilla de TAB (./plantillas-tab.ts) en esa tab, y sólo en esa (null = la de entrada). Arranca de cero
-   * su lista y su épica; su nombre queda. Elegir la sugerida también se guarda: es elegir.
+   * su lista y su épica; su nombre queda. Elegir la sugerida también se guarda: es elegir. En una hoja propia vale
+   * cualquier plantilla de cualquier tab (se copia una vez), y null es «En blanco».
    */
-  | { op: 'plantilla'; tab: TabFicha; plantilla: string | null }
-  /** El nombre de una tab (null o vacío = el de siempre). La clave de la tab (`?tab=`) no cambia. */
-  | { op: 'nombre'; tab: TabFicha; nombre: string | null }
+  | { op: 'plantilla'; tab: LugarFicha; plantilla: string | null }
+  /** El nombre de una tab (null o vacío = el de siempre; una hoja propia no se queda sin nombre). La clave no cambia. */
+  | { op: 'nombre'; tab: LugarFicha; nombre: string | null }
   /** La vista épica de una tab: pocas cosas, en grande y con más aire. */
-  | { op: 'epica'; tab: TabFicha; epica: boolean }
+  | { op: 'epica'; tab: LugarFicha; epica: boolean }
   /**
    * Lo que armó MaKo con un pedido («¿Qué vas a crear hoy?», lib/ficha/ia.ts): la lista entera de la tab y su épica,
    * en UN cambio (un solo «Deshacer»). Deja fija la plantilla de la tab sobre la que se armó: la tab queda configurada.
    */
-  | { op: 'armar'; tab: TabFicha; bloques: BloquePuesto[]; epica: boolean }
+  | { op: 'armar'; tab: LugarFicha; bloques: BloquePuesto[]; epica: boolean }
+  /**
+   * UNA HOJA PROPIA NUEVA («Nueva hoja» del desplegable del título): con una plantilla de tab (sus bloques y su épica),
+   * con unos bloques (lo que armó MaKo, o la hoja que se duplica) o en blanco. `hoja` es su clave y la elige quien la
+   * crea: la pantalla va a ella en el acto, sin esperar al server. Sin nombre, el de la plantilla o «Hoja N»; un nombre
+   * que ya usa otra tab se numera («Resumen 2»).
+   */
+  | { op: 'hoja'; hoja: IdHoja; nombre: string | null; plantilla?: string; bloques?: BloquePuesto[]; epica?: boolean }
+  /** Borrar una hoja propia (la pantalla ofrece «Deshacer»). Las cuatro tabs no se borran. */
+  | { op: 'quitar-hoja'; hoja: IdHoja }
+  /** Mover una hoja propia entre las propias (1 es la primera). */
+  | { op: 'mover-hoja'; hoja: IdHoja; lugar: number }
   /**
    * Deshacer: vuelve a una ficha guardada antes (la que devolvió el cambio anterior). `esperado` es cómo dejó
    * la ficha el cambio que se deshace: si hoy es otra, alguien la cambió después y NO se restaura (sería
@@ -514,7 +578,9 @@ export type CambioFicha =
 
 export type ResultadoCambio = { ok: true; ficha: FichaGuardada; cambio: boolean } | { ok: false; error: string };
 
-const OPS = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'lista', 'aviso', 'avisos', 'tema', 'densidad', 'volver', 'plantilla', 'nombre', 'epica', 'armar', 'restaurar'] as const;
+const OPS = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'lista', 'aviso', 'avisos', 'tema', 'densidad', 'volver', 'plantilla', 'nombre', 'epica', 'armar', 'hoja', 'quitar-hoja', 'mover-hoja', 'restaurar'] as const;
+/** El nombre de un lugar en un error o en el historial: el de la tab, o «la hoja» (el cambio no trae su nombre). */
+const nombreLugar = (l: LugarFicha): string => (esTabFicha(l) ? NOMBRE_TAB[l] : 'la hoja');
 const entero = (x: unknown): number | undefined => (typeof x === 'number' && Number.isInteger(x) && x >= 1 && x <= 999 ? x : undefined);
 
 /**
@@ -529,12 +595,15 @@ export function sanearCambio(raw: unknown): CambioFicha | { error: string } {
   if (typeof op !== 'string' || !(OPS as readonly string[]).includes(op)) return { error: 'Ese cambio no existe.' };
   const conBloque = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones'].includes(op);
   const conTab = conBloque || op === 'lista' || op === 'nombre' || op === 'epica' || op === 'armar';
-  if (conTab && !esTabFicha(o.tab)) return { error: 'Falta la tab: resumen, reuniones, pagos o tracking.' };
-  const tab = o.tab as TabFicha;
+  if (conTab && !esLugarFicha(o.tab)) return { error: 'Falta la tab: resumen, reuniones, pagos, tracking o una hoja propia (h-…).' };
+  const tab = o.tab as LugarFicha;
   if (conBloque) {
     if (!esBloqueId(o.bloque)) return { error: `«${String(o.bloque ?? '')}» no es un bloque.` };
-    if (!vaEnTab(bloqueDef(o.bloque)!, tab)) return { error: `«${bloqueDef(o.bloque)!.titulo}» no va en ${NOMBRE_TAB[tab]}.` };
+    if (!vaEnLugar(bloqueDef(o.bloque)!, tab)) return { error: `«${bloqueDef(o.bloque)!.titulo}» no va en ${nombreLugar(tab)}.` };
   }
+  const conHoja = op === 'hoja' || op === 'quitar-hoja' || op === 'mover-hoja';
+  if (conHoja && !esIdHoja(o.hoja)) return { error: 'Falta la hoja: su clave es h- y de 3 a 16 letras o números.' };
+  const hoja = o.hoja as IdHoja;
   const bloque = o.bloque as BloqueId;
   const n = entero(o.n);
   switch (op) {
@@ -586,9 +655,15 @@ export function sanearCambio(raw: unknown): CambioFicha | { error: string } {
       if (!esDensidad(o.densidad)) return { error: 'La densidad es compacta, normal o amplia.' };
       return { op, densidad: o.densidad };
     case 'volver':
+      if (esIdHoja(o.tab)) return { error: 'Una hoja propia no sigue a ninguna plantilla: no hay a qué volver.' };
       if (o.tab !== undefined && !esTabFicha(o.tab)) return { error: 'Esa tab no existe.' };
       return { op, ...(esTabFicha(o.tab) ? { tab: o.tab } : {}) };
     case 'plantilla':
+      if (esIdHoja(o.tab)) {
+        const pt = o.plantilla ?? null;
+        if (pt !== null && (typeof pt !== 'string' || !plantillaTabPorId(pt))) return { error: 'Esa plantilla no existe.' };
+        return { op, tab: o.tab, plantilla: pt };
+      }
       if (o.tab !== undefined) {
         if (!esTabFicha(o.tab)) return { error: 'Esa tab no existe.' };
         const pt = o.plantilla ?? null;
@@ -597,15 +672,36 @@ export function sanearCambio(raw: unknown): CambioFicha | { error: string } {
       }
       if (o.plantilla !== null && !esPlantillaId(o.plantilla)) return { error: 'Esa plantilla no existe.' };
       return { op, plantilla: (o.plantilla ?? null) as PlantillaId | null };
-    case 'nombre':
+    case 'nombre': {
       if (o.nombre !== null && o.nombre !== undefined && typeof o.nombre !== 'string') return { error: 'El nombre es un texto.' };
-      return { op, tab, nombre: sanearNombreTab(o.nombre) };
+      const nombre = sanearNombreTab(o.nombre);
+      if (!nombre && esIdHoja(tab)) return { error: 'La hoja necesita un nombre.' };
+      return { op, tab, nombre };
+    }
     case 'epica':
       if (typeof o.epica !== 'boolean') return { error: 'Falta si va épica o no.' };
       return { op, tab, epica: o.epica };
     case 'armar':
       if (!Array.isArray(o.bloques)) return { error: 'Falta la lista de bloques.' };
       return { op, tab, bloques: sanearLista(o.bloques, tab), epica: o.epica === true };
+    case 'hoja': {
+      if (o.nombre !== null && o.nombre !== undefined && typeof o.nombre !== 'string') return { error: 'El nombre es un texto.' };
+      if (o.plantilla !== undefined && o.plantilla !== null && (typeof o.plantilla !== 'string' || !plantillaTabPorId(o.plantilla))) return { error: 'Esa plantilla no existe.' };
+      if (o.bloques !== undefined && !Array.isArray(o.bloques)) return { error: 'Los bloques van en una lista.' };
+      if (typeof o.plantilla === 'string' && Array.isArray(o.bloques)) return { error: 'La hoja nueva sale de una plantilla o de unos bloques, no de los dos.' };
+      return {
+        op, hoja, nombre: sanearNombreTab(o.nombre),
+        ...(typeof o.plantilla === 'string' ? { plantilla: o.plantilla } : {}),
+        ...(Array.isArray(o.bloques) ? { bloques: sanearLista(o.bloques, hoja) } : {}),
+        ...(typeof o.epica === 'boolean' ? { epica: o.epica } : {}),
+      };
+    }
+    case 'quitar-hoja': return { op, hoja };
+    case 'mover-hoja': {
+      const lugar = entero(o.lugar);
+      if (!lugar) return { error: 'Falta el lugar (1 es la primera).' };
+      return { op, hoja, lugar };
+    }
     case 'restaurar': return { op, ficha: sanearFicha(o.ficha), ...(o.esperado !== undefined ? { esperado: sanearFicha(o.esperado) } : {}) };
   }
   return { error: 'Ese cambio no existe.' };
@@ -665,6 +761,9 @@ export function normalizar(g: FichaGuardada, elegida: PlantillaId, respaldo: Res
   if (Object.keys(estilo).length) out.estilo = estilo;
   if (Object.keys(nombres).length) out.nombres = nombres;
   if (Object.keys(epica).length) out.epica = epica;
+  // Las hojas propias quedan enteras y en su orden: no hay plantilla contra la que compararlas.
+  const hojas = sanearHojas(g.hojas);
+  if (hojas.length) out.hojas = hojas;
   return out;
 }
 
@@ -677,16 +776,30 @@ export function normalizar(g: FichaGuardada, elegida: PlantillaId, respaldo: Res
 export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: PlantillaId, respaldo: RespaldoNegocio): ResultadoCambio {
   const ef = fichaEfectiva(elegida, actual, respaldo);
   const g: FichaGuardada = JSON.parse(JSON.stringify(actual));
-  const tabDe = (tab: TabFicha): BloquePuesto[] => ef.tabs[tab].map((b) => ({ ...b }));
-  const ponerTab = (tab: TabFicha, l: BloquePuesto[]) => { g.tabs = { ...(g.tabs ?? {}), [tab]: l }; };
+  const tabDe = (tab: LugarFicha): BloquePuesto[] => lugarDe(ef, tab).bloques.map((b) => ({ ...b }));
+  const hojaDe = (id: IdHoja): HojaGuardada | undefined => g.hojas?.find((h) => h.id === id);
+  const ponerTab = (tab: LugarFicha, l: BloquePuesto[]) => {
+    if (esTabFicha(tab)) { g.tabs = { ...(g.tabs ?? {}), [tab]: l }; return; }
+    const h = hojaDe(tab);
+    if (h) h.bloques = l;
+  };
   const nombre = (id: BloqueId) => bloqueDef(id)?.titulo ?? id;
+  const lugarTxt = (tab: LugarFicha) => (esTabFicha(tab) ? NOMBRE_TAB[tab] : `«${lugarDe(ef, tab).nombre}»`);
+  // Un cambio sobre una hoja propia que ya no está (otra persona la borró): no se escribe nada.
+  if ('tab' in c && c.tab && esIdHoja(c.tab) && !hojaDe(c.tab)) return { ok: false, error: 'Esa hoja ya no existe.' };
+  /** ¿Ya se usa este nombre? Las tabs, las hojas propias y las otras pestañas, menos el lugar que se renombra. */
+  const usado = (nom: string, salvo?: LugarFicha): string | undefined => [
+    ...TABS_FICHA.filter((t) => t !== salvo).map((t) => ef.nombres[t]),
+    ...ef.hojas.filter((h) => h.id !== salvo).map((h) => h.nombre),
+    ...NOMBRES_DE_OTRAS_TABS,
+  ].find((x) => x.toLocaleLowerCase('es') === nom.toLocaleLowerCase('es'));
 
   switch (c.op) {
     case 'poner': {
       const def = bloqueDef(c.bloque)!;
       const l = tabDe(c.tab);
-      if (!def.varias && l.some((b) => b.id === c.bloque)) return { ok: false, error: `«${def.titulo}» ya está en ${NOMBRE_TAB[c.tab]}.` };
-      if (l.length >= TOPE_BLOQUES_TAB) return { ok: false, error: `${NOMBRE_TAB[c.tab]} ya tiene ${TOPE_BLOQUES_TAB} bloques.` };
+      if (!def.varias && l.some((b) => b.id === c.bloque)) return { ok: false, error: `«${def.titulo}» ya está en ${lugarTxt(c.tab)}.` };
+      if (l.length >= TOPE_BLOQUES_TAB) return { ok: false, error: `${lugarTxt(c.tab)} ya tiene ${TOPE_BLOQUES_TAB} bloques.` };
       if (c.ancho !== undefined && !def.anchos.includes(c.ancho)) return { ok: false, error: `«${def.titulo}» va de ${anchosTxt(def)}.` };
       if (c.diseno !== undefined && !def.disenos.some((x) => x.id === c.diseno)) return { ok: false, error: `«${def.titulo}» tiene estos diseños: ${disenosTxt(def)}.` };
       const nuevo = { ...puestoDeEntrada(c.bloque, respaldo), ...(c.ancho ? { ancho: c.ancho } : {}), ...(c.diseno ? { diseno: c.diseno } : {}) };
@@ -699,7 +812,7 @@ export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: Pl
       const def = bloqueDef(c.bloque)!;
       const l = tabDe(c.tab);
       const i = indiceDe(l, c.bloque, c.n ?? 1);
-      if (i < 0) return { ok: false, error: `«${nombre(c.bloque)}» no está en ${NOMBRE_TAB[c.tab]}.` };
+      if (i < 0) return { ok: false, error: `«${nombre(c.bloque)}» no está en ${lugarTxt(c.tab)}.` };
       if (c.op === 'quitar') {
         if (!def.quitable && def.tab === c.tab) return { ok: false, error: `«${def.titulo}» no se puede quitar.` };
         l.splice(i, 1);
@@ -738,6 +851,15 @@ export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: Pl
       else { delete g.tabs; delete g.avisos; delete g.plantillasTab; delete g.nombres; delete g.epica; }
       break;
     case 'plantilla':
+      if (c.tab && esIdHoja(c.tab)) {
+        // En una hoja propia, la plantilla se copia UNA vez (sus bloques y su épica): la hoja no la sigue después.
+        const pt = c.plantilla ? plantillaTabPorId(c.plantilla) : undefined;
+        if (c.plantilla && !pt) return { ok: false, error: 'Esa plantilla no existe.' };
+        const h = hojaDe(c.tab)!;
+        h.bloques = pt ? sanearLista(listaDeEntradaTab(pt, pt.tab, respaldo), h.id) : [];
+        if (pt?.epico) h.epica = true; else delete h.epica;
+        break;
+      }
       if (c.tab) {
         const tab = c.tab;
         if (c.plantilla) g.plantillasTab = { ...(g.plantillasTab ?? {}), [tab]: c.plantilla };
@@ -751,20 +873,65 @@ export function aplicarCambio(actual: FichaGuardada, c: CambioFicha, elegida: Pl
       break;
     case 'nombre': {
       const nombre = c.nombre ?? null;
-      const mismo = (x: string) => !!nombre && x.toLocaleLowerCase('es') === nombre.toLocaleLowerCase('es');
-      const otra = TABS_FICHA.filter((t) => t !== c.tab).map((t) => ef.nombres[t]).concat(NOMBRES_DE_OTRAS_TABS).find(mismo);
+      const otra = nombre ? usado(nombre, c.tab) : undefined;
       if (otra) return { ok: false, error: `Ya hay una tab que se llama «${otra}».` };
+      if (esIdHoja(c.tab)) {
+        if (!nombre) return { ok: false, error: 'La hoja necesita un nombre.' };
+        hojaDe(c.tab)!.nombre = nombre;
+        break;
+      }
       if (nombre) g.nombres = { ...(g.nombres ?? {}), [c.tab]: nombre };
       else if (g.nombres) delete g.nombres[c.tab];
       break;
     }
-    case 'epica': g.epica = { ...(g.epica ?? {}), [c.tab]: c.epica }; break;
+    case 'epica':
+      if (esIdHoja(c.tab)) { const h = hojaDe(c.tab)!; if (c.epica) h.epica = true; else delete h.epica; break; }
+      g.epica = { ...(g.epica ?? {}), [c.tab]: c.epica };
+      break;
     case 'armar':
+      if (esIdHoja(c.tab)) {
+        const h = hojaDe(c.tab)!;
+        h.bloques = sanearLista(c.bloques, c.tab);
+        if (c.epica) h.epica = true; else delete h.epica;
+        break;
+      }
       ponerTab(c.tab, sanearLista(c.bloques, c.tab));
       g.epica = { ...(g.epica ?? {}), [c.tab]: c.epica };
       // La tab queda configurada aunque MaKo haya armado lo mismo que traía su plantilla.
       g.plantillasTab = { ...(g.plantillasTab ?? {}), [c.tab]: ef.plantillasTab[c.tab] };
       break;
+    case 'hoja': {
+      if (hojaDe(c.hoja)) return { ok: false, error: 'Esa hoja ya existe.' };
+      if ((g.hojas?.length ?? 0) >= TOPE_HOJAS) return { ok: false, error: `La ficha ya tiene ${TOPE_HOJAS} hojas propias.` };
+      const pt = c.plantilla ? plantillaTabPorId(c.plantilla) : undefined;
+      if (c.plantilla && !pt) return { ok: false, error: 'Esa plantilla no existe.' };
+      const bloques = pt ? sanearLista(listaDeEntradaTab(pt, pt.tab, respaldo), c.hoja) : sanearLista(c.bloques ?? [], c.hoja);
+      // El nombre: el pedido, el de la plantilla o «Hoja N»; si ya lo usa otra, numerado («Resumen 2»), con el tope.
+      const base = c.nombre ?? (pt && pt.bloques.length ? pt.nombre : `Hoja ${(g.hojas?.length ?? 0) + 1}`);
+      let nom = base;
+      for (let k = 2; usado(nom) && k < 100; k++) {
+        const sufijo = ` ${k}`;
+        nom = `${base.slice(0, TOPE_NOMBRE_TAB - sufijo.length).trimEnd()}${sufijo}`;
+      }
+      const h: HojaGuardada = { id: c.hoja, nombre: nom, bloques };
+      if (c.epica ?? pt?.epico) h.epica = true;
+      g.hojas = [...(g.hojas ?? []), h];
+      break;
+    }
+    case 'quitar-hoja':
+      if (!hojaDe(c.hoja)) return { ok: false, error: 'Esa hoja ya no existe.' };
+      g.hojas = (g.hojas ?? []).filter((h) => h.id !== c.hoja);
+      if (!g.hojas.length) delete g.hojas;
+      break;
+    case 'mover-hoja': {
+      const l = [...(g.hojas ?? [])];
+      const i = l.findIndex((h) => h.id === c.hoja);
+      if (i < 0) return { ok: false, error: 'Esa hoja ya no existe.' };
+      const [h] = l.splice(i, 1);
+      l.splice(Math.min(Math.max(c.lugar - 1, 0), l.length), 0, h);
+      g.hojas = l;
+      break;
+    }
     case 'restaurar': {
       const hoy = normalizar(actual, elegida, respaldo);
       // Compare-and-set del Deshacer: el parche de los demás cambios no pisa a nadie, pero restaurar reemplaza
@@ -786,7 +953,7 @@ const disenosTxt = (def: BloqueDef) => def.disenos.map((x) => `${x.id} (${x.nomb
 /** El cambio en una frase corta, para el historial y para la confirmación de MaKo. */
 export function describirCambio(c: CambioFicha): string {
   const b = 'bloque' in c ? `«${bloqueDef(c.bloque)?.titulo ?? c.bloque}»` : '';
-  const t = 'tab' in c && c.tab ? NOMBRE_TAB[c.tab] : '';
+  const t = 'tab' in c && c.tab ? nombreLugar(c.tab) : '';
   switch (c.op) {
     case 'poner': return `Poner ${b} en ${t}${c.lugar ? ` (lugar ${c.lugar})` : ''}`;
     case 'quitar': return `Quitar ${b} de ${t}`;
@@ -807,6 +974,13 @@ export function describirCambio(c: CambioFicha): string {
     case 'nombre': return c.nombre ? `Llamar «${c.nombre}» a ${t}` : `${t} con su nombre de siempre`;
     case 'epica': return `${t}: vista épica ${c.epica ? 'prendida' : 'apagada'}`;
     case 'armar': return `Armar ${t} con ${c.bloques.length} ${c.bloques.length === 1 ? 'bloque' : 'bloques'}${c.epica ? ', épica' : ''}`;
+    case 'hoja': {
+      const pt = c.plantilla ? plantillaTabPorId(c.plantilla) : undefined;
+      const con = pt ? ` con «${pt.nombre}»` : c.bloques?.length ? ` con ${c.bloques.length} ${c.bloques.length === 1 ? 'bloque' : 'bloques'}` : ' en blanco';
+      return `Crear ${c.nombre ? `la hoja «${c.nombre}»` : 'una hoja'}${con}`;
+    }
+    case 'quitar-hoja': return 'Borrar una hoja';
+    case 'mover-hoja': return `Mover una hoja al lugar ${c.lugar}`;
     case 'restaurar': return 'Deshacer el último cambio de la ficha';
   }
 }

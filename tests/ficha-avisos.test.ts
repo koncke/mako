@@ -34,15 +34,18 @@
 //   · guardado un aviso, la cabecera no recuenta (`onGuardado` vacío)                   → 7 / 1
 //   · `cambiaAvisos` sin el `aviso`                                                     → 7 / 1
 //   · el modal sin funnel lee los de un funnel (`avisosDatosAction(null)`)              → 7 / 1
+// Y el 17/10/2026 (el modal se borró; base 8/0): el lead de ejemplo con las asistencias → 7/1; «A revisar» sin el
+// lead de ejemplo → 7/1.
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   avisanDelLead, partirDatosDelLead, ignoradosDelLead, cambioDeIgnorados, IGNORABLES, NO_IGNORABLES, type IgnoradosDelLead,
 } from '../lib/datos-aviso';
 import { stepsForStage, pasosResueltos, type Step, type StageReqValues } from '../lib/stage-requirements';
+import { datosDeEjemplo } from '../app/crm/lead-view/datos-de-ejemplo';
 import { filasPorLead } from '../lib/a-revisar-filas';
 import { aplicarCambio, fichaEfectiva, RESPALDO_VACIO } from '../lib/ficha/config';
 
@@ -151,6 +154,7 @@ test('la API de MaKo ignora IGUAL que la pantalla: en datos_ignorados, por la mi
   assert.match(tramo(run, 'reactivar_datos_sin_marcar: {', 'resolver_confirmacion_crm: {'), /ignorarDatosDeUnLead\(Number\(payload\.leadId\), false, autorDe\(ctx\)\)/);
 });
 
+// (17/10/2026: el modal del que habla este comentario se borró; ver el final del test.)
 // ⚠️ REESCRITO EL 15/10/2026 porque cambió DÓNDE viven los avisos de la ficha, no la regla. Hasta ese día la
 //    ficha abría el modal de avisos (AvisosDatosModal) con el funnel del lead, y este test fijaba ese
 //    `funnelId`. Con la ficha por bloques (Martín, 14/10: «Todas las personalizables, no los hagas con un modal
@@ -171,16 +175,18 @@ test('desde la ficha, los avisos son los del funnel del lead (en «Personalizar�
   // 1. La ficha lee la de SU funnel: la casa del lead.
   const acc = sinComentarios(leer('app/crm/actions.ts'));
   assert.match(tramo(acc, 'export async function getLeadFullAction', '\nexport '), /fichaDelFunnelDelLead\(lead\.funnel_id \?\? null\)/);
-  // 2. Los interruptores del panel de «Personalizar» mandan un cambio de aviso…
-  const panel = sinComentarios(leer('app/crm/lead-view/ficha/PanelFicha.tsx'));
-  assert.match(panel, /onCambio\(\{ op: 'aviso', paso: d\.id, avisa: v \}\)/, 'el panel de la ficha no cambia los avisos');
-  assert.match(panel, /ef\.avisos\.find\(\(a\) => a\.id === d\.id\)/, 'el panel no muestra los avisos de la ficha del funnel');
+  // 2. «Obligatorio» en la barra de cada bloque manda un cambio de aviso… (⚠️ REESCRITO EL 17/10/2026: la barra
+  //    lateral con los interruptores se fue — Martín, 16/10: «Avisos de datos sin marcar deja de ser una lista de
+  //    interruptores: cada bloque tiene la opción "Obligatorio"».)
+  const armador = sinComentarios(leer('app/crm/lead-view/ficha/Armador.tsx'));
+  assert.match(armador, /onCambio\(\{ op: 'aviso', paso: p, avisa: !obligatorio \}\)/, '«Obligatorio» no cambia los avisos');
   // 3. …que la ficha guarda en ESE funnel (el de `data.ficha`), no en el negocio.
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(ficha, /useFichaDelFunnel\(data\.ficha \?\? null,/);
-  // 16/10/2026: el panel recibe además la tab que se personaliza (su nombre, su plantilla y su épica) y cómo abrir su
-  // galería; los avisos siguen yendo por el mismo `cambiar` sobre la ficha de `ff.ficha`.
-  assert.match(ficha, /<PanelFicha ficha=\{ff\.ficha\} tab=\{tab\} onCambio=\{cambiar\} onPlantillas=/);
+  // …con los avisos de la ficha del funnel (`efectiva.avisos`) y por el mismo `cambiar` sobre la ficha de `ff.ficha`.
+  assert.match(ficha, /avisaDe=\{\(p\) => efectiva\.avisos\.find\(\(a\) => a\.id === p\)\?\.avisa \?\? true\}/, 'el armador no lee los avisos de la ficha del funnel');
+  assert.match(ficha, /onCambio=\{cambiar\}/);
+  assert.ok(!existsSync(new URL('../app/crm/lead-view/ficha/PanelFicha.tsx', import.meta.url)), 'volvió la barra lateral de «Personalizar»');
   const hook = sinComentarios(leer('app/crm/lead-view/ficha/useFichaDelFunnel.ts'));
   // Desde el 16/10/2026 la cola y el deshacer viven en guardado-ficha.ts (puro, lo ejecuta
   // tests/ficha-guardado.test.ts): el funnel sale de la ficha que se ve ahí, y el hook lo pasa a la acción.
@@ -198,14 +204,24 @@ test('desde la ficha, los avisos son los del funnel del lead (en «Personalizar�
     assert.doesNotMatch(src, /<AvisosDatosModal\b|onConfigurar/, `${r}: volvió el modal de avisos a la ficha (los avisos de la ficha van en «Personalizar»)`);
   }
 
-  // «A revisar» mezcla leads de varios funnels: ahí van los del negocio, el respaldo de todos. Es la puerta
-  // que queda al modal: por eso AvisosDatosModal NO se borra.
-  const gate = [...sinComentarios(leer('app/_components/MakoConfirmGate.tsx')).matchAll(/<AvisosDatosModal\b[\s\S]*?\/>/g)].map((m) => m[0]);
-  assert.ok(gate.length > 0, '«A revisar» ya no abre el panel de avisos');
-  for (const u of gate) assert.doesNotMatch(u, /funnelId/, '«A revisar» abre el panel de un funnel');
-  const modal = sinComentarios(leer('app/crm/lead-view/AvisosDatosModal.tsx'));
-  assert.match(modal, /: avisosDatosAction\(\)\)/, 'el modal sin funnel ya no lee los del negocio');
-  assert.match(modal, /: guardarAvisosDatosAction\(nuevos\)\)/, 'el modal sin funnel ya no guarda en el negocio');
+  // ⚠️ REESCRITO EL 17/10/2026: el modal de interruptores SE BORRÓ (Martín, 16/10: el engranaje «debería abrirme el
+  //    detalle de un lead "ficticio" con el desplegable de "Datos sin marcar" abierto... ¿Ignorar siempre?»). El engranaje
+  //    abre la ficha del primer lead de la lista; sin leads, un LEAD DE EJEMPLO con lo que avisa el CRM principal, y el
+  //    sí apaga ese aviso en ese funnel (el mismo `op: 'aviso'` que «Obligatorio»).
+  const gate = sinComentarios(leer('app/_components/MakoConfirmGate.tsx'));
+  assert.doesNotMatch(gate, /<AvisosDatosModal\b/);
+  assert.match(gate, /<FichaDeEjemplo onCerrar=\{\(\) => setConfig\(false\)\}/, 'sin leads, el engranaje no abre el lead de ejemplo');
+  const ejemplo = sinComentarios(leer('app/crm/lead-view/FichaDeEjemplo.tsx'));
+  assert.match(ejemplo, /ignorarSiempre=\{\{ funnelId: null \}\}/, 'el ejemplo apaga avisos del CRM principal');
+  assert.match(ejemplo, /abrirAlMontar ejemplo/, 'el desplegable abierto, y «Ver» no salta a completar');
+  // Lo que muestra: lo que avisa hoy el funnel, menos las asistencias (nunca se ignoran). Se EJECUTA.
+  const d = datosDeEjemplo([
+    { id: 'telefono', label: 'Teléfono', avisa: true, por: 'de-entrada' },
+    { id: 'empresa', label: 'Empresa', avisa: false, por: 'a-mano' },
+    { id: 'asistenciaR1', label: 'Asistencia R1', avisa: true, por: 'siempre' },
+  ]);
+  assert.deepEqual(d.avisar.map((x) => x.id), ['telefono']);
+  assert.ok(d.avisar.every((x) => x.ignorable && x.estado === 'falta'));
 });
 
 test('la escritura de lo ignorado es UNA, en lib, con historial', () => {

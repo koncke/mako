@@ -9,7 +9,7 @@
 
 import type { FichaDelFunnel } from './config-server';
 import { sanearCambio, type CambioFicha } from './config';
-import { bloqueDef, bloquesDeLaTab, esTabFicha, vaEnTab, NOMBRE_TAB, TABS_FICHA, ANCHOS, DENSIDADES, REDES, FUENTES_RESPUESTA, type Ancho } from './catalogo';
+import { bloqueDef, bloquesDeLaTab, bloquesDelLugar, esIdHoja, esLugarFicha, esTabFicha, vaEnLugar, NOMBRE_TAB, TABS_FICHA, ANCHOS, DENSIDADES, REDES, FUENTES_RESPUESTA, type Ancho, type BloqueDef } from './catalogo';
 import { plantillaFicha, PLANTILLAS_FICHA } from './plantillas';
 import { galeriaDeTab, plantillaTabPorId, plantillasDeTab } from './plantillas-tab';
 import { DATOS_AVISABLES } from '../datos-aviso';
@@ -21,7 +21,19 @@ import { NOMBRES_ICONO_MENU, type NombreIconoMenu } from '../../app/_ui/iconos-m
  *    de un bloque se sumó el 15/10/2026 porque la pantalla lo cambiaba y MaKo no (AGENTS.md, toda feature va a la
  *    API). Deshacer no tiene op: la pantalla guarda el `antes` en memoria y el funnel no tiene historial.
  */
-export const CAMBIOS_API = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver', 'nombre', 'epica'] as const;
+export const CAMBIOS_API = ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'icono', 'opciones', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver', 'nombre', 'epica', 'nueva_hoja', 'quitar_hoja', 'mover_hoja'] as const;
+/**
+ * Las operaciones del motor que en la API se llaman de otra manera (las palabras de una persona): el test que ata la
+ * pantalla con la API las traduce con esto.
+ */
+export const CAMBIO_API_DE_OP: Readonly<Record<string, string>> = { tema: 'estilo', hoja: 'nueva_hoja', 'quitar-hoja': 'quitar_hoja', 'mover-hoja': 'mover_hoja' };
+/**
+ * La clave de una hoja propia nueva (17/10/2026). La elige quien la crea: la pantalla, para ir a ella en el acto, y acá
+ * la API. Va en el `payload` de lo que se confirma, así que la hoja que se crea es la que se describió.
+ */
+export function idDeHojaNueva(): `h-${string}` {
+  return `h-${Math.random().toString(36).slice(2, 10).padEnd(6, '0')}`;
+}
 /**
  * Lo que hace la pantalla y va por OTRA operación de la API, no por cambiar_ficha_funnel: armar una tab con un pedido
  * («¿Qué vas a crear hoy?») pasa por la IA y es `armar_tab_ficha` (lib/api-mako/areas/crm.def.ts).
@@ -90,6 +102,12 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
       // Con tab, la plantilla de ESA tab (16/10/2026). Sin enum en la def: los ids salen de ver_ficha_funnel y se
       // validan acá, devolviendo los que hay.
       const pl = s(input.plantilla);
+      if (esIdHoja(tab)) {
+        // En una hoja propia, cualquier plantilla de cualquier tab (se copia una vez); «auto», en blanco.
+        if (pl && pl !== 'auto' && !plantillaTabPorId(pl)) return { error: 'Esa plantilla no existe.', disponibles: TABS_FICHA.flatMap((t) => plantillasDeTab(t).map((x) => x.id)) };
+        crudo = { op: 'plantilla', tab, plantilla: !pl || pl === 'auto' ? null : pl };
+        break;
+      }
       if (tab) {
         if (!esTabFicha(tab)) return { error: 'Falta la tab: resumen, reuniones, pagos o tracking.' };
         if (pl && pl !== 'auto' && plantillaTabPorId(pl)?.tab !== tab) return { error: `Esa plantilla no es de ${NOMBRE_TAB[tab]}.`, disponibles: plantillasDeTab(tab).map((x) => x.id) };
@@ -101,6 +119,16 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
       break;
     }
     case 'nombre': crudo = { op: 'nombre', tab, nombre: typeof input.nombre === 'string' ? input.nombre : null }; break;
+    // Las HOJAS PROPIAS (17/10/2026): «Nueva hoja» del desplegable del título. Crearla con una plantilla de cualquier tab
+    // (o en blanco), con su nombre y su épica; borrarla y moverla van con su id en `tab` (de ver_ficha_funnel).
+    case 'nueva_hoja': {
+      const pl = s(input.plantilla);
+      if (pl && !plantillaTabPorId(pl)) return { error: 'Esa plantilla no existe.', disponibles: TABS_FICHA.flatMap((t) => plantillasDeTab(t).map((x) => x.id)) };
+      crudo = { op: 'hoja', hoja: idDeHojaNueva(), nombre: typeof input.nombre === 'string' ? input.nombre : null, ...(pl ? { plantilla: pl } : {}), ...(b(input.epica) !== undefined ? { epica: b(input.epica) } : {}) };
+      break;
+    }
+    case 'quitar_hoja': crudo = { op: 'quitar-hoja', hoja: tab }; break;
+    case 'mover_hoja': crudo = { op: 'mover-hoja', hoja: tab, lugar: n(input.lugar) }; break;
     case 'epica': crudo = { op: 'epica', tab, epica: b(input.epica) }; break;
     case 'volver': crudo = { op: 'volver', ...(tab ? { tab } : {}) }; break;
     case 'estilo': {
@@ -121,10 +149,21 @@ export function cambioDeInputApi(input: Record<string, unknown>): CambioFicha | 
   const c = sanearCambio(crudo);
   if (!('error' in c)) return c;
   const def = bloque ? bloqueDef(bloque) : undefined;
-  if (bloque && esTabFicha(tab) && (!def || !vaEnTab(def, tab))) {
-    return { error: c.error, disponibles: bloquesDeLaTab(tab).map((x) => x.id) };
+  if (bloque && esLugarFicha(tab) && (!def || !vaEnLugar(def, tab))) {
+    return { error: c.error, disponibles: bloquesDelLugar(tab).map((x) => x.id) };
   }
   return c;
+}
+
+/** Un bloque puesto, como lo lee MaKo. */
+function bloqueDeSalida(p: { id: BloqueDef['id']; ancho: Ancho; diseno: string; icono?: string; opciones?: object }, i: number) {
+  const def = bloqueDef(p.id);
+  return {
+    lugar: i + 1, bloque: p.id, titulo: def?.titulo ?? p.id, ancho: NOMBRE_ANCHO[p.ancho],
+    diseno: p.diseno, diseno_nombre: def?.disenos.find((x) => x.id === p.diseno)?.nombre ?? p.diseno,
+    ...(p.icono ? { icono: p.icono } : {}), ...(p.opciones ? { opciones: p.opciones } : {}),
+    ...(def && def.avisa.length ? { completa: def.avisa } : {}),
+  };
 }
 
 /** Lo que ve MaKo de la ficha de un CRM: lo puesto, lo que avisa y por qué, y lo que se puede sumar. */
@@ -141,15 +180,7 @@ export function salidaFichaApi(f: Pick<FichaDelFunnel, 'funnel' | 'eleccion' | '
       plantilla: { id: ef.plantillasTab[tab], nombre: pt?.nombre ?? ef.plantillasTab[tab], elegida_por: ef.plantillasTabAMano.includes(tab) ? 'una persona' : 'MaKo' },
       configurada: ef.configuradas.includes(tab),
       sigue_a_la_plantilla: !ef.tocadas.includes(tab),
-      bloques: puestos.map((p, i) => {
-        const def = bloqueDef(p.id);
-        return {
-          lugar: i + 1, bloque: p.id, titulo: def?.titulo ?? p.id, ancho: NOMBRE_ANCHO[p.ancho],
-          diseno: p.diseno, diseno_nombre: def?.disenos.find((x) => x.id === p.diseno)?.nombre ?? p.diseno,
-          ...(p.icono ? { icono: p.icono } : {}), ...(p.opciones ? { opciones: p.opciones } : {}),
-          ...(def && def.avisa.length ? { completa: def.avisa } : {}),
-        };
-      }),
+      bloques: puestos.map(bloqueDeSalida),
       para_sumar: bloquesDeLaTab(tab).filter((d) => d.varias || !ya.has(d.id)).map((d) => ({
         bloque: d.id, titulo: d.titulo, anchos: d.anchos.map((a) => NOMBRE_ANCHO[a]), disenos: d.disenos.map((x) => x.id),
       })),
@@ -167,7 +198,9 @@ export function salidaFichaApi(f: Pick<FichaDelFunnel, 'funnel' | 'eleccion' | '
       la_de_mako: { id: f.eleccion.id, nombre: plantillaFicha(f.eleccion.id).nombre, porque: f.eleccion.porque },
     },
     tabs,
-    nota: 'Si una tab sale en la ficha lo decide el CRM: Reuniones sólo con una etapa de reunión, Pagos con una venta o un cobro, Tracking con datos de la visita o del anuncio.',
+    // Las hojas propias (17/10/2026), en su orden: el id va en `tab` para cambiar sus bloques, su nombre o su épica.
+    hojas: ef.hojas.map((h) => ({ id: h.id, nombre: h.nombre, epica: h.epica, bloques: h.bloques.map(bloqueDeSalida) })),
+    nota: 'Si una tab sale en la ficha lo decide el CRM: Reuniones sólo con una etapa de reunión, Pagos con una venta o un cobro, Tracking con datos de la visita o del anuncio. Las hojas propias salen siempre, después de las tabs, y llevan cualquier bloque de la ficha.',
     avisos: ef.avisos.map((a) => ({ dato: a.id, nombre: a.label, avisa: a.avisa, por_que: POR_QUE[a.por] ?? a.por })),
     estilo: { tema: ef.estilo.tema.plantilla, acento: ef.estilo.tema.acento, tipografia: ef.estilo.tema.fuente, densidad: ef.estilo.densidad },
     plantillas: PLANTILLAS_FICHA.map((p) => ({ id: p.id, nombre: p.nombre })),
