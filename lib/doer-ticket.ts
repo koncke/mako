@@ -25,8 +25,9 @@ export function actorDeWhatsApp(participant: string | null | undefined, pushName
 }
 
 /**
- * Lo que el CÓDIGO le agrega a la respuesta cuando una herramienta de MaKo falló y dejó propuesto el ticket. El ticket es
- * una pendiente («sí» la manda, lib/mako-pendientes.ts), y el modelo no sabe que existe: si no se dice, nadie la ve.
- * Termina pidiendo el «sí» para que el saneo de la salida no la lea como promesa (lib/doer-salida.ts).
+ * Lo que el CÓDIGO le agrega a la respuesta cuando una herramienta de MaKo falló y el error quedó registrado como ticket
+ * (lib/errores-app.ts): sin preguntar, porque Martín pidió que lo que falla se registre solo (17/10/2026). Dice lo que YA
+ * pasó: la del chat de la app («te aviso por aquí cuando esté arreglado») promete, y el saneo y el vigía la leerían como
+ * una promesa sin hacer. El aviso de arreglado llega solo, firmado por el Desarrollador (lib/aviso-arreglo.ts).
  */
-export const LINEA_TICKET_PROPUESTO = 'Esto falló de nuestro lado. ¿Se lo aviso al equipo de MaKo para que lo arreglen? Responde «sí» y lo mando.';
+export const LINEA_ERROR_AVISADO = 'Esto falló de nuestro lado y ya quedó avisado al equipo de MaKo. Cuando esté arreglado, el aviso llega por este grupo.';
