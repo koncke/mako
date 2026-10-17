@@ -195,10 +195,13 @@ test('las plantillas del Resumen: válidas, sugeridas para los nueve tipos, y si
     const entrada = plantillaTabDeEntrada('resumen', tipo);
     assert.equal(PLANTILLAS_TAB_RESUMEN.filter((p) => p.sugeridaPara?.includes(tipo)).length, 1, `el tipo «${tipo}» tiene una plantilla de Resumen sugerida`);
     assert.ok(PLANTILLAS_TAB_RESUMEN.includes(entrada), `«${tipo}» entra con una del Resumen armado`);
-    // ⚠️ La plantilla del FUNNEL decide los avisos: cada bloque de la lista de su tipo está en el Resumen de entrada,
-    //    así ningún aviso prendido se queda sin dónde llenarse.
-    const faltan = listaDePlantilla(plantillaFicha(tipo), 'resumen').filter((id) => !ids(entrada.bloques).includes(id));
-    assert.deepEqual(faltan, [], `«${tipo}» perdió bloques de la lista de su tipo`);
+    // ⚠️ La plantilla del FUNNEL decide los avisos: cada bloque de la lista de su tipo QUE AVISA está en el Resumen de
+    //    entrada, así ningún aviso prendido se queda sin dónde llenarse. Desde el 17/10 (#880) sólo ésos: exigir la lista
+    //    entera era más que su motivo, y lo que hacía grandes a las plantillas.
+    const faltan = listaDePlantilla(plantillaFicha(tipo), 'resumen')
+      .filter((id) => bloqueDef(id)!.avisa.length > 0)
+      .filter((id) => !ids(entrada.bloques).includes(id));
+    assert.deepEqual(faltan, [], `«${tipo}» perdió bloques de la lista de su tipo que avisan`);
     assert.deepEqual(ids(fichaEfectiva(tipo, {}, RESPALDO_VACIO).tabs.resumen).filter((id) => !['direccion', 'sexo'].includes(id)).length > 0, true);
   }
   assert.ok(!PLANTILLAS_TAB_RESUMEN.find((p) => p.id === 'resumen-epica')!.sugeridaPara, 'la épica se elige, no se sugiere');
