@@ -47,6 +47,8 @@ const GEO: Record<Forma, { ojos: number; dx: number; brillo: [number, number] }>
   pildora: { ojos: 18.5, dx: 4.6, brillo: [13.5, 11] },
   nube: { ojos: 21.5, dx: 5, brillo: [12, 15.5] },
   diamante: { ojos: 20, dx: 4.6, brillo: [14.5, 13] },
+  // La estrella de MaKo: los ojos van en el centro, que es donde la chispa tiene cuerpo.
+  estrella: { ojos: 19, dx: 4.2, brillo: [15.5, 14.5] },
 };
 
 export function Cuerpo({ forma, color }: { forma: Forma; color: string }) {
@@ -68,6 +70,9 @@ export function Cuerpo({ forma, color }: { forma: Forma; color: string }) {
       </g>
     );
     case 'diamante': return <polygon points="20,5 34.5,21 20,37 5.5,21" {...redondo} />;
+    // La chispa de MaKo (app/_components/MakoBrand.tsx → SPARK), rellena para que tenga cuerpo: cuatro puntas
+    // redondeadas y el centro ancho donde caben los ojos y la boca. Sólo el Cerebro (lib/centro-munecos.ts → ASPECTO_MAKO).
+    case 'estrella': return <path d="M20 3.5C22.2 13 27 17.8 36.5 20C27 22.2 22.2 27 20 36.5C17.8 27 13 22.2 3.5 20C13 17.8 17.8 13 20 3.5Z" {...redondo} />;
     default: return <circle cx="20" cy="21" r="16" fill={relleno} />;
   }
 }
