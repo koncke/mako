@@ -10,7 +10,6 @@
 // handler que autoriza primero y recién ahí firma una URL de vida corta.
 
 import { getSupabaseServer } from './supabase';
-import { getTenantDb } from './workspace';
 
 const BUCKET = 'branding';
 
@@ -34,19 +33,26 @@ export type BrandingAsset = {
 
 const COLS = 'id,seccion,grupo,archivo,titulo,mime,bytes,ancho,alto,storage_path,thumb_path,panda_embed,orden';
 
-/** Catálogo completo del workspace activo, ya ordenado para la grilla. */
+/**
+ * El catálogo ENTERO, ya ordenado para la grilla. Lo usa sólo el super admin (/api/branding, con
+ * `getSesionAdmin`): es el material de marca de la plataforma.
+ *
+ * ⚠️ Hasta el 17/10/2026 esto decía «del workspace activo» y leía con `getTenantDb()`, pero
+ * `branding_assets` NO está en TENANT_TABLES: el proxy la deja pasar sin filtro y volvían las filas
+ * de todos. Lo que hace es lo mismo de siempre; ahora lo dice (tests/tenant-tables-contract.test.ts →
+ * INVERSO 3 impide leerla con getTenantDb).
+ */
 export async function listarAssets(): Promise<BrandingAsset[]> {
-  const db = await getTenantDb();
-  const { data, error } = await db.from('branding_assets').select(COLS)
+  const { data, error } = await getSupabaseServer().from('branding_assets').select(COLS)
     .order('seccion', { ascending: true }).order('grupo', { ascending: true }).order('orden', { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as BrandingAsset[];
 }
 
-/** Una pieza puntual. Devuelve null si no existe EN ESTE workspace (cierra el IDOR). */
+/** Una pieza puntual, de cualquier workspace: sólo para el super admin (/api/branding/descargar).
+ *  ⚠️ Decía «null si no existe EN ESTE workspace (cierra el IDOR)» y no era cierto: ver listarAssets. */
 export async function getAsset(id: string): Promise<BrandingAsset | null> {
-  const db = await getTenantDb();
-  const { data, error } = await db.from('branding_assets').select(COLS).eq('id', id).maybeSingle();
+  const { data, error } = await getSupabaseServer().from('branding_assets').select(COLS).eq('id', id).maybeSingle();
   if (error) throw new Error(error.message);
   return (data as BrandingAsset) ?? null;
 }
