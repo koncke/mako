@@ -1,26 +1,25 @@
 // =============================================================================
-// La tarjeta de un cliente: nada de la cuenta de MaKo sin `cuentas.visible`
+// La tarjeta de un cliente de Clients: NADA de la cuenta de MaKo (desde el 17/10/2026)
 // =============================================================================
-// «En el detail de un cliente, la tab de "Equipo" y en general todo lo que tenga que ver
-// con invitar a MaKo, debería solo verse si la cuenta es AGENCIA, sino, no deberían estar
-// esas opciones» (Martín, 05/10/2026). Quién es agencia lo decide el SERVER
-// (`cuentas.visible`, app/customer-success/pantalla.tsx); la TARJETA lo aplica en un solo
-// lugar, y eso es lo que este archivo fija.
+// Martín, 17/10/2026: «crear una tab de "Agencia"... "MaKo Partners"... ahí deberían vivir los clientes de agencia,
+// que no son los mismos que "client": podrían serlo como no» (docs/diseno-clients.md, D8). Hasta ese día la tarjeta de
+// Clients dibujaba, en una agencia, el plan de la cuenta de MaKo del cliente, «Inspeccionar», «Reenviar el acceso»,
+// «Ver su equipo» y «Nadie puede entrar todavía», colgados de `cuentas.visible` (05/10/2026). Todo eso se mudó a MaKo
+// Partners, y este archivo fija las dos mitades:
+//   1. la tarjeta de Clients no vuelve a dibujar nada de la cuenta (ni un flag dormido que lo prenda);
+//   2. lo que hacía no se perdió: «Reenviar el acceso» y «Nadie puede entrar» viven en Partners, en la computadora y
+//      en el teléfono.
 //
-// Lo que había antes y por qué esto existe: el menú «Acciones» y el control de la cuenta
-// miraban `cuentas.visible`, pero el chip del PLAN y el equipo se leían de
-// `planPorWs`/`equipoPorWs` sin mirarlo. No se veía porque esos mapas llegan vacíos cuando
-// no hay cartera aprobada — o sea por cómo los arma el server, no por una regla de la
-// tarjeta. Que «se vea bien hoy» no protegía nada.
+// ⚠️ ES UN GUARD DE CABLEADO Y NO UN RENDER: se pregunta sobre el código sin comentarios (el archivo explica en prosa lo
+// que se sacó, y un `doesNotMatch` sobre la prosa se acusa a sí mismo).
 //
-// ⚠️ ES UN GUARD DE CABLEADO Y NO UN RENDER, y no por gusto: la tarjeta no se puede montar
-// desde node — `CuentaDeMaKo` arrastra un módulo con `server-only` (medido: «This module
-// cannot be imported from a Client Component module», desde lib/workspace.ts). Por eso
-// cada afirmación extrae su bloque antes de preguntar, y se pregunta sobre el código sin
-// comentarios: el archivo explica en prosa lo que se sacó, y un `doesNotMatch` sobre la
-// prosa se acusa a sí mismo.
-//
-// PROBADO ROMPIÉNDOLO: ver el pie, con los números.
+// PROBADO ROMPIÉNDOLO (17/10/2026), cada rotura sola, restaurada de una copia (nunca con `git checkout`, que se lleva
+// lo que no está commiteado):
+//   1. la tarjeta vuelve a pintar el chip del plan (`cl-plan`)                        → 1 fallo (1)
+//   2. vuelve «Reenviar el acceso» al menú de la tarjeta (`reinvitar`)                 → 1 fallo (1)
+//   3. Partners dice «Nadie puede entrar» con `!== 1` en vez de `=== 0`               → 1 fallo (2), y otro en
+//      tests/perfil-vista-de-otro.test.ts («MaKo Partners dice…»)
+//   4. el teléfono pierde «Reenviar a …»                                              → 1 fallo (2)
 // =============================================================================
 
 import { test } from 'node:test';
@@ -43,38 +42,28 @@ function bloque(src: string, abre: string, cierra: string): string {
 const CARD = sinComentarios(leer('app/customer-success/ClienteCard.tsx'));
 const CUERPO = bloque(CARD, 'export function ClienteCard(', '\n}\n');
 
-test('la condición se lee UNA vez, y de ahí cuelga el cliente que se mira', () => {
-  assert.ok(CUERPO.length > 1_500 && CUERPO.length < 6_000, `el cuerpo mide ${CUERPO.length}`);
-  assert.match(CUERPO, /const conCuentas = cuentas\?\.visible === true;/);
-  // Una sola lectura: una segunda es la que se queda vieja el día que cambie la regla.
-  assert.equal((CUERPO.match(/cuentas\?\.visible/g) ?? []).length, 1, 'la regla se escribe en UN lugar');
-  // Sin `visible`, no hay cliente de MaKo que mirar: ni plan, ni equipo, ni reenviar.
-  assert.match(CUERPO, /const ws = conCuentas \? \(c\.clienteWs \?\? null\) : null;/);
-  assert.match(CUERPO, /const plan = ws \? cuentas\?\.planPorWs\?\.\[ws\] : undefined;/);
-  assert.match(CUERPO, /const equipo = ws \? cuentas\?\.equipoPorWs\?\.\[ws\] : undefined;/);
+test('la tarjeta de Clients no dibuja nada de la cuenta de MaKo, ni guarda un flag que lo prenda', () => {
+  assert.ok(CUERPO.length > 1_000 && CUERPO.length < 6_000, `el cuerpo mide ${CUERPO.length}`);
+  for (const [rotulo, re] of [
+    ['la vista de agencia', /cuentas\??\.visible|conCuentas/],
+    ['el control de la cuenta', /CuentaDeMaKo/],
+    ['el chip del plan', /cl-plan|planPorWs/],
+    ['el equipo', /equipoPorWs|value: 'equipo'/],
+    ['«Reenviar el acceso»', /reinvitar/],
+    ['«Nadie puede entrar»', /Nadie puede entrar/],
+  ] as const) assert.doesNotMatch(CARD, re, `volvió ${rotulo} a la tarjeta de Clients`);
+  // La fila de acciones queda para lo del curso (o lo que ponga la pantalla): sin ninguna, no hay fila.
+  assert.match(CUERPO, /acciones=\{accionExtra \|\| opciones\.length > 0 \? \(/);
 });
 
-test('los controles de la cuenta se dibujan sólo con la condición puesta', () => {
-  const acciones = bloque(CUERPO, 'acciones={', '/>\n  );');
-  // ⚠️ DESDE EL 07/10/2026 LA FILA Y EL MENÚ NO SON SÓLO DE LA AGENCIA: el menú suma «Invitar al
-  // curso» y «Permisos del curso» (item 9: «En cada cliente del kanban se debería poder invitar al
-  // curso»), que no crean cuenta de MaKo y los tiene cualquier negocio con curso. Lo que sigue atado
-  // a `conCuentas` es lo de la CUENTA: el control de entrar/abrir, y las dos opciones de abajo, que
-  // salen de `ws`/`equipo` — undefined sin la condición. La regla del curso la fija
-  // tests/curso-invitar.test.ts («la tarjeta ofrece el curso SIN conCuentas…»).
-  assert.match(acciones, /acciones=\{conCuentas \|\| accionExtra \|\| opciones\.length > 0 \? \(/);
-  assert.match(acciones, /\{conCuentas && cuentas && <CuentaDeMaKo /, 'el control de la cuenta (abrir, entrar)');
-  assert.match(acciones, /\{opciones\.length > 0 && \(/, 'el menú, con lo que haya (cuenta y/o curso)');
-  // Y «Ver su equipo» sale de `equipo`, que sin la condición es undefined.
-  assert.match(CUERPO, /\.\.\.\(equipo\?\.length \? \[\{ value: 'equipo'/);
-  assert.match(CUERPO, /\.\.\.\(ws && admin \? \[\{ value: 'reinvitar'/);
+test('lo que hacía no se perdió: «Reenviar el acceso» y «Nadie puede entrar» viven en MaKo Partners', () => {
+  const app = sinComentarios(leer('app/partners/PartnersApp.tsx'));
+  // `[]` es «leí y no hay nadie»; `null`, «no pude leer»: sólo el primero afirma que nadie entra.
+  assert.match(app, /if \(c\.estado === 'aprobado' && c\.equipo\?\.length === 0\) return \{ texto: 'Nadie puede entrar', tono: 'warn' \};/);
+  assert.match(app, /fetch\('\/api\/agencia\/reinvitar'/);
+  assert.match(app, /Reenviar el acceso a \$\{quienManeja\.nombre\}/);
+  const movil = sinComentarios(leer('app/m/partners/PartnersM.tsx'));
+  assert.match(movil, /if \(c\.estado === 'aprobado' && c\.equipo\?\.length === 0\) return \{ texto: 'Nadie puede entrar', tono: 'warn' \};/);
+  assert.match(movil, /fetch\('\/api\/agencia\/reinvitar'/);
+  assert.match(movil, /Reenviar a \$\{quien\.nombre\}/);
 });
-
-// PROBADO ROMPIÉNDOLO (05/10/2026), con un arnés que muta en memoria y restaura de memoria:
-//   1. `const ws = c.clienteWs ?? null;` (el chip del plan vuelve a leerse sin mirar
-//      `visible`, que es el bug que había) → 1 pass / 1 fail, cae «la condición…».
-//   2. `{cuentas && <CuentaDeMaKo …` sin `conCuentas` → 1 pass / 1 fail, cae «los controles…».
-//   3. el Dropdown con su propia lectura `cuentas?.visible &&` → 0 pass / 2 fail: caen los
-//      DOS, y es correcto — es a la vez la regla escrita en dos lugares y un control que ya
-//      no cuelga de la condición única.
-//   Restaurado (de memoria, nunca con `git checkout`): 2 pass / 0 fail.

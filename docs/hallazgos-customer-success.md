@@ -5580,10 +5580,20 @@ Lo que no se ve leyendo el código:
   nombran «customer-success» en su nombre: la batería «de lo que cambió» elegida por nombre de archivo no los agarró.
   Se eligen por CONTENIDO (`git grep -l <la carpeta> -- 'tests/*.test.ts'`).
 
+- **El código de agencia que quedó dormido en la tarjeta y la ficha se BORRÓ, no se dejó apagado** (`CuentaDeMaKo.tsx`,
+  la tab Equipo, el chip del plan, «Reenviar el acceso», «Nadie puede entrar todavía», el filtro «Con/Sin cuenta»).
+  Antes de borrar, lo que hacía y Partners todavía no tenía se mudó allá («Reenviar el acceso», «Nadie puede entrar»).
+  Un flag dormido (`cuentas.visible`) es una puerta que alguien vuelve a abrir pasando una prop.
+  `tests/cs-tarjeta-cuentas.test.ts` fija las dos mitades: que no vuelva, y que lo de Partners esté.
+- **⚠️ Comillas invertidas en un comentario adentro del CSS de un componente lo rompen**: el CSS va en un template
+  literal (`` const CSS = `…` ``), y una comilla invertida en un comentario `/* … */` cierra el string. Ningún test lo vio
+  (los de esta tab leen el fuente con regex, no lo compilan) y el tsc no entraba en RAM: lo cazó un chequeo de sintaxis
+  con `ts.createSourceFile` sobre los archivos tocados (segundos, sin RAM).
+- **⚠️ Restaurar una rotura de test con `git checkout -- <archivo>` se lleva lo que no está commiteado.** Pasó acá: la
+  rotura de `app/m/curso/page.tsx` se «restauró» al commit anterior y se fue el trío recién puesto (lo cazó el test, se
+  rehízo). Cada rotura se restaura de una COPIA hecha antes (tests/cs-tarjeta-cuentas.test.ts ya lo decía).
+
 **Lo que quedó SIN hacer, con su archivo:**
-- **Código dormido en la tarjeta y la ficha** (`CuentaDeMaKo`, la tab Equipo, el chip del plan, «Nadie puede entrar»):
-  cuelga de `cuentas.visible`, que ya no llega. Se borra con la T3 del CRM, que rearma la ficha
-  (`app/customer-success/ClienteCard.tsx`, `FichaCliente.tsx`, `CuentaDeMaKo.tsx`, `KanbanEntrega.tsx`).
 - **La barra**: la ordena el chat Sidebar (`app/_components/nav.ts`: Clients en Operate, MaKo Partners sólo agencia) y
   el «← Regresar a Clientes» de `Sidebar.tsx`. Con eso, las keys `cs-curso`/`cs-comunidad` y sus tests
   (`tests/comunidad-nav.test.ts`, `tests/curso-admin.test.ts`) y la lista de More del teléfono (`SECCIONES_MAS`, una
