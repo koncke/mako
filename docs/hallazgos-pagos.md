@@ -265,6 +265,7 @@ No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
 | El teléfono muestra el saldo pero no cobra: no hay «Mandar link» | app/m/crm/[id]/FichaLead.tsx | El teléfono destila. El cobro con link en el teléfono es otra pieza |
 | Marcar a mano una cuota cuyo link ya se pagó pero no se asentó: después el cron la asienta como otra cuota y lo cobrado se cuenta dos veces | lib/pagos.ts, `cobrarCuota` | Frenarlo puede trabar una cuota para siempre si el pago entró por otro monto. Se ve el link pagado en «Links de pago» |
 | ~~`epico` llega en PropsBloque en la próxima tanda del CRM. Hasta entonces se lee con un cast~~ Hecho el 17/10/2026: se lee `props.epico`, y un test barre la ficha por casts así | pagos/bloques-cobro.tsx | `e92688cd2` |
+| ~~`PlantillaTab` está declarado localmente~~ Ya se importa de lib/ficha/plantillas-tab.ts (visto el 17/10/2026) | lib/ficha/plantillas-pagos.ts | Hecho |
 
 ## Cada pago guarda de qué funnel es (#897, mig 0310, 17/10/2026)
 
