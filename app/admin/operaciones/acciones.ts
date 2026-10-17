@@ -16,7 +16,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import {
-  cancelarPedido, crearTokenCartero, encolarPedido, leerCarteros, listarPedidos,
+  cancelarPedido, crearTokenCartero, encolarPedido, leerCarteros, listarPedidos, trabajoDeLaCola,
   type EstadoCarteros, type Pedido,
 } from '@/lib/operaciones';
 import { leerPushes, type LecturaPushes } from '@/lib/progreso';
@@ -26,20 +26,27 @@ import { sanearAspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { guardarMuneco } from '@/lib/centro-munecos-db';
 import { leerTurnos } from '@/lib/centro-turnos-db';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
+import { leerAbiertas, leerPreguntas, marcarContestada } from '@/lib/centro-preguntas-chat-db';
+import { eleccionValida, textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
+import { guardarBorradorDe, leerBorradorDe } from '@/lib/centro-borradores-db';
+import type { Borrador } from '@/lib/centro-caja';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
 
 /** `decisiones`: las tarjetas de la Ticketera, enteras: cada chat dibuja las suyas arriba de la caja (null si no se
- *  pudieron leer: el resto se ve igual). */
-export type FotoCentro = { ok: true; pedidos: Pedido[]; carteros: EstadoCarteros; decisiones: DecisionEspera[] | null } | { ok: false; error: string };
+ *  pudieron leer: el resto se ve igual). `preguntasAbiertas`: cuántas preguntas espera cada sesión (el globito y el orden
+ *  de la lista; las preguntas mismas viajan con los turnos del chat abierto). */
+export type FotoCentro = {
+  ok: true; pedidos: Pedido[]; carteros: EstadoCarteros; decisiones: DecisionEspera[] | null; preguntasAbiertas: Record<string, number>;
+} | { ok: false; error: string };
 
 export async function fotoCentroAction(): Promise<FotoCentro> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
-    const [pedidos, carteros, decisiones] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan()]);
-    return { ok: true, pedidos, carteros, decisiones };
+    const [pedidos, carteros, decisiones, preguntasAbiertas] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas()]);
+    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
@@ -55,11 +62,56 @@ export async function pushesCentroAction(): Promise<LecturaPushes> {
 
 /** Lo que se dijo en un chat (sus sesiones, las de todas sus cuentas), para su conversación (17/10/2026: «los chats no
  *  se entienden»). Lo pide la pantalla al abrir un chat y en cada refresco de ese chat; los demás no viajan. */
-export async function turnosCentroAction(locales: string[]): Promise<{ ok: true; turnos: TurnoChat[] } | { ok: false; error: string }> {
+export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   if (!Array.isArray(locales)) return { ok: false, error: 'Falta el chat.' };
-  return { ok: true, turnos: await leerTurnos(locales.filter((l): l is string => typeof l === 'string')) };
+  const validos = locales.filter((l): l is string => typeof l === 'string');
+  // Las preguntas del chat y su borrador viajan con lo que se dijo en él: son parte de su conversación (17/10/2026).
+  const [turnos, preguntas, borrador] = await Promise.all([
+    leerTurnos(validos), leerPreguntas(validos), typeof direccion === 'string' ? leerBorradorDe(direccion) : Promise.resolve(null),
+  ]);
+  return { ok: true, turnos, preguntas, borrador };
+}
+
+/** Guarda el borrador de un chat en MaKo, para que cruce al teléfono (17/10/2026, la B). Sólo si es más nuevo. */
+export async function guardarBorradorAction(direccion: string, texto: string, at: number): Promise<{ ok: true; borrador: Borrador } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof direccion !== 'string' || typeof texto !== 'string' || typeof at !== 'number' || !Number.isFinite(at)) return { ok: false, error: 'Falta el borrador.' };
+  try {
+    return { ok: true, borrador: await guardarBorradorDe(direccion, { texto, at: Math.min(at, Date.now() + 60_000) }) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/**
+ * Marca contestada una pregunta de un chat (17/10/2026, el formulario de su conversación). La respuesta YA salió firmada
+ * por mandar.ts: acá se comprueba que el trabajo `trabajo` existe, es para esa sesión y dice EXACTAMENTE lo elegido
+ * (`textoDeRespuesta`), y recién ahí se marca, sólo si no estaba contestada. Sin trabajo firmado no se marca nada.
+ */
+export async function contestarPreguntaAction(entrada: {
+  local: string; id: string; elegidas: number[]; otra: string; trabajo: string;
+}): Promise<{ ok: true; pregunta: PreguntaChat } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  try {
+    const { local, id, trabajo } = entrada ?? {};
+    if (typeof local !== 'string' || typeof id !== 'string' || typeof trabajo !== 'string') return { ok: false, error: 'Falta la pregunta.' };
+    const p = (await leerPreguntas([local])).find((x) => x.id === id);
+    if (!p) return { ok: false, error: 'Esa pregunta ya no está.' };
+    const v = eleccionValida(p, Array.isArray(entrada.elegidas) ? entrada.elegidas : [], typeof entrada.otra === 'string' ? entrada.otra : '');
+    if (!v.ok) return v;
+    const w = await trabajoDeLaCola(trabajo);
+    if (!w || w.destino !== local || w.texto.trim() !== textoDeRespuesta(p, v.elegidas, v.otra)) {
+      return { ok: false, error: 'Tu respuesta no salió: vuelve a elegir.' };
+    }
+    const r = await marcarContestada(local, id, { elegidas: v.elegidas, otra: v.otra, at: new Date().toISOString(), trabajo });
+    return r.ok ? r : { ok: false, error: r.error };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
 }
 
 /** Las tarjetas abiertas de la Ticketera (las archivadas no vienen). No es una acción. */

@@ -329,7 +329,7 @@ export const AREAS: AreaDev[] = [
     slug: 'onboarding', titulo: 'Onboarding Wizard', familia: 'Operate', grupo: 'Onboarding',
     estado: 'listo', verEnApp: '/onboarding',
     alcance: 'El shell bloqueante. Es el proyecto con MÁS tareas abiertas del tablero.',
-    vive: ['app/onboarding/page.tsx', 'app/onboarding/ChatArranque.tsx', 'app/onboarding/IntroMako.tsx', 'app/onboarding/arranque-ui.ts', 'app/onboarding/tabs-catalogo.ts', 'app/api/onboarding/arranque/route.ts', 'lib/onboarding-arranque.ts', 'lib/onboarding-arranque-server.ts', 'lib/secciones-negocio.ts', 'app/_components/WizardShell.tsx', 'app/_components/wizard-progreso.ts', 'lib/onboarding-state.ts', 'lib/onboarding.ts', 'lib/onboarding-extract.ts'],
+    vive: ['app/onboarding/page.tsx', 'app/onboarding/ChatArranque.tsx', 'app/onboarding/EntradaMako.tsx', 'app/onboarding/CriaturaMako.tsx', 'app/onboarding/arranque-ui.ts', 'app/onboarding/tabs-catalogo.ts', 'app/api/onboarding/arranque/route.ts', 'lib/onboarding-arranque.ts', 'lib/onboarding-arranque-server.ts', 'lib/secciones-negocio.ts', 'app/_components/WizardShell.tsx', 'app/_components/wizard-progreso.ts', 'lib/onboarding-state.ts', 'lib/onboarding.ts', 'lib/onboarding-extract.ts'],
     proyectos: ['Feature: Onboarding'],
   },
   {
@@ -389,19 +389,18 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'experiments', titulo: 'Experiments', familia: 'Analyze',
-    estado: 'listo', verEnApp: '/experimentos',
-    alcance: 'El shell de cuatro tabs (Retro · Experiments · Conclusions · Análisis) con el estado de datos, el toast y el modo demo local sin Supabase. Sin Meta, el PanelActivacion ocupa Retro, Experiments y Conclusions (miden contra Meta); Análisis —el informe en cascada que hasta el 11/10/2026 era la tab /analisis— sale del CRM y anda igual.',
-    vive: ['app/experimentos/page.tsx', 'app/experimentos/ExperimentosApp.tsx', 'app/experimentos/ui.tsx', 'app/experimentos/_demo.ts', 'lib/experimentos.ts', 'app/api/experimentos/route.ts',
-      'app/experimentos/tabs.ts', 'app/experimentos/VistaAnalisis.tsx', 'lib/analisis-negocio.ts', 'lib/analisis-modelo.ts',
-      'app/analisis/page.tsx', 'app/analisis/trimestre/page.tsx'],
+    estado: 'listo', verEnApp: '/dashboard',
+    alcance: 'Desde el 17/10/2026 ya no es una tab: Martín pidió simplificarla «completamente» y llevar lo que pretendía al chat de MaKo del Dashboard. «Probemos X» en «Editar con MaKo» propone un experimento como un elemento de la hoja, que se arranca, se mide contra el dato real (antes contra ahora) y se concluye ahí; las verdades validadas siguen en el contexto de MaKo. /experimentos, /m/experimentos y /analisis redirigen al Dashboard.',
+    vive: ['app/dashboard/ElementoExperimento.tsx', 'lib/experimentos-catalogo.ts', 'lib/experimentos.ts', 'app/api/experimentos/route.ts', 'lib/graficos-ia-edicion.ts',
+      'app/experimentos/page.tsx', 'app/m/experimentos/page.tsx', 'app/analisis/page.tsx', 'app/analisis/trimestre/page.tsx', 'lib/analisis-negocio.ts'],
     proyectos: ['Feature: Experiments'],
-    nota: 'La tab se lee en el SERVER (?tab=, con tabDeUrl de app/experimentos/tabs.ts, un módulo puro: nunca un valor de ExperimentosApp, que es use client) porque analisisNegocio es lenta y sólo corre cuando la URL pide Análisis. /analisis redirige a ?tab=analisis con su query; /analisis/trimestre (el informe congelado del ws1) se quedó en su ruta a propósito.',
+    nota: 'Las cuatro pestañas de la tab vieja (Retro, Experiments, Conclusions y Análisis) se fueron con ella. /analisis/trimestre (el informe congelado del ws1) se quedó en su ruta, con la puerta del Dashboard. Un link viejo con `?hipotesis=` (el «Probarlo» de Offer) aterriza en /dashboard?probar=, que abre «Editar con MaKo» con «Probemos: …».',
   },
   {
     slug: 'retro', titulo: 'Retro', familia: 'Analyze',
-    estado: 'listo', agente: true, verEnApp: '/experimentos',
-    alcance: 'El agente que corre 8 fases (memoria → recolección → auditoría → diagnóstico paralelo por área → cruces → cerebro → verificación → redacción) sobre un período y devuelve el reporte v3 (Overview · Plan · Detail) con hallazgos, plan encadenado a experimentos y tareas, gate del Perro y ejecución en vivo por stream NDJSON.',
-    vive: ['app/experimentos/RetroTab.tsx', 'app/experimentos/RetroReport.tsx', 'lib/retro.ts', 'lib/retro-pipeline.ts', 'lib/retro-reporte.ts', 'lib/retro-datos.ts', 'lib/retro-fuentes.ts', 'lib/retro-gate.ts', 'lib/retro-seguimiento.ts', 'app/api/retro/route.ts'],
+    estado: 'parcial', agente: true, verEnApp: '/dashboard',
+    alcance: 'El agente que corría 8 fases (memoria → recolección → auditoría → diagnóstico paralelo por área → cruces → cerebro → verificación → redacción) y devolvía el reporte v3. Desde el 17/10/2026 no tiene pantalla: vivía en la tab Experiments, que se retiró, y su ruta (/api/retro) con ella. Lo que queda son las retros ya guardadas, que la API de MaKo lee; el diagnóstico de la hoja lo hace el AI Analyst del Dashboard.',
+    vive: ['lib/retro.ts', 'lib/retro-pipeline.ts', 'lib/retro-reporte.ts', 'lib/retro-datos.ts', 'lib/retro-fuentes.ts', 'lib/retro-gate.ts', 'lib/retro-seguimiento.ts'],
     proyectos: ['Agente: Retro'],
   },
   {
@@ -1154,10 +1153,16 @@ export const AREAS: AreaDev[] = [
     proyectos: ['Feature: Configuraciones y equipo'],
   },
   {
-    slug: 'reportar-problema', titulo: 'Reportar problema', familia: 'Platform',
-    estado: 'por-construir', verEnApp: '/tickets',
-    alcance: 'Hoy es un ComingSoon a propósito: no hay tabla de tickets ni destino al que mandarlos. El nombre es la acción, no el objeto del sistema.',
-    vive: ['app/tickets/page.tsx', 'app/_components/ComingSoon.tsx'],
+    // Desde el 17/10/2026 es la Ticketera de los usuarios entera (el jefe se llama «Ticketera»); el slug queda.
+    slug: 'reportar-problema', titulo: 'Ticketera', familia: 'Platform',
+    estado: 'parcial', verEnApp: '/tickets',
+    alcance: 'El cliente levanta un ticket desde el chat de MaKo o en «Reportar problema»; el triage separa el bug evidente (se arregla solo) de lo nuevo (decide Martín); la decisión va firmada al Cerebro y el ticket se cierra solo cuando se despliega. Falta enchufar la entrega del bug automático en el cartero, la bandeja en el teléfono y WhatsApp.',
+    vive: [
+      'app/tickets/page.tsx', 'app/tickets/TicketsCliente.tsx', 'app/tickets/acciones.ts', 'app/tickets/tickets.css', 'app/tickets/bandeja/',
+      'lib/tickets-reglas.ts', 'lib/tickets-db.ts', 'lib/tickets-cierre.ts', 'lib/tickets-aviso.ts', 'lib/tickets-runner.ts',
+      'lib/api-mako/areas/tickets.def.ts', 'lib/api-mako/areas/tickets.run.ts', 'app/api/cron/tickets/route.ts', 'scripts/tickets.ts',
+      'supabase/migrations/0311_tickets_usuarios.sql', 'tests/tickets.test.ts', 'tests/tickets-triage.test.ts', 'docs/diseno-ticketera-usuarios.md',
+    ],
     proyectos: ['Feature: Feedback y errores'],
   },
   {

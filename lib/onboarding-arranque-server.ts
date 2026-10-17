@@ -11,7 +11,8 @@ import 'server-only';
 import { capaDef } from './capas';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getCapaActual, getWorkspace, getWorkspaceActual, actualizarWorkspace } from './workspace';
-import { getUsuarioActual } from './auth';
+import { getSesionAdmin, getUsuarioActual } from './auth';
+import { CLAVE_GUARDIA, parseGuardia } from './onboarding-guardia';
 import { getPerfil, setPerfil } from './perfil';
 import { getDiagnosticoFase } from './fase-store';
 import { PREGUNTAS, esCanal } from './fase-diagnostico';
@@ -142,11 +143,20 @@ export type VistaArranque = {
   canal: HechosArranque['canalNegocio'];
   /** Lo que quiere resolver primero: decide a qué pestaña entra al terminar (`rutaDeEntrada`). */
   interes: EstadoArranque['interes'] | null;
+  /** La guardia lo bloqueó (lib/onboarding-guardia.ts): la pantalla muestra el aviso en vez del chat. */
+  bloqueo: { at: string; motivo: string } | null;
+  /** Quien mira es el equipo de MaKo: ve el motivo, lo que escribió y «Desbloquear». Para el cliente, vacío. */
+  equipo: { ultimasFaltas: string[] } | null;
 };
 
 export async function vistaArranque(): Promise<VistaArranque> {
   const e = await leerEstadoArranque();
-  const h = await hechosDelArranque(e);
+  const [h, guardia, superAdmin] = await Promise.all([
+    hechosDelArranque(e),
+    // Para DIBUJAR: una lectura caída no muestra el bloqueo (las rutas lo vuelven a mirar estricto antes de dejar pasar).
+    getSetting(CLAVE_GUARDIA).then(parseGuardia).catch(() => ({}) as ReturnType<typeof parseGuardia>),
+    getSesionAdmin().catch(() => null),
+  ]);
   const { antes, despues } = mensajesDeArranque(e, h);
   return {
     modo: h.modo,
@@ -163,6 +173,8 @@ export async function vistaArranque(): Promise<VistaArranque> {
     crmTipo: e.crmTipo ?? null,
     canal: h.canalNegocio,
     interes: e.interes ?? null,
+    bloqueo: guardia.bloqueo ? { at: guardia.bloqueo.at, motivo: guardia.bloqueo.motivo } : null,
+    equipo: superAdmin && guardia.bloqueo ? { ultimasFaltas: guardia.ultimasFaltas ?? [] } : null,
   };
 }
 

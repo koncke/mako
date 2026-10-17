@@ -76,6 +76,7 @@ import { registrarDocumentoSinPisar, type RegistroArchivero } from '@/lib/archiv
 import { MAX_ARCHIVO_BYTES, formatosLegibles, puedeLeerse } from '@/lib/formatos-archivo';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { onboardingPendiente } from '@/lib/onboarding-state';
+import { frenoDeIa } from '@/lib/onboarding-guardia-server';
 import { transcribirAudio, SttSinEscucha, errorDeCascada } from '@/lib/ai-cheap';
 import { extraerLanding } from '@/lib/landing-fetch';
 import { leerFunnels } from '@/lib/funnels';
@@ -210,6 +211,19 @@ export async function POST(req: NextRequest) {
 
   return runWithWorkspace(ws, async () => {
     try {
+      // ⛔ LA GUARDIA DEL ONBOARDING (17/10/2026, Martín: «el onboarding lo pago yo en tokens... si me envían mil
+      // consultas... si un troll le empieza a decir cualquier cosa»). Mientras el onboarding está pendiente, ninguna otra
+      // tab se abre: todo pedido de IA a Offer ES el onboarding y lo paga el crédito de Claude de la plataforma. La
+      // ráfaga, el tope, el troleo y el bloqueo viven en lib/onboarding-guardia-server.ts. Y el análisis entero (armar,
+      // diagnosticar, generar) no corre en el onboarding: el onboarding ya no lo pide, y por la API sería la parte cara.
+      const tipoIa = action === 'turno' ? 'turno' : action === 'leer' || action === 'leer-link' ? 'documento' : null;
+      const analisis = action === 'armar' || action === 'diagnosticar' || action === 'generar';
+      if ((tipoIa || analisis) && await onboardingPendiente().catch(() => false)) {
+        if (analisis) return no(409, 'El análisis de tu oferta se hace en la tab Offer, cuando termines el onboarding.');
+        const usuario = (await getUsuarioActual().catch(() => null))?.email ?? null;
+        const freno = await frenoDeIa({ req, ws, usuario, tipo: tipoIa!, texto: tipoIa === 'turno' ? cadena(body.texto) : undefined });
+        if (freno) return no(freno.status, freno.error, freno.bloqueado ? { bloqueado: true } : {});
+      }
       switch (action) {
         case 'arbol':
           return ok({ arbol: await arbolOffer() });

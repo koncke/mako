@@ -1142,7 +1142,97 @@ teléfono no tiene. Test: tests/dashboard-editar-mako-muneco.test.ts. **Nadie lo
 **Vive en:** app/dashboard/PanelEstilo.tsx · lib/graficos-temas.ts · app/dashboard/PanelEditarMako.tsx.
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Experiments se retiró: un experimento es un ELEMENTO de la hoja que propone «Editar con MaKo» (17/10/2026)
+
+Martín: «Quiero que "Experiments" la simplifiques completamente: la funcionalidad, o lo que pretendía, puede vivir dentro
+del chat de MaKo de "Dashboard"». Lo que pretendía la tab: una hipótesis que se vuelve medible (una métrica del catálogo,
+dirección, ventana, baseline comparable) y un veredicto con su aprendizaje al cerrar. Eso quedó; las cuatro sub-tabs, la
+Retro, el Análisis y la pantalla del teléfono se borraron. Ahora «probemos X» en «Editar con MaKo» agrega un elemento
+«Experimento» a la hoja, que se arranca, se mide en vivo y se concluye ahí mismo.
+
+- **El experimento se ata al elemento por `config.elemento` (la fila guarda el id del elemento), no al revés.** Arrancar
+  pasa en modo VISTA y no escribe la hoja: no hay guardado que pise a otra pestaña con el editor abierto, y el elemento
+  encuentra su experimento con `GET /api/experimentos?elemento=E`. Arrancar dos veces (dos pestañas, doble clic) devuelve
+  el mismo (`experimentoDeElemento` ANTES de `crearExperimento`). Consecuencia: duplicar o copiar la hoja da ids nuevos
+  (`hojaConIdsNuevos`), y la copia vuelve a mostrar la PROPUESTA, no el experimento — en otro negocio es lo correcto.
+- **Una métrica que no está en el catálogo NO se adivina** (`sanearPropuesta` devuelve null, lib/experimentos-catalogo.ts):
+  un experimento con la métrica cambiada da un veredicto sobre otra cosa, y nadie lo nota. La ruta re-sanea lo que
+  manda el navegador con la misma función. El catálogo se partió en un módulo PURO para que la hoja y la IA lo lean sin
+  `server-only`; `lib/experimentos.ts` le pega el `extraer` de cada métrica.
+- **La guía de experimentos va en el mensaje del USUARIO, no en el system** (`GUIA_EXPERIMENTOS`, lib/graficos-ia-edicion.ts):
+  el system se puede reemplazar desde /configuraciones (prompts editables) y la guía se perdería con él. Y sólo en el
+  Dashboard: General no es un banco de pruebas (`conExperimentos`).
+- **La puerta pasó a la del Dashboard**: `soloAdminDeTab('graphics')` en la ruta y `gating.tab: 'graphics'` en el área
+  `experimentos` de la API de MaKo (era `experimentos`, la key de la tab que el chat «Sidebar» saca de la barra).
+- **Lo que se borró y lo que NO:** se fueron la UI de la Retro y `app/api/retro` (su único llamador era la tab), las
+  ideas/sugerencias por HTTP y el informe de Análisis. Se quedan `lib/retro-*` (la API de MaKo lee las retros viejas),
+  `lib/analisis-negocio.ts` (lo usan mako-tools, la API de métricas y Offer), el informe congelado de /analisis/trimestre,
+  y `experimento_tareas`/`tarea_categorias`, que son del Plan (su demo se mudó a app/plan/_demo.ts). /vsl/experimentos es
+  una página de la landing y no tiene nada que ver.
+- **El «Probarlo» de Offer** lleva a `/dashboard?probar=<hipótesis>`, que abre el panel con «Probemos: …» escrito. En el
+  TELÉFONO se sacó: /m/dashboard no tiene «Editar con MaKo» y el link aterrizaba en una hoja sin nada de la hipótesis.
+- ⚠️ **Un link viejo a /experimentos?tab=experiments&hipotesis=… conserva la hipótesis** (`destinoDeExperimentos`): los
+  mensajes de WhatsApp y los PDF de Offer que ya salieron la llevan.
+
+Tests: tests/experimentos-en-la-hoja.test.ts y tests/analisis-mudada.test.ts, probados rompiéndolos (números en su encabezado).
+**Nadie lo miró en pantalla** (sin RAM para un `next dev`).
+**Vive en:** lib/experimentos-catalogo.ts · lib/experimentos.ts · app/dashboard/ElementoExperimento.tsx ·
+app/api/experimentos/route.ts · lib/graficos-ia-edicion.ts.
+*17/10/2026, claude4 (chat Dashboard).*
+
+## Una plantilla entra al instante y se ajusta por detrás: lo que gana si la persona la tocó (17/10/2026)
+
+Martín (#857, revisión del 16/10, 1:08:13): el «Revisando… N s · hasta 2 min» al elegir una plantilla «confunde al
+usuario». Ahora la hoja entra YA con la plantilla tal cual —cada gráfico con su cargando, como cualquier hoja— y
+/api/graficos/plantilla la ajusta a los datos del negocio en el fondo (saca los vacíos, MaKo suma otros).
+
+- **La ruta ajusta la hoja que la pantalla YA creó** (manda `hoja` con sus ids): los gráficos que se quedan conservan su
+  id y lo que ya leyeron. Si la ruta instanciara la suya, la hoja entera se volvería a leer al reemplazarse.
+- **La ajustada reemplaza sólo si nadie la tocó** (`sigueComoSeCreo`, lib/graficos-plantilla-relleno.ts). ⚠️ Comparar
+  la hoja ENTERA no sirve: la grilla compacta lo que vino al montar (en edición escribe posiciones sin que nadie toque
+  nada), y con eso el ajuste no llegaba nunca. Se comparan sin las posiciones; un título, un filtro o una pieza de más o
+  de menos sí cuentan, y entonces lo de la persona gana sin aviso.
+- ⚠️ **El ajuste NO va con el controlador del modal:** el modal se cierra apenas se crea la hoja y su desmontaje aborta
+  `ctrl` (así cortaba antes el pedido al cerrarlo). Va con su propio `AbortSignal.timeout`.
+- Reemplazar no se deshace (como crear) y vacía la pila de deshacer.
+
+Test: tests/dashboard-plantilla-al-instante.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** app/dashboard/NuevaHoja.tsx · app/dashboard/EditorInforme.tsx (`rellenarHoja`) ·
+lib/graficos-plantilla-relleno.ts · app/api/graficos/plantilla/route.ts.
+*17/10/2026, claude4 (chat Dashboard).*
+
+## General vuelve a tener la búsqueda y el filtro de fecha (17/10/2026)
+
+Martín (#858, revisión del 16/10, 1:10:12): en General «el filtro… de fecha y… la barra de búsqueda… siempre deberían
+aparecer por defecto», y editando falta cómo agregarlos. Revierte el 14/10, cuando los sacó porque «no sirven en general».
+
+- **Las plantillas de General YA traían su control de período** (`plantilla()`, lib/graficos-plantillas-generales.ts):
+  lo único que faltaba era dibujar la barra, que el editor escondía con `!esGeneral`. Ahora va en las dos pantallas, salvo
+  en blanco.
+- ⚠️ **El período mueve los GRÁFICOS de la hoja, no los bloques de General**: los bloques leen `armarDatosGeneral` con su
+  propio rango («del mes», «hoy», el trimestre del OKR). Por eso el 14/10 «no servía»: en una General hecha sólo de
+  bloques, el filtro no cambia nada. Si Martín lo quiere en los bloques, es otro trabajo (cada bloque con su período).
+
+Test: tests/general-filtros-por-defecto.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
+
+- **Una plantilla que se ajusta por detrás (17/10/2026):** mientras llega el ajuste, la hoja muestra los gráficos que
+  después se van (los vacíos dicen «Sin datos» unos segundos). Si se quisiera, marcarlos como «midiendo» hasta que llegue.
+
+- **Experiments en la hoja (17/10/2026):**
+  - Un experimento creado por la API (`crear_experimento`) o uno de antes del 17/10 **no tiene elemento: no se ve en
+    ninguna pantalla** (sí en el contexto de MaKo y por la API). `sanearElemento` ya acepta `experimento: { id: N }`;
+    falta que «Editar con MaKo» conozca los experimentos del negocio para poder agregarlos a una hoja.
+  - El teléfono no muestra ni pide experimentos: /m/dashboard destila la hoja en sus números y su serie
+    (`piezasDeHoja`, app/m/dashboard/datos.ts, sólo gráficos) y no tiene el panel de «Editar con MaKo».
+  - Una Retro nueva ya no se genera en ningún lado. Si vuelve, que sea otro elemento de la hoja.
+  - ⚠️ **Las dos redirecciones conservan la puerta de la tab** (`requireRolWs([], { nav: 'experimentos' })` y
+    `requireMovil({ navKey: 'experimentos' })`): el chat «Sidebar» dejó la key viva (ítem sin fila, sección oculta del
+    teléfono) y tests/movil-mas-secciones.test.ts exige esa puerta en las dos páginas. Cuando la key se vaya de
+    app/_components/nav.ts, lib/movil-rutas.ts y lib/capas.ts (la capa superadmin), se van esas dos líneas y el
+    `experimentos` de `conRol`, y /experimentos y /m/experimentos entran en `RETIRADAS` de tests/tabs-retiradas.test.ts.
 
 - **El filtro «Producto» de los LEADS mira sólo la casa** (17/10/2026): una hoja filtrada por un funnel de agregados
   («Renovación») no muestra a sus leads. Contar a un lead en sus dos funnels duplica los totales: sin decidir. Vive en

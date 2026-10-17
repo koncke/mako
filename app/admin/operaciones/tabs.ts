@@ -3,7 +3,8 @@
 // =============================================================================
 // Martín: «Quiero chats con los nombres de las tabs que sean "jefes"». La convención del jefe (AGENTS.md → el Centro de
 // Operaciones) es que se llama como la tab; un chat cuyo jefe no se llama como ninguna («dashboard-marketing-7d», que es
-// el nombre de la carpeta, o un título que inventó la app) va a «Sin asignar» (lib/centro-chats.ts → seccionesDeChats).
+// el nombre de la carpeta, o un título que inventó la app) iba a «Sin asignar»; desde el 17/10/2026 va en la misma lista
+// (Martín: «No entiendo el desplegable de "Sin asignar"... elimínalo»), y renombrándolo pasa a su jefe.
 //
 // Los nombres salen de dos registros que ya existen: las etiquetas de la barra (la del cliente, la de MaKo y la del super
 // admin, app/_components/nav.ts) y los títulos de las áreas del producto (app/admin/dev/areas.ts), que nombran también lo

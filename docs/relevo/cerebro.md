@@ -286,3 +286,35 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
 - **Ticketera:**
   - `envio-whatsapp-al-activar` → B, aplicado;
   - `acceso-repo-mauricio` → A, SIN APLICAR: Mauricio sigue con escritura en GitHub y lo cambia Martín. El git de la PC ya entra como hola-mako.
+
+## 17/10 ~09:00 AR (12:00 UTC) — ESTADO PARA RETOMAR
+
+- **Producción hasta el run 97:** el arreglo de /general (el ejemplo de la Meta sin `funnelIds`).
+  - El 98, el 99 y el 100 cayeron por barredoras (link-con-workspace, onboarding-hub-retirado, undecima-email-propio) y por Tipos (centro-preguntas-chat). Arreglados.
+  - **El run 101 (f2bdab6b4) lleva TODO lo pendiente:**
+    - el «Quitar» de pagos (#891) y el Video Editor sin GPU (#853);
+    - CRM (#854 y #893);
+    - Onboarding A, B y C (la guardia contra el abuso);
+    - Ops Center 3 (A, B, el urgente parte 2 y el renombre);
+    - la Ticketera, punta 1 (la mig 0311 ya aplicada);
+    - Infra (el verde más barato) y los títulos de AI Avatar;
+    - el cartero **1.14.2 con `medir`**.
+- **Apenas el 101 esté en producción:**
+  1. instalar el cartero desde wt-push-q (`node scripts/operaciones/cartero.mjs instalar`);
+  2. pasarle al Runner (local_354ef1cd…) el paso **0b**: get_usage → `cartero.mjs medir <5h%> <reset> <sem%> <reset>`;
+  3. medir el timing del run para Infra;
+  4. avisar el «Ya está» a Ticketera, Pagos, AI Avatar, CRM, Onboarding y Ops Center 3.
+- **En cola, sin integrar:**
+  - Second Brain b6b5c02dd (espera su VERDE);
+  - Sidebar, punta 1 (espera su VERDE) y punta 2 con la mig **0312** (es suya);
+  - Clients;
+  - Offer y Plan (abiertos 17/10).
+  - La próxima migración libre es la **0313**.
+- **Reglas nuevas de Martín (en la memoria):**
+  - no preguntar nada;
+  - priorizar solo: cliente roto > plata/riesgo > lo que lo traba > features;
+  - el corte al 97% (hook ~/.claude/guardia/corte-97.mjs);
+  - la Ticketera es sólo de usuarios.
+- **Con la RAM al límite (16 chats):** en local, guardas + los tests de lo cambiado + frontera; lo pesado lo corre Actions, que falla rápido (~2 min).
+- **Auditoría de las 54 tarjetas de las llamadas:** 12 cerradas en el Plan; las demás repartidas a sus chats (C:/dev/auditoria-1610.json).
+- **Runner:** si MaKo no recibe vueltas (operaciones_carteros.visto_at quieto), stop_session al Runner y mandarle de nuevo sus pasos. `vigilar` a veces hace 0 consultas: bug pasado al Ops Center 3.

@@ -31,6 +31,7 @@ import { DIAS_HISTORIAL, pedidosDelCentro } from '@/lib/progreso-reglas';
 import { chatsDeBitacoras } from '@/lib/centro-chats';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import { leerMunecos } from '@/lib/centro-munecos-db';
+import { leerAbiertas } from '@/lib/centro-preguntas-chat-db';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { CentroAppMovil } from './CentroAppMovil';
 import { TicketeraMovil } from './TicketeraMovil';
@@ -74,11 +75,12 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: los chats (de las bitácoras) se ven aunque la cola no se pueda leer.
-  const [cola, estado, tarjetas, munecos] = await Promise.all([
+  const [cola, estado, tarjetas, munecos, abiertas] = await Promise.all([
     listarPedidos().catch(() => null),
     leerCarteros().catch(() => null),
     leerDecisiones().catch(() => null),
     leerMunecos(),
+    leerAbiertas(),
   ]);
   const decisiones = tarjetas?.ok ? tarjetas.decisiones : null;
   // Todas las fechas (16/10/2026): lo terminado hace rato va corto (lib/progreso-reglas.ts → pedidosDelCentro).
@@ -92,6 +94,7 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
         carterosIniciales={estado}
         decisionesIniciales={decisiones}
         munecosIniciales={munecos}
+        preguntasAbiertasIniciales={abiertas}
         pedidos={pedidos}
         ahora={ahora}
         sub={admin.sub}

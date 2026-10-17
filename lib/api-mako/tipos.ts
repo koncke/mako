@@ -52,7 +52,9 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // los permisos de los tokens); la TAB es Automations desde el 09/10/2026 (ex /chatbot).
   chatbot: { titulo: 'Chatbot y secuencias', tab: 'Automations', ruta: '/automations' },
   metricas: { titulo: 'Dashboard y análisis', tab: 'Dashboard', ruta: '/dashboard' },
-  experimentos: { titulo: 'Experiments y Retro', tab: 'Experiments', ruta: '/experimentos' },
+  // 17/10/2026: la tab Experiments se retiró y los experimentos viven en el Dashboard («Editar con MaKo»). El ÁREA sigue
+  // llamándose `experimentos`: es la clave del registro, de las operaciones y de los permisos de los tokens.
+  experimentos: { titulo: 'Experimentos y Retro', tab: 'Dashboard', ruta: '/dashboard' },
   // Landing Analyst y Closing Analyst se retiraron como tabs el 11/10/2026: analizar una página es parte
   // de Web Generator, y las llamadas son la hoja «Closing» del Dashboard. Las ÁREAS (`landing`,
   // `closing`) y sus títulos no cambian: son la clave del registro y de los permisos de los tokens.
@@ -355,6 +357,10 @@ export type Ctx = {
   /** El token detallado que pidió (id y nombre), para el rastro: va en el `actor` de lo
    *  que confirma y en `api_llamadas`. */
   token?: { id: string; nombre: string };
+  /** Lo que el TURNO sabe para un ticket (lib/tickets-reglas.ts, `ContextoTicket`): lo que pidió la persona, lo que
+   *  contestó MaKo y los errores que registró el código al correr las herramientas. Lo pone el chat que corre el turno
+   *  (lib/mako-turno-app.ts) y lo lee `levantar_ticket`: así el error de un ticket nunca lo escribe el modelo. */
+  contextoTicket?: () => Record<string, unknown>;
 };
 
 // ── Lo que devuelven los runners ─────────────────────────────────────────────

@@ -10,7 +10,7 @@
 //   · app/m/operaciones/CentroAppMovil.tsx y app/m/second-brain/SecondBrainCentroM.tsx (el teléfono).
 //
 // Lo que hace: la cola y los Runners que se refrescan cada 8 s con la pestaña a la vista; los pushes de Vercel
-// DESPUÉS de dibujar; la Ticketera de cada chat; el borrador y el alcance de la caja; mandar (por mandar.ts, el ÚNICO
+// DESPUÉS de dibujar; la Ticketera de cada chat; el borrador de la caja (que nunca se pierde); mandar (por mandar.ts, el ÚNICO
 // camino firmado); y el «⋯» de cada chat (Renombrar, que también es un trabajo firmado, y Cambiar su muñeco).
 //
 // ⚠️ SIN 'use client' A PROPÓSITO, como mandar.ts: es un hook que sólo importan componentes de cliente.
@@ -19,14 +19,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  DESTINO_NUEVO, DESTINO_RE, aceptaAbrir, aceptaAdjuntos, problemaDeNombreNuevo, type AdjuntoPedido, type Alcance, type TurnoChat,
+  DESTINO_NUEVO, DESTINO_RE, aceptaAbrir, aceptaAdjuntos, problemaDeNombreNuevo, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
 import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { idLocal, problemaDeSeleccion, tipoDeElegido } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
-  comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
+  claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
@@ -36,10 +36,15 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { fotoCentroAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { contestarPreguntaAction, fotoCentroAction, guardarBorradorAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
+import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
+import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
+/** Con algo en camino (escrito o tomado), la pantalla mira más seguido: sale en segundos y tiene que verse (17/10/2026). */
+const REFRESCO_APURADO_MS = 2500;
 /** La barra del avance se recuerda abierta o cerrada entre chats y visitas: es una preferencia (AGENTS.md). */
 const CLAVE_AVANCE = 'centro.avance';
 const leerAvance = () => { try { return window.localStorage.getItem(CLAVE_AVANCE) === '1'; } catch { return false; } };
@@ -54,6 +59,8 @@ export type DatosCentro = {
   decisionesIniciales: DecisionEspera[] | null;
   /** Los muñecos que Martín eligió, por nombre (lib/centro-munecos-db.ts). */
   munecosIniciales: MunecosElegidos;
+  /** Cuántas preguntas espera cada sesión (lib/centro-preguntas-chat-db.ts → leerAbiertas). */
+  preguntasAbiertasIniciales?: Record<string, number>;
   pedidos: PedidoP[];
   ahora: number;
   sub: string;
@@ -92,7 +99,23 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const [pushes, setPushes] = useState<LecturaPushes | null>(null);
   const [munecos, setMunecos] = useState<MunecosElegidos>(d.munecosIniciales);
   const [borradores, setBorradores] = useState<Record<string, string>>({});
-  const [alcance, setAlcance] = useState<Alcance>('solo_esto');
+  // ── El borrador nunca se pierde (17/10/2026, la B) ──────────────────────────────────────────────────────────
+  // Uno por chat, por su DIRECCIÓN (la sesión: no cambia al renombrarlo). Se guarda mientras se escribe en el navegador
+  // (localStorage) y, con más espera, en MaKo (cruza al teléfono); vuelve al abrir el chat (`cargarBorrador`, el más
+  // nuevo de los dos) y se borra sólo cuando el mensaje SALIÓ (`limpiarBorrador`). `editado`: cuándo se tocó acá por
+  // última vez, para que uno que llega de MaKo más viejo no pise lo que se está escribiendo.
+  const editado = useRef<Record<string, number>>({});
+  const relojes = useRef<Record<string, { local?: number; remota?: number }>>({});
+  const guardarLocal = (dir: string, b: Borrador) => { try { window.localStorage.setItem(claveDeBorrador(dir), JSON.stringify(b)); } catch { /* es una comodidad */ } };
+  const cargarBorrador = useCallback((c: ChatCentro, remoto: Borrador | null | undefined) => {
+    const dir = claveParaUrl(c);
+    let local: Borrador | null = null;
+    try { local = leerBorrador(JSON.parse(window.localStorage.getItem(claveDeBorrador(dir)) ?? 'null')); } catch { /* sin localStorage */ }
+    const vale = borradorQueVale(local, remoto ?? null);
+    if (!vale || (editado.current[c.clave] ?? 0) >= vale.at) return;
+    editado.current[c.clave] = vale.at;
+    setBorradores((b) => (b[c.clave] === vale.texto ? b : { ...b, [c.clave]: vale.texto }));
+  }, []);
   /** La cuenta elegida para cada chat (ausente = «Automático»): se recuerda mientras la pantalla está abierta. */
   const [cuentaDe, setCuentaDe] = useState<Record<string, string>>({});
   /** El modelo y el esfuerzo del próximo trabajo (null = «Automático»): vuelven a Automático después de mandar. */
@@ -115,16 +138,39 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // ── Lo que se dijo en el chat abierto (sus turnos, del transcript: «los chats no se entienden», 17/10/2026) ──
   // Se piden sólo para el chat que se mira (al abrirlo y en cada refresco): los demás no viajan.
   const [turnos, setTurnos] = useState<Record<string, TurnoChat[]>>({});
+  // Y sus preguntas (17/10/2026, el formulario de su conversación): viajan con los turnos.
+  const [preguntas, setPreguntas] = useState<Record<string, PreguntaChat[]>>({});
+  const [abiertas, setAbiertas] = useState<Record<string, number>>(d.preguntasAbiertasIniciales ?? {});
   const mirado = useRef<ChatCentro | null>(null);
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
     const locales = c.miembros.filter((m) => DESTINO_RE.test(m));
     if (!locales.length) return;
-    const r = await turnosCentroAction(locales).catch(() => null);
-    if (r?.ok) setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
-  }, []);
+    const r = await turnosCentroAction(locales, claveParaUrl(c)).catch(() => null);
+    if (r?.ok) {
+      setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
+      setPreguntas((q) => ({ ...q, [c.clave]: r.preguntas ?? [] }));
+      // El borrador de MaKo: el del teléfono, si es más nuevo que lo de acá.
+      cargarBorrador(c, r.borrador ?? null);
+    }
+  }, [cargarBorrador]);
   /** La conversación avisa qué chat se está mirando (o null al cerrarla). */
-  const mirar = useCallback((c: ChatCentro | null) => { mirado.current = c; if (c) void pedirTurnos(c); }, [pedirTurnos]);
+  const mirar = useCallback((c: ChatCentro | null) => {
+    mirado.current = c;
+    if (!c) return;
+    // Lo que quedó escrito en este navegador vuelve en el acto; lo de MaKo llega con los turnos.
+    cargarBorrador(c, null);
+    void pedirTurnos(c);
+    // Y los archivos que quedaron sin mandar (IndexedDB), si la caja está vacía.
+    if (!(adjuntosRef.current[c.clave]?.length)) {
+      void leerAdjuntosGuardados(claveParaUrl(c)).then((fs) => {
+        if (!fs.length || adjuntosRef.current[c.clave]?.length) return;
+        adjuntosRef.current = { ...adjuntosRef.current, [c.clave]: fs.map((f): AdjuntoCaja => ({ id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f) })) };
+        setAdjuntos(adjuntosRef.current);
+      });
+    }
+  }, [pedirTurnos, cargarBorrador]);
   const turnosDe = (c: ChatCentro): TurnoChat[] => turnos[c.clave] ?? [];
+  const preguntasDe = (c: ChatCentro): PreguntaChat[] => preguntas[c.clave] ?? [];
 
   // Se lee después de montar: el server no sabe lo del navegador, y el primer dibujo tiene que coincidir.
   useEffect(() => { setAvance(leerAvance()); }, []);
@@ -138,29 +184,35 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     return [...locales.filter((l) => !deCola.some((w) => w.id === l.id)), ...deCola];
   }, [cola, locales]);
   const carteros = useMemo(() => estado?.carteros ?? [], [estado]);
-  const esperas = useMemo(() => esperasPorChat(decisiones, carteros), [decisiones, carteros]);
+  // Lo que espera a Martín en cada sesión: las tarjetas de la Ticketera y las preguntas del formulario de su chat.
+  const esperas = useMemo(() => {
+    const m = { ...esperasPorChat(decisiones, carteros) };
+    for (const [local, n] of Object.entries(abiertas)) m[local] = (m[local] ?? 0) + n;
+    return m;
+  }, [decisiones, carteros, abiertas]);
   const chats = useMemo(() => completarChats(base, { carteros, trabajos, ahora }), [base, carteros, trabajos, ahora]);
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
   const lineasDe = useMemo(
-    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnos[c.clave])])),
-    [chats, porId, trabajos, decisiones, carteros, turnos],
+    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnos[c.clave], preguntas[c.clave])])),
+    [chats, porId, trabajos, decisiones, carteros, turnos, preguntas],
   );
   const previas = useMemo(() => new Map<string, VistaPrevia | null>([...lineasDe].map(([k, l]) => [k, vistaPrevia(l)])), [lineasDe]);
   const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, enQueTrabaja(l)])), [lineasDe]);
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);
+  const apurado = hayEnCamino(trabajos, ahora);
   useEffect(() => {
-    const t = setInterval(() => { if (document.visibilityState === 'visible') refrescar(); }, REFRESCO_MS);
+    const t = setInterval(() => { if (document.visibilityState === 'visible') refrescar(); }, apurado ? REFRESCO_APURADO_MS : REFRESCO_MS);
     const volver = () => { if (document.visibilityState === 'visible') refrescar(); };
     document.addEventListener('visibilitychange', volver);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', volver); };
-  }, [refrescar]);
+  }, [refrescar, apurado]);
   // Vercel, después de dibujar.
   useEffect(() => { let vivo = true; pushesCentroAction().then((p) => { if (vivo) setPushes(p); }).catch(() => {}); return () => { vivo = false; }; }, []);
 
@@ -193,7 +245,31 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const cuentasDe = (c: ChatCentro) => ({ opciones: cuentasDelChat(c, carteros, ahora), automatica: sesionAutomatica(c, carteros, ahora)?.cuenta ?? null });
   const envioDe = (c: ChatCentro): Envio => comoSale(destinoDeChat(c), carteros, claveFirma, ahora);
   const borradorDe = (clave: string) => borradores[clave] ?? '';
-  const ponerBorrador = (clave: string, t: string) => setBorradores((b) => ({ ...b, [clave]: t }));
+  const direccionDe = (clave: string) => { const c = chats.find((x) => x.clave === clave); return c ? claveParaUrl(c) : null; };
+  const ponerBorrador = (clave: string, t: string) => {
+    setBorradores((b) => ({ ...b, [clave]: t }));
+    const dir = direccionDe(clave);
+    if (!dir) return;
+    const at = Date.now();
+    editado.current[clave] = at;
+    const e = relojes.current[clave] ?? (relojes.current[clave] = {});
+    window.clearTimeout(e.local); window.clearTimeout(e.remota);
+    e.local = window.setTimeout(() => guardarLocal(dir, { texto: t, at }), ESPERA_LOCAL_MS);
+    e.remota = window.setTimeout(() => { void guardarBorradorAction(dir, t, at).catch(() => null); }, ESPERA_REMOTA_MS);
+  };
+  /** Después de que el mensaje SALIÓ: la caja vacía, acá, en MaKo (en el acto, sin espera) y sus archivos guardados. */
+  const limpiarBorrador = (clave: string) => {
+    setBorradores((b) => ({ ...b, [clave]: '' }));
+    const dir = direccionDe(clave);
+    const e = relojes.current[clave];
+    if (e) { window.clearTimeout(e.local); window.clearTimeout(e.remota); }
+    if (!dir) return;
+    const at = Date.now();
+    editado.current[clave] = at;
+    guardarLocal(dir, { texto: '', at });
+    void guardarBorradorAction(dir, '', at).catch(() => null);
+    void guardarAdjuntos(dir, []);
+  };
 
   /** Lo que se acaba de mandar, para que se vea en su chat mientras llega el refresco. */
   const anotarEnviado = (t: TrabajoP) => { setLocales((l) => [t, ...l]); refrescar(); };
@@ -238,15 +314,21 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const antes = adjuntosRef.current[clave] ?? [];
     const problema = problemaDeSeleccion([...antes.map((a) => a.file.size), ...listos.map((f) => f.size)]);
     if (problema) { avisar(problema, 'bad'); return; }
-    ponerAdjuntos(clave, [...antes, ...listos.map((f): AdjuntoCaja => ({
+    const todos = [...antes, ...listos.map((f): AdjuntoCaja => ({
       id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
-    }))]);
+    }))];
+    ponerAdjuntos(clave, todos);
+    const dir = direccionDe(clave);
+    if (dir) void guardarAdjuntos(dir, todos.map((a) => a.file));
   };
   const quitarAdjunto = (clave: string, id: string) => {
     const antes = adjuntosRef.current[clave] ?? [];
     const a = antes.find((x) => x.id === id);
     if (a) URL.revokeObjectURL(a.url);
-    ponerAdjuntos(clave, antes.filter((x) => x.id !== id));
+    const quedan = antes.filter((x) => x.id !== id);
+    ponerAdjuntos(clave, quedan);
+    const dir = direccionDe(clave);
+    if (dir) void guardarAdjuntos(dir, quedan.map((x) => x.file));
   };
   /** Después de mandar: la caja queda vacía. */
   const vaciarAdjuntos = (clave: string) => {
@@ -255,7 +337,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   };
 
   async function mandar(c: ChatCentro) {
-    const texto = borradorDe(c.clave);
+    // Lo que sale es Markdown de verdad: las viñetas de la caja («• ») vuelven a ser «- » (lib/centro-caja.ts).
+    const texto = textoParaMandar(borradorDe(c.clave));
     const archivos = adjuntosRef.current[c.clave] ?? [];
     const d = destinoDeChat(c);
     if (!d.sesion || !envioDe(c).puede || enviando || (!texto.trim() && !archivos.length)) return;
@@ -269,7 +352,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     }
     // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
     const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, alcance, como, subidos);
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, 'solo_esto', como, subidos);
     setEnviando(false);
     if (!r.ok) { avisar(r.error, 'bad'); return; }
     anotarEnviado({
@@ -277,10 +360,28 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
     });
     vaciarAdjuntos(c.clave);
-    ponerBorrador(c.clave, '');
-    setAlcance('solo_esto');
+    limpiarBorrador(c.clave);
     setModelo(null);
     setEsfuerzo(null);
+  }
+
+  // ── Contestar una pregunta del chat (17/10/2026, el formulario de su conversación) ──────────────────────────────
+  // Primero sale FIRMADA por mandar.ts (el único camino a la PC: la PC recibe lo firmado), y recién con ese trabajo en la
+  // cola el servidor la marca contestada (acciones.ts → contestarPreguntaAction). Devuelve el error, o null.
+  async function contestarPregunta(c: ChatCentro, p: PreguntaChat, elegidas: number[], otra: string): Promise<string | null> {
+    const cuenta = c.sesiones.find((s) => s.sesion === p.local)?.cuenta ?? c.cuenta;
+    const sale = comoSale({ sesion: p.local, cuenta, estado: c.estado }, carteros, claveFirma, ahora);
+    if (!sale.puede) return textoDeEnvio(sale) ?? 'No puedo mandarla todavía.';
+    const texto = textoDeRespuesta(p, elegidas, otra.trim() || null);
+    const r = await firma.mandar({ sesion: p.local, cuenta, titulo: c.titulo }, texto, 'solo_esto');
+    if (!r.ok) return r.error;
+    anotarEnviado({ id: r.id, destino: p.local, destino_titulo: c.titulo, destino_cuenta: cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    const m = await contestarPreguntaAction({ local: p.local, id: p.id, elegidas, otra, trabajo: r.id }).catch(() => null);
+    // Salió firmada aunque no se haya podido marcar: el chat la recibe igual. Se ve contestada acá, y el refresco trae la verdad.
+    const contestada: PreguntaChat = m?.ok ? m.pregunta : { ...p, respuesta: { elegidas, otra: otra.trim() || null, at: new Date().toISOString(), trabajo: r.id } };
+    setPreguntas((q) => ({ ...q, [c.clave]: (q[c.clave] ?? []).map((x) => (x.id === p.id ? contestada : x)) }));
+    setAbiertas((a) => { const n = (a[p.local] ?? 0) - 1; const out = { ...a }; if (n > 0) out[p.local] = n; else delete out[p.local]; return out; });
+    return null;
   }
 
   // Los avisos dicen qué hacer, cortos (Martín, 15/10/2026: «Jamás pongas mensajes no claros»). Después de crear el
@@ -343,10 +444,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   return {
     chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
-    turnosDe, mirar,
+    turnosDe, preguntasDe, contestarPregunta, mirar,
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     avance, cambiarAvance,
-    envioDe, borradorDe, ponerBorrador, alcance, setAlcance, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
+    envioDe, borradorDe, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     puedeAbrirEn, apertura, abrirChat,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,

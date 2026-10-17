@@ -33,7 +33,8 @@ import 'server-only';
 import { chatClaudeTools, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
-import { porId } from '@/lib/api-mako/registro';
+import { aToolDef, porId } from '@/lib/api-mako/registro';
+import { errorParaTicket, propuestaPorFallo, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import type { Ctx } from '@/lib/api-mako/tipos';
@@ -228,6 +229,11 @@ export type EntradaTurnoApp = {
 /** El cartel de la plataforma: se muestra y NO se guarda (AGENTS.md, «Un cartel de la
  *  PLATAFORMA no es un turno de la conversación»). */
 const AVISO_NO_PUDE = 'No pude contestar ahora. Tu mensaje quedó guardado.';
+
+/** Mandarle un ticket al equipo de MaKo (lib/api-mako/areas/tickets.def.ts): viaja SIEMPRE en el chat de la app, para
+ *  que MaKo pueda proponerlo cuando la persona pide algo que la app todavía no tiene (docs/diseno-ticketera-usuarios.md). */
+const LEVANTAR_TICKET = 'levantar_ticket';
+const TICKET_TOOLS: ToolDef[] = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToolDef(d)] : []; })();
 const AVISO_NO_LEI = (nombre: string) => `No pude leer «${nombre}».`;
 
 /**
@@ -334,12 +340,22 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Lo que el CÓDIGO le muestra a la persona sin pasar por el modelo (la agenda de Google):
     // va en la respuesta y NO se guarda en el hilo, que vuelve al modelo en el turno siguiente.
     const paraLaPersona: string[] = [];
+    // Los errores de MaKo en ESTE turno (lib/tickets-reglas.ts, `errorParaTicket`): van al ticket que se proponga, y
+    // si el modelo no lo propone, lo propone el código al final (docs/diseno-ticketera-usuarios.md §2.1).
+    const erroresDelTurno: ErrorDelTurno[] = [];
+    let ticketPropuesto = false;
     const ctx: Ctx = {
       ws, canal: 'app', canalKey,
       // `proponer`: este turno deja pendientes y propuestas; confirmar es de la persona
       // (confirmar_accion pide `ejecutar` y además no viaja: dos cortes).
       alcance: 'proponer', rol: persona.rol, turnStart, mensajeUsuario: textoPersona || textoMemoria, actor: persona.actor,
       aPersona: (t) => { const x = (t ?? '').trim(); if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x); },
+      // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
+      contextoTicket: () => ({
+        pedido: textoPersona || textoMemoria,
+        ...(ultimoDeMako ? { respuestaMako: ultimoDeMako } : {}),
+        ...(erroresDelTurno[0] ? { error: erroresDelTurno[0].error, herramienta: erroresDelTurno[0].herramienta } : {}),
+      }),
     };
     const vista = await vistaDe(ctx);
     const sinCalendly = intencion.intencion === 'actuar'
@@ -349,7 +365,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const contextoDelSi = intencion.sigueOfrecimiento ? [ultimoPedido ?? '', ultimoDeMako ?? ''].filter(Boolean).join('\n') : null;
     const turno = herramientasDelChat<ToolDef>({
       veredicto: intencion, texto: textoClasificar, contextoDelSi, agendaAbierta: !!agendaAbierta,
-      deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS], vista,
+      deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS], vista,
       hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
     });
     const tools = turno.tools as ToolDef[];
@@ -395,6 +411,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // La instrucción de una pendiente es la de WhatsApp («pide un sí»): acá se confirma en la tarjeta.
       const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
       memo.anotar(name, out);
+      const err = errorParaTicket(name, out);
+      if (err) erroresDelTurno.push(err);
+      else if (name === LEVANTAR_TICKET) ticketPropuesto = true;
       const sigue = agendaQueSigue(name, input, out, Date.now());
       if (sigue) await setSetting(claveAgenda, JSON.stringify(sigue)).catch(() => {});
       else if (agendaSeCierra(name, out)) await setSetting(claveAgenda, '').catch(() => {});
@@ -418,6 +437,15 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       fallo = e instanceof Error ? e.message : String(e);
     }
     if (fallo) console.error(`[mako-turno-app] ws=${ws} sesión=${s.id} ${intencion.intencion}: ${fallo.slice(0, 300)}`);
+
+    // ── El ticket que propone el CÓDIGO ─────────────────────────────────────────
+    // Algo de MaKo falló en este turno y el modelo no propuso mandárselo al equipo: lo propone el código, con el
+    // error que vio. Es una propuesta (una tarjeta con un botón): la persona decide si lo manda.
+    if (erroresDelTurno.length && !ticketPropuesto) {
+      const e = erroresDelTurno[0];
+      await runRegistro(LEVANTAR_TICKET, propuestaPorFallo(e, textoPersona || textoMemoria, porId(e.herramienta)?.titulo ?? null))
+        .catch((x) => console.error(`[mako-turno-app] ws=${ws} no pude proponer el ticket: ${x instanceof Error ? x.message : String(x)}`));
+    }
 
     // ── Lo que sale ────────────────────────────────────────────────────────────
     const propuestas = await tarjetasVigentes(ws, canalKey, turnStart).catch(() => [] as TarjetaPendiente[]);

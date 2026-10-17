@@ -253,7 +253,6 @@ test('la bandeja de /whatsapp es una sola: la del número de empresa', () => {
 
 test('los textos que se ven ya no mandan a conectar Chatwoot', () => {
   assert.doesNotMatch(leer('app/configuraciones/TelefonosPanel.tsx'), /si tienes Chatwoot conectado/);
-  assert.doesNotMatch(leer('app/experimentos/RetroReport.tsx'), /Chatwoot todavía sin conectar/);
   assert.doesNotMatch(sinComentarios(leer('app/privacidad/page.tsx')), /Chatwoot/, 'la política de privacidad sigue nombrando a Chatwoot como proveedor');
 });
 

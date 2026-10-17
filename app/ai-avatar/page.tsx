@@ -21,7 +21,7 @@ export default async function AiAvatarPage({ searchParams }: { searchParams: Pro
   const uno = (v: string | string[] | undefined) => (typeof v === 'string' ? v.slice(0, 120) : undefined);
   return (
     <Pagina>
-      <PageHeader titulo="Crear video" proposito="Tu avatar dice tu guion." />
+      <PageHeader titulo="Create video" proposito="Tu avatar dice tu guion." />
       <CrearVideo avatarInicial={uno(sp.avatar)} plantillaInicial={uno(sp.plantilla)} />
     </Pagina>
   );

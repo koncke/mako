@@ -76,7 +76,7 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
 
   let demo = false;
   if (dbDown && process.env.NODE_ENV !== 'production') {
-    const d = await import('@/app/experimentos/_demo');
+    const d = await import('./_demo');
     tareas = d.demoTareas;
     categorias = d.demoCategorias;
     demo = true;

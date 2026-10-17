@@ -169,6 +169,8 @@ export type ArranqueOffer = {
   abrirEnFunnel: number | null;
   /** Cada vez que la conversación cambia. */
   onSesion: (s: OfferSesionVista) => void;
+  /** La guardia del onboarding lo bloqueó (423, lib/onboarding-guardia.ts): la pantalla relee y muestra el aviso. */
+  onBloqueado?: () => void;
   /** «Tu oferta» al costado: sólo desde que empieza la conversación de la oferta. */
   conRiel: boolean;
   placeholder?: string;
@@ -406,6 +408,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       // El mensaje quedó guardado aunque MaKo no contestó: se dibuja la sesión que mandó el servidor
       // y lo enviado NO vuelve al composer. La salida es «Reintentar», que corre la IA sobre lo guardado.
       if (err instanceof ErrorOfferApi && err.sesion) { aplicarSesion(err.sesion, e); return 'salio'; }
+      // La guardia del onboarding lo bloqueó: lo escrito no vuelve y el arranque muestra su aviso.
+      if (err instanceof ErrorOfferApi && err.status === 423) { arranque?.onBloqueado?.(); return 'tirar'; }
       // El servidor ya dijo que lo mismo no va a entrar (o el audio no se puede convertir): no se relee
       // ni se ofrece reintentar ESO. El motivo ya quedó en la línea de error.
       if (err instanceof AudioInservible || (err instanceof ErrorOfferApi && esRechazoDefinitivo(err.status))) return 'tirar';

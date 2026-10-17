@@ -201,7 +201,7 @@ REGLAS:
 4. "tesis": la lectura entera en UNA frase. Si hay datos del embudo, la tesis dice primero dónde se corta el embudo (volumen, asistencia, cierre u oferta) antes de culpar a la oferta: la oferta es lo último que se corrige.
 5. En «AVISOS» van los que ya calculó el sistema con los datos del negocio (foco, margen, dónde se cortan las ventas, cuándo subir el precio). Úsalos al poner las notas: el de foco pesa en D9, el de margen en D6 y los de precio y cobro en D7. No los contradigas ni inventes otros números.
 6. "fuertes": de 1 a 3 cosas que la oferta YA hace bien, cada una en una frase que cita lo que dijo el dueño (entre «comillas»). Si de verdad no hay nada fuerte, una sola que lo diga: nunca inventes una para llenar. "fuerte": la primera de esas, igual.
-7. "cambios": exactamente 3, del que más impacto tiene al que menos. Cada uno es una HIPÓTESIS para probar en Experiments, nunca una verdad: "hipotesis" se escribe «Si …, entonces …» y dice qué número se movería.
+7. "cambios": exactamente 3, del que más impacto tiene al que menos. Cada uno es una HIPÓTESIS para probar en el Dashboard, nunca una verdad: "hipotesis" se escribe «Si …, entonces …» y dice qué número se movería.
 8. No calcules el total ni el cuello de botella: los calcula el sistema con tus notas.
 9. No inventes datos que el dueño no dio.
 

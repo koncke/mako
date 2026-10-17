@@ -1,0 +1,112 @@
+// =============================================================================
+// Las preguntas de cada chat de Claude Code, en la base (17/10/2026)
+// =============================================================================
+// El molde es el de los turnos (lib/centro-turnos-db.ts): una clave de app_settings POR CHAT en el workspace de la
+// PLATAFORMA (`wsSuperAdmin()`), `operaciones.preguntas.<local>`, con las últimas `PREGUNTAS_POR_CHAT`. Las reglas (qué
+// es una pregunta válida, cómo se une, el texto de la respuesta) viven en lib/centro-preguntas-chat.ts.
+//
+// ⚠️ SIN MIGRACIÓN A PROPÓSITO: si un día se muda a una tabla, la forma es `PreguntaChat` y se lee por `local`.
+// ⚠️ ESCRIBIR LEE ESTRICTO (AGENTS.md → «Una lectura que cae al DEFAULT sirve para dibujar, nunca para DECIDIR»): si no
+//    puede leer lo que había, no escribe, o borraría las preguntas del chat con la vuelta nueva sola.
+// ⚠️ CONTESTAR ES COMPARAR-Y-ESCRIBIR: sólo marca una pregunta que estaba SIN contestar. Dos dispositivos que contestan a
+//    la vez: el segundo recibe «ya contestada», y lo que llega a la PC es el trabajo firmado de cada uno.
+// ⚠️ LA GUARDA NO VIVE ACÁ: guarda el endpoint del cartero (su token) y contesta una acción con `puedeOperar`.
+
+import 'server-only';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
+import { runWithWorkspace, wsSuperAdmin } from './workspace';
+import { DESTINO_RE } from './operaciones-reglas';
+import { sanearPregunta, unirPreguntas, type PreguntaChat, type RespuestaPregunta } from './centro-preguntas-chat';
+
+const PREFIJO = 'operaciones.preguntas.';
+/** Cuántas espera cada chat, en UNA clave: la lista de chats lo lee en cada refresco (el globito y el orden), sin abrir
+ *  la de cada uno. Se recalcula para el chat que se escribe, cada vez que se escribe. */
+const CLAVE_ABIERTAS = 'operaciones.preguntas-abiertas';
+const parsear = (v: string | null): unknown => { try { return v ? JSON.parse(v) : []; } catch { return []; } };
+const lista = (x: unknown): PreguntaChat[] => (Array.isArray(x) ? x.map(sanearPregunta).filter((p): p is PreguntaChat => p != null) : []);
+const parsearMapa = (v: string | null): Record<string, number> => {
+  try {
+    const o = v ? JSON.parse(v) : {};
+    const out: Record<string, number> = {};
+    if (o && typeof o === 'object' && !Array.isArray(o)) for (const [k, n] of Object.entries(o)) if (DESTINO_RE.test(k) && Number.isInteger(n) && (n as number) > 0) out[k] = n as number;
+    return out;
+  } catch { return {}; }
+};
+
+/** Anota cuántas espera cada chat que se acaba de escribir. Si no puede leer el mapa, no lo pisa (la cuenta vuelve sola
+ *  con la próxima escritura de ese chat); el globito es un aviso, no la verdad de la pregunta. */
+async function anotarAbiertas(porChat: ReadonlyMap<string, readonly PreguntaChat[]>): Promise<void> {
+  try {
+    const mapa = parsearMapa(await getSettingEstricto(CLAVE_ABIERTAS));
+    for (const [local, ps] of porChat) {
+      const n = ps.filter((p) => !p.respuesta).length;
+      if (n) mapa[local] = n; else delete mapa[local];
+    }
+    await setSetting(CLAVE_ABIERTAS, JSON.stringify(mapa));
+  } catch (err) {
+    console.error('[operaciones] preguntas abiertas:', err instanceof Error ? err.message : err);
+  }
+}
+
+/** Cuántas preguntas espera cada sesión (para la lista: el globito y el orden). Para dibujar: sin la base, ninguna. */
+export async function leerAbiertas(): Promise<Record<string, number>> {
+  try {
+    const ws = await wsSuperAdmin();
+    return parsearMapa(await runWithWorkspace(ws, () => getSetting(CLAVE_ABIERTAS)));
+  } catch {
+    return {};
+  }
+}
+
+/** Guarda lo que subió una vuelta. Devuelve los ids que ENTRARON (la PC borra sólo esos: el molde de `cierresIds`). */
+export async function guardarPreguntas(preguntas: readonly PreguntaChat[]): Promise<string[]> {
+  const porChat = new Map<string, PreguntaChat[]>();
+  for (const p of preguntas) porChat.set(p.local, [...(porChat.get(p.local) ?? []), p]);
+  if (!porChat.size) return [];
+  const ws = await wsSuperAdmin();
+  return runWithWorkspace(ws, async () => {
+    const entraron: string[] = [];
+    const escritas = new Map<string, PreguntaChat[]>();
+    for (const [local, nuevas] of porChat) {
+      const antes = lista(parsear(await getSettingEstricto(PREFIJO + local)));
+      const juntas = unirPreguntas(antes, nuevas);
+      await setSetting(PREFIJO + local, JSON.stringify(juntas));
+      escritas.set(local, juntas);
+      entraron.push(...nuevas.map((p) => p.id));
+    }
+    await anotarAbiertas(escritas);
+    return entraron;
+  });
+}
+
+/** Las preguntas de las sesiones de un chat (las de sus cuentas), la más vieja arriba. Para dibujar: sin la base, nada. */
+export async function leerPreguntas(locales: readonly string[]): Promise<PreguntaChat[]> {
+  const validos = [...new Set(locales.filter((l) => DESTINO_RE.test(l)))].slice(0, 12);
+  if (!validos.length) return [];
+  try {
+    const ws = await wsSuperAdmin();
+    const listas = await runWithWorkspace(ws, () => Promise.all(validos.map(async (l) => lista(parsear(await getSetting(PREFIJO + l))))));
+    return listas.flat().sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  } catch {
+    return [];
+  }
+}
+
+export type Contestada = { ok: true; pregunta: PreguntaChat } | { ok: false; error: string; yaContestada?: true };
+
+/** Marca contestada una pregunta, sólo si no lo estaba. Quien llama ya verificó el trabajo firmado de la respuesta. */
+export async function marcarContestada(local: string, id: string, respuesta: RespuestaPregunta): Promise<Contestada> {
+  if (!DESTINO_RE.test(local)) return { ok: false, error: 'Falta el chat.' };
+  const ws = await wsSuperAdmin();
+  return runWithWorkspace(ws, async () => {
+    const actuales = lista(parsear(await getSettingEstricto(PREFIJO + local)));
+    const p = actuales.find((x) => x.id === id);
+    if (!p) return { ok: false, error: 'Esa pregunta ya no está.' };
+    if (p.respuesta) return { ok: false, error: 'Ya la contestaste.', yaContestada: true };
+    const nueva: PreguntaChat = { ...p, respuesta };
+    const juntas = actuales.map((x) => (x.id === id ? nueva : x));
+    await setSetting(PREFIJO + local, JSON.stringify(juntas));
+    await anotarAbiertas(new Map([[local, juntas]]));
+    return { ok: true, pregunta: nueva };
+  });
+}

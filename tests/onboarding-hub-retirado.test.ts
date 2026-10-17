@@ -50,6 +50,7 @@ const AL_WIZARD: ReadonlyArray<{ archivo: string; por: string }> = [
   { archivo: 'lib/movil-rutas.ts', por: 'el respaldo de escritorio de /configurar, que es el wizard' },
   { archivo: 'lib/movil-desvio.ts', por: 'la lista de rutas que el teléfono abre igual (el wizard)' },
   { archivo: 'lib/titulo-tab.ts', por: 'el título de la pestaña del wizard' },
+  { archivo: 'lib/onboarding-guardia-server.ts', por: 'el aviso de bloqueo lleva al super admin al wizard del cliente, donde está «Desbloquear» (17/10)' },
 ];
 
 test('cada sección tiene un lugar que existe: el área está en AREAS y la sub-pestaña en SUBVISTAS', () => {
@@ -98,8 +99,9 @@ test('la página ya no dibuja el hub: el chat de arranque, o un redirect con el 
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/OnboardingTabs.tsx')), 'el hub volvió');
   const page = sinComentarios(leer('app/onboarding/page.tsx'));
   assert.doesNotMatch(page, /OnboardingTabs/);
-  // Desde el 16/10/2026 el onboarding es el chat de arranque (el wizard se borró).
-  assert.match(page, /if \(!done\) \{[\s\S]*<ChatArranque [\s\S]*\/><\/>;/, 'el chat de arranque dejó de dibujarse');
+  // Desde el 16/10/2026 el onboarding es el chat de arranque (el wizard se borró). Desde el 17/10 va solo, sin el tema
+  // oscuro forzado al lado (ya no es un fragmento).
+  assert.match(page, /if \(!done\) \{[\s\S]*<ChatArranque [\s\S]*\/>;/, 'el chat de arranque dejó de dibujarse');
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/OnboardingWizard.tsx')), 'volvió el wizard');
   assert.match(page, /redirect\(await rutaConWs\(destinoDeTabVieja\(tab\)\)\);/, 'sin el redirect (o sin el ?ws=) al lugar nuevo');
 });

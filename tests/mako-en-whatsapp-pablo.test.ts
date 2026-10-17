@@ -149,6 +149,22 @@ test('ws13: «Pasamelo» después de «Eso lo miro y te lo paso» reclama el ped
   assert.match(doer, /intencion\.reclamaPromesa && pedidoPrometido \? pedidoPrometido\.c/, 'las herramientas se eligen por el «ok» y no por el pedido');
 });
 
+test('ws13, 17/10: «reprogramame la reunión… reprogramámela para el lunes» llega con la herramienta de mover', () => {
+  // El literal del grupo (11:46 UTC). Cayó al default sin agenda y MaKo contestó «no tengo acceso para mover o
+  // reprogramar eventos de tu calendario». La gemela de «reagendá»: `\bprograma` no matchea adentro de «reprograma».
+  for (const m of [
+    'MaKo reprogramame la reunión de ayer viernes que tenía a las 11 de la mañana con Marita Pagani, reprogramámela para el lunes a las 12 horas',
+    'reprogramá la visita de Juan al lunes 10hs',
+  ]) {
+    const r = turno(m);
+    assert.equal(r.veredicto.intencion, 'actuar', `«${m}»: ${r.veredicto.porque}`);
+    trae(m, 'proponer_mover_reunion', r);
+  }
+  // «programa» suelto es el sustantivo, y un volcado con «reprograma» en tercera persona sigue siendo material.
+  assert.notEqual(clasificarIntencion('el programa de fidelización arranca el lunes').intencion, 'actuar');
+  assert.equal(clasificarIntencion('Idea: si el cliente reprograma la reunión, avisarle al closer').intencion, 'capturar');
+});
+
 test('una propuesta que pide el «sí», o un «dime la hora y te lo agendo», no son promesas', () => {
   // ws9, 10/10/2026: la propuesta de agenda de siempre. Y ws13, 13/10: pide el dato que le falta.
   assert.deepEqual(promesasDe('Voy a agendar la visita con Demo Lead para el martes 13 a las 11:00 en tu Google Calendar con invitación a su correo. ¿Confirmas con un «sí»?'), []);
@@ -244,5 +260,7 @@ test('la voz del grupo prohíbe prometer y putear, en el preámbulo que va SIEMP
 //   · el camino barato sin mirar si el clasificador pidió herramientas → 1 fallo.
 //   · las herramientas por el «ok» y no por el pedido prometido   → 1 fallo.
 //   · el doer sin `pedidoPrometido`                               → 1 fallo.
+//   · (17/10, «reprogramame») sin `(re)programa(me|mela…)`, sin «reprograma» suelto, o con «programa» suelto como
+//     verbo → 1 fallo cada una.
 //   · una propuesta que termina pidiendo el «sí» cuenta como promesa → 1 fallo.
 //   · pedir un dato («dime la hora y te lo agendo») cuenta como promesa → 1 fallo.

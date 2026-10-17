@@ -4,6 +4,8 @@
 // v3 (14/10/2026): quien ve la tab General de escritorio (la misma regla del Sidebar, `puedeVerKey`) abre
 // en SU hoja de General, apilada (./GeneralM.tsx), con el saludo como título y la campana de Inbox. El
 // closer y el setter no ven General en escritorio: siguen con la composición de abajo.
+// Con VARIAS hojas (#872, 17/10/2026: Mauricio, en su celular, sólo veía la primera), arriba va el segmentado de
+// hojas, cada una un link a `/general?hoja=<id>`: la MISMA URL que escritorio (app/general/page.tsx lee `?hoja=`).
 // =============================================================================
 // docs/diseno-mako-mobile-v2.md, «Por sección → Today», y el prototipo (data-ir="today"):
 //   1. lo que BLOQUEA, como UNA tarjeta que lleva al Inbox (aquí no se aprueba: se ve allá);
@@ -31,7 +33,7 @@ import { Icon } from '@/app/_components/icons';
 import { requireMovil } from '@/lib/movil-guard';
 import { componerHoy, type LeadsPorDecidir, type ReunionHoy } from '@/lib/hoy-movil';
 import {
-  ComputadoraM, ErrorM, FilaM, ListaM, PantallaM, SeccionM, TarjetaDecision, VacioM,
+  ComputadoraM, ErrorM, FilaM, ListaM, PantallaM, SeccionM, SegmentadoM, TarjetaDecision, VacioM,
 } from '@/app/m/_ui';
 import { CabeceraM } from '@/app/m/_ui/CabeceraM';
 import { puedeVerKey, RUTA_INBOX, TITULO_INBOX } from '@/lib/movil-rutas';
@@ -42,7 +44,7 @@ import { armarDatosGeneral, variablesDeQuienMira } from '@/app/general/datos';
 import type { ContextoMovil } from '@/lib/movil-guard';
 import { ParaHoy } from './ParaHoy';
 import { GeneralM } from './GeneralM';
-import { bloqueoDeHoy, filaTrimestre, paraHoy, TOPE_LEADS_HOY, type FilaTrimestre } from './modelo';
+import { bloqueoDeHoy, filaTrimestre, HOJAS_SIN_DESLIZAR, opcionesDeHojas, paraHoy, TOPE_LEADS_HOY, type FilaTrimestre } from './modelo';
 import './hoy.css';
 
 export const dynamic = 'force-dynamic';
@@ -51,9 +53,12 @@ export const maxDuration = 60;
 /** «Primera llamada» / «Segunda llamada»: los mismos nombres que el CRM v2 (app/m/crm/reglas.ts). */
 const NOMBRE_REUNION: Record<ReunionHoy['tipo'], string> = { J1: 'Primera llamada', J2: 'Segunda llamada' };
 
-export default async function HoyPage() {
+export default async function HoyPage({ searchParams }: { searchParams: Promise<{ hoja?: string | string[] }> }) {
   const ctx = await requireMovil();
-  if (puedeVerKey('general', ctx.rol, ctx.capa)) return <GeneralPagina ctx={ctx} />;
+  if (puedeVerKey('general', ctx.rol, ctx.capa)) {
+    const p = await searchParams;
+    return <GeneralPagina ctx={ctx} pedida={Array.isArray(p.hoja) ? p.hoja[0] : p.hoja} />;
+  }
   const hoy = await componerHoy(ctx);
   const { composicion } = hoy;
 
@@ -184,7 +189,7 @@ function Trimestre({ t }: { t: FilaTrimestre }) {
  * La portada de quien ve General: su hoja de General apilada, con el saludo como título y la campana
  * de Inbox (lo que espera una decisión) como la acción del encabezado.
  */
-async function GeneralPagina({ ctx }: { ctx: ContextoMovil }) {
+async function GeneralPagina({ ctx, pedida }: { ctx: ContextoMovil; pedida?: string }) {
   const [lectura, datos, variables, decidir] = await Promise.all([
     leerInformeGeneral(),
     armarDatosGeneral(),
@@ -192,7 +197,8 @@ async function GeneralPagina({ ctx }: { ctx: ContextoMovil }) {
     contarParaDecidir({ rol: ctx.rol, capa: ctx.capa }).catch(() => null),
   ]);
   const tablero = lectura.tablero.hojas.length ? lectura.tablero : informeGeneralInicial();
-  const hoja = tablero.hojas[0];
+  const hoja = tablero.hojas.find((h) => h.id === pedida) ?? tablero.hojas[0];
+  const opcionesHoja = opcionesDeHojas(tablero.hojas);
   const titulo = variables.saludo && variables.nombre ? `${variables.saludo}, ${variables.nombre}` : 'General';
   const n = decidir?.total ?? null;
   return (
@@ -207,6 +213,11 @@ async function GeneralPagina({ ctx }: { ctx: ContextoMovil }) {
         )}
       />
       {lectura.estado === 'error' && <ErrorM frase="No pude leer tu hoja de General." />}
+      {hoja && opcionesHoja.length > 1 && (
+        <div className="m-hoy-hojas" data-muchas={opcionesHoja.length > HOJAS_SIN_DESLIZAR || undefined}>
+          <SegmentadoM etiqueta="Hoja" valor={hoja.id} opciones={opcionesHoja} />
+        </div>
+      )}
       {hoja ? <GeneralM hoja={hoja} datos={datos} variables={variables} /> : <VacioM frase="Tu hoja de General está vacía." />}
     </PantallaM>
   );
