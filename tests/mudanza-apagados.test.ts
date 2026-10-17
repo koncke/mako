@@ -33,6 +33,19 @@ test('la mudanza crea PAUSADO lo que nacía apagado, y sólo prende lo demás', 
   assert.ok(i > 0 && i < j, 'prende sin preguntar si nacía apagado');
 });
 
+// Revisión del Cerebro (17/10/2026): sin `--eventos=`, MUDADOS es TODOS y `--pausar` pausaba también #260 (`oferta_lista`) y la
+// fila de `meta_cuenta_recuperada`, prendidas a propósito. La guarda va ANTES de importar nada que toque la base.
+// PROBADO ROMPIÉNDOLO: sin la guarda de `--pausar` → 2 / 1; sin la de `--eventos` sin «=» → 2 / 1.
+test('`--pausar` exige la lista explícita de eventos, y `--eventos` sin «=» no cae en TODOS', () => {
+  const src = leer('scripts/mudanza-avisos-plataforma.mts');
+  const guardaPausar = src.indexOf("if (process.argv.includes('--pausar') && !pedidos) throw");
+  const guardaIgual = src.indexOf("throw new Error('--eventos va con «=»: --eventos=a,b')");
+  const primeraBase = src.indexOf("await import('../lib/workspace')");
+  assert.ok(guardaPausar > 0, '--pausar sin --eventos= pausaría las filas prendidas a propósito');
+  assert.ok(guardaIgual > 0, '--eventos a,b (sin «=») caería en TODOS');
+  assert.ok(guardaPausar < primeraBase && guardaIgual < primeraBase, 'las guardas van antes de tocar la base');
+});
+
 test('los mudados que nacían apagados son los seis medidos el 17/10 (los demás nacían prendidos)', () => {
   const src = leer('scripts/mudanza-avisos-plataforma.mts');
   const mudados = [...src.matchAll(/\{ plantilla: '[^']+', evento: '([a-z_]+)' \}/g)].map((m) => m[1]);

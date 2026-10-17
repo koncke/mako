@@ -67,6 +67,13 @@ const pedidos = arg('eventos')?.split(',').map((e) => e.trim()).filter(Boolean) 
 const ajenos = (pedidos ?? []).filter((e) => !TODOS.some((m) => m.evento === e));
 if (ajenos.length) throw new Error(`--eventos: ${ajenos.join(', ')} no está en la mudanza`);
 const MUDADOS = pedidos ? TODOS.filter((m) => pedidos.includes(m.evento)) : TODOS;
+// `--pausar` SÓLO con la lista explícita: sin `--eventos=`, MUDADOS es TODOS y pausaría también las filas prendidas a
+// propósito que nacían apagadas (#260 `oferta_lista`, la de `meta_cuenta_recuperada`). Y `--eventos a,b` sin el «=» no
+// lo lee `arg()` y caería en TODOS sin avisar. Revisión del Cerebro, 17/10/2026.
+if (process.argv.includes('--eventos') || process.argv.some((a) => a.startsWith('--eventos') && !a.startsWith('--eventos='))) {
+  throw new Error('--eventos va con «=»: --eventos=a,b');
+}
+if (process.argv.includes('--pausar') && !pedidos) throw new Error('--pausar exige --eventos=<a,b>: sin la lista pausaría filas prendidas a propósito');
 
 const { runWithWorkspace, getTenantDb, wsSuperAdmin } = await import('../lib/workspace');
 const { plantillaPorId, pasosDePlantilla } = await import('../lib/plantillas-automatizaciones');

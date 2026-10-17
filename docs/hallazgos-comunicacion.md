@@ -10296,6 +10296,12 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   seis (#270, #272, #275-#278); prenderlos es decisión de SuperAdmin, con el texto ya editable. Lo fija
   tests/mudanza-apagados.test.ts. El diagnóstico obvio («la fila es la que manda, como siempre») no lo veía: la pregunta era
   A QUIÉN le llegaba ANTES.
+  - **Y `--pausar` sin `--eventos=` apagaba lo que estaba prendido a propósito** (revisión del Cerebro, 17/10). Sin
+    `--eventos=`, MUDADOS es TODOS, y «nacía apagado» también es cierto de `oferta_lista` (#260) y
+    `meta_cuenta_recuperada`. Esas dos se prendieron a propósito el 16/10, así que el script las pausaba y «Tu oferta está
+    lista» y la cuenta recuperada dejaban de llegarle a todos. `--eventos a,b` sin el «=» tampoco lo leía `arg()` y caía en
+    TODOS sin avisar. Ahora el script corta antes de importar nada que toque la base: `--pausar` exige la lista explícita y
+    `--eventos` va con «=». **Regla:** un flag que APAGA algo en producción nunca actúa sobre «todos» por omisión.
 
 - **«completó tu formulario de Meta» (`lead-formulario-meta`, #279, pausada)** tapaba lo que faltaba con frases del código
   («sin teléfono», «Sin preguntas extra en el formulario.»): un dato que falta se lleva su renglón, y la frase de relleno es
