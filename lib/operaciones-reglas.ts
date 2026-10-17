@@ -14,6 +14,8 @@
 // prueba que los dos lados leen lo mismo).
 // =============================================================================
 
+import { TOPE_ADJUNTOS, TOPE_TOTAL_BYTES } from './mako-adjuntos';
+
 export const VERSION_PEDIDO = 1 as const;
 /** Tope del texto de un pedido. Se RECHAZA, no se recorta (AGENTS.md: un tope en un texto que
  *  escribe una persona rechaza). */
@@ -23,6 +25,11 @@ export const VENCE_DIAS = 14;
 /** Más que esto sin noticias del cartero y la pantalla deja de decir «vivo». El cartero pasa
  *  cada uno o dos minutos (el cron del chat Cartero). */
 export const CARTERO_VIVO_MS = 4 * 60 * 1000;
+/** Un trabajo `tomado` sin acuse por más que esto se da por «no sé si llegó» (y sus adjuntos se borran). Es mucho más que
+ *  los 30 minutos con que la PC vence su buzón: el acuse de la PC llega antes, salvo que se haya perdido (un Runner que
+ *  se cortó bajando un adjunto, un acuse cuyo UPDATE falló). Sin esto, quedaba `tomado` para siempre. */
+export const TOMADO_VENCE_MS = 2 * 3600 * 1000;
+
 /** Cuántos pedidos reclama el cartero por vuelta. */
 export const POR_VUELTA = 10;
 
@@ -73,11 +80,75 @@ export type PayloadPedido = {
   /** null o ausente = «Automático»: no se toca el modelo del chat. */
   modelo?: Modelo | null;
   esfuerzo?: Esfuerzo | null;
+  /** Las fotos y los PDF que van con el trabajo (17/10/2026). Ausente = sin adjuntos: el texto firmado es el de siempre. */
+  adjuntos?: AdjuntoPedido[];
 };
+
+// ── Los adjuntos de un trabajo (17/10/2026) ──────────────────────────────────────────────────────────────────────────
+// Martín: adjuntar imágenes y archivos en la caja, y pegar una captura con Ctrl+V, y que lleguen al chat. Dio el OK de que
+// un archivo baje a la PC, con estas condiciones, que no se negocian:
+//   · baja SÓLO lo que nombra un trabajo FIRMADO: el `sha256` de cada archivo lo calcula el navegador sobre los bytes que
+//     sube y va adentro de la firma; la PC lo compara con lo que baja. Con MaKo comprometida, lo peor es que no baje;
+//   · a una carpeta fija por trabajo (`~/.claude/operaciones/adjuntos/<id>/`), con un nombre que arma la PC;
+//   · con el tipo y el tamaño validados (por los primeros bytes, no por la extensión), y nunca un ejecutable: sólo las
+//     fotos y el PDF que ya acepta el chat con MaKo (lib/mako-adjuntos.ts), con los mismos topes;
+//   · el chat recibe la RUTA local en el mensaje (scripts/operaciones/cartero.mjs → bajarAdjuntos).
+export const MIMES_ADJUNTO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'] as const;
+export type MimeAdjunto = (typeof MIMES_ADJUNTO)[number];
+/** Cuántos archivos y cuántos bytes en total: los del chat con MaKo (Vercel corta un POST de más de ~4,5 MB). */
+export const MAX_ADJUNTOS = TOPE_ADJUNTOS;
+export const MAX_BYTES_ADJUNTOS = TOPE_TOTAL_BYTES;
+export const MAX_NOMBRE_ADJUNTO = 120;
+/** `ref`: dónde lo guardó MaKo (un uuid); `bytes` y `sha256`: los del archivo que salió del navegador. */
+export type AdjuntoPedido = { ref: string; nombre: string; mime: MimeAdjunto; bytes: number; sha256: string };
+
+/** null si los adjuntos de un texto firmado valen; si no, el motivo. La MISMA regla que el cartero (test diferencial). */
+export function problemaDeAdjuntos(x: unknown): string | null {
+  if (!Array.isArray(x) || !x.length || x.length > MAX_ADJUNTOS) return 'adjuntos inválidos';
+  const refs = new Set<string>();
+  let total = 0;
+  for (const a of x) {
+    if (!a || typeof a !== 'object' || Array.isArray(a)) return 'adjuntos inválidos';
+    const o = a as Record<string, unknown>;
+    if (typeof o.ref !== 'string' || !UUID_RE.test(o.ref) || refs.has(o.ref)) return 'adjuntos inválidos';
+    refs.add(o.ref);
+    if (typeof o.nombre !== 'string' || !o.nombre.trim() || o.nombre.length > MAX_NOMBRE_ADJUNTO || /[\u0000-\u001f]/.test(o.nombre)) return 'adjuntos inválidos';
+    if (!(MIMES_ADJUNTO as readonly unknown[]).includes(o.mime)) return 'adjuntos inválidos';
+    if (typeof o.bytes !== 'number' || !Number.isInteger(o.bytes) || o.bytes < 1) return 'adjuntos inválidos';
+    if (typeof o.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(o.sha256)) return 'adjuntos inválidos';
+    total += o.bytes;
+  }
+  return total > MAX_BYTES_ADJUNTOS ? 'adjuntos inválidos' : null;
+}
+
+/** El cartero que baja adjuntos. Con uno de antes, el trabajo saldría SIN sus archivos y nadie lo diría: la caja no ofrece
+ *  adjuntar hasta que el Runner de esa cuenta suba esta versión (o una más nueva). */
+export const VERSION_ADJUNTOS = '1.9.1';
+export function aceptaAdjuntos(version: string | null | undefined): boolean {
+  const v = /^(\d+)\.(\d+)\.(\d+)/.exec(version ?? '');
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(VERSION_ADJUNTOS)!;
+  if (!v) return false;
+  for (let i = 1; i <= 3; i++) if (Number(v[i]) !== Number(m[i])) return Number(v[i]) > Number(m[i]);
+  return true;
+}
+
+/** Los nombres de los adjuntos de un texto firmado, para dibujarlos en la conversación (vacío si no tiene). */
+export function nombresDeAdjuntos(firmado: string | null | undefined): string[] {
+  try {
+    const o = JSON.parse(firmado ?? '') as { adjuntos?: unknown };
+    if (!Array.isArray(o.adjuntos)) return [];
+    return o.adjuntos.map((a) => (a as { nombre?: unknown })?.nombre).filter((n): n is string => typeof n === 'string' && !!n.trim()).slice(0, MAX_ADJUNTOS).map((n) => n.slice(0, MAX_NOMBRE_ADJUNTO));
+  } catch {
+    return [];
+  }
+}
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const CUENTA_RE = /^claude\d{1,2}$/;
+/** El id de un chat de la NUBE (17/10/2026): lo que no es de esta PC (`local_…`/`cli_…`). Lo anota el Runner de la app con
+ *  lo que le da list_sessions (cartero.mjs → `nube`). Sólo se ve: no tiene canal para entregarle. */
+export const NUBE_RE = /^(?!local_|cli_)[A-Za-z][A-Za-z0-9_-]{5,100}$/;
 
 /** El texto que se firma. El orden de las claves es fijo, pero nadie tiene que reproducirlo:
  *  se guarda y se verifica este mismo string. */
@@ -88,12 +159,14 @@ export function armarFirmable(p: PayloadPedido): string {
     // Sólo si se eligieron: sin ellos, el texto firmado es el de siempre.
     ...(p.modelo ? { modelo: p.modelo } : {}),
     ...(p.esfuerzo ? { esfuerzo: p.esfuerzo } : {}),
+    // Los adjuntos, sólo si hay: sin ellos, el texto firmado es el de siempre.
+    ...(p.adjuntos?.length ? { adjuntos: p.adjuntos.map((a) => ({ ref: a.ref, nombre: a.nombre, mime: a.mime, bytes: a.bytes, sha256: a.sha256 })) } : {}),
   });
 }
 
 export function nuevoPayload(entrada: {
   id: string; texto: string; destino: string; cuenta: string | null; titulo: string | null; alcance: Alcance;
-  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null;
+  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; adjuntos?: readonly AdjuntoPedido[];
 }, ahora: number): PayloadPedido {
   return {
     v: VERSION_PEDIDO,
@@ -107,6 +180,7 @@ export function nuevoPayload(entrada: {
     vence: new Date(ahora + VENCE_DIAS * 86_400_000).toISOString(),
     modelo: entrada.modelo ?? null,
     esfuerzo: entrada.esfuerzo ?? null,
+    ...(entrada.adjuntos?.length ? { adjuntos: [...entrada.adjuntos] } : {}),
   };
 }
 
@@ -129,6 +203,7 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (!(ALCANCES as readonly unknown[]).includes(o.alcance)) return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !(MODELOS as readonly unknown[]).includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !(ESFUERZOS as readonly unknown[]).includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
+  if (o.adjuntos !== undefined) { const m = problemaDeAdjuntos(o.adjuntos); if (m) return { ok: false, motivo: m }; }
   const creado = typeof o.creado === 'string' ? Date.parse(o.creado) : NaN;
   const vence = typeof o.vence === 'string' ? Date.parse(o.vence) : NaN;
   if (!Number.isFinite(creado) || !Number.isFinite(vence)) return { ok: false, motivo: 'fechas inválidas' };
@@ -143,6 +218,7 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
       cuenta: (o.cuenta as string | null) ?? null, titulo: (o.titulo as string | null) ?? null,
       alcance: o.alcance as Alcance, creado: o.creado as string, vence: o.vence as string,
       modelo: (o.modelo as Modelo | null | undefined) ?? null, esfuerzo: (o.esfuerzo as Esfuerzo | null | undefined) ?? null,
+      ...(o.adjuntos !== undefined ? { adjuntos: o.adjuntos as AdjuntoPedido[] } : {}),
     },
   };
 }
@@ -187,6 +263,10 @@ export type ChatCartero = {
    * sin Runner en su carpeta no recibe. Falta (undefined) en lo que subió un cartero de antes de la 1.4.0.
    */
   runner?: boolean;
+  /** Es un Runner (cartero 1.10.0): se ve en la lista, pero no se le escribe ni se le entrega nada. */
+  esRunner?: true;
+  /** Es un chat de la nube (cartero 1.10.0): se ve en la lista; no está en esta PC, así que no recibe. `local` es su id. */
+  nube?: true;
 };
 
 const corto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -198,8 +278,9 @@ export function sanearChats(x: unknown): ChatCartero[] {
   for (const c of x.slice(0, 400)) {
     if (!c || typeof c !== 'object') continue;
     const o = c as Record<string, unknown>;
-    const local = corto(o.local, 60);
-    if (!DESTINO_RE.test(local) || vistos.has(local)) continue;
+    const nube = o.nube === true;
+    const local = corto(o.local, nube ? 101 : 60);
+    if (!(nube ? NUBE_RE : DESTINO_RE).test(local) || vistos.has(local)) continue;
     vistos.add(local);
     const cuenta = corto(o.cuenta, 12);
     const act = corto(o.actividad, 40);
@@ -211,6 +292,9 @@ export function sanearChats(x: unknown): ChatCartero[] {
       estado: o.estado === 'busy' || o.estado === 'idle' ? o.estado : null,
       actividad: act && Number.isFinite(Date.parse(act)) ? act : null,
       ...(typeof o.runner === 'boolean' ? { runner: o.runner } : {}),
+      ...(o.esRunner === true ? { esRunner: true as const } : {}),
+      // Uno de la nube nunca está vivo para la PC: no tiene canal.
+      ...(nube ? { nube: true as const, vivo: false } : {}),
     });
   }
   return out;
@@ -222,7 +306,8 @@ export function sanearChats(x: unknown): ChatCartero[] {
  * lista (un cartero de antes), todos sus vivos, como siempre.
  */
 export function sanearEntregables(x: unknown, chats: readonly ChatCartero[]): string[] {
-  const vivos = chats.filter((c) => c.vivo).map((c) => c.local);
+  // Al Runner no se le entrega nada, y uno de la nube no tiene canal: nunca se reclama un trabajo para ellos.
+  const vivos = chats.filter((c) => c.vivo && !c.esRunner && !c.nube).map((c) => c.local);
   if (!Array.isArray(x)) return vivos;
   const pedidos = new Set(x.filter((v): v is string => typeof v === 'string'));
   return vivos.filter((l) => pedidos.has(l));

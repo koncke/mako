@@ -31,12 +31,13 @@ import 'server-only';
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
-  CUENTA_RE, POR_VUELTA, claveIdDe, estadoDeCierre, leerFirmable, sanearAcuses, sanearChats,
+  CUENTA_RE, POR_VUELTA, TOMADO_VENCE_MS, claveIdDe, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
 import { sanearCuota, type Cuota } from './centro-uso';
 import { guardarTurnos } from './centro-turnos-db';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
+import { borrarAdjuntosDe } from './operaciones-adjuntos';
 
 const T_PEDIDOS = 'operaciones_pedidos';
 const T_CARTEROS = 'operaciones_carteros';
@@ -58,6 +59,8 @@ export type Pedido = {
   entregado_at: string | null;
   cerrado_at: string | null;
   cierre: Cierre | null;
+  /** Los nombres de las fotos y los PDF que llevó (17/10/2026), sacados de su texto firmado. */
+  adjuntos?: string[];
 };
 
 export type Cartero = {
@@ -80,9 +83,13 @@ const COLS = 'id, created_at, autor, destino, destino_cuenta, destino_titulo, te
 
 export async function listarPedidos(limite = 100): Promise<Pedido[]> {
   const { data, error } = await getSupabaseServer()
-    .from(T_PEDIDOS).select(COLS).order('created_at', { ascending: false }).limit(limite);
+    .from(T_PEDIDOS).select(`${COLS}, firmado`).order('created_at', { ascending: false }).limit(limite);
   if (error) throw new Error(`no pude leer la cola: ${error.message}`);
-  return (data ?? []) as Pedido[];
+  // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene.
+  return (data ?? []).map(({ firmado, ...p }) => {
+    const adjuntos = nombresDeAdjuntos(firmado as string | null);
+    return (adjuntos.length ? { ...p, adjuntos } : p) as Pedido;
+  });
 }
 
 export async function leerCarteros(): Promise<EstadoCarteros> {
@@ -152,12 +159,13 @@ export async function encolarPedido(entrada: {
   return { ok: true, id: l.p.id };
 }
 
-/** Sólo un pedido que todavía no tomó un cartero se puede cancelar. */
+/** Sólo un pedido que todavía no tomó un cartero se puede cancelar. Sus adjuntos se borran (no van a bajar). */
 export async function cancelarPedido(id: string): Promise<boolean> {
   const { data, error } = await getSupabaseServer().from(T_PEDIDOS)
     .update({ estado: 'cancelado', motivo: 'Lo canceló Martín', updated_at: new Date().toISOString() })
-    .eq('id', id).eq('estado', 'escrito').select('id');
+    .eq('id', id).eq('estado', 'escrito').select('id, firmado');
   if (error) throw new Error(error.message);
+  await borrarAdjuntosDe((data ?? []).map((f) => f.firmado as string | null));
   return (data ?? []).length > 0;
 }
 
@@ -244,12 +252,17 @@ async function avisosParaElCartero(
  * cuenta y los acuses de la vuelta anterior, y se lleva lo que puede entregar ahora.
  * Devuelve null si el token no vale; tira si falta la cuenta.
  */
+/** ¿Es el token de los carteros? Lo usan la vuelta y la bajada de un adjunto (app/api/operaciones/cartero/route.ts). */
+export async function tokenDelCarteroValido(token: string): Promise<boolean> {
+  if (!token.startsWith('mkop_')) return false;
+  const { data: tok, error } = await getSupabaseServer().from(T_TOKEN).select('id').eq('token_hash', hash(token)).maybeSingle();
+  if (error) throw new Error(error.message);
+  return !!tok;
+}
+
 export async function cicloCartero(token: string, entrada: unknown): Promise<SalidaCiclo | null> {
-  if (!token.startsWith('mkop_')) return null;
+  if (!(await tokenDelCarteroValido(token))) return null;
   const db = getSupabaseServer();
-  const { data: tok, error: eTok } = await db.from(T_TOKEN).select('id').eq('token_hash', hash(token)).maybeSingle();
-  if (eTok) throw new Error(eTok.message);
-  if (!tok) return null;
 
   const e = (entrada && typeof entrada === 'object' ? entrada : {}) as Record<string, unknown>;
   const cuenta = typeof e.cuenta === 'string' && CUENTA_RE.test(e.cuenta) ? e.cuenta : null;
@@ -276,12 +289,15 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   // Los acuses de la vuelta anterior: sólo sobre un pedido TOMADO, o sobre un aviso de la
   // Ticketera TOMADO (comparten el formato de id, y cada id es de uno solo de los dos).
   let acuses = 0;
+  // Con el acuse, el trabajo terminó para la PC: lo que tenía que bajar ya bajó (o no va a bajar). Sus adjuntos se borran.
+  const terminados: Array<string | null> = [];
   for (const a of sanearAcuses(e.acuses)) {
     const { data } = await db.from(T_PEDIDOS).update({
       estado: a.estado, motivo: a.motivo, updated_at: ahoraIso,
       ...(a.estado === 'entregado' ? { entregado_at: ahoraIso } : {}),
-    }).eq('id', a.id).eq('estado', 'tomado').select('id');
+    }).eq('id', a.id).eq('estado', 'tomado').select('id, firmado');
     acuses += (data ?? []).length;
+    for (const f of data ?? []) terminados.push(f.firmado as string | null);
     if ((data ?? []).length) continue;
     // Si falta la mig 0288 esto da error: un acuse de aviso no puede existir sin ella, así que se ignora.
     const { data: av } = await db.from(T_DECISIONES).update({ aviso_estado: a.estado, aviso_motivo: a.motivo, aviso_at: ahoraIso })
@@ -304,7 +320,16 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   const limite = new Date(Date.now() - 15 * 86_400_000).toISOString();
   const { data: venc } = await db.from(T_PEDIDOS)
     .update({ estado: 'no_entregado', motivo: 'Venció con el chat cerrado: ábrelo y vuelve a mandarlo', updated_at: ahoraIso })
-    .eq('estado', 'escrito').lt('created_at', limite).select('id');
+    .eq('estado', 'escrito').lt('created_at', limite).select('id, firmado');
+  for (const f of venc ?? []) terminados.push(f.firmado as string | null);
+  // Lo tomado que nunca acusó (17/10/2026, la revisión de seguridad de los adjuntos): el acuse era su ÚNICA salida, y
+  // cancelar y vencer miran sólo lo `escrito`. Quedaba `tomado` para siempre, con su adjunto servido y sin borrar.
+  const tomadoLimite = new Date(Date.now() - TOMADO_VENCE_MS).toISOString();
+  const { data: perdidos } = await db.from(T_PEDIDOS)
+    .update({ estado: 'incierto', motivo: 'El Runner no confirmó si le llegó: míralo en el chat', updated_at: ahoraIso })
+    .eq('estado', 'tomado').lt('tomado_at', tomadoLimite).select('id, firmado');
+  for (const f of perdidos ?? []) terminados.push(f.firmado as string | null);
+  await borrarAdjuntosDe(terminados);
 
   // Lo que ESTE cartero puede entregar ahora: pedidos escritos para uno de SUS chats vivos que la PC alcanza.
   const vivos = sanearEntregables(e.entregables, chats);

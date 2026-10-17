@@ -126,6 +126,37 @@ export function lineaAlGuardar(p: unknown, previo: unknown): { linea?: string } 
   return antes ? { linea: antes } : {};
 }
 
+/**
+ * ¿ESTE MENSAJE MANDA SUS LINKS SIN LA VISTA PREVIA? (17/10/2026, tarjeta #869). Mauricio: «es más discreto en el
+ * WhatsApp, porque a la gente también le molesta»; a Raúl le llegó una tarjeta gigante con la marca de otro. Martín:
+ * «para que cuando se mande un link, se mande con la previsualización o sin». `sin_vista_previa: true` es un campo del
+ * PASO; sin el campo, con vista previa (lo de siempre: Evolution la arma sola). Sólo un WhatsApp NO oficial: el oficial
+ * es una plantilla de Meta y el email no tiene.
+ */
+export function sinVistaPrevia(p: unknown): boolean {
+  if (!p || typeof p !== 'object') return false;
+  const o = p as PasoConPartes;
+  if (o.canal === 'email' || proveedorDelPaso(o) !== 'no_oficial') return false;
+  return o.sin_vista_previa === true;
+}
+
+/** Lo que `setSecuenciaPasos` le pone al paso por su vista previa: la MISMA regla que `lineaAlGuardar`. */
+export function vistaPreviaAlGuardar(p: unknown, previo: unknown): { sin_vista_previa?: true } {
+  if (!p || typeof p !== 'object') return {};
+  const o = p as PasoConPartes;
+  if (o.canal === 'email' || proveedorDelPaso(o) !== 'no_oficial') return {};
+  if ('sin_vista_previa' in o) return o.sin_vista_previa === true ? { sin_vista_previa: true } : {};
+  return sinVistaPrevia(previo) ? { sin_vista_previa: true } : {};
+}
+
+/** Un link escrito o un dato que es un link (`{{reunion_link}}`, `{{link_lead}}`…): lo que WhatsApp convierte en tarjeta. */
+const RE_LINK = /(?:https?:\/\/|www\.)\S|\{\{\s*[a-z_]*link[a-z_]*\s*\}\}/i;
+
+/** ¿Algún TEXTO del mensaje lleva un link? (el pie de un archivo no arma tarjeta). Sin link, la opción no tiene qué hacer. */
+export function tieneLink(p: PasoConPartes): boolean {
+  return partesDe(p).some((x) => x.tipo === 'texto' && RE_LINK.test(x.cuerpo));
+}
+
 /** Lo que este módulo lee de un paso. El resto viaja intacto. */
 export type PasoConPartes = {
   canal?: string | null;
@@ -138,6 +169,8 @@ export type PasoConPartes = {
   partes?: unknown;
   /** La línea de ESTA tarjeta (`lineaDelPaso`). */
   linea?: unknown;
+  /** Los links de ESTA tarjeta sin la vista previa (`sinVistaPrevia`). */
+  sin_vista_previa?: unknown;
   /** La ⚡ Acción del paso. Sólo se mira la tarjeta «MaKo en WhatsApp» (`pasoUsaAudio`, `pasoUsaArchivo`). */
   accion?: unknown;
 };

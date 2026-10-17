@@ -114,7 +114,10 @@ test('reparte: MaKo reclama sólo lo que un Runner alcanza, y cada Runner entreg
     assert.deepEqual([...subido.entregables].sort(), [local(1), local(3)], 'B no tiene Runner: MaKo no reclama lo suyo');
     assert.equal(subido.chats.find((c) => c.local === local(2))?.runner, false);
     assert.equal(subido.chats.find((c) => c.local === local(3))?.runner, true);
-    assert.equal(subido.chats.some((c) => /Runner/.test(String(c.titulo))), false, 'el Runner no es un chat');
+    // Desde la 1.10.0 (17/10/2026, Martín: «todo chat abierto se ve») el Runner SÍ se sube, marcado: se ve en la lista y
+    // nunca recibe (no está en `entregables`, arriba). tests/centro-runner-nube.test.ts fija el resto.
+    const runners = subido.chats.filter((c) => /Runner/.test(String(c.titulo)));
+    assert.ok(runners.length > 0 && runners.every((c) => c.esRunner === true), 'el Runner se ve, marcado');
     assert.equal(subido.chats.some((c) => 'dir' in c || 'pipe' in c), false, 'ni la carpeta ni el canal salen de la PC');
     // (2) Éste entrega sólo lo de su carpeta; lo de C lo lleva el Runner de C.
     assert.deepEqual(o.entregar.map((e) => e.id), [id(1)]);
@@ -142,7 +145,7 @@ test('el modelo y el esfuerzo viajan al Runner sólo para un chat de la app', as
   assert.deepEqual(comoCorre({ destino: app, modelo: 'sonnet', esfuerzo: null }), { sesion: app, modelo: 'sonnet', esfuerzo: null });
   assert.deepEqual(comoCorre({ destino: app }), {}, 'sin elegir nada, nada');
   assert.deepEqual(comoCorre({ destino: local(1), modelo: 'sonnet', esfuerzo: 'low' }), {}, 'a uno de terminal no se le puede cambiar');
-  assert.match(readFileSync(CARTERO, 'utf8'), /mensaje: mensaje\(l\.p\),\s*\.\.\.comoCorre\(l\.p\),/, 'el buzón lleva lo que dice comoCorre');
+  assert.match(readFileSync(CARTERO, 'utf8'), /mensaje: mensaje\(l\.p(, rutas)?\),\s*\.\.\.comoCorre\(l\.p\),/, 'el buzón lleva lo que dice comoCorre');
 });
 
 test('lo que trae modelo o esfuerzo sale por la PC como siempre a un chat de terminal (sin pedirle al Runner que lo cambie)', async () => {

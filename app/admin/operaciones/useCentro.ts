@@ -18,7 +18,10 @@
 //    Centro y la del Second Brain, tests/operaciones.test.ts), y cada acción la vuelve a pedir (acciones.ts).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DESTINO_RE, type Alcance, type TurnoChat } from '@/lib/operaciones-reglas';
+import { DESTINO_RE, aceptaAdjuntos, type AdjuntoPedido, type Alcance, type TurnoChat } from '@/lib/operaciones-reglas';
+import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
+import { idLocal, problemaDeSeleccion, tipoDeElegido } from '@/app/m/mako/chat-ui';
+import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   comoSale, completarChats, enQueTrabaja, esperasPorChat, historialDelChat, nombreValido, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
@@ -31,7 +34,7 @@ import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
 import { fotoCentroAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
-import { copiar, useFirma } from './mandar';
+import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
 /** La barra del avance se recuerda abierta o cerrada entre chats y visitas: es una preferencia (AGENTS.md). */
@@ -58,6 +61,12 @@ export type DatosCentro = {
   deshacer?: AccionDeshacer;
 };
 
+/** Un archivo elegido (o pegado) en la caja, con su vista previa local. */
+export type AdjuntoCaja = { id: string; file: File; tipo: 'image' | 'document'; url: string };
+/** Una captura chica va tal cual (el texto de una captura se lee mejor en PNG); una foto grande se achica (Vercel corta
+ *  un POST de más de ~4,5 MB). */
+const TAL_CUAL_BYTES = 1_500_000;
+
 /** Cómo avisa cada pantalla (el Toast de escritorio, el del teléfono). */
 export type Avisar = (texto: string, tono: 'good' | 'bad') => void;
 
@@ -65,6 +74,7 @@ export type Avisar = (texto: string, tono: 'good' | 'bad') => void;
 const trabajoDe = (p: Pedido): TrabajoP => ({
   id: p.id, destino: p.destino, destino_titulo: p.destino_titulo, destino_cuenta: p.destino_cuenta, created_at: p.created_at,
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
+  ...(p.adjuntos?.length ? { adjuntos: p.adjuntos } : {}),
 });
 
 export function useCentro(d: DatosCentro, avisar: Avisar) {
@@ -86,6 +96,13 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const [modelo, setModelo] = useState<Modelo | null>(null);
   const [esfuerzo, setEsfuerzo] = useState<Esfuerzo | null>(null);
   const [enviando, setEnviando] = useState(false);
+  /** Los archivos elegidos (o pegados) en la caja de cada chat. El ref los tiene al día para sumar sin esperar un render. */
+  const [adjuntos, setAdjuntos] = useState<Record<string, AdjuntoCaja[]>>({});
+  const adjuntosRef = useRef(adjuntos);
+  const ponerAdjuntos = (clave: string, xs: AdjuntoCaja[]) => {
+    adjuntosRef.current = { ...adjuntosRef.current, [clave]: xs };
+    setAdjuntos(adjuntosRef.current);
+  };
   const [avance, setAvance] = useState(false);
   // El «⋯» de una fila (o el clic derecho): dónde abre y de qué chat es.
   const [menu, setMenu] = useState<{ x: number; y: number; clave: string } | null>(null);
@@ -178,17 +195,66 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   /** Lo que se acaba de mandar, para que se vea en su chat mientras llega el refresco. */
   const anotarEnviado = (t: TrabajoP) => { setLocales((l) => [t, ...l]); refrescar(); };
 
+  // ── Los adjuntos de la caja (17/10/2026): fotos y PDF, también pegando una captura con Ctrl+V ─────────────
+  const adjuntosDe = (clave: string) => adjuntos[clave] ?? [];
+  /** ¿Baja adjuntos el Runner de la cuenta a la que sale? Con un cartero de antes de la 1.9.0 el trabajo llegaría SIN
+   *  los archivos y nadie lo diría: la caja no ofrece adjuntar. */
+  const puedeAdjuntar = (c: ChatCentro) => {
+    const { cuenta } = destinoDeChat(c);
+    return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaAdjuntos(k.version));
+  };
+  const sumarAdjuntos = async (clave: string, lista: readonly File[]) => {
+    if (!lista.length) return;
+    const validos = lista.filter((f) => tipoDeElegido(f) != null);
+    if (validos.length < lista.length) avisar(ERROR_ADJUNTO.formato, 'bad');
+    const listos: File[] = [];
+    for (const f of validos) {
+      const talCual = f.size <= TAL_CUAL_BYTES && /^image\/(png|jpeg|webp|gif)$|^application\/pdf$/.test(f.type);
+      try { listos.push(talCual ? f : await achicarImagen(f)); } catch (e) { avisar(e instanceof Error ? e.message : 'No pude leer esa imagen.', 'bad'); }
+    }
+    if (!listos.length) return;
+    const antes = adjuntosRef.current[clave] ?? [];
+    const problema = problemaDeSeleccion([...antes.map((a) => a.file.size), ...listos.map((f) => f.size)]);
+    if (problema) { avisar(problema, 'bad'); return; }
+    ponerAdjuntos(clave, [...antes, ...listos.map((f): AdjuntoCaja => ({
+      id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
+    }))]);
+  };
+  const quitarAdjunto = (clave: string, id: string) => {
+    const antes = adjuntosRef.current[clave] ?? [];
+    const a = antes.find((x) => x.id === id);
+    if (a) URL.revokeObjectURL(a.url);
+    ponerAdjuntos(clave, antes.filter((x) => x.id !== id));
+  };
+  /** Después de mandar: la caja queda vacía. */
+  const vaciarAdjuntos = (clave: string) => {
+    for (const a of adjuntosRef.current[clave] ?? []) URL.revokeObjectURL(a.url);
+    ponerAdjuntos(clave, []);
+  };
+
   async function mandar(c: ChatCentro) {
     const texto = borradorDe(c.clave);
+    const archivos = adjuntosRef.current[c.clave] ?? [];
     const d = destinoDeChat(c);
-    if (!d.sesion || !envioDe(c).puede || enviando || !texto.trim()) return;
+    if (!d.sesion || !envioDe(c).puede || enviando || (!texto.trim() && !archivos.length)) return;
     setEnviando(true);
+    // Primero los archivos: el trabajo se firma con el `ref` de cada uno y el sha256 que calculó este navegador.
+    let subidos: AdjuntoPedido[] = [];
+    if (archivos.length) {
+      const s = await subirAdjuntos(archivos.map((a) => a.file));
+      if (!s.ok) { setEnviando(false); avisar(s.error, 'bad'); return; }
+      subidos = s.adjuntos;
+    }
     // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
     const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, alcance, como);
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, alcance, como, subidos);
     setEnviando(false);
     if (!r.ok) { avisar(r.error, 'bad'); return; }
-    anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim(), estado: 'escrito', motivo: null, cierre: null });
+    anotarEnviado({
+      id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim() || TEXTO_SOLO_ADJUNTOS,
+      estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
+    });
+    vaciarAdjuntos(c.clave);
     ponerBorrador(c.clave, '');
     setAlcance('solo_esto');
     setModelo(null);
@@ -259,6 +325,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     avance, cambiarAvance,
     envioDe, borradorDe, ponerBorrador, alcance, setAlcance, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
+    adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
     renombrando, setRenombrando, deRenombre, renombrar,

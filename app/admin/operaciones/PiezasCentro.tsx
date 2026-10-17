@@ -86,6 +86,8 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
         <span className="co-fila__cuerpo">
           <span className="co-fila__l1">
             <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
+            {/* Un chat de la nube (lo anota el Runner de la app): se ve, con su marca, y no se le escribe desde acá. */}
+            {c.nube && <span className="co-chip-cuenta">Nube</span>}
             <span className="co-fila__hace">{edadCorta(c.actividad, k.ahora)}</span>
           </span>
           <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} enCurso={k.enCursos.get(c.clave) ?? null} />
@@ -178,6 +180,10 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       respuestas={respuestasDelChat(chat, k.decisiones, k.carteros)}
       responder={k.responderAca}
       envio={k.envioDe(chat)} texto={k.borradorDe(chat.clave)} onTexto={(t) => k.ponerBorrador(chat.clave, t)}
+      adjuntos={{
+        items: k.adjuntosDe(chat.clave), puede: k.puedeAdjuntar(chat),
+        onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id),
+      }}
       alcance={k.alcance} onAlcance={k.setAlcance} enviando={k.enviando}
       onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
       onVolver={onVolver}

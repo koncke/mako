@@ -83,6 +83,8 @@ export type PasoSecuenciaDto = {
    * poder»). `null`/ausente = el de la automatización. Lo lee el motor con `lineaDelPaso`.
    */
   linea?: string | null;
+  /** Sus links salen SIN la vista previa (#869). Ausente = con ella. Lo lee el motor con `sinVistaPrevia`. */
+  sin_vista_previa?: boolean;
   /**
    * La CUENTA de Instagram o Messenger de ESTE mensaje (decimocuarta tanda, punto 5: «se debería poder conectar varias
    * cuentas, como hoy se puede conectar varios WhatsApp»): el id de la cuenta de Zernio. `null`/ausente = la conversación

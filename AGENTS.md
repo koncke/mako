@@ -1318,6 +1318,12 @@ código nuevo:
   Nunca se sube `VERSION_PEDIDO` por un campo opcional: eso rechazaría lo que ya está en la cola.
 - **La confianza vive en la PC**: el cartero verifica la firma contra las claves cargadas A MANO y
   lleva su registro de entregados. Nada de lo que diga MaKo puede agregar una clave ni reentregar.
+- **Un archivo baja a la PC sólo si lo nombra un trabajo FIRMADO** (17/10/2026, OK de Martín para los adjuntos de la caja).
+  El navegador firma el `sha256` que calculó ÉL sobre lo que subió; la PC baja a `adjuntos/<id>/`, compara tamaño, hash y
+  tipo por los primeros bytes (sólo foto o PDF), y el nombre en disco lo arma ella con la extensión del TIPO. El chat
+  recibe la ruta. Un campo que cambia lo que la PC HACE (no sólo lo que dice) no se ofrece hasta que el Runner tenga la
+  versión que lo entiende (`aceptaAdjuntos`): uno de antes lo ignoraría y nadie lo sabría. Lo fija
+  tests/centro-adjuntos.test.ts.
 - **Lo único que el cartero entrega SIN firma es un texto FIJO que arma él**: el aviso de una respuesta
   de la Ticketera (`mensajeAviso`, scripts/operaciones/cartero.mjs) lleva sólo el `ref` validado y el
   comando para leerla. Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra.

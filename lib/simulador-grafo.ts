@@ -978,6 +978,8 @@ export type MensajePrueba = {
   media_id?: number | null;
   /** Sólo email: el cuerpo HTML como apareció en la bandeja (las variables ya puestas). */
   html?: string | null;
+  /** Sólo un texto de WhatsApp: sus links sin la vista previa, como al lead (`sinVistaPrevia` del paso, #869). */
+  sin_vista_previa?: boolean;
 };
 
 export type DestinoPrueba = { telefono: string | null; email: string | null };
@@ -1179,7 +1181,8 @@ export function sanearMensajePrueba(raw: unknown): MensajePrueba | null {
   if (canal === 'whatsapp' && tipo === 'audio' && !audio_id) return null;
   if (canal === 'whatsapp' && tipo === 'media' && !media_id) return null;
   if (tipo === 'texto' && !texto.trim() && !html) return null;
-  return { canal, tipo: canal === 'email' ? 'texto' : tipo, texto, asunto, audio_id, media_id, ...(html ? { html } : {}) };
+  const sinTarjeta = canal === 'whatsapp' && tipo === 'texto' && o.sin_vista_previa === true;
+  return { canal, tipo: canal === 'email' ? 'texto' : tipo, texto, asunto, audio_id, media_id, ...(html ? { html } : {}), ...(sinTarjeta ? { sin_vista_previa: true } : {}) };
 }
 
 /**

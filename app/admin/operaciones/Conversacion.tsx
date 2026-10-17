@@ -18,13 +18,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { Alcance, TurnoChat } from '@/lib/operaciones-reglas';
-import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import { avanceDelChat, conteoAvance, historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, yaEstaDelChat, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { Hilo } from './Hilo';
 import { Pregunta } from './Pregunta';
 import { Microfono } from './Microfono';
+import { BotonAdjuntar, ListaAdjuntos, alPegar, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { RielAvance } from './Avance';
 import { Muneco, animoDe } from './Muneco';
 
@@ -32,8 +33,10 @@ const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabaja
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
-  avance, onAvance, aspecto, onMenu, onMuneco, preguntas, respuestas, responder, selectores, turnos = [],
+  avance, onAvance, aspecto, onMenu, onMuneco, preguntas, respuestas, responder, selectores, turnos = [], adjuntos,
 }: {
+  /** Las fotos y los PDF de la caja (17/10/2026): elegirlos, pegarlos con Ctrl+V y quitarlos (useCentro.ts). */
+  adjuntos?: AdjuntosDeCaja;
   /** Lo que se le dijo y lo que contestó, del transcript (useCentro.ts → turnosDe): la conversación de verdad. */
   turnos?: readonly TurnoChat[];
   /** A qué cuenta va y con qué modelo y esfuerzo corre (PiezasCentro.tsx → SelectoresDeEnvio), en la barrita de la caja. */
@@ -146,12 +149,14 @@ export function Conversacion({
         {preguntas.length > 0 && <Pregunta key={chat.clave} preguntas={preguntas} responder={responder} />}
         {envio.puede ? (
           <div className="co-caja">
+            <ListaAdjuntos a={adjuntos} />
             <textarea
               ref={caja}
               rows={1}
               value={texto}
               onChange={(e) => onTexto(e.target.value)}
               onKeyDown={tecla}
+              onPaste={(e) => alPegar(e, adjuntos)}
               placeholder={`Escribe a ${chat.titulo}`}
               aria-label={`Escribe a ${chat.titulo}`}
               disabled={enviando}
@@ -165,8 +170,9 @@ export function Conversacion({
                 {alcance === 'solo_esto' ? 'Sólo esto' : 'Y de ahora en más'}
               </button>
               {selectores}
+              <BotonAdjuntar a={adjuntos} apagado={enviando} />
               <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} apagado={enviando} />
-              <button type="button" className="co-enviar" onClick={onMandar} disabled={enviando || !texto.trim()} aria-label="Firmar y mandar" title="Firmar y mandar (Enter)">
+              <button type="button" className="co-enviar" onClick={onMandar} disabled={enviando || (!texto.trim() && !adjuntos?.items.length)} aria-label="Firmar y mandar" title="Firmar y mandar (Enter)">
                 {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
               </button>
             </div>
@@ -183,7 +189,7 @@ export function Conversacion({
         <p className="co-caja__estado" aria-live="polite">{envio.puede ? faltaMic ?? estado ?? '' : ''}</p>
       </div>
       </div>
-      {avance && <RielAvance nodos={nodos} pushes={pushes} ahora={ahora} onCerrar={() => onAvance(false)} chat={chat} />}
+      {avance && <RielAvance nodos={nodos} yaEsta={yaEstaDelChat(lineas)} pushes={pushes} ahora={ahora} onCerrar={() => onAvance(false)} chat={chat} />}
       </div>
     </section>
   );
