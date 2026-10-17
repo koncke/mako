@@ -185,6 +185,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'oferta-lista': 'reporte',
   // El pedido de restablecer la contraseña (Seguridad, 15/10/2026): un mail a la persona, de la plataforma.
   'seguridad-contrasena-restablecer': 'sistema',
+  // «Tu contraseña cambió» (Seguridad, 17/10/2026): un mail a la persona, de la plataforma.
+  'seguridad-contrasena-cambiada': 'sistema',
 
   'reunion-recordatorio': 'reunion', 'reunion-agenda-dia': 'reunion',
   'reunion-nuevo-agendado': 'reunion', 'reunion-cancelada': 'reunion',
@@ -1143,6 +1145,20 @@ Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.
 https://hola-mako.com/restablecer?t=…
 
 Si no lo pediste tú, ignora este correo: tu contraseña no cambia.
+
+— MaKo`,
+  },
+  {
+    id: 'seguridad-contrasena-cambiada', titulo: 'Tu contraseña cambió', categoria: 'aviso',
+    prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    // 17/10/2026: un EVENTO de una PERSONA (`contrasena_cambiada`, lib/disparadores.ts). Lo emite Seguridad al crear,
+    // cambiar o restablecer una contraseña (lib/contrasena-cambio-aviso.ts), en el ws de la PLATAFORMA. Sale SÓLO por la
+    // automatización de SuperAdmin «Tu Contraseña Cambió», con su «Email a la persona». Sin datos secretos.
+    disparador: 'Se crea, se cambia o se restablece la contraseña de una cuenta de MaKo.',
+    ejemplo: `Se creó o se cambió la contraseña de tu cuenta de MaKo.
+
+Si fuiste tú, no hace falta hacer nada.
+Si no fuiste tú, entra con Google y cámbiala desde Tu cuenta → Seguridad, o escríbenos a equipo@hola-mako.com.
 
 — MaKo`,
   },

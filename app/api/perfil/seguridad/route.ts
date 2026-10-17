@@ -12,7 +12,8 @@
 // app en el request siguiente. Confirmar el método nuevo PRUEBA que lo tiene, así que la
 // sesión nueva lleva ese método como `mfa`.
 
-import { NextResponse, type NextRequest } from 'next/server';
+import { after, NextResponse, type NextRequest } from 'next/server';
+import { avisarContrasenaCambiada } from '@/lib/contrasena-cambio-aviso';
 import { getUsuarioActual } from '@/lib/auth';
 import { ponerSesion } from '@/lib/sesion-cookies';
 import { canalDisponible, esTelefono, politicaLoExige, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
@@ -146,7 +147,9 @@ export async function POST(req: NextRequest) {
       if (!(await verificarTotpLogin(uid, String(body.codigo ?? '')))) return no('El código no coincide.');
       await intentoOk(intento);
       const g = await guardarContrasena(uid, body.nueva, s.email);
-      return g.ok ? NextResponse.json({ ok: true }) : no(g.error);
+      if (!g.ok) return no(g.error);
+      after(() => avisarContrasenaCambiada(uid).then(() => undefined));
+      return NextResponse.json({ ok: true });
     }
     case 'codigos-generar': {
       if (antes === 0) return no('Primero activa un método.');

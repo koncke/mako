@@ -16,7 +16,8 @@
 // Al salir bien, emite la sesión completa con `mfa` = cómo se probó, y cierra el paso
 // intermedio en el mismo movimiento (lib/sesion-cookies.ts).
 
-import { NextResponse, type NextRequest } from 'next/server';
+import { after, NextResponse, type NextRequest } from 'next/server';
+import { avisarContrasenaCambiada } from '@/lib/contrasena-cambio-aviso';
 import { limitePorIp } from '@/lib/limite-publico';
 import { requiereCrearContrasena } from '@/lib/contrasena-reglas';
 import { tieneContrasena, guardarContrasena } from '@/lib/contrasena';
@@ -139,6 +140,7 @@ export async function POST(req: NextRequest) {
     // base no guardó) no la deja afuera: entra, y el pendiente se le vuelve a pedir en el próximo login.
     if (!r.ok && !r.nuestro) return no(r.error);
     if (!r.ok) await registrarEvento(q.id, 'contrasena-crear', false, 'la base no guardó: entró igual');
+    else { const uid = q.id; after(() => avisarContrasenaCambiada(uid).then(() => undefined)); }
     return entrar(req, q, q.pre.mfa, { recordar: q.pre.recordar, saltarContrasena: true });
   }
 

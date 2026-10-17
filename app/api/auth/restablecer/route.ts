@@ -15,6 +15,7 @@
 // =============================================================================
 
 import { after, NextResponse, type NextRequest } from 'next/server';
+import { avisarContrasenaCambiada } from '@/lib/contrasena-cambio-aviso';
 import { limitePorIp } from '@/lib/limite-publico';
 import { getSupabaseServer } from '@/lib/supabase';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
@@ -54,13 +55,14 @@ export async function POST(req: NextRequest) {
 
   // ── Pedir el link ──────────────────────────────────────────────────────────
   if (accion === 'pedir') {
-    // Cada pedido manda un mail (Resend, plata y reputación del dominio) y tarda 700 ms a propósito.
-    const frenado = limitePorIp(req, 'restablecer-pedir', 5, 15 * 60_000);
-    if (frenado) return frenado;
+    // Cada pedido manda un mail (Resend, plata y reputación del dominio). Pasado el tope por IP NO se
+    // manda, pero la respuesta es la MISMA y tarda lo mismo: un 429 distinto acá no cuenta qué correos
+    // existen, pero «pedir contesta siempre lo mismo» es la regla (tests/contrasena-restablecer.test.ts).
+    const frenadoPedir = limitePorIp(req, 'restablecer-pedir', 5, 15 * 60_000) != null;
     const t0 = Date.now();
     const email = correoNormalizado(body.email);
     try {
-      const u = email ? await buscarUsuarioPorEmail(email) : null;
+      const u = email && !frenadoPedir ? await buscarUsuarioPorEmail(email) : null;
       if (u && u.id > 0 && u.estado !== 'suspendido') {
         const r = await crearLinkDeRestablecer(u.id);
         if (r && 'link' in r) {
@@ -125,6 +127,8 @@ export async function POST(req: NextRequest) {
     const g = await guardarContrasena(l.usuarioId, body.contrasena, cuenta);
     if (!g.ok) return no(g.nuestro ? 'No se pudo guardar. Pide otro link.' : g.error);
     await registrarEvento(l.usuarioId, 'contrasena-restablecer', true);
+    const uid = l.usuarioId;
+    after(() => avisarContrasenaCambiada(uid).then(() => undefined));
     return NextResponse.json({ ok: true });
   }
 
