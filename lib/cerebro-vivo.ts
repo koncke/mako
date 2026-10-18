@@ -218,7 +218,7 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
       id: 'clientes', area: 'funnel', tipo: 'Clientes', etiqueta: `${C.total} ${C.total === 1 ? 'cliente' : 'clientes'}`,
       detalle: 'Los leads que compraron.',
       datos: [{ k: 'Los últimos', v: recientes.slice(0, 5).map((c) => corto(nombreDe(c), 24)).join(' · ') }],
-      fuente: 'contados en tu CRM, hoy', autoria: 'mako', href: '/customer-success', abrirEn: 'Customer Success',
+      fuente: 'contados en tu CRM, hoy', autoria: 'mako', href: '/clients', abrirEn: 'Clients',
     });
     unir(hub, hay('leads') ? 'leads' : alFunnel, 'Salieron de tus leads');
     for (const c of recientes) {
@@ -245,7 +245,7 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
         { k: 'Puntaje', v: r.score == null || !Number.isFinite(r.score) ? '' : `${String(Math.round(r.score * 10) / 10).replace('.', ',')} de 10` },
         { k: 'Duración', v: r.duracionMin ? `${r.duracionMin} min` : '' },
       ],
-      fuente: 'MaKo analizó la grabación (Closing)', autoria: 'mako', nace: r.fecha, href: '/closing', abrirEn: 'Closing',
+      fuente: 'MaKo analizó la grabación (Closing Analyst)', autoria: 'mako', nace: r.fecha, href: '/dashboard?hoja=closing', abrirEn: 'el Dashboard',
     });
     if (r.leadId != null && hay(`cliente:${r.leadId}`)) unir(id, `cliente:${r.leadId}`, 'La reunión de venta de este cliente');
     else unir(id, hay('leads') ? 'leads' : alFunnel, 'Una reunión de venta de tu CRM');

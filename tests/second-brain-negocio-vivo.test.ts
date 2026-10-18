@@ -60,7 +60,7 @@ test('clientes: UN nodo con el total exacto y los más recientes con tope, cada 
   const hub = g.porId.get('clientes')!;
   assert.equal(hub.etiqueta, `${total} clientes`, 'el total EXACTO, no los que se leyeron');
   assert.equal(hub.area, 'funnel');
-  assert.equal(hub.href, '/customer-success');
+  assert.equal(hub.href, '/clients', 'la tab se llama Clients (lib/clients-rutas.ts): /customer-success es una ruta que redirige');
   assert.equal(g.nodos.filter((x) => x.id.startsWith('cliente:')).length, TOPES_VIVOS.clientes, 'con tope: el volumen no es un nodo por cliente');
   for (const c of recientes.slice(0, TOPES_VIVOS.clientes)) assert.ok(g.arista(`cliente:${c.leadId}`, 'clientes'), `el cliente ${c.leadId} cuelga de «N clientes»`);
   assert.ok(g.arista('clientes', 'leads'), '«N clientes» sale de los leads');
@@ -91,7 +91,7 @@ test('reuniones: las más recientes con tope; cada una cuelga del cliente que co
   assert.ok(!g.arista('reunion:2', 'cliente:999'));
   const r1 = g.porId.get('reunion:1')!;
   assert.equal(r1.tipo, 'Reunión R1');
-  assert.equal(r1.href, '/closing');
+  assert.equal(r1.href, '/dashboard?hoja=closing', 'Closing Analyst vive en una hoja del Dashboard: /closing es una tab retirada');
   const dato = (id: string, k: string) => (g.porId.get(id)!.datos ?? []).find((d) => d.k === k)?.v;
   assert.equal(dato('reunion:1', 'Puntaje'), '7,5 de 10');
   assert.equal(dato('reunion:1', 'Duración'), '42 min');
