@@ -27,6 +27,10 @@
 //   - el cierre no guarda la encuesta                   → 44/1
 //   - la API de MaKo no la expone                       → 44/1
 //   - al terminar entra siempre a /general              → 44/1
+//
+// 18/10/2026 (Martín: sin «Soy», sin el objetivo a 90 días, las dos preguntas AL FINAL, explicar al arrancar), arnés
+// romper-orden.js con onboarding-arranque, base 32/0: el saludo sin explicar → 31/1 · el botón «Soy» → 31/1 · las dos
+// preguntas de vuelta al principio → 30/2 · vuelve el objetivo → 23/9.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -93,23 +97,39 @@ test('el negocio se entiende sin la frase alrededor', () => {
   assert.deepEqual(r, { ok: true, patch: { negocio: 'Acme' } });
 });
 
-test('las preguntas nuevas van antes del objetivo, de un toque, y no vuelven atrás en una conversación de antes', () => {
+test('las dos preguntas nuevas van AL FINAL (antes del teléfono), de un toque, y ya no hay objetivo a 90 días', () => {
+  // 18/10/2026, Martín: «"¿Cómo llegaste a MaKo?" y "¿Qué te gustaría que MaKo resuelva primero?" van al final» y
+  // «eliminar "Y en los próximos 90 días, ¿qué quieres lograr?"».
   const quien: EstadoArranque = { nombre: 'Martín', negocio: 'Acme' };
-  assert.equal(etapaDeArranque(quien, H), 'origen');
-  const { antes } = mensajesDeArranque(quien, H);
-  assert.deepEqual(antes[antes.length - 1].opciones, [...ORIGENES]);
-  assert.match(antes[antes.length - 1].texto, /¿Cómo llegaste a MaKo\?/);
+  assert.equal(etapaDeArranque(quien, H), 'oferta', 'del negocio se pasa directo a lo que vende');
+  const hecho = { ...H, loQueVende: true, faseGuardada: true };
+  const conCrm: EstadoArranque = { ...quien, crmTipo: 'llamada' };
+  assert.equal(etapaDeArranque(conCrm, hecho), 'origen');
+  const { despues } = mensajesDeArranque(conCrm, hecho);
+  assert.deepEqual(despues[despues.length - 1].opciones, [...ORIGENES]);
+  assert.match(despues[despues.length - 1].texto, /¿cómo llegaste a MaKo\?/);
   // Lo que escriba también sirve («por un amigo»).
-  assert.deepEqual(leerRespuesta(quien, H, { texto: 'por un amigo' }), { ok: true, patch: { origen: 'por un amigo' } });
-  assert.equal(etapaDeArranque({ ...quien, origen: 'Instagram' }, H), 'interes');
-  const conOrigen = mensajesDeArranque({ ...quien, origen: 'Instagram' }, H).antes;
+  assert.deepEqual(leerRespuesta(conCrm, hecho, { texto: 'por un amigo' }), { ok: true, patch: { origen: 'por un amigo' } });
+  assert.equal(etapaDeArranque({ ...conCrm, origen: 'Instagram' }, hecho), 'interes');
+  const conOrigen = mensajesDeArranque({ ...conCrm, origen: 'Instagram' }, hecho).despues;
   assert.deepEqual(conOrigen[conOrigen.length - 1].opciones, INTERESES.map((i) => i.label));
-  assert.equal(etapaDeArranque({ ...quien, origen: 'Instagram', interes: 'ventas' }, H), 'objetivo');
+  assert.equal(etapaDeArranque({ ...conCrm, origen: 'Instagram', interes: 'ventas' }, hecho), 'telefono');
   // El Project Manager no tiene anuncios ni CRM: no se le pregunta qué resolver primero.
-  assert.equal(etapaDeArranque({ ...quien, origen: 'Google' }, PLAN), 'objetivo');
-  // Una conversación que ya pasó el objetivo (empezada antes del 17/10) no vuelve atrás.
-  assert.equal(etapaDeArranque({ ...quien, objetivo: 'Vender más' }, H), 'oferta');
-  assert.ok(!mensajesDeArranque({ ...quien, objetivo: 'Vender más' }, H).antes.some((m) => m.id === 'arr-origen'));
+  assert.equal(etapaDeArranque({ ...quien, queHace: 'Consultoría', origen: 'Google' }, { ...PLAN, faseGuardada: true }), 'cierre');
+  // Nunca se pregunta el objetivo, ni a quien lo había contestado antes del 18/10.
+  for (const e of [quien, { ...quien, objetivo: 'Vender más' }, { ...conCrm, origen: 'Google', interes: 'ventas' }]) {
+    const m = mensajesDeArranque(e, hecho);
+    assert.ok(![...m.antes, ...m.despues].some((x) => x.id === 'arr-objetivo'), 'volvió la pregunta del objetivo a 90 días');
+  }
+});
+
+test('el nombre de la cuenta se ofrece sin la frase: nunca el botón «Soy»', () => {
+  // 18/10/2026: una cuenta guardada como «Soy Martín» ofrecía «Soy» como respuesta rápida.
+  for (const cuenta of ['Soy Martín', 'soy Martín Koncke', 'Martín Koncke']) {
+    const { antes } = mensajesDeArranque({}, { ...H, nombreCuenta: cuenta });
+    assert.deepEqual(antes[0].opciones, ['Martín'], `«${cuenta}»`);
+  }
+  assert.equal(mensajesDeArranque({}, { ...H, nombreCuenta: 'Soy' }).antes[0].opciones, undefined);
 });
 
 test('el interés: la opción o lo que escriba, y a qué pestaña entra al terminar', () => {
