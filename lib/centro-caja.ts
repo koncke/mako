@@ -112,3 +112,12 @@ export function borradorQueVale(local: Borrador | null, remoto: Borrador | null)
   return remoto.at > local.at ? remoto : local;
 }
 
+// ── El scroll sigue a lo que se escribe (18/10/2026) ─────────────────────────────────────────────────────────────
+// Martín: «Si escribo hacia abajo con saltos de línea, la caja crece y el chat no lo acompaña». Dos cosas lo rompían: la
+// conversación de arriba se achica cuando la caja crece (y lo último queda tapado), y el `height = 'auto'` con que la
+// caja se mide cada vez le reseteaba su propio scroll. Se mide ANTES de crecer: si estaba abajo, se la deja abajo.
+
+/** Lo que mide una caja que scrollea. */
+export type Scroll = { scrollHeight: number; scrollTop: number; clientHeight: number };
+/** ¿Está abajo del todo (con un margen de unos renglones)? */
+export const estaAbajo = (s: Scroll, margen = 48): boolean => s.scrollHeight - s.scrollTop - s.clientHeight <= margen;

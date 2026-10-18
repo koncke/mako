@@ -1,5 +1,19 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 18/10 (el tercer Ops Center, retomado por el Cerebro con la cuenta al 94%): tres arreglos del feedback del 18/10, HECHOS
+
+- `c969bc493`: el scroll acompaña lo que se escribe (la conversación sigue abajo si estaba abajo; la caja sigue al cursor),
+  computadora y teléfono (lib/centro-caja.ts → `estaAbajo`).
+- `1600a8425`, **cartero 1.15.8** (lo instala el Cerebro al integrar):
+  - mensajes de hasta 40.000 caracteres (`MAX_TEXTO_LARGO`), validados igual en MaKo y en la PC; la caja los ofrece sólo
+    si el Runner de esa cuenta tiene la 1.15.8 (`aceptaTextoLargo`);
+  - lo que escribe Martín (rol «yo») no se corta a 4000 (`TOPE_TURNO_YO`);
+  - **lo escrito directo en la app de Claude llega en segundos:** medido, NO se perdía; subía con la vuelta completa del cron
+    (minutos). Ahora `vigilar` da la vuelta completa apenas el transcript de un chat vivo creció más allá de su marca
+    (`transcriptsCrecidos`), como mucho una cada 10 s. Sin prueba de punta a punta en la PC: mirarlo con el Runner.
+- VERDE `119959156` (`antes-de-subir --rapido`, 2207 tests). Tipos del acotado: 0 errores en 7 de los 8 archivos;
+  ChatsMovil.tsx no se pudo chequear (el vigía de RAM): lo mira Actions.
+
 ## PARA EL SÉPTIMO OPS CENTER (17/10, ~20:00): lo que dejó el sexto, y lo que sigue
 
 El sexto (agente «Ops Center 6» del Cerebro, cuenta 4, rama `ops6-1710`, worktree `C:/dev/wt-ops4`) hizo los nueve pedidos de Martín
@@ -147,6 +161,8 @@ veces). Al seguir, mergeá origin/integracion: ya va por la 1.14.3.
    título entero, y `cerrarTareaDelPlan` pasa a la operación nueva `cerrar_tareas_plan` (sin borrador). Cuando se integre,
    juntarlo con lo de acá (lib/centro-plan-auto.ts): el «Ya está» que no cierra la tarea de su «Voy a trabajar en…» puede
    probar `cerrarPorYaEsta`. OJO al mergear lib/centro-plan.ts: acá se sumó `tareaId` a lo que devuelve `sumarTareaAlPlan`.
+   Y un bug que vio Offer (#888 del ws 9): `cerrarTareaDelPlan` no recorta la evidencia (el tope es 400) y, si falla con una
+   tarea de OTRO proyecto, tapa el error con «Ya no estaba abierta.». Arreglado por el chat Plan en su rama (`197b9dc59`, con sus tests): verificar que entre con la integración de `plan`.
 7. **La revisión del loop de tickets de Ticketera** (5d46eb4f7, cartero 1.15.0) ya la hice: OK, con dos notas que le pasé (que la PC
    compruebe que el destino es el Cerebro, y mergear la 1.14.3). Si vuelve con cambios, mirarlo otra vez antes de que se integre.
 

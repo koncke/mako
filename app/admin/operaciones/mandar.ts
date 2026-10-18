@@ -19,7 +19,8 @@ import { encolarPedidoAction } from './acciones';
 import { claveDelDispositivo, crearClaveDelDispositivo, firmar, type ClaveDispositivo } from './clave-dispositivo';
 
 /** A quién va: la SESIÓN del chat (nunca su título: se repiten entre cuentas). */
-export type DestinoTrabajo = { sesion: string; cuenta: string | null; titulo: string };
+/** `tope`: el largo que acepta el Runner de esa cuenta (useCentro.ts → topeDe); sin él, el de siempre (MAX_TEXTO). */
+export type DestinoTrabajo = { sesion: string; cuenta: string | null; titulo: string; tope?: number };
 
 export type ResultadoMandar = { ok: true; id: string; creado: string } | { ok: false; error: string };
 /** El modelo y el esfuerzo con los que tiene que correr el chat (null = «Automático»: no se tocan). Van firmados. */
@@ -48,7 +49,8 @@ export function useFirma(sub: string) {
     if (!clave) return { ok: false, error: 'Crea tu Token para comenzar a chatear' };
     if (!texto.trim() && !adjuntos.length) return { ok: false, error: 'Escribe algo para mandarlo' };
     // Un tope en un texto que escribe una persona RECHAZA, no recorta (AGENTS.md).
-    if (texto.length > MAX_TEXTO) return { ok: false, error: `Acórtalo a ${MAX_TEXTO} caracteres para mandarlo` };
+    const tope = d.tope ?? MAX_TEXTO;
+    if (texto.length > tope) return { ok: false, error: `Acórtalo a ${tope} caracteres para mandarlo` };
     try {
       const payload = nuevoPayload({
         id: crypto.randomUUID(), texto: texto.trim() || TEXTO_SOLO_ADJUNTOS, destino: d.sesion, cuenta: d.cuenta, titulo: d.titulo, alcance,

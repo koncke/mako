@@ -84,7 +84,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.15.7';
+export const VERSION = '1.15.8';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -212,7 +212,8 @@ const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}
 const CUENTA_RE = /^claude\d{1,2}$/;
 /** El id de un chat de la nube (copia de lib/operaciones-reglas.ts → NUBE_RE): lo que no es de esta PC. */
 export const NUBE_RE = /^(?!local_|cli_)[A-Za-z][A-Za-z0-9_-]{5,100}$/;
-const MAX_TEXTO = 8000;
+/** Hasta la 1.15.7 eran 8000; desde la 1.15.8, los mensajes largos de Martín (copia de MAX_TEXTO_LARGO). */
+const MAX_TEXTO = 40_000;
 /** El modelo y el esfuerzo que eligió Martín (opcionales; copia de lib/operaciones-reglas.ts → MODELOS y ESFUERZOS). */
 const MODELOS = ['opus', 'sonnet', 'haiku'];
 const ESFUERZOS = ['low', 'medium', 'high', 'xhigh', 'max'];
@@ -530,6 +531,8 @@ export function quienFirmo(texto, firmaB64, spkis) {
 // y se sube sólo lo nuevo. Del transcript NO sale nada más: ni las herramientas, ni lo que pensó, ni los recordatorios.
 const TURNOS = path.join(DIR, 'turnos');
 const TOPE_TURNO = 4000;
+/** Lo que escribió Martín (rol «yo») no se corta: puede ser largo, y es suyo (1.15.8; copia de TOPE_TURNO_YO). */
+const TOPE_TURNO_YO = 40_000;
 /** La primera vez que se lee un chat, sólo su cola: la historia entera puede pesar decenas de MB. */
 const COLA_PRIMERA_VEZ = 2 * 1024 * 1024;
 /** Lo que se lee de un chat por vuelta, como mucho (el resto, en la siguiente). */
@@ -600,11 +603,11 @@ export function turnosDeLineas(lineas, pendiente = null) {
       const trabajo = /^Pedido de Martín desde el Centro de Operaciones/.test(cuerpo) ? (/ cierre ([0-9a-f-]{36}) /.exec(cuerpo)?.[1] ?? null) : null;
       const de = /\bname="([^"]{1,60})"/.exec(m[1])?.[1] ?? /\bfrom="([^"]{1,60})"/.exec(m[1])?.[1] ?? null;
       turnos.push(trabajo
-        ? { uuid: o.uuid, rol: 'yo', de: null, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo }
+        ? { uuid: o.uuid, rol: 'yo', de: null, texto: cuerpo.slice(0, TOPE_TURNO_YO), at: o.timestamp, trabajo }
         : { uuid: o.uuid, rol: 'otro', de, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
       continue;
     }
-    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
+    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO_YO), at: o.timestamp, trabajo: null });
   }
   return { turnos, pendiente: p };
 }
@@ -819,6 +822,30 @@ const PASOS_POR_CHAT = 6;
 const MAX_TEXTO_PASO = 90;
 /** Cada cuánto `vigilar` sube los pasos, y cada cuánto los repite aunque no cambien (MaKo los da por viejos a los 90 s). */
 const CADA_PASOS_MS = Math.max(100, Number(process.env.CARTERO_PASOS_MS) || 15_000);
+/** Lo que se escribe en un chat desde AFUERA del Ops Center (la app, la terminal) sube con la vuelta completa: si el
+ *  transcript de un chat vivo creció más allá de su marca, `vigilar` la da, como mucho una cada esto (1.15.8). Antes
+ *  esperaba al cron (2 minutos): Martín, 18/10/2026, «envié este mensaje por aquí y no me aparece en el chat de Ops Center». */
+const CADA_TURNOS_MS = Math.max(100, Number(process.env.CARTERO_TURNOS_MS) || 10_000);
+
+/** ¿Algún chat vivo de estas cuentas tiene en su transcript algo que todavía no subió? (local: sin red, sólo tamaños). */
+export function transcriptsCrecidos(cuenta, cfg = config(), propio = dirPropio(cfg)) {
+  const cuentas = cuenta ? [cuenta] : cuentasDeLaCarpeta(cfg, propio);
+  const runners = carpetasConRunner(cfg, propio);
+  for (const c of cuentas) {
+    let chats;
+    try { chats = verChats(c, cfg, runners); } catch { continue; }
+    for (const ch of chats.values()) {
+      if (!ch.vivo || ch.esRunner || !ch.transcript) continue;
+      const marca = leerJson(path.join(TURNOS, `${ch.local}.json`), null);
+      // Sin marca, la primera vuelta lo lee igual (su cola): no hace falta adelantarla.
+      if (!marca || marca.transcript !== ch.transcript) continue;
+      let tam = 0;
+      try { tam = fs.statSync(ch.transcript).size; } catch { continue; }
+      if (tam > marca.offset) return true;
+    }
+  }
+  return false;
+}
 const REPETIR_PASOS_MS = 45_000;
 
 const corto = (s) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_TEXTO_PASO);
@@ -1595,10 +1622,12 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
     let fallo = false;
     try { hay = await hayAlgo(cuenta, cfg, propio); consultas++; } catch (e) { fallo = true; log(`VIGILAR: la consulta falló (${textoRemoto(e.message)}): cae a la vuelta completa`); }
     if (!fallo && base == null) base = hay;
+    // Lo que se escribió en un chat desde afuera del Ops Center (1.15.8): cuenta como «hay algo», una vuelta cada CADA_TURNOS_MS.
+    const crecio = ahora() - ultima >= CADA_TURNOS_MS && transcriptsCrecidos(cuenta, cfg, propio);
     const entraVuelta = ahora() + dura * 1.5 <= fin;
     // Hay algo NUEVO y la vuelta completa no entra en este Bash: sale ya y lo dice; el Runner corre `vigilar` otra vez.
     if (!entraVuelta && hay > (base ?? 0)) { otraVez = true; break; }
-    if ((hay > 0 || fallo) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && entraVuelta) {
+    if ((hay > 0 || fallo || crecio) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && entraVuelta) {
       t0 = ahora();
       r = await vuelta(cuenta);
       ultima = ahora();

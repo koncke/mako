@@ -27,7 +27,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
-import { conVinetas, enterEnLista } from '@/lib/centro-caja';
+import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import {
   SECCION_CHATS, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP, type VistaPrevia,
@@ -248,9 +248,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const cursor = useRef<number | null>(null);
   const resalte = useRef<HTMLDivElement | null>(null);
   const borradorAbierto = elegido && centro ? centro.borradorDe(elegido.clave) : '';
+  // El scroll acompaña lo que se escribe (18/10/2026): la caja crece sola (`field-sizing`) y el cuerpo de la hoja se achica;
+  // si se estaba mirando lo último (con el margen de lo que creció), se lo deja abajo.
   useEffect(() => {
     const el = caja.current;
     if (el && cursor.current != null) { el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
+    const cuerpo = hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null;
+    if (cuerpo && document.activeElement === el && estaAbajo(cuerpo, 160)) cuerpo.scrollTop = cuerpo.scrollHeight;
   }, [borradorAbierto]);
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado,
   // así que se baja en el cuadro siguiente (en el mismo efecto no hay todavía qué scrollear).
