@@ -130,7 +130,12 @@ export type AreaId = (typeof AREAS)[number]['id'];
  */
 export type CarpetaGrafo = { id: string; nombre: string; que: string };
 export type AreaGrafo = { id: string; padre: string; nombre: string; color: string; que: string };
-export type Taxonomia = { carpetas: readonly CarpetaGrafo[]; areas: readonly AreaGrafo[] };
+/** Una CAPA del mapa único del super admin (17/10/2026): el negocio, o la construcción de MaKo. Es un atajo del filtro de
+ *  carpetas, no un filtro más: elegir una capa es marcar todas sus carpetas (lib/cerebro-filtro.ts → filtroDeCapa). */
+export type CapaGrafo = { id: string; nombre: string; carpetas: readonly string[] };
+export const CAPA_NEGOCIO = 'negocio';
+export const CAPA_CONSTRUCCION = 'construccion';
+export type Taxonomia = { carpetas: readonly CarpetaGrafo[]; areas: readonly AreaGrafo[]; capas?: readonly CapaGrafo[] };
 export const TAXONOMIA_NEGOCIO: Taxonomia = { carpetas: NIVEL1, areas: AREAS };
 
 /** Quién puso este nodo. Es la única dimensión de color permanente del lienzo:

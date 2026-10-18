@@ -1480,6 +1480,15 @@ código nuevo:
   super admin y la deja al cliente, a su equipo y al super admin mirando a un cliente, para quienes es su chat con MaKo. Nunca se
   borra el ítem para todos; un `/second-brain` guardado lleva al grafo del Ops Center sólo a quien `puedeOperar`
   (lib/ops-center-ruta.ts). Lo fija tests/centro-ops6.test.ts.
+- **EL GRAFO ES UNO SOLO: EL MISMO EN LA COMPUTADORA Y EN EL TELÉFONO, Y UN SOLO GRAFO PARA EL SUPER ADMIN** (17/10/2026; Martín, desde
+  su Android: «No puedo clickear en nodos... que se vea volteada la pantalla... en SuperAdmin no pongas 2 grafos, todo 1 solo; para eso
+  existen los filtros»). El teléfono monta el MISMO `<Grafo>` (`VistaCerebro movil`, abierto desde app/m/second-brain/SecondBrainM.tsx),
+  nunca una foto: un cambio al grafo se piensa también con el dedo (10 px de tolerancia, blanco de 44 px, el dedo panea y no arrastra el
+  nodo, sin `contextmenu`) y apaisado (la barra lateral al costado, con scroll; `screen.orientation.lock` sólo en pantalla completa y desde
+  un toque: app/second-brain/apaisar.ts). El super admin ve UN grafo: el negocio y la construcción de MaKo juntos (`unirCerebros`,
+  lib/cerebro-union.ts) y las capas son un atajo del filtro de carpetas. Un grafo más para el super admin se suma como CAPA de ése (su
+  taxonomía, sus carpetas), nunca como un segundo `<Grafo>`. Lo fija tests/second-brain-grafo-movil.test.ts; el porqué, en
+  docs/hallazgos-second-brain.md.
 - **LO QUE AVISA EN UNA FILA DEL OPS CENTER ES UN SOLO AVISO** (17/10/2026; Martín: «la misma notif de "Espera tu respuesta"»): una
   pregunta que espera y un «Completado» sin ver se dibujan igual, con el mismo renglón y el mismo globito en la criatura
   (`segundoRenglon`, `avisosDe`, lib/centro-chats.ts). Un aviso nuevo se suma ahí, no con otro globito. El chat del Runner no se lista

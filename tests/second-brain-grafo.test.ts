@@ -66,7 +66,7 @@ test('11 · los controles: la búsqueda a la izquierda y «Filtrar» pegado; «E
   assert.match(g, /<div className="cbg-zoom" role="toolbar"[^>]*>[\s\S]*zoomPaso\(1 \/ 1\.3\)[\s\S]*pantallaCompleta/, 'el zoom, ajustar y pantalla completa juntos');
   assert.match(g, /\.cbg \.cbg-zoom \{\s*position: absolute; left: 10px; bottom: 10px;/, 'abajo a la izquierda');
   const vista = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
-  assert.match(vista, /accion=\{<BotonExportar /, '«Exportar» entra al grafo por su slot');
+  assert.match(vista, /accion=\{[^}]*<BotonExportar /, '«Exportar» entra al grafo por su slot');
 });
 
 test('12 · tocar un nodo no abre nada abajo: editar es «Editar», en una caja encima', () => {
@@ -77,7 +77,7 @@ test('12 · tocar un nodo no abre nada abajo: editar es «Editar», en una caja 
   const soltar = g.slice(g.indexOf('const soltarNodo = useCallback('), g.indexOf('const irA = useCallback('));
   assert.ok(!soltar.includes('onEditarArea'), 'soltar tampoco');
   // onEditarArea sólo adentro de un onClick de un botón.
-  const usos = g.split('\n').filter((l) => l.includes('onEditarArea') && !/onEditarArea\?: |onEditarArea, |\{ cerebro, onEditarArea|!!onEditarArea|\{onEditarArea (&& esNegocio )?&& \(/.test(l));
+  const usos = g.split('\n').filter((l) => l.includes('onEditarArea') && !/onEditarArea\?: |onEditarArea, |\{ cerebro, onEditarArea|!!onEditarArea|\{onEditarArea (&& esAreaDeNegocio\(a\.id\) )?&& \(/.test(l));
   assert.ok(usos.length > 0 && usos.every((l) => l.includes('onClick')), `sólo en botones: ${usos.join(' | ')}`);
   assert.ok(!/areaAbierta|onAbrirArea/.test(g), 'sin la costura de la sección de abajo');
 
