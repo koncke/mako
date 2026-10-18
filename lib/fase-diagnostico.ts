@@ -427,13 +427,18 @@ export const PREGUNTAS: Pregunta[] = [
     id: 'facturacion', emoji: '💵', texto: '¿Cuánto factura tu negocio por mes?',
     opciones: ['$0 – $3.000 (o todavía nada)', '$3.000 – $10.000', '$10.000 – $30.000', '$30.000 – $80.000', 'Más de $80.000'],
   },
+  // ⚠️ SIN SUPONER META ADS (18/10/2026, Martín: «el onboarding sólo tiene presente el tema de META ADS... cuando hoy
+  // en día ya extendimos a prospección, funnel orgánico, lead magnets, YouTube»). Las dos preguntas valen para CUALQUIER
+  // canal con el que se consiguen clientes. Mismos ids y mismos 5 cortes (los de antes, de por día a por mes: $20/día ≈
+  // $600/mes), así el voto de cada opción a su fase no cambia. El diseño entero (primero los canales, después una
+  // pregunta por canal) está en docs/relevo/onboarding.md. Lo fija tests/fase-sin-meta.test.ts.
   {
-    id: 'inversion', emoji: '🔥', texto: '¿Cuánto inviertes por día en Meta Ads?',
-    opciones: ['Nada o menos de $20', '$20 – $100', '$100 – $300', '$300 – $1.000', 'Más de $1.000'],
+    id: 'inversion', emoji: '🔥', texto: '¿Cuánto inviertes por mes en conseguir clientes (anuncios, prospección, contenido)?',
+    opciones: ['Nada o menos de $600', '$600 – $3.000', '$3.000 – $9.000', '$9.000 – $30.000', 'Más de $30.000'],
   },
   {
-    id: 'creativos', emoji: '🎬', texto: '¿Cuántos creativos (anuncios) lanzas por mes?',
-    opciones: ['0 – 3 (o ninguno)', '4 – 10', '10 – 25', '25 – 60', 'Más de 60'],
+    id: 'creativos', emoji: '🎬', texto: '¿Cuántas piezas nuevas para atraer clientes sacas por mes (anuncios, videos, posts, lead magnets)?',
+    opciones: ['0 – 3 (o ninguna)', '4 – 10', '10 – 25', '25 – 60', 'Más de 60'],
   },
   {
     // Volumen — se adapta al canal (ver VOLUMEN_POR_CANAL); default = llamadas.
