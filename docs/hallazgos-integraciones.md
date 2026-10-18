@@ -1049,3 +1049,9 @@ fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la p
   marcadas). Y otros lugares que le piden una key de IA a un negocio (el onboarding, /metodo) no se revisaron.
 
 **Vive en:** lib/integraciones.ts (`iaDelNegocio`) · lib/ia-keys.ts (`veredictoDeIA`) · lib/credenciales.ts · lib/ai-cheap.ts (`soloLasPropias`) · app/integraciones/IntegracionesBoard.tsx · tests/mako-sin-ia.test.ts
+
+## El número de la URL de Fathom no es el `recording_id` (18/10/2026)
+
+- **Síntoma:** Martín pasó «683162143 y 738834138» para analizar dos llamadas, y `scripts/fathom-a-claude.ts` daba 404 con esos números.
+- **Causa:** son el id de la URL de la grabación en Fathom (`fathom.video/calls/<id>`), no el `recording_id` de la API. El chat Debate los resolvió buscando la llamada por esa URL.
+- **Regla:** cuando Martín pasa un número de Fathom, primero hay que ver si es de la URL. 683162143 es la del 21/5 y 738834138 la del 8/7, las dos con Mauricio.
