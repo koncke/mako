@@ -1634,3 +1634,41 @@ app/m/operaciones/ChatsMovil.tsx · tests/centro-ops6.test.ts.
   app/admin/runway/Tablero.tsx, sus rutas-puerta y tests): borrarlos es otra tanda;
 - el razonamiento real (texto) de un chat en «Trabajando…»: ⚠️ después del 20/10, con revisión de qué viaja;
 - nada de esto se vio en el Android de Martín: tests y tipos, no pantalla.
+
+---
+
+## Un «Completado» con «…»: el título de la FILA usado donde iba el texto (17/10/2026, séptimo Ops Center)
+
+Martín: «los mensajes de "Completado" tienen 3 puntos al final y no llego a leer todo, esos son los mensajes más importantes».
+
+**El diagnóstico obvio era el equivocado.** Parecía un `line-clamp` o un `text-overflow` del CSS de la tarjeta; no había ninguno en
+`.co-ya`. Era el dato: `YaEstaMensaje` dibujaba como título `n.titulo`, el de la FILA de las listas (`tituloDeTexto`: el primer
+renglón cortado a 72 caracteres y «…»), y como cuerpo todo lo que venía DESPUÉS del primer renglón. Lo que pasaba de los 72
+caracteres de ese renglón no se dibujaba en ningún lado, y los chats escriben ahí su resumen. **Regla:** un título hecho para una
+lista no se reutiliza donde va el texto; la tarjeta usa `partesDeYaEsta` (lib/centro-chats.ts): el renglón entero, como título si
+cabe en 110 caracteres y, si no, como primer párrafo. Un cuerpo de más de 1500 caracteres pliega sólo su detalle y deja a la vista
+la cola (`partirPendiente`: desde «Sigue», «Pendiente», «Falta» o «Prueba»; sin esas marcas, el último párrafo).
+
+**Los cortes que quedan, y son silenciosos** (sin «…»; cortan justo la cola, que es lo último que se escribe):
+- la PC sube hasta 4000 caracteres por turno (scripts/operaciones/cartero.mjs, `TOPE_TURNO`); la tarjeta ahora lo dice
+  («Cortado a los 4000 caracteres»), pero subir el tope es del cartero (sin tocar acá);
+- el cierre estructurado (`cierre --hecho … --sigue …`) corta cada campo a 600 en la PC y en `sanearCierres`; y la tarjeta de ese
+  cierre dibujaba `hecho || decidido`: con `hecho`, lo «decidido» no se veía nunca (ahora sí).
+
+**La caja.** Antes el «+» medía 34 (teléfono) con borde, la carita 36×42, el campo 42 y mandar 42, todo alineado abajo: la altura
+del «+» era la única que no era la del renglón. En la computadora el campo se centraba (`align-self: center`) y medía 36 contra 40
+de los botones. Ahora UNA medida (`--caja-toque`: 40 mouse, 44 dedo y teléfono) y el campo de un renglón mide lo mismo. Medido en
+Chrome con el CSS real: los cuatro comparten centro y borde de abajo con 1, 2 y 4 renglones, y el centro del último renglón cae
+en el de los botones. ⚠️ La capa de links de la computadora (`.co-caja__resalte`) no tenía el relleno del textarea (6 px de
+diferencia): la capa y el campo comparten ahora UNA regla; si se toca el relleno o el renglón de uno, se toca el otro.
+
+**El ícono.** La estrella se pide con `estrella` (Criatura.tsx), no por el nombre: «solo el Cerebro» es regla de `aspectoDe`, y
+sumar «Ops Center» a esa lista habría vuelto estrella a todo chat con ese nombre. «Nuevo chat» es `CirculoNuevo` (verde, con «+»):
+el muñeco gris era el de un chat que existe.
+
+**Vive en:** lib/centro-chats.ts (`partesDeYaEsta`, `partirPendiente`, `cortadoPorLaPC`) · app/admin/operaciones/{Avance,Hilo,NuevoChat}.tsx
+· centro.css (`.co-ya__*`, `.co-caja__fila`, `--caja-toque`) · app/m/operaciones/operaciones.css · app/_components/{Criatura,Sidebar}.tsx
+· app/m/mas/page.tsx · tests/centro-ops7.test.ts.
+
+**Sin hacer:** nada se vio en el Android de Martín (medido en Chrome de escritorio con el CSS real, y tests); el tope de 4000 / 600
+del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`).

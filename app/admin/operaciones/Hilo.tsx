@@ -139,8 +139,10 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
           <div className="co-el__cuerpo">
             <p className="co-el__rotulo">{`${ROTULO[estado]}${w.cerrado_at ? ` · ${horaAR(Date.parse(w.cerrado_at))}` : ''}`}</p>
             <p className="co-el__texto">{c.hecho || c.decidido}</p>
-            {(c.comprobado || c.sigue || c.prueba) && (
+            {/* El cierre se ve ENTERO (Martín, 17/10/2026): antes, con `hecho`, lo «decidido» no se dibujaba. */}
+            {((c.hecho && c.decidido && c.decidido !== c.hecho) || c.comprobado || c.sigue || c.prueba) && (
               <dl className="co-el__dl">
+                {c.hecho && c.decidido && c.decidido !== c.hecho && <><dt>Decidido</dt><dd>{c.decidido}</dd></>}
                 {c.comprobado && <><dt>Comprobado</dt><dd>{c.comprobado}</dd></>}
                 {c.sigue && <><dt>Sigue</dt><dd>{c.sigue}</dd></>}
                 {c.prueba && <><dt>Prueba</dt><dd>{c.prueba}</dd></>}

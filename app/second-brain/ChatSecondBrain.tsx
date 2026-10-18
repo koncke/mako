@@ -46,7 +46,7 @@ import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisione
 import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { MunecoNuevo } from '@/app/admin/operaciones/NuevoChat';
+import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { Microfono } from '@/app/admin/operaciones/Microfono';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
@@ -586,7 +586,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
           <button type="button" className="co-fila co-fila--nuevo"
             aria-current={!mapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo' ? 'true' : undefined}
             onClick={() => elegir({ virtual: 'nuevo' })}>
-            <MunecoNuevo />
+            <CirculoNuevo />
             <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
           </button>
           {errorLista && <p className="co-lista__vacio">{errorLista}</p>}

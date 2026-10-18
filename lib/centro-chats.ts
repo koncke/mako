@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -1021,13 +1021,75 @@ export function rutaDeYaEsta(texto: string): string | null {
   return null;
 }
 
+/** Lo que va ANTES del texto en el primer renglón de un «Ya está»: el ✅, la negrita, «Ya está» y su puntuación. */
+const PREFIJO_YA_ESTA = /^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i;
+
+/** Hasta cuántos caracteres un primer renglón se dibuja como TÍTULO de la tarjeta; más largo es un párrafo. */
+export const TITULO_YA_ESTA = 110;
+/** Desde cuántos caracteres el cuerpo de un «Completado» se puede plegar (sólo si tiene una cola que queda a la vista). */
+export const CUERPO_PLEGABLE = 1500;
+/** Cuánto detalle tiene que haber antes de la cola para que valga la pena plegarlo. */
+const DETALLE_PLEGABLE = 600;
+
+/**
+ * El «Completado» partido para dibujarlo ENTERO (17/10/2026, Martín: «tienen 3 puntos al final y no llego a leer todo, esos
+ * son los mensajes más importantes que me permiten revisar y dar feedback»). El título de la FILA de Review/lista es
+ * `tituloDeTexto` (72 caracteres y «…»): servía para una lista y se usaba también en la tarjeta, donde el resto del primer
+ * renglón se perdía. Acá el título es el primer renglón COMPLETO si cabe como título; si no cabe (un párrafo), no hay título
+ * y ese renglón va primero en el cuerpo, entero. Nunca se corta ni se agrega «…».
+ */
+export function partesDeYaEsta(texto: string): { titulo: string | null; cuerpo: string } {
+  const lineas = texto.trim().split('\n');
+  const resto = (lineas[0] ?? '').replace(PREFIJO_YA_ESTA, '').trim();
+  const demas = lineas.slice(1).join('\n').trim();
+  if (!resto) return { titulo: null, cuerpo: demas };
+  if (resto.length <= TITULO_YA_ESTA) return { titulo: resto, cuerpo: demas };
+  return { titulo: null, cuerpo: demas ? `${resto}\n\n${demas}` : resto };
+}
+
+/** Un renglón que abre lo PENDIENTE de un cierre: «Sigue:», «Qué sigue», «Pendiente», «Falta» (con su puntuación, para no
+ *  confundirlo con una frase que sólo empieza así). */
+const ABRE_LO_PENDIENTE_ESTRICTO = /^[\s>*_#\-•·]*(?:\d+[.)]\s*)?[*_`]*(?:(?:lo que |qué |que )?sigue|(?:queda )?pendiente|falta)[*_`]*\s*(?::|—|–|-|$)/i;
+/** «Prueba:», «Pruébalo en /crm»: cómo probarlo. */
+const ABRE_LA_PRUEBA = /^[\s>*_#\-•·]*(?:\d+[.)]\s*)?[*_`]*pr[uú]eba(?:lo|la|los|las)?\b/i;
+
+/**
+ * El cuerpo largo de un «Completado» en DOS: el detalle (decidido, hecho, comprobado) y la COLA, que es lo que Martín tiene
+ * que ver siempre (lo que sigue pendiente y cómo probarlo). La cola empieza en el primer renglón que abre «Sigue», «Pendiente»,
+ * «Falta» o «Prueba» (fuera de un bloque de código); sin esa marca, es el último párrafo. `null` = no se puede plegar sin
+ * esconder algo (corto, sin cola, o casi todo es cola): se dibuja entero.
+ */
+export function partirPendiente(cuerpo: string): { detalle: string; cola: string } | null {
+  if (cuerpo.length <= CUERPO_PLEGABLE) return null;
+  const lineas = cuerpo.split('\n');
+  let dentro = false;
+  let corte = -1;
+  let ultimoParrafo = -1;
+  for (let i = 0; i < lineas.length; i++) {
+    const l = lineas[i];
+    if (/^\s*(```|~~~)/.test(l)) { dentro = !dentro; continue; }
+    if (dentro) continue;
+    if (i > 0 && !lineas[i - 1].trim() && l.trim()) ultimoParrafo = i;
+    if (corte < 0 && (ABRE_LO_PENDIENTE_ESTRICTO.test(l) || ABRE_LA_PRUEBA.test(l))) corte = i;
+  }
+  if (corte < 0) corte = ultimoParrafo;
+  if (corte <= 0) return null;
+  const detalle = lineas.slice(0, corte).join('\n').trim();
+  const cola = lineas.slice(corte).join('\n').trim();
+  if (detalle.length < DETALLE_PLEGABLE || !cola) return null;
+  return { detalle, cola };
+}
+
+/** ¿La PC cortó este turno al subirlo? Sube hasta `TOPE_TURNO` caracteres (cartero.mjs) y el resto no llega, sin avisar. */
+export const cortadoPorLaPC = (texto: string): boolean => texto.length >= TOPE_TURNO;
+
 /** Los «Ya está» de la conversación de un chat, como hechos de Review (lo más nuevo arriba lo ordena `porRevisar`). */
 export function yaEstaDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
   return lineas.flatMap((l): NodoAvance[] => {
     if (l.tipo !== 'turno' || l.turno.rol !== 'el' || !esYaEsta(l.turno.texto)) return [];
     const t = l.turno.texto.trim();
     // El título es lo que sigue al «Ya está» (o «Ya está», si no dijo más).
-    const resto = t.replace(/^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i, '').trim();
+    const resto = t.replace(PREFIJO_YA_ESTA, '').trim();
     const ruta = rutaDeYaEsta(t);
     return [{
       id: `y:${l.turno.uuid}`, origen: 'ya_esta', titulo: resto ? tituloDeTexto(resto) : 'Ya está', prompt: t, instante: l.instante,
