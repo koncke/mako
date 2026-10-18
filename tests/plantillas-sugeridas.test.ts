@@ -167,7 +167,8 @@ test('la galería ordena la lista ENTERA, filtra después, y dibuja «Sugerido»
 });
 
 test('las páginas leen las señales en el server y el editor se las pasa a las dos galerías', () => {
-  for (const pagina of [leer('app', 'dashboard', 'page.tsx'), leer('app', 'general', 'page.tsx')]) {
+  // General es la hoja «Focus» del Dashboard desde el 17/10/2026: su cuerpo vive en FocusDeGeneral.tsx.
+  for (const pagina of [leer('app', 'dashboard', 'page.tsx'), leer('app', 'dashboard', 'FocusDeGeneral.tsx')]) {
     assert.match(pagina, /senalesDelNegocio\(\)\.catch\(\(\) => null\)/);
     assert.match(pagina, /senales=\{senales(Negocio)?\}/);
   }
