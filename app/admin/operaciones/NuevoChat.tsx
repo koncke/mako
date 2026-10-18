@@ -13,7 +13,10 @@
 // Centro arma el COMANDO EXACTO —la función del perfil de esa cuenta, con el nombre puesto (lib/runner.ts →
 // `comandoNuevoChat`)— y Martín lo pega en PowerShell. El chat aparece en la lista en la próxima vuelta del Runner, con
 // su nombre, y adentro de su jefe si se llama «Jefe › Sub».
-// ⚠️ La pieza de ADENTRO (sin modal ni hoja, sin hooks de más): la usan la computadora y el teléfono.
+// ⚠️ DESDE EL 17/10/2026 (22:50) NINGUNA PANTALLA DIBUJA ESTE FORMULARIO (Martín: «Nuevo chat jamás debe abrir un modal»): «Nuevo chat»
+// abre un chat vacío y MaKo decide el nombre y el lugar con el primer mensaje (ChatNuevo.tsx). Quedan acá `CirculoNuevo` (el ícono
+// de la fila), `sePuedeAbrir` y el formulario, que ya no se monta en ningún lado.
+// ⚠️ La pieza de ADENTRO (sin modal ni hoja, sin hooks de más): la usaban la computadora y el teléfono.
 //
 // DESDE EL 17/10/2026 SE ABRE CON UN CLIC (docs/diseno-nuevo-chat-un-clic.md): «Abrir» firma un trabajo `nuevo` y la PC
 // abre la ventana con el chat (cartero.mjs → `abrir`). El comando para pegar queda como segunda opción, más chica, para

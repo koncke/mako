@@ -389,6 +389,20 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     return true;
   }
 
+  /**
+   * Mandar un texto a un chat que YA existe sin pasar por su caja: el «Nuevo chat» sin modal decidió, con el primer mensaje, que va
+   * a ese chat (17/10/2026). Sale por el mismo camino firmado que la caja (`firma.mandar`) y se anota igual en su conversación.
+   */
+  async function mandarTextoA(c: ChatCentro, texto: string): Promise<boolean> {
+    const d = destinoDeChat(c);
+    const envio = envioDe(c);
+    if (!d.sesion || !envio.puede) { avisar(textoDeEnvio(envio) ?? 'No recibe ahora', 'bad'); return false; }
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, 'solo_esto');
+    if (!r.ok) { avisar(r.error, 'bad'); return false; }
+    anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    return true;
+  }
+
   // ── Los adjuntos de la caja (17/10/2026): fotos y PDF, también pegando una captura con Ctrl+V ─────────────
   const adjuntosDe = (clave: string) => adjuntos[clave] ?? [];
   /** ¿Baja adjuntos el Runner de la cuenta a la que sale? Con un cartero de antes de la 1.9.0 el trabajo llegaría SIN
@@ -575,7 +589,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */
     sinAdjuntos: () => avisar('Este chat aún no recibe imágenes', 'bad'),
-    puedeAbrirEn, apertura, abrirChat,
+    puedeAbrirEn, apertura, abrirChat, mandarTextoA,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
     renombrando, setRenombrando, deRenombre, renombrar, renombrarChat,

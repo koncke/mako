@@ -1447,6 +1447,15 @@ código nuevo:
   - lo que la PC corta al subir (`TOPE_TURNO`) se dice en la tarjeta (`cortadoPorLaPC`), no se calla.
 
   Un texto nuevo que muestre un cierre sigue ese molde. Lo fija tests/centro-ops7.test.ts.
+- **«NUEVO CHAT» NUNCA ABRE UN MODAL NI PIDE NOMBRE ANTES** (17/10/2026; Martín: «jamás debe abrir un modal, eso es lo más
+  contraintuitivo y contra IA que existe... que simplemente abra el chat y que al comenzar a escribir la IA vaya entendiendo dónde
+  lo debe colocar, si debe ser un jefe o un empleado, qué nombre ponerle»). Abre un chat vacío con su caja (ChatNuevo.tsx, la misma
+  lógica en la computadora y el teléfono); con el primer mensaje `decidirChatNuevoAction` (la IA barata, con
+  lib/centro-chat-nuevo.ts de respaldo) decide si va a un chat que ya existe, a un empleado nuevo («CRM › Funnels») o a un jefe nuevo,
+  y el nombre; lo muestra arriba, sale solo a los 4 s por el camino firmado (`abrirChat`/`mandarTextoA`) y Martín puede cambiarlo
+  tocando la cabecera, nunca está obligado. Lo que contesta la IA se VALIDA (`decisionDeRespuesta`: lista blanca del nombre, nunca el
+  Cerebro ni el Runner, nunca un jefe o un empleado repetido). Un campo nuevo que pida un dato ANTES de poder escribir no va. Lo
+  fija tests/centro-nuevo-chat.test.ts.
 - **LO QUE ESCRIBE UN CHAT SE DIBUJA CON SU FORMATO, Y UN CHAT SIN NADA PARA MARTÍN DUERME** (17/10/2026; Martín: «que los MD no
   salgan con texto feo... nada de asteriscos ni almohadillas a la vista» y «nunca un chat "despierto" que no tenga ni una notif ni
   un trabajo»). Todo texto de un chat —sus respuestas, un «Completado» (título y cuerpo), el cierre, sus preguntas— pasa por

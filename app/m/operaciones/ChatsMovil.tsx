@@ -29,15 +29,16 @@ import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { conVinetas, enterEnLista } from '@/lib/centro-caja';
 import {
-  SECCION_CHATS, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, nombreValido, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
+  SECCION_CHATS, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { Pregunta } from '@/app/admin/operaciones/Pregunta';
-import { CirculoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from '@/app/admin/operaciones/NuevoChat';
-import { comandoNuevoChat } from '@/lib/runner';
+import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
+import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
+import { CajaChatNuevo, CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
 import { Hilo, TANDA_HILO, Tick } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
@@ -110,6 +111,21 @@ const edad = (t: number | null, ahora: number): string => {
   if (s < 86_400) return `${Math.round(s / 3600)} h`;
   return `${Math.round(s / 86_400)} d`;
 };
+
+/**
+ * La hoja del chat NUEVO del teléfono (17/10/2026): un chat vacío con su caja pegada abajo, como el de WhatsApp. Con el primer
+ * mensaje, MaKo decide dónde va y cómo se llama (ChatNuevo.tsx); nada de formularios. La lógica es la de la computadora.
+ */
+function HojaChatNuevo({ centro, onCerrar, onAbrir }: { centro: Centro; onCerrar: () => void; onAbrir: (clave: string) => void }) {
+  const chatNuevo = useChatNuevo(centro, onAbrir);
+  return (
+    <SheetM abierto onCerrar={onCerrar} snap="alto"
+      titulo={<span className="m-operaciones-titulo"><span className="m-operaciones-titulo__muneco"><CriaturaChatNuevo n={chatNuevo} /></span><span className="m-operaciones-titulo__texto"><TituloChatNuevo n={chatNuevo} /></span></span>}
+      pie={<CajaChatNuevo n={chatNuevo} movil />}>
+      <div className="m-operaciones-hilo"><CuerpoChatNuevo n={chatNuevo} /></div>
+    </SheetM>
+  );
+}
 
 /**
  * Una fila de la lista, MEMORIZADA (17/10/2026, Martín: «Cuando estoy en un chat y le doy para atrás en mobile, tarda
@@ -199,8 +215,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   useLayoutEffect(() => { setAbiertoRef.current = setAbierto; });
   const abrirEstable = useCallback((clave: string) => setAbiertoRef.current(clave), []);
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
-  const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
-  const [abriendo, setAbriendo] = useState(false);
+  // «Nuevo chat» (Martín, 17/10/2026: «jamás debe abrir un modal»): una hoja de chat vacía, con su caja (ChatNuevo.tsx).
+  const [nuevoChat, setNuevoChat] = useState(false);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ aspecto: Aspecto; guardando: boolean } | null>(null);
   const toast = useToastM();
@@ -428,28 +444,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     <>
       {/* «Nuevo chat», arriba de todos (NuevoChat.tsx), en la MISMA lista que los chats. Sólo en el Centro: en el Second
           Brain, «Nuevo chat» es el de MaKo. */}
-      {!parte && <>
-      <SheetM abierto={!!nuevo && !elegido} onCerrar={() => setNuevo(null)} titulo="Nuevo chat"
-        // «Abrir» con un clic cuando el Runner de esa cuenta abre (17/10/2026); si no, copiar el comando, como antes.
-        pie={nuevo ? (centro?.puedeAbrirEn(nuevo.cuenta) ? (
-          <PieM consecuencia="Se abre en la PC en 2 minutos.">
-            <Button variant="primary" size="lg" full loading={abriendo} disabled={abriendo || !sePuedeAbrir(nuevo, true)}
-              onClick={async () => { setAbriendo(true); const ok = await centro.abrirChat(nuevo); setAbriendo(false); if (ok) setNuevo(null); }}>Abrir</Button>
-          </PieM>
-        ) : (
-          <PieM consecuencia="Pégalo en PowerShell, en la PC.">
-            <Button variant="primary" size="lg" full disabled={!nombreValido(nuevo.nombre.trim()).ok}
-              onClick={async () => { toast((await copiar(comandoNuevoChat(nuevo.cuenta, nuevo.nombre))) ? 'Copiado' : 'No pude copiar'); setNuevo(null); }}>Copiar comando</Button>
-          </PieM>
-        )) : undefined}>
-        {nuevo && <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={async (t) => toast((await copiar(t)) ? 'Copiado' : 'No pude copiar')}
-          puedeAbrir={!!centro?.puedeAbrirEn(nuevo.cuenta)} estado={centro?.apertura ?? null} />}
-      </SheetM>
-      </>}
+      {!parte && centro && nuevoChat && !elegido && (
+        <HojaChatNuevo centro={centro} onCerrar={() => setNuevoChat(false)} onAbrir={(clave) => { setNuevoChat(false); abrirEstable(clave); }} />
+      )}
       {conLista && (
         <SeccionM titulo={tituloChats}>
           <ListaM etiqueta={tituloChats}>
-            {!parte && <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevo({ nombre: '', cuenta: 'claude1' })} navegacion />}
+            {!parte && <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevoChat(true)} navegacion />}
             {filas.map((f) => (f.tipo === 'mas'
               ? <FilaM key={`mas-${f.k}`} titulo={`Ver los ${f.n} chats`} onClick={() => setEnteras((s) => new Set(s).add(f.k))} navegacion />
               : <FilaChatM key={f.c.clave} c={f.c} sub={f.sub} previa={centro.previas.get(f.c.clave) ?? null} enCurso={centro.enCursos.get(f.c.clave) ?? null}

@@ -38,6 +38,9 @@ import { CUENTA_RE } from '@/lib/operaciones-reglas';
 import { aliasValido, type CuentasConNombre } from '@/lib/centro-titulares';
 import { leerPasos } from '@/lib/centro-pasos-db';
 import type { PasosPorChat } from '@/lib/centro-pasos';
+import { chatCheap } from '@/lib/ai-cheap';
+import { decisionDeRespuesta, decisionPorReglas, promptChatNuevo, type DecisionChatNuevo } from '@/lib/centro-chat-nuevo';
+import { nombresDeTabs } from './tabs';
 import { sanearCambio, type MarcasChat } from '@/lib/centro-mensajes';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
@@ -217,4 +220,30 @@ export async function guardarMunecoAction(titulo: string, aspecto: unknown): Pro
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
+}
+
+/**
+ * «Nuevo chat» SIN modal (17/10/2026, Martín: «jamás debe abrir un modal»): con el primer mensaje, la IA barata de la plataforma
+ * decide dónde va —un chat que ya existe, un empleado nuevo de un jefe, o un jefe nuevo— y cómo se llama. Es texto de Martín,
+ * no datos de clientes (por eso la barata y no una de pago: el Plan nunca paga IA). Lo que contesta pasa por
+ * `decisionDeRespuesta` (la lista blanca del nombre es la de la PC); si no contesta o no vale, deciden las reglas
+ * (`decisionPorReglas`). Nunca se le pregunta nada a Martín.
+ */
+export async function decidirChatNuevoAction(texto: unknown, chats: unknown): Promise<{ ok: true; decision: DecisionChatNuevo } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof texto !== 'string' || !texto.trim() || texto.length > 8000) return { ok: false, error: 'Escribe tu mensaje.' };
+  const lista = (Array.isArray(chats) ? chats : []).slice(0, 300).flatMap((c): Array<{ clave: string; titulo: string }> => {
+    const o = c && typeof c === 'object' ? (c as Record<string, unknown>) : null;
+    return o && typeof o.clave === 'string' && typeof o.titulo === 'string' && o.clave.length <= 200 ? [{ clave: o.clave, titulo: o.titulo.slice(0, 120) }] : [];
+  });
+  const ctx = { tabs: nombresDeTabs(), chats: lista };
+  try {
+    const { system, user } = promptChatNuevo(texto, ctx);
+    const crudo = await chatCheap({ system, user, json: true, maxTokens: 160, temperature: 0, feature: 'centro-chat-nuevo', motivo: 'Dónde va un chat nuevo del Ops Center', timeoutMs: 9000 });
+    const json = crudo.match(/\{[\s\S]*\}/)?.[0];
+    const d = json ? decisionDeRespuesta(JSON.parse(json), ctx) : null;
+    if (d) return { ok: true, decision: d };
+  } catch { /* sin IA, o una respuesta que no es JSON: deciden las reglas */ }
+  return { ok: true, decision: decisionPorReglas(texto, ctx) };
 }
