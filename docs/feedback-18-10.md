@@ -105,3 +105,7 @@ Martín: «No me aparece el mensaje de "Completado" y la notificación de todos 
   - hasta que Martín lo toca, el chat dice «Espera tu respuesta» en la lista, en computadora y en el teléfono, aunque lo haya abierto y aunque el chat haya escrito algo después;
   - el check se guarda del lado del servidor (no por dispositivo), para que valga en las dos pantallas.
 - **Medir primero** por qué no le aparece el Completado de los chats que sí escribieron su «Ya está» hoy (CRM, Sidebar, Dashboard, Ticketera, Second Brain, Onboarding y Ops Center 3). Puede ser lo de `vistaPrevia`, o que el turno no subió entero.
+
+## Ops Center: pegar lo copiado (pedido 5e8b6bff, 18/10 15:15)
+
+«Si saqué una screen o tengo algo copiado, debería aparecer así arriba para pegarlo en el chat»: es el «Pegar» que el teclado de Android ofrece en WhatsApp con la captura recién sacada. Para que el teclado lo ofrezca en la caja del Ops Center, la caja tiene que aceptar pegar IMÁGENES (`onPaste` con `clipboardData.files`, como adjunto). Lo mismo con Ctrl+V en la computadora. Hecho el 18/10: la marca dice «En la app de Claude» (f68a38879). Pegar imágenes: después del 20/10, junto con las imágenes desde la app (punto 4 de Ops Center 3).
