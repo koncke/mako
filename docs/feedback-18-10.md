@@ -35,3 +35,35 @@
 | 7 | Los demás chats (Offer…) con las funciones del chat del Ops Center. | después del 20/10 | — |
 | 11 | **Chats:**<br>- réplica del chat del Ops Center;<br>- los comentarios, al desplegable de contacto y al detail del lead (sección comentarios, que se crea si no está);<br>- fuera «Actividad», pero su historial en tarjetas va a toda la app;<br>- «Abrir panel» reemplaza a «Contacto»;<br>- fuera «Cerrar» y «Posponer»;<br>- Equipo: el logo de MaKo, la X para quitar y «Nuevo miembro» con el form ahí mismo;<br>- MaKo, desplegable con la automatización actual;<br>- la etapa no tapa el nombre ni la foto;<br>- ver los otros CRM;<br>- fuera «La bandeja» (lo útil pasa a filtros). | después del 20/10 | — |
 | 12 | **Dashboard:**<br>- «Analizar con MaKo» abre el chat unificado;<br>- el botón sale del lado del filtro (ya está en los 3 puntos);<br>- «Editar» con el patrón de Web Generator. | después del 20/10 | — |
+
+## Pt 13: lo que pidieron los clientes para depurar (informe de «MaKo en WhatsApp», 18/10 ~14:00 UTC, sólo lectura)
+
+**Por WhatsApp (medido en el código y en producción):**
+- **Pablo (ws18):**
+  - Calendario, agendar, los datos de Nancy, «déjame ver», groserías: EN PRODUCCIÓN (4569887d9 y 8d90f8357), con su aviso enviado.
+- **Código Inmobiliario (ws13):**
+  - «Reprogramame la reunión», «Si 18 de noviembre», «Pasamelo»: EN PRODUCCIÓN (618c79c45 y 4569887d9).
+  - **SIN HACER:**
+    - «Programá un mensaje por privado a un número»: capacidad nueva, choca con «a terceros sale el número del usuario».
+    - Los carteles de IA (Gemini 503 y timeout, con una sola key): falta la cascada, o sea gasto de IA.
+
+**Por llamadas (estado del TABLERO del Plan del ws9; no se cruzó con commits):**
+- **Leila (847861420):** por hacer, vincular varias líneas de WhatsApp.
+- **Mau <> Martin (863534245):** por hacer:
+  - la API key restringida al conectar el dominio de email;
+  - «Quitar» un pago, que no se aplicó al primer intento.
+- **«Revisión de MaKo» (863534246):** por hacer:
+  - cuelgues al generar automatizaciones con IA;
+  - un error de render en el Video Editor;
+  - el evaluador del Web Generator, que no da observaciones;
+  - crear un flujo «en el acto» y pegar uno copiado en otro negocio.
+
+  Hay 12 más en hecho.
+
+**Ticketera:** ningún ticket de un cliente. Los únicos dos son los del sistema en el ws1 (#5 y #6, sin IA).
+
+**Sin confirmar:**
+- que lo «hecho» del tablero esté en producción;
+- las reuniones de planes que no son el del ws9.
+
+Dato extra: «Que el doer registre solo lo que falla» figura por hacer y ya está en main (118148d1e).
