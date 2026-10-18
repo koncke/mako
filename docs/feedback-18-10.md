@@ -67,3 +67,8 @@
 - las reuniones de planes que no son el del ws9.
 
 Dato extra: «Que el doer registre solo lo que falla» figura por hacer y ya está en main (118148d1e).
+
+## Más del 18/10 (probando el onboarding en el ws3)
+
+- «En lugar de "Revisando tu respuesta", sólo debería aparecer la animación de los ... como que está escribiendo»: lo hace el chat Onboarding, en chico.
+- «La interfaz de cuando subo un archivo y en general todo el chat del onboarding se debe ver igual que en el Center». Hoy al subir un PDF se abre una vista propia: la hoja grande, «Leyendo…», las miniaturas abajo y un botón verde. **Es la primera pieza del chat unificado después del 20/10**: el onboarding toma el chat del Ops Center tal cual, con su manera de adjuntar.
