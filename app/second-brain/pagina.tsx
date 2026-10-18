@@ -23,7 +23,7 @@ import { construirCerebro } from '@/lib/cerebro-grafo';
 import { chatsMakoDeQuienMira } from '@/lib/cerebro-chats';
 import { construccionDeMako } from '@/lib/cerebro-construccion-datos';
 import { getSesionAdmin } from '@/lib/auth';
-import { wsSuperAdmin } from '@/lib/workspace';
+import { estaImpersonando, wsSuperAdmin } from '@/lib/workspace';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { esVistaTicketera } from '@/app/tickets/decisiones/reglas';
@@ -59,9 +59,17 @@ export async function mapaDelSecondBrain(): Promise<ReactNode> {
   return <VistaCerebro cerebro={cerebro} construccion={construccion} funnelPanel={funnelPanel} />;
 }
 
-/** ¿Quien mira opera MaKo? La guarda del Centro de Operaciones (app/admin/operaciones/datos.ts), tal cual. */
+/**
+ * ¿Quien mira opera MaKo? La guarda del Centro de Operaciones (app/admin/operaciones/datos.ts), tal cual.
+ * ⚠️ MIRANDO A UN CLIENTE, NO (18/10/2026, Martín, punto 13: al terminar el onboarding del Cliente de Prueba «me saltaron
+ * todos los chats míos del Ops Center, de SuperAdmin, eso está terriblemente mal»). El super admin que inspecciona ve lo
+ * que ve el cliente: su Second Brain, nunca el Centro de la plataforma. tests/second-brain-mirando-cliente.test.ts.
+ */
 export async function quienOpera(): Promise<boolean> {
-  try { return puedeOperar(await getSesionAdmin(), await wsSuperAdmin()); } catch { return false; }
+  try {
+    if (await estaImpersonando()) return false;
+    return puedeOperar(await getSesionAdmin(), await wsSuperAdmin());
+  } catch { return false; }
 }
 
 const enteroDe = (v: string | undefined): number | null => {
