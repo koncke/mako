@@ -14,7 +14,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO, MARGEN_MULTIPART_BYTES, TOPE_TOTAL_BYTES } from '@/lib/mako-adjuntos';
-import { subirAdjuntosCentro } from '@/lib/operaciones-adjuntos';
+import { firmarSubidasCentro, subirAdjuntosCentro } from '@/lib/operaciones-adjuntos';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +23,20 @@ const json = (cuerpo: Record<string, unknown>, status = 200) => Response.json(cu
 export async function POST(req: Request) {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return json({ ok: false, error: 'Entra con tu segundo factor para usar el Centro.' }, 403);
+  // Con un Runner 1.16.0 (18/10/2026): sin archivos, sólo lo que se va a subir; vuelve una URL firmada por archivo y el
+  // navegador sube DIRECTO al storage (un archivo grande no pasa por Vercel). JSON chico: se corta antes de leerlo.
+  if ((req.headers.get('content-type') ?? '').startsWith('application/json')) {
+    if (Number(req.headers.get('content-length') ?? 0) > 64 * 1024) return json({ ok: false, error: 'Demasiados archivos.' }, 413);
+    let cuerpo: { archivos?: unknown } = {};
+    try { cuerpo = await req.json(); } catch { return json({ ok: false, error: 'No llegó ningún archivo.' }, 400); }
+    try {
+      const r = await firmarSubidasCentro(cuerpo.archivos);
+      return r.ok ? json({ ok: true, subidas: r.subidas }) : json({ ok: false, error: r.error }, 400);
+    } catch (e) {
+      console.error('[operaciones/adjuntos] firmar', e instanceof Error ? e.message : e);
+      return json({ ok: false, error: 'No pude preparar la subida: vuelve a intentarlo.' }, 503);
+    }
+  }
   const largo = Number(req.headers.get('content-length') ?? 0);
   if (largo > TOPE_TOTAL_BYTES + MARGEN_MULTIPART_BYTES) return json({ ok: false, error: ERROR_ADJUNTO.pesado }, 413);
   let archivos: File[];

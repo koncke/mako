@@ -691,4 +691,23 @@ export const BITACORA: Hito[] = [
       'tests/centro-ya-visto.test.ts, tests/centro-atras-android.test.ts',
     ],
   },
+  {
+    fecha: '18 oct', hora: '17:50', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Adjuntos de hasta 100 MB y 20 archivos, y arrastrar y soltar en el chat',
+    pedido: 'Hay limitación de hasta 4mb de archivos, quita esa limitación; debería funcionar si arrastro una img o un doc al chat',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Cada archivo puede pesar hasta 100 MB (antes, 4 MB entre todos), y van hasta 20 por mensaje (antes, 4).',
+      'Las fotos llegan tal cual, sin achicarlas.',
+      'Arrastrar una imagen o un PDF a la conversación lo adjunta, en la computadora.',
+      'Hace falta el Runner nuevo (1.16.0); con uno de antes siguen los topes de siempre.',
+    ],
+    archivos: [
+      'lib/operaciones-reglas.ts — los topes; lib/operaciones-adjuntos.ts — las URLs firmadas',
+      'app/admin/operaciones/mandar.ts — la subida directa al storage; pegar.ts, Conversacion.tsx — arrastrar y soltar',
+      'scripts/operaciones/cartero.mjs — 1.16.0: baja por URL firmada, sin el token',
+      'tests/centro-adjuntos-grandes.test.ts, tests/centro-adjuntos.test.ts',
+    ],
+  },
 ];

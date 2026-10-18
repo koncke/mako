@@ -16,7 +16,7 @@ import '@/app/_chat/chat.css';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { IconoChat } from '@/app/m/mako/iconos';
-import { ACCEPT_ADJUNTOS_CHAT } from '@/lib/mako-adjuntos';
+import { ACCEPT_ADJUNTOS_CENTRO } from '@/lib/operaciones-reglas';
 import type { AdjuntoCaja } from './useCentro';
 import { Visor } from './Visor';
 
@@ -31,7 +31,7 @@ export type AdjuntosDeCaja = {
 };
 
 // Pegar una imagen: pegar.ts (sin CSS, para que su test lo importe).
-export { alPegar } from './pegar';
+export { alPegar, alSoltar, traeArchivos } from './pegar';
 
 /** Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. */
 export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
@@ -125,7 +125,7 @@ export function MasCaja({ a, apagado, resumen, children }: {
           )}
         </div>
       )}
-      <input ref={archivo} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
+      <input ref={archivo} type="file" accept={ACCEPT_ADJUNTOS_CENTRO} multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
       <input ref={imagen} type="file" accept="image/*" multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
       <input ref={camara} type="file" accept="image/*" capture="environment" hidden onChange={(e) => elegir(e.target.files, e.target)} />
     </div>

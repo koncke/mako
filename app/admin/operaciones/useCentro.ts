@@ -19,11 +19,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaTextoLargo, problemaDeNombreNuevo, type AdjuntoPedido, type TurnoChat,
+  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, tipoDeElegidoCentro, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
 import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
-import { idLocal, problemaDeSeleccion, tipoDeElegido } from '@/app/m/mako/chat-ui';
+import { idLocal } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
@@ -216,7 +216,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (!(adjuntosRef.current[c.clave]?.length)) {
       void leerAdjuntosGuardados(claveParaUrl(c)).then((fs) => {
         if (!fs.length || adjuntosRef.current[c.clave]?.length) return;
-        adjuntosRef.current = { ...adjuntosRef.current, [c.clave]: fs.map((f): AdjuntoCaja => ({ id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f) })) };
+        adjuntosRef.current = { ...adjuntosRef.current, [c.clave]: fs.map((f): AdjuntoCaja => ({ id: idLocal('a'), file: f, tipo: tipoDeElegidoCentro(f, true) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f) })) };
         setAdjuntos(adjuntosRef.current);
       });
     }
@@ -427,21 +427,32 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const { cuenta } = destinoDeChat(c);
     return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaTextoLargo(k.version)) ? MAX_TEXTO_LARGO : MAX_TEXTO;
   };
+  /** ¿El Runner de la cuenta a la que sale baja archivos grandes (1.16.0, 18/10/2026)? Con él: hasta 20 archivos de hasta
+   *  100 MB, subidos directo al storage y TAL CUAL (no se achican). Con uno de antes, los topes de siempre (4 y 4 MB). */
+  const grandesDe = (c: ChatCentro | undefined) => {
+    if (!c) return false;
+    const { cuenta } = destinoDeChat(c);
+    return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaAdjuntosGrandes(k.version));
+  };
   const sumarAdjuntos = async (clave: string, lista: readonly File[]) => {
     if (!lista.length) return;
-    const validos = lista.filter((f) => tipoDeElegido(f) != null);
-    if (validos.length < lista.length) avisar(ERROR_ADJUNTO.formato, 'bad');
+    const grandes = grandesDe(chats.find((x) => x.clave === clave));
+    // Fotos y PDF siempre; Word, Excel, PowerPoint y texto, con un Runner 1.16.0 (18/10/2026). Nunca un ejecutable.
+    const validos = lista.filter((f) => tipoDeElegidoCentro(f, grandes) != null);
+    if (validos.length < lista.length) avisar(grandes ? 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' : ERROR_ADJUNTO.formato, 'bad');
     const listos: File[] = [];
     for (const f of validos) {
-      const talCual = f.size <= TAL_CUAL_BYTES && /^image\/(png|jpeg|webp|gif)$|^application\/pdf$/.test(f.type);
+      // Lo que la PC acepta tal cual no se toca; lo demás (un HEIC, una foto enorme con un Runner de antes) se achica.
+      const tipoOk = /^image\/(png|jpeg|webp|gif)$|^application\/pdf$/.test(f.type);
+      const talCual = tipoOk && (grandes || f.size <= TAL_CUAL_BYTES);
       try { listos.push(talCual ? f : await achicarImagen(f)); } catch (e) { avisar(e instanceof Error ? e.message : 'No pude leer esa imagen.', 'bad'); }
     }
     if (!listos.length) return;
     const antes = adjuntosRef.current[clave] ?? [];
-    const problema = problemaDeSeleccion([...antes.map((a) => a.file.size), ...listos.map((f) => f.size)]);
+    const problema = problemaDeAdjuntosCaja([...antes.map((a) => a.file.size), ...listos.map((f) => f.size)], grandes);
     if (problema) { avisar(problema, 'bad'); return; }
     const todos = [...antes, ...listos.map((f): AdjuntoCaja => ({
-      id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
+      id: idLocal('a'), file: f, tipo: tipoDeElegidoCentro(f, grandes) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
     }))];
     ponerAdjuntos(clave, todos);
     const dir = direccionDe(clave);
@@ -473,7 +484,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     // Primero los archivos: el trabajo se firma con el `ref` de cada uno y el sha256 que calculó este navegador.
     let subidos: AdjuntoPedido[] = [];
     if (archivos.length) {
-      const s = await subirAdjuntos(archivos.map((a) => a.file));
+      const s = await subirAdjuntos(archivos.map((a) => a.file), grandesDe(c));
       if (!s.ok) { setEnviando(false); avisar(s.error, 'bad'); return; }
       subidos = s.adjuntos;
     }
