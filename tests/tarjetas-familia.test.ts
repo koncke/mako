@@ -9,7 +9,8 @@
 //      ficha rápida va por `handleDrop` (el mismo camino que soltar la tarjeta en la columna);
 //   2. el teléfono del CRM: tocar abre la ficha rápida en su SheetM, y «Mover a…» le pide a KanbanM SU sheet (no otro);
 //   3. Clients: la barra de la etapa y el aviso, el más urgente primero (sin entrar al curso, días sin moverse);
-//   4. Plan: el círculo de prioridad completa la tarea, en la computadora y en el teléfono;
+//   4. Plan: en el teléfono el círculo de prioridad completa la tarea; en la computadora, desde el 18/10 (Martín, pt 9),
+//      un CHECK GRIS a la derecha, al lado del tacho, y la tarjeta sin prioridad, sin origen y sin el aviso del deadline;
 //   5. KanbanM: las etapas con su NOMBRE y contador (pestañas píldora), y el pedido de afuera abre su «Mover a…»;
 //   6. toda pieza del kit lleva sus variables, aunque se use fuera de una tarjeta `.tk` (18/10: el círculo del Plan era
 //      invisible y la cara del teléfono salía sin color, en producción, con todo lo de arriba en verde);
@@ -23,6 +24,7 @@
 //   · el teléfono abriendo un «Mover a…» propio en vez de `pedirMover`               → 4 / 1
 //   · el aviso de un cliente sin mirar «sin entrar al curso»                         → 4 / 1
 //   · el círculo del Plan sin completar (`board.toggleDone`)                         → 4 / 1
+//   · (18/10) el BoardShell de antes, con el círculo y los chips (pt 9)               → 7 / 1
 //   · KanbanM sin el nombre de la etapa en la pestaña                                → 4 / 1
 // Y el 6 (18/10/2026), con el archivo en 6 / 0: las variables otra vez en las cinco raíces de antes
 //   (`.tk-raiz, .tk, .tk-ptabs, .tk-feat, .tk-sheet`, luz y oscuro)                    → 5 / 1, nombrando 20 piezas
@@ -83,10 +85,17 @@ test('Clients: la barra de la etapa y el aviso, el más urgente primero', () => 
   assert.match(leer('app/m/cs/CustomerSuccessM.tsx'), /avanceDeCliente\(\{ etapa: iCol, etapas: grupos\.length,/, 'el teléfono tiene que usar la MISMA regla');
 });
 
-test('Plan: el círculo de prioridad completa la tarea, en la computadora y en el teléfono', () => {
+test('Plan: el check gris completa en la computadora; el círculo, en el teléfono', () => {
   const b = leer('app/plan/board/BoardShell.tsx');
-  const card = b.slice(b.indexOf('function CardTile('), b.indexOf('function CardTile(') + 12000);
-  assert.match(card, /className=\{`tk-pr tk-pr--\$\{prio\}`\}[\s\S]{0,200}onClick=\{\(e\) => \{ e\.stopPropagation\(\); board\.toggleDone\(t\.id\); \}\}/);
+  const ini = b.indexOf('function CardTile(');
+  const card = b.slice(ini, b.indexOf('\nfunction ', ini + 1)); // la tarjeta ENTERA: el check está al final
+  assert.match(card, /className="mk-plan-check"[\s\S]{0,200}onClick=\{\(e\) => \{ e\.stopPropagation\(\); board\.toggleDone\(t\.id\); \}\}/,
+    'el check gris tiene que completar por el mismo camino que el detalle');
+  // A la derecha, al lado del tacho: después del espaciador y antes del botón de eliminar.
+  const check = card.indexOf('className="mk-plan-check"');
+  assert.ok(card.lastIndexOf('<span style={{ flex: 1 }} />', check) > 0 && card.indexOf('aria-label={`Eliminar', check) > check, 'el check va a la derecha, antes del tacho');
+  // La vista previa sin prioridad, sin origen y sin el aviso del deadline (pt 9).
+  assert.doesNotMatch(card, /className=\{`tk-pr |<PrioChip|tk-chip--mako|<WarnMark/, 'volvió a la tarjeta la prioridad, el origen o el aviso');
   assert.match(leer('app/m/plan/ListaPlan.tsx'), /if \(!hecha\) completar\(it, 'check'\);/, 'el teléfono completa por el mismo camino que el sheet');
 });
 

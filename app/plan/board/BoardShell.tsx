@@ -145,7 +145,7 @@ import { TablaProyectos, TablaTareas, LineaRepeticion } from './Tablas';
 // este código no las nombra: dos modelos de lo mismo es el bug que la 0167 vino a cerrar.
 import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, recurrenciaDe, ROTULO_REPETICION } from '@/lib/plan-recurrentes';
 import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
-import { FONDO_COLUMNA, NOMBRE_PRIORIDAD, type PrioridadTarea } from '@/lib/tarjeta-kanban';
+import { FONDO_COLUMNA } from '@/lib/tarjeta-kanban';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -2588,18 +2588,9 @@ function BloquePrioridad({ etiqueta, chip, color, titulo, razon, impacto, esfuer
    con el impacto y el esfuerzo: la razón no es un bloque aparte, es lo que explica el
    número que está al lado. */
 // score del guardián (1-100), coloreado por la columna que define.
-/**
- * EL CHIP DE PRIORIDAD de la tarjeta del Kanban (16/10/2026). Desde que las columnas son el
- * estado, la prioridad ya no la dice la columna: la dice este chip (el número en el color de su
- * banda, el mismo punto del filtro «Prioridad») y se filtra. Una tarea LIBRE (score 0, nadie la
- * juzgó todavía) dice «Sin priorizar» — no «A futuro», que es un juicio (`prioFiltroDe`).
- */
-function PrioChip({ score }: { score: number }) {
-  const f = prioFiltroDe({ score });
-  if (f !== 'sin_priorizar') return <ScoreBadge score={score} titulo={`Prioridad ${PFILTRO_LABEL[f]} · ${score}`} />;
-  const c = COLOR_PRIO_FILTRO.sin_priorizar;
-  return <span title="Nadie le puso prioridad todavía" style={{ display: 'inline-flex', alignItems: 'center', flex: 'none', fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, border: `1px dashed ${c}88`, borderRadius: 5, padding: '1px 5px', whiteSpace: 'nowrap' }}>Sin priorizar</span>;
-}
+/* ⛔ ACÁ VIVÍA `PrioChip`, el chip de prioridad de la tarjeta («Sin priorizar» o el número en su color). Se fue el
+   18/10/2026: Martín pidió la vista previa de la tarea SIN la prioridad (pt 9). La prioridad vive en el detalle y en el
+   filtro «Prioridad». */
 function ScoreBadge({ score, titulo }: { score: number; titulo?: string }) {
   const c = PCOLOR[prioFromScore(score)];
   return <span title={titulo ?? 'Prioridad del guardián (1-100)'} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, background: c + '18', border: `1px solid ${c}33`, borderRadius: 5, padding: '1px 5px 1px 4px' }}><ScoreIcon size={10} color={c} />{score}</span>;
@@ -3009,26 +3000,11 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SOMBRA_TARJETA_HOVER; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SOMBRA_TARJETA; }}>
       <EstiloTarjetas />
-      {/* EL MOLDE DE LA FAMILIA (17/10/2026): el CÍRCULO DE PRIORIDAD ocupa el lugar de la foto y tocarlo la completa (era
-          el check del pie: «una tarea se completa o no se completa», ahora en el círculo, como en el prototipo); a la
-          derecha, el título de dos líneas y debajo el renglón de lo que se sabe de ella. Lo que la tarjeta ya mostraba
-          se queda, con su porqué (abajo): el chip del proyecto, el plazo con los días que faltan o sobran, el candado,
-          «se repite», el aviso de la fecha, el puntaje, «MaKo» si la creó MaKo y el tacho. */}
+      {/* EL MOLDE DE LA FAMILIA (17/10/2026), con el feedback del 18/10 (Martín, pt 9): el título de dos líneas y
+          debajo el renglón de lo que se sabe de ella —el chip del proyecto, el plazo, el candado, «se repite»— y a la
+          derecha el CHECK GRIS para completarla, al lado del tacho. La vista previa NO lleva la prioridad (ni el círculo
+          ni el chip), ni «MaKo» como origen, ni el aviso de falta de deadline: eso vive en el detalle. */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, minWidth: 0 }}>
-        {(() => {
-          const prio: PrioridadTarea = t.score <= 0 ? 0 : ({ alta: 1, media: 2, baja: 3, futuro: 4 } as const)[prioFromScore(t.score)];
-          const nombrePr = prio === 0 ? NOMBRE_PRIORIDAD[0] : `Prioridad ${prioFromScore(t.score)}`;
-          return (
-            <button type="button" className={`tk-pr tk-pr--${prio}`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
-              aria-label={done ? `Reabrir «${t.title}»` : `Marcar «${t.title}» como completada`}
-              title={done ? `${nombrePr} · tócalo para reabrirla` : `${nombrePr} · tócalo para completarla`}
-              style={done ? { background: 'var(--good)', borderColor: 'var(--good)' } : undefined}>
-              {done ? <CheckHecho done size={13} /> : null}
-            </button>
-          );
-        })()}
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* ⚠️ `gap: 8` y no 7: el `-8` de `.mk-sel-tarjeta` lo cancela con la casilla cerrada. */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
@@ -3062,15 +3038,22 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
               : t.deadline
                 ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
                 : null}
-            {/* «MaKo» en naranja si la creó MaKo (el prototipo; naranja = MaKo intervino, y nada más). */}
-            {t.origen === 'ia' && <span className="tk-chip tk-chip--mako" title="La creó MaKo">MaKo</span>}
             {/* El candado y «se repite», COMPACTOS: el nombre de lo que la frena y el ritmo viven en el tooltip y en el
                 detalle. La ALARMA (`WarnMark`) se queda: esa pide una acción. */}
             <BloqueoChip porQue={frenanA} compacto />
             {esRecurrente(t) && !sinRanking && <RepiteChip soloIcono />}
-            {warn && <WarnMark title="Falta el deadline" onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
             <span style={{ flex: 1 }} />
-            {!sinRanking && <PrioChip score={t.score} />}
+            {/* EL CHECK GRIS (18/10/2026, Martín, pt 9): «marcar como completo» es un cuadro gris a la derecha, al lado
+                del tacho; verde con el tilde cuando está hecha. Mismo camino que el detalle: `board.toggleDone`. */}
+            <button type="button" className="mk-plan-check"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
+              aria-label={done ? `Reabrir «${t.title}»` : `Marcar «${t.title}» como completada`}
+              title={done ? 'Reabrir' : 'Marcar como completa'}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, flex: 'none', borderRadius: 6, padding: 0, cursor: 'pointer', color: '#fff',
+                border: done ? '1.5px solid var(--good)' : '1.5px solid var(--faint)', background: done ? 'var(--good)' : 'transparent' }}>
+              {done ? <CheckHecho done size={12} /> : null}
+            </button>
             {/* EL TACHO, sólo ícono (25/09/2026), con la MISMA pregunta de dos botones que el detalle: borrar no se hace de
                 un click en una tarjeta que se arrastra. */}
             {onEliminar && (
