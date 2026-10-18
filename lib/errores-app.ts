@@ -22,7 +22,7 @@ import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
 import { crearTicket, type Identidad } from './tickets-db';
 import {
-  MARGEN_REGRESION_MS, TOPE_ERRORES_NUEVOS_POR_DIA, conAfectado, esRuido, huellaDe, leerAfectados, sanearReporte, ticketDeError, tituloDeError,
+  MARGEN_REGRESION_MS, TOPE_ERRORES_NUEVOS_POR_DIA, conAfectado, esDeConfiguracion, esRuido, huellaDe, leerAfectados, sanearReporte, ticketDeError, tituloDeError,
   type ReporteError,
 } from './errores-app-reglas';
 
@@ -30,7 +30,7 @@ const T = 'errores_app';
 
 export type Registrado =
   | { ok: true; huella: string; nuevo: boolean; ticketId: number | null; regresion?: boolean }
-  | { ok: false; motivo: 'no-es-un-reporte' | 'ruido' | 'tope' | 'falla' };
+  | { ok: false; motivo: 'no-es-un-reporte' | 'ruido' | 'configuracion' | 'tope' | 'falla' };
 
 /** Quien firma un error sin persona (uno del servidor sin sesión): la plataforma. */
 async function identidadDelSistema(): Promise<Identidad> {
@@ -55,6 +55,8 @@ export async function registrarError(crudo: unknown, quien: Identidad | null, ah
     const r = sanearReporte(crudo);
     if (!r) return { ok: false, motivo: 'no-es-un-reporte' };
     if (esRuido(r)) return { ok: false, motivo: 'ruido' };
+    // Al negocio le falta algo SUYO (una IA conectada): no es un bug, se le pide en el chat (esDeConfiguracion).
+    if (esDeConfiguracion(r)) return { ok: false, motivo: 'configuracion' };
     const huella = huellaDe(r);
     const db = getSupabaseServer();
     const ahoraIso = new Date(ahora).toISOString();

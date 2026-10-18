@@ -118,6 +118,24 @@ export function esRuido(r: Pick<ReporteError, 'nombre' | 'mensaje' | 'stack'>): 
   return false;
 }
 
+/**
+ * ¿Es CONFIGURACIÓN del negocio? MaKo no pudo porque al negocio le falta algo suyo, no porque algo esté roto
+ * (tickets #5 y #6, 18/10/2026: «responder: falló la IA (sin proveedor gratis disponible)» en el ws1). Desde el 16/10
+ * una key de la plataforma copiada en la fila de un negocio no cuenta como suya (lib/ia-keys.ts), y un negocio sin una
+ * IA propia no tiene con qué contestar: la cascada no encontró NINGUNA cuenta que probar. El arreglo no es de código,
+ * es que el negocio conecte la suya, y eso se le pide en el chat (lib/mako-turno-app.ts). Un ticket de bug por esto manda
+ * al Cerebro a arreglar algo que no está roto.
+ *
+ * ⚠️ Son los textos que escribe la cascada cuando NO HABÍA con qué probar, y nada más: «falta RESEND_API_KEY» del
+ *    servidor sí es un bug (es de la plataforma, no del negocio), y por eso no está.
+ */
+const CONFIGURACION = [
+  /sin proveedor gratis disponible/i,     // lib/anthropic.ts, chatClaudeTools: la cascada con herramientas sin ninguna cuenta
+  /sin proveedor de ia barata/i,          // lib/ai-cheap.ts, `proveedor()`: el negocio sin ninguna key barata
+  /red gratis salteada:/i,                // lib/ai-cheap.ts: con datos de clientes la red de MaKo no corre (lib/fallo-ia-texto.ts)
+];
+export const esDeConfiguracion = (r: Pick<ReporteError, 'mensaje'>): boolean => CONFIGURACION.some((x) => x.test(r.mensaje));
+
 /** El mensaje sin lo que cambia entre dos veces del MISMO error: números, ids, lo citado. */
 export function mensajeNormalizado(m: string): string {
   return sinDatos(m).toLowerCase()
