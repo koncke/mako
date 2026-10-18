@@ -64,7 +64,7 @@ test('ida y vuelta: /configuraciones es el índice y cada sección, la suya; el 
   // Método no tiene pantalla: la computadora la tapa con «se usa en la computadora».
   assert.equal(rutaMovil('/metodo'), null);
   // Cada sección vuelve al índice.
-  assert.deepEqual(cabeceraPorRuta(`${RUTA_CONFIG_M}/equipo`).padre, { href: RUTA_CONFIG_M, label: 'Configuración del negocio' });
+  assert.deepEqual(cabeceraPorRuta(`${RUTA_CONFIG_M}/equipo`).padre, { href: RUTA_CONFIG_M, label: 'Business settings' });
 });
 
 test('el índice ofrece lo de la computadora, y lo que no tiene pantalla dice por qué', () => {

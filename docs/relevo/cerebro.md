@@ -528,3 +528,8 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - Los tres devuelven un VERDE sin pushear: los integra y pushea el Cerebro.
 - **Sin hacer:** medir la cuenta 2 sola (necesita un Runner en esa cuenta); «Trabajando…» de raíz en el cartero (subir el estado en cada pasada de `vigilar`); Chats tab (pt 9) y AI Avatar estilo HeyGen (pt 10), después del 20/10.
 - **Regla nueva de Martín (17/10 ~23:30):** «¿por qué no delegás?». Repartir a los chats que conocen el área, de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota.
+
+### 18/10 ~00:10: cuenta 4 en 85% semanal
+- **En producción:** run 134 (196fa1101), «Nuevo chat» sin modal. MaKo en WhatsApp mandó los dos primeros avisos de arreglo (ws18 y ws13); su punta 293f9d72b (el script leía la tabla de Vercel por stdout y sale por stderr) está integrada en wt-push-q, sin pushear: va en el próximo push, junto con la de Sidebar.
+- **A medias, NO se pushea hasta su VERDE:** Sidebar (`sidebar-v2` @ 84327aa84, corriendo su VERDE) y CRM (tarjetas, trabajando).
+- Al 97% se corta: lo que quede a medias se queda en su rama, con su relevo.

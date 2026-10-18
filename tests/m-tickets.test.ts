@@ -44,11 +44,11 @@ test('las mismas rutas: /tickets es la lista y /tickets?t=<id> abre ESE ticket, 
 });
 
 test('la cabecera: la lista vuelve a More; un ticket es una pantalla de trabajo que vuelve a la lista', () => {
-  assert.deepEqual(cabeceraPorRuta('/m/tickets'), { titulo: 'Reportar problema', padre: { href: RUTA_MAS, label: 'More' }, trabajo: false, conBarra: true });
+  assert.deepEqual(cabeceraPorRuta('/m/tickets'), { titulo: 'Report a problem', padre: { href: RUTA_MAS, label: 'More' }, trabajo: false, conBarra: true });
   assert.equal(esTrabajo('/m/tickets/12'), true);
   assert.equal(esTrabajo('/m/tickets'), false);
   const uno = cabeceraPorRuta('/m/tickets/12');
-  assert.deepEqual([uno.padre, uno.trabajo, uno.conBarra], [{ href: '/m/tickets', label: 'Reportar problema' }, true, false]);
+  assert.deepEqual([uno.padre, uno.trabajo, uno.conBarra], [{ href: '/m/tickets', label: 'Report a problem' }, true, false]);
 });
 
 test('la puerta y los datos son los de escritorio: todos los roles, sin el onboarding, sólo lo SUYO', () => {

@@ -29,9 +29,10 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, OPS_CENTER, arribaDe, USER_NAV, SUPERADMIN_MENU, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, OPS_CENTER, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
-import { puedeVerItem, resolverTab } from '@/lib/nav-visibilidad';
+import { puedeVerItem, resolverTab, seccionesVisibles } from '@/lib/nav-visibilidad';
+import { BuscadorNav, type Destino } from './BuscadorNav';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
@@ -54,7 +55,9 @@ function ItemIcon({ item, size = ICO }: { item: NavItem; size?: number }) {
   if (item.icon === 'mako') return <MakoStar size={size} color="var(--mako)" />;
   // El color lo hereda de la fila (currentColor): así el hover lo pinta también,
   // sin que el ícono se quede apagado cuando el texto ya se encendió.
-  return <span style={{ display: 'flex', color: 'inherit' }}><Icon name={item.icon} size={size} /></span>;
+  // El tinte de la SECCIÓN (17/10/2026 noche, prototipo de coherencia: «un color, un significado»): sólo el ícono, sin
+  // chip; la familia lo deja en --tinte. Sin familia (menú de la foto, desplegables), el color de la fila.
+  return <span className="mk-ico-tinte" style={{ display: 'flex' }}><Icon name={item.icon} size={size} /></span>;
 }
 
 /** El contador de una familia. Solo la que notifica lo tiene. */
@@ -76,12 +79,33 @@ type Tema = 'oscuro' | 'claro';
  * Las familias que el usuario plegó, en el navegador (17/10/2026). Es una comodidad de esta persona en esta
  * computadora, no un dato: si el almacenamiento no está (ventana privada, bloqueado), todas abiertas.
  */
+/** Las iniciales de un nombre (la foto cuando no hay foto). */
+const inicialesDe = (nombre: string) => nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || '·';
+/** El @usuario: la parte de antes de la arroba del email (no hay un usuario aparte en la base). */
+const usuarioDe = (email: string) => { const u = (email ?? '').split('@')[0]?.trim(); return u ? `@${u}` : ''; };
+
 const PLEGADAS = 'mk-nav-plegadas';
+/** Sin nada guardado (17/10/2026 noche, el prototipo): arranca abierto Sales; Marketing y Create, plegados. */
+export const PLEGADAS_DE_ENTRADA: readonly string[] = ['marketing', 'create'];
 function leerPlegadas(): ReadonlySet<string> {
   try {
-    const v: unknown = JSON.parse(window.localStorage.getItem(PLEGADAS) ?? '[]');
+    const crudo = window.localStorage.getItem(PLEGADAS);
+    if (crudo == null) return new Set(PLEGADAS_DE_ENTRADA);
+    const v: unknown = JSON.parse(crudo);
     return new Set(Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string') : []);
-  } catch { return new Set(); }
+  } catch { return new Set(PLEGADAS_DE_ENTRADA); }
+}
+
+/**
+ * ¿La barra va ABIERTA Y FIJA? (17/10/2026 noche, el prototipo: «abierta y fija, 244 px, con los nombres; la flecha la
+ * pliega al rail», como Linear, Notion, Attio y HubSpot). Por defecto sí; plegada, vuelve el rail que se abre con el cursor.
+ */
+const FIJA = 'mk-nav-fija';
+function leerFija(): boolean {
+  try { return window.localStorage.getItem(FIJA) !== 'no'; } catch { return true; }
+}
+function guardarFija(v: boolean) {
+  try { window.localStorage.setItem(FIJA, v ? 'si' : 'no'); } catch { /* sin almacenamiento */ }
 }
 function guardarPlegadas(s: ReadonlySet<string>) {
   try { window.localStorage.setItem(PLEGADAS, JSON.stringify([...s])); } catch { /* sin almacenamiento: no se recuerda */ }
@@ -222,7 +246,7 @@ export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge =
 }
 
 /** Una familia ya filtrada por rol y capa (lo que el Sidebar arma para pintar). */
-export type FamiliaVista = { key: string; label: string; pregunta: string; icon: string; notifica?: boolean; bloques: NavItem[][]; grupos: NavGrupo[] };
+export type FamiliaVista = { key: string; label: string; pregunta: string; icon: string; notifica?: boolean; sinRotulo?: boolean; color?: string; bloques: NavItem[][]; grupos: NavGrupo[] };
 
 /** La fila de una colección: abre su desplegable al costado. */
 function GrupoFila({ g, open, pathname, abierto, onAbrir, onCerrar }: {
@@ -280,8 +304,21 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
   onEntrarComoDueno?: (href: string) => void;
 }) {
   const activa = [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)].some((i) => i.match(pathname));
+  // SIN RÓTULO (17/10/2026 noche): la zona de lo diario, y toda familia a la que le queda UNA fila visible (el prototipo:
+  // «el closer ve CRM suelta, sin carpeta»). Una carpeta con una cosa adentro es una fila de más.
+  const filas = f.bloques.flat().length + f.grupos.length;
+  if (f.sinRotulo || filas === 1) {
+    return (
+      <div style={{ marginTop: primera ? 0 : 14, display: 'flex', flexDirection: 'column', gap: 1, ...(f.color ? { ['--tinte' as string]: `var(${f.color})` } : {}) }}>
+        {f.bloques.flat().map((it) => (
+          <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} badge={contadorItem(it.key)}
+            onClick={it.entrarComoDueno ? () => onEntrarComoDueno?.(it.href) : undefined} />
+        ))}
+      </div>
+    );
+  }
   return (
-    <div style={{ marginTop: primera ? 0 : 14 }}>
+    <div style={{ marginTop: primera ? 0 : 14, ...(f.color ? { ['--tinte' as string]: `var(${f.color})` } : {}) }}>
       {open ? (
         <button type="button" className="mk-seccion"
           onClick={() => onToggle(f.key)}
@@ -363,6 +400,8 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const [perfilNombre, setPerfilNombre] = useState(inicial?.nombre ?? '');
   const [perfilAvatar, setPerfilAvatar] = useState('');
   const [rol, setRol] = useState<string>(inicial?.rol ?? '');
+  const [email, setEmail] = useState<string>('');
+  const [verPronto, setVerPronto] = useState(false);
   const [rolWs, setRolWs] = useState<string>('');
   const [capa, setCapa] = useState<string>('');
   const [impersonando, setImpersonando] = useState(inicial?.clienteNombre != null);
@@ -380,7 +419,10 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const hasta = searchParams.get('hasta');
   const dateQuery = desde && hasta ? `?desde=${desde}&hasta=${hasta}` : '';
 
-  const open = expanded || userOpen || !!flyout;
+  const [fija, setFijaEstado] = useState(true);
+  useEffect(() => { setFijaEstado(leerFija()); }, []);
+  const setFija = (v: boolean) => { setFijaEstado(v); guardarFija(v); if (!v) setExpanded(false); };
+  const open = fija || expanded || userOpen || !!flyout;
 
   /**
    * EN QUÉ ESTÁ LA BARRA. No alcanza con «abierta sí/no»: entre esos dos hay
@@ -436,6 +478,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
       .then((j) => {
         if (!alive || !j?.ok || !j.autenticado) return;
         setRol((j.rol as string) || '');
+        setEmail((j.email as string) || '');
         setRolWs((j.rolWs as string) || '');
         setCapa((j.capa as string) || '');
         setImpersonando(Boolean(j.impersonando));
@@ -587,7 +630,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
     window.location.href = href;
   };
 
-  const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
+  const onEnter = () => { if (fija) return; if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
 
   /**
    * PLEGAR, PERO SOLO SI EL CURSOR SE FUE DE VERDAD.
@@ -691,7 +734,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   };
 
   return (
-    <aside data-sidebar style={{ width: RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
+    <aside data-sidebar data-fija={fija ? 'si' : 'no'} style={{ width: fija ? FULL : RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
         ref={panelRef}
         className={enDev ? 'mk-sidebar--dev' : undefined}
@@ -707,7 +750,17 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
           boxShadow: open ? '6px 0 30px rgba(23,21,17,.24)' : 'none',
         }}
       >
-        <Marca open={open} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flex: 'none' }}>
+          <Marca open={open} />
+          {/* La flecha (17/10/2026 noche): pliega la barra al rail o la deja fija. Sólo con la barra abierta. */}
+          {open && (
+            <button type="button" className="mk-navrow" onClick={() => setFija(!fija)}
+              title={fija ? 'Collapse sidebar' : 'Keep sidebar open'} aria-label={fija ? 'Collapse sidebar' : 'Keep sidebar open'}
+              style={{ ...filaStyle(false), width: 28, height: 28, padding: 0, marginTop: 4, flex: 'none', fontSize: 15 }}>
+              {fija ? '‹' : '›'}
+            </button>
+          )}
+        </div>
 
         {/* La marca del modo. Va ARRIBA de todo y con su propio filete: la
             pregunta que responde es «¿dónde estoy?», y esa se contesta antes de
@@ -728,6 +781,21 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
               <a href="/clients" title="Regresar a Clientes" aria-label="Regresar a Clientes"
                 style={{ display: 'block', textAlign: 'center', marginTop: 6, color: 'var(--dev-line)', fontSize: 14, textDecoration: 'none' }}>←</a>
             )}
+          </div>
+        )}
+
+        {/* EL BUSCADOR (17/10/2026 noche, Ctrl K): tabs, pantallas de adentro, ajustes y Platform, de lo que ESTA persona ve. */}
+        {!enDev && (
+          <div style={{ flex: 'none', marginBottom: 12 }}>
+            <BuscadorNav abierta={open} onAbrir={() => setExpanded(true)} destinos={[
+              ...arriba.map((item): Destino => ({ item, donde: null })),
+              ...familiasProducto.flatMap((f) => f.bloques.flat().flatMap((t): Destino[] => [
+                { item: t, donde: f.sinRotulo ? null : f.label },
+                ...(t.secciones ? seccionesVisibles(t, vistaNav).filter((x) => x.href !== t.href).map((item) => ({ item, donde: t.label })) : []),
+              ])),
+              ...USER_NAV.filter((it) => (!it.adminOnly || adminShell) && puedeVer(it)).map((item): Destino => ({ item, donde: 'Settings' })),
+              ...(adminShell ? [...SUPERADMIN_MENU, ...PRONTO].map((item): Destino => ({ item, donde: 'Platform' })) : []),
+            ]} />
           </div>
         )}
 
@@ -828,13 +896,44 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
               </>
             )}
 
-            {USER_NAV.filter((it) => !it.soloSeccion && (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map(filaMenu)}
-            {/* Lo que era la familia Admin y es CONFIGURACIÓN de la plataforma (17/10/2026): con qué sabe MaKo, con qué
-                modelos piensa, la formación del equipo y el modo Dev. Sólo el super admin sin mirar un cliente. */}
+            {/* LA CARA (17/10/2026 noche, prototipo de coherencia): la foto real, el nombre y el @usuario, igual que el
+                More del teléfono. Lleva a My Profile (la clave `perfil`); por eso esa fila no se repite abajo. */}
+            {(() => {
+              const perfil = USER_NAV.find((it) => it.key === 'perfil');
+              if (!perfil || !puedeVer(perfil)) return null;
+              return (
+                <Link href={perfil.href + dateQuery} onClick={() => setUserOpen(false)} className="mk-navrow mk-navrow--claro"
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, textDecoration: 'none' }}>
+                  <span style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, overflow: 'hidden', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                    {avatarVisible
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={avatarVisible} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : inicialesDe(nombreVisible)}
+                  </span>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontWeight: 600, fontSize: 'var(--fs-md)', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombreVisible}</span>
+                    {usuarioDe(impersonando ? '' : email) && <span style={{ display: 'block', fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>{usuarioDe(email)}</span>}
+                  </span>
+                </Link>
+              );
+            })()}
+            <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
+            {USER_NAV.filter((it) => it.key !== 'perfil' && !it.soloSeccion && (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map(filaMenu)}
+            {/* PLATFORM (17/10/2026): lo que era la familia Admin y es de la plataforma, y las «pronto» (prototipo: «lo
+                poco usado detrás de More»). Sólo el super admin sin mirar un cliente. «Coming soon» se abre ACÁ, en el
+                mismo menú: nada de modales. */}
             {adminShell && (
               <>
                 <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
+                <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', padding: '4px 15px 2px' }}>Platform</div>
                 {SUPERADMIN_MENU.map(filaMenu)}
+                <button type="button" className="mk-navrow mk-navrow--claro" aria-expanded={verPronto} onClick={() => setVerPronto((v) => !v)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, fontSize: 'var(--fs-md)', fontWeight: 500, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                  <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="reloj" size={17} /></span>
+                  <span style={{ flex: 1 }}>Coming soon</span>
+                  <span style={{ fontSize: 10, transform: verPronto ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+                </button>
+                {verPronto && PRONTO.map(filaMenu)}
               </>
             )}
             <div style={{ height: 1, background: 'var(--border)', margin: '5px 0 0' }} />
@@ -842,7 +941,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
               onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; }}
               style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', fontSize: 'var(--fs-md)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
               <span style={{ display: 'flex', color: 'currentColor' }}><Icon name="logout" size={17} /></span>
-              Cerrar sesión
+              Log out
             </button>
         </div>,
         document.body,

@@ -301,15 +301,16 @@ EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUT
  * `app/`. El test `plan-proyectos-catalogo.test.ts` verifica que la lista siga siendo
  * exactamente la de nav.ts, así que el día que se agregue una quinta familia, falla.
  */
-export const FAMILIAS_SIDEBAR = ['Operate', 'Sales Machine'] as const;
+export const FAMILIAS_SIDEBAR = ['Today', 'Sales', 'Marketing', 'Create'] as const;
 
 /**
  * Las familias que la barra TUVO hasta el 17/10/2026 (docs/diseno-sidebar.md: Analyze, Content Machine y Customer Success
- * se repartieron entre Operate y Sales Machine). Siguen prohibidas como proyecto INVENTADO: el modelo las conoce de los
+ * se repartieron entre Operate y Sales Machine; esas dos, el mismo día a la noche, entre lo diario, Sales, Marketing y
+ * Create: la sidebar del prototipo). Siguen prohibidas como proyecto INVENTADO: el modelo las conoce de los
  * planes viejos, y un proyecto «Analyze» se solaparía con las mismas tabs que antes agrupaba. Lo que el catálogo ya tiene
  * con ese nombre («Content Machine») sigue valiendo: el catálogo se consulta antes.
  */
-export const FAMILIAS_RETIRADAS = ['Analyze', 'Content Machine', 'Customer Success'] as const;
+export const FAMILIAS_RETIRADAS = ['Analyze', 'Content Machine', 'Customer Success', 'Operate', 'Sales Machine'] as const;
 
 /** Un verbo de hacer al principio = es el título de una TAREA, no el nombre de una tab. */
 const VERBO_DE_TAREA =

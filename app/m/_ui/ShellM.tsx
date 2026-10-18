@@ -72,7 +72,8 @@ export function ShellM({
   barra: DestinoBarra[];
   /** Un número por lugar, sólo lo que bloquea (app/m/badges.ts). */
   badges: Partial<Record<IdBarra, number>>;
-  usuario: { iniciales: string } | null;
+  /** Las iniciales y, si la subió, la FOTO de Información personal (17/10/2026 noche: antes sólo iniciales). */
+  usuario: { iniciales: string; foto?: string | null } | null;
   /** Viendo la cuenta de un cliente (super admin o agencia): su nombre. */
   cliente: { nombre: string } | null;
   children: ReactNode;
@@ -243,7 +244,10 @@ export function ShellM({
   const accionDefecto = enHoy && !cliente && usuario
     ? (
       <Link href={RUTA_CUENTA} className="m-cabecera__accion" aria-label={TITULO_CUENTA}>
-        <span className="m-avatar m-avatar--sm" aria-hidden>{usuario.iniciales}</span>
+        {usuario.foto
+          // eslint-disable-next-line @next/next/no-img-element -- una URL de Storage, como la barra de escritorio
+          ? <img className="m-avatar m-avatar--sm m-avatar--foto" src={usuario.foto} alt="" aria-hidden />
+          : <span className="m-avatar m-avatar--sm" aria-hidden>{usuario.iniciales}</span>}
       </Link>
     )
     : null;
