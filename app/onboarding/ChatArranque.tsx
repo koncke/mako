@@ -23,7 +23,10 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from '@/app/_ui/Link';
+import Link, { useWs } from '@/app/_ui/Link';
+import { Modal } from '@/app/_ui/Modal';
+import { conWs } from '@/lib/ws-tab';
+import { VistaPdf } from '../offer/VistaPdf';
 import { Button } from '@/app/_ui';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
@@ -313,10 +316,23 @@ const CAMPO = {
 };
 
 /** El PDF con lo que vende: lo arma la ruta con las piezas de la conversación, cada vez (nunca queda viejo). */
+/**
+ * «Lo que vendes» se mira EN el chat (18/10/2026, Martín: «ni siquiera debería sacarme de la tab»). Antes era un link a
+ * otra pestaña, y sin el `?ws=` el super admin que mira a un cliente caía en otro workspace: «No encontré esa oferta».
+ * Las páginas llegan por `fetch` (WsFetch le pega el `?ws=`), y la descarga lleva el `?ws=` a mano (`conWs`).
+ */
 function TarjetaPdf({ sesionId }: { sesionId: number }) {
+  const ws = useWs();
+  const [viendo, setViendo] = useState(false);
   return (
     <div className="arr-links">
-      <a href={linkPdfLoQueVende(sesionId)} className="arr-link" target="_blank" rel="noopener">Ver lo que vendes (PDF)</a>
+      <button type="button" className="arr-link" onClick={() => setViendo(true)}>Ver lo que vendes (PDF)</button>
+      {viendo && (
+        <Modal titulo="Lo que vendes" ancho={720} onCerrar={() => setViendo(false)}
+          pie={<a href={conWs(linkPdfLoQueVende(sesionId), ws)} download className="arr-link">Descargar PDF</a>}>
+          <VistaPdf sesionId={sesionId} tipo="lo-que-vendes" />
+        </Modal>
+      )}
     </div>
   );
 }
@@ -389,7 +405,7 @@ const CSS_ARRANQUE = `
 .arr-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .arr-link {
   display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--surface); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; text-decoration: none;
+  background: var(--surface); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; text-decoration: none; font-family: inherit; cursor: pointer;
 }
 .arr-link:hover { border-color: var(--border-strong); }
 .arr-link--principal { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
