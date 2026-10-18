@@ -12,8 +12,8 @@
 // la PC decide si la acepta.
 
 import { useCallback, useEffect, useState } from 'react';
-import { MAX_NOMBRE_ADJUNTO, MAX_TEXTO, MIMES_ADJUNTO, armarFirmable, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type MimeAdjunto, type Modelo } from '@/lib/operaciones-reglas';
-import { ERROR_ADJUNTO, tipoPorFirma } from '@/lib/mako-adjuntos';
+import { MAX_NOMBRE_ADJUNTO, MAX_TEXTO, MIMES_ADJUNTO, armarFirmable, mimeDeArchivoCentro, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type MimeAdjunto, type Modelo } from '@/lib/operaciones-reglas';
+import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { TEXTO_SOLO_ADJUNTOS } from '@/lib/centro-caja';
 import { encolarPedidoAction } from './acciones';
 import { claveDelDispositivo, crearClaveDelDispositivo, firmar, type ClaveDispositivo } from './clave-dispositivo';
@@ -115,8 +115,8 @@ async function subirDirecto(archivos: readonly File[]): Promise<{ ok: true; adju
     const propios: { nombre: string; mime: MimeAdjunto; bytes: number; sha256: string }[] = [];
     for (const f of archivos) {
       const b = new Uint8Array(await f.arrayBuffer());
-      const mime = tipoPorFirma(b.subarray(0, 16))?.mime;
-      if (!mime || !(MIMES_ADJUNTO as readonly string[]).includes(mime)) return { ok: false, error: ERROR_ADJUNTO.formato };
+      const mime = mimeDeArchivoCentro(b, f.name);
+      if (!mime || !(MIMES_ADJUNTO as readonly string[]).includes(mime)) return { ok: false, error: 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' };
       const nombre = f.name.replace(/[\u0000-\u001f]/g, '').trim().slice(0, MAX_NOMBRE_ADJUNTO) || 'adjunto';
       propios.push({ nombre, mime: mime as MimeAdjunto, bytes: b.byteLength, sha256: hex(await crypto.subtle.digest('SHA-256', b)) });
     }

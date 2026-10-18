@@ -189,7 +189,7 @@ test('la PC baja sólo lo que coincide con lo firmado (tamaño, hash y tipo), a 
 
     // Un ejecutable con el hash BIEN firmado y el tipo de una foto: los bytes lo delatan.
     const ID3 = 'aaaaaaaa-0000-4000-8000-0000000000a3';
-    await assert.rejects(bajarAdjuntos(url, token, ID3, [adj('33333333-3333-4333-8333-333333333333', exeComoPng, 'image/png', 'foto.png')], dir), /no es una foto ni un PDF/);
+    await assert.rejects(bajarAdjuntos(url, token, ID3, [adj('33333333-3333-4333-8333-333333333333', exeComoPng, 'image/png', 'foto.png')], dir), /no es un archivo aceptado/);
     assert.equal(existsSync(join(dir, ID3)), false);
 
     // Lo que no está o pesa distinto, tampoco.

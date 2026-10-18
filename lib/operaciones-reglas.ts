@@ -14,7 +14,7 @@
 // prueba que los dos lados leen lo mismo).
 // =============================================================================
 
-import { TOPE_ADJUNTOS, TOPE_TOTAL_BYTES } from './mako-adjuntos';
+import { ACCEPT_ADJUNTOS_CHAT, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, tipoPorFirma } from './mako-adjuntos';
 
 export const VERSION_PEDIDO = 1 as const;
 /** Tope del texto de un pedido. Se RECHAZA, no se recorta (AGENTS.md: un tope en un texto que
@@ -101,7 +101,76 @@ export type PayloadPedido = {
 //   · con el tipo y el tamaño validados (por los primeros bytes, no por la extensión), y nunca un ejecutable: sólo las
 //     fotos y el PDF que ya acepta el chat con MaKo (lib/mako-adjuntos.ts), con los mismos topes;
 //   · el chat recibe la RUTA local en el mensaje (scripts/operaciones/cartero.mjs → bajarAdjuntos).
-export const MIMES_ADJUNTO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'] as const;
+export const MIMES_ADJUNTO = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf',
+  // 18/10/2026 (cartero 1.16.0; el Cerebro, por el «una img o un doc» de Martín): Word, Excel y PowerPoint, y texto.
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain', 'text/markdown', 'text/csv',
+] as const;
+/** Los de texto no tienen firma: se aceptan si son texto de verdad (`esTextoSeguro`), y su tipo lo da el nombre. */
+export const MIMES_TEXTO: readonly string[] = ['text/plain', 'text/markdown', 'text/csv'];
+/** Lo que ofrece el «Adjuntar archivo» de la caja (con un Runner 1.16.0). */
+export const ACCEPT_ADJUNTOS_CENTRO = `${ACCEPT_ADJUNTOS_CHAT},.docx,.xlsx,.pptx,.txt,.md,.csv`;
+const OFFICE: ReadonlyArray<readonly [string, string]> = [
+  ['word/document.xml', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ['xl/workbook.xml', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ['ppt/presentation.xml', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+];
+const latin1 = (b: Uint8Array) => Array.from(b, (x) => String.fromCharCode(x)).join('');
+
+/**
+ * Un Word, un Excel o un PowerPoint por su ESTRUCTURA (18/10/2026): un zip («PK\x03\x04») con `[Content_Types].xml` y la
+ * parte principal de UNO de los tres, mirado en el directorio del zip (al final). Los que traen macros (docm, xlsm, pptm:
+ * `vbaProject.bin`) no entran. La MISMA regla que el cartero (test diferencial).
+ */
+export function oficinaPorZip(b: Uint8Array): string | null {
+  if (!(b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04)) return null;
+  const cola = latin1(b.subarray(Math.max(0, b.length - 2 * 1024 * 1024)));
+  if (!cola.includes('[Content_Types].xml') || cola.includes('vbaProject.bin')) return null;
+  const tipos = OFFICE.filter(([parte]) => cola.includes(parte)).map(([, mime]) => mime);
+  return tipos.length === 1 ? tipos[0] : null;
+}
+
+/** El tipo de un archivo por sus BYTES: las fotos y el PDF (lib/mako-adjuntos.ts) y los de Office. null = ninguno. */
+export const mimePorFirmaCentro = (b: Uint8Array): string | null => tipoPorFirma(b)?.mime ?? oficinaPorZip(b);
+
+/**
+ * ¿Es TEXTO de verdad? UTF-8 válido y sin bytes nulos (un binario los tiene), y NUNCA una página ni un script: ni HTML, ni
+ * SVG, ni PHP, ni un «#!» al principio, ni un `<script` adentro. Un texto se guarda con la extensión de su tipo (.txt, .md,
+ * .csv): no se ejecuta.
+ */
+export function esTextoSeguro(b: Uint8Array): boolean {
+  if (!b.length || b.includes(0)) return false;
+  let t: string;
+  try { t = new TextDecoder('utf-8', { fatal: true }).decode(b); } catch { return false; }
+  const inicio = t.replace(/^\uFEFF/, '').trimStart().slice(0, 200).toLowerCase();
+  if (inicio.startsWith('#!') || /^<(!doctype|html|head|body|script|svg|\?php|\?xml)/.test(inicio)) return false;
+  return !/<script[\s>]/i.test(t);
+}
+
+/** ¿Los bytes son de ese tipo? Lo usa la PC antes de guardar, y el navegador antes de subir. */
+export const tipoAceptado = (b: Uint8Array, mime: string): boolean =>
+  MIMES_TEXTO.includes(mime) ? esTextoSeguro(b) : mimePorFirmaCentro(b) === mime;
+
+/** El tipo de un texto, por su nombre (no tiene firma). */
+export function mimeTextoPorNombre(nombre: string): string | null {
+  const ext = /\.([a-z0-9]+)$/i.exec(nombre)?.[1]?.toLowerCase();
+  return ext === 'txt' ? 'text/plain' : ext === 'md' || ext === 'markdown' ? 'text/markdown' : ext === 'csv' ? 'text/csv' : null;
+}
+
+/** El tipo con el que se firma un archivo: por sus bytes; un texto, por su nombre si de verdad es texto. */
+export const mimeDeArchivoCentro = (b: Uint8Array, nombre: string): string | null =>
+  mimePorFirmaCentro(b) ?? (mimeTextoPorNombre(nombre) && esTextoSeguro(b) ? mimeTextoPorNombre(nombre) : null);
+
+/** ¿La caja lo toma? Fotos y PDF siempre; Office y texto, sólo con un Runner 1.16.0. 'image' se ve como foto; lo demás, chip. */
+export function tipoDeElegidoCentro(f: { name: string; type: string }, grandes: boolean): 'image' | 'document' | null {
+  if (f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name)) return 'image';
+  if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) return 'document';
+  if (grandes && /\.(docx|xlsx|pptx|txt|md|markdown|csv)$/i.test(f.name)) return 'document';
+  return null;
+}
 export type MimeAdjunto = (typeof MIMES_ADJUNTO)[number];
 /**
  * Cuántos archivos y cuánto cada uno (18/10/2026, Martín: «hay limitación de hasta 4mb de archivos, quita esa limitación»

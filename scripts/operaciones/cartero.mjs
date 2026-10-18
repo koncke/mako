@@ -219,14 +219,33 @@ const MODELOS = ['opus', 'sonnet', 'haiku'];
 const ESFUERZOS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const VENCE_DIAS = 14;
 // Los adjuntos (1.9.0, 17/10/2026; copia de lib/operaciones-reglas.ts → problemaDeAdjuntos, con test diferencial).
-export const MIMES_ADJUNTO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+export const MIMES_ADJUNTO = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf',
+  // 1.16.0 (18/10/2026): Word, Excel y PowerPoint (por la estructura del zip, sin macros) y texto (sin HTML ni scripts).
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain', 'text/markdown', 'text/csv',
+];
+const MIMES_TEXTO = ['text/plain', 'text/markdown', 'text/csv'];
+const OFFICE = [
+  ['word/document.xml', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ['xl/workbook.xml', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ['ppt/presentation.xml', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+];
 // 1.16.0 (18/10/2026, Martín: «quita esa limitación» de los 4 MB y los 4 archivos): bajan directo del storage, sin pasar
 // por Vercel (copia de lib/operaciones-reglas.ts → MAX_ADJUNTOS y MAX_BYTES_ADJUNTO).
 export const MAX_ADJUNTOS = 20;
 export const MAX_BYTES_ADJUNTO = 100 * 1024 * 1024;
 const MAX_NOMBRE_ADJUNTO = 120;
 /** La extensión con la que se guarda: la decide el TIPO (validado por los bytes), nunca el nombre que trajo. */
-const EXT_ADJUNTO = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' };
+const EXT_ADJUNTO = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'text/plain': 'txt', 'text/markdown': 'md', 'text/csv': 'csv',
+};
 
 export function problemaDeAdjuntos(x) {
   if (!Array.isArray(x) || !x.length || x.length > MAX_ADJUNTOS) return 'adjuntos inválidos';
@@ -254,8 +273,30 @@ export function mimePorFirma(b) {
   if (b.length >= 6 && es(0, 0x47, 0x49, 0x46, 0x38)) return 'image/gif';
   if (b.length >= 12 && es(0, 0x52, 0x49, 0x46, 0x46) && es(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp';
   if (b.length >= 5 && es(0, 0x25, 0x50, 0x44, 0x46, 0x2d)) return 'application/pdf';
-  return null;
+  return oficinaPorZip(b);
 }
+
+/** Word, Excel o PowerPoint por la estructura del zip, sin macros (copia de lib/operaciones-reglas.ts → oficinaPorZip). */
+export function oficinaPorZip(b) {
+  if (!(b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04)) return null;
+  const cola = Buffer.from(b.subarray(Math.max(0, b.length - 2 * 1024 * 1024))).toString('latin1');
+  if (!cola.includes('[Content_Types].xml') || cola.includes('vbaProject.bin')) return null;
+  const tipos = OFFICE.filter(([parte]) => cola.includes(parte)).map(([, mime]) => mime);
+  return tipos.length === 1 ? tipos[0] : null;
+}
+
+/** ¿Es texto de verdad, y no una página ni un script? (copia de lib/operaciones-reglas.ts → esTextoSeguro). */
+export function esTextoSeguro(b) {
+  if (!b.length || b.includes(0)) return false;
+  let t;
+  try { t = new TextDecoder('utf-8', { fatal: true }).decode(b); } catch { return false; }
+  const inicio = t.replace(/^\uFEFF/, '').trimStart().slice(0, 200).toLowerCase();
+  if (inicio.startsWith('#!') || /^<(!doctype|html|head|body|script|svg|\?php|\?xml)/.test(inicio)) return false;
+  return !/<script[\s>]/i.test(t);
+}
+
+/** ¿Los bytes son de ese tipo? (copia de lib/operaciones-reglas.ts → tipoAceptado). */
+export const tipoAceptado = (b, mime) => (MIMES_TEXTO.includes(mime) ? esTextoSeguro(b) : mimePorFirma(b) === mime);
 
 /** El nombre en disco: el número, lo legible del nombre (sin su extensión) y la extensión del TIPO. */
 export function nombreEnDisco(i, nombre, mime) {
@@ -306,7 +347,7 @@ export async function bajarAdjuntos(url, token, id, adjuntos, dir = ADJUNTOS) {
       const b = Buffer.concat(partes, leidos);
       if (b.length !== a.bytes) throw new Error('no pesa lo firmado');
       if (crypto.createHash('sha256').update(b).digest('hex') !== a.sha256) throw new Error('no es el archivo firmado');
-      if (mimePorFirma(b) !== a.mime) throw new Error('no es una foto ni un PDF');
+      if (!tipoAceptado(b, a.mime)) throw new Error('no es un archivo aceptado');
       const ruta = path.join(carpeta, nombreEnDisco(i, a.nombre, a.mime));
       fs.writeFileSync(ruta, b, { flag: 'wx' });
       rutas.push(ruta);

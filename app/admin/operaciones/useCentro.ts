@@ -19,11 +19,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, type AdjuntoPedido, type TurnoChat,
+  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, tipoDeElegidoCentro, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
 import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
-import { idLocal, tipoDeElegido } from '@/app/m/mako/chat-ui';
+import { idLocal } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
@@ -216,7 +216,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (!(adjuntosRef.current[c.clave]?.length)) {
       void leerAdjuntosGuardados(claveParaUrl(c)).then((fs) => {
         if (!fs.length || adjuntosRef.current[c.clave]?.length) return;
-        adjuntosRef.current = { ...adjuntosRef.current, [c.clave]: fs.map((f): AdjuntoCaja => ({ id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f) })) };
+        adjuntosRef.current = { ...adjuntosRef.current, [c.clave]: fs.map((f): AdjuntoCaja => ({ id: idLocal('a'), file: f, tipo: tipoDeElegidoCentro(f, true) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f) })) };
         setAdjuntos(adjuntosRef.current);
       });
     }
@@ -437,8 +437,9 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const sumarAdjuntos = async (clave: string, lista: readonly File[]) => {
     if (!lista.length) return;
     const grandes = grandesDe(chats.find((x) => x.clave === clave));
-    const validos = lista.filter((f) => tipoDeElegido(f) != null);
-    if (validos.length < lista.length) avisar(ERROR_ADJUNTO.formato, 'bad');
+    // Fotos y PDF siempre; Word, Excel, PowerPoint y texto, con un Runner 1.16.0 (18/10/2026). Nunca un ejecutable.
+    const validos = lista.filter((f) => tipoDeElegidoCentro(f, grandes) != null);
+    if (validos.length < lista.length) avisar(grandes ? 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' : ERROR_ADJUNTO.formato, 'bad');
     const listos: File[] = [];
     for (const f of validos) {
       // Lo que la PC acepta tal cual no se toca; lo demás (un HEIC, una foto enorme con un Runner de antes) se achica.
@@ -451,7 +452,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const problema = problemaDeAdjuntosCaja([...antes.map((a) => a.file.size), ...listos.map((f) => f.size)], grandes);
     if (problema) { avisar(problema, 'bad'); return; }
     const todos = [...antes, ...listos.map((f): AdjuntoCaja => ({
-      id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
+      id: idLocal('a'), file: f, tipo: tipoDeElegidoCentro(f, grandes) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
     }))];
     ponerAdjuntos(clave, todos);
     const dir = direccionDe(clave);
