@@ -5906,8 +5906,15 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
     a la persona que lo reporte;
   - la HUELLA no lleva el stack ni números: el stack de producción cambia en cada deploy y abriría un ticket por deploy;
   - un error que no es de MaKo (el proveedor de IA, la red, una extensión) se suma a `RUIDO` (lib/errores-app-reglas.ts),
-    no se filtra en quien llama.
-  Lo fija tests/errores-app.test.ts.
+    no se filtra en quien llama;
+  - un fallo porque al NEGOCIO le falta algo suyo (su IA) es configuración, no un bug: va a `CONFIGURACION` (mismo
+    archivo) y el chat se lo pide a la persona con el modal ahí mismo (`conectar` en `RespuestaTurno`; tickets #5 y #6).
+    «¿Tiene X?» se pregunta con la MISMA lectura que usa quien lo consume (`provsDe` para la IA), nunca con otra;
+  - ⚠️ «¿de qué workspace sale el entorno para esta clave?» se pregunta con `wsDelEntorno(clave)` (lib/credenciales.ts),
+    nunca con `ws === OWNER_WS` a mano. Desde el 18/10/2026 la IA (`esClaveDeIA`) sale de la PLATAFORMA (`wsSuperAdmin()`)
+    y el resto todavía del ws1 (Mauricio, un cliente). Una key de IA nueva de la plataforma se pega en la plataforma, nunca
+    en el ws1; y a un negocio cuya IA fuera el entorno no se le pide que pegue la suya (`esNegocioDelEntorno`).
+  Lo fijan tests/errores-app.test.ts y tests/mako-sin-ia.test.ts.
 
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 

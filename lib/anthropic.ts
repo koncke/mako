@@ -6,7 +6,7 @@
 
 import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
-import { credWs, credDelCliente, credWsEstricta } from './credenciales';
+import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
 import {
   permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO,
   evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
@@ -83,10 +83,12 @@ export async function conClaveDelNegocio(p: {
   if (!clave) return null;
   let clavesPlataforma: Array<string | null | undefined>;
   try {
-    const { OWNER_WS, wsSuperAdmin } = await import('@/lib/workspace');
+    const { wsSuperAdmin } = await import('@/lib/workspace');
     clavesPlataforma = [
       process.env.ANTHROPIC_API_KEY,
-      await credWsEstricta('ANTHROPIC_API_KEY', OWNER_WS),
+      // La fila de la que sale el ENTORNO de esta clave (`wsDelEntorno`). Hasta el 18/10 era la del ws1 (`OWNER_WS`), y
+      // así la clave propia que pegara Mauricio se leía como la de la plataforma y nunca contaba como suya.
+      await credWsEstricta('ANTHROPIC_API_KEY', await wsDelEntorno('ANTHROPIC_API_KEY')),
       await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin()),
     ];
   } catch { return null; }

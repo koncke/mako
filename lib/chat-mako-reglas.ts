@@ -65,7 +65,8 @@ export const SUBS_VISIBLES = 12;
  * Lo que el turno sabe de DÓNDE está la persona (va al final del system y manda sobre la voz del teléfono:
  * lib/mako-turno-app.ts → `contexto`). Sin esto, MaKo contesta en la computadora como si fuera el celular: «2-5 líneas».
  */
-export const CONTEXTO_SECOND_BRAIN = `EN ESTE CHAT (el Second Brain de MaKo, en la COMPUTADORA), y esto manda sobre la voz del teléfono: la persona está en su escritorio, con la pantalla entera. Responde completo pero sin relleno: puedes usar listas cortas y negritas cuando ordenan, nunca tablas largas ni JSON. Es el chat central del negocio: si lo que pide se hace en otra pantalla de MaKo, dilo y nombra la pantalla.`;
+// El nombre que el negocio ve es «Ops Center» (18/10/2026): MaKo lo nombra así. La constante y la ruta siguen siendo «second brain».
+export const CONTEXTO_SECOND_BRAIN = `EN ESTE CHAT (el Ops Center de MaKo, en la COMPUTADORA), y esto manda sobre la voz del teléfono: la persona está en su escritorio, con la pantalla entera. Responde completo pero sin relleno: puedes usar listas cortas y negritas cuando ordenan, nunca tablas largas ni JSON. Es el chat central del negocio: si lo que pide se hace en otra pantalla de MaKo, dilo y nombra la pantalla.`;
 
 /**
  * De quién es un chat del Second Brain: la base `mako-movil:<persona>` de su clave. Un sub-chat de otra tab lleva un

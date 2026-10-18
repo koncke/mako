@@ -1,5 +1,14 @@
 # La sidebar nueva (17/10/2026)
 
+> **18/10/2026: «Ops Center» en todos los negocios.** Martín: «En todos los clientes también debe llamarse la tab
+> «Ops Center» en lugar de «Second Brain» y tener la criatura de estrella». La fila de arriba de cada negocio (key `mako`,
+> /second-brain) se llama **Ops Center** y lleva la **estrella** de MaKo (`estrella: true` en el ítem), igual que el Ops
+> Center del super admin (/admin/operaciones). Cambian el nombre y la criatura en la barra, en More del teléfono, en el
+> título de la pestaña y en la cabecera del teléfono; la ruta, la key y la pantalla (el chat y el grafo) no. Nadie ve dos:
+> el super admin ve sólo el suyo (`arribaDe`). Ctrl K sigue llevando ahí con «second brain» o «cerebro». Su chat JEFE se
+> sigue llamando «Second Brain» (`jefe` en el ítem), y los textos de MaKo que dicen «Second Brain → Persona»
+> (lib/secciones-negocio.ts) no se tocaron: son contenido.
+
 > **v2, 17/10/2026 noche: la del prototipo** (`docs/prototipos/sidebar-nueva-1710.html` y `coherencia-1710.html`,
 > partes 3 y 7). Martín: «la sidebar es confusa, copiá otras apps». Lo que cambió sobre la v1 de abajo:
 > - **Lo diario sin rótulo** arriba (Plan · Chats · Dashboard) y tres secciones: **Sales** (CRM, Calendar, Automations,

@@ -93,7 +93,9 @@ test('esDeLaPlataforma mira las DOS copias de la key, y «no pude leer» tira', 
   const cred = sinComentarios(leer('lib/credenciales.ts'));
   const fn = entre(cred, 'export async function esDeLaPlataforma(', '\n}\n');
   assert.match(fn, /process\.env\[clave\]/);
-  assert.match(fn, /await credWsEstricta\(clave, OWNER_WS\)/, 'la fila del dueño, leída en estricto');
+  // La fila de la que sale el entorno de ESA clave, leída en estricto. Para RESEND sigue siendo la del ws1; desde el
+  // 18/10/2026 la IA sale de la plataforma (`wsDelEntorno`, Martín: «separá el ws1 de las claves de la plataforma»).
+  assert.match(fn, /await credWsEstricta\(clave, await wsDelEntorno\(clave\)\)/, 'la fila del entorno, leída en estricto');
 });
 
 test('guardarCredencial: un RESEND_FROM de MaKo no se guarda, en ningún workspace, antes de escribir', () => {

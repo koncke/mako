@@ -24,9 +24,10 @@ export type SeccionNegocio =
   | 'personalidad' | 'avatares' | 'razones' | 'matriz' | 'angulos';
 
 export type DondeSeEdita = {
-  /** La pantalla, con el nombre que ve la persona. */
+  /** La pantalla, con el nombre que ve la persona. La ruta es la de siempre; para los negocios la tab se llama «Ops Center»
+   *  desde el 18/10/2026 (Martín, por el Cerebro: la tab /second-brain lleva ese nombre y la criatura estrella). */
   ruta: '/second-brain';
-  tab: 'Second Brain';
+  tab: 'Ops Center';
   /** El área de Second Brain (`?area=`, validado contra AREAS en app/second-brain/VistaCerebro.tsx). */
   area: AreaId;
   /** La sub-pestaña del área, si tiene más de una (`?vista=`, los ids de SUBVISTAS). */
@@ -51,7 +52,7 @@ export const SUBVISTAS: Partial<Record<AreaId, readonly string[]>> = {
   voz: ['personalidad', 'persona'],
 };
 
-const SB = { ruta: '/second-brain', tab: 'Second Brain' } as const;
+const SB = { ruta: '/second-brain', tab: 'Ops Center' } as const;
 
 export const DONDE_SE_EDITA: Readonly<Record<SeccionNegocio, DondeSeEdita>> = {
   diagnostico: { ...SB, area: 'norte', nombre: 'Diagnóstico' },
@@ -74,7 +75,7 @@ export function rutaSeccion(s: SeccionNegocio): string {
   return `${d.ruta}?area=${d.area}${d.vista ? `&vista=${d.vista}` : ''}`;
 }
 
-/** Cómo se nombra el lugar en un texto: «Second Brain → Persona». Cambia solo cuando la sección se muda. */
+/** Cómo se nombra el lugar en un texto: «Ops Center → Persona» (el nombre que el negocio ve). Cambia solo cuando la sección se muda. */
 export function lugarSeccion(s: SeccionNegocio): string {
   const d = DONDE_SE_EDITA[s];
   return `${d.tab} → ${d.nombre}`;

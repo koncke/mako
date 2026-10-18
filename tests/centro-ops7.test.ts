@@ -192,9 +192,12 @@ test('3a: el ícono del Ops Center es la estrella de MaKo (la del Cerebro), en l
   const porSuNombre = renderToStaticMarkup(createElement(Criatura, { nombre: 'Ops Center' }));
   assert.equal(estrella, delCerebro, 'la misma criatura que el Cerebro');
   assert.notEqual(estrella, porSuNombre, 'y no la que sale del nombre');
-  assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /<Criatura nombre=\{item\.criatura\} estrella=\{item\.key === OPS_CENTER\.key\}/, 'la barra');
+  // Desde el 18/10/2026 la estrella la dice el ÍTEM (`estrella` en nav.ts): la llevan el Ops Center del super admin y el de
+  // cada negocio (Martín: «En todos los clientes también debe llamarse la tab «Ops Center»… y tener la criatura de
+  // estrella»). tests/sidebar-nueva.test.ts fija cuáles.
+  assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /<Criatura nombre=\{item\.criatura\} estrella=\{!!item\.estrella\}/, 'la barra');
   assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /leading=\{criatura\('Ops Center', true\)\}/, 'More');
-  // Second Brain conserva la suya (por su nombre): la estrella no se reparte.
+  // En More la estrella tampoco se reparte a ciegas: va por el ítem de la fila.
   assert.doesNotMatch(sinComentarios(leer('app/m/mas/page.tsx')), /criatura\(f\.label, true\)/);
 });
 

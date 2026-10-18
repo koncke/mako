@@ -46,6 +46,7 @@ import {
   itemsDeSesion, leerRespuesta, textoConArchivos, type EstadoPropuesta, type ItemHilo,
 } from './chat-ui';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
+import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
 import { PegadosHilo, TextoPlegable } from '@/app/_chat/PegadoHilo';
 import { partirPegados } from '@/lib/chat-pegado';
 
@@ -332,7 +333,7 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
       ? <li className="m-mako-aviso" role="status">{x.texto}</li>
       : (
         <li className="m-mako-msg m-mako-msg--mk">
-          <div className="m-mako-burbuja"><div className="m-mako-texto m-mako-md"><Markdown text={x.texto} /></div></div>
+          <div className="m-mako-burbuja"><div className="m-mako-texto m-mako-md"><Markdown text={x.texto} /></div>{x.conectar && <ConectarDelAviso servicio={x.conectar} />}</div>
         </li>
       );
   }

@@ -533,3 +533,14 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
 - **En producción:** run 134 (196fa1101), «Nuevo chat» sin modal. MaKo en WhatsApp mandó los dos primeros avisos de arreglo (ws18 y ws13); su punta 293f9d72b (el script leía la tabla de Vercel por stdout y sale por stderr) está integrada en wt-push-q, sin pushear: va en el próximo push, junto con la de Sidebar.
 - **A medias, NO se pushea hasta su VERDE:** Sidebar (`sidebar-v2` @ 84327aa84, corriendo su VERDE) y CRM (tarjetas, trabajando).
 - Al 97% se corta: lo que quede a medias se queda en su rama, con su relevo.
+
+### 18/10 ~02:20 ART (87% semanal)
+- **En producción desde la última nota:**
+  - run 135: sidebar nueva, Dashboard unido con Focus y More con la foto.
+  - run 136: ticket #5, el «Claude vetado» que no era un veto.
+  - run 137: tarjetas de CRM, Clients y Plan.
+  - run 138: el círculo del Plan y las caras del teléfono.
+  - run 139: el negocio sin IA ya no abre bug y pide conectar su IA, con la guarda del ws1.
+- **Espera a Martín:** separar el ws1 de las claves de la plataforma. `hidratarCredenciales` copia la fila de OWNER_WS (=ws1, Mauricio) a process.env, así que el ws1 no puede tener una IA propia y su chat de MaKo no contesta (tickets #5 y #6, devueltos como pedido). Recomendado: que las claves de la plataforma salgan del ws9 o del entorno. Es de día y con cuidado: toca de dónde lee la IA toda la plataforma.
+- **Sin ver en pantalla:** Clients en computadora; el menú de la foto de la sidebar. El chat CRM vio el resto en el ws9 sin escribir.
+- **Sin revisar (Ticketera):** otros lugares que le piden una key de IA al ws1 (onboarding, /metodo). `contarKeysIA` del doer de WhatsApp cuenta las copias como del negocio: es del chat «MaKo en WhatsApp».

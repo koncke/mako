@@ -4146,3 +4146,26 @@ insignia del canal, plata) en `lib/tarjeta-kanban.ts`, con test.
 
 **Vive en:** app/_ui/TarjetaKanban.tsx · lib/tarjeta-kanban.ts · tests/tarjeta-kanban.test.ts y tests/tarjetas-familia.test.ts ·
 *17/10/2026 noche, chat «CRM» (claude4).*
+
+## Renombrar una fila de la barra le cambia la tab a los chats jefe (18/10/2026)
+
+El Second Brain de cada negocio pasó a llamarse «Ops Center» (pedido de Martín). Cambiar el `label` en nav.ts parecía
+todo, y los tests de la barra pasaban.
+
+- **El Ops Center del super admin busca la tab de cada chat jefe por el NOMBRE de la fila** (`rutaDeLaTab` en
+  lib/centro-chats.ts, el primer ítem cuyo `label` coincide). Con el renombre pasaban dos cosas a la vez, sin error:
+  - «Ops Center» quedaba repetido, y como la barra del producto va primero, el «Revisar» de los chats «Ops Center»
+    llevaba a /second-brain.
+  - El jefe «Second Brain» no encontraba ninguna fila con su nombre y caía en la ficha de desarrollo
+    (`/admin/dev/second-brain`, que se llama igual en el menú de Dev).
+- **Lo obvio era renombrar también el chat jefe.** No sirve: hay un jefe «Ops Center» de verdad (el del Centro), y los
+  dos chats tendrían el mismo nombre.
+- **La regla que queda:** el ítem puede decir el nombre de su jefe cuando no es el de la fila (`jefe` en `NavItem`), y
+  `rutaDeLaTab` y `nombresDeTabs` lo usan. **Antes de renombrar una fila, buscar si un chat jefe se llama como ella.**
+
+**Sin hacer:** los textos de MaKo siguen diciendo «Second Brain → Persona» (lib/secciones-negocio.ts y las reglas del
+chat). Son contenido y no se tocaron. Si «Second Brain» deja de nombrarse en la barra del negocio, MaKo manda a un lugar
+con un nombre que ya no se ve.
+
+**Vive en:** `app/_components/nav.ts` (MAKO_NAV, `estrella`, `jefe`) · `lib/centro-chats.ts` (`rutaDeLaTab`) ·
+`app/admin/operaciones/tabs.ts` · test: `tests/sidebar-nueva.test.ts`, `tests/centro-revisar.test.ts`
