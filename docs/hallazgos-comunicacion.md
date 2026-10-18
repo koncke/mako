@@ -207,6 +207,10 @@ AGENTS.md). Lo que costó medir:
   lee como una transacción real. Martín dijo que el aviso no necesita su OK; cuando el clasificador lo frena, se le pasa
   el comando exacto en el chat del jefe para que lo apruebe ahí. Y sin `NODE_OPTIONS=--conditions=react-server` el
   script se cae al importar (`server-only`), ANTES de mandar o reservar nada.
+- ⚠️ **El CLI de Vercel imprime la tabla por STDERR**: por stdout salen sólo las URLs sueltas. Leyendo stdout, el
+  primer aviso real (18/10) contestó «ningún despliegue Ready contiene el arreglo» con el de producción en Ready, y
+  no habría salido NUNCA ninguno. Un chequeo que sólo puede contestar «no» se ve igual que uno que funciona hasta el
+  día que se corre de verdad: probalo una vez contra el estado que tiene que dar «sí».
 
 **Lo que quedó sin hacer:**
 - **Nada se probó contra una agenda real.** El ws18 tiene Google conectado y es un cliente: la primera prueba es su

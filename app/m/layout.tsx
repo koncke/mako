@@ -27,6 +27,7 @@ import { barraMovil } from '@/lib/movil-rutas';
 import { CAPTURA_TEMPRANA } from '@/lib/movil-instalar';
 import { TEMA_ANTES_DE_PINTAR } from './_ui/tema';
 import { inicialesM } from './_ui/formato';
+import { leerPerfil } from '@/lib/perfil';
 
 /**
  * El viewport del teléfono. `viewport-fit: cover` es lo que hace que
@@ -52,9 +53,15 @@ export const viewport: Viewport = {
 export default async function LayoutMovil({ children }: { children: ReactNode }) {
   const ctx = await contextoMovil();
   const barra = barraMovil(ctx?.rol ?? null, ctx?.capa ?? null);
-  const badges = ctx
-    ? await contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, barra.map((d) => d.id))
-    : {};
+  // La FOTO de la cabecera (17/10/2026 noche): la de Información personal, como More y el menú de la foto de escritorio
+  // (hasta ese día, siempre iniciales). Mirando a un cliente no se lee: la cabecera no lleva la cuenta propia ahí.
+  const [badges, perfil] = ctx
+    ? await Promise.all([
+      contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, barra.map((d) => d.id)),
+      ctx.impersonando ? Promise.resolve(null) : leerPerfil().catch(() => null),
+    ])
+    : [{}, null];
+  const foto = perfil && !perfil.vista.deOtro ? perfil.perfil.avatarUrl.trim() || null : null;
 
   return (
     <div id="m-root" data-m>
@@ -65,7 +72,7 @@ export default async function LayoutMovil({ children }: { children: ReactNode })
       <ShellM
         barra={barra}
         badges={badges}
-        usuario={ctx ? { iniciales: inicialesM(ctx.sesion.nombre, ctx.sesion.email) } : null}
+        usuario={ctx ? { iniciales: inicialesM(ctx.sesion.nombre, ctx.sesion.email), foto } : null}
         cliente={ctx?.impersonando ? { nombre: ctx.clienteNombre ?? 'Cliente' } : null}
       >
         {children}

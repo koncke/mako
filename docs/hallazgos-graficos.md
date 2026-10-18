@@ -1385,7 +1385,50 @@ tests/experimentos-existentes-en-la-hoja.test.ts · *17/10/2026, B5 (claude4)*
   tu Claude». Ahora la pausa deja su error (`CLAUDE_EN_PAUSA`, lib/anthropic.ts). Test: tests/claude-pausado-aviso.test.ts.
 *17/10/2026, B5 (claude4)*
 
+## El Dashboard unido: Focus es la General, y siguen siendo dos informes (17/10/2026)
+
+Martín (17/10, ~22:40, prototipo docs/prototipos/coherencia-1710.md, pedido 3): «Home» sale de la sidebar, el Dashboard
+abre en la hoja fija «Focus» (lo que era /general), las otras pestañas son las hojas de siempre y las plantillas van a
+«Templates». La barra, el menú del teléfono y Ctrl K son del chat Sidebar; lo de adentro, de acá.
+
+- **Lo obvio era mudar General al informe del Dashboard, y no:** son dos informes con dos claves
+  (`general.informe.<sub>` y `graficos.tablero.<sub>`), y los bloques de General sólo se dibujan dentro de
+  `ProveedorGeneral`. Mudar habría sido una migración de datos de cada persona por una cuestión de navegación. No se
+  mudó nada: /dashboard elige QUÉ EDITOR monta según `?hoja=` (`informeDePedida`, lib/dashboard-focus.ts) y cada
+  editor recibe las hojas del otro para la tira.
+- **Medido antes de decidir (prod, 17/10):** hay 3 General guardadas y una (ws1) tiene dos hojas, «Foco de la semana» y
+  «Cobros». Por eso Focus es la PRIMERA hoja de General y las otras van como pestañas después de Focus. Si Focus fuera una
+  sola hoja, «Cobros» quedaba sin camino.
+- **La `key` por informe, no por hoja:** pasar de Focus a una hoja es una navegación a la MISMA ruta, y React reusaría el
+  editor montado con el estado del otro informe. Pero una `key` con la hoja remontaría el editor en cada `router.refresh()`
+  (lo hacen los bloques al cambiar datos), porque la URL ya trae la hoja nueva. Las pestañas del editor montado cambian
+  en el lugar (`irAHoja`); las del otro son links.
+- **`?hoja=` de una hoja de General abre Focus:** es lo que el editor escribe en la URL al cambiar de hoja, así que
+  recargar tiene que volver ahí. Una plantilla pedida por URL (`foco`, `comercial`, las rutas viejas de los Analysts)
+  sigue siendo del Dashboard. Ojo: `foco` es una plantilla del Dashboard y `focus` es la hoja fija.
+- **«Templates» desde Focus** lleva a `/dashboard?plantillas=1`, que abre la galería UNA vez: el parámetro se borra de la
+  URL al entrar, o recargar la volvería a abrir.
+- **Los `revalidatePath('/general')` del CRM se quedaron** (16 en app/crm/actions.ts y 6 más en app/crm/, que son del chat
+  CRM). No hace falta tocarlos: next.config no define `staleTimes`, así que una página dinámica no se guarda en la caché
+  del cliente (y 8 de esos 22 lugares ya revalidan también `/dashboard`). Los de General (app/general/actions.ts,
+  general.run.ts) pasaron a `/dashboard`.
+- **El teléfono:** la «Hoja» de /m/hoy (#872) suma las hojas del Dashboard que entran en el teléfono, cada una a su
+  pantalla de siempre (/m/dashboard/<id>), y `/dashboard?hoja=focus` cae en la portada. /m/dashboard no se tocó.
+
+Test: tests/dashboard-focus.test.ts (probado rompiéndolo, ocho roturas). **Nadie lo miró en pantalla.**
+**Vive en:** lib/dashboard-focus.ts · app/dashboard/page.tsx · app/dashboard/FocusDeGeneral.tsx ·
+app/dashboard/PestanasDashboard.tsx · app/dashboard/EditorInforme.tsx · app/general/page.tsx · app/m/hoy/page.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
+
+- **El Dashboard unido (17/10/2026):**
+  - En /m/dashboard el segmentado no tiene Focus (la barra de abajo lleva a la portada).
+  - Una hoja de General pedida como `/dashboard?hoja=<id>` en el teléfono cae en /m/dashboard/<id>, que vuelve a
+    /m/dashboard. El mapa de rutas no lee datos, así que no sabe que esa hoja es de General. Sólo pasa con una segunda
+    hoja de General (hoy, la del ws1).
+  - El desplegable de hojas de la barra sigue en los dos editores. Repite la tira, pero tiene lo que la tira no tiene:
+    renombrar, archivar y lo archivado.
 
 - **La red por bloque (17/10/2026):** las miniaturas de la galería dibujan los gráficos de ejemplo sin red
   (app/dashboard/MiniaturaHoja.tsx; sólo los bloques de General la tienen ahí). Los datos de ejemplo son fijos, así que

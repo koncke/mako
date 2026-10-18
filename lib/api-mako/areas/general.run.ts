@@ -83,7 +83,7 @@ const json = (x: unknown): string => JSON.stringify(x);
  *  (updateTag no corre en route handlers). Nunca tumba una escritura. */
 function invalidar(): void {
   try { revalidateTag(TAG.settings, { expire: 0 }); } catch { /* vence por TTL */ }
-  try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+  try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
 }
 
 /** Una escritura que no lanza: el contrato de Ejecutado. */
@@ -818,7 +818,7 @@ export const RUNNERS: Runners = {
         const hoja = { ...base, nombre: String(payload.nombre ?? base.nombre).slice(0, 60) };
         const g = await guardarTableroSi(sub, { ...actual.tablero, hojas: [...actual.tablero.hojas, hoja] }, actual.version, 'general');
         if (!g.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
-        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
         return { ok: true, resumen: `Hoja «${hoja.nombre}» creada en General.`, datos: { hojaId: hoja.id } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo crear la hoja (${e instanceof Error ? e.message : 'error'}).` };
@@ -862,7 +862,7 @@ export const RUNNERS: Runners = {
         hojas[i] = nueva;
         const g = await guardarTableroSi(sub, { ...actual.tablero, hojas }, actual.version, 'general');
         if (!g.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
-        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
         return { ok: true, resumen: `Hoja «${nueva.nombre}» de General cambiada.`, datos: { hojaId: nueva.id } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo cambiar la hoja (${e instanceof Error ? e.message : 'error'}).` };
@@ -917,7 +917,7 @@ export const RUNNERS: Runners = {
         const hojas = actual.tablero.hojas.map((h) => (h.id === hoja.id ? { ...h, componentes: [...h.componentes, elemento] } : h));
         const g = await guardarTableroSi(sub, { ...actual.tablero, hojas }, actual.version, 'general');
         if (!g.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
-        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
         return { ok: true, resumen: `«${info.nombre}» agregado a «${hoja.nombre}».`, datos: { elementoId: elemento.id } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo agregar el bloque (${e instanceof Error ? e.message : 'error'}).` };
@@ -984,7 +984,7 @@ export const RUNNERS: Runners = {
         const hojas = actual.tablero.hojas.map((h) => (h.id === hoja.id ? { ...h, componentes: h.componentes.map((x) => (x.id === c.id ? nuevo : x)) } : h));
         const r = await guardarTableroSi(sub, { ...actual.tablero, hojas }, actual.version, 'general');
         if (!r.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
-        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
         return { ok: true, resumen: `«${piezaGeneral(g.pieza).nombre}» cambiado.`, datos: { elementoId: c.id } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo cambiar el bloque (${e instanceof Error ? e.message : 'error'}).` };

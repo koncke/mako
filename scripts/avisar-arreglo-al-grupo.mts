@@ -17,7 +17,7 @@
 // =============================================================================
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 const arg = (n: string): string | null => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] ?? null : null; };
 const flag = (n: string): boolean => process.argv.includes(n);
@@ -52,12 +52,13 @@ function pruebaDeProduccion(): string | null {
   const candidatos = git('rev-list', '--first-parent', '-n', '6', 'origin/main').split('\n').filter(Boolean);
   for (const sha of candidatos) {
     if (!contiene(commit, sha)) break; // de acá para atrás ya no lo contiene
-    let salida = '';
-    try {
-      salida = execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx',
-        ['--no-install', 'vercel', 'ls', '--prod', '--yes', '--scope', SCOPE, '--meta', `githubCommitSha=${sha}`],
-        { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 90_000, shell: process.platform === 'win32' });
-    } catch (e) { salida = String((e as { stdout?: string }).stdout ?? ''); }
+    // ⚠️ LA TABLA SALE POR STDERR. El CLI de Vercel imprime por stdout sólo las URLs sueltas y la tabla (con «Ready» y
+    // «Production») por stderr: leyendo stdout, el primer aviso real (18/10/2026) contestó «ningún despliegue Ready
+    // contiene el arreglo» con el despliegue de producción en Ready. Se leen las dos.
+    const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx',
+      ['--no-install', 'vercel', 'ls', '--prod', '--yes', '--scope', SCOPE, '--meta', `githubCommitSha=${sha}`],
+      { cwd: REPO, encoding: 'utf8', timeout: 90_000, shell: process.platform === 'win32' });
+    const salida = `${r.stdout ?? ''}\n${r.stderr ?? ''}`;
     const fila = salida.split('\n').find((l) => /https:\/\/\S+\.vercel\.app/.test(l) && /Production/.test(l));
     if (fila && /●\s*Ready/.test(fila)) {
       const url = /https:\/\/\S+\.vercel\.app/.exec(fila)?.[0] ?? '?';

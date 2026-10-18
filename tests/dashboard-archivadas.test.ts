@@ -64,7 +64,7 @@ test('los que leen el informe por fuera (la API, los links) no ven la hoja vací
     assert.doesNotMatch(leer(r), /leerTableroVersionado\(/, `${r} lee crudo: vería la hoja vacía de adentro`);
   }
   assert.match(leer('app/dashboard/page.tsx'), /\} else if \(tablero\.enBlanco && !agregar\) \{\s*sinPaginas = true;/);
-  assert.match(leer('app/general/page.tsx'), /\|\| !!lectura\.tablero\.enBlanco;/);
+  assert.match(leer('app/dashboard/FocusDeGeneral.tsx'), /\|\| !!lectura\.tablero\.enBlanco;/);
 });
 
 test('la pantalla deja eliminar la última, archiva, restaura y borra para siempre con un segundo clic', () => {

@@ -2204,3 +2204,37 @@
    trae su tinte inline y el hover no se lo puede tapar. */
 .mk-fila-campana { transition: box-shadow .13s ease; }
 .mk-fila-campana:hover { box-shadow: inset 0 0 0 999px var(--velo-hover); }
+
+/* ── El color de cada SECCIÓN (17/10/2026 noche) ──────────────────────────
+   Prototipo de coherencia (docs/prototipos/coherencia-1710.md): «un color, un
+   significado» — azul lo diario, verde Sales, violeta Marketing, turquesa Create,
+   gris los ajustes; el naranja sigue siendo sólo MaKo. En la barra de escritorio
+   sólo se tiñe el ÍCONO, sin chip; en el More del teléfono, ícono sobre su chip
+   (`-bg`). Los valores son los del prototipo (Nord), no los `--grafo-*`: esos
+   viven sólo en el lienzo del Second Brain (app/globals.css lo prohíbe afuera).
+   La barra es OSCURA en el tema de siempre aunque la pantalla sea clara, así que
+   adentro de [data-sidebar] van los tonos claros; en True North clara, la barra
+   también es clara y vuelven los oscuros. */
+:root {
+  --sec-diario: #2F6FED; --sec-diario-bg: #EAF1FE;
+  --sec-sales: #3F7A3B; --sec-sales-bg: #E1EBD8;
+  --sec-marketing: #7A4C73; --sec-marketing-bg: #EBDFE9;
+  --sec-create: #2F6F73; --sec-create-bg: #D6EAEB;
+  --sec-ajustes: #4C566A; --sec-ajustes-bg: #DCE2EC;
+}
+[data-tema="oscuro"], [data-sidebar] {
+  --sec-diario: #8AB4FA; --sec-diario-bg: #33405A;
+  --sec-sales: #A3BE8C; --sec-sales-bg: #3E4A36;
+  --sec-marketing: #D7A9CF; --sec-marketing-bg: #4A3E4A;
+  --sec-create: #8FBCBB; --sec-create-bg: #34494C;
+  --sec-ajustes: #ABB9CF; --sec-ajustes-bg: #434C5E;
+}
+[data-tema-candidato="true-north"]:not([data-tema="oscuro"]),
+[data-tema-candidato="true-north"]:not([data-tema="oscuro"]) [data-sidebar] {
+  --sec-diario: #0B5EE5; --sec-diario-bg: #DDE8FB;
+  --sec-sales: #50683B; --sec-sales-bg: #E1EBD8;
+  --sec-marketing: #7A4C73; --sec-marketing-bg: #EBDFE9;
+  --sec-create: #2F6F73; --sec-create-bg: #D6EAEB;
+  --sec-ajustes: #4C566A; --sec-ajustes-bg: #DCE2EC;
+}
+.mk-ico-tinte { color: var(--tinte, inherit); }

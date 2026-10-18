@@ -395,6 +395,8 @@
 .m-avatar--md { width: 40px; height: 40px; font-size: 14.5px; }
 .m-avatar--lg { width: 52px; height: 52px; font-size: 18px; }
 .m-avatar--xl { width: 88px; height: 88px; font-size: 30px; }
+/* La foto real (AvatarM con `foto`): la misma caja, recortada al círculo. */
+.m-avatar--foto { object-fit: cover; background: var(--surface-2); }
 /* El ícono de una fila de navegación, en su baldosa de 32. */
 .m-icono {
   flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;

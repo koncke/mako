@@ -1,5 +1,35 @@
 # La sidebar nueva (17/10/2026)
 
+> **v2, 17/10/2026 noche: la del prototipo** (`docs/prototipos/sidebar-nueva-1710.html` y `coherencia-1710.html`,
+> partes 3 y 7). Martín: «la sidebar es confusa, copiá otras apps». Lo que cambió sobre la v1 de abajo:
+> - **Lo diario sin rótulo** arriba (Plan · Chats · Dashboard) y tres secciones: **Sales** (CRM, Calendar, Automations,
+>   Clients, MaKo Partners), **Marketing** (Offer, Web Generator, Ads Manager) y **Create** (Video, Image, Copywriting,
+>   AI Avatar). Sin nada guardado arranca abierta Sales y plegadas Marketing y Create. Una sección a la que le queda UNA
+>   fila se dibuja sin carpeta (el closer ve CRM suelta).
+> - **«Home» salió de la barra**: /general queda en `SIN_FILA` (su key sigue: capas, onboarding) y el Dashboard se marca
+>   en /general y /focus. Que el Dashboard abra en la hoja fija «Focus» y que /general redirija ahí es del jefe
+>   «Dashboard» (sus archivos; pedido mandado el 17/10 con el plan medido).
+> - **La barra va abierta y fija** (244 px, como Linear, Notion, Attio y HubSpot); la flecha de arriba la pliega al
+>   rail de siempre, que vuelve a abrirse con el cursor. Se recuerda en `mk-nav-fija`.
+> - **Buscador `Ctrl K`** (`app/_components/BuscadorNav.tsx`, la regla en `lib/buscador-nav.ts`): un campo de la barra
+>   con la lista colgando debajo, **sin modal**. Encuentra tabs, sus secciones de adentro y los ajustes; entiende los
+>   nombres viejos («home», «general» → Dashboard; «customer success» → Clients). Una pantalla con su propio Ctrl K
+>   (el inicio del Web Generator) gana: su `preventDefault` se respeta.
+> - **Un color, un significado**: el ícono de cada fila lleva el color de su sección (azul lo diario, verde Sales,
+>   violeta Marketing, turquesa Create, gris ajustes; los `--sec-*` de `app/_ui/ui.css`, por tema y con su variante
+>   para la barra oscura). El naranja sigue siendo sólo MaKo.
+> - **El menú de la foto** empieza con la cara (la foto real, el nombre y el @usuario, que es la parte del email antes
+>   de la arroba) y lleva a **My Profile**; después Integrations · API · Business settings · Report a problem y, para el
+>   super admin, **Platform** (MaKo Context, AI Models, Knowledge, Dev, Billing, Client Agents) con **Coming soon**
+>   desplegable adentro (las siete «pronto», `PRONTO` de nav.ts, que dejaron de ser filas). Todo en inglés.
+> - **Teléfono**: More empieza con la misma cara (la foto real: hasta ese día `AvatarM` sólo dibujaba iniciales), y
+>   abajo las mismas secciones con el ícono sobre su chip de color. La barra de abajo es **CRM · Chats · Dashboard ·
+>   Plan · More**: el lugar del medio abre la portada de siempre (/m/hoy), que es lo que en escritorio pasó a ser Focus.
+>   Las hojas del Dashboard (/m/dashboard) son la fila «Dashboard sheets» de More hasta que la portada las tenga adentro.
+> - Lo que NO se hizo: las filas «My leads», «My tasks», «My reports» y «Favorites» de My Profile (no hay un filtro
+>   «míos» en el CRM ni en el Plan, ni favoritos: dibujarlas sería mentir), y la barra de abajo flotante con el activo en
+>   píldora (es del shell del teléfono, no de la barra).
+
 > Martín, 17/10/2026, textual:
 > - «Quiero también eliminar las tabs de "Email y WhatsApp" y unificarlo todo en "Chats", y que por favor te asegures de
 >   que todo funcione bien...»
@@ -172,8 +202,9 @@ Lo que queda:
 ## 7. El teléfono (/m)
 
 More sigue a la sidebar: Second Brain arriba sin título (con el Ops Center del super admin, cada uno con su criatura),
-y las cajas Operate y Sales Machine. La caja «Super admin» del final se fue (la Ticketera vive en el Ops Center). La
-barra de abajo no cambia (CRM · Chats · General · Plan · More). El Mapa y Experiments son filas OCULTAS
+y las cajas de la sidebar (desde la v2: lo diario sin título, Sales, Marketing y Create, cruzadas con nav.ts por su KEY).
+La caja «Super admin» del final se fue (la Ticketera vive en el Ops Center). La barra de abajo, desde la v2:
+CRM · Chats · Dashboard · Plan · More. El Mapa y Experiments son filas OCULTAS
 (`oculta: true`): sus páginas siguen y los links de escritorio llegan.
 
 ## 8. Coordinación
@@ -188,5 +219,7 @@ barra de abajo no cambia (CRM · Chats · General · Plan · More). El Mapa y Ex
 ## 9. Pendiente
 
 - Email como canal de Chats y lo que sólo tiene /whatsapp (§5).
-- El menú de la foto sigue en castellano («Tu cuenta», «Configuración del negocio»): son los dos lugares de ajustes
-  decididos el 15/10 y sus páginas se titulan así; si se pasan al inglés, van juntos con `lib/ajustes-secciones.ts`.
+- ~~El menú de la foto sigue en castellano~~: desde la v2 son «My Profile» y «Business settings», juntos con
+  `lib/ajustes-secciones.ts` (las secciones de adentro siguen en castellano: son del jefe de Ajustes).
+- Dashboard con la hoja fija Focus, Templates y /general → /dashboard: jefe «Dashboard».
+- My Profile con «My leads / My tasks / My reports / Favorites»: hace falta antes un filtro «míos» en el CRM y el Plan.

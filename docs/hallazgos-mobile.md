@@ -1497,6 +1497,31 @@ hidden» y no era eso.
 número que ya se usa para el pie), o subir a «alto» cuando el cuerpo llega al fondo. Toda hoja que abre en «medio» con un
 cuerpo más largo que el 55% de la pantalla tiene el mismo defecto.
 
+
+## More y la barra de abajo con la sidebar del prototipo (17/10/2026, noche)
+
+- **More cruzaba las familias de la sidebar por POSICIÓN.** `masCompleto` hacía `FAMILIAS_MAS[i]` para la familia `i`
+  de nav.ts. Con dos familias daba igual; con cuatro (lo diario · Sales · Marketing · Create) una lista más corta dejaba
+  afuera a las últimas **sin ningún error**: Create desaparecía del teléfono y ningún test lo veía, porque todos miraban
+  las dos primeras. Ahora se cruzan por la KEY y un test fija que `FAMILIAS_MAS` tenga las mismas keys y nombres que
+  nav.ts. **Regla:** dos listas paralelas se cruzan por id, nunca por índice.
+- **«Hoy no se ve la foto» no era la foto: era `AvatarM`.** La foto vive en `usuarios.foto_url` (la lee `leerPerfil`), no
+  en la sesión. Escritorio la pedía a /api/perfil; el teléfono armaba la cara con `ctx.sesion`, que no la tiene, y
+  `AvatarM` ni siquiera aceptaba una foto: dibujaba iniciales siempre. Ahora `AvatarM` acepta `foto` y quien la pasa
+  decide si es SUYA (`leerPerfil().vista.deOtro`: mirando a un cliente, la foto no es la de quien mira).
+- **El lugar del medio se llama Dashboard y abre la portada de siempre.** En escritorio, General pasó a ser la hoja fija
+  Focus del Dashboard; en el teléfono el destino `hoy` (/m/hoy) se renombró a Dashboard y su id quedó (lo usan los
+  badges, la campana y la cabecera). Las hojas (/m/dashboard) marcan ese mismo lugar de la barra y siguen como fila
+  «Dashboard sheets» de More, para no repetir el nombre.
+
+**Sin hacer:** que la portada (/m/hoy) tenga las hojas adentro, como Focus en escritorio, y quitar la fila «Dashboard
+sheets» (jefe «Dashboard»). La barra de abajo flotante con el activo en píldora del prototipo (es del shell). Ninguna de
+estas pantallas se miró a 390 px en un navegador: lo fijan los tests.
+
+**Vive en:** `lib/movil-rutas.ts` (FAMILIAS_MAS, DESTINOS_MOVIL, `masCompleto`, `destinoActivo`) · `app/m/mas/page.tsx` +
+`mas.css` · `app/m/_ui/Piezas.tsx` (`AvatarM`) · `app/m/layout.tsx` + `app/m/_ui/ShellM.tsx` (la foto de la cabecera) ·
+test: `tests/sidebar-nueva.test.ts`
+
 ## KanbanM con la familia de tarjetas: las etapas con nombre, y su «Mover a…» se pide desde afuera (17/10/2026)
 
 - **KanbanM es de los tres tableros del teléfono (CRM, Clientes, Plan):** tocar `app/m/m.css` (`.m-kb__*`, `.m-kb-tj`) los

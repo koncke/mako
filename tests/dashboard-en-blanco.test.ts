@@ -38,7 +38,7 @@ test('page.tsx: sin informe guardado y sin pedir una hoja, la pantalla va en bla
 });
 
 test('General: quien nunca armó la suya arranca en blanco como el Dashboard, y la API ve lo mismo que la pantalla', () => {
-  const src = leer('app/general/page.tsx');
+  const src = leer('app/dashboard/FocusDeGeneral.tsx');
   // Y desde el 14/10/2026 también con TODAS las hojas eliminadas (`enBlanco` en el informe: quedaron en Archivados).
   assert.match(src, /const sinPaginas = lectura\.estado === 'inicial' \|\| !lectura\.tablero\.hojas\.length \|\| !!lectura\.tablero\.enBlanco;/);
   assert.match(src, /const graficos = sinPaginas \? \[\] : pedidos0\.graficos;/);

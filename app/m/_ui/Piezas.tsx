@@ -79,10 +79,16 @@ export function ComputadoraM({ que }: { que: string }) {
 }
 
 /**
- * El avatar de iniciales (fondo teñido de azul, letras --primary-strong), como Marca.tsx.
+ * El avatar: la FOTO si la hay (la que la persona subió en Información personal, `usuarios.foto_url`) y, si no, las
+ * iniciales (fondo teñido de azul, letras --primary-strong), como Marca.tsx.
  * sm 34 · md 40 (filas) · lg 52 (la cuenta en More) · xl 88 (la ficha).
+ *
+ * ⚠️ Hasta el 17/10/2026 noche no aceptaba foto y el More dibujaba siempre iniciales, aunque la barra de escritorio sí
+ * mostraba la foto (Martín: «hoy no se ve»). Quien pasa la foto decide si es SUYA (`leerPerfil().vista.deOtro`).
  */
-export function AvatarM({ nombre, email, tam = 'md' }: { nombre: string | null | undefined; email?: string | null; tam?: 'sm' | 'md' | 'lg' | 'xl' }) {
+export function AvatarM({ nombre, email, foto, tam = 'md' }: { nombre: string | null | undefined; email?: string | null; foto?: string | null; tam?: 'sm' | 'md' | 'lg' | 'xl' }) {
+  // eslint-disable-next-line @next/next/no-img-element -- una URL de Storage, como la barra de escritorio
+  if (foto?.trim()) return <img className={`m-avatar m-avatar--${tam} m-avatar--foto`} src={foto.trim()} alt="" aria-hidden />;
   return <span className={`m-avatar m-avatar--${tam}`} aria-hidden>{inicialesM(nombre, email)}</span>;
 }
 

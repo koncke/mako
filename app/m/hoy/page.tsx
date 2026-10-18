@@ -37,7 +37,8 @@ import {
 } from '@/app/m/_ui';
 import { CabeceraM } from '@/app/m/_ui/CabeceraM';
 import { puedeVerKey, RUTA_INBOX, TITULO_INBOX } from '@/lib/movil-rutas';
-import { leerInformeGeneral } from '@/lib/graficos-tablero';
+import { leerInformeGeneral, leerTablero } from '@/lib/graficos-tablero';
+import { entraEnTelefono, esHojaInicial } from '@/app/m/dashboard/datos';
 import { informeGeneralInicial } from '@/lib/general-plantillas';
 import { contarParaDecidir } from '@/lib/inbox-movil';
 import { armarDatosGeneral, variablesDeQuienMira } from '@/app/general/datos';
@@ -190,16 +191,23 @@ function Trimestre({ t }: { t: FilaTrimestre }) {
  * de Inbox (lo que espera una decisión) como la acción del encabezado.
  */
 async function GeneralPagina({ ctx, pedida }: { ctx: ContextoMovil; pedida?: string }) {
-  const [lectura, datos, variables, decidir] = await Promise.all([
+  const [lectura, datos, variables, decidir, dashboard] = await Promise.all([
     leerInformeGeneral(),
     armarDatosGeneral(),
     variablesDeQuienMira(),
     contarParaDecidir({ rol: ctx.rol, capa: ctx.capa }).catch(() => null),
+    // El Dashboard unido (lib/dashboard-focus.ts): las hojas del Dashboard van en el mismo segmentado. Si no se puede
+    // leer, quedan las de General (el resto sigue).
+    puedeVerKey('graphics', ctx.rol, ctx.capa) ? leerTablero().catch(() => null) : Promise.resolve(null),
   ]);
   const tablero = lectura.tablero.hojas.length ? lectura.tablero : informeGeneralInicial();
   const hoja = tablero.hojas.find((h) => h.id === pedida) ?? tablero.hojas[0];
-  const opcionesHoja = opcionesDeHojas(tablero.hojas);
-  const titulo = variables.saludo && variables.nombre ? `${variables.saludo}, ${variables.nombre}` : 'General';
+  // Las del Dashboard que el teléfono sabe mostrar (sus números y su serie, o la Marketing/Comercial de siempre); las
+  // de quien no armó ninguna, no (el inicial viaja por dentro).
+  const delDashboard = dashboard && dashboard.estado !== 'inicial' && !dashboard.tablero.enBlanco
+    ? dashboard.tablero.hojas.filter((h) => esHojaInicial(h) || entraEnTelefono(h)) : [];
+  const opcionesHoja = opcionesDeHojas(tablero.hojas, delDashboard);
+  const titulo = variables.saludo && variables.nombre ? `${variables.saludo}, ${variables.nombre}` : 'Dashboard';
   const n = decidir?.total ?? null;
   return (
     <PantallaM>

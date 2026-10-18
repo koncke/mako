@@ -630,4 +630,17 @@ export const BITACORA: Hito[] = [
     archivos: ['app/dashboard/RedDeBloque.tsx', 'app/dashboard/ElementoGeneral.tsx', 'app/dashboard/EditorInforme.tsx', 'tests/general-red-por-bloque.test.ts — probado rompiéndolo'],
     revisar: '/general',
   },
+  {
+    fecha: '17 oct', hora: '23:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'General es la hoja «Focus» del Dashboard',
+    puntos: [
+      'Del prototipo del 17/10 (pedido 3): el Dashboard abre en «Focus», que es lo que era General, con el mismo editor y los mismos bloques.',
+      'Arriba van pestañas: Focus primero, después las otras hojas de General y las del Dashboard. A la derecha, «Templates» abre la galería de plantillas.',
+      'El link viejo de General lleva al Dashboard, con la hoja que pedía.',
+      'En el celular, la portada suma en su selector las hojas del Dashboard que se pueden ver ahí.',
+      'Nada de lo que alguien armó se movió ni se perdió: las dos cosas se guardan como antes.',
+    ],
+    archivos: ['lib/dashboard-focus.ts', 'app/dashboard/page.tsx', 'app/dashboard/FocusDeGeneral.tsx', 'app/dashboard/PestanasDashboard.tsx', 'app/general/page.tsx', 'app/m/hoy/page.tsx', 'tests/dashboard-focus.test.ts — probado rompiéndolo'],
+    revisar: '/dashboard',
+  },
 ];

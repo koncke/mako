@@ -65,8 +65,12 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
 - **Lo que falla se registra SOLO, sin preguntarle a la persona** («Y todo lo solucionás automáticamente», 17/10):
   HECHO en el doer con `registrarError` + `identidadDelActor` de la Ticketera (bloque «Lo que falló de MaKo va SOLO a la
   Ticketera» de `lib/mako-doer-in.ts`). A la persona se le dice sólo si entró como ticket.
-- **El aviso a Código Inmobiliario (ws13) por «reprogramar» ESPERA el OK de Martín en este chat** (el texto exacto está
-  ahí). El clasificador de permisos de Claude Code bloqueó correr el script, incluso en seco.
+- **Estado al 18/10 03:00 UTC (85% semanal de la cuenta 4):** TODO lo de este chat está en `main` y en producción
+  (main 196fa1101, deploy Ready): el vigía, Pablo, «reprogramar» (ws13), «agendarle… en el calendario» (ws18), el
+  ticket desde el grupo, el registro solo de las fallas y el aviso de arreglo.
+- **Los dos primeros avisos de arreglo SALIERON el 18/10 ~03:15 UTC** (ws18 Pablo, id 3EB0FB91C81156F5CD4823;
+  ws13 Código Inmobiliario, id 3EB024974831770F97E62E), con su prueba de producción (deploy Ready de main
+  196fa1101). Quedaron registrados en `mako.dev.aviso_arreglo.<clave>` de cada negocio: no se repiten.
 
 ## 4. Qué espera una decisión de Martín
 

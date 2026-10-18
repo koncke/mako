@@ -23,8 +23,9 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 
 test('cada hoja es un link a la MISMA URL que escritorio, y el teléfono la abre con su hoja', () => {
   const ops = opcionesDeHojas([{ id: 'gen-1', nombre: 'Foco de la semana' }, { id: 'h x/2', nombre: '  ' }]);
+  // La primera es «Focus» desde el Dashboard unido (17/10/2026, tests/dashboard-focus.test.ts).
   assert.deepEqual(ops, [
-    { id: 'gen-1', label: 'Foco de la semana', href: '/general?hoja=gen-1' },
+    { id: 'gen-1', label: 'Focus', href: '/general?hoja=gen-1' },
     { id: 'h x/2', label: 'Sin nombre', href: '/general?hoja=h%20x%2F2' },
   ]);
   // El desvío del teléfono reescribe /general a /m/hoy con la query ENTERA: si perdiera `hoja`, volvería la primera.

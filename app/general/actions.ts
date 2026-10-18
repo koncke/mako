@@ -36,7 +36,7 @@ const guard = () => requireRolWs([], { nav: 'general' });
  */
 function bust() {
   try { updateTag(TAG.settings); } catch { /* vence por TTL */ }
-  revalidatePath('/general');
+  revalidatePath('/dashboard'); // Focus, lo que era /general (lib/dashboard-focus.ts)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
