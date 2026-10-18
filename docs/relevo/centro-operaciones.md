@@ -1,5 +1,22 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## PUNTO 4 DEL 18/10, SIN EMPEZAR (para después del 20/10, cuando se renueve la cuota): lo que Martín adjunta en la app
+
+Martín: «cuando envío imágenes por aquí [la app de Claude] o adjunto cosas también deberían aparecer en el Center». No se
+empezó a medias: la cuenta estaba en 94% semanal. El diseño, para hacerlo de una:
+- **De dónde sale.** En el transcript, una imagen que pegó Martín es un bloque `{ type: 'image', source: { type: 'base64',
+  media_type, data } }` dentro de su mensaje `user` (un PDF, `type: 'document'`). Sólo los de Martín (rol «yo»): nunca los de
+  un `tool_result` ni los de otra sesión.
+- **La PC (cartero 1.16.0; avisar ANTES al Cerebro).** `turnosDeLineas` saca esos bloques del turno «yo» y los deja en
+  `adjuntos-turnos/<uuid>-<n>`; la vuelta los sube ANTES que los turnos y el turno viaja con sus refs (`<local>/<uuid>/<n>`).
+  Topes: foto (png, jpeg, webp, gif) o PDF, por los primeros bytes como en `bajarAdjuntos`; 5 MB cada uno, 4 por turno.
+- **MaKo.** Un bucket PRIVADO `operaciones-turnos` (el número de migración lo da el Cerebro). Un POST con el token del
+  cartero (`?adjunto-turno=1`) que valida la sesión (DESTINO_RE), el uuid, el tipo por bytes y el tamaño. Las URLs, firmadas
+  y cortas (10 min), SÓLO dentro de `turnosCentroAction`, que ya pasa por `puedeOperar`. Se borran a los 14 días (VENCE_DIAS).
+- **La pantalla.** En la burbuja de Martín (Hilo.tsx → Turno «yo»), las miniaturas como en la caja (`ListaAdjuntos`): se
+  amplían al tocarlas, y un PDF es un chip.
+- **Antes de integrar:** revisión de seguridad del Cerebro, porque la PC SUBE archivos.
+
 ## 18/10 (el tercer Ops Center, retomado por el Cerebro con la cuenta al 94%): tres arreglos del feedback del 18/10, HECHOS
 
 - `c969bc493`: el scroll acompaña lo que se escribe (la conversación sigue abajo si estaba abajo; la caja sigue al cursor),
