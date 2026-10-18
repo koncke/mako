@@ -127,7 +127,7 @@ import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type Cont
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 import { EstiloTarjetas, FichaRapida, TarjetaDestacada, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
-import { insigniaDeCanal, plataDeLead, subtituloLead } from '@/lib/tarjeta-kanban';
+import { FONDO_COLUMNA, insigniaDeCanal, plataDeLead, subtituloLead } from '@/lib/tarjeta-kanban';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 
 const MONO = "'Geist Mono', monospace";
@@ -2012,6 +2012,9 @@ export function CrmBoard({
   // event type no coincide…). Se DICE: antes, cuando no había config, el botón
   // caía a la agenda del dueño y el usuario ni se enteraba de que faltaba algo.
   const [avisoAgenda, setAvisoAgenda] = useState<string | null>(null);
+  // «Próximo» arranca PLEGADO y lo abre el ícono del calendario (18/10/2026, Martín, pt 8).
+  const [verProximo, setVerProximo] = useState(false);
+  const hayProxima = juntas.some((x) => !/pas[oó]/i.test(x.when));
 
   // ── Editar las etapas desde la cabecera de su columna ──────────────────────
   // Pedido de Martín (28/09/2026). El menú vive acá y no en /funnel porque es donde se
@@ -2568,7 +2571,7 @@ export function CrmBoard({
         }}
         /* LA COLUMNA DE LA FAMILIA (17/10/2026, prototipo docs/prototipos/coherencia-1710.html): 26 de radio, fondo
            suave y sin bordes duros; la banda la dice el punto del título. Soltar encima la marca con un contorno azul. */
-        style={{ flex: 'none', width: 304, background: dragOverCol === c.key && dragId != null ? 'var(--primary-bg)' : 'color-mix(in srgb, var(--surface-2) 55%, transparent)', border: 'none', borderRadius: 26, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? 'inset 0 0 0 2px var(--primary)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
+        style={{ flex: 'none', width: 304, background: dragOverCol === c.key && dragId != null ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 26, display: 'flex', flexDirection: 'column', minHeight: 'min(68vh, 520px)', maxHeight: '68vh', transition: 'background .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? 'inset 0 0 0 2px var(--primary)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
       >
         {/* ⚠️ EL CONTADOR VA DESPUÉS DEL TÍTULO, y el lugar de la derecha es para el menú.
             Pedido de Martín: «en el lugar donde hoy está el 14 que estén 3 puntitos para
@@ -2915,7 +2918,8 @@ export function CrmBoard({
         </>
         {/* Las reuniones cercanas: después de «Filtrar», y sólo si hay alguna (punto 1 del
             segundo feedback del 12/10/2026). En cualquier vista, como lo era la sección. */}
-        <BotonReuniones juntas={juntas} onAbrir={(id) => { const l = leads.find((x) => x.id === id); if (l) openDetail(l); }} />
+        <BotonReuniones juntas={juntas} onAbrir={(id) => { const l = leads.find((x) => x.id === id); if (l) openDetail(l); }}
+          onAlternar={hayProxima ? () => setVerProximo((v) => !v) : null} desplegado={verProximo} />
         <span className="crm-tb-elastico" style={{ flex: 1 }} />
         {/* El pill del CRM automático vive como renglón del menú de `AccionesHeader` (ver su
             comentario en CrmToolbar). */}
@@ -3032,6 +3036,7 @@ export function CrmBoard({
           del recorrido del lead y Llamar / WhatsApp. Azul porque azul = «vos actuás». Sin reunión por delante, no se
           dibuja: una destacada vacía es ruido. Las reuniones son las mismas del botón «Reuniones» (`juntas`). */}
       {(() => {
+        if (!verProximo) return null;
         const j = juntas.find((x) => !/pas[oó]/i.test(x.when));
         const l = j ? leads.find((x) => x.id === j.leadId) : undefined;
         if (!j || !l) return null;

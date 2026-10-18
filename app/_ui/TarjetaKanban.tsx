@@ -165,6 +165,12 @@ export const CSS_TARJETAS = `
 `;
 
 /** El CSS de la familia, una vez por documento (React deduplica por `href`). */
+/**
+ * ⚠️ CADA COMPONENTE DEL KIT LO MONTA ÉL MISMO (18/10/2026). Hasta acá lo montaba el TABLERO que usaba el kit, y Clients
+ * de la computadora no lo montó: en producción, para todos los negocios, la tarjeta salió sin estilos (la foto a todo el
+ * ancho y el nombre, «Ver info» y «Acciones» como texto suelto). React deduplica un `<style href precedence>`, así que
+ * cien tarjetas lo montan una vez. Lo fija tests/tarjetas-familia.test.ts.
+ */
 export function EstiloTarjetas() {
   return <style href="mk-tarjetas-kanban" precedence="medium">{CSS_TARJETAS}</style>;
 }
@@ -188,6 +194,7 @@ export function CaraTarjeta({ nombre, foto, insignia, tam = 46, color }: {
   const ins = Math.max(17, Math.round(tam * 0.38));
   return (
     <span className="tk-cara" style={{ width: tam, height: tam }}>
+      <EstiloTarjetas />
       {foto
         // eslint-disable-next-line @next/next/no-img-element
         ? <img src={foto} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.removeProperty('display'); }} />
@@ -238,6 +245,7 @@ export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function Tar
   const pct = avance ? Math.max(0, Math.min(100, Math.round(avance.pct))) : 0;
   return (
     <article ref={ref} className={clases} onClick={onClick} title={titulo} {...resto}>
+      <EstiloTarjetas />
       <div className="tk-fila">
         {antes}
         <CaraTarjeta nombre={nombre} foto={foto} insignia={insignia} />
@@ -293,6 +301,7 @@ export const TarjetaTarea = forwardRef<HTMLElement, PropsTarea>(function Tarjeta
   const clases = ['tk', 'tk--tarea', hecha ? 'tk--hecha' : '', onClick ? 'tk--clic' : '', marcada ? 'tk--marcada' : '', className ?? ''].filter(Boolean).join(' ');
   return (
     <article ref={ref} className={clases} onClick={onClick} {...resto}>
+      <EstiloTarjetas />
       <button type="button" className={`tk-pr tk-pr--${prioridad}`}
         aria-label={hecha ? `${nombrePr} · hecha — reabrir` : `${nombrePr} — marcar hecha`}
         title={onCompletar ? (hecha ? `${nombrePr} · tócalo para reabrirla` : `${nombrePr} · tócalo para completarla`) : nombrePr}
@@ -330,6 +339,7 @@ export function PestanasPildora({ items, activo, onCambiar, ariaLabel, style }: 
 }) {
   return (
     <div className="tk-ptabs" role="tablist" aria-label={ariaLabel} style={style}>
+      <EstiloTarjetas />
       {items.map((t) => (
         <button key={t.id} type="button" role="tab" className="tk-ptab" aria-selected={t.id === activo} title={t.titulo}
           onClick={() => onCambiar(t.id)}>
@@ -385,13 +395,14 @@ export function TarjetaDestacada({ sobre, titulo, bajada, cara, avance, acciones
   if (ancha) {
     return (
       <section className="tk-feat tk-feat--ancha" aria-label={sobre}>
+        <EstiloTarjetas />
         <div className="tk-feat-1">{quien}</div>
         {prog ? <div className="tk-feat-2">{prog}</div> : null}
         {botones}
       </section>
     );
   }
-  return <section className="tk-feat" aria-label={sobre}>{quien}{prog}{botones}</section>;
+  return <section className="tk-feat" aria-label={sobre}><EstiloTarjetas />{quien}{prog}{botones}</section>;
 }
 
 // ── La ficha rápida («Ver info») ──────────────────────────────────────────────
