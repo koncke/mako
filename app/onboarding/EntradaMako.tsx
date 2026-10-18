@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// EntradaMako — la entrada de MaKo al onboarding: aparece, saluda y va sola a su lugar (tocarla la adelanta)
+// EntradaMako — la entrada de MaKo al onboarding: aparece, saluda y espera que la toques
 // =============================================================================
 // Martín (17/10/2026, Ops Center): «En el onboarding elimina la animación del grafo... haz una buena entrada de la
 // criatura de MaKo tipo motion graphics, y que al clickearla recién pase al siguiente mensaje, que la animación no sea
@@ -21,8 +21,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CriaturaMako } from './CriaturaMako';
 
 const MS_VUELO = 700;
-/** Cuánto se queda saludando antes de ir a su lugar: lo que tarda en entrar y decir «Hola». */
-const MS_SOLA = 2400;
 const CURVA = 'cubic-bezier(.16,.84,.34,1)';
 const CHISPAS = [0, 60, 120, 180, 240, 300];
 
@@ -62,11 +60,12 @@ export function EntradaMako({ onFin }: { onFin: () => void }) {
     volar(el, destino, () => alFin.current());
   }, []);
 
-  // AVANZA SOLA (18/10/2026, Martín: la animación sirve para cargar, «sin clic para continuar»). Tocarla la adelanta.
+  // ESPERA EL CLIC (18/10/2026, 14:00, Martín: la animación vuelve a pedir el clic). El avance solo a los 2,4 s
+  // (ffd0ea3ef) se revirtió; la estrella y la entrada quedan igual. El foco va al botón: Enter o espacio también empiezan.
   useEffect(() => {
-    const t = setTimeout(empezar, MS_SOLA);
+    const t = setTimeout(() => boton.current?.focus({ preventScroll: true }), 900);
     return () => clearTimeout(t);
-  }, [empezar]);
+  }, []);
 
   return (
     <div className={`en-capa${saliendo ? ' en-capa--sale' : ''}`} role="presentation">
@@ -79,6 +78,7 @@ export function EntradaMako({ onFin }: { onFin: () => void }) {
         </button>
       </div>
       <p className="en-hola">Hola, soy MaKo</p>
+      <p className="en-toca" aria-hidden>Tócame para empezar</p>
     </div>
   );
 }
