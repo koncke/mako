@@ -126,13 +126,14 @@ test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve c
   // Explica antes de preguntar (18/10/2026): para qué y cuánto tarda.
   assert.equal(a0[0].texto, SALUDO_ARRANQUE);
   assert.match(SALUDO_ARRANQUE, /conocer tu negocio[\s\S]*menos de 5 minutos[\s\S]*¿cómo te llamas\?$/);
-  assert.deepEqual(a0[0].opciones, ['Martín'], 'ofrece el primer nombre de la cuenta');
+  // Sin respuestas rápidas en el nombre ni en el negocio (18/10/2026, 14:00, Martín): ofrecían restos de otra prueba.
+  assert.equal(a0[0].opciones, undefined, 'el nombre volvió a ofrecer el de la cuenta');
   const { antes } = mensajesDeArranque({ nombre: 'Martín' }, H);
   assert.deepEqual(antes.map((m) => m.de), ['mako', 'yo', 'mako']);
   assert.equal(antes[1].texto, 'Martín');
   assert.equal(antes[0].opciones, undefined, 'una pregunta ya contestada no vuelve a ofrecer opciones');
   assert.match(antes[2].texto, /Un gusto, Martín/);
-  assert.deepEqual(antes[2].opciones, ['Negocio que Escala']);
+  assert.equal(antes[2].opciones, undefined, 'el negocio volvió a ofrecer el nombre del workspace');
   // Ya no se pregunta el objetivo a 90 días, ni con una conversación que lo había contestado.
   assert.ok(!mensajesDeArranque({ ...QUIEN, objetivo: 'Vender más' }, H).antes.some((m) => m.id === 'arr-objetivo'));
   const fin = mensajesDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada' }, { ...H, loQueVende: true, faseGuardada: true }).despues;
@@ -166,7 +167,7 @@ test('el CRM: la tarjeta va con la pregunta, y propone el tipo de su canal prime
 // ── Las respuestas ──────────────────────────────────────────────────────────
 test('las respuestas: texto libre, una opción, el código y «ahora no»', () => {
   assert.deepEqual(leerRespuesta({}, H, { texto: '  Martín  ' }), { ok: true, patch: { nombre: 'Martín' } });
-  assert.deepEqual(leerRespuesta({}, H, { opcion: 0 }), { ok: true, patch: { nombre: 'Martín' } });
+  assert.equal(leerRespuesta({}, H, { opcion: 0 }).ok, false, 'el nombre no tiene opciones: se escribe');
   assert.equal(leerRespuesta({}, H, { texto: '   ' }).ok, false);
   const h = { ...H, loQueVende: true, faseGuardada: true };
   assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0 }), { ok: true, patch: { crmTipo: 'llamada' } });

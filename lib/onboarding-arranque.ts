@@ -383,18 +383,13 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     if (respuesta !== undefined) lista.push({ id: `arr-${id}-r`, de: 'yo', texto: respuesta });
   };
 
-  // 1. Quién es. Un nombre que es un email (las altas sin nombre guardan el email) no se ofrece.
-  // Pasa por `extraerNombre`: un nombre de cuenta guardado como «Soy Martín» ofrecía el botón «Soy» (18/10/2026).
-  const sugNombre = h.nombreCuenta.includes('@') ? '' : primerNombre(extraerNombre(h.nombreCuenta).nombre);
-  // EXPLICA ANTES DE PREGUNTAR (18/10/2026, Martín: «empieza a preguntar de la nada… debería decir algo como "necesito
-  // que me cuentes de tu negocio para poder configurar tu cuenta... no tardaremos más de 5 minutos"»).
-  preguntar(antes, 'nombre', SALUDO_ARRANQUE, e.nombre, sugNombre ? [sugNombre] : undefined);
+  // 1. Quién es. EXPLICA ANTES DE PREGUNTAR (18/10/2026, Martín: «empieza a preguntar de la nada… debería decir algo como
+  // "necesito que me cuentes de tu negocio para poder configurar tu cuenta... no tardaremos más de 5 minutos"»).
+  // SIN respuestas rápidas en el nombre ni en el negocio (18/10/2026, 14:00, Martín): ofrecían lo que quedaba de otra
+  // prueba («Ayelen» del perfil, «Consultesis» del nombre del workspace). Se escriben. tests/onboarding-preguntas.test.ts.
+  preguntar(antes, 'nombre', SALUDO_ARRANQUE, e.nombre);
   if (etapa === 'nombre') return { antes, despues };
-  // Lo que nombró junto con su nombre va primero; si no, el nombre del workspace (si parece un negocio).
-  const sugNegocio = [e.negocioSugerido, pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? h.nombreWorkspace.trim() : '']
-    .filter((x): x is string => !!x && !!x.trim())
-    .filter((x, i, xs) => xs.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
-  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio, sugNegocio.length ? sugNegocio : undefined);
+  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio);
   if (etapa === 'negocio') return { antes, despues };
 
   // Las dos del 17/10 (`ORIGENES`, `INTERESES`), AL FINAL desde el 18/10 (Martín): antes del teléfono y del cierre.

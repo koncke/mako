@@ -45,6 +45,9 @@ import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
  */
 const TABLAS_RESET = TABLAS_DE_INQUILINO;
 
+/** El nombre con el que el workspace de prueba vuelve a quedar (como recién creado). */
+export const NOMBRE_WS_PRUEBA = 'Cliente de Prueba';
+
 /** Buckets con binarios prefijados por `<ws>/`. `avatars` NO: es por usuario. */
 // Los tres últimos son del curso tipo Skool (07/10/2026): adjuntos de la descripción (0216), lo que
 // sube el alumno en una tarea (0218) y los adjuntos de la comunidad (0217). Todos con <ws>/ adelante.
@@ -237,6 +240,14 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
     } catch (e) {
       avisos.push(`${bucket}: ${msg(e)}`);
     }
+  }
+
+  // EL NOMBRE DEL WORKSPACE TAMBIÉN VUELVE (18/10/2026, Martín: después de RESET seguía diciendo «Consultesis»). La fila
+  // del workspace no se borra, pero el onboarding le escribe el nombre del negocio (`guardarNombreNegocio`): sin esto, el
+  // RESET dejaba el negocio de la prueba anterior en el saludo, en las sugerencias y en el PDF.
+  {
+    const { error } = await getSupabaseServer().from('workspaces').update({ nombre: NOMBRE_WS_PRUEBA }).eq('id', ws);
+    if (error) avisos.push(`el nombre del workspace: ${error.message}`);
   }
 
   // Lo que este botón NO puede limpiar, dicho de frente en vez de prometido.
