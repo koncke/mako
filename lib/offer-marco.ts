@@ -528,6 +528,18 @@ export function faltanDelArranque(piezas: PiezasSabidas): PiezaKey[] {
   return PIEZAS_DEL_ARRANQUE.filter((k) => !piezas[k]?.valor?.trim());
 }
 
+/**
+ * ¿La conversación termina en una pregunta de MaKo que todavía no se contestó? (18/10/2026, Martín: «no me dio tiempo a
+ * responder y me mandó el pdf»). Con las cinco piezas anotadas MaKo puede seguir preguntando un detalle («¿cuál es el
+ * monto total de esas cuotas?»); mientras esa pregunta esté abierta, el arranque no pasa al PDF ni a la etapa siguiente.
+ * El turno que cierra («listo») no pregunta ni trae opciones: es la regla 8 de OFFER_ARRANQUE_SYSTEM_TEMPLATE.
+ */
+export function preguntaAbierta(mensajes: readonly OfferMensaje[]): boolean {
+  const ult = mensajes[mensajes.length - 1];
+  if (!ult || ult.de !== 'mako') return false;
+  return (ult.opciones?.length ?? 0) > 0 || ult.texto.includes('?');
+}
+
 // ── El marco, en el texto que leen los modelos ───────────────────────────────
 // Compacto a propósito: viaja en CADA turno del chat. El detalle largo y las
 // discrepancias entre autores viven en docs/offer-marco.md.
