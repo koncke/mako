@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { incidentesDe, noPuedeDe, quejaDe, ESPERA_RESPUESTA_MS, type FilaConv, type FilaUso } from '../lib/vigia-mako-grupos';
+import { incidentesDe, incidentesDeErrores, noPuedeDe, quejaDe, ESPERA_RESPUESTA_MS, type FilaConv, type FilaUso } from '../lib/vigia-mako-grupos';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -88,6 +88,21 @@ test('lo que el doer atajó antes de mandar (saneo-doer) también llega al vigí
   assert.equal(inc[0].ws, 18);
   // Las filas comunes del doer (las del modelo de cada turno) no son incidentes.
   assert.deepEqual(incidentesDe([], [{ ...s, id: 9101, feature: 'mako-doer-in' }], Date.parse('2026-10-17T10:05:00Z')), []);
+});
+
+test('MaKo Alert: los errores de toda la app entran, uno por huella, con sus negocios y su ticket', () => {
+  const inc = incidentesDeErrores([
+    { id: 7, origen: 'navegador', titulo: 'TypeError: x is undefined en /crm', veces: 3, primera_vez: '2026-10-18T14:00:00Z', ultima_vez: '2026-10-18T14:20:00Z', afectados: [{ ws: 13 }, { ws: 18 }, { ws: 13 }], ticket_id: 42 },
+  ]);
+  assert.equal(inc.length, 1);
+  assert.equal(inc[0].clave, 'err:7', 'la clave cambia con las veces: el mismo error se reportaría en cada vuelta');
+  assert.equal(inc[0].tipos[0], 'error-app');
+  assert.match(inc[0].texto, /3 veces, ws 13, 18/);
+  assert.deepEqual(inc[0].marcas, ['ticket #42']);
+  // El script los lee de errores_app y los suma a los incidentes de la vuelta.
+  const script = leer('scripts/vigia-mako-grupos.mts');
+  assert.match(script, /from\('errores_app'\)/, 'el vigía no lee los errores de la app');
+  assert.match(script, /incidentesDeErrores\(errs \?\? \[\]\)/, 'el vigía lee los errores de la app y no los cuenta');
 });
 
 test('el script sólo LEE: no importa nada que mande, y sin incidentes no imprime nada', () => {
