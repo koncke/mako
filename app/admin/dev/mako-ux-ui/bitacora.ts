@@ -208,4 +208,32 @@ export const BITACORA: Hito[] = [
     archivos: ['app/_components/ModoArranque.tsx', 'app/_components/ModoDelUsuario.tsx', 'app/_components/TemaCandidato.tsx', 'tests/tema-por-persona.test.ts'],
     revisar: '/general',
   },
+  {
+    fecha: '18 oct', hora: '00:15', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: la sidebar del prototipo, en la computadora y en el teléfono',
+    pedido: 'la sidebar es confusa, copiá otras apps',
+    puntos: [
+      'Arriba, sin título, lo de todos los días: Plan, Chats y Dashboard. Abajo, Sales, Marketing y Create, cada una con su color.',
+      'Home salió de la barra: el Dashboard abre en Focus. La barra va abierta y una flecha la pliega.',
+      'Ctrl K busca tabs, pantallas y ajustes; «home» lleva al Dashboard.',
+      'El menú de la foto empieza con tu foto real, tu nombre y tu @usuario, y abre My Profile.',
+      'En el teléfono, More empieza con tu foto real; la barra de abajo es CRM · Chats · Dashboard · Plan · More.',
+      'Sin hacer: «My leads» y «My tasks» en My Profile (falta un filtro de lo tuyo) y la barra de abajo flotante.',
+    ],
+    archivos: ['app/_components/nav.ts', 'app/_components/Sidebar.tsx', 'app/_components/BuscadorNav.tsx', 'lib/movil-rutas.ts', 'app/m/mas/page.tsx', 'tests/sidebar-nueva.test.ts'],
+    revisar: '/crm',
+  },
+  {
+    fecha: '18 oct', hora: '09:30', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: «Ops Center» con la estrella en todos los negocios',
+    pedido: 'En todos los clientes también debe llamarse la tab «Ops Center» en lugar de «Second Brain» y tener la criatura de estrella',
+    puntos: [
+      'La fila de arriba de cada negocio se llama Ops Center y lleva la estrella, en la computadora y en el teléfono. Abre lo mismo que antes.',
+      'Nadie ve dos: el super admin sigue viendo sólo el suyo.',
+      'Ctrl K con «second brain» o «cerebro» sigue llevando ahí.',
+      'Sin hacer: los textos de MaKo todavía dicen «Second Brain → …».',
+    ],
+    archivos: ['app/_components/nav.ts', 'app/_components/Sidebar.tsx', 'lib/buscador-nav.ts', 'lib/centro-chats.ts', 'tests/sidebar-nueva.test.ts'],
+    revisar: '/second-brain',
+  },
 ];
