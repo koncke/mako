@@ -521,7 +521,10 @@ export function faltanMinimas(piezas: PiezasSabidas): PiezaKey[] {
  * (cuántos pagaron, cuántos lograron el resultado, valor, costo, escalera), sin el diagnóstico de la oferta y sin la
  * oferta mejorada: eso se hace después, en la tab Offer, sobre la MISMA conversación.
  */
-export const PIEZAS_DEL_ARRANQUE: readonly PiezaKey[] = ['entregables', 'cliente', 'problema', 'resultado', 'precio'];
+// LO JUSTO (18/10/2026, Martín, punto 5: «Me hizo una cantidad absurda de preguntas innecesarias... el onboarding sea rápido
+// con lo justo y necesario para la configuración inicial»): qué vende, a quién y cuánto cuesta. Qué resuelve y qué logra
+// se preguntan al analizar la oferta, en Offer. tests/onboarding-lo-que-vende.test.ts.
+export const PIEZAS_DEL_ARRANQUE: readonly PiezaKey[] = ['entregables', 'cliente', 'precio'];
 
 /** Las piezas del arranque que faltan. «sin dato: …» cuenta como contestada (la persona ya dijo que no lo sabe). */
 export function faltanDelArranque(piezas: PiezasSabidas): PiezaKey[] {
