@@ -129,6 +129,22 @@ export const AVISOS_DE_CUOTA = ['cuota-vencida', 'cuota-por-vencer'] as const sa
  */
 export const claveDedupCuota = (pagoId: number): string => `cuota:${pagoId}`;
 
+/** La marca «salió hace mucho» con que se OLVIDA el dedup de una cuota reprogramada (`olvidarAvisosDeCuotas`). */
+export const DEDUP_OLVIDADO = new Date(0).toISOString();
+
+/**
+ * Qué hacer con la marca de dedup de un aviso de cuota al DESHACER el movimiento que la reprogramó
+ * (`undoStageMoveAction`): volver a la marca de ANTES, y sólo si sigue la del olvido. Una marca nueva es un aviso
+ * que SALIÓ después, y ésa no se toca. Sin marca antes, se quita la del olvido.
+ *
+ * ⚠️ SIN ESTO, EL DESHACER DUPLICABA EL AVISO (revisión del 17/10/2026): la cuota volvía a su fecha vencida con la
+ * marca en epoch, y el cron mandaba un segundo «cuota vencida» por la misma deuda y arrancaba otra cadencia.
+ */
+export function marcaAlDeshacer(antes: string | null, hoy: string | null): { poner: string } | { quitar: true } | null {
+  if (hoy !== DEDUP_OLVIDADO || antes === hoy) return null;
+  return antes == null ? { quitar: true } : { poner: antes };
+}
+
 /**
  * Las cuotas cuyo VENCIMIENTO cambió en una escritura: son las que tienen que poder volver a entrar a la cobranza.
  *

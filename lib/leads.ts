@@ -41,7 +41,7 @@ import {
 import { calificadoSeDescarta } from './calificado-reunion';
 // Qué deriva `updateLead` del desenlace (estado ↔ cerro, motivo, venta) y CUÁNDO:
 // puro y con test (tests/updatelead-no-borra-venta.test.ts).
-import { desenlaceAlGuardar, estadoDelMovimiento } from './lead-desenlace';
+import { desenlaceAlGuardar, estadoDelMovimiento, type Desenlace } from './lead-desenlace';
 import { yaGuardado } from './lead-respuestas';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 // Qué reunión anula una cancelación: puro y con test (tests/recordatorio-lead.test.ts).
@@ -1034,8 +1034,13 @@ export async function updateLead(
   /**
    * `disparoDeEtapa: false` = no inscribe por la etapa derivada (M1-b, abajo). Lo pasa quien deja la etapa
    * definitiva después y dispara él (`setMeetingManual`: limpia el override al final). Ausente = dispara.
+   *
+   * `desenlaceExacto` = escribir ESTE desenlace tal cual, sin `desenlaceAlGuardar`. Es sólo para DESHACER
+   * (`revertMoveAction`, `revertAuditChangeAction`): lo que vuelve es una foto de antes, armada con
+   * `desenlaceAntesDelMovimiento` (lib/lead-desenlace.ts), no una decisión sobre la venta. Pasado por la
+   * regla, volver un lead de «Facturando» de un Ganado por error le borraba el monto (17/10/2026).
    */
-  opts?: { disparoDeEtapa?: boolean },
+  opts?: { disparoDeEtapa?: boolean; desenlaceExacto?: Desenlace },
 ): Promise<Lead> {
   const supabase = (await getTenantDb());
 
@@ -1062,7 +1067,7 @@ export async function updateLead(
   // limpiando al pasar un Ganado a una etapa abierta. Puede tirar
   // («monto_cierre_usd debe ser positivo»), y tira ANTES de escribir nada.
   // El tipo de venta va aparte: con 'sin_cobro' (un becado) un monto 0 se guarda null.
-  Object.assign(merged, desenlaceAlGuardar(actual, input, new Date().toISOString().slice(0, 10), actual.venta_tipo));
+  Object.assign(merged, opts?.desenlaceExacto ?? desenlaceAlGuardar(actual, input, new Date().toISOString().slice(0, 10), actual.venta_tipo));
 
   // Aplicar reglas de coherencia
   if (!merged.fecha_junta_1) {
@@ -1226,7 +1231,9 @@ export async function updateLead(
     // movimiento explícito (`setBoardStageOverride`), y sólo hacia una etapa de reunión (`entraAEtapaDeReunion`: el
     // porqué, ahí). NO con un cambio de ESTADO (ganar, perder, reabrir): ése es el desenlace, y la etapa que sigue
     // la escribe quien lo cambió (`setPipelineStage`). Nunca tira.
-    const cambioDeEstado = input.estado_lead !== undefined && input.estado_lead !== actual.estado_lead;
+    // (Un deshacer trae el estado en `desenlaceExacto`, no en `input`: también es un cambio de estado.)
+    const estadoPedido = opts?.desenlaceExacto?.estado_lead ?? input.estado_lead;
+    const cambioDeEstado = estadoPedido !== undefined && estadoPedido !== actual.estado_lead;
     if (opts?.disparoDeEtapa !== false && !cambioDeEstado && entraAEtapaDeReunion(antes, despues)) {
       await enrolarPorEtapaDerivada(id, despues, actual.funnel_id ?? null);
     }
@@ -1784,6 +1791,10 @@ const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   { k: 'closer', label: 'Closer' },
   { k: 'setter', label: 'Setter' },
   { k: 'monto_cierre_usd', label: 'Monto de cierre' },
+  // ⚠️ La otra mitad de la venta (17/10/2026): sin esta línea, deshacer o restaurar un movimiento que vació
+  // la fecha de cierre no sabía cuál era y le ponía la de HOY — la venta cambiaba de mes en Revenue. Revertible
+  // (app/crm/actions.ts, REVERTIBLES), siempre junto al resto del desenlace (`desenlaceAntesDelMovimiento`).
+  { k: 'fecha_cierre', label: 'Fecha de cierre' },
   // ⚠️ La plata de una SUSCRIPCIÓN vive en estas dos, no en el monto de cierre (que queda
   // NULL a propósito). Faltaban (08/10/2026): cargar o corregir una mensualidad no dejaba
   // NINGUNA línea, y la última del historial de plata seguía diciendo «Datos pendientes: …

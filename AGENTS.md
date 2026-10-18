@@ -1497,7 +1497,10 @@ código nuevo:
   un toque: app/second-brain/apaisar.ts). El super admin ve UN grafo: el negocio y la construcción de MaKo juntos (`unirCerebros`,
   lib/cerebro-union.ts) y las capas son un atajo del filtro de carpetas. Un grafo más para el super admin se suma como CAPA de ése (su
   taxonomía, sus carpetas), nunca como un segundo `<Grafo>`. Lo fija tests/second-brain-grafo-movil.test.ts; el porqué, en
-  docs/hallazgos-second-brain.md.
+  docs/hallazgos-second-brain.md. **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
+  estructura de nodos»): una fuente nueva del producto (clientes, reuniones, lo que venga) entra en `agregarLoVivo`
+  (lib/cerebro-vivo.ts) con su tope y su `.catch`; un área sin datos NO dibuja un nodo `falta:` (se dice en la raíz); y lo que tiene
+  su propio racimo no cuelga además del nodo de área (tests/second-brain-negocio-vivo.test.ts).
 - **LO QUE AVISA EN UNA FILA DEL OPS CENTER ES UN SOLO AVISO** (17/10/2026; Martín: «la misma notif de "Espera tu respuesta"»): una
   pregunta que espera y un «Completado» sin ver se dibujan igual, con el mismo renglón y el mismo globito en la criatura
   (`segundoRenglon`, `avisosDe`, lib/centro-chats.ts). Un aviso nuevo se suma ahí, no con otro globito. El chat del Runner no se lista
@@ -2373,6 +2376,13 @@ logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
   Revertir sólo la pantalla es mentir hasta el próximo F5. Acá el deshacer vuelve a llamar
   al mismo camino con el valor anterior — y restaura también el estado que ese cambio trajo
   de arrastre (el candado de `score_manual` lo puso el cambio, no la persona).
+- ⚠️ **Y si ese camino DERIVA o COERCIONA, volver a llamarlo no es deshacer: es otra decisión.** El Deshacer del CRM
+  volvía a mover el lead y la regla del desenlace le borraba al de «Facturando» el monto que el movimiento no había
+  tocado (17/10/2026). Y «cómo estaba» NO se reconstruye desde el historial: hay escrituras que no auditan (el plan de
+  pagos) y un anti-duplicado que saca líneas. La acción que cambia saca la FOTO antes de su primera escritura y
+  después de la última, firmada (lib/deshacer-movimiento.ts); el deshacer la repone tal cual, sin pasar por la regla,
+  si lo que cambió sigue como lo dejó, y borra del historial sólo los ids que escribió, nunca «lo de los últimos N
+  segundos» (docs/hallazgos-crm.md, «Deshacer un movimiento le borraba la venta…»).
 - ⚠️ **Y si el deshacer REEMPLAZA entero (restaura una foto), lleva lo `esperado`.** Un compare-and-set del server
   protege a los cambios que se aplican como parche sobre lo de hoy, no a «pon esto entero»: sin `esperado`, el
   Deshacer de una persona borra lo que otra guardó después. La pila es POR ENTIDAD (una pantalla puede cambiar de

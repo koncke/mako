@@ -9885,3 +9885,55 @@ app/crm/lead-view/ficha/useFichaDelFunnel.ts · guardado-ficha.ts · HistorialFi
 resumen/charla-actions.ts · tests: crm-funnel-del-lead, updatelead-no-borra-venta, crm-deshacer-no-pisa,
 crm-alta-funnel-ajeno, calificado-al-instante, campana-varios-funnels, crm-una-marca-de-ignorados, ficha-relee-lo-de-mako,
 ficha-historial, ficha-resumen-charla · *17/10/2026, chat «Pendientes B2: CRM y clientes» (claude4).*
+
+## Deshacer un movimiento le borraba la venta: deshacer NO es otro guardado, y «cómo estaba» no sale del historial (17/10/2026)
+
+**El síntoma** (revisión adversarial del 17/10, viejo): un lead de «Facturando» (abierto, `monto_cierre_usd = 3000`
+cargado por el plan de pagos) arrastrado por error a Ganado y deshecho volvía abierto **sin los 3000 y sin una línea**
+que lo dijera. Un Ganado del 15/09 movido a una abierta y deshecho volvía con `fecha_cierre` de HOY: la venta cambiaba
+de mes en Revenue. «Restaurar» desde el historial, igual con la fecha.
+
+**El diagnóstico obvio era el equivocado, DOS veces.** «El undo no repone el monto» lleva a pasarle el monto (ya lo
+hacía: `opts.monto` viajaba desde la card). La causa era que el Deshacer **volvía a mover** (`setPipelineStage(id, from)`):
+el estado cambiaba otra vez y `desenlaceAlGuardar` limpiaba la venta fuera de Ganado. Después el
+`.delete().gte('created_at', ahora-90s)` se llevaba la línea «Monto 3000 → —» y lo que otra persona hubiera escrito.
+El primer arreglo (d60daf299, no entró) **reconstruía «cómo estaba» desde `lead_audit`**, y la segunda revisión le
+encontró cinco agujeros, todos de la misma raíz: el historial es un registro para LEER, no una foto.
+- El wizard con cuotas: `saveLeadPlanManual` escribe estado, cerro y monto **directo y sin auditar**, ANTES de
+  `setPipelineStage`. El estado y el monto quedaban en OTRO grupo de líneas, la regla «sólo el último cambio de estado»
+  rechazaba el Deshacer y la venta seguía contada sin un aviso. Una regresión: el undo viejo sí lo devolvía.
+- `sinRepetidas` (60 s) saca del grupo las líneas iguales a otras recientes: A→Ganado→A→Ganado en un minuto dejaba el
+  grupo con la Etapa sola, y deshacerlo dejaba una venta inventada (o perdida, al revés).
+- La línea de la Etapa podía ser del movimiento de OTRA persona (tablero viejo: el segundo arrastre no escribe línea).
+- La etapa que dibuja el tablero (`effStage`, `etapaEnTablero`) no siempre es la que dice la línea (override huérfano,
+  embudo con claves propias): el Deshacer no encontraba el movimiento.
+
+**La regla:** el movimiento saca la FOTO del lead antes de su primera escritura y después de la última (las columnas
+de `COLUMNAS_DEL_DESHACER`, las cuotas si es el wizard, y los ids de `lead_audit` que escribió), y la devuelve
+FIRMADA con AUTH_SECRET (lib/deshacer-movimiento.ts). El Deshacer verifica firma, lead, negocio y vida (10 min);
+comprueba que lo que el movimiento cambió siga HOY como lo dejó (si no, «Alguien ya lo cambió» y no escribe nada);
+repone la foto de antes en UNA escritura directa, sin `desenlaceAlGuardar`; borra las cuotas que creó (sólo impagas),
+devuelve las que reprogramó o quitó; y borra del historial sólo esos ids. Sin foto, el botón va apagado; si no pudo,
+el tablero lo DICE (antes la card volvía sola).
+- ⚠️ **La foto se saca antes de la PRIMERA escritura**, no antes de `setPipelineStage`: en el wizard, el plan de pagos
+  ya ganó al lead para entonces.
+- ⚠️ **La foto incluye lo que el movimiento escribe FUERA de `leads` y `pagos`.** Reprogramar una cuota olvida su
+  dedup de cobranza (`olvidarAvisosDeCuotas`: la marca pasa a epoch); deshacer sólo la fecha dejaba la cuota vencida
+  con la marca en epoch y el cron mandaba un segundo «cuota vencida» y arrancaba otra cadencia. La foto guarda las
+  marcas de las cuotas impagas y el Deshacer las repone EXACTAS (`marcaAlDeshacer`, compare-and-set contra epoch: un
+  aviso que salió en el medio gana). Y todo lo que el movimiento escribe en el historial va ANTES de firmar: la frase
+  de «¿Qué hacer ahora?» se escribía después y sobrevivía al Deshacer.
+- ⚠️ **Restaurar sigue leyendo el historial** (es lo único que tiene) y repone el desenlace con
+  `desenlaceAntesDelMovimiento` (`updateLead(…, { desenlaceExacto })`). `fecha_cierre` entró a AUDIT_FIELDS como
+  «Fecha de cierre» y a REVERTIBLES. Sin esa línea (historial anterior al 17/10, o el grupo del wizard), un estado que
+  vuelve a no cerrado pierde la fecha si es del MISMO día que el grupo (la puso ese ganar); conservada, el lead abierto
+  quedaba con fecha, se salía de las nutriciones «sin cerrar» y la próxima venta caía en el mes viejo.
+- ⚠️ **`cambioDeEstado` de `updateLead`** miraba sólo `input.estado_lead`; Restaurar lo trae en `desenlaceExacto`.
+- **Sin hacer:** Restaurar todavía depende de que el grupo esté completo (`sinRepetidas` le puede sacar líneas a un
+  movimiento repetido en un minuto). Las etiquetas por etapa se espejan de vuelta y la de WhatsApp se recalcula, pero la
+  automatización de la etapa a la que llegó no se «des-inscribe». Sin AUTH_SECRET no hay Deshacer (botón apagado).
+
+app/crm/actions.ts (`undoStageMoveAction`, `empezarDeshacer`/`cerrarDeshacer`, `setLeadStageAction`,
+`completeStageMoveAction`, `markMeetingManualAction`, `revertMoveAction`) · lib/deshacer-movimiento.ts ·
+lib/lead-desenlace.ts · lib/leads.ts (AUDIT_FIELDS, `updateLead`) · app/crm/CrmBoard.tsx · app/crm/StageMoveDialog.tsx ·
+app/m/crm/acciones.ts · test: deshacer-movimiento-venta · *17/10/2026, agente del Cerebro (claude4).*

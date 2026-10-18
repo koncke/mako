@@ -64,7 +64,7 @@ import { listLeads } from './leads';
 import { conteoPorEtapa } from './api-mako/areas/crm.helpers';
 import { quarterActual, listObjectives, listKpis } from './objectives';
 import { listarSesionesOffer } from './offer-sesiones';
-import { agregarLoVivo, LECTURAS_VACIAS, type ChatMakoVivo, type ConteoLeads, type FechasDeAlta, type LecturasVivas } from './cerebro-vivo';
+import { agregarLoVivo, LECTURAS_VACIAS, TOPES_VIVOS, type ChatMakoVivo, type ClientesVivos, type ConteoLeads, type FechasDeAlta, type LecturasVivas, type ReunionViva } from './cerebro-vivo';
 
 // ── El modelo ────────────────────────────────────────────────────────────────
 // Vive en `cerebro-modelo.ts`, SIN `server-only`, porque el componente que dibuja
@@ -249,8 +249,42 @@ async function contarLeads(): Promise<ConteoLeads | null> {
   };
 }
 
+/** Los CLIENTES (18/10/2026): los leads con la venta GANADA, que es la definición de «cliente» de todo el producto
+ *  (lib/clientes-ganados.ts). Una lectura con tope: el total exacto y los más recientes, nunca los cientos. */
+async function leerClientes(): Promise<ClientesVivos | null> {
+  const db = await getTenantDb();
+  const { data, count, error } = await db.from('leads')
+    .select('id, nombre, empresa, fecha_cierre, venta_tipo', { count: 'exact' })
+    .eq('estado_lead', 'ganado')
+    .order('fecha_cierre', { ascending: false, nullsFirst: false })
+    .limit(TOPES_VIVOS.clientes);
+  if (error) return null;
+  const filas = (data ?? []) as Array<{ id: number; nombre: string | null; empresa: string | null; fecha_cierre: string | null; venta_tipo: string | null }>;
+  return {
+    total: count ?? filas.length,
+    recientes: filas.map((f) => ({ leadId: f.id, nombre: (f.nombre ?? '').trim(), empresa: f.empresa, fechaCierre: f.fecha_cierre, sinCobro: f.venta_tipo === 'sin_cobro' })),
+  };
+}
+
+/** Las REUNIONES DE VENTA que el Closing Analyst ya leyó (`closing_analyses`, mig 0037): las más recientes. */
+async function leerReuniones(): Promise<ReunionViva[]> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('closing_analyses')
+    .select('recording_id, lead_id, lead_nombre, title, started_at, call_date, tipo, closer, score, outcome, summary, duration_min')
+    .eq('status', 'analizada')
+    .eq('category', 'venta')
+    .order('started_at', { ascending: false, nullsFirst: false })
+    .limit(TOPES_VIVOS.reuniones);
+  if (error) return [];
+  type Fila = { recording_id: number; lead_id: number | null; lead_nombre: string | null; title: string | null; started_at: string | null; call_date: string | null; tipo: string | null; closer: string | null; score: number | string | null; outcome: string | null; summary: string | null; duration_min: number | null };
+  return ((data ?? []) as Fila[]).map((f) => ({
+    id: f.recording_id, leadId: f.lead_id, leadNombre: f.lead_nombre, titulo: f.title, fecha: f.started_at ?? f.call_date, tipo: f.tipo,
+    closer: f.closer, score: f.score == null ? null : Number(f.score), outcome: f.outcome, resumen: f.summary, duracionMin: f.duration_min,
+  }));
+}
+
 async function leerLoVivo(chatsMako?: ChatMakoVivo[]): Promise<LecturasVivas> {
-  const [ofertas, ligasProducto, ligasFunnel, leadMagnets, funnels, leads, objetivos, kpis, chatsOffer, fechas] = await Promise.all([
+  const [ofertas, ligasProducto, ligasFunnel, leadMagnets, funnels, leads, objetivos, kpis, chatsOffer, fechas, clientes, reuniones] = await Promise.all([
     listarOfertas(true).catch(() => []),
     productosDeOfertas().catch(() => []),
     ofertasDeFunnels().catch(() => []),
@@ -261,9 +295,12 @@ async function leerLoVivo(chatsMako?: ChatMakoVivo[]): Promise<LecturasVivas> {
     listKpis(true).catch(() => []),
     listarSesionesOffer().catch(() => []),
     fechasDeAlta().catch(() => ({})),
+    leerClientes().catch(() => null),
+    leerReuniones().catch(() => []),
   ]);
   return {
     ...LECTURAS_VACIAS,
+    clientes, reuniones,
     ofertas: ofertas.map((o) => ({ ...o, bonos: (o.bonos ?? []).map((b) => ({ nombre: (b as { nombre?: string | null }).nombre ?? null })) })),
     ligasProducto, ligasFunnel, leadMagnets,
     funnels: funnels.map((f) => ({ id: f.id, nombre: f.nombre, canal: f.canal, esDefault: f.esDefault })),
@@ -848,7 +885,7 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
   }
 
   // D1 · EL OBJETIVO EN NÚMEROS. Si faltan los números NO se emite un nodo «pendiente»:
-  // los huecos ya tienen su lugar en los `falta:` por área, y uno suelto acá solo infla
+  // lo que falta se dice en la raíz («Todavía sin info»), y uno suelto acá solo infla
   // el conteo sin decir nada.
   const nCierres = Number(objCierres);
   const nCash = Number(objCash);
@@ -929,7 +966,9 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
   );
   const realesPorArea = new Map<AreaId, string[]>();
   for (const n of nodos) {
-    if (n.id === RAIZ || n.autoria === 'pendiente' || nutricionDelFunnel.has(n.id)) continue;
+    // Los clientes y las reuniones de venta (18/10/2026) tienen su propio racimo (cliente → «N clientes» → leads): colgarlos
+    // también del área del funnel le llevaría el grado al de la raíz, y el hub pasa el tope de scripts/medir-grafo.mjs.
+    if (n.id === RAIZ || n.autoria === 'pendiente' || nutricionDelFunnel.has(n.id) || /^(cliente|reunion):/.test(n.id)) continue;
     realesPorArea.set(n.area, [...(realesPorArea.get(n.area) ?? []), n.id]);
   }
   for (const a of AREAS) {
@@ -1021,24 +1060,22 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
   // Y además la isla DICE algo cierto: esa parte del negocio todavía no se conecta con
   // el resto.
 
-  // ── Los huecos, etiquetados ────────────────────────────────────────────────
-  // Un vacío REGISTRADO y con nombre vale más que un vacío disimulado: dice qué
-  // falta y qué se desbloquea al llenarlo. Es la misma lógica del estado honesto
-  // aplicada a un área entera, y convierte el mapa en una razón para volver.
+  // ── Lo que MaKo todavía no sabe, DICHO y no dibujado (18/10/2026) ───────────────
+  // Martín (18/10/2026): los nodos del «Negocio» «se deben siempre ajustar a lo que MaKo sepa... No tengas miedo en quitarle
+  // nodos, o agregarles. Si les falta info ya la irán completando». Hasta hoy cada sección sin un dato dibujaba un nodo
+  // `falta:<área>` colgado de la raíz: once casillas de una estructura fija, iguales para todos los negocios, que llenaban
+  // el mapa de lo que NO hay. Ahora un área sin datos no tiene nodo: se dice en la raíz («Todavía sin info», en su hover) y
+  // en la barra lateral, donde cada sección sigue con su «falta» y su «Editar». Un dato nuevo aparece solo, donde corresponde.
   const conNodos = new Set(nodos.filter((n) => n.id !== RAIZ && n.autoria !== 'pendiente').map((n) => n.area));
-  const vacias: AreaId[] = [];
-  for (const a of AREAS) {
-    if (conNodos.has(a.id)) continue;
-    vacias.push(a.id);
-    const id = push({
-      id: `falta:${a.id}`,
-      area: a.id,
-      etiqueta: a.nombre,
-      detalle: `Todavía no sé nada de esto. ${a.que}`,
-      fuente: '',
-      autoria: 'pendiente',
-    });
-    unir(RAIZ, id, 'Todavía sin construir');
+  const vacias: AreaId[] = AREAS.filter((a) => !conNodos.has(a.id)).map((a) => a.id);
+  if (vacias.length) {
+    const raiz = nodos.find((n) => n.id === RAIZ);
+    if (raiz) {
+      raiz.datos = [...(raiz.datos ?? []), {
+        k: 'Todavía sin info',
+        v: AREAS.filter((a) => vacias.includes(a.id)).map((a) => a.nombre).join(' · '),
+      }];
+    }
   }
 
   // Los nodos de ÁREA no cuentan: el panel dice «MaKo entendió N cosas de tu negocio»
