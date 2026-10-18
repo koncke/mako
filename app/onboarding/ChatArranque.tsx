@@ -29,7 +29,6 @@ import { conWs } from '@/lib/ws-tab';
 import { VistaPdf } from '../offer/VistaPdf';
 import { Button } from '@/app/_ui';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
-import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { DIAL_DEFAULT } from '@/lib/paises';
 import { tipoCrmPorId } from '@/lib/pipeline';
 import { RUTA_AL_TERMINAR, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
@@ -228,9 +227,9 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     conRiel: false,
     placeholder: placeholderDe(vista.etapa),
     vacia: SESION_VACIA,
-    // Si la IA no contesta, la salida está ACÁ: conectar la propia, en el modal de /integraciones abierto en
-    // la misma pantalla (mientras el onboarding esté pendiente, ninguna otra tab se puede abrir).
-    errorExtra: <BotonIntegracion servicio="gemini" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar mi propia IA</BotonIntegracion>,
+    // NUNCA «Conectar mi propia IA» en el onboarding (18/10/2026, Martín): el onboarding usa el crédito de la plataforma
+    // (ia-del-cliente-suscripcion), y el botón aparecía en la barra de «Entré a tu página pero casi no encontré texto…».
+    // Sin `errorExtra`, el error queda con su «Reintentar». tests/onboarding-arranque.test.ts.
   };
 
   // ⛔ BLOQUEADO POR LA GUARDIA (lib/onboarding-guardia.ts, 17/10/2026): sin chat. El cliente lee que quedó en revisión;

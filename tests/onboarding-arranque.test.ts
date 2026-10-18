@@ -315,7 +315,10 @@ test('un fallo pasajero no encierra: «no pude leer» no abre otra conversación
   assert.match(chat, /setIntentoCierre\(/, 'el cierre que falla no tiene reintento');
   assert.match(chat, /action: 'preparar'/, 'sin funnel principal, nada lo vuelve a intentar');
   assert.match(chat, /: 'sin'\)/, 'sin link del plan, la tarjeta queda «armando» para siempre');
-  assert.match(chat, /<BotonIntegracion servicio="gemini"/, 'si la IA no contesta, no hay salida adentro del chat');
+  // NUNCA «Conectar mi propia IA» en el onboarding (18/10/2026, Martín): usa el crédito de la plataforma. Roturas
+  // (romper-propia-ia.js; base 26/0): vuelve el botón → 25/1 · vuelve la frase en el archivero → 25/1.
+  assert.doesNotMatch(chat, /Conectar mi propia IA|BotonIntegracion|errorExtra/, 'el onboarding vuelve a ofrecer conectar la propia IA');
+  assert.doesNotMatch(leer('app/api/onboarding/archivero/route.ts'), /propia IA/, 'el error del archivero del onboarding ofrece conectar la propia IA');
   const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
   assert.match(server, /leerSesion\(e\.sesionId\)\.catch\(\(\) => \{ sesionCaida = true; return null; \}\)/);
   assert.match(sinComentarios(leer('app/offer/OfferApp.tsx')), /label: 'Reintentar', onClick: \(\) => \{ setErrorSelector\(null\); void nuevaSesion\(funnelArranque, null\); \}/);
