@@ -10,7 +10,9 @@
 //   2. el teléfono del CRM: tocar abre la ficha rápida en su SheetM, y «Mover a…» le pide a KanbanM SU sheet (no otro);
 //   3. Clients: la barra de la etapa y el aviso, el más urgente primero (sin entrar al curso, días sin moverse);
 //   4. Plan: el círculo de prioridad completa la tarea, en la computadora y en el teléfono;
-//   5. KanbanM: las etapas con su NOMBRE y contador (pestañas píldora), y el pedido de afuera abre su «Mover a…».
+//   5. KanbanM: las etapas con su NOMBRE y contador (pestañas píldora), y el pedido de afuera abre su «Mover a…»;
+//   6. toda pieza del kit lleva sus variables, aunque se use fuera de una tarjeta `.tk` (18/10: el círculo del Plan era
+//      invisible y la cara del teléfono salía sin color, en producción, con todo lo de arriba en verde).
 //
 // PROBADO ROMPIÉNDOLO (17/10/2026), con el archivo en 5 / 0, una rotura por vez y restaurada:
 //   · la ficha rápida del CRM moviendo sin `handleDrop`                              → 4 / 1
@@ -18,6 +20,9 @@
 //   · el aviso de un cliente sin mirar «sin entrar al curso»                         → 4 / 1
 //   · el círculo del Plan sin completar (`board.toggleDone`)                         → 4 / 1
 //   · KanbanM sin el nombre de la etapa en la pestaña                                → 4 / 1
+// Y el 6 (18/10/2026), con el archivo en 6 / 0: las variables otra vez en las cinco raíces de antes
+//   (`.tk-raiz, .tk, .tk-ptabs, .tk-feat, .tk-sheet`, luz y oscuro)                    → 5 / 1, nombrando 20 piezas
+//   sueltas sin color (tk-pr--0..4, tk-c-*, tk-insignia, tk-medidor, tk-sub, tk-ptab…).
 // Correr: node --import tsx --test tests/tarjetas-familia.test.ts
 // =============================================================================
 
@@ -79,4 +84,57 @@ test('KanbanM: las etapas con su nombre y contador', () => {
   const k = leer('app/m/_ui/KanbanM.tsx');
   assert.match(k, /<span>\{c\.titulo\}<\/span>\s*<b key=/, 'la pestaña tiene que decir qué etapa es');
   assert.doesNotMatch(k, /gridTemplateColumns: `repeat\(\$\{cols\.length\}/, 'volvieron las rayitas en grilla');
+});
+
+// ── 6. Las variables del kit en TODA pieza ──────────────────────────────────────────────────────────────────────────
+// Se lee el CSS del kit y, por cada regla que USA una variable `--tk-*`, se pregunta si un elemento con sólo esa clase
+// (la pieza suelta, como la usa el Plan o el teléfono) cae en la regla que las DECLARA, en claro y en oscuro.
+const CSS_KIT = (() => {
+  const s = leer('app/_ui/TarjetaKanban.tsx');
+  const i = s.indexOf('export const CSS_TARJETAS = `') + 'export const CSS_TARJETAS = `'.length;
+  // Sin comentarios: una coma adentro de uno cortaba el selector que lo sigue.
+  return s.slice(i, s.indexOf('`;', i)).replace(/\/\*[\s\S]*?\*\//g, '');
+})();
+const reglas = [...CSS_KIT.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), cuerpo: m[2] }));
+/** Corta una lista de selectores por las comas de afuera (no las de adentro de `:where(...)`). */
+const partes = (lista: string) => {
+  const out: string[] = []; let hondo = 0; let cur = '';
+  for (const ch of lista) {
+    if (ch === '(') hondo++; if (ch === ')') hondo--;
+    if (ch === ',' && hondo === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+  }
+  return [...out, cur.trim()].filter(Boolean);
+};
+/** ¿Un elemento con estas clases cae en este selector simple? (`.x`, `[class^="v"]`, `[class*="v"]`, `:where(...)`). */
+function cae(sel: string, clases: string): boolean {
+  const w = sel.match(/^:where\((.*)\)$/);
+  if (w) return partes(w[1]).some((x) => cae(x, clases));
+  const pre = sel.match(/^\[class\^="([^"]+)"\]$/); if (pre) return clases.startsWith(pre[1]);
+  const sub = sel.match(/^\[class\*="([^"]+)"\]$/); if (sub) return clases.includes(sub[1]);
+  const cls = sel.match(/^\.([\w-]+)$/); if (cls) return clases.split(' ').includes(cls[1]);
+  return false;
+}
+const declara = (marca: string) => {
+  const r = reglas.find((x) => x.cuerpo.includes(marca));
+  assert.ok(r, `no encontré la regla que declara ${marca}`);
+  return partes(r.sel).map((x) => x.replace(/^\[data-tema="oscuro"\]\s+/, ''));
+};
+
+test('toda pieza del kit lleva sus variables, aunque se use fuera de una tarjeta .tk', () => {
+  const claro = declara('--tk-p1: #BF616A');
+  const oscuro = declara('--tk-p1: #E699A6');
+  const sinColor = new Set<string>();
+  for (const r of reglas) {
+    if (!/var\(--tk-/.test(r.cuerpo)) continue;
+    for (const sel of partes(r.sel)) {
+      // La última pieza del selector, sin pseudoclases: `.tk-scab h3` hereda de su padre y no cuenta.
+      const ult = sel.split(/\s+|>/).filter(Boolean).pop()!.replace(/:[\w-]+(\([^)]*\))?/g, '');
+      const clase = ult.match(/^\.([\w-]+)/)?.[1];
+      if (!clase) continue;
+      if (!claro.some((d) => cae(d, clase)) || !oscuro.some((d) => cae(d, clase))) sinColor.add(clase);
+    }
+  }
+  assert.deepEqual([...sinColor], [], `piezas que usadas sueltas salen sin color: ${[...sinColor].join(', ')}`);
+  // Y las que hoy se usan sueltas, nombradas: el círculo del Plan y la cara del teléfono.
+  for (const c of ['tk-pr tk-pr--0', 'tk-cara', 'tk-ini tk-c-blue', 'tk-medidor']) assert.ok(claro.some((d) => cae(d, c)), c);
 });
