@@ -33,7 +33,19 @@ cierra solo cuando el deploy trae el hito de la bitácora con `tickets: [n]`, y 
 
 ## 3. Lo que sigue
 
-- **El negocio sin IA conectada** (pedido del 18/10): ver la bitácora del área para en qué quedó.
+- **El negocio sin IA conectada** (pedido del 18/10): en producción no abre ticket y el chat pide «Conectar tu IA».
+- **El ws1 separado de las keys de IA de la plataforma** (Martín, 18/10: «separá el ws1 de las claves de la plataforma»):
+  `wsDelEntorno` en lib/credenciales.ts. La IA sale de la plataforma (`wsSuperAdmin()`) y el resto sigue saliendo del
+  ws1. ANTES de que arranque ese código hay que correr `scripts/ia-del-ws1-a-la-plataforma.mts --aplicar` (copia a la
+  plataforma las keys de IA del ws1 que no tiene; es aditivo). En qué quedó: la bitácora del área.
+  **Lo que NO se movió**, y queda para otra decisión (detalle en docs/hallazgos-integraciones.md → «El ws1 no puede tener
+  una IA propia»):
+  - lo que no es IA de la fila del ws1 (Meta, Calendly, Fathom, Resend, Panda, YouTube…), que sigue siendo el entorno;
+  - las settings de plataforma en el ws1: `mako.modelos`, `mako.claude.pausa`, el canal de MaKo, los guiones, el método
+    de copywriting, el grupo de MaKo y el Plan (`runWithWorkspace(OWNER_WS, …)`);
+  - el gasto de Claude con la key de la plataforma anotado al ws1 (lib/anthropic-usage.ts) y `claudePropio` del ws1
+    (lib/api-mako/areas/integraciones.run.ts);
+  - la Cerebras del ws1, que no coincide con ninguna de la plataforma: no se copió, y con el código nuevo cuenta como suya.
 - **La Ticketera en el teléfono**: hay una tarjeta propuesta, «Ticketera › Teléfono».
 - **Sacar las preguntas de los chats del mazo** (`?ticketera=tarjetas|lista`) cuando el formulario de Ops Center ande
   en producción. Es de la Ticketera.

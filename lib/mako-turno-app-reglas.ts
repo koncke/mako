@@ -367,13 +367,13 @@ export function faltaIADelNegocio(fallo: string | null, iaPropia: number | null)
 
 /**
  * ⚠️ AL WORKSPACE DEL ENTORNO NO SE LE PIDE QUE CONECTE SU IA (el Cerebro, 18/10/2026). Su fila es la que se copia a
- * `process.env` (lib/credenciales.ts → `esElWsDelEntorno`, hoy el ws1 de Mauricio): la key que pegara pasaría a ser la
+ * `process.env` (lib/credenciales.ts → `esNegocioDelEntorno`; hasta el 18/10, el ws1 de Mauricio): la key que pegara pasaría a ser la
  * de la plataforma —pagaría la red de todos los negocios, o pisaría la nuestra— y su workspace seguiría sin IA propia.
  * Ahí no va el botón: va que lo resuelve el equipo, que es la verdad mientras Martín decide cómo separarlo.
  */
 export const AVISO_SIN_IA_EQUIPO = 'Para contestarte necesito una IA conectada. Ya lo está resolviendo el equipo de MaKo.';
 
-/** Lo que dice MaKo sin IA, y si lleva el botón para conectarla. `delEntorno` = `esElWsDelEntorno(ws)`. */
+/** Lo que dice MaKo sin IA, y si lleva el botón para conectarla. `delEntorno` = `esNegocioDelEntorno(ws)`. */
 export function avisoSinIA(delEntorno: boolean): { aviso: string; conectar: string | null } {
   return delEntorno ? { aviso: AVISO_SIN_IA_EQUIPO, conectar: null } : { aviso: AVISO_SIN_IA, conectar: SERVICIO_IA };
 }

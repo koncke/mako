@@ -184,14 +184,26 @@ export function sinCopiasDeLaPlataforma<T extends { key: string }>(
  *
  * `fila` = el negocio tiene la key base guardada en SU fila; `propia` = MaKo la puede usar como suya.
  *
- * ⚠️ `delEntorno` = es el workspace cuya fila se copia a `process.env` (lib/credenciales.ts → `esElWsDelEntorno`, hoy
- * el ws1). Ahí la tarjeta NO ofrece pegar una key ni dice «la de MaKo» (el Cerebro, 18/10/2026): lo que pegara pasaría
+ * ⚠️ `delEntorno` = es el workspace cuya fila se copia a `process.env` (lib/credenciales.ts → `esNegocioDelEntorno`;
+ * hasta el 18/10, el ws1). Ahí la tarjeta NO ofrece pegar una key ni dice «la de MaKo» (el Cerebro, 18/10/2026): lo que pegara pasaría
  * a ser la key de la plataforma y su workspace seguiría sin IA. Dice que la configura el equipo, y gana sobre todo lo demás.
  */
 export function veredictoDeIA(p: { fila: boolean; propia: boolean; delEntorno?: boolean }): 'conectada' | 'copia' | 'falta' | 'equipo' {
   if (p.delEntorno) return 'equipo';
   if (p.propia) return 'conectada';
   return p.fila ? 'copia' : 'falta';
+}
+
+/**
+ * ¿Es una credencial de IA? Las de la cascada (todas sus cuentas y sus rótulos `_ACCOUNT`), OpenAI, Cerebras y la clave
+ * de Anthropic. Desde el 18/10/2026 éstas salen del workspace de la PLATAFORMA y no del ws1 (lib/credenciales.ts →
+ * `wsDelEntorno`; Martín: «separá el ws1 de las claves de la plataforma... para que Mauricio pueda conectar su propia
+ * IA»). Las del crédito de Claude (`ANTHROPIC_CREDITO_CUENTA*`) no entran: ya se leen sólo de la plataforma (veto).
+ */
+const IA_DE_UNA_CUENTA: ReadonlySet<string> = new Set(['OPENAI_API_KEY', 'CEREBRAS_API_KEY', 'ANTHROPIC_API_KEY']);
+export function esClaveDeIA(clave: string): boolean {
+  const c = esClaveDeCuenta(clave) ? clave.slice(0, -SUFIJO_CUENTA.length) : clave;
+  return IA_DE_UNA_CUENTA.has(c) || PROVS_MULTIKEY.some((p) => clavesDe(p).includes(c));
 }
 
 /** Lo que lee el negocio cuando lo guardado es una copia de la plataforma (la tarjeta y su modal). */

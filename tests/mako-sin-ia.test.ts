@@ -29,6 +29,13 @@
 //      `OWNER_WS` a mano · `guardarCredencial` comparando con `OWNER_WS` · `veredictoDeIA` sin `delEntorno` ·
 //      `iaDelNegocio` sin la guarda · la grilla con el formulario · el modal con «Falta configurar» · «Requiere tu
 //      atención» con las del equipo · el modal sin el aviso del equipo. Restaurado: 5 / 0.
+//   5. LA IA DE LA PLATAFORMA SALE DE LA PLATAFORMA (Martín, 18/10/2026: «separá el ws1 de las claves de la plataforma…»):
+//      `wsDelEntorno` (lib/credenciales.ts) da el workspace de la plataforma para la IA y el ws1 para el resto; la guarda
+//      del punto 4 queda de baranda y ya no se dispara con nadie. Arnés `romper-separar-ws1.mjs` (base 6 / 0), diez
+//      roturas, todas 5 / 1: `wsDelEntorno` con la IA en el ws1 · la hidratación sin el filtro por fuente · sin IA en la
+//      plataforma en silencio · `guardarCredencial` reflejando con `OWNER_WS` · `credWs` prestándole el entorno al ws1 ·
+//      la migración del arranque copiando la IA al ws1 · `conClaveDelNegocio` con la fila del ws1 · `esClaveDeIA` sin
+//      Claude · el script de migración pisando una clave de la plataforma · y el script imprimiendo un valor. Restaurado: 6 / 0.
 //
 // Correr: npx tsx --test tests/mako-sin-ia.test.ts
 // =============================================================================
@@ -40,7 +47,7 @@ import { join } from 'node:path';
 import { esDeConfiguracion, esRuido, sanearReporte } from '../lib/errores-app-reglas';
 import { AVISO_SIN_IA, AVISO_SIN_IA_EQUIPO, SERVICIO_IA, avisoSinIA, faltaIADelNegocio, type RespuestaTurno } from '../lib/mako-turno-app-reglas';
 import { botonConectar, itemsDeRespuesta } from '../app/m/mako/chat-ui';
-import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO, veredictoDeIA } from '../lib/ia-keys';
+import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO, esClaveDeIA, veredictoDeIA } from '../lib/ia-keys';
 import { servicioDeLink } from '../lib/integracion-en-tab';
 
 const RAIZ = join(__dirname, '..');
@@ -92,7 +99,7 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   assert.match(turno, /\.\.\.\(fallo && !sinIA \? \[\{ nombre: 'responder'/);
   assert.match(turno, /const sinIA = faltaIADelNegocio\(fallo, fallo \? await iaPropiaDelTurno\(\) : null\)/);
   assert.match(turno, /provsDe, CASCADA_TOOLS/, 'cuenta con la MISMA lectura que la cascada');
-  assert.match(turno, /const sinIAEs = !respuesta && sinIA \? avisoSinIA\(esElWsDelEntorno\(ws\)\) : null;/);
+  assert.match(turno, /const sinIAEs = !respuesta && sinIA \? avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\)\) : null;/);
   assert.match(turno, /if \(!respuesta\) aviso = \[aviso, sinIAEs\?\.aviso \?\? AVISO_NO_PUDE\]/);
   assert.match(turno, /pantallas, conectar \}/);
 });
@@ -132,24 +139,18 @@ test('la grilla: «Conectada» sólo si MaKo la puede usar como del negocio; una
   assert.ok(i > 0 && i < src.lastIndexOf("'Conectada y operativa.'"), 'la pregunta de la IA va antes del «Conectada» de siempre');
   assert.match(src, /\(await provsDe\(key as ProvName\)\)\.length > 0/, 'las baratas: la lectura de la cascada');
   assert.match(src, /credDelCliente\(envBase, ws\)/, 'la fila del negocio, sin el entorno que `credWs` le presta al ws1');
-  assert.match(src, /credWsEstricta\(envBase, OWNER_WS\), await credWsEstricta\(envBase, wsSA\)/, 'la de Anthropic: la frontera de conClaveDelNegocio');
+  assert.match(src, /credWsEstricta\(envBase, await wsDelEntorno\(envBase\)\), await credWsEstricta\(envBase, wsSA\)/, 'la de Anthropic: la frontera de conClaveDelNegocio');
   assert.match(src, /ws === wsSA\) return null/, 'la plataforma usa las suyas');
   // Y el modal lo dice: el campo se ve lleno y no es suyo.
   // Rota: el `alerta` del modal sin la copia → este test falla.
   assert.match(sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx')), /let alerta: string \| null = i\.detalle === POR_QUE_IA_DE_MAKO \|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \? i\.detalle : null;/);
 });
 
-test('el workspace del ENTORNO (el ws1): ni botón ni «pega tu key»; lo resuelve el equipo, con la lectura de la hidratación', () => {
-  // La guarda no compara con un 1: pregunta `esElWsDelEntorno`, y la hidratación lee del MISMO `WS_DEL_ENTORNO`. Si la
-  // hidratación cambia de fuente sin la constante, este test lo frena.
+test('un negocio cuya IA fuera el entorno: ni botón ni «pega tu key»; lo resuelve el equipo (la baranda)', () => {
+  // Desde el 18/10 la IA del entorno sale de la plataforma y la guarda no se dispara con nadie: queda de baranda. Pregunta
+  // `esNegocioDelEntorno`, con la MISMA `wsDelEntorno` que lee la hidratación, y la plataforma misma no cuenta.
   const cred = sinComentarios(leer('lib/credenciales.ts'));
-  assert.match(cred, /export const WS_DEL_ENTORNO: number = OWNER_WS;/);
-  assert.match(cred, /export const esElWsDelEntorno = \(ws: number \| null \| undefined\): boolean => ws === WS_DEL_ENTORNO;/);
-  // Rota: la hidratación de vuelta a `OWNER_WS` a mano → este test falla.
-  assert.match(cred, /\.from\('credenciales'\)\.select\('clave, valor_enc'\)\.eq\('workspace_id', WS_DEL_ENTORNO\)/, 'la hidratación lee de WS_DEL_ENTORNO');
-  assert.match(cred, /descifrar\(r\.valor_enc as string, WS_DEL_ENTORNO, r\.clave as string\)/);
-  assert.match(cred, /if \(esElWsDelEntorno\(ws\)\) aplicarAEnv\(clave, valor\);/, 'guardarCredencial copia al entorno con la misma pregunta');
-  assert.doesNotMatch(cred, /workspace_id', OWNER_WS\)|ws === OWNER_WS\) aplicarAEnv/, 'ninguna copia al entorno compara con OWNER_WS a mano');
+  assert.match(cred, /const \[fuente, plataforma\] = await Promise\.all\(\[wsDelEntorno\('GEMINI_API_KEY'\), wsSuperAdmin\(\)\]\);\s*return ws === fuente && ws !== plataforma;/);
 
   // El chat: sin botón y diciendo que lo resuelve el equipo. Rota: `avisoSinIA` ignorando `delEntorno` → este test falla.
   assert.deepEqual(avisoSinIA(true), { aviso: AVISO_SIN_IA_EQUIPO, conectar: null });
@@ -167,11 +168,56 @@ test('el workspace del ENTORNO (el ws1): ni botón ni «pega tu key»; lo resuel
   assert.equal(veredictoDeIA({ fila: true, propia: false, delEntorno: true }), 'equipo', 'y sobre «la de MaKo»');
   assert.doesNotMatch(POR_QUE_LA_CONFIGURA_MAKO, /pega|key|tuya/i);
   const integ = sinComentarios(leer('lib/integraciones.ts'));
-  const guarda = integ.indexOf('if (ws != null && esElWsDelEntorno(ws)) return { fila: false, propia: false, delEntorno: true };');
+  const guarda = integ.indexOf('if (await esNegocioDelEntorno(ws)) return { fila: false, propia: false, delEntorno: true };');
   assert.ok(guarda > 0 && guarda < integ.indexOf('const wsSA = await wsSuperAdmin()'), 'la guarda va primero y sin leer nada');
   assert.match(integ, /\.\.\.\(v === 'equipo' \? \{ soloServidor: true \} : \{\}\)/, 'sin el formulario del modal');
   const board = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
   assert.match(board, /const mostrarForm = i\.soloServidor === false;/);
   assert.match(board, /\) : i\.estado === 'falta' && i\.key !== 'google' && !delEquipo && \(/, 'sin «Falta configurar: GEMINI_API_KEY»');
   assert.match(board, /\|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO;/, 'no es un pendiente suyo');
+});
+
+test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, lecturas, guardar y la migración', () => {
+  // Martín (18/10/2026): «Sí: separá el ws1 de las claves de la plataforma (que salgan del ws9 o del entorno) para que
+  // Mauricio pueda conectar su propia IA». Qué es IA: la cascada (con sus cuentas y rótulos), OpenAI, Cerebras y Claude.
+  for (const c of ['GEMINI_API_KEY', 'GEMINI_API_KEY_4', 'GEMINI_API_KEY_4_ACCOUNT', 'GROQ_API_KEY_2', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'CEREBRAS_API_KEY', 'ANTHROPIC_API_KEY']) {
+    assert.ok(esClaveDeIA(c), `${c} es de IA`);
+  }
+  for (const c of ['META_ACCESS_TOKEN', 'RESEND_API_KEY', 'FATHOM_WEBHOOK_SECRET', 'ANTHROPIC_CREDITO_CUENTA1', 'GEMINI_API_KEY_11', 'ELEVENLABS_API_KEY']) {
+    assert.equal(esClaveDeIA(c), false, `${c} no es de IA (sigue como estaba)`);
+  }
+  const cred = sinComentarios(leer('lib/credenciales.ts'));
+  // Rota: `wsDelEntorno` devolviendo el ws1 para la IA → este test falla.
+  assert.match(cred, /export async function wsDelEntorno\(clave: string\): Promise<number> \{\s*return esClaveDeIA\(clave\) \? wsSuperAdmin\(\) : OWNER_WS;\s*\}/);
+  // La hidratación: dos fuentes, y cada clave sólo de la suya; sin filas de IA en la plataforma, lo dice fuerte.
+  assert.match(cred, /return \[\{ ws: OWNER_WS, deIA: false \}, \.\.\.\(plataforma == null \? \[\] : \[\{ ws: plataforma, deIA: true \}\]\)\];/);
+  // Rota: la hidratación sin el filtro por fuente (el ws1 vuelve a poner su IA en el entorno) → este test falla.
+  assert.match(cred, /if \(esClaveDeIA\(clave\) !== f\.deIA\) continue;/);
+  assert.match(cred, /descifrar\(r\.valor_enc as string, f\.ws, clave\)/);
+  assert.match(cred, /if \(f\.deIA && !legibles\) console\.error\(/, 'sin IA en la plataforma no queda en silencio');
+  // Las lecturas «del dueño» y el reflejo al entorno preguntan lo mismo; ninguna compara con OWNER_WS a mano.
+  assert.match(cred, /if \(ws === \(await wsDelEntorno\(clave\)\)\) aplicarAEnv\(clave, valor\);/, 'guardarCredencial');
+  assert.match(cred, /if \(hidratadas\.has\(clave\) && ws === \(await wsDelEntorno\(clave\)\)\) \{/, 'eliminarCredencial');
+  assert.match(cred, /const v = await credDeBase\(await wsDelEntorno\(clave\), clave\);/, 'envCred');
+  assert.match(cred, /const base = await credWsEstricta\(clave, await wsDelEntorno\(clave\)\);/, 'esDeLaPlataforma');
+  assert.equal((cred.match(/esValorReal\(process\.env\[clave\]\) && w?s? === \(await wsDelEntorno\(clave\)\)/g) ?? []).length, 2, 'credWs y credWsEstricta');
+  assert.match(cred, /if \(esValorReal\(env\) && w === \(await wsDelEntorno\(clave\)\)\) \{/, 'estadoCampo');
+  assert.doesNotMatch(cred, /(ws|w) === OWNER_WS && esValorReal|workspace_id', OWNER_WS\)|credDeBase\(OWNER_WS|credWsEstricta\(clave, OWNER_WS\)/, 'nada del entorno compara con OWNER_WS a mano');
+  // Rota: la migración del arranque copiando la IA del entorno a la fila del ws1 (así se sembraron las copias) → falla.
+  assert.match(cred, /if \(esClaveDeIA\(clave\) && ws !== \(await wsDelEntorno\(clave\)\)\) continue;/);
+  // Las fronteras de Claude ya no miran la fila del ws1.
+  for (const f of ['lib/anthropic.ts', 'lib/integraciones.ts']) {
+    const s = sinComentarios(leer(f));
+    assert.doesNotMatch(s, /credWsEstricta\([^)]*, OWNER_WS\)/, `${f}: la clave de Claude no se compara con la fila del ws1`);
+    assert.match(s, /await credWsEstricta\((?:'ANTHROPIC_API_KEY'|envBase), await wsDelEntorno\((?:'ANTHROPIC_API_KEY'|envBase)\)\)/, f);
+  }
+  // La migración: en seco salvo `--aplicar`, aditiva (nunca borra), sin pisar, y sin imprimir un valor.
+  const mig = sinComentarios(leer('scripts/ia-del-ws1-a-la-plataforma.mts'));
+  assert.match(mig, /const APLICAR = process\.argv\.includes\('--aplicar'\);/);
+  assert.match(mig, /if \(!APLICAR\) \{[^}]*process\.exit\(0\); \}/, 'en seco no escribe');
+  assert.doesNotMatch(mig, /eliminarCredencial|\.delete\(\)|\.from\('credenciales'\)\.(update|upsert|delete)/, 'no borra ni cambia nada: sólo guardarCredencial en la plataforma');
+  assert.match(mig, /let hacia: string \| null = ocupadas\.has\(f\.clave\) \? null : f\.clave;/, 'no pisa una clave de la plataforma');
+  assert.match(mig, /if \(yaTiene\.has\(huella\(f\.valor\)\)\)/, 'idempotente: un valor que ya está no se copia');
+  assert.match(mig, /guardarCredencial\(plataforma, p\.hacia, p\.valor/);
+  assert.doesNotMatch(mig, /console\.(log|error)\([^)]*\.valor\b[^)]*\)/, 'nunca imprime un valor');
 });
