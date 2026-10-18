@@ -93,3 +93,10 @@ export function subtituloLead(plata: string | null, canal: string | null | undef
 /** La prioridad de una tarea, para el círculo: 1 urgente … 4 baja, 0 sin prioridad (punteado). */
 export type PrioridadTarea = 0 | 1 | 2 | 3 | 4;
 export const NOMBRE_PRIORIDAD: Readonly<Record<PrioridadTarea, string>> = { 0: 'Sin prioridad', 1: 'Urgente', 2: 'Alta', 3: 'Media', 4: 'Baja' };
+
+/**
+ * El fondo de una COLUMNA de kanban, el mismo en CRM, Clients y Plan (18/10/2026, Martín, pt 8: «cada columna lleva su
+ * bloque de fondo, no vacía»). El de la familia del 17/10 era `--surface-2` al 55 %, que sobre el fondo de la página casi
+ * no se ve: una columna sin tarjetas parecía un hueco. Lo fija tests/tarjetas-familia.test.ts.
+ */
+export const FONDO_COLUMNA = 'var(--surface-2)';

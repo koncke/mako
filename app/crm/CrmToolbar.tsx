@@ -38,6 +38,7 @@ import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
 import { Confirm } from '@/app/_ui/Confirm';
 import { LapizIcon } from './iconos';
 import { BANDAS_KANBAN } from './filtros-guardados';
+import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
@@ -315,6 +316,7 @@ export function VistaSelector({ vista, onVista, pendientes }: {
   const NOMBRE: Record<CrmVista, string> = { kanban: 'Tablero', tabla: 'Lista' };
   return (
     <div className="tk-ptabs" role="tablist" aria-label="Cómo ver los leads" style={{ flex: 'none', padding: 0, overflow: 'visible' }}>
+      <EstiloTarjetas />
       {(['kanban', 'tabla'] as const).map((v) => (
         <button key={v} type="button" role="tab" className="tk-ptab" onClick={() => onVista(v)} aria-selected={vista === v}
           title={ICONO_VISTA[v].titulo} aria-label={ICONO_VISTA[v].titulo} style={{ height: 34, padding: '0 14px' }}>

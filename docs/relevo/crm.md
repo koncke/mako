@@ -34,6 +34,29 @@ historial de la ficha con «Volver a como estaba»; la ficha que edita MaKo se r
 - **Decisión abierta que sigue siendo de Martín: §5.1** (ganar en un producto agregado no marca ganado al lead). De ella
   depende la invitación al curso en un segundo producto (docs/relevo/customer-success.md).
 
+## 0-Ω16. 18/10/2026 (chat «CRM», cuenta `claude4`, al 91% semanal): el feedback del 18/10 (pts 14, 8 y 9)
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: se le pasa al Cerebro.** El pedido entero está en
+docs/feedback-18-10.md (rama del Cerebro, `C:/dev/wt-push-q`).
+
+- **Cliente roto, arreglado (`cd6a4e78b`, VERDE `5489c21a9`, sha ya pasado):** /clients mostraba la tarjeta sin estilos
+  para todos los negocios. Cada componente del kit monta ahora sus estilos (hallazgos-ui).
+- **Clients (pt 14, `44b4b111b`):** sin el título ni el número de clientes; sin el desplegable del servicio («Editar
+  etapas» pasó a los tres puntos); la cabecera sobre el fondo de MaKo con la cuadrícula de puntos.
+- **CRM (pt 8, `772ed2a14`):** la columna con un bloque de fondo visible y alto mínimo, el mismo en los tres tableros
+  (`FONDO_COLUMNA`); «Próximo» plegado, lo abre el ícono del calendario (sin reunión por delante, sigue la lista).
+- **Plan (pt 9, `ad2bac4b6`):** la tarjeta sin prioridad, sin origen y sin el aviso del deadline; se completa con un
+  check gris a la derecha, al lado del tacho.
+
+**No visto en pantalla** (RAM en 2 GB, un proceso pesado a la vez): nada de lo de hoy. Mirarlo al desplegar, en el ws3
+o el ws9: /clients (la tarjeta con estilos, sin título ni desplegable, el fondo), /crm (columnas y «Próximo») y /plan.
+
+**Sin hacer (con su archivo):** el nombre VIEJO del servicio («VSL FUNNEL») sigue guardado: el producto no sigue al
+funnel renombrado; ya no se ve en Clients, pero el dato está mal (`productosDeLaEntrega` en `app/customer-success/entrega.ts` lee
+`productos.nombre`). Crear un servicio nuevo ya no se puede desde Clients (se crea como producto en el CRM). El Plan del
+TELÉFONO sigue completando con el círculo (`app/m/plan/ListaPlan.tsx`): decidir si también va al check. Las columnas
+editables del Plan, después del 20/10.
+
 ## 0-Ω15. 17-18/10/2026 (chat «CRM», cuenta `claude4`, al 85% semanal): la familia de tarjetas en CRM, Clients y Plan
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2` (node_modules COPIADO de verdad, no enlace: la limpieza de disco lo había
