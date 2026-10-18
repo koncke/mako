@@ -13,7 +13,7 @@
 // PROBADO ROMPIÉNDOLO (17/10/2026), con el archivo en 4 / 0, una rotura por vez y restaurada:
 //   · el hash con `>> 0` en vez de `>>> 0`                                        → 3 / 1
 //   · `plataDeLead` sin el «≈» del estimado                                       → 3 / 1
-//   · «Sin origen» con insignia (sin el `return null`)                            → 3 / 1
+//   · la insignia sin el caso de WhatsApp                                         → 3 / 1
 // Correr: node --import tsx --test tests/tarjeta-kanban.test.ts
 // =============================================================================
 
