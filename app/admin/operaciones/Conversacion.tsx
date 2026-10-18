@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
-import { conVinetas, enterEnLista } from '@/lib/centro-caja';
+import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
@@ -123,12 +123,19 @@ export function Conversacion({
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [chat.clave, lineas.length]);
-  // El renglón crece con lo que se escribe, hasta el tope del CSS.
+  // El renglón crece con lo que se escribe, hasta el tope del CSS. Y el scroll lo acompaña (18/10/2026, Martín: «la caja
+  // crece y el chat no lo acompaña»): la conversación, que se achica cuando la caja crece, sigue abajo si estaba abajo
+  // (se mide ANTES de crecer); y la caja, pasado su tope, sigue al cursor (el `height = 'auto'` le reseteaba el scroll).
   useLayoutEffect(() => {
     const el = caja.current;
     if (!el) return;
+    const h = hilo.current;
+    const conversacionAbajo = h ? estaAbajo(h) : false;
+    const antes = el.scrollTop;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+    el.scrollTop = el.selectionEnd >= el.value.length ? el.scrollHeight : antes;
+    if (h && conversacionAbajo) h.scrollTop = h.scrollHeight;
     if (cursor.current != null) { el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
   }, [texto]);
   // Elegir un chat deja el cursor en su caja, como cualquier app de chat.
