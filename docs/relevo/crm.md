@@ -51,6 +51,12 @@ app/customer-success/aviso-tarjeta.ts); la foto de Instagram (no se guarda); la 
 (`TarjetaPrioridad`) y el tablero de Proyectos del teléfono; la foto de un cliente en el teléfono (`ClienteCs`).
 Lo de antes sigue: medir el pop-up en producción.
 
+**Visto en el ws3** (build parcial + `next start`, sesión firmada, a 1440): el tablero del CRM con las tarjetas, la ficha
+rápida y «Mover a…» (se arreglaron el paso, los rellenos y la negrita: `42358d5a8`). **No visto:** Clients (/customer-success
+daba 404 en el build parcial), el Plan (pide «Migra tu Plan a la nube» en un perfil nuevo: no se tocó, escribe en
+producción) y todo el teléfono (/m/crm entra en un bucle de redirecciones con un build parcial). Mirarlos en el ws3 al
+desplegar. VERDE `42358d5a8`.
+
 ## 0-Ω14. 17/10/2026 (chat «CRM», cuenta `claude4`): las seis tarjetas de la revisión de las llamadas del 16/10
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: cada punta se le pasa al Cerebro.** El orden lo dio el
