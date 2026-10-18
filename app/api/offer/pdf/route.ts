@@ -29,7 +29,7 @@ import { adminDeWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { leerFila, nombreNegocioOffer } from '@/lib/offer-sesiones';
 import { conclusionDeVersion, conclusionVisible } from '@/lib/offer-reglas';
 import { pdfDeOferta, nombreArchivoOferta, paginasDeOferta, pdfExternoDeOferta, nombreArchivoOfertaExterna } from '@/lib/offer-pdf';
-import { pdfDeLoQueVendes, nombreArchivoLoQueVendes } from '@/lib/lo-que-vendes-pdf';
+import { pdfDeLoQueVendes, paginasLoQueVendes, nombreArchivoLoQueVendes } from '@/lib/lo-que-vendes-pdf';
 import { tzDeWorkspace } from '@/lib/timezone';
 
 export const runtime = 'nodejs';
@@ -55,7 +55,10 @@ export async function GET(req: NextRequest) {
       if (!fila) return Response.json({ ok: false, error: 'No encontré esa oferta.' }, { status: 404 });
       if (loQueVendes) {
         const [negocio, zona] = await Promise.all([nombreNegocioOffer().catch(() => ''), tzDeWorkspace(ws).catch(() => '')]);
-        const bytes = pdfDeLoQueVendes(fila.piezas, { negocio, fecha: new Date(), zona: zona || undefined });
+        const metaLqv = { negocio, fecha: new Date(), zona: zona || undefined };
+        // Las páginas para verlo en el chat (18/10/2026): la pantalla no lo abre en otra pestaña.
+        if (vistaPaginas) return Response.json({ ok: true, paginas: paginasLoQueVendes(fila.piezas, metaLqv) }, { headers: { 'Cache-Control': 'no-store' } });
+        const bytes = pdfDeLoQueVendes(fila.piezas, metaLqv);
         return new Response(bytes.slice().buffer, {
           status: 200,
           headers: {

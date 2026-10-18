@@ -399,7 +399,9 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
 
   // Las dos del 17/10 (`ORIGENES`, `INTERESES`), AL FINAL desde el 18/10 (Martín): antes del teléfono y del cierre.
   const finales = (lista: MensajeArranque[]): boolean => {
-    preguntar(lista, 'origen', `Antes de terminar, ${nombre}: ¿cómo llegaste a MaKo?`, e.origen, [...ORIGENES]);
+    // Sin «Antes de terminar» ni «Última cosa» (18/10/2026, Martín: «no me puede estar diciendo "Antes de terminar"...
+    // cada rato»): cada pregunta va directa y el cierre se dice una vez, al final (tests/onboarding-sin-anuncios.test.ts).
+    preguntar(lista, 'origen', `¿Cómo llegaste a MaKo, ${nombre}?`, e.origen, [...ORIGENES]);
     if (etapa === 'origen') return true;
     if (h.modo === 'oferta') {
       preguntar(lista, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', INTERESES.find((i) => i.id === e.interes)?.label, INTERESES.map((i) => i.label));
@@ -481,7 +483,7 @@ function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: P
 function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nombre: string): MensajeArranque[] {
   const out: MensajeArranque[] = [];
   if (h.conTelefono) {
-    out.push({ id: 'arr-telefono', de: 'mako', texto: 'Última cosa: ¿a qué WhatsApp te escribo con los avisos y los reportes?', ...(etapa === 'telefono' ? { opciones: [AHORA_NO], tarjeta: 'telefono' as const } : {}) });
+    out.push({ id: 'arr-telefono', de: 'mako', texto: '¿A qué WhatsApp te escribo con los avisos y los reportes?', ...(etapa === 'telefono' ? { opciones: [AHORA_NO], tarjeta: 'telefono' as const } : {}) });
     if (e.telefono === 'postergado') out.push({ id: 'arr-telefono-r', de: 'yo', texto: AHORA_NO });
     else if (e.telefono === 'codigo' || e.telefono === 'verificado') out.push({ id: 'arr-telefono-r', de: 'yo', texto: e.telefonoNumero || 'Mi WhatsApp' });
     if (etapa === 'telefono') return out;

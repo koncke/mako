@@ -107,7 +107,8 @@ test('lo que vende queda en un PDF: el mensaje con su tarjeta va justo después 
   assert.equal(linkPdfLoQueVende(42), '/api/offer/pdf?id=42&tipo=lo-que-vendes');
   const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
   assert.match(chat, /if \(t === 'pdf'\) return vista\.sesion \? <TarjetaPdf sesionId=\{vista\.sesion\.id\} \/> : null;/);
-  assert.match(chat, /href=\{linkPdfLoQueVende\(sesionId\)\}/);
+  // Desde el 18/10/2026 se mira EN el chat (tests/onboarding-pdf-en-el-chat.test.ts); la descarga lleva el ?ws=.
+  assert.match(chat, /href=\{conWs\(linkPdfLoQueVende\(sesionId\), ws\)\} download/);
 });
 
 test('modo plan (Project Manager, sin Offer ni CRM): quién es → a qué se dedica → diagnóstico → cierra', () => {

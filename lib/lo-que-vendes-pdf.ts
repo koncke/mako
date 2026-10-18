@@ -87,6 +87,18 @@ export function nombreArchivoLoQueVendes(negocio: string): string {
 
 /** Los bytes del PDF. Nunca tira por el contenido: lo que no entra se corta en líneas y páginas. */
 export function pdfDeLoQueVendes(piezas: PiezasSabidas, meta: MetaLoQueVendes): Uint8Array {
+  return documentoLoQueVendes(piezas, meta).bytes();
+}
+
+/**
+ * Las MISMAS páginas, en SVG, para verlas en el chat sin salir de la pestaña (18/10/2026, Martín: «ni siquiera debería
+ * sacarme de la tab»). Un `<iframe>` con el PDF no sirve: la app manda `X-Frame-Options: DENY` (next.config.ts).
+ */
+export function paginasLoQueVendes(piezas: PiezasSabidas, meta: MetaLoQueVendes): string[] {
+  return documentoLoQueVendes(piezas, meta).paginasSvg();
+}
+
+function documentoLoQueVendes(piezas: PiezasSabidas, meta: MetaLoQueVendes): PdfDoc {
   const fecha = fechaCorta(meta.fecha, meta.zona);
   const doc = new PdfDoc({ pie: `Generado por MaKo · ${fecha}` });
   const negocio = (meta.negocio || '').trim();
@@ -110,5 +122,5 @@ export function pdfDeLoQueVendes(piezas: PiezasSabidas, meta: MetaLoQueVendes): 
       doc.texto(a.texto, { tam: 10.5, color: C.tinta, interlinea: 1.4, despues: 14 });
     }
   }
-  return doc.bytes();
+  return doc;
 }

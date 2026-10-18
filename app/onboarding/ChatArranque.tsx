@@ -23,7 +23,10 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from '@/app/_ui/Link';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { Modal } from '@/app/_ui/Modal';
+import { conWs } from '@/lib/ws-tab';
+import { VistaPdf } from '../offer/VistaPdf';
 import { Button } from '@/app/_ui';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
@@ -43,6 +46,8 @@ type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: 
 type Aviso = { texto: string; accion?: { label: string; onClick: () => void } };
 /** El plan de arranque: escribiéndose, listo con su link, o sin plan (no salió o la capa no lo arma). */
 type EstadoPlan = 'armando' | 'sin' | { url: string; n: number };
+/** Cuánto se ve el «¡Listo!» antes de entrar solo al Ops Center (18/10/2026). */
+const MS_PARA_ENTRAR = 1500;
 
 async function llamar(cuerpo: Record<string, unknown>): Promise<Respuesta> {
   try {
@@ -159,6 +164,18 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     })();
   }, [vista.etapa, intentoCierre]);
 
+  // ENTRA SOLO (18/10/2026, Martín: «cuando dice "¡Listo…! Tu MaKo ya está armado." automáticamente debería ingresar a
+  // MaKo, no preguntarme, y la primera tab es el center»). A los 1,5 s del «¡Listo!» la pantalla se funde y entra al Ops
+  // Center con el router de la casa (lleva el `?ws=`). Es navegación INTERNA a propósito: el plan que se sigue armando
+  // (`/api/onboarding/plan-arranque`) es un fetch en vuelo, y una recarga dura lo cortaría; ésta no.
+  const router = useRouter();
+  const [saliendo, setSaliendo] = useState(false);
+  useEffect(() => {
+    if (vista.etapa !== 'listo') return;
+    const t = window.setTimeout(() => { setSaliendo(true); router.push(vista.modo === 'oferta' ? RUTA_AL_TERMINAR : '/plan'); }, MS_PARA_ENTRAR);
+    return () => window.clearTimeout(t);
+  }, [vista.etapa, vista.modo, router]);
+
   // ── Lo que se dibuja ─────────────────────────────────────────────────────
   const lado = ladoDeLaPregunta(vista.etapa, vista.modo);
   // ⚠️ Memo: el hilo se vuelve a desplazar cada vez que cambia su lista de mensajes, y un arreglo nuevo en
@@ -178,7 +195,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
-    if (t === 'listo') return <TarjetaListo modo={vista.modo} plan={plan} entrada={RUTA_AL_TERMINAR} />;
+    if (t === 'listo') return <TarjetaListo modo={vista.modo} entrada={RUTA_AL_TERMINAR} />;
     return null;
   };
 
@@ -240,7 +257,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   }
 
   return (
-    <div className="arr-capa">
+    <div className={`arr-capa${saliendo ? ' arr-capa--sale' : ''}`}>
       <style>{CSS_ARRANQUE}</style>
       {/* La cabecera de la referencia que mandó Martín (17/10): la foto de MaKo, su nombre y «Tu onboarding», y una
           línea. Los mensajes van sueltos sobre el fondo, sin recuadro (CSS de abajo). */}
@@ -313,31 +330,41 @@ const CAMPO = {
 };
 
 /** El PDF con lo que vende: lo arma la ruta con las piezas de la conversación, cada vez (nunca queda viejo). */
+/**
+ * «Lo que vendes» se mira EN el chat (18/10/2026, Martín: «ni siquiera debería sacarme de la tab»). Antes era un link a
+ * otra pestaña, y sin el `?ws=` el super admin que mira a un cliente caía en otro workspace: «No encontré esa oferta».
+ * Las páginas llegan por `fetch` (WsFetch le pega el `?ws=`), y la descarga lleva el `?ws=` a mano (`conWs`).
+ */
 function TarjetaPdf({ sesionId }: { sesionId: number }) {
+  const ws = useWs();
+  const [viendo, setViendo] = useState(false);
   return (
     <div className="arr-links">
-      <a href={linkPdfLoQueVende(sesionId)} className="arr-link" target="_blank" rel="noopener">Ver lo que vendes (PDF)</a>
+      <button type="button" className="arr-link" onClick={() => setViendo(true)}>Ver lo que vendes (PDF)</button>
+      {viendo && (
+        <Modal titulo="Lo que vendes" ancho={720} onCerrar={() => setViendo(false)}
+          pie={<a href={conWs(linkPdfLoQueVende(sesionId), ws)} download className="arr-link">Descargar PDF</a>}>
+          <VistaPdf sesionId={sesionId} tipo="lo-que-vendes" />
+        </Modal>
+      )}
     </div>
   );
 }
 
 /** Lo que quedó armado, con links que la persona elige (el chat no se va solo a ningún lado). */
-function TarjetaListo({ modo, plan, entrada }: { modo: VistaArranque['modo']; plan: EstadoPlan; entrada: string }) {
+function TarjetaListo({ modo, entrada }: { modo: VistaArranque['modo']; entrada: string }) {
   return (
     <div className="arr-links">
-      {modo === 'oferta' && <Link href="/crm" className="arr-link">Abrir mi CRM</Link>}
-      {modo === 'oferta' && <Link href="/offer" className="arr-link">Analizar mi oferta</Link>}
-      {plan === 'armando' && <span className="arr-link arr-link--espera">Armando tu plan…</span>}
-      {typeof plan === 'object' && (
-        <Link href={plan.url} className="arr-link">{plan.n > 0 ? `Mi plan de arranque · ${plan.n} tareas` : 'Mi plan de arranque'}</Link>
-      )}
-      {/* Entra al Ops Center (`RUTA_AL_TERMINAR`, 18/10/2026: «la primera tab que ve el cliente es Ops Center»). */}
+      {/* Sin caminos para elegir (18/10/2026): entra solo a los 1,5 s (`MS_PARA_ENTRAR`). Este link queda sólo por si la
+          navegación no sale. */}
       <Link href={modo === 'oferta' ? entrada : '/plan'} className="arr-link arr-link--principal">Entrar a MaKo</Link>
     </div>
   );
 }
 
 const CSS_ARRANQUE = `
+.arr-capa--sale { opacity: 0; transition: opacity .4s ease; }
+@media (prefers-reduced-motion: reduce) { .arr-capa--sale { transition: none; } }
 .arr-capa {
   position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; left: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column;
   font-family: 'Geist', sans-serif; color: var(--ink);
@@ -389,7 +416,7 @@ const CSS_ARRANQUE = `
 .arr-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .arr-link {
   display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--surface); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; text-decoration: none;
+  background: var(--surface); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; text-decoration: none; font-family: inherit; cursor: pointer;
 }
 .arr-link:hover { border-color: var(--border-strong); }
 .arr-link--principal { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }

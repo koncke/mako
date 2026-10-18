@@ -154,13 +154,15 @@ test('cada onboarding de tab tiene un nombre corto legible', () => {
   }
 });
 
-test('el onboarding no salta solo a otra pantalla: termina con caminos que la persona elige', () => {
-  // Desde el 16/10/2026 el onboarding es el chat de arranque (el wizard y su pantalla de cierre se
-  // borraron). Terminar NO redirige: MaKo deja una tarjeta con los caminos y la persona elige. Y el chat
-  // no se va nunca (Martín, 12/10: «que jamás se salga el recuadro del chat»).
+test('al terminar, entra solo al Ops Center por navegación interna (nunca una recarga dura)', () => {
+  // Hasta el 18/10/2026 terminar NO redirigía: quedaba una tarjeta con caminos. Martín lo dio vuelta ese día: «cuando dice
+  // "¡Listo…!" automáticamente debería ingresar a MaKo, no preguntarme». Entra con el router de la casa: una recarga dura
+  // (window.location) cortaría el plan que se sigue armando de fondo. Roturas (18/10, romper-entrar.js; base 15/0): no
+  // entra solo → 13/2 · entra con una recarga dura → 13/2 · vuelven los caminos → 14/1.
   const src = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
-  assert.doesNotMatch(src, /window\.location|router\.push|redirect\(/, 'el chat de arranque navega solo');
-  assert.match(src, /function TarjetaListo/, 'el chat dejó de terminar con su tarjeta de caminos');
+  assert.doesNotMatch(src, /window\.location|redirect\(/, 'el chat de arranque recarga la página al terminar');
+  assert.match(src, /if \(vista\.etapa !== 'listo'\) return;[\s\S]{0,200}router\.push\(/, 'al terminar no entra solo');
+  assert.match(src, /function TarjetaListo/, 'sin el link de respaldo por si la navegación no sale');
 });
 
 test('el botón de avance tiene tinta propia para su fondo, en TODAS las paletas', () => {
@@ -231,8 +233,13 @@ test('el cierre del onboarding no ofrece caminos que la capa no puede abrir', ()
   const ini = src.indexOf('function TarjetaListo');
   const tarjeta = src.slice(ini, src.indexOf('\n}\n', ini));
   assert.ok(ini > 0 && tarjeta.length > 100, 'no encuentro la tarjeta final');
-  assert.match(tarjeta, /modo === 'oferta' && <Link href="\/crm"/, 'el CRM se ofrece a una capa que no lo ve');
-  assert.match(tarjeta, /modo === 'oferta' && <Link href="\/offer"/, 'Offer se ofrece a una capa que no lo ve');
+  // Desde el 18/10/2026 no hay caminos para elegir: entra solo (Martín: «automáticamente debería ingresar a MaKo, no
+  // preguntarme»). Sin el CRM ni Offer en la tarjeta, y la entrada sola mira la capa igual que el link.
+  assert.doesNotMatch(tarjeta, /href="\/crm"|href="\/offer"|Armando tu plan/, 'volvieron los caminos del final');
+  const sin = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
+  assert.match(sin, /setSaliendo\(true\); router\.push\(vista\.modo === 'oferta' \? RUTA_AL_TERMINAR : '\/plan'\); \}, MS_PARA_ENTRAR\);/,
+    'al terminar no entra solo (o entra por una recarga dura, que corta el plan que se sigue armando)');
+  assert.match(sin, /import Link, \{ useRouter, useWs \} from '@\/app\/_ui\/Link';/, 'el router sin el ?ws= saca al super admin del cliente');
   // Desde el 17/10/2026 el modo 'oferta' entra a lo que dijo que quiere resolver primero (`rutaDeEntrada`): sus capas
   // (completo y agencia) ven todas las tabs.
   assert.match(tarjeta, /modo === 'oferta' \? entrada : '\/plan'/, 'la entrada a MaKo no mira la capa');
@@ -242,7 +249,7 @@ test('el cierre del onboarding no manda a ningún lado sin la pestaña del clien
   // La CUARTA forma de navegar. Un link sin `?ws=` no falla: te deja mirando otra cuenta. El chat usa el
   // Link de la casa (app/_ui/Link), que lleva la pestaña sola; nunca `next/link`.
   const src = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
-  assert.match(src, /import Link from '@\/app\/_ui\/Link'/, 'los links del cierre dejaron de llevar la pestaña del cliente');
+  assert.match(src, /import Link, \{ useRouter, useWs \} from '@\/app\/_ui\/Link'/, 'los links y la entrada sola dejaron de llevar la pestaña del cliente');
   assert.doesNotMatch(src, /from 'next\/link'|from 'next\/navigation'/, 'el chat volvió a navegar sin la pestaña');
-  assert.ok([...src.matchAll(/<Link href=/g)].length >= 2, 'no encontré los links del cierre');
+  assert.ok([...src.matchAll(/<Link href=/g)].length >= 1, 'no encontré el link de respaldo del cierre');
 });
