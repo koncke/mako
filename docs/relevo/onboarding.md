@@ -1,5 +1,27 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 18/10/2026 ~15:00 AR — CIERRE CON LA CUENTA AL 96 %
+
+<sub>Martín autorizó seguir pasado el 95 % (pedido 9cb5e3a6 del Ops Center, 14:42). Rama onboarding-v3, VERDE
+`0322b1536` (con origin/integracion), pasado al Cerebro.</sub>
+
+**Lo de esta tanda** (feedback-18-10.md, «Onboarding, probado por Martín a las 14:00 ART», menos el 3):
+- `1f7467b4d`: nunca «Conectar mi propia IA» en el onboarding (usa el crédito de la plataforma).
+- `8819fc58f`: la entrada vuelve a esperar el clic (se revierte el avance solo de ffd0ea3ef).
+- `d40986454`: «Analizando tu link…» / «Analizando N archivos…» mientras lee; los puntitos, sólo al contestar
+  (`leeAlgo` en app/offer/ChatOffer.tsx).
+- `12ad33b25`: RESET devuelve el nombre del workspace a «Cliente de Prueba» (lib/reset-workspace.ts,
+  `NOMBRE_WS_PRUEBA`). El onboarding le escribe el negocio y el RESET no tocaba esa fila: por eso seguía
+  «Consultesis». El nombre y el negocio ya no tienen respuestas rápidas («Ayelen», «Consultesis»).
+
+**SIN HACER:**
+- **«La foto de Mauricio» después de RESET:** no se pudo medir sin el navegador, y el ws 3 no tiene usuarios.
+  Sospecha: el avatar del lado «yo» del chat o el de la barra mirando un ws sin titular. Hay que mirarlo con la
+  pantalla, inspeccionando el ws 3 después de un RESET.
+- Todo lo de la sección siguiente que sigue «sin hacer»: las preguntas de fase sin Meta, el vuelo de la estrella, la
+  carga de toda la app y #850.
+
+
 ## ESTADO AL 18/10/2026 ~12:40 AR — CIERRE POR CUENTA AL 95 % (LO PRIMERO PARA QUIEN SIGA)
 
 <sub>Chat «Onboarding», cuenta 4. Rama onboarding-v3 (C:/dev/wt-onboarding-v3), sin pushear: las puntas van al Cerebro
