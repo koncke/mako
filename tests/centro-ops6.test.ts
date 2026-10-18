@@ -146,7 +146,7 @@ test('7: el chat del Runner no está en la lista del Ops Center', () => {
   assert.equal(esChatDelRunner(chat('Runner de pruebas')), false, 'ni uno que sólo empieza igual');
   assert.equal(esChatDelRunner(chat('Cualquiera', { esRunner: true })), true, 'la marca de la PC manda');
   // La pantalla lo saca; `completarChats` lo sigue devolviendo marcado (de ahí sale que no se le entrega nada).
-  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const chats = useMemo\(\(\) => sinElRunner\(completarChats\(base, \{ carteros, trabajos, ahora \}\)\), \[base, carteros, trabajos, ahora\]\);/);
+  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const conVigia = useMemo\(\(\) => sinElRunner\(completarChats\(base, \{ carteros, trabajos, ahora \}\)\), \[base, carteros, trabajos, ahora\]\);/);
 });
 
 test('8: un «Completado» sin ver avisa IGUAL que «Espera tu respuesta»: el mismo renglón y el mismo globito', () => {
@@ -173,5 +173,5 @@ test('8: un «Completado» sin ver avisa IGUAL que «Espera tu respuesta»: el m
   assert.match(movil, /espera=\{avisosDe\(espera, nuevo\)\}/, 'teléfono: el globito de la criatura');
   assert.match(movil, /const avisos = centro\.avisos;/, 'y el orden de la lista');
   assert.doesNotMatch(pc + movil, /co-aviso-ya|co-fila__hace--nuevo/, 'sin el globito verde de antes');
-  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const avisos = useMemo\(\(\) => \(c: ChatCentro\) => avisosDe\(esperaDe\(c, esperas\), yaSinVer\.has\(c\.clave\)\), \[esperas, yaSinVer\]\);/);
+  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const avisos = useMemo\(\(\) => \(c: ChatCentro\) => avisosDe\(esperaDe\(c, esperasConVigia\), yaSinVer\.has\(c\.clave\)\), \[esperasConVigia, yaSinVer\]\);/);
 });
