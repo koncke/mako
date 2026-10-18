@@ -484,41 +484,51 @@ export async function chatClaudeTools(
   // esto y sigue en Claude; su ruteo a barato va por su propio camino (DOER_GROQ_TOOLS).
   let model = opts.model ?? '';   // sin default: el `?? MODEL` era la quinta puerta
   if (!opts.model && opts.feature) {
-    try {
-      const { modeloDeFeature } = await import('@/lib/model-registry');
-      const ref = await modeloDeFeature(opts.feature);
-      if (ref && ref.provider !== 'anthropic') {
-        // ⚠️ ACÁ TAMBIÉN CLAUDE ES EL ÚLTIMO RECURSO. Este camino probaba UN proveedor
-        // y ante cualquier fallo se iba a Claude Sonnet — el mismo agujero que
-        // `chatClaude` ya tenía cerrado, vivo en la mitad con herramientas, y con el
-        // error más previsible de todos (el 429 de Gemini). Ahora se recorre la cascada
-        // de tools entera (todas las cuentas de cada proveedor gratis) y recién si
-        // NINGUNA contesta se paga. La cascada se corta sola si un proveedor ya ejecutó
-        // una herramienta: reintentar después de una escritura la duplicaría.
-        const errores: string[] = [];
-        try {
-          const { chatCheapToolsCascade, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
-          const provs = [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
-          const r = await chatCheapToolsCascade(system, messages, tools, runTool, {
-            maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
-            provs, modelos: { [ref.provider as ProvName]: ref.model }, erroresOut: errores,
-          });
-          if (r) return { text: r.text, steps: r.steps, stopReason: r.stopReason };
-          if (opts.sinFallbackClaude) throw new Error(`falló la IA (${errores.join(' · ').slice(0, 200) || 'sin proveedor gratis disponible'})`);
-        } catch (e) {
-          // El caller pidió NO caer a Claude (ej. el doer): re-lanzamos para que avise
-          // "falló Gemini" en vez de gastar Claude en silencio.
-          if (opts.sinFallbackClaude) throw e;
-          errores.push(e instanceof Error ? e.message : String(e));
-        }
-        // Toda la cascada gratis falló: recién ACÁ se paga, con SONNET por default (el
-        // fallbackModel del router si vino), NUNCA Opus.
-        model = opts.fallbackModel ?? 'claude-sonnet-5';
-        console.warn(`[anthropic] tools ${opts.feature}: la cascada gratis no contestó, pago Claude ${model} — ${errores.join(' · ')}`);
-      } else if (ref) {
-        model = ref.model;
+    // ⚠️ El `catch` vacío envuelve SÓLO la lectura del registro (ticket #5, 18/10/2026). Antes envolvía también la
+    // cascada, y el «falló la IA» que se re-lanza con `sinFallbackClaude` caía en él y se perdía. El modelo quedaba
+    // vacío y el veto contestaba «Claude vetado — «mako-doer»…». La Ticketera lo leyó como un bug: era la IA gratis
+    // que no contestó. El diagnóstico obvio, sumar la feature a la lista blanca, era el equivocado: habría pagado Claude.
+    const feature = opts.feature;
+    const ref = await (async () => {
+      try {
+        const { modeloDeFeature } = await import('@/lib/model-registry');
+        return await modeloDeFeature(feature);
+      } catch (e) {
+        if (opts.sinFallbackClaude) throw new Error(`falló la IA (no pude leer el modelo de «${feature}»: ${e instanceof Error ? e.message : String(e)})`);
+        return null; // sin registro → el veto corta abajo; ya no hay «usá el default»
       }
-    } catch { /* sin registro → el veto corta abajo; ya no hay «usá el default» */ }
+    })();
+    if (ref && ref.provider !== 'anthropic') {
+      // ⚠️ ACÁ TAMBIÉN CLAUDE ES EL ÚLTIMO RECURSO. Este camino probaba UN proveedor
+      // y ante cualquier fallo se iba a Claude Sonnet — el mismo agujero que
+      // `chatClaude` ya tenía cerrado, vivo en la mitad con herramientas, y con el
+      // error más previsible de todos (el 429 de Gemini). Ahora se recorre la cascada
+      // de tools entera (todas las cuentas de cada proveedor gratis) y recién si
+      // NINGUNA contesta se paga. La cascada se corta sola si un proveedor ya ejecutó
+      // una herramienta: reintentar después de una escritura la duplicaría.
+      const errores: string[] = [];
+      try {
+        const { chatCheapToolsCascade, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
+        const provs = [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
+        const r = await chatCheapToolsCascade(system, messages, tools, runTool, {
+          maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
+          provs, modelos: { [ref.provider as ProvName]: ref.model }, erroresOut: errores,
+        });
+        if (r) return { text: r.text, steps: r.steps, stopReason: r.stopReason };
+        if (opts.sinFallbackClaude) throw new Error(`falló la IA (${errores.join(' · ').slice(0, 200) || 'sin proveedor gratis disponible'})`);
+      } catch (e) {
+        // El caller pidió NO caer a Claude (ej. el doer): re-lanzamos para que avise
+        // "falló Gemini" en vez de gastar Claude en silencio.
+        if (opts.sinFallbackClaude) throw e;
+        errores.push(e instanceof Error ? e.message : String(e));
+      }
+      // Toda la cascada gratis falló: recién ACÁ se paga, con SONNET por default (el
+      // fallbackModel del router si vino), NUNCA Opus.
+      model = opts.fallbackModel ?? 'claude-sonnet-5';
+      console.warn(`[anthropic] tools ${opts.feature}: la cascada gratis no contestó, pago Claude ${model} — ${errores.join(' · ')}`);
+    } else if (ref) {
+      model = ref.model;
+    }
   }
 
   // ── EL VETO, la MISMA puerta que chatClaude ──────────────────────────────────────

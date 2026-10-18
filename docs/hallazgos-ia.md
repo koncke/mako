@@ -4523,3 +4523,11 @@ sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA
   mandando un WhatsApp real.
 
 · *2026-10-17 chat «Onboarding» (claude4)*
+
+## «Claude vetado» que no era un veto: el `catch` del registro se tragaba el «falló la IA» (ticket #5, 18/10/2026)
+
+- **Síntoma:** a Mauricio (ws1) MaKo no le contestó en el chat de la app. La Ticketera abrió un bug con el mensaje «responder: Claude vetado — «mako-doer» no está en la lista blanca de lib/veto-claude.ts». En `anthropic_usage` quedó `vetado:-`, una fila sin modelo.
+- **El diagnóstico obvio era el equivocado:** sumar `mako-doer` a la lista blanca habría pagado Claude por cada turno de MaKo, que es justo lo que prohíbe el veto del 13/8.
+- **Causa real:** en `chatClaudeTools` (`lib/anthropic.ts`), un `try { registro + cascada gratis } catch {}` envolvía las dos cosas. Cuando la cascada no contestaba, el llamador pedía `sinFallbackClaude` y el «falló la IA (…)» re-lanzado caía en ese `catch` vacío. El modelo quedaba en `''` y el veto hablaba por él. `chatClaude` ya tenía la lección («Acá afuera del catch, para que el corte no se lo coma»); la mitad con herramientas no.
+- **Regla:** un `catch` vacío envuelve sólo la operación que puede fallar «sin importancia» (leer el registro), nunca un camino que re-lanza a propósito. Lo fija `tests/anthropic-tools-sin-fallback.test.ts`: la forma vieja da 3 de 3 fallas.
+- **Sin hacer:** no se sabe por qué la IA gratis no contestó en el ws1 a las 03:50 UTC; con el arreglo, el próximo error trae el motivo real. Sospecha sin medir: desde el 16/10 las copias de las claves de la plataforma no cuentan como del negocio (`lib/ia-keys.ts`), y el ws1 podría no tener ninguna propia que pueda recibir datos de sus clientes. Eso decide Martín: el ticket volvió a él como pedido.
