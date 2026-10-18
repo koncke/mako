@@ -185,12 +185,16 @@ test('cada componente del kit monta sus estilos, y quien usa clases tk-* sueltas
 // ── 8. La columna con su bloque de fondo, y «Próximo» plegado ───────────────────────────────────────────────────────
 test('la columna con su bloque de fondo en los tres tableros, y «Próximo» plegado detrás del calendario', () => {
   const tk = leer('lib/tarjeta-kanban.ts');
-  assert.match(tk, /export const FONDO_COLUMNA = 'var\(--surface-2\)';/);
+  const valor = tk.match(/export const FONDO_COLUMNA = '([^']+)';/)?.[1];
+  assert.equal(valor, 'var(--surface-2)');
   const crm = leer('app/crm/CrmBoard.tsx');
   for (const [f, t] of [['app/crm/CrmBoard.tsx', crm], ['app/plan/board/BoardShell.tsx', leer('app/plan/board/BoardShell.tsx')],
     ['app/customer-success/KanbanEntrega.tsx', leer('app/customer-success/KanbanEntrega.tsx')]] as const) {
     assert.doesNotMatch(t, /var\(--surface-2\) 55%/, `${f}: la columna volvió al fondo que no se ve`);
-    assert.match(t, /FONDO_COLUMNA/, `${f}: la columna no usa el fondo común`);
+    // Los tableros en TSX usan la constante; el CSS de Clients lleva su valor escrito (la `}` de una interpolación
+    // cortaba la regla que lee tests/cs-kanban-fases.test.ts).
+    const regla = t.match(/\n\.ke-col \{[^}]*\}/)?.[0];
+    assert.ok(regla ? regla.includes(`background: ${valor};`) : /FONDO_COLUMNA/.test(t), `${f}: la columna no usa el fondo común`);
   }
   assert.match(crm, /const \[verProximo, setVerProximo\] = useState\(false\);/, '«Próximo» tiene que arrancar plegado');
   assert.match(crm, /if \(!verProximo\) return null;/, '«Próximo» se dibuja sólo desplegado');

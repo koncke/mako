@@ -5688,3 +5688,9 @@ curso-sacar-un-curso, curso-purga-entregas, curso-grabar-notas, curso-vista-prev
 
 **Sin hacer:** «Pago fallido»; la foto en el teléfono (`ClienteCs` no trae `avatar_url`); la vista Tabla y Avance.
 **Vive en:** app/customer-success/ClienteCard.tsx y KanbanEntrega.tsx · app/m/cs/CustomerSuccessM.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
+
+⚠️ **Una `}` en el CSS de KanbanEntrega rompe sus tests sin tocar la pantalla (18/10/2026).** tests/cs-kanban-fases.test.ts
+lee la regla `.ke-col` con `[^}]*`: un `${FONDO_COLUMNA}` interpolado —y después, un comentario que mencionaba la llave—
+la cortaban antes del `max-height`, y el test decía «sin tope, la columna crece», que se lee como una regresión del
+scroll y no lo es. Regla: en ese CSS, valores escritos (no interpolados) y ninguna llave dentro de un comentario.
+*18/10/2026, chat «CRM» (claude4).*
