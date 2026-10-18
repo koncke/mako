@@ -9885,3 +9885,42 @@ app/crm/lead-view/ficha/useFichaDelFunnel.ts · guardado-ficha.ts · HistorialFi
 resumen/charla-actions.ts · tests: crm-funnel-del-lead, updatelead-no-borra-venta, crm-deshacer-no-pisa,
 crm-alta-funnel-ajeno, calificado-al-instante, campana-varios-funnels, crm-una-marca-de-ignorados, ficha-relee-lo-de-mako,
 ficha-historial, ficha-resumen-charla · *17/10/2026, chat «Pendientes B2: CRM y clientes» (claude4).*
+
+## Deshacer un movimiento le borraba la venta: deshacer NO es otro guardado (17/10/2026)
+
+**El síntoma** (revisión adversarial del 17/10, viejo): un lead de «Facturando» (abierto, `monto_cierre_usd = 3000`
+cargado por el plan de pagos) arrastrado por error a Ganado y deshecho volvía abierto **sin los 3000 y sin una línea**
+que lo dijera. Un Ganado del 15/09 movido a una abierta y deshecho volvía con `fecha_cierre` de HOY: la venta cambiaba
+de mes en Revenue. «Restaurar» desde el historial, igual con la fecha.
+
+**El diagnóstico obvio era el equivocado.** «El undo no repone el monto» lleva a pasarle el monto (ya lo hacía:
+`opts.monto` viajaba desde la card). La causa es que el Deshacer **volvía a mover** (`setPipelineStage(id, from)`): el
+estado cambiaba otra vez, `desenlaceAlGuardar` lo tomaba como una decisión de la venta y la limpiaba fuera de Ganado,
+y `opts.monto` sólo se aplica con destino Ganado. Después el `.delete().gte('created_at', ahora-90s)` se llevaba la
+línea «Monto de cierre 3000 → —» que dejaba el propio deshacer, y todo lo que otra persona hubiera escrito en ese rato.
+`revertMoveAction` tenía la misma trampa: el estado de antes por `updateLead` → la regla → monto borrado si el
+movimiento no lo había tocado, y fecha de hoy porque `fecha_cierre` no estaba en AUDIT_FIELDS.
+
+**La regla:** deshacer devuelve una FOTO, no toma una decisión. Lo que el movimiento cambió vuelve a su `valor_anterior`
+del historial; lo que no cambió se queda; sin coerciones (`desenlaceAntesDelMovimiento`, lib/lead-desenlace.ts, por
+`updateLead(…, { desenlaceExacto })`). El toast deshace el GRUPO del movimiento (`movimientoADeshacer`,
+lib/historial-pisado.ts) por el camino de «Restaurar», con `camposPisados`, y borra sólo ese grupo y sus eventos
+(«Datos pendientes», «Datos sin marcar») del mismo autor. Sin grupo, no escribe nada. `fecha_cierre` entró a AUDIT_FIELDS
+como «Fecha de cierre» y a REVERTIBLES.
+- ⚠️ **`cerro` no tiene línea**: al deshacer un cambio de estado vuelve el que deriva el estado de antes
+  (`cerroDelEstado`). Exacto mientras todo camino que escribe el estado escriba su cerro (hoy sí: `updateLead` y
+  `lib/pagos.ts`). Un lead legado con estado y cerro desparejos volvería coherente, no idéntico.
+- ⚠️ **Historial anterior al 17/10**: sin línea «Fecha de cierre», un Ganado restaurado sin fecha recibe la de hoy
+  (lo de siempre; un ganado sin fecha no lo cuenta Revenue). Desde ahora la línea existe y manda.
+- ⚠️ **`cambioDeEstado` de `updateLead`** miraba sólo `input.estado_lead`; un deshacer lo trae en `desenlaceExacto`. Sin
+  mirarlo, restaurar un estado podía disparar la automatización de una etapa de reunión, que es sólo para la reunión
+  cargada a mano (M1-b).
+- **Sin hacer:** la etapa vuelve como override (`setBoardStageOverride(from)`) aunque antes fuera derivada
+  (`pipeline_stage` null) — igual que antes del cambio; no hay línea que diga cuál era. El Deshacer de «Completar datos»
+  no revierte el plan de pagos ni el deal que cargó el wizard (nunca lo hizo). Si `etapa_vista` estaba desfasada, la
+  línea «Etapa» sale desde otra clave y el toast no deshace (el teléfono dice «No se pudo deshacer»; el escritorio
+  devuelve la card a donde está) en vez de mover a ciegas.
+
+app/crm/actions.ts (`undoStageMoveAction`, `revertMoveAction`, `revertAuditChangeAction`) · lib/leads.ts (AUDIT_FIELDS,
+`updateLead`) · lib/lead-desenlace.ts · lib/historial-pisado.ts · app/crm/CrmBoard.tsx · app/m/crm/acciones.ts · test:
+deshacer-movimiento-venta · *17/10/2026, agente del Cerebro (claude4).*

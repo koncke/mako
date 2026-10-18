@@ -2331,6 +2331,11 @@ logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
   Revertir sólo la pantalla es mentir hasta el próximo F5. Acá el deshacer vuelve a llamar
   al mismo camino con el valor anterior — y restaura también el estado que ese cambio trajo
   de arrastre (el candado de `score_manual` lo puso el cambio, no la persona).
+- ⚠️ **Y si ese camino DERIVA o COERCIONA, volver a llamarlo no es deshacer: es otra decisión.** El Deshacer del CRM
+  volvía a mover el lead y la regla del desenlace le borraba al de «Facturando» el monto que el movimiento no había
+  tocado (17/10/2026). Deshacer escribe la FOTO de antes —lo que el cambio movió vuelve a su valor anterior, lo demás
+  queda— sin pasar por la regla (`desenlaceExacto`, lib/lead-desenlace.ts), y borra del historial sólo su grupo, nunca
+  «lo de los últimos N segundos» (docs/hallazgos-crm.md, «Deshacer un movimiento le borraba la venta…»).
 - ⚠️ **Y si el deshacer REEMPLAZA entero (restaura una foto), lleva lo `esperado`.** Un compare-and-set del server
   protege a los cambios que se aplican como parche sobre lo de hoy, no a «pon esto entero»: sin `esperado`, el
   Deshacer de una persona borra lo que otra guardó después. La pila es POR ENTIDAD (una pantalla puede cambiar de

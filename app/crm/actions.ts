@@ -56,7 +56,8 @@ import {
   enriquecerLead,
   valorDelHistorial,
 } from '@/lib/leads';
-import { camposPisados } from '@/lib/historial-pisado';
+import { camposPisados, movimientoADeshacer } from '@/lib/historial-pisado';
+import { desenlaceAntesDelMovimiento, lineasTocanElDesenlace, LINEA_DEL_DESENLACE, type Desenlace } from '@/lib/lead-desenlace';
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { agregarAProducto } from '@/lib/lead-funnel';
@@ -2449,6 +2450,8 @@ const CAMPO_SUS_MESES = 'Plazo de la suscripción';
 const REVERTIBLES = new Set([
   'Etapa', 'Estado', 'Asistió R1', 'Asistió R2', 'Calificado', 'Fecha R1', 'Fecha R2',
   'Fecha de agendamiento', 'Closer', 'Setter', 'Monto de cierre', 'Motivo',
+  // La fecha de la venta (AUDIT_FIELDS desde el 17/10/2026): vuelve con el resto del desenlace, tal cual.
+  LINEA_DEL_DESENLACE.fecha_cierre,
   'Confirmación de pago', 'Deadline de nutrición manual',
   'Nombre', 'Email', 'Teléfono', 'Empresa', 'Web',
   // Los dos de la mig 0258 (punto 21 y 28 del 12/10/2026): columna 1:1, por `saveLeadMeta`.
@@ -2479,33 +2482,44 @@ function columnaSuscripcion(campo: string, v: string | null): Record<string, num
   return campo === CAMPO_SUS_MESES ? { suscripcion_meses: valor } : { suscripcion_monto_usd: valor };
 }
 
+/** Los cinco campos del desenlace de un lead, para `desenlaceAntesDelMovimiento`. */
+function desenlaceDe(l: Lead): Desenlace {
+  return {
+    estado_lead: l.estado_lead, cerro: l.cerro, motivo_perdida: l.motivo_perdida,
+    monto_cierre_usd: l.monto_cierre_usd, fecha_cierre: l.fecha_cierre,
+  };
+}
+
 /**
- * Deshace un movimiento de etapa RECIÉN hecho (toast de 5s del tablero): revierte
- * la etapa y BORRA el rastro del movimiento en el historial — un movimiento
- * deshecho al instante no es historia, es un mis-click. Pasada la ventana del
- * toast, lo que corresponde es "Restaurar" desde el historial (ese sí audita).
+ * Deshace un movimiento de etapa RECIÉN hecho (toast de 5s del tablero y del teléfono): deja el lead
+ * EXACTAMENTE como estaba —etapa, estado, cerro, monto y fecha de cierre, motivo, asistencias— y borra
+ * el rastro de ESE movimiento: un movimiento deshecho al instante no es historia, es un mis-click.
+ * Pasada la ventana del toast, lo que corresponde es «Restaurar» desde el historial.
+ *
+ * ⚠️ NO VUELVE A MOVER (17/10/2026). Hasta entonces llamaba a `setPipelineStage(id, from)`: el estado
+ * cambiaba otra vez, `desenlaceAlGuardar` lo tomaba como una decisión de la venta y un lead de
+ * «Facturando» con 3000 cargados, arrastrado a Ganado por error y deshecho, volvía SIN los 3000; un
+ * Ganado del 15/09 volvía con la fecha de cierre de hoy. Y el `.delete().gte('created_at', ahora-90s)`
+ * se llevaba la línea que lo decía y todo lo que otra persona hubiera escrito en ese minuto y medio.
+ * Ahora busca el grupo del movimiento en el historial (`movimientoADeshacer`) y lo revierte por el mismo
+ * camino que «Restaurar» (`revertMoveAction`): el desenlace vuelve tal cual, no pisa lo que cambió otro
+ * (`camposPisados`) y borra sólo ese grupo. Sin grupo, no escribe nada.
+ *
+ * Devuelve el «no» como dato (en producción Next esconde el mensaje de un error de server action).
  */
-export async function undoStageMoveAction(
-  id: number,
-  from: string,
-  opts?: { monto?: number | null; motivo?: string | null },
-): Promise<void> {
+export async function undoStageMoveAction(id: number, from: string): Promise<void | { error: string }> {
   await exigirSesion();
-  await setPipelineStage(id, from, { monto: opts?.monto ?? null, motivo: opts?.motivo ?? null });
-  try {
-    // Ventana corta: solo lo que este movimiento acaba de escribir.
-    const desde = new Date(Date.now() - 90_000).toISOString();
-    const { error } = await (await getTenantDb())
-      .from('lead_audit')
-      .delete()
-      .eq('lead_id', id)
-      .gte('created_at', desde);
-    if (error) console.error('[undo] limpiar rastro falló:', error.message);
-  } catch { /* si falla, queda la historia — el undo igual se aplicó */ }
-  bust(TAG.leads, TAG.pagos);
-  revalidatePath('/crm');
-  revalidatePath(`/crm/${id}`);
-  revalidatePath('/general');
+  const mov = movimientoADeshacer(await getLeadAudit(id), from, Date.now() - 90_000);
+  if (!mov) return { error: 'No encontré el movimiento para deshacer.' };
+  const r = await revertMoveAction(id, mov.createdAt);
+  if (r && 'error' in r) return r;
+  // Lo que el movimiento escribió atrás de su grupo y sólo habla de él (lo pendiente de la etapa a la que llegó).
+  if (mov.eventos.length) {
+    try {
+      const { error } = await (await getTenantDb()).from('lead_audit').delete().eq('lead_id', id).in('id', mov.eventos);
+      if (error) console.error('[undo] borrar los eventos del movimiento falló:', error.message);
+    } catch { /* si falla, quedan esas líneas — el deshacer igual se aplicó */ }
+  }
 }
 
 /** Historial de cambios de un lead, con autor resuelto (nombre + foto). */
@@ -2608,15 +2622,20 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
       else await setBoardStageOverride(leadId, null, null); // volver a derivación
       break;
     }
-    case 'Estado': await updateLead(leadId, { estado_lead: (v ?? 'abierto') as Lead['estado_lead'] }); break;
+    // El desenlace vuelve TAL CUAL (`desenlaceAntesDelMovimiento`, 17/10/2026): por `desenlaceAlGuardar`, volver el
+    // estado de un lead de «Facturando» le borraba el monto, y volver un monto en un lead abierto, también.
+    case 'Estado':
+    case 'Monto de cierre':
+    case 'Motivo':
+    case LINEA_DEL_DESENLACE.fecha_cierre:
+      await updateLead(leadId, {}, { desenlaceExacto: desenlaceAntesDelMovimiento(desenlaceDe(before), [row], new Date().toISOString().slice(0, 10)) });
+      break;
     case 'Asistió R1': await updateLead(leadId, { asistio_j1: bool(v) }); break;
     case 'Asistió R2': await updateLead(leadId, { asistio_j2: bool(v) }); break;
     case 'Calificado': await updateLead(leadId, { calificado: bool(v) }); break;
     case 'Fecha R1': await updateLead(leadId, { fecha_junta_1: v }); break;
     case 'Fecha R2': await updateLead(leadId, { fecha_junta_2: v }); break;
     case 'Fecha de agendamiento': await updateLead(leadId, { fecha_agenda: v }); break;
-    case 'Monto de cierre': await updateLead(leadId, { monto_cierre_usd: v ? parseFloat(v) : null }); break;
-    case 'Motivo': await updateLead(leadId, { motivo_perdida: v }); break;
     case 'Confirmación de pago': await updateLead(leadId, { fecha_confirmacion: v }); break;
     case 'Closer': await saveLeadMeta(leadId, { closer: v }); break;
     case 'Setter': await saveLeadMeta(leadId, { setter: v }); break;
@@ -2705,15 +2724,13 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
     const v = r.valor_anterior;
     switch (r.campo) {
       case 'Etapa': etapa = { set: true, value: v }; break;
-      case 'Estado': upd.estado_lead = (v ?? 'abierto') as Lead['estado_lead']; break;
+      // Estado, Monto de cierre, Motivo y Fecha de cierre: el desenlace, abajo y entero (`desenlaceExacto`).
       case 'Asistió R1': upd.asistio_j1 = bool(v); break;
       case 'Asistió R2': upd.asistio_j2 = bool(v); break;
       case 'Calificado': upd.calificado = bool(v); break;
       case 'Fecha R1': upd.fecha_junta_1 = v; break;
       case 'Fecha R2': upd.fecha_junta_2 = v; break;
       case 'Fecha de agendamiento': upd.fecha_agenda = v; break;
-      case 'Monto de cierre': upd.monto_cierre_usd = v ? parseFloat(v) : null; break;
-      case 'Motivo': upd.motivo_perdida = v; break;
       case 'Confirmación de pago': upd.fecha_confirmacion = v; break;
       case 'Closer': meta.closer = v; break;
       case 'Setter': meta.setter = v; break;
@@ -2733,8 +2750,14 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
     }
   }
 
-  // 1) Columnas del lead JUNTAS (estado + monto en la misma llamada → invariantes OK).
-  if (Object.keys(upd).length) await updateLead(leadId, upd);
+  // 1) Columnas del lead JUNTAS, y el desenlace de ANTES tal cual en la MISMA escritura.
+  //    ⚠️ Pasado por `desenlaceAlGuardar` (hasta el 17/10/2026), volver de Ganado a «Facturando» le borraba al lead
+  //    el monto que el movimiento NO había tocado (cargado por el plan de pagos, sin línea en este grupo), y volver
+  //    a Ganado le ponía la fecha de cierre de HOY. Ahora vuelve lo que dicen las líneas y lo demás queda.
+  const desenlaceExacto = lineasTocanElDesenlace(grupo)
+    ? desenlaceAntesDelMovimiento(desenlaceDe(actual), grupo, new Date().toISOString().slice(0, 10))
+    : undefined;
+  if (Object.keys(upd).length || desenlaceExacto) await updateLead(leadId, upd, { desenlaceExacto });
   // 2) Meta (closer/setter/contacto).
   if (Object.keys(meta).length) await saveLeadMeta(leadId, meta);
   // 2b) La mensualidad / el plazo de una suscripción.

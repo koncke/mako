@@ -605,7 +605,7 @@ export function CrmBoard({
   const [ordenCols, setOrdenCols] = useState<{ funnel: number | null; keys: string[] } | null>(null);
   // `pendientes`: lo que la etapa pide y todavía falta. Desde el 17/09 eso NO frena
   // el movimiento (08-T22): se guarda igual y se avisa acá, sin pedir nada.
-  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; monto: number | null; motivo: string | null; pendientes?: string[] } | null>(null);
+  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; pendientes?: string[] } | null>(null);
   // Los dos toques opcionales de Meta que viajan en la confirmación de mover (ver
   // senales-meta.ts). Ref y no estado: la confirmación guarda su `onOk` al abrirse,
   // y tiene que leer lo que se tocó DESPUÉS, al confirmar.
@@ -728,7 +728,7 @@ export function CrmBoard({
     // Toast "Deshacer" (5s) tras concretar un movimiento en el tablero.
     if (from && from !== key) {
       const lead = leads.find((l) => l.id === id);
-      setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label, monto: lead?.monto || null, motivo: lead?.motivo || null });
+      setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label });
     }
   };
 
@@ -793,16 +793,19 @@ export function CrmBoard({
 
   // Revertir el último movimiento a su etapa anterior (ventana del toast, 5s).
   // No deja huella en el historial: un movimiento deshecho al instante es un
-  // mis-click, no historia. Lleva el monto/motivo previos para reponerlos si el
-  // movimiento los borró (des-ganar).
+  // mis-click, no historia. El desenlace de antes (monto, fecha de cierre,
+  // estado) lo repone el server desde el historial del movimiento, tal cual:
+  // el monto que tenía la card NO viaja (17/10/2026, `undoStageMoveAction`).
   const undoMove = () => {
     if (!undoInfo) return;
-    const { id, from, monto, motivo } = undoInfo;
+    const { id, from } = undoInfo;
     setUndoInfo(null);
     setLocalStage((m) => ({ ...m, [id]: from }));
     startTransition(async () => {
-      try { await undoStageMoveAction(id, from, { monto, motivo }); }
-      catch { setLocalStage((m) => { const n = { ...m }; delete n[id]; return n; }); }
+      try {
+        const r = await undoStageMoveAction(id, from);
+        if (r && 'error' in r) throw new Error(r.error);
+      } catch { setLocalStage((m) => { const n = { ...m }; delete n[id]; return n; }); }
       router.refresh();
     });
   };
@@ -1548,7 +1551,7 @@ export function CrmBoard({
         setLocalStage((m) => ({ ...m, [leadId]: destino }));
         if (from !== destino) {
           const pendientes = r.pendientes?.map((p) => p.label);
-          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, monto: l.monto || null, motivo: l.motivo || null, pendientes });
+          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, pendientes });
         }
         router.refresh();
       } catch (e) {
@@ -1592,7 +1595,7 @@ export function CrmBoard({
     });
     // Toast Deshacer también en este camino (antes solo lo tenía el drag directo).
     if (lead && from && from !== which) {
-      setUndoInfo({ id: leadId, name: lead.name, from, toLabel: findStage(stages, which).label, monto: lead.monto || null, motivo: lead.motivo || null });
+      setUndoInfo({ id: leadId, name: lead.name, from, toLabel: findStage(stages, which).label });
     }
   };
 
@@ -3346,7 +3349,7 @@ export function CrmBoard({
               setStageMove(null);
               setLocalStage((m) => ({ ...m, [l.id]: stageMove.move.to }));
               if (from !== stageMove.move.to) {
-                setUndoInfo({ id: l.id, name: l.name, from, toLabel: findStage(stages, stageMove.move.to).label, monto: l.monto || null, motivo: l.motivo || null });
+                setUndoInfo({ id: l.id, name: l.name, from, toLabel: findStage(stages, stageMove.move.to).label });
               }
               router.refresh();
             }}

@@ -163,7 +163,9 @@ export async function deshacerMoverAction(leadId: number, funnelId: number | nul
   if (!idOk(leadId) || typeof antes !== 'string' || !antes) return { ok: false, error: 'Nada que deshacer' };
   try {
     if (esCasa) {
-      await undoStageMoveAction(leadId, antes);
+      // El desenlace de antes lo repone el server desde el historial del movimiento (17/10/2026).
+      const r = await undoStageMoveAction(leadId, antes);
+      if (r && 'error' in r) return { ok: false, error: 'No se pudo deshacer' };
     } else {
       const fid = funnelId ?? (await idDelFunnelDefault());
       if (fid == null) return { ok: false, error: 'Nada que deshacer' };

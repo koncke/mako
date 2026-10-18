@@ -53,6 +53,16 @@
 import type { EstadoLead } from './leads';
 import { esSinCobro } from './venta-tipo';
 
+/**
+ * El `cerro` que deriva un estado: ganado → true; perdido, descalificado y no_responde (desenlaces que NO
+ * cerraron venta) → false; abierto → null.
+ */
+export function cerroDelEstado(estado: EstadoLead): boolean | null {
+  if (estado === 'ganado') return true;
+  if (estado === 'perdido' || estado === 'descalificado' || estado === 'no_responde') return false;
+  return null;
+}
+
 /** Los cinco campos del desenlace, como están guardados en `leads`. */
 export type Desenlace = {
   estado_lead: EstadoLead;
@@ -113,10 +123,7 @@ export function desenlaceAlGuardar(actual: Desenlace, cambio: CambioDeDesenlace,
 
   // estado_lead <-> cerro. Ya estaba condicionado a lo que vino, y sigue igual.
   if (cambio.estado_lead !== undefined) {
-    if (m.estado_lead === 'ganado') m.cerro = true;
-    // perdido / descalificado / no_responde: desenlaces que NO cerraron venta.
-    else if (m.estado_lead === 'perdido' || m.estado_lead === 'descalificado' || m.estado_lead === 'no_responde') m.cerro = false;
-    else m.cerro = null; // abierto
+    m.cerro = cerroDelEstado(m.estado_lead);
   } else if (cambio.cerro !== undefined) {
     if (m.cerro === true) m.estado_lead = 'ganado';
     // cerro=false puede ser perdido o descalificado: se conserva descalificado si ya
@@ -164,4 +171,68 @@ export function desenlaceAlGuardar(actual: Desenlace, cambio: CambioDeDesenlace,
  */
 export function estadoDelMovimiento(antes: EstadoLead | null | undefined, destino: EstadoLead): CambioDeDesenlace {
   return antes != null && antes === destino ? {} : { estado_lead: destino };
+}
+
+// =============================================================================
+// DESHACER un movimiento: el desenlace de ANTES, tal cual (17/10/2026)
+// =============================================================================
+// ⚠️ DESHACER NO ES OTRO GUARDADO. Hasta el 17/10 el «Deshacer» del tablero volvía a MOVER el lead
+// (`setPipelineStage(id, from)`) y «Restaurar» del historial mandaba el estado de antes por
+// `updateLead`: los dos pasaban por `desenlaceAlGuardar`, que toma el cambio de estado como una
+// decisión de la venta. Un lead en «Facturando» (abierto, 3000 cargados por el plan de pagos) que se
+// arrastraba por error a Ganado y se deshacía volvía a abierto SIN los 3000 —la regla limpia la venta
+// fuera de Ganado—, y el borrado del rastro se llevaba la línea que lo decía. Al revés, un Ganado del
+// 15/09 movido a una abierta y deshecho volvía con la fecha de cierre de HOY: la venta cambiaba de mes
+// (`fecha_cierre` no estaba en el historial, así que nadie sabía cuál era).
+//
+// LA REGLA: lo que el movimiento cambió vuelve a su `valor_anterior` de la línea del historial; lo que
+// no cambió se queda como está (es lo de antes). Sin coerciones: es una foto, no una decisión. El
+// `cerro` no tiene línea: si el movimiento cambió el estado, vuelve el que deriva el estado de antes
+// (`cerroDelEstado`), que es el que tenía —todo camino que escribe el estado escribe su cerro—.
+// =============================================================================
+
+/** Las líneas del historial que escriben el desenlace: sus etiquetas en AUDIT_FIELDS (lib/leads.ts). */
+export const LINEA_DEL_DESENLACE = {
+  estado_lead: 'Estado',
+  monto_cierre_usd: 'Monto de cierre',
+  motivo_perdida: 'Motivo',
+  fecha_cierre: 'Fecha de cierre',
+} as const;
+
+const ETIQUETAS_DESENLACE: readonly string[] = Object.values(LINEA_DEL_DESENLACE);
+
+/** Una línea del historial, lo que el deshacer lee de ella (`valor_anterior` en el texto de `auditVal`). */
+export type LineaDeHistorial = { campo: string; valor_anterior: string | null };
+
+/** ¿Estas líneas tocan el desenlace? Sin ninguna, deshacerlas no le escribe la venta a nadie. */
+export const lineasTocanElDesenlace = (lineas: ReadonlyArray<LineaDeHistorial>): boolean =>
+  lineas.some((l) => ETIQUETAS_DESENLACE.includes(l.campo));
+
+/**
+ * El desenlace de ANTES de las líneas que se deshacen, para escribirlo TAL CUAL (`updateLead` con
+ * `desenlaceExacto`). `actual` es el lead de hoy; `lineas`, las del movimiento.
+ *
+ * Una sola excepción, por el historial viejo: un Ganado que vuelve sin fecha de cierre y SIN línea
+ * «Fecha de cierre» que diga cuál era (movimientos anteriores al 17/10) recibe `hoy`, como siempre
+ * —un ganado sin fecha no lo cuenta Revenue—. Con la línea, vuelve la fecha que dice, aunque sea vacía.
+ */
+export function desenlaceAntesDelMovimiento(actual: Desenlace, lineas: ReadonlyArray<LineaDeHistorial>, hoy: string): Desenlace {
+  const linea = (campo: string) => lineas.find((l) => l.campo === campo);
+  const m: Desenlace = { ...actual };
+  const estado = linea(LINEA_DEL_DESENLACE.estado_lead);
+  if (estado) {
+    m.estado_lead = (estado.valor_anterior ?? 'abierto') as EstadoLead;
+    m.cerro = cerroDelEstado(m.estado_lead);
+  }
+  const monto = linea(LINEA_DEL_DESENLACE.monto_cierre_usd);
+  if (monto) {
+    const n = monto.valor_anterior == null ? NaN : parseFloat(monto.valor_anterior);
+    m.monto_cierre_usd = Number.isFinite(n) ? n : null;
+  }
+  const motivo = linea(LINEA_DEL_DESENLACE.motivo_perdida);
+  if (motivo) m.motivo_perdida = motivo.valor_anterior;
+  const fecha = linea(LINEA_DEL_DESENLACE.fecha_cierre);
+  if (fecha) m.fecha_cierre = fecha.valor_anterior;
+  else if (m.cerro === true && !m.fecha_cierre) m.fecha_cierre = hoy;
+  return m;
 }
