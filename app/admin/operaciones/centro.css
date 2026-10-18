@@ -1451,3 +1451,7 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-nuevo-nota__input:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 /* «desde la app»: lo que Martín escribió directo en la app de Claude, sutil junto a la hora (18/10/2026). */
 .co-burbuja__desde { margin-right: 3px; font-size: 10.5px; color: var(--faint); white-space: nowrap; }
+/* La burbuja no pasa del ancho de su fila (18/10/2026, Martín en su Android: «mirá cómo se bugea cuando respondo un mensaje»).
+   La cita va en un renglón (`.co-cita__texto`, nowrap): sin tope, la burbuja tomaba el ancho de la frase entera y, alineada a
+   la derecha, se salía por la IZQUIERDA. Con el tope, la cita se corta con «…» adentro. */
+.co-yo .co-burbuja { max-width: 100%; min-width: 0; }
