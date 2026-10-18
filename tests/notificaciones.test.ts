@@ -121,10 +121,11 @@ test('una ruta sin entrada en el menú igual queda legible', () => {
 
 test('la marca no se repite cuando ya está en el nombre de la sección', () => {
   // "MaKo - WhatsApp de MaKo" se leía dos veces el producto.
-  // Desde el 16/10/2026 /mako es el Second Brain (el chat con MaKo): su título es el de la entrada de la barra. El
+  // Desde el 16/10/2026 /mako es el Second Brain (el chat con MaKo): su título es el de la entrada de la barra, y desde el
+  // 18/10/2026 esa entrada se llama «Ops Center» para todos los negocios (pedido de Martín). El
   // NOMBRE del proyecto en lib/plan-proyectos-catalogo.ts sigue siendo «Feature: Preguntale a MaKo»: ese es una CLAVE
   // guardada en la base, no copy, y renombrarlo huérfana las tarjetas.
-  assert.equal(tituloDe('/mako'), 'MaKo - Second Brain', 'sin la marca en el nombre, la pestaña la suma (una vez)');
+  assert.equal(tituloDe('/mako'), 'MaKo - Ops Center', 'sin la marca en el nombre, la pestaña la suma (una vez)');
   // Desde el 17/10/2026 se llama «MaKo WhatsApp» (sección de Chats para el super admin; nombres en inglés).
   assert.equal(tituloDe('/agencia'), 'MaKo WhatsApp');
 });
