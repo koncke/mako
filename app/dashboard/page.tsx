@@ -34,6 +34,13 @@
 //   · EL SETTER entra como el closer (decisión de la tanda: «El setter ve SÓLO la hoja Chat Analyst»): un rol
 //     con hoja ÚNICA (`HOJA_DE_ROL`, lib/graficos-plantillas.ts) recibe el informe EN MEMORIA con esa hoja, sin
 //     editar, y sólo si su negocio compró la capa que la hoja pide (Closing / WhatsApp).
+//
+// EL DASHBOARD UNIDO (17/10/2026, lib/dashboard-focus.ts): Home sale de la sidebar y el Dashboard abre en la hoja fija
+// «Focus», que es lo que era /general (./FocusDeGeneral.tsx). Son DOS informes y siguen siéndolo: esta página elige qué
+// editor monta según `?hoja=` (`informeDePedida`) y a cada uno le da las hojas del otro para la tira de arriba. Sólo
+// para quien veía /general (el admin con la capa que incluye General); el closer y el setter, como siempre.
+// ⚠️ Los dos editores llevan `key` con su informe: pasar de Focus a una hoja es una navegación a la MISMA ruta, y sin
+//    la key React reusaría el editor con el estado del otro informe.
 
 import { redirect } from 'next/navigation';
 import { Pagina } from '@/app/_ui';
@@ -41,31 +48,41 @@ import { homeDeCapa, requireRolWs } from '@/lib/tab-access';
 import { getCapaActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { hoyEnTijuana } from '@/lib/date-utils';
-import { leerTablero } from '@/lib/graficos-tablero';
+import { leerInformeGeneral, leerTablero, type LecturaTablero } from '@/lib/graficos-tablero';
 import { hojaDeRol, hojaDestino, informeDeRol, llamadaDeUrl } from '@/lib/graficos-plantillas';
 import { datosDeGraficos } from '@/lib/graficos-datos';
 import type { Hoja, Tablero } from '@/lib/graficos-catalogo';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
+import { informeGeneralInicial } from '@/lib/general-plantillas';
+import { PARAM_PLANTILLAS, hojaGeneralPedida, informeDePedida, type HojaCorta } from '@/lib/dashboard-focus';
 import { EditorInforme } from './EditorInforme';
+import { FocusDeGeneral } from './FocusDeGeneral';
 import { textoProbar } from '@/lib/experimentos-catalogo';
 import { pedidosDeHoja } from './exportar';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-type Busqueda = { hoja?: string | string[]; llamada?: string | string[]; probar?: string | string[] };
+type Busqueda = { hoja?: string | string[]; llamada?: string | string[]; probar?: string | string[]; plantillas?: string | string[] };
+
+const corta = (h: Hoja): HojaCorta => ({ id: h.id, nombre: h.nombre, emoji: h.emoji });
+/** Las hojas que la tira muestra de un informe: ninguna si la persona no armó ninguna (el inicial viaja por dentro). */
+const hojasDe = (l: LecturaTablero): Hoja[] => (l.estado === 'inicial' || l.tablero.enBlanco ? [] : l.tablero.hojas);
 
 export default async function Page({ searchParams }: { searchParams: Promise<Busqueda> }) {
   await requireRolWs(['closer', 'setter'], { nav: 'graphics' });
   // Cacheado por request (lib/auth.ts): no es una consulta más.
   const rol = await getRolWsEfectivo();
   const unica = hojaDeRol(rol);
+  // Cacheada por request, como el rol.
+  const capa = await getCapaActual();
   if (unica) {
     // Lo único que el closer (o el setter) ve acá es SU hoja: si su negocio no compró esa capa, esto no es para él.
-    const capa = await getCapaActual();
     if (!tabEnCapa(unica.capa, capa)) redirect(await rutaConWs(homeDeCapa(capa)));
   }
+  // Focus: quien veía /general (`requireRolWs([], { nav: 'general' })`: el admin, con la capa que lo incluye).
+  const conFocus = rol === 'admin' && tabEnCapa('general', capa);
 
   // Lo que se sabe del negocio para que la galería ponga primero sus sugeridas (lib/plantillas-sugeridas.ts). Arranca
   // YA y se espera al final: corre en paralelo con el informe y los datos. El closer y el setter no ven la galería.
@@ -76,6 +93,25 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const llamada = llamadaDeUrl(p.llamada);
   // `?probar=` (17/10/2026): un link viejo de /experimentos con su hipótesis abre «Editar con MaKo» con «Probemos…».
   const probar = textoProbar(p.probar);
+  // `?plantillas=1`: «Templates» desde Focus. Abre el Dashboard con la galería.
+  const plantillas = p[PARAM_PLANTILLAS] != null;
+
+  // Con Focus se leen los DOS informes (dos filas de app_settings, en paralelo): la tira muestra las hojas de los dos.
+  const [lecturaDash, lecturaGeneral] = conFocus ? await Promise.all([leerTablero(), leerInformeGeneral()]) : [null, null];
+  if (lecturaDash && lecturaGeneral && !plantillas) {
+    const idsGeneral = (lecturaGeneral.tablero.hojas.length ? lecturaGeneral.tablero.hojas : informeGeneralInicial().hojas).map((h) => h.id);
+    if (informeDePedida(pedida, idsGeneral, lecturaDash.tablero.hojas.map((h) => h.id), true) === 'general') {
+      return (
+        <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <FocusDeGeneral lectura={lecturaGeneral} hojaPedida={hojaGeneralPedida(pedida, idsGeneral)} hoy={hoy} hojasDashboard={hojasDe(lecturaDash).map(corta)} senales={senales} />
+        </Pagina>
+      );
+    }
+  }
+  // Las hojas de General para la tira del Dashboard: en blanco, sólo Focus (su inicial).
+  const otrasDeGeneral: HojaCorta[] | null = lecturaGeneral
+    ? (hojasDe(lecturaGeneral).length ? hojasDe(lecturaGeneral) : informeGeneralInicial().hojas.slice(0, 1)).map(corta)
+    : null;
 
   let tablero: Tablero;
   let lecturaFallo = false;
@@ -92,7 +128,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     tablero = enMemoria;
     hoja = tablero.hojas[0];
   } else {
-    const lectura = await leerTablero();
+    const lectura = lecturaDash ?? await leerTablero();
     tablero = lectura.tablero;
     lecturaFallo = lectura.estado === 'error';
     version = lectura.version;
@@ -127,6 +163,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     // El PDF lo desarma en el @media print de ./editor-css.ts.
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <EditorInforme
+        key="dashboard"
         inicial={tablero}
         datosIniciales={datos}
         lecturaFallo={lecturaFallo}
@@ -140,6 +177,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         probarInicial={unica ? null : probar}
         sinPaginas={sinPaginas}
         senales={senalesNegocio}
+        unido={otrasDeGeneral ? { otras: otrasDeGeneral } : null}
+        plantillasInicial={plantillas && !unica}
       />
     </Pagina>
   );

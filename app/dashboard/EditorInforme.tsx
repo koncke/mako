@@ -108,6 +108,8 @@ import { conHojaAgregada } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
 import { useGeneral } from './ElementoGeneral';
 import { RedDeBloque } from './RedDeBloque';
+import { PestanasDashboard } from './PestanasDashboard';
+import { PARAM_PLANTILLAS, pestanasDelDashboard, type HojaCorta } from '@/lib/dashboard-focus';
 import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
 import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
 import type { Resultado } from '@/lib/graficos-agregar';
@@ -299,7 +301,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
-  senales = null,
+  senales = null, unido = null, plantillasInicial = false,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -336,6 +338,14 @@ export function EditorInforme({
   informe?: 'dashboard' | 'general';
   /** Lo que se sabe del negocio para que la galería ponga primero sus sugeridas (lib/plantillas-sugeridas.ts). */
   senales?: SenalesNegocio | null;
+  /**
+   * El Dashboard unido (17/10/2026, lib/dashboard-focus.ts): las hojas del OTRO informe, para la tira de arriba («Focus»
+   * y las de General si esto es el Dashboard; las del Dashboard si esto es Focus). null = sin la tira (el closer, el
+   * setter, un link compartido).
+   */
+  unido?: { otras: HojaCorta[] } | null;
+  /** `?plantillas=1`: «Templates» desde Focus. Abre la galería al entrar. */
+  plantillasInicial?: boolean;
 }) {
   // El informe del primer render: el que vino, más la hoja que pidió el link si no estaba.
   const [arranque] = useState<Tablero>(() => conHojaAgregada(inicial, hojaAgregada));
@@ -354,7 +364,7 @@ export function EditorInforme({
   const [selId, setSelId] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu>(null);
   const [modalDatos, setModalDatos] = useState(false);
-  const [nuevaHoja, setNuevaHoja] = useState(false);
+  const [nuevaHoja, setNuevaHoja] = useState(() => plantillasInicial && !lecturaFallo && !soloLectura && !compartido);
   const [enBlanco, setEnBlanco] = useState(sinPaginas && !soloLectura && !compartido);
   const [analista, setAnalista] = useState(false);
   // «Editar con MaKo» (16/10/2026, ./PanelEditarMako.tsx): el panel, y el hilo de cada hoja (cerrar y abrir el panel no lo
@@ -909,6 +919,16 @@ export function EditorInforme({
 
   // ── Los modales: onCerrar con identidad FIJA (AGENTS.md: si no, el foco salta en cada tecla) ──────
   const cerrarNuevaHoja = useCallback(() => setNuevaHoja(false), []);
+  // `?plantillas=1` abre la galería UNA vez: el parámetro se va de la URL, o recargar la volvería a abrir.
+  useEffect(() => {
+    if (!plantillasInicial) return;
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      qs.delete(PARAM_PLANTILLAS);
+      const q = qs.toString();
+      window.history.replaceState(null, '', `${window.location.pathname}${q ? `?${q}` : ''}`);
+    } catch { /* sin history: recargar la vuelve a abrir, nada más */ }
+  }, [plantillasInicial]);
   const cerrarAnalista = useCallback(() => setAnalista(false), []);
   // Los dos paneles van en el mismo lugar (`.an`): abrir uno cierra el otro.
   const alternarAnalista = useCallback(() => { setMenu(null); setMakoEditar(false); setAnalista((v) => !v); }, []);
@@ -1287,12 +1307,24 @@ export function EditorInforme({
   // los gráficos, en el medio poner un botón de 'Nuevo Dashboard' nada más»): la topbar muestra una hoja vacía y sin
   // filtros, sin el desplegable de hojas (por dentro viaja el inicial) y sin editar el título.
   const hojaTop: Hoja = enBlanco ? { ...hoja, nombre: esGeneral ? 'General' : 'Dashboard', emoji: esGeneral ? '🧭' : '📊', subtitulo: '', controles: [], componentes: [] } : hoja;
+  // El Dashboard unido (lib/dashboard-focus.ts): las hojas de ESTE editor salen de lo que hay en pantalla (una hoja
+  // nueva, renombrada o borrada se ve en el acto), las del otro informe de lo que leyó el server. En blanco, General
+  // es sólo Focus (su inicial viaja por dentro) y el Dashboard no tiene ninguna.
+  const propias: HojaCorta[] = (esGeneral ? (enBlanco ? tablero.hojas.slice(0, 1) : tablero.hojas) : (enBlanco ? [] : tablero.hojas))
+    .map((h) => ({ id: h.id, nombre: h.nombre, emoji: h.emoji }));
+  const pestanas = unido ? (esGeneral ? pestanasDelDashboard(propias, unido.otras) : pestanasDelDashboard(unido.otras, propias)) : null;
 
   return (
     <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`} onContextMenu={alClicDerecho}>
       <span ref={anclaContextual} aria-hidden style={{ position: 'fixed', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none' }} />
       {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
       {conflicto && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local" accion={{ label: 'Recargar', onClick: recargar }}>Cambió en otra pestaña. Lo de aquí no se guarda.</Banner></div>}
+
+      {/* ── Arriba de todo, el Dashboard unido: «Focus», las hojas y «Templates» (./PestanasDashboard.tsx) ── */}
+      {pestanas && (
+        <PestanasDashboard pestanas={pestanas} actual={hoja.id} informe={informe} onIr={irAHoja}
+          onTemplates={esGeneral || !guardable ? null : () => { setMenu(null); setNuevaHoja(true); }} />
+      )}
 
       {/* ── La topbar, como la de Looker: el título de la hoja (con su desplegable) y a la derecha los
              filtros, Compartir, Editar y el ⋮ ── */}

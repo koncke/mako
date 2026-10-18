@@ -22,6 +22,7 @@ import { fmtNum, fmtUSD } from '@/lib/format';
 import { listaHoy } from '@/app/m/plan/formato';
 import type { TipoDecision } from '@/lib/inbox-movil-reglas';
 import type { ItemPlan } from '@/app/plan/board/hoy';
+import { NOMBRE_FOCUS } from '@/lib/dashboard-focus';
 
 /** Cuántas tareas entran en «Para hoy» (el prototipo: las 3 primeras). El resto, en /m/plan. */
 export const TOPE_PARA_HOY = 3;
@@ -157,7 +158,18 @@ export const HOJAS_SIN_DESLIZAR = 3;
  * Las hojas de General como opciones del segmentado: cada una es un link a `/general?hoja=<id>`, la MISMA URL que
  * escritorio (el teléfono la reescribe a /m/hoy con la query entera, lib/movil-desvio.ts). Una hoja sin nombre dice
  * «Sin nombre»: un botón vacío no se puede tocar a ciegas.
+ *
+ * El Dashboard unido (17/10/2026, lib/dashboard-focus.ts): la primera hoja de General es «Focus», y después de las de
+ * General van las del Dashboard que entran en el teléfono, cada una a `/dashboard?hoja=<id>`, que el teléfono abre en
+ * su pantalla de siempre (/m/dashboard). Su id lleva `dashboard:` adelante: el segmentado marca la hoja de General.
  */
-export function opcionesDeHojas(hojas: ReadonlyArray<{ id: string; nombre: string }>): Array<{ id: string; label: string; href: string }> {
-  return hojas.map((h) => ({ id: h.id, label: h.nombre.trim() || 'Sin nombre', href: `/general?hoja=${encodeURIComponent(h.id)}` }));
+export function opcionesDeHojas(
+  hojas: ReadonlyArray<{ id: string; nombre: string }>,
+  dashboard: ReadonlyArray<{ id: string; nombre: string }> = [],
+): Array<{ id: string; label: string; href: string }> {
+  const nombre = (n: string) => n.trim() || 'Sin nombre';
+  return [
+    ...hojas.map((h, i) => ({ id: h.id, label: i === 0 ? NOMBRE_FOCUS : nombre(h.nombre), href: `/general?hoja=${encodeURIComponent(h.id)}` })),
+    ...dashboard.map((h) => ({ id: `dashboard:${h.id}`, label: nombre(h.nombre), href: `/dashboard?hoja=${encodeURIComponent(h.id)}` })),
+  ];
 }
