@@ -40,6 +40,7 @@ import { leerPerfil } from '@/lib/perfil';
 import { Icon } from '@/app/_components/icons';
 import { masCompleto, type FilaMas } from '@/lib/movil-rutas';
 import { Criatura } from '@/app/_components/Criatura';
+import { MAKO_NAV } from '@/app/_components/nav';
 import { FilaM } from '../_ui/FilaM';
 import { PantallaM } from '../_ui/PantallaM';
 import { AvatarM, ListaM } from '../_ui/Piezas';
@@ -87,7 +88,7 @@ export default async function MasPagina() {
     f.tipo === 'computadora' ? <FilaComputadoraM key={f.key} fila={f} />
       : f.tipo === 'grupo' ? <FilaGrupoM key={f.key} fila={f} />
         : (
-          <FilaM key={f.key} navegacion {...(conCriatura ? { leading: criatura(f.label) } : { icono: f.icon })} titulo={f.label}
+          <FilaM key={f.key} navegacion {...(conCriatura ? { leading: criatura(f.label, !!MAKO_NAV.find((it) => it.key === f.key)?.estrella) } : { icono: f.icon })} titulo={f.label}
             riel={f.seccion && badges[f.seccion] ? <span className="m-num">{badges[f.seccion]}</span> : undefined} href={f.href} />
         )
   );

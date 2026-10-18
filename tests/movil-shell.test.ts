@@ -173,7 +173,8 @@ test('el título de la pestaña en /m usa los nombres de la barra', () => {
   assert.equal(tituloDe('/m/hoy'), 'MaKo - Dashboard');
   assert.equal(tituloDe('/m/chats'), 'MaKo - Chats');
   assert.equal(tituloDe('/m/inbox'), 'MaKo - Avisos', 'la campana se titula Avisos (prototipo v3), como su cabecera');
-  assert.equal(tituloDe('/m/second-brain'), 'MaKo - Second Brain', 'el nombre de la sidebar (el chat con MaKo es el Second Brain), con la marca adelante');
+  // «Ops Center» desde el 18/10/2026: la fila de cada negocio se llama así (nav.ts → MAKO_NAV).
+  assert.equal(tituloDe('/m/second-brain'), 'MaKo - Ops Center', 'el nombre de la sidebar, con la marca adelante');
   assert.equal(tituloDe('/m/crm/12'), 'MaKo - CRM');
   assert.equal(tituloDe('/m/cuenta'), 'MaKo - My Profile');
   assert.equal(tituloDe('/m'), 'MaKo');
@@ -215,7 +216,8 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'My Profile' }));
   assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'Dashboard' }));
   // Pantallas de trabajo: sin título grande y sin barra de abajo.
-  assert.deepEqual(cabeceraPorRuta('/m/second-brain'), t('Second Brain', { href: '/m/mas', label: 'More' }, true, false));
+  // «Ops Center» desde el 18/10/2026 (la fila del negocio se llama así: nav.ts → MAKO_NAV).
+  assert.deepEqual(cabeceraPorRuta('/m/second-brain'), t('Ops Center', { href: '/m/mas', label: 'More' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/landing/3'), t('', { href: '/m/landing', label: 'Web Generator' }, true, false));
   assert.equal(esTrabajo('/m/video'), false, 'la LISTA de videos es una sección normal');
@@ -226,7 +228,7 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.equal(llevaBarra('/m/hoy'), true);
   assert.equal(llevaBarra('/m/video/7'), false);
   // Una sección que subió a la barra es una raíz: sin volver y CON barra (aunque sea de trabajo).
-  assert.deepEqual(cabeceraPorRuta('/m/second-brain', barraMovil('setter', 'pm')), t('Second Brain', null, true, true));
+  assert.deepEqual(cabeceraPorRuta('/m/second-brain', barraMovil('setter', 'pm')), t('Ops Center', null, true, true));
   // (Desde el 17/10/2026 noche lo que sube en la capa pm es Calendar: las hojas del Dashboard son del lugar del medio.)
   assert.deepEqual(cabeceraPorRuta('/m/calendario', barraMovil('admin', 'pm')), t('Calendar', null));
 });

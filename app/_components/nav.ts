@@ -110,6 +110,17 @@ export type NavItem = {
    * Centro, porque el aspecto sale del nombre (lib/centro-munecos.ts → aspectoDe). Se mueve: flota y parpadea.
    */
   criatura?: string;
+  /**
+   * La criatura es la ESTRELLA de MaKo (`ASPECTO_MAKO`) y no la que sale del nombre (app/_components/Criatura.tsx). La
+   * llevan las dos entradas «Ops Center»: la del super admin y la de cada negocio (Martín, 18/10/2026).
+   */
+  estrella?: boolean;
+  /**
+   * El nombre de su chat JEFE en el Ops Center, cuando no es el de la fila. El Second Brain de cada negocio se llama «Ops
+   * Center» desde el 18/10/2026, pero su jefe sigue siendo «Second Brain»; sin esto, `rutaDeLaTab` (lib/centro-chats.ts)
+   * mandaba el «Revisar» de los chats «Ops Center» a /second-brain y el jefe «Second Brain» se quedaba sin tab.
+   */
+  jefe?: string;
 };
 
 /** Una colección dentro de una familia. Abre un desplegable al costado. */
@@ -446,8 +457,14 @@ export const PRONTO: NavItem[] = [
  * la bandeja (/mako/pendientes), Inbox y la puerta del chat (`puedeVerKey('mako')`); cambiarla los apagaba a todos.
  * Es UNA sola entrada: /mako-doer existe como ruta pero salió de la barra (monta el MISMO MakoChat contra otro endpoint).
  */
+/*
+ * ⚠️ DESDE EL 18/10/2026 SE LLAMA «OPS CENTER», CON LA ESTRELLA (Martín: «En todos los clientes también debe llamarse la
+ * tab «Ops Center» en lugar de «Second Brain» y tener la criatura de estrella»). Cambian el nombre y la criatura; la ruta
+ * (/second-brain), la key `mako` y la pantalla, no. El super admin no la ve (`arribaDe`): tiene SU Ops Center
+ * (/admin/operaciones), así que nadie ve dos. Ctrl K sigue llevando acá con «second brain» o «cerebro» (lib/buscador-nav.ts).
+ */
 export const MAKO_NAV: NavItem[] = [
-  { key: 'mako', label: 'Second Brain', href: '/second-brain', icon: 'cerebro', criatura: 'Second Brain', rolesWs: ['closer', 'setter'], match: (p) => starts('/second-brain')(p) || starts('/mako')(p) || starts('/mako-doer')(p) },
+  { key: 'mako', label: 'Ops Center', jefe: 'Second Brain', href: '/second-brain', icon: 'cerebro', criatura: 'Ops Center', estrella: true, rolesWs: ['closer', 'setter'], match: (p) => starts('/second-brain')(p) || starts('/mako')(p) || starts('/mako-doer')(p) },
 ];
 
 /**
@@ -458,7 +475,7 @@ export const MAKO_NAV: NavItem[] = [
  * `puedeOperar` en la página. La key no lleva el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
  */
 export const OPS_CENTER: NavItem = {
-  key: 'admin-operaciones', label: 'Ops Center', href: '/admin/operaciones', icon: 'config', criatura: 'Ops Center', adminOnly: true,
+  key: 'admin-operaciones', label: 'Ops Center', href: '/admin/operaciones', icon: 'config', criatura: 'Ops Center', estrella: true, adminOnly: true,
   match: (p) => starts('/admin/operaciones')(p) || starts('/tickets/decisiones')(p),
 };
 
@@ -722,8 +739,10 @@ export const USER_NAV: NavItem[] = [
 export const SIN_FILA: NavItem[] = [
   // «Home» (/general) desde el 17/10/2026 noche: redirige al Dashboard, a su hoja fija «Focus». La key `general` queda
   // (capas, onboarding por tab); la barra marca Dashboard (su match acepta /general y /focus).
-        { key: 'general', label: 'General', href: '/general', icon: 'general', match: (p) => starts('/general')(p) || starts('/focus')(p) },
-  { key: 'second-brain', label: 'Second Brain', href: '/second-brain', icon: 'cerebro', match: starts('/second-brain') },
+  { key: 'general', label: 'General', href: '/general', icon: 'general', match: (p) => starts('/general')(p) || starts('/focus')(p) },
+  // «Ops Center» desde el 18/10/2026, como su fila (MAKO_NAV): es el PRIMER match de /second-brain, así que de acá sale el
+  // título de la pestaña.
+  { key: 'second-brain', label: 'Ops Center', jefe: 'Second Brain', href: '/second-brain', icon: 'cerebro', match: starts('/second-brain') },
   // Análisis vivía adentro de Experiments desde el 11/10/2026 (/experimentos?tab=analisis); /analisis redirige ahí.
   // Desde el 17/10/2026 /experimentos sólo redirige al Dashboard (y /analisis, el informe del trimestre incluido, es del
   // Dashboard): el ítem queda por la puerta de las dos redirecciones, que piden esta key.

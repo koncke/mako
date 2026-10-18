@@ -15,6 +15,8 @@ import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
 import { AREAS } from '@/app/admin/dev/areas';
 
 export function nombresDeTabs(): string[] {
-  const todos = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV].map((i) => i.label).concat(AREAS.map((a) => a.titulo));
+  // El nombre del JEFE si la fila se llama distinto (nav.ts → `jefe`, 18/10/2026: el Second Brain de cada negocio se
+  // llama «Ops Center» en la barra y su jefe sigue siendo «Second Brain»).
+  const todos = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV].map((i) => i.jefe ?? i.label).concat(AREAS.map((a) => a.titulo));
   return [...new Set(todos.map((n) => n.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
 }
