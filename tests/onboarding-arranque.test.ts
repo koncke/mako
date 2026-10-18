@@ -47,7 +47,7 @@ import { join } from 'node:path';
 import {
   etapaDeArranque, mensajesDeArranque, leerRespuesta, tiposOfrecidos, tipoRecomendado, pareceNegocio,
   primerNombre, sinMarca, briefDesdeArranque, fundirBrief, siguientePreguntaFase,
-  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, ORIGENES, SALUDO_ARRANQUE,
+  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, ORIGENES, SALUDO_ARRANQUE, CRM_SI, CRM_PREGUNTA,
   type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
 import { mandaElArranque, ladoDeLaPregunta, SESION_VACIA, aMensajeOffer, linkPdfLoQueVende } from '../app/onboarding/arranque-ui';
@@ -159,8 +159,14 @@ test('el CRM: la tarjeta va con la pregunta, y propone el tipo de su canal prime
   const { despues } = mensajesDeArranque(QUIEN, h);
   const crm = despues.find((m) => m.id === 'arr-crm');
   assert.ok(crm && crm.tarjeta === 'crm');
-  assert.equal(crm.opciones?.[0], 'Conversaciones por chat');
+  // Desde el 18/10/2026 (Martín, punto 10): «Sí, es correcto» acepta el que se propone (el de su canal, en la tarjeta), y
+  // «Ver otros tipos» abre la lista. Roturas (romper-crm.js; base 26/0): sin «Sí, es correcto» → 25/1 · el «sí» elige otro → 25/1.
+  assert.equal(crm.opciones?.[0], CRM_SI);
   assert.ok(crm.opciones?.includes(VER_OTROS_TIPOS));
+  assert.equal(crm.texto, CRM_PREGUNTA);
+  assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'conversaciones' } });
+  const todos = mensajesDeArranque({ ...QUIEN, crmVerTodos: true }, h).despues.find((m) => m.id === 'arr-crm');
+  assert.equal(todos?.opciones?.[0], 'Conversaciones por chat', 'con la lista abierta, primero el de su canal');
   assert.equal(tipoRecomendado(null).id, 'llamada', 'sin canal manda la llamada de venta (el marco es de alto ticket)');
   assert.equal(tiposOfrecidos('carrito', false).tipos[0].id, 'carrito');
   assert.equal(tiposOfrecidos('llamadas', true).tipos.length, TIPOS_CRM.length);

@@ -122,6 +122,10 @@ export const OBJETIVOS_SUGERIDOS = ['Conseguir mis primeros clientes', 'Vender m
 export const AHORA_NO = 'Ahora no';
 export const CAMBIAR_NUMERO = 'Cambiar número';
 export const VER_OTROS_TIPOS = 'Ver otros tipos';
+/** La primera respuesta del CRM (18/10/2026, Martín, punto 10: «las respuestas rápidas tiene que ser ‹Sí, es correcto› u
+ *  otras opciones»): acepta el que se le propone. */
+export const CRM_SI = 'Sí, es correcto';
+export const CRM_PREGUNTA = 'Ahora armemos tu CRM. Estas son las etapas por las que va a pasar cada cliente, de la primera charla a la venta. ¿Te sirven?';
 const PREGUNTA_CANAL = '¿Dónde cierras la venta?';
 
 const TOPE_RESPUESTA = 300;
@@ -448,9 +452,10 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   // 3. El CRM.
   if (h.conCrm) {
     const { tipos, hayMas } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos);
-    const elegido = e.crmTipo ? TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label : undefined;
-    const opciones = [...tipos.map((t) => t.label), ...(hayMas ? [VER_OTROS_TIPOS] : [])];
-    preguntar(despues, 'crm', 'Ahora armemos tu CRM: con lo que me contaste, te propongo este.', elegido, opciones, 'crm');
+    // Primero el que se le propone, con «Sí, es correcto»; «Ver otros tipos» abre la lista (18/10/2026, punto 10).
+    const elegido = e.crmTipo ? (e.crmTipo === tipos[0].id && !e.crmVerTodos ? CRM_SI : TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label) : undefined;
+    const opciones = e.crmVerTodos ? tipos.map((t) => t.label) : [CRM_SI, ...(hayMas ? [VER_OTROS_TIPOS] : [])];
+    preguntar(despues, 'crm', CRM_PREGUNTA, elegido, opciones, 'crm');
     if (etapa === 'crm') return { antes, despues };
   }
 
@@ -602,6 +607,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   if (etapa === 'telefono' && opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
   if (etapa === 'crm') {
     if (opcion === VER_OTROS_TIPOS) return { ok: true, patch: { crmVerTodos: true } };
+    if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false).tipos[0].id } };
     const t = TIPOS_CRM.find((x) => x.label === opcion);
     if (!t) return { ok: false, error: 'Elige un tipo de CRM.' };
     return { ok: true, patch: { crmTipo: t.id } };
