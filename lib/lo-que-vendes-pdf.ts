@@ -56,7 +56,8 @@ export type ApartadoLoQueVendes = { pieza: PiezaKey; titulo: string; texto: stri
 export function apartadosLoQueVendes(piezas: PiezasSabidas): ApartadoLoQueVendes[] {
   const out: ApartadoLoQueVendes[] = [];
   for (const [k, titulo] of TITULOS) {
-    const valor = (piezas[k]?.valor ?? '').trim();
+    // Sin las marcas de procedencia que a veces copia la IA («… [de: chat]»): el PDF es para el dueño (18/10/2026, punto 6).
+    const valor = (piezas[k]?.valor ?? '').replace(/\s*\[de:[^\]]*\]/gi, '').trim();
     const delArranque = PIEZAS_DEL_ARRANQUE.includes(k);
     if (!valor && !delArranque) continue;
     const sinDato = !valor || SIN_DATO.test(valor);

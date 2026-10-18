@@ -14,7 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { paginasLoQueVendes } from '../lib/lo-que-vendes-pdf';
+import { paginasLoQueVendes, apartadosLoQueVendes } from '../lib/lo-que-vendes-pdf';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -25,8 +25,17 @@ test('el PDF se mira en un modal del chat, no en otra pestaña, y la descarga ll
   const i = chat.indexOf('function TarjetaPdf(');
   const tarjeta = chat.slice(i, chat.indexOf('\n}\n', i));
   assert.doesNotMatch(tarjeta, /target="_blank"/, 'el PDF vuelve a sacar de la pestaña');
-  assert.match(tarjeta, /<Modal titulo="Lo que vendes"[\s\S]*<VistaPdf sesionId=\{sesionId\} tipo="lo-que-vendes" \/>/);
-  assert.match(tarjeta, /href=\{conWs\(linkPdfLoQueVende\(sesionId\), ws\)\} download/, 'sin el ?ws=, el super admin no encuentra la conversación');
+  assert.match(tarjeta, /<VisorPdf sesionId=\{sesionId\} url=\{conWs\(linkPdfLoQueVende\(sesionId\), ws\)\} onCerrar=/, 'sin el ?ws=, el super admin no encuentra la conversación');
+  // 18/10/2026 (punto 6, «mira cómo se bugea la preview del PDF»): el Modal quedaba dentro de la capa del chat, tapado por
+  // las respuestas rápidas. El visor va por portal a <body>, encima de la capa (z 100) y debajo de la barra (z 300).
+  // Roturas (romper-visor.js; base 3/0): sin el portal → 2/1 · z por debajo de la capa → 2/1 · vuelven las marcas → 2/1.
+  const j = chat.indexOf('function VisorPdf(');
+  const visor = chat.slice(j, chat.indexOf('\n}\n', j));
+  assert.match(visor, /return createPortal\(/, 'el visor vuelve a quedar dentro de la capa del chat');
+  assert.match(visor, /<VistaPdf sesionId=\{sesionId\} tipo="lo-que-vendes" \/>/);
+  assert.match(visor, /href=\{url\} download/);
+  const z = Number(/\.arr-visor \{[^}]*z-index: (\d+);/.exec(chat)?.[1]);
+  assert.ok(z > 100 && z < 300, `el visor (z ${z}) tiene que ir encima de la capa (100) y debajo de la barra de inspección (300)`);
 });
 
 test('la ruta da las páginas de «lo que vendes», y son las mismas del PDF', () => {
@@ -37,6 +46,10 @@ test('la ruta da las páginas de «lo que vendes», y son las mismas del PDF', (
   const v = (valor: string) => ({ valor, fuente: 'chat' as const, at: '2026-10-18' });
   const paginas = paginasLoQueVendes({ entregables: v('Mentoría de 12 semanas'), precio: v('3 cuotas de USD 500') }, { negocio: 'Consultesis', fecha: new Date('2026-10-18T15:00:00Z') });
   assert.ok(paginas.length >= 1 && paginas.every((p) => p.startsWith('<svg')), 'las páginas no salen como SVG');
+  // Sin las marcas de procedencia que copia la IA (captura de Martín del 18/10: «Consultores… [de: chat]»).
+  const ap = apartadosLoQueVendes({ cliente: v('Consultores y agencias [de: chat]'), entregables: v('Plan de trabajo [DE: doc]') });
+  assert.equal(ap.find((a) => a.pieza === 'cliente')?.texto, 'Consultores y agencias');
+  assert.equal(ap.find((a) => a.pieza === 'entregables')?.texto, 'Plan de trabajo');
 });
 
 test('el visor de Offer sirve para los dos documentos', () => {
