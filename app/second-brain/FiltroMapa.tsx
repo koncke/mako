@@ -241,7 +241,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
                   />
                 ))}
 
-                {abierto === 'autoria' && AUTORIA_OPS.map((o) => (
+                {abierto === 'autoria' && AUTORIA_OPS.filter((o) => o.id !== 'falta' || conteoAutoria.falta > 0 || filtro.autoria === 'falta').map((o) => (
                   <Radio
                     key={o.id}
                     on={filtro.autoria === o.id}

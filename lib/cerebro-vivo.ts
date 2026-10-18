@@ -46,6 +46,15 @@ export type ConteoLeads = {
 };
 export type ObjetivoVivo = { id: string; titulo: string; metaValor: number; unidad: string; quarter: number | null; anio: number; funnelIds: number[] };
 export type KpiVivo = { id: string; nombre: string; objectiveId: string | null; compromiso: number; unidad: string; cadencia: string; funnelIds: number[] };
+/** Un cliente: un lead con la venta GANADA en el CRM (lib/clientes-ganados.ts es la definición de «cliente» del producto). */
+export type ClienteVivo = { leadId: number; nombre: string; empresa: string | null; fechaCierre: string | null; sinCobro: boolean };
+/** Los clientes de hoy: el total EXACTO y los más recientes (el volumen no es un nodo por cliente). */
+export type ClientesVivos = { total: number; recientes: ClienteVivo[] };
+/** Una reunión de venta que el Closing Analyst ya leyó (`closing_analyses`, mig 0037). */
+export type ReunionViva = {
+  id: number; leadId: number | null; leadNombre: string | null; titulo: string | null; fecha: string | null; tipo: string | null;
+  closer: string | null; score: number | null; outcome: string | null; resumen: string | null; duracionMin: number | null;
+};
 export type ChatOfferVivo = { id: number; titulo: string; estado: string; updatedAt: string };
 export type ChatMakoVivo = { id: number; titulo: string | null; updatedAt: string };
 /** `created_at` por tabla y por id (lib/cerebro-grafo.ts → fechasDeAlta). Lo que falta es `null`: nunca se inventa. */
@@ -61,6 +70,9 @@ export type LecturasVivas = {
   objetivos: ObjetivoVivo[];
   kpis: KpiVivo[];
   chatsOffer: ChatOfferVivo[];
+  /** Lo que MaKo SABE de la venta (18/10/2026): los clientes y las reuniones de venta ya leídas. Sin ellos no hay nodos. */
+  clientes?: ClientesVivos | null;
+  reuniones?: ReunionViva[];
   /** Los chats con MaKo de QUIEN MIRA. Sólo los pasa la pantalla: son de la persona, no del negocio, así que ni el
    *  ZIP ni la API los reciben (no hay persona). */
   chatsMako?: ChatMakoVivo[];
@@ -73,7 +85,7 @@ export const LECTURAS_VACIAS: LecturasVivas = {
 };
 
 /** Los topes: cuántos de cada fuente entran, para que el mapa siga siendo un mapa (y el paquete de un chat, chico). */
-export const TOPES_VIVOS = { chatsOffer: 6, chatsMako: 8, origenes: 3 } as const;
+export const TOPES_VIVOS = { chatsOffer: 6, chatsMako: 8, origenes: 3, clientes: 8, reuniones: 6 } as const;
 
 // ── El armado ────────────────────────────────────────────────────────────────
 
@@ -170,6 +182,11 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
     unir(de, `oferta:${lf.oferta_id}`, lf.es_principal ? 'Este funnel vende esta oferta' : 'Este funnel también ofrece esta');
   }
 
+  // A dónde se cuelga lo que es del embudo en general (los leads, los clientes, las reuniones): el funnel principal, y si no
+  // hay, su primera etapa, y si no, la raíz.
+  const alFunnel = funnelDefault && hay(`funnel:${funnelDefault.id}`) ? `funnel:${funnelDefault.id}`
+    : opciones.primeraEtapa && opciones.etapasEnMapa.has(opciones.primeraEtapa) ? opciones.primeraEtapa : opciones.raiz;
+
   // ── Los LEADS: UN nodo con sus números, y cuántos hay en cada etapa como dato de la etapa ──
   if (l.leads && l.leads.total > 0) {
     const L = l.leads;
@@ -183,14 +200,55 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
       ],
       fuente: 'contados en tu CRM, hoy', autoria: 'mako', href: '/crm', abrirEn: 'el CRM',
     });
-    const destino = funnelDefault && hay(`funnel:${funnelDefault.id}`) ? `funnel:${funnelDefault.id}`
-      : opciones.primeraEtapa && opciones.etapasEnMapa.has(opciones.primeraEtapa) ? opciones.primeraEtapa : opciones.raiz;
-    unir(id, destino, 'Los leads de tu negocio');
+    unir(id, alFunnel, 'Los leads de tu negocio');
     const porEtapa = new Map(L.porEtapa.map((e) => [`etapa:${e.key}`, e.leads]));
     for (const n of g.nodos) {
       const cuantos = porEtapa.get(n.id);
       if (cuantos != null && cuantos > 0) n.datos = [...(n.datos ?? []), { k: 'Leads hoy', v: String(cuantos) }];
     }
+  }
+
+  // ── Los CLIENTES (18/10/2026): los leads que compraron. UN nodo con el total exacto y los más recientes colgados de él
+  //    (tope `TOPES_VIVOS.clientes`): cuántos hay es un dato del nodo, nunca un nodo por cliente. Sin ventas ganadas, no hay nodo. ──
+  const C = l.clientes;
+  if (C && C.total > 0) {
+    const recientes = C.recientes.slice(0, TOPES_VIVOS.clientes);
+    const nombreDe = (c: ClienteVivo) => limpio(c.nombre) || limpio(c.empresa) || 'Cliente sin nombre';
+    const hub = push({
+      id: 'clientes', area: 'funnel', tipo: 'Clientes', etiqueta: `${C.total} ${C.total === 1 ? 'cliente' : 'clientes'}`,
+      detalle: 'Los leads que compraron.',
+      datos: [{ k: 'Los últimos', v: recientes.slice(0, 5).map((c) => corto(nombreDe(c), 24)).join(' · ') }],
+      fuente: 'contados en tu CRM, hoy', autoria: 'mako', href: '/customer-success', abrirEn: 'Customer Success',
+    });
+    unir(hub, hay('leads') ? 'leads' : alFunnel, 'Salieron de tus leads');
+    for (const c of recientes) {
+      const id = push({
+        id: `cliente:${c.leadId}`, area: 'funnel', tipo: 'Cliente', etiqueta: corto(nombreDe(c), 30),
+        detalle: limpio(c.empresa) ? `De ${limpio(c.empresa)}.` : 'Compró.',
+        datos: [{ k: 'Venta', v: c.sinCobro ? 'Becado, sin cobro' : '' }],
+        fuente: 'la venta ganada en tu CRM', autoria: 'usuario', nace: c.fechaCierre, href: `/crm?lead=${c.leadId}`, abrirEn: 'el CRM',
+      });
+      unir(id, hub, 'Compró: es uno de tus clientes');
+    }
+  }
+
+  // ── Las REUNIONES DE VENTA que el Closing Analyst ya leyó (18/10/2026): las más recientes. Cada una se cuelga del cliente
+  //    si el lead terminó comprando; si no, de los leads. ──
+  for (const r of (l.reuniones ?? []).slice(0, TOPES_VIVOS.reuniones)) {
+    const quien = limpio(r.leadNombre) || limpio(r.titulo) || 'Reunión de venta';
+    const id = push({
+      id: `reunion:${r.id}`, area: 'funnel', tipo: r.tipo ? `Reunión ${r.tipo}` : 'Reunión de venta', etiqueta: corto(quien, 30),
+      detalle: corto(limpio(r.resumen), 260),
+      datos: [
+        { k: 'Closer', v: limpio(r.closer) },
+        { k: 'Resultado', v: limpio(r.outcome) },
+        { k: 'Puntaje', v: r.score == null || !Number.isFinite(r.score) ? '' : `${String(Math.round(r.score * 10) / 10).replace('.', ',')} de 10` },
+        { k: 'Duración', v: r.duracionMin ? `${r.duracionMin} min` : '' },
+      ],
+      fuente: 'MaKo analizó la grabación (Closing)', autoria: 'mako', nace: r.fecha, href: '/closing', abrirEn: 'Closing',
+    });
+    if (r.leadId != null && hay(`cliente:${r.leadId}`)) unir(id, `cliente:${r.leadId}`, 'La reunión de venta de este cliente');
+    else unir(id, hay('leads') ? 'leads' : alFunnel, 'Una reunión de venta de tu CRM');
   }
 
   // ── Los OBJETIVOS y los KPIs del negocio (los números de /general): lo que el negocio se propuso medir ──
@@ -258,7 +316,7 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
 /** Un nodo que un título puede NOMBRAR: un dato con nombre propio (no la estructura, no lo que falta, no un nombre
  *  genérico de tres letras que matchea cualquier cosa). */
 function esDatoNombrable(n: NodoCerebro): boolean {
-  if (n.autoria === 'pendiente' || n.id === 'raiz' || /^(area|n1|falta|chat|chats|leads):?/.test(n.id)) return false;
+  if (n.autoria === 'pendiente' || n.id === 'raiz' || /^(area|n1|falta|chat|chats|leads|clientes|cliente|reunion):?/.test(n.id)) return false;
   return limpio(n.etiqueta).replace(/[^\p{L}\p{N}]/gu, '').length >= 4;
 }
 
