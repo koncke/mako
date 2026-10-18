@@ -650,7 +650,7 @@ function SheetMover(p: FichaLeadProps & { abierto: boolean; onCerrar: () => void
     try {
       const r = await moverEtapaAction(p.id, prod.funnelId, destino.key);
       if (!r.ok) { haptico('error'); setError(r.error); return; }
-      const { antes, esCasa } = r;
+      const { antes, esCasa, deshacer } = r;
       const funnelId = prod.funnelId;
       haptico('success');
       p.onCerrar();
@@ -659,7 +659,7 @@ function SheetMover(p: FichaLeadProps & { abierto: boolean; onCerrar: () => void
       if (!r.cambio) { toast(`Ya estaba en ${destino.label}`); return; }
       toast(r.pendientes.length ? 'Movido, faltan datos' : `En ${destino.label}`, {
         deshacer: () => {
-          deshacerMoverAction(p.id, funnelId, antes, esCasa)
+          deshacerMoverAction(p.id, funnelId, antes, esCasa, deshacer)
             .then((d) => { toast(d.ok ? 'Deshecho' : d.error); })
             .catch(() => toast('No se pudo deshacer'));
         },

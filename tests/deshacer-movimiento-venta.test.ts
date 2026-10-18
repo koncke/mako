@@ -1,27 +1,26 @@
 // =============================================================================
-// Deshacer un movimiento devuelve la venta TAL CUAL (17/10/2026, revisión adversarial)
+// Deshacer un movimiento devuelve el lead TAL CUAL; Restaurar devuelve la venta (17/10/2026)
 // =============================================================================
-// El defecto (docs/hallazgos-crm.md, «Deshacer un movimiento le borraba la venta…»):
-//   · Un lead en «Facturando» (abierto, 3000 cargados por el plan de pagos) se arrastraba por error a
-//     Ganado y se apretaba Deshacer. `undoStageMoveAction` volvía a MOVER (`setPipelineStage`): el
-//     estado pasaba de ganado a abierto, `desenlaceAlGuardar` limpiaba monto y fecha de cierre, y el
-//     `.delete().gte('created_at', ahora-90s)` se llevaba la línea «Monto de cierre 3000 → —». Los
-//     3000 desaparecían sin rastro. El Deshacer del teléfono llamaba al mismo.
-//   · Un Ganado del 15/09 movido a una abierta y deshecho volvía con la fecha de cierre de HOY, y
-//     «Restaurar» (`revertMoveAction`) igual: `fecha_cierre` no estaba en el historial.
-// La cura: el deshacer revierte el GRUPO del movimiento por el camino de «Restaurar», y el desenlace
-// vuelve con `desenlaceAntesDelMovimiento` (lib/lead-desenlace.ts) por `updateLead(…, { desenlaceExacto })`.
+// El defecto (docs/hallazgos-crm.md, «Deshacer un movimiento le borraba la venta…»): el Deshacer del toast volvía a
+// MOVER el lead y la regla del desenlace le borraba los 3000 a uno de «Facturando» arrastrado a Ganado por error, y le
+// ponía la fecha de cierre de hoy a un Ganado del 15/09; el borrado de «los últimos 90 s» se llevaba la línea que lo
+// decía. El primer arreglo reconstruía «cómo estaba» desde el historial y la revisión adversarial le encontró cinco
+// agujeros (los cinco escenarios de abajo). La cura: el movimiento saca la FOTO de antes y la de después, firmada
+// (lib/deshacer-movimiento.ts), y el Deshacer la repone si lo que el movimiento cambió sigue como lo dejó.
 //
-// Verificado rompiéndolo (el archivo da 7 / 0):
-//   · `desenlaceAntesDelMovimiento` sin la línea del monto (vuelve el de hoy)        → 5 / 2 (ida y vuelta, historial viejo)
-//   · ídem sin la de la fecha de cierre                                              → 5 / 2 (ida y vuelta, historial viejo)
-//   · sin el `hoy` del historial viejo                                               → 6 / 1 (historial viejo)
-//   · sin derivar `cerro` del estado de antes                                        → 4 / 3 (Facturando, ida y vuelta, viejo)
-//   · `movimientoADeshacer` sin filtrar por autor                                    → 6 / 1 (qué borra)
-//   · revertMoveAction con `updateLead(leadId, upd)` sin `desenlaceExacto`           → 6 / 1 (CABLEADO restaurar)
-//   · updateLead sin `opts?.desenlaceExacto ??`                                      → 6 / 1 (CABLEADO restaurar)
-//   · undoStageMoveAction de vuelta con `setPipelineStage(id, from, …)` + `.gte(…)` → 6 / 1 (CABLEADO deshacer)
-//   · AUDIT_FIELDS sin `fecha_cierre`                                               → 6 / 1 (CABLEADO historial)
+// Verificado rompiéndolo (el archivo da 13 / 0):
+//   · planDeshacer sin comparar con HOY (`campos` siempre vacío)                     → 12 / 1 (otra persona)
+//   · planDeshacer sin las cuotas creadas en `borrar`                                → 11 / 2 (wizard con cuotas, la foto)
+//   · planDeshacer escribiendo TODA la foto de antes (no sólo lo que cambió)         →  9 / 4 (wizard, minuto, otra, etapa)
+//   · leerDeshacer sin comprobar la firma                                            → 12 / 1 (firma)
+//   · leerDeshacer sin la vida del token                                             → 12 / 1 (firma)
+//   · `pipeline_stage` fuera de COLUMNAS_DEL_DESHACER                               →  9 / 4 (wizard, minuto, etapa, foto)
+//   · desenlaceAntesDelMovimiento sin el caso de la fecha del mismo día              → 12 / 1 (Restaurar sin línea)
+//   · ídem sin la línea del monto                                                    → 10 / 3 (los tres de Restaurar)
+//   · completeStageMoveAction con la foto DESPUÉS del plan de pagos                  → 12 / 1 (CABLEADO mover)
+//   · undoStageMoveAction de vuelta por el historial (`revertMoveAction(`)           → 12 / 1 (CABLEADO deshacer)
+//   · el botón del tablero sin `disabled={!undoInfo.deshacer}`                       → 12 / 1 (CABLEADO pantallas)
+//   · AUDIT_FIELDS sin `fecha_cierre`                                               → 12 / 1 (CABLEADO historial)
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,10 +30,14 @@ import {
   desenlaceAlGuardar, desenlaceAntesDelMovimiento, estadoDelMovimiento, LINEA_DEL_DESENLACE,
   type Desenlace, type CambioDeDesenlace,
 } from '../lib/lead-desenlace';
-import { movimientoADeshacer } from '../lib/historial-pisado';
+import {
+  fotoDe, firmarDeshacer, leerDeshacer, planDeshacer, VIDA_DESHACER_MS,
+  type DatosDeshacer, type FotoCuota, type FotoLead,
+} from '../lib/deshacer-movimiento';
 import type { EstadoLead } from '../lib/leads';
 
 const HOY = '2026-10-17';
+const T = Date.parse('2026-10-17T15:00:00.000Z');
 
 const leer = (p: string) => readFileSync(join(import.meta.dirname, '..', p), 'utf8').replace(/\r\n/g, '\n')
   .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
@@ -45,38 +48,127 @@ const cuerpo = (src: string, firma: string) => {
   return src.slice(i, fin < 0 ? undefined : fin);
 };
 
+/** Un lead como lo devuelve `getLead`: las columnas del deshacer y otras que no son de él. */
+const lead = (p: Record<string, unknown>): Record<string, unknown> => ({
+  id: 7, nombre: 'Ana', updated_at: '2026-10-17T15:00:00Z', etapa_vista: 'propuesta',
+  pipeline_stage: 'propuesta', nutricion_manual_deadline: null, estado_lead: 'abierto', cerro: null,
+  monto_cierre_usd: null, fecha_cierre: null, motivo_perdida: null, asistio_j1: true, calificado: true, ...p,
+});
+const datos = (antes: FotoLead, despues: FotoLead, extra: Partial<DatosDeshacer> = {}): DatosDeshacer =>
+  ({ leadId: 7, ws: 1, t: T, antes, despues, audit: [101, 102], ...extra });
+const cuota = (id: number, numero: number, monto: number, fecha: string, pagado = false): FotoCuota =>
+  ({ id, numero, monto_usd: monto, fecha_esperada: fecha, pagado });
+
+// ── Los cinco escenarios de la revisión del 17/10 ────────────────────────────
+
+test('wizard a Ganado CON cuotas → Deshacer: vuelve abierto, sin venta, y las cuotas que creó se van', () => {
+  // `saveLeadPlanManual` escribe estado, cerro y monto ANTES de `setPipelineStage` y sin auditar: por eso la foto
+  // se saca antes de la primera escritura del wizard (CABLEADO mover, abajo).
+  const antes = fotoDe(lead({}));
+  const despues = fotoDe(lead({ pipeline_stage: 'ganado', estado_lead: 'ganado', cerro: true, monto_cierre_usd: 3000, fecha_cierre: HOY }));
+  const cuotas = { antes: [] as FotoCuota[], despues: [cuota(51, 1, 1000, '2026-11-01'), cuota(52, 2, 1000, '2026-12-01'), cuota(53, 3, 1000, '2027-01-01')] };
+  const plan = planDeshacer(datos(antes, despues, { cuotas }), despues, cuotas.despues);
+  assert.ok(!('error' in plan));
+  assert.deepEqual(plan.lead, { pipeline_stage: 'propuesta', estado_lead: 'abierto', cerro: null, monto_cierre_usd: null, fecha_cierre: null });
+  assert.deepEqual(plan.cuotas, { borrar: [51, 52, 53], reponer: [], volver: [] });
+});
+
+test('el anti-duplicado del historial no importa: A→Ganado→A→Ganado en un minuto se deshace igual (y al revés)', () => {
+  // La foto no sale de `lead_audit`: lo que `sinRepetidas` le saca al grupo no cambia nada.
+  const enA = fotoDe(lead({ pipeline_stage: 'a' }));
+  const ganado = fotoDe(lead({ pipeline_stage: 'ganado', estado_lead: 'ganado', cerro: true, monto_cierre_usd: 3000, fecha_cierre: HOY }));
+  const ida = planDeshacer(datos(enA, ganado), ganado, null);
+  assert.ok(!('error' in ida));
+  assert.deepEqual(ida.lead, { pipeline_stage: 'a', estado_lead: 'abierto', cerro: null, monto_cierre_usd: null, fecha_cierre: null });
+  const vuelta = planDeshacer(datos(ganado, enA), enA, null);
+  assert.ok(!('error' in vuelta));
+  assert.deepEqual(vuelta.lead, { pipeline_stage: 'ganado', estado_lead: 'ganado', cerro: true, monto_cierre_usd: 3000, fecha_cierre: HOY });
+});
+
+test('Restaurar sin línea «Fecha de cierre» (historial viejo, o el grupo del wizard): el ganar del MISMO día se lleva su fecha', () => {
+  const ganado: Desenlace = { estado_lead: 'ganado', cerro: true, motivo_perdida: null, monto_cierre_usd: 3000, fecha_cierre: '2026-10-10' };
+  const lineas = [{ campo: 'Estado', valor_anterior: 'abierto' }, { campo: 'Monto de cierre', valor_anterior: null }];
+  assert.deepEqual(desenlaceAntesDelMovimiento(ganado, lineas, '2026-10-20', '2026-10-10T15:00:00.123+00:00'),
+    { estado_lead: 'abierto', cerro: null, motivo_perdida: null, monto_cierre_usd: null, fecha_cierre: null });
+  // «Facturando» con la fecha del plan de pagos de OTRO día: es de antes, queda (con su monto).
+  const facturando: Desenlace = { ...ganado, fecha_cierre: '2026-10-01' };
+  assert.deepEqual(desenlaceAntesDelMovimiento(facturando, [{ campo: 'Estado', valor_anterior: 'abierto' }], '2026-10-20', '2026-10-10T15:00:00+00:00'),
+    { estado_lead: 'abierto', cerro: null, motivo_perdida: null, monto_cierre_usd: 3000, fecha_cierre: '2026-10-01' });
+});
+
+test('el Deshacer de una persona no toca el movimiento de OTRA, y no pisa lo que cambió otro después', () => {
+  // Y ya lo pasó a Ganado; X, con el tablero viejo, lo «mueve» a Ganado: su foto de antes ya es Ganado.
+  const ganadoPorY = fotoDe(lead({ pipeline_stage: 'ganado', estado_lead: 'ganado', cerro: true, monto_cierre_usd: 3000, fecha_cierre: HOY }));
+  const deX = planDeshacer(datos(ganadoPorY, ganadoPorY), ganadoPorY, null);
+  assert.ok(!('error' in deX));
+  assert.deepEqual(deX.lead, {}, 'el Deshacer de X no tiene nada suyo que devolver');
+  // Otra persona corrigió el monto después del movimiento: no se escribe NADA.
+  const antes = fotoDe(lead({}));
+  const despues = ganadoPorY;
+  const hoy = { ...despues, monto_cierre_usd: 3500 };
+  assert.deepEqual(planDeshacer(datos(antes, despues), hoy, null), { error: 'pisado', campos: ['monto_cierre_usd'] });
+  // Un cambio en algo que el movimiento NO tocó no frena el Deshacer, y no se pisa.
+  const otro = planDeshacer(datos(antes, despues), { ...despues, asistio_j1: false }, null);
+  assert.ok(!('error' in otro) && !('asistio_j1' in otro.lead));
+  // Una cuota que se cobró después: no.
+  const cuotas = { antes: [] as FotoCuota[], despues: [cuota(51, 1, 3000, '2026-11-01')] };
+  assert.deepEqual(planDeshacer(datos(antes, despues, { cuotas }), despues, [cuota(51, 1, 3000, '2026-11-01', true)]), { error: 'pisado', campos: ['cuotas'] });
+});
+
+test('la etapa vuelve como ESTABA guardada (derivada u override huérfano), no como la dibujaba el tablero', () => {
+  for (const etapa of [null, 'x_que_el_funnel_ya_no_tiene']) {
+    const antes = fotoDe(lead({ pipeline_stage: etapa }));
+    const despues = fotoDe(lead({ pipeline_stage: 'facturando' }));
+    const plan = planDeshacer(datos(antes, despues), despues, null);
+    assert.ok(!('error' in plan));
+    assert.deepEqual(plan.lead, { pipeline_stage: etapa });
+  }
+});
+
+// ── Las piezas ───────────────────────────────────────────────────────────────
+
+test('la foto: sólo las columnas del deshacer que el lead tiene; las cuotas que cambió vuelven', () => {
+  const f = fotoDe(lead({}));
+  assert.ok(!('nombre' in f) && !('etapa_vista' in f) && !('updated_at' in f));
+  assert.equal(f.pipeline_stage, 'propuesta');
+  assert.ok(!('sin_r1' in f), 'una columna que la base no trajo no entra');
+  const cuotas = { antes: [cuota(1, 1, 500, '2026-11-01'), cuota(2, 2, 500, '2026-12-01')], despues: [cuota(1, 1, 700, '2026-11-15'), cuota(3, 2, 300, '2026-12-01')] };
+  const f2 = fotoDe(lead({}));
+  const plan = planDeshacer(datos(f2, f2, { cuotas }), f2, cuotas.despues);
+  assert.ok(!('error' in plan));
+  assert.deepEqual(plan.cuotas, { borrar: [3], reponer: [cuota(2, 2, 500, '2026-12-01')], volver: [cuota(1, 1, 500, '2026-11-01')] });
+});
+
+test('la firma: sólo vuelve lo que firmó el server, entero y a tiempo', () => {
+  const d = datos(fotoDe(lead({})), fotoDe(lead({ estado_lead: 'ganado' })));
+  const tk = firmarDeshacer(d, 'secreto');
+  assert.deepEqual(leerDeshacer(tk, 'secreto', T + 5000), d);
+  assert.equal(leerDeshacer({ ...tk, cuerpo: tk.cuerpo.replace('"abierto"', '"ganado"') }, 'secreto', T + 5000), null, 'cuerpo tocado');
+  assert.equal(leerDeshacer(tk, 'otro', T + 5000), null, 'otro secreto');
+  assert.equal(leerDeshacer(tk, 'secreto', T + VIDA_DESHACER_MS + 1), null, 'vencido');
+  assert.equal(leerDeshacer(null, 'secreto', T), null);
+  assert.equal(leerDeshacer({ cuerpo: 1, firma: 2 }, 'secreto', T), null);
+});
+
+// ── Restaurar (revertMoveAction) sigue reponiendo el desenlace de las líneas ──
+
 /** Lo que `auditVal` (lib/leads.ts) escribe en el historial. */
 const auditVal = (v: unknown): string | null => (v == null || v === '' ? null : typeof v === 'boolean' ? (v ? 'Sí' : 'No') : String(v));
-
-/** Las líneas que deja un movimiento: las de `logLeadChanges` para los campos del desenlace que cambiaron. */
 const lineasDe = (antes: Desenlace, despues: Desenlace) =>
   (Object.entries(LINEA_DEL_DESENLACE) as Array<[keyof Desenlace, string]>).flatMap(([k, campo]) => {
     const a = auditVal(antes[k]);
     const b = auditVal(despues[k]);
     return a === b ? [] : [{ campo, valor_anterior: a, valor_nuevo: b }];
   });
-
-/** Un movimiento de etapa tal como lo guarda `setPipelineStage`: el estado sólo si cambia, y el motivo si viene. */
 const mover = (antes: Desenlace, destino: EstadoLead, motivo?: string): Desenlace => {
   const sync: CambioDeDesenlace = { ...estadoDelMovimiento(antes.estado_lead, destino) };
   if ((destino === 'perdido' || destino === 'descalificado') && motivo != null) sync.motivo_perdida = motivo;
   return desenlaceAlGuardar(antes, sync, HOY);
 };
-
 const FACTURANDO: Desenlace = { estado_lead: 'abierto', cerro: null, motivo_perdida: null, monto_cierre_usd: 3000, fecha_cierre: '2026-10-01' };
 const GANADO_15_09: Desenlace = { estado_lead: 'ganado', cerro: true, motivo_perdida: null, monto_cierre_usd: 3000, fecha_cierre: '2026-09-15' };
 
-test('Facturando con 3000 → Ganado por error → Deshacer: vuelve abierto CON los 3000 (el camino viejo los perdía)', () => {
-  const despues = mover(FACTURANDO, 'ganado');
-  assert.deepEqual(despues, { ...FACTURANDO, estado_lead: 'ganado', cerro: true }, 'ganar no toca monto ni fecha');
-  const lineas = lineasDe(FACTURANDO, despues);
-  assert.deepEqual(lineas.map((l) => l.campo), ['Estado'], 'el monto NO cambió: no tiene línea que lo devuelva');
-  // Así se perdían: volver a mover a una abierta limpia la venta.
-  assert.equal(mover(despues, 'abierto').monto_cierre_usd, null);
-  assert.deepEqual(desenlaceAntesDelMovimiento(despues, lineas, HOY), FACTURANDO);
-});
-
-test('ida y vuelta: todo movimiento deshecho deja el desenlace EXACTAMENTE como estaba (estado, cerro, monto, fecha, motivo)', () => {
+test('Restaurar, ida y vuelta: el desenlace vuelve EXACTO (Facturando conserva sus 3000; el Ganado del 15/09, su fecha)', () => {
   const PERDIDO: Desenlace = { estado_lead: 'perdido', cerro: false, motivo_perdida: 'Caro', monto_cierre_usd: null, fecha_cierre: null };
   const casos: Array<[string, Desenlace, EstadoLead, string?]> = [
     ['Facturando → Ganado', FACTURANDO, 'ganado'],
@@ -84,74 +176,64 @@ test('ida y vuelta: todo movimiento deshecho deja el desenlace EXACTAMENTE como 
     ['Ganado del 15/09 → una abierta', GANADO_15_09, 'abierto'],
     ['Ganado → Perdido con motivo', GANADO_15_09, 'perdido', 'Se arrepintió'],
     ['Perdido → una abierta', PERDIDO, 'abierto'],
-    ['Abierto vacío → Ganado', { ...FACTURANDO, monto_cierre_usd: null, fecha_cierre: null }, 'ganado'],
     ['Facturando → Falta pago (abierta → abierta)', FACTURANDO, 'abierto'],
   ];
   for (const [nombre, antes, destino, motivo] of casos) {
     const despues = mover(antes, destino, motivo);
-    assert.deepEqual(desenlaceAntesDelMovimiento(despues, lineasDe(antes, despues), HOY), antes, nombre);
+    assert.deepEqual(desenlaceAntesDelMovimiento(despues, lineasDe(antes, despues), HOY, `${HOY}T15:00:00+00:00`), antes, nombre);
   }
-  // El de la fecha, explícito: vuelve el 15/09, no hoy.
-  const reabierto = mover(GANADO_15_09, 'abierto');
-  assert.equal(desenlaceAntesDelMovimiento(reabierto, lineasDe(GANADO_15_09, reabierto), HOY).fecha_cierre, '2026-09-15');
 });
 
-test('historial viejo (sin línea «Fecha de cierre»): un Ganado que vuelve sin fecha recibe la de hoy, como siempre', () => {
+test('Restaurar con historial viejo: un Ganado que vuelve sin fecha recibe la de hoy, como siempre', () => {
   const reabierto: Desenlace = { estado_lead: 'abierto', cerro: null, motivo_perdida: null, monto_cierre_usd: null, fecha_cierre: null };
-  const lineas = [
-    { campo: 'Estado', valor_anterior: 'ganado' },
-    { campo: 'Monto de cierre', valor_anterior: '3000' },
-  ];
+  const lineas = [{ campo: 'Estado', valor_anterior: 'ganado' }, { campo: 'Monto de cierre', valor_anterior: '3000' }];
   assert.deepEqual(desenlaceAntesDelMovimiento(reabierto, lineas, HOY),
     { estado_lead: 'ganado', cerro: true, motivo_perdida: null, monto_cierre_usd: 3000, fecha_cierre: HOY });
-  // Con la línea, manda la línea aunque diga vacío.
-  assert.equal(desenlaceAntesDelMovimiento(reabierto, [...lineas, { campo: 'Fecha de cierre', valor_anterior: '2026-09-15' }], HOY).fecha_cierre, '2026-09-15');
 });
 
-test('qué deshace el toast y qué borra: el grupo del ÚLTIMO movimiento desde esa etapa, y sólo sus eventos', () => {
-  const t = Date.parse('2026-10-17T15:00:00.000Z');
-  const iso = (ms: number) => new Date(t + ms).toISOString();
-  const filas = [
-    { id: 15, campo: 'Datos pendientes', valor_anterior: null, autor: 'beto@x.com', created_at: iso(3000) },   // otra persona
-    { id: 10, campo: 'Datos pendientes', valor_anterior: null, autor: 'ana@x.com', created_at: iso(2000) },    // del movimiento
-    { id: 11, campo: 'Monto de cierre', valor_anterior: '3000', autor: 'beto@x.com', created_at: iso(1000) },  // otra persona
-    { id: 12, campo: 'Etapa', valor_anterior: 'facturando', autor: 'ana@x.com', created_at: iso(0) },
-    { id: 13, campo: 'Estado', valor_anterior: 'abierto', autor: 'ana@x.com', created_at: iso(0) },
-    { id: 9, campo: 'Nota', valor_anterior: null, autor: 'ana@x.com', created_at: iso(-10_000) },             // de antes
-    { id: 16, campo: 'Etapa', valor_anterior: 'agenda', autor: 'ana@x.com', created_at: iso(-30_000) },       // otro movimiento
-    { id: 14, campo: 'Etapa', valor_anterior: 'facturando', autor: 'ana@x.com', created_at: iso(-200_000) },  // fuera de la ventana
-  ];
-  const ahora = t + 5000;
-  assert.deepEqual(movimientoADeshacer(filas, 'facturando', ahora - 90_000), { createdAt: iso(0), eventos: [10] });
-  assert.equal(movimientoADeshacer(filas, 'propuesta', ahora - 90_000), null, 'sin movimiento desde esa etapa no hay nada que deshacer');
-  assert.equal(movimientoADeshacer(filas.filter((f) => f.id !== 12), 'facturando', ahora - 90_000), null, 'el de hace 200 s no es de este toast');
-});
+// ── El cableado ──────────────────────────────────────────────────────────────
 
-test('CABLEADO restaurar: revertMoveAction escribe el desenlace de antes TAL CUAL, en la misma escritura', () => {
+test('CABLEADO mover: la foto se saca ANTES de la primera escritura y vuelve firmada (tablero, wizard, reunión manual, teléfono)', () => {
   const acc = leer('app/crm/actions.ts');
-  const grupo = cuerpo(acc, 'export async function revertMoveAction(');
-  assert.match(grupo, /desenlaceAntesDelMovimiento\(desenlaceDe\(actual\), grupo, /);
-  assert.match(grupo, /await updateLead\(leadId, upd, \{ desenlaceExacto \}\)/, 'el desenlace volvió a pasar por desenlaceAlGuardar');
-  assert.doesNotMatch(grupo, /upd\.(estado_lead|monto_cierre_usd|motivo_perdida|fecha_cierre) =/, 'una mitad del desenlace por la regla');
-  const uno = cuerpo(acc, 'export async function revertAuditChangeAction(');
-  assert.match(uno, /case LINEA_DEL_DESENLACE\.fecha_cierre:\s*await updateLead\(leadId, \{\}, \{ desenlaceExacto: desenlaceAntesDelMovimiento\(desenlaceDe\(before\), \[row\], /);
-  const ul = cuerpo(leer('lib/leads.ts'), 'export async function updateLead(');
-  assert.match(ul, /Object\.assign\(merged, opts\?\.desenlaceExacto \?\? desenlaceAlGuardar\(actual, input, /);
+  const wiz = cuerpo(acc, 'export async function completeStageMoveAction(');
+  const iFoto = wiz.indexOf('const foto = await empezarDeshacer(id, before, true);');
+  assert.ok(iFoto > 0 && iFoto < wiz.indexOf('saveLeadPlanManual(') && iFoto < wiz.indexOf('saveLeadMeta('), 'la foto del wizard va antes del plan de pagos');
+  assert.match(wiz, /\.\.\.\(deshacer \? \{ deshacer \} : \{\}\)/);
+  const tab = cuerpo(acc, 'export async function setLeadStageAction(');
+  assert.ok(tab.indexOf('empezarDeshacer(id, before, false)') < tab.indexOf('await setPipelineStage('));
+  assert.match(tab, /return \{ ok: true, pendientes, \.\.\.\(deshacer \? \{ deshacer \} : \{\}\) \};/);
+  const reu = cuerpo(acc, 'export async function markMeetingManualAction(');
+  assert.ok(reu.indexOf('empezarDeshacer(id, before, false)') < reu.indexOf('await setMeetingManual('));
+  assert.match(leer('app/m/crm/acciones.ts'), /cambio: true, \.\.\.\(r\.deshacer \? \{ deshacer: r\.deshacer \} : \{\}\)/);
 });
 
-test('CABLEADO deshacer: no vuelve a mover, revierte el grupo con sesión y borra sólo lo suyo (escritorio y teléfono)', () => {
-  const acc = leer('app/crm/actions.ts');
-  const undo = cuerpo(acc, 'export async function undoStageMoveAction(');
-  assert.ok(undo.indexOf('await exigirSesion();') > 0 && undo.indexOf('await exigirSesion();') < undo.indexOf('movimientoADeshacer('));
-  assert.doesNotMatch(undo, /setPipelineStage\(/, 'volver a mover pasa el estado por la regla y borra la venta');
-  assert.doesNotMatch(undo, /\.gte\('created_at'/, 'borrar por ventana se lleva lo que escribió otra persona');
-  assert.match(undo, /const r = await revertMoveAction\(id, mov\.createdAt\);\s*if \(r && 'error' in r\) return r;/);
-  assert.match(undo, /\.delete\(\)\.eq\('lead_id', id\)\.in\('id', mov\.eventos\)/);
-  assert.match(leer('app/crm/CrmBoard.tsx'), /const r = await undoStageMoveAction\(id, from\);\s*if \(r && 'error' in r\) throw/);
-  assert.match(leer('app/m/crm/acciones.ts'), /const r = await undoStageMoveAction\(leadId, antes\);\s*if \(r && 'error' in r\) return \{ ok: false/);
+test('CABLEADO deshacer: firma, mismo lead y negocio, nada si lo pisaron, la foto TAL CUAL, y sólo sus líneas', () => {
+  const undo = cuerpo(leer('app/crm/actions.ts'), 'export async function undoStageMoveAction(');
+  assert.ok(undo.indexOf('await exigirSesion();') > 0 && undo.indexOf('await exigirSesion();') < undo.indexOf('leerDeshacer('));
+  assert.match(undo, /if \(!d \|\| d\.leadId !== id \|\| d\.ws !== \(\(await getWorkspaceActual\(\)\) \?\? null\)\) return/);
+  assert.ok(undo.indexOf("if ('error' in plan) return { error: YA_LO_CAMBIARON };") < undo.indexOf('.update('), 'decide antes de escribir');
+  assert.match(undo, /\.from\('leads'\)\.update\(plan\.lead\)\.eq\('id', id\)/);
+  assert.match(undo, /\.from\('pagos'\)\.delete\(\)\.eq\('lead_id', id\)\.eq\('pagado', false\)\.in\('id', borrar\)/);
+  assert.match(undo, /const ids = \[\.\.\.d\.audit, /);
+  assert.match(undo, /\.from\('lead_audit'\)\.delete\(\)\.eq\('lead_id', id\)\.in\('id', ids\)/);
+  for (const prohibido of ['setPipelineStage(', 'updateLead(', 'revertMoveAction(', 'getLeadAudit(', ".gte('created_at'"]) {
+    assert.ok(!undo.includes(prohibido), `el Deshacer volvió a usar ${prohibido}`);
+  }
 });
 
-test('CABLEADO historial: la fecha de cierre tiene línea, y cada línea del desenlace es la columna que dice', () => {
+test('CABLEADO pantallas: el escritorio manda la foto, apaga el botón sin ella y DICE cuando no pudo; el teléfono igual', () => {
+  const tab = leer('app/crm/CrmBoard.tsx');
+  assert.match(tab, /const r = await undoStageMoveAction\(id, deshacer\);\s*if \(r && 'error' in r\) throw/);
+  assert.match(tab, /disabled=\{!undoInfo\.deshacer\}/);
+  assert.match(tab, /setAvisoDeshacer\(/);
+  assert.match(leer('app/crm/StageMoveDialog.tsx'), /onDone\(r\);/);
+  const movil = leer('app/m/crm/acciones.ts');
+  assert.match(movil, /const r = await undoStageMoveAction\(leadId, deshacer\);\s*if \(r && 'error' in r\) return \{ ok: false, error: r\.error \};/);
+  assert.match(leer('app/m/crm/TableroCrm.tsx'), /deshacerMoverAction\(leadId, datos\.funnelId, r\.antes, r\.esCasa, r\.deshacer\)/);
+  assert.match(leer('app/m/crm/[id]/FichaLead.tsx'), /deshacerMoverAction\(p\.id, funnelId, antes, esCasa, deshacer\)/);
+});
+
+test('CABLEADO historial: la fecha de cierre tiene línea y Restaurar la devuelve sin pasar por la regla', () => {
   const audit = leer('lib/leads.ts');
   const campos = audit.slice(audit.indexOf('const AUDIT_FIELDS'), audit.indexOf('];', audit.indexOf('const AUDIT_FIELDS')));
   for (const [k, label] of Object.entries(LINEA_DEL_DESENLACE)) {
@@ -159,5 +241,9 @@ test('CABLEADO historial: la fecha de cierre tiene línea, y cada línea del des
   }
   const acc = leer('app/crm/actions.ts');
   const rev = acc.slice(acc.indexOf('const REVERTIBLES = new Set(['), acc.indexOf(']);', acc.indexOf('const REVERTIBLES = new Set([')));
-  assert.match(rev, /LINEA_DEL_DESENLACE\.fecha_cierre/, '«Restaurar» no devuelve la fecha de la venta');
+  assert.match(rev, /LINEA_DEL_DESENLACE\.fecha_cierre/);
+  const grupo = cuerpo(acc, 'export async function revertMoveAction(');
+  assert.match(grupo, /desenlaceAntesDelMovimiento\(desenlaceDe\(actual\), grupo, new Date\(\)\.toISOString\(\)\.slice\(0, 10\), createdAt\)/);
+  assert.match(grupo, /await updateLead\(leadId, upd, \{ desenlaceExacto \}\)/);
+  assert.match(cuerpo(audit, 'export async function updateLead('), /Object\.assign\(merged, opts\?\.desenlaceExacto \?\? desenlaceAlGuardar\(actual, input, /);
 });

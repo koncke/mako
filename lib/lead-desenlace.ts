@@ -174,16 +174,14 @@ export function estadoDelMovimiento(antes: EstadoLead | null | undefined, destin
 }
 
 // =============================================================================
-// DESHACER un movimiento: el desenlace de ANTES, tal cual (17/10/2026)
+// RESTAURAR desde el historial: el desenlace de ANTES, tal cual (17/10/2026)
 // =============================================================================
-// ⚠️ DESHACER NO ES OTRO GUARDADO. Hasta el 17/10 el «Deshacer» del tablero volvía a MOVER el lead
-// (`setPipelineStage(id, from)`) y «Restaurar» del historial mandaba el estado de antes por
-// `updateLead`: los dos pasaban por `desenlaceAlGuardar`, que toma el cambio de estado como una
-// decisión de la venta. Un lead en «Facturando» (abierto, 3000 cargados por el plan de pagos) que se
-// arrastraba por error a Ganado y se deshacía volvía a abierto SIN los 3000 —la regla limpia la venta
-// fuera de Ganado—, y el borrado del rastro se llevaba la línea que lo decía. Al revés, un Ganado del
-// 15/09 movido a una abierta y deshecho volvía con la fecha de cierre de HOY: la venta cambiaba de mes
-// (`fecha_cierre` no estaba en el historial, así que nadie sabía cuál era).
+// ⚠️ RESTAURAR NO ES OTRO GUARDADO. Hasta el 17/10 «Restaurar» (`revertMoveAction`) mandaba el estado de
+// antes por `updateLead`, o sea por `desenlaceAlGuardar`, que toma el cambio de estado como una decisión de
+// la venta: volver un lead de «Facturando» (abierto, 3000 cargados por el plan de pagos) de un Ganado le
+// borraba los 3000, y volver un Ganado del 15/09 le ponía la fecha de cierre de HOY (`fecha_cierre` no estaba
+// en el historial). El Deshacer del TOAST no usa esto: repone la foto que sacó el movimiento
+// (lib/deshacer-movimiento.ts), porque el historial no alcanza para saber «cómo estaba».
 //
 // LA REGLA: lo que el movimiento cambió vuelve a su `valor_anterior` de la línea del historial; lo que
 // no cambió se queda como está (es lo de antes). Sin coerciones: es una foto, no una decisión. El
@@ -212,11 +210,20 @@ export const lineasTocanElDesenlace = (lineas: ReadonlyArray<LineaDeHistorial>):
  * El desenlace de ANTES de las líneas que se deshacen, para escribirlo TAL CUAL (`updateLead` con
  * `desenlaceExacto`). `actual` es el lead de hoy; `lineas`, las del movimiento.
  *
- * Una sola excepción, por el historial viejo: un Ganado que vuelve sin fecha de cierre y SIN línea
- * «Fecha de cierre» que diga cuál era (movimientos anteriores al 17/10) recibe `hoy`, como siempre
- * —un ganado sin fecha no lo cuenta Revenue—. Con la línea, vuelve la fecha que dice, aunque sea vacía.
+ * Dos excepciones, para cuando NO hay línea «Fecha de cierre» que diga cuál era (movimientos anteriores al
+ * 17/10, o el wizard de cuotas, que la deja en OTRO grupo que el estado):
+ *   · un Ganado que vuelve sin fecha de cierre recibe `hoy`, como siempre —un ganado sin fecha no lo cuenta
+ *     Revenue—;
+ *   · un estado que vuelve a NO cerrado con la fecha de cierre del MISMO día que el grupo (`cuando`, su
+ *     `created_at`) la pierde: esa fecha la puso ese ganar (`desenlaceAlGuardar` pone la de hoy). Conservada,
+ *     el lead abierto quedaba con fecha de cierre, se salía de las nutriciones «sin cerrar» y la venta de la
+ *     próxima vez caía en el mes viejo (revisión del 17/10). Una fecha de otro día es de antes (el plan de
+ *     pagos de un lead en «Facturando») y queda.
+ * Con la línea, vuelve la fecha que dice, aunque sea vacía.
  */
-export function desenlaceAntesDelMovimiento(actual: Desenlace, lineas: ReadonlyArray<LineaDeHistorial>, hoy: string): Desenlace {
+export function desenlaceAntesDelMovimiento(
+  actual: Desenlace, lineas: ReadonlyArray<LineaDeHistorial>, hoy: string, cuando?: string,
+): Desenlace {
   const linea = (campo: string) => lineas.find((l) => l.campo === campo);
   const m: Desenlace = { ...actual };
   const estado = linea(LINEA_DEL_DESENLACE.estado_lead);
@@ -234,5 +241,8 @@ export function desenlaceAntesDelMovimiento(actual: Desenlace, lineas: ReadonlyA
   const fecha = linea(LINEA_DEL_DESENLACE.fecha_cierre);
   if (fecha) m.fecha_cierre = fecha.valor_anterior;
   else if (m.cerro === true && !m.fecha_cierre) m.fecha_cierre = hoy;
+  else if (estado && m.cerro !== true && m.fecha_cierre && cuando && m.fecha_cierre.slice(0, 10) === cuando.slice(0, 10)) {
+    m.fecha_cierre = null;
+  }
   return m;
 }
