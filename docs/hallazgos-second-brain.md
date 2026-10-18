@@ -61,6 +61,30 @@ lib/cerebro-union.ts, app/m/second-brain/SecondBrainM.tsx · tests/second-brain-
 **Vive en:** app/second-brain/Grafo.tsx · app/second-brain/VistaCerebro.tsx · app/second-brain/FiltroMapa.tsx ·
 app/second-brain/apaisar.ts · lib/cerebro-union.ts · lib/cerebro-filtro.ts · app/m/second-brain/SecondBrainM.tsx · *2026-10-17*
 
+### El «Negocio» se arma con lo que MaKo SABE hoy, no con huecos fijos (18/10/2026, segunda punta)
+
+Martín: los nodos del «Negocio» (el del super admin como el de cualquier workspace) «se deben siempre ajustar a lo que MaKo sepa...
+no tengas miedo en quitarle nodos o agregarles; si les falta info ya la irán completando». Código: lib/cerebro-vivo.ts,
+lib/cerebro-grafo.ts · tests/second-brain-negocio-vivo.test.ts.
+
+- **Se agregaron las dos fuentes de la venta que el grafo no leía:** los CLIENTES (un lead con la venta ganada: la definición de
+  lib/clientes-ganados.ts) y las REUNIONES de venta que el Closing Analyst ya leyó (`closing_analyses`, `status='analizada'` y
+  `category='venta'`). Clientes: UN nodo «N clientes» con el total exacto (`count: 'exact'`, no los que se leyeron) y los 8 más
+  recientes colgados de él, y él de los leads. Reuniones: las 6 más recientes, cada una del cliente que terminó comprando o, si no, de
+  los leads. Sin datos no hay nodo; una lectura que falla no tumba el mapa (`.catch`); una venta nueva entra sola con el grafo vivo.
+- **Se quitó la estructura fija de huecos:** hasta hoy cada sección sin un dato dibujaba un `falta:<área>` colgado de la raíz (once
+  casillas iguales para todos los negocios). Ahora lo que falta se DICE (el dato «Todavía sin info» de la raíz y el «falta» de cada
+  sección en la barra lateral, con su «Editar») y no se dibuja. `vacias` sigue en el modelo (el ZIP lo usa). El filtro «Sin completar»
+  sólo se ofrece si hay algo sin completar.
+- **La excepción que este archivo ya conoce, aplicada de antemano (NO medida con clientes reales):** los clientes y las reuniones no se
+  cuelgan además del nodo de área del funnel (`realesPorArea`). Colgar los 15 le subiría el grado hacia el de la raíz, y el hub tiene
+  tope en scripts/medir-grafo.mjs (4,5×): es la misma excepción que ya tienen las etapas de nutrición. Lo fija un test sobre el
+  constructor; falta medir el grafo con datos reales.
+- **Sin hacer / sin ver:** el constructor corre contra la base y no hay forma de armarlo sin ella en un test, así que lo nuevo se probó
+  con datos armados a mano (`agregarLoVivo`) y mirando el código del constructor; falta ver el grafo con datos reales (un workspace con
+  clientes y reuniones leídas) y correr `node scripts/medir-grafo.mjs` sobre él. Las reuniones que no pasaron por el Closing Analyst
+  (una grabación de Fathom sin leer, un evento de agenda) no entran: no son algo que MaKo SEPA todavía.
+
 ## El texto pegado en el chat: un documento, no un mazacote (17/10/2026, tarjetas #848, #864 y #884)
 
 `lib/chat-pegado.ts` (las reglas), `app/_chat/PegadoHilo.tsx` (la tarjeta y la burbuja plegada), las dos cajas
