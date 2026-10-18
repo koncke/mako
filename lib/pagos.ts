@@ -26,9 +26,10 @@ import {
 import { getLead, logLeadChanges, logLeadEvent } from './leads';
 import { esCuotaDeBaja, esCuotaDevuelta, noEsDeuda } from './cobrado-lead';
 import { normalizarMoneda } from './pasarela-moneda';
-import { cambiarSettingSi, getSettingEstricto, getSetting, setSetting } from './settings';
+import { borrarSettingSi, cambiarSettingSi, getSettingEstricto, getSetting, setSetting } from './settings';
 import { keyEspaciado } from './espaciado';
-import { AVISOS_DE_CUOTA, claveDedupCuota, cuotasReprogramadas } from './cobranza';
+import { AVISOS_DE_CUOTA, DEDUP_OLVIDADO, claveDedupCuota, cuotasReprogramadas, marcaAlDeshacer } from './cobranza';
+import type { MarcasDeCobranza } from './deshacer-movimiento';
 import { plazoAlReactivar } from './suscripcion-manual';
 import { laCobraLaPasarela } from './cobros-reglas';
 import type { Pasarela } from './cobros-tipos';
@@ -217,8 +218,8 @@ async function escribirReconciliacion(leadId: number, plan: PlanDeCuotas): Promi
   await olvidarAvisosDeCuotas(cuotasReprogramadas(plan.actualizar));
 }
 
-/** Un instante viejo: el dedup lo lee como «salió hace mucho» y la cuota puede volver a entrar. */
-const DEDUP_OLVIDADO = new Date(0).toISOString();
+// `DEDUP_OLVIDADO` (lib/cobranza.ts): un instante viejo, el dedup lo lee como «salió hace mucho» y la cuota puede
+// volver a entrar. Vive allá porque el Deshacer también lo lee (`marcaAlDeshacer`).
 
 /**
  * Deja que una cuota REPROGRAMADA vuelva a entrar a la cobranza (`cuotasReprogramadas`, lib/cobranza.ts): el dedup
@@ -241,6 +242,49 @@ async function olvidarAvisosDeCuotas(pagoIds: readonly number[]): Promise<void> 
     }
   } catch (e) {
     console.error(`[pagos] no pude reabrir la cobranza de las cuotas ${pagoIds.join(', ')}:`, e instanceof Error ? e.message : e);
+  }
+}
+
+/**
+ * Las marcas de dedup de cobranza de estas cuotas, tal como están (null = sin marca). Es la mitad de la foto del
+ * Deshacer que `olvidarAvisosDeCuotas` pisa al reprogramar. null = no se pudieron leer (sin negocio, o la base).
+ */
+export async function leerMarcasDeCobranza(pagoIds: readonly number[]): Promise<MarcasDeCobranza | null> {
+  try {
+    if ((await getWorkspaceActual()) == null) return null;
+    const out: MarcasDeCobranza = {};
+    for (const id of pagoIds) {
+      const marcas: Record<string, string | null> = {};
+      for (const aviso of AVISOS_DE_CUOTA) marcas[aviso] = await getSettingEstricto(keyEspaciado(aviso, claveDedupCuota(id)));
+      out[String(id)] = marcas;
+    }
+    return out;
+  } catch (e) {
+    console.error('[pagos] no pude leer las marcas de cobranza:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
+ * El Deshacer de un movimiento que reprogramó cuotas: cada marca vuelve a la de ANTES (`marcaAlDeshacer`), con
+ * compare-and-set contra la del olvido, así que un aviso que salió en el medio gana. Una cuota sin marcas en la foto
+ * no se toca. No tira: la cuota ya volvió a su fecha.
+ */
+export async function reponerMarcasDeCobranza(antes: MarcasDeCobranza, pagoIds: readonly number[]): Promise<void> {
+  try {
+    if (!pagoIds.length || (await getWorkspaceActual()) == null) return;
+    for (const id of pagoIds) {
+      const foto = antes[String(id)];
+      if (!foto) continue;
+      for (const aviso of AVISOS_DE_CUOTA) {
+        const key = keyEspaciado(aviso, claveDedupCuota(id));
+        const accion = marcaAlDeshacer(foto[aviso] ?? null, await getSettingEstricto(key));
+        if (accion && 'poner' in accion) await cambiarSettingSi(key, DEDUP_OLVIDADO, accion.poner);
+        else if (accion) await borrarSettingSi(key, DEDUP_OLVIDADO);
+      }
+    }
+  } catch (e) {
+    console.error(`[pagos] no pude reponer la cobranza de las cuotas ${pagoIds.join(', ')}:`, e instanceof Error ? e.message : e);
   }
 }
 

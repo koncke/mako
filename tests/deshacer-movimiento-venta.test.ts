@@ -8,7 +8,7 @@
 // agujeros (los cinco escenarios de abajo). La cura: el movimiento saca la FOTO de antes y la de después, firmada
 // (lib/deshacer-movimiento.ts), y el Deshacer la repone si lo que el movimiento cambió sigue como lo dejó.
 //
-// Verificado rompiéndolo (el archivo da 13 / 0):
+// Verificado rompiéndolo (el archivo da 16 / 0; las doce primeras se midieron cuando tenía 13 tests):
 //   · planDeshacer sin comparar con HOY (`campos` siempre vacío)                     → 12 / 1 (otra persona)
 //   · planDeshacer sin las cuotas creadas en `borrar`                                → 11 / 2 (wizard con cuotas, la foto)
 //   · planDeshacer escribiendo TODA la foto de antes (no sólo lo que cambió)         →  9 / 4 (wizard, minuto, otra, etapa)
@@ -21,6 +21,12 @@
 //   · undoStageMoveAction de vuelta por el historial (`revertMoveAction(`)           → 12 / 1 (CABLEADO deshacer)
 //   · el botón del tablero sin `disabled={!undoInfo.deshacer}`                       → 12 / 1 (CABLEADO pantallas)
 //   · AUDIT_FIELDS sin `fecha_cierre`                                               → 12 / 1 (CABLEADO historial)
+//   Segunda revisión (16 tests):
+//   · `marcaAlDeshacer` devolviendo siempre null                                     → 15 / 1 (dedup de cobranza)
+//   · undoStageMoveAction sin `reponerMarcasDeCobranza` después del `volver`         → 15 / 1 (CABLEADO cobranza)
+//   · reponerMarcasDeCobranza con la clave armada a mano                             → 15 / 1 (CABLEADO cobranza)
+//   · cerrarDeshacer firmando sin las marcas                                         → 15 / 1 (CABLEADO cobranza)
+//   · la frase de «¿Qué hacer ahora?» escrita DESPUÉS de firmar, como antes          → 15 / 1 (CABLEADO frase)
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,6 +40,7 @@ import {
   fotoDe, firmarDeshacer, leerDeshacer, planDeshacer, VIDA_DESHACER_MS,
   type DatosDeshacer, type FotoCuota, type FotoLead,
 } from '../lib/deshacer-movimiento';
+import { DEDUP_OLVIDADO, marcaAlDeshacer } from '../lib/cobranza';
 import type { EstadoLead } from '../lib/leads';
 
 const HOY = '2026-10-17';
@@ -246,4 +253,44 @@ test('CABLEADO historial: la fecha de cierre tiene línea y Restaurar la devuelv
   assert.match(grupo, /desenlaceAntesDelMovimiento\(desenlaceDe\(actual\), grupo, new Date\(\)\.toISOString\(\)\.slice\(0, 10\), createdAt\)/);
   assert.match(grupo, /await updateLead\(leadId, upd, \{ desenlaceExacto \}\)/);
   assert.match(cuerpo(audit, 'export async function updateLead('), /Object\.assign\(merged, opts\?\.desenlaceExacto \?\? desenlaceAlGuardar\(actual, input, /);
+});
+
+// ── La segunda revisión (17/10): el dedup de cobranza y la frase de «¿Qué hacer ahora?» ──
+
+test('deshacer una reprogramación devuelve el dedup de cobranza EXACTO (sin él, el cron duplicaba «cuota vencida»)', () => {
+  const salio = '2026-10-10T12:00:00.000Z';
+  assert.deepEqual(marcaAlDeshacer(salio, DEDUP_OLVIDADO), { poner: salio }, 'la marca que el movimiento olvidó vuelve');
+  assert.deepEqual(marcaAlDeshacer(null, DEDUP_OLVIDADO), { quitar: true }, 'sin marca antes, no queda la de epoch');
+  assert.equal(marcaAlDeshacer(salio, '2026-10-17T16:00:00.000Z'), null, 'un aviso que salió DESPUÉS no se toca');
+  assert.equal(marcaAlDeshacer(salio, salio), null, 'una cuota que no se reprogramó no se toca');
+  assert.equal(marcaAlDeshacer(DEDUP_OLVIDADO, DEDUP_OLVIDADO), null, 'ya estaba olvidada: queda olvidada');
+  assert.equal(marcaAlDeshacer(null, null), null);
+});
+
+test('CABLEADO cobranza: la foto guarda las marcas, sin ellas no hay Deshacer, y el `volver` las repone con los helpers', () => {
+  const acc = leer('app/crm/actions.ts');
+  assert.match(acc, /const marcas = cuotas \? await leerMarcasDeCobranza\(cuotas\.filter\(\(c\) => !c\.pagado\)\.map\(\(c\) => c\.id\)\) : null;/);
+  assert.match(acc, /if \(!c\.cuotas \|\| !despues \|\| !c\.marcas\) return undefined;/);
+  const undo = cuerpo(acc, 'export async function undoStageMoveAction(');
+  const iVolver = undo.indexOf('for (const c of volver)');
+  const iMarcas = undo.indexOf('await reponerMarcasDeCobranza(d.cuotas?.marcas ?? {}, volver.map((c) => c.id));');
+  assert.ok(iVolver > 0 && iMarcas > iVolver, 'el Deshacer repone la fecha y no el dedup');
+  const pagos = leer('lib/pagos.ts');
+  const reponer = cuerpo(pagos, 'export async function reponerMarcasDeCobranza(');
+  assert.match(reponer, /for \(const aviso of AVISOS_DE_CUOTA\)/);
+  assert.match(reponer, /const key = keyEspaciado\(aviso, claveDedupCuota\(id\)\);/, 'la clave, con los helpers de la cobranza');
+  assert.match(reponer, /marcaAlDeshacer\(foto\[aviso\] \?\? null, await getSettingEstricto\(key\)\)/);
+  assert.match(reponer, /cambiarSettingSi\(key, DEDUP_OLVIDADO, accion\.poner\)/, 'contra la del olvido: un aviso que salió gana');
+  assert.match(reponer, /borrarSettingSi\(key, DEDUP_OLVIDADO\)/);
+  assert.match(cuerpo(pagos, 'export async function leerMarcasDeCobranza('), /getSettingEstricto\(keyEspaciado\(aviso, claveDedupCuota\(id\)\)\)/);
+});
+
+test('CABLEADO frase: «Datos sin marcar» se escribe ANTES de firmar el Deshacer, así el Deshacer la borra', () => {
+  const acc = leer('app/crm/actions.ts');
+  const wiz = cuerpo(acc, 'export async function completeStageMoveAction(');
+  const iFrase = wiz.indexOf("await logLeadEvent(id, 'Datos sin marcar', frase.trim(), autor)");
+  assert.ok(iFrase > 0 && iFrase < wiz.indexOf('await cerrarDeshacer('), 'la frase quedó fuera de las líneas del token');
+  const qh = cuerpo(acc, 'export async function resolverQueHacerAction(');
+  assert.match(qh, /return completeStageMoveAction\(leadId, to, datos, frase\);/);
+  assert.ok(!qh.includes('logLeadEvent('), 'la frase volvió a escribirse después de firmar');
 });

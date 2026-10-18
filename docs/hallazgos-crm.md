@@ -9917,6 +9917,12 @@ devuelve las que reprogramó o quitó; y borra del historial sólo esos ids. Sin
 el tablero lo DICE (antes la card volvía sola).
 - ⚠️ **La foto se saca antes de la PRIMERA escritura**, no antes de `setPipelineStage`: en el wizard, el plan de pagos
   ya ganó al lead para entonces.
+- ⚠️ **La foto incluye lo que el movimiento escribe FUERA de `leads` y `pagos`.** Reprogramar una cuota olvida su
+  dedup de cobranza (`olvidarAvisosDeCuotas`: la marca pasa a epoch); deshacer sólo la fecha dejaba la cuota vencida
+  con la marca en epoch y el cron mandaba un segundo «cuota vencida» y arrancaba otra cadencia. La foto guarda las
+  marcas de las cuotas impagas y el Deshacer las repone EXACTAS (`marcaAlDeshacer`, compare-and-set contra epoch: un
+  aviso que salió en el medio gana). Y todo lo que el movimiento escribe en el historial va ANTES de firmar: la frase
+  de «¿Qué hacer ahora?» se escribía después y sobrevivía al Deshacer.
 - ⚠️ **Restaurar sigue leyendo el historial** (es lo único que tiene) y repone el desenlace con
   `desenlaceAntesDelMovimiento` (`updateLead(…, { desenlaceExacto })`). `fecha_cierre` entró a AUDIT_FIELDS como
   «Fecha de cierre» y a REVERTIBLES. Sin esa línea (historial anterior al 17/10, o el grupo del wizard), un estado que

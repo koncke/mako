@@ -51,9 +51,15 @@ export type DatosDeshacer = {
   despues: FotoLead;
   /** Los ids de `lead_audit` que escribió el movimiento. */
   audit: number[];
-  /** Sólo si el movimiento pudo tocar cuotas (el wizard). */
-  cuotas?: { antes: FotoCuota[]; despues: FotoCuota[] };
+  /**
+   * Sólo si el movimiento pudo tocar cuotas (el wizard). `marcas`: el dedup de cobranza de las cuotas impagas de
+   * ANTES (`leerMarcasDeCobranza`, lib/pagos.ts), que reprogramar una cuota olvida y el Deshacer repone.
+   */
+  cuotas?: { antes: FotoCuota[]; despues: FotoCuota[]; marcas?: MarcasDeCobranza };
 };
+
+/** Cuota (id como texto) → aviso (`AVISOS_DE_CUOTA`) → su marca de dedup tal como estaba (null = sin marca). */
+export type MarcasDeCobranza = Record<string, Record<string, string | null>>;
 
 /** Lo que viaja al navegador y vuelve: el cuerpo tal cual se firmó, y la firma. */
 export type TokenDeshacer = { cuerpo: string; firma: string };

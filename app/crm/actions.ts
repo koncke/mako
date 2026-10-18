@@ -60,7 +60,7 @@ import {
 import { camposPisados } from '@/lib/historial-pisado';
 import {
   fotoDe, fotoDeCuotas, firmarDeshacer, leerDeshacer, planDeshacer,
-  type DatosDeshacer, type FotoCuota, type FotoLead, type TokenDeshacer,
+  type DatosDeshacer, type FotoCuota, type FotoLead, type MarcasDeCobranza, type TokenDeshacer,
 } from '@/lib/deshacer-movimiento';
 import { actualizarEtiquetaLead } from '@/lib/evolution-labels';
 import { desenlaceAntesDelMovimiento, lineasTocanElDesenlace, LINEA_DEL_DESENLACE, type Desenlace } from '@/lib/lead-desenlace';
@@ -169,7 +169,7 @@ async function autorActual(): Promise<string> {
 }
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
-import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
+import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
 import { avisoDeConservadas } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
@@ -583,7 +583,11 @@ async function registrarPendientes(id: number, faltan: Step[], autor: string): P
  * aportados y mueve, en una sola acción. Valida los requisitos ACUMULATIVOS
  * server-side (fuente única: `valoresDeRequisitos` + lib/stage-requirements).
  */
-export async function completeStageMoveAction(id: number, to: string, d: StageMoveData): Promise<StageMoveResultado> {
+export async function completeStageMoveAction(
+  id: number, to: string, d: StageMoveData,
+  /** La frase de «¿Qué hacer ahora?» (`resolverQueHacerAction`): se escribe ANTES de firmar el Deshacer. */
+  frase?: string,
+): Promise<StageMoveResultado> {
   await exigirSesion();
   const before = await getLead(id).catch(() => null);
   // La foto para el Deshacer, ANTES de cualquier escritura del wizard (el plan de pagos gana solo, sin auditar).
@@ -771,6 +775,9 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   const pagosDespues = etapaFinal === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
   const pendientes = after ? stepsForStage(etapaFinal, valoresDeRequisitos(etapaFinal, after, pagosDespues, stagesMove, {}, grabable)) : [];
   await registrarPendientes(id, pendientes, autor);
+  // ⚠️ ANTES de firmar (revisión del 17/10/2026): escrita después por `resolverQueHacerAction`, la línea quedaba
+  // afuera de las que borra el Deshacer y el historial contaba un movimiento que ya no existía.
+  if (frase?.trim()) await logLeadEvent(id, 'Datos sin marcar', frase.trim(), autor).catch(() => {});
   const deshacer = d.soloCompletar ? undefined : await cerrarDeshacer(id, foto, after, autor);
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
@@ -801,11 +808,8 @@ export async function resolverQueHacerAction(
   frase: string,
 ): Promise<StageMoveResultado> {
   await exigirSesion();
-  const r = await completeStageMoveAction(leadId, to, datos);
-  if (r.ok && frase.trim()) {
-    await logLeadEvent(leadId, 'Datos sin marcar', frase.trim(), await autorActual()).catch(() => {});
-  }
-  return r;
+  // La frase la escribe `completeStageMoveAction` ANTES de firmar el Deshacer, y sólo si guardó.
+  return completeStageMoveAction(leadId, to, datos, frase);
 }
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {
@@ -2529,7 +2533,10 @@ async function lineasDesde(id: number, desde: number | null, autores: string[]):
   } catch { return []; }
 }
 
-type FotoDeComienzo = { t: number; antes: FotoLead | null; desdeAudit: number | null; cuotas?: FotoCuota[] | null };
+type FotoDeComienzo = {
+  t: number; antes: FotoLead | null; desdeAudit: number | null;
+  cuotas?: FotoCuota[] | null; marcas?: MarcasDeCobranza | null;
+};
 
 /** La foto de ANTES: se saca antes de la primera escritura del movimiento. */
 async function empezarDeshacer(id: number, before: Lead | null, conCuotas: boolean): Promise<FotoDeComienzo> {
@@ -2537,8 +2544,15 @@ async function empezarDeshacer(id: number, before: Lead | null, conCuotas: boole
     t: Date.now(),
     antes: before ? fotoDe(before as unknown as Record<string, unknown>) : null,
     desdeAudit: await ultimoIdDelHistorial(id),
-    ...(conCuotas ? { cuotas: await cuotasDe(id) } : {}),
+    ...(conCuotas ? await cuotasYMarcas(id) : {}),
   };
+}
+
+/** Las cuotas de antes y el dedup de cobranza de las impagas: reprogramar una cuota olvida su marca (lib/pagos.ts). */
+async function cuotasYMarcas(id: number): Promise<{ cuotas: FotoCuota[] | null; marcas: MarcasDeCobranza | null }> {
+  const cuotas = await cuotasDe(id);
+  const marcas = cuotas ? await leerMarcasDeCobranza(cuotas.filter((c) => !c.pagado).map((c) => c.id)) : null;
+  return { cuotas, marcas };
 }
 
 /**
@@ -2553,8 +2567,9 @@ async function cerrarDeshacer(id: number, c: FotoDeComienzo, after: Lead | null,
     let cuotas: DatosDeshacer['cuotas'];
     if ('cuotas' in c) {
       const despues = await cuotasDe(id);
-      if (!c.cuotas || !despues) return undefined;
-      cuotas = { antes: c.cuotas, despues };
+      // Sin las marcas de cobranza, deshacer una reprogramación duplicaría el aviso de una cuota vencida.
+      if (!c.cuotas || !despues || !c.marcas) return undefined;
+      cuotas = { antes: c.cuotas, despues, marcas: c.marcas };
     }
     const audit = await lineasDesde(id, c.desdeAudit, [...new Set([autor, await autorDelMovimiento()])]);
     return firmarDeshacer({
@@ -2613,6 +2628,9 @@ export async function undoStageMoveAction(id: number, token: TokenDeshacer | nul
         .eq('id', c.id).eq('lead_id', id).eq('pagado', false);
       if (error) throw new Error(error.message);
     }
+    // Y su dedup de cobranza, EXACTO: el movimiento lo olvidó al reprogramarla (epoch), y con la fecha vieja de
+    // vuelta y la marca en epoch el cron mandaba un segundo «cuota vencida» por la misma deuda.
+    if (volver.length) await reponerMarcasDeCobranza(d.cuotas?.marcas ?? {}, volver.map((c) => c.id));
     if (reponer.length) {
       const { error } = await db.from('pagos').insert(reponer.map((c) => ({
         id: c.id, lead_id: id, numero: c.numero, monto_usd: c.monto_usd, fecha_esperada: c.fecha_esperada, pagado: c.pagado,
