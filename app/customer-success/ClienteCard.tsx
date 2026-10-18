@@ -30,7 +30,8 @@
 import { useState, type ReactNode } from 'react';
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
-import { TarjetaEntidad, PieNumeros, PieTexto, colorDe } from '@/app/_components/TarjetaEntidad';
+import { colorDe } from '@/app/_components/TarjetaEntidad';
+import { TarjetaPersona, type AvanceTarjeta } from '@/app/_ui/TarjetaKanban';
 import { Dropdown } from '@/app/components/Dropdown';
 import { conIconos, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { useFotoCliente } from './foto-cliente';
@@ -68,7 +69,7 @@ export type CursoDeTarjeta = {
   onAcceso: (a: AccesoFicha) => void;
 };
 
-export function ClienteCard({ c, n, trabajo, tableroOk, chipExtra, accionExtra, antesDelNombre, onAbrir, curso, onPermisos }: {
+export function ClienteCard({ c, n, trabajo, tableroOk, chipExtra, accionExtra, antesDelNombre, onAbrir, curso, onPermisos, avance }: {
   c: ClienteCruce;
   /** Su número de cliente: «Cliente 1». No es el id del lead — ver `NumeroCliente`. */
   n: number;
@@ -109,6 +110,11 @@ export function ClienteCard({ c, n, trabajo, tableroOk, chipExtra, accionExtra, 
   curso?: CursoDeTarjeta | null;
   /** «Permisos del curso»: abre la ficha en su pestaña Curso, donde viven (FichaCurso). */
   onPermisos?: () => void;
+  /**
+   * La barra y el aviso de la familia de tarjetas (17/10/2026): en qué etapa del servicio está y, si hace falta, el
+   * aviso en rojo (`avanceDeCliente`, ./aviso-tarjeta.ts). Lo arma el tablero, que sabe la etapa.
+   */
+  avance?: AvanceTarjeta | null;
 }) {
   const nombre = c.nombre.trim() || 'Sin nombre';
   /** Su WhatsApp o su email, si nadie le eligió una foto (./foto-cliente.ts). */
@@ -135,61 +141,54 @@ export function ClienteCard({ c, n, trabajo, tableroOk, chipExtra, accionExtra, 
     if (v === 'curso-permisos') { onPermisos?.(); return; }
   };
 
+  // ⚠️ LA FAMILIA DE TARJETAS (17/10/2026, prototipo docs/prototipos/coherencia-1710.html, «8 · Clients»): la misma
+  //    tarjeta del lead —la cara, el nombre, el subtítulo y «Ver info»—, más la barra de la etapa y el aviso. Deja
+  //    `TarjetaEntidad` (portada arriba, pie de números), que sigue en /admin. Lo del tablero de trabajo (proyectos,
+  //    tareas, recurrentes) pasa a un renglón de chips: «LOS TRES NÚMEROS O NINGUNO» sigue valiendo.
+  const foto = (c.avatarUrl?.trim() || fotoAuto) || null;
   return (
     <>
-    <TarjetaEntidad
+    <TarjetaPersona
       nombre={nombre}
-      bajada={c.empresa?.trim() || `Cliente ${n}`}
-      portada={c.portada} portadaY={c.portadaY}
-      icono={c.icono ?? c.avatarUrl} avatarY={c.avatarY} foto={fotoAuto}
-      color={colorDe(nombre)}
-      onAbrir={onAbrir}
-      etiqueta={`Abrir la ficha de ${nombre}`}
-      antesDelNombre={antesDelNombre}
-      chips={chipExtra}
-      /* ⚠️ LOS TRES NÚMEROS O NINGUNO. Cuando el tablero no se pudo leer, poner
-         ceros sería afirmar que no tiene trabajo — que es distinto de no haber
-         podido mirar. */
-      pie={
+      foto={foto}
+      subtitulo={c.empresa?.trim() || `Cliente ${n}`}
+      antes={antesDelNombre}
+      onClick={onAbrir}
+      aria-label={`Abrir la ficha de ${nombre}`}
+      pildora={{ texto: 'Ver info', onClick: onAbrir }}
+      avance={avance ?? null}
+      chips={
         <>
+          {avance ? null : chipExtra}
+          {/* ⚠️ LOS TRES NÚMEROS O NINGUNO. Cuando el tablero no se pudo leer, poner ceros sería afirmar que no tiene
+              trabajo — que es distinto de no haber podido mirar. */}
           {tableroOk ? (
-            <PieNumeros datos={[
-              { v: trabajo?.proyectos ?? 0, k: 'Proyectos' },
-              { v: trabajo?.abiertas ?? 0, k: 'Tareas' },
-              { v: trabajo?.recurrentes ?? 0, k: 'Recurrentes' },
-            ]} />
+            <span className="tk-chip tk-chip--gris">{trabajo?.proyectos ?? 0} proyectos · {trabajo?.abiertas ?? 0} tareas · {trabajo?.recurrentes ?? 0} recurrentes</span>
           ) : (
-            <PieTexto mal>No pude leer el tablero</PieTexto>
+            <span className="tk-chip tk-chip--mal">No pude leer el tablero</span>
           )}
-          {/* El resultado del reenvío, adentro de la tarjeta desde la que se pidió: un
-              aviso global obligaría a acordarse de sobre cuál se hizo click. Y va acá y
-              no en `acciones` porque esa fila es nowrap — un tercer hijo ancho la
-              desborda en vez de bajar a su renglón. */}
-          {aviso && <PieTexto mal={aviso.tono === 'warn'}>{aviso.texto}</PieTexto>}
+          {/* El resultado del reenvío, adentro de la tarjeta desde la que se pidió: un aviso global obligaría a
+              acordarse de sobre cuál se hizo click. */}
+          {aviso && <span className={`tk-chip ${aviso.tono === 'warn' ? 'tk-chip--mal' : 'tk-chip--bien'}`}>{aviso.texto}</span>}
         </>
       }
       /* ⚠️ SÓLO SI HAY ALGO QUE HACER: lo del curso (que el producto tenga curso) o lo que pone la pantalla. Sin
-         ninguna, una fila vacía con un menú sin opciones es una tarjeta que ofrece algo que no tiene. */
+         ninguna, un menú sin opciones es una tarjeta que ofrece algo que no tiene. */
       acciones={accionExtra || opciones.length > 0 ? (
         <>
-          <span style={{ flex: 1 }} />
           {/* ⚠️ SIN OPCIONES NO SE DIBUJA. `Dropdown` no tiene rama de lista vacía: con
               `options={[]}` igual pinta el botón y abre un popover en blanco, que se lee
               como una app rota. Pasa de verdad — un cliente sin curso no tiene ninguna. */}
-          {/* ⚠️ EL MENÚ NO ARRASTRA: en el kanban la tarjeta entera es `draggable`, y apretar
-              «Acciones» y correr un poco el mouse se llevaba la tarjeta. Lo corta `data-nodrag`,
-              que mira `agarrar` (KanbanEntrega) con el nodo donde nació el gesto. ⛔ Acá había un
-              `onDragStart` que lo cancelaba y no corría NUNCA: el `dragstart` sale del nodo
-              arrastrable (el envoltorio), no de un hijo (revisión del 08/10/2026).
-              `onPointerDown` frenado como la casilla de selección. `display: contents` para no
-              meter una caja en la fila `nowrap`, que desbordaría. */}
+          {/* ⚠️ EL MENÚ NO ARRASTRA NI ABRE LA FICHA: en el kanban la tarjeta entera es `draggable` y su click abre la
+              ficha. `data-nodrag` lo corta en `agarrar` (KanbanEntrega), con el nodo donde nació el gesto; el click y
+              el pointerdown se frenan acá. `display: contents` para no meter una caja de más en la fila. */}
           {opciones.length > 0 && (
             <span style={{ display: 'contents' }} data-nodrag
-              onPointerDown={(e) => e.stopPropagation()}>
+              onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
               <Dropdown
                 value="" resetAfterSelect align="right" placeholder="Acciones"
                 ariaLabel={`Acciones sobre ${nombre}`}
-                buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
+                buttonStyle={{ padding: '5px 11px', fontSize: 12.5, borderRadius: 99 }}
                 options={conIconos(opciones, ICONOS_ACCIONES)}
                 onChange={elegir}
               />

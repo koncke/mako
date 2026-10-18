@@ -216,6 +216,8 @@ type PropsPersona = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
   avance?: AvanceTarjeta | null;
   /** Chips debajo (vencida, datos pendientes, fuera del funnel). */
   chips?: ReactNode;
+  /** Controles al final del renglón de chips (el menú «Acciones» de un cliente). */
+  acciones?: ReactNode;
   marcada?: boolean;
   /** Un borde rojo a la izquierda (algo venció). */
   alerta?: boolean;
@@ -224,7 +226,7 @@ type PropsPersona = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
 };
 
 export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function TarjetaPersona(
-  { nombre, foto, insignia, subtitulo, antes, sinLeer, pildora, avance, chips, marcada, alerta, className, titulo, onClick, ...resto }, ref,
+  { nombre, foto, insignia, subtitulo, antes, sinLeer, pildora, avance, chips, acciones, marcada, alerta, className, titulo, onClick, ...resto }, ref,
 ) {
   const clases = ['tk', onClick ? 'tk--clic' : '', marcada ? 'tk--marcada' : '', alerta ? 'tk--alerta' : '', className ?? ''].filter(Boolean).join(' ');
   const pct = avance ? Math.max(0, Math.min(100, Math.round(avance.pct))) : 0;
@@ -251,7 +253,7 @@ export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function Tar
             : avance.texto ? <span>{avance.texto}</span> : null}
         </div>
       )}
-      {chips ? <div className="tk-chips">{chips}</div> : null}
+      {chips || acciones ? <div className="tk-chips">{chips}{acciones ? <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6 }}>{acciones}</span> : null}</div> : null}
     </article>
   );
 });
