@@ -90,6 +90,8 @@ test('el script no manda sin --enviar y prueba la producción con git y con Verc
   assert.match(src, /'merge-base', '--is-ancestor', base, punta/, 'no mira que el commit esté en main');
   assert.match(src, /'--meta', `githubCommitSha=\$\{sha\}`/, 'no mira el despliegue de Vercel de ese commit');
   assert.match(src, /●\\s\*Ready/, 'no exige que el despliegue esté Ready');
+  // Y lee la tabla de Vercel donde sale: por stderr (18/10/2026, el primer aviso real no la veía).
+  assert.match(src, /const salida = `\$\{r\.stdout \?\? ''\}\\n\$\{r\.stderr \?\? ''\}`;/, 'el script lee sólo stdout: la tabla de Vercel (con «Ready») sale por stderr y nunca encuentra el despliegue');
 });
 
 test('no es una operación del registro de la API: ni el modelo ni una automatización firman como el equipo', () => {
