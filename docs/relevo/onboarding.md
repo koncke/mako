@@ -15,6 +15,8 @@
 - 8 `b785202c8`: las respuestas del funnel y del cuello sin VSL, creativos ni CPA (lib/fase-diagnostico.ts).
 - 10 `ccc8f3588`: el CRM con sus etapas numeradas y «Sí, es correcto».
 - 1 `26f689d63`: tocar cualquier lado empieza; sin el anillo azul del foco.
+- 6 `cbb9851a0`: la vista previa del PDF en un visor propio por portal a <body> (el Modal quedaba dentro de la capa,
+  tapado por las respuestas rápidas), y sin las marcas «[de: chat]» en el PDF.
 
 **SIN HACER (con dónde vive):**
 - **13b, entrar al chat «Onboarding» con toda la conversación y después el tutorial de la app.** Hoy entra a
@@ -26,9 +28,6 @@
 - **3, el chat del onboarding como el del Ops Center:** + para adjuntar, grabar audio, enviar no verde. Hay que copiar
   el composer de app/admin/operaciones (Conversacion.tsx o su barra), sin crear uno nuevo. Hoy el onboarding usa
   ChatOffer (app/offer/ChatOffer.tsx).
-- **6, la vista previa del PDF «se bugea»:** no lo vi. Mirar la captura 2 o 3 del pedido
-  (C:/Users/marti/.claude/operaciones/adjuntos/9a143455-…/) con el modal de `TarjetaPdf` (ChatArranque.tsx) y
-  `VistaPdf` (app/offer/VistaPdf.tsx).
 - **10b, el CRM a medida de lo que vende** (hoy es el tipo por canal, `tiposOfrecidos`).
 - **5b, si hace falta acortar también el diagnóstico de fase** (6 preguntas más el canal, lib/fase-diagnostico.ts).
 
