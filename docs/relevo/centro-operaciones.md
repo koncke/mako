@@ -1,5 +1,17 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 18/10 tarde: adjuntos grandes (cartero 1.16.0) y arrastrar y soltar — HECHOS; lo que quedó
+
+- **Los topes:** el corte de 4 MB era Vercel, no el storage. Medido: `archivero` sin tope propio, el proyecto ≥2 GB por
+  archivo, y 20 MB subieron y bajaron por URL firmada, idénticos. Ahora: 100 MB por archivo y 20 archivos, sólo con un
+  Runner 1.16.0 (`aceptaAdjuntosGrandes`). El tope que queda es la MEMORIA: el navegador y la PC tienen el archivo entero
+  para su sha256. Subirlo a más pide hashear en partes (no hecho).
+- **El tipo sigue siendo sólo fotos y PDF** (las condiciones de Martín del 17/10, que no se negocian). Un Word o un Excel
+  necesitan que Martín lo decida.
+- **SIN HACER: el «Pegar» del teclado del teléfono** (pedido 5e8b6bff). Gboard ofrece pegar una imagen sólo en un campo
+  que la acepta (contenteditable con `commitContent`); un `<textarea>` no. Ctrl+V en la computadora ya andaba (pegar.ts).
+- **Sin probar de punta a punta** en el navegador ni con el Runner: mirarlo después de instalar el cartero 1.16.0.
+
 ## CIERRE DEL 18/10 (la cuenta 4 al 96%): lo que quedó del pedido 906144b3 de Martín en su Android
 
 - **La cita que se salía por la izquierda: HECHO** (test 6 de tests/centro-largos.test.ts). La cita va en un renglón
