@@ -183,11 +183,18 @@ export function sinCopiasDeLaPlataforma<T extends { key: string }>(
  * cascada mira «es SUYA». Ahora la tarjeta hace la pregunta de la cascada (lib/integraciones.ts → `iaDelNegocio`).
  *
  * `fila` = el negocio tiene la key base guardada en SU fila; `propia` = MaKo la puede usar como suya.
+ *
+ * ⚠️ `delEntorno` = es el workspace cuya fila se copia a `process.env` (lib/credenciales.ts → `esElWsDelEntorno`, hoy
+ * el ws1). Ahí la tarjeta NO ofrece pegar una key ni dice «la de MaKo» (el Cerebro, 18/10/2026): lo que pegara pasaría
+ * a ser la key de la plataforma y su workspace seguiría sin IA. Dice que la configura el equipo, y gana sobre todo lo demás.
  */
-export function veredictoDeIA(p: { fila: boolean; propia: boolean }): 'conectada' | 'copia' | 'falta' {
+export function veredictoDeIA(p: { fila: boolean; propia: boolean; delEntorno?: boolean }): 'conectada' | 'copia' | 'falta' | 'equipo' {
+  if (p.delEntorno) return 'equipo';
   if (p.propia) return 'conectada';
   return p.fila ? 'copia' : 'falta';
 }
 
 /** Lo que lee el negocio cuando lo guardado es una copia de la plataforma (la tarjeta y su modal). */
 export const POR_QUE_IA_DE_MAKO = 'Esa key es la de MaKo, no la tuya: pega la de tu cuenta.';
+/** Lo que lee el workspace del entorno en sus IA: sin formulario para pegar nada. */
+export const POR_QUE_LA_CONFIGURA_MAKO = 'La configura el equipo de MaKo.';

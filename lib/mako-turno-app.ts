@@ -50,7 +50,7 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { avisoDePuntos } from '@/lib/puntos-mensaje';
 import { validarRespuestaDoer } from '@/lib/respuesta-doer';
 import { sanearSalida } from '@/lib/doer-salida';
-import { credWs } from '@/lib/credenciales';
+import { credWs, esElWsDelEntorno } from '@/lib/credenciales';
 import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
@@ -69,7 +69,7 @@ import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoL
 import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA,
-  historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, AVISO_SIN_IA, SERVICIO_IA,
+  historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -526,13 +526,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (respuesta) {
       await appendMessage(s.id, 'assistant', respuesta);
       guardados.push({ role: 'assistant', content: respuesta });
-    } else if (sinIA) {
-      // Lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`).
-      aviso = [aviso, AVISO_SIN_IA].filter(Boolean).join(' ');
-    } else {
-      aviso = [aviso, AVISO_NO_PUDE].filter(Boolean).join(' ');
     }
-    const conectar = !respuesta && sinIA ? SERVICIO_IA : null;
+    // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
+    // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.
+    const sinIAEs = !respuesta && sinIA ? avisoSinIA(esElWsDelEntorno(ws)) : null;
+    if (!respuesta) aviso = [aviso, sinIAEs?.aviso ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
+    const conectar = sinIAEs?.conectar ?? null;
     return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas, conectar };
   });
 }

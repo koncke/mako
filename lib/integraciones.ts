@@ -7,8 +7,8 @@
 // =============================================================================
 
 import 'server-only';
-import { credDelCliente, credWs, credWsEstricta } from './credenciales';
-import { POR_QUE_IA_DE_MAKO, veredictoDeIA } from './ia-keys';
+import { credDelCliente, credWs, credWsEstricta, esElWsDelEntorno } from './credenciales';
+import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO, veredictoDeIA } from './ia-keys';
 import type { ProvName } from './ai-cheap';
 import { emailConectado } from './resend';
 import { POR_QUE_SIN_EMAIL } from './email-remitente';
@@ -229,9 +229,12 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
     return {
       key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
       estado: (v === 'conectada' ? 'conectada' : 'falta') as EstadoIntegracion,
-      detalle: v === 'conectada' ? 'Conectada y operativa.' : v === 'copia' ? POR_QUE_IA_DE_MAKO : `Falta configurar: ${d.envs.join(', ')}`,
+      detalle: v === 'conectada' ? 'Conectada y operativa.' : v === 'copia' ? POR_QUE_IA_DE_MAKO
+        : v === 'equipo' ? POR_QUE_LA_CONFIGURA_MAKO : `Falta configurar: ${d.envs.join(', ')}`,
       tieneDetalle: d.tieneDetalle,
       ...delMetodo(d.key),
+      // El workspace del entorno no pega ninguna key de IA: sin el formulario del modal (`mostrarForm`).
+      ...(v === 'equipo' ? { soloServidor: true } : {}),
     };
   }
   return {
@@ -256,10 +259,13 @@ const IA_DE_LA_CASCADA: ReadonlySet<string> = new Set<ProvName>(['gemini', 'groq
  *   · la de Anthropic, con la frontera de `conClaveDelNegocio` (lib/anthropic.ts): su fila, distinta de la del entorno,
  *     la de `OWNER_WS` y la de la plataforma.
  * `null` = no es una IA, o es la plataforma (usa las suyas): manda lo de siempre.
+ * ⚠️ El workspace del ENTORNO va primero y sin leer nada (`esElWsDelEntorno`): su fila es la de la plataforma, y la
+ * tarjeta no le ofrece pegar una key aunque falle cualquier lectura de abajo.
  */
-async function iaDelNegocio(key: string, envBase: string | undefined): Promise<{ fila: boolean; propia: boolean } | null> {
+async function iaDelNegocio(key: string, envBase: string | undefined): Promise<{ fila: boolean; propia: boolean; delEntorno?: boolean } | null> {
   if (!envBase || (!IA_DE_LA_CASCADA.has(key) && key !== 'anthropic')) return null;
   const ws = await getWorkspaceActual().catch(() => null);
+  if (ws != null && esElWsDelEntorno(ws)) return { fila: false, propia: false, delEntorno: true };
   const wsSA = await wsSuperAdmin().catch(() => null);
   if (ws == null || wsSA == null || ws === wsSA) return null;
   const fila = (await credDelCliente(envBase, ws))?.trim() ?? '';

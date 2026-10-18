@@ -387,13 +387,13 @@ export async function guardarCredencial(ws: number, clave: string, valor: string
       { onConflict: 'workspace_id,clave' },
     );
   if (error) throw new Error(`credenciales: ${error.message}`);
-  if (ws === OWNER_WS) aplicarAEnv(clave, valor);
+  if (esElWsDelEntorno(ws)) aplicarAEnv(clave, valor);
 }
 
 export async function eliminarCredencial(ws: number, clave: string): Promise<void> {
   const { error } = await getSupabaseServer().from('credenciales').delete().eq('workspace_id', ws).eq('clave', clave);
   if (error) throw new Error(`credenciales: ${error.message}`);
-  if (ws === OWNER_WS && hidratadas.has(clave)) {
+  if (esElWsDelEntorno(ws) && hidratadas.has(clave)) {
     delete process.env[clave];
     hidratadas.delete(clave);
   }
@@ -438,11 +438,21 @@ export async function listarCredenciales(ws: number): Promise<CredencialMeta[]> 
  * Los tokens de los clientes NUNCA tocan el process.env global: se resuelven
  * por-request con credWs().
  */
+/**
+ * EL WORKSPACE CUYA FILA ES EL ENTORNO DE LA PLATAFORMA: `hidratarCredenciales` la copia a `process.env` en cada
+ * arranque, y `guardarCredencial` en el acto. Hoy es `OWNER_WS`, el ws1 de Mauricio, un CLIENTE: lo que se pega en esa
+ * fila pasa a ser la key con la que corre la plataforma (docs/hallazgos-integraciones.md, 18/10/2026). Quien tenga que
+ * tratar distinto a ese workspace —no pedirle que pegue su IA (tickets #5 y #6)— pregunta AQUÍ y no compara con un
+ * número: si la hidratación cambia de fuente, la guarda cambia con ella. Lo fija tests/mako-sin-ia.test.ts.
+ */
+export const WS_DEL_ENTORNO: number = OWNER_WS;
+export const esElWsDelEntorno = (ws: number | null | undefined): boolean => ws === WS_DEL_ENTORNO;
+
 export async function hidratarCredenciales(): Promise<void> {
   if (!supabaseConfigurado()) return;
   try {
     const { data, error } = await getSupabaseServer()
-      .from('credenciales').select('clave, valor_enc').eq('workspace_id', OWNER_WS)
+      .from('credenciales').select('clave, valor_enc').eq('workspace_id', WS_DEL_ENTORNO)
       .abortSignal(AbortSignal.timeout(4000));
     if (error) {
       console.error(`[credenciales] hidratación: ${error.message}`);
@@ -450,7 +460,7 @@ export async function hidratarCredenciales(): Promise<void> {
     }
     let aplicadas = 0;
     for (const r of data ?? []) {
-      const valor = descifrar(r.valor_enc as string, OWNER_WS, r.clave as string);
+      const valor = descifrar(r.valor_enc as string, WS_DEL_ENTORNO, r.clave as string);
       if (valor !== null && aplicarAEnv(r.clave as string, valor)) aplicadas++;
     }
     if (aplicadas) console.log(`[credenciales] ${aplicadas} credencial(es) del dueño hidratadas`);

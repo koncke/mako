@@ -22,6 +22,13 @@
 //     un template literal; por eso el test de abajo mira el botón por su forma);
 //   · `veredictoDeIA` leyendo la fila como propia · la grilla sin `iaDelNegocio` · el modal sin el aviso de la copia.
 // Restaurado: 4 / 0.
+//   4. EL WORKSPACE DEL ENTORNO (el ws1; el Cerebro, 18/10/2026): su fila es la que se copia a `process.env`, así que ni
+//      el botón ni «pega la de tu cuenta»: «Ya lo está resolviendo el equipo de MaKo», y sus IA sin formulario. La guarda
+//      pregunta `esElWsDelEntorno`, la MISMA constante que lee la hidratación. Arnés `romper-ws-entorno.mjs` (base 5 / 0),
+//      diez roturas, todas 4 / 1: `avisoSinIA` ignorando el entorno · el turno sin preguntarlo · la hidratación de vuelta a
+//      `OWNER_WS` a mano · `guardarCredencial` comparando con `OWNER_WS` · `veredictoDeIA` sin `delEntorno` ·
+//      `iaDelNegocio` sin la guarda · la grilla con el formulario · el modal con «Falta configurar» · «Requiere tu
+//      atención» con las del equipo · el modal sin el aviso del equipo. Restaurado: 5 / 0.
 //
 // Correr: npx tsx --test tests/mako-sin-ia.test.ts
 // =============================================================================
@@ -31,9 +38,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { esDeConfiguracion, esRuido, sanearReporte } from '../lib/errores-app-reglas';
-import { AVISO_SIN_IA, SERVICIO_IA, faltaIADelNegocio, type RespuestaTurno } from '../lib/mako-turno-app-reglas';
+import { AVISO_SIN_IA, AVISO_SIN_IA_EQUIPO, SERVICIO_IA, avisoSinIA, faltaIADelNegocio, type RespuestaTurno } from '../lib/mako-turno-app-reglas';
 import { botonConectar, itemsDeRespuesta } from '../app/m/mako/chat-ui';
-import { POR_QUE_IA_DE_MAKO, veredictoDeIA } from '../lib/ia-keys';
+import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO, veredictoDeIA } from '../lib/ia-keys';
 import { servicioDeLink } from '../lib/integracion-en-tab';
 
 const RAIZ = join(__dirname, '..');
@@ -85,7 +92,8 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   assert.match(turno, /\.\.\.\(fallo && !sinIA \? \[\{ nombre: 'responder'/);
   assert.match(turno, /const sinIA = faltaIADelNegocio\(fallo, fallo \? await iaPropiaDelTurno\(\) : null\)/);
   assert.match(turno, /provsDe, CASCADA_TOOLS/, 'cuenta con la MISMA lectura que la cascada');
-  assert.match(turno, /else if \(sinIA\) \{\s*aviso = \[aviso, AVISO_SIN_IA\]/);
+  assert.match(turno, /const sinIAEs = !respuesta && sinIA \? avisoSinIA\(esElWsDelEntorno\(ws\)\) : null;/);
+  assert.match(turno, /if \(!respuesta\) aviso = \[aviso, sinIAEs\?\.aviso \?\? AVISO_NO_PUDE\]/);
   assert.match(turno, /pantallas, conectar \}/);
 });
 
@@ -128,5 +136,42 @@ test('la grilla: «Conectada» sólo si MaKo la puede usar como del negocio; una
   assert.match(src, /ws === wsSA\) return null/, 'la plataforma usa las suyas');
   // Y el modal lo dice: el campo se ve lleno y no es suyo.
   // Rota: el `alerta` del modal sin la copia → este test falla.
-  assert.match(sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx')), /let alerta: string \| null = i\.detalle === POR_QUE_IA_DE_MAKO \? i\.detalle : null;/);
+  assert.match(sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx')), /let alerta: string \| null = i\.detalle === POR_QUE_IA_DE_MAKO \|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \? i\.detalle : null;/);
+});
+
+test('el workspace del ENTORNO (el ws1): ni botón ni «pega tu key»; lo resuelve el equipo, con la lectura de la hidratación', () => {
+  // La guarda no compara con un 1: pregunta `esElWsDelEntorno`, y la hidratación lee del MISMO `WS_DEL_ENTORNO`. Si la
+  // hidratación cambia de fuente sin la constante, este test lo frena.
+  const cred = sinComentarios(leer('lib/credenciales.ts'));
+  assert.match(cred, /export const WS_DEL_ENTORNO: number = OWNER_WS;/);
+  assert.match(cred, /export const esElWsDelEntorno = \(ws: number \| null \| undefined\): boolean => ws === WS_DEL_ENTORNO;/);
+  // Rota: la hidratación de vuelta a `OWNER_WS` a mano → este test falla.
+  assert.match(cred, /\.from\('credenciales'\)\.select\('clave, valor_enc'\)\.eq\('workspace_id', WS_DEL_ENTORNO\)/, 'la hidratación lee de WS_DEL_ENTORNO');
+  assert.match(cred, /descifrar\(r\.valor_enc as string, WS_DEL_ENTORNO, r\.clave as string\)/);
+  assert.match(cred, /if \(esElWsDelEntorno\(ws\)\) aplicarAEnv\(clave, valor\);/, 'guardarCredencial copia al entorno con la misma pregunta');
+  assert.doesNotMatch(cred, /workspace_id', OWNER_WS\)|ws === OWNER_WS\) aplicarAEnv/, 'ninguna copia al entorno compara con OWNER_WS a mano');
+
+  // El chat: sin botón y diciendo que lo resuelve el equipo. Rota: `avisoSinIA` ignorando `delEntorno` → este test falla.
+  assert.deepEqual(avisoSinIA(true), { aviso: AVISO_SIN_IA_EQUIPO, conectar: null });
+  assert.deepEqual(avisoSinIA(false), { aviso: AVISO_SIN_IA, conectar: SERVICIO_IA });
+  assert.equal(AVISO_SIN_IA_EQUIPO, 'Para contestarte necesito una IA conectada. Ya lo está resolviendo el equipo de MaKo.');
+  const [x] = itemsDeRespuesta({
+    ok: false, sesion: { id: 1, titulo: null, pinned: false, updatedAt: '' }, mensajes: [], aviso: AVISO_SIN_IA_EQUIPO,
+    paraLaPersona: [], propuestas: [], pantallas: [], conectar: null,
+  });
+  assert.ok(x.k === 'aviso' && !x.conectar, 'el aviso del ws1 no trae botón');
+
+  // La grilla: «la configura el equipo», sin formulario, fuera de «Requiere tu atención» y del contador.
+  // Rota: `veredictoDeIA` sin mirar `delEntorno` → este test falla.
+  assert.equal(veredictoDeIA({ fila: true, propia: true, delEntorno: true }), 'equipo', 'gana sobre «conectada»');
+  assert.equal(veredictoDeIA({ fila: true, propia: false, delEntorno: true }), 'equipo', 'y sobre «la de MaKo»');
+  assert.doesNotMatch(POR_QUE_LA_CONFIGURA_MAKO, /pega|key|tuya/i);
+  const integ = sinComentarios(leer('lib/integraciones.ts'));
+  const guarda = integ.indexOf('if (ws != null && esElWsDelEntorno(ws)) return { fila: false, propia: false, delEntorno: true };');
+  assert.ok(guarda > 0 && guarda < integ.indexOf('const wsSA = await wsSuperAdmin()'), 'la guarda va primero y sin leer nada');
+  assert.match(integ, /\.\.\.\(v === 'equipo' \? \{ soloServidor: true \} : \{\}\)/, 'sin el formulario del modal');
+  const board = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
+  assert.match(board, /const mostrarForm = i\.soloServidor === false;/);
+  assert.match(board, /\) : i\.estado === 'falta' && i\.key !== 'google' && !delEquipo && \(/, 'sin «Falta configurar: GEMINI_API_KEY»');
+  assert.match(board, /\|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO;/, 'no es un pendiente suyo');
 });

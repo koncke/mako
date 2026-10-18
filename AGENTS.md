@@ -5909,7 +5909,10 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
     no se filtra en quien llama;
   - un fallo porque al NEGOCIO le falta algo suyo (su IA) es configuración, no un bug: va a `CONFIGURACION` (mismo
     archivo) y el chat se lo pide a la persona con el modal ahí mismo (`conectar` en `RespuestaTurno`; tickets #5 y #6).
-    «¿Tiene X?» se pregunta con la MISMA lectura que usa quien lo consume (`provsDe` para la IA), nunca con otra.
+    «¿Tiene X?» se pregunta con la MISMA lectura que usa quien lo consume (`provsDe` para la IA), nunca con otra;
+  - ⚠️ al workspace cuya fila se copia a `process.env` (hoy el ws1, Mauricio) NUNCA se le pide que pegue una key de IA:
+    pasaría a ser la de la plataforma. Se pregunta con `esElWsDelEntorno` (lib/credenciales.ts), la constante que lee la
+    hidratación, nunca con `ws === 1` ni `OWNER_WS` a mano.
   Lo fijan tests/errores-app.test.ts y tests/mako-sin-ia.test.ts.
 
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir

@@ -101,7 +101,7 @@ export const BITACORA: Hito[] = [
       'Por los tickets #5 y #6 de Mauricio: MaKo no le contestaba en el chat de la app porque su negocio no tiene una IA propia. No era un bug, y la Ticketera lo había mandado a arreglar.',
       'Ahora no abre ticket, y en el chat MaKo dice «Para contestarte necesito una IA conectada» con un botón «Conectar tu IA» que abre el modal ahí mismo, sin salir de la pantalla.',
       '/integraciones dice «Conectada» sólo si MaKo la puede usar como del negocio. En el ws1 decía «Conectada» en las siete IA y no le servía ninguna; una copia de la de MaKo ahora lo dice.',
-      '⚠️ **En el ws1 conectar su IA no alcanza**: lo que guarde en su fila pasa a ser la key con la que corre la plataforma. Separarlo es una decisión de Integraciones e IA (docs/hallazgos-integraciones.md).',
+      '⚠️ **En el ws1 conectar su IA no alcanza**: lo que guarde en su fila pasa a ser la key con la que corre la plataforma. Por eso ahí MaKo dice «Ya lo está resolviendo el equipo de MaKo», sin botón, y sus IA en /integraciones dicen «La configura el equipo de MaKo», sin formulario. Separarlo es una decisión que el Cerebro lleva a Martín (docs/hallazgos-integraciones.md).',
     ],
   },
 ];

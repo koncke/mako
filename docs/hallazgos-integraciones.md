@@ -1000,9 +1000,14 @@ producción, entonces, TODAS las del ws1 son «de la plataforma». La medición 
 la que usa producción (la trampa de arriba, otra vez).
 
 **El diagnóstico obvio era el equivocado.** «Que Mauricio conecte su IA» NO lo arregla en el ws1: lo que pegue en su fila,
-`guardarCredencial` lo pone en `process.env` en el acto (`if (ws === OWNER_WS) aplicarAEnv`), y cada arranque también. Su
-key pasa a ser LA key de la plataforma —la red gratis de todos los negocios gastaría su cuenta— y su workspace sigue sin
-una IA propia. El botón «Conectar tu IA» que ahora muestra el chat es correcto para todos los negocios menos para el ws1.
+`guardarCredencial` lo pone en `process.env` en el acto, y cada arranque también. Su key pasa a ser LA key de la
+plataforma —la red gratis de todos los negocios gastaría su cuenta, o pisaría la nuestra— y su workspace sigue sin una IA
+propia. Por eso, en ESE workspace, ni el chat le ofrece «Conectar tu IA» («Ya lo está resolviendo el equipo de MaKo») ni
+sus IA en /integraciones tienen formulario (dicen «La configura el equipo de MaKo», fuera de «Requiere tu atención»).
+
+**La guarda no compara con un 1:** `WS_DEL_ENTORNO` / `esElWsDelEntorno` (lib/credenciales.ts) es la MISMA constante con la
+que leen `hidratarCredenciales` y `guardarCredencial`. Si la hidratación cambia de fuente, la guarda la sigue sola; un
+`ws === OWNER_WS` escrito aparte se habría quedado apuntando al ws1 (lo frena tests/mako-sin-ia.test.ts).
 
 **La grilla** miraba `credWs` («hay algo en la fila, o el entorno si es el ws1»); la cascada pregunta «¿es SUYA?». Ahora
 la tarjeta hace la pregunta de la cascada (`iaDelNegocio`: `provsDe` para las baratas, la frontera de `conClaveDelNegocio`
@@ -1016,7 +1021,9 @@ para Claude), y una copia dice «Esa key es la de MaKo, no la tuya», también a
 
 **Lo que quedó SIN hacer:** separar el ws1 del entorno de la plataforma para las IA (hidratar las IA desde `wsSuperAdmin()`,
 o no hidratarlas, y no reflejar a `process.env` lo que un cliente guarda). Es de este documento y de la IA, y es una
-decisión: cambia de dónde salen las keys con las que corre la plataforma. Hasta entonces, el ws1 no tiene cómo tener una
-IA suya. Vive en lib/credenciales.ts (`hidratarCredenciales`, `guardarCredencial`).
+decisión: cambia de dónde salen las keys con las que corre la plataforma, y la lleva el Cerebro a Martín. Hasta entonces,
+el ws1 no tiene cómo tener una IA suya. Vive en lib/credenciales.ts (`WS_DEL_ENTORNO`, `hidratarCredenciales`,
+`guardarCredencial`). Cuando se separe, la guarda del chat y de la grilla se apaga sola. Otros lugares que le piden una key
+de IA al ws1 (el onboarding, /metodo) no se revisaron.
 
 **Vive en:** lib/integraciones.ts (`iaDelNegocio`) · lib/ia-keys.ts (`veredictoDeIA`) · lib/credenciales.ts · lib/ai-cheap.ts (`soloLasPropias`) · app/integraciones/IntegracionesBoard.tsx · tests/mako-sin-ia.test.ts
