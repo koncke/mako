@@ -66,6 +66,8 @@ export type EstadoArranque = {
   crmTipo?: TipoCrmId;
   /** Mostrar todos los tipos de CRM, no sólo los de su canal. */
   crmVerTodos?: boolean;
+  /** «¿Está correcto el PDF?» (18/10/2026): 'no' = faltan cosas o hay algo mal; se anota y se sigue. */
+  pdfOk?: 'si' | 'no';
   /** El teléfono de los avisos: 'codigo' = se mandó el código y falta cargarlo. */
   telefono?: 'codigo' | 'verificado' | 'postergado';
   telefonoNumero?: string;
@@ -100,7 +102,7 @@ export type HechosArranque = {
 };
 
 export type EtapaArranque =
-  | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'crm'
+  | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'pdf' | 'crm'
   | 'telefono' | 'codigo' | 'cierre' | 'listo';
 
 /** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). */
@@ -120,6 +122,10 @@ export const OBJETIVOS_SUGERIDOS = ['Conseguir mis primeros clientes', 'Vender m
 export const AHORA_NO = 'Ahora no';
 export const CAMBIAR_NUMERO = 'Cambiar número';
 export const VER_OTROS_TIPOS = 'Ver otros tipos';
+/** La primera respuesta del CRM (18/10/2026, Martín, punto 10: «las respuestas rápidas tiene que ser ‹Sí, es correcto› u
+ *  otras opciones»): acepta el que se le propone. */
+export const CRM_SI = 'Sí, es correcto';
+export const CRM_PREGUNTA = 'Ahora armemos tu CRM. Estas son las etapas por las que va a pasar cada cliente, de la primera charla a la venta. ¿Te sirven?';
 const PREGUNTA_CANAL = '¿Dónde cierras la venta?';
 
 const TOPE_RESPUESTA = 300;
@@ -137,6 +143,11 @@ const TOPE_RESPUESTA = 300;
  * a preguntar de la nada»).
  */
 export const SALUDO_ARRANQUE = '¡Hola! Soy MaKo. Para dejar tu cuenta lista necesito conocer tu negocio: son unas preguntas rápidas, menos de 5 minutos. Para empezar, ¿cómo te llamas?';
+
+/** El PDF de lo que vende, con su confirmación (18/10/2026). */
+export const PDF_PREGUNTA = 'Perfecto: ya tengo claro qué vendes. Te armé un PDF con tu oferta, ¿está correcto?';
+export const PDF_OPCIONES = ['Sí, está correcto', 'No, faltan cosas o hay algo mal'] as const;
+export const PDF_NO = 'Está bien: lo anoto para trabajarlo dentro de la app. Ahora sigamos para terminar el onboarding.';
 
 export const ORIGENES = ['Instagram', 'YouTube', 'TikTok', 'Un anuncio', 'Me lo recomendaron', 'Google', 'Otro'] as const;
 
@@ -355,6 +366,8 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
     // pregunta el arranque con sus opciones: la conversación del onboarding ya no lo hace (17/10/2026). Lo que
     // la persona haya contestado en una conversación de antes (`faseOffer`) no se repite.
     if (!h.loQueVende) return 'oferta';
+    // «¿Está correcto?» del PDF (18/10/2026). Una conversación que ya pasó la fase no vuelve atrás a preguntarlo.
+    if (!e.pdfOk && !h.faseGuardada) return 'pdf';
     if (!h.faseGuardada) return 'fase';
     if (h.conCrm && !e.crmTipo) return 'crm';
   }
@@ -419,7 +432,12 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   if (etapa === 'oferta') return { antes, despues };
 
   // 2c. Lo que vende, ordenado en un PDF (la tarjeta lleva el link).
-  despues.push({ id: 'arr-pdf', de: 'mako', texto: 'Listo: ordené lo que vendes en un PDF. Lo uso para crear lo que necesites.', tarjeta: 'pdf' });
+  // CORTO Y CON CONFIRMACIÓN (18/10/2026, Martín: «el mensaje anterior al PDF es larguísimo... Debería ser algo como
+  // "Perfecto: ya tengo claro qué vendes. Te armé un PDF con tu oferta, ¿está correcto?"»). Si dice que no, se anota para
+  // trabajarlo dentro de la app y se sigue: el onboarding no se traba en la oferta.
+  preguntar(despues, 'pdf', PDF_PREGUNTA, e.pdfOk ? (e.pdfOk === 'si' ? PDF_OPCIONES[0] : PDF_OPCIONES[1]) : undefined, [...PDF_OPCIONES], 'pdf');
+  if (etapa === 'pdf') return { antes, despues };
+  if (e.pdfOk === 'no') despues.push({ id: 'arr-pdf-no', de: 'mako', texto: PDF_NO });
 
   // 2d. El diagnóstico de fase, con sus opciones: sólo lo que la persona no contestó ya en una conversación
   // de antes. Queda dibujado después, como parte de la historia.
@@ -434,9 +452,10 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   // 3. El CRM.
   if (h.conCrm) {
     const { tipos, hayMas } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos);
-    const elegido = e.crmTipo ? TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label : undefined;
-    const opciones = [...tipos.map((t) => t.label), ...(hayMas ? [VER_OTROS_TIPOS] : [])];
-    preguntar(despues, 'crm', 'Ahora armemos tu CRM: con lo que me contaste, te propongo este.', elegido, opciones, 'crm');
+    // Primero el que se le propone, con «Sí, es correcto»; «Ver otros tipos» abre la lista (18/10/2026, punto 10).
+    const elegido = e.crmTipo ? (e.crmTipo === tipos[0].id && !e.crmVerTodos ? CRM_SI : TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label) : undefined;
+    const opciones = e.crmVerTodos ? tipos.map((t) => t.label) : [CRM_SI, ...(hayMas ? [VER_OTROS_TIPOS] : [])];
+    preguntar(despues, 'crm', CRM_PREGUNTA, elegido, opciones, 'crm');
     if (etapa === 'crm') return { antes, despues };
   }
 
@@ -534,6 +553,13 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     if (!negocio) return { ok: false, error: '¿Cómo se llama tu negocio?' };
     return { ok: true, patch: { negocio } };
   }
+  if (etapa === 'pdf') {
+    // La opción tal cual, o lo que escriba: «no», «faltan cosas», «está mal» es que no; «sí», «correcto», «bien», que sí.
+    const no = texto === PDF_OPCIONES[1] || /^no\b|falta|mal\b|incorrect/i.test(texto);
+    const si = texto === PDF_OPCIONES[0] || /^s[ií]\b|correct|bien|perfect/i.test(texto);
+    if (!no && !si) return { ok: false, error: 'Dime si está correcto o si le falta algo.' };
+    return { ok: true, patch: { pdfOk: no ? 'no' : 'si' } };
+  }
   if (etapa === 'origen') {
     // Una opción o lo que escriba («por un amigo», «en un podcast»): las dos sirven para saber de dónde viene.
     if (!texto) return { ok: false, error: 'Elige una opción o escríbelo.' };
@@ -581,6 +607,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   if (etapa === 'telefono' && opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
   if (etapa === 'crm') {
     if (opcion === VER_OTROS_TIPOS) return { ok: true, patch: { crmVerTodos: true } };
+    if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false).tipos[0].id } };
     const t = TIPOS_CRM.find((x) => x.label === opcion);
     if (!t) return { ok: false, error: 'Elige un tipo de CRM.' };
     return { ok: true, patch: { crmTipo: t.id } };

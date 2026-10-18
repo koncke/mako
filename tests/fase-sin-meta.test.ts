@@ -29,6 +29,15 @@ test('las dos preguntas del canal nombran varios canales, con sus 5 cortes', () 
   assert.deepEqual(inv.opciones, ['Nada o menos de $600', '$600 – $3.000', '$3.000 – $9.000', '$9.000 – $30.000', 'Más de $30.000']);
 });
 
+test('ninguna RESPUESTA rápida del diagnóstico supone VSL, creativos o anuncios como único canal', () => {
+  // 18/10/2026, Martín, punto 8: «las respuestas rápidas siguen siendo las viejas cuando hoy tenemos más funnels... revisalo
+  // bien todas». Roturas (romper-fase.js): vuelve «VSL» al funnel → 3/1 · vuelve el «CPA» al cuello → 3/1.
+  for (const q of PREGUNTAS) {
+    assert.equal(q.opciones.length, 5, `«${q.id}»: el voto a la fase va por índice, son 5`);
+    for (const o of q.opciones) assert.doesNotMatch(o, /\bVSL\b|creativo|\bCPA\b|desde el anuncio|Meta/i, `«${q.id}»: «${o}» supone un solo canal`);
+  }
+});
+
 test('siguen siendo seis preguntas, en el mismo orden (el cálculo de la fase las lee por índice)', () => {
   assert.deepEqual(PREGUNTAS.map((q) => q.id), ['facturacion', 'inversion', 'creativos', 'volumen', 'funnel', 'cuello']);
 });

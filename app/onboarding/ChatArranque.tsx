@@ -23,8 +23,8 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
-import { Modal } from '@/app/_ui/Modal';
 import { conWs } from '@/lib/ws-tab';
 import { VistaPdf } from '../offer/VistaPdf';
 import { Button } from '@/app/_ui';
@@ -297,11 +297,12 @@ function TarjetaCrm({ vista }: { vista: VistaArranque }) {
     <div className="arr-tarjeta">
       <span className="arr-tarjeta__rotulo">{vista.crmTipo ? 'Tu CRM' : 'Te propongo'}</span>
       <span className="arr-tarjeta__titulo">{tipo.label}</span>
-      <div className="arr-etapas">
+      {/* Las etapas, numeradas y en orden, para que se lea el recorrido de un cliente (18/10/2026, punto 10). */}
+      <ol className="arr-etapas">
         {tipo.pipeline.map((s, i) => (
-          <span key={`${s.key}-${i}`} className="arr-etapa">{s.label}</span>
+          <li key={`${s.key}-${i}`} className="arr-etapa"><span className="arr-etapa__n">{i + 1}</span>{s.label}</li>
         ))}
-      </div>
+      </ol>
     </div>
   );
 }
@@ -340,13 +341,36 @@ function TarjetaPdf({ sesionId }: { sesionId: number }) {
   return (
     <div className="arr-links">
       <button type="button" className="arr-link" onClick={() => setViendo(true)}>Ver lo que vendes (PDF)</button>
-      {viendo && (
-        <Modal titulo="Lo que vendes" ancho={720} onCerrar={() => setViendo(false)}
-          pie={<a href={conWs(linkPdfLoQueVende(sesionId), ws)} download className="arr-link">Descargar PDF</a>}>
-          <VistaPdf sesionId={sesionId} tipo="lo-que-vendes" />
-        </Modal>
-      )}
+      {viendo && <VisorPdf sesionId={sesionId} url={conWs(linkPdfLoQueVende(sesionId), ws)} onCerrar={() => setViendo(false)} />}
     </div>
+  );
+}
+
+/**
+ * El visor de «Lo que vendes», ENCIMA de todo el onboarding (18/10/2026, Martín, punto 6: «mira cómo se bugea la preview del
+ * PDF»). El Modal de la casa quedaba dentro de la capa del chat: lo tapaban las respuestas rápidas y la caja de escribir, y
+ * no ocupaba la pantalla. Éste va por portal a <body>, por encima de la capa (z 100) y debajo de la barra de inspección
+ * (z 300), con su fondo, su cierre (✕, Escape o tocar afuera) y la descarga. tests/onboarding-pdf-en-el-chat.test.ts.
+ */
+function VisorPdf({ sesionId, url, onCerrar }: { sesionId: number; url: string; onCerrar: () => void }) {
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar(); };
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [onCerrar]);
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="arr-visor" role="dialog" aria-modal="true" aria-label="Lo que vendes" onClick={onCerrar}>
+      <div className="arr-visor__caja" onClick={(e) => e.stopPropagation()}>
+        <header className="arr-visor__cab">
+          <b>Lo que vendes</b>
+          <button type="button" className="arr-visor__x" aria-label="Cerrar" onClick={onCerrar}>×</button>
+        </header>
+        <div className="arr-visor__cuerpo"><VistaPdf sesionId={sesionId} tipo="lo-que-vendes" /></div>
+        <footer className="arr-visor__pie"><a href={url} download className="arr-link arr-link--principal">Descargar PDF</a></footer>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -407,10 +431,20 @@ const CSS_ARRANQUE = `
 }
 .arr-tarjeta__rotulo { font-size: var(--fs-meta); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
 .arr-tarjeta__titulo { font-size: 15px; font-weight: 650; color: var(--ink); }
-.arr-etapas { display: flex; flex-wrap: wrap; gap: 6px; }
+.arr-visor { position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; left: 0; z-index: 250; display: grid; place-items: center; padding: 24px 16px; background: rgba(18,21,27,.55); }
+.arr-visor__caja { width: min(760px, 100%); max-height: 100%; display: flex; flex-direction: column; background: var(--surface); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden; }
+.arr-visor__cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 17px; color: var(--ink); }
+.arr-visor__x { border: 0; background: transparent; font-size: 26px; line-height: 1; cursor: pointer; color: var(--dim); padding: 0 4px; }
+.arr-visor__cuerpo { flex: 1; min-height: 0; overflow-y: auto; }
+.arr-visor__pie { display: flex; justify-content: flex-end; padding: 12px 18px; border-top: 1px solid var(--border); }
+.arr-etapas { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
 .arr-etapa {
-  padding: 4px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border);
-  font-size: var(--fs-sm); color: var(--dim);
+  display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 10px; background: var(--surface);
+  border: 1px solid var(--border); font-size: var(--fs-sm); color: var(--ink);
+}
+.arr-etapa__n {
+  flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--primary-bg); color: var(--primary); font-size: 12px; font-weight: 700;
 }
 .arr-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .arr-link {

@@ -47,7 +47,7 @@ import { join } from 'node:path';
 import {
   etapaDeArranque, mensajesDeArranque, leerRespuesta, tiposOfrecidos, tipoRecomendado, pareceNegocio,
   primerNombre, sinMarca, briefDesdeArranque, fundirBrief, siguientePreguntaFase,
-  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, ORIGENES, SALUDO_ARRANQUE,
+  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, ORIGENES, SALUDO_ARRANQUE, CRM_SI, CRM_PREGUNTA,
   type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
 import { mandaElArranque, ladoDeLaPregunta, SESION_VACIA, aMensajeOffer, linkPdfLoQueVende } from '../app/onboarding/arranque-ui';
@@ -73,7 +73,8 @@ const H: HechosArranque = {
 };
 const PLAN: HechosArranque = { ...H, modo: 'plan', conCrm: false, conTelefono: false };
 // Con las dos del final ya contestadas (desde el 18/10 van antes del teléfono): así las etapas de en medio se ven solas.
-const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', origen: 'Instagram', interes: 'ventas' };
+// Con el PDF confirmado (18/10/2026, `pdfOk`): las etapas de en medio se ven solas; la del PDF tiene su test.
+const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', origen: 'Instagram', interes: 'ventas', pdfOk: 'si' };
 
 // ── La etapa ────────────────────────────────────────────────────────────────
 test('modo oferta: quién es → lo que vende → la fase → el CRM → el teléfono → cierra, sin esperar ninguna oferta', () => {
@@ -82,6 +83,8 @@ test('modo oferta: quién es → lo que vende → la fase → el CRM → el tel�
   // Del negocio, directo a lo que vende: sin el objetivo a 90 días (18/10/2026). Las dos del 17/10 van AL FINAL.
   assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'oferta');
   assert.equal(etapaDeArranque(QUIEN, H), 'oferta');
+  // Con lo que vende, primero «¿está correcto el PDF?» (18/10/2026).
+  assert.equal(etapaDeArranque({ ...QUIEN, pdfOk: undefined }, { ...H, loQueVende: true }), 'pdf');
   // Con lo que vende, el diagnóstico de fase lo pregunta el arranque (la conversación ya no lo hace).
   assert.equal(etapaDeArranque(QUIEN, { ...H, loQueVende: true }), 'fase');
   const vende = { ...H, loQueVende: true, faseGuardada: true };
@@ -108,7 +111,7 @@ test('lo que vende queda en un PDF: el mensaje con su tarjeta va justo después 
   const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
   assert.match(chat, /if \(t === 'pdf'\) return vista\.sesion \? <TarjetaPdf sesionId=\{vista\.sesion\.id\} \/> : null;/);
   // Desde el 18/10/2026 se mira EN el chat (tests/onboarding-pdf-en-el-chat.test.ts); la descarga lleva el ?ws=.
-  assert.match(chat, /href=\{conWs\(linkPdfLoQueVende\(sesionId\), ws\)\} download/);
+  assert.match(chat, /url=\{conWs\(linkPdfLoQueVende\(sesionId\), ws\)\}/);
 });
 
 test('modo plan (Project Manager, sin Offer ni CRM): quién es → a qué se dedica → diagnóstico → cierra', () => {
@@ -156,8 +159,14 @@ test('el CRM: la tarjeta va con la pregunta, y propone el tipo de su canal prime
   const { despues } = mensajesDeArranque(QUIEN, h);
   const crm = despues.find((m) => m.id === 'arr-crm');
   assert.ok(crm && crm.tarjeta === 'crm');
-  assert.equal(crm.opciones?.[0], 'Conversaciones por chat');
+  // Desde el 18/10/2026 (Martín, punto 10): «Sí, es correcto» acepta el que se propone (el de su canal, en la tarjeta), y
+  // «Ver otros tipos» abre la lista. Roturas (romper-crm.js; base 26/0): sin «Sí, es correcto» → 25/1 · el «sí» elige otro → 25/1.
+  assert.equal(crm.opciones?.[0], CRM_SI);
   assert.ok(crm.opciones?.includes(VER_OTROS_TIPOS));
+  assert.equal(crm.texto, CRM_PREGUNTA);
+  assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'conversaciones' } });
+  const todos = mensajesDeArranque({ ...QUIEN, crmVerTodos: true }, h).despues.find((m) => m.id === 'arr-crm');
+  assert.equal(todos?.opciones?.[0], 'Conversaciones por chat', 'con la lista abierta, primero el de su canal');
   assert.equal(tipoRecomendado(null).id, 'llamada', 'sin canal manda la llamada de venta (el marco es de alto ticket)');
   assert.equal(tiposOfrecidos('carrito', false).tipos[0].id, 'carrito');
   assert.equal(tiposOfrecidos('llamadas', true).tipos.length, TIPOS_CRM.length);
@@ -215,7 +224,9 @@ test('después de lo que vende, el diagnóstico de fase lo pregunta el arranque,
   const { despues } = mensajesDeArranque(QUIEN, conOffer);
   const ultima = despues[despues.length - 1];
   assert.equal(despues[0].id, 'arr-pdf');
-  assert.equal(despues[1].id, 'arr-fase');
+  // La confirmación del PDF (18/10/2026) va contestada antes de la fase.
+  assert.equal(despues[1].id, 'arr-pdf-r');
+  assert.equal(despues[2].id, 'arr-fase');
   assert.ok(!despues.some((m) => m.id === 'arr-fase-canal' || m.id === 'arr-fase-0'), 'repitió lo que ya contestó en Offer');
   assert.equal(ultima.id, 'arr-fase-1');
   assert.ok(ultima.opciones?.length, 'la pregunta va con sus opciones');
@@ -429,6 +440,11 @@ test('la entrada: sin el grafo, ESPERA EL CLIC (o Enter), sin anillos, sin movim
   assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede tocar (ni con el teclado)');
   assert.doesNotMatch(sin, /className="en-anillo/, 'volvió el círculo azul alrededor');
   assert.match(sin, /Tócame para empezar/, 'sin la invitación a tocarla, no se sabe que espera el clic');
+  // 18/10/2026 (punto 1): tocar CUALQUIER lado empieza, y sin el anillo azul del foco. Roturas (romper-capa.js; base 26/0):
+  // sin el clic en la capa → 25/1 · vuelve el anillo → 25/1.
+  assert.match(sin, /role="presentation" onClick=\{empezar\}>/, 'sólo se puede empezar tocando la estrella');
+  assert.match(sin, /\.en-boton:focus, \.en-boton:focus-visible \{ outline: none; \}/, 'volvió el círculo azul del foco');
+  assert.doesNotMatch(sin, /\.en-boton:focus-visible \{ outline: 3px solid var\(--primary\)/);
   assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ alFin\.current\(\); return; \}/, 'con movimiento reducido no corre');
   assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
   assert.match(sin, /top: var\(--barra-agencia, 0px\)/, 'la entrada queda debajo de la barra de «Inspeccionar»');

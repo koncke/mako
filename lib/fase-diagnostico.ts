@@ -446,22 +446,25 @@ export const PREGUNTAS: Pregunta[] = [
     opciones: VOLUMEN_POR_CANAL.llamadas.opciones,
   },
   {
+    // ⚠️ SIN SUPONER VSL NI ANUNCIOS (18/10/2026, Martín, punto 8: «las respuestas rápidas siguen siendo las viejas cuando
+    // hoy tenemos más funnels»). Mismas 5, en el mismo orden (cada una vota a su fase por su índice), para cualquier funnel:
+    // anuncios, prospección, contenido orgánico, lead magnet o YouTube. tests/fase-sin-meta.test.ts.
     id: 'funnel', emoji: '🪜', texto: '¿Cómo está tu funnel hoy?',
     opciones: [
-      'Todavía no tengo VSL ni oferta armada (o recién estoy probando).',
-      'Tengo VSL y una oferta que ya agenda o vende, pero sin sistema atrás.',
-      'Funnel completo (VSL + agenda + recordatorios + seguimiento) y un creativo ganador.',
-      'Funnel + fábrica de creativos + remarketing, escalando con equipo.',
-      'Escalera de valor validada: varios productos, de menor a mayor precio, vendiendo con creativos probados.',
+      'Todavía no tengo un camino armado para conseguir clientes (o recién estoy probando).',
+      'Ya vendo por algún canal (anuncios, prospección, contenido o lead magnet), pero sin sistema atrás.',
+      'Funnel completo: me llegan interesados, agendan o compran, hay seguimiento, y algo que ya funciona seguro.',
+      'Funnel completo, con piezas nuevas todo el tiempo y seguimiento automático, creciendo con equipo.',
+      'Varios funnels y productos, de menor a mayor precio, vendiendo por canales probados.',
     ],
   },
   {
     id: 'cuello', emoji: '🧠', texto: '¿Cuál es tu MAYOR cuello de botella hoy?',
     opciones: [
-      'Un desconocido no me compra desde el anuncio: mi oferta o mi creativo todavía no funcionan.',
-      'Me entran leads pero se caen: no llego a agendar, o agendan y no se presentan, o llegan a la llamada y no cierran.',
-      'Vendo solo cuando empujo yo: ni los creativos, ni los recordatorios, ni el seguimiento corren solos.',
-      'No doy abasto y no puedo subir la inversión sin que el CPA se dispare.',
+      'Alguien que no me conoce todavía no me compra: mi oferta o cómo la cuento no funcionan.',
+      'Me entran interesados pero se caen: no agendan, no se presentan o no cierran.',
+      'Vendo sólo cuando empujo yo: ni el seguimiento ni las piezas para atraer clientes corren solos.',
+      'No doy abasto y no puedo crecer sin que cada cliente nuevo me cueste más.',
       'Me sobra volumen y me falta foco: muchas ofertas, leads flojos, el margen no crece.',
     ],
   },
