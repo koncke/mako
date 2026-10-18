@@ -167,6 +167,6 @@ test('el teléfono sigue a la sidebar: las mismas familias, y Second Brain arrib
   assert.deepEqual(grupos[0].secciones.map((s) => s.id), ['mako']);
   // Y el Ops Center del super admin, arriba con su criatura (no en una caja «Super admin» al final).
   const mas = sinComentarios(leer('app/m/mas/page.tsx'));
-  assert.match(mas, /leading=\{criatura\('Ops Center'\)\} titulo="Ops Center"/);
+  assert.match(mas, /leading=\{criatura\('Ops Center', true\)\} titulo="Ops Center"/);
   assert.doesNotMatch(mas, /titulo="Super admin"/);
 });

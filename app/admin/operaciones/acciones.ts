@@ -24,7 +24,7 @@ import { leerDecisiones } from '@/lib/admin-decisiones';
 import type { DecisionEspera } from '@/lib/centro-chats';
 import { sanearAspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { guardarMuneco } from '@/lib/centro-munecos-db';
-import { leerTurnos } from '@/lib/centro-turnos-db';
+import { leerTurnos, leerUltimosTurnos } from '@/lib/centro-turnos-db';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { leerAbiertas, leerPreguntas, marcarContestada } from '@/lib/centro-preguntas-chat-db';
 import { eleccionValida, textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
@@ -52,14 +52,17 @@ export type FotoCentro = {
   cuentas: CuentasConNombre;
   /** Lo que están haciendo AHORA los chats ocupados (la E): sus últimos pasos, si se subieron hace poco. */
   pasos: PasosPorChat;
+  /** Lo ÚLTIMO de cada chat, por sesión, recortado (lib/operaciones-reglas.ts → resumirTurnos): para el aviso de un «Completado»
+   *  sin ver y para esconder al vigía callado. Son para la fila de la lista, no para la conversación. */
+  ultimos: Record<string, TurnoChat[]>;
 } | { ok: false; error: string };
 
 export async function fotoCentroAction(): Promise<FotoCentro> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
-    const [pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas(), leerCuentasConNombre(), leerPasos()]);
-    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos };
+    const [pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas(), leerCuentasConNombre(), leerPasos(), leerUltimosTurnos()]);
+    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

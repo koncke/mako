@@ -171,7 +171,7 @@ export function Conversacion({
   useLayoutEffect(() => { ultimos.current = { onResponder, responderSobre, wa, chat }; });
   const responderPregunta = useCallback<NonNullable<typeof onResponder>>((p, e, o) => ultimos.current.onResponder?.(p, e, o) ?? Promise.resolve(null), []);
   const feedback = useCallback((titulo: string) => ultimos.current.responderSobre(titulo), []);
-  const animo = animoDe(chat);
+  const animo = animoDe(chat, espera);
   const dato = trabajaSinEscribir(chat, lineas) ?? [cuenta, meta].filter(Boolean).join(' · ');
   const quien = useMemo(() => ({ titulo: chat.titulo, aspecto, animo, dato }), [chat.titulo, aspecto, animo, dato]);
   const vivo = useMemo(() => (carteros ? { chat, carteros } : undefined), [chat, carteros]);
@@ -215,9 +215,9 @@ export function Conversacion({
         </button>
         {onMuneco ? (
           <button type="button" className="co-cab__muneco" onClick={onMuneco} title="Cambiar su criatura" aria-label={`Cambiar la criatura de ${chat.titulo}`}>
-            <Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat)} size={34} espera={espera} />
+            <Muneco titulo={chat.titulo} aspecto={aspecto} animo={animo} size={34} espera={espera} />
           </button>
-        ) : <span className="co-cab__muneco"><Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat)} size={34} espera={espera} /></span>}
+        ) : <span className="co-cab__muneco"><Muneco titulo={chat.titulo} aspecto={aspecto} animo={animo} size={34} espera={espera} /></span>}
         <div className="co-cab__texto">
           <h1 className="co-cab__titulo" title={chat.titulo}>
             {editando ? (

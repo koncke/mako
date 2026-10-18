@@ -39,7 +39,7 @@ import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
-import { MunecoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from './NuevoChat';
+import { CirculoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from './NuevoChat';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import type { Centro } from './useCentro';
@@ -85,16 +85,18 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
   const espera = esperaDe(c, k.esperas);
   // Un «Completado» sin ver avisa IGUAL que una pregunta que espera (el globito de la criatura y el renglón de abajo).
   const sinVer = k.yaSinVer.has(c.clave);
+  // Dormido (ojos cerrados y la fila apagada) si no trabaja y no tiene nada para Martín: despierto sólo con un trabajo o un aviso.
+  const animo = animoDe(c, k.avisos(c));
   return (
     <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
       <button
         type="button" title={c.titulo}
-        className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}`}
+        className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}${animo === 'dormido' ? ' co-fila--dormida' : ''}`}
         aria-current={actual ? 'true' : undefined}
         onClick={() => onElegir(c.clave)}
         onContextMenu={(e) => { e.preventDefault(); k.abrirMenu(c.clave, e.clientX, e.clientY); }}
       >
-        <Muneco titulo={c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)} animo={animoDe(c)} size={sub ? 30 : 38} espera={k.avisos(c)} />
+        <Muneco titulo={c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)} animo={animo} size={sub ? 30 : 38} espera={k.avisos(c)} />
         <span className="co-fila__cuerpo">
           <span className="co-fila__l1">
             <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
@@ -330,7 +332,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
   );
 }
 
-/** «Nuevo chat» de Claude Code, arriba de sus chats, con un muñeco gris de lugar vacío (NuevoChat.tsx). Arranca en la
+/** «Nuevo chat» de Claude Code, arriba de sus chats, con su círculo verde (NuevoChat.tsx). Arranca en la
  *  cuenta del chat abierto si tiene terminal; si no, en la 1. */
 export function NuevoChatCentro({ centro: k, cuentaDelAbierto }: { centro: Centro; cuentaDelAbierto: string | null }) {
   const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
@@ -339,7 +341,7 @@ export function NuevoChatCentro({ centro: k, cuentaDelAbierto }: { centro: Centr
     <>
       <button type="button" className="co-fila co-fila--nuevo"
         onClick={() => setNuevo({ nombre: '', cuenta: cuentaDelAbierto && tieneTerminal(cuentaDelAbierto) ? cuentaDelAbierto : 'claude1' })}>
-        <MunecoNuevo />
+        <CirculoNuevo />
         <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
       </button>
       {nuevo && (

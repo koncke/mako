@@ -1437,6 +1437,30 @@ código nuevo:
   puedo mandar un prompt por allí»): la caja de `Conversacion.tsx` y la del teléfono firman por `mandar.ts`. Un
   formulario aparte para mandar no vuelve. Y la caja no manda lo que la PC va a rechazar ni dice «sale ya» sobre lo que
   espera: lo decide `comoSale` (lib/centro-chats.ts), con test.
+- **UN «COMPLETADO» NUNCA SE CORTA AL ABRIR EL CHAT** (17/10/2026; Martín: «tienen 3 puntos al final y no llego a leer todo, esos
+  son los mensajes más importantes que me permiten revisar y dar feedback»). En la LISTA y en el aviso el renglón puede ir cortado
+  (`tituloDeTexto`: 72 caracteres y «…»); en la conversación, nunca. Tres cosas:
+  - la tarjeta (Avance.tsx → `YaEstaMensaje`) dibuja con `partesDeYaEsta`, jamás con el título de la fila: el primer renglón
+    entero, y el resto tal cual. Nada de `line-clamp` ni `text-overflow` en una regla `.co-ya`;
+  - un cuerpo muy largo se pliega SÓLO en su detalle (`partirPendiente`, con «Ver todo»): lo que sigue pendiente y la prueba
+    quedan siempre a la vista, y plegar es CSS (el texto entero está en la página);
+  - lo que la PC corta al subir (`TOPE_TURNO`) se dice en la tarjeta (`cortadoPorLaPC`), no se calla.
+
+  Un texto nuevo que muestre un cierre sigue ese molde. Lo fija tests/centro-ops7.test.ts.
+- **LO QUE ESCRIBE UN CHAT SE DIBUJA CON SU FORMATO, Y UN CHAT SIN NADA PARA MARTÍN DUERME** (17/10/2026; Martín: «que los MD no
+  salgan con texto feo... nada de asteriscos ni almohadillas a la vista» y «nunca un chat "despierto" que no tenga ni una notif ni
+  un trabajo»). Todo texto de un chat —sus respuestas, un «Completado» (título y cuerpo), el cierre, sus preguntas— pasa por
+  `<Markdown enlaces>` o `renderInline` (app/_components/Markdown.tsx: negrita, cursiva, `código`, listas, títulos, citas, tablas y
+  links azules); en la FILA de la lista, que no dibuja formato, por `sinMarkdown`. Un texto de chat nuevo sigue ese molde. Y la
+  criatura de un chat abierto que no trabaja ni espera nada va DORMIDA (`animoDe(c, avisos)`, con la fila apagada): despierto sólo
+  con un trabajo o un aviso. Lo fija tests/centro-ops7.test.ts.
+- **UN AVISO POR CHAT SE CALCULA CON LO QUE TRAE EL REFRESCO DE TODOS, NO CON LA CONVERSACIÓN ABIERTA** (17/10/2026; Martín:
+  «supuestamente ya terminaste cosas, pero no me salió lo de "Espera tu respuesta"»). Los turnos completos viajan SÓLO del chat que
+  se mira (`pedirTurnos`): el aviso del «Completado» sin ver, que se calculaba con ellos, nunca salía en un chat que no se había
+  abierto. Cada refresco trae además lo último de todos (`leerUltimosTurnos`, recortado), y la fila lo usa
+  (`turnosParaLaLista`). Ese texto está CORTADO: es para la fila, nunca para dibujar una conversación. Un aviso nuevo por chat se
+  suma ahí. Y el vigía «MaKo en WhatsApp» (un cron que dice «Sin incidentes nuevos» cada rato) se esconde de la lista mientras
+  está callado (`vigiaCallado`) y avisa con un incidente de verdad. Lo fija tests/centro-ops7.test.ts.
 - **EL CENTRO SE MONTA EN OTRA PÁGINA POR SU MOTOR, NUNCA COPIÁNDOLO** (17/10/2026; Martín: «quiero mandar prompts por
   MaKo en el Second Brain»). Son tres piezas:
   - `useCentro` (app/admin/operaciones/useCentro.ts): el refresco, la cola, la firma, la caja y el «⋯»;

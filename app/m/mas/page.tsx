@@ -49,7 +49,7 @@ export const dynamic = 'force-dynamic';
 /** El Ops Center del super admin (app/m/operaciones; en la URL, /admin/operaciones), con la Ticketera adentro. */
 const RUTA_CENTRO = '/m/operaciones';
 /** Las filas de arriba llevan la criatura del Ops Center de ese nombre, como en escritorio (nav.ts → `criatura`). */
-const criatura = (nombre: string) => <span className="m-mas-logo" aria-hidden><Criatura nombre={nombre} size={28} /></span>;
+const criatura = (nombre: string, estrella = false) => <span className="m-mas-logo" aria-hidden><Criatura nombre={nombre} estrella={estrella} size={28} /></span>;
 
 export default async function MasPagina() {
   const ctx = await requireMovil();
@@ -93,7 +93,7 @@ export default async function MasPagina() {
       {(veOpsCenter || arriba) && (
         <SeccionM titulo={null}>
           <ListaM>
-            {veOpsCenter && <FilaM navegacion leading={criatura('Ops Center')} titulo="Ops Center" href={RUTA_CENTRO} />}
+            {veOpsCenter && <FilaM navegacion leading={criatura('Ops Center', true)} titulo="Ops Center" href={RUTA_CENTRO} />}
             {arriba?.filas.map((f) => fila(f, true))}
           </ListaM>
         </SeccionM>

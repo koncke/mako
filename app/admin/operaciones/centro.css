@@ -135,7 +135,11 @@
 
 /* «Nuevo chat»: el primer renglón, con el muñeco de un lugar vacío (gris y transparente). */
 .co-fila--nuevo { margin-bottom: 4px; color: var(--dim); }
-.co-muneco-nuevo { display: inline-flex; flex: none; opacity: .38; filter: grayscale(1); }
+/* Un chat sin trabajo y sin nada para Martín duerme: ojos cerrados (Muneco) y la fila apagada (17/10/2026). */
+.co-fila--dormida .co-fila__titulo { color: var(--dim); font-weight: 400; }
+.co-fila--dormida .co-fila__hace { color: var(--faint); }
+/* El círculo de «Nuevo chat» (NuevoChat.tsx → CirculoNuevo), como el botón de chat nuevo de WhatsApp. */
+.co-circulo-nuevo { display: inline-grid; place-items: center; flex: none; border-radius: 50%; background: var(--good); color: #fff; }
 .co-nuevo { display: flex; flex-direction: column; gap: 12px; }
 .co-nuevo__cuentas { display: flex; gap: 6px; flex-wrap: wrap; }
 .co-nuevo__cuentas .co-chip[aria-checked='true'] { background: var(--primary-bg); border-color: var(--primary); color: var(--primary-strong); }
@@ -1058,11 +1062,22 @@
 .co-ya__revisar { border-color: var(--primary-weak); background: var(--primary-bg); color: var(--primary-strong); font-weight: 600; }
 .co-ya__revisar:hover, .co-ya__plan:hover { filter: brightness(.97); }
 .co-ya__revisar:focus-visible, .co-ya__plan:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.co-ya__plan-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-ya__plan-titulo { min-width: 0; overflow-wrap: anywhere; }
 .co-ya__plan-estado { flex: none; font-size: var(--fs-meta); color: var(--dim); }
 .co-ya__plan-estado[data-estado='hecha'] { color: var(--good); font-weight: 600; }
 .co-ya__plan-estado[data-estado='no_se_pudo'] { color: var(--bad); }
 .co-ya__pie { display: flex; gap: 8px; margin-top: 2px; }
+/* UN «COMPLETADO» SE LEE ENTERO (17/10/2026; Martín: «tienen 3 puntos al final y no llego a leer todo, esos son los mensajes más
+   importantes que me permiten revisar y dar feedback»). Nada de `line-clamp` ni `text-overflow` acá. Un cuerpo muy largo
+   (Avance.tsx → partirPendiente) pliega SÓLO su detalle, con un desvanecido y «Ver todo»; la cola (lo que sigue pendiente y
+   cómo probarlo) queda siempre a la vista. */
+.co-ya__titulo { white-space: normal; }
+.co-ya__md { overflow-wrap: anywhere; }
+.co-ya__md pre, .co-ya__md table { max-width: 100%; overflow-x: auto; }
+.co-ya__detalle--plegado { max-height: 15em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 72%, transparent); mask-image: linear-gradient(#000 72%, transparent); }
+.co-ya__mas { align-self: flex-start; min-height: 36px; }
+.co-ya__cola { color: var(--ink); }
+.co-ya__corte { margin: 0; font-size: var(--fs-meta); color: var(--warn); }
 /* Tocar una tarea vinculada trae su mensaje y lo marca un rato. */
 .co-el--visto > .co-el__cuerpo { animation: co-visto 1.6s ease; border-radius: var(--r-xl); }
 @keyframes co-visto { 0%, 40% { background: var(--primary-bg); } 100% { background: transparent; } }
@@ -1308,11 +1323,22 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-el__cuerpo--ancho { max-width: min(82%, 720px); }
 .co-caja-wrap { padding: 8px clamp(12px, 3vw, 40px) 14px; }
 .co-caja { padding: 6px; border-radius: 26px; }
-.co-caja__fila { display: flex; align-items: flex-end; gap: 6px; }
-.co-caja__fila > .co-caja__campo { flex: 1; min-width: 0; align-self: center; }
-.co-caja__fila textarea { padding: 6px 4px; }
-.co-caja__fila .co-enviar { width: 40px; height: 40px; margin-left: 0; }
-.co-caja__fila .ch-adjuntar { width: 40px; height: 40px; border-radius: 50%; }
+/* LA FILA DE LA CAJA, ALINEADA COMO WHATSAPP (17/10/2026; Martín: «El + y el emoji están desalineados»). UNA medida para el «+»,
+   la carita, el campo de un renglón y el botón de mandar (`--caja-toque`: 40 con mouse, 44 con el dedo), todos alineados ABAJO:
+   con un renglón comparten el centro, y cuando el campo crece los botones se quedan en el último renglón. Antes el «+» medía
+   34 (teléfono) y la carita 36×42, y el campo se centraba en vez de ir abajo. Lo fija tests/centro-ops7.test.ts. */
+.co-caja__fila { --caja-toque: 40px; display: flex; align-items: flex-end; gap: 4px; }
+@media (pointer: coarse) { .co-caja__fila { --caja-toque: 44px; } }
+.co-caja__fila > .co-caja__campo { flex: 1; min-width: 0; align-self: flex-end; }
+/* Un renglón del campo mide lo que el botón: la letra y su renglón, y el resto de relleno arriba y abajo. */
+.co-caja__fila textarea, .co-caja__fila .co-caja__resalte {
+  --renglon: calc(var(--fs-md) * 1.5); padding: calc((var(--caja-toque) - var(--renglon)) / 2) 4px; line-height: var(--renglon);
+}
+:is(.co-caja__fila, .m-operaciones-caja__fila) :is(.ch-adjuntar, .co-emojis__boton, .co-enviar) {
+  flex: none; width: var(--caja-toque, 44px); height: var(--caja-toque, 44px); margin: 0; border: 0; border-radius: 50%;
+}
+:is(.co-caja__fila, .m-operaciones-caja__fila) .ch-adjuntar { background: none; }
+:is(.co-caja__fila, .m-operaciones-caja__fila) :is(.co-mas-caja, .co-emojis) { flex: none; align-self: flex-end; }
 .co-caja > .co-miniaturas, .co-caja > .co-cita-caja, .co-caja > .co-caja__links { margin: 4px 8px 6px; }
 /* El micrófono es el mismo botón que el de mandar (Microfono.tsx → BotonMandar): redondo, y rojo latiendo mientras escucha. */
 .co-enviar--mic { background: var(--surface-2); color: var(--ink); }
@@ -1404,5 +1430,5 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-emojis__pestanas { display: flex; justify-content: space-around; padding: 4px; border-top: 1px solid var(--border); }
 .co-emojis__pestana { flex: 1; height: 36px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: none; font-size: 18px; cursor: pointer; opacity: .6; }
 .co-emojis__pestana[aria-selected='true'] { border-bottom-color: var(--good); opacity: 1; }
-[data-m] .m-operaciones-caja .co-emojis__boton { width: 36px; height: 42px; }
+[data-m] .m-operaciones-caja .co-emojis__boton { width: var(--caja-toque, 44px); height: var(--caja-toque, 44px); }
 [data-m] .m-operaciones-caja .co-emojis__panel { left: -48px; }

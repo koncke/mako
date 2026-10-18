@@ -66,20 +66,20 @@ test('1: «Preguntas de los chats» ya no es una pestaña de la Ticketera, y un 
   assert.match(codigo('app/admin/operaciones/PiezasCentro.tsx'), /responder=\{k\.responderAca\}/);
 });
 
-test('2: el Uso no se contradice: con el Runner conectado y sin medición dice eso, no «aparece cuando esté conectado»', () => {
+test('2: el Uso no se contradice: sin medición dice lo que pasa con su Runner (el estado de arriba), no una frase escrita aparte', () => {
   const ahora = Date.UTC(2026, 9, 17, 21);
   const visto = new Date(ahora - 30_000).toISOString();
   // La cuenta 2 con su Runner conectado y sin ninguna medición; la 3 sin Runner ni número.
   const cuentas = cuentasDeUso([{ cuenta: 'claude2', vistoAt: visto }]);
   const texto = renderToStaticMarkup(createElement(ListaUso, { cuentas, ahora })).split('<section').slice(1).map((s) => s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
   assert.match(texto[1], /Runner activo/);
-  assert.match(texto[1], /Runner conectado, todavía sin medir$/, 'conectado y sin medir: lo dice');
-  assert.doesNotMatch(texto[1], /Su uso aparece/, 'y no el texto de «sin Runner»');
+  assert.match(texto[1], /Sin medir: su terminal no tiene Runner abierto$/, 'recorrida por otro Runner y sin medir: lo dice (no «Runner conectado»)');
+  assert.doesNotMatch(texto[1], /Su uso aparece|Runner conectado/, 'ni el texto de «sin Runner» ni una conexión que no es de esa cuenta');
   assert.match(texto[2], /Sin Runner todavía Su uso aparece cuando su Runner esté conectado$/, 'sin Runner: el de siempre');
   // En ninguna cuenta conviven «Runner activo» y el texto de «sin Runner».
   for (const t of texto) assert.ok(!(/Runner activo/.test(t) && /Su uso aparece/.test(t)), t);
-  assert.equal(textoSinMedicion(true), 'Runner conectado, todavía sin medir');
-  assert.equal(textoSinMedicion(false), 'Su uso aparece cuando su Runner esté conectado');
+  assert.equal(textoSinMedicion('sin_terminal'), 'Sin medir: su terminal no tiene Runner abierto');
+  assert.equal(textoSinMedicion('apagado'), 'Su uso aparece cuando su Runner esté conectado');
 });
 
 test('3: el super admin no ve «Second Brain» en la barra ni en More; el cliente y su equipo, sí', () => {
@@ -146,7 +146,7 @@ test('7: el chat del Runner no está en la lista del Ops Center', () => {
   assert.equal(esChatDelRunner(chat('Runner de pruebas')), false, 'ni uno que sólo empieza igual');
   assert.equal(esChatDelRunner(chat('Cualquiera', { esRunner: true })), true, 'la marca de la PC manda');
   // La pantalla lo saca; `completarChats` lo sigue devolviendo marcado (de ahí sale que no se le entrega nada).
-  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const chats = useMemo\(\(\) => sinElRunner\(completarChats\(base, \{ carteros, trabajos, ahora \}\)\), \[base, carteros, trabajos, ahora\]\);/);
+  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const conVigia = useMemo\(\(\) => sinElRunner\(completarChats\(base, \{ carteros, trabajos, ahora, pasos \}\)\), \[base, carteros, trabajos, ahora, pasos\]\);/);
 });
 
 test('8: un «Completado» sin ver avisa IGUAL que «Espera tu respuesta»: el mismo renglón y el mismo globito', () => {
@@ -173,5 +173,5 @@ test('8: un «Completado» sin ver avisa IGUAL que «Espera tu respuesta»: el m
   assert.match(movil, /espera=\{avisosDe\(espera, nuevo\)\}/, 'teléfono: el globito de la criatura');
   assert.match(movil, /const avisos = centro\.avisos;/, 'y el orden de la lista');
   assert.doesNotMatch(pc + movil, /co-aviso-ya|co-fila__hace--nuevo/, 'sin el globito verde de antes');
-  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const avisos = useMemo\(\(\) => \(c: ChatCentro\) => avisosDe\(esperaDe\(c, esperas\), yaSinVer\.has\(c\.clave\)\), \[esperas, yaSinVer\]\);/);
+  assert.match(codigo('app/admin/operaciones/useCentro.ts'), /const avisos = useMemo\(\(\) => \(c: ChatCentro\) => avisosDe\(esperaDe\(c, esperasConVigia\), yaSinVer\.has\(c\.clave\)\), \[esperasConVigia, yaSinVer\]\);/);
 });

@@ -28,7 +28,7 @@ import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
-  avisaYaEsta, avisosDe, esperaDe, sinElRunner, type VistosDeChats,
+  avisaYaEsta, avisosDe, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, vigiaCallado, type VistosDeChats,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
@@ -72,6 +72,8 @@ export type DatosCentro = {
   preguntasAbiertasIniciales?: Record<string, number>;
   /** El nombre y el email de cada cuenta (la G, lib/centro-titulares-db.ts). */
   cuentasIniciales?: CuentasConNombre;
+  /** Lo último de cada chat, por sesión, para la lista (lib/centro-turnos-db.ts → leerUltimosTurnos). */
+  ultimosIniciales?: Record<string, TurnoChat[]>;
   pedidos: PedidoP[];
   ahora: number;
   sub: string;
@@ -153,6 +155,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // Y sus tareas del Plan (la C y la D): las que armaron su «Voy a trabajar en…» y su «Ya está».
   const [tareas, setTareas] = useState<Record<string, TareaDelChat[]>>({});
   const [abiertas, setAbiertas] = useState<Record<string, number>>(d.preguntasAbiertasIniciales ?? {});
+  // Lo ÚLTIMO de todos los chats (17/10/2026): sin esto, la fila de un chat que no se abrió nunca sabía que su último mensaje era
+  // un «Ya está», y el aviso del «Completado» sin ver no salía. Llega con cada refresco; no es la conversación (texto recortado).
+  const [ultimos, setUltimos] = useState<Record<string, TurnoChat[]>>(d.ultimosIniciales ?? {});
+  const ultimosFirma = useRef('');
   // Lo de WhatsApp en cada mensaje (17/10/2026, lib/centro-mensajes.ts): las marcas de Martín, guardadas en MaKo, y la cita
   // de la caja de cada chat (responder a un mensaje), que viaja en el texto firmado.
   const [marcas, setMarcas] = useState<Record<string, MarcasChat>>({});
@@ -244,12 +250,27 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // Sin el Runner (17/10/2026, Martín: «El chat de "Runner" no tiene sentido que esté visible en el Center»): sigue trabajando
   // por detrás y su estado está en «Uso y Runners». Se saca ACÁ, no en `completarChats`: la PC lo sube marcado (`esRunner`) y de
   // esa marca sale que no se le entrega nada (tests/centro-runner-nube.test.ts).
-  const chats = useMemo(() => sinElRunner(completarChats(base, { carteros, trabajos, ahora })), [base, carteros, trabajos, ahora]);
+  const conVigia = useMemo(() => sinElRunner(completarChats(base, { carteros, trabajos, ahora, pasos })), [base, carteros, trabajos, ahora, pasos]);
+  // «MaKo en WhatsApp» (el vigía: un cron que dice «Sin incidentes nuevos» cada rato) sale de la lista mientras está callado y
+  // vuelve, avisando como «Espera tu respuesta», cuando deja un incidente de verdad (Martín, 17/10/2026). Con lo último que
+  // trajo el refresco: abrirlo no hace falta para saberlo.
+  const esperasConVigia = useMemo(() => {
+    const m = { ...esperas };
+    for (const c of conVigia) {
+      const local = c.miembros.find((k) => DESTINO_RE.test(k));
+      if (local && incidenteSinVer(c, turnosParaLaLista(c, turnos, ultimos, false), vistos?.chats[c.clave] ?? vistos?.desde ?? Infinity)) m[local] = (m[local] ?? 0) + 1;
+    }
+    return m;
+  }, [conVigia, esperas, turnos, ultimos, vistos]);
+  const chats = useMemo(
+    () => conVigia.filter((c) => !vigiaCallado(c, turnosParaLaLista(c, turnos, ultimos, false), esperaDe(c, esperasConVigia), mirando === c.clave)),
+    [conVigia, turnos, ultimos, esperasConVigia, mirando],
+  );
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
   const lineasDe = useMemo(
-    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnos[c.clave], preguntas[c.clave])])),
-    [chats, porId, trabajos, decisiones, carteros, turnos, preguntas],
+    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnosParaLaLista(c, turnos, ultimos, mirando === c.clave), preguntas[c.clave])])),
+    [chats, porId, trabajos, decisiones, carteros, turnos, ultimos, mirando, preguntas],
   );
   const previas = useMemo(() => new Map<string, VistaPrevia | null>([...lineasDe].map(([k, l]) => [k, vistaPrevia(l)])), [lineasDe]);
   // Los pasos en vivo de cada chat (la E), una vez por refresco: el hilo memorizado compara por identidad.
@@ -273,11 +294,11 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const yaSinVer = useMemo(() => new Set([...previas].filter(([k, p]) => k !== mirando && avisaYaEsta(p, vistos, k)).map(([k]) => k)), [previas, vistos, mirando]);
   /** Cuánto avisa cada chat en su fila: lo que espera a Martín MÁS un «Completado» sin ver (es el mismo aviso, 17/10/2026). Del
    *  globito de la criatura y del orden de la lista. */
-  const avisos = useMemo(() => (c: ChatCentro) => avisosDe(esperaDe(c, esperas), yaSinVer.has(c.clave)), [esperas, yaSinVer]);
+  const avisos = useMemo(() => (c: ChatCentro) => avisosDe(esperaDe(c, esperasConVigia), yaSinVer.has(c.clave)), [esperasConVigia, yaSinVer]);
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);
@@ -546,7 +567,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   }
 
   return {
-    chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
+    chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
