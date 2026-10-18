@@ -2319,3 +2319,19 @@ reacciones) · `app/onboarding/EntradaMako.tsx` · `app/onboarding/CriaturaMako.
 (10 roturas, 10 caen)
 
 *17/10/2026, chat «Onboarding», cuenta claude4.*
+
+## Lo tachado del diagnóstico, cómo llegó cada cliente y «Lo que vendes» en El Archivero (17/10/2026)
+
+- **«Qué hacer ahora» se guarda** en el mismo diagnóstico (`hechas`, PATCH /api/onboarding/fase) con un compare-and-set
+  sobre el texto leído: si en el medio se rehízo el diagnóstico (otra fase, otra lista), no se pisa. Rehacerlo lo vacía
+  (`diagnosticar` no lo trae). MaKo lo lee: `faseContextoTexto` dice qué hizo y qué le falta.
+- **«Llegó por» en la tabla de clientes del super admin** (y en el CSV): se lee `onboarding.encuesta` de TODOS los
+  negocios con el cliente crudo, como los leads de esa misma ruta (con `getTenantDb` saldría sólo el del super admin).
+- **«Lo que vendes» queda en El Archivero, SIN extracción** (decisión con criterio): sus datos ya están en el perfil
+  (el brief que escribe el cierre, de las mismas piezas); leerlo con la IA sería pagar por saber lo que ya se sabe. Una
+  vez por negocio (por el nombre del archivo: el PDF lleva la fecha y el contenido cambia).
+- **Vive en:** `lib/fase-diagnostico.ts` (`sanearHechas`) · `lib/fase-store.ts` (`guardarHechasFase`) ·
+  `lib/onboarding-arranque.ts` (`llegadaDe`) · `app/api/admin/workspaces/route.ts` · `lib/onboarding-arranque-server.ts`
+  (`archivarLoQueVendes`).
+
+*17/10/2026, «Pendientes B3» (`claude4`).*

@@ -211,3 +211,14 @@ test('5 · `?mako_leer=` no cambia la página (es de medición, como los utm)', 
   assert.equal(normalizarUrl('https://su-landing.com/oferta?mako_leer=AbCdEfGhIjKlMnOpQr'), normalizarUrl('https://su-landing.com/oferta'));
   assert.equal(normalizarUrl('https://su-landing.com/oferta?plan=pro&mako_leer=AbCdEfGhIjKlMnOpQr'), normalizarUrl('https://su-landing.com/oferta?plan=pro'));
 });
+
+// ── 6. Los parámetros que Meta le pone al clic de un anuncio no hacen otra página (17/10/2026) ─────────────────────────
+// Medido en ws1 (30 días de landing_visits): `ai=AI@…` y `ct=<instante>` distintos en cada clic dentro de la app de
+// Meta, y `sfnsn=scwspwa` al compartir por WhatsApp: la misma portada salía como una página por clic.
+// Rotura (a mano y restaurado; base 7 / 0): sin «'ai', 'ct', 'sfnsn'» → 6 / 1 (éste).
+test('6 · `ai=`, `ct=` y `sfnsn=` de los anuncios de Meta no cambian la página', () => {
+  const base = normalizarUrl('https://multiplicatusresultados.com/');
+  assert.equal(normalizarUrl('https://multiplicatusresultados.com/?utm_source=facebook&utm_id=120248295132&ai=AI@AQKfh6EAr&ct=179081880260'), base);
+  assert.equal(normalizarUrl('https://multiplicatusresultados.com/?utm_medium=paid&fbclid=IwVERTSASSua&sfnsn=scwspwa'), base);
+  assert.equal(normalizarUrl('https://ejemplo.com/oferta?plan=pro&ct=1790&ai=AI@x'), normalizarUrl('https://ejemplo.com/oferta?plan=pro'), 'lo que no es de medición queda');
+});

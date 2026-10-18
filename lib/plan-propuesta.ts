@@ -10,7 +10,7 @@
 // (ver `aplicarPropuestas`): las tareas nacen libres y el proyecto sale sin modelo.
 
 import 'server-only';
-import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace, getWorkspace, wsObligatorio } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
 import { agregarTareasPlanOwner, ampliarTareasPlanOwner, borrarPlanTarea, cerrarPlanTareaOwner, listPlanBoard } from '@/lib/plan-board';
 import { crearTarea, crearCategoria, listCategorias, borrarTarea, listTareas, ampliarTareasCliente } from '@/lib/todo';
@@ -31,7 +31,7 @@ import { recortarPrueba } from './cierre-tarjeta';
 import { conCruceGuardado } from './cruce-borrador';
 
 type Row = Record<string, unknown>;
-const wsActual = async (): Promise<number> => (await getWorkspaceActual()) ?? OWNER_WS;
+const wsActual = async (): Promise<number> => await wsObligatorio();
 const enWs = async <T,>(fn: () => Promise<T>): Promise<T> => runWithWorkspace(await wsActual(), fn);
 const genId = (p: string): string => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);

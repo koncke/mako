@@ -50,7 +50,7 @@ import { join } from 'node:path';
 import { FAMILIAS, MAKO_NAV, type NavItem } from '../app/_components/nav';
 import { CAPAS, tabEnCapa, type CapaId } from '../lib/capas';
 import {
-  DESTINOS_MOVIL, FAMILIAS_MAS, QUERY_DE_SECCION, RUTA_MAS, SECCIONES_MAS, barraMovil, gruposMas, puedeVerKey,
+  DESTINOS_MOVIL, EN_CAMINO, FAMILIAS_MAS, QUERY_DE_SECCION, RUTA_MAS, SECCIONES_MAS, SOLO_ESCRITORIO, barraMovil, gruposMas, puedeVerKey,
   rutaEscritorio, rutaInterna, rutaMovil, seccionesMasVisibles, tituloSeccion, type DefSeccionMas, type IdSeccionMas,
   type RolMovil,
 } from '../lib/movil-rutas';
@@ -61,66 +61,81 @@ const RAIZ = join(__dirname, '..');
 const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const leer = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8'));
 
-/** Las siete del 15/10/2026, en el orden de More. */
+/** Las siete del 15/10/2026. Desde el 17/10/2026 el Mapa (`second-brain`) y Experiments están OCULTAS: sus páginas siguen,
+ *  pero no son filas (salieron de la sidebar de escritorio). */
 const SIETE: IdSeccionMas[] = ['calendario', 'second-brain', 'experimentos', 'offer', 'copywriting', 'curso', 'comunidad'];
+/** Las que siguen siendo filas, en el orden de More. */
+const SIETE_FILAS: IdSeccionMas[] = ['calendario', 'offer', 'copywriting'];
 const seccion = (id: IdSeccionMas) => SECCIONES_MAS.find((s) => s.id === id)!;
 /** Las claves de una sección, leídas con el tipo de la lib: después del `assert.deepEqual` de abajo, TS
  *  achica QUERY_DE_SECCION al literal de la tabla (deepEqual es un `asserts`), y QUERY_DE_SECCION[s.id] ya
  *  no compila para las secciones sin query (TS7053). Una función de módulo no hereda ese achique. */
 const queryDe = (id: IdSeccionMas): readonly string[] => QUERY_DE_SECCION[id] ?? [];
 
-/** La fila que la sidebar DIBUJA para una key: el ítem, o la tab unificada que la tiene de sección (Video, Copywriting). */
-function filaDeSidebar(key: string): { familia: string | null; orden: number; item: NavItem } | null {
+/**
+ * La fila que la sidebar DIBUJA para una key: el ítem, o la tab unificada que la tiene de sección (Video, Copywriting,
+ * Clients). `seccion` es la sección cuando la key es de una: Clients se dibuja como UNA fila en escritorio y en el teléfono
+ * son tres (Clients, Course, Community), cada una con el nombre de su sección. Lo de ARRIBA (Second Brain, 17/10/2026)
+ * va antes que las familias.
+ */
+function filaDeSidebar(key: string): { familia: string | null; orden: number; item: NavItem; seccion?: NavItem } | null {
+  const m = MAKO_NAV.findIndex((t) => t.key === key);
+  if (m >= 0) return { familia: null, orden: -100 + m, item: MAKO_NAV[m] };
   for (const [i, f] of FAMILIAS.entries()) {
     const tabs = [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)];
     const j = tabs.findIndex((t) => t.key === key || (t.secciones ?? []).some((x) => x.key === key));
-    if (j >= 0) return { familia: f.label, orden: i * 100 + j, item: tabs[j] };
+    if (j < 0) continue;
+    const k = (tabs[j].secciones ?? []).findIndex((x) => x.key === key);
+    return { familia: f.label, orden: i * 100 + j + Math.max(k, 0) / 10, item: tabs[j], seccion: k >= 0 ? tabs[j].secciones![k] : undefined };
   }
-  const m = MAKO_NAV.findIndex((t) => t.key === key);
-  return m >= 0 ? { familia: null, orden: FAMILIAS.length * 100 + m, item: MAKO_NAV[m] } : null;
+  return null;
 }
 
 test('las siete nuevas: su ruta del teléfono, la de escritorio, la key que las gatea y su familia', () => {
   assert.deepEqual(SIETE.map((id) => { const s = seccion(id); return [s.id, s.href, rutaEscritorio(s.href), s.navKey, s.familia]; }), [
     ['calendario', '/m/calendario', '/calendario', 'calendario', 'operate'],
-    ['second-brain', '/m/second-brain', '/second-brain', 'second-brain', 'analyze'],
-    ['experimentos', '/m/experimentos', '/experimentos', 'experimentos', 'analyze'],
+    ['second-brain', '/m/second-brain', '/second-brain', 'second-brain', null],
+    ['experimentos', '/m/experimentos', '/experimentos', 'experimentos', null],
     ['offer', '/m/offer', '/offer', 'offer', 'sales'],
     // La tab unificada Copywriting abre su sección Ads Writer, y es esa key la que gatea (requireRolWs de /ads-writer).
-    ['copywriting', '/m/copywriting', '/ads-writer', 'ads-writer', 'content'],
+    ['copywriting', '/m/copywriting', '/ads-writer', 'ads-writer', 'sales'],
     // Desde el 17/10/2026 la URL de escritorio es la de la tab Clients (docs/diseno-clients.md).
-    ['curso', '/m/curso', '/clients/classroom', 'cs-curso', 'customer'],
-    ['comunidad', '/m/comunidad', '/clients/community', 'cs-comunidad', 'customer'],
+    // Classroom y Community son sub-tabs de Clients desde el 17/10/2026: filas ocultas (sus pantallas siguen).
+    ['curso', '/m/curso', '/clients/classroom', 'cs-curso', null],
+    ['comunidad', '/m/comunidad', '/clients/community', 'cs-comunidad', null],
   ]);
 });
 
 test('cada fila de More es la de la sidebar: el nombre, el ícono, la familia y el orden', () => {
+  // Las de arriba (familia null) van primero en More aunque estén al final de la lista: el orden se mide en el resto.
+  // Las OCULTAS no son filas: no se comparan.
   let anterior = -1;
-  for (const s of SECCIONES_MAS) {
+  for (const s of SECCIONES_MAS.filter((x) => !x.oculta)) {
     const fila = filaDeSidebar(s.navKey);
     assert.ok(fila, `${s.id}: la key «${s.navKey}» no es de ninguna fila de la sidebar`);
     const familia = FAMILIAS_MAS.find((f) => f.id === s.familia)?.label ?? null;
     assert.equal(familia, fila.familia, `${s.id}: en More va en «${familia}» y en la sidebar en «${fila.familia}»`);
-    assert.equal(s.label, fila.item.label, `${s.id}: la fila no dice lo que dice la sidebar`);
-    assert.equal(s.icon, fila.item.icon, `${s.id}: el ícono no es el de la sidebar`);
+    // Clients: en el teléfono cada sección es su fila, con el nombre y el ícono de la sección.
+    const deLaSidebar = fila.item.key === 'clients' && fila.seccion ? fila.seccion : fila.item;
+    assert.equal(s.label, deLaSidebar.label, `${s.id}: la fila no dice lo que dice la sidebar`);
+    assert.equal(s.icon, deLaSidebar.icon, `${s.id}: el ícono no es el de la sidebar`);
+    if (s.familia === null) continue;
     assert.ok(fila.orden > anterior, `${s.id}: fuera del orden de la sidebar`);
     anterior = fila.orden;
   }
   // Y lo que la sidebar le muestra a un cliente (sin lo «pronto» ni lo del super admin) está en la barra, en
   // More, o acá con su motivo. Una tab nueva de la sidebar no se olvida en silencio.
-  const FUERA: Record<string, string> = {
-    general: 'es General, la del medio de la barra',
-    whatsapp: 'entra en Chats (la bandeja unificada)',
-    email: 'entra en Chats (la bandeja unificada)',
-    image: 'Image (la copia de Canva) no entró en la tanda del 15/10/2026: si va al teléfono, es una fila de More',
-  };
+  // Desde el 17/10/2026 una tab sin sección del teléfono tiene su marca en lib/movil-rutas.ts (SOLO_ESCRITORIO o
+  // EN_CAMINO)) y More la muestra «En la computadora»; lo fija tests/movil-toda-tab.test.ts.
+  const FUERA: Record<string, string> = { general: 'es General, la del medio de la barra' };
+  const marcada = (keys: string[]) => keys.some((k) => SOLO_ESCRITORIO[k] || EN_CAMINO[k]);
   const visible = (t: NavItem) => !t.adminOnly && !t.comingSoon;
   for (const f of FAMILIAS) {
     for (const t of [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)]) {
       if (!visible(t) || (t.secciones && !t.secciones.some(visible))) continue;
       const keys = [t.key, ...(t.secciones ?? []).map((x) => x.key)];
       const esta = DESTINOS_MOVIL.some((d) => d.navKey && keys.includes(d.navKey)) || SECCIONES_MAS.some((s) => keys.includes(s.navKey));
-      assert.ok(esta || FUERA[t.key], `«${t.label}» (${f.label}) está en la sidebar y no en el teléfono, sin un motivo en FUERA`);
+      assert.ok(esta || FUERA[t.key] || marcada(keys), `«${t.label}» (${f.label}) está en la sidebar y no en el teléfono, sin un motivo en FUERA`);
       assert.ok(!(esta && FUERA[t.key]), `«${t.label}» está en el teléfono y también en FUERA`);
     }
   }
@@ -128,33 +143,32 @@ test('cada fila de More es la de la sidebar: el nombre, el ícono, la familia y 
 
 test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerKey) y nada más', () => {
   const ve = (rol: RolMovil, capa: CapaId) => seccionesMasVisibles(rol, capa).map((s) => s.id).filter((id) => SIETE.includes(id));
-  // Las siete son de admin en nav.ts (sin rolesWs), como sus páginas de escritorio.
-  assert.deepEqual(ve('admin', 'completo'), SIETE);
-  assert.deepEqual(ve('admin', 'agencia'), SIETE);
+  // Las siete son de admin en nav.ts (sin rolesWs), como sus páginas de escritorio; las dos ocultas no son filas.
+  assert.deepEqual(ve('admin', 'completo'), SIETE_FILAS);
+  assert.deepEqual(ve('admin', 'agencia'), SIETE_FILAS);
   // La capa superadmin tiene `userNavKeys: null`, y `tabEnCapa` une los dos menús: dice que sí a todo, como en
   // la sidebar del super admin en su workspace (tests/curso-admin.test.ts explica por qué no es un bug).
-  assert.deepEqual(ve('admin', 'superadmin'), SIETE);
+  assert.deepEqual(ve('admin', 'superadmin'), SIETE_FILAS);
   // La capa pm: Plan, MaKo, Dashboard y Calendario (lib/capas.ts). De las siete, sólo Calendario.
   assert.deepEqual(ve('admin', 'pm'), ['calendario']);
   for (const capa of Object.keys(CAPAS) as CapaId[]) {
     for (const rol of ['closer', 'setter', null] as const) assert.deepEqual(ve(rol, capa), [], `${rol} en ${capa}`);
   }
-  // More entero del admin de un cliente completo: una caja por familia, en su orden. Sin la fila de abajo desde el
-  // 16/10/2026: el chat con MaKo ES el Second Brain, y el admin ya lo tiene en Analyze (una entrada por persona).
+  // More entero del admin de un cliente completo (17/10/2026): Second Brain arriba sin título, y una caja por familia.
   assert.deepEqual(gruposMas('admin', 'completo').map((g) => [g.titulo, g.secciones.map((s) => s.id)]), [
-    ['Operate', ['calendario', 'ads']],
-    ['Analyze', ['second-brain', 'dashboard', 'experimentos']],
-    ['Sales Machine', ['offer', 'landing', 'automations']],
-    ['Content Machine', ['video', 'copywriting']],
-    ['Customer Success', ['cs', 'curso', 'comunidad']],
+    [null, ['mako']],
+    // Clients es UNA fila (sus sub-tabs van adentro); MaKo Partners sólo para el admin de una agencia.
+    ['Operate', ['calendario', 'dashboard', 'ads', 'cs']],
+    // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
+    ['Sales Machine', ['offer', 'landing', 'automations', 'video', 'image', 'copywriting']],
   ]);
   // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la
   // sidebar (Calendario y Dashboard), y en More le queda MaKo.
   assert.deepEqual(barraMovil('admin', 'pm').map((b) => b.id), ['calendario', 'dashboard', 'hoy', 'plan', 'mas']);
   assert.deepEqual(gruposMas('admin', 'pm').map((g) => g.secciones.map((s) => s.id)), [['mako']]);
   // El closer y el setter no cambian: More no les ofrece ninguna de las siete.
-  assert.deepEqual(gruposMas('closer', 'completo').map((g) => g.secciones.map((s) => s.id)), [['dashboard'], ['mako']]);
-  assert.deepEqual(gruposMas('setter', 'completo').map((g) => g.secciones.map((s) => s.id)), [['dashboard'], ['automations'], ['mako']]);
+  assert.deepEqual(gruposMas('closer', 'completo').map((g) => g.secciones.map((s) => s.id)), [['mako'], ['dashboard']]);
+  assert.deepEqual(gruposMas('setter', 'completo').map((g) => g.secciones.map((s) => s.id)), [['mako'], ['dashboard'], ['automations']]);
 });
 
 test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo gating)', () => {
@@ -191,6 +205,8 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
     offer: ['oferta', 'funnel'],
     copywriting: ['tab'],
+    // La API de MaKo (17/10/2026): docs · tokens · registro, en los dos lados.
+    'api-mako': ['tab'],
     curso: ['producto'],
     comunidad: ['producto', 'post'],
   });
@@ -225,12 +241,13 @@ test('la cabecera de cada sección vuelve a More, con el nombre de la pantalla; 
   assert.equal(cabeceraPorRuta('/m/copywriting').titulo, 'Ads Writer');
   assert.equal(tituloDe('/ads-writer'), tituloDe('/m/copywriting'), 'la pestaña dice lo mismo en los dos lados');
   assert.deepEqual(cabeceraPorRuta('/m/copywriting/guion-1').padre, { href: '/m/copywriting', label: 'Ads Writer' });
-  assert.deepEqual(cabeceraPorRuta('/m/curso/7').padre, { href: '/m/curso', label: 'Curso' });
+  // Los nombres en inglés desde el 17/10/2026 (Course, Community, Calendar), como en la sidebar.
+  assert.deepEqual(cabeceraPorRuta('/m/curso/7').padre, { href: '/m/curso', label: 'Classroom' });
   // Curso y Comunidad no son Clientes: el prefijo va con barra.
-  assert.equal(cabeceraPorRuta('/m/curso').titulo, 'Curso');
-  assert.equal(cabeceraPorRuta('/m/comunidad').titulo, 'Comunidad');
-  // La sección que sube a la barra (Calendario, en la capa pm) es una raíz: sin volver.
-  assert.deepEqual(cabeceraPorRuta('/m/calendario', barraMovil('admin', 'pm')), { titulo: 'Calendario', padre: null, trabajo: false, conBarra: true });
+  assert.equal(cabeceraPorRuta('/m/curso').titulo, 'Classroom');
+  assert.equal(cabeceraPorRuta('/m/comunidad').titulo, 'Community');
+  // La sección que sube a la barra (Calendar, en la capa pm) es una raíz: sin volver.
+  assert.deepEqual(cabeceraPorRuta('/m/calendario', barraMovil('admin', 'pm')), { titulo: 'Calendar', padre: null, trabajo: false, conBarra: true });
 });
 
 test('cada sección de More TIENE su página, con el guard de SU key', () => {
@@ -242,8 +259,15 @@ test('cada sección de More TIENE su página, con el guard de SU key', () => {
     if (!existsSync(join(RAIZ, archivo))) { faltan.push(`${archivo} (no existe)`); continue; }
     // El Second Brain es el CHAT con MaKo desde el 16/10/2026 (entra con la key 'mako', como la fila de abajo): lo que es
     // del admin de la tab es su Mapa, que vive en su propia página con la key 'second-brain'.
+    // Las del SUPER ADMIN (17/10/2026) se cuidan como su página de escritorio, con `getSesionAdmin()`: su key no está en
+    // TODOS_LOS_ITEMS, y `requireMovil({ navKey })` les cerraría la puerta a todos.
+    if (s.superAdmin) {
+      if (!leer(archivo).includes('await getSesionAdmin()')) faltan.push(`${archivo} (sin getSesionAdmin(), la puerta de escritorio)`);
+      continue;
+    }
     const [pagina, key] = s.id === 'second-brain' ? [archivo, 'mako'] : [archivo, s.navKey];
-    if (!leer(pagina).includes(`requireMovil({ navKey: '${key}' })`)) faltan.push(`${pagina} (sin requireMovil({ navKey: '${key}' }))`);
+    // Con opciones de la misma puerta, también (`onboarding: false` en «Reportar problema», como su `gateOnboarding: false`).
+    if (!new RegExp(String.raw`requireMovil\(\{ navKey: '${key}'(, [^}]*)? \}\)`).test(leer(pagina))) faltan.push(`${pagina} (sin requireMovil({ navKey: '${key}' }))`);
     if (s.id === 'second-brain' && !leer('app/m/second-brain/mapa/page.tsx').includes(`requireMovil({ navKey: '${s.navKey}' })`)) {
       faltan.push(`app/m/second-brain/mapa/page.tsx (sin requireMovil({ navKey: '${s.navKey}' }))`);
     }

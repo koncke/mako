@@ -117,6 +117,34 @@ export async function rotulosDelCrm(): Promise<{ producto: (id: number | null) =
   };
 }
 
+/**
+ * Los funnels a los que cada lead está AGREGADO, además de su casa (`lead_funnel`, el «lead en varios productos»), con el
+ * nombre que muestra la hoja. Va al `m.producto` de su fila (lib/graficos-agregar.ts): una hoja filtrada por un funnel de
+ * agregados («Renovación» en el ws1, sin un solo lead de casa) salía VACÍA porque el filtro miraba sólo la casa (17/10/2026).
+ * Si no se puede leer, ningún lead tiene agregados (la hoja queda como antes) y se dice en el log.
+ */
+export async function funnelsAgregados(leadIds: readonly number[], producto: (id: number | null) => string | null): Promise<Map<number, Array<{ nombre: string; desde: string }>>> {
+  const out = new Map<number, Array<{ nombre: string; desde: string }>>();
+  if (!leadIds.length) return out;
+  try {
+    // `desde`: el día en que se lo agregó (revisión de B5). Lo que le pasó ANTES es de otro funnel.
+    const filas = await leerPorIds<{ lead_id: number; funnel_id: number; created_at: string | null }>('lead_funnel', 'lead_id, funnel_id, created_at', 'lead_id', [...leadIds]);
+    for (const f of filas) {
+      const nombre = producto(Number(f.funnel_id));
+      if (!nombre) continue;
+      const lista = out.get(Number(f.lead_id)) ?? [];
+      const desde = fechaTj(f.created_at) ?? '';
+      const ya = lista.find((x) => x.nombre === nombre);
+      if (!ya) lista.push({ nombre, desde });
+      else if (desde && desde < ya.desde) ya.desde = desde;
+      out.set(Number(f.lead_id), lista);
+    }
+  } catch (e) {
+    console.error('[graficos] sin los funnels agregados de los leads:', e instanceof Error ? e.message : e);
+  }
+  return out;
+}
+
 /** Lee filas de `tabla` cuyo `col` está en `ids`, de a tandas (un `.in` con cientos arma una URL que el proxy corta). Paginado. */
 export async function leerPorIds<T>(tabla: string, cols: string, col: string, ids: Array<number | string>, opts: { orden?: OrdenPaginado; extra?: (q: ConsultaPaginada) => ConsultaPaginada } = {}): Promise<T[]> {
   const unicos = [...new Set(ids.filter((x) => x != null && x !== '').map(String))];

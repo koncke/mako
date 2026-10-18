@@ -13,11 +13,12 @@
 // sobre otra REEMPLAZA (SheetM.tsx).
 
 import '@/app/_chat/chat.css';
-import { useEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { ACCEPT_ADJUNTOS_CHAT } from '@/lib/mako-adjuntos';
 import type { AdjuntoCaja } from './useCentro';
+import { Visor } from './Visor';
 
 /** Lo que la caja necesita para adjuntar. `puede` = false: el Runner todavía no baja adjuntos (no se ofrece). */
 export type AdjuntosDeCaja = {
@@ -25,15 +26,12 @@ export type AdjuntosDeCaja = {
   puede: boolean;
   onSumar: (archivos: File[]) => void;
   onQuitar: (id: string) => void;
+  /** Se pegó una imagen y este chat todavía no recibe adjuntos (su Runner es viejo): decirlo, no tragársela callado. */
+  onNoPuede?: () => void;
 };
 
-/** Pegar: una captura entra como adjunto. Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: si hay
- *  texto, se pega el texto (la misma regla que el Second Brain). */
-export function alPegar(e: ClipboardEvent<HTMLTextAreaElement>, a: AdjuntosDeCaja | undefined) {
-  if (!a?.puede) return;
-  const fs = Array.from(e.clipboardData.files);
-  if (fs.length && !Array.from(e.clipboardData.types).includes('text/plain')) { e.preventDefault(); a.onSumar(fs); }
-}
+// Pegar una imagen: pegar.ts (sin CSS, para que su test lo importe).
+export { alPegar } from './pegar';
 
 /** Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. */
 export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
@@ -61,22 +59,7 @@ export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
 
 /** El adjunto ampliado, antes de mandar: la foto entera, o el PDF en su visor. Escape o tocar afuera lo cierra. */
 function VerAdjunto({ x, onCerrar }: { x: AdjuntoCaja; onCerrar: () => void }) {
-  useEffect(() => {
-    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar(); };
-    window.addEventListener('keydown', tecla);
-    return () => window.removeEventListener('keydown', tecla);
-  }, [onCerrar]);
-  return (
-    <div className="co-ver" role="dialog" aria-modal="true" aria-label={x.file.name} onClick={onCerrar}>
-      <div className="co-ver__marco" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="co-ver__cerrar" onClick={onCerrar} aria-label="Cerrar"><Icon name="x" size={18} /></button>
-        {x.tipo === 'image'
-          // eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:)
-          ? <img className="co-ver__img" src={x.url} alt={x.file.name} />
-          : <iframe className="co-ver__pdf" src={x.url} title={x.file.name} />}
-      </div>
-    </div>
-  );
+  return <Visor url={x.url} nombre={x.file.name} tipo={x.tipo} onCerrar={onCerrar} />;
 }
 
 /**
@@ -93,6 +76,7 @@ export function MasCaja({ a, apagado, resumen, children }: {
   const caja = useRef<HTMLDivElement>(null);
   const archivo = useRef<HTMLInputElement>(null);
   const imagen = useRef<HTMLInputElement>(null);
+  const camara = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!abierto) return;
     const fuera = (e: PointerEvent) => { if (!caja.current?.contains(e.target as Node)) setAbierto(false); };
@@ -117,21 +101,42 @@ export function MasCaja({ a, apagado, resumen, children }: {
       {resumen && !abierto && <span className="co-mas-caja__resumen">{resumen}</span>}
       {abierto && (
         <div className="co-mas-caja__panel" role="menu">
+          {/* Copiado del «Adjuntar» de WhatsApp (17/10/2026, Martín: «el "+" ya tiene muchas opciones: que quede bien ordenado,
+              como el de WhatsApp»): arriba los círculos de color con su nombre debajo (Documento, Fotos, Cámara), y abajo,
+              separado y con su título, lo que se elige para mandar y las tareas del chat. */}
           {adjunta && (
             <div className="co-mas-caja__tiles">
               <button type="button" role="menuitem" className="co-mas-caja__tile" onClick={() => archivo.current?.click()}>
-                <IconoChat nombre="archivo" size={20} /><span>Importar archivo</span>
+                <span className="co-mas-caja__circulo co-mas-caja__circulo--doc"><IconoChat nombre="archivo" size={22} /></span><span>Documento</span>
               </button>
               <button type="button" role="menuitem" className="co-mas-caja__tile" onClick={() => imagen.current?.click()}>
-                <IconoChat nombre="foto" size={20} /><span>Imagen</span>
+                <span className="co-mas-caja__circulo co-mas-caja__circulo--fotos"><IconoChat nombre="foto" size={22} /></span><span>Fotos</span>
+              </button>
+              <button type="button" role="menuitem" className="co-mas-caja__tile co-mas-caja__tile--camara" onClick={() => camara.current?.click()}>
+                <span className="co-mas-caja__circulo co-mas-caja__circulo--camara"><Camara /></span><span>Cámara</span>
               </button>
             </div>
           )}
-          {children && <div className="co-mas-caja__opciones">{typeof children === 'function' ? children(() => setAbierto(false)) : children}</div>}
+          {children && (
+            <div className="co-mas-caja__opciones">
+              <p className="co-mas-caja__titulo">Con qué corre</p>
+              {typeof children === 'function' ? children(() => setAbierto(false)) : children}
+            </div>
+          )}
         </div>
       )}
       <input ref={archivo} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
       <input ref={imagen} type="file" accept="image/*" multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
+      <input ref={camara} type="file" accept="image/*" capture="environment" hidden onChange={(e) => elegir(e.target.files, e.target)} />
     </div>
+  );
+}
+
+/** La cámara de WhatsApp, en trazo (el set de la casa no la tiene). */
+function Camara() {
+  return (
+    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 8.5h3l1.6-2.3h6.8L17 8.5h3v10H4z" /><circle cx="12" cy="13.3" r="3.3" />
+    </svg>
   );
 }

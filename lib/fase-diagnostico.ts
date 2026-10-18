@@ -477,7 +477,25 @@ export type Diagnostico = {
   reparto: number[];
   /** Las respuestas crudas (índice de opción por pregunta). */
   respuestas: number[];
+  /**
+   * Lo que el dueño TACHÓ de «Qué hacer ahora» (índices de `acciones` de SU fase), 17/10/2026. Se perdía al recargar
+   * (un `useState` local en app/onboarding/FaseUI.tsx) y MaKo no se enteraba. Undefined = nunca tachó nada. Rehacer
+   * el diagnóstico lo vuelve a vaciar (`diagnosticar` no lo trae): otra fase, otra lista.
+   */
+  hechas?: number[];
 };
+
+/** Los índices tachados, saneados contra la lista de ESA fase: enteros, en rango, sin repetir y en orden. */
+export function sanearHechas(raw: unknown, fase: number): number[] {
+  if (!Array.isArray(raw)) return [];
+  const total = faseDef(fase).acciones.length;
+  const out = new Set<number>();
+  for (const x of raw) {
+    const n = typeof x === 'number' ? x : Number(x);
+    if (Number.isInteger(n) && n >= 0 && n < total) out.add(n);
+  }
+  return [...out].sort((a, b) => a - b);
+}
 
 /**
  * De las 6 respuestas al diagnóstico. La fase es la MEDIANA de los votos (no la
@@ -537,5 +555,13 @@ export function faseContextoTexto(d: Diagnostico | null): string {
     `NO conviene todavía: ${f.noHacer.join(' · ')}`,
   ].filter(Boolean);
   if (d.mixto) lineas.push(`Diagnóstico mixto (${repartoTexto(d.reparto)}): trabajar primero el cuello de la fase más baja.`);
+  // Lo que el dueño tachó de «Qué hacer ahora» (17/10/2026): MaKo no propone lo que ya hizo.
+  if (d.hechas) {
+    const hechas = sanearHechas(d.hechas, d.fase);
+    const hizo = hechas.map((i) => f.acciones[i].titulo);
+    const falta = f.acciones.filter((_, i) => !hechas.includes(i)).map((a) => a.titulo);
+    if (hizo.length) lineas.push(`Ya hizo (lo tachó de «Qué hacer ahora»): ${hizo.join(' · ')}.`);
+    if (falta.length) lineas.push(`Le falta de «Qué hacer ahora»: ${falta.join(' · ')}.`);
+  }
   return lineas.join('\n');
 }

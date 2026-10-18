@@ -16,7 +16,9 @@
 // Al salir bien, emite la sesión completa con `mfa` = cómo se probó, y cierra el paso
 // intermedio en el mismo movimiento (lib/sesion-cookies.ts).
 
-import { NextResponse, type NextRequest } from 'next/server';
+import { after, NextResponse, type NextRequest } from 'next/server';
+import { avisarContrasenaCambiada } from '@/lib/contrasena-cambio-aviso';
+import { limitePorIp } from '@/lib/limite-publico';
 import { requiereCrearContrasena } from '@/lib/contrasena-reglas';
 import { tieneContrasena, guardarContrasena } from '@/lib/contrasena';
 import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
@@ -114,6 +116,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // El freno de intentos es POR CUENTA (lib/mfa.ts → intentar); esto corta el barrido desde una IP.
+  const frenado = limitePorIp(req, 'login-2fa', 30, 10 * 60_000);
+  if (frenado) return frenado;
   if (!origenValido(req)) return no('origen no permitido', 403);
   const q = await quien(req);
   if (!q) return no('vencido', 401);
@@ -135,6 +140,7 @@ export async function POST(req: NextRequest) {
     // base no guardó) no la deja afuera: entra, y el pendiente se le vuelve a pedir en el próximo login.
     if (!r.ok && !r.nuestro) return no(r.error);
     if (!r.ok) await registrarEvento(q.id, 'contrasena-crear', false, 'la base no guardó: entró igual');
+    else { const uid = q.id; after(() => avisarContrasenaCambiada(uid).then(() => undefined)); }
     return entrar(req, q, q.pre.mfa, { recordar: q.pre.recordar, saltarContrasena: true });
   }
 

@@ -27,20 +27,19 @@ import {
   type ChatCentro, type VistaPrevia,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
-import { elegidoPara } from '@/lib/centro-munecos';
+import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
 import { comandoNuevoChat, tieneTerminal } from '@/lib/runner';
 import {
   AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
 } from '@/lib/centro-cuentas';
-import { nombreValido } from '@/lib/centro-chats';
+import { nombreValido, segundoRenglon } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
-import { PanelRunner, TituloRunner, type VistaRunner } from './PanelRunner';
 import { BotonUso } from './Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
-import { MunecoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from './NuevoChat';
+import { CirculoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from './NuevoChat';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import type { Centro } from './useCentro';
@@ -54,18 +53,29 @@ const VISIBLES = 14;
 /** El segundo renglón de la fila: mientras trabaja, EN QUÉ (Martín, 16/10/2026: «Cuando un chat dice "Trabajando..." debo
  *  saber en qué está trabajando»: el título de lo que tiene en curso, `enQueTrabaja`; «trabajando…» si no se sabe), si no
  *  lo último que pasó, con el tick si es un trabajo propio. */
-function Previa({ c, p, espera, enCurso }: { c: ChatCentro; p: VistaPrevia | null; espera: number; enCurso: string | null }) {
-  if (c.estado === 'trabajando' && !c.viejo) return <span className="co-fila__l2 co-fila__l2--vivo" title={enCurso ?? undefined}>{enCurso ?? 'trabajando…'}</span>;
-  // Lo que espera una respuesta de Martín le gana a lo último que pasó: es lo que lo frena.
-  if (espera > 0) return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
-  // Sin nada que contar, la fila es de un renglón: «Sin nada anotado» repetido en 40 filas no distingue a ninguna.
-  if (!p) return null;
-  return (
-    <span className="co-fila__l2">
-      {p.tick ? <Tick estado={p.tick} /> : p.propio ? 'Tú: ' : ''}
-      <span className="co-fila__l2-texto">{p.texto}</span>
-    </span>
-  );
+function Previa({ c, p, espera, enCurso, borrador, sinVer }: { c: ChatCentro; p: VistaPrevia | null; espera: number; enCurso: string | null; borrador?: string | null; sinVer: boolean }) {
+  // El orden lo decide `segundoRenglon` (lib/centro-chats.ts), el mismo del teléfono. Sin nada que contar, la fila es de un
+  // renglón: «Sin nada anotado» repetido en 40 filas no distingue a ninguna.
+  switch (segundoRenglon(c, espera, borrador, p, sinVer)) {
+    case 'vivo': return <span className="co-fila__l2 co-fila__l2--vivo" title={enCurso ?? undefined}>{enCurso ?? 'trabajando…'}</span>;
+    case 'espera': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
+    // El MISMO aviso, con el mismo estilo (Martín, 17/10/2026): un «Completado» sin ver, para revisar.
+    case 'revisar': return <span className="co-fila__l2 co-fila__l2--espera">Completado · para revisar</span>;
+    case 'borrador': return <span className="co-fila__l2"><span className="co-borrador">Borrador:</span><span className="co-fila__l2-texto">{borrador}</span></span>;
+    case 'ya': return <span className="co-fila__l2"><SelloCompletado /><span className="co-fila__l2-texto">{p?.texto}</span></span>;
+    case 'previa': return (
+      <span className="co-fila__l2">
+        {p?.tick ? <Tick estado={p.tick} /> : p?.propio ? 'Tú: ' : ''}
+        <span className="co-fila__l2-texto">{p?.texto}</span>
+      </span>
+    );
+    default: return null;
+  }
+}
+
+/** El sello de un «Ya está» en la lista (17/10/2026: en pantalla «Ya está» se dice «Completado»). */
+export function SelloCompletado() {
+  return <span className="co-sello-ok"><Icon name="check" size={11} />Completado</span>;
 }
 
 /** Una fila de la lista: un chat, o un sub-chat (corrido a la derecha, sólo con lo que va después de «›»). */
@@ -73,16 +83,20 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
   centro: Centro; c: ChatCentro; sub: boolean; actual: boolean; onElegir: (clave: string) => void;
 }) {
   const espera = esperaDe(c, k.esperas);
+  // Un «Completado» sin ver avisa IGUAL que una pregunta que espera (el globito de la criatura y el renglón de abajo).
+  const sinVer = k.yaSinVer.has(c.clave);
+  // Dormido (ojos cerrados y la fila apagada) si no trabaja y no tiene nada para Martín: despierto sólo con un trabajo o un aviso.
+  const animo = animoDe(c, k.avisos(c));
   return (
     <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
       <button
         type="button" title={c.titulo}
-        className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}`}
+        className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}${animo === 'dormido' ? ' co-fila--dormida' : ''}`}
         aria-current={actual ? 'true' : undefined}
         onClick={() => onElegir(c.clave)}
         onContextMenu={(e) => { e.preventDefault(); k.abrirMenu(c.clave, e.clientX, e.clientY); }}
       >
-        <Muneco titulo={c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)} animo={animoDe(c)} size={sub ? 30 : 38} espera={espera} />
+        <Muneco titulo={c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)} animo={animo} size={sub ? 30 : 38} espera={k.avisos(c)} />
         <span className="co-fila__cuerpo">
           <span className="co-fila__l1">
             <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
@@ -90,7 +104,7 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
             {c.nube && <span className="co-chip-cuenta">Nube</span>}
             <span className="co-fila__hace">{edadCorta(c.actividad, k.ahora)}</span>
           </span>
-          <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} enCurso={k.enCursos.get(c.clave) ?? null} />
+          <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} sinVer={sinVer} enCurso={k.enCursos.get(c.clave) ?? null} borrador={actual ? null : k.borradorDeLista(c.clave)} />
         </span>
       </button>
       <button type="button" className="co-fila__mas" aria-label={`Opciones de ${c.titulo}`} title="Opciones"
@@ -118,8 +132,8 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   // elimínalo»): una sola lista, y lo que trabaja o espera una respuesta arriba.
   const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set());
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
-  const { esperas } = k;
-  const avisos = useMemo(() => (c: ChatCentro) => esperaDe(c, esperas), [esperas]);
+  // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `k.avisos`).
+  const { avisos } = k;
   const secciones = useMemo(() => seccionesDeChats(visibles, avisos), [visibles, avisos]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
   // Sin ningún Runner dando vueltas, lo de abajo es una foto: se dice desde cuándo, en vez de mostrarlos «quietos».
@@ -177,7 +191,19 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       tareas={k.tareasDe(chat)}
       aspecto={elegidoPara(k.munecos, chat.titulo)}
-      onMuneco={() => k.abrirMuneco(chat)}
+      // El Cerebro es siempre la estrella de MaKo: tocarla no abre el selector.
+      onMuneco={esCriaturaDeMako(chat.titulo) ? undefined : () => k.abrirMuneco(chat)}
+      // El título se renombra en el lugar (sólo si el chat tiene una sesión a la que pedírselo).
+      onRenombrar={chat.sesiones.length ? (nombre) => k.renombrarChat(chat, nombre) : undefined}
+      lineas={k.lineasDe.get(chat.clave)}
+      pasos={k.pasosDe(chat)}
+      // Lo de WhatsApp (17/10/2026): las marcas y la cita de este chat, reenviar a otros y copiar (MensajeWA.tsx).
+      wa={{
+        marcas: k.marcasDe(chat), onMarcar: (c) => void k.marcar(chat, c),
+        cita: k.citaDe(chat.clave), onCitar: (c) => k.citar(chat.clave, c),
+        chats: k.chats, onReenviar: (texto, claves) => k.reenviar(chat, texto, k.chats.filter((c) => claves.includes(c.clave))),
+        onCopiar: (t) => void k.copiarConAviso(t, 'Copiado'),
+      }}
       espera={esperaDe(chat, k.esperas)}
       preguntas={preguntasDelChat(chat, k.decisiones, k.carteros)}
       respuestas={respuestasDelChat(chat, k.decisiones, k.carteros)}
@@ -185,7 +211,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       envio={k.envioDe(chat)} texto={k.borradorDe(chat.clave)} onTexto={(t) => k.ponerBorrador(chat.clave, t)}
       adjuntos={{
         items: k.adjuntosDe(chat.clave), puede: k.puedeAdjuntar(chat),
-        onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id),
+        onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id), onNoPuede: k.sinAdjuntos,
       }}
       enviando={k.enviando} resumenEnvio={resumenDeEnvio(k, chat)}
       onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
@@ -263,7 +289,8 @@ export function MenusCentro({ centro: k }: { centro: Centro }) {
         <MenuContextual punto={{ x: menu.x, y: menu.y }} titulo={delMenu.titulo} onCerrar={k.cerrarMenu} onElegir={k.elegirEnMenu}
           items={[
             ...(delMenu.sesiones.length ? [{ id: 'renombrar', label: 'Renombrar', icono: 'renombrar' as const }] : []),
-            { id: 'muneco', label: 'Cambiar su criatura', icono: 'emoji' as const },
+            // El Cerebro es siempre la estrella de MaKo (lib/centro-munecos.ts → ASPECTO_MAKO): su criatura no se cambia.
+            ...(esCriaturaDeMako(delMenu.titulo) ? [] : [{ id: 'muneco', label: 'Cambiar su criatura', icono: 'emoji' as const }]),
           ]} />
       )}
       {renombrando && deRenombre && (
@@ -291,26 +318,21 @@ export function MenusCentro({ centro: k }: { centro: Centro }) {
   );
 }
 
-/** Abajo de la barra: el Uso de las cuentas y sus Runners, en un desplegable siempre a la vista (Uso.tsx), con la lista
- *  y el alta de Runners en un modal de alto fijo (AGENTS.md → «Una caja cuyo alto es un TOPE»). */
+/** Las cuentas del Uso con su nombre y su email (la G, 17/10/2026): las cuatro siempre, tengan o no Runner. */
+export const cuentasConTitular = (k: Centro) => cuentasDeUso(k.carteros).map((c) => ({ ...c, titular: k.nombresCuentas[c.cuenta] ?? null }));
+
+/** Abajo de la barra: el Uso de las cuentas, en un desplegable siempre a la vista (Uso.tsx). Sin los botones «Runners» y
+ *  «Nuevo Runner» desde el 17/10/2026 (la G): el Runner se arma solo, y el Token se crea y se copia desde la caja. */
 export function PieCentro({ centro: k }: { centro: Centro }) {
-  const [runner, setRunner] = useState<VistaRunner | null>(null);
   return (
-    <>
-      <div className="co-barra__abajo">
-        {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
-        <BotonUso cuentas={cuentasDeUso(k.carteros)} ahora={k.ahora} onRunners={() => setRunner('lista')} onNuevo={() => setRunner('nuevo')} />
-      </div>
-      {runner && (
-        <Modal titulo={<TituloRunner vista={runner} onVista={setRunner} />} onCerrar={() => setRunner(null)} ancho={640} alto="min(600px, 90dvh)">
-          <PanelRunner vista={runner} onVista={setRunner} estado={k.estado} clave={k.firma.clave} ahora={k.ahora} onCrearClave={() => void k.crearClave()} onCopiar={k.copiarConAviso} />
-        </Modal>
-      )}
-    </>
+    <div className="co-barra__abajo">
+      {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
+      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} />
+    </div>
   );
 }
 
-/** «Nuevo chat» de Claude Code, arriba de sus chats, con un muñeco gris de lugar vacío (NuevoChat.tsx). Arranca en la
+/** «Nuevo chat» de Claude Code, arriba de sus chats, con su círculo verde (NuevoChat.tsx). Arranca en la
  *  cuenta del chat abierto si tiene terminal; si no, en la 1. */
 export function NuevoChatCentro({ centro: k, cuentaDelAbierto }: { centro: Centro; cuentaDelAbierto: string | null }) {
   const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
@@ -319,7 +341,7 @@ export function NuevoChatCentro({ centro: k, cuentaDelAbierto }: { centro: Centr
     <>
       <button type="button" className="co-fila co-fila--nuevo"
         onClick={() => setNuevo({ nombre: '', cuenta: cuentaDelAbierto && tieneTerminal(cuentaDelAbierto) ? cuentaDelAbierto : 'claude1' })}>
-        <MunecoNuevo />
+        <CirculoNuevo />
         <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
       </button>
       {nuevo && (

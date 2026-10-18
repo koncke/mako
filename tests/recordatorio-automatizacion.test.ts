@@ -62,13 +62,15 @@ test('sin ningún toque no hay recordatorio', () => {
   assert.ok(toquesDeLaAutomatizacion([]).problema);
 });
 
-test('el emisor lee la AUTOMATIZACIÓN si existe; la configuración de antes, sólo si no hay ninguna', async () => {
+// Desde el 17/10/2026 («nada por detrás», lote 3) SIN CAMINO VIEJO: sin automatización no sale nada; la configuración de
+// antes ya no se lee para mandar (medido ese día: nadie la tenía prendida). Rotura (volver a leerla): 6 / 1 de 7.
+test('el emisor lee SÓLO la automatización: sin ninguna, no sale nada', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../lib/reunion-recordatorio.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const ini = src.indexOf('export async function toquesDelNegocio(');
   const b = src.slice(ini, src.indexOf('\n}\n', ini));
   assert.match(b, /\.eq\('workspace_id', ws\)\.eq\('trigger_tipo', TRIGGER_RECORDATORIO\)\.is\('archivada_at', null\)/, 'sin el workspace explícito lee las de otro negocio');
-  assert.match(b, /if \(error\) throw new Error\(/, 'una lectura que falla cae a la configuración de antes');
-  // La configuración de antes se lee DESPUÉS del «si hay filas, vuelve»: con fila, no se mira.
-  assert.ok(b.indexOf('if (filas.length) {') < b.indexOf('leerConfigRecordatorio(ws)'), 'con la automatización, la configuración de antes se sigue mirando');
+  assert.match(b, /if \(error\) throw new Error\(/, 'una lectura que falla se toma por «no tiene»');
+  assert.doesNotMatch(b, /leerConfigRecordatorio\(/, 'volvió el camino viejo: la configuración de antes manda con textos que no se ven');
+  assert.match(b, /return \{ activo: false, fuente: 'automatizacion', toques: \[\], problemas: \[\] \};/, 'sin automatización tiene que quedar apagado');
 });

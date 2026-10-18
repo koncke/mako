@@ -15,6 +15,9 @@
 //     (TS2580). El tsconfig vive fuera del repo, por eso la ruta es absoluta.
 //     Medido el 16/10 con app/web-generator/editor/insertar.ts: sin esto, 1 error;
 //     con esto, 0.
+//   - Los `.d.ts` GLOBALES de next (types/global.d.ts, image-types/global.d.ts) en `files`: hacen
+//     OBLIGATORIO `NODE_ENV` en ProcessEnv. 17/10: un `{}` como ProcessEnv dio verde acá y rojo
+//     (TS2345, y al castear TS2352) en el completo de Actions, dos veces.
 //
 // Lo que NO puede resolver solo, y lo dice al final si hay errores: un tipo que
 // AGREGA otro archivo con `declare module` (los comandos de cada extensión de
@@ -44,9 +47,16 @@ import { veredicto } from './tsc-bitacoras.mjs';
 
 const barra = (p) => p.replace(/\\/g, '/');
 
-/** El tsconfig temporal. Puro: lo prueba un test. */
+// ⚠️ Los .d.ts GLOBALES que el tsc completo carga por `next-env.d.ts` y un archivo suelto no ve. El que más muerde: next/types/global.d.ts hace
+// OBLIGATORIO `NODE_ENV` en `NodeJS.ProcessEnv`. Medido el 17/10/2026 (run 100 de Actions y el que le siguió): un test pasaba `{}` donde se pide un
+// `ProcessEnv` — el tsc ACOTADO dio verde y el completo dio rojo dos veces seguidas (TS2345; y después, al castear, TS2352). Se agregan sólo si existen
+// (`next-env.d.ts` está en .gitignore y un worktree no lo tiene; los paquetes de next sí).
+const GLOBALES_DE_NEXT = ['node_modules/next/types/global.d.ts', 'node_modules/next/image-types/global.d.ts'];
+
+/** El tsconfig temporal. Lo prueba un test (con el repo de mentira no existen los .d.ts de next, y no entran). */
 export function armarTsconfig(repo, archivos) {
   const r = barra(resolve(repo));
+  const globales = GLOBALES_DE_NEXT.filter((g) => existsSync(join(resolve(repo), g))).map((g) => `${r}/${g}`);
   return {
     extends: `${r}/tsconfig.json`,
     compilerOptions: {
@@ -55,7 +65,7 @@ export function armarTsconfig(repo, archivos) {
       typeRoots: [`${r}/node_modules/@types`],
       types: ['node'],
     },
-    files: archivos.map((a) => barra(resolve(repo, a))),
+    files: [...archivos.map((a) => barra(resolve(repo, a))), ...globales],
     include: [],
   };
 }

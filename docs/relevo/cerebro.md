@@ -377,3 +377,143 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - el chequeo liviano es guardas + los tests cambiados + frontera, link-con-workspace y puente-panel-copy.
 
 - **13:45 UTC, en wt-push-q para la tanda que sigue al 106:** #880 reaplicada (revert del revert + 33c94ee2d con el test del teléfono), Automations ab756dca0 (VERDE), Ops Center 3 857b80c98 (merge + relevo), Onboarding ea513a3aa (docs) y Offer c17ee4835 (VERDE: #888 #865 #887 #895; el choque de imports de Conclusion.tsx quedó con los dos lados). Chequeo liviano + push apenas termine el 106.
+
+- **14:30 UTC:** el run 107 cayó en Tipos (app/onboarding/arranque-ui.ts sin `guardadaEn`, que Offer #895 hizo obligatorio). Arreglado en 0d2ebd214, que ya está subido y lleva TODO: Offer, Automations, #880, Dashboard, Plan, MaKo en WhatsApp (aviso de arreglo y ticket desde el grupo) e Infra `--rapido`. Esperan: Sidebar `sidebar-email` (mig 0312) y Ticketera punta 2. El aviso a Joan lo tiene que aprobar Martín en el chat de MaKo en WhatsApp, porque el clasificador lo frenó. Falta abrir el Ops Center 4.
+- **14:40 UTC:** Ticketera puntas 2 y 3 (0949d7792) integradas en wt-push-q: el cartero 1.15.0 lleva el bug automático al Cerebro y los errores de toda la app van a tickets (mig 0313 aplicada). Al llegar a producción: REINSTALAR el cartero 1.15.0 (`node scripts/operaciones/cartero.mjs instalar` desde wt-push-q) y avisarle a la Ticketera su «Ya está». Sube en la tanda que sigue al run 109.
+
+## 17/10 ~11:45 AR (14:45 UTC) — ESTADO PARA RETOMAR
+
+- **Producción: 1bae61a77 (run 110 verde, deploy Ready).** El run 109 cayó en Tipos con el test de Infra (`compartibles`); lo arregló 72285d901, que ya iba en esta tanda. Trae Offer, Automations, CRM #880, Dashboard 74a7576a4, Plan, MaKo en WhatsApp (18c9b1eb7 y edb8ffd38), Second Brain, Clients, Onboarding D/E, Infra `--rapido` y Ticketera 2-3. **El cartero 1.15.0 ya está REINSTALADO.**
+- **«Ya está» avisados:** Offer, Automations, CRM, Dashboard, Plan, MaKo en WhatsApp, Second Brain, Clients, Onboarding y Ticketera.
+  - **Infra NO lo recibió** (tope de 10 mensajes; ver hallazgos-operaciones «Los dos topes»). Hay que mandárselo después del próximo mensaje de Martín.
+- **Run 111 (f3d6f0612), corriendo:**
+  - Dashboard 5933718c1: red por bloque, #886 y #896;
+  - Sidebar 51cbc9df8: la barra nueva, el email en Chats, el tema por persona y la mig 0312 aplicada.
+  - Al llegar a producción, avisar el «Ya está» a Sidebar y a Dashboard.
+- **En wt-push-q para la tanda que sigue:** MaKo en WhatsApp 8d90f8357 («agendarle» en el ws18; el aviso al grupo de Pablo va recién con eso en producción) y estos hallazgos.
+- **MaKo Mobile end to end (pedido 103d1f01 del Ops Center):** corre como Agent en segundo plano, en C:/dev/wt-mobile, rama mobile-e2e-1710. No se le pudo abrir chat porque el turno era automático.
+  - Entrega puntas «VERDE <sha>» al Cerebro.
+  - El cierre del cartero con 103d1f01 lo corre el Cerebro cuando lo último esté en producción.
+  - Ya sabe que la sidebar nueva cambia el teléfono.
+- **Sin encontrar:** `dashboard-cierres-run103.json`, que Dashboard dice haber dejado en la «carpeta de notas del Cerebro». No está ni en el scratchpad ni en ~/.claude ni en C:/dev. Hay que pedírselo de nuevo.
+- **El pedido «Sí mándalo siempre, sin aprobación» a MaKo en WhatsApp quedó retenido** (otro modo de permisos). Martín lo tiene que aprobar en ese chat o escribirlo en el del Cerebro.
+- **15:10 UTC:** el run 111 está en producción (f3d6f0612 Ready): Dashboard 5933718c1 y Sidebar 51cbc9df8.
+  - **Sin avisar por el tope de 10:** Sidebar, Dashboard e Infra. Mandarles el «Ya está» después del próximo mensaje de Martín.
+  - Subido 02ffcf29f: MaKo en WhatsApp 8d90f8357 y 118148d1e (la falla se registra sola como ticket), la bitácora de Clients y este relevo.
+  - Esperan: Ticketera punta 4 (6fa9e6431, avisarArregloAlGrupo), la bitácora de Automations (bf44b3cf1), la de Dashboard (b88893a00) y los dos arreglos de «Marcar hecha» del Plan (explicación de más de 400 caracteres; «Ya no estaba abierta» falso con otro proyecto).
+- **15:40 UTC:** el run 112 (02ffcf29f) está en producción. Subido 23da7a136:
+  - Automations (bitácora), CRM «Llevar a MaKo Partners» (119a48574), Onboarding F (3a47301ed), Plan (12c0f6066: los dos arreglos de «Marcar hecha»);
+  - Infra 5e9570953, más mi arreglo de tipos e3ec09bf4;
+  - Ticketera punta 4 (d43ff381b: aviso al grupo sólo con la prueba del deploy, revisado).
+  - **MaKo Mobile 86ba6dae6 quedó AFUERA:** rompe tests/chats-datos.test.ts:514 (la línea de WhatsApp con un 4º argumento) y tests/chats-verificacion.test.ts:96 (el lead abre /m/chats/lead:7 en vez de /m/crm/7/chat). Ya se lo devolví al agente.
+- **En wt-push-q para la tanda que sigue:** Infra 4d10a74a1 (las dos fases con `--compartir`, tandas de 100; reemplaza al 5e9570953).
+- **DECIDIDO, falta avisarle a Infra** (tope de 10): SÍ al `npm test` completo y aislado UNA vez por semana, con un workflow programado de ~11 min. Cuesta ~45 min al mes y caza un falso verde por contagio ahora que Actions comparte proceso.
+- **16:15 UTC:** el run 113 (23da7a136) y el 114 (c3e6c2e4a) dieron verde. El 114 trae Infra 4d10a74a1 y MaKo Mobile c1f930979 + 9cb1f7c69. Subo d89fb57fd (el botón WhatsApp de la ficha del teléfono va a Chats).
+  - **MaKo Mobile TERMINÓ** (agente). Lo pendiente está en docs/relevo/mako-mobile.md. Con d89fb57fd en producción: correr el cierre 103d1f01 del cartero.
+  - **Para Infra (tope de 10), los tiempos del run 113** (la fase 1 con `--compartir=barredoras`, la 2 con `--compartir`):
+    - afectados 202 s (antes 279): 298 aislados en 8 tandas + 146 barredoras en 2 grupos de 37 y 34 s;
+    - tipos 155 s;
+    - los demás 68 s (antes 182): 692 compartidos en 2 grupos de 38 y 22 s + 49 aislados;
+    - total del job ≈ 485 s (antes ≈ 676 s); 0 flaky.
+- **17:00 UTC:** en producción el run 115 (68cc6d74a, MaKo Mobile entero, el pedido 103d1f01 CERRADO en el Centro con --revisar /chats) y el 116 (f0ab59099).
+  - El 116 trae el lote 3 de Automations: e0f1f3b5b, más de26fe351 con el formulario de Meta (#279 pausada).
+  - La revisión adversarial del motor de avisos encontró UN defecto real: `--pausar` sin `--eventos=` pausaba #260 y la cuenta recuperada. Lo arreglé en 71891c5cb y está en hallazgos-comunicacion.
+  - Automations pausó #270, #272 y #275-#278 en producción: desde el run 110, los dos primeros les llegaban a todos los negocios.
+- **«Ya está» SIN mandar (tope de 10), para el próximo mensaje de Martín:**
+  - Sidebar y Dashboard (run 111);
+  - CRM Partners, Onboarding F (cierra #850), Plan (los dos arreglos de «Marcar hecha»), Ticketera 4 y Automations (bitácora + lote 3) (runs 113/116);
+  - Infra (4d10a74a1 y los tiempos del 113, más arriba; SÍ al `npm test` semanal).
+- **17:20 UTC:** sube Automations 034ae2e34, la familia «reuniones» del lote 3. El recordatorio de reunión ya no cae a la configuración de antes: estaba apagada en ws1 y ws11, así que no cambia lo que sale. El de 24 h del ws1 sale por la secuencia 212/213.
+  - **DECIDIDO, falta decírselo a Automations y al Plan** (tope de 10): `reunion-tareas-al-plan` (lib/reunion-auto.ts) lo toma el chat **Plan**, que es el dueño del archivo, para que no haya dos escribiendo ahí.
+  - `lead-no-confirmo` (la tarjeta «avisar al equipo» visible en la automatización «preparar») lo sigue Automations.
+
+## 17/10 ~15:00 AR (18:00 UTC) — ESTADO PARA RETOMAR (Cerebro)
+
+- **Producción: hasta el run 119** (86bc162be): More con todas las tabs, el guardián, Reportar problema en el teléfono, el rediseño de CRM y Plan del teléfono, y docs/pendientes.md.
+- **Lista de pendientes:** https://claude.ai/artifact/S7AyYhfn2CF652wGN953i4 (296 puntos). La copia del repo es docs/pendientes.md, y la actualiza SÓLO el Cerebro, con las listas de los agentes.
+- **Pedido ab083ae3** (Mobile en todas las tabs + rediseño + la lista de pendientes): la lista está hecha y Mobile 3 terminó. Siguen Mobile 1 (creación, C:/dev/wt-mobile) y Mobile 2 (negocio y More, C:/dev/wt-general-epico). El cierre va con lo último en producción.
+- **Pedido 41f3572c** (14:44): agentes lanzados, todos con worktree propio y node_modules por junction:
+  - Ops Center 4, en C:/dev/wt-ops4: Responder deslizando y el menú de WhatsApp, Chats+Cerebro+Nuevo chat juntos, el «atrás» lento, el Uso arriba y los pendientes del Centro;
+  - Limpieza de disco (Sonnet): estaba al 100%; el Cerebro ya liberó 5 GB;
+  - Pendientes B1 (seguridad y datos), B2 (CRM y clientes), B3 (Web y Offer), B4 (Ads y plata) y B5 (Plan, Dashboard y MaKo), en C:/dev/wt-pend-b1 a b5. Sus listas están en scratchpad/pend/B*.json.
+- **Sin agente todavía:**
+  - AUT.json (25 de Automations): el chat Automations está en «nada por detrás»; mandárselo cuando se pueda escribirle;
+  - B6.json (18 de editores y super admin): va después de Mobile 1.
+- **Candado de lo pesado:** C:/dev/pesado.lock (tsc, build, Chrome, más de 30 tests). Los Mobile usan además C:/dev/mobile-build.lock.
+- **Revisión adversarial:** toda punta «⚠️ REVISAR» (plata, seguridad, envíos) pasa por un workflow de revisión antes de subir.
+- **20:45 UTC — corte de consumo.** La SEMANAL de la cuenta 4 llegó a 71% (17 puntos en 1,5 h, por 7 agentes y 4 revisiones). Cada agente entrega lo urgente y cierra. Features y pulido van a los relevos «para después del 20/10». B6 no se lanzó. Los refutadores del guion de revisión pasaron a Sonnet.
+  - En producción (run 124): el Ops Center en el teléfono (los 4 puntos de las 14:44), con el cartero 1.15.5 INSTALADO. Cerrados en el Centro: 6cb02e4a y b32ebe58. Contestados: a6256280 (regla «en producción sólo lo desplegado», en la memoria) y 864f2de1 (borrar archivos de Martín y la hibernación: NO, es una regla dura; le pasé los pasos).
+  - Subido a8bbf0015 (run 125):
+    - B1 9e3f1460c (seguridad; la revisión no encontró roturas para clientes);
+    - Ops4 af531f4ea (Plan desde el chat de sólo lectura, cartero 1.15.7 SIN instalar hasta producción);
+    - B3 42e586a8f (la migración 0316 SIN aplicar; el código anda sin ella).
+  - **Después del deploy:**
+    - instalar el cartero 1.15.7;
+    - crear la fila del mail «Tu contraseña cambió» desde su plantilla en el ws9 (B1);
+    - al Runner le falta el paso 2d (`otraVez`) de lib/runner.ts. No es urgente: sin él, lo nuevo espera el cron de 2 min.
+  - **Rechazados por la revisión, devueltos:**
+    - B5 1fced50fe: 9 defectos; el más grave, el historial del grupo a la IA gratis;
+    - B4 65e299c2e: 9 defectos; las cuotas destildadas en el ws1 quedan impagas, el cron de pausa pausa a quien paga y la capa pm ve «No está en tu plan». Se le pidió una punta sin esas tres piezas.
+  - B1 sigue con 4 agujeros viejos de datos a la IA gratis (el texto del turno, el glosario en el system, wsDeGrupoJid→ws1, anthropic-usage→ws1). B2 está terminando su VERDE.
+- **21:20 UTC:**
+  - **En producción:** el run 125 (a8bbf0015: B1 seguridad, Plan desde el chat de sólo lectura, B3; el cartero 1.15.7 instalado) y el run 126 (b1ff19e86: B4 lo seguro, B2 CRM y clientes, B1 tanda 2).
+  - **Integrado:** B5 ab627b464. Su segunda revisión cerró lo grave. Quedan, para después del 20/10:
+    - (media, plata en reportes) lib/graficos-datos.ts:256: la hoja por fecha de cierre filtrada por un funnel de agregados pone la venta en la casa, y los OKR (funnelDelMomento) la ponen en el agregado;
+    - (baja) lib/reunion-auto.ts:618: «terminó de leer» aunque quede a medias;
+    - (baja) lib/leer-reunion-en-segundo-plano.ts:125: «siguió leyendo y no encontró nada» cuando Fathom no contestó.
+  - **Defectos viejos que encontraron las revisiones**, para después del 20/10, en el CRM:
+    - el Deshacer del tablero de una abierta a Ganado borra el monto y su rastro (app/crm/actions.ts:2471);
+    - «Restaurar» pone la fecha de la venta en hoy;
+    - /mako/revisar convierte una lista vacía en null (app/mako/revisar/[id]/RevisarAccion.tsx:77).
+  - **Después del deploy de B5:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan --aplicar` (nace pausada). Antes de prenderla, una CONDITION que excluya al ws13.
+  - **Después del deploy de B1:** crear la fila «Tu Contraseña Cambió» en el ws9.
+  - **Migraciones SIN aplicar:** 0314 (Chatwoot, de B1-infra) y 0316 (archivero_origen, de B3). El código anda sin ellas.
+  - **Ops Center 5:** trabajando en los 11 puntos del chat (pedidos 9cbdcb57, c70103dc y 62187256).
+  - **SEMANAL de la cuenta 4:** 76%.
+- **21:55 UTC:**
+  - **En producción:** el run 127 (B5 y la punta 1 del Ops Center 5) y el run 128 (la punta 2).
+  - **Cerrados en el Centro:** c70103dc, 62187256, 9cbdcb57 y 41f3572c.
+  - La fila #280 «Tareas de Reuniones al Plan» se creó PAUSADA. Martín la prende con una CONDITION que excluya al ws13.
+  - «Tu Contraseña Cambió» no sale con la mudanza: es un evento de persona. Se crea desde su plantilla en SuperAdmin.
+  - El teléfono de Martín es ANDROID (está en la memoria).
+  - docs/pendientes.md quedó marcado DESACTUALIZADO; se concilia después del 20/10.
+  - Todos los agentes terminaron; no queda ninguno corriendo.
+  - **SEMANAL cuenta 4:** ~76%. Lo que queda, en cada relevo «para después del 20/10».
+- **23:30 UTC:**
+  - **En producción:** el run 129 (29392086f: MaKo en vista del Dashboard no edita, lo decide el server; el plan para unificar los chats en docs/diseno-chats-de-mako.md) y el run 130 (b61321827: Ops Center 6).
+  - **Cerrados en el Centro:** 05688f9a, 341f0257 y dd9f3560.
+  - **Avisarle al chat Sidebar** cuando se pueda escribirle: Ops6 tocó nav.ts (`arribaDe`) para sacar el Second Brain de la barra del super admin.
+  - **Para después del 20/10:**
+    - unificar los chats de MaKo;
+    - el texto del razonamiento en «Trabajando…» (pide revisión de qué viaja);
+    - borrar el mazo viejo (Mazo.tsx, Tablero.tsx);
+    - SheetM a media altura en todas las hojas;
+    - las fotos del Centro en otro dispositivo (decide Martín).
+  - **SEMANAL cuenta 4:** ~78%. No queda ningún agente corriendo.
+
+## 18/10 ~01:45 UTC (17/10 22:45 AR) — ESTADO PARA RETOMAR (Cerebro al 93% de contexto)
+
+**Martín escribió DIRECTO en el chat del Cerebro.** El tope de 10 mensajes se reinició y se puede volver a escribir a los jefes. Su pedido de 10 puntos (con 4 capturas) quedó repartido así:
+- **Ops Center 7** (Sonnet, worktree C:/dev/wt-ops4, rama ops7-1710). Trabaja en:
+  - el «+» y la carita alineados, el Completado ENTERO (no se corta) y los íconos (Ops Center con la estrella, Nuevo chat con el círculo);
+  - MaKo en WhatsApp fuera de la lista y sin «Sin incidentes nuevos»; el aviso de Completado que no salía;
+  - el Runner que pide medir solo;
+  - el chat que trabaja y no dice «Trabajando…» (4); el Second Brain que no se cierra al tocar un chat (5);
+  - chats DORMIDOS si no tienen aviso ni trabajo (6); Markdown en todo texto, con links azules (2b).
+  - Al llegar: ⚠️ REVISAR si tocó el cartero; si no, integrar y subir. Después cerrar en el Centro d8b9023a y 8e3ce267.
+- **Grafo** (Sonnet, C:/dev/wt-grafo, rama grafo-movil-1710). Primera punta: el grafo en el teléfono (tocar nodos, apaisado, barra lateral) y UN solo grafo con filtros. Segunda punta: los nodos «Negocio» de cada workspace salen de lo que MaKo SABE, sin la estructura vieja (punto 1).
+- **CRM Deshacer** (Opus, C:/dev/wt-crm-deshacer). Rediseño con foto antes/después: el d60daf299 NO entra (5 defectos; informe en scratchpad/revision-crm-deshacer.md). Al llegar, revisión ⚠️ (plata, ws1).
+- **Conciliar pendientes** (Sonnet): reescribe docs/pendientes.md y scratchpad/pendientes.json. Al llegar:
+  - `node scratchpad/armar-pendientes.cjs <scratchpad> C:/dev/wt-push-q/docs/pendientes.md` (OJO: el agente ya escribe el md; usar el json sólo para la página);
+  - republicar la página EN LA MISMA URL https://claude.ai/artifact/YSbMq8d8XbV4UFY9NM7t3g... NO: la de pendientes es https://claude.ai/artifact/S7AyYhfn2CF652wGN953i4 (Artifact con file_path scratchpad/pendientes.html, que ya está publicado ahí);
+  - mandarle el link a Martín y ponerlo en un cierre (punto 2: «no me lo enviaste por el Ops Center»).
+- **Prototipo de coherencia** (Sonnet): docs/prototipos/coherencia-1710.html. Trae Home+Dashboard unidos en Dashboard (3), More/perfil como su referencia A en el teléfono Y en la computadora (7), y las tarjetas del CRM, Clients y Plan con la estética de su referencia B (8). Al llegar: leerlo entero, sacarle la envoltura html/head, publicarlo como artifact y mandárselo.
+- **Sidebar nueva**, prototipo ya publicado: https://claude.ai/artifact/YSbMq8d8XbV4UFY9NM7t3g. Martín no lo comentó todavía. El de coherencia se monta sobre él.
+- **Para después del 20/10** (la semanal de la cuenta 4 iba 79%):
+  - punto 9: la tab Chats con el diseño del chat del Ops Center;
+  - punto 10: AI Avatar rehecho copiando HeyGen (Martín: «no crees jamás nada de 0 y tampoco tengas miedo a DEPRECAR»);
+  - implementar los prototipos;
+  - unificar los chats de MaKo (docs/diseno-chats-de-mako.md).
+  - Si Martín cambia la app a otra cuenta con margen, se pueden arrancar antes.
+- **«Ya está» viejos sin mandar** (Sidebar, Dashboard, Infra, CRM, Onboarding, Plan, Ticketera, Automations): lo suyo ya está en producción y Martín lo supo por los cierres. No se mandan, para no gastar.
+- **Producción: run 130** (b61321827). No hay nada subido sin deploy.

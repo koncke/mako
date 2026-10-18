@@ -14,7 +14,8 @@
 import 'server-only';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
-import { DESTINO_RE, sanearTurnos, unirTurnos, type TurnoChat } from './operaciones-reglas';
+import { ULTIMOS_VENTANA_MS, DESTINO_RE, resumirTurnos, sanearTurnos, unirTurnos, type TurnoChat } from './operaciones-reglas';
+import { getSupabaseServer } from './supabase';
 
 const PREFIJO = 'operaciones.turnos.';
 const parsear = (v: string | null): unknown => { try { return v ? JSON.parse(v) : []; } catch { return []; } };
@@ -46,5 +47,42 @@ export async function leerTurnos(locales: readonly string[]): Promise<TurnoChat[
     return unirTurnos([], listas.flat());
   } catch {
     return [];
+  }
+}
+
+// ── Lo último de TODOS los chats, para la lista (17/10/2026) ────────────────────────────────────────────────────────────
+// Un «Ya está» sólo avisaba en los chats que se habían abierto en esa pantalla: los turnos viajan del chat que se mira. Esto
+// trae, de cada chat con algo reciente, sus últimos turnos recortados (`resumirTurnos`) en cada refresco. Pesaba ~0,9 MB leer
+// los 61 chats enteros (medido el 17/10), así que: (1) sólo los tocados en los últimos 3 días, y (2) por chat se guarda lo ya
+// leído con su `updated_at`: una lectura liviana pide qué cambió y trae el valor sólo de lo cambiado.
+const ULTIMOS_EN_MEMORIA = new Map<string, { at: string; turnos: TurnoChat[] }>();
+
+/** Los últimos turnos de cada chat tocado hace poco, por sesión (`local_…`). Para dibujar: sin la base, nada. */
+export async function leerUltimosTurnos(ahora = Date.now()): Promise<Record<string, TurnoChat[]>> {
+  try {
+    const ws = await wsSuperAdmin();
+    const sb = getSupabaseServer();
+    const desde = new Date(ahora - ULTIMOS_VENTANA_MS).toISOString();
+    const { data: filas, error } = await sb.from('app_settings').select('key, updated_at')
+      .eq('workspace_id', ws).like('key', `${PREFIJO}%`).gte('updated_at', desde).limit(300);
+    if (error || !filas) return {};
+    const cambiadas = filas.filter((f) => ULTIMOS_EN_MEMORIA.get(f.key)?.at !== f.updated_at).map((f) => f.key as string);
+    for (let i = 0; i < cambiadas.length; i += 25) {
+      const lote = cambiadas.slice(i, i + 25);
+      const { data: valores } = await sb.from('app_settings').select('key, value, updated_at').eq('workspace_id', ws).in('key', lote);
+      for (const v of valores ?? []) {
+        ULTIMOS_EN_MEMORIA.set(v.key, { at: v.updated_at, turnos: sanearTurnos(parsear(v.value)) });
+      }
+    }
+    const out: Record<string, TurnoChat[]> = {};
+    for (const f of filas) {
+      const local = String(f.key).slice(PREFIJO.length);
+      if (!DESTINO_RE.test(local)) continue;
+      const r = resumirTurnos(ULTIMOS_EN_MEMORIA.get(f.key)?.turnos ?? [], ahora);
+      if (r.length) out[local] = r;
+    }
+    return out;
+  } catch {
+    return {};
   }
 }

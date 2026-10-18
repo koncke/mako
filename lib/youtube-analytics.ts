@@ -10,8 +10,7 @@
 // =============================================================================
 
 import { credWs } from './credenciales';
-import { getWorkspaceActual } from './workspace';
-import { OWNER_WS } from './auth-session';
+import { wsObligatorio } from './workspace';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const ANALYTICS_URL = 'https://youtubeanalytics.googleapis.com/v2/reports';
@@ -49,7 +48,7 @@ const cachedAccessToken = new Map<number, { token: string; expiresAt: number }>(
  * por workspace.
  */
 export async function getAccessToken(): Promise<string> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = await wsObligatorio();
   const cached = cachedAccessToken.get(ws);
   if (cached && cached.expiresAt > Date.now() + 60_000) {
     return cached.token;

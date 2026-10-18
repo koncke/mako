@@ -194,6 +194,8 @@ export type SendEmailParams = {
   headers?: Record<string, string>;
   tags?: Array<{ name: string; value: string }>;
   scheduledAt?: string; // ISO 8601 o lenguaje natural ("in 1 hour")
+  /** Los adjuntos, en base64 (17/10/2026: el composer de Chats, lib/chats-email.ts). Resend acepta hasta 40 MB por email. */
+  attachments?: Array<{ filename: string; content: string }>;
 };
 
 // Envía un email por Resend. NO chequea el flag de envío del workspace — eso lo
@@ -230,6 +232,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
     ...(params.headers ? { headers: params.headers } : {}),
     ...(params.tags ? { tags: params.tags } : {}),
     ...(params.scheduledAt ? { scheduled_at: params.scheduledAt } : {}),
+    ...(params.attachments?.length ? { attachments: params.attachments } : {}),
   };
 
   try {
@@ -258,6 +261,71 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+// ── Lo que LLEGA (Receiving), para la bandeja de Chats (17/10/2026) ──────────
+// El webhook `email.received` trae sólo el SOBRE (lib/email-entrante-reglas.ts): el cuerpo y los adjuntos se piden
+// aparte, con la misma key con que se reclamó el dominio (`resendKey`: la propia del negocio o la de la plataforma).
+//   GET /emails/receiving/{id}                          → html, text, subject, from, to, message_id, attachments[]
+//   GET /emails/receiving/{email_id}/attachments/{id}   → download_url (firmada, vence en `expires_at`)
+// Los usa lib/chats-email.ts. Leen; no mandan nada.
+
+export type AdjuntoRecibido = { id: string; filename: string; contentType: string; size: number };
+export type EmailRecibido = {
+  from: string; to: string[]; subject: string | null; text: string | null; html: string | null;
+  messageId: string | null; attachments: AdjuntoRecibido[];
+};
+
+async function getDeResend(ruta: string): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; error: string }> {
+  const key = await resendKey();
+  if (!key) return { ok: false, error: 'RESEND_API_KEY no configurada' };
+  try {
+    const res = await fetch(`${API_BASE}${ruta}`, { headers: { Authorization: `Bearer ${key}` }, cache: 'no-store', signal: AbortSignal.timeout(20_000) });
+    const text = await res.text();
+    let body: unknown = {};
+    try { body = text ? JSON.parse(text) : {}; } catch { /* deja vacío */ }
+    if (!res.ok) {
+      const m = typeof body === 'object' && body && 'message' in body ? String((body as { message?: unknown }).message) : `Resend ${res.status}`;
+      return { ok: false, error: m.slice(0, 200) };
+    }
+    return { ok: true, body: (body && typeof body === 'object' ? body : {}) as Record<string, unknown> };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+const textoO = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+const listaDe = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : typeof v === 'string' ? [v] : []);
+
+/** El email que llegó, entero (cuerpo y lista de adjuntos). */
+export async function getEmailRecibido(id: string): Promise<{ ok: true; email: EmailRecibido } | { ok: false; error: string }> {
+  if (!/^[\w-]{1,120}$/.test(id)) return { ok: false, error: 'id inválido' };
+  const r = await getDeResend(`/emails/receiving/${id}`);
+  if (!r.ok) return r;
+  const b = r.body;
+  const adj = Array.isArray(b.attachments) ? b.attachments : [];
+  return {
+    ok: true,
+    email: {
+      from: textoO(b.from) ?? '', to: listaDe(b.to), subject: textoO(b.subject), text: textoO(b.text), html: textoO(b.html),
+      messageId: textoO(b.message_id),
+      attachments: adj.flatMap((a) => {
+        const o = (a && typeof a === 'object' ? a : {}) as Record<string, unknown>;
+        const aid = textoO(o.id);
+        if (!aid) return [];
+        return [{ id: aid, filename: textoO(o.filename) ?? 'archivo', contentType: textoO(o.content_type) ?? 'application/octet-stream', size: Number(o.size) || 0 }];
+      }),
+    },
+  };
+}
+
+/** La URL de descarga (firmada, vence) de un adjunto de un email que llegó. */
+export async function getAdjuntoRecibido(emailId: string, adjuntoId: string): Promise<{ ok: true; downloadUrl: string } | { ok: false; error: string }> {
+  if (!/^[\w-]{1,120}$/.test(emailId) || !/^[\w-]{1,120}$/.test(adjuntoId)) return { ok: false, error: 'id inválido' };
+  const r = await getDeResend(`/emails/receiving/${emailId}/attachments/${adjuntoId}`);
+  if (!r.ok) return r;
+  const url = textoO(r.body.download_url);
+  return url && /^https:\/\//.test(url) ? { ok: true, downloadUrl: url } : { ok: false, error: 'Resend no devolvió la descarga' };
 }
 
 // ── Render de HTML del email ──────────────────────────────────────────

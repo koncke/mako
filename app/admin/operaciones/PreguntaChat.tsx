@@ -16,6 +16,7 @@
 
 import { useState, type KeyboardEvent } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { conFormato } from '@/app/_components/Markdown';
 import { eleccionValida, opcionesEnOrden, type PreguntaChat as Pregunta } from '@/lib/centro-preguntas-chat';
 
 const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -62,8 +63,8 @@ export function PreguntaChat({ p, onResponder, enviada = false }: {
   const elegida = (i: number) => (r ? r.elegidas.includes(i) : marcadas.includes(i));
   return (
     <div className={`co-preg co-preg--chat${r ? ' co-preg--contestada' : ''}`} role="group" aria-label={`Pregunta: ${p.pregunta}`} onKeyDown={tecla}>
-      <p className="co-preg__texto">{p.pregunta}</p>
-      {p.contexto && <p className="co-preg__contexto">{p.contexto}</p>}
+      <p className="co-preg__texto">{conFormato(p.pregunta, 'pq')}</p>
+      {p.contexto && <p className="co-preg__contexto">{conFormato(p.contexto, 'pc')}</p>}
       <ol className="co-preg__ops">
         {ops.map((o, n) => (
           <li key={o.i}>
@@ -77,7 +78,7 @@ export function PreguntaChat({ p, onResponder, enviada = false }: {
               </span>
               <span className="co-preg__op-txt">
                 <span className="co-preg__titulo">{o.titulo}{o.recomendada && <span className="co-preg__rec"> (Recomendada)</span>}</span>
-                {o.detalle && <span className="co-preg__detalle">{o.detalle}</span>}
+                {o.detalle && <span className="co-preg__detalle">{conFormato(o.detalle, `pd${n}`)}</span>}
               </span>
             </button>
           </li>

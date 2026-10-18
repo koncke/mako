@@ -226,7 +226,7 @@ export const compartible = (src) => !PELIGRO_COMPARTIR.test(src);
  *   cambiados: lo que el cambio toca (incluye borrados); archivos: lo que existe ahora (incluye
  *   lo nuevo sin git); leer: el texto de un archivo de código; profundidad: cuántos saltos de import se siguen
  *   (default: todos; `--profundidad 3` es la palanca si el tiempo aprieta: ver el replay, qué rojos salen a cada profundidad).
- * @returns {{ tests: Map<string, {tipo: string, detalle: string}[]>, sinRed: string[], totalTests: number, importadoPor: Map<string, Set<string>>, aumentan: Set<string> }}
+ * @returns {{ tests: Map<string, {tipo: string, detalle: string}[]>, sinRed: string[], totalTests: number, importadoPor: Map<string, Set<string>>, aumentan: Set<string>, compartibles: Set<string> }}
  */
 export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity }) {
   const existentes = new Set(archivos);
@@ -432,14 +432,20 @@ export function planear(base, { profundidad = Infinity } = {}) {
   return { cambios, archivos, sel };
 }
 
-/** Los tests en el orden en que conviene correrlos, agrupados por su motivo principal. */
+/**
+ * Los tests en el orden en que conviene correrlos, agrupados por su motivo principal.
+ * @param {Map<string, {tipo: string, detalle: string}[]>} tests
+ * @param {Set<string>} [compartibles]
+ * @param {{ compartir?: boolean | 'todo' | 'barredoras' }} [opciones] compartir: false/true/'todo' (todos los compartibles) o 'barredoras' (sólo las que barren)
+ */
 export function agrupar(tests, compartibles = new Set(), { compartir = false } = {}) {
   const grupos = { cambio: [], nombra: [], importa: [], barre: [] };
   const compartidos = [];
   for (const [t, razones] of tests) {
     // Con `compartir`, los tests que no tocan estado global salen de la fila y van juntos a UN proceso por grupo (scripts/cache-lecturas.cjs).
     // Un test que el cambio mismo toca (nuevo o editado) va aparte, en su proceso: es el que más probablemente esté rojo, y se lee solo.
-    if (compartir && compartibles.has(t) && !razones.some((r) => r.tipo === 'cambio')) { compartidos.push(t); continue; }
+    // `compartir`: true / 'todo' = todos los compartibles; 'barredoras' = sólo las que barren (lo que más pesa y menos riesgo tiene).
+    if (compartir && compartibles.has(t) && !razones.some((r) => r.tipo === 'cambio') && (compartir !== 'barredoras' || razones.some((r) => r.tipo === 'barre'))) { compartidos.push(t); continue; }
     grupos[motivoPrincipal(razones).tipo].push(t);
   }
   for (const g of Object.values(grupos)) g.sort();
@@ -570,7 +576,8 @@ export const min = (ms) => (ms >= 60000 ? `${Math.floor(ms / 60000)} min ${Math.
 
 /**
  * Corre `lista` por tandas. Devuelve { sinRam, total, rojos, cortada, ms, ramMin }. `env` lleva el índice
- * temporal de git; `carpetaTmp` guarda el log completo de cada tanda roja.
+ * temporal de git; `carpetaTmp` guarda el log completo de cada tanda roja. `compartidos`: los que corren juntos en un proceso por grupo.
+ * @param {{ lista: string[], compartidos?: string[], tanda: number, concurrencia: number, cortar: boolean, env: NodeJS.ProcessEnv, carpetaTmp: string, out: (s: string) => void }} p
  */
 export async function correrTests({ lista, compartidos = [], tanda, concurrencia, cortar, env, carpetaTmp, out }) {
   const tandas = [];
@@ -645,7 +652,8 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
         if (rojosCompartidos.size) {
           const solos = [...rojosCompartidos].filter((f) => /\.test\.ts$/.test(f));
           out(`    ↻ ${solos.length} archivo(s) rojo(s) en proceso compartido: los repito AISLADOS, uno por proceso, por si es la interferencia`);
-          const r2 = await correrTanda(solos, 1, env);
+          // Si cayó un grupo entero (se colgó, o murió) son cientos de archivos: de a uno tardaría una eternidad, así que con la concurrencia de siempre.
+          const r2 = await correrTanda(solos, solos.length > REINTENTO_MAX ? Math.max(1, concurrencia || 2) : 1, env);
           const res2 = leerResultado(r2.salida);
           const siguenRojos = r2.codigo === 0 ? [] : (res2.rojos.length ? res2.rojos : solos);
           for (const f of solos) {
@@ -684,7 +692,7 @@ function leerArgs(argv) {
     else if (k === '--profundidad') o.profundidad = Math.max(1, Number.parseInt(valor(), 10) || 1);
     else if (k === '--listar') o.listar = true;
     else if (k === '--sin-compartir') o.compartir = false;
-    else if (k === '--compartir') o.compartir = true;        // para probarlo en Actions (donde por default NO se comparte): ver hallazgos-infra
+    else if (k === '--compartir') o.compartir = v === 'barredoras' ? 'barredoras' : 'todo';   // `--compartir` o `--compartir=barredoras`: Actions lo pide; por default NO se comparte allá
     else if (k === '--rapido') { o.rapido = true; o.profundidad = 1; }
     else if (k === '--explicar') o.explicar = true;
     else if (k === '--cortar') o.cortar = true;
@@ -755,6 +763,12 @@ async function main(argv) {
     const todos = plan.archivos.filter((f) => ES_TEST.test(f)).sort();
     lista = todos.filter((t) => !sel.tests.has(t));
     out(`[tests-afectados] --resto: ${lista.length} tests (${todos.length} en total − ${sel.tests.size} afectados que ya corrieron)`);
+    // Con `--compartir` (todo) los que no tocan estado global van juntos: el costo de la fase es el ARRANQUE de cada archivo (~0,4 s × cientos), no el cómputo.
+    if (o.compartir === 'todo' || o.compartir === true) {
+      compartidos = lista.filter((t) => sel.compartibles.has(t));
+      lista = lista.filter((t) => !sel.compartibles.has(t));
+      out(`  ↳ ${compartidos.length} corren juntos en procesos compartidos; ${lista.length} aislados (tocan el entorno o un global)`);
+    }
     if (o.listar) return 0;
   } else {
     imprimirPlan(plan, o, out);

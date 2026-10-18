@@ -31,7 +31,7 @@ corrían (CRM y Landing Generator) quedaron **pausados** por el orquestador; nin
 
 | Chat | En producción | A medias (NO pushear sin su dueño) | Briefing |
 |---|---|---|---|
-| **CRM** | tanda A (reproductor de la grabación, etiquetas con «+N», «A revisar» por lead, clic derecho, MaKo al costado) | tanda B, la ficha por bloques: ramas `crm-bloques-b1..b5` (`C:/Users/marti/wtc-b1..b5`, 9-13 commits cada una). Tiene 2 commits WIP y Pagos 2 fallas altas de la revisión | `docs/relevo/crm.md`, `docs/relevo/crm-tanda-b1.md`, `docs/diseno-ficha-bloques.md` (las 7 decisiones de Martín) |
+| **CRM** | tanda A (reproductor de la grabación, etiquetas con «+N», «A revisar» por lead, clic derecho, MaKo al costado) | tanda B, la ficha por bloques: ramas `crm-bloques-b1..b5` (`C:/Users/marti/wtc-b1..b5`, 9-13 commits cada una). Tiene 2 commits WIP y Pagos 2 fallas altas de la revisión | `docs/relevo/crm.md`, `docs/relevo/crm-pendientes-b1.md`, `docs/diseno-ficha-bloques.md` (las 7 decisiones de Martín) |
 | **Landing Generator** | tandas 3-5 (hola-mako.site, botón de pago por la pasarela, VSL en los diseños, API) | tanda 6 en `landing-t6` (`C:/dev/wt-landing-t6`, +5 commits), pausada a mitad de un turno. Rojo en main: `tests/integracion-sin-salir.test.ts` por `DialogoPublicar.tsx` y `CobroBoton.tsx` | `docs/relevo/landing-generator.md` |
 | **General** | sexta vuelta (bloques mirados en captura, tema «General» en las plantillas) y el arreglo del Dashboard sin hojas | nada | `docs/relevo/general-y-calendario.md` |
 | **Image Editor** | tandas 1 y 2 (editor tipo Canva en Content Machine › Image, sólo super admin) | `opcion-image-en-clientes`: espera la decisión de Martín | `docs/relevo/image-editor.md` |

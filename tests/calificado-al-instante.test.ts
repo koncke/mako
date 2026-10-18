@@ -10,7 +10,8 @@
 //   3. los dos controles de sí / no (el chip y los tres botones del Resumen) dibujan lo elegido EN EL ACTO;
 //   4. si el guardado falla, vuelven a lo de antes; cuando la ficha relee, manda el server.
 //
-// PROBADO ROMPIÉNDOLO (17/10/2026), con el archivo en 4 / 0, una rotura por vez y restaurada:
+// PROBADO ROMPIÉNDOLO (17/10/2026), con el archivo en 4 / 0, una rotura por vez y restaurada (desde los dos
+// tests de #856 el archivo da 6 / 0, y cada rotura de éstas 5 / 1):
 //   · `updateLead` esperando a Meta otra vez (`await avisarAMeta()` en vez de `after`)   → 3 / 1
 //   · el envío de fondo sin `runWithWorkspace`                                             → 3 / 1
 //   · los tres botones pintando desde la prop (`valor === o.v`)                            → 3 / 1
@@ -34,14 +35,45 @@ function bloque(src: string, abre: string, cierra: string): string {
 
 test('el aviso a Meta de «calificado» sale de fondo, en el workspace del lead', () => {
   const calif = bloque(leer('lib/leads.ts'), 'if (fireCalificado) {', '// Auto-etiqueta de WhatsApp');
-  const cierre = /\n {4}if \(ws == null\) await avisarAMeta\(\);\n {4}else try \{ after\(\(\) => runWithWorkspace\(ws, avisarAMeta\)\); \} catch \{ await runWithWorkspace\(ws, avisarAMeta\); \}\n {2}\}\n\s*$/;
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026 (#856): el trabajo recibe si ESPERA la ventana del «Deshacer» (de fondo
+  // sí; en línea, sin toast, no). Lo demás que se fija es lo mismo.
+  const cierre = /\n {4}if \(ws == null\) await avisarAMeta\(false\);\n {4}else try \{ after\(\(\) => runWithWorkspace\(ws, \(\) => avisarAMeta\(true\)\)\); \} catch \{ await runWithWorkspace\(ws, \(\) => avisarAMeta\(false\)\); \}\n {2}\}\n\s*$/;
   assert.match(calif, cierre, 'el guardado vuelve a esperar a Meta, o el fondo corre sin su workspace');
   // Todo envío vive ADENTRO del trabajo de fondo: ninguno queda en el camino del guardado.
-  const trabajo = bloque(calif, 'const avisarAMeta = async () => {', '\n    };\n');
+  const trabajo = bloque(calif, 'const avisarAMeta = async (esperar: boolean) => {', '\n    };\n');
   assert.equal((calif.match(/sendMetaCAPIEvent\(/g) ?? []).length, 1);
   assert.match(trabajo, /await sendMetaCAPIEvent\(/);
   assert.match(trabajo, /await logLeadEvent\(id, 'Meta'/, 'lo que Meta rechaza tiene que seguir llegando al historial');
   assert.match(calif, /const ws = await getWorkspaceActual\(\);/);
+});
+
+// #856 (17/10/2026): lo que llega a Meta no se corrige, así que el aviso ESPERA la ventana del «Deshacer», relee el
+// lead y sale sólo si sigue calificado y si nunca se mandó.
+// PROBADO ROMPIÉNDOLO, con el archivo en 6 / 0: `avisaCalificadoAMeta` sin mirar `yaSeMando` → 5 / 1 (el de la
+// regla); sin el `setTimeout` de la espera → 5 / 1 (el del cableado); mandando con `merged` en vez del lead
+// releído → 5 / 1 (el del cableado); sin la línea `LINEA_CALIFICADO_EN_META` al entrar → 5 / 1 (el del cableado).
+test('#856: el aviso sale sólo si el lead SIGUE calificado al salir y nunca se mandó', async () => {
+  const { avisaCalificadoAMeta, ESPERA_AVISO_CALIFICADO_MS } = await import('../lib/meta-capi-payload');
+  assert.equal(avisaCalificadoAMeta({ sigueCalificado: true, yaSeMando: false }), true);
+  assert.equal(avisaCalificadoAMeta({ sigueCalificado: false, yaSeMando: false }), false, 'lo deshicieron en la ventana');
+  assert.equal(avisaCalificadoAMeta({ sigueCalificado: true, yaSeMando: true }), false, 'ya contó: volver a marcar no suma otra');
+  assert.equal(avisaCalificadoAMeta({ sigueCalificado: null, yaSeMando: false }), false, 'sin poder releerlo no se afirma');
+  // La espera cubre el toast del «Deshacer» (5 s, app/_ui/Toast.tsx).
+  const toast = leer('app/_ui/Toast.tsx');
+  const ms = Number(/export function useToast\(ms = (\d+)\)/.exec(toast)?.[1]);
+  assert.ok(ms > 0 && ESPERA_AVISO_CALIFICADO_MS > ms, `la espera (${ESPERA_AVISO_CALIFICADO_MS}) no cubre el toast (${ms})`);
+});
+
+test('#856 CABLEADO: espera, relee, manda con lo releído y deja la marca de «ya se mandó»', () => {
+  const calif = bloque(leer('lib/leads.ts'), 'if (fireCalificado) {', '// Auto-etiqueta de WhatsApp');
+  const trabajo = bloque(calif, 'const avisarAMeta = async (esperar: boolean) => {', '\n    };\n');
+  assert.match(trabajo, /if \(esperar\) await new Promise\(\(r\) => setTimeout\(r, ESPERA_AVISO_CALIFICADO_MS\)\);/);
+  const iRelee = trabajo.indexOf('const hoy = await getLead(id)');
+  const iManda = trabajo.indexOf('sendMetaCAPIEvent(');
+  assert.ok(iRelee > 0 && iRelee < iManda, 'se manda sin releer el lead');
+  assert.match(trabajo, /avisaCalificadoAMeta\(\{ sigueCalificado: hoy \? hoy\.calificado === true : null, yaSeMando: await calificadoYaEnMeta\(id\) \}\)/);
+  assert.match(trabajo, /email: hoy!\.email,/, 'manda con la foto del guardado, no con el lead de ahora');
+  assert.match(trabajo, /if \(entro\) await logLeadEvent\(id, 'Meta', LINEA_CALIFICADO_EN_META, 'MaKo'\);/);
 });
 
 test('los dos controles de sí / no pintan lo elegido en el acto', () => {

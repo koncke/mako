@@ -100,6 +100,9 @@ export default function Composer({
     ?? identidadInicial(canales);
   const motivo = motivoNoEnvio(ident, chat.bloqueado);
   const esWa = ident?.canal === 'whatsapp';
+  // El EMAIL (17/10/2026): sale por /api/chats/email, con asunto (vacío = «Re: <el último que llegó>») y adjuntos.
+  const esEmail = ident?.canal === 'email';
+  const [asunto, setAsunto] = useState('');
 
   // ── El texto (con su borrador en el navegador) ──
   const [modo, setModo] = useState<'mensaje' | 'comentario'>('mensaje');
@@ -210,6 +213,12 @@ export default function Composer({
         // se relee (`onEnviado` → `onCambio`) y la identidad elegida se sigue por su línea, no por el jid.
         if (j.chatJid && j.chatJid !== i.ref) setElegida(`${i.canal}|${i.cuenta ?? ''}|${j.chatJid}`);
         onConfirmado(tmp, null);
+      } else if (i.canal === 'email') {
+        const j = await postJson<{ ok: boolean; error?: string; mensaje?: MensajeChat }>('/api/chats/email', { para: i.ref, texto: t, asunto: asunto.trim() || undefined, leadId: chat.leadId ?? undefined }, { timeoutMs: 60_000 });
+        if (j.incierto) { incierto(tmp); return; }
+        if (!j.ok) throw new Error(j.error || 'No se pudo enviar.');
+        setAsunto('');
+        onConfirmado(tmp, j.mensaje ?? null);
       } else {
         const j = await postJson<{ ok: boolean; error?: string; mensaje?: MensajeChat; terminal?: boolean }>('/api/chats/social', { convId: Number(i.ref), texto: t, idempotencia }, { timeoutMs: 45_000 });
         if (j.incierto) { incierto(tmp); return; }
@@ -234,7 +243,7 @@ export default function Composer({
 
   // ── Los adjuntos: varios, con vista previa (la de la casa, pedido de Martín del 11/10) ──
   const lista = useListaAdjuntos({ maxBytes: TOPE_ARCHIVO, maxArchivos: MAX_ADJUNTOS, accept: ACCEPT });
-  const puedeAdjuntar = esWa && !motivo;
+  const puedeAdjuntar = (esWa || esEmail) && !motivo;
   function agregarArchivos(fs: File[]) {
     if (!fs.length || !puedeAdjuntar) return;
     const errores = lista.agregar(fs);
@@ -246,7 +255,9 @@ export default function Composer({
    */
   async function enviarAdjuntos() {
     const items = lista.ref.current;
-    if (!items.length || enviando || !ident || ident.canal !== 'whatsapp' || motivo) return;
+    if (!items.length || enviando || !ident || motivo) return;
+    if (ident.canal === 'email') { await enviarEmailConAdjuntos(ident, items.map((it) => it.file)); return; }
+    if (ident.canal !== 'whatsapp') return;
     const i = ident;
     const cap = textoVivo.current.trim();
     setEnviando(true); setError(null);
@@ -260,6 +271,35 @@ export default function Composer({
         if (!r.textoSalio && cap) setTexto((d) => d || cap);
         setError(r.error);
       }
+    } finally { setEnviando(false); setFase(null); }
+  }
+
+  /**
+   * Un email con ADJUNTOS: a diferencia de WhatsApp, sale UNO solo con todos los archivos y el texto como cuerpo. Si
+   * falla, los archivos y el texto vuelven a su lugar.
+   */
+  async function enviarEmailConAdjuntos(i: IdentidadCanal, archivos: File[]) {
+    const cuerpo = textoVivo.current.trim();
+    const guardados = lista.ref.current;
+    setEnviando(true); setError(null);
+    lista.vaciar(); setTexto('');
+    setFase(archivos.length === 1 ? 'Enviando email con su archivo…' : `Enviando email con ${archivos.length} archivos…`);
+    try {
+      const fd = new FormData();
+      fd.set('para', i.ref);
+      fd.set('texto', cuerpo);
+      if (asunto.trim()) fd.set('asunto', asunto.trim());
+      if (chat.leadId != null) fd.set('leadId', String(chat.leadId));
+      for (const f of archivos) fd.append('archivos', f, f.name);
+      const r = await fetch('/api/chats/email', { method: 'POST', body: fd, signal: AbortSignal.timeout(90_000) });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!r.ok || !j.ok) throw new Error(j.error || 'No se pudo enviar.');
+      setAsunto('');
+      onEnviado();
+    } catch (e) {
+      lista.poner(guardados);
+      setTexto((d) => d || cuerpo);
+      setError(e instanceof Error && e.message ? e.message : 'No se pudo enviar.');
     } finally { setEnviando(false); setFase(null); }
   }
 
@@ -465,8 +505,12 @@ export default function Composer({
           <div className="rio-comp-voz"><BarraGrabacion voz={voz} ocupado={enviando} /></div>
         ) : (
           <>
+            {esEmail && (
+              <input className="rio-comp-asunto" value={asunto} disabled={!!motivo} maxLength={300}
+                placeholder="Asunto (vacío: responde al último)" aria-label="Asunto" onChange={(e) => setAsunto(e.target.value)} />
+            )}
             <textarea ref={campo} className="rio-comp-campo" rows={1} value={texto} disabled={!!motivo}
-              placeholder={motivo ?? 'Escribe un mensaje'} aria-label="Mensaje"
+              placeholder={motivo ?? (esEmail ? 'Escribe un email' : 'Escribe un mensaje')} aria-label="Mensaje"
               onChange={(e) => setTexto(e.target.value)}
               onKeyDown={(e) => teclaCampo(e, () => void enviarTexto())}
               onPaste={(e) => {

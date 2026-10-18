@@ -3,7 +3,7 @@
 // =============================================================================
 // ficha/pagos/piezas — lo que comparten los bloques de Pagos: la tarjeta y los modales de cobro a mano
 // =============================================================================
-// Los modales vienen de DealDetailsCard (app/crm/[id]/DealDetailsCard.tsx), con dos cosas que allá no tenían:
+// Los modales vinieron de DealDetailsCard (la tarjeta vieja del deal, borrada el 17/10/2026), con dos cosas que allá no tenían:
 //   · LA MONEDA (decisión 7: la moneda va por negocio y cada pago guarda la suya). Allá decía «Monto (USD)» y nada
 //     más. Acá el valor inicial es la moneda del negocio (`useMonedaDelNegocio`); en otra que no sea USD se pide
 //     también cuánto es en dólares, que es lo que suman el Dashboard y la cobranza (lib/pagos-campo.ts,
@@ -186,6 +186,8 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }
         const r = await marcarPagoManualAction(cuota.id, leadId, { monto: p.monto, fecha, hora: hora || null, resto, moneda: p.moneda, montoOriginal: p.montoOriginal, metodo: metodo || null });
         // ⚠️ DESHACER SÓLO SI SE COBRÓ EXACTO LO DE LA CUOTA (revisión del 16/10/2026): con un descuento o un pago de
         // más el pendiente también es null, y desmarcar no devuelve el monto: la cuota quedaba debiendo lo cobrado.
+        // El link ya se había cobrado (17/10/2026): quedó con ese pago y no hay nada que deshacer acá.
+        if (r.porLink) { onHecho('Ya pagada por link', false); return; }
         onHecho(r.pendiente != null ? `${nombre} cobrada · quedan ${usd(r.pendiente)} pendientes` : `${nombre} marcada como pagada`, r.pendiente == null && p.monto === valorUsd);
       } catch (e) { setError(msg(e)); }
     });

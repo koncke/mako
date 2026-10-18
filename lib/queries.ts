@@ -10,6 +10,7 @@ import { cachedRead, TAG, TTL } from './cache';
 import { avisanDelLead, NO_IGNORABLES } from './datos-aviso';
 import { avisosDelWorkspace } from './ficha/config-server';
 import { RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
+import { bajadaCrmPorAnuncio, type FilaLeadCrm } from './ads-rendimiento';
 import { conversorGastoMeta } from './moneda-meta';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { listReviewPendientes } from './review-queue';
@@ -1534,6 +1535,10 @@ export const getFunnelSeries = cachedRead('getFunnelSeries', _getFunnelSeries, {
 async function _getFunnelSeries(
   end: string = new Date().toISOString().slice(0, 10),
   semanas = 12,
+  // De qué funnels (17/10/2026, el cabo de #896): la serie medía SIEMPRE el principal, y con varios funnels MaKo daba
+  // números incompletos. La misma regla que `getFunnelEtapas`: cada lead en el funnel donde estaba ESE día, y lo de Meta
+  // sigue siendo de toda la cuenta. ⚠️ Entra en la clave del caché sola (`unstable_cache` suma los argumentos).
+  funnels: readonly number[] = [],
 ): Promise<FunnelSeries> {
   const supabase = (await getTenantDb());
 
@@ -1550,13 +1555,14 @@ async function _getFunnelSeries(
   // El tramo comercial de ESTE funnel: las series salen con las keys de los pasos
   // que ese workspace tiene de verdad. Antes emitía siempre las cuatro canónicas, y
   // para un funnel sin reuniones las cuatro eran null en las doce semanas.
-  const stages = await getPipelineStagesDefault().catch(() => null);
+  // Con funnels elegidos, los SUYOS (si no comparten los pasos, tira `FunnelsConEtapasDistintas`, como el período).
+  const stages = funnels.length ? await etapasDeFunnels(funnels) : await getPipelineStagesDefault().catch(() => null);
   const pasosComerciales = pasosComercialesDe(stages);
   const necesitaEntradas = pasosComerciales.some(
     (p) => p.entrada === 'entradas' || p.salida === 'cierres_entradas',
   );
 
-  const [metaRows, pandaRows, agendaRes, j1Res, altasRes] = await Promise.all([
+  const [metaRows, pandaRows, agendaRes, j1Res, altasTodas] = await Promise.all([
     leerTodo<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null }>(
       supabase, T_METRICAS,
       'id, fecha, ad_id, impressions, link_clicks, landing_page_views, leads_count',
@@ -1568,12 +1574,12 @@ async function _getFunnelSeries(
     ),
     supabase
       .from('leads')
-      .select('fecha_junta_1')
+      .select('id, fecha_junta_1')
       .gte('fecha_junta_1', rangoInicio)
       .lte('fecha_junta_1', rangoFin),
     supabase
       .from('leads')
-      .select('fecha_junta_1, asistio_j1, calificado, estado_lead')
+      .select('id, fecha_junta_1, asistio_j1, calificado, estado_lead')
       .gte('fecha_junta_1', rangoInicio)
       .lte('fecha_junta_1', rangoFin),
     // La cohorte del ALTA: una lectura más, y sólo cuando algún paso la nombra.
@@ -1581,7 +1587,7 @@ async function _getFunnelSeries(
     // que no se puede resolver con un count — y un `.select()` suelto topea en las
     // 1000 de PostgREST sin dar error: las semanas viejas quedarían vacías.
     necesitaEntradas
-      ? leerTodo<{ created_at: string | null; estado_lead: string }>(
+      ? leerTodo<{ id: number; created_at: string | null; estado_lead: string }>(
           supabase, 'leads', 'id, created_at, estado_lead',
           { orden: 'id', filtros: (q) => q.gte('created_at', `${rangoInicio}T00:00:00Z`).lte('created_at', `${rangoFin}T23:59:59Z`) },
         )
@@ -1591,6 +1597,12 @@ async function _getFunnelSeries(
   for (const r of [agendaRes, j1Res]) {
     if (r.error) throw new Error(`getFunnelSeries falló: ${r.error.message}`);
   }
+  // Con funnels elegidos, sólo los leads que estaban en ellos ese día (sin funnels, todos y sin leer nada más).
+  const agendasCrudas: Array<{ id: number; fecha_junta_1: string | null }> = agendaRes.data ?? [];
+  const j1Crudas: Array<{ id: number; fecha_junta_1: string | null; asistio_j1: boolean | null; calificado: boolean | null; estado_lead: string }> = j1Res.data ?? [];
+  const agendas = await enLosFunnels(agendasCrudas, funnels, (r) => r.fecha_junta_1);
+  const j1s = await enLosFunnels(j1Crudas, funnels, (r) => r.fecha_junta_1);
+  const altasRes = await enLosFunnels(altasTodas, funnels, (r) => (r.created_at ? r.created_at.slice(0, 10) : null));
 
   // Índice de semana de una fecha = lunes de esa fecha
   const semanaDe = (fecha: string): string => lunesDeFecha(fecha);
@@ -1610,10 +1622,10 @@ async function _getFunnelSeries(
   for (const r of pandaRows) {
     add(semanaDe(r.fecha), (a) => { a.vsl += r.video_plays ?? 0; });
   }
-  for (const r of (agendaRes.data ?? []) as Array<{ fecha_junta_1: string | null }>) {
+  for (const r of agendas) {
     if (r.fecha_junta_1) add(semanaDe(r.fecha_junta_1), (a) => { a.agenda += 1; });
   }
-  for (const r of (j1Res.data ?? []) as Array<{ fecha_junta_1: string | null; asistio_j1: boolean | null; calificado: boolean | null; estado_lead: string }>) {
+  for (const r of j1s) {
     if (!r.fecha_junta_1) continue;
     add(semanaDe(r.fecha_junta_1), (a) => {
       a.j1 += 1;
@@ -1693,8 +1705,13 @@ export type SenalRecon = {
   campana: string | null;
   adset_name: string | null;
   spend_usd: number;
-  leads: number;                 // leads_count acumulado del rango
+  leads: number;                 // leads_count acumulado del rango: los leads que REPORTA META
+  // ⚠️ «meta» de META DE LEADS, la vara (RECON_LEADS_VALIDACION, hoy 10), NO «los leads de Meta»: es la
+  // constante que pintan las tarjetas como «leads / meta». La API de MaKo la leyó al revés y le contestaba
+  // a un cliente que cada anuncio tenía 10 leads de Meta (17/10/2026, docs/hallazgos-ads.md).
   meta_leads: number;            // RECON_LEADS_VALIDACION
+  /** Leads del CRM atribuidos al anuncio (`leads.meta_ad_id`) que ENTRARON en el rango (por `created_at`, en UTC). */
+  leads_crm: number;
   dias_corriendo: number;        // días con spend > 0
   ritmo: RitmoEstado;
   ritmo_dias: Array<{ fecha: string; spend_usd: number; budget_usd: number; ok: boolean }>;
@@ -1767,7 +1784,7 @@ async function _getSenalesRecon(
   // así que (fecha, adset_id) ya es un orden único. Los leads por ad_id andaban
   // en 955/1000 en ws1: se pagina por `id` antes de que crucen.
   let budgetRows: Array<{ fecha: string; adset_id: string; daily_budget_mxn: number | null }>;
-  let leadRows: Array<{ meta_ad_id: string | null; fecha_junta_1: string | null; estado_lead: string; total_cobrado_usd: number | null }>;
+  let leadRows: FilaLeadCrm[];
   try {
     [budgetRows, leadRows] = await Promise.all([
       leerTodo<{ fecha: string; adset_id: string; daily_budget_mxn: number | null }>(
@@ -1776,8 +1793,8 @@ async function _getSenalesRecon(
       ),
       adIdsRango.length === 0
         ? Promise.resolve([])
-        : leerTodo<{ meta_ad_id: string | null; fecha_junta_1: string | null; estado_lead: string; total_cobrado_usd: number | null }>(
-          supabase, 'leads', 'id, meta_ad_id, fecha_junta_1, estado_lead, total_cobrado_usd',
+        : leerTodo<FilaLeadCrm>(
+          supabase, 'leads', 'id, meta_ad_id, fecha_junta_1, estado_lead, total_cobrado_usd, created_at',
           { filtros: (q) => q.in('meta_ad_id', adIdsRango) },
         ),
     ]);
@@ -1804,15 +1821,7 @@ async function _getSenalesRecon(
   }
 
   // Downstream por ad_id (leads reales matcheados)
-  const downByAd = new Map<string, { agendas: number; cierres: number; cash: number }>();
-  for (const l of leadRows) {
-    if (!l.meta_ad_id) continue;
-    const d = downByAd.get(l.meta_ad_id) ?? { agendas: 0, cierres: 0, cash: 0 };
-    if (l.fecha_junta_1) d.agendas += 1;
-    if (l.estado_lead === 'ganado') d.cierres += 1;
-    d.cash += Number(l.total_cobrado_usd ?? 0);
-    downByAd.set(l.meta_ad_id, d);
-  }
+  const downByAd = bajadaCrmPorAnuncio(leadRows, start, end);
 
   // Agregar por anuncio
   type Acc = { ad_name: string | null; campana: string | null; adset_id: string | null; adset_name: string | null; spendMxn: number; leads: number; agendasMeta: number; imp: number; clk: number; v3: number; thru: number; freqVals: number[]; diasSpend: Set<string>; fechasSpend: string[]; thumb: string | null; permalink: string | null; sinEnlace: boolean; lastFecha: string };
@@ -1851,7 +1860,7 @@ async function _getSenalesRecon(
   const { aUsdNum } = await conversorGastoMeta();
   for (const [adId, a] of porAd) {
     const spendUsd = aUsdNum(a.spendMxn);
-    const down = downByAd.get(adId) ?? { agendas: 0, cierres: 0, cash: 0 };
+    const down = downByAd.get(adId) ?? { agendas: 0, cierres: 0, cash: 0, leads: 0 };
     const diasCorriendo = a.diasSpend.size;
 
     // RITMO: últimos 3 días con presupuesto del adset padre
@@ -1893,6 +1902,7 @@ async function _getSenalesRecon(
       spend_usd: spendUsd,
       leads: a.leads,
       meta_leads: RECON_LEADS_VALIDACION,
+      leads_crm: down.leads,
       dias_corriendo: diasCorriendo,
       ritmo,
       ritmo_dias: ritmoDias,

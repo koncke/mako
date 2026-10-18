@@ -24,7 +24,7 @@
 
 import 'server-only';
 import { getSetting, setSetting } from './settings';
-import { getWorkspaceActual, runWithWorkspace, OWNER_WS } from './workspace';
+import { getWorkspaceActual, runWithWorkspace, wsObligatorio, WS_NINGUNO } from './workspace';
 import { getNumeroDueno, setNumeroDuenoYSync, agregarParticipanteGrupo, getGrupoJidMaKo, numeroTieneWhatsApp, linkInvitacionGrupo } from './mako-grupo';
 import { normalizarDestinatarios, soloDigitos, type Destinatarios } from './notif-catalogo';
 
@@ -69,7 +69,7 @@ function mismaPersona(a: string, b: string): boolean {
  * en que solo se escribía ese.
  */
 export async function getDestinatarios(): Promise<Destinatarios> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = (await getWorkspaceActual()) ?? WS_NINGUNO;
   const [rawTel, rawMail, telViejo, mailViejo, numeroGrupo] = await Promise.all([
     getSetting(KEY_TELEFONOS),
     getSetting(KEY_EMAILS),
@@ -124,7 +124,7 @@ export type ResultadoGuardar = {
  * de destinatarios. Se avisa en la pantalla.
  */
 export async function setDestinatarios(d: Partial<Destinatarios>, nombreCliente: string): Promise<ResultadoGuardar> {
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = await wsObligatorio();
   const pedido = normalizarDestinatarios(d);
 
   // ⚠️ SE GUARDA LA FORMA QUE WHATSAPP RECONOCE, no la que se tipeó. La gente

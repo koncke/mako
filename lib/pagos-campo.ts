@@ -24,7 +24,7 @@
 // =============================================================================
 
 import { centavos } from './pagos-diferencia';
-import { normalizarMoneda } from './pasarela-moneda';
+import { formatoMonto, normalizarMoneda } from './pasarela-moneda';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
 
 type Resultado<T> = ({ ok: true } & T) | { ok: false; error: string; faltan?: string[] };
@@ -678,4 +678,58 @@ export function etiquetaDePago(p: { concepto?: unknown; metodo?: unknown }): { c
   const c = typeof p.concepto === 'string' ? p.concepto.trim().slice(0, 200) : '';
   const m = p.metodo == null || p.metodo === '' ? null : esMetodoPago(p.metodo) ? p.metodo : 'otro';
   return { concepto: c || null, metodo: m };
+}
+
+/**
+ * COMO SE COBRÓ, dicho por TEXTO (la API de MaKo: WhatsApp, HTTP, un paso de un flujo). Es la misma regla que la
+ * ficha (`pagoEnMoneda` + `etiquetaDePago`) con las trampas de un canal sin pantalla que las ponga a la vista:
+ *
+ * ⚠️ UN `montoOriginal` SIN `moneda` SE RECHAZA, no se lee como dólares. Era el síntoma de Mauricio: «un pago en
+ *    pesos por WhatsApp entra como dólares». El modelo que sólo tenía `montoUsd` ponía los pesos ahí y nadie lo
+ *    notaba hasta el Dashboard. Sin `moneda` el monto es en DÓLARES (lo de siempre, `pagoEnMoneda`).
+ * ⚠️ En otra moneda `montoUsd` lo DECLARA la persona (o es el de la cuota que se salda, `montoUsdPorDefecto`):
+ *    nunca una tasa inventada. Sin él, el error pide los dólares.
+ * `montoUsd` vuelve null sólo cuando no hay moneda ni monto (cobrar una cuota tal cual).
+ */
+export function cobroManualDeEntrada(
+  i: { montoUsd?: unknown; moneda?: unknown; montoOriginal?: unknown; concepto?: unknown; metodo?: unknown },
+  opts: { montoUsdPorDefecto?: number | null } = {},
+): Resultado<{ montoUsd: number | null; moneda: string | null; montoOriginal: number | null; concepto: string | null; metodo: MetodoPago | null }> {
+  const positivo = (v: unknown): number | null => (v != null && v !== '' && Number.isFinite(Number(v)) && Number(v) > 0 && Number(v) <= MAX_MONTO_USD ? centavos(Number(v)) : null);
+  const etiqueta = etiquetaDePago(i);
+  const montoUsd = positivo(i.montoUsd);
+  const montoOriginal = positivo(i.montoOriginal);
+  const moneda = typeof i.moneda === 'string' ? i.moneda.trim() : '';
+  if (!moneda) {
+    if (i.montoOriginal != null && i.montoOriginal !== '') {
+      return { ok: false, error: 'Falta la moneda en que se cobró «montoOriginal» (USD, MXN, ARS…). Sin moneda el monto es en dólares: usa montoUsd.', faltan: ['moneda'] };
+    }
+    return { ok: true, montoUsd, moneda: null, montoOriginal: null, ...etiqueta };
+  }
+  const r = pagoEnMoneda({ montoUsd, moneda, montoOriginal }, opts);
+  if (!r.ok) return r;
+  return { ok: true, montoUsd: r.montoUsd, moneda: r.moneda, montoOriginal: r.montoOriginal, ...etiqueta };
+}
+
+/** «USD 500» o, si se cobró en otra moneda, «MXN 8,600 (USD 500)», con el método y el concepto si vinieron. */
+export function textoDelCobro(
+  montoUsd: number,
+  d: { moneda?: string | null; montoOriginal?: number | null; concepto?: unknown; metodo?: unknown },
+): string {
+  const enOtra = d.moneda && d.moneda !== 'USD' && d.montoOriginal != null;
+  const plata = enOtra ? `${formatoMonto(d.montoOriginal as number, d.moneda as string)} (USD ${montoUsd})` : `USD ${montoUsd}`;
+  const e = etiquetaDePago(d);
+  return [plata, e.metodo ? ROTULO_METODO[e.metodo] : null, e.concepto].filter(Boolean).join(' · ');
+}
+
+/**
+ * El aviso de un pago a mano SIN moneda en un negocio cuya moneda NO es dólares. ⚠️ Sin moneda un pago es en dólares
+ * (`pagoEnMoneda`): un modelo que oye «me pagó 500 mil» y no pasa `moneda` lo registra en USD sin que nadie lo vea
+ * hasta el Dashboard. El aviso va en el RESUMEN que la persona confirma, que es lo único que mira antes del «sí».
+ */
+export function avisoMonedaPorOmision(monedaDelNegocio: string | null | undefined, dijoMoneda: boolean): string {
+  if (dijoMoneda) return '';
+  const m = normalizarMoneda(monedaDelNegocio);
+  if (!m || m === MONEDA_POR_DEFECTO) return '';
+  return ` Queda en dólares (USD) porque no se dijo otra moneda, y la moneda del negocio es ${m}: si se cobró en ${m}, dímelo antes de confirmar.`;
 }

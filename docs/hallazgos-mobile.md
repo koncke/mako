@@ -7,6 +7,303 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Las tabs de CREACIÓN en el teléfono: editores, AI Avatar y writers (17/10/2026, «Mobile 1»)
+
+Pedido de Martín (17/10, 12:56): «Implementa completamente MaKo Mobile en todas las tabs, porque hay muchas que aun no se
+pueden acceder… Siempre copia de otras apps que ya lo hacen bien». Rama `mobile-creacion-1710` (C:/dev/wt-mobile). Hasta
+ese día un teléfono que abría /video-editor, /image-editor, /reels, /stories, /carousels, /ai-avatar o /admin/copywriting
+veía la cubierta «Esta pantalla se usa en la computadora». Ahora cada una tiene su pantalla (copiada de CapCut, Canva,
+HeyGen, el compositor y el visor de Instagram, y Readwise), y Video, Image, Copywriting y AI Avatar llevan arriba la barra
+de secciones de escritorio (`SeccionesTabM`, con la regla de la sidebar). Todo mirado a 390 px con Chrome headless.
+
+**El diagnóstico obvio era el equivocado: los dos editores NO necesitaban un editor nuevo.**
+- Image Editor: el motor (Doory) ya tiene su modo para pantallas chicas: por debajo de 1024 px las herramientas pasan a una
+  tira abajo y cada una abre como hoja (`EditorApp.tsx` → `compact`). Es el editor de Canva del celular. El teléfono monta
+  el MISMO editor por su única puerta (`ImageEditorCliente`) en una capa a pantalla completa (`_creacion/PantallaCompletaM`).
+- Video Editor: el motor (OpenCut) dibuja y EXPORTA en el teléfono (WebGL2; medido: un proyecto con dos clips, Dividir,
+  Deshacer y el MP4 exportado). El teléfono no copia lógica: cada herramienta INVOCA la acción del motor
+  (`invokeAction('split' | 'delete-selected' | 'undo' | 'redo' | 'toggle-play')`), que registra el `EditorProvider`. Lo
+  único propio es CÓMO se elige (la tira de clips, en vez de la línea de tiempo).
+- **La regla:** antes de escribir la versión del teléfono de una pantalla pesada, mirar si su motor ya tiene modo chico
+  (Doory) o si sus acciones se pueden invocar sin su UI (OpenCut). Una «versión reducida» propia duplica el motor.
+
+**Trampas del entorno (no dan error):**
+- **Una fila OCULTA de `SECCIONES_MAS` le BORRA a una tab `adminOnly` su fila de More.** `masCompleto` (Mobile 2) saltea
+  una tab que «tiene sección en el teléfono» pero que la regla del teléfono no muestra; y `puedeVerKey` no mira
+  `adminOnly`. AI Avatar va SIN fila: More la arma desde la sidebar por su ruta, y su cabecera la pone cada page con
+  `<CabeceraM>`. (Lo que se pierde: More no se marca en la barra de abajo, `destinoActivo`.) Copy Method sí tiene fila,
+  con el `superAdmin` de Mobile 2 (una herramienta de ADMIN_NAV: su page se cuida con `getSesionAdmin()`).
+- **Un `.module.css` en una pieza de `app/m/_ui` exportada por el ÍNDICE tumba tests de node** (tests/m-offer: «Unexpected
+  token '.'»): el índice lo importan tests que no cargan CSS. `BotonFlotanteM` se importa por su ruta, y la barra de
+  secciones lleva sus clases en m.css (tests/m-superadmin importa `seccionesDeTabM`).
+- **Dos agentes hicieron la MISMA barra de secciones el mismo día** (Mobile 2 para Automations, éste para Video, Image,
+  Copywriting y AI Avatar), con el mismo nombre de archivo y otra API. Quedó UNA: la API de Mobile 2
+  (`<SeccionesTabM tab activa vista>`, `seccionesDeTabM`) con el dibujo de ésta (`BarraSeccionesM`: se desliza, «pronto» y
+  centra la elegida).
+- **`next build --debug-build-paths` con `[param]` en la ruta no compila esa página y no avisa**: los corchetes son una
+  clase de caracteres del glob. Se pide la carpeta (`app/m/video-editor/**`). Después, el parche de `dynamicRoutes` de
+  siempre (receta en el relevo).
+- **El reproductor de escritorio no entra en 390 px**: su fila de abajo (HH:MM:SS:FF + cuatro menús) se pisaba con ▶. El
+  teléfono la esconde por sus clases de Tailwind (`video-editor.css`) y tests/m-creacion falla si el motor las cambia.
+- **Una barra que se desliza abre en su comienzo**: en Image › Carousels y Copywriting › Stories (la cuarta) la sección que
+  se miraba quedaba afuera, sin nada que dijera dónde se estaba. `SeccionesTabM` la centra al montar.
+- **Ver el Image Editor sin tocar la base**: Chrome con `Fetch.enable` sobre `*/api/image-editor/*` y la respuesta del
+  diseño armada a mano (y un `{ ok: true }` a cada PATCH). El ws9 es sólo para leer y no tiene diseños.
+- **Los proyectos del Video Editor son de CADA aparato** (IndexedDB/OPFS, por negocio): los del teléfono no aparecen en la
+  computadora ni al revés. No es un bug del teléfono; lo dice la fila «En la computadora» del inicio.
+- **Dos agentes hicieron las «Coming soon»**: Mobile 2 con `/m/pronto/<key>` (se deriva de nav.ts) y éste con una carpeta
+  por tab. Quedó la de Mobile 2; antes de sumar pantallas de una lista compartida, mergear `origin/integracion`.
+- Lo que el teléfono reusa de una pantalla `'use client'` de escritorio se MUDÓ a un módulo puro y escritorio lo importa:
+  el texto de «Copiar» de Stories (`app/stories/texto.ts`) y de Carousels (`app/carousels/pieza.ts`).
+
+**SIN HACER (con su archivo):**
+- AI Avatar: escritorio todavía filma con su copia del lazo (CrearVideo en app/ai-avatar/AiAvatarCliente.tsx); que use
+  `app/ai-avatar/filmar.ts` es del chat «AI Avatar». Generar un look o un video desde el teléfono no se probó (pide el
+  puente vivo y gasta); las tomas se filman mientras la pantalla esté abierta.
+- Video Editor del teléfono (app/m/video-editor): sin línea de tiempo, texto, audio, efectos, «Relación» ni «Editar con
+  IA»; exporta sólo MP4 en alta. «Guardar en el teléfono» (`navigator.share`) no se probó en un iPhone.
+- Image Editor del teléfono: crea con los seis tamaños de la API (los demás y el personalizado, en la computadora); los
+  gestos de fabric con el dedo no se probaron en un teléfono.
+- Reels, Stories y Carousels: generar no se probó (gasta IA del negocio); Stories y Carousels guardan la sesión en la
+  pantalla, como escritorio.
+- More no se marca en la barra en AI Avatar (no tiene fila: ver arriba).
+- Nada se vio en un teléfono de verdad.
+
+**Vive en:** lib/movil-creacion.ts (rutas y filas) · app/m/_creacion/ (`secciones.ts`, `escritor.tsx`,
+`PantallaCompletaM.tsx`) · app/m/_ui/SeccionesTabM.tsx y BotonFlotanteM.tsx · app/m/{video-editor, image-editor,
+ai-avatar, reels, stories, carousels, admin/copywriting} · tests/m-creacion.test.ts.
+*17/10/2026, claude4 (chat «Mobile 1: tabs de creación»).*
+
+## Toda tab del nav con su lugar en el teléfono: More derivado de la sidebar, el guardián y las pantallas de negocio (17/10/2026)
+
+Pedido de Martín (17/10, 12:56, desde el Centro): «Implementa completamente MaKo Mobile en todas las tabs, porque hay
+muchas que aun no se pueden acceder». Lo hizo el agente «Mobile 2» (rama `mobile-negocio-1710`, C:/dev/wt-general-epico).
+Las pantallas nuevas son Reportar problema, Configuración del negocio (Equipo, Integraciones, Notificaciones, Fiscal y Tu
+plan), API, las «Coming soon», MaKo Messages, AI Models, MaKo Context, Knowledge, Billing y Client Agents.
+
+**Por qué «no se podían acceder»: More era una lista APARTE.**
+- Síntoma: Image, AI Avatar y todo el menú de la foto no estaban en ningún lado del teléfono. Su URL abría «Esta pantalla
+  se usa en la computadora» sin que nadie lo hubiera decidido.
+- Causa: More se armaba sólo con `SECCIONES_MAS`. Una tab que se sumaba a nav.ts no tenía por dónde aparecer.
+- **La regla:** More se DERIVA de lo que dibuja la sidebar (`masCompleto`, con `puedeVerItem`/`resolverTab` de
+  lib/nav-visibilidad.ts). Una tab sin pantalla aparece como «En la computadora», con su motivo y la salida
+  (`FilaEnComputadoraM`). Cada key de nav.ts tiene uno de tres estados: pantalla, `SOLO_ESCRITORIO` (con el motivo
+  que lee la persona) o `EN_CAMINO` (con el chat que la escribe). tests/movil-toda-tab.test.ts lo exige y falla también
+  con una marca VIEJA, la de una tab que ya tiene pantalla y sigue anotada. Está en AGENTS.md (MaKo Mobile).
+
+**General salía dos veces en More, y sólo se vio a 390 px.** Lo que está en la barra se salteaba por key, y General
+(la portada) es `navKey: null` en `DESTINOS_MOVIL`. Ahora se saltea también por su ruta del teléfono, y el guardián falla
+si More repite algo de la barra o una fila dos veces. Los tests de la primera versión pasaban: miraban que no FALTARA nada,
+no que sobrara.
+
+**Las herramientas del super admin no pasan por `requireMovil({ navKey })`.** Sus keys (nav.ts → `HERRAMIENTAS`) no
+están en `TODOS_LOS_ITEMS`, y `puedeVerKey` cierra la puerta a todos sin error. Su fila lleva `superAdmin: true` y la
+página pregunta `getSesionAdmin()` antes de leer nada, como la de escritorio. Y al revés: `puedeVerKey` no sabe del
+super admin, así que MaKo Partners (`soloCapas`), que la sidebar le muestra, en el teléfono no lo ve. El guardián lo
+tiene anotado como diferencia conocida (`MAS_ESTRICTO_EN_EL_TELEFONO`).
+
+**El `?tab=notif` de los 49 avisos iba a OTRO lugar en el teléfono.** Escritorio lo manda desde el 15/10 a las
+Notificaciones DEL NEGOCIO (`rutaDeTabVieja`); el teléfono seguía mandándolo a «Tu cuenta». Ahora va donde la
+computadora. Dos tests de otras áreas fijaban rutas del teléfono y no eran `movil-*`: tests/push-payload.test.ts e
+integracion-sin-salir.test.ts. El run 120 cayó por ellos. Lo mismo pasó con tickets-decisiones-mazo («/tickets no
+se toca») y con los ejemplos de «se usa en la computadora» de movil-desvio y movil-mismas-rutas. **Antes de un VERDE,
+`node scripts/antes-de-subir.mjs --rapido`** (con `C:/dev/pesado.lock`): elige los tests que miran lo que tocaste, sean
+del área que sean.
+
+**Knowledge: la computadora guarda dónde estás en el `#hash`, que el server no ve.** El proxy no puede saber qué curso
+pidió el link. Lo que sí llega son los links de antes (`?curso=<slug>&clase=<n>`), que la computadora traduce sola a su
+hash: el teléfono se cuelga de esos en los dos sentidos.
+
+**MaKo Messages: la página de escritorio siembra con OTRO store que el que edita.** /mensajes llama
+`listarPlantillas()` directo (en el ws de la plataforma, el store efectivo del ws9), y /api/admin/plantillas lee y
+escribe la BASE (`enSuStore`). Hoy dan lo mismo porque el ws9 no tiene entradas propias, pero si las tuviera, un
+interruptor guardado no se vería al recargar. El teléfono usa el de la ruta (`enElStoreDeLaPestana`, lib/plantillas.ts).
+Escritorio quedó como estaba.
+
+**Más rápido: abrir con lo que leyó el server.** Equipo, Notificaciones, MaKo Messages, AI Models y MaKo Context
+pintaban un esqueleto y recién después pedían su lista al navegador: 0,3-0,8 s más, medido a 390 px. Ahora la página
+lee en el server con la MISMA función que su ruta y monta el componente con `key={Date.now()}`, así que tirar hacia
+abajo trae lo nuevo. Si el server no pudo leer, el cliente la pide como en la computadora. Un archivo `route.ts` no
+puede exportar ayudantes, así que la lectura se mudó a lib (`equipoDe` en lib/usuarios.ts,
+lib/destinatarios-negocio.ts, `enElStoreDeLaPestana`) y la ruta la usa.
+
+**Lo que mueve plata o muestra un secreto UNA vez queda en la computadora, y la fila lo dice.** Son crear o regenerar un
+token de la API, vender un plan, anular o reembolsar un cobro y conectar una integración. El modal de conectar es un
+`Modal` de escritorio: tests/integracion-sin-salir.test.ts anota la pantalla del teléfono en `QUEDAN` con ese motivo.
+
+**Trampas del entorno (las que costaron tiempo):**
+- **El scratchpad de la sesión lo comparten los agentes hermanos.** Otro agente dejó un `romper.py` y mi arnés lo
+  importó por el mismo nombre: corrió SUS roturas sobre C:/dev/wt-mobile (las restauró por hash). Cada agente usa su
+  subcarpeta (`scratchpad/mobile2/`).
+- **El disco tenía 3 GB y `node_modules` pesa 1,3 GB:** no entraba una copia. Lo que anduvo es apuntar el junction del
+  worktree al `node_modules` REAL de un hermano (C:/dev/wt-mobile) y subir `turbopack.root` a C:/dev, sólo en el
+  `next.config.ts` local y sin commitear. Al terminar, el build deja `.next/node_modules/postcss-*` y `sharp-*` como
+  junctions a ESE `node_modules`: se sacan de a uno con `[System.IO.Directory]::Delete(ruta, $false)` antes de borrar
+  `.next`, o se vacía el del hermano.
+- **`--debug-build-paths` con `[[]id]` no compiló las páginas `[param]`;** `app/m/tickets/**` sí.
+- **Git Bash convierte «/mas» en «C:/Program Files/Git/mas»** cuando es un argumento de `node`: las rutas que se le
+  pasan al medidor van con `MSYS_NO_PATHCONV=1`.
+- **El primer pedido después de `next start` tarda ~2 s más** por la hidratación de credenciales («boot: hidratando»).
+  No es la página: se mide desde el segundo.
+
+**SIN HACER (con su archivo):**
+- Strategy, Offer Playbook y MaKo WhatsApp siguen en `EN_CAMINO` «sin dueño» (lib/movil-rutas.ts). Las de Mobile 1, igual.
+- MaKo Partners para el super admin en el teléfono: `puedeVerKey` (lib/movil-rutas.ts) y `requireMovil` (lib/movil-guard.ts)
+  no saben de `adminShell`.
+- Conectar una integración desde el teléfono: una hoja con lo del `ServicioModal` (app/m/configuraciones/integraciones).
+- General (Horario y Criterio) y Método en el teléfono (hoy «En la computadora», app/m/configuraciones/page.tsx).
+- Los campos de formulario de app/m/configuraciones/configuraciones.css los importa también /m/contexto: son una primitiva
+  esperando su lugar en app/m/m.css.
+- Nada se miró en un teléfono de verdad, ni con un cliente (el ws3 tiene el onboarding pendiente y tapa /m).
+
+**Vive en:** lib/movil-rutas.ts (`masCompleto`, `SOLO_ESCRITORIO`, `EN_CAMINO`, `UNA_A_UNA`, `SECCIONES_NEGOCIO_M`) ·
+app/m/mas/ · app/m/_ui/EnComputadoraM.tsx · app/m/_ui/SeccionesTabM.tsx · app/m/{tickets,configuraciones,pronto,mensajes,
+modelos-ia,contexto,api-mako,conocimientos,cobros,agente}/ · tests/movil-toda-tab.test.ts y los m-* de cada pantalla.
+*17/10/2026, claude4 (agente «Mobile 2»).*
+
+## El CRM y el Plan del teléfono rediseñados copiando Pipedrive, HubSpot, Todoist y Linear (17/10/2026)
+
+Pedido de Martín (17/10, 12:56, por el Centro de Operaciones): «rediseña las actuales de CRM, Plan, etc… Siempre copia
+de otras apps que ya lo hacen bien». Rama `mobile-rediseno-1710` (C:/dev/wt-graphics). Qué se copió de cuál está en la
+cabecera de cada pantalla (app/m/crm/TableroCrm.tsx, app/m/crm/[id]/FichaLead.tsx y page.tsx, app/m/plan/ListaPlan.tsx);
+las capturas antes/después, en docs/prototipos/mobile-rediseno-1710-crm.png y -plan.png.
+
+**Para ABRIR la referencia de una app de teléfono sin un teléfono: la API de búsqueda de iTunes.**
+- `https://itunes.apple.com/search?term=pipedrive&entity=software&country=us` devuelve, por app, `screenshotUrls`: las
+  capturas de la App Store. Cambiando el final de la URL por `600x0w.jpg` se bajan a buen tamaño y se leen con la
+  herramienta de imágenes (con `sharp` del repo se arma una hoja con las seis).
+- Lo obvio era la página de la App Store (`apps.apple.com/us/app/<nombre>/id<n>`) con un id adivinado: devuelve 1 KB sin
+  capturas. Las búsquedas web devuelven la documentación de ESCRITORIO de Pipedrive y nada de cómo se ve en el teléfono.
+
+**El rediseño es PIEL del componente compartido, desde la carpeta de la pantalla.**
+- KanbanM (app/m/_ui) lo usan el CRM, Clientes y el Plan. La piel va en `crm.css` / `plan.css` debajo de una clase que
+  envuelve al tablero (`.m-crm-tablero`, `.m-plan-tablero`) y el componente no se toca: Clientes sigue como estaba.
+- ⚠️ **La copia que sigue al dedo al arrastrar cuelga de `#m-root`, FUERA del envoltorio**: las clases de lo de adentro de
+  la tarjeta (`.m-crm-tj*`) van sin el envoltorio delante, o la tarjeta arrastrada se dibuja desarmada. Las de la caja
+  (filete, sin radio) sí van con él: la copia se ve como tarjeta levantada.
+- Las reglas de m.css con la misma especificidad pierden contra las de la pantalla (se cargan después): al pisar el
+  fondo de la columna se perdió el resaltado de destino (`[data-destino]`) y la animación de llegada; hubo que
+  reponerlos con el envoltorio delante, también en `prefers-reduced-motion`.
+
+**«Sin empresa» es un RELLENO, no un dato.**
+- Síntoma: la segunda línea de casi todas las tarjetas del CRM del teléfono decía «Sin empresa» (todas las de la
+  columna mirada del ws9), y nunca decía por dónde llegó el lead, que era su respaldo (`company || llegoPor(...)`).
+- Causa: `mapToCrmLead` (app/crm/crm-map.ts) pone `company: l.empresa ?? 'Sin empresa'`, así que el `||` nunca cae.
+- Regla: un campo de `CrmLead` puede venir RELLENADO para la tarjeta de escritorio; antes de usarlo como «¿hay dato?»,
+  mirar el mapper. El teléfono compara contra `SIN_EMPRESA` (app/m/crm/datos.ts).
+
+**El `chevron` de app/_components/icons.tsx apunta hacia ABAJO.** FilaM lo rota para el «›». Rotarlo 90° «para que
+apunte abajo» lo dejó en «‹» (visto a 390 px). Antes de rotar un ícono, mirá hacia dónde apunta.
+
+**Lo que NO se copió, y por qué** (para que nadie lo «complete»):
+- El triángulo amarillo de Pipedrive («sin actividad planificada»): escritorio no tiene esa alarma, y un tablero que
+  reclama algo en cada tarjeta es lo que hacía abandonar el CRM a Mauricio (memoria crm-guardar-nunca-bloquea). La
+  señal se alimenta SÓLO con el pie de la tarjeta de escritorio: la reunión que viene (verde) y la Nutrición manual
+  vencida (rojo). Una reunión que ya pasó no es «agendado».
+- Las flechas ‹ › y los botones Won/Lost de la ficha de Pipedrive: desde el teléfono no se va a cualquier etapa (Ganado,
+  cobros y las del wizard son de la computadora, `seMueveEnElTelefono`); la barra abre «Mover de etapa», que dice a
+  cuáles sí.
+- El «+» de Pipedrive (nuevo deal) y el agregar rápido de Todoist: escritorio los tiene, pero en el teléfono son
+  funciones nuevas (el alta de una tarea dispara al Perro, AGENTS.md). Quedan en el relevo.
+
+**Mirar /m en local, lo que costó esta vez:**
+- **Copiar `node_modules` desde el clon de OneDrive tardó 49 minutos**, no «~1-3 min»: 60.823 archivos a 20 MB/min,
+  con el disco tan ocupado que un `grep` de 120 s y un `du` se cortaron por tiempo. Y 7 archivos de `onnxruntime-node`
+  fallaron la primera pasada (una segunda pasada con `/XO` los copió). Se lanza en segundo plano y se trabaja el código
+  mientras.
+- **Desde el Git Bash, `robocopy … /E` falla**: el Bash convierte `/E` en `E:/` («Invalid Parameter #3»). Va por
+  PowerShell. Y por lo mismo, **un argumento `/crm` a un script de node llega como `C:/Program Files/Git/crm`**: CDP
+  contesta «Cannot navigate to invalid URL» y la foto sale en blanco sin error. `MSYS_NO_PATHCONV=1`.
+- **`--debug-build-paths` lee GLOBS: `app/m/crm/[id]/page.tsx` es una clase de caracteres** y la ficha no se compila (sin
+  aviso; la tabla de rutas del build parcial no se imprime). `app/m/crm/*/page.tsx` sí; `[[]id]` tampoco anduvo. Se
+  confirma en `.next/app-path-routes-manifest.json`.
+- El ws3 sigue con el onboarding pendiente (todo /m va a `/configurar`): se miró con el ws9 sólo leyendo. **Las capturas
+  que van al repo no llevan datos de leads**: antes de la foto, un script cambia los nombres por ficticios y desenfoca
+  teléfono, email y notas (el diseño es el real).
+- «Mover a…» se abrió en el navegador con `PointerEvent` sintéticos (pointerdown, 700 ms, pointerup): KanbanM lo
+  escucha con los handlers de React y la hoja se abre sin escribir nada. Arrastrar de verdad no se probó (sin ws3).
+
+**SIN HACER (con su archivo):**
+- Mover un lead y una tarea en el ws3 con la piel nueva, en un teléfono (arrastrar y «Mover a…»): app/m/crm/crm.css,
+  app/m/plan/plan.css. Y ver el punto verde con una reunión real (el ws9 no tenía ninguna próxima).
+- El «+» para cargar un lead (Pipedrive) y el agregar rápido de una tarea (Todoist): app/m/crm/TableroCrm.tsx,
+  app/m/plan/ListaPlan.tsx; el alta de tareas pasa por el Perro (AGENTS.md, «Crear tareas dispara al Perro»).
+- Calendar (app/m/calendario) ya es la copia de Google Calendar (Día · Agenda) y la portada General (app/m/hoy) dibuja
+  la hoja de escritorio por decisión: no se rediseñaron en esta tanda.
+
+**Vive en:** app/m/crm/ (`senalDeTarjeta`, `progresoEnFunnel` en reglas.ts; `SIN_EMPRESA` en datos.ts; la piel en
+crm.css) · app/m/plan/ListaPlan.tsx y plan.css · tests/m-crm-rediseno.test.ts · tests/m-plan-rediseno.test.ts ·
+docs/prototipos/mobile-rediseno-1710-*.png.
+*17/10/2026, claude4 (agente «Mobile 3: rediseño de CRM y Plan»).*
+
+## Chats del teléfono con todos los canales, y la primera auditoría MIRADA a 390 px (17/10/2026)
+
+Pedido de Martín (17/10, 10:35): «Implementa end to end MaKo mobile, hay muchas cosas que faltan o podrían
+mejorarse». Rama `mobile-e2e-1710` (C:/dev/wt-mobile). Por primera vez se miraron TODAS las pantallas de /m en un
+navegador (Chrome headless, iPhone a 390 px) contra un `next start` local: ninguna rompía; lo roto para un cliente
+era Chats.
+
+**Chats vacío con la bandeja de la computadora llena.**
+- Síntoma: un negocio que vende por Instagram (o Messenger, o Email) veía «Todavía no hay chats.» en el teléfono, y
+  un aviso de Instagram (`/chats?c=ig:…`) abría esa lista vacía.
+- Causa: `app/m/chats/datos.ts` leía `getConversacionesNoOficial` (sólo WhatsApp, sólo con lead). Su cabecera decía
+  «cuando lleguen los chats unificados, la lectura cambia acá»: llegaron a main el 15/10 y nadie volvió.
+- **La regla:** cuando escritorio cambia DE DÓNDE lee una tab (una bandeja que se unifica, una tabla nueva), la
+  lectura del teléfono se cambia en el mismo trabajo. Se busca quién lee la fuente vieja en `app/m`
+  (`grep -rn <lector viejo> app/m`): un teléfono que lee la fuente vieja no rompe, muestra VACÍO.
+- Ahora: la lista es `listarChats` (lib/chats.ts, la misma de GET /api/chats) con `paginasWhatsapp: 3` (la opción
+  nueva: sin ella, el espejo entero, 5,5-7,8 s en el ws1); los filtros son los de escritorio (`filtrarChats`,
+  `contarBandejas`, `coincideBusqueda`); una conversación es `/m/chats/<clave>` (en escritorio `/chats?c=<clave>`),
+  con `hiloDeChat` y un composer que sale por las MISMAS rutas que escritorio (WhatsApp con su línea, social con
+  idempotencia, email). `/chats?c=` y `?lead=` van directo a la conversación; `?linea=&chat=` se busca en la lista
+  con `resolverLinkProfundo`, que nunca elige otra.
+- **El día del hilo sale de la zona del NEGOCIO.** `armarHilo` de escritorio usa la hora local porque dibuja en el
+  navegador; el teléfono dibuja en el server (UTC) y un mensaje de las 22 h de Buenos Aires caía en el día siguiente
+  (`diasDelHilo`, app/m/chats/hilo-modelo.ts).
+- El botón «WhatsApp» de la ficha del teléfono abre la conversación en Chats con `rutaChatsDeLead`, la función de
+  escritorio (antes, el hilo de sólo WhatsApp `/m/crm/<id>/chat`, que sigue existiendo).
+- Los rótulos (bandejas, Mostrar, Orden, canales) se escriben una vez en app/m/chats/modelo.ts y
+  tests/m-chats.test.ts los cruza contra app/chats/PanelBandejas.tsx y ListaChats.tsx.
+- **Los tests que fijan rutas del teléfono no son sólo los `movil-*`**: tests/chats-verificacion.test.ts esperaba
+  `/chats?lead=7` → `/m/crm/7/chat`, y tests/chats-datos.test.ts contaba TRES argumentos en cada lectura de WhatsApp
+  de lib/chats.ts (el cuarto, las páginas del teléfono, se leía como «sin la línea»). Los encontró el Cerebro al
+  integrar. Antes de un VERDE que toque lib/chats.ts o una ruta de Chats: `tests/chats*.test.ts` y
+  tests/sidebar-nueva.test.ts, además de los del teléfono.
+
+**Mirar /m en local sin `next dev` (lo que costó una hora):**
+- **`next start -H 127.0.0.1` + LAS MISMAS RUTAS = ERR_TOO_MANY_REDIRECTS en TODA pantalla.** El diagnóstico obvio
+  («el desvío arma un bucle») era el equivocado: el proxy reescribe a `new URL('/m/crm', req.url)` con host
+  `localhost`, y Next trata un rewrite a OTRO host como externo — lo pide de nuevo por HTTP, entra por el proxy como
+  `/m/crm` («URL /m vieja») y lo redirige a `/crm`. Con `-H localhost` (y el navegador en `localhost`) anda.
+  Producción no lo tiene: el host del pedido y el del rewrite son el mismo.
+- **Un build parcial (`--debug-build-paths`) deja `dynamicRoutes` vacío en `.next/routes-manifest.json`**: toda ruta
+  con `[param]` da 404 en `next start` aunque compiló (y la tabla «Route (app)» no se imprime). Se parchea el
+  manifest con la regex de cada página (script en el relevo). No es un bug de la pantalla.
+- El vigía mata un build parcial de más de ~8 páginas de /m (3,4 GB con 16 chats abiertos): de a 3-8 páginas,
+  con el server parado (comparten `.next`).
+- **La sesión firmada a mano se firma con `ws: 9`** (lo que tiene la fila de Martín). Sin `ws`, `requireMovil`
+  manda al admin a `/general?ws=9`, y con `?ws=9` el admin «está mirando un cliente»: el Plan lee el tablero de
+  CLIENTE del ws9 y dice «No hay tareas abiertas». Parecía un bug del Plan del teléfono; era la sesión de prueba.
+- El ws3 tiene el onboarding pendiente y tapa todo /m (`/configurar`): las tabs se miraron en el ws9 sólo leyendo,
+  y el ws3 sirvió para ver el onboarding (el chat de Offer anda a 390 px). La píldora del funnel de Offer tocaba la línea de la cabecera: 8 px arriba (app/m/offer/offer.css).
+
+**Lo que se vio y no es nuestro:** al redirigir el server en medio del render (`/general` → `/configurar` con el
+onboarding pendiente) la consola registra el error de React #310 dentro del AppRouter de Next; la página llega bien.
+
+**Y el Second Brain del teléfono dibuja el markdown de escritorio** (listas y títulos; antes, sólo negritas):
+`<Markdown>` en app/m/mako/ChatMako.tsx, tests/m-mako-markdown.test.ts.
+
+**SIN HACER (con su archivo):**
+- Chats: adjuntar archivos y notas de voz, notas internas, asignar, mover de etapa y posponer desde el teléfono
+  (escritorio: app/chats/Composer.tsx y VentanaChat.tsx); buscar en el servidor un lead sin mensajes
+  (`listarChats({ buscar })`); la página no se vio con chats reales (el ws9 no tiene y el ws1 no se toca): mirarla
+  en el ws3 cuando termine el onboarding, con un Instagram conectado.
+
+**Vive en:** app/m/chats/ (`modelo.ts`, `hilo-modelo.ts`, `datos.ts`, `ListaChats.tsx`, `[clave]/`) ·
+lib/chats.ts (`paginasWhatsapp`) · lib/movil-rutas.ts (`rutaMovil`, `rutaEscritorio`) · app/m/_ui/cabecera.ts
+(`CHAT_DE_CHATS`) · tests/m-chats.test.ts.
+*17/10/2026, claude4 (chat «MaKo Mobile»).*
+
 ## El Second Brain del teléfono es el chat con MaKo; el Mapa, su propia página (16/10/2026)
 
 Tanda 3 de la etapa 2 (docs/diseno-mako-ai-native.md): como en escritorio, «Second Brain» es el chat con MaKo y el
@@ -1183,3 +1480,20 @@ Test: tests/m-hoy-hojas.test.ts (probado rompiéndolo). **Nadie lo miró en un t
 hojas de General, abrir hola-mako.com/general en el celular y tocar la segunda.
 **Vive en:** app/m/hoy/page.tsx · app/m/hoy/modelo.ts · app/m/hoy/hoy.css.
 *17/10/2026, claude4 (chat Dashboard).*
+
+## Una hoja en «medio» no deja ver el final de su cuerpo (17/10/2026, lo halló el Ops Center)
+
+**Síntoma:** Martín, en «Uso y Runners» del Ops Center: «esa sección se traba y no se puede scrollear hasta el final».
+
+**Causa:** SheetM (app/m/_ui/SheetM.tsx) mide el panel con el alto de «alto» y en «medio» lo CORRE hacia abajo
+(`translateY(hPanel − hMedio)`). El cuerpo scrollea dentro de ese panel, así que al llegar al fondo lo último queda debajo de la
+pantalla. El pie sí se compensa (sube lo mismo); el cuerpo no. Desde el cuerpo el gesto sólo baja la hoja (cerrar), nunca la
+sube a «alto»: sin agarrar la manija no hay forma de ver el final. Lo obvio era «un contenedor con alto fijo o un overflow
+hidden» y no era eso.
+
+**Arreglo hecho:** esa hoja abre en `snap="alto"` (app/m/operaciones/CentroAppMovil.tsx).
+
+**Sin hacer (es de SheetM, para todas):** en «medio», sumarle al cuerpo un `padding-bottom` igual al corrimiento (el mismo
+número que ya se usa para el pie), o subir a «alto» cuando el cuerpo llega al fondo. Toda hoja que abre en «medio» con un
+cuerpo más largo que el 55% de la pantalla tiene el mismo defecto.
+

@@ -113,11 +113,13 @@ test('mirando, lo vacío no se dibuja ni deja hueco; editando, se dibuja marcado
   // salida y fuera de la nutrición manual. Quedan los highlights, el equipo, el contacto, las redes y las notas.
   assert.deepEqual(mirando.map((b) => b.def.id), ['calificacion', 'tiempo-en-etapa', 'ingreso-estimado', 'setter-y-closer', 'contacto', 'redes-y-web', 'notas']);
   assert.deepEqual(mirando.map((b) => b.span), [4, 4, 4, 6, 6, 12, 12], 'las redes quedan solas en su fila: se estiran');
-  const conUnoSinComponente: BloquePuesto[] = [...respaldo.tabs.resumen, { id: 'charla-whatsapp', ancho: 12, diseno: 'ultimo' }];
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: `charla-whatsapp` ya tiene componente (todos los del Resumen lo tienen). El de
+  // ejemplo es `confirmacion-de-pago`, de Pagos, que sigue sin él (la grilla no mira la tab: mira el registro).
+  const conUnoSinComponente: BloquePuesto[] = [...respaldo.tabs.resumen, { id: 'confirmacion-de-pago', ancho: 4, diseno: bloqueDef('confirmacion-de-pago')!.disenos[0].id }];
   const editando = bloquesDeLaGrilla(conUnoSinComponente, { reglasDe, vacio: vacioCon(ctx), editando: true, verPrivado: true });
   assert.ok(editando.some((b) => b.def.id === 'origen' && b.vacio), 'editando, lo vacío se ve (para moverlo o sacarlo)');
-  assert.ok(!reglasDe('charla-whatsapp'));
-  assert.ok(!editando.some((b) => b.def.id === 'charla-whatsapp'), 'lo que no tiene componente no se dibuja ni editando');
+  assert.ok(!reglasDe('confirmacion-de-pago'));
+  assert.ok(!editando.some((b) => b.def.id === 'confirmacion-de-pago'), 'lo que no tiene componente no se dibuja ni editando');
 
   const perdido = ctxDe({ estado_lead: 'perdido', utm_source: 'ig' });
   const ids = bloquesDeLaGrilla(respaldo.tabs.resumen, { reglasDe, vacio: vacioCon(perdido), editando: false, verPrivado: true }).map((b) => b.def.id);
@@ -155,9 +157,13 @@ test('«Agregar bloque» ofrece sólo lo que tiene componente y no está puesto'
   const lista = respaldo.tabs.resumen;
   const ofrece = (l: readonly BloquePuesto[], buscar?: string) => ofrecerEnAgregar('resumen', l, { registrado: (id) => !!reglasDe(id), verPrivado: true, buscar }).map((d) => d.id);
   assert.ok(!ofrece(lista).includes('notas'), 'lo puesto no se ofrece otra vez');
-  // Uno que NO está puesto y no tiene componente (16/10/2026: `siguiente-accion` ya lo tiene; `charla-whatsapp`, no).
-  assert.ok(!lista.some((p) => p.id === 'charla-whatsapp') && !reglasDe('charla-whatsapp'));
-  assert.ok(!ofrece(lista).includes('charla-whatsapp'), 'lo que no tiene componente no se ofrece («pronto» no)');
+  // Uno que NO está puesto y no tiene componente. ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: en el Resumen ya no queda
+  // ninguno (`charla-whatsapp` y los otros seis de la charla tienen el suyo), así que se mira en Pagos.
+  const pagos = respaldo.tabs.pagos;
+  const ofrecePagos = (l: readonly BloquePuesto[]) => ofrecerEnAgregar('pagos', l, { registrado: (id) => !!reglasDe(id), verPrivado: true }).map((d) => d.id);
+  assert.ok(!pagos.some((p) => p.id === 'confirmacion-de-pago') && !reglasDe('confirmacion-de-pago'));
+  assert.ok(!ofrecePagos(pagos).includes('confirmacion-de-pago'), 'lo que no tiene componente no se ofrece («pronto» no)');
+  assert.ok(ofrece(lista).includes('charla-whatsapp'), 'lo que tiene componente y no está puesto, sí');
   const sinNotas = lista.filter((p) => p.id !== 'notas');
   assert.ok(ofrece(sinNotas).includes('notas'));
   assert.deepEqual(ofrece(sinNotas, 'NOTA'), ['notas'], 'el buscador no distingue mayúsculas');

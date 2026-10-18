@@ -47,7 +47,10 @@ import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
 import type { NodoFisico, Simulacion } from './fisica';
 import { Button, ButtonLink } from '@/app/_ui';
 import { FiltroMapa, type PanelAbierto } from './FiltroMapa';
-import { cuentaFiltros, filtroVacio, pasaFiltro, type EstadoFiltro } from '@/lib/cerebro-filtro';
+import { capaActiva, cuentaFiltros, filtroDeCapa, filtroVacio, pasaFiltro, type EstadoFiltro } from '@/lib/cerebro-filtro';
+// El mapa único del super admin trae las dos capas: sólo las diez áreas del negocio se editan (lib/cerebro-union.ts).
+import { esAreaDeNegocio } from '@/lib/cerebro-union';
+import { apaisar, soltarApaisado } from './apaisar';
 import { NoResults } from '@/app/_ui/Estados';
 // La misma máquina de matcheo que la barra del plan: palabras en cualquier orden, sin
 // acentos ni mayúsculas, con frontera de palabra y plural tolerado. El módulo no lleva
@@ -65,6 +68,13 @@ const K_MIN_REL = 0.35;
 const K_MAX_REL = 6;
 /** Umbral de clic vs arrastre, 5 px de pantalla al cuadrado (el mismo que Obsidian). */
 const ARRASTRE2 = 25;
+/** Lo mismo con el DEDO: 10 px. Un dedo no es un puntero de 1 px, y con 5 px un toque normal en un Android contaba como
+ *  arrastre (la rodada del pulgar) y el nodo nunca se fijaba: «no puedo clickear en nodos» (Martín, 17/10/2026). */
+const ARRASTRE2_TACTIL = 100;
+/** El radio MÍNIMO de lo que se toca de un nodo, en píxeles de pantalla: 16 con el mouse, 22 con el dedo (44 px de
+ *  diámetro, el mínimo táctil de Android y de Apple). */
+const TOQUE_PX = 22;
+const CLIC_PX = 16;
 /** La `Rl` de Obsidian: cuánto se apaga lo que no toca al nodo en foco. */
 const ATENUADO = 0.2;
 
@@ -104,6 +114,7 @@ const fechaCorta = fechaCortaNodo;
  *  drag-and-drop nativo se corta acá: sin esto, arrastrar sobre un nodo levanta el
  *  «fantasma» de imagen del navegador y mata el paneo a mitad del gesto. */
 const frenarDragNativo = (e: React.DragEvent) => e.preventDefault();
+const frenarMenu = (e: React.MouseEvent) => e.preventDefault();
 
 /** La ruta que devuelve una URL firmada para MIRAR el archivo (no para bajarlo). El
  *  `?ws=` de la pestaña NO viaja solo en un `src`: el parche de fetch de la app pisa
@@ -126,7 +137,7 @@ function hashDe(id: string): number {
   return h >>> 0;
 }
 
-export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion }: {
+export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion, movil = false, alCerrar }: {
   /** El grafo, con su taxonomía (sin ella, la del negocio). El de la construcción de MaKo trae la suya. */
   cerebro: Cerebro<string>;
   /** Abre el EDITOR de un área en una caja encima del grafo (VistaCerebro → AreasHub). Sólo con una intención
@@ -145,12 +156,17 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   onFiltro: (f: EstadoFiltro | ((prev: EstadoFiltro) => EstadoFiltro)) => void;
   /** Lo que va ADENTRO del lienzo, arriba a la derecha («Exportar»). */
   accion?: ReactNode;
+  /** El teléfono (17/10/2026): botones del tamaño de un dedo, «Girar la pantalla» y, apaisado, la barra lateral AL
+   *  COSTADO con su scroll (la de la computadora). Sin esto el grafo es el de siempre. */
+  movil?: boolean;
+  /** Sólo en el teléfono: la flecha de arriba a la izquierda que vuelve a la lista. */
+  alCerrar?: () => void;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
-  /** LA TAXONOMÍA de este grafo: la del negocio, o la de la construcción de MaKo (super admin). Pinta, agrupa, navega y
-   *  filtra; el filtro de áreas y el editor de cada una son sólo del negocio (`esNegocio`). */
+  /** LA TAXONOMÍA de este grafo: la del negocio o, para el super admin, las dos capas juntas (el negocio y la
+   *  construcción de MaKo: lib/cerebro-union.ts). Pinta, agrupa, navega y filtra; el editor de un área es sólo de las
+   *  diez del negocio (`esAreaDeNegocio`). */
   const tax = cerebro.taxonomia ?? TAXONOMIA_NEGOCIO;
-  const esNegocio = !cerebro.taxonomia;
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
@@ -235,7 +251,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     arrastreCol.current = null;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
   };
-  const hayFiltro = cuentaFiltros(filtro) > 0;
+  const hayFiltro = cuentaFiltros(filtro, tax) > 0;
 
 
   const porId = useMemo(() => new Map(nodos.map((n) => [n.id, n])), [nodos]);
@@ -768,7 +784,13 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   }, [aMundo, pedirPintado, cortarVuelo]);
 
   const punteros = useRef(new Map<number, { x: number; y: number }>());
-  const arrastre = useRef<{ x0: number; y0: number; vx: number; vy: number; movido: boolean } | null>(null);
+  const arrastre = useRef<{ x0: number; y0: number; vx: number; vy: number; movido: boolean; tactil: boolean } | null>(null);
+  /** ¿El último gesto fue de un dedo? El teléfono emite además un `mouseenter` después de tocar, y sin esto el nodo
+   *  tocado se quedaba «resaltado como si el cursor estuviera encima». */
+  const esToque = useRef(false);
+  /** ¿El aparato se maneja con el dedo? Agranda lo que se toca de un nodo. */
+  const [tactil, setTactil] = useState(false);
+  useEffect(() => { setTactil(!!window.matchMedia?.('(pointer: coarse)').matches); }, []);
   const pellizco = useRef<{ d0: number; k0: number } | null>(null);
 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -776,11 +798,12 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     // `<circle>` que se tocó, el primer re-render de React lo reemplaza y la captura
     // se pierde a mitad del gesto: el paneo se corta solo.
     cortarVuelo();
+    esToque.current = e.pointerType === 'touch';
     svgRef.current?.setPointerCapture?.(e.pointerId);
     punteros.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (punteros.current.size === 1) {
       const v = vista.current;
-      arrastre.current = { x0: e.clientX, y0: e.clientY, vx: v.x, vy: v.y, movido: false };
+      arrastre.current = { x0: e.clientX, y0: e.clientY, vx: v.x, vy: v.y, movido: false, tactil: e.pointerType === 'touch' };
     } else if (punteros.current.size === 2) {
       const [a, b] = [...punteros.current.values()];
       pellizco.current = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, k0: vista.current.k };
@@ -812,11 +835,13 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     if (!arr) return;
     const dx = e.clientX - arr.x0;
     const dy = e.clientY - arr.y0;
-    if (!arr.movido && dx * dx + dy * dy <= ARRASTRE2) return;
+    if (!arr.movido && dx * dx + dy * dy <= (arr.tactil ? ARRASTRE2_TACTIL : ARRASTRE2)) return;
     arr.movido = true;
 
-    // Si el gesto empezó sobre un nodo, se arrastra el NODO. Si no, se panea el mapa.
-    if (arrastrando.current) {
+    // Si el gesto empezó sobre un nodo, se arrastra el NODO. Si no, se panea el mapa. ⚠️ Con el DEDO siempre se panea:
+    // con 44 px de blanco por nodo, en un mapa denso casi cualquier toque cae sobre alguno, y arrastrarlo (en vez de
+    // mover el mapa) deja al teléfono sin forma de desplazarse. El nodo se mueve con el mouse.
+    if (arrastrando.current && !arr.tactil) {
       const p = aMundoReal(e.clientX, e.clientY);
       if (p) simRef.current?.mover(p.x, p.y);
       return;
@@ -839,7 +864,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     if (punteros.current.size === 0) {
       const quieto = arrastre.current && !arrastre.current.movido;
       const sobreNodo = arrastrando.current;
-      if (sobreNodo) simRef.current?.soltar();
+      if (sobreNodo && !arrastre.current?.tactil) simRef.current?.soltar();
       // ⚠️ El clic se resuelve ACÁ y no con un onClick en el nodo. `setPointerCapture`
       // RETARGETEA todos los eventos siguientes al elemento que capturó —el <svg>—,
       // así que el `click` nunca llega al <circle> y el onClick del nodo no dispara.
@@ -862,6 +887,8 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     // El orden de React ya es el correcto — el nodo dispara ANTES que el lienzo —,
     // así que cuando el <svg> arma el gesto, `arrastrando` ya está puesto.
     arrastrando.current = id;
+    // Con el dedo el nodo no se agarra (ver onPointerMove): un toque lo fija y un arrastre mueve el mapa.
+    if (e.pointerType === 'touch') return;
     const p = aMundoReal(e.clientX, e.clientY);
     void asegurarSim().then((s) => {
       if (arrastrando.current === id && p) s?.agarrar(id, p.x, p.y);
@@ -968,7 +995,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   const puedeVerDoc = !!nodoSel && nodoSel.id.startsWith('doc:') && sePuedeVer(nodoSel.mime);
   // Lo que se edita en OTRA pantalla (una oferta en Offer, un funnel en el CRM) lleva ahí; el «Editar» del área es
   // para lo que se edita acá.
-  const puedeEditar = esNegocio && !!nodoSel && !!onEditarArea && !nodoSel.href && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:');
+  const puedeEditar = !!nodoSel && esAreaDeNegocio(nodoSel.area) && !!onEditarArea && !nodoSel.href && nodoSel.id !== 'raiz' && !nodoSel.id.startsWith('n1:');
   /** «Lo último»: los datos más recientes, en el navegador. */
   const ultimos = useMemo(() => ultimosDelCerebro(nodos), [nodos]);
 
@@ -1143,14 +1170,38 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     const el = marcoRef.current;
     if (!el) return;
     if (document.fullscreenElement) void document.exitFullscreen();
+    // En el teléfono la pantalla completa también GIRA (horizontal): app/second-brain/apaisar.ts.
+    else if (movil) void apaisar(el).then((r) => { if (r !== 'apaisada') setSinGiro(true); });
     else void el.requestFullscreen?.();
-  }, []);
+  }, [movil]);
+
+  /** El teléfono está en vertical (y el grafo ofrece girarlo); `sinGiro` = ya se intentó y el navegador no giró. */
+  const [retrato, setRetrato] = useState(false);
+  const [sinGiro, setSinGiro] = useState(false);
+  useEffect(() => {
+    if (!movil || !window.matchMedia) return;
+    const mq = window.matchMedia('(orientation: portrait)');
+    const alCambiar = () => setRetrato(mq.matches);
+    alCambiar();
+    mq.addEventListener('change', alCambiar);
+    return () => mq.removeEventListener('change', alCambiar);
+  }, [movil]);
 
   useEffect(() => {
-    const alCambiar = () => setEnPantallaCompleta(!!document.fullscreenElement);
+    const alCambiar = () => {
+      setEnPantallaCompleta(!!document.fullscreenElement);
+      // Salir de la pantalla completa (el botón «atrás» de Android) devuelve la rotación al sistema.
+      if (!document.fullscreenElement) soltarApaisado();
+    };
     document.addEventListener('fullscreenchange', alCambiar);
     return () => document.removeEventListener('fullscreenchange', alCambiar);
   }, []);
+  // Cerrar el grafo del teléfono (←) lo desmonta: que no quede girado ni a pantalla completa en la lista de atrás.
+  useEffect(() => () => {
+    if (!movil) return;
+    soltarApaisado();
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  }, [movil]);
 
   // Escape suelta el nodo fijado. Sin esto, la única salida es volver a hacer clic en
   // el mismo punto o en el fondo, y ninguna de las dos está escrita en ningún lado: se
@@ -1216,7 +1267,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
 
 
   return (
-    <div className="cbg" ref={marcoRef} style={{ ['--cbg-col' as string]: `${anchoCol}px` }}>
+    <div className="cbg" ref={marcoRef} data-movil={movil ? '1' : undefined} style={{ ['--cbg-col' as string]: `${anchoCol}px` }}>
       <style>{`
         /* ⚠️ EL ALTO NO SE DERIVA DEL ANCHO. Antes el svg llevaba \`aspect-ratio: 4/3\`
            con \`height:auto\`, así que el lienzo CRECÍA justo en el monitor donde más
@@ -1626,6 +1677,32 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         .cbg .cbg-nav__conteo[data-falta="1"] { color: var(--warn); }
         .cbg .cbg-nav__pista { margin: 18px 0 0; font-size: 12.5px; color: var(--faint); }
 
+        /* El título de cada CAPA en el navegador (sólo el mapa único del super admin) y lo que es del teléfono. */
+        .cbg .cbg-nav-capa {
+          display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+          border-top: 1px solid var(--cbg-linea); margin: 22px 0 0; padding: 12px 0 0; font: inherit;
+          font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
+        }
+        .cbg .cbg-nav-capa:hover { color: var(--cbg-texto); }
+        .cbg .cbg-nav-capa[aria-pressed="true"] { color: var(--primary); }
+        .cbg .cbg-nav-capa + .cbg-nav__carpeta { margin-top: 8px; }
+        .cbg .cbg-mapa, .cbg .cbg-mapa * { -webkit-tap-highlight-color: transparent; }
+        .cbg .cbg-atras {
+          width: 36px; height: 36px; flex: none; border: 1px solid var(--cbg-linea); color: var(--cbg-texto);
+          background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        }
+        .cbg .cbg-girar {
+          position: absolute; left: 10px; bottom: 58px; z-index: 4;
+          display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer;
+          padding: 10px 15px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600;
+          background: var(--primary); color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.4);
+        }
+        .cbg[data-movil] .cbg-ico { width: 38px; height: 38px; font-size: 17px; }
+        .cbg[data-movil] .cbg-chip { padding: 9px 12px; }
+        .cbg[data-movil] .cbg-link, .cbg[data-movil] .cbg-nav-fila { min-height: 40px; }
+        .cbg[data-movil] .cbg-det__cerrar { width: 36px; height: 36px; }
+        .cbg[data-movil] .cbg-detalle { overscroll-behavior: contain; }
+
         @media (max-width: 1100px) {
           /* SIN COLUMNA: una de 400 px sobre un lienzo de menos de 700 no deja mapa. Pero el detalle NO baja debajo del
              grafo (eso era «algo aparece abajo»): flota ENCIMA, pegado a la derecha, y sólo cuando hay un nodo fijado
@@ -1645,6 +1722,28 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
           .cbg { padding: 0 8px 8px; }
           .cbg .cbg-detalle { top: auto; left: 14px; right: 14px; bottom: 14px; width: auto; max-height: 62%; }
         }
+        /* ── EL TELÉFONO APAISADO (Martín, 17/10/2026) ─────────────────────────────────────────────────────────────
+           «Que se vea la sidebar como en desktop, sólo que con scroll.» Un teléfono de costado mide 640-930 px de ancho
+           por 340-430 de alto: ni la columna de 400 px de la computadora (se come el mapa) ni la hoja flotante (no cabe
+           en 340 px de alto). Entonces la MISMA barra lateral, a la derecha, más angosta y con su scroll, y el mapa en lo
+           que sobra. Sin el tirador (no hay mouse) ni el botón «Áreas» (la columna ya está). Va DESPUÉS de las otras
+           dos con la misma especificidad: es lo que las pisa. */
+        @media (orientation: landscape) and (max-height: 640px) {
+          .cbg {
+            grid-template-columns: minmax(0, 1fr) clamp(250px, 38vw, 340px); gap: 6px;
+            padding: 0 max(6px, env(safe-area-inset-right)) 6px max(6px, env(safe-area-inset-left));
+          }
+          .cbg:fullscreen { padding: 6px max(6px, env(safe-area-inset-right)) 6px max(6px, env(safe-area-inset-left)); }
+          .cbg .cbg-tirador, .cbg .cbg-areas-btn { display: none; }
+          .cbg .cbg-detalle,
+          .cbg .cbg-detalle[data-plegado="1"] {
+            position: static; display: flex; width: auto; height: 100%; max-height: none; box-shadow: none;
+          }
+          .cbg .cbg-det__cuerpo { padding: 12px 14px 14px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+          .cbg .cbg-det__acciones { padding: 10px 14px 12px; }
+          .cbg .cbg-det__titulo { font-size: 17px; }
+          .cbg .cbg-nav__n { font-size: 26px; }
+        }
       `}</style>
 
       <div className="cbg-marco">
@@ -1652,6 +1751,11 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             Martín, 17/10/2026: la búsqueda a la IZQUIERDA, antes de «Filtrar», con el filtro casi pegado a ella;
             «Exportar» adentro del grafo, arriba a la derecha (donde estaba el zoom). */}
         <div className="cbg-barra">
+          {alCerrar && (
+            <button type="button" className="cbg-ico cbg-atras" onClick={alCerrar} title="Volver a la lista" aria-label="Volver a la lista">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 6l-6 6 6 6" /></svg>
+            </button>
+          )}
           <BuscadorCerebro
             q={busca}
             onQ={(v) => { setBusca(v); if (ia.ids !== null) setIa({ pensando: false, ids: null, explico: '' }); }}
@@ -1669,16 +1773,17 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
               viven el estado y los conteos, que salen del mismo cálculo que dibuja el
               mapa — un contador que no sale de ahí es un contador que se va a
               desincronizar, y ya pasó una vez (decía 14 y el mapa mostraba 5). */}
-          {/* El filtro de carpetas, secciones y autoría es del grafo del negocio: el de la construcción se filtra desde el
-              navegador de la barra lateral (sus familias y sus áreas). */}
-          {esNegocio && <FiltroMapa
+          {/* Las CAPAS (el negocio, la construcción de MaKo) y las carpetas de las dos son del mismo filtro: «desarrollo,
+              ventas, marketing...» se eligen acá o desde la barra lateral (Martín, 17/10/2026). */}
+          <FiltroMapa
             filtro={filtro}
             onFiltro={setFiltro}
             abierto={filtroAbierto}
             onAbrir={setFiltroAbierto}
             conteoArea={porArea}
             conteoAutoria={{ mako: cuenta.mako, usuario: cuenta.usuario, falta: cuenta.pendientes }}
-          />}
+            tax={tax}
+          />
           {/* «N de M», que el tablero no tiene y el CRM sí. Sin esto, filtrar y no ver
               nada es indistinguible de que el mapa esté vacío. */}
           {hayFiltro && (
@@ -1705,6 +1810,8 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             role="img"
             aria-label={`Mapa del segundo cerebro: ${cuenta.total} datos que MaKo entendió de tu negocio`}
             onDragStart={frenarDragNativo}
+            // Mantener apretado dispara `contextmenu` en Android y abre el menú del navegador encima del gesto.
+            onContextMenu={frenarMenu}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={soltar}
@@ -1776,7 +1883,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                     // seguir a UN nodo entre dos frames.
                     data-nodo={n.id}
                     transform={`translate(${p.x} ${p.y})`}
-                    onMouseEnter={() => setActivo(n.id)}
+                    onMouseEnter={() => { if (!esToque.current) setActivo(n.id); }}
                     onMouseLeave={() => setActivo(null)}
                     onPointerDown={agarrarNodo(n.id)}
                   >
@@ -1804,7 +1911,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                         style={{ animationDelay: saliendo.has(n.id) || llegados.has(n.id) ? '0ms' : `${Math.min(i * 12, 700)}ms` }}
                       >
                         <g className="cbg-cuerpo">
-                          <circle r={Math.max(r + 8 / kr, 16 / kr)} fill="transparent" />
+                          <circle r={Math.max(r + 8 / kr, (tactil ? TOQUE_PX : CLIC_PX) / kr)} fill="transparent" />
                           <circle r={r} fill={rellenoDe(n)} opacity={opacidadDe(n)} />
                           {esSel && (
                             <circle r={r + 1.2 / kr} fill="none" stroke="var(--ink)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
@@ -1912,6 +2019,14 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
 
         {/* El zoom es UN control (alejar · cuánto · acercar) y va junto; «ajustar» y «pantalla completa» cambian el
             ENCUADRE y van al lado, separados por una raya. Abajo a la izquierda desde el 17/10/2026. */}
+        {/* El teléfono en vertical: el grafo pide ser mirado de costado. Es un BOTÓN y no algo que pase solo porque la
+            pantalla completa (y con ella bloquear la rotación) exige un toque (app/second-brain/apaisar.ts). */}
+        {movil && retrato && !sinGiro && !nodoSel && (
+          <button type="button" className="cbg-girar" onClick={pantallaCompleta}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="7" width="18" height="11" rx="2" /><path d="M12 3v2M7 3.5l1 1.6M17 3.5l-1 1.6" /></svg>
+            Girar la pantalla
+          </button>
+        )}
         <div className="cbg-zoom" role="toolbar" aria-label="Zoom del grafo">
           <button type="button" className="cbg-ico" onClick={() => zoomPaso(1 / 1.3)} title="Alejar" aria-label="Alejar">−</button>
           <span className="cbg-zoom__pct">{zoomPct}%</span>
@@ -2110,8 +2225,22 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             {tax.carpetas.map((c) => {
               const suyas = tax.areas.filter((a) => a.padre === c.id);
               if (!suyas.length) return null;
+              // El título de cada CAPA (sólo el mapa único del super admin): también es el atajo para verla sola.
+              const capa = (tax.capas?.length ?? 0) > 1 ? tax.capas?.find((k) => k.carpetas[0] === c.id) : undefined;
               return (
-                <div key={c.id} className="cbg-nav__carpeta">
+                <Fragment key={c.id}>
+                {capa && (
+                  <button
+                    type="button"
+                    className="cbg-nav-capa"
+                    aria-pressed={capaActiva(filtro, tax) === capa.id}
+                    onClick={() => setFiltro((f) => filtroDeCapa(f, tax, capaActiva(f, tax) === capa.id ? null : capa.id))}
+                    title={capaActiva(filtro, tax) === capa.id ? 'Ver todo' : `Ver sólo: ${capa.nombre}`}
+                  >
+                    {capa.nombre}
+                  </button>
+                )}
+                <div className="cbg-nav__carpeta">
                   <button
                     type="button"
                     className="cbg-nav-carpeta"
@@ -2150,7 +2279,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                             {/* El conteo dice si hay algo; el «falta» dice que no. Nunca un 0. */}
                             <span className="cbg-nav__conteo" data-falta={n ? undefined : '1'}>{n || 'falta'}</span>
                           </button>
-                          {onEditarArea && esNegocio && (
+                          {onEditarArea && esAreaDeNegocio(a.id) && (
                             <button
                               type="button"
                               className="cbg-nav-abrir"
@@ -2164,6 +2293,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                     })}
                   </div>
                 </div>
+                </Fragment>
               );
             })}
             <p className="cbg-nav__pista">Toca un punto para verlo.</p>

@@ -70,7 +70,9 @@ test('el link sale por linkApp, con el workspace DESTINO y la pantalla MÓVIL', 
   const p = armarPayloadPush({ tipo: 'reunion-nuevo-agendado', titulo: 'Reunión agendada', cuerpo: RECORDATORIO, ruta: '/crm/482/resumen' }, 13);
   assert.equal(p.url, `${APP_BASE_URL}/crm/482?ws=13`);
   // El link por default de un aviso es una pantalla de escritorio: se traduce.
-  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/configuraciones?tab=notif' }, 9).url, `${APP_BASE_URL}/perfil?ws=9`);
+  // Desde el 17/10 (Mobile 2) el teléfono tiene Configuración del negocio: «apagar este reporte» lleva a SUS Notificaciones,
+  // igual que la computadora (antes caía en «Tu cuenta», /perfil).
+  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/configuraciones?tab=notif' }, 9).url, `${APP_BASE_URL}/configuraciones/notificaciones?ws=9`);
   // Las pendientes van a la bandeja móvil; sin ruta, la home.
   assert.equal(armarPayloadPush({ tipo: 'mako-pendiente', titulo: 'x', cuerpo: 'x', ruta: '/mako/pendientes' }, 1).url, `${APP_BASE_URL}/mako/pendientes?ws=1`);
   assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x' }, 1).url, `${APP_BASE_URL}/general?ws=1`);

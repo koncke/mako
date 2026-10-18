@@ -812,6 +812,58 @@ Sin él (o sin la Mercado Pago de MaKo conectada) la cuenta queda como siempre: 
 
 ---
 
+---
+
+## Quien deja de pagar deja de entrar, y el plan corta también la API (17/10/2026)
+
+⚠️ **APAGADO desde la revisión adversarial del 17/10** (interruptor en `false`; los defectos que la frenaron y lo que hay que arreglar, en docs/relevo/pagos.md → «APAGADOS»).
+
+*Corrida «Implemente todos los pendientes al 100%», agente B4, rama `pend-b4-1710`.*
+
+### El estado de suscripción por negocio no necesitaba una tabla: se DERIVA de los cobros
+
+- **Qué faltaba.** «Darme de baja» cortaba el cobro y no el acceso; una renovación de agencia sin autorizar no cortaba
+  nada. La tabla de abajo decía «no existe la tabla».
+- **Lo que se decidió (sin Martín, copiando a Stripe y Paddle):** lo que MaKo cobra por el lugar de un negocio ya vive en
+  `cobros` de la plataforma, atado por `alta_ws` (plan vendido) o `cliente_ws` (cliente de agencia, mig 0308). De ahí
+  sale la vigencia (`vigenciaDelLugar`, lib/plan-acceso-reglas.ts): quien pagó el mes lo usa hasta el final, más
+  **5 días de gracia**; un plan devuelto no cubre nada; la renovación de agencia sin autorizar termina el día que tenía que
+  empezar a cobrar (`inicio_at`); con una suscripción activa y pagada, al día. Los planes son mensuales.
+- **Sólo se corta lo que se vendió por la pasarela.** El ws1 y los acuerdos a mano no tienen un cobro de la plataforma:
+  nunca se cortan. La plataforma, nunca.
+- **El corte es `workspaces.estado = 'pausado'`** (el mismo de /admin), con el porqué en `app_settings`
+  `plan.corte_por_pago` (`vigente`). Lo hace el cron de la pasarela cada media hora (`revisarAccesosPorPago`,
+  lib/plan-acceso.ts): compare-and-set sobre `activo`, tope de 5 por corrida, y si guardar el porqué falla deshace la
+  pausa (sin él, el pago no lo reabriría nunca). Reabre lo que cortó el cobro cuando vuelve a estar al día, también en el
+  acto al entrar el pago (`soloWs`). **Uno reactivado a mano por el MISMO vencimiento no se vuelve a cortar** (`soltar`), y
+  una pausa a mano no la reabre nadie más que /admin.
+- **Un negocio pausado no se abre** (vale también para una pausa a mano: ws5, «Prueba real - Ananda», era el único
+  pausado el 17/10): `resolverDesdeCookies` (lib/workspace.ts) le da `null` a su equipo y a la agencia que lo mira (sin
+  datos que leer ni cuenta que operar), `requireSesion` manda a /cuenta-pausada (dice por qué y a quién escribir), y la
+  API de MaKo contesta 403. **Fail-open** si la base no contesta: un error pasajero no deja a todos afuera. El super
+  admin no pasa por el corte.
+- **Medido el 17/10:** 0 cobros en producción: el corte no toca a nadie hoy.
+
+### `requireCapa` era UN solo lugar: el cartel no eran 56 call-sites
+
+«Mostrar un cartel de mejorá tu plan no es cambiar el guard: es cambiar 56 call-sites» (arriba) era el diagnóstico
+equivocado: la decisión «no está en tu plan» se toma en un solo lugar (`requireCapa`), y alcanza con que redirija a una
+página que lo DIGA (/no-esta-en-tu-plan, con `PermissionState motivo="plan"`, que existía sin emisores) en vez de a la
+casa del plan.
+
+### La API: un header que pone el proxy y un corte en la resolución del negocio
+
+- El proxy pone `x-mako-ruta` (pisa el del cliente) y `resolverDesdeCookies` no le da workspace a una API de una tab que
+  la capa no incluye (`tabDeRutaApi`, lib/api-tab.ts). Sin workspace, fail-closed como un negocio pausado.
+- **Sólo las APIs que usa UNA tab** (Ads Manager y Meta, el CRM automático, Web Generator, Automations, Chats). Medido con
+  un grep: /api/crm, /api/offer (el onboarding, que hacen todos), /api/flujos, /api/email, /api/experimentos,
+  /api/ad-insights, /api/landing-analyst y /api/ads-analyst las usan tabs que un plan chico SÍ compra: cortarlas por
+  carpeta rompería eso. Quedan en `COMPARTIDAS` y el test barre que nadie empiece a usar una de la tabla desde otra tab.
+- **Las server actions no pasan por esto:** su pedido va a la ruta de la PÁGINA que las llama, no a la de su tab.
+- La API de MaKo ya cortaba por capa (`vistaDe` → `tabsDeCapa`): lo que no cortaba era app/api.
+
+---
+
 ## Lo que quedó SIN hacer, con el archivo donde vive
 
 | Qué | Dónde |
@@ -820,9 +872,9 @@ Sin él (o sin la Mercado Pago de MaKo conectada) la cuenta queda como siempre: 
 | **Cliente de agencia:** medir con claves de prueba que MP acepte `start_date` en una suscripción sin plan, que no cobre al autorizarla, y que el preapproval quede `authorized` | `lib/mercadopago-api.ts` (`crearSuscripcionMp`), `lib/cobros.ts` (`anotarAutorizacionMp`) |
 | **Cliente de agencia:** nada le avisa a la agencia cuando se crea su renovación: la ve en /partners (MaKo Partners). Y si no la autoriza, el acceso no se corta (no existe el estado de suscripción por workspace) | `lib/agencia-cobro.ts` (`renovacionesDeAgencia`), `app/partners/PartnersApp.tsx` |
 | **Cliente de agencia:** la suscripción de agencia (los 97) se vende como cualquier plan desde «Vender un plan»; no está atada a sus clientes | `app/admin/cobros/VenderPlan.tsx` |
-| Que el corte por capa llegue a la API | las 246 rutas de `app/api` que no la miran |
-| El cartel de «no está en tu plan» | los 56 call-sites de `lib/tab-access.ts` + `app/_ui/Estados.tsx:251` |
-| Estado de suscripción por workspace (vencimiento, dunning) | no existe la tabla |
+| ~~Que el corte por capa llegue a la API~~ **Hecho el 17/10/2026** para las APIs de una sola tab (`lib/api-tab.ts`); las compartidas siguen sin corte por carpeta (ver «La API: un header…») | `lib/api-tab.ts`, `lib/workspace.ts` |
+| ~~El cartel de «no está en tu plan»~~ **Hecho el 17/10/2026**: un solo lugar (`requireCapa` → /no-esta-en-tu-plan) | `lib/tab-access.ts`, `app/no-esta-en-tu-plan/page.tsx` |
+| ~~Estado de suscripción por workspace~~ **Hecho el 17/10/2026**: se deriva de los cobros, sin tabla (`vigenciaDelLugar`); el dunning lo siguen haciendo Stripe y Mercado Pago | `lib/plan-acceso-reglas.ts`, `lib/plan-acceso.ts` |
 | Corte de gasto de IA por cliente | `modelo.ts:148` lo declara ausente |
 | Separar el gasto de Claude del ws1 | `modelo.ts:145` |
 | `funnel_id` en el motor de nutrición y en el CRM automático | mig 0170, `lib/nutricion*.ts`, `lib/crm-auto.ts` |
@@ -859,3 +911,14 @@ tamaño del cartel de upgrade).*
 **Corregido en:** `docs/referidos.md`, `docs/fuentes-fuera-del-repo.md`, `docs/propuesta-tabs-strategy.md` (la pregunta 6, contestada), la cabecera de `audio-referidos-10oct-transcripcion.md` (fuera del repo) y la memoria `referidos-propuesta`. Nada construido colgaba del supuesto: no hay rol, capa ni pantalla «para el socio»; Strategy y la Ticketera siguen siendo sólo del super admin.
 
 **Vive en:** `docs/referidos.md` · `docs/propuesta-tabs-strategy.md` · `docs/fuentes-fuera-del-repo.md`
+
+## El referido de 97 cuesta US$130,46, no 124,98 (17/10/2026)
+
+- La tab Strategy (`app/admin/estrategia/datos.ts`) usaba r² para «llegó a pagar 2 meses» también en el plan de 97. Con
+  el 50% del primer mes, ese mes YA es un pago: «pagó 2 meses» es el mes 2, r y no r² (docs/referidos.md:56, la cuenta
+  que manda). Sigue debajo del techo (158,07).
+- **Sin hacer:** el 1 a 1 en 10.000 en `app/admin/dev/pricing/modelo.ts`: la corrida de 24 meses (`PROYECCION_24`) está
+  escrita a mano con 4.000 en cada fila derivada (caja, ventas, ingresos); cambiar el precio sin rehacer la corrida deja
+  filas que no cierran. Y las tareas #771, #783 y #840 del Plan con los precios del 20/09.
+
+*17/10/2026, «Pendientes B3» (`claude4`).*

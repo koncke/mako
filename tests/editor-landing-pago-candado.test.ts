@@ -64,6 +64,7 @@ function crmFalso() {
   const llamadas = { lead: 0, proponer: 0, crear: 0, estado: 0 };
   const dep = (candado: DepCandado, over: Partial<DepPago> = {}): DepPago => ({
     usosDeLaHora: async () => 0,
+    modo: async () => 'real',
     estado: async () => { llamadas.estado++; return ESTADO; },
     candado,
     proponer: async () => { llamadas.proponer++; },
@@ -84,7 +85,7 @@ function crmFalso() {
       const token = `tok${cobros.length + 1}`;
       cobros.push({
         lead: leadId, token, estado: 'pendiente', producto_id: 12, proveedor: pasarela, monto: 990, moneda: 'USD', tipo: 'unico',
-        email: PEDIDO.email, alta_capa: null, creado_por: creadoPorLanding('Mi landing', 'mi-landing'),
+        email: PEDIDO.email, alta_capa: null, creado_por: creadoPorLanding('Mi landing', 'mi-landing'), modo: 'real',
       });
       return { ok: true, link: `https://hola-mako.com/pagar/${token}` };
     },

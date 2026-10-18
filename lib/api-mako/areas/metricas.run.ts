@@ -273,11 +273,23 @@ export const RUNNERS: Runners = {
       const h = await dia(input);
       if (typeof h !== 'string') return errorPedido(h.error);
       const semanas = entero(input, 'semanas', 12);
-      const s = await getFunnelSeries(h, semanas);
+      // Uno o varios funnels (17/10/2026, el cabo de #896): la misma lectura que `diagnosticar_funnel`. Sin el parámetro, el
+      // negocio entero, como siempre.
+      const elegidos = await funnelsDelPedido(input);
+      if (elegidos && 'error' in elegidos) return errorPedido(elegidos.error);
+      const ids = elegidos?.ids ?? [];
+      let s: Awaited<ReturnType<typeof getFunnelSeries>>;
+      try {
+        s = await getFunnelSeries(h, semanas, ids);
+      } catch (e) {
+        if (e instanceof FunnelsConEtapasDistintas) return errorPedido(e.message);
+        throw e;
+      }
       const ultimo = lunesDeFecha(h);
       const lunes = Array.from({ length: semanas }, (_, i) => diasAntes(ultimo, (semanas - 1 - i) * 7));
       return json({
         ventana: ventana(lunes[0], diasAntes(ultimo, -6)),
+        funnels: ids.length && elegidos ? rotuloDeFunnels(ids, elegidos.nombres) : 'todo el negocio',
         semanas_lunes: lunes,
         series_pct: Object.fromEntries(Object.entries(s).map(([k, vals]) => [k, vals.map(r2)])),
         notas: [
@@ -286,6 +298,8 @@ export const RUNNERS: Runners = {
           // `form_agenda` o `calificado_cierre` acá le afirmaba al modelo unas etapas
           // que un negocio sin reuniones no tiene.
           'Las etapas del CRM agrupan por la fecha de la 1ª reunión; si el funnel no tiene reuniones, agrupan por la fecha de alta del lead. El cierre cuenta la etapa ganado. La semana en curso está incompleta.',
+          // El modelo no ve la pantalla: con funnels elegidos se le dice que lo de Meta es de toda la cuenta.
+          ...(ids.length ? ['Serie de los funnels elegidos: las etapas del CRM cuentan sólo sus leads (cada uno en el funnel donde estaba ese día), pero impresiones, clics y formularios de Meta son de TODA la cuenta (Meta no dice a qué funnel va cada uno).'] : []),
         ],
       });
     },

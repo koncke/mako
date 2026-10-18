@@ -5624,3 +5624,54 @@ Lo que no se ve leyendo el código:
 - **Nada se miró en el navegador**: la extensión de Chrome no estaba conectada y la PC sin RAM para `next dev`. Lo
   primero cuando esté en producción: `/clients?ws=3` (las siete sub-tabs, «Personalizar», el Classroom embebido) en
   escritorio y a 820 px.
+
+## Los pendientes de Customer Success y Cursos del 17/10 (chat «Pendientes B2») (17/10/2026)
+
+**1. La tab Pagos del cliente es la del CRM, en bloques.** Montaba DealDetailsCard: «Pagado por completo» en una
+mensualidad ACTIVA y en verde una renovación rechazada. Ahora es el armador del CRM con la plantilla FIJA de CS
+(`listaFijaDeCs('cs-pagos')`), leyendo `getLeadFullAction` como la ficha del CRM (app/customer-success/PagosCliente.tsx).
+Con eso se borraron DealDetailsCard, EditarDeal, `?edit=1` (y su «✦ Completar con IA», roto en 2 de 3 entradas),
+`saveDealSectionsAction` y `saveCuotasAction`. El «Completar con IA» del wizard de Ganado queda.
+- ⚠️ **La plantilla de CS pone servicio, promesa y obligaciones en el RESUMEN**, que no está en bloques: se perdían de la
+  ficha al sacar la tarjeta vieja. El Resumen de CS suma debajo esos bloques (`DealCliente`), sin repetir el contacto ni
+  las notas que dibuja su tarjeta de siempre.
+- ⚠️ **La plantilla de CS no trae `venta`** (docs/diseno-ficha-bloques.md §4: «CS le cobra a alguien que ya compró»), así
+  que quitar «Sin cobro» se hace desde la ficha del CRM.
+
+**2. «Sacarle este curso» del acceso** (`productosTrasQuitar`): un acceso en `null` (todos sus productos) pasa a la lista
+de los suyos menos ése; el último no se saca por acá (eso es «Cortar acceso»).
+
+**3. La purga del curso se PRENDIÓ después de medirla.** Modo prueba en producción (17/10, sólo lectura, la misma regla):
+`curso-videos` 0 archivos, `curso-notas` 0, `curso-adjuntos` 2 (los dos en uso), `comunidad-adjuntos` 0 → cero huérfanos.
+El cron borra por default; `?borrar=0` o `CURSO_PURGA_BORRAR=0` vuelven al modo prueba. Y `curso-entregas` (voces y caras
+grabadas, mig 0218) entra a la purga: sus rutas viven en `valores` Y `valores_ia` de `curso_progreso`, y la segunda
+pregunta relee la tabla (un jsonb no admite el `.in`). Lo de una clase o un lead borrados se barre solo: sus filas de
+`curso_progreso` se van en CASCADA (medido: las tres FK lo son), el archivo no.
+
+**4. Las llamadas de entrega SÍ se analizan** (el pendiente venía del 07/10, con Gemini dando 503): `closing_analyses` tiene
+193 en `analysis_version = 3`, todos los días desde el 07/10, con riesgos y próximos pasos (la última, 17/10 04:53).
+⚠️ **10 llamadas quedaron en `error` sin reintento** (ws1, ws9, ws11, del 05 al 12/10) por «Your credit balance is too low»
+de Anthropic al clasificarlas: siguen `sin_clasificar`. Reintentarlas gasta crédito: no se hizo (el default es no reintentar).
+
+**5. La invitación al curso al ganar en un SEGUNDO producto: medido, no sale.** Dos guardas: el núcleo exige que la CASA
+del lead esté ganada (`estado_lead`) y que sea cliente de ese producto (una fila de `cliente_entrega`, que nadie escribe al
+ganar en un producto agregado). Y hoy no le pasa a nadie: ningún negocio tiene prendido el curso al ganar
+(`app_settings` sin `crm.curso_al_ganar`). Arreglarlo depende de la decisión abierta §5.1 del relevo del CRM (ganar en un
+producto agregado no marca ganado al lead), que mueve Revenue y el CAPI: no se tomó acá.
+
+**6. La vista previa del «Comentar» sin post elegido** dice cuál es (el último fijado), que el server de la vista previa le
+pone (`conPostDeComentar`): no hay token del alumno para preguntarlo.
+
+**Lo que quedó SIN hacer:** la llamada del curso leída de Calendly (crear sesiones solas dispara el aviso del cron
+`curso-sesiones` a clientes reales: hace falta decidir qué evento es la llamada de entrega); importar cursos de Skool o
+Hotmart (Skool no tiene API de contenido; Hotmart pide credenciales del productor); reordenar el curso con el dedo (un
+gesto se verifica en un navegador, y no hubo); las imágenes huérfanas de un borrador y la portada de un módulo vinculado
+que se borra (cosméticas, sin datos para probar el borrado); el recorrido en el ws3. El toggle «Etapa del kanban» YA
+pregunta a dónde van los clientes desde el 08/10 (QuitarEtapa): falta probarlo en la app.
+
+**Vive en:** app/customer-success/PagosCliente.tsx · app/customer-success/FichaPestanas.tsx ·
+app/crm/lead-view/ficha/reglas-cs.ts · lib/curso-invitar-reglas.ts · lib/curso-datos.ts (`quitarCursoDelAcceso`) ·
+app/customer-success/FichaCurso.tsx · lib/curso-purga.ts · app/customer-success/curso/reglas.ts (`pideBorrarPurga`) ·
+lib/curso.ts (`conPostDeComentar`) · app/customer-success/curso/vista/pantalla.tsx · tests: cs-ficha-resumen,
+curso-sacar-un-curso, curso-purga-entregas, curso-grabar-notas, curso-vista-previa-comentar ·
+*17/10/2026, chat «Pendientes B2: CRM y clientes» (claude4).*

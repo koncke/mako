@@ -19,6 +19,12 @@
 //   opciones: --env=<ruta del .env.local> (default ./.env.local; un worktree no tiene: --env=C:/dev/mako-api/.env.local)
 //             --eventos=<a,b,c> → sólo esos eventos (los de lo que YA está desplegado; sin esto, todos los de MUDADOS).
 //             Un evento que no está en MUDADOS frena el script antes de tocar nada.
+//             --pausar → además PAUSA la fila ya creada de esos eventos si su aviso nacía apagado (ver abajo).
+// ⚠️ LO QUE NACÍA APAGADO SE CREA PAUSADO (17/10/2026, lote 3). Un aviso del catálogo sin `porDefecto` nacía APAGADO en
+// /mensajes (`estaPrendida`, lib/plantillas.ts), y medido el 17/10 ningún negocio había prendido `landing-cambio`,
+// `lead-de-landing` ni los dos de la prueba del Pixel: no le llegaban a nadie. Un evento de la plataforma NO lee ese
+// interruptor (lo decide su fila), así que crear su fila PRENDIDA era empezar a mandárselo a TODOS los negocios al desplegar.
+// Por eso la fila de un aviso así nace pausada: el texto ya es editable en SuperAdmin y prenderla es decisión de quien la ve.
 // =============================================================================
 
 import { config } from 'dotenv';
@@ -46,6 +52,16 @@ const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   { plantilla: 'mako-lead-fusionado', evento: 'lead_fusionado' },
   { plantilla: 'mako-curso-recordatorio', evento: 'curso_recordatorio' },
   { plantilla: 'mako-flow-puente-ausente', evento: 'flow_puente_ausente' },
+  // 17/10/2026, lote 3: los tres avisos del cron tracking-vigilante.
+  { plantilla: 'mako-tracking-apagado', evento: 'tracking_apagado' },
+  { plantilla: 'mako-pixel-viejo', evento: 'pixel_viejo' },
+  { plantilla: 'mako-landing-cambio', evento: 'landing_cambio' },
+  { plantilla: 'mako-lead-de-landing', evento: 'lead_de_landing' },
+  { plantilla: 'mako-prueba-recibida', evento: 'prueba_recibida' },
+  { plantilla: 'mako-prueba-grabada', evento: 'prueba_grabada' },
+  { plantilla: 'mako-lead-formulario-meta', evento: 'lead_formulario_meta' },
+  // 17/10/2026, «nada por detrás» (lo toma el Plan): las tareas de las reuniones que MaKo dejó en el Plan. Nacía apagado.
+  { plantilla: 'mako-reunion-tareas-al-plan', evento: 'reunion_tareas_al_plan' },
 ];
 // POR TANDAS DE DEPLOY (16/10/2026): la fila de un evento cuyo código todavía no está en producción no correría, así
 // que se mudan sólo los desplegados. Sin `--eventos`, todos.
@@ -53,6 +69,13 @@ const pedidos = arg('eventos')?.split(',').map((e) => e.trim()).filter(Boolean) 
 const ajenos = (pedidos ?? []).filter((e) => !TODOS.some((m) => m.evento === e));
 if (ajenos.length) throw new Error(`--eventos: ${ajenos.join(', ')} no está en la mudanza`);
 const MUDADOS = pedidos ? TODOS.filter((m) => pedidos.includes(m.evento)) : TODOS;
+// `--pausar` SÓLO con la lista explícita: sin `--eventos=`, MUDADOS es TODOS y pausaría también las filas prendidas a
+// propósito que nacían apagadas (#260 `oferta_lista`, la de `meta_cuenta_recuperada`). Y `--eventos a,b` sin el «=» no
+// lo lee `arg()` y caería en TODOS sin avisar. Revisión del Cerebro, 17/10/2026.
+if (process.argv.includes('--eventos') || process.argv.some((a) => a.startsWith('--eventos') && !a.startsWith('--eventos='))) {
+  throw new Error('--eventos va con «=»: --eventos=a,b');
+}
+if (process.argv.includes('--pausar') && !pedidos) throw new Error('--pausar exige --eventos=<a,b>: sin la lista pausaría filas prendidas a propósito');
 
 const { runWithWorkspace, getTenantDb, wsSuperAdmin } = await import('../lib/workspace');
 const { plantillaPorId, pasosDePlantilla } = await import('../lib/plantillas-automatizaciones');
@@ -62,6 +85,14 @@ const { guardarDisparadores } = await import('../lib/disparadores-guardar');
 const { TRIGGER_AVISO_MAKO, EVENTOS_MAKO } = await import('../lib/disparadores');
 const { eventoDeFila, frenoDelEvento } = await import('../lib/aviso-evento');
 const { validarGrafo, normalizar } = await import('../lib/flujo-grafo');
+const { CATALOGO_AVISOS } = await import('../lib/avisos-catalogo');
+const pausar = process.argv.includes('--pausar');
+
+/** ¿El aviso de ese evento nacía APAGADO en /mensajes? Sin `porDefecto` en el catálogo, sí (ver la cabecera). */
+const naciaApagado = (evento: string): boolean => {
+  const aviso = EVENTOS_MAKO.find((e) => e.subtipo === evento)?.aviso;
+  return !CATALOGO_AVISOS.find((a) => a.id === aviso)?.porDefecto;
+};
 
 // ── Lo puro, antes de tocar nada: cada plantilla existe, es de su evento, el evento es de la plataforma y se publica ──
 for (const m of MUDADOS) {
@@ -79,7 +110,7 @@ for (const m of MUDADOS) {
 
 const ws = await wsSuperAdmin();
 console.log(`\n══ MENSAJES DE MaKo → AUTOMATIZACIONES DE LA PLATAFORMA (ws${ws}) — ${aplicar ? 'APLICANDO' : 'SIMULACRO'} ══`);
-let creadas = 0, prendidas = 0, salteadas = 0;
+let creadas = 0, prendidas = 0, salteadas = 0, pausadas = 0;
 await runWithWorkspace(ws, async () => {
   const db = await getTenantDb();
   const { data: vivas, error } = await db.from('nutricion_secuencias')
@@ -89,20 +120,29 @@ await runWithWorkspace(ws, async () => {
   for (const m of MUDADOS) {
     const ya = filas.filter((f) => eventoDeFila(f) === m.evento);
     if (ya.length) {
-      console.log(`${m.evento}: ya está (${ya.map((f) => `#${f.id} «${f.nombre ?? ''}» ${f.activa ? 'prendida' : 'pausada'}`).join(', ')}): nada`);
+      const aPausar = pausar && naciaApagado(m.evento) ? ya.filter((f) => f.activa === true) : [];
+      console.log(`${m.evento}: ya está (${ya.map((f) => `#${f.id} «${f.nombre ?? ''}» ${f.activa ? 'prendida' : 'pausada'}`).join(', ')}): ${aPausar.length ? 'la PAUSA (nacía apagada en /mensajes)' : 'nada'}`);
       salteadas++;
+      for (const f of aPausar) {
+        if (!aplicar) continue;
+        await setSecuenciaActiva(f.id, false);
+        pausadas++;
+        console.log(`  ✓ pausada #${f.id}`);
+      }
       continue;
     }
-    console.log(`${m.evento}: crea «${plantillaPorId(m.plantilla)!.nombre}» y la deja PRENDIDA`);
+    const apagada = naciaApagado(m.evento);
+    console.log(`${m.evento}: crea «${plantillaPorId(m.plantilla)!.nombre}» y la deja ${apagada ? 'PAUSADA (nacía apagada en /mensajes)' : 'PRENDIDA'}`);
     if (!aplicar) continue;
     const r = await crearDesdePlantilla(m.plantilla, {
       db: db as never, setPasos: setSecuenciaPasos as never, setDisparadores: guardarDisparadores as never, plataforma: true,
     });
     creadas++;
     console.log(`  ✓ creada #${r.id} «${r.nombre}»`);
+    if (apagada) continue;
     await setSecuenciaActiva(r.id, true);
     prendidas++;
     console.log('  ✓ prendida (validada como «Activar»)');
   }
 });
-console.log(`\n${aplicar ? '' : '(simulacro) '}creadas: ${creadas} · prendidas: ${prendidas} · ya estaban: ${salteadas}`);
+console.log(`\n${aplicar ? '' : '(simulacro) '}creadas: ${creadas} · prendidas: ${prendidas} · pausadas: ${pausadas} · ya estaban: ${salteadas}`);

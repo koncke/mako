@@ -40,6 +40,7 @@ import { GuardianIcon } from './GuardianIcon';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type FilaTarea, type TareaYaCargada } from './ReunionTareas';
 import { pareceLaMisma, textoRepetidas, type TareaEnTablero } from '@/lib/tareas-dedup';
+import { recordingDeRef as recordingDeRefDeLaReunion } from '@/lib/lectura-por-partes';
 import { type Label, type Prio } from './types';
 
 import type { PropuestaTarea } from '@/lib/plan-propuesta';
@@ -82,10 +83,9 @@ async function api(body: Record<string, unknown>): Promise<Record<string, unknow
 }
 
 /** El recordingId que dejó el cron en `ref` (fathom:12345) — habilita mandarle a otros. */
-const recordingDeRef = (ref?: string): number | undefined => {
-  const n = Number((ref ?? '').startsWith('fathom:') ? ref!.slice(7) : NaN);
-  return Number.isFinite(n) ? n : undefined;
-};
+// ⚠️ También el de un borrador que COMPLETA una reunión leída a medias («fathom:123:partes-3-4», 17/10/2026): con
+// `Number(ref.slice(7))` ése daba NaN y sus tareas no se podían mandar a nadie.
+const recordingDeRef = (ref?: string): number | undefined => recordingDeRefDeLaReunion(ref);
 
 /**
  * ¿Esta fila AMPLÍA una tarjeta que ya existe, en vez de crear una nueva?

@@ -11,11 +11,11 @@ import 'server-only';
 // un Storage con 5 GiB de tope para TODA la plataforma (lib/curso-admin.ts, `descartarVideo`).
 // Lo corre el cron diario /api/cron/curso-purga.
 //
-// ⚠️ POR DEFAULT NO BORRA: CUENTA. Sin `borrar: true` devuelve los candidatos, cuántos son y
-// cuánto pesan, y no toca el bucket. El contenido de los dos buckets nunca se midió, así que lo
-// primero que hace en producción es el modo prueba: se lee la salida y recién ahí se prende
-// (`pideBorrarPurga`, app/customer-success/curso/reglas.ts: `?borrar=1` a mano, o
-// `CURSO_PURGA_BORRAR=1` para el cron diario).
+// ⚠️ LA FUNCIÓN, SIN PEDIRLO, NO BORRA: CUENTA. Sin `borrar: true` devuelve los candidatos, cuántos son
+// y cuánto pesan, y no toca el bucket. Quien decide es el cron (`pideBorrarPurga`,
+// app/customer-success/curso/reglas.ts), que desde el 17/10/2026 BORRA: se midió en producción en modo
+// prueba y había cero huérfanos (los números, en esa función). `?borrar=0` o `CURSO_PURGA_BORRAR=0`
+// vuelven al modo prueba.
 //
 // ⚠️ Y CUANDO BORRA, BORRA DE VERDAD, y por eso es FAIL-CLOSED en cada paso. La regla de qué se borra es pura y
 // tiene test (`decidirPurga` / `huerfanosABorrar`, app/customer-success/curso/reglas.ts); acá
@@ -41,6 +41,8 @@ import { BUCKET_CURSO } from './curso-admin';
 import { BUCKET_NOTAS } from './curso-notas';
 import { BUCKET_ADJUNTOS, esAdjuntoDescripcionSubido } from './curso-adjuntos-reglas';
 import { BUCKET_COMUNIDAD } from './comunidad-reglas';
+import { BUCKET_ENTREGAS } from './curso-entregas';
+import { esEntregaSubida, pathsDeEntregas, type Valores } from './curso';
 import { decidirPurga, esVideoSubido, esAdjuntoSubido, type ArchivoBucket } from '@/app/customer-success/curso/reglas';
 
 /** Cuántos objetos se borran por bucket y por vuelta. Lo que sobre, mañana. */
@@ -54,9 +56,17 @@ const LOTE = 50;
 /** Hasta qué profundidad se baja: `<ws>/<producto>/<archivo>` son tres niveles. */
 const PROFUNDIDAD = 3;
 
-type Config = { bucket: string; tabla: string; columna: string; esPropio: (p: string) => boolean };
+type Config = {
+  bucket: string; tabla: string; columna: string; esPropio: (p: string) => boolean;
+  /**
+   * Para un bucket cuyas rutas viven ADENTRO de un jsonb y no en una columna propia: qué columnas se leen
+   * y cómo se sacan las rutas de una fila. Sin `.in` posible sobre eso, la segunda pregunta vuelve a
+   * leer la tabla entera (`purgarBucket`). `columna` queda para el reporte.
+   */
+  jsonb?: { columnas: string; rutas: (fila: Record<string, unknown>) => string[] };
+};
 
-/** Los dos buckets del curso y qué columna nombra sus archivos. */
+/** Los buckets del curso y qué columna (o qué jsonb) nombra sus archivos. */
 const BUCKETS: readonly Config[] = [
   { bucket: BUCKET_CURSO, tabla: 'curso_clases', columna: 'video_path', esPropio: esVideoSubido },
   { bucket: BUCKET_NOTAS, tabla: 'curso_clase_notas', columna: 'archivo_path', esPropio: esAdjuntoSubido },
@@ -68,6 +78,17 @@ const BUCKETS: readonly Config[] = [
   {
     bucket: BUCKET_COMUNIDAD, tabla: 'comunidad_posts', columna: 'adjunto_path',
     esPropio: (p) => /^\d{1,12}\/\d{1,12}\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(p),
+  },
+  // ⚠️ LAS ENTREGAS DE LOS ALUMNOS (mig 0218), desde el 17/10/2026: voces y caras grabadas. Hasta ahí no
+  // las barría nadie: lo que el alumno quitaba o regrababa, y lo de una clase o un lead borrados (las
+  // filas de `curso_progreso` se van en CASCADA, el archivo no), quedaba para siempre. Las rutas viven en
+  // `valores` Y en `valores_ia` (la propuesta de la IA, mig 0213), y las dos cuentan como uso.
+  {
+    bucket: BUCKET_ENTREGAS, tabla: 'curso_progreso', columna: 'valores', esPropio: esEntregaSubida,
+    jsonb: {
+      columnas: 'valores, valores_ia',
+      rutas: (f) => [...pathsDeEntregas(f.valores as Valores | null), ...pathsDeEntregas(f.valores_ia as Valores | null)],
+    },
   },
 ];
 
@@ -123,8 +144,14 @@ async function listarBucket(bucket: string): Promise<Array<ArchivoBucket & { byt
   return out;
 }
 
-/** Las rutas que nombra alguna fila, de TODOS los workspaces (ver la cabecera). */
-async function rutasUsadas(tabla: string, columna: string): Promise<string[]> {
+/** Las rutas que nombra alguna fila, de TODOS los workspaces (ver la cabecera). TIRA si no puede leer. */
+async function rutasUsadas(cfg: Config): Promise<string[]> {
+  if (cfg.jsonb) {
+    const jsonb = cfg.jsonb;
+    const todas = await leerTodo<Record<string, unknown>>(getSupabaseServer(), cfg.tabla, `id, ${jsonb.columnas}`, { orden: 'id' });
+    return todas.flatMap((f) => jsonb.rutas(f)).filter((p) => p.length > 0);
+  }
+  const { tabla, columna } = cfg;
   const filas = await leerTodo<Record<string, string | null>>(getSupabaseServer(), tabla, `id, ${columna}`,
     { filtros: (q) => q.not(columna, 'is', null), orden: 'id' });
   return filas.map((f) => f[columna]).filter((p): p is string => typeof p === 'string' && p.length > 0);
@@ -152,7 +179,7 @@ async function purgarBucket(cfg: Config, ahoraMs: number, borra: boolean): Promi
 
   let referencias: { ok: true; paths: string[] } | { ok: false; error: string };
   try {
-    referencias = { ok: true, paths: await rutasUsadas(cfg.tabla, cfg.columna) };
+    referencias = { ok: true, paths: await rutasUsadas(cfg) };
     r.referencias = referencias.paths.length;
   } catch (e) {
     referencias = { ok: false, error: msg(e) };
@@ -171,13 +198,23 @@ async function purgarBucket(cfg: Config, ahoraMs: number, borra: boolean): Promi
   if (!candidatos.length || !borra) return r;
 
   const sb = getSupabaseServer();
+  // Un jsonb no admite el `.in` de la segunda pregunta: se relee la tabla entera UNA vez, justo antes
+  // del primer lote (la de las entregas es chica). Si falla, no se borra nada.
+  let vivosJsonb: Set<string> | null = null;
+  if (cfg.jsonb) {
+    try { vivosJsonb = new Set(await rutasUsadas(cfg)); } catch (e) { r.error = `releer ${cfg.tabla}: ${msg(e)}`; return r; }
+  }
   for (let i = 0; i < candidatos.length; i += LOTE) {
     const lote = candidatos.slice(i, i + LOTE);
     // La segunda pregunta, justo antes de borrar: ¿alguna fila los nombra AHORA? Si la consulta
     // falla, no se borra este lote ni los que siguen.
-    const { data: usados, error: eUso } = await sb.from(cfg.tabla).select(cfg.columna).in(cfg.columna, lote);
-    if (eUso) { r.error = `releer ${cfg.tabla}: ${eUso.message}`; break; }
-    const vivos = new Set(((usados ?? []) as unknown as Array<Record<string, string | null>>).map((f) => f[cfg.columna]));
+    let vivos: Set<string | null>;
+    if (vivosJsonb) vivos = vivosJsonb;
+    else {
+      const { data: usados, error: eUso } = await sb.from(cfg.tabla).select(cfg.columna).in(cfg.columna, lote);
+      if (eUso) { r.error = `releer ${cfg.tabla}: ${eUso.message}`; break; }
+      vivos = new Set(((usados ?? []) as unknown as Array<Record<string, string | null>>).map((f) => f[cfg.columna]));
+    }
     const borrar = lote.filter((p) => !vivos.has(p));
     if (!borrar.length) continue;
     const { error } = await sb.storage.from(cfg.bucket).remove(borrar);

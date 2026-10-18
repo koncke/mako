@@ -183,7 +183,10 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
     setRevertErr(null);
     startTransition(async () => {
       try {
-        await revertMoveAction(leadId, createdAt);
+        // Un «no» (otra persona ya lo cambió, no es el último estado…) vuelve como dato: tirado, en producción
+        // Next esconde el mensaje.
+        const r = await revertMoveAction(leadId, createdAt);
+        if (r && 'error' in r) { setRevertErr(r.error); return; }
         cargar();
         refrescarFicha();
       } catch (e) {

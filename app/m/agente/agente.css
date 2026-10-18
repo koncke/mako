@@ -1,0 +1,11 @@
+/* =============================================================================
+   /m/agente — Client Agents en el teléfono. Clases `.m-agente-*`, sólo tokens de app/globals.css.
+   ============================================================================= */
+
+.m-agente-cuando { font-size: var(--fs-meta); color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+[data-m] .m-agente-titulo { margin: 0 4px 8px; font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
+[data-m] .m-agente-resumen { margin: 0 4px 14px; font-size: var(--fs-sm); line-height: 1.55; color: var(--dim); }
+/* Los mensajes del cliente, que es donde se ve CÓMO prompea: numerados, con una línea arriba. */
+.m-agente-turnos { margin: 0; padding: 12px 4px 0 22px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.m-agente-turnos li { font-size: var(--fs-sm); line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
+.m-agente-turnos .m-agente-mas { list-style: none; color: var(--faint); }

@@ -72,6 +72,7 @@ import type { EventoDecl } from './EmbudoEntradas';
 import { CampanasModal } from './CampanasModal';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
+import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 
 const SANS = "'Geist', sans-serif";
 
@@ -598,7 +599,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
   // ── quitar una etapa ───────────────────────────────────────────────────────────────
   // ⚠️ SIN FRICCIÓN SI NO HAY NADA QUE PERDER. Con cero leads se quita y sale el toast con
   // «Deshacer» los 5 segundos que dura. Con leads adentro se pregunta, porque ahí el
-  // deshacer no alcanza: quedan fuera del embudo mientras tanto.
+  // deshacer no alcanza: entre medio se ven en otra columna (`avisoAlQuitarEtapa`, ./aviso-quitar-etapa.ts).
   const quitarEtapa = (e: EtapaDelFunnel) => {
     const n = extras?.conteos[e.key];
     const hacer = () => aplicar({ op: 'eliminar', key: e.key }, (d) => {
@@ -607,9 +608,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
     if (n === 0) { hacer(); return; }
     setConfirmar({
       titulo: `Quitar «${e.label}»`,
-      cuerpo: n == null
-        ? 'No se pudo contar cuántos leads tiene. Los que estén ahí no se borran: quedan fuera del funnel hasta que los muevas.'
-        : `Sus ${n} ${n === 1 ? 'lead queda' : 'leads quedan'} fuera del funnel hasta que los muevas. No se borran.`,
+      cuerpo: avisoAlQuitarEtapa(n ?? null),
       boton: 'Quitar la etapa',
       hacer,
     });
@@ -630,9 +629,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
     if (n === 0) { hacer(); return; }
     setConfirmar({
       titulo: `Quitar «${e.label}»`,
-      cuerpo: n == null
-        ? 'No se pudo contar cuántos leads tiene. Los que estén ahí no se borran: quedan fuera del funnel hasta que los muevas.'
-        : `Sus ${n} ${n === 1 ? 'lead queda' : 'leads quedan'} fuera del funnel hasta que los muevas. No se borran.`,
+      cuerpo: avisoAlQuitarEtapa(n ?? null, { nutricion: true }),
       boton: 'Quitar la nutrición',
       hacer,
     });

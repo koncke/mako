@@ -668,4 +668,23 @@ export const BITACORA: Hito[] = [
       "tests: inspeccionar-cliente-prueba, onboarding-preguntas, onboarding-guardia y onboarding-arranque — todos probados rompiéndolos",
     ],
   },
+  {
+    fecha: "17 oct", hora: "13:20", chat: "Onboarding", sesion: "local_0702928b-fa1b-49e2-ac90-85a94053d088", cuenta: "claude4",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Al inspeccionar ya no aparece Mauricio primero, y la barra de arriba no tapa lo que se pega arriba",
+    puntos: [
+      "Tarjeta #881 (cerrada en el Plan): al entrar a ver un cliente, abajo a la izquierda salía un instante «Mauricio Bustos». No era el perfil: la barra lateral nacía con ese nombre escrito a mano, y lo veía cualquier cliente. Ahora el primer cuadro ya trae al cliente que se mira, y la barra de arriba aparece de entrada sin correr la pantalla.",
+      "Tarjeta #850: la barra de «Estás viendo el dashboard de…» tapaba partes de las pantallas que llegan recién cargadas, que es justo como se entra a inspeccionar. También quedaban debajo la barra de «Editando el deal», el título de la hoja en la página de un lead, la cabecera de Estrategia, el índice de las docs de la API y las barras de lote del Plan y de Customer Success cuando se scrollea.",
+      "DÓNDE SE PRUEBA: inspeccionando el Cliente de Prueba (ws 3). Entrar y mirar el nombre de abajo a la izquierda en el primer instante; en el Plan, tildar varias tareas y scrollear: la barra de acciones queda debajo de la de inspección.",
+    ],
+    revisar: "/general?ws=3",
+    commits: [
+      { sha: "3c79577", msg: "Inspeccionar (#881, #850): el primer cuadro ya es del cliente, y la barra no tapa lo que se pega a la ventana", lineas: 330, archivos: 20 },
+    ],
+    archivos: [
+      "lib/vista-de-otro.ts — a quién se mira, para el layout y para /api/auth/me",
+      "app/globals.css — la regla de alto con la escritura del server y --pegado-arriba para las barras de lote",
+      "tests/inspeccionar-primer-cuadro.test.ts y barra-inspeccion-alto.test.ts — probados rompiéndolos",
+    ],
+  },
 ];

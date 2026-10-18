@@ -145,6 +145,9 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     if ('error' in v) return { ok: false, resumen: v.error };
     const prep = await run.preparar(v.input, ctx);
     if ('error' in prep) return { ok: false, resumen: prep.error };
+    // Igual que al confirmar una pendiente: lo que se sabe sin escribir se mira antes de marcarla aplicada.
+    const falta = await run.faltaParaConfirmar?.(prep.payload, ctx);
+    if (falta) return { ok: false, resumen: falta };
 
     const mia = await marcarAplicada(propuestaId, { en_curso: true, por: ctx.actor ?? null });
     if (!mia) return { ok: false, resumen: 'Esta propuesta ya se estaba aplicando.' };
@@ -259,6 +262,13 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   } else if (!gatingOk(def as AccionDef, await vistaDe(ctx))) {
     // No se resuelve: la pendiente sigue ahí para quien sí puede confirmarla.
     return { error: 'Esta acción no está disponible para tu usuario en este workspace; la tiene que confirmar el administrador.' };
+  }
+
+  // Lo que se puede saber sin escribir se mira ANTES de reclamar: reclamar quema la pendiente, y un «sí» que no se puede cumplir
+  // (una escritura firmada que llega sin nadie que firme) no la puede dejar en `error`: sigue ahí para quien sí la confirma.
+  if (registrada) {
+    const falta = await (run as { faltaParaConfirmar?: (payload: Record<string, unknown>, ctx: Ctx) => Promise<string | null> }).faltaParaConfirmar?.(p.payload, ctx);
+    if (falta) return { error: falta };
   }
 
   // RECLAMAR: una sola confirmación gana. 0 filas = otra ya la tomó (o venció).

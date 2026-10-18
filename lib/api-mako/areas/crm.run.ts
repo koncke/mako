@@ -37,12 +37,13 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 // El candado de «calificado»: el mismo que aplica updateLead y que dibuja la ficha.
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
-import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
-import { avisoDeConservadas } from '@/lib/pagos-campo';
+import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto, monedaDelNegocio } from '@/lib/pagos';
+import { avisoDeConservadas, avisoMonedaPorOmision, cobroManualDeEntrada, textoDelCobro } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
 import { listarCobros } from '@/lib/cobros';
+import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { getWorkspaceActual } from '@/lib/workspace';
@@ -133,6 +134,9 @@ const CAMPOS_CONTACTO = ['nombre', 'email', 'telefono', 'empresa', 'web', 'insta
 /** El lead por id, o null (no existe en ESTE workspace o falló la lectura). No lanza. */
 const leadDe = (id: unknown): Promise<Lead | null> => (typeof id === 'number' ? getLead(id).catch(() => null) : Promise.resolve(null));
 const noExiste = (id: unknown) => `No existe el lead #${String(id)} en este workspace. Búscalo con buscar_leads.`;
+/** La cuota que se pidió marcar ya la había cobrado su link (17/10/2026): queda con ese pago, no se marca dos veces. */
+const yaCobradaPorLink = (p: Pasarela) =>
+  `Esa cuota ya estaba pagada por su link de ${NOMBRE_PASARELA[p]}: quedó cobrada con ese pago (no la marqué a mano, para no contar la plata dos veces).`;
 
 /** Lecturas por lead: el «no existe» es un error del que llama (400), no nuestro. */
 async function conLead(input: Record<string, unknown>, fn: (lead: Lead) => Promise<SalidaLectura>) {
@@ -928,7 +932,7 @@ export const RUNNERS: Runners = {
     ejecutar: (payload) => seguro('cambiar la ficha', async () => {
       const c = sanearCambio(payload.cambio);
       if ('error' in c) return { ok: false, resumen: c.error };
-      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c);
+      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c, { autor: 'MaKo' });
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.cambio) return { ok: false, resumen: 'La ficha ya estaba así: no se cambió nada.' };
       // Los avisos de la ficha cambian lo que cuenta «Datos sin marcar» (la caché de leads).
@@ -964,7 +968,7 @@ export const RUNNERS: Runners = {
     ejecutar: (payload) => seguro('armar la tab', async () => {
       const c = sanearCambio(payload.cambio);
       if ('error' in c) return { ok: false, resumen: c.error };
-      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c);
+      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c, { autor: 'MaKo' });
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.cambio) return { ok: false, resumen: 'La tab ya estaba así: no se cambió nada.' };
       return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };
@@ -1386,11 +1390,16 @@ export const RUNNERS: Runners = {
       const pagado = input.pagado === true;
       if (pago.pagado === pagado) return { error: `Esa cuota ya está ${pagado ? 'marcada como cobrada' : 'sin cobrar'}.` };
       if (input.fechaPago !== undefined && !esFechaIso(input.fechaPago)) return { error: '«fechaPago» tiene que ser una fecha YYYY-MM-DD.' };
+      // Cómo se cobró (moneda, monto original, concepto, método): la regla de la ficha, en lib/pagos-campo.ts. Sólo al cobrar.
+      const dijoComo = [input.moneda, input.montoOriginal, input.concepto, input.metodo].some((v) => v != null && v !== '');
+      if (dijoComo && !pagado) return { error: 'La moneda, el monto original, el concepto y el método van sólo al marcar la cuota como cobrada.' };
+      const cobro = cobroManualDeEntrada(input, { montoUsdPorDefecto: Number(pago.monto_usd) });
+      if (!cobro.ok) return { error: cobro.error, ...(cobro.faltan ? { faltan: cobro.faltan } : {}) };
       const fechaPago = pagado ? (s(input.fechaPago) ?? (await hoyDelWorkspace(ctx.ws)).hoy) : null;
       const cuota = pago.numero === 0 ? 'el cobro inicial' : `la cuota ${pago.numero}`;
       // El monto REAL (Mauricio, 13/10/2026: «un pago diferente»). La regla de la diferencia es la de la ficha
       // (`diferenciaPendiente`, lib/pagos-diferencia.ts), y la escritura también (`cobrarCuota`, lib/pagos.ts).
-      const montoUsd = typeof input.montoUsd === 'number' && Number.isFinite(input.montoUsd) && input.montoUsd > 0 ? centavos(input.montoUsd) : null;
+      const montoUsd = cobro.montoUsd;
       if (montoUsd != null && !pagado) return { error: '«montoUsd» va sólo al marcar la cuota como cobrada.' };
       const resto: RestoDeCobro = input.resto === 'descuento' ? 'descuento' : 'pendiente';
       const falta = diferenciaPendiente(Number(pago.monto_usd), montoUsd, { yaPagada: false, resto });
@@ -1398,26 +1407,43 @@ export const RUNNERS: Runners = {
       const extra = !distinto ? '' : falta > 0
         ? ` por ${montoUsd} USD: los ${falta} USD que faltan quedan como una cuota nueva pendiente`
         : montoUsd! < Number(pago.monto_usd) ? ` por ${montoUsd} USD: los ${centavos(Number(pago.monto_usd) - montoUsd!)} USD que faltan son un descuento` : ` por ${montoUsd} USD`;
+      // Cobrada en otra moneda, o con método o concepto: el resumen lo dice (es lo único que la persona mira antes del «sí»).
+      const conDatos = cobro.moneda != null || cobro.concepto != null || cobro.metodo != null;
+      const como = pagado && conDatos ? ` — ${textoDelCobro(montoUsd ?? Number(pago.monto_usd), cobro)}` : '';
+      const aviso = pagado ? avisoMonedaPorOmision(await monedaDelNegocio().catch(() => null), cobro.moneda != null) : '';
       return {
-        payload: { pagoId: pago.id, leadId: lead.id, pagado, fechaPago, ...(distinto ? { montoUsd, resto } : {}) },
+        payload: {
+          pagoId: pago.id, leadId: lead.id, pagado, fechaPago, ...(distinto ? { montoUsd, resto } : {}),
+          ...(cobro.moneda ? { moneda: cobro.moneda, montoOriginal: cobro.montoOriginal } : {}),
+          ...(cobro.concepto ? { concepto: cobro.concepto } : {}), ...(cobro.metodo ? { metodo: cobro.metodo } : {}),
+        },
         resumen: pagado
-          ? `Marcar ${cuota} de ${lead.nombre} (${pago.monto_usd} USD) como cobrada el ${fechaPago}${extra}.`
+          ? `Marcar ${cuota} de ${lead.nombre} (${pago.monto_usd} USD) como cobrada el ${fechaPago}${extra}${como}.${aviso}`
           : `Desmarcar ${cuota} de ${lead.nombre} (${pago.monto_usd} USD): vuelve a figurar sin cobrar.`,
       };
     },
     ejecutar: (payload, ctx) => seguro('marcar el pago', async () => {
       const pagado = payload.pagado === true;
       const fechaPago = typeof payload.fechaPago === 'string' ? payload.fechaPago : null;
-      if (pagado && fechaPago && typeof payload.montoUsd === 'number') {
+      const monto = typeof payload.montoUsd === 'number' ? payload.montoUsd : null;
+      const cobro = {
+        moneda: s(payload.moneda), montoOriginal: typeof payload.montoOriginal === 'number' ? payload.montoOriginal : null,
+        concepto: s(payload.concepto), metodo: s(payload.metodo),
+      };
+      const conDatos = cobro.moneda != null || cobro.concepto != null || cobro.metodo != null;
+      if (pagado && fechaPago && (monto != null || conDatos)) {
         const r = await cobrarCuota(Number(payload.pagoId), Number(payload.leadId), {
-          monto: payload.montoUsd, fecha: fechaPago, resto: payload.resto === 'descuento' ? 'descuento' : 'pendiente',
+          monto, fecha: fechaPago, resto: payload.resto === 'descuento' ? 'descuento' : 'pendiente', ...cobro,
         });
-        const nota = `Cuota cobrada (${fechaPago}) · USD ${r.monto} (era de USD ${r.original})${r.pendiente != null ? ` · quedan USD ${r.pendiente} pendientes` : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : ''}`;
+        if (r.porLink) { invalidar('pagos', 'leads'); return { ok: true, resumen: yaCobradaPorLink(r.porLink) }; }
+        const plata = textoDelCobro(r.monto ?? r.original, { ...cobro, moneda: r.moneda, montoOriginal: r.montoOriginal });
+        const nota = `Cuota cobrada (${fechaPago}) · ${plata}${r.monto != null && r.monto !== r.original ? ` (era de USD ${r.original})` : ''}${r.pendiente != null ? ` · quedan USD ${r.pendiente} pendientes` : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : ''}`;
         await logLeadEvent(Number(payload.leadId), 'Pago registrado', nota, autorDe(ctx));
         invalidar('pagos', 'leads');
-        return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${r.monto} USD${r.pendiente != null ? `; quedan ${r.pendiente} USD pendientes en una cuota nueva` : ''}.` };
+        return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${plata}${r.pendiente != null ? `; quedan ${r.pendiente} USD pendientes en una cuota nueva` : ''}.` };
       }
-      const { quitada } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
+      const { quitada, porLink } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
+      if (porLink) { invalidar('pagos', 'leads'); return { ok: true, resumen: yaCobradaPorLink(porLink) }; }
       await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada', autorDe(ctx));
       invalidar('pagos', 'leads');
       // Un pago que nació cobrado (suelto o mensualidad a mano) no vuelve como deuda: se quita (mig 0295).
@@ -1428,21 +1454,33 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
-      const montoUsd = typeof input.montoUsd === 'number' && Number.isFinite(input.montoUsd) && input.montoUsd > 0 ? centavos(input.montoUsd) : null;
+      const cobro = cobroManualDeEntrada(input);
+      if (!cobro.ok) return { error: cobro.error, ...(cobro.faltan ? { faltan: cobro.faltan } : {}) };
+      const montoUsd = cobro.montoUsd;
       if (montoUsd == null) return { error: 'Falta el monto (un número mayor a cero, en USD).', faltan: ['montoUsd'] };
       if (input.fechaPago !== undefined && !esFechaIso(input.fechaPago)) return { error: '«fechaPago» tiene que ser una fecha YYYY-MM-DD.' };
       const fechaPago = s(input.fechaPago) ?? (await hoyDelWorkspace(ctx.ws)).hoy;
+      const aviso = avisoMonedaPorOmision(await monedaDelNegocio().catch(() => null), cobro.moneda != null);
       return {
-        payload: { leadId: lead.id, montoUsd, fechaPago },
-        resumen: `Registrar un pago de ${montoUsd} USD de ${lead.nombre} el ${fechaPago}, fuera del plan de cuotas (no cambia el monto de cierre).`,
+        payload: {
+          leadId: lead.id, montoUsd, fechaPago,
+          ...(cobro.moneda ? { moneda: cobro.moneda, montoOriginal: cobro.montoOriginal } : {}),
+          ...(cobro.concepto ? { concepto: cobro.concepto } : {}), ...(cobro.metodo ? { metodo: cobro.metodo } : {}),
+        },
+        resumen: `Registrar un pago de ${textoDelCobro(montoUsd, cobro)} de ${lead.nombre} el ${fechaPago}, fuera del plan de cuotas (no cambia el monto de cierre).${aviso}`,
       };
     },
     ejecutar: (payload, ctx) => seguro('registrar el pago', async () => {
       const fecha = String(payload.fechaPago);
-      const r = await registrarPagoSuelto(Number(payload.leadId), { monto: Number(payload.montoUsd), fecha });
-      await logLeadEvent(Number(payload.leadId), 'Pago registrado', `Pago fuera del plan por USD ${r.monto} el ${fecha}`, autorDe(ctx));
+      const cobro = {
+        moneda: s(payload.moneda), montoOriginal: typeof payload.montoOriginal === 'number' ? payload.montoOriginal : null,
+        concepto: s(payload.concepto), metodo: s(payload.metodo),
+      };
+      const r = await registrarPagoSuelto(Number(payload.leadId), { monto: Number(payload.montoUsd), fecha, ...cobro });
+      const plata = textoDelCobro(r.monto, { ...cobro, moneda: r.moneda, montoOriginal: r.montoOriginal });
+      await logLeadEvent(Number(payload.leadId), 'Pago registrado', `Pago fuera del plan por ${plata} el ${fecha}`, autorDe(ctx));
       invalidar('pagos', 'leads');
-      return { ok: true, resumen: `Listo: pago de ${r.monto} USD registrado el ${fecha}.`, datos: { pagoId: r.pagoId } };
+      return { ok: true, resumen: `Listo: pago de ${plata} registrado el ${fecha}.`, datos: { pagoId: r.pagoId } };
     }),
   },
   // Ignoran IGUAL que la pantalla (14/10/2026): en `datos_ignorados`, por la misma escritura que la ficha
@@ -1567,8 +1605,7 @@ export const RUNNERS: Runners = {
       try {
         const r = await crearCrm(String(payload.nombre), siembra);
         invalidar('pipeline', 'leads');
-        const aviso = r.etapasDelTipo ? '' : ' Quedó con las etapas de su canal: ajústalas desde el lápiz del CRM.';
-        return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).${aviso}`, datos: { embudoId: r.funnelId, productoId: r.productoId } };
+        return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).`, datos: { embudoId: r.funnelId, productoId: r.productoId } };
       } catch (e) {
         // `crearProductoConFunnel` tira con un mensaje para la persona (nombre vacío o reservado).
         return { ok: false, resumen: e instanceof Error ? e.message : String(e) };

@@ -29,6 +29,8 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { llamadasDe, rutaPlanDeCliente, type FilaGrabacion } from '../app/customer-success/ficha-datos';
+import { listaFijaDeCs } from '../app/crm/lead-view/ficha/reglas-cs';
+import { PLANTILLA_CS } from '../lib/ficha/plantillas';
 
 const leer = (p: string) => readFileSync(resolve(import.meta.dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src
@@ -158,11 +160,24 @@ test('Resumen, Pagos e Historial son los componentes del CRM, no copias', () => 
     ['InfoPrincipalCard', '@/app/crm/lead-view/InfoPrincipalCard'],
     ['NotasCard', '@/app/crm/lead-view/NotasCard'],
     ['AuditHistory', '@/app/crm/lead-view/AuditHistory'],
-    ['DealDetailsCard', '@/app/crm/[id]/DealDetailsCard'],
   ]) {
     assert.ok(PESTANAS.includes(`import { ${comp} } from '${desde}';`), `${comp} dejó de venir del CRM`);
     assert.ok(new RegExp(`<${comp}\\b`).test(PESTANAS), `${comp} se importa y no se monta`);
   }
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: Pagos ya no es DealDetailsCard (borrada) sino los BLOQUES de la tab Pagos
+  // del CRM, con el mismo armador y la plantilla fija de CS (./PagosCliente.tsx). Verificado rompiéndolo: con
+  // `listaFijaDeCs('cs-resumen')` en vez de 'cs-pagos' → cae éste.
+  const PAGOS = sinComentarios(leer('app/customer-success/PagosCliente.tsx'));
+  assert.match(PAGOS, /import \{ Armador \} from '@\/app\/crm\/lead-view\/ficha\/Armador';/);
+  assert.match(PAGOS, /const LISTA = listaFijaDeCs\('cs-pagos'\);/);
+  assert.match(PAGOS, /return <BloquesDeCs \{\.\.\.p\} lista=\{LISTA\} que="sus pagos" \/>;/);
+  assert.match(PAGOS, /<Armador tab="pagos" lista=\{lista\} ctx=\{ctx\} editando=\{false\}/, 'la ficha de CS no se personaliza');
+  assert.match(PAGOS, /getLeadFullAction\(leadId\)/, 'lee lo mismo que la ficha del CRM');
+  assert.match(FICHA, /<PagosCliente leadId=\{c\.leadId\}/);
+  // Y lo del deal que la plantilla de CS pone en el Resumen (servicio, promesa, obligaciones, el estado de cuenta), sin
+  // repetir lo que dibuja la tarjeta de siempre. Verificado rompiéndolo: sin el `sin: ['contacto', 'notas']` → cae éste.
+  assert.match(PAGOS, /const LISTA_RESUMEN = listaFijaDeCs\('cs-resumen', \{ sin: \['contacto', 'notas'\] \}\);/);
+  assert.match(PESTANAS, /<DealCliente leadId=\{c\.leadId\} onCambio=\{onCambio\} \/>/);
   // La Entrega salió del Resumen: vive en la cabecera (FichaEntrega).
   assert.ok(!/Fila k="Entrega"|LineaEntrega/.test(PESTANAS), 'volvió la sección «Entrega» al Resumen');
   assert.match(FICHA, /<FichaEntrega leadId=\{c\.leadId\}/);
@@ -189,7 +204,8 @@ test('renombrar al cliente desde su ficha DEJA HISTORIAL', () => {
 test('«no pude leer» no se pinta como «no tiene»', () => {
   // `null` = lectura caída. Un «no hay llamadas» ahí afirmaría algo falso.
   assert.match(PESTANAS, /\{!llamadas \? \(\s*<p className="fl-nada">No pude leer sus llamadas\.<\/p>/);
-  assert.match(PESTANAS, /if \(!datos\.ok\) return <><p className="fl-nada">No pude leer sus pagos\./);
+  // Pagos (./PagosCliente.tsx desde el 17/10/2026): sin poder leer, lo dice; no dibuja una tab vacía.
+  assert.match(sinComentarios(leer('app/customer-success/PagosCliente.tsx')), /if \(data === 'error'\) return <p style=\{AVISO\}>No pude leer \{que\}\./);
 });
 
 // PROBADO ROMPIÉNDOLO (06/10/2026), corrido junto con cs-pertenencia: baseline 20 pass / 0
@@ -200,3 +216,13 @@ test('«no pude leer» no se pinta como «no tiene»', () => {
 //   4. FichaCliente: sin la tab Historial → «las tabs: Resumen · Tareas…».
 // (La tanda del 05/10, con las roturas de `entregasDe` y `conteoDeTrabajo`, se fue con esas
 // funciones. Las de las llamadas, el flag de agencia y el Link siguen valiendo.)
+
+// La lista fija de CS (17/10/2026): la plantilla tal cual, con el ancho y el diseño de entrada del catálogo, y sin lo que
+// la pantalla ya dibuja. Verificado rompiéndolo: sin el `opts?.sin?.includes(id)` → cae éste.
+test('listaFijaDeCs: la plantilla fija de CS en orden, y sin lo que la tarjeta de siempre ya dibuja', () => {
+  assert.deepEqual(listaFijaDeCs('cs-pagos').map((b) => b.id), [...PLANTILLA_CS['cs-pagos']]);
+  assert.ok(listaFijaDeCs('cs-pagos').every((b) => b.ancho > 0 && typeof b.diseno === 'string'));
+  const resumen = listaFijaDeCs('cs-resumen', { sin: ['contacto', 'notas'] }).map((b) => b.id);
+  assert.ok(!resumen.includes('contacto') && !resumen.includes('notas'));
+  assert.ok(resumen.includes('servicio-vendido') && resumen.includes('promesa-y-garantia') && resumen.includes('obligaciones'));
+});

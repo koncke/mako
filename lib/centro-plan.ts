@@ -17,7 +17,7 @@ import { canalKeyDe } from './api-mako/canal';
 import { esAccion, type Ctx } from './api-mako/tipos';
 import { runWithWorkspace } from './workspace';
 import {
-  avisoDeAlta, avisoDeYaEstaba, dondeQuedo, numerosDeTarjeta, ordenarTareas, proyectoDelChat, proyectoDelJefe, proyectosDelListado,
+  avisoDeAlta, avisoDeYaEstaba, dondeQuedo, errorDeCierre, inputDeCierre, numerosDeTarjeta, ordenarTareas, proyectoDelChat, proyectoDelJefe, proyectosDelListado,
   tareasDelListado, tarjetasDelYaEsta, yaAbierta,
   type EscritoPlan, type LecturaPlan, type TareaPlanP,
 } from './centro-plan-reglas';
@@ -101,12 +101,14 @@ export async function sumarTareaAlPlan(ctx: Ctx, chat: string, t: { titulo: stri
  * /plan/revisar. Cerrar no es borrar: queda con su historial y su checklist tildada.
  */
 export async function cerrarTareaDelPlan(ctx: Ctx, chat: string, t: { id: string; evidencia: string; revisar?: string | null }): Promise<EscritoPlan> {
-  const r = await enElActo('cerrar_tareas_plan', { cerrar: [{ id: t.id, evidencia: t.evidencia, ...(t.revisar ? { revisar: t.revisar } : {}) }] }, ctx);
+  const r = await enElActo('cerrar_tareas_plan', inputDeCierre(t), ctx);
   const plan = await leerPlanDelJefe(ctx, chat);
   if (!r.ok) {
-    // La fila vieja no se queda en pantalla: si ya no está abierta, eso es lo que se dice.
-    const sigue = plan.ok && plan.tareas.some((x) => x.id === t.id);
-    return { ok: false, error: sigue ? r.error : 'Ya no estaba abierta.', plan };
+    // La fila vieja no se queda en pantalla: si ya no está abierta, eso es lo que se dice. Se mira TODO el tablero, no sólo
+    // el proyecto del jefe: una tarea de otro proyecto tapaba el error real con «Ya no estaba abierta» (`errorDeCierre`).
+    const todo = await listado(ctx);
+    const sigue = (plan.ok && plan.tareas.some((x) => x.id === t.id)) || (todo.ok && todo.tareas.some((x) => x.id === t.id));
+    return { ok: false, error: errorDeCierre(r.error, sigue), plan };
   }
   return { ok: true, aviso: 'Marcada hecha', plan };
 }

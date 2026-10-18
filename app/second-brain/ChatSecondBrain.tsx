@@ -46,7 +46,7 @@ import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisione
 import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { MunecoNuevo } from '@/app/admin/operaciones/NuevoChat';
+import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { Microfono } from '@/app/admin/operaciones/Microfono';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
@@ -297,13 +297,19 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   }, [chatCentro, claveCentro]);
   // En la URL va su SESIÓN (no cambia al renombrarlo); el que no tiene, su clave.
   const urlCentro = chatCentro ? claveParaUrl(chatCentro) : claveCentro;
-  useEffect(() => { if (elegido) anotarEnUrl(idElegido, urlCentro); }, [elegido, idElegido, urlCentro]);
+  // ⚠️ Con el grafo abierto, la URL es del grafo (`?panel=mapa`): tocar un chat navega con `router.push`, y si este efecto
+  // reescribe la URL con `replaceState` ANTES de que esa navegación termine, la deja otra vez en `?panel=mapa&centro=…` y el grafo
+  // no se va nunca (Martín, 17/10/2026: «una vez que entro a Second Brain, no puedo salir más dándole click a un chat»). Mientras
+  // hay grafo no se anota nada; al irse, el efecto vuelve a correr y anota el chat.
+  const hayMapa = mapa != null;
+  useEffect(() => { if (elegido && !hayMapa) anotarEnUrl(idElegido, urlCentro); }, [elegido, idElegido, urlCentro, hayMapa]);
   // ⚠️ LA TICKETERA SIGUE A LA URL, no a la prop: un link a esta misma página con otro `?ticketera=` (el ítem «Ticketera»
   // de la barra de admin) no la vuelve a montar (docs/hallazgos-operaciones.md).
   const qTicketera = useSearchParams().get('ticketera');
   useEffect(() => {
     if (!ops) return;
-    const v: VistaDeTicketera | null = esVistaTicketera(qTicketera) ? qTicketera : null;
+    // Las vistas de antes (`tarjetas`, `lista`: las preguntas de los chats) ya no existen: un link viejo abre los tickets.
+    const v: VistaDeTicketera | null = esVistaTicketera(qTicketera) ? 'tickets' : null;
     setTicketera(v);
     if (v) setConChat(true);
   }, [qTicketera, ops]);
@@ -585,7 +591,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
           <button type="button" className="co-fila co-fila--nuevo"
             aria-current={!mapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo' ? 'true' : undefined}
             onClick={() => elegir({ virtual: 'nuevo' })}>
-            <MunecoNuevo />
+            <CirculoNuevo />
             <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
           </button>
           {errorLista && <p className="co-lista__vacio">{errorLista}</p>}
@@ -623,11 +629,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       </aside>
 
       {centro && ticketera ? (
-        <TicketeraCentro cerebro={cerebroDelCentro(centro)}
-          decisiones={centro.decisionesOk ? centro.decisiones : null} vista={ticketera} onVista={abrirTicketera}
-          responder={centro.responderAca} deshacer={centro.deshacerAca}
-          onVolver={() => { cerrarTicketera(); setConChat(false); }}
-        />
+        <TicketeraCentro cerebro={cerebroDelCentro(centro)} onVolver={() => { cerrarTicketera(); setConChat(false); }} />
       ) : mapa ? (
         // El grafo trae su cabecera («Second Brain», siempre en oscuro: VistaCerebro.tsx); el «volver» de la ventana
         // angosta le llega por contexto, porque el grafo lo arma el servidor y una función no viaja de ahí (volver.ts).

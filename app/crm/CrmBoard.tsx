@@ -55,9 +55,6 @@ import {
   markManualNutritionAction,
   markMeetingManualAction,
   bulkFillLeadFieldAction,
-  ignorarPendientesAction,
-  reactivarPendientesAction,
-  ignorarPendientesMasaAction,
   reagendarReunionAction,
   permisoCalendarioAction,
   duracionReunionAction,
@@ -68,7 +65,8 @@ import {
   eliminarLeadsAction,
   type OpEtapa,
 } from './actions';
-import type { ReagendarResultado, StageMoveData } from './actions';
+import type { ReagendarResultado, StageMoveData, StageMoveResultado } from './actions';
+import type { TokenDeshacer } from '@/lib/deshacer-movimiento';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
@@ -127,6 +125,8 @@ import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLo
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
+import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
+import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -180,6 +180,12 @@ export type CrmLead = {
    * Lo arma `mapToCrmLead` (app/crm/crm-map.ts). Obligatorio: un mapper nuevo no lo olvida.
    */
   ingresoEstimado: number | null;
+  /**
+   * La cuenta de MaKo Partners del lead (`leads.cliente_ws`): con ella el menú ofrece «Ver en MaKo Partners»; sin
+   * ella, «Llevar a MaKo Partners» (sólo el admin de una agencia: `partners` del tablero). Opcional: un tablero que
+   * no es de agencia no la necesita.
+   */
+  cuentaPartners?: number | null;
   /**
    * El tipo de venta guardado (`leads.venta_tipo`). Lo lee `leadToMoveInfo` para el wizard.
    *
@@ -441,6 +447,8 @@ export function CrmBoard({
   funnelActivo = null,
   ordenManual = {},
   cursoAlGanar = null,
+  partners = false,
+  puedeCrearCrm = false,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -484,6 +492,14 @@ export function CrmBoard({
    * `null` = la opción no se ofrece: su producto no tiene clases, o no se pudo leer.
    */
   cursoAlGanar?: { prendido: boolean } | null;
+  /**
+   * MaKo Partners (17/10/2026): el menú de un lead ofrece «Llevar a MaKo Partners» (o «Ver en MaKo Partners» si ya
+   * tiene cuenta). Lo decide el SERVER (app/crm/page.tsx): el workspace es agencia (`esAgencia`) Y quien mira es su
+   * admin, que es lo que exigen /partners y `llevarAPartnersAction`.
+   */
+  partners?: boolean;
+  /** ¿Quien mira puede crear un CRM? (el admin: `crearCrmAction`). Sin esto, «Nuevo CRM» no se ofrece. */
+  puedeCrearCrm?: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -522,6 +538,8 @@ export function CrmBoard({
    *  porque la pregunta lo NOMBRA, y volver a buscarlo para escribir el nombre seria
    *  pedirle a la lista que no haya cambiado entre el click y la respuesta. */
   const [borrarUno, setBorrarUno] = useState<CrmLead | null>(null);
+  // El lead que se está llevando a MaKo Partners: la ventana es la MISMA de /partners (app/partners/LlevarAPartners.tsx).
+  const [aPartners, setAPartners] = useState<CrmLead | null>(null);
   /** La fila en la mano. Es un REF y no estado: se escribe en el `dragstart` y leerlo no
    *  dibuja nada — un `setState` ahi redibuja la tabla justo en el frame en que arranca
    *  el gesto, que es el bug clasico de esta familia. */
@@ -588,7 +606,15 @@ export function CrmBoard({
   const [ordenCols, setOrdenCols] = useState<{ funnel: number | null; keys: string[] } | null>(null);
   // `pendientes`: lo que la etapa pide y todavía falta. Desde el 17/09 eso NO frena
   // el movimiento (08-T22): se guarda igual y se avisa acá, sin pedir nada.
-  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; monto: number | null; motivo: string | null; pendientes?: string[] } | null>(null);
+  // `deshacer`: la foto firmada que devolvió el movimiento (lib/deshacer-movimiento.ts). Sin ella, el botón va apagado.
+  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; pendientes?: string[]; deshacer?: TokenDeshacer } | null>(null);
+  // El Deshacer que no se pudo: se DICE, como en el teléfono (antes la card volvía sola, sin una palabra).
+  const [avisoDeshacer, setAvisoDeshacer] = useState<string | null>(null);
+  useEffect(() => {
+    if (!avisoDeshacer) return;
+    const t = setTimeout(() => setAvisoDeshacer(null), 5000);
+    return () => clearTimeout(t);
+  }, [avisoDeshacer]);
   // Los dos toques opcionales de Meta que viajan en la confirmación de mover (ver
   // senales-meta.ts). Ref y no estado: la confirmación guarda su `onOk` al abrirse,
   // y tiene que leer lo que se tocó DESPUÉS, al confirmar.
@@ -689,9 +715,9 @@ export function CrmBoard({
           asistio_j2: tr?.category === 'perdida' ? undefined : tr?.asistioJ2,
           calificado: senales?.calificado ?? undefined,
         });
-        if (r.ok && r.pendientes?.length) {
-          const labels = r.pendientes.map((p) => p.label);
-          setUndoInfo((u) => (u && u.id === id ? { ...u, pendientes: labels } : u));
+        if (r.ok) {
+          const labels = r.pendientes?.length ? r.pendientes.map((p) => p.label) : undefined;
+          setUndoInfo((u) => (u && u.id === id ? { ...u, ...(labels ? { pendientes: labels } : {}), deshacer: r.deshacer } : u));
         }
         // Red de seguridad: el server de hoy ya no devuelve ok:false por datos
         // faltantes, pero si algún día lo hiciera, se abre el wizard en vez de
@@ -711,7 +737,7 @@ export function CrmBoard({
     // Toast "Deshacer" (5s) tras concretar un movimiento en el tablero.
     if (from && from !== key) {
       const lead = leads.find((l) => l.id === id);
-      setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label, monto: lead?.monto || null, motivo: lead?.motivo || null });
+      setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label });
     }
   };
 
@@ -776,16 +802,22 @@ export function CrmBoard({
 
   // Revertir el último movimiento a su etapa anterior (ventana del toast, 5s).
   // No deja huella en el historial: un movimiento deshecho al instante es un
-  // mis-click, no historia. Lleva el monto/motivo previos para reponerlos si el
-  // movimiento los borró (des-ganar).
+  // mis-click, no historia. El server repone la FOTO firmada que devolvió el
+  // movimiento (estado, monto, fecha de cierre, cuotas…), tal cual (17/10/2026,
+  // `undoStageMoveAction`). Si no pudo, la card vuelve y se DICE por qué.
   const undoMove = () => {
-    if (!undoInfo) return;
-    const { id, from, monto, motivo } = undoInfo;
+    if (!undoInfo?.deshacer) return;
+    const { id, from, deshacer } = undoInfo;
     setUndoInfo(null);
     setLocalStage((m) => ({ ...m, [id]: from }));
     startTransition(async () => {
-      try { await undoStageMoveAction(id, from, { monto, motivo }); }
-      catch { setLocalStage((m) => { const n = { ...m }; delete n[id]; return n; }); }
+      try {
+        const r = await undoStageMoveAction(id, deshacer);
+        if (r && 'error' in r) throw new Error(r.error);
+      } catch (e) {
+        setLocalStage((m) => { const n = { ...m }; delete n[id]; return n; });
+        setAvisoDeshacer(e instanceof Error && e.message.length <= 40 ? e.message : 'No se pudo deshacer');
+      }
       router.refresh();
     });
   };
@@ -1531,7 +1563,7 @@ export function CrmBoard({
         setLocalStage((m) => ({ ...m, [leadId]: destino }));
         if (from !== destino) {
           const pendientes = r.pendientes?.map((p) => p.label);
-          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, monto: l.monto || null, motivo: l.motivo || null, pendientes });
+          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, pendientes, deshacer: r.deshacer });
         }
         router.refresh();
       } catch (e) {
@@ -1570,12 +1602,13 @@ export function CrmBoard({
     const nota = modo === 'futura' ? mmNota.trim() : null;
     setManualMeeting(null);
     startTransition(async () => {
-      await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
+      const r = await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
+      setUndoInfo((u) => (u && u.id === leadId ? { ...u, deshacer: r.deshacer } : u));
       router.refresh();
     });
     // Toast Deshacer también en este camino (antes solo lo tenía el drag directo).
     if (lead && from && from !== which) {
-      setUndoInfo({ id: leadId, name: lead.name, from, toLabel: findStage(stages, which).label, monto: lead.monto || null, motivo: lead.motivo || null });
+      setUndoInfo({ id: leadId, name: lead.name, from, toLabel: findStage(stages, which).label });
     }
   };
 
@@ -1978,7 +2011,7 @@ export function CrmBoard({
   // ve el problema: la columna que sobra o el nombre que no es el del negocio se notan
   // mirando el tablero, no el mapa.
   const [renombrando, setRenombrando] = useState<string | null>(null);
-  const [borrarEtapa, setBorrarEtapa] = useState<{ key: string; label: string } | null>(null);
+  const [borrarEtapa, setBorrarEtapa] = useState<{ key: string; label: string; n: number } | null>(null);
   const [errorEtapa, setErrorEtapa] = useState<string | null>(null);
 
   /**
@@ -2017,8 +2050,8 @@ export function CrmBoard({
    * deshacer que dura 5 segundos». Acá el conteo es gratis: el tablero ya lo tiene
    * dibujado al lado del nombre de la columna.
    *
-   * Con leads adentro sigue preguntando, porque ahí el deshacer no alcanza — entre medio
-   * quedan fuera del embudo.
+   * Con leads adentro sigue preguntando, porque ahí el deshacer no alcanza — entre medio se ven en otra columna
+   * (`avisoAlQuitarEtapa`, ./aviso-quitar-etapa.ts: la MISMA frase que el pop-up de etapas).
    */
   const quitarColumna = async (c: Stage) => {
     // ⚠️ SE CUENTAN TODOS LOS LEADS DE LA COLUMNA, no los que deja ver el filtro. Con un filtro
@@ -2026,7 +2059,7 @@ export function CrmBoard({
     // (docs/relevo/crm.md, «Lo que quedó sin hacer», 12/10/2026). Lo fija
     // tests/quitar-columna-cuenta-todos.test.ts.
     const cuantos = leads.filter((l) => effStage(l) === c.key).length;
-    if (cuantos > 0) { setBorrarEtapa({ key: c.key, label: c.label }); return; }
+    if (cuantos > 0) { setBorrarEtapa({ key: c.key, label: c.label, n: cuantos }); return; }
     const r = await opEtapa({ op: 'eliminar', key: c.key });
     if (!r?.ok) return;
     const d = r.deshacer;
@@ -2318,6 +2351,7 @@ export function CrmBoard({
           conWhatsapp: !!l.telefonoNorm, conTelefono: !!l.phone?.trim(), conEmail: !!l.email?.trim(),
           seleccionado: selLeads.has(id), seleccionados: elegidos.length,
           hayEquipo: equipo.length > 0, hayOtroFunnel: destinosLote.length > 0,
+          partners: partners ? (l.cuentaPartners != null ? 'ver' : 'llevar') : null,
         },
       };
     }
@@ -2394,6 +2428,8 @@ export function CrmBoard({
       case 'whatsapp': if (l?.telefonoNorm) window.open(waDe(l.telefonoNorm), '_blank', 'noopener,noreferrer'); return;
       case 'copiar_telefono': if (l) copiarDato(l.phone, 'Teléfono copiado'); return;
       case 'copiar_email': if (l) copiarDato(l.email, 'Email copiado'); return;
+      case 'partners_llevar': if (l) setAPartners(l); return;
+      case 'partners_ver': if (l?.cuentaPartners != null) router.push(`/partners?cuenta=${l.cuentaPartners}`); return;
       case 'seleccionar':
       case 'quitar_seleccion': if (l) alternarSel(l.id); return;
       // La MISMA confirmación que el tacho de la fila.
@@ -2848,7 +2884,7 @@ export function CrmBoard({
           diferencia es la caja, no el ancho. Va ANTES de los avisos. El esqueleto (app/crm/loading.tsx)
           dibuja la misma caja. */}
       <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, marginBottom: 16, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 1px 2px rgba(18,21,27,.04)' }}>
-        <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />
+        <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} puedeCrear={!!puedeCrearCrm} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />
         <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
         <>
           <Buscador value={search} onChange={setSearch} />
@@ -3274,6 +3310,10 @@ export function CrmBoard({
       {/* EL TACHO DE UNA FILA. Misma pregunta que la del lote, en singular y nombrando
           al lead: «No se puede deshacer» es lo unico que convierte un icono chico al
           borde de una fila en una decision. */}
+      {aPartners && (
+        <ModalLlevarAPartners leadId={aPartners.id} nombre={aPartners.name} email={aPartners.email || null}
+          onCerrar={() => setAPartners(null)} onListo={() => router.refresh()} />
+      )}
       {borrarUno && (
         <ConfirmDialog
           title={`¿Eliminar «${borrarUno.name}»?`}
@@ -3318,11 +3358,11 @@ export function CrmBoard({
             equipo={equipo}
             onVerDetalle={esCompletar ? () => router.push(`/crm/${l.id}`) : undefined}
             onClose={() => setStageMove(null)}
-            onDone={() => {
+            onDone={(r?: StageMoveResultado) => {
               setStageMove(null);
               setLocalStage((m) => ({ ...m, [l.id]: stageMove.move.to }));
               if (from !== stageMove.move.to) {
-                setUndoInfo({ id: l.id, name: l.name, from, toLabel: findStage(stages, stageMove.move.to).label, monto: l.monto || null, motivo: l.motivo || null });
+                setUndoInfo({ id: l.id, name: l.name, from, toLabel: findStage(stages, stageMove.move.to).label, deshacer: r && r.ok ? r.deshacer : undefined });
               }
               router.refresh();
             }}
@@ -3888,8 +3928,14 @@ export function CrmBoard({
               }} style={{ background: '#F3F5F8', border: 'none', color: '#14161B', fontWeight: 700, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>Completar ahora</button>
             </>
           )}
-          <button type="button" onClick={undoMove} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>↶ Deshacer</button>
+          {/* Apagado hasta que llega la foto del movimiento: un Deshacer que no deshace es peor que ninguno. */}
+          <button type="button" onClick={undoMove} disabled={!undoInfo.deshacer} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: undoInfo.deshacer ? 'pointer' : 'default', opacity: undoInfo.deshacer ? 1 : 0.45, fontFamily: SANS }}>↶ Deshacer</button>
           <button type="button" onClick={() => setUndoInfo(null)} aria-label="cerrar" style={{ background: 'transparent', border: 'none', color: 'rgba(243,245,248,.6)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+        </div>
+      )}
+      {avisoDeshacer && !undoInfo && (
+        <div role="alert" style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 70, maxWidth: 'min(640px, calc(100vw - 32px))', background: '#14161B', color: '#F3F5F8', padding: '12px 16px', borderRadius: 12, boxShadow: '0 12px 32px rgba(18,21,27,.35)', fontFamily: SANS, fontSize: 14 }}>
+          {avisoDeshacer}
         </div>
       )}
       {/* Eliminar una etapa es irreversible y mueve leads: se pregunta, y la pregunta dice
@@ -3897,7 +3943,7 @@ export function CrmBoard({
       {borrarEtapa && (
         <ConfirmDialog
           title={`Eliminar la etapa «${borrarEtapa.label}»`}
-          message="Los leads que estén ahí pasan a la primera etapa del funnel. La nutrición que salía de esta etapa también se va."
+          message={avisoAlQuitarEtapa(borrarEtapa.n)}
           confirmLabel="Eliminar la etapa"
           loading={isPending}
           onConfirm={() => { void opEtapa({ op: 'eliminar', key: borrarEtapa.key }); }}

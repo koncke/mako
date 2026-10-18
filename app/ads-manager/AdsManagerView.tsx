@@ -16,6 +16,8 @@ import { CampanasBrowser } from './CampanasBrowser';
 import { OnboardingAdsManager } from './OnboardingAdsManager';
 import { onboardingAdsPendiente } from './onboarding-datos';
 import { requireRolWs } from '@/lib/tab-access';
+import { adsSinNegocio } from '@/lib/ads-guard';
+import { EmptyState } from '@/app/_ui/Estados';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,6 +32,17 @@ export async function AdsManagerView({
   adInicial?: string | null;
 }) {
   await requireRolWs([], { nav: 'ads-manager' });
+  // El super admin sin un negocio elegido no opera NINGUNA cuenta (17/10/2026): antes caía a la de
+  // Mauricio (ws1, un cliente). Las rutas contestan 409; la pantalla lo dice antes de pedir nada.
+  if (await adsSinNegocio()) {
+    return (
+      <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
+        <EmptyState titulo="Elige un negocio"
+          detalle="Ads Manager opera la cuenta de Meta de un negocio. Entra a uno desde el panel y vuelve aquí."
+          accion={{ label: 'Ir al panel', href: '/admin' }} />
+      </main>
+    );
+  }
   const ayerReal = ayerEnTijuana();
   const hoyReal = hoyEnTijuana();
   const params = await searchParams;

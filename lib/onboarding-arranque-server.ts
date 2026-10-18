@@ -27,8 +27,11 @@ import { FUNNEL_DEFAULT_NOMBRE } from './funnel-fila';
 import { DEFAULT_PIPELINE, apagadasAlCrear, mismoPipeline, siembraDeCrm, tipoCrmPorId, type TipoCrmId } from './pipeline';
 import { listProductos, upsertProducto } from './productos';
 import { ANSWERS_KEY, saveAnswers } from './onboarding';
-import { mapaParaEscribir } from './archivero';
-import { faltanDelArranque, type OfferSesionVista } from './offer-marco';
+import { borrarBinario, insertFile, listFiles, mapaParaEscribir, subirBinario } from './archivero';
+import { idDeContenido } from './archivero-registro';
+import { nombreArchivoLoQueVendes, pdfDeLoQueVendes } from './lo-que-vendes-pdf';
+import { tzDeWorkspace } from './timezone';
+import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
   CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
@@ -224,6 +227,33 @@ export async function asegurarFunnelPrincipal(): Promise<void> {
   await crearFunnel({ nombre: FUNNEL_DEFAULT_NOMBRE, esDefault: true });
 }
 
+/** Lo que El Archivero dice del PDF «Lo que vendes» (su «por qué» en la lista). */
+export const RAZON_LO_QUE_VENDES = 'Lo armó MaKo con lo que contaste en el onboarding. Sus datos ya están en tu perfil.';
+
+/**
+ * Deja el PDF «Lo que vendes» como un documento de El Archivero (17/10/2026, docs/relevo/onboarding.md: «el PDF que no
+ * queda en El Archivero»). Decisión con criterio: SIN EXTRACCIÓN. Lo que dice el PDF ya está en el perfil (el brief que
+ * escribe el cierre, de las mismas piezas): leerlo de nuevo con la IA sería pagar por saber lo que ya se sabe (la
+ * hallazgo del 17/10 lo frenaba por eso: «pagaría una extracción por cliente»). La fila va con `campos` vacíos y su
+ * razonamiento; el binario, donde guarda El Archivero (`<ws>/<id>`, id por contenido).
+ * Una vez por negocio: si ya hay un documento con ese nombre, no se repite (el PDF lleva la fecha: el contenido cambia).
+ */
+export async function archivarLoQueVendes(ws: number, piezas: PiezasSabidas, negocio: string): Promise<{ ok: true; id: string | null } | { ok: false; motivo: string }> {
+  const nombre = nombreArchivoLoQueVendes(negocio);
+  if ((await listFiles()).some((f) => f.nombre === nombre)) return { ok: true, id: null };
+  const zona = await tzDeWorkspace(ws).catch(() => '');
+  const bytes = pdfDeLoQueVendes(piezas, { negocio, fecha: new Date(), zona: zona || undefined });
+  const id = idDeContenido(ws, bytes);
+  const path = await subirBinario(ws, id, Buffer.from(bytes), 'application/pdf');
+  try {
+    await insertFile(ws, { id, nombre, mime: 'application/pdf', tamano: bytes.byteLength, storage_path: path, razonamiento: RAZON_LO_QUE_VENDES, campos: {}, origen: 'onboarding' });
+  } catch (e) {
+    await borrarBinario(path);
+    return { ok: false, motivo: e instanceof Error ? e.message : String(e) };
+  }
+  return { ok: true, id };
+}
+
 export class FaltaParaCerrar extends Error {}
 
 /**
@@ -290,6 +320,16 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
   } catch (err) {
     console.error('[arranque] brief:', err instanceof Error ? err.message : err);
     avisos.push('No pude guardar el perfil de tu negocio; lo completas en Second Brain.');
+  }
+
+  // 3-bis. «Lo que vendes» queda como DOCUMENTO en El Archivero (17/10/2026; y de ahí, en Second Brain → Documentos).
+  // Best-effort: no traba el cierre.
+  if (h.modo === 'oferta' && piezas) {
+    const ws = await getWorkspaceActual().catch(() => null);
+    if (ws != null) {
+      const r = await archivarLoQueVendes(ws, piezas, e.negocio ?? '').catch((err) => ({ ok: false as const, motivo: err instanceof Error ? err.message : String(err) }));
+      if (!r.ok) console.error('[arranque] «Lo que vendes» al Archivero:', r.motivo);
+    }
   }
 
   // 4. Cómo llegó y qué quiere resolver primero (17/10/2026): un setting propio, para que el super admin los lea sin

@@ -532,7 +532,9 @@ test('⚠️ un funnel nuevo nace VACÍO y con SUS etapas', () => {
 
   // 2) El funnel nuevo nace con las etapas del canal que se eligió.
   assert.match(pc, /templateDeCanal\(canal\)/, 'el funnel nuevo volvió a nacer sin etapas');
-  assert.match(pc, /pipeline: tpl\?\.pipeline/, 'la plantilla no se siembra en el funnel nuevo');
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: con las etapas de un TIPO («Nuevo CRM»), mandan ésas, en el mismo insert
+  // (tests/producto-con-funnel.test.ts); sin ellas, la plantilla del canal, como siempre.
+  assert.match(pc, /pipeline: propias \? propias\.pipeline : tpl\?\.pipeline/, 'la plantilla no se siembra en el funnel nuevo');
 
   // 3) Y el modal PREGUNTA, que es lo que no hacía.
   // ⚠️ CAMBIADO A PROPÓSITO el 14/10/2026: pregunta el TIPO de CRM (`TIPOS_CRM`), que trae canal,

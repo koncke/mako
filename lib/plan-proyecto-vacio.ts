@@ -23,7 +23,7 @@ import 'server-only';
 // como todo alta desde el 05/10/2026.
 // =============================================================================
 
-import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace, getWorkspaceActual, WS_NINGUNO } from '@/lib/workspace';
 import { chatCheapCascade, errorDeCascada } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import { crearPropuesta, type PropuestaTarea } from '@/lib/plan-propuesta';
@@ -36,7 +36,7 @@ const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
 const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
 const enPlan = async <T,>(fn: () => Promise<T>): Promise<T> =>
-  runWithWorkspace((await getWorkspaceActual()) ?? OWNER_WS, fn);
+  runWithWorkspace((await getWorkspaceActual()) ?? WS_NINGUNO, fn);
 
 export type ProyectoVacio = { id: string; nombre: string; emoji: string; detalle: string; score: number };
 

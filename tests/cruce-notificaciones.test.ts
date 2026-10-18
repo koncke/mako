@@ -156,7 +156,10 @@ test('la BASE de la plataforma la edita sólo /mensajes en el workspace de la pl
   const guardar = bloque(src, 'async function guardarStore(', 'function aVista(');
   assert.match(guardar, /if \(enLaBase\(\)\) \{[\s\S]*?runWithWorkspace\(base, \(\) => setSetting\(KEY_BASE, /, 'editando la base se escribe el store del ws9');
   const ruta = sinComentarios(leer('app/api/admin/plantillas/route.ts'));
-  assert.match(ruta, /return ws === base \? conLaBaseDeLaPlataforma\(fn\) : fn\(\);/);
+  // Desde el 17/10/2026 el selector vive en lib/plantillas.ts (`enElStoreDeLaPestana`): lo comparte el teléfono
+  // (app/m/mensajes), que lee en el server. La ruta lo usa como su `enSuStore`.
+  assert.match(src, /return ws === base \? conLaBaseDeLaPlataforma\(fn\) : fn\(\);/);
+  assert.match(ruta, /const enSuStore = enElStoreDeLaPestana;/);
   assert.match(ruta, /return enSuStore\(\(\) => getEnSuStore\(req\)\);/);
   assert.match(ruta, /return enSuStore\(\(\) => postEnSuStore\(req\)\);/);
   // Y la ruta del NEGOCIO («MaKo en WhatsApp» de Automations) nunca edita la base.

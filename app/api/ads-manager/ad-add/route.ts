@@ -24,7 +24,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { getAdsetForAdd, addAdToAdset, metaErrorEnvelope, videosSinProcesar } from '@/lib/meta-ads-create';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { guardAdsWs } from '@/lib/ads-guard';
-import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { wsObligatorio } from '@/lib/workspace';
 import type { Creative } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { motivoVideos, videosDeCreativos } from '@/lib/campana-videos';
@@ -128,9 +128,9 @@ export async function POST(req: NextRequest) {
   try { supabase = getSupabaseServer(); } catch { supabase = null; }
 // ⚠️ meta_campaign_drafts es POR CLIENTE (mig 0157) y la columna no tiene default a
 // propósito: se escribe el workspace explícito, el MISMO sobre cuya cuenta de Meta
-// crea lib/meta-ads-create.ts (`getWorkspaceActual() ?? OWNER_WS`). Sin esto el insert
+// crea lib/meta-ads-create.ts (`wsObligatorio()`, que tira antes que caer al ws1). Sin esto el insert
 // falla por not null — y como es best-effort, no quedaría ningún registro.
-  const wsDraft = (await getWorkspaceActual()) ?? OWNER_WS;
+  const wsDraft = await wsObligatorio();
   const campaignId = body.campaign_id && /^\d+$/.test(String(body.campaign_id)) ? String(body.campaign_id) : null;
 
   // ── modo simple (AgregarAnuncioModal: un creativo, un anuncio) ──

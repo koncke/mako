@@ -404,8 +404,8 @@ export type RegistroDns = {
   valor: string;
   /** true = ya está; false = falta; null = no se pudo leer. */
   listo: boolean | null;
-  /** Para qué sirve (el `title` de la fila). */
-  para: 'apuntar' | 'vercel' | 'mako';
+  /** Para qué sirve (el `title` de la fila). `www`: el www que MaKo le suma a una raíz VERIFICADA (informativo). */
+  para: 'apuntar' | 'vercel' | 'mako' | 'www';
 };
 
 /**
@@ -479,7 +479,7 @@ export function registrosDns(e: EntradaRegistros): RegistroDns[] {
   if (e.dominio === apex) {
     const ips = (e.ipv4 ?? []).map((v) => v.trim()).filter(Boolean);
     for (const ip of ips.length ? ips : [IPV4_VERCEL]) out.push({ tipo: 'A', nombre: '@', valor: ip, listo: e.apunta, para: 'apuntar' });
-    if (www) sumar({ tipo: 'CNAME', nombre: 'www', valor: sinPuntoFinal(www.cname?.trim() || CNAME_VERCEL), listo: www.apunta, para: 'apuntar' });
+    if (www) sumar({ tipo: 'CNAME', nombre: 'www', valor: sinPuntoFinal(www.cname?.trim() || CNAME_VERCEL), listo: www.apunta, para: 'www' });
   } else {
     out.push({ tipo: 'CNAME', nombre: etiquetaDns(e.dominio, apex), valor: sinPuntoFinal(e.cname?.trim() || CNAME_VERCEL), listo: e.apunta, para: 'apuntar' });
   }
@@ -533,12 +533,12 @@ export const ACCION_RESERVA_VENCIDA = 'elimínalo y añádelo de nuevo';
  * (`ACCION_RESERVA_VENCIDA`; tests/editor-landing-dominios.test.ts mira que la pestaña los tenga). El
  * TXT de MaKo sale del negocio, la landing y el dominio: lo cargado en el DNS sigue valiendo.
  */
-export function queFalta(c: Comprobacion, verificado: boolean, vencido = false, wwwApunta?: boolean | null): string | null {
+export function queFalta(c: Comprobacion, verificado: boolean, vencido = false): string | null {
   if (!c.enVercel) return 'Hay que conectarlo de nuevo';
-  // Tanda 7: el `www.` de una raíz verificada que todavía no apunta (`wwwApunta === false`; undefined = no
-  // hay www, null = no se pudo leer y no se avisa). La landing ya anda en la raíz: se dice qué falta para
-  // que también ande con www, y la pestaña muestra la tabla con su fila.
-  if (verificado) return c.apunta === false ? 'El DNS ya no apunta a MaKo' : wwwApunta === false ? 'Falta el registro de www' : null;
+  // El `www.` de una raíz verificada que no apunta YA NO va acá (decisión del 15/10/2026, hecha el 17/10): era «Falta
+  // el registro de www» en rojo PARA SIEMPRE cuando el www del negocio sirve otra cosa a propósito (su sitio en otro
+  // host). La landing anda en la raíz; el www es informativo: su fila en la tabla y `AVISO_WWW` en la pestaña.
+  if (verificado) return c.apunta === false ? 'El DNS ya no apunta a MaKo' : null;
   if (vencido) return `Reserva vencida: ${ACCION_RESERVA_VENCIDA}`;
   if (c.vercel === false || c.apunta === false || c.mako === false) return 'Faltan registros DNS';
   if (c.vercel === null || c.apunta === null || c.mako === null) return 'No pude leer el DNS';
@@ -609,6 +609,24 @@ export type DepsWww = {
 };
 
 export type ResultadoWww = 'sumado' | 'soltado' | 'ya-estaba' | 'no-estaba' | 'no-corresponde' | 'ocupado' | 'ajeno';
+
+/**
+ * ¿Se le suma el www a esta raíz AHORA? Sólo con la raíz VERIFICADA y nuestra, y si su www todavía no está
+ * redirigiendo a ella (17/10/2026).
+ *
+ * ⚠️ ANTES SE SUMABA AL CONECTAR, y eso dejaba que un negocio TAPARA el dominio de otro: reclamar una raíz ajena (un
+ * pendiente sin probar nada) sumaba su www al proyecto apenas se conectaba, y el www no es una fila con reserva de
+ * 72 h. El dueño real que quería su landing en www.sudominio.com leía «Ese dominio ya lleva a sudominio.com…», de una
+ * landing que no era suya, y el bloqueo no vencía nunca. Verificada, la raíz ya probó que es del negocio (el TXT de
+ * MaKo): recién ahí se suma. Y como se pregunta cada vez que se mira un verificado, también reciben su www las raíces
+ * conectadas antes del 15/10, que nunca lo tuvieron.
+ */
+export function debeSumarWww(p: { verificado: boolean; raizEsNuestra: boolean; wwwRedirige: boolean }): boolean {
+  return p.verificado && p.raizEsNuestra && !p.wwwRedirige;
+}
+
+/** Lo que dice la pestaña cuando el www de una raíz verificada todavía no apunta (informativo, no es un error). */
+export const AVISO_WWW = 'Para que www también abra tu landing, carga el registro de www.';
 
 /**
  * Suma el www de una raíz recién conectada. `raizEsNuestra`: MaKo la agregó (o heredó la marca). Sólo LEE

@@ -277,14 +277,14 @@ No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
 
 | Qué | Dónde vive | Por qué |
 |---|---|---|
-| El Dashboard dibuja «Pendiente» una cuota de baja (o devuelta) en la tabla de cuotas con «Todo» | lib/graficos-datos.ts, `filasPagos` | Es una tabla de filas, no una suma. Es del Dashboard |
+| ~~El Dashboard dibuja «Pendiente» una cuota de baja (o devuelta) en la tabla de cuotas con «Todo»~~ **Hecho el 17/10/2026 (B4), ver §5** | lib/graficos-datos.ts, `filasPagos` | Es una tabla de filas, no una suma. Es del Dashboard |
 | La «baja del cliente» no se vio en el navegador | app/crm/lead-view/ficha/pagos/bloques-cobro.tsx | Sin RAM para `next dev`. Mirarla en el ws3 con un ganado con cuotas vencidas |
 | La tab Pagos de **Customer Success** sigue montando DealDetailsCard. Con ella siguen vivos EditarDeal, `?edit=1`, «✦ Completar con IA», `saveDealSectionsAction` y `saveCuotasAction`. Cuando CS pase a bloques, se borran juntos, con las aserciones que los fijan (crm-cuota-cobrada, ganado-monto, muestra-pagos, pago-comprobante, ficha-se-relee) | app/customer-success/FichaPestanas.tsx:84, app/crm/[id]/LeadDetailBody.tsx:207 | Es la tanda T3 del CRM (Pagos + CS). La ficha de CS no tiene el `CtxFicha` entero |
 | Bloques del catálogo sin componente: `confirmacion-de-pago`, `recordatorios-de-cobro`, `excepciones` y `cliente-en-cs`. Están en las plantillas y se saltean | app/crm/lead-view/ficha/reglas-pagos.ts | Cada uno necesita su lectura. Para los recordatorios, por ejemplo, no hay forma barata de leerlos por lead: falta la columna `lead_id` (mig 0186) |
 | Diseños que no se dibujan: `cobrado` anillo, `cuotas` lista y calendario, `suscripcion` tarjeta y meses, y los de `oferta` (OfertaDelLead es sólo el desplegable) | registro-pagos.tsx | No se ofrecen: el menú «Diseño» sólo muestra los que están en `disenos` |
 | **No se vio en el navegador**, ni en escritorio ni en el teléfono | — | No hubo RAM para `next dev`. Hay que mirarlo en producción con un ganado con cuotas, una suscripción y un lead abierto |
 | El teléfono muestra el saldo pero no cobra: no hay «Mandar link» | app/m/crm/[id]/FichaLead.tsx | El teléfono destila. El cobro con link en el teléfono es otra pieza |
-| Marcar a mano una cuota cuyo link ya se pagó pero no se asentó: después el cron la asienta como otra cuota y lo cobrado se cuenta dos veces | lib/pagos.ts, `cobrarCuota` | Frenarlo puede trabar una cuota para siempre si el pago entró por otro monto. Se ve el link pagado en «Links de pago» |
+| ~~Marcar a mano una cuota cuyo link ya se pagó pero no se asentó: después el cron la asienta como otra cuota y lo cobrado se cuenta dos veces~~ **Hecho el 17/10/2026 (B4), ver §5** | lib/pagos.ts, `cobrarCuota` | Frenarlo puede trabar una cuota para siempre si el pago entró por otro monto. Se ve el link pagado en «Links de pago» |
 | ~~`epico` llega en PropsBloque en la próxima tanda del CRM. Hasta entonces se lee con un cast~~ Hecho el 17/10/2026: se lee `props.epico`, y un test barre la ficha por casts así | pagos/bloques-cobro.tsx | `e92688cd2` |
 | ~~`PlantillaTab` está declarado localmente~~ Ya se importa de lib/ficha/plantillas-tab.ts (visto el 17/10/2026) | lib/ficha/plantillas-pagos.ts | Hecho |
 
@@ -317,3 +317,64 @@ avance de un OKR (lib/objectives-fuentes.ts), los gráficos de pagos (lib/grafic
 
 **Vive en:** supabase/migrations/0310_pagos_funnel.sql · lib/funnels-elegidos.ts · tests/pagos-funnel.test.ts ·
 *17/10/2026, chat «CRM» (claude4).*
+
+## 5 · Los pendientes del 17/10 (B4)
+
+*Corrida «Implemente todos los pendientes al 100%», agente B4, 17/10/2026, rama `pend-b4-1710`.*
+
+### Marcar a mano una cuota cuyo link ya se cobró contaba la plata dos veces
+
+⚠️ **APAGADO desde la revisión adversarial del 17/10** (interruptor en `false`; los defectos que la frenaron y lo que hay que arreglar, en docs/relevo/pagos.md → «APAGADOS»).
+
+- **Síntoma.** El cliente paga el link; antes de que el aviso o el cron lo asienten, el closer marca la cuota a mano.
+  `marcarPago` anulaba el link (ya pagado) y, al llegar el aviso, el pago entraba como OTRA cuota cobrada.
+- **El diagnóstico obvio era el equivocado: «frenar la marca si la cuota tiene un link».** Eso traba la cuota para siempre
+  si el pago entró por otro monto (lo decía §4). Lo que no traba nada es **preguntarle a la pasarela antes**.
+- **La regla.** `marcarPago(…, true)` y `cobrarCuota` llaman a `asentarLinkPagadoDeCuota` (lib/cobros.ts): primero repara el
+  link `pagado` en MaKo cuya cuota no se asentó (sin red), después le pregunta a Stripe o Mercado Pago por los vivos
+  (`pagoDelLinkEnLaPasarela`, la MISMA lectura del cron). Si cobró, la cuota queda con ESE pago (y su fecha) y la marca a
+  mano no se hace («Ya pagada por link»). Si no cobró o no contesta, se marca como siempre. La pasarela misma no vuelve a
+  preguntar (`mirarLinks: false`).
+- **Lo que queda.** Si la pasarela no contesta en ese instante y el aviso llega después, sigue entrando como otra cuota,
+  con el aviso «la plata entró dos veces» (a la vista, no escondido).
+- **Vive en:** lib/pagos.ts (`marcarPago`, `cobrarCuota`, `linkYaPagado`) · lib/cobros.ts · tests/pagos-link-ya-pagado.test.ts
+  (el doble de lib/cobros.ts va en la caché de CommonJS por su ruta entera: `import()` dentro de un módulo pasa por el
+  cargador de ESM, que NO usa el `Module._load` interceptado sino `Module._cache`).
+
+### Las lecturas de cobranza cortaban en 1.000 cuotas
+
+El Outstanding, «A quién cobrarle», las cuotas por vencer, el cash del período y los desgloses del Revenue leían `pagos`
+de un tirón. Ahora pasan por `leerTodo`; las cuotas por vencer, con orden único (vencimiento + id). El reintento sin
+`funnel_id` (mig 0310) pasó a un `.catch` porque `leerTodo` TIRA con el mensaje de PostgREST en vez de devolver `error`.
+**Vive en:** lib/pagos.ts · tests/cobranza-paginada.test.ts.
+
+### La próxima renovación de una suscripción de la pasarela sale de su último cobro
+
+`cobradoDelLead` proyectaba mes a mes desde `fecha_cierre`; Stripe y Mercado Pago cobran el día en que se autorizó. Ahora
+el ancla es el último cobro asentado de la pasarela (cuota con `proveedor` y `fecha_pago`); sin uno, el cierre.
+**Vive en:** lib/cobrado-lead.ts · tests/cobrado-lead.test.ts.
+
+### Medido: el `in` sobre `ctx->>cuotaId` no traba guardar cuotas
+
+El riesgo anotado (docs/relevo/crm-tanda-b1.md, b2) era que PostgREST rechazara el `.in('ctx->>cuotaId', …)` de
+`proteccionesDeCuotas` y, como falla cerrado, nadie pudiera guardar cuotas ni cerrar en Ganado. **Medido el 17/10 contra
+producción (sólo lectura): 200**, y un `in` sobre un camino jsonb filtra bien (lead 23: con su correo, 1; con otro, 0).
+`flujo_corridas` tenía 0 filas ese día. Lo que queda es una falla pasajera: contesta el error y se reintenta.
+
+### Identidades fiscales: sólo el admin
+
+La pantalla ya era del admin, pero `saveIdentidadFiscalAction` y `deleteIdentidadFiscalAction` son server actions: una
+puerta propia que un closer podía llamar. Ahora cortan con el rol efectivo `admin`. Leerlas sigue abierto (el deal las
+muestra). **Vive en:** app/crm/[id]/deal-actions.ts · tests/identidades-fiscales-admin.test.ts.
+
+### La moneda del negocio tiene pantalla
+
+Configuración del negocio → Identidades fiscales (`MonedaNegocioPanel`), con las acciones de siempre (sólo el admin la
+cambia; si guardar falla, vuelve a la anterior). **Vive en:** app/configuraciones/MonedaNegocioPanel.tsx ·
+tests/moneda-negocio-pantalla.test.ts.
+
+## Devolver la fecha de una cuota exige devolver su dedup de cobranza (17/10/2026)
+
+- **Síntoma** (revisión del Deshacer del CRM): un movimiento del wizard reprogramó una cuota y después se deshizo. La cuota volvió a quedar vencida y el cron mandó un SEGUNDO «cuota vencida» por la misma deuda, con una cadencia nueva.
+- **Causa:** reprogramar una cuota pasa sus marcas `cuota-vencida`/`cuota-por-vencer` a epoch (`olvidarAvisosDeCuotas`, `lib/pagos.ts`), para que la fecha nueva vuelva a avisar. El Deshacer devolvía la fecha con un update directo y la marca quedaba en epoch.
+- **Regla:** todo lo que escriba la fecha de una cuota sin pasar por la reconciliación ni por `editarCuota` tiene que dejar el dedup coherente con esa fecha. Para volver atrás: `leerMarcasDeCobranza` ANTES y `reponerMarcasDeCobranza` después. Es compare-and-set contra `DEDUP_OLVIDADO` (`marcaAlDeshacer`, `lib/cobranza.ts`), así que un aviso que salió en el medio gana. El detalle del Deshacer está en `hallazgos-crm.md`.

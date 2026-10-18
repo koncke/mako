@@ -83,6 +83,9 @@ import { imprimirFicha } from './imprimir-ficha';
 import { PASOS_FICHA_EDICION, RECORRIDO_FICHA_EDICION } from './recorrido-ficha';
 import { AuditHistory } from '../AuditHistory';
 import { useRefrescarFicha } from '../ficha-cambio';
+import { useRouter } from '@/app/_ui/Link';
+import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
+import { HistorialFicha } from './HistorialFicha';
 import { Armador } from './Armador';
 import { AgregarBloque } from './AgregarBloque';
 import { MiniaturaFicha } from './MiniaturaFicha';
@@ -174,6 +177,11 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // apretar «Editar» (Martín: «Al momento de EDITAR, también debería salir automáticamente este modal, pero ahora ya no
   // para analizar al lead, sino para editar la vista»). Es el mismo chat, con la hoja abierta atada (../MakoAnalystLead).
   const [panel, setPanel] = useState<null | 'analizar' | 'editar'>(initialTab === 'insights' ? 'analizar' : null);
+  // «Llevar a MaKo Partners» desde el «⋯» (17/10/2026): la MISMA ventana que /partners. `data.partners` lo decide el
+  // server (la agencia y su admin, app/crm/partners-crm.ts); con `lead.cliente_ws`, la opción es «Ver en MaKo Partners».
+  const [aPartners, setAPartners] = useState(false);
+  const [historial, setHistorial] = useState(false);
+  const router = useRouter();
   // La hoja que se está mirando (la clave de `?tab=`), para el chat de edición: la avisa LeadTabs.
   const [activa, setActiva] = useState<string>(initialTab ?? 'resumen');
   const raizRef = useRef<HTMLDivElement>(null);
@@ -535,17 +543,34 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
         { value: 'link', label: 'Copiar el link', icono: 'link' },
         { value: 'csv', label: 'Exportar (CSV)', icono: 'descargar' },
         { value: 'pdf', label: 'Exportar (PDF)', icono: 'descargar' },
+        // Quién cambió la ficha de este CRM y «Volver a como estaba» (17/10/2026, ./HistorialFicha.tsx).
+        ...(ff.ficha ? [{ value: 'historial', label: 'Historial de la ficha', icono: 'reloj' as const }] : []),
         ...(puede ? [{ value: 'guia', label: 'Guía de edición', icono: 'pregunta' as const }] : []),
+        ...(data.partners ? [lead.cliente_ws != null
+          ? { value: 'partners-ver', label: 'Ver en MaKo Partners', icono: 'cliente' as const }
+          : { value: 'partners', label: 'Llevar a MaKo Partners', icono: 'cliente' as const }] : []),
       ]}
       onChange={(v) => {
         if (v === 'analyst') setPanel('analizar');
         else if (v === 'link') copiarLink();
         else if (v === 'csv') exportarCsv();
         else if (v === 'pdf') exportarPdf();
+        else if (v === 'historial') setHistorial(true);
         else if (v === 'guia') { if (!enEdicion) alternarEdicion(true); guia.reabrir(); }
+        else if (v === 'partners') setAPartners(true);
+        else if (v === 'partners-ver' && lead.cliente_ws != null) router.push(`/partners?cuenta=${lead.cliente_ws}`);
       }} />
   );
-  const acciones = <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{boton}{menu}</span>;
+  // El historial de la ficha (el «⋯»): al volver a una versión, la ficha se relee y gana la foto más nueva (`masNueva`).
+  const ventanaHistorial = historial && ff.ficha ? (
+    <HistorialFicha funnelId={ff.ficha.funnel.id} nombre={ff.ficha.funnel.nombre} onCerrar={() => setHistorial(false)} onVolvio={() => refrescar()} />
+  ) : null;
+  // Va por portal (la pieza lo hace sola): dónde se monta no importa.
+  const ventanaPartners = aPartners ? (
+    <ModalLlevarAPartners leadId={lead.id} nombre={lead.nombre ?? ''} email={lead.email ?? null}
+      onCerrar={() => setAPartners(false)} onListo={() => refrescar()} />
+  ) : null;
+  const acciones = <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{boton}{menu}{ventanaPartners}{ventanaHistorial}</span>;
 
   // El panel del AI Analyst: aparte de la ficha (por portal), a la izquierda, y la ficha se corre a la derecha para
   // dejarle lugar (el `<style>` vive sólo mientras está abierto). El clic adentro no cierra la ficha: el evento sube

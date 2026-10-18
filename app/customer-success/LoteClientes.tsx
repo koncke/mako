@@ -226,7 +226,7 @@ export function LoteClientes({ elegidos, etapas, fases, onMover, onSiguiente, on
     // columna—, así que ahí el sticky no hace nada y tampoco molesta.
     // ⚠️ Y COMO CREA UN CONTEXTO DE APILAMIENTO (sticky + zIndex), nada que se abra desde
     // acá puede vivir adentro: los desplegables van por portal (`Dropdown` ya lo hace).
-    <div style={{ position: 'sticky', top: 8, zIndex: 20 }}>
+    <div style={{ position: 'sticky', top: 'calc(8px + var(--pegado-arriba, 0px))', zIndex: 20 }}>
       <div role="group" aria-label={`Acciones sobre ${cosas}`}
         style={{
           display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between',

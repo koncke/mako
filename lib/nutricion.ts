@@ -22,7 +22,6 @@ import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
 import { LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
 import { getVslEngagementMap } from '@/lib/leads';
 import { pipelineStageOf } from '@/lib/pipeline';
-import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { datosParaElLead } from '@/lib/variables-resolver';
 // EL TEXTO CON SUS DATOS (undécima tanda): el renglón opcional y después los datos. Lo usan TODOS los envíos del motor.
@@ -370,6 +369,9 @@ type FilaSecuencia = {
   /** Ausente con la 0279 sin aplicar (ídem). */
   reentrada?: unknown;
 };
+
+/** Por qué un paso por el WhatsApp OFICIAL (plantilla de Meta) queda en fallo: el canal se retiró el 09/10/2026. */
+const SIN_CANAL_OFICIAL = 'Chatwoot no existe más en MaKo (se retiró el 09/10/2026).';
 
 /**
  * Las columnas que leen las dos lecturas de secuencias del motor (`getSecuenciasActivas` y
@@ -4941,21 +4943,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
             nota = bloqueo.nota;
             backoffHoras = bloqueo.horas;
           } else {
-            const r = await sendWhatsappTemplate({
-              phone: lead.telefono,
-              name: lead.nombre ?? '',
-              content: paso.cuerpo,
-              template: {
-                name: paso.template_wa,
-                category: paso.template_categoria ?? 'marketing',
-                language: paso.template_idioma ?? 'es_MX',
-                // Rellena TODAS las variables del catálogo (nombre, apellido, empresa…);
-                // la plantilla usa las que necesite.
-                bodyParams: valoresVariablesLead(lead, { negocio }),
-              },
-            });
-            estado = r.ok ? 'enviado' : 'fallo';
-            if (!r.ok) nota = r.error;
+            // El canal oficial (la plantilla por Chatwoot) se borró el 09/10/2026: no hay por dónde mandarla, y el paso
+            // queda en fallo con el porqué, como cuando el interruptor estaba apagado. Sin tocar el reintento.
+            estado = 'fallo';
+            nota = SIN_CANAL_OFICIAL;
           }
         }
       } else if (emailOn && paso.canal === 'email') {

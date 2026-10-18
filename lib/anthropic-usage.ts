@@ -10,7 +10,7 @@
 // =============================================================================
 
 import 'server-only';
-import { OWNER_WS, getWorkspaceActual } from './workspace';
+import { OWNER_WS, getWorkspaceActual, WS_NINGUNO } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { saldoOpenRouter } from './openrouter-saldo';
@@ -30,14 +30,37 @@ import { esDelCreditoDeLaPlataforma } from './veto-claude';
 async function wsDeProveedor(provider?: string | null): Promise<number> {
   let ws: number | null = null;
   try { ws = await getWorkspaceActual(); } catch { ws = null; }
-  if (ws == null) return OWNER_WS;
+  // Sin workspace (una cookie que no resuelve contra la base) la fila NO es de Mauricio: va a
+  // ningún negocio y el insert falla (best-effort). Los crons sin cookie resuelven antes de llegar acá.
+  if (ws == null) return WS_NINGUNO;
   if (provider && provider !== 'anthropic') return ws;
   if (ws === OWNER_WS) return OWNER_WS;
   // Claude en el workspace de un cliente: es suyo solo si la key es suya.
   try {
     const { credWs } = await import('./credenciales');
     return (await credWs('ANTHROPIC_API_KEY', ws)) ? ws : OWNER_WS;
-  } catch { return OWNER_WS; }
+    // «No pude leer si la key es suya» no es «es de la agencia»: la fila (feature, motivo, modelo) iba
+    // al panel de gasto de Mauricio. Se queda en el negocio que la pidió (17/10/2026).
+  } catch { return ws; }
+}
+
+/**
+ * El workspace de una FILA de gasto: el de `wsDeProveedor`, salvo que eso sea el ws1 por ser «la key de la agencia» y el
+ * pedido sea de OTRO negocio. Ahí va a la PLATAFORMA (`wsSuperAdmin`).
+ *
+ * ⛔ Hasta el 17/10/2026 iba al ws1 (revisión del Cerebro): el gasto de Claude de cualquier negocio sin key propia se le
+ * anotaba a Mauricio, que es un CLIENTE, y su panel de gasto mostraba el `motivo` de cada fila —«Analizar la llamada de
+ * …»— del trabajo de OTROS negocios. El ws1 se queda con lo suyo; la key de la agencia la paga la plataforma.
+ * El saldo de Claude que se carga a mano sigue en el ws1 (`getSaldo`, abajo): mudarlo es otra decisión.
+ */
+async function wsDeLaFila(provider?: string | null): Promise<number> {
+  const ws = await wsDeProveedor(provider);
+  if (ws !== OWNER_WS) return ws;
+  let actual: number | null = null;
+  try { actual = await getWorkspaceActual(); } catch { actual = null; }
+  if (actual === OWNER_WS) return OWNER_WS;
+  const { wsSuperAdmin } = await import('./workspace');
+  return wsSuperAdmin().catch(() => WS_NINGUNO);
 }
 
 export type UsageInfo = {
@@ -135,7 +158,7 @@ async function insertUsage(row: Record<string, unknown>, wsForzado?: number): Pr
     // `wsForzado`: el que llama sabe de quién es la fila mejor que `wsDeProveedor`. Es el caso del
     // crédito de Claude de la plataforma (16/10/2026): sin clave propia, `wsDeProveedor` lo mandaba
     // al ws1, que es un cliente, y Mauricio habría visto un gasto de Claude que no es suyo.
-    const ws = wsForzado ?? await wsDeProveedor(row.provider as string | undefined);
+    const ws = wsForzado ?? await wsDeLaFila(row.provider as string | undefined);
     await getSupabaseServer().from('anthropic_usage').insert({ workspace_id: ws, ...row });
   } catch (e) {
     console.warn(`[anthropic-usage] no se registró el uso: ${e instanceof Error ? e.message : String(e)}`);
@@ -322,7 +345,7 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   // Una sola lectura: TODO lo del workspace del request, y nada más. Para el dueño
   // es lo mismo que antes (Claude ya se registraba en su ws); para un cliente es lo
   // que arregla las dos cosas a la vez — ve su gasto y no ve el de la agencia.
-  const wsActual = await (async () => { try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; } })();
+  const wsActual = await (async () => { try { return (await getWorkspaceActual()) ?? WS_NINGUNO; } catch { return WS_NINGUNO; } })();
   const cols = 'created_at, feature, motivo, model, provider, cost_usd, input_tokens, output_tokens';
   let rows: Row[] = [];
   try {

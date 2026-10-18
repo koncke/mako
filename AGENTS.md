@@ -373,8 +373,10 @@ node scripts/antes-de-subir.mjs --rapido
 
 **Es el MÍNIMO OBLIGATORIO** y tarda ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
 rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min antes de compartir procesos). Corre las guardas, los
-tests que **nombran o importan DIRECTO** un archivo cambiado y **todas las barredoras**, sin tipos; le deja a Actions los tipos y los
-importadores a dos saltos o más (el replay: 19 de los 20 rojos de «Tests»). Sin `--rapido` es el chequeo COMPLETO (todos los saltos
+tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barredoras** y los **tipos de lo cambiado si entran en RAM
+sin esperar** (20 s; si no, lo dice en la línea y los decide Actions; `--sin-tipos` los apaga); le deja a Actions los importadores a dos
+saltos o más (el replay: 19 de los 20 rojos de «Tests» y los 5 de «Tipos»). Los tipos van por defecto porque 3 de los 25 rojos de Actions
+fueron errores de tipos de archivos cambiados. Sin `--rapido` es el chequeo COMPLETO (todos los saltos
 y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); el Cerebro lo usa para
 el push a `integracion`, y un jefe con tiempo puede correrlo también.
 
@@ -432,6 +434,14 @@ calcular, la segunda fase cae a `npm test`. Medido con la API (`/actions/runs/{i
 facturables (run 94: 107 s; antes 5-10). El VERDE (run 95: 781 s) subió de ~11 a 14 porque `--concurrencia auto` dejaba el default de
 node (núcleos − 1 = UN proceso en un runner de 2 vCPU): ahora `auto` usa todos los núcleos, la segunda fase va en UNA sola corrida
 de `node --test`, y un archivo que sólo falla con varios procesos se repite solo y, si pasa, sale como FLAKY (no frena, pero se ve).
+Eso bajó el verde de 14 a 12 min (run 102: 683 s), no a los ~9 estimados. El job del 102, paso por paso: checkout 15 s, setup-node 4, `npm ci` 29,
+guardas 10, afectados 279 (489 archivos: 0,57 s por archivo), tipos 154, los demás 182 (653 archivos: 0,28 s por archivo) — runner de 2 CPU y 7,9 GB.
+El doble por archivo de los afectados son las ~150 barredoras (~1,2 s de reloj cada una), y los 0,28 s de los demás son sobre todo el ARRANQUE de cada
+archivo (node + `tsx`), que sólo se evita compartiendo proceso. **El experimento que sigue** (a medir con el próximo run verde; estimación sin medir en
+Linux: ~7-9 min): en Actions las DOS fases comparten todo lo compartible (`--compartir`) — en la fase 1 siguen aislados los tests que el cambio mismo toca
+y los que tocan el entorno, y las tandas son de 100 (había 6 GB libres) —. Si un run da un rojo raro o el tiempo no baja, `--sin-compartir` en esos dos pasos
+del workflow lo deja como era. Contrapeso del riesgo (el falso verde por contagio, que Actions ya no vería por sí sola): correr `npm test` completo, aislado,
+de vez en cuando (a mano o programado: ~11 min por vez).
 
 **La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 21 runs rojos de Actions
 (`docs/fallos-ci-integracion.jsonl`) sobre el árbol exacto de la cabeza que falló y con la base real (el último verde):
@@ -452,9 +462,22 @@ trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se c
   (`isolatedMemory: false` en `build/turbopack-build/index.js`): con 7168 podían ser dos heaps de
   7 GB en una máquina de 8. Los workers de páginas estáticas lo descartan (`isolatedMemory: true`),
   y la memoria nativa de Turbopack (Rust) no la cubre ningún tope.
-- **Por eso el margen no se deduce: se mide**, y todavía no se midió. La forma es un deploy de
+- **Por eso el margen no se deduce: se mide**, y el PICO de heap sigue sin medirse. La forma es un deploy de
   preview con `next build --experimental-debug-memory-usage` (Next no lo prende con una variable:
-  es un flag de la línea de comandos), que imprime el pico de heap en el log.
+  es un flag de la línea de comandos), que imprime el pico de heap en el log. ⚠️ **Los logs de un build normal NO traen la
+  memoria** (medido el 17/10 sobre 5 builds de producción): sin ese flag no hay número que leer, y ningún build existente lo
+  tiene. Hacerlo es disparar un build, que se hace a propósito y no desde un chat que sólo quería leer.
+- **Lo que SÍ se midió (17/10/2026, sólo lectura: `vercel inspect <url> --logs` y `vercel api /v9/projects/<id>`)** — y el
+  «`standard` (8 GB)» de arriba era cierto el 15/10 y YA NO LO ES: el proyecto se llama **`mako`** en Vercel (`dashboard-marketing` es su nombre viejo y el del
+  repo; con ese nombre el CLI contesta `project_not_found`) y hoy construye en **`buildMachineType: "enhanced"` con
+  `elasticConcurrencyEnabled: true`: 8 cores, 16 GB**. El cambio pasó el 15/10 entre las 21:17 UTC (4 cores, 8 GB, «Compiled
+  successfully in 4.1min», 322-357 s de build) y las 23:58 UTC (8 cores, 16 GB, «in 61s», ~100 s), y desde entonces hubo **80
+  deploys de producción seguidos (15/10 22:05 → 17/10 18:12 UTC), los 80 `READY`**, de 86 a 145 s (mediana 114 s).
+  `NODE_OPTIONS` sigue en Production y Preview (puesta el 15/10). **El margen real, entonces, es el doble del que tenía cuando
+  murió** (el tope de 4 GB por heap, en 16 GB físicos), pero eso es la capacidad de la máquina, no lo que usa el build.
+  ⚠️ **Y cuesta plata, y no hay una línea en el repo que diga quién lo decidió**: con la fórmula de `docs/hallazgos-infra.md`
+  («La factura de builds no mide TIEMPO», `ceil(min) × vCPU × US$0,0035`) son 8 vCPU × 2 min ≈ US$0,056 por deploy, contra los
+  US$0 de Standard con on-demand apagado. Sin cotejar con la factura: lo confirma Martín o el panel de Vercel.
 - **Si vuelve a morir por memoria**, antes de pagar una máquina más grande hay una palanca
   gratis para probar: `NEXT_TURBOPACK_USE_WORKER=0` corre Turbopack en el hilo principal y deja
   un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
@@ -475,6 +498,10 @@ eran del código:
   de Node entran por `next-env.d.ts` (generado: un worktree ni lo tiene): sin esto sale
   «Cannot find name 'process'» (TS2580). Medido el 16/10 con
   `app/web-generator/editor/insertar.ts`: 1 error sin esto, 0 con esto.
+- **Los `.d.ts` globales de Next** (`node_modules/next/types/global.d.ts` y `image-types/global.d.ts`) en `files`, si existen. En el
+  completo entran por `next-env.d.ts` y hacen OBLIGATORIO `NODE_ENV` en `NodeJS.ProcessEnv`: el 17/10/2026 un test pasaba `{}` como
+  `ProcessEnv` (run 100 de Actions), el acotado dio verde y el completo dio rojo DOS veces (TS2345, y al castear con
+  `as NodeJS.ProcessEnv`, TS2352 — la cura es `as unknown as NodeJS.ProcessEnv`). Sin esto el acotado tampoco veía eso.
 
 Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
 
@@ -1060,7 +1087,11 @@ Ocho cosas que no se ven en el código y ya mordieron:
    veces; con presupuesto, eso es plata. La contracara: lo reclamado no vuelve a
    `pendiente`, así que **todo lo que se pueda saber sin escribir falla en `preparar()`**
    —un candado en `ejecutar()` consume la pendiente aunque rechace— y lo lento no sale por
-   `/api/v1`, que corta a 60 s.
+   `/api/v1`, que corta a 60 s. **Lo que sólo se sabe AL confirmar** (quién confirma: una escritura
+   firmada que llega sin nadie que firme) se declara en el runner como `faltaParaConfirmar`, que
+   `confirmarPendiente` pregunta ANTES de reclamar (y la pantalla genérica, antes de marcarla aplicada);
+   sin eso, un «sí» por un token clásico o por WhatsApp dejaba la pendiente en `error` para el admin que
+   sí la podía confirmar (comunidad, 17/10/2026).
 4. **Una acción de pantalla no tiene gemela de chat.** Si queda una tool vieja en
    `MAKO_ACCION_TOOLS` con el mismo nombre, el doer de WhatsApp la prefiere y pide un «sí».
    Al pasar una operación a `pantalla`, se saca la vieja; `confirmarPendiente` cierra sin
@@ -1091,6 +1122,11 @@ Ocho cosas que no se ven en el código y ya mordieron:
    `toolsDelRegistro` suelto, el test de agenda dio verde mientras 3 de sus 5 pedidos llegaban
    sin la herramienta (08/10/2026). Y el presupuesto de 12.000 caracteres ordena por
    relevancia CONTRA EL TEXTO: sumar un área sin sumar relevancia no trae la acción.
+   **Y una operación que mueve plata lleva SU frase en esa lista, con la forma en que la dice el dueño**
+   («Juan me pagó 500 mil pesos», «cambiale el vencimiento a la cuota 3»): las nueve de Pagos campo por
+   campo (14/10/2026) salieron con su def perfecta y ninguna frase, y tres días después «ya me pagó la cuota 2»
+   caía `capturar` con DOS herramientas — MaKo no podía registrar un pago, con o sin moneda
+   (`tests/api-mako-pago-intencion.test.ts`, docs/hallazgos-api-mako.md → «Pendientes B1 de la API»).
 
 **Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
 docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
@@ -1387,7 +1423,10 @@ código nuevo:
   Lo fija tests/centro-abrir.test.ts.
 - **Lo único que el cartero entrega SIN firma es un texto FIJO que arma él**: el aviso de una respuesta
   de la Ticketera (`mensajeAviso`, scripts/operaciones/cartero.mjs) lleva sólo el `ref` validado y el
-  comando para leerla. Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra.
+  comando para leerla, y el bug del triage de un ticket de cliente (`mensajeTicket`, 1.15.0) lleva sólo el NÚMERO.
+  Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra. Y si `hayParaElCartero` cuenta algo
+  nuevo, lo cuenta sólo para un Runner de la versión que lo entrega: con uno de antes, `vigilar` saldría en cada
+  vuelta por algo que nunca le llega (tests/tickets-cartero.test.ts).
 - **Una tarjeta de la Ticketera se publica con `destino`** (la sesión que pregunta, `local_…`/`cli_…`):
   `chat` es un nombre y con un nombre no se sabe a quién avisar (lib/decisiones-aviso.ts).
 - **En la pantalla, lo que despacha el Centro es un «trabajo»; «pedido» es lo que pide Martín.** Martín,
@@ -1398,6 +1437,30 @@ código nuevo:
   puedo mandar un prompt por allí»): la caja de `Conversacion.tsx` y la del teléfono firman por `mandar.ts`. Un
   formulario aparte para mandar no vuelve. Y la caja no manda lo que la PC va a rechazar ni dice «sale ya» sobre lo que
   espera: lo decide `comoSale` (lib/centro-chats.ts), con test.
+- **UN «COMPLETADO» NUNCA SE CORTA AL ABRIR EL CHAT** (17/10/2026; Martín: «tienen 3 puntos al final y no llego a leer todo, esos
+  son los mensajes más importantes que me permiten revisar y dar feedback»). En la LISTA y en el aviso el renglón puede ir cortado
+  (`tituloDeTexto`: 72 caracteres y «…»); en la conversación, nunca. Tres cosas:
+  - la tarjeta (Avance.tsx → `YaEstaMensaje`) dibuja con `partesDeYaEsta`, jamás con el título de la fila: el primer renglón
+    entero, y el resto tal cual. Nada de `line-clamp` ni `text-overflow` en una regla `.co-ya`;
+  - un cuerpo muy largo se pliega SÓLO en su detalle (`partirPendiente`, con «Ver todo»): lo que sigue pendiente y la prueba
+    quedan siempre a la vista, y plegar es CSS (el texto entero está en la página);
+  - lo que la PC corta al subir (`TOPE_TURNO`) se dice en la tarjeta (`cortadoPorLaPC`), no se calla.
+
+  Un texto nuevo que muestre un cierre sigue ese molde. Lo fija tests/centro-ops7.test.ts.
+- **LO QUE ESCRIBE UN CHAT SE DIBUJA CON SU FORMATO, Y UN CHAT SIN NADA PARA MARTÍN DUERME** (17/10/2026; Martín: «que los MD no
+  salgan con texto feo... nada de asteriscos ni almohadillas a la vista» y «nunca un chat "despierto" que no tenga ni una notif ni
+  un trabajo»). Todo texto de un chat —sus respuestas, un «Completado» (título y cuerpo), el cierre, sus preguntas— pasa por
+  `<Markdown enlaces>` o `renderInline` (app/_components/Markdown.tsx: negrita, cursiva, `código`, listas, títulos, citas, tablas y
+  links azules); en la FILA de la lista, que no dibuja formato, por `sinMarkdown`. Un texto de chat nuevo sigue ese molde. Y la
+  criatura de un chat abierto que no trabaja ni espera nada va DORMIDA (`animoDe(c, avisos)`, con la fila apagada): despierto sólo
+  con un trabajo o un aviso. Lo fija tests/centro-ops7.test.ts.
+- **UN AVISO POR CHAT SE CALCULA CON LO QUE TRAE EL REFRESCO DE TODOS, NO CON LA CONVERSACIÓN ABIERTA** (17/10/2026; Martín:
+  «supuestamente ya terminaste cosas, pero no me salió lo de "Espera tu respuesta"»). Los turnos completos viajan SÓLO del chat que
+  se mira (`pedirTurnos`): el aviso del «Completado» sin ver, que se calculaba con ellos, nunca salía en un chat que no se había
+  abierto. Cada refresco trae además lo último de todos (`leerUltimosTurnos`, recortado), y la fila lo usa
+  (`turnosParaLaLista`). Ese texto está CORTADO: es para la fila, nunca para dibujar una conversación. Un aviso nuevo por chat se
+  suma ahí. Y el vigía «MaKo en WhatsApp» (un cron que dice «Sin incidentes nuevos» cada rato) se esconde de la lista mientras
+  está callado (`vigiaCallado`) y avisa con un incidente de verdad. Lo fija tests/centro-ops7.test.ts.
 - **EL CENTRO SE MONTA EN OTRA PÁGINA POR SU MOTOR, NUNCA COPIÁNDOLO** (17/10/2026; Martín: «quiero mandar prompts por
   MaKo en el Second Brain»). Son tres piezas:
   - `useCentro` (app/admin/operaciones/useCentro.ts): el refresco, la cola, la firma, la caja y el «⋯»;
@@ -1412,7 +1475,29 @@ código nuevo:
   ser exactamente lo mismo en SuperAdmin»). /second-brain y /admin/operaciones son dos PUERTAS: cada una tiene su guarda
   y las dos dibujan `PantallaSecondBrain` (app/second-brain/pagina.tsx → ChatSecondBrain.tsx). CentroApp.tsx se borró.
   Algo nuevo del Centro o del Second Brain va en esa pantalla, nunca en una segunda. En la barra, «Second Brain» es la
-  sub-tab de debajo de la Ticketera.
+  sub-tab de debajo de la Ticketera. **Y la entrada «Second Brain» de la barra y de More es sólo de quien NO tiene Ops Center**
+  (17/10/2026; Martín: «el second brain vive dentro de ops center y es el grafo, no otro chat»): `arribaDe` (nav.ts) la saca para el
+  super admin y la deja al cliente, a su equipo y al super admin mirando a un cliente, para quienes es su chat con MaKo. Nunca se
+  borra el ítem para todos; un `/second-brain` guardado lleva al grafo del Ops Center sólo a quien `puedeOperar`
+  (lib/ops-center-ruta.ts). Lo fija tests/centro-ops6.test.ts.
+- **EL GRAFO ES UNO SOLO: EL MISMO EN LA COMPUTADORA Y EN EL TELÉFONO, Y UN SOLO GRAFO PARA EL SUPER ADMIN** (17/10/2026; Martín, desde
+  su Android: «No puedo clickear en nodos... que se vea volteada la pantalla... en SuperAdmin no pongas 2 grafos, todo 1 solo; para eso
+  existen los filtros»). El teléfono monta el MISMO `<Grafo>` (`VistaCerebro movil`, abierto desde app/m/second-brain/SecondBrainM.tsx),
+  nunca una foto: un cambio al grafo se piensa también con el dedo (10 px de tolerancia, blanco de 44 px, el dedo panea y no arrastra el
+  nodo, sin `contextmenu`) y apaisado (la barra lateral al costado, con scroll; `screen.orientation.lock` sólo en pantalla completa y desde
+  un toque: app/second-brain/apaisar.ts). El super admin ve UN grafo: el negocio y la construcción de MaKo juntos (`unirCerebros`,
+  lib/cerebro-union.ts) y las capas son un atajo del filtro de carpetas. Un grafo más para el super admin se suma como CAPA de ése (su
+  taxonomía, sus carpetas), nunca como un segundo `<Grafo>`. Lo fija tests/second-brain-grafo-movil.test.ts; el porqué, en
+  docs/hallazgos-second-brain.md. **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
+  estructura de nodos»): una fuente nueva del producto (clientes, reuniones, lo que venga) entra en `agregarLoVivo`
+  (lib/cerebro-vivo.ts) con su tope y su `.catch`; un área sin datos NO dibuja un nodo `falta:` (se dice en la raíz); y lo que tiene
+  su propio racimo no cuelga además del nodo de área (tests/second-brain-negocio-vivo.test.ts).
+- **LO QUE AVISA EN UNA FILA DEL OPS CENTER ES UN SOLO AVISO** (17/10/2026; Martín: «la misma notif de "Espera tu respuesta"»): una
+  pregunta que espera y un «Completado» sin ver se dibujan igual, con el mismo renglón y el mismo globito en la criatura
+  (`segundoRenglon`, `avisosDe`, lib/centro-chats.ts). Un aviso nuevo se suma ahí, no con otro globito. El chat del Runner no se lista
+  (`sinElRunner`, useCentro.ts): se saca en la pantalla y no en `completarChats`, porque su marca `esRunner` es lo que impide entregarle
+  trabajos. «Trabajando…» es UNA pieza para todos los chats (Trabajando.tsx) y despliega los pasos que sube la PC; el texto del
+  razonamiento no se sube sin revisar qué viaja.
 - **En pantalla el cartero se llama RUNNER y la clave del dispositivo es «tu Token»** (15/10/2026; Martín: «No quiero
   que se llame más "cartero", sino un nombre más formal, tecnico... profesional»). Copiado de los self-hosted runners de
   GitHub Actions; el nombre y las instrucciones de su chat viven en `lib/runner.ts`. En el código, la base y la PC sigue
@@ -1426,7 +1511,15 @@ código nuevo:
   globito, la pregunta y la conversación cuentan lo mismo. Una opción puede traer su `detalle` (la descripción).
 - **EL USO DE UNA CUENTA SALE DE LA BARRA DE ESTADO DE SU RUNNER** (16/10/2026; Martín: «El "Uso" debe ser visible
   siempre»): `rate_limits` por stdin, con `resets_at` en SEGUNDOS (lib/centro-uso.ts, `cartero.mjs uso`), y la semanal de
-  la app desde `~/.claude/uso-semanal.txt`. Un porcentaje pasado su reinicio no se muestra como de ahora.
+  la app desde `~/.claude/uso-semanal.txt`. Un porcentaje pasado su reinicio no se muestra como de ahora, y una medición de
+  más de 6 horas tampoco (17/10/2026): se dibuja apagada con «Sin medir hace X» y no cuenta para el número del botón
+  (`USO_VENCIDO_MS`, lib/centro-uso.ts). Toda cuenta con un número dice «Medido hace X».
+- **EN EL OPS CENTER, EL «ATRÁS» CIERRA LA CAPA DE ARRIBA** (17/10/2026; Martín: «si abro la vista de una imagen y voy para
+  atrás, se cierra la imagen, no el chat»). Toda capa nueva que se abra encima de una conversación (un visor, la hoja de un
+  mensaje, un selector a pantalla completa) usa `useAtrasCierra` (app/admin/operaciones/atras.ts), y va en un portal: dentro
+  de la hoja del teléfono un `position: fixed` queda encerrado por su `transform`. Y lo que se abre MANTENIENDO APRETADO no
+  usa el menú de la casa (MenuContextual se cierra con el `contextmenu` que Android dispara al mantener apretado): usa la
+  hoja de WhatsApp (`HojaMensajeWA`), que sólo cierra un toque que empezó con ella abierta.
 - **UN RUNNER POR CARPETA DE CONFIG, NO POR CUENTA** (16/10/2026; Martín pasó las tres cuentas a la terminal, cada una
   con su `CLAUDE_CONFIG_DIR`). `SendMessage` sólo llega a las sesiones registradas en la carpeta del que manda (medido:
   «ENOINBOX: no-key»), y la app comparte `~/.claude` con `claude1`. Código nuevo que entregue algo a un chat: lo
@@ -1516,7 +1609,26 @@ código nuevo:
     manda a cada sesión un trabajo firmado que le pide `set_session_title` (`textoDeRenombre`): el mismo camino de la
     firma, sin una puerta nueva a la PC.
   - **El muñeco que Martín elige se guarda por nombre** (app_settings del workspace de la plataforma,
-    lib/centro-munecos-db.ts) y se lee estricto antes de escribir.
+    lib/centro-munecos-db.ts) y se lee estricto antes de escribir. **El Cerebro es SIEMPRE la estrella de MaKo**
+    (`ASPECTO_MAKO`, 17/10/2026): va fuera de `FORMAS` y `COLORES`, así que nadie más la puede elegir ni guardar.
+  - **LO DE WHATSAPP EN CADA MENSAJE: lo que le llega al chat va en el TEXTO FIRMADO; lo demás es de Martín** (17/10/2026;
+    Martín: «agrega todas las funcionalidades de Whatsapp al mantener click en un mensaje»). Responder (la cita) y Reenviar
+    salen por mandar.ts con su marca en el texto (lib/centro-mensajes.ts → `armarConCita`, `armarReenvio`); reaccionar,
+    destacar, fijar y eliminar para mí se guardan en MaKo y NO van al chat (un emoji le costaría un turno). Una acción nueva
+    del menú sigue ese corte: si el chat tiene que enterarse, va firmada; si no, es una marca.
+  - **Ninguna puerta nueva de la PC a MaKo responde texto de MaKo al chat sin pasar por `textoRemoto` o una forma fija, ni
+    escribe en nombre de un chat con una `sesion` que declara quien llama** (17/10/2026, la revisión del Cerebro al Plan
+    desde el chat, rehecho por eso: docs/hallazgos-operaciones.md). Escribir pide un pedido FIRMADO de Martín.
+  - **UN CHAT NO CIERRA TAREAS DEL PLAN; el cierre se pide con `--tareas` en el cierre, NUNCA leyendo texto** (17/10/2026,
+    después de dos revisiones adversariales del Cerebro: cerrar «#870» leyendo un «Ya está» o un pedido —negaciones,
+    «en producción», una respuesta que repite el número— no se arregla con regex). Hasta que exista `cartero.mjs cierre …
+    --tareas 870,872 --prueba <commit>` (pendiente, docs/relevo/centro-operaciones.md), Martín las marca hechas en el
+    Centro. Lo que sí puede un chat es LEER: `node ~/.claude/operaciones/cartero.mjs plan prioridades --trabajo <id>` con
+    el id del pedido firmado de Martín que lo pide (el de su `cierre`).
+  - **EN UNA LISTA DEL TELÉFONO QUE SE REFRESCA SOLA, CADA FILA ES `memo`** (17/10/2026; Martín: «le doy para atrás en
+    mobile, tarda bastante en reaccionar»): con props que no cambian entre toques (los mapas memorizados de useCentro.ts,
+    callbacks estables) y nada calculado por fila en el render. Escribir en la caja, abrir o cerrar una hoja no puede volver
+    a dibujar 90 filas ni el Markdown de una conversación entera (docs/hallazgos-operaciones.md, «El "atrás" lento»).
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 
@@ -1572,6 +1684,33 @@ del CONTEXTO, que para un cron que itera clientes es el dueño. Medido el 29/09/
 CLIENTE después — un aviso que el dueño tenía apagado moría para todos sus clientes, con el
 interruptor de cada uno decorativo para ese camino. No da error: el aviso no sale, que es
 indistinguible de «no pasó nada que avisar».
+
+⛔ **Y NUNCA `?? OWNER_WS`** (17/10/2026: había 40 en el código vivo, más sus primos `.catch(() =>
+OWNER_WS)`, `catch { return OWNER_WS }` y `? OWNER_WS : null`). «Si no sé de qué negocio es, lo tiro al de
+Mauricio» es una fuga de un cliente real sin un error. `getWorkspaceActual()` devuelve null SÓLO con una
+cookie de sesión que no resuelve contra la base (suspendido, borrado) —medido ese día: todo usuario de
+producción tiene workspace—, así que null es justo el caso que no puede caer en nadie:
+
+- lo que **escribe, manda o gasta** → `await wsObligatorio()` (lib/workspace.ts), que TIRA;
+- lo que **sólo lee** → `(await getWorkspaceActual()) ?? WS_NINGUNO` (-1: vuelve vacío, como `getTenantDb`).
+
+Lo fija `tests/sin-fallback-owner-ws.test.ts`. Un cron o un webhook SIN cookie todavía resuelve al ws1 por
+el default del resolver (`resolverDesdeCookies`): eso es otra decisión, anotada en
+docs/relevo/seguridad-aislamiento.md.
+
+# Lo que entra sin pasar por una pantalla: sesión, tope y destino, en el código de la puerta
+
+Tres reglas del 17/10/2026, cada una con su guard que barre en positivo (las listas de excepciones llevan su porqué):
+
+- **Toda server action de `app/crm` arranca con `await exigirSesion();`** (lib/sesion-accion.ts): una acción
+  es un POST con un id que viaja en el bundle, y el proxy sólo valida la FIRMA de la cookie (la de un
+  suspendido vale 30 días). `tests/crm-acciones-sesion.test.ts`. Leer `getUsuarioActual()` no es cortar.
+- **Toda ruta PÚBLICA que escribe lleva tope de pedidos** (`limitePorIp`/`limitePorClave`, lib/limite-publico.ts)
+  o su excusa escrita en `tests/rutas-publicas-limite.test.ts`. Topes generosos (un NAT de operador es mucha
+  gente, y un 429 en el opt-in es un lead perdido); los webhooks se eximen (firma, y un 429 los deshabilita).
+- **Una URL que escribe un cliente (o su agente) se baja con `fetchSeguro`** (lib/fetch-seguro.ts):
+  `validarDestino` en CADA salto, IP clavada, techo de tamaño. `fetch` sigue los redirects sin mirarlos, y
+  validar sólo el primero es el agujero. `tests/landing-analisis-ssrf.test.ts`.
 
 # El remitente de un NEGOCIO nunca es MaKo, y lo que firma MaKo sale por la key de MaKo
 
@@ -1684,6 +1823,22 @@ opciones concretas sólo se escribe sabiendo qué contesta la pregunta. El saneo
 hacía lo contrario —ante `{tipo:'escala', opciones:[fechas]}` se quedaba con el token y
 tiraba las fechas— y esas respuestas no quedaban en ningún lado: ni en la base, ni en la
 pantalla, ni en el log.
+
+## Y un MaKo en vista asesora: sólo edita quien está editando, y lo decide el SERVER
+
+Le pasó a Mauricio (cliente, ws1) el 16/10/2026. Estaba MIRANDO una hoja del Dashboard, y el botón de MaKo de la
+topbar abría «Editar con MaKo». Lo que devolvía entraba por `mutar` y lo escribía el autoguardado. La regla «un análisis
+no toca la hoja» vivía en las dos capas, pero las dos dependían de que el MODELO marcara el pedido como análisis.
+Ninguna línea preguntaba si la persona estaba editando.
+
+- **El modo lo pone la PANTALLA, no el modelo ni la persona con un clic:** vista → analizar; editando → editar.
+- **La ruta que arma cambios exige el modo, el «editando» y la entidad que se edita**, y si falta algo contesta sin
+  cambios ANTES de gastar un token. El de la hoja es `permisoEdicionMako` (lib/graficos-ia-edicion.ts). Un chat de
+  MaKo nuevo con poder de cambiar algo trae el suyo.
+- **En vista, el MaKo de esa pantalla es el que analiza** (el AI Analyst en el Dashboard), y el panel que cambia no se
+  monta.
+- El plan para llevarlo a todos los chats de MaKo: [docs/diseno-chats-de-mako.md](docs/diseno-chats-de-mako.md).
+  El hallazgo: [docs/hallazgos-graficos.md](docs/hallazgos-graficos.md) → «Mirando, MaKo cambiaba la hoja».
 
 ## Y un canal de MaKo no promete: su respuesta es el FINAL del turno
 
@@ -2212,6 +2367,13 @@ logueados: **un campo nuevo lo hereda sin que nadie se acuerde**.
   Revertir sólo la pantalla es mentir hasta el próximo F5. Acá el deshacer vuelve a llamar
   al mismo camino con el valor anterior — y restaura también el estado que ese cambio trajo
   de arrastre (el candado de `score_manual` lo puso el cambio, no la persona).
+- ⚠️ **Y si ese camino DERIVA o COERCIONA, volver a llamarlo no es deshacer: es otra decisión.** El Deshacer del CRM
+  volvía a mover el lead y la regla del desenlace le borraba al de «Facturando» el monto que el movimiento no había
+  tocado (17/10/2026). Y «cómo estaba» NO se reconstruye desde el historial: hay escrituras que no auditan (el plan de
+  pagos) y un anti-duplicado que saca líneas. La acción que cambia saca la FOTO antes de su primera escritura y
+  después de la última, firmada (lib/deshacer-movimiento.ts); el deshacer la repone tal cual, sin pasar por la regla,
+  si lo que cambió sigue como lo dejó, y borra del historial sólo los ids que escribió, nunca «lo de los últimos N
+  segundos» (docs/hallazgos-crm.md, «Deshacer un movimiento le borraba la venta…»).
 - ⚠️ **Y si el deshacer REEMPLAZA entero (restaura una foto), lleva lo `esperado`.** Un compare-and-set del server
   protege a los cambios que se aplican como parche sobre lo de hoy, no a «pon esto entero»: sin `esperado`, el
   Deshacer de una persona borra lo que otra guardó después. La pila es POR ENTIDAD (una pantalla puede cambiar de
@@ -4648,9 +4810,13 @@ Un `<button>` con un párrafo adentro se anuncia leyendo el párrafo entero, as�
 
 # Una pantalla oscura se hace redefiniendo TOKENS, no reglas
 
-La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). No hay
-`prefers-color-scheme` ni modo oscuro global, y no se está agregando uno. Cuando una
-pantalla tiene que ser oscura —hoy solo `/second-brain`— se marca `<html data-tema="oscuro">`
+La app es **tema claro con islas oscuras** (el sidebar, el tooltip, el toast). **Desde el 17/10/2026 cada persona
+puede elegir oscuro** (tarjeta #883): el interruptor al lado de la foto de la barra (`InterruptorModo`) guarda
+`mako.modo` en su navegador, `ModoArranque` lo aplica antes del primer pintado y `ModoDelUsuario` lo sostiene al
+navegar. **Claro por defecto y nunca `prefers-color-scheme`**: oscuro sólo si la persona lo eligió. Una pantalla nueva
+consume tokens (`var(--surface)`, `var(--ink)`…) y así respeta la elección sin hacer nada; un color escrito a mano
+(`#fff`) es una pantalla que se queda clara en el oscuro de alguien. Cuando una pantalla tiene que ser oscura SIEMPRE
+—el editor de video, como CapCut— se marca `<html data-tema="oscuro">`
 y se redefinen los tokens en `app/globals.css`. Todo lo que ya consume `var(--surface)`,
 `var(--ink)`, `var(--border)`… se da vuelta solo. El inventario de esa pantalla contó **40
 usos** repartidos en tres archivos: tocarlos uno por uno era garantizar que el próximo se
@@ -5723,6 +5889,16 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
   cuando el build lo trae, el cron lo cierra y le avisa al cliente por donde lo levantó. No se cierra a mano.
 - **Lo del cliente filtra por SU workspace Y SU email** (lib/tickets-db.ts); lo de Martín pasa por `puedeOperar`. Lo fija
   tests/tickets.test.ts.
+- **Un error de la app NO se reporta a mano: va solo a `registrarError`** (lib/errores-app.ts, 17/10/2026; Martín: «córrelo
+  en toda la app... Y todo lo solucionas automáticamente»). Lo llaman los boundaries, el reportador de la ventana,
+  `onRequestError` y el turno del chat. Lo que gobierna código nuevo:
+  - un boundary nuevo (`error.tsx` de una sección) manda a `/api/errores` SIN importar nada de la app, como `app/error.tsx`;
+  - un chat de MaKo con su propio turno registra lo que falló con `registrarError({ origen: 'mako', … })`, nunca le pide
+    a la persona que lo reporte;
+  - la HUELLA no lleva el stack ni números: el stack de producción cambia en cada deploy y abriría un ticket por deploy;
+  - un error que no es de MaKo (el proveedor de IA, la red, una extensión) se suma a `RUIDO` (lib/errores-app-reglas.ts),
+    no se filtra en quien llama.
+  Lo fija tests/errores-app.test.ts.
 
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 
@@ -8983,9 +9159,27 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   página de escritorio lee la URL, las claves van en `QUERY_DE_SECCION`: un push vuelve a la computadora por
   `rutaEscritorio`, y la clave que se cae al ir al teléfono se cae también allá. Una tab UNIFICADA de escritorio se
   gatea con la key de la sección que muestra (`ads-writer`, no `copywriting`: esa no está en TODOS_LOS_ITEMS).
+- **TODA TAB NUEVA DEL NAV TIENE SU PANTALLA EN EL TELÉFONO EN EL MISMO TRABAJO** (17/10/2026, Martín: «Implementa
+  completamente MaKo Mobile en todas las tabs, porque hay muchas que aun no se pueden acceder»). Una tab, una sección
+  de una tab unificada o un ítem del menú de la foto que se suma a nav.ts sale con su página de app/m (y su fila en
+  `rutaMovil`/`rutaEscritorio`) o con una marca en lib/movil-rutas.ts: `SOLO_ESCRITORIO` con el motivo que lee la
+  persona («no disponible» no es un motivo), o `EN_CAMINO` con el chat que la escribe, sólo mientras la escribe.
+  More se DERIVA de la sidebar (`masCompleto`, con `puedeVerItem`): la tab aparece sola, con su pantalla o como «En la
+  computadora» con su hoja. `tests/movil-toda-tab.test.ts` recorre nav.ts y falla con una key sin estado, con una
+  ruta del teléfono sin página, y con una marca que quedó vieja (la tab ya tiene pantalla). Una «Coming soon» no se
+  anota: usa /m/pronto/<key> sola.
+- **Una pantalla que deja de ser fila de la sidebar NO se borra de nav.ts: va a `SIN_FILA`** (17/10/2026), y su fila
+  de More queda con `oculta: true`. `requireMovil({ navKey })` busca la key en `TODOS_LOS_ITEMS`: sin el ítem, la
+  puerta del teléfono se cierra para todos, sin error; y `rutaMovil` tira si la fila de More no está. La sidebar
+  (familias, lo de arriba y el menú de la foto) la edita UN solo chat, el jefe «Sidebar»: los demás le pasan nombre,
+  ruta, key y roles (docs/diseno-sidebar.md).
 - **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
   llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
   re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
+- **Si escritorio cambia DE DÓNDE lee una tab, la lectura del teléfono cambia en el MISMO trabajo** (17/10/2026):
+  Chats del teléfono siguió leyendo sólo WhatsApp dos días después de que escritorio unificó la bandeja, y un negocio
+  que vende por Instagram veía «Todavía no hay chats.». Un teléfono con la fuente vieja no rompe: muestra VACÍO. Antes
+  de cerrar, `grep -rn <el lector viejo> app/m` (docs/hallazgos-mobile.md, «Chats del teléfono con todos los canales»).
 - **Las clases CSS de una pantalla llevan el nombre ENTERO de su carpeta** (`.m-crm-*`, `.m-cuenta-*`): Next deja la
   hoja cargada al salir de la ruta, y dos prefijos abreviados iguales se pisan entre pantallas.
 - **Desde /m, una pantalla de escritorio se abre escribiendo la cookie de vista de escritorio y navegando con
@@ -9138,3 +9332,24 @@ Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra
 - **Un estado que se corrige con un fetch nace con lo que sabe el server, nunca con un literal**: el Sidebar nacía con
   «Mauricio Bustos», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
   usan el layout y `/api/auth/me`, y de ningún otro lado.
+
+# Lo que paga el negocio decide qué abre: un negocio PAUSADO no se abre, y una API de una sola tab va en `TAB_DE_API`
+
+⚠️ **Desde la revisión del 17/10/2026, los tres cortes de abajo están APAGADOS** (`CORTE_DE_ACCESO_PRENDIDO`,
+`CORTE_POR_PLAN_PRENDIDO` y `MIRAR_LINK_ANTES_DE_MARCAR` en `false`; los defectos, en docs/relevo/pagos.md). Las reglas
+valen para el día que se prendan: no se prende ninguno sin su arreglo y su revisión.
+
+Desde el 17/10/2026 (docs/hallazgos-planes-y-cobro.md → «Quien deja de pagar deja de entrar»):
+
+- **El workspace de una sesión sale de `getWorkspaceActual()`, y para un negocio pausado es `null`** (lo pausa /admin o
+  el cron de la pasarela cuando se terminó lo pagado, lib/plan-acceso.ts). Código nuevo que resuelva el negocio por otro
+  lado —`sesion.ws` directo, la cookie, un token— tiene que preguntar `negocioPausado(ws)` (lib/workspace.ts); la API de
+  MaKo ya lo hace en `autenticar`. Al super admin no lo toca.
+- **Una ruta nueva de `app/api` que usa UNA sola tab va en `TAB_DE_API` (lib/api-tab.ts)**: así un plan que no compró esa
+  tab no la usa por `fetch`. Una que usan varias tabs, NO (va en `COMPARTIDAS`): cortarla por carpeta rompe lo que el plan
+  sí compra. `tests/api-tab.test.ts` barre que nadie llame una de la tabla desde otra tab.
+- **«No está en tu plan» lo dice `requireCapa`, en un solo lugar** (redirige a /no-esta-en-tu-plan): una página nueva no
+  arma su propio cartel ni su propio redirect.
+- **Marcar a mano una cuota pasa por `marcarPago` o `cobrarCuota`** (lib/pagos.ts), que le preguntan antes a la pasarela
+  si su link ya se cobró. Un camino de la PASARELA que marca una cuota pasa `{ mirarLinks: false }`: si no, se pregunta a
+  sí misma.

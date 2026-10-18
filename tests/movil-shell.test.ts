@@ -205,7 +205,8 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.deepEqual(cabeceraPorRuta('/m/crm/12'), t('', { href: '/m/crm', label: 'CRM' }));
   // Las secciones de More vuelven a More; sus subpantallas, a la sección.
   assert.deepEqual(cabeceraPorRuta('/m/dashboard'), t('Dashboard', { href: '/m/mas', label: 'More' }));
-  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Clientes', { href: '/m/mas', label: 'More' }));
+  // «Clients» desde el 17/10/2026 (la sidebar nueva: los nombres de las tabs en inglés).
+  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Clients', { href: '/m/mas', label: 'More' }));
   assert.deepEqual(cabeceraPorRuta('/m/ads/9'), t('', { href: '/m/ads', label: 'Ads Manager' }));
   // La cuenta es la primera fila de More.
   assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('Tu cuenta', { href: '/m/mas', label: 'More' }));
@@ -311,11 +312,14 @@ test('nadie en /m navega con next/link ni pregunta startsWith(\'/m\')', () => {
 // Probado rompiéndolo: sin el `ctx.sesion.rol === 'admin'` delante de la fila → 14 / 1.
 // Desde el 15/10/2026 la sección también se apaga mientras el super admin MIRA a un cliente
 // (`!ctx.impersonando`, como el Sidebar), y lleva además el Centro de Operaciones.
-test('More: «Ticketera» (el mazo de decisiones) sólo para el super admin, y fuera de SECCIONES_MAS', () => {
+// ⚠️ Desde el 17/10/2026 la puerta es el OPS CENTER, arriba de More con su criatura (como en la sidebar): la Ticketera
+// vive adentro del Centro desde el 16/10, y la caja «Super admin» del final se fue con la familia Admin de escritorio.
+test('More: el Ops Center (con la Ticketera adentro) sólo para el super admin, y fuera de SECCIONES_MAS', () => {
   const mas = leer('app/m/mas/page.tsx').replace(/\/\/.*$/gm, '');
-  assert.match(mas, /ctx\.sesion\.rol === 'admin' && !ctx\.impersonando && \(\s*<SeccionM titulo="Super admin">[\s\S]*?titulo="Ticketera" href=\{RUTA_TICKETERA\}/,
+  assert.match(mas, /const veOpsCenter = ctx\.sesion\.rol === 'admin' && !ctx\.impersonando;/,
     'la fila va detrás de la pregunta de super admin (la misma de getSesionAdmin), sin mirar a un cliente');
-  assert.match(mas, /const RUTA_TICKETERA = '\/m\/operaciones\?ticketera=tarjetas'/, 'un atajo a la Ticketera adentro del Centro (16/10/2026)');
+  assert.match(mas, /\{veOpsCenter && <FilaM navegacion leading=\{criatura\('Ops Center', true\)\} titulo="Ops Center" href=\{RUTA_CENTRO\} \/>\}/);
+  assert.match(mas, /const RUTA_CENTRO = '\/m\/operaciones'/, 'el Centro, con la Ticketera adentro (16/10/2026)');
   // No es una tab del negocio: si estuviera en SECCIONES_MAS podría subir a la barra de un rol.
   assert.doesNotMatch(leer('lib/movil-rutas.ts'), /id: 'decisiones'/);
 });

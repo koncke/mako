@@ -39,8 +39,8 @@ test('3. lo que sale es Markdown, y la burbuja lo dibuja como lista', () => {
   assert.equal(textoParaMandar('Hace esto:\n• uno\n• dos\n'), 'Hace esto:\n- uno\n- dos');
   assert.deepEqual(bloquesDeMensaje('Hace esto:\n- uno\n- dos\n\n1. a\n2. b\nFin'), [
     { tipo: 'parrafo', texto: 'Hace esto:' },
-    { tipo: 'lista', numerada: false, items: ['uno', 'dos'] },
-    { tipo: 'lista', numerada: true, items: ['a', 'b'] },
+    { tipo: 'lista', numerada: false, items: ['uno', 'dos'], marcas: ['-', '-'] },
+    { tipo: 'lista', numerada: true, items: ['a', 'b'], marcas: ['1.', '2.'] },
     { tipo: 'parrafo', texto: 'Fin' },
   ]);
   assert.deepEqual(bloquesDeMensaje('Sólo texto\ncon dos renglones'), [{ tipo: 'parrafo', texto: 'Sólo texto\ncon dos renglones' }]);

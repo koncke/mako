@@ -24,6 +24,8 @@ export type Workspace = {
    * su propia tab de Clientes.
    */
   clientes: number;
+  /** Cómo llegó y qué quería resolver primero (la encuesta del onboarding, 17/10/2026). null = no la contestó. */
+  llegada?: import('@/lib/onboarding-arranque').LlegadaCliente | null;
   /** Su cara (mig 0179). Mismo formato y mismos dibujantes que la de un proyecto. */
   portada: string | null;
   portada_y: number | null;

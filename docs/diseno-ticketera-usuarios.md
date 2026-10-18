@@ -192,3 +192,41 @@ corre sabe lo que trae.
   operación ya está en el registro; enchufarla y el aviso de vuelta por WhatsApp son de él.
 - **Sugerir duplicados** con IA (Linear Triage Intelligence): con pocos tickets lo ve Martín; se suma cuando haya
   volumen.
+
+---
+
+## 8. Los errores de la app llegan solos (17/10/2026, segundo pedido)
+
+Martín, 09:36: «lo mismo que corrés en MaKo en WhatsApp detectando errores, córrelo en toda la app: MaKo en los chats
+de la app, errores al navegar o lo que sea. Y todo lo solucionas automáticamente». Hasta ese día, `app/error.tsx`
+mostraba «Esta pantalla se rompió al dibujarse» y no le avisaba a nadie: el crash de /general en el teléfono de Martín se
+supo por su captura.
+
+**Copiado de Sentry (el método, no el código: su licencia no lo permite): un error es un «issue» por HUELLA, no una fila
+por vez.**
+
+| De dónde llega | Cómo |
+|---|---|
+| Una pantalla que se rompe al dibujarse | `app/error.tsx` y `app/global-error.tsx` mandan el error a `/api/errores` (sin importar nada de la app). |
+| Un error suelto de la ventana (un clic, una promesa) | `<ReportadorDeErrores>` en el layout raíz, sólo con sesión y fuera de lo público. |
+| Un error del servidor | `instrumentation.ts` → `onRequestError`. Al navegador le llega sin su mensaje (sólo el digest): por eso lo reporta el servidor y el boundary no lo repite. |
+| Lo que falló de MaKo en un chat de la app | El turno (`lib/mako-turno-app.ts`) lo registra solo, sin tarjeta; a la persona se le dice «le avisé al equipo» sólo si entró, y el aviso de arreglado le llega en ese hilo. |
+
+Lo que pasa después (lib/errores-app.ts):
+
+1. **Ruido → nada**: una extensión, la red, una pestaña vieja después de un deploy (`ChunkLoadError`), el control de flujo
+   de Next y el proveedor de IA que no contestó (el Cerebro no arregla un 503 de Google).
+2. **La huella**: el tipo, el mensaje sin números ni citas y la pantalla sin ids. **Sin el stack**: en producción está
+   minificado y los nombres de los archivos cambian en cada deploy, y cada deploy abriría un ticket nuevo por el mismo bug.
+3. **Huella nueva → un ticket de bug del SISTEMA** (`canal: 'sistema'`, mig 0313), a nombre de quien lo vio. El triage lo
+   da por bug evidente (el código lo vio fallar) y va solo al Cerebro, salvo zona delicada, el tope del día o el
+   interruptor apagado. Una persona abre como mucho 10 huellas nuevas por día.
+4. **Huella conocida → suma una vez y el afectado.** Si su ticket ya estaba resuelto y vuelve a pasar más de 15 minutos
+   después, es una REGRESIÓN: un ticket nuevo («Volvió a pasar»).
+5. **Arreglado y desplegado → se cierra solo** (el hito con `tickets: [n]`), y a cada negocio que lo vio se le avisa en su
+   grupo con `avisarArregloAlGrupo` (lib/aviso-arreglo.ts, de «MaKo en WhatsApp», firmada «Desarrollador de MaKo»). Es
+   una función de lib y no una operación del registro, para que nadie más pueda firmar como el equipo, y exige la PRUEBA
+   de producción: el build que corre trae el hito (su commit y su url).
+
+**Sin datos de clientes**: emails, teléfonos y lo citado se borran del mensaje y del stack; la pantalla va sin los valores
+de su query (salvo los números, que son ids).

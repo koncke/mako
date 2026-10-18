@@ -51,8 +51,7 @@ export function repetir(caso, { rapido = false } = {}) {
       const cadena = p.detalle.split(' → ');
       return { ...r, sale: true, porque: `${p.tipo}: ${cadena.slice(-1)[0]}${p.tipo === 'importa' ? ` (${cadena.length - 1} salto${cadena.length === 2 ? '' : 's'})` : ''}`, tipos: [...new Set(todos)] };
     }
-    // El modo rápido no corre tipos: de los rojos de «Tipos» sólo salen los que frena la guarda de módulos (que sí corre).
-    if (rapido && !sinModulo(archivos, leer).includes(r.archivo)) return { ...r, sale: false, porque: 'rápido no mira tipos: los decide Actions' };
+    // En el modo rápido los tipos de lo CAMBIADO van igual (si entran en RAM sin esperar); los importadores lejanos, no.
     if (!tsc.includes(r.archivo)) {
       // Runs 51 y 52: el archivo del error NO cambió; chocaba con scripts globales que sí (ver scripts/modulos-ts.mjs).
       const globales = sinModulo(archivos, leer);
@@ -92,7 +91,7 @@ function main(argv) {
   if (rapido) {
     const t = filas.filter(({ f }) => f.paso === 'Tests');
     const ti = filas.filter(({ f }) => f.paso === 'Tipos');
-    console.log(`\nMODO RÁPIDO (profundidad 1, sin tipos): tests ${t.filter(({ f }) => f.sale).length}/${t.length} · tipos ${ti.filter(({ f }) => f.sale).length}/${ti.length} (los de tipos los decide Actions; sólo salen los que frena modulos-ts)`);
+    console.log(`\nMODO RÁPIDO (profundidad 1, tipos de lo cambiado si entran en RAM): tests ${t.filter(({ f }) => f.sale).length}/${t.length} · tipos ${ti.filter(({ f }) => f.sale).length}/${ti.length}`);
     for (const { r, f } of filas.filter(({ f }) => !f.sale)) console.log(`  fuera del rápido: run ${r.n} ${f.paso} ${f.archivo} — ${f.porque}`);
     return 0;
   }

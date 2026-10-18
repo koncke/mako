@@ -12,6 +12,7 @@
 
 import { getTenantDb } from '@/lib/workspace';
 import { listarFunnels, getFunnelDe, getPipelineStagesDefault, idDelFunnelDefault } from '@/lib/funnels';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 /** Tope de una columna. Una columna más larga que esto no se ordena a mano. */
 const TOPE = 2000;
@@ -42,6 +43,7 @@ const TANDA = 500;
 export async function ordenarColumnaCrmAction(funnelId: number | null, etapa: string, leadIds: number[]): Promise<
   { ok: true } | { ok: false; error: string }
 > {
+  await exigirSesion();
   try {
     if (typeof etapa !== 'string' || !etapa.trim() || etapa.length > 80) return { ok: false, error: 'Falta la columna.' };
     // El embudo: null es el del negocio; uno que no es de esta cuenta, no existe. El del

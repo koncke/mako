@@ -10,8 +10,10 @@ import { revalidatePath } from 'next/cache';
 import { generarInsightLead, type GenerarInsightResult } from '@/lib/lead-insights';
 import { analizarLlamadasDeLead } from '@/lib/closing';
 import { insightsDeLlamadaDeLead, type InsightLlamada } from '@/lib/insights-llamada';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 export async function generateLeadInsightAction(leadId: number): Promise<GenerarInsightResult> {
+  await exigirSesion();
   if (!Number.isFinite(leadId) || leadId <= 0) {
     return { ok: false, motivo: 'Lead inválido.' };
   }
@@ -27,6 +29,7 @@ export type AnalizarLlamadaResult =
  * la tab Insights las tenga. La UI la encadena con generateLeadInsight.
  */
 export async function analizarLlamadaLeadAction(leadId: number): Promise<AnalizarLlamadaResult> {
+  await exigirSesion();
   if (!Number.isFinite(leadId) || leadId <= 0) return { ok: false, motivo: 'Lead inválido.' };
   try {
     const r = await analizarLlamadasDeLead(leadId);
@@ -46,6 +49,7 @@ export async function analizarLlamadaLeadAction(leadId: number): Promise<Analiza
  * confirmación antes de analizar.
  */
 export async function leadTieneLlamadaAction(leadId: number): Promise<boolean> {
+  await exigirSesion();
   if (!Number.isFinite(leadId) || leadId <= 0) return false;
   const { getTenantDb } = await import('@/lib/workspace');
   const supabase = await getTenantDb();
@@ -78,6 +82,7 @@ export type InsightsDeLlamadaResult =
  * ofrecería analizarla, o sea pagarle de nuevo a un análisis que ya está hecho.
  */
 export async function insightsDeLlamadaAction(leadId: number): Promise<InsightsDeLlamadaResult> {
+  await exigirSesion();
   if (!Number.isFinite(leadId) || leadId <= 0) return { ok: false, motivo: 'Lead inválido.' };
   try {
     return { ok: true, llamadas: await insightsDeLlamadaDeLead(leadId) };

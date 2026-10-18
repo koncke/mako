@@ -5,7 +5,7 @@
 //   1. MULTI-INQUILINO: lo del cliente filtra SIEMPRE por su workspace Y su email, y su identidad sale de la sesión;
 //      la bandeja de Martín pasa TODA por `puedeOperar`; la tabla nace con RLS y el revoke.
 //   2. EL MODELO NO ESCRIBE EL ERROR: el contexto de `levantar_ticket` lo junta el turno, no es un parámetro.
-//   3. EL CHAT PROPONE SOLO cuando algo de MaKo falló (y no cuando el modelo pidió algo inexistente o corregible).
+//   3. LO QUE FALLÓ EN EL CHAT va solo a la Ticketera (y no lo corregible ni lo que inventó el modelo), sin tarjeta.
 //   4. AL CEREBRO: el texto firmado lleva el ticket entero con lo del cliente marcado como DATO y dentro del tope; el
 //      texto que manda el Runner SIN firma no lleva ni una palabra del cliente.
 //   5. EL CLIENTE no ve nada interno (ni el triage, ni la nota de Martín).
@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CANALES, DECISIONES, ESTADOS, PRIORIDADES, TIPOS, TOPE_PEDIDO_CEREBRO, clasificar, errorParaTicket, paraElCliente, pedidoAlCerebro,
-  propuestaPorFallo, textoDelAviso, ticketsDeHitos, type TicketParaElCerebro,
+  textoDelAviso, ticketsDeHitos, type TicketParaElCerebro,
 } from '../lib/tickets-reglas';
 import { ENTREGA_MAX_INTENTOS, ENTREGA_TOMADO_VENCE_MS, esElCerebro, mensajeTicket, necesitaEntrega, versionAlMenos } from '../lib/tickets-aviso';
 import { DEFS as DEFS_TICKETS } from '../lib/api-mako/areas/tickets.def';
@@ -72,16 +72,17 @@ test('la bandeja de Martín pasa TODA por puedeOperar', () => {
 });
 
 test('la migración: RLS y revoke en las dos tablas, y sus CHECK dicen lo mismo que el código', () => {
-  const sql = leer('supabase/migrations/0311_tickets_usuarios.sql');
+  // El CHECK de `canal` lo amplió la 0313 (`sistema`): vale el ÚLTIMO que lo define.
+  const sql = [leer('supabase/migrations/0311_tickets_usuarios.sql'), leer('supabase/migrations/0313_errores_app.sql')].join('\n');
   for (const t of ['tickets', 'ticket_eventos']) {
     assert.match(sql, new RegExp(`alter table ${t} enable row level security;`));
     assert.match(sql, new RegExp(`revoke all on ${t} from anon, authenticated;`));
   }
   assert.match(sql, /ORDEN DE DESPLIEGUE: ANTES del deploy/);
   const lista = (col: string) => {
-    const m = new RegExp(`check \\(${col} in \\(([^)]*)\\)\\)`).exec(sql);
-    assert.ok(m, `no encuentro el CHECK de ${col}`);
-    return [...m![1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
+    const todos = [...sql.matchAll(new RegExp(`check \\(${col} in \\(([^)]*)\\)\\)`, 'g'))];
+    assert.ok(todos.length, `no encuentro el CHECK de ${col}`);
+    return [...todos[todos.length - 1][1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
   };
   assert.deepEqual(lista('estado'), [...ESTADOS].sort());
   assert.deepEqual(lista('decision'), [...DECISIONES].sort());
@@ -112,23 +113,18 @@ test('errorParaTicket: sólo las fallas de MaKo; ni lo corregible, ni lo que inv
   assert.equal(errorParaTicket('x', { content: JSON.stringify({ ok: false, error: 'operación desconocida: «x»' }), isError: true }), null);
   assert.equal(errorParaTicket('x', { content: JSON.stringify({ ok: false, error: '«x» no está disponible en este chat.' }), isError: true }), null);
   assert.equal(errorParaTicket('x', '{"ok":true}'), null);
-  const p = propuestaPorFallo({ herramienta: 'mover_lead', error: 'boom' }, 'mové a Juan a agendado', 'Mover un lead de etapa');
-  assert.equal(p.tipo, 'bug');
-  assert.equal(p.titulo, 'No se pudo: Mover un lead de etapa');
-  assert.match(p.descripcion, /mové a Juan a agendado/);
-  // Y lo que propone el código es un bug evidente para el triage (vio fallar al sistema).
-  assert.equal(clasificar({ tipoDeclarado: 'bug', declaradoPor: 'mako', titulo: p.titulo, descripcion: p.descripcion, contexto: { error: 'boom', herramienta: 'mover_lead' } }).autoArreglo, true);
+  // Y lo que falló es un bug evidente para el triage: el sistema lo vio fallar.
+  assert.equal(clasificar({ tipoDeclarado: 'bug', declaradoPor: 'sistema', titulo: 'MaKo no pudo hacer «mover_lead»', descripcion: '', contexto: { error: 'boom', herramienta: 'mover_lead' } }).autoArreglo, true);
 });
 
-test('el turno del chat anota los errores y, si el modelo no lo propuso, propone el ticket el CÓDIGO', () => {
-  // Rota: sacar el bloque «El ticket que propone el CÓDIGO» de lib/mako-turno-app.ts → este test falla.
+test('el turno del chat registra lo que falló SOLO en la Ticketera (sin tarjeta), y se lo dice a la persona sólo si entró', () => {
+  // Rota: sacar el bloque «Lo que falló de MaKo va SOLO a la Ticketera» de lib/mako-turno-app.ts → este test falla.
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(t, /const err = errorParaTicket\(name, out\);\s*if \(err\) erroresDelTurno\.push\(err\);/);
-  assert.match(t, /if \(erroresDelTurno\.length && !ticketPropuesto\) \{[\s\S]{0,200}runRegistro\(LEVANTAR_TICKET, propuestaPorFallo\(/);
+  assert.match(t, /const r = await registrarError\(\{ origen: 'mako', \.\.\.fallasDeMako\[0\], hilo: String\(s\.id\) \}, quien\);\s*if \(r\.ok && r\.ticketId\) paraLaPersona\.push\(AVISE_AL_EQUIPO\);/);
   assert.match(t, /contextoTicket: \(\) => \(\{/, 'el turno le pasa su contexto al runner');
   assert.match(t, /deSiempre: \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS\]/, 'levantar_ticket viaja siempre en el chat de la app');
-  // La propuesta sale ANTES de leer las tarjetas: si no, la persona no la ve hasta el turno siguiente.
-  assert.ok(t.indexOf('runRegistro(LEVANTAR_TICKET') < t.indexOf('const propuestas = await tarjetasVigentes('));
+  assert.doesNotMatch(t, /propuestaPorFallo/, 'un error ya no se le propone a la persona como tarjeta');
 });
 
 // ── 4. Al Cerebro ───────────────────────────────────────────────────────────────────────────────────────────────

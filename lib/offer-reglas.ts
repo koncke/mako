@@ -2073,11 +2073,25 @@ export function conclusionParaMostrar<C extends { diagnostico: DiagnosticoOferta
   };
 }
 
-/** `conclusionParaMostrar` con las cifras que dio el negocio en ESTA conversación (sus piezas, sus mensajes, sus documentos). */
+/**
+ * `conclusionParaMostrar` con las cifras que dio el negocio en ESTA conversación (sus piezas, sus mensajes, sus
+ * documentos). Y «Los números» de una propuesta guardada ANTES del 17/10/2026 se leen con la marca de lo que estimó MaKo
+ * (`numeroDeLaPropuesta`), sin reescribir la fila: el PDF de Código Inmobiliario se vuelve a armar desde lo guardado.
+ * Acá no está el contexto cargado (el CRM): una cifra que salió de ahí se lee «estimada», que es el lado seguro.
+ */
 export function conclusionVisible<C extends { diagnostico: DiagnosticoOferta; calculo: CalculoDiagnostico }>(
   c: C, f: { piezas: PiezasSabidas; mensajes: ReadonlyArray<Pick<MensajeGuardado, 'de' | 'texto'>>; documentos: ReadonlyArray<{ texto: string }> },
 ): C {
-  return conclusionParaMostrar(c, () => cifrasConPorcentaje([...valoresDeLasPiezas(f.piezas), ...fuentesDelDueno(f)]));
+  const vista = conclusionParaMostrar(c, () => cifrasConPorcentaje([...valoresDeLasPiezas(f.piezas), ...fuentesDelDueno(f)]));
+  const pr = (vista as { propuesta?: PropuestaOferta | null }).propuesta;
+  if (!pr || !Array.isArray(pr.numeros) || !pr.numeros.length) return vista;
+  const permitidas = cifrasDelNegocio([...valoresDeLasPiezas(f.piezas), ...fuentesDelDueno(f), pr.inversion?.precio, pr.inversion?.contado, pr.inversion?.plan]);
+  const margen = margenDe(f.piezas);
+  const k = margen != null ? claveCifra(pct(margen)) : null;
+  if (k) permitidas.add(k);
+  const numeros = pr.numeros.map((n) => numeroDeLaPropuesta(n, permitidas).texto);
+  if (numeros.every((n, i) => n === pr.numeros[i])) return vista;
+  return { ...vista, propuesta: { ...pr, numeros } };
 }
 
 // ── La oferta provisional y el PDF en el chat (tarjeta «rehacer») ─────────────
@@ -2326,10 +2340,41 @@ export function prometeHacerloPorElCliente(p: PropuestaOferta, piezas: PiezasSab
   return `La oferta promete hacerlo POR tu cliente («${m[0]}»), y lo que vendes lo hace él con tu guía (${recortar(colapsar(loQueVende), 90)}). Cámbialo antes de usarla.`;
 }
 
+/**
+ * La marca de un número de «Los números» que ESTIMÓ MaKo (17/10/2026, la mitad que quedó del «43», #888).
+ *
+ * El caso: en la Parte 2 del PDF de Código Inmobiliario la IA escribía márgenes y un «LTV:CAC estimado superior a 5 a
+ * 1» que nadie le dio (el prompt le pide margen bruto, ventas y llamadas necesarias, % cobrado al firmar y LTV:CAC
+ * «con la cuenta a la vista»). Decisión con criterio (la dejó abierta docs/hallazgos-offer.md): el código no los puede
+ * CALCULAR —no tiene el costo de adquisición, la recompra ni la retención—, así que los MARCA, como la decisión 10 de
+ * Martín (12/10/2026: «el PDF lista lo que propuso MaKo, separado de lo que dijo el negocio»): una línea con una cifra
+ * que el negocio no dio queda escrita, con esta marca al final, y va a «Lo que propuso MaKo». Una CUENTA a la vista
+ * hecha sólo con cifras del negocio («10.000 USD / 2.490 USD = 4 ventas») es un cálculo, no una estimación.
+ */
+export const MARCA_ESTIMADO = '(estimado por MaKo)';
+
+/** Una línea de «Los números», con la marca si trae una cifra que el negocio no dio (ver `MARCA_ESTIMADO`). */
+export function numeroDeLaPropuesta(linea: string, permitidas: Set<string>): { texto: string; estimado: boolean } {
+  const t = (linea ?? '').trim();
+  if (!t || t.includes(MARCA_COMPLETAR)) return { texto: linea, estimado: false };
+  const sinMarca = t.replace(MARCA_ESTIMADO, '').trim();
+  if (!tieneCifraAjena(sinMarca, permitidas)) return { texto: sinMarca, estimado: false };
+  // La cuenta a la vista: si todo lo que va antes del ÚLTIMO «=» lo dio el negocio, lo de después sale de ahí.
+  const igual = sinMarca.lastIndexOf('=');
+  if (igual > 0 && /\d/.test(sinMarca.slice(0, igual)) && !tieneCifraAjena(sinMarca.slice(0, igual), permitidas)) {
+    return { texto: sinMarca, estimado: false };
+  }
+  return { texto: `${sinMarca} ${MARCA_ESTIMADO}`, estimado: true };
+}
+
 export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas, ctx: ContextoReglas = {}): PropuestaOferta {
   const deLasPiezas = valoresDeLasPiezas(piezas);
   const permitidas = cifrasDelNegocio([...deLasPiezas, ...(ctx.fuentes ?? [])]);
   const conPropuesta = new Set([...permitidas, ...cifrasDelNegocio([p.inversion.precio, p.inversion.contado, p.inversion.plan])]);
+  // «Los números» cuentan con lo que dio el negocio, el precio que se propone y el margen que el código calcula con su
+  // precio y su costo (`margenDe`): lo demás es una estimación de MaKo y se marca (`numeroDeLaPropuesta`).
+  const margen = margenDe(piezas);
+  const paraNumeros = new Set([...conPropuesta, ...(margen != null ? [claveCifra(pct(margen))].filter((k): k is string => !!k) : [])]);
   const res = (t: string) => filtrarCifras(t, permitidas, { plazos: true });
   const estricto = (t: string) => filtrarCifras(t, permitidas);
   const avisos: string[] = [];
@@ -2348,6 +2393,7 @@ export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas
     urgencia: tieneDato(piezas, 'urgencia') ? estricto(p.urgencia) : URGENCIA_SIN_DATO,
     escenarios: { mejor: res(p.escenarios.mejor), peor: res(p.escenarios.peor) },
     ecuacion: p.ecuacion.map((f) => ({ ...f, antes: res(f.antes), despues: res(f.despues) })),
+    numeros: p.numeros.map((n) => numeroDeLaPropuesta(n, paraNumeros).texto),
     mecanismo: { ...p.mecanismo, nombres: [...p.mecanismo.nombres] },
     garantia: { ...p.garantia },
   };
@@ -2438,6 +2484,9 @@ function propuestoPorMako(
   const plazos = [...p.frase.matchAll(/(\d+(?:[.,]\d+)*)\s*(d[ií]as?|semanas?|mes(?:es)?|años?)(?![a-záéíóúñ])/gi)]
     .filter((m) => { const k = claveCifra(m[1]); return !!k && !permitidas.has(k); });
   for (const m of plazos) seguros.push({ seccion: 'La frase', que: `Plazo: ${m[0]}` });
+  for (const n of p.numeros) {
+    if (n.includes(MARCA_ESTIMADO)) seguros.push({ seccion: 'Números', que: n.replace(MARCA_ESTIMADO, '').trim() });
+  }
 
   const out: Array<{ seccion: string; que: string }> = [];
   const vistas = new Set<string>();

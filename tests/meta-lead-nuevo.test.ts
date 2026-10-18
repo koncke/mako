@@ -120,8 +120,10 @@ test('3. lo inmediato por partes: el aviso con los DATOS, los flujos y las autom
   assert.equal(id, 'lead-formulario-meta');
   assert.equal(w, 15);
   assert.equal(leadId, 2731);
-  assert.equal(datos.lead_telefono, 'sin teléfono', 'un {{lead_telefono}} crudo se lee como mensaje roto');
-  assert.match(datos.lead_formulario, /Casa/);
+  // (17/10/2026, lote 3: los datos son los del evento `lead_formulario_meta`; sin teléfono, el dato FALTA y su renglón no va:
+  // ni un {{lead_telefono}} crudo ni la frase de relleno «sin teléfono». tests/meta-form-evento.test.ts.)
+  assert.equal(datos.meta_telefono, undefined, 'sin teléfono, el dato tiene que faltar');
+  assert.match(datos.meta_respuestas, /Casa/);
   assert.deepEqual(log[1], ['flujos', 'lead.form_meta', 15, 2731]);
   assert.deepEqual(log[2], ['automatizaciones', 2731, 'lead_nuevo']);
 });

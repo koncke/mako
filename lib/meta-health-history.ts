@@ -153,8 +153,20 @@ export async function registrarEstadoMeta(h: MetaAccountHealth): Promise<void> {
   await reconciliarIncidentes(p ? [p] : [], ['meta']);
 }
 
-/** Incidentes para el historial: primero los EN CURSO, luego por inicio desc. */
+/**
+ * Incidentes para el historial, o `[]` si no se pudieron leer. ⚠️ No distingue «no hay» de «no pude»: lo que AFIRMA algo
+ * con la lista (una pantalla que dice «Todo en orden») usa `leerIncidentes`. Queda para quien sólo filtra (el teléfono).
+ */
 export async function getIncidentes(limit = 30): Promise<Incidente[]> {
+  return (await leerIncidentes(limit)) ?? [];
+}
+
+/**
+ * Incidentes para el historial: primero los EN CURSO, luego por inicio desc. `null` = NO SE PUDIERON LEER (17/10/2026):
+ * con `[]` en ese caso, /integraciones pintaba «Todo en orden» sobre una lectura que falló (docs/hallazgos-comunicacion.md,
+ * «"no pude leer" llega como error o como un campo aparte, nunca como lista vacía»).
+ */
+export async function leerIncidentes(limit = 30): Promise<Incidente[] | null> {
   try {
     const db = await getTenantDb();
     const { data, error } = await db
@@ -182,6 +194,6 @@ export async function getIncidentes(limit = 30): Promise<Incidente[]> {
     }));
   } catch (err) {
     console.error(`[incidentes] leer: ${err instanceof Error ? err.message : String(err)}`);
-    return [];
+    return null;
   }
 }

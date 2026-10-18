@@ -33,7 +33,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  desenlaceAlGuardar, tocaElMotivo, tocaLaVenta, DECIDEN_LA_VENTA, type Desenlace,
+  desenlaceAlGuardar, estadoDelMovimiento, tocaElMotivo, tocaLaVenta, DECIDEN_LA_VENTA, type Desenlace,
 } from '../lib/lead-desenlace';
 // Sólo el tipo (se borra al compilar): prueba que lo que `updateLead` recibe entra
 // tal cual en la función, sin un cast en el medio.
@@ -174,9 +174,31 @@ test('CABLEADO: updateLead aplica el desenlace por la función pura, y no tiene 
   assert.ok(fn.indexOf('desenlaceAlGuardar(') < fn.indexOf(".update(payload)"), 'el desenlace va antes del UPDATE');
 });
 
-test('CABLEADO: un movimiento de etapa sigue mandando estado_lead (así reabrir un Ganado limpia la venta)', () => {
+// ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026 (§5 punto 3 de docs/relevo/crm.md, opción b): el movimiento manda
+// `estado_lead` SÓLO SI CAMBIA (`estadoDelMovimiento`). Antes lo mandaba siempre y Facturando → Falta pago
+// le borraba la venta. Reabrir un Ganado sigue limpiándola: ése sí cambia el estado.
+// Verificado rompiéndolo (el archivo da 13 / 0): `estadoDelMovimiento` devolviendo siempre `{ estado_lead:
+// destino }` → 12 / 1 (el de Facturando → Falta pago); devolviendo siempre `{}` → 12 / 1 (el de reabrir un
+// Ganado); el `sync` de setPipelineStage armado a mano como antes → 12 / 1 (el CABLEADO).
+test('un movimiento entre dos etapas ABIERTAS (Facturando → Falta pago) no le borra la venta', () => {
+  const sync: LeadUpdateInput = { ...estadoDelMovimiento(FACTURANDO.estado_lead, 'abierto') };
+  assert.deepEqual(guardar(FACTURANDO, sync), FACTURANDO);
+});
+
+test('reabrir un Ganado (Ganado → una etapa abierta) sigue limpiando la venta, y sin el estado de antes se sincroniza', () => {
+  const sync: LeadUpdateInput = { ...estadoDelMovimiento(GANADO.estado_lead, 'abierto') };
+  const r = guardar(GANADO, sync);
+  assert.equal(r.estado_lead, 'abierto');
+  assert.equal(r.monto_cierre_usd, null);
+  assert.equal(r.fecha_cierre, null);
+  // Sin el lead de antes (no se pudo leer): se manda el estado, como siempre.
+  assert.deepEqual(estadoDelMovimiento(null, 'abierto'), { estado_lead: 'abierto' });
+  assert.deepEqual(estadoDelMovimiento(undefined, 'ganado'), { estado_lead: 'ganado' });
+});
+
+test('CABLEADO: el movimiento de etapa arma su estado con estadoDelMovimiento (y lo manda por updateLead)', () => {
   const fn = cuerpoDe(sinComentarios(crudo('../lib/leads.ts')), 'export async function setPipelineStage(');
-  assert.match(fn, /const sync: LeadUpdateInput = \{ estado_lead: estado \};/,
-    'sin estado_lead en el sync, mover un Ganado a una etapa abierta dejaría la venta puesta');
+  assert.match(fn, /const sync: LeadUpdateInput = \{ \.\.\.estadoDelMovimiento\(antes\?\.estado_lead, estado\) \};/,
+    'el movimiento volvió a armar el estado a mano');
   assert.match(fn, /await updateLead\(id, sync\)/);
 });

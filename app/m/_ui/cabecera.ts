@@ -55,6 +55,10 @@ const segmentos = (p: string) => p.split('/').filter(Boolean).length;
 
 /** El chat de WhatsApp de un lead: `/m/crm/<id>/chat`. */
 const CHAT_LEAD = /^\/m\/crm\/([^/]+)\/chat$/;
+/** Una conversación de la pestaña Chats: `/m/chats/<clave>`. */
+const CHAT_DE_CHATS = /^\/m\/chats\/[^/]+$/;
+/** Un ticket de «Reportar problema»: `/m/tickets/<id>`. */
+const TICKET = /^\/m\/tickets\/\d+$/;
 
 /**
  * ¿Es una pantalla de trabajo por defecto? El chat de MaKo (y sus subpantallas), el chat de Offer,
@@ -72,7 +76,15 @@ export function esTrabajo(pathname: string | null | undefined): boolean {
     // Offer (15/10/2026): en escritorio la tab ES un chat con MaKo por funnel, y en el prototipo v3 su
     // pantalla es la del chat de MaKo (el funnel arriba, el hilo y el composer en la franja del pulgar),
     // sin título grande. Como el chat de MaKo: de trabajo desde el HTML del server.
-    || dentro(p, '/m/offer');
+    || dentro(p, '/m/offer')
+    // UNA conversación de Chats (17/10/2026, /m/chats/<clave>): un chat, como el del lead. La lista no.
+    || CHAT_DE_CHATS.test(p)
+    // UN ticket de «Reportar problema» (17/10/2026, /m/tickets/<id>): la conversación con el equipo y su caja de
+    // responder pegada abajo, como un chat. La lista no.
+    || TICKET.test(p)
+    // El editor de UN proyecto del Video Editor o de UN diseño del Image Editor (17/10/2026), como el de un video:
+    // en CapCut y en Canva del teléfono el editor ocupa la pantalla. Sus inicios (las listas) no.
+    || /^\/m\/(video-editor|image-editor)\/[^/]+/.test(p);
 }
 
 /** El lugar de la barra cuya raíz es esta ruta (o null). */

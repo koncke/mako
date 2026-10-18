@@ -120,7 +120,7 @@ async function procesarDirecto(ws: number, body: { fileId?: string; path?: strin
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
       const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
       if (sinIA) warnings.push(await mensajeSinIA(nombre, motivoSinIA));
-      else { await insertFile(ws, { id: fileId, nombre, mime, tamano, storage_path: path, razonamiento, campos }); textoOk = texto; leido = true; }
+      else { await insertFile(ws, { id: fileId, nombre, mime, tamano, storage_path: path, razonamiento, campos, origen: 'archivero' }); textoOk = texto; leido = true; }
     }
     if (!leido) await getSupabaseServer().storage.from('archivero').remove([path]).catch(() => {}); // binario huérfano
     else {
@@ -209,7 +209,7 @@ async function procesarLink(ws: number, body: { url?: string }): Promise<Respons
       // y el texto del muro entraba al panorama del negocio (tarea #201).
       else if (vacia) warnings.push(vacia);
       else {
-        await insertFile(ws, { id: randomUUID(), nombre: titulo || host, mime: 'text/html', tamano: texto.length, storage_path: url, razonamiento, campos });
+        await insertFile(ws, { id: randomUUID(), nombre: titulo || host, mime: 'text/html', tamano: texto.length, storage_path: url, razonamiento, campos, origen: 'link' });
         leido = true;
         try { const pano = await generarPanorama([texto], await getPanorama()); if (pano) await setPanorama(pano); }
         catch (e) { console.error('[archivero] panorama link (no fatal):', msg(e)); }
@@ -266,7 +266,7 @@ export async function POST(req: NextRequest) {
         const id = randomUUID();
         const buf = Buffer.from(await file.arrayBuffer());
         const path = await subirBinario(ws, id, buf, file.type || '');
-        await insertFile(ws, { id, nombre: file.name, mime: file.type || '', tamano: file.size, storage_path: path, razonamiento, campos });
+        await insertFile(ws, { id, nombre: file.name, mime: file.type || '', tamano: file.size, storage_path: path, razonamiento, campos, origen: 'archivero' });
         textos.push(texto);
         leidos++;
       }

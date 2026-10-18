@@ -1,5 +1,11 @@
 # Relevo — Vender MaKo: la tab Strategy y los referidos (10/10/2026)
 
+> **17/10/2026 («Pendientes B3», claude4) — para después del 20/10 (corte de consumo):** hecho el referido de 97
+> (US$130,46, `app/admin/estrategia/datos.ts`). Sin hacer: la pantalla «¿Qué es MaKo?» con ofertas y precios en
+> columnas, también para clientes (sin empezar); el 1 a 1 en US$10.000 en `app/admin/dev/pricing/modelo.ts` (la corrida
+> `PROYECCION_24` tiene el 4.000 en cada fila derivada: hay que rehacerla, no cambiar el precio); y las tareas #771, #783
+> y #840 del Plan con los precios del 20/09. Detalle: docs/hallazgos-planes-y-cobro.md.
+
 Chat: «Estrategia de ventas MaKo» (sesión `76363c1b`, cuenta 2). Se cortó al 86% del uso
 semanal.
 

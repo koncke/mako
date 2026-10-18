@@ -121,3 +121,14 @@ export function crearGuardado(d: DepsGuardado) {
     terminar: async (): Promise<void> => { let c: Promise<void>; do { c = cola; await c; } while (c !== cola); },
   };
 }
+
+/**
+ * ¿`a` se armó con una fila más nueva que `b`? (`version` = `funnels.updated_at`). Sin versión cuenta como la más vieja.
+ * Lo usa ./useFichaDelFunnel.ts para que una relectura con un cambio de OTRO (MaKo desde el chat de «Editar», otro admin)
+ * le gane a lo guardado en esta sesión, y una relectura vieja no.
+ */
+export function masNueva(a: Pick<FichaDelFunnel, 'version'>, b: Pick<FichaDelFunnel, 'version'>): boolean {
+  const t = (f: Pick<FichaDelFunnel, 'version'>) => (f.version ? Date.parse(f.version) : NaN);
+  const ta = t(a); const tb = t(b);
+  return Number.isFinite(ta) && (!Number.isFinite(tb) || ta > tb);
+}

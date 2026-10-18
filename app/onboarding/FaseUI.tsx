@@ -117,9 +117,18 @@ export function FaseResultado({ diag }: { diag: Diagnostico }) {
   // La fase siguiente (para el hito gráfico). index = id (porque index = id-1).
   const sig = f.id < 5 ? faseDef(f.id) : null;
   const compColor = f.funnelSugerido.complejidad === 'Simple' ? 'var(--good)' : f.funnelSugerido.complejidad === 'Media' ? 'var(--warn)' : 'var(--bad)';
-  // Checklist tachable: la PRIMERA tarea arranca hecha; el usuario tacha el resto.
-  const [hechas, setHechas] = useState<Set<number>>(() => new Set([0]));
-  const toggle = (i: number) => setHechas((s) => { const n = new Set(s); if (n.has(i)) n.delete(i); else n.add(i); return n; });
+  // Checklist tachable: la PRIMERA tarea arranca hecha; el usuario tacha el resto. Desde el 17/10/2026 lo tachado SE
+  // GUARDA en el diagnóstico (`hechas`, PATCH /api/onboarding/fase) y MaKo lo lee (`faseContextoTexto`): antes se
+  // perdía al recargar. Si no se puede guardar (quien mira no es admin, la red), queda tachado en la pantalla.
+  const [hechas, setHechas] = useState<Set<number>>(() => new Set(diag.hechas ?? [0]));
+  const toggle = (i: number) => {
+    const n = new Set(hechas);
+    if (n.has(i)) n.delete(i); else n.add(i);
+    setHechas(n);
+    void fetch('/api/onboarding/fase', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hechas: [...n] }),
+    }).catch(() => { /* accesorio: lo tachado sigue en la pantalla */ });
+  };
   return (
     <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Fase diagnosticada: ícono + nombre + subtítulo, CENTRADO bajo "Tu diagnóstico" */}

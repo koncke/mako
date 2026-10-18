@@ -72,7 +72,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_landings', area: 'landing', tipo: 'lectura',
     titulo: 'Landings declaradas del negocio',
-    descripcion: 'Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y los productos a los que entran sus leads. Úsala antes de cualquier operación que pida la URL de una landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.',
+    descripcion: 'Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y los productos a los que entran sus leads (sus embudoId), más los productos que se pueden asignar (productosDisponibles, con su embudoId y su nombre). Úsala antes de cualquier operación que pida la URL de una landing y antes de asignarle productos con guardar_landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
   },
@@ -512,13 +512,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Agregar o corregir una landing',
-    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Tope: 12 landings.',
+    descripcion: 'Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La dirección de la página, con o sin https.' },
       { nombre: 'anterior', tipo: 'string', max: 500, descripcion: 'La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos.' },
+      { nombre: 'productos', rotulo: 'Productos', tipo: 'string[]', max: 11, vaciaEsValor: true, descripcion: 'Los productos del CRM a los que entran los leads de esta página, por su embudoId (de listar_landings → productosDisponibles). Reemplaza los que tenía; [] se los saca todos; sin este parámetro quedan como están.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_INTEG,
-    escribe: 'la lista de landings declaradas (app_settings landing.config) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio',
+    escribe: 'la lista de landings declaradas (app_settings landing.config, con los productos de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio',
   },
   {
     id: 'borrar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,

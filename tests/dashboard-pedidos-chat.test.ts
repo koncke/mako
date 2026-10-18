@@ -127,7 +127,7 @@ test('el panel: entiende el pedido ANTES de editar, y a la edición va sólo lo 
   const p = leer('app', 'dashboard', 'PanelEditarMako.tsx');
   const i = p.indexOf('await pedirPedidos({ texto: mensaje, tab: TAB_DEL_INFORME[informe], actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });');
   assert.ok(i > 0 && i < p.indexOf("fetch('/api/graficos/editar'"), 'la ruta de los pedidos va antes de la edición');
-  assert.match(p, /body: JSON\.stringify\(\{ hoja: enviada, pedido: deEstaHoja, historial, informe \}\)/);
+  assert.match(p, /body: JSON\.stringify\(\{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \}\)/);
   assert.ok(p.indexOf("decir({ k: 'pedido'") > p.indexOf("fetch('/api/graficos/editar'"), 'las burbujas, después de lo de esta hoja');
   assert.match(p, /fetch\('\/api\/graficos\/ia', \{[\s\S]*?body: JSON\.stringify\(\{ pedido: efecto\.pedido\.slice\(0, TOPE_PEDIDO_IA\), informe \}\)/);
   assert.match(p, /if \(creada\) onCrearHoja\(creada\);/);

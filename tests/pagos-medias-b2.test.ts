@@ -1,7 +1,7 @@
 // =============================================================================
 // Tres fallas MEDIAS de la revisión de b2 (Pagos campo por campo, 14/10/2026), las tres de plata
 // =============================================================================
-// docs/relevo/crm-tanda-b1.md, «Revisión de b2 · Pagos». Lo puro se ejecuta; el cableado se lee del FUENTE, como en
+// la revisión de b2 · Pagos (el volcado crm-tanda-b1.md se borró el 17/10/2026: `git show 86bc162be:docs/relevo/crm-tanda-b1.md`). Lo puro se ejecuta; el cableado se lee del FUENTE, como en
 // tests/pagos-escritura.test.ts, porque lib/pagos.ts y lib/cobros.ts son `server-only` y no se importan en un test:
 //   1. una cuota REPROGRAMADA vuelve a entrar a la cobranza: el dedup (`cuota:<id>`, 120 días) se olvida cuando le
 //      cambia el vencimiento. La clave NO lleva la fecha a propósito (lib/cobranza.ts, `claveDedupCuota`);
@@ -136,7 +136,9 @@ test('⚠️ el plazo de una cancelada no se revierte desde el historial, por ni
   const uno = bloque(ACCIONES, 'export async function revertAuditChangeAction(');
   assert.match(uno, /if \(row\.campo === CAMPO_SUS_MESES && !plazoSeRevierte\(canceladaDe\(before\)\)\) throw new Error\(PLAZO_DE_CANCELADA\);\n\s*const \{ error \} = await/);
   const grupo = bloque(ACCIONES, 'export async function revertMoveAction(');
-  const iCorte = grupo.indexOf('throw new Error(PLAZO_DE_CANCELADA)');
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: revertMoveAction DEVUELVE sus «no» (en producción Next esconde el
+  // mensaje de un error tirado en una server action). El corte sigue antes de la primera escritura.
+  const iCorte = grupo.indexOf('return { error: PLAZO_DE_CANCELADA }');
   const iPrimera = grupo.indexOf('await updateLead(');
   assert.ok(iCorte > 0 && iPrimera > iCorte, 'el corte va antes de la primera escritura del grupo');
 });

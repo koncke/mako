@@ -9,3 +9,6 @@
 .m-mas-compu { margin-top: 22px; }
 .m-mas-compu .m-fila__t,
 .m-mas-compu .m-icono { color: var(--dim); }
+
+/* Cuántas filas tiene un desplegable («Coming soon»): gris, como el riel de un conteo. */
+.m-mas-n { font-size: 15px; color: var(--dim); font-variant-numeric: tabular-nums; }

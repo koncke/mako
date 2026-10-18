@@ -52,8 +52,8 @@ import { estadoDeCuenta } from '@/lib/pagos-vistazo';
 import { planEnLead, tieneDeal } from '@/lib/muestra-pagos';
 import { pipelineStageOf } from '@/lib/pipeline';
 import {
-  cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, proximaLlamada, seMueveEnElTelefono, seSacaEnElTelefono,
-  FUERA_DE_ACTIVIDAD, type LineaActividad,
+  cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, progresoEnFunnel, proximaLlamada, senalDeTarjeta, seMueveEnElTelefono,
+  seSacaEnElTelefono, FUERA_DE_ACTIVIDAD, type LineaActividad, type SenalTarjeta,
 } from './reglas';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -84,6 +84,11 @@ export type FichaV2 = {
    * etapa… (`resumenDelTelefono`, ./ficha-bloques.ts). null = sin el lead (no se dibuja ninguna).
    */
   resumen: ResumenTelefono | null;
+  /**
+   * La barra de avance del encabezado (17/10/2026, copiada de la ficha del deal de Pipedrive): cuántas etapas tiene
+   * el camino del funnel de su casa y hasta cuál llegó (`progresoEnFunnel`). null = sin funnel.
+   */
+  progreso: { total: number; hasta: number | null } | null;
 };
 
 /**
@@ -177,6 +182,7 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
     totalNotas: notasTodas.length,
     actividad,
     ...delFunnel,
+    progreso: casa && stages.length ? progresoEnFunnel(stages, casa.etapa) : null,
     resumen: lead ? resumenDelTelefono(lead, {
       etapa: casa?.etapa ?? null, hoy: f.hoy, ahoraMs: ahora,
       siguiente: f.siguiente, enEtapa,
@@ -195,13 +201,24 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
 /** Cuántas tarjetas viajan por columna. El conteo dice el total; el resto, en la computadora. */
 const TOPE_COLUMNA = 40;
 
+/**
+ * El RELLENO de `mapToCrmLead` (app/crm/crm-map.ts) cuando el lead no tiene empresa: no es un dato. La fila del
+ * teléfono decía «Sin empresa» en casi todos los leads (medido en el ws9 el 17/10/2026) y nunca llegaba a decir por
+ * dónde llegó, que era su respaldo. Pipedrive pone ahí «$ · organización · persona»: lo que haya.
+ */
+const SIN_EMPRESA = 'Sin empresa';
+
 export type TarjetaCrmM = {
   id: number;
   col: string;
   nombre: string;
   /** La empresa o por dónde llegó. */
   segunda: string | null;
-  cuando: string;
+  /**
+   * A la derecha de la fila (17/10/2026, el indicador de Pipedrive): la reunión agendada, el plazo de la Nutrición
+   * manual o cuándo llegó (`senalDeTarjeta`, ./reglas.ts). Lo mismo que el pie de la tarjeta de escritorio.
+   */
+  senal: SenalTarjeta;
   /** El monto (o el estimado, con «≈»), corto. */
   plata: string | null;
 };
@@ -250,13 +267,18 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
     for (const c of ordenados) porCol.get(etapaEnTablero(c.stage, keys))?.push(c);
 
     const tarjetas: TarjetaCrmM[] = [];
+    const ahoraMs = Date.now();
     for (const [col, cs] of porCol) {
       for (const c of cs.slice(0, TOPE_COLUMNA)) {
         const monto = c.monto > 0 ? plataCorta(c.monto) : (c.ingresoEstimado ?? 0) > 0 ? `≈ ${plataCorta(c.ingresoEstimado ?? 0)}` : null;
+        const empresa = c.company?.trim();
         tarjetas.push({
           id: c.id, col, nombre: c.name?.trim() || 'Sin nombre',
-          segunda: c.company?.trim() || llegoPor(c.canal, c.origin) || null,
-          cuando: cuandoEnLista(c.createdISO, tz, hoy),
+          segunda: (empresa && empresa !== SIN_EMPRESA ? empresa : null) || llegoPor(c.canal, c.origin) || null,
+          senal: senalDeTarjeta({
+            reunionISO: c.fechaJ1, manualDeadline: c.nutriManualDeadline, enManual: col === 'manual',
+            abierto: c.estadoLead === 'abierto', creadoISO: c.createdISO,
+          }, ahoraMs, tz, hoy),
           plata: monto,
         });
       }

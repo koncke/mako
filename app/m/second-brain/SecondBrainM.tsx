@@ -15,6 +15,7 @@
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useWs } from '@/app/_ui/Link';
 import { Button, ButtonLink } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
@@ -34,7 +35,9 @@ import {
   elegidosPorMako, esCorto, miniMapa, primeraLinea, totalBuscable, type DondeBuscar,
 } from './modelo';
 import { ArchiveroM } from './ArchiveroM';
-import { SUBTITULO_CONSTRUCCION, SUBTITULO_SECOND_BRAIN, TITULO_SECOND_BRAIN } from '@/app/second-brain/VistaCerebro';
+import { SUBTITULO_CONSTRUCCION, SUBTITULO_SECOND_BRAIN, TITULO_SECOND_BRAIN, VistaCerebro } from '@/app/second-brain/VistaCerebro';
+// El «atrás» de Android cierra el grafo (la capa de arriba) y no la pantalla: la misma pieza del Ops Center.
+import { useAtrasCierra } from '@/app/admin/operaciones/atras';
 import { ConstruccionM } from './ConstruccionM';
 
 type Hoja = { tipo: 'area'; area: AreaId } | { tipo: 'dato'; id: string };
@@ -112,6 +115,15 @@ export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
   const pedido = useRef(0);
   const [hoja, setHoja] = useState<Hoja | null>(null);
   const [subir, setSubir] = useState(false);
+  // EL GRAFO REAL, a pantalla entera (17/10/2026). Antes esta pantalla sólo tenía la foto del mapa, sin gestos, y de ahí
+  // «no puedo clickear en nodos» (Martín, desde su Android). Ahora el Mapa ABRE en el grafo de la computadora —el mismo
+  // componente: tocar un nodo, pellizcar, la barra lateral con scroll, apaisado— y la lista queda a un toque (←).
+  // `?area=` abre la hoja de esa área en cambio: es una intención explícita de otra pantalla.
+  const [grafoAbierto, setGrafoAbierto] = useState(() => !areaInicial && cerebro.nodos.length > 1);
+  // El portal necesita el documento: recién después de montar (el servidor no lo tiene).
+  const [montado, setMontado] = useState(false);
+  useEffect(() => { setMontado(true); }, []);
+  useAtrasCierra(grafoAbierto, () => setGrafoAbierto(false));
 
   // `?area=` (la clave de escritorio): entra con esa área abierta. El parámetro se saca de la URL
   // antes de que la hoja ponga el suyo, para que «atrás» no la vuelva a abrir.
@@ -141,7 +153,11 @@ export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
     const clave = claveVistos(cerebro.negocio, wsDeBusqueda(window.location.search));
     let antes: unknown = null;
     try { antes = JSON.parse(window.localStorage.getItem(clave) ?? 'null'); } catch { antes = null; }
-    try { window.localStorage.setItem(clave, JSON.stringify(idsVistos(cerebro.nodos))); } catch { /* es una comodidad */ }
+    // ⚠️ SE SUMA a lo guardado y no lo pisa: el grafo (Grafo.tsx) guarda en la MISMA clave los ids de las dos capas (el
+    // negocio y la construcción de MaKo), y si esta lista los pisara con los del negocio solo, cada vez que se abre el
+    // grafo los nodos de la construcción volverían a «ser nuevos» y viajarían de nuevo.
+    const previos = Array.isArray(antes) ? antes.filter((x): x is string => typeof x === 'string') : [];
+    try { window.localStorage.setItem(clave, JSON.stringify([...new Set([...previos, ...idsVistos(cerebro.nodos)])])); } catch { /* es una comodidad */ }
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     setNuevos((nuevosDesde(antes, cerebro.nodos) ?? []).map((n) => n.id));
   }, [cerebro]);
@@ -181,6 +197,14 @@ export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
   };
 
   const abrirArea = (area: AreaId) => setHoja({ tipo: 'area', area });
+  /** «Editar» de la barra lateral del grafo: se cierra el grafo y se abre la hoja del área. ⚠️ Con una demora, no en el
+   *  mismo instante: cerrar el grafo consume su entrada del historial con `history.back()` (atras.ts), y una hoja que
+   *  hiciera su `pushState` antes de que ese «atrás» termine lo pisaría y se cerraría sola. */
+  const editarDesdeElGrafo = (area: AreaId) => {
+    setGrafoAbierto(false);
+    setCapa('negocio');
+    window.setTimeout(() => abrirArea(area), 350);
+  };
   const abrirNodo = (n: NodoCerebro) => {
     // La caja de un área (o su «falta») se abre como el área: es la lista, no un dato.
     if (n.id.startsWith('area:') || n.id.startsWith('falta:')) abrirArea(n.area);
@@ -262,9 +286,13 @@ export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
               opciones={[{ id: 'negocio', label: 'Negocio' }, { id: 'construccion', label: 'Construcción' }]} />
           </div>
         )}
-        {enObra
-          ? construccion.nodos.length > 1 && <MapaChico cerebro={construccion} nuevos={[]} />
-          : cerebro.cuenta.total > 0 && <MapaChico cerebro={cerebro} nuevos={nuevos} />}
+        {/* La foto del mapa es la puerta al grafo de verdad: tocarla lo abre. */}
+        {(enObra ? construccion.nodos.length > 1 : cerebro.cuenta.total > 0) && (
+          <button type="button" className="m-second-brain-abrir" onClick={() => setGrafoAbierto(true)} aria-label="Abrir el grafo">
+            {enObra ? <MapaChico cerebro={construccion} nuevos={[]} /> : <MapaChico cerebro={cerebro} nuevos={nuevos} />}
+            <span className="m-second-brain-abrir__txt" aria-hidden>Abrir el grafo</span>
+          </button>
+        )}
       </section>
 
       {enObra && <ConstruccionM cerebro={construccion} />}
@@ -411,6 +439,23 @@ export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
 
       <ArchiveroM abierto={subir} onCerrar={() => setSubir(false)} />
       </>)}
+
+      {/* El grafo, a pantalla entera, encima de la lista. En `#m-root` y no en el <body>: ahí viven los tokens del
+          teléfono (`[data-m]`: los tamaños de letra, el toque de 44). Un solo grafo: el negocio y, para el super admin,
+          la construcción de MaKo juntos, con las capas como filtro (VistaCerebro). */}
+      {montado && grafoAbierto && createPortal(
+        <div className="m-second-brain-grafo" data-tema="oscuro" role="dialog" aria-label={TITULO_SECOND_BRAIN}>
+          <VistaCerebro
+            movil
+            cerebro={cerebro}
+            construccion={construccion}
+            funnelPanel={null}
+            alCerrar={() => setGrafoAbierto(false)}
+            alEditarArea={editarDesdeElGrafo}
+          />
+        </div>,
+        document.getElementById('m-root') ?? document.body,
+      )}
     </>
   );
 }

@@ -19,7 +19,7 @@
 //     es lo que lo hace suave en vez de mecánico.
 //
 // Tres cosas que Nord NO hace y acá sí: respetar `prefers-reduced-motion`,
-// arrancar en el modo del sistema, y recordar la elección más allá de la pestaña
+// arrancar en CLARO siempre (no en el modo del sistema, desde el 17/10/2026), y recordar la elección más allá de la pestaña
 // (Nord la guarda en `sessionStorage` y la olvida al cerrar).
 // =============================================================================
 
@@ -39,13 +39,14 @@ export function aplicarModo(oscuro: boolean, recordar = true) {
   window.dispatchEvent(new Event('mako-modo'));
 }
 
-/** ¿El usuario prefiere oscuro? Su elección manda; si no eligió, el sistema. */
+/**
+ * ¿El usuario prefiere oscuro? SÓLO si lo eligió: sin elección, claro (17/10/2026, tarjeta #883; Martín: «por defecto es
+ * white mode»). Seguir al sistema ponía oscuro a quien tiene Windows en oscuro sin haber tocado nada.
+ */
 export function modoPreferido(): boolean {
   try {
-    const g = localStorage.getItem(LS_MODO);
-    if (g) return g === 'oscuro';
-  } catch { /* incógnito */ }
-  return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+    return localStorage.getItem(LS_MODO) === 'oscuro';
+  } catch { return false; /* incógnito: claro */ }
 }
 
 export function InterruptorModo({ compacto = false }: { compacto?: boolean }) {

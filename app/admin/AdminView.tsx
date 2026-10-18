@@ -304,8 +304,8 @@ function exportarWorkspaces(filas: Workspace[]) {
     const t = String(v ?? '');
     return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
-  const cab = ['Cliente', 'Slug', 'Plan', 'Estado', 'Miembros', 'Alta'];
-  const cuerpo = filas.map((w) => [w.nombre, w.slug ?? '', capaDef(w.capa).nombre, w.estado, w.usuarios, w.created_at.slice(0, 10)]);
+  const cab = ['Cliente', 'Slug', 'Plan', 'Estado', 'Miembros', 'Alta', 'Llegó por', 'Quería resolver'];
+  const cuerpo = filas.map((w) => [w.nombre, w.slug ?? '', capaDef(w.capa).nombre, w.estado, w.usuarios, w.created_at.slice(0, 10), w.llegada?.origen ?? '', w.llegada?.interes ?? '']);
   const csv = '﻿' + [cab, ...cuerpo].map((f) => f.map(esc).join(';')).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
@@ -342,7 +342,7 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
         <table className="adm-tabla">
           <thead>
             <tr>
-              <th>Cliente</th><th>Plan</th><th>Estado</th>
+              <th>Cliente</th><th>Plan</th><th>Estado</th><th>Llegó por</th>
               <th className="num">Miembros</th><th />
             </tr>
           </thead>
@@ -362,6 +362,10 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
                 <td>{w.estado === 'activo'
                   ? <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>
                   : <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}</td>
+                {/* Cómo llegó (la encuesta del onboarding, 17/10/2026); lo que quería resolver, al pasar el mouse. */}
+                <td title={w.llegada?.interes ? `Quería: ${w.llegada.interes}` : undefined} style={{ color: w.llegada?.origen ? undefined : 'var(--faint)' }}>
+                  {w.llegada?.origen ?? '—'}
+                </td>
                 <td className="num">{w.usuarios}</td>
                 <td className="num" onClick={(e) => e.stopPropagation()}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

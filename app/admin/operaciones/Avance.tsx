@@ -16,13 +16,14 @@
 // Copiado de las tarjetas de «tarea completada» de Linear y de los mensajes con acciones de Slack: un sello, el título,
 // el detalle, los links como botones y la acción de responder al pie.
 
+import { useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
-import { Markdown } from '@/app/_components/Markdown';
-import { destinoDeReview, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
+import { Markdown, conFormato } from '@/app/_components/Markdown';
+import { cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
 import { ROTULO_TAREA, type TareaDelChat } from '@/lib/centro-plan-auto-reglas';
-import type { TurnoChat } from '@/lib/operaciones-reglas';
+import { TOPE_TURNO, type TurnoChat } from '@/lib/operaciones-reglas';
 
 /**
  * Las tabs del menú, en el MISMO orden que `nombresDeTabs` (app/admin/operaciones/tabs.ts): el nombre de una tab se repite
@@ -46,18 +47,35 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback }: {
 }) {
   const [n] = yaEstaDelChat([{ tipo: 'turno', instante: Date.parse(t.at), turno: t }]);
   const destino = n ? destinoDeReview(n, chat, TABS_DEL_MENU) : null;
-  // El primer renglón es el título; lo demás, el detalle (los chats contestan en Markdown).
-  const cuerpo = t.texto.trim().split('\n').slice(1).join('\n').trim();
+  // El título de la tarjeta es el primer renglón ENTERO y el cuerpo es todo lo demás (lib/centro-chats.ts → partesDeYaEsta):
+  // `n.titulo` es el de la FILA de una lista (72 caracteres y «…») y acá cortaba lo más importante (Martín, 17/10/2026).
+  const { titulo: tituloEntero, cuerpo } = partesDeYaEsta(t.texto);
   const suyas = tareas.filter((x) => x.ya === t.uuid);
-  const titulo = n?.titulo ?? 'Ya está';
+  // En pantalla un «Ya está» se dice «Completado» (Martín, 17/10/2026). El chat lo sigue escribiendo «Ya está»: es lo que
+  // lee el servidor (`esYaEsta`, el Plan automático) y no se toca. Para el aria-label y el «Responder sobre esto» sí sirve
+  // el título corto de la fila.
+  const titulo = n?.titulo && n.titulo !== 'Ya está' ? n.titulo : 'Completado';
+  // Un cuerpo muy largo se pliega SÓLO en su detalle; lo que sigue pendiente y cómo probarlo queda siempre a la vista.
+  const plegable = partirPendiente(cuerpo);
+  const [abierto, setAbierto] = useState(false);
   return (
-    <article className="co-ya" aria-label={`Ya está: ${titulo}`}>
+    <article className="co-ya" aria-label={`Completado: ${titulo}`}>
       <header className="co-ya__cab">
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
-        <span className="co-ya__rotulo">Ya está</span>
+        <span className="co-ya__rotulo">Completado</span>
       </header>
-      <p className="co-ya__titulo">{titulo}</p>
-      {cuerpo && <div className="co-ya__md co-el__md"><Markdown text={cuerpo} enlaces /></div>}
+      {/* Con el formato aplicado (17/10/2026): el título de un chat puede traer **negrita**, `código` o un link. */}
+      {tituloEntero && <p className="co-ya__titulo">{conFormato(tituloEntero, 'ya-t')}</p>}
+      {plegable ? (
+        <>
+          <div className={`co-ya__md co-el__md co-ya__detalle${abierto ? '' : ' co-ya__detalle--plegado'}`}><Markdown text={plegable.detalle} enlaces /></div>
+          <button type="button" className="co-chip co-ya__mas" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}>
+            {abierto ? 'Ver menos' : 'Ver todo'}
+          </button>
+          <div className="co-ya__md co-el__md co-ya__cola"><Markdown text={plegable.cola} enlaces /></div>
+        </>
+      ) : cuerpo && <div className="co-ya__md co-el__md"><Markdown text={cuerpo} enlaces /></div>}
+      {cortadoPorLaPC(t.texto) && <p className="co-ya__corte" role="note">{`Cortado a los ${TOPE_TURNO} caracteres. El resto está en el chat de la PC.`}</p>}
       {(destino || suyas.length > 0) && (
         <div className="co-ya__links">
           {destino && (

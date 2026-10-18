@@ -116,9 +116,13 @@ test('M1-b: una reunión cargada a mano inscribe al instante, sólo hacia una et
   // `updateLead` dispara salvo que cambie el ESTADO (un movimiento: `setPipelineStage` siempre lo manda) o que el
   // que llama escriba la etapa él después (`setMeetingManual`).
   const upd = cuerpo(LEADS, 'export async function updateLead(');
-  assert.match(upd, /const cambioDeEstado = input\.estado_lead !== undefined && input\.estado_lead !== actual\.estado_lead;/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: un deshacer trae el estado en `desenlaceExacto` y no en `input`
+  // (tests/deshacer-movimiento-venta.test.ts); también es un cambio de estado y tampoco dispara.
+  assert.match(upd, /const estadoPedido = opts\?\.desenlaceExacto\?\.estado_lead \?\? input\.estado_lead;\s*const cambioDeEstado = estadoPedido !== undefined && estadoPedido !== actual\.estado_lead;/);
   assert.match(upd, /if \(opts\?\.disparoDeEtapa !== false && !cambioDeEstado && entraAEtapaDeReunion\(antes, despues\)\) \{\s*await enrolarPorEtapaDerivada\(id, despues, actual\.funnel_id \?\? null\);/);
-  assert.match(cuerpo(LEADS, 'export async function setPipelineStage('), /const sync: LeadUpdateInput = \{ estado_lead: estado \};/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: el estado viaja sólo si cambia (tests/updatelead-no-borra-venta.test.ts).
+  // Sin cambio de estado no cambia nada acá: `cambioDeEstado` ya era false con el mismo estado mandado.
+  assert.match(cuerpo(LEADS, 'export async function setPipelineStage('), /const sync: LeadUpdateInput = \{ \.\.\.estadoDelMovimiento\(antes\?\.estado_lead, estado\) \};/);
   const manual = cuerpo(LEADS, 'export async function setMeetingManual(');
   assert.match(manual, /await updateLead\(leadId, input, \{ disparoDeEtapa: false \}\);/);
   assert.ok(manual.indexOf('enrolarPorEtapaDerivada(') > manual.indexOf("update({ pipeline_stage: null })"), 'dispara DESPUÉS de limpiar el override');

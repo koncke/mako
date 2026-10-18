@@ -24,10 +24,13 @@
 //    /admin/operaciones dibuja la MISMA pantalla para el super admin («Ops Center»).
 
 import type { ReactNode } from 'react';
+import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
+import { rutaConWs } from '@/lib/workspace';
+import { rutaDelSecondBrainEnOpsCenter } from '@/lib/ops-center-ruta';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
-import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, type QuerySecondBrain } from './pagina';
+import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, quienOpera, type QuerySecondBrain } from './pagina';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,6 +39,10 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   await requireRolWs(['closer', 'setter'], { nav: 'mako' });
   const veMapa = await esAdminDeTab('second-brain');
   const q = await searchParams;
+  // ⚠️ PARA EL SUPER ADMIN EL SECOND BRAIN VIVE DENTRO DEL OPS CENTER (17/10/2026; Martín: «el second brain vive dentro de ops
+  // center y es el grafo, no otro chat»): su entrada salió de la barra y un /second-brain guardado lleva a su grafo. Los demás
+  // (el cliente, su equipo, y el super admin MIRANDO a un cliente: `quienOpera` pide su propio workspace) siguen con su chat.
+  if (await quienOpera()) redirect(await rutaConWs(rutaDelSecondBrainEnOpsCenter(q)));
   // Los chats de Claude Code (el Cerebro y cada jefe), sólo para quien `puedeOperar`: la guarda va ADENTRO, antes de
   // leer la cola (app/admin/operaciones/datos.ts). Tanda 5: «quiero mandar prompts por MaKo en el Second Brain».
   const centro = await datosDelCentroSiOpera().catch(() => null);

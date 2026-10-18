@@ -203,12 +203,19 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
       : finPlazo && finPlazo <= hoy ? 'terminada' : 'activa';
     const renovacionFallida = estado === 'activa' && activaPasarela && esRenovacionFallida(activaPasarela.motivo) ? (activaPasarela.motivo as string) : null;
 
-    // La próxima: la cuota impaga que vence primero, o la renovación que toca (el día del cierre, mes a mes).
+    // La próxima: la cuota impaga que vence primero, o la renovación que toca, mes a mes desde su ANCLA.
+    // ⚠️ EL ANCLA DE UNA SUSCRIPCIÓN DE LA PASARELA ES SU ÚLTIMO COBRO, no el cierre (17/10/2026): Stripe y Mercado Pago
+    // cobran el día en que se autorizó (y una renovación que se reintenta corre la fecha), así que proyectar desde
+    // `fecha_cierre` decía «próxima el 05» de una que cobra el 12. Sin un cobro de la pasarela asentado, el cierre.
+    const ultimoDeLaPasarela = fuente === 'pasarela'
+      ? cobradas.filter((q) => q.proveedor && q.fecha_pago).map((q) => String(q.fecha_pago).slice(0, 10)).sort().at(-1) ?? null
+      : null;
+    const ancla = ultimoDeLaPasarela ?? fechaCierre;
     let proximaRenovacion: string | null = null;
-    if (estado === 'activa' && fechaCierre) {
+    if (estado === 'activa' && ancla) {
       let k = 1;
-      let f = sumarMeses(fechaCierre, k);
-      while (f < hoy && k < 1200) { k++; f = sumarMeses(fechaCierre, k); }
+      let f = sumarMeses(ancla, k);
+      while (f < hoy && k < 1200) { k++; f = sumarMeses(ancla, k); }
       proximaRenovacion = finPlazo && f >= finPlazo ? null : f;
     }
     // Una manual se registra mes a mes: los meses que ya empezaron y no tienen su cobrada, avisan.

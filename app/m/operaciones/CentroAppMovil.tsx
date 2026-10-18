@@ -20,7 +20,9 @@ import { carteroVivo } from '@/lib/operaciones-reglas';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { RunnerMovil } from './RunnerMovil';
 import { ChatsM } from './ChatsMovil';
+import { cuentasConTitular } from '@/app/admin/operaciones/PiezasCentro';
 import { usoPrincipal } from '@/lib/centro-uso';
+import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { hace } from '@/lib/progreso-reglas';
 
 export function CentroAppMovil(datos: DatosCentro) {
@@ -28,27 +30,34 @@ export function CentroAppMovil(datos: DatosCentro) {
   const k = useCentro(datos, (t) => toast(t));
   const { carteros, ahora, estado, firma } = k;
   const [runners, setRunners] = useState(false);
+  // Los tickets de los usuarios que esperan a Martín (el mismo número que el botón de la computadora). null = leyendo.
+  const tickets = useTicketsPorDecidir(true);
 
   const activos = carteros.filter((c) => carteroVivo(c, ahora)).length;
   const principal = usoPrincipal(carteros.map((c) => ({ cuenta: c.cuenta, cuota: c.cuota ?? null })), ahora);
 
   return (
     <>
-      {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). */}
+      {/* La Ticketera entera, arriba de los chats (Martín: «No veo el botón de la ticketera dentro del Centro»). Desde el
+          17/10 es la de los tickets de los usuarios; «Preguntas de los chats» se sacó (se contestan en cada chat). */}
       <ListaM etiqueta="Ticketera">
-        <FilaM icono="soporte" titulo="Ticketera" segunda={k.pendientesTicketera ? `${k.pendientesTicketera} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tarjetas" navegacion />
+        <FilaM icono="soporte" titulo="Ticketera" segunda={tickets == null ? 'Tickets de clientes' : tickets ? `${tickets} por decidir` : 'Nada por decidir'} href="/m/operaciones?ticketera=tickets" navegacion />
         {/* Ops Center (17/10/2026): «que "Second brain" sea la sub tab debajo de la Ticketera», como en la computadora.
             Abre el GRAFO («debería saltar el grafo»): `?panel=mapa` lleva al Mapa a quien lo ve, y al chat a quien no. */}
         <FilaM icono="cerebro" titulo="Second Brain" href="/m/second-brain?panel=mapa" navegacion />
-      </ListaM>
-      <ChatsMDelCentro centro={k} />
-      {/* El Uso de las cuentas y sus Runners, en una fila que dice siempre el número (Uso.tsx, la de la computadora). */}
-      <ListaM etiqueta="Uso">
+        {/* El Uso de las cuentas y sus Runners, ARRIBA de los chats y junto a Second Brain (Martín, 17/10/2026: «El botón de
+            USO en mobile debe ir arriba de los chats junto a Second Brain»; antes había que bajar hasta el final de la
+            lista). Dice siempre el número (Uso.tsx, la de la computadora). */}
         <FilaM icono="config" titulo="Uso y Runners" segunda={[principal ? `Semana ${principal.pct}%${principal.viejo && principal.medido != null ? ` · ${hace(principal.medido, ahora)}` : ''}` : null, `${activos} de ${carteros.length} Runners activos`].filter(Boolean).join(' · ')}
           onClick={() => setRunners(true)} navegacion />
       </ListaM>
-      <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners">
-        <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave} />
+      <ChatsMDelCentro centro={k} />
+      {/* En «alto» (17/10/2026, Martín: «esa sección se traba y no se puede scrollear hasta el final»): en «medio» la hoja
+          está corrida hacia abajo y lo último del cuerpo queda DEBAJO de la pantalla aunque se scrollee hasta el fondo
+          (SheetM mide el cuerpo con el alto de «alto»; docs/hallazgos-mobile.md). */}
+      <SheetM abierto={runners} onCerrar={() => setRunners(false)} titulo="Uso y Runners" snap="alto">
+        <RunnerMovil carteros={estado ? carteros : null} clave={firma.clave} ahora={ahora} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
+          cuentas={cuentasConTitular(k)} onRenombrar={k.renombrarCuenta} />
       </SheetM>
     </>
   );

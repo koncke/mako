@@ -40,6 +40,7 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { buscarLeads, notasDeLead } from '@/lib/crm-movil';
 import { comoLite, etapaEnTablero, seMueveEnElTelefono, seSacaEnElTelefono, MIN_BUSQUEDA, type EtapaM, type FilaLeadM } from './reglas';
 import { addLeadNoteAction, setLeadStageAction, undoStageMoveAction } from '@/app/crm/actions';
+import type { TokenDeshacer } from '@/lib/deshacer-movimiento';
 import { TOPE_NOTA } from '@/app/crm/notas-reglas';
 
 /** null = puede; si no, el motivo corto (para un toast). */
@@ -103,7 +104,8 @@ export async function notaLeadAction(leadId: number, texto: string): Promise<{ o
 }
 
 /** `cambio: false` = ya estaba ahí (la pantalla estaba vieja): no hay nada que deshacer. */
-type ResMover = { ok: true; antes: string; esCasa: boolean; pendientes: string[]; cambio: boolean } | { ok: false; error: string };
+/** `deshacer`: la foto firmada del movimiento en la casa (lib/deshacer-movimiento.ts); sin ella no se deshace. */
+type ResMover = { ok: true; antes: string; esCasa: boolean; pendientes: string[]; cambio: boolean; deshacer?: TokenDeshacer } | { ok: false; error: string };
 
 /**
  * Mueve el lead a `etapa` en el producto `funnelId` (null = el del negocio). Decide en
@@ -149,7 +151,7 @@ export async function moverEtapaAction(leadId: number, funnelId: number | null, 
     const r = await setLeadStageAction(leadId, etapa);
     refresh();
     if (!r.ok) return { ok: false, error: r.mensaje?.slice(0, 90) || 'No se pudo mover' };
-    return { ok: true, antes, esCasa: true, pendientes: (r.pendientes ?? []).map((p) => p.label), cambio: true };
+    return { ok: true, antes, esCasa: true, pendientes: (r.pendientes ?? []).map((p) => p.label), cambio: true, ...(r.deshacer ? { deshacer: r.deshacer } : {}) };
   } catch (e) {
     console.error(`[m/crm] mover ${leadId}: ${e instanceof Error ? e.message : String(e)}`);
     return { ok: false, error: corto(e, 'No se pudo mover') };
@@ -157,13 +159,17 @@ export async function moverEtapaAction(leadId: number, funnelId: number | null, 
 }
 
 /** El Deshacer del toast: vuelve a la etapa de antes, por el MISMO camino que movió. */
-export async function deshacerMoverAction(leadId: number, funnelId: number | null, antes: string, esCasa: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function deshacerMoverAction(
+  leadId: number, funnelId: number | null, antes: string, esCasa: boolean, deshacer?: TokenDeshacer | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const no = await noPuede();
   if (no) return { ok: false, error: no };
   if (!idOk(leadId) || typeof antes !== 'string' || !antes) return { ok: false, error: 'Nada que deshacer' };
   try {
     if (esCasa) {
-      await undoStageMoveAction(leadId, antes);
+      // La foto firmada que devolvió el movimiento: el server repone el lead TAL CUAL estaba (17/10/2026).
+      const r = await undoStageMoveAction(leadId, deshacer);
+      if (r && 'error' in r) return { ok: false, error: r.error };
     } else {
       const fid = funnelId ?? (await idDelFunnelDefault());
       if (fid == null) return { ok: false, error: 'Nada que deshacer' };

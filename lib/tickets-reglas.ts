@@ -38,7 +38,8 @@ export type EstadoTicket = (typeof ESTADOS)[number];
 export const PRIORIDADES = ['urgente', 'alta', 'media', 'baja'] as const;
 export type Prioridad = (typeof PRIORIDADES)[number];
 
-export const CANALES = ['chat_app', 'chat_movil', 'whatsapp', 'formulario', 'api'] as const;
+/** `sistema` (mig 0313): un error que la app vio sola (lib/errores-app.ts), no una persona. */
+export const CANALES = ['chat_app', 'chat_movil', 'whatsapp', 'formulario', 'api', 'sistema'] as const;
 export type Canal = (typeof CANALES)[number];
 
 /** Las acciones de Martín (las de Linear Triage: Accept · Decline · Duplicate, más «Responder» y «Preguntar»). */
@@ -174,8 +175,8 @@ export type Triage = {
 export type EntradaTriage = {
   /** Lo que eligió la persona en el formulario, o lo que propuso MaKo en el chat (null = nadie lo dijo). */
   tipoDeclarado: TipoTicket | null;
-  /** Quién declaró el tipo: MaKo leyó la conversación; la persona eligió una opción. */
-  declaradoPor: 'mako' | 'persona' | null;
+  /** Quién declaró el tipo: MaKo leyó la conversación; la persona eligió una opción; el sistema vio fallar algo. */
+  declaradoPor: 'mako' | 'persona' | 'sistema' | null;
   titulo: string;
   descripcion: string;
   contexto: ContextoTicket;
@@ -243,11 +244,12 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
   if (palabrasPedido) { pPedido += 2; porque.push('Pide algo nuevo con sus palabras («quiero que…», «se podría…»).'); }
   if (palabrasPregunta) { pPregunta += 1; }
   if (e.tipoDeclarado) {
-    const peso = e.declaradoPor === 'mako' ? 2 : 1.5;
+    const peso = e.declaradoPor === 'persona' ? 1.5 : 2;
     if (e.tipoDeclarado === 'bug') pBug += peso;
     if (e.tipoDeclarado === 'pedido') pPedido += peso;
     if (e.tipoDeclarado === 'pregunta') pPregunta += peso;
-    porque.push(`${e.declaradoPor === 'mako' ? 'MaKo lo propuso' : 'La persona lo marcó'} como «${TIPOS.find((t) => t.clave === e.tipoDeclarado)!.corto.toLowerCase()}».`);
+    const quien = e.declaradoPor === 'sistema' ? 'La app lo detectó sola' : e.declaradoPor === 'mako' ? 'MaKo lo propuso' : 'La persona lo marcó';
+    porque.push(`${quien} como «${TIPOS.find((t) => t.clave === e.tipoDeclarado)!.corto.toLowerCase()}».`);
   }
   const tipo: TipoTicket = pBug >= pPedido && pBug >= pPregunta && pBug > 0 ? 'bug'
     : pPedido >= pPregunta && pPedido > 0 ? 'pedido'
@@ -336,6 +338,36 @@ export function motivoDecisionInvalida(d: { decision: unknown; respuesta?: strin
   return null;
 }
 
+// ── Quién pide por WhatsApp ───────────────────────────────────────────────────────────────────────────────────────
+// El doer de WhatsApp no sabe el email de quien escribe: sabe su teléfono (el JID). Pasa `actor: 'whatsapp:<teléfono>'` y
+// el ticket se le atribuye a la persona del negocio con ese teléfono en su perfil; si no hay UNA, queda con el teléfono.
+export const ACTOR_WHATSAPP_RE = /^whatsapp:\+?(\d{8,15})$/;
+export const telefonoDelActor = (actor: string): string | null => ACTOR_WHATSAPP_RE.exec(actor.trim().toLowerCase())?.[1] ?? null;
+
+/**
+ * Cuando WhatsApp no da un teléfono (un `@lid`, el id anónimo de algunos grupos), el doer manda `whatsapp:<pushName>`
+ * (sin «+»: así se distingue). Es lo único que hay: el nombre que la persona puso en su WhatsApp. Devuelve la clave con la
+ * que se guarda (`whatsapp:` + el nombre en minúsculas, sin símbolos) y el nombre tal cual. null = no es ese formato.
+ */
+export function nombreDelActor(actor: string): { clave: string; nombre: string } | null {
+  const m = /^whatsapp:(?!\+?\d+$)(.{1,60})$/.exec(actor.trim());
+  if (!m) return null;
+  const nombre = m[1].replace(/[\u0000-\u001f]/g, '').trim();
+  const slug = nombre.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return slug ? { clave: `whatsapp:${slug}`, nombre } : null;
+}
+
+/**
+ * ¿Es el mismo teléfono? Por los últimos 8 dígitos: el JID de WhatsApp y el que cargó la persona difieren en el prefijo
+ * (`+54 9 11…` contra `011 15…`, el 9 de Argentina que agrega WhatsApp). Con menos de 8 dígitos no se compara.
+ */
+export function mismoTelefono(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = String(a ?? '').replace(/\D/g, '');
+  const y = String(b ?? '').replace(/\D/g, '');
+  if (x.length < 8 || y.length < 8) return false;
+  return x.slice(-8) === y.slice(-8);
+}
+
 /** El número que ven las personas: «#12». */
 export const numero = (id: number) => `#${id}`;
 
@@ -402,7 +434,8 @@ export function errorParaTicket(herramienta: string, out: unknown): ErrorDelTurn
 
 /**
  * La propuesta que arma el CÓDIGO cuando algo falló en el turno y el modelo no propuso el ticket: un bug con el pedido
- * textual de la persona. `tituloOperacion` es el nombre humano de la operación («Mover un lead de etapa»).
+ * textual de la persona. La usa el doer de WhatsApp (lib/mako-doer-in.ts), que se lo PROPONE a la persona; el chat de la
+ * app ya no: lo registra solo (`registrarError`, lib/errores-app.ts). `tituloOperacion` = el nombre humano de la operación.
  */
 export function propuestaPorFallo(e: ErrorDelTurno, pedido: string, tituloOperacion: string | null): { tipo: TipoTicket; titulo: string; descripcion: string } {
   const que = (tituloOperacion || e.herramienta).replace(/\s+/g, ' ').trim();
@@ -471,6 +504,22 @@ export function ticketsDeHitos(registros: ReadonlyArray<{ area: string; bitacora
 }
 
 // ── El aviso al cliente ───────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * El texto del aviso al GRUPO del negocio cuando un error del sistema ya está arreglado: qué se rompió (el título, que
+ * arma el código en palabras del cliente: «La pantalla «CRM» se rompió») y que ya anda. De tú, sin promesas y sin nada
+ * que haya escrito un cliente. La firma del equipo la pone SÓLO `avisarArregloAlGrupo` (lib/aviso-arreglo.ts),
+ * que además RECHAZA un texto con promesas o groserías.
+ */
+export function textoArregloAlGrupo(t: Pick<AvisoCliente, 'titulo'>): string {
+  const que = t.titulo.trim().replace(/[.\s]+$/, '');
+  return `Arreglamos un error que viste en MaKo: ${que.charAt(0).toLowerCase()}${que.slice(1)}. Ya anda.`;
+}
+
+/** Lo que PRUEBA que un arreglo está en producción: el build que corre trae el hito que nombra el ticket. */
+export function pruebaDeProduccion(p: { ticket: number; hito: string; area: string; commit: string | null; deploy: string | null }): string {
+  return `ticket #${p.ticket} cerrado porque el deploy ${p.deploy ? `https://${p.deploy}` : '(sin url)'} (commit ${p.commit ? p.commit.slice(0, 9) : '?'}) trae el hito «${p.hito}» del área ${p.area}`.slice(0, 300);
+}
+
 export type AvisoCliente = { id: number; titulo: string; estado: string; respuesta: string | null; duplicado_de: number | null };
 
 /** El texto del aviso: dice QUÉ pasó con SU ticket, con el número y el título, y lo que le escribió el equipo. */

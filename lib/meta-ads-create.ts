@@ -19,6 +19,7 @@ import 'server-only';
 import { META_PAGE_ID } from './config';
 import { credWs } from './credenciales';
 import { esDeLaCuenta, normalizarCuentaMeta } from './meta-cuenta-id';
+import { aplicarCambiosDePublico, cambiosDesdeEntrada, type EntradaPublico } from './publico-cambios';
 import { paisDeCuentaMeta } from './meta-pais';
 import { aUnidadMeta, MONEDA_META_POR_DEFECTO } from './presupuesto-cambio';
 import { TIPOS_BUSCABLES, lugarDesdeBusqueda, ordenarLugares, type LugarMeta } from './meta-geo';
@@ -26,7 +27,7 @@ import { describirRegla, estadoConversion, type EstadoConversion } from './meta-
 import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type FormularioNuevo } from './meta-formularios';
 import { getSetting } from './settings';
 import { hayQuePreguntar, identidadPorDefecto, type Identidad, type InstagramOpcion, type PaginaOpcion } from './meta-identidad';
-import { getWorkspaceActual, OWNER_WS } from './workspace';
+import { OWNER_WS, wsObligatorio } from './workspace';
 import { estadoDeVideoStatus, faltaMiniatura, type EstadoVideo, type VideosSinProcesar } from './campana-videos';
 import {
   type CampaignSpec,
@@ -58,7 +59,7 @@ export const ADS_CREATIVES_BUCKET = 'ads-creatives';
  * único que sabe si detrás hay una sesión de AGENCIA.
  */
 async function wsDeLaCuenta(): Promise<number> {
-  return (await getWorkspaceActual()) ?? OWNER_WS;
+  return await wsObligatorio();
 }
 
 /**
@@ -1374,6 +1375,18 @@ export async function getAdsetTargeting(adsetId: string): Promise<{ name: string
 export async function updateAdsetTargeting(adsetId: string, targeting: Record<string, unknown>): Promise<void> {
   await exigirDeLaCuenta(await cuentaDelObjeto(adsetId));
   await graphPost(adsetId, { targeting: JSON.stringify(targeting) });
+}
+
+/**
+ * Edita el público de un conjunto con SÓLO los cambios (17/10/2026): lee el crudo de Meta (con la cuenta comprobada),
+ * superpone en el SERVER (`aplicarCambiosDePublico`, lib/publico-cambios.ts) y re-envía el objeto entero. Es lo que
+ * faltaba para que la API de MaKo pudiera editar un público: con la ruta, un targeting parcial borraba el resto.
+ */
+export async function editarPublicoConjunto(adsetId: string, entrada: EntradaPublico): Promise<{ name: string }> {
+  const actual = await getAdsetTargeting(adsetId);
+  const targeting = aplicarCambiosDePublico(actual.targeting, cambiosDesdeEntrada(actual.targeting, entrada));
+  await graphPost(adsetId, { targeting: JSON.stringify(targeting) });
+  return { name: actual.name };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

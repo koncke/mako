@@ -159,6 +159,9 @@
 .decisiones-hecha-resp { font-size: 14.5px; color: var(--good); overflow-wrap: anywhere; }
 .decisiones-hecha-estado { flex: none; font-size: 12.5px; color: var(--faint); }
 .decisiones-hecha-estado--nueva { color: var(--primary); font-weight: 600; }
+.decisiones-hecha-estado--good { color: var(--good); }
+.decisiones-hecha-estado--warn { color: var(--warn); font-weight: 600; }
+.decisiones-hecha-estado--bad { color: var(--bad); font-weight: 600; }
 .decisiones-hecha-cuerpo { padding: 0 8px 8px; }
 .decisiones-hecha-cuerpo .decisiones-tarjeta { border: 0; box-shadow: none; padding: 8px 10px; }
 

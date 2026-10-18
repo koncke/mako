@@ -317,9 +317,9 @@ export function pdfDeMensaje(m: object | null | undefined): { version: number } 
  * La ruta del PDF de una conversación: sin `v`, la versión vigente (el botón de la Conclusión); con `v`,
  * esa versión (el documento de un mensaje). El `?ws=` lo pega el parche de WsFetch al `fetch`.
  */
-export function urlPdf(sesionId: number, version?: number | null): string {
+export function urlPdf(sesionId: number, version?: number | null, op: { externo?: boolean } = {}): string {
   const v = typeof version === 'number' && Number.isInteger(version) && version > 0 ? `&v=${version}` : '';
-  return `/api/offer/pdf?id=${sesionId}${v}`;
+  return `/api/offer/pdf?id=${sesionId}${v}${op.externo ? '&tipo=externo' : ''}`;
 }
 
 /** Lo que dice el documento del chat (el nombre del archivo lo pone el servidor al bajarlo). */

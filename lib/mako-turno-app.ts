@@ -34,7 +34,9 @@ import { chatClaudeTools, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
 import { aToolDef, porId } from '@/lib/api-mako/registro';
-import { errorParaTicket, propuestaPorFallo, type ErrorDelTurno } from '@/lib/tickets-reglas';
+import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
+import { identidadDe } from '@/lib/tickets-db';
+import { registrarError } from '@/lib/errores-app';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import type { Ctx } from '@/lib/api-mako/tipos';
@@ -47,6 +49,7 @@ import { crearMemoDeAcciones, MARGEN_RELOJ_MS } from '@/lib/turno-sin-duplicar';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { avisoDePuntos } from '@/lib/puntos-mensaje';
 import { validarRespuestaDoer } from '@/lib/respuesta-doer';
+import { sanearSalida } from '@/lib/doer-salida';
 import { credWs } from '@/lib/credenciales';
 import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -181,7 +184,8 @@ export async function urlDeAdjunto(persona: PersonaChat, ref: unknown): Promise<
 
 // ── El system del turno ──────────────────────────────────────────────────────
 
-const VOZ_APP = `CONTEXTO: estás en el chat de MaKo en el TELÉFONO de la persona (el dueño del negocio o alguien de su equipo). Responde breve y claro (2-5 líneas), sin volcar JSON ni tecnicismos. Ves el historial de este chat: úsalo y no pidas datos que ya te dieron.`;
+const VOZ_APP = `CONTEXTO: estás en el chat de MaKo en el TELÉFONO de la persona (el dueño del negocio o alguien de su equipo). Responde breve y claro (2-5 líneas), sin volcar JSON ni tecnicismos. Ves el historial de este chat: úsalo y no pidas datos que ya te dieron.
+LA VOZ: directa y cálida, SIN groserías ni lunfardo (ninguna mala palabra ni insulto, tampoco en broma): este chat lo usan los clientes de MaKo y su equipo.`;
 
 /** El protocolo de herramientas: SÓLO si viajan herramientas (AGENTS.md, «Un prompt que
  *  ORDENA usar algo que no se mandó…»). */
@@ -235,6 +239,8 @@ const AVISO_NO_PUDE = 'No pude contestar ahora. Tu mensaje quedó guardado.';
  *  que MaKo pueda proponerlo cuando la persona pide algo que la app todavía no tiene (docs/diseno-ticketera-usuarios.md). */
 const LEVANTAR_TICKET = 'levantar_ticket';
 const TICKET_TOOLS: ToolDef[] = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToolDef(d)] : []; })();
+/** Lo que el CÓDIGO le dice a la persona cuando lo que falló ya entró a la Ticketera (no lo escribe el modelo). */
+const AVISE_AL_EQUIPO = 'Le avisé al equipo de MaKo: te aviso por aquí cuando esté arreglado.';
 const AVISO_NO_LEI = (nombre: string) => `No pude leer «${nombre}».`;
 
 /**
@@ -449,13 +455,21 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     }
     if (fallo) console.error(`[mako-turno-app] ws=${ws} sesión=${s.id} ${intencion.intencion}: ${fallo.slice(0, 300)}`);
 
-    // ── El ticket que propone el CÓDIGO ─────────────────────────────────────────
-    // Algo de MaKo falló en este turno y el modelo no propuso mandárselo al equipo: lo propone el código, con el
-    // error que vio. Es una propuesta (una tarjeta con un botón): la persona decide si lo manda.
-    if (erroresDelTurno.length && !ticketPropuesto) {
-      const e = erroresDelTurno[0];
-      await runRegistro(LEVANTAR_TICKET, propuestaPorFallo(e, textoPersona || textoMemoria, porId(e.herramienta)?.titulo ?? null))
-        .catch((x) => console.error(`[mako-turno-app] ws=${ws} no pude proponer el ticket: ${x instanceof Error ? x.message : String(x)}`));
+    // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
+    // Martín (17/10/2026): «córrelo en toda la app: MaKo en los chats de la app... Y todo lo solucionas
+    // automáticamente». Ya no se le propone una tarjeta a la persona: el error se registra (agrupado por huella,
+    // lib/errores-app.ts) y la primera vez es un ticket de bug que va solo al Cerebro. A la persona se le dice SÓLO si
+    // entró, y el aviso de que está arreglado le llega en ESTE hilo. Lo que falló porque el proveedor de IA no
+    // contestó (un 503, el cupo) no es un bug de MaKo: lo descarta `esRuido`.
+    const fallasDeMako = [
+      // `etiqueta`: el nombre humano de la operación («Mover un lead de etapa»), para el título que lee el cliente.
+      ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error, etiqueta: porId(e.herramienta)?.titulo })),
+      ...(fallo ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
+    ];
+    if (fallasDeMako.length && !ticketPropuesto) {
+      const quien = await identidadDe(ws, persona.actor).catch(() => null);
+      const r = await registrarError({ origen: 'mako', ...fallasDeMako[0], hilo: String(s.id) }, quien);
+      if (r.ok && r.ticketId) paraLaPersona.push(AVISE_AL_EQUIPO);
     }
 
     // ── Lo que sale ────────────────────────────────────────────────────────────
@@ -479,6 +493,15 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (borrador) respuesta = MENSAJE_BORRADOR_APP;
     else if (lead) respuesta = mensajeLeadApp(lead.nombre);
     if (respuesta) respuesta = sinLinksDeRevision(respuesta) || null;
+    // ⚠️ SIN GROSERÍAS, COMO EN WHATSAPP (17/10/2026, docs/relevo/mako-en-whatsapp.md §3): la persona de MaKo dice «puedes
+    // putear suave» (lib/mako-persona.ts) y el doer lo corta antes de mandar (`sanearSalida`, lib/doer-salida.ts); este chat
+    // —el de la app y el teléfono de los clientes— no. Se saca la oración, no la respuesta entera (las promesas no: acá la
+    // tarjeta y la pantalla dicen lo que quedó hecho).
+    if (respuesta && !borrador && !lead) {
+      const saneo = sanearSalida(respuesta, { corrioHerramientas: true });
+      if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
+      respuesta = saneo.texto;
+    }
     if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
 
     if (respuesta) {

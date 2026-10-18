@@ -4506,9 +4506,16 @@ sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA
 
 - **El historial del grupo viaja igual**: si en un turno anterior MaKo nombró a un lead, ese texto va en `msgs` a la
   red. El corte es por lo que trae ESTE turno.
-- **El Dashboard entero cuenta como datos de clientes** (`metricas: true`: algunas de sus lecturas listan leads uno por
-  uno), así que «¿cuánto vendí este mes?» se corta para un negocio sin keys. Afinarlo es marcar `datosDeClientes:
-  false` operación por operación en `metricas.def.ts`.
+- ~~**El Dashboard entero cuenta como datos de clientes**~~ **Arreglado el 17/10/2026 (B5):** 19 lecturas de
+  `metricas.def.ts` que traen sólo NÚMEROS llevan `datosDeClientes: false` (revisado runner por runner: ninguna devuelve
+  un nombre). Siguen cortando las que nombran personas: `a_quien_cobrar`, `cuotas_pendientes`,
+  `listar_leads_embudo_maduro`, y `analisis_negocio` (trae las RESPUESTAS de los que no calificaron, contadas por valor:
+  si una respuesta es texto libre, puede llevar un nombre). Test en tests/doer-red-datos-clientes.test.ts.
+  ⚠️ **La revisión del Cerebro (17/10, ALTA):** marcar la operación no alcanza, porque la red gratis recibe además el
+  HISTORIAL del grupo (avisos con nombres y teléfonos de leads). B5 lo cerró sólo para los turnos con una métrica
+  liberada; en paralelo main lo cerró para TODO turno de la red (`soloElTurno`, 50cc3acc8), y al mergear quedó el de main,
+  más estricto: un corte por caso deja abierto el caso que nadie pensó. **Sin hacer:**
+  si la pregunta misma nombra a un cliente, su nombre viaja (es el texto del turno).
 - **Con una pendiente de un lead, también se corta la charla** de ese grupo hasta que la pendiente vence o se resuelve.
 - **El guion de audio de Automations** (`app/api/chat-agent/redactar`) tiene su propia red sin el corte: es de
   Automations.

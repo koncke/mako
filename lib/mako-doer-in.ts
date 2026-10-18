@@ -26,15 +26,18 @@ import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId, aToolDef } from '@/lib/api-mako/registro';
-import { errorParaTicket, propuestaPorFallo, type ErrorDelTurno } from '@/lib/tickets-reglas';
-import { actorDeWhatsApp, LINEA_TICKET_PROPUESTO } from '@/lib/doer-ticket';
+import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
+import { actorDeWhatsApp, LINEA_ERROR_AVISADO } from '@/lib/doer-ticket';
+import { registrarError } from '@/lib/errores-app';
+import { identidadDelActor } from '@/lib/tickets-db';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
-import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, SIN_DATOS_DE_CLIENTES } from '@/lib/doer-herramientas';
+import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, soloElTurno, SIN_DATOS_DE_CLIENTES } from '@/lib/doer-herramientas';
 import { listarPendientes } from '@/lib/api-mako/acciones';
 import { credWs } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
+import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { sanearSalida, promesasDe } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
@@ -362,11 +365,15 @@ export async function wsDeGrupoJid(jid: string): Promise<number | null> {
     .from('app_settings').select('workspace_id').eq('key', KEY_GRUPO_JID).eq('value', jid).limit(1).maybeSingle();
   const wsCliente = (data as { workspace_id?: number } | null)?.workspace_id;
   if (wsCliente != null) return wsCliente;
-  // 2) Grupo SuperAdmin del dueño.
+  // 2) Grupo SuperAdmin del dueño, y 3) sus grupos de prueba (la allowlist, p.ej. "MaKo · Pruebas").
+  //
+  // ⛔ SON DE LA PLATAFORMA, NO DEL ws1 (17/10/2026, revisión del Cerebro). Devolvían OWNER_WS: en el grupo de Martín,
+  // MaKo leía y escribía el CRM, el plan y la plata de Mauricio, que es un CLIENTE. La CONFIGURACIÓN de estos grupos
+  // sigue guardada en el ws1 (`KEY_GRUPO_SUPERADMIN`, `gruposDoer(OWNER_WS)`: mudarla es mudar datos), pero los DATOS
+  // que se ven son los de `wsSuperAdmin()`. Sin plataforma resuelta, nadie (fail-closed): el grupo no se contesta.
   const superadmin = await runWithWorkspace(OWNER_WS, () => getSetting(KEY_GRUPO_SUPERADMIN));
-  if (superadmin && jid === superadmin) return OWNER_WS;
-  // 3) Grupos de prueba del dueño (su allowlist), p.ej. "MaKo · Pruebas".
-  if ((await gruposDoer(OWNER_WS)).includes(jid)) return OWNER_WS;
+  const esDeLaPlataforma = (superadmin && jid === superadmin) || (await gruposDoer(OWNER_WS)).includes(jid);
+  if (esDeLaPlataforma) return wsSuperAdmin().catch(() => null);
   return null;
 }
 
@@ -646,7 +653,7 @@ async function transcribirDeMensaje(instance: string, m: MsgIn): Promise<string>
   }
   if (!b64) return '';
   try {
-    return (await transcribirAudio(b64, a.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz (lote)' })).trim();
+    return (await transcribirAudio(b64, a.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz (lote)', pii: true })).trim();
   } catch (e) { console.error('[mako-doer-in] STT lote:', e instanceof Error ? e.message : String(e)); return ''; }
 }
 
@@ -724,7 +731,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // Si NINGUNA de las IA pudo escucharlo (Gemini→Groq→OpenAI, todas caídas o sin
       // cuota), MaKo lo dice. Antes se descartaba en silencio: mandabas el audio y no
       // pasaba nada, indistinguible de que te estuviera ignorando.
-      try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz del grupo' })).trim(); }
+      try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz del grupo', pii: true })).trim(); }
       catch (e) {
         const detalle = e instanceof Error ? e.message : String(e);
         console.error('[mako-doer-in] STT:', detalle);
@@ -983,7 +990,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
      * `tools` es la lista de ESTE system (la del turno, o la de la red), y `aviso` una línea más
      * después del bloque de herramientas.
      */
-    const armarSystem = (tools: typeof turno.tools, aviso = ''): string => {
+    const armarSystem = (tools: typeof turno.tools, aviso = '', baseDelSystem = base): string => {
       const permitidasDelTurno = new Set(tools.map((t) => t.name));
       const bloqueTools = tools.length
         ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
@@ -994,7 +1001,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // El pedido de agenda en curso, sólo si el turno trae la herramienta que lo sigue (un
       // prompt que nombra algo que no viajó es una trampa, ver DOER_WA_TOOLS).
       const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
-      return `${base}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+      return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
     };
     const system = armarSystem(tools);
     if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
@@ -1533,6 +1540,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             const turnoRed = respuesta ? null : turnoParaLaRed({
               tools, delRegistro: turno.delRegistro,
               tiposPendientes: await listarPendientes(ctxApi).then((ps) => ps.map((p) => p.operacion)).catch(() => ['(no se pudieron leer las pendientes)']),
+              texto, conAdjuntos: !!mediaBlocks,
             });
             if (turnoRed?.cortar) {
               erroresPlataforma.push(`red gratis salteada: el turno lleva datos de clientes (${turnoRed.cortar.slice(0, 5).join(', ')}) y el plan gratis entrena con lo que recibe`);
@@ -1541,9 +1549,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             if (!respuesta && turnoRed && !turnoRed.cortar) {
               const red = await provsGratisDePlataforma().catch(() => []);
               const toolsRed = turnoRed.tools;
-              const systemRed = turnoRed.sacadas.length
-                ? armarSystem(toolsRed, `\n\n${SIN_DATOS_DE_CLIENTES}`)
-                : system;
+              // ⛔ El system de la red va LEAN (la voz de MaKo y su núcleo, `buildSystemPrompt({ lean })`): el completo
+              // trae «TU METODOLOGÍA», que sale de `searchKnowledge` sobre el conocimiento propio, y el glosario (fuente
+              // «reunión») son nombres y apellidos de la gente de las llamadas (revisión del Cerebro, 17/10/2026).
+              const baseRed = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: '', lean: true }));
+              const systemRed = armarSystem(toolsRed, turnoRed.sacadas.length ? `\n\n${SIN_DATOS_DE_CLIENTES}` : '', baseRed);
               if (turnoRed.sacadas.length) console.warn(`[mako-doer-in] ws=${wsData} red de plataforma SIN ${turnoRed.sacadas.length} herramientas con datos de clientes (${turnoRed.sacadas.join(', ').slice(0, 300)})`);
               // ⚠️ CON PRESUPUESTO DE TIEMPO. La agencia tiene 11 keys gratis
               // cargadas y probarlas todas puede ser un minuto largo: del otro lado
@@ -1569,7 +1579,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 }
                 probados++;
                 try {
-                  const rp = await chatCheapTools(systemRed, msgs, toolsRed, nuevoIntento(), {
+                  // SIN el historial del grupo (`soloElTurno`): ahí puede haber leads nombrados en turnos anteriores.
+                  const rp = await chatCheapTools(systemRed, soloElTurno(msgs), toolsRed, nuevoIntento(), {
                     provider: r.provider, clave: r.clave, wsKey: await wsSuperAdmin(),
                     // 10 s por proveedor: con 25 s de presupuesto entran al menos
                     // dos intentos reales aunque uno quede colgado.
@@ -1792,16 +1803,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       }
     }
 
-    // ── El ticket que propone el CÓDIGO ─────────────────────────────────────────
-    // Una herramienta de MaKo falló en este turno y el modelo no propuso mandárselo al equipo: lo propone el código, con
-    // el error que vio (el molde de lib/mako-turno-app.ts). Queda como pendiente: un «sí» lo manda. La línea que lo dice
-    // la escribe el código, después del saneo: el modelo no sabe que la pendiente existe.
-    if (erroresDelTurno.length && !ticketPropuesto && respuesta && !avisoDeSistema) {
+    // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
+    // Martín (17/10/2026): «Y todo lo solucionás automáticamente». Ya no se le pregunta a la persona «¿se lo aviso al
+    // equipo?»: el error se registra (agrupado por huella, lib/errores-app.ts, el molde del chat de la app) y la primera vez
+    // es un ticket de bug que va solo al Cerebro. A la persona se le dice SÓLO si entró (`ok && ticketId`): lo que falló
+    // porque el proveedor de IA no contestó es ruido y vuelve `ok: false`. El negocio queda como afectado por la identidad
+    // (`identidad.ws`), y por eso el aviso «ya quedó arreglado» le llega a ESTE grupo (lib/aviso-arreglo.ts).
+    // La línea la escribe el código, después del saneo, y dice lo que ya pasó: nada de «te aviso».
+    if (erroresDelTurno.length && !ticketPropuesto) {
       const e = erroresDelTurno[0];
-      const prop = await runRegistro(LEVANTAR_TICKET, propuestaPorFallo(e, texto, porId(e.herramienta)?.titulo ?? null))
-        .catch((x) => { console.error(`[mako-doer-in] ws=${wsData} no pude proponer el ticket: ${x instanceof Error ? x.message : String(x)}`); return null; });
-      if (prop && !errorParaTicket(LEVANTAR_TICKET, prop) && !(prop as { isError?: unknown }).isError) respuesta = `${respuesta}\n\n${LINEA_TICKET_PROPUESTO}`;
-      else if (prop) console.warn(`[mako-doer-in] ws=${wsData} el ticket propuesto no quedó: ${String((prop as { content?: unknown }).content ?? '').slice(0, 200)}`);
+      const quien = await identidadDelActor(wsData, ctxApi.actor).catch(() => null);
+      const reg = await registrarError({ origen: 'mako', nombre: e.herramienta, mensaje: e.error }, quien);
+      if (reg.ok && reg.ticketId && respuesta && !avisoDeSistema) respuesta = `${respuesta}\n\n${LINEA_ERROR_AVISADO}`;
+      else if (!reg.ok) console.warn(`[mako-doer-in] ws=${wsData} la falla de ${e.herramienta} no se registró (${reg.motivo})`);
     }
 
     // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan
@@ -1885,7 +1899,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // Lo que escribió el CÓDIGO (la agenda) va al final, cada bloque como su propio
       // mensaje. Va acá y no antes porque los reemplazos de arriba (el borrador, el
       // lead, el cartel) pisan `respuesta`, y el validador no tiene por qué leerlo.
-      const enviar = [...partes, ...paraLaPersona];
+      // Los links a MaKo que escribió el MODELO salen con el `?ws=` del grupo (lib/links-con-ws.ts): sin él, el
+      // equipo de MaKo o una agencia los abría en SU workspace (medido 17/10/2026: ws13, ws15 y ws18).
+      const enviar = [...partes, ...paraLaPersona].map((t) => linksConWs(t, wsData, APP_URL));
       const idsEnv: string[] = [];
       for (let i = 0; i < enviar.length; i++) {
         if (i > 0) await new Promise((r) => setTimeout(r, 700));

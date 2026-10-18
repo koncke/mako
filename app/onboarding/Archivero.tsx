@@ -17,14 +17,14 @@ import ErrorIA from '../_components/ErrorIA';
 import { IconoBorrar } from '../_ui/BotonBorrar';
 // La subida (los tres pasos), lo que acepta y el rótulo de «Analizar» viven en un módulo puro: el Second
 // Brain del teléfono (app/m/second-brain/ArchiveroM.tsx) sube por el MISMO camino (AGENTS.md, MaKo Mobile).
-import { ACEPTA_ARCHIVERO, leerWebEnArchivero, rotuloAnalizar, subirAlArchivero } from '@/lib/archivero-subida';
+import { ACEPTA_ARCHIVERO, leerWebEnArchivero, rotuloAnalizar, subirAlArchivero, ROTULO_ORIGEN, type OrigenArchivero } from '@/lib/archivero-subida';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 const ACCEPT = ACEPTA_ARCHIVERO;
 
 type Fuente = { tipo: 'archivo' | 'manual'; id?: string; nombre?: string };
-type FileRow = { id: string; nombre: string; mime: string | null; tamano: number | null; razonamiento: string | null; aporto: number; created_at: string };
+type FileRow = { id: string; nombre: string; mime: string | null; tamano: number | null; razonamiento: string | null; aporto: number; created_at: string; origen?: OrigenArchivero | null };
 type Campo = { key: string; label: string; type: string; placeholder?: string; grupo: string };
 type Estado = { files: FileRow[]; brief: Campo[]; answers: Record<string, string>; fuente: Record<string, Fuente>; gaps: string[]; panorama: string; esSuperAdmin: boolean };
 type PregCerrada = { key: string; pregunta: string; opciones: string[] };
@@ -332,7 +332,7 @@ export function Archivero({ onEstado, onListo, registro }: {
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nombre}</div>
             {f.razonamiento && <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.55 }}>{f.razonamiento}</div>}
-            <div style={{ ...eyebrow, marginTop: 8, fontSize: 10 }}>{fmtSize(f.tamano)}{f.aporto > 0 ? ` · ${f.aporto} dato${f.aporto === 1 ? '' : 's'}` : ' · sin datos'}</div>
+            <div style={{ ...eyebrow, marginTop: 8, fontSize: 10 }}>{fmtSize(f.tamano)}{f.aporto > 0 ? ` · ${f.aporto} dato${f.aporto === 1 ? '' : 's'}` : ' · sin datos'}{f.origen && ROTULO_ORIGEN[f.origen] ? ` · ${ROTULO_ORIGEN[f.origen]}` : ''}</div>
           </div>
         </div>
       ))}

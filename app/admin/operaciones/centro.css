@@ -129,12 +129,17 @@
 .co-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-fila[aria-current='true'] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(18, 21, 27, .04); }
 .co-fila { align-items: center; gap: 12px; }
-/* El Cerebro (el orquestador) va aparte, arriba de los jefes: no es uno más. */
-.co-cuenta--cerebro { padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+/* El Cerebro va arriba de los jefes, en la MISMA lista (17/10/2026, Martín: «"Chats" - "Cerebro" y "Nuevo chat" no deben
+   estar separados... Todos juntos»): sin filete ni hueco; lo distingue su criatura, la estrella de MaKo. */
+.co-cuenta--cerebro + .co-cuenta { margin-top: 0; }
 
 /* «Nuevo chat»: el primer renglón, con el muñeco de un lugar vacío (gris y transparente). */
 .co-fila--nuevo { margin-bottom: 4px; color: var(--dim); }
-.co-muneco-nuevo { display: inline-flex; flex: none; opacity: .38; filter: grayscale(1); }
+/* Un chat sin trabajo y sin nada para Martín duerme: ojos cerrados (Muneco) y la fila apagada (17/10/2026). */
+.co-fila--dormida .co-fila__titulo { color: var(--dim); font-weight: 400; }
+.co-fila--dormida .co-fila__hace { color: var(--faint); }
+/* El círculo de «Nuevo chat» (NuevoChat.tsx → CirculoNuevo), como el botón de chat nuevo de WhatsApp. */
+.co-circulo-nuevo { display: inline-grid; place-items: center; flex: none; border-radius: 50%; background: var(--good); color: #fff; }
 .co-nuevo { display: flex; flex-direction: column; gap: 12px; }
 .co-nuevo__cuentas { display: flex; gap: 6px; flex-wrap: wrap; }
 .co-nuevo__cuentas .co-chip[aria-checked='true'] { background: var(--primary-bg); border-color: var(--primary); color: var(--primary-strong); }
@@ -874,6 +879,18 @@
 .co-cab__muneco { flex: none; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
 .co-cab__muneco:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-cab__muneco:hover .mun { transform: scale(1.06); transition: transform .12s ease; }
+/* El título se toca para renombrarlo EN EL LUGAR (17/10/2026): un botón que se ve como texto, y el campo que lo reemplaza. */
+.co-cab__nombre {
+  max-width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text;
+}
+.co-cab__nombre:hover { text-decoration: underline dotted var(--faint); text-underline-offset: 4px; }
+.co-cab__nombre:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+.co-cab__input {
+  width: min(360px, 100%); margin: 0; padding: 2px 8px; border: 1px solid var(--primary-weak); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: inherit; outline: none;
+}
+.co-cab__error { font-size: var(--fs-meta); color: var(--bad); }
 
 /* ── Elegir el muñeco (ElegirMuneco.tsx), copiado del armador de Notion Faces ───────────────────────── */
 .co-elegir { display: grid; grid-template-columns: 132px minmax(0, 1fr) 200px; gap: 16px; min-height: 360px; }
@@ -959,6 +976,10 @@
 .co-uso__lleno { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
 .co-uso__lleno--ojo { background: var(--warn); }
 .co-uso__lleno--mal { background: var(--bad); }
+/* Una medición de más de 6 horas (lib/centro-uso.ts → USO_VENCIDO_MS): apagada, con «Sin medir hace X». */
+.co-uso__ventana--vencida .co-uso__nombre { color: var(--faint); }
+.co-uso__ventana--vencida .co-uso__barra { opacity: .5; }
+.co-uso__lleno--apagado { background: var(--border-strong); }
 .co-uso__reinicio { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-uso__pie { display: flex; gap: 8px; margin-top: 10px; }
 .co-runner__cuenta-cmd { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
@@ -1015,6 +1036,10 @@
 .co-burbuja__p { display: block; }
 .co-burbuja__lista { margin: 2px 0; padding-left: 20px; white-space: normal; }
 .co-burbuja__lista li { margin: 1px 0; }
+/* La numerada lleva el número que escribió Martín, no el del navegador (WhatsApp: el texto tal cual). */
+.co-burbuja__lista--num { list-style: none; padding-left: 0; }
+.co-burbuja__lista--num li { display: flex; gap: 6px; }
+.co-burbuja__num { flex: none; min-width: 1.4em; font-variant-numeric: tabular-nums; }
 
 /* El «Ya está» de un chat como mensaje (17/10/2026, la C), copiado de las tarjetas de tarea completada de Linear y de los
    mensajes con acciones de Slack: el sello verde, el título, el detalle, los links como botones y responder al pie. */
@@ -1037,11 +1062,22 @@
 .co-ya__revisar { border-color: var(--primary-weak); background: var(--primary-bg); color: var(--primary-strong); font-weight: 600; }
 .co-ya__revisar:hover, .co-ya__plan:hover { filter: brightness(.97); }
 .co-ya__revisar:focus-visible, .co-ya__plan:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.co-ya__plan-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-ya__plan-titulo { min-width: 0; overflow-wrap: anywhere; }
 .co-ya__plan-estado { flex: none; font-size: var(--fs-meta); color: var(--dim); }
 .co-ya__plan-estado[data-estado='hecha'] { color: var(--good); font-weight: 600; }
 .co-ya__plan-estado[data-estado='no_se_pudo'] { color: var(--bad); }
 .co-ya__pie { display: flex; gap: 8px; margin-top: 2px; }
+/* UN «COMPLETADO» SE LEE ENTERO (17/10/2026; Martín: «tienen 3 puntos al final y no llego a leer todo, esos son los mensajes más
+   importantes que me permiten revisar y dar feedback»). Nada de `line-clamp` ni `text-overflow` acá. Un cuerpo muy largo
+   (Avance.tsx → partirPendiente) pliega SÓLO su detalle, con un desvanecido y «Ver todo»; la cola (lo que sigue pendiente y
+   cómo probarlo) queda siempre a la vista. */
+.co-ya__titulo { white-space: normal; }
+.co-ya__md { overflow-wrap: anywhere; }
+.co-ya__md pre, .co-ya__md table { max-width: 100%; overflow-x: auto; }
+.co-ya__detalle--plegado { max-height: 15em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 72%, transparent); mask-image: linear-gradient(#000 72%, transparent); }
+.co-ya__mas { align-self: flex-start; min-height: 36px; }
+.co-ya__cola { color: var(--ink); }
+.co-ya__corte { margin: 0; font-size: var(--fs-meta); color: var(--warn); }
 /* Tocar una tarea vinculada trae su mensaje y lo marca un rato. */
 .co-el--visto > .co-el__cuerpo { animation: co-visto 1.6s ease; border-radius: var(--r-xl); }
 @keyframes co-visto { 0%, 40% { background: var(--primary-bg); } 100% { background: transparent; } }
@@ -1095,3 +1131,304 @@ a.co-link:hover { color: var(--primary-strong); }
 }
 .co-caja__link:hover { text-decoration: underline; }
 .co-caja__link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): deslizar a la derecha responde, mantener apretado o el
+   clic derecho abren el menú, la cita se toca, los fijados van arriba. Copiado de WhatsApp en el iPhone y de WhatsApp Web. ── */
+.co-wa { position: relative; touch-action: pan-y; }
+.co-el-wa { align-self: stretch; display: flex; flex-direction: column; }
+/* La flechita de responder asoma por la izquierda mientras la burbuja sigue al dedo. */
+.co-wa__resp {
+  position: absolute; left: -34px; top: 50%; width: 28px; height: 28px; margin-top: -14px;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--surface-2); color: var(--dim); opacity: var(--co-wa-resp, 0); pointer-events: none;
+}
+.co-wa__resp svg { transform: rotate(-90deg); }
+/* La flechita de opciones de WhatsApp Web: aparece al pasar por encima; en un teléfono no está (se mantiene apretado). */
+.co-wa__mas {
+  position: absolute; top: 2px; right: 2px; z-index: 2; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; background: var(--surface); color: var(--dim);
+  box-shadow: 0 1px 3px rgba(18, 21, 27, .14); opacity: 0; cursor: pointer; transition: opacity .12s ease;
+}
+.co-wa__mas:focus-visible { opacity: 1; outline: none; box-shadow: var(--focus-ring); }
+@media (hover: hover) { .co-wa:hover > .co-wa__mas { opacity: 1; } }
+@media (hover: none) { .co-wa__mas { display: none; } }
+/* En el teléfono la burbuja no se selecciona: mantener apretado es el menú (se copia desde ahí, como en WhatsApp). */
+@media (pointer: coarse) { .co-wa { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } }
+.co-wa__marcas { display: inline-flex; align-items: center; gap: 2px; margin-right: 4px; color: var(--faint); vertical-align: -1px; }
+.co-wa__reaccion {
+  position: relative; z-index: 1; align-self: flex-end; margin: -10px 10px 0 0; padding: 0 6px; height: 24px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font: inherit; font-size: 14px; line-height: 22px;
+  box-shadow: 0 1px 2px rgba(18, 21, 27, .08); cursor: pointer;
+}
+.co-el__cuerpo > .co-wa__reaccion { align-self: flex-start; margin: 0; }
+.co-wa__emoji { font-size: 20px; line-height: 1; padding: 3px; border-radius: 50%; }
+.co-wa__emoji[data-actual] { background: var(--primary-bg); }
+/* Ir a un mensaje (su cita, un fijado): se marca un momento. */
+.co-wa--visto .co-burbuja, .co-wa--visto .co-el__cuerpo { animation: co-visto 1.6s ease; }
+@media (prefers-reduced-motion: reduce) { .co-wa--visto .co-burbuja, .co-wa--visto .co-el__cuerpo { animation: none; } }
+/* La cita: la barra de color a la izquierda, quién en negrita y un renglón (WhatsApp). */
+.co-cita {
+  display: flex; flex-direction: column; gap: 1px; width: 100%; min-width: 0; margin: 0 0 6px; padding: 5px 8px;
+  border: 0; border-left: 3px solid var(--primary); border-radius: 6px; background: var(--velo-hover);
+  font: inherit; font-size: var(--fs-meta); line-height: 1.35; color: var(--dim); text-align: left; white-space: normal;
+}
+.co-cita--ir { cursor: pointer; }
+.co-cita--ir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-cita__de { font-weight: 600; color: var(--primary-strong); }
+.co-cita__texto { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-reenviado { display: block; margin-bottom: 2px; font-size: var(--fs-meta); font-style: italic; color: var(--faint); }
+.co-cita-caja { display: flex; align-items: center; gap: 6px; padding: 0 0 6px; }
+.co-cita-caja .co-cita { margin: 0; flex: 1; }
+.co-cita-caja__quitar {
+  flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--dim);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.co-cita-caja__quitar:hover { background: var(--velo-hover); }
+/* Los fijados, arriba de la conversación: uno a la vista y una rayita por cada uno (WhatsApp). */
+.co-fijados { display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--dim); font-size: var(--fs-meta); }
+.co-fijados__puntos { display: flex; flex-direction: column; gap: 2px; }
+.co-fijados__puntos i { display: block; width: 2px; height: 7px; border-radius: 1px; background: var(--border-strong); }
+.co-fijados__puntos i[data-actual] { background: var(--primary); }
+.co-fijados__ir { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.co-fijados__soltar { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--faint); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.co-fijados__soltar:hover { background: var(--velo-hover); }
+/* Info y Reenviar: el panel de un mensaje (un modal en la computadora, la hoja en el teléfono). */
+.co-info-wa { display: flex; flex-direction: column; gap: 12px; }
+.co-info-wa__texto { margin: 0; padding: 9px 12px; border-radius: 12px; background: var(--primary-bg); font-size: var(--fs-md); }
+.co-info-wa__dl { margin: 0; display: grid; gap: 8px; }
+.co-info-wa__dl > div { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-md); }
+.co-info-wa__dl dt { color: var(--dim); }
+.co-info-wa__dl dd { margin: 0; color: var(--ink); text-align: right; }
+.co-reenviar { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.co-reenviar__buscar { height: 38px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); font: inherit; font-size: 16px; color: var(--ink); }
+.co-reenviar__lista { margin: 0; padding: 0; list-style: none; max-height: min(360px, 50dvh); overflow-y: auto; }
+.co-reenviar__fila { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 6px; border-radius: 8px; cursor: pointer; font-size: var(--fs-md); }
+.co-reenviar__fila:hover { background: var(--velo-hover); }
+.co-reenviar__pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* Las cuentas del Uso con su nombre y su email (17/10/2026, la G): el logo de Claude, el nombre editable con su lápiz y el
+   email debajo en gris, como el selector de cuentas de Google. */
+.co-uso__quien { align-items: flex-start; gap: 8px; }
+.co-uso__quien > svg { margin-top: 2px; }
+.co-uso__nombres { display: flex; flex-direction: column; min-width: 0; }
+.co-uso__linea { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.co-uso__titulo { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.co-uso__email { font-size: var(--fs-meta); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-uso__lapiz { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--faint); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: .7; }
+.co-uso__lapiz:hover, .co-uso__lapiz:focus-visible { opacity: 1; background: var(--velo-hover); outline: none; }
+.co-uso__editar { display: inline-flex; flex-direction: column; gap: 2px; }
+.co-uso__input { width: 180px; max-width: 100%; height: 26px; padding: 0 8px; border: 1px solid var(--primary-weak); border-radius: 6px; background: var(--surface); font: inherit; font-size: var(--fs-sm); color: var(--ink); }
+.co-uso__error { font-size: var(--fs-meta); color: var(--bad); }
+@media (pointer: coarse) { .co-uso__input { font-size: 16px; height: 34px; } .co-uso__lapiz { width: 32px; height: 32px; } }
+
+/* Los pasos en vivo de un chat que trabaja (17/10/2026, la E): los de antes apagados y tachados de a uno, el de ahora con
+   los puntitos, como la lista de pasos de Claude Code. */
+.co-trabajando__cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.co-pasos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 1px; }
+.co-pasos__hecho { font-size: var(--fs-meta); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-pasos__hecho::before { content: "✓ "; color: var(--good); }
+/* «Trabajando…» se toca y se despliega (17/10/2026, Trabajando.tsx): el botón se ve como texto, el paso de ahora en chico al lado,
+   y la lista abierta con el de ahora animado (el punto late como los tres de arriba). */
+.co-trabajando__boton {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; margin: 0; padding: 0; border: 0;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.co-trabajando__boton:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+.co-trabajando__paso { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); color: var(--faint); }
+.co-trabajando__boton .co-chev { color: var(--faint); }
+.co-pasos { animation: co-despliega .16s ease-out; }
+.co-pasos__ahora { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--dim); }
+.co-pasos__ahora::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); animation: co-late 1.2s ease-in-out infinite; }
+.co-pasos__vacio { font-size: var(--fs-meta); color: var(--faint); }
+@keyframes co-despliega { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .co-pasos { animation: none; } .co-pasos__ahora::before { animation: none; } }
+.co-trabajando .co-trabajando__texto { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+.co-trabajando .co-trabajando__puntos { vertical-align: middle; }
+
+/* «Ver mensajes anteriores»: la conversación abre con los últimos (17/10/2026, Hilo.tsx → TANDA_HILO). */
+.co-anteriores { align-self: center; margin: 2px 0 6px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+.co-anteriores:hover { background: var(--velo-hover); }
+
+/* ── Lo del quinto Ops Center (17/10/2026, WhatsApp como referencia de todo) ───────────────────────────────────────── */
+/* «Completado» en la lista: el sello verde de un «Ya está». Uno SIN VER avisa como «Espera tu respuesta» (el mismo renglón y el
+   mismo globito en la criatura, 17/10/2026): ya no lleva un globito verde ni la hora en verde. */
+.co-sello-ok {
+  display: inline-flex; align-items: center; gap: 3px; flex: none; margin-right: 6px; padding: 1px 7px 1px 5px; border-radius: 999px;
+  background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); font-size: 11px; font-weight: 700; line-height: 16px;
+}
+[data-m] .m-operaciones-riel { display: inline-flex; align-items: center; }
+/* Las fotos de un mensaje enviado, arriba del texto y ocupando la burbuja (WhatsApp; FotosEnviadas.tsx). */
+.co-burbuja--con-adjuntos { padding-top: 4px; padding-inline: 4px; }
+.co-burbuja--con-adjuntos > :not(.co-fotos):not(.co-doc-enviado) { margin-inline: 8px; }
+.co-burbuja--con-adjuntos > .co-burbuja__pie { margin-right: 8px; }
+.co-fotos { display: grid; gap: 3px; width: min(300px, 62vw); margin-bottom: 4px; border-radius: 12px; overflow: hidden; }
+.co-fotos--2, .co-fotos--4 { grid-template-columns: 1fr 1fr; }
+.co-fotos--3 { grid-template-columns: 1fr 1fr; }
+.co-fotos--3 .co-fotos__ver:first-child { grid-column: span 2; }
+.co-fotos__ver { position: relative; display: block; padding: 0; border: 0; background: var(--surface-2); cursor: zoom-in; }
+.co-fotos__ver img { display: block; width: 100%; height: 100%; max-height: 320px; object-fit: cover; }
+.co-fotos--2 .co-fotos__ver img, .co-fotos--3 .co-fotos__ver img, .co-fotos--4 .co-fotos__ver img { aspect-ratio: 1; }
+.co-fotos__mas { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(10, 12, 16, .5); color: #fff; font-size: 22px; font-weight: 700; }
+.co-doc-enviado {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px; padding: 8px 10px; border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Mantener apretado en el teléfono: la hoja de WhatsApp en el iPhone (MensajeWA.tsx → HojaMensajeWA). El fondo oscurecido y
+   desenfocado; arriba las reacciones en una píldora, en el medio el mensaje y abajo las opciones, del lado del mensaje. */
+.co-wa-hoja {
+  position: fixed; inset: 0; z-index: 140; display: flex; align-items: center; justify-content: flex-start; padding: 16px;
+  background: rgba(10, 12, 16, .42); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  animation: co-wa-hoja-in .16s ease-out;
+}
+.co-wa-hoja--yo { justify-content: flex-end; }
+@keyframes co-wa-hoja-in { from { opacity: 0; } }
+.co-wa-hoja__col { display: flex; flex-direction: column; gap: 8px; width: min(320px, 100%); max-height: 100%; animation: co-wa-hoja-col .2s cubic-bezier(.2, .9, .3, 1.2); }
+.co-wa-hoja--yo .co-wa-hoja__col { align-items: flex-end; }
+@keyframes co-wa-hoja-col { from { transform: scale(.94); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .co-wa-hoja, .co-wa-hoja__col { animation: none; } }
+.co-wa-hoja__reacciones {
+  display: flex; gap: 2px; padding: 6px 8px; border-radius: 999px; background: var(--surface);
+  box-shadow: 0 6px 24px rgba(10, 12, 16, .22);
+}
+.co-wa-hoja__emoji {
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: none; font-size: 26px; line-height: 1; cursor: pointer;
+}
+.co-wa-hoja__emoji[data-actual] { background: var(--surface-2); }
+.co-wa-hoja__msg {
+  max-width: 100%; max-height: 30vh; overflow: hidden; padding: 9px 12px; border-radius: 16px 16px 16px 4px; background: var(--surface);
+  color: var(--ink); font-size: var(--fs-md); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere;
+  box-shadow: 0 6px 24px rgba(10, 12, 16, .18);
+}
+.co-wa-hoja--yo .co-wa-hoja__msg { border-radius: 16px 16px 4px 16px; background: var(--primary-bg); }
+.co-wa-hoja__acciones {
+  width: min(250px, 100%); display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; background: var(--surface);
+  box-shadow: 0 6px 24px rgba(10, 12, 16, .22);
+}
+.co-wa-hoja__accion {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 16px; border: 0;
+  border-top: 1px solid var(--border); background: none; font: inherit; font-size: 16px; color: var(--ink); text-align: left; cursor: pointer;
+}
+.co-wa-hoja__accion:first-child { border-top: 0; }
+.co-wa-hoja__accion:active { background: var(--velo-hover); }
+.co-wa-hoja__accion--peligro { color: var(--bad); }
+.co-wa-hoja__pregunta { margin: 0; padding: 12px 16px 8px; font-size: var(--fs-sm); color: var(--dim); }
+/* EL CHAT A TODO EL ANCHO, COMO WHATSAPP WEB (17/10/2026; Martín: «El chat se ve chico y angosto: que ocupe todo el ancho,
+   con el "+" incluido»). Hasta acá la conversación y la caja eran una columna de 760 px centrada (la de Claude); WhatsApp usa
+   el panel entero, con las burbujas a ~65% y la caja de punta a punta en una sola fila: «+», el campo y un botón. */
+.co-hilo { padding-inline: clamp(16px, 4vw, 56px); }
+.co-hilo__col, .co-caja, .co-caja__estado, .co-preg, .co-espera { max-width: none; }
+.co-yo { max-width: min(72%, 760px); }
+.co-el__cuerpo { max-width: min(82%, 900px); }
+.co-el__cuerpo--ancho { max-width: min(82%, 720px); }
+.co-caja-wrap { padding: 8px clamp(12px, 3vw, 40px) 14px; }
+.co-caja { padding: 6px; border-radius: 26px; }
+/* LA FILA DE LA CAJA, ALINEADA COMO WHATSAPP (17/10/2026; Martín: «El + y el emoji están desalineados»). UNA medida para el «+»,
+   la carita, el campo de un renglón y el botón de mandar (`--caja-toque`: 40 con mouse, 44 con el dedo), todos alineados ABAJO:
+   con un renglón comparten el centro, y cuando el campo crece los botones se quedan en el último renglón. Antes el «+» medía
+   34 (teléfono) y la carita 36×42, y el campo se centraba en vez de ir abajo. Lo fija tests/centro-ops7.test.ts. */
+.co-caja__fila { --caja-toque: 40px; display: flex; align-items: flex-end; gap: 4px; }
+@media (pointer: coarse) { .co-caja__fila { --caja-toque: 44px; } }
+.co-caja__fila > .co-caja__campo { flex: 1; min-width: 0; align-self: flex-end; }
+/* Un renglón del campo mide lo que el botón: la letra y su renglón, y el resto de relleno arriba y abajo. */
+.co-caja__fila textarea, .co-caja__fila .co-caja__resalte {
+  --renglon: calc(var(--fs-md) * 1.5); padding: calc((var(--caja-toque) - var(--renglon)) / 2) 4px; line-height: var(--renglon);
+}
+:is(.co-caja__fila, .m-operaciones-caja__fila) :is(.ch-adjuntar, .co-emojis__boton, .co-enviar) {
+  flex: none; width: var(--caja-toque, 44px); height: var(--caja-toque, 44px); margin: 0; border: 0; border-radius: 50%;
+}
+:is(.co-caja__fila, .m-operaciones-caja__fila) .ch-adjuntar { background: none; }
+:is(.co-caja__fila, .m-operaciones-caja__fila) :is(.co-mas-caja, .co-emojis) { flex: none; align-self: flex-end; }
+.co-caja > .co-miniaturas, .co-caja > .co-cita-caja, .co-caja > .co-caja__links { margin: 4px 8px 6px; }
+/* El micrófono es el mismo botón que el de mandar (Microfono.tsx → BotonMandar): redondo, y rojo latiendo mientras escucha. */
+.co-enviar--mic { background: var(--surface-2); color: var(--ink); }
+.co-enviar--mic:hover:not(:disabled) { background: var(--velo-hover); }
+.co-enviar--mic[data-escuchando] { background: var(--bad); color: #fff; animation: co-escucha 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .co-enviar--mic[data-escuchando] { animation: none; } }
+[data-m] .m-operaciones-caja .co-enviar--mic { background: var(--surface-2); }
+[data-m] .m-operaciones-caja .co-enviar--mic[data-escuchando] { background: var(--bad); }
+@media (max-width: 720px) { .co-yo { max-width: 88%; } .co-el__cuerpo, .co-el__cuerpo--ancho { max-width: none; } }
+
+/* ── LOS GLOBOS CON SU COLITA (17/10/2026, copiado de un grupo de WhatsApp; Hilo.tsx) ──────────────────────────────────
+   Lo de Martín: su globo a la derecha, con la esquina de arriba recta y la colita hacia SU foto (MiFoto.tsx), que va arriba
+   a la derecha. Lo del chat: un globo de la superficie a la izquierda, con la colita hacia su criatura. El fondo de la
+   conversación se tiñe apenas para que el globo blanco se lea (WhatsApp usa su fondo de papel). */
+.co-hilo { background: var(--bg); }
+.co-yo { position: relative; padding-right: 36px; }
+.co-yo > .co-mifoto { position: absolute; top: 0; right: 0; }
+.co-yo > .co-wa__mas { right: 40px; }
+.co-yo .co-burbuja { position: relative; border-radius: 12px 0 12px 12px; box-shadow: 0 1px .5px rgba(11, 20, 26, .13); }
+.co-yo .co-burbuja::after {
+  content: ''; position: absolute; top: 0; right: -8px; width: 8px; height: 13px; background: inherit;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.co-mifoto {
+  display: inline-grid; place-items: center; flex: none; overflow: hidden; border-radius: 50%;
+  background: var(--primary-bg); color: var(--primary-strong); font-size: 12px; font-weight: 700;
+}
+.co-mifoto img { width: 100%; height: 100%; object-fit: cover; }
+.co-mifoto--otro { width: 28px; height: 28px; background: var(--surface-2); color: var(--dim); }
+/* El chat: su respuesta en un globo (no las tarjetas especiales, que llevan `--ancho`). La hora adentro, abajo a la derecha. */
+.co-el:not(.co-trabajando) > .co-el__cuerpo:not(.co-el__cuerpo--ancho) {
+  position: relative; padding: 7px 10px 5px; border-radius: 0 12px 12px 12px; background: var(--surface);
+  box-shadow: 0 1px .5px rgba(11, 20, 26, .13);
+}
+.co-el:not(.co-trabajando) > .co-el__cuerpo:not(.co-el__cuerpo--ancho)::before {
+  content: ''; position: absolute; top: 0; left: -8px; width: 8px; height: 13px; background: inherit;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+}
+.co-el:not(.co-trabajando) > .co-el__cuerpo:not(.co-el__cuerpo--ancho) > .co-el__rotulo:last-of-type { align-self: flex-end; font-size: 11px; }
+.co-el > .mun { flex: none; }
+/* LO ESPECIAL SE VE ESPECIAL: un «Completado» con su verde y una pregunta con su azul, como tarjetas con borde de color. */
+.co-el--especial .co-ya {
+  border-left: 4px solid var(--good); background: color-mix(in srgb, var(--good) 7%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--good) 35%, transparent), 0 4px 14px rgba(18, 21, 27, .08);
+}
+.co-el--especial .co-ya__titulo { font-size: calc(var(--fs-md) + 1px); }
+.co-el--especial .co-preg--chat {
+  border-left: 4px solid var(--primary); background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent), 0 4px 14px rgba(18, 21, 27, .08);
+}
+/* Un aviso (no salió, no se sabe si llegó): una franja roja, no una nota gris. */
+.co-aviso {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--bad) 10%, var(--surface)); font-weight: 600;
+}
+.co-envio--tarda { padding: 4px 10px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 10%, var(--surface)); }
+[data-m] .m-operaciones-hilo .co-yo { padding-right: 34px; }
+/* «Borrador:» en la lista, como WhatsApp (lo escrito sin mandar; useCentro.ts → borradorDeLista). */
+.co-borrador { flex: none; margin-right: 4px; color: var(--good); font-weight: 600; }
+/* El «+» como el «Adjuntar» de WhatsApp (AdjuntosCaja.tsx → MasCaja): círculos de color con el nombre debajo, y lo demás
+   abajo, separado y con su título. */
+.co-mas-caja__tiles { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.co-mas-caja__tile { min-height: 0; padding: 8px 4px; gap: 6px; border: 0; background: none; font-size: var(--fs-meta); color: var(--dim); }
+.co-mas-caja__tile:hover { background: var(--velo-hover); }
+.co-mas-caja__circulo { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; color: #fff; }
+.co-mas-caja__circulo--doc { background: #7f66ff; }
+.co-mas-caja__circulo--fotos { background: #007bfc; }
+.co-mas-caja__circulo--camara { background: #ff2e74; }
+@media (hover: hover) and (pointer: fine) { .co-mas-caja__tiles { grid-template-columns: repeat(2, 1fr); } .co-mas-caja__tile--camara { display: none; } }
+.co-mas-caja__titulo { margin: 0 2px 2px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.co-mas-caja__opciones > .co-tareas { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+/* Los emojis (Emojis.tsx): la carita junto al campo y el panel de WhatsApp, la grilla arriba y las categorías abajo. */
+.co-emojis { position: relative; display: inline-flex; flex: none; align-self: flex-end; }
+.co-emojis__boton {
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center;
+  background: none; color: var(--dim); cursor: pointer;
+}
+.co-emojis__boton:hover:not(:disabled) { color: var(--ink); background: var(--velo-hover); }
+.co-emojis__boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-emojis__panel {
+  position: absolute; left: -46px; bottom: calc(100% + 8px); z-index: 30; width: min(340px, calc(100vw - 24px));
+  display: flex; flex-direction: column; border-radius: var(--r-xl); background: var(--surface); overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border-strong), 0 10px 30px rgba(18, 21, 27, .16);
+}
+.co-emojis__grilla { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 232px; overflow-y: auto; padding: 8px; overscroll-behavior: contain; }
+.co-emojis__emoji { aspect-ratio: 1; padding: 0; border: 0; border-radius: 8px; background: none; font-size: 24px; line-height: 1; cursor: pointer; }
+.co-emojis__emoji:hover, .co-emojis__emoji:active { background: var(--velo-hover); }
+.co-emojis__vacio { grid-column: 1 / -1; margin: 12px 4px; font-size: var(--fs-sm); color: var(--faint); text-align: center; }
+.co-emojis__pestanas { display: flex; justify-content: space-around; padding: 4px; border-top: 1px solid var(--border); }
+.co-emojis__pestana { flex: 1; height: 36px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: none; font-size: 18px; cursor: pointer; opacity: .6; }
+.co-emojis__pestana[aria-selected='true'] { border-bottom-color: var(--good); opacity: 1; }
+[data-m] .m-operaciones-caja .co-emojis__boton { width: var(--caja-toque, 44px); height: var(--caja-toque, 44px); }
+[data-m] .m-operaciones-caja .co-emojis__panel { left: -48px; }

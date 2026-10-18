@@ -22,7 +22,7 @@ import 'server-only';
 import { getLead, getLeadRespuestas, type Lead, type FathomLink } from './leads';
 import { respuestasDelResumen, type RespuestaFormulario } from './lead-respuestas';
 import { APP_BASE_URL } from './app-url';
-import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
+import { getTenantDb, getWorkspaceActual, WS_NINGUNO } from './workspace';
 import { linkApp } from './app-url';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from './queries';
@@ -140,7 +140,7 @@ export async function getResumenLead(leadId: number): Promise<ResumenLead | null
   const lead = await getLead(leadId);
   if (!lead) return null;
 
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = (await getWorkspaceActual()) ?? WS_NINGUNO;
   const supabase = await getTenantDb();
 
   // Las columnas de Calendly, con sus rótulos curados. Sin ninguna (un lead de Cal.com), las

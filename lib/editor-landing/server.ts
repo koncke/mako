@@ -42,7 +42,7 @@ import { soltarDominioDeVercel } from './dominios';
 import { dominioDeLectura, dominioQueSirve } from './dominios-reglas';
 import type { EstadoCobroLanding } from './pago-landing';
 import {
-  MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, CLAVE_TEMAS, BUCKET_LANDING, archivoDeBiblioteca, cambiosSinPublicar, candidatosSlug, esUrlMedida,
+  MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, sePoda, CLAVE_TEMAS, BUCKET_LANDING, archivoDeBiblioteca, cambiosSinPublicar, candidatosSlug, esUrlMedida,
   resumenAntesDeDespublicar, type AntesDeDespublicar,
   idValido, mezclarConfig, motivoSlugInvalido, prefiltroVisitas, primeraLibre, puedeBorrarse,
   sanearMotivo, sanearTemasPropios, sanearTitulo, slugPedido, tarjetaIdValido, esComentarioPropio, puedeBorrarComentario,
@@ -255,14 +255,15 @@ export async function crearVersion(ws: number, f: Pick<FilaDoc, 'id' | 'titulo' 
 }
 
 /**
- * Las instantáneas AUTOMÁTICAS más viejas que las últimas `TOPE_VERSIONES_AUTO` se borran (las
- * publicadas y las manuales quedan todas). Sin esto, una landing editada todos los días acumula una
- * fila de hasta 1,5 MB cada diez minutos de edición, para siempre. Lo que se poda queda en el log.
+ * Las instantáneas AUTOMÁTICAS de un motivo (`MOTIVOS_QUE_SE_PODAN`) más viejas que las últimas `TOPE_VERSIONES_AUTO` se
+ * borran (las publicadas y las manuales quedan todas). Sin esto, una landing editada todos los días acumula una fila de
+ * hasta 1,5 MB cada diez minutos de edición —o por cada cambio de MaKo—, para siempre. Lo que se poda queda en el log.
  */
-async function podarVersionesAuto(ws: number, docId: number): Promise<void> {
+async function podarVersionesAuto(ws: number, docId: number, motivo: string = MOTIVO.auto): Promise<void> {
+  if (!sePoda(motivo)) return;
   const db = await getTenantDb();
   const { data, error } = await db.from('landing_doc_versiones').select('id')
-    .eq('workspace_id', ws).eq('doc_id', docId).eq('motivo', MOTIVO.auto)
+    .eq('workspace_id', ws).eq('doc_id', docId).eq('motivo', motivo)
     .order('created_at', { ascending: false }).order('id', { ascending: false })
     .range(TOPE_VERSIONES_AUTO, TOPE_VERSIONES_AUTO + 199);
   if (error) throw new Error(error.message);
@@ -270,7 +271,7 @@ async function podarVersionesAuto(ws: number, docId: number): Promise<void> {
   if (!ids.length) return;
   const { error: e2 } = await db.from('landing_doc_versiones').delete().eq('workspace_id', ws).eq('doc_id', docId).in('id', ids);
   if (e2) throw new Error(e2.message);
-  console.log(`[editor-landing] #${docId}: se borraron ${ids.length} versiones automáticas viejas`);
+  console.log(`[editor-landing] #${docId}: se borraron ${ids.length} versiones viejas «${motivo}»`);
 }
 
 /** La versión actual de una landing (para el conflicto), o null si no existe. */
@@ -664,6 +665,8 @@ export async function guardarVersion(idRaw: unknown, motivoRaw: unknown): Promis
     const f = await leerFilaDoc(ws, id, 'id, titulo, contenido, config');
     if (!f) return falla('No existe', 404);
     const v = await crearVersion(ws, f, sanearMotivo(motivoRaw), (await quienSoy()).nombre);
+    // La de MaKo y la de «Aplicar» son de la máquina: se podan como las automáticas. Accesorio: la versión ya quedó.
+    if (sePoda(v.motivo)) await podarVersionesAuto(ws, id, v.motivo).catch((e) => console.warn(`[editor-landing] #${id}: no pude podar «${v.motivo}»: ${msg(e)}`));
     return { ok: true, version: v };
   } catch (e) {
     return falla(msg(e), 500);

@@ -48,7 +48,7 @@ test('lo que tiene versión móvil se sirve en /m (con LAS MISMAS RUTAS, en la m
   assert.deepEqual(decidirDesvio('/general'), { tipo: 'movil', destino: '/m/hoy' });
   assert.deepEqual(decidirDesvio('/crm/412/resumen'), { tipo: 'movil', destino: '/m/crm/412' });
   assert.deepEqual(decidirDesvio('/mako/pendientes'), { tipo: 'movil', destino: '/m/inbox' });
-  assert.deepEqual(decidirDesvio('/configuraciones', '?tab=notif'), { tipo: 'movil', destino: '/m/cuenta' });
+  assert.deepEqual(decidirDesvio('/configuraciones', '?tab=notif'), { tipo: 'movil', destino: '/m/configuraciones/notificaciones' });
 });
 
 test('v2: las secciones de More (y sus subrutas) van a su pantalla de /m, no a «en la computadora»', () => {
@@ -73,7 +73,11 @@ test('v2: las secciones de More (y sus subrutas) van a su pantalla de /m, no a �
 test('lo que no va al teléfono dice que se usa en la computadora', () => {
   // /ads-writer salió de esta lista el 15/10/2026 (es Copywriting en More); lo que queda de su tab es del super admin.
   // /analisis/trimestre es el informe congelado que se mandó por WhatsApp: no tiene pantalla en el teléfono.
-  for (const p of ['/configuraciones', '/marketing/salud', '/youtube-writer', '/analisis/trimestre', '/funnel', '/metodo', '/mensajes']) {
+  // /youtube-writer salió el 17/10/2026: es «Coming soon», y las «pronto» tienen su pantalla (/m/pronto/<key>). Dev y
+  // Email son SOLO_ESCRITORIO, con su motivo (lib/movil-rutas.ts).
+  // /configuraciones y /marketing/salud (Integraciones) salieron el 17/10/2026: tienen su pantalla («Mobile 2»).
+  // /mensajes también tiene pantalla desde el 17/10/2026 (MaKo Messages, sólo el super admin).
+  for (const p of ['/admin/dev', '/email', '/analisis/trimestre', '/funnel', '/metodo']) {
     assert.deepEqual(decidirDesvio(p), { tipo: 'computadora' }, p);
   }
   // La bandeja de WhatsApp SÍ va (v3, 14/10/2026): es la pestaña Chats del teléfono.

@@ -35,6 +35,7 @@ import { TOPE_NOTA, fechaDeNota, BUCKET_NOTAS_LEAD, pathDeNotaLead, pathEsNotaDe
 import { esMimeNota, TOPE_NOTA_BYTES, adjuntoSeVe } from '@/app/customer-success/curso/reglas';
 import { getSupabaseServer } from '@/lib/supabase';
 import { randomUUID } from 'node:crypto';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 export type ResultadoNota = { ok: true } | { ok: false; error: string };
 
@@ -93,6 +94,7 @@ function refrescar(leadId: number): void {
  * importa auditar es qué se dijo al principio, no cada coma intermedia.
  */
 export async function editarNotaLeadAction(leadId: number, notaId: number, texto: string): Promise<ResultadoNota> {
+  await exigirSesion();
   try {
     const t = String(texto ?? '').trim();
     if (!t) return { ok: false, error: 'La nota quedó vacía.' };
@@ -129,6 +131,7 @@ export async function editarNotaLeadAction(leadId: number, notaId: number, texto
  * puede sacar una fila sin rastro deja de servir para saber qué pasó.
  */
 export async function borrarNotaLeadAction(leadId: number, notaId: number): Promise<ResultadoNota> {
+  await exigirSesion();
   try {
     const r = await notaQueSePuedeTocar(leadId, notaId);
     if (!r.ok) return r;
@@ -182,6 +185,7 @@ async function leadDondeSubir(leadId: number): Promise<{ ok: true; ws: number } 
 
 /** La URL firmada para que el NAVEGADOR suba el adjunto directo al bucket (PUT multipart, 2 h). */
 export async function urlSubidaNotaLeadAction(leadId: number, mime: string, bytes: number): Promise<{ ok: true; path: string; signedUrl: string; apikey: string | null } | { ok: false; error: string }> {
+  await exigirSesion();
   try {
     const g = await leadDondeSubir(leadId);
     if (!g.ok) return g;
@@ -205,6 +209,7 @@ export async function urlSubidaNotaLeadAction(leadId: number, mime: string, byte
  * mostrar (una planilla, un Word) se baja con su nombre original: la ruta es un uuid.
  */
 export async function urlAdjuntoNotaLeadAction(leadId: number, notaId: number): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  await exigirSesion();
   try {
     const r = await notaQueSePuedeVer(leadId, notaId);
     if (!r.ok) return r;
@@ -238,6 +243,7 @@ async function notaQueSePuedeVer(leadId: number, notaId: number): Promise<{ ok: 
  * ⚠️ Sólo de este lead (el prefijo) y sólo si ninguna nota lo nombra: el path viaja desde el navegador.
  */
 export async function descartarAdjuntoNotaLeadAction(leadId: number, path: string): Promise<ResultadoNota> {
+  await exigirSesion();
   try {
     const g = await leadDondeSubir(leadId);
     if (!g.ok) return g;

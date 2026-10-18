@@ -483,3 +483,39 @@ const ERRORES_GEO: Record<number, string> = {
 export function explicarErrorGeo(subcode: number | null | undefined): string | null {
   return subcode != null && ERRORES_GEO[subcode] ? ERRORES_GEO[subcode] : null;
 }
+
+// ── Crear un PIN pegando coordenadas o un link largo de Google Maps (17/10/2026) ───────────────────────────────
+// La decisión 2 del relevo del Ads Manager («cómo se CREA un pin»), tomada con la vara de AGENTS.md: la opción (a),
+// sin librería, sin proveedor y sin tocar la CSP. Se pega «19.4326, -99.1332» o el link LARGO que Maps muestra en la
+// barra del navegador (trae `@lat,lng`, `!3dlat!4dlng` o `?q=lat,lng`). El link CORTO (maps.app.goo.gl) no trae
+// coordenadas: `esLinkSinCoordenadas` lo detecta para decirlo en vez de ofrecerlo como una calle.
+
+const enRango = (lat: number, lng: number) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+
+/** Un pin desde lo que se pegó, o null si no trae coordenadas que se entiendan. */
+export function pinDesdeTexto(texto: string, radioKm?: number): LugarMeta | null {
+  const t = texto.trim();
+  if (!t) return null;
+  const NUM = '(-?\\d{1,3}(?:\\.\\d+)?)';
+  const patrones = [
+    new RegExp(`!3d${NUM}!4d${NUM}`),                    // el lugar exacto de un link de Maps
+    new RegExp(`@${NUM},${NUM}`),                         // el centro del mapa de un link de Maps
+    new RegExp(`[?&](?:q|query|ll|destination)=${NUM},\\s*${NUM}`),
+    new RegExp(`^${NUM}\\s*[,;\\s]\\s*${NUM}$`),          // «19.4326, -99.1332» o «19.4326 -99.1332»
+  ];
+  for (const re of patrones) {
+    let claro = t;
+    try { claro = decodeURIComponent(t.replace(/\+/g, ' ')); } catch { /* un % suelto: se mira tal cual */ }
+    const m = re.exec(claro);
+    if (!m) continue;
+    const lat = Number(m[1]);
+    const lng = Number(m[2]);
+    if (enRango(lat, lng)) return lugarPin(lat, lng, radioKm);
+  }
+  return null;
+}
+
+/** Un link (de Maps u otro) que no trae coordenadas: no se ofrece como dirección. */
+export function esLinkSinCoordenadas(texto: string): boolean {
+  return /^(https?:\/\/|www\.|maps\.app\.goo\.gl|goo\.gl)/i.test(texto.trim()) && !pinDesdeTexto(texto);
+}

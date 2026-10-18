@@ -25,6 +25,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
+import { revisarAccesosPorPago } from '@/lib/plan-acceso';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -85,5 +86,16 @@ export async function GET(req: NextRequest) {
     else if (agencia.creadas || agencia.autorizadas || agencia.errores) console.log(`[cron:cobros-reconciliar] clientes de agencia: ${JSON.stringify(agencia)}`);
   }
 
-  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, ms: Date.now() - t0 });
+  // QUIEN DEJA DE PAGAR SU LUGAR DEJA DE ENTRAR (17/10/2026, lib/plan-acceso.ts): DESPUÉS de reconciliar, para decidir con
+  // los pagos ya asentados. Sólo negocios con un cobro de la plataforma; con tope por corrida; nunca corta la respuesta.
+  let accesos: Awaited<ReturnType<typeof revisarAccesosPorPago>> | { error: string } | null = null;
+  if (Date.now() - t0 < maxDuration * 1000 - RESERVA_MS) {
+    accesos = await revisarAccesosPorPago().catch((e) => ({ error: msg(e) }));
+    if ('error' in accesos) console.warn('[cron:cobros-reconciliar] accesos por pago:', accesos.error);
+    else if (accesos.cortados.length || accesos.reabiertos.length || accesos.soltados.length || accesos.postergados.length || accesos.errores) {
+      console.log(`[cron:cobros-reconciliar] accesos por pago: ${JSON.stringify({ ...accesos, pasos: undefined })}`);
+    }
+  }
+
+  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, accesos, ms: Date.now() - t0 });
 }

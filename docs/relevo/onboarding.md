@@ -1,6 +1,21 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
-## ESTADO AL 17/10/2026 ~11:30 AR — LO PRIMERO PARA QUIEN SIGA
+## 17/10/2026 a la tarde («Pendientes B3», claude4, rama pend-b3-1710)
+
+Hecho: lo tachado de «Qué hacer ahora» se guarda y MaKo lo sabe; la tabla de clientes del super admin tiene «Llegó
+por» (y el CSV); el PDF «Lo que vendes» queda en El Archivero al cerrar (sin extracción paga). Sin ver en un navegador.
+Detalle: docs/hallazgos-onboarding.md, «Lo tachado del diagnóstico…».
+
+
+## ESTADO AL 17/10/2026 ~13:30 AR — LO PRIMERO PARA QUIEN SIGA
+
+**A, B, C, D y E están EN PRODUCCIÓN** (main 1bae61a77, run 110; «Ya está» de A-C escrito en el chat de Onboarding).
+**#881 CERRADA en el Plan** (ws 9, `cerrar_tareas_plan`, 17/10 ~13:15). **#850 sigue abierta a propósito:** su «Listo
+cuando» pide TODOS los botones de arriba, y las barras de lote del Plan y de Customer Success van en la punta F
+(`--pegado-arriba` en globals.css: la barra en la página, 0 adentro de un modal; medido en Chrome 58 y 8). Se cierra con el
+deploy de la F, con el script del scratchpad `cerrar-881-850.ts --solo=#850 --aplicar` (o el mismo `cerrar_tareas_plan`).
+
+## ESTADO AL 17/10/2026 ~11:30 AR
 
 <sub>Chat «Onboarding», cuenta 4. Rama onboarding-v3 (C:/dev/wt-onboarding-v3) con origin/integracion mergeado
 (344c8b515): las cuatro puntas de la mañana (abajo) pasaron los 148 barridos del repo, 1680 tests, 0 fallas.</sub>
@@ -13,8 +28,8 @@
   es una carga del server. Medido en Chrome: 608 antes, 558 después. Los dos «sin hacer» del hallazgo ya bajaban porque
   son `<aside>`. Se bajaron los cuatro que sí quedaban debajo: «Editando el deal», la hoja de la ruta del lead,
   /admin/estrategia y el índice de la API. Test: tests/barra-inspeccion-alto.test.ts (4 y 5).
-- **Sin hacer** (detalle en docs/hallazgos-ui.md): las barras de lote `sticky; top: 8` del Plan, el CRM y Customer
-  Success, porque viven también adentro de un modal; y `rolWs`/`capa` del Sidebar, que siguen naciendo vacíos.
+- **Sin hacer** (detalle en docs/hallazgos-ui.md): `rolWs`/`capa` del Sidebar, que siguen naciendo vacíos. (Las barras de
+  lote se hicieron en la F; la del CRM la bajó su chat.)
 - **Cerrar #881 y #850 en el Plan** (`cerrar_tareas_plan`, con la prueba) y escribir el «Ya está» cuando el Cerebro
   confirme el deploy. Verlo con clics inspeccionando el ws3.
 - #883 (Sidebar): el onboarding ya no fuerza el oscuro desde la D; el único color fijo (`#fff` del botón principal) pasó a

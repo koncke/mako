@@ -18,7 +18,7 @@ import { stageMeta, type Stage } from '@/lib/pipeline';
 import { stepsForStage, funnelReqInfo, unirPasos, type Step, type StepId } from '@/lib/stage-requirements';
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import type { FathomLink } from '@/lib/leads';
-import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota } from './actions';
+import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota, type StageMoveResultado } from './actions';
 import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
@@ -182,7 +182,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   lead: MoveLeadInfo;
   stages: Stage[];
   move: StageMoveTarget;
-  onDone: () => void;
+  /** `r`: lo que devolvió el guardado (trae la foto firmada para el Deshacer del tablero). */
+  onDone: (r?: StageMoveResultado) => void;
   onClose: () => void;
   /** Título contextual del header (default "Mover a <etapa>"): p.ej. "Completar datos" cuando el destino es la etapa actual. */
   titulo?: string;
@@ -655,7 +656,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         if (!r.ok) { anclarResumen.current = true; setFaltanServer(r.faltan); setErr(r.mensaje); return; }
         // Solucionar (completar datos) → paso final "¿Ver detalle o salir?".
         // Mover de etapa (drag-drop) → cierra directo (mantiene el toast de undo).
-        onDone();
+        onDone(r);
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       }

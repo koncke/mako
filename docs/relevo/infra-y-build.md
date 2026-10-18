@@ -348,7 +348,11 @@ sesión del CRM tipeando (el último commit de ese archivo es `686c51be`, 10/10 
 ` M` mientras alguien trabaja es una **ventana, no un bug**: no se toca y no se reporta como
 roto. Cuando esa sesión commitee, el rojo se va solo.
 
-### Un test cuyo veredicto depende de la CARGA de la máquina (sin arreglar)
+### Un test cuyo veredicto depende de la CARGA de la máquina (ARREGLADO el 17/10/2026)
+
+> **Cerrado.** La causa era el test, no el código: usaba el reloj de verdad con un tope de 40 ms. Ahora el tiempo lo avanza el test
+> (`mock.timers`), y hay un caso con un sondeo trabado 45 ms que pasa igual. Reproducción, regla y cómo se probó rompiéndolo:
+> `docs/hallazgos-infra.md` → «Un test que mide tiempo de reloj da verde o rojo según la CARGA». Lo que sigue es el medido del 10/10.
 
 `tests/ads-video-procesando.test.ts`, el caso «esperarVideoListo: "no pude leer" no es "Meta
 sigue procesando"». Medido el 10/10/2026:
@@ -507,7 +511,8 @@ técnica: **quién paga la tercera cuenta**, con su mail. El mecanismo ya está
 (`bf40ad44`, probado con una cuenta inexistente). Mientras falte, los commits de la cuenta
 nueva salen sin titular y no se puede reconstruir quién hizo qué.
 
-**2. ¿`npm test` entra al pre-push?** El argumento escrito para dejarlo afuera
+**2. ¿`npm test` entra al pre-push?** *(17/10/2026: la suite entera, AISLADA, ya corre una vez por semana en Actions —
+`.github/workflows/semanal-tests.yml`, decidido por el Cerebro—; eso no reemplaza esta pregunta, que es de cada push.)* El argumento escrito para dejarlo afuera
 (`AGENTS.md:293`) es «son ~9 segundos más en cada push», y eso hoy es falso: medí 134-155 s.
 Las opciones:
 - **(a) Dejarlo afuera** y corregir el número en `AGENTS.md`. Sigue dependiendo de que cada
@@ -519,16 +524,40 @@ Las opciones:
   `origin/main`, en ~15 s). Es más trabajo y es lo único que escala con una suite que se
   duplicó en cinco días.
 
-**3. El presupuesto de `tests/ads-video-procesando.test.ts`.** Falla sólo en la suite
+**3. ~~El presupuesto de `tests/ads-video-procesando.test.ts`~~ — RESUELTO el 17/10/2026** sin subir ni aislar nada: se simuló el
+reloj (ver §5). Lo de abajo es lo que se escribió el 10/10. Fallaba sólo en la suite
 completa por `topeMs: 40`. Opciones: subir el tope (el test pasa a tolerar carga y mide un
 poco menos), o aislar ese caso del paralelismo. **Hoy el costo real es que la suite tiene un
 rojo intermitente**, y eso enseña a ignorarla.
 
-**4. ¿Se limpian los cuatro worktrees de agentes?**
-`.claude/worktrees/wf_2927dff7-760-{1..4}` tienen el typecheck crudo y tres están en el mismo
-commit. **Antes de borrarlos hay que mirar si tienen trabajo sin commitear** — en septiembre
-seis no se pudieron borrar por eso. Y la limpieza va con el protocolo de junctions de la
-trampa 12, no con un `Remove-Item -Recurse`.
+**4. Los worktrees: limpieza HECHA el 17/10/2026 (26 de 75), y los 49 que quedan, con su motivo.**
+Lo de abajo (los cuatro `wf_2927dff7-760-*`) quedó **sin tocar**: tres tienen trabajo sin guardar (11, 16 y 12 entradas) y uno tiene un
+commit que no está en ninguna rama remota. Las reglas con las que se borró y lo que queda:
+
+- **Se borró SÓLO lo que cumplía todo**: `git status --porcelain` vacío; su HEAD alcanzable desde `origin/main` (los 26 estaban en
+  `origin/main`); sin `refs/wip` ni stash propios; HEAD sin commit de las últimas 24 h y ningún archivo modificado en las últimas
+  24 h (sin contar `node_modules`, `.next` ni `.git`). Con `git worktree remove` **sin `--force`**, después `git worktree prune`. Las
+  **ramas locales NO se borraron** (los 26 tienen su rama; el trabajo está en `origin/main`).
+- **Cuántos y cuánto**: 26 borrados, ~410 MB cada uno (~10,5 GB en total; el árbol sin `node_modules`, que era una junction). El disco
+  pasó de 4,9 GB libres (15:00) a 44 GB (16:25), con otros chats liberando a la vez.
+- **Los 26**: `mako-centro`, `wt-canva`, `wt-crm-agenda`, `wt-dashboard-general`, `wt-graphics-bloques`, `wt-landing-parpadeo`,
+  `wt-landing-t6`, `wt-persona`, `wt-plan-kanban`, `wt-push-e`, `wt-push-p`, `wt-video-editor`, `wt-web-anim`, `wt-web-pedidos`,
+  `wt-chatbot`, `wt-onboarding-734`, `wt-relevo-estrategia`, `wt-centro`, `wt-cuenta`, `wt-pass`, `wt-seg`, `wtc-b2`, `wtc-b3`, `wtc-b4`,
+  `wtp-b2`, `wtp-rojo`.
+- **Los 49 que quedan** (cuenta del 17/10 ~16:25):
+  - **15 que no se tocan por regla**: el clon principal, `wt-push-q`, `mako-api2`, los 7 `wt-pend-*` (Pendientes B1..B5) y los 5 de Mobile
+    / app/m (`wt-fix-general`, `wt-general-epico`, `wt-graphics`, `wt-mobile`, `.claude/worktrees/wt-mobile`).
+  - **10 con commits que NO están en origin/main ni en ninguna rama remota** — trabajo sin subir, **no se borran sin su dueño**:
+    `mako-api` (la WIP del 09/10), `wt-centro-chat`, `wt-dashboard`, `wt-ops4`, `wt-web-t7`, `wf_2927dff7-760-1`, `wt-devlocal`,
+    `wtc-b1`, `wtc-b5`, `wtcrm5` (los tres últimos son del CRM por bloques, «nunca se pushean sin su dueño»).
+  - **18 que sólo esperan al reloj**: su HEAD es un commit de las últimas 24 h (`wt-aut-pedidos`, `wt-centro-chequeo`, `wt-clients`,
+    `wt-crm-ficha2`, `wt-flow-ui`, `wt-infra`, `wt-mako-wa`, `wt-offer`, `wt-onboarding-doer`, `wt-onboarding-pdf`,
+    `wt-onboarding-v3`, `wt-pagos`, `wt-plan`, `wt-second-brain`, `wt-sidebar`, `wt-sidebar-email`, `wt-ticketera`, `wt-undecima`).
+    **Si siguen limpios y en `origin/main`, son los próximos a borrar** (otra pasada con el script del hallazgo).
+  - **5 con trabajo sin guardar**: `wt-chats` (2 entradas), `wt-offer-aviso` (1), `wf_2927dff7-760-2`, `-3` y `-4` (11, 16 y 12).
+  - **1 por un `refs/wip` con su nombre**: `wt-2fa` (`refs/wip/2fa-login-2026-10-13`, que no está en main; los 15 `refs/wip` del repo son
+    instantáneas de guardado, y ninguna es de un worktree borrado).
+- Cómo se hizo y las trampas, en `docs/hallazgos-infra.md` → «Limpiar worktrees».
 
 ---
 
@@ -542,6 +571,7 @@ trampa 12, no con un `Remove-Item -Recurse`.
 | En qué chats estuvo trabajando | `docs/relevo/chats.md` |
 | El estado de la ventana, por área | `docs/relevo/` + su `README.md` |
 | Los hallazgos de infra | `docs/hallazgos-infra.md` (índice en `docs/hallazgos.md`) |
+| La suite entera y aislada, una vez por semana | `.github/workflows/semanal-tests.yml` (`docs/hallazgos-infra.md` → «La suite entera y AISLADA») |
 
 **Cómo se leen los hallazgos: `Grep` de la RUTA del archivo que vas a tocar, no abriendo el
 documento.** Cada entrada trae adentro la línea `**Vive en:** <archivo>`. Abrir

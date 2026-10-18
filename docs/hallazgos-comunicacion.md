@@ -48,6 +48,35 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Unificar Email en Chats» no era mudar una bandeja: Email no tiene bandeja (17/10/2026)
+
+El pedido fue «eliminar las tabs de Email y WhatsApp y unificarlo todo en Chats». Lo obvio era mover la bandeja de
+Email a Chats. **No hay bandeja de email en ningún lado:** /email es marketing (secuencias, envíos masivos y el dominio
+de Resend), y lo que LLEGA por email sólo dispara automatizaciones (`lib/email-entrante.ts`): `email_entrantes` guarda
+el SOBRE (de, para, asunto), no el cuerpo, y «Receiving» de Resend todavía no está prendido. Y /whatsapp sí tiene cosas
+que Chats no (ver «Ocultos» y desocultar, borrar historial, gestionar líneas, Chatbot ON/OFF, la alarma de número caído).
+
+**La regla:** sacar una tab de la barra no es borrar su página. /whatsapp y /email siguen y se entra desde Chats (el
+«+» de Canales y el pie de la Bandeja); estando ahí la barra marca Chats (`RUTAS_DE_CHATS` en nav.ts). Email como
+CANAL de la bandeja (recibir el cuerpo y los adjuntos, responder en el hilo con `In-Reply-To`) es una feature nueva,
+no una mudanza: está en [diseno-sidebar.md](diseno-sidebar.md) §5.
+
+**Lo que se aprendió haciéndolo** (la segunda entrega, el mismo día):
+- **El webhook de Resend trae el SOBRE, no el email.** El cuerpo, los encabezados y la LISTA de adjuntos se piden con
+  `GET /emails/receiving/{id}`; cada adjunto, con `GET /emails/receiving/{email_id}/attachments/{id}`, que devuelve un
+  `download_url` firmado que VENCE (`expires_at`). Guardar la URL en la fila es guardar un link roto: el archivo se baja
+  y se sube a un bucket propio (`chats-email`, privado). Con la key con que se reclamó el dominio (`resendKey`).
+- **Lo lento del webhook va en `after()`.** Bajar cuerpo y adjuntos tarda segundos; si la respuesta tarda, Resend
+  (Svix) reintenta, y el reintento choca con la deduplicación de `email_entrantes` ANTES de llegar a la bandeja: el
+  email quedaba disparado y sin hilo. Con `after(() => runWithWorkspace(ws, …))` se contesta primero; el workspace se
+  pasa a mano porque el contexto no viaja solo al callback.
+- **Un `.or()` de PostgREST armado con un valor del navegador es una inyección de filtro.** El hilo de un `em:<email>`
+  busca por lead O por dirección: son dos lecturas (`.eq` y `.in`, que escapan) y se unen en memoria. Y la dirección
+  se valida con los caracteres de RFC 5322 (sin comas, paréntesis ni comillas) antes de ser una clave.
+- `sendEmail` no aceptaba adjuntos: suma `attachments` (base64) sin tocar a nadie más.
+
+**Vive en:** `lib/chats-email.ts`, `lib/chats-email-reglas.ts`, `lib/resend.ts` (receiving) · `tests/chats-email.test.ts`
+
 ## El chat de MaKo por WhatsApp: sólo grupos, sin autor, y 14 horas de memoria (16/10/2026)
 
 Medido leyendo `origin/main` para sumar «el chat de MaKo en WhatsApp» al Second Brain (docs/diseno-mako-ai-native.md, (c)).
@@ -127,6 +156,13 @@ cosas más, del ws13 y del ws9:
   trampa que «reagendá» del 07/10, y su familia no se buscó entonces**: `\bprograma` no matchea adentro de «reprograma»
   (entre «re» y «programa» no hay borde de palabra). Al arreglar un prefijo, enumerá TODOS los verbos de la regla que lo
   admiten, no sólo el que se vio.
+- **«Mago, probá de vuelta agendarle a Pablo lo que te pidió en el calendario»** (ws18, 17/10 13:30): default, sin agenda,
+  «no tengo acceso para agendar citas en tu calendario» — con Google conectado. Dos huecos: el infinitivo con pronombre
+  («agendarle») no era el verbo, y «calendario» no contaba como lugar de la agenda. ⚠️ **Y lo que pedía «de vuelta» (la
+  visita a Nancy) era de 15 horas antes: quedó FUERA de las 14 horas de memoria del grupo** (`HORAS_CONTEXTO`, a
+  propósito). Con la herramienta en la mesa MaKo puede preguntar qué agendar o mirar el día, pero no recuerda el pedido:
+  esto es lo que dice la entrada de arriba, «lo de antes vuelve como HECHO, no como turno viejo». Un pedido que MaKo no
+  pudo cumplir no queda en ningún lado del que se pueda retomar.
 
 **Levantar un ticket desde el grupo (17/10, con la Ticketera).** El doer le pasa al ticket QUIÉN escribió y el contexto
 del turno, y el código lo propone cuando una herramienta de MaKo falló (el molde del chat de la app). Tres cosas que no
@@ -141,8 +177,13 @@ se ven:
   escribe el código, después del saneo, y termina pidiendo el «sí» (si no, el saneo la leería como promesa). Al
   probarlo rompiéndolo apareció un agujero del detector: «ya le aviso al equipo y te lo arreglo» no era una promesa para
   `promesasDe` («aviso» y «arreglo» no estaban, ni el «le» del «ya le…»).
-- ⚠️ **Hasta la próxima punta de la Ticketera, `preparar()` contesta «No sé quién eres»** para un actor `whatsapp:…`:
-  el ticket no se levanta y no se rompe nada (el código no agrega la línea si la propuesta falló).
+- **Desde la tarde del 17/10 la falla ya no se PREGUNTA: se registra sola** («Y todo lo solucionás automáticamente»).
+  El doer llama `registrarError` (lib/errores-app.ts, agrupa por huella) con `identidadDelActor(ws, actor)`, y a la
+  persona se le dice sólo si entró como ticket (`ok && ticketId`): el ruido de la IA vuelve `ok: false`. ⚠️ **La línea
+  de la app no sirve en WhatsApp**: «te aviso por aquí cuando esté arreglado» es una promesa a futuro y la marcarían el
+  saneo y el vigía. La del doer dice lo que ya pasó, y el aviso de arreglado llega solo por el grupo (el negocio queda
+  como afectado por `identidad.ws`). `levantar_ticket` sigue viajando para lo que pide la persona («reporta esto», algo
+  que no existe).
 
 **El aviso «ya quedó arreglado» al grupo del cliente (17/10, pedido de Martín por el Ops Center).** Cambió la regla del
 vigía: ahora un jefe SÍ escribe en el grupo de un cliente, pero sólo para avisar que algo que le falló ya anda en
@@ -3944,6 +3985,10 @@ alguien haya mirado, así que no hay ningún registro de por qué empezó ese d�
   (`lib/api-mako/areas/ads.run.ts:483`), pero cualquier consumidor nuevo que tome `[]` como «todo
   sano» afirma de más. **Regla:** «no pude leer» llega como error o como un campo aparte, nunca
   como lista vacía. *2026-09-16 api-mako-areas*
+  **Arreglado el 17/10/2026 (B5):** `leerIncidentes` devuelve `null` cuando no pudo leer; /integraciones dice «No pude leer
+  el historial de problemas» y `listar_incidentes_meta` falla con el motivo. `getIncidentes` (`[]` en los dos casos) queda
+  sólo para el teléfono (app/m/configuraciones/integraciones, de Mobile), que no afirma nada con la lista vacía.
+  Test: tests/integraciones-incidentes-no-leidos.test.ts.
 
 *Corrida del 21/08/2026 — incidente #101 cerrado a mano en prod, credencial de ws13
 corregida a `act_…`, mig 0139 aplicada. Typecheck 0 errores, 1030/1030 tests.*
@@ -10213,3 +10258,84 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
 **Vive en:** `lib/reunion-cancelada.ts` · `lib/curso-mensajes-texto.ts` (`datosRecordatorioDueno`) · `lib/curso-mensajes.ts` · `lib/lead-fusionado.ts` · `lib/leads.ts` (`avisarFusion`) · `tests/lead-fusionado-evento.test.ts` · `lib/disparadores.ts` (`reunion_cancelada`) · `lib/variables-aviso.ts`
 (`cancelada_*`) · `lib/plantillas-automatizaciones.ts` (`mako-reunion-cancelada`) · `app/api/webhooks/calendly/route.ts`
 · test: `tests/reunion-cancelada-evento.test.ts`
+
+## «Nada por detrás», lote 3: el Pixel y la landing, con una CONDITION en vez de frases del código (17/10/2026)
+
+- **`tracking-apagado` lo escribía una IA** (`emitirDelCatalogo` con `contexto`): cada aviso costaba una llamada y los días
+  y la fecha (en ISO) llegaban como el modelo quisiera. Ahora es el evento `tracking_apagado` con su texto literal; los
+  días y la fecha de la última visita (en la zona del negocio, `fechaLegible`) son datos.
+- **Cuando el código elige la frase según el caso, no va un dato con la frase: va una CONDITION** sobre un dato con
+  `condicion: { tipo: 'opciones' }` (la pieza 1 del inventario, la del lote 1). El Pixel viejo pregunta «graba / no graba»
+  (`pixel_graba`) y la landing que cambió «se puede medir» (`landing_medible`), cada caso con su texto en la fila. Lo que
+  era «una página / varias / ninguna» es un renglón opcional (`pixel_paginas` falta si no se pudo nombrar ninguna), y «en
+  esa página / en cada página» pasó a «en lugar del código viejo», que sirve para todos.
+- ⚠️ **Tres fuentes, no una**: con una sola `tracking` para los tres, el «{ }» de la automatización de la landing sin visitas
+  ofrecía los datos del Pixel y del cambio, que ese evento no trae (`variablesPara` filtra por el alcance). Cada evento
+  trae lo suyo (`tracking`, `pixel`, `landing`), con un grupo nuevo «Landing y Pixel».
+- **Las opciones de la CONDITION van escritas en lib/variables-aviso.ts**, como las de la cuenta publicitaria, y no
+  importadas del módulo del cron: ese archivo lo importa el editor del navegador.
+- **Lo que se pierde, a propósito:** el negocio ya no apaga «El Pixel de MaKo quedó viejo» desde /mensajes (era `'on'`, «se
+  puede apagar»): como todo evento de la plataforma, lo configura SuperAdmin (`AVISOS_SOLO_SUPERADMIN`).
+
+- **Las filas van ANTES del deploy**, como en el lote 2: #273 (`tracking_apagado`), #274 (`pixel_viejo`) y #275
+  (`landing_cambio`) del ws 9, con `scripts/mudanza-avisos-plataforma.mts --eventos=… --aplicar` el 17/10.
+
+- **«Alguien dejó sus datos en tu landing» (`lead-de-landing`, fila #276) eran DOS textos en la ruta del formulario**: el
+  lead que entra solo y el que queda a revisar por parecerse a otro. Es un evento con una CONDITION (`optin_revisar`), y
+  ⚠️ todo lo de la persona viaja como DATO del evento, sin `trae: ['lead']`: en el caso a revisar todavía no hay lead
+  (es una propuesta), así que de su ficha no se puede leer nada. El «con quién choca» dejó de ser una frase armada
+  (`textoDuplicado`) y son dos datos: a quién se parece y en qué coincide.
+
+- **La prueba del Pixel** (`prueba-recibida`, #277; `prueba-grabada`, #278): el singular y el plural estaban escritos en
+  el código. La de la grabación es una LISTA en su renglón (sirve para una y para varias); la otra, los eventos con su
+  unidad y la página en un renglón opcional. ⚠️ Dos fuentes distintas aunque sean de la misma prueba: con una sola, cada
+  automatización ofrecía en su «{ }» el dato de la otra, que su evento no trae.
+
+- ⚠️ **MUDAR UN AVISO QUE NACÍA APAGADO LO PRENDÍA PARA TODOS.** Un aviso del catálogo sin `porDefecto` nace APAGADO en
+  /mensajes (`estaPrendida`), y un evento de la plataforma NO lee ese interruptor: lo decide su fila. La mudanza creaba la
+  fila PRENDIDA, así que al desplegar el aviso empezaba a llegarle a TODOS los negocios. Medido el 17/10 (el store
+  `mako.plantillas.store` de los 13 negocios activos): nadie había prendido `landing-cambio`, `lead-de-landing`, los dos de
+  la prueba, `lead-fusionado` ni `flow-puente-ausente`, o sea que no le llegaban a nadie. Los dos últimos (lote 2) ya se
+  estaban mandando a todos desde el run 110. Arreglo: la mudanza crea PAUSADO lo que nacía apagado y `--pausar` pausó los
+  seis (#270, #272, #275-#278); prenderlos es decisión de SuperAdmin, con el texto ya editable. Lo fija
+  tests/mudanza-apagados.test.ts. El diagnóstico obvio («la fila es la que manda, como siempre») no lo veía: la pregunta era
+  A QUIÉN le llegaba ANTES.
+  - **Y `--pausar` sin `--eventos=` apagaba lo que estaba prendido a propósito** (revisión del Cerebro, 17/10). Sin
+    `--eventos=`, MUDADOS es TODOS, y «nacía apagado» también es cierto de `oferta_lista` (#260) y
+    `meta_cuenta_recuperada`. Esas dos se prendieron a propósito el 16/10, así que el script las pausaba y «Tu oferta está
+    lista» y la cuenta recuperada dejaban de llegarle a todos. `--eventos a,b` sin el «=» tampoco lo leía `arg()` y caía en
+    TODOS sin avisar. Ahora el script corta antes de importar nada que toque la base: `--pausar` exige la lista explícita y
+    `--eventos` va con «=». **Regla:** un flag que APAGA algo en producción nunca actúa sobre «todos» por omisión.
+
+- **«completó tu formulario de Meta» (`lead-formulario-meta`, #279, pausada)** tapaba lo que faltaba con frases del código
+  («sin teléfono», «Sin preguntas extra en el formulario.»): un dato que falta se lleva su renglón, y la frase de relleno es
+  un texto que nadie editó. El nombre y el link salen del lead (`trae: ['lead', 'meta']`); lo del formulario, de sus datos.
+
+- **El recordatorio de la reunión tenía su camino viejo**: sin automatización caía a la configuración de antes
+  (`chatbot.recordatorio_reunion`), con textos que no se ven en ninguna. Medido el 17/10: ningún negocio activo tenía la
+  fila, y ws1 y ws11 tenían la configuración apagada, así que sacarlo no cambia lo que sale. Y el webhook de Fathom seguía
+  armando un texto que desde el 16/10 sólo rotulaba el feed cuando no hay fila: también se fue (`textoAvisoPostLlamada` queda
+  sin usos en el código, sólo en tests: borrarlo es aparte).
+- **No todo lo que llega es de MaKo:** los mails de Calendly y de Google Calendar los escribe el proveedor y salen porque
+  una PERSONA confirmó la acción. No van a una automatización: van a «Fuera del alcance».
+
+**La familia «tracking y landing» del lote 3 está entera, y la de «anuncios y Meta» también. De «reuniones» quedan**
+**`reunion-tareas-al-plan` y `lead-no-confirmo`.**
+- `lead-no-confirmo` NO es una mudanza de texto: sale con `emitirAviso` directo cuando una automatización con objetivo
+  «preparar» termina sin respuesta (lib/nutricion-desenlace.ts). Lo correcto es que esa automatización lleve VISIBLE su
+  tarjeta «avisar al equipo» al final del camino sin respuesta: es un cambio del motor y de las plantillas, aparte.
+- `reunion-tareas-al-plan` vive en lib/reunion-auto.ts, del Plan (su chat trabaja la extracción de Fathom): se coordina. Siguen las otras (anuncios y Meta, reuniones, cursos, CRM,
+Plan, pagos, reportes por email, mensajes al lead: docs/inventario-nada-por-detras.md).
+
+**Vive en:** `lib/tracking-aviso.ts` · `lib/optin-aviso.ts` · `lib/prueba-aviso.ts` · `app/api/track/optin/route.ts` · `app/api/cron/tracking-vigilante/route.ts` · `lib/disparadores.ts` (`tracking_apagado`,
+`pixel_viejo`, `landing_cambio`) · `lib/variables-aviso.ts` · `lib/plantillas-automatizaciones.ts` (`mako-tracking-apagado`,
+`mako-pixel-viejo`, `mako-landing-cambio`, `mako-lead-de-landing`) · tests: `tests/tracking-evento.test.ts`, `tests/optin-evento.test.ts`, `tests/prueba-pixel-evento.test.ts`
+
+## El chat de MaKo en la app y el teléfono tampoco «putea suave» (17/10/2026)
+
+La persona de MaKo (lib/mako-persona.ts) dice «puedes putear suave», y lo que pasa por `buildSystemPrompt` la hereda. El
+doer de WhatsApp lo cortaba (la voz en su system y `sanearSalida` antes de mandar); el chat de la app y del teléfono
+(`turnoApp`, lib/mako-turno-app.ts), que usan los clientes y su equipo, no. Ahora lleva la misma línea de voz y el mismo
+corte antes de guardar: se saca la oración grosera, no la respuesta entera. Las promesas no se sacan ahí (la tarjeta y la
+pantalla dicen lo que quedó hecho). **Sin hacer:** otros caminos que usan `buildSystemPrompt` (el analista de un lead, el
+Second Brain) no se revisaron uno por uno. Test: tests/mako-app-sin-groserias.test.ts. *17/10/2026, B5 (claude4)*

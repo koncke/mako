@@ -85,10 +85,12 @@ const TEXTO_ACCION: Record<AccionFila['tipo'], { ok: string; error: string }> = 
   asignar: { ok: 'Asignación guardada', error: 'No se pudo asignar' },
 };
 
-export function ChatsApp({ ws, esAdmin, productos }: {
+export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
   /** El workspace, del server (`getWorkspaceActual`): va en las claves del navegador. */
   ws: number | null;
   esAdmin: boolean;
+  /** ¿Entra a /email (admin y setter)? Desde el 17/10/2026 Email no es tab: se llega desde acá. */
+  veEmail?: boolean;
   /** Los productos del «+ Agregar al CRM». `null` = no se pudieron leer (decide el server). */
   productos: ProductoParaAlta[] | null;
 }) {
@@ -334,6 +336,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
   // ── Conectar un canal (el «+» de Canales y el estado vacío) ─────────────────────────────────
   const conectar = useCallback(async (canal: CanalConectable) => {
     if (canal === 'whatsapp') { router.push('/whatsapp'); return; }
+    if (canal === 'email') { router.push('/email'); return; }
     // Messenger es la plataforma `facebook` de Zernio (app/api/zernio/route.ts).
     const r = await postJson<{ ok: boolean; url?: string; configurado?: boolean; error?: string }>('/api/zernio', {
       action: 'conectar', plataforma: canal === 'messenger' ? 'facebook' : 'instagram',
@@ -382,6 +385,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
           etapas={datos?.etapas ?? []}
           chats={datos?.chats ?? []}
           esAdmin={esAdmin}
+          veEmail={veEmail}
           onConectar={conectar}
           onColapsar={() => ponerBandeja(false)}
         />

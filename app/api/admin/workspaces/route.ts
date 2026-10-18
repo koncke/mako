@@ -10,6 +10,7 @@ import { actualizarWorkspace, listarWorkspaces, runWithWorkspace, getWorkspace, 
 import { listarUsuarios } from '@/lib/usuarios';
 import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo } from '@/lib/supabase-paginado';
+import { CLAVE_ENCUESTA, llegadaDe } from '@/lib/onboarding-arranque';
             // Un cliente nuevo ya NO arranca con secuencias sembradas.
 import { CAPA_DEFAULT, esCapaValida, CAPAS_VENDIBLES, type CapaId } from '@/lib/capas';
 import { avisarCambioDePlan } from '@/lib/aviso-plan';
@@ -31,14 +32,23 @@ export async function GET() {
      * con un `select` pelado, los workspaces cuyos leads caen después del corte
      * aparecerían con menos clientes de los que tienen y nadie lo notaría.
      */
-    const [workspaces, usuarios, ganados] = await Promise.all([
+    const [workspaces, usuarios, ganados, encuestas] = await Promise.all([
       listarWorkspaces(),
       listarUsuarios(),
       leerTodo<{ workspace_id: number | null }>(
         getSupabaseServer(), 'leads', 'workspace_id',
         { orden: 'id', eq: { estado_lead: 'ganado' } },
       ),
+      // Cómo llegó cada cliente (17/10/2026): la encuesta del onboarding, de TODOS los negocios (cliente crudo, como los
+      // leads de arriba). Si no se puede leer, la tabla sale igual, sin la columna llena.
+      getSupabaseServer().from('app_settings').select('workspace_id, value').eq('key', CLAVE_ENCUESTA)
+        .then(({ data, error }) => {
+          if (error) { console.warn(`[admin/workspaces] no pude leer ${CLAVE_ENCUESTA}: ${error.message}`); return []; }
+          return (data ?? []) as Array<{ workspace_id: number | null; value: string | null }>;
+        }),
     ]);
+    const llegada = new Map<number, ReturnType<typeof llegadaDe>>();
+    for (const e of encuestas) if (e.workspace_id != null) llegada.set(e.workspace_id, llegadaDe(e.value));
     const conteo = new Map<number, number>();
     for (const u of usuarios) if (u.workspace_id != null) conteo.set(u.workspace_id, (conteo.get(u.workspace_id) ?? 0) + 1);
     const conClientes = new Map<number, number>();
@@ -49,6 +59,7 @@ export async function GET() {
         ...w,
         usuarios: conteo.get(w.id) ?? 0,
         clientes: conClientes.get(w.id) ?? 0,
+        llegada: llegada.get(w.id) ?? null,
       })),
     });
   } catch (e) {

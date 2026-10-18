@@ -53,7 +53,8 @@ test('sin la columna (la migración sin aplicar), los lectores reintentan sin el
   const graf = leer('lib/graficos-datos.ts');
   assert.match(graf, /if \(faltaColumnaFunnel\(e\)\) return leerPagos\('id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago'\); throw e;/);
   const pagos = leer('lib/pagos.ts');
-  assert.match(pagos, /cashCon\.error && faltaColumnaFunnel\(cashCon\.error\)\s*\? await cashSin\(\)/);
+  // Paginado desde el 17/10/2026 (leerTodo tira con el mensaje de PostgREST): el reintento va en el `.catch`.
+  assert.match(pagos, /\.catch\(\(e: unknown\) => \(faltaColumnaFunnel\(e\) \? cashDe\('id, monto_usd, fecha_pago, numero, lead_id, leads\(nombre\)'\) : Promise\.reject\(e\)\)\)/);
 });
 
 test('los tres lectores usan el funnel guardado: el OKR, los gráficos y el desglose de /general', () => {

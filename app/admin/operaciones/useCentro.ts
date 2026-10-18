@@ -28,6 +28,7 @@ import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
+  avisaYaEsta, avisosDe, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, vigiaCallado, type VistosDeChats,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
@@ -36,14 +37,24 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { contestarPreguntaAction, fotoCentroAction, guardarBorradorAction, guardarMunecoAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { contestarPreguntaAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import type { CuentasConNombre } from '@/lib/centro-titulares';
+import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
+import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
+import { recordarEnviadas } from './fotos-enviadas';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
+/** Una lista vacía que no cambia entre renders: las piezas memorizadas comparan por identidad. */
+const SIN_TAREAS: TareaDelChat[] = [];
+const SIN_PASOS: PasoDelTurno[] = [];
+/** Los mismos turnos (por su uuid y su texto, que es lo que se dibuja). */
+const mismosTurnos = (a: readonly TurnoChat[] | undefined, b: readonly TurnoChat[]) =>
+  !!a && a.length === b.length && a.every((x, i) => x.uuid === b[i].uuid && x.texto.length === b[i].texto.length);
 /** Con algo en camino (escrito o tomado), la pantalla mira más seguido: sale en segundos y tiene que verse (17/10/2026). */
 const REFRESCO_APURADO_MS = 2500;
 
@@ -59,6 +70,10 @@ export type DatosCentro = {
   munecosIniciales: MunecosElegidos;
   /** Cuántas preguntas espera cada sesión (lib/centro-preguntas-chat-db.ts → leerAbiertas). */
   preguntasAbiertasIniciales?: Record<string, number>;
+  /** El nombre y el email de cada cuenta (la G, lib/centro-titulares-db.ts). */
+  cuentasIniciales?: CuentasConNombre;
+  /** Lo último de cada chat, por sesión, para la lista (lib/centro-turnos-db.ts → leerUltimosTurnos). */
+  ultimosIniciales?: Record<string, TurnoChat[]>;
   pedidos: PedidoP[];
   ahora: number;
   sub: string;
@@ -140,23 +155,58 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // Y sus tareas del Plan (la C y la D): las que armaron su «Voy a trabajar en…» y su «Ya está».
   const [tareas, setTareas] = useState<Record<string, TareaDelChat[]>>({});
   const [abiertas, setAbiertas] = useState<Record<string, number>>(d.preguntasAbiertasIniciales ?? {});
+  // Lo ÚLTIMO de todos los chats (17/10/2026): sin esto, la fila de un chat que no se abrió nunca sabía que su último mensaje era
+  // un «Ya está», y el aviso del «Completado» sin ver no salía. Llega con cada refresco; no es la conversación (texto recortado).
+  const [ultimos, setUltimos] = useState<Record<string, TurnoChat[]>>(d.ultimosIniciales ?? {});
+  const ultimosFirma = useRef('');
+  // Lo de WhatsApp en cada mensaje (17/10/2026, lib/centro-mensajes.ts): las marcas de Martín, guardadas en MaKo, y la cita
+  // de la caja de cada chat (responder a un mensaje), que viaja en el texto firmado.
+  const [marcas, setMarcas] = useState<Record<string, MarcasChat>>({});
+  const [nombresCuentas, setNombresCuentas] = useState<CuentasConNombre>(d.cuentasIniciales ?? {});
+  // Lo que están haciendo AHORA los chats ocupados (la E): llega con cada refresco.
+  const [pasos, setPasos] = useState<PasosPorChat>({});
+  /** El nombre que Martín le pone a una cuenta en el Uso (la G): devuelve el error, o null. */
+  const renombrarCuenta = async (cuenta: string, alias: string): Promise<string | null> => {
+    const r = await guardarAliasCuentaAction(cuenta, alias).catch(() => null);
+    if (!r) return 'No pude guardarlo: vuelve a intentarlo.';
+    if (!r.ok) return r.error;
+    setNombresCuentas(r.cuentas);
+    return null;
+  };
+  const [citas, setCitas] = useState<Record<string, Cita | null>>({});
   const mirado = useRef<ChatCentro | null>(null);
   const pedirTurnos = useCallback(async (c: ChatCentro) => {
     const locales = c.miembros.filter((m) => DESTINO_RE.test(m));
     if (!locales.length) return;
     const r = await turnosCentroAction(locales, claveParaUrl(c)).catch(() => null);
     if (r?.ok) {
-      setTurnos((t) => ({ ...t, [c.clave]: r.turnos }));
+      // Si no cambió nada, se queda el MISMO arreglo: así la conversación memorizada no se vuelve a dibujar en cada refresco.
+      setTurnos((t) => (mismosTurnos(t[c.clave], r.turnos) ? t : { ...t, [c.clave]: r.turnos }));
       setPreguntas((q) => ({ ...q, [c.clave]: r.preguntas ?? [] }));
       setTareas((x) => ({ ...x, [c.clave]: r.tareas ?? [] }));
+      if (r.marcas) { const m = r.marcas; setMarcas((x) => ({ ...x, [c.clave]: m })); }
       // El borrador de MaKo: el del teléfono, si es más nuevo que lo de acá.
       cargarBorrador(c, r.borrador ?? null);
     }
   }, [cargarBorrador]);
   /** La conversación avisa qué chat se está mirando (o null al cerrarla). */
+  // ── Los «Completado» sin ver (17/10/2026, Martín: «un aviso en la tarjeta del chat cuando trae un "Ya está"») ──────
+  // Como el globito de no leídos de WhatsApp, por dispositivo (localStorage): un chat que se abrió después de su «Ya está»
+  // ya no lo avisa. `desde` es la primera vez que este navegador abrió el Ops Center: lo de antes no se avisa (si no, todos
+  // los chats saldrían con aviso el primer día).
+  const [vistos, setVistos] = useState<VistosDeChats | null>(null);
+  const [mirando, setMirando] = useState<string | null>(null);
+  useEffect(() => { setVistos(leerVistos(Date.now())); }, []);
+  const verChat = useCallback((clave: string) => {
+    setVistos((v) => { const n = { desde: v?.desde ?? Date.now(), chats: { ...v?.chats, [clave]: Date.now() } }; guardarVistos(n); return n; });
+  }, []);
   const mirar = useCallback((c: ChatCentro | null) => {
+    // El que se deja también queda visto: lo que llegó mientras estaba abierto ya se vio.
+    if (mirado.current && mirado.current.clave !== c?.clave) verChat(mirado.current.clave);
     mirado.current = c;
+    setMirando(c?.clave ?? null);
     if (!c) return;
+    verChat(c.clave);
     // Lo que quedó escrito en este navegador vuelve en el acto; lo de MaKo llega con los turnos.
     cargarBorrador(c, null);
     void pedirTurnos(c);
@@ -171,7 +221,19 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   }, [pedirTurnos, cargarBorrador]);
   const turnosDe = (c: ChatCentro): TurnoChat[] => turnos[c.clave] ?? [];
   const preguntasDe = (c: ChatCentro): PreguntaChat[] => preguntas[c.clave] ?? [];
-  const tareasDe = (c: ChatCentro): TareaDelChat[] => tareas[c.clave] ?? [];
+  const tareasDe = (c: ChatCentro): TareaDelChat[] => tareas[c.clave] ?? SIN_TAREAS;
+  const marcasDe = (c: ChatCentro): MarcasChat => marcas[c.clave] ?? SIN_MARCAS;
+  /** Una marca de Martín (reaccionar, destacar, fijar, eliminar para él): se ve en el acto y se guarda en MaKo. Si no se
+   *  pudo guardar, vuelve atrás y lo dice. */
+  const marcar = async (c: ChatCentro, cambio: CambioMarca) => {
+    const antes = marcas[c.clave] ?? SIN_MARCAS;
+    setMarcas((x) => ({ ...x, [c.clave]: aplicarMarca(x[c.clave] ?? SIN_MARCAS, cambio) }));
+    const r = await marcarMensajeAction(claveParaUrl(c), cambio).catch(() => null);
+    if (r?.ok) setMarcas((x) => ({ ...x, [c.clave]: r.marcas }));
+    else { setMarcas((x) => ({ ...x, [c.clave]: antes })); avisar(r?.error ?? 'No pude guardarlo', 'bad'); }
+  };
+  const citaDe = (clave: string): Cita | null => citas[clave] ?? null;
+  const citar = (clave: string, cita: Cita | null) => setCitas((x) => ({ ...x, [clave]: cita }));
 
 
   const trabajos = useMemo(() => {
@@ -185,19 +247,58 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     for (const [local, n] of Object.entries(abiertas)) m[local] = (m[local] ?? 0) + n;
     return m;
   }, [decisiones, carteros, abiertas]);
-  const chats = useMemo(() => completarChats(base, { carteros, trabajos, ahora }), [base, carteros, trabajos, ahora]);
+  // Sin el Runner (17/10/2026, Martín: «El chat de "Runner" no tiene sentido que esté visible en el Center»): sigue trabajando
+  // por detrás y su estado está en «Uso y Runners». Se saca ACÁ, no en `completarChats`: la PC lo sube marcado (`esRunner`) y de
+  // esa marca sale que no se le entrega nada (tests/centro-runner-nube.test.ts).
+  const conVigia = useMemo(() => sinElRunner(completarChats(base, { carteros, trabajos, ahora, pasos })), [base, carteros, trabajos, ahora, pasos]);
+  // «MaKo en WhatsApp» (el vigía: un cron que dice «Sin incidentes nuevos» cada rato) sale de la lista mientras está callado y
+  // vuelve, avisando como «Espera tu respuesta», cuando deja un incidente de verdad (Martín, 17/10/2026). Con lo último que
+  // trajo el refresco: abrirlo no hace falta para saberlo.
+  const esperasConVigia = useMemo(() => {
+    const m = { ...esperas };
+    for (const c of conVigia) {
+      const local = c.miembros.find((k) => DESTINO_RE.test(k));
+      if (local && incidenteSinVer(c, turnosParaLaLista(c, turnos, ultimos, false), vistos?.chats[c.clave] ?? vistos?.desde ?? Infinity)) m[local] = (m[local] ?? 0) + 1;
+    }
+    return m;
+  }, [conVigia, esperas, turnos, ultimos, vistos]);
+  const chats = useMemo(
+    () => conVigia.filter((c) => !vigiaCallado(c, turnosParaLaLista(c, turnos, ultimos, false), esperaDe(c, esperasConVigia), mirando === c.clave)),
+    [conVigia, turnos, ultimos, esperasConVigia, mirando],
+  );
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
   // La conversación de cada chat, una vez: de ella salen el segundo renglón y en qué está trabajando.
   const lineasDe = useMemo(
-    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnos[c.clave], preguntas[c.clave])])),
-    [chats, porId, trabajos, decisiones, carteros, turnos, preguntas],
+    () => new Map<string, LineaChat[]>(chats.map((c) => [c.clave, historialDelChat(c, porId, trabajos, respuestasDelChat(c, decisiones, carteros), turnosParaLaLista(c, turnos, ultimos, mirando === c.clave), preguntas[c.clave])])),
+    [chats, porId, trabajos, decisiones, carteros, turnos, ultimos, mirando, preguntas],
   );
   const previas = useMemo(() => new Map<string, VistaPrevia | null>([...lineasDe].map(([k, l]) => [k, vistaPrevia(l)])), [lineasDe]);
-  const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, enQueTrabaja(l)])), [lineasDe]);
+  // Los pasos en vivo de cada chat (la E), una vez por refresco: el hilo memorizado compara por identidad.
+  const pasosPorChat = useMemo(() => new Map<string, PasoDelTurno[]>(chats.map((c) => [c.clave, pasosDelChat(c, pasos)])), [chats, pasos]);
+  // En qué está: el paso que está dando AHORA, si la PC lo subió; si no, el título de lo que tiene en curso.
+  const enCursos = useMemo(() => new Map<string, string | null>([...lineasDe].map(([k, l]) => [k, pasosPorChat.get(k)?.at(-1)?.texto ?? enQueTrabaja(l)])), [lineasDe, pasosPorChat]);
+  const pasosDe = (c: ChatCentro): PasoDelTurno[] => pasosPorChat.get(c.clave) ?? SIN_PASOS;
+  // Los borradores guardados en este navegador, de TODOS los chats y no sólo del abierto (17/10/2026, Martín: «un borrador
+  // sin mandar se ve en la lista de chats», como WhatsApp): se leen una vez por chat, al aparecer en la lista.
+  const conBorradorLeido = useRef(new Set<string>());
+  const clavesDeChats = chats.map((c) => c.clave).join('\n');
+  useEffect(() => {
+    for (const c of chats) if (!conBorradorLeido.current.has(c.clave)) { conBorradorLeido.current.add(c.clave); cargarBorrador(c, null); }
+  }, [clavesDeChats]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** El renglón del borrador de un chat para su fila («Borrador: …»); null = no tiene. */
+  const borradorDeLista = (clave: string): string | null => {
+    const t = (borradores[clave] ?? '').split('\n').map((x) => x.trim()).find(Boolean);
+    return t ? t.replace(/^• /, '') : null;
+  };
+  /** Los chats cuyo último mensaje es un «Ya está» que este dispositivo todavía no vio (lib/centro-chats.ts → avisaYaEsta). */
+  const yaSinVer = useMemo(() => new Set([...previas].filter(([k, p]) => k !== mirando && avisaYaEsta(p, vistos, k)).map(([k]) => k)), [previas, vistos, mirando]);
+  /** Cuánto avisa cada chat en su fila: lo que espera a Martín MÁS un «Completado» sin ver (es el mismo aviso, 17/10/2026). Del
+   *  globito de la criatura y del orden de la lista. */
+  const avisos = useMemo(() => (c: ChatCentro) => avisosDe(esperaDe(c, esperasConVigia), yaSinVer.has(c.clave)), [esperasConVigia, yaSinVer]);
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);
@@ -333,7 +434,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   async function mandar(c: ChatCentro) {
     // Lo que sale es Markdown de verdad: las viñetas de la caja («• ») vuelven a ser «- » (lib/centro-caja.ts).
-    const texto = textoParaMandar(borradorDe(c.clave));
+    // Con la cita arriba si responde a un mensaje (lib/centro-mensajes.ts → armarConCita): la PC entrega sólo lo firmado.
+    const texto = armarConCita(citas[c.clave] ?? null, textoParaMandar(borradorDe(c.clave)));
     const archivos = adjuntosRef.current[c.clave] ?? [];
     const d = destinoDeChat(c);
     if (!d.sesion || !envioDe(c).puede || enviando || (!texto.trim() && !archivos.length)) return;
@@ -354,10 +456,30 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim() || TEXTO_SOLO_ADJUNTOS,
       estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
     });
+    // Las fotos se quedan en este navegador para dibujarlas en su burbuja (FotosEnviadas.tsx: el bucket las borra al entregar).
+    if (subidos.length) recordarEnviadas(r.id, archivos.map((a) => a.file));
     vaciarAdjuntos(c.clave);
     limpiarBorrador(c.clave);
+    citar(c.clave, null);
     setModelo(null);
     setEsfuerzo(null);
+  }
+
+  /** Reenviar un mensaje a otros chats (lo de WhatsApp, 17/10/2026): a cada uno le sale un trabajo FIRMADO con «↪ Reenviado
+   *  de «…»» arriba, por el mismo camino que la caja. Devuelve cuántos salieron. */
+  async function reenviar(origen: ChatCentro, texto: string, destinos: readonly ChatCentro[]): Promise<number> {
+    const sale = armarReenvio(origen.titulo, texto);
+    let ok = 0;
+    for (const c of destinos.slice(0, TOPE_REENVIO)) {
+      const d = destinoDeChat(c);
+      if (!d.sesion || !envioDe(c).puede) { avisar(`${c.titulo}: ${textoDeEnvio(envioDe(c)) ?? 'no recibe ahora'}`, 'bad'); continue; }
+      const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, sale, 'solo_esto');
+      if (!r.ok) { avisar(r.error, 'bad'); continue; }
+      ok += 1;
+      anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: sale, estado: 'escrito', motivo: null, cierre: null });
+    }
+    if (ok) avisar(ok === 1 ? 'Reenviado' : `Reenviado a ${ok} chats`, 'good');
+    return ok;
   }
 
   // ── Contestar una pregunta del chat (17/10/2026, el formulario de su conversación) ──────────────────────────────
@@ -406,26 +528,33 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   };
   // El nombre lo cambia cada sesión del chat (en todas sus cuentas): se le manda a cada una un trabajo firmado que se lo
   // pide (lib/centro-chats.ts → textoDeRenombre). La que está cerrada lo recibe cuando se abre.
-  async function renombrar() {
-    if (!renombrando || !deRenombre) return;
-    const v = nombreValido(renombrando.texto);
-    if (!v.ok) { setRenombrando({ ...renombrando, error: v.error }); return; }
-    if (v.nombre === deRenombre.titulo) { setRenombrando(null); return; }
-    const sale = envioDe(deRenombre);
-    if (!sale.puede) { setRenombrando({ ...renombrando, error: textoDeEnvio(sale) }); return; }
-    setRenombrando({ ...renombrando, mandando: true, error: null });
+  // Lo usan la ventana «Renombrar» de la fila y el título de la cabecera, que se renombra EN EL LUGAR (17/10/2026, Martín:
+  // «tocar el título deja renombrarlo en el lugar»), en la computadora y en el teléfono. Devuelve el error, o null si salió.
+  async function renombrarChat(c: ChatCentro, texto: string): Promise<string | null> {
+    const v = nombreValido(texto);
+    if (!v.ok) return v.error;
+    if (v.nombre === c.titulo) return null;
+    const sale = envioDe(c);
+    if (!sale.puede) return textoDeEnvio(sale);
     let mal: string | null = null;
-    for (const s of deRenombre.sesiones) {
-      const r = await firma.mandar({ sesion: s.sesion, cuenta: s.cuenta, titulo: deRenombre.titulo }, textoDeRenombre(v.nombre), 'solo_esto');
+    for (const s of c.sesiones) {
+      const r = await firma.mandar({ sesion: s.sesion, cuenta: s.cuenta, titulo: c.titulo }, textoDeRenombre(v.nombre), 'solo_esto');
       if (!r.ok) mal = r.error;
     }
-    if (mal) { setRenombrando({ ...renombrando, mandando: false, error: mal }); return; }
+    if (mal) return mal;
     // El muñeco elegido se guarda por nombre: viaja con el nombre nuevo, o el chat renombrado lo perdería.
-    const suyo = elegidoPara(munecos, deRenombre.titulo);
+    const suyo = elegidoPara(munecos, c.titulo);
     if (suyo) { const g = await guardarMunecoAction(v.nombre, suyo); if (g.ok) setMunecos(g.munecos); }
-    setRenombrando(null);
     avisar('Renombre enviado', 'good');
     refrescar();
+    return null;
+  }
+  async function renombrar() {
+    if (!renombrando || !deRenombre) return;
+    setRenombrando({ ...renombrando, mandando: true, error: null });
+    const mal = await renombrarChat(deRenombre, renombrando.texto);
+    if (mal) { setRenombrando({ ...renombrando, mandando: false, error: mal }); return; }
+    setRenombrando(null);
   }
   async function guardarElegido(aspecto: Aspecto | null) {
     if (!eligiendo || !deMuneco) return;
@@ -438,17 +567,35 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   }
 
   return {
-    chats, carteros, trabajos, porId, esperas, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
+    chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
-    lineasDe, previas, enCursos, pendientesTicketera, refrescar, responderAca, deshacerAca,
-    envioDe, borradorDe, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
+    marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, pasosDe,
+    lineasDe, previas, enCursos, yaSinVer, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
+    envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
+    /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */
+    sinAdjuntos: () => avisar('Este chat aún no recibe imágenes', 'bad'),
     puedeAbrirEn, apertura, abrirChat,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
-    renombrando, setRenombrando, deRenombre, renombrar,
+    renombrando, setRenombrando, deRenombre, renombrar, renombrarChat,
     eligiendo, setEligiendo, deMuneco, abrirMuneco, guardarElegido,
   };
 }
 
 export type Centro = ReturnType<typeof useCentro>;
+
+// Los «Completado» vistos, en este navegador (una comodidad: sin localStorage, ningún aviso queda pegado para siempre:
+// `desde` es ahora y nada viejo avisa).
+const CLAVE_VISTOS = 'ops-center:vistos';
+function leerVistos(ahora: number): VistosDeChats {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(CLAVE_VISTOS) ?? 'null') as Partial<VistosDeChats> | null;
+    if (v && typeof v.desde === 'number' && v.chats && typeof v.chats === 'object') return { desde: v.desde, chats: v.chats };
+  } catch { /* sin localStorage */ }
+  const nuevo = { desde: ahora, chats: {} };
+  guardarVistos(nuevo);
+  return nuevo;
+}
+function guardarVistos(v: VistosDeChats) { try { window.localStorage.setItem(CLAVE_VISTOS, JSON.stringify(v)); } catch { /* es una comodidad */ } }
+

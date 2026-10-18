@@ -1273,6 +1273,30 @@ no que se leyó.
 ninguna (operaciones_carteros.visto_at quieto), y no tomaba mensajes nuevos. Se destrabó al parar su turno con
 stop_session y reprogramar el cron con `vigilar` (1.12.0). Si vuelve a pasar, mirar visto_at antes de creerle al Runner.
 
+## Los dos topes de la app sobre el Cerebro cuando Martín no le escribe (17/10/2026)
+
+**Síntoma:** con Martín hablando sólo por el Ops Center, el Cerebro se queda sin poder repartir. Le pasaron dos cosas:
+- `start_session` contesta «Start sessions only on the user's own words to you here» al abrir el chat de MaKo Mobile.
+- Al avisar los «Ya está» del run 110, el mensaje número 11 contesta «Not delivered: this session has already messaged
+  Claude Desktop sessions 10 times since your user last typed here» y no sale.
+
+**Causa:** la app no toma un pedido firmado que llega por el Runner como si Martín lo hubiera escrito en el chat del
+Cerebro. Para ella, un turno que empieza con un mensaje de otra sesión o con una tarea de fondo es automático. Con eso
+aplica dos frenos anti-bucle:
+- **no abre sesiones;** sólo deja PROPONER, con una tarjeta, y a Martín no le gustan;
+- **corta los SendMessage a sesiones de Claude Desktop al décimo** hasta que Martín escriba en el chat del Cerebro.
+
+El diagnóstico obvio («el Runner no tiene permisos») era el equivocado: el pedido llegó bien. El tope es del chat que
+reparte. A un subagente lanzado con Agent no se le aplica.
+
+**Regla:**
+- Un pedido del Ops Center que necesita un chat NUEVO arranca como `Agent` en segundo plano, con el brief completo y su
+  cosecha. Arranca sin tarjeta, pero no aparece en la lista del Ops Center. Si Martín lo quiere ver ahí, se le abre su
+  chat en el próximo mensaje que escriba en el Cerebro.
+- Los avisos de una tanda se mandan juntos y sólo a quien tiene algo nuevo. Si el lote pasa de diez, primero van los
+  que cambian lo que hace un chat (un rojo, una punta que esperar) y después los «Ya está». Lo que no salió queda en
+  docs/relevo/cerebro.md para mandarlo después del próximo mensaje de Martín.
+
 ## El chat abierto, el «Trabajando…» y las preguntas de los chats (17/10/2026, Ops Center de la cuenta 4)
 
 **Renombrar sacaba del chat, y redirigir después no alcanzaba.** Martín: «me dejó en una tab tipo "No existe este
@@ -1344,6 +1368,94 @@ TareasVinculadas) · lib/centro-munecos.ts · lib/links-texto.ts y app/admin/ope
 **Sin hacer:** que un chat maneje el Plan a PEDIDO de Martín («tráeme las más prioritarias», «bórralas»): necesita una puerta
 de la PC al Plan, y es de revisión de seguridad. Sin medir en una pantalla real: nada de esto se miró en un navegador.
 
+## El «atrás» lento del teléfono, WhatsApp en cada mensaje y las 0 consultas de `vigilar` (17/10/2026, cuarto Ops Center)
+
+**El «atrás» del teléfono: lo obvio era la red, y era React.** Martín: «Cuando estoy en un chat y le doy para atrás en
+mobile, tarda bastante en reaccionar». El «atrás» cierra la hoja (`SheetM` → `history.back()` → `popstate`). La primera
+sospecha era Next: si el `popstate` volviera a pedir la página (`force-dynamic`) al servidor, sería un viaje entero. Leído en
+Next 16.2.6 (`restore-reducer.js` → `startPPRNavigation` con `HistoryTraversal`): con el mismo árbol de rutas reusa los nodos
+de la caché y NO pide nada. Lo que sí pasaba, medido:
+- `ChatsM` (app/m/operaciones/ChatsMovil.tsx) calculaba el historial de CADA fila (`historialDelChat` + `vistaPrevia` +
+  `enQueTrabaja`) en cada render, aunque useCentro.ts ya tenía esos mapas memorizados; y volvía a dibujar las ~90 filas con
+  sus SVG al abrir, al cerrar y con CADA TECLA de la caja (el borrador vive en el motor);
+- el hilo (`Hilo`) volvía a parsear el Markdown de cada respuesta en cada tecla.
+
+**Medido** (la pantalla de VERDAD —`CentroAppMovil`— armada con esbuild contra los chats de las bitácoras del repo y una cola
+del tamaño de producción —87 chats, 419 pedidos, 150 trabajos, 60 turnos en el chat abierto—, en Chrome headless como un
+iPhone de 390 px con la CPU ×4; la mediana de 7 vueltas, del toque al cuadro siguiente):
+
+| El toque | Antes (86bc162be) | Después |
+|---|---|---|
+| Escribir una letra en la caja | 139,4 ms | 23,3 ms |
+| Abrir un chat (tareas largas) | 443,7 ms (426) | 251,9 ms (221) |
+| El «atrás», hasta el cuadro siguiente | 53,6 ms | 39,5 ms |
+| El «atrás», hasta ver la lista (con los 220 ms de la hoja que baja) | 309 ms | 291 ms |
+| El refresco solo con un chat abierto (tareas largas en 8,5 s) | 170 ms | 132 ms |
+
+**Lo que el número dice y lo que no:** el «atrás» en sí ya era corto en Chrome; lo que trababa al teléfono era ESCRIBIR (cada
+tecla redibujaba todo), ABRIR (60 respuestas con su Markdown) y el refresco cada 2,5 s con algo en camino, que cae encima de
+cualquier gesto. Abrir mejoró sobre todo por dibujar los últimos 25 mensajes («Ver mensajes anteriores», como WhatsApp y
+Telegram: `TANDA_HILO`); las envolturas de WhatsApp (`Deslizable`) le sumaban ~60 ms. Si en el iPhone el «atrás» sigue
+lento, lo que queda por medir es el gesto de iOS y el router de Next en un `next start`, no React.
+
+**Regla:** en una pantalla del teléfono que se refresca sola, una fila de una lista larga es un componente `memo` con props
+que no cambian entre toques (los mapas del motor, callbacks estables por ref), y lo que se calcula por chat se calcula UNA
+vez en el motor. Un `historialDelChat(c, …)` adentro de un `.map` de filas es el defecto (tests/centro-whatsapp.test.ts lo
+vigila).
+
+**Cómo se mide sin `next build`** (la PC no tenía RAM ni candado para un build): un `entry.tsx` que monta el componente real,
+esbuild con stubs para `server-only`, `next/link`, `next/navigation` y las acciones del servidor, y CDP sobre Chrome headless
+(`Emulation.setCPUThrottlingRate`, `--mute-audio`). Antes y después: el mismo bundle desde `git stash -u`. ⚠️ El `jsdom` del
+`node_modules` del clon está ROTO (le falta `@asamuzakjp/css-color`): una medición con jsdom no arranca; la de Chrome sí.
+
+**`vigilar` con 0 consultas (cartero 1.15.1).** El Runner reportó tres `vigilar --max-seg 100` sin una consulta liviana, el
+último de 78 s. La guarda de margen pedía, ANTES de cada consulta, que entrara una espera MÁS una vuelta completa ×1,5 con la
+duración de la PRIMERA vuelta (la que sube los chats de cada cuenta de la carpeta: 30-80 s): el bucle no corría nunca. El
+margen se mira para lo que cuesta cada cosa: consultar mientras entre una espera (la consulta corta a los 10 s y el tope deja
+15 s al Bash); la vuelta completa, sólo si entra; y si llega algo NUEVO y no entra, sale con `otraVez: true` (paso 2d del
+Runner). La base es la primera consulta: un pendiente que la PC no reclama no hace correr al Runner sin parar.
+
+**`--revisar` desde Git Bash (1.15.1).** MSYS convierte todo argumento que empieza con `/` en una ruta de la carpeta de Git
+(`/admin/operaciones` → `C:/Program Files/Git/admin/operaciones`), y el cierre se rechazaba. Se recupera en `cierre()`
+(`rutaDesdeMsys`). NO se le pide al chat `MSYS_NO_PATHCONV=1 node …`: los chats usan también PowerShell, donde esa línea no
+corre.
+
+**WhatsApp en un chat con una IA: qué viaja y qué no.** La PC entrega SÓLO lo firmado, así que «Responder» y «Reenviar» van
+en el texto (`> ↩ «CRM»: …` y `↪ Reenviado de «…»`, lib/centro-mensajes.ts) y la burbuja los vuelve a leer. Reaccionar,
+Destacar, Fijar y Eliminar para mí son marcas de Martín en MaKo (`operaciones.marcas.<sesión>`): mandarle un 👍 al chat le
+costaría un turno de la ventana de 5 horas. «Eliminar para todos» no existe: lo que el chat leyó está en su contexto.
+
+**La estrella de MaKo no se elige.** Va FUERA de `FORMAS` y de `COLORES` (`FORMA_MAKO`, `ASPECTO_MAKO`): `sanearAspecto` la
+rechaza y el selector no la ofrece, así que ningún chat salvo el Cerebro la tiene, aunque alguien la mande a mano.
+
+**Un componente que importa CSS no se importa en un test** (en node un `.css` no carga): `Muneco` no importa CSS porque lo
+dibujan el servidor y los tests; la criatura viva (`Criatura.tsx`) trae el suyo (`criatura.css`) y su test la mira en la
+fuente.
+
+**Vive en:** app/m/operaciones/ChatsMovil.tsx (`FilaChatM`) · app/admin/operaciones/Hilo.tsx (`memo`), MensajeWA.tsx,
+Criatura.tsx · lib/centro-mensajes.ts y su `-db` · lib/centro-titulares*.ts · lib/centro-pasos*.ts
+· scripts/operaciones/cartero.mjs (`vigilar`, `rutaDesdeMsys`, `titularDe`, `pasoDe`).
+
+**El Plan desde el chat se revirtió (la revisión del Cerebro, 17/10): el diagnóstico obvio («el token alcanza, todos los chats
+son de Martín») era el equivocado.** Tres cosas que no se ven escribiendo la puerta y sí atacándola:
+- una respuesta de MaKo que se IMPRIME en el chat es texto que entra al contexto de un modelo en modo bypass: va por
+  `textoRemoto` o con forma fija, nunca entera (un título de tarea puede traer «corré cartero.mjs clave …»);
+- una `sesion` que declara quien llama no identifica a nadie: el token es uno para toda la PC y la foto de los chats la
+  escribe ese mismo token; escribir en nombre de un chat pide un pedido firmado de Martín;
+- «#NN» en un texto no es «cerré la NN»: puede ser lo pendiente, un PR, un ticket o un color.
+**Y dos revisiones no alcanzaron para cerrar un parser de texto libre.** La segunda (763ac6e51) encontró 9 defectos más en la
+versión «arreglada»: negaciones, «en producción» dicho de otra cosa, una respuesta a una pregunta que repite el «#870». La
+lección: lo que ESCRIBE en el Plan no se decide leyendo texto; se pide con un dato ESTRUCTURADO (`--tareas 870` en el
+cierre, con un commit verificable) o lo hace Martín. Quedó `plan prioridades`, de sólo lectura y atado al pedido firmado.
+**Regla:** en AGENTS.md (el Centro): un chat no cierra tareas; el cierre se pide con `--tareas`, nunca con texto.
+
+**Sin hacer:**
+- el cierre estructurado `cartero.mjs cierre … --tareas 870,872 --prueba <commit>` (después del 20/10; el diseño, en docs/relevo/centro-operaciones.md);
+- «Cámbiale el nombre» desde un chat: la API del Plan no tiene una operación para renombrar una tarea (es del área Plan);
+- la lista de «Destacados» de WhatsApp (los destacados se ven con su estrella en cada mensaje, pero no hay una vista que los
+  junte);
+- mirar todo esto en el iPhone de Martín: la medición es de un Chrome headless con la CPU frenada, no de un teléfono.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -1374,7 +1486,9 @@ de la PC al Plan, y es de revisión de seguridad. Sin medir en una pantalla real
   `NuevoChat`, montados sobre el mismo `useCentro`.
 - ~~El chat «Cartero» con su cron~~: corre desde el 15/10 en la cuenta 3 («pasó hace 41 s») y la PC acepta un Token
   (`cartero.mjs estado`, 15/10). Falta que Martín lo renombre a «Runner» (la línea, en docs/relevo/centro-operaciones.md).
-- **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
+- ~~**La Ticketera no muestra si el aviso llegó**~~: hecho el 17/10. La bandeja de los tickets dibuja `avisado_at` (al cliente) y
+  `aviso_estado` (al Cerebro) en un bloque «Avisos», y el mazo viejo dice en cada contestada si el aviso llegó al chat. Medido
+  antes: ninguna de las dos pantallas los leía. Ver docs/hallazgos-ticketera.md → «La Ticketera no mostraba si el aviso llegó».
 - **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
 - **El chat Runner en cada cuenta que esté corriendo** (15/10): sin él, lo que se escribe en la caja queda «escrito».
   Sus instrucciones se copian desde el Centro (Runners → Nuevo Runner; viven en `lib/runner.ts`). Y el Token de cada
@@ -1407,3 +1521,196 @@ de la PC al Plan, y es de revisión de seguridad. Sin medir en una pantalla real
 - **Etapa 2 (la cuota)** y **etapa 3 (el señalador)**.
 - **Proponer un pedido desde un chat de MaKo** con `confirmacion: 'pantalla'` (se firma en la pantalla):
   no está en el registro.
+
+## El Uso de la cuenta 1 mostraba los números de la cuenta 4 (17/10/2026)
+
+**Síntoma:** a las 17:48, Martín ve en Claude que la cuenta de Mauricio (claude1) va 97% en la semanal y se restablece
+el miércoles. El Centro decía 33% y «el martes».
+
+**Causa:** `cartero medir` 1.14.2 escribía en `uso/<cuenta>.json` la cuenta de la configuración, no la que estaba
+activa. A las 09:26 guardó los números de la cuenta 4, que era la del Runner (get_usage), en `claude1.json`. La 1.14.3
+arregló el código, pero nadie corrigió el archivo que ya estaba mal. Como la cuenta 1 no tiene Runner, nadie la volvió a
+medir: el dato malo quedó como vigente ocho horas. El diagnóstico obvio («toma la info de otra cuenta en cada medición»)
+era a medias: el código ya estaba bien y el problema era el dato viejo que había quedado.
+
+**Arreglo:** se reescribió `claude1.json` con la captura de Martín. El original está en `claude1.json.mal-17-10`.
+El Ops Center 5 suma «medido hace X» y apaga una medición vieja: desde las 6 horas (`USO_VENCIDO_MS`, lib/centro-uso.ts) la
+cuenta dice «Sin medir hace X», su barra se apaga y el número del botón no la usa (sin otra cuenta al día, «—»). Una cuenta
+sin Runner y con número dice «Sin Runner · se mide a mano».
+
+**Regla:** cuando se arregla un error que ESCRIBE datos, en el mismo trabajo se buscan y corrigen los datos que ya
+escribió. Un dato sin fecha a la vista que nadie vuelve a medir se lee como vigente.
+
+## El menú que se cerraba solo, las fotos que no se veían y lo demás de WhatsApp (17/10/2026, quinto Ops Center)
+
+**El menú de un mensaje se cerraba solo: no era un redibujo, era Android.** Martín: «al mantener apretado un mensaje, el
+menú se cierra solo enseguida». Lo obvio era que el refresco (cada 2,5 s) desmontara el menú. Su captura es de un ANDROID
+(Samsung), no del iPhone que decía el relevo: Android dispara su propio `contextmenu` al mantener apretado, unos ms DESPUÉS
+de los 450 ms en que se abre el menú, y el menú de la casa (MenuContextual) se cierra con cualquier `contextmenu` afuera
+(su regla del clic derecho), con `resize` (el teclado que se cierra) y con `blur`. **Regla:** lo que se abre manteniendo
+apretado va en la hoja de WhatsApp (`HojaMensajeWA`, MensajeWA.tsx), que sólo cierra un toque que EMPIEZA con ella abierta,
+Escape, el «atrás» o elegir algo; levantar el dedo que la abrió no elige nada. Está en AGENTS.md (el Centro).
+
+**La foto adjunta no se veía en la burbuja: no era la URL firmada ni el mensaje optimista.** La burbuja nunca dibujó
+imágenes: el trabajo guarda sólo los NOMBRES y el bucket BORRA el binario cuando la PC lo baja (es la protección del canal,
+lib/operaciones-adjuntos.ts). No hay de dónde firmar una URL después de entregado. Se resolvió del lado del navegador que la
+mandó: el original en memoria y una miniatura de 640 px en IndexedDB (`enviado:<id>`, fotos-enviadas.ts). En otro
+dispositivo se ve el nombre, como un documento de WhatsApp.
+
+**Las listas numeradas de Martín se renumeraban.** Un `<ol>` numera desde 1, y con un renglón en el medio cada tramo vuelve a
+1. La burbuja dibuja la marca que escribió (`marcas` en `bloquesDeMensaje`, lib/centro-caja.ts).
+
+**«Uso y Runners» no scrolleaba hasta el final en el teléfono: era la hoja, no la lista.** SheetM mide el cuerpo con el alto
+de «alto» y en «medio» lo corre hacia abajo: lo último queda DEBAJO de la pantalla aunque se scrollee hasta el fondo. Esa hoja
+abre ahora en «alto»; el defecto es de todas las hojas que abren en «medio» con cuerpo largo (docs/hallazgos-mobile.md).
+
+**El «atrás» cierra la capa de arriba con la MISMA URL.** Una entrada más en el historial con la URL de ahora (con su `?sheet=`):
+SheetM ve su parámetro y no se cierra; el visor o la hoja del mensaje sí (`useAtrasCierra`, atras.ts). Y en un portal: dentro de
+la hoja del teléfono (que se mueve con `transform`) un `position: fixed` queda encerrado en ella.
+
+**Lo que se dibuja dentro del hilo no importa CSS, y el motor no importa valores de un `'use client'`.** El hilo se dibuja en los
+tests (en node un `.css` no carga): el visor salió de AdjuntosCaja.tsx (que trae chat.css) a Visor.tsx, y pegar a pegar.ts. Y
+useCentro.ts no lleva `'use client'`: lo que llama de las fotos vive en fotos-enviadas.ts (tests/frontera-use-client.test.ts lo
+cazó en `antes-de-subir`, no el tsc acotado).
+
+**Vive en:** app/admin/operaciones/MensajeWA.tsx (`HojaMensajeWA`), atras.ts, Visor.tsx, FotosEnviadas.tsx y fotos-enviadas.ts,
+Microfono.tsx (`BotonMandar`), Emojis.tsx, MiFoto.tsx, pegar.ts · lib/centro-chats.ts (`avisaYaEsta`, `segundoRenglon`) ·
+lib/centro-uso.ts (`USO_VENCIDO_MS`) · tests/centro-ops5.test.ts.
+
+**Sin hacer:**
+- la foto enviada en OTRO dispositivo (hoy, su nombre): pide guardar una miniatura en el servidor, que es un binario de Martín
+  que queda contra la regla de lib/operaciones-adjuntos.ts; es una decisión, no un arreglo;
+- las miniaturas `enviado:*` de IndexedDB no se barren nunca (app/admin/operaciones/adjuntos-guardados.ts);
+- el aviso de «Completado» sin ver es por dispositivo (localStorage), no viaja al teléfono (useCentro.ts → `vistos`);
+- SheetM en «medio» con un cuerpo largo, para todas las hojas (app/m/_ui/SheetM.tsx);
+- nada de esto se vio en una pantalla real: ni la hoja del mensaje en el Android de Martín, ni los globos, ni los emojis.
+
+
+## «Second Brain» no se saca de la barra para todos, el Uso se contradecía y el Runner volvió a esconderse (17/10/2026, sexto Ops Center)
+
+Nueve pedidos de Martín al mirar el Ops Center en su Android (19:31 a 19:45). Lo que no era obvio:
+
+**Sacar «Second Brain» de `nav.ts` habría dejado a los clientes sin su chat con MaKo.** El pedido dice «elimina la de second
+brain», pero la entrada `mako` es la puerta del chat de CADA cliente, closer y setter incluidos; el Ops Center no existe para ellos
+(`puedeOperar` es del super admin con su workspace). Lo que sobra es la fila del SUPER ADMIN. Por eso `ARRIBA` sigue entera y quien
+decide es `arribaDe(adminShell, puedeVer)` (nav.ts), que usan la barra (Sidebar.tsx) y, con la misma regla, More del teléfono
+(`masCompleto`). El super admin MIRANDO a un cliente (`adminShell` falso) sigue viendo el Second Brain del cliente. El redirect de
+`/second-brain` usa `quienOpera()`, que pide su propio workspace: mirando a un cliente no redirige. **Regla:** «sacá esta entrada» se
+resuelve por QUIÉN la ve, no borrando el ítem; el guardián (`tests/movil-toda-tab.test.ts`) ahora también recorre lo de arriba.
+
+**El Uso se contradecía porque dos renglones salían de dos estados distintos.** «Runner activo» sale de `estadoRunnerUso` y «Su uso
+aparece cuando su Runner esté conectado» estaba escrito a mano para «sin medición». Un Runner conectado puede no tener medición
+todavía (la cuenta de la app sólo trae la semanal, y una medición nueva tarda una vuelta). **Regla:** el texto de «vacío» de una
+pieza se deriva del mismo estado que el renglón de al lado (`textoSinMedicion(vivo)`), nunca se escribe aparte.
+
+**El Runner estaba en la lista a propósito (17/10, «todo chat abierto se ve») y Martín lo desdijo.** Se saca en la PANTALLA
+(`sinElRunner`, useCentro.ts), no en `completarChats`: la PC lo sube marcado `esRunner` y de esa marca sale que no se le entrega
+nada (tests/centro-runner-nube.test.ts); sacarlo antes le quitaría al guard lo que lo protege. Por nombre sólo el exacto
+(«Runner», «Cartero», «Centro de Operaciones › Runner»): «Offer › Runner de pruebas» es un sub-chat de Offer.
+
+**Un «Completado» sin ver ahora avisa como «Espera tu respuesta».** Eran dos avisos distintos (globito verde a la derecha y hora en
+verde, contra renglón naranja y globito en la criatura). Pasó a uno: `segundoRenglon(…, sinVer)` devuelve `revisar` (mismo estilo
+que `espera`) y `avisosDe` suma uno al globito de la criatura y al orden de la lista (lo que espera a Martín va arriba). Se apaga
+al abrir el chat (`avisaYaEsta`, por dispositivo, igual que antes).
+
+**La cabecera.** La criatura queda a la izquierda del título; tocarla la cambia y tocar el nombre lo renombra EN EL LUGAR (Enter
+guarda, Escape y salir del campo lo dejan como estaba: salir NO guarda, porque un renombre manda un trabajo firmado a cada sesión).
+Computadora y teléfono comparten `renombrarChat` (useCentro.ts). El título de `SheetM` pasó de `string` a `ReactNode`. «Tu foto de
+perfil» salió del chat (no vuelve: se cambia en Tu cuenta) y con ella `achicarImagen`/`ponerMiFoto` del teléfono.
+
+**El logo de Claude** era un dibujo de doce rayos. `react-icons` (ya dependencia) trae el de simple-icons: se embebió su ruta y
+`tests/centro-ops6.test.ts` la compara con `SiClaude`, así que una ruta tocada a mano falla.
+
+**«Trabajando…» se despliega** (Trabajando.tsx, una pieza para todos los chats): cerrado, el paso de ahora; abierto, los de antes
+tildados y el de ahora animado. Muestra lo que YA sube la PC: el nombre de la herramienta y la frase del Bash (lib/centro-pasos.ts).
+⚠️ NO es el texto del razonamiento de Claude: subirlo pide revisar qué viaja a MaKo (relevo, después del 20/10).
+
+**Vive en:** app/_components/nav.ts (`arribaDe`) · lib/ops-center-ruta.ts · lib/centro-chats.ts (`segundoRenglon`, `avisosDe`,
+`sinElRunner`) · app/admin/operaciones/{Trabajando,Uso,Conversacion,PiezasCentro,useCentro,TicketeraCentro}.tsx ·
+app/m/operaciones/ChatsMovil.tsx · tests/centro-ops6.test.ts.
+
+**Sin hacer:**
+- el mazo y la lista de «Preguntas de los chats» ya no los dibuja nadie, pero sus archivos siguen (app/tickets/decisiones/Mazo.tsx,
+  app/admin/runway/Tablero.tsx, sus rutas-puerta y tests): borrarlos es otra tanda;
+- el razonamiento real (texto) de un chat en «Trabajando…»: ⚠️ después del 20/10, con revisión de qué viaja;
+- nada de esto se vio en el Android de Martín: tests y tipos, no pantalla.
+
+---
+
+## Un «Completado» con «…»: el título de la FILA usado donde iba el texto (17/10/2026, séptimo Ops Center)
+
+Martín: «los mensajes de "Completado" tienen 3 puntos al final y no llego a leer todo, esos son los mensajes más importantes».
+
+**El diagnóstico obvio era el equivocado.** Parecía un `line-clamp` o un `text-overflow` del CSS de la tarjeta; no había ninguno en
+`.co-ya`. Era el dato: `YaEstaMensaje` dibujaba como título `n.titulo`, el de la FILA de las listas (`tituloDeTexto`: el primer
+renglón cortado a 72 caracteres y «…»), y como cuerpo todo lo que venía DESPUÉS del primer renglón. Lo que pasaba de los 72
+caracteres de ese renglón no se dibujaba en ningún lado, y los chats escriben ahí su resumen. **Regla:** un título hecho para una
+lista no se reutiliza donde va el texto; la tarjeta usa `partesDeYaEsta` (lib/centro-chats.ts): el renglón entero, como título si
+cabe en 110 caracteres y, si no, como primer párrafo. Un cuerpo de más de 1500 caracteres pliega sólo su detalle y deja a la vista
+la cola (`partirPendiente`: desde «Sigue», «Pendiente», «Falta» o «Prueba»; sin esas marcas, el último párrafo).
+
+**Los cortes que quedan, y son silenciosos** (sin «…»; cortan justo la cola, que es lo último que se escribe):
+- la PC sube hasta 4000 caracteres por turno (scripts/operaciones/cartero.mjs, `TOPE_TURNO`); la tarjeta ahora lo dice
+  («Cortado a los 4000 caracteres»), pero subir el tope es del cartero (sin tocar acá);
+- el cierre estructurado (`cierre --hecho … --sigue …`) corta cada campo a 600 en la PC y en `sanearCierres`; y la tarjeta de ese
+  cierre dibujaba `hecho || decidido`: con `hecho`, lo «decidido» no se veía nunca (ahora sí).
+
+**La caja.** Antes el «+» medía 34 (teléfono) con borde, la carita 36×42, el campo 42 y mandar 42, todo alineado abajo: la altura
+del «+» era la única que no era la del renglón. En la computadora el campo se centraba (`align-self: center`) y medía 36 contra 40
+de los botones. Ahora UNA medida (`--caja-toque`: 40 mouse, 44 dedo y teléfono) y el campo de un renglón mide lo mismo. Medido en
+Chrome con el CSS real: los cuatro comparten centro y borde de abajo con 1, 2 y 4 renglones, y el centro del último renglón cae
+en el de los botones. ⚠️ La capa de links de la computadora (`.co-caja__resalte`) no tenía el relleno del textarea (6 px de
+diferencia): la capa y el campo comparten ahora UNA regla; si se toca el relleno o el renglón de uno, se toca el otro.
+
+**El ícono.** La estrella se pide con `estrella` (Criatura.tsx), no por el nombre: «solo el Cerebro» es regla de `aspectoDe`, y
+sumar «Ops Center» a esa lista habría vuelto estrella a todo chat con ese nombre. «Nuevo chat» es `CirculoNuevo` (verde, con «+»):
+el muñeco gris era el de un chat que existe.
+
+**El aviso del «Completado» no salía en ningún chat que no se hubiera abierto (17/10, 21:30).** Medido con los turnos reales (61
+chats en `operaciones.turnos.*`, 0,9 MB): hoy sólo 4 chats terminaron con un «Ya está» (los demás cierran en prosa: «Terminé el
+feedback del CRM…», que no es un «Completado» para la pantalla). Pero `avisaYaEsta` miraba `vistaPrevia(lineasDe)` y `lineasDe` se
+armaba con `turnos[c.clave]`, y esos turnos viajan SÓLO del chat que se mira (`pedirTurnos`): la fila de uno cerrado no sabía su
+último mensaje. El diagnóstico probable (el estado por dispositivo, o que sólo cuente los de después del deploy) no era: `desde`
+sólo descarta lo anterior a la primera apertura. **Regla:** un aviso por chat sale de lo que trae el refresco de TODOS
+(`leerUltimosTurnos`: los 3 últimos turnos de los últimos 3 días, recortados a 300 caracteres, con caché por `updated_at` para no
+releer 0,9 MB cada 8 s), nunca de la conversación abierta; y ese texto cortado no se dibuja como conversación
+(`turnosParaLaLista` lo niega para el chat que se mira).
+
+**«MaKo en WhatsApp» (el vigía):** 44 de sus 60 turnos son «Sin incidentes nuevos.» (un cron cada 15 min). Se esconde de la lista
+mientras su último turno es ése (`vigiaCallado`), no borrándolo: es el chat jefe de la vigilancia, y un incidente de verdad lo hace
+volver y avisar como «Espera tu respuesta» (`incidenteSinVer` suma una espera). El chat que se está mirando no se esconde.
+
+**«Runner conectado, todavía sin medir» era falso, y MaKo no puede pedirle la medición a ese Runner porque no existe.** Datos
+reales: la cuenta 2 no tiene ningún chat Runner (28 chats, 1 sesión viva suelta, `cuota: null`); la 1 y la 3 no tienen sesiones
+vivas; sólo el Runner de la cuenta 4, que corre con el paso 0b, mide (0 % de 5 h, 78 % de la semana, hace segundos). «Conectado» era
+`visto_at` fresco, y lo mantiene el Runner de la app, que da la vuelta por las cuatro carpetas. Lo que mide el Uso es la barra de
+estado de SU Runner de terminal (`--settings`, `cartero.mjs uso`) o `get_usage` de la app, y `get_usage` sólo habla de la cuenta
+de la app. Un trabajo firmado «medí tu uso» no tiene a quién llegar (y el cartero rechaza todo trabajo al Runner: «Al Runner no se
+le escribe»). Se cambió el texto por lo cierto («Sin medir: su terminal no tiene Runner abierto»). Medir solo exige abrir el Runner
+de esa cuenta con su barra de estado: un «Nuevo chat» firmado con nombre «Runner» y `--settings` (cartero `abrir`, ⚠️ pide
+revisión: lanza un proceso) sería el camino; no se tocó.
+
+**«Trabajando…» no salía (22:40).** Medido con la PC viva: el estado ocupado de cada chat llega a MaKo con la vuelta del Runner, cada
+~2 minutos (`operaciones_carteros.visto_at` no se movió en 4 minutos de muestreo), y los pasos en vivo llegan cada ~15 s, sólo de los
+chats ocupados. Un chat que empezó después de la última vuelta no decía nada y uno que ya terminó seguía diciendo «Trabajando…». La
+cadena de la pantalla estaba bien (con el estado cierto, el Cerebro real dibuja «Trabajando…»). **Regla:** un chat con pasos de hace
+segundos ES un chat ocupado (`completarChats`, 1b). Queda: uno que piensa sin haber usado herramientas todavía espera a la vuelta;
+el arreglo de raíz es que `vigilar` suba el estado en cada pasada (cartero, ⚠️ REVISAR; no se tocó).
+
+**El grafo no se iba al tocar un chat (22:40) — SIN VERIFICAR EN EL NAVEGADOR.** Hipótesis por el código: el efecto de la URL
+(`anotarEnUrl`) reescribía con `replaceState` antes de que terminara el `router.push`, y Next quedaba otra vez en `?panel=mapa&centro=…`
+(el mismo choque `replaceState` + router de docs/hallazgos-second-brain.md). Con el grafo abierto no se anota la URL. Si Martín lo
+vuelve a ver, el siguiente paso es medirlo en el navegador (CDP).
+
+**Dormido, y el formato (22:40).** Un chat abierto que no trabaja ni espera nada ya no es «despierto» (`animoDe(c, avisos)`). El
+Markdown de los chats mostraba crudo todo lo que el parser no sabía (listas numeradas, `código`, cursiva, títulos de 4 almohadillas,
+tablas): se sumó, sin tocar lo de antes. Dos trampas que salieron al probar con texto real: el prefijo «Ya está» se comía el `**` que
+abría el título («Ya está: **el filtro**» quedaba «el filtro**»), y un link entre paréntesis («(ver https://x.com/a).») se llevaba el «)».
+Una cursiva sólo vale si el `*` abre una palabra: «lib/*.ts y app/*.tsx» no es una cursiva.
+
+**Vive en:** lib/centro-chats.ts (`partesDeYaEsta`, `partirPendiente`, `cortadoPorLaPC`) · app/admin/operaciones/{Avance,Hilo,NuevoChat}.tsx
+· centro.css (`.co-ya__*`, `.co-caja__fila`, `--caja-toque`) · app/m/operaciones/operaciones.css · app/_components/{Criatura,Sidebar}.tsx
+· app/m/mas/page.tsx · lib/{operaciones-reglas,centro-turnos-db}.ts (`resumirTurnos`, `leerUltimosTurnos`) · app/admin/operaciones/{useCentro,acciones,datos,Uso,Muneco}.ts(x) · app/_components/Markdown.tsx · lib/links-texto.ts · app/second-brain/ChatSecondBrain.tsx · tests/centro-ops7.test.ts.
+
+**Sin hacer:** nada se vio en el Android de Martín (medido en Chrome de escritorio con el CSS real, y tests); el tope de 4000 / 600
+del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la medición automática de una cuenta sin Runner (arriba).

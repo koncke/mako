@@ -17,8 +17,10 @@
 // propio usuario resuelve (tzActual() → getWorkspaceActual()).
 
 import { tzActual } from '@/lib/timezone';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 /** Zona IANA del workspace actual (setting mako.timezone), con fallback al default. */
 export async function tzWorkspaceAction(): Promise<string> {
+  await exigirSesion();
   return tzActual();
 }

@@ -20,6 +20,7 @@ import {
   type AgendaDelNegocio, type ResultadoVincular, type ResultadoDesvincular,
 } from '@/lib/agenda-evento-etapa-server';
 import type { ProveedorAgenda } from '@/lib/agenda-evento-etapa';
+import { exigirSesion } from '@/lib/sesion-accion';
 
 export type { AgendaDelNegocio, EventoDeAgenda, EtapaVinculable } from '@/lib/agenda-evento-etapa-server';
 
@@ -40,6 +41,7 @@ async function autorActual(): Promise<string> {
 
 /** Los eventos de la agenda del negocio (Calendly y Cal.com), con su vínculo, y las etapas que se pueden vincular. */
 export async function listarEventosAgendaAction(): Promise<({ ok: true } & AgendaDelNegocio) | { ok: false; error: string }> {
+  await exigirSesion();
   if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
   try {
     return { ok: true, ...(await listarEventosDeAgenda()) };
@@ -51,6 +53,7 @@ export async function listarEventosAgendaAction(): Promise<({ ok: true } & Agend
 
 /** Vincula un evento a una etapa de reunión. Un evento va a UNA sola etapa: el segundo vínculo se rechaza. */
 export async function vincularEventoEtapaAction(input: { proveedor: ProveedorAgenda; identificador: string; funnelId: number; etapa: string }): Promise<ResultadoVincular> {
+  await exigirSesion();
   if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
   try {
     const r = await vincularEvento({ proveedor: input.proveedor, evento: input.identificador, funnelId: input.funnelId, etapa: input.etapa, autor: await autorActual() });
@@ -64,6 +67,7 @@ export async function vincularEventoEtapaAction(input: { proveedor: ProveedorAge
 
 /** Desvincula un evento: sus reservas vuelven a lo de antes (la R1/R2 de Integraciones y el funnel principal). */
 export async function desvincularEventoEtapaAction(input: { proveedor: ProveedorAgenda; identificador: string }): Promise<ResultadoDesvincular> {
+  await exigirSesion();
   if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
   try {
     const r = await desvincularEvento({ proveedor: input.proveedor, evento: input.identificador });

@@ -35,8 +35,6 @@ import { PAGINAS_KEY, parsearPaginas } from '@/lib/landing-paginas';
  * Se lee acá y no por la action porque el cron corre sin sesión: la action pide
  * el permiso de la tab, que no existe fuera de una request de usuario.
  */
-const NL = String.fromCharCode(10);
-
 async function paginasDelWorkspace(): Promise<string[]> {
   const nuevo = urlsDe(parsearConfig(await getSetting(CONFIG_KEY)));
   if (nuevo.length) return nuevo;
@@ -47,6 +45,8 @@ import { emitirDelCatalogo } from '@/lib/avisos';
 import { mirarLanding } from '@/lib/landing-vigilancia';
 import { enumerar, hayCambios, nombresDe } from '@/lib/landing-snapshot';
 import { esPiezaDeVideo, hostDePieza } from '@/lib/landing-analisis';
+import { datosLandingCambio, datosPixelViejo, datosTrackingApagado } from '@/lib/tracking-aviso';
+import { zonaDelNegocio } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -116,37 +116,23 @@ async function revisarCambios(ws: number, suyas: string[]): Promise<number> {
     if (!nuevas.length && !sacadas.length) continue;
     n++;
 
-    const frases: string[] = [];
-    if (nuevas.length) {
-      // ⚠️ «YA LO ESTOY MIDIENDO» ERA UNA PROMESA QUE NO SIEMPRE SE PODÍA CUMPLIR.
-      // La frase salía para CUALQUIER pieza nueva, incluidas las que el Pixel no
-      // puede medir: a un cliente que sube un video a Google Drive se le
-      // prometía una retención que no va a llegar nunca, y eso es peor que no
-      // avisar. Ahora se dice lo que corresponde según el host.
-      const noMedibles = piezasNuevas
-        .map((p) => hostDePieza(p))
-        .filter((h) => h && !h.medible)
-        .map((h) => h!.nombre);
-      frases.push(
-        noMedibles.length === nuevas.length
-          ? `Le agregaste *${enumerar(nuevas)}* a tu página *${url}*. Te aviso para que lo sepas: desde ahí el reproductor no le avisa nada a la página, así que no puedo medir las reproducciones. Si quieres que se midan, súbelo directo a tu página o a Panda.`
-          : `Le agregaste *${enumerar(nuevas)}* a tu página *${url}*. Ya lo estoy midiendo.`,
-      );
-    }
-    // ⚠️ La frase de «sacaste» aclara que lo ya registrado sigue estando. Sacar
-    // una pieza no borra lo que produjo, y sin esa aclaración el mensaje se lee
-    // como que se perdieron los datos.
-    if (sacadas.length) frases.push(`Sacaste *${enumerar(sacadas)}* de tu página *${url}*, así que dejo de pedírtelo en las pruebas. Lo que ya se registró por ahí sigue en tu CRM.`);
+    // ⚠️ «YA LO ESTOY MIDIENDO» ERA UNA PROMESA QUE NO SIEMPRE SE PODÍA CUMPLIR: a un cliente que sube un video a
+    // Google Drive se le prometía una retención que no va a llegar nunca. Por eso va si se puede medir según el host.
+    const noMedibles = piezasNuevas.map((p) => hostDePieza(p)).filter((h) => h && !h.medible);
 
-    // Va `texto` y no `contexto` por la regla de la casa: acá viaja una URL y un
-    // link exactos, y un dato exacto que pasa por un LLM deja de ser exacto.
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `landing_cambio`, «nada por detrás»,
+    // lote 3): acá van sólo los hechos. Si se puede medir lo pregunta su CONDITION, y lo sacado aclara allá que lo ya
+    // registrado sigue en el CRM.
     await emitirDelCatalogo('landing-cambio', {
       ws,
       // Un cambio se cuenta UNA vez. La dedup va por página y por lo que cambió:
       // si mañana cambia otra cosa, ese sí es un aviso nuevo.
       dedupKey: `landing-cambio:${url}:${[...cambios.nuevas, ...cambios.sacadas].sort().join(',')}`,
       dedupTtlMin: DEDUP_MIN,
-      texto: [...frases, '', linkLanding(ws)].join(NL),
+      datos: datosLandingCambio({
+        pagina: url, agregaste: nuevas.length ? enumerar(nuevas) : null, todasSinMedir: noMedibles.length === nuevas.length,
+        sacaste: sacadas.length ? enumerar(sacadas) : null, link: linkLanding(ws),
+      }),
     });
   }
   return n;
@@ -260,33 +246,10 @@ export async function GET(req: NextRequest) {
             // Todas las que daban viejas ya sirven el código nuevo: no hay nada que pedir.
             // Sin esto caía al texto genérico de abajo, que acusa sin nombrar ninguna página.
             if (!atrasadas.length && yaSirvenLaNueva > 0) return { ws: w.id, ultima, horas, aviso: false, snippet: instalada, cambios };
-            // ⚠️ LA RAZÓN VA PRIMERO, y sólo si es VERDAD para este negocio. Con la
-            // grabación prendida y un código anterior al grabador, lo que se pierde es
-            // concreto: las visitas no se graban. Es la primera línea porque es la que
-            // queda cuando el resumen diario recorta cada aviso a un renglón.
-            // ⚠️ Y TIENE QUE SER VERDAD PARA CADA PÁGINA NOMBRADA, no para la más vieja:
-            // con `minima` decía «no graban» de una página en la v21, que graba. (La
-            // grabación está siempre prendida desde el 06/10/2026: ya no se pregunta.)
-            const razon = noGrabanTodas(versionesAtrasadas, instalada)
-              ? (atrasadas.length > 1
-                ? 'Tus páginas tienen un código viejo del Pixel y por eso no graban las visitas.'
-                : 'Tu página tiene un código viejo del Pixel y por eso no graba las visitas.')
-              : null;
-            const lista = atrasadas.map((u) => `• ${u}`).join(NL);
-            const cuales = razon
-              ? (atrasadas.length === 1 ? `La página: *${atrasadas[0]}*` : atrasadas.length > 1 ? `Las páginas:${NL}${lista}` : '')
-              : atrasadas.length === 1
-                ? `Tu página *${atrasadas[0]}* tiene una versión vieja del Pixel.`
-                : atrasadas.length > 1
-                  ? `Estas páginas tienen una versión vieja del Pixel:${NL}${lista}`
-                  : 'El código que tienes instalado es de una versión vieja.';
-            // ⚠️ Va `texto` y NO `contexto`: con `contexto` el mensaje lo REDACTA
-            // el modelo, y acá viaja un LINK exacto. La regla de la casa es
-            // textual: «un DATO EXACTO que pasa por las manos de un LLM deja de
-            // ser exacto… si un id, un número o una URL tienen que llegar
-            // intactos, no los transporta el modelo». Además el mensaje es
-            // siempre el mismo, así que pagarle a Claude para reescribirlo es
-            // gastar por una variación que nadie pidió.
+            // ⚠️ «NO GRABA» TIENE QUE SER VERDAD PARA CADA PÁGINA NOMBRADA, no para la más vieja: con `minima` decía «no
+            // graban» de una página en la v21, que graba. (La grabación está siempre prendida desde el 06/10/2026.)
+            // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `pixel_viejo`, «nada por detrás»,
+            // lote 3): acá van los hechos —las páginas, si graba, lo que se pierde, el link— y su CONDITION elige el texto.
             await emitirDelCatalogo('tracking-desactualizado', {
               ws: w.id,
               dedupTtlMin: DEDUP_VIEJO_MIN,
@@ -297,27 +260,24 @@ export async function GET(req: NextRequest) {
               // sigue siendo 'v22', así que nadie recibe un envío extra. Cambia solo cuando
               // alguien sube PIXEL_MINIMO_AVISO a mano, que es cuando sí se pide algo nuevo.
               dedupKey: `v${PIXEL_MINIMO_AVISO}`,
-              texto: [
-                ...(razon ? [razon] : []),
-                ...(cuales ? [cuales] : []),
-                '',
-                `*Qué te estás perdiendo:* ${novedadesDesde(minima)}.`,
-                '',
-                // El arreglo es la línea del cargador (lib/pixel-cargador.ts): se pega una vez y
-                // sirve siempre el Pixel del día, así que este mensaje no vuelve a hacer falta.
-                `*Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en ${atrasadas.length > 1 ? 'cada página' : atrasadas.length === 1 ? 'esa página' : 'tu página'} en lugar del código viejo. Con esa línea no vuelves a actualizar nada.`,
-                linkLanding(w.id),
-              ].join('\n'),
+              // El arreglo que propone su texto es la línea del cargador (lib/pixel-cargador.ts): se pega una vez y sirve
+              // siempre el Pixel del día, así que este aviso no vuelve a hacer falta.
+              datos: datosPixelViejo({
+                paginas: atrasadas, noGraba: noGrabanTodas(versionesAtrasadas, instalada),
+                novedades: novedadesDesde(minima), link: linkLanding(w.id),
+              }),
             });
           }
           return { ws: w.id, ultima, horas, aviso: false, snippet: instalada, cambios };
         }
 
-        const dias = Math.floor(horas / 24);
+        // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `tracking_apagado`, «nada por
+        // detrás», lote 3). Hasta ese día lo REDACTABA una IA con `contexto` (los días y la fecha en ISO): un número que pasa
+        // por un modelo deja de ser exacto, y cada aviso costaba una llamada. Van los días y la fecha, en la zona del negocio.
         await emitirDelCatalogo('tracking-apagado', {
           ws: w.id,
           dedupTtlMin: DEDUP_MIN,
-          contexto: `La landing no registra visitas desde hace ${dias} día(s) (última: ${ultima}). Los anuncios pueden seguir corriendo: lo que se pierde es la atribución. Causa típica: el Pixel de MaKo quedó apuntando a una dirección vieja — se copia con la URL congelada y no se entera de un cambio de dominio.`,
+          datos: datosTrackingApagado({ horas, ultima, tz: await zonaDelNegocio(w.id), link: linkLanding(w.id) }),
         });
         return { ws: w.id, ultima, horas, aviso: true, cambios };
       });

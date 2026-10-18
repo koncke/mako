@@ -25,11 +25,14 @@ import { Field, Input, Textarea } from '@/app/_ui';
 import { CUENTAS_TERMINAL, comandoNuevoChat } from '@/lib/runner';
 import { nombreCuenta, nombreValido, primerMensajeNuevo } from '@/lib/centro-chats';
 import { problemaDeNombreNuevo } from '@/lib/operaciones-reglas';
-import { Muneco } from './Muneco';
 
-/** El muñeco de un chat que todavía no existe: gris y transparente, como un lugar vacío. */
-export function MunecoNuevo({ size = 38 }: { size?: number }) {
-  return <span className="co-muneco-nuevo" aria-hidden><Muneco titulo="Nuevo chat" animo="dormido" size={size} /></span>;
+/**
+ * El ícono de «Nuevo chat» en la lista: un CÍRCULO verde con su «+», como el botón de chat nuevo de WhatsApp (Martín,
+ * 17/10/2026: «el de "Nuevo chat" que sea el círculo, no el actual»). Antes era un muñeco gris y transparente; ahora ningún
+ * muñeco: el muñeco es de un chat que existe. Del tamaño del muñeco de las otras filas, para que la lista quede alineada.
+ */
+export function CirculoNuevo({ size = 38 }: { size?: number }) {
+  return <span className="co-circulo-nuevo" aria-hidden style={{ width: size, height: size }}><Icon name="plus" size={Math.round(size * 0.5)} /></span>;
 }
 
 /** `texto`: el primer mensaje (vacío = el de siempre, `primerMensajeNuevo`). */

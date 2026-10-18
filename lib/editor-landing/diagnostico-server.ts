@@ -39,7 +39,7 @@ import { motivoDePagina, sanearLectura } from './lectura-reglas';
 import { urlParaReplicar } from './replicar-reglas';
 import type { Lectura, MotivoEnNavegador } from './lectura-tipos';
 import {
-  TOPES_DIAGNOSTICO, claveSugerencia, estadoValido, normalizarHallazgos,
+  TOPES_DIAGNOSTICO, claveSugerencia, estadoValido, hallazgosSinComentario, normalizarHallazgos,
   objetivoDe, resumenDeAnalisis, ubicarCitaEnBloques,
   type EstadoSugerencia, type HallazgoDiagnostico, type ResumenDiagnostico, type RespuestaListaDiagnostico,
   type Sugerencia,
@@ -128,14 +128,42 @@ async function leerSugerencias(ws: number, obj: Objetivo): Promise<Sugerencia[]>
   return filas.map(aSugerencia).filter((s): s is Sugerencia => s !== null);
 }
 
-/** El veredicto guardado de una landing de afuera (landing_analyses), o null. */
-async function resumenGuardado(url: string): Promise<ResumenDiagnostico | null> {
+/**
+ * El análisis guardado de una landing de afuera (landing_analyses): su veredicto y sus hallazgos, o null.
+ *
+ * Los HALLAZGOS también (#863, 17/10/2026): la fila la puede haber escrito el Landing Analyst (el análisis automático
+ * de las páginas del Pixel, la tab), que no guarda comentarios. Sin ellos, el panel abría con el veredicto y «nada que
+ * señalar» sobre una landing con 3 hallazgos (`hallazgosSinComentario`, diagnostico.ts).
+ */
+async function analisisGuardado(ws: number, url: string): Promise<{ resumen: ResumenDiagnostico; hallazgos: HallazgoDiagnostico[] } | null> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('landing_analyses').select('status, score, veredicto, resumen, analyzed_at').eq('url', url).maybeSingle();
+  const { data, error } = await db.from('landing_analyses').select('status, score, veredicto, resumen, analyzed_at, hallazgos').eq('workspace_id', ws).eq('url', url).maybeSingle();
   if (error) throw new Error(error.message);
-  const f = data as { status?: string; score?: number | null; veredicto?: string | null; resumen?: string | null; analyzed_at?: string | null } | null;
+  const f = data as { status?: string; score?: number | null; veredicto?: string | null; resumen?: string | null; analyzed_at?: string | null; hallazgos?: unknown } | null;
   if (!f || f.status !== 'analizada') return null;
-  return resumenDeAnalisis({ score: f.score, veredicto: f.veredicto, resumen: f.resumen }, f.analyzed_at ?? null);
+  return {
+    resumen: resumenDeAnalisis({ score: f.score, veredicto: f.veredicto, resumen: f.resumen }, f.analyzed_at ?? null),
+    hallazgos: normalizarHallazgos(f.hallazgos ?? []),
+  };
+}
+
+/**
+ * Los comentarios de una landing de afuera, con los hallazgos de su análisis guardado que todavía no eran comentarios
+ * (#863). Nunca tira por eso: si guardarlos falla, queda en el log y la lista sale como estaba (la persona igual puede
+ * «Volver a analizar»).
+ */
+async function sugerenciasDeAfuera(ws: number, obj: { url: string }, hallazgos: readonly HallazgoDiagnostico[]): Promise<Sugerencia[]> {
+  const sugerencias = await leerSugerencias(ws, obj);
+  const faltan = hallazgosSinComentario(obj, sugerencias, hallazgos);
+  if (!faltan.length) return sugerencias;
+  try {
+    const nuevas = await guardarHallazgos(ws, obj, faltan.map((h) => ({ h, seccionId: null })));
+    console.log(`[landing-generator/diagnostico] ${obj.url}: ${nuevas} comentarios desde el análisis guardado`);
+    return await leerSugerencias(ws, obj);
+  } catch (e) {
+    console.error(`[landing-generator/diagnostico] ${obj.url}: no pude pasar el análisis guardado a comentarios: ${msg(e)}`);
+    return sugerencias;
+  }
 }
 
 /**
@@ -208,8 +236,9 @@ export async function listar(p: { docId?: unknown; url?: unknown }): Promise<Res
       const [sugerencias, resumen] = await Promise.all([leerSugerencias(ws, obj), resumenDeNuestra(ws, obj.docId)]);
       return { ok: true, sugerencias, resumen, url: null };
     }
-    const [sugerencias, resumen] = await Promise.all([leerSugerencias(ws, obj), resumenGuardado(obj.url)]);
-    return { ok: true, sugerencias, resumen, url: obj.url };
+    const guardado = await analisisGuardado(ws, obj.url);
+    const sugerencias = await sugerenciasDeAfuera(ws, obj, guardado?.hallazgos ?? []);
+    return { ok: true, sugerencias, resumen: guardado?.resumen ?? null, url: obj.url };
   } catch (e) {
     return falla(msg(e), 500);
   }

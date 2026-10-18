@@ -61,18 +61,19 @@ test('1a: la sección del nav es la primera de «Image», la tab apunta ahí y n
   assert.deepEqual(pronto, ['image-generator', 'thumbnails'], 'Image Generator y Thumbnails siguen diciendo que todavía no están');
 });
 
-test('1c: Content Machine → «Image» lleva al editor en la barra del super admin, mirando un cliente y en la del cliente', () => {
+test('1c: Sales Machine → «Image» lleva al editor en la barra del super admin, mirando un cliente y en la del cliente', () => {
   // 14/10/2026, Martín: «No veo la tab en la sidebar principal»; 15/10: «Que Image aparezca en todos los workspace».
   // Medido en el DOM de la Sidebar real ese día: antes, la fila sólo estaba para el super admin en su cuenta; mirando un
   // cliente con `?ws=` y para un admin de cliente no estaba (y con Content Machine plegada no está para nadie).
   // PROBADO ROMPIÉNDOLO: image-editor con `comingSoon: true` → la tab lleva a /carousels, 0/1.
-  const image = FAMILIAS.find((f) => f.key === 'content')?.bloques.flat().find((i) => i.key === 'image');
-  assert.ok(image, 'la tab «Image» no está en la familia Content Machine');
+  // Desde el 17/10/2026 en Sales Machine (Martín: «elimina Content Machine y que todo esté dentro de Sales Machine»).
+  const image = FAMILIAS.find((f) => f.key === 'create')?.bloques.flat().find((i) => i.key === 'image');
+  assert.ok(image, 'la tab «Image» no está en la familia Sales Machine');
   assert.equal(resolverTab(image, { adminShell: true, rolWs: 'admin', capa: 'superadmin' })?.href, '/image-editor', 'en su barra, «Image» tiene que llevar al editor');
   assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'completo' })?.href, '/image-editor', 'mirando un cliente o como admin de un cliente, también');
   assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'agencia' })?.href, '/image-editor', 'una agencia, también');
   assert.equal(resolverTab(image, { adminShell: false, rolWs: 'closer', capa: 'completo' }), null, 'un closer no (como el Video Editor)');
-  assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'pm' }), null, 'la capa pm no tiene Content Machine');
+  assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'pm' }), null, 'la capa pm no tiene Image');
 });
 
 test('1b: las pages llaman al guard, y el guard es la pregunta de toda tab (rol del workspace y capa)', () => {

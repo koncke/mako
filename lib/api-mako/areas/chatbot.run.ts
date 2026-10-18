@@ -15,7 +15,8 @@ import 'server-only';
 import type { Ctx, Runners, SalidaLectura } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, PasosInvalidosError, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
-import { motivoNoInscribe } from '@/lib/nutricion-inscripcion-manual';
+import { motivoNoInscribe, motivoNoSale, SALIDAS_QUE_YA_ESTABAN } from '@/lib/nutricion-inscripcion-manual';
+import { sacarDeSecuencia, type SalidaManual } from '@/lib/nutricion-salida-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, type PasoGrafo } from '@/lib/flujo-grafo';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
@@ -39,7 +40,8 @@ import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { partesExplicitas, pasosUsanAudio, problemaDePartes, sanearPartes } from '@/lib/mensaje-partes';
 import { partesDeMako, esTarjetaTalCual, armarAvisoDeTarjeta, resultadoDelAviso, textoDePreparadas, esPorEmail, asuntoDeMako, problemaDeEmailMako, sinGrupoDeMako, type PartePreparada } from '@/lib/mako-tarjeta';
 import { prepararPartesGrupo, problemaDePartesGrupo } from '@/lib/mako-tarjeta-envio';
-import { getSettingData, guardarEstrategia, probarSecuencia, escenarioDePrueba, muestraParaCriterio, productosConEtapas, TriggerInvalidoError } from '@/lib/setting-secuencias';
+import { getSettingData, guardarEstrategia, probarSecuencia, escenarioDePrueba, muestraParaCriterio, productosConEtapas, setCronSecuencia, TriggerInvalidoError } from '@/lib/setting-secuencias';
+import { duplicarSecuencia, nombreDeCopia, type DbDuplicar } from '@/lib/secuencia-duplicar';
 import { escenariosDeLaSecuencia } from '@/lib/simulador-grafo';
 import {
   plantillasPara, plantillaPorId, canalesDe, eleccionEnPalabras, CANALES_PLANTILLA, OBJETIVOS_PLANTILLA, type PlantillaAutomatizacion,
@@ -119,6 +121,10 @@ const historialDe = (input: Record<string, unknown>): TurnoSim[] =>
  *  (puro, con test), incluido el id que no es de este negocio. */
 const noSeInscribe = (v: Extract<InscripcionManual, { inscribe: false }>, leadId: number, secuenciaId: number): string =>
   motivoNoInscribe(v.porque, { secuenciaId, secuencia: v.secuencia?.nombre, leadId, lead: v.lead?.nombre });
+
+/** Por qué NO sale de una secuencia (el espejo de arriba): las frases viven en lib/nutricion-inscripcion-manual.ts. */
+const noSale = (v: Extract<SalidaManual, { sale: false }>, leadId: number, secuenciaId: number): string =>
+  motivoNoSale(v.porque, { secuenciaId, secuencia: v.secuencia?.nombre, leadId, lead: v.lead?.nombre });
 
 /**
  * El lead de un aviso al equipo, de ESTE negocio (getTenantDb). Un error de lectura TIRA: «no pude leer»
@@ -650,6 +656,41 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // «Duplicar» de la lista de /automations: la MISMA función (lib/secuencia-duplicar.ts, con su test), enchufada como en la
+  // ruta (app/api/chat-agent/secuencias/route.ts, acción `duplicar`): los pasos por `setSecuenciaPasos` y el horario por
+  // `setCronSecuencia`. La original se carga con la base del negocio (`getTenantDb`) ANTES de nombrarla en nada: el id de
+  // una secuencia de otro negocio no existe acá. Un flujo no la corre (repetiría una copia por cada lead).
+  duplicar_automatizacion: {
+    preparar: async (input, ctx) => {
+      if (desdeUnFlujo(ctx)) return { error: 'Una automatización no puede duplicar automatizaciones: un flujo corre una vez por lead y haría una copia por cada uno. Pídeselo a MaKo por el grupo o hazlo en Automations.' };
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      return {
+        payload: { secuenciaId: s.id },
+        resumen: `Duplicar «${s.nombre}»: queda «${nombreDeCopia(s.nombre)}», con los mismos pasos y el mismo disparador, PAUSADA (no le escribe a nadie hasta que la actives).`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      try {
+        const r = await duplicarSecuencia(Number(payload.secuenciaId), { db: (await getTenantDb()) as unknown as DbDuplicar, setPasos: setSecuenciaPasos, setCron: setCronSecuencia });
+        // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser exacto).
+        const link = linkApp(`/automations?sec=${r.id}`, ctx.ws);
+        return {
+          ok: true,
+          resumen: `Automatización «${r.nombre}» creada (#${r.id}), pausada.`,
+          datos: { secuenciaId: r.id },
+          paraLaPersona: `🧩 «${r.nombre}» quedó pausada. Ábrela y actívala 👉 ${link}`,
+        };
+      } catch (e) {
+        if (e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] duplicar_automatizacion:', msg);
+        return { ok: false, resumen: `No se pudo duplicar la automatización #${String(payload.secuenciaId)} (${msg}).` };
+      }
+    },
+  },
+
   cambiar_espera_paso: {
     preparar: async (input) => {
       const id = num(input, 'secuenciaId'); const orden = num(input, 'orden'); const horas = num(input, 'delayHoras');
@@ -827,6 +868,39 @@ export const RUNNERS: Runners = {
         const msg = e instanceof Error ? e.message : String(e);
         console.error('[api-mako chatbot] inscribir_lead_secuencia:', msg);
         return { ok: false, resumen: `No se pudo inscribir al lead #${leadId} en la secuencia #${secuenciaId} (${msg}).` };
+      }
+    },
+  },
+
+  // El espejo de inscribir_lead_secuencia (17/10/2026). La decisión pura y la escritura (compare-and-set sobre el
+  // estado leído, con getTenantDb) son UNA función (sacarDeSecuencia, lib/nutricion-salida-manual.ts): acá con
+  // `soloVer`, que no escribe; al confirmar, sin él, y vuelve a decidir contra la base.
+  sacar_lead_de_secuencia: {
+    preparar: async (input) => {
+      const leadId = num(input, 'leadId'); const secuenciaId = num(input, 'secuenciaId');
+      const v = await sacarDeSecuencia(leadId, secuenciaId, { soloVer: true });
+      // «Ya está fuera» es el estado que el paso pide: para un flujo, nada que hacer.
+      if (!v.sale) return { error: noSale(v, leadId, secuenciaId), ...(SALIDAS_QUE_YA_ESTABAN.includes(v.porque) ? { yaEstaba: true } : {}) };
+      return {
+        payload: { leadId: v.lead.id, secuenciaId: v.secuencia.id },
+        resumen: `Sacar a ${v.lead.nombre} de «${v.secuencia.nombre}»: su inscripción queda cancelada, no recibe más mensajes de esa secuencia y no se vuelve a abrir (los que ya salieron no se retiran).`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const leadId = Number(payload.leadId); const secuenciaId = Number(payload.secuenciaId);
+      try {
+        const v = await sacarDeSecuencia(leadId, secuenciaId);
+        if (!v.sale) return { ok: false, resumen: noSale(v, leadId, secuenciaId) };
+        await logLeadEvent(v.lead.id, 'Secuencia', `Sale de «${v.secuencia.nombre}»`, ctx.actor?.trim() || 'MaKo');
+        return {
+          ok: true,
+          resumen: `Listo: ${v.lead.nombre} salió de «${v.secuencia.nombre}»; no recibe más mensajes de esa secuencia.`,
+          datos: { leadId: v.lead.id, secuenciaId: v.secuencia.id, estadoAntes: v.estadoAntes },
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] sacar_lead_de_secuencia:', msg);
+        return { ok: false, resumen: `No se pudo sacar al lead #${leadId} de la secuencia #${secuenciaId} (${msg}).` };
       }
     },
   },

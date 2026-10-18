@@ -11,7 +11,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { eliminarCredencial, estadoCampo, guardarCredencial, RemitenteNoPropioError } from '@/lib/credenciales';
-import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { wsObligatorio } from '@/lib/workspace';
 import { ENVS_METODO, SERVICIOS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +38,7 @@ export async function GET() {
   const sesion = await getSesionAdmin();
   if (!sesion) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   try {
-    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+    const ws = await wsObligatorio();
     return NextResponse.json({ ok: true, servicios: await estadoServicios(ws) });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e instanceof Error ? e.message : e) }, { status: 500 });
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 });
   }
 
-  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = await wsObligatorio();
 
   try {
     if (body.action === 'guardar') {

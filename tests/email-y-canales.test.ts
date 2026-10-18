@@ -160,7 +160,8 @@ test('⚠️ TODO lo que sale de la plantilla se lee en el WORKSPACE DEL AVISO',
   // mirando, no se saca.
   assert.ok(fn.length > 400 && fn.length < 6000, `el recorte de emitirDelCatalogo mide ${fn.length}: mira otra cosa`);
 
-  const iWs = fn.indexOf('const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;');
+  // (17/10/2026: sin workspace TIRA, no cae al ws1 — tests/sin-fallback-owner-ws.test.ts.)
+  const iWs = fn.indexOf('const ws = opts.ws ?? (await wsObligatorio());');
   const iPlantilla = fn.indexOf('getPlantilla(id)');
   assert.ok(iWs > 0 && iPlantilla > 0, 'no se ubicaron las dos marcas en emitirDelCatalogo');
   assert.ok(iWs < iPlantilla, 'la plantilla se lee antes de resolver el workspace: lee el store del dueño');

@@ -24,6 +24,7 @@ import { ErrorM } from '@/app/m/_ui';
 import { ChatMako } from '../mako/ChatMako';
 import { SecondBrainCentroM } from './SecondBrainCentroM';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
+import { quienOpera } from '@/app/second-brain/pagina';
 import '../mako/mako.css';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +41,10 @@ export default async function SecondBrainPagina({ searchParams }: {
   const veMapa = await esAdminDeTab('second-brain');
   const sp = await searchParams;
 
-  if (veMapa && (uno(sp.panel) === 'mapa' || uno(sp.area))) {
+  // ⚠️ Y para el super admin el Second Brain vive dentro del Ops Center (17/10/2026): su entrada salió de More y un
+  // /m/second-brain guardado lo lleva al grafo, como en la computadora (lib/ops-center-ruta.ts). La fila «Second Brain» del Ops
+  // Center del teléfono ya apunta acá con `?panel=mapa`.
+  if (veMapa && (uno(sp.panel) === 'mapa' || uno(sp.area) || await quienOpera())) {
     const q = new URLSearchParams();
     for (const k of ['area', 'vista'] as const) { const v = uno(sp[k]); if (v) q.set(k, v); }
     redirect(await rutaConWs(`/m/second-brain/mapa${q.size ? `?${q}` : ''}`));

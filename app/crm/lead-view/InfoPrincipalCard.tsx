@@ -22,7 +22,7 @@ import { useState, useTransition, type CSSProperties, type ReactNode } from 'rea
 import { useRefrescarFicha } from './ficha-cambio';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { Toast, useToast } from '@/app/_ui/Toast';
-import { saveLeadMetaAction } from '../actions';
+import { deshacerContactoLeadAction, saveLeadMetaAction } from '../actions';
 import { hrefDeWeb } from '@/lib/contacto-lead';
 import { linkInstagram, usuarioInstagram } from '../campo-inline';
 import { CajaCampo, InstagramEditable, MontoEditable, TelefonoEditable } from './CampoEditable';
@@ -244,16 +244,24 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
    */
   const guardar = (campo: 'nombre' | 'empresa' | 'email' | 'telefono' | 'web' | 'youtube' | 'linkedin' | 'direccion' | 'sexo', antes: string | null) => (v: string) => {
     const nuevo = v.trim();
+    // El «—» es lo que se DIBUJA sin teléfono, no un dato: deshacer no lo escribe.
+    const previo = antes && antes !== '—' ? antes : null;
     startGuardar(async () => {
       try {
         await saveLeadMetaAction(leadId, { [campo]: nuevo || null });
         refrescarFicha();
         // Tres palabras y el deshacer, que escribe en el SERVER: revertir sólo la
         // pantalla sería mentir hasta el próximo F5.
+        // ⚠️ Y SÓLO SI EL DATO SIGUE DICIENDO LO QUE SE ESCRIBIÓ (17/10/2026): hasta acá el deshacer
+        // escribía `antes` a ciegas, y si otra persona (o MaKo) lo había cambiado en esos segundos,
+        // se lo pisaba. Es el mismo deshacer que el Resumen (`deshacerContactoLeadAction`).
         show('Guardado', () => {
           startGuardar(async () => {
-            try { await saveLeadMetaAction(leadId, { [campo]: antes }); refrescarFicha(); }
-            catch { show('No se pudo deshacer', undefined, 'bad'); }
+            try {
+              const r = await deshacerContactoLeadAction(leadId, campo, previo, nuevo || null);
+              if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+              refrescarFicha();
+            } catch { show('No se pudo deshacer', undefined, 'bad'); }
           });
         });
       } catch (e) {

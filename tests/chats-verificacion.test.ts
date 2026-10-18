@@ -84,7 +84,7 @@ test('5. un envío cortado por tiempo es «no sé si salió»: no vuelve al camp
   const post = piezas.slice(piezas.indexOf('export async function postJson'));
   assert.match(post.slice(0, 1200), /catch \(e\) \{\s*return \{ ok: false, incierto: true/, 'un corte de red o de tiempo se lee como «no salió»');
   const comp = sinComentarios(leer('app/chats/Composer.tsx'));
-  assert.equal((comp.match(/if \(j\.incierto\) \{ incierto\(tmp\); return; \}/g) ?? []).length, 2, 'WhatsApp y social tratan el incierto');
+  assert.equal((comp.match(/if \(j\.incierto\) \{ incierto\(tmp\); return; \}/g) ?? []).length, 3, 'WhatsApp, social y email (17/10/2026) tratan el incierto');
   const zernio = sinComentarios(leer('lib/canal-zernio.ts'));
   assert.match(zernio, /input\.idempotencia/, 'la clave de idempotencia vuelve a ser nueva en cada pedido');
 });
@@ -93,6 +93,9 @@ test('la convivencia: /chats y /whatsapp son la misma pestaña del teléfono, y 
   const { rutaMovil, rutaEscritorio } = await import('../lib/movil-rutas');
   assert.equal(rutaMovil('/chats'), '/m/chats');
   assert.equal(rutaMovil('/whatsapp'), '/m/chats');
-  assert.equal(rutaMovil('/chats?lead=7'), '/m/crm/7/chat');
+  // A PROPÓSITO desde el 17/10/2026: el teléfono tiene la conversación unificada (/m/chats/<clave>, todos los
+  // canales del lead), como escritorio con `?lead=`. Antes iba al hilo de sólo WhatsApp (/m/crm/7/chat), que sigue
+  // existiendo para el botón WhatsApp de la ficha. Lo fija también tests/m-chats.test.ts.
+  assert.equal(rutaMovil('/chats?lead=7'), '/m/chats/lead%3A7');
   assert.equal(rutaEscritorio('/m/chats'), '/chats');
 });

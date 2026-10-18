@@ -9,7 +9,7 @@
 // rutas no se pueden importar en node:test.
 // =============================================================================
 
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -124,19 +124,38 @@ test('la clave que quedó sin respuesta manda en los tres modales, y se anota an
   //   · sin anotarClaveAbierta en el lote de NuevaCampanaModal → pass 9 / fail 1 (éste).
 });
 
+// ⚠️ EL RELOJ ES SIMULADO (17/10/2026). Este test falló o pasó según la CARGA de la máquina (10/10: rojo en la suite completa,
+// verde solo, verde de nuevo): usaba el reloj de verdad con un tope de 40 ms, y la cantidad de sondeos que caben en 40 ms
+// depende de cuánto tarde cada vuelta del event loop. Con un sondeo más lento que el tope entra UNO solo y la última lectura
+// es la primera: `[processing, {ok:false}]` daba 'tope' en vez de 'sin_lectura' (reproducido con un fetch de 45 ms: 'tope').
+// No era el código —que mide tiempo real a propósito— sino el test. Acá el tiempo sólo avanza cuando el test lo avanza (1 ms
+// por vuelta de `tick`), así que caben SIEMPRE 40 sondeos, con la máquina libre o quemando. Nunca se subió un tope.
+// Probado ROMPIÉNDOLO (17/10/2026): `esperarVideoListo` devolviendo siempre 'tope' al final → 9 / 1 (base 10 / 0). Y el caso
+// viejo con el reloj de verdad y un sondeo de 45 ms da 'tope' donde espera 'sin_lectura' (la falla del 10/10 reproducida).
 test('esperarVideoListo: «no pude leer» no es «Meta sigue procesando»', async () => {
   const { esperarVideoListo, motivoFinEspera } = await import('../app/ads-manager/creativeUpload');
+  type Fin = Awaited<ReturnType<typeof esperarVideoListo>>;
   const original = globalThis.fetch;
   // Cada respuesta se usa una vez y la ÚLTIMA se repite hasta el tope.
-  const con = async (respuestas: unknown[]) => {
+  const con = async (respuestas: unknown[]): Promise<Fin> => {
     let i = 0;
     globalThis.fetch = (async () => {
       const r = respuestas[Math.min(i++, respuestas.length - 1)];
       if (r instanceof Error) throw r;
       return { json: async () => r } as unknown as Response;
     }) as typeof fetch;
-    try { return await esperarVideoListo('123', null, { cadaMs: 1, topeMs: 40 }); }
-    finally { globalThis.fetch = original; }
+    mock.timers.enable({ apis: ['setTimeout', 'Date'] });   // `dormir` usa setTimeout y el tope usa Date.now()
+    try {
+      let fin: Fin | undefined;
+      const espera = esperarVideoListo('123', null, { cadaMs: 1, topeMs: 40 }).then((v) => { fin = v; });
+      for (let vuelta = 0; fin === undefined; vuelta++) {
+        assert.ok(vuelta < 500, 'la espera no termina: el reloj simulado no avanzó');
+        await new Promise<void>((listo) => setImmediate(listo));   // deja correr lo pendiente (setImmediate no está simulado)
+        mock.timers.tick(1);
+      }
+      await espera;
+      return fin;
+    } finally { mock.timers.reset(); globalThis.fetch = original; }
   };
   const processing = { ok: true, estado: 'processing' };
   assert.equal(await con([processing]), 'tope', 'Meta dijo processing hasta el final');
@@ -149,6 +168,25 @@ test('esperarVideoListo: «no pude leer» no es «Meta sigue procesando»', asyn
   assert.doesNotMatch(motivoFinEspera('sin_lectura', 'x.mp4') ?? '', /Súbelo de nuevo/, 'no se pide subir de nuevo lo que no se pudo leer');
   //   ROTO A PROPÓSITO (07/10/2026): con `return 'tope'` al final (lo de antes), pass 9 /
   //   fail 1 — éste.
+  // Y con la máquina "ocupada" no cambia nada (17/10/2026): un fetch que traba el hilo 45 ms (más que el tope) por sondeo.
+  // Con el reloj de verdad, `[processing, {ok:false}]` daba 'tope'; con el simulado sigue dando 'sin_lectura'.
+  const ocupado = globalThis.fetch;
+  try {
+    let i = 0;
+    globalThis.fetch = (async () => {
+      const t0 = performance.now(); while (performance.now() - t0 < 45) { /* CPU ocupada */ }
+      return { json: async () => [processing, { ok: false }][Math.min(i++, 1)] } as unknown as Response;
+    }) as typeof fetch;
+    mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+    let fin: Fin | undefined;
+    const espera = esperarVideoListo('123', null, { cadaMs: 1, topeMs: 3 }).then((v) => { fin = v; });
+    for (let vuelta = 0; fin === undefined && vuelta < 500; vuelta++) {
+      await new Promise<void>((listo) => setImmediate(listo));
+      mock.timers.tick(1);
+    }
+    await espera;
+    assert.equal(fin, 'sin_lectura', 'la carga de la máquina no cambia el veredicto');
+  } finally { mock.timers.reset(); globalThis.fetch = ocupado; }
 });
 
 test('en los tres modales, «no pude leer» deja la tarjeta y sigue preguntando', () => {

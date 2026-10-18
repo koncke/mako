@@ -25,25 +25,42 @@
 // falta uno de los cuatro primeros, su lugar lo toma la PRIMERA sección de More que sí vea
 // (`barraMovil`).
 //
+// ⚠️ 17/10/2026, LA SIDEBAR NUEVA (docs/diseno-sidebar.md): las familias son DOS, Operate y Sales Machine (Analyze,
+// Content Machine y Customer Success se fueron: Dashboard y Clients a Operate, Video y Copywriting a Sales Machine), y
+// Second Brain va ARRIBA de todo, sin título, como en escritorio (con el Ops Center para el super admin, en /m/mas).
+// Experiments salió de la barra (su página sigue). «Calendario» es «Calendar», «Clientes» es «Clients».
+//
 // 15/10/2026 (Martín: «Implementá TODAS las tabs que construimos, todo»): More suma las siete que el
 // prototipo v3 ya dibujaba — Calendario, Second Brain, Experiments, Offer, Copywriting, Curso y
 // Comunidad —, cada una en su lugar de la sidebar. Con eso la capa pm (Plan, MaKo, Dashboard y
 // Calendario) llena los huecos de CRM y Chats con Calendario y Dashboard, y More le queda en MaKo.
 // =============================================================================
 
-import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
+import { FAMILIAS, SUPERADMIN_MENU, TODOS_LOS_ITEMS, USER_NAV, type NavItem } from '@/app/_components/nav';
 import { tabEnCapa } from './capas';
+import { puedeVerItem, resolverTab, type VistaNav } from './nav-visibilidad';
 import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
 import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from './ruta-web-generator';
 import { SECCIONES_COMUNIDAD as SECCIONES_COMUNIDAD_CLIENTS } from './clients-rutas';
+import { rutaDeTabVieja } from './ajustes-secciones';
+// Las tabs de CREACIÓN (17/10/2026): sus filas ocultas y su ida y vuelta viven en ./movil-creacion.ts.
+import { SECCIONES_CREACION, rutaEscritorioCreacion, rutaMovilCreacion, type IdCreacion } from './movil-creacion';
 
 /** Los cinco destinos FIJOS de la barra. `hoy` es General (la portada; su ruta interna es /m/hoy). */
 export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
-  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'mako';
+  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'mako'
+  // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
+  | 'tickets' | 'configuraciones'
+  // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
+  | 'mensajes' | 'modelos-ia' | 'contexto' | 'conocimientos' | 'agente' | 'cobros'
+  // La API de MaKo (17/10/2026): del menú de la foto, sólo el admin del negocio (key `api-mako` de USER_NAV).
+  | 'api-mako'
+  // Las de CREACIÓN (17/10/2026, Mobile 1): lib/movil-creacion.ts.
+  | IdCreacion;
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
 export type IdBarra = DestinoMovil | IdSeccionMas;
 
@@ -77,17 +94,25 @@ export type DefSeccionMas = {
   icon: string;
   /** La key de nav.ts que la gatea (la MISMA que pide `requireMovil({ navKey })` en su page). */
   navKey: string;
-  /** La familia de la sidebar (app/_components/nav.ts) bajo la que se lista en More; null = MaKo, al final. */
+  /** La familia de la sidebar (app/_components/nav.ts) bajo la que se lista en More; null = arriba, sin título. */
   familia: FamiliaMas | null;
+  /**
+   * La página existe y un link de escritorio la abre en el teléfono, pero NO es una fila de More ni sube a la barra
+   * (17/10/2026: salió de la sidebar de escritorio, nav.ts → SIN_FILA). Sin esto, borrar la fila rompía `rutaMovil`.
+   */
+  oculta?: true;
+  /**
+   * Sólo el SUPER ADMIN (17/10/2026): una herramienta de la plataforma (nav.ts → HERRAMIENTAS), cuya key no está en
+   * `TODOS_LOS_ITEMS` y que `puedeVerKey` no conoce. Su página se cuida como la de escritorio, con `getSesionAdmin()`,
+   * y no con `requireMovil({ navKey })` (que le cerraría la puerta a todos). Va siempre `oculta`.
+   */
+  superAdmin?: true;
 };
 
 /** Las familias de la sidebar, con su nombre de escritorio y en su orden (una caja de More cada una). */
 export const FAMILIAS_MAS = [
   { id: 'operate', label: 'Operate' },
-  { id: 'analyze', label: 'Analyze' },
   { id: 'sales', label: 'Sales Machine' },
-  { id: 'content', label: 'Content Machine' },
-  { id: 'customer', label: 'Customer Success' },
 ] as const;
 export type FamiliaMas = (typeof FAMILIAS_MAS)[number]['id'];
 
@@ -128,34 +153,91 @@ export const TITULO_INBOX = 'Avisos';
  * MOVIL_ACTIVO prendido). Sin app/m/<carpeta>/page.tsx, todo eso es un 404 (el mismo test lo nombra).
  */
 export const SECCIONES_MAS: readonly DefSeccionMas[] = [
-  // Operate (General, Plan y CRM están en la barra; Chats, WhatsApp y Email, en Chats).
-  { id: 'calendario', label: 'Calendario', href: '/m/calendario', icon: 'calendario', navKey: 'calendario', familia: 'operate' },
+  // Operate (General, Plan y CRM están en la barra; Chats también, y adentro de Chats se configuran WhatsApp y Email).
+  { id: 'calendario', label: 'Calendar', href: '/m/calendario', icon: 'calendario', navKey: 'calendario', familia: 'operate' },
+  { id: 'dashboard', label: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'operate' },
   { id: 'ads', label: 'Ads Manager', href: '/m/ads', icon: 'grid', navKey: 'ads-manager', familia: 'operate' },
-  // Analyze (Competitor Spy es «pronto» y sólo del super admin: no viene).
-  { id: 'second-brain', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'second-brain', familia: 'analyze' },
-  { id: 'dashboard', label: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'analyze' },
-  { id: 'experimentos', label: 'Experiments', href: '/m/experimentos', icon: 'experiments', navKey: 'experimentos', familia: 'analyze' },
-  // Sales Machine (lo «pronto» es del super admin).
+  // Clients (vino de Customer Success el 17/10/2026). Las páginas de escritorio de Curso y Comunidad piden la capa de
+  // `customer-success` (requireCapa) y las keys `cs-curso`/`cs-comunidad` dan lo mismo en las cuatro capas
+  // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
+  { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'operate' },
+  // MaKo Partners (17/10/2026): sólo el admin de una agencia (`soloCapas` del ítem de nav.ts, que `puedeVerKey` mira).
+  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: 'operate' },
+  // Sales Machine (lo «pronto» es del super admin). Desde el 17/10/2026 trae Video y Copywriting (ex Content Machine).
   { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'sales' },
   { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'sales' },
   { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'chatbot', navKey: 'setting', familia: 'sales' },
-  // Content Machine. Video y Copywriting son tabs UNIFICADAS de escritorio: la key que gatea es la de la
+  // Video y Copywriting son tabs UNIFICADAS de escritorio: la key que gatea es la de la
   // sección que el teléfono muestra (Video Generator; Ads Writer, la única de Copywriting que ve un
   // cliente). `copywriting` NO sirve de navKey: no está en TODOS_LOS_ITEMS (itemsDe aplana las
   // secciones) y la de ADMIN_NAV es otra tab (/admin/copywriting), así que puedeVerKey diría que no.
-  // Image (la copia de Canva) no entró en la tanda del 15/10/2026: si va al teléfono, es una fila acá.
-  { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'content' },
-  { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'content' },
-  // Customer Success. Las páginas de escritorio de Curso y Comunidad piden la capa de `customer-success`
-  // (requireCapa) y las keys `cs-curso`/`cs-comunidad` dan lo mismo en las cuatro capas
-  // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
-  { id: 'cs', label: 'Clientes', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'customer' },
-  { id: 'curso', label: 'Curso', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: 'customer' },
-  { id: 'comunidad', label: 'Comunidad', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: 'customer' },
-  // «Second Brain» desde el 16/10/2026, como la barra de escritorio (app/_components/nav.ts → MAKO_NAV).
-  // Lleva al MISMO lugar que la fila de Analyze: el chat con MaKo (tanda 3, 16/10/2026). La ve quien no ve aquélla.
+  // Image (la copia de Canva) no entró en la tanda del 15/10/2026; entró el 17/10/2026, debajo de Video.
+  { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'sales' },
+  // Image (17/10/2026): la tab unificada abre su Editor, la copia de Canva (app/m/image-editor), como en escritorio
+  // (`resolverTab` lleva a la primera sección que no es «pronto»). Sus otras secciones van en la barra de arriba.
+  { id: 'image', label: 'Image', titulo: 'Image Editor', href: '/m/image-editor', icon: 'imagegen', navKey: 'image-editor', familia: 'sales' },
+  { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'sales' },
+  // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
+  // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
   { id: 'mako', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'mako', familia: null },
+  // OCULTAS (17/10/2026): sus páginas siguen y un link de escritorio las abre en el teléfono (`rutaMovil` las busca por
+  // id), pero no son filas de More ni suben a la barra: en escritorio salieron de la sidebar (nav.ts → SIN_FILA).
+  { id: 'second-brain', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'second-brain', familia: null, oculta: true },
+  { id: 'experimentos', label: 'Experiments', href: '/m/experimentos', icon: 'experiments', navKey: 'experimentos', familia: null, oculta: true },
+  // Course y Community: sub-tabs de Clients desde el 17/10/2026 (arriba de las tres pantallas, app/m/cs/SeccionesClientsM.tsx).
+  { id: 'curso', label: 'Classroom', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: null, oculta: true },
+  { id: 'comunidad', label: 'Community', href: '/m/comunidad', icon: 'comunidad', navKey: 'cs-comunidad', familia: null, oculta: true },
+  // EL MENÚ DE LA FOTO (17/10/2026, «Mobile 2»): sus filas de More salen de USER_NAV (`masCompleto`), así que acá van
+  // OCULTAS: la fila da la cabecera (título y «volver»), el título de la pestaña y la puerta (`requireMovil({ navKey })`),
+  // y nunca sube a la barra de un rol.
+  { id: 'tickets', label: 'Reportar problema', href: '/m/tickets', icon: 'soporte', navKey: 'tickets', familia: null, oculta: true },
+  // «Configuración del negocio»: el índice y cada sección debajo (/m/configuraciones/<sección>, `SECCIONES_NEGOCIO_M`).
+  { id: 'configuraciones', label: 'Configuración del negocio', href: '/m/configuraciones', icon: 'config', navKey: 'configuraciones', familia: null, oculta: true },
+  // Las del SUPER ADMIN (nav.ts → HERRAMIENTAS), con el nombre de la sidebar. MaKo Messages es una sección de Automations
+  // (se llega por la barra de secciones de /m/automations); AI Models y MaKo Context, del menú de su foto.
+  { id: 'mensajes', label: 'MaKo Messages', href: '/m/mensajes', icon: 'mako', navKey: 'mensajes', familia: null, oculta: true, superAdmin: true },
+  { id: 'modelos-ia', label: 'AI Models', href: '/m/modelos-ia', icon: 'mako', navKey: 'modelos-ia', familia: null, oculta: true, superAdmin: true },
+  { id: 'contexto', label: 'MaKo Context', href: '/m/contexto', icon: 'contexto', navKey: 'contexto', familia: null, oculta: true, superAdmin: true },
+  { id: 'api-mako', label: 'API', href: '/m/api-mako', icon: 'api', navKey: 'api-mako', familia: null, oculta: true },
+  // Knowledge (el portal de cursos del equipo): /m/conocimientos, un curso en /<slug> y una clase en /<slug>/<n>.
+  { id: 'conocimientos', label: 'Knowledge', href: '/m/conocimientos', icon: 'contexto', navKey: 'conocimientos', familia: null, oculta: true, superAdmin: true },
+  // Billing y Client Agents (menú de la foto del super admin): lo vendido de MaKo y en qué trabajan los clientes.
+  { id: 'cobros', label: 'Billing', href: '/m/cobros', icon: 'tag', navKey: 'admin-cobros', familia: null, oculta: true, superAdmin: true },
+  { id: 'agente', label: 'Client Agents', href: '/m/agente', icon: 'mako', navKey: 'admin-agente', familia: null, oculta: true, superAdmin: true },
+  // Las pantallas de CREACIÓN (17/10/2026), todas ocultas: lib/movil-creacion.ts dice por qué.
+  ...SECCIONES_CREACION,
 ];
+
+/**
+ * Las pantallas del teléfono que son UNA ruta de escritorio sin query ni subrutas (17/10/2026): la misma tabla sirve a
+ * `rutaMovil` y a `rutaEscritorio`, así que la ida y la vuelta no pueden divergir.
+ */
+const UNA_A_UNA: Readonly<Record<string, string>> = {
+  '/mensajes': '/m/mensajes',
+  '/modelos-ia': '/m/modelos-ia',
+  '/contexto': '/m/contexto',
+  '/api-mako': '/m/api-mako',
+  '/admin/cobros': '/m/cobros',
+  '/admin/agente': '/m/agente',
+};
+
+/**
+ * Las secciones de «Configuración del negocio» que tienen pantalla en el teléfono, con su ruta de ESCRITORIO (cada
+ * sección es su ruta, como en Google: lib/ajustes-secciones.ts). En el teléfono viven debajo del índice
+ * (/m/configuraciones/<clave>), así que su «volver» es «Configuración del negocio». General (Horario y Criterio) y Método
+ * (las credenciales de la plataforma), del super admin, se abren en la computadora desde el índice.
+ */
+export const SECCIONES_NEGOCIO_M = {
+  equipo: '/equipo',
+  integraciones: '/integraciones',
+  notificaciones: '/configuraciones/notificaciones',
+  fiscal: '/configuraciones/fiscal',
+  plan: '/configuraciones/plan',
+} as const;
+export type SeccionNegocioM = keyof typeof SECCIONES_NEGOCIO_M;
+const CLAVES_NEGOCIO_M: readonly SeccionNegocioM[] = ['equipo', 'integraciones', 'notificaciones', 'fiscal', 'plan'];
+const esSeccionNegocioM = (k: string): k is SeccionNegocioM => CLAVES_NEGOCIO_M.some((c) => c === k);
+export const RUTA_CONFIG_M = '/m/configuraciones';
 
 /** El nombre de la PANTALLA de una sección (la cabecera, su «volver» y la pestaña): `titulo` o, si no, el de la fila. */
 export function tituloSeccion(s: Pick<DefSeccionMas, 'label' | 'titulo'>): string {
@@ -176,6 +258,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel'], // app/offer/page.tsx (el «Analizar oferta →» del CRM)
   copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
+  'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Clients › Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Clients › Community; `?post=N` abre ESE post)
 };
@@ -203,6 +286,8 @@ export function puedeVerKey(key: string, rol: RolMovil, capa: string | null | un
   // null = sin rol resuelto (sin sesión): no ve nada gateado. El guard de la página ya lo
   // manda a /login; acá no se adivina a favor.
   const porRol = rol === 'admin' ? true : rol ? (item.rolesWs ?? []).includes(rol) : false;
+  // `soloCapas` (MaKo Partners): sólo esas capas, como en la barra (lib/nav-visibilidad.ts); el rol ya pidió admin.
+  if (item.soloCapas && !item.soloCapas.includes(capa ?? '')) return false;
   return porRol && tabEnCapa(key, capa);
 }
 
@@ -225,9 +310,9 @@ function veSeccion(s: DefSeccionMas, rol: RolMovil, capa: string | null | undefi
   return true;
 }
 
-/** Las secciones de More que este rol y esta capa ven, en orden. */
+/** Las secciones de More que este rol y esta capa ven, en orden (las `oculta` nunca: no son filas). */
 export function seccionesMasVisibles(rol: RolMovil, capa: string | null | undefined): DefSeccionMas[] {
-  return SECCIONES_MAS.filter((s) => veSeccion(s, rol, capa));
+  return SECCIONES_MAS.filter((s) => !s.oculta && veSeccion(s, rol, capa));
 }
 
 /**
@@ -257,22 +342,160 @@ export type GrupoMas = { familia: FamiliaMas | null; titulo: string | null; secc
 /**
  * Las secciones que /m/mas lista para este rol, SIN las que subieron a la barra (una cosa
  * en un solo lugar, como el «More» de iOS). Agrupadas por FAMILIA de la sidebar, en su orden;
- * MaKo al final, sin título (en escritorio también vive fuera de las familias).
+ * Second Brain PRIMERO y sin título (17/10/2026: en escritorio va arriba de todo, fuera de las familias).
  */
 export function gruposMas(rol: RolMovil, capa: string | null | undefined): GrupoMas[] {
   const enBarra = new Set<string>(barraMovil(rol, capa).map((b) => b.id));
   const visibles = seccionesMasVisibles(rol, capa).filter((s) => !enBarra.has(s.id));
-  // «Second Brain» una sola vez (16/10/2026): la fila de MaKo lleva al mismo lugar que la de Analyze, y sólo la ve quien
-  // no ve aquélla — como la entrada de abajo de la barra de escritorio (app/_components/Sidebar.tsx).
-  const lista = visibles.some((s) => s.id === 'second-brain') ? visibles.filter((s) => s.id !== 'mako') : visibles;
+  const lista = visibles;
   const grupos: GrupoMas[] = [];
+  const sueltas = lista.filter((s) => s.familia === null);
+  if (sueltas.length) grupos.push({ familia: null, titulo: null, secciones: sueltas });
   for (const f of FAMILIAS_MAS) {
     const xs = lista.filter((s) => s.familia === f.id);
     if (xs.length) grupos.push({ familia: f.id, titulo: f.label, secciones: xs });
   }
-  const sueltas = lista.filter((s) => s.familia === null);
-  if (sueltas.length) grupos.push({ familia: null, titulo: null, secciones: sueltas });
   return grupos;
+}
+
+// =============================================================================
+// TODA TAB DEL NAV TIENE SU LUGAR EN EL TELÉFONO (17/10/2026)
+// =============================================================================
+// Martín (17/10, desde el Centro de Operaciones): «Implementa completamente MaKo Mobile en todas las tabs, porque hay
+// muchas que aun no se pueden acceder». Lo que pasaba: More se armaba SÓLO con `SECCIONES_MAS`, así que una tab de la
+// sidebar sin pantalla del teléfono no aparecía en ningún lado (Image, AI Avatar, todo el menú de la foto), y su URL le
+// mostraba al teléfono la cubierta «se usa en la computadora» sin que nadie lo hubiera decidido.
+//
+// Desde acá, cada tab que dibuja el escritorio está en UNO de tres estados, y tests/movil-toda-tab.test.ts recorre
+// nav.ts y falla con la que no:
+//   · tiene PANTALLA: `rutaMovil(su href)` da una página de app/m que existe;
+//   · es SÓLO DE ESCRITORIO, a propósito: `SOLO_ESCRITORIO`, con el motivo que lee la persona;
+//   · su pantalla está EN CAMINO: `EN_CAMINO`, con el chat que la escribe. El guardián la cuenta como pendiente, y
+//     FALLA si ya tiene pantalla y sigue anotada (el Cerebro la saca al integrar).
+// More (`masCompleto`) se DERIVA de lo que dibuja la sidebar, con la regla de la sidebar (lib/nav-visibilidad.ts), y no
+// de una lista al lado: una tab nueva aparece sola, con pantalla o como «En la computadora».
+// =============================================================================
+
+/**
+ * Las tabs (keys de nav.ts) que NO van al teléfono, a propósito. El valor es lo que More le dice a la persona al tocar la
+ * fila (una o dos frases, sin voseo), arriba del botón que la abre igual en la versión de computadora.
+ */
+export const SOLO_ESCRITORIO: Readonly<Record<string, string>> = {
+  // Un MODO, no una pantalla: /admin/dev reemplaza la barra entera por el mapa de las 122 áreas (Sidebar → familiasDev).
+  'dev-entrar': 'Dev cambia la barra entera por los registros de cada área, los docs y el grafo. Se recorre con pantalla ancha.',
+  // /email es la CONFIGURACIÓN del canal desde el 17/10/2026 (los emails se leen en Chats): el dominio son registros DNS y
+  // las secuencias, un editor por etapa. Chats del teléfono ya dice «Conectar canales · En la computadora».
+  email: 'Conectar el dominio y armar las secuencias se hace en la computadora. Los emails se leen y contestan en Chats.',
+};
+
+/**
+ * Las tabs cuya pantalla del teléfono está EN CAMINO, con el chat que la escribe. En More se ven como «En la
+ * computadora» hasta que llega su pantalla. ⚠️ Una tab sale de acá en el MISMO commit que su pantalla: el guardián
+ * falla si la encuentra con pantalla y todavía anotada.
+ */
+export const EN_CAMINO: Readonly<Record<string, string>> = {
+  // «Mobile 1» y «Mobile 2» (17/10/2026): las tabs de creación (lib/movil-creacion.ts), la API de MaKo y Knowledge ya
+  // tienen su pantalla.
+  // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
+  agencia: 'sin dueño', 'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
+};
+
+/** Lo que More dice de una tab EN CAMINO (sin motivo propio): corto, y sin prometer una fecha. */
+export const MOTIVO_EN_CAMINO = 'Su versión del teléfono está en camino. Por ahora se usa en la computadora.';
+
+/**
+ * Las tabs «Coming soon» (nav.ts → `comingSoon`) se DERIVAN, no se anotan: en escritorio abren la pantalla
+ * «Coming soon» y en el teléfono, la suya (app/m/pronto/[key]). Una tab que deja de ser «pronto» pierde esta pantalla
+ * sola, y el guardián le pide la de verdad.
+ */
+export const RUTA_PRONTO = '/m/pronto';
+export function itemPronto(key: string): NavItem | null {
+  return TODOS_LOS_ITEMS.find((i) => i.comingSoon && i.key === key) ?? null;
+}
+
+/** Una fila de More. `pantalla` abre la del teléfono; `computadora`, la hoja con el motivo y «Abrir en la computadora». */
+export type FilaMas =
+  | { tipo: 'pantalla'; key: string; label: string; icon: string; href: string; seccion: IdSeccionMas | null }
+  | { tipo: 'computadora'; key: string; label: string; icon: string; href: string; motivo: string }
+  /** Un desplegable de la sidebar («Coming soon»): en el teléfono, una hoja con sus filas. */
+  | { tipo: 'grupo'; key: string; label: string; icon: string; filas: FilaMas[] };
+
+/** Una caja de More: arriba (sin título), una por familia de la sidebar, el menú de la foto y el del super admin. */
+export type GrupoMasCompleto = { id: 'arriba' | FamiliaMas | 'menu' | 'superadmin'; titulo: string | null; filas: FilaMas[] };
+
+/** El motivo de una tab sin pantalla: el de SOLO_ESCRITORIO de su key (o de una de sus secciones), o «en camino». */
+function motivoDe(keys: readonly string[]): string {
+  for (const k of keys) if (SOLO_ESCRITORIO[k]) return SOLO_ESCRITORIO[k];
+  return MOTIVO_EN_CAMINO;
+}
+
+/** La fila de More de un ítem que dibuja la sidebar, por su ruta: la pantalla del teléfono o la computadora. */
+function filaDeItem(it: NavItem, keys: readonly string[]): FilaMas {
+  const destino = rutaMovil(it.href);
+  if (destino) return { tipo: 'pantalla', key: it.key, label: it.label, icon: it.icon, href: destino, seccion: seccionDeRuta(destino)?.id ?? null };
+  return { tipo: 'computadora', key: it.key, label: it.label, icon: it.icon, href: it.href, motivo: motivoDe(keys) };
+}
+
+/**
+ * More ENTERO para esta persona (17/10/2026): lo que dibuja la sidebar de escritorio, en su orden, con la regla de la
+ * sidebar (`puedeVerItem`/`resolverTab`), menos lo que ya está en la barra.
+ *   · arriba: Second Brain (el Ops Center lo pone la página, con su propia pregunta de super admin);
+ *   · Operate y Sales Machine: cada tab con pantalla es SU fila de `gruposMas` (la regla del teléfono, que además saca
+ *     el Dashboard al closer sin su hoja); la que no tiene, una fila «En la computadora»; un desplegable, una hoja;
+ *   · el menú de la foto (sin «Tu cuenta», que es la primera fila de More) y, sólo para el super admin sin mirar un
+ *     cliente, el suyo (`SUPERADMIN_MENU`).
+ */
+export function masCompleto(rol: RolMovil, capa: string | null | undefined, adminShell: boolean): GrupoMasCompleto[] {
+  const vista: VistaNav = { adminShell, rolWs: rol ?? '', capa: capa ?? '' };
+  const conPantalla = gruposMas(rol, capa);
+  const out: GrupoMasCompleto[] = [];
+  // Arriba de todo, como la sidebar (nav.ts → `arribaDe`): el super admin NO ve «Second Brain» acá (17/10/2026, Martín: «el
+  // second brain vive dentro de ops center»): se abre desde el Ops Center, con su grafo. Los demás, sí: es su chat con MaKo.
+  const arriba = conPantalla.find((g) => g.familia === null);
+  const sueltas = (arriba?.secciones ?? []).filter((s) => !(adminShell && s.navKey === 'mako'));
+  if (sueltas.length) {
+    out.push({ id: 'arriba', titulo: null, filas: sueltas.map((s) => ({ tipo: 'pantalla' as const, key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id })) });
+  }
+  const enBarra = new Set(DESTINOS_MOVIL.map((d) => d.navKey).filter((k): k is string => k != null));
+  // Lo que ya está en la barra de ESTE rol, por su ruta del teléfono: General no tiene key en DESTINOS_MOVIL (es la
+  // portada, `navKey: null`) y sin esto aparecía otra vez en Operate (visto a 390 px el 17/10/2026).
+  const barra = new Set(barraMovil(rol, capa).map((b) => b.href));
+  FAMILIAS.forEach((f, i) => {
+    const familia = FAMILIAS_MAS[i];
+    if (!familia) return;
+    const deFamilia = conPantalla.find((g) => g.familia === familia.id)?.secciones ?? [];
+    const usadas = new Set<IdSeccionMas>();
+    const filas: FilaMas[] = [];
+    for (const t of f.bloques.flat()) {
+      const visible = resolverTab(t, vista);
+      if (!visible) continue;
+      const keys = [t.key, ...(t.secciones ?? []).map((s) => s.key)];
+      if (keys.some((k) => enBarra.has(k))) continue;
+      const destino = rutaMovil(visible.href);
+      if (destino && barra.has(destino.split('?')[0])) continue;
+      const s = deFamilia.find((x) => keys.includes(x.navKey));
+      if (s) { usadas.add(s.id); filas.push({ tipo: 'pantalla', key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id }); continue; }
+      // Tiene sección en el teléfono pero la regla del teléfono no se la muestra (o subió a la barra): nada.
+      if (SECCIONES_MAS.some((x) => keys.includes(x.navKey))) continue;
+      filas.push(filaDeItem(visible, keys));
+    }
+    for (const g of f.grupos ?? []) {
+      const items = g.items.filter((it) => puedeVerItem(it, vista));
+      if (items.length) filas.push({ tipo: 'grupo', key: g.key, label: g.label, icon: g.icon, filas: items.map((it) => filaDeItem(it, [it.key])) });
+    }
+    // Lo que la regla del teléfono muestra y la sidebar no (no debería pasar): se queda, como antes del 17/10/2026.
+    for (const s of deFamilia) {
+      if (!usadas.has(s.id)) filas.push({ tipo: 'pantalla', key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id });
+    }
+    if (filas.length) out.push({ id: familia.id, titulo: familia.label, filas });
+  });
+  // El menú de la foto, como lo dibuja el Sidebar (`!soloSeccion`, `adminOnly` sólo para el super admin), sin Tu cuenta.
+  const menu = USER_NAV
+    .filter((it) => it.key !== 'perfil' && !it.soloSeccion && (!it.adminOnly || adminShell) && puedeVerItem(it, vista))
+    .map((it) => filaDeItem(it, [it.key]));
+  if (menu.length) out.push({ id: 'menu', titulo: null, filas: menu });
+  if (adminShell) out.push({ id: 'superadmin', titulo: null, filas: SUPERADMIN_MENU.map((it) => filaDeItem(it, [it.key])) });
+  return out;
 }
 
 /** La sección de More dueña de esta ruta (`/m/ads/123` → Ads Manager), o null. */
@@ -367,7 +590,7 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // chat): un `?tab=` viejo no viaja, y abre los chats. Lo que sí viaja es la Ticketera (`?ticketera=`).
   if (p === '/admin/operaciones') {
     const t = q.get('ticketera');
-    return t === 'tarjetas' || t === 'lista' ? `/m/operaciones?ticketera=${t}` : '/m/operaciones';
+    return t === 'tickets' || t === 'tarjetas' || t === 'lista' ? `/m/operaciones?ticketera=${t}` : '/m/operaciones';
   }
   // Las pantallas que SÓLO existen en el teléfono, con la URL que muestran (`SOLO_TELEFONO`).
   const chat = p.match(/^\/crm\/(\d+)\/chat$/);
@@ -384,12 +607,64 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (p === '/crm') return '/m/crm';
   // La bandeja unificada de escritorio (/chats) y la de WhatsApp (/whatsapp, que convive hasta que Martín
   // valide que Chats la reemplaza) son, en el teléfono, la misma pestaña Chats.
-  // El link profundo de UN lead (/chats?lead=412, el que manda MaKo por WhatsApp): en el teléfono, SU chat.
-  const leadChat = Number(q.get('lead'));
-  if ((p === '/chats' || p === '/whatsapp') && Number.isSafeInteger(leadChat) && leadChat > 0) return `/m/crm/${leadChat}/chat`;
-  if (p === '/chats' || p === '/whatsapp') return RUTA_CHATS;
+  // Los links profundos de UNA conversación (lib/chats-links.ts) abren SU pantalla, la de todos sus canales
+  // (17/10/2026; hasta ese día `?lead=` abría el WhatsApp del lead y `?c=` la lista, que no tenía Instagram):
+  //   · `?c=<clave>` (un aviso de Instagram, la propia pestaña) y `?lead=412` (MaKo por WhatsApp) → /m/chats/<clave>;
+  //   · `?linea=&chat=<jid>` (un mensaje de WhatsApp) no nombra la clave: va a la lista CON esa query, que lo
+  //     busca (app/m/chats/page.tsx). Sin la query, un push que vuelve a la computadora perdería el chat.
+  if (p === '/chats' || p === '/whatsapp') {
+    const c = q.get('c')?.trim();
+    if (c) return `${RUTA_CHATS}/${encodeURIComponent(c)}`;
+    const leadChat = Number(q.get('lead'));
+    if (Number.isSafeInteger(leadChat) && leadChat > 0) return `${RUTA_CHATS}/${encodeURIComponent(`lead:${leadChat}`)}`;
+    const jid = q.get('chat')?.trim();
+    if (jid) {
+      const out = new URLSearchParams();
+      const linea = q.get('linea')?.trim();
+      if (linea) out.set('linea', linea);
+      out.set('chat', jid);
+      return `${RUTA_CHATS}?${out.toString()}`;
+    }
+    return RUTA_CHATS;
+  }
   if (p === '/plan' || p === '/plan/agencia' || p === '/todo') return '/m/plan';
-  if (p === '/perfil' || (p === '/configuraciones' && q.get('tab') === 'notif')) return '/m/cuenta';
+  // «Reportar problema» (17/10/2026): la lista, y UN ticket por su `?t=` (el link del aviso), como en la computadora.
+  // Sólo /tickets: /tickets/decisiones es la Ticketera del Centro (arriba) y /tickets/bandeja, la del super admin.
+  if (p === '/tickets') {
+    const t = Number(q.get('t'));
+    return Number.isSafeInteger(t) && t > 0 ? `/m/tickets/${t}` : '/m/tickets';
+  }
+  if (p === '/perfil') return '/m/cuenta';
+  // «Configuración del negocio» (17/10/2026): el índice, y cada sección por su ruta de escritorio. El `?tab=` VIEJO de
+  // /configuraciones (los 49 avisos dicen `?tab=notif` para apagar un reporte) va a donde lo manda la computadora
+  // (`rutaDeTabVieja`): `notif` a las Notificaciones DEL NEGOCIO. Hasta el 17/10 iba a «Tu cuenta», que en escritorio
+  // dejó de ser ese lugar el 15/10. Horario y Criterio son General, que en el teléfono es el índice.
+  if (p === '/configuraciones') {
+    const vieja = rutaDeTabVieja(q.get('tab'));
+    const sec = vieja ? CLAVES_NEGOCIO_M.find((k) => SECCIONES_NEGOCIO_M[k] === vieja) : undefined;
+    return sec ? `${RUTA_CONFIG_M}/${sec}` : RUTA_CONFIG_M;
+  }
+  if (p === '/marketing/salud') return `${RUTA_CONFIG_M}/integraciones`;
+  // Knowledge (17/10/2026): la computadora guarda dónde estás en el `#hash` (app/conocimientos/posicion.ts), que no llega
+  // al server; lo que sí llega son los links de antes, `?curso=<slug>&clase=<n>`, que la computadora traduce sola. Con eso
+  // el teléfono abre el curso o la clase, y vuelve por la misma forma.
+  if (p === '/conocimientos') {
+    const curso = q.get('curso')?.trim();
+    if (!curso) return '/m/conocimientos';
+    const clase = Number(q.get('clase'));
+    return `/m/conocimientos/${encodeURIComponent(curso)}${Number.isSafeInteger(clase) && clase > 0 ? `/${clase}` : ''}`;
+  }
+  // La API lee `?tab=` (docs · tokens · registro) en los dos lados: viaja (`QUERY_DE_SECCION`).
+  if (p === '/api-mako') return aSeccion('api-mako', q);
+  if (UNA_A_UNA[p]) return UNA_A_UNA[p];
+  for (const k of CLAVES_NEGOCIO_M) {
+    if (p !== SECCIONES_NEGOCIO_M[k]) continue;
+    // Integraciones lee `?abrir=<key>` (o `?servicio=`) para abrir ESA integración (lib/integracion-en-tab.ts): viaja.
+    const out = new URLSearchParams();
+    if (k === 'integraciones') for (const c of ['abrir', 'servicio']) { const v = q.get(c); if (v) out.set(c, v); }
+    const resto = out.toString();
+    return `${RUTA_CONFIG_M}/${k}${resto ? `?${resto}` : ''}`;
+  }
   // Las secciones de More (v2). Cada una cae en su sección. Donde el id es EL MISMO en los dos
   // lados (el plan de un video, una landing de landing_docs), va a la pantalla de ESA cosa; un
   // anuncio de Meta no tiene pantalla propia en el teléfono y cae en la lista de Ads Manager.
@@ -447,6 +722,12 @@ export function rutaMovil(href: string | null | undefined): string | null {
   const landing = p.match(/^\/(?:web-generator|landing-generator)\/(\d+)$/);
   if (landing) return `/m/landing/${landing[1]}`;
   if (dentro(p, RUTA_WEB_GENERATOR) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => dentro(p, r))) return '/m/landing';
+  // Las tabs de CREACIÓN (17/10/2026): Video Editor, Image Editor, AI Avatar, Reels, Stories y Carousels.
+  const creacion = rutaMovilCreacion(p, q);
+  if (creacion) return creacion;
+  // Las «Coming soon» (17/10/2026), AL FINAL: una tab que tenga su pantalla de verdad la nombra más arriba y gana.
+  const pronto = TODOS_LOS_ITEMS.find((i) => i.comingSoon && i.match(p));
+  if (pronto) return `${RUTA_PRONTO}/${pronto.key}`;
   return null;
 }
 
@@ -515,6 +796,13 @@ export function rutaEscritorio(href: string): string {
   else if ((m = p.match(/^\/m\/crm\/([^/]+)$/))) destino = `/crm/${m[1]}`;
   else if (p === '/m/crm') destino = '/crm';
   else if (p === RUTA_CHATS) destino = '/chats';
+  else if ((m = p.match(/^\/m\/chats\/([^/]+)$/))) {
+    // Una conversación (17/10/2026): en escritorio es la pestaña con `?c=<clave>` (lib/chats-links.ts).
+    destino = '/chats';
+    let clave = m[1];
+    try { clave = decodeURIComponent(clave); } catch { /* un % suelto: va tal cual */ }
+    q.set('c', clave);
+  }
   else if (p === '/m/inbox') destino = '/mako/pendientes';
   else if (p === '/m/plan') destino = '/plan';
   else if (p === RUTA_MAS) destino = '/mas';
@@ -522,6 +810,19 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/decisiones') { destino = '/admin/operaciones'; q.set('ticketera', 'lista'); }
   else if (p === '/m/tickets/decisiones') { destino = '/admin/operaciones'; q.set('ticketera', 'tarjetas'); }
   else if (p === '/m/operaciones') destino = '/admin/operaciones';
+  else if (p === '/m/tickets') destino = '/tickets';
+  else if (p === RUTA_CONFIG_M) destino = '/configuraciones';
+  else if (p === '/m/conocimientos') destino = '/conocimientos';
+  else if ((m = p.match(/^\/m\/conocimientos\/([^/]+)(?:\/(\d+))?$/))) {
+    destino = '/conocimientos';
+    let curso = m[1];
+    try { curso = decodeURIComponent(curso); } catch { /* un % suelto: va tal cual */ }
+    q.set('curso', curso);
+    if (m[2]) q.set('clase', m[2]);
+  }
+  else if (Object.values(UNA_A_UNA).includes(p)) destino = Object.keys(UNA_A_UNA).find((k) => UNA_A_UNA[k] === p) ?? null;
+  else if ((m = p.match(/^\/m\/configuraciones\/([^/]+)$/)) && esSeccionNegocioM(m[1])) destino = SECCIONES_NEGOCIO_M[m[1]];
+  else if ((m = p.match(/^\/m\/tickets\/(\d+)$/))) { destino = '/tickets'; q.set('t', m[1]); }
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
   else if (p === '/m/cuenta/seguridad') destino = '/perfil/seguridad';
   else if (p === '/m/cuenta') destino = '/perfil';
@@ -549,6 +850,9 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/video') destino = '/video-generator';
   else if ((m = p.match(/^\/m\/landing\/([^/]+)$/))) destino = `${RUTA_WEB_GENERATOR}/${m[1]}`;
   else if (p === '/m/landing') destino = RUTA_WEB_GENERATOR;
+  else if ((m = p.match(/^\/m\/pronto\/([^/]+)$/))) destino = itemPronto(m[1])?.href ?? null;
+  // Las tabs de CREACIÓN (17/10/2026): la carpeta de /m se llama como la ruta de escritorio (lib/movil-creacion.ts).
+  if (!destino) destino = rutaEscritorioCreacion(p);
   if (!destino) return href;
   const resto = q.toString();
   return `${destino}${resto ? `?${resto}` : ''}${hash ? `#${hash}` : ''}`;

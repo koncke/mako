@@ -3,8 +3,9 @@
 Aislamiento entre inquilinos, credenciales y cifrado, firma de webhooks y superficie
 expuesta. Lo que las auditorías encontraron y **no se puede deducir leyendo el código**.
 
-Complementa a [auditoria-aislamiento-workspace.md](auditoria-aislamiento-workspace.md),
-que es el mapa de qué se scopea por workspace y qué no. La regla que produce este
+Es la ÚNICA fuente del área: el mapa de aislamiento del 05/07/2026
+(`docs/auditoria-aislamiento-workspace.md`) se borró el 17/10/2026 por viejo —un documento de seguridad
+desactualizado es peor que ninguno— y su checklist vive al final, en «Los pendientes de seguridad del 17/10/2026». La regla que produce este
 documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
 ⚠️ **Buena parte de lo de abajo es material de segunda mano**: sale de los journals de las
@@ -2009,4 +2010,146 @@ como closer). La otra mitad del diseño del Centro sigue: los chats `dashboard:`
 workspace (pasarlos a «por persona» pide migrar datos).
 *16/10/2026, claude3 (chat Dashboard).*
 
+## Los pendientes de seguridad del 17/10/2026: lo que enseñó cerrarlos
 
+Pedido de Martín («Implemente todos los pendientes al 100%»), agente «Pendientes B1» del Cerebro. Lo que sigue es
+lo que no se deduce leyendo el código; el changelog está en los commits de la rama `pend-b1-1710`.
+
+### `?? OWNER_WS`: el null no era «no hay contexto», era el suspendido
+
+- **El diagnóstico obvio era el equivocado.** «Si se quita el `?? OWNER_WS`, los crons se rompen» (§6.4 del relevo:
+  «puede romper crons que hoy andan»). No: un cron o un webhook SIN cookie no llega con null, llega con el ws1 por
+  el default del resolver (`resolverDesdeCookies`: «no hay cookie → OWNER_WS»). El null lo da SÓLO una cookie de sesión
+  que no resuelve contra la base —suspendido, borrado, firma viva— o un admin sin workspace, y medido en producción
+  ese día **los 14 usuarios tienen workspace**. O sea que los 40 `?? OWNER_WS` cubrían exactamente el caso que no puede
+  caer en nadie, y quitarlos no le cambia nada a un cron.
+- **Los primos eran peores que el original.** `lib/onboarding-guardia-server.ts` hacía `wsSuperAdmin().catch(() =>
+  OWNER_WS)` para saber a quién avisar que un negocio quedó BLOQUEADO: con la plataforma sin resolver, el aviso del
+  bloqueo de un negocio les llegaba a los destinatarios de Mauricio. Un guard que busca sólo `?? OWNER_WS` no lo ve: el
+  de `tests/sin-fallback-owner-ws.test.ts` nombra las cinco formas.
+- **Regla:** escribir/mandar/gastar → `wsObligatorio()` (tira); leer → `?? WS_NINGUNO` (-1, como `getTenantDb`). En
+  AGENTS.md.
+- **Lo que NO se tocó, con su archivo:** el default del resolver sin cookie (`lib/workspace.ts`, `resolverDesdeCookies`)
+  sigue en el ws1, y de ahí cuelgan los reportes diario y horario «sólo del ws1» (§6.2 del relevo); la línea de voz de
+  MaKo cae al ws1 en `wsDeInstancia` (app/api/webhooks/evolution/route.ts). Son «la plataforma vive en el negocio de
+  Mauricio», no «no sé de quién es», y moverlas es mudar datos.
+- ⚠️ **Dos de esa familia se cerraron el mismo día, por la revisión del Cerebro, y el guard no las veía** (son
+  `return OWNER_WS` adentro de un `if`, no un fallback): el grupo SuperAdmin de Martín y sus grupos de prueba le daban a
+  MaKo los DATOS del ws1 (`wsDeGrupoJid`, lib/mako-doer-in.ts → ahora la plataforma), y el gasto de Claude de cualquier
+  negocio sin key propia se anotaba en el panel de Mauricio con el `motivo` de trabajos ajenos (`wsDeLaFila`,
+  lib/anthropic-usage.ts → ahora la plataforma). El saldo de Claude cargado a mano sigue en el ws1.
+
+### `getTenantDb()` sobre una tabla fuera del Set: el comentario juraba lo contrario
+
+`lib/branding.ts` leía `branding_assets` con `getTenantDb()` y su comentario decía «devuelve null si no existe EN ESTE
+workspace (cierra el IDOR)». La tabla no está en TENANT_TABLES: el proxy la deja pasar y volvían las de todos. No era
+explotable (las dos rutas son del super admin), pero es la forma exacta del bug: **el call-site cree estar aislado**. Lo
+encontró el inverso completo de `tests/tenant-tables-contract.test.ts` (INVERSO 3), que además, contra PRODUCCIÓN,
+encontró cinco tablas con `workspace_id` fuera de `TABLAS_DE_INQUILINO` (`avisos_programados`, `flujo_corridas`,
+`insistencias`, `replay_sesiones`, `replay_lotes`): vaciar el Cliente de Prueba las dejaba. Las tres que están fuera del
+proxy a propósito (`tickets`, `pasarela_eventos`, `email_entrantes`) lo decían sólo en un comentario; ahora lo dice
+`FUERA_DEL_PROXY`, con su porqué, y una cuarta no entra sin decidirlo.
+
+### El SSRF del análisis de una landing: el arreglo cantado apagaba la feature
+
+`htmlDePagina` (lib/landing-fetch.ts) ya bajaba con `validarDestino` en cada salto, y enchufarlo era lo obvio. Pero filtra
+por content-type HTML, y el analizador lee los chunks `application/javascript` de una SPA: **habría apagado el análisis de
+la landing del ws13**, que es la que lo hizo necesario. Y `lib/landing-analisis.ts` viaja al navegador
+(ProbarTracking → landing-snapshot), así que no puede importar una bajada con `node:https`. La salida: el `fetch` del
+analizador pasó a ser OBLIGATORIO (sin default: el tipo no deja olvidarse) y el servidor le pasa `fetchSeguro`
+(lib/fetch-seguro.ts: la bajada del Archivero, que acepta cualquier tipo). De paso apareció el mismo agujero en
+«Cargar guiones desde un link» del Video Generator (validaba el primer salto y seguía los demás).
+**Regla:** quien valida un destino con `validarDestino` no hace después un `fetch` pelado (el guard lo barre).
+
+### Las 85 acciones del CRM sin corte propio
+
+85 de las 145 server actions de los `'use server'` de app/crm (43 de las 53 de `actions.ts`) no miraban la sesión. Ahora
+arrancan con `await exigirSesion()` (lib/sesion-accion.ts, TIRA: las acciones devuelven tipos muy distintos). ⚠️ **Leer
+`getUsuarioActual()` no es cortar**: un guard que buscara la palabra habría dado por buena cualquier acción que la lea
+para otra cosa. El de `tests/crm-acciones-sesion.test.ts` acepta sólo las formas que cortan, en positivo.
+**Sin hacer:** el mismo barrido en los `'use server'` de las otras tabs.
+
+### La cara de los leads: decisión (c) y la mudanza sola
+
+El bucket `avatars` sigue público (también guarda las fotos de perfil del equipo); el nombre de cada copia lleva 128 bits
+al azar y la anterior se borra al refrescar, DESPUÉS de apuntar a la nueva (si falla, sobra un objeto, nunca falta la
+foto). Las 106 copias viejas (cinco negocios) las muda el mismo cron diario, en TODOS los negocios —también los pausados:
+la foto está a la vista igual—. No hizo falta un script contra producción: **mudar antes del deploy habría roto la foto
+con el código viejo**, y el cron corre recién con el nuevo. Un objeto que NO es de este lead y este negocio no se borra
+nunca (`rutaDeFotoGuardada` exige el prefijo).
+
+### El tope de pedidos: lo que un 429 rompe
+
+- **El opt-in de una landing no reintenta**: el snippet lo manda una vez, con `keepalive`, y no mira la respuesta. Un 429
+  es un lead perdido, y detrás de un NAT de operador móvil cientos de personas comparten IP: 30 por minuto por IP.
+- **«Olvidé mi contraseña» contesta SIEMPRE lo mismo**, y un 429 en `pedir` era una segunda salida
+  (`tests/contrasena-restablecer.test.ts` lo cazó): pasado el tope por IP, no manda el mail y contesta lo de siempre.
+- **Los webhooks NO llevan tope**: se autentican por firma, y un 429 a un proveedor lo hace reintentar y deshabilitar la
+  suscripción en silencio.
+- Es el limitador en memoria (por instancia, best-effort): corta el flood de UNA IP. Lo distribuido es Cloudflare
+  (docs/relevo/ciberseguridad.md, sin hacer: cambia el DNS).
+
+### La firma del webhook del WhatsApp no oficial: por línea, sin migración
+
+HMAC(secreto, instancia), recalculada: no hace falta columna. Se verifica contra el `instance` del CUERPO, que es lo que
+decide a qué negocio va el evento; la `i` de la query es redundante (el test lo mostró: sacando ese chequeo no cae nada,
+porque la firma ya ata la instancia). La transición: la URL vieja con el secreto de plataforma vale hasta el
+**07/11/2026** (`CORTE_LEGADO`) y la línea se re-registra sola al primer evento; el diagnóstico (`estadoWebhook`) compara
+la URL ENTERA y marca la vieja `no_registrado` para que «Reparar espejo» la reescriba. ⚠️ **No se pueden mudar las líneas
+ANTES del deploy**: con el código viejo, la URL nueva da 401 y el espejo muere en silencio (ya pasó el 10/07).
+
+### «Tu contraseña cambió»: la pieza de Automations la escribió Seguridad
+
+El evento `contrasena_cambiada` (persona `aviso`, sin datos secretos) y la plantilla de SuperAdmin «Tu Contraseña Cambió»
+siguen el molde de «Restablecer Contraseña». **Sin hacer:** crear su fila desde la plantilla en el ws de la plataforma
+(como la de restablecer: se crea con la plantilla cuando esté en producción, con la cuenta de Martín). Hasta entonces el
+evento corre y no sale nada (`apagado`, anotado en `mfa_eventos` como `contrasena-cambio-aviso`).
+
+### La IA gratis: se corta lo que viaja, no lo pedido
+
+El historial del grupo viajaba entero a la red gratis: ahora sólo el turno (`soloElTurno`). El ✦ de Automations que
+escribe los mensajes (app/api/chat-agent/redactar) tenía su propia red sin corte: ahora va sin las lecturas que el
+registro marca con datos de clientes (`llevaDatosDeClientes`), el mismo corte que el doer.
+
+⚠️ **Y el primer arreglo seguía mirando lo PEDIDO** (lo cazó la revisión del Cerebro): «anotá: llamar a Juan Pérez 11
+2233 4455, juan@mail.com» no pide herramientas de clientes y viajaba tal cual. Lo que viaja es el turno mismo, su
+adjunto, su nota de voz y el system. Ahora un email, un teléfono o un adjunto cortan (`turnoParaLaRed` con
+`llevaDatosPersonales`), la nota de voz se transcribe con `pii: true` y el system de la red va LEAN (el completo trae
+«TU METODOLOGÍA», y el glosario de las reuniones son nombres y apellidos). `tests/red-gratis-cuatro-defectos.test.ts`.
+
+### El RAG: «manual» no era «método»
+
+Medido en producción: de las 13 entradas `manual` del ws1, **6 eran del negocio de Mauricio** («Dolores del avatar
+(Carlos)», su CPM en México, el play de SU VSL) y se prestaban a todos. Se presta sólo `mako` (lo que sembró la
+plataforma); las 7 de «Levanta Muertos», método de la agencia, se re-marcaron `mako` en producción
+(`scripts/metodo-a-mako.mjs`, en seco y después aplicado: compatible con el código desplegado, que prestaba las dos). El
+préstamo suma la plataforma (`wsSuperAdmin`) y el filtro va SIEMPRE: con el ws9 sumado, el atajo de antes («si sos el
+ws1, todo») le daba a Mauricio el negocio real de Martín. **Sin hacer:** mudar el método (Copywriting, «Buenas prácticas»,
+Levanta Muertos, `mako.guion_angulos`/`mako.guion_estructuras`) del ws1 a la plataforma; el lector ya lo soporta.
+
+### Los cruces entre clientes, mirados en producción (no en el código)
+
+Lo que se pudo medir con lecturas el 17/10/2026, y lo que no:
+- **Los links con `?ws=` estaban rotos donde nadie miraba**: en `mako_doer_conv`, MaKo citaba pantallas en los grupos de
+  los negocios acortando el link que le dio la herramienta (ws13: 6 de 10 sin `?ws=`; ws15: 4 de 4; ws18: 1 de 1; ws1: 0
+  de 33). Los avisos (`linkApp`) estaban bien; el que fallaba era el MODELO. Ahora todo lo que el doer manda pasa por
+  `linksConWs`. Las notificaciones de la campanita llevan links relativos: ésas las resuelve la pestaña.
+- **El drenador de corridas no tiene qué drenar**: `flujo_corridas` está VACÍA en producción. No se puede verificar
+  porque nunca corrió nada.
+- **El acuse del grupo, tampoco**: hay UNA insistencia en toda la base (ws1, cerrada por `config` el 30/09, antes del
+  arreglo). Nunca se cerró una por un «ok».
+- **La herencia del store**: nadie escribió `mako.plantillas.base` y el ws9 no tiene `mako.plantillas.store`, así que no
+  hay nada que heredar (los clientes sin store usan los textos del código).
+- **El mail de `/compartir`**: el `From:` no queda en ninguna tabla; verificarlo es mandar uno.
+
+### El checklist de una feature nueva (lo que quedaba vivo del mapa del 05/07)
+
+- ¿La tabla tiene datos de un negocio? → `getTenantDb()` y la tabla en TENANT_TABLES y en TABLAS_DE_INQUILINO; si va
+  fuera del proxy, en `FUERA_DEL_PROXY` con su porqué y el filtro `workspace_id` a mano.
+- ¿`usuarios`? → filtro `workspace_id` explícito (no está en el Set).
+- ¿Escribe, manda o gasta? → `wsObligatorio()`. ¿Sólo lee? → `?? WS_NINGUNO`. Nunca el ws1 por default.
+- ¿Server action? → `await exigirSesion()` primero. ¿Ruta pública que escribe? → tope de pedidos o excusa escrita.
+- ¿Es de la agencia? → `getSesionAdmin()`; ¿del negocio? → la pregunta es por el WORKSPACE (§5.10 del relevo).
+- ¿Baja una URL que escribió alguien? → `fetchSeguro`.
+
+*17/10/2026, agente «Pendientes B1» (claude4).*

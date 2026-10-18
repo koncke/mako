@@ -57,6 +57,59 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 
 ---
 
+## El oscuro de cada persona: no faltaba el interruptor, faltaba el arranque — y el taller lo borraba (17/10/2026)
+
+Tarjeta #883: «que cada persona elija tema claro u oscuro en la computadora (hoy sólo en el teléfono)». Lo obvio era
+«montar el interruptor»: `InterruptorModo` (el de nordtheme) existía y guardaba `mako.modo`. Lo que de verdad faltaba:
+- **Nadie aplicaba la elección en la computadora.** El teléfono tiene su script antes del primer pintado
+  (app/m/_ui/tema.ts); el escritorio no tenía ninguno, así que la elección sólo existía mientras no se recargara.
+  Ahora `ModoArranque` (script, sólo con sesión, nunca en una página pública) y `ModoDelUsuario` (lo vuelve a poner al
+  navegar: el shell de /m lo saca al salir y una pantalla que lo PRESTA también).
+- **El taller de paletas del super admin borraba el modo en CADA render** fuera del Cliente de Diseño
+  (`TemaCandidato`, `removeAttribute(ATTR_MODO)` en un efecto sin dependencias), y sacar un tema borraba la elección
+  guardada. Eran de cuando el modo era parte del tema en prueba. Ahora el taller toca sólo el tema.
+- **`modoPreferido` seguía al sistema** sin elección: un Windows en oscuro abría MaKo en oscuro. Claro por defecto.
+- Lo que sigue sin respetar el oscuro son los colores escritos a mano: medido el 17/10, **43 archivos** con un fondo
+  `#fff`/`white` literal (Dashboard, Automations, login, Ads Manager…), y las pantallas que FUERZAN oscuro (onboarding
+  —que Martín quiere claro—, ads-writer, video). Pendiente, por área.
+
+**Vive en:** `app/_components/ModoArranque.tsx`, `ModoDelUsuario.tsx`, `TemaCandidato.tsx`, `InterruptorModo.tsx` ·
+`tests/tema-por-persona.test.ts`
+
+## La sidebar nueva: sacar una fila de nav.ts cierra puertas que no son de la barra (17/10/2026)
+
+Martín pidió deprecar Analyze, Content Machine y Admin, y sacar WhatsApp y Email de la barra (el diseño:
+[diseno-sidebar.md](diseno-sidebar.md)). Lo obvio era «borrar las filas». Lo que se rompía, en silencio:
+
+- **El teléfono abre sus pantallas preguntando por la key EN nav.ts.** `requireMovil({ navKey })` →
+  `puedeVerKey` busca el ítem en `TODOS_LOS_ITEMS`; si no está, devuelve `false` para TODOS los roles, sin error.
+  Borrar la fila de Experiments cerraba /m/experimentos; borrar la de Second Brain de Analyze cerraba
+  /m/second-brain/mapa. Y `rutaMovil` arma el destino con `SECCIONES_MAS.find(id)!.href`: borrar la fila de More
+  hacía TIRAR la traducción de /second-brain y /experimentos. **La regla:** una pantalla viva que deja de ser fila
+  se mueve a `SIN_FILA` (nav.ts) y, en el teléfono, a una fila `oculta: true`; nunca se borra el ítem.
+- **El título de la pestaña y la API de MaKo toman el PRIMER ítem cuyo `match` acepta la ruta.** Si Chats marca
+  /whatsapp (para que la barra lo encienda ahí), la pestaña de /whatsapp pasaba a decir «Chats» y `listar_capacidades_mako`
+  medía /email con los roles de Chats (el closer «tenía» Email). Por eso `SIN_FILA` va PRIMERO en `TODOS_LOS_ITEMS`:
+  la barra se enciende por la fila dibujada, el título y la API siguen leyendo el ítem de siempre.
+- **Dos keys iguales en dos menús.** La herramienta de admin «Copywriting» (/admin/copywriting) tenía la key
+  `copywriting`, la MISMA que la tab unificada Copywriting. Colgada como su sección, `TODOS_LOS_ITEMS.find(key)` la
+  habría encontrado primero (adminOnly) y el teléfono habría escondido Copywriting a los clientes. Pasó a
+  `admin-copywriting`: las keys de admin no están en ninguna capa, así que cambiarlas no apaga nada.
+- **Una tab que se vuelve UNIFICADA le suma la barra de secciones (40 px) a su pantalla.** Las de alto fijo
+  (`height: 100vh`) se pasan de la pantalla y scrollea el documento: hay que restar `var(--alto-secciones, 0px)`. Le
+  pasó a Chats, Automations y Offer al recibir secciones del super admin; sólo él ve la barra, así que ningún cliente
+  lo habría reportado.
+- **El movimiento de los muñecos del Ops Center vive en `centro.css`**, que sólo carga en /admin/operaciones. Usar
+  `<Muneco animo="trabajando">` en la barra daba un muñeco QUIETO en todas las demás pantallas (y moviéndose sólo
+  después de haber pasado por el Centro, porque Next deja el CSS cargado al navegar). El de la barra va en
+  `.mk-criatura` de ui.css, con sus propios nombres de animación.
+- **Lo que queda escrito en otro lado con los nombres de las familias:** `FAMILIAS_SIDEBAR` de
+  lib/plan-proyectos-catalogo.ts (el Plan prohíbe proyectos con ese nombre; las retiradas quedaron en
+  `FAMILIAS_RETIRADAS`), `FAMILIAS_MAS` del teléfono, y 22 tests que fijaban la estructura vieja.
+
+**Vive en:** `app/_components/nav.ts` (`SIN_FILA`, `HERRAMIENTAS`, `ARRIBA`), `lib/movil-rutas.ts`,
+`app/_components/Criatura.tsx` · `tests/sidebar-nueva.test.ts`
+
 ## En un iPad, la foto de perfil de la sidebar quedaba abajo del borde: `100vh` en Safari (14/10/2026)
 
 Martín, desde un iPad: «no se llega a ver la foto de perfil, para ir a configuraciones… todo como muy achicado, los
@@ -3980,12 +4033,14 @@ quedar por detrás». En Automations se escondían el título y «Probar», y el
   Los cuatro van a `top: var(--barra-agencia, 0px)`. El resto se pega adentro de un modal o de un panel con scroll, donde
   la barra no llega, o son anclas de 0×0 que se ubican por JS.
 
+- **Las barras de lote: UNA variable que sabe si está en un modal** (la misma tarde). Las barras `sticky; top: 8` del Plan
+  (`BarraPegada`, las cuatro del Kanban, una de ellas en 66) y la de Customer Success viven en la página y también
+  adentro de modales. Sumarles `--barra-agencia` siempre las bajaba 50 px en el modal. `--pegado-arriba` (globals.css)
+  vale la barra en `:root` y 0 en `[aria-modal="true"]`: como las variables se heredan, todo lo de adentro de un modal
+  la ve en 0 sin que cada puerta lo diga. Medido en Chrome: en la página 58, en el modal 8. La del CRM la bajó su chat con
+  `--barra-agencia` (el tablero del CRM no vive en un modal).
+
 **Sin hacer:**
-- **Las barras de lote** (`sticky; top: 8`): `BarraPegada` en app/plan/board/Tablas.tsx:747, BoardShell.tsx (3452, 5132,
-  5163 con top 66, 5552), CrmBoard.tsx:2957 y customer-success/LoteClientes.tsx:229. En /plan se pegan a la ventana y
-  quedarían debajo de la barra, pero `BarraPegada` también vive adentro de la columna con scroll del modal de un proyecto.
-  Sumarles la barra siempre las correría 50 px en el modal: hace falta que cada puerta diga dónde se pega, como
-  `arribaTabs`.
 - **La regla de todo `<aside>` también pisa** el `top: 12; bottom: 12` del panel `<aside className="an">` de PanelAnalista.
   No se miró con la barra puesta.
 - **Una ruta pública** cargada en duro con una agencia adentro de un cliente queda con el hueco de la barra y sin barra

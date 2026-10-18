@@ -6,8 +6,9 @@
 // Prototipo: docs/prototipos/mako-mobile-v2.html, data-ir="ficha". El encabezado (avatar, nombre,
 // etapa y funnel) lo dibuja el server en page.tsx; aquí va el resto, porque las filas abren sheets:
 //
-//   Llamar · WhatsApp · Agendar          tres botones grandes (fijos)
-//   Datos                                Etapa (› mover), fija arriba, y debajo las piezas de la ficha
+//   Llamar · WhatsApp · Agendar · Nota   la fila de acciones (HubSpot, 17/10/2026)
+//   La etapa ›                           la barra de avance (Pipedrive, 17/10/2026): abre «Mover de etapa»
+//   Datos                                las piezas de la ficha
 //   Notas                                las últimas + «Nota por voz»
 //   Actividad                            las últimas 4 líneas del historial (fija: es el Historial)
 //   Pagos, historial y campos · En la computadora
@@ -16,6 +17,18 @@
 // Próxima llamada, Teléfono · Email · Empresa (el contacto), Lo que contestó ›, Llegó por, Notas y
 // Última llamada › van en el orden en que el admin puso sus bloques en «Personalizar», y las que el funnel
 // no tiene no salen. Las filas seguidas van en una lista; las notas, en su sección. Sin editor aquí.
+//
+// REDISEÑO DEL 17/10/2026 (Martín: «rediseña las actuales de CRM… copia de otras apps que ya lo hacen bien»; se
+// miraron las capturas de la App Store de HubSpot y Pipedrive en el teléfono):
+//   · LAS ACCIONES son la fila de HubSpot debajo del nombre: un círculo con su ícono y el rótulo abajo (Call · Email
+//     · Text · More allá; Llamar · WhatsApp · Agendar · Nota acá). «Nota» abre la hoja para escribir, como el
+//     «Add note» de HubSpot; «Nota por voz» sigue en la sección Notas, arrancando el dictado en el mismo toque.
+//   · LA ETAPA es la barra de la ficha del deal de Pipedrive («‹ Contact Made / Sales pipeline ›» con una rayita por
+//     etapa, llenas hasta la actual): el nombre de la etapa, el funnel debajo, y tocarla abre «Mover de etapa». No
+//     se copian las flechas ‹ › de Pipedrive (saltar a la de al lado): desde el teléfono no se puede ir a cualquiera
+//     (Ganado, cobros y las del wizard son de la computadora, ../reglas.ts), y la hoja ya dice a cuáles sí.
+//     Reemplaza la fila «Etapa ›» que encabezaba «Datos».
+//   · Tampoco Won/Lost: Ganado no se mueve desde el teléfono.
 //
 // ⚠️ AGENDAR NO PASA POR IA: las horas libres las lee /api/crm/horarios por código y se agenda
 // con reagendarReunionAction (Google) o con la reserva de Calendly, que casi siempre devuelve un
@@ -37,10 +50,14 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { Icon } from '@/app/_components/icons';
 import {
   ComputadoraM, FilaDatoM, FilaM, IconoM, ListaM, SeccionM, SheetM, PieM, SkeletonFilas, useToastM, useConexion,
 } from '@/app/m/_ui';
 import { haptico } from '@/lib/haptico';
+// «WhatsApp» abre la conversación del lead en Chats (todos sus canales), con la MISMA función que escritorio
+// (17/10/2026; antes iba al hilo de sólo WhatsApp, /m/crm/<id>/chat, que sigue existiendo).
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { useDictadoVivo, unirDictado } from '@/app/plan/board/dictado-vivo';
 import { duracionReunionAction, linkDeAgendaAction, reagendarReunionAction } from '@/app/crm/actions';
 import { huecosR2Action, reservarR2Action } from '@/app/crm/agendar-r2-actions';
@@ -84,6 +101,8 @@ export type FichaLeadProps = {
   saldo?: SaldoTelefono | null;
   /** Las filas del Resumen nativo (16/10/2026, `resumenDelTelefono`): una en null no se dibuja. */
   resumen?: ResumenTelefono | null;
+  /** La barra de avance de la etapa (17/10/2026, `progresoEnFunnel`): cuántas etapas y hasta cuál llegó. */
+  progreso?: { total: number; hasta: number | null } | null;
 };
 
 /** El rótulo de cada fila del Resumen nativo: el mismo nombre corto que su bloque de escritorio. */
@@ -131,7 +150,15 @@ export function FichaLead(p: FichaLeadProps) {
     }
   };
 
+  /** «Nota» de la fila de acciones: la hoja para ESCRIBIR (el «Add note» de HubSpot), sin arrancar el micrófono. */
+  const abrirNota = () => {
+    if (!enLinea) { toast('Sin conexión'); return; }
+    setErrorNota(null);
+    setSheet('nota');
+  };
+
   const puedeWa = p.tieneChat || !!p.waMe;
+  const otros = p.productos.length - 1;
 
   // La versión de teléfono de cada bloque de escritorio (../ficha-bloques.ts, PIEZA_DE_BLOQUE). Las que se
   // callan sin datos ya vienen filtradas del server; el `&&` de aquí es el cinturón.
@@ -173,32 +200,57 @@ export function FichaLead(p: FichaLeadProps) {
 
   return (
     <>
-      <div className="m-crm-acc3">
+      <div className="m-crm-acciones" role="group" aria-label="Acciones">
         {p.tel ? (
-          <a className="m-crm-acc" href={p.tel} aria-label={`Llamar a ${p.nombre}`}>
-            <IconoMenu nombre="telefono" size={24} />Llamar
+          <a className="m-crm-accion" href={p.tel} aria-label={`Llamar a ${p.nombre}`}>
+            <span className="m-crm-accion__c"><IconoMenu nombre="telefono" size={22} /></span>Llamar
           </a>
         ) : (
-          <button type="button" className="m-crm-acc" aria-disabled="true" aria-label="Llamar: sin teléfono" onClick={() => toast('Sin teléfono')}>
-            <IconoMenu nombre="telefono" size={24} />Llamar
+          <button type="button" className="m-crm-accion" aria-disabled="true" aria-label="Llamar: sin teléfono" onClick={() => toast('Sin teléfono')}>
+            <span className="m-crm-accion__c"><IconoMenu nombre="telefono" size={22} /></span>Llamar
           </button>
         )}
         {puedeWa ? (
-          <Link className="m-crm-acc" href={`/m/crm/${p.id}/chat`} aria-label={`WhatsApp con ${p.nombre}`}>
-            <IconoMenu nombre="whatsapp" size={24} />WhatsApp
+          <Link className="m-crm-accion" href={rutaChatsDeLead(p.id)} aria-label={`WhatsApp con ${p.nombre}`}>
+            <span className="m-crm-accion__c"><IconoMenu nombre="whatsapp" size={22} /></span>WhatsApp
           </Link>
         ) : (
-          <button type="button" className="m-crm-acc" aria-disabled="true" aria-label="WhatsApp: sin número" onClick={() => toast('Sin número de WhatsApp')}>
-            <IconoMenu nombre="whatsapp" size={24} />WhatsApp
+          <button type="button" className="m-crm-accion" aria-disabled="true" aria-label="WhatsApp: sin número" onClick={() => toast('Sin número de WhatsApp')}>
+            <span className="m-crm-accion__c"><IconoMenu nombre="whatsapp" size={22} /></span>WhatsApp
           </button>
         )}
-        <button type="button" className="m-crm-acc" onClick={() => setSheet('agendar')} aria-label={`${p.agenda.titulo} con ${p.nombre}`}>
-          <IconoMenu nombre="calendario" size={24} />Agendar
+        <button type="button" className="m-crm-accion" onClick={() => setSheet('agendar')} aria-label={`${p.agenda.titulo} con ${p.nombre}`}>
+          <span className="m-crm-accion__c"><IconoMenu nombre="calendario" size={22} /></span>Agendar
+        </button>
+        <button type="button" className="m-crm-accion" onClick={abrirNota} aria-label={`Escribir una nota de ${p.nombre}`}>
+          <span className="m-crm-accion__c"><IconoMenu nombre="nota" size={22} /></span>Nota
         </button>
       </div>
 
+      {casa && (
+        <button
+          type="button"
+          className="m-crm-etapa"
+          onClick={() => setSheet('mover')}
+          aria-label={`Etapa: ${casa.etapaLabel ?? 'Sin etapa'}, en ${casa.nombre}. Mover de etapa`}
+        >
+          <span className="m-crm-etapa__txt">
+            <span className="m-crm-etapa__n">{casa.etapaLabel ?? 'Sin etapa'}</span>
+            <span className="m-crm-etapa__f">{casa.nombre}{otros > 0 ? ` +${otros}` : ''}</span>
+          </span>
+          <span className="m-crm-etapa__ir" aria-hidden><Icon name="chevron" size={18} /></span>
+          {p.progreso && p.progreso.total > 1 && (
+            <span className="m-crm-etapa__barra" aria-hidden style={{ gridTemplateColumns: `repeat(${p.progreso.total}, minmax(0, 1fr))` }}>
+              {Array.from({ length: p.progreso.total }, (_, i) => (
+                <i key={i} data-lleno={(p.progreso?.hasta != null && i <= p.progreso.hasta) || undefined} />
+              ))}
+            </span>
+          )}
+        </button>
+      )}
+
       {/* ⚠️ LO DE AQUÍ ABAJO SIGUE A LA FICHA DEL FUNNEL (`p.piezas`, ../ficha-bloques.ts): qué piezas y en qué
-          orden. Arriba de todo «Datos» con la etapa, que es del encabezado y no se personaliza. */}
+          orden. La etapa es la barra de arriba (es del encabezado y no se personaliza). */}
       {gruposDeLaFicha(p.piezas).map((g, i) => {
         if (g.tipo === 'notas') {
           return (
@@ -221,17 +273,12 @@ export function FichaLead(p: FichaLeadProps) {
           );
         }
         const filas = g.piezas.map((pz) => <Fragment key={pz}>{filaDe(pz)}</Fragment>);
-        if (!g.primero) return g.piezas.length ? <div key={`filas-${i}`} className="m-crm-grupo"><ListaM>{filas}</ListaM></div> : null;
+        if (!g.piezas.length) return null;
+        if (!g.primero) return <div key={`filas-${i}`} className="m-crm-grupo"><ListaM>{filas}</ListaM></div>;
+        // La etapa ya no encabeza «Datos»: es la barra de arriba (Pipedrive, 17/10/2026).
         return (
           <SeccionM key={`datos-${i}`} titulo="Datos">
-            <ListaM>
-              {casa ? (
-                <FilaDatoM k="Etapa" v={casa.etapaLabel ?? 'Sin etapa'} azul onClick={() => setSheet('mover')} />
-              ) : (
-                <FilaDatoM k="Etapa" v="Sin etapa" />
-              )}
-              {filas}
-            </ListaM>
+            <ListaM>{filas}</ListaM>
           </SeccionM>
         );
       })}
@@ -603,7 +650,7 @@ function SheetMover(p: FichaLeadProps & { abierto: boolean; onCerrar: () => void
     try {
       const r = await moverEtapaAction(p.id, prod.funnelId, destino.key);
       if (!r.ok) { haptico('error'); setError(r.error); return; }
-      const { antes, esCasa } = r;
+      const { antes, esCasa, deshacer } = r;
       const funnelId = prod.funnelId;
       haptico('success');
       p.onCerrar();
@@ -612,7 +659,7 @@ function SheetMover(p: FichaLeadProps & { abierto: boolean; onCerrar: () => void
       if (!r.cambio) { toast(`Ya estaba en ${destino.label}`); return; }
       toast(r.pendientes.length ? 'Movido, faltan datos' : `En ${destino.label}`, {
         deshacer: () => {
-          deshacerMoverAction(p.id, funnelId, antes, esCasa)
+          deshacerMoverAction(p.id, funnelId, antes, esCasa, deshacer)
             .then((d) => { toast(d.ok ? 'Deshecho' : d.error); })
             .catch(() => toast('No se pudo deshacer'));
         },

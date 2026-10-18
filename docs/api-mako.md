@@ -28,9 +28,9 @@
 ## Índice
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
-- **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `cerrar_tareas_plan` · `proponer_ampliar_tareas`
+- **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `cambiar_fecha_tarea_plan` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `cerrar_tareas_plan` · `proponer_ampliar_tareas`
 - **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `armar_tab_ficha`
-- **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
+- **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
@@ -45,6 +45,7 @@
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
+- **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
 - **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual`
@@ -745,7 +746,7 @@ curl -L \
 
 ## Plan — `plan`
 
-Tab **Plan** (`/plan`). 18 lecturas · 10 acciones.
+Tab **Plan** (`/plan`). 18 lecturas · 11 acciones.
 
 ### `GET /api/v1/plan/resumen` — Ver el plan del negocio
 
@@ -1206,6 +1207,35 @@ curl -L \
   -d '{"progreso":0}'
 ```
 
+### `PUT /api/v1/plan/tareas/{id}/fecha` — Cambiar la fecha límite de una tarea
+
+Pone, cambia o quita la fecha límite de UNA tarea del plan (YYYY-MM-DD, de hoy en adelante). Una reunión de la agenda se mueve con otra herramienta.
+
+- **Ruta por operación:** `POST /api/v1/plan/cambiar_fecha_tarea_plan`
+- **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el deadline y el historial de la tarea (plan_tareas o experimento_tareas)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** todo
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | id de la tarea (de listar_tareas_plan), o «#412». |
+| `fecha` | string | no | la fecha límite nueva, YYYY-MM-DD (hoy o después). Falta si se quita. |
+| `quitar` | boolean | no | true para dejarla sin fecha límite. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/plan/tareas/ID/fecha"
+```
+
 ### `PUT /api/v1/plan/tareas/{id}/estado` — Mover una tarea de columna
 
 Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Atorada admite un motivo corto. No toca la prioridad. Sacarla de Completada la reabre en 0%; para completarla usa cerrar_tareas_plan.
@@ -1470,7 +1500,7 @@ Tab **CRM** (`/crm`). 31 lecturas · 37 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
-Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una lista compacta (id, nombre, estado, etapa, fechas de reuniones, monto de cierre en USD, closer y setter). Es el primer paso antes de cualquier otra operación sobre un lead: de aquí sale el leadId. Compara el texto tal cual (sensible a acentos) y devuelve como máximo 20 resultados.
+Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una lista compacta (id, nombre, estado, etapa y etapa_nombre —la etapa en la que la ve el equipo y cómo se llama—, fechas de reuniones, monto de cierre en USD, closer y setter). Es el primer paso antes de cualquier otra operación sobre un lead: de aquí sale el leadId. Compara el texto tal cual (sensible a acentos) y devuelve como máximo 20 resultados.
 
 - **Ruta por operación:** `GET /api/v1/crm/buscar_leads`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1493,7 +1523,7 @@ curl -L \
 
 ### `GET /api/v1/crm/leads/{leadId}` — Ficha de un lead
 
-La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2 y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y no significa que no contestó). Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.
+La ficha de UN lead: contacto, estado comercial, fechas de R1 y R2 con asistencia, calificado, cierre y monto en USD, origen (campaña o UTM), closer y setter, más las respuestas del formulario de calificación de R1 y R2 y lo que contestó en el formulario de Meta (formulario_meta: pregunta y respuesta de las preguntas propias del formulario; null = no vino de un formulario de Meta o entró antes del 04/10/2026, y no significa que no contestó) y en el de su landing (formulario_landing, igual: null = no se guardó, no «no contestó»). La etapa viene como etapa y etapa_nombre, la misma que ve el equipo. Trae además, SÓLO si están cargados: web, instagram, youtube, linkedin, direccion, sexo, ingreso_estimado_usd (lo que alguien cree que vale mientras está abierto; en un lead ganado no va, como en la nueva ficha: lo real es el monto de cierre, y en su lugar viene ingreso_estimado_oculto con el porqué: no es «no tiene»), venta_tipo con suscripcion_mensual_usd y suscripcion_meses, la oferta asignada, pagina_registro (la página donde se registró), entrada_social (cómo entró por Instagram o Messenger: comentario, mensaje, historia o anuncio) y email_dado_de_baja. Un campo que no está es «no está cargado», no «no tiene». Con una ficha muy larga, las respuestas de los formularios se acortan (ficha_acortada) en vez de cortarse. Úsala después de buscar_leads cuando necesites el detalle antes de opinar o proponer algo. No trae cobranza, historial ni tracking: para eso están cobranza_lead, historial_lead y tracking_lead.
 
 - **Ruta por operación:** `GET /api/v1/crm/ficha_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1734,7 +1764,7 @@ curl -L \
 
 ### `GET /api/v1/crm/leads/{leadId}/plan-de-pagos` — Plan de pagos de un lead
 
-El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado.
+El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado. El bloque `cobrado` dice lo cobrado con la misma cuenta que la ficha (texto, estado y semáforo —verde, ámbar, rojo o gris—, cobrado, total, pendiente y vencido en USD, la próxima cuota, cuántas hay cobradas, vencidas y por vencer, la suscripción con su estado y la renovación rechazada si la hay, lo cobrado en otras monedas y si las cuentas cuadran): úsalo para «¿cómo va X con sus pagos?» en vez de sumar a mano. Cada cuota trae cobrada_en. Para cambiar el vencimiento o el monto de una cuota, mandarle su link o cortar su recordatorio están editar_cuota, crear_link_cuota y cortar_recordatorio_cuota (área cobros), con ese mismo id.
 
 - **Ruta por operación:** `GET /api/v1/crm/cobranza_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2563,14 +2593,14 @@ curl -L \
 
 ### `PATCH /api/v1/crm/leads/{leadId}/cuotas/{pagoId}` — Marcar una cuota cobrada
 
-PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (queda pendiente hasta el «sí»). Recalcula lo cobrado del lead. El pagoId sale de cobranza_lead. Si se cobró un monto DISTINTO, pasa montoUsd: si fue menos, la diferencia queda como una cuota nueva pendiente con el mismo vencimiento, salvo que la persona diga que es un descuento (resto=descuento). Úsala cuando digan «ya me pagó la cuota 2» o «me pagó 300 de la cuota de 500».
+PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (queda pendiente hasta el «sí»). Recalcula lo cobrado del lead. El pagoId sale de cobranza_lead. Si se cobró un monto DISTINTO, pasa montoUsd: si fue menos, la diferencia queda como una cuota nueva pendiente con el mismo vencimiento, salvo que la persona diga que es un descuento (resto=descuento). Si se cobró en otra moneda que no es dólares («me pagó 500 mil pesos»), pasa moneda y montoOriginal: nunca los pongas en montoUsd, que SIEMPRE son dólares (si la persona no dijo cuántos dólares son y la cuota está en dólares, se salda con el monto de la cuota). Concepto y metodo son opcionales. Úsala cuando digan «ya me pagó la cuota 2» o «me pagó 300 de la cuota de 500».
 
 - **Ruta por operación:** `POST /api/v1/crm/marcar_pago_cobrado`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** marca o desmarca la cuota en pagos (con el monto real si vino), deja la diferencia como una cuota nueva si se cobró de menos, recalcula total_cobrado_usd del lead y deja historial
+- **Escribe:** marca o desmarca la cuota en pagos (con el monto real, la moneda, el concepto y el método si vinieron), deja la diferencia como una cuota nueva si se cobró de menos, recalcula total_cobrado_usd del lead y deja historial
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -2583,6 +2613,10 @@ PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (qued
 | `fechaPago` | string | no | YYYY-MM-DD en que se cobró (default hoy en la zona del negocio). |
 | `montoUsd` | number | no | Lo que se cobró de verdad, en USD, si fue distinto del monto de la cuota. Si se omite, la cuota se cobra tal cual. |
 | `resto` | string (pendiente \\| descuento) | no | Sólo si montoUsd es MENOR que la cuota: pendiente (default, la diferencia queda como una cuota nueva) o descuento (no se cobra). |
+| `moneda` | string | no | La moneda en que se cobró de verdad, código de 3 letras (MXN, ARS, COP, EUR…). Pásala SIEMPRE que la persona hable de pesos, euros o cualquier moneda que no sea dólares. Sin moneda el pago es en dólares. |
+| `montoOriginal` | number | no | Cuánto se cobró, en la «moneda» (no en dólares). Va siempre con la moneda; sin ella se rechaza. |
+| `concepto` | string | no | Para qué fue el pago, en pocas palabras («adelanto», «segunda cuota», «extra de diseño»). |
+| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque u otro. |
 
 ```bash
 curl -L \
@@ -2597,14 +2631,14 @@ curl -L \
 
 ### `POST /api/v1/crm/leads/{leadId}/pagos` — Registrar un pago fuera del plan
 
-PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelanto, un extra, un pago de otro esquema): entra como una cuota nueva ya cobrada y suma a lo cobrado del lead. No cambia el monto de cierre. Si el pago corresponde a una cuota que ya existe, usa marcar_pago_cobrado.
+PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelanto, un extra, un pago de otro esquema): entra como una cuota nueva ya cobrada y suma a lo cobrado del lead. No cambia el monto de cierre. Si se cobró en otra moneda que no es dólares («me pagó 500 mil pesos»), pasa moneda y montoOriginal además de montoUsd (los dólares que son: si la persona no lo dijo, pregúntalo, no inventes una tasa); montoUsd SIEMPRE es dólares. Concepto y metodo son opcionales. Si el pago corresponde a una cuota que ya existe, usa marcar_pago_cobrado.
 
 - **Ruta por operación:** `POST /api/v1/crm/registrar_pago_suelto`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** insert en pagos (una cuota nueva ya cobrada), recalcula total_cobrado_usd del lead y deja historial
+- **Escribe:** insert en pagos (una cuota nueva ya cobrada, con su moneda, concepto y método si vinieron), recalcula total_cobrado_usd del lead y deja historial
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -2612,8 +2646,12 @@ PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelant
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `leadId` | number | sí | id del lead que pagó. |
-| `montoUsd` | number | sí | Lo que se cobró, en USD. |
+| `montoUsd` | number | sí | Lo que se cobró, EN DÓLARES. Si se cobró en otra moneda, los dólares que son (el valor para los reportes); lo que se cobró de verdad va en montoOriginal. |
 | `fechaPago` | string | no | YYYY-MM-DD en que se cobró (default hoy en la zona del negocio). |
+| `moneda` | string | no | La moneda en que se cobró de verdad, código de 3 letras (MXN, ARS, COP, EUR…). Pásala SIEMPRE que la persona hable de pesos, euros o cualquier moneda que no sea dólares. Sin moneda el pago es en dólares. |
+| `montoOriginal` | number | no | Cuánto se cobró, en la «moneda» (no en dólares). Va siempre con la moneda; sin ella se rechaza. |
+| `concepto` | string | no | Para qué fue el pago, en pocas palabras («adelanto», «segunda cuota», «extra de diseño»). |
+| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque u otro. |
 
 ```bash
 curl -L \
@@ -3387,7 +3425,7 @@ curl -L \
 
 ## Ads (Manager y Analyst) — `ads`
 
-Tab **Ads Manager** (`/ads-manager`). 36 lecturas · 23 acciones.
+Tab **Ads Manager** (`/ads-manager`). 36 lecturas · 24 acciones.
 
 ### `GET /api/v1/ads/campanas` — Campañas con gasto en 30 días
 
@@ -3562,7 +3600,7 @@ curl -L \
 
 ### `GET /api/v1/ads/estadisticas/anuncios` — Rendimiento por anuncio en un rango
 
-El rendimiento de cada anuncio CON GASTO en un rango de fechas, de la base de MaKo (Meta sincronizado + CRM): gasto en USD derivado, leads de Meta y del CRM, agendas, cierres y cash del CRM, días corriendo, veredicto Recon (explorando, validada, falso_positivo, apagar, pausada), hook rate, hold rate, CTR, CPL, CPM, frecuencia e impresiones. Ordenado por gasto. Úsala para «¿qué anuncio rinde mejor?», «¿cuál apago?». Los anuncios sin gasto en el rango no aparecen.
+El rendimiento de cada anuncio CON GASTO en un rango de fechas, de la base de MaKo (Meta sincronizado + CRM): gasto en USD derivado, leads que reporta Meta (`leads_meta`), leads que entraron al CRM desde ese anuncio en el rango (`leads_crm`; la diferencia es la fuga de captura), la meta de leads con la que se valida un anuncio (`meta_leads_para_validar`, una vara fija, no un dato del anuncio), agendas que reporta Meta (`agendas_meta`), cierres y cash del CRM de ese anuncio (de cualquier fecha), días corriendo, veredicto Recon (explorando, validada, falso_positivo, apagar, pausada), hook rate, hold rate, CTR, CPL, CPM, frecuencia e impresiones. Ordenado por gasto. Úsala para «¿qué anuncio rinde mejor?», «¿cuál apago?». Los anuncios sin gasto en el rango no aparecen.
 
 - **Ruta por operación:** `GET /api/v1/ads/ver_rendimiento_anuncios`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -4591,6 +4629,45 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/ads/anuncios/AD_ID"
+```
+
+### `PATCH /api/v1/ads/conjuntos/{adsetId}/segmentacion` — Editar el público de un conjunto
+
+PROPONE cambiar a quién le llega un conjunto que ya corre: género, edades, públicos personalizados, ubicaciones (Facebook, Instagram…), Advantage+ y agregar un punto del mapa con un radio (un pin). Lo que no se manda NO se toca: intereses, idiomas, exclusiones y los lugares que ya tenía se conservan (MaKo lee el público de Meta y cambia sólo lo pedido). Cambiar el público manda el conjunto a revisión y reinicia su aprendizaje. Se confirma en una pantalla. Antes: ver_publico_conjunto_meta.
+
+- **Ruta por operación:** `POST /api/v1/ads/proponer_editar_publico_conjunto`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** reescribe la segmentación del conjunto en Meta (vuelve a revisión y reinicia el aprendizaje)
+- **Reversible:** no
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere conectada:** meta
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `adsetId` | string | sí | id numérico del conjunto de anuncios en Meta (de listar_conjuntos_meta). |
+| `genero` | string (all \\| h \\| m) | no | all = todos, h = hombres, m = mujeres. |
+| `edadMin` | number | no | edad mínima (18 a 65). |
+| `edadMax` | number | no | edad máxima (18 a 65; 65 es «65 o más»). |
+| `publicos` | string[] | no | ids de los públicos personalizados (de listar_publicos_meta): la lista ENTERA nueva; [] los saca. |
+| `ubicaciones` | string[] (facebook \\| instagram \\| audience_network \\| messenger) | no | dónde se muestra: la lista entera. Para dejarlas automáticas, usa ubicacionesAutomaticas. |
+| `ubicacionesAutomaticas` | boolean | no | true = Meta elige las ubicaciones (saca la lista). |
+| `advantage` | boolean | no | Advantage+ audience: true deja que Meta amplíe el público. |
+| `pinLat` | number | no | para AGREGAR un punto del mapa: latitud (con pinLng). |
+| `pinLng` | number | no | longitud del punto (con pinLat). |
+| `pinRadioKm` | number | no | radio alrededor del punto, en km (default 5). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/conjuntos/ADSET_ID/segmentacion"
 ```
 
 ### `POST /api/v1/ads/publicos` — Crear un público de retargeting
@@ -6952,6 +7029,7 @@ El porcentaje de paso de cada etapa del embudo semana a semana, con el lunes de 
 | --- | --- | --- | --- |
 | `hasta` | string | no | Último día de la ventana, YYYY-MM-DD, inclusive. La última semana es la que contiene este día. Default: hoy en la zona del negocio. |
 | `semanas` | number | no | Cuántas semanas hacia atrás. Default 12. |
+| `funnels` | string | no | De qué funnels es la serie: «todos» (el negocio entero, el default) o ids separados por coma de funnels_del_negocio (listar_objetivos), p. ej. «1,29». Lo de Meta sigue siendo de toda la cuenta. Funnels con etapas distintas no se miden juntos: pídelos de a uno. |
 
 ```bash
 curl -L \
@@ -8722,7 +8800,7 @@ Tab **Web Generator** (`/web-generator`). 35 lecturas · 42 acciones.
 
 ### `GET /api/v1/landing/landings` — Landings declaradas del negocio
 
-Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y los productos a los que entran sus leads. Úsala antes de cualquier operación que pida la URL de una landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.
+Las páginas que el negocio declaró como suyas en Integraciones → Landing (máximo 12), cada una con su URL normalizada y los productos a los que entran sus leads (sus embudoId), más los productos que se pueden asignar (productosDisponibles, con su embudoId y su nombre). Úsala antes de cualquier operación que pida la URL de una landing y antes de asignarle productos con guardar_landing. Es lo que el cliente dice tener, no lo que el Pixel observó: para eso está listar_landings_detectadas. No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/landing/listar_landings`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -9700,14 +9778,14 @@ curl -L \
 
 ### `POST /api/v1/landing/landings` — Agregar o corregir una landing
 
-Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Tope: 12 landings.
+Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.
 
 - **Ruta por operación:** `POST /api/v1/landing/guardar_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** la lista de landings declaradas (app_settings landing.config) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio
+- **Escribe:** la lista de landings declaradas (app_settings landing.config, con los productos de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -9717,6 +9795,7 @@ Declara una página como del negocio o corrige su URL (con `anterior`). Solo ace
 | --- | --- | --- | --- |
 | `url` | string | sí | La dirección de la página, con o sin https. |
 | `anterior` | string | no | La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos. |
+| `productos` | string[] | no | Los productos del CRM a los que entran los leads de esta página, por su embudoId (de listar_landings → productosDisponibles). Reemplaza los que tenía; [] se los saca todos; sin este parámetro quedan como están. |
 
 ```bash
 curl -L \
@@ -10307,7 +10386,7 @@ curl -L \
 
 ### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover o borrar un bloque
 
-Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar. El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
+Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar (quitar o sacar un botón, el formulario, un video, una imagen). El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/acomodar_bloque_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -14936,6 +15015,1208 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/restauracion"
+```
+
+## Comunidad — `comunidad`
+
+Tab **Clients › Community** (`/clients/community`). 14 lecturas · 27 acciones.
+
+### `GET /api/v1/comunidad/comunidades` — Listar las comunidades
+
+Los productos de Customer Success de este negocio (los mismos del selector de la tab Comunidad), cada uno con su productoId y el nombre de su comunidad. Empieza por aquí para conseguir el productoId. Un producto con `error` no está vacío: no se pudo leer.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/listar_comunidades`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}` — Ver una comunidad
+
+La cabecera y el About de la comunidad de un producto: nombre, descripción corta, texto del About, reglas, categorías (id, nombre, quién publica, orden por defecto), desde qué nivel publican los alumnos, la zona del calendario, los nombres de los 9 niveles, cuántos miembros hay (y en línea, y del equipo) y el top 5 de los últimos 30 días. Un conteo en null es «no se pudo leer», no cero.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/ver_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID"
+```
+
+### `GET /api/v1/comunidad/onboarding` — Onboarding de la Comunidad
+
+Los pasos del onboarding de la tab Comunidad (las categorías, el primer post, que un alumno participe): cuáles están marcados y cuándo, qué dicen los datos de cada uno (null = no se pudo leer), cuáles faltan y si la línea del onboarding sigue a la vista. Es del negocio entero (todas sus comunidades). No escribe nada.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/estado_onboarding_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/onboarding"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}/posts` — Listar los posts del feed
+
+Una página del feed de una comunidad (20 posts): en la página 0 van primero los fijados. Cada post trae su id, título, extracto, autor (clave, nombre, nivel, si es del equipo), categoría, fecha, likes, cuántos comentarios, si está cerrado, el video, la encuesta con sus resultados y el adjunto (nombre y tipo, sin link). Filtra por categoría y ordena como el feed. hayMas dice si hay otra página.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/listar_posts_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `categoriaId` | number | no | sólo los de esta categoría (de ver_comunidad). |
+| `orden` | string (default \\| nuevos \\| top_semana \\| top_mes) | no | default (actividad reciente: el post o su último comentario), nuevos, top_semana o top_mes (por likes). |
+| `pagina` | number | no | desde 0. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/posts"
+```
+
+### `GET /api/v1/comunidad/posts/{postId}` — Ver un post y sus comentarios
+
+Un post entero (el texto, a quién menciona, el video, la encuesta con los ids de sus opciones `o1`…`o10`, el adjunto sin link) y su hilo de comentarios en dos niveles (id, a quién responde, autor, texto, fecha, likes, respuestas). Sirve también para el hilo de una clase: su postId lo da ver_comentarios_clase_comunidad (y `claseId` dice de qué clase es).
+
+- **Ruta por operación:** `GET /api/v1/comunidad/ver_post_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `postId` | number | sí | id del post (de listar_posts_comunidad, buscar_en_comunidad o ver_comentarios_clase_comunidad). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/posts/POST_ID"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}/busqueda` — Buscar en la comunidad
+
+Busca un texto en el título y el cuerpo de los posts (sin mayúsculas ni acentos; hasta 20, los más nuevos primero; sin los hilos de las clases) y en los nombres de los miembros (hasta 8). Con menos de 2 letras no busca. Mira los 200 posts más nuevos que coinciden: en una búsqueda muy común, lo más viejo no aparece.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/buscar_en_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `q` | string | sí | lo que se busca. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/busqueda?q=Q"
+```
+
+### `POST /api/v1/comunidad/comunidades/{productoId}/posts` — Publicar un post
+
+Publica un post en el feed de una comunidad: título, texto, y si se quiere un video (YouTube, Vimeo o Loom) y una encuesta de 2 a 10 opciones (que después no se edita). Si la comunidad tiene categorías, la categoría es obligatoria. Avisa a los mencionados y el autor queda siguiendo el post. Se publica FIRMADO por la persona del equipo que lo confirma en MaKo (o la que creó el token): sin una persona, no se publica. Devuelve el id del post en `datos.postId`.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/publicar_post_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** un post en la comunidad (comunidad_posts), que el autor sigue (comunidad_seguimientos), y los avisos a los mencionados (comunidad_notificaciones)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `titulo` | string | sí | el título (hasta 200 letras). |
+| `cuerpo` | string | no | el texto, plano (hasta 10000 letras). Los links se vuelven clicables; para nombrar a alguien, `@Nombre` más su clave en menciones. |
+| `categoriaId` | number | no | la categoría (de ver_comunidad). Obligatoria si la comunidad tiene categorías. |
+| `videoUrl` | string | no | el link de un video de YouTube, Vimeo o Loom. |
+| `menciones` | string[] | no | las claves (`u:N` o `l:N`, de listar_miembros_comunidad) de quienes el texto nombra como `@Nombre`. Solo cuentan (y reciben aviso) los miembros que el texto nombra de verdad. |
+| `encuesta` | string[] | no | las opciones de una encuesta, de 2 a 10, cada una hasta 80 letras y sin repetir. La pregunta va en el título o el texto. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/posts" \
+  -d '{"titulo":"TITULO"}'
+```
+
+### `PATCH /api/v1/comunidad/posts/{postId}` — Editar un post propio
+
+Cambia el título, el texto, la categoría, el video o las menciones de un post. Sólo lo edita quien lo escribió (la persona que firma tiene que ser la autora). La encuesta y el adjunto no se editan, ni el hilo de una clase. Lo que no se pasa queda igual; «-» en cuerpo o videoUrl lo vacía. Avisa sólo a las menciones nuevas.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/editar_post_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** el título, el texto, la categoría, el video y las menciones del post (comunidad_posts), y los avisos a las menciones nuevas
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `postId` | number | sí | id del post (de listar_posts_comunidad, buscar_en_comunidad o ver_comentarios_clase_comunidad). |
+| `titulo` | string | no | el título nuevo (hasta 200 letras). |
+| `cuerpo` | string | no | el texto nuevo (hasta 10000 letras). «-» lo vacía. |
+| `categoriaId` | number | no | la categoría nueva (de ver_comunidad). |
+| `videoUrl` | string | no | el video nuevo (YouTube, Vimeo o Loom). «-» lo saca. |
+| `menciones` | string[] | no | las claves (`u:N` o `l:N`, de listar_miembros_comunidad) de quienes el texto nombra como `@Nombre`. Solo cuentan (y reciben aviso) los miembros que el texto nombra de verdad. Si se pasa, REEMPLAZA la lista; [] las saca todas. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/posts/POST_ID"
+```
+
+### `DELETE /api/v1/comunidad/posts/{postId}` — Borrar un post
+
+Borra un post de cualquiera (es moderación), con sus comentarios, likes y votos (esos puntos se les van a sus autores) y su adjunto. No se puede deshacer. El hilo de una clase no se borra entero: se borran sus comentarios uno por uno (borrar_comentario_comunidad) o se cierran.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/borrar_post_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** borra el post (comunidad_posts) y, en cascada, sus comentarios, likes y votos; y su archivo del bucket
+- **Reversible:** no
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `postId` | number | sí | id del post (de listar_posts_comunidad, buscar_en_comunidad o ver_comentarios_clase_comunidad). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/posts/POST_ID"
+```
+
+### `PUT /api/v1/comunidad/posts/{postId}/fijado` — Fijar o soltar un post
+
+Fija un post arriba del feed (hasta 3 por comunidad) o lo suelta. Con los 3 lugares ocupados, dice cuáles están fijados para soltar uno antes. El hilo de una clase no se fija.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/fijar_post_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** fija o suelta el post (comunidad_posts.fijado_at)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `postId` | number | sí | id del post (de listar_posts_comunidad, buscar_en_comunidad o ver_comentarios_clase_comunidad). |
+| `fijado` | boolean | sí | true fija, false suelta. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/posts/POST_ID/fijado" \
+  -d '{"fijado":true}'
+```
+
+### `PUT /api/v1/comunidad/posts/{postId}/comentarios-cerrados` — Cerrar o abrir los comentarios
+
+Cierra los comentarios de un post o del hilo de una clase (lo que ya está se sigue viendo; no comenta nadie, tampoco el equipo) o los vuelve a abrir.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/cerrar_comentarios_post_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cierra o abre los comentarios del post (comunidad_posts.comentarios_cerrados_at)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `postId` | number | sí | id del post (de listar_posts_comunidad, buscar_en_comunidad o ver_comentarios_clase_comunidad). |
+| `cerrados` | boolean | sí | true cierra, false abre. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/posts/POST_ID/comentarios-cerrados" \
+  -d '{"cerrados":true}'
+```
+
+### `PUT /api/v1/comunidad/posts/{postId}/seguimiento` — Seguir o dejar un post
+
+La persona del equipo que firma empieza a seguir un post o el hilo de una clase (le llegan a su campana los comentarios nuevos) o lo deja de seguir. Necesita una persona: la que confirma en MaKo o la que creó el token.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/seguir_post_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** anota o borra el seguimiento de esa persona (comunidad_seguimientos)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `postId` | number | sí | id del post (de listar_posts_comunidad, buscar_en_comunidad o ver_comentarios_clase_comunidad). |
+| `seguir` | boolean | sí | true sigue, false deja de seguir. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/posts/POST_ID/seguimiento" \
+  -d '{"seguir":true}'
+```
+
+### `POST /api/v1/comunidad/posts/{postId}/votos` — Votar en una encuesta
+
+La persona del equipo que firma vota (o cambia su voto) en la encuesta de un post. La opción es su id (`o1`…`o10`, de ver_post_comunidad). Ojo: el voto del equipo cuenta en el resultado que ven los alumnos.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/votar_encuesta_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el voto de esa persona en la encuesta (comunidad_votos)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `postId` | number | sí | id del post (de listar_posts_comunidad, buscar_en_comunidad o ver_comentarios_clase_comunidad). |
+| `opcion` | string | sí | el id de la opción (o1, o2…). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/posts/POST_ID/votos" \
+  -d '{"opcion":"OPCION"}'
+```
+
+### `PUT /api/v1/comunidad/posts/{postId}/me-gusta` — Dar o sacar like a un post
+
+La persona del equipo que firma da o saca su like a un post (nunca a uno propio). Un like es un punto para el autor, y el nivel de un alumno puede abrirle clases del curso: úsala sólo si te lo piden. Avisa al autor sólo con un like nuevo.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/cambiar_like_post_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el like de esa persona (comunidad_likes) y, si es nuevo, el aviso al autor
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `postId` | number | sí | id del post (de listar_posts_comunidad, buscar_en_comunidad o ver_comentarios_clase_comunidad). |
+| `meGusta` | boolean | sí | true da el like, false lo saca. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/posts/POST_ID/me-gusta" \
+  -d '{"meGusta":true}'
+```
+
+### `POST /api/v1/comunidad/posts/{postId}/comentarios` — Comentar o responder
+
+Comenta un post o responde a un comentario (dos niveles: responder a una respuesta la cuelga del mismo hilo). Sirve para contestar dentro del hilo de una clase con su postId. Avisa a quien se le contestó, a los mencionados y a quienes siguen el post, y lo sube en «Recientes». Se publica FIRMADO por la persona del equipo que lo confirma en MaKo (o la que creó el token): sin una persona, no se publica. Devuelve el id en `datos.comentarioId`.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/comentar_post_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** un comentario (comunidad_comentarios), la actividad del post y los avisos (comunidad_notificaciones)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `postId` | number | sí | id del post (de listar_posts_comunidad, buscar_en_comunidad o ver_comentarios_clase_comunidad). |
+| `cuerpo` | string | sí | el texto (hasta 4000 letras). |
+| `responderA` | number | no | el id del comentario al que responde (de ver_post_comunidad). Sin esto, comenta en el primer nivel. |
+| `menciones` | string[] | no | las claves (`u:N` o `l:N`, de listar_miembros_comunidad) de quienes el texto nombra como `@Nombre`. Solo cuentan (y reciben aviso) los miembros que el texto nombra de verdad. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/posts/POST_ID/comentarios" \
+  -d '{"cuerpo":"CUERPO"}'
+```
+
+### `PATCH /api/v1/comunidad/comentarios/{comentarioId}` — Editar un comentario propio
+
+Cambia el texto (y las menciones) de un comentario. Sólo lo edita quien lo escribió: la persona que firma tiene que ser la autora. Avisa sólo a las menciones nuevas.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/editar_comentario_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** el texto y las menciones del comentario (comunidad_comentarios)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `comentarioId` | number | sí | id del comentario (de ver_post_comunidad o ver_comentarios_clase_comunidad). |
+| `cuerpo` | string | sí | el texto nuevo (hasta 4000 letras). |
+| `menciones` | string[] | no | las claves (`u:N` o `l:N`, de listar_miembros_comunidad) de quienes el texto nombra como `@Nombre`. Solo cuentan (y reciben aviso) los miembros que el texto nombra de verdad. Si se pasa, REEMPLAZA la lista; [] las saca todas. Sin esto quedan las que tenía. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/comentarios/COMENTARIO_ID" \
+  -d '{"cuerpo":"CUERPO"}'
+```
+
+### `DELETE /api/v1/comunidad/comentarios/{comentarioId}` — Borrar un comentario
+
+Borra un comentario de cualquiera (es moderación), con sus respuestas (también en el hilo de una clase). No se puede deshacer.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/borrar_comentario_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** borra el comentario (comunidad_comentarios) y, en cascada, sus respuestas y sus likes
+- **Reversible:** no
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `comentarioId` | number | sí | id del comentario (de ver_post_comunidad o ver_comentarios_clase_comunidad). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comentarios/COMENTARIO_ID"
+```
+
+### `PUT /api/v1/comunidad/comentarios/{comentarioId}/me-gusta` — Dar o sacar like a un comentario
+
+La persona del equipo que firma da o saca su like a un comentario (nunca a uno propio), también en el hilo de una clase. Un like es un punto para el autor, y el nivel de un alumno puede abrirle clases del curso: úsala sólo si te lo piden.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/cambiar_like_comentario_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el like de esa persona (comunidad_likes) y, si es nuevo, el aviso al autor
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `comentarioId` | number | sí | id del comentario (de ver_post_comunidad o ver_comentarios_clase_comunidad). |
+| `meGusta` | boolean | sí | true da el like, false lo saca. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/comentarios/COMENTARIO_ID/me-gusta" \
+  -d '{"meGusta":true}'
+```
+
+### `GET /api/v1/comunidad/clases/{claseId}/comentarios` — Ver los comentarios de una clase
+
+El hilo de comentarios de una clase del curso (dos niveles), si está cerrado, su postId (null = nadie comentó todavía) y si esa clase tiene los comentarios prendidos (apagados, los alumnos no los ven). Para responder, likear, editar o borrar dentro del hilo se usan las de post y comentario con ese postId.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/ver_comentarios_clase_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase del curso (de ver_curso). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/clases/CLASE_ID/comentarios"
+```
+
+### `POST /api/v1/comunidad/clases/{claseId}/comentarios` — Comentar una clase
+
+Comenta una clase del curso en el primer nivel: si es el primer comentario abre su hilo (y quien lo abre lo sigue). Para responder dentro del hilo, comentar_post_comunidad con su postId y responderA. Con los comentarios de esa clase apagados se comenta igual y ningún alumno lo ve. Se publica FIRMADO por la persona del equipo que lo confirma en MaKo (o la que creó el token): sin una persona, no se publica. Devuelve `datos.comentarioId` y `datos.postId`.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/comentar_clase_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** el hilo de la clase si no existía (comunidad_posts con clase_id), el comentario (comunidad_comentarios) y los avisos
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `claseId` | number | sí | id de la clase del curso (de ver_curso). |
+| `cuerpo` | string | sí | el texto (hasta 4000 letras). |
+| `menciones` | string[] | no | las claves (`u:N` o `l:N`, de listar_miembros_comunidad) de quienes el texto nombra como `@Nombre`. Solo cuentan (y reciben aviso) los miembros que el texto nombra de verdad. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/clases/CLASE_ID/comentarios" \
+  -d '{"cuerpo":"CUERPO"}'
+```
+
+### `POST /api/v1/comunidad/comunidades/{productoId}/categorias` — Crear una categoría
+
+Agrega una categoría al final de los chips del feed: nombre (hasta 30 letras, sin repetir otra), quién publica ahí y su orden por defecto. Hasta 10 por comunidad. Ojo: con la PRIMERA categoría, publicar pasa a exigir una. Devuelve el id en `datos.categoriaId`.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/crear_categoria_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una categoría al final de la lista (comunidad_categorias)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `nombre` | string | sí | el nombre (hasta 30 letras). |
+| `permiso` | string (todos \\| equipo) | no | quién publica: todos (default) o sólo el equipo. |
+| `ordenDefault` | string (default \\| nuevos \\| top_semana \\| top_mes) | no | cómo se ordena el feed al elegir la categoría: default (actividad reciente), nuevos, top_semana o top_mes. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/categorias" \
+  -d '{"nombre":"NOMBRE"}'
+```
+
+### `PATCH /api/v1/comunidad/comunidades/{productoId}/categorias/{categoriaId}` — Editar una categoría
+
+Cambia el nombre, quién publica o el orden por defecto de una categoría. Lo que no se pasa queda igual. Pasarla a «equipo» deja a los alumnos sin publicar ahí.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/editar_categoria_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el nombre, el permiso o el orden por defecto de la categoría (comunidad_categorias)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `categoriaId` | number | sí | id de la categoría (de ver_comunidad: `categorias[].id`). |
+| `nombre` | string | no | el nombre nuevo (hasta 30 letras). |
+| `permiso` | string (todos \\| equipo) | no | quién publica: todos o sólo el equipo. |
+| `ordenDefault` | string (default \\| nuevos \\| top_semana \\| top_mes) | no | cómo se ordena el feed al elegir la categoría: default (actividad reciente), nuevos, top_semana o top_mes. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/categorias/CATEGORIA_ID"
+```
+
+### `DELETE /api/v1/comunidad/comunidades/{productoId}/categorias/{categoriaId}` — Borrar una categoría
+
+Borra una categoría. Sus posts NO se borran: quedan sin categoría, y volver a crearla no los devuelve a ella.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/borrar_categoria_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** borra la categoría (comunidad_categorias); sus posts quedan sin categoría
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `categoriaId` | number | sí | id de la categoría (de ver_comunidad: `categorias[].id`). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/categorias/CATEGORIA_ID"
+```
+
+### `PUT /api/v1/comunidad/comunidades/{productoId}/categorias/orden` — Ordenar las categorías
+
+Pone los chips de las categorías en el orden que se pasa: la lista ENTERA de ids, cada una una vez, como textos (["3","1","2"]).
+
+- **Ruta por operación:** `POST /api/v1/comunidad/ordenar_categorias_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el orden de las categorías (comunidad_categorias.orden)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `categoriaIds` | string[] | sí | todos los ids de las categorías (de ver_comunidad), como textos, en el orden nuevo. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/categorias/orden" \
+  -d '{"categoriaIds":["3","1","2"]}'
+```
+
+### `PUT /api/v1/comunidad/comunidades/{productoId}/niveles` — Nombrar los niveles
+
+Cambia el nombre de uno o más de los 9 niveles de la comunidad (los demás quedan como están). «-» devuelve un nivel a «Nivel N».
+
+- **Ruta por operación:** `POST /api/v1/comunidad/nombrar_niveles_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** los nombres de los niveles (comunidad_ajustes.nombres_nivel)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `niveles` | object[] | sí | qué nivel y su nombre nuevo, uno por ítem. |
+| `niveles.nivel` | number | sí | el nivel (1 a 9). |
+| `niveles.nombre` | string | sí | el nombre (hasta 30 letras); «-» = «Nivel N». |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/niveles" \
+  -d '{"niveles":[]}'
+```
+
+### `PUT /api/v1/comunidad/comunidades/{productoId}/about` — Editar el About
+
+Cambia la portada que leen los alumnos: el nombre de la comunidad, la descripción corta, el texto del About y las reglas, en texto plano. Lo que no se pasa queda igual; «-» en nombre vuelve al del producto, y en los demás los vacía. Lo que había vuelve en `datos.antes`.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/editar_about_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** el nombre, la descripción, el texto y las reglas de la comunidad (comunidad_ajustes)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `nombre` | string | no | el nombre de la comunidad (hasta 80 letras). |
+| `descripcion` | string | no | la descripción corta, en una línea (hasta 150 letras). |
+| `texto` | string | no | el texto del About (hasta 5000 letras). |
+| `reglas` | string | no | las reglas (hasta 4000 letras). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/about"
+```
+
+### `PATCH /api/v1/comunidad/comunidades/{productoId}` — Ajustar la comunidad
+
+Desde qué nivel publican los alumnos (1 = todos; el equipo publica siempre) y la zona horaria por defecto del calendario («-» = la del negocio). Al menos uno de los dos. Subir el nivel deja sin publicar a los alumnos que no llegan.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/ajustar_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el nivel para publicar y la zona del calendario (comunidad_ajustes)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `nivelParaPostear` | number | no | desde qué nivel publica un alumno (1 a 9). |
+| `zona` | string | no | la zona IANA del calendario (America/Bogota). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}/ranking` — Ver el ranking
+
+Los 9 niveles de una comunidad con su nombre, qué porcentaje de los alumnos está en cada uno y qué abre cada nivel en el curso, y las tablas de los últimos 7 días, 30 días y de siempre (puesto, miembro, puntos). El equipo no figura en el ranking.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/ver_ranking_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/ranking"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}/miembros` — Listar los miembros
+
+El directorio de una comunidad: el equipo y los alumnos (clave `u:N` o `l:N`, nombre, foto, nivel, si es del equipo, bio, si está en línea, última actividad, desde cuándo), filtrable y buscable por nombre; hasta 300, de la actividad más reciente a la más vieja, con los conteos de la comunidad entera. Da las claves para menciones y ver_miembro_comunidad; en un alumno, el número de `l:N` es su leadId.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/listar_miembros_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `filtro` | string (todos \\| equipo \\| en_linea) | no | todos (default), sólo el equipo o sólo los que están en línea. |
+| `q` | string | no | un pedazo del nombre. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/miembros"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}/miembros/{clave}` — Ver el perfil de un miembro
+
+El perfil de un miembro de esta comunidad: nombre, nivel y su nombre, puntos, bio, los links que eligió publicar, ubicación, si está en línea y desde cuándo es miembro. Si no es miembro (o lo sacaron), lo dice.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/ver_miembro_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `clave` | string | sí | la clave `u:N` o `l:N` (de listar_miembros_comunidad). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/miembros/CLAVE"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}/sacados` — Listar a quién se sacó
+
+Los alumnos que están fuera de una comunidad (no la ven ni escriben; siguen con su curso), del más reciente al más viejo, con el motivo, desde cuándo y quién lo hizo. Hasta 300.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/listar_sacados_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/sacados"
+```
+
+### `PUT /api/v1/comunidad/comunidades/{productoId}/sacados/{leadId}` — Sacar a un alumno
+
+Saca a un alumno de la comunidad, con un motivo: deja de verla y de escribir, pero NO pierde el curso. Con borrarContenido, además borra sus posts y comentarios de los últimos 7 días, sin vuelta atrás (los hilos de las clases no se borran enteros: sólo sus comentarios). Al equipo no se lo saca.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/sacar_alumno_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** el baneo del alumno en la comunidad (comunidad_baneos) y, con borrarContenido, borra sus posts y comentarios de 7 días
+- **Reversible:** no
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `leadId` | number | sí | el número de la clave `l:N` del alumno (de listar_miembros_comunidad o listar_sacados_comunidad). |
+| `motivo` | string | no | el motivo (hasta 300 letras). Lo ve el equipo, no el alumno. |
+| `borrarContenido` | boolean | no | true borra lo que escribió en los últimos 7 días. No se puede deshacer. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/sacados/LEAD_ID"
+```
+
+### `DELETE /api/v1/comunidad/comunidades/{productoId}/sacados/{leadId}` — Volver a admitir a un alumno
+
+Vuelve a dejar entrar a la comunidad a un alumno que se había sacado (lo que se borró al sacarlo no vuelve).
+
+- **Ruta por operación:** `POST /api/v1/comunidad/admitir_alumno_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** levanta el baneo (comunidad_baneos.levantado_at); la fila se conserva con su fecha
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `leadId` | number | sí | el número de la clave `l:N` del alumno (de listar_miembros_comunidad o listar_sacados_comunidad). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/sacados/LEAD_ID"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}/calendario` — Ver el calendario
+
+Los eventos de una comunidad y sus ocurrencias en un rango (hasta 130 días; sin rango, de 7 días atrás a 35 adelante): título, descripción, zona, duración, inicio, fecha y hora locales, la repetición (en texto y la regla), el lugar (link o dirección), la portada, quién entra y si es una ocurrencia movida. Trae además `opciones`: los módulos del curso y la zona por defecto, para crear un evento.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/ver_calendario_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `desde` | string | no | el inicio del rango: YYYY-MM-DD (00:00 UTC) o una fecha ISO. |
+| `hasta` | string | no | el fin del rango (no incluido), igual que desde. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/calendario"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}/eventos/{eventoId}/exportacion` — Exportar un evento (.ics)
+
+El archivo .ics de un evento para un calendario (Google, Outlook, Apple): una ocurrencia (la de `fecha`, o la primera) o la serie entera. Es lo mismo que «Agregar a mi calendario» de la pantalla.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/exportar_evento_ics_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** texto
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `eventoId` | number | sí | id del evento (de ver_calendario_comunidad: `eventos[].id`). |
+| `fecha` | string | no | la ocurrencia, YYYY-MM-DD. Sin esto, la primera. |
+| `serie` | boolean | no | true = la serie entera (si se repite). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/eventos/EVENTO_ID/exportacion"
+```
+
+### `POST /api/v1/comunidad/comunidades/{productoId}/eventos` — Crear un evento
+
+Crea un evento en el calendario de una comunidad, suelto o que se repite: título, fecha y hora (de pared, en su zona), duración, lugar, portada, quién entra y la repetición. Les aparece a los alumnos y les avisa en la campana 24 h antes. Devuelve el id en `datos.eventoId`.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/crear_evento_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** un evento del calendario (comunidad_eventos)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `titulo` | string | sí | el título (hasta 120 letras). |
+| `descripcion` | string | no | qué es y qué hay que llevar, en texto plano (hasta 4000 letras). |
+| `fecha` | string | sí | la fecha de la primera vez, YYYY-MM-DD, en la zona del evento. |
+| `hora` | string | sí | la hora de inicio HH:MM (24 h), en la zona del evento. |
+| `zona` | string | no | la zona horaria IANA (America/Bogota, America/Argentina/Buenos_Aires). Sin esto, la de la comunidad (o la del negocio). |
+| `duracionMin` | number | no | cuánto dura, en minutos (30 a 1440). Sin esto, 60. |
+| `lugarTipo` | string (link \\| direccion) | no | link (una videollamada) o direccion (un lugar físico). Por default, link. |
+| `lugar` | string | no | el link de la llamada (https) o la dirección (hasta 300 letras). Sólo lo ven los alumnos que entran al evento. |
+| `portada` | string | no | la portada: un degradado del catálogo (`grad:<id>`) o el link https de una imagen de un origen permitido. Una que no va se rechaza. |
+| `acceso` | object | no | quién entra (los demás ven el título y la hora, no el lugar). Por default, todos. |
+| `acceso.tipo` | string (todos \\| nivel \\| modulo) | sí | todos, desde un nivel de la comunidad, o quien tiene un módulo del curso. |
+| `acceso.nivel` | number | no | con tipo nivel: desde qué nivel (2 a 9). |
+| `acceso.clave` | string | no | con tipo modulo: la clave del módulo (de ver_calendario_comunidad: `opciones.modulos[].clave`). |
+| `recurrencia` | object | no | si se repite. Sin esto, es un evento suelto. |
+| `recurrencia.frecuencia` | string (diaria \\| semanal \\| mensual) | sí | cada cuánto: diaria, semanal, mensual. |
+| `recurrencia.cada` | number | no | cada cuántos días, semanas o meses (1 a 30). Por default, 1. |
+| `recurrencia.dias` | string[] (0 \\| 1 \\| 2 \\| 3 \\| 4 \\| 5 \\| 6) | no | semanal: qué días, como textos ("1" = lunes … "0" = domingo). El día de la fecha se suma solo. |
+| `recurrencia.fin` | object | no | cuándo termina. Por default, nunca. |
+| `recurrencia.fin.tipo` | string (nunca \\| fecha \\| veces) | sí | nunca, en una fecha, o después de N veces. |
+| `recurrencia.fin.fecha` | string | no | con tipo fecha: la última fecha, YYYY-MM-DD. |
+| `recurrencia.fin.veces` | number | no | con tipo veces: cuántas (1 a 365). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/eventos" \
+  -d '{"titulo":"TITULO","fecha":"FECHA","hora":"HORA"}'
+```
+
+### `PATCH /api/v1/comunidad/comunidades/{productoId}/eventos/{eventoId}` — Editar un evento
+
+Edita un evento: lo que no se pasa queda igual. En una SERIE, `alcance` dice qué se edita desde la ocurrencia elegida: este (nace un evento suelto que la reemplaza), siguientes (la serie se parte) o todos. Con este o siguientes nace un evento NUEVO: su id vuelve en `datos.eventoId`.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/editar_evento_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** el evento (comunidad_eventos); con una serie, puede partirla o crear el reemplazo de una ocurrencia
+- **Reversible:** no
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `eventoId` | number | sí | id del evento (de ver_calendario_comunidad: `eventos[].id`). |
+| `alcance` | string (este \\| siguientes \\| todos) | no | sólo en una SERIE: este (sólo la ocurrencia), siguientes (esta y las que siguen) o todos (la serie entera; es el default). Con este o siguientes, `ocurrencia` es obligatoria. |
+| `ocurrencia` | string | no | la fecha YYYY-MM-DD de la ocurrencia elegida (de ver_calendario_comunidad: `ocurrencias[].fecha`). |
+| `titulo` | string | no | el título (hasta 120 letras). |
+| `descripcion` | string | no | qué es y qué hay que llevar, en texto plano (hasta 4000 letras). «-» la vacía. |
+| `fecha` | string | no | la fecha nueva, YYYY-MM-DD. En una serie, sin esto queda la de la ocurrencia elegida; con alcance todos, mover la fecha corre la serie entera los mismos días. |
+| `hora` | string | no | la hora de inicio HH:MM (24 h), en la zona del evento. |
+| `zona` | string | no | la zona horaria IANA (America/Bogota, America/Argentina/Buenos_Aires). |
+| `duracionMin` | number | no | cuánto dura, en minutos (30 a 1440). |
+| `lugarTipo` | string (link \\| direccion) | no | link (una videollamada) o direccion (un lugar físico). Por default, link. |
+| `lugar` | string | no | el link de la llamada (https) o la dirección (hasta 300 letras). Sólo lo ven los alumnos que entran al evento. «-» lo saca. |
+| `portada` | string | no | la portada: un degradado del catálogo (`grad:<id>`) o el link https de una imagen de un origen permitido. Una que no va se rechaza. «-» la saca. |
+| `acceso` | object | no | quién entra (los demás ven el título y la hora, no el lugar). Por default, todos. Si se pasa, REEMPLAZA la regla entera. |
+| `acceso.tipo` | string (todos \\| nivel \\| modulo) | sí | todos, desde un nivel de la comunidad, o quien tiene un módulo del curso. |
+| `acceso.nivel` | number | no | con tipo nivel: desde qué nivel (2 a 9). |
+| `acceso.clave` | string | no | con tipo modulo: la clave del módulo (de ver_calendario_comunidad: `opciones.modulos[].clave`). |
+| `recurrencia` | object | no | la repetición. Si se pasa, REEMPLAZA la regla entera; frecuencia «nunca» deja de repetir. |
+| `recurrencia.frecuencia` | string (diaria \\| semanal \\| mensual \\| nunca) | sí | cada cuánto: diaria, semanal, mensual, o nunca. |
+| `recurrencia.cada` | number | no | cada cuántos días, semanas o meses (1 a 30). Por default, 1. |
+| `recurrencia.dias` | string[] (0 \\| 1 \\| 2 \\| 3 \\| 4 \\| 5 \\| 6) | no | semanal: qué días, como textos ("1" = lunes … "0" = domingo). El día de la fecha se suma solo. |
+| `recurrencia.fin` | object | no | cuándo termina. Por default, nunca. |
+| `recurrencia.fin.tipo` | string (nunca \\| fecha \\| veces) | sí | nunca, en una fecha, o después de N veces. |
+| `recurrencia.fin.fecha` | string | no | con tipo fecha: la última fecha, YYYY-MM-DD. |
+| `recurrencia.fin.veces` | number | no | con tipo veces: cuántas (1 a 365). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/eventos/EVENTO_ID"
+```
+
+### `DELETE /api/v1/comunidad/comunidades/{productoId}/eventos/{eventoId}` — Borrar un evento
+
+Borra un evento del calendario. En una SERIE, `alcance` dice qué se borra desde la ocurrencia elegida: este, siguientes o todos. No se puede deshacer.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/borrar_evento_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** borra el evento o parte de la serie (comunidad_eventos)
+- **Reversible:** no
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `eventoId` | number | sí | id del evento (de ver_calendario_comunidad: `eventos[].id`). |
+| `alcance` | string (este \\| siguientes \\| todos) | no | sólo en una SERIE: este (sólo la ocurrencia), siguientes (esta y las que siguen) o todos (la serie entera; es el default). Con este o siguientes, `ocurrencia` es obligatoria. |
+| `ocurrencia` | string | no | la fecha YYYY-MM-DD de la ocurrencia elegida (de ver_calendario_comunidad: `ocurrencias[].fecha`). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/eventos/EVENTO_ID"
+```
+
+### `GET /api/v1/comunidad/comunidades/{productoId}/avisos` — Ver los avisos de la campana
+
+La campana de la persona del equipo que firma, en una comunidad: likes, comentarios, respuestas, menciones y eventos que empiezan en 24 h, agrupados (hasta 40 renglones, con los ids de cada uno) y cuántos sin leer. Necesita una persona (la que creó el token). Al leerla se anotan los avisos de los eventos próximos, como al abrir la campana en MaKo.
+
+- **Ruta por operación:** `GET /api/v1/comunidad/ver_avisos_comunidad`
+- **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/avisos"
+```
+
+### `PUT /api/v1/comunidad/comunidades/{productoId}/avisos/lectura` — Marcar avisos leídos
+
+Marca leídos los avisos de la campana de la persona del equipo que firma: los ids de un renglón (de ver_avisos_comunidad, como textos) o todos. Uno de los dos.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/marcar_avisos_leidos_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca leídos los avisos de esa persona (comunidad_notificaciones.leida_at)
+- **Reversible:** no
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `ids` | string[] | no | los ids de los avisos, como textos (["12","13"]). |
+| `todas` | boolean | no | true marca todos. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/avisos/lectura"
+```
+
+### `PUT /api/v1/comunidad/comunidades/{productoId}/perfil` — Editar el perfil propio
+
+Cambia la bio, la ubicación y los links públicos de la persona del equipo que firma (el perfil vale en todas las comunidades del negocio). Nadie edita el perfil de otro. Lo que no se pasa queda igual; «-» vacía un campo o saca un link.
+
+- **Ruta por operación:** `POST /api/v1/comunidad/editar_perfil_comunidad`
+- **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** el perfil de esa persona en la comunidad (comunidad_perfiles)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuya comunidad se toca (de listar_comunidades). |
+| `bio` | string | no | la bio (hasta 300 letras). |
+| `ubicacion` | string | no | la ubicación (hasta 80 letras). |
+| `links` | object | no | los links públicos (http o https). Los que no se pasan quedan como están. |
+| `links.web` | string | no | el link de web. |
+| `links.instagram` | string | no | el link de instagram. |
+| `links.youtube` | string | no | el link de youtube. |
+| `links.facebook` | string | no | el link de facebook. |
+| `links.x` | string | no | el link de x. |
+| `links.linkedin` | string | no | el link de linkedin. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/comunidad/comunidades/PRODUCTO_ID/perfil"
 ```
 
 ## Calendario — `calendario`
