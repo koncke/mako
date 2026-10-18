@@ -3036,7 +3036,10 @@ export function CrmBoard({
         const l = j ? leads.find((x) => x.id === j.leadId) : undefined;
         if (!j || !l) return null;
         const etapa = effStage(l);
-        const i = stages.findIndex((s) => s.key === etapa);
+        // El paso cuenta el CAMINO (las etapas del pipeline): «Paso 1 de 17» contaba la nutrición y las salidas,
+        // que no son pasos (visto en el ws3 el 18/10). Un lead en nutrición o salido no tiene paso: no hay barra.
+        const camino = stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline');
+        const i = camino.findIndex((s) => s.key === etapa);
         // En Ganado, el helper de la casa (`montoDeTarjeta`: la mensualidad de una suscripción, «Sin cobro» de un becado).
         const plata = etapa === 'ganado' ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
         return (
@@ -3045,7 +3048,7 @@ export function CrmBoard({
               titulo={`Reunión con ${l.name || j.name}`}
               bajada={[j.when, plata].filter(Boolean).join(' · ')}
               cara={{ nombre: l.name || j.name, foto: l.foto }}
-              avance={i >= 0 ? { pct: ((i + 1) / stages.length) * 100, izq: `Paso ${i + 1} de ${stages.length} · ${stages[i].label}`, der: stages[i + 1] ? `Después: ${stages[i + 1].label}` : undefined } : null}
+              avance={i >= 0 ? { pct: ((i + 1) / camino.length) * 100, izq: `Paso ${i + 1} de ${camino.length} · ${camino[i].label}`, der: camino[i + 1] ? `Después: ${camino[i + 1].label}` : undefined } : null}
               acciones={l.telefonoNorm
                 ? [{ texto: 'Llamar', href: `tel:+${l.telefonoNorm}`, primaria: true }, { texto: 'WhatsApp', href: waDe(l.telefonoNorm), externo: true }]
                 : [{ texto: 'Abrir ficha', onClick: () => openDetail(l), primaria: true }]} />
@@ -3348,7 +3351,10 @@ export function CrmBoard({
       {rapida && (() => {
         const l = rapida;
         const etapa = effStage(l);
-        const i = stages.findIndex((s) => s.key === etapa);
+        // El paso cuenta el CAMINO (las etapas del pipeline): «Paso 1 de 17» contaba la nutrición y las salidas,
+        // que no son pasos (visto en el ws3 el 18/10). Un lead en nutrición o salido no tiene paso: no hay barra.
+        const camino = stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline');
+        const i = camino.findIndex((s) => s.key === etapa);
         // En Ganado, el helper de la casa (`montoDeTarjeta`: la mensualidad de una suscripción, «Sin cobro» de un becado).
         const plata = etapa === 'ganado' ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
         const cerrar = () => { setRapida(null); setMoviendoRapida(false); };
@@ -3358,12 +3364,13 @@ export function CrmBoard({
             foto={l.foto}
             insignia={insigniaDeCanal(l.canal)}
             subtitulo={subtituloLead(plata, l.canal)}
-            avance={i >= 0 ? { pct: ((i + 1) / stages.length) * 100, texto: `Paso ${i + 1} de ${stages.length} · ${stages[i].label}` } : null}
+            avance={i >= 0 ? { pct: ((i + 1) / camino.length) * 100, texto: `Paso ${i + 1} de ${camino.length} · ${camino[i].label}` } : null}
             filas={[
               ...(l.phone?.trim() ? [{ k: 'Teléfono', v: l.phone }] : []),
               ...(l.email?.trim() ? [{ k: 'Email', v: l.email }] : []),
-              ...(l.company?.trim() ? [{ k: 'Empresa', v: l.company }] : []),
-              ...(l.origin?.trim() ? [{ k: 'Llegó por', v: l.origin }] : []),
+              // Sin los RELLENOS de `mapToCrmLead` («Sin empresa», «Sin origen»): no son datos.
+              ...(l.company?.trim() && l.company !== 'Sin empresa' ? [{ k: 'Empresa', v: l.company }] : []),
+              ...(l.origin?.trim() && !/^sin origen$/i.test(l.origin.trim()) ? [{ k: 'Llegó por', v: l.origin }] : []),
               ...(l.agenda ? [{ k: 'Agenda', v: l.agenda }] : []),
               { k: 'Entró', v: l.created },
             ]}

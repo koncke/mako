@@ -110,12 +110,14 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
 
   // «Próximo» (17/10/2026, la destacada del prototipo): la próxima reunión que todavía no pasó, con Llamar / WhatsApp.
   const px = datos.proximo;
-  const iPx = px ? datos.columnas.findIndex((c) => c.key === px.col) : -1;
+  // El paso cuenta el CAMINO (las columnas del pipeline), como en la computadora.
+  const camino = datos.columnas.filter((c) => c.camino);
+  const iPx = px ? camino.findIndex((c) => c.key === px.col) : -1;
   const proximo = px ? (
     <TarjetaDestacada sobre="Próximo" titulo={`Reunión con ${px.nombre}`}
       bajada={[px.cuando, px.plata].filter(Boolean).join(' · ')}
       cara={{ nombre: px.nombre, foto: px.foto }}
-      avance={iPx >= 0 ? { pct: ((iPx + 1) / datos.columnas.length) * 100, izq: `Paso ${iPx + 1} de ${datos.columnas.length} · ${datos.columnas[iPx].titulo}` } : null}
+      avance={iPx >= 0 ? { pct: ((iPx + 1) / camino.length) * 100, izq: `Paso ${iPx + 1} de ${camino.length} · ${camino[iPx].titulo}` } : null}
       acciones={px.telefono
         ? [{ texto: 'Llamar', href: `tel:+${px.telefono}`, primaria: true }, { texto: 'WhatsApp', href: `https://wa.me/${px.telefono}`, externo: true }]
         : [{ texto: 'Abrir ficha', onClick: () => router.push(ficha(px.id)), primaria: true }]} />
@@ -123,7 +125,7 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
   const arriba = selector || proximo ? <div className="m-crm-arriba">{selector}{proximo}</div> : undefined;
 
   const r = rapida;
-  const iR = r ? datos.columnas.findIndex((c) => c.key === r.col) : -1;
+  const iR = r ? camino.findIndex((c) => c.key === r.col) : -1;
   const destinosR = r && deDondeSale.has(r.col) ? datos.columnas.filter((c) => movibles.has(c.key) && c.key !== r.col) : [];
 
   return (
@@ -155,7 +157,7 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
             foto={r.foto}
             insignia={insigniaDeCanal(r.canal)}
             subtitulo={subtituloLead(r.plata, r.canal)}
-            avance={iR >= 0 ? { pct: ((iR + 1) / datos.columnas.length) * 100, texto: `Paso ${iR + 1} de ${datos.columnas.length} · ${datos.columnas[iR].titulo}` } : null}
+            avance={iR >= 0 ? { pct: ((iR + 1) / camino.length) * 100, texto: `Paso ${iR + 1} de ${camino.length} · ${camino[iR].titulo}` } : null}
             filas={[
               ...(r.segunda ? [{ k: 'Empresa o llegó por', v: r.segunda }] : []),
               ...(r.senal.dice ? [{ k: 'Ahora', v: r.senal.dice }] : []),

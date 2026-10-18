@@ -238,7 +238,7 @@ export type TableroCrmM = {
   /** El selector: el del negocio primero. Con uno solo, no hay selector. */
   funnels: Array<{ id: number | null; nombre: string }>;
   /** `movible`: se puede llevar un lead ACÁ desde el teléfono; `sale`: se puede sacar uno de acá. */
-  columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean; sale: boolean }>;
+  columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean; sale: boolean; camino: boolean }>;
   tarjetas: TarjetaCrmM[];
   proximo: ProximoCrmM | null;
 };
@@ -332,6 +332,8 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
         return {
           key: s.key, titulo: s.label, total: t ? textoDelTotal(t) : null, cuantos: cs.length,
           movible: seMueveEnElTelefono(lite, s.key), sale: seSacaEnElTelefono(lite, s.key),
+          // Es un PASO del recorrido (la banda pipeline): la barra de «Paso N de M» no cuenta nutrición ni salidas.
+          camino: (s.band ?? 'pipeline') === 'pipeline',
         };
       }),
       tarjetas,

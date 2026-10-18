@@ -141,7 +141,7 @@ export const CSS_TARJETAS = `
 .tk-agarre { width: 38px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: 0 auto 12px; }
 @media (min-width: 721px) { .tk-agarre { display: none; } }
 .tk-scab { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; min-width: 0; }
-.tk-scab h3 { margin: 0; font-size: 20px; letter-spacing: -.015em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-scab h3 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.015em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tk-scab small { color: var(--tk-sub); font-size: 13px; display: block; }
 .tk-x { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; background: var(--tk-card); box-shadow: var(--tk-sombra); display: grid; place-items: center; color: var(--ink); flex: none; border: 0; cursor: pointer; }
 .tk-dl { display: grid; background: var(--surface-2); border-radius: 18px; padding: 2px 14px; margin: 14px 0; }
