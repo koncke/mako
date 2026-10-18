@@ -1,5 +1,5 @@
-'use client';
-
+// ⚠️ SIN 'use client' a propósito: no tiene hooks y lo importan módulos neutros (Hilo.tsx) que no pueden llamar un valor de un
+// archivo cliente (tests/frontera-use-client.test.ts).
 // =============================================================================
 // Markdown — el mismo parser que ya usaba el chat de MaKo, ahora compartido
 // =============================================================================
@@ -50,9 +50,18 @@ export function renderInline(text: string, k: string, enlaces = false): ReactNod
   };
   const conNegrita = (p: string, kk: string): ReactNode[] => p.split(/(\*\*[^*]+\*\*)/g).map((q, i) =>
     /^\*\*[^*]+\*\*$/.test(q) ? <strong key={`${kk}-${i}`}>{conCursiva(q.slice(2, -2), `${kk}-${i}`)}</strong> : <span key={`${kk}-${i}`}>{conCursiva(q, `${kk}-${i}`)}</span>);
-  return text.split(/(`[^`\n]+`)/g).flatMap((p, i) => (/^`[^`\n]+`$/.test(p)
+  return text.split(/(`[^`\n]+`)/g).flatMap((p, i): ReactNode[] => (/^`[^`\n]+`$/.test(p)
     ? [<code key={`${k}-c${i}`} style={CODIGO_EN_LINEA}>{p.slice(1, -1)}</code>]
     : conNegrita(p, `${k}-${i}`)));
+}
+
+/**
+ * Un texto de UNA línea con su formato: si no trae ninguna marca (`código`, *cursiva*, **negrita**, un link) sale el texto tal
+ * cual, sin envoltorios; si la trae, pasa por `renderInline` con los links azules. Es lo que usan los títulos, los cierres y las
+ * preguntas de un chat (17/10/2026: «nada de asteriscos ni almohadillas a la vista»).
+ */
+export function conFormato(text: string, k: string): ReactNode {
+  return /[`*]|\[|https?:\/\//i.test(text) ? renderInline(text, k, true) : text;
 }
 
 /** Las celdas de una fila de tabla («| a | b |»). */

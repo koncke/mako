@@ -23,7 +23,7 @@
 // Runner. La pregunta contestada se va de acá y la conversación la muestra como respuesta de Martín.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { renderInline } from '@/app/_components/Markdown';
+import { conFormato } from '@/app/_components/Markdown';
 import { OTRA, type AccionResponder, type Decision, type EstadoRespuesta } from '@/app/admin/runway/decisiones';
 import { opcionesDePregunta, preguntaAbierta, temaDePregunta } from '@/lib/centro-preguntas';
 
@@ -117,8 +117,8 @@ export function Pregunta({ preguntas, responder, onRespondida }: Props) {
         </div>
         {preguntas.length > 1 && <span className="co-preg__paso">{`${pos + 1} de ${preguntas.length}`}</span>}
       </div>
-      <p className="co-preg__texto">{renderInline(d.pregunta, 'pq', true)}</p>
-      {d.contexto && <p className="co-preg__contexto">{renderInline(d.contexto, 'pc', true)}</p>}
+      <p className="co-preg__texto">{conFormato(d.pregunta, 'pq')}</p>
+      {d.contexto && <p className="co-preg__contexto">{conFormato(d.contexto, 'pc')}</p>}
       <ol className="co-preg__ops">
         {ops.map((o, i) => (
           <li key={o.clave}>
@@ -129,7 +129,7 @@ export function Pregunta({ preguntas, responder, onRespondida }: Props) {
               <span className="co-preg__num" aria-hidden>{guardando === o.clave ? '…' : i + 1}</span>
               <span className="co-preg__op-txt">
                 <span className="co-preg__titulo">{o.titulo}{o.recomendada && <span className="co-preg__rec"> (Recomendada)</span>}</span>
-                {o.detalle && <span className="co-preg__detalle">{renderInline(o.detalle, `pd${i}`, true)}</span>}
+                {o.detalle && <span className="co-preg__detalle">{conFormato(o.detalle, `pd${i}`)}</span>}
               </span>
             </button>
           </li>

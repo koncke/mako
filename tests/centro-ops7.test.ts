@@ -135,7 +135,7 @@ test('2c: ninguna regla de la tarjeta «Completado» corta con «…» ni con l�
   // La tarjeta no usa el título corto de la fila para dibujar.
   const av = sinComentarios(leer('app/admin/operaciones/Avance.tsx'));
   assert.match(av, /const \{ titulo: tituloEntero, cuerpo \} = partesDeYaEsta\(t\.texto\);/);
-  assert.match(av, /\{tituloEntero && <p className="co-ya__titulo">\{renderInline\(tituloEntero, 'ya-t', true\)\}<\/p>\}/);
+  assert.match(av, /\{tituloEntero && <p className="co-ya__titulo">\{conFormato\(tituloEntero, 'ya-t'\)\}<\/p>\}/);
 });
 
 test('2d: el cierre estructurado del chat también se ve entero, con lo «decidido»', () => {
@@ -372,6 +372,6 @@ test('md: lo que escribe un chat se dibuja con su formato: nada de asteriscos, a
   })));
   assert.ok(cierre.includes('Hice el filtro') && cierre.includes('Con 3 leads') && !/\*\*|`/.test(cierre), cierre);
   for (const f of ['app/admin/operaciones/PreguntaChat.tsx', 'app/admin/operaciones/Pregunta.tsx']) {
-    assert.match(sinComentarios(leer(f)), /renderInline\((p|d)\.pregunta, 'pq', true\)/, `${f}: la pregunta con su formato`);
+    assert.match(sinComentarios(leer(f)), /conFormato\((p|d)\.pregunta, 'pq'\)/, `${f}: la pregunta con su formato`);
   }
 });
