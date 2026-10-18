@@ -23,6 +23,15 @@ El que contesta es el **doer** (`lib/mako-doer-in.ts`): clasifica el mensaje (`l
 herramientas del turno (`lib/doer-herramientas.ts`), corre un modelo barato con ellas y manda la respuesta. Cada turno
 queda en `mako_doer_conv` (mig 0086; sin autor: todo lo humano es `user`).
 
+## CIERRE (18/10/2026 ~15:25 UTC, cuenta 4 al 95% semanal)
+
+- **Nada a medias.** Todo lo de este chat está en `main` y en producción (la última punta, d4ab46fd3, incluida).
+- **El cron muere con esta sesión.** Quien retome: §5 (la primera vuelta mira desde `~/.claude/vigia-mako-grupos.json`)
+  y el prompt de «MaKo Alert» de §0. Una vuelta sin novedad dice sólo «Sin incidentes nuevos.».
+- **Abierto, sin dueño en este chat:** el ws13 pidió mandar un mensaje privado a un número suelto (no existe); el ws13
+  tiene UNA key de IA (los carteles 503 son honestos; la cascada es gasto); y en el tablero del ws9 la tarea «Que el
+  doer registre solo lo que falla» sigue en por_hacer, aunque está en producción (118148d1e).
+
 ## 1. El pedido
 
 Martín, 17/10 ~01:50 AR: «quiero activar un proceso donde SIEMPRE se esté leyendo todos los grupos de MaKo en WhatsApp

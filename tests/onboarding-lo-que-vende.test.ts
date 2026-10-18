@@ -163,7 +163,8 @@ test('la ruta del PDF: el de lo que vende va con el mismo gate y no pide una ofe
 
 test('el cierre: el producto sale de lo que vende aunque no haya oferta armada, y la oferta sólo si la hay', () => {
   const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
-  assert.match(server, /loQueVende: !!sesion && faltanDelArranque\(sesion\.piezas\)\.length === 0,/);
+  // Desde el 18/10/2026, también sin una pregunta de MaKo abierta (tests/onboarding-pregunta-abierta.test.ts).
+  assert.match(server, /loQueVende: !!sesion && faltanDelArranque\(sesion\.piezas\)\.length === 0 && !preguntaAbierta\(sesion\.mensajes\),/);
   const i = server.indexOf('export async function cerrarArranque');
   const cerrar = server.slice(i, server.indexOf('export function tipoValido', i));
   assert.match(cerrar, /if \(h\.modo === 'oferta' && piezas && e\.sesionId\) \{/, 'sin oferta armada, el cierre no deja el producto');

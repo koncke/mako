@@ -544,3 +544,57 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
 - **Espera a Martín:** separar el ws1 de las claves de la plataforma. `hidratarCredenciales` copia la fila de OWNER_WS (=ws1, Mauricio) a process.env, así que el ws1 no puede tener una IA propia y su chat de MaKo no contesta (tickets #5 y #6, devueltos como pedido). Recomendado: que las claves de la plataforma salgan del ws9 o del entorno. Es de día y con cuidado: toca de dónde lee la IA toda la plataforma.
 - **Sin ver en pantalla:** Clients en computadora; el menú de la foto de la sidebar. El chat CRM vio el resto en el ws9 sin escribir.
 - **Sin revisar (Ticketera):** otros lugares que le piden una key de IA al ws1 (onboarding, /metodo). `contarKeysIA` del doer de WhatsApp cuenta las copias como del negocio: es del chat «MaKo en WhatsApp».
+
+## RELEVO FINAL del 18/10 ~12:30 ART: la cuenta 4 al 95%, cierre
+
+Se reinicia el 20/10 a las 17:00 ART (20:00 UTC). Hasta entonces, nada nuevo con esta cuenta.
+
+**En producción hoy (runs 132 a 147):**
+- Deshacer del CRM con dedup.
+- Grafo «Negocio».
+- Ops Center 7 y «Nuevo chat» sin modal.
+- Sidebar nueva, Dashboard unido y More con foto.
+- Tarjetas de CRM, Clients y Plan, y Clients arreglado.
+- Ticket #5 («Claude vetado» que no era).
+- El negocio sin IA ya no abre bug.
+- El ws1 separado de las claves de la plataforma; probado con ping a Groq y Gemini en el ws9.
+- «Ops Center» con la estrella en todos los ws.
+- MaKo Alert escondido.
+- Onboarding: datos de otro ws, explicación, preguntas, halagos, estrella.
+- Chat del Ops Center: scroll, 40.000 caracteres, lo de la app en segundos.
+- Cartero 1.15.8 instalado.
+
+**Pusheado, sin confirmar el deploy:** 783190442 (la marca «desde la app» y los docs del feedback). Mirar `vercel ls -m githubCommitSha=78319044293cfc6ad2f3873de1f4d3f146f880d3` desde `dashboard-marketing-main/dashboard-marketing`, que es la carpeta enlazada a Vercel.
+
+**A medias, NO pusheado:**
+- **Onboarding** (rama onboarding-v3, C:/dev/wt-onboarding-v3): corre un VERDE con cinco cambios:
+  - no esperaba la respuesta;
+  - el PDF que no encontraba la oferta, ahora sin salir de la tab;
+  - los puntitos «escribiendo»;
+  - sin «Antes de terminar» ni «Última cosa»;
+  - entra solo al Ops Center.
+
+  Falta el reemplazo de las dos preguntas de Meta Ads. Integrar SÓLO con su VERDE; el sha llega a esta sesión.
+
+**Los «Ya está» de hoy:** los escribieron CRM, Sidebar, Dashboard, Ticketera, Second Brain, Onboarding (pt 15) y Ops Center 3. Regla: en cada deploy, el Cerebro avisa a cada jefe y el jefe dice «Ya está: …» (memoria ya-esta-en-el-ops-center).
+
+**Espera a Martín:**
+- La clave de Cerebras del ws1: ¿de MaKo o de Mauricio?
+- Avisarle a Mauricio que conecte su IA; después cerrar los tickets #5 y #6.
+
+**Para después del 20/10** (orden sugerido; el detalle en docs/feedback-18-10.md):
+1. El chat unificado: el onboarding primero, con su subida de archivos.
+2. Offer, Chats y «Analizar con MaKo» del Dashboard, en el chat del Ops Center.
+3. El onboarding del CRM en su tab (sale del general).
+4. Las preguntas de fase multicanal.
+5. Las imágenes y adjuntos desde la app al Ops Center (diseño en docs/relevo/centro-operaciones.md §punto 4).
+6. La Ticketera con el diseño anterior.
+7. «Uso» en los ws.
+8. Columnas editables del Plan.
+9. «Editar» con el patrón de Web Generator.
+10. Los botones de Chats.
+11. La animación de carga y el vuelo de la estrella.
+12. La sidebar: lo que pidió Martín en el pt 10 (MaKo Partners al perfil, todo desplegado, Ops Center dentro de la sección, claro/oscuro, el logo plegado) y el pliegue al entrar al Second Brain.
+13. El grafo único del super admin y el nombre «Mapa».
+
+**El vigía (MaKo Alert):** su cron (job 29debd9d) murió con su sesión. Para retomarlo, ver §0 y §5 de docs/relevo/mako-en-whatsapp.md.

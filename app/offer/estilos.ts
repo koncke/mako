@@ -142,8 +142,14 @@ export const CSS_OFFER = `
 .of-puntos span { animation: of-latido 1.2s ease-in-out infinite; }
 .of-puntos span:nth-child(2) { animation-delay: .2s; }
 .of-puntos span:nth-child(3) { animation-delay: .4s; }
+.of-escribiendo { display: inline-flex; align-items: center; gap: 4px; padding: 4px 2px; color: var(--dim); }
+.of-escribiendo i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: of-escribe 1.2s ease-in-out infinite; }
+.of-escribiendo i:nth-child(2) { animation-delay: .15s; }
+.of-escribiendo i:nth-child(3) { animation-delay: .3s; }
+@keyframes of-escribe { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) {
   .of-puntos span { animation: none; opacity: .7; }
+  .of-escribiendo i { animation: none; opacity: .6; }
   .of-av-latido { animation: none; }
   .of-fila__flecha, .of-plegable__flecha { transition: none; }
 }

@@ -54,7 +54,6 @@ import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { Ticks } from '@/app/whatsapp/_shared/Ticks';
 import { ComposerWhatsApp, IconVideo, type OpcionMenuWA } from '@/app/whatsapp/_shared/ComposerWhatsApp';
 import { IconDoc } from '@/app/whatsapp/_shared/composer-icons';
-import { GRAMATICA } from '@/lib/mako-gramatica';
 import { ACCEPT_IMPORTAR, EXT_POR_FAMILIA } from '@/lib/formatos-archivo';
 import { conWs } from '@/lib/ws-tab';
 import type { AdjuntoVista, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
@@ -143,7 +142,7 @@ const ID_ARMANDO = '__of-armando';
 export type AudioEnEspera = { url: string; secs: number };
 
 export function ChatOffer({
-  sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onVarias, onReintentar,
+  sesion, pendiente, respondiendo, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onVarias, onReintentar,
   texto, onTexto, onEnviar, ocupado, vista, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
   error, onError, armando = null, onVerOferta = null, avatar, extra, soloTexto = false, placeholder, errorExtra,
 }: {
@@ -151,8 +150,12 @@ export function ChatOffer({
   /** El mensaje del dueño ya dibujado mientras MaKo contesta (optimista). */
   pendiente: OfferMensaje | null;
   respondiendo: boolean;
-  /** Qué está leyendo MaKo («tu respuesta», «tu audio», «tu link»): va al lado del rótulo de la gramática. */
-  fuente: string;
+  /**
+   * Qué está leyendo MaKo («tu respuesta», «tu audio», «tu link»). Ya NO se dibuja: desde el 18/10/2026 la espera son sólo
+   * los tres puntitos de «está escribiendo» (Martín: «En lugar de "Revisando tu respuesta", sólo debería aparecer la
+   * animación de los ...»). Queda en el contrato porque OfferApp lo sigue mandando.
+   */
+  fuente?: string;
   /** El texto de la opción que arma la oferta (lib/offer-reglas.ts → OPCION_ARMAR). */
   opcionArmar: string;
   /** El de actualizar el PDF (ayudas.ts → ACTUALIZAR_PDF): si MaKo lo ofrece, también arma y va en dorado. */
@@ -249,12 +252,11 @@ export function ChatOffer({
     if (h.id === ID_ESCRIBIENDO) {
       return (
         <FilaMako animar avatar={avatar}>
+          {/* SÓLO LOS TRES PUNTITOS de «está escribiendo», sin texto (18/10/2026, Martín: «En lugar de "Revisando tu
+              respuesta", sólo debería aparecer la animación de los ... como que está escribiendo»). El mismo latido que
+              «Trabajando…» del Ops Center (`.co-trabajando__puntos`, centro.css, que sólo carga el Centro). */}
           <BurbujaHilo contenido={{}} saliente={false} vacio={(
-            <span role="status" style={{ fontSize: 13, color: 'var(--dim)' }}>
-              <span style={{ color: 'var(--mako-ink)', fontWeight: 600 }}>{GRAMATICA.analizando.rotulo}</span>
-              {' · '}{fuente}
-              <span className="of-puntos" aria-hidden><span>.</span><span>.</span><span>.</span></span>
-            </span>
+            <span role="status" aria-label="MaKo está escribiendo" className="of-escribiendo"><i /><i /><i /></span>
           )} />
         </FilaMako>
       );
