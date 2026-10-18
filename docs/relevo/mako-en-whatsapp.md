@@ -68,17 +68,9 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
 - **Estado al 18/10 03:00 UTC (85% semanal de la cuenta 4):** TODO lo de este chat está en `main` y en producción
   (main 196fa1101, deploy Ready): el vigía, Pablo, «reprogramar» (ws13), «agendarle… en el calendario» (ws18), el
   ticket desde el grupo, el registro solo de las fallas y el aviso de arreglo.
-- **DOS avisos de arreglo SIN MANDAR, los dos ya en producción.** El clasificador de permisos de Claude Code bloquea el
-  script con `--enviar` (también en seco): Martín tiene que aprobar el permiso cuando aparezca. Martín dijo que el aviso
-  no necesita su OK; el permiso es de la herramienta, no de la regla. Los comandos (desde `C:/dev/wt-mako-wa`):
-  - ws13: `NODE_OPTIONS=--conditions=react-server npx tsx scripts/avisar-arreglo-al-grupo.mts --ws 13 --clave
-    arreglo:reprogramar-17oct --commit 618c79c45 --origen "MaKo en WhatsApp" --enviar --texto "Ya quedó arreglado: cuando
-    le pidas a MaKo «reprogramame la reunión…», ahora te propone moverla y, con tu «sí», la mueve en tu calendario. Si
-    todavía necesitas pasar la reunión con Marita al lunes a las 12, pídeselo de nuevo. ¡Gracias por la paciencia!"`
-  - ws18: el mismo, con `--ws 18 --clave arreglo:calendario-pablo-17oct --commit 8d90f8357` y el texto «Ya quedó
-    arreglado lo del calendario: MaKo ahora entiende «probá el calendario», «¿me agendás…?» y «agendarle… en el
-    calendario», y te propone la cita para que la confirmes con un «sí». La visita con Nancy no quedó guardada: si
-    todavía la necesitas, pídesela de nuevo con el día y la hora.»
+- **Los dos primeros avisos de arreglo SALIERON el 18/10 ~03:15 UTC** (ws18 Pablo, id 3EB0FB91C81156F5CD4823;
+  ws13 Código Inmobiliario, id 3EB024974831770F97E62E), con su prueba de producción (deploy Ready de main
+  196fa1101). Quedaron registrados en `mako.dev.aviso_arreglo.<clave>` de cada negocio: no se repiten.
 
 ## 4. Qué espera una decisión de Martín
 
