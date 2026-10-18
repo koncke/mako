@@ -79,3 +79,16 @@ Dato extra: «Que el doer registre solo lo que falla» figura por hacer y ya est
   - «Ver lo que vendes (PDF)» abre otra pestaña con «No encontré esa oferta», y tiene que verse en la misma pantalla.
 
   Los lleva el chat Onboarding, primero.
+
+## Onboarding, probado por Martín a las 14:00 ART (después del run 149). LO PRIMERO del 20/10
+
+1. **La animación de entrada vuelve a pedir el clic:** «SÍ debe estar la animación y el clickear para avanzar luego de la animación». Se revierte el avance solo a los 2,4 s de ffd0ea3ef; la animación queda igual.
+2. **RESET tiene que dejar todo de cero:**
+   - Hoy, después de RESET, sigue diciendo «Consultesis» (el nombre del ws3), muestra la foto de Mauricio y ofrece «Ayelen» como respuesta rápida al nombre.
+   - Sin respuestas rápidas en las preguntas del nombre y del nombre del negocio.
+   - Medir qué guarda RESET: el nombre del ws, la foto del dueño, el estado del arranque.
+3. **Leer las redes de verdad:** con un link de Facebook o Instagram, entrar y leer las publicaciones, la biografía y las descripciones. Hoy dice «no puedo acceder a los detalles» y «casi no encontré texto». Si no alcanza, MaKo SIEMPRE insiste una segunda vez: ¿tiene algún documento o algo que explique su negocio?
+4. **«Analizando…» cuando analiza algo** (un link o un documento), y los tres puntitos sólo cuando contesta.
+5. **NUNCA «Conectar mi propia IA» en el onboarding.** Salió en la barra naranja de «Entré a tu página pero casi no encontré texto…»: el onboarding corre con el crédito de la plataforma (memoria ia-del-cliente-suscripcion). Viene del cambio de la Ticketera (run 139), que suma ese link a los avisos de IA.
+
+Capturas: images/23 a 26 de la sesión del Cerebro. Las copia el próximo que lo tome; si no, se describen arriba.
