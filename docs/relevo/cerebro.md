@@ -517,3 +517,14 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - Si Martín cambia la app a otra cuenta con margen, se pueden arrancar antes.
 - **«Ya está» viejos sin mandar** (Sidebar, Dashboard, Infra, CRM, Onboarding, Plan, Ticketera, Automations): lo suyo ya está en producción y Martín lo supo por los cierres. No se mandan, para no gastar.
 - **Producción: run 130** (b61321827). No hay nada subido sin deploy.
+
+## Estado al 17/10 ~23:55 (claude4 al 82% semanal, reinicia 20/10 17:00 ART)
+
+- **En producción (run 133, d497b6523, deploy Ready):** Deshacer del CRM con foto firmada + dedup de cobranza; grafo «Negocio» con lo que MaKo sabe; Ops Center 7 punta 1. Cierres de d8b9023a y 8e3ce267 en la cola del cartero (con los links de pendientes y del prototipo).
+- **Trabajando:**
+  - Ops Center 7 punta 2 («Nuevo chat» sin modal, la IA ubica y nombra): agente ada783a66f872731d, rama ops7-1710 en C:/dev/wt-ops4.
+  - Chat **Sidebar** (local_789aebfb): sidebar nueva + Home→Dashboard (Focus fija) + More con la foto, desde los dos prototipos.
+  - Chat **CRM** (local_64949e84): tarjetas de CRM/Clients/Plan desde docs/prototipos/coherencia-1710.
+  - Los tres devuelven un VERDE sin pushear: los integra y pushea el Cerebro.
+- **Sin hacer:** medir la cuenta 2 sola (necesita un Runner en esa cuenta); «Trabajando…» de raíz en el cartero (subir el estado en cada pasada de `vigilar`); Chats tab (pt 9) y AI Avatar estilo HeyGen (pt 10), después del 20/10.
+- **Regla nueva de Martín (17/10 ~23:30):** «¿por qué no delegás?». Repartir a los chats que conocen el área, de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota.

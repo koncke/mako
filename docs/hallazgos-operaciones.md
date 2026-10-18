@@ -1708,9 +1708,19 @@ tablas): se sumó, sin tocar lo de antes. Dos trampas que salieron al probar con
 abría el título («Ya está: **el filtro**» quedaba «el filtro**»), y un link entre paréntesis («(ver https://x.com/a).») se llevaba el «)».
 Una cursiva sólo vale si el `*` abre una palabra: «lib/*.ts y app/*.tsx» no es una cursiva.
 
+**«Nuevo chat» sin modal (23:00).** Martín: un modal para crear un chat es «contra IA». Ahora abre un chat vacío con su caja y con el primer
+mensaje la IA barata de la plataforma (chatCheap, es texto de Martín y no datos de clientes: el Plan nunca paga IA) decide si va a un
+chat que ya existe, a un empleado nuevo o a un jefe nuevo, y el nombre. **Lo que cuesta si se hace mal:** (1) lo que contesta el modelo
+NO puede llegar a un trabajo firmado sin validar: el nombre pasa por la lista blanca de la PC (`NOMBRE_NUEVO_RE`, que rechaza hasta
+un «¿» o un emoji), y un «jefe» o un «empleado» que ya existen tienen que volverse «existente» o se crean chats repetidos; (2) el Cerebro
+y el Runner no pueden ser destino de un tema nuevo; (3) sin IA, con una respuesta que no es JSON o con una que no vale, decide la regla
+(el jefe que el mensaje nombra, el más largo gana), porque nunca se le pregunta nada. Sale a los 4 segundos por el camino de siempre
+(`abrirChat` o `mandarTextoA`, firmados) y la cuenta la elige MaKo (la que puede abrir y menos gastó en la semana). Las piezas que se
+dibujan van aparte del motor (ChatNuevoPiezas.tsx) para poder probarlas: el motor importa la acción del servidor.
+
 **Vive en:** lib/centro-chats.ts (`partesDeYaEsta`, `partirPendiente`, `cortadoPorLaPC`) · app/admin/operaciones/{Avance,Hilo,NuevoChat}.tsx
 · centro.css (`.co-ya__*`, `.co-caja__fila`, `--caja-toque`) · app/m/operaciones/operaciones.css · app/_components/{Criatura,Sidebar}.tsx
-· app/m/mas/page.tsx · lib/{operaciones-reglas,centro-turnos-db}.ts (`resumirTurnos`, `leerUltimosTurnos`) · app/admin/operaciones/{useCentro,acciones,datos,Uso,Muneco}.ts(x) · app/_components/Markdown.tsx · lib/links-texto.ts · app/second-brain/ChatSecondBrain.tsx · tests/centro-ops7.test.ts.
+· app/m/mas/page.tsx · lib/{operaciones-reglas,centro-turnos-db}.ts (`resumirTurnos`, `leerUltimosTurnos`) · app/admin/operaciones/{useCentro,acciones,datos,Uso,Muneco}.ts(x) · app/_components/Markdown.tsx · lib/links-texto.ts · app/second-brain/ChatSecondBrain.tsx · lib/centro-chat-nuevo.ts · app/admin/operaciones/{ChatNuevo,ChatNuevoPiezas}.tsx · tests/centro-ops7.test.ts · tests/centro-nuevo-chat.test.ts.
 
 **Sin hacer:** nada se vio en el Android de Martín (medido en Chrome de escritorio con el CSS real, y tests); el tope de 4000 / 600
 del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la medición automática de una cuenta sin Runner (arriba).
