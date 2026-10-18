@@ -7,13 +7,15 @@
 // =============================================================================
 
 import 'server-only';
-import { credWs } from './credenciales';
+import { credDelCliente, credWs, credWsEstricta } from './credenciales';
+import { POR_QUE_IA_DE_MAKO, veredictoDeIA } from './ia-keys';
+import type { ProvName } from './ai-cheap';
 import { emailConectado } from './resend';
 import { POR_QUE_SIN_EMAIL } from './email-remitente';
 import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
-import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
+import { getCapaActual, getWorkspaceActual, wsSuperAdmin, OWNER_WS } from './workspace';
 import { tokenAgenteVisible } from './agente-token';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
@@ -219,6 +221,19 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
       ...delMetodo(d.key),
     };
   }
+  // ⚠️ UNA IA ESTÁ CONECTADA SI MaKo LA PUEDE USAR COMO DEL NEGOCIO (tickets #5 y #6, lib/ia-keys.ts → `veredictoDeIA`):
+  // en el ws1 decía «Conectada y operativa» en las siete, con copias de la plataforma, y MaKo no tenía con qué contestar.
+  const ia = await iaDelNegocio(d.key, d.envs[0]).catch(() => null);
+  if (ia) {
+    const v = veredictoDeIA(ia);
+    return {
+      key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
+      estado: (v === 'conectada' ? 'conectada' : 'falta') as EstadoIntegracion,
+      detalle: v === 'conectada' ? 'Conectada y operativa.' : v === 'copia' ? POR_QUE_IA_DE_MAKO : `Falta configurar: ${d.envs.join(', ')}`,
+      tieneDetalle: d.tieneDetalle,
+      ...delMetodo(d.key),
+    };
+  }
   return {
     key: d.key,
     nombre: d.nombre,
@@ -229,4 +244,30 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
     tieneDetalle: d.tieneDetalle,
     ...delMetodo(d.key),
   };
+}
+
+/** Las IA de la cascada barata: las que MaKo usa con las keys del negocio (`provsDe`, lib/ai-cheap.ts). */
+const IA_DE_LA_CASCADA: ReadonlySet<string> = new Set<ProvName>(['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'openai']);
+
+/**
+ * ¿Qué tiene de SUYO el negocio en esta IA? Con las MISMAS lecturas que la usan, para que la tarjeta no pueda decir
+ * «Conectada» donde MaKo no encuentra nada:
+ *   · las baratas, con `provsDe` (sus filas, sin las copias de la plataforma);
+ *   · la de Anthropic, con la frontera de `conClaveDelNegocio` (lib/anthropic.ts): su fila, distinta de la del entorno,
+ *     la de `OWNER_WS` y la de la plataforma.
+ * `null` = no es una IA, o es la plataforma (usa las suyas): manda lo de siempre.
+ */
+async function iaDelNegocio(key: string, envBase: string | undefined): Promise<{ fila: boolean; propia: boolean } | null> {
+  if (!envBase || (!IA_DE_LA_CASCADA.has(key) && key !== 'anthropic')) return null;
+  const ws = await getWorkspaceActual().catch(() => null);
+  const wsSA = await wsSuperAdmin().catch(() => null);
+  if (ws == null || wsSA == null || ws === wsSA) return null;
+  const fila = (await credDelCliente(envBase, ws))?.trim() ?? '';
+  if (key === 'anthropic') {
+    if (!fila) return { fila: false, propia: false };
+    const plataforma = [process.env[envBase], await credWsEstricta(envBase, OWNER_WS), await credWsEstricta(envBase, wsSA)];
+    return { fila: true, propia: !plataforma.some((x) => typeof x === 'string' && x.trim() === fila) };
+  }
+  const { provsDe } = await import('./ai-cheap');
+  return { fila: !!fila, propia: (await provsDe(key as ProvName)).length > 0 };
 }

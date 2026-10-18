@@ -172,3 +172,22 @@ export function sinCopiasDeLaPlataforma<T extends { key: string }>(
   const huellas = p.huellas;
   return provs.filter((x) => !huellas.has(p.huella(x.key)));
 }
+
+/**
+ * LA TARJETA DE UNA IA EN /integraciones DICE LO QUE MaKo PUEDE USAR (tickets #5 y #6, 18/10/2026).
+ *
+ * Medido ese día, sólo leyendo: en el ws1 las siete tarjetas de IA decían «Conectada y operativa», y MaKo no tenía
+ * con qué contestarle. Tres son copias de la plataforma en su fila (Gemini, OpenAI, Claude), y en producción las demás
+ * también: la hidratación del arranque copia la fila del ws1 (`OWNER_WS`) al entorno, y la regla de arriba descarta
+ * toda key igual a una del entorno. La grilla miraba `credWs` («hay algo guardado, o el entorno si es el ws1»); la
+ * cascada mira «es SUYA». Ahora la tarjeta hace la pregunta de la cascada (lib/integraciones.ts → `iaDelNegocio`).
+ *
+ * `fila` = el negocio tiene la key base guardada en SU fila; `propia` = MaKo la puede usar como suya.
+ */
+export function veredictoDeIA(p: { fila: boolean; propia: boolean }): 'conectada' | 'copia' | 'falta' {
+  if (p.propia) return 'conectada';
+  return p.fila ? 'copia' : 'falta';
+}
+
+/** Lo que lee el negocio cuando lo guardado es una copia de la plataforma (la tarjeta y su modal). */
+export const POR_QUE_IA_DE_MAKO = 'Esa key es la de MaKo, no la tuya: pega la de tu cuenta.';

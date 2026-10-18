@@ -69,7 +69,7 @@ import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoL
 import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA,
-  historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta,
+  historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, AVISO_SIN_IA, SERVICIO_IA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -234,6 +234,22 @@ export type EntradaTurnoApp = {
 /** El cartel de la plataforma: se muestra y NO se guarda (AGENTS.md, «Un cartel de la
  *  PLATAFORMA no es un turno de la conversación»). */
 const AVISO_NO_PUDE = 'No pude contestar ahora. Tu mensaje quedó guardado.';
+
+/**
+ * Cuántas cuentas de IA PROPIAS del negocio puede usar el turno con herramientas: las de la cascada de `chatClaudeTools`
+ * (`CASCADA_TOOLS`), leídas con `provsDe`, que ya saca las copias de la plataforma. Es la misma cuenta que hace la
+ * cascada, así que no puede decir «tienes» donde la cascada no encontró nada. `null` = no se pudo leer.
+ */
+async function iaPropiaDelTurno(): Promise<number | null> {
+  try {
+    const { provsDe, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
+    let n = 0;
+    for (const p of CASCADA_TOOLS) n += (await provsDe(p)).length;
+    return n;
+  } catch {
+    return null;
+  }
+}
 
 /** Mandarle un ticket al equipo de MaKo (lib/api-mako/areas/tickets.def.ts): viaja SIEMPRE en el chat de la app, para
  *  que MaKo pueda proponerlo cuando la persona pide algo que la app todavía no tiene (docs/diseno-ticketera-usuarios.md). */
@@ -454,17 +470,20 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       fallo = e instanceof Error ? e.message : String(e);
     }
     if (fallo) console.error(`[mako-turno-app] ws=${ws} sesión=${s.id} ${intencion.intencion}: ${fallo.slice(0, 300)}`);
+    // Sin una IA propia no es un bug: es configuración del negocio, y se le pide a la persona (tickets #5 y #6).
+    const sinIA = faltaIADelNegocio(fallo, fallo ? await iaPropiaDelTurno() : null);
 
     // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
     // Martín (17/10/2026): «córrelo en toda la app: MaKo en los chats de la app... Y todo lo solucionas
     // automáticamente». Ya no se le propone una tarjeta a la persona: el error se registra (agrupado por huella,
     // lib/errores-app.ts) y la primera vez es un ticket de bug que va solo al Cerebro. A la persona se le dice SÓLO si
     // entró, y el aviso de que está arreglado le llega en ESTE hilo. Lo que falló porque el proveedor de IA no
-    // contestó (un 503, el cupo) no es un bug de MaKo: lo descarta `esRuido`.
+    // contestó (un 503, el cupo) no es un bug de MaKo: lo descarta `esRuido`. Y el negocio sin una IA propia tampoco:
+    // no se registra, se le pide que conecte la suya (`sinIA`, abajo).
     const fallasDeMako = [
       // `etiqueta`: el nombre humano de la operación («Mover un lead de etapa»), para el título que lee el cliente.
       ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error, etiqueta: porId(e.herramienta)?.titulo })),
-      ...(fallo ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
+      ...(fallo && !sinIA ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
     ];
     if (fallasDeMako.length && !ticketPropuesto) {
       const quien = await identidadDe(ws, persona.actor).catch(() => null);
@@ -507,10 +526,14 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (respuesta) {
       await appendMessage(s.id, 'assistant', respuesta);
       guardados.push({ role: 'assistant', content: respuesta });
+    } else if (sinIA) {
+      // Lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`).
+      aviso = [aviso, AVISO_SIN_IA].filter(Boolean).join(' ');
     } else {
       aviso = [aviso, AVISO_NO_PUDE].filter(Boolean).join(' ');
     }
-    return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas };
+    const conectar = !respuesta && sinIA ? SERVICIO_IA : null;
+    return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas, conectar };
   });
 }
 

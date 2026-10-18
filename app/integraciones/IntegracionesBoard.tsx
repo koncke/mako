@@ -45,6 +45,7 @@ import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
 import { ProbarTracking } from './ProbarTracking';
 import { ROTULO_PIXEL_VIEJO } from '@/lib/pixel-aviso';
 import { ARCHIVO_PIXEL, pixelComoArchivo } from '@/lib/pixel-archivo';
+import { POR_QUE_IA_DE_MAKO } from '@/lib/ia-keys';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -1420,8 +1421,9 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
   // cae al `paraQue` del catálogo — nunca inventamos una promesa para llenar.
   const slides: Slide[] = SLIDES[i.key] ?? (i.paraQue ? [{ t: `Qué hace ${i.nombre}`, d: i.paraQue }] : []);
 
-  // Estado EN VIVO (no descripción): solo Meta tiene algo que decir acá.
-  let alerta: string | null = null;
+  // Estado EN VIVO (no descripción): Meta, y la IA cuya key guardada es la de MaKo (el campo se ve lleno y no es suya:
+  // tickets #5 y #6, lib/ia-keys.ts → `veredictoDeIA`).
+  let alerta: string | null = i.detalle === POR_QUE_IA_DE_MAKO ? i.detalle : null;
   let facts: Array<{ k: string; v: string; c: string }> = [];
   const actions: Array<{ label: string; href?: string; primary?: boolean; sameTab?: boolean; onClick?: () => void }> = [];
   const faltan = i.estado === 'falta' ? i.detalle.replace(/^Falta configurar:\s*/, '') : '';

@@ -21,6 +21,7 @@ export const PARTES: Parte[] = [
   { titulo: 'El bug automático llega solo al Cerebro', detalle: 'El Runner (cartero 1.15.0) le escribe un texto fijo con el número; falta que el Cerebro lo reinstale en la PC', estado: 'hecha' },
   { titulo: 'Los errores de la app llegan solos', detalle: 'Navegador, servidor y chats de MaKo, agrupados por huella (mig 0313): cada error nuevo es un bug que va solo al Cerebro', estado: 'hecha' },
   { titulo: 'El aviso de arreglado al grupo del negocio', detalle: 'Con `avisarArregloAlGrupo` de «MaKo en WhatsApp», firmado «Desarrollador», y sólo con la prueba del deploy que trae el arreglo', estado: 'hecha' },
+  { titulo: 'Un negocio sin IA no es un bug', detalle: 'No abre ticket: MaKo le pide que conecte la suya con el modal ahí mismo, y /integraciones dice cuál es suya de verdad', estado: 'hecha' },
   { titulo: 'La bandeja en el teléfono', detalle: 'Hoy la Ticketera del teléfono sigue siendo el mazo de las preguntas de los chats', estado: 'cola' },
   { titulo: 'Levantarlo por WhatsApp', detalle: 'La operación ya está en el registro; enchufarla al doer de WhatsApp es del chat «MaKo en WhatsApp»', estado: 'cola' },
 ];
@@ -90,6 +91,17 @@ export const BITACORA: Hito[] = [
       'Con `avisarArregloAlGrupo` de «MaKo en WhatsApp» (firmado «Desarrollador de MaKo», uno por arreglo y por negocio). Es una función y no una operación del registro: nadie más puede firmar como el equipo.',
       '**Sólo con prueba**: el build que corre trae el hito con el número del ticket (su commit y su url). Un ticket del sistema que Martín sólo contestó no avisa nada.',
       'Los títulos de los errores, en palabras del cliente: «La pantalla «CRM» se rompió», «MaKo no pudo «Mover un lead de etapa»», en vez de la ruta.',
+    ],
+  },
+  {
+    fecha: '18 oct', hora: '01:45', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un negocio sin IA conectada ya no abre un ticket: MaKo le pide que conecte la suya',
+    revisar: '/integraciones',
+    puntos: [
+      'Por los tickets #5 y #6 de Mauricio: MaKo no le contestaba en el chat de la app porque su negocio no tiene una IA propia. No era un bug, y la Ticketera lo había mandado a arreglar.',
+      'Ahora no abre ticket, y en el chat MaKo dice «Para contestarte necesito una IA conectada» con un botón «Conectar tu IA» que abre el modal ahí mismo, sin salir de la pantalla.',
+      '/integraciones dice «Conectada» sólo si MaKo la puede usar como del negocio. En el ws1 decía «Conectada» en las siete IA y no le servía ninguna; una copia de la de MaKo ahora lo dice.',
+      '⚠️ **En el ws1 conectar su IA no alcanza**: lo que guarde en su fila pasa a ser la key con la que corre la plataforma. Separarlo es una decisión de Integraciones e IA (docs/hallazgos-integraciones.md).',
     ],
   },
 ];

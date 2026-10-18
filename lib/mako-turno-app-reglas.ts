@@ -332,7 +332,38 @@ export type RespuestaTurno = {
   propuestas: TarjetaPendiente[];
   /** lo que se revisa en una pantalla (borrador, ficha, formulario): una fila a Inbox */
   pantallas: PropuestaPantalla[];
+  /**
+   * La integración que le falta al NEGOCIO para que MaKo conteste (`faltaIADelNegocio`). Con esto, `aviso` lo dice MaKo
+   * y va con un botón que abre ESE modal ahí mismo: para una integración jamás se sale de la tab (Martín, 14/10/2026).
+   */
+  conectar?: string | null;
 };
+
+// ── El negocio sin IA propia (tickets #5 y #6, 18/10/2026) ───────────────────
+// Mauricio (ws1) escribió en el chat y MaKo no contestó: «responder: falló la IA (sin proveedor gratis disponible)», y la
+// Ticketera lo abrió como un bug. No lo era. Desde el 16/10 una key de la plataforma copiada en la fila de un negocio no
+// cuenta como suya (lib/ia-keys.ts → `sinCopiasDeLaPlataforma`), y la decisión A de Martín es que cada negocio conecte
+// SU IA. Sin una propia, el turno con herramientas no tiene ninguna cuenta que probar: es configuración del negocio, se
+// le dice a la persona qué hacer y no abre ticket (lib/errores-app-reglas.ts → `esDeConfiguracion`).
+
+/** Lo que dice MaKo, corto y en palabras de la persona. Su mensaje quedó guardado, pero el turno no corrió: hay que mandarlo de nuevo. */
+export const AVISO_SIN_IA = 'Para contestarte necesito una IA conectada. Conecta la tuya y mándamelo de nuevo.';
+/** El modal que abre el botón (app/m/mako/chat-ui.ts → `botonConectar`): el de las keys de IA, el mismo que manda WhatsApp
+ *  (`linkKeysIA`, lib/fallo-ia-texto.ts). */
+export const SERVICIO_IA = 'gemini';
+
+/** Lo que escribe la cascada cuando no tuvo NINGUNA cuenta que probar (lib/anthropic.ts, `chatClaudeTools`). */
+const SIN_NINGUNA_CUENTA = /sin proveedor gratis disponible/i;
+
+/**
+ * ¿MaKo no contestó porque el negocio no tiene una IA propia? `iaPropia` = cuántas cuentas propias puede usar el turno
+ * con herramientas (las de `provsDe`, sin las copias de la plataforma); `null` = no se pudo saber. Sin saberlo, sólo
+ * manda el texto de la cascada: un bache de la base leído como «no tienes IA» manda a conectar algo que ya está.
+ */
+export function faltaIADelNegocio(fallo: string | null, iaPropia: number | null): boolean {
+  if (!fallo) return false;
+  return SIN_NINGUNA_CUENTA.test(fallo) || iaPropia === 0;
+}
 
 /**
  * Los rechazos de `confirmarPendiente` / `cancelarPendiente` (lib/api-mako/acciones.ts)

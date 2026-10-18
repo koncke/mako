@@ -984,3 +984,39 @@ origin/main...X`), y la lista de importadores del test se achica por partes: `IM
 aplicar**; el procedimiento está en `docs/relevo/integraciones.md`.
 
 **Vive en:** lib/chatwoot.ts · lib/api-mako/areas/whatsapp.{helpers,run}.ts · tests/sin-chatwoot.test.ts · supabase/migrations/0314_quitar_crm_etiquetas_chatwoot_label.sql
+
+---
+
+## El ws1 no puede tener una IA propia: su fila ES el entorno de la plataforma, y la grilla decía «Conectada» (18/10/2026)
+
+**El síntoma** (tickets #5 y #6): MaKo no le contesta a Mauricio en el chat de la app —«falló la IA (sin proveedor gratis
+disponible)»— y su /integraciones dice «Conectada y operativa» en las siete IA.
+
+**Lo medido** (sólo lectura, por huellas, con el `.env.local`): en la fila del ws1, Gemini, OpenAI y Claude son copias de
+la plataforma; Groq, Mistral, OpenRouter y Cerebras salen «propias». Pero en producción la cascada no encontró **ninguna**,
+y el porqué está en el código: `hidratarCredenciales` copia la fila del ws1 (`OWNER_WS`) a `process.env` en cada arranque
+(`aplicarAEnv` pisa lo que hubiera), y `soloLasPropias` (lib/ai-cheap.ts) descarta toda key igual a una del entorno. En
+producción, entonces, TODAS las del ws1 son «de la plataforma». La medición local no lo ve: la key del `.env.local` no es
+la que usa producción (la trampa de arriba, otra vez).
+
+**El diagnóstico obvio era el equivocado.** «Que Mauricio conecte su IA» NO lo arregla en el ws1: lo que pegue en su fila,
+`guardarCredencial` lo pone en `process.env` en el acto (`if (ws === OWNER_WS) aplicarAEnv`), y cada arranque también. Su
+key pasa a ser LA key de la plataforma —la red gratis de todos los negocios gastaría su cuenta— y su workspace sigue sin
+una IA propia. El botón «Conectar tu IA» que ahora muestra el chat es correcto para todos los negocios menos para el ws1.
+
+**La grilla** miraba `credWs` («hay algo en la fila, o el entorno si es el ws1»); la cascada pregunta «¿es SUYA?». Ahora
+la tarjeta hace la pregunta de la cascada (`iaDelNegocio`: `provsDe` para las baratas, la frontera de `conClaveDelNegocio`
+para Claude), y una copia dice «Esa key es la de MaKo, no la tuya», también adentro del modal.
+
+**La regla:** una tarjeta que dice «Conectada» se calcula con la MISMA lectura que usa quien la consume. Dos lecturas de
+«¿tiene X?» divergen en silencio, y la que miente es la que mira la persona.
+
+**Y una que no se ve:** el barrido de tests/integracion-sin-salir.test.ts busca el link a /integraciones ESCRITO; un
+`<Link href={`/integraciones?abrir=${servicio}`}>` armado con template literal le pasa por al lado (medido rompiéndolo: 5 / 0).
+
+**Lo que quedó SIN hacer:** separar el ws1 del entorno de la plataforma para las IA (hidratar las IA desde `wsSuperAdmin()`,
+o no hidratarlas, y no reflejar a `process.env` lo que un cliente guarda). Es de este documento y de la IA, y es una
+decisión: cambia de dónde salen las keys con las que corre la plataforma. Hasta entonces, el ws1 no tiene cómo tener una
+IA suya. Vive en lib/credenciales.ts (`hidratarCredenciales`, `guardarCredencial`).
+
+**Vive en:** lib/integraciones.ts (`iaDelNegocio`) · lib/ia-keys.ts (`veredictoDeIA`) · lib/credenciales.ts · lib/ai-cheap.ts (`soloLasPropias`) · app/integraciones/IntegracionesBoard.tsx · tests/mako-sin-ia.test.ts
