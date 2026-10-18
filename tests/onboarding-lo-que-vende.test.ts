@@ -88,6 +88,15 @@ test('el prompt del onboarding: sin el marco del análisis, sin diagnóstico, si
   assert.match(tpl, /NO analizas su oferta/);
   assert.match(tpl, /"diagnostico": null y "diagnostico_respuesta": null, siempre/);
   assert.doesNotMatch(tpl, /Armar mi oferta/);
+  // 18/10/2026, Martín (punto 15): halagos GENUINOS («nunca elogiar algo que después se sugiere cambiar»), respuestas
+  // rápidas en TODA pregunta, y fuera las preguntas irrelevantes («¿qué recibe en las primeras 24 horas?»).
+  // Roturas (arnés romper-prompt.js con onboarding-preguntas, base 14/0): sin el halago genuino, la pregunta abierta sin
+  // opciones, las de logística de vuelta y la entrada por el interés → 13/1 cada una.
+  assert.match(tpl, /UNA frase cálida y GENUINA: nombra algo concreto de su respuesta/, 'sin la regla del halago genuino');
+  assert.match(tpl, /nunca elogies algo que no sea bueno de verdad/);
+  assert.match(tpl, /"opciones": SIEMPRE, salvo cuando pides el link o un documento: de 2 a 4 respuestas cortas/, 'una pregunta sin respuestas rápidas');
+  assert.match(tpl, /Nunca preguntes detalles de la entrega ni de la logística \(qué le llega al correo, qué pasa en las primeras 24 horas/);
+  assert.doesNotMatch(tpl, /si es abierta, \[\]/, 'volvió la pregunta abierta sin opciones');
   const turno = sinComentarios(funcion(IA, 'turnoOffer'));
   assert.match(turno, /p\.arranque\s*\?\s*await renderPrompt\('offer\.arranque\.system', OFFER_ARRANQUE_SYSTEM_TEMPLATE,/);
   assert.match(turno, /faltan: p\.arranque \? faltanDelArranqueParaPrompt\(p\.piezas\) : b\.faltan/);

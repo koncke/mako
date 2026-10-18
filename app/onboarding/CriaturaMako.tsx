@@ -1,51 +1,32 @@
 'use client';
 
 // =============================================================================
-// CriaturaMako — la cara de MaKo en el onboarding, con sus reacciones
+// CriaturaMako — la cara de MaKo en el onboarding: la ESTRELLA, con sus reacciones
 // =============================================================================
 // Martín (17/10/2026, Ops Center): «La estrella de MaKo debe aparecer en el onboarding... Y debe parpadear y reaccionar
-// con las respuestas». La estrella (el dibujo y sus reacciones) la está haciendo Ops Center 3 para TODAS las
-// criaturas; hasta que esté, este ADAPTADOR dibuja el muñeco de hoy (./MunecoMako.tsx) y traduce la reacción a lo que el
-// muñeco sabe hacer (el ánimo de los ojos) más un gesto del cuerpo en CSS. Cambiar a la estrella es cambiar el cuerpo de
-// esta función: la pantalla sólo conoce `reaccion`.
+// con las respuestas». 18/10/2026: «la criatura es la ESTRELLA (no el círculo), sin el círculo azul alrededor».
+//
+// ⚠️ NO SE DIBUJA ACÁ: es la `Criatura` del Ops Center (app/admin/operaciones/Criatura.tsx) con `ASPECTO_MAKO`
+// (lib/centro-munecos.ts), la MISMA estrella que llevan la barra lateral y el Centro desde el run 141. Una copia del
+// dibujo se queda vieja el día que el Centro cambie su criatura. Ella parpadea sola, reacciona con la cara y el cuerpo,
+// y respeta el movimiento reducido. Hasta el 18/10 este adaptador dibujaba un muñeco redondo propio (MunecoMako, borrado ese día).
 //
 // Las reacciones, y cuándo las pide la pantalla (app/onboarding/ChatArranque.tsx):
-//   · escucha  — esperando que la persona conteste (parpadea solo);
+//   · escucha  — esperando que la persona conteste;
 //   · piensa   — guardando la respuesta o esperando a la IA;
-//   · contenta — la respuesta entró (un saltito);
-//   · duda     — no la entendió (se ladea).
-// Con movimiento reducido, sin gestos: sólo los ojos.
-//
-// ⚠️ LA ESTRELLA, CUANDO LLEGUE (Ops Center 3, 17/10 ~12:30: todavía NO está; la toma el próximo Ops Center). Va a ser
-// `Criatura` de app/admin/operaciones/Criatura.tsx, con `aspecto={ASPECTO_MAKO}` (lib/centro-munecos.ts) y
-// `reaccion: 'escucha' | 'contenta' | 'piensa' | 'sorpresa' | 'duda' | null`: estas cuatro entran tal cual. El cambio es
-// el cuerpo de esta función: `<Criatura aspecto={ASPECTO_MAKO} titulo="MaKo" size={size} reaccion={reaccion} />`, y
-// se va el CSS de abajo (la criatura parpadea sola y respeta el movimiento reducido). Trae además `entrada`/`onEntrada`
-// e `invita` (latido hasta el clic), que hoy hace ./EntradaMako.tsx: se pueden sumar después.
+//   · contenta — la respuesta entró;
+//   · duda     — no la entendió.
 // =============================================================================
 
 import type { CSSProperties } from 'react';
-import { MunecoMako } from './MunecoMako';
+import { Criatura } from '@/app/admin/operaciones/Criatura';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 
 export type Reaccion = 'escucha' | 'piensa' | 'contenta' | 'duda';
 
 export function CriaturaMako({ size = 40, reaccion = 'escucha', style }: { size?: number; reaccion?: Reaccion; style?: CSSProperties }) {
-  const animo = reaccion === 'piensa' ? 'trabajando' : reaccion === 'duda' ? 'cansado' : 'despierto';
   return (
-    <span className={`cr-mako cr-mako--${reaccion}`} data-reaccion={reaccion} style={{ display: 'inline-flex', ...style }}>
-      <style>{CSS_CRIATURA}</style>
-      <MunecoMako size={size} animo={animo} />
-    </span>
+    <Criatura aspecto={ASPECTO_MAKO} titulo="MaKo" size={size} reaccion={reaccion}
+      animo={reaccion === 'piensa' ? 'trabajando' : 'despierto'} style={style} />
   );
 }
-
-const CSS_CRIATURA = `
-.cr-mako { transform-origin: 50% 90%; }
-.cr-mako--contenta { animation: cr-salto .55s cubic-bezier(.34,1.56,.64,1) 1; }
-.cr-mako--duda { animation: cr-ladea .7s ease-in-out 1; }
-.cr-mako--piensa { animation: cr-respira 1.4s ease-in-out infinite; }
-@keyframes cr-salto { 0% { transform: translateY(0) scale(1) } 35% { transform: translateY(-22%) scale(1.06, .96) } 70% { transform: translateY(0) scale(.97, 1.04) } 100% { transform: none } }
-@keyframes cr-ladea { 0%, 100% { transform: rotate(0) } 30% { transform: rotate(-12deg) } 65% { transform: rotate(8deg) } }
-@keyframes cr-respira { 0%, 100% { transform: scale(1) } 50% { transform: scale(1.05) } }
-@media (prefers-reduced-motion: reduce) { .cr-mako { animation: none !important; } }
-`;

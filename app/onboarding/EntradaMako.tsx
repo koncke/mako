@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// EntradaMako — la entrada de MaKo al onboarding: aparece, saluda y espera que la toques
+// EntradaMako — la entrada de MaKo al onboarding: aparece, saluda y va sola a su lugar (tocarla la adelanta)
 // =============================================================================
 // Martín (17/10/2026, Ops Center): «En el onboarding elimina la animación del grafo... haz una buena entrada de la
 // criatura de MaKo tipo motion graphics, y que al clickearla recién pase al siguiente mensaje, que la animación no sea
@@ -17,10 +17,12 @@
 // ⚠️ La capa empieza DEBAJO de la barra de «Inspeccionar» (`--barra-agencia`), como el chat.
 // =============================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CriaturaMako } from './CriaturaMako';
 
 const MS_VUELO = 700;
+/** Cuánto se queda saludando antes de ir a su lugar: lo que tarda en entrar y decir «Hola». */
+const MS_SOLA = 2400;
 const CURVA = 'cubic-bezier(.16,.84,.34,1)';
 const CHISPAS = [0, 60, 120, 180, 240, 300];
 
@@ -45,37 +47,38 @@ export function EntradaMako({ onFin }: { onFin: () => void }) {
   const cuerpo = useRef<HTMLSpanElement>(null);
   const boton = useRef<HTMLButtonElement>(null);
   const terminado = useRef(false);
+  // El padre puede volver a dibujarse durante la entrada: el temporizador no se reinicia por eso.
+  const alFin = useRef(onFin);
+  useEffect(() => { alFin.current = onFin; });
 
-  // El foco va al botón cuando termina de entrar: Enter o espacio también empiezan.
-  useEffect(() => {
-    const t = setTimeout(() => boton.current?.focus({ preventScroll: true }), 900);
-    return () => clearTimeout(t);
-  }, []);
-
-  const empezar = () => {
+  const empezar = useCallback(() => {
     if (terminado.current) return;
     terminado.current = true;
     setSaliendo(true);
     const el = cuerpo.current;
     const destino = document.querySelector<HTMLElement>('[data-mako-foto]')?.getBoundingClientRect();
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (!el || !destino || destino.width === 0 || reduce) { onFin(); return; }
-    volar(el, destino, onFin);
-  };
+    if (!el || !destino || destino.width === 0 || reduce) { alFin.current(); return; }
+    volar(el, destino, () => alFin.current());
+  }, []);
+
+  // AVANZA SOLA (18/10/2026, Martín: la animación sirve para cargar, «sin clic para continuar»). Tocarla la adelanta.
+  useEffect(() => {
+    const t = setTimeout(empezar, MS_SOLA);
+    return () => clearTimeout(t);
+  }, [empezar]);
 
   return (
     <div className={`en-capa${saliendo ? ' en-capa--sale' : ''}`} role="presentation">
       <style>{CSS_ENTRADA}</style>
       <div className="en-centro">
-        <span className="en-anillo" aria-hidden />
-        <span className="en-anillo en-anillo--2" aria-hidden />
+        {/* Sin los anillos azules alrededor (18/10/2026, Martín: «sin el círculo azul alrededor»). */}
         {CHISPAS.map((g) => <span key={g} className="en-chispa" aria-hidden style={{ ['--g' as string]: `${g}deg` }} />)}
         <button ref={boton} type="button" className="en-boton" onClick={empezar} aria-label="Empezar con MaKo">
           <span ref={cuerpo} className="en-cuerpo"><CriaturaMako size={120} reaccion="escucha" /></span>
         </button>
       </div>
       <p className="en-hola">Hola, soy MaKo</p>
-      <p className="en-toca" aria-hidden>Tócame para empezar</p>
     </div>
   );
 }

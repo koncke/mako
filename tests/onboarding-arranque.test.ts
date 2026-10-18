@@ -409,25 +409,28 @@ test('el chat no desaparece nunca: armar es un mensaje del hilo y la oferta se v
   assert.match(app, /conProbar=\{!arranque\}/);
 });
 
-test('la entrada: sin el grafo, no avanza sola, se toca (o Enter), sin movimiento si se pide, y aterriza en la foto', () => {
+test('la entrada: sin el grafo, avanza SOLA (tocarla la adelanta), sin anillos, sin movimiento si se pide, y aterriza en la foto', () => {
   // 17/10/2026, Martín: «En el onboarding elimina la animación del grafo... haz una buena entrada de la criatura de
-  // MaKo tipo motion graphics, y que al clickearla recién pase al siguiente mensaje, que la animación no sea automática».
+  // MaKo tipo motion graphics». 18/10/2026: la animación sirve para cargar, «sin clic para continuar», y «sin el círculo
+  // azul alrededor». Roturas (18/10): sin el temporizador → 1 fallo · vuelve un anillo → 1 fallo.
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/IntroMako.tsx')), 'volvió la animación del grafo');
   const sin = sinComentarios(leer('app/onboarding/EntradaMako.tsx'));
   assert.doesNotMatch(sin, /cerebro-modelo|<svg/, 'volvió el grafo');
   assert.doesNotMatch(sin, /fetch\(|getSetting|await /, 'la entrada no lee datos');
-  // No avanza sola: el único temporizador es el que le da el foco al botón.
+  // Avanza sola: un temporizador que llama a `empezar`, y el mismo `empezar` en el clic.
   assert.equal((sin.match(/setTimeout\(/g) ?? []).length, 1);
-  assert.match(sin, /setTimeout\(\(\) => boton\.current\?\.focus\(/);
-  assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede tocar (ni con el teclado)');
-  assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ onFin\(\); return; \}/, 'con movimiento reducido no corre');
+  assert.match(sin, /const t = setTimeout\(empezar, MS_SOLA\);/, 'la entrada volvió a esperar un clic');
+  assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede adelantar tocándola');
+  assert.doesNotMatch(sin, /className="en-anillo/, 'volvió el círculo azul alrededor');
+  assert.doesNotMatch(sin, /Tócame para empezar/);
+  assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ alFin\.current\(\); return; \}/, 'con movimiento reducido no corre');
   assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
   assert.match(sin, /top: var\(--barra-agencia, 0px\)/, 'la entrada queda debajo de la barra de «Inspeccionar»');
   const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
   assert.match(chat, /data-mako-foto/, 'el chat no tiene dónde aterrizar a MaKo');
   assert.match(chat, /\{intro && <EntradaMako onFin=/);
   // El CSS vive en template literals: una comilla invertida adentro lo corta y rompe el build entero.
-  for (const [archivo, constante] of [['app/onboarding/EntradaMako.tsx', 'const CSS_ENTRADA = '], ['app/onboarding/CriaturaMako.tsx', 'const CSS_CRIATURA = '], ['app/onboarding/ChatArranque.tsx', 'const CSS_ARRANQUE = ']]) {
+  for (const [archivo, constante] of [['app/onboarding/EntradaMako.tsx', 'const CSS_ENTRADA = '], ['app/onboarding/ChatArranque.tsx', 'const CSS_ARRANQUE = ']]) {
     const src = leer(archivo);
     const i = src.indexOf(constante);
     assert.ok(i > 0, `no encuentro ${constante}`);
@@ -454,8 +457,22 @@ test('modo claro, sin recuadro, como la referencia, y MaKo reacciona a lo que co
   const sin = sinComentarios(chat);
   assert.match(sin, /reaccionar\(salio \? 'contenta' : 'duda'/, 'MaKo no reacciona a la respuesta');
   assert.match(sin, /reaccion=\{ocupado \? 'piensa' : gesto \?\? 'escucha'\}/);
-  // La cara pasa por el ADAPTADOR (la estrella de Ops Center 3 se enchufa ahí): nada dibuja el muñeco directo.
-  assert.doesNotMatch(sin, /<MunecoMako /);
+  // La cara pasa por el ADAPTADOR: nada dibuja una criatura directo.
+  assert.doesNotMatch(sin, /<MunecoMako |<Muneco /);
+});
+
+test('la cara de MaKo es la ESTRELLA del Ops Center, no un dibujo propio ni el círculo', () => {
+  // 18/10/2026, Martín (por el Cerebro): «la estrella NO es "del próximo Ops Center". Ya existe: la usan la sidebar y el
+  // Ops Center... Reusá ese componente en la entrada del onboarding en lugar del círculo, sin crear una nueva».
+  // Roturas (18/10, arnés romper-estrella.js; base 26/0): el adaptador sin ASPECTO_MAKO → 25/1 · vuelve el muñeco
+  // redondo → 25/1 · la entrada dibuja otra cosa → 25/1.
+  const cria = sinComentarios(leer('app/onboarding/CriaturaMako.tsx'));
+  assert.match(cria, /import \{ Criatura \} from '@\/app\/admin\/operaciones\/Criatura';/);
+  assert.match(cria, /<Criatura aspecto=\{ASPECTO_MAKO\} titulo="MaKo" size=\{size\} reaccion=\{reaccion\}/, 'la cara no es la estrella del Centro');
+  assert.doesNotMatch(cria, /<svg|<style>|<Muneco /, 'el onboarding volvió a dibujar su propia criatura');
+  assert.ok(!existsSync(join(RAIZ, 'app/onboarding/MunecoMako.tsx')), 'volvió el muñeco redondo');
+  // La entrada y la cabecera usan el adaptador.
+  assert.match(sinComentarios(leer('app/onboarding/EntradaMako.tsx')), /<CriaturaMako size=\{120\} reaccion="escucha" \/>/);
 });
 
 test('el taller de temas no se monta para un cliente (lo cuidaba el test de la bienvenida de antes)', () => {

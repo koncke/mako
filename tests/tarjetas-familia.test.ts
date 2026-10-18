@@ -9,20 +9,32 @@
 //      ficha rápida va por `handleDrop` (el mismo camino que soltar la tarjeta en la columna);
 //   2. el teléfono del CRM: tocar abre la ficha rápida en su SheetM, y «Mover a…» le pide a KanbanM SU sheet (no otro);
 //   3. Clients: la barra de la etapa y el aviso, el más urgente primero (sin entrar al curso, días sin moverse);
-//   4. Plan: el círculo de prioridad completa la tarea, en la computadora y en el teléfono;
+//   4. Plan: en el teléfono el círculo de prioridad completa la tarea; en la computadora, desde el 18/10 (Martín, pt 9),
+//      un CHECK GRIS a la derecha, al lado del tacho, y la tarjeta sin prioridad, sin origen y sin el aviso del deadline;
 //   5. KanbanM: las etapas con su NOMBRE y contador (pestañas píldora), y el pedido de afuera abre su «Mover a…»;
 //   6. toda pieza del kit lleva sus variables, aunque se use fuera de una tarjeta `.tk` (18/10: el círculo del Plan era
-//      invisible y la cara del teléfono salía sin color, en producción, con todo lo de arriba en verde).
+//      invisible y la cara del teléfono salía sin color, en producción, con todo lo de arriba en verde);
+//   7. cada componente del kit monta SUS estilos, y quien usa clases `tk-*` sueltas también (18/10: Clients de la
+//      computadora no los montaba y la tarjeta salió sin estilos para todos los negocios);
+//   8. la columna con su bloque de fondo (el mismo en los tres tableros) y «Próximo» plegado, abierto por el ícono del
+//      calendario (18/10, Martín, pt 8).
 //
 // PROBADO ROMPIÉNDOLO (17/10/2026), con el archivo en 5 / 0, una rotura por vez y restaurada:
 //   · la ficha rápida del CRM moviendo sin `handleDrop`                              → 4 / 1
 //   · el teléfono abriendo un «Mover a…» propio en vez de `pedirMover`               → 4 / 1
 //   · el aviso de un cliente sin mirar «sin entrar al curso»                         → 4 / 1
 //   · el círculo del Plan sin completar (`board.toggleDone`)                         → 4 / 1
+//   · (18/10) el BoardShell de antes, con el círculo y los chips (pt 9)               → 7 / 1
 //   · KanbanM sin el nombre de la etapa en la pestaña                                → 4 / 1
 // Y el 6 (18/10/2026), con el archivo en 6 / 0: las variables otra vez en las cinco raíces de antes
 //   (`.tk-raiz, .tk, .tk-ptabs, .tk-feat, .tk-sheet`, luz y oscuro)                    → 5 / 1, nombrando 20 piezas
 //   sueltas sin color (tk-pr--0..4, tk-c-*, tk-insignia, tk-medidor, tk-sub, tk-ptab…).
+// Y el 7 (18/10/2026), con el archivo en 7 / 0: el kit como estaba en producción (sólo la ficha rápida montaba los
+//   estilos) → 6 / 1, nombrando CaraTarjeta y PestanasPildora (las tarjetas pasan porque dibujan una CaraTarjeta); y
+//   VistaSelector del CRM sin el suyo → 6 / 1, nombrando app/crm/CrmToolbar.tsx. Sacarlo SÓLO de TarjetaPersona da
+//   7 / 0, y está bien: su CaraTarjeta lo monta igual (una rotura que no cambia la pantalla no prueba nada).
+// Y el 8 (18/10/2026), con el archivo en 8 / 0: el CrmBoard de antes (columna al 55 % y «Próximo» siempre abierto)
+//   → 7 / 1; y KanbanEntrega de antes (su columna al 55 %) → 7 / 1.
 // Correr: node --import tsx --test tests/tarjetas-familia.test.ts
 // =============================================================================
 
@@ -73,10 +85,17 @@ test('Clients: la barra de la etapa y el aviso, el más urgente primero', () => 
   assert.match(leer('app/m/cs/CustomerSuccessM.tsx'), /avanceDeCliente\(\{ etapa: iCol, etapas: grupos\.length,/, 'el teléfono tiene que usar la MISMA regla');
 });
 
-test('Plan: el círculo de prioridad completa la tarea, en la computadora y en el teléfono', () => {
+test('Plan: el check gris completa en la computadora; el círculo, en el teléfono', () => {
   const b = leer('app/plan/board/BoardShell.tsx');
-  const card = b.slice(b.indexOf('function CardTile('), b.indexOf('function CardTile(') + 12000);
-  assert.match(card, /className=\{`tk-pr tk-pr--\$\{prio\}`\}[\s\S]{0,200}onClick=\{\(e\) => \{ e\.stopPropagation\(\); board\.toggleDone\(t\.id\); \}\}/);
+  const ini = b.indexOf('function CardTile(');
+  const card = b.slice(ini, b.indexOf('\nfunction ', ini + 1)); // la tarjeta ENTERA: el check está al final
+  assert.match(card, /className="mk-plan-check"[\s\S]{0,200}onClick=\{\(e\) => \{ e\.stopPropagation\(\); board\.toggleDone\(t\.id\); \}\}/,
+    'el check gris tiene que completar por el mismo camino que el detalle');
+  // A la derecha, al lado del tacho: después del espaciador y antes del botón de eliminar.
+  const check = card.indexOf('className="mk-plan-check"');
+  assert.ok(card.lastIndexOf('<span style={{ flex: 1 }} />', check) > 0 && card.indexOf('aria-label={`Eliminar', check) > check, 'el check va a la derecha, antes del tacho');
+  // La vista previa sin prioridad, sin origen y sin el aviso del deadline (pt 9).
+  assert.doesNotMatch(card, /className=\{`tk-pr |<PrioChip|tk-chip--mako|<WarnMark/, 'volvió a la tarjeta la prioridad, el origen o el aviso');
   assert.match(leer('app/m/plan/ListaPlan.tsx'), /if \(!hecha\) completar\(it, 'check'\);/, 'el teléfono completa por el mismo camino que el sheet');
 });
 
@@ -137,4 +156,48 @@ test('toda pieza del kit lleva sus variables, aunque se use fuera de una tarjeta
   assert.deepEqual([...sinColor], [], `piezas que usadas sueltas salen sin color: ${[...sinColor].join(', ')}`);
   // Y las que hoy se usan sueltas, nombradas: el círculo del Plan y la cara del teléfono.
   for (const c of ['tk-pr tk-pr--0', 'tk-cara', 'tk-ini tk-c-blue', 'tk-medidor']) assert.ok(claro.some((d) => cae(d, c)), c);
+});
+
+// ── 7. Los estilos los monta cada pieza, no el tablero ──────────────────────────────────────────────────────────────
+test('cada componente del kit monta sus estilos, y quien usa clases tk-* sueltas también', () => {
+  const kit = leer('app/_ui/TarjetaKanban.tsx');
+  // Cada componente exportado que dibuja (menos EstiloTarjetas y los dos que envuelven a otro del kit).
+  const nombres = [...kit.matchAll(/^export (?:function (\w+)|const (\w+) = forwardRef)/gm)].map((m) => m[1] ?? m[2])
+    .filter((n) => /^[A-Z]/.test(n) && n !== 'EstiloTarjetas');
+  assert.ok(nombres.length >= 7, `encontré ${nombres.length} componentes`);
+  const sinEstilo = nombres.filter((n) => {
+    const i = kit.search(new RegExp(`^export (?:function ${n}\\b|const ${n} = forwardRef)`, 'm'));
+    const j = kit.slice(i + 1).search(/^export /m);
+    const cuerpo = kit.slice(i, j < 0 ? undefined : i + 1 + j);
+    return !cuerpo.includes('<EstiloTarjetas />') && !/<(CuerpoFichaRapida|TarjetaPersona|TarjetaTarea|CaraTarjeta)\b/.test(cuerpo);
+  });
+  assert.deepEqual(sinEstilo, [], `componentes del kit que dependen de que otro monte los estilos: ${sinEstilo.join(', ')}`);
+  // Quien escribe clases del kit a mano (sin un componente del kit en el mismo archivo) monta los estilos él mismo.
+  const conClases = ['app/crm/CrmBoard.tsx', 'app/crm/CrmToolbar.tsx', 'app/customer-success/ClienteCard.tsx', 'app/m/crm/TableroCrm.tsx',
+    'app/m/cs/CustomerSuccessM.tsx', 'app/m/plan/ListaPlan.tsx', 'app/plan/board/BoardShell.tsx'];
+  const huerfanos = conClases.filter((f) => {
+    const t = leer(f);
+    return !t.includes('<EstiloTarjetas />') && !/<(TarjetaPersona|TarjetaTarea|CaraTarjeta|PestanasPildora|TarjetaDestacada|CuerpoFichaRapida|FichaRapida)\b/.test(t);
+  });
+  assert.deepEqual(huerfanos, [], `usan clases tk-* sin montar los estilos: ${huerfanos.join(', ')}`);
+});
+
+// ── 8. La columna con su bloque de fondo, y «Próximo» plegado ───────────────────────────────────────────────────────
+test('la columna con su bloque de fondo en los tres tableros, y «Próximo» plegado detrás del calendario', () => {
+  const tk = leer('lib/tarjeta-kanban.ts');
+  const valor = tk.match(/export const FONDO_COLUMNA = '([^']+)';/)?.[1];
+  assert.equal(valor, 'var(--surface-2)');
+  const crm = leer('app/crm/CrmBoard.tsx');
+  for (const [f, t] of [['app/crm/CrmBoard.tsx', crm], ['app/plan/board/BoardShell.tsx', leer('app/plan/board/BoardShell.tsx')],
+    ['app/customer-success/KanbanEntrega.tsx', leer('app/customer-success/KanbanEntrega.tsx')]] as const) {
+    assert.doesNotMatch(t, /var\(--surface-2\) 55%/, `${f}: la columna volvió al fondo que no se ve`);
+    // Los tableros en TSX usan la constante; el CSS de Clients lleva su valor escrito (la `}` de una interpolación
+    // cortaba la regla que lee tests/cs-kanban-fases.test.ts).
+    const regla = t.match(/\n\.ke-col \{[^}]*\}/)?.[0];
+    assert.ok(regla ? regla.includes(`background: ${valor};`) : /FONDO_COLUMNA/.test(t), `${f}: la columna no usa el fondo común`);
+  }
+  assert.match(crm, /const \[verProximo, setVerProximo\] = useState\(false\);/, '«Próximo» tiene que arrancar plegado');
+  assert.match(crm, /if \(!verProximo\) return null;/, '«Próximo» se dibuja sólo desplegado');
+  assert.match(crm, /onAlternar=\{hayProxima \? \(\) => setVerProximo\(\(v\) => !v\) : null\}/, 'el calendario lo despliega');
+  assert.match(leer('app/crm/ReunionesProximas.tsx'), /onClick=\{onAlternar \?\? \(\(\) => setAbierto\(true\)\)\}/, 'con próxima reunión, el calendario no abre el pop-up');
 });

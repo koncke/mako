@@ -22,7 +22,7 @@
 // cliente, un proyecto, una tarea o una recurrente, no va acá.
 
 import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react';
-import { Pagina, PageHeader, Banner, EmptyState, ErrorState, Status, Toast, useToast } from '@/app/_ui';
+import { Pagina, Banner, EmptyState, ErrorState, Status, Toast, useToast } from '@/app/_ui';
 
 import type { ClienteCruce } from './cruce';
 import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
@@ -35,7 +35,7 @@ import { BarraClientes, FILTRO_LABEL, CUANDO_LABEL, ORDEN_LABEL, entraEnVentana,
 import { KanbanEntrega, type Asignacion } from './KanbanEntrega';
 import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
 import { EtapasEntregaModal } from './EtapasEntregaModal';
-import { SelectorServicio } from './SelectorServicio';
+import { LapizIcon } from '@/app/crm/iconos';
 import type { CarteraEnEntrega } from './entrega';
 import { conteoDeEtapas, relojDeVuelta, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { TablaClientes } from './TablaClientes';
@@ -907,19 +907,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
        hay que cuidar: si una queda en 1180 y las otras no, la pantalla se ve torcida
        y eso no se nota en el diff. /admin sigue con su 1180, porque es otra pantalla. */
     <Pagina ancho="completo" style={{ '--cartera-max': 'none' } as CSSProperties}>
-      <PageHeader
-        titulo="Clients"
-        estado={lista.length > 0
-          ? <Status>{lista.length} {lista.length === 1 ? 'cliente' : 'clientes'}</Status>
-          : undefined}
-        /* ⛔ ACÁ ESTABAN «MaKo: asignar lo evidente» Y «+ Nuevo cliente», y los dos se
-           fueron (27/09/2026). El primero porque asignar lo evidente «debería hacerlo
-           solo, automático, siempre»: ahora corre al entrar y sólo habla cuando movió
-           algo. El segundo porque un botón de texto en una esquina no se parece a lo
-           que crea — ahora es la primera tarjeta de la grilla, igual que «Crear nuevo
-           proyecto…» en el tablero. Queda el aviso, que es lo único que informa. */
-        accion={mako ? <span className="cl-mako">{mako}</span> : undefined}
-      />
+      {/* SIN TÍTULO (18/10/2026, Martín, pt 14): «Clients» ya lo dice la tab de arriba, y el número de clientes con
+          él. Queda el aviso de MaKo cuando movió algo, que es lo único que informa. */}
+      {mako ? <div style={{ margin: '0 0 12px' }}><span className="cl-mako">{mako}</span></div> : null}
 
       {/* ⚠️ «Cero resultados» no es «no hay». Si el tablero no se pudo leer, las tarjetas
           dirían 0 en los tres números sobre clientes que sí tienen trabajo. */}
@@ -967,28 +957,14 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
                y se arrastra entre ellas, así que también depende de cuál se está mirando.
                Antes vivía sólo en el kanban, con el porqué de que la tabla contestaba
                «quiénes son mis clientes» — dejó de ser cierto el día que la tabla tuvo etapas. */
-            extremo={servicios.length > 0 ? (
-              <SelectorServicio
-                servicios={servicios.map((sv) => ({ id: sv.productoId, nombre: sv.nombre }))}
-                servicio={servicio?.productoId ?? null}
-                onServicio={setServicioId}
-                puedeEditar={puedeEditarEtapas}
-                /* El lapiz abre las etapas de ESE servicio, que no tiene por que ser el
-                   que se esta mirando: por eso primero se cambia de servicio y despues se
-                   abre, en vez de editar a ciegas el de otra columna. */
-                onEditarEtapas={(id) => { setServicioId(id); setEditandoEtapas(true); }}
-                onNuevo={async (nombre) => {
-                  // Sin `atajar`, un rechazo dejaba el selector en «guardando» para siempre:
-                  // `SelectorServicio` espera un texto, no una excepción.
-                  const r = await atajar(crearServicioAction(nombre), 'No se pudo crear.');
-                  if (!r.ok) return r.error;
-                  // Se queda mirando el que acaba de crear: crear algo y no verlo se lee
-                  // como que no pasó nada. El `revalidatePath` trae su tablero.
-                  setServicioId(r.productoId);
-                  return null;
-                }}
-              />
-            ) : undefined}
+            /* SIN EL DESPLEGABLE DEL SERVICIO (18/10/2026, Martín, pt 14): el de la cabecera ya cambia de programa
+               (`usePrograma`, la misma URL), y éste repetía la elección con el nombre VIEJO del producto («VSL
+               FUNNEL»). Lo único suyo que no estaba en otro lado, editar las etapas, va a los tres puntos. */
+            accionesExtra={puedeEditarEtapas && servicio ? [{
+              key: 'etapas',
+              nodo: null,
+              menu: { icono: <LapizIcon />, label: 'Editar etapas', desc: 'Las columnas de este programa', onClick: () => setEditandoEtapas(true) },
+            }] : []}
             filtro={filtro} onFiltro={(v) => setFiltro(v as FiltroClientes)} orden={orden} onOrden={(v) => setOrden(v as OrdenCS)}
             /* «Manual» sólo con un servicio elegido: sin columnas no hay nada que arrastrar. Y con
                «Manual» no se ofrece el sentido: el orden es el que se armó, no tiene «al revés». */

@@ -372,8 +372,12 @@ export function turnosParaLaLista(
 // necesario». Se esconde de la lista mientras está callado (como el Runner), sin avisar ni subir. Un incidente de verdad —su
 // último turno ya no es «Sin incidentes nuevos»— lo hace aparecer y AVISAR como «Espera tu respuesta». Es el chat jefe de la
 // vigilancia de los grupos de los clientes (memoria: vigía de MaKo en WhatsApp): por eso no se borra, se calla.
-/** ¿Es el chat del vigía? Su nombre ENTERO: «MaKo en WhatsApp › algo» es un sub-chat con trabajo real. */
-export const esChatVigia = (c: Pick<ChatCentro, 'titulo'>): boolean => /^mako en whatsapp$/i.test(c.titulo.trim());
+//
+// 18/10/2026, Martín: se llama «MaKo Alert», vigila TODA la app (no sólo WhatsApp) y NO se ve en el Ops Center nunca: «no creo
+// que sea útil que esté visible dentro del Center, ya que es mero informativo y en todo caso le manda mensajes a los otros chats
+// para que se encarguen». Se esconde siempre, con incidente o sin él, y no avisa. Sólo se ve si alguien lo abre por su link.
+/** ¿Es el chat del vigía? Su nombre ENTERO, el nuevo o el de antes: «MaKo Alert › algo» es un sub-chat con trabajo real. */
+export const esChatVigia = (c: Pick<ChatCentro, 'titulo'>): boolean => /^(mako alert|mako en whatsapp)$/i.test(c.titulo.trim());
 
 /** ¿Este texto es el «todo en orden» del vigía? Sólo eso, con o sin punto, negrita o ✅ (no «Sin incidentes nuevos, pero…»). */
 export const esSinIncidentes = (texto: string): boolean => /^[\s*_.\-–—✅✔·]*sin incidentes nuevos[\s.!*_]*$/i.test(texto.trim());
@@ -388,16 +392,13 @@ export function incidenteDelVigia(turnos: readonly TurnoChat[] | undefined): Tur
   return ultimo && !esSinIncidentes(ultimo.texto) ? ultimo : null;
 }
 
-/** ¿Se esconde este chat de la lista? Sólo el vigía callado, sin nada que espere, y nunca el que se está mirando. */
-export const vigiaCallado = (c: Pick<ChatCentro, 'titulo'>, turnos: readonly TurnoChat[] | undefined, espera: number, miradoAhora: boolean): boolean =>
-  esChatVigia(c) && espera === 0 && !miradoAhora && incidenteDelVigia(turnos) == null;
+/** ¿Se esconde este chat de la lista? El vigía, SIEMPRE (18/10/2026), salvo el que se está mirando. Los otros dos datos quedan por la firma. */
+export const vigiaCallado = (c: Pick<ChatCentro, 'titulo'>, _turnos: readonly TurnoChat[] | undefined, _espera: number, miradoAhora: boolean): boolean =>
+  esChatVigia(c) && !miradoAhora;
 
 /** ¿Trae un incidente que este dispositivo no vio? Cuenta como una respuesta que espera (`avisosDe`): mismo globito y renglón. */
-export const incidenteSinVer = (c: Pick<ChatCentro, 'titulo'>, turnos: readonly TurnoChat[] | undefined, vistoEn: number): boolean => {
-  if (!esChatVigia(c)) return false;
-  const i = incidenteDelVigia(turnos);
-  return i != null && Date.parse(i.at) > vistoEn;
-};
+export const incidenteSinVer = (_c: Pick<ChatCentro, 'titulo'>, _turnos: readonly TurnoChat[] | undefined, _vistoEn: number): boolean =>
+  false; // 18/10/2026: el vigía ya no avisa en el Ops Center; los incidentes se los pasa al chat que se encarga.
 
 /** El chat de una clave: la suya, o la de una de sus sesiones (un link viejo con `?chat=<sesión>` sigue abriendo). */
 export const chatDeClave = (chats: readonly ChatCentro[], clave: string | null) =>

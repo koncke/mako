@@ -1,5 +1,25 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 18/10/2026 ~11:30 AR — LO PRIMERO PARA QUIEN SIGA
+
+<sub>Chat «Onboarding», cuenta 4, con la cuenta al 92 % semanal. Rama onboarding-v3 (C:/dev/wt-onboarding-v3), sin
+pushear: las puntas van al Cerebro (local_797d5445…).</sub>
+
+**El punto 15 del feedback del 18/10** (C:/dev/wt-push-q/docs/feedback-18-10.md), prioridad 1 de Martín:
+- **Pasados VERDES al Cerebro:**
+  - `fe38fb766`: nunca datos de otro ws («Consultesis»; ver hallazgos-onboarding);
+  - `e04467639`: explica al arrancar; sin «Soy» ni el objetivo a 90 días; las dos preguntas al final.
+- **Commiteados, falta el VERDE** (`antes-de-subir --rapido` con C:/dev/pesado.lock):
+  - `34d4ef643`: halagos genuinos, respuestas rápidas siempre, sin preguntas de logística, al terminar a /second-brain;
+  - `ffd0ea3ef`: la entrada avanza sola y sin anillos;
+  - el commit de esta cosecha.
+- **Sin hacer**, con dónde vive cada cosa en hallazgos-onboarding («El onboarding del 18/10»):
+  - la animación como carga de toda la app;
+  - la criatura volando a la sidebar de chats;
+  - el chat con el diseño del Ops Center (después del 20/10).
+- #850 sigue abierta en el Plan hasta que la F (`3a47301ed`) esté en producción. Para cerrarla:
+  `cerrar-881-850.ts --solo=#850 --aplicar`, en el scratchpad de la sesión 35a96d39.
+
 ## 17/10/2026 a la tarde («Pendientes B3», claude4, rama pend-b3-1710)
 
 Hecho: lo tachado de «Qué hacer ahora» se guarda y MaKo lo sabe; la tabla de clientes del super admin tiene «Llegó
