@@ -2374,9 +2374,12 @@ Pedido de Martín (punto 15 del feedback del 18/10), en cuatro commits de la ram
   detalles de entrega.
 - **Al terminar, al Ops Center** (`RUTA_AL_TERMINAR = '/second-brain'`). El interés queda en la encuesta.
 - **La entrada avanza sola** a los 2,4 s (tocarla la adelanta), sin los anillos azules.
+- **La cara es la ESTRELLA del Ops Center**: `CriaturaMako` envuelve la `Criatura` de app/admin/operaciones con
+  `ASPECTO_MAKO`, la misma de la barra lateral desde el run 141. ⚠️ Yo la había dado por «del próximo Ops Center»
+  porque Ops Center 3 dijo que no estaba hecha. Ya existía: antes de esperar a otro chat, buscar el componente en el
+  árbol (`git grep ASPECTO_MAKO`). Se borró el muñeco redondo propio (`MunecoMako`).
 
 **Sin hacer:**
-- La ESTRELLA: no existe; la hace el próximo Ops Center (el cambio está escrito en `CriaturaMako.tsx`).
 - La misma animación como pantalla de CARGA de toda la app («nota la app lenta al cambiar de tabs»): toca el layout y
   `tests/layout-sin-suspense.test.ts`.
 - Que la criatura vuele a la sidebar de los chats del Ops Center al terminar.

@@ -14,7 +14,6 @@ pushear: las puntas van al Cerebro (local_797d5445…).</sub>
   - `ffd0ea3ef`: la entrada avanza sola y sin anillos;
   - el commit de esta cosecha.
 - **Sin hacer**, con dónde vive cada cosa en hallazgos-onboarding («El onboarding del 18/10»):
-  - la estrella;
   - la animación como carga de toda la app;
   - la criatura volando a la sidebar de chats;
   - el chat con el diseño del Ops Center (después del 20/10).
