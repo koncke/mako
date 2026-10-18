@@ -392,9 +392,59 @@ export type FilaFicha = { k: string; v: ReactNode };
 export type DestinoMover = { id: string; label: string; aqui?: boolean };
 
 /**
- * Lo que abre «Ver info»: la cara, el nombre, el avance, unos datos, las acciones y «Mover a…». Va por PORTAL al body
- * (desde una tarjeta, un modal adentro de un contexto de apilamiento queda atrapado). Escape y el velo la cierran.
- * La ficha COMPLETA no cambia: «Abrir ficha» lleva a ella.
+ * El CUERPO de la ficha rápida: la cara, el nombre, el avance, unos datos y las acciones, con el botón «Mover a…».
+ * Sin caja: en la computadora lo envuelve `FichaRapida` (por portal) y en el teléfono el `SheetM` de siempre (con su
+ * historial y sus gestos), así las dos dicen lo mismo.
+ */
+export function CuerpoFichaRapida({ nombre, foto, insignia, subtitulo, avance, filas, acciones, onMoverA, cerrar }: {
+  nombre: string;
+  foto?: string | null;
+  insignia?: InsigniaCanal | null;
+  subtitulo?: string;
+  avance?: { pct: number; texto: string } | null;
+  filas?: readonly FilaFicha[];
+  acciones?: readonly AccionDestacada[];
+  /** «Mover a…»: sin esto, el botón no aparece. */
+  onMoverA?: (() => void) | null;
+  /** La cruz (la computadora); el teléfono cierra con su sheet. */
+  cerrar?: ReactNode;
+}) {
+  return (
+    <>
+      <EstiloTarjetas />
+      <div className="tk-scab">
+        <CaraTarjeta nombre={nombre} foto={foto} insignia={insignia} tam={60} />
+        <div style={{ minWidth: 0 }}><h3>{nombre || 'Sin nombre'}</h3>{subtitulo ? <small>{subtitulo}</small> : null}</div>
+        {cerrar}
+      </div>
+      {avance ? (
+        <>
+          <div className="tk-barra" style={{ flex: 'none' }}><i style={{ width: `${Math.max(0, Math.min(100, avance.pct))}%` }} /></div>
+          <p className="tk-tip">{avance.texto}</p>
+        </>
+      ) : null}
+      {filas?.length ? <div className="tk-dl">{filas.map((f) => <div key={f.k}><span>{f.k}</span><b>{f.v}</b></div>)}</div> : null}
+      {acciones?.length ? (
+        <div className="tk-acts">
+          {acciones.map((a) => {
+            const cls = `tk-pill tk-pill--grande ${a.primaria ? 'tk-pill--llena' : 'tk-pill--linea'}`;
+            return a.href
+              ? <a key={a.texto} className={cls} href={a.href} {...(a.externo ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{a.texto}</a>
+              : <button key={a.texto} type="button" className={cls} onClick={a.onClick}>{a.texto}</button>;
+          })}
+        </div>
+      ) : null}
+      {onMoverA ? (
+        <div className="tk-acts"><button type="button" className="tk-pill tk-pill--grande tk-pill--suave" onClick={onMoverA}>Mover a…</button></div>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * Lo que abre «Ver info» en la computadora: el cuerpo de arriba en una caja al centro, y «Mover a…» con la lista de
+ * etapas. Va por PORTAL al body (desde una tarjeta, un modal adentro de un contexto de apilamiento queda atrapado).
+ * Escape y el velo la cierran. La ficha COMPLETA no cambia: «Abrir ficha» lleva a ella.
  */
 export function FichaRapida({ nombre, foto, insignia, subtitulo, avance, filas, acciones, mover, onMover, onCerrar, moviendo, onMoviendo }: {
   nombre: string;
@@ -435,33 +485,8 @@ export function FichaRapida({ nombre, foto, insignia, subtitulo, avance, filas, 
       <p className="tk-tip"><button type="button" className="tk-pill tk-pill--linea" onClick={() => onMoviendo(false)}>Volver</button></p>
     </>
   ) : (
-    <>
-      <div className="tk-scab">
-        <CaraTarjeta nombre={nombre} foto={foto} insignia={insignia} tam={60} />
-        <div style={{ minWidth: 0 }}><h3>{nombre || 'Sin nombre'}</h3>{subtitulo ? <small>{subtitulo}</small> : null}</div>
-        {x}
-      </div>
-      {avance ? (
-        <>
-          <div className="tk-barra" style={{ flex: 'none' }}><i style={{ width: `${Math.max(0, Math.min(100, avance.pct))}%` }} /></div>
-          <p className="tk-tip">{avance.texto}</p>
-        </>
-      ) : null}
-      {filas?.length ? <div className="tk-dl">{filas.map((f) => <div key={f.k}><span>{f.k}</span><b>{f.v}</b></div>)}</div> : null}
-      {acciones?.length ? (
-        <div className="tk-acts">
-          {acciones.map((a) => {
-            const cls = `tk-pill tk-pill--grande ${a.primaria ? 'tk-pill--llena' : 'tk-pill--linea'}`;
-            return a.href
-              ? <a key={a.texto} className={cls} href={a.href} {...(a.externo ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{a.texto}</a>
-              : <button key={a.texto} type="button" className={cls} onClick={a.onClick}>{a.texto}</button>;
-          })}
-        </div>
-      ) : null}
-      {mover?.length ? (
-        <div className="tk-acts"><button type="button" className="tk-pill tk-pill--grande tk-pill--suave" onClick={() => onMoviendo(true)}>Mover a…</button></div>
-      ) : null}
-    </>
+    <CuerpoFichaRapida nombre={nombre} foto={foto} insignia={insignia} subtitulo={subtitulo} avance={avance} filas={filas}
+      acciones={acciones} onMoverA={mover?.length ? () => onMoviendo(true) : null} cerrar={x} />
   );
   return createPortal(
     <div className="tk-velo" onClick={onCerrar} role="presentation">

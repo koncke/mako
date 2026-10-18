@@ -616,20 +616,27 @@
    único que scrollea el DOCUMENTO es el título y lo de arriba (el selector). */
 .m-kb { display: flex; flex-direction: column; }
 .m-kb__arriba { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: -6px 0 2px; }
-.m-kb__etapas { display: grid; gap: 4px; margin: 0 0 4px; }
+/* LAS ETAPAS EN PESTAÑAS PÍLDORA (17/10/2026, la familia del prototipo docs/prototipos/coherencia-1710.html): el
+   nombre de la etapa y su contador, en una tira que scrollea. Antes eran rayitas con un número, sin nombre: había que
+   adivinar qué etapa era cada una. Las tres pantallas que usan KanbanM (CRM, Clientes, Plan) las heredan. */
+.m-kb__etapas { display: flex; gap: 8px; margin: 0 calc(-1 * var(--m-gutter)) 6px; padding: 3px var(--m-gutter) 6px; overflow-x: auto; scrollbar-width: none; }
+.m-kb__etapas::-webkit-scrollbar { display: none; }
 .m-kb__etapa {
-  min-width: 0; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer;
-  display: flex; flex-direction: column; justify-content: center; gap: 5px;
+  flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px; border: 0; cursor: pointer;
+  border-radius: 999px; background: var(--card-bg, var(--surface)); color: var(--dim);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 6px 20px color-mix(in srgb, var(--ink) 7%, transparent);
+  font: inherit; font-size: 13.5px; font-weight: 650; white-space: nowrap;
 }
-.m-kb__etapa i { display: block; height: 5px; border-radius: 3px; background: var(--border-strong); transition: background-color .2s ease; }
-.m-kb__etapa b { font-size: 12px; font-weight: 600; line-height: 1; text-align: center; color: var(--dim); font-variant-numeric: tabular-nums; }
-.m-kb__etapa[data-vacia] i { background: var(--border); }
-.m-kb__etapa[data-vacia] b { color: var(--faint); font-weight: 500; }
-.m-kb__etapa[aria-current="true"] i { background: var(--primary); }
-.m-kb__etapa[aria-current="true"] b { color: var(--primary-strong); }
+.m-kb__etapa b {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  font-size: 11.5px; font-weight: 650; line-height: 1; color: inherit; background: var(--velo-hover); font-variant-numeric: tabular-nums;
+}
+.m-kb__etapa[data-vacia] { color: var(--faint); }
+.m-kb__etapa[aria-current="true"] { background: var(--primary); color: var(--on-primary); }
+.m-kb__etapa[aria-current="true"] b { background: color-mix(in srgb, var(--on-primary) 25%, transparent); }
 .m-kb__etapa b[data-late] { animation: m-kb-late .9s var(--ease-out); }
-@keyframes m-kb-late { 30% { transform: scale(1.6); color: var(--primary-strong); } }
-.m-kb__etapa:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); border-radius: var(--r-sm); }
+@keyframes m-kb-late { 30% { transform: scale(1.6); } }
+.m-kb__etapa:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
 
 /* La pista sale del gutter (columnas de borde a borde) y lo devuelve como padding y como
    scroll-padding: la columna «encaja» a 16 px del borde, como el resto de la pantalla. */
@@ -649,22 +656,25 @@
 .m-kb__col {
   flex: 0 0 calc(100% - 48px); min-width: 0; scroll-snap-align: start;
   display: flex; flex-direction: column;
-  background: var(--surface-2); border-radius: var(--r-xl); overflow: hidden;
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent); border-radius: 26px; overflow: hidden;
 }
 .m-kb__col-cab { flex: none; display: flex; align-items: center; gap: 8px; padding: 13px 14px 9px; }
+/* El encabezado de la columna como el del prototipo (17/10/2026): el nombre en negrita, el contador en una pastilla
+   blanca y la plata a la derecha. */
 [data-m] .m-kb__col-cab h3 {
-  min-width: 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  min-width: 0; font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; text-transform: none; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .m-kb__cuenta {
-  flex: none; display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px;
-  border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, var(--surface-2));
-  font-size: var(--fs-meta); font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums;
+  flex: none; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 7px;
+  border-radius: 11px; background: var(--card-bg, var(--surface));
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 6px 20px color-mix(in srgb, var(--ink) 7%, transparent);
+  font-size: 11.5px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
 }
 .m-kb__total { margin-left: auto; flex: none; font-size: var(--fs-sm); font-weight: 700; color: var(--dim); font-variant-numeric: tabular-nums; }
 .m-kb__lista {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain;
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 10px;
   padding: 0 8px 12px;
   scrollbar-width: none;
 }
@@ -676,7 +686,9 @@
   position: relative; flex: none;
   display: flex; flex-direction: column; gap: 6px;
   width: 100%; padding: 12px; box-sizing: border-box;
-  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border);
+  /* La tarjeta de la familia (17/10/2026): grande y redonda, sombra suave sin borde marcado. */
+  border-radius: 22px; background: var(--card-bg, var(--surface)); border: 1px solid color-mix(in srgb, var(--ink) 6%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 6px 20px color-mix(in srgb, var(--ink) 7%, transparent);
   color: var(--ink); text-align: left; text-decoration: none; font: inherit; cursor: pointer;
   overflow: hidden;
   transition: transform var(--dur-press) var(--ease-out), box-shadow .2s ease;
