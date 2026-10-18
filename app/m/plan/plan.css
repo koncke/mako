@@ -149,3 +149,11 @@
 @media (prefers-reduced-motion: reduce) {
   .m-plan-item, .m-plan-item .m-fila__t { transition: none; }
 }
+
+/* LA TARJETA DE UNA TAREA (17/10/2026, la familia del prototipo docs/prototipos/coherencia-1710.html): el círculo de
+   prioridad a la izquierda (`tk-pr`, app/_ui/TarjetaKanban) y lo de siempre a la derecha. Sin `.m-plan-tablero` delante:
+   la copia que sigue al dedo cuelga de #m-root. */
+.m-plan-tj { display: flex; align-items: flex-start; gap: 11px; width: 100%; min-width: 0; }
+.m-plan-tj__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.m-plan-tj .tk-pr { margin-top: 1px; }
+.m-plan-tj__pr--hecha { background: var(--good); border-color: var(--good); }

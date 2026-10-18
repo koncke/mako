@@ -64,6 +64,7 @@ import { marcarHechaAction, moverTareaAction } from '@/app/m/plan/acciones';
 import type { ItemPlan, ResultadoMarcar } from '@/app/plan/board/hoy';
 import { ROTULO_BANDA, TONO_BANDA, colorProyecto, conEnTransito, contar, plazoCorto, textoVence } from './formato';
 import { Icon } from '@/app/_components/icons';
+import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
 import { etiquetaEstado } from '@/lib/todo-estados';
 
 export type VistaPlan = 'prioridades' | 'tareas' | 'proyectos' | 'recurrentes';
@@ -235,6 +236,7 @@ export function ListaPlan({ listas, columnasTareas, proyectos, recurrentes, fech
       </div>
 
       <div className="m-plan-cuerpo">
+        <EstiloTarjetas />
         {vista === 'tareas' ? (
           <div className="m-plan-tablero" data-tablero="tareas">
             <KanbanM
@@ -251,23 +253,46 @@ export function ListaPlan({ listas, columnasTareas, proyectos, recurrentes, fech
                   id: it.id,
                   col: marcas.has(it.id) ? 'hecho' : it.estado,
                   etiqueta: it.titulo,
-                  // La tarjeta de Linear: el título primero; abajo la prioridad (rayitas), el proyecto y el plazo.
-                  contenido: (
-                    <>
-                      <span className="m-kb-tj__n" data-dos>{it.titulo}</span>
-                      {it.motivo && <span className="m-kb-tj__c">{it.motivo}</span>}
-                      <span className="m-plan-meta">
-                        <Prioridad k={it.prioridad} />
-                        {it.proyecto && (
-                          <span className="m-plan-meta__proy">
-                            <i className="m-plan-punto" style={color ? { background: color } : undefined} aria-hidden />
-                            {it.proyecto.nombre}
+                  // LA FAMILIA DE TARJETAS (17/10/2026, prototipo docs/prototipos/coherencia-1710.html, «8 · Plan»): el CÍRCULO
+                  // DE PRIORIDAD a la izquierda, en el lugar de la foto, y tocarlo la completa por el MISMO camino que
+                  // «Completar tarea» del sheet (`completar(…, 'check')`, con su deshacer). Es un `span` con rol de botón y no
+                  // un `<button>`: la tarjeta entera ya es uno (tocarla abre la tarea), y un botón adentro de otro no vale.
+                  // A la derecha, lo de antes: el título, el motivo, la prioridad (rayitas), el proyecto y el plazo.
+                  contenido: (() => {
+                    const hecha = it.estado === 'hecho' || marcas.has(it.id);
+                    const n = ({ alta: 1, media: 2, baja: 3, futuro: 4, sin_priorizar: 0 } as const)[it.prioridad] ?? 0;
+                    const completarla = (e: { stopPropagation: () => void; preventDefault: () => void }) => {
+                      e.stopPropagation(); e.preventDefault();
+                      if (!hecha) completar(it, 'check');
+                    };
+                    return (
+                      <span className="m-plan-tj">
+                        <span role="button" tabIndex={hecha ? -1 : 0}
+                          className={`tk-pr tk-pr--${n}${hecha ? ' m-plan-tj__pr--hecha' : ''}`}
+                          aria-label={hecha ? `«${it.titulo}» está completada` : `Completar «${it.titulo}»`}
+                          aria-disabled={hecha || !enLinea || undefined}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={completarla}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') completarla(e); }}>
+                          {hecha ? <Icon name="check" size={13} /> : null}
+                        </span>
+                        <span className="m-plan-tj__txt">
+                          <span className="m-kb-tj__n" data-dos>{it.titulo}</span>
+                          {it.motivo && <span className="m-kb-tj__c">{it.motivo}</span>}
+                          <span className="m-plan-meta">
+                            <Prioridad k={it.prioridad} />
+                            {it.proyecto && (
+                              <span className="m-plan-meta__proy">
+                                <i className="m-plan-punto" style={color ? { background: color } : undefined} aria-hidden />
+                                {it.proyecto.nombre}
+                              </span>
+                            )}
+                            {plazo && <Plazo texto={plazo} vencida={it.vencida} />}
                           </span>
-                        )}
-                        {plazo && <Plazo texto={plazo} vencida={it.vencida} />}
+                        </span>
                       </span>
-                    </>
-                  ),
+                    );
+                  })(),
                 };
               })}
               unidades="tareas"

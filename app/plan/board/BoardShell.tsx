@@ -144,6 +144,8 @@ import { TablaProyectos, TablaTareas, LineaRepeticion } from './Tablas';
 // contradiciendo a la nueva. Las columnas siguen existiendo en la base hasta la 0168, pero
 // este código no las nombra: dos modelos de lo mismo es el bug que la 0167 vino a cerrar.
 import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, recurrenciaDe, ROTULO_REPETICION } from '@/lib/plan-recurrentes';
+import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
+import { NOMBRE_PRIORIDAD, type PrioridadTarea } from '@/lib/tarjeta-kanban';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -2881,6 +2883,10 @@ const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.lab
 // Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
 // título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
 // píldora que agrandaba unas cards más que otras.
+/** La sombra de la familia de tarjetas (app/_ui/TarjetaKanban.tsx, `--tk-sombra`): suave, sin borde marcado. */
+const SOMBRA_TARJETA = '0 1px 2px rgba(46, 52, 64, .06), 0 6px 20px rgba(46, 52, 64, .07)';
+const SOMBRA_TARJETA_HOVER = '0 2px 4px rgba(46, 52, 64, .08), 0 10px 26px rgba(46, 52, 64, .10)';
+
 function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, onEliminar, tactil, onAgarrar, oculta = false, elegida = false, haySeleccion = false, onElegir, sinRanking = false }: {
   t: BoardTask; board: Board; warn: boolean; frenanA?: string[]; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
   /** ⚠️ EN LA VISTA «RECURRENTES» NO SE PINTAN NI EL PUNTAJE NI EL CHIP «Se repite», y no es
@@ -2986,7 +2992,9 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
       // Linear). Medido: sacar del flujo el nodo ORIGEN del arrastre deja el gesto sin
       // salida — el arnés no pudo completar un solo drop y se colgó hasta el timeout,
       // mientras la misma página cargaba perfecto.
-      style={{ background: elegida ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${elegida ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 11, padding: '12px 14px', cursor: onAgarrar ? 'grab' : 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, background .12s',
+      // LA TARJETA DE LA FAMILIA (17/10/2026, prototipo docs/prototipos/coherencia-1710.html, «8 · Plan»): grande y
+      // redonda, sombra suave, y el alto lo pone el contenido (ya no 138 fijos: la fecha y el proyecto van en un renglón).
+      style={{ background: elegida ? 'var(--primary-bg)' : 'var(--card-bg, var(--surface))', border: `1px solid ${elegida ? 'var(--primary)' : 'color-mix(in srgb, var(--ink) 6%, transparent)'}`, borderRadius: 22, padding: '13px 13px 12px', cursor: onAgarrar ? 'grab' : 'pointer', opacity: done ? 0.62 : 1, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, background .12s, box-shadow .15s', boxShadow: SOMBRA_TARJETA,
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
@@ -2998,131 +3006,82 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
         // Con el DEDO sí se levanta: el dedo tapa la tarjeta y hay que verla salir. Con el
         // mouse no, porque ahí lo que se ve viajar es la copia.
         ...(levantada ? { transform: 'scale(1.03)', boxShadow: '0 10px 24px rgba(18,21,27,.22)' } : {}) }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}>
-      {/* header: [casilla] + proyecto + #id + [aviso] + prioridad.
-          ⚠️ `gap: 8` y no 7: el `-8` de `.mk-sel-tarjeta` lo cancela con la casilla cerrada. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, minWidth: 0 }}>
-        {onElegir && (
-          <input type="checkbox" className="mk-sel-tarjeta" checked={elegida} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(t.id)}
-            data-marcada={elegida ? '1' : undefined} data-seleccionando={haySeleccion ? '1' : undefined}
-            title="Seleccionar" aria-label={`Seleccionar «${t.title}»`}
-            // ⚠️ SIN `width` NI `margin` lateral: los gobierna la clase, y un inline le gana.
-            style={{ height: 15, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)', marginTop: 0, marginBottom: 0 }} />
-        )}
-        {proys.length > 0
-          ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
-              {/* Con más de un proyecto entra también el "+N": el chip cede ancho para
-                  que #id, el aviso y el score no queden sin lugar en una card de 249px. */}
-              {/* «El chip del proyecto más largo, para que se vea todo el proyecto»
-                  (25/09/2026). Sube de 130 a 200 con los ~45px que dejaron el `#id` (se
-                  fue el 25/09) y el chip de tiempo (se fue hoy). El tope sigue existiendo
-                  porque el nombre más largo del tablero no entra en ningún ancho, y con
-                  dos proyectos hay que dejarle lugar al «+N». */}
-              <LabelChips chips={proys} max={1} cap={proys.length > 1 ? 150 : 200} onOpen={onOpenProj} />
-            </span>
-          : <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
-        {/* ⛔ ACÁ IBA `#{t.num}` Y SE FUE EL 25/09/2026. «El ID de la tarea es algo que no es
-            relevante en esta vista de tarjetas, ocupa más espacio que otra cosa» — y el
-            motivo real lo dijo un renglón antes: «el ID está justo en el medio y no permite
-            que se vea el nombre del proyecto completo». Los ~35px que ocupaba (el número más
-            su gap) se los queda el chip, que por eso sube de 96 a 130.
-            EL CHIP DEL PROYECTO SE QUEDA: Mauricio tiene proyectos que son clientes y
-            necesita verlos sin abrir la tarjeta. El número sigue en el detalle, que es donde
-            se usa para nombrar una tarjeta. */}
-        <span style={{ flex: 1, minWidth: 0 }} />
-        {/* El candado va COMPACTO en la tarjeta: la card mide 138px fijos y el título
-            necesita sus dos líneas. El nombre de lo que la frena vive en el tooltip y en
-            el detalle, que es donde hay lugar para decirlo entero. */}
-        <BloqueoChip porQue={frenanA} compacto />
-        {/* ⚠️ «Se repite», SÓLO EL ÍCONO. Una recurrente normalmente no está en el Kanban
-            —salen de la vista Tareas— pero SÍ aparece cuando la buscás, y también en los
-            modales que reusan esta tarjeta (lo que cargó MaKo, lo que salió de una
-            reunión). Sin el chip, una tarjeta sin fecha en una columna de prioridad se lee
-            como una tarea a la que se le perdieron los datos. Compacto por el mismo motivo
-            que el candado de al lado: la card mide 138px de alto fijos y 249 de ancho, y el
-            rótulo entero le come el nombre del proyecto. El texto no se pierde: va en el
-            `title` y en el `aria-label`. */}
-        {esRecurrente(t) && !sinRanking && <RepiteChip soloIcono />}
-        {/* ⛔ ACÁ IBA `<TiempoChip>` (◷ subió / 💤 bajó de prioridad) Y SE FUE EL
-            25/09/2026: «quita los íconos de subió de prioridad o bajó». En una tarjeta de
-            249px cada ícono le come ancho al nombre del proyecto, y el porqué del
-            movimiento sigue entero en el detalle (`TiempoLinea`), que es donde se
-            discute un número. La ALARMA (`WarnMark`) se queda: esa pide una acción. */}
-        {warn && <WarnMark title="Falta el deadline" onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
-        {!sinRanking && <PrioChip score={t.score} />}
-      </div>
-      {/* TÍTULO DE DOS LÍNEAS, con el entero en el `title`. Primero fue una sola —«los
-          títulos son muy largos, tiene que poner una cantidad máxima de caracteres»— y con
-          eso se cortaban demasiadas: «como hay algunas que están cortadas, permite el salto
-          de línea 1 vez» (25/09/2026). Dos es el número: con una se pierde la mitad de los
-          títulos del tablero, con tres la card deja de medir lo mismo que sus vecinas.
-          El tope no se escribe en CARACTERES sino en líneas: un `slice(0, 60)` corta igual
-          de feo con palabras cortas, se queda corto con palabras largas, y además miente en
-          el `title`. Con el clamp, el corte lo decide el ancho real de la card. */}
-      <div title={t.title} style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
-      {/* POR QUÉ ESTÁ ATORADA, en una línea (16/10/2026): «porque el cliente no da o porque yo
-          no tengo dinero… o los recursos» (Mauricio). Cabe en los 138 px fijos: el hueco de
-          abajo (`flex: 1`) es justo lo que cede. El entero, en el `title`. */}
-      {estadoDe(t) === 'en_seguimiento' && t.motivoAtorada && (
-        <div title={t.motivoAtorada} style={{ marginTop: 4, fontSize: 11.5, lineHeight: 1.35, color: COLOR_ESTADO.en_seguimiento, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>⏸ {t.motivoAtorada}</div>
-      )}
-      {/* ⚠️ EL DEADLINE VA EN SU PROPIO RENGLÓN, y dice el plazo. Acá había un
-          `deadline.slice(5)` — «09-25»: sin día de la semana, sin año y, sobre todo, sin
-          decir si ya se venció. «Me gusta este formato, que también dice los días
-          faltantes y atrasados» (24/09/2026), señalando la tarjeta del PROYECTO, que ya lo
-          hacía bien. Es la misma pieza para las dos, así que no pueden volver a divergir.
-          Y va en un renglón propio porque al lado del botón de completar no entra: en una
-          tarjeta de 281px, «◷ vie 24 jul · 62 días atrasado» + «Completar» se pisan. */}
-      {/* ⛔ ACÁ ESTUVO EL DEADLINE, PEGADO AL TÍTULO, unas horas del 25/09 —«el deadline y
-          los días faltantes más pegado al título»— y el MISMO día bajó al pie: «en la preview
-          de la tarea, que el deadline con los días faltantes, mejor que esté al final de
-          todo, abajo, no pegado al título». Gana el pedido nuevo. Vive en el pie, acá abajo. */}
-      <span style={{ flex: 1 }} />
-      {/* footer fijo: el CHECK a la derecha. Sin el % y sin la barra: «una tarea se
-          completa o no se completa», y el check está siempre a la vista porque el estado
-          tenía que verse sin entrar al detalle («no me dice si está terminado o no»). */}
-      {/* SOLO ÍCONOS: «que no diga la palabra "Completar", solo el ícono del check y también
-          el ícono de basura, para eliminar» (25/09/2026). El nombre accesible NO se pierde
-          —va en `aria-label` y en `title`— porque un botón cuyo único contenido es un SVG se
-          anuncia como «botón», a secas. El tacho abre la MISMA pregunta de dos botones que
-          el detalle: borrar no se hace de un click en una tarjeta que se arrastra. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minHeight: 22 }}>
-        {/* EL DEADLINE, AL PIE Y A LA IZQUIERDA (25/09/2026, ver arriba). Entra al lado de
-            los dos botones PORQUE son íconos desde hoy: con la palabra «Completar» no
-            entraba —«◷ vie 24 jul · 62 días atrasado» son ~150 px sobre una tarjeta de 281—
-            y eso es lo que en su momento lo mandó a un renglón propio. Con 26+26 de botones
-            quedan ~200 para la fecha, así que ya no se pisan.
-            ⚠️ `flex: '0 1 auto'` + `minWidth: 0`: si un plazo largo no entrara, el que CEDE
-            es la fecha y nunca los botones — un botón encogido deja de ser clickeable. */}
-        {/* ⚠️ SI SE REPITE, ACÁ VA EL RITMO Y NO LA FECHA (mig 0165). Es el mismo renglón
-            porque es la misma pregunta —«¿cuándo?»— con dos respuestas que nunca conviven:
-            una recurrente no puede tener deadline. Y hace falta acá, no sólo en el detalle:
-            «la junta de los miércoles» y «el seguimiento diario» se veían IDÉNTICAS en la
-            vista Recurrentes y una pesa cuatro veces más que la otra.
-            ⚠️ Y VA EN `CardTile`, o sea en TODOS lados donde se reusa esta tarjeta —la
-            búsqueda, «lo que cargó MaKo», lo que salió de una reunión—, no sólo adentro de
-            su vista. Una recurrente mezclada con tareas rankeadas ya mostraba el hueco de la
-            fecha; ahora muestra el dato que ese hueco escondía. */}
-        {esRecurrente(t)
-          ? <LineaRepeticion de={t} tam={10} style={{ flex: '0 1 auto', minWidth: 0 }} />
-          : t.deadline
-            ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
-            : <span style={{ flex: 'none' }} />}
-        <span style={{ flex: 1 }} />
-        <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
-          aria-label={done ? `Reabrir «${t.title}»` : `Marcar «${t.title}» como completada`}
-          title={done ? 'Marcar sin completar' : 'Marcar completada'}
-          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', color: done ? 'var(--good)' : 'var(--faint)' }}>
-          <CheckHecho done={done} size={16} />
-        </button>
-        {onEliminar && (
-          <button onClick={(e) => { e.stopPropagation(); onEliminar(t.id); }}
-            aria-label={`Eliminar «${t.title}»`} title="Eliminar"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--faint)' }}>
-            <IconoTacho size={15} />
-          </button>
-        )}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SOMBRA_TARJETA_HOVER; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SOMBRA_TARJETA; }}>
+      <EstiloTarjetas />
+      {/* EL MOLDE DE LA FAMILIA (17/10/2026): el CÍRCULO DE PRIORIDAD ocupa el lugar de la foto y tocarlo la completa (era
+          el check del pie: «una tarea se completa o no se completa», ahora en el círculo, como en el prototipo); a la
+          derecha, el título de dos líneas y debajo el renglón de lo que se sabe de ella. Lo que la tarjeta ya mostraba
+          se queda, con su porqué (abajo): el chip del proyecto, el plazo con los días que faltan o sobran, el candado,
+          «se repite», el aviso de la fecha, el puntaje, «MaKo» si la creó MaKo y el tacho. */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, minWidth: 0 }}>
+        {(() => {
+          const prio: PrioridadTarea = t.score <= 0 ? 0 : ({ alta: 1, media: 2, baja: 3, futuro: 4 } as const)[prioFromScore(t.score)];
+          const nombrePr = prio === 0 ? NOMBRE_PRIORIDAD[0] : `Prioridad ${prioFromScore(t.score)}`;
+          return (
+            <button type="button" className={`tk-pr tk-pr--${prio}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
+              aria-label={done ? `Reabrir «${t.title}»` : `Marcar «${t.title}» como completada`}
+              title={done ? `${nombrePr} · tócalo para reabrirla` : `${nombrePr} · tócalo para completarla`}
+              style={done ? { background: 'var(--good)', borderColor: 'var(--good)' } : undefined}>
+              {done ? <CheckHecho done size={13} /> : null}
+            </button>
+          );
+        })()}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* ⚠️ `gap: 8` y no 7: el `-8` de `.mk-sel-tarjeta` lo cancela con la casilla cerrada. */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+            {onElegir && (
+              <input type="checkbox" className="mk-sel-tarjeta" checked={elegida} onClick={(e) => e.stopPropagation()} onChange={() => onElegir(t.id)}
+                data-marcada={elegida ? '1' : undefined} data-seleccionando={haySeleccion ? '1' : undefined}
+                title="Seleccionar" aria-label={`Seleccionar «${t.title}»`}
+                // ⚠️ SIN `width` NI `margin` lateral: los gobierna la clase, y un inline le gana.
+                style={{ height: 15, flex: 'none', cursor: 'pointer', accentColor: 'var(--primary)', marginTop: 2, marginBottom: 0 }} />
+            )}
+            {/* TÍTULO DE DOS LÍNEAS, con el entero en el `title` (25/09/2026: «permite el salto de línea 1 vez»). El tope
+                va en líneas, no en caracteres: el corte lo decide el ancho real de la tarjeta. */}
+            <div title={t.title} style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 650, lineHeight: 1.3, letterSpacing: '-.005em', color: done ? 'var(--faint)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
+          </div>
+          {/* POR QUÉ ESTÁ ATORADA, en una línea (16/10/2026): «porque el cliente no da o porque yo no tengo dinero… o los
+              recursos» (Mauricio). El entero, en el `title`. */}
+          {estadoDe(t) === 'en_seguimiento' && t.motivoAtorada && (
+            <div title={t.motivoAtorada} style={{ marginTop: 4, fontSize: 11.5, lineHeight: 1.35, color: COLOR_ESTADO.en_seguimiento, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic' }}>⏸ {t.motivoAtorada}</div>
+          )}
+          {/* EL RENGLÓN DE ABAJO, como el del prototipo: el proyecto, el cuándo y los avisos. ⚠️ EL CHIP DEL PROYECTO SE
+              QUEDA: Mauricio tiene proyectos que son clientes y necesita verlos sin abrir la tarjeta. El plazo dice los días
+              que faltan o sobran (24/09/2026: «me gusta este formato»); si se repite, el ritmo (mig 0165). */}
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 8px', marginTop: 7, minWidth: 0 }}>
+            {proys.length > 0
+              ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+                  <LabelChips chips={proys} max={1} cap={proys.length > 1 ? 150 : 200} onOpen={onOpenProj} />
+                </span>
+              : <span style={{ fontSize: 15, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
+            {esRecurrente(t)
+              ? <LineaRepeticion de={t} tam={10} style={{ flex: '0 1 auto', minWidth: 0 }} />
+              : t.deadline
+                ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
+                : null}
+            {/* «MaKo» en naranja si la creó MaKo (el prototipo; naranja = MaKo intervino, y nada más). */}
+            {t.origen === 'ia' && <span className="tk-chip tk-chip--mako" title="La creó MaKo">MaKo</span>}
+            {/* El candado y «se repite», COMPACTOS: el nombre de lo que la frena y el ritmo viven en el tooltip y en el
+                detalle. La ALARMA (`WarnMark`) se queda: esa pide una acción. */}
+            <BloqueoChip porQue={frenanA} compacto />
+            {esRecurrente(t) && !sinRanking && <RepiteChip soloIcono />}
+            {warn && <WarnMark title="Falta el deadline" onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
+            <span style={{ flex: 1 }} />
+            {!sinRanking && <PrioChip score={t.score} />}
+            {/* EL TACHO, sólo ícono (25/09/2026), con la MISMA pregunta de dos botones que el detalle: borrar no se hace de
+                un click en una tarjeta que se arrastra. */}
+            {onEliminar && (
+              <button onClick={(e) => { e.stopPropagation(); onEliminar(t.id); }}
+                aria-label={`Eliminar «${t.title}»`} title="Eliminar"
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 7, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', color: 'var(--faint)' }}>
+                <IconoTacho size={14} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -3550,7 +3509,7 @@ function ColumnaKanban({ estado: e, label, items, board, manual, puedeMover, ins
       // gesto miden estos rectángulos UNA vez y después no vuelven a leer layout.
       data-columna={e}
       aria-label={`${label}: ${items.length}`}
-      style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: encima ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (encima ? color : 'var(--border)'), borderTop: '3px solid ' + color, borderRadius: 14, padding: 10, transition: 'background .12s, border-color .12s' }}>
+      style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: encima ? 'var(--primary-bg)' : 'color-mix(in srgb, var(--surface-2) 55%, transparent)', border: 'none', borderRadius: 26, padding: '12px 10px 10px', boxShadow: encima ? `inset 0 0 0 2px ${color}` : 'none', transition: 'background .12s, box-shadow .12s' }}>
       <ColHeader label={label} color={color} count={items.length} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
         {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas). Nace
