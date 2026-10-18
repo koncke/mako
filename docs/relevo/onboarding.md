@@ -1,5 +1,38 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 18/10/2026 ~18:30 AR — PEDIDO 9a143455 (Martín, 17:28), CUENTA AL 98 %
+
+<sub>Rama onboarding-v3. Commits sin pushear, cada uno con su test probado rompiéndolo. Los puntos 4 y 9 (los 4 MB, el
+«Máximo 4 archivos» y arrastrar en el Center) los tiene Ops Center 3.</sub>
+
+**Hecho:**
+- 13 `fd8ad2f87`: mirando a un cliente, el super admin no ve el Centro ni sus chats. `quienOpera()` mira
+  `estaImpersonando`. Un cliente real nunca los veía.
+- 11 `9bb120646`: tu respuesta se ve apenas la mandás (`ladoDeLaPregunta`, origen e interes en `despues`).
+- 7 `47548221a`: etapa `pdf`, «Perfecto: ya tengo claro qué vendes… ¿está correcto?» Sí/No. Con No, se anota
+  (`pdfOk`) y se sigue.
+- 5 `6470c86f6`: de la oferta sólo qué vende, a quién y cuánto cuesta (`PIEZAS_DEL_ARRANQUE`).
+- 8 `b785202c8`: las respuestas del funnel y del cuello sin VSL, creativos ni CPA (lib/fase-diagnostico.ts).
+- 10 `ccc8f3588`: el CRM con sus etapas numeradas y «Sí, es correcto».
+- 1 `26f689d63`: tocar cualquier lado empieza; sin el anillo azul del foco.
+
+**SIN HACER (con dónde vive):**
+- **13b, entrar al chat «Onboarding» con toda la conversación y después el tutorial de la app.** Hoy entra a
+  /second-brain (`RUTA_AL_TERMINAR`, lib/onboarding-arranque.ts) con el chat del Second Brain vacío
+  (app/second-brain/ChatSecondBrain.tsx). Hace falta un hilo «Onboarding» en el chat del cliente con los mensajes del
+  arranque (`mensajesDeArranque` + la conversación de Offer de `sesionId`) y lanzar el tutorial (los recorridos de
+  app/_ui/Recorrido.tsx).
+- **2, la misma entrada al abrir la app en el teléfono:** EntradaMako en el arranque de /m (app/m/…).
+- **3, el chat del onboarding como el del Ops Center:** + para adjuntar, grabar audio, enviar no verde. Hay que copiar
+  el composer de app/admin/operaciones (Conversacion.tsx o su barra), sin crear uno nuevo. Hoy el onboarding usa
+  ChatOffer (app/offer/ChatOffer.tsx).
+- **6, la vista previa del PDF «se bugea»:** no lo vi. Mirar la captura 2 o 3 del pedido
+  (C:/Users/marti/.claude/operaciones/adjuntos/9a143455-…/) con el modal de `TarjetaPdf` (ChatArranque.tsx) y
+  `VistaPdf` (app/offer/VistaPdf.tsx).
+- **10b, el CRM a medida de lo que vende** (hoy es el tipo por canal, `tiposOfrecidos`).
+- **5b, si hace falta acortar también el diagnóstico de fase** (6 preguntas más el canal, lib/fase-diagnostico.ts).
+
+
 ## ESTADO AL 18/10/2026 ~15:00 AR — CIERRE CON LA CUENTA AL 96 %
 
 <sub>Martín autorizó seguir pasado el 95 % (pedido 9cb5e3a6 del Ops Center, 14:42). Rama onboarding-v3, VERDE
