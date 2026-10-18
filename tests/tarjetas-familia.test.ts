@@ -12,7 +12,9 @@
 //   4. Plan: el círculo de prioridad completa la tarea, en la computadora y en el teléfono;
 //   5. KanbanM: las etapas con su NOMBRE y contador (pestañas píldora), y el pedido de afuera abre su «Mover a…»;
 //   6. toda pieza del kit lleva sus variables, aunque se use fuera de una tarjeta `.tk` (18/10: el círculo del Plan era
-//      invisible y la cara del teléfono salía sin color, en producción, con todo lo de arriba en verde).
+//      invisible y la cara del teléfono salía sin color, en producción, con todo lo de arriba en verde);
+//   7. cada componente del kit monta SUS estilos, y quien usa clases `tk-*` sueltas también (18/10: Clients de la
+//      computadora no los montaba y la tarjeta salió sin estilos para todos los negocios).
 //
 // PROBADO ROMPIÉNDOLO (17/10/2026), con el archivo en 5 / 0, una rotura por vez y restaurada:
 //   · la ficha rápida del CRM moviendo sin `handleDrop`                              → 4 / 1
@@ -23,6 +25,10 @@
 // Y el 6 (18/10/2026), con el archivo en 6 / 0: las variables otra vez en las cinco raíces de antes
 //   (`.tk-raiz, .tk, .tk-ptabs, .tk-feat, .tk-sheet`, luz y oscuro)                    → 5 / 1, nombrando 20 piezas
 //   sueltas sin color (tk-pr--0..4, tk-c-*, tk-insignia, tk-medidor, tk-sub, tk-ptab…).
+// Y el 7 (18/10/2026), con el archivo en 7 / 0: el kit como estaba en producción (sólo la ficha rápida montaba los
+//   estilos) → 6 / 1, nombrando CaraTarjeta y PestanasPildora (las tarjetas pasan porque dibujan una CaraTarjeta); y
+//   VistaSelector del CRM sin el suyo → 6 / 1, nombrando app/crm/CrmToolbar.tsx. Sacarlo SÓLO de TarjetaPersona da
+//   7 / 0, y está bien: su CaraTarjeta lo monta igual (una rotura que no cambia la pantalla no prueba nada).
 // Correr: node --import tsx --test tests/tarjetas-familia.test.ts
 // =============================================================================
 
@@ -137,4 +143,28 @@ test('toda pieza del kit lleva sus variables, aunque se use fuera de una tarjeta
   assert.deepEqual([...sinColor], [], `piezas que usadas sueltas salen sin color: ${[...sinColor].join(', ')}`);
   // Y las que hoy se usan sueltas, nombradas: el círculo del Plan y la cara del teléfono.
   for (const c of ['tk-pr tk-pr--0', 'tk-cara', 'tk-ini tk-c-blue', 'tk-medidor']) assert.ok(claro.some((d) => cae(d, c)), c);
+});
+
+// ── 7. Los estilos los monta cada pieza, no el tablero ──────────────────────────────────────────────────────────────
+test('cada componente del kit monta sus estilos, y quien usa clases tk-* sueltas también', () => {
+  const kit = leer('app/_ui/TarjetaKanban.tsx');
+  // Cada componente exportado que dibuja (menos EstiloTarjetas y los dos que envuelven a otro del kit).
+  const nombres = [...kit.matchAll(/^export (?:function (\w+)|const (\w+) = forwardRef)/gm)].map((m) => m[1] ?? m[2])
+    .filter((n) => /^[A-Z]/.test(n) && n !== 'EstiloTarjetas');
+  assert.ok(nombres.length >= 7, `encontré ${nombres.length} componentes`);
+  const sinEstilo = nombres.filter((n) => {
+    const i = kit.search(new RegExp(`^export (?:function ${n}\\b|const ${n} = forwardRef)`, 'm'));
+    const j = kit.slice(i + 1).search(/^export /m);
+    const cuerpo = kit.slice(i, j < 0 ? undefined : i + 1 + j);
+    return !cuerpo.includes('<EstiloTarjetas />') && !/<(CuerpoFichaRapida|TarjetaPersona|TarjetaTarea|CaraTarjeta)\b/.test(cuerpo);
+  });
+  assert.deepEqual(sinEstilo, [], `componentes del kit que dependen de que otro monte los estilos: ${sinEstilo.join(', ')}`);
+  // Quien escribe clases del kit a mano (sin un componente del kit en el mismo archivo) monta los estilos él mismo.
+  const conClases = ['app/crm/CrmBoard.tsx', 'app/crm/CrmToolbar.tsx', 'app/customer-success/ClienteCard.tsx', 'app/m/crm/TableroCrm.tsx',
+    'app/m/cs/CustomerSuccessM.tsx', 'app/m/plan/ListaPlan.tsx', 'app/plan/board/BoardShell.tsx'];
+  const huerfanos = conClases.filter((f) => {
+    const t = leer(f);
+    return !t.includes('<EstiloTarjetas />') && !/<(TarjetaPersona|TarjetaTarea|CaraTarjeta|PestanasPildora|TarjetaDestacada|CuerpoFichaRapida|FichaRapida)\b/.test(t);
+  });
+  assert.deepEqual(huerfanos, [], `usan clases tk-* sin montar los estilos: ${huerfanos.join(', ')}`);
 });

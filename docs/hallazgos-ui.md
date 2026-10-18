@@ -4132,6 +4132,12 @@ insignia del canal, plata) en `lib/tarjeta-kanban.ts`, con test.
   se ve mirando la pantalla. El arreglo es la primitiva: `.tk, :where([class^="tk-"], [class*=" tk-"])` (el `:where` no
   suma especificidad, el oscuro sigue ganando). Lo fija tests/tarjetas-familia.test.ts: por cada regla del kit que USA
   una variable, una pieza con sólo esa clase tiene que caer en la que las declara (roto: 5/1 con 20 piezas sin color).
+- ⚠️ **Y los ESTILOS los monta cada componente, no el tablero (18/10, cliente roto en producción).** `<EstiloTarjetas />`
+  lo montaban el CRM, el teléfono y el Plan; Clients de la computadora usó `TarjetaPersona` sin montarlo y la tarjeta
+  salió sin estilos para TODOS los negocios (la foto a todo el ancho; nombre, «Ver info» y «Acciones» como texto suelto).
+  Lo que lo escondió: era la única pantalla que el build parcial no dejó ver (su panel pide una API que no estaba en el
+  build), y se dio por buena porque «es el mismo componente que el CRM». Regla: cada componente del kit lleva su
+  `<EstiloTarjetas />` (React deduplica el `<style href precedence>`), y quien escribe clases `tk-*` a mano lo monta él.
 - **`TarjetaEntidad` NO se tocó**: también la usa /admin. Clients dejó de usarla; quien quiera la familia, usa el kit.
 - **Un botón adentro de una tarjeta que ya es botón no vale** (el teléfono): el círculo de una tarea y la píldora «Ver
   info» van como `span` (con rol de botón, el círculo; sólo dibujo, la píldora: toda la tarjeta abre la ficha rápida).
