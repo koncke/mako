@@ -253,8 +253,12 @@ test('7: la fila de un chat que NO se abrió avisa su «Completado» (lo último
   for (const f of ['app/admin/operaciones/datos.ts', 'app/m/operaciones/page.tsx']) assert.match(sinComentarios(leer(f)), /ultimosIniciales: ultimos/, f);
 });
 
-test('v: «MaKo en WhatsApp» sale de la lista mientras dice «Sin incidentes nuevos», y vuelve avisando con un incidente', () => {
-  assert.equal(esChatVigia({ titulo: 'MaKo en WhatsApp' }), true);
+// 18/10/2026: «MaKo Alert» (antes «MaKo en WhatsApp») no se ve NUNCA en el Ops Center: le pasa los incidentes a los chats.
+// Rotura medida (18/10): con lib/centro-chats.ts de antes, este archivo da 13/1 (cae este test).
+test('v: «MaKo Alert» (el vigía) nunca está en la lista del Ops Center, ni con un incidente', () => {
+  assert.equal(esChatVigia({ titulo: 'MaKo Alert' }), true, 'el nombre nuevo');
+  assert.equal(esChatVigia({ titulo: 'MaKo Alert › Ticketera' }), false, 'un sub-chat del nuevo tiene trabajo real');
+  assert.equal(esChatVigia({ titulo: 'MaKo en WhatsApp' }), true, 'el nombre de antes también');
   assert.equal(esChatVigia({ titulo: 'MaKo en WhatsApp › Vigía' }), false, 'un sub-chat tiene trabajo real');
   assert.equal(esChatVigia({ titulo: 'Mako en whatsapp ' }), true, 'sin mayúsculas ni espacios de más');
   for (const x of ['Sin incidentes nuevos.', 'sin incidentes nuevos', '**Sin incidentes nuevos**', '✅ Sin incidentes nuevos!']) assert.equal(esSinIncidentes(x), true, x);
@@ -269,14 +273,14 @@ test('v: «MaKo en WhatsApp» sale de la lista mientras dice «Sin incidentes nu
   assert.equal(incidenteDelVigia(callado), null, 'el último suyo es «Sin incidentes nuevos» (lo que le escribe otro chat no cuenta)');
   assert.equal(vigiaCallado(vigia, callado, 0, false), true, 'callado: afuera de la lista');
   assert.equal(vigiaCallado(vigia, undefined, 0, false), true, 'sin saber nada de él, también');
-  assert.equal(vigiaCallado(vigia, callado, 1, false), false, 'si espera una respuesta, se ve');
+  assert.equal(vigiaCallado(vigia, callado, 1, false), true, 'aunque espere una respuesta, no se ve: no le pregunta a Martín');
   assert.equal(vigiaCallado(vigia, callado, 0, true), false, 'el que se está mirando no desaparece de abajo de los dedos');
   assert.equal(vigiaCallado(chatDe('CRM'), callado, 0, false), false, 'sólo el vigía: un chat cualquiera no se esconde');
-  // Un incidente de verdad lo hace aparecer, y avisa si no se vio; abierto, ya no avisa (pero sigue hasta el próximo «Sin incidentes»).
+  // Un incidente de verdad tampoco lo hace aparecer ni avisar: se lo manda al chat que se encarga.
   const incidente = [...callado, dice('Incidente: el grupo del ws18 no recibió la confirmación de la reunión de Pablo. Lo reviso.', 60_000)];
   assert.equal(incidenteDelVigia(incidente)?.texto.startsWith('Incidente'), true);
-  assert.equal(vigiaCallado(vigia, incidente, 0, false), false, 'con un incidente se ve');
-  assert.equal(incidenteSinVer(vigia, incidente, AHORA - 5 * 60_000), true, 'sin ver: avisa como «Espera tu respuesta»');
+  assert.equal(vigiaCallado(vigia, incidente, 0, false), true, 'con un incidente tampoco se ve');
+  assert.equal(incidenteSinVer(vigia, incidente, AHORA - 5 * 60_000), false, 'tampoco avisa');
   assert.equal(incidenteSinVer(vigia, incidente, AHORA), false, 'visto: no');
   assert.equal(incidenteSinVer(chatDe('CRM'), incidente, 0), false, 'sólo el vigía');
   const vuelveACallar = [...incidente, dice('Sin incidentes nuevos.', 10_000)];
