@@ -1,5 +1,19 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 18/10 (el tercer Ops Center, retomado por el Cerebro con la cuenta al 94%): tres arreglos del feedback del 18/10, HECHOS
+
+- `c969bc493`: el scroll acompaña lo que se escribe (la conversación sigue abajo si estaba abajo; la caja sigue al cursor),
+  computadora y teléfono (lib/centro-caja.ts → `estaAbajo`).
+- `1600a8425`, **cartero 1.15.8** (lo instala el Cerebro al integrar):
+  - mensajes de hasta 40.000 caracteres (`MAX_TEXTO_LARGO`), validados igual en MaKo y en la PC; la caja los ofrece sólo
+    si el Runner de esa cuenta tiene la 1.15.8 (`aceptaTextoLargo`);
+  - lo que escribe Martín (rol «yo») no se corta a 4000 (`TOPE_TURNO_YO`);
+  - **lo escrito directo en la app de Claude llega en segundos:** medido, NO se perdía; subía con la vuelta completa del cron
+    (minutos). Ahora `vigilar` da la vuelta completa apenas el transcript de un chat vivo creció más allá de su marca
+    (`transcriptsCrecidos`), como mucho una cada 10 s. Sin prueba de punta a punta en la PC: mirarlo con el Runner.
+- VERDE `119959156` (`antes-de-subir --rapido`, 2207 tests). Tipos del acotado: 0 errores en 7 de los 8 archivos;
+  ChatsMovil.tsx no se pudo chequear (el vigía de RAM): lo mira Actions.
+
 ## PARA EL SÉPTIMO OPS CENTER (17/10, ~20:00): lo que dejó el sexto, y lo que sigue
 
 El sexto (agente «Ops Center 6» del Cerebro, cuenta 4, rama `ops6-1710`, worktree `C:/dev/wt-ops4`) hizo los nueve pedidos de Martín
