@@ -57,7 +57,7 @@ const TOPE_MS = 425_000;
 type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
 
-export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats }: {
+export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats, reabrirChats = 0 }: {
   sesionesIniciales: SesionChat[];
   inicial: Abierta | null;
   /** El Mapa del Second Brain (sólo el admin, lo decide el servidor): va arriba de la hoja «Tus chats» (16/10/2026). */
@@ -65,6 +65,8 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
   /** Otros chats debajo de los de MaKo en la hoja «Tus chats»: los de Claude Code del super admin en /m/second-brain
    *  (17/10/2026, app/m/second-brain/SecondBrainCentroM.tsx). `cerrar` cierra la hoja al elegir uno. */
   masChats?: (cerrar: () => void) => ReactNode;
+  /** Cada vez que cambia, vuelve a abrir «Tus chats»: cerrar un chat de Claude Code vuelve a la lista (18/10/2026). */
+  reabrirChats?: number;
 }) {
   const ws = useWs();
   const { enLinea } = useConexion();
@@ -76,6 +78,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
   const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
   const [segs, setSegs] = useState(0);
   const [hojaChats, setHojaChats] = useState(false);
+  useEffect(() => { if (reabrirChats > 0) setHojaChats(true); }, [reabrirChats]);
   const [abierta, setAbierta] = useState<string | null>(null);
   const [altoComposer, setAltoComposer] = useState(96);
   const envios = useRef(new Map<string, Envio>());
