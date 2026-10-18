@@ -651,4 +651,24 @@ export const BITACORA: Hito[] = [
       'tests/centro-plan-auto.test.ts, tests/centro-ya-esta.test.ts, tests/centro-feedback-17-10.test.ts',
     ],
   },
+  {
+    fecha: '18 oct', hora: '12:10', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que escribes en la app llega en segundos, mensajes de hasta 40.000, el scroll sigue y «desde la app»',
+    pedido: 'Envié este mensaje por aquí y no me aparece en el chat de Ops Center; debería poder enviar mensajes mucho más largos',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Lo que escribes directo en la app de Claude aparece en el Ops Center en segundos, no minutos después.',
+      'Un mensaje puede tener hasta 40.000 caracteres (antes 8000), y lo tuyo ya no se corta.',
+      'Mientras escribes, la conversación y la caja siguen abajo, en la computadora y en el teléfono.',
+      'Lo que escribiste en la app dice «desde la app», chico y en gris junto a la hora.',
+    ],
+    archivos: [
+      'scripts/operaciones/cartero.mjs — 1.15.8: la vuelta apenas crece un transcript, y los 40.000',
+      'lib/operaciones-reglas.ts, app/admin/operaciones/useCentro.ts — el tope según la versión del Runner',
+      'lib/centro-caja.ts, Conversacion.tsx, ChatsMovil.tsx — el scroll',
+      'app/admin/operaciones/Hilo.tsx — «desde la app»',
+      'tests/centro-largos.test.ts, tests/centro-caja.test.ts',
+    ],
+  },
 ];
