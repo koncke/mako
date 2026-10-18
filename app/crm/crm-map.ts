@@ -144,6 +144,7 @@ export function mapToCrmLead(
     // lo cargó, que no es 0. El `Number` porque un `numeric` de Postgres puede llegar como texto
     // por un driver que no sea supabase-js, y una suma con un string concatena en vez de sumar.
     cuentaPartners: l.cliente_ws == null ? null : Number(l.cliente_ws),
+    foto: (l.avatar_url?.trim() || l.foto_auto_url?.trim()) || null,
     ingresoEstimado: l.ingreso_estimado == null ? null : (Number.isFinite(Number(l.ingreso_estimado)) ? Number(l.ingreso_estimado) : null),
     // El tipo de venta (LISTA_COLS ya baja `venta_tipo`). Sin esto el wizard del tablero
     // le pedía el monto a un becado (#747): ver `CrmLead.ventaTipo`.
