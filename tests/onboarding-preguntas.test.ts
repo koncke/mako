@@ -117,7 +117,8 @@ test('las dos preguntas nuevas van AL FINAL (antes del teléfono), de un toque, 
   // El Project Manager no tiene anuncios ni CRM: no se le pregunta qué resolver primero.
   assert.equal(etapaDeArranque({ ...quien, queHace: 'Consultoría', origen: 'Google' }, { ...PLAN, faseGuardada: true }), 'cierre');
   // Nunca se pregunta el objetivo, ni a quien lo había contestado antes del 18/10.
-  for (const e of [quien, { ...quien, objetivo: 'Vender más' }, { ...conCrm, origen: 'Google', interes: 'ventas' }]) {
+  const casos: EstadoArranque[] = [quien, { ...quien, objetivo: 'Vender más' }, { ...conCrm, origen: 'Google', interes: 'ventas' }];
+  for (const e of casos) {
     const m = mensajesDeArranque(e, hecho);
     assert.ok(![...m.antes, ...m.despues].some((x) => x.id === 'arr-objetivo'), 'volvió la pregunta del objetivo a 90 días');
   }
