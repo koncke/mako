@@ -29,11 +29,14 @@ export const CSS_CLIENTS = `
 .cls-cuerpo{ flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .cls--alto > .cls-cuerpo{ flex: 1 1 0; min-height: 0; }
 /* Las sub-tabs de la comunidad van sobre el papel del curso, como el portal del alumno. */
-.cls-cuerpo--papel{ background: var(--cl-papel); }
+/* EL FONDO DE MAKO, NO EL PAPEL DEL CURSO (18/10/2026, Martín, pt 14: «el mismo color que el resto de MaKo, no crema»),
+   con la cuadrícula de puntos del lienzo de Automations (app/automations/SimuladorWhatsApp.tsx, CUADRICULA). El papel
+   sigue siendo el del portal del ALUMNO (app/_cursos): esto es la pantalla del dueño. */
+.cls-cuerpo--papel, .cls-cab{ background-color: var(--bg); background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 22px 22px; }
 
 /* ── La cabecera ─────────────────────────────────────────────────────────────── */
 .cls-cab{
-  flex: none; background: var(--cl-papel); color: var(--cl-tinta); font-family: var(--cl-letra);
+  flex: none; color: var(--cl-tinta); font-family: var(--cl-letra);
   border-bottom: 2px solid var(--cl-tinta); padding: 14px 44px 0;
 }
 @media (max-width: 760px){ .cls-cab{ padding: 10px 16px 0; } }
