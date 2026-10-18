@@ -1447,6 +1447,13 @@ código nuevo:
   - lo que la PC corta al subir (`TOPE_TURNO`) se dice en la tarjeta (`cortadoPorLaPC`), no se calla.
 
   Un texto nuevo que muestre un cierre sigue ese molde. Lo fija tests/centro-ops7.test.ts.
+- **LO QUE ESCRIBE UN CHAT SE DIBUJA CON SU FORMATO, Y UN CHAT SIN NADA PARA MARTÍN DUERME** (17/10/2026; Martín: «que los MD no
+  salgan con texto feo... nada de asteriscos ni almohadillas a la vista» y «nunca un chat "despierto" que no tenga ni una notif ni
+  un trabajo»). Todo texto de un chat —sus respuestas, un «Completado» (título y cuerpo), el cierre, sus preguntas— pasa por
+  `<Markdown enlaces>` o `renderInline` (app/_components/Markdown.tsx: negrita, cursiva, `código`, listas, títulos, citas, tablas y
+  links azules); en la FILA de la lista, que no dibuja formato, por `sinMarkdown`. Un texto de chat nuevo sigue ese molde. Y la
+  criatura de un chat abierto que no trabaja ni espera nada va DORMIDA (`animoDe(c, avisos)`, con la fila apagada): despierto sólo
+  con un trabajo o un aviso. Lo fija tests/centro-ops7.test.ts.
 - **UN AVISO POR CHAT SE CALCULA CON LO QUE TRAE EL REFRESCO DE TODOS, NO CON LA CONVERSACIÓN ABIERTA** (17/10/2026; Martín:
   «supuestamente ya terminaste cosas, pero no me salió lo de "Espera tu respuesta"»). Los turnos completos viajan SÓLO del chat que
   se mira (`pedirTurnos`): el aviso del «Completado» sin ver, que se calculaba con ellos, nunca salía en un chat que no se había

@@ -64,13 +64,15 @@ import { SIN_MARCAS } from '@/lib/centro-mensajes';
  * Sin `onMuneco` (el Cerebro, que es siempre la estrella de MaKo) la criatura no se toca, y sin `onRenombrar` (un chat sin
  * sesión abierta a la que pedírselo) el nombre tampoco. Nada de chips de cuenta ni de estado: la cuenta se elige en el «+».
  */
-function TituloDeChat({ chat, aspecto, renombre, onMuneco, onRenombrar, onTexto, onGuardar, onCancelar }: {
+function TituloDeChat({ chat, aspecto, avisos, renombre, onMuneco, onRenombrar, onTexto, onGuardar, onCancelar }: {
   chat: ChatCentro; aspecto: Aspecto | null;
+  /** Lo que espera a Martín en este chat: sin nada y sin trabajar, la criatura duerme (`animoDe`). */
+  avisos: number;
   renombre: { texto: string; error: string | null; mandando: boolean } | null;
   onMuneco?: () => void; onRenombrar?: () => void;
   onTexto: (t: string) => void; onGuardar: () => void; onCancelar: () => void;
 }) {
-  const muneco = <Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat)} size={34} />;
+  const muneco = <Muneco titulo={chat.titulo} aspecto={aspecto} animo={animoDe(chat, avisos)} size={34} />;
   return (
     <span className="m-operaciones-titulo">
       {onMuneco
@@ -125,11 +127,13 @@ type PropsFilaChatM = {
 };
 const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, aspecto, ahora, onAbrir, nuevo, borrador }: PropsFilaChatM) {
   const renglon = segundoRenglon(c, espera, borrador, p, nuevo);
+  // Dormido si no trabaja y no tiene nada para Martín (un aviso o un «Completado» sin ver): despierto sólo con uno de los dos.
+  const animo = animoDe(c, avisosDe(espera, nuevo));
   return (
     <FilaM
       // Un sub-chat va corrido a la derecha, con su muñeco más chico y sólo lo que va después de «›».
-      leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={aspecto} animo={animoDe(c)} size={sub ? 32 : 40} espera={avisosDe(espera, nuevo)} /></span>}
-      titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
+      leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={aspecto} animo={animo} size={sub ? 32 : 40} espera={avisosDe(espera, nuevo)} /></span>}
+      titulo={<span className={`m-operaciones-texto1${animo === 'dormido' ? ' m-operaciones-texto1--dormido' : ''}`}>{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
       // El orden lo decide `segundoRenglon` (lib/centro-chats.ts), el mismo de la computadora.
       segunda={renglon ? {
         vivo: <span className="m-operaciones-vivo">{enCurso ?? 'trabajando…'}</span>,
@@ -283,7 +287,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return c ? k.contestarPregunta(c, p, e, o) : Promise.resolve(null);
   }, []);
   const aspectoAbierto = elegido ? elegidoPara(munecos, elegido.titulo) : null;
-  const animoAbierto = elegido ? animoDe(elegido) : 'despierto';
+  const animoAbierto = elegido ? animoDe(elegido, esperaDe(elegido, esperas)) : 'despierto';
   const datoAbierto = elegido ? trabajaSinEscribir(elegido, lineas) ?? metaDe(elegido) : '';
   const quien = useMemo(() => ({ titulo: elegido?.titulo ?? '', aspecto: aspectoAbierto, animo: animoAbierto, dato: datoAbierto }), [elegido?.titulo, aspectoAbierto, animoAbierto, datoAbierto]);
   const vivo = useMemo(() => (elegido ? { chat: elegido, carteros } : undefined), [elegido, carteros]);
@@ -462,7 +466,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           perfil» (eso se cambia en Tu cuenta). */}
       {conHoja && <SheetM abierto={!!elegido} onCerrar={cerrarHoja} snap="alto"
         titulo={eligiendo ? 'Su criatura' : panelWA ? (panelWA.tipo === 'info' ? 'Info del mensaje' : 'Reenviar a…') : elegido ? (
-          <TituloDeChat chat={elegido} aspecto={aspectoAbierto} renombre={renombre}
+          <TituloDeChat chat={elegido} aspecto={aspectoAbierto} avisos={esperaDe(elegido, esperas)} renombre={renombre}
             onMuneco={esCriaturaDeMako(elegido.titulo) ? undefined : abrirMuneco}
             onRenombrar={elegido.sesiones.length > 0 ? () => setRenombre({ texto: elegido.titulo, error: null, mandando: false }) : undefined}
             onTexto={(texto) => setRenombre((r) => (r ? { ...r, texto, error: null } : r))}

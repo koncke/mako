@@ -27,13 +27,19 @@ import { aspectoDe, type Aspecto, type CaraMuneco, type Forma } from '@/lib/cent
 export { aspectoDe, COLORES, FORMAS } from '@/lib/centro-munecos';
 export type Animo = 'trabajando' | 'despierto' | 'cansado' | 'dormido';
 
-/** El ánimo sale del estado del chat: lo que el ojo cuenta sin leer nada. */
-export function animoDe(c: { estado: 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato'; viejo: boolean }): Animo {
+/**
+ * El ánimo sale del estado del chat: lo que el ojo cuenta sin leer nada. `avisos` (lo que espera a Martín: una pregunta o un
+ * «Completado» sin ver): con él, un chat abierto que NO trabaja ni tiene nada para Martín se ve DORMIDO (Martín, 17/10/2026:
+ * «nunca un chat "despierto" y que no tenga ni una notif ni un trabajo»). Sin él (`undefined`, una criatura que se elige o se
+ * muestra suelta), el de antes: abierto es despierto.
+ */
+export function animoDe(c: { estado: 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato'; viejo: boolean }, avisos?: number): Animo {
   // Con la foto vieja (el Runner no da vueltas) no se sabe si duerme: «cansado» antes que «dormido» (Martín, 17/10/2026:
   // «aparecen todos los chats como que no están haciendo nada, cuando no es así»).
   if (c.viejo) return 'cansado';
   if (c.estado === 'cerrado' || c.estado === 'sin_dato') return 'dormido';
-  return c.estado === 'trabajando' ? 'trabajando' : 'despierto';
+  if (c.estado === 'trabajando') return 'trabajando';
+  return avisos === 0 ? 'dormido' : 'despierto';
 }
 
 /** Dónde caen los ojos y dónde está la cabeza de cada cuerpo. */

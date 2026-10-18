@@ -11,7 +11,11 @@
 //      vuelve, avisando, con un incidente de verdad;
 //   7. el aviso del «Completado» sin ver no salía: los turnos viajaban sólo del chat abierto, así que la fila de uno que no se
 //      abrió no sabía que su último mensaje era un «Ya está» (medido con los turnos reales: 4 chats con «Ya está» hoy);
-//   9. «Runner conectado, todavía sin medir» era falso: la cuenta la recorre OTRO Runner y no tiene el suyo.
+//   9. «Runner conectado, todavía sin medir» era falso: la cuenta la recorre OTRO Runner y no tiene el suyo;
+//   4. «Trabajando…» no salía en un chat que trabajaba: su estado llega con la vuelta del Runner (~2 min) y sus pasos, cada ~15 s;
+//   5. tocar un chat con el grafo abierto no salía del grafo;
+//   6. un chat sin aviso y sin trabajo se ve dormido;
+//   2b. lo que escribe un chat se dibuja con su formato (negritas, listas, títulos, links), sin asteriscos a la vista.
 //
 // Probado ROMPIÉNDOLO (17/10/2026), una rotura por vez contra la base en verde de 7 pases (se restauró de la copia, no con git):
 //   · Avance.tsx con el título de la FILA (`n.titulo`, 72 caracteres y «…») y el cuerpo sin su primer renglón, que es el bug
@@ -22,12 +26,18 @@
 //   · la carita del teléfono con 36×42 en vez de `var(--caja-toque)`, el campo de la computadora con `align-self: center`
 //     (como estaba) y el textarea del teléfono con `line-height: 1.35` (el renglón deja de sumar 44) → cae «1», cada una;
 //   · `estrella` sin pasarse en el Sidebar → cae «3a»; el <CirculoNuevo /> otra vez con el muñeco → cae «3b».
-// Y de lo que sumó el Cerebro a las 21:30 (base en verde de 10 pases):
+// Y de lo que sumó el Cerebro a las 21:30 (base en verde de 10 pases, los 5 de arriba):
 //   · `turnosParaLaLista` sin mirar lo último que trajo el refresco (como estaba: sólo `turnos[c.clave]`) → cae «7»;
 //   · `resumirTurnos` sin el tope de 3 turnos, o sin recortar el texto → cae «7»;
 //   · `incidenteDelVigia` tomando el primer turno en vez del último, o `vigiaCallado` sin mirar `espera` → cae «5»;
 //   · `chats` de useCentro sin el filtro `vigiaCallado` → cae «5»;
 //   · `textoSinMedicion` con el «Runner conectado, todavía sin medir» de antes → cae «9».
+// Y de lo que sumó Martín a las 22:40 (base en verde de 14 pases):
+//   · `completarChats` sin mirar los pasos recientes → cae «4»;
+//   · el efecto de la URL sin `!hayMapa` → cae «5»;
+//   · `animoDe` sin el caso de los avisos en 0 → cae «6»;
+//   · `Markdown` sin las listas numeradas o sin el código en línea, `sinMarkdown` sin sacar `**`, o el título del «Completado» sin
+//     `renderInline` → cae «2b».
 // Lo que el test NO ve: la pantalla pintada (no hay navegador acá). Las medidas salen del CSS, no de un layout real.
 
 import test from 'node:test';
@@ -37,12 +47,14 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  CUERPO_PLEGABLE, TITULO_YA_ESTA, avisaYaEsta, cortadoPorLaPC, esChatVigia, esSinIncidentes, historialDelChat, incidenteDelVigia, incidenteSinVer,
+  CUERPO_PLEGABLE, TITULO_YA_ESTA, avisaYaEsta, chatTrabajando, completarChats, cortadoPorLaPC, esChatVigia, sinMarkdown, esSinIncidentes, historialDelChat, incidenteDelVigia, incidenteSinVer,
   partesDeYaEsta, partirPendiente, turnosParaLaLista, vigiaCallado, vistaPrevia, type ChatCentro, type LineaChat, type VistosDeChats,
 } from '../lib/centro-chats';
 import { TOPE_TURNO, ULTIMOS_POR_CHAT, ULTIMOS_TEXTO, resumirTurnos, type TurnoChat } from '../lib/operaciones-reglas';
 import { cuentasDeUso } from '../lib/centro-uso';
 import { ListaUso, textoSinMedicion } from '../app/admin/operaciones/Uso';
+import { animoDe } from '../app/admin/operaciones/Muneco';
+import { Markdown } from '../app/_components/Markdown';
 import { YaEstaMensaje } from '../app/admin/operaciones/Avance';
 import { Hilo } from '../app/admin/operaciones/Hilo';
 import { CirculoNuevo } from '../app/admin/operaciones/NuevoChat';
@@ -123,7 +135,7 @@ test('2c: ninguna regla de la tarjeta «Completado» corta con «…» ni con l�
   // La tarjeta no usa el título corto de la fila para dibujar.
   const av = sinComentarios(leer('app/admin/operaciones/Avance.tsx'));
   assert.match(av, /const \{ titulo: tituloEntero, cuerpo \} = partesDeYaEsta\(t\.texto\);/);
-  assert.match(av, /\{tituloEntero && <p className="co-ya__titulo">\{tituloEntero\}<\/p>\}/);
+  assert.match(av, /\{tituloEntero && <p className="co-ya__titulo">\{renderInline\(tituloEntero, 'ya-t', true\)\}<\/p>\}/);
 });
 
 test('2d: el cierre estructurado del chat también se ve entero, con lo «decidido»', () => {
@@ -238,7 +250,7 @@ test('7: la fila de un chat que NO se abrió avisa su «Completado» (lo último
   for (const f of ['app/admin/operaciones/datos.ts', 'app/m/operaciones/page.tsx']) assert.match(sinComentarios(leer(f)), /ultimosIniciales: ultimos/, f);
 });
 
-test('5: «MaKo en WhatsApp» sale de la lista mientras dice «Sin incidentes nuevos», y vuelve avisando con un incidente', () => {
+test('v: «MaKo en WhatsApp» sale de la lista mientras dice «Sin incidentes nuevos», y vuelve avisando con un incidente', () => {
   assert.equal(esChatVigia({ titulo: 'MaKo en WhatsApp' }), true);
   assert.equal(esChatVigia({ titulo: 'MaKo en WhatsApp › Vigía' }), false, 'un sub-chat tiene trabajo real');
   assert.equal(esChatVigia({ titulo: 'Mako en whatsapp ' }), true, 'sin mayúsculas ni espacios de más');
@@ -280,4 +292,86 @@ test('9: una cuenta recorrida por otro Runner y sin medir no dice «Runner conec
   assert.match(pantalla, /Sin medir: su terminal no tiene Runner abierto/);
   assert.doesNotMatch(pantalla, /Runner conectado|todavía sin medir/);
   assert.equal(textoSinMedicion('apagado'), 'Su uso aparece cuando su Runner esté conectado', 'sin nadie que la recorra: el de siempre');
+});
+
+// ── Lo que sumó Martín a las 22:40 ────────────────────────────────────────────────────────────────────────────────────────
+test('4: un chat con pasos recientes está TRABAJANDO aunque el estado del Runner todavía no lo diga', () => {
+  // El estado ocupado llega con la vuelta del Runner (~2 min); los pasos, cada ~15 s y sólo de los chats ocupados.
+  const cartero = (vistoAt: number, estado: 'idle' | 'busy') => [{
+    cuenta: 'claude4', vistoAt: new Date(vistoAt).toISOString(),
+    chats: [{ vivo: true, local: LOCAL, cuenta: 'claude4', estado, runner: true, titulo: 'Cerebro', actividad: new Date(AHORA).toISOString() }],
+  }] as never;
+  const paso = [{ at: new Date(AHORA - 5_000).toISOString(), texto: 'Lee centro-chats.ts' }];
+  const sin = completarChats([], { carteros: cartero(AHORA - 30_000, 'idle'), trabajos: [], ahora: AHORA })[0];
+  assert.equal(sin.estado, 'abierto', 'sin pasos: lo que dijo la vuelta');
+  const con = completarChats([], { carteros: cartero(AHORA - 30_000, 'idle'), trabajos: [], ahora: AHORA, pasos: { [LOCAL]: paso } })[0];
+  assert.equal(con.estado, 'trabajando', 'con pasos de hace segundos: trabajando');
+  assert.equal(chatTrabajando(con, [], AHORA), true, 'y el pie de la conversación dice «Trabajando…»');
+  // Con la vuelta vieja (más de 4 min) la fila decía «cansado»: pero si subió pasos hace segundos su Runner está vivo.
+  const vieja = completarChats([], { carteros: cartero(AHORA - 10 * 60_000, 'idle'), trabajos: [], ahora: AHORA, pasos: { [LOCAL]: paso } })[0];
+  assert.equal(vieja.viejo, false);
+  assert.equal(vieja.estado, 'trabajando');
+  // Sin pasos de ese chat, otro chat con pasos no lo despierta.
+  assert.equal(completarChats([], { carteros: cartero(AHORA - 30_000, 'idle'), trabajos: [], ahora: AHORA, pasos: { local_otro_chat_que_no_es: paso } })[0].estado, 'abierto');
+});
+
+test('g: con el grafo abierto, tocar un chat no deja que la URL vuelva a «?panel=mapa»', () => {
+  const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  assert.match(src, /const hayMapa = mapa != null;/);
+  assert.match(src, /useEffect\(\(\) => \{ if \(elegido && !hayMapa\) anotarEnUrl\(idElegido, urlCentro\); \}, \[elegido, idElegido, urlCentro, hayMapa\]\);/,
+    'el grafo es dueño de la URL mientras está: anotar el chat con replaceState antes de que termine el router.push lo dejaba en el grafo');
+  assert.match(src, /if \(mapa\) \{ router\.push\('id' in e/, 'tocar un chat con el grafo abierto navega a ese chat');
+});
+
+test('6: un chat sin aviso y sin trabajo se ve DORMIDO; despierto sólo con un aviso, y trabajando si trabaja', () => {
+  const abierto = { estado: 'abierto', viejo: false } as const;
+  assert.equal(animoDe(abierto, 0), 'dormido', 'abierto, sin nada para Martín: duerme');
+  assert.equal(animoDe(abierto, 1), 'despierto', 'con una pregunta o un «Completado» sin ver: despierto');
+  assert.equal(animoDe({ estado: 'trabajando', viejo: false }, 0), 'trabajando');
+  assert.equal(animoDe({ estado: 'trabajando', viejo: true }, 0), 'cansado', 'la foto vieja no se sabe');
+  assert.equal(animoDe(abierto), 'despierto', 'sin decir los avisos (una criatura suelta), el de antes');
+  // Las filas y las cabeceras de las dos pantallas lo piden con sus avisos.
+  const fila = sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx'));
+  assert.match(fila, /const animo = animoDe\(c, k\.avisos\(c\)\);/);
+  assert.match(fila, /animo === 'dormido' \? ' co-fila--dormida' : ''/);
+  const movil = sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx'));
+  assert.match(movil, /const animo = animoDe\(c, avisosDe\(espera, nuevo\)\);/);
+  assert.match(movil, /animoDe\(elegido, esperaDe\(elegido, esperas\)\)/);
+  assert.match(sinComentarios(leer('app/admin/operaciones/Conversacion.tsx')), /const animo = animoDe\(chat, espera\);/);
+  assert.match(css, /\.co-fila--dormida \.co-fila__titulo \{ color: var\(--dim\)/, 'la fila apagada');
+});
+
+test('md: lo que escribe un chat se dibuja con su formato: nada de asteriscos, almohadillas ni comillas invertidas a la vista', () => {
+  const md = renderToStaticMarkup(createElement(Markdown, {
+    enlaces: true,
+    text: '**Hecho:** alineé el `+` y la *carita* (ver https://hola-mako.com/crm).\n\n## Qué sigue\n\n1. uno\n2. dos\n\n- a\n- b\n\n> una cita\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n#### Prueba\nlib/*.ts y app/*.tsx y 5 * 3',
+  }));
+  assert.match(md, /<strong>[\s\S]*?Hecho:[\s\S]*?<\/strong>/, 'negrita');
+  assert.match(md, /<em>[\s\S]*?carita[\s\S]*?<\/em>/, 'cursiva');
+  assert.match(md, /<code[^>]*>\+<\/code>/, 'código en línea');
+  assert.match(md, /<ol start="1"[^>]*>[\s\S]*<li[^>]*>[\s\S]*uno[\s\S]*<\/ol>/, 'lista numerada');
+  assert.match(md, /<blockquote/);
+  assert.match(md, /<table[\s\S]*<th[\s\S]*>a<[\s\S]*<td[\s\S]*>1</, 'tabla');
+  assert.match(md, /<a class="co-link" href="https:\/\/hola-mako\.com\/crm"[^>]*>https:\/\/hola-mako\.com\/crm<\/a>/, 'el link, sin el «)» de la frase');
+  const visible = texto(md);
+  assert.ok(!/\*\*|^##|\s##\s|####|`/.test(visible), `se ve formato crudo: «${visible}»`);
+  assert.ok(visible.includes('lib/*.ts y app/*.tsx y 5 * 3'), 'un glob o una cuenta con «*» no es una cursiva');
+  // La fila de la lista no dibuja formato: se lo saca (un solo renglón).
+  assert.equal(sinMarkdown('**Ya está:** el `filtro` del [CRM](https://hola-mako.com/crm) y *más*'), 'Ya está: el filtro del CRM y más');
+  assert.equal(sinMarkdown('## Título'), 'Título');
+  const previa = vistaPrevia([{ tipo: 'turno', instante: AHORA, turno: { local: LOCAL, uuid: 'u-turno-9999', rol: 'el', de: null, texto: '**Ya está.** Las `tres` partes del *Plan*', at: new Date(AHORA).toISOString(), trabajo: null } } as LineaChat]);
+  assert.equal(previa?.texto, 'Las tres partes del Plan');
+  // La tarjeta «Completado» (título), el cierre del chat y las preguntas, con el formato aplicado.
+  const ya = tarjeta('Ya está: **el filtro** del `CRM`\n## Qué sigue\n- [ver](https://hola-mako.com/crm)');
+  assert.match(ya, /<strong>[\s\S]*el filtro[\s\S]*<\/strong>/);
+  assert.match(ya, /<code[^>]*>CRM<\/code>/);
+  assert.ok(!/\*\*|##|`/.test(texto(ya)), texto(ya));
+  const cierre = texto(renderToStaticMarkup(createElement(Hilo, {
+    lineas: [{ tipo: 'trabajo', instante: AHORA, trabajo: { id: 'bbbbbbbb-1111-4222-8333-444444444444', destino: LOCAL, destino_titulo: 'CRM', destino_cuenta: 'claude1', created_at: new Date(AHORA).toISOString(), texto: 'x', estado: 'hecho', motivo: null, cerrado_at: new Date(AHORA).toISOString(), cierre: { decidido: '', hecho: 'Hice **el filtro**', comprobado: 'Con `3 leads`', sigue: '', prueba: null } } } as LineaChat],
+    pushes: [], ahora: AHORA + 60_000, vacio: '', quien: { titulo: 'CRM', animo: 'despierto' },
+  })));
+  assert.ok(cierre.includes('Hice el filtro') && cierre.includes('Con 3 leads') && !/\*\*|`/.test(cierre), cierre);
+  for (const f of ['app/admin/operaciones/PreguntaChat.tsx', 'app/admin/operaciones/Pregunta.tsx']) {
+    assert.match(sinComentarios(leer(f)), /renderInline\((p|d)\.pregunta, 'pq', true\)/, `${f}: la pregunta con su formato`);
+  }
 });

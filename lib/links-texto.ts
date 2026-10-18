@@ -26,8 +26,13 @@ export function trozosConLinks(texto: string): TrozoConLink[] {
     if (!m[2]) {
       // Lo que cierra la frase no es del link: «mirá https://x.com/a.» → el punto queda afuera. Un paréntesis sólo si no
       // abrió adentro del link (https://es.wikipedia.org/wiki/Foo_(bar) lo lleva).
-      const sobra = /[.,;:!?]+$|\)+$/.exec(href);
-      if (sobra && !(sobra[0].startsWith(')') && href.includes('('))) { href = href.slice(0, -sobra[0].length); crudo = href; visible = href; }
+      // ⚠️ En un bucle: «(ver https://x.com/a).» cierra con «).» y un solo corte dejaba el «)» pegado al link (17/10/2026).
+      let h = href;
+      for (;;) {
+        const c = h.slice(-1);
+        if (/[.,;:!?]/.test(c) || (c === ')' && !h.includes('('))) h = h.slice(0, -1); else break;
+      }
+      if (h !== href) { href = h; crudo = h; visible = h; }
     }
     if (i > desde) out.push({ tipo: 'texto', t: texto.slice(desde, i) });
     out.push({ tipo: 'link', t: visible, href });

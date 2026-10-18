@@ -45,6 +45,8 @@
 [data-m] .m-operaciones-hilo .co-vacio { margin-top: 12vh; }
 
 /* La caja de escribir, en el pie fijo de la hoja. 16 px de letra: con menos, iOS hace zoom al tocarla. */
+/* La fila de un chat dormido (sin trabajo ni aviso) se apaga, como en la computadora. */
+[data-m] .m-operaciones-texto1--dormido { color: var(--dim); font-weight: 400; }
 [data-m] .m-operaciones-caja { display: flex; flex-direction: column; gap: 8px; }
 [data-m] .m-operaciones-caja__fila { --caja-toque: 44px; display: flex; align-items: flex-end; gap: 4px; }
 [data-m] .m-operaciones-caja__fila--meta { align-items: center; flex-wrap: wrap; }

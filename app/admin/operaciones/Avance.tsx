@@ -20,7 +20,7 @@ import { useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
-import { Markdown } from '@/app/_components/Markdown';
+import { Markdown, renderInline } from '@/app/_components/Markdown';
 import { cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
 import { ROTULO_TAREA, type TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TOPE_TURNO, type TurnoChat } from '@/lib/operaciones-reglas';
@@ -64,7 +64,8 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback }: {
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
         <span className="co-ya__rotulo">Completado</span>
       </header>
-      {tituloEntero && <p className="co-ya__titulo">{tituloEntero}</p>}
+      {/* Con el formato aplicado (17/10/2026): el título de un chat puede traer **negrita**, `código` o un link. */}
+      {tituloEntero && <p className="co-ya__titulo">{renderInline(tituloEntero, 'ya-t', true)}</p>}
       {plegable ? (
         <>
           <div className={`co-ya__md co-el__md co-ya__detalle${abierto ? '' : ' co-ya__detalle--plegado'}`}><Markdown text={plegable.detalle} enlaces /></div>

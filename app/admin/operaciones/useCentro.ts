@@ -250,7 +250,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // Sin el Runner (17/10/2026, Martín: «El chat de "Runner" no tiene sentido que esté visible en el Center»): sigue trabajando
   // por detrás y su estado está en «Uso y Runners». Se saca ACÁ, no en `completarChats`: la PC lo sube marcado (`esRunner`) y de
   // esa marca sale que no se le entrega nada (tests/centro-runner-nube.test.ts).
-  const conVigia = useMemo(() => sinElRunner(completarChats(base, { carteros, trabajos, ahora })), [base, carteros, trabajos, ahora]);
+  const conVigia = useMemo(() => sinElRunner(completarChats(base, { carteros, trabajos, ahora, pasos })), [base, carteros, trabajos, ahora, pasos]);
   // «MaKo en WhatsApp» (el vigía: un cron que dice «Sin incidentes nuevos» cada rato) sale de la lista mientras está callado y
   // vuelve, avisando como «Espera tu respuesta», cuando deja un incidente de verdad (Martín, 17/10/2026). Con lo último que
   // trajo el refresco: abrirlo no hace falta para saberlo.

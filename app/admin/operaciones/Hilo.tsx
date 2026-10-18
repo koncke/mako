@@ -26,7 +26,7 @@ import { chatTrabajando, esYaEsta, estadoDelEnvio, lineasDeConversacion, type Ca
 import { YaEstaMensaje } from './Avance';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
-import { Markdown } from '@/app/_components/Markdown';
+import { Markdown, renderInline } from '@/app/_components/Markdown';
 import { textoDeRespuesta } from '@/app/admin/runway/decisiones';
 import { Muneco, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
@@ -138,14 +138,14 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
           <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
           <div className="co-el__cuerpo">
             <p className="co-el__rotulo">{`${ROTULO[estado]}${w.cerrado_at ? ` · ${horaAR(Date.parse(w.cerrado_at))}` : ''}`}</p>
-            <p className="co-el__texto">{c.hecho || c.decidido}</p>
+            <p className="co-el__texto">{renderInline(c.hecho || c.decidido, 'ci-h', true)}</p>
             {/* El cierre se ve ENTERO (Martín, 17/10/2026): antes, con `hecho`, lo «decidido» no se dibujaba. */}
             {((c.hecho && c.decidido && c.decidido !== c.hecho) || c.comprobado || c.sigue || c.prueba) && (
               <dl className="co-el__dl">
-                {c.hecho && c.decidido && c.decidido !== c.hecho && <><dt>Decidido</dt><dd>{c.decidido}</dd></>}
-                {c.comprobado && <><dt>Comprobado</dt><dd>{c.comprobado}</dd></>}
-                {c.sigue && <><dt>Sigue</dt><dd>{c.sigue}</dd></>}
-                {c.prueba && <><dt>Prueba</dt><dd>{c.prueba}</dd></>}
+                {c.hecho && c.decidido && c.decidido !== c.hecho && <><dt>Decidido</dt><dd>{renderInline(c.decidido, 'ci-d', true)}</dd></>}
+                {c.comprobado && <><dt>Comprobado</dt><dd>{renderInline(c.comprobado, 'ci-c', true)}</dd></>}
+                {c.sigue && <><dt>Sigue</dt><dd>{renderInline(c.sigue, 'ci-s', true)}</dd></>}
+                {c.prueba && <><dt>Prueba</dt><dd>{renderInline(c.prueba, 'ci-p', true)}</dd></>}
               </dl>
             )}
           </div>

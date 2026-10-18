@@ -1690,9 +1690,27 @@ le escribe»). Se cambió el texto por lo cierto («Sin medir: su terminal no ti
 de esa cuenta con su barra de estado: un «Nuevo chat» firmado con nombre «Runner» y `--settings` (cartero `abrir`, ⚠️ pide
 revisión: lanza un proceso) sería el camino; no se tocó.
 
+**«Trabajando…» no salía (22:40).** Medido con la PC viva: el estado ocupado de cada chat llega a MaKo con la vuelta del Runner, cada
+~2 minutos (`operaciones_carteros.visto_at` no se movió en 4 minutos de muestreo), y los pasos en vivo llegan cada ~15 s, sólo de los
+chats ocupados. Un chat que empezó después de la última vuelta no decía nada y uno que ya terminó seguía diciendo «Trabajando…». La
+cadena de la pantalla estaba bien (con el estado cierto, el Cerebro real dibuja «Trabajando…»). **Regla:** un chat con pasos de hace
+segundos ES un chat ocupado (`completarChats`, 1b). Queda: uno que piensa sin haber usado herramientas todavía espera a la vuelta;
+el arreglo de raíz es que `vigilar` suba el estado en cada pasada (cartero, ⚠️ REVISAR; no se tocó).
+
+**El grafo no se iba al tocar un chat (22:40) — SIN VERIFICAR EN EL NAVEGADOR.** Hipótesis por el código: el efecto de la URL
+(`anotarEnUrl`) reescribía con `replaceState` antes de que terminara el `router.push`, y Next quedaba otra vez en `?panel=mapa&centro=…`
+(el mismo choque `replaceState` + router de docs/hallazgos-second-brain.md). Con el grafo abierto no se anota la URL. Si Martín lo
+vuelve a ver, el siguiente paso es medirlo en el navegador (CDP).
+
+**Dormido, y el formato (22:40).** Un chat abierto que no trabaja ni espera nada ya no es «despierto» (`animoDe(c, avisos)`). El
+Markdown de los chats mostraba crudo todo lo que el parser no sabía (listas numeradas, `código`, cursiva, títulos de 4 almohadillas,
+tablas): se sumó, sin tocar lo de antes. Dos trampas que salieron al probar con texto real: el prefijo «Ya está» se comía el `**` que
+abría el título («Ya está: **el filtro**» quedaba «el filtro**»), y un link entre paréntesis («(ver https://x.com/a).») se llevaba el «)».
+Una cursiva sólo vale si el `*` abre una palabra: «lib/*.ts y app/*.tsx» no es una cursiva.
+
 **Vive en:** lib/centro-chats.ts (`partesDeYaEsta`, `partirPendiente`, `cortadoPorLaPC`) · app/admin/operaciones/{Avance,Hilo,NuevoChat}.tsx
 · centro.css (`.co-ya__*`, `.co-caja__fila`, `--caja-toque`) · app/m/operaciones/operaciones.css · app/_components/{Criatura,Sidebar}.tsx
-· app/m/mas/page.tsx · lib/{operaciones-reglas,centro-turnos-db}.ts (`resumirTurnos`, `leerUltimosTurnos`) · app/admin/operaciones/{useCentro,acciones,datos,Uso}.ts(x) · tests/centro-ops7.test.ts.
+· app/m/mas/page.tsx · lib/{operaciones-reglas,centro-turnos-db}.ts (`resumirTurnos`, `leerUltimosTurnos`) · app/admin/operaciones/{useCentro,acciones,datos,Uso,Muneco}.ts(x) · app/_components/Markdown.tsx · lib/links-texto.ts · app/second-brain/ChatSecondBrain.tsx · tests/centro-ops7.test.ts.
 
 **Sin hacer:** nada se vio en el Android de Martín (medido en Chrome de escritorio con el CSS real, y tests); el tope de 4000 / 600
 del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la medición automática de una cuenta sin Runner (arriba).

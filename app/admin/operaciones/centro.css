@@ -135,6 +135,9 @@
 
 /* «Nuevo chat»: el primer renglón, con el muñeco de un lugar vacío (gris y transparente). */
 .co-fila--nuevo { margin-bottom: 4px; color: var(--dim); }
+/* Un chat sin trabajo y sin nada para Martín duerme: ojos cerrados (Muneco) y la fila apagada (17/10/2026). */
+.co-fila--dormida .co-fila__titulo { color: var(--dim); font-weight: 400; }
+.co-fila--dormida .co-fila__hace { color: var(--faint); }
 /* El círculo de «Nuevo chat» (NuevoChat.tsx → CirculoNuevo), como el botón de chat nuevo de WhatsApp. */
 .co-circulo-nuevo { display: inline-grid; place-items: center; flex: none; border-radius: 50%; background: var(--good); color: #fff; }
 .co-nuevo { display: flex; flex-direction: column; gap: 12px; }

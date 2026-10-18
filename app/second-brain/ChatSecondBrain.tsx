@@ -297,7 +297,12 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   }, [chatCentro, claveCentro]);
   // En la URL va su SESIÓN (no cambia al renombrarlo); el que no tiene, su clave.
   const urlCentro = chatCentro ? claveParaUrl(chatCentro) : claveCentro;
-  useEffect(() => { if (elegido) anotarEnUrl(idElegido, urlCentro); }, [elegido, idElegido, urlCentro]);
+  // ⚠️ Con el grafo abierto, la URL es del grafo (`?panel=mapa`): tocar un chat navega con `router.push`, y si este efecto
+  // reescribe la URL con `replaceState` ANTES de que esa navegación termine, la deja otra vez en `?panel=mapa&centro=…` y el grafo
+  // no se va nunca (Martín, 17/10/2026: «una vez que entro a Second Brain, no puedo salir más dándole click a un chat»). Mientras
+  // hay grafo no se anota nada; al irse, el efecto vuelve a correr y anota el chat.
+  const hayMapa = mapa != null;
+  useEffect(() => { if (elegido && !hayMapa) anotarEnUrl(idElegido, urlCentro); }, [elegido, idElegido, urlCentro, hayMapa]);
   // ⚠️ LA TICKETERA SIGUE A LA URL, no a la prop: un link a esta misma página con otro `?ticketera=` (el ítem «Ticketera»
   // de la barra de admin) no la vuelve a montar (docs/hallazgos-operaciones.md).
   const qTicketera = useSearchParams().get('ticketera');

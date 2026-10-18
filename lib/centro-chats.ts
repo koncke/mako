@@ -187,8 +187,10 @@ export function chatsDeBitacoras({ areas, pedidos, ahora, dias = 14 }: {
  * ⚠️ Es la MISMA función para el server y para el refresco de la pantalla: dos copias de «qué estado tiene un
  * chat» se separan en cuanto una cambia.
  */
-export function completarChats(base: readonly ChatCentro[], { carteros, trabajos, ahora, dias = 14 }: {
+export function completarChats(base: readonly ChatCentro[], { carteros, trabajos, ahora, dias = 14, pasos }: {
   carteros: readonly CarteroP[]; trabajos: readonly TrabajoP[]; ahora: number; dias?: number;
+  /** Los pasos en vivo que subió la PC hace segundos (lib/centro-pasos.ts → pasosVigentes), por sesión. */
+  pasos?: Readonly<Record<string, readonly unknown[]>>;
 }): ChatCentro[] {
   const desde = ahora - dias * 86_400_000;
   // Cada vuelta vuelve a decidir el estado y los trabajos: lo que traía la base de antes no cuenta.
@@ -220,6 +222,15 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
       c.sinRunner = ch.vivo && ch.runner === false;
       mover(c, fecha(ch.actividad));
     }
+  }
+
+  // 1b. UN CHAT CON PASOS RECIENTES ESTÁ TRABAJANDO (17/10/2026, Martín: «esta tab está trabajando y no veo que el chat diga
+  //     "trabajando..."»). Medido: el estado ocupado de cada chat llega con la vuelta del Runner, cada ~2 minutos (un chat que
+  //     empezó después de la última vuelta no decía nada, y uno que ya terminó seguía diciendo «Trabajando…»); los pasos llegan
+  //     cada ~15 s y sólo de los chats ocupados. Si subió pasos hace segundos, ES un chat ocupado y su Runner está vivo.
+  for (const [local, lista] of Object.entries(pasos ?? {})) {
+    const c = chats.get(local);
+    if (c && lista.length > 0) { c.estado = 'trabajando'; c.viejo = false; }
   }
 
   // 2. Los trabajos firmados: a la sesión de destino, aunque el cartero no la vea ahora.
@@ -592,10 +603,25 @@ export function avisaYaEsta(p: VistaPrevia | null | undefined, vistos: VistosDeC
   return p.instante > (vistos.chats[clave] ?? vistos.desde);
 }
 
+/**
+ * El texto de un renglón de la lista SIN la marca del Markdown (17/10/2026, Martín: «nada de asteriscos ni almohadillas a la
+ * vista»): la fila es de un solo renglón y no dibuja formato, así que `**Ya está:** el filtro` se lee «Ya está: el filtro».
+ */
+export function sinMarkdown(s: string): string {
+  return s
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1')
+    .replace(/`+/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/(^|[\s(])\*([^*\s](?:[^*]*[^*\s])?)\*(?=$|[\s.,;:!?)])/g, '$1$2')
+    .replace(/^\s*(?:#{1,6}\s+|>\s*|[-*•]\s+|\d+[.)]\s+)/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
   let mejor: VistaPrevia | null = null;
   const ver = (v: VistaPrevia) => { if (v.texto && (!mejor || v.instante >= mejor.instante)) mejor = v; };
-  const renglon = (s: string) => s.split('\n').map((x) => x.trim()).find(Boolean) ?? '';
+  const renglon = (s: string) => sinMarkdown(s.split('\n').map((x) => x.trim()).find(Boolean) ?? '');
   for (const l of lineas) {
     if (l.tipo === 'trabajo') {
       ver({ texto: renglon(l.trabajo.texto ?? ''), propio: true, tick: l.trabajo.estado ?? 'escrito', instante: l.instante });
@@ -1070,7 +1096,10 @@ export function rutaDeYaEsta(texto: string): string | null {
 }
 
 /** Lo que va ANTES del texto en el primer renglón de un «Ya está»: el ✅, la negrita, «Ya está» y su puntuación. */
-const PREFIJO_YA_ESTA = /^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i;
+// ⚠️ La negrita que ABRE antes de «Ya está» es la única que se come al cerrarse (`\1`): «**Ya está:** el filtro» deja «el filtro»,
+// pero «Ya está: **el filtro** del CRM» deja «**el filtro** del CRM» y no «el filtro** del CRM» (antes el `*` de después de los dos
+// puntos se tragaba la apertura del título, y quedaba una negrita cruda a la vista).
+const PREFIJO_YA_ESTA = /^[\s>#✅✔·\-–—]*(\*\*|__|\*|_)?[\s>#✅✔·\-–—]*ya est[áa][.:!,;]*(?:\1)?[\s.:!,;\-–—]*/i;
 
 /** Hasta cuántos caracteres un primer renglón se dibuja como TÍTULO de la tarjeta; más largo es un párrafo. */
 export const TITULO_YA_ESTA = 110;

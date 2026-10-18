@@ -12,42 +12,136 @@
 //
 // A propósito NO soporta markdown completo: lo que se escribe en la app es negrita,
 // listas y algún título. Una librería entera para eso es peso muerto.
+//
+// 17/10/2026 (Martín, Ops Center: «que los MD no salgan con texto feo, sino con el formato aplicado... nada de asteriscos ni
+// almohadillas a la vista»): lo que escriben los CHATS de Claude trae más que eso, y cada cosa sin soporte se veía cruda.
+// Se SUMÓ, sin cambiar lo de antes: listas numeradas, `código` en línea y en bloque, *cursiva*, títulos hasta
+// `######`, citas con «>» y tablas con «|». Lo demás sigue pasando como texto.
 // =============================================================================
 
 import type { ReactNode } from 'react';
 import { trozosConLinks } from '@/lib/links-texto';
 
-/** Negrita inline. Lo demás pasa como texto; con `enlaces`, los links http(s) y `[texto](url)` van como <a>
- *  (17/10/2026, el Ops Center: «un link pegado en el chat siempre se ve azul y clickeable»; lib/links-texto.ts). */
+const CODIGO_EN_LINEA = { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: '0.92em', background: 'color-mix(in srgb, var(--ink) 8%, transparent)', borderRadius: 4, padding: '1px 4px', overflowWrap: 'anywhere' as const };
+/** Una *cursiva* sólo si el asterisco abre una palabra y el otro la cierra: «lib/*.ts y app/*.tsx» no es una cursiva. */
+const CURSIVA = /(^|[\s(\[«"'])(\*[^*\s](?:[^*]*[^*\s])?\*)(?=$|[\s.,;:!?)\]»"'])/g;
+
+/** Inline: `código`, **negrita** y *cursiva*. Lo demás pasa como texto; con `enlaces`, los links http(s) y
+ *  `[texto](url)` van como <a> (17/10/2026, el Ops Center: «un link pegado en el chat siempre se ve azul y clickeable»;
+ *  lib/links-texto.ts). El código no se interpreta por adentro: lo que va entre comillas invertidas sale tal cual. */
 export function renderInline(text: string, k: string, enlaces = false): ReactNode[] {
   const conLinks = (p: string, kk: string): ReactNode => (!enlaces ? p : trozosConLinks(p).map((x, j) => (x.tipo === 'texto'
     ? <span key={`${kk}-${j}`}>{x.t}</span>
     : <a key={`${kk}-${j}`} className="co-link" href={x.href} target="_blank" rel="noreferrer noopener">{x.t}</a>)));
-  return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
-    /^\*\*[^*]+\*\*$/.test(p) ? <strong key={`${k}-${i}`}>{conLinks(p.slice(2, -2), `${k}-${i}`)}</strong> : <span key={`${k}-${i}`}>{conLinks(p, `${k}-${i}`)}</span>,
-  );
+  // Un texto sin «*» sueltos pasa derecho (el DOM de siempre); con ellos, la cursiva.
+  const conCursiva = (p: string, kk: string): ReactNode => {
+    if (!p.includes('*')) return conLinks(p, kk);
+    const out: ReactNode[] = [];
+    let desde = 0;
+    for (const m of p.matchAll(CURSIVA)) {
+      const inicio = (m.index ?? 0) + m[1].length;
+      if (inicio > desde) out.push(<span key={`${kk}-t${desde}`}>{conLinks(p.slice(desde, inicio), `${kk}-t${desde}`)}</span>);
+      out.push(<em key={`${kk}-e${inicio}`}>{conLinks(m[2].slice(1, -1), `${kk}-e${inicio}`)}</em>);
+      desde = inicio + m[2].length;
+    }
+    if (!out.length) return conLinks(p, kk);
+    if (desde < p.length) out.push(<span key={`${kk}-t${desde}`}>{conLinks(p.slice(desde), `${kk}-t${desde}`)}</span>);
+    return out;
+  };
+  const conNegrita = (p: string, kk: string): ReactNode[] => p.split(/(\*\*[^*]+\*\*)/g).map((q, i) =>
+    /^\*\*[^*]+\*\*$/.test(q) ? <strong key={`${kk}-${i}`}>{conCursiva(q.slice(2, -2), `${kk}-${i}`)}</strong> : <span key={`${kk}-${i}`}>{conCursiva(q, `${kk}-${i}`)}</span>);
+  return text.split(/(`[^`\n]+`)/g).flatMap((p, i) => (/^`[^`\n]+`$/.test(p)
+    ? [<code key={`${k}-c${i}`} style={CODIGO_EN_LINEA}>{p.slice(1, -1)}</code>]
+    : conNegrita(p, `${k}-${i}`)));
 }
+
+/** Las celdas de una fila de tabla («| a | b |»). */
+const celdas = (t: string) => t.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+const ES_FILA_TABLA = /^\|.*\|$/;
+const ES_SEPARADOR_TABLA = /^\|[\s:|-]+\|$/;
 
 export function Markdown({ text, compacto = false, enlaces = false }: { text: string; compacto?: boolean; enlaces?: boolean }) {
   const lines = text.split('\n');
   const blocks: ReactNode[] = [];
   let bullets: string[] = [];
+  let numeradas: string[] = [];
+  let desde = 1;
+  let tabla: string[][] = [];
+  let cita: string[] = [];
   const flush = () => {
-    if (!bullets.length) return;
-    const items = bullets;
-    blocks.push(<ul key={`ul-${blocks.length}`} style={{ margin: '4px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 3 }}>{items.map((b, i) => <li key={i} style={{ lineHeight: 1.5 }}>{renderInline(b, `li-${blocks.length}-${i}`, enlaces)}</li>)}</ul>);
-    bullets = [];
+    if (bullets.length) {
+      const items = bullets;
+      blocks.push(<ul key={`ul-${blocks.length}`} style={{ margin: '4px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 3 }}>{items.map((b, i) => <li key={i} style={{ lineHeight: 1.5 }}>{renderInline(b, `li-${blocks.length}-${i}`, enlaces)}</li>)}</ul>);
+      bullets = [];
+    }
+    if (numeradas.length) {
+      const items = numeradas;
+      blocks.push(<ol key={`ol-${blocks.length}`} start={desde} style={{ margin: '4px 0', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 3 }}>{items.map((b, i) => <li key={i} style={{ lineHeight: 1.5 }}>{renderInline(b, `ol-${blocks.length}-${i}`, enlaces)}</li>)}</ol>);
+      numeradas = [];
+    }
+    if (tabla.length) {
+      const filas = tabla;
+      const [cab, ...resto] = filas;
+      blocks.push(
+        <div key={`tb-${blocks.length}`} style={{ overflowX: 'auto', margin: '6px 0' }}>
+          <table style={{ borderCollapse: 'collapse', fontSize: 'inherit' }}>
+            <thead><tr>{cab.map((c, i) => <th key={i} style={{ textAlign: 'left', padding: '4px 10px', borderBottom: '1px solid var(--border-strong)', fontWeight: 600 }}>{renderInline(c, `th-${blocks.length}-${i}`, enlaces)}</th>)}</tr></thead>
+            <tbody>{resto.map((f, r) => <tr key={r}>{f.map((c, i) => <td key={i} style={{ padding: '4px 10px', borderBottom: '1px solid var(--border)', verticalAlign: 'top' }}>{renderInline(c, `td-${blocks.length}-${r}-${i}`, enlaces)}</td>)}</tr>)}</tbody>
+          </table>
+        </div>,
+      );
+      tabla = [];
+    }
+    if (cita.length) {
+      const renglones = cita;
+      blocks.push(<blockquote key={`bq-${blocks.length}`} style={{ margin: '4px 0', padding: '2px 0 2px 10px', borderLeft: '3px solid var(--border-strong)', color: 'var(--dim)' }}>{renglones.map((c, i) => <p key={i} style={{ margin: '2px 0', lineHeight: 1.55 }}>{renderInline(c, `bq-${blocks.length}-${i}`, enlaces)}</p>)}</blockquote>);
+      cita = [];
+    }
   };
+  let codigo: string[] | null = null;
   lines.forEach((raw, idx) => {
     const t = raw.trim();
-    if (/^[-*•]\s+/.test(t)) { bullets.push(t.replace(/^[-*•]\s+/, '')); return; }
+    // Un bloque de código (``` … ```): tal cual, sin interpretar nada adentro.
+    if (/^(```|~~~)/.test(t)) {
+      if (codigo) {
+        const cuerpo = codigo.join('\n');
+        blocks.push(<pre key={`pre-${idx}`} style={{ ...CODIGO_EN_LINEA, margin: '6px 0', padding: '8px 10px', borderRadius: 8, overflowX: 'auto', whiteSpace: 'pre', lineHeight: 1.45 }}>{cuerpo}</pre>);
+        codigo = null;
+      } else { flush(); codigo = []; }
+      return;
+    }
+    if (codigo) { codigo.push(raw); return; }
+    const num = t.match(/^(\d+)[.)]\s+(.*)$/);
+    if (num) {
+      if (bullets.length || tabla.length || cita.length) flush();
+      if (!numeradas.length) desde = Number(num[1]);
+      numeradas.push(num[2]);
+      return;
+    }
+    if (/^[-*•]\s+/.test(t)) {
+      if (numeradas.length || tabla.length || cita.length) flush();
+      bullets.push(t.replace(/^[-*•]\s+/, ''));
+      return;
+    }
+    if (ES_FILA_TABLA.test(t)) {
+      if (bullets.length || numeradas.length || cita.length) flush();
+      if (!ES_SEPARADOR_TABLA.test(t)) tabla.push(celdas(t));
+      return;
+    }
+    if (/^>\s?/.test(t)) {
+      if (bullets.length || numeradas.length || tabla.length) flush();
+      cita.push(t.replace(/^>\s?/, ''));
+      return;
+    }
     flush();
     if (t === '') return;
     if (/^---+$/.test(t)) { blocks.push(<hr key={idx} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0' }} />); return; }
-    const h = t.match(/^(#{1,3})\s+(.*)$/);
+    const h = t.match(/^(#{1,6})\s+(.*)$/);
     if (h) { const lvl = h[1].length; blocks.push(<div key={idx} style={{ fontWeight: 600, fontSize: lvl === 1 ? 16 : lvl === 2 ? 15 : 14, color: 'var(--ink)', margin: '6px 0 2px' }}>{renderInline(h[2], `h-${idx}`, enlaces)}</div>); return; }
     blocks.push(<p key={idx} style={{ margin: compacto ? '2px 0' : '3px 0', lineHeight: 1.55 }}>{renderInline(t, `p-${idx}`, enlaces)}</p>);
   });
+  // Un bloque de código sin cerrar se dibuja igual (lo que llegó hasta ahí).
+  if (codigo) blocks.push(<pre key="pre-fin" style={{ ...CODIGO_EN_LINEA, margin: '6px 0', padding: '8px 10px', borderRadius: 8, overflowX: 'auto', whiteSpace: 'pre', lineHeight: 1.45 }}>{(codigo as string[]).join('\n')}</pre>);
   flush();
   return <>{blocks}</>;
 }
