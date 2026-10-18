@@ -479,3 +479,41 @@ tandas 2-3; la tanda 5 del editor de video POSPUESTA por Martín). Todos esos ch
   - docs/pendientes.md quedó marcado DESACTUALIZADO; se concilia después del 20/10.
   - Todos los agentes terminaron; no queda ninguno corriendo.
   - **SEMANAL cuenta 4:** ~76%. Lo que queda, en cada relevo «para después del 20/10».
+- **23:30 UTC:**
+  - **En producción:** el run 129 (29392086f: MaKo en vista del Dashboard no edita, lo decide el server; el plan para unificar los chats en docs/diseno-chats-de-mako.md) y el run 130 (b61321827: Ops Center 6).
+  - **Cerrados en el Centro:** 05688f9a, 341f0257 y dd9f3560.
+  - **Avisarle al chat Sidebar** cuando se pueda escribirle: Ops6 tocó nav.ts (`arribaDe`) para sacar el Second Brain de la barra del super admin.
+  - **Para después del 20/10:**
+    - unificar los chats de MaKo;
+    - el texto del razonamiento en «Trabajando…» (pide revisión de qué viaja);
+    - borrar el mazo viejo (Mazo.tsx, Tablero.tsx);
+    - SheetM a media altura en todas las hojas;
+    - las fotos del Centro en otro dispositivo (decide Martín).
+  - **SEMANAL cuenta 4:** ~78%. No queda ningún agente corriendo.
+
+## 18/10 ~01:45 UTC (17/10 22:45 AR) — ESTADO PARA RETOMAR (Cerebro al 93% de contexto)
+
+**Martín escribió DIRECTO en el chat del Cerebro.** El tope de 10 mensajes se reinició y se puede volver a escribir a los jefes. Su pedido de 10 puntos (con 4 capturas) quedó repartido así:
+- **Ops Center 7** (Sonnet, worktree C:/dev/wt-ops4, rama ops7-1710). Trabaja en:
+  - el «+» y la carita alineados, el Completado ENTERO (no se corta) y los íconos (Ops Center con la estrella, Nuevo chat con el círculo);
+  - MaKo en WhatsApp fuera de la lista y sin «Sin incidentes nuevos»; el aviso de Completado que no salía;
+  - el Runner que pide medir solo;
+  - el chat que trabaja y no dice «Trabajando…» (4); el Second Brain que no se cierra al tocar un chat (5);
+  - chats DORMIDOS si no tienen aviso ni trabajo (6); Markdown en todo texto, con links azules (2b).
+  - Al llegar: ⚠️ REVISAR si tocó el cartero; si no, integrar y subir. Después cerrar en el Centro d8b9023a y 8e3ce267.
+- **Grafo** (Sonnet, C:/dev/wt-grafo, rama grafo-movil-1710). Primera punta: el grafo en el teléfono (tocar nodos, apaisado, barra lateral) y UN solo grafo con filtros. Segunda punta: los nodos «Negocio» de cada workspace salen de lo que MaKo SABE, sin la estructura vieja (punto 1).
+- **CRM Deshacer** (Opus, C:/dev/wt-crm-deshacer). Rediseño con foto antes/después: el d60daf299 NO entra (5 defectos; informe en scratchpad/revision-crm-deshacer.md). Al llegar, revisión ⚠️ (plata, ws1).
+- **Conciliar pendientes** (Sonnet): reescribe docs/pendientes.md y scratchpad/pendientes.json. Al llegar:
+  - `node scratchpad/armar-pendientes.cjs <scratchpad> C:/dev/wt-push-q/docs/pendientes.md` (OJO: el agente ya escribe el md; usar el json sólo para la página);
+  - republicar la página EN LA MISMA URL https://claude.ai/artifact/YSbMq8d8XbV4UFY9NM7t3g... NO: la de pendientes es https://claude.ai/artifact/S7AyYhfn2CF652wGN953i4 (Artifact con file_path scratchpad/pendientes.html, que ya está publicado ahí);
+  - mandarle el link a Martín y ponerlo en un cierre (punto 2: «no me lo enviaste por el Ops Center»).
+- **Prototipo de coherencia** (Sonnet): docs/prototipos/coherencia-1710.html. Trae Home+Dashboard unidos en Dashboard (3), More/perfil como su referencia A en el teléfono Y en la computadora (7), y las tarjetas del CRM, Clients y Plan con la estética de su referencia B (8). Al llegar: leerlo entero, sacarle la envoltura html/head, publicarlo como artifact y mandárselo.
+- **Sidebar nueva**, prototipo ya publicado: https://claude.ai/artifact/YSbMq8d8XbV4UFY9NM7t3g. Martín no lo comentó todavía. El de coherencia se monta sobre él.
+- **Para después del 20/10** (la semanal de la cuenta 4 iba 79%):
+  - punto 9: la tab Chats con el diseño del chat del Ops Center;
+  - punto 10: AI Avatar rehecho copiando HeyGen (Martín: «no crees jamás nada de 0 y tampoco tengas miedo a DEPRECAR»);
+  - implementar los prototipos;
+  - unificar los chats de MaKo (docs/diseno-chats-de-mako.md).
+  - Si Martín cambia la app a otra cuenta con margen, se pueden arrancar antes.
+- **«Ya está» viejos sin mandar** (Sidebar, Dashboard, Infra, CRM, Onboarding, Plan, Ticketera, Automations): lo suyo ya está en producción y Martín lo supo por los cierres. No se mandan, para no gastar.
+- **Producción: run 130** (b61321827). No hay nada subido sin deploy.
