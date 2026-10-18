@@ -155,7 +155,9 @@ test('8: un «Completado» sin ver avisa IGUAL que «Espera tu respuesta»: el m
   assert.equal(segundoRenglon(quieto, 0, null, ya, true), 'revisar', 'sin ver: para revisar');
   assert.equal(segundoRenglon(quieto, 0, null, ya, false), 'ya', 'ya visto: el sello de siempre, sin aviso');
   assert.equal(segundoRenglon(quieto, 0, null, ya), 'ya', 'sin saber si se vio, no avisa');
-  assert.equal(segundoRenglon(quieto, 0, null, { ...ya, ya: undefined }, true), 'previa', 'sólo un «Completado» avisa');
+  // 18/10/2026 (el ✓ del «Completado», tests/centro-ya-visto.test.ts): `sinVer` ya no exige que lo ÚLTIMO sea el «Ya está»;
+  // espera el ✓ aunque el chat haya escrito algo después.
+  assert.equal(segundoRenglon(quieto, 0, null, { ...ya, ya: undefined }, true), 'revisar', 'aunque lo último no sea el «Completado»');
   assert.equal(segundoRenglon(quieto, 1, null, ya, true), 'espera', 'lo que pregunta el chat va primero');
   assert.equal(segundoRenglon(quieto, 0, 'a medio escribir', ya, true), 'revisar', 'y le gana al borrador');
   assert.equal(segundoRenglon({ estado: 'trabajando', viejo: false }, 0, null, ya, true), 'vivo', 'mientras trabaja, en qué');
@@ -166,10 +168,10 @@ test('8: un «Completado» sin ver avisa IGUAL que «Espera tu respuesta»: el m
   assert.equal(avisosDe(0, false), 0);
   // Las dos listas lo dibujan con el estilo de «Espera tu respuesta», y ya no hay un globito verde aparte.
   const pc = codigo('app/admin/operaciones/PiezasCentro.tsx');
-  assert.match(pc, /case 'revisar': return <span className="co-fila__l2 co-fila__l2--espera">Completado · para revisar<\/span>;/);
+  assert.match(pc, /case 'revisar': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta<\/span>;/, 'las mismas palabras (18/10/2026)');
   assert.match(pc, /espera=\{k\.avisos\(c\)\}/, 'computadora: el globito de la criatura');
   const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
-  assert.match(movil, /revisar: <span className="m-operaciones-espera">Completado · para revisar<\/span>/);
+  assert.match(movil, /revisar: <span className="m-operaciones-espera">Espera tu respuesta<\/span>/);
   assert.match(movil, /espera=\{avisosDe\(espera, nuevo\)\}/, 'teléfono: el globito de la criatura');
   assert.match(movil, /const avisos = centro\.avisos;/, 'y el orden de la lista');
   assert.doesNotMatch(pc + movil, /co-aviso-ya|co-fila__hace--nuevo/, 'sin el globito verde de antes');

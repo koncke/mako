@@ -249,7 +249,7 @@ test('7: la fila de un chat que NO se abrió avisa su «Completado» (lo último
   const motor = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
   assert.match(motor, /turnosParaLaLista\(c, turnos, ultimos, mirando === c\.clave\), preguntas\[c\.clave\]\)/);
   assert.match(motor, /if \(f\.ultimos\) \{/, 'cada refresco');
-  assert.match(sinComentarios(leer('app/admin/operaciones/acciones.ts')), /leerUltimosTurnos\(\)\]\);\s*return \{ ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos \}/);
+  assert.match(sinComentarios(leer('app/admin/operaciones/acciones.ts')), /leerUltimosTurnos\(\), leerYaVistosDe\(\)\]\);\s*return \{ ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos, yaVistos \}/);
   for (const f of ['app/admin/operaciones/datos.ts', 'app/m/operaciones/page.tsx']) assert.match(sinComentarios(leer(f)), /ultimosIniciales: ultimos/, f);
 });
 
