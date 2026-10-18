@@ -671,4 +671,24 @@ export const BITACORA: Hito[] = [
       'tests/centro-largos.test.ts, tests/centro-caja.test.ts',
     ],
   },
+  {
+    fecha: '18 oct', hora: '16:10', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El ✓ del «Completado»: el chat espera tu respuesta hasta que lo tocas; y el «atrás» vuelve a la lista',
+    pedido: 'La notificación de todos los chats siempre debe ser «Espera tu respuesta», y no desaparecer hasta que yo le dé un check al mensaje de completado',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Cada «Completado» lleva un ✓ arriba a la derecha; hasta que lo tocas, el chat dice «Espera tu respuesta» en la lista.',
+      'No se apaga al abrir el chat ni si el chat escribe algo después, y el ✓ vale igual en la computadora y en el teléfono.',
+      'Los «Completado» que no aparecían (el chat había escrito 3 cosas después) ahora llegan a la lista.',
+      'En el teléfono, el «atrás» en un chat de Claude Code te deja en la lista de chats, no en el chat de MaKo.',
+    ],
+    archivos: [
+      'lib/centro-chats.ts — esperaCheck, ultimoYaEsta; lib/centro-ya-vistos-db.ts — el ✓ en MaKo',
+      'lib/operaciones-reglas.ts — resumirTurnos suma el último «Ya está»',
+      'app/admin/operaciones/Avance.tsx — el ✓ de la tarjeta; useCentro.ts, PiezasCentro.tsx, ChatsMovil.tsx — la lista',
+      'app/m/second-brain/SecondBrainCentroM.tsx, app/m/mako/ChatMako.tsx — el «atrás»',
+      'tests/centro-ya-visto.test.ts, tests/centro-atras-android.test.ts',
+    ],
+  },
 ];
