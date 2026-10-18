@@ -1724,3 +1724,12 @@ dibujan van aparte del motor (ChatNuevoPiezas.tsx) para poder probarlas: el moto
 
 **Sin hacer:** nada se vio en el Android de Martín (medido en Chrome de escritorio con el CSS real, y tests); el tope de 4000 / 600
 del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la medición automática de una cuenta sin Runner (arriba).
+
+## Los pedidos del Ops Center a chats en modo «auto» quedaban RETENIDOS (18/10/2026)
+
+- **Síntoma:** Martín le mandó a Onboarding un pedido de 13 puntos desde el Ops Center y «no hizo nada». El Runner lo entregó, pero el chat lo retuvo esperando aprobación. Martín lo veía como ignorado.
+- **Causa:** el Runner corre en `bypassPermissions` y la mayoría de los chats en `auto`. La app retiene los mensajes que llegan de una sesión en otro modo, salvo que vengan de la sesión que abrió ese chat (el Cerebro). Subir un chat a bypass no se puede si no se lanzó con `--dangerously-skip-permissions`.
+- **Regla:**
+  - Un envío del Runner que queda retenido se le pasa ENTERO al Cerebro («REENVIAR A <sesión>: …»). El Cerebro se lo reenvía a ese chat, como su padre, y ahí sí entra.
+  - Un chat nuevo se abre desde el Cerebro o en el mismo modo que el Runner.
+- **Chats en `auto` al 18/10:** Onboarding, Ops Center 3, CRM, Ticketera, Dashboard, Second Brain, MaKo Alert, Automations, Infra, Pagos y AI Avatar.
