@@ -26,8 +26,14 @@ import { createPortal } from 'react-dom';
 import { Icon } from '@/app/_components/icons';
 import { colorDeNombre, inicialesDe, NOMBRE_PRIORIDAD, type ColorTarjeta, type InsigniaCanal, type PrioridadTarea } from '@/lib/tarjeta-kanban';
 
+// ⚠️ LAS VARIABLES VAN EN TODA PIEZA DEL KIT, no en unas raíces. Hasta el 18/10 vivían en `.tk-raiz, .tk, .tk-ptabs,
+// .tk-feat, .tk-sheet`, y una pieza usada SUELTA no las veía: el círculo del Plan (dentro de la tarjeta del Plan, que no
+// es `.tk`) tenía `--pc` vacío y salía con borde BLANCO sobre la tarjeta blanca —invisible, en la computadora y en el
+// teléfono—, y la cara del teléfono (dentro de `.m-kb-tj`) dibujaba las iniciales sin su círculo de color. Ningún test
+// lo veía: el CSS era válido y el clic andaba. `:where(...)` no suma especificidad, así que el modo oscuro de abajo
+// sigue ganando. Lo fija tests/tarjetas-familia.test.ts («toda pieza del kit lleva sus variables»).
 export const CSS_TARJETAS = `
-.tk-raiz, .tk, .tk-ptabs, .tk-feat, .tk-sheet {
+.tk, :where([class^="tk-"], [class*=" tk-"]) {
   --tk-card: var(--card-bg, var(--surface));
   --tk-line: rgba(46, 52, 64, .06);
   --tk-sombra: 0 1px 2px rgba(46, 52, 64, .06), 0 6px 20px rgba(46, 52, 64, .07);
@@ -39,7 +45,7 @@ export const CSS_TARJETAS = `
   --tk-p1: #BF616A; --tk-p2: #C79226; --tk-p3: #0B5EE5; --tk-p4: #8E9BB4;
   --tk-feat: linear-gradient(135deg, #0B5EE5 0%, #2F7BF2 100%); --tk-feat-pill-ink: #0A3F9E;
 }
-[data-tema="oscuro"] .tk-raiz, [data-tema="oscuro"] .tk, [data-tema="oscuro"] .tk-ptabs, [data-tema="oscuro"] .tk-feat, [data-tema="oscuro"] .tk-sheet {
+[data-tema="oscuro"] .tk, [data-tema="oscuro"] :where([class^="tk-"], [class*=" tk-"]) {
   --tk-line: rgba(255, 255, 255, .05);
   --tk-sombra: 0 1px 2px rgba(0, 0, 0, .25), 0 8px 22px rgba(0, 0, 0, .25);
   --tk-c-blue: #8AB4FA; --tk-c-blue-bg: #33405A; --tk-c-green: #A3BE8C; --tk-c-green-bg: #3E4A36;

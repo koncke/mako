@@ -4123,6 +4123,15 @@ insignia del canal, plata) en `lib/tarjeta-kanban.ts`, con test.
 - **Los tokens del kit son `--tk-*`, adentro del componente**, apoyados en los de la casa (`--card-bg`, `--primary`,
   `--good`…): la app no tenía sombra de tarjeta ni los colores de sección del prototipo. Oscuro: `[data-tema="oscuro"]`.
   El CSS va con `<style href precedence>`: React lo deduplica aunque cada tarjeta lo monte.
+- ⚠️ **Y los tokens van en TODA pieza `tk-*`, no en unas raíces (18/10, ya en producción).** Se declaraban sólo en
+  `.tk-raiz, .tk, .tk-ptabs, .tk-feat, .tk-sheet`, y el Plan y el teléfono usan piezas SUELTAS: el círculo de prioridad
+  vive en la tarjeta del Plan (que no es `.tk`) y la cara del teléfono en `.m-kb-tj`. Síntoma: el círculo del Plan
+  **invisible** —`--pc` vacío deja el borde en `currentColor`, que es el blanco del tilde, sobre la tarjeta blanca; el de
+  prioridad 3 directamente sin borde, porque un `var()` sin valor invalida el `border` entero— y las iniciales del teléfono
+  sin su círculo de color. Lo que NO lo delataba: el CSS es válido, el clic andaba y los tests de cableado pasaban; sólo
+  se ve mirando la pantalla. El arreglo es la primitiva: `.tk, :where([class^="tk-"], [class*=" tk-"])` (el `:where` no
+  suma especificidad, el oscuro sigue ganando). Lo fija tests/tarjetas-familia.test.ts: por cada regla del kit que USA
+  una variable, una pieza con sólo esa clase tiene que caer en la que las declara (roto: 5/1 con 20 piezas sin color).
 - **`TarjetaEntidad` NO se tocó**: también la usa /admin. Clients dejó de usarla; quien quiera la familia, usa el kit.
 - **Un botón adentro de una tarjeta que ya es botón no vale** (el teléfono): el círculo de una tarea y la píldora «Ver
   info» van como `span` (con rol de botón, el círculo; sólo dibujo, la píldora: toda la tarjeta abre la ficha rápida).

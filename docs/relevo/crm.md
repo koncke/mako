@@ -57,6 +57,18 @@ daba 404 en el build parcial), el Plan (pide «Migra tu Plan a la nube» en un p
 producción) y todo el teléfono (/m/crm entra en un bucle de redirecciones con un build parcial). Mirarlos en el ws3 al
 desplegar. VERDE `42358d5a8`.
 
+**18/10, ya en producción (run 137), la segunda pasada** — sin el Chrome de Martín conectado, con el build parcial y
+`next start -H localhost` (con `-H 127.0.0.1` Next trata el rewrite del teléfono como externo y arma el bucle: está en
+hallazgos-mobile). **En el ws9, no en el ws3**: el ws3 tiene el onboarding PENDIENTE y tapa Clients, el Plan y todo el
+teléfono (también en producción); y **sin escribir nada**: el navegador cortaba todo pedido que no fuera GET, así que el
+círculo del Plan se probó por el POST que intenta mandar (`/api/plan-board`, computadora; la acción de /plan, teléfono).
+Visto bien: /m/crm a 390 con las píldoras por etapa, la ficha rápida y «Mover a…»; Clients del teléfono con la barra;
+More con la barra CRM · Chats · Dashboard · Plan · More. **Roto y arreglado:** el círculo del Plan invisible y las
+iniciales del teléfono sin color (los tokens del kit no llegaban a las piezas sueltas: hallazgos-ui). **No visto:** Clients
+en la computadora (su panel pide una API que el build parcial no tiene). **De otros (no tocado):** More, en el build parcial, deja dos huecos
+en blanco entre la cuenta, Ops Center y Dashboard sheets. Y en producción, los teléfonos de verdad reciben 200 en /crm,
+/plan, /clients, /mas, /chats y /general (registros de Vercel, 24 h: 1.307 pedidos).
+
 ## 0-Ω14. 17/10/2026 (chat «CRM», cuenta `claude4`): las seis tarjetas de la revisión de las llamadas del 16/10
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: cada punta se le pasa al Cerebro.** El orden lo dio el
