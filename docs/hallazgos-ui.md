@@ -4076,3 +4076,38 @@ perfil propio también llega después: hasta entonces se ven las iniciales corre
 
 **Vive en:** `lib/vista-de-otro.ts` · `app/layout.tsx` · `app/_components/Sidebar.tsx` (`SidebarInicial`) ·
 `app/_components/ImpersonationBanner.tsx` · `app/api/auth/me/route.ts` · test: `tests/inspeccionar-primer-cuadro.test.ts`
+
+
+## La sidebar del prototipo: lo que no se ve en el código (17/10/2026, noche)
+
+Martín vio `docs/prototipos/sidebar-nueva-1710.html` y `coherencia-1710.html` («la sidebar es confusa, copiá otras
+apps»). El diseño quedó en `docs/diseno-sidebar.md` (la v2 arriba de todo); acá, las trampas.
+
+- **Los `--grafo-*` parecían la paleta categórica de la casa y no lo son.** `app/globals.css` los prohíbe fuera del
+  lienzo del Second Brain (están pensados contra `#14161B` y suben de brillo a propósito). Los colores de sección son
+  tokens propios, `--sec-*` en `app/_ui/ui.css`, con los valores del prototipo (Nord).
+- **La barra es OSCURA en el tema de siempre aunque la pantalla sea clara.** Un token de color con sólo «claro» y
+  «oscuro» pinta la barra con los tonos de la pantalla: verde oscuro sobre `#14161B`, ilegible. Por eso los `--sec-*`
+  tienen una tercera variante adentro de `[data-sidebar]`, y en True North clara (donde la barra también es clara)
+  vuelven los oscuros. **Regla:** un color que se usa en la barra Y en la pantalla se define por superficie, no por tema.
+- **Dos `Ctrl K` en la misma pantalla.** El inicio del Web Generator ya tenía el suyo (`app/web-generator/Inicio.tsx`,
+  escucha en `document`); el de la barra escucha en `window`, que corre DESPUÉS. Los dos hacían `preventDefault` y
+  enfocaban su campo: ganaba el último, o sea la barra, y la búsqueda de la pantalla dejaba de responder. **Regla:** el
+  atajo global respeta `e.defaultPrevented`; una pantalla con su propio atajo lo marca y gana.
+- **La lógica del buscador no puede vivir en el componente.** El test de los alias («home» → Dashboard) importaba
+  `BuscadorNav.tsx`, que es `'use client'` y arrastra React y el router. La regla (alias y orden de resultados) está en
+  `lib/buscador-nav.ts`, sin React; el componente sólo la dibuja.
+- **«Home» fuera de la barra no es borrar su ítem.** La key `general` la leen las capas, el onboarding por tab y el
+  título de la pestaña: va a `SIN_FILA` (como WhatsApp y Email) y el `match` del Dashboard acepta /general y /focus,
+  para que la barra marque algo mientras exista la ruta.
+- **Las filas «My leads», «My tasks», «My reports» y «Favorites» del prototipo de My Profile no tienen con qué.**
+  No hay un filtro «míos» en el CRM ni en el Plan, ni favoritos guardados: un link a /crm rotulado «My leads» mostraría
+  los de todos. No se dibujaron.
+
+**Sin hacer:** el Dashboard con la hoja fija Focus, el botón Templates y /general → /dashboard (archivos del jefe
+«Dashboard»: `app/dashboard/page.tsx`, `app/general/page.tsx`; el plan con lo medido se le mandó el 17/10). Las filas de
+My Profile de arriba. El chequeo de tipos de esta tanda lo corrió Actions: en la PC no había RAM para el tsc acotado.
+
+**Vive en:** `app/_components/nav.ts` (FAMILIAS, PRONTO, SIN_FILA) · `app/_components/Sidebar.tsx` (la barra fija, la
+cara del menú, Platform › Coming soon) · `app/_components/BuscadorNav.tsx` + `lib/buscador-nav.ts` · `app/_ui/ui.css`
+(`--sec-*`) · `lib/ajustes-secciones.ts` (My Profile, Business settings) · test: `tests/sidebar-nueva.test.ts`

@@ -60,7 +60,8 @@ test('la marca no es un link, mide lo que mide el logo y no se estira', () => {
 });
 
 test('el rótulo de una familia no baja de renglón mientras la barra se anima', () => {
-  const f0 = FAMILIAS[0];
+  // La primera familia CON rótulo (desde el 17/10/2026 noche la de arriba, lo diario, va sin rótulo).
+  const f0 = FAMILIAS.find((x) => !x.sinRotulo)!;
   const f: FamiliaVista = {
     ...f0,
     bloques: f0.bloques.map((b) => b.filter((i) => !i.adminOnly)).filter((b) => b.length),

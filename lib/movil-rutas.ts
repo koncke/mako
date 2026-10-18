@@ -30,13 +30,18 @@
 // Second Brain va ARRIBA de todo, sin título, como en escritorio (con el Ops Center para el super admin, en /m/mas).
 // Experiments salió de la barra (su página sigue). «Calendario» es «Calendar», «Clientes» es «Clients».
 //
+// ⚠️ 17/10/2026 NOCHE, EL PROTOTIPO DE MARTÍN (docs/prototipos/sidebar-nueva-1710.md y coherencia-1710.md): las familias
+// son lo diario (sin título) · Sales · Marketing · Create, con los mismos nombres que la sidebar, y la barra es
+// CRM · Chats · Dashboard · Plan · More: el lugar del medio se llama Dashboard y abre la misma portada (/m/hoy), que en
+// escritorio pasó a ser la hoja fija «Focus» del Dashboard.
+//
 // 15/10/2026 (Martín: «Implementá TODAS las tabs que construimos, todo»): More suma las siete que el
 // prototipo v3 ya dibujaba — Calendario, Second Brain, Experiments, Offer, Copywriting, Curso y
 // Comunidad —, cada una en su lugar de la sidebar. Con eso la capa pm (Plan, MaKo, Dashboard y
 // Calendario) llena los huecos de CRM y Chats con Calendario y Dashboard, y More le queda en MaKo.
 // =============================================================================
 
-import { FAMILIAS, SUPERADMIN_MENU, TODOS_LOS_ITEMS, USER_NAV, type NavItem } from '@/app/_components/nav';
+import { FAMILIAS, PRONTO, SUPERADMIN_MENU, TODOS_LOS_ITEMS, USER_NAV, type NavItem } from '@/app/_components/nav';
 import { tabEnCapa } from './capas';
 import { puedeVerItem, resolverTab, type VistaNav } from './nav-visibilidad';
 import { capaDeHojaDeRol } from './graficos-roles';
@@ -47,7 +52,10 @@ import { rutaDeTabVieja } from './ajustes-secciones';
 // Las tabs de CREACIÓN (17/10/2026): sus filas ocultas y su ida y vuelta viven en ./movil-creacion.ts.
 import { SECCIONES_CREACION, rutaEscritorioCreacion, rutaMovilCreacion, type IdCreacion } from './movil-creacion';
 
-/** Los cinco destinos FIJOS de la barra. `hoy` es General (la portada; su ruta interna es /m/hoy). */
+/**
+ * Los cinco destinos FIJOS de la barra. `hoy` es el DASHBOARD desde el 17/10/2026 noche (antes «General»): abre la
+ * portada (/m/hoy), que es lo que en escritorio pasó a ser la hoja fija «Focus» del Dashboard.
+ */
 export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
@@ -109,10 +117,16 @@ export type DefSeccionMas = {
   superAdmin?: true;
 };
 
-/** Las familias de la sidebar, con su nombre de escritorio y en su orden (una caja de More cada una). */
+/**
+ * Las familias de la sidebar, con su nombre de escritorio y en su orden (una caja de More cada una). Desde el 17/10/2026
+ * noche son las del prototipo (docs/prototipos/sidebar-nueva-1710.md): lo diario SIN título arriba, y Sales · Marketing ·
+ * Create. `masCompleto` las cruza con nav.ts por la KEY (antes por la posición: con cuatro familias, la tercera se perdía).
+ */
 export const FAMILIAS_MAS = [
-  { id: 'operate', label: 'Operate' },
-  { id: 'sales', label: 'Sales Machine' },
+  { id: 'diario', label: null },
+  { id: 'sales', label: 'Sales' },
+  { id: 'marketing', label: 'Marketing' },
+  { id: 'create', label: 'Create' },
 ] as const;
 export type FamiliaMas = (typeof FAMILIAS_MAS)[number]['id'];
 
@@ -130,8 +144,10 @@ export const DESTINOS_MOVIL: readonly DefDestino[] = [
   // La key de la bandeja UNIFICADA de escritorio (/chats, 14/10/2026). Ve lo mismo que `whatsapp` en todas las
   // capas (tests/chats-registro.test.ts fija la paridad), así que nadie pierde la pestaña al cambiarla.
   { id: 'chats', label: 'Chats', href: RUTA_CHATS, icon: 'chats', navKey: 'chats' },
-  // General AL MEDIO y como portada (Martín, 14/10/2026: «el ícono del medio, abajo, va a ser General»).
-  { id: 'hoy', label: 'General', href: HOME_MOVIL, icon: 'general', navKey: null },
+  // AL MEDIO y como portada (Martín, 14/10/2026). Desde el 17/10/2026 noche se llama DASHBOARD (prototipo de coherencia,
+  // pedido 3: «la barra de abajo del teléfono pasa a CRM · Chats · Dashboard · Plan · More»): en escritorio «Home» salió
+  // de la barra y el Dashboard abre en su hoja fija Focus, que es lo que era General. Abre la misma portada de siempre.
+  { id: 'hoy', label: 'Dashboard', href: HOME_MOVIL, icon: 'graphics', navKey: null },
   { id: 'plan', label: 'Plan', href: '/m/plan', icon: 'todo', navKey: 'todo' },
   { id: 'mas', label: 'More', href: RUTA_MAS, icon: 'mas', navKey: null },
 ];
@@ -153,30 +169,34 @@ export const TITULO_INBOX = 'Avisos';
  * MOVIL_ACTIVO prendido). Sin app/m/<carpeta>/page.tsx, todo eso es un 404 (el mismo test lo nombra).
  */
 export const SECCIONES_MAS: readonly DefSeccionMas[] = [
-  // Operate (General, Plan y CRM están en la barra; Chats también, y adentro de Chats se configuran WhatsApp y Email).
-  { id: 'calendario', label: 'Calendar', href: '/m/calendario', icon: 'calendario', navKey: 'calendario', familia: 'operate' },
-  { id: 'dashboard', label: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'operate' },
-  { id: 'ads', label: 'Ads Manager', href: '/m/ads', icon: 'grid', navKey: 'ads-manager', familia: 'operate' },
+  // Lo diario (Plan, Chats y el Dashboard están en la barra; adentro de Chats se configuran WhatsApp y Email). Las HOJAS
+  // del Dashboard (/m/dashboard) quedan como fila de More mientras la portada no las tenga adentro (en escritorio son
+  // pestañas al lado de Focus): «Dashboard sheets», para no repetir el nombre del lugar de la barra.
+  { id: 'dashboard', label: 'Dashboard sheets', titulo: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'diario' },
+  // Sales (CRM está en la barra).
+  { id: 'calendario', label: 'Calendar', href: '/m/calendario', icon: 'calendario', navKey: 'calendario', familia: 'sales' },
+  { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'chatbot', navKey: 'setting', familia: 'sales' },
   // Clients (vino de Customer Success el 17/10/2026). Las páginas de escritorio de Curso y Comunidad piden la capa de
   // `customer-success` (requireCapa) y las keys `cs-curso`/`cs-comunidad` dan lo mismo en las cuatro capas
   // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
-  { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'operate' },
+  { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'sales' },
   // MaKo Partners (17/10/2026): sólo el admin de una agencia (`soloCapas` del ítem de nav.ts, que `puedeVerKey` mira).
-  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: 'operate' },
-  // Sales Machine (lo «pronto» es del super admin). Desde el 17/10/2026 trae Video y Copywriting (ex Content Machine).
-  { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'sales' },
-  { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'sales' },
-  { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'chatbot', navKey: 'setting', familia: 'sales' },
+  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: 'sales' },
+  // Marketing.
+  { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'marketing' },
+  { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'marketing' },
+  { id: 'ads', label: 'Ads Manager', href: '/m/ads', icon: 'grid', navKey: 'ads-manager', familia: 'marketing' },
+  // Create (las piezas).
   // Video y Copywriting son tabs UNIFICADAS de escritorio: la key que gatea es la de la
   // sección que el teléfono muestra (Video Generator; Ads Writer, la única de Copywriting que ve un
   // cliente). `copywriting` NO sirve de navKey: no está en TODOS_LOS_ITEMS (itemsDe aplana las
   // secciones) y la de ADMIN_NAV es otra tab (/admin/copywriting), así que puedeVerKey diría que no.
   // Image (la copia de Canva) no entró en la tanda del 15/10/2026; entró el 17/10/2026, debajo de Video.
-  { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'sales' },
+  { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'create' },
   // Image (17/10/2026): la tab unificada abre su Editor, la copia de Canva (app/m/image-editor), como en escritorio
   // (`resolverTab` lleva a la primera sección que no es «pronto»). Sus otras secciones van en la barra de arriba.
-  { id: 'image', label: 'Image', titulo: 'Image Editor', href: '/m/image-editor', icon: 'imagegen', navKey: 'image-editor', familia: 'sales' },
-  { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'sales' },
+  { id: 'image', label: 'Image', titulo: 'Image Editor', href: '/m/image-editor', icon: 'imagegen', navKey: 'image-editor', familia: 'create' },
+  { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'create' },
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
   { id: 'mako', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'mako', familia: null },
@@ -190,9 +210,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // EL MENÚ DE LA FOTO (17/10/2026, «Mobile 2»): sus filas de More salen de USER_NAV (`masCompleto`), así que acá van
   // OCULTAS: la fila da la cabecera (título y «volver»), el título de la pestaña y la puerta (`requireMovil({ navKey })`),
   // y nunca sube a la barra de un rol.
-  { id: 'tickets', label: 'Reportar problema', href: '/m/tickets', icon: 'soporte', navKey: 'tickets', familia: null, oculta: true },
+  { id: 'tickets', label: 'Report a problem', href: '/m/tickets', icon: 'soporte', navKey: 'tickets', familia: null, oculta: true },
   // «Configuración del negocio»: el índice y cada sección debajo (/m/configuraciones/<sección>, `SECCIONES_NEGOCIO_M`).
-  { id: 'configuraciones', label: 'Configuración del negocio', href: '/m/configuraciones', icon: 'config', navKey: 'configuraciones', familia: null, oculta: true },
+  { id: 'configuraciones', label: 'Business settings', href: '/m/configuraciones', icon: 'config', navKey: 'configuraciones', familia: null, oculta: true },
   // Las del SUPER ADMIN (nav.ts → HERRAMIENTAS), con el nombre de la sidebar. MaKo Messages es una sección de Automations
   // (se llega por la barra de secciones de /m/automations); AI Models y MaKo Context, del menú de su foto.
   { id: 'mensajes', label: 'MaKo Messages', href: '/m/mensajes', icon: 'mako', navKey: 'mensajes', familia: null, oculta: true, superAdmin: true },
@@ -323,7 +343,8 @@ export function seccionesMasVisibles(rol: RolMovil, capa: string | null | undefi
  */
 export function barraMovil(rol: RolMovil, capa: string | null | undefined): ItemBarra[] {
   const visibles = new Set(destinosVisibles(rol, capa).map((d) => d.id));
-  const reserva = seccionesMasVisibles(rol, capa).slice();
+  // Las HOJAS del Dashboard son de su lugar de la barra (17/10/2026 noche): no suben a ocupar otro hueco al lado de él.
+  const reserva = seccionesMasVisibles(rol, capa).filter((s) => !(s.id === 'dashboard' && visibles.has('hoy')));
   const out: ItemBarra[] = [];
   for (const d of DESTINOS_MOVIL) {
     if (d.id === 'mas') continue;
@@ -440,7 +461,7 @@ function filaDeItem(it: NavItem, keys: readonly string[]): FilaMas {
  * More ENTERO para esta persona (17/10/2026): lo que dibuja la sidebar de escritorio, en su orden, con la regla de la
  * sidebar (`puedeVerItem`/`resolverTab`), menos lo que ya está en la barra.
  *   · arriba: Second Brain (el Ops Center lo pone la página, con su propia pregunta de super admin);
- *   · Operate y Sales Machine: cada tab con pantalla es SU fila de `gruposMas` (la regla del teléfono, que además saca
+ *   · lo diario, Sales, Marketing y Create: cada tab con pantalla es SU fila de `gruposMas` (la regla del teléfono, que además saca
  *     el Dashboard al closer sin su hoja); la que no tiene, una fila «En la computadora»; un desplegable, una hoja;
  *   · el menú de la foto (sin «Tu cuenta», que es la primera fila de More) y, sólo para el super admin sin mirar un
  *     cliente, el suyo (`SUPERADMIN_MENU`).
@@ -458,10 +479,10 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
   }
   const enBarra = new Set(DESTINOS_MOVIL.map((d) => d.navKey).filter((k): k is string => k != null));
   // Lo que ya está en la barra de ESTE rol, por su ruta del teléfono: General no tiene key en DESTINOS_MOVIL (es la
-  // portada, `navKey: null`) y sin esto aparecía otra vez en Operate (visto a 390 px el 17/10/2026).
+  // portada, `navKey: null`) y sin esto aparecía otra vez en su familia (visto a 390 px el 17/10/2026).
   const barra = new Set(barraMovil(rol, capa).map((b) => b.href));
-  FAMILIAS.forEach((f, i) => {
-    const familia = FAMILIAS_MAS[i];
+  FAMILIAS.forEach((f) => {
+    const familia = FAMILIAS_MAS.find((x) => x.id === f.key);
     if (!familia) return;
     const deFamilia = conPantalla.find((g) => g.familia === familia.id)?.secciones ?? [];
     const usadas = new Set<IdSeccionMas>();
@@ -494,7 +515,14 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
     .filter((it) => it.key !== 'perfil' && !it.soloSeccion && (!it.adminOnly || adminShell) && puedeVerItem(it, vista))
     .map((it) => filaDeItem(it, [it.key]));
   if (menu.length) out.push({ id: 'menu', titulo: null, filas: menu });
-  if (adminShell) out.push({ id: 'superadmin', titulo: null, filas: SUPERADMIN_MENU.map((it) => filaDeItem(it, [it.key])) });
+  // El del super admin, como Platform en el menú de la foto (17/10/2026 noche): sus herramientas y «Coming soon» desplegable
+  // con las «pronto», que dejaron de ser filas de la barra (nav.ts → PRONTO).
+  if (adminShell) {
+    out.push({ id: 'superadmin', titulo: null, filas: [
+      ...SUPERADMIN_MENU.map((it) => filaDeItem(it, [it.key])),
+      { tipo: 'grupo', key: 'pronto', label: 'Coming soon', icon: 'reloj', filas: PRONTO.map((it) => filaDeItem(it, [it.key])) },
+    ] });
+  }
   return out;
 }
 
@@ -520,6 +548,9 @@ export function destinoActivo(
   for (const d of barra) if (dentro(p, d.href)) return d.id;
   // La campana vive en General: sus pantallas marcan General.
   if (dentro(p, RUTA_INBOX) && barra.some((d) => d.id === 'hoy')) return 'hoy';
+  // Las HOJAS del Dashboard (/m/dashboard) son del mismo lugar de la barra (17/10/2026 noche), como en escritorio el
+  // Dashboard marca Focus y cada hoja. Si el rol no tiene ese lugar, cae en More como cualquier sección.
+  if (dentro(p, '/m/dashboard') && barra.some((d) => d.id === 'hoy')) return 'hoy';
   if (seccionDeRuta(p) || dentro(p, '/m/cuenta')) return 'mas';
   return null;
 }

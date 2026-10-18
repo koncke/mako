@@ -12,6 +12,7 @@
 
 import { TODOS_LOS_ITEMS, ADMIN_NAV, USER_NAV, type NavItem } from '@/app/_components/nav';
 import { DESTINOS_MOVIL, RUTA_INBOX, SECCIONES_MAS, TITULO_INBOX, rutaEscritorio, tituloSeccion } from './movil-rutas';
+import { TITULO_CUENTA } from './ajustes-secciones';
 
 export const MARCA = 'MaKo';
 
@@ -44,7 +45,7 @@ const EXTRA: Record<string, string> = {
   // Y las secciones de More (v2): sin ellas /m/dashboard, /m/ads… quedaban «MaKo» a secas. Con el
   // nombre de la PANTALLA, el de la cabecera: /m/copywriting es «Ads Writer», como /ads-writer.
   ...Object.fromEntries(SECCIONES_MAS.map((s) => [s.href, tituloSeccion(s)])),
-  '/m/cuenta': 'Tu cuenta', // el mismo nombre que en la computadora (lib/ajustes-secciones.ts)
+  '/m/cuenta': TITULO_CUENTA, // el mismo nombre que en la computadora («My Profile» desde el 17/10/2026 noche)
   // La campana de General (v3: Inbox dejó la barra; desde el 15/10/2026 se titula Avisos, como la cabecera).
   [RUTA_INBOX]: TITULO_INBOX,
   '/m': 'MaKo',

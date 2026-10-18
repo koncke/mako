@@ -32,8 +32,9 @@ test('«Community» (key cs-comunidad) es una sub-tab de Clients, y Clients es l
   assert.equal(item.href, '/clients/community');
   assert.ok(NOMBRES_ICONO.includes(item.icon), `el ícono «${item.icon}» no existe: dibujaría un punto`);
   assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'cs-comunidad'), 'Community volvió a ser una fila de la barra');
-  const clients = FAMILIAS.find((f) => f.key === 'operate')?.bloques.flat().find((i) => i.key === 'customer-success');
-  assert.equal(clients?.href, '/clients', 'Clients no está en Operate');
+  // Desde el 17/10/2026 noche Clients es una fila de Sales (la sidebar del prototipo).
+  const clients = FAMILIAS.find((f) => f.key === 'sales')?.bloques.flat().find((i) => i.key === 'customer-success');
+  assert.equal(clients?.href, '/clients', 'Clients no está en Sales');
 });
 
 test('se enciende sólo en su ruta: ni Clientes ni Curso se encienden ahí, ni ella en las de ellos', () => {
