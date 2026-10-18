@@ -108,7 +108,7 @@ test('13b · el componente usa la taxonomía del grafo: color y filtro', () => {
   const g = sinComentarios(leer('app/second-brain/Grafo.tsx'));
   assert.match(g, /const tax = cerebro\.taxonomia \?\? TAXONOMIA_NEGOCIO;/);
   assert.match(g, /pasaFiltro\(n, filtro, tax\)/);
-  assert.match(g, /\{esNegocio && <FiltroMapa/, 'el filtro de secciones es del negocio');
+  assert.match(g, /<FiltroMapa[\s\S]*?tax=\{tax\}/, 'el filtro conoce la taxonomía del grafo: las dos capas del super admin');
 });
 
 test('13b · sólo quien opera recibe la capa, y la construcción no se edita ni se exporta', () => {
@@ -116,9 +116,10 @@ test('13b · sólo quien opera recibe la capa, y la construcción no se edita ni
   assert.match(p, /const construccion = opera \? construccionDeMako\(\) : null;/);
   assert.match(p, /try \{ return puedeOperar\(await getSesionAdmin\(\), await wsSuperAdmin\(\)\); \} catch \{ return false; \}/, 'la guarda del Centro, tal cual');
   const v = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
-  const obra = v.match(/<Grafo key="construccion"[^>]*\/>/)?.[0] ?? '';
-  assert.ok(obra, 'el grafo de la construcción');
-  assert.ok(!/onEditarArea|accion=/.test(obra), 'sin editor ni «Exportar»');
+  // 17/10/2026: ya no hay un segundo grafo, sino UNO con las dos capas (lib/cerebro-union.ts).
+  assert.equal((v.match(/<Grafo\b/g) ?? []).length, 1, 'un solo grafo');
+  assert.match(v, /construccion \? unirCerebros\(cerebro, construccion\) : cerebro/, 'sin construcción, el grafo de siempre');
+  assert.match(v, /tax \? filtroDelNegocio\(filtro, tax\) : filtro/, '«Exportar» baja sólo el negocio');
   const m = sinComentarios(leer('app/m/second-brain/mapa/page.tsx'));
   assert.match(m, /const construccion = \(await quienOpera\(\)\) \? construccionDeMako\(\) : null;/, 'el teléfono, con la misma guarda');
   assert.match(sinComentarios(leer('app/m/second-brain/SecondBrainM.tsx')), /\{enObra && <ConstruccionM cerebro=\{construccion\} \/>\}/);
@@ -133,8 +134,7 @@ test('13b · /admin/dev lleva al grafo, y la barra de antes se fue', () => {
   assert.ok(i > 0 && j > i, 'el guard primero, después al grafo');
 });
 
-test('13b · la capa elegida va en la URL, sin el estado de Next', () => {
+test('13b · `?capa=construccion` abre el mapa único ya filtrado a esa capa', () => {
   const v = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
-  assert.match(v, /construccion && params\?\.get\('capa'\) === 'construccion'/);
-  assert.match(v, /window\.history\.replaceState\(null, '', u\);/);
+  assert.match(v, /construccion && tax && params\?\.get\('capa'\) === CAPA_CONSTRUCCION \? filtroDeCapa\(filtroVacio\(\), tax, CAPA_CONSTRUCCION\)/);
 });

@@ -13,14 +13,24 @@
 //     intención explícita («Editar» en la barra lateral, o un `?area=` de otra pantalla) y abre el editor en una caja
 //     encima (AreasHub.tsx), nunca debajo del grafo.
 //
+// UN SOLO GRAFO PARA EL SUPER ADMIN (17/10/2026, Martín: «no pongas 2 grafos, todo 1 solo... para eso existen los filtros
+// para ver desarrollo o ventas o marketing»). Antes se dibujaban dos `<Grafo>` y un selector «Negocio / Construcción»;
+// ahora `unirCerebros` (lib/cerebro-union.ts) junta el negocio y la construcción de MaKo en un `Cerebro`, y las capas son
+// un atajo del filtro de carpetas (FiltroMapa.tsx y la barra lateral). El de un cliente no cambia: no trae construcción.
+//
+// EL TELÉFONO (`movil`): el MISMO grafo en una capa a pantalla entera (app/m/second-brain/SecondBrainM.tsx). Sin cabecera
+// (en un teléfono de costado son 340 px de alto), sin editor de áreas (la hoja de áreas del teléfono lo hace: `alEditarArea`)
+// y sin «Exportar» (el ZIP es de la computadora).
+//
 // EL FILTRO VIVE ACÁ y no adentro del grafo porque «Exportar» tiene que bajar el MISMO recorte que se está mirando.
 // =============================================================================
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AREAS, type AreaId, type Cerebro } from '@/lib/cerebro-modelo';
+import { AREAS, CAPA_CONSTRUCCION, type AreaId, type Cerebro } from '@/lib/cerebro-modelo';
 import { vistaValida } from '@/lib/secciones-negocio';
-import { filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
+import { filtroDeCapa, filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
+import { filtroDelNegocio, unirCerebros } from '@/lib/cerebro-union';
 import { Icon } from '@/app/_components/icons';
 import { Grafo } from './Grafo';
 import { AreasHub } from './AreasHub';
@@ -32,15 +42,21 @@ const MS_GRAFO_VIVO = 180_000;
 
 export const TITULO_SECOND_BRAIN = 'Second Brain';
 export const SUBTITULO_SECOND_BRAIN = 'Todo lo que MaKo sabe de tu negocio.';
-/** La capa del super admin: la construcción de MaKo (lib/cerebro-construccion.ts). */
+/** Lo que se lee del mapa único del super admin, que además trae la construcción de MaKo. */
 export const SUBTITULO_CONSTRUCCION = 'Cómo se está construyendo MaKo.';
-type Capa = 'negocio' | 'construccion';
+export const SUBTITULO_UNIDO = 'Tu negocio y cómo se construye MaKo.';
 
-export function VistaCerebro({ cerebro: delServidor, construccion = null, funnelPanel }: {
+export function VistaCerebro({ cerebro: delServidor, construccion = null, funnelPanel, movil = false, alCerrar, alEditarArea }: {
   cerebro: Cerebro;
   /** La construcción de MaKo: sólo para quien opera (el servidor la manda null a todos los demás, pagina.tsx). */
   construccion?: Cerebro<string> | null;
   funnelPanel: ReactNode;
+  /** El teléfono: la capa a pantalla entera (sin cabecera ni editor ni «Exportar»). */
+  movil?: boolean;
+  /** Sólo en el teléfono: la flecha que vuelve a la lista. */
+  alCerrar?: () => void;
+  /** Sólo en el teléfono: «Editar» de la barra lateral abre la hoja del área en la lista, no el editor de escritorio. */
+  alEditarArea?: (area: AreaId) => void;
 }) {
   // ── EL GRAFO VIVO (punto 13, 17/10/2026) ──────────────────────────────────
   // El grafo llega del servidor y se vuelve a pedir cada 3 minutos mientras la pestaña está a la vista. Con la huella
@@ -62,34 +78,31 @@ export function VistaCerebro({ cerebro: delServidor, construccion = null, funnel
     return () => { vivo = false; window.clearInterval(t); };
   }, [huella]);
 
+  // UN SOLO GRAFO: el negocio (vivo) y, para quien opera, la construcción de MaKo (que no cambia entre deploys). Se
+  // vuelve a juntar con cada vuelta del grafo vivo; las dos nubes asentadas no se recalculan (lib/cerebro-union.ts).
+  const unido = useMemo<Cerebro<string>>(() => (construccion ? unirCerebros(cerebro, construccion) : cerebro), [cerebro, construccion]);
+  const tax = unido.taxonomia;
+
   // `?area=oferta` abre el editor de esa sección de entrada: otras pantallas mandan acá a hacer algo concreto (el
   // selector de oferta del CRM manda a crear una). Se valida contra AREAS: un valor cualquiera no abre nada.
   const params = useSearchParams();
   const areaInicial = AREAS.find((a) => a.id === params?.get('area'))?.id ?? null;
   // `&vista=persona` abre esa sub-pestaña del área (lib/secciones-negocio.ts → rutaSeccion).
   const vistaInicial = areaInicial ? vistaValida(areaInicial, params?.get('vista')) : null;
-  const [editando, setEditando] = useState<AreaId | null>(areaInicial);
+  const [editando, setEditando] = useState<AreaId | null>(movil ? null : areaInicial);
   const volver = useVolverDelGrafo();
 
-  // ── LAS DOS CAPAS (super admin): el negocio que se mira y la construcción de MaKo. Son dos grafos, no uno mezclado:
-  //    la construcción es de la plataforma y el negocio es del workspace. `?capa=construccion` abre en ella. ──
-  const [capa, setCapa] = useState<Capa>(() => (construccion && params?.get('capa') === 'construccion' ? 'construccion' : 'negocio'));
-  const enObra = capa === 'construccion' && construccion != null;
-  const elegirCapa = (c: Capa) => {
-    setCapa(c);
-    try {
-      const u = new URL(window.location.href);
-      if (c === 'construccion') u.searchParams.set('capa', c); else u.searchParams.delete('capa');
-      // `null` y no el estado de Next: con el `__NA` del router, la URL se pisa (docs/hallazgos-operaciones.md).
-      window.history.replaceState(null, '', u);
-    } catch { /* es una comodidad */ }
-  };
-  const [filtroObra, setFiltroObra] = useState<EstadoFiltro>(filtroVacio);
-
-  const [filtro, setFiltro] = useState<EstadoFiltro>(filtroVacio);
+  // `?capa=construccion` (el link de /admin/dev y de las bitácoras) abre el mapa YA filtrado a esa capa.
+  const [filtro, setFiltro] = useState<EstadoFiltro>(() => (
+    construccion && tax && params?.get('capa') === CAPA_CONSTRUCCION ? filtroDeCapa(filtroVacio(), tax, CAPA_CONSTRUCCION) : filtroVacio()
+  ));
   /** Lo que el grafo muestra de verdad (filtro + búsquedas): el rótulo de «Exportar» lo usa. */
   const [verse, setVerse] = useState<{ ids: string[]; recortado: boolean }>({ ids: [], recortado: false });
   const alVerse = useCallback((info: { ids: string[]; recortado: boolean }) => setVerse(info), []);
+
+  // «Exportar» baja el ZIP del NEGOCIO: con el mapa recortado a la construcción no hay nada que bajar, y un filtro
+  // vacío bajaría todo el negocio (lo contrario de lo que se mira).
+  const filtroExportable = useMemo(() => (tax ? filtroDelNegocio(filtro, tax) : filtro), [filtro, tax]);
 
   return (
     <div className="sb-vista" data-tema="oscuro">
@@ -107,14 +120,6 @@ export function VistaCerebro({ cerebro: delServidor, construccion = null, funnel
         }
         .sb-cab__volver:hover { background: var(--surface-2); color: var(--ink); }
         .sb-cab__volver:focus-visible { outline: 2px solid var(--mako); outline-offset: 2px; }
-        /* El selector de capa del super admin: un segmentado chico, a la derecha de la cabecera. */
-        .sb-capas { margin-left: auto; display: inline-flex; padding: 3px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); flex: none; }
-        .sb-capas button {
-          border: none; background: transparent; color: var(--dim); font: inherit; font-size: 12.5px; font-weight: 550;
-          padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
-        }
-        .sb-capas button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
-        .sb-capas button:focus-visible { outline: 2px solid var(--mako); outline-offset: 1px; }
         /* El volver es de la ventana angosta: ahí la lista de chats y el panel no entran juntos
            (app/admin/operaciones/centro.css, el mismo corte de 720 px). */
         @media (max-width: 720px) {
@@ -124,39 +129,31 @@ export function VistaCerebro({ cerebro: delServidor, construccion = null, funnel
           .sb-cab__sub { font-size: 12.5px; }
         }
       `}</style>
-      <header className="sb-cab">
-        {volver && (
-          <button type="button" className="sb-cab__volver" onClick={volver} aria-label="Volver a los chats">
-            <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
-          </button>
-        )}
-        <div style={{ minWidth: 0 }}>
-          <h1 className="sb-cab__titulo">{TITULO_SECOND_BRAIN}</h1>
-          <p className="sb-cab__sub">{enObra ? SUBTITULO_CONSTRUCCION : SUBTITULO_SECOND_BRAIN}</p>
-        </div>
-        {construccion && (
-          <div className="sb-capas" role="tablist" aria-label="Qué grafo ver">
-            <button type="button" role="tab" aria-selected={!enObra} onClick={() => elegirCapa('negocio')}>Negocio</button>
-            <button type="button" role="tab" aria-selected={enObra} onClick={() => elegirCapa('construccion')}>Construcción</button>
+      {!movil && (
+        <header className="sb-cab">
+          {volver && (
+            <button type="button" className="sb-cab__volver" onClick={volver} aria-label="Volver a los chats">
+              <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
+            </button>
+          )}
+          <div style={{ minWidth: 0 }}>
+            <h1 className="sb-cab__titulo">{TITULO_SECOND_BRAIN}</h1>
+            <p className="sb-cab__sub">{construccion ? SUBTITULO_UNIDO : SUBTITULO_SECOND_BRAIN}</p>
           </div>
-        )}
-      </header>
-      {/* `key`: cambiar de capa es otro grafo (su entrada, su foco y sus vistos), no el mismo con otros datos. La
-          construcción no se edita ni se exporta: es la bitácora de MaKo, y cada nodo lleva a la suya. */}
-      {enObra ? (
-        <Grafo key="construccion" cerebro={construccion} onVerse={alVerse} filtro={filtroObra} onFiltro={setFiltroObra} />
-      ) : (
-        <Grafo
-          key="negocio"
-          cerebro={cerebro}
-          onEditarArea={setEditando}
-          onVerse={alVerse}
-          filtro={filtro}
-          onFiltro={setFiltro}
-          accion={<BotonExportar cerebro={cerebro} filtroMapa={filtro} recorte={verse} />}
-        />
+        </header>
       )}
-      <AreasHub abierta={editando} onAbrir={setEditando} funnelPanel={funnelPanel} vistaInicial={vistaInicial} />
+      {/* UN solo `<Grafo>`: tests/second-brain-grafo-movil.test.ts falla si vuelve a haber dos. */}
+      <Grafo
+        cerebro={unido}
+        onEditarArea={movil ? alEditarArea : setEditando}
+        onVerse={alVerse}
+        filtro={filtro}
+        onFiltro={setFiltro}
+        movil={movil}
+        alCerrar={alCerrar}
+        accion={!movil && filtroExportable ? <BotonExportar cerebro={cerebro} filtroMapa={filtroExportable} recorte={verse} /> : undefined}
+      />
+      {!movil && <AreasHub abierta={editando} onAbrir={setEditando} funnelPanel={funnelPanel} vistaInicial={vistaInicial} />}
     </div>
   );
 }
