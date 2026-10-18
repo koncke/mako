@@ -31,7 +31,7 @@ export type AdjuntosDeCaja = {
 };
 
 // Pegar una imagen: pegar.ts (sin CSS, para que su test lo importe).
-export { alPegar } from './pegar';
+export { alPegar, alSoltar, traeArchivos } from './pegar';
 
 /** Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. */
 export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {

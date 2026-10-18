@@ -1465,3 +1465,11 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-ya__check:hover { border-color: var(--good); color: var(--good); }
 .co-ya__check:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-ya__check--ok, .co-ya__check--ok:hover { border-color: transparent; color: var(--good); cursor: default; }
+/* Arrastrar y soltar un archivo en la conversación (18/10/2026): mientras se arrastra, toda la conversación es la zona.
+   pointer-events: none para que el «soltar» llegue a la sección, no al cartel. */
+.co-panel[data-soltando] { position: relative; }
+.co-soltar {
+  position: absolute; inset: 8px; z-index: 30; display: grid; place-items: center; pointer-events: none;
+  border: 2px dashed var(--primary); border-radius: 12px; background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  font-size: var(--fs-md); font-weight: 600; color: var(--primary-strong);
+}

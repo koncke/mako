@@ -34,7 +34,7 @@ import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat'
 import { Pregunta } from './Pregunta';
 import { BotonMandar } from './Microfono';
 import { BotonEmojis } from './Emojis';
-import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from './AdjuntosCaja';
+import { ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { TareasVinculadas, irAlTurno } from './Avance';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from './ConLinks';
 import { Muneco, animoDe } from './Muneco';
@@ -115,6 +115,8 @@ export function Conversacion({
   const lineas = lineasDeFuera ?? historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
   // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
+  /** Se está arrastrando un archivo sobre la conversación: se dibuja dónde soltarlo (18/10/2026). */
+  const [soltando, setSoltando] = useState(false);
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
@@ -219,7 +221,12 @@ export function Conversacion({
   };
 
   return (
-    <section className="co-panel" aria-label={`Conversación con ${chat.titulo}`}>
+    <section className="co-panel" aria-label={`Conversación con ${chat.titulo}`} data-soltando={soltando || undefined}
+      // Arrastrar una imagen o un PDF a la conversación lo adjunta (18/10/2026): sin esto el navegador lo abría en la pestaña.
+      onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); e.dataTransfer.dropEffect = adjuntos?.puede ? 'copy' : 'none'; if (!soltando) setSoltando(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSoltando(false); }}
+      onDrop={(e) => { setSoltando(false); alSoltar(e, adjuntos); }}>
+      {soltando && <div className="co-soltar" aria-hidden>{adjuntos?.puede ? 'Suelta para adjuntar' : 'Este chat no recibe archivos'}</div>}
       <header className="co-cab">
         <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
           <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
