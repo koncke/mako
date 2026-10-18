@@ -47,7 +47,7 @@ import { join } from 'node:path';
 import {
   etapaDeArranque, mensajesDeArranque, leerRespuesta, tiposOfrecidos, tipoRecomendado, pareceNegocio,
   primerNombre, sinMarca, briefDesdeArranque, fundirBrief, siguientePreguntaFase,
-  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, OBJETIVOS_SUGERIDOS,
+  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, ORIGENES, SALUDO_ARRANQUE,
   type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
 import { mandaElArranque, ladoDeLaPregunta, SESION_VACIA, aMensajeOffer, linkPdfLoQueVende } from '../app/onboarding/arranque-ui';
@@ -72,22 +72,24 @@ const H: HechosArranque = {
   canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: true, terminado: false,
 };
 const PLAN: HechosArranque = { ...H, modo: 'plan', conCrm: false, conTelefono: false };
-const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', objetivo: 'Vender más cada mes' };
+// Con las dos del final ya contestadas (desde el 18/10 van antes del teléfono): así las etapas de en medio se ven solas.
+const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', origen: 'Instagram', interes: 'ventas' };
 
 // ── La etapa ────────────────────────────────────────────────────────────────
 test('modo oferta: quién es → lo que vende → la fase → el CRM → el teléfono → cierra, sin esperar ninguna oferta', () => {
   assert.equal(etapaDeArranque({}, H), 'nombre');
   assert.equal(etapaDeArranque({ nombre: 'M' }, H), 'negocio');
-  // Las dos del 17/10 (cómo llegó y qué resolver primero) van antes del objetivo: tests/onboarding-preguntas.test.ts.
-  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'origen');
-  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', origen: 'Instagram' }, H), 'interes');
-  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', origen: 'Instagram', interes: 'ventas' }, H), 'objetivo');
+  // Del negocio, directo a lo que vende: sin el objetivo a 90 días (18/10/2026). Las dos del 17/10 van AL FINAL.
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'oferta');
   assert.equal(etapaDeArranque(QUIEN, H), 'oferta');
   // Con lo que vende, el diagnóstico de fase lo pregunta el arranque (la conversación ya no lo hace).
   assert.equal(etapaDeArranque(QUIEN, { ...H, loQueVende: true }), 'fase');
   const vende = { ...H, loQueVende: true, faseGuardada: true };
   assert.equal(etapaDeArranque(QUIEN, vende), 'crm');
   assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada' }, vende), 'telefono');
+  // «¿Cómo llegaste?» y «¿Qué resolver primero?»: después del CRM y antes del teléfono.
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada' }, vende), 'origen');
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada', origen: 'Instagram' }, vende), 'interes');
   assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'codigo' }, vende), 'codigo');
   // Ya no hay una etapa que espere la oferta armada: el análisis es de la tab Offer.
   assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'postergado' }, vende), 'cierre');
@@ -112,12 +114,17 @@ test('modo plan (Project Manager, sin Offer ni CRM): quién es → a qué se ded
   assert.equal(etapaDeArranque(QUIEN, PLAN), 'que_hace');
   assert.equal(etapaDeArranque({ ...QUIEN, queHace: 'Consultoría' }, PLAN), 'fase');
   assert.equal(etapaDeArranque({ ...QUIEN, queHace: 'Consultoría' }, { ...PLAN, faseGuardada: true }), 'cierre');
+  // Al final, cómo llegó (en el modo plan no se pregunta qué resolver primero: no hay pestañas de ventas).
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', queHace: 'Consultoría' }, { ...PLAN, faseGuardada: true }), 'origen');
 });
 
 // ── Lo que dice MaKo ────────────────────────────────────────────────────────
 test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve como respuesta', () => {
   const { antes: a0 } = mensajesDeArranque({}, H);
   assert.equal(a0.length, 1);
+  // Explica antes de preguntar (18/10/2026): para qué y cuánto tarda.
+  assert.equal(a0[0].texto, SALUDO_ARRANQUE);
+  assert.match(SALUDO_ARRANQUE, /conocer tu negocio[\s\S]*menos de 5 minutos[\s\S]*¿cómo te llamas\?$/);
   assert.deepEqual(a0[0].opciones, ['Martín'], 'ofrece el primer nombre de la cuenta');
   const { antes } = mensajesDeArranque({ nombre: 'Martín' }, H);
   assert.deepEqual(antes.map((m) => m.de), ['mako', 'yo', 'mako']);
@@ -125,8 +132,10 @@ test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve c
   assert.equal(antes[0].opciones, undefined, 'una pregunta ya contestada no vuelve a ofrecer opciones');
   assert.match(antes[2].texto, /Un gusto, Martín/);
   assert.deepEqual(antes[2].opciones, ['Negocio que Escala']);
-  const { antes: aObj } = mensajesDeArranque({ nombre: 'M', negocio: 'N', origen: 'Instagram', interes: 'ventas' }, H);
-  assert.deepEqual(aObj[aObj.length - 1].opciones, [...OBJETIVOS_SUGERIDOS]);
+  // Ya no se pregunta el objetivo a 90 días, ni con una conversación que lo había contestado.
+  assert.ok(!mensajesDeArranque({ ...QUIEN, objetivo: 'Vender más' }, H).antes.some((m) => m.id === 'arr-objetivo'));
+  const fin = mensajesDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada' }, { ...H, loQueVende: true, faseGuardada: true }).despues;
+  assert.deepEqual(fin[fin.length - 1].opciones, [...ORIGENES], 'la pregunta del final, de un toque');
   // En la oferta, los mensajes del arranque terminan en el pase (lo demás lo dice Offer).
   const { antes: aOf, despues } = mensajesDeArranque(QUIEN, H);
   assert.equal(aOf[aOf.length - 1].id, 'arr-oferta');
@@ -231,8 +240,9 @@ test('después de lo que vende, el diagnóstico de fase lo pregunta el arranque,
 // ── El perfil del negocio que queda escrito ─────────────────────────────────
 test('el brief sale de la conversación y NUNCA pisa lo que el negocio ya tenía', () => {
   const v = (valor: string) => ({ valor, fuente: 'chat' as const, at: '2026-10-16' });
+  // El objetivo ya no se pregunta (18/10/2026), pero el de una conversación de antes sigue llegando al brief.
   const brief = briefDesdeArranque({
-    estado: QUIEN,
+    estado: { ...QUIEN, objetivo: 'Vender más cada mes' },
     piezas: { cliente: v('Dueños de pyme'), problema: v('Todo pasa por ellos'), resultado: v('Delegar en 90 días'), precio: v('USD 1.500'), entregables: v('Mentoría') },
     propuesta: { nombre: 'Programa Dueño Libre', frase: 'Delegar en 90 días sin perder clientes' } as never,
     cuello: 'Consigo pocos clientes potenciales',

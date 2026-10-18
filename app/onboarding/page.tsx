@@ -18,7 +18,7 @@ import { redirect } from 'next/navigation';
 // uno, esto no recibe una función sino una referencia de cliente, y llamarla tiró la pantalla
 // entera en producción el 29/09/2026. Ver app/onboarding/tabs-catalogo.ts.
 import { destinoDeTabVieja } from './tabs-catalogo';
-import { rutaConWs } from '@/lib/workspace';
+import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { ChatArranque } from './ChatArranque';
 import { requireRolWs } from '@/lib/tab-access';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
@@ -46,7 +46,12 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   const done = pasos.length === 0 || estado.status === 'done';
   if (!done) {
     const vista = await vistaArranque();
-    return <ChatArranque inicial={vista} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} />;
+    // ⚠️ `key` CON EL WORKSPACE (18/10/2026, Martín: al abrir otro negocio aparecieron las respuestas de «Consultesis»,
+    // que sólo existían en el ws 3). El chat guarda la conversación en su estado (`useState(inicial)`), y pasar de un
+    // `?ws=` a otro sin recargar deja montado el MISMO componente: React le pasa la vista nueva y él sigue mostrando las
+    // respuestas del negocio anterior. Con la key, otro workspace es otro chat, de cero. tests/onboarding-otro-ws.test.ts.
+    const ws = await getWorkspaceActual();
+    return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} />;
   }
 
   // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.

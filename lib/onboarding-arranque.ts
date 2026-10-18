@@ -132,6 +132,12 @@ const TOPE_RESPUESTA = 300;
  * super admin para la pauta) y el interés decide a qué pestaña entra al terminar. El detalle, en
  * docs/hallazgos-onboarding.md.
  */
+/**
+ * El primer mensaje: explica para qué son las preguntas y cuánto tardan ANTES de preguntar (18/10/2026, Martín: «empieza
+ * a preguntar de la nada»).
+ */
+export const SALUDO_ARRANQUE = '¡Hola! Soy MaKo. Para dejar tu cuenta lista necesito conocer tu negocio: son unas preguntas rápidas, menos de 5 minutos. Para empezar, ¿cómo te llamas?';
+
 export const ORIGENES = ['Instagram', 'YouTube', 'TikTok', 'Un anuncio', 'Me lo recomendaron', 'Google', 'Otro'] as const;
 
 export type InteresId = 'anuncios' | 'ventas' | 'whatsapp' | 'organizar';
@@ -332,11 +338,9 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
   if (h.terminado) return 'listo';
   if (!e.nombre) return 'nombre';
   if (!e.negocio) return 'negocio';
-  // Las dos del 17/10 van antes del objetivo. Una conversación que ya había pasado el objetivo (empezada antes)
-  // no vuelve atrás a preguntarlas.
-  if (!e.origen && !e.objetivo) return 'origen';
-  if (h.modo === 'oferta' && !e.interes && !e.objetivo) return 'interes';
-  if (!e.objetivo) return 'objetivo';
+  // Sin el objetivo a 90 días (18/10/2026, Martín: «eliminar "Y en los próximos 90 días, ¿qué quieres lograr?"»): del
+  // negocio se pasa directo a lo que vende. Una conversación de antes que lo contestó lo guarda (va al brief), pero ya
+  // no se dibuja ni se pregunta. Y «¿Cómo llegaste?» y «¿Qué resolver primero?» van AL FINAL, antes del teléfono.
   if (h.modo === 'plan') {
     if (!e.queHace) return 'que_hace';
     if (!h.faseGuardada) return 'fase';
@@ -348,6 +352,8 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
     if (!h.faseGuardada) return 'fase';
     if (h.conCrm && !e.crmTipo) return 'crm';
   }
+  if (!e.origen) return 'origen';
+  if (h.modo === 'oferta' && !e.interes) return 'interes';
   if (h.conTelefono && e.telefono !== 'verificado' && e.telefono !== 'postergado') {
     return e.telefono === 'codigo' ? 'codigo' : 'telefono';
   }
@@ -372,9 +378,11 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   };
 
   // 1. Quién es. Un nombre que es un email (las altas sin nombre guardan el email) no se ofrece.
-  const sugNombre = h.nombreCuenta.includes('@') ? '' : primerNombre(h.nombreCuenta);
-  // El texto del saludo es el de la referencia que mandó Martín el 17/10 (el chat sin recuadro).
-  preguntar(antes, 'nombre', '¡Hola! Soy MaKo. Para empezar, ¿cómo te llamas?', e.nombre, sugNombre ? [sugNombre] : undefined);
+  // Pasa por `extraerNombre`: un nombre de cuenta guardado como «Soy Martín» ofrecía el botón «Soy» (18/10/2026).
+  const sugNombre = h.nombreCuenta.includes('@') ? '' : primerNombre(extraerNombre(h.nombreCuenta).nombre);
+  // EXPLICA ANTES DE PREGUNTAR (18/10/2026, Martín: «empieza a preguntar de la nada… debería decir algo como "necesito
+  // que me cuentes de tu negocio para poder configurar tu cuenta... no tardaremos más de 5 minutos"»).
+  preguntar(antes, 'nombre', SALUDO_ARRANQUE, e.nombre, sugNombre ? [sugNombre] : undefined);
   if (etapa === 'nombre') return { antes, despues };
   // Lo que nombró junto con su nombre va primero; si no, el nombre del workspace (si parece un negocio).
   const sugNegocio = [e.negocioSugerido, pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? h.nombreWorkspace.trim() : '']
@@ -382,24 +390,24 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     .filter((x, i, xs) => xs.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
   preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio, sugNegocio.length ? sugNegocio : undefined);
   if (etapa === 'negocio') return { antes, despues };
-  // Las dos del 17/10 (`ORIGENES`, `INTERESES`): sólo si se preguntaron o tocan ahora (una conversación de antes
-  // que ya pasó el objetivo no las dibuja vacías).
-  if (e.origen || etapa === 'origen') {
-    preguntar(antes, 'origen', `¡Qué bueno tenerte por aquí, ${nombre}! ¿Cómo llegaste a MaKo?`, e.origen, [...ORIGENES]);
-    if (etapa === 'origen') return { antes, despues };
-  }
-  if (h.modo === 'oferta' && (e.interes || etapa === 'interes')) {
-    preguntar(antes, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', INTERESES.find((i) => i.id === e.interes)?.label, INTERESES.map((i) => i.label));
-    if (etapa === 'interes') return { antes, despues };
-  }
-  preguntar(antes, 'objetivo', 'Y en los próximos 90 días, ¿qué quieres lograr?', e.objetivo, [...OBJETIVOS_SUGERIDOS]);
-  if (etapa === 'objetivo') return { antes, despues };
+
+  // Las dos del 17/10 (`ORIGENES`, `INTERESES`), AL FINAL desde el 18/10 (Martín): antes del teléfono y del cierre.
+  const finales = (lista: MensajeArranque[]): boolean => {
+    preguntar(lista, 'origen', `Antes de terminar, ${nombre}: ¿cómo llegaste a MaKo?`, e.origen, [...ORIGENES]);
+    if (etapa === 'origen') return true;
+    if (h.modo === 'oferta') {
+      preguntar(lista, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', INTERESES.find((i) => i.id === e.interes)?.label, INTERESES.map((i) => i.label));
+      if (etapa === 'interes') return true;
+    }
+    return false;
+  };
 
   // 2a. Modo 'plan': a qué se dedica y el diagnóstico, con las preguntas originales.
   if (h.modo === 'plan') {
     preguntar(antes, 'que-hace', '¿A qué se dedica tu negocio?', e.queHace);
     if (etapa === 'que_hace') return { antes, despues };
     if (preguntarFase(antes, e, preguntar)) return { antes, despues };
+    if (finales(antes)) return { antes, despues };
     return { antes, despues: cierre(e, h, etapa, nombre) };
   }
 
@@ -429,6 +437,7 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     if (etapa === 'crm') return { antes, despues };
   }
 
+  if (finales(despues)) return { antes, despues };
   despues.push(...cierre(e, h, etapa, nombre));
   return { antes, despues };
 }
