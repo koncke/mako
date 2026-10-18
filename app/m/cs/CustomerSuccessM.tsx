@@ -36,6 +36,9 @@ import { Button } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
 import { haptico } from '@/lib/haptico';
 import { relojDeVuelta } from '@/lib/servicio-etapas';
+import { CaraTarjeta, EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
+import { avanceDeCliente } from '@/app/customer-success/aviso-tarjeta';
+import { tiempoEnEtapa } from '@/app/customer-success/en-etapa';
 import { moverEntregaAction, sacarDeEntregaAction } from '@/app/customer-success/actions';
 import { invitarAlCursoDelProductoAction } from '@/app/customer-success/curso/invitar-actions';
 import {
@@ -236,23 +239,38 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
       ) : !s.miembros.length ? (
         <VacioM frase="Todavía no hay clientes en este servicio." />
       ) : (
+        <>
+        <EstiloTarjetas />
         <KanbanM
           key={s.id}
           etiqueta={`Entrega de ${s.nombre}`}
           columnas={grupos.map((g) => ({ key: g.key, titulo: g.label }))}
-          tarjetas={grupos.flatMap((g) => g.ids.map((id) => {
+          tarjetas={grupos.flatMap((g, iCol) => g.ids.map((id) => {
             const cli = porId.get(id);
             const t = tiempoDe(asig[id]);
+            // LA FAMILIA DE TARJETAS (17/10/2026): la cara, el nombre, la empresa y «Ver info», y la barra de la etapa con
+            // su aviso — la MISMA regla que la computadora (`avanceDeCliente`, app/customer-success/aviso-tarjeta.ts).
+            const te = tiempoEnEtapa(asig[id]?.desde ?? null);
+            const av = avanceDeCliente({ etapa: iCol, etapas: grupos.length, enEtapa: te ? { frase: te.frase, trabado: te.trabado } : null, ahoraMs: Date.now() });
             return {
               id: String(id),
               col: g.key,
-              etiqueta: nombreDe(id),
+              etiqueta: t ? `${nombreDe(id)}, ${t.texto}` : nombreDe(id),
               contenido: (
-                <>
-                  <span className="m-kb-tj__n">{nombreDe(id)}</span>
-                  {cli?.empresa && <span className="m-kb-tj__c">{cli.empresa}</span>}
-                  {t && <span className="m-kb-tj__pie"><span data-mal={t.trabado || undefined}>{t.texto}</span></span>}
-                </>
+                <span className="m-cs-tj">
+                  <span className="m-cs-tj__fila">
+                    <CaraTarjeta nombre={nombreDe(id)} tam={44} />
+                    <span className="m-cs-tj__txt">
+                      <span className="m-kb-tj__n">{nombreDe(id)}</span>
+                      {cli?.empresa && <span className="m-kb-tj__c">{cli.empresa}</span>}
+                    </span>
+                    <span className="tk-pill tk-pill--suave m-cs-tj__ver" aria-hidden>Ver info</span>
+                  </span>
+                  <span className="tk-medidor">
+                    <span className="tk-barra"><i style={{ width: `${av.pct}%` }} /></span>
+                    {av.aviso ? <span className={`tk-chip tk-chip--${av.aviso.tono}`}>{av.aviso.texto}</span> : t ? <span>{t.texto}</span> : null}
+                  </span>
+                </span>
               ),
             };
           }))}
@@ -265,6 +283,7 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
           onMover={moverDesdeTablero}
           fraseMovida={(col) => `En ${col}`}
         />
+        </>
       )}
 
       <SheetM id="cliente" abierto={abierto} onCerrar={cerrar} titulo={c?.nombre ?? 'Cliente'} snap="alto"

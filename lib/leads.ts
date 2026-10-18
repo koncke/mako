@@ -423,6 +423,9 @@ const LISTA_COLS =
   // La cuenta de MaKo Partners del lead (mig 0175): el menú del tablero ofrece «Ver en MaKo Partners» en vez de
   // «Llevar a MaKo Partners» (17/10/2026).
   'cliente_ws, ' +
+  // La cara de la tarjeta (17/10/2026, la familia del prototipo): la que eligió la persona (mig 0173) y la de WhatsApp
+  // que el cron guarda en el bucket (mig 0195). Sin ninguna, iniciales. Las dos existen (verificado en la base).
+  'avatar_url, foto_auto_url, ' +
   'respuesta_objetivo, respuesta_facturacion, respuesta_colaboradores, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor';
 
 export const listLeads = cachedRead('listLeads', _listLeads, { tags: [TAG.leads], revalidate: TTL.user });

@@ -28,3 +28,11 @@
   content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%;
   background: var(--bad); transform: translateY(-1px);
 }
+
+/* LA TARJETA DE UN CLIENTE EN EL TABLERO (17/10/2026, la familia del prototipo docs/prototipos/coherencia-1710.html):
+   la cara, el nombre, la empresa y «Ver info», y debajo la barra de la etapa con su aviso. Las piezas `tk-*` son de
+   app/_ui/TarjetaKanban; sin `.m-cs-` delante del tablero porque la copia que sigue al dedo cuelga de #m-root. */
+.m-cs-tj { display: grid; gap: 10px; width: 100%; min-width: 0; }
+.m-cs-tj__fila { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.m-cs-tj__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-cs-tj__ver { pointer-events: none; }

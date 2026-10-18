@@ -1521,3 +1521,16 @@ estas pantallas se miró a 390 px en un navegador: lo fijan los tests.
 **Vive en:** `lib/movil-rutas.ts` (FAMILIAS_MAS, DESTINOS_MOVIL, `masCompleto`, `destinoActivo`) · `app/m/mas/page.tsx` +
 `mas.css` · `app/m/_ui/Piezas.tsx` (`AvatarM`) · `app/m/layout.tsx` + `app/m/_ui/ShellM.tsx` (la foto de la cabecera) ·
 test: `tests/sidebar-nueva.test.ts`
+
+## KanbanM con la familia de tarjetas: las etapas con nombre, y su «Mover a…» se pide desde afuera (17/10/2026)
+
+- **KanbanM es de los tres tableros del teléfono (CRM, Clientes, Plan):** tocar `app/m/m.css` (`.m-kb__*`, `.m-kb-tj`) los
+  cambia a los tres. Se cambió a propósito: la barra de etapas pasó de rayitas con un número a pestañas píldora con el
+  NOMBRE y el contador (había que adivinar qué etapa era cada raya), y la tarjeta base y la columna a la familia (22 y 26
+  de radio, sombra suave). Sin colores hex en m.css: todo con `color-mix` sobre los tokens (lo frena tests/movil-shell).
+- **`pedirMover`** (prop nueva): abre el MISMO «Mover a…» del toque largo desde afuera (la ficha rápida del CRM), con su
+  toast y su deshacer. Mover por la acción directo habría duplicado las dos cosas y la marca optimista del tablero.
+- **El CRM del teléfono cambió de gesto:** tocar una tarjeta abre la ficha rápida (en su SheetM, con historial y gestos);
+  «Abrir ficha» lleva a la completa. Antes tocar abría la completa.
+
+**Vive en:** app/m/_ui/KanbanM.tsx · app/m/m.css · app/m/crm/TableroCrm.tsx · *17/10/2026 noche, chat «CRM» (claude4).*

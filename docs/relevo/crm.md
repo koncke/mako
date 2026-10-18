@@ -34,6 +34,29 @@ historial de la ficha con «Volver a como estaba»; la ficha que edita MaKo se r
 - **Decisión abierta que sigue siendo de Martín: §5.1** (ganar en un producto agregado no marca ganado al lead). De ella
   depende la invitación al curso en un segundo producto (docs/relevo/customer-success.md).
 
+## 0-Ω15. 17-18/10/2026 (chat «CRM», cuenta `claude4`, al 85% semanal): la familia de tarjetas en CRM, Clients y Plan
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2` (node_modules COPIADO de verdad, no enlace: la limpieza de disco lo había
+vuelto a enlazar). **Sin subir: se le pasa al Cerebro.** Pedido de Martín del 17/10 22:40, punto 8 (prototipo
+docs/prototipos/coherencia-1710.html). Commits: `de3be68bb` (CRM computadora + el kit), `3b1f3a742` (CRM teléfono +
+KanbanM), `134cd221c` (Clients), `ffe362733` (Plan), `a75a5b0de` (tests) y el de la cosecha.
+
+**Qué cambia al desplegar (todos los clientes):** las tarjetas de CRM, Clients y Plan, en computadora y teléfono, pasan a
+la familia (cara con insignia, nombre, subtítulo, «Ver info»; la tarea con el círculo de prioridad que completa); «Ver
+info» abre una ficha rápida con «Mover a…»; «Próximo» arriba del CRM; las etapas del teléfono con su nombre; columnas
+redondas. **En el teléfono, tocar una tarjeta del CRM abre la ficha rápida** (antes, la completa).
+
+**Sin hacer (con su archivo):** «Pago fallido» en la tarjeta de un cliente (el cobro no llega al tablero:
+app/customer-success/aviso-tarjeta.ts); la foto de Instagram (no se guarda); la vista «Prioridades» del Plan
+(`TarjetaPrioridad`) y el tablero de Proyectos del teléfono; la foto de un cliente en el teléfono (`ClienteCs`).
+Lo de antes sigue: medir el pop-up en producción.
+
+**Visto en el ws3** (build parcial + `next start`, sesión firmada, a 1440): el tablero del CRM con las tarjetas, la ficha
+rápida y «Mover a…» (se arreglaron el paso, los rellenos y la negrita: `42358d5a8`). **No visto:** Clients (/customer-success
+daba 404 en el build parcial), el Plan (pide «Migra tu Plan a la nube» en un perfil nuevo: no se tocó, escribe en
+producción) y todo el teléfono (/m/crm entra en un bucle de redirecciones con un build parcial). Mirarlos en el ws3 al
+desplegar. VERDE `42358d5a8`.
+
 ## 0-Ω14. 17/10/2026 (chat «CRM», cuenta `claude4`): las seis tarjetas de la revisión de las llamadas del 16/10
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: cada punta se le pasa al Cerebro.** El orden lo dio el
