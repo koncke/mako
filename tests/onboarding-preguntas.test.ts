@@ -107,7 +107,7 @@ test('las dos preguntas nuevas van AL FINAL (antes del teléfono), de un toque, 
   assert.equal(etapaDeArranque(conCrm, hecho), 'origen');
   const { despues } = mensajesDeArranque(conCrm, hecho);
   assert.deepEqual(despues[despues.length - 1].opciones, [...ORIGENES]);
-  assert.match(despues[despues.length - 1].texto, /¿cómo llegaste a MaKo\?/);
+  assert.match(despues[despues.length - 1].texto, /^¿Cómo llegaste a MaKo, Martín\?$/);
   // Lo que escriba también sirve («por un amigo»).
   assert.deepEqual(leerRespuesta(conCrm, hecho, { texto: 'por un amigo' }), { ok: true, patch: { origen: 'por un amigo' } });
   assert.equal(etapaDeArranque({ ...conCrm, origen: 'Instagram' }, hecho), 'interes');
