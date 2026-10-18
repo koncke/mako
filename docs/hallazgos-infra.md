@@ -7032,3 +7032,9 @@ borró el mismo día (f2b9a3dfe) y quedó en `docs/relevo/crm-pendientes-b1.md`;
 al borrar o renombrar un relevo, se buscan sus citas en `docs/pendientes.md` en el mismo commit.
 
 **Vive en:** `docs/pendientes.md` · `scratchpad/armar-pendientes.cjs` (el texto del resumen dice «eran 409 anotados»: es de la foto de la mañana; hay que leerlo de `pendientes.json` → `resumen`).
+
+## El VERDE local no vio el test que rompía un renombre de la barra (run 140, 18/10/2026)
+
+- **Síntoma:** el renombre «Second Brain» → «Ops Center» (465f85e6e) dio VERDE en local con 2402 tests, y Actions cayó en el run 140: `tests/notificaciones.test.ts` esperaba el título de pestaña «MaKo - Second Brain».
+- **Causa:** `tituloDe` arma el título de la pestaña con el NOMBRE de la entrada de la barra (`nav.ts`), pero `tests-afectados` no relaciona ese test con un cambio en `nav.ts`. En local corre lo afectado, y Actions corre las 422 barredoras.
+- **Regla:** quien renombre una entrada de la barra busca su nombre viejo, entre comillas, en `tests/` antes del VERDE (`grep -rn "'MaKo - <nombre viejo>'" tests`).
