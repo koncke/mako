@@ -37,7 +37,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  extraerNombre, extraerNegocio, etapaDeArranque, mensajesDeArranque, leerRespuesta, interesDe, rutaDeEntrada,
+  extraerNombre, extraerNegocio, etapaDeArranque, mensajesDeArranque, leerRespuesta, interesDe, rutaDeEntrada, RUTA_AL_TERMINAR,
   ORIGENES, INTERESES, CLAVE_ENCUESTA, type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
 
@@ -143,7 +143,9 @@ test('el interés: la opción o lo que escriba, y a qué pestaña entra al termi
   assert.equal(rutaDeEntrada('ventas'), '/crm');
   assert.equal(rutaDeEntrada(undefined), '/general');
   const chat = leer('app/onboarding/ChatArranque.tsx');
-  assert.match(chat, /entrada=\{rutaDeEntrada\(vista\.interes \?\? undefined\)\}/);
+  // Desde el 18/10/2026 entra SIEMPRE al Ops Center: el interés queda en la encuesta, no decide la entrada.
+  assert.equal(RUTA_AL_TERMINAR, '/second-brain');
+  assert.match(chat, /entrada=\{RUTA_AL_TERMINAR\}/);
   assert.match(chat, /href=\{modo === 'oferta' \? entrada : '\/plan'\}/);
 });
 

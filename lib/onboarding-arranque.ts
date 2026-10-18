@@ -174,6 +174,12 @@ export function llegadaDe(raw: string | null | undefined): LlegadaCliente | null
 }
 
 /** A dónde entra al terminar: la pestaña de lo que quiere resolver primero, o /general. */
+/**
+ * A dónde entra al terminar: el Ops Center (/second-brain), siempre (18/10/2026, Martín: «la primera tab que ve el cliente es
+ * Ops Center»). Lo que dijo que quiere resolver primero queda en la encuesta y en `rutaDeEntrada`, pero ya no decide la entrada.
+ */
+export const RUTA_AL_TERMINAR = '/second-brain';
+
 export function rutaDeEntrada(interes: InteresId | undefined): string {
   return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';
 }
@@ -412,7 +418,7 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   }
 
   // 2b. Modo 'oferta': el pase a la conversación de lo que vende (sus mensajes los dibuja Offer).
-  antes.push({ id: 'arr-oferta', de: 'mako', texto: 'Perfecto. Ahora cuéntame qué vendes: lo dejo ordenado para trabajar con eso.' });
+  antes.push({ id: 'arr-oferta', de: 'mako', texto: `Gracias, ${nombre}. Ahora cuéntame qué vendes en ${e.negocio}: lo dejo ordenado para trabajar con eso.` });
   if (etapa === 'oferta') return { antes, despues };
 
   // 2c. Lo que vende, ordenado en un PDF (la tarjeta lleva el link).
