@@ -61,10 +61,11 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 // estando ahí la barra marca Chats. Sus ítems viven en SIN_FILA (el teléfono y el título de la pestaña los buscan).
 // Probado rompiéndolo: con WhatsApp de vuelta en el bloque de Chats → cae «WhatsApp volvió a ser una fila».
 test('la barra: Chats es la única tab de conversaciones de Operate, con los roles de WhatsApp, y WhatsApp y Email no son filas', () => {
-  const operate = FAMILIAS.find((f) => f.key === 'operate');
-  assert.ok(operate, 'no está la familia Operate');
+  // Desde el 17/10/2026 noche Chats va en lo diario, arriba y sin rótulo (la sidebar del prototipo).
+  const operate = FAMILIAS.find((f) => f.key === 'diario');
+  assert.ok(operate, 'no está la zona de lo diario');
   const tab = operate!.bloques.flat().find((i) => i.secciones?.some((s) => s.key === 'chats'));
-  assert.ok(tab, 'Chats no está en ningún bloque de Operate');
+  assert.ok(tab, 'Chats no está en lo diario');
   assert.equal(tab!.secciones![0].key, 'chats', 'la bandeja es la PRIMERA sección: es a la que lleva la tab');
   const chats = tab!.secciones![0];
   const enBarra = FAMILIAS.flatMap(itemsDe);

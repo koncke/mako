@@ -86,19 +86,19 @@ function filaDeSidebar(key: string): { familia: string | null; orden: number; it
     const j = tabs.findIndex((t) => t.key === key || (t.secciones ?? []).some((x) => x.key === key));
     if (j < 0) continue;
     const k = (tabs[j].secciones ?? []).findIndex((x) => x.key === key);
-    return { familia: f.label, orden: i * 100 + j + Math.max(k, 0) / 10, item: tabs[j], seccion: k >= 0 ? tabs[j].secciones![k] : undefined };
+    return { familia: f.sinRotulo ? null : f.label, orden: i * 100 + j + Math.max(k, 0) / 10, item: tabs[j], seccion: k >= 0 ? tabs[j].secciones![k] : undefined };
   }
   return null;
 }
 
 test('las siete nuevas: su ruta del teléfono, la de escritorio, la key que las gatea y su familia', () => {
   assert.deepEqual(SIETE.map((id) => { const s = seccion(id); return [s.id, s.href, rutaEscritorio(s.href), s.navKey, s.familia]; }), [
-    ['calendario', '/m/calendario', '/calendario', 'calendario', 'operate'],
+    ['calendario', '/m/calendario', '/calendario', 'calendario', 'sales'],
     ['second-brain', '/m/second-brain', '/second-brain', 'second-brain', null],
     ['experimentos', '/m/experimentos', '/experimentos', 'experimentos', null],
-    ['offer', '/m/offer', '/offer', 'offer', 'sales'],
+    ['offer', '/m/offer', '/offer', 'offer', 'marketing'],
     // La tab unificada Copywriting abre su sección Ads Writer, y es esa key la que gatea (requireRolWs de /ads-writer).
-    ['copywriting', '/m/copywriting', '/ads-writer', 'ads-writer', 'sales'],
+    ['copywriting', '/m/copywriting', '/ads-writer', 'ads-writer', 'create'],
     // Desde el 17/10/2026 la URL de escritorio es la de la tab Clients (docs/diseno-clients.md).
     // Classroom y Community son sub-tabs de Clients desde el 17/10/2026: filas ocultas (sus pantallas siguen).
     ['curso', '/m/curso', '/clients/classroom', 'cs-curso', null],
@@ -117,7 +117,10 @@ test('cada fila de More es la de la sidebar: el nombre, el ícono, la familia y 
     assert.equal(familia, fila.familia, `${s.id}: en More va en «${familia}» y en la sidebar en «${fila.familia}»`);
     // Clients: en el teléfono cada sección es su fila, con el nombre y el ícono de la sección.
     const deLaSidebar = fila.item.key === 'clients' && fila.seccion ? fila.seccion : fila.item;
-    assert.equal(s.label, deLaSidebar.label, `${s.id}: la fila no dice lo que dice la sidebar`);
+    // Salvo las hojas del Dashboard (17/10/2026 noche): el nombre «Dashboard» lo lleva el lugar del medio de la barra, y su
+    // fila de More dice «Dashboard sheets» para no repetirlo; la PANTALLA se sigue titulando Dashboard (`titulo`).
+    const rotulo = s.id === 'dashboard' ? s.titulo : s.label;
+    assert.equal(rotulo, deLaSidebar.label, `${s.id}: la fila no dice lo que dice la sidebar`);
     assert.equal(s.icon, deLaSidebar.icon, `${s.id}: el ícono no es el de la sidebar`);
     if (s.familia === null) continue;
     assert.ok(fila.orden > anterior, `${s.id}: fuera del orden de la sidebar`);
@@ -157,15 +160,18 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
   // More entero del admin de un cliente completo (17/10/2026): Second Brain arriba sin título, y una caja por familia.
   assert.deepEqual(gruposMas('admin', 'completo').map((g) => [g.titulo, g.secciones.map((s) => s.id)]), [
     [null, ['mako']],
-    // Clients es UNA fila (sus sub-tabs van adentro); MaKo Partners sólo para el admin de una agencia.
-    ['Operate', ['calendario', 'dashboard', 'ads', 'cs']],
+    // 17/10/2026 noche, la sidebar del prototipo: lo diario sin título (las hojas del Dashboard; Plan, Chats y el
+    // Dashboard están en la barra), y Sales · Marketing · Create. Clients es UNA fila; MaKo Partners sólo para una agencia.
+    [null, ['dashboard']],
+    ['Sales', ['calendario', 'automations', 'cs']],
+    ['Marketing', ['offer', 'landing', 'ads']],
     // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
-    ['Sales Machine', ['offer', 'landing', 'automations', 'video', 'image', 'copywriting']],
+    ['Create', ['video', 'image', 'copywriting']],
   ]);
-  // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la
-  // sidebar (Calendario y Dashboard), y en More le queda MaKo.
-  assert.deepEqual(barraMovil('admin', 'pm').map((b) => b.id), ['calendario', 'dashboard', 'hoy', 'plan', 'mas']);
-  assert.deepEqual(gruposMas('admin', 'pm').map((g) => g.secciones.map((s) => s.id)), [['mako']]);
+  // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la sidebar, MENOS
+  // las hojas del Dashboard (son del lugar del medio, 17/10/2026 noche): Calendar y Second Brain. En More le quedan las hojas.
+  assert.deepEqual(barraMovil('admin', 'pm').map((b) => b.id), ['calendario', 'mako', 'hoy', 'plan', 'mas']);
+  assert.deepEqual(gruposMas('admin', 'pm').map((g) => g.secciones.map((s) => s.id)), [['dashboard']]);
   // El closer y el setter no cambian: More no les ofrece ninguna de las siete.
   assert.deepEqual(gruposMas('closer', 'completo').map((g) => g.secciones.map((s) => s.id)), [['mako'], ['dashboard']]);
   assert.deepEqual(gruposMas('setter', 'completo').map((g) => g.secciones.map((s) => s.id)), [['mako'], ['dashboard'], ['automations']]);

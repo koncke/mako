@@ -24,8 +24,9 @@ export type SeccionAjustes = {
   descripcion: string;
 };
 
-export const TITULO_CUENTA = 'Tu cuenta';
-export const TITULO_NEGOCIO = 'Configuración del negocio';
+// En inglés desde el 17/10/2026 noche (prototipo de coherencia: el menú de la foto y sus páginas con los nombres de las tabs).
+export const TITULO_CUENTA = 'My Profile';
+export const TITULO_NEGOCIO = 'Business settings';
 
 export const SECCIONES_CUENTA: SeccionAjustes[] = [
   { key: 'info', label: 'Información personal', href: '/perfil', icono: 'persona', descripcion: 'Tu nombre, tu foto y cómo te contactan.' },

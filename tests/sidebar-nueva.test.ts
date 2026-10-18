@@ -21,6 +21,18 @@
 //   · WhatsApp de vuelta como fila de Operate                              → 6 / 2 (Chats es la única, workspaces)
 //   · el Sidebar dibujando las familias de ADMIN_FAMILIAS otra vez         → 7 / 1 (el shell del super admin)
 //   · FAMILIAS_MAS con «Analyze»                                           → 7 / 1 (el teléfono)
+//
+// LA SIDEBAR DEL PROTOTIPO (17/10/2026 noche, docs/prototipos/sidebar-nueva-1710.md y coherencia-1710.md, partes 3 y 7;
+// Martín: «la sidebar es confusa, copiá otras apps»): lo diario sin rótulo arriba, y Sales · Marketing · Create; «Home»
+// sale de la barra y lleva al Dashboard; el buscador Ctrl K; la cara del menú de la foto y del More del teléfono; la
+// barra de abajo CRM · Chats · Dashboard · Plan · More. Probado ROMPIÉNDOLO, de a uno, con la base en 11 pases y 0 fallos:
+//   · General de vuelta como fila de lo diario                             → 9 / 2 (familias, workspaces)
+//   · el alias «home» del buscador llevando a `general`                    → 10 / 1 (el buscador)
+//   · el atajo global sin respetar el Ctrl K de la pantalla               → 10 / 1 (el buscador)
+//   · la barra de abajo con «General» en el medio                          → 10 / 1 (la barra de abajo)
+//   · AvatarM sin dibujar la foto                                          → 10 / 1 (la cara)
+//   · masCompleto cruzando las familias por POSICIÓN (una lista de dos)    → 10 / 1 (la barra de abajo: Create se perdía)
+//   · una «pronto» de vuelta en Create                                      → 10 / 1 (familias)
 // =============================================================================
 
 import test from 'node:test';
@@ -31,7 +43,9 @@ import {
   ARRIBA, FAMILIAS, MAKO_NAV, OPS_CENTER, SIN_FILA, SUPERADMIN_MENU, TODOS_LOS_ITEMS, ADMIN_NAV, arribaDe, itemsDe, type NavItem,
 } from '../app/_components/nav';
 import { puedeVerItem, resolverTab, type VistaNav } from '../lib/nav-visibilidad';
-import { FAMILIAS_MAS, gruposMas } from '../lib/movil-rutas';
+import { PRONTO } from '../app/_components/nav';
+import { DESTINOS_MOVIL, FAMILIAS_MAS, barraMovil, gruposMas, masCompleto } from '../lib/movil-rutas';
+import { ALIAS, buscarDestinos, type Destino } from '../lib/buscador-nav';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -46,18 +60,63 @@ const dibujadas = (): NavItem[] => [
   ...FAMILIAS.flatMap((f) => [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)]),
 ];
 
-test('las familias: Operate y Sales Machine, en ese orden; Analyze, Content Machine, Customer Success y Admin se fueron', () => {
-  assert.deepEqual(FAMILIAS.map((f) => [f.key, f.label]), [['operate', 'Operate'], ['create', 'Sales Machine']]);
-  const operate = itemsDe(FAMILIAS[0]).map((i) => i.key);
-  for (const k of ['general', 'todo', 'calendario', 'graphics', 'crm', 'chats', 'ads-manager', 'customer-success', 'partners']) {
-    assert.ok(operate.includes(k), `«${k}» no está en Operate`);
-  }
-  const sales = itemsDe(FAMILIAS[1]).map((i) => i.key);
-  for (const k of ['offer', 'landing-writer', 'setting', 'video-editor', 'video-generator', 'image-editor', 'ads-writer']) {
-    assert.ok(sales.includes(k), `«${k}» no está en Sales Machine`);
-  }
-  // Dashboard va al lado de General (es cómo viene lo tuyo), no al final.
-  assert.deepEqual(FAMILIAS[0].bloques[0].map((i) => i.key), ['general', 'todo', 'calendario', 'graphics']);
+test('las familias del prototipo: lo diario sin rótulo, y Sales · Marketing · Create; Home y las «pronto» salieron', () => {
+  assert.deepEqual(FAMILIAS.map((f) => [f.key, f.label, !!f.sinRotulo]), [
+    ['diario', 'Today', true], ['sales', 'Sales', false], ['marketing', 'Marketing', false], ['create', 'Create', false],
+  ]);
+  const de = (k: string) => itemsDe(FAMILIAS.find((f) => f.key === k)!).map((i) => i.key);
+  assert.deepEqual(FAMILIAS[0].bloques.flat().map((i) => i.key), ['todo', 'bandeja', 'graphics'], 'lo diario: Plan, Chats y Dashboard');
+  for (const k of ['crm', 'calendario', 'setting', 'customer-success', 'partners']) assert.ok(de('sales').includes(k), `«${k}» no está en Sales`);
+  for (const k of ['offer', 'landing-writer', 'ads-manager']) assert.ok(de('marketing').includes(k), `«${k}» no está en Marketing`);
+  for (const k of ['video-editor', 'video-generator', 'image-editor', 'ads-writer']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
+  // «Home» (/general) ya no es fila: redirige al Dashboard (Focus). Su key sigue (capas, onboarding) en SIN_FILA, y el
+  // Dashboard se marca estando en /general.
+  assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'general'), 'General volvió a ser fila');
+  assert.ok(SIN_FILA.some((i) => i.key === 'general'), 'sin el ítem general, el título y el teléfono lo pierden');
+  const dash = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'graphics')!;
+  assert.equal(dash.match('/general'), true, 'en /general la barra no marca Dashboard');
+  // Las «pronto» viven en el menú de la foto › Platform › Coming soon, no en la lista (prototipo: «lo poco usado detrás de More»).
+  assert.ok(PRONTO.length > 0 && PRONTO.every((i) => i.adminOnly), 'una «pronto» la vería un cliente');
+  assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => PRONTO.includes(i)), 'una «pronto» volvió a una familia');
+  assert.ok(PRONTO.every((i) => TODOS_LOS_ITEMS.includes(i)), 'una «pronto» perdió su título de pestaña');
+});
+
+test('el buscador (Ctrl K): «home» y «general» llevan al Dashboard, y encuentra lo de adentro de una tab', () => {
+  for (const k of ['home', 'general', 'focus']) assert.equal(ALIAS[k], 'graphics', `«${k}» no lleva al Dashboard`);
+  const destinos: Destino[] = FAMILIAS.flatMap((f) => f.bloques.flat()).flatMap((t) => [
+    { item: t, donde: null },
+    ...(t.secciones ?? []).map((s) => ({ item: s, donde: t.label })),
+  ]);
+  assert.equal(buscarDestinos('home', destinos)[0]?.item.key, 'graphics');
+  assert.equal(buscarDestinos('Customer Success', destinos)[0]?.item.key, 'customer-success');
+  assert.equal(buscarDestinos('', destinos).length, 0);
+  // Sin modal (regla de Martín): la lista cuelga del campo, en un portal; y la pantalla con su propio Ctrl K gana.
+  const b = sinComentarios(leer('app/_components/BuscadorNav.tsx'));
+  assert.doesNotMatch(b, /<Modal\b/);
+  assert.match(b, /if \(e\.defaultPrevented\) return;/);
+  assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /<BuscadorNav /);
+});
+
+test('la cara: la foto real, el nombre y el @usuario, en el menú de la foto y en el More del teléfono', () => {
+  const sb = sinComentarios(leer('app/_components/Sidebar.tsx'));
+  assert.match(sb, /usuarioDe\(email\)/, 'el menú de la foto no dice el @usuario');
+  assert.match(sb, /\{avatarVisible\s*\?\s*<img src=\{avatarVisible\}/, 'el menú de la foto no dibuja la foto');
+  const piezas = sinComentarios(leer('app/m/_ui/Piezas.tsx'));
+  assert.match(piezas, /if \(foto\?\.trim\(\)\) return <img className=\{`m-avatar m-avatar--\$\{tam\} m-avatar--foto`\}/, 'AvatarM no dibuja la foto');
+  const mas = sinComentarios(leer('app/m/mas/page.tsx'));
+  assert.match(mas, /foto=\{tuyo\?\.avatarUrl\}/, 'More no le pasa la foto');
+  assert.match(mas, /const tuyo = perfil && !perfil\.vista\.deOtro/, 'More mostraría la foto de otro');
+  assert.match(mas, /href=\{RUTA_CUENTA\}/, 'la cara no abre My Profile');
+});
+
+test('la barra de abajo del teléfono: CRM · Chats · Dashboard · Plan · More, y More con las familias de la sidebar', () => {
+  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Dashboard', 'Plan', 'More']);
+  assert.deepEqual(barraMovil('admin', 'completo').map((b) => b.label), ['CRM', 'Chats', 'Dashboard', 'Plan', 'More']);
+  // More: las familias por su KEY (con cuatro, cruzarlas por posición perdía Create).
+  const mas = masCompleto('admin', 'completo', false);
+  assert.deepEqual(mas.filter((g) => FAMILIAS_MAS.some((f) => f.id === g.id)).map((g) => g.titulo), [null, 'Sales', 'Marketing', 'Create']);
+  const create = mas.find((g) => g.id === 'create')!;
+  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
 });
 
 test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (los demás), cada uno con su criatura', () => {
@@ -150,18 +209,22 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
   const visibles = (v: VistaNav) => FAMILIAS.map((f) => [f.label, f.bloques.flat().map((t) => resolverTab(t, v)).filter(Boolean).map((t) => t!.label)]);
   // El admin de un cliente completo: las dos familias, sin nada del super admin.
   assert.deepEqual(visibles(CLIENTE), [
-    ['Operate', ['General', 'Plan', 'Calendar', 'Dashboard', 'CRM', 'Chats', 'Ads Manager', 'Clients']],
-    ['Sales Machine', ['Offer', 'Web Generator', 'Automations', 'Video', 'Image', 'Copywriting']],
+    ['Today', ['Plan', 'Chats', 'Dashboard']],
+    ['Sales', ['CRM', 'Calendar', 'Automations', 'Clients']],
+    ['Marketing', ['Offer', 'Web Generator', 'Ads Manager']],
+    ['Create', ['Video', 'Image', 'Copywriting']],
   ]);
   // El setter: lo que su rol tiene anotado, en las mismas familias.
   assert.deepEqual(visibles({ adminShell: false, rolWs: 'setter', capa: 'completo' }), [
-    ['Operate', ['Plan', 'Dashboard', 'CRM', 'Chats']],
-    ['Sales Machine', ['Automations']],
+    ['Today', ['Plan', 'Chats', 'Dashboard']],
+    ['Sales', ['CRM', 'Automations']],
+    ['Marketing', []],
+    ['Create', []],
   ]);
 });
 
 test('el teléfono sigue a la sidebar: las mismas familias, y Second Brain arriba (menos para el super admin)', () => {
-  assert.deepEqual(FAMILIAS_MAS.map((f) => f.label), FAMILIAS.map((f) => f.label));
+  assert.deepEqual(FAMILIAS_MAS.map((f) => [f.id, f.label]), FAMILIAS.map((f) => [f.key, f.sinRotulo ? null : f.label]));
   const grupos = gruposMas('admin', 'completo');
   assert.equal(grupos[0].titulo, null, 'Second Brain no va arriba, sin título');
   assert.deepEqual(grupos[0].secciones.map((s) => s.id), ['mako']);

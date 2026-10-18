@@ -169,12 +169,13 @@ test('/m apaga el cromo de escritorio sin volverse público', () => {
 });
 
 test('el título de la pestaña en /m usa los nombres de la barra', () => {
-  assert.equal(tituloDe('/m/hoy'), 'MaKo - General');
+  // El lugar del medio se llama Dashboard desde el 17/10/2026 noche (abre la misma portada).
+  assert.equal(tituloDe('/m/hoy'), 'MaKo - Dashboard');
   assert.equal(tituloDe('/m/chats'), 'MaKo - Chats');
   assert.equal(tituloDe('/m/inbox'), 'MaKo - Avisos', 'la campana se titula Avisos (prototipo v3), como su cabecera');
   assert.equal(tituloDe('/m/second-brain'), 'MaKo - Second Brain', 'el nombre de la sidebar (el chat con MaKo es el Second Brain), con la marca adelante');
   assert.equal(tituloDe('/m/crm/12'), 'MaKo - CRM');
-  assert.equal(tituloDe('/m/cuenta'), 'MaKo - Tu cuenta');
+  assert.equal(tituloDe('/m/cuenta'), 'MaKo - My Profile');
   assert.equal(tituloDe('/m'), 'MaKo');
 });
 
@@ -193,13 +194,13 @@ test('el manifest abre el repartidor y conserva la identidad', () => {
 test('la cabecera por defecto: título en la raíz, volver fijo en la subpantalla', () => {
   const t = (titulo: string, padre: { href: string; label: string } | null, trabajo = false, conBarra = true) => ({ titulo, padre, trabajo, conBarra });
   // Las raíces de la barra: el nombre, sin volver.
-  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('General', null));
+  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('Dashboard', null));
   assert.deepEqual(cabeceraPorRuta('/m/crm'), t('CRM', null));
   assert.deepEqual(cabeceraPorRuta('/m/chats'), t('Chats', null));
   // Inbox dejó la barra (v3): es la campana de General, se titula Avisos y vuelve a General.
   // Probado rompiéndolo (15/10/2026): TITULO_INBOX = 'Inbox' → 14 / 2 (pestaña y cabecera); el atajo del
   // manifest con 'Inbox' → 15 / 1. Base 16 / 0.
-  assert.deepEqual(cabeceraPorRuta('/m/inbox'), t('Avisos', { href: '/m/hoy', label: 'General' }));
+  assert.deepEqual(cabeceraPorRuta('/m/inbox'), t('Avisos', { href: '/m/hoy', label: 'Dashboard' }));
   assert.deepEqual(cabeceraPorRuta('/m/mas'), t('More', null));
   // Una subpantalla vuelve a su raíz; el título lo pone la página.
   assert.deepEqual(cabeceraPorRuta('/m/crm/12'), t('', { href: '/m/crm', label: 'CRM' }));
@@ -209,9 +210,10 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Clients', { href: '/m/mas', label: 'More' }));
   assert.deepEqual(cabeceraPorRuta('/m/ads/9'), t('', { href: '/m/ads', label: 'Ads Manager' }));
   // La cuenta es la primera fila de More.
-  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('Tu cuenta', { href: '/m/mas', label: 'More' }));
-  assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'Tu cuenta' }));
-  assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'General' }));
+  // «My Profile» desde el 17/10/2026 noche (lib/ajustes-secciones.ts, en inglés como las tabs).
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('My Profile', { href: '/m/mas', label: 'More' }));
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'My Profile' }));
+  assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'Dashboard' }));
   // Pantallas de trabajo: sin título grande y sin barra de abajo.
   assert.deepEqual(cabeceraPorRuta('/m/second-brain'), t('Second Brain', { href: '/m/mas', label: 'More' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video' }, true, false));
@@ -225,7 +227,8 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.equal(llevaBarra('/m/video/7'), false);
   // Una sección que subió a la barra es una raíz: sin volver y CON barra (aunque sea de trabajo).
   assert.deepEqual(cabeceraPorRuta('/m/second-brain', barraMovil('setter', 'pm')), t('Second Brain', null, true, true));
-  assert.deepEqual(cabeceraPorRuta('/m/dashboard', barraMovil('admin', 'pm')), t('Dashboard', null));
+  // (Desde el 17/10/2026 noche lo que sube en la capa pm es Calendar: las hojas del Dashboard son del lugar del medio.)
+  assert.deepEqual(cabeceraPorRuta('/m/calendario', barraMovil('admin', 'pm')), t('Calendar', null));
 });
 
 test('el nivel de una pantalla: ir más adentro desliza; cambiar de tab y volver, no', () => {
@@ -241,8 +244,9 @@ test('el nivel de una pantalla: ir más adentro desliza; cambiar de tab y volver
   assert.equal(nivel('/m/video/7'), 2);
   assert.equal(nivel('/m/cuenta/instalar'), 2);
   // Subida a la barra, una sección es raíz.
-  assert.equal(nivel('/m/dashboard', barraMovil('admin', 'pm')), 0);
-  assert.equal(nivel('/m/dashboard/x', barraMovil('admin', 'pm')), 1);
+  // (Desde el 17/10/2026 noche lo que sube en la capa pm es Calendar: las hojas del Dashboard son del lugar del medio.)
+  assert.equal(nivel('/m/calendario', barraMovil('admin', 'pm')), 0);
+  assert.equal(nivel('/m/calendario/x', barraMovil('admin', 'pm')), 1);
 });
 
 test('el «volver» corto: un padre largo pasa a «Atrás» (el nombre entero va en el aria-label)', () => {

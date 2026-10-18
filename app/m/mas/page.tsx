@@ -1,12 +1,15 @@
 // =============================================================================
 // /m/mas — More: la lista agrupada estilo Ajustes, por las FAMILIAS de la sidebar (v3, 14/10/2026)
 // =============================================================================
-//   1. Tu cuenta (avatar, nombre, negocio) → /m/cuenta
+//   1. LA CARA (17/10/2026 noche, prototipo docs/prototipos/coherencia-1710.md, pedido 7): la foto REAL (la de
+//      Información personal, `leerPerfil`; hasta ese día se dibujaban siempre iniciales), el nombre, el @usuario y el
+//      lápiz → My Profile (/m/cuenta). El menú de la foto de escritorio tiene la misma cara (Sidebar.tsx).
 //   2. ARRIBA, sin título (17/10/2026, como la sidebar de escritorio): el Ops Center (sólo el super admin sin mirar un
 //      cliente; /m/operaciones, con la Ticketera adentro) y Second Brain, cada uno con su CRIATURA del Ops Center.
 //      Hasta ese día el Ops Center y la Ticketera iban en una caja «Super admin» al final: la Ticketera vive adentro
 //      del Centro desde el 16/10, y la caja se fue con la familia Admin de escritorio.
-//   3. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (Operate · Sales Machine)
+//   3. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (lo diario sin título · Sales ·
+//      Marketing · Create), cada ícono con el color de SU sección (los `--sec-*` de app/_ui/ui.css)
 //   4. El menú de la foto (API, Configuración del negocio, Reportar problema) y, para el super admin sin mirar un
 //      cliente, el suyo (Billing, Client Agents, MaKo Context, AI Models, Knowledge, Dev): sin título, como en escritorio
 //   5. Versión de computadora
@@ -33,6 +36,8 @@
 import './mas.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { getWorkspace } from '@/lib/workspace';
+import { leerPerfil } from '@/lib/perfil';
+import { Icon } from '@/app/_components/icons';
 import { masCompleto, type FilaMas } from '@/lib/movil-rutas';
 import { Criatura } from '@/app/_components/Criatura';
 import { FilaM } from '../_ui/FilaM';
@@ -46,6 +51,9 @@ import { FilaComputadoraM, FilaGrupoM } from './FilasMas';
 
 export const dynamic = 'force-dynamic';
 
+/** El @usuario: la parte de antes de la arroba del email (no hay un usuario aparte en la base), como el menú de la foto. */
+const usuarioDe = (email: string | null | undefined) => { const u = (email ?? '').split('@')[0]?.trim(); return u ? `@${u}` : ''; };
+
 /** El Ops Center del super admin (app/m/operaciones; en la URL, /admin/operaciones), con la Ticketera adentro. */
 const RUTA_CENTRO = '/m/operaciones';
 /** Las filas de arriba llevan la criatura del Ops Center de ese nombre, como en escritorio (nav.ts → `criatura`). */
@@ -57,15 +65,20 @@ export default async function MasPagina() {
   const veOpsCenter = ctx.sesion.rol === 'admin' && !ctx.impersonando;
   const grupos = masCompleto(ctx.rol, ctx.capa, veOpsCenter);
   const ids = grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'pantalla' && f.seccion ? [f.seccion] : [])));
-  const [negocio, badges] = await Promise.all([
+  const [negocio, badges, perfil] = await Promise.all([
     ctx.impersonando
       ? Promise.resolve(ctx.clienteNombre)
       : ctx.ws != null
         ? getWorkspace(ctx.ws).then((w) => w?.nombre?.trim() || null).catch(() => null)
         : Promise.resolve(null),
     contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, ids),
+    leerPerfil().catch(() => null),
   ]);
-  const nombre = (ctx.sesion.nombre ?? '').trim();
+  // La foto y el nombre salen de TU fila (lo último que guardaste en Información personal), como /m/cuenta; si el perfil
+  // leído es el de otro (el super admin mirando un cliente), ni la foto ni el nombre son tuyos y vuelve la sesión.
+  const tuyo = perfil && !perfil.vista.deOtro ? perfil.perfil : null;
+  const nombre = (tuyo?.nombre || ctx.sesion.nombre || '').trim();
+  const usuario = usuarioDe(ctx.sesion.email);
   const arriba = grupos.find((g) => g.id === 'arriba');
   const resto = grupos.filter((g) => g.id !== 'arriba');
 
@@ -83,9 +96,14 @@ export default async function MasPagina() {
     <PantallaM>
       <ListaM>
         <FilaM
-          leading={<AvatarM nombre={nombre} email={ctx.sesion.email} tam="lg" />}
+          leading={(
+            <span className="m-mas-cara">
+              <AvatarM nombre={nombre} email={ctx.sesion.email} foto={tuyo?.avatarUrl} tam="lg" />
+              <span className="m-mas-cara__lapiz" aria-hidden><Icon name="pen" size={11} /></span>
+            </span>
+          )}
           titulo={nombre || ctx.sesion.email}
-          segunda={negocio ?? undefined}
+          segunda={[usuario, negocio].filter(Boolean).join(' · ') || undefined}
           href={RUTA_CUENTA}
         />
       </ListaM>
@@ -100,9 +118,11 @@ export default async function MasPagina() {
       )}
 
       {resto.map((g) => (
-        <SeccionM key={g.id} titulo={g.titulo ?? null}>
-          <ListaM>{g.filas.map((f) => fila(f))}</ListaM>
-        </SeccionM>
+        <div key={g.id} className="m-mas-sec" data-sec={g.id === 'menu' || g.id === 'superadmin' ? 'ajustes' : g.id}>
+          <SeccionM titulo={g.titulo ?? null}>
+            <ListaM>{g.filas.map((f) => fila(f))}</ListaM>
+          </SeccionM>
+        </div>
       ))}
 
       <div className="m-mas-compu">

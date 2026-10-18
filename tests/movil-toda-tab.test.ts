@@ -34,12 +34,12 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ADMIN_FAMILIAS, ADMIN_NAV, ARRIBA, FAMILIAS, OPS_CENTER, arribaDe, SIN_FILA, SUPERADMIN_MENU, USER_NAV, itemsDe, type NavItem,
+  ADMIN_FAMILIAS, ADMIN_NAV, ARRIBA, FAMILIAS, OPS_CENTER, PRONTO, arribaDe, SIN_FILA, SUPERADMIN_MENU, USER_NAV, itemsDe, type NavItem,
 } from '../app/_components/nav';
 import { resolverTab, puedeVerItem, type VistaNav } from '../lib/nav-visibilidad';
 import { tituloDe } from '../lib/titulo-tab';
 import {
-  EN_CAMINO, SOLO_ESCRITORIO, barraMovil, masCompleto, rutaEscritorio, rutaInterna, rutaMovil, type FilaMas, type RolMovil,
+  EN_CAMINO, SOLO_ESCRITORIO, barraMovil, destinoActivo, masCompleto, rutaEscritorio, rutaInterna, rutaMovil, type FilaMas, type RolMovil,
 } from '../lib/movil-rutas';
 
 const RAIZ = join(__dirname, '..');
@@ -61,7 +61,7 @@ function existePagina(rutaM: string): boolean {
 function itemsDelNav(): NavItem[] {
   const dev = new Set(ADMIN_FAMILIAS.flatMap(itemsDe).map((i) => i.key));
   const todos = [
-    ...ARRIBA, ...FAMILIAS.flatMap(itemsDe), ...USER_NAV, ...SUPERADMIN_MENU, ...SIN_FILA,
+    ...ARRIBA, ...FAMILIAS.flatMap(itemsDe), ...USER_NAV, ...SUPERADMIN_MENU, ...PRONTO, ...SIN_FILA,
     // Las herramientas del super admin (cuelgan de una tab o del menú) y el Ops Center; sin los registros del modo Dev.
     ...ADMIN_NAV.filter((i) => !dev.has(i.key)),
   ];
@@ -148,21 +148,28 @@ test('More tiene un lugar para cada tab que la sidebar le muestra a cada persona
       ...FAMILIAS.flatMap((f) => f.bloques.flat().map((it) => resolverTab(it, vista)).filter((it): it is NavItem => it !== null)),
       ...FAMILIAS.flatMap((f) => (f.grupos ?? []).flatMap((g) => g.items.filter((it) => puedeVerItem(it, vista)))),
       ...USER_NAV.filter((it) => it.key !== 'perfil' && !it.soloSeccion && (!it.adminOnly || p.adminShell) && puedeVerItem(it, vista)),
-      ...(p.adminShell ? SUPERADMIN_MENU : []),
+      // Platform › Coming soon (17/10/2026 noche): las «pronto» salieron de la barra al menú de la foto del super admin.
+      ...(p.adminShell ? [...SUPERADMIN_MENU, ...PRONTO] : []),
     ];
     const filas: FilaMas[] = masCompleto(p.rol, p.capa, p.adminShell).flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'grupo' ? [f, ...f.filas] : [f])));
-    const barra = barraMovil(p.rol, p.capa).map((b) => b.href);
+    const lugares = barraMovil(p.rol, p.capa);
+    const barra = lugares.map((b) => b.href);
     for (const it of sidebar) {
       const enMas = filas.some((f) => f.label === it.label);
       const destino = rutaMovil(it.href);
-      const enBarra = destino != null && barra.includes(destino.split('?')[0]);
+      // «Está en la barra» = un lugar de la barra es el DUEÑO de esa ruta (`destinoActivo`): las hojas del Dashboard
+      // (/m/dashboard) son del lugar «Dashboard» desde el 17/10/2026 noche, aunque su raíz sea /m/hoy.
+      const activo = destino != null ? destinoActivo(destino.split('?')[0], lugares) : null;
+      const enBarra = destino != null && (barra.includes(destino.split('?')[0]) || (activo != null && activo !== 'mas'));
       if (!enMas && !enBarra && !MAS_ESTRICTO_EN_EL_TELEFONO[`${p.nombre}|${it.label}`]) faltan.push(`${p.nombre}: ${it.label}`);
     }
     for (const f of filas) if (f.tipo === 'pantalla' && !existePagina(f.href)) rotas.push(`${p.nombre}: ${f.label} → ${f.href}`);
     // Lo de ARRIBA de la sidebar (nav.ts → arribaDe) también: «Second Brain» está en More de quien lo ve en la barra, y NO está en
     // el del super admin, que lo abre desde adentro del Ops Center (17/10/2026). El Ops Center lo pone la página.
     const arriba = arribaDe(p.adminShell, (it) => puedeVerItem(it, vista));
-    for (const it of arriba) if (it !== OPS_CENTER && !filas.some((f) => f.label === it.label) && !MAS_ESTRICTO_EN_EL_TELEFONO[`${p.nombre}|${it.label}`]) faltan.push(`${p.nombre}: ${it.label} (arriba)`);
+    // (o subió a la barra a ocupar un hueco: la capa pm, sin CRM ni Chats, lleva Second Brain abajo desde el 17/10/2026 noche)
+    const enLaBarra = (it: NavItem) => { const d = rutaMovil(it.href); return d != null && barra.includes(d.split('?')[0]); };
+    for (const it of arriba) if (it !== OPS_CENTER && !filas.some((f) => f.label === it.label) && !enLaBarra(it) && !MAS_ESTRICTO_EN_EL_TELEFONO[`${p.nombre}|${it.label}`]) faltan.push(`${p.nombre}: ${it.label} (arriba)`);
     for (const it of ARRIBA) if (it !== OPS_CENTER && !arriba.includes(it) && filas.some((f) => f.label === it.label)) repetidas.push(`${p.nombre}: ${it.label} (la sidebar no lo dibuja)`);
     // Una cosa en un solo lugar, como el «More» de iOS: nada de lo que está en la barra se repite en More, y nada dos veces.
     const etiquetas = filas.map((f) => f.label);

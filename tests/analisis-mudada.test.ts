@@ -119,8 +119,9 @@ test('el informe congelado del trimestre se queda en su ruta, con la puerta y la
 // suelta en Analyze, pegada a Second Brain. Verificado rompiéndolo: con Offer de vuelta en Analyze cae «Offer no es el
 // primer bloque de Sales Machine»; con Offer al final del bloque de Capturar, también.
 test('Offer: el primer bloque de Sales Machine apunta a /offer, y /offer-analyst sólo redirige', () => {
-  const SALES = FAMILIAS.find((f) => f.key === 'create');
-  assert.ok(SALES, 'desapareció la familia Sales Machine');
+  // Desde el 17/10/2026 noche (la sidebar del prototipo) Offer abre MARKETING: lo que atrae a la gente.
+  const SALES = FAMILIAS.find((f) => f.key === 'marketing');
+  assert.ok(SALES, 'desapareció la familia Marketing');
   const offer = itemNav('offer');
   assert.ok(offer, 'desapareció el ítem con key «offer» (la key es contrato con la base)');
   assert.equal(offer!.href, '/offer');
@@ -132,8 +133,7 @@ test('Offer: el primer bloque de Sales Machine apunta a /offer, y /offer-analyst
   // Desde el 17/10/2026 es una tab UNIFICADA (Strategy y Playbook son sus secciones para el super admin) y Offer es la
   // primera sección: a la que lleva la tab.
   assert.equal(FAMILIAS.flatMap(itemsDe).filter((i) => i.key === 'offer').length, 1, 'hay dos Offer en la barra');
-  assert.equal(SALES!.bloques[0].length, 1, 'el primer bloque de Sales Machine tiene más que Offer');
-  assert.equal(SALES!.bloques[0][0].secciones?.[0]?.key ?? SALES!.bloques[0][0].key, 'offer', 'Offer no es el primer bloque de Sales Machine');
+  assert.equal(SALES!.bloques[0][0].secciones?.[0]?.key ?? SALES!.bloques[0][0].key, 'offer', 'Offer no es la primera fila de Marketing');
 
   const red = sinComentarios(leer('app/offer-analyst/page.tsx'));
   assert.match(red, /redirect\(await rutaConWs\('\/offer'\)\)/, '/offer-analyst dejó de redirigir a /offer con rutaConWs');
