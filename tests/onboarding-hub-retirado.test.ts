@@ -65,7 +65,8 @@ test('cada sección tiene un lugar que existe: el área está en AREAS y la sub-
     assert.equal(rutaSeccion(s), `${d.ruta}?area=${d.area}${d.vista ? `&vista=${d.vista}` : ''}`);
   }
   assert.equal(rutaSeccion('persona'), '/second-brain?area=voz&vista=persona');
-  assert.equal(lugarSeccion('persona'), 'Second Brain → Persona');
+  // Para los negocios la tab /second-brain se llama «Ops Center» desde el 18/10/2026: el texto nombra lo que ven.
+  assert.equal(lugarSeccion('persona'), 'Ops Center → Persona');
   assert.equal(vistaValida('voz', 'persona'), 'persona');
   assert.equal(vistaValida('voz', 'inventada'), null, 'una vista que el área no tiene no se abre');
   assert.equal(vistaValida('avatares', 'persona'), null);
