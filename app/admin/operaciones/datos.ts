@@ -24,6 +24,7 @@ import { leerDecisiones } from '@/lib/admin-decisiones';
 import { leerMunecos } from '@/lib/centro-munecos-db';
 import { leerAbiertas } from '@/lib/centro-preguntas-chat-db';
 import { leerCuentasConNombre } from '@/lib/centro-titulares-db';
+import { leerUltimosTurnos } from '@/lib/centro-turnos-db';
 import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
 import { nombresDeTabs } from './tabs';
 import type { DatosCentro } from './useCentro';
@@ -34,13 +35,14 @@ export async function datosDelCentroSiOpera(): Promise<DatosCentro | null> {
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: los chats (de las bitácoras) se ven aunque la cola no se pueda leer.
-  const [cola, carteros, tarjetas, munecos, abiertas, cuentas] = await Promise.all([
+  const [cola, carteros, tarjetas, munecos, abiertas, cuentas, ultimos] = await Promise.all([
     listarPedidos().catch(() => null),
     leerCarteros().catch(() => null),
     leerDecisiones().catch(() => null),
     leerMunecos(),
     leerAbiertas(),
     leerCuentasConNombre(),
+    leerUltimosTurnos(ahora),
   ]);
   const pedidos = pedidosDelCentro(areas, ahora);
   return {
@@ -51,6 +53,7 @@ export async function datosDelCentroSiOpera(): Promise<DatosCentro | null> {
     munecosIniciales: munecos,
     preguntasAbiertasIniciales: abiertas,
     cuentasIniciales: cuentas,
+    ultimosIniciales: ultimos,
     pedidos,
     ahora,
     sub: admin.sub,

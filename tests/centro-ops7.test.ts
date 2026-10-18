@@ -6,7 +6,12 @@
 //   2. «Los mensajes de "Completo" tienen 3 puntos al final y no llego a leer todo, esos son los mensajes más importantes»:
 //      un «Completado» se dibuja ENTERO. La causa no era CSS: la tarjeta usaba el título de la FILA de la lista
 //      (`tituloDeTexto`: 72 caracteres y «…») y el resto del primer renglón no se dibujaba en ningún lado;
-//   3. el ícono del Ops Center es la estrella de MaKo, y el de «Nuevo chat» un círculo.
+//   3. el ícono del Ops Center es la estrella de MaKo, y el de «Nuevo chat» un círculo;
+//   5. «MaKo en WhatsApp» (el vigía, que dice «Sin incidentes nuevos» cada rato) sale de la lista mientras está callado y
+//      vuelve, avisando, con un incidente de verdad;
+//   7. el aviso del «Completado» sin ver no salía: los turnos viajaban sólo del chat abierto, así que la fila de uno que no se
+//      abrió no sabía que su último mensaje era un «Ya está» (medido con los turnos reales: 4 chats con «Ya está» hoy);
+//   9. «Runner conectado, todavía sin medir» era falso: la cuenta la recorre OTRO Runner y no tiene el suyo.
 //
 // Probado ROMPIÉNDOLO (17/10/2026), una rotura por vez contra la base en verde de 7 pases (se restauró de la copia, no con git):
 //   · Avance.tsx con el título de la FILA (`n.titulo`, 72 caracteres y «…») y el cuerpo sin su primer renglón, que es el bug
@@ -17,6 +22,12 @@
 //   · la carita del teléfono con 36×42 en vez de `var(--caja-toque)`, el campo de la computadora con `align-self: center`
 //     (como estaba) y el textarea del teléfono con `line-height: 1.35` (el renglón deja de sumar 44) → cae «1», cada una;
 //   · `estrella` sin pasarse en el Sidebar → cae «3a»; el <CirculoNuevo /> otra vez con el muñeco → cae «3b».
+// Y de lo que sumó el Cerebro a las 21:30 (base en verde de 10 pases):
+//   · `turnosParaLaLista` sin mirar lo último que trajo el refresco (como estaba: sólo `turnos[c.clave]`) → cae «7»;
+//   · `resumirTurnos` sin el tope de 3 turnos, o sin recortar el texto → cae «7»;
+//   · `incidenteDelVigia` tomando el primer turno en vez del último, o `vigiaCallado` sin mirar `espera` → cae «5»;
+//   · `chats` de useCentro sin el filtro `vigiaCallado` → cae «5»;
+//   · `textoSinMedicion` con el «Runner conectado, todavía sin medir» de antes → cae «9».
 // Lo que el test NO ve: la pantalla pintada (no hay navegador acá). Las medidas salen del CSS, no de un layout real.
 
 import test from 'node:test';
@@ -25,8 +36,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { CUERPO_PLEGABLE, TITULO_YA_ESTA, cortadoPorLaPC, partesDeYaEsta, partirPendiente, type LineaChat } from '../lib/centro-chats';
-import { TOPE_TURNO, type TurnoChat } from '../lib/operaciones-reglas';
+import {
+  CUERPO_PLEGABLE, TITULO_YA_ESTA, avisaYaEsta, cortadoPorLaPC, esChatVigia, esSinIncidentes, historialDelChat, incidenteDelVigia, incidenteSinVer,
+  partesDeYaEsta, partirPendiente, turnosParaLaLista, vigiaCallado, vistaPrevia, type ChatCentro, type LineaChat, type VistosDeChats,
+} from '../lib/centro-chats';
+import { TOPE_TURNO, ULTIMOS_POR_CHAT, ULTIMOS_TEXTO, resumirTurnos, type TurnoChat } from '../lib/operaciones-reglas';
+import { cuentasDeUso } from '../lib/centro-uso';
+import { ListaUso, textoSinMedicion } from '../app/admin/operaciones/Uso';
 import { YaEstaMensaje } from '../app/admin/operaciones/Avance';
 import { Hilo } from '../app/admin/operaciones/Hilo';
 import { CirculoNuevo } from '../app/admin/operaciones/NuevoChat';
@@ -180,4 +196,88 @@ test('3b: «Nuevo chat» lleva un círculo, no el muñeco gris; en el Centro, el
     assert.match(s, /<CirculoNuevo/, `${f}: el círculo`);
     assert.doesNotMatch(s, /MunecoNuevo/, `${f}: sin el muñeco`);
   }
+});
+
+// ── Lo que sumó el Cerebro a las 21:30 ────────────────────────────────────────────────────────────────────────────────────
+const AHORA = Date.UTC(2026, 9, 17, 22);
+const chatDe = (titulo: string, sesion = LOCAL): ChatCentro => ({
+  clave: sesion, porNombre: false, titulo, cuenta: 'claude4', estado: 'idle', vistoAt: AHORA, viejo: false, actividad: AHORA, pedidos: [], pidioAca: [],
+  trabajos: [], miembros: [sesion], sesiones: [],
+} as unknown as ChatCentro);
+let n = 0;
+const dice = (texto: string, hace: number, rol: TurnoChat['rol'] = 'el'): TurnoChat =>
+  ({ local: LOCAL, uuid: `u-turno-${String(++n).padStart(4, '0')}`, rol, de: null, texto, at: new Date(AHORA - hace).toISOString(), trabajo: null });
+const H = 3_600_000;
+
+test('7: la fila de un chat que NO se abrió avisa su «Completado» (lo último de cada chat viaja con el refresco)', () => {
+  // Como en los datos reales (17/10): un chat con 60 turnos, el último un «Ya está» largo de hace 20 minutos.
+  const historia = Array.from({ length: 57 }, (_, i) => dice(`Voy a trabajar en el punto ${i}`, (80 - i) * H));
+  const turnos = [...historia, dice('Ya está.', 2 * H), dice(`**Ya está:** ${'las tres partes del Plan están en producción y se prueban en /plan. '.repeat(30)}`, 20 * 60_000)];
+  const ultimos = { [LOCAL]: resumirTurnos(turnos, AHORA) };
+  assert.ok(ultimos[LOCAL].length <= ULTIMOS_POR_CHAT, 'sólo lo último, no los 60');
+  assert.ok(ultimos[LOCAL].every((u) => u.texto.length <= ULTIMOS_TEXTO), 'recortado: es para la fila, no para la conversación');
+  assert.ok(!ultimos[LOCAL].some((u) => u.texto.includes('en el punto 3')), 'lo de hace más de 3 días no viaja');
+  const chat = chatDe('CRM');
+  const lineas = historialDelChat(chat, new Map(), [], [], turnosParaLaLista(chat, {}, ultimos, false) ?? []);
+  const previa = vistaPrevia(lineas);
+  assert.equal(previa?.ya, true, 'la fila sabe que lo último es un «Ya está»');
+  const vistos: VistosDeChats = { desde: AHORA - 5 * H, chats: {} };
+  assert.equal(avisaYaEsta(previa, vistos, chat.clave), true, 'y avisa: llegó después de la primera vez que se abrió el Ops Center');
+  assert.equal(avisaYaEsta(previa, { ...vistos, chats: { [chat.clave]: AHORA } }, chat.clave), false, 'abierto después: no');
+  // Sin lo que trajo el refresco (como estaba), no hay nada que avisar: ése era el bug.
+  assert.equal(turnosParaLaLista(chat, {}, {}, false), undefined);
+  assert.equal(vistaPrevia(historialDelChat(chat, new Map(), [], [], [])), null);
+  // El chat que se mira nunca usa lo recortado (su conversación espera los turnos enteros), y los enteros ganan siempre.
+  assert.equal(turnosParaLaLista(chat, {}, ultimos, true), undefined);
+  assert.equal(turnosParaLaLista(chat, { [chat.clave]: turnos }, ultimos, false), turnos);
+  // Cableado: el motor trae lo último en cada refresco y lo usa para dibujar la fila; el teléfono y la computadora lo reciben al abrir.
+  const motor = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
+  assert.match(motor, /turnosParaLaLista\(c, turnos, ultimos, mirando === c\.clave\), preguntas\[c\.clave\]\)/);
+  assert.match(motor, /if \(f\.ultimos\) \{/, 'cada refresco');
+  assert.match(sinComentarios(leer('app/admin/operaciones/acciones.ts')), /leerUltimosTurnos\(\)\]\);\s*return \{ ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos \}/);
+  for (const f of ['app/admin/operaciones/datos.ts', 'app/m/operaciones/page.tsx']) assert.match(sinComentarios(leer(f)), /ultimosIniciales: ultimos/, f);
+});
+
+test('5: «MaKo en WhatsApp» sale de la lista mientras dice «Sin incidentes nuevos», y vuelve avisando con un incidente', () => {
+  assert.equal(esChatVigia({ titulo: 'MaKo en WhatsApp' }), true);
+  assert.equal(esChatVigia({ titulo: 'MaKo en WhatsApp › Vigía' }), false, 'un sub-chat tiene trabajo real');
+  assert.equal(esChatVigia({ titulo: 'Mako en whatsapp ' }), true, 'sin mayúsculas ni espacios de más');
+  for (const x of ['Sin incidentes nuevos.', 'sin incidentes nuevos', '**Sin incidentes nuevos**', '✅ Sin incidentes nuevos!']) assert.equal(esSinIncidentes(x), true, x);
+  for (const x of ['Sin incidentes nuevos, pero Pablo no recibe nada', 'Hay un incidente nuevo en el ws18', '']) assert.equal(esSinIncidentes(x), false, x);
+  const vigia = chatDe('MaKo en WhatsApp', 'local_aaaaaaaa-1111-2222-3333-444444444444');
+  // Como en los datos reales: 44 de sus 60 turnos son «Sin incidentes nuevos» y el último también.
+  const callado = [
+    dice('Arreglé el ws18 y ya está en producción', 5 * H),
+    ...Array.from({ length: 6 }, (_, i) => dice('Sin incidentes nuevos.', (6 - i) * 15 * 60_000)),
+    dice('Cerebro → MaKo en WhatsApp: tus puntas ya están en producción', 10 * 60_000, 'otro'),
+  ];
+  assert.equal(incidenteDelVigia(callado), null, 'el último suyo es «Sin incidentes nuevos» (lo que le escribe otro chat no cuenta)');
+  assert.equal(vigiaCallado(vigia, callado, 0, false), true, 'callado: afuera de la lista');
+  assert.equal(vigiaCallado(vigia, undefined, 0, false), true, 'sin saber nada de él, también');
+  assert.equal(vigiaCallado(vigia, callado, 1, false), false, 'si espera una respuesta, se ve');
+  assert.equal(vigiaCallado(vigia, callado, 0, true), false, 'el que se está mirando no desaparece de abajo de los dedos');
+  assert.equal(vigiaCallado(chatDe('CRM'), callado, 0, false), false, 'sólo el vigía: un chat cualquiera no se esconde');
+  // Un incidente de verdad lo hace aparecer, y avisa si no se vio; abierto, ya no avisa (pero sigue hasta el próximo «Sin incidentes»).
+  const incidente = [...callado, dice('Incidente: el grupo del ws18 no recibió la confirmación de la reunión de Pablo. Lo reviso.', 60_000)];
+  assert.equal(incidenteDelVigia(incidente)?.texto.startsWith('Incidente'), true);
+  assert.equal(vigiaCallado(vigia, incidente, 0, false), false, 'con un incidente se ve');
+  assert.equal(incidenteSinVer(vigia, incidente, AHORA - 5 * 60_000), true, 'sin ver: avisa como «Espera tu respuesta»');
+  assert.equal(incidenteSinVer(vigia, incidente, AHORA), false, 'visto: no');
+  assert.equal(incidenteSinVer(chatDe('CRM'), incidente, 0), false, 'sólo el vigía');
+  const vuelveACallar = [...incidente, dice('Sin incidentes nuevos.', 10_000)];
+  assert.equal(vigiaCallado(vigia, vuelveACallar, 0, false), true, 'el siguiente «Sin incidentes nuevos» lo vuelve a esconder');
+  // Cableado: la lista sale filtrada, y el incidente cuenta como una respuesta que espera (el mismo globito y renglón).
+  const motor = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
+  assert.match(motor, /conVigia\.filter\(\(c\) => !vigiaCallado\(c, turnosParaLaLista\(c, turnos, ultimos, false\), esperaDe\(c, esperasConVigia\), mirando === c\.clave\)\)/);
+  assert.match(motor, /if \(local && incidenteSinVer\(c,/);
+  assert.match(motor, /esperas: esperasConVigia,/, 'las dos pantallas leen las esperas con el incidente');
+});
+
+test('9: una cuenta recorrida por otro Runner y sin medir no dice «Runner conectado»', () => {
+  const visto = new Date(AHORA - 30_000).toISOString();
+  const cuentas = cuentasDeUso([{ cuenta: 'claude2', vistoAt: visto }]);
+  const pantalla = texto(renderToStaticMarkup(createElement(ListaUso, { cuentas, ahora: AHORA })));
+  assert.match(pantalla, /Sin medir: su terminal no tiene Runner abierto/);
+  assert.doesNotMatch(pantalla, /Runner conectado|todavía sin medir/);
+  assert.equal(textoSinMedicion('apagado'), 'Su uso aparece cuando su Runner esté conectado', 'sin nadie que la recorra: el de siempre');
 });

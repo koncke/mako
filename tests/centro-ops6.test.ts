@@ -66,20 +66,20 @@ test('1: «Preguntas de los chats» ya no es una pestaña de la Ticketera, y un 
   assert.match(codigo('app/admin/operaciones/PiezasCentro.tsx'), /responder=\{k\.responderAca\}/);
 });
 
-test('2: el Uso no se contradice: con el Runner conectado y sin medición dice eso, no «aparece cuando esté conectado»', () => {
+test('2: el Uso no se contradice: sin medición dice lo que pasa con su Runner (el estado de arriba), no una frase escrita aparte', () => {
   const ahora = Date.UTC(2026, 9, 17, 21);
   const visto = new Date(ahora - 30_000).toISOString();
   // La cuenta 2 con su Runner conectado y sin ninguna medición; la 3 sin Runner ni número.
   const cuentas = cuentasDeUso([{ cuenta: 'claude2', vistoAt: visto }]);
   const texto = renderToStaticMarkup(createElement(ListaUso, { cuentas, ahora })).split('<section').slice(1).map((s) => s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
   assert.match(texto[1], /Runner activo/);
-  assert.match(texto[1], /Runner conectado, todavía sin medir$/, 'conectado y sin medir: lo dice');
-  assert.doesNotMatch(texto[1], /Su uso aparece/, 'y no el texto de «sin Runner»');
+  assert.match(texto[1], /Sin medir: su terminal no tiene Runner abierto$/, 'recorrida por otro Runner y sin medir: lo dice (no «Runner conectado»)');
+  assert.doesNotMatch(texto[1], /Su uso aparece|Runner conectado/, 'ni el texto de «sin Runner» ni una conexión que no es de esa cuenta');
   assert.match(texto[2], /Sin Runner todavía Su uso aparece cuando su Runner esté conectado$/, 'sin Runner: el de siempre');
   // En ninguna cuenta conviven «Runner activo» y el texto de «sin Runner».
   for (const t of texto) assert.ok(!(/Runner activo/.test(t) && /Su uso aparece/.test(t)), t);
-  assert.equal(textoSinMedicion(true), 'Runner conectado, todavía sin medir');
-  assert.equal(textoSinMedicion(false), 'Su uso aparece cuando su Runner esté conectado');
+  assert.equal(textoSinMedicion('sin_terminal'), 'Sin medir: su terminal no tiene Runner abierto');
+  assert.equal(textoSinMedicion('apagado'), 'Su uso aparece cuando su Runner esté conectado');
 });
 
 test('3: el super admin no ve «Second Brain» en la barra ni en More; el cliente y su equipo, sí', () => {

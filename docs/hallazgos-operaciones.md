@@ -1666,9 +1666,33 @@ diferencia): la capa y el campo comparten ahora UNA regla; si se toca el relleno
 sumar «Ops Center» a esa lista habría vuelto estrella a todo chat con ese nombre. «Nuevo chat» es `CirculoNuevo` (verde, con «+»):
 el muñeco gris era el de un chat que existe.
 
+**El aviso del «Completado» no salía en ningún chat que no se hubiera abierto (17/10, 21:30).** Medido con los turnos reales (61
+chats en `operaciones.turnos.*`, 0,9 MB): hoy sólo 4 chats terminaron con un «Ya está» (los demás cierran en prosa: «Terminé el
+feedback del CRM…», que no es un «Completado» para la pantalla). Pero `avisaYaEsta` miraba `vistaPrevia(lineasDe)` y `lineasDe` se
+armaba con `turnos[c.clave]`, y esos turnos viajan SÓLO del chat que se mira (`pedirTurnos`): la fila de uno cerrado no sabía su
+último mensaje. El diagnóstico probable (el estado por dispositivo, o que sólo cuente los de después del deploy) no era: `desde`
+sólo descarta lo anterior a la primera apertura. **Regla:** un aviso por chat sale de lo que trae el refresco de TODOS
+(`leerUltimosTurnos`: los 3 últimos turnos de los últimos 3 días, recortados a 300 caracteres, con caché por `updated_at` para no
+releer 0,9 MB cada 8 s), nunca de la conversación abierta; y ese texto cortado no se dibuja como conversación
+(`turnosParaLaLista` lo niega para el chat que se mira).
+
+**«MaKo en WhatsApp» (el vigía):** 44 de sus 60 turnos son «Sin incidentes nuevos.» (un cron cada 15 min). Se esconde de la lista
+mientras su último turno es ése (`vigiaCallado`), no borrándolo: es el chat jefe de la vigilancia, y un incidente de verdad lo hace
+volver y avisar como «Espera tu respuesta» (`incidenteSinVer` suma una espera). El chat que se está mirando no se esconde.
+
+**«Runner conectado, todavía sin medir» era falso, y MaKo no puede pedirle la medición a ese Runner porque no existe.** Datos
+reales: la cuenta 2 no tiene ningún chat Runner (28 chats, 1 sesión viva suelta, `cuota: null`); la 1 y la 3 no tienen sesiones
+vivas; sólo el Runner de la cuenta 4, que corre con el paso 0b, mide (0 % de 5 h, 78 % de la semana, hace segundos). «Conectado» era
+`visto_at` fresco, y lo mantiene el Runner de la app, que da la vuelta por las cuatro carpetas. Lo que mide el Uso es la barra de
+estado de SU Runner de terminal (`--settings`, `cartero.mjs uso`) o `get_usage` de la app, y `get_usage` sólo habla de la cuenta
+de la app. Un trabajo firmado «medí tu uso» no tiene a quién llegar (y el cartero rechaza todo trabajo al Runner: «Al Runner no se
+le escribe»). Se cambió el texto por lo cierto («Sin medir: su terminal no tiene Runner abierto»). Medir solo exige abrir el Runner
+de esa cuenta con su barra de estado: un «Nuevo chat» firmado con nombre «Runner» y `--settings` (cartero `abrir`, ⚠️ pide
+revisión: lanza un proceso) sería el camino; no se tocó.
+
 **Vive en:** lib/centro-chats.ts (`partesDeYaEsta`, `partirPendiente`, `cortadoPorLaPC`) · app/admin/operaciones/{Avance,Hilo,NuevoChat}.tsx
 · centro.css (`.co-ya__*`, `.co-caja__fila`, `--caja-toque`) · app/m/operaciones/operaciones.css · app/_components/{Criatura,Sidebar}.tsx
-· app/m/mas/page.tsx · tests/centro-ops7.test.ts.
+· app/m/mas/page.tsx · lib/{operaciones-reglas,centro-turnos-db}.ts (`resumirTurnos`, `leerUltimosTurnos`) · app/admin/operaciones/{useCentro,acciones,datos,Uso}.ts(x) · tests/centro-ops7.test.ts.
 
 **Sin hacer:** nada se vio en el Android de Martín (medido en Chrome de escritorio con el CSS real, y tests); el tope de 4000 / 600
-del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`).
+del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la medición automática de una cuenta sin Runner (arriba).

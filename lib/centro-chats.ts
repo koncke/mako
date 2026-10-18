@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, carteroVivo, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -339,6 +339,54 @@ export const esChatDelRunner = (c: Pick<ChatCentro, 'titulo' | 'esRunner'>): boo
  */
 export const sinElRunner = <T extends Pick<ChatCentro, 'titulo' | 'esRunner'>>(chats: readonly T[]): T[] =>
   chats.filter((c) => !esChatDelRunner(c));
+
+/**
+ * Lo que se sabe de un chat para dibujar su FILA: sus turnos completos si se abrió (`turnos`), y si no lo último que trajo el
+ * refresco de todos (`ultimos`, por sesión; lib/operaciones-reglas.ts → `resumirTurnos`). Sin esto un «Ya está» sólo avisaba en
+ * los chats abiertos antes en esa pantalla (17/10/2026). ⚠️ `miradoAhora`: el chat que se está mirando NUNCA usa lo recortado
+ * (su conversación esperaría los turnos enteros con un texto cortado): sin los suyos todavía, no hay nada.
+ */
+export function turnosParaLaLista(
+  c: Pick<ChatCentro, 'clave' | 'miembros'>, turnos: Readonly<Record<string, readonly TurnoChat[]>>,
+  ultimos: Readonly<Record<string, readonly TurnoChat[]>>, miradoAhora: boolean,
+): readonly TurnoChat[] | undefined {
+  if (turnos[c.clave]) return turnos[c.clave];
+  if (miradoAhora) return undefined;
+  const lista = c.miembros.flatMap((m) => ultimos[m] ?? []);
+  return lista.length ? unirTurnos([], lista) : undefined;
+}
+
+// ── «MaKo en WhatsApp», el vigía: un cron que cada rato dice «Sin incidentes nuevos» (Martín, 17/10/2026) ─────────────────
+// «No debería verse entre los chats... es como un CRON que revisa problemas... cada rato envía "Sin incidentes nuevos", no es
+// necesario». Se esconde de la lista mientras está callado (como el Runner), sin avisar ni subir. Un incidente de verdad —su
+// último turno ya no es «Sin incidentes nuevos»— lo hace aparecer y AVISAR como «Espera tu respuesta». Es el chat jefe de la
+// vigilancia de los grupos de los clientes (memoria: vigía de MaKo en WhatsApp): por eso no se borra, se calla.
+/** ¿Es el chat del vigía? Su nombre ENTERO: «MaKo en WhatsApp › algo» es un sub-chat con trabajo real. */
+export const esChatVigia = (c: Pick<ChatCentro, 'titulo'>): boolean => /^mako en whatsapp$/i.test(c.titulo.trim());
+
+/** ¿Este texto es el «todo en orden» del vigía? Sólo eso, con o sin punto, negrita o ✅ (no «Sin incidentes nuevos, pero…»). */
+export const esSinIncidentes = (texto: string): boolean => /^[\s*_.\-–—✅✔·]*sin incidentes nuevos[\s.!*_]*$/i.test(texto.trim());
+
+/**
+ * El incidente de verdad que dejó el vigía: su turno MÁS NUEVO (del chat, no lo que le escriben) si no es «Sin incidentes
+ * nuevos». null = está callado (o todavía no se sabe nada de él).
+ */
+export function incidenteDelVigia(turnos: readonly TurnoChat[] | undefined): TurnoChat | null {
+  const suyos = (turnos ?? []).filter((t) => t.rol === 'el');
+  const ultimo = suyos.reduce<TurnoChat | null>((m, t) => (!m || Date.parse(t.at) >= Date.parse(m.at) ? t : m), null);
+  return ultimo && !esSinIncidentes(ultimo.texto) ? ultimo : null;
+}
+
+/** ¿Se esconde este chat de la lista? Sólo el vigía callado, sin nada que espere, y nunca el que se está mirando. */
+export const vigiaCallado = (c: Pick<ChatCentro, 'titulo'>, turnos: readonly TurnoChat[] | undefined, espera: number, miradoAhora: boolean): boolean =>
+  esChatVigia(c) && espera === 0 && !miradoAhora && incidenteDelVigia(turnos) == null;
+
+/** ¿Trae un incidente que este dispositivo no vio? Cuenta como una respuesta que espera (`avisosDe`): mismo globito y renglón. */
+export const incidenteSinVer = (c: Pick<ChatCentro, 'titulo'>, turnos: readonly TurnoChat[] | undefined, vistoEn: number): boolean => {
+  if (!esChatVigia(c)) return false;
+  const i = incidenteDelVigia(turnos);
+  return i != null && Date.parse(i.at) > vistoEn;
+};
 
 /** El chat de una clave: la suya, o la de una de sus sesiones (un link viejo con `?chat=<sesión>` sigue abriendo). */
 export const chatDeClave = (chats: readonly ChatCentro[], clave: string | null) =>

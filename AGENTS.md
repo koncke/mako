@@ -1447,6 +1447,13 @@ código nuevo:
   - lo que la PC corta al subir (`TOPE_TURNO`) se dice en la tarjeta (`cortadoPorLaPC`), no se calla.
 
   Un texto nuevo que muestre un cierre sigue ese molde. Lo fija tests/centro-ops7.test.ts.
+- **UN AVISO POR CHAT SE CALCULA CON LO QUE TRAE EL REFRESCO DE TODOS, NO CON LA CONVERSACIÓN ABIERTA** (17/10/2026; Martín:
+  «supuestamente ya terminaste cosas, pero no me salió lo de "Espera tu respuesta"»). Los turnos completos viajan SÓLO del chat que
+  se mira (`pedirTurnos`): el aviso del «Completado» sin ver, que se calculaba con ellos, nunca salía en un chat que no se había
+  abierto. Cada refresco trae además lo último de todos (`leerUltimosTurnos`, recortado), y la fila lo usa
+  (`turnosParaLaLista`). Ese texto está CORTADO: es para la fila, nunca para dibujar una conversación. Un aviso nuevo por chat se
+  suma ahí. Y el vigía «MaKo en WhatsApp» (un cron que dice «Sin incidentes nuevos» cada rato) se esconde de la lista mientras
+  está callado (`vigiaCallado`) y avisa con un incidente de verdad. Lo fija tests/centro-ops7.test.ts.
 - **EL CENTRO SE MONTA EN OTRA PÁGINA POR SU MOTOR, NUNCA COPIÁNDOLO** (17/10/2026; Martín: «quiero mandar prompts por
   MaKo en el Second Brain»). Son tres piezas:
   - `useCentro` (app/admin/operaciones/useCentro.ts): el refresco, la cola, la firma, la caja y el «⋯»;
