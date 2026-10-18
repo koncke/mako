@@ -9353,3 +9353,10 @@ Desde el 17/10/2026 (docs/hallazgos-planes-y-cobro.md → «Quien deja de pagar 
 - **Marcar a mano una cuota pasa por `marcarPago` o `cobrarCuota`** (lib/pagos.ts), que le preguntan antes a la pasarela
   si su link ya se cobró. Un camino de la PASARELA que marca una cuota pasa `{ mirarLinks: false }`: si no, se pregunta a
   sí misma.
+
+## Una tarjeta de kanban nueva usa la familia de app/_ui/TarjetaKanban (17/10/2026)
+
+CRM, Clients y Plan, en computadora y teléfono, dibujan sus tarjetas con `app/_ui/TarjetaKanban.tsx` (Martín: «Quiero que
+tengan coherencia»; prototipo docs/prototipos/coherencia-1710.html). Un tablero nuevo NO escribe su propia tarjeta: usa
+`TarjetaPersona` (una persona) o `TarjetaTarea` (una tarea), y le pasa a la raíz su arrastre y su clic. En el teléfono, la
+tarjeta va adentro de `KanbanM`. Detalle y trampas: docs/hallazgos-ui.md.

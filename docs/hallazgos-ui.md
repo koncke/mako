@@ -4076,3 +4076,23 @@ perfil propio también llega después: hasta entonces se ven las iniciales corre
 
 **Vive en:** `lib/vista-de-otro.ts` · `app/layout.tsx` · `app/_components/Sidebar.tsx` (`SidebarInicial`) ·
 `app/_components/ImpersonationBanner.tsx` · `app/api/auth/me/route.ts` · test: `tests/inspeccionar-primer-cuadro.test.ts`
+
+## Una familia de tarjetas para CRM, Clients y Plan: el kit vive en app/_ui/TarjetaKanban (17/10/2026)
+
+Martín, 17/10 22:40 (punto 8): «No me gustan las cards… Quiero que tengan coherencia». La fuente fue el prototipo
+docs/prototipos/coherencia-1710.html; su kit se escribió UNA vez en `app/_ui/TarjetaKanban.tsx` (`TarjetaPersona`,
+`TarjetaTarea`, `PestanasPildora`, `TarjetaDestacada`, `CuerpoFichaRapida`/`FichaRapida`) y lo puro (iniciales, color,
+insignia del canal, plata) en `lib/tarjeta-kanban.ts`, con test.
+- **La raíz de la tarjeta recibe las props del que la monta** (`draggable`, `onDragStart`, `data-*`, `onClick`): el
+  arrastre, el clic derecho y la selección siguen siendo del tablero. La familia dibuja; no decide.
+- **Los tokens del kit son `--tk-*`, adentro del componente**, apoyados en los de la casa (`--card-bg`, `--primary`,
+  `--good`…): la app no tenía sombra de tarjeta ni los colores de sección del prototipo. Oscuro: `[data-tema="oscuro"]`.
+  El CSS va con `<style href precedence>`: React lo deduplica aunque cada tarjeta lo monte.
+- **`TarjetaEntidad` NO se tocó**: también la usa /admin. Clients dejó de usarla; quien quiera la familia, usa el kit.
+- **Un botón adentro de una tarjeta que ya es botón no vale** (el teléfono): el círculo de una tarea y la píldora «Ver
+  info» van como `span` (con rol de botón, el círculo; sólo dibujo, la píldora: toda la tarjeta abre la ficha rápida).
+- **Una rotura que no cambia nada no prueba nada:** sacar el corte de «Sin origen» en `insigniaDeCanal` daba 4/0 porque
+  ese texto también caía al `return null` del final. Se midió otra (sin el caso de WhatsApp: 3/1).
+
+**Vive en:** app/_ui/TarjetaKanban.tsx · lib/tarjeta-kanban.ts · tests/tarjeta-kanban.test.ts y tests/tarjetas-familia.test.ts ·
+*17/10/2026 noche, chat «CRM» (claude4).*

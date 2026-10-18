@@ -9937,3 +9937,21 @@ app/crm/actions.ts (`undoStageMoveAction`, `empezarDeshacer`/`cerrarDeshacer`, `
 `completeStageMoveAction`, `markMeetingManualAction`, `revertMoveAction`) · lib/deshacer-movimiento.ts ·
 lib/lead-desenlace.ts · lib/leads.ts (AUDIT_FIELDS, `updateLead`) · app/crm/CrmBoard.tsx · app/crm/StageMoveDialog.tsx ·
 app/m/crm/acciones.ts · test: deshacer-movimiento-venta · *17/10/2026, agente del Cerebro (claude4).*
+
+## Las tarjetas del CRM en la familia del prototipo: lo que no se ve en el código (17/10/2026, noche)
+
+- **«Ver info» → «Mover a…» va por `handleDrop`**, el MISMO camino que soltar la tarjeta en la columna (y que el menú del
+  clic derecho): cada columna abre su wizard (Ganado pide el monto, una reunión la agenda). Un movimiento directo se
+  habría saltado eso.
+- **«Próximo» sale de las reuniones que ya trae el tablero (`juntas`)**: la primera que no pasó. Sin reunión por
+  delante, no se dibuja. En el teléfono se calcula en `tableroCrm` (una fecha sin hora cuenta todo el día).
+- **La foto: sólo las GUARDADAS** (`avatar_url`, la elegida; `foto_auto_url`, la de WhatsApp que copia el cron). El proxy
+  vivo de WhatsApp y el Gravatar no: serían cuarenta pedidos por pantalla. Medido el 17/10: en el ws1, 41 de 1.164 leads
+  tienen foto; el resto, iniciales con el color del nombre y la insignia del canal.
+- **Las vistas del prototipo se mapearon a las que hay:** «Tablero · Lista» (la lista sigue siendo la tabla). No hay
+  «Follow-ups»: no existe esa vista, y no se inventó.
+- **La plata de la tarjeta sigue la regla del total de su columna** (lib/tarjeta-kanban.ts `plataDeLead` ≈ total-columna.ts):
+  vendido en Ganado, «≈» estimado abierto, nada sin dato.
+
+**Sin hacer:** la foto de Instagram (no se guarda: la URL vence); la tabla («Lista») sigue con su diseño de tabla.
+**Vive en:** app/crm/CrmBoard.tsx · app/crm/CrmToolbar.tsx (`VistaSelector`) · app/m/crm/datos.ts y TableroCrm.tsx · *17/10/2026 noche, chat «CRM» (claude4).*

@@ -7196,3 +7196,17 @@ El Cerebro revisó la tanda 1 de B5. Lo que la revisión encontró y la regla qu
 el camino del modal, y las filas que el propio cron deja «procesando», no lo heredaban.
 **Vive en:** lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts · app/api/plan-fathom/route.ts · lib/plan-fathom.ts ·
 lib/reunion-plan-aviso.ts · tests/reunion-larga-reloj.test.ts (R1-R7 en su cabecera) · *17/10/2026, B5 (claude4)*
+
+## La tarea en la familia de tarjetas: el círculo de prioridad completa (17/10/2026)
+
+- **El círculo ocupa el lugar de la foto y tocarlo completa o reabre** (era el check del pie). En la computadora llama a
+  `board.toggleDone`; en el teléfono, a `completar(…, 'check')`, el MISMO camino que «Completar tarea» del sheet (con su
+  deshacer).
+- **El color sale de la banda del puntaje** (`prioFromScore`: alta, media, baja, futuro) y el puntaje 0 va punteado. El
+  nombre que se lee es el de la casa («Prioridad alta»), no el del prototipo (Urgent/High…).
+- **La tarjeta ya no mide 138 px fijos:** la fecha y el proyecto van en un renglón y el alto lo pone el contenido. Todo lo
+  que mostraba se quedó (proyecto, plazo con sus días, candado, «se repite», aviso de la fecha, puntaje, tacho), más
+  «MaKo» en naranja si la creó MaKo (`origen === 'ia'`).
+
+**Sin hacer:** la vista «Prioridades» (`TarjetaPrioridad`) y el tablero de Proyectos del teléfono siguen con su tarjeta.
+**Vive en:** app/plan/board/BoardShell.tsx (`CardTile`) · app/m/plan/ListaPlan.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
