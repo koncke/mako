@@ -199,10 +199,12 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'create' },
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
-  { id: 'mako', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'mako', familia: null },
+  // «Ops Center» desde el 18/10/2026, como en escritorio (nav.ts → MAKO_NAV): el nombre de la fila, de la cabecera y del
+  // «volver» de sus subpantallas. La pantalla no cambia.
+  { id: 'mako', label: 'Ops Center', href: '/m/second-brain', icon: 'cerebro', navKey: 'mako', familia: null },
   // OCULTAS (17/10/2026): sus páginas siguen y un link de escritorio las abre en el teléfono (`rutaMovil` las busca por
   // id), pero no son filas de More ni suben a la barra: en escritorio salieron de la sidebar (nav.ts → SIN_FILA).
-  { id: 'second-brain', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'second-brain', familia: null, oculta: true },
+  { id: 'second-brain', label: 'Ops Center', href: '/m/second-brain', icon: 'cerebro', navKey: 'second-brain', familia: null, oculta: true },
   { id: 'experimentos', label: 'Experiments', href: '/m/experimentos', icon: 'experiments', navKey: 'experimentos', familia: null, oculta: true },
   // Course y Community: sub-tabs de Clients desde el 17/10/2026 (arriba de las tres pantallas, app/m/cs/SeccionesClientsM.tsx).
   { id: 'curso', label: 'Classroom', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: null, oculta: true },

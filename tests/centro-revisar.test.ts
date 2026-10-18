@@ -130,6 +130,9 @@ test('la tab del jefe: el nombre de la barra, sin mayúsculas ni tildes, y la de
   assert.equal(rutaDeLaTab('CRM', TABS), '/crm', 'no /admin/dev/crm: ese nombre se repite en la barra del super admin');
   assert.equal(rutaDeLaTab('Dashboard', TABS), '/dashboard');
   assert.equal(rutaDeLaTab('Second Brain', TABS), '/second-brain');
+  // 18/10/2026: el Second Brain de cada negocio se llama «Ops Center» en la barra; su jefe sigue siendo «Second Brain»
+  // (nav.ts → `jefe`) y «Ops Center» sigue siendo el del super admin.
+  assert.equal(rutaDeLaTab('Ops Center', TABS), '/admin/operaciones');
   assert.equal(rutaDeLaTab('  second   BRAIN ', TABS), '/second-brain', 'misma comparación que las secciones del Centro');
   // Con el orden al revés, la de desarrollo ganaría: por eso el orden va contado en la función y en la pantalla.
   assert.equal(rutaDeLaTab('CRM', [...TABS].reverse()), '/admin/dev/crm');

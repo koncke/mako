@@ -1184,10 +1184,12 @@ export function yaEstaDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
  * en la del super admin. La tab del producto va primero (`[...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV]`, como
  * `nombresDeTabs`); con el orden al revés, Review mandaría a la ficha de desarrollo en vez de a la pantalla.
  */
-export function rutaDeLaTab(jefe: string, items: ReadonlyArray<{ label: string; href: string }>): string | null {
+export function rutaDeLaTab(jefe: string, items: ReadonlyArray<{ label: string; href: string; jefe?: string }>): string | null {
   const k = normal(jefe);
   if (!k) return null;
-  const it = items.find((i) => normal(i.label) === k);
+  // El nombre de su JEFE si la fila se llama distinto (nav.ts → `jefe`: el Second Brain de cada negocio se llama «Ops
+  // Center» desde el 18/10/2026; sin esto, «Ops Center» caía en /second-brain y «Second Brain» no era una tab).
+  const it = items.find((i) => normal(i.jefe ?? i.label) === k);
   // Sólo una ruta interna: un href que no empieza con «/» (o es «//host») no es una tab de MaKo.
   return it && it.href.startsWith('/') && !it.href.startsWith('//') ? it.href : null;
 }
@@ -1202,7 +1204,7 @@ export type DestinoReview = { href: string; via: 'visor' | 'pagina' | 'tab' };
  */
 export function destinoDeReview(
   n: Pick<NodoAvance, 'id' | 'revisar'>, chat: Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'> | undefined,
-  items: ReadonlyArray<{ label: string; href: string }>,
+  items: ReadonlyArray<{ label: string; href: string; jefe?: string }>,
 ): DestinoReview | null {
   const propio = chat ? hrefRevisar(n, chat) : n.revisar?.pagina ?? null;
   if (propio) return { href: propio, via: chat && VISOR_REVISAR ? 'visor' : 'pagina' };
