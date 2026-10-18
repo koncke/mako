@@ -201,7 +201,9 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
       <div className="co-burbuja">
         {t.rol === 'otro' && <span className="co-burbuja__cita">{t.de ?? 'Otro chat'}</span>}
         <TextoMio texto={t.texto} lineas={wa.lineas} />
-        <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{hora}</span>
+        {/* Lo que Martín escribió DIRECTO en la app de Claude (no pasó por la cola del Ops Center: sin `trabajo`) lo dice,
+            chico y en gris junto a la hora (18/10/2026: «un pequeño y sutil aclaración de que ese mensaje se envió por aquí»). */}
+        <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{t.rol === 'yo' && !t.trabajo && <span className="co-burbuja__desde" title="Lo escribiste directo en la app de Claude">desde la app</span>}{hora}</span>
       </div>
       {t.rol === 'yo' ? <MiFoto /> : <span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span>}
       <ReaccionWA id={id} marcas={wa.marcas} />
