@@ -28,7 +28,7 @@ import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
-  avisaYaEsta, avisosDe, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, vigiaCallado, type VistosDeChats,
+  avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type VistosDeChats, type YaVistos,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
@@ -37,7 +37,7 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { contestarPreguntaAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { contestarPreguntaAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, pushesCentroAction, turnosCentroAction } from './acciones';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
 import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
@@ -195,6 +195,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // ya no lo avisa. `desde` es la primera vez que este navegador abrió el Ops Center: lo de antes no se avisa (si no, todos
   // los chats saldrían con aviso el primer día).
   const [vistos, setVistos] = useState<VistosDeChats | null>(null);
+  /** El ✓ de cada «Completado», guardado en MaKo (18/10/2026): llega con cada refresco, así cruza al teléfono. */
+  const [yaVistos, setYaVistos] = useState<YaVistos | null>(null);
   const [mirando, setMirando] = useState<string | null>(null);
   useEffect(() => { setVistos(leerVistos(Date.now())); }, []);
   const verChat = useCallback((clave: string) => {
@@ -290,15 +292,24 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const t = (borradores[clave] ?? '').split('\n').map((x) => x.trim()).find(Boolean);
     return t ? t.replace(/^• /, '') : null;
   };
-  /** Los chats cuyo último mensaje es un «Ya está» que este dispositivo todavía no vio (lib/centro-chats.ts → avisaYaEsta). */
-  const yaSinVer = useMemo(() => new Set([...previas].filter(([k, p]) => k !== mirando && avisaYaEsta(p, vistos, k)).map(([k]) => k)), [previas, vistos, mirando]);
+  /** Los chats cuyo último «Ya está» espera el ✓ de Martín (lib/centro-chats.ts → esperaCheck): aunque lo haya abierto y aunque
+   *  el chat haya escrito algo después (18/10/2026, pedido 1d15877a). Antes era por dispositivo y se apagaba al abrirlo. */
+  const yaSinVer = useMemo(() => new Set([...lineasDe].filter(([k, l]) => esperaCheck(ultimoYaEsta(l), yaVistos, k)).map(([k]) => k)), [lineasDe, yaVistos]);
+  /** El ✓ de un «Completado»: al toque en pantalla, y en MaKo; si no se pudo guardar, vuelve atrás y lo dice. */
+  const marcarYaVisto = useCallback(async (clave: string, instante: number) => {
+    let antes: YaVistos | null = null;
+    setYaVistos((v) => { antes = v; return { ...(v ?? {}), [clave]: Math.max(v?.[clave] ?? 0, instante) }; });
+    const r = await marcarYaVistoAction(clave, instante).catch(() => null);
+    if (r?.ok) setYaVistos(r.yaVistos);
+    else { setYaVistos(antes); avisar(r?.error ?? 'No pude guardarlo', 'bad'); }
+  }, [avisar]);
   /** Cuánto avisa cada chat en su fila: lo que espera a Martín MÁS un «Completado» sin ver (es el mismo aviso, 17/10/2026). Del
    *  globito de la criatura y del orden de la lista. */
   const avisos = useMemo(() => (c: ChatCentro) => avisosDe(esperaDe(c, esperasConVigia), yaSinVer.has(c.clave)), [esperasConVigia, yaSinVer]);
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.yaVistos) setYaVistos(f.yaVistos); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);
@@ -589,7 +600,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, pasosDe,
-    lineasDe, previas, enCursos, yaSinVer, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
+    lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */

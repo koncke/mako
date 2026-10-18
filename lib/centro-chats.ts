@@ -572,17 +572,18 @@ export type VistaPrevia = { texto: string; propio: boolean; tick: EstadoPedido |
  *
  * ⚠️ `revisar` es el MISMO aviso que `espera` (Martín, 17/10/2026, 19:33: «Cuando tengo algo pendiente que revisar de
  * "Completado" la misma notif de "Espera tu respuesta"»): mismo lugar, mismo estilo y el mismo globito en la criatura
- * (`avisosDe`). Desaparece cuando se abre el chat (`avisaYaEsta`).
+ * (`avisosDe`). Desde el 18/10/2026 dice «Espera tu respuesta» y NO desaparece al abrir el chat: sólo con el ✓ de Martín
+ * en la tarjeta del «Completado» (`esperaCheck`, guardado en MaKo).
  */
 export type SegundoRenglon = 'vivo' | 'espera' | 'revisar' | 'borrador' | 'ya' | 'previa' | null;
 export function segundoRenglon(
   c: Pick<ChatCentro, 'estado' | 'viejo'>, espera: number, borrador: string | null | undefined, p: VistaPrevia | null | undefined,
-  /** Su «Completado» llegó y este dispositivo todavía no lo vio (`avisaYaEsta`). */
+  /** Su último «Completado» espera el ✓ de Martín (`esperaCheck`), aunque el chat haya escrito algo después. */
   sinVer = false,
 ): SegundoRenglon {
   if (c.estado === 'trabajando' && !c.viejo) return 'vivo';
   if (espera > 0) return 'espera';
-  if (sinVer && p?.ya) return 'revisar';
+  if (sinVer) return 'revisar';
   if (borrador) return 'borrador';
   if (!p) return null;
   return p.ya ? 'ya' : 'previa';
@@ -603,6 +604,45 @@ export function avisaYaEsta(p: VistaPrevia | null | undefined, vistos: VistosDeC
   if (!p?.ya || !vistos) return false;
   return p.instante > (vistos.chats[clave] ?? vistos.desde);
 }
+
+// ── El ✓ del «Completado» (18/10/2026, pedido 1d15877a) ─────────────────────────────────────────
+// Martín: «No me aparece el mensaje de "Completado" y la notificación de todos los chats siempre debe ser "Espera tu
+// respuesta", y no desaparecer hasta que yo le dé un check al mensaje de completado». Medido ese día: los «Ya está» SÍ
+// estaban en MaKo, pero el aviso (`avisaYaEsta`) se guardaba por dispositivo y se apagaba al abrir el chat, sólo contaba
+// si el «Ya está» era lo ÚLTIMO del chat, y la lista recibía sólo los últimos 3 turnos (`resumirTurnos`).
+// Ahora: un chat espera el ✓ mientras su ÚLTIMO «Ya está» (aunque después haya escrito otra cosa) sea más nuevo que el ✓
+// guardado en MaKo para ese chat (lib/centro-ya-vistos-db.ts): el mismo en la computadora y en el teléfono.
+
+/** Desde cuándo un «Completado» espera el ✓: los de antes no vuelven todos juntos a pedirlo. */
+export const YA_VISTOS_DESDE = Date.parse('2026-10-18T00:00:00-03:00');
+/** El ✓ de cada chat (su clave): hasta qué «Ya está» (su instante) ya lo vio Martín. */
+export type YaVistos = Record<string, number>;
+export const MAX_YA_VISTOS = 500;
+
+/** Lo guardado, saneado: claves cortas e instantes finitos; los más nuevos si hay de más. */
+export function leerYaVistos(v: unknown): YaVistos {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const pares = Object.entries(v as Record<string, unknown>)
+    .filter((e): e is [string, number] => e[0].length > 0 && e[0].length <= 300 && typeof e[1] === 'number' && Number.isFinite(e[1]));
+  return Object.fromEntries(pares.sort((a, b) => b[1] - a[1]).slice(0, MAX_YA_VISTOS));
+}
+
+/** El instante del último «Ya está» que escribió el chat, aunque después haya escrito otra cosa. null = ninguno. */
+export function ultimoYaEsta(lineas: readonly LineaChat[]): number | null {
+  let u: number | null = null;
+  for (const l of lineas) if (l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto) && (u == null || l.instante > u)) u = l.instante;
+  return u;
+}
+
+/** ¿El chat espera el ✓ de Martín? Sin saber qué tiene ✓ (`vistos` null, antes de leer), no avisa: nada de parpadeos. */
+export function esperaCheck(ultimo: number | null, vistos: YaVistos | null, clave: string): boolean {
+  if (ultimo == null || !vistos || ultimo < YA_VISTOS_DESDE) return false;
+  return ultimo > (vistos[clave] ?? 0);
+}
+
+/** ¿Este «Ya está» ya tiene su ✓? Los de antes de `YA_VISTOS_DESDE`, sí. */
+export const tieneCheck = (instante: number, visto: number | null | undefined): boolean =>
+  instante < YA_VISTOS_DESDE || instante <= (visto ?? 0);
 
 /**
  * El texto de un renglón de la lista SIN la marca del Markdown (17/10/2026, Martín: «nada de asteriscos ni almohadillas a la

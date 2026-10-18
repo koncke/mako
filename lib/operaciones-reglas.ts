@@ -438,12 +438,16 @@ export const ULTIMOS_TEXTO = 300;
  * Los últimos turnos de un chat para su fila: los `ULTIMOS_POR_CHAT` más nuevos de los últimos 3 días, con el texto
  * recortado. ⚠️ SON PARA LA FILA, NUNCA PARA LA CONVERSACIÓN: el texto va cortado (el chat abierto trae los suyos enteros).
  */
-export function resumirTurnos(turnos: readonly TurnoChat[], ahora: number): TurnoChat[] {
-  return turnos
-    .filter((t) => ahora - Date.parse(t.at) < ULTIMOS_VENTANA_MS)
-    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
-    .slice(-ULTIMOS_POR_CHAT)
-    .map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO) }));
+export function resumirTurnos(
+  turnos: readonly TurnoChat[], ahora: number,
+  /** Con esto (`esYaEsta`), también el último «Ya está» del chat aunque no esté entre los últimos: la lista lo necesita para
+   *  el ✓ del «Completado» (18/10/2026: si el chat escribía 3 cosas después, el «Completado» no llegaba a la lista). */
+  esYa?: (texto: string) => boolean,
+): TurnoChat[] {
+  const orden = turnos.filter((t) => ahora - Date.parse(t.at) < ULTIMOS_VENTANA_MS).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const ultimos = orden.slice(-ULTIMOS_POR_CHAT);
+  const ya = esYa ? [...orden].reverse().find((t) => t.rol === 'el' && esYa(t.texto)) : undefined;
+  return (ya && !ultimos.includes(ya) ? [ya, ...ultimos] : ultimos).map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO) }));
 }
 
 /** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */

@@ -56,7 +56,7 @@ export type WaDeConversacion = {
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
   aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
-  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos,
+  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto,
 }: {
   /** Los pasos en vivo de su turno abierto (la E): van en el «Trabajando…» del hilo. */
   pasos?: readonly PasoDelTurno[];
@@ -66,6 +66,9 @@ export function Conversacion({
   wa?: WaDeConversacion;
   /** Las tareas del Plan de este chat (lib/centro-plan-auto-reglas.ts): la tarjeta de cada «Ya está» y «Tareas vinculadas». */
   tareas?: readonly TareaDelChat[];
+  /** El ✓ de sus «Completado» (18/10/2026): hasta qué «Ya está» lo vio Martín, y cómo se marca (useCentro.ts → marcarYaVisto). */
+  yaVisto?: number | null;
+  onYaVisto?: (instante: number) => void;
   /** Lo elegido para mandar que no es «Automático» (la cuenta, el modelo), en chico al lado del «+». */
   resumenEnvio?: string | null;
   /** Las preguntas del chat como formulario en su conversación (17/10/2026), y cómo se contestan (useCentro.ts). */
@@ -174,8 +177,9 @@ export function Conversacion({
 
   // ── Lo que la conversación le pasa al hilo, ESTABLE: el hilo está memorizado (Hilo.tsx) y una función o un objeto
   //    nuevos en cada tecla lo volverían a dibujar entero ──────────────────────────────────────────────────────────
-  const ultimos = useRef({ onResponder, responderSobre, wa, chat });
-  useLayoutEffect(() => { ultimos.current = { onResponder, responderSobre, wa, chat }; });
+  const ultimos = useRef({ onResponder, responderSobre, wa, chat, onYaVisto });
+  useLayoutEffect(() => { ultimos.current = { onResponder, responderSobre, wa, chat, onYaVisto }; });
+  const yaVistoCb = useCallback((instante: number) => ultimos.current.onYaVisto?.(instante), []);
   const responderPregunta = useCallback<NonNullable<typeof onResponder>>((p, e, o) => ultimos.current.onResponder?.(p, e, o) ?? Promise.resolve(null), []);
   const feedback = useCallback((titulo: string) => ultimos.current.responderSobre(titulo), []);
   const animo = animoDe(chat, espera);
@@ -257,6 +261,7 @@ export function Conversacion({
           <ContextoWA.Provider value={wa ? accionesWA : null}>
             <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
               vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos}
+              yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
               mostrar={cuantos} onVerAnteriores={verTodo} />
           </ContextoWA.Provider>
         </div>
