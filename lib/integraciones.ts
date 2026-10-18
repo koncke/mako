@@ -7,7 +7,7 @@
 // =============================================================================
 
 import 'server-only';
-import { credDelCliente, credWs, credWsEstricta, esElWsDelEntorno } from './credenciales';
+import { credDelCliente, credWs, credWsEstricta, esNegocioDelEntorno, wsDelEntorno } from './credenciales';
 import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO, veredictoDeIA } from './ia-keys';
 import type { ProvName } from './ai-cheap';
 import { emailConectado } from './resend';
@@ -15,7 +15,7 @@ import { POR_QUE_SIN_EMAIL } from './email-remitente';
 import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
-import { getCapaActual, getWorkspaceActual, wsSuperAdmin, OWNER_WS } from './workspace';
+import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { tokenAgenteVisible } from './agente-token';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
@@ -256,22 +256,22 @@ const IA_DE_LA_CASCADA: ReadonlySet<string> = new Set<ProvName>(['gemini', 'groq
  * ¿Qué tiene de SUYO el negocio en esta IA? Con las MISMAS lecturas que la usan, para que la tarjeta no pueda decir
  * «Conectada» donde MaKo no encuentra nada:
  *   · las baratas, con `provsDe` (sus filas, sin las copias de la plataforma);
- *   · la de Anthropic, con la frontera de `conClaveDelNegocio` (lib/anthropic.ts): su fila, distinta de la del entorno,
- *     la de `OWNER_WS` y la de la plataforma.
+ *   · la de Anthropic, con la frontera de `conClaveDelNegocio` (lib/anthropic.ts): su fila, distinta de la del entorno
+ *     y de la fila de la que sale el entorno (`wsDelEntorno`: la plataforma desde el 18/10, antes el ws1).
  * `null` = no es una IA, o es la plataforma (usa las suyas): manda lo de siempre.
- * ⚠️ El workspace del ENTORNO va primero y sin leer nada (`esElWsDelEntorno`): su fila es la de la plataforma, y la
+ * ⚠️ El workspace del ENTORNO va primero y sin leer nada (`esNegocioDelEntorno`): su fila es la de la plataforma, y la
  * tarjeta no le ofrece pegar una key aunque falle cualquier lectura de abajo.
  */
 async function iaDelNegocio(key: string, envBase: string | undefined): Promise<{ fila: boolean; propia: boolean; delEntorno?: boolean } | null> {
   if (!envBase || (!IA_DE_LA_CASCADA.has(key) && key !== 'anthropic')) return null;
   const ws = await getWorkspaceActual().catch(() => null);
-  if (ws != null && esElWsDelEntorno(ws)) return { fila: false, propia: false, delEntorno: true };
+  if (await esNegocioDelEntorno(ws)) return { fila: false, propia: false, delEntorno: true };
   const wsSA = await wsSuperAdmin().catch(() => null);
   if (ws == null || wsSA == null || ws === wsSA) return null;
   const fila = (await credDelCliente(envBase, ws))?.trim() ?? '';
   if (key === 'anthropic') {
     if (!fila) return { fila: false, propia: false };
-    const plataforma = [process.env[envBase], await credWsEstricta(envBase, OWNER_WS), await credWsEstricta(envBase, wsSA)];
+    const plataforma = [process.env[envBase], await credWsEstricta(envBase, await wsDelEntorno(envBase)), await credWsEstricta(envBase, wsSA)];
     return { fila: true, propia: !plataforma.some((x) => typeof x === 'string' && x.trim() === fila) };
   }
   const { provsDe } = await import('./ai-cheap');

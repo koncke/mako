@@ -50,7 +50,7 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { avisoDePuntos } from '@/lib/puntos-mensaje';
 import { validarRespuestaDoer } from '@/lib/respuesta-doer';
 import { sanearSalida } from '@/lib/doer-salida';
-import { credWs, esElWsDelEntorno } from '@/lib/credenciales';
+import { credWs, esNegocioDelEntorno } from '@/lib/credenciales';
 import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
@@ -529,7 +529,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     }
     // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
     // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.
-    const sinIAEs = !respuesta && sinIA ? avisoSinIA(esElWsDelEntorno(ws)) : null;
+    const sinIAEs = !respuesta && sinIA ? avisoSinIA(await esNegocioDelEntorno(ws).catch(() => false)) : null;
     if (!respuesta) aviso = [aviso, sinIAEs?.aviso ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
     const conectar = sinIAEs?.conectar ?? null;
     return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas, conectar };

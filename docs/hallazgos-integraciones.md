@@ -1019,11 +1019,33 @@ para Claude), y una copia dice «Esa key es la de MaKo, no la tuya», también a
 **Y una que no se ve:** el barrido de tests/integracion-sin-salir.test.ts busca el link a /integraciones ESCRITO; un
 `<Link href={`/integraciones?abrir=${servicio}`}>` armado con template literal le pasa por al lado (medido rompiéndolo: 5 / 0).
 
-**Lo que quedó SIN hacer:** separar el ws1 del entorno de la plataforma para las IA (hidratar las IA desde `wsSuperAdmin()`,
-o no hidratarlas, y no reflejar a `process.env` lo que un cliente guarda). Es de este documento y de la IA, y es una
-decisión: cambia de dónde salen las keys con las que corre la plataforma, y la lleva el Cerebro a Martín. Hasta entonces,
-el ws1 no tiene cómo tener una IA suya. Vive en lib/credenciales.ts (`WS_DEL_ENTORNO`, `hidratarCredenciales`,
-`guardarCredencial`). Cuando se separe, la guarda del chat y de la grilla se apaga sola. Otros lugares que le piden una key
-de IA al ws1 (el onboarding, /metodo) no se revisaron.
+**La separación (18/10/2026, Martín: «Sí: separá el ws1 de las claves de la plataforma (que salgan del ws9 o del entorno)
+para que Mauricio pueda conectar su propia IA»).** `wsDelEntorno(clave)` (lib/credenciales.ts) dice de qué workspace sale el
+entorno: las de IA (`esClaveDeIA`) de la PLATAFORMA (`wsSuperAdmin()`), el resto todavía del ws1. Lo preguntan la
+hidratación (dos fuentes, cada clave sólo de la suya; sin IA legible en la plataforma, un `console.error` fuerte),
+`guardarCredencial`/`eliminarCredencial`, el respaldo del entorno de `credWs`/`credWsEstricta`/`estadoCampo`, `envCred`,
+`esDeLaPlataforma`, la migración del arranque (que ya no copia IA del entorno a la fila de un negocio: así se sembraron las
+copias) y las dos fronteras de Claude (`conClaveDelNegocio`, la tarjeta). La guarda del ws1 queda de baranda
+(`esNegocioDelEntorno`) y no se dispara con nadie.
+
+**El orden importa, y por eso la migración corre ANTES del deploy** (scripts/ia-del-ws1-a-la-plataforma.mts, aditiva e
+idempotente): en producción las keys de IA del ws1 ERAN las de la plataforma (la hidratación las ponía en el entorno). Si el
+código nuevo arrancara sin ellas en la plataforma, las que no coinciden con ninguna del ws9 pasarían a contar como DEL ws1
+—datos de sus clientes en cuentas de la agencia—. Copiadas a casilleros libres del ws9, siguen siendo «la de MaKo» en la
+fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la plataforma conserva su capacidad.
+
+**Lo que quedó SIN hacer:**
+- **La Cerebras del ws1** no coincide con ninguna de la plataforma ni con el `.env.local`, y Cerebras admite una sola cuenta
+  (la del ws9 es otra): no se copió. Con el código nuevo cuenta como DEL ws1. Si es de MaKo, hay que sacarla de esa fila
+  (decisión; nunca se escribe en el ws1 para probar).
+- **Lo que no es IA sigue saliendo del ws1** (Meta, Calendly, Fathom, Resend, Panda, YouTube…): el mismo problema, para otra
+  decisión. Y las settings de plataforma que viven en el ws1 (`runWithWorkspace(OWNER_WS, …)`): `mako.modelos`
+  (lib/model-registry.ts), `mako.claude.pausa` (lib/anthropic.ts), el canal de MaKo (lib/mako-canal.ts, lib/linea-plataforma.ts),
+  los guiones (lib/guion-*-store.ts), lib/copywriting-metodo.ts, lib/mako-grupo.ts y el Plan (lib/plan-*.ts).
+- **El gasto de Claude con la key de la plataforma se anota al ws1** (lib/anthropic-usage.ts: `ws === OWNER_WS`), y
+  `claudePropio` de la API de MaKo da sí al ws1 por ser el dueño (lib/api-mako/areas/integraciones.run.ts). Contabilidad y
+  la vista del modelo: no se tocaron.
+- «Datos de Mau» (lib/datos-mau.ts) copia las credenciales del ws1 a un workspace de prueba, IA incluida (copias: siguen
+  marcadas). Y otros lugares que le piden una key de IA a un negocio (el onboarding, /metodo) no se revisaron.
 
 **Vive en:** lib/integraciones.ts (`iaDelNegocio`) · lib/ia-keys.ts (`veredictoDeIA`) · lib/credenciales.ts · lib/ai-cheap.ts (`soloLasPropias`) · app/integraciones/IntegracionesBoard.tsx · tests/mako-sin-ia.test.ts

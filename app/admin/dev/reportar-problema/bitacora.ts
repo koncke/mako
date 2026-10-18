@@ -104,4 +104,15 @@ export const BITACORA: Hito[] = [
       '⚠️ **En el ws1 conectar su IA no alcanza**: lo que guarde en su fila pasa a ser la key con la que corre la plataforma. Por eso ahí MaKo dice «Ya lo está resolviendo el equipo de MaKo», sin botón, y sus IA en /integraciones dicen «La configura el equipo de MaKo», sin formulario. Separarlo es una decisión que el Cerebro lleva a Martín (docs/hallazgos-integraciones.md).',
     ],
   },
+  {
+    fecha: '18 oct', hora: '09:30', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Mauricio ya puede conectar su propia IA: las de la plataforma salen de la plataforma',
+    revisar: '/integraciones',
+    puntos: [
+      'Lo decidió Martín: «separá el ws1 de las claves de la plataforma… para que Mauricio pueda conectar su propia IA». Hasta hoy la fila del ws1 era la que la plataforma usaba como propia, así que lo que él pegara pasaba a ser de MaKo.',
+      'Ahora las keys de IA de la plataforma salen del workspace de la plataforma. El ws1 es un negocio más: ve el botón «Conectar tu IA» y lo que pegue es suyo. Las copias de MaKo que quedan en su fila siguen diciendo «Esa key es la de MaKo».',
+      'Antes del deploy se copiaron a la plataforma las keys de IA que estaban sólo en la fila del ws1, para que la plataforma no pierda ninguna. No se borró nada del ws1.',
+      '⚠️ Lo que no es IA (Meta, Calendly, Fathom…) y las configuraciones de la plataforma siguen en el ws1: es otra decisión, y está en el relevo del área.',
+    ],
+  },
 ];

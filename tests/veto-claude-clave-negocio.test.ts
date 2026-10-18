@@ -112,7 +112,10 @@ test('la clave del negocio se lee SÓLO de su fila, nunca con credWs (que cae al
 test('se compara contra las TRES copias de la plataforma, leídas estrictas', () => {
   const b = cuerpoDelIntento();
   assert.match(b, /process\.env\.ANTHROPIC_API_KEY/, 'falta el env');
-  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', OWNER_WS\)/, 'falta la fila del dueño');
+  // La fila de la que sale el entorno de esta clave (`wsDelEntorno`). Hasta el 18/10/2026 era la del ws1 (`OWNER_WS`), y
+  // así la clave propia de Mauricio nunca contaba como suya (Martín: «separá el ws1 de las claves de la plataforma»).
+  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsDelEntorno\('ANTHROPIC_API_KEY'\)\)/, 'falta la fila del entorno');
+  assert.doesNotMatch(b, /credWsEstricta\('ANTHROPIC_API_KEY', OWNER_WS\)/, 'la fila del ws1 ya no es la de la plataforma');
   assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsSuperAdmin\(\)\)/, 'falta la fila de la plataforma');
   assert.match(b, /evaluarClaveDelNegocio\(/);
 });
