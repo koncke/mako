@@ -73,13 +73,16 @@ test('el motor firma la apertura por mandar.ts, sólo para una terminal con el c
   assert.match(abrir, /firma\.mandar\(\{ sesion: DESTINO_NUEVO, cuenta: b\.cuenta, titulo: nombre \}/, 'por el único camino que firma');
 });
 
-test('la computadora y el teléfono ofrecen «Abrir» sólo si esa cuenta abre, y copiar queda de segunda', () => {
-  const compu = sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx'));
-  const modal = compu.slice(compu.indexOf('export function NuevoChatCentro'));
-  assert.match(modal, /\{k\.puedeAbrirEn\(nuevo\.cuenta\) && \(\s*<Button[^>]*disabled=\{abriendo \|\| !sePuedeAbrir\(nuevo, true\)\}/, 'el modal: «Abrir» sólo si abre');
-  assert.match(modal, /Copiar comando/, 'y el comando sigue');
+// Desde el 17/10/2026 (22:50) «Nuevo chat» no abre un modal ni una hoja de formulario (tests/centro-nuevo-chat.test.ts): abre un chat
+// vacío (ChatNuevo.tsx) y la cuenta la elige MaKo. Lo que se fijaba acá sigue valiendo, en su lugar nuevo.
+test('«Nuevo chat» abre sólo en una cuenta cuyo Runner abre, dice cómo va, y copiar el comando queda de último recurso', () => {
+  const motor = sinComentarios(leer('app/admin/operaciones/ChatNuevo.tsx'));
+  assert.match(motor, /cuentaParaChatNuevo\(CUENTAS_TERMINAL\.filter\(\(c\) => k\.puedeAbrirEn\(c\)\)/, '«Abrir» sólo en una cuenta que abre');
+  assert.match(motor, /if \(!cuenta\) \{ setFase\('sin_forma'\); return; \}/, 'y si ninguna abre, lo dice');
+  assert.match(motor, /k\.abrirChat\(\{ nombre: d\.nombre, cuenta, texto: enviado \}\)/);
+  const piezas = sinComentarios(leer('app/admin/operaciones/ChatNuevoPiezas.tsx'));
+  assert.match(piezas, /Copiar comando/, 'el comando sigue, sólo cuando ninguna cuenta abre');
+  assert.match(piezas, /n\.apertura \?\? 'Abriéndolo en la PC…'/, 'dice cómo va el último que se pidió');
   const tel = sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx'));
-  assert.match(tel, /pie=\{nuevo \? \(centro\?\.puedeAbrirEn\(nuevo\.cuenta\) \? \(/, 'la hoja: «Abrir» sólo si abre');
-  assert.match(tel, /centro\.abrirChat\(nuevo\)/);
-  for (const s of [modal, tel]) assert.match(s, /estado=\{(k|centro\?)\.apertura/, 'los dos dicen cómo va el último');
+  assert.match(tel, /useChatNuevo\(centro, onAbrir\)/, 'el teléfono usa el mismo motor');
 });

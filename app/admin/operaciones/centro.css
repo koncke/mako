@@ -1432,3 +1432,20 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-emojis__pestana[aria-selected='true'] { border-bottom-color: var(--good); opacity: 1; }
 [data-m] .m-operaciones-caja .co-emojis__boton { width: var(--caja-toque, 44px); height: var(--caja-toque, 44px); }
 [data-m] .m-operaciones-caja .co-emojis__panel { left: -48px; }
+
+/* ── «Nuevo chat» SIN modal (17/10/2026; ChatNuevo.tsx): lo que MaKo decidió con el primer mensaje, en la conversación ────── */
+.co-nuevo-nota {
+  align-self: stretch; margin: 8px 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+  border-radius: 14px; font-size: var(--fs-sm); color: var(--ink);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.co-nuevo-nota:empty { display: none; }
+.co-nuevo-nota__fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.co-nuevo-nota__estado { color: var(--dim); }
+.co-nuevo-nota__error { color: var(--bad); font-size: var(--fs-meta); }
+.co-nuevo-nota__input {
+  flex: 1; min-width: 160px; height: 34px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 10px;
+  background: var(--surface); font: inherit; color: var(--ink);
+}
+.co-nuevo-nota__input:focus-visible { outline: none; box-shadow: var(--focus-ring); }
