@@ -103,9 +103,20 @@ export type PayloadPedido = {
 //   · el chat recibe la RUTA local en el mensaje (scripts/operaciones/cartero.mjs → bajarAdjuntos).
 export const MIMES_ADJUNTO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'] as const;
 export type MimeAdjunto = (typeof MIMES_ADJUNTO)[number];
-/** Cuántos archivos y cuántos bytes en total: los del chat con MaKo (Vercel corta un POST de más de ~4,5 MB). */
-export const MAX_ADJUNTOS = TOPE_ADJUNTOS;
-export const MAX_BYTES_ADJUNTOS = TOPE_TOTAL_BYTES;
+/**
+ * Cuántos archivos y cuánto cada uno (18/10/2026, Martín: «hay limitación de hasta 4mb de archivos, quita esa limitación»
+ * y «dice "Máximo 4 archivos" elimina esa restricción»). Medido ese día: el bucket `archivero` no tiene tope propio y el
+ * proyecto acepta al menos 2 GB por archivo (el bucket `curso-videos` tiene 2 GB); el corte de 4 MB era Vercel, que no
+ * deja pasar más de ~4,5 MB por una ruta. Desde el cartero 1.16.0 el archivo NO pasa por Vercel: el navegador lo sube
+ * directo al storage y la PC lo baja de ahí, los dos con una URL firmada. El tope que queda es el de la memoria: el
+ * navegador (también el teléfono) y la PC lo tienen entero para calcular su sha256.
+ */
+export const MAX_ADJUNTOS = 20;
+export const MAX_BYTES_ADJUNTO = 100 * 1024 * 1024;
+/** Con un Runner de antes de la 1.16.0, los de antes: los del chat con MaKo, porque el archivo pasa por Vercel. */
+export const MAX_ADJUNTOS_CHICOS = TOPE_ADJUNTOS;
+export const MAX_BYTES_ADJUNTOS_CHICOS = TOPE_TOTAL_BYTES;
+export const VERSION_ADJUNTOS_GRANDES = '1.16.0';
 export const MAX_NOMBRE_ADJUNTO = 120;
 /** `ref`: dónde lo guardó MaKo (un uuid); `bytes` y `sha256`: los del archivo que salió del navegador. */
 export type AdjuntoPedido = { ref: string; nombre: string; mime: MimeAdjunto; bytes: number; sha256: string };
@@ -122,17 +133,29 @@ export function problemaDeAdjuntos(x: unknown): string | null {
     refs.add(o.ref);
     if (typeof o.nombre !== 'string' || !o.nombre.trim() || o.nombre.length > MAX_NOMBRE_ADJUNTO || /[\u0000-\u001f]/.test(o.nombre)) return 'adjuntos inválidos';
     if (!(MIMES_ADJUNTO as readonly unknown[]).includes(o.mime)) return 'adjuntos inválidos';
-    if (typeof o.bytes !== 'number' || !Number.isInteger(o.bytes) || o.bytes < 1) return 'adjuntos inválidos';
+    if (typeof o.bytes !== 'number' || !Number.isInteger(o.bytes) || o.bytes < 1 || o.bytes > MAX_BYTES_ADJUNTO) return 'adjuntos inválidos';
     if (typeof o.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(o.sha256)) return 'adjuntos inválidos';
     total += o.bytes;
   }
-  return total > MAX_BYTES_ADJUNTOS ? 'adjuntos inválidos' : null;
+  return total > MAX_ADJUNTOS * MAX_BYTES_ADJUNTO ? 'adjuntos inválidos' : null;
 }
 
 /** El cartero que baja adjuntos. Con uno de antes, el trabajo saldría SIN sus archivos y nadie lo diría: la caja no ofrece
  *  adjuntar hasta que el Runner de esa cuenta suba esta versión (o una más nueva). */
 export const VERSION_ADJUNTOS = '1.9.1';
 export const aceptaAdjuntos = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ADJUNTOS);
+/** El cartero que baja por URL firmada: con él, la caja ofrece los topes grandes (`MAX_ADJUNTOS`, `MAX_BYTES_ADJUNTO`). */
+export const aceptaAdjuntosGrandes = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ADJUNTOS_GRANDES);
+
+/** Lo que la caja le dice a Martín si lo elegido no entra (null = entra). `grandes`: el Runner tiene la 1.16.0. */
+export function problemaDeAdjuntosCaja(bytes: readonly number[], grandes: boolean): string | null {
+  if (!grandes) {
+    if (bytes.length > MAX_ADJUNTOS_CHICOS) return `Máximo ${MAX_ADJUNTOS_CHICOS} archivos con este Runner.`;
+    return bytes.reduce((n, b) => n + b, 0) > MAX_BYTES_ADJUNTOS_CHICOS ? 'Hasta 4 MB con este Runner.' : null;
+  }
+  if (bytes.length > MAX_ADJUNTOS) return `Máximo ${MAX_ADJUNTOS} archivos.`;
+  return bytes.some((b) => b > MAX_BYTES_ADJUNTO) ? `Hasta ${MAX_BYTES_ADJUNTO / 1024 / 1024} MB cada uno.` : null;
+}
 
 /** ¿La versión de un cartero es ésta o una más nueva? Por número: «1.10.0» es mayor que «1.9.1». Sin versión, no. */
 export function versionAlMenos(version: string | null | undefined, minima: string): boolean {
