@@ -249,3 +249,28 @@ export function respetarFijadas(filas: FilaReparto[], curva: Record<string, numb
   }
   return out;
 }
+
+/**
+ * «RE-PUNTUAR TODO» CON TARJETAS FIJADAS (17/10/2026, `puntuarPlan` de lib/mako-guardian.ts). La re-puntuación completa
+ * con el modelo curvaba con `curveTaskScores` y devolvía un número para TODAS: una fijada a mano recibía el de su puesto
+ * y la vecina que un arrastre corrió volvía a quedar encima. Es el mismo error que `recurvarPlanOwner` tuvo hasta el
+ * 14/10, en el otro camino. Con esto: las fijadas NO reciben número (quedan afuera) y el resto se corrige alrededor de
+ * ellas con `respetarFijadas`. Sin fijadas devuelve la curva tal cual.
+ *
+ * @param tareas lo que se le mandó al Perro, con el número que hoy MUESTRA cada una (`scoreActual`) y si está fijada
+ * @returns id → número, sólo de las que se pueden escribir
+ */
+export function curvaSinPisarFijadas(
+  tareas: ReadonlyArray<{ id: string; num?: number; scoreActual?: number; fijada?: boolean }>,
+  curva: Record<string, number>,
+): Record<string, number> {
+  if (!tareas.some((t) => t.fijada)) return curva;
+  const filas: FilaReparto[] = tareas
+    .filter((t) => t.fijada ? t.scoreActual != null : curva[t.id] != null)
+    .map((t) => ({ id: t.id, num: t.num ?? 0, mostrado: t.scoreActual ?? curva[t.id] ?? 0, manual: !!t.fijada }));
+  const out = respetarFijadas(filas, curva);
+  const fijadas = new Set(tareas.filter((t) => t.fijada).map((t) => t.id));
+  // Lo que el modelo devolvió y no estaba en la lista (un id que no se le mandó) queda con su curva, como antes.
+  for (const [id, v] of Object.entries(curva)) if (out[id] == null && !fijadas.has(id) && !tareas.some((t) => t.id === id)) out[id] = v;
+  return out;
+}

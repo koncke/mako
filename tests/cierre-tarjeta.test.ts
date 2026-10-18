@@ -60,11 +60,14 @@ test('el prefijo es el que leen los demás', () => {
 test('el saneo, los dos renglones y la API usan el MISMO tope', () => {
   const propuesta = sinComentarios(leer('../lib/plan-propuesta.ts'));
   const board = sinComentarios(leer('../lib/plan-board.ts'));
+  // El cierre del CLIENTE vive en lib/plan-cerrar.ts desde el 17/10/2026: lo comparten el borrador y el cierre en el acto.
+  const cerrar = sinComentarios(leer('../lib/plan-cerrar.ts'));
   assert.match(propuesta, /const evidencia = recortarPrueba\(str\(o\.evidencia\)\);/, 'el borrador volvió a topear la prueba con su propio número');
-  assert.match(propuesta, /text: renglonDeCierre\(c\.evidencia, c\.parcial\)/, 'el cierre del cliente volvió a armar su propio renglón');
+  assert.match(cerrar, /text: renglonDeCierre\(evidencia, parcial\)/, 'el cierre del cliente volvió a armar su propio renglón');
+  assert.match(propuesta, /cerrarTareaCliente\(n, c\.evidencia, c\.parcial\)/, 'el borrador volvió a escribir el cierre del cliente por su cuenta');
   assert.match(board, /const texto = renglonDeCierre\(evidencia, parcial\);/, 'el cierre del super admin volvió a armar su propio renglón');
   // Y nadie vuelve a armar el renglón a mano con un corte propio.
-  for (const [nombre, src] of [['lib/plan-propuesta.ts', propuesta], ['lib/plan-board.ts', board]] as const) {
+  for (const [nombre, src] of [['lib/plan-propuesta.ts', propuesta], ['lib/plan-board.ts', board], ['lib/plan-cerrar.ts', cerrar]] as const) {
     assert.ok(!/MaKo la (?:marcó hecha|dejó a medias): \$\{/.test(src), `${nombre} arma el renglón del cierre a mano`);
   }
   // La API de MaKo le dice al modelo el mismo tope (no un 400 copiado a mano).

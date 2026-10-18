@@ -39,6 +39,8 @@ const DEL_MODELO = { nombre: 'Bienvenida a nuevos', disparador: 'd1', inicio: 't
 type Llamada = { op: string; args: unknown[] };
 function deps(o: {
   falla?: { error: string; link?: string }; alGenerar?: () => void; guardarTira?: Error; triggerTira?: Error;
+  /** Cuántos pedidos a un proveedor «arrancan» mientras genera (`alIntento`, #847). */
+  intentos?: number;
   filaPrevia?: { pasos: PasoGrafo[]; nombre: string } | null; etiquetasNuevas?: ResultadoIA['etiquetasNuevas'];
 } = {}) {
   const ll: Llamada[] = [];
@@ -50,6 +52,7 @@ function deps(o: {
     generar: async (p) => {
       anota('generar');
       o.alGenerar?.();
+      for (let n = 1; n <= (o.intentos ?? 0); n++) p.alIntento?.(n);
       if (o.falla) return o.falla;
       const tr = p.traducir(DEL_MODELO);
       assert.deepEqual(tr.errores, [], 'el flujo de mentira no pasa la revisión');
@@ -91,6 +94,16 @@ test('cancelado MIENTRAS el modelo escribe: no se escribe NADA y vuelve `cancela
   assert.equal(r.ok, false);
   assert.equal(!r.ok && 'cancelado' in r && r.cancelado, true);
   assert.deepEqual(escribio(ops()), [], `escribió: ${ops().join(', ')}`);
+});
+
+// #847 (17/10/2026, «que diga en qué está»): desde el SEGUNDO pedido a un proveedor, la fase lo dice; el primero no
+// (es el de siempre). Rotura (`if (n > 1)` → `if (n > 0)`, el primero también): 9 / 1 de 10, cae éste.
+test('«intento N»: el segundo pedido a un proveedor y los que siguen van como fase; el primero, no', async () => {
+  const fases: string[] = [];
+  const { d } = deps({ intentos: 3 });
+  const r = await crearConIA({ ws: 3, pedido: 'Dar la bienvenida', alFase: (f: FaseCrearIA) => { fases.push(f.fase === 'modelo' && f.intento ? `modelo:${f.intento}` : f.fase); } }, d);
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.deepEqual(fases, ['contexto', 'modelo', 'modelo:2', 'modelo:3', 'revision']);
 });
 
 // ── 2. Sin id: la fila nace al guardar ───────────────────────────────────────────
@@ -200,7 +213,9 @@ test('la ruta y la API llaman a la MISMA función (`crearFlujoConIA`), y la API 
   // La vieja se retiró: con las dos, el doer podía crear el esqueleto lineal de antes.
   assert.equal(porId('crear_secuencia_mensajes') ?? null, null);
   const run = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));
-  const op = run.slice(run.indexOf('crear_automatizacion_con_ia: {'), run.indexOf('cambiar_espera_paso: {'));
+  // (17/10/2026: hasta la op SIGUIENTE y no hasta `cambiar_espera_paso`: entre las dos entró `duplicar_automatizacion`
+  // y el recorte medía 6.402 sin que esta op creciera.)
+  const op = run.slice(run.indexOf('crear_automatizacion_con_ia: {'), run.indexOf('crear_automatizacion_desde_plantilla: {'));
   // Duodécima tanda: `preparar` suma las preguntas (§2.4), y el recorte llega a ~4.600.
   assert.ok(op.length > 200 && op.length < 6000, `el recorte mide ${op.length}`);
   assert.match(op, /const r = await crearFlujoConIA\(\{ ws: ctx\.ws, pedido: String\(payload\.pedido \?\? ''\), plazoMs: 170_000, respuestas: sanearRespuestas\(payload\.respuestas\), via \}\);/);
@@ -209,7 +224,9 @@ test('la ruta y la API llaman a la MISMA función (`crearFlujoConIA`), y la API 
 // Rotura sugerida por el diseño (§7): sacar el chequeo del flujo.
 test('la API: un flujo no la corre (preparar lo rechaza y el lienzo no la ofrece), y el link a la nueva lo escribe el código', () => {
   const run = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));
-  const op = run.slice(run.indexOf('crear_automatizacion_con_ia: {'), run.indexOf('cambiar_espera_paso: {'));
+  // (17/10/2026: hasta la op SIGUIENTE y no hasta `cambiar_espera_paso`: entre las dos entró `duplicar_automatizacion`
+  // y el recorte medía 6.402 sin que esta op creciera.)
+  const op = run.slice(run.indexOf('crear_automatizacion_con_ia: {'), run.indexOf('crear_automatizacion_desde_plantilla: {'));
   const preparar = op.slice(op.indexOf('preparar:'), op.indexOf('ejecutar:'));
   const flujo = preparar.indexOf('if (desdeUnFlujo(ctx)) return { error:');
   assert.ok(flujo > 0 && flujo < preparar.indexOf('hayIAParaCrear()'), 'desde un flujo no se rechaza antes de mirar la IA');

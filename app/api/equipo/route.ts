@@ -14,7 +14,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual, getRolWsEfectivo, getWorkspace } from '@/lib/workspace';
 import {
   actualizarUsuario, contarAdminsClienteActivos, crearUsuario, eliminarUsuario,
-  listarUsuarios, type EstadoUsuario, type Usuario,
+  equipoDe, listarUsuarios, type EstadoUsuario, type Usuario,
 } from '@/lib/usuarios';
 import type { RolWorkspace } from '@/lib/auth-session';
 import { invitarPorEmail } from '@/lib/invitaciones';
@@ -27,11 +27,8 @@ export const dynamic = 'force-dynamic';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ROLES_WS: RolWorkspace[] = ['admin', 'closer', 'setter'];
 
-/** Miembros del workspace `ws` (usuarios-cliente; nunca admins de agencia). */
-async function equipoDe(ws: number): Promise<Usuario[]> {
-  const todos = await listarUsuarios();
-  return todos.filter((u) => u.rol === 'usuario' && u.workspace_id === ws);
-}
+// Miembros del workspace `ws` (usuarios-cliente; nunca admins de agencia): `equipoDe`, en lib/usuarios.ts desde el
+// 17/10/2026 (lo comparte la pantalla del teléfono).
 
 // Resuelve y autoriza: devuelve el ws si el request es admin-del-cliente (o
 // agencia impersonando), o un Response de error si no.

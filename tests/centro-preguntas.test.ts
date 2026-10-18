@@ -132,7 +132,7 @@ test('la respuesta en la conversación: la burbuja de Martín, con la pregunta c
   assert.equal(lineas[0].tipo, 'respuesta');
   assert.deepEqual(vistaPrevia(lineas), { texto: 'A · Sí', propio: true, tick: null, instante: Date.parse('2026-10-16T03:00:00Z') });
   const html = renderToStaticMarkup(createElement(Hilo, { lineas, pushes: [], ahora: Date.parse('2026-10-16T04:00:00Z'), vacio: '', quien: { titulo: 'CRM', animo: 'despierto' } }));
-  assert.match(html, /class="co-yo"><p class="co-burbuja"><span class="co-burbuja__cita">¿Se publica\?<\/span>A · Sí/);
+  assert.match(html, /class="co-yo"[^>]*><p class="co-burbuja"><span class="co-burbuja__cita">¿Se publica\?<\/span>A · Sí/);
 });
 
 test('publicar: una opción puede traer su descripción, con su tope, y se lee de vuelta', () => {

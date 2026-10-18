@@ -391,8 +391,15 @@ export const CAMPOS_CONTACTO = ['empresa', 'email', 'telefono', 'web', 'youtube'
 export type CampoContacto = (typeof CAMPOS_CONTACTO)[number];
 export const esCampoContacto = (c: unknown): c is CampoContacto => typeof c === 'string' && (CAMPOS_CONTACTO as readonly string[]).includes(c);
 
+/**
+ * Lo que el «Deshacer» de un dato de contacto puede volver atrás: los del Resumen y el NOMBRE, que también lo
+ * guarda «Información principal» (la ficha de Customer Success) por `saveLeadMetaAction`.
+ */
+export type CampoDeshacible = CampoContacto | 'nombre';
+export const esCampoDeshacible = (c: unknown): c is CampoDeshacible => c === 'nombre' || esCampoContacto(c);
+
 /** ¿El dato de contacto dice lo mismo? Con la limpieza de `saveLeadMeta`: recortado, y a 300 los de texto largo. */
-export function mismoDatoDeContacto(campo: CampoContacto, hoy: unknown, esperado: unknown): boolean {
+export function mismoDatoDeContacto(campo: CampoDeshacible, hoy: unknown, esperado: unknown): boolean {
   const largo = campo === 'youtube' || campo === 'linkedin' || campo === 'direccion';
   const n = (v: unknown) => (largo ? textoComparable(v).slice(0, 300) : textoComparable(v));
   return n(hoy) === n(esperado);

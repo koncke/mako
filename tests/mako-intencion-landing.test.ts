@@ -173,6 +173,39 @@ test('esPedidoDeLanding: el tipo, y el turno es `actuar` con el área landing', 
   assert.equal(clasificarIntencion('dale, publicá la landing', { hayPendientes: true }).intencion, 'actuar');
 });
 
+// LOS TRES QUE ENTENDÍA MAL (17/10/2026, docs/relevo/landing-generator.md → tanda 7 y tanda 8, «Chicos»). Medido antes
+// con el turno que corre: «quita el botón de la web» salía DESPUBLICAR (`SACAR_DE_INTERNET` aceptaba cualquier cosa
+// antes de «de la web»: a un cliente que pedía sacar un botón, MaKo le proponía bajar su web); «quítale el formulario a
+// la landing» era editar pero acomodar_bloque_landing no entraba en los 12.000 caracteres (la raíz «quita» empujaba
+// primero a quitar_dominio_landing y quitar_cobro_landing); y «analiza las animaciones de mi landing» quedaba a 4
+// palabras de «landing», ninguna regla la tomaba y se GUARDABA como captura, con ver_plan y listar_pendientes.
+test('los tres que entendía mal: sacar un botón no es bajar la web, quitar el formulario y analizar las animaciones', () => {
+  const casos: Array<[string, string, string[]]> = [
+    ['quita el botón de la web', 'editar', ['acomodar_bloque_landing', 'ver_secciones_landing', 'listar_landings_creadas']],
+    ['quítale el formulario a la landing', 'editar', ['acomodar_bloque_landing', 'ver_secciones_landing', 'listar_landings_creadas']],
+    // Editar, ya no despublicar. La herramienta de borrar un bloque no entra: «sacá» y «video» suman más en otras
+    // (listar_videos_landing, despublicar_landing); subirla por el título sacaba la lista de «quítale la animación…».
+    ['sacá el video de la web', 'editar', ['listar_landings_creadas']],
+    ['analiza las animaciones de mi landing', 'animar', ['ver_configuracion_landing', 'listar_landings_creadas']],
+    ['revisá los botones de mi landing', 'analizar', ['diagnosticar_landing_creada']],
+  ];
+  const mal: string[] = [];
+  for (const [f, tipo, tools] of casos) {
+    const t = esPedidoDeLanding(f)?.tipo ?? null;
+    if (t !== tipo) { mal.push(`«${f}» → ${t} (esperaba ${tipo})`); continue; }
+    const n = turno(f);
+    // Los dos del pedido, además, ni la traen («sacá» sí la trae por la raíz: el tipo ya no es despublicar).
+    if (/^quita/.test(f) && n.includes('despublicar_landing')) mal.push(`«${f}» trajo despublicar_landing`);
+    for (const tool of tools) if (!n.includes(tool)) mal.push(`«${f}» → sin ${tool}`);
+  }
+  assert.deepEqual(mal, [], `\n${mal.join('\n')}`);
+  // Sacar la LANDING de internet sigue siendo despublicar, y quitar el dominio sigue siendo lo suyo.
+  for (const f of ['sacá la landing de internet', 'quita mi página de la web', 'bájala de internet, la landing del curso']) {
+    assert.equal(esPedidoDeLanding(f)?.tipo, 'despublicar', f);
+  }
+  assert.ok(turno('quitá el dominio de mi landing').includes('quitar_dominio_landing'));
+});
+
 // =============================================================================
 // ROTURAS (15/10/2026). Arnés del scratchpad: rompe UNA cosa por vez en lib/mako-intencion.ts, corre este
 // archivo y tests/api-mako-landing-editor.test.ts, restaura DE MEMORIA y compara el sha256. Base: 29 / 0.
@@ -205,4 +238,11 @@ test('esPedidoDeLanding: el tipo, y el turno es `actuar` con el área landing', 
 //   E9  sin «hazle» en analizar ..................................................... 27 / 1
 //   E10 la regla de editar sin efecto .............................................. 25 / 3
 // Restaurado: 28 / 0.
+//
+// LOS TRES QUE ENTENDÍA MAL (17/10/2026), este archivo solo. Base: 5 / 0.
+//   T1  «sacá … de la web» sin el corte de una parte de la landing ................ 4 / 1
+//   T2  sin la regla de analizar una parte ........................................ 4 / 1
+//   T3  analizar las animaciones no va a animar (sin ver_configuracion_landing) .... 4 / 1
+//   T4  acomodar_bloque_landing sin «quitar» ni las piezas en la descripción ....... 4 / 1
+// Restaurado: 5 / 0 (sha256 igual).
 // =============================================================================

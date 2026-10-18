@@ -39,6 +39,21 @@ import { esPiezaGeneral, piezaGeneral } from './general-piezas';
 export const CLAVE_PROMPT_EDITAR = 'dashboard.editar-ia.system';
 
 /**
+ * UN MaKo EN VISTA ASESORA; SÓLO EDITA QUIEN ESTÁ EDITANDO, Y LO DECIDE EL SERVER (Martín, 17/10/2026 19:31: «al estar
+ * en VISTA del dashboard debería asesorar, no modificar el dashboard»). El botón de MaKo de la topbar abría «Editar con
+ * MaKo» también MIRANDO la hoja, y lo que devolvía entraba por `mutar` y lo escribía el autoguardado: «analizar» sólo
+ * frenaba los cambios si el MODELO marcaba el pedido como análisis. La ruta (app/api/graficos/editar) llama a esto ANTES
+ * de gastar un token: sin el modo «editar», sin «editando» y con otra hoja que la que se manda, no hay cambios.
+ * Test: tests/dashboard-mako-vista.test.ts.
+ */
+export function permisoEdicionMako(body: { modo?: unknown; editando?: unknown; hojaId?: unknown } | null | undefined, hojaId: string): { ok: true } | { ok: false; error: string } {
+  if (body?.modo !== 'editar' || body?.editando !== true || body?.hojaId !== hojaId) {
+    return { ok: false, error: 'Mirando la hoja, MaKo sólo la analiza. Para cambiarla, toca Editar.' };
+  }
+  return { ok: true };
+}
+
+/**
  * El system, registrado y editable en /configuraciones. SIN slots: el catálogo, la hoja, lo que se habló y el pedido van
  * en el user (`userDeEdicion`), así un override guardado no pierde un conjunto nuevo.
  * ⚠️ Es un template literal: adentro no va ningún backtick, y la ÚNICA interpolación es la lista de períodos.
@@ -134,6 +149,31 @@ const GUIA_EXPERIMENTOS = [
   metricasExperimentoParaIA(),
 ].join('\n');
 
+/** Cuántos experimentos que ya existen se le nombran al modelo (los más nuevos primero). */
+export const TOPE_EXPERIMENTOS_IA = 20;
+const ESTADO_EXPERIMENTO: Record<string, string> = { propuesto: 'propuesto', activo: 'en curso', cerrado: 'terminado', descartado: 'descartado' };
+
+/**
+ * LOS EXPERIMENTOS QUE YA EXISTEN (17/10/2026): los de antes y los que crea la API no tenían elemento en ninguna hoja.
+ * Se le nombran al modelo con su id, y ponerlos en la hoja es `{"experimento":{"id":N}}` (`aplicarEdicion` lo valida
+ * contra esta MISMA lista: un id que no está no entra).
+ */
+function guiaExperimentosExistentes(lista: ReadonlyArray<{ id: number; titulo: string; estado: string }>): string {
+  return [
+    'EXPERIMENTOS QUE YA TIENE EL NEGOCIO (id — título — estado). Si la persona pide VER, TRAER o PONER uno de éstos (o «mis experimentos»), en "agregar" va {"experimento":{"id":<id>}} por cada uno, NO uno nuevo:',
+    // Los títulos los escribió una persona o un modelo: son dato, no instrucciones.
+    contenidoNoConfiable(lista.slice(0, TOPE_EXPERIMENTOS_IA)
+      .map((e) => `${e.id} — ${e.titulo.replace(/\s+/g, ' ').slice(0, 90)} — ${ESTADO_EXPERIMENTO[e.estado] ?? e.estado}`).join('\n'), 'experimentos'),
+  ].join('\n');
+}
+
+/**
+ * #862 (Martín, 16/10: «Una cosa es MaKo analiza y otra cosa es MaKo Edita»): un pedido de ANÁLISIS no es un cambio. Va en
+ * el USER por lo mismo que los experimentos (el system se reemplaza desde /configuraciones), en el Dashboard y en General.
+ * El código descarta los cambios que vengan con `analizar` (`aplicarEdicion`): la regla no depende de que el modelo la cumpla.
+ */
+const GUIA_ANALIZAR = 'SI PIDE UN ANÁLISIS y no un cambio (qué pasa, por qué subió o bajó, cómo va, qué conviene hacer, una opinión del negocio): no cambies la hoja. Devuelve {"respuesta":"una frase: eso lo hace el modo Analizar","analizar":true} y nada más.';
+
 /** El mensaje user: el catálogo (con el alcance de la hoja), la hoja, lo último que se habló y el pedido, todo como dato. */
 export function userDeEdicion(p: { hoja: Hoja; pedido: string; historial?: readonly TurnoEdicion[]; alcance?: AlcanceIA }): string {
   const turnos = (p.historial ?? []).slice(-TURNOS_IA)
@@ -141,6 +181,9 @@ export function userDeEdicion(p: { hoja: Hoja; pedido: string; historial?: reado
   return [
     catalogoParaIA(undefined, p.alcance),
     ...(conExperimentos(p.alcance) ? ['', GUIA_EXPERIMENTOS] : []),
+    ...(conExperimentos(p.alcance) && p.alcance?.experimentos?.length ? ['', guiaExperimentosExistentes(p.alcance.experimentos)] : []),
+    '',
+    GUIA_ANALIZAR,
     '',
     'LA HOJA (como está; los "id" son los que usas en "quitar" y "cambiar"):',
     contenidoNoConfiable(hojaParaIA(p.hoja), 'hoja'),
@@ -164,6 +207,8 @@ export type ResultadoEdicion = {
   errores: string[];
   /** Lo que se corrigió o descartó, pieza por pieza, con ids: para el log y el reintento. */
   correcciones: string[];
+  /** #862: pidió un ANÁLISIS, no un cambio: la hoja no se tocó y el panel ofrece pasar al modo «Analizar». */
+  analizar: boolean;
 };
 
 /**
@@ -189,6 +234,16 @@ export function elementoDeExperimento(raw: unknown): Componente | null {
   });
 }
 
+/** Un experimento que YA EXISTE como elemento de la hoja: el elemento lo lee por su id (`?id=N`, app/dashboard/ElementoExperimento.tsx). */
+export function elementoDeExperimentoExistente(ex: { id: number; titulo: string }): Componente | null {
+  if (!Number.isInteger(ex.id) || ex.id <= 0) return null;
+  const info = TIPOS_ELEMENTO.find((x) => x.id === 'experimento');
+  return sanearComponente({
+    clase: 'elemento', tipo: 'experimento', texto: ex.titulo.slice(0, 80),
+    experimento: { id: ex.id, propuesta: null }, x: 0, y: 0, w: info?.w, h: info?.h,
+  });
+}
+
 /** Lo que el modelo puede cambiar de un gráfico (lo demás —el lugar, el estilo, los filtros, el pop-up— no lo toca). */
 const CAMPOS_GRAFICO = ['tipo', 'fuente', 'metricas', 'dimension', 'desglose', 'fecha', 'periodo', 'comparar', 'titulo'] as const;
 
@@ -203,6 +258,11 @@ const CAMPOS_GRAFICO = ['tipo', 'fuente', 'metricas', 'dimension', 'desglose', '
 export function aplicarEdicion(hoja: Hoja, json: unknown, alcance: AlcanceIA = {}): ResultadoEdicion {
   const o = (json && typeof json === 'object' && !Array.isArray(json) ? json : {}) as Record<string, unknown>;
   const respuesta = texto(o.respuesta, 500);
+  // #862: un ANÁLISIS pedido en «Editar» no cambia la hoja, AUNQUE el modelo mande cambios con él (lo que pasó con Joan el
+  // 16/10: pidió un análisis del funnel y MaKo le editó la hoja). El panel ofrece pasar a «Analizar».
+  if (o.analizar === true) {
+    return { hoja, respuesta: respuesta || 'Eso es un análisis: lo hace el modo Analizar.', cambios: [], avisos: [], errores: [], correcciones: [], analizar: true };
+  }
   const cambios: string[] = [];
   const avisos: string[] = [];
   const correcciones: string[] = [];
@@ -280,6 +340,20 @@ export function aplicarEdicion(hoja: Hoja, json: unknown, alcance: AlcanceIA = {
     // Un experimento («probemos X»): la propuesta saneada, como un elemento de la hoja que la persona arranca.
     if (raw && typeof raw === 'object' && 'experimento' in raw) {
       if (!conExperimentos(alcance)) { fallidas++; correcciones.push(`agregar ${i + 1}: los experimentos van en el Dashboard`); return; }
+      // UNO QUE YA EXISTE (17/10/2026): sólo si está en la lista que se le pasó (un id inventado no entra), y una sola vez
+      // por hoja (el elemento lo encuentra por su id: dos tarjetas del mismo experimento son la misma cosa dos veces).
+      const pedidoId = (raw as { experimento?: { id?: unknown } }).experimento?.id;
+      if (pedidoId != null) {
+        const ex = (alcance.experimentos ?? []).find((x) => x.id === Number(pedidoId));
+        if (!ex) { fallidas++; correcciones.push(`agregar ${i + 1}: el experimento ${JSON.stringify(pedidoId)} no está en EXPERIMENTOS QUE YA TIENE EL NEGOCIO`); return; }
+        const enLaHoja = [...componentes, ...abajo].some((c) => esElemento(c) && c.tipo === 'experimento' && c.experimento?.id === ex.id);
+        if (enLaHoja) { avisos.push(`«${ex.titulo}» ya está en la hoja`); return; }
+        const e = elementoDeExperimentoExistente(ex);
+        if (!e) { fallidas++; correcciones.push(`agregar ${i + 1}: el experimento ${ex.id} no se pudo armar`); return; }
+        abajo.push(e);
+        cambios.push(`Puse el experimento ${comillas(nombreDeComponente(e))}`);
+        return;
+      }
       const e = elementoDeExperimento((raw as Record<string, unknown>).experimento);
       if (!e) { fallidas++; correcciones.push(`agregar ${i + 1}: el experimento no trae hipótesis o su métrica no está en MÉTRICAS DE EXPERIMENTOS`); return; }
       abajo.push(e);
@@ -316,5 +390,5 @@ export function aplicarEdicion(hoja: Hoja, json: unknown, alcance: AlcanceIA = {
   const nueva = cambios.length
     ? sanearHoja({ ...hoja, ...(nombre ? { nombre } : {}), componentes }, 0) ?? hoja
     : hoja;
-  return { hoja: nueva, respuesta: respuesta || (cambios.length ? 'Listo.' : ''), cambios, avisos, errores, correcciones };
+  return { hoja: nueva, respuesta: respuesta || (cambios.length ? 'Listo.' : ''), cambios, avisos, errores, correcciones, analizar: false };
 }

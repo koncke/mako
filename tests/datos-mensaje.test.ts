@@ -41,6 +41,13 @@ import { datosCaida, datosVolvio } from '../lib/linea-vigilancia';
 import { datosPostLlamada } from '../lib/reunion-grabada';
 import { datosCancelada } from '../lib/reunion-cancelada';
 import { datosFusion } from '../lib/lead-fusionado';
+import { datosRecordatorioDueno } from '../lib/curso-mensajes-texto';
+import { datosPuenteAusente } from '../lib/flow-puente-aviso';
+import { datosLandingCambio, datosPixelViejo, datosTrackingApagado } from '../lib/tracking-aviso';
+import { datosOptin } from '../lib/optin-aviso';
+import { datosPruebaGrabada, datosPruebaRecibida } from '../lib/prueba-aviso';
+import { datosFormularioMeta } from '../lib/meta-form-aviso';
+import { datosReunionesAlPlan } from '../lib/reunion-plan-aviso';
 import { datosDelReporte } from '../lib/reporte-destino';
 import { datosOfertaLista } from '../lib/oferta-lista';
 import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
@@ -121,6 +128,23 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     cancelada: set(datosCancelada({ reunion: 'R1', cuando: 'jueves 16 a las 11:00' })),
     // Y el contacto que se sumó a un lead que ya estaba, que pasa la ingesta (`datosFusion`).
     fusion: set(datosFusion({ canal: 'Meta', porQue: 'mismo teléfono', link: 'https://hola-mako.com/crm/1842' })),
+    // Y la corrida del recordatorio de clases, que pasa el cron del curso (`datosRecordatorioDueno`), con las tres secciones.
+    recordatorio: set(datosRecordatorioDueno({ hechos: [{ cliente: 'Ana', bloques: [{ etapa: 'Norte', videos: ['a'] }], noLlego: null }, { cliente: 'Eva', bloques: [], noLlego: 'sin línea' }], sinEscribir: [{ cliente: 'Juan', motivo: 'sin teléfono' }] }) as Record<string, string>),
+    // Y las tomas de video sin tomar, que pasa el cron flow-abandono (`datosPuenteAusente`).
+    flow: set(datosPuenteAusente(3)),
+    // 17/10/2026, lote 3: y la landing y el Pixel de un negocio, que pasa el cron tracking-vigilante (lib/tracking-aviso.ts).
+    tracking: set(datosTrackingApagado({ horas: 80, ultima: '2026-10-14T20:00:00Z', tz: 'America/Mexico_City', link: 'https://hola-mako.com/integraciones' })),
+    pixel: set(datosPixelViejo({ paginas: ['https://a.com'], noGraba: true, novedades: 'la grabación', link: 'https://hola-mako.com/integraciones' })),
+    // Y la persona que dejó sus datos en la landing, que pasa la ruta del formulario (`datosOptin`), con un duplicado.
+    optin: set(datosOptin({ nombre: 'Sofía', telefono: '+52 1', email: 's@x.com', respuestas: [['¿Qué buscas?', 'Vender']], campana: 'oct', funnels: 2, link: 'https://hola-mako.com/crm/1', revisar: true, duplicados: [{ lead: { nombre: 'Ana' } as never, motivo: 'email', texto: 'mismo email (s@x.com)' }] }) as Record<string, string>),
+    // Y la prueba del Pixel: la que se cerró y sus grabaciones (lib/prueba-aviso.ts).
+    prueba: set(datosPruebaRecibida({ eventos: 3, pagina: 'a.com' })),
+    grabaciones: set(datosPruebaGrabada([{ donde: 'a.com', url: 'https://hola-mako.com/crm/1' }])),
+    // Y el formulario de Meta que completó un lead (`datosFormularioMeta`).
+    meta: set(datosFormularioMeta({ telefono: '+52 1', campana: 'Octubre', fieldData: [{ name: 'tipo', values: ['Casa'] }] })),
+    // Y las reuniones que MaKo leyó y sus tareas en el Plan (`datosReunionesAlPlan`): una con todo, y varias.
+    reunionplan: new Set([...set(datosReunionesAlPlan([{ titulo: 'Sync', fecha: '2026-10-17', conQuien: 'Ana', mias: 2, otras: 1, descartadas: 3, partesFallidas: 1, recordingId: 1, propId: 'p1' }], { cuando: () => 'hoy', link: () => 'https://x' })), ...set(datosReunionesAlPlan([{ titulo: 'A', fecha: null, conQuien: '', mias: 1, otras: 0, recordingId: 1, propId: 'p1' }, { titulo: 'B', fecha: null, conQuien: '', mias: 1, otras: 0, recordingId: 2, propId: 'p2' }], { cuando: () => null, link: () => 'https://x' }))]),
+    landing: set(datosLandingCambio({ pagina: 'https://a.com', agregaste: 'un video', todasSinMedir: false, sacaste: 'la agenda', link: 'https://hola-mako.com/integraciones' })),
     // 16/10/2026: y el reporte de los lunes ya armado, que pasa el cron (`datosDelReporte`, lib/reporte-destino.ts).
     reporte: set(datosDelReporte({ titulo: 'Reporte semanal · 05/10/2026–11/10/2026', texto: '🗓️ *Reporte semanal*' })),
     // Y la oferta que MaKo terminó de armar, que pasa el armado en el servidor (`datosOfertaLista`, lib/oferta-lista.ts).
@@ -187,7 +211,7 @@ test('⚠️ TODO lo que el árbol ofrece tiene quien lo PONGA: cada clave sale 
   for (const g of GRUPOS_VARIABLES) assert.ok(g.icono, `${g.key} sin ícono`);
   // (15/10/2026: «Cuenta de MaKo» es SÓLO del mail a una persona: el equipo dibuja todos los demás, y ella el suyo.)
   // (15/10/2026: y «WhatsApp del negocio», con `conLinea`. 16/10/2026: y «Cuenta publicitaria», con `conAnuncios`.)
-  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true, conLinea: true, conGrabacion: true, conReporte: true, conOferta: true, conAnuncios: true }).length, GRUPOS_VARIABLES.length - 1);
+  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true, conLinea: true, conGrabacion: true, conReporte: true, conOferta: true, conAnuncios: true, conTracking: true }).length, GRUPOS_VARIABLES.length - 1);
   assert.ok(datosOfrecidos(datosDeLaPersona('contrasena_restablecer')!).some((g) => g.key === 'cuenta'), 'el mail a la persona no tiene su grupo');
   assert.ok(VARIABLES_AVISO.filter((v) => !v.oculta).length >= 70, 'se pidieron MUCHOS más datos');
   // La previa tiene con qué dibujar cada uno.
@@ -246,8 +270,11 @@ test('⚠️ una lectura por ENTIDAD que el texto NOMBRA, y el motor la usa en s
   const usos = motor.match(/await datosParaElLead\(JSON\.stringify\((paso|p)\), valoresVariablesLead\(/g) ?? [];
   // El quinto, desde TikTok fase 0 (14/10/2026): un mensaje fijo de la rama de un AI Step de Instagram o Messenger.
   assert.equal(usos.length, 5, `el motor resuelve el «{ }» en ${usos.length} de sus 5 envíos (WhatsApp, email, «Si responde», Instagram/Messenger, y «Si responde» por las redes)`);
-  // Lo oficial (las plantillas de Meta) sigue con lo de siempre: sus parámetros los registra Meta.
-  assert.match(motor, /bodyParams: valoresVariablesLead\(lead, \{ negocio \}\),/);
+  // Lo oficial (las plantillas de Meta) ya no se manda (17/10/2026): el canal se borró con Chatwoot el 09/10 y `sendWhatsappTemplate` contestaba
+  // siempre el fallo. El paso queda en «fallo» con su porqué, sin llamar a nada. Si vuelve el oficial, vuelve con `bodyParams` (sus parámetros
+  // los registra Meta) y estos dos asserts se invierten. Probado rompiéndolo (base 11 / 0): volver a `sendWhatsappTemplate`, o sacar la nota del fallo → 10 / 1 (éste).
+  assert.doesNotMatch(motor, /sendWhatsappTemplate|bodyParams:/, 'el motor volvió a mandar una plantilla por el oficial');
+  assert.match(motor, /nota = SIN_CANAL_OFICIAL;/, 'el paso por el oficial tiene que decir por qué falla');
   // `datosParaElLead` no lee nada si lo que el texto nombra ya lo tiene el motor en la mano.
   const res = sinComentarios(leer('lib/variables-resolver.ts'));
   const dpl = res.slice(res.indexOf('export async function datosParaElLead('));

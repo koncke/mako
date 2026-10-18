@@ -23,6 +23,8 @@
 // =============================================================================
 
 import { sanearContenido, sanearConfig } from '@/lib/editor-landing/validar';
+import { hacerInicio, rutaLibre } from '@/lib/editor-landing/paginas-reglas';
+import { ESTILO_RESTABLECIDO, temaSugerido } from '@/lib/editor-landing/reglas-pantalla';
 import {
   NODO, TOPES, ATTRS_TARJETA_DEFAULT, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA,
   FONDOS_TARJETA, DEGRADADOS, VARIANTES_BOTON, TIPOS_CAMPO, nuevoId, parrafo, titulo as nodoTitulo, docPagina,
@@ -33,7 +35,6 @@ import { tarjetaDesdeEsquema, MAX_PUNTOS, MAX_PUNTO, MAX_TITULO_SECCION } from '
 import { attrsInsertado, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
 import { claseDeProveedor, nombreDeProveedor } from '@/lib/embeds';
 import { TEMAS, TEMA_DEFAULT_ID, FUENTES, REDONDECES, esOscuro, sanearTemaPropio } from '@/lib/editor-landing/temas';
-import { PLANTILLAS, type CategoriaPlantilla } from '@/lib/editor-landing/plantillas';
 import { TOPE_TEMAS } from '@/lib/editor-landing/server-reglas';
 import { FORMATOS, PROPORCIONES, formatoDe, proporcionDe, diapositivaFija, type ConfigLanding, type TemaPropio, type Comentario, type ParamsGeneracion } from '@/lib/editor-landing/api-tipos';
 import { precioDe, type EstadoCobroLanding } from '@/lib/editor-landing/pago-landing';
@@ -353,19 +354,8 @@ export function planAcomodarSeccion(c: LandingContenido, e: { seccion?: unknown;
   return { error: 'Acción desconocida.' };
 }
 
-/** «Restablecer estilo» (EstiloSeccion.tsx, `ESTILO_RESTABLECIDO`): la imagen y el diseño se quedan. El test compara las claves. */
-export const ESTILO_RESTABLECIDO_API: Readonly<Partial<AttrsTarjeta>> = {
-  fondo: ATTRS_TARJETA_DEFAULT.fondo,
-  fondoColor: ATTRS_TARJETA_DEFAULT.fondoColor,
-  fondoDegradado: ATTRS_TARJETA_DEFAULT.fondoDegradado,
-  ancho: ATTRS_TARJETA_DEFAULT.ancho,
-  alineacion: ATTRS_TARJETA_DEFAULT.alineacion,
-  alto: ATTRS_TARJETA_DEFAULT.alto,
-  superposicion: ATTRS_TARJETA_DEFAULT.superposicion,
-  imagenAjuste: ATTRS_TARJETA_DEFAULT.imagenAjuste,
-  imagenFocoX: ATTRS_TARJETA_DEFAULT.imagenFocoX,
-  imagenFocoY: ATTRS_TARJETA_DEFAULT.imagenFocoY,
-};
+/** «Restablecer estilo»: el MISMO del panel Estilo (lib/editor-landing/reglas-pantalla.ts; hasta el 17/10/2026, una copia). */
+export const ESTILO_RESTABLECIDO_API: Readonly<Partial<AttrsTarjeta>> = ESTILO_RESTABLECIDO;
 
 const NOMBRE_ATTR: Readonly<Record<string, string>> = {
   diseno: 'imagen de acento', imagenSrc: 'imagen', ancho: 'ancho', alineacion: 'alineación', alto: 'alto', fondo: 'fondo',
@@ -934,37 +924,14 @@ export function planQuitarCobro(c: LandingContenido, e: { boton?: unknown }): Pl
 // ─────────────────────────────────────────────────────────────────────────────
 // Las páginas (el panel «Páginas»)
 // ─────────────────────────────────────────────────────────────────────────────
-// ⚠️ COPIA de las reglas puras de app/web-generator/editor/PanelPaginas.tsx (`rutaLibre`, `hacerInicio`,
-// `duplicarPagina`): ese archivo es 'use client' y un módulo del server NO puede importarlo (recibiría una
-// referencia de cliente, no la función). tests/api-mako-landing-contenido.test.ts compara las dos con los
-// mismos casos hasta que se muden a un módulo puro y las dos importen de ahí (el bloqueante de la tanda 7).
+// Las reglas de las páginas son las MISMAS del panel «Páginas» (lib/editor-landing/paginas-reglas.ts). Hasta el
+// 17/10/2026 estaban copiadas acá (PanelPaginas.tsx es 'use client' y el server no puede importarlo).
 
-/** Una ruta libre a partir de un texto (PanelPaginas.tsx, `rutaLibre`). */
-export function rutaLibreApi(texto: string, usadas: readonly string[]): string {
-  let base = slugDe(texto).slice(0, 50).replace(/-+$/g, '');
-  if (!rutaValida(base)) base = 'pagina';
-  const tomadas = new Set(usadas);
-  if (!tomadas.has(base)) return base;
-  for (let i = 2; i < 1000; i++) {
-    const r = `${base}-${i}`;
-    if (!tomadas.has(r)) return r;
-  }
-  return `${base}-${nuevoId('').slice(0, 6)}`;
-}
+/** Una ruta libre a partir de un texto (la del panel). */
+export const rutaLibreApi = rutaLibre;
 
-/** La página `id` pasa a ser la de inicio (PanelPaginas.tsx, `hacerInicio`). */
-export function hacerInicioApi(paginas: readonly Pagina[], id: string): Pagina[] {
-  const elegida = paginas.find((p) => p.id === id);
-  if (!elegida) return [...paginas];
-  const usadas = paginas.filter((p) => p.id !== id && p.ruta).map((p) => p.ruta);
-  const resto = paginas.filter((p) => p.id !== id).map((p) => {
-    if (p.ruta !== '') return p;
-    const ruta = rutaLibreApi(p.titulo || 'pagina', usadas);
-    usadas.push(ruta);
-    return { ...p, ruta };
-  });
-  return [{ ...elegida, ruta: '' }, ...resto];
-}
+/** La página `id` pasa a ser la de inicio (la del panel). */
+export const hacerInicioApi = hacerInicio;
 
 
 /**
@@ -1094,17 +1061,8 @@ export function pedidoEnBlanco(e: { tema?: unknown; formato?: unknown; titulo?: 
   return { pedido: { accion: 'crear', ...(titulo ? { titulo } : {}), config }, nombreTema: t.nombre };
 }
 
-/** El tema que MaKo sugiere para un objetivo (COPIA de `temaSugerido`, app/web-generator/crear/SelectorTemaCrear.tsx, 'use client'). */
-const CATEGORIA_DE_OBJETIVO: Record<ObjetivoLanding, CategoriaPlantilla> = {
-  agendar: 'Agendar',
-  vender: 'Vender',
-  registrar: 'Captar contactos',
-  descargar: 'Captar contactos',
-};
-export function temaSugeridoApi(objetivo: ObjetivoLanding): string {
-  const id = PLANTILLAS.find((p) => p.categoria === CATEGORIA_DE_OBJETIVO[objetivo])?.tema;
-  return id && TEMAS.some((t) => t.id === id) ? id : TEMA_DEFAULT_ID;
-}
+/** El tema que MaKo sugiere para un objetivo: el MISMO de Crear con IA (lib/editor-landing/reglas-pantalla.ts; antes, una copia). */
+export const temaSugeridoApi = temaSugerido;
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const NOMBRE_COLOR_TEMA: Record<string, string> = { acento: 'acento', texto: 'texto', titulos: 'títulos', fondo: 'fondo', fondoSeccion: 'fondo de las secciones', boton: 'botón', textoBoton: 'texto del botón', enlaces: 'enlaces' };

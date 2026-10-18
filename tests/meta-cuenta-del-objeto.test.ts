@@ -88,7 +88,10 @@ test('un objeto de otra cuenta sale 404, no 403 ni 502', () => {
 // ── 3. pausar, presupuestar, renombrar y borrar ──────────────────────────────
 
 test('meta-write pregunta de quién es el objeto antes de cualquier escritura', () => {
-  const b = bloque(sinComentarios(leer('../lib/meta-write.ts')), 'export async function metaWrite(');
+  // Desde el 17/10/2026 `metaWrite` envuelve a `escribirEnMeta` (expira el árbol de Meta del negocio después de escribir,
+  // tests/ads-arbol-cache.test.ts): el chequeo vive en el cuerpo de verdad, y metaWrite no escribe por otro camino.
+  assert.match(bloque(sinComentarios(leer('../lib/meta-write.ts')), 'export async function metaWrite('), /const r = await escribirEnMeta\(body, ws\);/);
+  const b = bloque(sinComentarios(leer('../lib/meta-write.ts')), 'async function escribirEnMeta(');
   const chequeo = b.indexOf('const ajeno = await fueraDeLaCuenta(ver, token, body.id, ws);\n  if (ajeno) return ajeno;');
   const borrar = b.indexOf("if (body.op === 'delete')");
   const params = b.indexOf('const params = new URLSearchParams();');

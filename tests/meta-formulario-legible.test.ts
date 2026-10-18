@@ -88,7 +88,8 @@ test('⚠️ el aviso del formulario de Meta nace APAGADO y su texto sale de la 
   // Todo token del texto por defecto existe en el catálogo de variables: si no, sale crudo.
   const conocidas = new Set(VARIABLES_AVISO.map((v) => v.key));
   const tokens = [...cat!.ejemplo.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]);
-  assert.ok(tokens.includes('lead_formulario'), 'el texto por defecto tiene que traer lo que contestó');
+  // (Desde el 17/10/2026 el texto es el de su automatización de SuperAdmin: lo que contestó viaja en `meta_respuestas`.)
+  assert.ok(tokens.includes('meta_respuestas'), 'el texto por defecto tiene que traer lo que contestó');
   assert.deepEqual(tokens.filter((t) => !conocidas.has(t)), [], 'hay tokens que nadie resuelve');
 });
 
@@ -101,8 +102,8 @@ test('⚠️ el webhook manda los DATOS, no el texto armado (si no, /automations
   const llamada = src.slice(i, src.indexOf('});', i));
   assert.doesNotMatch(llamada, /\btexto\s*:/, 'con `texto` armado acá, lo escrito en /automations no sale nunca');
   assert.match(llamada, /lead:\s*\{\s*id:\s*lead\.id/, 'sin el lead no hay {{link_lead}} ni {{lead_nombre}}');
-  assert.match(llamada, /lead_formulario:/, 'lo que contestó viaja en `datos`');
-  assert.match(llamada, /lead_telefono:/, 'el teléfono viaja en `datos`, con su «sin teléfono» si falta');
+  // (17/10/2026, lote 3: los datos los arma `datosFormularioMeta`, lib/meta-form-aviso.ts, que ejecuta tests/meta-form-evento.test.ts.)
+  assert.match(llamada, /datos: datosFormularioMeta\(\{ telefono: lead\.telefono, campana: form\.campana, fieldData: form\.fieldData \}\)/, 'lo que contestó y el teléfono viajan en `datos`');
 });
 
 test('⚠️ la ruta y el pop-up dibujan la MISMA pieza', async () => {

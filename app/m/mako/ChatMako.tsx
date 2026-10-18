@@ -29,6 +29,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useWs } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
+// El texto de MaKo con el MISMO markdown de escritorio (app/_chat/HiloMako.tsx): listas, títulos y negritas.
+import { Markdown } from '@/app/_components/Markdown';
 import { conWs } from '@/lib/ws-tab';
 import { TITULO_INBOX } from '@/lib/movil-rutas';
 import { GRAMATICA } from '@/lib/mako-gramatica';
@@ -44,6 +46,7 @@ import {
   itemsDeSesion, leerRespuesta, textoConArchivos, type EstadoPropuesta, type ItemHilo,
 } from './chat-ui';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
+import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
 import { PegadosHilo, TextoPlegable } from '@/app/_chat/PegadoHilo';
 import { partirPegados } from '@/lib/chat-pegado';
 
@@ -311,7 +314,7 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
           {tuyo && <PegadosHilo pegados={pegados} />}
           {t && (tuyo && !x.voz
             ? <TextoPlegable texto={t} className="m-mako-texto" />
-            : <div className={x.voz ? 'm-mako-transcripcion' : 'm-mako-texto'}>{tuyo ? t : conNegritas(t)}</div>)}
+            : <div className={x.voz ? 'm-mako-transcripcion' : tuyo ? 'm-mako-texto' : 'm-mako-texto m-mako-md'}>{tuyo ? t : <Markdown text={t} />}</div>)}
         </div>
         {x.estado === 'error' ? (
           <p className="m-mako-falla" role="alert">
@@ -330,7 +333,7 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
       ? <li className="m-mako-aviso" role="status">{x.texto}</li>
       : (
         <li className="m-mako-msg m-mako-msg--mk">
-          <div className="m-mako-burbuja"><div className="m-mako-texto">{conNegritas(x.texto)}</div></div>
+          <div className="m-mako-burbuja"><div className="m-mako-texto m-mako-md"><Markdown text={x.texto} /></div>{x.conectar && <ConectarDelAviso servicio={x.conectar} />}</div>
         </li>
       );
   }
@@ -409,8 +412,3 @@ function CuandoCorto({ iso }: { iso: string }) {
   return <>{txt}</>;
 }
 
-/** El texto de MaKo con sus **negritas** (lo único de markdown que se dibuja). */
-function conNegritas(texto: string): ReactNode {
-  const partes = texto.split(/\*\*([^*]+)\*\*/g);
-  return partes.map((p, i) => (i % 2 ? <strong key={i}>{p}</strong> : p));
-}

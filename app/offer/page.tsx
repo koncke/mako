@@ -56,7 +56,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
     // la conversación y el que scrollearía sería el documento, con la barra de escribir yéndose para
     // abajo. Con esto scrollea el hilo y la barra queda pegada abajo. `dvh` y no `vh`: en el celular,
     // 100vh incluye la barra del navegador y la de escribir quedaría debajo de ella.
-    <Pagina densidad="compacta" style={{ flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', paddingBottom: 14 }}>
+    // Menos la barra de secciones (app/_components/SeccionesTab.tsx): el super admin la ve desde el 17/10/2026 (Strategy y
+    // Playbook son secciones de Offer).
+    <Pagina densidad="compacta" style={{ flex: 'none', height: 'calc(100dvh - var(--alto-secciones, 0px))', overflow: 'hidden', display: 'flex', flexDirection: 'column', paddingBottom: 14 }}>
       <OfferApp
         arbolInicial={leido.arbol}
         sesionInicial={sesion}

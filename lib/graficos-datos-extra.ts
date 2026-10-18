@@ -33,7 +33,7 @@
 import 'server-only';
 import { SinConexionError, type Fila } from './graficos-agregar';
 import { rangoDe, type Grafico } from './graficos-catalogo';
-import { enRango, queTableroLeer, fechaTj, leer, leerPorIds, lindo, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
+import { enRango, queTableroLeer, fechaTj, funnelsAgregados, leer, leerPorIds, lindo, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { conversorGastoMeta } from './moneda-meta';
 import { integracionConectada } from './credenciales';
@@ -768,6 +768,8 @@ async function filasCartera(): Promise<Fila[]> {
     leerPorIds<{ id: number; lead_id: number; monto_usd: number | null; fecha_esperada: string | null }>('pagos', 'id, lead_id, monto_usd, fecha_esperada', 'lead_id', ids, { extra: (q) => q.eq('pagado', false) }),
   ]);
   const embudo = new Map(embudos.map((x) => [Number(x.id), x.funnel_id] as const));
+  // Y los funnels a los que el cliente está AGREGADO (17/10/2026): el filtro de la hoja por funnel lo encuentra ahí también.
+  const agregados = await funnelsAgregados(ids, rot.producto);
   const deuda = new Map<number, number>();
   for (const p of impagas) if (p.fecha_esperada && p.fecha_esperada.slice(0, 10) <= hoyUtc) deuda.set(Number(p.lead_id), (deuda.get(Number(p.lead_id)) ?? 0) + num(p.monto_usd));
   return clientes.map((c) => ({
@@ -783,6 +785,12 @@ async function filasCartera(): Promise<Fila[]> {
       deuda_vencida_usd: deuda.get(c.leadId) ?? 0, sesiones: num(c.sesiones),
     },
     r: { cliente: String(c.leadId) },
+    ...(() => {
+      const casa = rot.producto(embudo.get(c.leadId) ?? null);
+      // La cartera es una foto de HOY: el cliente está en esos funnels. Su deuda es de la venta de su casa (revisión de B5).
+      const tambien = (agregados.get(c.leadId) ?? []).map((a) => a.nombre).filter((n) => n !== casa);
+      return tambien.length ? { m: { producto: tambien }, soloCasa: ['deuda_vencida_usd', 'cuotas_vencidas'] } : {};
+    })(),
   }));
 }
 

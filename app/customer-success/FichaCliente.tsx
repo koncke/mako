@@ -37,7 +37,8 @@
 // monta con `soloVista="prioridades"`, que le apaga su propio selector: sigue habiendo UNA
 // fila, ahora la de la ficha.
 //
-// ⚠️ Y DESDE EL 06/10 LAS TABS SON Resumen · Tareas · Pagos · Llamadas · Historial · Equipo.
+// ⚠️ Y DESDE EL 06/10 LAS TABS SON Resumen · Tareas · Pagos · Llamadas · Historial (y Equipo, que se mudó a
+// MaKo Partners el 17/10/2026 con todo lo de la cuenta de MaKo del cliente: app/partners/EquipoDeCuenta.tsx).
 // «Prioridades» pasó a llamarse «Tareas» y lleva «Ver en el Plan» donde el tablero tenía su
 // «⋮» («no cumple función allí»); Pagos e Historial son los del CRM («como está en el CRM»,
 // «es importante que se registre historial en los clientes de Customer Success»). Y la
@@ -45,7 +46,7 @@
 //
 // ⚠️ Y EL MISMO DÍA ENTRÓ «Curso», después de Tareas: «Dentro del Detail de los clientes de
 // Mauricio se tiene que ver este CURSO». Su avance clase por clase, su link al portal y las
-// llamadas de la entrega (./FichaCurso.tsx). Como Equipo, NO se condiciona por lo que tenga
+// llamadas de la entrega (./FichaCurso.tsx). NO se condiciona por lo que tenga
 // adentro: un cliente sin clases ve la pestaña con su vacío, que dice dónde está parado.
 
 import { useState, useRef, useEffect, type ReactNode } from 'react';
@@ -66,16 +67,14 @@ import type { TrabajoDeCliente } from './trabajo';
 import { colorDe } from './ClienteCard';
 import { guardarDatosClienteAction, pagosDeClienteAction } from './actions';
 import { atajar } from './sin-red';
-import { CuentaDeMaKo, type CuentasProp, type MiembroDeCliente, type AltaPedida } from './CuentaDeMaKo';
-import { ResumenCliente, LlamadasCliente, PagosCliente, HistorialCliente, type DatosCrm } from './FichaPestanas';
+import { ResumenCliente, LlamadasCliente, HistorialCliente, type DatosCrm } from './FichaPestanas';
+import { PagosCliente } from './PagosCliente';
 import { FichaEntrega, type EntregaFicha } from './FichaEntrega';
 import { FichaCurso } from './FichaCurso';
 import { rutaPlanDeCliente } from './ficha-datos';
 import { useFotoCliente } from './foto-cliente';
-import { ROTULO_ALTA, ROTULO_ROL, ROLES_ALTA, emailUtilizable, type EstadoAlta, type RolAlta } from '@/lib/agencia-altas';
-import { avisoInvitacion, type AvisoInvitacion } from '@/lib/invitacion-aviso';
 
-export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, tabInicial, onImagen, onCerrar }: {
+export function FichaCliente({ c, n, trabajo, user, clientes, entrega, tabInicial, onImagen, onCerrar }: {
   c: ClienteCruce;
   /** Los productos, en cuáles está y cómo moverlo (la cabecera). Sin servicios —o con la
    *  lectura de la entrega caída— no se dibuja nada: el banner de la página ya lo dice. */
@@ -86,11 +85,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
   trabajo: TrabajoDeCliente | null;
   user: BoardUser;
   clientes: ClienteRef[];
-  /** Si este workspace es una agencia (`visible`), en qué estado está la cuenta de cada
-   *  cliente y su equipo. Sin `visible`, la ficha no dibuja nada de cuentas ni de equipo. */
-  cuentas?: CuentasProp;
-  /** Con qué tab abre. `null` (o una que esta ficha no tiene) = Resumen. Lo usa «Ver su
-   *  equipo» de la tarjeta. */
+  /** Con qué tab abre. `null` (o una que esta ficha no tiene) = Resumen. Lo usa «Permisos del
+   *  curso» de la tarjeta. */
   tabInicial?: string | null;
   /** Cambió su foto o su portada. Lo persiste el padre, que es el que tiene la lista. */
   onImagen: (cambio: { avatarUrl?: string | null; portada?: string | null; portadaY?: number | null; avatarY?: number | null; icono?: string | null }) => void;
@@ -107,64 +103,6 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
   const [anclaFoto, setAnclaFoto] = useState<HTMLElement | null>(null);
 
   /**
-   * SU EQUIPO: las personas que entran a la cuenta de MaKo de este cliente.
-   *
-   * ⚠️ VIENE CON EL HTML y filtrado por el SERVER (`equipoPorWs` en page.tsx, sólo los
-   * `cliente_ws` aprobados). No se pide al abrir el modal por lo mismo que el tablero:
-   * un modal que consulta al abrirse tiene estado de carga por más rápida que sea la
-   * consulta, y esta ficha se sacó ese cartel de encima a propósito.
-   */
-  const equipo = c.clienteWs ? cuentas?.equipoPorWs?.[c.clienteWs] : undefined;
-  /** Lo que esta agencia ya pidió sumar acá, en los tres estados (mig 0178). */
-  const altas = c.clienteWs ? cuentas?.altasPorWs?.[c.clienteWs] : undefined;
-  /**
-   * ⚠️ TODO LO DE CUENTAS Y EQUIPO CUELGA DE `cuentas.visible`, Y `visible` ES «ESTE
-   * WORKSPACE ES UNA AGENCIA» (page.tsx, 05/10/2026). «La tab de "Equipo" y en general todo
-   * lo que tenga que ver con invitar a MaKo, debería solo verse si la cuenta es AGENCIA,
-   * sino, no deberían estar esas opciones.» De acá cuelgan la tab «Equipo», «Pedir sumar…»
-   * y «Sumar a alguien»; «Inspeccionar» / «Abrir cuenta» lo cortan adentro de CuentaDeMaKo
-   * con el mismo flag. Un solo flag para todo: con uno por control, el día que se corrija
-   * uno quedan los otros dibujándose donde no van.
-   *
-   * ⚠️ Y SIGUE SIENDO LA MISMA FICHA PARA TODOS LOS QUE MIRAN, que es la otra mitad de lo
-   * que se decidió el 29/09 (ver abajo): `visible` pregunta por el WORKSPACE, no por la
-   * persona. La agencia y el super admin parados en ella ven las mismas tabs; en un
-   * cliente común no las ve nadie — tampoco el super admin, que antes las veía porque el
-   * flag era `esSuper || esAg`.
-   */
-  const verCuentas = Boolean(cuentas?.visible);
-
-  /**
-   * ¿Puede PEDIR sumar a alguien?
-   *
-   * ⚠️ CUATRO CONDICIONES Y LAS CUATRO SON DISTINTAS: que este workspace sea una agencia
-   * (`verCuentas`), que quien mira sea admin de ella (`puedePedirAltas`), que NO sea el
-   * super admin —él suma directo, y pedirse permiso a sí mismo no es nada— y que este
-   * cliente esté APROBADO. Y ninguna protege: el server las vuelve a hacer contra la base
-   * en cada request. Acá sólo deciden si se dibuja.
-   */
-  const puedePedir = Boolean(
-    verCuentas && c.clienteWs && cuentas?.puedePedirAltas && !cuentas.superAdmin
-    && cuentas.estadoPorWs[c.clienteWs] === 'aprobado',
-  );
-
-  /**
-   * SUMAR DIRECTO: el super admin no pide, crea — y esta ficha es el único lugar desde
-   * el que mira el equipo de un cliente de una agencia.
-   *
-   * ⚠️ ES EL COMPLEMENTO DE `puedePedir`, NO SU COPIA. Los dos terminan en una persona
-   * adentro de la cuenta, pero por caminos distintos y con consecuencias distintas: el
-   * de la agencia deja un pedido esperando una firma, y éste la crea y le manda el
-   * acceso en el acto. Por eso son dos endpoints, dos botones y dos frases.
-   *
-   * El pedido que lo motivó: «¿de qué sirve que tenga una tab de equipo que no puede
-   * hacer nada? Ahí deberían poder agregarle setter o closer» (29/09/2026), mirando
-   * justamente un cliente con cero usuarios. Y como todo lo de equipo, sólo adentro de
-   * una agencia: `superAdmin` elige la PUERTA, no el permiso de ver.
-   */
-  const puedeSumar = Boolean(verCuentas && c.clienteWs && cuentas?.superAdmin);
-
-  /**
    * LA FILA DE TABS DE LA FICHA, Y ES LA ÚNICA.
    *
    * ⛔ El 29/09/2026 se fue una segunda fila —«Tablero | Equipo»— que vivía arriba del
@@ -174,12 +112,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
    * `soloVista="prioridades"` —sin su selector— y la ficha dibuja la suya. Una fila, como
    * se pidió las dos veces; lo que no puede volver es una arriba de la otra.
    *
-   * ⚠️ «Equipo» NO SE CONDICIONA POR LO QUE TENGA ADENTRO NI POR QUIÉN MIRA, que fue lo
-   * más grave del 29/09: con `hayEquipo`, a la agencia le aparecía (podía «Pedir sumar») y
-   * al super admin no (`puedePedir` lleva `!cuentas.superAdmin`), así que en un cliente
-   * con CERO usuarios la tab desaparecía sólo para él — y lo que no veía, «no hay nadie
-   * adentro», era lo que más le importaba. Ahora cuelga sólo de `verCuentas`, que es del
-   * workspace.
+   * ⚠️ SIN «Equipo» DESDE EL 17/10/2026: el equipo de la cuenta de MaKo de un cliente de agencia vive en MaKo
+   * Partners (app/partners/), con el resto de su cuenta. La ficha de Clients es la de la ENTREGA.
    */
   const pestanas: Tab[] = [
     { id: 'resumen', label: 'Resumen' },
@@ -192,11 +126,10 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
     // dibuja número: un 0 ahí afirmaría que nunca habló con su cliente.
     { id: 'llamadas', label: 'Llamadas', badge: c.ficha?.llamadas?.length },
     { id: 'historial', label: 'Historial' },
-    ...(verCuentas ? [{ id: 'equipo', label: 'Equipo', badge: equipo?.length }] : []),
   ];
   const existe = (id: string | null | undefined): id is string => pestanas.some((p) => p.id === id);
-  /** `tabInicial` es un pedido, no una orden: «Ver su equipo» sobre un workspace que no es
-   *  agencia no tiene a dónde ir, y cae en Resumen en vez de abrir una pantalla en blanco. */
+  /** `tabInicial` es un pedido, no una orden: una pestaña que esta ficha no tiene (un link viejo a «Equipo») cae en
+   *  Resumen en vez de abrir una pantalla en blanco. */
   const [pestana, setPestana] = useState<string>(() => (existe(tabInicial) ? tabInicial : 'resumen'));
   const activa = existe(pestana) ? pestana : 'resumen';
   /**
@@ -390,17 +323,11 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
                 demás: adentro del selector que abre el avatar. Un verbo suelto al lado del
                 nombre, para una sola de las cuatro acciones posibles, era la mitad de un
                 control — y encima aparecía y desaparecía según hubiera foto. */}
-            {/* Y ACÁ VIVE AHORA «Inspeccionar». Bajó de una caja propia arriba del
-                tablero a ser el tercer hijo de esta fila: «a la misma altura pero
-                alineado a la derecha, sutil». No hace falta empujarlo —`.fc-txt`
-                declara `flex:1` y él `flex:none`— ni alinearlo: `.fc-fila` alinea
-                por la BASE, así que queda a la altura del renglón del nombre solo. */}
             {/* EL PRODUCTO Y LA ETAPA, a la derecha como en la cabecera del CRM. */}
             {entrega && entrega.servicios.length > 0 && <FichaEntrega leadId={c.leadId} nombre={nombre} e={entrega} />}
-            <CuentaDeMaKo c={c} cuentas={cuentas} onError={setMal} />
             {/* SU CUENTA DE MaKo VIVE EN PARTNERS (17/10/2026): un cliente de la agencia no es un cliente de la
                 entrega, «podrían serlo como no». Si éste además tiene cuenta, la ficha lo dice y lleva ahí. */}
-            {c.clienteWs != null && !verCuentas && (
+            {c.clienteWs != null && (
               <Link className="fc-partners" href={`/partners?cuenta=${c.clienteWs}`} title="Ver su cuenta en MaKo Partners">
                 MaKo Partners →
               </Link>
@@ -433,14 +360,14 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
         <Tabs tabs={pestanas} activa={activa} onCambio={cambiarPestana} />
 
         <Panel id="resumen" activa={activa} abiertas={abiertas}>
-          <ResumenCliente c={c} />
+          <ResumenCliente c={c}
+            onCambio={(patch) => setCrm((d) => (d && d !== 'cargando' && d.ok ? { ...d, lead: { ...d.lead, ...patch } } : d))} />
         </Panel>
 
         <Panel id="prioridades" activa={activa} abiertas={abiertas}>
           {!trabajo ? (
             // «No pude leer» no se pinta como «no tiene trabajo»: son dos pantallas, y la
-            // segunda sobre la primera es la mentira que nadie audita. El equipo ya no
-            // depende de esto: vive en su propia tab.
+            // segunda sobre la primera es la mentira que nadie audita.
             <p className="fc-mal">No pude leer su tablero. Vuelve a entrar a Clientes.</p>
           ) : trabajo.dueno ? (
             // ⚠️ `onRecargar` ES OBLIGATORIO ACÁ. El tablero recarga la página entera después
@@ -472,9 +399,9 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
         </Panel>
 
         <Panel id="pagos" activa={activa} abiertas={abiertas}>
-          {/* Lo que la tarjeta del Deal ya escribió se aplica a `crm`, que se leyó una vez:
-              el refresh no lo vuelve a leer (ver `PagosCliente`). */}
-          <PagosCliente datos={crm ?? 'cargando'}
+          {/* Lo que un bloque ya escribió se aplica también a `crm` (la cabecera y el Historial),
+              que se leyó una vez: el refresh no lo vuelve a leer. */}
+          <PagosCliente leadId={c.leadId}
             onCambio={(patch) => setCrm((d) => (d && d !== 'cargando' && d.ok ? { ...d, lead: { ...d.lead, ...patch } } : d))} />
         </Panel>
 
@@ -486,13 +413,6 @@ export function FichaCliente({ c, n, trabajo, user, clientes, cuentas, entrega, 
           <HistorialCliente leadId={c.leadId} datos={crm ?? 'cargando'} />
         </Panel>
 
-        {verCuentas && (
-          <Panel id="equipo" activa={activa} abiertas={abiertas}>
-            <EquipoDelCliente nombre={nombre} equipo={equipo ?? []} altas={altas ?? []}
-              clienteWs={c.clienteWs ?? null} puedePedir={puedePedir} puedeSumar={puedeSumar}
-              onError={setMal} onPedido={() => router.refresh()} />
-          </Panel>
-        )}
       </div>
 
       {/* El selector cuelga del botón de la portada y se queda abierto al elegir: la
@@ -699,208 +619,11 @@ const CSS = `
    a la clase le ganaria al del navegador y la tab escondida volveria a verse debajo. */
 .fc-panel[hidden]{ display:none !important; }
 
-/* «MaKo Partners →»: el molde del control de la cuenta que vivía acá (tinta, sin caja, a la altura del nombre). */
+/* «MaKo Partners →»: el molde del control de la cuenta que vivía acá (tinta, sin caja, a la altura del nombre). No hace
+   falta empujarlo (.fc-txt declara flex:1 y él flex:none) ni alinearlo: .fc-fila alinea por la BASE. */
 .fc-partners{ flex:none; align-self:flex-start; margin-top:4px; font-size:12px; font-weight:600; color:var(--primary);
   text-decoration:none; white-space:nowrap; }
 .fc-partners:hover{ text-decoration:underline; }
 
-.fc-eq{ list-style:none; margin:0; padding:0; }
-.fc-eq li{ display:flex; align-items:center; gap:12px; padding:12px 2px;
-  border-bottom:1px solid var(--border); }
-.fc-eq li:last-child{ border-bottom:0; }
-.fc-eq .t{ display:flex; flex-direction:column; gap:1px; min-width:0; flex:1; }
-.fc-eq .t b{ font-size:14px; font-weight:600; color:var(--ink);
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.fc-eq .t span{ font-size:12.5px; color:var(--dim);
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.fc-eq .rol{ flex:none; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
-  background:var(--surface-2); color:var(--dim); }
-.fc-eq-nada{ margin:16px 2px; font-size:13.5px; color:var(--faint); }
-/* Si el mail de acceso salió (o no) al sumar a alguien. */
-.fc-envio{ margin:12px 2px 0; font-size:13px; color:var(--good); }
-.fc-envio.mal{ color:var(--bad); }
-/* Un pedido todavia no es una persona de la cuenta: se ve, y se ve que no esta. */
-.fc-eq li.pend{ opacity:.72; }
-.fc-eq .est{ flex:none; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
-  background:var(--warn-bg); color:var(--warn); white-space:nowrap; }
-.fc-eq .est.mal{ background:var(--bad-bg); color:var(--bad); }
-
-.fc-sumar{ margin-top:14px; border:1px dashed var(--border-strong); background:none;
-  border-radius:10px; padding:9px 14px; font:inherit; font-size:13px; font-weight:600;
-  color:var(--dim); cursor:pointer; }
-.fc-sumar:hover{ color:var(--primary); border-color:var(--primary); }
-.fc-pedir{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:14px; }
-.fc-in{ flex:1 1 180px; min-width:0; border:1px solid var(--border); border-radius:9px;
-  padding:9px 11px; font:inherit; font-size:13.5px; background:var(--surface);
-  color:var(--ink); }
-.fc-sel{ flex:0 0 130px; }
-.fc-ok, .fc-no{ flex:none; border-radius:9px; padding:9px 14px; font:inherit; font-size:13px;
-  font-weight:600; cursor:pointer; }
-.fc-ok{ border:1px solid var(--primary); background:var(--primary); color:#fff; }
-.fc-ok:disabled{ opacity:.5; cursor:default; }
-.fc-no{ border:1px solid var(--border); background:var(--surface); color:var(--dim); }
-
 @media(prefers-reduced-motion:reduce){ .fc-avcap, .fc-cambiar{ transition:none; } }
 `;
-
-
-/**
- * SU EQUIPO — quiénes entran a la cuenta de MaKo de este cliente.
- *
- * ⚠️ ES UNA LISTA, NO UNA PILA DE TARJETAS: son cosas del mismo tipo, y la regla de la
- * casa es filete, no caja. Y es de SOLO LECTURA a propósito: sumar o sacar gente de un
- * inquilino es una acción de la plataforma (vive en /customer-success del super admin,
- * `EquipoDelCliente` de AdminView), no algo que una agencia hace desde la ficha. Un
- * botón acá abriría una segunda puerta a la misma escritura, con su propio guard que
- * mantener.
- */
-function EquipoDelCliente({ nombre, equipo, altas, clienteWs, puedePedir, puedeSumar, onError, onPedido }: {
-  nombre: string;
-  equipo: MiembroDeCliente[];
-  /** Lo que esta agencia pidió. Los pendientes van en la MISMA lista: ver abajo. */
-  altas: AltaPedida[];
-  clienteWs: number | null;
-  /** La agencia PIDE: queda pendiente de una firma. */
-  puedePedir: boolean;
-  /** El super admin CREA: la persona entra y le llega el acceso en el acto. */
-  puedeSumar: boolean;
-  onError: (m: string) => void;
-  onPedido: () => void;
-}) {
-  const [pidiendo, setPidiendo] = useState(false);
-  const [mandando, setMandando] = useState(false);
-  const [email, setEmail] = useState('');
-  const [nom, setNom] = useState('');
-  const [rol, setRol] = useState<RolAlta>('admin');
-  /** Si el mail de acceso SALIÓ, cuando suma el super admin. Ver `pedir`. */
-  const [envio, setEnvio] = useState<AvisoInvitacion | null>(null);
-
-  // ⚠️ LOS RECHAZADOS TAMBIÉN SE VEN. Un pedido que desaparece hace indistinguible
-  // «se lo rechazaron» de «nunca lo mandé», y la agencia lo vuelve a pedir o se queda
-  // esperando una firma que ya se dio. Los aprobados NO: ésos ya son una persona de la
-  // lista de arriba, y repetirlos sería contar dos veces a la misma.
-  const visibles = altas.filter((a) => a.estado !== 'aprobada');
-
-  /**
-   * UNA SOLA FUNCIÓN Y DOS DESTINOS, porque el formulario es el mismo y lo que cambia es
-   * quién firma. Escribir dos formularios sería la copia que diverge en la próxima
-   * edición — y acá los campos son los mismos tres (email, nombre, rol).
-   *
-   * ⚠️ `/api/admin/usuarios` CREA Y MANDA EL ACCESO en la misma llamada. No hay paso de
-   * aprobación porque el que la llama ES quien aprobaría.
-   */
-  const pedir = async () => {
-    if (!clienteWs || !emailUtilizable(email) || mandando) return;
-    setMandando(true);
-    onError('');
-    setEnvio(null);
-    try {
-      const j = await (await fetch(puedeSumar ? '/api/admin/usuarios' : '/api/agencia/altas', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(puedeSumar
-          ? { action: 'crear', email: email.trim(), nombre: nom.trim(), rol: 'usuario', workspace_id: clienteWs, rol_ws: rol }
-          : { clienteWs, email: email.trim(), nombre: nom.trim(), rolWs: rol }),
-      })).json();
-      if (!j?.ok) { onError(j?.error ?? (puedeSumar ? 'No se pudo sumar.' : 'No se pudo pedir.')); return; }
-      // ⚠️ SUMAR NO ES «LE LLEGÓ» (09/10/2026). `/api/admin/usuarios` crea a la persona y
-      // devuelve si el mail SALIÓ (`invitacion.enviado`), y esto cerraba el formulario sin
-      // mirarlo: con el mail caído, la persona quedaba adentro sin enterarse y la pantalla
-      // no decía nada. Es el camino con el que se repara una cuenta sin nadie adentro (la de
-      // Brigitte), así que es justo donde un verde mudo cuesta más. El texto sale de
-      // `avisoInvitacion`, que mira `enviado` y nunca que haya un resultado.
-      if (puedeSumar) setEnvio(avisoInvitacion(j.invitacion, email.trim()));
-      setEmail(''); setNom(''); setPidiendo(false);
-      // `router.refresh()` y no un reload: la ficha abierta viaja en `?cliente=` y un
-      // reload la reabriría, pero en Resumen y no en esta tab — se leería como que te sacó.
-      onPedido();
-    } catch {
-      onError('No se pudo pedir.');
-    } finally { setMandando(false); }
-  };
-
-  // ⚠️ SIN CUENTA NO HAY «NADIE ADENTRO»: NO HAY ADENTRO. Un cliente al que todavía no se le
-  // abrió su cuenta de MaKo caía en el vacío de abajo, que dice «esta cuenta no tiene a
-  // nadie» — una afirmación sobre una cuenta que no existe. Visto en el navegador el
-  // 05/10/2026 sobre un cliente de Código Inmobiliario sin `cliente_ws`. Lo que se hace al
-  // respecto («Abrir cuenta») ya está arriba, al lado del nombre. Va DESPUÉS de los hooks.
-  if (clienteWs == null) return <p className="fc-eq-nada">Todavía no tiene cuenta de MaKo.</p>;
-
-  return (
-    <>
-      {equipo.length === 0 && visibles.length === 0 ? (
-        /* ⚠️ «NADIE MÁS» DECÍA LO CONTRARIO DE LO QUE PASA. Acá la lista vacía significa
-           CERO personas —ni siquiera el dueño de la cuenta— y «nadie más entra a la
-           cuenta de Brigitte» se lee como que Brigitte sí entra y nadie la acompaña. El
-           dueño lo reportó así: «pareciera que se bugeó y que la propia Brigitte no
-           puede entrar». Y no es un matiz: es exactamente el estado que dejó el alta sin
-           email del 28/09, y el que hay que poder ver de un vistazo.
-           («Todavía nadie» y «no lo pude leer» siguen siendo dos cosas distintas: acá la
-           lista viene con el HTML y filtrada por el server, así que vacía es vacía.) */
-        <p className="fc-eq-nada">
-          Esta cuenta todavía no tiene a nadie adentro, así que <b>no puede entrar nadie</b>
-          {puedeSumar || puedePedir ? '. Suma a la persona que la va a usar.' : '.'}
-        </p>
-      ) : (
-        <ul className="fc-eq">
-          {equipo.map((u) => (
-            <li key={u.id}>
-              <Marca icono={null} foto={u.foto} nombre={u.nombre} tam={34} color={colorDe(u.nombre)} />
-              <span className="t"><b>{u.nombre}</b><span>{u.email}</span></span>
-              <span className="rol">{ROL_EQUIPO[u.rol] ?? u.rol}</span>
-            </li>
-          ))}
-          {/* ⚠️ LOS PEDIDOS VAN EN LA MISMA LISTA Y ATENUADOS, no en un bloque aparte.
-              La pregunta que contesta esta tab es «¿quién entra a esta cuenta?», y la
-              respuesta incluye a quien está a una firma de entrar. Un segundo bloque
-              obliga a leer dos listas para contestar una sola pregunta. */}
-          {visibles.map((a) => (
-            <li key={'alta-' + a.id} className="pend">
-              <Marca icono={null} foto={null} nombre={a.nombre || a.email} tam={34} color={colorDe(a.email)} />
-              <span className="t">
-                <b>{a.nombre || a.email}</b>
-                {a.nombre && <span>{a.email}</span>}
-              </span>
-              <span className="rol">{ROTULO_ROL[a.rol_ws as RolAlta] ?? a.rol_ws}</span>
-              <span className={a.estado === 'rechazada' ? 'est mal' : 'est'}>
-                {ROTULO_ALTA[a.estado as EstadoAlta] ?? a.estado}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {envio && <p className={envio.tono === 'warn' ? 'fc-envio mal' : 'fc-envio'}>{envio.texto}</p>}
-
-      {(puedePedir || puedeSumar) && (pidiendo ? (
-        <div className="fc-pedir">
-          <input className="fc-in" type="email" value={email} placeholder="persona@empresa.com"
-            autoFocus onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void pedir(); }} />
-          <input className="fc-in" value={nom} placeholder="Nombre (opcional)"
-            onChange={(e) => setNom(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void pedir(); }} />
-          <select className="fc-in fc-sel" value={rol} onChange={(e) => setRol(e.target.value as RolAlta)}
-            aria-label="Rol en el negocio">
-            {ROLES_ALTA.map((r) => <option key={r} value={r}>{ROTULO_ROL[r]}</option>)}
-          </select>
-          {/* ⚠️ EL BOTÓN DICE LO QUE PASA, Y NO PASA LO MISMO. Para la agencia el pedido
-              queda esperando una firma, así que «Sumar» prometería que la persona ya
-              entra; para el super admin la persona entra Y le llega el mail, así que
-              «Pedir» escondería que se le escribió a alguien. */}
-          <button type="button" className="fc-ok" disabled={!emailUtilizable(email) || mandando}
-            onClick={() => void pedir()}>
-            {mandando ? (puedeSumar ? 'Sumando…' : 'Pidiendo…') : (puedeSumar ? 'Sumar y mandarle el acceso' : 'Pedir')}
-          </button>
-          <button type="button" className="fc-no" onClick={() => setPidiendo(false)}>Cancelar</button>
-        </div>
-      ) : (
-        <button type="button" className="fc-sumar" onClick={() => setPidiendo(true)}>
-          {puedeSumar ? 'Sumar a alguien' : 'Pedir sumar a alguien'}
-        </button>
-      ))}
-    </>
-  );
-}
-
-/** Los tres roles del negocio del cliente, con el nombre que usa el producto. */
-const ROL_EQUIPO: Record<string, string> = { admin: 'Admin', closer: 'Closer', setter: 'Setter' };

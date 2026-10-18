@@ -307,33 +307,21 @@ export function VistaSelector({ vista, onVista, pendientes }: {
   /** cuántos leads tienen datos sin marcar (0 = el segmento va sin badge). */
   pendientes: number;
 }) {
-  const seg = (activo: boolean): CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 15px', borderRadius: 8,
-    border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 14,
-    fontWeight: activo ? 600 : 500,
-    background: activo ? 'var(--ink)' : 'transparent',
-    // `--on-ink`, no `--on-sidebar`. Coincidían en el tema por defecto, pero el
-    // segundo significa «se lee sobre LA BARRA»: con la barra clara, esto quedó
-    // tinta sobre tinta —ratio 1,00, el botón activo INVISIBLE— y se veía igual
-    // en claro y en oscuro, así que ningún vistazo lo iba a encontrar.
-    color: activo ? 'var(--on-ink)' : 'var(--dim)',
-  });
+  void pendientes;
+  // ⚠️ PESTAÑAS PÍLDORA (17/10/2026, la familia del prototipo docs/prototipos/coherencia-1710.html): «Tablero · Lista»,
+  //    las dos vistas que existen (decidido: las del prototipo se mapean a las de hoy). El ícono sigue saliendo de
+  //    app/_ui/iconos-vista (el mismo que Customer Success), ahora con su nombre al lado: una píldora con sólo un
+  //    dibujo no dice qué vista es. El estilo es el de `.tk-ptab` (app/_ui/TarjetaKanban.tsx).
+  const NOMBRE: Record<CrmVista, string> = { kanban: 'Tablero', tabla: 'Lista' };
   return (
-    <>
-    <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 4, gap: 4 }}>
-      {/* ⚠️ LOS ÍCONOS SALEN DE UN SOLO LUGAR (app/_ui/iconos-vista), no de una copia.
-          Son los mismos que usa el tablero de Customer Success, y el pedido fue
-          justamente que el toggle se vea IGUAL en las dos pantallas: dos SVG
-          «parecidos» divergen en cuanto alguien ajusta uno. El estilo del botón sí es
-          de cada barra — acá el segmento con `--ink`, allá su `.bc-toggle`. */}
+    <div className="tk-ptabs" role="tablist" aria-label="Cómo ver los leads" style={{ flex: 'none', padding: 0, overflow: 'visible' }}>
       {(['kanban', 'tabla'] as const).map((v) => (
-        <button key={v} type="button" onClick={() => onVista(v)} style={seg(vista === v)}
-          title={ICONO_VISTA[v].titulo} aria-label={ICONO_VISTA[v].titulo} aria-pressed={vista === v}>
-          {ICONO_VISTA[v].icono}
+        <button key={v} type="button" role="tab" className="tk-ptab" onClick={() => onVista(v)} aria-selected={vista === v}
+          title={ICONO_VISTA[v].titulo} aria-label={ICONO_VISTA[v].titulo} style={{ height: 34, padding: '0 14px' }}>
+          {ICONO_VISTA[v].icono}{NOMBRE[v]}
         </button>
       ))}
     </div>
-    </>
   );
 }
 
@@ -689,9 +677,11 @@ const NUEVA = '__nueva';
 /** El otro renglón que no es un funnel sino una salida: los que se eliminaron. */
 const ARCHIVADOS = '__archivados';
 
-export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
+export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: {
   funnels: { id: number; nombre: string; esDefault: boolean; producto?: string | null }[];
   activo: number | null;
+  /** Sólo el admin crea un CRM (`crearCrmAction`): a los demás no se les ofrece «Nuevo CRM». */
+  puedeCrear: boolean;
   /** Abre el pop-up de etapas de UN funnel de la lista, que no tiene por qué ser el activo. */
   onEditarEtapas: (funnelId: number, nombre: string) => void;
 }) {
@@ -758,7 +748,8 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // "Funnels" sino que "Nuevo CRM", así es más entendible y fácil... Y que la opción de
   // nuevo esté arriba del desplegable, no abajo». El que se está mirando sigue siendo el
   // primero de los TABLEROS: la salida para crear no es un tablero.
-  opciones.unshift({ value: NUEVA, label: 'Nuevo CRM', crear: true });
+  // ⚠️ Y SÓLO AL ADMIN (17/10/2026): a un closer se le ofrecía, completaba los dos pasos y recién al final leía que no.
+  if (puedeCrear) opciones.unshift({ value: NUEVA, label: 'Nuevo CRM', crear: true });
   // ⚠️ LA PUERTA DE VUELTA. Eliminar un producto lo ARCHIVA —la fila y sus leads quedan
   // enteros— pero sin una pantalla que los nombre, para la persona desapareció igual: una
   // copia de seguridad que nadie puede ver no es una copia de seguridad. El renglón sólo

@@ -32,12 +32,16 @@ import { chatsDeBitacoras } from '@/lib/centro-chats';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import { leerMunecos } from '@/lib/centro-munecos-db';
 import { leerAbiertas } from '@/lib/centro-preguntas-chat-db';
+import { leerCuentasConNombre } from '@/lib/centro-titulares-db';
+import { leerUltimosTurnos } from '@/lib/centro-turnos-db';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { CentroAppMovil } from './CentroAppMovil';
-import { TicketeraMovil } from './TicketeraMovil';
+import { TicketsMovil } from './TicketeraMovil';
+import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { nombresDeTabs } from '@/app/admin/operaciones/tabs';
-import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
+import { responderDecision } from '@/app/admin/runway/acciones';
 // La Ticketera vive adentro del Centro (16/10/2026): sus hojas las importa la página.
+import '@/app/tickets/bandeja/bandeja.css';
 import '@/app/tickets/decisiones/mazo.css';
 import '@/app/tickets/decisiones/vistas.css';
 import '@/app/admin/runway/decisiones.css';
@@ -58,49 +62,52 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   if (!puedeOperar(admin, plataforma)) {
     return <PantallaM>{cabecera}<VacioM frase="Entra como super admin, con tu segundo factor, para usar el Centro." /></PantallaM>;
   }
-  // La Ticketera entera (la fila de arriba de los chats, y las rutas de antes): pantalla de trabajo, como era.
+  // `?ticketera=` abre LA Ticketera —los tickets de los usuarios—. `tarjetas` y `lista` eran las preguntas de los chats (se
+  // sacaron el 17/10/2026: se contestan en el chat que las hizo): un link viejo abre los tickets.
   const { ticketera } = await searchParams;
-  if (ticketera === 'tarjetas' || ticketera === 'lista') {
-    const lectura = await leerDecisiones().catch(() => null);
-    return (
-      <PantallaM>
-        <CabeceraM titulo="Ticketera" trabajo padre={{ href: RUTA, label: 'Centro' }} />
-        <TicketeraMovil
-          lectura={lectura ?? { ok: false, faltaTabla: false, error: 'no se pudieron leer' }}
-          vistaInicial={ticketera} responder={responderDecision} deshacer={deshacerDecision}
-        />
-      </PantallaM>
-    );
-  }
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: los chats (de las bitácoras) se ven aunque la cola no se pueda leer.
-  const [cola, estado, tarjetas, munecos, abiertas] = await Promise.all([
+  const [cola, estado, tarjetas, munecos, abiertas, cuentas, ultimos] = await Promise.all([
     listarPedidos().catch(() => null),
     leerCarteros().catch(() => null),
     leerDecisiones().catch(() => null),
     leerMunecos(),
     leerAbiertas(),
+    leerCuentasConNombre(),
+    leerUltimosTurnos(ahora),
   ]);
   const decisiones = tarjetas?.ok ? tarjetas.decisiones : null;
   // Todas las fechas (16/10/2026): lo terminado hace rato va corto (lib/progreso-reglas.ts → pedidosDelCentro).
   const pedidos = pedidosDelCentro(areas, ahora);
+  const datos: DatosCentro = {
+    base: chatsDeBitacoras({ areas, pedidos, ahora, dias: DIAS_HISTORIAL }),
+    colaInicial: cola,
+    carterosIniciales: estado,
+    decisionesIniciales: decisiones,
+    munecosIniciales: munecos,
+    preguntasAbiertasIniciales: abiertas,
+    cuentasIniciales: cuentas,
+    ultimosIniciales: ultimos,
+    pedidos,
+    ahora,
+    sub: admin.sub,
+    responder: responderDecision,
+    tabs: nombresDeTabs(),
+  };
+  // Los tickets de los usuarios necesitan el motor del Centro entero: «Aprobar» le firma el ticket al chat «Cerebro».
+  if (ticketera === 'tickets' || ticketera === 'tarjetas' || ticketera === 'lista') {
+    return (
+      <PantallaM>
+        <CabeceraM titulo="Ticketera" trabajo padre={{ href: RUTA, label: 'Centro' }} />
+        <TicketsMovil {...datos} />
+      </PantallaM>
+    );
+  }
   return (
     <PantallaM>
       {cabecera}
-      <CentroAppMovil
-        base={chatsDeBitacoras({ areas, pedidos, ahora, dias: DIAS_HISTORIAL })}
-        colaInicial={cola}
-        carterosIniciales={estado}
-        decisionesIniciales={decisiones}
-        munecosIniciales={munecos}
-        preguntasAbiertasIniciales={abiertas}
-        pedidos={pedidos}
-        ahora={ahora}
-        sub={admin.sub}
-        responder={responderDecision}
-        tabs={nombresDeTabs()}
-      />
+      <CentroAppMovil {...datos} />
     </PantallaM>
   );
 }

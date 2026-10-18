@@ -40,7 +40,7 @@ function bust() {
 export async function crearCrmAction(
   nombre: string,
   eleccion: { tipo: string; canal?: string | null; entradas?: string[] },
-): Promise<{ funnelId: number; etapasDelTipo: boolean } | { error: string }> {
+): Promise<{ funnelId: number } | { error: string }> {
   try {
     if (!(await haySesion())) return { error: 'Sin sesión.' };
     if ((await getRolWsEfectivo()) !== 'admin') return { error: 'Solo el administrador puede crear un CRM.' };
@@ -51,7 +51,7 @@ export async function crearCrmAction(
     revalidatePath('/crm');
     revalidatePath('/funnel');
     revalidatePath('/automations');
-    return { funnelId: r.funnelId, etapasDelTipo: r.etapasDelTipo };
+    return { funnelId: r.funnelId };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'No se pudo crear el CRM.' };
   }

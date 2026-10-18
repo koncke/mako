@@ -7,14 +7,15 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
-import { getWorkspaceActual } from './workspace';
-import { OWNER_WS } from './auth-session';
+import { getWorkspaceActual, WS_NINGUNO, wsObligatorio } from './workspace';
 import { upsertRouting } from './webhook-routing';
 
 // app_settings es per-workspace (PK compuesta workspace_id+key). Scopeamos
-// explícito: el default es el dueño (1) para crons/sistema, que leen la config
-// de Mauricio como hasta ahora.
-const wsActual = async () => (await getWorkspaceActual()) ?? OWNER_WS;
+// explícito. Un cron o un webhook SIN cookie sigue resolviendo al ws1 (lo decide el resolver,
+// lib/workspace.ts); lo que cambió el 17/10/2026 es el null —una cookie que no resuelve contra la
+// base, como la de un suspendido—: antes caía al ws1 (Mauricio, un cliente) por un `?? OWNER_WS`
+// escrito acá. Ahora LEER no trae nada (WS_NINGUNO) y ESCRIBIR tira (wsObligatorio).
+const wsActual = async () => (await getWorkspaceActual()) ?? WS_NINGUNO;
 
 /** Valor crudo (string) de una setting, o null si no existe. */
 export async function getSetting(key: string): Promise<string | null> {
@@ -63,7 +64,7 @@ export async function getSettingEstricto(key: string): Promise<string | null> {
  */
 export async function cambiarSettingSi(key: string, esperado: string | null, nuevo: string): Promise<boolean> {
   const supabase = getSupabaseServer();
-  const ws = await wsActual();
+  const ws = await wsObligatorio();
   const ahora = new Date().toISOString();
   if (esperado === null) {
     const { data, error } = await supabase
@@ -84,6 +85,22 @@ export async function cambiarSettingSi(key: string, esperado: string | null, nue
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * Borra una setting SOLO si todavía vale `esperado` (el compare-and-set de `cambiarSettingSi`, para borrar).
+ * Devuelve si borró.
+ */
+export async function borrarSettingSi(key: string, esperado: string): Promise<boolean> {
+  const { data, error } = await getSupabaseServer()
+    .from('app_settings')
+    .delete()
+    .eq('workspace_id', await wsObligatorio())
+    .eq('key', key)
+    .eq('value', esperado)
+    .select('key');
+  if (error) throw new Error(`Error borrando setting ${key}: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
 /** Valor numérico tolerante: null si no existe o no parsea (sin romper). */
 export async function getSettingNum(key: string): Promise<number | null> {
   const raw = await getSetting(key);
@@ -99,7 +116,7 @@ export async function getSettingNum(key: string): Promise<number | null> {
 /** Guarda (upsert) una setting en el workspace actual. */
 export async function setSetting(key: string, value: string): Promise<void> {
   const supabase = getSupabaseServer();
-  const ws = await wsActual();
+  const ws = await wsObligatorio();
   const { error } = await supabase
     .from('app_settings')
     .upsert(

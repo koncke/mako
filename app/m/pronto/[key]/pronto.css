@@ -1,0 +1,16 @@
+/* =============================================================================
+   /m/pronto/<key> — «Coming soon» en el teléfono. Clases `.m-pronto-*`, sólo tokens de app/globals.css.
+   El movimiento es el de app/_components/ComingSoon.tsx (flota y respira), quieto con reduced-motion.
+   ============================================================================= */
+
+.m-pronto { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 48px 16px 24px; }
+.m-pronto-logo { position: relative; width: 104px; height: 104px; margin-bottom: 22px; }
+.m-pronto-halo { position: absolute; inset: 0; border-radius: 50%; background: var(--accent-soft); filter: blur(28px); animation: m-pronto-respira 2.8s ease-in-out infinite; }
+.m-pronto-flota { position: relative; display: grid; place-items: center; height: 100%; animation: m-pronto-flota 3s ease-in-out infinite; }
+[data-m] .m-pronto-tab { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+[data-m] .m-pronto-t { margin: 0 0 8px; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+[data-m] .m-pronto-frase { margin: 0; font-size: 16px; line-height: 1.5; color: var(--dim); }
+
+@keyframes m-pronto-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes m-pronto-respira { 0%, 100% { opacity: .3; transform: scale(1); } 50% { opacity: .6; transform: scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .m-pronto-halo, .m-pronto-flota { animation: none; } }

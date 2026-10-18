@@ -23,7 +23,8 @@ habilita a darle mejores prompts al otro Claude».
 - El repo es **CRLF**: un reemplazo por bloque buscó `'\n];\n'`, no matcheó, se fue 700 líneas más abajo y **borró 76 KB con exit 0** → [Editar este repo](#editar-este-repo-archivos-grandes-saltos-de-línea-y-nombres).
 - Con **`npm run dev` (`-H 127.0.0.1`) toda pantalla del TELÉFONO da `ERR_TOO_MANY_REDIRECTS`** en local: el rewrite a `/m` sale como externo y vuelve a entrar al proxy. Con `-H localhost`, 200 → [Tests y entorno local](#️-con-npm-run-dev--h-127001-ninguna-pantalla-del-teléfono-se-puede-mirar-en-local-15102026).
 - Verificar contra **`127.0.0.1` en vez de `localhost`** deja la página entera y sin hidratar, sin un solo error en el navegador — y las dos explicaciones que uno tiene a mano («rompí yo», «lo rompió la otra sesión») parecen confirmarse → [Tests y entorno local](#️-127001-no-es-localhost-para-el-dev-server-la-página-se-ve-entera-y-no-hidrata).
-- **17 de 91 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
+- **El disco lleno (17/10)**: lo MÁS grande no estaba en ningún worktree sino en la caché de `tsx` de `%TEMP%` (7,7 GB que nadie podaba); los `.next` quietos y las copias de `node_modules` sumaron 15 GB más. La regla: un worktree nuevo usa un junction al `node_modules` del clon (salvo `next build` con Turbopack) y su `.next` se borra al terminar → [El disco lleno](#el-disco-lleno-17102026).
+- **21 de 101 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -6484,17 +6485,18 @@ pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con much
 
 ⚠️ **Esa regla está escrita desde el 15/10 y no frenó nada** — el 17/10 se midió por qué (entrada de abajo).
 
-## Los rojos de Actions: 17 de 91 runs, dos clases, y por qué «corré los tests de tu área» no podía alcanzar (17/10/2026)
+## Los rojos de Actions: 21 de 101 runs, dos clases, y por qué «corré los tests de tu área» no podía alcanzar (17/10/2026)
 
-**El síntoma:** de los 91 runs de `integracion` (15-17/10), 17 fallaron y 14 se cancelaron; cada rojo costó ~15 min de reloj
-y minutos del mes (140 de los 2.000 gratis en dos días). Los 17 son de **dos clases**:
+**El síntoma:** de los 101 runs de `integracion` (15-17/10), 21 fallaron y 14 se cancelaron; cada rojo costó ~15 min de reloj
+y minutos del mes (140 de los 2.000 gratis en dos días). Los 21 son de **dos clases**:
 
-- **(a) 13 en «Tests»**: un test de OTRA área que lee el código como TEXTO (un regex exacto sobre el fuente: `editor-acciones`,
+- **(a) 16 en «Tests»**: un test de OTRA área que lee el código como TEXTO (un regex exacto sobre el fuente: `editor-acciones`,
   `medios-automatizacion`, `centro-revisar`, `plazo-etapa-automatizacion`, `progreso`…) o un BARRIDO global del repo
-  (`puente-panel-copy` ×3, `zona-negocio`, `fuentes-sin-next-font`, `frontera-use-client`, `tsc-acotado`, `onboarding-hub-retirado`).
-- **(b) 4 en «Tipos»**: dos ayudantes de tests nuevos sin `export` que `tsc` toma por scripts globales (51 y 52: el error cae en
-  `_cobros-conexion-hijo.ts`, que NO cambió), un test que llamaba con dos argumentos a una firma que pasó a pedir uno (31) y
-  una bitácora sin `puntos` (10).
+  (`puente-panel-copy` ×3, `zona-negocio`, `fuentes-sin-next-font`, `frontera-use-client`, `tsc-acotado`, `onboarding-hub-retirado`,
+  y desde que corre el workflow nuevo: `link-con-workspace`, `undecima-email-propio`, `centro-abrir`).
+- **(b) 5 en «Tipos»**: dos ayudantes de tests nuevos sin `export` que `tsc` toma por scripts globales (51 y 52: el error cae en
+  `_cobros-conexion-hijo.ts`, que NO cambió), un test que llamaba con dos argumentos a una firma que pasó a pedir uno (31), una
+  bitácora sin `puntos` (10) y un test que pasaba `{}` donde se pide un `ProcessEnv` (100).
 
 **El diagnóstico obvio —«los chats no corren los tests»— era el equivocado.** Corrían los suyos, y la regla («corré los tests que
 LEEN cada archivo tocado», entrada de arriba) estaba escrita desde el 15/10, y los 17 rojos son del 15 al 17/10. Por qué no podía
@@ -6524,9 +6526,9 @@ alcanzar, aunque se cumpliera al pie de la letra:
 - `.github/workflows/integracion.yml`: **falla rápido** — guardas → afectados contra `origin/main` → tipos → los demás tests; las
   dos fases suman la suite entera y no repiten ninguno. Medido con la API: un rojo cuesta 2 min facturables (run 94, 107 s), no 5-10.
   El verde salió caro (ver «El verde caro» abajo) y se corrigió.
-- `scripts/replay-fallos-ci.mjs` + `docs/fallos-ci-integracion.jsonl`: **la prueba**. Para cada uno de los 17 runs rojos toma el
+- `scripts/replay-fallos-ci.mjs` + `docs/fallos-ci-integracion.jsonl`: **la prueba**. Para cada uno de los 21 runs rojos toma el
   árbol exacto de la cabeza que falló (sin checkout: `ls-tree` + `cat-file --batch`) y la base REAL, el último run verde anterior,
-  y pregunta si el rojo habría salido: **17/17 runs, 20/20 rojos**. Un rojo nuevo se suma al `.jsonl` y se vuelve a correr.
+  y pregunta si el rojo habría salido: **21/21 runs, 25/25 rojos**. Un rojo nuevo se suma al `.jsonl` y se vuelve a correr.
 
 **Lo que se aprendió construyéndolo (cada uno costó un falso positivo o un rojo escondido):**
 
@@ -6553,7 +6555,7 @@ alcanzar, aunque se cumpliera al pie de la letra:
   2,9): el `tsc` acotado con importadores (188 archivos) pedía 4,3 GB y había 1,3 libres — se quedó esperando. Tres correcciones, de lo que ya
   estaba medido y no se había mirado: (1) el vigía de RAM sólo mata `tsc`, eslint, vitest, jest, playwright y `next build` — **nunca un `node --test`** —,
   así que el margen de 0,3 GB sobre la zona roja para los tests sobraba (de 1,55 a 1,3 GB para un proceso); (2) el alcance local del `tsc` pasa a lo
-  CAMBIADO (33-102 archivos en los replays en vez de 168-935; el replay sigue en 20/20 porque los rojos de «Tipos» estaban en lo cambiado o los frena
+  CAMBIADO (33-102 archivos en los replays en vez de 168-935; el replay sigue en 25/25 porque los rojos de «Tipos» estaban en lo cambiado o los frena
   `modulos-ts`); (3) el paso de tipos espera 90 s, no 15 min, y si no entra dice «tipos: los chequea Actions» y sigue — lo mismo vale para el lock.
 - **El verde caro: fallar rápido costó 3 min facturables en el 85 % de los runs** (medido con la API por el Cerebro, 17/10). Run 94, ROJO: 2 min
   facturables (107 s; antes 5-10). Run 95, VERDE: 14 (781 s) contra ~11 de antes: afectados 333 s + tipos 148 s + los demás 217 s + `npm ci` 29 s +
@@ -6570,7 +6572,57 @@ alcanzar, aunque se cumpliera al pie de la letra:
   como `FLAKY` (no frenan, pero se ven en la salida) y si siguen rojos, son rojos. El test flaky sigue sin arreglarse (es de Ads): conviene subirle `topeMs` de 40 a 300.
 - **La profundidad del grafo casi no ahorra**: con 120 archivos cambiados, 457 tests con todos los saltos, 356 con `--profundidad 1`. Lo grande
   son las barredoras (110-150) y los que nombran un archivo: la palanca existe (`--profundidad N`, y el VERDE pasa a `PARCIAL`), pero no es la que
-  acorta la espera.
+  acorta la espera. (La que sí la acortó es la de abajo.)
+- **«Los jefes no lo corren porque con 16 chats tarda 40-94 min»: el costo era el DISCO, no el trabajo** (el Cerebro lo pidió el 17/10 tras los runs 94,
+  98, 99 y 100, todos por barredoras o tipos). Se rastreó con un `--require` qué lee cada barredora (`fs` y los comandos `git`): 62 leen entre 1.500 y
+  6.000 archivos, 6 más de 500, 28 entre 50 y 500 y 81 menos de 50. Las ~68 globales leen los MISMOS ~5.400 archivos de `app/` y `lib/`, y con
+  `node --test` cada archivo de test es un proceso aparte que los vuelve a leer y a listar: 12 de ellas tardaron **193 s** en procesos separados (2 a la vez)
+  y **40 s** juntas en UN proceso con las lecturas memorizadas (`scripts/cache-lecturas.cjs` + `--test-isolation=none`). **Lo que se probó antes y NO
+  sirvió** — la «obvia» era recortar qué barredoras correr: (1) por carpeta que barren (152 de 157 mencionan `app/`); (2) por el vocabulario de cada barredora
+  contra las líneas AGREGADAS del diff (un commit de 1 archivo y 232 caracteres igual elegía 60-157 de 150 barredoras; con sólo los términos que aparecen en
+  ≤2 barredoras, un commit de 17 archivos elegía 100+). Una barredora global puede romperse con un cambio en cualquier lado: no se le puede preguntar «¿tocaste lo mío?»
+  — lo que se puede es que cuesten poco.
+  **Medido** (PC con ~14 chats, 0,1-1,3 GB libres): las 148 barredoras que sólo leen, en 2 procesos compartidos: 267 s; la SUITE ENTERA (1.050 de los 1.125
+  tests que no tocan estado global, 10.905 casos) en 2 procesos: **260 s, 0 rojos, 0 interferencias** (separados, ~50 min en esa PC). Sobre la punta de
+  Automations (21 archivos, 3 rojos reales): completo 26 min 20 s → **4 min 21 s**; `--rapido` 9 min 23 s (primer intento, sólo las barredoras compartidas) →
+  **3 min 28 s** (todo lo que no toca estado global compartido). Un proceso compartido pesa ~725 MB (guarda en memoria lo que lee): el piso de RAM de un grupo es
+  0,9 + 0,8 por grupo.
+  **Riesgos que quedan, dichos:** (a) la interferencia — `editor-landing-origen` falló una vez en un proceso compartido porque otro test dejó algo en el entorno que hacía creer a
+  `lib/app-url.ts` que corría «en el navegador», y pasó aislado: por eso todo rojo de un proceso compartido se repite aislado antes de contarse, y un test que
+  cambia `process.env`, un global, `Module._load` o el directorio de trabajo nunca se comparte (`PELIGRO_COMPARTIR`; lo que esa regex no vea se descubre por rojo
+  y se resuelve igual); (b) el FALSO VERDE por contagio (un test que pasa sólo por lo que dejó otro): no hay forma de medirlo desde acá, y por eso Actions NO comparte
+  procesos: sigue corriendo cada test aislado. Si alguna vez un run de Actions da un rojo que `antes-de-subir` dio verde, lo primero que hay que mirar es esto.
+- **`--rapido` y lo que cubre** (`node scripts/replay-fallos-ci.mjs --rapido`): profundidad 1 y los tipos de lo cambiado si entran en RAM sin esperar. De los 25 rojos de los 21 runs: **19 de los 20 de «Tests»**
+  (falta `agenda-whatsapp`, run 53, que está a DOS saltos del cambio) y **los 5 de «Tipos»** (51 y 52 los frena la guarda de módulos, que corre siempre; 10, 31 y 100 son
+  errores de tipos de archivos que cambiaron: sólo salen si el `tsc` acotado entró en RAM). **Se pidió «sin tsc» y se desvió a propósito:** el primer VERDE rápido de
+  esta punta (sin tipos) lo dio el mismo script cuyo test tenía 5 errores de tipos, que vio sólo el modo completo. Si el `tsc` no entra, el VERDE lo dice
+  («sin tipos…») y los decide Actions, igual que los saltos lejanos.
+- **El `tsc` ACOTADO daba verde donde el completo daba rojo** (run 100 de Actions y el que le siguió, mismo archivo, dos errores distintos). Un test pasaba `{}` donde se pide un
+  `NodeJS.ProcessEnv`: el completo da TS2345, y al castear con `as NodeJS.ProcessEnv`, TS2352. **El diagnóstico obvio —«el acotado no mira ese archivo»— era el equivocado: SÍ lo
+  miraba.** Lo que cambiaba era el MUNDO: el completo carga `next-env.d.ts`, que trae `next/types/global.d.ts`, y ese hace OBLIGATORIO `NODE_ENV` en `ProcessEnv`; un archivo
+  suelto sólo tenía `@types/node`, donde `{}` es un `ProcessEnv` válido (la línea del `as` con una propiedad que no está sí daba rojo, por eso no se notó). Ahora `armarTsconfig`
+  suma `node_modules/next/types/global.d.ts` y `image-types/global.d.ts` a `files` si existen (`next-env.d.ts` está en .gitignore y un worktree no lo tiene). Reproducido con un
+  archivo de 3 líneas: antes, sólo el TS2352; después, también el TS2345 del run 100. La cura del código es `as unknown as NodeJS.ProcessEnv`. Quedan los límites ya escritos:
+  un tipo que agrega OTRO archivo con `declare module` y lo que sólo ve el completo por `include` (el acotado nunca es «el repo»).
+- **El verde de Actions sólo bajó de 14 a 12 min con `auto` = todos los núcleos** (run 102: 683 s; el run 101, rojo en Tipos, sumó 477 s = ~64 s de arranque + afectados
+  270 s + tipos 143 s: los afectados bajaron 333 → 270 s y los demás casi nada, 217 → ~206 s). **El diagnóstico (mío) de que «un solo proceso dejaba un núcleo parado» era sólo
+  una parte**: con 2 procesos los tests casi no ganaron, y lo mismo se vio local (48 archivos: 232 s con 1 proceso, 182 s con 2, en una PC de 12 núcleos). El costo es el
+  ARRANQUE de cada archivo de test —node, `tsx`, compilar el archivo: ~0,4 s × ~1.100 ≈ los 508 s del `npm test` viejo— más las ~150 barredoras que releen los mismos 5.400
+  archivos. Lo que lo evita es no arrancar cada archivo: correr juntos los que no tocan estado global (`--compartir`).
+  **Los datos del job del run 102** (676 s; runner 2 CPU y 7,9 GB; el Cerebro los sacó de la API): checkout 15 s, setup-node 4, `npm ci` 29, tipos de rutas 1, guardas 10, afectados 279,
+  tipos 154, los demás 182, avanzar main 1. Afectados = 489 archivos en 13 tandas de 40 → **0,57 s por archivo**; los demás = 653 archivos en UNA corrida → **0,28 s por archivo**.
+  El Cerebro leyó «más archivos, menos tiempo» como costo de arrancar cada TANDA; no es: 13 arranques son ~20 s. La diferencia son las ~150 barredoras que viven en los afectados
+  (~1,2 s de reloj cada una); y los 0,28 s de los demás son, sobre todo, el arranque de cada ARCHIVO (node + `tsx`). **Ojo con extrapolar lo local:** el 5× de compartir procesos se
+  midió en Windows, donde releer 5.400 archivos 150 veces es carísimo (antivirus, disco); en Linux la relectura sale de la caché del sistema y lo que se ahorra es sobre todo el
+  arranque, no la lectura. Por eso la estimación para Actions es más modesta: **~7-9 min facturables, SIN medir en Linux.**
+  Experimento en el workflow, **a medir con el próximo verde**: las DOS fases comparten todo lo compartible (`--compartir`; en la fase 1 siguen aislados los tests que el cambio toca y
+  los que tocan el entorno) y la fase 1 va con tandas de 100. Reversible con `--sin-compartir`. Si un rojo de Actions aparece donde el modo compartido local dio verde, sospechar
+  primero del contagio entre tests; el contrapeso es correr `npm test` completo y aislado de vez en cuando.
+- **Un `tsc` «acotado» NO es chico: un archivo de `app/` o `lib/` arrastra ~1.800 archivos y ~2,5 GB** (medido el 17/10: 1 archivo → compila 1.835 y reporta 2.533 MB, 50 s; 10 →
+  2.196 y 2.729 MB, 70 s; 60 → 3.476 y 2.514 MB, 96 s). «Acotado» acota LO QUE SE REPORTA, no lo que se carga. El tope de 2 GB que le había puesto a los alcances chicos hacía que
+  muriera sin heap a partir de ~10 archivos, y eso se leía como «no terminó» y se SALTABA con un aviso: los tipos casi no se chequeaban. Ahora el mínimo es 3 GB (piso de RAM ~4 GB), así que
+  en una PC con 14 chats los tipos se van a saltar seguido (la línea final dice `sin tipos`) — es la realidad de este programa de TypeScript, no un defecto del script. Un `tsc`
+  que corre de verdad con un archivo de tests que importa poco (el caso del propio test de esta herramienta) tarda 2 s.
 
 **Lo que NO cubre** (y por qué Actions sigue corriendo todo):
 - Las interacciones ENTRE puntas: sólo existen en el árbol integrado. Por eso el pre-push a `integracion` también corre `antes-de-subir`, y
@@ -6738,3 +6790,251 @@ LITERALES en el test, no las que arma el código.
 **Y una trampa al escribir esta misma entrada:** el `\r\n` pasado por `node -e '…'` desde el Bash se convirtió en un
 salto de línea de verdad y partió una fila del índice en dos. Texto con barras invertidas va con el editor, no por el
 shell (memoria heredoc-come-backslash).
+
+## Hay un jsdom en node_modules y no arranca: la casa no tiene DOM para los tests (17/10/2026)
+
+Para probar un error boundary montándolo (chat Dashboard, la red por bloque de General) se usó el jsdom que aparece en
+node_modules (26.1.0). No arranca: `Cannot find module '@asamuzakjp/css-color'`, que pide `cssstyle`. No es nuestro:
+viene como dependencia **opcional** de `fabric` (el Image Editor), y npm la dejó instalada sin esa dependencia (el
+package-lock sí la lista).
+
+**Regla:** en esta casa los tests no tienen DOM. Lo que necesita montarse (un error boundary, un efecto) se prueba
+llamando a sus métodos y leyendo el montaje en el código. Y un render en el server (`renderToStaticMarkup`) no corre
+error boundaries. Antes de sumar una dependencia de DOM a los tests, la decisión es del Cerebro: `npm install` toca el
+node_modules que comparten todos los worktrees (es un enlace al del clon principal).
+
+Y si se escribe un script de una vez en el scratchpad: desde ahí node no resuelve los paquetes del repo (`Cannot find
+module`), y un `.tsx` con `await` arriba de todo falla con «Top-level await is currently not supported with the "cjs"
+output format». Se corre desde adentro del worktree, envuelto en una función `async`.
+
+---
+
+## Un test que mide tiempo de reloj da verde o rojo según la CARGA: se simula el reloj, no se sube el tope (17/10/2026)
+
+**El síntoma**: `tests/ads-video-procesando.test.ts`, el caso «esperarVideoListo: "no pude leer" no es "Meta sigue procesando"», falló en la
+suite completa (`actual: 'tope', expected: 'sin_lectura'`), pasó solo y volvió a pasar en la suite completa. Medido el 10/10, escrito en
+`docs/relevo/infra-y-build.md` como «sin arreglar».
+
+**El diagnóstico obvio era el equivocado, dos veces**: no era un bug de `esperarVideoListo` (mide tiempo real A PROPÓSITO: es la espera de
+un video que Meta procesa), y la cura obvia —subir `topeMs: 40`— sólo mueve el umbral. El test elegía un presupuesto de **40 ms de reloj de
+pared** y daba por hecho que cabían varios sondeos. Cuántos caben depende de cuánto tarda cada vuelta del event loop: con la máquina
+cargada entra UNO solo, la «última lectura» es la primera, y `[processing, {ok:false}]` contesta `'tope'` en vez de `'sin_lectura'`.
+**Reproducido a mano** (17/10, sin necesidad de cargar la máquina): un `fetch` que traba el hilo 45 ms → `'tope'`; en reposo → `'sin_lectura'`.
+(Cargar la máquina desde afuera con 16 hilos de CPU NO lo reprodujo: lo que importa es el estancamiento DENTRO del proceso del test.)
+
+**La cura**: el tiempo del test lo avanza el test. `mock.timers.enable({ apis: ['setTimeout', 'Date'] })` y un bombeo — `await new Promise(setImmediate)`
+(no está simulado y deja correr las promesas) seguido de `mock.timers.tick(1)` — hacen que quepan SIEMPRE los 40 sondeos, esté la
+máquina libre o quemando; hay un caso con el `fetch` trabado 45 ms que pasa igual. `mock.timers.reset()` en el `finally`: con los
+tests compartiendo proceso en Actions (`--compartir`), un reloj simulado que se queda puesto rompe al test que sigue.
+
+**La regla**: un test que depende de «cuántas vueltas caben en N ms» no está midiendo el código sino la máquina. Se simula el reloj; un
+`timeout` más grande es un test que falla menos y sigue sin decir qué mide.
+
+**Vive en:** tests/ads-video-procesando.test.ts · app/ads-manager/creativeUpload.ts (`esperarVideoListo`, sin tocar)
+
+---
+
+## La suite entera y AISLADA, una vez por semana: por qué, cuánto cuesta y qué NO hacerle (17/10/2026)
+
+**La decisión** (el Cerebro, 17/10 15:40 UTC): `.github/workflows/semanal-tests.yml`. Desde que `integracion` corre los tests compartiendo proceso
+(`--compartir`, scripts/tests-afectados.mjs) para bajar de ~50 a ~8 min, un test que ensucia el estado global (variables de entorno, un mock
+sin restaurar, el reloj) puede dar verde adentro del grupo y rojo solo, o al revés. Una vez por semana `npm test` corre cada archivo en SU
+proceso, como en la notebook.
+
+**Cuánto cuesta, y cómo se mantiene barato** (la cuenta es Free: 2.000 min/mes, sin medio de pago, y se gastaron 835 en dos días el 17/10):
+~11 min por corrida × 4-5 lunes ≈ 45-55 min al mes. Lo sostienen cuatro cosas, y cada una tiene su test (tests/semanal-tests-ci.test.ts):
+- **una programación** (lunes 07:17 UTC), nunca por push ni por pull request;
+- **si en la semana no entró ningún commit a main, no hace nada**: el primer paso lo mira con la API de GitHub *antes* de bajar el repo, y se
+  factura 1 minuto en vez de 11;
+- **una sola fase**: sin guardas, sin tipos (los corre `integracion` en cada subida);
+- **`timeout-minutes: 20`**: un test colgado no se come el mes (20 × 5 lunes = 100 min como mucho).
+
+⚠️ **Sin medir**: el workflow no puede correr hasta que esté en `main` (un `schedule` sólo vale desde la rama por defecto), así que los ~11
+min son la estimación del Cerebro. El primer run (se dispara a mano con `workflow_dispatch`) escribe los segundos en el resumen del run:
+si pasa de 20 min, subir el techo; si tarda mucho menos, bajarlo.
+
+**Qué NO hacerle**: no sumarle `--compartir` (es lo que corre `integracion`; la semanal existe para no hacerlo), no engancharla a `push`, y no
+leer su rojo como «main está roto»: no frena nada (main avanza por `integracion`). Un rojo ahí es un test que depende del orden o del
+estado global: se arregla el test.
+
+**Vive en:** .github/workflows/semanal-tests.yml · tests/semanal-tests-ci.test.ts
+
+---
+
+## Lo que se puede medir del build de Vercel LEYENDO, y lo que no: la máquina cambió y el pico de memoria sigue sin número (17/10/2026)
+
+**El pendiente**: «medir cuánta memoria usa el build de Vercel antes de que vuelva a quedarse sin memoria» (AGENTS.md).
+
+**Lo que se midió, sólo lectura** (`vercel inspect <url> --logs` y `vercel api /v9/projects/<id>`, scope `mbustos-4239s-projects`, sin disparar ningún
+build): el proyecto se llama **`mako`** (con el nombre `dashboard-marketing` el CLI contesta `project_not_found`; ver más arriba «no hay proyecto duplicado»);
+el 15/10 a las 21:17 UTC construía en **4 cores / 8 GB** («Compiled successfully in 4.1min»); a las 23:58 UTC ya en **8 cores / 16 GB (Enhanced
+Build Machine)**, «in 61s»; hoy `buildMachineType: "enhanced"` con `elasticConcurrencyEnabled: true`. Desde ese cambio, **80 deploys de producción
+seguidos, los 80 `READY`** (86-145 s, mediana 114 s). `NODE_OPTIONS` sigue en Production y Preview.
+
+**Lo que NO se pudo medir, y por qué el diagnóstico obvio («leé el log de un build y sacá el número») era el equivocado**: el log de un build normal
+**no imprime la memoria**. El pico de heap sale sólo con `next build --experimental-debug-memory-usage`, que es un flag de la línea de comandos
+(Next no lo prende con una variable), y ningún build existente lo trae. Medirlo es disparar un build a propósito (un preview con ese flag en
+`vercel.json` → `buildCommand`, o uno local en una máquina con RAM), no leer logs. Lo que sí se sabe: la máquina de hoy tiene el doble
+de memoria que la que murió, así que el margen creció — sin saber cuánto usa el build.
+
+⚠️ **Y la máquina Enhanced con elastic encendido SE FACTURA** (la entrada «La factura de builds no mide TIEMPO», arriba, dice que Standard con
+on-demand apagado cuesta US$0): por su fórmula son 8 vCPU × `ceil(min)` × US$0,0035 ≈ US$0,056 por deploy de 2 minutos. No hay en el repo una
+línea que diga quién ni cuándo lo decidió; coincide con el día en que los builds morían por memoria (15/10). Sin cotejar con la factura: lo confirma
+Martín desde Team Settings → Build and Deployment → Build Machines. **Vive en:** AGENTS.md («El build de Vercel tiene un tope de memoria…»).
+
+---
+
+## Limpiar worktrees: 75, 26 se podían borrar, y lo caro es MIRAR, no borrar (17/10/2026)
+
+**El pendiente**: «limpiar las 67 copias de trabajo viejas» (el disco estaba en 99 %, con 4,9 GB libres). Cuando se hizo eran 75.
+
+**Lo que no se ve desde el nombre**: un worktree «viejo» y un worktree «con trabajo ajeno» se llaman igual. De 75, **26 cumplían todo** y se
+borraron; **10 tenían commits que no están en ninguna rama remota** (no son viejos: son trabajo sin subir), 5 tenían cambios sin guardar,
+18 tenían un commit de las últimas 24 h (esos se borran mañana si siguen limpios) y 15 no se tocan por regla (ver
+`docs/relevo/infra-y-build.md` §7.4 para la lista). **Un nombre como `wt-push-e` o `wtc-b2` no dice nada de si hay algo adentro.**
+
+**Las trampas del procedimiento** (cada una costó o iba a costar):
+- **Mirar es lo lento.** `git status` + un `find -mmin` sobre ~17.000 archivos tardan 1-2 minutos por árbol con el antivirus de Windows: los 75 serían
+  una hora. Se ordena de lo barato a lo caro (¿se puede tocar?, ¿su HEAD está en origin/main?, ¿su último commit es de hace más de 24 h?), y
+  `git status` y `find` sólo corren sobre los que sobreviven (32 de 75), de a 4 a la vez. La primera versión hacía las cinco cosas por árbol: 4 minutos para pasar por 3
+  árboles, y se tuvo que matar.
+- **`git worktree remove` sin `--force` ES la red**: se niega si hay cambios o archivos sin trackear que no sean ignorados. No se confía sólo en eso porque
+  tampoco mira «alguien lo está usando ahora» (por eso las 24 h).
+- **La junction de `node_modules` se saca ANTES, con `cmd /c rmdir` (sin `/s`)**, en cada árbol. Un borrado recursivo que la siga se lleva el
+  `node_modules` del clon principal, que comparten todos los worktrees: el script cuenta las entradas del del clon (578) antes y después de CADA borrado y
+  frena si cambian. Se sacan sólo las que `LinkType` dice `Junction` o `SymbolicLink` y son carpetas: en OneDrive un archivo «bajo demanda» también es un
+  punto de reanálisis, y borrarlo dejaría el árbol sucio.
+- **PowerShell 5.1 lee un .ps1 sin BOM como ANSI**: un guion con tildes en los textos ni arranca («Unexpected token»). Los guiones de borrado van en ASCII.
+- **Los `refs/wip` y los stash son del REPO, no de un árbol**: borrar el worktree no los toca (los 15 `refs/wip` y los stash siguen). Aun así no se borró el
+  que tiene un `refs/wip` con su nombre.
+- Las **ramas locales no se borran**: un worktree borrado con su rama intacta se recrea en minutos con `git worktree add`.
+
+**Regla**: antes de borrar, el criterio es «mirar que no tenga trabajo sin guardar» de verdad (cambios, commits sin subir, actividad de hoy), con el
+árbol en una lista en seco que se puede leer. **Vive en:** `docs/relevo/infra-y-build.md` §7.4 · el procedimiento: `git worktree list --porcelain`,
+`git merge-base --is-ancestor <HEAD> origin/main`, `git status --porcelain`, `git worktree remove <ruta>`.
+
+---
+
+## El disco lleno (17/10/2026)
+
+**Síntoma.** El C: llegó al 100% (2,6 GB libres de 455) y la PC volvió a la firma del 08/10 (ver «`.next/dev` llegó a
+51 GB y trabó la máquina entera»): builds y `tsc` que no terminan, todo lento. Esa tarde se liberaron **~30 GB** (de 4,4
+a 34 GB libres; el libre de arranque era 7,8 GB, pero un `next build` ajeno se comió 3,4 GB mientras se medía).
+
+**El diagnóstico obvio —«son los worktrees»— estaba a medias.** Los `.next` y los `node_modules` copiados de worktrees
+quietos fueron ~15 GB, sí. Pero lo MÁS grande no estaba en ningún worktree: era la caché de `tsx` en
+`%LOCALAPPDATA%\Temp\tsx-marti` (**7,7 GB, 215.902 archivos**, una semana entera sin podar), que nadie sabía que
+existía. Y lo que llena de verdad un disco de 455 GB no es el código sino lo de Martín y el sistema (última tabla).
+
+### Qué ocupaba el espacio y se borró (todo se regenera solo)
+
+| Qué | Liberó | Dónde vive |
+|---|---:|---|
+| `.next` de 5 worktrees quietos (en `wt-2fa` y `wt-centro` sólo había `.next/dev`: 3,4 y 2,0 GB) | 9,2 GB | `wt-2fa`, `wt-centro`, `wt-chatbot`, `.claude/worktrees/wt-mobile`, `wt-crm-ficha2` |
+| Caché de `tsx` | 7,7 GB | `%LOCALAPPDATA%\Temp\tsx-marti` |
+| 5 copias REALES de `node_modules` (1,2-1,5 GB cada una), cambiadas por junction | 5,6 GB | `wt-crm-ficha2`, `wt-offer-aviso`, `wt-video-editor`, `mako-api`, `wt-centro` |
+| `npm cache clean --force` | 2,1 GB | `%LOCALAPPDATA%\npm-cache` |
+| 374 carpetas de perfiles de Chrome headless | 2,0 GB | `Temp\scoped_dir*`, `mako-cdp-*`, `mako-movil-*`, `cmp-*`, `playwright_chromiumdev_profile-*` |
+| 649 `*.tmp` de 3 a 6 MB | 1,4 GB | `Temp\<guid>.tmp` |
+| Navegadores viejos de Playwright (queda la más nueva de cada familia) | 1,1 GB | `ms-playwright\chromium-1234`, `chromium_headless_shell-1234` y `-1243`, `webkit-2336` |
+| Sesiones de `Temp\claude\…` con más de 3 días | 0,5 GB | `Temp\claude\<proyecto>\<sesión>` |
+| pip, uv, `CrashDumps`, `node-compile-cache`, logs de `C:\dev` de más de 2 días | ~0,5 GB | `%LOCALAPPDATA%` |
+
+### Qué se puede borrar siempre, sin riesgo
+
+- **`tsx-marti`**: `cmd /c "del /f /q %TEMP%\tsx-marti\*"` (2 minutos para 215 mil archivos; el que tenga un proceso
+  abierto se salta solo).
+- **`.next` y `.next/dev` de un worktree sin proceso**: antes, `Get-CimInstance Win32_Process -Filter "Name='node.exe'"` y
+  que la ruta del worktree no aparezca en ninguna `CommandLine` (un build vivo se ve como
+  `…\wt-X\node_modules\.bin\..\next\dist\bin\next build` y `…\wt-X\.next\build\postcss.js`), y ningún archivo tocado en los
+  últimos 10 minutos. Se borra con `cmd /c rd /s /q` (mucho más rápido que `Remove-Item`). `rd` NO sigue los junctions
+  `.next/node_modules/sharp-<hash>`: saca el enlace y el clon queda intacto (verificado después: su `node_modules` seguía
+  con 577 carpetas, `sharp`, `postcss`, `next`).
+- **Un `node_modules` REAL en un worktree que nadie usa**: `rd /s /q` y recién cuando `Test-Path` da False,
+  `mklink /J <wt>\node_modules <clon>\node_modules`.
+- **Cachés**: `npm cache clean --force`, `pip cache purge`, `uv cache clean`, las versiones viejas de `ms-playwright`.
+- **`Temp`**: los `*.tmp` de más de 10 minutos, los perfiles de Chrome headless (cuando ningún Chrome los tiene
+  abierto), `node-compile-cache`, y las carpetas de `Temp\claude\…` de sesiones con más de 3 días **sin tocar** — nunca la
+  sesión viva ni una escrita en las últimas 3 horas.
+
+### La regla
+
+> **Un worktree nuevo usa un junction al `node_modules` del clon principal, no una copia, salvo que necesite `next
+> build` con Turbopack; y su `.next` se borra al terminar.**
+
+Por qué: cada copia real son 1,2-1,5 GB y cinco olvidadas fueron 5,6 GB; un `.next/dev` sin podar llega a 3 GB en un
+worktree donde se probó una sola vez. La excepción es real: el junction de NTFS no le sirve a Turbopack (ver «Sesiones
+paralelas y las dos cuentas», punto 1), y ahí la copia vive en un worktree descartable que se desarma al terminar. Y al
+desarmar un worktree con junction, el junction se saca PRIMERO y solo (misma sección): un borrado recursivo lo sigue y
+vacía el `node_modules` del clon.
+
+### Trampas del barrido (lo obvio estaba mal)
+
+- **El «libre» no es un número fijo mientras otro chat construye.** Un `next build --debug-build-paths` de otro worktree
+  escribió ~3,4 GB en minutos: lo libre bajó de 7,8 a 4,4 GB sin que yo borrara nada. Se mide antes y después **del mismo
+  paso**, y no se descuenta un build vivo como si fuera ruido del disco.
+- **`du` desde Git Bash no sirve acá**: 10 minutos sin terminar sobre ocho `.next`. Se mide con
+  `[IO.Directory]::EnumerateFiles(…)` con tope de tiempo, o directo con el libre antes y después de un `rd /s /q`. Y en
+  PowerShell 5.1 ese `EnumerateFiles` **SIGUE los junctions**: `C:\dev\push-ads`, `push-crm`, `push-crm2`, `push-ig` y
+  `ver-ads` «pesan» 1,15 GB cada una (5,8 GB inventados) y son una carpeta con sólo un junction a `node_modules`.
+- **`rd /s /q` puede quedar a medias con «Access is denied»** sobre un `.node` o un `.map` (`next-swc.win32-x64-msvc.node`
+  en `mako-api`, `objectSpread.js.map` en `wt-centro`) sin ningún proceso con esa ruta en su línea de comandos; y entonces
+  `mklink` falla con «Cannot create a file when that file already exists». Se reintenta unos minutos después (pasó solo).
+  El junction se crea sólo cuando la carpeta ya no existe.
+- **«Sin actividad en 2 días» no se mide con el reflog.** El `logs/HEAD` de 40 worktrees decía «hace 21 horas»: los
+  tocó el mismo trabajo masivo esa noche. Ninguno se borró; los que tienen `git log origin/main..HEAD` vacío y
+  `git status --porcelain` vacío (decenas) son candidatos recién cuando pasen 2 días sin movimiento.
+
+### Lo que NO se tocó y pesa (es de Martín o del sistema; decide él)
+
+| Qué | Tamaño | Ruta |
+|---|---:|---|
+| Descargas (videos de VSL y clases; el más grande, `VSL crudo.mp4` 4,7 GB) | 31,4 GB | `C:\Users\marti\Downloads` |
+| Cachés y proyectos de CapCut | 27,2 GB | `%LOCALAPPDATA%\CapCut` |
+| Archivo de paginación + hibernación (`powercfg -h off` como admin libera los 6,4) | 26,2 + 6,4 GB | `C:\pagefile.sys`, `C:\hiberfil.sys` |
+| Chrome (el modelo de IA que baja solo `OptGuideOnDeviceModel` 4,0; `Profile 1` 3,5; `Default` 2,2; `Profile 2` 2,1) | 17,2 GB | `%LOCALAPPDATA%\Google\Chrome\User Data` |
+| App de escritorio de Claude (`vm_bundles` 8,4) | 9,9 GB | `%APPDATA%\Claude` |
+| Videos | 9,6 GB | `C:\Users\marti\Videos` |
+| Transcripts de Claude Code (**no se tocan**: `projects` 7,9) | 8,3 GB | `C:\Users\marti\.claude` |
+| Cursos bajados con DownloadHelper | 8,1 GB | `C:\Users\marti\dwhelper` |
+| `gabi_v2_final.mp4` 3,0, `gabi_v2_base.mp4` 2,2, `gabi_test.mp4` 0,7 y `gabi_cuts\` (todo del 09/06) | 8,1 GB | `C:\Temp` |
+| Paquetes de Windows, Microsoft, Programs, Notion, Edge, `C:\cursos` | 4,5 + 3,0 + 2,8 + 2,3 + 1,4 + 1,3 GB | `%LOCALAPPDATA%\Packages` … `C:\cursos` |
+
+La Papelera no se pudo medir (devuelve 0 sin admin) y no se vació.
+
+### Quedó sin hacer
+
+- **Tres scripts abren Chrome headless con un perfil nuevo en `Temp` y nunca lo borran** (`mkdtempSync(join(tmpdir(),
+  'mako-cdp-'))`, 0 `rmSync`; 15 a 60 MB por corrida): `scripts/mirar-consola.mjs:25`, `scripts/mirar-pantalla.mjs:55`,
+  `scripts/onboarding-vg-recorrer.mjs:25`. Falta el borrado en un `finally`.
+- **Nada poda `tsx-marti`**: junta ~1 GB por día. Falta decidir una tarea semanal que lo vacíe.
+- **Los 40 clones `C:\dev\ref-*` (2,6 GB, del 17/10 a las 05:0x, material del chat de AI Avatar)** se regeneran con
+  `git clone`, pero son su referencia: no se tocaron.
+- **Scratchpads de sesiones de menos de 3 días**, que cumplen el criterio en 1 o 2 días: `Temp\claude\…\f3876a09…\scratchpad`
+  (`gh` 2,6 GB y `presenton-*` 0,7 GB, sin tocar desde el 11/10), `4eb065fe…` (1,6 GB), `eb5e2cd4…` y `e86e3994…` (0,4 GB c/u).
+
+---
+
+## `git log --since=2026-10-17` devuelve 0 commits de hoy: una fecha pelada toma la HORA de ahora (17/10/2026)
+
+**Síntoma.** Para conciliar `docs/pendientes.md` se pidió `git log --since=2026-10-17 --oneline | head -300`. Dio **0 líneas** con 678
+commits del día en el árbol (el último, de las 21:42, ya estaba commiteado). Con la fecha pelada se podía creer que «hoy no hubo nada».
+
+**Causa.** Git completa una fecha sin hora con la hora actual del reloj: a las 22:03 `--since=2026-10-17` significa «desde el 17/10 a las 22:03», y
+todo lo del día quedó antes. No es zona horaria (los commits llevan `-0300` y la máquina dice AST): es la hora del día.
+
+**Regla.** Para «desde el comienzo de hoy», `--since="2026-10-17 00:00:00 -0300"` (con la hora y la zona). Si `git log --since=<hoy>` da 0, no es que
+no se hizo nada: se mira `git log -3 --format='%h %ad %s' --date=iso` y se compara.
+
+**Y la fuente de un pendiente se mueve.** Al conciliar, 18 renglones de `docs/pendientes.md` citaban `docs/relevo/crm-tanda-b1.md`, que se
+borró el mismo día (f2b9a3dfe) y quedó en `docs/relevo/crm-pendientes-b1.md`; los encabezados `PARA EL CUARTO OPS CENTER n` de
+`docs/relevo/centro-operaciones.md` también cambiaron (ahora van por el sexto y el séptimo). Una fuente que no abre es un pendiente sin dueño:
+al borrar o renombrar un relevo, se buscan sus citas en `docs/pendientes.md` en el mismo commit.
+
+**Vive en:** `docs/pendientes.md` · `scratchpad/armar-pendientes.cjs` (el texto del resumen dice «eran 409 anotados»: es de la foto de la mañana; hay que leerlo de `pendientes.json` → `resumen`).
+
+## El VERDE local no vio el test que rompía un renombre de la barra (run 140, 18/10/2026)
+
+- **Síntoma:** el renombre «Second Brain» → «Ops Center» (465f85e6e) dio VERDE en local con 2402 tests, y Actions cayó en el run 140: `tests/notificaciones.test.ts` esperaba el título de pestaña «MaKo - Second Brain».
+- **Causa:** `tituloDe` arma el título de la pestaña con el NOMBRE de la entrada de la barra (`nav.ts`), pero `tests-afectados` no relaciona ese test con un cambio en `nav.ts`. En local corre lo afectado, y Actions corre las 422 barredoras.
+- **Regla:** quien renombre una entrada de la barra busca su nombre viejo, entre comillas, en `tests/` antes del VERDE (`grep -rn "'MaKo - <nombre viejo>'" tests`).

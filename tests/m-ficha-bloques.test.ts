@@ -63,21 +63,29 @@ const sinReunion = tabsQueVe({ verTracking: true, verReuniones: false });
 
 // Lo que ve el teléfono con cada plantilla, sin que nadie la toque. Las de llamada y el respaldo tienen etapa
 // de reunión (la misma regla elige la plantilla y saca la tab Reuniones); las demás no.
+// ⚠️ 17/10/2026 (#880, las plantillas del Resumen arrancan con lo esencial): las de entrada ya no traen el origen
+// («Llegó por») salvo donde la bajada lo promete (formulario y carrito), ni lo cobrado («Estado de cuenta») salvo en el
+// evento y el carrito, ni «lo que contestó» en el evento, ni la publicación de entrada en «Completa». Las listas
+// esperadas cambian por eso; el escenario de «Personalizar» saca «lo que contestó» (que sigue en la plantilla) y pone
+// el origen en Tracking (ya no hay uno que mudar). Lo que se fija, no.
+// Re-medido ROMPIÉNDOLO (17/10/2026, base 8/0): `origen` fuera de PIEZA_DE_BLOQUE → 4 / 4 («Llegó por» sigue en el
+// formulario, el carrito, «Completa» y el escenario de Tracking, así que la rotura se sigue cazando).
+//
 // El Resumen «Antes de la llamada» (las dos de llamada), destilado: los highlights arriba, después la reunión y el equipo.
-const RESUMEN_LLAMADA: PiezaFicha[] = ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'proxima', 'equipo', 'contacto', 'contesto', 'saldo', 'llego-por', 'redes', 'motivo', 'plazo', 'notas'];
+const RESUMEN_LLAMADA: PiezaFicha[] = ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'proxima', 'equipo', 'contacto', 'contesto', 'redes', 'motivo', 'plazo', 'notas'];
 const ESPERADO: Record<PlantillaId, { ve: readonly TabFicha[]; piezas: PiezaFicha[] }> = {
   // «Completa»: todo lo que el Resumen sabe dibujar. Reuniones: lo que salió de la llamada.
-  'respaldo': { ve: conReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'proxima', 'equipo', 'contacto', 'redes', 'contesto', 'llego-por', 'pagina', 'entrada', 'motivo', 'plazo', 'notas', 'llamada'] },
+  'respaldo': { ve: conReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'proxima', 'equipo', 'contacto', 'redes', 'contesto', 'llego-por', 'pagina', 'motivo', 'plazo', 'notas', 'llamada'] },
   // Donde el Resumen trae `cobrado`, el estado de cuenta ('saldo') va en su lugar (la tab Pagos en bloques).
   'dos-reuniones': { ve: conReunion, piezas: [...RESUMEN_LLAMADA, 'llamada'] },
   'una-llamada': { ve: conReunion, piezas: [...RESUMEN_LLAMADA, 'llamada'] },
   // Reuniones: reunion-1 y ciclo-de-venta, sin «lo que salió de la llamada».
-  'evento': { ve: conReunion, piezas: ['siguiente', 'proxima', 'en-etapa', 'saldo', 'contacto', 'equipo', 'redes', 'ingreso', 'contesto', 'llego-por', 'motivo', 'plazo', 'notas'] },
+  'evento': { ve: conReunion, piezas: ['siguiente', 'proxima', 'en-etapa', 'saldo', 'contacto', 'equipo', 'redes', 'ingreso', 'motivo', 'plazo', 'notas'] },
   // La próxima reunión va abajo: «se calla salvo que reserve por Cal.com» (§4).
   'formulario-meta': { ve: sinReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'contesto', 'contacto', 'redes', 'llego-por', 'equipo', 'proxima', 'motivo', 'plazo', 'notas'] },
-  'landing': { ve: sinReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'contacto', 'redes', 'contesto', 'pagina', 'llego-por', 'proxima', 'motivo', 'plazo', 'notas'] },
+  'landing': { ve: sinReunion, piezas: ['siguiente', 'calificado', 'en-etapa', 'ingreso', 'contacto', 'redes', 'contesto', 'pagina', 'proxima', 'motivo', 'plazo', 'notas'] },
   // La charla va arriba en escritorio; en el teléfono es el botón WhatsApp (fijo), no una pieza. Cómo entró, sí.
-  'te-escriben': { ve: sinReunion, piezas: ['siguiente', 'entrada', 'llego-por', 'contacto', 'redes', 'equipo', 'en-etapa', 'ingreso', 'motivo', 'plazo', 'notas'] },
+  'te-escriben': { ve: sinReunion, piezas: ['siguiente', 'entrada', 'contacto', 'redes', 'equipo', 'en-etapa', 'ingreso', 'motivo', 'plazo', 'notas'] },
   'prospeccion': { ve: sinReunion, piezas: ['siguiente', 'contacto', 'redes', 'en-etapa', 'ingreso', 'equipo', 'motivo', 'plazo', 'notas'] },
   // Si compró: el estado de cuenta arriba, antes del contacto.
   'carrito': { ve: sinReunion, piezas: ['siguiente', 'saldo', 'contacto', 'llego-por', 'contesto', 'redes', 'ingreso', 'motivo', 'plazo', 'notas'] },
@@ -134,12 +142,13 @@ test('sigue lo que el admin armó en «Personalizar»: el orden, lo que sacó y 
   const sin = (xs: PiezaFicha[], x: PiezaFicha) => xs.filter((y) => y !== x);
   const notasArriba = cambio({}, { op: 'mover', tab: 'resumen', bloque: 'notas', lugar: 1 });
   assert.deepEqual(delFunnel('una-llamada', notasArriba, conReunion), ['notas', ...sin(RESUMEN_LLAMADA, 'notas'), 'llamada']);
-  // Sin el origen en el Resumen, no hay «Llegó por».
-  const sinOrigen = cambio({}, { op: 'quitar', tab: 'resumen', bloque: 'origen' });
-  assert.deepEqual(delFunnel('una-llamada', sinOrigen, conReunion), [...sin(RESUMEN_LLAMADA, 'llego-por'), 'llamada']);
-  // El origen mudado a Tracking: sale sólo si el lead ve Tracking, y después de lo del Resumen.
-  const enTracking = cambio(sinOrigen, { op: 'poner', tab: 'tracking', bloque: 'origen' });
-  assert.deepEqual(delFunnel('una-llamada', enTracking, tabsQueVe({ verTracking: true, verReuniones: true })), [...sin(RESUMEN_LLAMADA, 'llego-por'), 'llego-por', 'llamada']);
+  // Sin «lo que contestó» en el Resumen, no hay «contestó».
+  const sinContesto = cambio({}, { op: 'quitar', tab: 'resumen', bloque: 'lo-que-contesto' });
+  assert.deepEqual(delFunnel('una-llamada', sinContesto, conReunion), [...sin(RESUMEN_LLAMADA, 'contesto'), 'llamada']);
+  // El origen puesto en Tracking (la plantilla ya no lo trae en el Resumen: #880): sale sólo si el lead ve Tracking, y
+  // después de lo del Resumen.
+  const enTracking = cambio({}, { op: 'poner', tab: 'tracking', bloque: 'origen' });
+  assert.deepEqual(delFunnel('una-llamada', enTracking, tabsQueVe({ verTracking: true, verReuniones: true })), [...RESUMEN_LLAMADA, 'llego-por', 'llamada']);
   assert.ok(!delFunnel('una-llamada', enTracking, tabsQueVe({ verTracking: false, verReuniones: true })).includes('llego-por'));
   // «Lo que salió de la llamada» puesto también en el Resumen: va donde está ahí, una sola vez.
   const llamadaArriba = cambio({}, { op: 'poner', tab: 'resumen', bloque: 'lo-que-salio-de-la-llamada', lugar: 1 });
@@ -210,7 +219,13 @@ test('el Resumen nativo en el teléfono: una fila por bloque, y se calla lo que 
   // Todo bloque del Resumen con componente tiene su versión de teléfono, salvo los que el teléfono no destila: los
   // duplicados (abrir otra ficha es de la computadora) y la respuesta destacada (necesita las respuestas de Meta y de
   // la landing, que el teléfono no lee).
-  const sinTelefono = new Set(['posibles-duplicados', 'respuesta-destacada']);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026 (chat «Pendientes B2: CRM»): los siete bloques de la CHARLA del Resumen
+  // (app/crm/lead-view/ficha/resumen/charla.tsx) tampoco se destilan acá: leen al montarse, en la computadora, y en el
+  // teléfono la charla vive en su propia pestaña (Chats). Si el teléfono los quiere, es una pieza de MaKo Mobile.
+  const sinTelefono = new Set([
+    'posibles-duplicados', 'respuesta-destacada',
+    'charla-whatsapp', 'charla-dm', 'pase-a-humano', 'cambios-de-mako', 'mensaje-listo', 'automatizaciones-en-curso', 'lo-que-le-mandamos',
+  ]);
   for (const id of Object.keys(REGLAS_RESUMEN)) {
     if (sinTelefono.has(id)) continue;
     assert.ok(PIEZA_DE_BLOQUE[id as keyof typeof PIEZA_DE_BLOQUE], `«${id}» no tiene versión de teléfono`);

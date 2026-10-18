@@ -7,9 +7,9 @@
 // corrige donde se lee, con un click sobre el valor (ver `app/crm/campo-inline.ts`).
 // El lápiz que vivía arriba a la derecha se fue con el formulario que abría.
 //
-// Lo que sí queda en una pantalla aparte es el DEAL —`?edit=1` monta `EditarDeal`—
-// porque su guardado es transaccional y no se puede partir en campos; se llega desde
-// donde el deal se lee (tab Pagos).
+// El DEAL tampoco tiene pantalla aparte desde el 17/10/2026: `?edit=1` montaba `EditarDeal` (DealDetailsCard
+// entero, con «✦ Completar con IA»), y se borró con la tab Pagos de Customer Success, su último lector. Cada
+// dato del deal se corrige en su bloque de la tab Pagos (app/crm/lead-view/ficha/registro-pagos.tsx).
 //
 // La etapa se cambia con el desplegable del header, que abre el mismo wizard
 // progresivo del Kanban. ⚠️ Es la etapa del producto EN VISTA (06/10/2026, mig 0207): si se
@@ -32,7 +32,6 @@ import { deriveStageKey, stageMetaOpt } from '@/lib/pipeline';
 import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
 import type { StepId } from '@/lib/stage-requirements';
-import { EditarDeal } from './EditarDeal';
 import { FunnelYEtapa, useProductosDeLaFicha } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
 import { CabeceraLead, SANGRIA_NOMBRE_LEAD } from '../lead-view/CabeceraLead';
@@ -71,14 +70,13 @@ export function BackButton() {
   );
 }
 
-export function LeadDetailBody({ data, initialTab, initialEdit, initialSolucionar }: {
+export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
   /**
    * TODO lo que lee la ficha, de `getLeadFullAction`: la MISMA lectura que el pop-up del tablero. Hasta el
    * 14/10/2026 esta ruta armaba sus tabs y sus datos a mano en page.tsx, y «N sin marcar» salía distinto.
    */
   data: LeadFullData;
   initialTab?: string;
-  initialEdit?: boolean;
   /** ?solucionar=1: abrir directo el asistente (o la edición si solo faltan datos estáticos). */
   initialSolucionar?: boolean;
 }) {
@@ -92,18 +90,11 @@ export function LeadDetailBody({ data, initialTab, initialEdit, initialSoluciona
   // derivaba al formulario de edición — que ya no existe. El wizard es el ÚNICO que
   // marca los datos del worklist (`completeStageMoveAction`), así que no hay una
   // segunda escritura que reemplazar: lo que se saca es la bifurcación.
-  const [editandoDeal, setEditandoDeal] = useState(!!initialEdit);
   const [moveTo, setMoveTo] = useState<string | null>(initialSolucionar && faltantes.length > 0 ? currentStage : null);
   const [moverDirecto, setMoverDirecto] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [delErr, setDelErr] = useState<string | null>(null);
   const [borrando, startBorrar] = useTransition();
-  // Si una navegación pone ?edit=1 (el «Editar deal →» de la tab Pagos o el «Completar
-  // con IA» del propio DealDetailsCard), abrir el editor del deal. Patrón prev-prop:
-  // reacciona al cambio del prop.
-  const [prevInitEdit, setPrevInitEdit] = useState(!!initialEdit);
-  if (!!initialEdit !== prevInitEdit) { setPrevInitEdit(!!initialEdit); if (initialEdit) setEditandoDeal(true); }
-  const salirEdicion = () => { setEditandoDeal(false); if (initialEdit || initialSolucionar) router.replace(pathname); };
   // En qué productos está y cuál se mira. Acá no hace falta releer nada si cambia la casa: el
   // `router.refresh()` que hace la ficha después de cada cambio le trae el lead de nuevo.
   const fichaProd = useProductosDeLaFicha({ leadId: lead.id, casa: lead.funnel_id, foto: productos });
@@ -204,32 +195,20 @@ export function LeadDetailBody({ data, initialTab, initialEdit, initialSoluciona
     // `data-ficha-ruta`: con el AI Analyst abierto (el panel de la izquierda), la página se corre para dejarle lugar.
     <div data-ficha-ruta>
       {header}
-      {editandoDeal ? (
-        <EditarDeal
-          lead={lead}
-          stages={stages}
-          pagos={pagos}
-          onDone={() => { salirEdicion(); router.refresh(); }}
-          onCancel={salirEdicion}
-        />
-      ) : (
-        <>
-          {/* La fila de pestañas queda pegada arriba al scrollear la página (punto 16). Las tabs son las
-              del pop-up (`FichaPorBloques`): en esta ruta el lead viene del server y el refresh lo trae. */}
-          {/* El título de la hoja a la altura del nombre del lead: la cabecera es una caja del mismo ancho que la ficha. */}
-          <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" altoChat={ALTO_CHAT_EN_LA_RUTA} sangria={`${SANGRIA_NOMBRE_LEAD}px`}
-            pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} />
-          {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
-              que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
-              suyo). Es irreversible, así que queda al fondo y con su confirmación
-              nombrando la consecuencia, pegada al botón. Desde el 12/10/2026 es el tacho rojo
-              de la casa, igual que en el pop-up (punto 12). */}
-          {delErr && <div style={{ marginTop: 14, color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>{delErr}</div>}
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 18 }}>
-            <BotonBorrar texto="Borrar lead" title={`Borrar a ${nombre || 'este lead'}`} onClick={() => setConfirmDelete(true)} disabled={borrando} />
-          </div>
-        </>
-      )}
+      {/* La fila de pestañas queda pegada arriba al scrollear la página (punto 16). Las tabs son las
+          del pop-up (`FichaPorBloques`): en esta ruta el lead viene del server y el refresh lo trae. */}
+      {/* El título de la hoja a la altura del nombre del lead: la cabecera es una caja del mismo ancho que la ficha. */}
+      <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" arribaTabs="var(--barra-agencia, 0px)" altoChat={ALTO_CHAT_EN_LA_RUTA} sangria={`${SANGRIA_NOMBRE_LEAD}px`}
+        pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} />
+      {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
+          que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
+          suyo). Es irreversible, así que queda al fondo y con su confirmación
+          nombrando la consecuencia, pegada al botón. Desde el 12/10/2026 es el tacho rojo
+          de la casa, igual que en el pop-up (punto 12). */}
+      {delErr && <div style={{ marginTop: 14, color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>{delErr}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 18 }}>
+        <BotonBorrar texto="Borrar lead" title={`Borrar a ${nombre || 'este lead'}`} onClick={() => setConfirmDelete(true)} disabled={borrando} />
+      </div>
 
       {confirmDelete && (
         <ConfirmDialog

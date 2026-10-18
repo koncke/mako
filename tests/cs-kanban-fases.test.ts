@@ -1176,7 +1176,7 @@ test('la barra y el chip de la tabla usan el MISMO menú de etapas, del ancho de
   assert.doesNotMatch(tabla, /sub: faseDe\(/);
 });
 
-// ── El modal de «Abrir cuenta» no puede quedar atrapado en la tarjeta ─────────
+// ── El modal que abre la tarjeta no puede quedar atrapado en ella ─────────────
 
 // `Modal` se dibuja donde lo montan, y TarjetaEntidad le da a cada hijo de la tarjeta
 // `position: relative; z-index: 1`: montado desde la fila de acciones, la tarjeta de al lado
@@ -1185,10 +1185,12 @@ test('la barra y el chip de la tabla usan el MISMO menú de etapas, del ancho de
 // saca del árbol de React, y el dragstart del email subía hasta la tarjeta).
 // ROTO (05/10/2026): sin el createPortal → 22 pass / 1 fail; sin la guarda de `agarrar` →
 // 22 pass / 1 fail. Restaurado: 23 pass / 0 fail.
-test('el modal de «Abrir cuenta» va por portal, y la tarjeta no se agarra desde él', () => {
-  const cuenta = sinComentarios(leer('app/customer-success/CuentaDeMaKo.tsx'));
-  assert.match(cuenta, /pidiendoEmail && createPortal\(\s*<Modal/);
-  assert.match(cuenta, /<\/Modal>,\s*document\.body,?\s*\)/);
+// ⚠️ Desde el 17/10/2026 «Abrir cuenta» se fue con la cuenta de MaKo a MaKo Partners (su modal, también por portal, lo
+// fija tests/partners.test.ts). El que abre hoy la tarjeta es «Invitar al curso», con la misma trampa.
+test('el modal que abre la tarjeta («Invitar al curso») va por portal, y la tarjeta no se agarra desde él', () => {
+  const invitar = sinComentarios(leer('app/customer-success/curso/InvitarAlCurso.tsx'));
+  assert.match(invitar, /return createPortal\(/);
+  assert.match(invitar, /document\.body,?\s*\)/);
   const agarrar = bloque(KANBAN, '  function agarrar(', '  function soltarGesto(');
   assert.match(sinComentarios(agarrar), /if \(!e\.currentTarget\.contains\(e\.target as Node\)\) return;/);
 });

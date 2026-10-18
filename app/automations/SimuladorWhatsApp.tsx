@@ -280,7 +280,8 @@ const CUADRICULA: CSSProperties = { backgroundImage: 'radial-gradient(var(--bord
  * `pedido` (decimotercera tanda, punto 2): la fila acaba de nacer VACÍA desde «Pídeselo a MaKo» del modal, y el chat
  * manda ese pedido solo (MaKo CREA sobre ella). Llega al lienzo como `pedidoAlAbrir`.
  */
-export type AbrirSecuencia = { id: number; mako?: true; pedido?: string };
+// `cron`: abre con su CRON abierto (#882: la plantilla creada al instante elige su etapa ahí).
+export type AbrirSecuencia = { id: number; mako?: true; pedido?: string; cron?: true };
 // (Acá vivía `AbrirAviso`, el pedido de abrir un Mensaje de MaKo desde el link de Notificaciones,
 // `/automations?aviso=<id>`. Se fue el 11/10/2026 con esos mensajes: un mensaje de MaKo se abre con `?sec=`.)
 
@@ -388,6 +389,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const [makoPara, setMakoPara] = useState<number | null>(null);
   /** El pedido con que nació (`abrir.pedido`, decimotercera tanda, punto 2): el chat de ESA fila lo manda solo. */
   const [pedidoPara, setPedidoPara] = useState<{ id: number; pedido: string } | null>(null);
+  /** La que se pidió abrir con su CRON abierto (`abrir.cron`, #882): su lienzo lo abre. */
+  const [cronPara, setCronPara] = useState<number | null>(null);
   /**
    * EL AVISO DE QUE LA PRUEBA DE VERDAD SALIÓ («Enviado · revisa tu WhatsApp»), duodécima tanda, §2.8. Lo pide
    * PanelProbar (`onEnviado`) y se dibuja ACÁ, en la raíz y fuera de la capa de «Probar» (z 3): vivía adentro del
@@ -692,6 +695,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     // `pedido`, el chat lo manda solo.
     setMakoPara(abrir.mako ? abrir.id : null);
     setPedidoPara(abrir.pedido ? { id: abrir.id, pedido: abrir.pedido } : null);
+    setCronPara(abrir.cron ? abrir.id : null);
   }
 
   // `editorAbierto: true`: lo que se reparte es el muelle que el editor ocupa CUANDO se abre (el
@@ -807,7 +811,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             probarAbierto={probarVisible} onCerrarProbar={() => setProbando(null)}
             onCambioLocal={recibirEdicion}
             onAccionTodo={rolAdmin ? (a) => void accionFila(sel, a) : undefined}
-            makoAlAbrir={makoPara === sel.id} onChatMako={setMakoAbierto}
+            makoAlAbrir={makoPara === sel.id} cronAlAbrir={cronPara === sel.id} onChatMako={setMakoAbierto}
             pedidoAlAbrir={pedidoPara?.id === sel.id ? pedidoPara.pedido : null}
             onCambio={onReload} />
         )}

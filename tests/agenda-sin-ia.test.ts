@@ -456,7 +456,8 @@ test('el registro entrega `paraLaPersona` y nunca lo mezcla con lo que ve el mod
 test('el doer de WhatsApp manda lo del código DESPUÉS de la respuesta y no lo guarda en el historial', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   assert.match(doer, /aPersona: \(t\) => \{/);
-  assert.match(doer, /const enviar = \[\.\.\.partes, \.\.\.paraLaPersona\];/);
+  // (17/10/2026: y los links que escribió el modelo salen con el ?ws= del grupo — tests/links-con-ws.test.ts.)
+  assert.match(doer, /const enviar = \[\.\.\.partes, \.\.\.paraLaPersona\]\.map\(\(t\) => linksConWs\(t, wsData, APP_URL\)\);/);
   const tras = doer.slice(doer.indexOf('const enviar = ['));
   const guardado = /await guardarTurno\(wsData, jid, 'assistant', ([^,]+),/.exec(tras);
   assert.ok(guardado, 'no encontré el guardado del turno');
@@ -531,7 +532,7 @@ test('los invitados que vienen de Google Calendar no entran al prompt de la extr
   const nucleo = cuerpoDe(src, 'export async function extraerTareasDeTexto(');
   assert.match(nucleo, /const paraElPrompt = participantes\.filter\(\(p\) => !p\.delCalendario\);/);
   assert.match(nucleo, /const listaParticipantes = paraElPrompt\.length\s*\?\s*paraElPrompt\.map/);
-  assert.match(nucleo, /coerceCandidatas\(obj, proyectos, yo, participantes(, dicho)?\)/);
+  assert.match(nucleo, /coerceCandidatas\(obj, proyectos, yo, participantes(, dicho)?(, control)?\)/);
   assert.match(src, /delCal\.map\(\(i\) => \(\{ nombre: i\.nombre, email: i\.email, delCalendario: true as const \}\)\)/);
 });
 

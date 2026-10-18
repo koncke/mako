@@ -37,9 +37,11 @@ import {
 import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
 import { clasificarReunion, motivoDelTipo, type TipoReunion } from './reunion-clasificar';
-import { resolverDueño, normNombre, rotuloDePersona, fuenteDicha, type FuenteDicha } from './tarea-dueno';
+import { resolverDueño, normNombre, rotuloDePersona, fuenteDicha, aliasDelDueno, conNombreReal, type FuenteDicha, type AliasDelDueno } from './tarea-dueno';
+import { fuenteDeDatos, permitidosDe, limpiarLoDicho, type ControlDeLoDicho } from './detalle-sin-inventos';
 import { decidirRecurrente } from './plan-criterio-reglas';
 import { invitadosDeReunionPorFecha } from './google-calendar';
+import { leerPorRondas, saltearSi, MARGEN_ESCRITURA_MS, type MarcaParcial } from './lectura-por-partes';
 
 export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 
@@ -147,6 +149,9 @@ export type TareaCandidata = {
    * recién en el insert. La duda se resuelve en NO — ver `decidirRecurrente`.
    */
   recurrente?: boolean;
+  /** Los datos que el modelo escribió y nadie dijo, sacados del detalle (`sacarLoNoDicho`). Sólo para el log y
+   *  para medir: no viaja al borrador. */
+  sinDecir?: string[];
   /** segundo de la grabación donde se dijo — para ir a escucharlo. undefined si no se sabe. */
   minuto?: number;
   /**
@@ -259,7 +264,9 @@ export const PLAN_FATHOM_SYSTEM_TEMPLATE = `Eres MaKo. Te paso el resumen y la t
 ════════ LO PRIMERO, PORQUE ES DONDE MÁS SE FALLA: EL DETALLE ════════
 El título dice QUÉ hacer. El DETALLE es lo que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a escuchar la reunión. Nadie vuelve a escucharla: lo que no escribas aquí, se perdió.
 
-PISO DURO: cada "detalle" tiene MÍNIMO 600 caracteres. Si te sale más corto, no está terminado — vuelve a la transcripción y busca qué te falta (el porqué, los números, quién lo dijo, qué se descartó). Un detalle que repite el título con otras palabras es un detalle vacío.
+SIN PISO DE LARGO: el largo lo pone LO QUE SE DIJO. Busca en la transcripción el porqué, los números, quién lo dijo y qué se descartó, y escribe eso. Si sobre una tarea se dijo poco, el detalle es corto: un detalle corto y cierto vale más que uno largo con relleno. Un detalle que repite el título con otras palabras es un detalle vacío.
+
+⛔ CADA DATO DEL DETALLE SE DIJO EN LA REUNIÓN. Un nombre, una marca, una herramienta, una librería, un número, una versión, un año, una fecha: si no está en la transcripción o en el resumen, NO va — ni como ejemplo, ni «o similar», ni «(supuesto)». "Detalles concretos" es lo que la reunión dijo (números, nombres, ejemplos, lo que se descartó), NO tu plan técnico: no propongas cómo implementarlo, no adivines la causa de un error, no nombres componentes, librerías, campos ni proveedores que nadie nombró. Pasó: tarjetas con «Claude 3.5 Sonnet de 200k», «Sendgrid / Resend o similar», «Baileys» y «capturarlo en el React Error Boundary», y nadie había dicho nada de eso. Quien trabaja la tarjeta lo toma por cierto. Si no se dijo nada concreto, la sección lleva una sola línea con lo que sí se dijo.
 
 FORMATO OBLIGATORIO, en markdown, con estas cuatro partes y estos títulos EXACTOS:
 {{molde}}
@@ -280,7 +287,7 @@ ASÍ SE VE UNO MAL (es exactamente lo que NO queremos, y es lo que suele salir):
 Está mal porque: repite el título, no cita a nadie, no dice el minuto, no dice el porqué de fondo, no tiene ningún número ni condición, y mide 80 caracteres.
 
 Si sobre una tarea se habló en dos momentos distintos de la reunión, junta los dos.
-LA CANTIDAD YA ESTÁ RESUELTA por el troceado: si esto es una parte, cubre unos 20 minutos de charla. No corras. Saca lo de ESTA parte y escribe cada una LARGA.
+LA CANTIDAD YA ESTÁ RESUELTA por el troceado: si esto es una parte, cubre unos 15 minutos de charla. No corras. Saca TODO lo de ESTA parte, una tarjeta por cosa.
 ═══════════════════════════════════════════════════════════════════
 
 QUÉ SÍ es una tarea (captura TODAS las reales, no seas tacaño):
@@ -288,20 +295,21 @@ QUÉ SÍ es una tarea (captura TODAS las reales, no seas tacaño):
 - Si alguien dice que va a hacer algo, o que HAY que hacer algo concreto, es una tarea — aunque no le pongan fecha ni suene a orden formal.
 - CONSULTORÍAS / ASESORÍAS (importantísimo): cuando alguien ASESORA al otro, sus RECOMENDACIONES son tareas del asesorado, aunque nadie diga "me comprometo". "Saca el plan grupal", "el video tiene que abrir con el dolor", "cambia el precio a 3 cuotas", "ármate el canal de YouTube de micronicho" → todas tareas. En una consultoría el 90% del valor está aquí: si solo anotas los "yo te mando tal cosa", te comes casi todo.
 - Una DECISIÓN tomada que exige ejecutar también es tarea ("dejamos de vender el grupal" → hay que sacarlo de la landing y del pitch).
+- REVISIÓN DE UN PRODUCTO (importantísimo cuando quien mira el tablero CONSTRUYE lo que se está usando o revisando): cada problema, molestia, confusión o pedido sobre ese producto ES una tarea de quien lo construye, aunque nadie diga "lo hago" y aunque salga mientras se muestra. "Esto no carga", "los templates son muy grandes", "no pude agendar", "no sé de dónde sale este 43", "estaría bueno un modo oscuro", "yo me lo llevo", "otro feedback para mí mismo". En una revisión de dos horas suelen ser decenas: una por cada cosa que se vio mal, no una por pantalla.
 
 NO AGRUPES, ENUMERA. Una tarea = UNA acción ejecutable. Si en la charla se dijeron tres pasos concretos de lo mismo (armar el perfil, cambiar la bio, subir las historias destacadas), son TRES tareas, no una que diga "optimizar el perfil". Nunca junten varias acciones en un título paraguas para que la lista quede corta: una lista de 30 tareas específicas es MUCHO mejor que una de 8 genéricas. No hay tope: si la reunión dejó 40 cosas, devuelve 40.
 
 QUÉ NO es una tarea (IGNÓRALO — esta lista pesa TANTO como la de arriba):
 - Data pura o un comentario sin ninguna acción atrás ("el CPL está en 7 dólares" a secas). OJO: una RECOMENDACIÓN no es "una opinión" — es una tarea. Si alguien dice qué habría que hacer, va.
 - YA HECHO EN LA REUNIÓN. Si se dijo "hay que corregir el estatus de X" y dos minutos después lo corrigieron ahí mismo, NO va. Ojo especial con el repaso de un CRM o de un tablero: casi todo lo que "hay que arreglar" se arregla en vivo mientras hablan.
-- LO QUE SE ESTÁ MOSTRANDO. Si uno le enseña al otro a usar algo y le dicta los pasos ("entra a Analyze, después a Second Brain"), eso es una DEMO, no una tarea.
+- LO QUE SE ESTÁ MOSTRANDO. Si uno le enseña al otro a usar algo y le dicta los pasos ("entra a Analyze, después a Second Brain"), eso es una DEMO, no una tarea. OJO: lo que se descarta de una demo son los PASOS que se dictan, no los PROBLEMAS que aparecen mientras se muestra (eso es el bloque de abajo).
 - ESTADO, no acción. "El cliente me dijo que el jueves me da la decisión", "ya tengo la reunión agendada para el viernes": es el estado de algo que ya está en marcha. Solo es tarea si alguien se compromete a MOVERLO.
 - COMPROMISO DE UN TERCERO que no está en la reunión (un prospecto, un proveedor, alguien de quien solo se habla): no hay a quién asignársela.
 - LO QUE YA EXISTE. Un protocolo o una política que alguien describe ("cuando alguien me interrumpe dos veces, corto la llamada") no es una tarea nueva: es cómo trabaja hoy.
 - METAS Y DIRECCIONES sin paso ejecutable: "llegar a 8 cierres este mes", "armar una oferta de 10k/4,5k/1k" dicho al pasar.
 - Lo explícitamente DIFERIDO: "eso lo definimos después".
 
-ESCALA: NO hay un número que tengas que alcanzar. Si esto es una PARTE, cubre unos 20 minutos: saca los compromisos que HAY en estos 20 minutos y ni uno más. Tres compromisos reales valen más que quince inventados, y un tramo puede no dejar NINGUNO — un repaso de CRM, una demo o una charla de diagnóstico se pasan media hora sin dejar un solo próximo paso. Devuelve la lista vacía sin culpa cuando corresponda: otra parte la va a llenar.
+ESCALA: NO hay un número que tengas que alcanzar. Si esto es una PARTE, cubre unos 15 minutos: saca los compromisos que HAY en estos 15 minutos y ni uno más. Tres compromisos reales valen más que quince inventados, y un tramo puede no dejar NINGUNO — un repaso de CRM o una charla de diagnóstico se pasan media hora sin dejar un solo próximo paso (una revisión de producto, en cambio, deja una tarea por cada cosa que se vio mal). Devuelve la lista vacía sin culpa cuando corresponda: otra parte la va a llenar.
 
 ¿SE REPITE PARA SIEMPRE? — el campo "recurrente", y es una pregunta APARTE de las otras:
 Esta NO la contestan «¿se puede completar?», «¿es una decisión?» ni «¿ya está hecho?». La reunión de los miércoles se puede completar esta semana, no es una decisión y no está hecha: pasa las tres y aun así no tiene fin. El criterio del dueño es «lo que entran son tareas que tienen un inicio y tienen un fin». LO QUE LA DELATA: al cerrarla hay que volver a crearla.
@@ -346,19 +354,21 @@ Ejemplos de la vida real (los dos salieron MAL por creerle a la etiqueta):
 
 OJO CON EL NOMBRE: el nombre con el que la transcripción etiqueta a alguien puede no ser idéntico al que te paso (apellido distinto, apodo, nombre de la cuenta de la grabación). Si el EMAIL coincide, o es evidentemente la misma persona, es la misma persona → "esMio": true. Si la tarea es de otra persona de la reunión, "esMio": false. Ejemplo: si el que mira el tablero es Martín y en la reunión Mauricio se comprometió a arreglar su Fathom, esa tarea es de Mauricio → esMio:false. NO descartes las tareas de otros: márcalas, que después se reparten.
 
+EL NOMBRE DE QUIEN MIRA EL TABLERO es el que te paso arriba, aunque la transcripción lo rotule con otro (la grabación usa el nombre de la cuenta de Fathom, que puede tener otro apellido). En el título, el detalle, "dichoPor" y "dueño", escríbelo SIEMPRE como te lo paso.
+
 QUIÉN ES CADA UNO: en "dichoPor" y en "dueño" va el NOMBRE de una persona, como figura en PARTICIPANTES o como se dijo en la reunión. Si una voz no se presenta y no sabes quién es, escribe "Otra persona". NUNCA un rol que dedujiste («su socio», «el cliente», «el closer», «su pareja»): un rol inventado se lee después como un dato y viaja. Pasó: una transcripción rotuló «su socio» a alguien, y el dueño no tiene socio.
 
 DUEÑO EMAIL (clave para repartirlas): te paso la lista de PARTICIPANTES con nombre y email. Cuando el dueño de una tarea es uno de ellos, copia su email TAL CUAL en "dueñoEmail" — con eso la app le manda sus tareas por WhatsApp/mail o se las carga en su propio plan. Si no puedes atribuirla con seguridad a un participante de la lista, deja "dueñoEmail": "" (NUNCA inventes un email ni lo deduzcas del nombre).
 
 NO inventes nada que no se haya dicho, pero NO descartes un compromiso REAL solo porque está redactado informal. Devuelve vacío SOLO si de verdad no se habló de ningún próximo paso.
 
-PROYECTO: te paso la lista de proyectos del plan (con id). Asigna "proyectoId" SOLO cuando la tarea encaja claramente en uno; si dudas, deja null. NO METAS A LA FUERZA una tarea en el proyecto que menos mal le queda: es peor que dejarla suelta. Si VARIAS tareas de esta reunión son del mismo tema y ese tema NO existe en la lista, ponles a todas el MISMO "proyectoNuevo" (mismo texto exacto) y deja proyectoId en null; si es una tarea suelta sin tema común, deja los dos vacíos. La PRIORIDAD es una primera estimación tuya (el perro guardián la re-puntúa después): alta = mueve la aguja/urgente, futuro = puede esperar.
+PROYECTO: te paso la lista de proyectos del plan (con id). Asigna "proyectoId" SOLO cuando la tarea encaja claramente en uno; si dudas, deja null. Si la lista trae proyectos de un cliente («Cliente: X») junto a los de las partes de la app, lo que alguien reporta o pide SOBRE LA APP (un error, una mejora, algo que no entiende) va al proyecto de la parte de la app de la que habla, AUNQUE LO DIGA ESE CLIENTE; «Cliente: X» es sólo para el trabajo con la cuenta de ese cliente (darle un acceso, cargar sus datos, preparar una sesión con él). NO METAS A LA FUERZA una tarea en el proyecto que menos mal le queda: es peor que dejarla suelta. Si VARIAS tareas de esta reunión son del mismo tema y ese tema NO existe en la lista, ponles a todas el MISMO "proyectoNuevo" (mismo texto exacto) y deja proyectoId en null; si es una tarea suelta sin tema común, deja los dos vacíos. La PRIORIDAD es una primera estimación tuya (el perro guardián la re-puntúa después): alta = mueve la aguja/urgente, futuro = puede esperar.
 
 GLOSARIO: te paso términos/nombres propios de este negocio con su significado. Úsalos para entender la reunión y corregir errores de transcripción (ej: la transcripción dice "Clau" pero el glosario aclara que es "Claude"). No inventes definiciones que no estén en el glosario.
 
 DUDAS: si en la reunión aparece un nombre propio o término que NO está en el glosario y NO puedes deducir con seguridad qué es (una persona, un proyecto, una herramienta, un cliente), agrégalo a "dudas" con por qué te traba. Es para que el usuario lo aclare y la próxima ya lo entiendas. NO pongas dudas obvias, ni términos que ya están en el glosario, ni cosas que se explican solas en la reunión: mejor 0-2 dudas reales que una lista inflada. Si no hay nada dudoso, "dudas": [].
 
-RECORDATORIO FINAL: relee el bloque del DETALLE del principio antes de responder. Cada detalle: mínimo 600 caracteres, las cuatro partes en markdown, la cita textual con quién y en qué minuto. Es lo único que se mira tres semanas después.
+RECORDATORIO FINAL: relee el bloque del DETALLE del principio antes de responder. Cada detalle: las cuatro partes en markdown, la cita textual con quién y en qué minuto, y NINGÚN dato que no se haya dicho. Es lo único que se mira tres semanas después.
 
 Español neutro (mexicano).
 
@@ -391,7 +401,7 @@ Saca los action items concretos, atribuye cada uno a su dueño, y devuelve el JS
 const PRIOS: PlanPrioridad[] = ['alta', 'media', 'baja', 'futuro'];
 const prioridadOk = (p: unknown): PlanPrioridad => (PRIOS.includes(p as PlanPrioridad) ? (p as PlanPrioridad) : 'media');
 
-function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[], yo: Yo, participantes: Participante[] = [], dicho?: FuenteDicha): TareaCandidata[] {
+function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[], yo: Yo, participantes: Participante[] = [], dicho?: FuenteDicha, control?: ControlDeLoDicho): TareaCandidata[] {
   const ids = new Set(proyectos.map((p) => p.id));
   // Quiénes son conocidos, para que un rótulo de persona no sea un rol inventado («su socio»).
   const conocidos = [yo, ...participantes];
@@ -406,15 +416,22 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
       const igual = nuevoCrudo ? proyectos.find((p) => normNombre(p.nombre) === normNombre(nuevoCrudo)) : undefined;
       // Quién es el dueño y si es MÍA: regla propia y testeada (lib/tarea-dueno).
       const d = resolverDueño(o, yo, participantes);
+      // EL NOMBRE REAL y LO QUE SE DIJO (17/10/2026, medido contra las dos llamadas del 16/10): la tarjeta no
+      // copia el nombre de la cuenta de Fathom («Martin Carballo»), y un dato que nadie dijo —una librería, un
+      // proveedor, una versión, un año— se saca con su renglón (lib/detalle-sin-inventos.ts).
+      // El control lo arma `extraerTareasDeTexto` UNA vez por reunión; opcional sólo para un caller viejo.
+      const limpio = limpiarLoDicho({ titulo: String(o.titulo ?? ''), detalle: String(o.detalle ?? ''), dueno: d.dueño, dichoPor: String(o.dichoPor ?? '').trim() }, control);
+      if (limpio.sacado.length) console.warn(`[plan-fathom] «${limpio.titulo.slice(0, 60)}»: saqué del detalle lo que nadie dijo (${limpio.sacado.join(', ')})`);
       return {
-        titulo: String(o.titulo ?? '').trim().slice(0, 160),
-        detalle: String(o.detalle ?? '').trim().slice(0, 4000),
+        titulo: limpio.titulo.slice(0, 160),
+        detalle: limpio.detalle.slice(0, 4000),
+        sinDecir: limpio.sacado.length ? limpio.sacado : undefined,
         prioridad: prioridadOk(o.prioridad),
         proyectoId: igual ? igual.id : pid,
         proyectoNombre: igual ? '' : nuevoCrudo,
         // El rótulo se sanea DESPUÉS de resolver: el email y «es mío» salen del texto crudo, y lo
         // que se guarda para leer no puede ser un rol que nadie dijo (lib/tarea-dueno.ts).
-        dueño: rotuloDePersona(d.dueño, conocidos, dicho),
+        dueño: rotuloDePersona(limpio.dueno, conocidos, dicho),
         dueñoEmail: d.dueñoEmail,
         esDeOtro: d.esDeOtro,
         atribucionDudosa: d.atribucionDudosa,
@@ -423,7 +440,7 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
         // campo que existe para OBLIGARLO a separar «quién habló» de «quién ejecuta», y
         // no obligaba a nada porque no tenía consecuencia. Ahora viaja: si viene igual al
         // dueño en toda la reunión, eso es la firma de que atribuyó por la etiqueta.
-        dichoPor: rotuloDePersona(String(o.dichoPor ?? '').trim().slice(0, 80), conocidos, dicho) || undefined,
+        dichoPor: rotuloDePersona(limpio.dichoPor.slice(0, 80), conocidos, dicho) || undefined,
         // La cuarta pregunta del criterio. `decidirRecurrente` y no `!!o.recurrente`: el
         // valor sale del JSON de un modelo y `"false"` es truthy. El desempate contra una
         // fecha no va acá porque el extractor no propone fechas — vive en `limpiarTarea`
@@ -460,6 +477,14 @@ function coerceDudas(obj: Record<string, unknown>): DudaTermino[] {
 export type ExtractOut = {
   tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo;
   participantes?: Participante[]; partes?: number; partesFallidas?: number;
+  /**
+   * Las partes (índices del troceado) que ESTA lectura leyó enteras, con o sin tareas (17/10/2026). Junto con `partes`
+   * es la marca de una lectura a medias: la próxima lee sólo las que faltan. No incluye las que se saltearon por
+   * `previa`: ésas ya estaban en la marca.
+   */
+  leidas?: number[];
+  /** De las sin leer, cuántas ni se intentaron porque no entraban en el reloj (las demás fallaron). */
+  sinTiempo?: number;
   /**
    * El resumen de Fathom y sus action items — o sea, DE QUÉ SE HABLÓ.
    *
@@ -531,8 +556,14 @@ Si no hay ninguna repetida, devuelve {"grupos": []}.`;
  *
  * La tarea fusionada se queda con TODOS los minutos: el contexto no se pierde, se suma.
  */
-export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: string): Promise<{ tareas: TareaCandidata[]; fusionadas: number; usage?: UsageInfo }> {
+export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: string, hastaMs?: number): Promise<{ tareas: TareaCandidata[]; fusionadas: number; usage?: UsageInfo }> {
   if (tareas.length < 2) return { tareas, fusionadas: 0 };
+  // CON EL RELOJ DE LA LECTURA (17/10/2026): esta pasada es UNA llamada más, después de todas las partes. Sin tiempo para
+  // ella, se queda el dedup léxico que ya corrió: mejor dos tarjetas repetidas que ninguna (la función muerta no escribe).
+  if (hastaMs != null && hastaMs - Date.now() < 45_000) {
+    console.warn(`[plan-fathom] dedup: no queda reloj para la fusión con IA (${tareas.length} tareas) — queda el dedup léxico`);
+    return { tareas, fusionadas: 0 };
+  }
   // EL DUEÑO VA, y el detalle va más largo. Se le pedía agrupar las repetidas mostrándole
   // 140 caracteres y NINGÚN dueño — o sea sin el contexto para decidir y sin el campo que
   // después bloquea la fusión río abajo. Con 10 pares de duplicados reales en una reunión
@@ -553,6 +584,7 @@ export async function fusionarDuplicadas(tareas: TareaCandidata[], usoMotivo?: s
       // silencio. Lo cazó el log de finish_reason.
       effort: 'high', maxTokens: 12000, feature: 'plan-fathom',
       motivo: usoMotivo || 'Fusionar tareas repetidas de la reunión', onUsage: (u) => { usage = u; },
+      ...(hastaMs != null ? { hastaMs } : {}),
     });
     obj = parseJsonObject(raw);
   } catch (e) {
@@ -656,6 +688,20 @@ export type ExtractOpts = {
    * eso las tareas de la segunda mitad salían cortas y sin nombrar a nadie.
    */
   cabecera?: string;
+  /** El nombre de la cuenta de Fathom de quien mira el tablero, si es otro (`aliasDelDueno`). */
+  alias?: AliasDelDueno | null;
+  /**
+   * EL RELOJ de quien llama (epoch ms): el `hasta` del cron, de la ruta del modal o del webhook (17/10/2026). La
+   * extracción deja `MARGEN_ESCRITURA_MS` para escribir, no arranca una ronda que no entra, y lo que no leyó vuelve
+   * como parte sin leer (`partesFallidas`, `sinTiempo`). Sin reloj, como antes: lee todo.
+   */
+  hasta?: number;
+  /**
+   * La lectura a medias de antes (lib/lectura-por-partes.ts, `MarcaParcial`): sus partes leídas NO se vuelven a leer, si
+   * la marca es de este mismo troceado (`saltearSi`). Es lo que hace que una junta de 3 h se termine de leer en dos
+   * corridas en vez de morirse en el mismo lugar cada vez.
+   */
+  previa?: Pick<MarcaParcial, 'partes' | 'leidas'> | null;
 };
 
 // ── Troceado del transcript ──────────────────────────────────────────────────
@@ -671,10 +717,16 @@ export type ExtractOpts = {
 // La solución es trocear y sumar: cada parte tiene su propio presupuesto de salida.
 // 25k chars ≈ 7k tokens de entrada, unos 20 min de charla: un tramo donde enumerar
 // 20 tareas es natural y ningún modelo necesita comprimir para que le entren.
-const CHUNK_CHARS = 25000;
+//
+// ⚠️ 20k DESDE EL 17/10/2026 (y de a TRES, más abajo). Con 25k, la revisión de MaKo del 16/10 (80k chars, 123 min,
+// 4 partes) dejó afuera 10 de sus 36 pedidos —«los templates son muy grandes», «yo voy a poner un modo oscuro»—, cada
+// uno dicho en una línea. Medido sobre esa llamada y la de Mauricio, con el prompt nuevo: 15k y 20k encuentran lo
+// mismo (30 de 36), pero 15k con 9 partes tardó 399 s en la de Mauricio, más que los 300 s de Vercel. 20k de a tres
+// da las mismas rondas que 25k de a dos. Los números, en tests/plan-fathom-sin-inventos.test.ts.
+const CHUNK_CHARS = 20000;
 // Solape entre partes: una tarea que se dice justo en el corte tiene que aparecer
 // entera en alguna. El dedup posterior se encarga de la repetición.
-const CHUNK_SOLAPE = 2000;
+const CHUNK_SOLAPE = 1500;
 
 /** Corta el texto en partes de ~CHUNK_CHARS respetando saltos de línea. */
 function trocear(texto: string): string[] {
@@ -732,12 +784,20 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
 
   const sys = await brandSystem(await renderPrompt('plan-fathom.extraer.system', PLAN_FATHOM_SYSTEM_TEMPLATE, { jsonShape: PLAN_FATHOM_JSON_SHAPE, molde: MOLDE_DETALLE }));
   const partes = trocear(texto);
+  // EL PLAZO de la lectura: el reloj de quien llama menos lo que hace falta para escribir lo leído (17/10/2026).
+  const plazo = opts.hasta != null ? opts.hasta - MARGEN_ESCRITURA_MS : undefined;
   const glosario = opts.glosario?.trim() || '(sin glosario cargado todavía)';
   const yoTxt = `${yo.nombre || 'el usuario'}${yo.email ? ` (${yo.email})` : ''}`;
   // Lo que se dijo (la reunión entera y su resumen), UNA vez: contra esto se mira que un
   // nombre de persona salga de la charla y no de una inferencia del modelo.
   const dicho = fuenteDicha(`${opts.cabecera ?? ''}
 ${texto}`);
+  // Lo que un detalle puede afirmar: lo dicho (con el glosario y la gente) y el vocabulario de la app y del tablero.
+  const control: ControlDeLoDicho = {
+    datos: fuenteDeDatos([opts.cabecera ?? '', texto, opts.glosario ?? '', ...participantes.map((p) => p.nombre)].join('\n')),
+    permitidos: permitidosDe([...proyectos.map((p) => p.nombre), yo.nombre, ...participantes.map((p) => p.nombre)]),
+    alias: opts.alias ?? null,
+  };
 
   // `fallo` = este tramo NO se pudo leer (excepción o JSON inválido). Distinto de
   // "se leyó y no había tareas": eso viene sin fallo y con la lista vacía.
@@ -767,6 +827,9 @@ ${texto}`);
       effort: 'high', maxTokens: 32000, feature: 'plan-fathom',
       motivo: partes.length > 1 ? `${opts.usoMotivo || 'Extraer tareas'} (parte ${i + 1}/${partes.length})` : (opts.usoMotivo || 'Extraer tareas'),
       onUsage: (u) => { usage = u; },
+      // EL PLAZO de la lectura (17/10/2026): una parte que no termina a tiempo FALLA (la cascada no paga para ganar
+      // tiempo) y vuelve como sin leer. Sin esto, la parte lenta seguía y Vercel mataba la función sin escribir nada.
+      ...(plazo != null ? { hastaMs: plazo } : {}),
     });
     let obj: Record<string, unknown>;
     // Un JSON que no parsea devuelve lo mismo que una reunión sin compromisos: cero
@@ -777,25 +840,24 @@ ${texto}`);
       console.error(`[plan-fathom] parte ${i + 1}/${partes.length}: la IA no devolvió JSON válido (${raw.length} chars): ${e instanceof Error ? e.message : String(e)} · arranca con: ${raw.slice(0, 120)}`);
       return { tareas: [], dudas: [], usage, fallo: true };
     }
-    return { tareas: coerceCandidatas(obj, proyectos, yo, participantes, dicho), dudas: coerceDudas(obj), usage };
+    return { tareas: coerceCandidatas(obj, proyectos, yo, participantes, dicho, control), dudas: coerceDudas(obj), usage };
   };
 
   // En paralelo: son llamadas independientes y así una reunión de 2h no tarda 2 minutos.
   // Con UN reintento por parte: cada parte son ~20 minutos de reunión, y un 429 o un
   // timeout puntual los borraba del resultado sin dejar rastro — la lista salía más
   // corta pero perfectamente creíble. La espera es escalonada por índice para no
-  // volver a pegarle a la API todas juntas.
-  const conReintento = async (p: string, i: number) => {
-    const primera = await unaParte(p, i).catch((e) => {
+  // volver a pegarle a la API todas juntas. (El reintento, las rondas y el reloj viven en
+  // lib/lectura-por-partes.ts, `leerPorRondas`, que es puro y tiene su test.)
+  type SalidaParte = { tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo };
+  const leerParte = async (i: number): Promise<{ salida: SalidaParte; fallo: boolean }> => {
+    try {
+      const r = await unaParte(partes[i], i);
+      return { salida: { tareas: r.tareas, dudas: r.dudas, usage: r.usage }, fallo: !!r.fallo };
+    } catch (e) {
       console.error(`[plan-fathom] parte ${i + 1}/${partes.length} falló: ${e instanceof Error ? e.message : String(e)}`);
-      return { tareas: [] as TareaCandidata[], dudas: [] as DudaTermino[], usage: undefined, fallo: true };
-    });
-    if (!primera.fallo) return primera;
-    await new Promise((r) => setTimeout(r, 1200 + i * 400));
-    return unaParte(p, i).catch((e) => {
-      console.error(`[plan-fathom] parte ${i + 1}/${partes.length} falló también en el reintento: ${e instanceof Error ? e.message : String(e)}`);
-      return { tareas: [] as TareaCandidata[], dudas: [] as DudaTermino[], usage: undefined, fallo: true };
-    });
+      return { salida: { tareas: [], dudas: [] }, fallo: true };
+    }
   };
   // ⚠️ DE A DOS, NO TODAS JUNTAS. Siete llamadas de ~19k tokens simultáneas contra UNA
   // sola key de Gemini son un 429 garantizado — y un 429 en la cascada barata no se
@@ -806,15 +868,27 @@ ${texto}`);
   //
   // El costo es tiempo y no lo paga nadie: una reunión de 2h35 pasa de ~20 s a ~70 s, y
   // esto corre en un cron de madrugada.
-  const CONCURRENCIA = 2;
-  const salidas: Array<Awaited<ReturnType<typeof conReintento>>> = [];
-  for (let i = 0; i < partes.length; i += CONCURRENCIA) {
-    salidas.push(...await Promise.all(partes.slice(i, i + CONCURRENCIA).map((p, j) => conReintento(p, i + j))));
-  }
+  //
+  // ⚠️ DE A TRES DESDE EL 17/10/2026, con las partes de 20k: así una reunión de 2 h se lee en las mismas rondas
+  // que antes (5 partes → 2, 7 → 3). Medido: 279 s y 154 s para las dos llamadas del 16/10 (Gemini tarda de 70 a
+  // 140 s por parte con mucha demanda). La cascada reparte entre las cuentas de Gemini; un 429 se reintenta.
+  const CONCURRENCIA = 3;
+  // ⚠️ LO QUE YA SE LEYÓ NO SE VUELVE A LEER (17/10/2026): con una lectura a medias de antes (`previa`), sólo las partes
+  // que faltan. Una junta de 3 h no entra en los 300 s de una corrida: así se completa en dos, en vez de morirse siempre
+  // en el mismo lugar.
+  const saltear = saltearSi(opts.previa, partes.length);
+  const aLeer = partes.map((_, i) => i).filter((i) => !saltear.has(i));
+  const leidasPorRonda = await leerPorRondas<SalidaParte>({
+    indices: aLeer, concurrencia: CONCURRENCIA, leer: leerParte, vacia: () => ({ tareas: [], dudas: [] }), plazo,
+  });
+  const salidas = leidasPorRonda.map((x) => ({ ...x.salida, fallo: x.fallo }));
   // Cuántos tramos se perdieron DE VERDAD: el caller decide si el resultado es
   // confiable (el cron NO cierra una reunión leída a medias).
-  const partesFallidas = salidas.filter((s) => s.fallo).length;
-  if (partesFallidas) console.error(`[plan-fathom] ${partesFallidas} de ${partes.length} tramos no se pudieron leer — el resultado está INCOMPLETO`);
+  const partesFallidas = leidasPorRonda.filter((s) => s.fallo).length;
+  const sinTiempo = leidasPorRonda.filter((s) => s.sinTiempo).length;
+  const leidas = leidasPorRonda.filter((s) => !s.fallo).map((s) => s.i);
+  if (saltear.size) console.log(`[plan-fathom] lectura que completa otra: ${saltear.size} de ${partes.length} partes ya estaban leídas`);
+  if (partesFallidas) console.error(`[plan-fathom] ${partesFallidas} de ${aLeer.length} tramos no se pudieron leer${sinTiempo ? ` (${sinTiempo} por el reloj)` : ''} — el resultado está INCOMPLETO`);
 
   // Fusión: el solape entre partes repite tareas (a veces con otras palabras). Ante
   // duplicado gana la que trae más detalle; el orden de la charla se conserva.
@@ -837,11 +911,11 @@ ${texto}`);
   // Última pasada: las que son la MISMA tarea dicha con otras palabras en otro momento
   // de la charla. El parecido de palabras no las agarra ("definir el enfoque de
   // comunicación" vs "definir la estrategia de posicionamiento" = la misma decisión).
-  const dedup = await fusionarDuplicadas(fusionadas, opts.usoMotivo);
+  const dedup = await fusionarDuplicadas(fusionadas, opts.usoMotivo, plazo);
   return {
     tareas: dedup.tareas, dudas,
     usage: sumarUsage([...salidas.map((s) => s.usage), dedup.usage]),
-    participantes, partes: partes.length, partesFallidas,
+    participantes, partes: partes.length, partesFallidas, leidas, ...(sinTiempo ? { sinTiempo } : {}),
     // La que faltaba. Se recibe por `opts` y se devuelve: quien llama necesita
     // saber DE QUÉ SE HABLÓ, no solo qué tareas salieron.
     cabecera: opts.cabecera ?? '',
@@ -878,6 +952,10 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   const texto = transcriptToText(transcript, 400000);
   // Vacía porque Fathom no contestó → UN tramo fallido: quien llama la reintenta en vez de cerrarla.
   if (!resumen && !texto) return { tareas: [], dudas: [], cabecera: '', transcript: '', ...(fathomCallado ? { partesFallidas: 1 } : {}) };
+  // ⚠️ Y SIN LA TRANSCRIPCIÓN AUNQUE HAYA RESUMEN (revisión de B5, 17/10/2026): las tareas salen de la transcripción, así
+  // que con sólo el resumen la lectura vuelve vacía y SIN fallas, y quien llama la cerraba como «leída, sin compromisos»
+  // (o, completando, vaciaba la marca con el resto sin leer). Si Fathom no contestó, es un tramo fallido.
+  if (!texto && fathomCallado) return { tareas: [], dudas: [], cabecera: '', transcript: '', partesFallidas: 1 };
 
   // Los action items estructurados de Fathom (con su dueño ya atribuido) le dan al
   // modelo la pista de quién asumió qué, sin que lo tenga que adivinar del transcript.
@@ -909,6 +987,13 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
       }
     }
   }
+  // EL NOMBRE DE LA CUENTA DE FATHOM NO ES EL DE LA PERSONA (17/10/2026). Fathom rotula al que graba con el
+  // nombre de SU cuenta («Martin Carballo») y la app lo conoce por otro («Martin Koncke»): el modelo copiaba la
+  // etiqueta y 17 de 37 tarjetas del 16/10 decían «Martin Carballo». Si quien grabó tiene el MISMO email que
+  // quien mira el tablero, el nombre se cambia en la transcripción, el resumen y la lista de participantes antes
+  // de leer, y en lo que devuelve el modelo (`coerceCandidatas`).
+  const alias = aliasDelDueno(meta?.recorded_by, yo);
+  if (alias) participantes = participantes.map((p) => (normNombre(p.nombre) === normNombre(alias.de) ? { ...p, nombre: alias.a } : p));
   const dueñosFathom = ai
     .filter((a) => a?.description)
     .map((a) => `- ${a.description}${a.assignee?.name || a.assignee?.email ? ` → ${a.assignee?.name ?? a.assignee?.email}` : ''}`)
@@ -918,10 +1003,11 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   // parte del troceado. Antes iban pegados al principio del texto, así que se los comía
   // la PARTE 1 y las demás leían transcripción cruda — sin saber de qué se trató la
   // reunión ni a quién le había asignado Fathom cada compromiso.
-  const cabecera = [
+  const conReal = (x: string) => (alias ? conNombreReal(x, alias) : x);
+  const cabecera = conReal([
     resumen ? `RESUMEN DE LA REUNIÓN (contexto: vale para todas las partes):\n${resumen}` : '',
     dueñosFathom ? `ACTION ITEMS QUE FATHOM YA DETECTÓ (con su dueño):\n${dueñosFathom}` : '',
-  ].filter(Boolean).join('\n\n');
+  ].filter(Boolean).join('\n\n'));
 
   // ⚠️ La cabecera se DEVUELVE, no solo se pasa. `extraerTareasDeTexto` la usa
   // como contexto y no la retorna, así que sin esta línea `ExtractOut.cabecera`
@@ -933,8 +1019,8 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   // producción sin un solo error. Lo encontró una auditoría leyendo el camino
   // entero, no el typecheck ni los tests.
   const out = await extraerTareasDeTexto(
-    texto ? `TRANSCRIPCIÓN:\n${texto}` : '', proyectos, yo,
-    { ...opts, participantes, cabecera, usoMotivo: opts.usoMotivo || 'Extraer tareas de reunión' },
+    texto ? `TRANSCRIPCIÓN:\n${conReal(texto)}` : '', proyectos, yo,
+    { ...opts, participantes, cabecera, alias, usoMotivo: opts.usoMotivo || 'Extraer tareas de reunión' },
   );
   // Y el transcript CRUDO, no el que le pasamos al nucleo con su renglon de
   // «TRANSCRIPCION:» adelante: el juez lo parsea por renglon para sacar quienes

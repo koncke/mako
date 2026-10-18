@@ -959,3 +959,93 @@ https), y se valida ANTES de abrir nada. Vive en `lib/landing-paginas.ts` (`urlP
 (`af8a5aca7`).
 
 *15/10/2026, chat «Landing Generator» (`claude1`).*
+
+---
+
+## «Se borra cuando entre la rama X» venció sin que nadie lo viera: el cascarón de Chatwoot (17/10/2026)
+
+**El síntoma**: `lib/chatwoot.ts` seguía en el repo ocho días después de «borrar Chatwoot» (09/10). Su comentario, el test
+`tests/sin-chatwoot.test.ts` y dos relevos decían lo mismo: no se borra porque lo importan archivos que la rama `wip/api-acciones-0910` tiene
+a medio cambiar.
+
+**El motivo estaba vencido, y nadie lo midió**: esa rama son 2 commits «WIP (sin terminar, NO pushear)» del 09/10 (222 archivos tocados) y la API de
+MaKo que sirve está en `main` desde hace días. De los 5 importadores, **3 se quitaron sin conflicto posible** porque eran código muerto:
+`app/crm/actions.ts` llamaba a `ensureContactoWhatsapp`, que contestaba `null` siempre (dos llamadas); el paso por el WhatsApp oficial de
+`lib/nutricion.ts` ya devolvía el fallo del cascarón; y `lib/meta-templates.ts` sólo usaba `getWabaConfig`, que tiraba. Quedan dos:
+`lib/api-mako/areas/whatsapp.helpers.ts` y `whatsapp.run.ts`, que registran **8 operaciones** del WhatsApp oficial (que contestan «no hay canal
+oficial» desde el 09/10). Retirarlas cambia el CONTRATO de la API de MaKo (def, rest, docs, snapshot HTTP, tests del editor), y eso es del
+chat de la API, no de un pendiente de limpieza.
+
+**La regla**: un «se borra cuando entre la rama X» se vuelve a medir cada vez que alguien lo lee (`git log origin/main..X`, `git diff --stat
+origin/main...X`), y la lista de importadores del test se achica por partes: `IMPORTADORES` está hecha para eso.
+
+**Y la columna `crm_etiquetas.chatwoot_label`** (mig 0224): sin lector ni escritor — se midió por grep en app/, lib/, scripts/ y tests/ —, y
+`lib/datos-mau.ts` ya la omite al copiar. La migración que la quita (`0314_quitar_crm_etiquetas_chatwoot_label.sql`) está escrita y **sin
+aplicar**; el procedimiento está en `docs/relevo/integraciones.md`.
+
+**Vive en:** lib/chatwoot.ts · lib/api-mako/areas/whatsapp.{helpers,run}.ts · tests/sin-chatwoot.test.ts · supabase/migrations/0314_quitar_crm_etiquetas_chatwoot_label.sql
+
+---
+
+## El ws1 no puede tener una IA propia: su fila ES el entorno de la plataforma, y la grilla decía «Conectada» (18/10/2026)
+
+**El síntoma** (tickets #5 y #6): MaKo no le contesta a Mauricio en el chat de la app —«falló la IA (sin proveedor gratis
+disponible)»— y su /integraciones dice «Conectada y operativa» en las siete IA.
+
+**Lo medido** (sólo lectura, por huellas, con el `.env.local`): en la fila del ws1, Gemini, OpenAI y Claude son copias de
+la plataforma; Groq, Mistral, OpenRouter y Cerebras salen «propias». Pero en producción la cascada no encontró **ninguna**,
+y el porqué está en el código: `hidratarCredenciales` copia la fila del ws1 (`OWNER_WS`) a `process.env` en cada arranque
+(`aplicarAEnv` pisa lo que hubiera), y `soloLasPropias` (lib/ai-cheap.ts) descarta toda key igual a una del entorno. En
+producción, entonces, TODAS las del ws1 son «de la plataforma». La medición local no lo ve: la key del `.env.local` no es
+la que usa producción (la trampa de arriba, otra vez).
+
+**El diagnóstico obvio era el equivocado.** «Que Mauricio conecte su IA» NO lo arregla en el ws1: lo que pegue en su fila,
+`guardarCredencial` lo pone en `process.env` en el acto, y cada arranque también. Su key pasa a ser LA key de la
+plataforma —la red gratis de todos los negocios gastaría su cuenta, o pisaría la nuestra— y su workspace sigue sin una IA
+propia. Por eso, en ESE workspace, ni el chat le ofrece «Conectar tu IA» («Ya lo está resolviendo el equipo de MaKo») ni
+sus IA en /integraciones tienen formulario (dicen «La configura el equipo de MaKo», fuera de «Requiere tu atención»).
+
+**La guarda no compara con un 1:** `WS_DEL_ENTORNO` / `esElWsDelEntorno` (lib/credenciales.ts) es la MISMA constante con la
+que leen `hidratarCredenciales` y `guardarCredencial`. Si la hidratación cambia de fuente, la guarda la sigue sola; un
+`ws === OWNER_WS` escrito aparte se habría quedado apuntando al ws1 (lo frena tests/mako-sin-ia.test.ts).
+
+**La grilla** miraba `credWs` («hay algo en la fila, o el entorno si es el ws1»); la cascada pregunta «¿es SUYA?». Ahora
+la tarjeta hace la pregunta de la cascada (`iaDelNegocio`: `provsDe` para las baratas, la frontera de `conClaveDelNegocio`
+para Claude), y una copia dice «Esa key es la de MaKo, no la tuya», también adentro del modal.
+
+**La regla:** una tarjeta que dice «Conectada» se calcula con la MISMA lectura que usa quien la consume. Dos lecturas de
+«¿tiene X?» divergen en silencio, y la que miente es la que mira la persona.
+
+**Y una que no se ve:** el barrido de tests/integracion-sin-salir.test.ts busca el link a /integraciones ESCRITO; un
+`<Link href={`/integraciones?abrir=${servicio}`}>` armado con template literal le pasa por al lado (medido rompiéndolo: 5 / 0).
+
+**La separación (18/10/2026, Martín: «Sí: separá el ws1 de las claves de la plataforma (que salgan del ws9 o del entorno)
+para que Mauricio pueda conectar su propia IA»).** `wsDelEntorno(clave)` (lib/credenciales.ts) dice de qué workspace sale el
+entorno: las de IA (`esClaveDeIA`) de la PLATAFORMA (`wsSuperAdmin()`), el resto todavía del ws1. Lo preguntan la
+hidratación (dos fuentes, cada clave sólo de la suya; sin IA legible en la plataforma, un `console.error` fuerte),
+`guardarCredencial`/`eliminarCredencial`, el respaldo del entorno de `credWs`/`credWsEstricta`/`estadoCampo`, `envCred`,
+`esDeLaPlataforma`, la migración del arranque (que ya no copia IA del entorno a la fila de un negocio: así se sembraron las
+copias) y las dos fronteras de Claude (`conClaveDelNegocio`, la tarjeta). La guarda del ws1 queda de baranda
+(`esNegocioDelEntorno`) y no se dispara con nadie.
+
+**El orden importa, y por eso la migración corre ANTES del deploy** (scripts/ia-del-ws1-a-la-plataforma.mts, aditiva e
+idempotente): en producción las keys de IA del ws1 ERAN las de la plataforma (la hidratación las ponía en el entorno). Si el
+código nuevo arrancara sin ellas en la plataforma, las que no coinciden con ninguna del ws9 pasarían a contar como DEL ws1
+—datos de sus clientes en cuentas de la agencia—. Copiadas a casilleros libres del ws9, siguen siendo «la de MaKo» en la
+fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la plataforma conserva su capacidad.
+
+**Lo que quedó SIN hacer:**
+- **La Cerebras del ws1** no coincide con ninguna de la plataforma ni con el `.env.local`, y Cerebras admite una sola cuenta
+  (la del ws9 es otra): no se copió. Con el código nuevo cuenta como DEL ws1. Si es de MaKo, hay que sacarla de esa fila
+  (decisión; nunca se escribe en el ws1 para probar).
+- **Lo que no es IA sigue saliendo del ws1** (Meta, Calendly, Fathom, Resend, Panda, YouTube…): el mismo problema, para otra
+  decisión. Y las settings de plataforma que viven en el ws1 (`runWithWorkspace(OWNER_WS, …)`): `mako.modelos`
+  (lib/model-registry.ts), `mako.claude.pausa` (lib/anthropic.ts), el canal de MaKo (lib/mako-canal.ts, lib/linea-plataforma.ts),
+  los guiones (lib/guion-*-store.ts), lib/copywriting-metodo.ts, lib/mako-grupo.ts y el Plan (lib/plan-*.ts).
+- **El gasto de Claude con la key de la plataforma se anota al ws1** (lib/anthropic-usage.ts: `ws === OWNER_WS`), y
+  `claudePropio` de la API de MaKo da sí al ws1 por ser el dueño (lib/api-mako/areas/integraciones.run.ts). Contabilidad y
+  la vista del modelo: no se tocaron.
+- «Datos de Mau» (lib/datos-mau.ts) copia las credenciales del ws1 a un workspace de prueba, IA incluida (copias: siguen
+  marcadas). Y otros lugares que le piden una key de IA a un negocio (el onboarding, /metodo) no se revisaron.
+
+**Vive en:** lib/integraciones.ts (`iaDelNegocio`) · lib/ia-keys.ts (`veredictoDeIA`) · lib/credenciales.ts · lib/ai-cheap.ts (`soloLasPropias`) · app/integraciones/IntegracionesBoard.tsx · tests/mako-sin-ia.test.ts

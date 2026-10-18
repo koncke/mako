@@ -40,7 +40,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { FAMILIAS, ADMIN_NAV, TODOS_LOS_ITEMS, fuenteContador, sumaDeContadores } from '../app/_components/nav';
+import { FAMILIAS, ADMIN_NAV, SIN_FILA, TODOS_LOS_ITEMS, fuenteContador, sumaDeContadores, itemsDe } from '../app/_components/nav';
 import { NOMBRES_ICONO } from '../app/_components/icons';
 import { CAPAS_LISTA, navEnCapa, userNavEnCapa } from '../lib/capas';
 import { AREAS, AREA_INFO, esAccion, esLectura } from '../lib/api-mako/tipos';
@@ -55,21 +55,32 @@ const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('la barra: Chats PRIMERO en las conversaciones de Operate, con los roles de WhatsApp, y WhatsApp sigue', () => {
-  const operate = FAMILIAS.find((f) => f.key === 'operate');
-  assert.ok(operate, 'no está la familia Operate');
-  const bloque = operate!.bloques.find((b) => b.some((i) => i.key === 'chats'));
-  assert.ok(bloque, 'Chats no está en ningún bloque de Operate');
-  assert.equal(bloque![0].key, 'chats', 'Chats va PRIMERO en su bloque: es la bandeja de todos los días');
-  const chats = bloque![0];
-  const wa = bloque!.find((i) => i.key === 'whatsapp');
-  assert.ok(wa, 'WhatsApp sale del menú sólo cuando Martín valide que Chats lo reemplaza (plano §6.1)');
+// ⚠️ DESDE EL 17/10/2026 CHATS ES LA ÚNICA TAB DE CONVERSACIONES (Martín: «eliminar las tabs de Email y WhatsApp y
+// unificarlo todo en Chats»; es el §6.1 del plano, validado). Chats es una tab unificada (`bandeja`) cuya primera sección
+// es la bandeja (key `chats`); WhatsApp y Email ya no son filas: sus páginas configuran el canal, se entra desde Chats, y
+// estando ahí la barra marca Chats. Sus ítems viven en SIN_FILA (el teléfono y el título de la pestaña los buscan).
+// Probado rompiéndolo: con WhatsApp de vuelta en el bloque de Chats → cae «WhatsApp volvió a ser una fila».
+test('la barra: Chats es la única tab de conversaciones de Operate, con los roles de WhatsApp, y WhatsApp y Email no son filas', () => {
+  // Desde el 17/10/2026 noche Chats va en lo diario, arriba y sin rótulo (la sidebar del prototipo).
+  const operate = FAMILIAS.find((f) => f.key === 'diario');
+  assert.ok(operate, 'no está la zona de lo diario');
+  const tab = operate!.bloques.flat().find((i) => i.secciones?.some((s) => s.key === 'chats'));
+  assert.ok(tab, 'Chats no está en lo diario');
+  assert.equal(tab!.secciones![0].key, 'chats', 'la bandeja es la PRIMERA sección: es a la que lleva la tab');
+  const chats = tab!.secciones![0];
+  const enBarra = FAMILIAS.flatMap(itemsDe);
+  assert.ok(!enBarra.some((i) => i.key === 'whatsapp'), 'WhatsApp volvió a ser una fila de la barra');
+  assert.ok(!enBarra.some((i) => i.key === 'email'), 'Email volvió a ser una fila de la barra');
+  const wa = SIN_FILA.find((i) => i.key === 'whatsapp');
+  assert.ok(wa, 'sin el ítem de WhatsApp en SIN_FILA, el teléfono y el título de /whatsapp lo pierden');
   assert.equal(chats.href, RUTA_CHATS);
   assert.equal(chats.label, 'Chats');
   assert.deepEqual([...(chats.rolesWs ?? [])].sort(), [...(wa!.rolesWs ?? [])].sort(), 'los mismos roles que WhatsApp: es el mismo trabajo del setter');
   assert.ok((NOMBRES_ICONO as readonly string[]).includes(chats.icon), `el ícono «${chats.icon}» no existe: dibujaría un punto`);
   assert.ok(chats.match('/chats') && chats.match('/chats/x'), 'el match no marca la tab');
-  assert.ok(!chats.match('/chatsx') && !chats.match('/whatsapp'), 'el match marca rutas ajenas');
+  assert.ok(!chats.match('/chatsx'), 'el match marca rutas ajenas');
+  assert.ok(chats.match('/whatsapp') && chats.match('/email/x'), 'en las páginas de los canales la barra no marca Chats');
+  assert.equal(tab!.match('/whatsapp'), true);
   assert.equal(TODOS_LOS_ITEMS.filter((i) => i.key === 'chats').length, 1, 'la key chats está repetida');
   // En el teléfono es la pestaña Chats de MaKo Mobile (v3, 14/10/2026), igual que /whatsapp: las dos bandejas de
   // escritorio son, en el teléfono, la misma pestaña.
@@ -88,6 +99,8 @@ test('las capas: Chats se ve EXACTAMENTE donde WhatsApp (barra y menú de la fot
 
 test('el badge: Chats muestra el número de WhatsApp, y la familia cerrada no lo cuenta dos veces', () => {
   assert.equal(fuenteContador('chats'), 'mensajes');
+  // La TAB unificada (17/10/2026) lleva el número en la barra: el Sidebar pregunta por la key de la tab resuelta.
+  assert.equal(fuenteContador('bandeja'), 'mensajes', 'la fila Chats de la barra se queda sin número');
   assert.equal(fuenteContador('whatsapp'), 'mensajes');
   assert.equal(fuenteContador('crm'), 'crm');
   assert.equal(fuenteContador('general'), null);

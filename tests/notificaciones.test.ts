@@ -98,8 +98,8 @@ test('el título lleva la sección donde estás parado', () => {
   assert.equal(tituloDe('/crm'), 'MaKo - CRM');
   assert.equal(tituloDe('/whatsapp'), 'MaKo - WhatsApp');
   // «Configuración del negocio» desde el 15/10/2026 (lib/ajustes-secciones.ts); Seguridad es de «Tu cuenta».
-  assert.equal(tituloDe('/configuraciones'), 'MaKo - Configuración del negocio');
-  assert.equal(tituloDe('/perfil/seguridad'), 'MaKo - Tu cuenta');
+  assert.equal(tituloDe('/configuraciones'), 'MaKo - Business settings');
+  assert.equal(tituloDe('/perfil/seguridad'), 'MaKo - My Profile');
 });
 
 test('una subruta hereda el nombre de su sección', () => {
@@ -121,11 +121,13 @@ test('una ruta sin entrada en el menú igual queda legible', () => {
 
 test('la marca no se repite cuando ya está en el nombre de la sección', () => {
   // "MaKo - WhatsApp de MaKo" se leía dos veces el producto.
-  // Desde el 16/10/2026 /mako es el Second Brain (el chat con MaKo): su título es el de la entrada de la barra. El
+  // Desde el 16/10/2026 /mako es el Second Brain (el chat con MaKo): su título es el de la entrada de la barra, y desde el
+  // 18/10/2026 esa entrada se llama «Ops Center» para todos los negocios (pedido de Martín). El
   // NOMBRE del proyecto en lib/plan-proyectos-catalogo.ts sigue siendo «Feature: Preguntale a MaKo»: ese es una CLAVE
   // guardada en la base, no copy, y renombrarlo huérfana las tarjetas.
-  assert.equal(tituloDe('/mako'), 'MaKo - Second Brain', 'sin la marca en el nombre, la pestaña la suma (una vez)');
-  assert.equal(tituloDe('/agencia'), 'WhatsApp de MaKo');
+  assert.equal(tituloDe('/mako'), 'MaKo - Ops Center', 'sin la marca en el nombre, la pestaña la suma (una vez)');
+  // Desde el 17/10/2026 se llama «MaKo WhatsApp» (sección de Chats para el super admin; nombres en inglés).
+  assert.equal(tituloDe('/agencia'), 'MaKo WhatsApp');
 });
 
 test('las sub-rutas de /admin no se comen el título entre sí', () => {
@@ -166,6 +168,7 @@ test('una sub-ruta de /admin SIN item propio no se lee «Clientes»', () => {
   // una lista de exclusiones vieja de una al día.
   assert.equal(tituloDe('/admin/friccion'), 'MaKo - Admin');
   assert.equal(tituloDe('/admin/una-ruta-que-todavia-no-existe'), 'MaKo - Admin');
-  // Y la que SÍ tiene item propio sigue leyendo el suyo.
-  assert.equal(tituloDe('/admin/copywriting'), 'MaKo - Copywriting');
+  // Y la que SÍ tiene item propio sigue leyendo el suyo («Copy Method» desde el 17/10/2026: es una sección de
+  // Copywriting para el super admin, app/_components/nav.ts → HERRAMIENTAS).
+  assert.equal(tituloDe('/admin/copywriting'), 'MaKo - Copy Method');
 });

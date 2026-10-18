@@ -40,7 +40,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TODOS_LOS_ITEMS, USER_NAV } from '../app/_components/nav';
+import { TODOS_LOS_ITEMS, USER_NAV, ADMIN_NAV } from '../app/_components/nav';
 import { NOMBRES_ICONO } from '../app/_components/icons';
 import {
   DESTINOS_MOVIL, SECCIONES_MAS, HOME_MOVIL, RUTA_MAS, esRutaMovil, puedeVerKey, destinosVisibles, destinoActivo,
@@ -60,7 +60,8 @@ test('el prefijo móvil es /m o /m/..., nunca /mako, /marketing ni /m.js', () =>
 });
 
 test('cada destino y cada sección de More hereda una key que EXISTE en nav.ts, con un ícono que existe', () => {
-  const keys = new Set([...TODOS_LOS_ITEMS, ...USER_NAV].map((i) => i.key));
+  // Las del super admin (17/10/2026) son herramientas de la plataforma: su key está en ADMIN_NAV (nav.ts → HERRAMIENTAS).
+  const keys = new Set([...TODOS_LOS_ITEMS, ...USER_NAV, ...ADMIN_NAV].map((i) => i.key));
   const iconos = new Set(NOMBRES_ICONO);
   for (const d of [...DESTINOS_MOVIL, ...SECCIONES_MAS]) {
     if (d.navKey) assert.ok(keys.has(d.navKey), `${d.id} → navKey «${d.navKey}» no está en nav.ts`);
@@ -79,42 +80,60 @@ test('cada destino y cada sección de More hereda una key que EXISTE en nav.ts, 
   assert.equal(SECCIONES_MAS.find((s) => s.id === 'mako')?.href, SECCIONES_MAS.find((s) => s.id === 'second-brain')?.href);
 });
 
-test('v3: CRM · Chats · General · Plan · More; More por las familias de la sidebar', () => {
-  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'General', 'Plan', 'More']);
+test('CRM · Chats · Dashboard · Plan · More; More por las familias de la sidebar', () => {
+  // 17/10/2026 noche (prototipo de coherencia, pedido 3): el lugar del medio se llama Dashboard y abre la portada de siempre.
+  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Dashboard', 'Plan', 'More']);
   // Chats hereda la key de la bandeja de escritorio (/whatsapp): quien no la ve, no ve la pestaña.
   // La key de la bandeja UNIFICADA (/chats); ve lo mismo que `whatsapp` en todas las capas (tests/chats-registro).
   assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'chats');
   // 15/10/2026: las siete del prototipo v3, cada una en su lugar de la sidebar (Copywriting se gatea con la key
   // de su sección Ads Writer: la de la tab unificada no está en TODOS_LOS_ITEMS).
-  assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia]), [
-    ['calendario', 'calendario', 'operate'], ['ads', 'ads-manager', 'operate'],
-    ['second-brain', 'second-brain', 'analyze'], ['dashboard', 'graphics', 'analyze'], ['experimentos', 'experimentos', 'analyze'],
-    ['offer', 'offer', 'sales'], ['landing', 'landing-writer', 'sales'], ['automations', 'setting', 'sales'],
-    ['video', 'video-generator', 'content'], ['copywriting', 'ads-writer', 'content'],
-    ['cs', 'customer-success', 'customer'], ['curso', 'cs-curso', 'customer'], ['comunidad', 'cs-comunidad', 'customer'],
-    ['mako', 'mako', null],
+  // 17/10/2026, la sidebar nueva: dos familias (Operate con Dashboard y Clients; Sales Machine con Video y Copywriting),
+  // Second Brain arriba sin título, y el Mapa y Experiments OCULTOS (sus páginas siguen; no son filas).
+  assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia, s.oculta ?? false]), [
+    // 17/10/2026 noche, la sidebar del prototipo: lo diario, Sales, Marketing y Create, en el orden de la sidebar.
+    ['dashboard', 'graphics', 'diario', false],
+    ['calendario', 'calendario', 'sales', false], ['automations', 'setting', 'sales', false],
+    ['cs', 'customer-success', 'sales', false], ['partners', 'partners', 'sales', false],
+    ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
+    ['video', 'video-generator', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'ads-writer', 'create', false],
+    ['mako', 'mako', null, false],
+    ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
+    ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
+    // 17/10/2026, «Mobile 2»: las pantallas del menú de la foto, ocultas (More arma su fila desde USER_NAV).
+    ['tickets', 'tickets', null, true], ['configuraciones', 'configuraciones', null, true],
+    // Las del super admin (su página pregunta `getSesionAdmin`, como la de escritorio).
+    ['mensajes', 'mensajes', null, true], ['modelos-ia', 'modelos-ia', null, true], ['contexto', 'contexto', null, true],
+    ['api-mako', 'api-mako', null, true], ['conocimientos', 'conocimientos', null, true],
+    ['cobros', 'admin-cobros', null, true], ['agente', 'admin-agente', null, true],
+    // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
+    // (secciones de Video, Image y Copywriting: lib/movil-creacion.ts y tests/m-creacion.test.ts).
+    ['video-editor', 'video-editor', null, true], ['reels', 'reels', null, true],
+    ['carousels', 'carousels', null, true], ['stories', 'stories', null, true],
+    ['admin-copywriting', 'admin-copywriting', null, true],
   ]);
 });
 
 test('admin de un cliente completo: la barra de cinco y More con todo, una caja por familia', () => {
   assert.deepEqual(barra('admin', 'completo'), ['crm', 'chats', 'hoy', 'plan', 'mas']);
+  // Desde el 17/10/2026: Second Brain PRIMERO y sin título (arriba de todo, como en escritorio), y las dos familias.
+  // Probado rompiéndolo: con la caja de Second Brain al final en `gruposMas` → cae este assert.
+  // 17/10/2026 noche: lo diario sin título (las hojas del Dashboard), Sales, Marketing y Create.
   assert.deepEqual(mas('admin', 'completo'), [
-    ['calendario', 'ads'], ['second-brain', 'dashboard', 'experimentos'], ['offer', 'landing', 'automations'],
-    ['video', 'copywriting'], ['cs', 'curso', 'comunidad'],
+    ['mako'], ['dashboard'], ['calendario', 'automations', 'cs'], ['offer', 'landing', 'ads'],
+    // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video.
+    ['video', 'image', 'copywriting'],
   ]);
-  // Cada caja lleva el nombre de su familia en la sidebar. La de abajo, sin título, no está: su única fila era el chat
-  // con MaKo, que desde el 16/10/2026 es el Second Brain de Analyze (como en escritorio, una entrada por persona).
-  assert.deepEqual(familias('admin', 'completo'),
-    ['Operate', 'Analyze', 'Sales Machine', 'Content Machine', 'Customer Success']);
+  assert.deepEqual(familias('admin', 'completo'), [null, null, 'Sales', 'Marketing', 'Create']);
 });
 
 test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () => {
   // Closer: Dashboard (graphics, su hoja Closing) y MaKo. Setter: Dashboard (su hoja Chat Analyst, desde la v5
   // del 12/10/2026), Automations (setting) y MaKo.
-  assert.deepEqual(mas('closer', 'completo'), [['dashboard'], ['mako']]);
-  assert.deepEqual(mas('setter', 'completo'), [['dashboard'], ['automations'], ['mako']]);
+  assert.deepEqual(mas('closer', 'completo'), [['mako'], ['dashboard']]);
+  assert.deepEqual(mas('setter', 'completo'), [['mako'], ['dashboard'], ['automations']]);
   // Una familia sin nada que el rol vea no deja una caja vacía.
-  assert.deepEqual(familias('closer', 'completo'), ['Analyze', null]);
+  assert.deepEqual(familias('closer', 'completo'), [null, null]);
   // El closer entra al Dashboard SÓLO por la hoja Closing (app/dashboard/page.tsx): en una capa
   // sin Closing (pm tiene graphics, no closing), More no le ofrece una fila que lo rebota a Today.
   assert.equal(puedeVerKey('graphics', 'closer', 'pm'), true, 'el nav solo se la daría');
@@ -138,8 +157,9 @@ test('el hueco: si el rol no ve uno de los cuatro, lo ocupa la primera sección 
   // que ve, en el orden de la sidebar. Desde el 15/10/2026 Calendario (Operate, que la capa pm tiene desde el
   // 13/10: los deadlines del Plan) va antes que Dashboard (Analyze), y MaKo se queda en More.
   assert.equal(puedeVerKey('crm', 'admin', 'pm'), false);
-  assert.deepEqual(barra('admin', 'pm'), ['calendario', 'dashboard', 'hoy', 'plan', 'mas']);
-  assert.deepEqual(mas('admin', 'pm'), [['mako']]);
+  // Las HOJAS del Dashboard no suben (17/10/2026 noche): son del lugar del medio. Sube Second Brain y las hojas quedan en More.
+  assert.deepEqual(barra('admin', 'pm'), ['calendario', 'mako', 'hoy', 'plan', 'mas']);
+  assert.deepEqual(mas('admin', 'pm'), [['dashboard']]);
   // Un setter en pm: sólo ve MaKo de More, y sube (queda un hueco sin llenar: la barra es de cuatro).
   assert.deepEqual(barra('setter', 'pm'), ['mako', 'hoy', 'plan', 'mas']);
   assert.deepEqual(mas('setter', 'pm'), []);
@@ -158,8 +178,11 @@ test('el lugar activo de una ruta', () => {
   assert.equal(destinoActivo('/m/cuenta'), 'mas');
   // Salvo que haya subido a la barra: ahí se marca a sí misma.
   const pm = barraMovil('admin', 'pm');
-  assert.equal(destinoActivo('/m/dashboard', pm), 'dashboard');
-  assert.equal(destinoActivo('/m/dashboard/x', pm), 'dashboard');
+  assert.equal(destinoActivo('/m/calendario', pm), 'calendario');
+  assert.equal(destinoActivo('/m/calendario/x', pm), 'calendario');
+  // Las hojas del Dashboard marcan el lugar del medio (17/10/2026 noche), como en escritorio el Dashboard marca cada hoja.
+  assert.equal(destinoActivo('/m/dashboard', pm), 'hoy');
+  assert.equal(destinoActivo('/m/dashboard/x'), 'hoy');
   assert.equal(destinoActivo('/m/configurar'), null);
   assert.equal(destinoActivo('/crm'), null);
   assert.equal(destinoActivo('/mako'), null);
@@ -176,11 +199,24 @@ test('el mapa escritorio → móvil de los links que salen', () => {
   // La bandeja de escritorio es la pestaña Chats del teléfono (v3).
   assert.equal(rutaMovil('/whatsapp'), '/m/chats');
   assert.equal(rutaMovil('/chats'), '/m/chats', 'la bandeja unificada de escritorio es la misma pestaña');
-  // El link profundo de un lead que manda MaKo (/chats?lead=N) abre SU chat, no la lista.
-  assert.equal(rutaMovil('/chats?lead=412&ws=3'), '/m/crm/412/chat');
+  // Los links profundos de UNA conversación abren SU pantalla, con todos sus canales (17/10/2026): el de un lead
+  // que manda MaKo (/chats?lead=N) y el de una clave (?c=, un aviso de Instagram). Hasta ese día ?c= iba a la lista,
+  // que no tenía Instagram, y ?lead= al WhatsApp del lead.
+  assert.equal(rutaMovil('/chats?lead=412&ws=3'), '/m/chats/lead%3A412');
+  assert.equal(rutaMovil('/chats?c=ig%3A77&ws=3'), '/m/chats/ig%3A77');
+  assert.equal(rutaMovil('/whatsapp?lead=9'), '/m/chats/lead%3A9');
+  // El de un mensaje de WhatsApp no nombra la clave: va a la lista CON la query (la página lo busca), sin el ws.
+  assert.equal(rutaMovil('/chats?linea=mako_ws3&chat=5491100000000%40s.whatsapp.net&ws=3'), '/m/chats?linea=mako_ws3&chat=5491100000000%40s.whatsapp.net');
+  // Y vuelven a escritorio con la misma URL (un push sale por acá y vuelve por rutaEscritorio).
+  assert.equal(rutaEscritorio('/m/chats/lead%3A412'), '/chats?c=lead%3A412');
+  assert.equal(rutaEscritorio('/m/chats/ig%3A77?ws=3'), '/chats?ws=3&c=ig%3A77');
+  assert.equal(rutaEscritorio('/m/chats?linea=mako_ws3&chat=1%40s.whatsapp.net'), '/chats?linea=mako_ws3&chat=1%40s.whatsapp.net');
   assert.equal(rutaMovil('/chats?lead=abc'), '/m/chats');
-  assert.equal(rutaMovil('/configuraciones?tab=notif'), '/m/cuenta');
-  assert.equal(rutaMovil('/configuraciones'), null);
+  // «Configuración del negocio» tiene su pantalla desde el 17/10/2026, y el `?tab=` viejo va a donde lo manda la computadora
+  // (`rutaDeTabVieja`): `notif` a las Notificaciones DEL NEGOCIO (antes, «Tu cuenta»).
+  assert.equal(rutaMovil('/configuraciones?tab=notif'), '/m/configuraciones/notificaciones');
+  assert.equal(rutaMovil('/configuraciones?tab=criterio'), '/m/configuraciones');
+  assert.equal(rutaMovil('/configuraciones'), '/m/configuraciones');
   assert.equal(rutaMovil('/m/plan'), '/m/plan');
   // Un link que YA es de /m conserva la query que su pantalla lee, pero nunca un `?ws=` viejo
   // (conWs no pisa el que ya está: ganaría el del link, no el de la persona).
@@ -198,7 +234,8 @@ test('el mapa v2: cada pantalla de escritorio de una sección de More cae en su 
   assert.equal(rutaMovil('/dashboard?hoja=comercial&ws=3'), '/m/dashboard?hoja=comercial');
   // Otra hoja abre su pantalla (la página resuelve el id o la plantilla, como escritorio).
   assert.equal(rutaMovil('/dashboard?hoja=closing'), '/m/dashboard/closing');
-  assert.equal(rutaMovil('/marketing/salud'), null, 'la salud de Meta no es el Dashboard');
+  // La salud de Meta no es el Dashboard: es Integraciones (el ítem de nav.ts la marca), con su pantalla desde el 17/10/2026.
+  assert.equal(rutaMovil('/marketing/salud'), '/m/configuraciones/integraciones', 'la salud de Meta no es el Dashboard');
   assert.equal(rutaMovil('/ads-manager'), '/m/ads');
   assert.equal(rutaMovil('/ads-manager/123?ws=4'), '/m/ads');
   assert.equal(rutaMovil('/customer-success'), '/m/cs');
@@ -234,8 +271,9 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
     ['/analisis/trimestre', null],
     ['/offer', '/m/offer'], ['/offer?oferta=7&funnel=2', '/m/offer?oferta=7&funnel=2'], ['/offer-analyst', '/m/offer'],
     ['/ads-writer', '/m/copywriting'], ['/ads-writer?tab=analizar', '/m/copywriting?tab=analizar'], ['/content-machine', '/m/copywriting'],
-    // Lo demás de la tab Copywriting es del super admin: en la computadora.
-    ['/youtube-writer', null], ['/stories', null], ['/ideas', null],
+    // Lo demás de la tab Copywriting tiene pantalla en el teléfono desde el 17/10/2026: Stories la suya
+    // (tests/m-creacion.test.ts), y las «Coming soon», la de /m/pronto (tests/movil-toda-tab.test.ts).
+    ['/youtube-writer', '/m/pronto/youtube-writer'], ['/stories', '/m/stories'], ['/ideas', '/m/pronto/ideas'],
     // Curso y Comunidad ANTES que Clientes (`dentro(p, '/customer-success')` se quedaba con las dos).
     ['/customer-success/curso', '/m/curso'], ['/customer-success/curso?producto=3', '/m/curso?producto=3'],
     ['/customer-success/curso/vista?producto=3', '/m/curso?producto=3'],
@@ -263,7 +301,7 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
 });
 
 test('un link sin equivalente móvil cae en la home', () => {
-  assert.equal(rutaMovilOHome('/configuraciones'), HOME_MOVIL);
+  assert.equal(rutaMovilOHome('/metodo'), HOME_MOVIL);
   assert.equal(rutaMovilOHome('/whatsapp'), '/m/chats');
   assert.equal(rutaMovilOHome('/ads-manager'), '/m/ads');
   assert.equal(rutaMovilOHome(undefined), HOME_MOVIL);

@@ -1163,6 +1163,14 @@ details[open] > summary .chev {
 [data-alerta-voz] { --barra-agencia: 64px; }
 [data-barra-agencia][data-alerta-voz] { --barra-agencia: 114px; }
 [data-barra-agencia] body, [data-alerta-voz] body { padding-top: var(--barra-agencia); }
+/* ⚠️ LO QUE SE PEGA ARRIBA AL SCROLLEAR, EN LA PÁGINA O EN UN MODAL (17/10/2026, #850). Una barra `sticky` se pega a su
+   ancestro que scrollea: en la página es la VENTANA, y ahí la tapa la barra de inspección; adentro de un modal es su
+   cuerpo, y ahí la barra no está. Las barras de lote del Plan, del CRM y de Customer Success viven en los dos lugares,
+   así que no les sirve `--barra-agencia` a secas (en el modal quedarían 50 px más abajo). `--pegado-arriba` vale el alto
+   de la barra en la página y 0 adentro de cualquier modal: `top: calc(8px + var(--pegado-arriba, 0px))`.
+   Lo fija tests/barra-inspeccion-alto.test.ts (6). */
+:root { --pegado-arriba: var(--barra-agencia); }
+[aria-modal="true"] { --pegado-arriba: 0px; }
 /* Con la alerta sola, SOLO el riel del Sidebar ([data-sidebar]): la regla genérica estiraba
    al alto de la ventana cualquier <aside> de las pantallas admin mientras la voz estuviera
    caída (revisión del 11/09/2026). */
@@ -1192,13 +1200,22 @@ details[open] > summary .chev {
    UNA regla y no un cambio en cada pantalla: son de otros chats y mañana hay otra. Mira el estilo EN LÍNEA tal como lo
    serializa el navegador («flex: none; height: 100dvh; …»): el espacio de adelante deja afuera `min-height`, que no
    desborda nada. El riel del Sidebar queda afuera: tiene su regla de arriba (con `100dvh` para el iPad), y ésta le
-   ganaría por especificidad. Lo fija tests/barra-inspeccion-alto.test.ts. */
+   ganaría por especificidad. Lo fija tests/barra-inspeccion-alto.test.ts.
+   ⚠️ Y LAS DOS ESCRITURAS DEL ESTILO (17/10/2026, medido en Chrome sin ventana). Lo que pinta el NAVEGADOR sale
+   «flex: none; height: 100dvh;», pero lo que llega del SERVER sale como lo escribe React: «flex:none;height:100dvh»,
+   sin espacios, y la hidratación no lo reescribe. Con sólo la primera forma, la pantalla que llegaba del server —toda
+   entrada a inspeccionar es una carga del server: `<a href="/general?ws=N">`— medía la ventana entera (608 de 608, en
+   vez de 558) hasta que React le cambiaba algún estilo. Por eso van las cuatro: al principio o después de `;`/espacio. */
 [data-barra-agencia] [style^="height: 100vh"]:not([data-sidebar]), [data-barra-agencia] [style*=" height: 100vh"]:not([data-sidebar]),
-[data-alerta-voz] [style^="height: 100vh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100vh"]:not([data-sidebar]) {
+[data-barra-agencia] [style^="height:100vh"]:not([data-sidebar]), [data-barra-agencia] [style*=";height:100vh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height: 100vh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100vh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height:100vh"]:not([data-sidebar]), [data-alerta-voz] [style*=";height:100vh"]:not([data-sidebar]) {
   height: calc(100vh - var(--barra-agencia)) !important;
 }
 [data-barra-agencia] [style^="height: 100dvh"]:not([data-sidebar]), [data-barra-agencia] [style*=" height: 100dvh"]:not([data-sidebar]),
-[data-alerta-voz] [style^="height: 100dvh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100dvh"]:not([data-sidebar]) {
+[data-barra-agencia] [style^="height:100dvh"]:not([data-sidebar]), [data-barra-agencia] [style*=";height:100dvh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height: 100dvh"]:not([data-sidebar]), [data-alerta-voz] [style*=" height: 100dvh"]:not([data-sidebar]),
+[data-alerta-voz] [style^="height:100dvh"]:not([data-sidebar]), [data-alerta-voz] [style*=";height:100dvh"]:not([data-sidebar]) {
   height: calc(100dvh - var(--barra-agencia)) !important;
 }
 

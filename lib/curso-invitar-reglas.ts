@@ -74,6 +74,25 @@ export function abreElProducto(abre: ProductosDelAcceso, productoId: number): bo
 }
 
 /**
+ * Lo que abre el acceso DESPUÉS de sacarle UN curso desde su ficha (17/10/2026: «la ficha del cliente no muestra qué
+ * cursos le abre su acceso ni deja sacar uno»; antes sólo se podía «Quitar de este producto», que lo saca del kanban,
+ * o «Cortar acceso», que le cierra todo).
+ *
+ * ⚠️ UN ACCESO EN `null` ABRE TODOS LOS SUYOS, así que sacarle uno lo vuelve una lista: los productos de los que es
+ * cliente (`deCliente`, la regla del kanban), menos ése. Y el último no se saca por acá: un acceso que no abre ningún
+ * curso es un «Cortar acceso» con otro nombre, y ése ya existe (y se puede volver a abrir).
+ */
+export function productosTrasQuitar(
+  abre: ProductosDelAcceso, deCliente: readonly number[], productoId: number,
+): { ok: true; productos: number[] } | { ok: false; error: string } {
+  const base = abre == null ? [...deCliente] : [...abre];
+  if (!base.includes(productoId)) return { ok: false, error: 'Ese curso no se le abrió.' };
+  const quedan = base.filter((p) => p !== productoId);
+  if (!quedan.length) return { ok: false, error: 'Es el único curso que le abre su acceso: para sacárselo, «Cortar acceso».' };
+  return { ok: true, productos: quedan };
+}
+
+/**
  * Los productos cuyo curso VE el alumno: los suyos (la regla del kanban, `productosDelCliente`)
  * cruzados con los que abre su acceso. En el orden de `deCliente` (el del catálogo), que es el que
  * dibuja el portal.

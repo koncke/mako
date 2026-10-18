@@ -1,5 +1,13 @@
 # Retomar: Pixel, Clarity y Landing Analyst
 
+> **Actualización del 17/10/2026 («Pendientes B3», claude4, rama pend-b3-1710):** de §2 y §4 quedaron hechos: las
+> páginas en error se reintentan solas una vez por día (§4.4; la del ws1 ya estaba analizada desde el 15/10, la de Leila
+> seguía en error), «quitar» dura (§4.2: no se analiza sola hasta que se analiza a mano), el aviso fijo se apaga en una
+> página sin visitas en 7 días (§4.3), el pulso/MaKo/WhatsApp miden con la vara del aviso de adentro, la portada ya no
+> sale como tres páginas (`ai=`, `ct=`, `sfnsn=`), con www y sin www es un visitante (Pixel v25, sin pedir repegar), y la
+> prueba del Pixel YA avisaba cuando la grabación quedó (cron prueba-grabacion). Detalle: docs/hallazgos-landing.md.
+
+
 **Ventana:** del commit `6785dc16` (05/10/2026 12:33) a `de64b5b7` (06/10/2026 15:58), cuenta
 `claude1`. De los 97 commits de la ventana, los de esta área son nueve.
 **Todo pusheado** (`git log origin/main..HEAD` vacío, medido el 06/10) **y desplegado**: la

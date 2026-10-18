@@ -35,6 +35,8 @@ import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 export type IdOpcionCrm =
   // un lead
   | 'abrir' | 'mover_etapa' | 'whatsapp' | 'copiar_telefono' | 'copiar_email' | 'seleccionar' | 'quitar_seleccion' | 'eliminar'
+  // MaKo Partners (17/10/2026): sólo el admin de una agencia
+  | 'partners_llevar' | 'partners_ver'
   // la selección (las de app/crm/AccionesLoteLeads.tsx)
   | 'lote_etapa' | 'lote_etiqueta' | 'lote_closer' | 'lote_setter' | 'lote_funnel' | 'lote_limpiar' | 'lote_eliminar'
   // una columna (las del «⋯» de su cabecera, más el «＋ Nuevo lead» de su carril)
@@ -59,6 +61,13 @@ export type ContextoCrm =
     hayEquipo: boolean;
     /** Hay OTRO funnel al que agregar (`destinosDeLote`). */
     hayOtroFunnel: boolean;
+    /**
+     * MaKo Partners (Martín, 17/10/2026: «si un usuario se unió al programa de "MaKo Partners", que le aparezca la
+     * opción en el CRM para llevarlos allí»). `llevar` = abrirle su cuenta; `ver` = ya la tiene (`leads.cliente_ws`).
+     * Ausente o null: no se ofrece — el workspace no es agencia, o quien mira no es su admin (/partners y
+     * `llevarAPartnersAction` lo exigen).
+     */
+    partners?: 'llevar' | 'ver' | null;
   }
   | {
     sobre: 'columna';
@@ -127,6 +136,8 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
     ...(c.conTelefono ? ['copiar_telefono' as const] : []),
     ...(c.conEmail ? ['copiar_email' as const] : []),
     null,
+    ...(c.partners === 'llevar' ? ['partners_llevar' as const] : c.partners === 'ver' ? ['partners_ver' as const] : []),
+    null,
     c.seleccionado ? 'quitar_seleccion' : 'seleccionar',
     null,
     'eliminar',
@@ -147,6 +158,8 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   whatsapp: { texto: 'Escribir por WhatsApp', icono: 'whatsapp' },
   copiar_telefono: { texto: 'Copiar teléfono', icono: 'telefono' },
   copiar_email: { texto: 'Copiar email', icono: 'email' },
+  partners_llevar: { texto: 'Llevar a MaKo Partners', icono: 'cliente' },
+  partners_ver: { texto: 'Ver en MaKo Partners', icono: 'cliente' },
   seleccionar: { texto: 'Seleccionar', icono: 'check' },
   quitar_seleccion: { texto: 'Quitar de la selección', icono: 'quitar' },
   eliminar: { texto: 'Eliminar', icono: 'borrar', peligro: true },

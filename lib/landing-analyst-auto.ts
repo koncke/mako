@@ -32,19 +32,20 @@ import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
 import { landingsDelWorkspace } from './landing-config-leer';
 import { esPreviewDeEditor } from './landing-paginas';
 import { analizarLanding, marcarAnalisisCortado } from './landing-analyst';
-import { analisisCortado, faltanAnalizar } from './landing-url';
+import { analisisCortado, erroresParaReintentar, faltanAnalizar, leerQuitadas, QUITADAS_KEY } from './landing-url';
+import { getSetting } from './settings';
 
 /** Lo que se reserva para UN análisis: no se arranca uno que no llega a terminar. */
 const RESERVA_MS = 120_000;
 
-export type ResultadoAuto = { declaradas: number; analizadas: string[]; fallidas: string[]; sinTiempo: string[]; cortadas: number };
+export type ResultadoAuto = { declaradas: number; analizadas: string[]; fallidas: string[]; sinTiempo: string[]; cortadas: number; reintentadas: number };
 
 /**
  * Analiza las declaradas que no tienen fila, hasta `deadline` (ms absolutos).
  * Corre en el workspace del contexto.
  */
 export async function asegurarAnalisisDeDeclaradas(opts: { deadline?: number } = {}): Promise<ResultadoAuto> {
-  const r: ResultadoAuto = { declaradas: 0, analizadas: [], fallidas: [], sinTiempo: [], cortadas: 0 };
+  const r: ResultadoAuto = { declaradas: 0, analizadas: [], fallidas: [], sinTiempo: [], cortadas: 0, reintentadas: 0 };
   const declaradas = (await landingsDelWorkspace()).map((l) => l.url).filter((u) => !esPreviewDeEditor(u));
   r.declaradas = declaradas.length;
 
@@ -64,7 +65,10 @@ export async function asegurarAnalisisDeDeclaradas(opts: { deadline?: number } =
     }
   }
 
-  for (const url of faltanAnalizar(declaradas, filas.map((f) => f.url))) {
+  // Las que la persona quitó de Landing Analyst no se analizan solas (lib/landing-url.ts, `QUITADAS_KEY`).
+  const quitadas = leerQuitadas(await getSetting(QUITADAS_KEY));
+
+  for (const url of faltanAnalizar(declaradas, filas.map((f) => f.url), quitadas)) {
     if (opts.deadline && Date.now() + RESERVA_MS > opts.deadline) { r.sinTiempo.push(url); continue; }
     // El reclamo: sólo quien inserta la fila pendiente sigue.
     const { data: tomada, error: eReclamo } = await db
@@ -79,6 +83,27 @@ export async function asegurarAnalisisDeDeclaradas(opts: { deadline?: number } =
       // Un throw inesperado no puede dejar la fila en `pendiente` para siempre.
       await marcarAnalisisCortado(url, err instanceof Error ? err.message : String(err)).catch(() => {});
       r.fallidas.push(url);
+    }
+  }
+
+  // Las declaradas que quedaron en ERROR, una vez por día y con tope por corrida (`erroresParaReintentar`): sin esto
+  // una portada en error lo estaba para siempre (la del ws1 desde el 20/09). El reclamo es un compare-and-set sobre
+  // la fila: sólo quien la pasa de `error` a `pendiente` con el MISMO `updated_at` que leyó la analiza.
+  for (const f of erroresParaReintentar(declaradas, filas, ahora, quitadas)) {
+    if (opts.deadline && Date.now() + RESERVA_MS > opts.deadline) { r.sinTiempo.push(f.url); continue; }
+    const { data: tomada, error: eReclamo } = await db
+      .from('landing_analyses')
+      .update({ status: 'pendiente', updated_at: new Date().toISOString() })
+      .eq('url', f.url).eq('status', 'error').eq('updated_at', f.updated_at as string)
+      .select('url');
+    if (eReclamo || !tomada?.length) continue;
+    r.reintentadas++;
+    try {
+      const res = await analizarLanding(f.url, undefined, { origen: 'auto' });
+      (res.ok ? r.analizadas : r.fallidas).push(f.url);
+    } catch (err) {
+      await marcarAnalisisCortado(f.url, err instanceof Error ? err.message : String(err)).catch(() => {});
+      r.fallidas.push(f.url);
     }
   }
   return r;

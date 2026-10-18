@@ -169,12 +169,14 @@ test('/m apaga el cromo de escritorio sin volverse público', () => {
 });
 
 test('el título de la pestaña en /m usa los nombres de la barra', () => {
-  assert.equal(tituloDe('/m/hoy'), 'MaKo - General');
+  // El lugar del medio se llama Dashboard desde el 17/10/2026 noche (abre la misma portada).
+  assert.equal(tituloDe('/m/hoy'), 'MaKo - Dashboard');
   assert.equal(tituloDe('/m/chats'), 'MaKo - Chats');
   assert.equal(tituloDe('/m/inbox'), 'MaKo - Avisos', 'la campana se titula Avisos (prototipo v3), como su cabecera');
-  assert.equal(tituloDe('/m/second-brain'), 'MaKo - Second Brain', 'el nombre de la sidebar (el chat con MaKo es el Second Brain), con la marca adelante');
+  // «Ops Center» desde el 18/10/2026: la fila de cada negocio se llama así (nav.ts → MAKO_NAV).
+  assert.equal(tituloDe('/m/second-brain'), 'MaKo - Ops Center', 'el nombre de la sidebar, con la marca adelante');
   assert.equal(tituloDe('/m/crm/12'), 'MaKo - CRM');
-  assert.equal(tituloDe('/m/cuenta'), 'MaKo - Tu cuenta');
+  assert.equal(tituloDe('/m/cuenta'), 'MaKo - My Profile');
   assert.equal(tituloDe('/m'), 'MaKo');
 });
 
@@ -193,26 +195,29 @@ test('el manifest abre el repartidor y conserva la identidad', () => {
 test('la cabecera por defecto: título en la raíz, volver fijo en la subpantalla', () => {
   const t = (titulo: string, padre: { href: string; label: string } | null, trabajo = false, conBarra = true) => ({ titulo, padre, trabajo, conBarra });
   // Las raíces de la barra: el nombre, sin volver.
-  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('General', null));
+  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('Dashboard', null));
   assert.deepEqual(cabeceraPorRuta('/m/crm'), t('CRM', null));
   assert.deepEqual(cabeceraPorRuta('/m/chats'), t('Chats', null));
   // Inbox dejó la barra (v3): es la campana de General, se titula Avisos y vuelve a General.
   // Probado rompiéndolo (15/10/2026): TITULO_INBOX = 'Inbox' → 14 / 2 (pestaña y cabecera); el atajo del
   // manifest con 'Inbox' → 15 / 1. Base 16 / 0.
-  assert.deepEqual(cabeceraPorRuta('/m/inbox'), t('Avisos', { href: '/m/hoy', label: 'General' }));
+  assert.deepEqual(cabeceraPorRuta('/m/inbox'), t('Avisos', { href: '/m/hoy', label: 'Dashboard' }));
   assert.deepEqual(cabeceraPorRuta('/m/mas'), t('More', null));
   // Una subpantalla vuelve a su raíz; el título lo pone la página.
   assert.deepEqual(cabeceraPorRuta('/m/crm/12'), t('', { href: '/m/crm', label: 'CRM' }));
   // Las secciones de More vuelven a More; sus subpantallas, a la sección.
   assert.deepEqual(cabeceraPorRuta('/m/dashboard'), t('Dashboard', { href: '/m/mas', label: 'More' }));
-  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Clientes', { href: '/m/mas', label: 'More' }));
+  // «Clients» desde el 17/10/2026 (la sidebar nueva: los nombres de las tabs en inglés).
+  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Clients', { href: '/m/mas', label: 'More' }));
   assert.deepEqual(cabeceraPorRuta('/m/ads/9'), t('', { href: '/m/ads', label: 'Ads Manager' }));
   // La cuenta es la primera fila de More.
-  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('Tu cuenta', { href: '/m/mas', label: 'More' }));
-  assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'Tu cuenta' }));
-  assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'General' }));
+  // «My Profile» desde el 17/10/2026 noche (lib/ajustes-secciones.ts, en inglés como las tabs).
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('My Profile', { href: '/m/mas', label: 'More' }));
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'My Profile' }));
+  assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'Dashboard' }));
   // Pantallas de trabajo: sin título grande y sin barra de abajo.
-  assert.deepEqual(cabeceraPorRuta('/m/second-brain'), t('Second Brain', { href: '/m/mas', label: 'More' }, true, false));
+  // «Ops Center» desde el 18/10/2026 (la fila del negocio se llama así: nav.ts → MAKO_NAV).
+  assert.deepEqual(cabeceraPorRuta('/m/second-brain'), t('Ops Center', { href: '/m/mas', label: 'More' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/landing/3'), t('', { href: '/m/landing', label: 'Web Generator' }, true, false));
   assert.equal(esTrabajo('/m/video'), false, 'la LISTA de videos es una sección normal');
@@ -223,8 +228,9 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.equal(llevaBarra('/m/hoy'), true);
   assert.equal(llevaBarra('/m/video/7'), false);
   // Una sección que subió a la barra es una raíz: sin volver y CON barra (aunque sea de trabajo).
-  assert.deepEqual(cabeceraPorRuta('/m/second-brain', barraMovil('setter', 'pm')), t('Second Brain', null, true, true));
-  assert.deepEqual(cabeceraPorRuta('/m/dashboard', barraMovil('admin', 'pm')), t('Dashboard', null));
+  assert.deepEqual(cabeceraPorRuta('/m/second-brain', barraMovil('setter', 'pm')), t('Ops Center', null, true, true));
+  // (Desde el 17/10/2026 noche lo que sube en la capa pm es Calendar: las hojas del Dashboard son del lugar del medio.)
+  assert.deepEqual(cabeceraPorRuta('/m/calendario', barraMovil('admin', 'pm')), t('Calendar', null));
 });
 
 test('el nivel de una pantalla: ir más adentro desliza; cambiar de tab y volver, no', () => {
@@ -240,8 +246,9 @@ test('el nivel de una pantalla: ir más adentro desliza; cambiar de tab y volver
   assert.equal(nivel('/m/video/7'), 2);
   assert.equal(nivel('/m/cuenta/instalar'), 2);
   // Subida a la barra, una sección es raíz.
-  assert.equal(nivel('/m/dashboard', barraMovil('admin', 'pm')), 0);
-  assert.equal(nivel('/m/dashboard/x', barraMovil('admin', 'pm')), 1);
+  // (Desde el 17/10/2026 noche lo que sube en la capa pm es Calendar: las hojas del Dashboard son del lugar del medio.)
+  assert.equal(nivel('/m/calendario', barraMovil('admin', 'pm')), 0);
+  assert.equal(nivel('/m/calendario/x', barraMovil('admin', 'pm')), 1);
 });
 
 test('el «volver» corto: un padre largo pasa a «Atrás» (el nombre entero va en el aria-label)', () => {
@@ -311,11 +318,14 @@ test('nadie en /m navega con next/link ni pregunta startsWith(\'/m\')', () => {
 // Probado rompiéndolo: sin el `ctx.sesion.rol === 'admin'` delante de la fila → 14 / 1.
 // Desde el 15/10/2026 la sección también se apaga mientras el super admin MIRA a un cliente
 // (`!ctx.impersonando`, como el Sidebar), y lleva además el Centro de Operaciones.
-test('More: «Ticketera» (el mazo de decisiones) sólo para el super admin, y fuera de SECCIONES_MAS', () => {
+// ⚠️ Desde el 17/10/2026 la puerta es el OPS CENTER, arriba de More con su criatura (como en la sidebar): la Ticketera
+// vive adentro del Centro desde el 16/10, y la caja «Super admin» del final se fue con la familia Admin de escritorio.
+test('More: el Ops Center (con la Ticketera adentro) sólo para el super admin, y fuera de SECCIONES_MAS', () => {
   const mas = leer('app/m/mas/page.tsx').replace(/\/\/.*$/gm, '');
-  assert.match(mas, /ctx\.sesion\.rol === 'admin' && !ctx\.impersonando && \(\s*<SeccionM titulo="Super admin">[\s\S]*?titulo="Ticketera" href=\{RUTA_TICKETERA\}/,
+  assert.match(mas, /const veOpsCenter = ctx\.sesion\.rol === 'admin' && !ctx\.impersonando;/,
     'la fila va detrás de la pregunta de super admin (la misma de getSesionAdmin), sin mirar a un cliente');
-  assert.match(mas, /const RUTA_TICKETERA = '\/m\/operaciones\?ticketera=tarjetas'/, 'un atajo a la Ticketera adentro del Centro (16/10/2026)');
+  assert.match(mas, /\{veOpsCenter && <FilaM navegacion leading=\{criatura\('Ops Center', true\)\} titulo="Ops Center" href=\{RUTA_CENTRO\} \/>\}/);
+  assert.match(mas, /const RUTA_CENTRO = '\/m\/operaciones'/, 'el Centro, con la Ticketera adentro (16/10/2026)');
   // No es una tab del negocio: si estuviera en SECCIONES_MAS podría subir a la barra de un rol.
   assert.doesNotMatch(leer('lib/movil-rutas.ts'), /id: 'decisiones'/);
 });

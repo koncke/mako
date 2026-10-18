@@ -5599,10 +5599,20 @@ Lo que no se ve leyendo el código:
   nombran «customer-success» en su nombre: la batería «de lo que cambió» elegida por nombre de archivo no los agarró.
   Se eligen por CONTENIDO (`git grep -l <la carpeta> -- 'tests/*.test.ts'`).
 
+- **El código de agencia que quedó dormido en la tarjeta y la ficha se BORRÓ, no se dejó apagado** (`CuentaDeMaKo.tsx`,
+  la tab Equipo, el chip del plan, «Reenviar el acceso», «Nadie puede entrar todavía», el filtro «Con/Sin cuenta»).
+  Antes de borrar, lo que hacía y Partners todavía no tenía se mudó allá («Reenviar el acceso», «Nadie puede entrar»).
+  Un flag dormido (`cuentas.visible`) es una puerta que alguien vuelve a abrir pasando una prop.
+  `tests/cs-tarjeta-cuentas.test.ts` fija las dos mitades: que no vuelva, y que lo de Partners esté.
+- **⚠️ Comillas invertidas en un comentario adentro del CSS de un componente lo rompen**: el CSS va en un template
+  literal (`` const CSS = `…` ``), y una comilla invertida en un comentario `/* … */` cierra el string. Ningún test lo vio
+  (los de esta tab leen el fuente con regex, no lo compilan) y el tsc no entraba en RAM: lo cazó un chequeo de sintaxis
+  con `ts.createSourceFile` sobre los archivos tocados (segundos, sin RAM).
+- **⚠️ Restaurar una rotura de test con `git checkout -- <archivo>` se lleva lo que no está commiteado.** Pasó acá: la
+  rotura de `app/m/curso/page.tsx` se «restauró» al commit anterior y se fue el trío recién puesto (lo cazó el test, se
+  rehízo). Cada rotura se restaura de una COPIA hecha antes (tests/cs-tarjeta-cuentas.test.ts ya lo decía).
+
 **Lo que quedó SIN hacer, con su archivo:**
-- **Código dormido en la tarjeta y la ficha** (`CuentaDeMaKo`, la tab Equipo, el chip del plan, «Nadie puede entrar»):
-  cuelga de `cuentas.visible`, que ya no llega. Se borra con la T3 del CRM, que rearma la ficha
-  (`app/customer-success/ClienteCard.tsx`, `FichaCliente.tsx`, `CuentaDeMaKo.tsx`, `KanbanEntrega.tsx`).
 - **La barra**: la ordena el chat Sidebar (`app/_components/nav.ts`: Clients en Operate, MaKo Partners sólo agencia) y
   el «← Regresar a Clientes» de `Sidebar.tsx`. Con eso, las keys `cs-curso`/`cs-comunidad` y sus tests
   (`tests/comunidad-nav.test.ts`, `tests/curso-admin.test.ts`) y la lista de More del teléfono (`SECCIONES_MAS`, una
@@ -5614,3 +5624,67 @@ Lo que no se ve leyendo el código:
 - **Nada se miró en el navegador**: la extensión de Chrome no estaba conectada y la PC sin RAM para `next dev`. Lo
   primero cuando esté en producción: `/clients?ws=3` (las siete sub-tabs, «Personalizar», el Classroom embebido) en
   escritorio y a 820 px.
+
+## Los pendientes de Customer Success y Cursos del 17/10 (chat «Pendientes B2») (17/10/2026)
+
+**1. La tab Pagos del cliente es la del CRM, en bloques.** Montaba DealDetailsCard: «Pagado por completo» en una
+mensualidad ACTIVA y en verde una renovación rechazada. Ahora es el armador del CRM con la plantilla FIJA de CS
+(`listaFijaDeCs('cs-pagos')`), leyendo `getLeadFullAction` como la ficha del CRM (app/customer-success/PagosCliente.tsx).
+Con eso se borraron DealDetailsCard, EditarDeal, `?edit=1` (y su «✦ Completar con IA», roto en 2 de 3 entradas),
+`saveDealSectionsAction` y `saveCuotasAction`. El «Completar con IA» del wizard de Ganado queda.
+- ⚠️ **La plantilla de CS pone servicio, promesa y obligaciones en el RESUMEN**, que no está en bloques: se perdían de la
+  ficha al sacar la tarjeta vieja. El Resumen de CS suma debajo esos bloques (`DealCliente`), sin repetir el contacto ni
+  las notas que dibuja su tarjeta de siempre.
+- ⚠️ **La plantilla de CS no trae `venta`** (docs/diseno-ficha-bloques.md §4: «CS le cobra a alguien que ya compró»), así
+  que quitar «Sin cobro» se hace desde la ficha del CRM.
+
+**2. «Sacarle este curso» del acceso** (`productosTrasQuitar`): un acceso en `null` (todos sus productos) pasa a la lista
+de los suyos menos ése; el último no se saca por acá (eso es «Cortar acceso»).
+
+**3. La purga del curso se PRENDIÓ después de medirla.** Modo prueba en producción (17/10, sólo lectura, la misma regla):
+`curso-videos` 0 archivos, `curso-notas` 0, `curso-adjuntos` 2 (los dos en uso), `comunidad-adjuntos` 0 → cero huérfanos.
+El cron borra por default; `?borrar=0` o `CURSO_PURGA_BORRAR=0` vuelven al modo prueba. Y `curso-entregas` (voces y caras
+grabadas, mig 0218) entra a la purga: sus rutas viven en `valores` Y `valores_ia` de `curso_progreso`, y la segunda
+pregunta relee la tabla (un jsonb no admite el `.in`). Lo de una clase o un lead borrados se barre solo: sus filas de
+`curso_progreso` se van en CASCADA (medido: las tres FK lo son), el archivo no.
+
+**4. Las llamadas de entrega SÍ se analizan** (el pendiente venía del 07/10, con Gemini dando 503): `closing_analyses` tiene
+193 en `analysis_version = 3`, todos los días desde el 07/10, con riesgos y próximos pasos (la última, 17/10 04:53).
+⚠️ **10 llamadas quedaron en `error` sin reintento** (ws1, ws9, ws11, del 05 al 12/10) por «Your credit balance is too low»
+de Anthropic al clasificarlas: siguen `sin_clasificar`. Reintentarlas gasta crédito: no se hizo (el default es no reintentar).
+
+**5. La invitación al curso al ganar en un SEGUNDO producto: medido, no sale.** Dos guardas: el núcleo exige que la CASA
+del lead esté ganada (`estado_lead`) y que sea cliente de ese producto (una fila de `cliente_entrega`, que nadie escribe al
+ganar en un producto agregado). Y hoy no le pasa a nadie: ningún negocio tiene prendido el curso al ganar
+(`app_settings` sin `crm.curso_al_ganar`). Arreglarlo depende de la decisión abierta §5.1 del relevo del CRM (ganar en un
+producto agregado no marca ganado al lead), que mueve Revenue y el CAPI: no se tomó acá.
+
+**6. La vista previa del «Comentar» sin post elegido** dice cuál es (el último fijado), que el server de la vista previa le
+pone (`conPostDeComentar`): no hay token del alumno para preguntarlo.
+
+**Lo que quedó SIN hacer:** la llamada del curso leída de Calendly (crear sesiones solas dispara el aviso del cron
+`curso-sesiones` a clientes reales: hace falta decidir qué evento es la llamada de entrega); importar cursos de Skool o
+Hotmart (Skool no tiene API de contenido; Hotmart pide credenciales del productor); reordenar el curso con el dedo (un
+gesto se verifica en un navegador, y no hubo); las imágenes huérfanas de un borrador y la portada de un módulo vinculado
+que se borra (cosméticas, sin datos para probar el borrado); el recorrido en el ws3. El toggle «Etapa del kanban» YA
+pregunta a dónde van los clientes desde el 08/10 (QuitarEtapa): falta probarlo en la app.
+
+**Vive en:** app/customer-success/PagosCliente.tsx · app/customer-success/FichaPestanas.tsx ·
+app/crm/lead-view/ficha/reglas-cs.ts · lib/curso-invitar-reglas.ts · lib/curso-datos.ts (`quitarCursoDelAcceso`) ·
+app/customer-success/FichaCurso.tsx · lib/curso-purga.ts · app/customer-success/curso/reglas.ts (`pideBorrarPurga`) ·
+lib/curso.ts (`conPostDeComentar`) · app/customer-success/curso/vista/pantalla.tsx · tests: cs-ficha-resumen,
+curso-sacar-un-curso, curso-purga-entregas, curso-grabar-notas, curso-vista-previa-comentar ·
+*17/10/2026, chat «Pendientes B2: CRM y clientes» (claude4).*
+
+## La tarjeta de un cliente en la familia: la barra de la etapa y el aviso en rojo (17/10/2026)
+
+- **El aviso, el más urgente primero** (`avanceDeCliente`, app/customer-success/aviso-tarjeta.ts, puro y con test):
+  «Sin entrar al curso» (invitado y nunca entró: rojo; entró pero hace más de 14 días: amarillo) y después «N días sin
+  moverse». Computadora y teléfono usan la MISMA función.
+- **«Pago fallido» del prototipo NO está:** el estado del cobro de cada cliente no llega al tablero (leerlo es una
+  lectura por cliente). Si se suma, que sea una lectura en lote al armar la pantalla, y entra primero en el orden.
+- **La barra es la etapa del servicio** (la 2 de 5), no el avance del curso: es lo que el tablero de la entrega mira.
+- Los números del tablero de trabajo (proyectos, tareas, recurrentes) quedaron en un chip; «los tres o ninguno» sigue.
+
+**Sin hacer:** «Pago fallido»; la foto en el teléfono (`ClienteCs` no trae `avatar_url`); la vista Tabla y Avance.
+**Vive en:** app/customer-success/ClienteCard.tsx y KanbanEntrega.tsx · app/m/cs/CustomerSuccessM.tsx · *17/10/2026 noche, chat «CRM» (claude4).*

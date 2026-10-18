@@ -9,3 +9,25 @@
 .m-mas-compu { margin-top: 22px; }
 .m-mas-compu .m-fila__t,
 .m-mas-compu .m-icono { color: var(--dim); }
+
+/* LA CARA (17/10/2026 noche): la foto con el lápiz en la esquina (prototipo de coherencia: «lápiz para editarla»; el
+   lápiz no es un botón aparte: toda la fila abre My Profile, donde se cambia). */
+.m-mas-cara { position: relative; display: grid; }
+.m-mas-cara__lapiz {
+  position: absolute; right: -2px; bottom: -2px; width: 20px; height: 20px; border-radius: 999px;
+  display: grid; place-items: center; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border-strong);
+}
+
+/* EL COLOR DE LA SECCIÓN (17/10/2026 noche, «un color, un significado»): el ícono de cada fila, sobre su chip. Azul lo
+   diario, verde Sales, violeta Marketing, turquesa Create, gris los ajustes. Lo que se abre en la computadora sigue
+   en gris (la regla de .m-fila--compu, que va después y gana). */
+.m-mas-sec[data-sec="diario"] .m-icono { background: var(--sec-diario-bg); color: var(--sec-diario); border-color: transparent; }
+.m-mas-sec[data-sec="sales"] .m-icono { background: var(--sec-sales-bg); color: var(--sec-sales); border-color: transparent; }
+.m-mas-sec[data-sec="marketing"] .m-icono { background: var(--sec-marketing-bg); color: var(--sec-marketing); border-color: transparent; }
+.m-mas-sec[data-sec="create"] .m-icono { background: var(--sec-create-bg); color: var(--sec-create); border-color: transparent; }
+.m-mas-sec[data-sec="ajustes"] .m-icono { background: var(--sec-ajustes-bg); color: var(--sec-ajustes); border-color: transparent; }
+.m-mas-sec .m-fila--compu .m-icono { background: var(--surface-2); color: var(--dim); border-color: var(--border); }
+
+/* Cuántas filas tiene un desplegable («Coming soon»): gris, como el riel de un conteo. */
+.m-mas-n { font-size: 15px; color: var(--dim); font-variant-numeric: tabular-nums; }

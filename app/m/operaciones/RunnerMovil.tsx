@@ -13,52 +13,34 @@
 // la hidratación tienen que decir lo mismo.
 
 import { FilaM, ListaM, PildoraM, SeccionM, VacioM } from '@/app/m/_ui';
-import { carteroVivo } from '@/lib/operaciones-reglas';
-import { nombreCuenta, type CarteroP } from '@/lib/centro-chats';
+import type { CarteroP } from '@/lib/centro-chats';
 import type { ClaveDispositivo } from '@/app/admin/operaciones/clave-dispositivo';
-import { ListaUso } from '@/app/admin/operaciones/Uso';
+import { ListaUso, type CuentaUso, type RenombrarCuenta } from '@/app/admin/operaciones/Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
 
-export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave }: {
+export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave, cuentas, onRenombrar }: {
   carteros: CarteroP[] | null;
+  /** Las cuentas del Uso con su nombre y su email (la G); sin esto, las de los Runners con «Cuenta N». */
+  cuentas?: readonly CuentaUso[];
+  onRenombrar?: RenombrarCuenta;
   clave: ClaveDispositivo | null | undefined;
   ahora: number;
   onCrearClave: () => void;
   onCopiarClave: () => void;
 }) {
   const aceptada = !!clave && (carteros ?? []).some((k) => (k.claves ?? []).includes(clave.id));
-  const activos = (carteros ?? []).filter((k) => carteroVivo(k, ahora)).length;
   return (
     <>
       {/* El Uso de las CUATRO cuentas, lo primero (Martín: «Falta el poder visualizar el USO», «Tampoco sale el uso de las
           otras 2 cuentas»): la misma pieza que la computadora; la cuenta sin Runner sale igual, diciendo «Sin Runner todavía». */}
       {carteros && (
         <SeccionM titulo="Uso">
-          <ListaUso cuentas={cuentasDeUso(carteros)} ahora={ahora} />
+          <ListaUso cuentas={cuentas ?? cuentasDeUso(carteros)} ahora={ahora} onRenombrar={onRenombrar} />
         </SeccionM>
       )}
-      {/* La sección dice el número, como la cabecera de la computadora. */}
-      <SeccionM titulo={carteros?.length ? `${activos} de ${carteros.length} activos` : 'Runners'}>
-        {!carteros ? <VacioM frase="No pude leer los Runners: reintenta en un momento." /> : carteros.length ? (
-          <ListaM etiqueta="Runners">
-            {carteros.map((k) => {
-              const vivo = carteroVivo(k, ahora);
-              const abiertos = k.chats.filter((c) => c.vivo).length;
-              return (
-                <FilaM
-                  key={k.cuenta}
-                  icono="config"
-                  titulo={nombreCuenta(k.cuenta) ?? k.cuenta}
-                  segunda={vivo
-                    ? `${abiertos} ${abiertos === 1 ? 'chat abierto' : 'chats abiertos'}`
-                    : 'Abre su Runner en la PC para conectarlo'}
-                  pill={<PildoraM tono={vivo ? 'good' : 'bad'}>{vivo ? 'Activo' : 'Sin conexión'}</PildoraM>}
-                />
-              );
-            })}
-          </ListaM>
-        ) : <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />}
-      </SeccionM>
+      {!carteros && <VacioM frase="No pude leer el Uso: reintenta en un momento." />}
+      {/* Sin la sección «N de N activos» desde el 17/10/2026 (Martín: aparecía duplicado; el número ya está en la fila «Uso y
+          Runners» de arriba, y cada cuenta del Uso dice «Runner activo» o «Runner sin conexión»). */}
       <SeccionM titulo="Este teléfono">
         <ListaM etiqueta="Este teléfono">
           {clave === null && <FilaM icono="config" titulo="Crea tu Token para comenzar a chatear" segunda="Crear Token" onClick={onCrearClave} />}

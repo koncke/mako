@@ -23,7 +23,8 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { enRango, queTableroLeer, fechaTj, host, leer, leerPorIds, lindo, nombres, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
+import { getSupabaseServer } from './supabase';
+import { enRango, queTableroLeer, fechaTj, funnelsAgregados, host, leer, leerPorIds, lindo, nombres, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
 import { LECTORES_EXTRA, noEsDelNegocio } from './graficos-datos-extra';
 export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
@@ -36,6 +37,7 @@ import {
   type Filtro, type Fila, type Resultado,
 } from './graficos-agregar';
 import { ESTADO_COBRADO } from './graficos-acciones';
+import { esCuotaDeBaja, noEsDeuda } from './cobrado-lead';
 import { ubicarLeads } from './funnels-elegidos-server';
 import { faltaColumnaFunnel, funnelDelMomento } from './funnels-elegidos';
 import { diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, gano, rotuloMadurez, tramosDelCiclo } from './graficos-datos-puro';
@@ -222,7 +224,13 @@ async function madurezDeCohortes(): Promise<{ semana: Map<string, string>; mes: 
  */
 async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
   const [rows, rot, madurez] = await Promise.all([leadsCrudos(fecha, rg), rotulosDelCrm(), madurezDeCohortes()]);
+  // DÓNDE MÁS ESTÁ CADA LEAD (17/10/2026): sin esto, una hoja filtrada por un funnel de agregados salía vacía.
+  const agregados = await funnelsAgregados(rows.map((x) => Number(x.id)), rot.producto);
   return rows.map((x) => {
+    // Sólo los funnels en los que YA estaba el día de esta fila (revisión de B5, la regla de lib/funnels-elegidos.ts): una alta
+    // o una agenda de antes de que se lo agregara a «Renovación» no es de «Renovación». Sin fecha, ninguno.
+    const fila = fecha === 'agenda' ? fechaTj(x.fecha_junta_1) : fecha === 'cierre' ? fechaTj(x.fecha_cierre) : fechaTj(x.created_at);
+    const tambien = fila ? (agregados.get(Number(x.id)) ?? []).filter((a) => a.nombre !== rot.producto(x.funnel_id) && !!a.desde && a.desde <= fila).map((a) => a.nombre) : [];
     const ciclo = diasEntre(x.fecha_agenda, x.fecha_primer_pago);
     const vendio = gano(x);
     const cicloCierre = vendio ? diasEntre(x.fecha_junta_1, x.fecha_cierre) : null;
@@ -245,6 +253,8 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
         madurez_mes: j1 ? madurez.mes.get(`${j1.slice(0, 7)}-01`) || null : null,
       },
       r: { lead: String(x.id) },
+      // La venta, lo cobrado y el ciclo hasta el pago son de su casa: por un funnel agregado, en 0 (`Fila.soloCasa`).
+      ...(tambien.length ? { m: { producto: tambien }, soloCasa: ['cierres', 'vendido', 'cobrado', 'dias_ciclo', 'con_ciclo', 'dias_ciclo_cierre', 'con_ciclo_cierre'] } : {}),
       v: {
         leads: 1, agendas: x.fecha_junta_1 ? 1 : 0, asistencias: x.asistio_j1 ? 1 : 0, calificados: x.calificado ? 1 : 0,
         limpias: x.asistio_j1 && x.calificado ? 1 : 0,
@@ -277,7 +287,7 @@ async function filasFormularios(rg: Rango): Promise<Fila[]> {
     .filter((x) => enRango(x.f, rg));
 }
 
-type FPago = { id: number; lead_id: number | null; numero: number | null; monto_usd: number | null; fecha_esperada: string | null; pagado: boolean | null; fecha_pago: string | null; funnel_id?: number | null };
+type FPago = { id: number; lead_id: number | null; numero: number | null; monto_usd: number | null; fecha_esperada: string | null; pagado: boolean | null; fecha_pago: string | null; funnel_id?: number | null; proveedor?: string | null; cobro_id?: number | null; baja_at?: string | null };
 /**
  * Las cuotas. La fecha `vencimiento` mira hacia ADELANTE (`futuro`, contrato v5): «Próximos 30 días» trae lo
  * que vence. ⚠️ «Vencido» se decide con el HOY DEL NEGOCIO (su zona, `hoyEnWorkspace`), no con el de
@@ -288,7 +298,9 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
   const col = fecha === 'pago' ? 'fecha_pago' : 'fecha_esperada';
   // Con el funnel que guardó cada pago (#897, mig 0310); sin la columna, la regla de siempre (abajo).
   const leerPagos = (cols: string) => leer<FPago>('pagos', cols, rg, { col, extra: (q) => (fecha === 'pago' ? q.eq('pagado', true) : q) });
-  const rows = await leerPagos('id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago, funnel_id')
+  // `*` y no la lista (17/10/2026): la cuota DEVUELTA o DE BAJA se reconoce por `proveedor`, `cobro_id` y `baja_at` (mig 0307),
+  // y con `*` una base sin la migración no rompe la tabla (la regla de lib/cobrado-lead.ts, `noEsDeuda`).
+  const rows = await leerPagos('*')
     .catch((e: unknown) => { if (faltaColumnaFunnel(e)) return leerPagos('id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago'); throw e; });
   const ids = rows.map((x) => x.lead_id).filter((x): x is number => x != null);
   const [nom, hoy, donde, rot] = await Promise.all([
@@ -306,7 +318,10 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
   return rows.map((x) => {
     const monto = num(x.monto_usd);
     // `ESTADO_COBRADO` es el mismo rótulo que mira la acción «Marcar cobrada» para no ofrecerla dos veces.
-    const estado = x.pagado ? ESTADO_COBRADO : x.fecha_esperada && x.fecha_esperada < hoy ? 'Vencido' : 'Pendiente';
+    // ⚠️ Una cuota DEVUELTA o DE BAJA (impaga y sin vencimiento) no es «Pendiente»: no se le debe a nadie (17/10/2026).
+    const fuera = !x.pagado && noEsDeuda({ ...x, pagado: false });
+    const estado = x.pagado ? ESTADO_COBRADO : fuera ? (esCuotaDeBaja({ pagado: false, baja_at: x.baja_at }) ? 'De baja' : 'Devuelta')
+      : x.fecha_esperada && x.fecha_esperada < hoy ? 'Vencido' : 'Pendiente';
     const lead = x.lead_id != null ? String(x.lead_id) : null;
     // La fecha que manda: la del cobro si se cobró, la del vencimiento si no.
     const cuando = (x.pagado ? x.fecha_pago : null) ?? x.fecha_esperada;
@@ -315,7 +330,7 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
     return {
       f: fecha === 'pago' ? x.fecha_pago : x.fecha_esperada,
       d: { estado, cliente: lead != null ? nom.get(lead) ?? null : null, cuota: x.numero != null ? `Cuota ${x.numero}` : null, producto: funnel != null ? rot.producto(funnel) : null },
-      v: { monto, cobrado: x.pagado ? monto : 0, pendiente: x.pagado ? 0 : monto, pagos: 1 },
+      v: { monto, cobrado: x.pagado ? monto : 0, pendiente: x.pagado || fuera ? 0 : monto, pagos: 1 },
       u: { clientes: lead },
       // Los DOS ids de la MISMA fila: marcarPagoAction no comprueba que la cuota sea de ese lead
       // (relevo de los botones de acción), así que el par nunca se arma en el navegador.
@@ -558,8 +573,8 @@ async function filasArchivero(fecha: string, rg: Rango): Promise<Fila[]> {
 async function filasOnboarding(fecha: string, rg: Rango): Promise<Fila[]> {
   const ws = await getWorkspaceActual();
   if (ws == null) return [];
-  const db = await getTenantDb();
-  const { data, error } = await db.from('app_settings').select('key, value').eq('workspace_id', ws).like('key', 'onboarding.tab.%').limit(500);
+  // `app_settings` no pasa por getTenantDb (está fuera de TENANT_TABLES): el filtro va a mano.
+  const { data, error } = await getSupabaseServer().from('app_settings').select('key, value').eq('workspace_id', ws).like('key', 'onboarding.tab.%').limit(500);
   if (error) throw new Error(`No pude leer el onboarding: ${error.message}`);
   const r2 = { ...rg, sinRango: fecha === 'actual' };
   const out: Fila[] = [];

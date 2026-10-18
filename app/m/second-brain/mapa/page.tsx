@@ -39,7 +39,7 @@ export default async function MapaSecondBrainPagina({ searchParams }: {
     return (
       <PantallaM>
         <ErrorM frase="No pude leer tu Second Brain. No es nada tuyo." />
-        <ComputadoraM que="El grafo entero y Exportar" />
+        <ComputadoraM que="Exportar el Second Brain" />
       </PantallaM>
     );
   }
@@ -47,7 +47,7 @@ export default async function MapaSecondBrainPagina({ searchParams }: {
   return (
     <PantallaM>
       <SecondBrainM cerebro={cerebro} areaInicial={areaDeParam(sp.area)} construccion={construccion} />
-      <ComputadoraM que="El grafo entero y Exportar" />
+      <ComputadoraM que="Exportar el Second Brain" />
     </PantallaM>
   );
 }

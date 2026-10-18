@@ -68,6 +68,9 @@
 .tickets-bandeja__kbd { margin-left: 6px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); font-size: 11px; color: var(--dim); font-family: inherit; }
 .tickets-bandeja__form { display: flex; flex-direction: column; gap: 8px; }
 .tickets-bandeja__confirmar { display: flex; justify-content: flex-end; }
+.tickets-bandeja__avisos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tickets-bandeja__avisos li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.tickets-bandeja__aviso-quien { min-width: 64px; color: var(--dim); font-size: var(--fs-sm); }
 .tickets-bandeja__historial { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-meta); color: var(--dim); }
 .tickets-bandeja__historial strong { color: var(--text); font-weight: 600; }
 
@@ -75,4 +78,13 @@
   .tickets-bandeja__cuerpo--detalle { grid-template-columns: minmax(0, 1fr); }
   .tickets-bandeja__cuerpo--detalle .tickets-bandeja__lista { display: none; }
   .tickets-bandeja__reporte div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+
+/* El teléfono (y la tableta): sin teclado no hay atajos que mostrar, y lo que se toca mide lo de un dedo (--touch). */
+@media (hover: none) {
+  .tickets-bandeja__kbd { display: none; }
+}
+@media (pointer: coarse) {
+  .tickets-bandeja__grupo, .tickets-bandeja__chip { min-height: var(--touch); }
+  .tickets-bandeja__volver { width: var(--touch); height: var(--touch); }
 }

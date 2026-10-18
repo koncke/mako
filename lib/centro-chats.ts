@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, carteroVivo, rutaParaRevisar, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, carteroVivo, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -187,8 +187,10 @@ export function chatsDeBitacoras({ areas, pedidos, ahora, dias = 14 }: {
  * ⚠️ Es la MISMA función para el server y para el refresco de la pantalla: dos copias de «qué estado tiene un
  * chat» se separan en cuanto una cambia.
  */
-export function completarChats(base: readonly ChatCentro[], { carteros, trabajos, ahora, dias = 14 }: {
+export function completarChats(base: readonly ChatCentro[], { carteros, trabajos, ahora, dias = 14, pasos }: {
   carteros: readonly CarteroP[]; trabajos: readonly TrabajoP[]; ahora: number; dias?: number;
+  /** Los pasos en vivo que subió la PC hace segundos (lib/centro-pasos.ts → pasosVigentes), por sesión. */
+  pasos?: Readonly<Record<string, readonly unknown[]>>;
 }): ChatCentro[] {
   const desde = ahora - dias * 86_400_000;
   // Cada vuelta vuelve a decidir el estado y los trabajos: lo que traía la base de antes no cuenta.
@@ -220,6 +222,15 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
       c.sinRunner = ch.vivo && ch.runner === false;
       mover(c, fecha(ch.actividad));
     }
+  }
+
+  // 1b. UN CHAT CON PASOS RECIENTES ESTÁ TRABAJANDO (17/10/2026, Martín: «esta tab está trabajando y no veo que el chat diga
+  //     "trabajando..."»). Medido: el estado ocupado de cada chat llega con la vuelta del Runner, cada ~2 minutos (un chat que
+  //     empezó después de la última vuelta no decía nada, y uno que ya terminó seguía diciendo «Trabajando…»); los pasos llegan
+  //     cada ~15 s y sólo de los chats ocupados. Si subió pasos hace segundos, ES un chat ocupado y su Runner está vivo.
+  for (const [local, lista] of Object.entries(pasos ?? {})) {
+    const c = chats.get(local);
+    if (c && lista.length > 0) { c.estado = 'trabajando'; c.viejo = false; }
   }
 
   // 2. Los trabajos firmados: a la sesión de destino, aunque el cartero no la vea ahora.
@@ -323,6 +334,70 @@ export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
   }
   return out;
 }
+
+/**
+ * ¿Es el chat del Runner? Lo marca la PC (`esRunner`, cartero.mjs → esElCartero) o, sin esa marca (un Runner que ya no sube, o
+ * lo anotado en una bitácora), lo dice su nombre ENTERO: «Runner», «Cartero» o «Centro de Operaciones › Runner». Por nombre
+ * sólo el exacto: «Offer › Runner de pruebas» es un sub-chat de Offer.
+ */
+export const esChatDelRunner = (c: Pick<ChatCentro, 'titulo' | 'esRunner'>): boolean =>
+  c.esRunner === true || /^(centro de operaciones\s*[›>]\s*)?(runner|cartero)$/i.test(c.titulo.trim());
+
+/**
+ * Los chats que se ven en el Ops Center: sin el Runner (Martín, 17/10/2026, 19:33: «El chat de "Runner" no tiene sentido que
+ * esté visible en el Center»). El Runner sigue trabajando por detrás y su estado está en «Uso y Runners». `completarChats` lo
+ * sigue devolviendo (con `esRunner`: la PC lo sube marcado y de ahí sale que no se le entrega nada); lo saca la pantalla.
+ */
+export const sinElRunner = <T extends Pick<ChatCentro, 'titulo' | 'esRunner'>>(chats: readonly T[]): T[] =>
+  chats.filter((c) => !esChatDelRunner(c));
+
+/**
+ * Lo que se sabe de un chat para dibujar su FILA: sus turnos completos si se abrió (`turnos`), y si no lo último que trajo el
+ * refresco de todos (`ultimos`, por sesión; lib/operaciones-reglas.ts → `resumirTurnos`). Sin esto un «Ya está» sólo avisaba en
+ * los chats abiertos antes en esa pantalla (17/10/2026). ⚠️ `miradoAhora`: el chat que se está mirando NUNCA usa lo recortado
+ * (su conversación esperaría los turnos enteros con un texto cortado): sin los suyos todavía, no hay nada.
+ */
+export function turnosParaLaLista(
+  c: Pick<ChatCentro, 'clave' | 'miembros'>, turnos: Readonly<Record<string, readonly TurnoChat[]>>,
+  ultimos: Readonly<Record<string, readonly TurnoChat[]>>, miradoAhora: boolean,
+): readonly TurnoChat[] | undefined {
+  if (turnos[c.clave]) return turnos[c.clave];
+  if (miradoAhora) return undefined;
+  const lista = c.miembros.flatMap((m) => ultimos[m] ?? []);
+  return lista.length ? unirTurnos([], lista) : undefined;
+}
+
+// ── «MaKo en WhatsApp», el vigía: un cron que cada rato dice «Sin incidentes nuevos» (Martín, 17/10/2026) ─────────────────
+// «No debería verse entre los chats... es como un CRON que revisa problemas... cada rato envía "Sin incidentes nuevos", no es
+// necesario». Se esconde de la lista mientras está callado (como el Runner), sin avisar ni subir. Un incidente de verdad —su
+// último turno ya no es «Sin incidentes nuevos»— lo hace aparecer y AVISAR como «Espera tu respuesta». Es el chat jefe de la
+// vigilancia de los grupos de los clientes (memoria: vigía de MaKo en WhatsApp): por eso no se borra, se calla.
+/** ¿Es el chat del vigía? Su nombre ENTERO: «MaKo en WhatsApp › algo» es un sub-chat con trabajo real. */
+export const esChatVigia = (c: Pick<ChatCentro, 'titulo'>): boolean => /^mako en whatsapp$/i.test(c.titulo.trim());
+
+/** ¿Este texto es el «todo en orden» del vigía? Sólo eso, con o sin punto, negrita o ✅ (no «Sin incidentes nuevos, pero…»). */
+export const esSinIncidentes = (texto: string): boolean => /^[\s*_.\-–—✅✔·]*sin incidentes nuevos[\s.!*_]*$/i.test(texto.trim());
+
+/**
+ * El incidente de verdad que dejó el vigía: su turno MÁS NUEVO (del chat, no lo que le escriben) si no es «Sin incidentes
+ * nuevos». null = está callado (o todavía no se sabe nada de él).
+ */
+export function incidenteDelVigia(turnos: readonly TurnoChat[] | undefined): TurnoChat | null {
+  const suyos = (turnos ?? []).filter((t) => t.rol === 'el');
+  const ultimo = suyos.reduce<TurnoChat | null>((m, t) => (!m || Date.parse(t.at) >= Date.parse(m.at) ? t : m), null);
+  return ultimo && !esSinIncidentes(ultimo.texto) ? ultimo : null;
+}
+
+/** ¿Se esconde este chat de la lista? Sólo el vigía callado, sin nada que espere, y nunca el que se está mirando. */
+export const vigiaCallado = (c: Pick<ChatCentro, 'titulo'>, turnos: readonly TurnoChat[] | undefined, espera: number, miradoAhora: boolean): boolean =>
+  esChatVigia(c) && espera === 0 && !miradoAhora && incidenteDelVigia(turnos) == null;
+
+/** ¿Trae un incidente que este dispositivo no vio? Cuenta como una respuesta que espera (`avisosDe`): mismo globito y renglón. */
+export const incidenteSinVer = (c: Pick<ChatCentro, 'titulo'>, turnos: readonly TurnoChat[] | undefined, vistoEn: number): boolean => {
+  if (!esChatVigia(c)) return false;
+  const i = incidenteDelVigia(turnos);
+  return i != null && Date.parse(i.at) > vistoEn;
+};
 
 /** El chat de una clave: la suya, o la de una de sus sesiones (un link viejo con `?chat=<sesión>` sigue abriendo). */
 export const chatDeClave = (chats: readonly ChatCentro[], clave: string | null) =>
@@ -485,12 +560,68 @@ export function historialDelChat(
  * El segundo renglón de una fila de la lista, como en WhatsApp y Linear: lo ÚLTIMO que pasó en ese chat. Si es
  * un trabajo propio, con su tick; si es lo que pidió Martín por otro lado, con «Tú:». null = nada todavía.
  */
-export type VistaPrevia = { texto: string; propio: boolean; tick: EstadoPedido | null; instante: number };
+/** `ya`: lo último es un «Ya está» del chat (17/10/2026, Martín: «un aviso en la tarjeta del chat cuando trae un "Ya está"»).
+ *  Su texto va sin el «Ya está» de adelante: la fila lo dibuja con su sello «Completado». */
+export type VistaPrevia = { texto: string; propio: boolean; tick: EstadoPedido | null; instante: number; ya?: true };
+
+/**
+ * Qué dice el segundo renglón de la fila de un chat, en este orden, en la computadora y en el teléfono: en qué trabaja, que
+ * espera una respuesta, que trae un «Completado» sin ver (`revisar`), el borrador sin mandar («Borrador: …», como WhatsApp,
+ * 17/10/2026), un «Completado» ya visto, o lo último. null = la fila va de un renglón.
+ *
+ * ⚠️ `revisar` es el MISMO aviso que `espera` (Martín, 17/10/2026, 19:33: «Cuando tengo algo pendiente que revisar de
+ * "Completado" la misma notif de "Espera tu respuesta"»): mismo lugar, mismo estilo y el mismo globito en la criatura
+ * (`avisosDe`). Desaparece cuando se abre el chat (`avisaYaEsta`).
+ */
+export type SegundoRenglon = 'vivo' | 'espera' | 'revisar' | 'borrador' | 'ya' | 'previa' | null;
+export function segundoRenglon(
+  c: Pick<ChatCentro, 'estado' | 'viejo'>, espera: number, borrador: string | null | undefined, p: VistaPrevia | null | undefined,
+  /** Su «Completado» llegó y este dispositivo todavía no lo vio (`avisaYaEsta`). */
+  sinVer = false,
+): SegundoRenglon {
+  if (c.estado === 'trabajando' && !c.viejo) return 'vivo';
+  if (espera > 0) return 'espera';
+  if (sinVer && p?.ya) return 'revisar';
+  if (borrador) return 'borrador';
+  if (!p) return null;
+  return p.ya ? 'ya' : 'previa';
+}
+
+/**
+ * Cuánto avisa un chat en su fila (el globito de la criatura y el orden de la lista): las tarjetas y preguntas que esperan
+ * una respuesta, más UNO si trae un «Completado» sin ver. Es el mismo aviso: lo que está esperando a Martín.
+ */
+export const avisosDe = (esperas: number, yaSinVer: boolean): number => esperas + (yaSinVer ? 1 : 0);
+
+/** Lo que este dispositivo ya vio de cada chat: `desde` = la primera vez que abrió el Ops Center; `chats` = cuándo abrió cada uno. */
+export type VistosDeChats = { desde: number; chats: Record<string, number> };
+
+/** ¿La fila de este chat avisa su «Ya está»? Sólo si lo último es un «Ya está» que llegó después de la última vez que se abrió
+ *  el chat (o, si nunca se abrió, después de `desde`). Sin saber qué se vio (`vistos` null, antes de leer), no avisa. */
+export function avisaYaEsta(p: VistaPrevia | null | undefined, vistos: VistosDeChats | null, clave: string): boolean {
+  if (!p?.ya || !vistos) return false;
+  return p.instante > (vistos.chats[clave] ?? vistos.desde);
+}
+
+/**
+ * El texto de un renglón de la lista SIN la marca del Markdown (17/10/2026, Martín: «nada de asteriscos ni almohadillas a la
+ * vista»): la fila es de un solo renglón y no dibuja formato, así que `**Ya está:** el filtro` se lee «Ya está: el filtro».
+ */
+export function sinMarkdown(s: string): string {
+  return s
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1')
+    .replace(/`+/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/(^|[\s(])\*([^*\s](?:[^*]*[^*\s])?)\*(?=$|[\s.,;:!?)])/g, '$1$2')
+    .replace(/^\s*(?:#{1,6}\s+|>\s*|[-*•]\s+|\d+[.)]\s+)/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
   let mejor: VistaPrevia | null = null;
   const ver = (v: VistaPrevia) => { if (v.texto && (!mejor || v.instante >= mejor.instante)) mejor = v; };
-  const renglon = (s: string) => s.split('\n').map((x) => x.trim()).find(Boolean) ?? '';
+  const renglon = (s: string) => sinMarkdown(s.split('\n').map((x) => x.trim()).find(Boolean) ?? '');
   for (const l of lineas) {
     if (l.tipo === 'trabajo') {
       ver({ texto: renglon(l.trabajo.texto ?? ''), propio: true, tick: l.trabajo.estado ?? 'escrito', instante: l.instante });
@@ -506,7 +637,10 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
       if (r && t != null) ver({ texto: renglon(resumenDeRespuesta(l.pregunta, r)), propio: true, tick: null, instante: t });
     } else if (l.tipo === 'turno') {
       // Lo que contestó (o lo que se le dijo): lo último que pasó en la conversación. El turno de un trabajo ya está.
-      if (!(l.turno.rol === 'yo' && l.turno.trabajo)) ver({ texto: renglon(l.turno.texto), propio: l.turno.rol === 'yo', tick: null, instante: l.instante });
+      if (l.turno.rol === 'el' && esYaEsta(l.turno.texto)) {
+        const titulo = renglon(l.turno.texto).replace(/^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i, '').trim();
+        ver({ texto: titulo || 'Completado', propio: false, tick: null, instante: l.instante, ya: true });
+      } else if (!(l.turno.rol === 'yo' && l.turno.trabajo)) ver({ texto: renglon(l.turno.texto), propio: l.turno.rol === 'yo', tick: null, instante: l.instante });
     } else {
       ver({ texto: renglon(l.pedido.texto), propio: true, tick: null, instante: l.instante });
       if (l.tipo === 'pedido') for (const s of l.pasos) if (s.instante != null) ver({ texto: renglon(s.titulo), propio: false, tick: null, instante: s.instante });
@@ -961,13 +1095,78 @@ export function rutaDeYaEsta(texto: string): string | null {
   return null;
 }
 
+/** Lo que va ANTES del texto en el primer renglón de un «Ya está»: el ✅, la negrita, «Ya está» y su puntuación. */
+// ⚠️ La negrita que ABRE antes de «Ya está» es la única que se come al cerrarse (`\1`): «**Ya está:** el filtro» deja «el filtro»,
+// pero «Ya está: **el filtro** del CRM» deja «**el filtro** del CRM» y no «el filtro** del CRM» (antes el `*` de después de los dos
+// puntos se tragaba la apertura del título, y quedaba una negrita cruda a la vista).
+const PREFIJO_YA_ESTA = /^[\s>#✅✔·\-–—]*(\*\*|__|\*|_)?[\s>#✅✔·\-–—]*ya est[áa][.:!,;]*(?:\1)?[\s.:!,;\-–—]*/i;
+
+/** Hasta cuántos caracteres un primer renglón se dibuja como TÍTULO de la tarjeta; más largo es un párrafo. */
+export const TITULO_YA_ESTA = 110;
+/** Desde cuántos caracteres el cuerpo de un «Completado» se puede plegar (sólo si tiene una cola que queda a la vista). */
+export const CUERPO_PLEGABLE = 1500;
+/** Cuánto detalle tiene que haber antes de la cola para que valga la pena plegarlo. */
+const DETALLE_PLEGABLE = 600;
+
+/**
+ * El «Completado» partido para dibujarlo ENTERO (17/10/2026, Martín: «tienen 3 puntos al final y no llego a leer todo, esos
+ * son los mensajes más importantes que me permiten revisar y dar feedback»). El título de la FILA de Review/lista es
+ * `tituloDeTexto` (72 caracteres y «…»): servía para una lista y se usaba también en la tarjeta, donde el resto del primer
+ * renglón se perdía. Acá el título es el primer renglón COMPLETO si cabe como título; si no cabe (un párrafo), no hay título
+ * y ese renglón va primero en el cuerpo, entero. Nunca se corta ni se agrega «…».
+ */
+export function partesDeYaEsta(texto: string): { titulo: string | null; cuerpo: string } {
+  const lineas = texto.trim().split('\n');
+  const resto = (lineas[0] ?? '').replace(PREFIJO_YA_ESTA, '').trim();
+  const demas = lineas.slice(1).join('\n').trim();
+  if (!resto) return { titulo: null, cuerpo: demas };
+  if (resto.length <= TITULO_YA_ESTA) return { titulo: resto, cuerpo: demas };
+  return { titulo: null, cuerpo: demas ? `${resto}\n\n${demas}` : resto };
+}
+
+/** Un renglón que abre lo PENDIENTE de un cierre: «Sigue:», «Qué sigue», «Pendiente», «Falta» (con su puntuación, para no
+ *  confundirlo con una frase que sólo empieza así). */
+const ABRE_LO_PENDIENTE_ESTRICTO = /^[\s>*_#\-•·]*(?:\d+[.)]\s*)?[*_`]*(?:(?:lo que |qué |que )?sigue|(?:queda )?pendiente|falta)[*_`]*\s*(?::|—|–|-|$)/i;
+/** «Prueba:», «Pruébalo en /crm»: cómo probarlo. */
+const ABRE_LA_PRUEBA = /^[\s>*_#\-•·]*(?:\d+[.)]\s*)?[*_`]*pr[uú]eba(?:lo|la|los|las)?\b/i;
+
+/**
+ * El cuerpo largo de un «Completado» en DOS: el detalle (decidido, hecho, comprobado) y la COLA, que es lo que Martín tiene
+ * que ver siempre (lo que sigue pendiente y cómo probarlo). La cola empieza en el primer renglón que abre «Sigue», «Pendiente»,
+ * «Falta» o «Prueba» (fuera de un bloque de código); sin esa marca, es el último párrafo. `null` = no se puede plegar sin
+ * esconder algo (corto, sin cola, o casi todo es cola): se dibuja entero.
+ */
+export function partirPendiente(cuerpo: string): { detalle: string; cola: string } | null {
+  if (cuerpo.length <= CUERPO_PLEGABLE) return null;
+  const lineas = cuerpo.split('\n');
+  let dentro = false;
+  let corte = -1;
+  let ultimoParrafo = -1;
+  for (let i = 0; i < lineas.length; i++) {
+    const l = lineas[i];
+    if (/^\s*(```|~~~)/.test(l)) { dentro = !dentro; continue; }
+    if (dentro) continue;
+    if (i > 0 && !lineas[i - 1].trim() && l.trim()) ultimoParrafo = i;
+    if (corte < 0 && (ABRE_LO_PENDIENTE_ESTRICTO.test(l) || ABRE_LA_PRUEBA.test(l))) corte = i;
+  }
+  if (corte < 0) corte = ultimoParrafo;
+  if (corte <= 0) return null;
+  const detalle = lineas.slice(0, corte).join('\n').trim();
+  const cola = lineas.slice(corte).join('\n').trim();
+  if (detalle.length < DETALLE_PLEGABLE || !cola) return null;
+  return { detalle, cola };
+}
+
+/** ¿La PC cortó este turno al subirlo? Sube hasta `TOPE_TURNO` caracteres (cartero.mjs) y el resto no llega, sin avisar. */
+export const cortadoPorLaPC = (texto: string): boolean => texto.length >= TOPE_TURNO;
+
 /** Los «Ya está» de la conversación de un chat, como hechos de Review (lo más nuevo arriba lo ordena `porRevisar`). */
 export function yaEstaDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
   return lineas.flatMap((l): NodoAvance[] => {
     if (l.tipo !== 'turno' || l.turno.rol !== 'el' || !esYaEsta(l.turno.texto)) return [];
     const t = l.turno.texto.trim();
     // El título es lo que sigue al «Ya está» (o «Ya está», si no dijo más).
-    const resto = t.replace(/^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i, '').trim();
+    const resto = t.replace(PREFIJO_YA_ESTA, '').trim();
     const ruta = rutaDeYaEsta(t);
     return [{
       id: `y:${l.turno.uuid}`, origen: 'ya_esta', titulo: resto ? tituloDeTexto(resto) : 'Ya está', prompt: t, instante: l.instante,
@@ -985,10 +1184,12 @@ export function yaEstaDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
  * en la del super admin. La tab del producto va primero (`[...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV]`, como
  * `nombresDeTabs`); con el orden al revés, Review mandaría a la ficha de desarrollo en vez de a la pantalla.
  */
-export function rutaDeLaTab(jefe: string, items: ReadonlyArray<{ label: string; href: string }>): string | null {
+export function rutaDeLaTab(jefe: string, items: ReadonlyArray<{ label: string; href: string; jefe?: string }>): string | null {
   const k = normal(jefe);
   if (!k) return null;
-  const it = items.find((i) => normal(i.label) === k);
+  // El nombre de su JEFE si la fila se llama distinto (nav.ts → `jefe`: el Second Brain de cada negocio se llama «Ops
+  // Center» desde el 18/10/2026; sin esto, «Ops Center» caía en /second-brain y «Second Brain» no era una tab).
+  const it = items.find((i) => normal(i.jefe ?? i.label) === k);
   // Sólo una ruta interna: un href que no empieza con «/» (o es «//host») no es una tab de MaKo.
   return it && it.href.startsWith('/') && !it.href.startsWith('//') ? it.href : null;
 }
@@ -1003,7 +1204,7 @@ export type DestinoReview = { href: string; via: 'visor' | 'pagina' | 'tab' };
  */
 export function destinoDeReview(
   n: Pick<NodoAvance, 'id' | 'revisar'>, chat: Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'> | undefined,
-  items: ReadonlyArray<{ label: string; href: string }>,
+  items: ReadonlyArray<{ label: string; href: string; jefe?: string }>,
 ): DestinoReview | null {
   const propio = chat ? hrefRevisar(n, chat) : n.revisar?.pagina ?? null;
   if (propio) return { href: propio, via: chat && VISOR_REVISAR ? 'visor' : 'pagina' };

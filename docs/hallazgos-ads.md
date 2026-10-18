@@ -4141,9 +4141,9 @@ servidor sólo dice, en el método por FBP, «If you send us two consecutive ser
 do not discard either». O sea: el dedup entre dos envíos nuestros es lo esperable, no una garantía escrita.
 
 **La regla que queda:** lo que viaja a Meta es definitivo. El «Deshacer» del CRM vuelve la ficha atrás, pero la
-conversión ya contó. **Sin hacer:** que el envío espere la ventana del «Deshacer» y relea el lead antes de mandar
-(`after()` en `updateLead`, lib/leads.ts, que desde #854 ya va de fondo); y una marca nuestra de «ya se mandó» para que
-volver a marcar después de 48 h no cuente dos veces (sigue sin columna).
+conversión ya contó. **Hecho el 17/10 (chat «Pendientes B2»):** el envío espera 8 s (el toast del «Deshacer» dura 5), relee el lead
+y manda sólo si sigue calificado; la marca de «ya se mandó» es una línea del historial del lead, sin columna (detalle en
+docs/hallazgos-crm.md, «Los pendientes del CRM del 17/10», punto 7).
 
 **Fuentes (Meta for Developers, leídas el 17/10/2026):**
 [Deduplicación](https://developers.facebook.com/documentation/ads-commerce/conversions-api/deduplicate-pixel-and-server-events) ·
@@ -4153,3 +4153,113 @@ volver a marcar después de 48 h no cuente dos veces (sigue sin columna).
 [Using the API](https://developers.facebook.com/documentation/ads-commerce/conversions-api/using-the-api)
 
 *17/10/2026, chat «CRM» (claude4).*
+
+## Reproducir un anuncio sin salir de la hoja: la vista previa de Meta NO sirve, el `embed_html` del video sí (17/10/2026)
+
+**El pedido (#860, revisión del 16/10, 1:14:00):** en «Los anuncios que más te traen» la miniatura cortaba la cara (iba
+4:3 y los anuncios son verticales) y «debería poder reproducirse ahí mismo» en vez de abrir Meta en otra pestaña.
+
+**Lo medido contra Meta (un anuncio del ws1, sólo lectura):**
+
+- `GET /{video_id}?fields=source` sigue sin `source` (la entrada de arriba): no hay un .mp4 propio que poner en un `<video>`.
+- **La vista previa del anuncio parecía lo obvio y es la equivocada:** `/{ad_id}/previews?ad_format=INSTAGRAM_REELS`
+  devuelve un iframe de `business.facebook.com/ads/api/preview_iframe.php` que, SIN sesión de Facebook, contesta **400** y
+  **`X-Frame-Options: DENY`**. En Ads Manager anda porque quien mira está logueado; a un cliente no le carga.
+- **`embed_html` del video** es un iframe de `www.facebook.com/plugins/video.php` que sin sesión contesta 200, **sin**
+  `X-Frame-Options`, y trae las URLs del .mp4 adentro (`sd_src`/`hd_src`). Ojo: el HTML contiene «Unavailable…» (es el
+  nombre de un recurso de su JS, `UnavailableResources`), y buscar «unavailable» da un falso «no disponible».
+- Los formatos del video confirman el vertical: `native:1080x1920`.
+
+**Cómo quedó:** /api/anuncios/video (la puerta de Ads, el token del workspace) devuelve el src del plugin, validado por
+host y ruta (`srcDelReproductor`, lib/anuncio-video.ts: sale de una respuesta de un tercero y va a un iframe de la app).
+Las tarjetas de anuncios llevan un ▶ que lo abre en una ventana vertical (app/dashboard/graficos/ReproductorAnuncio.tsx),
+sólo con sesión y mirando; en un link compartido no hay ▶ (la ruta pide sesión). La miniatura de la portada es un póster
+9:16 de alto fijo.
+
+**Nadie lo miró en pantalla:** que el plugin REPRODUZCA dentro del iframe se dedujo de la respuesta (200, sin
+`X-Frame-Options`, con los .mp4), no se vio en un navegador. Después del deploy: ws1, General con la plantilla «Anuncios»,
+▶ en un anuncio. Si no reproduce, el siguiente intento es bajar el .mp4 de `sd_src` del lado del server.
+**Vive en:** lib/anuncio-video.ts · app/api/anuncios/video/route.ts · app/dashboard/graficos/ReproductorAnuncio.tsx ·
+app/dashboard/graficos/Tarjetas.tsx · app/dashboard/editor-css.ts.
+*17/10/2026, claude4 (chat Dashboard).*
+
+---
+
+## Los pendientes del 17/10 (B4): lo que no se ve leyendo el código
+
+*Corrida «Implemente todos los pendientes al 100%», agente B4 (Ads y plata), 17/10/2026, rama `pend-b4-1710`.*
+
+### «meta_leads» es la META de leads, no «los leads de Meta»: MaKo le inventaba el dato al cliente
+
+- **Síntoma.** `ver_rendimiento_anuncios` (la API de MaKo) devolvía `leads_meta: 10` en TODOS los anuncios, y
+  `leads_crm` igual a lo que reportaba Meta. Un cliente que le preguntaba a MaKo por sus anuncios recibía un número fijo.
+- **El diagnóstico obvio era el equivocado: «la sincronización de leads de Meta está rota».** No: `SenalRecon.meta_leads`
+  es la **meta** (la vara `RECON_LEADS_VALIDACION` con la que un anuncio se da por validado; las tarjetas la pintan
+  «leads / meta»), y `SenalRecon.leads` es el `leads_count` que reporta Meta. La API leyó la palabra «meta» como Meta.
+- **La regla.** El renglón lo arma `filaDeRendimiento` (lib/ads-rendimiento.ts, puro): `leads_meta` = lo que reporta Meta,
+  `leads_crm` = los que ENTRARON al CRM desde ese anuncio en el rango (`bajadaCrmPorAnuncio`, por `created_at` en UTC), y
+  la vara va aparte como `meta_leads_para_validar`. Las agendas se llaman `agendas_meta` (son las de Meta).
+- **Vive en:** lib/ads-rendimiento.ts · lib/queries.ts (`getSenalesRecon`) · lib/api-mako/areas/ads.run.ts ·
+  tests/ads-rendimiento-leads.test.ts.
+
+### Sin un negocio elegido, el super admin operaba la cuenta de Mauricio
+
+- **Síntoma.** Abrir /ads-manager sin el `?ws=` y pausar, represupuestar o borrar tocaba las campañas del ws1.
+- **Causa.** `wsQuePuedeOperar` (lib/ads-guard.ts) caía a `OWNER_WS` cuando el super admin no tenía negocio resuelto: «la
+  agencia sin workspace opera el ws1, como siempre». Ese contrato es de cuando MaKo era el dashboard de su agencia. Y
+  `credWs` sin workspace también cae al ws1, así que la LECTURA mostraba su cuenta como «la» cuenta.
+- **La regla.** Sin negocio no se opera ninguna cuenta: las rutas contestan 409 «Elige primero el negocio» y la página lo
+  dice antes de leer Meta. No se cae a la plataforma (ws9) tampoco: elegir es explícito.
+- **Vive en:** lib/ads-guard.ts (`SIN_NEGOCIO`, `adsSinNegocio`) · app/ads-manager/AdsManagerView.tsx ·
+  tests/ads-guard-sin-negocio.test.ts.
+
+### Código Inmobiliario, P2P y Leila: medido el 17/10, nadie reconectó
+
+Leído con `debug_token` (sólo lectura, sin imprimir tokens): **ws13 y ws14 siguen con «Joan P2P app»
+(2300908653979362)**, la misma app de los 14 rechazos 1885183 del 11-17/09 (tokens guardados el 18/08 y el 04/09), y
+**ws11 con «Lidermente_Agent» (1003134039095160)**, guardado el 31/07; los tres SYSTEM_USER, válidos y sin vencimiento.
+`meta_campaign_drafts`: el último intento de ws13 es del 17/09 (error) y ws11/ws14 nunca publicaron desde MaKo.
+**Conclusión:** un creativo NUEVO (`object_story_spec`) sigue dando 1885183 hasta que esa app pase a «Publicada» o
+conecten con la app de MaKo (que espera el App Review); **reusar un post existente sí pasa** (la salida de «Usar un
+ganador»). Qué modo tiene la app de un cliente no lo dice `debug_token`: lo dice una corrida en seco
+(`validate_only`) sobre SU cuenta, y eso lo decide Martín.
+
+### Editar el público por la API: la superposición tenía que vivir en el SERVER
+
+- **Qué faltaba.** `POST /{adset}` con `targeting` REEMPLAZA el objeto entero y la superposición vivía sólo en el
+  navegador, así que la API no podía editar un público (un parámetro parcial borraba intereses, idiomas y lugares).
+- **La regla.** Una sola función pura, `aplicarCambiosDePublico` (lib/publico-cambios.ts): lo que no viene NO se toca,
+  `null` lo saca, y Advantage+ en 0 sin ninguna señal fina va en 1 (Meta lo rechaza). La usan el editor del navegador y
+  `editarPublicoConjunto` (lib/meta-ads-create.ts), que lee el crudo con la cuenta comprobada. La API es
+  `proponer_editar_publico_conjunto`, con confirmación en PANTALLA y el conjunto fijo al revisar.
+- **El pin (decisión 2 del relevo, tomada: la opción (a)).** Se pegan coordenadas o el link LARGO de Google Maps
+  (`pinDesdeTexto`, lib/meta-geo.ts: `!3d…!4d…` le gana a `@lat,lng`); el link corto (maps.app.goo.gl) no trae el punto y
+  se dice, en vez de ofrecerlo como una calle. Sin librería, sin proveedor y sin tocar la CSP: no hay vista previa del
+  mapa. Por la API, `pinLat`/`pinLng`/`pinRadioKm` SUMAN un punto a los lugares que ya tenía.
+- **Vive en:** lib/publico-cambios.ts · lib/meta-geo.ts (`pinDesdeTexto`, `esLinkSinCoordenadas`) ·
+  lib/meta-ads-create.ts · app/ads-manager/EditarPublicoModal.tsx · app/ads-manager/LugarPicker.tsx ·
+  lib/api-mako/areas/ads.{def,run}.ts · tests/publico-api.test.ts.
+
+### El árbol de Meta: un tag POR NEGOCIO, y la escritura lo expira
+
+- **La cura que estaba anotada** («El árbol de Meta que leen las guardas puede tener CUALQUIER edad»): `getMetaHealth` ahora
+  lleva, además de `TAG.marketing`, `metaHealth:ws:N` (`tagArbolMeta`), y `metaWrite` lo expira con
+  `revalidateTag(…, { expire: 0 })` después de una escritura que salió bien (`expirarArbolMeta`). La clave de la caché es
+  la misma: no se pierde nada cacheado. `presupuestosVigentes` sigue: una lectura que arrancó antes de escribir puede
+  terminar después.
+- **Vive en:** lib/meta-health.ts · lib/meta-write.ts · tests/ads-arbol-cache.test.ts.
+
+### «Conectar con Meta» avisa al conectar si faltan los permisos de anuncios
+
+El callback lee `/me/permissions` después de guardar la conexión; sin `ads_read` o `ads_management` vuelve con
+`sin-permisos` y el formulario lo dice. Best effort: si Meta no contesta, «Conectado» como siempre.
+**Vive en:** app/api/integraciones/meta/callback/route.ts · lib/meta-permisos.ts (`permisosDeAnunciosFaltantes`) ·
+lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
+
+### Las decisiones 4 a 6 del relevo, tomadas (no se re-preguntan)
+
+- **La barra de lote queda OSCURA.** Martín pidió radio y orden, no color; pasarla a clara es reestilar sus controles
+  sin poder mirarlos, y una barra que aparece al seleccionar marca el cambio de modo.
+- **El ícono de ojo del chip «Con problemas» queda** (la regla de no usar emoji).
+- **La publicación a medias** sigue diciendo «Quedó a medias en Meta… revísalo en la tabla»: la tabla es donde se ve qué
+  quedó, y la misma clave contesta igual hasta que cambie el pedido.

@@ -19,12 +19,16 @@ import { join } from 'node:path';
 import { videosSinVer, PCT_VISTO, type Clase } from '../lib/curso';
 import {
   tocaRecordatorio, enUniversoDeRecordatorio, sesionCerca, ventanaDeSesionCerca, sigueEnElPrograma,
-  textoRecordatorioClases, textoRecordatorioDueno, claveAvisoRecordatorio, TITULO_AVISO_RECORDATORIO,
+  textoRecordatorioClases, datosRecordatorioDueno, claveAvisoRecordatorio, TITULO_AVISO_RECORDATORIO,
   DIAS_SIN_ENTRAR, DIAS_ENTRE_RECORDATORIOS, SESION_CERCA_HORAS, TOPE_PENDIENTES,
   ultimoInicioDeRecordatorio, TOPE_PEDIDO_EVOLUTION_MS, RESERVA_RECORDATORIO_MS, RESERVA_COPIA_MS, MARGEN_CIERRE_MS,
   type AccesoParaRecordar,
 } from '../lib/curso-mensajes-texto';
 import { CATALOGO_AVISOS, areaDeAviso } from '../lib/avisos-catalogo';
+import { plantillaPorId, pasosDePlantilla } from '../lib/plantillas-automatizaciones';
+import { partesDeMako } from '../lib/mako-tarjeta';
+import { textoConDatos } from '../lib/variables-del-lead';
+import type { PasoGrafo } from '../lib/flujo-grafo';
 
 const RAIZ = join(import.meta.dirname, '..');
 // ⚠️ Normaliza el fin de línea: en un worktree el fuente llega en CRLF (AGENTS.md).
@@ -209,6 +213,18 @@ test('sin videos pendientes NO se manda nada (null), aunque le toque', () => {
   assert.equal(textoRecordatorioClases({ nombre: 'Ana', bloques: [{ etapa: 'Norte', videos: [] }], link: LINK }), null);
 });
 
+// (17/10/2026, «nada por detrás» lote 2) La copia es la automatización de SuperAdmin `curso_recordatorio`: el código pasa
+// los DATOS (`datosRecordatorioDueno`) y el texto es el de la plantilla, con un renglón por sección.
+const COPIA = (() => {
+  const p = pasosDePlantilla(plantillaPorId('mako-curso-recordatorio')!)[0] as unknown as PasoGrafo;
+  const parte = partesDeMako((p.accion as { params?: Record<string, unknown> }).params)[0];
+  return parte && 'cuerpo' in parte ? String(parte.cuerpo) : '';
+})();
+const textoRecordatorioDueno = (p: Parameters<typeof datosRecordatorioDueno>[0]): string | null => {
+  const d = datosRecordatorioDueno(p);
+  return d ? textoConDatos(COPIA, d as Record<string, string>) : null;
+};
+
 test('la copia a Mauricio: a quién se le recordó qué, a quién no le llegó y a quién no se le pudo escribir', () => {
   const t = textoRecordatorioDueno({
     hechos: [
@@ -219,16 +235,19 @@ test('la copia a Mauricio: a quién se le recordó qué, a quién no le llegó y
     sinEscribir: [{ cliente: 'Juan Gil', motivo: 'sin teléfono' }],
   })!;
   assert.equal(t, [
-    'Les recordé sus videos pendientes a 2 clientes con 3 días sin entrar:',
+    'Recordé sus videos pendientes a 2 clientes con 3 días sin entrar:',
     '· *Ana Ruiz* (*Norte*): Cómo leer tu tablero, Tu primera meta',
     '· *Luis Paz* (*Contexto*): a, b, c y 1 más',
-    'No le llegó el recordatorio:',
+    'No llegó el recordatorio a:',
     '· *Eva Sol*: la línea está desconectada',
-    'No le pude escribir:',
+    'No pude escribir a:',
     '· *Juan Gil*: sin teléfono',
   ].join('\n'));
   const uno = textoRecordatorioDueno({ hechos: [{ cliente: 'Ana Ruiz', bloques: [NORTE], noLlego: null }] })!;
-  assert.match(uno, /^Le recordé sus videos pendientes a 1 cliente con 3 días sin entrar:\n/);
+  // Una sección sin nadie no trae su dato, y su renglón se va ENTERO (la de los que no recibieron, la de sin escribir).
+  assert.equal(uno, 'Recordé sus videos pendientes a 1 cliente con 3 días sin entrar:\n· *Ana Ruiz* (*Norte*): Cómo leer tu tablero, Tu primera meta');
+  const soloMal = textoRecordatorioDueno({ hechos: [], sinEscribir: [{ cliente: 'Juan Gil', motivo: 'sin teléfono' }] })!;
+  assert.equal(soloMal, 'No pude escribir a:\n· *Juan Gil*: sin teléfono', 'sin recordados, el renglón de arriba se va entero');
   assert.equal(textoRecordatorioDueno({ hechos: [], sinEscribir: [] }), null, 'sin nada que contar, no hay aviso');
   for (const x of [t, uno, TITULO_AVISO_RECORDATORIO]) {
     assert.deepEqual(voseo(x), [], `voseo en: ${x}`);
@@ -250,7 +269,8 @@ test('el catálogo tiene la copia: prendida, con el rótulo de LEAD, y un ejempl
   assert.equal(areaDeAviso('curso-recordatorio-clases'), 'lead');
   assert.deepEqual(voseo(cat!.ejemplo), [], `voseo en el ejemplo: ${cat!.ejemplo}`);
   // El tipo que emite el cron es el del catálogo.
-  assert.match(sinComentarios(leer('lib/curso-mensajes.ts')), /const TIPO_AVISO_RECORDATORIO = 'curso-recordatorio-clases';/);
+  // (17/10/2026) El id va LITERAL en la llamada, como todo emisor de un aviso del catálogo.
+  assert.match(sinComentarios(leer('lib/curso-mensajes.ts')), /emitirDelCatalogo\('curso-recordatorio-clases', \{/);
 });
 
 // ── El cron: el orden, la marca, y que nunca crea un acceso ──────────────────
@@ -331,13 +351,14 @@ test('el negocio: horario e interruptor ANTES de leer o escribir nada de un clie
   const iCliente = w.indexOf('await recordarA(');
   assert.ok(iHorario > 0 && iFlag > iHorario && iDb > iFlag && iCliente > iDb, 'el horario y el envío apagado se miran primero');
   // Apagado o fuera de horario: se cuenta y se sale, sin marcar ni avisar.
-  for (const i of [iHorario, iFlag]) assert.doesNotMatch(w.slice(i, w.indexOf('return;', i)), /marcar|emitirAviso|mandar\(/);
+  for (const i of [iHorario, iFlag]) assert.doesNotMatch(w.slice(i, w.indexOf('return;', i)), /marcar|emitirAviso|emitirDelCatalogo|mandar\(/);
   // Graduados/bajas y sesiones cerca salen de lecturas del NEGOCIO, adentro del inquilino.
   assert.match(w, /db\.from\('cs_clientes'\)\.select\('lead_id, estado'\)\.in\('lead_id', leadIds\)/);
   assert.match(w, /db\.from\('curso_sesiones'\)\.select\('lead_id, fecha'\)\.in\('lead_id', leadIds\)\.gte\('fecha', v\.desde\)\.lte\('fecha', v\.hasta\)/);
-  // UNA copia por corrida a Mauricio, con el tipo del catálogo.
-  assert.equal((w.match(/emitirAviso\(/g) ?? []).length, 1);
-  assert.match(w, /tipo: TIPO_AVISO_RECORDATORIO/);
+  // UNA copia por corrida a Mauricio, con el tipo del catálogo (desde el 17/10, por su automatización de SuperAdmin).
+  assert.equal((w.match(/emitirDelCatalogo\(/g) ?? []).length, 1);
+  assert.match(w, /emitirDelCatalogo\('curso-recordatorio-clases', \{/);
+  assert.doesNotMatch(w, /emitirAviso\(/, 'volvió el texto escrito en el código');
   assert.match(w, /dedupKey: claveAvisoRecordatorio\(ws, /);
 });
 
@@ -352,7 +373,7 @@ test('el universo: sólo accesos NO revocados, con su acceso dado (mail o link) 
   assert.match(correr, /runWithWorkspace\(ws, \(\) => recordarEnWorkspace\(/);
   assert.match(correr, /\.filter\(\(w\) => w\.estado === 'activo'\)/, 'un negocio pausado no le escribe a sus clientes');
   // La sección entera: ni `linkDeAcceso` (que CREA la fila) ni inserts.
-  const seccion = SRC.slice(SRC.indexOf('const TIPO_AVISO_RECORDATORIO'));
+  const seccion = SRC.slice(SRC.indexOf('const TOPE_RECORDATORIOS_POR_CORRIDA'));
   assert.doesNotMatch(seccion, /linkDeAcceso\(|\.insert\(|\.upsert\(/, 'un mensaje automático no le abre una puerta a nadie');
   // Y el destino, con la opción, firma sobre el acceso que existe.
   const destino = bloque('async function destinoDe(', 'async function mandar(');
@@ -449,7 +470,7 @@ test('el reloj se mira antes de cada negocio, antes de cada cliente y antes de c
   const iReloj = cliente.indexOf('ctl.intentos >= TOPE_RECORDATORIOS_POR_CORRIDA || sinTiempo(ctl)');
   assert.ok(iReloj > 0 && iReloj < cliente.indexOf('await marcarRecordatorio('), 'el reloj va antes de la marca');
   // La copia sigue saliendo DESPUÉS del bucle aunque se haya cortado por tiempo: es lo que se protege.
-  assert.ok(w.indexOf('emitirAviso(') > w.indexOf('for (const leadId of leadIds) {'));
+  assert.ok(w.indexOf('emitirDelCatalogo(') > w.indexOf('for (const leadId of leadIds) {'));
 });
 
 // ── Sólo el cron lo dispara ──────────────────────────────────────────────────
@@ -523,3 +544,22 @@ test('el cron horario lo llama, DESPUÉS de las llamadas y con un tope de tiempo
 // restaurado de memoria). Sin romper, este archivo solo: 27 / 0. Cada una dio 26 / 1 en «los mensajes
 // NOMBRAN sólo lo que el alumno puede abrir…»: el recordatorio con los videos de la etapa sin filtrar ·
 // lo pendiente de una llamada sin filtrar · `abiertasDe` nombrando todo cuando no pudo evaluar.
+
+// ── «Nada por detrás», lote 2 (17/10/2026): la copia es una automatización de SuperAdmin ──────────────────────
+// PROBADO ROMPIÉNDOLO (arnés `romper.py` + `roturas-curso.json`): una lista sin su salto de línea adelante (se pega al
+// encabezado) → cae «la copia a Mauricio»; una sección vacía que trae su dato en '' (el renglón no se va) → cae «la copia a
+// Mauricio»; el evento sin `recordatorio` en lo que trae (sus datos no se ofrecen) → cae éste.
+test('la copia sale por el evento de la plataforma `curso_recordatorio`, con sus datos y su freno de siempre', async () => {
+  const { EVENTOS_MAKO } = await import('../lib/disparadores');
+  const { datosDelEvento } = await import('../lib/aviso-evento');
+  const { variablesPara } = await import('../lib/variables-aviso');
+  const { AVISOS_SOLO_SUPERADMIN } = await import('../lib/avisos-catalogo');
+  const ev = EVENTOS_MAKO.find((e) => e.subtipo === 'curso_recordatorio');
+  assert.ok(ev && ev.plataforma === true && ev.aviso === 'curso-recordatorio-clases');
+  assert.ok(AVISOS_SOLO_SUPERADMIN.includes('curso-recordatorio-clases'));
+  const claves = variablesPara(datosDelEvento('curso_recordatorio')).map((v) => v.key);
+  for (const k of ['recordatorio_cuantos', 'recordatorio_dias', 'recordatorio_enviados', 'recordatorio_no_llego', 'recordatorio_sin_escribir']) assert.ok(claves.includes(k), `falta ${k}`);
+  const w = sinComentarios(leer('lib/curso-mensajes.ts'));
+  const i = w.indexOf("emitirDelCatalogo('curso-recordatorio-clases', {");
+  assert.match(w.slice(i, w.indexOf('});', i)), /ws, datos: datos as Record<string, string>,\s*dedupKey: claveAvisoRecordatorio\(ws, /);
+});

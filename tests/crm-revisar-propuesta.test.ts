@@ -109,3 +109,22 @@ test('el opt-in guarda en la propuesta los productos que pidió', () => {
   assert.ok(ini > 0);
   assert.match(src.slice(ini, ini + 2500), /funnels: funnelesDelLead,/);
 });
+
+// Los leads de la landing que pasan por una propuesta ya no pierden datos (17/10/2026, docs/relevo/crm-tanda-b1.md, b4):
+// el que NACE al confirmar lleva la página donde se registró, y la ficha que ya existía recibe la llave de su visita.
+// Verificado rompiéndolo (el archivo da 11 / 0, cada rotura 10 / 1): sin el `a.pagina_registro = pagina` → cae el primero; con
+// el update del `visitor_id` sin el `.is('visitor_id', null)` → cae el segundo.
+test('la propuesta de la landing copia la página de registro, normalizada', () => {
+  const a = atribucionDePropuesta('landing', { leads: [
+    { nombre: 'Ana', pagina_registro: 'https://www.mi-landing.com/gratis?utm_source=fb' },
+    { nombre: 'Bruno', pagina_registro: 'no es una url' },
+  ] });
+  assert.equal(a.p0.pagina_registro, 'https://www.mi-landing.com/gratis');
+  assert.equal(a.p1.pagina_registro, undefined, 'lo que no es una página no se guarda');
+});
+
+test('confirmar le ata la visita a la ficha que YA existía, sin pisar la que tenía', () => {
+  const src = sinComentarios(leer('../app/crm/revisar/[id]/acciones.ts'));
+  assert.match(src, /const enriquecidos = \(r\.ids \?\? \[\]\)\.filter\(\(x\) => x\.destino === 'enriquecer'\);/);
+  assert.match(src, /\.update\(\{ visitor_id: visitor \}\)\.eq\('id', x\.leadId\)\.is\('visitor_id', null\)/);
+});

@@ -117,11 +117,12 @@ test('las filas: el orden de Google, y dos dispositivos iguales se distinguen', 
 
 test('el menú de la foto: dos lugares, e Integraciones es una sección del negocio', () => {
   const porKey = Object.fromEntries(USER_NAV.map((i) => [i.key, i]));
-  assert.equal(porKey.perfil.label, 'Tu cuenta');
-  assert.equal(porKey.configuraciones.label, 'Configuración del negocio');
+  // En inglés desde el 17/10/2026 noche (prototipo de coherencia): «My Profile» y «Business settings».
+  assert.equal(porKey.perfil.label, 'My Profile');
+  assert.equal(porKey.configuraciones.label, 'Business settings');
   assert.equal(porKey.integraciones.soloSeccion, true);
   assert.ok(porKey.configuraciones.match('/integraciones'), 'en Integraciones no se marca «Configuración del negocio»');
-  assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /USER_NAV\.filter\(\(it\) => !it\.soloSeccion && /, 'Integraciones vuelve al menú como un lugar más');
+  assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /USER_NAV\.filter\(\(it\) => (it\.key !== 'perfil' && )?!it\.soloSeccion && /, 'Integraciones vuelve al menú como un lugar más');
 });
 
 // ROTURAS (15/10/2026), una por vez y restaurando de memoria. Base: 8 pases, 0 fallos. Cada una dio 7/1:

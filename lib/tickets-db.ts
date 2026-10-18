@@ -21,7 +21,7 @@ import { capaDef } from './capas';
 import {
   TOPE_POR_DIA, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
-  ESTADOS, PRIORIDADES, esTipo, sanearContexto, TOPES,
+  ESTADOS, PRIORIDADES, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
 } from './tickets-reglas';
 
 const T = 'tickets';
@@ -63,6 +63,8 @@ export type FilaTicket = {
   aviso_estado: string | null;
   aviso_intentos: number;
   aviso_motivo: string | null;
+  /** Cuándo se tomó (o resolvió) el último intento de entrega al Cerebro. */
+  aviso_at?: string | null;
   arreglado_at: string | null;
   arreglo_nota: string | null;
   resuelto_at: string | null;
@@ -73,7 +75,7 @@ export type FilaTicket = {
 
 export type Evento = { id: number; at: string; actor: string; tipo: string; texto: string | null; datos: Record<string, unknown> | null };
 
-const COLS = 'id, created_at, updated_at, workspace_id, usuario_id, usuario_email, usuario_nombre, rol, plan, tipo, tipo_manual, titulo, descripcion, canal, contexto, estado, prioridad, triage, decision, decision_nota, decidido_at, duplicado_de, respuesta, despacho, pedido_id, despachado_at, aviso_estado, aviso_intentos, aviso_motivo, arreglado_at, arreglo_nota, resuelto_at, avisado_at';
+const COLS = 'id, created_at, updated_at, workspace_id, usuario_id, usuario_email, usuario_nombre, rol, plan, tipo, tipo_manual, titulo, descripcion, canal, contexto, estado, prioridad, triage, decision, decision_nota, decidido_at, duplicado_de, respuesta, despacho, pedido_id, despachado_at, aviso_estado, aviso_intentos, aviso_motivo, aviso_at, arreglado_at, arreglo_nota, resuelto_at, avisado_at';
 
 function aFila(f: Record<string, unknown>): FilaTicket {
   const ws = f.workspaces as { nombre?: unknown } | null | undefined;
@@ -117,6 +119,30 @@ export async function identidadDe(ws: number, email: string, nombreSesion = ''):
   };
 }
 
+/**
+ * Quién es el que pide por un canal: un email (la app) o `whatsapp:<teléfono>` (el doer de WhatsApp, que no sabe el
+ * email). Por WhatsApp se busca en el negocio UNA persona con ese teléfono en su perfil: si la hay, el ticket es suyo y lo
+ * ve también en /tickets; si no (o hay dos), queda con el teléfono como identidad. Sin teléfono (un `@lid` de un grupo),
+ * el doer manda `whatsapp:<pushName>` y queda con ese nombre (`nombreDelActor`). null = el actor no se entiende.
+ */
+export async function identidadDelActor(ws: number, actor: string | null | undefined): Promise<Identidad | null> {
+  const crudo = String(actor ?? '').trim();
+  const a = crudo.toLowerCase();
+  if (!a.startsWith('whatsapp:')) return a.includes('@') ? identidadDe(ws, a) : null;
+  const plan = async () => { const w = await getWorkspace(ws).catch(() => null); return w ? capaDef((w as { capa?: string | null }).capa ?? null).nombre : null; };
+  const tel = telefonoDelActor(a);
+  if (tel) {
+    const { data } = await getSupabaseServer().from('usuarios').select('email, perfil')
+      .eq('workspace_id', ws).neq('estado', 'suspendido').limit(200);
+    const iguales = (data ?? []).filter((u) => mismoTelefono((u.perfil as { telefono?: string } | null)?.telefono, tel));
+    if (iguales.length === 1) return identidadDe(ws, String(iguales[0].email));
+    return { ws, email: `whatsapp:${tel}`, nombre: '', usuarioId: null, rol: 'por WhatsApp', plan: await plan() };
+  }
+  const n = nombreDelActor(crudo);
+  if (!n) return null;
+  return { ws, email: n.clave, nombre: n.nombre, usuarioId: null, rol: 'por WhatsApp', plan: await plan() };
+}
+
 // ── El interruptor y el tope del día ──────────────────────────────────────────────────────────────────────────────
 /** La clave del interruptor del arreglo automático, en app_settings del workspace de la PLATAFORMA. */
 export const CLAVE_AUTOARREGLO = 'tickets.autoarreglo';
@@ -153,7 +179,9 @@ async function arreglosDeHoy(): Promise<number> {
 export type NuevoTicket = {
   identidad: Identidad;
   tipo: TipoTicket | null;
-  declaradoPor: 'mako' | 'persona' | null;
+  declaradoPor: 'mako' | 'persona' | 'sistema' | null;
+  /** Un ticket que abre la app sola (un error, lib/errores-app.ts): no gasta el tope por día de la persona que lo vio. */
+  sistema?: boolean;
   titulo: string;
   descripcion: string;
   canal: Canal;
@@ -177,7 +205,7 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   const { count, error: eCount } = await db.from(T).select('id', { count: 'exact', head: true })
     .eq('workspace_id', n.identidad.ws).eq('usuario_email', n.identidad.email).gte('created_at', hace24);
   if (eCount) return { ok: false, error: faltaTabla(eCount) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
-  if ((count ?? 0) >= TOPE_POR_DIA) return { ok: false, error: `Ya mandaste ${TOPE_POR_DIA} tickets hoy: el equipo los está viendo` };
+  if (!n.sistema && (count ?? 0) >= TOPE_POR_DIA) return { ok: false, error: `Ya mandaste ${TOPE_POR_DIA} tickets hoy: el equipo los está viendo` };
 
   const contexto = sanearContexto(n.contexto);
   const [apagado, arreglosHoy] = await Promise.all([autoArregloApagado(), arreglosDeHoy()]);
@@ -196,7 +224,7 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
     return { ok: false, error: faltaTabla(error) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
   }
   const id = Number(data.id);
-  await anotar(id, n.declaradoPor === 'mako' ? 'mako' : 'cliente', 'creado', null, { canal: n.canal });
+  await anotar(id, n.declaradoPor === 'sistema' ? 'sistema' : n.declaradoPor === 'mako' ? 'mako' : 'cliente', 'creado', null, { canal: n.canal });
   await anotar(id, 'triage', 'clasificado', triage.porque.join(' '), { tipo: triage.tipo, autoArreglo: triage.autoArreglo, confianza: triage.confianza });
   return { ok: true, id, estado, triage, yaExistia: false };
 }

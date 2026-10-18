@@ -19,6 +19,9 @@
 //   · el resumen de `llevar_a_partners` lleva el link                                 → 1 fallo (4)
 //   · Program dice «primer mes gratis»                                                → 1 fallo (5)
 //   · /m/partners deja pasar a quien no es agencia (sin `esAgencia`)                  → 1 fallo (6)
+//   · /partners deja pasar a quien no es admin (sin el redirect)                      → 1 fallo (1)
+//   · /m/partners deja pasar a quien no es admin                                      → 1 fallo (6)
+//   · el alta del teléfono vuelve al formulario si no hay link (`link === null`)      → 1 fallo (6)
 //   · PartnersM importa un VALOR de lib/partners.ts (server-only)                     → 1 fallo (6)
 //   · /m/curso dice que está en «clients»                                             → 1 fallo (6, el trío)
 //   · el trío dice «Comunidad» en vez de «Community»                                  → 1 fallo (6, el trío)
@@ -42,11 +45,13 @@ const cuerpo = (src: string, nombre: string) => {
 
 // ── 1. Quién entra ─────────────────────────────────────────────────────────────────
 
-test('la tab: el super admin sin cliente ve las agencias; una agencia, su cartera; cualquier otro va a /clients', () => {
+test('la tab: el super admin sin cliente ve las agencias; el ADMIN de una agencia, su cartera; cualquier otro va a /clients', () => {
   const page = leer('app/partners/page.tsx');
   assert.match(page, /await requireSesion\(\);/);
   assert.match(page, /if \(esSuper && !\(await estaImpersonando\(\)\)\) \{[\s\S]*?<PartnersPlataforma/);
-  assert.match(page, /if \(ws == null \|\| !\(await esAgencia\(ws\)\)\) redirect\(await rutaConWs\('\/clients'\)\);\s*await guardOnboarding\(\);/);
+  assert.match(page, /if \(ws == null \|\| !\(await esAgencia\(ws\)\)\) redirect\(await rutaConWs\('\/clients'\)\);/);
+  // Los links de pago y la puerta a las cuentas: sólo el admin de la agencia (o el super admin), ANTES de leer nada.
+  assert.match(page, /const admin = \(await adminDeWorkspaceActual\(\)\) != null;\s*if \(!admin && !esSuper\) redirect\(await rutaConWs\('\/clients'\)\);\s*[\s\S]*?await guardOnboarding\(\);[\s\S]*?cuentasDePartner/);
   // La pantalla la arma el server entera (la ficha es un modal sin estado de carga).
   assert.match(page, /const cartera = await cuentasDePartner\(ws\);/);
 });
@@ -114,7 +119,7 @@ test('la API: ver y llevar, sin HTTP; llevar sólo el admin, confirmado por una 
   assert.equal(llevar.tipo, 'accion');
   assert.equal(llevar.confirmacion, 'chat');
   assert.equal(llevar.reversible, false);
-  assert.equal(llevar.gating.rolMinimo, 'admin');
+  assert.equal(llevar.gating?.rolMinimo, 'admin');
   assert.ok(!llevar.canales.includes('http' as never));
   const run = leer('lib/api-mako/areas/cs.run.ts');
   const bloque = run.slice(run.indexOf('llevar_a_partners: {'), run.indexOf('\n  },\n', run.indexOf('llevar_a_partners: {')));
@@ -143,17 +148,21 @@ test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no 
   assert.match(modal, /if \(r\.clienteWs\) setYa\(r\.clienteWs\);/);
   assert.match(leer('app/partners/PartnersApp.tsx'), /<ModalLlevarAPartners leadId=\{alta\.leadId\}/);
   // Y la ficha de Clients lleva a Partners cuando el cliente también tiene cuenta.
-  assert.match(leer('app/customer-success/FichaCliente.tsx'), /\{c\.clienteWs != null && !verCuentas && \(\s*<Link className="fc-partners" href=\{`\/partners\?cuenta=\$\{c\.clienteWs\}`\}/);
+  assert.match(leer('app/customer-success/FichaCliente.tsx'), /\{c\.clienteWs != null && \(\s*<Link className="fc-partners" href=\{`\/partners\?cuenta=\$\{c\.clienteWs\}`\}/);
 });
 
 // ── 6. El teléfono ───────────────────────────────────────────────────────────────
 test('el teléfono: la MISMA puerta, los MISMOS datos y la MISMA alta que la computadora', () => {
   const pagina = leer('app/m/partners/page.tsx');
   assert.match(pagina, /if \(ws == null \|\| !\(await esAgencia\(ws\)\)\) redirect\(/, 'quien no es agencia vuelve a Clients');
+  assert.match(pagina, /if \(\(await adminDeWorkspaceActual\(\)\) == null && \(await getSesionAdmin\(\)\) == null\) redirect\([\s\S]*?cuentasDePartner/,
+    'sólo el admin de la agencia, antes de leer la cartera');
   assert.match(pagina, /cuentasDePartner\(ws\)/, 'la lista sale de lib/partners.ts, como en la computadora');
   assert.match(pagina, /!cartera\.ok/, '«no pude leer» se dice: no es «todavía no tienes clientes»');
   const app = leer('app/m/partners/PartnersM.tsx');
   assert.match(app, /llevarAPartnersAction\(/, 'abrir una cuenta es UNA implementación');
+  // Sin link de pago la cuenta YA se abrió (`sinLink`): el formulario no vuelve, o un segundo envío choca con el email.
+  assert.doesNotMatch(app, /link === null/, 'lo que muestra la hoja del alta no se decide por el link');
   assert.doesNotMatch(app, /^import (?!type )[^;]*from ['"]@\/lib\/partners['"]/m, 'lib/partners.ts es server-only: el teléfono importa sólo su tipo');
 });
 

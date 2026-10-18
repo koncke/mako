@@ -2738,9 +2738,8 @@ cliente, por `prioridadOk(undefined)`) y no la columna. Era el mismo error que l
 - **Siguen llamando al Perro al crear**: el doer de WhatsApp (`tareas_plan`, lib/mako-doer-acciones.ts), las acciones
   `priorizar-nuevas` (app/api/todo/route.ts y app/api/plan-board/route.ts) y crear un proyecto a mano (BoardShell,
   `createLabel`).
-- **⚠️ Una lectura PARCIAL con tareas no se completa nunca, aunque el comentario diga que sí.** lib/reunion-auto.ts deja
-  la reunión abierta «y el próximo cron completa lo que falta» (el bloque de `parcial`), pero el cron la saltea porque
-  ya tiene borrador: `existePropuestaRef` sólo ignora las «procesando».
+- ~~**⚠️ Una lectura PARCIAL con tareas no se completa nunca, aunque el comentario diga que sí.**~~ **Arreglado el
+  17/10/2026**: ver [Una reunión larga](#una-reunión-larga-la-extracción-mira-el-reloj-y-una-lectura-a-medias-se-completa-17102026).
 - **El modal de una reunión ya leída (la rama de caché, `asegurarBorrador`) no cruza**: si su borrador no estaba
   sellado, SU «Agregar» (`crearDesdeReunion`) puede duplicar. Lo cubren el barrido del cron y el «Cargar» de la lista.
 - **Nadie avisa cuando una reunión pasa a «Sin leer»**: se ve sólo abriendo el modal. Y las diez del ws1 del 08 al 15/10
@@ -6920,3 +6919,294 @@ Martín pidió revisar si la extracción funciona. Se leyeron completas las dos 
 **Trampa al medirlo:** `fetchAllMeetings({ recordedAfter })` devolvió reuniones de septiembre. Fathom ignora `recorded_after` (ya anotado arriba en este documento); el filtro real lo hace `listReunionesRecientes`. Un script que llama a la lib de abajo se trae todo.
 
 **Vive en:** `lib/reunion-cliente.ts` (la regla del cliente) · `lib/plan-proyectos-catalogo.ts` · `lib/plan-fathom.ts` (`PLAN_FATHOM_SYSTEM_TEMPLATE`, el pedido de detalle) · tarjetas #843-#879 del ws9
+
+**Arreglado el 17/10/2026:** el proyecto en «La reunión con un cliente: en el tablero del dueño NO manda» (#870), y los inventos, el nombre y lo que faltaba en «La extracción, medida otra vez contra las llamadas del 16/10», las dos más abajo.
+
+## La reunión con un cliente: en el tablero del dueño NO manda, y un cliente tiene UN proyecto (17/10/2026, #870)
+
+**Síntoma, en los dos tableros a la vez (llamadas del 16/10):**
+- **Tablero de Martín (ws9):** las 26 tarjetas de la revisión con Código Inmobiliario cayeron en «Cliente: Código
+  Inmobiliario». Las 11 de «Mau <> Martin» cayeron en «Cliente: Mauricio Bustos», un proyecto que la importación CREÓ al
+  lado de «Cliente: Mauricio». Eran bugs y features de MaKo.
+- **Tablero de Mauricio (ws1):** de la «Junta Monserrat HMO», 7 de 15 tareas cayeron en «Sin proyecto». Y el mismo
+  cliente (lead 31, Congelados HMO / Macario Romero) tenía TRES proyectos: «hay dos Macarios», dijo él en vivo.
+
+**Causa: una sola regla, aplicada sin mirar de quién es el tablero ni con qué dato se busca.**
+1. «El proyecto lo define la reunión» la dictó Mauricio para SUS clientes. El servidor la aplicaba en todos los
+   tableros e IGNORABA lo que había elegido el modelo. En el del dueño, una llamada con un cliente de MaKo deja trabajo
+   de las tabs.
+2. El proyecto del cliente se buscaba sólo por NOMBRE, y el nombre cambia: el CRM dice «Congelados HMO», la persona es
+   «Macario Romero Valencia» y el dueño lo llamó «Cliente: Macario Romero — HMO». Cada vía que no lo encontraba abría
+   otro. El dato duro (`tarea_categorias.cliente_lead_id`) existía y nadie lo leía; tampoco se escribía al crear.
+3. En el tablero del dueño, `nombreDeProyectoPara` buscaba en `tarea_categorias`, que es la tabla del tablero de un
+   CLIENTE (la del dueño es `plan_proyectos`). Por eso nunca encontraba «Cliente: Mauricio» y devolvía el nombre
+   canónico, que `destinoSinIA` creaba como «proyecto del cliente de la reunión».
+4. «Junta Monserrat HMO» no tenía un solo email de cliente: Fathom devolvió sólo al que grabó. Además, el título no
+   nombra la empresa entera.
+
+**El diagnóstico obvio era el equivocado:** «la IA eligió mal el proyecto». El modelo había elegido bien; el
+servidor lo pisaba.
+
+**La regla que queda** (lib/reunion-cliente-reglas.ts, pura y con test):
+- **`clienteManda(tablero)`**: la reunión manda el proyecto SÓLO en el tablero de un cliente. Hay UN lugar que lo
+  decide, `proyectoQueManda` (lib/reunion-cliente.ts), y lo llaman la ruta del modal, la lectura en segundo plano y
+  el cron.
+- En el tablero del dueño, «Cargar» nunca abre un «Cliente: X» (`clienteDeLaReunion: false`). Lo que propone la
+  extracción y no existe va a la bandeja.
+- El modal ya no pregunta «¿a qué cliente va?» en el tablero del dueño. Dice «Reunión con X: cada tarea va a su tab».
+- **`proyectoDelCliente`**: primero el proyecto atado al lead. Después, por nombre sin el prefijo y en cualquier
+  orden; al revés, sólo con dos palabras o más. Una categoría atada a OTRO lead nunca es suya.
+- El proyecto nuevo de un cliente nace con su `cliente_lead_id`, en `proyectoDeCliente` y en «Cargar».
+- Un borrador viejo que trae el nombre de un proyecto que ya se unió va al que el cliente tiene hoy, buscado por el
+  lead del borrador (`rutearSinIA`).
+- **`clientePorTitulo`**: la SIGLA de la empresa tal como está en el CRM (HMO, TEXX) o la empresa entera en cualquier
+  orden («Baja Teriyaki» por «Teriyaki baja»). Nunca un nombre de pila. El falso positivo medido es «NADIA PIEDAD
+  CALDERON… Mentoría», que no es «Nadia H Tremari».
+
+**Datos arreglados el 17/10:** `scripts/unir-proyectos-de-cliente.ts`, con foto en C:/dev/backup-unir-proyectos-1.json.
+- En el ws1 quedó «Cliente: Macario Romero — HMO» (#47, el más viejo, el que eligió Mauricio a mano), atado al lead 31.
+- Absorbió a #151 y #153, y las 7 de la bandeja: 44 tareas.
+- Ningún otro workspace tenía duplicados.
+- El ws9 ya lo había ordenado el Cerebro esa madrugada (35 tarjetas a su tab y P84 borrado).
+
+**Sin hacer:**
+- Que el Perro de «Re-priorizar todo» sepa de la regla. Hoy reparte la bandeja por tema, y en el tablero de un
+  cliente eso puede sacar una tarea del proyecto de su reunión.
+- La vía B del docstring de `resolverClienteDeReunion` («reuniones previas con el mismo título»). Nunca se escribió.
+
+**Vive en:** lib/reunion-cliente-reglas.ts · lib/reunion-cliente.ts (`proyectoQueManda`, `nombreDeProyectoPara`,
+`porTitulo`) · lib/plan-propuesta.ts (`aplicarPropuestas`) · lib/todo-rutear.ts (`rutearSinIA`) ·
+app/api/plan-fathom/route.ts (`clienteParaElModal`) · tests/reunion-cliente-870.test.ts
+
+## La extracción, medida otra vez contra las llamadas del 16/10: lo que la arregló y lo que no (17/10/2026)
+
+Sigue a «La extracción del 16/10 leída contra las dos transcripciones» (más arriba). Se midió con la extracción real
+(Gemini, la cascada gratis) sobre las mismas dos llamadas, contra las 50 tarjetas #843-#892, revisando cada par a mano.
+
+| | 16/10 | 17/10 |
+|---|---|---|
+| pedidos de la revisión con Código Inmobiliario | 26 de 36 | 30 de 36 |
+| pedidos de la llamada con Mauricio | 11 de 14 | 11 de 14 |
+| tarjetas con «Martin Carballo» | 17 de 37 | 0 de 55 |
+| tarjetas con un dato técnico que nadie dijo | 14 de 37 | 0 de 55 |
+| bugs de MaKo en un proyecto de cliente | 37 de 37 | 0 |
+
+**Los datos inventados los EMPUJABA el prompt.** Pedía «PISO DURO: MÍNIMO 600 caracteres»; la mediana salió en 1.291.
+Lo que el modelo no tenía para escribir lo completaba con ingeniería supuesta: componentes («DateRangeFilter»),
+librerías («React Error Boundary»), proveedores («Sendgrid / Resend o similar»), versiones («Claude 3.5 Sonnet de
+200k»). La lectura a mano vio 6 tarjetas así; el control en código encontró 14, todas del mismo tipo.
+- **Arreglo en el prompt:** sin piso, y «Detalles concretos es lo que la reunión dijo, NO tu plan técnico». Con eso
+  la corrida de 20k ya no escribió ni un dato así (0 recortes).
+- **Arreglo en el código:** `sacarLoNoDicho` (lib/detalle-sin-inventos.ts), por si el modelo lo vuelve a hacer. Lo
+  aplica `limpiarLoDicho`, por donde pasa cada tarea en `coerceCandidatas`.
+
+**El control, y sus tres trampas** (las tres medidas):
+- **Los montos no se revisan.** La transcripción dice «20 mil» o «nueve mil» y el detalle escribe «20.000».
+  Sacarlos borraba lo que sí se dijo. Sólo cuentan los números con letras pegadas («200k»), las versiones («3.5») y
+  los años.
+- **`fuenteDicha` deja la puntuación pegada a la palabra** (corta en espacios: «hmo.»). Una palabra dicha al final
+  de una frase no contaba como dicha: el control sacó un renglón cierto sobre «HMO». `FuenteDatos.palabras` las
+  guarda sin puntuación.
+- **El robot escribe mal los nombres** («Maco», «Claudio»). Una letra de diferencia cuenta como dicho, y el
+  vocabulario de la app (`VOCABULARIO_MAKO`) siempre se puede nombrar. Las citas («…») no se revisan: son la voz
+  de la reunión.
+
+**«Martin Carballo»:** Fathom rotula a quien graba con el nombre de SU cuenta. La prueba de que es la misma persona
+es el EMAIL (`aliasDelDueno`, lib/tarea-dueno.ts), nunca el parecido. El nombre se cambia ANTES de leer
+(transcripción, resumen, participantes) y otra vez en lo que devuelve el modelo.
+
+**El diagnóstico obvio para lo que faltaba («partes más chicas») era a medias.**
+- Lo que recuperó pedidos fue el bloque «REVISIÓN DE UN PRODUCTO»: cada molestia o pedido sobre lo que construye
+  quien mira el tablero es una tarea, aunque nadie diga «lo hago» y aunque salga mientras se muestra.
+- Partes de 15k y de 20k encontraron lo mismo (30 de 36). Pero con 15k la de Mauricio tuvo 9 partes y tardó
+  399 s, más que los 300 s de Vercel (`after()` tiene 285).
+- Quedó 20k leído de a TRES: las mismas rondas que 25k de a dos. Gemini tardó de 70 a 140 s por parte con mucha
+  demanda: 279 s y 154 s.
+
+**Sin hacer:**
+- ~~**La extracción no mira el reloj.**~~ **Arreglado el 17/10/2026**: ver [Una reunión larga](#una-reunión-larga-la-extracción-mira-el-reloj-y-una-lectura-a-medias-se-completa-17102026).
+- **Los 5 pedidos que la revisión todavía pierde son del mismo tipo:** una frase sobre la pantalla mientras se
+  muestra otra cosa. Son el bug de pantalla completa del Second Brain, «que guarde solo», Pablo que no pudo agendar,
+  el «43» de Offer y la tab de email de Chats.
+- Los 3 de Mauricio son dudosos de verdad (resuelto en vivo, un pedido A él, un cobro a verificar). No se tocan.
+- El TÍTULO no pasa por el control (recortarle una palabra lo deja sin sentido): «Meta CAPI» sí se dijo, pero
+  nada lo comprueba.
+
+**Vive en:** lib/detalle-sin-inventos.ts · lib/plan-fathom.ts (`PLAN_FATHOM_SYSTEM_TEMPLATE`, `CHUNK_CHARS`,
+`CONCURRENCIA`, `coerceCandidatas`) · lib/tarea-dueno.ts (`aliasDelDueno`, `conNombreReal`) ·
+tests/plan-fathom-sin-inventos.test.ts (los números de la medición en su cabecera)
+
+## Marcar hecha una tarea cuando algo YA ESTÁ: en el acto, sin borrador (17/10/2026)
+
+**Síntoma:** Martín pidió que marcar resuelta una tarea, cuando algo ya está, sea automático siempre.
+- El único camino desde afuera del tablero era `proponer_cierre_tareas`. Deja un BORRADOR en /plan/revisar y espera
+  a que alguien lo confirme.
+- El Centro lo proponía y lo aplicaba en dos pasos. Si el segundo fallaba, quedaba un borrador colgado.
+- El «Ya está» de un chat no cerraba nada.
+
+**La regla que queda:** cerrar desde afuera del tablero es `cerrar_tareas_plan` (la API de MaKo,
+`POST /api/v1/plan/tareas/cierres`).
+- Es una acción de **chat**: «canal propone, persona confirma» sigue en pie (no existe «sin confirmación»). Desde el
+  Centro, un flujo o un token con `ejecutar` se aplica en el acto, sin pantalla.
+- Pide evidencia de 10 caracteres o más y acepta la ruta `revisar`.
+- Una que ya estaba hecha es «ya está así» (`yaEstaba`), no un error.
+- Escribe por las MISMAS funciones que el borrador al aplicar un cierre (lib/plan-cerrar.ts). El cierre del tablero
+  de un cliente, que vivía copiado adentro de `aplicarPropuestas`, ahora es uno solo (`cerrarTareaCliente`).
+- `proponer_cierre_tareas` queda para lo que sólo se DEDUCE (confianza media, o «a medias»).
+
+**Trampa al nombrarla:** en la descripción de `actualizar_avance_tarea` se cambió «usa proponer_cierre_tareas» por «usa
+cerrar_tareas_plan». Eso le sumó «plan» a su relevancia. En un «mové eso al viernes» por WhatsApp pasó a entrar ella y
+quedó afuera `listar_tareas_plan`, la que el turno necesita (lo cazó antes-de-subir en tests/agenda-whatsapp.test.ts).
+La descripción de una operación compite por el presupuesto de herramientas de WhatsApp (`ordenarPorRelevancia`): nombrar
+otra operación le suma las palabras de su id. Se dejó como estaba.
+
+**Dos defectos del «Marcar hecha» del Centro** (17/10, después del deploy; los encontró Offer con la #888 del ws 9):
+- **La API valida el largo ANTES de correr.** Una evidencia de 440 caracteres no se recortaba en el cierre: se rechazaba
+  el cierre entero («supera el tope de 400»). El recorte de `pruebaConRuta` llega tarde, en `ejecutar`. Quien llama
+  recorta antes (`inputDeCierre`, lib/centro-plan-reglas.ts).
+- **«Ya no estaba abierta» tapaba el error real.** Se miraba sólo el proyecto del jefe, y una tarea de OTRO proyecto
+  daba «no está». Ahora se mira todo el tablero (`listado`), y esa frase sale sólo si el Plan dice que la tarea no
+  existe (`errorDeCierre`).
+
+**El «Ya está» de un chat** (`cerrarPorYaEsta`, lib/centro-plan.ts) cierra:
+- las tarjetas que nombra por número (#870);
+- si no nombra ninguna, la abierta del proyecto del jefe cuyo título ENTERO, de tres palabras o más, aparece en el
+  texto.
+
+Nada por parecido: cerrar la tarjeta equivocada esconde trabajo pendiente, y no cerrar una se arregla con un clic.
+
+**Sin hacer:**
+- ~~Enchufar `cerrarPorYaEsta`…~~ **Ya estaba** (medido el 17/10, B5): el Ops Center lo hizo a su manera en
+  lib/centro-plan-auto.ts (cd233436f): el «Ya está» de un chat cierra su tarea con `cerrarTareaDelPlan`.
+- ~~Que MaKo en WhatsApp ofrezca `cerrar_tareas_plan` al «ya lo hice»~~ **Hecho el 17/10 (B5):** medido antes, «ya lo
+  hice» era `capturar` (dudosa) y sin herramientas, o sea material para ANOTAR una tarea nueva. Ahora la regla
+  3-bis-ya de lib/mako-intencion.ts (`YA_HECHO`) lo lleva a `actuar` con el Plan: viajan cerrar y leer las tareas.
+  Un pedido concreto detrás («ya quedó lista, publicá la landing») gana su regla (lo cazó mako-intencion-landing).
+  Test: tests/mako-ya-lo-hice.test.ts.
+
+**Vive en:** lib/plan-cerrar.ts · lib/api-mako/areas/plan.def.ts y plan.run.ts (`cerrar_tareas_plan`) ·
+lib/centro-plan.ts (`cerrarTareaDelPlan`, `cerrarPorYaEsta`) · lib/centro-plan-reglas.ts (`tarjetasDelYaEsta`) ·
+tests/plan-cierre-en-el-acto.test.ts
+
+## Una reunión larga: la extracción mira el reloj y una lectura a medias se completa (17/10/2026)
+
+**Síntoma (dos, que se veían como uno):** una junta de 3 h no dejaba ninguna tarea en el Plan. Y una reunión leída a
+medias (un tramo caído) se quedaba así para siempre, aunque el comentario del cron dijera «el próximo cron completa lo
+que falta».
+
+**Causa:**
+- **La extracción no recibía el reloj.** El cron, la ruta del modal y el webhook corren con `maxDuration = 300` y tienen
+  su `hasta`; `extraerTareasDeTexto` no. Con partes de 20k de a tres y Gemini cargado (70-140 s por ronda), 8-9 partes
+  pasan los 300 s y Vercel mata la función ANTES de escribir el borrador: ni tareas ni rastro, y la corrida siguiente
+  empieza de cero para morirse en el mismo lugar. `completarBorradorDeReunion` recibía `hasta` y no se lo pasaba.
+- **El cron salteaba la reunión porque ya tenía borrador** (`existePropuestaRef`). Y aunque la hubiera releído, una
+  junta que no entra en 300 s se vuelve a morir igual: releer entera no completa nada.
+
+**El diagnóstico obvio era el equivocado:** «subir el `maxDuration`» o «partes más chicas». Las partes más chicas son
+MÁS rondas (15k tardó 399 s), y el techo de Vercel no se mueve. Lo que hace falta es que la lectura se pueda CORTAR y
+RETOMAR.
+
+**La regla que queda** (lib/lectura-por-partes.ts, puro, con test):
+- **Una lectura larga es por rondas con plazo**: deja `MARGEN_ESCRITURA_MS` (25 s) para escribir, no arranca una ronda
+  con menos de `MIN_PARTE_MS` (120 s) por delante, cada llamada lleva `hastaMs` (si no llega, FALLA: no paga) y lo que
+  no se leyó vuelve como parte sin leer (`sinTiempo`). La fusión con IA se saltea si no queda reloj (queda el dedup léxico).
+- **Lo leído queda ANOTADO** (`mako.reunion.parcial.<id>`: en cuántas partes, cuáles se leyeron —con o sin tareas— y
+  qué borradores dejó) y la vuelta siguiente lee SÓLO lo que falta (`previa`). La marca vale sólo para el MISMO troceado
+  (`saltearSi`): con otro número de partes, se lee todo.
+- **Lo que completa va a un borrador APARTE** (`fathom:<id>:partes-3-4`, `refDelResto`), sin lo que ya propuso la vuelta
+  anterior (`sinLasYaPropuestas`: las partes se solapan y la tarea del corte sale en las dos). Sumarlo al primero lo
+  podía borrar el autoguardado del modal (guarda la lista entera). La ref es determinista: si la función muere entre
+  crear el borrador y anotar la marca, la vuelta siguiente lee lo mismo y `crearPropuesta` devuelve el que ya existe.
+- Una reunión que la persona DESCARTÓ no se completa (se cierra sin leer). Un «procesando» del modal se lee de cero.
+
+**Trampas:** `Number(ref.slice(7))` (el `recordingDeRef` del modal) da NaN con la ref nueva: ahora es una regex. La
+marca se escribe con `getSetting`/`setSetting` del workspace en contexto; vacía = no hay lectura a medias (no existe
+«borrar setting»).
+
+**Sin hacer:** el AVISO de «esta reunión no se pudo leer» (ver más arriba) sigue sin existir; con esto, una reunión
+que no entra en el reloj ya no es una de ésas: se lee en dos corridas. No se midió contra una junta real de 3 h.
+
+**Vive en:** lib/lectura-por-partes.ts · lib/reunion-parcial.ts · lib/plan-fathom.ts (`extraerTareasDeTexto`,
+`fusionarDuplicadas`) · lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts · app/plan/board/TareasRecibidasModal.tsx ·
+tests/reunion-larga-reloj.test.ts (+ el modo `parcial` de tests/_fathom-carga-hijo.ts) · *17/10/2026, B5 (claude4)*
+
+## La re-puntuación completa del Perro (`puntuarPlan`) tampoco pisa lo fijado (17/10/2026)
+
+Era lo que quedó en la cola del relevo del Perro: `puntuarPlan` (lib/mako-guardian.ts) curvaba con `curveTaskScores` y
+devolvía un número para TODAS, también las fijadas a mano: el mismo error que `recurvarPlanOwner` tuvo hasta el 14/10
+(240 de 513 arrastres deshechos), en el otro camino. Ahora una tarea que llega con `fijada` no recibe número y el resto
+se corrige alrededor de ella con `respetarFijadas` (`curvaSinPisarFijadas`, app/plan/board/lugar-al-soltar.ts).
+**Medido al leer el código:** hoy NADIE la llama con el plan entero —el default de /api/mako-guardian no tiene botón y la
+Retro, su otro llamador, se retiró—: el arreglo es para el día que vuelva un «re-puntuar todo» con el modelo. Quien la
+llame tiene que mandar `fijada` y `num` (sin eso, como antes). **Vive en:** lib/mako-guardian.ts (`GuardTaskIn`,
+`puntuarPlan`) · app/plan/board/lugar-al-soltar.ts · tests/plan-repuntuar-fijadas.test.ts · *17/10/2026, B5 (claude4)*
+
+## «Leí tu reunión y te dejé las tareas»: una automatización de SuperAdmin, y no le llegaba a nadie (17/10/2026)
+
+**Lo que era:** el aviso `reunion-tareas-al-plan` lo armaba `textoAviso` (lib/reunion-auto.ts) y salía con `texto`, que
+PISA la plantilla de /mensajes: el negocio editaba un texto que nunca salía («nada por detrás»).
+
+**El diagnóstico obvio era el equivocado:** «mudarlo cambia lo que reciben los negocios». Medido en producción: el aviso
+no tiene `porDefecto` en el catálogo, así que NACÍA APAGADO (`estaPrendida`), y ningún negocio lo había prendido (el
+ws 13 lo tenía apagado a mano). No le llegaba a nadie. Por eso su fila de SuperAdmin nace PAUSADA y nada cambia para
+nadie hasta que Martín la prenda.
+
+**Lo que queda:** el evento de la plataforma `reunion_tareas_al_plan` (plantilla `mako-reunion-tareas-al-plan`). El cron
+pasa los hechos (`datosReunionesAlPlan`, lib/reunion-plan-aviso.ts, pura) y lo que el código elegía —una reunión o varias,
+si completa una lectura a medias— lo preguntan dos CONDITION (`plan_varias`, `plan_resto`). Lo que falta se lleva su
+renglón: «0 de los demás» no viaja.
+
+**Sin hacer:** la fila se crea DESPUÉS del deploy (`scripts/mudanza-avisos-plataforma.mts --eventos=reunion_tareas_al_plan
+--aplicar`; el simulacro ya pasó). Y el aviso de «esta reunión no se pudo leer» sigue sin existir: sería otro evento igual.
+**Vive en:** lib/reunion-plan-aviso.ts · lib/reunion-auto.ts (`datosAviso`) · lib/plantillas-automatizaciones.ts ·
+lib/disparadores.ts · lib/variables-aviso.ts · tests/reunion-tareas-al-plan-evento.test.ts · *17/10/2026, B5 (claude4)*
+
+## «Movela al viernes» → «la tarea»: la fecha de una tarea por WhatsApp, y el presupuesto de herramientas (17/10/2026)
+
+`cambiar_fecha_tarea_plan` no existía en main (en wip/api-acciones-0910 era sólo HTTP) y MaKo contestaba que no podía.
+Ahora es una acción de chat con todos los canales (lib/api-mako/areas/plan.def.ts y plan.run.ts): queda pendiente, una
+persona la confirma, y `ejecutar` RELEE la fila antes de guardar (el tablero del dueño no tiene patch por columna). La
+fecha la valida `validarFechaLimite` (lib/plan-fecha-limite.ts): un modelo convierte «el viernes» y a veces devuelve el
+año pasado o un 31 de febrero.
+
+**La trampa (medida):** sumar UNA operación de 839 caracteres al área `plan` dejó afuera a `listar_tareas_plan` en «mové
+eso al viernes» (el presupuesto del doer es de 12.000). No era la operación nueva sola: «mové» sumaba puntos a
+`requisitos_para_mover` y `mover_a_nutricion_manual`, que mueven un LEAD, no algo a otro día. Fueron a `NO_MUEVEN_DE_DIA`
+(lib/doer-herramientas.ts). Lo cazó tests/agenda-whatsapp.test.ts, que ya pedía la herramienta el día que viajara.
+**Vive en:** lib/plan-fecha-limite.ts · lib/api-mako/areas/plan.def.ts · plan.run.ts · lib/doer-herramientas.ts ·
+tests/plan-fecha-por-whatsapp.test.ts · *17/10/2026, B5 (claude4)*
+
+## La revisión adversarial de «Una reunión larga» (17/10/2026): nueve defectos, siete reales en el Plan
+
+El Cerebro revisó la tanda 1 de B5. Lo que la revisión encontró y la regla que quedó, en una línea cada uno:
+- **El juez del criterio sólo cree en «faltantes» sobre una lectura ENTERA.** Lee la reunión entera; en una lectura a medias
+  o que completa, la lista es sólo de las partes leídas y lo demás volvía como «faltante» con otra redacción (`mismaTarea`
+  caza 1 de 17). Ahí el juez clasifica y nada más.
+- **Lo ya propuesto incluye lo ya cargado** (`aplicadas`): al confirmar, las tuyas salen de `tareas`.
+- **Una vuelta que completa y ya se hizo no se repite ni se avisa** (su borrador de resto existe, aunque esté descartado), y
+  sin partes leídas no hay nada que completar. Antes salía el aviso en cada corrida del cron.
+- **Con marca, ni KEY_VISTA ni una fila «procesando» frenan la continuación**: la fila «procesando» la deja el propio cron
+  cuando lo leído no trae tareas; lo nuevo se SUMA a lo que ya tenía.
+- **Sin la transcripción (Fathom no contestó) es un tramo fallido**, aunque haya resumen; y sin partes leídas, una vuelta que
+  completa no cierra la marca.
+- **El modal también sigue donde quedó** (`previa`) y suma; «Volver a analizar» lee de cero y vacía la marca antes. Lo que
+  se le dice a la persona es honesto: «vuelve a tocar «Extraer»» (el cron sólo mira las de las últimas 26 h).
+- **«Terminé de leer» sólo si terminó.**
+**El diagnóstico obvio era el equivocado:** «el cron completa lo que falta» era cierto sólo para el cron y dentro de 26 h;
+el camino del modal, y las filas que el propio cron deja «procesando», no lo heredaban.
+**Vive en:** lib/reunion-auto.ts · lib/leer-reunion-en-segundo-plano.ts · app/api/plan-fathom/route.ts · lib/plan-fathom.ts ·
+lib/reunion-plan-aviso.ts · tests/reunion-larga-reloj.test.ts (R1-R7 en su cabecera) · *17/10/2026, B5 (claude4)*
+
+## La tarea en la familia de tarjetas: el círculo de prioridad completa (17/10/2026)
+
+- **El círculo ocupa el lugar de la foto y tocarlo completa o reabre** (era el check del pie). En la computadora llama a
+  `board.toggleDone`; en el teléfono, a `completar(…, 'check')`, el MISMO camino que «Completar tarea» del sheet (con su
+  deshacer).
+- **El color sale de la banda del puntaje** (`prioFromScore`: alta, media, baja, futuro) y el puntaje 0 va punteado. El
+  nombre que se lee es el de la casa («Prioridad alta»), no el del prototipo (Urgent/High…).
+- **La tarjeta ya no mide 138 px fijos:** la fecha y el proyecto van en un renglón y el alto lo pone el contenido. Todo lo
+  que mostraba se quedó (proyecto, plazo con sus días, candado, «se repite», aviso de la fecha, puntaje, tacho), más
+  «MaKo» en naranja si la creó MaKo (`origen === 'ia'`).
+
+**Sin hacer:** la vista «Prioridades» (`TarjetaPrioridad`) y el tablero de Proyectos del teléfono siguen con su tarjeta.
+**Vive en:** app/plan/board/BoardShell.tsx (`CardTile`) · app/m/plan/ListaPlan.tsx · *17/10/2026 noche, chat «CRM» (claude4).*

@@ -17,9 +17,12 @@ import { canalKeyDe } from './api-mako/canal';
 import { esAccion, type Ctx } from './api-mako/tipos';
 import { runWithWorkspace } from './workspace';
 import {
-  avisoDeAlta, avisoDeYaEstaba, dondeQuedo, ordenarTareas, proyectoDelChat, proyectoDelJefe, proyectosDelListado, tareasDelListado, yaAbierta,
+  avisoDeAlta, avisoDeYaEstaba, dondeQuedo, errorDeCierre, inputDeCierre, numerosDeTarjeta, ordenarTareas, proyectoDelChat, proyectoDelJefe, proyectosDelListado,
+  tareasDelListado, tarjetasDelYaEsta, yaAbierta,
   type EscritoPlan, type LecturaPlan, type TareaPlanP,
 } from './centro-plan-reglas';
+import { rutaDeYaEsta } from './centro-chats';
+import { recortarPrueba } from './cierre-tarjeta';
 
 /** El contexto con el que el Centro usa el Plan. `sub` va en la clave de scope: lo que propone una persona es suyo. */
 export function ctxDelCentro(ws: number, persona: { sub: string; email: string }): Ctx {
@@ -92,16 +95,53 @@ export async function sumarTareaAlPlan(ctx: Ctx, chat: string, t: { titulo: stri
   return { ok: true, aviso: avisoDeAlta(creadas, donde), plan: await leerPlanDelJefe(ctx, chat), tareaId };
 }
 
-/** Cierra UNA tarea abierta con la evidencia. Cerrar no es borrar: queda con su historial y su checklist tildada. */
-export async function cerrarTareaDelPlan(ctx: Ctx, chat: string, t: { id: string; evidencia: string }): Promise<EscritoPlan> {
-  const r = await enElActo('proponer_cierre_tareas', { cerrar: [{ id: t.id, evidencia: t.evidencia, confianza: 'alta' }], resumen: 'Marcada hecha desde el Centro de Operaciones' }, ctx);
-  // Un borrador de cierres que no se aplicó se descarta: no queda esperando en /plan/revisar.
-  if (!r.ok && typeof r.datos.propuestaId === 'string') await enElActo('descartar_borrador_plan', { id: r.datos.propuestaId }, ctx).catch(() => null);
+/**
+ * Cierra UNA tarea abierta con la evidencia, EN EL ACTO y sin borrador (`cerrar_tareas_plan`, 17/10/2026). Hasta ese
+ * día proponía un borrador de cierres y lo aplicaba en dos pasos; si el segundo fallaba, quedaba colgado en
+ * /plan/revisar. Cerrar no es borrar: queda con su historial y su checklist tildada.
+ */
+export async function cerrarTareaDelPlan(ctx: Ctx, chat: string, t: { id: string; evidencia: string; revisar?: string | null }): Promise<EscritoPlan> {
+  const r = await enElActo('cerrar_tareas_plan', inputDeCierre(t), ctx);
   const plan = await leerPlanDelJefe(ctx, chat);
   if (!r.ok) {
-    // La fila vieja no se queda en pantalla: si ya no está abierta, eso es lo que se dice.
-    const sigue = plan.ok && plan.tareas.some((x) => x.id === t.id);
-    return { ok: false, error: sigue ? r.error : 'Ya no estaba abierta.', plan };
+    // La fila vieja no se queda en pantalla: si ya no está abierta, eso es lo que se dice. Se mira TODO el tablero, no sólo
+    // el proyecto del jefe: una tarea de otro proyecto tapaba el error real con «Ya no estaba abierta» (`errorDeCierre`).
+    const todo = await listado(ctx);
+    const sigue = (plan.ok && plan.tareas.some((x) => x.id === t.id)) || (todo.ok && todo.tareas.some((x) => x.id === t.id));
+    return { ok: false, error: errorDeCierre(r.error, sigue), plan };
   }
   return { ok: true, aviso: 'Marcada hecha', plan };
+}
+
+/** Lo que hizo un «Ya está» con el Plan. `sinTarjeta`: no nombró ninguna ni había una con su título (no se cerró nada). */
+export type CierrePorYaEsta =
+  | { ok: true; cerradas: Array<{ num: number | null; titulo: string }>; noAbiertas: number[]; sinTarjeta: boolean }
+  | { ok: false; error: string };
+
+/**
+ * EL «YA ESTÁ» DE UN CHAT CIERRA SU TARJETA (17/10/2026). Lo llama el Ops Center cuando un chat jefe dice «Ya está» en su
+ * conversación: cierra, en el acto y con el texto del «Ya está» como evidencia, las tarjetas que nombra por número
+ * (#870) o —si no nombra ninguna— la abierta de su proyecto cuyo título entero está en el texto
+ * (`tarjetasDelYaEsta`, lib/centro-plan-reglas.ts). La ruta para revisar es la que dejó el texto (`rutaDeYaEsta`), si
+ * no viene aparte. Lo que no encuentra no lo adivina: lo devuelve.
+ */
+export async function cerrarPorYaEsta(ctx: Ctx, chat: string, ya: { texto: string; evidencia?: string; revisar?: string | null }): Promise<CierrePorYaEsta> {
+  const texto = (ya.texto ?? '').trim();
+  if (!texto) return { ok: false, error: 'El «Ya está» llegó vacío.' };
+  const l = await listado(ctx);
+  if (!l.ok) return { ok: false, error: l.motivo };
+  const delJefe = await leerPlanDelJefe(ctx, chat);
+  const abiertas = l.tareas.concat(delJefe.ok ? delJefe.tareas.filter((t) => !l.tareas.some((x) => x.id === t.id)) : []);
+  const tarjetas = tarjetasDelYaEsta(texto, abiertas, delJefe.ok ? delJefe.tareas : []);
+  const nombradas = numerosDeTarjeta(texto);
+  const noAbiertas = nombradas.filter((n) => !tarjetas.some((t) => t.num === n));
+  if (!tarjetas.length) return { ok: true, cerradas: [], noAbiertas, sinTarjeta: !nombradas.length };
+  const evidencia = recortarPrueba((ya.evidencia ?? '').trim() || texto.replace(/\s+/g, ' '));
+  const revisar = ya.revisar ?? rutaDeYaEsta(texto);
+  const r = await enElActo('cerrar_tareas_plan', {
+    cerrar: tarjetas.map((t) => ({ id: t.id, evidencia, ...(revisar ? { revisar } : {}) })),
+  }, ctx);
+  if (!r.ok) return { ok: false, error: r.error };
+  const ids = Array.isArray(r.datos.ids) ? (r.datos.ids as unknown[]).map(String) : tarjetas.map((t) => t.id);
+  return { ok: true, cerradas: tarjetas.filter((t) => ids.includes(t.id)).map((t) => ({ num: t.num, titulo: t.titulo })), noAbiertas, sinTarjeta: false };
 }

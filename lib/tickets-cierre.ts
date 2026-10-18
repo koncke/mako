@@ -17,10 +17,10 @@ import 'server-only';
 // es el ESTADO (AGENTS.md, «Un canal PROPONE»): si el push no llega, el ticket igual dice «Resuelto».
 
 import { getSupabaseServer } from './supabase';
-import { runWithWorkspace } from './workspace';
+import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
 import { anotarDelCerebro } from './tickets-db';
-import { textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
+import { pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
 
 const T = 'tickets';
 
@@ -70,8 +70,10 @@ export async function avisarPendientes(tope = 30): Promise<{ avisados: number; f
     .order('updated_at').limit(tope);
   if (error) throw new Error(`no pude leer los avisos: ${error.message}`);
   let avisados = 0, fallidos = 0;
+  // Lo que trae ESTE build: es la prueba de que un arreglo está en producción (el aviso al grupo la exige).
+  const desplegados = ticketsDesplegados();
   for (const f of (data ?? []) as FilaAviso[]) {
-    const r = await avisarUno(f);
+    const r = await avisarUno(f, desplegados);
     if (r) avisados++; else fallidos++;
   }
   return { avisados, fallidos };
@@ -84,14 +86,14 @@ export async function avisarTicket(id: number): Promise<boolean> {
     .eq('id', id).maybeSingle();
   if (!data || data.avisado_at) return false;
   if (!['resuelto', 'rechazado', 'duplicado', 'esperando_cliente'].includes(data.estado as string)) return false;
-  return avisarUno(data as FilaAviso);
+  return avisarUno(data as FilaAviso, ticketsDesplegados());
 }
 
 /**
  * Le avisa a un cliente por los canales que corresponden y marca `avisado_at` si salió por ALGUNO. Si no salió por
  * ninguno, queda sin marcar y el cron lo reintenta; /tickets ya dice el estado.
  */
-async function avisarUno(f: FilaAviso): Promise<boolean> {
+async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>): Promise<boolean> {
   const texto = textoDelAviso(f);
   const ws = Number(f.workspace_id);
   const salio: string[] = [];
@@ -105,7 +107,7 @@ async function avisarUno(f: FilaAviso): Promise<boolean> {
   }
   // Por donde lo levantó.
   const hilo = f.contexto?.chat?.hilo ?? '';
-  if ((f.canal === 'chat_app' || f.canal === 'chat_movil') && /^\d{1,12}$/.test(hilo)) {
+  if ((f.canal === 'chat_app' || f.canal === 'chat_movil' || f.canal === 'sistema') && /^\d{1,12}$/.test(hilo)) {
     try {
       const { appendMessage } = await import('./chart-chats');
       await runWithWorkspace(ws, () => appendMessage(Number(hilo), 'assistant', texto));
@@ -114,10 +116,41 @@ async function avisarUno(f: FilaAviso): Promise<boolean> {
   }
   if (f.canal === 'whatsapp') {
     try {
+      // Por el MISMO saneo de salida que el doer (lib/doer-salida.ts; lo pidió el chat «MaKo en WhatsApp»): lo libre del
+      // aviso es la respuesta de Martín o la nota del arreglo. `corrioHerramientas: true` porque el aviso ES el resultado
+      // de algo hecho (el cierre): «te avisamos cuando esté» de un duplicado lo cumple el código, no es una promesa suelta.
+      const { sanearSalida } = await import('./doer-salida');
       const { enviarAlGrupoMaKo } = await import('./mako-grupo');
-      const r = await enviarAlGrupoMaKo(ws, texto);
+      const r = await enviarAlGrupoMaKo(ws, sanearSalida(texto, { corrioHerramientas: true }).texto);
       if (r.ok) salio.push('whatsapp');
     } catch (e) { console.error(`[tickets] WhatsApp de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  // Un error que la app vio sola (lib/errores-app.ts): cuando está ARREGLADO Y DESPLEGADO, a cada negocio que lo vio se le
+  // avisa en su grupo con `avisarArregloAlGrupo` (lib/aviso-arreglo.ts, de «MaKo en WhatsApp»: pone la firma del equipo,
+  // un aviso por arreglo y por negocio, tope por día). Es una función de lib y no una operación del registro, para
+  // que ni un modelo ni una automatización de un cliente puedan firmar como el equipo.
+  // ⚠️ SÓLO CON PRUEBA: la función no puede verificar producción. La prueba es que ESTE build trae el hito con
+  // `tickets: [n]` (el del ticket, o el de su original si es un duplicado). Un ticket del sistema «resuelto» por otra cosa
+  // (Martín lo contestó) no tiene arreglo desplegado: no se le avisa a ningún grupo.
+  // ⚠️ El ws1 es de Mauricio, un cliente: va con `ws1Seguro` sólo porque está en la lista de afectados de verdad.
+  if (f.canal === 'sistema') {
+    const hito = f.estado === 'resuelto' ? (desplegados.get(f.id) ?? (f.duplicado_de ? desplegados.get(f.duplicado_de) : undefined)) : undefined;
+    if (hito) {
+      try {
+        const { negociosAfectados } = await import('./errores-app');
+        const { avisarArregloAlGrupo } = await import('./aviso-arreglo');
+        const plataforma = await wsSuperAdmin();
+        const negocios = new Set([...(await negociosAfectados(f.id)), ...(ws !== plataforma ? [ws] : [])]);
+        const prueba = pruebaDeProduccion({ ticket: f.id, hito: hito.titulo, area: hito.area, commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null, deploy: process.env.VERCEL_URL ?? null });
+        for (const n of negocios) {
+          const r = await avisarArregloAlGrupo({ ws: n, clave: `ticket:${f.id}`, texto: textoArregloAlGrupo(f), prueba, origen: 'ticketera', ws1Seguro: n === 1 });
+          if (r.ok) salio.push(`grupo de ws ${n}`);
+          else if (r.motivo !== 'ya-avisado') console.error(`[tickets] aviso al grupo de ws ${n} por #${f.id}: ${r.motivo} — ${r.detalle}`);
+        }
+      } catch (e) { console.error(`[tickets] aviso al grupo de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
+    }
+    // Lo vea o no un cliente, el ticket del sistema ya está en /tickets y en la bandeja: no se reintenta para siempre.
+    if (!salio.length) salio.push('tickets');
   }
   // Por el formulario no hay canal de vuelta más que /tickets: el estado ya está ahí, y eso cuenta como avisado.
   if (f.canal === 'formulario' || f.canal === 'api') salio.push('tickets');

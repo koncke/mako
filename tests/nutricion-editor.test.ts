@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   DEFAULT_PIPELINE, ETAPAS_SIN_SECUENCIA, NUTRICIONES_POR_DEFECTO,
-  generateFunnel, suppressedInicial, type Stage,
+  apagadasAlCrear, generateFunnel, suppressedInicial, type Stage,
 } from '../lib/pipeline';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -133,7 +133,14 @@ test('⚠️ crear un producto calcula sus apagadas en el CHOKE POINT, no en cad
   // productos con las nueve nutriciones encendidas. La regla de la casa es que lo que vale
   // para TODOS los que crean se escribe donde pasan todos.
   const fn = leer('lib/funnels.ts');
-  assert.match(fn, /suppressedInicial\(input\.pipeline!\)/, 'crear un producto dejó de apagar las que sobran');
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026 (Pendientes B2): «Nuevo CRM» siembra sus etapas y sus apagadas en el MISMO
+  // insert, así que el choke point SUMA las que trae el llamador a las que sobran del pipeline (`apagadasAlCrear`).
+  // Lo que este test cuida no cambió: crear apaga las que sobran, ahí y no en cada llamador. Probado rompiéndolo
+  // (17/10/2026, el archivo da 8 / 0): `apagadasAlCrear` devolviendo sólo las propias → 7 / 1.
+  assert.match(fn, /apagadasAlCrear\(input\.pipeline!, input\.suppressed\)/, 'crear un producto dejó de apagar las que sobran');
+  const sobran = suppressedInicial(etapas());
+  assert.ok(sobran.length > 0, 'el pipeline por defecto ya no tiene nutriciones que sobren: este test no mira nada');
+  assert.deepEqual(apagadasAlCrear(etapas(), []).sort(), [...sobran].sort(), 'crear un producto dejó de apagar las que sobran');
   assert.deepEqual([...NUTRICIONES_POR_DEFECTO].sort(),
     ['noshow_r1', 'noshow_r2', 'noshow_r3', 'nutri', 'reactivacion']);
 });

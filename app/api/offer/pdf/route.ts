@@ -1,6 +1,7 @@
 // =============================================================================
 // GET /api/offer/pdf?id=<sesión>[&v=<versión>] — el PDF de una versión de la conclusión de Offer
 // GET /api/offer/pdf?id=<sesión>&tipo=lo-que-vendes — el del onboarding: lo que vende, ordenado (17/10/2026)
+// GET /api/offer/pdf?id=<sesión>[&v=<versión>]&vista=paginas — las MISMAS páginas en SVG, para verlas en la pantalla
 // =============================================================================
 // Lee la sesión GUARDADA del workspace actual (nunca lo que mande el navegador:
 // el PDF dice lo que MaKo concluyó, no lo que una pestaña cree que concluyó) y la
@@ -15,6 +16,10 @@
 // `tipo=lo-que-vendes` (lib/lo-que-vendes-pdf.ts): las PIEZAS de la conversación, sin conclusión, sin notas y sin
 // oferta nueva; se arma cada vez, así que nunca queda viejo. Se abre en el navegador (inline): es para leerlo.
 //
+// `vista=paginas` (17/10/2026, tarjeta #887: «al terminar el análisis, lo primero que se ve es la vista del PDF»): el
+// mismo documento, página por página en SVG (lib/pdf-escritor.ts → `paginasSvg`), en JSON. La pantalla las muestra
+// como imágenes: un `<iframe>` con el PDF no se ve en Android ni entero en un iPhone.
+//
 // El error va en JSON; el éxito, en binario (la excepción a «Response.json siempre»
 // de la skill nextjs16-conventions; molde: app/api/second-brain/exportar/route.ts).
 // =============================================================================
@@ -22,8 +27,8 @@
 import type { NextRequest } from 'next/server';
 import { adminDeWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { leerFila, nombreNegocioOffer } from '@/lib/offer-sesiones';
-import { conclusionDeVersion } from '@/lib/offer-reglas';
-import { pdfDeOferta, nombreArchivoOferta } from '@/lib/offer-pdf';
+import { conclusionDeVersion, conclusionVisible } from '@/lib/offer-reglas';
+import { pdfDeOferta, nombreArchivoOferta, paginasDeOferta, pdfExternoDeOferta, nombreArchivoOfertaExterna } from '@/lib/offer-pdf';
 import { pdfDeLoQueVendes, nombreArchivoLoQueVendes } from '@/lib/lo-que-vendes-pdf';
 import { tzDeWorkspace } from '@/lib/timezone';
 
@@ -42,6 +47,7 @@ export async function GET(req: NextRequest) {
   if (version != null && (!Number.isInteger(version) || version <= 0)) return Response.json({ ok: false, error: 'Esa versión no es válida.' }, { status: 400 });
 
   const loQueVendes = req.nextUrl.searchParams.get('tipo') === 'lo-que-vendes';
+  const vistaPaginas = req.nextUrl.searchParams.get('vista') === 'paginas';
 
   return runWithWorkspace(ws, async () => {
     try {
@@ -61,14 +67,24 @@ export async function GET(req: NextRequest) {
         });
       }
       if (!fila.conclusiones.length) return Response.json({ ok: false, error: 'Esta oferta todavía no tiene conclusión.' }, { status: 404 });
-      const conclusion = conclusionDeVersion(fila.conclusiones, version);
+      // Lo guardado antes del 17/10/2026, sin los avisos del embudo de entonces (el «43%» sin fuente, tarjeta #888).
+      const guardada = conclusionDeVersion(fila.conclusiones, version);
+      const conclusion = guardada ? conclusionVisible(guardada, fila) : null;
       if (!conclusion) return Response.json({ ok: false, error: `Esta oferta no tiene la versión ${version}.` }, { status: 404 });
       const [negocio, zona] = await Promise.all([
         nombreNegocioOffer().catch(() => ''),
         tzDeWorkspace(ws).catch(() => ''),
       ]);
-      const bytes = pdfDeOferta(conclusion, { negocio, titulo: fila.titulo, fecha: new Date(), zona: zona || undefined });
-      const nombre = nombreArchivoOferta(conclusion.propuesta.nombre || fila.titulo, conclusion.version);
+      const meta = { negocio, titulo: fila.titulo, fecha: new Date(), zona: zona || undefined };
+      if (vistaPaginas) {
+        return Response.json({ ok: true, version: conclusion.version, paginas: paginasDeOferta(conclusion, meta) }, { headers: { 'Cache-Control': 'no-store' } });
+      }
+      // `tipo=externo` (17/10/2026): la oferta sola, para mandarle a un prospecto (sin diagnóstico ni «[completar]»).
+      const externo = req.nextUrl.searchParams.get('tipo') === 'externo';
+      const bytes = externo ? pdfExternoDeOferta(conclusion, meta) : pdfDeOferta(conclusion, meta);
+      const nombre = externo
+        ? nombreArchivoOfertaExterna(conclusion.propuesta.nombre || fila.titulo)
+        : nombreArchivoOferta(conclusion.propuesta.nombre || fila.titulo, conclusion.version);
       // Un `Uint8Array` es un BodyInit válido; el buffer se copia para que el tipo
       // sea un ArrayBuffer «de verdad» (no SharedArrayBuffer) en todos los runtimes.
       return new Response(bytes.slice().buffer, {

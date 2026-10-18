@@ -349,4 +349,72 @@ export const BITACORA: Hito[] = [
       'tests/mako-en-whatsapp-pablo.test.ts (13, 19 roturas) y tests/vigia-mako-grupos.test.ts (5, 9 roturas)',
     ],
   },
+  {
+    fecha: '17 oct', hora: '09:07', chat: 'MaKo en WhatsApp', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: «reprogramame la reunión…» ya llega con la herramienta de mover (lo encontró el vigía en el ws13)',
+    revisar: '/second-brain?ws=13',
+    puntos: [
+      'Lo primero que el vigía encontró en vivo: Joan (ws13) pidió «MaKo reprogramame la reunión de ayer viernes… con Marita Pagani, reprogramámela para el lunes a las 12» y MaKo contestó «no tengo acceso para mover o reprogramar eventos de tu calendario».',
+      '⚠️ **La gemela de «reagendá» del 07/10, y su familia no se buscó entonces**: `\\bprograma` no matchea adentro de «reprograma». El pedido caía al default, sin ninguna herramienta de agenda. Ahora «reprogramame», «reprogramámela» y «reprogramá» llegan como pedido de agenda, con `proponer_mover_reunion`; «el programa» sigue siendo el sustantivo.',
+      '**Cómo se prueba:** pedirle a MaKo en el grupo «reprogramame la reunión de mañana a las 10 para el jueves a las 12»: tiene que proponer moverla y esperar el «sí».',
+    ],
+    commits: [
+      { sha: '618c79c4', msg: 'MaKo en WhatsApp: «reprogramame la reunión…» llega con la herramienta de mover (ws13, lo encontró el vigía)', lineas: 24, archivos: 2 },
+    ],
+    archivos: [
+      'lib/mako-intencion.ts — VERBO_AGENDAR con `(re)programa` + pronombre y «reprograma» suelto',
+      'tests/mako-en-whatsapp-pablo.test.ts — el literal del grupo; 3 roturas, 1 fallo cada una',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '09:45', chat: 'MaKo en WhatsApp', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: cuando algo de MaKo falla en el grupo de WhatsApp, se le ofrece un ticket al equipo',
+    revisar: '/tickets',
+    puntos: [
+      'Con la Ticketera: el doer le pasa al ticket QUIÉN escribió (`whatsapp:+<teléfono>`; un `@lid` no es un teléfono, ahí va el nombre) y el contexto del turno, con el error que registró el código. Si una herramienta de MaKo falló y el modelo no lo ofreció, lo ofrece el código, en una línea que pide el «sí».',
+      '⚠️ **Todo lote de mensajes perdía quién escribió**: los dos mensajes que arma el doer al juntar mensajes no copiaban `participant`.',
+      '**Cómo se prueba:** cuando una herramienta falle en un grupo, MaKo pregunta «¿Se lo aviso al equipo de MaKo…?»; con el «sí», el ticket aparece en /tickets. Martín pidió que se registre SOLO, sin preguntar: cambia cuando el `registrarError` de la Ticketera esté en main.',
+    ],
+    commits: [
+      { sha: 'f00d8436', msg: 'MaKo en WhatsApp: levantar un ticket desde el grupo (quién escribe, el contexto, y lo propone el código si algo falló)', lineas: 147, archivos: 6 },
+    ],
+    archivos: [
+      'lib/doer-ticket.ts — `actorDeWhatsApp` y la línea que ofrece el ticket',
+      'lib/mako-doer-in.ts — `ctx.actor`, `ctx.contextoTicket`, `errorParaTicket` en el runTool y el ticket que propone el código',
+      'tests/mako-en-whatsapp-pablo.test.ts — 13 roturas, todas con su fallo',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '09:36', chat: 'Cerebro', sesion: 'local_797d5445-2365-464d-ae3d-1d71aa7baa8c', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Al arreglar algo de un cliente, avisarle en su grupo, firmado por el Desarrollador',
+    pedido: 'Sería bueno que al terminar de solucionar algo que detectaste de un cliente, ya sea de Joan en este caso, le envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una aclaración de que sos el "Desarrollador". Y también lo mismo que corrés en MaKo en WhatsApp detectando errores, córrelo en toda la app (…). Y todo lo solucionás automáticamente.',
+    puntos: [
+      'Firmado desde el Ops Center y relayado por el Cerebro. La segunda mitad (detectar errores en toda la app) la tomó la Ticketera. A las 10:09 agregó: «No necesitas mi aprobacion, manda el mensaje tranquilamente al grupo».',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '10:02', chat: 'MaKo en WhatsApp', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: el aviso «ya quedó arreglado», firmado por el Desarrollador, al grupo de MaKo de un cliente',
+    revisar: '/second-brain?ws=13',
+    puntos: [
+      '`scripts/avisar-arreglo-al-grupo.mts` (los jefes) y `avisarArregloAlGrupo` (la Ticketera, desde su cron): firma «👨‍💻 Desarrollador de MaKo», rechaza promesas y groserías, el ws1 sólo a propósito, tope de 3 por negocio en 24 h, un aviso por arreglo (reserva atómica antes de mandar, que se suelta si no salió) y anota el eco para que MaKo no se conteste a sí mismo.',
+      '⚠️ **«Está en producción» no se podía saber con lo que había**: no hay endpoint de versión y el `GITHUB_TOKEN` de la plataforma no ve el repo de hola-mako. Lo que anda es el CLI de Vercel por commit (`vercel ls --prod --meta githubCommitSha=<sha>`): el script exige el commit en main y un despliegue de producción Ready que lo contenga.',
+      '**No es una operación de la API, a propósito**: el modelo o una automatización de un cliente podrían firmar como el equipo.',
+      '**Cómo se prueba:** el primer aviso, el de «reprogramar» al grupo de Código Inmobiliario, espera que Martín apruebe el permiso del envío (el clasificador de Claude Code lo bloqueó dos veces).',
+    ],
+    commits: [
+      { sha: '50a24c25', msg: 'El aviso «ya quedó arreglado», firmado por el Desarrollador, al grupo de MaKo de un cliente', lineas: 417, archivos: 7 },
+      { sha: '18c9b1eb', msg: 'Aviso de arreglo: no necesita el OK de Martín (lo dijo el 17/10 10:09), y el script se corre con react-server', lineas: 21, archivos: 4 },
+    ],
+    archivos: [
+      'lib/aviso-arreglo-reglas.ts — firma, texto, ws1, clave y tope (puro)',
+      'lib/aviso-arreglo.ts — reserva, envío por la línea de MaKo, registro y anti-eco',
+      'scripts/avisar-arreglo-al-grupo.mts — prueba la producción (git + Vercel); sin --enviar no manda',
+      'tests/aviso-arreglo.test.ts — 6 tests, 11 roturas',
+    ],
+  },
 ];

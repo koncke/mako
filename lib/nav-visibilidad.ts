@@ -30,6 +30,8 @@ export function puedeVerItem(it: NavItem, v: VistaNav): boolean {
   const rolCliente = v.rolWs === 'closer' || v.rolWs === 'setter';
   return (!it.adminOnly || v.adminShell)
     && (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(v.rolWs) === true)
+    // `soloCapas` (MaKo Partners, 17/10/2026): el ADMIN de un workspace de esas capas, o el super admin.
+    && (!it.soloCapas || v.adminShell || (it.soloCapas.includes(v.capa) && !rolCliente))
     && tabEnCapa(it.key, v.capa || undefined);
 }
 

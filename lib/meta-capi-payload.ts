@@ -156,6 +156,29 @@ export const EVENTOS_CALIFICADO = ['SubmitApplication', 'QualifiedLead'] as cons
  */
 export const eventIdCalificado = (leadId: number) => `calif:${leadId}`;
 
+/**
+ * La línea del historial (campo `Meta`) que deja una calificación que SÍ entró a Meta. Es NUESTRA marca de «ya se
+ * mandó» (#856, 17/10/2026): lo que viaja a Meta no se corrige, y pasadas las 48 h de su dedup, desmarcar y volver a
+ * marcar contaba una SEGUNDA conversión. Con la línea escrita no se vuelve a mandar nunca. Sin columna nueva: es un
+ * hecho del lead, y en el historial además se lee.
+ */
+export const LINEA_CALIFICADO_EN_META = 'Meta ya recibió que está calificado';
+
+/**
+ * Cuánto espera el aviso antes de salir: la ventana del «Deshacer» del toast (5 s, `useToast` en app/_ui/Toast.tsx)
+ * y un margen. Hasta el 17/10/2026 salía en el acto (de fondo desde #854), así que un «Calificado» tocado por error y
+ * deshecho al segundo ya había llegado a Meta, que optimizaba el anuncio del cliente con un dato falso.
+ */
+export const ESPERA_AVISO_CALIFICADO_MS = 8000;
+
+/**
+ * ¿Sale el aviso? Se pregunta AL SALIR, con el lead releído: si sigue calificado y si nunca se mandó. Si no se pudo
+ * releer, no sale (una señal a Meta no se puede deshacer: sin verificarla, no se afirma).
+ */
+export function avisaCalificadoAMeta(p: { sigueCalificado: boolean | null; yaSeMando: boolean }): boolean {
+  return p.sigueCalificado === true && !p.yaSeMando;
+}
+
 /** La clave del lead crudo. El webhook de Meta reintenta el batch entero. */
 export const eventIdLeadCrudo = (leadgenId: string) => `lead:${leadgenId}`;
 

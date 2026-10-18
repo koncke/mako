@@ -14,6 +14,7 @@ import { MazoDecisiones } from '../app/tickets/decisiones/Mazo';
 import { OTRA, RESUELTA, type Decision } from '../app/admin/runway/decisiones';
 import { rutaEscritorio, rutaMovil } from '../lib/movil-rutas';
 import { esTrabajo } from '../app/m/_ui/cabecera';
+import { ARRIBA } from '../app/_components/nav';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -131,9 +132,13 @@ test('en el teléfono, las rutas de antes van a la Ticketera del Centro, con la 
   assert.equal(rutaMovil('/admin/operaciones?tab=avance'), '/m/operaciones', 'un ?tab= viejo no');
   assert.equal(rutaEscritorio('/m/tickets/decisiones'), '/admin/operaciones?ticketera=tarjetas');
   assert.equal(rutaEscritorio('/m/decisiones'), '/admin/operaciones?ticketera=lista');
-  assert.equal(rutaMovil('/tickets'), null, 'la tab de los clientes no se toca');
-  assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /titulo="Ticketera" href=\{RUTA_TICKETERA\}/);
-  assert.match(leer('app/m/mas/page.tsx'), /const RUTA_TICKETERA = '\/m\/operaciones\?ticketera=tarjetas'/, 'More es un atajo a la Ticketera del Centro');
+  // La tab de los clientes («Reportar problema») no va a la Ticketera: desde el 17/10/2026 tiene SU pantalla del teléfono.
+  assert.equal(rutaMovil('/tickets'), '/m/tickets', 'la tab de los clientes no va a la Ticketera');
+  // Desde el 17/10/2026 More no tiene fila «Ticketera»: la puerta es el Ops Center de arriba (la Ticketera vive adentro),
+  // igual que en la sidebar de escritorio.
+  const mas = sinComentarios(leer('app/m/mas/page.tsx'));
+  assert.match(mas, /titulo="Ops Center" href=\{RUTA_CENTRO\}/);
+  assert.match(mas, /const RUTA_CENTRO = '\/m\/operaciones'/);
 });
 
 test('las rutas de antes no se pierden la query: un aviso que trae a una tarjeta sigue llegando', () => {
@@ -154,7 +159,8 @@ const LECTURA: Record<string, string> = { 'app/admin/operaciones/page.tsx': 'dat
 /** Y de dónde sale la acción que contesta: la misma en las dos. */
 const RESPONDE: Record<string, [string, RegExp]> = {
   'app/admin/operaciones/page.tsx': ['app/admin/operaciones/datos.ts', /responder: responderDecision,/],
-  'app/m/operaciones/page.tsx': ['app/m/operaciones/page.tsx', /responder=\{responderDecision\}/],
+  // El teléfono ya no dibuja el mazo (17/10/2026): lleva la acción en los datos del motor, que contesta las preguntas de cada chat.
+  'app/m/operaciones/page.tsx': ['app/m/operaciones/page.tsx', /responder: responderDecision,/],
 };
 
 // Rotura «sin el notFound del guard» → 11 pases, 1 fallo.
@@ -286,20 +292,19 @@ test('la tarjeta de atrás asoma por ARRIBA: por abajo se metía detrás de los 
   assert.match(acciones, /background: var\(--bg\)/);
 });
 
-// Rotura «la página del teléfono sin deshacer» → 15 pases, 1 fallo.
-test('las dos páginas del mazo pasan el deshacer; la lista no lo necesita', () => {
+// Rotura «la página de la computadora sin deshacer» → 15 pases, 1 fallo.
+test('la página de la computadora pasa el deshacer; el teléfono ya no dibuja el mazo ni la lista', () => {
   // La computadora (Ops Center, 17/10/2026) lo pasa por su lectura guardada (datos.ts), y la pantalla lo enchufa al motor.
-  const PASA: Record<string, [string, RegExp]> = {
-    'app/admin/operaciones/page.tsx': ['app/admin/operaciones/datos.ts', /deshacer: deshacerDecision,/],
-    'app/m/operaciones/page.tsx': ['app/m/operaciones/page.tsx', /deshacer=\{deshacerDecision\}/],
-  };
-  for (const r of PAGINAS) {
-    const [archivo, re] = PASA[r];
-    const src = sinComentarios(leer(archivo));
-    assert.match(src, /deshacerDecision/, `${archivo}: sin la acción, volver no despega la respuesta`);
-    assert.match(src, re, archivo);
-  }
-  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /responder=\{centro\.responderAca\} deshacer=\{centro\.deshacerAca\}/, 'Ops Center la enchufa a la Ticketera');
+  // El teléfono dejó de dibujar «Preguntas de los chats» ese día (Martín: «para eso tenemos en cada chat la notif de "Espera
+  // tu respuesta"»): ya no lo necesita, y su página no vuelve a importar `deshacerDecision`.
+  const src = sinComentarios(leer('app/admin/operaciones/datos.ts'));
+  assert.match(src, /deshacerDecision/, 'sin la acción, volver no despega la respuesta');
+  assert.match(src, /deshacer: deshacerDecision,/);
+  const movil = sinComentarios(leer('app/m/operaciones/page.tsx'));
+  assert.doesNotMatch(movil, /deshacerDecision|<TicketeraMovil|MazoDecisiones|TableroDecisiones/, 'el teléfono ya no dibuja las preguntas de los chats');
+  // Y Ops Center contesta las preguntas desde el chat que las hizo (ChatDelCentro → `responder={k.responderAca}`), no desde la Ticketera.
+  assert.match(sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx')), /responder=\{k\.responderAca\}/, 'cada chat contesta las suyas');
+  assert.doesNotMatch(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /deshacer=\{centro\.deshacerAca\}/, 'la Ticketera ya no lleva el mazo');
 });
 
 // ---------------------------------------------------------------------------
@@ -318,15 +323,22 @@ test('las dos páginas del mazo pasan el deshacer; la lista no lo necesita', () 
 //   · sin la línea del ítem en nav.ts      → 16 pases, 1 fallo
 //   · con el href apuntando a '/tickets'   → 16 pases, 1 fallo
 //   · con la key como 'dev-ticketera'      → 16 pases, 1 fallo
-test('la ticketera tiene su ítem en la barra de ADMIN, apuntando al mazo', () => {
+// ⚠️ DESDE EL 17/10/2026 LA PUERTA ES EL OPS CENTER DE ARRIBA (la familia Admin salió de la barra): su ítem marca
+// /tickets/decisiones, y el atajo de la Ticketera sigue entre las herramientas del super admin (HERRAMIENTAS en nav.ts),
+// sin dibujarse, para el título de esa ruta. Probado rompiéndolo: sacando `starts('/tickets/decisiones')` del match del
+// Ops Center → este test falla en el segundo assert.
+test('la ticketera tiene su puerta en la barra: el Ops Center de arriba, y su atajo apunta al mazo', () => {
+  const ops = ARRIBA.find((i) => i.key === 'admin-operaciones');
+  assert.ok(ops?.adminOnly, 'el Ops Center no está arriba, o lo ve un cliente');
+  assert.equal(ops!.match('/tickets/decisiones'), true, 'estando en la ticketera no se marca el Ops Center');
   const nav = leer('app/_components/nav.ts');
-  const admin = nav.slice(nav.indexOf('export const ADMIN_FAMILIAS'), nav.indexOf('export const ADMIN_NAV'));
-  assert.ok(admin.length > 500, `el recorte de ADMIN_FAMILIAS quedó en ${admin.length}: está mirando otra cosa`);
+  const admin = nav.slice(nav.indexOf('const HERRAMIENTAS'), nav.indexOf('export const FAMILIAS'));
+  assert.ok(admin.length > 500, `el recorte de HERRAMIENTAS quedó en ${admin.length}: está mirando otra cosa`);
 
   // Desde el 16/10/2026 es un atajo a la Ticketera ADENTRO del Centro, no otra pantalla; y desde el 17/10/2026 abre los
   // tickets de los usuarios (`TICKETERA_TICKETS`): el mazo de las preguntas de los chats es la vista secundaria.
   const fila = admin.split('\n').find((l) => l.includes(`href: '${TICKETERA_TICKETS}'`));
-  assert.ok(fila, 'la ticketera no tiene ítem en ADMIN_FAMILIAS: en la computadora no hay puerta');
+  assert.ok(fila, 'la ticketera no tiene su atajo en HERRAMIENTAS');
   assert.match(fila!, /match:\s*starts\('\/tickets\/decisiones'\)/, 'el ítem no se marca como activo al estar en la ticketera');
 
   // La key no puede arrancar con 'dev-': ese prefijo lo reserva tests/dev-areas.test.ts
@@ -337,6 +349,6 @@ test('la ticketera tiene su ítem en la barra de ADMIN, apuntando al mazo', () =
   // Y el ítem viejo de «Reportar problema» sigue siendo otra cosa, en otro lado.
   assert.ok(
     nav.includes("href: '/tickets'") && !admin.includes("href: '/tickets'"),
-    'el ítem de Reportar problema no puede vivir en la familia ADMIN: es el soporte de cualquiera',
+    'el ítem de Reportar problema no puede vivir entre las herramientas del super admin: es el soporte de cualquiera',
   );
 });

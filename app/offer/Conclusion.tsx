@@ -3,10 +3,11 @@
 // =============================================================================
 // Conclusion — lo que MaKo concluyó: el diagnóstico y la oferta nueva
 // =============================================================================
-// Arriba, el bloque héroe (el molde «tesis» de app/experimentos/RetroReport.tsx,
-// con tokens y no con sus hex): la frase de la oferta en grande y el puntaje en un
-// anillo, con UN chip que dice si está lista o qué es lo que más la frena. Debajo,
-// las tres acciones y un switcher de dos vistas.
+// Arriba, las tres acciones y un switcher de tres vistas. La PRIMERA es el PDF tal cual se descarga (17/10/2026,
+// tarjeta #887: «lo que le recomiendo siempre… es que te muestre la vista de PDF, mejor antes que eso»): antes de la
+// oferta nueva en pantalla, la persona ve el documento. En las otras dos, el bloque héroe (el molde «tesis» de
+// app/experimentos/RetroReport.tsx, con tokens y no con sus hex): la frase de la oferta en grande y el puntaje en un
+// anillo, con UN chip que dice si está lista o qué es lo que más la frena.
 //
 // v2: el diagnóstico de FASE del negocio (las preguntas que MaKo hizo en el chat) NO se dibuja acá:
 // va al PDF (pedido de Martín: «el resultado del diagnóstico no se debe ver al finalizar esas
@@ -30,16 +31,19 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import {
-  DIMENSIONES, avisosAfirmables, dimensionLabel,
+  DIMENSIONES, FUENTE_PUNTAJE, avisosAfirmables, dimensionLabel,
   type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type NotaDimension, type OfferSesionVista, type PropuestaOferta,
 } from '@/lib/offer-marco';
 import {
-  anchoDeNota, controlFinalDe, esSeccionProvisional, guardadaVisible, partirCompletar, propuestoPorMakoDe, provisionalDe, textoDeEstado, tiene,
+  anchoDeNota, controlFinalDe, esSeccionProvisional, guardadaVisible, textoGuardada, partirCompletar, propuestoPorMakoDe, provisionalDe, textoDeEstado, tiene,
   tonoDeNota, VARIABLE_LABEL,
   type AvisoGuardado, type Provisional, type PuntoVisible,
 } from './ayudas';
 import { descargarPdf, mensajeDeError } from './offer-api';
 import { hrefProbar } from '@/lib/experimentos-catalogo';
+import { VistaPdf } from './VistaPdf';
+import { Dropdown } from '@/app/components/Dropdown';
+import { ElegirFunnels, type FunnelElegible } from '@/app/components/ElegirFunnels';
 
 const LECTURA = 880;
 
@@ -202,6 +206,8 @@ function Heroe({ conclusion }: { conclusion: ConclusionOferta }) {
       </div>
       <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginInline: 'auto' }}>
         <Anillo total={conclusion.calculo.total} />
+        {/* El puntaje dice de dónde sale (tarjeta #888): lo calcula el sistema con las notas del diagnóstico. */}
+        <span style={{ marginTop: -4, fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>{FUENTE_PUNTAJE}</span>
         <ChipEstado calculo={conclusion.calculo} />
       </div>
     </section>
@@ -210,7 +216,14 @@ function Heroe({ conclusion }: { conclusion: ConclusionOferta }) {
 
 // ── Las acciones ─────────────────────────────────────────────────────────────
 
-function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVista; onSeguir: () => void; onGuardar: () => Promise<AvisoGuardado | null> }) {
+function BarraAcciones({ sesion, funnels, onSeguir, onGuardar }: {
+  sesion: OfferSesionVista; funnels: readonly FunnelElegible[]; onSeguir: () => void; onGuardar: (funnelIds?: number[]) => Promise<AvisoGuardado | null>;
+}) {
+  // En qué funnels se guarda (17/10/2026, #895: «uno o varios»). Con más de un funnel en el negocio se elige, con el de
+  // la conversación marcado de entrada; vacío es «Todos los funnels» (la convención de ElegirFunnels). Con uno solo, o en
+  // una conversación de la v1 sin funnel, no hay nada que elegir y se guarda como antes.
+  const elegible = sesion.funnelId != null && funnels.length > 1;
+  const [elegidos, setElegidos] = useState<number[]>(sesion.funnelId != null ? [sesion.funnelId] : []);
   const [bajando, setBajando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -230,13 +243,21 @@ function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVis
     setError(null);
     try { await descargarPdf(sesion.id); } catch (e) { setError(mensajeDeError(e)); } finally { setBajando(false); }
   };
+  // El PDF para un PROSPECTO (17/10/2026): la oferta sola, sin el diagnóstico ni los datos a completar.
+  const [bajandoExterno, setBajandoExterno] = useState(false);
+  const pdfExterno = async () => {
+    if (bajandoExterno) return;
+    setBajandoExterno(true);
+    setError(null);
+    try { await descargarPdf(sesion.id, null, { externo: true }); } catch (e) { setError(mensajeDeError(e)); } finally { setBajandoExterno(false); }
+  };
   const guardar = async () => {
     if (guardada || guardando) return;
     setGuardando(true);
     setError(null);
     // El aviso anterior se reemplaza recién con la respuesta: borrarlo antes haría que, mientras se
     // reintenta, el botón (con su giro) se cambie por «Guardada» sin que nada se haya ligado todavía.
-    try { setAviso(await onGuardar()); } catch (e) { setError(mensajeDeError(e)); } finally { setGuardando(false); }
+    try { setAviso(await onGuardar(elegible ? elegidos : undefined)); } catch (e) { setError(mensajeDeError(e)); } finally { setGuardando(false); }
   };
 
   return (
@@ -245,14 +266,26 @@ function BarraAcciones({ sesion, onSeguir, onGuardar }: { sesion: OfferSesionVis
         <Button variant="primary" size="lg" loading={bajando} onClick={() => void pdf()} icon={<Icon name="descargar" size={18} />}>
           Descargar PDF
         </Button>
+        <Button variant="secondary" size="lg" loading={bajandoExterno} onClick={() => void pdfExterno()} icon={<Icon name="descargar" size={18} />}>
+          PDF para tu cliente
+        </Button>
         <Button variant="secondary" size="lg" onClick={onSeguir}>Seguir afinando</Button>
         {guardada
           ? (
             // No es un botón apagado: un botón que no hace nada se lee como roto. Es el estado.
             <span role="status" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 12px', minHeight: 'var(--touch)', color: 'var(--good)', fontWeight: 600, fontSize: 'var(--fs-md)' }}>
-              <IconoMenu nombre="check" size={17} />Guardada
+              <IconoMenu nombre="check" size={17} />{textoGuardada(sesion.guardadaEn)}
             </span>
           )
+          : elegible
+            ? (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', flex: '1 1 260px', minWidth: 0 }}>
+                <div style={{ flex: '1 1 180px', minWidth: 0, maxWidth: 320 }}>
+                  <ElegirFunnels funnels={funnels} valor={elegidos} onCambiar={setElegidos} ariaLabel="En qué funnels guardarla" disabled={guardando} />
+                </div>
+                <Button variant="tertiary" size="lg" loading={guardando} onClick={() => void guardar()}>Guardar</Button>
+              </div>
+            )
           // v2: la conversación es de un FUNNEL, y guardar liga la oferta a ese funnel (el contrato con el
           // motor). Una de la v1 (sin funnel) la guarda como oferta del negocio, como antes.
           : (
@@ -599,13 +632,15 @@ export function VistaOferta({ p, provisional }: { p: PropuestaOferta; provisiona
 
 // ── La vista ─────────────────────────────────────────────────────────────────
 
-type Pestana = 'diagnostico' | 'oferta';
-const PESTANAS: ReadonlyArray<{ id: Pestana; label: string }> = [
+export type Pestana = 'pdf' | 'diagnostico' | 'oferta';
+/** El PDF PRIMERO (#887): es lo que se ve al abrir la oferta, también cuando se abre sola al terminar de armarla. */
+export const PESTANAS: ReadonlyArray<{ id: Pestana; label: string }> = [
+  { id: 'pdf', label: 'PDF' },
   { id: 'diagnostico', label: 'Diagnóstico' },
   { id: 'oferta', label: 'Oferta nueva' },
 ];
 
-export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar = true }: {
+export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, funnels = [], conProbar = true, pestanaInicial = PESTANAS[0].id }: {
   sesion: OfferSesionVista;
   conclusion: ConclusionOferta;
   /**
@@ -613,29 +648,37 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar 
    * todavía no se puede abrir (rebota al onboarding) y sacaría a la persona del chat.
    */
   conProbar?: boolean;
+  /** Con qué vista abre: el PDF (#887), salvo que el que la dibuja pida otra. */
+  pestanaInicial?: Pestana;
   /** Vuelve al chat (la conclusión sigue a un clic, con «Ver mi oferta»). */
   onSeguir: () => void;
   /** Guarda la oferta nueva (v2: ligada al funnel de la conversación). Tira si falla; devuelve el aviso del motor, si hay. */
-  onGuardar: () => Promise<AvisoGuardado | null>;
+  onGuardar: (funnelIds?: number[]) => Promise<AvisoGuardado | null>;
+  /** Los funnels del negocio, para elegir en cuáles se guarda (#895). Sin ellos, se guarda en el de la conversación. */
+  funnels?: readonly FunnelElegible[];
 }) {
-  const [pestana, setPestana] = useState<Pestana>('diagnostico');
+  const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
+  // Las versiones anteriores (17/10/2026, docs/relevo/offer.md: «ver versiones anteriores»): cada «Pulir» deja una
+  // versión nueva y la de antes sólo se veía descargando con `?v=`. En la pestaña del PDF se elige cuál ver; el
+  // diagnóstico y la oferta muestran siempre la última (son las que la vista trae).
+  const [verVersion, setVerVersion] = useState<number>(conclusion.version);
+  const ultima = Math.max(sesion.versiones, conclusion.version);
   const id = useId();
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
       <div style={{ maxWidth: LECTURA, marginInline: 'auto', padding: '2px 2px 40px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <Heroe conclusion={conclusion} />
-        <BarraAcciones sesion={sesion} onSeguir={onSeguir} onGuardar={onGuardar} />
+        <BarraAcciones sesion={sesion} funnels={funnels} onSeguir={onSeguir} onGuardar={onGuardar} />
         <div role="tablist" aria-label="Qué ver" className="of-seg" style={{ alignSelf: 'flex-start', marginTop: 4 }}>
           {PESTANAS.map((p) => (
             <button key={p.id} type="button" role="tab" id={`${id}-tab-${p.id}`} aria-controls={`${id}-panel`}
               aria-selected={pestana === p.id} tabIndex={pestana === p.id ? 0 : -1} className="of-seg__op"
               onClick={() => setPestana(p.id)}
               onKeyDown={(e) => {
-                // Flechas entre las dos pestañas, como en cualquier tablist.
+                // Flechas entre las pestañas (dan la vuelta), como en cualquier tablist.
                 if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
                 e.preventDefault();
-                const otra = PESTANAS.find((x) => x.id !== p.id);
-                if (!otra) return;
+                const i = PESTANAS.findIndex((x) => x.id === p.id);
+                const otra = PESTANAS[(i + (e.key === 'ArrowRight' ? 1 : PESTANAS.length - 1)) % PESTANAS.length];
                 setPestana(otra.id);
                 document.getElementById(`${id}-tab-${otra.id}`)?.focus();
               }}>
@@ -644,9 +687,33 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, conProbar 
           ))}
         </div>
         <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${pestana}`}>
-          {pestana === 'diagnostico'
-            ? <VistaDiagnostico d={conclusion.diagnostico} calculo={conclusion.calculo} conProbar={conProbar} />
-            : <VistaOferta p={conclusion.propuesta} provisional={provisionalDe(conclusion)} />}
+          {pestana === 'pdf'
+            ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {ultima > 1 && (
+                  <div style={{ alignSelf: 'flex-start', width: 240, maxWidth: '100%' }}>
+                    <Dropdown
+                      value={String(verVersion)}
+                      ariaLabel="Qué versión ver"
+                      width="100%"
+                      onChange={(v) => setVerVersion(Number(v))}
+                      options={Array.from({ length: ultima }, (_, i) => ultima - i).map((v) => ({
+                        value: String(v), label: v === conclusion.version ? `Versión ${v} (la última)` : `Versión ${v}`,
+                      }))}
+                    />
+                  </div>
+                )}
+                <VistaPdf sesionId={sesion.id} version={verVersion} />
+              </div>
+            )
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <Heroe conclusion={conclusion} />
+                {pestana === 'diagnostico'
+                  ? <VistaDiagnostico d={conclusion.diagnostico} calculo={conclusion.calculo} conProbar={conProbar} />
+                  : <VistaOferta p={conclusion.propuesta} provisional={provisionalDe(conclusion)} />}
+              </div>
+            )}
         </div>
       </div>
     </div>

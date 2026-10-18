@@ -22,12 +22,12 @@ import 'server-only';
 // testear suelto: scripts/test-cripto.mjs. Es el código más caro de equivocar.
 import { cifrar, descifrar, versionCripto } from './cripto-credenciales';
 import { getSupabaseServer } from './supabase';
-import { getWorkspaceActual } from './workspace';
+import { getWorkspaceActual, wsSuperAdmin, WS_NINGUNO } from './workspace';
 import { OWNER_WS } from './auth-session';
 import { ENVS_METODO, servicioDeEnv, servicioMetodo } from './metodo-catalogo';
 import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs } from './webhook-routing';
 import { identificadorDeRuteo } from './ruteo-hash';
-import { esClaveDeCuenta } from './ia-keys';
+import { esClaveDeCuenta, esClaveDeIA } from './ia-keys';
 import { problemaDeRemitenteGuardado } from './email-remitente';
 
 export type CredencialMeta = {
@@ -110,7 +110,7 @@ const esValorReal = (v: string | undefined | null): v is string =>
   Boolean(v && v.trim() && !v.trim().startsWith('PENDING'));
 
 async function wsDefault(ws?: number): Promise<number> {
-  return ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
+  return ws ?? (await getWorkspaceActual()) ?? WS_NINGUNO;
 }
 
 // Lee (y descifra) UNA credencial de un workspace de la base. null si no está.
@@ -144,7 +144,7 @@ export async function credWsEstricta(clave: string, ws: number): Promise<string 
     const v = data ? descifrar(data.valor_enc as string, ws, clave) : null;
     if (esValorReal(v)) return v;
   }
-  if (ws === OWNER_WS && esValorReal(process.env[clave])) return process.env[clave]!;
+  if (esValorReal(process.env[clave]) && ws === (await wsDelEntorno(clave))) return process.env[clave]!;
   return null;
 }
 
@@ -158,7 +158,9 @@ export async function credWs(clave: string, ws?: number): Promise<string | null>
   const w = await wsDefault(ws);
   const v = await credDeBase(w, clave);
   if (esValorReal(v)) return v;
-  if (w === OWNER_WS && esValorReal(process.env[clave])) return process.env[clave]!;
+  // El entorno es de quien lo hidrata (`wsDelEntorno`): la IA, de la plataforma; el resto, del ws1. Antes era «el
+  // dueño» para todo, y así el ws1 recibía prestada la key de IA de la plataforma como si fuera suya.
+  if (esValorReal(process.env[clave]) && w === (await wsDelEntorno(clave))) return process.env[clave]!;
   return null;
 }
 
@@ -234,8 +236,8 @@ export async function envCred(clave: string): Promise<string | null> {
   await credencialesListas();
   if (esValorReal(process.env[clave])) return process.env[clave]!;
   // Si llegamos acá la hidratación terminó y no dejó el valor: o falló, o la fila no
-  // existe. Vamos a la base — es el mismo lugar del que habría salido.
-  const v = await credDeBase(OWNER_WS, clave);
+  // existe. Vamos a la base — es el mismo lugar del que habría salido (`wsDelEntorno`).
+  const v = await credDeBase(await wsDelEntorno(clave), clave);
   if (esValorReal(v)) {
     console.warn(`[credenciales] MISS ${clave}: no estaba en el entorno tras el boot; resuelta contra la base`);
     return v;
@@ -284,7 +286,7 @@ export async function estadoCampo(clave: string, ws?: number): Promise<EstadoCam
   // Sin fila en la base: el dueño puede estar corriendo con el respaldo del
   // entorno (hueco entre el deploy y la migración del boot).
   const env = process.env[clave];
-  if (w === OWNER_WS && esValorReal(env)) {
+  if (esValorReal(env) && w === (await wsDelEntorno(clave))) {
     return { configurado: true, origen: 'servidor', mask: visible ? env : env.slice(-4), ilegible: false };
   }
   return { configurado: false, origen: null, mask: '', ilegible: false };
@@ -333,7 +335,8 @@ export async function esDeLaPlataforma(clave: string, valor: string | null | und
   if (!v) return false;
   const env = process.env[clave];
   if (esValorReal(env) && env.trim() === v) return true;
-  const base = await credWsEstricta(clave, OWNER_WS);
+  // La fila de la que sale el entorno de ESTA clave (`wsDelEntorno`): para la IA, la de la plataforma, no la del ws1.
+  const base = await credWsEstricta(clave, await wsDelEntorno(clave));
   return esValorReal(base) && base.trim() === v;
 }
 
@@ -387,13 +390,13 @@ export async function guardarCredencial(ws: number, clave: string, valor: string
       { onConflict: 'workspace_id,clave' },
     );
   if (error) throw new Error(`credenciales: ${error.message}`);
-  if (ws === OWNER_WS) aplicarAEnv(clave, valor);
+  if (ws === (await wsDelEntorno(clave))) aplicarAEnv(clave, valor);
 }
 
 export async function eliminarCredencial(ws: number, clave: string): Promise<void> {
   const { error } = await getSupabaseServer().from('credenciales').delete().eq('workspace_id', ws).eq('clave', clave);
   if (error) throw new Error(`credenciales: ${error.message}`);
-  if (ws === OWNER_WS && hidratadas.has(clave)) {
+  if (hidratadas.has(clave) && ws === (await wsDelEntorno(clave))) {
     delete process.env[clave];
     hidratadas.delete(clave);
   }
@@ -438,20 +441,67 @@ export async function listarCredenciales(ws: number): Promise<CredencialMeta[]> 
  * Los tokens de los clientes NUNCA tocan el process.env global: se resuelven
  * por-request con credWs().
  */
+/**
+ * DE QUÉ WORKSPACE SALE EL ENTORNO, POR CLAVE (18/10/2026). `hidratarCredenciales` copia esa fila a `process.env` en
+ * cada arranque, `guardarCredencial` en el acto, y `credWs`/`envCred`/`estadoCampo`/`esDeLaPlataforma` la leen como
+ * «la de la plataforma».
+ *
+ * Hasta el 18/10 era `OWNER_WS` para TODO, y `OWNER_WS` es el ws1 de Mauricio, un CLIENTE: su fila era el entorno, así
+ * que la key de IA que pegara pasaba a ser la de la plataforma, y su workspace nunca tenía una IA suya (tickets #5 y #6,
+ * docs/hallazgos-integraciones.md). Martín: «Sí: separá el ws1 de las claves de la plataforma (que salgan del ws9 o del
+ * entorno) para que Mauricio pueda conectar su propia IA».
+ *
+ * Ahora las de IA (`esClaveDeIA`) salen del workspace de la PLATAFORMA (`wsSuperAdmin()`, nunca un 9 a mano). El resto
+ * (Meta, Calendly, Fathom, Resend…) sigue saliendo del ws1: moverlas es otra decisión, y está en docs/relevo/ticketera.md.
+ * Nadie compara con un número: se pregunta aquí, y la hidratación lee de la misma función.
+ */
+export async function wsDelEntorno(clave: string): Promise<number> {
+  return esClaveDeIA(clave) ? wsSuperAdmin() : OWNER_WS;
+}
+
+/**
+ * ¿La IA de este NEGOCIO es la que se copia al entorno? Entonces no se le pide que pegue la suya: pasaría a ser la de
+ * la plataforma (el chat y /integraciones, tickets #5 y #6). Desde el 18/10 la IA del entorno sale de la plataforma, así
+ * que no hay ningún negocio así y la guarda no se dispara; queda de baranda por si alguien vuelve a hidratar la IA
+ * desde un cliente. La plataforma misma no cuenta: ahí SÍ se pegan las keys de MaKo.
+ */
+export async function esNegocioDelEntorno(ws: number | null | undefined): Promise<boolean> {
+  if (ws == null) return false;
+  const [fuente, plataforma] = await Promise.all([wsDelEntorno('GEMINI_API_KEY'), wsSuperAdmin()]);
+  return ws === fuente && ws !== plataforma;
+}
+
+/** Las dos fuentes del entorno: el ws1 para lo que no es IA, la plataforma para la IA. Cada clave, sólo de la suya. */
+async function fuentesDelEntorno(): Promise<Array<{ ws: number; deIA: boolean }>> {
+  const plataforma = await wsSuperAdmin().catch(() => null);
+  if (plataforma == null) console.error('[credenciales] ⚠️ NO SÉ CUÁL ES EL WORKSPACE DE LA PLATAFORMA: las keys de IA no se hidratan; corre con las del entorno de Vercel.');
+  return [{ ws: OWNER_WS, deIA: false }, ...(plataforma == null ? [] : [{ ws: plataforma, deIA: true }])];
+}
+
 export async function hidratarCredenciales(): Promise<void> {
   if (!supabaseConfigurado()) return;
   try {
-    const { data, error } = await getSupabaseServer()
-      .from('credenciales').select('clave, valor_enc').eq('workspace_id', OWNER_WS)
-      .abortSignal(AbortSignal.timeout(4000));
-    if (error) {
-      console.error(`[credenciales] hidratación: ${error.message}`);
-      return;
-    }
     let aplicadas = 0;
-    for (const r of data ?? []) {
-      const valor = descifrar(r.valor_enc as string, OWNER_WS, r.clave as string);
-      if (valor !== null && aplicarAEnv(r.clave as string, valor)) aplicadas++;
+    for (const f of await fuentesDelEntorno()) {
+      const { data, error } = await getSupabaseServer()
+        .from('credenciales').select('clave, valor_enc').eq('workspace_id', f.ws)
+        .abortSignal(AbortSignal.timeout(4000));
+      if (error) {
+        console.error(`[credenciales] hidratación (ws ${f.ws}): ${error.message}`);
+        if (!f.deIA) return;
+        continue;
+      }
+      let legibles = 0;
+      for (const r of data ?? []) {
+        const clave = r.clave as string;
+        if (esClaveDeIA(clave) !== f.deIA) continue; // cada clave, sólo de su fuente (`wsDelEntorno`)
+        const valor = descifrar(r.valor_enc as string, f.ws, clave);
+        if (valor === null) continue;
+        legibles++;
+        if (aplicarAEnv(clave, valor)) aplicadas++;
+      }
+      // Fuerte y nunca en silencio: sin filas de IA en la plataforma, MaKo corre con lo que traiga Vercel (o sin IA).
+      if (f.deIA && !legibles) console.error(`[credenciales] ⚠️ LA PLATAFORMA (ws ${f.ws}) NO TIENE NINGUNA KEY DE IA LEGIBLE: la IA de MaKo corre sólo con las del entorno de Vercel.`);
     }
     if (aplicadas) console.log(`[credenciales] ${aplicadas} credencial(es) del dueño hidratadas`);
     // Sembrar el índice de ruteo de webhooks del dueño desde el env (idempotente):
@@ -546,6 +596,9 @@ export async function migrarEnvACredenciales(ws: number = OWNER_WS): Promise<num
     let migradas = 0;
     for (const clave of ENVS_METODO) {
       if (NO_MIGRAR_A_WS.has(clave)) continue; // plataforma pura: nunca a la fila de un ws
+      // La IA del entorno es de la PLATAFORMA (`wsDelEntorno`): nunca se copia a la fila de un negocio. Así se sembraron
+      // las copias que el ws1 tenía de las keys de MaKo (18/10/2026).
+      if (esClaveDeIA(clave) && ws !== (await wsDelEntorno(clave))) continue;
       if (yaEnBase.has(clave)) continue; // la base manda: nunca la pisamos
       const valor = process.env[clave];
       if (!esValorReal(valor)) continue;

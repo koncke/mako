@@ -4,6 +4,27 @@
 `app/api-mako/**` (la tab que la muestra y acuña los tokens).
 **Ventana:** 05/10/2026 → 10/10/2026. **Escrito el 10/10/2026 sobre `origin/main` = `9862c146`.**
 
+> **17/10/2026 — PENDIENTES B1 de la API (ayudante «B1-API» del Cerebro, cuenta claude4, rama `pend-b1-api-1710`, sin pushear).**
+> Pedido de Martín: «Implemente todos los pendientes al 100%». Todo en `docs/hallazgos-api-mako.md`, secciones «Pendientes B1 de
+> la API» y «La comunidad por la API de MaKo». Lo que cambió en el estado de esta área:
+> - **Hechos:** `registrar_pago_suelto` / `marcar_pago_cobrado` con moneda, monto original, concepto y método (y «Juan me pagó
+>   500 mil pesos» / «cambiale el vencimiento a la cuota 3» ahora traen sus herramientas); `sacar_lead_de_secuencia`;
+>   `guardar_landing` con `productos`; `duplicar_automatizacion`; `copiar_dashboard` / `pegar_dashboard`; `ficha_lead` que no corta
+>   los formularios. Ya estaban: crear desde plantilla y el botón que cobra un producto.
+> - **COMUNIDAD ENTRÓ A LA RAMA (41 ops, sólo HTTP, firmada por la persona que confirma o la que creó el token).** Ya no es parte
+>   de lo «A medias» de abajo. Con una revisión de seguridad que encontró cuatro cosas reales, arregladas. `Ctx` ganó `persona`;
+>   `AccionRun` ganó `faltaParaConfirmar`.
+> - **Sigue A MEDIAS en `wip/api-acciones-1410` (`C:/dev/mako-api2`): `plan` (28 ops)** y todo lo de la lista de abajo menos
+>   comunidad. Para traer `plan` el camino es el mismo que se usó con comunidad: copiar `plan.{def,helpers,run}.ts` y sus tests,
+>   sumar el área en `tipos.ts` (AREAS, AREA_INFO, DATOS_DE_CLIENTES_POR_AREA), `registro.ts`, `runners.ts`, `AREA_KEYWORDS`
+>   (`lib/mako-intencion.ts`) y una fila REST por operación en `rest.ts`, regenerar docs y snapshot, y **antes de integrar, la
+>   revisión de seguridad** (un lector sin contexto leyendo el código: encontró cuatro cosas en comunidad que los tests de la rama
+>   daban por verdes).
+> - **Sin hacer de esta tanda:** la página de gracias de una landing (`gracias`) sigue sin API (la pantalla la asigna junto con los
+>   productos); `textoDelPago` de `app/crm/[id]/deal-actions.ts` es una copia de `textoDelCobro` (lib/pagos-campo.ts); la etapa
+>   «efectiva» de `ficha_lead` ignora el funnel del lead (`docs/relevo/crm-pendientes-b1.md`); los riesgos de comunidad que no se
+>   arreglaron están en `docs/hallazgos-api-mako.md`.
+>
 > **14/10/2026, 03:40 — CERRADO por pedido de Martín** («que se pushee todo y que los chats cierren lo que están
 > haciendo. Nada más»). Cuenta 2, chat «API de MaKo».
 >
@@ -24,7 +45,7 @@
 >
 > **A MEDIAS — NO SE PUSHEA: rama `wip/api-acciones-1410` = `b85971b9`**, worktree `C:/dev/mako-api2` (encima
 > de `api-acciones-1310`, que tiene los mismos commits de las estrellas). Lo que falta, área por área:
-> - **comunidad** (41 ops) y **plan** (28 ops): implementadas, tests de su área en verde. Faltan: integrar sus
+> - **comunidad** (41 ops) — ✅ **ENTRÓ el 17/10/2026** (ver el bloque de arriba) — y **plan** (28 ops): implementadas, tests de su área en verde. De **plan** faltan: integrar sus
 >   filas REST (las trae el journal de la corrida; `integrar-rest-1310.ts` del scratchpad `3e9e0b4f…` las
 >   escribe), el título «Exportación» en `recursos.ts`, regenerar docs y snapshot, y la revisión de seguridad
 >   (los dos revisores se cortaron). **Comunidad tiene un bloqueante abierto: 11 escrituras «firmadas»
@@ -173,7 +194,7 @@ existen en main.
 | Qué | Dónde vive | Estado |
 |---|---|---|
 | **Un token no se apaga cuando su creador pierde el acceso.** `creadoPor` se guarda y no se vuelve a mirar, y `autenticar()` fija `rol: 'admin'` para TODO token | `lib/api-mako/tokens.ts` (`resolverTokenApi`), `lib/api-mako/http.ts` | `cola` en `app/admin/dev/api-mako/bitacora.ts:30` — verificado hoy: `creadoPor` sólo se escribe y se dibuja, nunca se consulta |
-| **`/api/agente/plan` y `/lead` (POST) no miran el alcance**: un token principal acuñado como `lectura` propone igual | `app/api/agente/plan/route.ts`, `app/api/agente/lead/route.ts` | verificado hoy: la palabra «alcance» no aparece en ninguno de los dos |
+| ~~**`/api/agente/plan` y `/lead` (POST) no miran el alcance**~~ **CERRADO el 17/10/2026**: un token «Solo leer» contesta 403 (`rechazoPorAlcance`, lib/api-mako/alcance.ts; `tests/agente-alcance-propuestas.test.ts`) | `app/api/agente/plan/route.ts`, `app/api/agente/lead/route.ts` | la decisión D del 08/10 («se mantiene tal cual») cedió ante la promesa de la tarjeta: «Solo leer: no deja nada pendiente» |
 | **Las 25 tools viejas están declaradas dos veces** y ya divergieron de la def | `lib/mako-tools.ts`, `lib/mako-doer-acciones.ts` | estado `sigue`; antes hay que arreglar la def de `proponer_tareas_plan` |
 | **Las descripciones dicen «PROPONE… hasta el sí»**, que con un token detallado es falso (escribe en el acto). La documentación lo aclara; el texto de la def, no | `lib/api-mako/areas/*.def.ts` | abierto |
 | **La skill y `plugin/` no enseñan las rutas REST** ni los tokens detallados | `lib/agente-skill.ts`, `plugin/skills/` | abierto |

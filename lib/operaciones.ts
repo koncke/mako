@@ -36,12 +36,16 @@ import {
 } from './operaciones-reglas';
 import { sanearCuota, type Cuota } from './centro-uso';
 import { guardarTurnos } from './centro-turnos-db';
+import { guardarTitular } from './centro-titulares-db';
+import { guardarPasos } from './centro-pasos-db';
 import { after } from 'next/server';
 import { anotarTurnosDelPlan, aplicarPlanDeLosChats } from './centro-plan-auto';
 import { guardarPreguntas } from './centro-preguntas-chat-db';
 import { sanearPreguntas } from './centro-preguntas-chat';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 import { borrarAdjuntosDe } from './operaciones-adjuntos';
+import { acusarTicket, ticketsParaElCartero, ticketsSinEntregar, type TicketParaEntregar } from './tickets-runner';
+import { VERSION_CARTERO_TICKETS, esElCerebro, versionAlMenos } from './tickets-aviso';
 
 const T_PEDIDOS = 'operaciones_pedidos';
 const T_CARTEROS = 'operaciones_carteros';
@@ -87,11 +91,12 @@ const COLS = 'id, created_at, autor, destino, destino_cuenta, destino_titulo, te
 
 /** La sesión y el texto firmado de un trabajo de la cola, para comprobar que una respuesta salió (las preguntas de los
  *  chats, lib/centro-preguntas-chat.ts). null = no está. */
-export async function trabajoDeLaCola(id: string): Promise<{ destino: string; texto: string } | null> {
+export async function trabajoDeLaCola(id: string): Promise<{ destino: string; texto: string; estado: string; creado: string; titulo: string | null } | null> {
   if (!UUID_RE.test(id)) return null;
-  const { data, error } = await getSupabaseServer().from(T_PEDIDOS).select('destino, texto').eq('id', id).maybeSingle();
+  const { data, error } = await getSupabaseServer().from(T_PEDIDOS).select('destino, texto, estado, created_at, destino_titulo').eq('id', id).maybeSingle();
   if (error) throw new Error(`no pude leer el trabajo: ${error.message}`);
-  return data ? { destino: String(data.destino), texto: String(data.texto ?? '') } : null;
+  // `estado`, `creado` y `titulo` (17/10/2026): «las más prioritarias» se leen del jefe al que Martín le mandó ESE pedido.
+  return data ? { destino: String(data.destino), texto: String(data.texto ?? ''), estado: String(data.estado ?? ''), creado: String(data.created_at ?? ''), titulo: data.destino_titulo ? String(data.destino_titulo) : null } : null;
 }
 
 export async function listarPedidos(limite = 100): Promise<Pedido[]> {
@@ -211,6 +216,10 @@ export type SalidaCiclo = {
   /** Las preguntas de los chats que entraron (17/10/2026, `cartero.mjs preguntar`): la PC borra ésas y vuelve a subir las
    *  demás, el molde de `cierresIds`. */
   preguntasIds: string[];
+  /** Los bugs del triage que este Runner le entrega al Cerebro con un texto FIJO (cartero 1.15.0, lib/tickets-runner.ts).
+   *  Un cartero de antes no los recibe (`VERSION_CARTERO_TICKETS`). */
+  tickets: TicketParaEntregar[];
+  ticketsError: string | null;
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -279,10 +288,15 @@ export async function hayParaElCartero(cuentas: readonly string[], abre: readonl
   const validas = [...new Set(cuentas.filter((c) => CUENTA_RE.test(c)))].slice(0, 10);
   if (!validas.length) return 0;
   const db = getSupabaseServer();
-  const { data: filas, error } = await db.from(T_CARTEROS).select('cuenta, chats').in('cuenta', validas);
+  const { data: filas, error } = await db.from(T_CARTEROS).select('cuenta, chats, version').in('cuenta', validas);
   if (error) throw new Error(error.message);
   const vivos = (filas ?? []).flatMap((f) => sanearChats(f.chats)
     .filter((c) => c.vivo && c.runner !== false && !c.esRunner && !c.nube).map((c) => c.local));
+  // Un bug del triage para el Cerebro (cartero 1.15.0): cuenta SÓLO si el chat «Cerebro» está vivo en una de estas cuentas
+  // y su Runner lo entiende. Con un Runner de antes, contarlo haría que `vigilar` salga apenas entra, en cada vuelta, por
+  // algo que la vuelta no le va a dar nunca.
+  const conCerebro = (filas ?? []).some((f) => versionAlMenos(f.version as string | null, VERSION_CARTERO_TICKETS)
+    && sanearChats(f.chats).some((c) => c.vivo && c.runner !== false && !c.esRunner && !c.nube && esElCerebro(c.titulo)));
   let n = 0;
   if (vivos.length) {
     const { count, error: e } = await db.from(T_PEDIDOS).select('id', { count: 'exact', head: true })
@@ -297,6 +311,7 @@ export async function hayParaElCartero(cuentas: readonly string[], abre: readonl
     if (e) throw new Error(e.message);
     n += count ?? 0;
   }
+  if (conCerebro) n += await ticketsSinEntregar();
   return n;
 }
 
@@ -325,6 +340,11 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   const { error: eUp } = await db.from(T_CARTEROS)
     .upsert({ cuenta, visto_at: ahoraIso, version, chats, claves, updated_at: ahoraIso, ...(cuota ? { cuota } : {}) }, { onConflict: 'cuenta' });
   if (eUp) throw new Error(eUp.message);
+  // El nombre y el email de la cuenta (cartero 1.15.2, la G): de cuentas.tsv de la PC. Sólo escribe si cambió; si falla, la
+  // vuelta sigue (el Uso dice «Cuenta N»).
+  if (e.titular) await guardarTitular(cuenta, e.titular).catch((err) => console.error('[operaciones] titular:', err instanceof Error ? err.message : err));
+  // Lo que están haciendo sus chats ocupados (cartero 1.15.3, la E): la foto de esta cuenta, que se pisa entera.
+  if (e.pasos) await guardarPasos(cuenta, e.pasos).catch((err) => console.error('[operaciones] pasos:', err instanceof Error ? err.message : err));
 
   // Lo que se dijo en cada chat desde la vuelta anterior (cartero 1.8.0, 17/10/2026: «los chats no se entienden»). Si no se
   // pudo guardar, la vuelta sigue: la PC no avanza su marca hasta que MaKo diga que entró (`turnosOk`).
@@ -367,6 +387,10 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     const { data: av } = await db.from(T_DECISIONES).update({ aviso_estado: a.estado, aviso_motivo: a.motivo, aviso_at: ahoraIso })
       .eq('aviso_id', a.id).eq('aviso_estado', 'tomado').select('id');
     acuses += (av ?? []).length;
+    if ((av ?? []).length) continue;
+    // Un bug del triage que el Runner le entregó al Cerebro (cartero 1.15.0): el mismo formato de id. Si falta la mig 0311,
+    // no puede existir un acuse así, y el error se ignora.
+    acuses += await acusarTicket(a, ahoraIso).catch(() => 0);
   }
 
   // Los cierres que dejaron los chats: sólo sobre un pedido ENTREGADO.
@@ -433,5 +457,13 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     avisosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
+  // Los bugs del triage para el Cerebro (cartero 1.15.0), aparte como los avisos: si fallan, lo demás sale igual.
+  let tickets: TicketParaEntregar[] = [];
+  let ticketsError: string | null = null;
+  try {
+    if (vivos.length) tickets = await ticketsParaElCartero(version, chats, new Set(vivos), ahoraIso);
+  } catch (err) {
+    ticketsError = err instanceof Error ? err.message.slice(0, 200) : 'error';
+  }
+  return { pedidos, avisos, avisosError, tickets, ticketsError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
 }

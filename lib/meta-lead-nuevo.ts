@@ -21,7 +21,8 @@
 // =============================================================================
 
 import 'server-only';
-import { resumenRespuestas, type MetaFieldData } from './meta-leads-campos';
+import type { MetaFieldData } from './meta-leads-campos';
+import { datosFormularioMeta } from './meta-form-aviso';
 import { emitirDelCatalogo } from './avisos';
 import { dispararEvento } from './flujos';
 import { enrolarPorEvento } from './nutricion';
@@ -36,18 +37,14 @@ export async function alNacerLeadDeMeta(
   const parte = async (que: string, f: () => Promise<unknown>) => {
     try { await f(); } catch (e) { console.error(`[meta-lead-nuevo] ${que} (ws ${ws}, lead ${lead.id}): ${e instanceof Error ? e.message : String(e)}`); }
   };
-  // ⚠️ VAN LOS DATOS, NO EL TEXTO. Con `texto` armado acá, lo que el negocio escribiera en /automations no salía nunca:
-  // el texto es el de la plantilla (lib/avisos-catalogo.ts, que nace APAGADA) y esto le pone los valores. Los que ya
-  // están en la mano van en `datos`, que ganan sobre la lectura de la ficha. Y los dos que pueden faltar se dicen: un
-  // `{{lead_telefono}}` crudo en el WhatsApp de un cliente se lee como que el mensaje está roto.
+  // ⚠️ VAN LOS DATOS, NO EL TEXTO. Desde el 17/10/2026 el texto es el de su automatización de SuperAdmin (evento
+  // `lead_formulario_meta`, «nada por detrás», lote 3; nace PAUSADA, como nacía apagado). Del lead salen su nombre y el
+  // link a su ficha; esto es lo que trae el formulario, y lo que falta no viaja: su renglón no va (antes se tapaba con
+  // «sin teléfono» y «Sin preguntas extra», frases del código).
   await parte('aviso', () => emitirDelCatalogo('lead-formulario-meta', {
     ws,
     lead: { id: lead.id, nombre: lead.nombre },
-    datos: {
-      lead_telefono: lead.telefono?.trim() || 'sin teléfono',
-      lead_formulario: resumenRespuestas(form.fieldData ?? null) ?? 'Sin preguntas extra en el formulario.',
-      ...(form.campana ? { lead_campana: form.campana } : {}),
-    },
+    datos: datosFormularioMeta({ telefono: lead.telefono, campana: form.campana, fieldData: form.fieldData }),
   }));
   // Los flujos configurados por el dueño.
   await parte('flujos', () => dispararEvento('lead.form_meta', { ws, leadId: lead.id, leadNombre: lead.nombre }));

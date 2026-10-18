@@ -271,6 +271,17 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla (y su CRON, si se eligió la etapa)',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // «Duplicar» de los tres puntos de la lista de /automations (lib/secuencia-duplicar.ts, 09/10/2026), por la API (17/10/2026).
+  // SIN http (ninguna operación de creación de automatizaciones sale por HTTP). Nace PAUSADA: una copia prendida le
+  // mandaría el mismo mensaje DOS veces a cada lead que entra.
+  {
+    id: 'duplicar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Duplicar una automatización',
+    descripcion: 'PROPONE hacer una copia de una automatización vigente (queda pendiente hasta el «sí»), lo mismo que «Duplicar» de los tres puntos de la lista de Automations: la copia se llama «Copia de …», tiene los mismos pasos y el mismo disparador y horario, y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. No copia a los leads inscriptos ni sus envíos. Una automatización que archivaste no se duplica. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    parametros: [pSecuenciaId],
+    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con los mismos pasos, disparador y horario que la original (se deshace archivándola)',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
   {
     id: 'cambiar_espera_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cambiar la espera de un paso',
@@ -355,6 +366,20 @@ export const DEFS: readonly OperacionDef[] = [
       pSecuenciaId,
     ],
     reversible: false, escribe: 'inserta una inscripción activa en nutricion_inscripciones (o reactiva desde el primer paso la que ya terminó), deja historial del lead y dispara el primer envío si ya toca (desde un flujo lo manda el cron)',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // El espejo de la anterior (17/10/2026): lo que se inscribe por la API se puede sacar. SIN http, igual que inscribir
+  // (abrirlo es una decisión que regenera tests/api-mako-http.snapshot.txt). reversible: false: queda CANCELADA, que
+  // no se vuelve a abrir (puede ser una baja); la decisión y la escritura, en lib/nutricion-salida-manual.ts.
+  {
+    id: 'sacar_lead_de_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Sacar un lead de una secuencia',
+    descripcion: 'PROPONE sacar a UN lead de UNA secuencia en la que está en curso (queda pendiente hasta el «sí»): deja de recibir sus mensajes desde ahora. Su inscripción queda cancelada, como cuando se archiva la secuencia, y NO se vuelve a abrir ni con inscribir_lead_secuencia ni por la entrada automática (una cancelada puede ser una baja); los mensajes que ya salieron no se retiran. Corta también la de un lead que está contestando o que atiende una persona. Si ya terminó la secuencia, ya estaba cancelada o no está en ella, lo dice y no cambia nada. Pide antes el leadId (buscar_leads) y el secuenciaId (listar_secuencias_nutricion); para ver dónde está, inscripciones_lead.',
+    parametros: [
+      { nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' },
+      pSecuenciaId,
+    ],
+    reversible: false, escribe: 'cancela su inscripción en nutricion_inscripciones (estado cancelada, sin próximo envío) y deja historial del lead',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // El «Otra cosa» de «Si responde» (08/10/2026): lo que antes era el hand-off —«MaKo se calla y

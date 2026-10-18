@@ -45,6 +45,7 @@ import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
 import { ProbarTracking } from './ProbarTracking';
 import { ROTULO_PIXEL_VIEJO } from '@/lib/pixel-aviso';
 import { ARCHIVO_PIXEL, pixelComoArchivo } from '@/lib/pixel-archivo';
+import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO } from '@/lib/ia-keys';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -169,7 +170,8 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
-  incidentes: Incidente[];
+  /** `null` = no se pudieron leer (no es «no hubo»). */
+  incidentes: Incidente[] | null;
   /** <script> con el token del workspace, listo para copiar. null = admin sin impersonar. */
   snippetLanding?: string | null;
   /** La línea del cargador del Pixel (lib/pixel-cargador.ts). null = admin sin impersonar. */
@@ -343,7 +345,10 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // La grilla las sigue mostrando «Por configurar», que es la verdad.
   // Y las del Leads Scraper (Hotmart, Skool y Apify; 14 y 15/10/2026), por lo mismo: la mayoría de
   // los negocios no vende por Hotmart, no tiene un Skool ni sale a buscar prospectos.
-  const opcionalSinConectar = (i: Integracion) => (esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good';
+  // Y las IA que configura el equipo de MaKo (el workspace del entorno, lib/ia-keys.ts → `veredictoDeIA`): no son un
+  // pendiente de la persona, y pedírselas en «Requiere tu atención» la empujaría a pegar una key que no debe.
+  const opcionalSinConectar = (i: Integracion) => ((esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good')
+    || i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
   const medidas = integraciones.filter((i) => !opcionalSinConectar(i));
   const total = medidas.length;
   const conectadas = medidas.filter((i) => sevOf(i) === 'good').length;
@@ -798,7 +803,9 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
 }
 
 // ── Historial de problemas (incidentes con inicio → fin) ──────────────────────
-function ProblemasHistorial({ incidentes, nombreDe }: { incidentes: Incidente[]; nombreDe: (service: string) => string }) {
+function ProblemasHistorial({ incidentes: leidos, nombreDe }: { incidentes: Incidente[] | null; nombreDe: (service: string) => string }) {
+  // «No pude leer» NO es «Todo en orden» (17/10/2026): con la lectura caída, se dice eso y no se cuenta ningún activo.
+  const incidentes = leidos ?? [];
   const activos = incidentes.filter((x) => x.resolvedAt === null).length;
   return (
     <section style={{ ...card, marginTop: 20, padding: '22px 30px 12px' }}>
@@ -806,7 +813,9 @@ function ProblemasHistorial({ incidentes, nombreDe }: { incidentes: Incidente[];
         <h2 style={{ fontWeight: 600, fontSize: 18, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>Historial de problemas</h2>
         <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{activos} {activos === 1 ? 'activo' : 'activos'}</span>
       </div>
-      {incidentes.length === 0 ? (
+      {leidos === null ? (
+        <div style={{ color: 'var(--warn)', fontSize: 13.5, padding: '14px 0' }}>No pude leer el historial de problemas. Recarga en un rato.</div>
+      ) : incidentes.length === 0 ? (
         <div style={{ color: 'var(--dim)', fontSize: 13.5, padding: '14px 0' }}>Todo en orden. Aquí van a quedar los incidentes de cada servicio con su período: desde cuándo empezó el problema hasta que se resolvió.</div>
       ) : (
         incidentes.map((it, idx) => {
@@ -1415,8 +1424,11 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
   // cae al `paraQue` del catálogo — nunca inventamos una promesa para llenar.
   const slides: Slide[] = SLIDES[i.key] ?? (i.paraQue ? [{ t: `Qué hace ${i.nombre}`, d: i.paraQue }] : []);
 
-  // Estado EN VIVO (no descripción): solo Meta tiene algo que decir acá.
-  let alerta: string | null = null;
+  // Estado EN VIVO (no descripción): Meta, y la IA cuya key guardada es la de MaKo (el campo se ve lleno y no es suya:
+  // tickets #5 y #6, lib/ia-keys.ts → `veredictoDeIA`).
+  let alerta: string | null = i.detalle === POR_QUE_IA_DE_MAKO || i.detalle === POR_QUE_LA_CONFIGURA_MAKO ? i.detalle : null;
+  // La del workspace del entorno no se pega (`soloServidor`, sin formulario) y tampoco lleva la lista de lo que falta.
+  const delEquipo = i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
   let facts: Array<{ k: string; v: string; c: string }> = [];
   const actions: Array<{ label: string; href?: string; primary?: boolean; sameTab?: boolean; onClick?: () => void }> = [];
   const faltan = i.estado === 'falta' ? i.detalle.replace(/^Falta configurar:\s*/, '') : '';
@@ -1590,7 +1602,7 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
             // sin esto el chip de acá arriba, el tile y el contador se quedaban en
             // "Por configurar" después de guardar, hasta que apretaras F5.
             <ServicioConfigForm servicioKey={i.key} onEstado={onCambio} />
-          ) : i.estado === 'falta' && i.key !== 'google' && (
+          ) : i.estado === 'falta' && i.key !== 'google' && !delEquipo && (
             // Google no lleva credenciales que copiar: se conecta por OAuth y su
             // estado lo cuenta PermisoGoogleCalendar. Sin esta excepción, el chip
             // de "falta configurar" mostraba la frase del detalle como si fuera

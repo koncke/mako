@@ -1020,16 +1020,20 @@ export const BITACORA: Hito[] = [
     actor: "claude", tipo: "implementacion",
     titulo: "Clients con la cabecera de Skool y la pinta del curso; MaKo Partners con la cartera de cuentas de la agencia",
     puntos: [
+      "En producción desde el run 110 (17/10). La barra nueva, con Clients como una sola tab en Operate y MaKo Partners para el admin de una agencia, va en el run 111 (chat Sidebar).",
       "Clients (/clients): el programa arriba con su color, su fuente y su portada, y las sub-tabs Clients · Community · Classroom · Calendar · Members · Leaderboards · About. «Personalizar» guarda el MISMO estilo del Classroom y del portal del alumno: sin migración.",
       "La comunidad del equipo se viste con la piel del curso. Las rutas viejas (/customer-success, /curso, /curso/vista, /comunidad) redirigen con su query; el código no se mudó de carpeta.",
       "MaKo Partners (/partners), sólo para una agencia del programa y el super admin: cada cuenta con su estado, su plan, su equipo y su cobro (pagar su primer mes, activar la renovación), Inspeccionar y «+ Nuevo cliente». Los premios por referir NO se dibujan: no existen.",
       "Abrir una cuenta es una sola implementación (lib/partners.ts) para la tab, el CRM y la API de MaKo (`llevar_a_partners`, la confirma una persona y el link lo escribe el código).",
       "El teléfono: las tres pantallas de siempre llevan arriba el trío Clients · Community · Classroom, y /partners tiene su pantalla. «Sumar gente al equipo de una cuenta» queda en la computadora.",
-      "Falta: la fila de la sidebar y de More (chat Sidebar), el botón en el CRM (chat CRM), verlo en el navegador y que «Salir» de una cuenta vuelva a /partners.",
+      "MaKo Partners lo ve sólo el admin de la agencia (son los links de pago). Clients quedó sin nada de la cuenta de MaKo: lo que hacía la tarjeta (reenviar el acceso, avisar que nadie puede entrar) se mudó a Partners antes de borrarlo.",
+      "Falta: el botón «Llevar a MaKo Partners» en el CRM (chat CRM, avisado de que ya está en main), verlo en el navegador (la extensión de Chrome no conectó) y que «Salir» de una cuenta vuelva a /partners.",
     ],
     commits: [
       { sha: "8d4fbbd3", msg: "Clients: Clientes, Curso y Comunidad en UNA tab con sub-tabs tipo Skool, y MaKo Partners para los clientes de agencia", lineas: 4686, archivos: 83 },
       { sha: "5c2132c0", msg: "Clients y MaKo Partners en el teléfono", lineas: 292, archivos: 17 },
+      { sha: "45bf720d", msg: "MaKo Partners sólo para el admin; Clients sin el código dormido de agencia", lineas: 1197, archivos: 22 },
+      { sha: "2741e370", msg: "tests/partners: gating es opcional en el tipo (TS18048)", lineas: 2, archivos: 1 },
     ],
     archivos: [
       "lib/clients-rutas.ts + app/clients/ — las rutas, la cabecera y «Personalizar»",
@@ -1038,5 +1042,6 @@ export const BITACORA: Hito[] = [
       "app/m/cs/SeccionesClientsM.tsx + app/m/partners/ — el teléfono",
       "docs/diseno-clients.md — las decisiones D1-D10",
     ],
+    revisar: "/clients",
   },
 ];

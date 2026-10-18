@@ -13,6 +13,15 @@
 //
 // Probado rompiéndolo (17/10/2026, arnés `romper.py` + `roturas-850.json`; base 3 / 3): sin la regla de `100dvh`, sin el
 // `:not([data-sidebar])`, o el cartel de la copia con `top: 18` → 2 / 1 cada uno.
+//
+// ⚠️ EL MISMO DÍA, MÁS TARDE (Onboarding, tests 4 y 5): la regla sólo reconocía el estilo como lo escribe el NAVEGADOR
+// («height: 100dvh»). Lo que llega del server sale como lo escribe React, «height:100dvh», y toda entrada a inspeccionar
+// es una carga del server. MEDIDO en Chrome sin ventana (scratchpad css850, el CSS real de globals.css, ventana de 608):
+// la forma del server medía 608 y ahora 558; min-height sigue en 608. Lo que el hallazgo dejó «sin hacer» (la ficha
+// del CRM y la lateral del Web Generator) ya bajaba: son <aside>, top 50 medido. Roturas (arnés `romper-881.js`, base
+// 20 / 0 con inspeccionar-primer-cuadro y lead-cabecera): sin `;height:100dvh` → 18 / 2 · la ficha con <div> → 19 / 1
+// · «Editando el deal» en top 0 → 19 / 1 · el índice de la API en top 0 → 19 / 1 · la ruta del lead sin `arribaTabs`
+// → 19 / 1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -36,9 +45,14 @@ test('1. las pantallas de alto fijo (100vh y 100dvh, en línea) descuentan la ba
     const r = regla(css, `[data-barra-agencia] [style^="height: ${unidad}"]`);
     // Al principio del estilo y después de un espacio: `min-height` (que no desborda) queda afuera.
     assert.ok(r.includes(`[data-barra-agencia] [style*=" height: ${unidad}"]`), `falta el caso «…; height: ${unidad}» (${unidad})`);
-    assert.ok(r.includes(`[data-alerta-voz] [style^="height: ${unidad}"]`), 'la alerta de la voz también corre el body');
+    // Y como lo escribe React en el server (sin espacios): toda entrada a inspeccionar es una carga del server.
+    for (const atributo of ['data-barra-agencia', 'data-alerta-voz']) {
+      for (const forma of [`^="height: ${unidad}"`, `*=" height: ${unidad}"`, `^="height:${unidad}"`, `*=";height:${unidad}"`]) {
+        assert.ok(r.includes(`[${atributo}] [style${forma}]`), `falta [${atributo}] [style${forma}]: la pantalla que llega del server no descuenta la barra`);
+      }
+    }
     assert.ok(r.includes(`height: ${valor} !important`), `el alto de una pantalla de ${unidad} no descuenta la barra`);
-    assert.ok(!r.includes('"min-height'), 'min-height no desborda: no se toca');
+    assert.ok(!r.includes('"min-height') && !r.includes(';min-height'), 'min-height no desborda: no se toca');
   }
 });
 
@@ -47,7 +61,7 @@ test('2. el riel del Sidebar queda afuera (tiene su regla con 100dvh para el iPa
   for (const unidad of ['100vh', '100dvh']) {
     const r = regla(css, `[data-barra-agencia] [style^="height: ${unidad}"]`);
     const selectores = r.slice(0, r.indexOf('{')).split(',').map((x) => x.trim()).filter(Boolean);
-    assert.equal(selectores.length, 4);
+    assert.equal(selectores.length, 8);
     for (const s of selectores) assert.ok(s.endsWith(':not([data-sidebar])'), `«${s}» le ganaría al riel del Sidebar y le devolvería el 100vh del iPad`);
   }
   // Y la del Sidebar sigue.
@@ -59,4 +73,46 @@ test('3. el cartel «Copiaste un flujo» de Automations baja con la barra', () =
   const i = app.indexOf('aria-label="Crear lo copiado"');
   assert.ok(i > 0);
   assert.match(app.slice(i, i + 300), /top: 'calc\(18px \+ var\(--barra-agencia, 0px\)\)'/, 'el cartel quedaba debajo de la barra (z 58 contra 300)');
+});
+
+test('4. el panel de la ficha del CRM y la lateral del Web Generator bajan con la barra porque son <aside>', () => {
+  // Los dos que el hallazgo de #850 dejó «sin hacer» (`position: fixed; top: 0` y `sticky; top: 0` en una clase) ya los
+  // baja la regla de TODO <aside> con la barra (`top: var(--barra-agencia) !important`). MEDIDO en Chrome sin ventana el
+  // 17/10 (scratchpad css850): los dos quedan con top 50. Si alguno deja de ser <aside>, vuelve abajo de la barra.
+  const css = sinComentariosCss(leer('app/globals.css'));
+  assert.match(css, /\[data-barra-agencia\] aside, \[data-alerta-voz\] aside\[data-sidebar\] \{\s*top: var\(--barra-agencia\) !important;/);
+  const ficha = leer('app/crm/lead-view/ficha/FichaPorBloques.tsx');
+  assert.match(ficha, /<aside aria-label=\{panel === 'editar'[^\n]*\n\s*style=\{\{ position: 'fixed', top: 0,/, 'el panel del AI Analyst de la ficha dejó de ser <aside>');
+  const wg = leer('app/web-generator/Inicio.tsx');
+  assert.match(wg, /<aside className="gp-lateral"/, 'la lateral del Web Generator dejó de ser <aside>');
+  assert.match(wg, /\.gp \.gp-lateral \{ position: sticky; top: 0;/);
+});
+
+test('5. lo que se pega a la VENTANA y no es <aside> se pega debajo de la barra', () => {
+  // Relevados el 17/10 (de 18 `sticky`/`fixed` con top 0 en app/, éstos son los que scrollean con la ventana y la regla
+  // de los <aside> no toma). Los que se pegan adentro de un modal o de un panel con scroll van en 0: ahí la barra no está.
+  // (La barra de «Editando el deal» se fue el 17/10/2026 con EditarDeal: el deal se edita en sus bloques de Pagos.)
+  const est = sinComentariosCss(leer('app/admin/estrategia/estrategia.css'));
+  assert.match(est, /\.est-det\[open\] > \.est-det-cab \{\s*position: sticky; top: var\(--barra-agencia, 0px\);/, 'la cabecera abierta de /admin/estrategia');
+  const gh = sinComentariosCss(leer('app/api-mako/github.css'));
+  assert.match(gh, /\.gh-docs-sidebar \{ position: sticky; top: var\(--barra-agencia, 0px\); align-self: start; max-height: calc\(100vh - var\(--barra-agencia, 0px\)\);/, 'el índice de las docs de la API (es un <nav>)');
+});
+
+test('6. las barras de lote del Plan y de Customer Success: debajo de la barra en la página, en su lugar en un modal', () => {
+  // Viven en la página (se pegan a la VENTANA, que la barra tapa) y adentro de modales (se pegan a su cuerpo, donde la
+  // barra no está). `--pegado-arriba` vale la barra en la página y 0 en un modal. MEDIDO en Chrome sin ventana el 17/10
+  // (scratchpad css850/prueba2.html, el CSS real): en la página 58, en el modal 8.
+  // Roturas (arnés `romper-lote.js`, con plan-prioridad-tabla-y-lote; base 32 / 0): sin el reset de [aria-modal] → 31 / 1
+  // · BarraPegada en top 8 → 31 / 1 · la de Customer Success en top 8 → 31 / 1 · la de 66 del Kanban → 30 / 2.
+  const css = sinComentariosCss(leer('app/globals.css'));
+  assert.match(css, /:root \{ --pegado-arriba: var\(--barra-agencia\); \}/);
+  assert.match(css, /\[aria-modal="true"\] \{ --pegado-arriba: 0px; \}/, 'sin esto, en un modal la barra de lote baja 50 px');
+  const ocho = "top: 'calc(8px + var(--pegado-arriba, 0px))'";
+  const cuenta = (src: string, trozo: string) => src.split(trozo).length - 1;
+  for (const [archivo, n] of [['app/plan/board/Tablas.tsx', 1], ['app/plan/board/BoardShell.tsx', 3], ['app/customer-success/LoteClientes.tsx', 1]] as const) {
+    const src = leer(archivo);
+    assert.equal(cuenta(src, ocho), n, `${archivo}: las barras de lote no descuentan la barra de inspección`);
+    assert.doesNotMatch(src, /position: 'sticky', top: (8|66), zIndex/, `${archivo}: una barra de lote volvió a un top fijo`);
+  }
+  assert.equal(cuenta(leer('app/plan/board/BoardShell.tsx'), "top: 'calc(66px + var(--pegado-arriba, 0px))'"), 1, 'la segunda barra del Kanban (66)');
 });

@@ -1,0 +1,58 @@
+/* =============================================================================
+   /m/image-editor — lo propio del inicio del Image Editor (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-image-editor-*. Sólo tokens de app/globals.css. Un p con margen va con [data-m] delante.
+   El editor de un diseño NO usa esto: es el de escritorio (Doory, con sus tokens `--cv-*` en `.cv`). */
+
+/* El buscador de arriba (el «Busca en Canva» de la app), de 44 de alto y letra de 16 (iOS no hace zoom). */
+.m-image-editor-buscar {
+  display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 0 16px; padding: 0 14px;
+  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); color: var(--faint);
+}
+.m-image-editor-buscar input {
+  flex: 1; min-width: 0; height: 42px; border: 0; outline: none; background: none; color: var(--ink); font: inherit;
+}
+.m-image-editor-buscar:focus-within { border-color: var(--primary); }
+
+/* «Diseños recientes»: dos columnas, la miniatura en una caja gris cuadrada (como Canva) y el nombre debajo. */
+.m-image-editor-grilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+.m-image-editor-tarjeta { position: relative; min-width: 0; }
+.m-image-editor-tarjeta__abre {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; color: var(--ink); text-decoration: none;
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+}
+.m-image-editor-mini {
+  display: grid; place-items: center; aspect-ratio: 1; padding: 10px; box-sizing: border-box;
+  border-radius: var(--r-md); background: var(--surface-2); overflow: hidden;
+}
+.m-image-editor-mini img {
+  display: block; max-width: 100%; max-height: 100%; object-fit: contain;
+  border-radius: 3px; box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+.m-image-editor-mini__vacia {
+  display: block; width: 100%; max-height: 100%; border-radius: 3px; background: var(--surface);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 14%, transparent);
+}
+.m-image-editor-tarjeta__t {
+  margin-top: 4px; padding-right: 36px; font-size: var(--fs-sm); font-weight: 600; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.m-image-editor-tarjeta__c { font-size: var(--fs-meta); color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* El «⋯» de cada diseño: abajo a la derecha, sobre el nombre (44 de toque). */
+.m-image-editor-tarjeta__mas {
+  position: absolute; right: -6px; bottom: 4px; display: grid; place-items: center; width: 44px; height: 44px;
+  padding: 0; border: 0; border-radius: 999px; background: none; color: var(--dim); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* La forma del tamaño en «Crear un diseño»: un rectángulo con la proporción real. */
+.m-image-editor-forma {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; background: var(--primary-bg);
+}
+.m-image-editor-forma i { display: block; border-radius: 2px; border: 2px solid var(--primary); box-sizing: border-box; }
+
+/* La hoja de un diseño: su miniatura grande. */
+.m-image-editor-detalle { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 4px 0 8px; }
+.m-image-editor-detalle img { display: block; max-width: 100%; max-height: 36dvh; border-radius: 6px; box-shadow: 0 2px 8px color-mix(in srgb, var(--ink) 16%, transparent); }
+.m-image-editor-detalle .m-image-editor-mini__vacia { width: 60%; }
+[data-m] .m-image-editor-detalle p { margin: 0; font-size: var(--fs-sm); color: var(--dim); }

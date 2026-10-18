@@ -670,6 +670,26 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
       ),
     ],
   },
+  {
+    // «Tu Contraseña Cambió» (17/10/2026): lo prometían los circuitos 1, 3 y 4 de docs/diseno-login-contrasena.md. SÓLO
+    // SuperAdmin: el evento lo emite Seguridad en el ws de la plataforma (lib/contrasena-cambio-aviso.ts) y el mail sale a
+    // la persona, a su correo de la CUENTA, por el remitente de MaKo. Sin datos secretos: dice qué pasó y qué hacer.
+    id: 'seguridad-contrasena-cambiada',
+    nombre: 'Tu Contraseña Cambió',
+    emoji: '🔐',
+    linea: 'Le avisa a una persona que se creó o se cambió la contraseña de su cuenta de MaKo.',
+    origen: 'Seguridad: crear, cambiar o restablecer la contraseña (seguridad-contrasena-cambiada)',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'contrasena_cambiada' },
+    pasos: [
+      email(
+        'scc_mail', 'Tu contraseña de MaKo cambió', 'Si no fuiste tú, avísanos ya.',
+        'Hola:\n\nSe creó o se cambió la contraseña de tu cuenta de MaKo.\n\nSi fuiste tú, no hace falta hacer nada.\nSi no fuiste tú, entra con Google y cámbiala desde Tu cuenta → Seguridad, o escríbenos a equipo@hola-mako.com.',
+        null, { revisar: false },
+      ),
+    ],
+  },
   // LOS MENSAJES DE MaKo A SUS CLIENTES, mudados a automatizaciones de la plataforma (15/10/2026, el 2 de las doce de
   // Martín; docs/diseno-avisos-plataforma.md). El evento lo emite el NEGOCIO cuya línea se cayó (lib/lineas-vigilante.ts)
   // y la tarjeta le llega al grupo de ESE negocio (`negocioWs`, lib/flujos.ts). Cada dato en su renglón: un renglón con
@@ -800,6 +820,148 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // La copia del recordatorio de clases (17/10/2026, «nada por detrás», lote 2): un renglón por sección, y cada lista es
+    // un dato que sólo viene si tiene a alguien (`datosRecordatorioDueno`): la sección vacía se va entera.
+    id: 'mako-curso-recordatorio',
+    nombre: 'MaKo Recordó sus Clases a los Clientes',
+    emoji: '📚',
+    linea: 'Le cuenta al grupo de un negocio a qué clientes del curso les recordó sus videos, y a quién no.',
+    origen: 'el cron del curso (curso-sesiones), una vez por corrida y por negocio',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'curso_recordatorio' },
+    pasos: [
+      mako('cr_mk', 'Recordé sus videos pendientes a {{recordatorio_cuantos}} con {{recordatorio_dias}} días sin entrar:{{recordatorio_enviados}}\nNo llegó el recordatorio a:{{recordatorio_no_llego}}\nNo pude escribir a:{{recordatorio_sin_escribir}}', null),
+    ],
+  },
+  {
+    // El navegador que dejó de tomar los videos de un negocio (17/10/2026, «nada por detrás», lote 2): el texto del ejemplo del
+    // catálogo, con la cantidad en su renglón (`datosPuenteAusente`): sirve para una toma y para varias.
+    id: 'mako-flow-puente-ausente',
+    nombre: 'Se Frenaron los Videos de un Negocio',
+    emoji: '🔴',
+    linea: 'Le avisa al grupo de un negocio que su navegador dejó de tomar sus videos y cuántas tomas quedaron sin tomar.',
+    origen: 'el cron flow-abandono, cuando nadie tomó un trabajo en 12 minutos',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'flow_puente_ausente' },
+    pasos: [
+      mako('fp_mk', '🔴 Tus videos no se están generando: tu navegador dejó de responder.\n⏸️ Sin tomar: *{{flow_tomas}}*\n\nAbre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando vuelvas, las vuelves a mandar. — MaKo', null),
+    ],
+  },
+  {
+    // LA LANDING QUE DEJÓ DE MANDAR VISITAS (17/10/2026, «nada por detrás», lote 3). Antes la redactaba una IA con `contexto`
+    // (el cron le pasaba los días y la fecha en ISO); ahora el texto es éste, con los días y la fecha como datos.
+    id: 'mako-tracking-apagado',
+    nombre: 'Una Landing Dejó de Mandar Datos',
+    emoji: '🔴',
+    linea: 'Le avisa al grupo de un negocio que su landing no registra visitas hace 2 días o más, y dónde revisarlo.',
+    origen: 'el cron tracking-vigilante, una vez por día',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'tracking_apagado' },
+    pasos: [
+      mako('ta_mk', '🔴 *Tu landing dejó de mandarme datos*\n⏱️ Sin visitas hace {{tracking_dias}}\n🕐 La última: el {{tracking_ultima}}\nLos anuncios pueden seguir corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel de MaKo quedó apuntando a una dirección vieja.\n\nRevísalo aquí:\n{{tracking_link}}\n\n— MaKo', null),
+    ],
+  },
+  {
+    // EL PIXEL QUE QUEDÓ VIEJO (17/10/2026, lote 3). Lo que el código elegía —si por ser viejo no graba, una página o varias—
+    // es una CONDITION (`pixel_graba`) y un renglón opcional (las páginas: sin ninguna nombrada, el renglón no va).
+    id: 'mako-pixel-viejo',
+    nombre: 'El Pixel de un Negocio Quedó Viejo',
+    emoji: '🟡',
+    linea: 'Le avisa al grupo de un negocio que su Pixel de MaKo es viejo, qué se pierde y cómo se arregla.',
+    origen: 'el cron tracking-vigilante, una vez por semana mientras siga viejo',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'pixel_viejo' },
+    pasos: [
+      condicion('pv_graba', [[[{ campo: 'dato:pixel_graba', valor: 'no graba' }], 'pv_no']], 'pv_si'),
+      mako('pv_no', '🟡 *Tu Pixel de MaKo es viejo y no graba las visitas*\n📄 Las páginas:{{pixel_paginas}}\n✨ Te estás perdiendo: {{pixel_novedades}}\n\n*Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en lugar del código viejo. Con esa línea no vuelves a actualizar nada.\n{{pixel_link}}\n\n— MaKo', null),
+      mako('pv_si', '🟡 *Tu Pixel de MaKo es una versión vieja*\n📄 Las páginas:{{pixel_paginas}}\n✨ Te estás perdiendo: {{pixel_novedades}}\n\n*Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en lugar del código viejo. Con esa línea no vuelves a actualizar nada.\n{{pixel_link}}\n\n— MaKo', null),
+    ],
+  },
+  {
+    // ALGUIEN DEJÓ SUS DATOS EN LA LANDING (17/10/2026, «nada por detrás», lote 3). Dos casos, que antes eran dos textos en la
+    // ruta del formulario: entró solo al CRM, o quedó a REVISAR porque se parece a uno que ya está (fundir dos contactos no se
+    // deshace). Lo pregunta la CONDITION (`optin_revisar`); lo que falta de la persona, su renglón no va.
+    id: 'mako-lead-de-landing',
+    nombre: 'Alguien Dejó sus Datos en una Landing',
+    emoji: '🟢',
+    linea: 'Le avisa al grupo de un negocio quién dejó sus datos en su landing, o que lo revise si se parece a otro.',
+    origen: 'el formulario de la landing (track/optin), con cada persona que deja sus datos',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_de_landing' },
+    pasos: [
+      condicion('ol_revisar', [[[{ campo: 'dato:optin_revisar', valor: 'sí' }], 'ol_revisar_mk']], 'ol_entro_mk'),
+      mako('ol_revisar_mk', '🟡 *{{optin_quien}}* dejó sus datos en tu landing\n📱 {{optin_telefono}}\n✉️ {{optin_email}}\n👥 Ya tienes a {{optin_ya_tienes}} con el mismo {{optin_coincide}}\nNecesito que lo mires: fundir dos contactos no se puede deshacer, por eso NO lo cargué solo.\nDecides tú aquí 👉 {{optin_link}}\n\n— MaKo', null),
+      mako('ol_entro_mk', '*{{optin_quien}}* dejó sus datos en tu landing\n📱 {{optin_telefono}}\n✉️ {{optin_email}}\n📝 Lo que completó:{{optin_respuestas}}\n📢 {{optin_campana}}\n🗂️ Entró a {{optin_funnels}}\n👉 {{optin_link}}', null),
+    ],
+  },
+  {
+    // LA PRUEBA DEL PIXEL QUE SE CERRÓ (17/10/2026, «nada por detrás», lote 3): cuántos eventos llegaron y en qué página.
+    id: 'mako-prueba-recibida',
+    nombre: 'Llegó la Prueba del Pixel de un Negocio',
+    emoji: '✅',
+    linea: 'Le avisa al grupo de un negocio cuántos eventos llegaron de su prueba del Pixel, y que la grabación viene.',
+    origen: 'cerrar una prueba del Pixel en Integraciones',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'prueba_recibida' },
+    pasos: [
+      mako('pr_mk', '✅ Listo, recibí tu prueba del Pixel\n📄 En *{{prueba_pagina}}*\n📊 {{prueba_eventos}}\nTe aviso cuando la grabación esté lista. — MaKo', null),
+    ],
+  },
+  {
+    // LA GRABACIÓN DE LA PRUEBA, LISTA (17/10/2026, lote 3): una por lead de prueba, en una lista (sirve para una y varias).
+    id: 'mako-prueba-grabada',
+    nombre: 'Ya Está la Grabación de una Prueba',
+    emoji: '🎥',
+    linea: 'Le avisa al grupo de un negocio que ya puede ver la grabación de su prueba del Pixel, con el link.',
+    origen: 'el cron prueba-grabacion, cuando la grabación está lista',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'prueba_grabada' },
+    pasos: [
+      mako('pg_mk', '🎥 Ya puedes ver cómo se vio tu prueba del Pixel:{{prueba_grabaciones}}\n\n— MaKo', null),
+    ],
+  },
+  {
+    // UN LEAD COMPLETÓ EL FORMULARIO DE META (17/10/2026, «nada por detrás», lote 3). Salía del store de /mensajes, apagado
+    // por default («déjalo como borrador, no activado»): su fila nace PAUSADA. Lo que falta (el teléfono, la campaña, las
+    // respuestas) se lleva su renglón; antes se tapaba con frases del código.
+    id: 'mako-lead-formulario-meta',
+    nombre: 'Un Lead Completó el Formulario de Meta',
+    emoji: '📥',
+    linea: 'Le avisa al grupo de un negocio que un lead completó su formulario de Meta, con lo que contestó.',
+    origen: 'el webhook y el poll de los formularios de Meta (meta-lead-nuevo), con cada lead nuevo',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_formulario_meta' },
+    pasos: [
+      mako('fm_mk', '📥 *{{nombre_completo}}* completó tu formulario de Meta\n📱 {{meta_telefono}}\n📢 {{meta_campana}}\n📝 Lo que contestó:{{meta_respuestas}}\n\nSu ficha 👉 {{link_lead}}', null),
+    ],
+  },
+  {
+    // LA LANDING QUE CAMBIÓ LO QUE SE MIDE (17/10/2026, lote 3): se le agregó o se le sacó un video, un formulario o la
+    // agenda. Si lo agregado se puede medir lo pregunta la CONDITION (`landing_medible`); lo agregado y lo sacado, cada uno
+    // en su renglón opcional.
+    id: 'mako-landing-cambio',
+    nombre: 'Cambió la Landing de un Negocio',
+    emoji: '🟡',
+    linea: 'Le avisa al grupo de un negocio qué le agregó o le sacó a su landing y si eso se puede medir.',
+    origen: 'el cron tracking-vigilante, una vez por cambio',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'landing_cambio' },
+    pasos: [
+      condicion('lc_medir', [[[{ campo: 'dato:landing_medible', valor: 'no' }], 'lc_no']], 'lc_si'),
+      mako('lc_no', '🟡 *Cambió tu página*\n📄 {{landing_pagina}}\n➕ Le agregaste *{{landing_agregaste}}*. Desde ahí el reproductor no le avisa nada a la página, así que no puedo medir las reproducciones. Si quieres que se midan, súbelo directo a tu página o a Panda.\n➖ Sacaste *{{landing_sacaste}}*: dejo de pedírtelo en las pruebas, y lo que ya se registró sigue en tu CRM.\n\n{{landing_link}}\n\n— MaKo', null),
+      mako('lc_si', '🟡 *Cambió tu página*\n📄 {{landing_pagina}}\n➕ Le agregaste *{{landing_agregaste}}*. Ya lo estoy midiendo.\n➖ Sacaste *{{landing_sacaste}}*: dejo de pedírtelo en las pruebas, y lo que ya se registró sigue en tu CRM.\n\n{{landing_link}}\n\n— MaKo', null),
+    ],
+  },
+  {
     // El reporte de los lunes (16/10/2026, docs/diseno-avisos-plataforma.md §6): lo arma el cron de cada negocio con sus
     // preferencias, y sale POR EMAIL al equipo del negocio, como hasta hoy (nunca por WhatsApp: `REPORTE_POR_WHATSAPP`).
     // El asunto y el cuerpo son los de `despacharReporte` (lib/notify.ts). Sin firma: el correo ya la lleva al pie.
@@ -829,6 +991,30 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'oferta_lista' },
     pasos: [
       mako('ol_mk', '✨ *Tu oferta está lista* (versión {{oferta_lista_version}}).\n📝 {{oferta_lista_nombre}}\n\n👉 Mírala aquí: {{oferta_lista_link}} — MaKo', null),
+    ],
+  },
+  {
+    // MaKo LEYÓ LAS REUNIONES DE UN NEGOCIO Y LE DEJÓ LAS TAREAS EN EL PLAN (17/10/2026, «nada por detrás»). El texto era
+    // `textoAviso` (lib/reunion-auto.ts) y PISABA la plantilla de /mensajes. Tres casos, que antes elegía el código: varias
+    // reuniones, una que completa una lectura a medias, o una nueva. Los preguntan las CONDITION (`plan_varias`,
+    // `plan_resto`); lo que falta (con quién, las de otros, las que el criterio dejó afuera, lo leído a medias) se lleva
+    // su renglón. Nacía apagado: la fila nace PAUSADA (scripts/mudanza-avisos-plataforma.mts).
+    id: 'mako-reunion-tareas-al-plan',
+    nombre: 'Tareas de Reuniones al Plan',
+    emoji: '📝',
+    linea: 'Le avisa al grupo de un negocio que MaKo leyó sus reuniones y le dejó las tareas en el Plan para confirmar.',
+    origen: 'el cron fathom-plan (lib/reunion-auto.ts), una vez por corrida y sólo si dejó tareas',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'reunion_tareas_al_plan' },
+    pasos: [
+      condicion('rp_cuantas', [
+        [[{ campo: 'dato:plan_varias', valor: 'sí' }], 'rp_varias_mk'],
+        [[{ campo: 'dato:plan_resto', valor: 'sí' }], 'rp_resto_mk'],
+      ], 'rp_una_mk'),
+      mako('rp_varias_mk', '📝 Leí tus *{{plan_reuniones}}* nuevas:{{plan_lista}}\n\nEn total *{{plan_tuyas}}*. Cada una se revisa en su propio link, ahí arriba.\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} no pude leer todo: puede faltar contenido. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
+      mako('rp_resto_mk', '📝 Terminé de leer tu reunión *{{plan_titulo}}*\n🗓️ {{plan_cuando}}\n\nSaqué *{{plan_tuyas}}* más y te las dejé en el plan para que las confirmes:\n{{plan_link}}\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} todavía no pude leer todo. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
+      mako('rp_una_mk', '📝 Leí tu reunión *{{plan_titulo}}*\n👥 Con {{plan_con}}\n🗓️ {{plan_cuando}}\n\nSaqué *{{plan_tuyas}}* y te las dejé en el plan para que las confirmes:\n{{plan_link}}\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} no pude leer todo: puede faltar contenido. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
     ],
   },
 ];

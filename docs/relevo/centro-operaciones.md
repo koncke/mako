@@ -1,6 +1,111 @@
-# Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~09:30; cuenta 4, `claude4`)
+# Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
-## PARA EL CUARTO OPS CENTER (17/10, ~13:00): lo que llegó al cierre del tercero, EN ESTE ORDEN
+## PARA EL SÉPTIMO OPS CENTER (17/10, ~20:00): lo que dejó el sexto, y lo que sigue
+
+El sexto (agente «Ops Center 6» del Cerebro, cuenta 4, rama `ops6-1710`, worktree `C:/dev/wt-ops4`) hizo los nueve pedidos de Martín
+de las 19:31 a las 19:45 en UNA punta, sin tocar el cartero. Lo que costó: docs/hallazgos-operaciones.md → «Second Brain no se saca de la
+barra para todos…».
+
+| Qué (en palabras de producto) | Dónde |
+|---|---|
+| 1. «Preguntas de los chats» ya no es una pestaña de la Ticketera (computadora ni teléfono); un link viejo abre los tickets | TicketeraCentro.tsx, CentroAppMovil.tsx |
+| 2. El Uso con el Runner conectado y sin medir dice «Runner conectado, todavía sin medir» | Uso.tsx (`textoSinMedicion`) |
+| 3. El super admin ya no ve «Second Brain» en la barra ni en More (vive en el Ops Center); `/second-brain` lleva al grafo | nav.ts (`arribaDe`), movil-rutas.ts, lib/ops-center-ruta.ts |
+| 4. Cabecera del chat: la criatura al lado del título, sin chips de cuenta ni estado, el título se renombra en el lugar, sin «Tu foto de perfil» | Conversacion.tsx, ChatsMovil.tsx (`TituloDeChat`), SheetM.tsx |
+| 6. El logo de Claude del Uso es el de simple-icons | Uso.tsx |
+| 7. El chat del Runner no está en la lista | useCentro.ts (`sinElRunner`) |
+| 8. Un «Completado» sin ver avisa igual que «Espera tu respuesta» | centro-chats.ts (`segundoRenglon`, `avisosDe`) |
+| 9. «Trabajando…» se toca y despliega los pasos, igual en todos los chats | Trabajando.tsx |
+
+**Lo que sigue, en este orden:**
+1. **Que Martín lo vea en SU Android**: la cabecera con la criatura en el título de la hoja (el título de `SheetM` tiene el gesto de
+   arrastre: los toques andan por el retraso de la captura, pero no se midió en el teléfono), el renombre en el lugar con el teclado, y
+   «Trabajando…» desplegado. Nada de esto se miró en pantalla (tests y tipos).
+2. ⚠️ **DESPUÉS DEL 20/10: el texto del razonamiento de un chat en «Trabajando…».** Hoy se ven los pasos que ya sube la PC (el nombre
+   de la herramienta y la frase corta del Bash: lib/centro-pasos.ts). Mostrar lo que PIENSA el chat obliga a subir texto del transcript
+   a MaKo, y eso pide una revisión de qué viaja (puede traer secretos, rutas, datos de clientes) antes de tocar `cartero.mjs`.
+3. Borrar el código muerto de «Preguntas de los chats»: app/tickets/decisiones/Mazo.tsx, app/admin/runway/Tablero.tsx, sus rutas-puerta
+   (`/tickets/decisiones`, `/admin/runway`) y sus tests. Hoy ya nadie los dibuja.
+4. Lo que dejó el quinto (abajo) sigue en pie: SheetM en «medio», la miniatura de la foto enviada en otro dispositivo, barrer `enviado:*`.
+
+## PARA EL SEXTO OPS CENTER (17/10, ~19:30): lo que dejó el quinto, y lo que sigue
+
+El quinto (agente «Ops Center 5» del Cerebro, cuenta 4, rama `ops5-1710`, worktree `C:/dev/wt-ops4`) hizo el pedido de Martín
+de las 17:54 (WhatsApp como referencia de todo) y los que sumó el Cerebro (17:55 y 18:06), en dos puntas, sin tocar el cartero.
+Lo que costó, en docs/hallazgos-operaciones.md → «El menú que se cerraba solo, las fotos que no se veían y lo demás de WhatsApp».
+
+| Qué (en palabras de producto) | Commit |
+|---|---|
+| Mantener apretado un mensaje abre la hoja de WhatsApp y queda abierta; el chat a todo el ancho con UN botón (micrófono o flecha); el «atrás» cierra la foto y no el chat; «Completado» y su aviso en la fila; las listas con SUS números; las fotos enviadas en su burbuja; el Uso con «Medido hace X» y apagado pasadas 6 h; «Uso y Runners» sin lo repetido y en «alto» | VERDE `549c9ebb6` |
+| Globos con colita y la foto de Martín; lo especial como tarjeta de color; pegar una imagen la adjunta; emojis junto al campo; el «+» como el «Adjuntar» de WhatsApp; «Borrador:» en la lista; en el teléfono la cabecera del chat pegada arriba con la criatura y «Tu foto de perfil» | ver `git log` (punta 2) |
+
+**Lo que sigue, en este orden:**
+1. **Que Martín lo vea en SU teléfono, que es un ANDROID** (la captura de las 18:06 es de un Samsung): la hoja del mensaje, los
+   globos, los emojis y la cabecera pegada. Nada de esto se miró en una pantalla real (tests y tipos).
+2. **SheetM en «medio» no deja ver el final de un cuerpo largo** (app/m/_ui/SheetM.tsx; docs/hallazgos-mobile.md): hoy sólo «Uso y
+   Runners» abre en «alto». El arreglo es de SheetM, para todas las hojas: avisarle al dueño de app/m/_ui.
+3. **La foto enviada en otro dispositivo** (hoy sale su nombre): pide una miniatura en el servidor, que contradice «el binario no
+   queda» (lib/operaciones-adjuntos.ts). Es una decisión de Martín, no un arreglo.
+4. Barrer las miniaturas `enviado:*` de IndexedDB (app/admin/operaciones/adjuntos-guardados.ts) y que el aviso de «Completado» sin
+   ver viaje entre dispositivos (hoy localStorage, useCentro.ts → `vistos`).
+5. Lo que seguía del cuarto (abajo): el cierre estructurado `--tareas` (después del 20/10), «Cámbiale el nombre», Destacados.
+
+## LO QUE DEJÓ EL CUARTO OPS CENTER (17/10, ~16:00), Y LO SUYO QUE SIGUE
+
+El cuarto (agente «Ops Center 4» del Cerebro, cuenta 4, rama `ops4-1710`, worktree `C:/dev/wt-ops4`) hizo los cuatro pedidos de
+Martín de las 14:44 y los pendientes de abajo, cada uno en su commit y pasado al Cerebro como VERDE. Lo que costó, en
+docs/hallazgos-operaciones.md → «El "atrás" lento del teléfono, WhatsApp en cada mensaje y las 0 consultas de `vigilar`».
+
+| Qué (en palabras de producto) | Commit | ⚠️ |
+|---|---|---|
+| `vigilar` consulta aunque la primera vuelta sea lenta (el bug de las 0 consultas) y `cierre --revisar` desde Git Bash | `e6aafb77f` (cartero 1.15.1) | REVISAR: cartero e instrucciones del Runner (paso 2d, `otraVez`) |
+| WhatsApp en cada mensaje (deslizar para responder, el menú con reacciones, la cita que lleva al mensaje, los fijados); una sola lista con «Nuevo chat» arriba y el Cerebro como la estrella de MaKo; «Uso y Runners» arriba en el teléfono; el «atrás» sin redibujar todo | `aab915c7e` | — |
+| Cada cuenta del Uso con su nombre editable, su email y el logo de Claude; fuera «Abre su Runner…» y los botones de Runners (la G) | `5e50843a9` (cartero 1.15.2) | REVISAR: cartero (sube el titular de cuentas.tsv) |
+| Mientras un chat trabaja, sus pasos en vivo (la E) | `01f5fc8d7` (cartero 1.15.3) | REVISAR: cartero (lee los transcripts de los chats ocupados) y una escritura nueva en la ruta del cartero |
+| ~~El Plan automático usa `cerrarPorYaEsta`~~ y ~~el Plan desde el chat (`cartero.mjs plan`)~~ | `3e4e092ef`, `2a6ef912f` | **REVERTIDOS** (`c1ced5358`, `a211ab957`): la revisión del Cerebro encontró 9 defectos (abajo) |
+| «Tráeme las más prioritarias» desde un chat, de SÓLO LECTURA (un chat no cierra tareas); sin el paso «buscar» | ver `git log` (cartero **1.15.7**) | REVISAR (seguridad): la puerta `?plan=1` |
+| `vigilar` corta en su `fin` también al subir los pasos (lo chico de la revisión) | ver `git log` (cartero **1.15.5**) | REVISAR: cartero |
+| El teléfono rápido: escribir, abrir (los últimos 25 mensajes) y el refresco | `7c08e7a6d`, `b1f368c96` | — |
+| La criatura viva (`Criatura.tsx`: parpadea, entra, invita y reacciona) para el Onboarding y la barra | `257fe05f7` | — |
+
+**Lo que hace el Cerebro con esto:** instalar el cartero **1.15.5** (trae 1.15.1 a 1.15.3 y el corte de `vigilar`; la 1.15.4 era
+el Plan desde el chat, revertido) DESPUÉS de revisar las puntas con ⚠️, y pasarle al Runner el paso 2d nuevo de `INSTRUCCIONES_RUNNER` (lib/runner.ts: «si `vigilar` trae `otraVez: true`,
+córrelo de nuevo en el acto»). Sin el 2d, `otraVez` espera a la vuelta siguiente del cron (2 min), como antes. Y avisarles a
+Onboarding (`local_0702928b…`) y a Sidebar (`local_789aebfb…`) que `Criatura` y `ASPECTO_MAKO` ya están (sha `257fe05f7` y
+`aab915c7e`).
+
+**Lo que sigue, en este orden:**
+0. **La segunda revisión (763ac6e51) encontró 9 defectos más y el Cerebro decidió el rediseño (cartero 1.15.7, ⚠️ REVISAR):**
+   un chat NO cierra tareas; `plan prioridades --trabajo <id>` queda de SÓLO LECTURA, con el jefe y el proyecto del PEDIDO
+   firmado (no de la sesión que declara la PC) y sin respuestas a preguntas (`[pregunta …]`); el paso «buscar» se fue.
+   **Lo que falta, después del 20/10 (corte de consumo del Cerebro):** el cierre ESTRUCTURADO
+   `cartero.mjs cierre <id> … --tareas 870,872 --prueba <commit>`: el servidor cierra sólo esos números, sólo del proyecto
+   del jefe del pedido (su `destino_titulo`), y sólo cuando el commit esté en main (GitHub `compare/main...<sha>` con el token
+   de la plataforma, lib/github-commits.ts; hoy da 404). La evidencia es el `--hecho`; si algo falla queda abierta con su
+   motivo y se mira en el ciclo siguiente, con espera (sin bucle). Va en `sanearCierres` (lib/operaciones-reglas.ts) y una
+   cola en app_settings aplicada en `after()`, como el Plan automático.
+   Lo que había pedido la primera revisión (hecho y después reemplazado por el rediseño) (la revisión del Cerebro, 17/10, informe en el scratchpad
+   del cuarto: `scratchpad/ops4/revision.md`; otra punta con ⚠️ REVISAR):
+   - `plan prioridades` / `plan cerrar` imprimían la respuesta de MaKo ENTERA: va por `textoRemoto` o con forma fija;
+   - `?plan=1` cerraba sólo con el token, y la `sesion` la declara quien llama (un chat suplanta a otro jefe): cerrar pide un
+     pedido FIRMADO de Martín, o se limita a la tarea que Martín nombró en uno;
+   - `cerrarPorYaEsta` cierra toda «#NN» del texto (aunque esté nombrada como pendiente, un PR o un color) y en cualquier
+     proyecto: sólo con un verbo de cierre pegado al número, sólo en el proyecto del jefe y sólo si la tarjeta está en
+     producción; y un «Ya está identificado…» no es un cierre;
+   - si `cerrarPorYaEsta` falla, no es «buscada sin tarjetas» (va a los reintentos);
+   - `plan prioridades` ordenaba por fecha, no por prioridad.
+   Cada arreglo con su test probado rompiéndolo.
+1. **Que Martín lo vea en su iPhone:** el deslizar para responder, el mantener apretado, la lista única y el «atrás». La medición
+   es de un Chrome headless con la CPU ×4 (hallazgo), no de su teléfono.
+2. **«Cámbiale el nombre» desde un chat:** la API del Plan no tiene una operación para renombrar una tarea (lib/api-mako/areas/
+   plan.def.ts). Pedírsela al chat Plan; cuando exista, sumarla a `cartero.mjs plan` y a lib/centro-plan-chat.ts.
+3. **La vista de «Destacados»** (WhatsApp la tiene en la info del contacto): hoy cada destacado lleva su estrella, sin una lista.
+4. **Lo que seguía de antes y sigue:** adjuntar archivos de texto en la caja, escribirle a un chat de la nube, el barrido de los
+   adjuntos que nunca se mandaron (lib/operaciones-adjuntos.ts), y abrir con un clic un chat de la cuenta de la app
+   (docs/diseno-nuevo-chat-un-clic.md).
+
+
+## HECHO POR EL CUARTO OPS CENTER (ver arriba): lo que llegó al cierre del tercero, en su orden
 
 El tercero cerró con el contexto al 80%. En producción (run 102): el urgente parte 2, el renombre, la A y la B. Con el cartero
 **1.14.2** instalado (el Cerebro le sumó `medir`: la 5 h de la cuenta de la app ya se mide; NO hagas `uso-app`). En

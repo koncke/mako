@@ -57,6 +57,59 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 
 ---
 
+## El oscuro de cada persona: no faltaba el interruptor, faltaba el arranque — y el taller lo borraba (17/10/2026)
+
+Tarjeta #883: «que cada persona elija tema claro u oscuro en la computadora (hoy sólo en el teléfono)». Lo obvio era
+«montar el interruptor»: `InterruptorModo` (el de nordtheme) existía y guardaba `mako.modo`. Lo que de verdad faltaba:
+- **Nadie aplicaba la elección en la computadora.** El teléfono tiene su script antes del primer pintado
+  (app/m/_ui/tema.ts); el escritorio no tenía ninguno, así que la elección sólo existía mientras no se recargara.
+  Ahora `ModoArranque` (script, sólo con sesión, nunca en una página pública) y `ModoDelUsuario` (lo vuelve a poner al
+  navegar: el shell de /m lo saca al salir y una pantalla que lo PRESTA también).
+- **El taller de paletas del super admin borraba el modo en CADA render** fuera del Cliente de Diseño
+  (`TemaCandidato`, `removeAttribute(ATTR_MODO)` en un efecto sin dependencias), y sacar un tema borraba la elección
+  guardada. Eran de cuando el modo era parte del tema en prueba. Ahora el taller toca sólo el tema.
+- **`modoPreferido` seguía al sistema** sin elección: un Windows en oscuro abría MaKo en oscuro. Claro por defecto.
+- Lo que sigue sin respetar el oscuro son los colores escritos a mano: medido el 17/10, **43 archivos** con un fondo
+  `#fff`/`white` literal (Dashboard, Automations, login, Ads Manager…), y las pantallas que FUERZAN oscuro (onboarding
+  —que Martín quiere claro—, ads-writer, video). Pendiente, por área.
+
+**Vive en:** `app/_components/ModoArranque.tsx`, `ModoDelUsuario.tsx`, `TemaCandidato.tsx`, `InterruptorModo.tsx` ·
+`tests/tema-por-persona.test.ts`
+
+## La sidebar nueva: sacar una fila de nav.ts cierra puertas que no son de la barra (17/10/2026)
+
+Martín pidió deprecar Analyze, Content Machine y Admin, y sacar WhatsApp y Email de la barra (el diseño:
+[diseno-sidebar.md](diseno-sidebar.md)). Lo obvio era «borrar las filas». Lo que se rompía, en silencio:
+
+- **El teléfono abre sus pantallas preguntando por la key EN nav.ts.** `requireMovil({ navKey })` →
+  `puedeVerKey` busca el ítem en `TODOS_LOS_ITEMS`; si no está, devuelve `false` para TODOS los roles, sin error.
+  Borrar la fila de Experiments cerraba /m/experimentos; borrar la de Second Brain de Analyze cerraba
+  /m/second-brain/mapa. Y `rutaMovil` arma el destino con `SECCIONES_MAS.find(id)!.href`: borrar la fila de More
+  hacía TIRAR la traducción de /second-brain y /experimentos. **La regla:** una pantalla viva que deja de ser fila
+  se mueve a `SIN_FILA` (nav.ts) y, en el teléfono, a una fila `oculta: true`; nunca se borra el ítem.
+- **El título de la pestaña y la API de MaKo toman el PRIMER ítem cuyo `match` acepta la ruta.** Si Chats marca
+  /whatsapp (para que la barra lo encienda ahí), la pestaña de /whatsapp pasaba a decir «Chats» y `listar_capacidades_mako`
+  medía /email con los roles de Chats (el closer «tenía» Email). Por eso `SIN_FILA` va PRIMERO en `TODOS_LOS_ITEMS`:
+  la barra se enciende por la fila dibujada, el título y la API siguen leyendo el ítem de siempre.
+- **Dos keys iguales en dos menús.** La herramienta de admin «Copywriting» (/admin/copywriting) tenía la key
+  `copywriting`, la MISMA que la tab unificada Copywriting. Colgada como su sección, `TODOS_LOS_ITEMS.find(key)` la
+  habría encontrado primero (adminOnly) y el teléfono habría escondido Copywriting a los clientes. Pasó a
+  `admin-copywriting`: las keys de admin no están en ninguna capa, así que cambiarlas no apaga nada.
+- **Una tab que se vuelve UNIFICADA le suma la barra de secciones (40 px) a su pantalla.** Las de alto fijo
+  (`height: 100vh`) se pasan de la pantalla y scrollea el documento: hay que restar `var(--alto-secciones, 0px)`. Le
+  pasó a Chats, Automations y Offer al recibir secciones del super admin; sólo él ve la barra, así que ningún cliente
+  lo habría reportado.
+- **El movimiento de los muñecos del Ops Center vive en `centro.css`**, que sólo carga en /admin/operaciones. Usar
+  `<Muneco animo="trabajando">` en la barra daba un muñeco QUIETO en todas las demás pantallas (y moviéndose sólo
+  después de haber pasado por el Centro, porque Next deja el CSS cargado al navegar). El de la barra va en
+  `.mk-criatura` de ui.css, con sus propios nombres de animación.
+- **Lo que queda escrito en otro lado con los nombres de las familias:** `FAMILIAS_SIDEBAR` de
+  lib/plan-proyectos-catalogo.ts (el Plan prohíbe proyectos con ese nombre; las retiradas quedaron en
+  `FAMILIAS_RETIRADAS`), `FAMILIAS_MAS` del teléfono, y 22 tests que fijaban la estructura vieja.
+
+**Vive en:** `app/_components/nav.ts` (`SIN_FILA`, `HERRAMIENTAS`, `ARRIBA`), `lib/movil-rutas.ts`,
+`app/_components/Criatura.tsx` · `tests/sidebar-nueva.test.ts`
+
 ## En un iPad, la foto de perfil de la sidebar quedaba abajo del borde: `100vh` en Safari (14/10/2026)
 
 Martín, desde un iPad: «no se llega a ver la foto de perfil, para ir a configuraciones… todo como muy achicado, los
@@ -3954,9 +4007,159 @@ quedar por detrás». En Automations se escondían el título y «Probar», y el
 - Lo FIJO arriba (`position: fixed; top: N`) no lo arregla esa regla: el cartel de la copia de Automations bajó con
   `calc(18px + var(--barra-agencia, 0px))`.
 
-**Sin hacer:** el panel lateral fijo de la ficha del CRM (`FichaPorBloques`, `top: 0`) y las barras `sticky; top: 0` de una
-pantalla que scrollea (una clase en CSS, como la lateral del Web Generator, no la toma la regla del estilo en línea).
-Verlo con clics inspeccionando un cliente después del deploy.
+**La segunda vuelta, el mismo 17/10 (Onboarding).**
+
+- ⚠️ **La regla no tomaba la pantalla que llega del SERVER, y entrar a inspeccionar SIEMPRE llega del server.** El estilo
+  que pinta el navegador se serializa con espacios: «flex: 0 0 auto; height: 100dvh;». El que escribe React en el server va
+  sin espacios: «flex:0 0 auto;height:100dvh». La hidratación no lo reescribe. Recién cuando React le cambia alguna
+  propiedad, el navegador lo vuelve a serializar con espacios. Por eso falla a veces sí y a veces no, y la medición de
+  arriba, hecha con un HTML escrito a mano con espacios, dio bien.
+  Se entra con `<a href="/general?ws=N">`, que es una carga dura. Medido en Chrome sin ventana con el CSS real (ventana de
+  608, barra de 50): la forma del server medía **608**, o sea sin descontar nada. Con las dos formas nuevas (al principio, o
+  después de `;` sin espacio) mide **558**, y `min-height` sigue en 608. **Regla:** un selector de atributo sobre `style`
+  tiene que reconocer las DOS escrituras.
+- **Lo que quedó como «sin hacer» ya estaba hecho, y no por esta regla.** El panel del AI Analyst de la ficha del CRM
+  (`fixed; top: 0`) y la lateral del Web Generator (`sticky; top: 0` en una clase) son `<aside>`. Con la barra prendida, la
+  regla vieja `[data-barra-agencia] aside` les pone `top` y alto descontados con `!important`. Medido: los dos quedan con
+  top 50. El test 4 fija que sigan siendo `<aside>`.
+- **Los que de verdad quedaban debajo** salieron de relevar los 18 `sticky`/`fixed` con top 0 de app/. Son los que se pegan
+  a la VENTANA y no son `<aside>`:
+  - «Editando el deal» (`app/crm/[id]/EditarDeal.tsx`);
+  - la fila de la hoja de la ficha en la RUTA /crm/[id] (en el pop-up se pega adentro de la ficha y va en 0: `arribaTabs`
+    sólo lo pasa `LeadDetailBody`);
+  - la cabecera abierta de /admin/estrategia;
+  - el índice de las docs de la API (`.gh-docs-sidebar`, un `<nav>`).
+
+  Los cuatro van a `top: var(--barra-agencia, 0px)`. El resto se pega adentro de un modal o de un panel con scroll, donde
+  la barra no llega, o son anclas de 0×0 que se ubican por JS.
+
+- **Las barras de lote: UNA variable que sabe si está en un modal** (la misma tarde). Las barras `sticky; top: 8` del Plan
+  (`BarraPegada`, las cuatro del Kanban, una de ellas en 66) y la de Customer Success viven en la página y también
+  adentro de modales. Sumarles `--barra-agencia` siempre las bajaba 50 px en el modal. `--pegado-arriba` (globals.css)
+  vale la barra en `:root` y 0 en `[aria-modal="true"]`: como las variables se heredan, todo lo de adentro de un modal
+  la ve en 0 sin que cada puerta lo diga. Medido en Chrome: en la página 58, en el modal 8. La del CRM la bajó su chat con
+  `--barra-agencia` (el tablero del CRM no vive en un modal).
+
+**Sin hacer:**
+- **La regla de todo `<aside>` también pisa** el `top: 12; bottom: 12` del panel `<aside className="an">` de PanelAnalista.
+  No se miró con la barra puesta.
+- **Una ruta pública** cargada en duro con una agencia adentro de un cliente queda con el hueco de la barra y sin barra
+  (ver #881 abajo). Es raro y sólo es espacio.
+- Verlo con clics inspeccionando el ws3 cuando esté en producción.
 
 **Vive en:** `app/globals.css` (después de la regla del Sidebar) · `app/automations/ChatAgentApp.tsx` (el cartel de la
-copia) · test: `tests/barra-inspeccion-alto.test.ts`
+copia) · los cuatro de arriba · test: `tests/barra-inspeccion-alto.test.ts` (5 tests) y `tests/lead-cabecera.test.ts`
+(`arribaTabs`)
+
+## Al inspeccionar, el primer cuadro era el de Mauricio (17/10/2026, tarjeta #881)
+
+Martín, revisión del 16/10 (47:15): «al inspeccionar, muchas veces al entrar se bugea y sale primero el usuario de perfil de
+Mauricio y luego sale el usuario que se está inspeccionando».
+
+- ⚠️ **El diagnóstico obvio era el equivocado. No era `lib/perfil-sujeto.ts` ni la ficha del cliente:** el Sidebar nacía con
+  `useState('Mauricio Bustos')`, un resto de cuando la app era de una sola cuenta, y con `impersonando = false`. Las
+  iniciales, sin nombre, caían a «MB». Los dos datos se corregían cuando contestaba `/api/auth/me`. Como se entra a
+  inspeccionar con una carga dura (`<a href>` el super admin, `location.href` la agencia), el primer cuadro salía mal en
+  CADA entrada. Y no sólo inspeccionando: **cualquier cliente veía «Mauricio Bustos» abajo a la izquierda** hasta que
+  llegaba su nombre. La barra de arriba tenía la misma demora: aparecía después y corría la pantalla 50 px.
+- **El primer cuadro lo arma el server.** `lib/vista-de-otro.ts` dice a quién se mira: el cliente, su nombre, su agencia y la
+  salida. El layout se lo pasa al Sidebar (`inicial`) y a la barra, y pone `data-barra-agencia` en `<html>` desde el HTML,
+  así no hay salto. `/api/auth/me` llama a la MISMA función, porque con dos cuentas de «a quién se mira» el cartel y los
+  datos podrían nombrar a dos clientes. **Regla:** un estado de cliente que se corrige con un fetch nace con lo que sabe el
+  server, nunca con un literal.
+- Las entradas a inspeccionar son todas cargas duras, así que alcanza con el valor inicial: no hace falta sincronizar
+  props → estado en un `router.refresh()`.
+
+**Sin hacer:** `rolWs` y `capa` siguen naciendo vacíos. Las pestañas del Sidebar que dependen de qué compró el cliente se
+filtran recién cuando contesta `/api/auth/me`. Pasarlas desde el layout le suma dos lecturas a cada página. La foto del
+perfil propio también llega después: hasta entonces se ven las iniciales correctas.
+
+**Vive en:** `lib/vista-de-otro.ts` · `app/layout.tsx` · `app/_components/Sidebar.tsx` (`SidebarInicial`) ·
+`app/_components/ImpersonationBanner.tsx` · `app/api/auth/me/route.ts` · test: `tests/inspeccionar-primer-cuadro.test.ts`
+
+
+## La sidebar del prototipo: lo que no se ve en el código (17/10/2026, noche)
+
+Martín vio `docs/prototipos/sidebar-nueva-1710.html` y `coherencia-1710.html` («la sidebar es confusa, copiá otras
+apps»). El diseño quedó en `docs/diseno-sidebar.md` (la v2 arriba de todo); acá, las trampas.
+
+- **Los `--grafo-*` parecían la paleta categórica de la casa y no lo son.** `app/globals.css` los prohíbe fuera del
+  lienzo del Second Brain (están pensados contra `#14161B` y suben de brillo a propósito). Los colores de sección son
+  tokens propios, `--sec-*` en `app/_ui/ui.css`, con los valores del prototipo (Nord).
+- **La barra es OSCURA en el tema de siempre aunque la pantalla sea clara.** Un token de color con sólo «claro» y
+  «oscuro» pinta la barra con los tonos de la pantalla: verde oscuro sobre `#14161B`, ilegible. Por eso los `--sec-*`
+  tienen una tercera variante adentro de `[data-sidebar]`, y en True North clara (donde la barra también es clara)
+  vuelven los oscuros. **Regla:** un color que se usa en la barra Y en la pantalla se define por superficie, no por tema.
+- **Dos `Ctrl K` en la misma pantalla.** El inicio del Web Generator ya tenía el suyo (`app/web-generator/Inicio.tsx`,
+  escucha en `document`); el de la barra escucha en `window`, que corre DESPUÉS. Los dos hacían `preventDefault` y
+  enfocaban su campo: ganaba el último, o sea la barra, y la búsqueda de la pantalla dejaba de responder. **Regla:** el
+  atajo global respeta `e.defaultPrevented`; una pantalla con su propio atajo lo marca y gana.
+- **La lógica del buscador no puede vivir en el componente.** El test de los alias («home» → Dashboard) importaba
+  `BuscadorNav.tsx`, que es `'use client'` y arrastra React y el router. La regla (alias y orden de resultados) está en
+  `lib/buscador-nav.ts`, sin React; el componente sólo la dibuja.
+- **«Home» fuera de la barra no es borrar su ítem.** La key `general` la leen las capas, el onboarding por tab y el
+  título de la pestaña: va a `SIN_FILA` (como WhatsApp y Email) y el `match` del Dashboard acepta /general y /focus,
+  para que la barra marque algo mientras exista la ruta.
+- **Las filas «My leads», «My tasks», «My reports» y «Favorites» del prototipo de My Profile no tienen con qué.**
+  No hay un filtro «míos» en el CRM ni en el Plan, ni favoritos guardados: un link a /crm rotulado «My leads» mostraría
+  los de todos. No se dibujaron.
+
+**Sin hacer:** el Dashboard con la hoja fija Focus, el botón Templates y /general → /dashboard (archivos del jefe
+«Dashboard»: `app/dashboard/page.tsx`, `app/general/page.tsx`; el plan con lo medido se le mandó el 17/10). Las filas de
+My Profile de arriba. El chequeo de tipos de esta tanda lo corrió Actions: en la PC no había RAM para el tsc acotado.
+
+**Vive en:** `app/_components/nav.ts` (FAMILIAS, PRONTO, SIN_FILA) · `app/_components/Sidebar.tsx` (la barra fija, la
+cara del menú, Platform › Coming soon) · `app/_components/BuscadorNav.tsx` + `lib/buscador-nav.ts` · `app/_ui/ui.css`
+(`--sec-*`) · `lib/ajustes-secciones.ts` (My Profile, Business settings) · test: `tests/sidebar-nueva.test.ts`
+
+## Una familia de tarjetas para CRM, Clients y Plan: el kit vive en app/_ui/TarjetaKanban (17/10/2026)
+
+Martín, 17/10 22:40 (punto 8): «No me gustan las cards… Quiero que tengan coherencia». La fuente fue el prototipo
+docs/prototipos/coherencia-1710.html; su kit se escribió UNA vez en `app/_ui/TarjetaKanban.tsx` (`TarjetaPersona`,
+`TarjetaTarea`, `PestanasPildora`, `TarjetaDestacada`, `CuerpoFichaRapida`/`FichaRapida`) y lo puro (iniciales, color,
+insignia del canal, plata) en `lib/tarjeta-kanban.ts`, con test.
+- **La raíz de la tarjeta recibe las props del que la monta** (`draggable`, `onDragStart`, `data-*`, `onClick`): el
+  arrastre, el clic derecho y la selección siguen siendo del tablero. La familia dibuja; no decide.
+- **Los tokens del kit son `--tk-*`, adentro del componente**, apoyados en los de la casa (`--card-bg`, `--primary`,
+  `--good`…): la app no tenía sombra de tarjeta ni los colores de sección del prototipo. Oscuro: `[data-tema="oscuro"]`.
+  El CSS va con `<style href precedence>`: React lo deduplica aunque cada tarjeta lo monte.
+- ⚠️ **Y los tokens van en TODA pieza `tk-*`, no en unas raíces (18/10, ya en producción).** Se declaraban sólo en
+  `.tk-raiz, .tk, .tk-ptabs, .tk-feat, .tk-sheet`, y el Plan y el teléfono usan piezas SUELTAS: el círculo de prioridad
+  vive en la tarjeta del Plan (que no es `.tk`) y la cara del teléfono en `.m-kb-tj`. Síntoma: el círculo del Plan
+  **invisible** —`--pc` vacío deja el borde en `currentColor`, que es el blanco del tilde, sobre la tarjeta blanca; el de
+  prioridad 3 directamente sin borde, porque un `var()` sin valor invalida el `border` entero— y las iniciales del teléfono
+  sin su círculo de color. Lo que NO lo delataba: el CSS es válido, el clic andaba y los tests de cableado pasaban; sólo
+  se ve mirando la pantalla. El arreglo es la primitiva: `.tk, :where([class^="tk-"], [class*=" tk-"])` (el `:where` no
+  suma especificidad, el oscuro sigue ganando). Lo fija tests/tarjetas-familia.test.ts: por cada regla del kit que USA
+  una variable, una pieza con sólo esa clase tiene que caer en la que las declara (roto: 5/1 con 20 piezas sin color).
+- **`TarjetaEntidad` NO se tocó**: también la usa /admin. Clients dejó de usarla; quien quiera la familia, usa el kit.
+- **Un botón adentro de una tarjeta que ya es botón no vale** (el teléfono): el círculo de una tarea y la píldora «Ver
+  info» van como `span` (con rol de botón, el círculo; sólo dibujo, la píldora: toda la tarjeta abre la ficha rápida).
+- **Una rotura que no cambia nada no prueba nada:** sacar el corte de «Sin origen» en `insigniaDeCanal` daba 4/0 porque
+  ese texto también caía al `return null` del final. Se midió otra (sin el caso de WhatsApp: 3/1).
+
+**Vive en:** app/_ui/TarjetaKanban.tsx · lib/tarjeta-kanban.ts · tests/tarjeta-kanban.test.ts y tests/tarjetas-familia.test.ts ·
+*17/10/2026 noche, chat «CRM» (claude4).*
+
+## Renombrar una fila de la barra le cambia la tab a los chats jefe (18/10/2026)
+
+El Second Brain de cada negocio pasó a llamarse «Ops Center» (pedido de Martín). Cambiar el `label` en nav.ts parecía
+todo, y los tests de la barra pasaban.
+
+- **El Ops Center del super admin busca la tab de cada chat jefe por el NOMBRE de la fila** (`rutaDeLaTab` en
+  lib/centro-chats.ts, el primer ítem cuyo `label` coincide). Con el renombre pasaban dos cosas a la vez, sin error:
+  - «Ops Center» quedaba repetido, y como la barra del producto va primero, el «Revisar» de los chats «Ops Center»
+    llevaba a /second-brain.
+  - El jefe «Second Brain» no encontraba ninguna fila con su nombre y caía en la ficha de desarrollo
+    (`/admin/dev/second-brain`, que se llama igual en el menú de Dev).
+- **Lo obvio era renombrar también el chat jefe.** No sirve: hay un jefe «Ops Center» de verdad (el del Centro), y los
+  dos chats tendrían el mismo nombre.
+- **La regla que queda:** el ítem puede decir el nombre de su jefe cuando no es el de la fila (`jefe` en `NavItem`), y
+  `rutaDeLaTab` y `nombresDeTabs` lo usan. **Antes de renombrar una fila, buscar si un chat jefe se llama como ella.**
+
+**Sin hacer:** los textos de MaKo siguen diciendo «Second Brain → Persona» (lib/secciones-negocio.ts y las reglas del
+chat). Son contenido y no se tocaron. Si «Second Brain» deja de nombrarse en la barra del negocio, MaKo manda a un lugar
+con un nombre que ya no se ve.
+
+**Vive en:** `app/_components/nav.ts` (MAKO_NAV, `estrella`, `jefe`) · `lib/centro-chats.ts` (`rutaDeLaTab`) ·
+`app/admin/operaciones/tabs.ts` · test: `tests/sidebar-nueva.test.ts`, `tests/centro-revisar.test.ts`

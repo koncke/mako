@@ -18,10 +18,12 @@
 
 import { MAKO_SETTER } from './pipeline';
 import type { CanalChat, ChatResumen, EstadoChat, FormatoMsg, IdentidadCanal, ParteTexto } from './chats-tipos';
+import { normalizarEmail } from './chats-email-reglas';
 
 // ── Claves ──────────────────────────────────────────────────────────────────────
 
-export const PREFIJO_CLAVE = { lead: 'lead:', whatsapp: 'wa:', instagram: 'ig:', messenger: 'fb:' } as const;
+// `em:` desde el 17/10/2026: el contacto de EMAIL sin lead (su dirección, en minúsculas). Con lead es `lead:<id>`, como todos.
+export const PREFIJO_CLAVE = { lead: 'lead:', whatsapp: 'wa:', instagram: 'ig:', messenger: 'fb:', email: 'em:' } as const;
 
 /** Los últimos 10 dígitos de un teléfono (o '' si no hay dígitos). */
 export const ultimos10 = (tel: string | null | undefined): string => String(tel ?? '').replace(/\D/g, '').slice(-10);
@@ -59,11 +61,14 @@ export const claveWhatsapp = (linea: string, telefono: string | null | undefined
   `${PREFIJO_CLAVE.whatsapp}${linea}:${idWhatsapp(telefono, jid)}`;
 export const claveSocial = (canal: 'instagram' | 'messenger', convId: number): string =>
   `${canal === 'instagram' ? PREFIJO_CLAVE.instagram : PREFIJO_CLAVE.messenger}${convId}`;
+/** La clave de un contacto de email sin lead. `contacto` ya normalizado (`normalizarEmail`). */
+export const claveEmail = (contacto: string): string => `${PREFIJO_CLAVE.email}${contacto}`;
 
 export type ClaveChat =
   | { tipo: 'lead'; leadId: number }
   | { tipo: 'whatsapp'; linea: string; id: string }
-  | { tipo: 'instagram' | 'messenger'; convId: number };
+  | { tipo: 'instagram' | 'messenger'; convId: number }
+  | { tipo: 'email'; email: string };
 
 /** Tope de largo de una clave: viaja en la URL y es PK de `chat_estado` / `chat_leidos`. */
 export const TOPE_CLAVE = 200;
@@ -94,6 +99,11 @@ export function parsearClave(clave: unknown): ClaveChat | null {
     const id = resto.slice(i + 1);
     if (!/^[a-z0-9_]+$/i.test(linea) || !id || !/^[A-Za-z0-9@._:-]+$/.test(id)) return null;
     return { tipo: 'whatsapp', linea, id };
+  }
+  if (clave.startsWith(PREFIJO_CLAVE.email)) {
+    // Normalizada OTRA VEZ: la clave viene del navegador, y una dirección con mayúsculas sería otro contacto.
+    const email = normalizarEmail(clave.slice(PREFIJO_CLAVE.email.length));
+    return email ? { tipo: 'email', email } : null;
   }
   return null;
 }
@@ -466,7 +476,7 @@ const cero = (): Conteo => ({ abiertas: 0, nuevos: 0 });
 export function contarBandejas(chats: readonly ChatResumen[], yo: { nombre: string }): ConteosBandeja {
   const r: ConteosBandeja = {
     todos: cero(), mios: cero(), sinAsignar: cero(), mako: cero(), borradores: cero(), bloqueados: cero(),
-    porCanal: { whatsapp: cero(), instagram: cero(), messenger: cero() }, porCuenta: {}, porEtapa: {},
+    porCanal: { whatsapp: cero(), instagram: cero(), messenger: cero(), email: cero() }, porCuenta: {}, porEtapa: {},
   };
   const sumar = (k: Conteo, c: ChatResumen) => {
     if (c.estado === 'abierta') k.abiertas++;

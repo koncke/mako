@@ -72,14 +72,15 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
       ...real,
       listReunionesRecientes: async (...a: unknown[]) => (reunionesFalsas ? { reuniones: reunionesFalsas, nextCursor: null } : real.listReunionesRecientes(...a)),
       // `null` de la mentira = la real (un escenario puede mezclar las dos: R5 lee una de verdad).
-      extraerTareasDeReunion: async (...a: unknown[]) => ((extraccionFalsa ? await extraccionFalsa(Number(a[0])) : null) ?? real.extraerTareasDeReunion(...a)),
+      // Las `opts` viajan (17/10/2026): el escenario `parcial` mira el reloj y la lectura a medias que recibe.
+      extraerTareasDeReunion: async (...a: unknown[]) => ((extraccionFalsa ? await extraccionFalsa(Number(a[0]), (a[3] ?? {}) as Fila) : null) ?? real.extraerTareasDeReunion(...a)),
     };
   }
   return cargarOriginal.call(this, pedido, padre, esMain);
 };
 /** La lista de Fathom y la extracción de mentira del escenario `cron` (`null` = las reales). */
 let reunionesFalsas: Fila[] | null = null;
-let extraccionFalsa: ((recordingId: number) => unknown) | null = null;
+let extraccionFalsa: ((recordingId: number, opts: Fila) => unknown) | null = null;
 /** Se corre ADENTRO del cruce de mentira, mientras «el modelo piensa» (`null` = nada). */
 let alCruzar: (() => Promise<void>) | null = null;
 /** Fathom «tose» en estas rutas: las grabaciones contestan 503 (pasajero) en vez del 404 de siempre. */
@@ -89,7 +90,10 @@ let respuestaCruce: Array<{ i: number; accion: 'enriquece'; idExistente: string;
 const crucesPedidos: Array<{ candidatas: number; universo: number; conReloj: boolean }> = [];
 
 const TABLAS = ['workspaces', 'plan_propuestas', 'experimento_tareas', 'tarea_categorias', 'plan_tareas', 'plan_proyectos',
-  'plan_dependencias', 'leads', 'app_settings', 'usuarios', 'credenciales', 'anthropic_usage', 'plan_reuniones_descartadas'] as const;
+  'plan_dependencias', 'leads', 'app_settings', 'usuarios', 'credenciales', 'anthropic_usage', 'plan_reuniones_descartadas',
+  // 17/10/2026: el aviso «Leí tu reunión» sale por su automatización de SuperAdmin (evento `reunion_tareas_al_plan`): lee
+  // las filas de la plataforma y escribe el feed. Vacías: sin fila, no sale nada (es lo que pasa hasta que se cree).
+  'nutricion_secuencias', 'notificaciones'] as const;
 const db: Record<string, Fila[]> = Object.fromEntries(TABLAS.map((t) => [t, [] as Fila[]]));
 let siguienteId = 1000;
 /** Las llamadas que NO fueron a la base: cada una es un intento de hablar con una IA. */
@@ -617,6 +621,177 @@ async function main() {
     process.env.FATHOM_WEBHOOK_SECRET = antesEnv.secreto;
     if (antesEnv.host === undefined) delete process.env.FATHOM_HOST_EMAIL;
     if (antesEnv.secreto === undefined) delete process.env.FATHOM_WEBHOOK_SECRET;
+  }
+
+  // ── #870 (17/10/2026): la reunión con un cliente en los DOS tableros. Sólo con `cliente870`, no con `todo`:
+  // lo pide tests/reunion-cliente-870.test.ts y no cambia la salida que leen los otros.
+  if (modo === 'cliente870') {
+    const pp = await import('../lib/plan-propuesta');
+    const rc = await import('../lib/reunion-cliente');
+    const cli = { leadId: 31, nombre: 'Macario Romero Valencia', empresa: 'Congelados HMO', email: 'mromero@grupo21.com.mx', via: 'email-invitado' as const, confianza: 'alta' as const };
+
+    // EL DUEÑO: la reunión con un cliente NO manda el proyecto, y su «Cliente: X» no se abre.
+    reset(); sembrarWorkspace('superadmin');
+    db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pcrm', pid: 'P1', name: 'Feature: CRM', emoji: '🧲', color: '#000', score: 80, detalle: '', historial: [], orden: 1 });
+    db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pmau', pid: 'P2', name: 'Cliente: Mauricio', emoji: '🤝', color: '#000', score: 50, detalle: '', historial: [], orden: 2 });
+    const mandaDueno = await runWithWorkspace(WS_DUENO, () => rc.proyectoQueManda({ ...cli, leadId: 0, nombre: 'Mauricio Bustos', empresa: 'Mauricio Bustos', via: 'workspace-cliente' }));
+    borrador(WS_DUENO, 'p870d', [
+      { titulo: 'Arreglar el guardado de la ficha', detalle: 'No guarda al cambiar de etapa.', proyecto: 'Feature: CRM' },
+      { titulo: 'Revisar el acceso de Mauricio al repo', detalle: 'Pasarlo a lectura.', proyecto: 'Cliente: Mauricio Bustos' },
+    ], { cliente_nombre: 'Mauricio Bustos', cliente_lead_id: null });
+    await runWithWorkspace(WS_DUENO, () => pp.aplicarPropuestas([{ id: 'p870d' }]));
+    const proyDe = (labels: unknown) => ((labels as string[]) ?? []).map((id) => db.plan_proyectos.find((p) => p.id === id)?.name ?? `?${id}`);
+    out.dueno870 = {
+      manda: mandaDueno,
+      proyectos: db.plan_proyectos.map((p) => p.name),
+      creadas: db.plan_tareas.map((t) => ({ titulo: t.title, proyectos: proyDe(t.labels) })),
+    };
+
+    // EL CLIENTE: la reunión manda, y el proyecto del cliente se encuentra por su LEAD aunque el borrador
+    // traiga el nombre de uno que ya se unió («Cliente: Congelados HMO»).
+    reset(); sembrarWorkspace('completo');
+    db.tarea_categorias.push(defaults('tarea_categorias', { workspace_id: WS_CLIENTE, id: 47, nombre: 'Cliente: Macario Romero — HMO', cliente_lead_id: 31, color: '#111' }));
+    db.tarea_categorias.push(defaults('tarea_categorias', { workspace_id: WS_CLIENTE, id: 76, nombre: 'Cliente: Baja Teriyaki', cliente_lead_id: 14, color: '#111' }));
+    const mandaCliente = await runWithWorkspace(WS_CLIENTE, () => rc.proyectoQueManda(cli));
+    const nuevo = await runWithWorkspace(WS_CLIENTE, () => rc.proyectoDeCliente({ ...cli, leadId: 99, nombre: 'Ana Pérez', empresa: 'Panadería Sol' }));
+    borrador(WS_CLIENTE, 'p870c', [
+      { titulo: 'Enviar el contrato del proyecto ganado', detalle: 'Para pedir el anticipo.', proyecto: 'Cliente: Congelados HMO' },
+    ], { cliente_nombre: 'Macario Romero Valencia', cliente_lead_id: 31 });
+    await runWithWorkspace(WS_CLIENTE, () => pp.aplicarPropuestas([{ id: 'p870c' }]));
+    const catDe = (ids: unknown) => ((ids as number[]) ?? []).map((id) => db.tarea_categorias.find((c) => c.id === id)?.nombre ?? `?${id}`);
+    out.cliente870 = {
+      manda: mandaCliente,
+      categorias: db.tarea_categorias.map((c) => ({ nombre: c.nombre, lead: c.cliente_lead_id ?? null })),
+      nuevoId: nuevo,
+      creadas: db.experimento_tareas.map((t) => ({ titulo: t.titulo, proyectos: catDe(t.categorias) })),
+    };
+  }
+
+  // ── Una reunión LARGA leída a medias (17/10/2026): la próxima corrida lee SÓLO lo que falta, en un borrador aparte.
+  //    Sólo con `parcial` (lo pide tests/reunion-larga-reloj.test.ts).
+  if (modo === 'parcial') {
+    const auto = await import('../lib/reunion-auto');
+    reset(); sembrarWorkspace('completo');
+    reunionesFalsas = [{ recordingId: 950, titulo: 'Junta de tres horas', fecha: '2026-10-17T15:00:00Z', durMin: 180, url: null, involucrados: [], tipo: 'equipo', motivo: 'equipo', participantes: [], host: { nombre: 'Martín', email: 'martin@mako.test' } }];
+    const cand = (titulo: string) => ({ titulo, detalle: 'algo', prioridad: 'media', proyectoId: null, proyectoNombre: '', dueño: '', dueñoEmail: '', esDeOtro: false });
+    const pedidos: Array<{ hasta: boolean; previa: unknown }> = [];
+    // Cuatro partes: la primera corrida lee la 1 y la 2 (el reloj no le da para más); la segunda NO LEE NADA (falla otra
+    // vez: revisión de B5, sin borrador ni aviso repetido); la tercera, la 3 y la 4.
+    let vueltasQueCompletan = 0;
+    extraccionFalsa = (_rid: number, opts: Fila) => {
+      const previa = (opts.previa ?? null) as { partes: number; leidas: number[] } | null;
+      pedidos.push({ hasta: typeof opts.hasta === 'number', previa });
+      if (previa && vueltasQueCompletan++ === 0) return { tareas: [], dudas: [], partes: 4, leidas: [], partesFallidas: 2, transcript: 'texto', participantes: [] };
+      if (!previa) return { tareas: [cand('Armar el tablero de la campaña de octubre'), cand('Grabar el video de bienvenida del curso')], dudas: [], partes: 4, leidas: [0, 1], partesFallidas: 2, sinTiempo: 2, transcript: 'texto', participantes: [] };
+      // Lo que falta: una repetida del corte (sale en la parte 2 y en la 3) y una nueva.
+      return { tareas: [cand('Grabar el video de bienvenida del curso'), cand('Llamar al contador por la factura de septiembre')], dudas: [], partes: 4, leidas: [2, 3], partesFallidas: 0, transcript: 'texto', participantes: [] };
+    };
+    respuestaCruce = [];
+    const cron = () => runWithWorkspace(WS_CLIENTE, () => auto.procesarReunionesNuevas(WS_CLIENTE, { hasta: Date.now() + 280_000 }));
+    const marca = () => { const s = db.app_settings.find((x) => x.key === 'mako.reunion.parcial.950'); return s ? String(s.value) : null; };
+    const vista = () => db.app_settings.some((x) => x.key === 'mako.reunion.auto.950' && x.value);
+    const borradores = () => db.plan_propuestas.map((p) => ({ ref: String(p.ref), estado: String(p.estado), titulos: ((p.tareas as Fila[]) ?? []).map((t) => String(t.titulo)), resumen: String(p.resumen ?? '') }));
+    const c1 = await cron();
+    const tras1 = { borradores: borradores(), marca: marca(), vista: vista() };
+    const cFalla = await cron();
+    const trasFalla = { borradores: borradores(), marca: marca(), vista: vista() };
+    const c2 = await cron();
+    const tras2 = { borradores: borradores(), marca: marca(), vista: vista() };
+    const c3 = await cron();
+    out.parcial = {
+      pedidos, tras1, trasFalla, tras2,
+      corridas: [c1, cFalla, c2, c3].map((c) => ({ nuevas: c.nuevas, conTareas: c.conTareas, tareas: c.tareas, avisos: c.avisados + c.sinAviso })),
+      noLeidas: db.plan_reuniones_descartadas.map((f) => ({ id: Number(f.recording_id), motivo: String(f.motivo ?? '') })),
+    };
+
+    // ── REVISIÓN DE B5 (17/10/2026): la fila «procesando» con marca sigue donde quedó, sin Fathom no se cierra nada, y la
+    //    lectura que pide el modal también sigue donde quedó (y «Volver a analizar» lee de cero).
+    reset(); sembrarWorkspace('completo');
+    const reunion = (id: number) => ({ recordingId: id, titulo: `Junta ${id}`, fecha: '2026-10-17T15:00:00Z', durMin: 180, url: null, involucrados: [], tipo: 'equipo', motivo: 'equipo', participantes: [], host: { nombre: 'Martín', email: 'martin@mako.test' } });
+    const marcaDe = (id: number) => { const s = db.app_settings.find((x) => x.key === `mako.reunion.parcial.${id}`); return s ? String(s.value) : null; };
+    const ponerMarca = (id: number, partes: number, leidas: number[], refs: string[] = []) => db.app_settings.push(defaults('app_settings', { workspace_id: WS_CLIENTE, key: `mako.reunion.parcial.${id}`, value: JSON.stringify({ partes, leidas, refs, ts: 'x' }) }));
+    const borr = (ref: string) => db.plan_propuestas.find((p) => p.ref === ref) as Fila | undefined;
+    const titulos = (ref: string) => (((borr(ref)?.tareas as Fila[]) ?? []).map((t) => String(t.titulo)));
+    const previas: Record<number, unknown> = {};
+    reunionesFalsas = [reunion(951), reunion(952), reunion(953)];
+    // 953: la vuelta que completa YA se hizo (su borrador de resto existe): no se crea ni se avisa otra vez.
+    borrador(WS_CLIENTE, '953', [{ titulo: 'Mandar el presupuesto a Lucía', detalle: 'algo' }], { ref: 'fathom:953', estado: 'pendiente' });
+    borrador(WS_CLIENTE, '953r', [{ titulo: 'Grabar el testimonio de Pedro', detalle: 'algo' }], { ref: 'fathom:953:partes-3-4', estado: 'descartada' });
+    ponerMarca(953, 4, [0, 1], ['fathom:953']);
+    // 951: la fila «procesando» que dejó el mismo cron, con una tarea de la primera vuelta y la marca de las partes 1 y 2.
+    borrador(WS_CLIENTE, '951', [{ titulo: 'Armar el tablero de la campaña de octubre', detalle: 'algo' }], { ref: 'fathom:951', estado: 'procesando' });
+    ponerMarca(951, 4, [0, 1], ['fathom:951']);
+    // 952: leída a medias con su borrador; ahora Fathom no devuelve la transcripción (vuelve sin partes y sin fallas).
+    borrador(WS_CLIENTE, '952', [{ titulo: 'Llamar al contador', detalle: 'algo' }], { ref: 'fathom:952', estado: 'pendiente' });
+    ponerMarca(952, 3, [0], ['fathom:952']);
+    extraccionFalsa = (rid: number, opts: Fila) => {
+      previas[rid] = opts.previa ?? null;
+      if (rid === 951) return { tareas: [cand('Armar el tablero de la campaña de octubre'), cand('Pedir los permisos de la cuenta publicitaria nueva')], dudas: [], partes: 4, leidas: [2, 3], partesFallidas: 0, transcript: 'texto', participantes: [] };
+      if (rid === 952) return { tareas: [], dudas: [], partesFallidas: 0, transcript: '', participantes: [] };
+      if (rid === 953) return { tareas: [cand('Revisar el contrato del alquiler de la oficina')], dudas: [], partes: 4, leidas: [2, 3], partesFallidas: 0, transcript: 'texto', participantes: [] };
+      return null;
+    };
+    const cRev = await cron();
+    out.revision = {
+      previa951: previas[951] ? (previas[951] as { leidas: number[] }).leidas : null,
+      titulos951: titulos('fathom:951'), estado951: String(borr('fathom:951')?.estado ?? ''), marca951: marcaDe(951),
+      marca952: marcaDe(952), vista952: db.app_settings.some((x) => x.key === 'mako.reunion.auto.952' && x.value),
+      titulos953: titulos('fathom:953:partes-3-4'), estado953: String(borr('fathom:953:partes-3-4')?.estado ?? ''), tareasDeLaCorrida: cRev.tareas,
+    };
+
+    // El modal: la lectura en segundo plano de una reunión con marca SIGUE (y suma), y «Volver a analizar» lee de cero.
+    const bg = await import('../lib/leer-reunion-en-segundo-plano');
+    reset(); sembrarWorkspace('completo');
+    borrador(WS_CLIENTE, '960', [{ titulo: 'Armar el tablero de la campaña de octubre', detalle: 'algo' }], { ref: 'fathom:960', estado: 'procesando' });
+    ponerMarca(960, 4, [0, 1], ['fathom:960']);
+    extraccionFalsa = (rid: number, opts: Fila) => {
+      previas[rid] = opts.previa ?? null;
+      return opts.previa
+        ? { tareas: [cand('Armar el tablero de la campaña de octubre'), cand('Pedir los permisos de la cuenta publicitaria nueva')], dudas: [], partes: 4, leidas: [2, 3], partesFallidas: 0, transcript: 'texto', participantes: [] }
+        : { tareas: [cand('Revisar el guion del webinar')], dudas: [], partes: 4, leidas: [0, 1], partesFallidas: 2, sinTiempo: 2, transcript: 'texto', participantes: [] };
+    };
+    const yo = { nombre: 'Martín', email: 'martin@mako.test' };
+    await bg.completarBorradorDeReunion({ ws: WS_CLIENTE, borradorId: '960', recordingId: 960, titulo: 'Junta 960', proyectos: [], yo, hasta: Date.now() + 280_000 });
+    const modal = { previa: previas[960] ? (previas[960] as { leidas: number[] }).leidas : null, titulos: titulos('fathom:960'), marca: marcaDe(960) };
+    previas[960] = undefined;
+    ponerMarca(960, 4, [0, 1], ['fathom:960']);
+    await bg.completarBorradorDeReunion({ ws: WS_CLIENTE, borradorId: '960', recordingId: 960, titulo: 'Junta 960', proyectos: [], yo, hasta: Date.now() + 280_000, reanalizar: true });
+    out.modal = { ...modal, reanalizar: { previa: previas[960] ?? null, titulos: titulos('fathom:960'), resumen: String(borr('fathom:960')?.resumen ?? '') } };
+  }
+
+  // ── El cierre EN EL ACTO (17/10/2026, `cerrar_tareas_plan`): los dos tableros, sin borrador. Sólo con `cierre`.
+  if (modo === 'cierre') {
+    const { RUNNERS } = await import('../lib/api-mako/areas/plan.run');
+    const run = RUNNERS.cerrar_tareas_plan as { preparar: (i: Record<string, unknown>, c: unknown) => Promise<Record<string, unknown>>; ejecutar: (p: Record<string, unknown>, c: unknown) => Promise<Record<string, unknown>> };
+    const ctx = { ws: 1, canal: 'app', canalKey: 'app:test', alcance: 'ejecutar', rol: 'admin', actor: 'test' };
+    const correr = async (input: Record<string, unknown>) => {
+      const prep = await runWithWorkspace(1, () => run.preparar(input, ctx));
+      if ('error' in prep) return { prep };
+      const ej = await runWithWorkspace(1, () => run.ejecutar(prep.payload as Record<string, unknown>, ctx));
+      return { prep: { resumen: prep.resumen }, ej };
+    };
+
+    // EL DUEÑO (plan_tareas).
+    reset(); sembrarWorkspace('superadmin');
+    db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pplan', pid: 'P1', name: 'Feature: Plan', emoji: '🗺', color: '#000', score: 80, detalle: '', historial: [], orden: 1 });
+    db.plan_tareas.push(defaults('plan_tareas', { workspace_id: WS_DUENO, id: 't870', num: 870, title: 'Arreglar la asignación de proyectos de Fathom', progress: 30, score: 60, labels: ['pplan'], historial: [], checklist: [{ id: 'c1', text: 'probar', done: false }], recurrente: false, deadline: '', estado: 'en_curso' }));
+    db.plan_tareas.push(defaults('plan_tareas', { workspace_id: WS_DUENO, id: 't871', num: 871, title: 'Ya hecha antes', progress: 100, score: 10, labels: ['pplan'], historial: [], checklist: [], recurrente: false, deadline: '', estado: 'hecho' }));
+    const dCorta = await correr({ cerrar: [{ id: '#870', evidencia: 'listo' }] });
+    const dYa = await correr({ cerrar: [{ id: '#871', evidencia: 'Ya estaba hecha de antes.' }] });
+    const dOk = await correr({ cerrar: [{ id: '#870', evidencia: 'Las tareas de una reunión con cliente van a su tab.', revisar: '/plan?tarea=t870' }] });
+    const t870 = db.plan_tareas.find((t) => t.id === 't870') as Fila;
+    out.cierreDueno = {
+      corta: dCorta, ya: dYa, ok: dOk,
+      fila: { progress: t870.progress, estado: t870.estado, checklist: t870.checklist, historial: ((t870.historial as Fila[]) ?? []).map((h) => h.text) },
+      borradores: db.plan_propuestas.length,
+    };
+
+    // EL CLIENTE (experimento_tareas).
+    reset(); sembrarWorkspace('completo');
+    db.experimento_tareas.push(defaults('experimento_tareas', { workspace_id: WS_CLIENTE, id: 600, titulo: 'Mandar el contrato a Macario', estado: 'por_hacer', progreso: 0, orden: 1, origen: 'manual' }));
+    const cOk = await correr({ cerrar: [{ id: '600', evidencia: 'Contrato enviado por mail el 17/10.' }] });
+    const t600 = db.experimento_tareas.find((t) => t.id === 600) as Fila;
+    out.cierreCliente = { ok: cOk, fila: { progreso: t600.progreso, estado: t600.estado, historial: ((t600.historial as Fila[]) ?? []).map((h) => h.text) }, borradores: db.plan_propuestas.length };
   }
 
   out.sinMock = [...sinMock];

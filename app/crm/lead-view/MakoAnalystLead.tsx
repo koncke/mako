@@ -70,6 +70,7 @@ import {
   itemsDeSesion, leerRespuesta, problemaDeSeleccion, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen, postConProgreso } from '@/app/m/mako/subir';
+import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
 import { useRefrescarFicha } from './ficha-cambio';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
@@ -499,7 +500,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
       if (x.tono === 'plataforma') return <div className="of-reintento" role="status">{x.texto}</div>;
       return (
         <FilaMako>
-          <BurbujaHilo saliente={false} maxAncho="88%" contenido={{}} vacio={<div style={TEXTO_BURBUJA}><Markdown text={x.texto} /></div>} />
+          <BurbujaHilo saliente={false} maxAncho="88%" contenido={{}} vacio={<div style={TEXTO_BURBUJA}><Markdown text={x.texto} />{x.conectar && <ConectarDelAviso servicio={x.conectar} />}</div>} />
         </FilaMako>
       );
     }

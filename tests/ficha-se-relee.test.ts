@@ -51,9 +51,13 @@ test('las tarjetas de la ficha que guardan AVISAN: ninguna llama a router.refres
   for (const f of ['AgendarR2', 'AuditHistory', 'CampoEditable', 'GeneratedInsightCard', 'InfoPrincipalCard', 'NotasCard']) {
     assert.match(sinComentarios(leer(`${dir}/${f}.tsx`)), /useRefrescarFicha\(\)/, f);
   }
-  const deal = sinComentarios(leer('app/crm/[id]/DealDetailsCard.tsx'));
-  assert.doesNotMatch(deal, /router\.refresh\(\)/);
-  assert.match(deal, /useRefrescarFicha\(\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: DealDetailsCard se borró. La tab Pagos de Customer Success monta los bloques
+  // del CRM y les da su relectura por el MISMO aviso (`FichaCambioProvider`), no con un refresh suelto.
+  // Verificado rompiéndolo: con `<FichaCambioProvider value={leer}>` sacado de PagosCliente → cae éste.
+  const cs = sinComentarios(leer('app/customer-success/PagosCliente.tsx'));
+  assert.doesNotMatch(cs, /router\.refresh\(\)/);
+  assert.match(cs, /<FichaCambioProvider value=\{leer\}>/);
+  assert.match(cs, /releer: leer,/);
 });
 
 test('el aviso refresca el tablero Y relee la ficha', () => {

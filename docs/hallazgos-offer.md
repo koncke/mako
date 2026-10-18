@@ -311,6 +311,9 @@ Lo que no quedó del todo:
   pantalla (la API ya lo soporta).
 - **La métrica que más le importa a una oferta, la tasa de cierre, no está en el catálogo de
   métricas de Experiments**: un «Probarlo» de Offer deja que MaKo elija la métrica más cercana.
+- **«Los números» de la propuesta no dicen de dónde salen** (la IA calcula márgenes y un «LTV:CAC estimado» que nadie
+  dio): ver «El “43” de Código Inmobiliario» al final (17/10/2026).
+- **MaKo Mobile** no dibuja la fuente del puntaje ni elige funnels al guardar: ver las entradas del 17/10/2026 al final.
 
 ## Los cuatro que se cerraron el 13/10, y qué enseñó cada uno
 
@@ -777,3 +780,139 @@ llegar el turno y desaparece al reabrir la conversación, sin un error.
 `app/offer/ChatOffer.tsx` · `app/offer/ayudas.ts` · `tests/offer-cifras-y-marcas.test.ts` (14 roturas)
 
 *16/10/2026, cuenta claude3.*
+
+## El «43» de Código Inmobiliario: cada número dice de dónde sale, o no aparece (17/10/2026, #888)
+
+**El síntoma.** En la revisión con Código Inmobiliario (16/10, Fathom 193666833, 01:48:49) Martín leyó en el diagnóstico
+«Cierras el 43% de las llamadas asistidas» y preguntó «¿de dónde sacó ese número?». La pantalla no lo decía.
+
+**El diagnóstico obvio era el equivocado.** Parecía que la IA lo había inventado. No: lo calculaba el CÓDIGO
+(`alertasPrecio` con las tasas de `lib/analisis-negocio.ts`) y la IA lo repetía en un cambio y en la mejora de Precio.
+Y el número estaba mal armado: dividía las 9 ventas del PERÍODO por las 21 asistencias del PERÍODO, y 4 de esas 9
+ventas nunca pasaron por una llamada (en el ws13, clientes cargados como ganados sin primera llamada). Sobre la misma
+gente: de las 21 que asistieron compraron 6; de las 13 calificadas, 6.
+
+**La regla que queda.**
+- El embudo de Offer se cuenta sobre la MISMA gente (`EmbudoOffer`, `embudoDeAnalisis`; `compraron` y
+  `compraron_calificados` en `leerCalificacion`). La tasa del período de la cascada sigue igual para Análisis: es otra
+  pregunta («cuánto se vendió este trimestre»), y no se tocó.
+- Cada aviso dice de dónde sale su número («tu CRM, del 19/07 al 16/10», «según me dijiste», «en MaKo», «según tu
+  diagnóstico de fase») y el puntaje dice que es el promedio de las 9 notas.
+- Lo que escribe la IA se revisa cifra por cifra (`diagnosticoConFuentes`): la del dueño queda, la del sistema lleva
+  su fuente al lado, la frase con una cifra sin fuente sale. En lo que PROPONE (mejora, hipótesis) sólo si la frase la
+  afirma sobre el negocio de hoy («dado que cierras el 43%»): «súbelo a 2.490 USD» es una propuesta.
+- Lo ya guardado se LEE sin los avisos del embudo de entonces (`conclusionParaMostrar`), sin reescribir la fila.
+
+**Tres trampas que aparecieron al hacerlo:**
+- **Un conteo le daba fuente a un porcentaje.** «De 43 primeras llamadas» (un conteo del CRM) hacía pasar «43%»: las
+  claves de cifra no distinguían. Ahora un porcentaje lleva su «%» en la clave (`claveConFuente`, `cifrasConPorcentaje`).
+- **Las horas de una transcripción eran «cifras del dueño».** La llamada que subió el ws13 trae «0:04:43»: todo número
+  del 0 al 59 pasaba por dicho por él, el 43 y el 36 incluidos. `cifrasDelNegocio` ya no lee horas ni fechas (también
+  para la propuesta, que tenía el mismo agujero sin saberlo).
+- **«ojalá sí»:** el número corregido (46% de las calificadas) es MÁS alto que el 43. El arreglo no era bajar el número
+  sino decir de dónde sale, para que Joan lo pueda contrastar con su CRM.
+
+**Lo que quedó SIN hacer:**
+- «Los números» de la propuesta (Parte 2) no pasan por esto: ahí la IA calcula márgenes y un «LTV:CAC estimado
+  superior a 5 a 1» que nadie dio (`propuesta.numeros`, `lib/offer-reglas.ts` → `aplicarReglasPropuesta`). Pide decidir
+  si esos números los calcula el código o se marcan.
+- MaKo Mobile no dibuja la fuente del puntaje (`app/m/offer/HojasOfferM.tsx`); los avisos y los textos sí le llegan
+  arreglados (salen de la vista del servidor).
+
+**Vive en:** `lib/offer-reglas.ts` (`EmbudoOffer`, `alertasEmbudo`, `alertasPrecio`, `cifrasConFuente`,
+`diagnosticoConFuentes`, `conclusionParaMostrar`) · `lib/analisis-negocio.ts` (`leerCalificacion`) ·
+`lib/offer-contexto.ts` · `app/api/offer/route.ts` (`diagnosticarSesion`) · `tests/offer-cifras-con-fuente.test.ts`
+(15 roturas)
+
+## Un documento largo se lee entero, por partes (17/10/2026, #865)
+
+**El síntoma.** La transcripción de la llamada de venta del ws13 (64.462 caracteres) quedó «Leí sólo el principio
+(40.000 de 64.462)». Y lo guardado tampoco llegaba entero: los documentos de un pedido comparten 24.000, así que la IA
+leía ~17.000 de la llamada. Lo que el cliente dijo en la segunda mitad no existía para MaKo.
+
+**La regla que queda.** Se guarda el texto entero (300.000, ~4 horas de transcripción). Uno que no entra en un pedido
+(`TOPE_DOC_ENTERO`, 16.000) se parte sin perder un carácter (`partirEnPartes`: `partes.join('') === texto`, corta en un
+renglón) y la IA lee CADA parte (`lecturaDeParte`, prompt editable «offer.lectura.system»). Lo que viaja a la
+conversación, el diagnóstico y la oferta es esa lectura entera (`cuerpoDelDoc`). Una parte que la IA no pudo leer va
+tal cual y el chip lo dice. Vale para un archivo, la página de un link y la transcripción de un audio largo.
+
+**Medido con la IA de verdad (ws3, 17/10):** 43.000 caracteres, 3 partes, 18 s por la red de plataforma (Gemini), y
+los 8 datos sembrados (el precio del final incluido) llegaron todos.
+
+**Ojo al tocarlo:**
+- `sanearDocumentos` es una LISTA BLANCA: sin `lectura` y `partes` ahí, la próxima escritura de la conversación las
+  borraba sin un error (la misma trampa que `sanearMensajes`).
+- La lectura de un audio se hace ANTES del CAS del turno: el callback no puede esperar a la IA y puede correr varias
+  veces.
+- La fila crece (hasta megas con varios documentos largos) y `actualizarSesion` la relee entera en cada escritura.
+  Si se nota lento, la salida es no traer `documentos` en las lecturas que no arman prompt.
+
+**Vive en:** `lib/offer-reglas.ts` (`partirEnPartes`, `lecturaPorPartes`, `cuerpoDelDoc`, `documentosParaPrompt`) ·
+`lib/offer-ia.ts` (`lecturaDeParte`) · `app/api/offer/route.ts` (`leerPorPartes`) · `lib/prompt-registry.ts` ·
+`tests/offer-documento-entero.test.ts` (9 roturas)
+
+## Al terminar, lo primero que se ve es el PDF (17/10/2026, #887)
+
+**El pedido** (Martín en la misma revisión, 01:49:37): «lo que le recomiendo siempre… es que te muestre la vista de PDF,
+mejor antes que eso» (la oferta nueva en pantalla).
+
+**La recomendación obvia era la equivocada:** un `<iframe>` con el PDF. En Android no se ve (Chrome no tiene visor
+dentro de una página) y en un iPhone se ve la primera página. Un visor de PDF en el navegador (pdf.js, el de `unpdf`)
+pesa más de un mega y su build para navegador trae un `import.meta.resolve` que no se sabe cómo lo toma el build de
+Vercel. Lo que sí: el escritor de PDF es nuestro y usa tres primitivas (texto, rectángulo, línea), así que anota cada
+una también como dibujo y `paginasSvg` arma las MISMAS páginas en SVG, con el ancho de cada texto forzado
+(`textLength`, medido con las métricas de Helvetica). La pantalla las muestra como `<img>` (un SVG como imagen no corre
+nada). El test compara palabra por palabra el texto de cada página del PDF (leído con unpdf) con el de su SVG.
+
+**Ahora:** la ventana de la oferta abre en la pestaña «PDF» (la primera) y se abre SOLA cuando el armado termina con la
+pantalla abierta (no con un error, no en otra conversación, no en el onboarding). El héroe con la frase de la oferta
+nueva pasó adentro de las otras dos pestañas: arriba de las pestañas, la oferta nueva se veía antes que el PDF.
+
+**Ojo:** en el teléfono la hoja A4 se ve chica (es un PDF); para leer, «Descargar PDF» o el zoom del navegador.
+
+**Vive en:** `lib/pdf-escritor.ts` (`Dibujo`, `paginasSvg`) · `lib/offer-pdf.ts` (`paginasDeOferta`) ·
+`app/api/offer/pdf/route.ts` (`vista=paginas`) · `app/offer/VistaPdf.tsx` · `app/offer/Conclusion.tsx` (`PESTANAS`) ·
+`app/offer/OfferApp.tsx` (`armandoEn`) · `tests/offer-vista-pdf.test.ts` (8 roturas)
+
+## Una oferta se guarda en uno o varios funnels (17/10/2026, #895)
+
+**El pedido.** «Guardar en este funnel» ligaba la oferta sólo al funnel de la conversación, y el modelo ya permitía
+varios (`funnel_ofertas`, mig 0171). Ahora se elige con el selector de la casa (`ElegirFunnels`, el de los OKR de
+/general): el de la conversación marcado de entrada, uno o varios, o «Todos los funnels». Con un solo funnel en el
+negocio no aparece: se guarda como antes. Ya guardada, dice dónde («Guardada en VSL y Renovación»).
+
+**Lo que cambió por debajo y conviene saber:**
+- `guardarComoOferta(id, elegidos)`: sin `elegidos` (MaKo Mobile, el onboarding, una pestaña vieja) liga al funnel de la
+  conversación, como siempre; `[]` es «todos» (la convención de `ElegirFunnels`: vacío = todos), resuelto con los
+  ACTIVOS en el momento de guardar (`destinoDeLaOferta`).
+- `ligada` de la vista mira la liga a CUALQUIER funnel: con la del funnel de la conversación sola, una oferta guardada
+  sólo en «Renovación» seguía ofreciendo «Guardar» para siempre.
+- Varios funnels, varios avisos: se juntan en uno y manda el que se arregla reintentando (`juntarLigas`).
+- La API de MaKo: `guardar_oferta_analisis` (por chat, con su «sí») y `ver_analisis_oferta` con `guardada_en` y
+  `funnels_del_negocio`.
+
+**Lo que quedó SIN hacer:** sacar una oferta de un funnel desde acá (se hace en el editor de ofertas del CRM); MaKo Mobile
+guarda siempre en el funnel de la conversación (`app/m/offer/OfferM.tsx`, no manda `funnelIds`).
+
+**Vive en:** `app/offer/Conclusion.tsx` (`BarraAcciones`) · `lib/offer-sesiones.ts` (`guardarComoOferta`, `destinoAhora`,
+`ligarAFunnels`, `nombresDeSesion`) · `lib/offer-reglas.ts` (`destinoDeLaOferta`, `juntarLigas`) · `app/offer/ayudas.ts`
+(`textoGuardada`) · `lib/api-mako/areas/negocio.*.ts` · `tests/offer-guardar-funnels.test.ts` (9 roturas)
+
+*17/10/2026, cuenta claude4.*
+
+## «Los números» de la propuesta: lo que estimó MaKo sale marcado (17/10/2026, la mitad que quedó del #888)
+
+- **Síntoma.** En la Parte 2 del PDF de Código Inmobiliario: márgenes y un «LTV:CAC estimado superior a 5 a 1» que
+  nadie dio. El prompt se los PIDE («margen bruto, ventas y llamadas necesarias, % cobrado al firmar y LTV:CAC, con la
+  cuenta a la vista»: lib/offer-ia.ts, punto 11) y `aplicarReglasPropuesta` no los revisaba.
+- **Decisión con criterio.** El código no los puede CALCULAR (no tiene el costo de adquisición, la recompra ni la
+  retención), así que los MARCA, como pide la decisión 10 de Martín (lo que propuso MaKo, separado de lo que dijo el
+  negocio): una línea con una cifra que el negocio no dio termina en «(estimado por MaKo)» y va a «Lo que propuso
+  MaKo». Quedan sin marca lo del negocio, el precio propuesto, el margen que calcula el código con su precio y su costo
+  (`margenDe`), una CUENTA a la vista hecha sólo con cifras del negocio y una línea con «[completar]».
+- **Lo guardado** se lee marcado (`conclusionVisible`: la pantalla, MaKo Mobile por la vista y el PDF), sin reescribir
+  la fila. Ahí no está el contexto cargado (el CRM): una cifra que salió de ahí se lee «estimada», el lado seguro.
+- **Vive en:** `lib/offer-reglas.ts` (`MARCA_ESTIMADO`, `numeroDeLaPropuesta`, `aplicarReglasPropuesta`,
+  `propuestoPorMako`, `conclusionVisible`) · `tests/offer-numeros-estimados.test.ts` (O1-O7).
+
+*17/10/2026, «Pendientes B3» (`claude4`).*

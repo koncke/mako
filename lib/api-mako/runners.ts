@@ -32,6 +32,7 @@ import { RUNNERS as integraciones } from './areas/integraciones.run';
 import { RUNNERS as equipo } from './areas/equipo.run';
 import { RUNNERS as cs } from './areas/cs.run';
 import { RUNNERS as curso } from './areas/curso.run';
+import { RUNNERS as comunidad } from './areas/comunidad.run';
 import { RUNNERS as creaciones } from './areas/creaciones.run';
 import { RUNNERS as cobros } from './areas/cobros.run';
 import { RUNNERS as operaciones } from './areas/operaciones.run';
@@ -41,7 +42,7 @@ import { RUNNERS as tickets } from './areas/tickets.run';
 
 const TODOS: Runners[] = [
   general, plan, crm, ads, chats, whatsapp, email, chatbot, metricas, dashboard, experimentos,
-  landing, closing, negocio, contenido, video, imagen, integraciones, equipo, cs, curso, creaciones, operaciones, cobros, calendario, mako, tickets,
+  landing, closing, negocio, contenido, video, imagen, integraciones, equipo, cs, curso, comunidad, creaciones, operaciones, cobros, calendario, mako, tickets,
 ];
 
 const POR_ID = new Map<string, Run>();

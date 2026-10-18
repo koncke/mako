@@ -20,6 +20,8 @@
 import 'server-only';
 import type { Runners, Ctx, Preparado, Ejecutado, SalidaLectura } from '../tipos';
 import { conLanding, sinLanding, landingDe, MAX_LANDINGS } from '@/lib/landing-config';
+// Los productos que una página puede recibir: LOS MISMOS que ofrece el paso 2 del Pixel (lib/landing-funnel.ts).
+import { productosAsignables } from '@/lib/landing-funnel';
 import { normalizarUrl as normalizarPagina } from '@/lib/landing-paginas';
 import { isIP } from 'node:net';
 import { claveDeLanding as normalizarAnalisis, validarDestino } from '@/lib/landing-fetch';
@@ -31,6 +33,7 @@ import {
   getVideosLanding, getVideosOcultos, videosDetectados,
 } from '@/lib/landing-token';
 import { analizarLanding as detectarPiezas, estadoVideo, hostDePieza } from '@/lib/landing-analisis';
+import { fetchSeguro } from '@/lib/fetch-seguro';
 import { loQueSabemos } from '@/lib/landing-vigilancia';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { replayDePrueba, replayDeLead } from '@/lib/replay-leer';
@@ -185,8 +188,11 @@ export const RUNNERS: Runners = {
   listar_landings: {
     leer: async () => {
       const { landings, formato } = await leerLandings();
+      // Los que se pueden asignar (guardar_landing → productos). null = no se pudo leer: se calla, no se afirma «ninguno».
+      const disponibles = await productosAsignables().catch(() => []);
       return json({
         landings: landings.map((l) => ({ url: l.url, productos: l.funnelIds ?? [] })),
+        ...(disponibles.length ? { productosDisponibles: disponibles.map((p) => ({ embudoId: p.id, nombre: p.nombre, principal: p.esDefault })) } : {}),
         total: landings.length, tope: MAX_LANDINGS,
         ...(formato === 'viejo' && landings.length ? { nota: 'Lista leída del formato anterior: se migra sola la primera vez que se guarde una landing.' } : {}),
         ...(landings.length ? {} : { nota: 'El negocio no declaró ninguna landing todavía.' }),
@@ -215,7 +221,7 @@ export const RUNNERS: Runners = {
         ultima_visita: ult.ultima,
         recibio_en_ultimos_dias: vivo, ventana_dias: LANDING_VENTANA_DIAS,
         version_instalada: version.instalada || null, version_actual: SNIPPET_VERSION, codigo_viejo: version.viejo,
-        nota: 'La versión instalada es la del último evento del negocio entero (sin eventos versionados cuenta como 1). Con más de una página, usa verificar_pagina_pixel para cada una. Si la consulta falla, recibio_en_ultimos_dias sale false y ultima_visita sale null: ese null o ese false también pueden ser un error de lectura, no la prueba de que no llega nada.',
+        nota: 'La versión instalada es la más vieja entre las páginas declaradas con visitas en los últimos 7 días (lo que cada página SIRVE si se pudo leer; si no, lo que mandaron sus visitas): la misma vara del aviso de adentro. 0 = nunca pegó el Pixel. Con más de una página, usa verificar_pagina_pixel para cada una. Si la consulta falla, recibio_en_ultimos_dias sale false y ultima_visita sale null: ese null o ese false también pueden ser un error de lectura, no la prueba de que no llega nada.',
       });
     },
   },
@@ -306,7 +312,7 @@ export const RUNNERS: Runners = {
       // de lib/landing-analisis, fuera de esta área).
       const destino = await validarDestino(l.url);
       if (!destino.ok) return errorLectura(`No salgo a leer ${l.url}: ${destino.error}`);
-      const [a, token] = await Promise.all([detectarPiezas(l.url), tokenPixelExistente()]);
+      const [a, token] = await Promise.all([detectarPiezas(l.url, fetchSeguro), tokenPixelExistente()]);
       if (!a.ok || a.error) {
         return json({ url: l.url, leida: false, error: a.error, nota: 'No se pudo leer la página: esto es «no sé», no «no tiene nada». Reintenta más tarde.' });
       }
@@ -1196,8 +1202,22 @@ export const RUNNERS: Runners = {
       if (anterior && anterior !== url && landingDe(landings, url)) {
         partes.push(`— ${url} ya estaba declarada: quedan fusionadas en una`);
       }
+      // Los productos (17/10/2026): la pantalla los asigna (paso 2 del Pixel) y la API no podía. `undefined` = no los toques;
+      // [] los saca todos. Se validan contra los MISMOS que ofrece la pantalla: un id de otro negocio no existe acá.
+      let productos: number[] | undefined;
+      if (input.productos !== undefined) {
+        const pedidos = (Array.isArray(input.productos) ? input.productos : []).map((x) => Number(String(x).trim()));
+        if (pedidos.some((n) => !Number.isSafeInteger(n) || n <= 0)) return { error: 'Cada producto va por su embudoId (un número). Pide listar_landings (productosDisponibles).' };
+        const asignables = await productosAsignables().catch(() => []);
+        if (!asignables.length) return { error: 'No pude leer los productos del negocio. Intenta de nuevo.' };
+        const faltan = pedidos.filter((id) => !asignables.some((p) => p.id === id));
+        if (faltan.length) return { error: `No hay un producto con embudoId ${faltan.join(', ')}.`, disponibles: asignables.map((p) => ({ embudoId: p.id, nombre: p.nombre })) };
+        productos = [...new Set(pedidos)];
+        const nombres = productos.map((id) => `«${asignables.find((p) => p.id === id)!.nombre}»`);
+        partes.push(nombres.length ? `— sus leads entran a ${nombres[0]}${nombres.length > 1 ? ` y se suman a ${nombres.slice(1).join(', ')}` : ''}` : '— sin productos asignados');
+      }
       return {
-        payload: { url, ...(anterior ? { anterior } : {}) },
+        payload: { url, ...(anterior ? { anterior } : {}), ...(productos ? { productos } : {}) },
         resumen: partes.join(' ') + '.',
       };
     },
@@ -1206,7 +1226,9 @@ export const RUNNERS: Runners = {
         const url = String(payload.url ?? '');
         const anterior = typeof payload.anterior === 'string' ? payload.anterior : null;
         const { landings } = await leerLandings();
-        const nuevas = conLanding(landings, url, {}, anterior);
+        // `funnelIds` sólo si vinieron: ausente es «no los toques», [] los saca (lib/landing-config.ts, conLanding).
+        const productos = Array.isArray(payload.productos) ? payload.productos.map(Number).filter((n) => Number.isSafeInteger(n) && n > 0) : undefined;
+        const nuevas = conLanding(landings, url, productos ? { funnelIds: productos } : {}, anterior);
         if (!nuevas) return { ok: false, resumen: 'Esa dirección no parece una página web.' };
         if (!landingDe(nuevas, url)) return { ok: false, resumen: `No se pudo: ya hay ${MAX_LANDINGS} landings declaradas.` };
         await escribirLandings(nuevas);

@@ -15,6 +15,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { limitePorIp } from '@/lib/limite-publico';
 import { DISPOSITIVO_COOKIE, crearPreauth, destinoSeguro } from '@/lib/auth-session';
 import { ponerPreauth, ponerSesion } from '@/lib/sesion-cookies';
 import { decidirTrasGoogle, requiereSegundoFactor } from '@/lib/mfa-reglas';
@@ -35,6 +36,9 @@ function origenValido(req: NextRequest): boolean {
 
 export async function POST(req: NextRequest) {
   if (!origenValido(req)) return no('origen no permitido', 403);
+  // El freno de intentos es POR CUENTA (lib/contrasena.ts); esto corta probar muchas cuentas desde una IP.
+  const frenado = limitePorIp(req, 'login-contrasena', 20, 10 * 60_000);
+  if (frenado) return frenado;
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const next = destinoSeguro(typeof body.next === 'string' ? body.next : '/inicio');
 

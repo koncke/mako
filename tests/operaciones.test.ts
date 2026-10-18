@@ -43,7 +43,7 @@ import {
   sanearChats, sanearEntregables, todosLosChats, type PayloadPedido, type VistaCartero,
 } from '../lib/operaciones-reglas';
 import { esPublica } from '../lib/rutas-publicas';
-import { ADMIN_FAMILIAS, itemsDe } from '../app/_components/nav';
+import { ADMIN_NAV, ARRIBA } from '../app/_components/nav';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -73,7 +73,7 @@ function acciones(src: string): Array<{ nombre: string; cuerpo: string }> {
   return out;
 }
 
-const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction'];
+const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction', 'marcarMensajeAction', 'guardarAliasCuentaAction', 'decidirChatNuevoAction'];
 
 test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cualquier otra cosa', () => {
   const as = acciones(sinComentarios(leer('app/admin/operaciones/acciones.ts')));
@@ -319,10 +319,15 @@ test('la ruta del cartero es pública por su token, la pantalla no, y la ruta no
   assert.match(ruta, /authorization/, 'se autentica con el bearer');
 });
 
-test('el Centro está en la barra de admin, y su key no se confunde con un registro de dev', () => {
-  const it = ADMIN_FAMILIAS.flatMap(itemsDe).find((i) => i.href === '/admin/operaciones');
-  assert.ok(it, 'falta el item de /admin/operaciones');
+// Desde el 17/10/2026 el Ops Center va ARRIBA de todo, con su criatura (Martín: «debería estar donde Second Brain, con
+// una criatura tipo ícono»), y sólo en la barra del super admin. Sigue en ADMIN_NAV (títulos y nombres de tab del Centro).
+test('el Centro está arriba de la barra, con su criatura, y su key no se confunde con un registro de dev', () => {
+  const it = ARRIBA.find((i) => i.href === '/admin/operaciones');
+  assert.ok(it, 'falta el item de /admin/operaciones arriba');
   assert.equal(it.key?.startsWith('dev-'), false);
+  assert.equal(it.adminOnly, true, 'el Ops Center es del super admin');
+  assert.equal(it.criatura, 'Ops Center');
+  assert.ok(ADMIN_NAV.includes(it), 'sin el ítem en ADMIN_NAV, el Centro pierde su nombre de tab');
 });
 
 test('el clasificador trae el área con sus palabras, y nunca con «pedido» suelto', async () => {

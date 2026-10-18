@@ -78,9 +78,19 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('grabacion') ? { conGrabacion: true } : {}),
     ...(ev.trae.includes('cancelada') ? { conCancelada: true } : {}),
     ...(ev.trae.includes('fusion') ? { conFusion: true } : {}),
+    ...(ev.trae.includes('recordatorio') ? { conRecordatorio: true } : {}),
+    ...(ev.trae.includes('flow') ? { conFlow: true } : {}),
+    ...(ev.trae.includes('tracking') ? { conTracking: true } : {}),
+    ...(ev.trae.includes('pixel') ? { conPixel: true } : {}),
+    ...(ev.trae.includes('landing') ? { conLanding: true } : {}),
+    ...(ev.trae.includes('optin') ? { conOptin: true } : {}),
+    ...(ev.trae.includes('prueba') ? { conPrueba: true } : {}),
+    ...(ev.trae.includes('grabaciones') ? { conGrabaciones: true } : {}),
+    ...(ev.trae.includes('meta') ? { conMeta: true } : {}),
     ...(ev.trae.includes('reporte') ? { conReporte: true } : {}),
     ...(ev.trae.includes('oferta') ? { conOferta: true } : {}),
     ...(ev.trae.includes('anuncios') ? { conAnuncios: true } : {}),
+    ...(ev.trae.includes('reunionplan') ? { conReunionPlan: true } : {}),
   };
 }
 

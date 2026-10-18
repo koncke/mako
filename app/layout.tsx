@@ -13,8 +13,11 @@ import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
 import { TemaCandidato } from './_components/TemaCandidato';
+import { ModoArranque } from './_components/ModoArranque';
+import { ModoDelUsuario } from './_components/ModoDelUsuario';
 import { PuenteEnlace } from './video-generator/PuenteEnlace';
 import { ZonaDelNegocio } from './_components/ZonaDelNegocio';
+import { ReportadorDeErrores } from './_components/ReportarErrores';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
@@ -23,6 +26,7 @@ import { TelefonoProvider } from './_components/VistaMovil';
 import { prefiereMovil } from '@/lib/movil-guard';
 import { MOVIL_ACTIVO, seDesvia } from '@/lib/movil-desvio';
 import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
+import { vistaDeOtro } from '@/lib/vista-de-otro';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
 // del navegador, al lado del favicon. El producto es MaKo: acá decía "Marketing
@@ -122,8 +126,14 @@ export default async function RootLayout({
   const esTelefono = MOVIL_ACTIVO && (await prefiereMovil());
   const telefono = seDesvia({ activo: MOVIL_ACTIVO, telefono: esTelefono });
   const wsPropioMovil = telefono && esAdmin && (await getWorkspaceActual()) == null ? await wsSuperAdmin() : null;
+  // #881: a quién se está mirando, para que el PRIMER cuadro ya sea del cliente inspeccionado. Sin esto el
+  // Sidebar nacía con «Mauricio Bustos» y la barra aparecía tarde, corriendo la pantalla. El atributo en <html>
+  // abre el hueco de la barra desde el HTML del server (después lo maneja ImpersonationBanner).
+  // ⚠️ Con una agencia adentro de un cliente, una ruta pública (/vsl, /compartido) cargada en duro queda con ese
+  // hueco y sin barra: la barra no se monta ahí para sacarlo. Es raro y sólo es espacio; está en hallazgos-ui.
+  const vista = sesion ? await vistaDeOtro() : null;
   return (
-    <html lang="es" className="h-full antialiased">
+    <html lang="es" className="h-full antialiased" {...(vista ? { 'data-barra-agencia': '1' } : {})}>
       <body>
         {/* Geist vía CDN: deja que los estilos en línea del diseño usen
             font-family:'Geist' / 'Geist Mono' tal cual. */}
@@ -162,6 +172,11 @@ export default async function RootLayout({
             /admin/ui?tab=temas. Va acá arriba a propósito: su <script> tiene
             que correr ANTES del primer pintado o la app parpadea del tema viejo
             al nuevo en cada navegación. No pinta nada cuando no hay tema. */}
+        {/* El claro/oscuro de cada persona (17/10/2026, tarjeta #883): claro por defecto, oscuro sólo si lo eligió en el
+            interruptor de la barra. Va ANTES del taller de paletas: el script tiene que correr antes del primer pintado.
+            Sólo con sesión: una página pública no se pinta con la preferencia de nadie. */}
+        {sesion && <ModoArranque />}
+        {sesion && <ModoDelUsuario />}
         {esAdmin && <TemaCandidato />}
         {/* La zona del negocio sale de la ubicación de SUS admins (decisión 4 de la décima, 11/10/2026). No pinta
             nada; quién cuenta como admin propio lo decide el server (app/_components/zona-actions.ts). */}
@@ -210,14 +225,14 @@ export default async function RootLayout({
                 por CSS desde la landing; ahora no hace falta el hack. */}
             <HideOnPublicLanding>
               <Suspense fallback={null}>
-                <Sidebar />
+                <Sidebar inicial={{ nombre: sesion?.nombre ?? '', rol: sesion?.rol ?? '', clienteNombre: vista?.clienteNombre ?? null }} />
               </Suspense>
             </HideOnPublicLanding>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               {/* Chrome interno oculto en la landing pública /vsl (ver PublicRouteGate). */}
               <HideOnPublicLanding>
                 <Suspense fallback={null}>
-                  <ImpersonationBanner />
+                  <ImpersonationBanner inicial={vista} />
                 </Suspense>
                 {/* La voz de MaKo caída, arriba de TODAS las pantallas de admin: un panel que
                     hay que abrir no avisa (ver AlertaVozMaKo). */}
@@ -238,6 +253,8 @@ export default async function RootLayout({
               {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para
                   todas sus pantallas. Ver app/_components/SeccionesTab.tsx. */}
               <HideOnPublicLanding><SeccionesTab /></HideOnPublicLanding>
+              {/* Los errores sueltos de la ventana van solos a la Ticketera (17/10/2026): sólo con sesión, nunca en lo público. */}
+              {sesion && <HideOnPublicLanding><ReportadorDeErrores /></HideOnPublicLanding>}
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}

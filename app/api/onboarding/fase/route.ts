@@ -3,13 +3,14 @@
 // =============================================================================
 // GET  → { diag }           (el diagnóstico guardado, o null si no lo hizo)
 // POST → { respuestas, canal } → recomputa y guarda; devuelve { diag }.
+// PATCH → { hechas } → lo tachado de «Qué hacer ahora» (17/10/2026), sobre el diagnóstico vigente; devuelve { diag }.
 // Piso: admin del workspace; el dueño (sin impersonar) opera sobre OWNER_WS. Todo
 // dentro de runWithWorkspace(ws) para scopear los settings del diagnóstico.
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
-import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
+import { getDiagnosticoFase, guardarHechasFase, setDiagnosticoFase } from '@/lib/fase-store';
 import type { CanalId } from '@/lib/fase-diagnostico';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,23 @@ export async function POST(req: NextRequest) {
     try {
       const diag = await setDiagnosticoFase(respuestas, canal);
       return Response.json({ ok: true, diag });
+    } catch (e) {
+      return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  });
+}
+
+export async function PATCH(req: NextRequest) {
+  const ws = await resolverWsAdmin();
+  if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
+  let body: { hechas?: unknown };
+  try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+  return runWithWorkspace(ws, async () => {
+    try {
+      const diag = await guardarHechasFase(body.hechas);
+      return diag
+        ? Response.json({ ok: true, diag })
+        : Response.json({ ok: false, error: 'El diagnóstico cambió. Recarga la página.' }, { status: 409 });
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
     }

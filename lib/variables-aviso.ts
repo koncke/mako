@@ -109,7 +109,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'reporte' | 'oferta' | 'anuncios';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -146,14 +146,30 @@ export type VariableAviso = {
    *               webhook de Calendly (`datosCancelada`, lib/reunion-cancelada.ts).
    * · `fusion`  — necesita el CONTACTO QUE ENTRÓ Y SE SUMÓ a un lead que ya estaba (el evento de la plataforma
    *               `lead_fusionado`): lo pasa la ingesta de leads (`datosFusion`, lib/lead-fusionado.ts).
+   * · `recordatorio` — necesita la CORRIDA DEL RECORDATORIO DE CLASES de un negocio (el evento de la plataforma
+   *               `curso_recordatorio`): lo pasa el cron curso-sesiones (`datosRecordatorioDueno`, lib/curso-mensajes-texto.ts).
+   * · `flow`    — necesita las TOMAS DE VIDEO que quedaron sin tomar porque el navegador del negocio dejó de responder (el
+   *               evento de la plataforma `flow_puente_ausente`): lo pasa el cron flow-abandono (`datosPuenteAusente`).
+   * · `tracking` / `pixel` / `landing` — necesitan la LANDING de un negocio: que dejó de mandar visitas (`tracking_apagado`),
+   *               que su Pixel quedó viejo (`pixel_viejo`) o que cambió lo que se mide (`landing_cambio`). Los pasa el cron
+   *               tracking-vigilante (lib/tracking-aviso.ts).
+   * · `optin`   — necesita a LA PERSONA QUE DEJÓ SUS DATOS en la landing de un negocio (el evento `lead_de_landing`): la
+   *               pasa la ruta del formulario (`datosOptin`, lib/optin-aviso.ts), también cuando todavía no hay lead.
+   * · `prueba` / `grabaciones` — necesitan la PRUEBA DEL PIXEL de un negocio: la que se cerró (`prueba_recibida`) o las
+   *               grabaciones que ya se pueden ver (`prueba_grabada`). Los pasan /integraciones y el cron prueba-grabacion
+   *               (lib/prueba-aviso.ts).
+   * · `meta`    — necesita el FORMULARIO DE META que completó un lead (el evento `lead_formulario_meta`): lo pasa
+   *               lib/meta-lead-nuevo.ts (`datosFormularioMeta`, lib/meta-form-aviso.ts).
    * · `reporte` — necesita el REPORTE SEMANAL ya armado de un negocio (el evento de la plataforma `reporte_semanal`): lo
    *               pasa el cron de los lunes (`datosDelReporte`, lib/reporte-destino.ts).
    * · `oferta`  — necesita la OFERTA QUE MaKo TERMINÓ DE ARMAR (el evento de la plataforma `oferta_lista`): lo pasa el
    *               armado en el servidor (`datosOfertaLista`, lib/oferta-lista.ts).
    * · `anuncios` — necesita la CUENTA PUBLICITARIA que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`): lo
    *               pasa el cron de las alertas críticas (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
+   * · `reunionplan` — necesita LAS REUNIONES QUE MaKo LEYÓ y las tareas que dejó en el Plan (el evento de la plataforma
+   *               `reunion_tareas_al_plan`): lo pasa el cron fathom-plan (`datosReunionesAlPlan`, lib/reunion-plan-aviso.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'reporte' | 'oferta' | 'anuncios';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -199,7 +215,7 @@ export type VariableAviso = {
 
 export type GrupoVariable =
   | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links' | 'cuenta' | 'linea'
-  | 'anuncios';
+  | 'anuncios' | 'landing';
 
 /**
  * Las ramas del árbol, en orden, con su ícono (el `name` de `<Icon>`, app/_components/icons.tsx).
@@ -221,6 +237,7 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
   { key: 'cuenta', titulo: 'Cuenta de MaKo', icono: 'perfil' },
   { key: 'linea', titulo: 'WhatsApp del negocio', icono: 'whatsapp' },
   { key: 'anuncios', titulo: 'Cuenta publicitaria', icono: 'meta' },
+  { key: 'landing', titulo: 'Landing y Pixel', icono: 'web' },
 ];
 
 /**
@@ -391,6 +408,82 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'fusion_canal', label: 'Por dónde entró', ejemplo: 'Calendly', alcance: 'fusion', grupo: 'crm', rama: 'La fusión', fuente: 'fusion', soloPara: 'equipo' },
   { key: 'fusion_porque', label: 'Por qué es el mismo', ejemplo: 'mismo teléfono', alcance: 'fusion', grupo: 'crm', rama: 'La fusión', fuente: 'fusion', soloPara: 'equipo' },
   { key: 'fusion_link', label: 'Link a su tarjeta', ejemplo: 'https://hola-mako.com/crm/1842', alcance: 'fusion', grupo: 'crm', rama: 'La fusión', fuente: 'fusion', soloPara: 'equipo' },
+  // ── La corrida del recordatorio de clases (17/10/2026, el evento de la plataforma `curso_recordatorio`): la pasa el cron.
+  //    Cada lista arranca con su salto de línea y sólo viene si tiene a alguien: así su renglón se va entero.
+  { key: 'recordatorio_cuantos', label: 'A cuántos se les recordó', ejemplo: '2 clientes', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
+  { key: 'recordatorio_dias', label: 'Días sin entrar', ejemplo: '3', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
+  { key: 'recordatorio_enviados', label: 'A quién y qué', ejemplo: '· *Ana Ruiz* (*Norte*): Cómo leer tu tablero', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
+  { key: 'recordatorio_no_llego', label: 'A quién no le llegó', ejemplo: '· *Eva Sol*: la línea está desconectada', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
+  { key: 'recordatorio_sin_escribir', label: 'A quién no se le pudo escribir', ejemplo: '· *Juan Gil*: sin teléfono', alcance: 'recordatorio', grupo: 'curso', rama: 'El recordatorio', fuente: 'recordatorio', soloPara: 'equipo' },
+  // ── Las tomas de video que quedaron sin tomar (17/10/2026, el evento de la plataforma `flow_puente_ausente`): las pasa el
+  //    cron flow-abandono. La cantidad con su unidad, como «42 min» de la grabación.
+  { key: 'flow_tomas', label: 'Tomas sin tomar', ejemplo: '3 tomas', alcance: 'flow', grupo: 'cuenta', rama: 'Los videos', fuente: 'flow', soloPara: 'equipo' },
+  // ── La LANDING y el PIXEL de un negocio (17/10/2026, «nada por detrás», lote 3): los pasa el cron tracking-vigilante
+  //    (lib/tracking-aviso.ts). Lo que el código elegía —si el Pixel viejo graba, si lo agregado se puede medir— se PREGUNTA en
+  //    la CONDITION (`condicion`), con un texto literal por caso.
+  { key: 'tracking_dias', label: 'Días sin visitas', ejemplo: '3 días', alcance: 'tracking', grupo: 'landing', rama: 'Sin visitas', fuente: 'tracking', soloPara: 'equipo' },
+  { key: 'tracking_ultima', label: 'Fecha de la última visita', ejemplo: '14 de octubre', alcance: 'tracking', grupo: 'landing', rama: 'Sin visitas', fuente: 'tracking', soloPara: 'equipo' },
+  { key: 'tracking_link', label: 'Link a la landing en Integraciones', ejemplo: 'https://hola-mako.com/integraciones?abrir=landing', alcance: 'tracking', grupo: 'landing', rama: 'Sin visitas', fuente: 'tracking', soloPara: 'equipo' },
+  {
+    key: 'pixel_graba', label: 'Graba las visitas', ejemplo: 'no graba', alcance: 'pixel', grupo: 'landing', rama: 'El Pixel viejo', fuente: 'pixel', soloPara: 'equipo',
+    condicion: { rotulo: ['El Pixel viejo', 'El Pixel viejo no'], tipo: 'opciones', opciones: [{ value: 'no graba', label: 'No graba las visitas' }, { value: 'graba', label: 'Graba las visitas' }] },
+  },
+  { key: 'pixel_paginas', label: 'Las páginas con el Pixel viejo', ejemplo: '· https://tu-pagina.com/vsl', alcance: 'pixel', grupo: 'landing', rama: 'El Pixel viejo', fuente: 'pixel', soloPara: 'equipo' },
+  { key: 'pixel_novedades', label: 'Lo que se está perdiendo', ejemplo: 'la grabación de cada visita · el mapa de calor', alcance: 'pixel', grupo: 'landing', rama: 'El Pixel viejo', fuente: 'pixel', soloPara: 'equipo' },
+  { key: 'pixel_link', label: 'Link para copiar el Pixel', ejemplo: 'https://hola-mako.com/integraciones?abrir=landing', alcance: 'pixel', grupo: 'landing', rama: 'El Pixel viejo', fuente: 'pixel', soloPara: 'equipo' },
+  { key: 'landing_pagina', label: 'La página', ejemplo: 'https://tu-pagina.com/vsl', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo' },
+  { key: 'landing_agregaste', label: 'Lo que se agregó', ejemplo: 'un video', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo' },
+  {
+    key: 'landing_medible', label: 'Se puede medir', ejemplo: 'sí', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo',
+    condicion: { rotulo: ['Lo agregado se puede medir', 'Lo agregado no se puede medir'], tipo: 'opciones', opciones: [{ value: 'sí', label: 'Sí' }, { value: 'no', label: 'No' }] },
+  },
+  { key: 'landing_sacaste', label: 'Lo que se sacó', ejemplo: 'el formulario', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo' },
+  { key: 'landing_link', label: 'Link a la landing en Integraciones', ejemplo: 'https://hola-mako.com/integraciones?abrir=landing', alcance: 'landing', grupo: 'landing', rama: 'Lo que cambió', fuente: 'landing', soloPara: 'equipo' },
+  // ── LA PERSONA QUE DEJÓ SUS DATOS en la landing (17/10/2026, lote 3): la pasa la ruta del formulario (lib/optin-aviso.ts).
+  //    Todo como dato del evento: en el caso a revisar todavía no hay lead del que leerlo. Si quedó a revisar lo PREGUNTA la
+  //    CONDITION (`condicion`).
+  { key: 'optin_quien', label: 'Quién dejó sus datos', ejemplo: 'Sofía Contreras', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  { key: 'optin_telefono', label: 'Su teléfono', ejemplo: '+52 1 55 1234 5678', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  { key: 'optin_email', label: 'Su email', ejemplo: 'sofia@ejemplo.com', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  { key: 'optin_respuestas', label: 'Lo que completó', ejemplo: '• ¿Qué buscas?: Vender mi casa', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  { key: 'optin_campana', label: 'De qué campaña vino', ejemplo: 'oct-leads · video-3', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  { key: 'optin_funnels', label: 'En cuántos funnels entró', ejemplo: '2 funnels', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  {
+    key: 'optin_revisar', label: 'Quedó a revisar', ejemplo: 'no', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo',
+    condicion: { rotulo: ['Quedó a revisar', 'No quedó a revisar'], tipo: 'opciones', opciones: [{ value: 'sí', label: 'Sí: se parece a uno que ya está' }, { value: 'no', label: 'No: entró solo al CRM' }] },
+  },
+  { key: 'optin_ya_tienes', label: 'A quién se parece', ejemplo: '«Ana Ruiz»', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  { key: 'optin_coincide', label: 'En qué coincide', ejemplo: 'teléfono (+52 1 55 1234 5678)', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  { key: 'optin_link', label: 'Link a la ficha (o a revisarlo)', ejemplo: 'https://hola-mako.com/crm/2498', alcance: 'optin', grupo: 'landing', rama: 'Dejó sus datos', fuente: 'optin', soloPara: 'equipo' },
+  // ── LA PRUEBA DEL PIXEL (17/10/2026, lote 3): la pasan /integraciones y el cron prueba-grabacion (lib/prueba-aviso.ts).
+  { key: 'prueba_eventos', label: 'Cuántos eventos llegaron', ejemplo: '3 eventos', alcance: 'prueba', grupo: 'landing', rama: 'La prueba del Pixel', fuente: 'prueba', soloPara: 'equipo' },
+  { key: 'prueba_pagina', label: 'En qué página', ejemplo: 'tu-pagina.com', alcance: 'prueba', grupo: 'landing', rama: 'La prueba del Pixel', fuente: 'prueba', soloPara: 'equipo' },
+  { key: 'prueba_grabaciones', label: 'Las grabaciones, con su link', ejemplo: '• *tu-pagina.com* 👉 https://hola-mako.com/crm/2498', alcance: 'grabaciones', grupo: 'landing', rama: 'La prueba del Pixel', fuente: 'grabaciones', soloPara: 'equipo' },
+  // ── EL FORMULARIO DE META que completó un lead (17/10/2026, lote 3): lo pasa lib/meta-lead-nuevo.ts. Lo que falta no viaja.
+  { key: 'meta_telefono', label: 'El teléfono que dejó', ejemplo: '+52 1 55 1234 5678', alcance: 'meta', grupo: 'formulario', rama: 'El formulario de Meta', fuente: 'meta', soloPara: 'equipo' },
+  { key: 'meta_campana', label: 'La campaña de la que vino', ejemplo: 'Inmobiliario · Octubre', alcance: 'meta', grupo: 'formulario', rama: 'El formulario de Meta', fuente: 'meta', soloPara: 'equipo' },
+  { key: 'meta_respuestas', label: 'Lo que contestó', ejemplo: '• ¿Qué tipo de propiedad buscas vender?: Una casa', alcance: 'meta', grupo: 'formulario', rama: 'El formulario de Meta', fuente: 'meta', soloPara: 'equipo' },
+  // ── LAS REUNIONES QUE MaKo LEYÓ y las tareas que dejó en el Plan (17/10/2026, «nada por detrás»): lo pasa el cron fathom-plan
+  //    (`datosReunionesAlPlan`, lib/reunion-plan-aviso.ts). Si fue una o varias, y si completa una lectura a medias, lo
+  //    PREGUNTAN las CONDITION. Lo que falta no viaja (y se lleva su renglón).
+  {
+    key: 'plan_varias', label: 'Leyó varias reuniones', ejemplo: 'no', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo',
+    condicion: { rotulo: ['Leyó varias reuniones', 'Leyó una sola'], tipo: 'opciones', opciones: [{ value: 'sí', label: 'Sí: varias en la misma vuelta' }, { value: 'no', label: 'No: una sola' }] },
+  },
+  {
+    key: 'plan_resto', label: 'Terminó una lectura a medias', ejemplo: 'no', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo',
+    condicion: { rotulo: ['Terminó una lectura a medias', 'Es una lectura nueva'], tipo: 'opciones', opciones: [{ value: 'sí', label: 'Sí: son las tareas que faltaban' }, { value: 'no', label: 'No: la leyó por primera vez' }] },
+  },
+  { key: 'plan_titulo', label: 'La reunión', ejemplo: 'Sync semanal', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_con', label: 'Con quién fue', ejemplo: 'Ana, Pablo', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_cuando', label: 'Cuándo fue', ejemplo: 'mié 28 oct · 15:30', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_link', label: 'Link para revisarlas', ejemplo: 'https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_reuniones', label: 'Cuántas reuniones leyó', ejemplo: '3 reuniones', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_lista', label: 'Las reuniones, una por renglón', ejemplo: '• *Sync semanal* — mié 28 oct · 15:30', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_tuyas', label: 'Las tareas tuyas', ejemplo: '8 tareas tuyas', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_de_otros', label: 'Las de los demás', ejemplo: '3 de los demás', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_fuera', label: 'Las que el criterio dejó afuera', ejemplo: '12', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
+  { key: 'plan_a_medias', label: 'Las que leyó a medias', ejemplo: 'esta reunión', alcance: 'reunionplan', grupo: 'reuniones', rama: 'Tareas de reuniones', fuente: 'reunionplan', soloPara: 'equipo' },
   // ── El reporte de los lunes YA ARMADO (16/10/2026, el evento de la plataforma `reporte_semanal`): lo pasa el cron.
   //    Son los números del negocio (Meta, ventas, cobranza), por eso van en el Dashboard.
   { key: 'reporte_titulo', label: 'Título del reporte', ejemplo: 'Reporte semanal · 05/10/2026–11/10/2026', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
@@ -560,12 +653,29 @@ export type ContextoDatos = {
   conCancelada?: boolean;
   /** El contacto que entró y se sumó a un lead que ya estaba (el evento de la plataforma `lead_fusionado`). */
   conFusion?: boolean;
+  /** La corrida del recordatorio de clases de un negocio (el evento de la plataforma `curso_recordatorio`). */
+  conRecordatorio?: boolean;
+  /** Las tomas de video sin tomar de un negocio (el evento de la plataforma `flow_puente_ausente`). */
+  conFlow?: boolean;
+  /** La landing de un negocio que dejó de mandar visitas, su Pixel viejo o lo que cambió (los eventos del cron tracking-vigilante). */
+  conTracking?: boolean;
+  conPixel?: boolean;
+  conLanding?: boolean;
+  /** La persona que dejó sus datos en la landing de un negocio (el evento `lead_de_landing`). */
+  conOptin?: boolean;
+  /** La prueba del Pixel de un negocio: la que se cerró, o sus grabaciones listas. */
+  conPrueba?: boolean;
+  conGrabaciones?: boolean;
+  /** El formulario de Meta que completó un lead (el evento `lead_formulario_meta`). */
+  conMeta?: boolean;
   /** El reporte semanal ya armado de un negocio (el evento de la plataforma `reporte_semanal`). */
   conReporte?: boolean;
   /** La oferta que MaKo terminó de armar (el evento de la plataforma `oferta_lista`). */
   conOferta?: boolean;
   /** La cuenta publicitaria que Meta frenó (el evento de la plataforma `meta_cuenta_frenada`). */
   conAnuncios?: boolean;
+  /** Las reuniones que MaKo leyó y las tareas que dejó en el Plan (el evento de la plataforma `reunion_tareas_al_plan`). */
+  conReunionPlan?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -598,9 +708,19 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'grabacion') return opts.conGrabacion === true;
   if (a === 'cancelada') return opts.conCancelada === true;
   if (a === 'fusion') return opts.conFusion === true;
+  if (a === 'recordatorio') return opts.conRecordatorio === true;
+  if (a === 'flow') return opts.conFlow === true;
+  if (a === 'tracking') return opts.conTracking === true;
+  if (a === 'pixel') return opts.conPixel === true;
+  if (a === 'landing') return opts.conLanding === true;
+  if (a === 'optin') return opts.conOptin === true;
+  if (a === 'prueba') return opts.conPrueba === true;
+  if (a === 'grabaciones') return opts.conGrabaciones === true;
+  if (a === 'meta') return opts.conMeta === true;
   if (a === 'reporte') return opts.conReporte === true;
   if (a === 'oferta') return opts.conOferta === true;
   if (a === 'anuncios') return opts.conAnuncios === true;
+  if (a === 'reunionplan') return opts.conReunionPlan === true;
   return false;
 }
 

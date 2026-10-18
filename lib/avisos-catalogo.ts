@@ -185,6 +185,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'oferta-lista': 'reporte',
   // El pedido de restablecer la contraseña (Seguridad, 15/10/2026): un mail a la persona, de la plataforma.
   'seguridad-contrasena-restablecer': 'sistema',
+  // «Tu contraseña cambió» (Seguridad, 17/10/2026): un mail a la persona, de la plataforma.
+  'seguridad-contrasena-cambiada': 'sistema',
 
   'reunion-recordatorio': 'reunion', 'reunion-agenda-dia': 'reunion',
   'reunion-nuevo-agendado': 'reunion', 'reunion-cancelada': 'reunion',
@@ -332,6 +334,23 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'reunion-cancelada',
   // El contacto que entró y se sumó a un lead que ya estaba (17/10/2026, lote 2), con el freno por lead.
   'lead-fusionado',
+  // La copia del recordatorio de clases (17/10/2026, lote 2): evento de la plataforma con su texto en la fila.
+  'curso-recordatorio-clases',
+  // El navegador que dejó de tomar los videos (17/10/2026, lote 2), con la cantidad de tomas en sus datos.
+  'flow-puente-ausente',
+  // Los tres del cron tracking-vigilante (17/10/2026, lote 3): la landing sin visitas, el Pixel viejo y la landing que cambió.
+  'tracking-apagado',
+  'tracking-desactualizado',
+  'landing-cambio',
+  // Alguien dejó sus datos en la landing (17/10/2026, lote 3): entró solo o quedó a revisar.
+  'lead-de-landing',
+  // La prueba del Pixel (17/10/2026, lote 3): la que se cerró y la grabación lista.
+  'prueba-recibida',
+  'prueba-grabada',
+  // El lead que completó el formulario de Meta (17/10/2026, lote 3; nace PAUSADA, como nacía apagado).
+  'lead-formulario-meta',
+  // Las tareas de las reuniones que MaKo dejó en el Plan (17/10/2026, «nada por detrás»; nace PAUSADA, como nacía apagado).
+  'reunion-tareas-al-plan',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -429,7 +448,9 @@ Nada urgente, por eso esperaron. — MaKo`,
     // la única señal era un clip que se generaba para siempre en una pantalla que
     // alguien tenía que estar mirando.
     disparador: 'Cron cada 10 min: hay trabajos `pendiente` que nadie tomó en 12 minutos (`flow_cerrar_abandonados`).',
-    ejemplo: `🔴 Tus videos no se están generando: tu navegador dejó de responder y quedaron *3 tomas* sin tomar.
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `flow_puente_ausente`, lote 2).
+    ejemplo: `🔴 Tus videos no se están generando: tu navegador dejó de responder.
+⏸️ Sin tomar: *3 tomas*
 
 Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando vuelvas, las vuelves a mandar. — MaKo`,
   },
@@ -549,7 +570,17 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     // Falla en silencio por diseño ajeno: el beacon hace fetch().catch(){} y el
     // receptor responde 200 aunque descarte. Este cron es la ÚNICA señal.
     disparador: 'Cron diario: un workspace con landing_token acuñado no registra visitas hace más de 48h.',
-    ejemplo: `🔴 Tu landing *dejó de mandarme datos* hace 3 días. Los anuncios siguen corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel quedó apuntando a una dirección vieja. — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `tracking_apagado`, lote 3). Antes lo
+    // redactaba una IA con `contexto`: la fecha y los días llegaban como el modelo quisiera.
+    ejemplo: `🔴 *Tu landing dejó de mandarme datos*
+⏱️ Sin visitas hace 3 días
+🕐 La última: el 14 de octubre
+Los anuncios pueden seguir corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel de MaKo quedó apuntando a una dirección vieja.
+
+Revísalo aquí:
+https://hola-mako.com/integraciones?abrir=landing
+
+— MaKo`,
   },
   {
     id: 'landing-cambio', titulo: 'Tu landing cambió y ajusté lo que mido', categoria: 'aviso',
@@ -570,7 +601,14 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     // que enseña a ignorar los avisos. Se ven igual en el panel de la prueba,
     // que es pull — ahí la persona vino a mirar; acá MaKo interrumpe.
     disparador: 'Cron diario: el análisis de una landing declarada trae una pieza que antes no estaba, o deja de traer una que estaba en DOS lecturas buenas seguidas.',
-    ejemplo: `🟡 Le agregaste *un video* a tu landing — lo vi hoy y ya lo estoy midiendo. A partir de ahora vas a tener la curva de retención: en qué minuto se te cae la gente. Mírala aquí 👉 https://hola-mako.com/integraciones?abrir=landing — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `landing_cambio`, lote 3).
+    ejemplo: `🟡 *Cambió tu página*
+📄 https://tu-pagina.com/vsl
+➕ Le agregaste *un video*. Ya lo estoy midiendo.
+
+https://hola-mako.com/integraciones?abrir=landing
+
+— MaKo`,
   },
   {
     id: 'lead-fusionado', titulo: 'Junté un contacto con uno que ya tenías', categoria: 'aviso',
@@ -607,7 +645,11 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     //
     // Es la diferencia entre esperar y dudar, y cuesta un mensaje.
     disparador: 'Al terminar una prueba del Pixel: se cierra la ventana de la prueba o se aprieta «Terminar».',
-    ejemplo: `🟢 Listo, recibí tu prueba del Pixel en *tupagina.com*: 23 eventos. Te aviso cuando la grabación esté lista — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `prueba_recibida`, lote 3).
+    ejemplo: `✅ Listo, recibí tu prueba del Pixel
+📄 En *tupagina.com*
+📊 23 eventos
+Te aviso cuando la grabación esté lista. — MaKo`,
   },
   {
     id: 'prueba-grabada', titulo: 'La grabación de tu prueba ya está lista', categoria: 'aviso',
@@ -620,7 +662,11 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     // Hasta el 06/10/2026 era de Clarity, esperaba 45 minutos a que Microsoft
     // procesara la sesión y mandaba a su panel, con login aparte.
     disparador: 'Cron cada 15 minutos: la grabación de una prueba del Pixel se terminó de guardar. Sólo si la grabación está prendida en el negocio.',
-    ejemplo: `🟢 Ya puedes ver la grabación de tu prueba en *tupagina.com* 👉 https://hola-mako.com/crm/1842 — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `prueba_grabada`, lote 3).
+    ejemplo: `🎥 Ya puedes ver cómo se vio tu prueba del Pixel:
+• *tupagina.com* 👉 https://hola-mako.com/crm/1842
+
+— MaKo`,
   },
   {
     id: 'lead-no-confirmo', titulo: 'Agendó, no confirmó y hay que llamarlo', categoria: 'accion', porDefecto: 'on',
@@ -660,7 +706,13 @@ Conviene que le marques tú: +52 55 4874 2149
     // link por donde entró, el link sale por un aviso. Una propuesta que nadie
     // sabe que existe es peor que no haberla creado: ocupa el lugar del lead.
     disparador: 'Al instante: entra un opt-in desde la landing y se crea la propuesta de lead.',
-    ejemplo: `🟢 *Marina Olvera* dejó sus datos en tu landing hace un rato — tel 998 136 1529, de Atomy. Todavía NO está en el CRM: la tienes que confirmar tú, así revisas el teléfono antes de que valga. Ábrela aquí 👉 https://hola-mako.com/crm/revisar/propxnjgz6dj5mhk — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `lead_de_landing`, lote 3).
+    ejemplo: `*Marina Olvera* dejó sus datos en tu landing
+📱 998 136 1529
+📝 Lo que completó:
+• ¿Qué buscas?: Vender mi casa
+📢 oct-leads · video-3
+👉 https://hola-mako.com/crm/2498`,
   },
   {
     id: 'tracking-desactualizado', titulo: 'El Pixel de MaKo quedó viejo', categoria: 'aviso', porDefecto: 'on',
@@ -682,7 +734,16 @@ Conviene que le marques tú: +52 55 4874 2149
     // versión del código ya no le manda este mensaje a todos; sólo subir el mínimo, a mano.
     // Y el arreglo que propone es la línea del cargador, que no se vuelve a pegar nunca.
     disparador: 'Cron diario: el beacon reporta una versión del Pixel anterior al mínimo que pide repegar (PIXEL_MINIMO_AVISO).',
-    ejemplo: `🟡 Tu página tiene un código viejo del Pixel y por eso no graba las visitas. *Qué te estás perdiendo:* el mapa de calor de tu página y la grabación de cada visita. *Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en esa página en lugar del código viejo. Con esa línea no vuelves a actualizar nada. — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `pixel_viejo`, lote 3).
+    ejemplo: `🟡 *Tu Pixel de MaKo es viejo y no graba las visitas*
+📄 Las páginas:
+· https://tu-pagina.com/vsl
+✨ Te estás perdiendo: la grabación de cada visita · el mapa de calor
+
+*Cómo se arregla* (2 minutos): entra aquí, copia la línea del Pixel y ponla en lugar del código viejo. Con esa línea no vuelves a actualizar nada.
+https://hola-mako.com/integraciones?abrir=landing
+
+— MaKo`,
   },
   {
     id: 'leads-caida', titulo: 'Caída de leads vs promedio del día', categoria: 'aviso',
@@ -765,7 +826,8 @@ Escríbele hoy o agenda una sesión.`,
     id: 'curso-recordatorio-clases', titulo: 'Recordatorio de clases', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron curso-sesiones (cada hora, de 9 a 21): a un cliente invitado al curso que lleva 3 días sin entrar al portal se le recuerdan los videos sin ver de su etapa, uno cada 3 días como mucho. Esta es la copia: a quién y qué.',
-    ejemplo: `Les recordé sus videos pendientes a 2 clientes con 3 días sin entrar:
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `curso_recordatorio`, lote 2).
+    ejemplo: `Recordé sus videos pendientes a 2 clientes con 3 días sin entrar:
 · *Ana Ruiz* (*Norte*): Cómo leer tu tablero, Tu primera meta
 · *Luis Paz* (*Contexto*): Bienvenida al programa`,
   },
@@ -818,8 +880,8 @@ https://hola-mako.com/crm/482/resumen
     // instante del webhook: en ese momento el análisis todavía no había corrido,
     // así que no había resumen que pasar, y la respuesta del dueño no la escuchaba
     // nadie. El link reemplaza la pregunta — ver app/api/webhooks/fathom/route.ts.
-    // El texto lo arma `textoAvisoPostLlamada` (lib/lead-resumen.ts) con la llamada.
-    textoDelCodigo: true,
+    // ⚠️ DESDE EL 16/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `reunion_grabada`); el 17/10 el
+    // webhook dejó de armar el que sólo rotulaba el feed («nada por detrás», lote 3).
     // ⚠️ Decía «Webhook Fathom, dentro del after()»: la tarjeta CRON dibujaba «after()».
     disparador: 'Cuando Fathom entrega la grabación de una llamada con un lead y MaKo terminó de analizarla (el seguimiento queda como borrador).',
     ejemplo: `━━ 🗓️ REUNIÓN ━━
@@ -840,7 +902,9 @@ https://hola-mako.com/crm/482/resumen
     id: 'reunion-tareas-al-plan', titulo: 'Reunión de equipo nueva → tareas esperando confirmación', categoria: 'accion',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron fathom-plan: caen grabaciones nuevas de reuniones de EQUIPO, MaKo las lee y deja los borradores pendientes en el plan. UN aviso por corrida, no uno por reunión.',
-    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Ana <> Pablo* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://hola-mako.com/plan\n\nEntras una vez, revisas todo junto y con un toque quedan cargadas. — MaKo`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `reunion_tareas_al_plan`, «nada por
+    // detrás»): el código manda sólo los datos (lib/reunion-plan-aviso.ts).
+    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 oct · 15:30\n   4 tareas tuyas · 3 de otros\n   https://hola-mako.com/plan/revisar/prop1\n\n• *Ana <> Pablo* — mié 28 oct · 18:00\n   3 tareas tuyas · 4 de otros\n   https://hola-mako.com/plan/revisar/prop2\n\nEn total *7 tareas tuyas*. Cada una se revisa en su propio link, ahí arriba.\n👥 Y 7 de los demás, para repartir.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`,
   },
   {
     id: 'tareas-autocompletadas', titulo: 'MaKo cerró tareas que ya estaban hechas', categoria: 'aviso',
@@ -880,7 +944,8 @@ https://hola-mako.com/plan — MaKo`,
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     aporta: ['lead'],
     disparador: 'Webhook meta-leads: alguien completa un formulario de Meta y entra al CRM.',
-    ejemplo: `📥 *{{lead_nombre}}* completó tu formulario de Meta\n📱 {{lead_telefono}}\n\n{{lead_formulario}}\n\nSu ficha 👉 {{link_lead}}`,
+    // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `lead_formulario_meta`, lote 3).
+    ejemplo: `📥 *{{nombre_completo}}* completó tu formulario de Meta\n📱 {{meta_telefono}}\n📢 {{meta_campana}}\n📝 Lo que contestó:{{meta_respuestas}}\n\nSu ficha 👉 {{link_lead}}`,
   },
   {
     id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp entrante (al dueño)', categoria: 'aviso', porDefecto: 'on',
@@ -1084,6 +1149,20 @@ Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.
 https://hola-mako.com/restablecer?t=…
 
 Si no lo pediste tú, ignora este correo: tu contraseña no cambia.
+
+— MaKo`,
+  },
+  {
+    id: 'seguridad-contrasena-cambiada', titulo: 'Tu contraseña cambió', categoria: 'aviso',
+    prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    // 17/10/2026: un EVENTO de una PERSONA (`contrasena_cambiada`, lib/disparadores.ts). Lo emite Seguridad al crear,
+    // cambiar o restablecer una contraseña (lib/contrasena-cambio-aviso.ts), en el ws de la PLATAFORMA. Sale SÓLO por la
+    // automatización de SuperAdmin «Tu Contraseña Cambió», con su «Email a la persona». Sin datos secretos.
+    disparador: 'Se crea, se cambia o se restablece la contraseña de una cuenta de MaKo.',
+    ejemplo: `Se creó o se cambió la contraseña de tu cuenta de MaKo.
+
+Si fuiste tú, no hace falta hacer nada.
+Si no fuiste tú, entra con Google y cámbiala desde Tu cuenta → Seguridad, o escríbenos a equipo@hola-mako.com.
 
 — MaKo`,
   },

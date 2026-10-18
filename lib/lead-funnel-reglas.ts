@@ -36,6 +36,39 @@ export function casaParaEscribir(funnelId: number | null, defaultId: number | nu
   return defaultId != null && funnelId === defaultId ? null : funnelId;
 }
 
+/**
+ * La casa con la que NACE un lead, dado el funnel que se pidió y su fila leída en ESTE negocio
+ * (`null` = no existe acá; `undefined` = no se pudo leer).
+ *
+ * ⚠️ EL ID LO MANDA EL NAVEGADOR (el alta del tablero, la importación) o un webhook, y hasta el
+ * 17/10/2026 se escribía sin mirarlo: un id de OTRO negocio dejaba al lead colgado de un funnel
+ * ajeno, fuera de todos los tableros de éste y sin un error (docs/relevo/crm.md §0-Ω7). Lo que no
+ * es de acá —o no se pudo comprobar— nace en el CRM del negocio, que es donde se lo ve: un alta no
+ * se pierde por un id malo. El del negocio, con su id, también va NULL (`casaParaEscribir`).
+ */
+export function casaDelAlta(
+  pedido: number | null | undefined,
+  fila: { id: number | string; es_default?: boolean | null } | null | undefined,
+): number | null {
+  if (pedido == null || !fila || Number(fila.id) !== Number(pedido)) return null;
+  return fila.es_default === true ? null : Number(fila.id);
+}
+
+/**
+ * Los funnels (ids REALES) a los que se SUMA un lead que ya existía y vuelve por una campaña de Meta (#893): los de la
+ * campaña —el principal (`null` = el del negocio) y los `otros`— menos su casa, sin repetir. Un funnel que no se puede
+ * resolver (el del negocio sin poder leer su id) no se suma.
+ */
+export function funnelsDeCampanaParaSumar(
+  casa: number | null,
+  campana: { funnelId: number | null; otros: readonly number[] },
+  defaultId: number | null,
+): number[] {
+  const casaR = casa == null ? defaultId : Number(casa);
+  const todos = [campana.funnelId == null ? defaultId : Number(campana.funnelId), ...campana.otros.map(Number)];
+  return [...new Set(todos.filter((f): f is number => f != null && Number.isInteger(f) && f !== casaR))];
+}
+
 /** La casa como id real: NULL es el producto del negocio. */
 export function casaReal(funnelIdDelLead: number | null | undefined, defaultId: number | null): number | null {
   return funnelIdDelLead == null ? defaultId : Number(funnelIdDelLead);

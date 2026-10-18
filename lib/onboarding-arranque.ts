@@ -145,6 +145,28 @@ export const INTERESES: ReadonlyArray<{ id: InteresId; label: string; ruta: stri
 /** El setting donde el cierre deja cómo llegó y qué quiere resolver primero. Lo lee `ver_estado_onboarding`. */
 export const CLAVE_ENCUESTA = 'onboarding.encuesta';
 
+/** Cómo llegó un negocio y qué quería resolver primero, como lo lee el super admin (`llegadaDe`). */
+export type LlegadaCliente = { origen: string | null; interes: string | null; at: string | null };
+
+/**
+ * La encuesta guardada (`CLAVE_ENCUESTA`), leída para la tabla de clientes del super admin (17/10/2026: «la respuesta se
+ * guarda pero se lee cliente por cliente», docs/relevo/onboarding.md). `interes` sale con el RÓTULO de la opción, no con
+ * su id. null si no hay o no se entiende.
+ */
+export function llegadaDe(raw: string | null | undefined): LlegadaCliente | null {
+  if (!raw) return null;
+  let v: unknown;
+  try { v = JSON.parse(raw); } catch { return null; }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const texto = (x: unknown) => (typeof x === 'string' && x.trim() ? x.trim().slice(0, 80) : null);
+  const origen = texto(o.origen);
+  const interesId = texto(o.interes);
+  const interes = interesId ? INTERESES.find((i) => i.id === interesId)?.label ?? interesId : null;
+  const at = typeof o.at === 'string' && Number.isFinite(Date.parse(o.at)) ? o.at : null;
+  return origen || interes ? { origen, interes, at } : null;
+}
+
 /** A dónde entra al terminar: la pestaña de lo que quiere resolver primero, o /general. */
 export function rutaDeEntrada(interes: InteresId | undefined): string {
   return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';

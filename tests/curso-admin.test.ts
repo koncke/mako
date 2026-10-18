@@ -36,7 +36,7 @@ import {
   type FilaAvance,
 } from '../app/customer-success/curso/reglas';
 import type { Clase } from '../lib/curso';
-import { FAMILIAS, itemsDe } from '../app/_components/nav';
+import { TODOS_LOS_ITEMS } from '../app/_components/nav';
 import { CAPAS, tabEnCapa, type CapaId } from '../lib/capas';
 
 const UUID = '0f8fad5b-d9cb-469f-a165-70867728950e';
@@ -252,17 +252,21 @@ test('videoDeClase y ordenarFilas', () => {
 
 // ── La barra ─────────────────────────────────────────────────────────────────
 
-const todos = FAMILIAS.flatMap(itemsDe);
+// Desde el 17/10/2026 el Curso es la sub-tab Classroom de Clients (/clients/classroom): no es fila de la barra, pero su
+// key sigue en nav.ts (SIN_FILA) porque la pantalla del teléfono la pide.
+const todos = TODOS_LOS_ITEMS;
 
-test('nav: Customer Success tiene Clientes (key customer-success) y Curso, y no se encienden juntos', () => {
+test('nav: Clients (key customer-success) es la fila, y Classroom (cs-curso) su sub-tab', () => {
   const clientes = todos.filter((i) => i.key === 'customer-success');
   assert.equal(clientes.length, 1, 'la key customer-success tiene que estar UNA vez: la pide requireCapa');
-  assert.equal(clientes[0].href, '/customer-success');
-  const curso = todos.find((i) => i.href === '/customer-success/curso');
-  assert.ok(curso, 'falta el destino /customer-success/curso en la barra');
-  assert.equal(curso.match('/customer-success/curso'), true);
-  assert.equal(clientes[0].match('/customer-success/curso'), false, 'Clientes se enciende estando en Curso');
-  assert.equal(curso.match('/customer-success'), false);
+  assert.equal(clientes[0].href, '/clients');
+  const curso = todos.find((i) => i.key === 'cs-curso');
+  assert.ok(curso, 'falta el ítem cs-curso (lo pide la pantalla del teléfono)');
+  assert.equal(curso.href, '/clients/classroom');
+  assert.equal(curso.match('/clients/classroom'), true);
+  assert.equal(curso.match('/customer-success/curso'), true, 'la ruta vieja (redirige) no se reconoce');
+  assert.equal(clientes[0].match('/clients/classroom'), true, 'en Classroom la barra no marca Clients');
+  assert.equal(curso.match('/clients'), false);
   const keys = todos.map((i) => i.key);
   assert.equal(new Set(keys).size, keys.length, 'hay keys de ítem repetidas en la barra');
 });
@@ -276,7 +280,7 @@ test('nav: Customer Success tiene Clientes (key customer-success) y Curso, y no 
 // `null`, y `tabEnCapa` UNE los dos menús — así que para esa capa contesta `true` a CUALQUIER
 // key. La lista cerrada no restringe la barra (ver lib/capas.ts, `tabEnCapa`).
 test('nav: el Curso se ve en la barra en cada capa donde la página deja entrar', () => {
-  const curso = todos.find((i) => i.href === '/customer-success/curso')!;
+  const curso = todos.find((i) => i.key === 'cs-curso')!;
   for (const capa of Object.keys(CAPAS) as CapaId[]) {
     assert.equal(tabEnCapa(curso.key, capa), tabEnCapa('customer-success', capa), `capa ${capa}`);
   }

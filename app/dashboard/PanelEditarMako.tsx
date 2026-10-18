@@ -37,6 +37,7 @@ import '@/app/admin/operaciones/centro.css';
 import { PLAZO_PEDIDOS_MS, pedirPedidos } from '@/app/web-generator/cliente';
 import { CSS_PANEL_LATERAL } from './PanelAnalista';
 import { TextoConLink } from './NuevaHoja';
+import { CSS_MODOS_MAKO, ModosMako, type ModoMako } from './ModosMako';
 import {
   TAB_DEL_INFORME, burbujasDeHoja, interpretacionDe, pulsarHoja, textoActual, trasCrear, vistaDeBurbujaHoja,
   type BotonHoja, type BurbujaHoja,
@@ -45,7 +46,7 @@ import {
 /** Un mensaje del hilo. El de MaKo trae lo que cambió y, si cambió algo, la hoja de antes para deshacerlo. */
 export type MensajeEdicion =
   | { k: 'yo'; texto: string }
-  | { k: 'el'; texto: string; cambios: string[]; avisos: string[]; hojaId?: string; antes?: Hoja; aplicada?: Hoja; deshecho?: boolean }
+  | { k: 'el'; texto: string; cambios: string[]; avisos: string[]; hojaId?: string; antes?: Hoja; aplicada?: Hoja; deshecho?: boolean; analizar?: boolean }
   | { k: 'error'; texto: string; link?: string }
   /** Un pedido que no es de esta hoja (otra hoja, otra tab, crear otra): ./pedidos-hoja.ts. */
   | { k: 'pedido'; id: string; burbuja: BurbujaHoja };
@@ -71,9 +72,14 @@ function historialDe(hilo: readonly MensajeEdicion[]): TurnoEdicion[] {
   }).slice(-TURNOS_IA);
 }
 
-export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplicar, onDeshacer, onCrearHoja, onAbrirHoja, onArchivarHoja, onCerrar, textoInicial = '' }: {
+export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplicar, onDeshacer, onCrearHoja, onAbrirHoja, onArchivarHoja, onCerrar, textoInicial = '', onModo, editando }: {
   /** La hoja abierta. */
   hoja: Hoja;
+  /**
+   * Si la persona está EDITANDO la hoja (17/10/2026). El editor sólo monta este panel editando, y la ruta no cambia nada
+   * sin esto (`permisoEdicionMako`): en vista, MaKo asesora.
+   */
+  editando: boolean;
   informe: 'dashboard' | 'general';
   /** El hilo de ESTA hoja (lo guarda el editor, así cerrar y abrir el panel no lo pierde). */
   hilo: readonly MensajeEdicion[];
@@ -93,6 +99,11 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   onCerrar: () => void;
   /** Lo que la caja trae escrito al abrir (un link viejo de /experimentos con su hipótesis: «Probemos: …»). */
   textoInicial?: string;
+  /**
+   * #862: pasar al otro modo del MISMO MaKo (./ModosMako.tsx). Con esto la cabecera dice «Analizar · Editar» y un análisis
+   * pedido acá ofrece «Analizar la hoja». Sin esto (quien no tiene AI Analyst), la cabecera es el título de siempre.
+   */
+  onModo?: (m: ModoMako) => void;
 }) {
   const [texto, setTexto] = useState(textoInicial);
   /** Desde cuándo piensa MaKo (null = no piensa). */
@@ -150,9 +161,10 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
       if (deEstaHoja) {
         const res = await fetch('/api/graficos/editar', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hoja: enviada, pedido: deEstaHoja, historial, informe }), signal: c.signal,
+          // 17/10/2026: el server sólo cambia la hoja con el modo, «editando» y ESA hoja (`permisoEdicionMako`).
+          body: JSON.stringify({ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada.id }), signal: c.signal,
         });
-        const j = await res.json().catch(() => null) as { ok?: boolean; respuesta?: unknown; cambios?: unknown; avisos?: unknown; hoja?: unknown; error?: string; link?: string } | null;
+        const j = await res.json().catch(() => null) as { ok?: boolean; respuesta?: unknown; cambios?: unknown; avisos?: unknown; hoja?: unknown; analizar?: unknown; error?: string; link?: string } | null;
         if (ctrl.current !== c) return;
         if (!res.ok || !j?.ok) {
           decir({ k: 'error', texto: j?.error || `Error ${res.status}`, link: j?.link });
@@ -162,7 +174,9 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
           const avisos = lista(j.avisos);
           // Lo que llega por la red se vuelve a sanear: la hoja vale por lo que dice el catálogo de acá.
           const nueva = j.hoja != null && cambios.length ? sanearHoja(j.hoja, 0) : null;
-          if (j.hoja == null || !cambios.length) decir({ k: 'el', texto: respuesta, cambios: [], avisos });
+          // #862: un análisis pedido en Editar no cambió la hoja: la burbuja ofrece pasar a Analizar.
+          if (j.analizar === true) decir({ k: 'el', texto: respuesta, cambios: [], avisos, analizar: true });
+          else if (j.hoja == null || !cambios.length) decir({ k: 'el', texto: respuesta, cambios: [], avisos });
           else if (!nueva || nueva.id !== enviada.id) decir({ k: 'error', texto: 'Llegó otra hoja. Prueba de nuevo.' });
           else if (leerHoja(enviada.id) !== enviada) decir({ k: 'error', texto: 'La hoja cambió mientras MaKo pensaba. Pídelo de nuevo.' });
           else {
@@ -227,10 +241,10 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   return (
     <aside className="an em" aria-label="Editar con MaKo" onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}>
-      <style>{CSS_PANEL_LATERAL + CSS}</style>
+      <style>{CSS_PANEL_LATERAL + CSS + CSS_MODOS_MAKO}</style>
       <div className="an-cab">
         <Muneco titulo={tab} animo={animo} size={26} />
-        <span className="an-tit">Editar con MaKo</span>
+        {onModo ? <ModosMako modo="editar" onModo={onModo} /> : <span className="an-tit">Editar con MaKo</span>}
         <button type="button" className="an-x" onClick={onCerrar} aria-label="Cerrar" title="Cerrar">×</button>
       </div>
 
@@ -281,6 +295,11 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
                 {m.avisos.length > 0 && <p className="em-aviso">{m.avisos.join(' · ')}</p>}
                 {m.deshecho && <p className="em-aviso">Deshecho</p>}
                 {puede && <button type="button" className="em-deshacer" onClick={() => deshacer(m)}>Deshacer</button>}
+                {m.analizar && onModo && (
+                  <div className="em-botones">
+                    <button type="button" className="em-boton em-boton--primario" onClick={() => onModo('analizar')}>Analizar la hoja</button>
+                  </div>
+                )}
               </div>
             </div>
           );

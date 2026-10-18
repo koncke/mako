@@ -52,6 +52,7 @@ import { editarHojaIA } from '@/lib/graficos-ia-editar';
 import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
 import { PIEZAS_GENERAL, atarFunnels, esPiezaGeneral, funnelsDeBloque, opcionesDePieza, piezaGeneral, piezaPorFunnel, piezaPorVariosFunnels, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from '@/lib/general-piezas';
 import { leerFunnelsDeGeneral, type FunnelDeGeneral } from '@/lib/general-alcance';
+import { funnelsDelPedido } from '../funnels-del-pedido';
 import { PLANTILLAS_GENERAL, elegirPersona, type PersonaGeneral } from '@/lib/general-plantillas';
 import { ETIQUETAS_GENERAL } from '@/lib/graficos-plantillas-etiquetas';
 import { ordenarConSugeridas } from '@/lib/plantillas-sugeridas';
@@ -82,7 +83,7 @@ const json = (x: unknown): string => JSON.stringify(x);
  *  (updateTag no corre en route handlers). Nunca tumba una escritura. */
 function invalidar(): void {
   try { revalidateTag(TAG.settings, { expire: 0 }); } catch { /* vence por TTL */ }
-  try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+  try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
 }
 
 /** Una escritura que no lanza: el contrato de Ejecutado. */
@@ -102,25 +103,6 @@ const diff = (campo: string, antes: string, despues: string): string =>
 
 const periodoTxt = (o: { quarter: number | null; anio: number }): string =>
   o.quarter === null ? `anual ${o.anio}` : quarterKey({ anio: o.anio, q: o.quarter });
-
-/**
- * `funnels` de guardar_objetivo y guardar_kpi (mig 0306): «todos» o ids separados por coma, que tienen que ser funnels
- * activos del negocio (los lista listar_objetivos en `funnels_del_negocio`). `null` = no vino: al editar queda el que
- * estaba. Con la lista de funnels caída no se puede elegir: se dice, no se adivina.
- */
-async function funnelsDelPedido(input: Record<string, unknown>): Promise<{ ids: number[]; nombres: FunnelDeGeneral[] } | { error: string } | null> {
-  const crudo = str(input, 'funnels');
-  if (crudo == null) return null;
-  const disponibles = await leerFunnelsDeGeneral();
-  if (/^tod[oa]s?$/i.test(crudo)) return { ids: [], nombres: disponibles ?? [] };
-  const partes = crudo.split(/[,\s]+/).filter(Boolean);
-  const ids = sanearFunnelIds(partes);
-  if (!ids.length || ids.length !== new Set(partes).size) return { error: `funnels: «${crudo}» no es «todos» ni una lista de ids de funnels separados por coma.` };
-  if (!disponibles) return { error: 'No se pudieron leer los funnels del negocio: ahora no se puede elegir de cuáles suma.' };
-  const faltan = ids.filter((id) => !disponibles.some((f) => f.id === id));
-  if (faltan.length) return { error: `No hay un funnel activo con id ${faltan.join(', ')}. Los del negocio están en listar_objetivos (funnels_del_negocio).` };
-  return { ids, nombres: disponibles };
-}
 
 /** «todo el negocio» o los nombres, para el resumen que se confirma en pantalla. */
 const funnelsTxt = (ids: readonly number[], nombres: readonly FunnelDeGeneral[]): string =>
@@ -836,7 +818,7 @@ export const RUNNERS: Runners = {
         const hoja = { ...base, nombre: String(payload.nombre ?? base.nombre).slice(0, 60) };
         const g = await guardarTableroSi(sub, { ...actual.tablero, hojas: [...actual.tablero.hojas, hoja] }, actual.version, 'general');
         if (!g.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
-        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
         return { ok: true, resumen: `Hoja «${hoja.nombre}» creada en General.`, datos: { hojaId: hoja.id } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo crear la hoja (${e instanceof Error ? e.message : 'error'}).` };
@@ -880,7 +862,7 @@ export const RUNNERS: Runners = {
         hojas[i] = nueva;
         const g = await guardarTableroSi(sub, { ...actual.tablero, hojas }, actual.version, 'general');
         if (!g.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
-        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
         return { ok: true, resumen: `Hoja «${nueva.nombre}» de General cambiada.`, datos: { hojaId: nueva.id } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo cambiar la hoja (${e instanceof Error ? e.message : 'error'}).` };
@@ -935,7 +917,7 @@ export const RUNNERS: Runners = {
         const hojas = actual.tablero.hojas.map((h) => (h.id === hoja.id ? { ...h, componentes: [...h.componentes, elemento] } : h));
         const g = await guardarTableroSi(sub, { ...actual.tablero, hojas }, actual.version, 'general');
         if (!g.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
-        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
         return { ok: true, resumen: `«${info.nombre}» agregado a «${hoja.nombre}».`, datos: { elementoId: elemento.id } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo agregar el bloque (${e instanceof Error ? e.message : 'error'}).` };
@@ -1002,7 +984,7 @@ export const RUNNERS: Runners = {
         const hojas = actual.tablero.hojas.map((h) => (h.id === hoja.id ? { ...h, componentes: h.componentes.map((x) => (x.id === c.id ? nuevo : x)) } : h));
         const r = await guardarTableroSi(sub, { ...actual.tablero, hojas }, actual.version, 'general');
         if (!r.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
-        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        try { revalidatePath('/dashboard'); } catch { /* fuera de un request: vence sola */ }
         return { ok: true, resumen: `«${piezaGeneral(g.pieza).nombre}» cambiado.`, datos: { elementoId: c.id } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo cambiar el bloque (${e instanceof Error ? e.message : 'error'}).` };

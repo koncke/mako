@@ -29,6 +29,16 @@ CRM». Chat «Clients», cuenta 4.
   admin en /admin/cobros), el primer mes habilita la cuenta y el mes corre desde el onboarding. **Los premios por
   referir NO se dibujan** (docs/referidos.md: decididos el 10/10, sin construir): ponerlos sería prometer algo que el
   sistema no paga. El test frena «gratis», «saldo», «comisión», «premio», «descuento».
+- **Sólo el ADMIN de la agencia** (o el super admin): son los links de pago y la puerta a las cuentas de sus clientes.
+  Antes vivían en Clients, que la barra muestra sólo al admin pero cuya página no pregunta el rol; acá la página lo
+  pregunta, en la computadora y en el teléfono, antes de leer la cartera. **Vive en:** `app/partners/page.tsx`,
+  `app/m/partners/page.tsx`.
+- **⚠️ Sin link de pago la cuenta YA se abrió** (`sinLink`, lib/partners.ts: el cobro falló después de crearla). Una
+  pantalla que decide «¿ya terminó el alta?» por `link !== null` vuelve al formulario, y el segundo envío choca con el
+  email ya usado. El alta guarda su propio «hecho». Pasó en el teléfono y se arregló antes de salir.
+- **«Reenviar el acceso» y «Nadie puede entrar»** vinieron de la tarjeta de Clients (el caso del ws15 del 28/09: una
+  cuenta aprobada con cero usuarios). `equipo: []` es «leí y no hay nadie»; `null`, «no pude leer», y ahí no se
+  afirma nada. El permiso lo pregunta `/api/agencia/reinvitar` contra la cartera en el momento.
 - **La estructura es la de las sub-cuentas de una agencia en HighLevel** (Agency View › Sub-Accounts), copiada de su
   documentación: el Chrome no estaba conectado para abrirla. Si Martín la rechaza, la referencia a abrir es ésa.
 

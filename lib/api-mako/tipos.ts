@@ -33,7 +33,7 @@ import type { Permisos } from './permisos';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'chats', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'calendario', 'creaciones', 'operaciones', 'cobros', 'mako',
+  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'comunidad', 'calendario', 'creaciones', 'operaciones', 'cobros', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -74,6 +74,8 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // tab, Clients, con sub-tabs (docs/diseno-clients.md); las rutas viejas redirigen.
   cs: { titulo: 'Customer Success', tab: 'Clients', ruta: '/clients' },
   curso: { titulo: 'Curso (módulos y clases)', tab: 'Clients › Classroom', ruta: '/clients/classroom' },
+  // La comunidad de cada producto (posts, comentarios, eventos), 17/10/2026: sale SÓLO por HTTP, como `curso`.
+  comunidad: { titulo: 'Comunidad', tab: 'Clients › Community', ruta: '/clients/community' },
   // Las creaciones que un negocio publica para los demás y sus estrellas (13/10/2026, lib/creaciones.ts). Sin tab
   // en la barra: la galería vive en /creaciones y cada feature pone su botón «Publicar».
   creaciones: { titulo: 'Creaciones de la comunidad (estrellas)', tab: 'Creaciones', ruta: '/creaciones' },
@@ -108,7 +110,9 @@ export const DATOS_DE_CLIENTES_POR_AREA: Record<Area, boolean> = {
   metricas: true, experimentos: false, landing: false, closing: true, negocio: false, contenido: false, video: false,
   imagen: false, integraciones: false,
   // Los datos del equipo y las identidades fiscales del negocio son de personas que no son quien escribe.
-  equipo: true, cs: true, curso: true, calendario: false, creaciones: false, operaciones: false, cobros: true, mako: true,
+  equipo: true, cs: true, curso: true,
+  // Posts, comentarios y miembros son de personas que no son quien escribe (los alumnos del negocio).
+  comunidad: true, calendario: false, creaciones: false, operaciones: false, cobros: true, mako: true,
 };
 
 /** Por dónde puede entrar un pedido. Lo declara CADA operación, en positivo. */
@@ -359,6 +363,11 @@ export type Ctx = {
   /** El token detallado que pidió (id y nombre), para el rastro: va en el `actor` de lo
    *  que confirma y en `api_llamadas`. */
   token?: { id: string; nombre: string };
+  /** Sólo un token DETALLADO por /api/v1: el email de la persona que lo creó (y que sigue administrando el negocio:
+   *  si no, el token no vale). Es QUIÉN FIRMA lo que se publica en la comunidad (`personaDe`,
+   *  lib/api-mako/areas/comunidad.helpers.ts): un token clásico, WhatsApp o un flujo no traen persona y esas
+   *  escrituras fallan con el motivo en vez de inventar un autor. */
+  persona?: string;
   /** Lo que el TURNO sabe para un ticket (lib/tickets-reglas.ts, `ContextoTicket`): lo que pidió la persona, lo que
    *  contestó MaKo y los errores que registró el código al correr las herramientas. Lo pone el chat que corre el turno
    *  (lib/mako-turno-app.ts) y lo lee `levantar_ticket`: así el error de un ticket nunca lo escribe el modelo. */
@@ -417,6 +426,11 @@ export type AccionRun = {
   /** la escritura, por el caller ya gateado (setPipelineStage, metaWrite, …). Corre
    *  al confirmar: en WhatsApp, en la bandeja, o por HTTP con `ejecutar`. */
   ejecutar: (payload: Record<string, unknown>, ctx: Ctx) => Promise<Ejecutado>;
+  /** Lo que se puede saber SIN escribir y haría fallar a `ejecutar` (por ejemplo: «esto sale firmado y este pedido no trae a
+   *  nadie que firme»). Lo pregunta `confirmarPendiente` ANTES de reclamar la pendiente, y la pantalla genérica antes de
+   *  marcarla aplicada: reclamar la quema (queda en `error`), y un «sí» que no se puede cumplir no puede dejarla así para
+   *  quien sí la podía confirmar (regla 3 de AGENTS.md: lo que se sabe sin escribir falla antes). Devuelve el motivo, o null. */
+  faltaParaConfirmar?: (payload: Record<string, unknown>, ctx: Ctx) => Promise<string | null>;
   /** SOLO las `pantalla` con pantalla PROPIA (leads → /crm/revisar, tareas →
    *  /plan/revisar, borradores → /whatsapp): dejan la propuesta en su tabla y
    *  devuelven el link. Sin esto, una `pantalla` va a la genérica /mako/revisar/<id>. */

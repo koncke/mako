@@ -29,7 +29,10 @@ const BROWSER = sinComentarios(leer('app/ads-manager/CampanasBrowser.tsx'));
 test('el editor de público guarda los lugares SÓLO por aplicarLugares', () => {
   // El targeting que se manda nace de aplicarLugares sobre el crudo: sin cambios devuelve
   // el geo intacto, y con algo que no entendió tira en vez de borrar.
-  assert.match(MODAL, /const t: Record<string, unknown> = \{ \.\.\.aplicarLugares\(base, lectura, lugares\) \};/);
+  // Desde el 17/10/2026 por `aplicarCambiosDePublico` (lib/publico-cambios.ts, la misma del server), que llama a
+  // aplicarLugares con la lectura y la lista: tests/publico-api.test.ts ejecuta esa superposición.
+  assert.match(MODAL, /const targeting = aplicarCambiosDePublico\(base, \{\s*lugares: \{ lectura, lista: lugares \},/);
+  assert.match(leer('lib/publico-cambios.ts'), /c\.lugares \? \{ \.\.\.aplicarLugares\(base, c\.lugares\.lectura, c\.lugares\.lista\) \}/);
   // Y nadie más escribe el geo a mano: un `t.geo_locations = …` saltearía la firma.
   assert.doesNotMatch(MODAL, /\b(t|targeting)\.(excluded_)?geo_locations\s*=/);
   assert.doesNotMatch(MODAL, /\bdelete t\.(excluded_)?geo_locations/);

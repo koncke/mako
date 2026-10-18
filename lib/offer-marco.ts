@@ -254,6 +254,9 @@ export type DiagnosticoOferta = {
   cambios: CambioPropuesto[];
 };
 
+/** De dónde sale el puntaje, como se dice al lado (17/10/2026, tarjeta #888: cada número del diagnóstico dice de dónde sale). */
+export const FUENTE_PUNTAJE = 'El promedio de las 9 notas';
+
 /** Lo que calcula el CÓDIGO sobre el diagnóstico — nunca el modelo. */
 export type CalculoDiagnostico = {
   /** 0-100: el promedio de las 9 notas × 10, redondeado. */
@@ -271,12 +274,18 @@ export type CalculoDiagnostico = {
    * 12/10/2026.
    */
   controlFinal?: PuntoControlFinal[];
+  /**
+   * Desde el 17/10/2026 (tarjeta #888): cada cifra de los avisos dice de dónde sale y lo que escribió la IA pasó por
+   * `diagnosticoConFuentes` (lib/offer-reglas.ts). Sin la marca, la conclusión es de antes y se lee con
+   * `conclusionParaMostrar`, que saca los avisos del embudo de entonces (el «43%» sin fuente).
+   */
+  cifrasConFuente?: boolean;
 };
 
 /**
  * Los avisos guardados que se pueden MOSTRAR: ninguno que afirme un porcentaje arriba de 100. Las versiones
  * guardadas antes del 14/10/2026 pueden traer «Cierras el 170% de las llamadas calificadas» (los calificados
- * eran un piso; lo arregla `cierreConfiable`, lib/offer-reglas.ts), y el PDF, la pantalla y la API de MaKo
+ * eran un piso; desde el 17/10/2026 el embudo se cuenta sobre la misma gente, `EmbudoOffer` en lib/offer-reglas.ts), y el PDF, la pantalla y la API de MaKo
  * leen lo guardado. Lo usan los tres; un lector nuevo de `calculo.alertas` también.
  */
 export function avisosAfirmables(alertas: readonly unknown[] | null | undefined): string[] {
@@ -452,13 +461,18 @@ export type OfferSesionVista = {
    */
   ofertaGuardadaId: number | null;
   /**
-   * false SÓLO si tocar «Guardar en este funnel» lo puede arreglar: hay oferta guardada (`ofertaGuardadaId`),
-   * la conversación tiene funnel, ese funnel existe y la oferta NO está en `funnel_ofertas` de ese funnel
-   * (la liga había fallado). true en todo lo demás: v1 sin funnel, nada guardado, ya ligada, o el funnel se
+   * false SÓLO si tocar «Guardar» lo puede arreglar: hay oferta guardada (`ofertaGuardadaId`), la conversación tiene
+   * funnel, ese funnel existe y la oferta NO está en `funnel_ofertas` de NINGÚN funnel (la liga había fallado; desde el
+   * 17/10/2026, #895, se puede guardar en otros funnels que el de la conversación). true en todo lo demás: v1 sin funnel, nada guardado, ya ligada, o el funnel se
    * borró (reintentar no lo arregla). ⚠️ La lectura es TOLERANTE: si falla, true — mostrar «Guardada» de
    * más es un rótulo; invitar a reintentar en falso es mandar a repetir algo que no se arregla repitiendo.
    */
   ligada: boolean;
+  /**
+   * Los funnels donde está la oferta guardada (17/10/2026, #895: una oferta se guarda en uno o VARIOS funnels), con el
+   * nombre que ve el dueño. Vacío sin oferta guardada o si no se pudo leer (`nombresDeSesion`, tolerante).
+   */
+  guardadaEn: Array<{ id: number; nombre: string }>;
   /**
    * El armado en el servidor (mig 0296, `armadoParaVista` en lib/offer-reglas.ts): en curso con su paso, o
    * fallido con el error. null = no hay ninguno. Mientras corre, la pantalla relee hasta que aparezca la

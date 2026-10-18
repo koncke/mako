@@ -13,11 +13,17 @@
 // estados. NO puede hacer que la PC ejecute nada: el cartero sólo entrega pedidos firmados con una
 // clave que vive en el navegador de Martín, y la verifica él (docs/diseno-centro-de-operaciones.md
 // §3.1). Por eso el token alcanza como credencial de esta ruta.
+// Y con el Plan (`?plan=1`, cartero 1.15.7): LEER las abiertas del proyecto del jefe al que Martín le mandó un pedido
+// firmado de menos de un día (lib/centro-plan-chat.ts). Nada más: un chat no cierra tareas.
+// Y escribir la foto de los pasos en vivo de una cuenta (`?pasos=1`, 1.15.3): texto corto que se ve en el Ops Center.
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { cicloCartero, hayParaElCartero, tokenDelCarteroValido } from '@/lib/operaciones';
 import { adjuntoParaElCartero } from '@/lib/operaciones-adjuntos';
+import { guardarPasos } from '@/lib/centro-pasos-db';
+import { planDesdeElChat } from '@/lib/centro-plan-chat';
+import { CUENTA_RE } from '@/lib/operaciones-reglas';
 
 export const dynamic = 'force-dynamic';
 /** La vuelta contesta en segundos; lo que sigue (el Plan de los chats, lib/centro-plan-auto.ts) corre en `after()`, y cada
@@ -68,6 +74,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // ?pasos=1 (cartero 1.15.3, la E): lo que están haciendo AHORA los chats ocupados de una cuenta, cada ~15 s desde
+    // `vigilar`. Liviano: sólo pisa la foto de esa cuenta (lib/centro-pasos-db.ts), con el token del cartero.
+    if (req.nextUrl.searchParams.has('pasos')) {
+      if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
+      const o = (cuerpo && typeof cuerpo === 'object' ? cuerpo : {}) as Record<string, unknown>;
+      if (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta)) return NextResponse.json({ error: 'falta la cuenta' }, { status: 400 });
+      const chats = await guardarPasos(o.cuenta, o.pasos);
+      return NextResponse.json({ ok: true, chats });
+    }
+    // ?plan=1 (cartero 1.15.7): «tráeme las más prioritarias», de sólo lectura y atado a un pedido firmado de Martín.
+    // Lo que puede y lo que no, en lib/centro-plan-chat.ts (⚠️ revisión de seguridad).
+    if (req.nextUrl.searchParams.has('plan')) {
+      if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
+      const r = await planDesdeElChat(cuerpo);
+      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
     const salida = await cicloCartero(token, cuerpo);
     if (!salida) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
     return NextResponse.json(salida);

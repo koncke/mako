@@ -103,10 +103,13 @@ import {
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
-import { FILAS_PORTADA_EN_PILA, marcoDePortada } from '@/lib/graficos-identidad';
+import { FILAS_PORTADA_EN_PILA, acentoDeBloque, marcoDePortada } from '@/lib/graficos-identidad';
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
 import { useGeneral } from './ElementoGeneral';
+import { RedDeBloque } from './RedDeBloque';
+import { PestanasDashboard } from './PestanasDashboard';
+import { PARAM_PLANTILLAS, pestanasDelDashboard, type HojaCorta } from '@/lib/dashboard-focus';
 import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
 import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
 import type { Resultado } from '@/lib/graficos-agregar';
@@ -115,9 +118,11 @@ import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '
 import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
 import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
 import { CrearHoja, NuevaHoja } from './NuevaHoja';
+import type { ModoMako } from './ModosMako';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
 import { PanelEditarMako, type MensajeEdicion } from './PanelEditarMako';
+import { CLAVE_HILOS, hilosGuardados, hilosParaGuardar } from './hilo-guardado';
 import { pedidoDeProbar } from '@/lib/experimentos-catalogo';
 import { BarraControles } from './BarraControles';
 import { MenuFiltro } from './MenuFiltro';
@@ -296,7 +301,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
-  senales = null,
+  senales = null, unido = null, plantillasInicial = false,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -333,6 +338,14 @@ export function EditorInforme({
   informe?: 'dashboard' | 'general';
   /** Lo que se sabe del negocio para que la galería ponga primero sus sugeridas (lib/plantillas-sugeridas.ts). */
   senales?: SenalesNegocio | null;
+  /**
+   * El Dashboard unido (17/10/2026, lib/dashboard-focus.ts): las hojas del OTRO informe, para la tira de arriba («Focus»
+   * y las de General si esto es el Dashboard; las del Dashboard si esto es Focus). null = sin la tira (el closer, el
+   * setter, un link compartido).
+   */
+  unido?: { otras: HojaCorta[] } | null;
+  /** `?plantillas=1`: «Templates» desde Focus. Abre la galería al entrar. */
+  plantillasInicial?: boolean;
 }) {
   // El informe del primer render: el que vino, más la hoja que pidió el link si no estaba.
   const [arranque] = useState<Tablero>(() => conHojaAgregada(inicial, hojaAgregada));
@@ -341,21 +354,39 @@ export function EditorInforme({
   tableroRef.current = tablero;
   const [hojaId, setHojaId] = useState(hojaInicial);
   const [llamada, setLlamada] = useState<number | null>(llamadaInicial);
-  const [editando, setEditando] = useState(false);
+  // `?probar=` (una hipótesis de Offer) abre «Editar con MaKo»: es un pedido de CAMBIAR la hoja, así que entra editando
+  // (17/10/2026: el panel que cambia la hoja sólo existe editando; en vista, MaKo asesora).
+  const [editando, setEditando] = useState(() => !!probarInicial && !soloLectura && !compartido);
+  const editandoRef = useRef(editando);
+  editandoRef.current = editando;
   const [dispositivoElegido, setDispositivo] = useState<Dispositivo>('escritorio');
   const dispositivo: Dispositivo = editando ? dispositivoElegido : 'escritorio';
   const [selId, setSelId] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu>(null);
   const [modalDatos, setModalDatos] = useState(false);
-  const [nuevaHoja, setNuevaHoja] = useState(false);
+  const [nuevaHoja, setNuevaHoja] = useState(() => plantillasInicial && !lecturaFallo && !soloLectura && !compartido);
   const [enBlanco, setEnBlanco] = useState(sinPaginas && !soloLectura && !compartido);
   const [analista, setAnalista] = useState(false);
-  // «Editar con MaKo» (16/10/2026, ./PanelEditarMako.tsx): el panel, y el hilo de cada hoja (de la sesión: cerrar y abrir
-  // el panel no lo pierde, recargar sí).
+  // «Editar con MaKo» (16/10/2026, ./PanelEditarMako.tsx): el panel, y el hilo de cada hoja (cerrar y abrir el panel no lo
+  // pierde, y desde el 17/10 recargar tampoco).
   const [makoEditar, setMakoEditar] = useState(!!probarInicial);
   // La hipótesis de `?probar=` va escrita UNA vez: cerrado el panel, abrirlo de nuevo no la vuelve a poner.
   const [probar, setProbar] = useState(probarInicial ?? '');
   const [hilosMako, setHilosMako] = useState<Record<string, MensajeEdicion[]>>({});
+  // Y SOBREVIVE A RECARGAR (17/10/2026, ./hilo-guardado.ts): se lee del navegador DESPUÉS de montar (el primer dibujo del
+  // server no lo conoce) y se guarda liviano en cada cambio. `hilosListos` evita guardar el `{}` del primer render encima.
+  const [hilosListos, setHilosListos] = useState(false);
+  useEffect(() => {
+    try {
+      const g = hilosGuardados(window.localStorage.getItem(CLAVE_HILOS(informe)));
+      if (Object.keys(g).length) setHilosMako((x) => ({ ...g, ...x }));
+    } catch { /* sin almacenamiento (modo privado): el hilo queda de la sesión */ }
+    setHilosListos(true);
+  }, [informe]);
+  useEffect(() => {
+    if (!hilosListos) return;
+    try { window.localStorage.setItem(CLAVE_HILOS(informe), JSON.stringify(hilosParaGuardar(hilosMako))); } catch { /* lleno o bloqueado */ }
+  }, [hilosMako, hilosListos, informe]);
   const [detalle, setDetalle] = useState<{ id: string; sel: SelDetalle } | null>(null);
   const [vista, setVista] = useState<VistaValores>({});
   const [version, setVersion] = useState(0);
@@ -888,15 +919,38 @@ export function EditorInforme({
 
   // ── Los modales: onCerrar con identidad FIJA (AGENTS.md: si no, el foco salta en cada tecla) ──────
   const cerrarNuevaHoja = useCallback(() => setNuevaHoja(false), []);
+  // `?plantillas=1` abre la galería UNA vez: el parámetro se va de la URL, o recargar la volvería a abrir.
+  useEffect(() => {
+    if (!plantillasInicial) return;
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      qs.delete(PARAM_PLANTILLAS);
+      const q = qs.toString();
+      window.history.replaceState(null, '', `${window.location.pathname}${q ? `?${q}` : ''}`);
+    } catch { /* sin history: recargar la vuelve a abrir, nada más */ }
+  }, [plantillasInicial]);
   const cerrarAnalista = useCallback(() => setAnalista(false), []);
   // Los dos paneles van en el mismo lugar (`.an`): abrir uno cierra el otro.
   const alternarAnalista = useCallback(() => { setMenu(null); setMakoEditar(false); setAnalista((v) => !v); }, []);
   const cerrarMakoEditar = useCallback(() => { setMakoEditar(false); setProbar(''); }, []);
   const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setProbar(''); setMakoEditar((v) => !v); }, []);
+  // #862: «Analizar · Editar» en la cabecera del panel de MaKo, sin cerrarlo: el AI Analyst y «Editar con MaKo» son el
+  // MISMO MaKo en dos modos. Sólo si la persona tiene los dos (el AI Analyst no es del que sólo mira; editar, sí del que guarda).
+  // 17/10/2026: y sólo EDITANDO. Mirando, el MaKo de la hoja es el AI Analyst y no ofrece pasar a Editar.
+  const conModosMako = editando && !soloMirar && guardable && !enBlanco && !compartido;
+  const cambiarModoMako = useCallback((m: ModoMako) => {
+    setMenu(null);
+    setProbar('');
+    setAnalista(m === 'analizar');
+    setMakoEditar(m === 'editar');
+  }, []);
   /** La hoja de ese id como está AHORA en el informe (el panel compara por referencia antes de aplicar o deshacer). */
   const leerHoja = useCallback((id: string) => tableroRef.current.hojas.find((h) => h.id === id) ?? null, []);
-  /** Lo que cambió MaKo (o su Deshacer) entra por `mutar`: tiene deshacer, y lo guarda el autoguardado de siempre. */
-  const ponerHojaDeMako = useCallback((h: Hoja) => mutarHoja(() => h, h.id), [mutarHoja]);
+  /**
+   * Lo que cambió MaKo (o su Deshacer) entra por `mutar`: tiene deshacer, y lo guarda el autoguardado de siempre. SÓLO
+   * EDITANDO (17/10/2026): una respuesta que llega después de tocar «Ver» no entra. La ruta tampoco la arma en vista.
+   */
+  const ponerHojaDeMako = useCallback((h: Hoja) => { if (editandoRef.current) mutarHoja(() => h, h.id); }, [mutarHoja]);
   const hojaDelHilo = hoja.id;
   const alHiloMako = useCallback((fn: (h: MensajeEdicion[]) => MensajeEdicion[]) => {
     setHilosMako((x) => ({ ...x, [hojaDelHilo]: fn(x[hojaDelHilo] ?? []) }));
@@ -1008,7 +1062,8 @@ export function EditorInforme({
   const solosPila = solosEnPila(ordenados, (c) => esGrafico(c) && esTarjetaNumero(c.tipo) && !(c.w >= 6 && c.h >= 5) && !marcoDePortada(c));
   const primerGrafico = ordenados.find(esGrafico)?.id ?? null;
   const primerConMako = ordenados.find((c): c is Grafico => esGrafico(c) && conMako(c) && !!datos[c.id]?.resultado)?.id ?? null;
-  const alternarEdicion = () => { setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
+  // Al tocar «Ver» con «Editar con MaKo» abierto, el panel pasa a Analizar (17/10/2026): mirando, MaKo asesora.
+  const alternarEdicion = () => { if (editando && makoEditar) { setMakoEditar(false); setProbar(''); setAnalista(true); } setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
   const puedeNuevaHoja = guardable && tablero.hojas.length < MAX_HOJAS;
   /**
    * Un elemento de la barra de inserción (o de su menú), agregado al lienzo. `inicial` es lo que trae una variante
@@ -1141,10 +1196,15 @@ export function EditorInforme({
     const altoLibre = enPila && esGrafico(c) && graficoAltoLibreEnPila(c);
     // Un número (los cuadros de resultados) mide en la pila lo que dibuja, con el piso de una tarjeta de 3 filas: un CPM de
     // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
-    // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color; en la pila mide menos que en el escritorio.
-    const portada = marcoDePortada(c);
+    // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color —el de la hoja, si eligió uno (#859)—; en la
+    // pila mide menos que en el escritorio.
+    const portada = marcoDePortada(c, hoja.tema.acento);
     const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(portada ? Math.min(c.h, FILAS_PORTADA_EN_PILA) : c.h) }) : {};
-    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto, ...(portada?.estilo ?? {}) } as CSSProperties;
+    // #859: lo que un bloque de General pinta RELLENO (barras, botones, los números del Plan) toma el color de la hoja
+    // (`--gb-acento`, app/general/bloques/comun.tsx). Los links de texto siguen en `--primary`: un acento claro sobre la
+    // tarjeta blanca no se leería. Con portada manda la portada.
+    const acento = esElemento(c) && c.tipo === 'general' && !portada ? acentoDeBloque(hoja.tema.acento) : null;
+    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto, ...(portada?.estilo ?? {}), ...(acento ?? {}) } as CSSProperties;
     const alClic = (ev: ReactMouseEvent) => {
       if (!editando) return;
       ev.stopPropagation();
@@ -1159,9 +1219,13 @@ export function EditorInforme({
       // Lo mismo un texto, un enlace, una sección o una acción: en el teléfono un título envuelve en más renglones que en el
       // escritorio, y con el alto de la grilla salía con una barra de scroll adentro del título.
       const lugar = enPila && (bloque || ELEMENTOS_ALTO_LIBRE_EN_PILA.has(c.tipo)) ? { ...base, height: 'auto', minHeight: 0 } : base;
+      // La RED POR TARJETA (./RedDeBloque.tsx): un elemento que tira al dibujarse dice «Este bloque no cargó» y la hoja
+      // sigue en pie. Un bloque de General trae además la suya (./ElementoGeneral.tsx), la del teléfono.
       return (
         <div key={c.id} data-comp={c.id} className={`lk-comp ${bloque ? 'lk-comp--general' : 'lk-comp--elemento'}${portada ? ` ${portada.clase}` : ''}${elegido || marcada ? ' lk-comp--sel' : ''}`} style={lugar} onClick={alClic} data-forma={portada?.forma}>
-          <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} ctx={ctxDe(c)} />
+          <RedDeBloque nombre={c.texto.trim() || c.tipo} reiniciarCon={[c]}>
+            <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} ctx={ctxDe(c)} />
+          </RedDeBloque>
         </div>
       );
     }
@@ -1220,12 +1284,18 @@ export function EditorInforme({
             Sin `onDetalle`, el clic en un número no hace nada y no se pinta como clicable. Desde v5, lo que
             abre lo decide el gráfico (`alClicDe`: el detalle, su pop-up o nada). */}
         {(() => {
-          const cuerpo = popupDelCloser ? <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={popupDelCloser} efectivo={ef} />
-            : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} />;
+          // #860: el ▶ de un anuncio, sólo con sesión (en un link compartido la ruta del video no contesta) y mirando.
+          const conReproductor = !compartido && !editando;
+          const cuerpo = popupDelCloser ? <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={popupDelCloser} efectivo={ef} conReproductor={conReproductor} />
+            : <CuerpoGrafico g={c} estado={est} tema={hoja.tema} onDetalle={editando || soloMirar ? undefined : alClicDe(c)} efectivo={ef} conReproductor={conReproductor} />;
           // Las acciones EN LA FILA (`tabla.acciones`: «Marcar cobrada»…) van sólo mirando y con sesión: sin este
           // provider la tabla no dibuja la columna (useColumnaAcciones devuelve null).
-          return c.tabla?.acciones && !editando && !compartido
+          const conAcciones = c.tabla?.acciones && !editando && !compartido
             ? <AccionesFilaProvider g={c} efectivo={ef} onCambio={refrescar}>{cuerpo}</AccionesFilaProvider> : cuerpo;
+          // La red por tarjeta: un gráfico que tira dice «Este bloque no cargó» con su título arriba, y la hoja sigue en
+          // pie. Vuelve a intentar cuando cambia el gráfico o le llegan datos nuevos (`datos[c.id]`, no `est`: sin datos,
+          // `est` es un objeto nuevo en cada render).
+          return <RedDeBloque nombre={tituloDe(c)} reiniciarCon={[c, datos[c.id]]}>{conAcciones}</RedDeBloque>;
         })()}
       </div>
     );
@@ -1237,12 +1307,24 @@ export function EditorInforme({
   // los gráficos, en el medio poner un botón de 'Nuevo Dashboard' nada más»): la topbar muestra una hoja vacía y sin
   // filtros, sin el desplegable de hojas (por dentro viaja el inicial) y sin editar el título.
   const hojaTop: Hoja = enBlanco ? { ...hoja, nombre: esGeneral ? 'General' : 'Dashboard', emoji: esGeneral ? '🧭' : '📊', subtitulo: '', controles: [], componentes: [] } : hoja;
+  // El Dashboard unido (lib/dashboard-focus.ts): las hojas de ESTE editor salen de lo que hay en pantalla (una hoja
+  // nueva, renombrada o borrada se ve en el acto), las del otro informe de lo que leyó el server. En blanco, General
+  // es sólo Focus (su inicial viaja por dentro) y el Dashboard no tiene ninguna.
+  const propias: HojaCorta[] = (esGeneral ? (enBlanco ? tablero.hojas.slice(0, 1) : tablero.hojas) : (enBlanco ? [] : tablero.hojas))
+    .map((h) => ({ id: h.id, nombre: h.nombre, emoji: h.emoji }));
+  const pestanas = unido ? (esGeneral ? pestanasDelDashboard(propias, unido.otras) : pestanasDelDashboard(unido.otras, propias)) : null;
 
   return (
     <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`} onContextMenu={alClicDerecho}>
       <span ref={anclaContextual} aria-hidden style={{ position: 'fixed', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none' }} />
       {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
       {conflicto && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local" accion={{ label: 'Recargar', onClick: recargar }}>Cambió en otra pestaña. Lo de aquí no se guarda.</Banner></div>}
+
+      {/* ── Arriba de todo, el Dashboard unido: «Focus», las hojas y «Templates» (./PestanasDashboard.tsx) ── */}
+      {pestanas && (
+        <PestanasDashboard pestanas={pestanas} actual={hoja.id} informe={informe} onIr={irAHoja}
+          onTemplates={esGeneral || !guardable ? null : () => { setMenu(null); setNuevaHoja(true); }} />
+      )}
 
       {/* ── La topbar, como la de Looker: el título de la hoja (con su desplegable) y a la derecha los
              filtros, Compartir, Editar y el ⋮ ── */}
@@ -1272,9 +1354,11 @@ export function EditorInforme({
             </div>
             )}
             {/* «Editar con MaKo» (16/10/2026): el logo solo sobre negro, chico (punto 3 de la tanda de la topbar: «solo el
-                logo con el fondo negro, nada más»). Sólo quien puede guardar, y con una hoja. */}
-            {guardable && !enBlanco && !compartido && (
-              <BotonMako lado={30} title="Editar con MaKo" encendido={makoEditar} onClick={alternarMakoEditar} />
+                logo con el fondo negro, nada más»). Sólo quien puede guardar, y con una hoja. MIRANDO abre el AI Analyst
+                (17/10/2026, Martín: «al estar en VISTA del dashboard debería asesorar, no modificar»); editando, el que cambia. */}
+            {guardable && !enBlanco && !compartido && (editando
+              ? <BotonMako lado={30} title="Editar con MaKo" encendido={makoEditar} onClick={alternarMakoEditar} />
+              : <BotonMako lado={30} title="Analizar con MaKo" encendido={analista} onClick={alternarAnalista} />
             )}
             {/* «Editar» en azul (punto 3 de v5). Compartir se fue al ⋮. */}
             {!soloMirar && !enBlanco && (
@@ -1448,11 +1532,12 @@ export function EditorInforme({
 
         {/* El AI Analyst es un panel (un `aside` de alto completo), no un modal: va en esta fila, encima del
             lienzo en la compu (./edicion-css.ts). Con la vista: el análisis a mano mira lo que la persona eligió. */}
-        {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} />}
-        {makoEditar && guardable && !enBlanco && !compartido && (
-          <PanelEditarMako hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
+        {/* #862: los dos son el MISMO MaKo en dos modos («Analizar · Editar», ./ModosMako.tsx), cuando la persona tiene los dos. */}
+        {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} onModo={conModosMako ? cambiarModoMako : undefined} />}
+        {makoEditar && editando && guardable && !enBlanco && !compartido && (
+          <PanelEditarMako editando={editando} hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
             onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
-            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} />
+            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} onModo={conModosMako ? cambiarModoMako : undefined} />
         )}
       </div>
 

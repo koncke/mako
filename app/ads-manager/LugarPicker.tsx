@@ -15,10 +15,8 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import {
-  ETIQUETA_TIPO, RADIOS_CIUDAD_KM, RADIOS_DIRECCION_KM,
-  agregarLugar, cambiarRadio, claveFila, geoSpecDe, lugarDireccion, mismoLugar, nombrePais, quitarLugar, rotuloRadio, type LugarMeta,
-} from '@/lib/meta-geo';
+import { ETIQUETA_TIPO, RADIOS_CIUDAD_KM, RADIOS_DIRECCION_KM,
+  agregarLugar, cambiarRadio, claveFila, geoSpecDe, lugarDireccion, mismoLugar, nombrePais, quitarLugar, rotuloRadio, type LugarMeta, esLinkSinCoordenadas, pinDesdeTexto } from '@/lib/meta-geo';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -158,7 +156,11 @@ export function LugarPicker({ lugares, setLugares, sugerido, onValidez, compacto
     color: on ? (color === 'bad' ? 'var(--bad)' : 'var(--primary-strong)') : 'var(--dim)',
   });
   const textoBusqueda = q.trim();
-  const ofrecerDireccion = pareceDireccion(textoBusqueda);
+  // Un punto del mapa (17/10/2026): coordenadas o el link LARGO de Google Maps. Un link sin coordenadas (el corto) no se
+  // ofrece como calle: se dice qué pegar (lib/meta-geo.ts, `pinDesdeTexto`).
+  const pinPegado = pinDesdeTexto(textoBusqueda);
+  const linkSinCoordenadas = esLinkSinCoordenadas(textoBusqueda);
+  const ofrecerDireccion = !pinPegado && !linkSinCoordenadas && pareceDireccion(textoBusqueda);
 
   return (
     <div style={{ width: '100%', maxWidth: compacto ? undefined : 500, display: 'flex', flexDirection: 'column', gap: compacto ? 10 : 14, alignSelf: 'center' }}>
@@ -189,6 +191,17 @@ export function LugarPicker({ lugares, setLugares, sugerido, onValidez, compacto
               </button>
             );
           })}
+          {pinPegado && (
+            <button type="button" onClick={() => sumar(pinPegado)}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              style={{ textAlign: 'left', padding: '9px 12px', borderRadius: 9, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+              <div style={{ fontFamily: SANS, fontSize: fs.titulo - 1, color: 'var(--ink)', fontWeight: 500 }}>Usar el punto {pinPegado.nombre}</div>
+              <div style={{ fontFamily: MONO, fontSize: fs.sub, color: 'var(--faint)' }}>Punto del mapa · con un radio alrededor</div>
+            </button>
+          )}
+          {linkSinCoordenadas && (
+            <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--dim)' }}>Ese link no trae el punto. Pega el link largo del mapa o las coordenadas.</div>
+          )}
           {ofrecerDireccion && (
             <button type="button" onClick={() => sumar(lugarDireccion(textoBusqueda))}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}

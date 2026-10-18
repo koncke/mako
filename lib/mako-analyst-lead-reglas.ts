@@ -129,6 +129,58 @@ export function compactarProductos(salida: string): string {
   });
 }
 
+type FilaQA = { pregunta?: unknown; respuesta?: unknown; q?: unknown; a?: unknown };
+
+/**
+ * `ficha_lead` es un JSON y `recortar` corta TEXTO por el final: con una ficha larga lo primero que se perdía eran
+ * `formulario_meta` y `formulario_landing` (van al final, y son justo lo que el lead contestó), y lo que quedaba era
+ * un JSON cortado a media palabra. Acá, si no entra, se ACORTAN las respuestas largas (y, si hace falta, se dejan
+ * menos filas diciendo cuántas se omitieron) hasta que entre: sigue siendo un JSON válido, con lo de arriba (el lead,
+ * su etapa, su cierre) intacto, y `ficha_acortada` le avisa al modelo que hay respuestas más cortas que las reales.
+ * Si ni así entra (una ficha monstruosa), vuelve lo más corto que se pudo y `recortar` hace el resto.
+ */
+const NIVELES_DE_FICHA: ReadonlyArray<{ pregunta: number; respuesta: number; filas: number }> = [
+  { pregunta: 120, respuesta: 200, filas: 12 },
+  { pregunta: 80, respuesta: 120, filas: 8 },
+  { pregunta: 50, respuesta: 70, filas: 6 },
+  { pregunta: 40, respuesta: 40, filas: 4 },
+];
+
+export function compactarFicha(salida: string, tope: number): string {
+  if (salida.length <= tope) return salida;
+  let j: unknown;
+  try { j = JSON.parse(salida); } catch { return salida; }
+  if (!j || typeof j !== 'object' || Array.isArray(j)) return salida;
+  const ficha = j as Record<string, unknown>;
+  const corto = (v: unknown, n: number): unknown => (typeof v === 'string' && v.length > n ? `${v.slice(0, Math.max(1, n - 1))}…` : v);
+  const filasDe = (v: unknown, n: { pregunta: number; respuesta: number; filas: number }): { filas: unknown[]; omitidas: number } | null => {
+    if (!Array.isArray(v)) return null;
+    const filas = (v as FilaQA[]).slice(0, n.filas).map((f) => (f && typeof f === 'object'
+      ? { ...f, ...(f.pregunta !== undefined ? { pregunta: corto(f.pregunta, n.pregunta) } : {}), ...(f.respuesta !== undefined ? { respuesta: corto(f.respuesta, n.respuesta) } : {}),
+        ...(f.q !== undefined ? { q: corto(f.q, n.pregunta) } : {}), ...(f.a !== undefined ? { a: corto(f.a, n.respuesta) } : {}) }
+      : f));
+    return { filas, omitidas: v.length - filas.length };
+  };
+  let ultimo = salida;
+  for (const nivel of NIVELES_DE_FICHA) {
+    const out: Record<string, unknown> = { ...ficha, ficha_acortada: 'las respuestas largas de los formularios se acortaron para que entren' };
+    for (const k of ['formulario_meta', 'formulario_landing'] as const) {
+      const r = filasDe(ficha[k], nivel);
+      if (!r) continue;
+      out[k] = r.filas;
+      const previas = typeof ficha[`${k}_omitidas`] === 'number' ? (ficha[`${k}_omitidas`] as number) : 0;
+      if (r.omitidas + previas > 0) out[`${k}_omitidas`] = r.omitidas + previas;
+    }
+    const resp = ficha.respuestas;
+    if (resp && typeof resp === 'object' && !Array.isArray(resp)) {
+      out.respuestas = Object.fromEntries(Object.entries(resp as Record<string, unknown>).map(([k, v]) => [k, filasDe(v, nivel)?.filas ?? v]));
+    }
+    ultimo = JSON.stringify(out);
+    if (ultimo.length <= tope) return ultimo;
+  }
+  return ultimo;
+}
+
 export type LecturaHecha = { id: string; ok: true; salida: string } | { id: string; ok: false };
 
 /**
@@ -160,10 +212,11 @@ export function contextoDelLead(p: { leadId: number; nombre: string; lecturas: r
   for (const def of LECTURAS_DEL_LEAD) {
     const l = porId.get(def.id);
     if (!l || !l.ok || !l.salida.trim()) { faltan.push(def.titulo); continue; }
-    const crudo = def.id === 'productos_del_lead' ? compactarProductos(l.salida) : l.salida;
     const lugar = TOPE_CONTEXTO - usado - (def.titulo.length + 5);
     if (lugar < 200) { faltan.push(`${def.titulo} (no entró por largo)`); continue; }
-    const cuerpo = recortar(crudo, Math.min(def.tope, lugar));
+    const cabe = Math.min(def.tope, lugar);
+    const crudo = def.id === 'productos_del_lead' ? compactarProductos(l.salida) : def.id === 'ficha_lead' ? compactarFicha(l.salida, cabe) : l.salida;
+    const cuerpo = recortar(crudo, cabe);
     bloques.push(`[${def.titulo}]\n${cuerpo}`);
     usado += def.titulo.length + 5 + cuerpo.length;
   }

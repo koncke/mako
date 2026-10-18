@@ -52,8 +52,8 @@ import { estadoDeCuenta } from '@/lib/pagos-vistazo';
 import { planEnLead, tieneDeal } from '@/lib/muestra-pagos';
 import { pipelineStageOf } from '@/lib/pipeline';
 import {
-  cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, proximaLlamada, seMueveEnElTelefono, seSacaEnElTelefono,
-  FUERA_DE_ACTIVIDAD, type LineaActividad,
+  cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, progresoEnFunnel, proximaLlamada, senalDeTarjeta, seMueveEnElTelefono,
+  seSacaEnElTelefono, FUERA_DE_ACTIVIDAD, type LineaActividad, type SenalTarjeta,
 } from './reglas';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -84,6 +84,11 @@ export type FichaV2 = {
    * etapa… (`resumenDelTelefono`, ./ficha-bloques.ts). null = sin el lead (no se dibuja ninguna).
    */
   resumen: ResumenTelefono | null;
+  /**
+   * La barra de avance del encabezado (17/10/2026, copiada de la ficha del deal de Pipedrive): cuántas etapas tiene
+   * el camino del funnel de su casa y hasta cuál llegó (`progresoEnFunnel`). null = sin funnel.
+   */
+  progreso: { total: number; hasta: number | null } | null;
 };
 
 /**
@@ -177,6 +182,7 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
     totalNotas: notasTodas.length,
     actividad,
     ...delFunnel,
+    progreso: casa && stages.length ? progresoEnFunnel(stages, casa.etapa) : null,
     resumen: lead ? resumenDelTelefono(lead, {
       etapa: casa?.etapa ?? null, hoy: f.hoy, ahoraMs: ahora,
       siguiente: f.siguiente, enEtapa,
@@ -195,16 +201,36 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
 /** Cuántas tarjetas viajan por columna. El conteo dice el total; el resto, en la computadora. */
 const TOPE_COLUMNA = 40;
 
+/**
+ * El RELLENO de `mapToCrmLead` (app/crm/crm-map.ts) cuando el lead no tiene empresa: no es un dato. La fila del
+ * teléfono decía «Sin empresa» en casi todos los leads (medido en el ws9 el 17/10/2026) y nunca llegaba a decir por
+ * dónde llegó, que era su respaldo. Pipedrive pone ahí «$ · organización · persona»: lo que haya.
+ */
+const SIN_EMPRESA = 'Sin empresa';
+
 export type TarjetaCrmM = {
   id: number;
   col: string;
   nombre: string;
   /** La empresa o por dónde llegó. */
   segunda: string | null;
-  cuando: string;
+  /**
+   * A la derecha de la fila (17/10/2026, el indicador de Pipedrive): la reunión agendada, el plazo de la Nutrición
+   * manual o cuándo llegó (`senalDeTarjeta`, ./reglas.ts). Lo mismo que el pie de la tarjeta de escritorio.
+   */
+  senal: SenalTarjeta;
   /** El monto (o el estimado, con «≈»), corto. */
   plata: string | null;
+  /** Por dónde llegó (`canalDeLead`): el subtítulo y la insignia de la cara (17/10/2026, la familia de tarjetas). */
+  canal: string;
+  /** La cara: la elegida o la de WhatsApp guardada. Sin ninguna, iniciales. */
+  foto: string | null;
+  /** Sólo dígitos, para Llamar y WhatsApp en la ficha rápida. */
+  telefono: string | null;
 };
+
+/** «Próximo» (17/10/2026, la destacada del prototipo): la próxima reunión que todavía no pasó. */
+export type ProximoCrmM = { id: number; nombre: string; cuando: string; plata: string | null; telefono: string | null; foto: string | null; col: string };
 
 export type TableroCrmM = {
   /** null = el funnel del negocio (como `leads.funnel_id`). */
@@ -212,8 +238,9 @@ export type TableroCrmM = {
   /** El selector: el del negocio primero. Con uno solo, no hay selector. */
   funnels: Array<{ id: number | null; nombre: string }>;
   /** `movible`: se puede llevar un lead ACÁ desde el teléfono; `sale`: se puede sacar uno de acá. */
-  columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean; sale: boolean }>;
+  columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean; sale: boolean; camino: boolean }>;
   tarjetas: TarjetaCrmM[];
+  proximo: ProximoCrmM | null;
 };
 
 const BANDA_ORDEN = ['pipeline', 'nutricion', 'salidas'];
@@ -250,15 +277,44 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
     for (const c of ordenados) porCol.get(etapaEnTablero(c.stage, keys))?.push(c);
 
     const tarjetas: TarjetaCrmM[] = [];
+    const ahoraMs = Date.now();
     for (const [col, cs] of porCol) {
       for (const c of cs.slice(0, TOPE_COLUMNA)) {
         const monto = c.monto > 0 ? plataCorta(c.monto) : (c.ingresoEstimado ?? 0) > 0 ? `≈ ${plataCorta(c.ingresoEstimado ?? 0)}` : null;
+        const empresa = c.company?.trim();
         tarjetas.push({
           id: c.id, col, nombre: c.name?.trim() || 'Sin nombre',
-          segunda: c.company?.trim() || llegoPor(c.canal, c.origin) || null,
-          cuando: cuandoEnLista(c.createdISO, tz, hoy),
+          segunda: (empresa && empresa !== SIN_EMPRESA ? empresa : null) || llegoPor(c.canal, c.origin) || null,
+          senal: senalDeTarjeta({
+            reunionISO: c.fechaJ1, manualDeadline: c.nutriManualDeadline, enManual: col === 'manual',
+            abierto: c.estadoLead === 'abierto', creadoISO: c.createdISO,
+          }, ahoraMs, tz, hoy),
           plata: monto,
+          canal: c.canal,
+          foto: c.foto ?? null,
+          telefono: c.telefonoNorm ?? null,
         });
+      }
+    }
+    // «Próximo»: la reunión más cercana que no pasó, de un lead abierto. Una fecha sin hora (sólo el día) cuenta todo
+    // el día; una con hora, hasta una hora después de empezar (la misma gracia que las reuniones de escritorio).
+    let proximo: ProximoCrmM | null = null;
+    {
+      let mejor: { c: (typeof ordenados)[number]; ms: number } | null = null;
+      for (const c of ordenados) {
+        if (c.estadoLead !== 'abierto' || !c.fechaJ1) continue;
+        const soloDia = c.fechaJ1.length <= 10;
+        const ms = Date.parse(soloDia ? `${c.fechaJ1}T23:59:59` : c.fechaJ1);
+        if (!Number.isFinite(ms)) continue;
+        if (soloDia ? c.fechaJ1 < hoy : ms + 60 * 60_000 < ahoraMs) continue;
+        if (!mejor || ms < mejor.ms) mejor = { c, ms };
+      }
+      if (mejor) {
+        const c = mejor.c;
+        const col = etapaEnTablero(c.stage, keys);
+        const senal = senalDeTarjeta({ reunionISO: c.fechaJ1, manualDeadline: null, enManual: false, abierto: true, creadoISO: c.createdISO }, ahoraMs, tz, hoy);
+        const plata = c.monto > 0 ? plataCorta(c.monto) : (c.ingresoEstimado ?? 0) > 0 ? `≈ ${plataCorta(c.ingresoEstimado ?? 0)}` : null;
+        proximo = { id: c.id, nombre: c.name?.trim() || 'Sin nombre', cuando: senal.tono === 'verde' && senal.texto ? senal.texto : (c.fechaJ1!.length <= 10 ? (c.fechaJ1 === hoy ? 'Hoy' : c.fechaJ1!.slice(8, 10) + '/' + c.fechaJ1!.slice(5, 7)) : 'Ahora'), plata, telefono: c.telefonoNorm ?? null, foto: c.foto ?? null, col };
       }
     }
     const lite = stages.map((s) => ({ key: s.key, label: s.label, kind: s.kind ?? null }));
@@ -276,9 +332,12 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
         return {
           key: s.key, titulo: s.label, total: t ? textoDelTotal(t) : null, cuantos: cs.length,
           movible: seMueveEnElTelefono(lite, s.key), sale: seSacaEnElTelefono(lite, s.key),
+          // Es un PASO del recorrido (la banda pipeline): la barra de «Paso N de M» no cuenta nutrición ni salidas.
+          camino: (s.band ?? 'pipeline') === 'pipeline',
         };
       }),
       tarjetas,
+      proximo,
     };
   } catch (e) {
     console.error(`[m/crm] tablero: ${msg(e)}`);

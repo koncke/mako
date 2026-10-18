@@ -99,7 +99,9 @@ test('«dichoPor» deja de ser una regla sin consecuencia: el parser lo lee', ()
   // El prompt lo pedía desde siempre y `coerceCandidatas` lo tiraba, así que el campo que
   // existe para OBLIGAR a separar «quién habló» de «quién ejecuta» no obligaba a nada.
   // Desde el 15/10/2026 pasa por `rotuloDePersona` (un rol inventado no queda): sigue LEÍDO.
-  assert.match(SRC, /dichoPor: rotuloDePersona\(String\(o\.dichoPor/, 'el parser sigue descartando dichoPor');
+  // Desde el 17/10/2026 pasa antes por `limpiarLoDicho` (el nombre real en vez del de la cuenta de Fathom).
+  assert.match(SRC, /dichoPor: String\(o\.dichoPor \?\? ''\)\.trim\(\)/, 'el parser sigue descartando dichoPor');
+  assert.match(SRC, /dichoPor: rotuloDePersona\(limpio\.dichoPor/, 'el dichoPor ya no pasa por rotuloDePersona');
   assert.match(SRC, /dichoPor\?: string;/, 'dichoPor no está en el tipo');
 });
 
@@ -127,7 +129,12 @@ test('una lectura PARCIAL no se cachea, no se cierra y no se anuncia como entera
   // tramos caídos: el resultado mutilado quedaba en el caché para siempre, la reunión
   // se marcaba como vista y nunca se reintentaba, y el WhatsApp decía «saqué N tareas»
   // con el mismo tono que si la hubiera leído entera.
-  assert.match(auto, /if \(tareas\.length && !parcial\)/, 'el caché vuelve a guardar lecturas parciales');
+  // (17/10/2026: también sin una lectura que salteó partes o que completa otra: `&& !previa && !completando`.)
+  assert.match(auto, /if \(tareas\.length && !parcial(?: && [^)]*)?\)/, 'el caché vuelve a guardar lecturas parciales');
   assert.match(auto, /if \(!parcial\) \{\s*\n\s*await setSetting\(KEY_VISTA/, 'la reunión vuelve a cerrarse leída a medias');
-  assert.match(auto, /const cojas = hechas\.filter/, 'el aviso no distingue una lectura parcial de una entera');
+  // (17/10/2026: el aviso es una automatización de SuperAdmin y sus datos los arma lib/reunion-plan-aviso.ts: ahí se cuenta
+  // lo leído a medias, `plan_a_medias`.)
+  const aviso = readFileSync(resolve(RAIZ, 'lib', 'reunion-plan-aviso.ts'), 'utf8');
+  assert.match(aviso, /const cojas = hechas\.filter\(\(h\) => \(h\.partesFallidas \?\? 0\) > 0\)/, 'el aviso no distingue una lectura parcial de una entera');
+  assert.match(aviso, /plan_a_medias:/);
 });

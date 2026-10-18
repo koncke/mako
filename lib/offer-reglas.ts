@@ -296,13 +296,98 @@ function sanearPdf(raw: unknown): MensajeGuardado['pdf'] {
 /**
  * Un documento leído, como se guarda en `offer_sesiones.documentos` (con su texto). `archivero` = qué pasó
  * al guardarlo también en El Archivero (lib/offer-marco.ts → ArchiveroDoc); lo escribe `conArchivero`.
+ * `lectura` y `partes`: un documento que no entra en un pedido se lee ENTERO por partes (`partirEnPartes`, #865), y
+ * lo que viaja a los pedidos es esa lectura (`cuerpoDelDoc`).
  */
-export type DocumentoGuardado = { id: string; nombre: string; via: string; texto: string; chars: number; aviso?: string; archivero?: ArchiveroDoc; at: string };
+export type DocumentoGuardado = {
+  id: string; nombre: string; via: string; texto: string; chars: number; aviso?: string; archivero?: ArchiveroDoc; at: string;
+  lectura?: string; partes?: number;
+};
 
-/** Tope del texto que se guarda de un documento. */
-export const TOPE_TEXTO_DOC = 40_000;
+/**
+ * Tope del texto que se guarda de un documento: unas 4 horas de transcripción. Hasta el 17/10/2026 era 40.000 y la
+ * llamada de venta del ws13 (64.462) se guardaba cortada; desde entonces se guarda entera y se lee por partes.
+ */
+export const TOPE_TEXTO_DOC = 300_000;
 /** Cuántos documentos admite una conversación. */
 export const MAX_DOCS_SESION = 12;
+
+// ── Un documento largo se lee ENTERO, por partes (17/10/2026, tarjeta #865) ──
+// Medido en el ws13: la transcripción de una llamada de venta tenía 64.462 caracteres, se guardó cortada en 40.000
+// («Leí sólo el principio») y en cada pedido la IA leía ~17.000, porque los documentos de un pedido comparten 24.000.
+// Lo que dijo el cliente en la segunda mitad de la llamada no llegaba nunca. Ahora:
+//  · se guarda el texto entero (hasta `TOPE_TEXTO_DOC`, unas 4 horas de transcripción);
+//  · uno que no entra en un pedido (`TOPE_DOC_ENTERO`) se parte en pedazos SIN PERDER un carácter (`partirEnPartes`),
+//    la IA lee CADA pedazo y anota lo que sirve para la oferta, y lo que viaja a los pedidos es esa lectura entera
+//    (`lecturaPorPartes`), en orden y con todas las partes;
+//  · un pedazo que la IA no pudo leer va tal cual: se lee igual, sin resumir, y el chip lo dice (`avisoDeLectura`).
+
+/** Lo más largo que entra entero en un pedido: más que esto, se lee por partes. */
+export const TOPE_DOC_ENTERO = 16_000;
+/** Lo que lee la IA de una vez al leer por partes (unos 4.000 tokens, cabe en cualquier modelo gratis de la cascada). */
+export const TOPE_PARTE = 16_000;
+/** Cuántas partes como mucho (con `TOPE_TEXTO_DOC` / `TOPE_PARTE` alcanza; es el techo de pedidos por documento). */
+export const MAX_PARTES = 20;
+
+/** Dónde conviene cortar, de mejor a peor: un párrafo, una línea, una frase, una palabra. */
+const CORTES = ['\n\n', '\n', '. ', ' '];
+
+/**
+ * El texto en pedazos de hasta `tope`, cortando donde menos se rompe (un párrafo, una línea, una frase, una palabra; si
+ * no hay nada de eso, a la fuerza). Unidos dan EXACTAMENTE el texto: `partes.join('') === texto`. Con más partes que
+ * `MAX_PARTES`, el tope crece para que entre todo (nunca se descarta la cola).
+ */
+export function partirEnPartes(texto: string, tope = TOPE_PARTE): string[] {
+  if (!texto) return [];
+  const t = Math.max(tope, Math.ceil(texto.length / MAX_PARTES));
+  const out: string[] = [];
+  let i = 0;
+  while (i < texto.length) {
+    if (texto.length - i <= t) { out.push(texto.slice(i)); break; }
+    const ventana = texto.slice(i, i + t);
+    let corte = -1;
+    for (const c of CORTES) {
+      const k = ventana.lastIndexOf(c);
+      // Un corte en la primera mitad deja una parte enana: mejor el siguiente separador.
+      if (k >= t / 2) { corte = k + c.length; break; }
+    }
+    if (corte <= 0) corte = t;
+    out.push(texto.slice(i, i + corte));
+    i += corte;
+  }
+  return out;
+}
+
+/** La lectura de una parte que devuelve la IA, o null: `{"lectura": "..."}` con algo adentro. */
+export const TOPE_LECTURA_PARTE = 3_000;
+export function parseLectura(raw: unknown): string | null {
+  const o = aObjeto(raw);
+  const t = o && typeof o.lectura === 'string' ? o.lectura.trim() : '';
+  return t ? recortar(t, TOPE_LECTURA_PARTE) : null;
+}
+
+/**
+ * La lectura del documento entero: cada parte en orden, con lo que la IA anotó o, si no pudo, el pedazo TAL CUAL (no se
+ * pierde: se lee sin resumir).
+ */
+export function lecturaPorPartes(lecturas: ReadonlyArray<string | null | undefined>, partes: readonly string[]): string {
+  const n = partes.length;
+  return partes.map((p, i) => {
+    const l = lecturas[i]?.trim();
+    return l ? `[Parte ${i + 1} de ${n}]\n${l}` : `[Parte ${i + 1} de ${n}, tal cual]\n${p.trim()}`;
+  }).join('\n\n');
+}
+
+/** El aviso del chip: sólo si una parte quedó sin leer (se manda tal cual). Leído entero, no hace falta decir nada. */
+export function avisoDeLectura(lecturas: ReadonlyArray<string | null | undefined>, n: number): string | null {
+  const sin = lecturas.map((l, i) => (l?.trim() ? 0 : i + 1)).filter(Boolean);
+  if (!sin.length) return null;
+  const cuales = sin.length === 1 ? `la parte ${sin[0]}` : `las partes ${sin.slice(0, -1).join(', ')} y ${sin[sin.length - 1]}`;
+  return `No pude resumir ${cuales} de ${n}: va${sin.length === 1 ? '' : 'n'} tal cual.`;
+}
+
+/** Lo que de un documento viaja a un pedido: su lectura por partes si la tiene, si no el texto. */
+export const cuerpoDelDoc = (d: { texto: string; lectura?: string }): string => (d.lectura?.trim() ? d.lectura : d.texto);
 
 export function sanearDocumentos(raw: unknown): DocumentoGuardado[] {
   if (!Array.isArray(raw)) return [];
@@ -318,6 +403,9 @@ export function sanearDocumentos(raw: unknown): DocumentoGuardado[] {
       ...(typeof o.aviso === 'string' && o.aviso.trim() ? { aviso: o.aviso } : {}),
       ...conArchiveroSaneado(o.archivero),
       at: typeof o.at === 'string' ? o.at : '',
+      // ⚠️ Lista blanca: sin estas dos, la próxima escritura de la conversación borraba la lectura por partes.
+      ...(typeof o.lectura === 'string' && o.lectura.trim() ? { lectura: o.lectura } : {}),
+      ...(typeof o.partes === 'number' && Number.isInteger(o.partes) && o.partes > 0 ? { partes: o.partes } : {}),
     });
   }
   return out;
@@ -876,6 +964,32 @@ export function ofertaYaAnotada(cur: { ofertaId: number | null; ofertaVersion: n
 }
 
 /**
+ * A qué funnels va la oferta al guardarla (17/10/2026, tarjeta #895: «una oferta se guarda en uno o varios funnels»).
+ *  · `elegidos` null (un pedido sin elección: MaKo Mobile, una versión vieja de la pantalla): el de la conversación,
+ *    como antes; una conversación sin funnel (la v1) no se liga a ninguno.
+ *  · `elegidos` vacío: TODOS los funnels activos (la convención de `ElegirFunnels`: vacío = todos).
+ *  · Si no, los elegidos, sin repetir y en el orden en que se eligieron.
+ */
+export function destinoDeLaOferta(p: { funnelConversacion: number | null; elegidos: readonly number[] | null | undefined; activos: readonly number[] }): number[] {
+  if (p.elegidos == null) return p.funnelConversacion != null ? [p.funnelConversacion] : [];
+  if (!p.elegidos.length) return [...new Set(p.activos)];
+  return [...new Set(p.elegidos)];
+}
+
+/**
+ * Los avisos de ligar la oferta a VARIOS funnels, en uno: el primero que se arregla reintentando manda (es el que pide
+ * volver a tocar «Guardar»); si no, el primero. Sin avisos, nada.
+ */
+export function juntarLigas(rs: ReadonlyArray<{ aviso?: string; avisoReintentable?: boolean }>): { aviso?: string; avisoReintentable?: boolean } {
+  const conAviso = rs.filter((r) => r.aviso?.trim());
+  if (!conAviso.length) return {};
+  const reintentable = conAviso.find((r) => r.avisoReintentable);
+  const r = reintentable ?? conAviso[0];
+  const mas = conAviso.length - 1;
+  return { aviso: mas ? `${r.aviso} (y ${mas} aviso${mas === 1 ? '' : 's'} más)` : r.aviso, avisoReintentable: !!reintentable };
+}
+
+/**
  * `OfferSesionVista.ligada`: false SÓLO si hay oferta guardada, la conversación tiene funnel y la lectura
  * dijo que falta la liga (`leida === false`). Una lectura que no se hizo o falló (`undefined`) es true:
  * invitar a reintentar en falso es peor que un «Guardada» de más.
@@ -1220,11 +1334,19 @@ export function claveCifra(token: string): string | null {
   return String(Math.round(valor * escala * 100) / 100);
 }
 
-/** Todas las cifras de unos textos, como claves (`claveCifra`). Es «lo que dio el negocio». */
+/**
+ * Una hora («0:04:43», «12:30») o una fecha («16/10», «16/10/2026», «2026-10-16»): nunca es una cifra del negocio. Medido
+ * el 17/10/2026 en el ws13: la transcripción de una llamada que subió el dueño («0:04:43 Cristian: ¿Qué haces?») volvía
+ * «del negocio» a todos los números del 0 al 59, y el «43%» y el «36%» pasaban por dichos por él.
+ */
+const HORA_O_FECHA = /\b\d{1,2}:\d{2}(?::\d{2})?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b\d{4}-\d{2}-\d{2}\b/g;
+const sinHorasNiFechas = (t: string | null | undefined): string => (t ?? '').replace(HORA_O_FECHA, ' ');
+
+/** Todas las cifras de unos textos, como claves (`claveCifra`). Es «lo que dio el negocio». Sin horas ni fechas. */
 export function cifrasDelNegocio(textos: Array<string | null | undefined>): Set<string> {
   const out = new Set<string>();
   for (const t of textos) {
-    for (const m of (t ?? '').matchAll(CIFRA_ESCALA)) {
+    for (const m of sinHorasNiFechas(t).matchAll(CIFRA_ESCALA)) {
       const k = claveCifra(m[0]);
       if (k) out.add(k);
     }
@@ -1551,10 +1673,12 @@ export function alertaFoco(p: { productosActivos: number; ofertasActivas: number
   const conocida = typeof b === 'number' && Number.isInteger(b) && b >= 0 && b <= 4;
   if (conocida && (b as number) >= 2) return null;
   if (n < 3) return null;
-  const que = decl >= prods && decl >= ofs ? `Vendes ${decl} ofertas (contando las que no están cargadas en MaKo)`
-    : prods >= ofs ? `Tienes ${prods} productos activos` : `Tienes ${ofs} ofertas activas`;
+  // Cada número dice de dónde sale (17/10/2026, tarjeta #888): lo cargado en MaKo, lo que dijo el dueño o su
+  // diagnóstico de fase.
+  const que = decl >= prods && decl >= ofs ? `Vendes ${decl} ofertas, contando las que me dijiste que no están cargadas en MaKo`
+    : prods >= ofs ? `Tienes ${prods} productos activos en MaKo` : `Tienes ${ofs} ofertas activas en MaKo`;
   // El monto se dice en la MISMA unidad de la pregunta que el dueño contestó («$0 – $3.000»).
-  const factura = !conocida ? '' : b === 0 ? ' y tu negocio factura menos de $3.000 al mes' : ' y tu negocio factura menos de $10.000 al mes';
+  const factura = !conocida ? '' : `, y según tu diagnóstico de fase facturas menos de ${b === 0 ? '$3.000' : '$10.000'} al mes`;
   return `${que}${factura}: en la fase 1 conviene empujar una sola oferta hasta tener un anuncio ganador.`;
 }
 
@@ -1570,94 +1694,174 @@ export function alertaMargen(piezas: PiezasSabidas): string | null {
   if (precio.moneda && costo.moneda && precio.moneda !== costo.moneda) return null;
   const margen = (precio.monto - costo.monto) / precio.monto;
   if (margen >= 0.6) return null;
-  return `Con un precio de ${fmtMonto(precio)} y un costo de ${fmtMonto(costo)} por cliente, el margen bruto queda en ${pct(Math.max(0, margen))}: por debajo de 60% (el objetivo es 80%).`;
+  return `Con el precio (${fmtMonto(precio)}) y el costo por cliente (${fmtMonto(costo)}) que me diste, el margen bruto queda en ${pct(Math.max(0, margen))}: por debajo de 60% (el objetivo es 80%).`;
+}
+
+/** El margen bruto con los dos montos del dueño (misma moneda), o null. Lo usa también `cifrasConFuente`. */
+function margenDe(piezas: PiezasSabidas): number | null {
+  const precio = precioDe(piezas.precio?.valor);
+  const costo = costoDe(piezas.costo?.valor);
+  if (!precio || !costo || precio.monto <= 0) return null;
+  if (precio.moneda && costo.moneda && precio.moneda !== costo.moneda) return null;
+  return Math.max(0, (precio.monto - costo.monto) / precio.monto);
 }
 
 /**
- * Las tasas del embudo que se usan para los avisos (salen de lib/analisis-negocio.ts). `sinMarcar` son las
- * asistencias sin la calificación marcada: con alguna, «calificados» es un PISO y el cierre sobre calificados
- * sale inflado (ver `cierreConfiable`).
+ * El embudo de los últimos 90 días, en CUENTAS de la misma gente y con su período (17/10/2026, tarjeta #888). Lo arma
+ * `contextoOffer` con lib/analisis-negocio.ts.
+ *
+ * Antes eran tasas sueltas, y la de cierre dividía los cierres DEL PERÍODO por las asistencias DEL PERÍODO: a Código
+ * Inmobiliario (ws13) el diagnóstico le dijo «Cierras el 43% de todas las llamadas» (9 cierres sobre 21 asistencias), y
+ * 4 de esas 9 ventas nunca pasaron por una llamada. Martín, en la revisión del 16/10 (01:48:49): «43, ¿de dónde sacó ese
+ * número?». Ahora cada aviso cuenta a la MISMA gente («de los 21 que asistieron, compraron 6») y dice de dónde sale.
+ *
+ *  · `agendas`: los que reservaron en el período.
+ *  · `llamadas`: las primeras llamadas con fecha en el período, por cómo quedó marcada la asistencia.
+ *  · `calificados`: de los que asistieron, los marcados como calificados; `sinCalificar`, los que nadie marcó.
+ *  · `compraron` / `compraronCalificados`: de los que asistieron (o de los calificados), los que compraron, con
+ *    cualquier fecha de cierre.
  */
-export type TasasEmbudo = { show: number | null; cierreCalificados: number | null; cierreAsistencias: number | null; asistieron: number; sinMarcar: number };
+export type EmbudoOffer = {
+  desde: string; hasta: string;
+  agendas: number;
+  llamadas: { asistieron: number; noAsistieron: number; sinMarcar: number };
+  calificados: number; sinCalificar: number;
+  compraron: number; compraronCalificados: number;
+};
 
-/** Con menos asistencias que esto, una tasa es ruido. */
+/** Con menos llamadas que esto, una tasa es ruido. */
 export const MIN_ASISTENCIAS_EMBUDO = 10;
 
-const esNumero = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
-/** Una proporción que se puede afirmar: entre 0 y 1. Arriba de 1 hay un escalón contado de menos. */
-const proporcionPosible = (x: number | null | undefined): x is number => esNumero(x) && x >= 0 && x <= 1;
+/** Lo que de lib/analisis-negocio.ts (`AnalisisNegocio`) usa el embudo de Offer. */
+export type AnalisisParaEmbudo = {
+  periodo: { desde: string; hasta: string };
+  serie: Array<{ agendas_creadas: number; j1_noshow: number; j1_sin_marcar: number }>;
+  calificacion: { asistieron: number; calificados: number; sin_marcar: number; compraron?: number; compraron_calificados?: number };
+};
 
 /**
- * El cierre sobre las llamadas calificadas que un aviso puede AFIRMAR. Medido el 12/10/2026: a un cliente el
- * PDF le dijo «Cierras el 170% de las llamadas calificadas» y con eso le aconsejó subir el precio. Con
- * asistencias sin la calificación marcada, «calificados» es un PISO (lib/analisis-negocio.ts lo avisa) y el
- * cierre sobre calificados sale inflado. Lo que sí se sabe, porque calificados reales ≤ asistencias:
- *
- *   cierre sobre asistencias  ≤  cierre real sobre calificadas  ≤  cierre sobre el piso de calificados
- *
- * - `exacto`: sólo si no hay ninguna sin marcar, y es una proporción posible (0 a 1).
- * - `piso`: el de las asistencias (el real es igual o mayor). Sirve para decir «más de 30%».
- * - `techo`: el del piso de calificados (el real es igual o menor). Sirve para decir «menos de 25%».
- * Un número fuera de 0-1 no se dice nunca: arriba de 1 hay un escalón contado de menos.
+ * El embudo de Offer con el análisis del negocio: la asistencia y la calificación salen de la MISMA lectura que las
+ * compras (`leerCalificacion`, los que asistieron a una primera llamada del período). null si el análisis no trae las
+ * compras de esa gente o las cuentas no cierran (`embudoValido`).
  */
-export function cierreConfiable(t: TasasEmbudo | null | undefined): { exacto: number | null; piso: number | null; techo: number | null } {
-  if (!t) return { exacto: null, piso: null, techo: null };
-  const sinMarcar = esNumero(t.sinMarcar) ? t.sinMarcar : null;
-  const sobreCalif = proporcionPosible(t.cierreCalificados) ? t.cierreCalificados : null;
-  const exacto = sinMarcar === 0 ? sobreCalif : null;
+export function embudoDeAnalisis(a: AnalisisParaEmbudo | null | undefined): EmbudoOffer | null {
+  if (!a?.calificacion || !Array.isArray(a.serie)) return null;
+  const k = a.calificacion;
+  if (k.compraron == null || k.compraron_calificados == null) return null;
+  const suma = (f: (x: AnalisisParaEmbudo['serie'][number]) => number) => a.serie.reduce((s, x) => s + (Number(f(x)) || 0), 0);
+  const e: EmbudoOffer = {
+    desde: a.periodo?.desde ?? '', hasta: a.periodo?.hasta ?? '',
+    agendas: suma((x) => x.agendas_creadas),
+    llamadas: { asistieron: k.asistieron, noAsistieron: suma((x) => x.j1_noshow), sinMarcar: suma((x) => x.j1_sin_marcar) },
+    calificados: k.calificados, sinCalificar: k.sin_marcar,
+    compraron: k.compraron, compraronCalificados: k.compraron_calificados,
+  };
+  return embudoValido(e) ? e : null;
+}
+
+const cuenta = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0;
+const FECHA_ISO = /^(\d{4})-(\d{2})-(\d{2})/;
+
+/**
+ * ¿Las cuentas se pueden afirmar? Enteros no negativos, y nadie compra ni califica más de los que asistieron. Un
+ * embudo que no cierra no dice nada: arriba de 100% hay un escalón contado de menos (el «170%» del 12/10/2026).
+ */
+export function embudoValido(e: EmbudoOffer | null | undefined): e is EmbudoOffer {
+  if (!e || !FECHA_ISO.test(e.desde ?? '') || !FECHA_ISO.test(e.hasta ?? '')) return false;
+  const l = e.llamadas;
+  if (!l || ![l.asistieron, l.noAsistieron, l.sinMarcar, e.agendas, e.calificados, e.sinCalificar, e.compraron, e.compraronCalificados].every(cuenta)) return false;
+  return e.calificados + e.sinCalificar <= l.asistieron && e.compraron <= l.asistieron && e.compraronCalificados <= e.calificados && e.compraronCalificados <= e.compraron;
+}
+
+/** «del 19/07 al 16/10» (con el año si el período cruza de un año a otro). */
+export function periodoCorto(desde: string, hasta: string): string {
+  const a = desde.match(FECHA_ISO);
+  const b = hasta.match(FECHA_ISO);
+  if (!a || !b) return '';
+  const conAnio = a[1] !== b[1];
+  const f = (m: RegExpMatchArray) => `${m[3]}/${m[2]}${conAnio ? `/${m[1]}` : ''}`;
+  return `del ${f(a)} al ${f(b)}`;
+}
+
+/** De dónde sale cada número del embudo, como se dice en un aviso. */
+const enTuCrm = (e: EmbudoOffer): string => `tu CRM, ${periodoCorto(e.desde, e.hasta)}`;
+
+/**
+ * El cierre que un aviso puede AFIRMAR: sobre los calificados si hay suficientes (los rangos del marco son sobre las
+ * llamadas calificadas), si no sobre todos los que asistieron. `texto` es la frase con su fuente. null sin datos.
+ */
+export function cierreDelEmbudo(e: EmbudoOffer | null | undefined): { base: number; compraron: number; tasa: number; calificados: boolean; texto: string } | null {
+  if (!embudoValido(e)) return null;
+  const calificados = e.calificados >= MIN_ASISTENCIAS_EMBUDO;
+  const base = calificados ? e.calificados : e.llamadas.asistieron;
+  if (base < MIN_ASISTENCIAS_EMBUDO) return null;
+  const compraron = calificados ? e.compraronCalificados : e.compraron;
+  const quienes = calificados ? 'calificadas que asistieron' : 'que asistieron';
   return {
-    exacto,
-    piso: exacto ?? (proporcionPosible(t.cierreAsistencias) ? t.cierreAsistencias : null),
-    techo: exacto ?? sobreCalif,
+    base, compraron, tasa: compraron / base, calificados,
+    texto: `De las ${base} personas ${quienes} a la primera llamada (${enTuCrm(e)}), compraron ${compraron}: el ${pct(compraron / base)}.`,
   };
 }
 
+/** La asistencia, sobre las llamadas con la asistencia MARCADA: las que nadie marcó no se cuentan como faltas. */
+export function asistenciaDelEmbudo(e: EmbudoOffer | null | undefined): { marcadas: number; tasa: number } | null {
+  if (!embudoValido(e)) return null;
+  const marcadas = e.llamadas.asistieron + e.llamadas.noAsistieron;
+  return marcadas >= MIN_ASISTENCIAS_EMBUDO ? { marcadas, tasa: e.llamadas.asistieron / marcadas } : null;
+}
+
 /**
- * Dónde se cortan las ventas, contra los rangos del §6.4 (asistencia 60-80%, cierre 25-40% de las
- * llamadas calificadas): «la oferta es lo último que se corrige». Sin datos suficientes, nada.
+ * Dónde se cortan las ventas, contra los rangos del §6.4 (asistencia 60-80%, cierre 25-40% de las llamadas
+ * calificadas): «la oferta es lo último que se corrige». Sin datos suficientes, nada. El cierre bajo se afirma sólo
+ * sobre los calificados: sobre todos los que asistieron puede estar bajo por los que no calificaban.
  */
-export function alertasEmbudo(t: TasasEmbudo | null | undefined): string[] {
-  if (!t || t.asistieron < MIN_ASISTENCIAS_EMBUDO) return [];
+export function alertasEmbudo(e: EmbudoOffer | null | undefined): string[] {
+  if (!embudoValido(e)) return [];
   const out: string[] = [];
-  if (t.show != null && t.show < 0.6) {
-    out.push(`Asiste el ${pct(t.show)} de los que agendan: por debajo de 60% (lo sano es de 60% a 80%). Las ventas se cortan antes de la llamada: antes de cambiar la oferta, revisa cómo se confirman las agendas.`);
+  const a = asistenciaDelEmbudo(e);
+  if (a && a.tasa < 0.6) {
+    const sin = e.llamadas.sinMarcar > 0 ? `; ${e.llamadas.sinMarcar} sin marcar no cuentan` : '';
+    out.push(`De ${a.marcadas} primeras llamadas con la asistencia marcada (${enTuCrm(e)}${sin}), vinieron ${e.llamadas.asistieron}: el ${pct(a.tasa)}. Lo sano es de 60% a 80%: las ventas se cortan antes de la llamada; antes de cambiar la oferta, revisa cómo se confirman las agendas.`);
   }
-  // Bajo 25% se afirma con el número exacto o con el TECHO («menos de»): con el piso no, porque el real
-  // puede estar arriba (`cierreConfiable`).
-  const c = cierreConfiable(t);
-  const cola = 'por debajo de 25% (lo sano es de 25% a 40%). Las ventas se cortan en la llamada: antes de cambiar la oferta, revisa el cierre.';
-  if (c.exacto != null && c.exacto < 0.25) {
-    out.push(`Cierras el ${pct(c.exacto)} de las llamadas calificadas: ${cola}`);
-  } else if (c.exacto == null && c.techo != null && c.techo < 0.25) {
-    out.push(`Cierras menos del ${pct(c.techo)} de las llamadas calificadas (hay asistencias sin calificar): ${cola}`);
+  const c = cierreDelEmbudo(e);
+  if (c?.calificados && c.tasa < 0.25) {
+    out.push(`${c.texto} Lo sano es de 25% a 40%: las ventas se cortan en la llamada; antes de cambiar la oferta, revisa el cierre.`);
   }
   return out;
 }
 
 /**
- * Cuándo subir (o no tocar) el precio, con las señales del §6.2: el % cobrado al firmar que dijo el dueño
- * y el cierre del embudo. Cada aviso dice el número que lo dispara.
+ * Cuándo subir (o no tocar) el precio, con las señales del §6.2: el % cobrado al firmar que dijo el dueño y el cierre
+ * del embudo. Cada aviso dice el número que lo dispara y de dónde sale.
  */
-export function alertasPrecio(p: { cobro: number | null; tasas?: TasasEmbudo | null }): string[] {
+export function alertasPrecio(p: { cobro: number | null; embudo?: EmbudoOffer | null }): string[] {
   const out: string[] = [];
   if (p.cobro != null && p.cobro > 75) {
-    out.push(`Te pagan el ${p.cobro}% al firmar: más de 75% es señal de que el precio está barato. Súbelo por escalones (entre 250 y 1.000 USD, o un 20%, cada 3 a 5 ventas sin fricción).`);
+    out.push(`Te pagan el ${p.cobro}% al firmar, según me dijiste: más de 75% es señal de que el precio está barato. Súbelo por escalones (entre 250 y 1.000 USD, o un 20%, cada 3 a 5 ventas sin fricción).`);
   } else if (p.cobro != null && p.cobro < 50) {
-    out.push(`Te pagan el ${p.cobro}% al firmar: menos de la mitad. Antes de tocar el precio, revisa el cliente ideal y el valor.`);
+    out.push(`Te pagan el ${p.cobro}% al firmar, según me dijiste: menos de la mitad. Antes de tocar el precio, revisa el cliente ideal y el valor.`);
   }
-  // Más de 30% se afirma con el número exacto o con el PISO (el cierre sobre TODAS las llamadas, que el real
-  // iguala o supera): nunca con el techo, que es el que daba 170% (`cierreConfiable`).
-  const t = p.tasas;
-  if (t && t.asistieron >= MIN_ASISTENCIAS_EMBUDO) {
-    const c = cierreConfiable(t);
-    const cola = 'más de 30% es señal de que hay margen para subir el precio.';
-    if (c.exacto != null && c.exacto > 0.3) {
-      out.push(`Cierras el ${pct(c.exacto)} de las llamadas calificadas: ${cola}`);
-    } else if (c.exacto == null && c.piso != null && c.piso > 0.3) {
-      out.push(`Cierras el ${pct(c.piso)} de todas las llamadas, y de las calificadas más: ${cola}`);
-    }
-  }
+  const c = cierreDelEmbudo(p.embudo);
+  if (c && c.tasa > 0.3) out.push(`${c.texto} Más de 30% es señal de que hay margen para subir el precio.`);
   return out;
+}
+
+/**
+ * El embudo que lee la IA del diagnóstico, con las MISMAS cuentas que los avisos y su fuente (17/10/2026). Antes iba el
+ * informe entero de lib/analisis-modelo.ts (`analisisAMarkdown`), con la tasa de cierre del período (el «43%») y
+ * recortado a 4.000 caracteres: la IA repetía un número que el aviso ya no decía. '' sin datos.
+ */
+export function embudoParaPrompt(e: EmbudoOffer | null | undefined): string {
+  if (!embudoValido(e)) return '';
+  const l = e.llamadas;
+  const lineas = [
+    `Fuente: ${enTuCrm(e)}.`,
+    `- Agendas (reservaron una llamada): ${e.agendas}.`,
+    `- Primeras llamadas: ${l.asistieron + l.noAsistieron + l.sinMarcar} (asistieron ${l.asistieron}, no asistieron ${l.noAsistieron}, sin marcar ${l.sinMarcar}).`,
+    `- De las ${l.asistieron} que asistieron: ${e.calificados} calificadas, ${e.sinCalificar} sin marcar si calificaban.`,
+    `- Compraron ${e.compraron} de las ${l.asistieron} que asistieron (${e.compraronCalificados} de las ${e.calificados} calificadas).`,
+  ];
+  return lineas.join('\n');
 }
 
 /**
@@ -1666,14 +1870,228 @@ export function alertasPrecio(p: { cobro: number | null; tasas?: TasasEmbudo | n
  */
 export function avisosAntesDelDiagnostico(p: {
   foco: { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null };
-  piezas: PiezasSabidas; tasas?: TasasEmbudo | null;
+  piezas: PiezasSabidas; embudo?: EmbudoOffer | null;
 }): { foco: string | null; otras: string[] } {
   const foco = alertaFoco({ ...p.foco, otrasDeclaradas: ofertasDeclaradas(p.piezas.otras?.valor) });
   const margen = alertaMargen(p.piezas);
   return {
     foco,
-    otras: [...(margen ? [margen] : []), ...alertasEmbudo(p.tasas), ...alertasPrecio({ cobro: porcentajeAlFirmar(p.piezas.cobro?.valor), tasas: p.tasas })],
+    otras: [...(margen ? [margen] : []), ...alertasEmbudo(p.embudo), ...alertasPrecio({ cobro: porcentajeAlFirmar(p.piezas.cobro?.valor), embudo: p.embudo })],
   };
+}
+
+// ── Cada número del diagnóstico dice de dónde sale (17/10/2026, tarjeta #888) ──
+// «Cada número del diagnóstico dice de dónde sale, o no aparece.» Los avisos ya lo dicen (arriba). Lo que escribe la
+// IA (la tesis, el porqué y la mejora de cada nota, lo fuerte, los cambios) se revisa CIFRA por CIFRA:
+//  · una que dio el dueño (sus mensajes, sus documentos, sus piezas, lo que tenía cargado) queda: la cita a él;
+//  · una que calculó el sistema con el CRM o con su precio y su costo queda, con su fuente al lado la primera vez
+//    («el 46% (según tu CRM)»), salvo que la frase ya la diga;
+//  · una de los rangos del marco que traen los avisos («lo sano es de 60% a 80%») queda;
+//  · cualquier otra es un número inventado: la FRASE que la trae no aparece. En lo que PROPONE (la mejora, el título y
+//    la hipótesis de un cambio), sólo si la frase la afirma sobre el negocio de hoy («dado que cierras el 43%»):
+//    «súbelo a 2.490 USD» es una propuesta y se lee así.
+// Sólo se revisan las MEDICIONES (un porcentaje o un número de 10 para arriba): «3 cambios», «1 a 1» o «5 filtros»
+// son partes de la estructura, no datos del negocio. Nunca se revisan un año, un rótulo («Fase 1», «D7»), un plazo
+// («en 90 días») ni una escala («8 de 10», «24/7»).
+
+/** De dónde sale una cifra que calculó el sistema, como se dice al lado del número. */
+export const FUENTE_CRM = 'según tu CRM';
+export const FUENTE_MARGEN = 'con tu precio y tu costo';
+
+/**
+ * Las cifras que calculó el SISTEMA, con su fuente (las del embudo y el margen). Un porcentaje va con su «%» en la clave
+ * (`claveConFuente`): en el ws13, «43 llamadas marcadas» y «60 agendas» chocaban con «43%» y «60%».
+ */
+/** La clave de una cifra del sistema: el valor, y «%» si es un porcentaje. */
+export const claveConFuente = (clave: string | null, porcentaje: boolean): string | null => (clave == null ? null : porcentaje ? `${clave}%` : clave);
+
+export function cifrasConFuente(e: EmbudoOffer | null | undefined, piezas: PiezasSabidas): Map<string, string> {
+  const out = new Map<string, string>();
+  const poner = (k: string | null, fuente: string) => { if (k && !out.has(k)) out.set(k, fuente); };
+  if (embudoValido(e)) {
+    const l = e.llamadas;
+    for (const n of [e.agendas, l.asistieron, l.noAsistieron, l.sinMarcar, l.asistieron + l.noAsistieron, l.asistieron + l.noAsistieron + l.sinMarcar, e.calificados, e.sinCalificar, e.compraron, e.compraronCalificados]) {
+      poner(claveConFuente(String(n), false), FUENTE_CRM);
+    }
+    const a = asistenciaDelEmbudo(e);
+    const porc = (x: number) => claveConFuente(claveCifra(pct(x)), true);
+    if (a) poner(porc(a.tasa), FUENTE_CRM);
+    if (l.asistieron > 0) poner(porc(e.compraron / l.asistieron), FUENTE_CRM);
+    if (e.calificados > 0) poner(porc(e.compraronCalificados / e.calificados), FUENTE_CRM);
+  }
+  const m = margenDe(piezas);
+  if (m != null) poner(claveConFuente(claveCifra(pct(m)), true), FUENTE_MARGEN);
+  return out;
+}
+
+/** Lo que escribió el DUEÑO en la conversación y lo que dicen sus documentos: de ahí salen, con las piezas y lo cargado, las cifras que dio el negocio. */
+export function fuentesDelDueno(f: { mensajes: ReadonlyArray<Pick<MensajeGuardado, 'de' | 'texto'>>; documentos: ReadonlyArray<{ texto: string }> }): string[] {
+  return [...f.mensajes.filter((m) => m.de === 'yo').map((m) => m.texto), ...f.documentos.map((d) => d.texto)];
+}
+
+/** Los valores de las piezas con dato: una «sin dato» no es una cifra del negocio. */
+export const valoresDeLasPiezas = (piezas: PiezasSabidas): string[] =>
+  PIEZA_KEYS.filter((k) => tieneDato(piezas, k)).map((k) => piezas[k]?.valor ?? '');
+
+/**
+ * Las cifras de unos textos con la MISMA clave que `cifrasConFuente` (un porcentaje lleva su «%»), sin horas ni fechas.
+ * Para el diagnóstico (#888): lo que dio el dueño y lo que traen los avisos. «De 43 primeras llamadas» no le da fuente a
+ * un «43%», y un porcentaje es del dueño sólo si él dijo un porcentaje («50%», «50 por ciento»).
+ */
+export function cifrasConPorcentaje(textos: ReadonlyArray<string | null | undefined>): Set<string> {
+  const out = new Set<string>();
+  for (const t of textos) {
+    const limpio = sinHorasNiFechas(t);
+    for (const m of limpio.matchAll(CIFRA_ESCALA)) {
+      const porCiento = /^\s*por\s*ciento\b/i.test(limpio.slice((m.index ?? 0) + m[0].length));
+      const k = claveConFuente(claveCifra(m[0]), m[0].includes('%') || porCiento);
+      if (k) out.add(k);
+    }
+  }
+  return out;
+}
+
+/**
+ * Lo que el diagnóstico sabe de cada cifra: lo que dio el negocio, lo que calculó el sistema y lo que traen los avisos,
+ * las tres con la clave de `cifrasConPorcentaje` / `cifrasConFuente`.
+ */
+export type FuentesDeCifras = { delNegocio: Set<string>; conFuente: Map<string, string>; deLosAvisos: Set<string> };
+
+/** Una ESCALA o una notación, no un dato: «8 de 10», «71 de 100», «24/7», «5/5». */
+const ES_ESCALA_ANTES = /\d\s*(?:de|\/)\s*$/i;
+const ES_NOTACION_DESPUES = /^\/\d/;
+const LETRA_ANTES = /[a-záéíóúñ]$/i;
+
+type CifraDeTexto = { m: string; offset: number; clave: string; llave: string };
+
+/** Las MEDICIONES de un texto (ver arriba): un porcentaje o un número de 10 para arriba que no es año, rótulo, plazo ni escala. */
+function medicionesDe(t: string): CifraDeTexto[] {
+  const out: CifraDeTexto[] = [];
+  for (const x of t.matchAll(CIFRA_ESCALA)) {
+    const m = x[0];
+    const offset = x.index ?? 0;
+    const clave = claveCifra(m);
+    if (!clave) continue;
+    const antes = t.slice(0, offset);
+    const despues = t.slice(offset + m.length);
+    const porcentaje = m.includes('%');
+    if (!porcentaje && Number(clave) < 10) continue;
+    if (ES_ANIO.test(m.trim()) || LETRA_ANTES.test(antes) || ROTULO_ANTES.test(antes) || ES_NOTACION_DESPUES.test(despues)) continue;
+    if ((clave === '10' || clave === '100') && ES_ESCALA_ANTES.test(antes)) continue;
+    if (!porcentaje && UNIDAD_PLAZO.test(despues) && !esTiempoDeResultado(antes, despues)) continue;
+    out.push({ m, offset, clave, llave: claveConFuente(clave, porcentaje) as string });
+  }
+  return out;
+}
+
+/** Las frases de un texto, con su separador pegado (para volver a juntarlas tal cual). */
+const frasesDe = (t: string): string[] => t.split(/(?<=[.!?])\s+/).filter((f) => f.trim() !== '');
+
+/**
+ * Lo que vuelve una cifra de una PROPUESTA en una afirmación sobre el negocio de HOY: «dado que cierras el 43%», «hoy
+ * vendes 12». En la mejora, el título y la hipótesis de un cambio, una cifra sin esto es lo que MaKo propone («súbelo a
+ * 2.490 USD», «limita a 5 cupos») y se lee como propuesta; con esto, es un dato y necesita su fuente.
+ */
+const AFIRMA_HOY = /\b(?:dado que|ya que|hoy|actualmente|cierras|cierra|asisten?|vendes|vende|facturas|factura|tienes|tiene|cobras|cobra|conviertes|convierte|logras|logra|pierdes|pierde|gastas|gasta)\b/i;
+
+/**
+ * Un texto de la IA con sus cifras revisadas (ver arriba): la frase con una cifra sin fuente sale; la primera cifra del
+ * sistema lleva su fuente al lado. Con `propuesta` (la mejora, el título y la hipótesis de un cambio), una cifra sin
+ * fuente sólo saca la frase si la AFIRMA sobre el negocio de hoy (`AFIRMA_HOY`). Devuelve '' si no queda ninguna frase.
+ */
+export function textoConFuentes(t: string, f: FuentesDeCifras, opts: { propuesta?: boolean } = {}): string {
+  if (!t?.trim()) return t ?? '';
+  const anotadas = new Set<string>();
+  const frases: string[] = [];
+  for (const frase of frasesDe(t)) {
+    const cifras = medicionesDe(frase);
+    const sinFuente = (c: CifraDeTexto) => !f.delNegocio.has(c.llave) && !f.conFuente.has(c.llave) && !f.deLosAvisos.has(c.llave)
+      && (!opts.propuesta || AFIRMA_HOY.test(frase.slice(0, c.offset)));
+    if (cifras.some(sinFuente)) continue;
+    let out = frase;
+    // De atrás para adelante, así los offsets de las de antes siguen valiendo.
+    for (const c of [...cifras].reverse()) {
+      if (f.delNegocio.has(c.llave)) continue;
+      const fuente = f.conFuente.get(c.llave);
+      if (!fuente || anotadas.has(fuente)) continue;
+      const yaLaDice = normalizar(t).includes(normalizar(fuente)) || (fuente === FUENTE_CRM && /\bCRM\b/i.test(t));
+      if (yaLaDice) continue;
+      // Sólo la PRIMERA de cada fuente en el texto: si hay otra antes en esta frase, ésa es la que se anota.
+      if (cifras.some((o) => o.offset < c.offset && !f.delNegocio.has(o.llave) && f.conFuente.get(o.llave) === fuente)) continue;
+      out = `${out.slice(0, c.offset + c.m.length)} (${fuente})${out.slice(c.offset + c.m.length)}`;
+      anotadas.add(fuente);
+    }
+    frases.push(out);
+  }
+  return frases.join(' ');
+}
+
+/** El diagnóstico de la IA con cada texto revisado por `textoConFuentes`. Un cambio que se queda sin título lo dice. */
+export function diagnosticoConFuentes(d: DiagnosticoOferta, f: FuentesDeCifras): DiagnosticoOferta {
+  const r = (t: string) => textoConFuentes(t, f);
+  const p = (t: string) => textoConFuentes(t, f, { propuesta: true });
+  const fuertes = (d.fuertes ?? []).map(r).filter((x) => x.trim() !== '');
+  return {
+    ...d,
+    tesis: r(d.tesis),
+    fuerte: r(d.fuerte) || fuertes[0] || '',
+    fuertes,
+    dimensiones: d.dimensiones.map((n) => ({ ...n, porque: r(n.porque), mejora: p(n.mejora) })),
+    cambios: d.cambios.map((c) => ({ titulo: p(c.titulo) || `${MARCA_COMPLETAR} otro cambio con impacto`, porque: r(c.porque), hipotesis: p(c.hipotesis) })),
+  };
+}
+
+/**
+ * Lo guardado ANTES del 17/10/2026 (sin `cifrasConFuente`), como se puede MOSTRAR: los avisos del embudo de entonces
+ * (la tasa del período, sin fuente: el «43%» de Código Inmobiliario) no aparecen, y en lo que escribió la IA tampoco
+ * la frase que repite la cifra de uno de ellos, salvo que la haya dado el dueño. Lo demás queda como estaba. No se
+ * reescribe la fila: es la lectura de la pantalla, el PDF y la API de MaKo.
+ */
+const AVISO_VIEJO_DEL_EMBUDO = /^(?:Asiste el \d+(?:[.,]\d+)?\s?% de los que agendan|Cierras (?:el|menos del) \d+(?:[.,]\d+)?\s?% de (?:todas )?las llamadas)/;
+export function conclusionParaMostrar<C extends { diagnostico: DiagnosticoOferta; calculo: CalculoDiagnostico }>(c: C, delNegocio: () => Set<string>): C {
+  if (!c?.calculo || c.calculo.cifrasConFuente) return c;
+  const alertas = Array.isArray(c.calculo.alertas) ? c.calculo.alertas : [];
+  const viejas = alertas.filter((a) => typeof a === 'string' && AVISO_VIEJO_DEL_EMBUDO.test(a));
+  if (!viejas.length) return c;
+  const delDueno = delNegocio();
+  const sinFuente = new Set(viejas.map((a) => claveConFuente(claveCifra(a.match(/\d+(?:[.,]\d+)?\s?%/)?.[0] ?? ''), true)).filter((k): k is string => !!k && !delDueno.has(k)));
+  const llaveDe = (m: string) => claveConFuente(claveCifra(m), m.includes('%')) ?? '';
+  const sacar = (t: string) => (t ? frasesDe(t).filter((fr) => ![...fr.matchAll(CIFRA_ESCALA)].some((x) => sinFuente.has(llaveDe(x[0])))).join(' ') : t);
+  const d = c.diagnostico;
+  const fuertes = (d.fuertes ?? []).map(sacar).filter((x) => x.trim() !== '');
+  return {
+    ...c,
+    calculo: { ...c.calculo, alertas: alertas.filter((a) => !viejas.includes(a)) },
+    diagnostico: {
+      ...d,
+      tesis: sacar(d.tesis),
+      fuerte: sacar(d.fuerte) || fuertes[0] || '',
+      fuertes,
+      dimensiones: d.dimensiones.map((n) => ({ ...n, porque: sacar(n.porque), mejora: sacar(n.mejora) })),
+      cambios: d.cambios.map((x) => ({ titulo: sacar(x.titulo) || `${MARCA_COMPLETAR} otro cambio con impacto`, porque: sacar(x.porque), hipotesis: sacar(x.hipotesis) })),
+    },
+  };
+}
+
+/**
+ * `conclusionParaMostrar` con las cifras que dio el negocio en ESTA conversación (sus piezas, sus mensajes, sus
+ * documentos). Y «Los números» de una propuesta guardada ANTES del 17/10/2026 se leen con la marca de lo que estimó MaKo
+ * (`numeroDeLaPropuesta`), sin reescribir la fila: el PDF de Código Inmobiliario se vuelve a armar desde lo guardado.
+ * Acá no está el contexto cargado (el CRM): una cifra que salió de ahí se lee «estimada», que es el lado seguro.
+ */
+export function conclusionVisible<C extends { diagnostico: DiagnosticoOferta; calculo: CalculoDiagnostico }>(
+  c: C, f: { piezas: PiezasSabidas; mensajes: ReadonlyArray<Pick<MensajeGuardado, 'de' | 'texto'>>; documentos: ReadonlyArray<{ texto: string }> },
+): C {
+  const vista = conclusionParaMostrar(c, () => cifrasConPorcentaje([...valoresDeLasPiezas(f.piezas), ...fuentesDelDueno(f)]));
+  const pr = (vista as { propuesta?: PropuestaOferta | null }).propuesta;
+  if (!pr || !Array.isArray(pr.numeros) || !pr.numeros.length) return vista;
+  const permitidas = cifrasDelNegocio([...valoresDeLasPiezas(f.piezas), ...fuentesDelDueno(f), pr.inversion?.precio, pr.inversion?.contado, pr.inversion?.plan]);
+  const margen = margenDe(f.piezas);
+  const k = margen != null ? claveCifra(pct(margen)) : null;
+  if (k) permitidas.add(k);
+  const numeros = pr.numeros.map((n) => numeroDeLaPropuesta(n, permitidas).texto);
+  if (numeros.every((n, i) => n === pr.numeros[i])) return vista;
+  return { ...vista, propuesta: { ...pr, numeros } };
 }
 
 // ── La oferta provisional y el PDF en el chat (tarjeta «rehacer») ─────────────
@@ -1922,10 +2340,41 @@ export function prometeHacerloPorElCliente(p: PropuestaOferta, piezas: PiezasSab
   return `La oferta promete hacerlo POR tu cliente («${m[0]}»), y lo que vendes lo hace él con tu guía (${recortar(colapsar(loQueVende), 90)}). Cámbialo antes de usarla.`;
 }
 
+/**
+ * La marca de un número de «Los números» que ESTIMÓ MaKo (17/10/2026, la mitad que quedó del «43», #888).
+ *
+ * El caso: en la Parte 2 del PDF de Código Inmobiliario la IA escribía márgenes y un «LTV:CAC estimado superior a 5 a
+ * 1» que nadie le dio (el prompt le pide margen bruto, ventas y llamadas necesarias, % cobrado al firmar y LTV:CAC
+ * «con la cuenta a la vista»). Decisión con criterio (la dejó abierta docs/hallazgos-offer.md): el código no los puede
+ * CALCULAR —no tiene el costo de adquisición, la recompra ni la retención—, así que los MARCA, como la decisión 10 de
+ * Martín (12/10/2026: «el PDF lista lo que propuso MaKo, separado de lo que dijo el negocio»): una línea con una cifra
+ * que el negocio no dio queda escrita, con esta marca al final, y va a «Lo que propuso MaKo». Una CUENTA a la vista
+ * hecha sólo con cifras del negocio («10.000 USD / 2.490 USD = 4 ventas») es un cálculo, no una estimación.
+ */
+export const MARCA_ESTIMADO = '(estimado por MaKo)';
+
+/** Una línea de «Los números», con la marca si trae una cifra que el negocio no dio (ver `MARCA_ESTIMADO`). */
+export function numeroDeLaPropuesta(linea: string, permitidas: Set<string>): { texto: string; estimado: boolean } {
+  const t = (linea ?? '').trim();
+  if (!t || t.includes(MARCA_COMPLETAR)) return { texto: linea, estimado: false };
+  const sinMarca = t.replace(MARCA_ESTIMADO, '').trim();
+  if (!tieneCifraAjena(sinMarca, permitidas)) return { texto: sinMarca, estimado: false };
+  // La cuenta a la vista: si todo lo que va antes del ÚLTIMO «=» lo dio el negocio, lo de después sale de ahí.
+  const igual = sinMarca.lastIndexOf('=');
+  if (igual > 0 && /\d/.test(sinMarca.slice(0, igual)) && !tieneCifraAjena(sinMarca.slice(0, igual), permitidas)) {
+    return { texto: sinMarca, estimado: false };
+  }
+  return { texto: `${sinMarca} ${MARCA_ESTIMADO}`, estimado: true };
+}
+
 export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas, ctx: ContextoReglas = {}): PropuestaOferta {
-  const deLasPiezas = PIEZA_KEYS.filter((k) => tieneDato(piezas, k)).map((k) => piezas[k]?.valor);
+  const deLasPiezas = valoresDeLasPiezas(piezas);
   const permitidas = cifrasDelNegocio([...deLasPiezas, ...(ctx.fuentes ?? [])]);
   const conPropuesta = new Set([...permitidas, ...cifrasDelNegocio([p.inversion.precio, p.inversion.contado, p.inversion.plan])]);
+  // «Los números» cuentan con lo que dio el negocio, el precio que se propone y el margen que el código calcula con su
+  // precio y su costo (`margenDe`): lo demás es una estimación de MaKo y se marca (`numeroDeLaPropuesta`).
+  const margen = margenDe(piezas);
+  const paraNumeros = new Set([...conPropuesta, ...(margen != null ? [claveCifra(pct(margen))].filter((k): k is string => !!k) : [])]);
   const res = (t: string) => filtrarCifras(t, permitidas, { plazos: true });
   const estricto = (t: string) => filtrarCifras(t, permitidas);
   const avisos: string[] = [];
@@ -1944,6 +2393,7 @@ export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas
     urgencia: tieneDato(piezas, 'urgencia') ? estricto(p.urgencia) : URGENCIA_SIN_DATO,
     escenarios: { mejor: res(p.escenarios.mejor), peor: res(p.escenarios.peor) },
     ecuacion: p.ecuacion.map((f) => ({ ...f, antes: res(f.antes), despues: res(f.despues) })),
+    numeros: p.numeros.map((n) => numeroDeLaPropuesta(n, paraNumeros).texto),
     mecanismo: { ...p.mecanismo, nombres: [...p.mecanismo.nombres] },
     garantia: { ...p.garantia },
   };
@@ -2034,6 +2484,9 @@ function propuestoPorMako(
   const plazos = [...p.frase.matchAll(/(\d+(?:[.,]\d+)*)\s*(d[ií]as?|semanas?|mes(?:es)?|años?)(?![a-záéíóúñ])/gi)]
     .filter((m) => { const k = claveCifra(m[1]); return !!k && !permitidas.has(k); });
   for (const m of plazos) seguros.push({ seccion: 'La frase', que: `Plazo: ${m[0]}` });
+  for (const n of p.numeros) {
+    if (n.includes(MARCA_ESTIMADO)) seguros.push({ seccion: 'Números', que: n.replace(MARCA_ESTIMADO, '').trim() });
+  }
 
   const out: Array<{ seccion: string; que: string }> = [];
   const vistas = new Set<string>();
@@ -2265,7 +2718,7 @@ export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_
   return lineas.join('\n');
 }
 
-export type DocParaPrompt = { id: string; nombre: string; texto: string; at: string };
+export type DocParaPrompt = { id: string; nombre: string; texto: string; at: string; lectura?: string; partes?: number };
 
 /**
  * Los documentos que la IA puede leer: los que viajaron en algún mensaje del dueño, más los del
@@ -2286,8 +2739,10 @@ export function docsDeLaConversacion<T extends { id: string }>(docs: T[], mensaj
  * resto (lo que quede). Dentro de cada tanda ningún documento se come el cupo de los demás: cada uno
  * recibe a lo sumo una parte igual, y lo que un documento corto no usa pasa a los otros.
  */
-export function documentosParaPrompt(docs: DocParaPrompt[], nuevos: string[] = [], tope = TOPE_DOCS_PROMPT): string {
-  if (!docs.length) return '';
+export function documentosParaPrompt(todos: DocParaPrompt[], nuevos: string[] = [], tope = TOPE_DOCS_PROMPT): string {
+  if (!todos.length) return '';
+  // Un documento largo viaja como su lectura por partes (#865): la del documento ENTERO, no su principio.
+  const docs = todos.map((d) => ({ ...d, texto: cuerpoDelDoc(d) }));
   const esNuevo = new Set(nuevos);
   const recientes = (a: DocParaPrompt, b: DocParaPrompt) => (b.at || '').localeCompare(a.at || '');
   const tanda1 = docs.filter((d) => esNuevo.has(d.id)).sort(recientes);
@@ -2312,7 +2767,8 @@ export function documentosParaPrompt(docs: DocParaPrompt[], nuevos: string[] = [
     .map((d) => {
       const c = cupos.get(d.id) ?? 0;
       const cuerpo = d.texto.length > c ? `${d.texto.slice(0, c)}\n[…recortado: ${d.texto.length - c} caracteres más]` : d.texto;
-      return `— «${d.nombre}»${esNuevo.has(d.id) ? ' (recién subido)' : ''} —\n${cuerpo}`;
+      const porPartes = d.lectura?.trim() && d.partes ? ` (leído entero, en ${d.partes} partes)` : '';
+      return `— «${d.nombre}»${esNuevo.has(d.id) ? ' (recién subido)' : ''}${porPartes} —\n${cuerpo}`;
     })
     .join('\n\n');
 }

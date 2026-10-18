@@ -18,7 +18,10 @@ export const PARTES: Parte[] = [
   { titulo: 'Levantarlo desde el chat de MaKo', detalle: 'MaKo propone la tarjeta cuando algo falló (lo detecta el código) o cuando piden algo que la app no tiene (el modelo); la persona toca un botón', estado: 'hecha' },
   { titulo: '«Reportar problema» del cliente', detalle: 'Un campo, tres opciones y «Tus tickets» con la conversación (Intercom + el «Mis solicitudes» de Zendesk)', estado: 'hecha' },
   { titulo: 'La bandeja de Martín', detalle: 'Linear Triage adentro de Ops Center: de quién, el reporte, el porqué del triage y Aprobar · Rechazar · Duplicado · Preguntar · Responder', estado: 'hecha' },
-  { titulo: 'El bug automático llega solo al Cerebro', detalle: 'El Runner le escribe un texto fijo con el número: falta enchufarlo en el cartero (Ops Center) y reinstalarlo', estado: 'sigue' },
+  { titulo: 'El bug automático llega solo al Cerebro', detalle: 'El Runner (cartero 1.15.0) le escribe un texto fijo con el número; falta que el Cerebro lo reinstale en la PC', estado: 'hecha' },
+  { titulo: 'Los errores de la app llegan solos', detalle: 'Navegador, servidor y chats de MaKo, agrupados por huella (mig 0313): cada error nuevo es un bug que va solo al Cerebro', estado: 'hecha' },
+  { titulo: 'El aviso de arreglado al grupo del negocio', detalle: 'Con `avisarArregloAlGrupo` de «MaKo en WhatsApp», firmado «Desarrollador», y sólo con la prueba del deploy que trae el arreglo', estado: 'hecha' },
+  { titulo: 'Un negocio sin IA no es un bug', detalle: 'No abre ticket: MaKo le pide que conecte la suya con el modal ahí mismo, y /integraciones dice cuál es suya de verdad', estado: 'hecha' },
   { titulo: 'La bandeja en el teléfono', detalle: 'Hoy la Ticketera del teléfono sigue siendo el mazo de las preguntas de los chats', estado: 'cola' },
   { titulo: 'Levantarlo por WhatsApp', detalle: 'La operación ya está en el registro; enchufarla al doer de WhatsApp es del chat «MaKo en WhatsApp»', estado: 'cola' },
 ];
@@ -50,6 +53,66 @@ export const BITACORA: Hito[] = [
       'app/tickets/bandeja/BandejaTickets.tsx: la bandeja de Martín',
       'lib/tickets-cierre.ts y app/api/cron/tickets: el cierre y el aviso',
       'scripts/tickets.ts: lo que usa el Cerebro',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '08:40', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un bug evidente le llega solo al Cerebro, sin esperar a Martín',
+    revisar: '/admin/operaciones?ticketera=tickets',
+    puntos: [
+      'El Runner (cartero **1.15.0**) le escribe al chat «Cerebro» un texto FIJO con el número del ticket: ni una palabra del cliente viaja sin firma. El Cerebro lo lee con `scripts/tickets.ts ver`.',
+      '⚠️ **`hayParaElCartero` cuenta los tickets sólo para un Runner que los entiende**: el Runner pregunta cada pocos segundos si hay algo, y contar lo que nunca le va a llegar lo hacía salir en cada vuelta.',
+      'Por WhatsApp, quien levanta el ticket es su teléfono: se le atribuye a la persona del negocio con ese número en su perfil. El enchufe en el doer es del chat «MaKo en WhatsApp».',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '09:36', chat: 'Cerebro', sesion: 'local_797d5445-2365-464d-ae3d-1d71aa7baa8c', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Detectar errores en toda la app y arreglarlos solos',
+    pedido: 'lo mismo que corrés en MaKo en WhatsApp detectando errores, córrelo en toda la app: MaKo en los chats de la app, errores al navegar o lo que sea. Y todo lo solucionas automáticamente',
+    puntos: ['Lo pasó el Cerebro a la Ticketera: es el ciclo del bug, extendido a toda la app, con la migración 0313.'],
+  },
+  {
+    fecha: '17 oct', hora: '10:30', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los errores de la app llegan solos y se arreglan sin esperar a Martín',
+    revisar: '/admin/operaciones?ticketera=tickets',
+    puntos: [
+      'Llegan de cuatro lados: una pantalla que se rompe (el boundary), un error suelto de la ventana, el servidor (`onRequestError`) y lo que falla de MaKo en un chat. Antes la pantalla rota no le avisaba a nadie.',
+      '**Un error es una HUELLA, no una fila por vez** (como Sentry): mil personas con el mismo error son un ticket. La huella no lleva el stack, que cambia en cada deploy.',
+      'Cada huella nueva es un bug del sistema que el triage manda solo al Cerebro; si vuelve a pasar después de arreglado, es una regresión y abre otro.',
+      'Sin datos de clientes: se borran emails, teléfonos y lo citado. Y lo que no es de MaKo (el proveedor de IA caído, la red, una extensión) no abre nada.',
+      '⚠️ El aviso al grupo del negocio cuando está arreglado espera a `avisar_arreglo_al_grupo` de «MaKo en WhatsApp».',
+    ],
+  },
+  {
+    fecha: '17 oct', hora: '11:30', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Al cliente le llega en su grupo que el error ya está arreglado',
+    revisar: '/admin/operaciones?ticketera=tickets',
+    puntos: [
+      'Con `avisarArregloAlGrupo` de «MaKo en WhatsApp» (firmado «Desarrollador de MaKo», uno por arreglo y por negocio). Es una función y no una operación del registro: nadie más puede firmar como el equipo.',
+      '**Sólo con prueba**: el build que corre trae el hito con el número del ticket (su commit y su url). Un ticket del sistema que Martín sólo contestó no avisa nada.',
+      'Los títulos de los errores, en palabras del cliente: «La pantalla «CRM» se rompió», «MaKo no pudo «Mover un lead de etapa»», en vez de la ruta.',
+    ],
+  },
+  {
+    fecha: '18 oct', hora: '01:45', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un negocio sin IA conectada ya no abre un ticket: MaKo le pide que conecte la suya',
+    revisar: '/integraciones',
+    puntos: [
+      'Por los tickets #5 y #6 de Mauricio: MaKo no le contestaba en el chat de la app porque su negocio no tiene una IA propia. No era un bug, y la Ticketera lo había mandado a arreglar.',
+      'Ahora no abre ticket, y en el chat MaKo dice «Para contestarte necesito una IA conectada» con un botón «Conectar tu IA» que abre el modal ahí mismo, sin salir de la pantalla.',
+      '/integraciones dice «Conectada» sólo si MaKo la puede usar como del negocio. En el ws1 decía «Conectada» en las siete IA y no le servía ninguna; una copia de la de MaKo ahora lo dice.',
+      '⚠️ **En el ws1 conectar su IA no alcanza**: lo que guarde en su fila pasa a ser la key con la que corre la plataforma. Por eso ahí MaKo dice «Ya lo está resolviendo el equipo de MaKo», sin botón, y sus IA en /integraciones dicen «La configura el equipo de MaKo», sin formulario. Separarlo es una decisión que el Cerebro lleva a Martín (docs/hallazgos-integraciones.md).',
+    ],
+  },
+  {
+    fecha: '18 oct', hora: '09:30', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Mauricio ya puede conectar su propia IA: las de la plataforma salen de la plataforma',
+    revisar: '/integraciones',
+    puntos: [
+      'Lo decidió Martín: «separá el ws1 de las claves de la plataforma… para que Mauricio pueda conectar su propia IA». Hasta hoy la fila del ws1 era la que la plataforma usaba como propia, así que lo que él pegara pasaba a ser de MaKo.',
+      'Ahora las keys de IA de la plataforma salen del workspace de la plataforma. El ws1 es un negocio más: ve el botón «Conectar tu IA» y lo que pegue es suyo. Las copias de MaKo que quedan en su fila siguen diciendo «Esa key es la de MaKo».',
+      'Antes del deploy se copiaron a la plataforma las keys de IA que estaban sólo en la fila del ws1, para que la plataforma no pierda ninguna. No se borró nada del ws1.',
+      '⚠️ Lo que no es IA (Meta, Calendly, Fathom…) y las configuraciones de la plataforma siguen en el ws1: es otra decisión, y está en el relevo del área.',
     ],
   },
 ];

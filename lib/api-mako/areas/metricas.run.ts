@@ -29,9 +29,11 @@ import {
   getMarketingWindow, getFunnelEtapas, getFunnelSeries, getTendencias, getAgendasComparador, getVslSerie,
   getFatigaAdsets, getRevenuePeriod, getRevenueMensual, getMrrActivo, getCACAcumulado, listCACMensual,
   listCohortesSemanales, listCohortesMensuales, getResumenComercialMaduras, getFunnelMadurasLeads,
-  getSCL, getTramosSCL, getDistribucionPipeline, type FunnelLeadItem,
+  getSCL, getTramosSCL, getDistribucionPipeline, FunnelsConEtapasDistintas, type FunnelLeadItem,
 } from '@/lib/queries';
 import { getOutstandingDetalle, getCuotasPendientes, type CuotaPendiente } from '@/lib/pagos';
+import { funnelsDelPedido } from '../funnels-del-pedido';
+import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
@@ -206,12 +208,23 @@ export const RUNNERS: Runners = {
   diagnosticar_funnel: {
     leer: async (input) => {
       const { desde, hasta } = await rango(input);
+      // #896: uno o varios funnels (la misma lectura que el OKR). Sin el parámetro, el negocio entero, como siempre.
+      const elegidos = await funnelsDelPedido(input);
+      if (elegidos && 'error' in elegidos) return errorPedido(elegidos.error);
+      const ids = elegidos?.ids ?? [];
       const fuentes = await getDataSources().catch(() => null);
-      const [f, filasR1] = await Promise.all([
-        getFunnelEtapas(desde, hasta, fuentes ? sourcesToMap(fuentes) : undefined),
-        // getFunnelEtapas lee los leads de la ventana sin paginar.
-        contarFilas('leads', (q) => q.gte('fecha_junta_1', desde).lte('fecha_junta_1', hasta)),
-      ]);
+      let f: Awaited<ReturnType<typeof getFunnelEtapas>>;
+      let filasR1: Awaited<ReturnType<typeof contarFilas>>;
+      try {
+        [f, filasR1] = await Promise.all([
+          getFunnelEtapas(desde, hasta, fuentes ? sourcesToMap(fuentes) : undefined, ids),
+          // getFunnelEtapas lee los leads de la ventana sin paginar.
+          contarFilas('leads', (q) => q.gte('fecha_junta_1', desde).lte('fecha_junta_1', hasta)),
+        ]);
+      } catch (e) {
+        if (e instanceof FunnelsConEtapasDistintas) return errorPedido(e.message);
+        throw e;
+      }
       // ⚠️ LOS RÓTULOS DE LAS ETAPAS DEL CRM SE LEEN DEL FUNNEL, NO SE ESCRIBEN ACÁ.
       // Estaban a mano («Agenda→Asistió, Asistió→Calificado, Calificado→Cierre») y
       // son los del embudo de dos reuniones: a un negocio que vende sin reuniones el
@@ -237,8 +250,11 @@ export const RUNNERS: Runners = {
           : []),
       ];
       if (!fuentes) notas.unshift('No se pudo leer el estado de las fuentes: ninguna etapa se marcó fuente_pendiente, así que un 0% puede ser una fuente desconectada.');
+      // #896: con funnels elegidos, lo de Meta sigue siendo de toda la cuenta. El modelo no ve la pantalla: se le dice.
+      if (f.pautaDeTodaLaCuenta) notas.unshift('Embudo de los funnels elegidos: las etapas del CRM cuentan sólo sus leads (cada uno en el funnel donde estaba ese día), pero impresiones, clics y formularios de Meta son de TODA la cuenta (Meta no dice a qué funnel va cada uno). Las etapas que mezclan las dos (Formulario→Agenda) comparan cosas de distinto tamaño.');
       return json({
         ventana: ventana(desde, hasta),
+        funnels: ids.length && elegidos ? rotuloDeFunnels(ids, elegidos.nombres) : 'todo el negocio',
         cuello_de_botella: f.cuelloKey,
         etapas: f.etapas.map((e) => ({
           key: e.key, etapa: e.label, bloque: e.bloque, contexto: e.contexto,
@@ -257,11 +273,23 @@ export const RUNNERS: Runners = {
       const h = await dia(input);
       if (typeof h !== 'string') return errorPedido(h.error);
       const semanas = entero(input, 'semanas', 12);
-      const s = await getFunnelSeries(h, semanas);
+      // Uno o varios funnels (17/10/2026, el cabo de #896): la misma lectura que `diagnosticar_funnel`. Sin el parámetro, el
+      // negocio entero, como siempre.
+      const elegidos = await funnelsDelPedido(input);
+      if (elegidos && 'error' in elegidos) return errorPedido(elegidos.error);
+      const ids = elegidos?.ids ?? [];
+      let s: Awaited<ReturnType<typeof getFunnelSeries>>;
+      try {
+        s = await getFunnelSeries(h, semanas, ids);
+      } catch (e) {
+        if (e instanceof FunnelsConEtapasDistintas) return errorPedido(e.message);
+        throw e;
+      }
       const ultimo = lunesDeFecha(h);
       const lunes = Array.from({ length: semanas }, (_, i) => diasAntes(ultimo, (semanas - 1 - i) * 7));
       return json({
         ventana: ventana(lunes[0], diasAntes(ultimo, -6)),
+        funnels: ids.length && elegidos ? rotuloDeFunnels(ids, elegidos.nombres) : 'todo el negocio',
         semanas_lunes: lunes,
         series_pct: Object.fromEntries(Object.entries(s).map(([k, vals]) => [k, vals.map(r2)])),
         notas: [
@@ -270,6 +298,8 @@ export const RUNNERS: Runners = {
           // `form_agenda` o `calificado_cierre` acá le afirmaba al modelo unas etapas
           // que un negocio sin reuniones no tiene.
           'Las etapas del CRM agrupan por la fecha de la 1ª reunión; si el funnel no tiene reuniones, agrupan por la fecha de alta del lead. El cierre cuenta la etapa ganado. La semana en curso está incompleta.',
+          // El modelo no ve la pantalla: con funnels elegidos se le dice que lo de Meta es de toda la cuenta.
+          ...(ids.length ? ['Serie de los funnels elegidos: las etapas del CRM cuentan sólo sus leads (cada uno en el funnel donde estaba ese día), pero impresiones, clics y formularios de Meta son de TODA la cuenta (Meta no dice a qué funnel va cada uno).'] : []),
         ],
       });
     },

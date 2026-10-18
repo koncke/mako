@@ -180,7 +180,9 @@ export const CSS = `
 .lk-comp--portada .gr-tarjetas { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); overflow: hidden; gap: 16px; }
 .lk-comp--portada .gr-tarjeta { background: color-mix(in srgb, var(--portada-tinta) 12%, var(--portada-fondo)); border-color: transparent; border-radius: 16px; padding: 12px; }
 .lk-comp--portada .gr-tarjeta-cab { grid-template-columns: minmax(0, 1fr); }
-.lk-comp--portada .gr-tarjeta-mini { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 11px; }
+/* #860 (Martín, 16/10: «se corta la cara de la persona porque los anuncios normalmente son en vertical»): la miniatura de un
+   anuncio es un PÓSTER vertical 9:16 de alto fijo (el ancho sale del alto), centrado, no una franja 4:3 que corta la cara. */
+.lk-comp--portada .gr-tarjeta-mini { width: auto; max-width: 100%; height: clamp(150px, 19cqi, 260px); aspect-ratio: 9 / 16; object-fit: cover; object-position: center 22%; justify-self: center; border-radius: 11px; }
 .lk-comp--portada .gr-tarjeta-val { font-size: clamp(22px, 2.6cqi, 32px); font-weight: 800; }
 /* Las filas miden lo que su tarjeta (con 1fr, el «+N más» era una segunda fila y le comía la mitad del alto: medido en
    producción, 15/10); lo que no entra se corta abajo, como en la miniatura. */

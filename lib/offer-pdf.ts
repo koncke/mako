@@ -7,8 +7,9 @@
 // con unpdf para comprobar que el texto llega entero.
 //
 // El documento es para el DUEÑO del negocio (no para mandarle a un prospecto): por
-// eso lleva el diagnóstico, los números y los datos «[completar]». Una versión
-// externa, sin lo interno, quedó anotada como pendiente en docs/hallazgos-offer.md.
+// eso lleva el diagnóstico, los números y los datos «[completar]». Desde el 17/10/2026
+// hay además una versión EXTERNA (`pdfExternoDeOferta`): la oferta sola, para mandarle
+// a un prospecto, sin lo interno.
 //
 // Siempre sale CLARO aunque la persona use la app en oscuro: un PDF se imprime y se
 // reenvía, y un `var(--token)` no existe adentro de un archivo. Los hex están
@@ -18,7 +19,7 @@
 // =============================================================================
 
 import {
-  DIMENSIONES, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, loQueMeGusto, paraSubirCadaParte,
+  DIMENSIONES, FUENTE_PUNTAJE, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, loQueMeGusto, paraSubirCadaParte,
   type ConclusionOferta, type PropuestaOferta, type PuntoControl,
 } from './offer-marco';
 import { CANALES, dimensionDeFase, faseDef, repartoTexto, type Diagnostico } from './fase-diagnostico';
@@ -93,6 +94,82 @@ export function nombreArchivoOferta(titulo: string, version: number): string {
 
 /** Genera el PDF de una conclusión. Nunca tira por el contenido: lo que no entra se corta en líneas y páginas. */
 export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Array {
+  return documentoDeOferta(c, meta).bytes();
+}
+
+/**
+ * Las páginas del MISMO PDF en SVG, para verlo en la pantalla antes de descargarlo (17/10/2026, tarjeta #887: «al terminar
+ * el análisis, lo primero que se ve es la vista del PDF»). Mismo documento, misma función: no hay una segunda maqueta.
+ */
+export function paginasDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): string[] {
+  return documentoDeOferta(c, meta).paginasSvg();
+}
+
+/** El nombre del PDF para un prospecto: el de la oferta, sin «v2» (la versión es un dato interno). */
+export function nombreArchivoOfertaExterna(titulo: string): string {
+  return nombreArchivoOferta(titulo, 1).replace(/-v1\.pdf$/, '.pdf');
+}
+
+/**
+ * El PDF de la oferta PARA UN PROSPECTO (17/10/2026, docs/relevo/offer.md: «el PDF externo, sin diagnóstico ni
+ * "[completar]", para un prospecto»). Es la MISMA propuesta, con sólo lo que lee el cliente del negocio: para quién es,
+ * el problema y el destino, el método, la ruta, qué incluye, el formato, la prueba, la garantía, los bonos, la inversión
+ * y la urgencia. NO va: el diagnóstico (Parte 1), los mensajes y «cómo decirlo en la llamada» (son guiones del dueño),
+ * los escenarios, la ecuación de valor, los números, cómo validarla, el escalón siguiente, los avisos, lo que propuso
+ * MaKo y los supuestos. Y ningún renglón con «[completar]»: un hueco no se le manda a un cliente (sale el renglón, y
+ * la sección si queda vacía). Sin la marca de MaKo: la oferta es del negocio.
+ */
+export function pdfExternoDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Array {
+  return documentoExterno(c, meta).bytes();
+}
+
+/** Las secciones que lee el prospecto (ver `pdfExternoDeOferta`), sin un solo «[completar]». */
+export function seccionesExternas(p: PropuestaOferta): Array<[string, Array<{ t: string; vineta?: boolean; rotulo?: string }>]> {
+  const FUERA = new Set(['Mensajes', 'Mejor y peor escenario', 'Ecuación de valor', 'Números', 'Cómo validarla', 'Siguiente escalón']);
+  const sinHueco = (b: { t: string; rotulo?: string }) => !b.t.includes(MARCA_COMPLETAR);
+  return seccionesPropuesta(p)
+    .filter(([t]) => !FUERA.has(t))
+    .map(([t, cuerpo]): [string, Bloque[]] => {
+      let bloques = cuerpo.filter(sinHueco);
+      // Lo que es del DUEÑO adentro de una sección del cliente: el guion del precio y la objeción que ataca cada bono.
+      if (t === 'Inversión') bloques = bloques.filter((b) => b.rotulo !== 'Cómo decirlo en la llamada');
+      if (t === 'Bonos') bloques = p.bonos.filter((x) => lleno(x.nombre) && !x.nombre.includes(MARCA_COMPLETAR))
+        .map((x) => ({ t: [x.nombre, lleno(x.valor) && !x.valor.includes(MARCA_COMPLETAR) ? `valor: ${x.valor}` : ''].filter(lleno).join(' — '), vineta: true }));
+      // Los nombres del método van SIN «(propuesta)»: es la marca interna de que lo propuso MaKo.
+      if (t === 'Método') bloques = bloques.map((b) => (b.rotulo === 'Nombres propuestos' ? { rotulo: 'Método', t: b.t.split(' · ')[0].replace(/\s*\(propuesta\)\s*$/i, '') } : b));
+      return [t, bloques];
+    })
+    .filter(([, bloques]) => bloques.length > 0);
+}
+
+function documentoExterno(c: ConclusionOferta, meta: MetaPdfOferta): PdfDoc {
+  const doc = new PdfDoc({ pie: lleno(meta.negocio) ? meta.negocio : ' ' });
+  const X = doc.margen;
+  const p = c.propuesta;
+  doc.rect(0, 0, doc.ancho, 6, { relleno: C.mako });
+  doc.y = 40;
+  if (lleno(meta.negocio)) doc.texto(meta.negocio.toUpperCase(), { tam: 8, fuente: 'Helvetica-Bold', color: C.dim, despues: 8 });
+  doc.texto(p.nombre || meta.titulo || 'La oferta', { tam: 24, fuente: 'Helvetica-Bold', interlinea: 1.2, despues: 6 });
+  if (lleno(p.frase) && !p.frase.includes(MARCA_COMPLETAR)) doc.texto(p.frase, { tam: 12, color: C.dim, interlinea: 1.4, despues: 16 });
+  for (const [titulo, cuerpo] of seccionesExternas(p)) {
+    doc.texto(titulo, { tam: 11.5, fuente: 'Helvetica-Bold', conSiguiente: 16, despues: 2 });
+    for (const b of cuerpo) {
+      if (b.vineta) {
+        doc.asegurar(14);
+        doc.textoEn(X + 4, doc.y + 10 * 0.95, '•', { tam: 10, color: C.mako });
+        doc.texto(b.t, { tam: 10, sangria: 14 });
+      } else if (b.rotulo) {
+        doc.textoRico([{ t: `${b.rotulo}: `, fuente: 'Helvetica-Bold', color: C.dim }, { t: b.t }], { tam: 10 });
+      } else {
+        doc.texto(b.t, { tam: 10 });
+      }
+    }
+    doc.y += 10;
+  }
+  return doc;
+}
+
+function documentoDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): PdfDoc {
   const fecha = fechaCorta(meta.fecha, meta.zona);
   const doc = new PdfDoc({ pie: `Generado por MaKo · ${fecha}` });
   const W = doc.anchoUtil;
@@ -129,6 +206,8 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
   const estado = lista ? 'Lista para vender' : `Lo que más frena: ${dimensionLabel(c.calculo.cuello)}`;
   doc.textoEn(xEstado, yp + 28, estado, { tam: 12, fuente: 'Helvetica-Bold', color: lista ? C.bien : C.ojo });
   doc.barra(xEstado, yp + 40, W - (xEstado - X) - 18, 8, c.calculo.total / 100, lista ? C.bien : colorNota(Math.round(c.calculo.total / 10)));
+  // De dónde sale el puntaje (tarjeta #888): el promedio de las notas de abajo, lo calcula el sistema.
+  doc.textoEn(xEstado, yp + 62, FUENTE_PUNTAJE, { tam: 8.5, color: C.tenue });
   doc.y = yp + altoPanel + 22;
   // El control final del marco (tarjeta «lista», 12/10/2026): si no está lista, qué punto falta.
   const faltan = (c.calculo.controlFinal ?? []).filter((x) => !x.ok);
@@ -242,7 +321,7 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
     }
   }
 
-  return doc.bytes();
+  return doc;
 }
 
 const etiquetaPunto = (k: PuntoControl): string => PUNTOS_CONTROL.find((x) => x.punto === k)?.label ?? k;

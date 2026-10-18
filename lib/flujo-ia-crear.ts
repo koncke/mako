@@ -224,11 +224,22 @@ export async function crearNuevas(nuevas: ResultadoIA['etiquetasNuevas']): Promi
  * y Gemini, Groq dos veces y Gemini de la red lo repitieron (16/10 21:27-21:29, medido en anthropic_usage y en el log);
  * con un Gemini colgado 100 s en el medio, el plazo se fue y el «Corregir» nunca corrió: 2,5 min y un error.
  */
+/**
+ * EL TOPE DE UN INTENTO (17/10/2026, tarjeta #847: «que tarde segundos en lugar de minutos»). Era 100 s: un proveedor
+ * colgado se comía casi medio plazo antes de pasar al siguiente. Medido en `anthropic_usage` (14 días, 36 llamadas de
+ * `chatbot-crear-ia`): entre un intento y el siguiente, la mediana es 11 s, OpenRouter contestaba entre 38 y 47 s, y los
+ * huecos de 76 a 206 s son los colgados. Y NINGUNA salida de más de 45 s fue la que se aceptó: las de OpenRouter a los
+ * 76-97 s (ws10 y ws11) y la de Gemini a los 86 s (ws13) siguieron de largo al proveedor de después. Con 45 s entra lo
+ * que contesta y lo que cuelga cuesta menos de la mitad.
+ */
+export const INTENTO_CREAR_MS = 45_000;
+
 async function pasada<R extends { avisos: string[] }>(p: {
   system: string; user: string; motivo: string; hastaMs: number;
   traducir: (obj: Record<string, unknown>) => { r: R; errores: string[] };
   provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[]; erroresRed: string[];
   pararEnRevision?: boolean;
+  alIntentar?: () => void;
 }): Promise<{ bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null }> {
   const out: { bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null } = { bueno: null, crudos: [], ultimo: null, ultimoR: null };
   // ⚠️ LA SALIDA SE DIMENSIONA PARA QUE GROQ ENTRE (`salidaParaIA`): con 6000 fijos la cascada lo
@@ -237,7 +248,7 @@ async function pasada<R extends { avisos: string[] }>(p: {
   await chatCheapCascade({
     system: p.system, user: p.user, json: true, maxTokens, temperature: 0.4,
     feature: FEATURE_CREAR_IA, motivo: p.motivo,
-    provs: p.provs, modelos: p.modelos, timeoutMs: 100_000, hastaMs: p.hastaMs,
+    provs: p.provs, modelos: p.modelos, timeoutMs: INTENTO_CREAR_MS, hastaMs: p.hastaMs, alIntentar: p.alIntentar,
     // ⚠️ SIN EL MODELO DE RESPALDO (duodécima tanda, §1.3): después del 429 de gemini-flash la cascada probaba
     // gemini-flash-lite, que escribió #243 y #245 de ws10 (un flujo por WhatsApp pedido por Instagram). Sin él, el
     // 429 pasa a Groq.
@@ -308,8 +319,12 @@ export async function generar<R extends { avisos: string[] }>(p: {
   system: string; user: string; hastaMs: number;
   traducir: (obj: Record<string, unknown>) => { r: R; errores: string[] };
   motivo?: string;
+  /** El número de cada pedido a un proveedor, al arrancarlo (1, 2, …), contando los tres escalones (#847). */
+  alIntento?: (n: number) => void;
 }): Promise<{ r: R } | FalloIA> {
   const { provs, modelos } = await proveedores();
+  let intentos = 0;
+  const alIntentar = p.alIntento ? () => { intentos += 1; p.alIntento!(intentos); } : undefined;
   const hastaMs = p.hastaMs;
   const quedan = () => hastaMs - Date.now();
   const errores: string[] = [];
@@ -317,7 +332,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
   const erroresRed: string[] = [];
   const motivo = p.motivo?.trim() || 'Crear una automatización con IA';
 
-  const uno = await pasada({ ...p, motivo, hastaMs, provs, modelos, errores, erroresRed, pararEnRevision: true });
+  const uno = await pasada({ ...p, motivo, hastaMs, provs, modelos, errores, erroresRed, pararEnRevision: true, alIntentar });
   if (uno.bueno) return { r: uno.bueno };
   let ultimo = uno.ultimo;
   let ultimoR = uno.ultimoR;
@@ -329,7 +344,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
     const copia = await chatCheapCascade({
       system: 'Recibes un texto que pretende ser un JSON pero tiene errores de sintaxis. Devuelve EXACTAMENTE el mismo contenido como JSON válido: mismas claves, mismos valores, mismo orden. No agregues, no quites, no comentes. Solo el JSON.',
       user: crudo.slice(0, 60_000), json: true, maxTokens: 8000, temperature: 0,
-      feature: FEATURE_CREAR_IA, motivo: `reparar el JSON · ${motivo}`, provs, modelos, hastaMs, erroresOut: errores,
+      feature: FEATURE_CREAR_IA, motivo: `reparar el JSON · ${motivo}`, provs, modelos, hastaMs, erroresOut: errores, alIntentar,
       sinRespaldoDeModelo: true, redDePlataforma: true, erroresPlataformaOut: erroresRed,
       validar: (t) => { try { parseJsonObject(t); return true; } catch { return false; } },
     }).catch((e) => { errores.push(msg(e)); return ''; });
@@ -346,7 +361,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
   // 3. Lo que se leyó tenía errores: un reintento diciéndole cuáles.
   if (ultimo && quedan() > MIN_PARA_OTRO_MS) {
     const corregir = `${p.user}\n\nTU RESPUESTA ANTERIOR TENÍA ESTOS PROBLEMAS. Corrígelos y devuelve el JSON COMPLETO:\n${ultimo.slice(0, 12).map((e) => `- ${e}`).join('\n')}`;
-    const dos = await pasada({ ...p, user: corregir, motivo: `Corregir · ${motivo}`, hastaMs, provs, modelos, errores, erroresRed });
+    const dos = await pasada({ ...p, user: corregir, motivo: `Corregir · ${motivo}`, hastaMs, provs, modelos, errores, erroresRed, alIntentar });
     if (dos.bueno) return { r: dos.bueno };
     if (dos.ultimo) { ultimo = dos.ultimo; ultimoR = dos.ultimoR; }
   }

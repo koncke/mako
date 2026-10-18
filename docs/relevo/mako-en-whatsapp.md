@@ -29,6 +29,15 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
   roturas). La causa de cada uno, con números, en `docs/hallazgos-comunicacion.md` → «No puedo», «déjame ver» y «la
   cagada es real». En una línea: **no era Google, era el clasificador**; y una respuesta del doer es el FINAL del turno.
 - **La regla nueva** está en AGENTS.md → «Y un canal de MaKo no promete».
+- **El aviso «ya quedó arreglado» al grupo del cliente** (pedido de Martín, 17/10 09:36, por el Ops Center: «al terminar
+  de solucionar algo que detectaste de un cliente… le envíes un mensaje al grupo de MaKo diciendo que se solucionó eso.
+  Con una aclaración de que sos el "Desarrollador"»): `scripts/avisar-arreglo-al-grupo.mts` + `lib/aviso-arreglo.ts`
+  (50a24c25c). Prueba la producción con git + Vercel, firma «👨‍💻 Desarrollador de MaKo», un aviso por clave, tope de 3
+  por negocio en 24 h, el ws1 sólo con `--ws1-seguro`. La regla, en AGENTS.md («Un jefe que arregla algo que le falló
+  a un CLIENTE…»). **El vigía sigue sin escribir en los grupos, salvo ESTE aviso, y el aviso NO necesita el OK de
+  Martín** (17/10 10:09: «No necesitas mi aprobacion, manda el mensaje tranquilamente al grupo»): lo manda el jefe que
+  arregló. Si el clasificador de permisos de Claude Code lo bloquea, se le dice a Martín en una línea, en este chat,
+  con el comando exacto.
 
 ## 3. Lo que quedó a medio hacer o sin verificar, y dónde vive
 
@@ -45,13 +54,23 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
   que todos los grupos están en el default, `libre`. Si alguno pasa a `ventana`, hay que leer `mako.doer.modo.<jid>`
   (en el ws1, `OPS`) antes de contar.
 
-- **«Levantar un ticket» desde el grupo (pedido de la Ticketera, 17/10), ESPERANDO que su rama `ticketera` llegue a
-  main** (ella avisa). Lo acordado: en el doer, `ctx.actor = 'whatsapp:<teléfono>'` (de `key.participant`; si no hay,
+- **«Levantar un ticket» desde el grupo: CONECTADO el 17/10** (lib/doer-ticket.ts y el doer). Falta la punta siguiente
+  de la Ticketera, que hace que `preparar()` acepte el actor `whatsapp:…`; hasta entonces contesta «No sé quién eres» y
+  el ticket no se levanta. Lo que quedó acordado, ya hecho de este lado: Lo acordado: en el doer, `ctx.actor = 'whatsapp:<teléfono>'` (de `key.participant`; si no hay,
   el pushName) — su `preparar()` busca un usuario con ese teléfono y si no, el teléfono es la identidad;
   `ctx.contextoTicket = () => ({ pedido, respuestaMako, error, herramienta })` con `errorParaTicket(name, out)` en el
   `runTool`; que MaKo lo proponga SÓLO con las marcas de falla de verdad (cartel de IA, saneo de una promesa), no ante
   cada «no puedo»; y el aviso de cierre al grupo pasa por `sanearSalida` antes de `enviarAlGrupoMaKo`. El molde del
   «ticket que propone el código» está en lib/mako-turno-app.ts.
+- **Lo que falla se registra SOLO, sin preguntarle a la persona** («Y todo lo solucionás automáticamente», 17/10):
+  HECHO en el doer con `registrarError` + `identidadDelActor` de la Ticketera (bloque «Lo que falló de MaKo va SOLO a la
+  Ticketera» de `lib/mako-doer-in.ts`). A la persona se le dice sólo si entró como ticket.
+- **Estado al 18/10 03:00 UTC (85% semanal de la cuenta 4):** TODO lo de este chat está en `main` y en producción
+  (main 196fa1101, deploy Ready): el vigía, Pablo, «reprogramar» (ws13), «agendarle… en el calendario» (ws18), el
+  ticket desde el grupo, el registro solo de las fallas y el aviso de arreglo.
+- **Los dos primeros avisos de arreglo SALIERON el 18/10 ~03:15 UTC** (ws18 Pablo, id 3EB0FB91C81156F5CD4823;
+  ws13 Código Inmobiliario, id 3EB024974831770F97E62E), con su prueba de producción (deploy Ready de main
+  196fa1101). Quedaron registrados en `mako.dev.aviso_arreglo.<clave>` de cada negocio: no se repiten.
 
 ## 4. Qué espera una decisión de Martín
 
@@ -68,8 +87,11 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
    WhatsApp: corré `cd C:/dev/wt-mako-wa && npx tsx scripts/vigia-mako-grupos.mts`. Si no imprime nada, terminá sin
    escribir nada. Si trae incidentes: por cada uno buscá la causa real armando el turno con la frase literal
    (clasificarIntencion + herramientasDelTurno) y mirando el modelo de la fila; arreglá con su test probado rompiéndolo,
-   cosechá en docs/hallazgos-comunicacion.md y pasale la punta al Cerebro con una línea para Martín. Nunca escribas en
-   el grupo de un cliente ni le mandes nada a nadie: se lee producción y se prueba en el ws3.»
+   cosechá en docs/hallazgos-comunicacion.md y pasale la punta al Cerebro (por su id, no por el nombre) con una línea
+   para Martín. NO escribas en el grupo de un cliente ni le mandes nada a nadie, salvo el aviso de arreglo: cuando un
+   arreglo tuyo esté en producción, avísalo con scripts/avisar-arreglo-al-grupo.mts (con NODE_OPTIONS=--conditions=
+   react-server; no necesita el OK de Martín; si el clasificador lo bloquea, díselo a Martín en una línea con el comando
+   exacto). Se lee producción y se prueba en el ws3.»
 3. Un incidente ya contado no vuelve (la clave queda en el estado). Para releer un tramo: `--desde <ISO> --estado
    <otro archivo>`.
 

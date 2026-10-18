@@ -37,35 +37,60 @@
 .m-crm-check { display: grid; place-items: center; color: var(--primary-strong); }
 .m-crm-azul { color: var(--primary-strong); }
 
-/* ── Ficha: el encabezado propio (avatar 88, nombre, etapa + funnel) ────── */
-.m-crm-ficha { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 4px 4px 0; text-align: center; }
-[data-m] .m-crm-ficha__nombre {
-  margin: 6px 0 0; font-size: var(--fs-page); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2;
-  color: var(--ink); overflow-wrap: anywhere; text-wrap: balance;
+/* ── Ficha (17/10/2026): el encabezado a la izquierda, compacto, como el registro de HubSpot y el deal de
+   Pipedrive en el teléfono: avatar 52 · nombre · empresa (y «N sin marcar»). ──────────────────────────── */
+.m-crm-cab { display: flex; align-items: center; gap: 14px; padding: 2px 0 0; }
+.m-crm-cab .m-avatar { flex: none; }
+.m-crm-cab__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+[data-m] .m-crm-cab__nombre {
+  margin: 0; font-size: var(--fs-page); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15;
+  color: var(--ink); overflow-wrap: anywhere;
 }
-.m-crm-ficha__sub {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
-  font-size: var(--fs-sm); color: var(--dim);
-}
+.m-crm-cab__sub { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--dim); }
+.m-crm-cab__emp { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Una lista de la ficha que viene DESPUÉS de las notas (la ficha del funnel la puso ahí, ./ficha-bloques.ts):
    sin título, con el aire de una sección. */
 .m-crm-grupo { padding-top: 22px; }
 
-/* Las tres acciones grandes: Llamar · WhatsApp · Agendar. */
-.m-crm-acc3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
-.m-crm-acc {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  min-height: 68px; padding: 8px 4px; border-radius: var(--r-lg);
-  background: var(--surface); border: 1px solid var(--border); color: var(--primary-strong);
-  font: inherit; font-size: var(--fs-sm); font-weight: 600; text-decoration: none; text-align: center;
+/* Las acciones (17/10/2026): la fila de HubSpot debajo del nombre, un círculo con su ícono y el rótulo abajo. */
+.m-crm-acciones { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 18px; }
+.m-crm-accion {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-height: 72px; padding: 4px 0; border: 0; background: none;
+  color: var(--ink); font: inherit; font-size: var(--fs-meta); font-weight: 500; text-decoration: none; text-align: center;
   cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.m-crm-accion__c {
+  display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+  background: var(--primary-bg); color: var(--primary-strong);
   transition: transform var(--dur-press) var(--ease-out);
 }
-.m-crm-acc:active { transform: scale(.96); }
-.m-crm-acc[aria-disabled="true"] { color: var(--faint); }
-.m-crm-acc[aria-disabled="true"]:active { transform: none; }
-.m-crm-acc:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-crm-accion:active .m-crm-accion__c { transform: scale(.92); }
+.m-crm-accion[aria-disabled="true"] { color: var(--faint); }
+.m-crm-accion[aria-disabled="true"] .m-crm-accion__c { background: var(--surface-2); color: var(--faint); }
+.m-crm-accion[aria-disabled="true"]:active .m-crm-accion__c { transform: none; }
+.m-crm-accion:focus-visible { outline: none; }
+.m-crm-accion:focus-visible .m-crm-accion__c { box-shadow: var(--focus-ring); }
+
+/* La etapa (17/10/2026): la barra de la ficha del deal de Pipedrive. El nombre de la etapa, el funnel debajo, y
+   una rayita por etapa del camino, llenas hasta la actual. Toda la caja es UN botón: abre «Mover de etapa». */
+.m-crm-etapa {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 12px;
+  width: 100%; margin-top: 16px; padding: 12px 14px 14px; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface);
+  font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.m-crm-etapa:active { background: var(--velo-hover); }
+.m-crm-etapa:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-crm-etapa__txt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-crm-etapa__n { font-size: var(--fs-card); font-weight: 650; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-crm-etapa__f { font-size: var(--fs-sm); color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-crm-etapa__ir { display: grid; place-items: center; color: var(--faint); transform: rotate(-90deg); }
+.m-crm-etapa__barra { grid-column: 1 / -1; display: grid; gap: 3px; }
+.m-crm-etapa__barra i { display: block; height: 5px; border-radius: 3px; background: var(--border); }
+.m-crm-etapa__barra i[data-lleno] { background: var(--primary); }
 
 /* Una nota en la lista agrupada: el texto y «Ayer · Sofía». */
 .m-crm-nota { padding: 14px 16px; background: var(--surface); }
@@ -175,7 +200,7 @@
 .m-crm-enviar .m-crm-spin { color: var(--on-primary); }
 
 @media (prefers-reduced-motion: reduce) {
-  .m-crm-acc, .m-crm-enviar { transition: none; }
+  .m-crm-accion__c, .m-crm-enviar { transition: none; }
 }
 
 /* v3: el selector de funnel arriba del tablero (como el desplegable de escritorio). */
@@ -188,3 +213,47 @@
 .m-crm-funnel svg { flex: none; color: var(--dim); }
 .m-crm-funnel:active { opacity: .6; }
 .m-crm-resultados { margin-top: 14px; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LA FAMILIA DE TARJETAS (17/10/2026, noche) — la del prototipo docs/prototipos/coherencia-1710.html
+   ════════════════════════════════════════════════════════════════════════════
+   Martín: «No me gustan las cards y cómo se ven... Quiero que tengan coherencia». Reemplaza la piel de Pipedrive
+   de la tarde (filas pegadas con filete): la tarjeta grande y redonda, las etapas en pestañas píldora y la columna
+   suave vienen de KanbanM y m.css, iguales en Clientes y el Plan. Acá queda lo que es del CRM: lo de adentro de la
+   tarjeta (la cara con la insignia del canal, el nombre, «plata · por dónde llegó», la señal y «Ver info») y el tinte
+   de lo que venció. Las piezas de la cara y la píldora son de app/_ui/TarjetaKanban (`tk-*`). */
+.m-crm-tablero .m-kb-tj { padding: 12px; }
+.m-crm-tablero .m-kb-tj[data-llego] { animation: m-crm-llego 1.4s ease; }
+@keyframes m-crm-llego { 0%, 70% { box-shadow: inset 0 0 0 2px var(--primary); } 100% { box-shadow: inset 0 0 0 0 transparent; } }
+/* Lo que venció (la Nutrición manual): la tarjeta lleva el filo rojo, como en la computadora. */
+.m-crm-tablero .m-kb-tj:has(.m-crm-tj[data-tono="rojo"]) { box-shadow: inset 3px 0 0 var(--bad), 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent); }
+
+/* Lo de adentro. Sin `.m-crm-tablero` delante: la copia que sigue al dedo cuelga de #m-root. */
+.m-crm-tj { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; }
+.m-crm-tj__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-crm-tj__n {
+  font-size: 15px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-crm-tj__c {
+  font-size: 12.5px; line-height: 1.3; color: var(--dim); font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-crm-tj__cuando { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.m-crm-tj__punto { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.m-crm-tj[data-tono="verde"] .m-crm-tj__punto { background: var(--good); }
+.m-crm-tj[data-tono="rojo"] .m-crm-tj__punto { background: var(--bad); }
+.m-crm-tj[data-tono="rojo"] .m-crm-tj__cuando { color: var(--bad); font-weight: 650; }
+.m-crm-tj__ver { flex: none; pointer-events: none; }
+
+/* «Próximo» arriba del tablero, con el selector de funnel: se van con el scroll del documento. */
+.m-crm-arriba { display: grid; gap: 12px; width: 100%; padding-bottom: 4px; }
+
+/* El selector de funnel como el «Sales pipeline ▾» de Pipedrive: el nombre en negrita y la flecha hacia abajo. */
+.m-crm-funnel { font-size: var(--fs-card); font-weight: 700; }
+/* El `chevron` de app/_components/icons.tsx ya apunta hacia ABAJO (mirado a 390 px: rotado quedaba «‹»). */
+.m-crm-funnel__flecha { flex: none; display: grid; place-items: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-crm-tablero .m-kb-tj[data-llego] { animation: none; }
+}

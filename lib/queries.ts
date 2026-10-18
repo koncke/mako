@@ -10,6 +10,7 @@ import { cachedRead, TAG, TTL } from './cache';
 import { avisanDelLead, NO_IGNORABLES } from './datos-aviso';
 import { avisosDelWorkspace } from './ficha/config-server';
 import { RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
+import { bajadaCrmPorAnuncio, type FilaLeadCrm } from './ads-rendimiento';
 import { conversorGastoMeta } from './moneda-meta';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { listReviewPendientes } from './review-queue';
@@ -24,7 +25,9 @@ import {
   type EstadoLead,
   type EstadoMadurez,
 } from './leads';
-import { getPipelineStagesDefault } from './funnels';
+import { getFunnelDe, getPipelineStagesDefault } from './funnels';
+import type { Stage } from './pipeline';
+import { filtrarPorFunnels } from './funnels-elegidos-server';
 import { hayPasoDeWizard, tabDeSolucion, type Step } from './stage-requirements';
 // Un becado (#747) es cliente y no es venta: las sumas de lo vendido lo excluyen.
 import { VENTA_SIN_COBRO } from './venta-tipo';
@@ -1272,7 +1275,53 @@ export type FunnelMes = {
    * la segunda además pagaría otra lectura a la base.
    */
   roles: RolesComerciales;
+  /** #896: los funnels medidos, si se eligieron (sin esto: el negocio entero, como siempre). */
+  funnels?: number[];
+  /**
+   * Con funnels elegidos, lo que viene de Meta (impresiones, clics, formularios, gasto) es de TODA la cuenta: Meta no
+   * dice a qué funnel va cada uno. Lo que sale de los leads sí es del funnel. Quien lo muestre, lo dice.
+   */
+  pautaDeTodaLaCuenta?: boolean;
 };
+
+/** Los funnels elegidos no comparten sus pasos comerciales: no se pueden sumar en un solo embudo. */
+export class FunnelsConEtapasDistintas extends Error {}
+
+/**
+ * Las etapas de los funnels ELEGIDOS, para medirlos juntos (#896). Uno: las suyas. Varios: tienen que compartir sus pasos
+ * comerciales (`pasosComercialesDe`: qué cuenta de entrada y de salida en cada paso); si no, TIRA
+ * `FunnelsConEtapasDistintas`: un embudo de dos reuniones y uno sin reuniones no se suman paso por paso.
+ */
+async function etapasDeFunnels(ids: readonly number[]): Promise<Stage[]> {
+  const fs = await Promise.all(ids.map((id) => getFunnelDe(id)));
+  const firma = (st: Stage[]) => JSON.stringify(pasosComercialesDe(st).map((p) => [p.key, p.entrada, p.salida]));
+  const primera = firma(fs[0].stages);
+  if (fs.some((f) => firma(f.stages) !== primera)) {
+    throw new FunnelsConEtapasDistintas('Esos funnels tienen etapas distintas: no se pueden medir juntos. Pídelos de a uno.');
+  }
+  return fs[0].stages;
+}
+
+/**
+ * #896: las filas de leads que cuentan en ESTOS funnels: cada una en el funnel donde estaba ESE día (su casa, o el último
+ * al que se la agregó para esa fecha: `funnelDelMomento`, lib/funnels-elegidos.ts), la misma regla que el OKR. Sin
+ * funnels, todas (y no se lee nada más).
+ */
+async function enLosFunnels<T extends { id: number }>(filas: readonly T[], funnels: readonly number[], fecha: (x: T) => string | null): Promise<T[]> {
+  return funnels.length ? filtrarPorFunnels(filas.map((x) => ({ ...x, leadId: Number(x.id), fecha: fecha(x) })), funnels) : [...filas];
+}
+
+/**
+ * #896: las altas del período en ESTOS funnels. Con funnels no se pueden contar con un COUNT (hay que saber de cuál es
+ * cada una): van como filas PAGINADAS (el tope de 1000 de PostgREST) y se reparten con `enLosFunnels`.
+ */
+async function altasEnFunnels(supabase: Awaited<ReturnType<typeof getTenantDb>>, desde: string, hasta: string, funnels: readonly number[]): Promise<{ entradas: number; ganadas: number }> {
+  const filas = await leerTodo<{ id: number; estado_lead: string | null; created_at: string }>(supabase, 'leads', 'id, estado_lead, created_at', {
+    orden: 'id', filtros: (q) => q.gte('created_at', desde).lte('created_at', hasta),
+  });
+  const en = await enLosFunnels(filas, funnels, (x) => x.created_at.slice(0, 10));
+  return { entradas: en.length, ganadas: en.filter((x) => x.estado_lead === 'ganado').length };
+}
 
 // Mínimo de denominador para tratar un % como confiable (Fase 7)
 export const MIN_MUESTRA = 3;
@@ -1281,15 +1330,16 @@ export async function getFunnelEtapas(
   start: string,
   end: string,
   sourceMap?: Record<string, 'ok' | 'stale' | 'off'>,
+  funnels: readonly number[] = [],
 ): Promise<FunnelMes> {
   const supabase = (await getTenantDb());
 
-  // El funnel del workspace. No entra por parámetro a propósito: ninguno de los
-  // cuatro llamadores lo tiene en la mano, y un parámetro opcional que nadie pasa
-  // es un segundo lugar donde esta pregunta se puede contestar distinto.
-  // Que la lectura falle NO cambia nada: `pasosComercialesDe(null)` cae al tramo de
-  // dos reuniones, que es exactamente lo que esta función hacía siempre.
-  const stages = await getPipelineStagesDefault().catch(() => null);
+  // El funnel del workspace (sin `funnels`) o el de los funnels ELEGIDOS (#896, 17/10/2026: la API de MaKo
+  // `diagnosticar_funnel` los recibe; Martín: «esa configuración seguro debe faltar en varios lugares»).
+  // Que la lectura del default falle NO cambia nada: `pasosComercialesDe(null)` cae al tramo de dos reuniones,
+  // que es exactamente lo que esta función hacía siempre. Con funnels elegidos, si no comparten sus pasos
+  // comerciales no se pueden sumar en un solo embudo: TIRA `FunnelsConEtapasDistintas` (no se adivina cuál vale).
+  const stages = funnels.length ? await etapasDeFunnels(funnels) : await getPipelineStagesDefault().catch(() => null);
   const pasosComerciales = pasosComercialesDe(stages);
   const roles = rolesComercialesDe(stages);
   // Los contadores de la cohorte del ALTA sólo los pide el tramo SIN reuniones, y
@@ -1305,28 +1355,30 @@ export async function getFunnelEtapas(
   const altaDesde = `${start}T00:00:00Z`;
   const altaHasta = `${end}T23:59:59Z`;
 
-  const [mkt, leadsRes, altasRes, altasGanadasRes] = await Promise.all([
+  const conFunnels = funnels.length > 0;
+  const [mkt, leadsRes, altasRes, altasGanadasRes, altasF] = await Promise.all([
     getMarketingWindow(start, end),
     supabase
       .from('leads')
-      .select('asistio_j1, calificado, estado_lead, fecha_junta_1')
+      .select('id, asistio_j1, calificado, estado_lead, fecha_junta_1')
       .gte('fecha_junta_1', start)
       .lte('fecha_junta_1', end),
-    necesitaEntradas
+    necesitaEntradas && !conFunnels
       ? supabase.from('leads').select('id', { count: 'exact', head: true })
           .gte('created_at', altaDesde).lte('created_at', altaHasta)
       : Promise.resolve(null),
-    necesitaEntradas
+    necesitaEntradas && !conFunnels
       ? supabase.from('leads').select('id', { count: 'exact', head: true })
           .eq('estado_lead', 'ganado')
           .gte('created_at', altaDesde).lte('created_at', altaHasta)
       : Promise.resolve(null),
+    necesitaEntradas && conFunnels ? altasEnFunnels(supabase, altaDesde, altaHasta, funnels) : Promise.resolve(null),
   ]);
 
   if (leadsRes.error) throw new Error(`Funnel leads falló: ${leadsRes.error.message}`);
   if (altasRes?.error) throw new Error(`Funnel altas falló: ${altasRes.error.message}`);
   if (altasGanadasRes?.error) throw new Error(`Funnel altas ganadas falló: ${altasGanadasRes.error.message}`);
-  const rows = leadsRes.data ?? [];
+  const rows = await enLosFunnels(leadsRes.data ?? [], funnels, (r) => r.fecha_junta_1);
 
   const total_j1 = rows.length;
   const asistencias = rows.filter((r) => r.asistio_j1 === true).length;
@@ -1336,15 +1388,17 @@ export async function getFunnelEtapas(
 
   // Un contador por nombre del NEGOCIO. Los pasos del tramo nombran de acá, así
   // que la pregunta «de dónde sale este número» se contesta en un solo lugar.
+  // ⚠️ Con funnels elegidos, `forms` sigue siendo de TODA la cuenta de Meta (los formularios instantáneos no dicen a
+  // qué funnel van): quien lo muestre lo dice (`pautaDeTodaLaCuenta`). Las agendas salen de los leads del funnel.
   const contadores: Record<ContadorComercial, number> = {
     forms: mkt.leads_count,
-    agendas: mkt.reuniones_en_ventana,
+    agendas: conFunnels ? total_j1 : mkt.reuniones_en_ventana,
     r1_cohorte: total_j1,
     asistencias,
     limpias,
     cierres_cohorte: cierres,
-    entradas: altasRes?.count ?? 0,
-    cierres_entradas: altasGanadasRes?.count ?? 0,
+    entradas: altasF ? altasF.entradas : altasRes?.count ?? 0,
+    cierres_entradas: altasF ? altasF.ganadas : altasGanadasRes?.count ?? 0,
   };
 
   const pctDe = (salida: number, entrada: number): number | null =>
@@ -1460,7 +1514,7 @@ export async function getFunnelEtapas(
     ? pool.reduce((peor, e) => (severidad(e) > severidad(peor) ? e : peor))
     : null;
 
-  return { etapas, cuelloKey: cuello?.key ?? null, roles };
+  return { etapas, cuelloKey: cuello?.key ?? null, roles, ...(conFunnels ? { funnels: [...funnels], pautaDeTodaLaCuenta: true } : {}) };
 }
 
 // =============================================================================
@@ -1481,6 +1535,10 @@ export const getFunnelSeries = cachedRead('getFunnelSeries', _getFunnelSeries, {
 async function _getFunnelSeries(
   end: string = new Date().toISOString().slice(0, 10),
   semanas = 12,
+  // De qué funnels (17/10/2026, el cabo de #896): la serie medía SIEMPRE el principal, y con varios funnels MaKo daba
+  // números incompletos. La misma regla que `getFunnelEtapas`: cada lead en el funnel donde estaba ESE día, y lo de Meta
+  // sigue siendo de toda la cuenta. ⚠️ Entra en la clave del caché sola (`unstable_cache` suma los argumentos).
+  funnels: readonly number[] = [],
 ): Promise<FunnelSeries> {
   const supabase = (await getTenantDb());
 
@@ -1497,13 +1555,14 @@ async function _getFunnelSeries(
   // El tramo comercial de ESTE funnel: las series salen con las keys de los pasos
   // que ese workspace tiene de verdad. Antes emitía siempre las cuatro canónicas, y
   // para un funnel sin reuniones las cuatro eran null en las doce semanas.
-  const stages = await getPipelineStagesDefault().catch(() => null);
+  // Con funnels elegidos, los SUYOS (si no comparten los pasos, tira `FunnelsConEtapasDistintas`, como el período).
+  const stages = funnels.length ? await etapasDeFunnels(funnels) : await getPipelineStagesDefault().catch(() => null);
   const pasosComerciales = pasosComercialesDe(stages);
   const necesitaEntradas = pasosComerciales.some(
     (p) => p.entrada === 'entradas' || p.salida === 'cierres_entradas',
   );
 
-  const [metaRows, pandaRows, agendaRes, j1Res, altasRes] = await Promise.all([
+  const [metaRows, pandaRows, agendaRes, j1Res, altasTodas] = await Promise.all([
     leerTodo<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null }>(
       supabase, T_METRICAS,
       'id, fecha, ad_id, impressions, link_clicks, landing_page_views, leads_count',
@@ -1515,12 +1574,12 @@ async function _getFunnelSeries(
     ),
     supabase
       .from('leads')
-      .select('fecha_junta_1')
+      .select('id, fecha_junta_1')
       .gte('fecha_junta_1', rangoInicio)
       .lte('fecha_junta_1', rangoFin),
     supabase
       .from('leads')
-      .select('fecha_junta_1, asistio_j1, calificado, estado_lead')
+      .select('id, fecha_junta_1, asistio_j1, calificado, estado_lead')
       .gte('fecha_junta_1', rangoInicio)
       .lte('fecha_junta_1', rangoFin),
     // La cohorte del ALTA: una lectura más, y sólo cuando algún paso la nombra.
@@ -1528,7 +1587,7 @@ async function _getFunnelSeries(
     // que no se puede resolver con un count — y un `.select()` suelto topea en las
     // 1000 de PostgREST sin dar error: las semanas viejas quedarían vacías.
     necesitaEntradas
-      ? leerTodo<{ created_at: string | null; estado_lead: string }>(
+      ? leerTodo<{ id: number; created_at: string | null; estado_lead: string }>(
           supabase, 'leads', 'id, created_at, estado_lead',
           { orden: 'id', filtros: (q) => q.gte('created_at', `${rangoInicio}T00:00:00Z`).lte('created_at', `${rangoFin}T23:59:59Z`) },
         )
@@ -1538,6 +1597,12 @@ async function _getFunnelSeries(
   for (const r of [agendaRes, j1Res]) {
     if (r.error) throw new Error(`getFunnelSeries falló: ${r.error.message}`);
   }
+  // Con funnels elegidos, sólo los leads que estaban en ellos ese día (sin funnels, todos y sin leer nada más).
+  const agendasCrudas: Array<{ id: number; fecha_junta_1: string | null }> = agendaRes.data ?? [];
+  const j1Crudas: Array<{ id: number; fecha_junta_1: string | null; asistio_j1: boolean | null; calificado: boolean | null; estado_lead: string }> = j1Res.data ?? [];
+  const agendas = await enLosFunnels(agendasCrudas, funnels, (r) => r.fecha_junta_1);
+  const j1s = await enLosFunnels(j1Crudas, funnels, (r) => r.fecha_junta_1);
+  const altasRes = await enLosFunnels(altasTodas, funnels, (r) => (r.created_at ? r.created_at.slice(0, 10) : null));
 
   // Índice de semana de una fecha = lunes de esa fecha
   const semanaDe = (fecha: string): string => lunesDeFecha(fecha);
@@ -1557,10 +1622,10 @@ async function _getFunnelSeries(
   for (const r of pandaRows) {
     add(semanaDe(r.fecha), (a) => { a.vsl += r.video_plays ?? 0; });
   }
-  for (const r of (agendaRes.data ?? []) as Array<{ fecha_junta_1: string | null }>) {
+  for (const r of agendas) {
     if (r.fecha_junta_1) add(semanaDe(r.fecha_junta_1), (a) => { a.agenda += 1; });
   }
-  for (const r of (j1Res.data ?? []) as Array<{ fecha_junta_1: string | null; asistio_j1: boolean | null; calificado: boolean | null; estado_lead: string }>) {
+  for (const r of j1s) {
     if (!r.fecha_junta_1) continue;
     add(semanaDe(r.fecha_junta_1), (a) => {
       a.j1 += 1;
@@ -1640,8 +1705,13 @@ export type SenalRecon = {
   campana: string | null;
   adset_name: string | null;
   spend_usd: number;
-  leads: number;                 // leads_count acumulado del rango
+  leads: number;                 // leads_count acumulado del rango: los leads que REPORTA META
+  // ⚠️ «meta» de META DE LEADS, la vara (RECON_LEADS_VALIDACION, hoy 10), NO «los leads de Meta»: es la
+  // constante que pintan las tarjetas como «leads / meta». La API de MaKo la leyó al revés y le contestaba
+  // a un cliente que cada anuncio tenía 10 leads de Meta (17/10/2026, docs/hallazgos-ads.md).
   meta_leads: number;            // RECON_LEADS_VALIDACION
+  /** Leads del CRM atribuidos al anuncio (`leads.meta_ad_id`) que ENTRARON en el rango (por `created_at`, en UTC). */
+  leads_crm: number;
   dias_corriendo: number;        // días con spend > 0
   ritmo: RitmoEstado;
   ritmo_dias: Array<{ fecha: string; spend_usd: number; budget_usd: number; ok: boolean }>;
@@ -1714,7 +1784,7 @@ async function _getSenalesRecon(
   // así que (fecha, adset_id) ya es un orden único. Los leads por ad_id andaban
   // en 955/1000 en ws1: se pagina por `id` antes de que crucen.
   let budgetRows: Array<{ fecha: string; adset_id: string; daily_budget_mxn: number | null }>;
-  let leadRows: Array<{ meta_ad_id: string | null; fecha_junta_1: string | null; estado_lead: string; total_cobrado_usd: number | null }>;
+  let leadRows: FilaLeadCrm[];
   try {
     [budgetRows, leadRows] = await Promise.all([
       leerTodo<{ fecha: string; adset_id: string; daily_budget_mxn: number | null }>(
@@ -1723,8 +1793,8 @@ async function _getSenalesRecon(
       ),
       adIdsRango.length === 0
         ? Promise.resolve([])
-        : leerTodo<{ meta_ad_id: string | null; fecha_junta_1: string | null; estado_lead: string; total_cobrado_usd: number | null }>(
-          supabase, 'leads', 'id, meta_ad_id, fecha_junta_1, estado_lead, total_cobrado_usd',
+        : leerTodo<FilaLeadCrm>(
+          supabase, 'leads', 'id, meta_ad_id, fecha_junta_1, estado_lead, total_cobrado_usd, created_at',
           { filtros: (q) => q.in('meta_ad_id', adIdsRango) },
         ),
     ]);
@@ -1751,15 +1821,7 @@ async function _getSenalesRecon(
   }
 
   // Downstream por ad_id (leads reales matcheados)
-  const downByAd = new Map<string, { agendas: number; cierres: number; cash: number }>();
-  for (const l of leadRows) {
-    if (!l.meta_ad_id) continue;
-    const d = downByAd.get(l.meta_ad_id) ?? { agendas: 0, cierres: 0, cash: 0 };
-    if (l.fecha_junta_1) d.agendas += 1;
-    if (l.estado_lead === 'ganado') d.cierres += 1;
-    d.cash += Number(l.total_cobrado_usd ?? 0);
-    downByAd.set(l.meta_ad_id, d);
-  }
+  const downByAd = bajadaCrmPorAnuncio(leadRows, start, end);
 
   // Agregar por anuncio
   type Acc = { ad_name: string | null; campana: string | null; adset_id: string | null; adset_name: string | null; spendMxn: number; leads: number; agendasMeta: number; imp: number; clk: number; v3: number; thru: number; freqVals: number[]; diasSpend: Set<string>; fechasSpend: string[]; thumb: string | null; permalink: string | null; sinEnlace: boolean; lastFecha: string };
@@ -1798,7 +1860,7 @@ async function _getSenalesRecon(
   const { aUsdNum } = await conversorGastoMeta();
   for (const [adId, a] of porAd) {
     const spendUsd = aUsdNum(a.spendMxn);
-    const down = downByAd.get(adId) ?? { agendas: 0, cierres: 0, cash: 0 };
+    const down = downByAd.get(adId) ?? { agendas: 0, cierres: 0, cash: 0, leads: 0 };
     const diasCorriendo = a.diasSpend.size;
 
     // RITMO: últimos 3 días con presupuesto del adset padre
@@ -1840,6 +1902,7 @@ async function _getSenalesRecon(
       spend_usd: spendUsd,
       leads: a.leads,
       meta_leads: RECON_LEADS_VALIDACION,
+      leads_crm: down.leads,
       dias_corriendo: diasCorriendo,
       ritmo,
       ritmo_dias: ritmoDias,

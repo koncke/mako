@@ -223,7 +223,7 @@ export const AREAS: AreaDev[] = [
     slug: 'contracts-receipts', titulo: 'Contracts & Receipts', familia: 'Operate', grupo: 'CRM',
     estado: 'parcial',
     alcance: 'El plan de cobranza por cuotas del lead y los papeles que lo respaldan: contrato, comprobante y datos fiscales, subidos a Storage y leídos por IA para autocompletar el deal.',
-    vive: ['lib/pagos.ts', 'app/crm/[id]/deal-actions.ts', 'app/crm/[id]/DealDetailsCard.tsx', 'app/api/extract-contract/route.ts', 'app/api/extract-receipt/route.ts', 'app/api/extract-deal-fiscal/route.ts', 'app/api/extract-fiscal/route.ts', 'app/api/doc/route.ts'],
+    vive: ['lib/pagos.ts', 'app/crm/[id]/deal-actions.ts', 'app/customer-success/PagosCliente.tsx', 'app/api/extract-contract/route.ts', 'app/api/extract-receipt/route.ts', 'app/api/extract-deal-fiscal/route.ts', 'app/api/extract-fiscal/route.ts', 'app/api/doc/route.ts'],
     hallazgos: 'hallazgos-crm',
     nota: 'Son CUATRO rutas extract-*, no cinco: la quinta que aparece al grepear es app/api/mako/onboarding/extract, que pertenece al onboarding. Y sigue viva la trampa: saveLeadPlanManual (lib/pagos.ts:210) hard-setea estado_lead=\'ganado\' y cerro=true, así que guardar cuotas CIERRA el lead — por eso DealDetailsCard solo la llama si cuotasDirty. El doc de hallazgos-crm ubica ese bug en app/leads/[id]/deal-actions.ts: esa ruta ya no existe, hoy es app/crm/[id]/deal-actions.ts.',
   },
@@ -1068,7 +1068,7 @@ export const AREAS: AreaDev[] = [
     // cuatro endpoints, el contrato compartido y las piezas que /admin y Clientes se
     // reparten no estaban en ninguna área. Es la regla de AGENTS.md «Una ruta que
     // apunta a la nada»: la omisión no da error, da un punto ciego.
-    vive: ['app/admin/page.tsx', 'app/admin/AdminView.tsx', 'app/admin/AprobacionesDeAgencia.tsx', 'app/admin/estilos.ts', 'app/admin/tipos.ts', 'app/admin/copywriting', 'app/api/admin/workspaces/route.ts', 'app/api/admin/usuarios/route.ts', 'app/api/admin/agencia/route.ts', 'app/api/admin/agencia/altas/route.ts', 'app/api/agencia/entrar/route.ts', 'app/api/agencia/altas/route.ts', 'lib/capas.ts', 'lib/agencia.ts', 'lib/agencia-cartera.ts', 'lib/agencia-altas.ts', 'lib/gravatar.ts', 'lib/usuarios.ts', 'lib/invitaciones.ts', 'app/_components/TarjetaEntidad.tsx', 'app/_components/CabeceraDetalle.tsx', 'app/_components/cabecera-detalle-geo.ts', 'app/admin/FichaWorkspace.tsx', 'lib/tablero-de-capa.ts', 'app/customer-success/BarraClientes.tsx', 'app/customer-success/CuentaDeMaKo.tsx', 'supabase/migrations/0175_cartera_de_agencia.sql', 'supabase/migrations/0176_quien_es_agencia.sql', 'supabase/migrations/0177_capa_agencia.sql', 'supabase/migrations/0178_altas_de_agencia.sql', 'supabase/migrations/0179_cara_del_workspace.sql'],
+    vive: ['app/admin/page.tsx', 'app/admin/AdminView.tsx', 'app/admin/AprobacionesDeAgencia.tsx', 'app/admin/estilos.ts', 'app/admin/tipos.ts', 'app/admin/copywriting', 'app/api/admin/workspaces/route.ts', 'app/api/admin/usuarios/route.ts', 'app/api/admin/agencia/route.ts', 'app/api/admin/agencia/altas/route.ts', 'app/api/agencia/entrar/route.ts', 'app/api/agencia/altas/route.ts', 'lib/capas.ts', 'lib/agencia.ts', 'lib/agencia-cartera.ts', 'lib/agencia-altas.ts', 'lib/gravatar.ts', 'lib/usuarios.ts', 'lib/invitaciones.ts', 'app/_components/TarjetaEntidad.tsx', 'app/_components/CabeceraDetalle.tsx', 'app/_components/cabecera-detalle-geo.ts', 'app/admin/FichaWorkspace.tsx', 'lib/tablero-de-capa.ts', 'app/customer-success/BarraClientes.tsx', 'supabase/migrations/0175_cartera_de_agencia.sql', 'supabase/migrations/0176_quien_es_agencia.sql', 'supabase/migrations/0177_capa_agencia.sql', 'supabase/migrations/0178_altas_de_agencia.sql', 'supabase/migrations/0179_cara_del_workspace.sql'],
     proyectos: ['Feature: Admin y clientes'],
   },
   {
@@ -1164,6 +1164,7 @@ export const AREAS: AreaDev[] = [
       'app/tickets/page.tsx', 'app/tickets/TicketsCliente.tsx', 'app/tickets/acciones.ts', 'app/tickets/tickets.css', 'app/tickets/bandeja/',
       'lib/tickets-reglas.ts', 'lib/tickets-db.ts', 'lib/tickets-cierre.ts', 'lib/tickets-aviso.ts', 'lib/tickets-runner.ts',
       'lib/api-mako/areas/tickets.def.ts', 'lib/api-mako/areas/tickets.run.ts', 'app/api/cron/tickets/route.ts', 'scripts/tickets.ts',
+      'lib/errores-app.ts', 'lib/errores-app-reglas.ts', 'app/api/errores/route.ts', 'app/_components/ReportarErrores.tsx', 'supabase/migrations/0313_errores_app.sql', 'tests/errores-app.test.ts', 'tests/tickets-cartero.test.ts',
       'supabase/migrations/0311_tickets_usuarios.sql', 'tests/tickets.test.ts', 'tests/tickets-triage.test.ts', 'docs/diseno-ticketera-usuarios.md',
     ],
     proyectos: ['Feature: Feedback y errores'],
@@ -1285,7 +1286,7 @@ export const AREAS: AreaDev[] = [
     slug: 'multi-tenant-isolation', titulo: 'Multi-Tenant Isolation', familia: 'Infra', grupo: 'Seguridad',
     estado: 'parcial',
     alcance: 'workspace.ts, RLS, TENANT_TABLES. Ya hubo 15 tablas abiertas al rol anon.',
-    vive: ['lib/ws-tab.ts', 'lib/cache.ts', 'tests/tenant-tables-contract.test.ts', 'docs/auditoria-aislamiento-workspace.md'],
+    vive: ['lib/ws-tab.ts', 'lib/cache.ts', 'tests/tenant-tables-contract.test.ts', 'docs/hallazgos-seguridad.md'],
     proyectos: ['Seguridad y multi-inquilino'],
   },
   {

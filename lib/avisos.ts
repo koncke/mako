@@ -19,7 +19,7 @@ import { frecuenciaEfectiva } from './disparador-mensaje';
 import { estadoAviso, resumenAvisosActivo, type EstadoAviso } from './perfil';
 import { puedeEsperar } from './avisos-agrupables';
 import { encolarAviso } from './avisos-cola';
-import { runWithWorkspace, getWorkspaceActual, wsSuperAdmin, OWNER_WS } from './workspace';
+import { runWithWorkspace, wsSuperAdmin, wsObligatorio } from './workspace';
 import type { CategoriaAviso, SemaforoAviso, AvisoCatalogo } from './avisos-catalogo';
 import { CATALOGO_AVISOS, encabezadoAviso } from './avisos-catalogo';
 import { AVISOS_POR_EVENTO, emitirPorEvento, type DepsEvento, type FilaEvento, type ResultadoEvento } from './aviso-evento';
@@ -153,7 +153,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
   // configuración del cliente no hacía nada.
   //
   // Cae al dueño solo cuando de verdad no hay contexto (crons, sistema).
-  const ws = a.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = a.ws ?? (await wsObligatorio());
   try {
     if (a.dedupTtlMin && (await salioReciente(ws, a.tipo, a.dedupTtlMin, a.dedupKey))) {
       return { ok: true, feedId: null, wa: false, deduped: true };
@@ -386,7 +386,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
  */
 async function enviarAvisoPorEmail(a: EmitirAvisoInput, textoConRotulo: string): Promise<boolean> {
   try {
-    const wsCorreo = a.alDueno === true ? await wsSuperAdmin().catch(() => a.ws ?? OWNER_WS) : (a.ws ?? (await getWorkspaceActual()) ?? OWNER_WS);
+    const wsCorreo = a.alDueno === true ? await wsSuperAdmin() : (a.ws ?? (await wsObligatorio()));
     const [{ getDestinatariosDe }, { sendEmail }, { renderEmailHtml }, { REMITENTE_MAKO, EMAIL_MAKO, linkApp }] = await Promise.all([
       import('./notif-destinatarios'), import('./resend'), import('./email-html'), import('./app-url'),
     ]);
@@ -552,7 +552,7 @@ export async function emitirDelCatalogo(
   // consultaba el interruptor del DUEÑO acá y el del CLIENTE ocho líneas más abajo, en
   // `estadoAviso(ws, …)`. O sea: un aviso que el dueño tenía apagado moría acá para
   // todos sus clientes, sin importar lo que cada uno hubiera configurado.
-  const ws = opts.ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
+  const ws = opts.ws ?? (await wsObligatorio());
   // ⚠️ UN EVENTO DE MAKO NO LEE EL STORE (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md): estos tres
   // salen SÓLO por las automatizaciones del negocio («Todos arrancan vacíos», decisión de Martín). El desvío
   // va ANTES de `getPlantilla`: leído el store, su interruptor y su texto volverían a decidir algo.

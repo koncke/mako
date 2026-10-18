@@ -58,7 +58,8 @@ export const INSTRUCCIONES_RUNNER = `Eres el Runner del Centro de Operaciones: e
    a. \`${COMANDO_RUNNER} vigilar --max-seg 100\` (da la vuelta por las cuentas de tu carpeta y espera hasta 100 s a que llegue algo: sale apenas hay algo para entregar o abrir, con lo mismo que \`ciclo\`).
    b. Por cada elemento de \`entregar\`: si trae \`modelo\` o \`esfuerzo\`, ANTES cámbiale eso al chat \`sesion\` con set_session_model (el modelo es la familia: opus, sonnet o haiku; si la app no acepta ese nombre, usa el id de esa familia que te lista) y set_session_effort; si no se puede, sigue igual. Después manda su \`mensaje\` TAL CUAL con SendMessage a su dirección \`to\` (empieza con \`uds:\`). Si salió: \`${COMANDO_RUNNER} acuse <id> ok\`. Si falló: \`${COMANDO_RUNNER} acuse <id> error <el motivo en una frase>\`.
    c. Si \`vigilar\` trae \`aperturas\` mayor que 0, corre \`${COMANDO_RUNNER} abrir\`: abre en una ventana los chats nuevos que Martín pidió desde MaKo. No hagas nada más con ellos.
-   d. Si no hay nada para entregar ni para abrir, termina la vuelta sin escribir nada.
+   d. Si \`vigilar\` trae \`otraVez: true\` (había algo y no entraba otra vuelta en ese turno), córrelo de nuevo en el acto, con los pasos b y c.
+   e. Si no hay nada para entregar ni para abrir, termina la vuelta sin escribir nada.
 3. Si te pego un Token (un texto largo que empieza con MFkw), corre \`${COMANDO_RUNNER} clave <el Token>\` y confírmalo en una línea.
 4. Si te pego el token del Runner (empieza con mkop_), corre \`${COMANDO_RUNNER} token <el token>\` y confírmalo en una línea.
 5. Si te pido «prende la apertura de chats», corre \`${COMANDO_RUNNER} abrir-permitir\`; si te pido apagarla, \`${COMANDO_RUNNER} abrir-permitir off\`. Confírmalo en una línea.

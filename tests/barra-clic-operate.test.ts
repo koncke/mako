@@ -60,7 +60,8 @@ test('la marca no es un link, mide lo que mide el logo y no se estira', () => {
 });
 
 test('el rótulo de una familia no baja de renglón mientras la barra se anima', () => {
-  const f0 = FAMILIAS[0];
+  // La primera familia CON rótulo (desde el 17/10/2026 noche la de arriba, lo diario, va sin rótulo).
+  const f0 = FAMILIAS.find((x) => !x.sinRotulo)!;
   const f: FamiliaVista = {
     ...f0,
     bloques: f0.bloques.map((b) => b.filter((i) => !i.adminOnly)).filter((b) => b.length),
@@ -72,8 +73,14 @@ test('el rótulo de una familia no baja de renglón mientras la barra se anima',
       contadorFamilia: 0, contadorItem: () => 0, onToggle: () => {}, flyoutKey: null,
       onAbrirFlyout: () => {}, onCerrarFlyout: () => {},
     }));
+    // Desde el 17/10/2026 (la barra al estilo Linear), plegada la BARRA el rótulo no es texto: es una línea fina. No hay
+    // renglón que pueda bajar; lo que se fija es que el texto no vuelva al rail.
+    if (!open) {
+      assert.doesNotMatch(html, /class="mk-seccion"/, 'plegada: el rótulo volvió a ser texto en el rail');
+      continue;
+    }
     assert.match(estiloDe(html, 'button', 'mk-seccion'), /white-space:\s*nowrap/,
-      `${open ? 'abierta' : 'plegada'}: sin nowrap el rótulo baja de renglón y la barra salta`);
+      'abierta: sin nowrap el rótulo baja de renglón y la barra salta');
   }
 });
 

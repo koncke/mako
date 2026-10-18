@@ -192,9 +192,11 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 ];
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
-export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer'
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer' | 'contrasena_cambiada'
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
-  | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado';
+  | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio'
+  | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing' | 'prueba_recibida' | 'prueba_grabada' | 'lead_formulario_meta'
+  | 'reunion_tareas_al_plan';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -224,7 +226,7 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'reporte' | 'oferta' | 'anuncios'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan'>; retirado?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -262,6 +264,11 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // `{{link_restablecer}}` es un dato SECRETO (`secreto`, lib/variables-aviso.ts). Todo por Automations: el mail lo
   // manda la automatización de SuperAdmin, por el remitente de MaKo.
   { subtipo: 'contrasena_restablecer', aviso: 'seguridad-contrasena-restablecer', label: 'Alguien pide restablecer su contraseña', trae: ['restablecer'], persona: 'restablecer', quien: 'Quien pide restablecer su contraseña' },
+  // «TU CONTRASEÑA CAMBIÓ» (17/10/2026, los circuitos 1, 3 y 4 de docs/diseno-login-contrasena.md lo prometían y no
+  // existía): lo emite Seguridad (lib/contrasena-cambio-aviso.ts) cada vez que se crea, se cambia o se restablece una
+  // contraseña, en el ws de la plataforma y con `usuario_id`. Sin datos secretos: el mail dice QUÉ pasó y qué hacer si
+  // no fue la persona. Al correo de la CUENTA (`aviso`, lib/destino-usuario.ts).
+  { subtipo: 'contrasena_cambiada', aviso: 'seguridad-contrasena-cambiada', label: 'Se crea o cambia la contraseña de alguien', trae: [], persona: 'aviso', quien: 'La persona cuya contraseña cambió' },
   // LOS MENSAJES DE MaKo A SUS CLIENTES, mudados de a uno (15/10/2026, docs/diseno-avisos-plataforma.md). La línea por QR
   // de un negocio se cae y vuelve: lo mide lib/lineas-vigilante.ts, que pasa los datos de la línea (`datosCaida`).
   { subtipo: 'whatsapp_caido', aviso: 'wa-desconectado', label: 'Se corta el WhatsApp de un negocio', trae: ['linea'], plataforma: true },
@@ -292,6 +299,30 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // ENTRA UN CONTACTO QUE YA ESTABA (17/10/2026, lote 2: el freno estaba al revés, sin clave). Meta, Calendly o Cal.com
   // lo encuentran por teléfono o email y MaKo lo suma al lead de siempre (`avisarFusion`, lib/leads.ts, `datosFusion`).
   { subtipo: 'lead_fusionado', aviso: 'lead-fusionado', label: 'Entra un contacto que un negocio ya tenía y MaKo lo suma a su lead', trae: ['lead', 'fusion'], plataforma: true },
+  // MaKO LES RECORDÓ SUS CLASES A LOS CLIENTES DE UN NEGOCIO (17/10/2026, lote 2): la copia al grupo de una corrida del cron
+  // curso-sesiones (lib/curso-mensajes.ts, `datosRecordatorioDueno`). No es de UN lead: lleva a todos los de la corrida.
+  { subtipo: 'curso_recordatorio', aviso: 'curso-recordatorio-clases', label: 'MaKo les recuerda sus clases a los clientes de un negocio', trae: ['recordatorio'], plataforma: true },
+  // EL NAVEGADOR DE UN NEGOCIO DEJA DE TOMAR SUS VIDEOS (17/10/2026, lote 2): lo emite el cron flow-abandono con cuántas tomas
+  // quedaron sin tomar (`datosPuenteAusente`, lib/flow-puente-aviso.ts).
+  { subtipo: 'flow_puente_ausente', aviso: 'flow-puente-ausente', label: 'El navegador de un negocio deja de tomar sus videos', trae: ['flow'], plataforma: true },
+  // EL PIXEL Y LA LANDING DE UN NEGOCIO (17/10/2026, «nada por detrás», lote 3): los tres avisos del cron tracking-vigilante, con
+  // sus datos (lib/tracking-aviso.ts). Lo que el código elegía (graba o no, se puede medir o no) lo pregunta una CONDITION.
+  { subtipo: 'tracking_apagado', aviso: 'tracking-apagado', label: 'La landing de un negocio deja de mandar visitas', trae: ['tracking'], plataforma: true },
+  { subtipo: 'pixel_viejo', aviso: 'tracking-desactualizado', label: 'El Pixel de MaKo de un negocio quedó viejo', trae: ['pixel'], plataforma: true },
+  { subtipo: 'landing_cambio', aviso: 'landing-cambio', label: 'La landing de un negocio cambió lo que se mide', trae: ['landing'], plataforma: true },
+  // ALGUIEN DEJÓ SUS DATOS EN LA LANDING DE UN NEGOCIO (17/10/2026, lote 3): entró solo al CRM o quedó a revisar porque se
+  // parece a uno que ya está (la CONDITION `optin_revisar`). Todo viaja como datos: a revisar, todavía no hay lead.
+  { subtipo: 'lead_de_landing', aviso: 'lead-de-landing', label: 'Alguien deja sus datos en la landing de un negocio', trae: ['optin'], plataforma: true },
+  // LA PRUEBA DEL PIXEL DE UN NEGOCIO (17/10/2026, lote 3): la que se cerró (cuántos eventos llegaron) y la grabación lista.
+  { subtipo: 'prueba_recibida', aviso: 'prueba-recibida', label: 'Un negocio cierra una prueba del Pixel', trae: ['prueba'], plataforma: true },
+  { subtipo: 'prueba_grabada', aviso: 'prueba-grabada', label: 'Ya se puede ver la grabación de la prueba de un negocio', trae: ['grabaciones'], plataforma: true },
+  // UN LEAD COMPLETÓ EL FORMULARIO DE META DE UN NEGOCIO (17/10/2026, lote 3): lo emite lib/meta-lead-nuevo.ts (el webhook y el
+  // poll), con el lead y lo que trae el formulario (lib/meta-form-aviso.ts).
+  { subtipo: 'lead_formulario_meta', aviso: 'lead-formulario-meta', label: 'Un lead completa el formulario de Meta de un negocio', trae: ['lead', 'meta'], plataforma: true },
+  // MaKo LEYÓ LAS REUNIONES DE UN NEGOCIO Y LE DEJÓ LAS TAREAS EN EL PLAN (17/10/2026, «nada por detrás»): lo emite el cron
+  // fathom-plan (lib/reunion-auto.ts), UNO por corrida, con lo que leyó (lib/reunion-plan-aviso.ts). Si fue una o varias y si
+  // completa una lectura a medias lo preguntan las CONDITION (`plan_varias`, `plan_resto`).
+  { subtipo: 'reunion_tareas_al_plan', aviso: 'reunion-tareas-al-plan', label: 'MaKo deja en el Plan de un negocio las tareas de sus reuniones', trae: ['reunionplan'], plataforma: true },
 ];
 
 /**

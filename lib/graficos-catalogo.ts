@@ -165,7 +165,7 @@ const FUENTES_BASE: readonly Fuente[] = [
     descripcion: 'Los leads del CRM: cuándo entraron, si agendaron, asistieron y cerraron.',
     fechas: [{ id: 'alta', nombre: 'Entró' }, { id: 'agenda', nombre: 'Reunión' }, { id: 'cierre', nombre: 'Cierre' }],
     dimensiones: [
-      ...TIEMPO, cat('etapa', 'Etapa'), cat('producto', 'Producto'), cat('origen', 'Origen'), cat('campana', 'Campaña'),
+      ...TIEMPO, cat('etapa', 'Etapa'), cat('producto', 'Funnel'), cat('origen', 'Origen'), cat('campana', 'Campaña'),
       cat('anuncio', 'Anuncio'), cat('closer', 'Closer'), cat('setter', 'Setter'), cat('motivo', 'Motivo de pérdida'),
       // El lead mismo (su nombre, con su id en `r.lead`): es lo que lista el detalle de un número del CRM.
       // ⚠️ Es un NOMBRE DE PERSONA: no viaja a ningún modelo (queda FUERA de `DIMENSIONES_PUBLICAS`,
@@ -226,7 +226,7 @@ const FUENTES_BASE: readonly Fuente[] = [
     fechas: [{ id: 'vencimiento', nombre: 'Vencimiento', futuro: true }, { id: 'pago', nombre: 'Pagado' }],
     // `producto` (17/10/2026): el funnel de cada cuota, el de donde estaba el lead ese día (lib/funnels-elegidos.ts):
     // «Cobrado por funnel» y la hoja filtrada por funnel cuentan la plata con la misma regla que un OKR.
-    dimensiones: [...TIEMPO, cat('estado', 'Estado'), cat('producto', 'Producto'), cat('cliente', 'Cliente'), cat('cuota', 'Cuota')],
+    dimensiones: [...TIEMPO, cat('estado', 'Estado'), cat('producto', 'Funnel'), cat('cliente', 'Cliente'), cat('cuota', 'Cuota')],
     metricas: [m('monto', 'Monto', 'usd'), m('cobrado', 'Cobrado', 'usd'), menos(m('pendiente', 'Pendiente', 'usd')), m('pagos', 'Cuotas'), dist('clientes', 'Clientes')],
   },
   {
@@ -290,7 +290,7 @@ const FUENTES_BASE: readonly Fuente[] = [
     id: 'entrega', nombre: 'Clientes en entrega', area: 'Customer Success',
     descripcion: 'En qué etapa de la entrega está cada cliente, por producto.',
     fechas: [{ id: 'actual', nombre: 'Hoy', sinRango: true }, { id: 'desde', nombre: 'Llegó a la etapa' }],
-    dimensiones: [...TIEMPO, cat('producto', 'Producto'), cat('etapa', 'Etapa'), cat('cliente', 'Cliente')],
+    dimensiones: [...TIEMPO, cat('producto', 'Funnel'), cat('etapa', 'Etapa'), cat('cliente', 'Cliente')],
     metricas: [m('clientes', 'Clientes')],
   },
   {
@@ -754,7 +754,7 @@ export const COMPARTIDOS_DECLARADOS: readonly Campo[] = [
   { id: 'conjunto', nombre: 'Conjunto', en: { meta: 'conjunto', presupuesto: 'conjunto', guiones: 'conjunto' } },
   { id: 'anuncio', nombre: 'Anuncio', en: { meta: 'anuncio', leads: 'anuncio' } },
   { id: 'pagina', nombre: 'Página', en: { visitas: 'pagina', vsl: 'pagina', replays: 'pagina', clics: 'pagina', scroll: 'pagina', toques: 'pagina', retencion_vsl: 'pagina', landing_analisis: 'pagina', ubicacion: 'pagina' } },
-  { id: 'producto', nombre: 'Producto', en: { leads: 'producto', entrega: 'producto', cartera: 'producto', pagos: 'producto' } },
+  { id: 'producto', nombre: 'Funnel', en: { leads: 'producto', entrega: 'producto', cartera: 'producto', pagos: 'producto' } },
   { id: 'closer', nombre: 'Closer', en: { leads: 'closer', llamadas: 'closer', llamadas_venta: 'closer', llamadas_dimensiones: 'closer' } },
   { id: 'automatizacion', nombre: 'Automatización', en: { inscripciones: 'automatizacion', envios: 'automatizacion' } },
   // v5 (contrato, «Campos COMPARTIDOS nuevos»): el video del VSL y su curva, la línea de WhatsApp, el setter y

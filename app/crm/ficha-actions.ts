@@ -24,7 +24,8 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { TAG } from '@/lib/cache';
-import { leerFichaDeFunnel, cambiarFichaDeFunnel, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import { leerFichaDeFunnel, cambiarFichaDeFunnel, historialDeFicha, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import type { EntradaHistorialFicha } from '@/lib/ficha/historial';
 import { sanearCambio, describirCambio, type FichaGuardada } from '@/lib/ficha/config';
 
 async function haySesion(): Promise<boolean> {
@@ -66,10 +67,10 @@ export async function cambiarFichaFunnelAction(funnelId: number | null, cambio: 
     if (!funnelValido(funnelId)) return { ok: false, error: 'Funnel inválido.' };
     const c = sanearCambio(cambio);
     if ('error' in c) return { ok: false, error: c.error };
-    const r = await cambiarFichaDeFunnel(funnelId, c);
+    const quien = (await getUsuarioActual().catch(() => null))?.email ?? 'CRM';
+    const r = await cambiarFichaDeFunnel(funnelId, c, { autor: quien });
     if (!r.ok) return r;
     if (r.cambio) {
-      const quien = (await getUsuarioActual().catch(() => null))?.email ?? 'CRM';
       console.info(`[ficha] funnel #${r.ficha.funnel.id}: ${describirCambio(c)} (${quien})`);
       // Los avisos de la ficha cambian lo que cuenta «Datos sin marcar» (worklist, «A revisar», el badge).
       try { updateTag(TAG.leads); } catch { /* la caché vence sola por su TTL */ }
@@ -79,5 +80,50 @@ export async function cambiarFichaFunnelAction(funnelId: number | null, cambio: 
   } catch (e) {
     console.error('[ficha] cambiarFichaFunnelAction:', e instanceof Error ? e.message : e);
     return { ok: false, error: 'No se pudo guardar la ficha.' };
+  }
+}
+
+/**
+ * El historial de la ficha de un funnel (17/10/2026): quién cambió qué y cuándo, la más nueva primero
+ * (`data.fichaHistorial`, lib/ficha/historial.ts). Lo lee cualquiera con sesión, como la ficha; `antes` no viaja
+ * (es la foto entera, y para mirarla no hace falta).
+ */
+export async function historialFichaAction(funnelId: number | null): Promise<
+  { ok: true; entradas: Array<Omit<EntradaHistorialFicha, 'antes'>>; puedeVolver: boolean } | { ok: false; error: string }
+> {
+  try {
+    if (!(await haySesion())) return { ok: false, error: 'Sin sesión.' };
+    if (!funnelValido(funnelId)) return { ok: false, error: 'Funnel inválido.' };
+    const h = await historialDeFicha(funnelId);
+    if (!h) return { ok: false, error: 'Ese funnel no es de esta cuenta.' };
+    return { ok: true, entradas: h.entradas.map(({ at, autor, que }) => ({ at, autor, que })), puedeVolver: (await getRolWsEfectivo()) === 'admin' };
+  } catch (e) {
+    console.error('[ficha] historialFichaAction:', e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo leer el historial.' };
+  }
+}
+
+/**
+ * «Volver a como estaba» antes de UN cambio del historial (por su `at`). Es un cambio más (`restaurar`), así que
+ * deja su propia línea y se puede volver de él. Sólo el admin, como cambiar la ficha.
+ */
+export async function volverFichaAction(funnelId: number | null, at: string): Promise<{ ok: true; ficha: FichaDelFunnel } | { ok: false; error: string }> {
+  try {
+    if (!(await haySesion())) return { ok: false, error: 'Sin sesión.' };
+    if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador puede cambiar la ficha.' };
+    if (!funnelValido(funnelId) || typeof at !== 'string') return { ok: false, error: 'Pedido inválido.' };
+    const h = await historialDeFicha(funnelId);
+    if (!h) return { ok: false, error: 'Ese funnel no es de esta cuenta.' };
+    const e = h.entradas.find((x) => x.at === at);
+    if (!e) return { ok: false, error: 'Ese cambio ya no está en el historial.' };
+    const quien = (await getUsuarioActual().catch(() => null))?.email ?? 'CRM';
+    const r = await cambiarFichaDeFunnel(h.funnelId, { op: 'restaurar', ficha: e.antes }, { autor: quien });
+    if (!r.ok) return r;
+    try { updateTag(TAG.leads); } catch { /* la caché vence sola por su TTL */ }
+    revalidatePath('/crm');
+    return { ok: true, ficha: r.ficha };
+  } catch (e) {
+    console.error('[ficha] volverFichaAction:', e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo volver.' };
   }
 }

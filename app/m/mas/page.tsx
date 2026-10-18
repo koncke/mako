@@ -1,18 +1,25 @@
 // =============================================================================
 // /m/mas — More: la lista agrupada estilo Ajustes, por las FAMILIAS de la sidebar (v3, 14/10/2026)
 // =============================================================================
-//   1. Tu cuenta (avatar, nombre, negocio) → /m/cuenta
-//   2. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (Operate ·
-//      Analyze · Sales Machine · Content Machine · Customer Success): `gruposMas`
-//   3. Pregúntale a MaKo, con el logo real como ícono (fuera de las familias, como en escritorio)
-//   4. Super admin: el Centro de Operaciones (/admin/operaciones, en el teléfono /m/operaciones, sólo
-//      para mirar) y la Ticketera (el mazo de decisiones; desde el 16/10/2026, adentro del Centro:
-//      /m/operaciones?ticketera=tarjetas), en el orden de la barra de escritorio. La Ticketera se llamó
-//      «Decisiones» y abría la lista hasta el 14/10/2026: Martín la renombró y pidió que se entre
-//      directo al mazo (la lista es la vista secundaria).
-//      ⚠️ Se apaga mientras el super admin MIRA a un cliente (15/10/2026), como en el Sidebar
-//      («adminOnly se apaga mirando un cliente»): ahí la barra es la del cliente.
+//   1. LA CARA (17/10/2026 noche, prototipo docs/prototipos/coherencia-1710.md, pedido 7): la foto REAL (la de
+//      Información personal, `leerPerfil`; hasta ese día se dibujaban siempre iniciales), el nombre, el @usuario y el
+//      lápiz → My Profile (/m/cuenta). El menú de la foto de escritorio tiene la misma cara (Sidebar.tsx).
+//   2. ARRIBA, sin título (17/10/2026, como la sidebar de escritorio): el Ops Center (sólo el super admin sin mirar un
+//      cliente; /m/operaciones, con la Ticketera adentro) y Second Brain, cada uno con su CRIATURA del Ops Center.
+//      Hasta ese día el Ops Center y la Ticketera iban en una caja «Super admin» al final: la Ticketera vive adentro
+//      del Centro desde el 16/10, y la caja se fue con la familia Admin de escritorio.
+//   3. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (lo diario sin título · Sales ·
+//      Marketing · Create), cada ícono con el color de SU sección (los `--sec-*` de app/_ui/ui.css)
+//   4. El menú de la foto (API, Configuración del negocio, Reportar problema) y, para el super admin sin mirar un
+//      cliente, el suyo (Billing, Client Agents, MaKo Context, AI Models, Knowledge, Dev): sin título, como en escritorio
 //   5. Versión de computadora
+//
+// ⚠️ DESDE EL 17/10/2026 ESTÁ TODO LO QUE DIBUJA LA SIDEBAR (`masCompleto`, lib/movil-rutas.ts). Martín: «Implementa
+// completamente MaKo Mobile en todas las tabs, porque hay muchas que aun no se pueden acceder». Antes More listaba sólo
+// las secciones con pantalla (`SECCIONES_MAS`) y una tab sin ella no aparecía en ningún lado. Ahora una tab sin pantalla
+// es una fila «En la computadora» que abre una hoja con el motivo y la salida a la versión de computadora (FilasMas.tsx),
+// nunca un link pelado al escritorio encogido. Qué tab tiene pantalla, cuál es sólo de escritorio y cuál está en camino
+// lo fija tests/movil-toda-tab.test.ts recorriendo nav.ts.
 //
 // ⚠️ DECISIONES NO VA EN `SECCIONES_MAS`, A PROPÓSITO (14/10/2026, acordado con el chat «Pricing MaKo»,
 // dueño de la tab). SECCIONES_MAS es para tabs DEL NEGOCIO gateadas por una key de nav.ts (puedeVerKey),
@@ -29,8 +36,11 @@
 import './mas.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { getWorkspace } from '@/lib/workspace';
-import { gruposMas } from '@/lib/movil-rutas';
-import { MakoLogo } from '@/app/_components/MakoBrand';
+import { leerPerfil } from '@/lib/perfil';
+import { Icon } from '@/app/_components/icons';
+import { masCompleto, type FilaMas } from '@/lib/movil-rutas';
+import { Criatura } from '@/app/_components/Criatura';
+import { MAKO_NAV } from '@/app/_components/nav';
 import { FilaM } from '../_ui/FilaM';
 import { PantallaM } from '../_ui/PantallaM';
 import { AvatarM, ListaM } from '../_ui/Piezas';
@@ -38,66 +48,83 @@ import { SeccionM } from '../_ui/SeccionM';
 import { RUTA_CUENTA } from '../_ui/cabecera';
 import { contarBadges } from '../badges';
 import { FilaVersionComputadora } from './VersionComputadora';
+import { FilaComputadoraM, FilaGrupoM } from './FilasMas';
 
 export const dynamic = 'force-dynamic';
 
-/** La Ticketera del super admin: vive adentro del Centro desde el 16/10/2026 (`?ticketera=`); esto es un atajo. */
-const RUTA_TICKETERA = '/m/operaciones?ticketera=tarjetas';
-/** El Centro de Operaciones del super admin, sólo para mirar (app/m/operaciones; en la URL, /admin/operaciones). */
+/** El @usuario: la parte de antes de la arroba del email (no hay un usuario aparte en la base), como el menú de la foto. */
+const usuarioDe = (email: string | null | undefined) => { const u = (email ?? '').split('@')[0]?.trim(); return u ? `@${u}` : ''; };
+
+/** El Ops Center del super admin (app/m/operaciones; en la URL, /admin/operaciones), con la Ticketera adentro. */
 const RUTA_CENTRO = '/m/operaciones';
+/** Las filas de arriba llevan la criatura del Ops Center de ese nombre, como en escritorio (nav.ts → `criatura`). */
+const criatura = (nombre: string, estrella = false) => <span className="m-mas-logo" aria-hidden><Criatura nombre={nombre} estrella={estrella} size={28} /></span>;
 
 export default async function MasPagina() {
   const ctx = await requireMovil();
-  const grupos = gruposMas(ctx.rol, ctx.capa);
-  const [negocio, badges] = await Promise.all([
+  // ⚠️ Se apaga mientras el super admin MIRA a un cliente (15/10/2026), como en el Sidebar: ahí la barra es la del cliente.
+  const veOpsCenter = ctx.sesion.rol === 'admin' && !ctx.impersonando;
+  const grupos = masCompleto(ctx.rol, ctx.capa, veOpsCenter);
+  const ids = grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'pantalla' && f.seccion ? [f.seccion] : [])));
+  const [negocio, badges, perfil] = await Promise.all([
     ctx.impersonando
       ? Promise.resolve(ctx.clienteNombre)
       : ctx.ws != null
         ? getWorkspace(ctx.ws).then((w) => w?.nombre?.trim() || null).catch(() => null)
         : Promise.resolve(null),
-    contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, grupos.flatMap((g) => g.secciones.map((s) => s.id))),
+    contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, ids),
+    leerPerfil().catch(() => null),
   ]);
-  const nombre = (ctx.sesion.nombre ?? '').trim();
+  // La foto y el nombre salen de TU fila (lo último que guardaste en Información personal), como /m/cuenta; si el perfil
+  // leído es el de otro (el super admin mirando un cliente), ni la foto ni el nombre son tuyos y vuelve la sesión.
+  const tuyo = perfil && !perfil.vista.deOtro ? perfil.perfil : null;
+  const nombre = (tuyo?.nombre || ctx.sesion.nombre || '').trim();
+  const usuario = usuarioDe(ctx.sesion.email);
+  const arriba = grupos.find((g) => g.id === 'arriba');
+  const resto = grupos.filter((g) => g.id !== 'arriba');
+
+  /** Una fila de More: su pantalla, la hoja «En la computadora», o la hoja de un desplegable. */
+  const fila = (f: FilaMas, conCriatura = false) => (
+    f.tipo === 'computadora' ? <FilaComputadoraM key={f.key} fila={f} />
+      : f.tipo === 'grupo' ? <FilaGrupoM key={f.key} fila={f} />
+        : (
+          <FilaM key={f.key} navegacion {...(conCriatura ? { leading: criatura(f.label, !!MAKO_NAV.find((it) => it.key === f.key)?.estrella) } : { icono: f.icon })} titulo={f.label}
+            riel={f.seccion && badges[f.seccion] ? <span className="m-num">{badges[f.seccion]}</span> : undefined} href={f.href} />
+        )
+  );
 
   return (
     <PantallaM>
       <ListaM>
         <FilaM
-          leading={<AvatarM nombre={nombre} email={ctx.sesion.email} tam="lg" />}
+          leading={(
+            <span className="m-mas-cara">
+              <AvatarM nombre={nombre} email={ctx.sesion.email} foto={tuyo?.avatarUrl} tam="lg" />
+              <span className="m-mas-cara__lapiz" aria-hidden><Icon name="pen" size={11} /></span>
+            </span>
+          )}
           titulo={nombre || ctx.sesion.email}
-          segunda={negocio ?? undefined}
+          segunda={[usuario, negocio].filter(Boolean).join(' · ') || undefined}
           href={RUTA_CUENTA}
         />
       </ListaM>
 
-      {grupos.map((g) => (
-        <SeccionM key={g.familia ?? 'mako'} titulo={g.titulo ?? undefined}>
-        <ListaM>
-          {g.secciones.map((s) => (
-            <FilaM
-              key={s.id}
-              navegacion
-              // MaKo lleva el logo REAL (MakoLogo), no el ícono del set; es el único lugar
-              // además de Today donde aparece.
-              leading={s.id === 'mako' ? <span className="m-mas-logo" aria-hidden><MakoLogo size={32} animate={false} /></span> : undefined}
-              icono={s.id === 'mako' ? undefined : s.icon}
-              titulo={s.label}
-              riel={badges[s.id] ? <span className="m-num">{badges[s.id]}</span> : undefined}
-              href={s.href}
-            />
-          ))}
-        </ListaM>
-        </SeccionM>
-      ))}
-
-      {ctx.sesion.rol === 'admin' && !ctx.impersonando && (
-        <SeccionM titulo="Super admin">
+      {(veOpsCenter || arriba) && (
+        <SeccionM titulo={null}>
           <ListaM>
-            <FilaM navegacion icono="config" titulo="Ops Center" href={RUTA_CENTRO} />
-            <FilaM navegacion icono="admin" titulo="Ticketera" href={RUTA_TICKETERA} />
+            {veOpsCenter && <FilaM navegacion leading={criatura('Ops Center', true)} titulo="Ops Center" href={RUTA_CENTRO} />}
+            {arriba?.filas.map((f) => fila(f, true))}
           </ListaM>
         </SeccionM>
       )}
+
+      {resto.map((g) => (
+        <div key={g.id} className="m-mas-sec" data-sec={g.id === 'menu' || g.id === 'superadmin' ? 'ajustes' : g.id}>
+          <SeccionM titulo={g.titulo ?? null}>
+            <ListaM>{g.filas.map((f) => fila(f))}</ListaM>
+          </SeccionM>
+        </div>
+      ))}
 
       <div className="m-mas-compu">
         <ListaM>

@@ -38,9 +38,12 @@ test('CABLEADO: el aviso post-llamada se emite DESPUÉS del análisis, adentro d
     'el aviso volvió a emitirse ANTES del after(): en ese momento no hay análisis, así que solo puede prometer',
   );
 
-  // Y el texto lo arma el módulo que lee lo MISMO que pinta la pantalla: si el
-  // webhook vuelve a escribir el mensaje a mano, el mensaje y la vista se separan.
-  assert.ok(src.includes('textoAvisoPostLlamada('), 'el texto del aviso sale de lib/lead-resumen, no de un template suelto');
+  // Y el webhook NO escribe el mensaje: desde el 16/10/2026 el texto es el de la automatización de la plataforma («Terminó
+  // la Reunión de un Negocio») y sin ella no sale nada; el 17/10 («nada por detrás», lote 3) se fue también el texto que
+  // sólo rotulaba el feed. Van el lead (su link al resumen) y los datos de la llamada. Rotura (`texto` de vuelta): 8 / 1 de 9.
+  const llamada = src.slice(iAviso, src.indexOf('});', iAviso));
+  assert.ok(!/\btexto\b/.test(llamada), 'el webhook volvió a armar el texto del aviso');
+  assert.ok(/datos: datosPostLlamada\(\{ reunion, duracionMin: dur \}\)/.test(llamada), 'los datos de la llamada tienen que viajar al aviso');
   assert.ok(
     !/¿Quer[ée]s que te pase el resumen/.test(src),
     'volvió la pregunta que nadie escucha: si no hay receptor de la respuesta, va un LINK',

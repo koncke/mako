@@ -4,7 +4,7 @@
 // Martín, 16/10/2026: «en dashboard y general no está la edición con IA, y debería». Lo llama el panel de la hoja
 // (app/dashboard/PanelEditarMako.tsx).
 //
-//   POST { hoja, pedido, historial?, informe? } → { ok: true, respuesta, cambios, avisos, hoja? } | { ok: false, error, link? }
+//   POST { hoja, pedido, modo: 'editar', editando: true, hojaId, historial?, informe? } →{ ok: true, respuesta, cambios, avisos, hoja? } | { ok: false, error, link? }
 //
 // ⚠️ NO GUARDA NADA, como «Pídeselo» (./../ia/route.ts): el informe lo reescribe entero el navegador con su autoguardado,
 //    y un segundo escritor lo pisaría. Devuelve la hoja cambiada (sólo si cambió algo) y el editor la mete con `mutar`,
@@ -12,6 +12,8 @@
 // ⚠️ LA HOJA LLEGA DEL NAVEGADOR (lo que la persona tiene en pantalla, aunque no se haya guardado todavía) y se SANEA acá
 //    antes de usarla: vale por lo que dice el catálogo, no por lo que mandó la pestaña.
 // ⚠️ LA PUERTA: el admin del workspace y la tab en su capa (la del Dashboard o la de General, 404 si no está).
+// ⚠️ EN VISTA, MaKo ASESORA (17/10/2026, Martín: «al estar en VISTA del dashboard debería asesorar, no modificar»): sin
+//    `modo: 'editar'`, `editando: true` y el `hojaId` de la hoja que viene, 409 y ni un token (`permisoEdicionMako`).
 // ⚠️ EL CUERPO VIVE EN lib/graficos-ia-editar.ts (`editarHojaIA`): lo llama también la API de MaKo.
 // =============================================================================
 
@@ -20,7 +22,7 @@ import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { sanearHoja } from '@/lib/graficos-catalogo';
 import { ALCANCE_GENERAL, TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
-import { TURNOS_IA, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
+import { TURNOS_IA, permisoEdicionMako, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
 import { editarHojaIA } from '@/lib/graficos-ia-editar';
 
 export const dynamic = 'force-dynamic';
@@ -54,11 +56,16 @@ export async function POST(req: Request) {
 
   const hoja = sanearHoja(body?.hoja, 0);
   if (!hoja) return err(400, 'No llegó la hoja.');
+  // 17/10/2026: en VISTA, MaKo asesora. Sólo cambia la hoja quien la está editando, en el modo «editar», y ESA hoja
+  // (`permisoEdicionMako`): lo decide acá el server, antes de gastar un token, no el modelo ni el botón.
+  const permiso = permisoEdicionMako(body, hoja.id);
+  if (!permiso.ok) return NextResponse.json({ ok: false, error: permiso.error, analizar: true }, { status: 409 });
   const pedido = typeof body?.pedido === 'string' ? body.pedido.trim().slice(0, TOPE_PEDIDO_IA) : '';
   if (!pedido) return err(400, 'Escribe qué quieres cambiar.');
 
   const r = await editarHojaIA({ hoja, pedido, historial: historialDe(body?.historial), alcance: general ? ALCANCE_GENERAL : undefined, inicio });
   if ('error' in r) return NextResponse.json({ ok: false, error: r.error, ...(r.link ? { link: r.link } : {}) }, { status: 502 });
   if (r.correcciones.length) console.log('[graficos/editar] aceptada con correcciones:', r.correcciones.join(' | '));
-  return NextResponse.json({ ok: true, respuesta: r.respuesta, cambios: r.cambios, avisos: r.avisos, ...(r.cambios.length ? { hoja: r.hoja } : {}) });
+  // `analizar` (#862): pidió un análisis, no un cambio; la hoja no se tocó y el panel ofrece pasar a «Analizar».
+  return NextResponse.json({ ok: true, respuesta: r.respuesta, cambios: r.cambios, avisos: r.avisos, analizar: r.analizar, ...(r.cambios.length ? { hoja: r.hoja } : {}) });
 }

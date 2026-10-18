@@ -27,13 +27,19 @@ import { aspectoDe, type Aspecto, type CaraMuneco, type Forma } from '@/lib/cent
 export { aspectoDe, COLORES, FORMAS } from '@/lib/centro-munecos';
 export type Animo = 'trabajando' | 'despierto' | 'cansado' | 'dormido';
 
-/** El ánimo sale del estado del chat: lo que el ojo cuenta sin leer nada. */
-export function animoDe(c: { estado: 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato'; viejo: boolean }): Animo {
+/**
+ * El ánimo sale del estado del chat: lo que el ojo cuenta sin leer nada. `avisos` (lo que espera a Martín: una pregunta o un
+ * «Completado» sin ver): con él, un chat abierto que NO trabaja ni tiene nada para Martín se ve DORMIDO (Martín, 17/10/2026:
+ * «nunca un chat "despierto" y que no tenga ni una notif ni un trabajo»). Sin él (`undefined`, una criatura que se elige o se
+ * muestra suelta), el de antes: abierto es despierto.
+ */
+export function animoDe(c: { estado: 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato'; viejo: boolean }, avisos?: number): Animo {
   // Con la foto vieja (el Runner no da vueltas) no se sabe si duerme: «cansado» antes que «dormido» (Martín, 17/10/2026:
   // «aparecen todos los chats como que no están haciendo nada, cuando no es así»).
   if (c.viejo) return 'cansado';
   if (c.estado === 'cerrado' || c.estado === 'sin_dato') return 'dormido';
-  return c.estado === 'trabajando' ? 'trabajando' : 'despierto';
+  if (c.estado === 'trabajando') return 'trabajando';
+  return avisos === 0 ? 'dormido' : 'despierto';
 }
 
 /** Dónde caen los ojos y dónde está la cabeza de cada cuerpo. */
@@ -47,6 +53,8 @@ const GEO: Record<Forma, { ojos: number; dx: number; brillo: [number, number] }>
   pildora: { ojos: 18.5, dx: 4.6, brillo: [13.5, 11] },
   nube: { ojos: 21.5, dx: 5, brillo: [12, 15.5] },
   diamante: { ojos: 20, dx: 4.6, brillo: [14.5, 13] },
+  // La estrella de MaKo: los ojos van en el centro, que es donde la chispa tiene cuerpo.
+  estrella: { ojos: 19, dx: 4.2, brillo: [15.5, 14.5] },
 };
 
 export function Cuerpo({ forma, color }: { forma: Forma; color: string }) {
@@ -68,6 +76,9 @@ export function Cuerpo({ forma, color }: { forma: Forma; color: string }) {
       </g>
     );
     case 'diamante': return <polygon points="20,5 34.5,21 20,37 5.5,21" {...redondo} />;
+    // La chispa de MaKo (app/_components/MakoBrand.tsx → SPARK), rellena para que tenga cuerpo: cuatro puntas
+    // redondeadas y el centro ancho donde caben los ojos y la boca. Sólo el Cerebro (lib/centro-munecos.ts → ASPECTO_MAKO).
+    case 'estrella': return <path d="M20 3.5C22.2 13 27 17.8 36.5 20C27 22.2 22.2 27 20 36.5C17.8 27 13 22.2 3.5 20C13 17.8 17.8 13 20 3.5Z" {...redondo} />;
     default: return <circle cx="20" cy="21" r="16" fill={relleno} />;
   }
 }

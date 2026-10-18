@@ -5,13 +5,15 @@
 // MaKo de los clientes de la agencia, cada una con su estado y lo que espera de la agencia (pagar su primer mes,
 // activar la renovación), y «+ Nuevo cliente». Pedir sumar gente a un equipo queda en la computadora.
 //
-// ⚠️ SIN `navKey`: la tab no la gatea una key de la barra sino el PROGRAMA (`esAgencia`), y lo pregunta acá, igual que
-//    la página de escritorio. Quien no es agencia vuelve a Clients.
+// ⚠️ La puerta es triple: la key `partners` de la fila de More (17/10/2026: `soloCapas` agencia + admin, la misma regla
+//    que la barra), y además el PROGRAMA (`esAgencia`) y el rol (admin), que se preguntan acá igual que en la página de
+//    escritorio. Quien no es el admin de una agencia vuelve a Clients.
 
 import './partners.css';
 import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
-import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { adminDeWorkspaceActual, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { getSesionAdmin } from '@/lib/auth';
 import { esAgencia } from '@/lib/agencia';
 import { cuentasDePartner } from '@/lib/partners';
 import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
@@ -20,9 +22,12 @@ import { PartnersM } from './PartnersM';
 export const dynamic = 'force-dynamic';
 
 export default async function PartnersPagina() {
-  await requireMovil();
+  // La key de la fila de More (17/10/2026, jefe «Sidebar»): el admin de un workspace agencia, la misma regla que la barra.
+  await requireMovil({ navKey: 'partners' });
   const ws = await getWorkspaceActual();
   if (ws == null || !(await esAgencia(ws))) redirect(await rutaConWs('/m/cs'));
+  // Sólo el admin de la agencia, como en la computadora (app/partners/page.tsx).
+  if ((await adminDeWorkspaceActual()) == null && (await getSesionAdmin()) == null) redirect(await rutaConWs('/m/cs'));
   const cartera = await cuentasDePartner(ws);
   if (!cartera.ok) {
     return (

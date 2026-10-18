@@ -23,6 +23,68 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## El grafo en el teléfono: el Mapa era una foto, y UN solo grafo para el super admin (17/10/2026)
+
+Feedback de Martín (Android, Chrome): «no puedo clickear en nodos, o nada»; que se vea apaisado con la barra lateral con scroll; y
+«en SuperAdmin no pongas 2 grafos, todo 1 solo». Código: app/second-brain/{Grafo,VistaCerebro,FiltroMapa}.tsx, apaisar.ts,
+lib/cerebro-union.ts, app/m/second-brain/SecondBrainM.tsx · tests/second-brain-grafo-movil.test.ts.
+
+- **El diagnóstico obvio era el equivocado: no había un bug de toque, el grafo no existía en el teléfono.** LAS MISMAS RUTAS reescribe
+  `/second-brain?panel=mapa` a `/m/second-brain/mapa`, y esa página dibujaba `MapaChico`: una foto con SMIL, sin un solo evento
+  (y `/admin/operaciones` cae en `/m/operaciones`). Ante un reporte del teléfono, lo primero es ver QUÉ pantalla sirve el teléfono
+  (lib/movil-rutas.ts), no leer el componente de escritorio. Ahora el Mapa abre el MISMO `<Grafo>` a pantalla entera
+  (`VistaCerebro movil`, un portal a `#m-root` para tener los tokens `[data-m]`) y la foto es el botón que lo reabre.
+- **Con el dedo, tres cosas del grafo de escritorio estaban mal para un teléfono:** la tolerancia de 5 px (la rodada del pulgar ya era
+  un arrastre y el nodo no se fijaba: 10 px con `pointerType === 'touch'`); arrastrar sobre un nodo movía el NODO (con 44 px de blanco por
+  nodo, en un mapa denso no había por dónde panear: con el dedo siempre se panea); y mantener apretado abre el menú del navegador
+  (`contextmenu`). El `mouseenter` que el teléfono emite después de tocar dejaba el nodo resaltado como si hubiera cursor.
+- **Apaisado:** `screen.orientation.lock('landscape')` SÓLO funciona en pantalla completa, y ésta pide un toque: por eso es un botón
+  («Girar la pantalla») y no algo automático al abrir. Pisa la rotación automática apagada del sistema. iOS no lo soporta y ahí queda el
+  layout vertical (la barra como hoja desde abajo). **No se dibujó el lienzo rotado con CSS** a propósito: el paneo (`escala` en
+  `onPointerMove`) calcula con los ejes de la pantalla y se rompería. La barra lateral apaisada es un corte
+  `(orientation: landscape) and (max-height: 640px)` que va DESPUÉS de los de 1100 y 720 px (misma especificidad, gana el último).
+- **UN solo grafo = dos nubes ya asentadas, una al lado de la otra, no un layout nuevo.** El de la construcción cuesta segundos (4,4 s con
+  ~180 nodos); unirlos de nuevo en cada vuelta del grafo vivo sería lo mismo. Sin arista entre las dos raíces (una arista tiene que
+  significar algo verificable, y el super admin puede estar mirando el negocio de un cliente). La raíz de la construcción pasa a `n1:obra`
+  (`raiz` choca). Las capas NO son una cuarta dimensión del filtro: son un atajo que marca todas las carpetas de la capa
+  (`filtroDeCapa`), así `pasaFiltro`, el «N de M» y «Exportar» siguen hablando de carpetas; una capa entera cuenta como UN filtro.
+  «Exportar» baja sólo el negocio (`filtroDelNegocio`): mirando sólo la construcción no hay nada que bajar, y un filtro vacío
+  bajaría todo el negocio.
+- **Dos escritores de la misma clave de `localStorage`:** el teléfono guardaba los ids vistos del negocio y el grafo guarda los de las
+  dos capas; sin sumarlos, cada vez que se abría el grafo los nodos de la construcción volvían a ser «nuevos» y viajaban.
+- **Sin hacer / sin ver:** nada de esto se vio en un Android real ni apaisado (los tests miran el código y la lógica pura); falta
+  probarlo en producción con Chrome de Android, en vertical y apaisado, y con el super admin. La lista del teléfono
+  (`SecondBrainM`) conserva su selector «Negocio / Construcción» (son listas, no grafos; `ConstruccionM`). «Editar» desde el grafo
+  del teléfono cierra el grafo y abre la hoja del área con una demora de 350 ms: cerrar el grafo consume su entrada del historial con
+  `history.back()` asíncrono y una hoja que hiciera su `pushState` antes se cerraría sola.
+
+**Vive en:** app/second-brain/Grafo.tsx · app/second-brain/VistaCerebro.tsx · app/second-brain/FiltroMapa.tsx ·
+app/second-brain/apaisar.ts · lib/cerebro-union.ts · lib/cerebro-filtro.ts · app/m/second-brain/SecondBrainM.tsx · *2026-10-17*
+
+### El «Negocio» se arma con lo que MaKo SABE hoy, no con huecos fijos (18/10/2026, segunda punta)
+
+Martín: los nodos del «Negocio» (el del super admin como el de cualquier workspace) «se deben siempre ajustar a lo que MaKo sepa...
+no tengas miedo en quitarle nodos o agregarles; si les falta info ya la irán completando». Código: lib/cerebro-vivo.ts,
+lib/cerebro-grafo.ts · tests/second-brain-negocio-vivo.test.ts.
+
+- **Se agregaron las dos fuentes de la venta que el grafo no leía:** los CLIENTES (un lead con la venta ganada: la definición de
+  lib/clientes-ganados.ts) y las REUNIONES de venta que el Closing Analyst ya leyó (`closing_analyses`, `status='analizada'` y
+  `category='venta'`). Clientes: UN nodo «N clientes» con el total exacto (`count: 'exact'`, no los que se leyeron) y los 8 más
+  recientes colgados de él, y él de los leads. Reuniones: las 6 más recientes, cada una del cliente que terminó comprando o, si no, de
+  los leads. Sin datos no hay nodo; una lectura que falla no tumba el mapa (`.catch`); una venta nueva entra sola con el grafo vivo.
+- **Se quitó la estructura fija de huecos:** hasta hoy cada sección sin un dato dibujaba un `falta:<área>` colgado de la raíz (once
+  casillas iguales para todos los negocios). Ahora lo que falta se DICE (el dato «Todavía sin info» de la raíz y el «falta» de cada
+  sección en la barra lateral, con su «Editar») y no se dibuja. `vacias` sigue en el modelo (el ZIP lo usa). El filtro «Sin completar»
+  sólo se ofrece si hay algo sin completar.
+- **La excepción que este archivo ya conoce, aplicada de antemano (NO medida con clientes reales):** los clientes y las reuniones no se
+  cuelgan además del nodo de área del funnel (`realesPorArea`). Colgar los 15 le subiría el grado hacia el de la raíz, y el hub tiene
+  tope en scripts/medir-grafo.mjs (4,5×): es la misma excepción que ya tienen las etapas de nutrición. Lo fija un test sobre el
+  constructor; falta medir el grafo con datos reales.
+- **Sin hacer / sin ver:** el constructor corre contra la base y no hay forma de armarlo sin ella en un test, así que lo nuevo se probó
+  con datos armados a mano (`agregarLoVivo`) y mirando el código del constructor; falta ver el grafo con datos reales (un workspace con
+  clientes y reuniones leídas) y correr `node scripts/medir-grafo.mjs` sobre él. Las reuniones que no pasaron por el Closing Analyst
+  (una grabación de Fathom sin leer, un evento de agenda) no entran: no son algo que MaKo SEPA todavía.
+
 ## El texto pegado en el chat: un documento, no un mazacote (17/10/2026, tarjetas #848, #864 y #884)
 
 `lib/chat-pegado.ts` (las reglas), `app/_chat/PegadoHilo.tsx` (la tarjeta y la burbuja plegada), las dos cajas
@@ -1865,3 +1927,23 @@ pasó a `normalizarUrlArchivero` para no pisar ese renombre.
 
 **Vive en:** lib/cerebro-areas.ts · lib/archivero-subida.ts · app/second-brain/Grafo.tsx ·
 app/onboarding/Archivero.tsx · app/m/second-brain/modelo.ts · tests/m-second-brain.test.ts · *2026-10-16*
+
+## De dónde vino cada documento de El Archivero (17/10/2026)
+
+**Síntoma:** desde el 15/10 el chat de Offer deja sus archivos en El Archivero, y desde el 17/10 el onboarding
+deja «Lo que vendes»; en la lista se veían igual que lo que la persona subió a mano, y `archivero_files` no
+tenía dónde decirlo (docs/relevo/offer.md lo dejaba «pide migración»).
+**Ahora:** columna `origen` (mig **0316**, con CHECK: `archivero`, `link`, `offer`, `onboarding`; NULL = de
+antes). Cada puerta pasa el suyo a `insertFile`, y la lista dice «Del chat de Offer» / «Del onboarding» al
+lado del tamaño (lo subido acá no lleva rótulo).
+**La trampa del orden de despliegue:** la columna puede llegar antes o después del código. `leerConOrigen` e
+`insertarConOrigen` (lib/archivero-registro.ts, puros) reintentan SIN `origen` sólo ante 42703 / PGRST204 que
+nombran `origen`; cualquier otro error vuelve tal cual (un 23505 reintentado insertaría dos veces).
+**Regla:** una puerta nueva que guarde en El Archivero pasa su `origen`; un origen nuevo va a
+`ORIGENES_ARCHIVERO` (lib/archivero-subida.ts) Y al CHECK, con migración (tests/archivero-origen.test.ts
+compara las dos listas).
+**Sin hacer:** la 0316 sin aplicar en Supabase (el número lo pone el Cerebro: la 0314 la tenía B1-infra); el
+Second Brain del teléfono (app/m/second-brain) no muestra el origen.
+
+**Vive en:** lib/archivero-registro.ts · lib/archivero-subida.ts · lib/archivero.ts (`insertFile`, `pubFile`)
+· app/onboarding/Archivero.tsx · supabase/migrations/0316_archivero_origen.sql · *2026-10-17*

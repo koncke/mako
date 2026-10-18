@@ -511,6 +511,14 @@ test('lib/chats.ts lee WhatsApp SIEMPRE con la línea (sin ella se funden los hi
   for (const fn of ['getConversacionesNoOficial', 'getMensajesDeChat']) {
     const llamadas = argumentosDe(code, fn);
     assert.ok(llamadas.length > 0, `lib/chats.ts ya no llama a ${fn}: actualiza este test`);
-    for (const a of llamadas) assert.equal(a.length, 3, `${fn}(${a.join(', ')}) sin la línea`);
+    // La línea es el TERCER argumento. Desde el 17/10/2026 `getConversacionesNoOficial` puede llevar un cuarto (las
+    // páginas que pide el teléfono, `paginasWhatsapp`): lo que se exige es que el tercero esté y no sea null a secas.
+    // Roto (17/10/2026) en la llamada de la lista: sin la línea (`getConversacionesNoOficial(600, false)`), 16 / 1; con
+    // `null` en su lugar y el cuarto argumento puesto, 16 / 1.
+    for (const a of llamadas) {
+      const cuatro = fn === 'getConversacionesNoOficial' && a.length === 4;
+      assert.ok(a.length === 3 || cuatro, `${fn}(${a.join(', ')}) sin la línea`);
+      assert.ok(a[2] && !/^(null|undefined)$/.test(a[2]), `${fn}(${a.join(', ')}) sin la línea`);
+    }
   }
 });

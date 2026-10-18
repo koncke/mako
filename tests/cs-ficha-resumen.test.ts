@@ -26,9 +26,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { llamadasDe, rutaPlanDeCliente, type FilaGrabacion } from '../app/customer-success/ficha-datos';
+import { listaFijaDeCs } from '../app/crm/lead-view/ficha/reglas-cs';
+import { PLANTILLA_CS } from '../lib/ficha/plantillas';
 
 const leer = (p: string) => readFileSync(resolve(import.meta.dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src
@@ -88,7 +90,6 @@ test('un link sin URL no es una llamada, y un título vacío no se dibuja vacío
 const PAGE = sinComentarios(leer('app/customer-success/pantalla.tsx'));
 const FICHA = sinComentarios(leer('app/customer-success/FichaCliente.tsx'));
 const PESTANAS = sinComentarios(leer('app/customer-success/FichaPestanas.tsx'));
-const CUENTA = sinComentarios(leer('app/customer-success/CuentaDeMaKo.tsx'));
 const SHELL = sinComentarios(leer('app/plan/board/BoardShell.tsx'));
 const PLANB = sinComentarios(leer('app/plan/PlanBoard.tsx'));
 const TODOB = sinComentarios(leer('app/plan/TodoBoard.tsx'));
@@ -103,28 +104,27 @@ test('EL QUE IMPORTA (punto 4): las cuentas y el equipo de una agencia viven en 
   assert.match(partners, /const aprobados = new Set\(clientesAprobados\(agenciaWs, cartera\)\);/);
   assert.match(partners, /plan: aprobada && w \? capaDef\(w\.capa\)\.nombre : null,/);
   assert.match(partners, /equipo: aprobada \? \(equipoPorWs\.get\(ws\) \?\? null\) : null,/);
-  // El control que quedó dormido en la ficha sigue cortando con el mismo flag (se borra con la T3 del CRM).
-  assert.match(CUENTA, /if \(!cuentas\?\.visible\) return null;/);
+  // Y el control de la cuenta que vivía en la tarjeta y la ficha se fue con ellas (no quedó dormido).
+  assert.ok(!existsSync(resolve(import.meta.dirname, '..', 'app/customer-success/CuentaDeMaKo.tsx')), 'volvió CuentaDeMaKo a Clients');
 });
 
-test('en la ficha, todo lo de equipo cuelga de UN flag, y es ése', () => {
-  assert.match(FICHA, /const verCuentas = Boolean\(cuentas\?\.visible\);/);
-  assert.equal((FICHA.match(/cuentas\?\.visible/g) ?? []).length, 1, 'la regla se lee en UN lugar');
-  // La tab, su panel, pedir y sumar: los cuatro.
-  assert.match(FICHA, /\.\.\.\(verCuentas \? \[\{ id: 'equipo'/, 'la tab «Equipo»');
-  assert.match(FICHA, /\{verCuentas && \(\s*<Panel id="equipo"/, 'el panel del equipo');
-  assert.match(FICHA, /const puedePedir = Boolean\(\s*verCuentas && /, '«Pedir sumar…»');
-  assert.match(FICHA, /const puedeSumar = Boolean\(verCuentas && /, '«Sumar a alguien»');
-  // Y no vuelve a depender de lo que tenga adentro (el bug del 29/09).
-  assert.ok(!/hayEquipo/.test(FICHA), 'volvió una condición por contenido');
+test('en la ficha, nada de la cuenta de MaKo: el equipo, pedir y sumar viven en MaKo Partners', () => {
+  // Desde el 17/10/2026 (docs/diseno-clients.md, D8): la ficha de Clients es la de la ENTREGA.
+  for (const [rotulo, re] of [
+    ['la tab «Equipo»', /id: 'equipo'/], ['el panel del equipo', /<Panel id="equipo"/], ['«Pedir sumar…»', /puedePedir/],
+    ['«Sumar a alguien»', /puedeSumar/], ['la vista de agencia', /cuentas\??\.visible/], ['el control de la cuenta', /CuentaDeMaKo/],
+  ] as const) assert.doesNotMatch(FICHA, re, `volvió ${rotulo} a la ficha de Clients`);
+  // Y donde viven: el equipo de una cuenta, con pedir (la agencia) y sumar (el super admin).
+  const app = sinComentarios(leer('app/partners/PartnersApp.tsx'));
+  assert.match(app, /<EquipoDeCuenta equipo=\{abierta\.equipo\} altas=\{abierta\.altas\} clienteWs=\{abierta\.ws\}\s*puedePedir=\{puedeAbrir && !superAdmin\} puedeSumar=\{superAdmin\}/);
 });
 
-test('las tabs: Resumen · Tareas · Curso · Pagos · Llamadas · Historial (y Equipo en una agencia)', () => {
+test('las tabs: Resumen · Tareas · Curso · Pagos · Llamadas · Historial (Equipo se fue a MaKo Partners)', () => {
   // «Que la tab pase a llamarse "Tareas"», «traigas la tab de Pagos», «falta la tab de
   // Historial» (06/10/2026). El id de Tareas sigue siendo `prioridades`: es la vista del tablero.
   // Y «Dentro del Detail de los clientes de Mauricio se tiene que ver este CURSO» (06/10/2026).
   const ids = [...FICHA.matchAll(/\{ id: '(\w+)', label: '([^']+)'/g)].map((m) => `${m[1]}:${m[2]}`);
-  assert.deepEqual(ids, ['resumen:Resumen', 'prioridades:Tareas', 'curso:Curso', 'pagos:Pagos', 'llamadas:Llamadas', 'historial:Historial', 'equipo:Equipo']);
+  assert.deepEqual(ids, ['resumen:Resumen', 'prioridades:Tareas', 'curso:Curso', 'pagos:Pagos', 'llamadas:Llamadas', 'historial:Historial']);
   assert.equal((FICHA.match(/<Tabs\b/g) ?? []).length, 1, 'la ficha dibuja UNA fila de tabs');
 });
 
@@ -160,11 +160,24 @@ test('Resumen, Pagos e Historial son los componentes del CRM, no copias', () => 
     ['InfoPrincipalCard', '@/app/crm/lead-view/InfoPrincipalCard'],
     ['NotasCard', '@/app/crm/lead-view/NotasCard'],
     ['AuditHistory', '@/app/crm/lead-view/AuditHistory'],
-    ['DealDetailsCard', '@/app/crm/[id]/DealDetailsCard'],
   ]) {
     assert.ok(PESTANAS.includes(`import { ${comp} } from '${desde}';`), `${comp} dejó de venir del CRM`);
     assert.ok(new RegExp(`<${comp}\\b`).test(PESTANAS), `${comp} se importa y no se monta`);
   }
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: Pagos ya no es DealDetailsCard (borrada) sino los BLOQUES de la tab Pagos
+  // del CRM, con el mismo armador y la plantilla fija de CS (./PagosCliente.tsx). Verificado rompiéndolo: con
+  // `listaFijaDeCs('cs-resumen')` en vez de 'cs-pagos' → cae éste.
+  const PAGOS = sinComentarios(leer('app/customer-success/PagosCliente.tsx'));
+  assert.match(PAGOS, /import \{ Armador \} from '@\/app\/crm\/lead-view\/ficha\/Armador';/);
+  assert.match(PAGOS, /const LISTA = listaFijaDeCs\('cs-pagos'\);/);
+  assert.match(PAGOS, /return <BloquesDeCs \{\.\.\.p\} lista=\{LISTA\} que="sus pagos" \/>;/);
+  assert.match(PAGOS, /<Armador tab="pagos" lista=\{lista\} ctx=\{ctx\} editando=\{false\}/, 'la ficha de CS no se personaliza');
+  assert.match(PAGOS, /getLeadFullAction\(leadId\)/, 'lee lo mismo que la ficha del CRM');
+  assert.match(FICHA, /<PagosCliente leadId=\{c\.leadId\}/);
+  // Y lo del deal que la plantilla de CS pone en el Resumen (servicio, promesa, obligaciones, el estado de cuenta), sin
+  // repetir lo que dibuja la tarjeta de siempre. Verificado rompiéndolo: sin el `sin: ['contacto', 'notas']` → cae éste.
+  assert.match(PAGOS, /const LISTA_RESUMEN = listaFijaDeCs\('cs-resumen', \{ sin: \['contacto', 'notas'\] \}\);/);
+  assert.match(PESTANAS, /<DealCliente leadId=\{c\.leadId\} onCambio=\{onCambio\} \/>/);
   // La Entrega salió del Resumen: vive en la cabecera (FichaEntrega).
   assert.ok(!/Fila k="Entrega"|LineaEntrega/.test(PESTANAS), 'volvió la sección «Entrega» al Resumen');
   assert.match(FICHA, /<FichaEntrega leadId=\{c\.leadId\}/);
@@ -191,7 +204,8 @@ test('renombrar al cliente desde su ficha DEJA HISTORIAL', () => {
 test('«no pude leer» no se pinta como «no tiene»', () => {
   // `null` = lectura caída. Un «no hay llamadas» ahí afirmaría algo falso.
   assert.match(PESTANAS, /\{!llamadas \? \(\s*<p className="fl-nada">No pude leer sus llamadas\.<\/p>/);
-  assert.match(PESTANAS, /if \(!datos\.ok\) return <><p className="fl-nada">No pude leer sus pagos\./);
+  // Pagos (./PagosCliente.tsx desde el 17/10/2026): sin poder leer, lo dice; no dibuja una tab vacía.
+  assert.match(sinComentarios(leer('app/customer-success/PagosCliente.tsx')), /if \(data === 'error'\) return <p style=\{AVISO\}>No pude leer \{que\}\./);
 });
 
 // PROBADO ROMPIÉNDOLO (06/10/2026), corrido junto con cs-pertenencia: baseline 20 pass / 0
@@ -202,3 +216,13 @@ test('«no pude leer» no se pinta como «no tiene»', () => {
 //   4. FichaCliente: sin la tab Historial → «las tabs: Resumen · Tareas…».
 // (La tanda del 05/10, con las roturas de `entregasDe` y `conteoDeTrabajo`, se fue con esas
 // funciones. Las de las llamadas, el flag de agencia y el Link siguen valiendo.)
+
+// La lista fija de CS (17/10/2026): la plantilla tal cual, con el ancho y el diseño de entrada del catálogo, y sin lo que
+// la pantalla ya dibuja. Verificado rompiéndolo: sin el `opts?.sin?.includes(id)` → cae éste.
+test('listaFijaDeCs: la plantilla fija de CS en orden, y sin lo que la tarjeta de siempre ya dibuja', () => {
+  assert.deepEqual(listaFijaDeCs('cs-pagos').map((b) => b.id), [...PLANTILLA_CS['cs-pagos']]);
+  assert.ok(listaFijaDeCs('cs-pagos').every((b) => b.ancho > 0 && typeof b.diseno === 'string'));
+  const resumen = listaFijaDeCs('cs-resumen', { sin: ['contacto', 'notas'] }).map((b) => b.id);
+  assert.ok(!resumen.includes('contacto') && !resumen.includes('notas'));
+  assert.ok(resumen.includes('servicio-vendido') && resumen.includes('promesa-y-garantia') && resumen.includes('obligaciones'));
+});

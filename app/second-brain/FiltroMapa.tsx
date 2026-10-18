@@ -38,11 +38,11 @@
 
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { MONO } from '@/app/_ui/tokens';
-import { AREAS, NIVEL1, type AreaId } from '@/lib/cerebro-modelo';
+import { TAXONOMIA_NEGOCIO, type Taxonomia } from '@/lib/cerebro-modelo';
 // El modelo del filtro vive en lib/, no acá: lo comparten el mapa y el exportador, y
 // ahí se puede testear. Este archivo es solo su cara.
 import {
-  areasOfrecidas as areasDe, cuentaFiltros, podarAreas,
+  areasOfrecidas as areasDe, capaActiva, cuentaFiltros, filtroDeCapa, podarAreas,
   type Autoria, type EstadoFiltro,
 } from '@/lib/cerebro-filtro';
 
@@ -50,7 +50,7 @@ export type { Autoria, EstadoFiltro };
 
 const SANS = "'Geist', sans-serif";
 
-export type CategoriaFiltro = 'carpeta' | 'area' | 'autoria';
+export type CategoriaFiltro = 'capa' | 'carpeta' | 'area' | 'autoria';
 export type PanelAbierto = 'root' | CategoriaFiltro | null;
 
 const AUTORIA_OPS: Array<{ id: Autoria; label: string }> = [
@@ -60,18 +60,21 @@ const AUTORIA_OPS: Array<{ id: Autoria; label: string }> = [
   { id: 'falta', label: 'Sin completar' },
 ];
 
-export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, conteoAutoria }: {
+export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, conteoAutoria, tax = TAXONOMIA_NEGOCIO }: {
   filtro: EstadoFiltro;
   onFiltro: (f: EstadoFiltro) => void;
   abierto: PanelAbierto;
   onAbrir: (v: PanelAbierto) => void;
   /** Cuántos datos tiene cada sección. Va al lado de cada opción: un filtro que no
    *  dice cuánto hay detrás obliga a probar de a uno. */
-  conteoArea: Partial<Record<AreaId, number>>;
+  conteoArea: Partial<Record<string, number>>;
   conteoAutoria: { mako: number; usuario: number; falta: number };
+  /** Las carpetas y secciones de ESTE grafo (la del negocio, o las dos capas del super admin juntas). */
+  tax?: Taxonomia;
 }) {
   const caja = useRef<HTMLSpanElement>(null);
-  const n = cuentaFiltros(filtro);
+  const n = cuentaFiltros(filtro, tax);
+  const capas = tax.capas && tax.capas.length > 1 ? tax.capas : null;
 
   useEffect(() => {
     if (!abierto) return;
@@ -85,37 +88,44 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
   const toggleCarpeta = (id: string) => {
     const c = new Set(filtro.carpetas);
     if (c.has(id)) c.delete(id); else c.add(id);
-    onFiltro({ ...filtro, carpetas: c, areas: podarAreas(filtro, c) });
+    onFiltro({ ...filtro, carpetas: c, areas: podarAreas(filtro, c, tax) });
   };
-  const toggleArea = (id: AreaId) => {
-    const c = new Set(filtro.areas);
+  const toggleArea = (id: string) => {
+    const c = new Set<string>(filtro.areas);
     if (c.has(id)) c.delete(id); else c.add(id);
-    onFiltro({ ...filtro, areas: c });
+    onFiltro({ ...filtro, areas: c as EstadoFiltro['areas'] });
   };
 
-  const areasOfrecidas = areasDe(filtro);
+  const areasOfrecidas = areasDe(filtro, tax);
   const carpetasOfrecidas = filtro.areas.size
-    ? NIVEL1.filter((c: (typeof NIVEL1)[number]) => [...filtro.areas].some((a) => AREAS.find((x) => x.id === a)?.padre === c.id))
-    : NIVEL1;
+    ? tax.carpetas.filter((c) => [...filtro.areas].some((a) => tax.areas.find((x) => x.id === a)?.padre === c.id))
+    : tax.carpetas;
+  const capaElegida = capas ? capaActiva(filtro, tax) : null;
 
   const resumen = (cat: CategoriaFiltro): string => {
+    if (cat === 'capa') {
+      if (!filtro.carpetas.size) return 'Todo';
+      return capas?.find((c) => c.id === capaElegida)?.nombre ?? 'Varias carpetas';
+    }
     if (cat === 'carpeta') {
       if (!filtro.carpetas.size) return 'Todas';
-      const nombres = NIVEL1.filter((c) => filtro.carpetas.has(c.id)).map((c) => c.nombre);
+      const nombres = tax.carpetas.filter((c) => filtro.carpetas.has(c.id)).map((c) => c.nombre);
       return nombres[0] + (nombres.length > 1 ? ` +${nombres.length - 1}` : '');
     }
     if (cat === 'area') {
       if (!filtro.areas.size) return 'Todas';
-      const nombres = AREAS.filter((a) => filtro.areas.has(a.id)).map((a) => a.nombre);
+      const nombres = tax.areas.filter((a) => (filtro.areas as ReadonlySet<string>).has(a.id)).map((a) => a.nombre);
       return nombres[0] + (nombres.length > 1 ? ` +${nombres.length - 1}` : '');
     }
     return AUTORIA_OPS.find((o) => o.id === filtro.autoria)!.label;
   };
 
   const activa = (cat: CategoriaFiltro) =>
-    cat === 'carpeta' ? filtro.carpetas.size > 0 : cat === 'area' ? filtro.areas.size > 0 : filtro.autoria !== 'todos';
+    cat === 'capa' ? capaElegida !== null : cat === 'carpeta' ? filtro.carpetas.size > 0 : cat === 'area' ? filtro.areas.size > 0 : filtro.autoria !== 'todos';
 
   const CATS: Array<{ cat: CategoriaFiltro; label: string }> = [
+    // Las CAPAS (sólo el super admin): desarrollo, ventas, marketing... son carpetas; la capa las marca de una vez.
+    ...(capas ? [{ cat: 'capa' as const, label: 'Capa' }] : []),
     { cat: 'carpeta', label: 'Carpeta' },
     { cat: 'area', label: 'Sección' },
     { cat: 'autoria', label: 'Quién lo escribió' },
@@ -164,7 +174,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
             aria-label="Filtros del mapa"
             style={{
               position: 'absolute', top: 38, left: 0, zIndex: 41, width: 262,
-              maxWidth: 'calc(100vw - 32px)', maxHeight: 460, overflowY: 'auto',
+              maxWidth: 'calc(100vw - 32px)', maxHeight: 'min(460px, calc(100dvh - 96px))', overflowY: 'auto', overscrollBehavior: 'contain',
               background: 'var(--surface)', border: '1px solid var(--border-strong)',
               borderRadius: 12, padding: 8, fontFamily: SANS,
             }}
@@ -187,21 +197,40 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
                 {/* El aviso de que la lista está recortada. Sin él, entrar a «Carpeta»
                     con una sección elegida y ver dos opciones donde había cinco se lee
                     como que faltan opciones, no como que las otras no aplican. */}
-                {abierto === 'carpeta' && carpetasOfrecidas.length < NIVEL1.length && (
+                {abierto === 'carpeta' && carpetasOfrecidas.length < tax.carpetas.length && (
                   <p style={avisoRecorte}>Solo las carpetas de las secciones que elegiste.</p>
                 )}
-                {abierto === 'area' && areasOfrecidas.length < AREAS.length && (
+                {abierto === 'area' && areasOfrecidas.length < tax.areas.length && (
                   <p style={avisoRecorte}>Solo las secciones de las carpetas que elegiste.</p>
                 )}
 
-                {abierto === 'carpeta' && carpetasOfrecidas.map((c: (typeof NIVEL1)[number]) => (
-                  <Casilla key={c.id} on={filtro.carpetas.has(c.id)} onClick={() => toggleCarpeta(c.id)} label={c.nombre} />
-                ))}
+                {abierto === 'capa' && capas && (
+                  <>
+                    <Radio on={!filtro.carpetas.size} onClick={() => onFiltro(filtroDeCapa(filtro, tax, null))} label="Todo" />
+                    {capas.map((c) => (
+                      <Radio key={c.id} on={capaElegida === c.id} onClick={() => onFiltro(filtroDeCapa(filtro, tax, c.id))} label={c.nombre} />
+                    ))}
+                  </>
+                )}
+
+                {abierto === 'carpeta' && (capas
+                  ? capas.map((capa) => {
+                    const suyas = carpetasOfrecidas.filter((c) => capa.carpetas.includes(c.id));
+                    return suyas.length === 0 ? null : (
+                      <div key={capa.id}>
+                        <p style={avisoRecorte}>{capa.nombre}</p>
+                        {suyas.map((c) => <Casilla key={c.id} on={filtro.carpetas.has(c.id)} onClick={() => toggleCarpeta(c.id)} label={c.nombre} />)}
+                      </div>
+                    );
+                  })
+                  : carpetasOfrecidas.map((c) => (
+                    <Casilla key={c.id} on={filtro.carpetas.has(c.id)} onClick={() => toggleCarpeta(c.id)} label={c.nombre} />
+                  )))}
 
                 {abierto === 'area' && areasOfrecidas.map((a) => (
                   <Casilla
                     key={a.id}
-                    on={filtro.areas.has(a.id)}
+                    on={(filtro.areas as ReadonlySet<string>).has(a.id)}
                     onClick={() => toggleArea(a.id)}
                     label={a.nombre}
                     punto={a.color}
@@ -212,7 +241,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
                   />
                 ))}
 
-                {abierto === 'autoria' && AUTORIA_OPS.map((o) => (
+                {abierto === 'autoria' && AUTORIA_OPS.filter((o) => o.id !== 'falta' || conteoAutoria.falta > 0 || filtro.autoria === 'falta').map((o) => (
                   <Radio
                     key={o.id}
                     on={filtro.autoria === o.id}

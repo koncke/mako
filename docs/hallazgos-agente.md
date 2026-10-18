@@ -136,9 +136,30 @@ pudo salir.
   minutos, herramientas usadas, proyecto. El tema hay que sacarlo de los turnos, y hoy
   eso no lo hace nadie. Vive en `app/admin/agente/page.tsx`, que a propósito no llama a
   ninguna IA.
-- **La purga de turnos a los 90 días** se apoya en `purgar_despues` y **no hay nada que
-  la corra**. Vive en `supabase/migrations/0124_agente_telemetria.sql`. Hoy la columna
-  está escrita y los turnos no se borran solos.
+- ~~**La purga de turnos a los 90 días**~~: hecha el 17/10/2026 (ver «La purga de los 90 días» abajo). Lo que sigue
+  abierto es que **nada reporta desde una instalación real**: ese hueco no se cierra con código.
+
+---
+
+## La purga de los 90 días: la columna estaba escrita y nadie la leía (17/10/2026)
+
+**El síntoma**: el reporte de cada sesión escribe `purgar_despues` = ahora + 90 días (mig 0124) y los turnos —lo único que puede traer
+contenido del negocio del cliente— no se borraban solos; el comentario de la migración decía «un cron los borra» y **no existía ese
+cron**. Una promesa de retención que sólo vivía en un comentario.
+
+**Cómo está resuelto, y las tres decisiones que no se ven**:
+- **El cron vacía los turnos, no borra la fila**: el acta se queda (es la decisión de la 0124). `turnos = []` y `purgar_despues = NULL`;
+  ese NULL es lo que hace que cada sesión se purgue UNA vez (el índice de la 0124 es parcial sobre «no nulo»).
+- **El update vuelve a preguntar «sigue vencida»** (compare-and-set). El hook reintenta o continúa una sesión, y su upsert reescribe
+  `purgar_despues` a +90 días: sin la segunda pregunta, una sesión que reportó entre la lectura y el update perdería los turnos nuevos.
+- **Arranca en serio, no en modo prueba** (a diferencia de `curso-purga`, que no sabía qué había en el bucket): acá lo único que
+  toca es lo que su propia fecha ya venció, con tope de 500 por vuelta (`hayMas` lo avisa). Para mirarlo antes: `?seco=1` cuenta y no
+  escribe. Con el plugin sin instalaciones reales, lo esperado en la primera corrida es `vencidas: 0`.
+
+⚠️ **Nadie corrió esto contra producción** (la regla: un script que escribe en producción corre primero en seco). El primer
+`GET /api/cron/agente-purga?seco=1` con el `CRON_SECRET` lo hace quien tenga el secreto.
+
+**Vive en:** lib/agente-purga.ts · app/api/cron/agente-purga/route.ts · vercel.json (diario, 06:20 UTC) · tests/agente-purga.test.ts
 
 ---
 

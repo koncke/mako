@@ -13,7 +13,7 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
-import { getWorkspaceActual, OWNER_WS } from './workspace';
+import { wsObligatorio } from './workspace';
 import { getSetting, setSetting } from './settings';
 import { leerDocumentoIA } from './ai-cheap';
 
@@ -27,7 +27,7 @@ export type PersonaFotoPub = { id: string; nombre: string; mime: string; url: st
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
 async function wsActual(): Promise<number> {
-  return (await getWorkspaceActual()) ?? OWNER_WS;
+  return await wsObligatorio();
 }
 
 export async function getPersona(): Promise<PersonaData> {

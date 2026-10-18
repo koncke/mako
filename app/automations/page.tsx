@@ -12,6 +12,9 @@ import { getSettingEstricto } from '@/lib/settings';
 import { horarioVigente, KEY_HORARIO_ENVIO } from '@/lib/horario-envio';
 import { zonaDelNegocioDetalle } from '@/lib/timezone';
 import { ChatAgentApp } from './ChatAgentApp';
+// La hoja del muñeco de la tab (el del chat de MaKo, 17/10/2026): ACÁ y no en ChatMako.tsx, que los tests importan y
+// Node no carga un .css.
+import '@/app/admin/operaciones/centro.css';
 import { PlataformaProvider } from './plataforma';
 import { HorarioOficinaProvider, type HorarioOficina } from './horario-oficina';
 

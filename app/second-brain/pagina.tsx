@@ -79,7 +79,8 @@ export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio }: {
 }) {
   const chat = enteroDe(q.chat);
   const claveCentro = q.centro || (chat == null && q.chat ? q.chat : null);
-  const ticketera = centro && esVistaTicketera(q.ticketera) ? q.ticketera : null;
+  // `tarjetas` y `lista` (las preguntas de los chats) ya no se dibujan: los links de antes abren los tickets.
+  const ticketera = centro && esVistaTicketera(q.ticketera) ? 'tickets' : null;
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín). */}

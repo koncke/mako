@@ -452,11 +452,9 @@ test('las acciones ajustan sobre la base y deshacen tal cual; la API y el wizard
   assert.match(fuente('../lib/api-mako/areas/cobros.run.ts'), /patchDeVenta\(fila, c, \{ hayCobradas: cobradas > 0, impagas \}\)/);
   assert.match(acciones, /guardarCuotasPorId\([\s\S]*?\{ vistos \}\);/, 'guardarCuotasAction pasa los ids que vio la pantalla');
   assert.match(acciones, /vistos: despues\.filter\(\(q\) => !q\.pagado\)\.map\(\(q\) => q\.id\)/, 'el Deshacer del ajuste lleva lo que quedó después');
-  const deal = fuente('../app/crm/[id]/deal-actions.ts');
-  assert.match(deal, /\{ vistos \}\);/, 'saveCuotasAction pasa los ids que vio Editar deal');
-  assert.match(deal, /return \{ sinTocar \};/, 'saveCuotasAction devuelve lo que no tocó');
-  assert.match(fuente('../app/crm/[id]/DealDetailsCard.tsx'), /saveCuotasAction\([\s\S]*?draft\.vistos\)/);
-  assert.match(fuente('../app/crm/[id]/EditarDeal.tsx'), /if \(r && r\.sinTocar\) setFeedback\(\{ kind: 'err'/, 'Editar deal no dice «guardados» sobre lo que no se tocó');
+  // (Las aserciones de `saveCuotasAction`, DealDetailsCard y EditarDeal se fueron el 17/10/2026 con esa pantalla: las
+  // cuotas se escriben sólo por los bloques de Pagos, que ya pasan lo que vieron, arriba.)
+  assert.doesNotMatch(fuente('../app/crm/[id]/deal-actions.ts'), /export async function saveCuotasAction\(/, 'volvió el guardado de cuotas de Editar deal');
   assert.match(acciones, /update\(\{ \.\.\.planComoEstaba\(plan\) \}\)/, 'el Deshacer devuelve el plan anterior tal cual');
   assert.doesNotMatch(acciones, /validarPlan\(plan/, 'ningún plan parcial se valida como plan entero');
   const api = fuente('../lib/api-mako/areas/crm.run.ts');

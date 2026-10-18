@@ -39,7 +39,7 @@ import { Spinner } from '@/app/_ui';
 import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type Efectivo, type Formato, type Grafico as G } from '@/lib/graficos-catalogo';
 import { alternarSerie, serieOculta, type SelDetalle } from '@/lib/graficos-acciones';
 import { colorDeTono, estiloEfectivo, fondoDeTarjeta, type TemaHoja } from '@/lib/graficos-temas';
-import { identidadDe, paletaDePortada, PAPEL, DIMENSIONES_PERSONA, MAXIMO_PORTADA } from '@/lib/graficos-identidad';
+import { identidadEfectiva, paletaDePortada, PAPEL, DIMENSIONES_PERSONA, MAXIMO_PORTADA } from '@/lib/graficos-identidad';
 import {
   anchoEjeY, anchoTexto, BARRA, colorDeCategoria, columnaConBarra, EJES, ESCALA_EPICA, intervaloPorAncho, LETRA, LETRA_MINIMA, MARGEN, tamChip, tamProtagonista, tamSecundaria, modoPorAlto, ocultoPorCero,
   ordenarPorValores, textoConMuestra, usaPaneles,
@@ -48,6 +48,8 @@ import dynamic from 'next/dynamic';
 import { chipComparar, fmtValor, histograma, OTROS, sinDatos, type FilaResultado, type Resultado } from '@/lib/graficos-agregar';
 import { PAGINA_MINIATURA } from '@/lib/graficos-muestra';
 import { EstilosGraficos } from './graficos/estilos';
+import { ReproductorAnuncio } from './graficos/ReproductorAnuncio';
+import { esTarjetaDeAnuncio } from '@/lib/anuncio-video';
 import { AreaMedida, useMedida, type Tam } from './graficos/medida';
 import { CapaEtiquetas, type SerieEtiqueta } from './graficos/Etiquetas';
 import { Paneles } from './graficos/Paneles';
@@ -155,24 +157,26 @@ function SoloNumero({ r, compacto }: { r: Resultado; compacto: boolean }) {
  * `onDetalle` (opcional): con él, el gráfico es clickeable — ver la cabecera. Quien lo monta lo pasa sólo
  * mirando: editando, un clic selecciona la tarjeta.
  */
-export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; estado: EstadoDatos; tema: TemaHoja; onDetalle?: (sel: SelDetalle) => void; efectivo?: Efectivo }) {
+export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReproductor = false }: { g: G; estado: EstadoDatos; tema: TemaHoja; onDetalle?: (sel: SelDetalle) => void; efectivo?: Efectivo; conReproductor?: boolean }) {
   // Las series apagadas desde la leyenda. Estado de la VISTA: no se guarda en el informe.
   // (Arriba de todo: un hook detrás de un `return` es la pantalla en blanco de AGENTS.md.)
   const [ocultas, setOcultas] = useState<ReadonlySet<string>>(() => new Set());
+  // #860: el anuncio que se está reproduciendo (el ▶ de una tarjeta de anuncio), o null.
+  const [video, setVideo] = useState<{ adId: string; nombre: string } | null>(null);
 
   // El hueco de la ola 2: un tipo con dibujo propio (el mapa de calor de página) recibe todo y dibuja él.
   const Propio = DIBUJOS_PROPIOS[g.tipo];
   const cuerpo = ((): ReactNode => {
-    if (Propio) return <Propio g={g} estado={estado} tema={tema} onDetalle={onDetalle} efectivo={efectivo} />;
+    if (Propio) return <Propio g={g} estado={estado} tema={tema} onDetalle={onDetalle} efectivo={efectivo} conEnlaces={conReproductor} />;
     if (TIPOS_CON_DIBUJO_PROPIO.includes(g.tipo)) return <Mensaje>Este gráfico todavía no se puede dibujar</Mensaje>;
     const r0 = estado.resultado;
     if (!r0) return <Mensaje>{estado.error ?? <Spinner size={20} />}</Mensaje>;
     if (estado.error) return <Mensaje>{estado.error}</Mensaje>;
     // La PORTADA (lib/graficos-identidad.ts): las series en tonos de su tinta, sin cuadrícula, y el halo de las etiquetas
-    // y los puntos es su color (no el de la tarjeta del tema).
-    const portada = identidadDe(g.portada);
+    // y los puntos es su color (no el de la tarjeta del tema). El color es el de la hoja si eligió uno (#859).
+    const portada = identidadEfectiva(g.portada, tema.acento);
     const e0 = estiloEfectivo(tema);
-    const e = portada ? { ...e0, colores: paletaDePortada(portada.id) ?? e0.colores, cuadricula: false } : e0;
+    const e = portada ? { ...e0, colores: paletaDePortada(portada.id, tema.acento) ?? e0.colores, cuadricula: false } : e0;
     const halo = portada ? portada.fondo : fondoDeTarjeta(tema);
     const fuente = fuenteDe(g.fuente);
     const dim = fuente ? dimensionDe(fuente, g.dimension) : undefined;
@@ -364,7 +368,10 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
     const barraEn = conBarra ? r.columnas.findIndex((x) => x.id === conBarra) : -1;
     // Sobre una portada, una lista de PERSONAS (un cliente, un lead, un alumno) lleva el avatar con sus iniciales.
     const personas = !!portada && !!g.dimension && DIMENSIONES_PERSONA.has(g.dimension);
-    if (g.tipo === 'tarjetas') return <Tarjetas r={r} barraEn={barraEn} chips={g.tabla?.columnas ?? []} color={c(0)} compacto={e.compacto} alFila={alFila} personas={personas} />;
+    if (g.tipo === 'tarjetas') {
+      const alReproducir = conReproductor && esTarjetaDeAnuncio(g) ? (adId: string, nombre: string) => setVideo({ adId, nombre }) : undefined;
+      return <Tarjetas r={r} barraEn={barraEn} chips={g.tabla?.columnas ?? []} color={c(0)} compacto={e.compacto} alFila={alFila} personas={personas} alReproducir={alReproducir} />;
+    }
     if (info?.grupo === 'Tabla') {
       const modo = g.tipo === 'tabla_barras' ? 'barras' : g.tipo === 'tabla_calor' ? 'calor' : 'plana';
       return <Tabla r={r} modo={modo} barraEn={barraEn} color={c(0)} menosEsMejor={(i) => menosEsMejor(r.columnas[i]?.id ?? '')} extras={extras} total={g.total} compacto={e.compacto} alFila={alFila} personas={personas} portada={!!portada} />;
@@ -712,7 +719,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
       </AreaMedida>
     );
   })();
-  return <><EstilosGraficos />{cuerpo}</>;
+  return <><EstilosGraficos />{cuerpo}{video && <ReproductorAnuncio adId={video.adId} nombre={video.nombre} onCerrar={() => setVideo(null)} />}</>;
 }
 
 // ── Piezas propias ─────────────────────────────────────────────────────────────────────────

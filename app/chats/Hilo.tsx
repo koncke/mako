@@ -208,10 +208,40 @@ function Texto({ texto }: { texto: string }) {
   );
 }
 
+/**
+ * Un EMAIL (17/10/2026): el asunto arriba, en negrita chica, lo escrito (sin la cita del anterior: lib/chats-email.ts) y
+ * sus adjuntos como fichas, uno abajo del otro. Un email trae varios archivos y un mensaje de WhatsApp uno: por eso no
+ * pasa por `mediaUrl`. Las URLs de los adjuntos son firmadas y vencen: se abren en otra pestaña.
+ */
+function ContenidoEmail({ m }: { m: MensajeChat }) {
+  const texto = m.texto?.trim() ? m.texto : null;
+  return (
+    <>
+      {m.asunto && <span className="rio-email-asunto">{m.asunto}</span>}
+      {texto ? <Texto texto={texto} /> : !m.adjuntos?.length && <span className="rio-sin-media">(Email vacío)</span>}
+      {m.adjuntos?.map((a, i) => {
+        const ficha = (
+          <>
+            <span className="rio-doc-ico"><Ico n="documento" s={28} /><span className="rio-doc-ext">{extensionDoc(a.nombre, a.mime)}</span></span>
+            <span className="rio-doc-txt">
+              <span className="rio-doc-nombre">{a.nombre}</span>
+              <span className="rio-doc-det">{a.url ? extensionDoc(a.nombre, a.mime) : 'No disponible'}</span>
+            </span>
+          </>
+        );
+        return a.url
+          ? <a key={i} className="rio-doc rio-email-adjunto" href={a.url} target="_blank" rel="noreferrer noopener">{ficha}</a>
+          : <span key={i} className="rio-doc rio-email-adjunto">{ficha}</span>;
+      })}
+    </>
+  );
+}
+
 function Contenido({ m, onVer, onCarga }: { m: MensajeChat; onVer: (url: string) => void; onCarga: () => void }) {
   const wsTab = useWs();
   const url = m.mediaUrl ? conWs(m.mediaUrl, wsTab) : null;
   const texto = m.texto?.trim() ? m.texto : null;
+  if (m.canal === 'email') return <ContenidoEmail m={m} />;
   switch (m.formato) {
     case 'image':
     case 'sticker':

@@ -290,3 +290,17 @@ una nota de voz grabada en A no puede salir al contacto B (tests/whatsapp-sexta-
    24 h (o la respuesta privada a un comentario). Sin `HUMAN_AGENT` (no verificado por Zernio).
 5. **No leído por persona, en el servidor** (`chat_leidos`), no en el navegador.
 6. Las conversaciones de un mismo lead en varios canales van en UN hilo (el modelo de respond.io).
+
+## 7. El canal EMAIL (17/10/2026)
+
+Martín: «eliminar las tabs de "Email y WhatsApp" y unificarlo todo en "Chats"». WhatsApp ya estaba (§6.1: la tab
+WhatsApp salió del menú; /whatsapp queda para conectar números). El email no tenía bandeja en ningún lado, y se sumó
+como un canal más — el diseño y lo que falta, en docs/diseno-sidebar.md §5:
+
+- `CanalChat` suma `email`; la identidad es la dirección del contacto (`ref`) y el dominio del negocio (`cuenta`).
+- Un contacto de email SIN lead tiene la clave `em:<email>` (normalizada); con lead, `lead:<id>`, como todos.
+- `MensajeChat` suma `asunto` y `adjuntos` (varios por email, con URL firmada): una burbuja de email no pasa por
+  `mediaUrl`.
+- Datos: `email_mensajes` (mig 0312), escrita por el webhook de Resend (después del disparo, con `after()`) y por
+  `POST /api/chats/email`. Lo del canal vive en `lib/chats-email.ts`; lo puro, en `lib/chats-email-reglas.ts`.
+- Contestar sale con el remitente DEL NEGOCIO (`sendEmail`) y en el hilo del cliente de correo (`In-Reply-To`).

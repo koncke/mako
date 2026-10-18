@@ -67,7 +67,7 @@ export type FinIA =
 
 export type EstadoIA =
   | { t: 'quieto' }
-  | { t: 'trabajando'; fase: FaseIA | null; leido: string | null; reparadas: number | null; desde: number };
+  | { t: 'trabajando'; fase: FaseIA | null; leido: string | null; reparadas: number | null; desde: number; intento?: number | null };
 
 /** El cuerpo del POST: sólo lo que hay (una ronda sin respuestas no manda `respuestas`). Pura. */
 export function cuerpoIA(p: PedidoIA): Record<string, unknown> {
@@ -179,6 +179,7 @@ export function useStreamIA(): {
           ...s, fase: ev.fase,
           leido: ev.fase === 'contexto' ? ev.texto : s.leido,
           reparadas: ev.fase === 'revision' ? ev.reparadas : s.reparadas,
+          intento: ev.fase === 'modelo' ? (ev.intento ?? s.intento ?? null) : null,
         }));
       }));
     } catch (e) {

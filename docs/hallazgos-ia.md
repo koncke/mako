@@ -4375,6 +4375,37 @@ El script, fuera del repo: `probar-pedidos-ws9.mts` en el scratchpad del chat «
 `objetosDeTab` + `interpretarMensaje` + `burbujasDeHoja` bajo `runWithWorkspace(9)` y `--conditions=react-server`.
 · *2026-10-17 chat «Dashboard» (claude4)*
 
+### Las tres, cerradas en las reglas (17/10/2026, chat «Automations»)
+
+- **«Abre la hoja Landing» no era culpa de la IA.** Las reglas solas acertaban; lo que fallaba era que DUDABAN («Landing» es
+  palabra del área `landing`, así que el texto «nombraba dos áreas»), le preguntaban a la IA, la IA decía `landing` y una
+  etiqueta de la IA gana siempre. El diagnóstico obvio («que la IA etiquete mejor») no lo arreglaba. Ahora un área que el
+  texto nombra SÓLO dentro del nombre de un objeto de esta tab no cuenta: ni para dudar (`areasFueraDeNombres`) ni para
+  mandar a otra tab (`enUnNombre`, aunque la IA lo diga). ⚠️ Con una excepción que el primer intento rompió: «créame OTRA
+  landing» con una hoja llamada «Landing» es una landing, no la hoja (`unaDeEsaArea`).
+- **«Ve al CRM» no tenía ni verbo ni área.** «CRM» y «General» no son palabras de su área en `AREA_KEYWORDS` (esa tabla se
+  hizo para sumar herramientas: no tiene los nombres de las tabs). Los verbos de ir NO van en `RE_VERBOS`: «vamos a crear
+  otra landing» es crear y «cuando el lead entra al funnel» describe una automatización. Cuentan sólo con un destino que se
+  reconoce (`destinoEn`): el TÍTULO de la tab (`AREA_INFO[*].tab`, con «la tab de», «la pestaña de») o, después de «ve a»
+  y «llévame a», una palabra del área que no sea un verbo («vamos a agendar» sigue siendo agendar, con su operación). A la
+  misma tab por su título: «Ya estás en Dashboard.». «A y llévame al CRM» se parte, para que el link no se coma el cambio.
+  ⚠️ Una regex sobre el texto PLANO que escribe «llevame» la agarra la guarda de voseo de tests/puente-panel-copy.test.ts
+  (que no nombra este archivo: corre sobre todo el repo). Se escribe `llev(?:ame|anos)`, como `agend(?:ar|ame)` al lado.
+- **«Abre la hoja de Marketing» (no existe) ahora dice «No hay una hoja «Marketing». Están «A» y «B».».** Es
+  `PALABRA_DEL_OBJETO` por tab (hoja, landing, automatización, diseño, proyecto), sólo con ver/abrir y borrar, y sólo si la
+  tab conoce sus objetos (con la lista vacía no se sabe si no hay o si no se leyeron). Un nombre con «y» adentro
+  («CRM y pipeline») se busca ENTERO antes de cortar el nombre en la «y». La hoja abierta pedida por su nombre: «ya está
+  abierta» (antes la burbuja no decía nada).
+
+**Lo que quedó SIN hacer:** la burbuja de «Ve al CRM» dice «Eso se hace en CRM.» con su link: el texto es de cada chat
+(`TEXTOS_HOJA.irA` en app/dashboard/pedidos-hoja.ts) y `PedidoResuelto` no distingue «ir» de «hacer». «Quiero ver mis
+leads en el CRM» sigue dependiendo de la IA (las reglas lo mandan a la hoja; «en el CRM» no es un destino). No se probó con
+la IA de verdad ni en pantalla.
+
+**Vive en:** `lib/mako-pedidos.ts` (`destinoEn`, `areasFueraDeNombres`, `porSuPalabra`, `noHay`, `decidir`,
+`dudaDeLasReglas`) · test: `tests/mako-pedidos.test.ts` (los tres del 17/10, probados rompiéndolo).
+· *2026-10-17 chat «Automations» (claude4)*
+
 ## La key de la plataforma copiada en la fila de un cliente: los datos del ws1 iban a un Gemini gratis (16/10/2026)
 
 **Vive en:** lib/ai-cheap.ts (`provsDe`, `provDe`, `soloLasPropias`, `huellasDeLaPlataforma`) · lib/ia-keys.ts
@@ -4475,9 +4506,16 @@ sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA
 
 - **El historial del grupo viaja igual**: si en un turno anterior MaKo nombró a un lead, ese texto va en `msgs` a la
   red. El corte es por lo que trae ESTE turno.
-- **El Dashboard entero cuenta como datos de clientes** (`metricas: true`: algunas de sus lecturas listan leads uno por
-  uno), así que «¿cuánto vendí este mes?» se corta para un negocio sin keys. Afinarlo es marcar `datosDeClientes:
-  false` operación por operación en `metricas.def.ts`.
+- ~~**El Dashboard entero cuenta como datos de clientes**~~ **Arreglado el 17/10/2026 (B5):** 19 lecturas de
+  `metricas.def.ts` que traen sólo NÚMEROS llevan `datosDeClientes: false` (revisado runner por runner: ninguna devuelve
+  un nombre). Siguen cortando las que nombran personas: `a_quien_cobrar`, `cuotas_pendientes`,
+  `listar_leads_embudo_maduro`, y `analisis_negocio` (trae las RESPUESTAS de los que no calificaron, contadas por valor:
+  si una respuesta es texto libre, puede llevar un nombre). Test en tests/doer-red-datos-clientes.test.ts.
+  ⚠️ **La revisión del Cerebro (17/10, ALTA):** marcar la operación no alcanza, porque la red gratis recibe además el
+  HISTORIAL del grupo (avisos con nombres y teléfonos de leads). B5 lo cerró sólo para los turnos con una métrica
+  liberada; en paralelo main lo cerró para TODO turno de la red (`soloElTurno`, 50cc3acc8), y al mergear quedó el de main,
+  más estricto: un corte por caso deja abierto el caso que nadie pensó. **Sin hacer:**
+  si la pregunta misma nombra a un cliente, su nombre viaja (es el texto del turno).
 - **Con una pendiente de un lead, también se corta la charla** de ese grupo hasta que la pendiente vence o se resuelve.
 - **El guion de audio de Automations** (`app/api/chat-agent/redactar`) tiene su propia red sin el corte: es de
   Automations.
@@ -4485,3 +4523,11 @@ sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA
   mandando un WhatsApp real.
 
 · *2026-10-17 chat «Onboarding» (claude4)*
+
+## «Claude vetado» que no era un veto: el `catch` del registro se tragaba el «falló la IA» (ticket #5, 18/10/2026)
+
+- **Síntoma:** a Mauricio (ws1) MaKo no le contestó en el chat de la app. La Ticketera abrió un bug con el mensaje «responder: Claude vetado — «mako-doer» no está en la lista blanca de lib/veto-claude.ts». En `anthropic_usage` quedó `vetado:-`, una fila sin modelo.
+- **El diagnóstico obvio era el equivocado:** sumar `mako-doer` a la lista blanca habría pagado Claude por cada turno de MaKo, que es justo lo que prohíbe el veto del 13/8.
+- **Causa real:** en `chatClaudeTools` (`lib/anthropic.ts`), un `try { registro + cascada gratis } catch {}` envolvía las dos cosas. Cuando la cascada no contestaba, el llamador pedía `sinFallbackClaude` y el «falló la IA (…)» re-lanzado caía en ese `catch` vacío. El modelo quedaba en `''` y el veto hablaba por él. `chatClaude` ya tenía la lección («Acá afuera del catch, para que el corte no se lo coma»); la mitad con herramientas no.
+- **Regla:** un `catch` vacío envuelve sólo la operación que puede fallar «sin importancia» (leer el registro), nunca un camino que re-lanza a propósito. Lo fija `tests/anthropic-tools-sin-fallback.test.ts`: la forma vieja da 3 de 3 fallas.
+- **Sin hacer:** con el arreglo desplegado, el ticket #6 (04:13 UTC) trajo el motivo real: «falló la IA (sin proveedor gratis disponible)». El ws1 no tiene NINGUNA IA para el chat de MaKo. La causa probable, no medida clave por clave: desde el 16/10 las copias de las claves de la plataforma no cuentan como del negocio (`lib/ia-keys.ts`), y el ws1 podría no tener ninguna propia que pueda recibir datos de sus clientes. Eso decide Martín: el ticket volvió a él como pedido.

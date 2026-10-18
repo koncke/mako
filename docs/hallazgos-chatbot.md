@@ -5084,7 +5084,9 @@ historia. Eran TRES cosas apiladas, y ninguna era «la automatización está mal
 
 **Hecho después (17/10, #882):** pegar en otro negocio busca la MISMA etapa en un embudo de acá (en uno → ése; en varios →
 todos, y lo dice; en ninguno → «Elige qué la dispara»): lib/copia-disparador.ts, tests/copia-disparador.test.ts. La otra
-mitad de #882 (crear al instante con loader por cualquier vía: el chat, la plantilla, la copia) sigue sin hacer.
+mitad de #882 (crear al instante con loader por cualquier vía): HECHA el 17/10 — la plantilla y la copia usan el cargador de
+«＋ Nueva» (la fila aparece YA con el lienzo y su loader), y la plantilla ya no pregunta la etapa en el modal: el lienzo abre
+con su CRON abierto (`cronAlAbrir`). El chat ya lo hacía. Sin mirar en pantalla (tests/crear-al-instante.test.ts).
 **Sin hacer:** que una
 automatización SIN disparador no se pueda prender callada (o que la lista diga «Manual: sólo si la mandas a mano»).
 Prender #247 lo decide Joan.
@@ -5206,11 +5208,24 @@ test: `tests/equipo-contesto.test.ts`
   Lo que va después de `: usa "…": "…"` es sólo para el modelo (`paraLaPersona` lo corta).
 - ⚠️ **El log dice «resolvió con la RED DE PLATAFORMA» cuando `validar` acepta**, y con `pararEnRevision` acepta
   también una salida con errores para cortar la cascada: esa línea ya no prueba que la salida sirvió.
-- **Sin hacer:** un proveedor colgado sigue costando hasta 100 s por intento (`timeoutMs` de `pasada`). No se bajó: el
-  OpenRouter gratis tardó 97 s en una salida buena de ws10 el 16/10.
+- **Lo que faltaba, hecho (17/10, segunda mitad):** el tope de un intento bajó de 100 a 45 s (`INTENTO_CREAR_MS`).
+  ⚠️ **Lo de arriba se había dejado sin hacer por un dato mal leído**: «OpenRouter tardó 97 s en una salida buena de ws10».
+  En `anthropic_usage` (14 días, 36 llamadas), después de esa salida la cascada SIGUIÓ (otro OpenRouter a los 76 s y el
+  crédito de Claude), o sea que no se aceptó. Ninguna salida de más de 45 s fue la que quedó; las aceptadas tardan
+  segundos (mediana 11 s entre intentos). Un registro en `anthropic_usage` dice que llegó una respuesta, no que sirvió.
+- **«Que diga en qué está»:** la cascada avisa al ARRANCAR cada pedido a un proveedor (`alIntentar` de
+  `chatCheapCascade`, opcional y sin poder frenarla), y desde el segundo la fase dice «· intento 2» al lado del reloj. Lo
+  manda la ruta cuando pasa, no un temporizador del navegador: decir «probando otra IA» por tiempo sería inventarlo.
+- **El dictado no decía nada** mientras la nota de voz pasaba a texto (hasta 90 s, `transcribirNota`): `ChatHilo` lo
+  dice con la misma línea que usa para subir un audio.
+- **Sin hacer:** el orden `PROVS_CREAR_IA` sigue con Gemini primero. Groq contesta en 1,4-3,4 s (medido el 09/10 y el
+  16/10) y pondría lo común en segundos, pero cambia QUIÉN escribe los flujos y no hay una medición de calidad. Tampoco
+  se miró en pantalla.
 
-**Vive en:** `lib/flujo-ia-crear.ts` (`pasada`, `generar`) · `lib/flujo-ia.ts` (`validarIA`, el error de la reunión) ·
-test: `tests/crear-ia-revision-corrige.test.ts`
+**Vive en:** `lib/flujo-ia-crear.ts` (`pasada`, `generar`, `INTENTO_CREAR_MS`) · `lib/ai-cheap.ts` (`alIntentar`) ·
+`lib/flujo-ia-crear-core.ts` · `app/automations/stream-ia.ts` y `ChatMako.tsx` (el intento) ·
+`app/whatsapp/_shared/ChatHilo.tsx` (el dictado) · `lib/flujo-ia.ts` (`validarIA`, el error de la reunión) · tests:
+`tests/crear-ia-revision-corrige.test.ts`, `tests/crear-ia-intentos.test.ts`, `tests/flujo-ia-crear.test.ts`
 
 ## El CRON sólo dispara: «Número» y «Reentrada» fuera de su panel (17/10/2026, tarjeta #846)
 
@@ -5252,3 +5267,87 @@ test: `tests/crear-ia-revision-corrige.test.ts`
 (`enviarTexto`) · `lib/evolution-envio.ts` (`crearBorrador`, `enviarBorrador`) · `lib/nutricion.ts` ·
 `app/automations/FlujoLienzo.tsx` · mig `0309_wa_borradores_sin_vista_previa.sql` · test:
 `tests/whatsapp-sin-vista-previa.test.ts`
+
+## El chat de MaKo con el muñeco de la tab (17/10/2026, punto 8 del feedback del 16/10)
+
+- **Se copió del CRM (8db1e3cbc) sólo el muñeco**, no el hilo: el chat de Automations tiene OTRO modelo de mensajes (las
+  preguntas de MaKo con sus opciones, las rondas, el archivo y la copia pegada; lib/automatizacion-chat.ts y
+  lib/flujo-ia-cliente.ts) que `HiloMako` (app/_chat/, sobre app/m/mako/chat-ui.ts) no dibuja. Pasarlo entero es una
+  reescritura, y la PC no daba para mirarla en pantalla. Queda para cuando se pueda ver.
+- ⚠️ **Un `.css` importado en un componente que los tests IMPORTAN los rompe a todos** (`SyntaxError: Unexpected token '.'`:
+  Node no carga hojas de estilo). La hoja del muñeco (app/admin/operaciones/centro.css, todo con prefijo `.co-` y `.mun-`)
+  va en app/automations/page.tsx, que los tests sólo LEEN.
+
+**Vive en:** `app/automations/ChatMako.tsx` (la cabecera) · `app/automations/page.tsx` · test: `tests/chat-mako-muneco.test.ts`
+
+## «Está en el funnel de» con varios funnels: «A o B» en una sola fila (17/10/2026, tarjeta #894)
+
+- **La fila guarda TODAS en `valores` y repite la primera en `valor`.** Así lo que sólo mira `valor` (las filas de
+  antes, «falta elegir», los nombres de la tarjeta) sigue andando sin migrar nada. Pero se lee SIEMPRE con
+  `valoresDeFila` y se escribe con `conValores` (lib/condiciones-catalogo.ts): leer `valor` a mano decide con el
+  primero y se calla el resto.
+- ⚠️ **La quinta puerta otra vez**: `sanearFila` (lib/nutricion-grafo-motor.ts) arma la fila campo por campo, y sin la
+  línea de `valores` el primer guardado volvía «A o B» a «A» sin avisar. Un campo nuevo de la fila no existe hasta que
+  pasa por ahí (lo mismo que pasó con la unión y las reuniones de la cuarta tanda).
+- **El selector es `ElegirFunnels`, con `sinTodos`.** Su convención (vacío = todo el negocio, un renglón «Todos») sirve
+  para un OKR. En una condición está mal: vacío es «falta elegir». Con `sinTodos` no hay renglón «Todos», el botón dice
+  «Elige uno o varios» en rojo y apagar el último deja la fila incompleta.
+- Negada se lee «ni»: «No está en el funnel de «A» ni «B»» (el motor niega el «o» entero).
+
+**Lo que quedó SIN hacer:** «Crear con IA» todavía arma la condición con UN funnel: el prompt no explica las varias (el
+de Groq está al tope de 4.000 tokens) y `filaDelCatalogo` (lib/flujo-ia.ts) toma un solo nombre. La validación sí mira
+todas. Sólo `en_producto` tiene `varios`: otra de lista lo prende con `varios: true`, pero el editor sólo dibuja el
+selector múltiple para el catálogo `producto`. No se miró en pantalla.
+
+**Vive en:** `lib/condiciones-catalogo.ts` (`valoresDeFila`, `conValores`, `en_producto`) · `lib/flujo-grafo.ts`
+(`FilaCondicion.valores`) · `lib/nutricion-grafo-motor.ts` (`sanearFila`) · `app/automations/EditorCondicion.tsx` ·
+`app/components/ElegirFunnels.tsx` (`sinTodos`) · test: `tests/condicion-varios-funnels.test.ts`
+
+## Los dos carteles de arriba de Automations, fuera (17/10/2026, tarjeta #851, segunda mitad)
+
+- **Martín los pidió afuera, textual**: «eliminar el mensaje del envío de WhatsApp está apagado. Que no aparezca ningún
+  mensaje», y también el rojo «Tienes automatizaciones activas y tu WhatsApp está desconectado». Se fueron los dos, con
+  su botón («Volver a conectarlo», «Prender el envío») y el estado que sólo usaban ellos (`envioWa`, `prenderEnvio`, el
+  modal del QR de arriba).
+- **Lo que decían no se perdió, se mudó**: el chip «Sin conectar» de cada WhatsApp FRENA Publicar, Activar y Probar, y
+  los cuatro abren el QR ahí mismo (`ConectarMedio`, tests/medios-automatizacion.test.ts). El envío apagado ya no se queda
+  apagado: activar una automatización que le escribe al lead lo prende (`prenderEnvioAlActivar`, más arriba en este
+  documento). ⚠️ Lo que SÍ deja de verse: una línea que se cae DESPUÉS de publicar, con todo activo. El rojo existía por
+  eso (el 3/09 la sesión del ws1 se cayó sin síntoma). Hoy lo avisa «Se Cortó el WhatsApp de un Negocio» (la #253
+  de SuperAdmin, evento `whatsapp_caido`, activa: mirado el 17/10), no la tab.
+- La API de las secuencias sigue trayendo `envioWhatsapp`; la tab ya no lo mira. El interruptor sigue en /whatsapp.
+
+**Vive en:** `app/automations/ChatAgentApp.tsx` (el comentario ⛔ donde estaban) · tests que fijaban los carteles,
+actualizados con el porqué.
+
+## El link de la reunión, con o sin la vista previa (17/10/2026, tarjeta #869, lo que faltaba)
+
+- **El recordatorio de la reunión había quedado afuera a propósito** del interruptor «Vista previa del link»: el lienzo
+  no lo dibujaba ahí (`noOficial && !recordatorio`) y su emisor (lib/reunion-recordatorio.ts) mandaba sin la opción. Y
+  justo esa automatización es la que más links manda: sus tres textos de fábrica traen `{{link}}`.
+- **El toque lleva el interruptor de SU tarjeta** (`toquesDeLaAutomatizacion` → `sinVistaPrevia`), y el emisor se lo
+  pasa a `enviarYEspejar`. La configuración de antes (sin fila de automatización) no tiene dónde guardarlo: sale con
+  tarjeta, como siempre.
+- **Cuándo se ofrece** (`ofreceVistaPrevia`, una sola regla para el lienzo): con un link en el texto o ya apagado, como
+  en cualquier WhatsApp; en el recordatorio, además, con la tarjeta VACÍA (sale el texto de fábrica) o con `{{link}}`
+  escrito. Mirar sólo `tieneLink` lo escondía siempre: el link del recordatorio es una variable, no una URL.
+
+**Lo que quedó SIN hacer:** nadie comprobó en vivo que Evolution 2.3.7 respete `linkPreview: false` (es mandarse un
+«Probar en mi WhatsApp» con el interruptor apagado: sale a un teléfono de verdad, lo hace quien lo tenga en la mano). Y
+en la llamada quedó «en nuestro caso se va a mandar sin»: apagarlo en las automatizaciones de MaKo es tocar sus tarjetas
+en producción, no se hizo.
+
+**Vive en:** `lib/recordatorio-automatizacion.ts` (`ofreceVistaPrevia`, `toquesDeLaAutomatizacion`) ·
+`lib/reunion-recordatorio.ts` (`toquesDelNegocio`, el envío) · `app/automations/FlujoLienzo.tsx` · test:
+`tests/recordatorio-vista-previa.test.ts`
+---
+
+## Un DM pagado de Instagram dejaba un lead huérfano con el anuncio (17/10/2026)
+
+- **Síntoma** (revisión de b4, docs/relevo/crm-tanda-b1.md): en un anuncio click-to-DM, Meta manda dos mensajes de la
+  misma persona nueva casi juntos —el primero sin `referral`, el segundo con el anuncio—. Los dos pedidos crean un lead
+  y el compare-and-set de `ig_conversaciones` deja uno; el otro quedaba con `meta_ad_id`, la entrada y el @, y las
+  métricas por anuncio le contaban un lead que nunca agenda mientras el real quedaba sin atribuir.
+- **La regla.** El que perdió se BORRA (lo creó esa misma llamada: sin charla ni historial, y `createLead` no dispara
+  nada) y le pasa al que ganó el anuncio y la entrada sólo si no los tiene (`.is(null)`). Nunca se borra el que quedó
+  unido. **Vive en:** lib/zernio-entrante.ts (`quitarHuerfano`) · tests/zernio-huerfano.test.ts · *17/10/2026, agente B4.*

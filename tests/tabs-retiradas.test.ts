@@ -37,6 +37,7 @@ import { TOOL_HREF, TOOL_LABEL } from '../lib/retro-reporte';
 import { previewDeDestino } from '../lib/preview-links';
 import { AREA_INFO } from '../lib/api-mako/tipos';
 import { hojaDestino, tableroInicial } from '../lib/graficos-plantillas';
+import { HOJA_FOCUS, informeDePedida } from '../lib/dashboard-focus';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -143,7 +144,12 @@ test('cada link a una hoja del Dashboard que escribe el producto abre ESA hoja (
   }
   for (const href of Object.values(TOOL_HREF)) { const m = href?.match(/\?hoja=([a-z0-9-]+)/); if (m) pedidas.set(m[1], 'lib/retro-reporte.ts'); }
   assert.ok(pedidas.size >= 5, `encontré ${pedidas.size} hojas enlazadas: el barrido no está mirando`);
-  for (const [hoja, f] of pedidas) assert.equal(hojaDestino(ini, hoja).hojaId, hoja, `«?hoja=${hoja}» (${f}) no es una hoja ni una plantilla: abre la primera`);
+  for (const [hoja, f] of pedidas) {
+    // `focus` es la hoja FIJA del Dashboard unido (17/10/2026): no la resuelve `hojaDestino` sino `informeDePedida`,
+    // que abre la General (tests/dashboard-focus.test.ts).
+    if (hoja === HOJA_FOCUS) { assert.equal(informeDePedida(hoja, ['g'], [], true), 'general', `«?hoja=${hoja}» (${f}) no abre Focus`); continue; }
+    assert.equal(hojaDestino(ini, hoja).hojaId, hoja, `«?hoja=${hoja}» (${f}) no es una hoja ni una plantilla: abre la primera`);
+  }
 });
 
 test('lo que nombra una tab: capacidades del Perro, «Ver en…» de la Retro, el área de la API y la tarjeta de WhatsApp', () => {

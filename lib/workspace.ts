@@ -24,7 +24,9 @@ import { cookies, headers } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from './supabase';
 import { getSesionAdmin, getUsuarioActual } from './auth';
-import { CAPA_DEFAULT, capaDef, esCapaValida, type CapaId } from './capas';
+import { CAPA_DEFAULT, capaDef, esCapaValida, tabEnCapa, type CapaId } from './capas';
+import { CORTE_POR_PLAN_PRENDIDO, HEADER_RUTA, tabDeRutaApi } from './api-tab';
+import { CORTE_DE_ACCESO_PRENDIDO } from './plan-acceso-reglas';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
 import { WS_HEADER, conWs, parseWs } from './ws-tab';
 import { contextoDeAgencia } from './agencia';
@@ -184,6 +186,9 @@ const TENANT_TABLES = new Set<string>([
   // del hilo. Sin estas líneas getTenantDb() es PASSTHROUGH: la bandeja de un negocio vería cerradas las
   // conversaciones que cerró OTRO, y `chat_leidos` mezclaría las marcas de dos negocios con la misma clave.
   'chat_estado', 'chat_leidos', 'chat_eventos',
+  // El canal email de Chats (mig 0312, 17/10/2026): lo que llega y lo que se contesta. Sin esta línea la bandeja de un
+  // negocio mostraría los emails de todos.
+  'email_mensajes',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros',
   // Las reuniones de Fathom que el cron descartó por tipo (mig 0300, 16/10/2026). Sin esta línea
@@ -282,9 +287,16 @@ const resolverDesdeCookies = cache(async (): Promise<number | null> => {
     //    orden es el punto: si cayera después, la agencia vería SUS datos con la
     //    cara del cliente —sin 403 y sin nada roto—, que es el modo de falla que
     //    esta feature entera existe para evitar.
-    const cliente = await contextoDeAgencia();
-    if (cliente) return cliente;
-    return sesion.ws ?? null;                   // usuario → su workspace
+    // 5) ⚠️ UN NEGOCIO PAUSADO NO SE ABRE (17/10/2026): ni a su equipo ni a la agencia que lo mira. Fail-closed:
+    //    sin workspace no hay datos que leer ni escribir (getTenantDb → id imposible) y los guards cortan. Las
+    //    páginas mandan a /cuenta-pausada (`requireSesion`), que dice por qué. Lo pausa el super admin desde /admin,
+    //    o el cobro cuando se termina lo pagado (lib/plan-acceso.ts). Al super admin no lo toca: es la rama de arriba.
+    const propio = await wsPropioDeLaSesion();
+    if (propio != null && (await negocioPausado(propio))) return null;
+    // 6) Y una API de una tab que el PLAN del negocio no incluye, tampoco (17/10/2026, lib/api-tab.ts): la página ya
+    //    cortaba (requireCapa); el `fetch` a su API contestaba igual.
+    if (propio != null && (await apiFueraDelPlan(propio))) return null;
+    return propio;
   }
   // Sin sesión resuelta: distinguir "no hay cookie de sesión" (cron / webhook /
   // público → dueño) de "hay cookie pero su fila ya no vale" (usuario suspendido
@@ -293,6 +305,57 @@ const resolverDesdeCookies = cache(async (): Promise<number | null> => {
   const tieneCookieSesion = Boolean(store.get(SESSION_COOKIE)?.value || store.get(LEGACY_COOKIE)?.value);
   return tieneCookieSesion ? null : OWNER_WS;
 });
+
+/**
+ * El negocio de una sesión que NO es del super admin: el cliente que mira la agencia (su cookie firmada, revalidada) o
+ * el propio. Sin mirar si está pausado: eso lo decide quien llama.
+ */
+const wsPropioDeLaSesion = cache(async (): Promise<number | null> => {
+  const sesion = await getUsuarioActual();
+  if (!sesion || sesion.legacy || sesion.rol === 'admin') return null;
+  const cliente = await contextoDeAgencia();
+  return cliente ?? sesion.ws ?? null;
+});
+
+/**
+ * ¿Este negocio está pausado? (`workspaces.estado`). Por request. ⚠️ FAIL-OPEN: si la base no contesta, NO está
+ * pausado — un error pasajero no puede dejar a todos los clientes afuera (el mismo criterio que getUsuarioActual).
+ */
+// Con el corte de acceso APAGADO (lib/plan-acceso-reglas.ts) ningún negocio cuenta como pausado: se abre como siempre.
+export const negocioPausado = cache(async (ws: number): Promise<boolean> => CORTE_DE_ACCESO_PRENDIDO && (await filaDelNegocio(ws))?.estado === 'pausado');
+
+/** El estado y la capa de un negocio, por request; null si la base no contestó (quien lo usa decide fail-open). */
+const filaDelNegocio = cache(async (ws: number): Promise<{ estado: string | null; capa: string | null } | null> => {
+  try {
+    const { data, error } = await getSupabaseServer().from('workspaces').select('estado, capa').eq('id', ws).maybeSingle();
+    if (error) return null;
+    const f = data as { estado?: string | null; capa?: string | null } | null;
+    return { estado: f?.estado ?? null, capa: f?.capa ?? null };
+  } catch { return null; }
+});
+
+/**
+ * ¿Este pedido es a una API de una tab que el plan del negocio no incluye? La ruta la pone el proxy (`HEADER_RUTA`);
+ * sin ella (un render, un cron) o sin poder leer la capa, no. Fail-open, como `negocioPausado`.
+ */
+const apiFueraDelPlan = cache(async (ws: number): Promise<boolean> => {
+  if (!CORTE_POR_PLAN_PRENDIDO) return false; // apagado (lib/api-tab.ts)
+  let ruta: string | null = null;
+  try { ruta = (await headers()).get(HEADER_RUTA); } catch { return false; }
+  const tab = tabDeRutaApi(ruta);
+  if (!tab) return false;
+  const fila = await filaDelNegocio(ws);
+  return fila != null && !tabEnCapa(tab, fila.capa);
+});
+
+/**
+ * El negocio PAUSADO de esta sesión, o null. Lo usa `requireSesion` (lib/tab-access.ts) para mandar a /cuenta-pausada
+ * en vez de mostrar una app vacía. El super admin nunca: él ve y reactiva desde /admin.
+ */
+export async function negocioPausadoDeLaSesion(): Promise<number | null> {
+  const ws = await wsPropioDeLaSesion();
+  return ws != null && (await negocioPausado(ws)) ? ws : null;
+}
 
 /** Workspace efectivo del request, o null si un admin no está impersonando. */
 /**
@@ -313,6 +376,42 @@ export async function getWorkspaceActual(): Promise<number | null> {
   const enContexto = wsStore.getStore();
   if (enContexto !== undefined) return enContexto; // dentro de la caché
   return resolverDesdeCookies();
+}
+
+/**
+ * El id de NINGÚN negocio, para lo que sólo LEE: `(await getWorkspaceActual()) ?? WS_NINGUNO`.
+ * Una lectura con -1 vuelve vacía y una escritura falla por la FK; es lo que ya hace `getTenantDb`
+ * con un workspace null (`scopedFrom`). Nunca `?? OWNER_WS`: ver `wsObligatorio`.
+ */
+export const WS_NINGUNO = -1;
+
+/** «No sé de qué negocio es esto», dicho como error y no como el ws1. */
+export class SinWorkspaceError extends Error {
+  constructor() {
+    super('No sé de qué negocio es esto: no lo guardo en ninguno. Recarga la página o vuelve a iniciar sesión.');
+    this.name = 'SinWorkspaceError';
+  }
+}
+
+/**
+ * El workspace del request para lo que ESCRIBE, MANDA o GASTA. TIRA si no se sabe.
+ *
+ * ⚠️ REEMPLAZA A `(await getWorkspaceActual()) ?? OWNER_WS` (17/10/2026). Había 40 escritos a mano
+ * en el código vivo, y `OWNER_WS` es el ws1, que es Mauricio, un CLIENTE: cualquier olvido era una
+ * fuga de un cliente real, sin un error. `getWorkspaceActual()` devuelve null SÓLO cuando hay una
+ * cookie de sesión que no resuelve contra la base (usuario suspendido o borrado con la firma viva)
+ * —medido ese día: los 14 usuarios de producción tienen workspace—, así que null es exactamente el
+ * caso que no puede caer en el negocio de nadie. Un cron o un webhook sin cookie sigue resolviendo
+ * como antes (el default del resolver, `resolverDesdeCookies`, no cambió: eso es otra decisión).
+ *
+ * Para lo que sólo LEE, la salida es la del dato vacío (`if (ws == null) return …`), no esto: una
+ * página que tira por un ajuste deja al suspendido sin poder llegar ni al login.
+ * El guard: tests/sin-fallback-owner-ws.test.ts.
+ */
+export async function wsObligatorio(): Promise<number> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) throw new SinWorkspaceError();
+  return ws;
 }
 
 /**
@@ -442,7 +541,7 @@ type Chain = { eq: (c: string, v: unknown) => Chain };
 type QB = ReturnType<SupabaseClient['from']>;
 function scopedFrom(builder: QB, table: string, ws: number | null): QB {
   if (!TENANT_TABLES.has(table)) return builder;
-  const wsId = ws ?? -1;
+  const wsId = ws ?? WS_NINGUNO;
   const b = builder as unknown as {
     select: (...a: unknown[]) => Chain;
     insert: (rows: unknown, opts?: unknown) => unknown;

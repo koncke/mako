@@ -21,6 +21,7 @@
 
 import { esCerebro, partesDelNombre, tituloDeTexto } from './centro-chats';
 import { nucleo } from './plan-proyectos-catalogo';
+import { recortarPrueba } from './cierre-tarjeta';
 
 /** Una tarea abierta del Plan, lo mínimo que dibuja el chat (de `tareaCompacta`, lib/api-mako/areas/plan.helpers.ts). */
 export type TareaPlanP = {
@@ -154,3 +155,44 @@ export function avisoDeAlta(creadas: number, donde: { enEsteChat: boolean; proye
   if (donde && !donde.enEsteChat && donde.proyecto) return `Quedó en «${sinPrefijo(donde.proyecto)}»`;
   return 'Sumada al Plan';
 }
+
+// ── El «Ya está» de un chat cierra su tarjeta (17/10/2026) ──────────────────────────────────────────────────────────
+// Martín: que marcar resuelta una tarea, cuando algo ya está, sea AUTOMÁTICO siempre. El lado del chat (detectar el
+// «Ya está» y llamar) es del Ops Center; acá, qué tarjetas cierra un texto. La regla es estricta a propósito: cerrar la
+// tarjeta equivocada esconde trabajo pendiente, y no cerrar una se arregla con un clic.
+//   1. Las que el texto NOMBRA por número («#870», «la 870» no): son las que el chat sabe que trabajó.
+//   2. Si no nombra ninguna, la abierta del proyecto del jefe cuyo título entero aparece en el texto.
+//   Nada más: ni parecidos ni la «más probable». Sin ninguna, no se cierra nada y se dice.
+
+/** Los números de tarjeta que nombra un texto («#870, #873 y #882»). */
+export const numerosDeTarjeta = (texto: string): number[] =>
+  [...new Set([...texto.matchAll(/(?:^|[^\w&/])#(\d{2,6})\b/g)].map((m) => Number(m[1])))];
+
+/** Las tarjetas abiertas que cierra este «Ya está» (`abiertas`: las del proyecto del jefe, o todas para los números). */
+export function tarjetasDelYaEsta(texto: string, abiertas: readonly TareaPlanP[], delJefe: readonly TareaPlanP[] = abiertas): TareaPlanP[] {
+  const nums = numerosDeTarjeta(texto);
+  if (nums.length) return abiertas.filter((t) => t.num != null && nums.includes(t.num));
+  const t = ` ${normal(texto).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ')} `;
+  return delJefe.filter((x) => {
+    const tit = normal(x.titulo).replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return tit.split(' ').length >= 3 && t.includes(` ${tit} `);
+  });
+}
+
+// ── Un cierre desde el Centro (17/10/2026, lo encontró Offer con la #888 del ws 9) ──────────────────────────────────
+
+/**
+ * Lo que el Centro le manda a `cerrar_tareas_plan` por UNA tarea, con la evidencia ya dentro del tope. La API valida el
+ * largo ANTES de correr (`TOPE_PRUEBA_CIERRE`, 400) y rechaza todo el cierre: la #888 traía 440 caracteres y no se
+ * cerró («supera el tope de 400»). Recortada acá, termina en «…» y se ve que se cortó.
+ */
+export const inputDeCierre = (t: { id: string; evidencia: string; revisar?: string | null }) =>
+  ({ cerrar: [{ id: t.id, evidencia: recortarPrueba(t.evidencia), ...(t.revisar ? { revisar: t.revisar } : {}) }] });
+
+/**
+ * El error que se muestra cuando un cierre falla. Mientras la tarea siga abierta en el tablero (en CUALQUIER proyecto,
+ * no sólo en el del jefe), el error real. «Ya no estaba abierta» sólo cuando no está en ninguna lista abierta y el Plan
+ * dice que no existe: antes, una tarea de otro proyecto tapaba el error real con esa frase, que era falsa.
+ */
+export const errorDeCierre = (error: string, sigueAbierta: boolean): string =>
+  (sigueAbierta || !/no existen?/i.test(error) ? error : 'Ya no estaba abierta.');

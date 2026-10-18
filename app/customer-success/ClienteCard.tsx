@@ -22,23 +22,26 @@
 // respeta en las tres superficies —tarjeta, tabla y CSV— porque el problema de
 // que un rótulo mienta un poco es chico al lado del de que tres pantallas
 // cuenten lo mismo con nombres distintos. El campo sigue siendo `abiertas`.
+//
+// ⚠️ SIN NADA DE LA CUENTA DE MaKo DESDE EL 17/10/2026 (el plan, «Inspeccionar», «Reenviar el acceso», «Ver su
+// equipo», «Nadie puede entrar»): un cliente de la entrega no es un cliente de la agencia, «podrían serlo como no».
+// Todo eso vive en MaKo Partners (app/partners/PartnersApp.tsx), que lo lee para la agencia que mira.
 
 import { useState, type ReactNode } from 'react';
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
-import { TarjetaEntidad, PieNumeros, PieTexto, colorDe } from '@/app/_components/TarjetaEntidad';
+import { colorDe } from '@/app/_components/TarjetaEntidad';
+import { TarjetaPersona, type AvanceTarjeta } from '@/app/_ui/TarjetaKanban';
 import { Dropdown } from '@/app/components/Dropdown';
 import { conIconos, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
-import { CuentaDeMaKo, type CuentasProp } from './CuentaDeMaKo';
 import { useFotoCliente } from './foto-cliente';
-import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { ModalInvitar } from './curso/InvitarAlCurso';
 import { opcionesDeCursoEnTarjeta, type AccesoFicha, type AccesoInvitacion } from './curso-ficha-lectura';
 
 /** El ícono de cada acción del menú de la tarjeta (sexta tanda, general 10). Las listas las arma
  *  `opcionesDeCursoEnTarjeta` (pura, con test) y esta tarjeta; el ícono es cosa de la pantalla. */
 const ICONOS_ACCIONES: Record<string, NombreIconoMenu> = {
-  'curso-invitar': 'curso', 'curso-permisos': 'llave', reinvitar: 'enviar', equipo: 'equipo',
+  'curso-invitar': 'curso', 'curso-permisos': 'llave',
 };
 
 // `colorDe` vivía acá y se fue con el molde, porque lo usan las dos pantallas. Se
@@ -66,15 +69,12 @@ export type CursoDeTarjeta = {
   onAcceso: (a: AccesoFicha) => void;
 };
 
-export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, accionExtra, antesDelNombre, onAbrir, onEquipo, onError, curso, onPermisos }: {
+export function ClienteCard({ c, n, trabajo, tableroOk, chipExtra, accionExtra, antesDelNombre, onAbrir, curso, onPermisos, avance }: {
   c: ClienteCruce;
   /** Su número de cliente: «Cliente 1». No es el id del lead — ver `NumeroCliente`. */
   n: number;
   trabajo: ResumenTrabajo | null;
   tableroOk: boolean;
-  /** Quién ve «Inspeccionar», el plan de cada cuenta y su equipo. Sin esto no hay
-   *  botonera: un cliente común no tiene nada que inspeccionar. */
-  cuentas?: CuentasProp;
   /**
    * Un chip más al lado del nombre, puesto por la pantalla que monta la tarjeta.
    *
@@ -102,9 +102,6 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
    */
   antesDelNombre?: ReactNode;
   onAbrir: () => void;
-  /** Abre la ficha directamente en la tab «Equipo». */
-  onEquipo: () => void;
-  onError: (m: string) => void;
   /**
    * El curso del cliente (item 9, 07/10/2026): «En cada cliente del kanban se debería poder invitar
    * al curso». Con esto el menú suma «Invitar al curso» (o «Reenviar invitación») y «Permisos del
@@ -113,183 +110,85 @@ export function ClienteCard({ c, n, trabajo, tableroOk, cuentas, chipExtra, acci
   curso?: CursoDeTarjeta | null;
   /** «Permisos del curso»: abre la ficha en su pestaña Curso, donde viven (FichaCurso). */
   onPermisos?: () => void;
+  /**
+   * La barra y el aviso de la familia de tarjetas (17/10/2026): en qué etapa del servicio está y, si hace falta, el
+   * aviso en rojo (`avanceDeCliente`, ./aviso-tarjeta.ts). Lo arma el tablero, que sabe la etapa.
+   */
+  avance?: AvanceTarjeta | null;
 }) {
   const nombre = c.nombre.trim() || 'Sin nombre';
   /** Su WhatsApp o su email, si nadie le eligió una foto (./foto-cliente.ts). */
   const fotoAuto = useFotoCliente(c);
   /**
-   * ⚠️ TODO LO DE LA CUENTA DE MaKo CUELGA DE `cuentas.visible`, Y DE NADA MÁS. «La tab de
-   * "Equipo" y en general todo lo que tenga que ver con invitar a MaKo, debería solo verse
-   * si la cuenta es AGENCIA, sino, no deberían estar esas opciones» (Martín, 05/10/2026).
-   * Quién es agencia lo decide el SERVER (`cuentas.visible`, app/customer-success/page.tsx);
-   * acá se aplica en UN lugar: sin él no hay cuenta del cliente que mirar, así que no hay
-   * plan, ni equipo, ni «Reenviar el acceso», ni «Ver su equipo», ni el control de la
-   * cuenta.
+   * Lo que «Acciones» ofrece: lo del CURSO (07/10/2026), que tiene cualquier negocio con la tab, agencia o no: invitar
+   * no crea cuenta ni workspace (lib/curso-invitar.ts). La regla (cortado no ofrece invitar, sin leer tampoco) vive en
+   * `opcionesDeCursoEnTarjeta`, que tiene test.
    *
-   * ⛔ ANTES el chip del PLAN y el equipo se leían de `planPorWs`/`equipoPorWs` sin mirar
-   * `visible`: el menú sí lo miraba, el chip no. Hoy esos mapas llegan vacíos cuando no hay
-   * cartera aprobada, así que no se veía — pero eso es cómo los arma el server, no una regla
-   * de la tarjeta. El día que un mapa llegue con algo sin `visible`, el chip aparecía solo.
-   */
-  const conCuentas = cuentas?.visible === true;
-  const ws = conCuentas ? (c.clienteWs ?? null) : null;
-  const plan = ws ? cuentas?.planPorWs?.[ws] : undefined;
-  const equipo = ws ? cuentas?.equipoPorWs?.[ws] : undefined;
-
-  /**
-   * Lo que «Acciones» ofrece: GESTIONAR LA CUENTA, y nada que ya esté a un click.
-   *
-   * ⚠️ ACÁ ESTABA «Abrir en el CRM» Y SE FUE (29/09/2026). El reporte fue textual: «no
-   * entiendo que en las acciones de Agencia pusiste Abrir el CRM, no tiene sentido eso…
-   * ¿qué tiene que ver con abrir CRM? Si eso está dentro del detail». Tenía razón dos
-   * veces: el mismo link vive adentro de la ficha que abre el click en la tarjeta, y un
-   * menú que se llama «Acciones» y sólo sabe navegar no ofrece ninguna.
-   *
-   * ⚠️ NO HAY «Ver su ficha» por el mismo motivo: eso lo hace el click en la tarjeta, y
-   * un control que contesta una pregunta ya contestada no suma una opción, parte la
-   * respuesta en dos.
-   *
-   * ⚠️ Y NO HAY «Pausar la cuenta», que él nombró como ejemplo. No es que falte el
-   * endpoint —falta, `workspaces.estado` sólo lo escribe /api/admin/workspaces bajo
-   * super admin— sino que antes hay una decisión de producto: pausar es la palanca de
-   * COBRO de la plataforma. Si la agencia paga por su cartera, puede; si paga el
-   * cliente, dársela a la agencia es dejar que un tercero le corte el acceso a alguien
-   * que le paga a MaKo. Queda sin hacer y dicho, no hecho a medias.
-   */
-  const admin = equipo?.find((u) => u.rol === 'admin') ?? equipo?.[0];
-  /**
-   * ⚠️ UNA CUENTA ABIERTA A LA QUE NO PUEDE ENTRAR NADIE (09/10/2026). «No se le envió la
-   * invitación a Brigitte, ella no puede acceder a su propio workspace» (Joan, vía Martín).
-   * Medido: el ws15 tiene CERO usuarios desde el 28/09 —nació antes de que abrir una cuenta
-   * pidiera el email— así que no había a quién mandarle nada. Y la tarjeta no lo decía: con
-   * nadie adentro no hay «Reenviar el acceso» ni «Ver su equipo», y lo único que quedaba era
-   * «Inspeccionar», que se lee como «está todo bien».
-   *
-   * `equipo` es `[]` SÓLO si la lectura anduvo (page.tsx siembra la lista vacía); sin
-   * entrada es «no pude mirar», y ahí no se afirma nada.
-   */
-  const sinNadie = Boolean(ws && equipo && equipo.length === 0);
-  /** Quién puede hacer algo al respecto desde la tab Equipo: la agencia PIDE, el super admin SUMA. */
-  const puedeSumarAlguien = Boolean(cuentas?.superAdmin || cuentas?.puedePedirAltas);
-  /**
-   * ⚠️ LAS DEL CURSO NO CUELGAN DE `conCuentas` (07/10/2026). Hasta acá el menú —y la fila de
-   * acciones entera— existía sólo para una AGENCIA, porque lo único que ofrecía era gestionar una
-   * cuenta de MaKo. Invitar al curso es otra cosa: no crea cuenta ni workspace (lib/curso-invitar.ts),
-   * así que lo tiene cualquier negocio con la tab, agencia o no. Las de cuenta siguen atadas a
-   * `conCuentas`; éstas, a que el producto tenga curso (`curso`). La regla (cortado no ofrece
-   * invitar, sin leer tampoco) vive en `opcionesDeCursoEnTarjeta`, que tiene test.
+   * ⚠️ ACÁ ESTABA «Abrir en el CRM» Y SE FUE (29/09/2026): el mismo link vive adentro de la ficha que abre el click en
+   * la tarjeta, y un menú que se llama «Acciones» y sólo sabe navegar no ofrece ninguna. Tampoco hay «Ver su ficha»:
+   * eso lo hace el click.
    */
   const opciones: Array<{ value: string; label: string }> = [
     ...opcionesDeCursoEnTarjeta(curso, Boolean(onPermisos)),
-    // Sólo con una cuenta abierta Y alguien adentro: reenviarle el acceso a nadie no es
-    // una opción, es un botón que contesta un error.
-    ...(ws && admin ? [{ value: 'reinvitar', label: `Reenviar el acceso a ${admin.nombre}` }] : []),
-    ...(equipo?.length ? [{ value: 'equipo', label: `Ver su equipo (${equipo.length})` }] : []),
-    // Sin nadie adentro, la acción que falta: abre la tab Equipo, donde está el formulario
-    // (el mismo rótulo que su botón, porque no pasa lo mismo: la agencia pide, él suma).
-    ...(sinNadie && puedeSumarAlguien
-      ? [{ value: 'equipo', label: cuentas?.superAdmin ? 'Sumar a alguien' : 'Pedir sumar a alguien' }]
-      : []),
   ];
 
-  const [reenviando, setReenviando] = useState(false);
   const [aviso, setAviso] = useState<{ tono: 'ok' | 'warn'; texto: string } | null>(null);
   /** El modal de invitar al curso, abierto desde el menú. Se monta al abrirse (cada apertura arranca de cero). */
   const [invitando, setInvitando] = useState(false);
 
-  const reinvitar = async () => {
-    if (!ws || !admin || reenviando) return;
-    setReenviando(true); setAviso(null);
-    try {
-      const r = await fetch('/api/agencia/reinvitar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clienteWs: ws, usuarioId: admin.id }),
-      });
-      const j = (await r.json()) as { ok?: boolean; error?: string; invitacion?: ResultadoInvitacion };
-      if (!j.ok) { onError(j.error ?? 'No se pudo reenviar el acceso.'); return; }
-      // El resultado del ENVÍO, que no es el de la llamada: `invitarPorEmail` nunca tira
-      // y devuelve si salió. Un «listo» mudo no distingue «se le mandó» de «no salió».
-      setAviso(avisoInvitacion(j.invitacion, admin.email));
-    } catch {
-      onError('No se pudo reenviar el acceso.');
-    } finally { setReenviando(false); }
-  };
-
   const elegir = (v: string) => {
     if (v === 'curso-invitar') { setAviso(null); setInvitando(true); return; }
     if (v === 'curso-permisos') { onPermisos?.(); return; }
-    if (v === 'reinvitar') { void reinvitar(); return; }
-    if (v === 'equipo') onEquipo();
   };
 
+  // ⚠️ LA FAMILIA DE TARJETAS (17/10/2026, prototipo docs/prototipos/coherencia-1710.html, «8 · Clients»): la misma
+  //    tarjeta del lead —la cara, el nombre, el subtítulo y «Ver info»—, más la barra de la etapa y el aviso. Deja
+  //    `TarjetaEntidad` (portada arriba, pie de números), que sigue en /admin. Lo del tablero de trabajo (proyectos,
+  //    tareas, recurrentes) pasa a un renglón de chips: «LOS TRES NÚMEROS O NINGUNO» sigue valiendo.
+  const foto = (c.avatarUrl?.trim() || fotoAuto) || null;
   return (
     <>
-    <TarjetaEntidad
+    <TarjetaPersona
       nombre={nombre}
-      bajada={c.empresa?.trim() || `Cliente ${n}`}
-      portada={c.portada} portadaY={c.portadaY}
-      icono={c.icono ?? c.avatarUrl} avatarY={c.avatarY} foto={fotoAuto}
-      color={colorDe(nombre)}
-      onAbrir={onAbrir}
-      etiqueta={`Abrir la ficha de ${nombre}`}
-      antesDelNombre={antesDelNombre}
-      /* El PLAN de su cuenta de MaKo, cuando tiene una. «Estas tarjetas de clientes
-         también deben tener el plan, cada uno, con normalidad» (27/09/2026) — es el
-         mismo chip que la grilla de la plataforma, sacado de la misma `capaDef`. */
-      chips={plan || chipExtra ? (
+      foto={foto}
+      subtitulo={c.empresa?.trim() || `Cliente ${n}`}
+      antes={antesDelNombre}
+      onClick={onAbrir}
+      aria-label={`Abrir la ficha de ${nombre}`}
+      pildora={{ texto: 'Ver info', onClick: onAbrir }}
+      avance={avance ?? null}
+      chips={
         <>
-          {plan && <span className="cl-plan">{plan}</span>}
-          {chipExtra}
-        </>
-      ) : undefined}
-      /* ⚠️ LOS TRES NÚMEROS O NINGUNO. Cuando el tablero no se pudo leer, poner
-         ceros sería afirmar que no tiene trabajo — que es distinto de no haber
-         podido mirar. */
-      pie={
-        <>
+          {avance ? null : chipExtra}
+          {/* ⚠️ LOS TRES NÚMEROS O NINGUNO. Cuando el tablero no se pudo leer, poner ceros sería afirmar que no tiene
+              trabajo — que es distinto de no haber podido mirar. */}
           {tableroOk ? (
-            <PieNumeros datos={[
-              { v: trabajo?.proyectos ?? 0, k: 'Proyectos' },
-              { v: trabajo?.abiertas ?? 0, k: 'Tareas' },
-              { v: trabajo?.recurrentes ?? 0, k: 'Recurrentes' },
-            ]} />
+            <span className="tk-chip tk-chip--gris">{trabajo?.proyectos ?? 0} proyectos · {trabajo?.abiertas ?? 0} tareas · {trabajo?.recurrentes ?? 0} recurrentes</span>
           ) : (
-            <PieTexto mal>No pude leer el tablero</PieTexto>
+            <span className="tk-chip tk-chip--mal">No pude leer el tablero</span>
           )}
-          {/* El resultado del reenvío, adentro de la tarjeta desde la que se pidió: un
-              aviso global obligaría a acordarse de sobre cuál se hizo click. Y va acá y
-              no en `acciones` porque esa fila es nowrap — un tercer hijo ancho la
-              desborda en vez de bajar a su renglón. */}
-          {aviso && <PieTexto mal={aviso.tono === 'warn'}>{aviso.texto}</PieTexto>}
-          {sinNadie && !aviso && <PieTexto mal>Nadie puede entrar todavía</PieTexto>}
+          {/* El resultado del reenvío, adentro de la tarjeta desde la que se pidió: un aviso global obligaría a
+              acordarse de sobre cuál se hizo click. */}
+          {aviso && <span className={`tk-chip ${aviso.tono === 'warn' ? 'tk-chip--mal' : 'tk-chip--bien'}`}>{aviso.texto}</span>}
         </>
       }
-      /* ⚠️ SÓLO PARA QUIEN PUEDE HACER ALGO CON ELLOS. Lo de la CUENTA cuelga de `cuentas.visible`
-         (lo decide el SERVER, page.tsx: que este workspace sea una AGENCIA); lo del CURSO, de que el
-         producto tenga curso. La fila existe si hay alguna de las dos — sin ninguna, una fila vacía
-         con un menú sin opciones es una tarjeta que ofrece algo que no tiene. */
-      acciones={conCuentas || accionExtra || opciones.length > 0 ? (
+      /* ⚠️ SÓLO SI HAY ALGO QUE HACER: lo del curso (que el producto tenga curso) o lo que pone la pantalla. Sin
+         ninguna, un menú sin opciones es una tarjeta que ofrece algo que no tiene. */
+      acciones={accionExtra || opciones.length > 0 ? (
         <>
-          {conCuentas && cuentas && <CuentaDeMaKo c={c} cuentas={cuentas} onError={onError} variante="boton" />}
-          <span style={{ flex: 1 }} />
           {/* ⚠️ SIN OPCIONES NO SE DIBUJA. `Dropdown` no tiene rama de lista vacía: con
               `options={[]}` igual pinta el botón y abre un popover en blanco, que se lee
-              como una app rota. Pasa de verdad — un cliente sin cuenta, sin equipo y sin
-              curso no tiene ninguna. */}
-          {/* ⚠️ EL MENÚ NO ARRASTRA: en el kanban la tarjeta entera es `draggable`, y apretar
-              «Acciones» y correr un poco el mouse se llevaba la tarjeta. Lo corta `data-nodrag`,
-              que mira `agarrar` (KanbanEntrega) con el nodo donde nació el gesto. ⛔ Acá había un
-              `onDragStart` que lo cancelaba y no corría NUNCA: el `dragstart` sale del nodo
-              arrastrable (el envoltorio), no de un hijo (revisión del 08/10/2026).
-              `onPointerDown` frenado como la casilla de selección. `display: contents` para no
-              meter una caja en la fila `nowrap`, que desbordaría. */}
+              como una app rota. Pasa de verdad — un cliente sin curso no tiene ninguna. */}
+          {/* ⚠️ EL MENÚ NO ARRASTRA NI ABRE LA FICHA: en el kanban la tarjeta entera es `draggable` y su click abre la
+              ficha. `data-nodrag` lo corta en `agarrar` (KanbanEntrega), con el nodo donde nació el gesto; el click y
+              el pointerdown se frenan acá. `display: contents` para no meter una caja de más en la fila. */}
           {opciones.length > 0 && (
             <span style={{ display: 'contents' }} data-nodrag
-              onPointerDown={(e) => e.stopPropagation()}>
+              onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
               <Dropdown
                 value="" resetAfterSelect align="right" placeholder="Acciones"
-                ariaLabel={`Acciones sobre ${nombre}`} disabled={reenviando}
-                buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
+                ariaLabel={`Acciones sobre ${nombre}`}
+                buttonStyle={{ padding: '5px 11px', fontSize: 12.5, borderRadius: 99 }}
                 options={conIconos(opciones, ICONOS_ACCIONES)}
                 onChange={elegir}
               />

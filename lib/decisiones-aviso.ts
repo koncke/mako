@@ -144,3 +144,30 @@ export function explicarAviso(d: FilaAviso & { avisoMotivo?: string | null }, ch
   if (r.chat.runner === false) return `espera a que se abra el Runner de su carpeta${r.chat.cuenta ? ` (${r.chat.cuenta})` : ''}`;
   return `se avisa en la próxima vuelta del cartero${r.chat.cuenta ? ` de ${r.chat.cuenta}` : ''}`;
 }
+
+/** Cómo se dibuja el estado de un aviso: un tono (el de `Status`) y una frase corta. `desde` = cuándo pasó, si se sabe. */
+export type VistaAviso = { tono: 'good' | 'warn' | 'bad' | 'neutral'; texto: string; desde: string | null };
+
+/**
+ * Lo que dice la Ticketera de una respuesta que ya dio Martín, en pocas palabras (17/10/2026: «La Ticketera no muestra
+ * si el aviso llegó»: el dato estaba en `aviso_estado` y la pantalla sólo distinguía «El chat ya la tiene» de «Nueva»).
+ *
+ * ⚠️ El aviso vale para SU respuesta: si Martín la cambió después (`aviso_de` ≠ `respondida_at`), el estado de abajo es
+ * de la respuesta anterior y no cuenta — es «Nueva» otra vez, como lo decide `necesitaAviso`.
+ */
+export function vistaDelAviso(
+  d: Pick<FilaAviso, 'recogidaAt' | 'respondidaAt' | 'avisoDe' | 'avisoEstado' | 'avisoAt' | 'avisoIntentos'>,
+  ahora: number,
+): VistaAviso {
+  if (d.recogidaAt) return { tono: 'neutral', texto: 'El chat ya la tiene', desde: d.recogidaAt };
+  if (!mismoInstante(d.avisoDe, d.respondidaAt) || !d.avisoEstado) return { tono: 'neutral', texto: 'Nueva', desde: null };
+  if (d.avisoEstado === 'entregado') return { tono: 'good', texto: 'Aviso entregado', desde: d.avisoAt };
+  if (d.avisoIntentos >= AVISO_MAX_INTENTOS) return { tono: 'bad', texto: `No llegó (${d.avisoIntentos} intentos)`, desde: d.avisoAt };
+  if (d.avisoEstado === 'tomado') {
+    const t = Date.parse(d.avisoAt ?? '');
+    return Number.isFinite(t) && ahora - t <= AVISO_TOMADO_VENCE_MS
+      ? { tono: 'neutral', texto: 'Avisando…', desde: d.avisoAt }
+      : { tono: 'warn', texto: 'Sin acuse, reintenta', desde: d.avisoAt };
+  }
+  return { tono: 'warn', texto: 'No llegó, reintenta', desde: d.avisoAt };
+}

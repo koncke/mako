@@ -27,6 +27,7 @@ import { pathToFileURL } from 'node:url';
 import { clasificarIntencion, makoPidioDatos, esPedidoDeAgenda, makoPreguntoAlgo } from '../lib/mako-intencion';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
 import { promesasDe, groseriasDe, sanearSalida, SIN_HACER } from '../lib/doer-salida';
+import { actorDeWhatsApp, LINEA_ERROR_AVISADO } from '../lib/doer-ticket';
 import type { Vista } from '../lib/api-mako/registro';
 
 const RAIZ = join(__dirname, '..');
@@ -165,10 +166,65 @@ test('ws13, 17/10: «reprogramame la reunión… reprogramámela para el lunes»
   assert.equal(clasificarIntencion('Idea: si el cliente reprograma la reunión, avisarle al closer').intencion, 'capturar');
 });
 
+test('ws18, 17/10: «Mago, probá de vuelta agendarle a Pablo lo que te pidió en el calendario» llega con la agenda', () => {
+  // El literal del grupo (13:30 UTC). Cayó al default sin agenda y MaKo contestó «no tengo acceso para agendar citas
+  // directamente en tu calendario». Dos huecos: «agendarle» (infinitivo con pronombre) no era el verbo, y «calendario» no
+  // contaba como el lugar de la agenda. («Mago» mal escrito no importa: se probó pelarlo y no cambiaba nada.)
+  const m = 'Mago, probá de vuelta agendarle a Pablo lo que te pidió en el calendario.';
+  const r = turno(m);
+  assert.equal(r.veredicto.intencion, 'actuar', `«${m}»: ${r.veredicto.porque}`);
+  trae(m, 'proponer_agendar_agenda', r);
+  // Lo que no tiene que cambiar: una idea dictada con «agendarle» sigue siendo material, y el calendario de la tab
+  // Calendario sin un verbo de agendar no es un pedido de agenda.
+  assert.equal(clasificarIntencion('Idea: agendarle una llamada a cada lead frío del mes').intencion, 'capturar');
+  assert.notEqual(clasificarIntencion('el calendario de contenidos de la semana está lleno').intencion, 'actuar');
+});
+
 test('una propuesta que pide el «sí», o un «dime la hora y te lo agendo», no son promesas', () => {
   // ws9, 10/10/2026: la propuesta de agenda de siempre. Y ws13, 13/10: pide el dato que le falta.
   assert.deepEqual(promesasDe('Voy a agendar la visita con Demo Lead para el martes 13 a las 11:00 en tu Google Calendar con invitación a su correo. ¿Confirmas con un «sí»?'), []);
   assert.deepEqual(promesasDe('Listo, con el **18 de noviembre** confirmado.\n\nDime a qué hora exacta quieres que te ponga la alerta en el calendario para el cumpleaños de José Pontaroli y te lo agendo de una.'), []);
+});
+
+// --- 1-ter. Levantar un ticket desde el grupo (la Ticketera, 17/10) -------------------------------------------
+
+test('el ticket sabe QUIÉN escribió en el grupo: el teléfono, o el nombre si WhatsApp no lo da', () => {
+  assert.equal(actorDeWhatsApp('5491122334455@s.whatsapp.net', 'Pablo'), 'whatsapp:+5491122334455');
+  assert.equal(actorDeWhatsApp('5491122334455:12@s.whatsapp.net', null), 'whatsapp:+5491122334455', 'el sufijo de dispositivo no es parte del teléfono');
+  // Un @lid es el identificador anónimo de WhatsApp: NO es un teléfono.
+  assert.equal(actorDeWhatsApp('118288712345678@lid', 'Joan Pérez'), 'whatsapp:Joan Pérez');
+  assert.equal(actorDeWhatsApp(undefined, undefined), undefined);
+  // La línea que agrega el código dice lo que YA pasó (el error quedó registrado): no es una promesa, y el saneo y el
+  // vigía no la marcan. La de la app («te aviso por aquí cuando esté arreglado») sí lo sería.
+  assert.deepEqual(promesasDe(LINEA_ERROR_AVISADO), []);
+  assert.ok(promesasDe('Le avisé al equipo de MaKo: te aviso por aquí cuando esté arreglado.').length > 0, 'la línea de la app no se ve como promesa: el detector se ablandó');
+  // Y la promesa que reemplazaría a esa pregunta sí se ve.
+  assert.ok(promesasDe('Ya le aviso al equipo de MaKo y te lo arreglo.').length > 0, '«ya le aviso… te lo arreglo» no se ve como promesa');
+  assert.ok(promesasDe('Ya le aviso al equipo de MaKo.').length > 0, '«ya le aviso» suelto no se ve como promesa');
+});
+
+test('el doer le pasa al ticket quién escribe y el contexto, y si algo falló lo registra SOLO, sin preguntar', () => {
+  const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
+  const ctx = doer.slice(doer.indexOf('const ctxApi: CtxApi = {'), doer.indexOf('};', doer.indexOf('const ctxApi: CtxApi = {')));
+  assert.match(ctx, /actor: actorDeWhatsApp\(key\?\.participant, data\.pushName\)/, 'el ticket no sabe quién escribió: preparar() contesta «No sé quién eres»');
+  assert.match(ctx, /contextoTicket: \(\) => \(\{/, 'el ticket no recibe el contexto del turno');
+  assert.match(ctx, /erroresDelTurno\[0\]/, 'el contexto del ticket no lleva el error que registró el código');
+  // El teléfono sobrevive al lote: los dos mensajes que arma el doer copian `participant`.
+  assert.equal((doer.match(/fromMe: ultimo\.key\?\.fromMe, participant: ultimo\.key\?\.participant/g) ?? []).length, 2, 'un lote pierde quién escribió');
+  // Viaja con las de siempre, y cada salida de herramienta se mira con `errorParaTicket`.
+  assert.match(doer, /const toolsDeSiempre = \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS\];/);
+  const rt = doer.slice(doer.indexOf('const runTool = async'), doer.indexOf('const nuevoIntento'));
+  assert.match(rt, /errorParaTicket\(name, out\)/, 'las fallas de las herramientas no se registran para el ticket');
+  // Si algo falló y el modelo no levantó el ticket, el código REGISTRA la falla (Martín: «todo lo solucionás
+  // automáticamente»), con quién escribió, y a la persona se le dice sólo si entró como ticket.
+  const prop = doer.slice(doer.indexOf('if (erroresDelTurno.length && !ticketPropuesto'), doer.indexOf('const nPuntos'));
+  assert.match(prop, /registrarError\(\{ origen: 'mako', nombre: e\.herramienta, mensaje: e\.error \}, quien\)/, 'si algo falló, no se registra solo');
+  assert.match(prop, /identidadDelActor\(wsData, ctxApi\.actor\)/, 'la falla se registra sin quién escribió: el aviso de arreglado no sabe a qué grupo ir');
+  assert.match(prop, /reg\.ok && reg\.ticketId/, 'a la persona se le dice que el equipo lo sabe aunque no haya entrado (el ruido de la IA)');
+  assert.match(prop, /LINEA_ERROR_AVISADO/, 'la falla se registra y nadie le dice a la persona');
+  assert.doesNotMatch(prop, /runRegistro\(LEVANTAR_TICKET/, 'volvió a PREGUNTARLE a la persona en vez de registrarlo solo');
+  // Y va DESPUÉS del saneo: la línea es del código, no del modelo.
+  assert.ok(doer.indexOf('if (erroresDelTurno.length && !ticketPropuesto') > doer.indexOf('const saneo = sanearSalida('), 'la línea del ticket quedó antes del saneo');
 });
 
 // --- 2. Lo que sale ------------------------------------------------------------------------------
@@ -262,5 +318,7 @@ test('la voz del grupo prohíbe prometer y putear, en el preámbulo que va SIEMP
 //   · el doer sin `pedidoPrometido`                               → 1 fallo.
 //   · (17/10, «reprogramame») sin `(re)programa(me|mela…)`, sin «reprograma» suelto, o con «programa» suelto como
 //     verbo → 1 fallo cada una.
+//   · (17/10, «agendarle… en el calendario») sin el infinitivo con pronombre, o sin el calendario como lugar → 1 fallo
+//     cada una.
 //   · una propuesta que termina pidiendo el «sí» cuenta como promesa → 1 fallo.
 //   · pedir un dato («dime la hora y te lo agendo») cuenta como promesa → 1 fallo.

@@ -22,9 +22,8 @@
 // =============================================================================
 
 import { useRef, useState, type KeyboardEvent as KeyboardEventReact } from 'react';
-import {
-  TOPES, docPagina, nuevoId, rutaValida, slugDe, tarjetaVacia, type DocPagina, type JsonNodo, type Pagina,
-} from '@/lib/editor-landing/doc';
+import { TOPES, docPagina, nuevoId, tarjetaVacia, type DocPagina, type Pagina } from '@/lib/editor-landing/doc';
+import { duplicarPagina, hacerInicio, motivoRuta, rutaLibre } from '@/lib/editor-landing/paginas-reglas';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useEditorLanding } from './contexto';
 import { DialogoGma, Ico, ItemMenu, Menu, SepMenu } from './MenuDocumento';
@@ -34,18 +33,10 @@ import { useReordenar } from './TiraSecciones';
 // Reglas puras (las fija tests/editor-landing-armazon.test.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Una ruta libre a partir de un texto: el slug, y si está tomada o es corta, con sufijo. */
-export function rutaLibre(texto: string, usadas: readonly string[]): string {
-  let base = slugDe(texto).slice(0, 50).replace(/-+$/g, '');
-  if (!rutaValida(base)) base = 'pagina';
-  const tomadas = new Set(usadas);
-  if (!tomadas.has(base)) return base;
-  for (let i = 2; i < 1000; i++) {
-    const r = `${base}-${i}`;
-    if (!tomadas.has(r)) return r;
-  }
-  return `${base}-${nuevoId('').slice(0, 6)}`;
-}
+// rutaLibre, hacerInicio, motivoRuta y duplicarPagina viven en lib/editor-landing/paginas-reglas.ts desde el
+// 17/10/2026: la API de MaKo las tenía copiadas porque este archivo es 'use client'. Se re-exportan para quien las
+// importaba de acá.
+export { rutaLibre, hacerInicio, motivoRuta, duplicarPagina };
 
 /** La lista con el ítem de `de` movido a `a`. */
 export function moverEnLista<T>(lista: readonly T[], de: number, a: number): T[] {
@@ -54,39 +45,6 @@ export function moverEnLista<T>(lista: readonly T[], de: number, a: number): T[]
   const [x] = out.splice(de, 1);
   out.splice(a, 0, x);
   return out;
-}
-
-/**
- * La página `id` pasa a ser la de inicio (ruta '' y primera de la lista); la que era de inicio
- * recibe una ruta libre derivada de su título. Nunca quedan dos de inicio.
- */
-export function hacerInicio(paginas: readonly Pagina[], id: string): Pagina[] {
-  const elegida = paginas.find((p) => p.id === id);
-  if (!elegida) return [...paginas];
-  const usadas = paginas.filter((p) => p.id !== id && p.ruta).map((p) => p.ruta);
-  const resto = paginas.filter((p) => p.id !== id).map((p) => {
-    if (p.ruta !== '') return p;
-    const ruta = rutaLibre(p.titulo || 'pagina', usadas);
-    usadas.push(ruta);
-    return { ...p, ruta };
-  });
-  return [{ ...elegida, ruta: '' }, ...resto];
-}
-
-/** Por qué una ruta no sirve para la página `id` (texto corto), o null si sirve. */
-export function motivoRuta(ruta: string, id: string, paginas: readonly Pagina[]): string | null {
-  if (ruta === '') return null;
-  if (!rutaValida(ruta)) return 'De 3 a 60: a-z, 0-9 y guiones';
-  if (paginas.some((p) => p.id !== id && p.ruta === ruta)) return 'Esa ruta ya existe';
-  return null;
-}
-
-/** Copia de una página con ids nuevos (de la página y de cada sección) y una ruta libre. */
-export function duplicarPagina(p: Pagina, paginas: readonly Pagina[], docVivo?: DocPagina | null): Pagina {
-  const doc = JSON.parse(JSON.stringify(docVivo ?? p.doc)) as DocPagina;
-  doc.content = (doc.content ?? []).map((t: JsonNodo) => ({ ...t, attrs: { ...(t.attrs ?? {}), id: nuevoId('t') } }));
-  const titulo = `${p.titulo || 'Página'} (copia)`.slice(0, TOPES.titulo);
-  return { ...p, id: nuevoId('p'), titulo, ruta: rutaLibre(titulo, paginas.map((x) => x.ruta).filter(Boolean)), doc };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

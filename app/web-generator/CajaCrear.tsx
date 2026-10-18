@@ -120,6 +120,11 @@ const ACCIONES_LINK: readonly OpcionDesplegable<AccionLink>[] = [
 /** El «+»: un archivo de texto, oficina, audio o video, o una imagen (las familias de lib/formatos-archivo.ts). */
 const extDe = (familias: readonly (keyof typeof EXT_POR_FAMILIA)[]) => familias.flatMap((f) => EXT_POR_FAMILIA[f].map((e) => `.${e}`)).join(',');
 export const ACCEPT_ARCHIVO = extDe(['texto', 'docx', 'pdf', 'xlsx', 'pptx', 'opendocument', 'audio', 'video']);
+/**
+ * Lo que dice el cuadro de lo que se puede importar (17/10/2026, deuda de la tanda 7): decía «PowerPoint, Word o PDF» y
+ * el cuadro lee también planillas, OpenDocument, texto, audio y video (`ACCEPT_ARCHIVO`). Corto: es un rótulo.
+ */
+export const ROTULO_ARCHIVOS = 'Documentos, planillas, audio o video';
 export const ACCEPT_IMAGEN = extDe(['imagen']);
 
 /** Cuántas indicaciones recientes ofrece el «+». */
@@ -350,7 +355,7 @@ export default function CajaCrear({
           Suelta tu archivo aquí o{' '}
           <button type="button" className="gp-cc-soltar-elegir" onClick={() => elegirArchivo.current?.click()}>elígelo</button>
         </span>
-        <span className="gp-cc-soltar-sub">PowerPoint, Word o PDF</span>
+        <span className="gp-cc-soltar-sub">{ROTULO_ARCHIVOS}</span>
       </span>
     </div>
   );
@@ -506,7 +511,7 @@ export default function CajaCrear({
           `input` viven afuera del menú: tocar una opción lo cierra. */}
       {menuMas && (
         <MenuFlotante ancla={menuMas} onCerrar={cerrarMas} ancho={270}>
-          <ItemMenu icono="subir" texto="Importar archivo" sub="PowerPoint, Word o PDF" onClick={() => { setMenuMas(null); elegirArchivo.current?.click(); }} />
+          <ItemMenu icono="subir" texto="Importar archivo" sub={ROTULO_ARCHIVOS} onClick={() => { setMenuMas(null); elegirArchivo.current?.click(); }} />
           <ItemMenu icono="imagen" texto="Subir imagen" onClick={() => { setMenuMas(null); elegirImagen.current?.click(); }} />
           {recientesMas.length > 0 && <SeparadorMenu />}
           {recientesMas.map((r) => (

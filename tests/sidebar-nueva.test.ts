@@ -1,0 +1,283 @@
+// =============================================================================
+// La sidebar nueva (17/10/2026) — docs/diseno-sidebar.md
+// =============================================================================
+// El pedido de Martín, textual:
+//   «"Ops Center" no debería estar en la sección de Admin en la sidebar: debería estar donde "Second Brain", con una
+//    criatura tipo ícono, moviéndose como siempre... Lo mismo para los otros workspaces, ya que Second Brain sigue
+//    estando en la sección de "analize" y no debería.»
+//   «Dashboard debería estar dentro de la sección "Operate", ya que se quedaría sola "analize", y la deprecamos. Y
+//    también elimina "Content Machine" y que todo esté dentro de "Sales Machine"... Y "Calendario" debería ser
+//    "Calendar": siempre todo en inglés los nombres de las tabs.»
+//   «También quiero eliminar todas las tabs de la sidebar de "Admin"... la mayoría ya tienen lugares donde podrían vivir»
+//   «eliminar las tabs de "Email y WhatsApp" y unificarlo todo en "Chats"»
+// Y lo que pidió el Cerebro encima: lo mismo en TODOS los workspaces y en el teléfono, y que las rutas viejas no se
+// rompan.
+//
+// Probado ROMPIÉNDOLO, de a uno, con la base en 8 pases y 0 fallos (17/10/2026):
+//   · la segunda familia rotulada «Analyze»                                → 5 / 3 (familias, workspaces, teléfono)
+//   · «Calendario» como label                                              → 6 / 2 (inglés, workspaces)
+//   · Strategy sin `adminOnly`                                             → 7 / 1 (un cliente la vería)
+//   · /contexto fuera de SUPERADMIN_MENU                                   → 7 / 1 (una herramienta sin casa)
+//   · WhatsApp de vuelta como fila de Operate                              → 6 / 2 (Chats es la única, workspaces)
+//   · el Sidebar dibujando las familias de ADMIN_FAMILIAS otra vez         → 7 / 1 (el shell del super admin)
+//   · FAMILIAS_MAS con «Analyze»                                           → 7 / 1 (el teléfono)
+//
+// LA SIDEBAR DEL PROTOTIPO (17/10/2026 noche, docs/prototipos/sidebar-nueva-1710.md y coherencia-1710.md, partes 3 y 7;
+// Martín: «la sidebar es confusa, copiá otras apps»): lo diario sin rótulo arriba, y Sales · Marketing · Create; «Home»
+// sale de la barra y lleva al Dashboard; el buscador Ctrl K; la cara del menú de la foto y del More del teléfono; la
+// barra de abajo CRM · Chats · Dashboard · Plan · More. Probado ROMPIÉNDOLO, de a uno, con la base en 11 pases y 0 fallos:
+//   · General de vuelta como fila de lo diario                             → 9 / 2 (familias, workspaces)
+//   · el alias «home» del buscador llevando a `general`                    → 10 / 1 (el buscador)
+//   · el atajo global sin respetar el Ctrl K de la pantalla               → 10 / 1 (el buscador)
+//   · la barra de abajo con «General» en el medio                          → 10 / 1 (la barra de abajo)
+//   · AvatarM sin dibujar la foto                                          → 10 / 1 (la cara)
+//   · masCompleto cruzando las familias por POSICIÓN (una lista de dos)    → 10 / 1 (la barra de abajo: Create se perdía)
+//   · una «pronto» de vuelta en Create                                      → 10 / 1 (familias)
+//
+// «OPS CENTER» EN TODOS LOS NEGOCIOS (18/10/2026; Martín: «En todos los clientes también debe llamarse la tab «Ops Center»
+// en lugar de «Second Brain» y tener la criatura de estrella»). Probado ROMPIÉNDOLO, de a uno, con la base en 12 pases y 0 fallos:
+//   · la fila del negocio otra vez «Second Brain»                          → 10 / 2 (Ops Center, arriba de todo)
+//   · la fila del negocio sin la estrella                                   → 11 / 1
+//   · `arribaDe` dándole al super admin las dos                            → 10 / 2 (nadie ve dos, arriba de todo)
+//   · el título de la pestaña de /second-brain todavía «Second Brain»       → 11 / 1
+//   · la fila del teléfono todavía «Second Brain»                           → 11 / 1
+//   · Ctrl K sin el alias «second brain»                                     → 11 / 1
+//   · `rutaDeLaTab` sin mirar el `jefe` («Ops Center» caía en /second-brain) → 11 / 1
+// =============================================================================
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  ARRIBA, FAMILIAS, MAKO_NAV, OPS_CENTER, SIN_FILA, SUPERADMIN_MENU, TODOS_LOS_ITEMS, ADMIN_NAV, arribaDe, itemsDe, type NavItem,
+} from '../app/_components/nav';
+import { puedeVerItem, resolverTab, type VistaNav } from '../lib/nav-visibilidad';
+import { PRONTO } from '../app/_components/nav';
+import { DESTINOS_MOVIL, FAMILIAS_MAS, barraMovil, gruposMas, masCompleto } from '../lib/movil-rutas';
+import { ALIAS, buscarDestinos, type Destino } from '../lib/buscador-nav';
+import { tituloDe } from '../lib/titulo-tab';
+import { cabeceraPorRuta } from '../app/m/_ui/cabecera';
+import { rutaDeLaTab } from '../lib/centro-chats';
+
+const RAIZ = join(__dirname, '..');
+const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
+const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+const SUPER: VistaNav = { adminShell: true, rolWs: '', capa: 'superadmin' };
+const CLIENTE: VistaNav = { adminShell: false, rolWs: 'admin', capa: 'completo' };
+
+/** Lo que la barra DIBUJA: las tabs (ya resueltas) y sus secciones, los desplegables y lo de arriba. */
+const dibujadas = (): NavItem[] => [
+  ...ARRIBA,
+  ...FAMILIAS.flatMap((f) => [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)]),
+];
+
+test('las familias del prototipo: lo diario sin rótulo, y Sales · Marketing · Create; Home y las «pronto» salieron', () => {
+  assert.deepEqual(FAMILIAS.map((f) => [f.key, f.label, !!f.sinRotulo]), [
+    ['diario', 'Today', true], ['sales', 'Sales', false], ['marketing', 'Marketing', false], ['create', 'Create', false],
+  ]);
+  const de = (k: string) => itemsDe(FAMILIAS.find((f) => f.key === k)!).map((i) => i.key);
+  assert.deepEqual(FAMILIAS[0].bloques.flat().map((i) => i.key), ['todo', 'bandeja', 'graphics'], 'lo diario: Plan, Chats y Dashboard');
+  for (const k of ['crm', 'calendario', 'setting', 'customer-success', 'partners']) assert.ok(de('sales').includes(k), `«${k}» no está en Sales`);
+  for (const k of ['offer', 'landing-writer', 'ads-manager']) assert.ok(de('marketing').includes(k), `«${k}» no está en Marketing`);
+  for (const k of ['video-editor', 'video-generator', 'image-editor', 'ads-writer']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
+  // «Home» (/general) ya no es fila: redirige al Dashboard (Focus). Su key sigue (capas, onboarding) en SIN_FILA, y el
+  // Dashboard se marca estando en /general.
+  assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'general'), 'General volvió a ser fila');
+  assert.ok(SIN_FILA.some((i) => i.key === 'general'), 'sin el ítem general, el título y el teléfono lo pierden');
+  const dash = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'graphics')!;
+  assert.equal(dash.match('/general'), true, 'en /general la barra no marca Dashboard');
+  // Las «pronto» viven en el menú de la foto › Platform › Coming soon, no en la lista (prototipo: «lo poco usado detrás de More»).
+  assert.ok(PRONTO.length > 0 && PRONTO.every((i) => i.adminOnly), 'una «pronto» la vería un cliente');
+  assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => PRONTO.includes(i)), 'una «pronto» volvió a una familia');
+  assert.ok(PRONTO.every((i) => TODOS_LOS_ITEMS.includes(i)), 'una «pronto» perdió su título de pestaña');
+});
+
+test('Ops Center en todos los negocios: la fila de /second-brain se llama así y lleva la estrella, y nadie ve dos', () => {
+  const ops = MAKO_NAV.find((i) => i.key === 'mako')!;
+  assert.deepEqual([ops.label, ops.href, ops.criatura, ops.estrella], ['Ops Center', '/second-brain', 'Ops Center', true]);
+  assert.equal(OPS_CENTER.estrella, true, 'el del super admin perdió la estrella');
+  // La barra dibuja la estrella por el ítem, no por la key del Ops Center del super admin.
+  assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /<Criatura nombre=\{item\.criatura\} estrella=\{!!item\.estrella\}/);
+  // Uno solo arriba, para cada quien: el super admin, el suyo; un negocio (admin, setter, closer), el de su negocio.
+  const vistas: VistaNav[] = [SUPER, CLIENTE, { adminShell: false, rolWs: 'setter', capa: 'completo' }, { adminShell: false, rolWs: 'closer', capa: 'completo' }];
+  for (const v of vistas) {
+    const arriba = arribaDe(v.adminShell, (it) => puedeVerItem(it, v));
+    assert.equal(arriba.filter((i) => i.label === 'Ops Center').length, 1, `${v.rolWs || 'super admin'}: no ve UN Ops Center`);
+  }
+  // El título de la pestaña y la pantalla del teléfono (su cabecera y el «volver» de sus subpantallas).
+  assert.equal(tituloDe('/second-brain'), 'MaKo - Ops Center');
+  assert.equal(cabeceraPorRuta('/m/second-brain').titulo, 'Ops Center');
+  assert.equal(cabeceraPorRuta('/m/second-brain/mapa').padre?.label, 'Ops Center');
+  // More: la fila de arriba del negocio es Ops Center con la estrella; el super admin no la tiene (la página le pone la suya).
+  const arribaMas = (adminShell: boolean) => masCompleto('admin', 'completo', adminShell).find((g) => g.id === 'arriba')?.filas.map((f) => f.label) ?? [];
+  assert.deepEqual(arribaMas(false), ['Ops Center']);
+  assert.deepEqual(arribaMas(true), []);
+  assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /criatura\(f\.label, !!MAKO_NAV\.find\(\(it\) => it\.key === f\.key\)\?\.estrella\)/);
+  // Ctrl K: «second brain» y «cerebro» llevan ahí; al super admin, a su Ops Center.
+  const negocio: Destino[] = [{ item: ops, donde: null }];
+  const superAdmin: Destino[] = [{ item: OPS_CENTER, donde: null }];
+  for (const q of ['second brain', 'cerebro']) {
+    assert.equal(buscarDestinos(q, negocio)[0]?.item.key, 'mako', `«${q}» no lleva al Ops Center del negocio`);
+    assert.equal(buscarDestinos(q, superAdmin)[0]?.item.key, 'admin-operaciones', `«${q}» no lleva al Ops Center del super admin`);
+  }
+  // El Ops Center del super admin sigue encontrando la tab de cada jefe: «Ops Center» no se confunde con /second-brain.
+  const tabs = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV];
+  assert.equal(rutaDeLaTab('Ops Center', tabs), '/admin/operaciones');
+  assert.equal(rutaDeLaTab('Second Brain', tabs), '/second-brain');
+});
+
+test('el buscador (Ctrl K): «home» y «general» llevan al Dashboard, y encuentra lo de adentro de una tab', () => {
+  for (const k of ['home', 'general', 'focus']) assert.equal(ALIAS[k], 'graphics', `«${k}» no lleva al Dashboard`);
+  const destinos: Destino[] = FAMILIAS.flatMap((f) => f.bloques.flat()).flatMap((t) => [
+    { item: t, donde: null },
+    ...(t.secciones ?? []).map((s) => ({ item: s, donde: t.label })),
+  ]);
+  assert.equal(buscarDestinos('home', destinos)[0]?.item.key, 'graphics');
+  assert.equal(buscarDestinos('Customer Success', destinos)[0]?.item.key, 'customer-success');
+  assert.equal(buscarDestinos('', destinos).length, 0);
+  // Sin modal (regla de Martín): la lista cuelga del campo, en un portal; y la pantalla con su propio Ctrl K gana.
+  const b = sinComentarios(leer('app/_components/BuscadorNav.tsx'));
+  assert.doesNotMatch(b, /<Modal\b/);
+  assert.match(b, /if \(e\.defaultPrevented\) return;/);
+  assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /<BuscadorNav /);
+});
+
+test('la cara: la foto real, el nombre y el @usuario, en el menú de la foto y en el More del teléfono', () => {
+  const sb = sinComentarios(leer('app/_components/Sidebar.tsx'));
+  assert.match(sb, /usuarioDe\(email\)/, 'el menú de la foto no dice el @usuario');
+  assert.match(sb, /\{avatarVisible\s*\?\s*<img src=\{avatarVisible\}/, 'el menú de la foto no dibuja la foto');
+  const piezas = sinComentarios(leer('app/m/_ui/Piezas.tsx'));
+  assert.match(piezas, /if \(foto\?\.trim\(\)\) return <img className=\{`m-avatar m-avatar--\$\{tam\} m-avatar--foto`\}/, 'AvatarM no dibuja la foto');
+  const mas = sinComentarios(leer('app/m/mas/page.tsx'));
+  assert.match(mas, /foto=\{tuyo\?\.avatarUrl\}/, 'More no le pasa la foto');
+  assert.match(mas, /const tuyo = perfil && !perfil\.vista\.deOtro/, 'More mostraría la foto de otro');
+  assert.match(mas, /href=\{RUTA_CUENTA\}/, 'la cara no abre My Profile');
+});
+
+test('la barra de abajo del teléfono: CRM · Chats · Dashboard · Plan · More, y More con las familias de la sidebar', () => {
+  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Dashboard', 'Plan', 'More']);
+  assert.deepEqual(barraMovil('admin', 'completo').map((b) => b.label), ['CRM', 'Chats', 'Dashboard', 'Plan', 'More']);
+  // More: las familias por su KEY (con cuatro, cruzarlas por posición perdía Create).
+  const mas = masCompleto('admin', 'completo', false);
+  assert.deepEqual(mas.filter((g) => FAMILIAS_MAS.some((f) => f.id === g.id)).map((g) => g.titulo), [null, 'Sales', 'Marketing', 'Create']);
+  const create = mas.find((g) => g.id === 'create')!;
+  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
+});
+
+test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (los demás), cada uno con su criatura', () => {
+  // Desde el 18/10/2026 la de cada negocio también se llama Ops Center y lleva la estrella (el test de abajo).
+  assert.deepEqual(ARRIBA.map((i) => [i.key, i.label, i.criatura]), [
+    ['admin-operaciones', 'Ops Center', 'Ops Center'],
+    ['mako', 'Ops Center', 'Ops Center'],
+  ]);
+  assert.equal(OPS_CENTER.adminOnly, true);
+  assert.equal(puedeVerItem(OPS_CENTER, CLIENTE), false, 'el admin de un cliente vería el Ops Center');
+  assert.equal(puedeVerItem(MAKO_NAV[0], CLIENTE), true, 'el admin de un cliente no vería Second Brain');
+  assert.equal(puedeVerItem(MAKO_NAV[0], { adminShell: false, rolWs: 'setter', capa: 'completo' }), true, 'el setter tampoco');
+  // El super admin NO ve Second Brain (17/10/2026, Martín: «el second brain vive dentro de ops center y es el grafo, no otro
+  // chat»): sólo el Ops Center. Los demás, su Second Brain. Probado rompiéndolo: `arribaDe` devolviendo ARRIBA entero → 1 fallo.
+  assert.deepEqual(arribaDe(true, (it) => puedeVerItem(it, SUPER)).map((i) => i.key), ['admin-operaciones'], 'el super admin: sólo Ops Center');
+  assert.deepEqual(arribaDe(false, (it) => puedeVerItem(it, CLIENTE)).map((i) => i.key), ['mako'], 'el cliente: Second Brain y no Ops Center');
+  // Una sola entrada de Second Brain: ninguna familia vuelve a tener otra fila a /second-brain.
+  assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.href.startsWith('/second-brain')), 'volvió una fila de Second Brain a una familia');
+  // El Sidebar dibuja la criatura (el muñeco del Ops Center) para los ítems con `criatura`, y su movimiento vive en
+  // ui.css, que carga en todas las pantallas (centro.css sólo en el Centro).
+  const sb = sinComentarios(leer('app/_components/Sidebar.tsx'));
+  assert.match(sb, /if \(item\.criatura\) return <Criatura nombre=\{item\.criatura\}/);
+  assert.match(sinComentarios(leer('app/_components/Criatura.tsx')), /<Muneco titulo=\{nombre\} animo="trabajando"/);
+  assert.match(leer('app/_ui/ui.css'), /\.mk-criatura \.mun-cuerpo \{ animation:/);
+});
+
+test('los nombres de las tabs, en inglés: ningún rótulo dibujado en castellano', () => {
+  const castellano = /[áéíóúñ¿¡]|\b(de|del|los|las|con|y|el|la)\b|^(Calendario|Clientes|Curso|Comunidad|Cobros|Contexto|Modelos|Conocimientos)/i;
+  const rotulos = dibujadas().flatMap((t) => [t.label, ...(t.secciones ?? []).flatMap((s) => [s.label, s.seccion ?? s.label])]);
+  for (const r of [...rotulos, ...FAMILIAS.map((f) => f.label), ...SUPERADMIN_MENU.map((i) => i.label)]) {
+    assert.doesNotMatch(r, castellano, `«${r}» no está en inglés`);
+  }
+  assert.equal(TODOS_LOS_ITEMS.find((i) => i.key === 'calendario')?.label, 'Calendar');
+});
+
+test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y no un cliente', () => {
+  const RUTAS = ['/admin/copywriting', '/agencia', '/mensajes', '/admin/dev', '/admin/agente', '/admin/estrategia',
+    '/admin/cobros', '/admin/operaciones', '/contexto', '/modelos-ia', '/conocimientos', '/admin/offer-playbook'];
+  const secciones = FAMILIAS.flatMap((f) => f.bloques.flat()).flatMap((t) => (t.secciones ?? []).map((s) => ({ tab: t, s })));
+  for (const ruta of RUTAS) {
+    const arriba = ARRIBA.find((i) => i.href === ruta);
+    const enTab = secciones.find(({ s }) => s.href === ruta);
+    const enMenu = SUPERADMIN_MENU.find((i) => i.href === ruta);
+    const item = arriba ?? enTab?.s ?? enMenu;
+    assert.ok(item, `${ruta} se quedó sin casa: no está arriba, ni en una tab, ni en el menú de la foto`);
+    assert.equal(item.adminOnly, true, `${ruta} la vería un cliente`);
+    assert.equal(puedeVerItem(item, SUPER), true, `${ruta}: el super admin no la ve`);
+    assert.equal(puedeVerItem(item, CLIENTE), false, `${ruta}: el admin de un cliente la ve`);
+    assert.ok(ADMIN_NAV.includes(item), `${ruta}: sin el ítem en ADMIN_NAV pierde el título de la pestaña`);
+    // La tab que la recibe se ve para el super admin con la sección adentro, y para un cliente sin ella.
+    if (enTab) {
+      assert.equal(enTab.tab.match(ruta), true, `${ruta}: estando ahí, la barra no marca ${enTab.tab.label}`);
+      assert.ok(resolverTab(enTab.tab, SUPER), `${ruta}: el super admin no ve ${enTab.tab.label}`);
+    }
+  }
+  // Y el Sidebar ya no dibuja la familia Admin: el shell del super admin es el mismo que el de un cliente.
+  const sb = sinComentarios(leer('app/_components/Sidebar.tsx'));
+  assert.doesNotMatch(sb, /ADMIN_FAMILIAS\.filter\(/, 'el Sidebar volvió a dibujar las familias de admin');
+  assert.match(sb, /SUPERADMIN_MENU\.map\(filaMenu\)/, 'el menú de la foto no ofrece las herramientas del super admin');
+});
+
+test('Chats es la única tab de conversaciones; WhatsApp y Email se configuran desde Chats y sus páginas siguen', () => {
+  const filas = FAMILIAS.flatMap(itemsDe).map((i) => i.key);
+  assert.ok(!filas.includes('whatsapp') && !filas.includes('email'), 'WhatsApp o Email volvieron a ser filas');
+  for (const k of ['whatsapp', 'email']) assert.ok(SIN_FILA.some((i) => i.key === k), `sin el ítem ${k}, el teléfono y el título lo pierden`);
+  for (const p of ['app/whatsapp/page.tsx', 'app/email/page.tsx']) assert.ok(existsSync(join(RAIZ, p)), `${p} se borró: los links de afuera se rompen`);
+  const panel = sinComentarios(leer('app/chats/PanelBandejas.tsx'));
+  assert.match(panel, /<Link href="\/email"/, 'Chats no lleva a Email');
+  assert.match(panel, /value: 'email', label: 'Email'/, 'el «+» de Canales no ofrece Email');
+  const app = sinComentarios(leer('app/chats/ChatsApp.tsx'));
+  assert.match(app, /if \(canal === 'whatsapp'\) \{ router\.push\('\/whatsapp'\)/);
+  assert.match(app, /if \(canal === 'email'\) \{ router\.push\('\/email'\)/);
+  // Email lo veía admin y setter (el guard de su página); el closer no, tampoco desde Chats.
+  assert.match(sinComentarios(leer('app/chats/page.tsx')), /const veEmail = rolWs !== 'closer';/);
+});
+
+test('nada se rompe: cada destino de la barra y de lo que dejó de ser fila tiene su página', () => {
+  const existe = (href: string): boolean => {
+    const ruta = href.split(/[?#]/)[0].replace(/^\//, '');
+    const base = join(RAIZ, 'app', ...ruta.split('/'));
+    // Una ruta dinámica también vale (/clients/community es app/clients/[seccion]/page.tsx).
+    const padre = join(base, '..');
+    const dinamica = existsSync(padre) && readdirSync(padre).some((d) => d.startsWith('[') && d.endsWith(']') && !d.includes('.') &&existsSync(join(padre, d, 'page.tsx')));
+    return ['page.tsx', 'route.ts'].some((f) => existsSync(join(base, f))) || existsSync(join(base, '[[...resto]]', 'page.tsx')) || dinamica;
+  };
+  const todos = [...dibujadas().flatMap((t) => t.secciones ?? [t]), ...SIN_FILA, ...SUPERADMIN_MENU];
+  for (const it of todos) assert.ok(existe(it.href), `«${it.label}» apunta a ${it.href}, que no tiene página`);
+});
+
+test('todos los workspaces: la misma barra para el super admin, un cliente y un setter, filtrada por la misma regla', () => {
+  const visibles = (v: VistaNav) => FAMILIAS.map((f) => [f.label, f.bloques.flat().map((t) => resolverTab(t, v)).filter(Boolean).map((t) => t!.label)]);
+  // El admin de un cliente completo: las dos familias, sin nada del super admin.
+  assert.deepEqual(visibles(CLIENTE), [
+    ['Today', ['Plan', 'Chats', 'Dashboard']],
+    ['Sales', ['CRM', 'Calendar', 'Automations', 'Clients']],
+    ['Marketing', ['Offer', 'Web Generator', 'Ads Manager']],
+    ['Create', ['Video', 'Image', 'Copywriting']],
+  ]);
+  // El setter: lo que su rol tiene anotado, en las mismas familias.
+  assert.deepEqual(visibles({ adminShell: false, rolWs: 'setter', capa: 'completo' }), [
+    ['Today', ['Plan', 'Chats', 'Dashboard']],
+    ['Sales', ['CRM', 'Automations']],
+    ['Marketing', []],
+    ['Create', []],
+  ]);
+});
+
+test('el teléfono sigue a la sidebar: las mismas familias, y Second Brain arriba (menos para el super admin)', () => {
+  assert.deepEqual(FAMILIAS_MAS.map((f) => [f.id, f.label]), FAMILIAS.map((f) => [f.key, f.sinRotulo ? null : f.label]));
+  const grupos = gruposMas('admin', 'completo');
+  assert.equal(grupos[0].titulo, null, 'Second Brain no va arriba, sin título');
+  assert.deepEqual(grupos[0].secciones.map((s) => s.id), ['mako']);
+  // Y el Ops Center del super admin, arriba con su criatura (no en una caja «Super admin» al final).
+  const mas = sinComentarios(leer('app/m/mas/page.tsx'));
+  assert.match(mas, /leading=\{criatura\('Ops Center', true\)\} titulo="Ops Center"/);
+  assert.doesNotMatch(mas, /titulo="Super admin"/);
+});

@@ -408,6 +408,72 @@ export const BITACORA: Hito[] = [
       'tests/offer-cifras-y-marcas.test.ts — 14 roturas, todas caen',
     ],
   },
+  {
+    fecha: '17 oct', hora: '07:46', chat: 'Offer', sesion: 'local_76bc176e-dac3-4c50-a67c-f62d5fbe9e5e', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada número del diagnóstico dice de dónde sale (el «43» de Código Inmobiliario)',
+    puntos: [
+      'El «43%» era un cálculo mal armado: dividía las 9 ventas de los últimos 90 días por las 21 llamadas a las que asistieron, y 4 de esas ventas nunca pasaron por una llamada. Ahora se cuenta a la misma gente: de las 13 personas calificadas que asistieron, compraron 6.',
+      'Cada aviso dice de dónde sale su número: «tu CRM, del 19/07 al 16/10», «lo que me dijiste», «tus productos en MaKo» o tu diagnóstico de fase. El puntaje dice que es el promedio de las 9 notas.',
+      'Lo que escribe la IA se revisa número por número: el que diste queda, el del CRM lleva «(según tu CRM)» al lado, y una frase con un número que no sale de ningún lado no aparece.',
+      'Las ofertas ya armadas (la de Código Inmobiliario) se ven sin el 43% ni las frases que lo repetían.',
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — `EmbudoOffer`, los avisos con su fuente, `diagnosticoConFuentes` y `conclusionParaMostrar`',
+      'lib/analisis-negocio.ts — `compraron` de los que asistieron (la misma gente)',
+      'tests/offer-cifras-con-fuente.test.ts — 15 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
+  {
+    fecha: '17 oct', hora: '08:40', chat: 'Offer', sesion: 'local_76bc176e-dac3-4c50-a67c-f62d5fbe9e5e', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Offer lee entero un documento largo, por partes',
+    puntos: [
+      'La transcripción de la llamada de venta de Código Inmobiliario (64.462 caracteres) se guardaba cortada en 40.000, y MaKo leía unos 17.000. Ahora se guarda entera.',
+      'Un documento que no entra de una vez se lee por partes, todas: MaKo anota de cada una lo que sirve para la oferta (precios, casos, objeciones, las palabras del cliente) con los números tal cual, y eso es lo que usa la conversación, el diagnóstico y la oferta.',
+      'Vale para un archivo, para la página de un link y para la transcripción de un audio largo. Si una parte no se pudo resumir, va tal cual y el chip lo dice.',
+      'Probado con la IA de verdad en el ws3: una llamada de 43.000 caracteres, 3 partes en 18 segundos, y los 8 datos sembrados (el precio del final incluido) llegaron todos.',
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — `partirEnPartes`, `lecturaPorPartes`, `cuerpoDelDoc` y el tope de 300.000',
+      'lib/offer-ia.ts — `lecturaDeParte` y su prompt (editable en /configuraciones: «Leer un documento largo por partes»)',
+      'app/api/offer/route.ts — `leerPorPartes` en leer, leer-link y el audio',
+      'tests/offer-documento-entero.test.ts — 9 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
+  {
+    fecha: '17 oct', hora: '09:10', chat: 'Offer', sesion: 'local_76bc176e-dac3-4c50-a67c-f62d5fbe9e5e', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Al terminar, lo primero que se ve es el PDF',
+    puntos: [
+      'Cuando MaKo termina de armar la oferta con la pantalla abierta, la ventana se abre sola y muestra el PDF, página por página, tal cual se descarga.',
+      '«Ver mi oferta» también abre en el PDF. El diagnóstico y la oferta nueva quedan en las pestañas de al lado.',
+      'Se ve igual en la computadora y en el teléfono: las páginas son las del mismo documento, sin depender del visor de PDF del navegador.',
+    ],
+    archivos: [
+      'lib/pdf-escritor.ts — `paginasSvg`: las mismas páginas del PDF, en SVG',
+      'app/offer/VistaPdf.tsx — la pestaña «PDF», la primera',
+      'app/offer/OfferApp.tsx — la ventana que se abre sola al terminar',
+      'tests/offer-vista-pdf.test.ts — 8 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
+  {
+    fecha: '17 oct', hora: '10:05', chat: 'Offer', sesion: 'local_76bc176e-dac3-4c50-a67c-f62d5fbe9e5e', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una oferta se guarda en uno o varios funnels',
+    puntos: [
+      'Al guardar la oferta, eliges en qué funnels va: el de la conversación viene marcado, y puedes sumar otros o elegir todos. Es el mismo selector de los objetivos de /general.',
+      'Ya guardada, dice dónde quedó: «Guardada en Negocio que escala y Renovación».',
+      'Con un solo funnel en el negocio no aparece el selector: se guarda en ése, como antes.',
+      'MaKo también lo hace desde el chat (guardar_oferta_analisis), con tu «sí».',
+    ],
+    archivos: [
+      'app/offer/Conclusion.tsx — el selector (`ElegirFunnels`) y «Guardada en …»',
+      'lib/offer-sesiones.ts — `guardarComoOferta` liga a cada funnel elegido',
+      'lib/api-mako/areas/negocio.run.ts — guardar_oferta_analisis',
+      'tests/offer-guardar-funnels.test.ts — 9 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
 ];
 
 export const PARTES: Parte[] = [

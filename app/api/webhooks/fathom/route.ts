@@ -26,7 +26,6 @@ import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { credWsEstricta, envCred } from '@/lib/credenciales';
 import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { redactarFollowUpPostLlamada } from '@/lib/post-llamada';
-import { textoAvisoPostLlamada } from '@/lib/lead-resumen';
 import { datosPostLlamada } from '@/lib/reunion-grabada';
 import { esGrabacionDeEntrega } from '@/lib/insights-llamada-reparto';
 import { procesarReunionesNuevas } from '@/lib/reunion-auto';
@@ -251,10 +250,10 @@ export async function POST(request: NextRequest) {
         // sin él, una reunión terminada no le avisa a nadie. Y NO cuenta nada de
         // la charla — eso vive en la pantalla que linkea (ver lib/lead-resumen.ts).
         try {
-          const texto = await textoAvisoPostLlamada({ leadId: lead.id, nombre, reunion, duracionMin: dur });
-          // El lead y los DATOS van con el texto (15/10/2026): la automatización de la plataforma («Terminó la Reunión de un
-          // Negocio») los cita por nombre; sin ella, sale el texto de siempre.
-          await emitirDelCatalogo('reunion-ocurrio-fathom', { texto, lead: { id: lead.id, nombre }, datos: datosPostLlamada({ reunion, duracionMin: dur }) });
+          // El lead y los DATOS (15/10/2026): la automatización de la plataforma («Terminó la Reunión de un Negocio») los cita
+          // por nombre. Desde el 16/10 no hay camino viejo: sin ella no sale nada, así que el texto armado acá (que sólo
+          // rotulaba el feed) se fue el 17/10 («nada por detrás», lote 3).
+          await emitirDelCatalogo('reunion-ocurrio-fathom', { lead: { id: lead.id, nombre }, datos: datosPostLlamada({ reunion, duracionMin: dur }) });
         } catch (err3) {
           console.error(`[webhook:fathom] aviso post-llamada lead=${lead.id} falló: ${err3 instanceof Error ? err3.message : String(err3)}`);
         }

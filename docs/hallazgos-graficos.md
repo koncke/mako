@@ -1216,15 +1216,235 @@ aparecer por defecto», y editando falta cómo agregarlos. Revierte el 14/10, cu
 Test: tests/general-filtros-por-defecto.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
 *17/10/2026, claude4 (chat Dashboard).*
 
+## Los bloques épicos siguen el color de la hoja: la portada, y lo relleno de los bloques de General (17/10/2026)
+
+Martín (#859, revisión del 16/10, 1:12:30): «los bloques… épicos… no están reaccionando con la edición del estilo de la
+hoja como el cambio de color». La portada se pintaba con la identidad de su plantilla (lib/graficos-identidad.ts) y los
+bloques de General con `--primary`, el azul de la app: ninguno leía el acento de «Estilo de la hoja».
+
+- **Con un acento elegido, la portada es de ese color** (`identidadEfectiva`); la forma sigue siendo la de su identidad.
+  Sin acento, la de la plantilla (cada plantilla se distingue por su color). ⚠️ Son TRES los que dibujan una tarjeta —el
+  editor (el marco), el gráfico de adentro (su paleta y su halo, Grafico.tsx) y la miniatura de la galería— y los tres
+  reciben el acento: con uno solo, la tarjeta sale de un color y sus series de otro.
+- ⚠️ **La tinta sobre un color que eligió la persona se CALCULA** (`tintaSobre`): la tabla de identidades trae sus tintas
+  curadas, un acento libre no. La primera versión (92 % de negro) la tiró el propio test: 4,47 sobre #338833. Con 96 %, el
+  peor fondo de la grilla del test da 4,53 (#3377CC): queda poco margen, así que no se aclara la tinta oscura.
+- **Los bloques de General pintan con el acento sólo lo RELLENO** (barras, botones, los números del Plan: `--gb-acento`,
+  app/general/bloques/comun.tsx), también en el teléfono (app/m/hoy/GeneralM.tsx). Los links de texto siguen en
+  `--primary`: un acento claro (el lima) sobre la tarjeta blanca no se lee.
+- En Propiedades, con un acento en la hoja, el color de portada dice «Usa el color de la hoja» (elegir uno cambia la forma).
+
+Test: tests/graficos-identidad-acento.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** lib/graficos-identidad.ts · app/dashboard/EditorInforme.tsx · app/dashboard/Grafico.tsx ·
+app/dashboard/MiniaturaHoja.tsx · app/general/bloques/comun.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
+## Un MaKo con dos modos: un análisis pedido en «Editar» no toca la hoja (17/10/2026)
+
+Martín (#862, revisión del 16/10, 1:24:47): Joan le pidió al panel «Editar con MaKo» un análisis del funnel y MaKo le
+EDITÓ la hoja: «Una cosa es MaKo analiza y otra cosa es MaKo Edita». El AI Analyst (⋮) y «Editar con MaKo» eran dos
+paneles sin relación, y el de editar convertía cualquier pedido en cambios.
+
+- **La regla no depende de que el modelo la cumpla:** la guía le pide `"analizar":true` para un análisis, y
+  `aplicarEdicion` DESCARTA los cambios que vengan con esa marca (el modelo a veces manda las dos cosas). La guía va en el
+  mensaje del usuario, como la de experimentos: el system se reemplaza desde /configuraciones.
+- **Los dos paneles son el mismo MaKo en dos modos** («Analizar · Editar» en la cabecera, app/dashboard/ModosMako.tsx), y
+  un análisis pedido en Editar ofrece «Analizar la hoja», que pasa al otro modo sin cerrar el panel. Los modos aparecen
+  sólo si la persona tiene los dos: el AI Analyst no es del que sólo mira y editar es del que guarda.
+- La API de MaKo (`editar_hoja_con_ia_*`) ya contestaba «sin cambios» con la respuesta: un análisis tampoco cambia nada ahí.
+
+Test: tests/dashboard-mako-modos.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** lib/graficos-ia-edicion.ts · app/api/graficos/editar/route.ts · app/dashboard/PanelEditarMako.tsx ·
+app/dashboard/PanelAnalista.tsx · app/dashboard/ModosMako.tsx · app/dashboard/EditorInforme.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
+## Mirando, MaKo cambiaba la hoja: el botón de la topbar abría «Editar», y el «analizar» lo decidía el modelo (17/10/2026)
+
+Martín, 17/10 19:31: «ya falló con Mauricio, al estar en VISTA del dashboard debería asesorar, no modificar».
+
+- ⚠️ **El diagnóstico obvio era el equivocado.** Por «Un MaKo con dos modos» (arriba) parecía cubierto, porque el
+  CÓDIGO descarta los cambios de un análisis. Pero sólo los descarta si el MODELO marca el pedido con `"analizar":true`.
+  Y «muéstrame…» o «compárame…» los puede leer como «agrega un gráfico». El agujero era el camino: el botón de MaKo de la
+  topbar abría «Editar con MaKo» también MIRANDO (`guardable && !enBlanco && !compartido`, sin `editando`). Lo que
+  devolvía entraba por `mutar` y lo escribía el autoguardado, que guarda igual en vista. Ni la ruta ni el panel
+  preguntaban si la persona estaba editando.
+- **Ahora lo decide el server:** `/api/graficos/editar` contesta 409, sin gastar un token, si el pedido no trae
+  `modo: 'editar'`, `editando: true` y el id de ESA hoja (`permisoEdicionMako`). Mirando, el botón abre el AI Analyst.
+  El panel que cambia la hoja sólo se monta editando, y la cabecera ofrece «Editar» sólo editando. Al tocar «Ver» con
+  el panel abierto, pasa a Analizar. Y `ponerHojaDeMako` no aplica nada fuera de la edición, por si una respuesta
+  llega tarde. `?probar=` (la hipótesis de Offer) es un pedido de cambiar, así que entra editando.
+- **Los otros caminos, revisados:** el chat por gráfico (`ChatMakoGrafico`) y el AI Analyst no tienen cómo escribir la
+  hoja. La API de MaKo (`editar_hoja_con_ia_*`) es una herramienta de EDITAR, propone y la persona confirma: no hay un
+  «en vista» ahí. Las burbujas «archivar otra hoja» de los pedidos piden un clic, y desde ahora sólo existen editando.
+- **Lo medido en la base** (sólo lectura, ws1, informe `graficos.tablero.2` de Mauricio):
+  - Hubo UNA sola llamada a «Editar con MaKo» en el ws1, el 17/10 a las 00:10:05 UTC (16/10, 21:10 en Argentina), por
+    la red de plataforma (Gemini). El último guardado del informe es de las 00:08:30, ANTES. Ninguna pieza de la hoja
+    activa tiene un id de esa hora (el id lleva `Date.now()` en base 36). Esa llamada no dejó nada guardado.
+  - Hoy le queda UNA hoja activa, «Ads Analyst». Se creó de la plantilla a las 00:03:53, y a las 00:04:14 MaKo le sumó
+    4 gráficos: es el ajuste de la plantilla, no «Editar con MaKo». Tiene 13 hojas archivadas. 7 se archivaron entre
+    las 23:58 y las 00:08:30 UTC: las 6 rehechas del 15/10 y una «Landing» creada a las 23:58:56.
+  - La base no dice QUIÉN las archivó: el informe no tiene historial, y un clic de la persona y una burbuja de MaKo
+    escriben lo mismo. Están archivadas, no borradas, y se recuperan desde Archivados.
+  - ⚠️ `anthropic_usage` registra sólo lo que cae a la red de plataforma o a un respaldo. Una llamada que contestó una
+    key del negocio no deja fila. Antes de esa llamada hubo un 429 a las 00:08:11 y un guardado a las 00:08:30: no se
+    puede descartar que haya sido una edición contestada por otra key del negocio.
+
+Test: tests/dashboard-mako-vista.test.ts (probado rompiéndolo, cinco roturas, 4 / 1 cada una).
+**Nadie lo miró en pantalla.**
+**Vive en:** lib/graficos-ia-edicion.ts (`permisoEdicionMako`) · app/api/graficos/editar/route.ts ·
+app/dashboard/EditorInforme.tsx · app/dashboard/PanelEditarMako.tsx. El plan para el resto de los chats está en
+docs/diseno-chats-de-mako.md.
+**Lo que quedó SIN hacer:** el autoguardado (`/api/graficos`, guardar) sigue aceptando cualquier tablero, también en
+vista. La vista escribe legítimamente (crear o archivar una hoja, el ajuste de una plantilla), así que no se le puede
+poner la misma puerta sin separar esas escrituras. El resto de los chats de MaKo sigue sin la regla: el plan.
+*17/10/2026, claude4 (agente del Cerebro).*
+
+## Del mapa de calor al diagnóstico de estructura del Web Generator (17/10/2026, la mitad del Dashboard)
+
+Martín (#886, revisión del 16/10, 1:29:51): «que lo que recién vimos en dashboard del template de landing se combine
+con esta funcionalidad del feedback de la estructura que te da Web Generator, que vivan ambos lugares». La hoja Landing
+dice qué HACE la gente en una página; el Web Generator, qué le FALTA.
+
+- El mapa de calor lleva «Analizar la estructura →» a `/web-generator?analizar=<url>`, de la MISMA página que se está
+  mirando. Es el contrato que el Web Generator ya entiende (app/web-generator/page.tsx): no se inventó uno con otra tab.
+- La URL se valida (sólo http/https, `hrefAnalizarEstructura`): sale de lo que el Pixel guardó, que viene de afuera.
+- Sólo con sesión y mirando: el gráfico le pasa `conEnlaces` al dibujo propio (app/dashboard/graficos/registro.ts), lo
+  mismo que decide el ▶ de los anuncios.
+
+Test: tests/landing-estructura-enlace.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
+**Vive en:** lib/landing-estructura-enlace.ts · app/dashboard/MapaCalor.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
+## Una tarjeta rota ya no se lleva la hoja: la red por bloque (17/10/2026)
+
+**Síntoma:** Martín, en el celular: «Cannot read properties of undefined (reading 'length')» y la portada de General
+entera en blanco. Era UN bloque (el ejemplo de «Meta objetivo» sin `funnelIds`, lo arregló el Cerebro en 6b922f7e3).
+
+**Causa:** React desmonta hasta el error boundary más cercano, y el único era el de la app (app/error.tsx). No había
+ninguno por bloque ni por gráfico: cualquier tarjeta que tirara tumbaba la pantalla, en General y en el Dashboard.
+
+**Lo que quedó:** `RedDeBloque` (app/dashboard/RedDeBloque.tsx) envuelve cada tarjeta. Si su dibujo tira, ESA dice «Este
+bloque no cargó» y el resto sigue. Va en los bloques de General (ElementoGeneral, que es también lo que dibuja el
+teléfono), en sus miniaturas, y en cada elemento y cada gráfico del editor. En un gráfico, el título y el filtro quedan
+arriba.
+
+- **Lo obvio no alcanzaba:** envolver lo que devuelve `dibujar(e)` no atrapa nada si `dibujar` corre en el render del
+  PADRE. El error sale de quien llama, por encima de la red. Por eso `dibujar` (y `muestra`) corren en un hijo de la red
+  (`DibujoDeBloque`, `MuestraDeBloque`). La regla: lo que puede tirar se llama ADENTRO, no se le pasa ya armado.
+- **Volver a intentar sin remontar:** una tarjeta rota reintenta cuando cambia algo de `reiniciarCon` (el gráfico, sus
+  datos), comparado de a uno como las dependencias de un efecto. Una `key` con la configuración remontaría la tarjeta
+  sana en cada arrastre y perdería lo de adentro (el scroll de una tabla). Al gráfico se le pasa `datos[c.id]` y no
+  `est`: sin datos, `est` es un objeto nuevo en cada render y la tarjeta rota reintentaría (y se rompería) en cada uno.
+- **No se puede montar en un test:** el jsdom de node_modules no arranca (docs/hallazgos-infra.md), y un render en el
+  server no corre error boundaries. El test llama a los métodos de la red y lee el montaje en el código.
+
+Test: tests/general-red-por-bloque.test.ts (probado rompiéndolo, cinco roturas). **Nadie lo miró en pantalla.**
+**Vive en:** app/dashboard/RedDeBloque.tsx · app/dashboard/ElementoGeneral.tsx · app/dashboard/EditorInforme.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
+## Un lead agregado a otro funnel lo encuentra el FILTRO, no el agrupado (17/10/2026)
+
+**Síntoma:** una hoja filtrada por «Renovación» (ws1) salía vacía: ese funnel tiene sólo leads AGREGADOS, y el filtro de
+los leads miraba la casa (`leads.funnel_id`). Y la dimensión se seguía llamando «Producto» (Martín decidió «Funnel» el 11/10).
+
+**La decisión (con criterio, sin Martín):** la fila del lead lleva dónde MÁS está (`Fila.m.producto`, de `lead_funnel`,
+`funnelsAgregados` en lib/graficos-lectura.ts) y eso lo mira SÓLO `filtrarFilas`. Filtrar trae a los agregados; agrupar
+por funnel cuenta a cada lead UNA vez, en su casa. Así ningún total se duplica (era el «sin decidir») y ninguna hoja
+filtrada queda vacía. Lo mismo en la cartera. Los pagos ya iban por el funnel del día. El id de la dimensión sigue siendo
+`producto` (hojas guardadas); cambió el nombre que se ve.
+
+⚠️ **La revisión del Cerebro (17/10, plata):** así, la venta y lo cobrado de la CASA (el VSL) se sumaban en «Renovación».
+Ahora, por un funnel agregado, la fila cuenta pero sus métricas de la casa van en 0 (`Fila.soloCasa`: cierres, vendido,
+cobrado, el ciclo hasta el pago; en la cartera, la deuda), y el lead cuenta ahí sólo desde el día en que se lo agregó
+(`lead_funnel.created_at` contra la fecha de la fila). Es la regla de los pagos y los OKR: cada cosa en el funnel donde
+estaba ESE día. Consecuencia medida en el ws1: los 5 de «Renovación» se agregaron el 13/10 con todo lo anterior, así que
+una hoja de Leads por alta o por cierre filtrada por «Renovación» da 0 hasta que pase algo ahí (la fuente Pagos dice lo mismo).
+
+**Trampa:** `sed -i` en Git Bash pasa el archivo entero a LF en el working copy (el diff igual sale chico, porque el
+índice ya es LF). **Sin hacer:** un gráfico agrupado por funnel DENTRO de una hoja filtrada por «Renovación» muestra a
+esos leads bajo su casa (p. ej. «Ventas»), no bajo «Renovación». Si molesta, que el agrupado use el valor del filtro.
+**Vive en:** lib/graficos-agregar.ts (`Fila.m`, `filtrarFilas`) · lib/graficos-lectura.ts (`funnelsAgregados`) ·
+lib/graficos-datos.ts (`filasLeads`) · lib/graficos-datos-extra.ts (`filasCartera`) · lib/graficos-catalogo.ts ·
+tests/graficos-funnel-agregados.test.ts · *17/10/2026, B5 (claude4)*
+
+## Los experimentos que ya existen: «Editar con MaKo» los conoce (17/10/2026)
+
+Los de antes de la mudanza y los que crea la API no tenían elemento: no se veían en ninguna pantalla. `editarHojaIA`
+(lib/graficos-ia-editar.ts) le pasa al modelo los del negocio (id, título, estado; hasta 20, los títulos como dato no
+confiable) y `aplicarEdicion` pone `{"experimento":{"id":N}}` validado contra ESA lista y una vez por hoja. Lo que la
+API y la ruta comparten está en `editarHojaIA`, así que los dos caminos lo tienen. **Vive en:** lib/graficos-ia.ts
+(`AlcanceIA.experimentos`) · lib/graficos-ia-edicion.ts · lib/graficos-ia-editar.ts ·
+tests/experimentos-existentes-en-la-hoja.test.ts · *17/10/2026, B5 (claude4)*
+
+## «Editar con MaKo»: el hilo sobrevive a recargar, y Claude en pausa no dice «Conecta tu Claude» (17/10/2026)
+
+- **El hilo** se guarda en el navegador por informe y por hoja (app/dashboard/hilo-guardado.ts), LIVIANO: sin las hojas de
+  antes y de después de cada cambio (después de recargar no se ofrece un Deshacer viejo: la hoja ya se guardó). Se lee
+  después de montar y no se guarda el `{}` del primer render encima (`hilosListos`). Test: tests/dashboard-hilo-guardado.test.ts.
+- **Claude en pausa** (`claudePausado`): `conClaveDelNegocio` devolvía null y el negocio que conectó SU Claude leía «Conecta
+  tu Claude». Ahora la pausa deja su error (`CLAUDE_EN_PAUSA`, lib/anthropic.ts). Test: tests/claude-pausado-aviso.test.ts.
+*17/10/2026, B5 (claude4)*
+
+## El Dashboard unido: Focus es la General, y siguen siendo dos informes (17/10/2026)
+
+Martín (17/10, ~22:40, prototipo docs/prototipos/coherencia-1710.md, pedido 3): «Home» sale de la sidebar, el Dashboard
+abre en la hoja fija «Focus» (lo que era /general), las otras pestañas son las hojas de siempre y las plantillas van a
+«Templates». La barra, el menú del teléfono y Ctrl K son del chat Sidebar; lo de adentro, de acá.
+
+- **Lo obvio era mudar General al informe del Dashboard, y no:** son dos informes con dos claves
+  (`general.informe.<sub>` y `graficos.tablero.<sub>`), y los bloques de General sólo se dibujan dentro de
+  `ProveedorGeneral`. Mudar habría sido una migración de datos de cada persona por una cuestión de navegación. No se
+  mudó nada: /dashboard elige QUÉ EDITOR monta según `?hoja=` (`informeDePedida`, lib/dashboard-focus.ts) y cada
+  editor recibe las hojas del otro para la tira.
+- **Medido antes de decidir (prod, 17/10):** hay 3 General guardadas y una (ws1) tiene dos hojas, «Foco de la semana» y
+  «Cobros». Por eso Focus es la PRIMERA hoja de General y las otras van como pestañas después de Focus. Si Focus fuera una
+  sola hoja, «Cobros» quedaba sin camino.
+- **La `key` por informe, no por hoja:** pasar de Focus a una hoja es una navegación a la MISMA ruta, y React reusaría el
+  editor montado con el estado del otro informe. Pero una `key` con la hoja remontaría el editor en cada `router.refresh()`
+  (lo hacen los bloques al cambiar datos), porque la URL ya trae la hoja nueva. Las pestañas del editor montado cambian
+  en el lugar (`irAHoja`); las del otro son links.
+- **`?hoja=` de una hoja de General abre Focus:** es lo que el editor escribe en la URL al cambiar de hoja, así que
+  recargar tiene que volver ahí. Una plantilla pedida por URL (`foco`, `comercial`, las rutas viejas de los Analysts)
+  sigue siendo del Dashboard. Ojo: `foco` es una plantilla del Dashboard y `focus` es la hoja fija.
+- **«Templates» desde Focus** lleva a `/dashboard?plantillas=1`, que abre la galería UNA vez: el parámetro se borra de la
+  URL al entrar, o recargar la volvería a abrir.
+- **Los `revalidatePath('/general')` del CRM se quedaron** (16 en app/crm/actions.ts y 6 más en app/crm/, que son del chat
+  CRM). No hace falta tocarlos: next.config no define `staleTimes`, así que una página dinámica no se guarda en la caché
+  del cliente (y 8 de esos 22 lugares ya revalidan también `/dashboard`). Los de General (app/general/actions.ts,
+  general.run.ts) pasaron a `/dashboard`.
+- **El teléfono:** la «Hoja» de /m/hoy (#872) suma las hojas del Dashboard que entran en el teléfono, cada una a su
+  pantalla de siempre (/m/dashboard/<id>), y `/dashboard?hoja=focus` cae en la portada. /m/dashboard no se tocó.
+
+Test: tests/dashboard-focus.test.ts (probado rompiéndolo, ocho roturas). **Nadie lo miró en pantalla.**
+**Vive en:** lib/dashboard-focus.ts · app/dashboard/page.tsx · app/dashboard/FocusDeGeneral.tsx ·
+app/dashboard/PestanasDashboard.tsx · app/dashboard/EditorInforme.tsx · app/general/page.tsx · app/m/hoy/page.tsx.
+*17/10/2026, claude4 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
+
+- **El Dashboard unido (17/10/2026):**
+  - En /m/dashboard el segmentado no tiene Focus (la barra de abajo lleva a la portada).
+  - Una hoja de General pedida como `/dashboard?hoja=<id>` en el teléfono cae en /m/dashboard/<id>, que vuelve a
+    /m/dashboard. El mapa de rutas no lee datos, así que no sabe que esa hoja es de General. Sólo pasa con una segunda
+    hoja de General (hoy, la del ws1).
+  - El desplegable de hojas de la barra sigue en los dos editores. Repite la tira, pero tiene lo que la tira no tiene:
+    renombrar, archivar y lo archivado.
+
+- **La red por bloque (17/10/2026):** las miniaturas de la galería dibujan los gráficos de ejemplo sin red
+  (app/dashboard/MiniaturaHoja.tsx; sólo los bloques de General la tienen ahí). Los datos de ejemplo son fijos, así que
+  el riesgo es bajo. Y lo que falla al LEER los datos de /general (app/general/datos.ts) no es un dibujo: eso sigue en
+  la página.
+
+- **#886, la otra mitad:** que el diagnóstico del Web Generator muestre las métricas de la página (visitas, hasta dónde
+  bajan, qué tocan) es del chat Web Generator (app/web-generator/diagnostico/PanelDiagnostico.tsx). Avisado al Cerebro.
 
 - **Una plantilla que se ajusta por detrás (17/10/2026):** mientras llega el ajuste, la hoja muestra los gráficos que
   después se van (los vacíos dicen «Sin datos» unos segundos). Si se quisiera, marcarlos como «midiendo» hasta que llegue.
 
 - **Experiments en la hoja (17/10/2026):**
-  - Un experimento creado por la API (`crear_experimento`) o uno de antes del 17/10 **no tiene elemento: no se ve en
-    ninguna pantalla** (sí en el contexto de MaKo y por la API). `sanearElemento` ya acepta `experimento: { id: N }`;
-    falta que «Editar con MaKo» conozca los experimentos del negocio para poder agregarlos a una hoja.
+  - ~~Un experimento creado por la API o uno de antes del 17/10 no se ve en ninguna pantalla~~ **Arreglado el
+    17/10/2026**: «Editar con MaKo» los conoce y los pone en la hoja (ver «Los experimentos que ya existen», más arriba).
+    Sigue sin pasar SOLO: hay que pedírselo («traeme mis experimentos»).
   - El teléfono no muestra ni pide experimentos: /m/dashboard destila la hoja en sus números y su serie
     (`piezasDeHoja`, app/m/dashboard/datos.ts, sólo gráficos) y no tiene el panel de «Editar con MaKo».
   - Una Retro nueva ya no se genera en ningún lado. Si vuelve, que sea otro elemento de la hoja.
@@ -1234,10 +1454,8 @@ Test: tests/general-filtros-por-defecto.test.ts (probado rompiéndolo). **Nadie 
     app/_components/nav.ts, lib/movil-rutas.ts y lib/capas.ts (la capa superadmin), se van esas dos líneas y el
     `experimentos` de `conRol`, y /experimentos y /m/experimentos entran en `RETIRADAS` de tests/tabs-retiradas.test.ts.
 
-- **El filtro «Producto» de los LEADS mira sólo la casa** (17/10/2026): una hoja filtrada por un funnel de agregados
-  («Renovación») no muestra a sus leads. Contar a un lead en sus dos funnels duplica los totales: sin decidir. Vive en
-  `filasLeads` (lib/graficos-datos.ts). Y la dimensión se sigue llamando «Producto» (la decisión del 11/10 de llamarla
-  «Funnel» no llegó a los gráficos).
+- ~~**El filtro «Producto» de los LEADS mira sólo la casa**~~ **Arreglado el 17/10/2026**: ver «Un lead agregado a otro
+  funnel lo encuentra el FILTRO, no el agrupado», más arriba.
 
 - **Las portadas (15/10/2026):** mirado en producción en el ESCRITORIO con las 6 hojas de Mauricio; el celular, sólo en el
   arnés (la ventana de la extensión no se dejó angostar). Falta decidir con Leila (o con Martín) su Cobranza, que es una
@@ -1288,6 +1506,9 @@ Test: tests/general-filtros-por-defecto.test.ts (probado rompiéndolo). **Nadie 
   `lib/creaciones.ts`, rama `api-acciones-1310`) y el Dashboard está en `POR_ENCHUFAR`. Cuando llegue a main: pasarlo a
   `ENCHUFADOS` (`lib/creaciones-reglas.ts`), su enchufe en `lib/creaciones-enchufes.ts` reusando `hojaParaOtroNegocio` y
   `hojaConIdsNuevos` (`lib/graficos-copia.ts`), y `<BotonPublicar tipo="dashboard" …>` en el ⋮ de la hoja.
+  ⚠️ (17/10, B5) `hojaParaOtroNegocio` SOLA no alcanza: deja intactos los filtros fijos, y uno sobre un closer manda su
+  nombre a la galería. Va `hojaParaCopiar` primero. Y quien nunca guardó su informe trae el INICIAL (`estado: 'inicial'`):
+  no se le suman esas hojas. HECHO y sin subir en la rama `pend-b5-publicar-dash` (`cc07af5ea`), para después del 20/10.
 - **El teléfono (`/m/dashboard`)** le sigue mostrando Marketing y Comercial fijos a quien no tiene informe (en
   escritorio arranca en blanco con «＋ Nuevo Dashboard»).
 - **El AI Analyst no dice qué modelo contestó** (falta `respondioOut` en `chatCheapCascade`,
@@ -1300,3 +1521,11 @@ API): seis agentes en paralelo (P1 elementos, P2a Closing, P2b modo closer, P3 A
 integración, commit `6e85d8d7`. Las cohortes en «Todo» y la guarda de «Marcar cobrada» se cerraron ahí
 (decisiones 3 y 2). La topbar de Looker y Compartir (feedback de nueve puntos, 11/10 a la tarde): dos
 agentes en paralelo (TOPBAR y COMPARTIR) + integración en un worktree limpio.*
+---
+
+## La tabla de cuotas no dice «Pendiente» de una cuota devuelta o de baja (17/10/2026)
+
+Con «Todo», `filasPagos` pintaba «Pendiente» la cuota de un cliente dado de baja (#871) o devuelta por un reembolso, y la
+sumaba en `pendiente`. Ahora dice «De baja» o «Devuelta» y no suma: la regla de toda suma de lo impago (`noEsDeuda`,
+lib/cobrado-lead.ts). Se lee con `*` porque `baja_at` es de la mig 0307 y una lista explícita rompe la tabla sin ella.
+**Vive en:** lib/graficos-datos.ts (`filasPagos`) · tests/graficos-cuota-baja.test.ts · *17/10/2026, agente B4.*

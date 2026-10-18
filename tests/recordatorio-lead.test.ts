@@ -378,7 +378,7 @@ test('CABLEADO: el emisor manda sólo con el interruptor del negocio Y el envío
   const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
   assert.match(b, /return runWithWorkspace\(ws, async \(\) =>/, 'envioWhatsappHabilitado lee el contexto: tiene que ir adentro del runWithWorkspace');
   // Desde la mudanza (10/10/2026) el interruptor y los toques salen de `toquesDelNegocio`: la automatización del
-  // recordatorio si el negocio la tiene, y si no la configuración de antes (tests/recordatorio-automatizacion.test.ts).
+  // recordatorio del negocio; sin ninguna, apagado (desde el 17/10 sin camino viejo: tests/recordatorio-automatizacion.test.ts).
   assert.match(b, /try \{ fuente = await toquesDelNegocio\(ws\); \}\s*catch \(e\) \{ res\.errores\.push\(msgErr\(e\)\); return res; \}/, 'una lectura que falla no puede caer a otra fuente');
   assert.match(b, /if \(!fuente\.activo && !opts\.dry\) return res;/, 'apagado tiene que cortar ANTES de mirar los leads');
   assert.match(b, /res\.envio = await envioWhatsappHabilitado\(\)/);
@@ -411,7 +411,8 @@ test('CABLEADO: el emisor le pasa la zona del negocio a toquesVencidos (la hora 
 
 test('CABLEADO: cada toque sale por SU número', () => {
   const b = bloque(EMISOR, 'export async function mandarRecordatoriosAlLead(');
-  assert.match(b, /enviarYEspejar\(\{ telefono, texto, leadId: lead\.id, linea: toque\.linea \}\)/,
+  // (17/10, #869: y el interruptor de la vista previa de SU tarjeta, tests/recordatorio-vista-previa.test.ts.)
+  assert.match(b, /enviarYEspejar\(\{ telefono, texto, leadId: lead\.id, linea: toque\.linea(?:, sinVistaPrevia: toque\.sinVistaPrevia === true)? \}\)/,
     'sin `linea`, el número elegido en la tarjeta se guarda y el toque sale por la de por default');
   // (La ruta que guardaba el número de cada toque se fue con el lienzo de antes, el 10/10/2026: el número
   // es la `linea` del paso de la automatización, que valida `setSecuenciaPasos` como en cualquier otra.)

@@ -46,7 +46,7 @@ import { getSupabaseServer } from '../supabase';
 import {
   CLAVE_TXT_MAKO, PREFIJO_TXT_MAKO, TOPE_PENDIENTES, estaVerificado, motivoDominioInvalido, motivoParaQuitarReclamo,
   normalizarDominio, pendienteVencido, pendientesVigentes, puedeSoltarseDeVercel, queFalta, redirigeA, registrosDns,
-  slugServible, soltarWww, sumarWww, textoDominioOcupado, textoYaRedirige, wwwDeRaiz,
+  debeSumarWww, slugServible, soltarWww, sumarWww, textoDominioOcupado, textoYaRedirige, wwwDeRaiz,
   type Comprobacion, type CuerpoWww, type DepsWww, type EstadoDominio, type EstadoDominioPublico, type RespuestaDominio,
 } from './dominios-reglas';
 
@@ -361,7 +361,7 @@ export async function estadoDominio(idRaw: unknown, op: { verificar?: boolean } 
     if (!('fila' in cx)) return cx;
     const { ws, id, fila } = cx;
     if (!fila.dominio || !fila.dominio_estado) return { ok: true, dominio: null };
-    return { ok: true, dominio: await comprobar(ws, id, fila.dominio, fila.dominio_estado, fila.dominio_verificado_at, fila.dominio_reclamado_at, !!op.verificar) };
+    return { ok: true, dominio: await comprobar(ws, id, fila.dominio, fila.dominio_estado, fila.dominio_verificado_at, fila.dominio_reclamado_at, !!op.verificar, fila.dominio_agregado_por_mako === true) };
   } catch (e) {
     return deError(e, 'estado');
   }
@@ -372,16 +372,17 @@ export async function estadoDominio(idRaw: unknown, op: { verificar?: boolean } 
  * avisa «Reserva vencida» a un pendiente que pasó las 72 h, que antes la pestaña no decía. Sólo AVISA:
  * la verificación no mira la fecha (si nadie lo tomó, cargar el DNS lo sigue verificando).
  */
-async function comprobar(ws: number, id: number, d: string, estado: EstadoDominioPublico, verificadoAt: string | null, reclamadoAt: string | null, verificar: boolean): Promise<EstadoDominio> {
+async function comprobar(ws: number, id: number, d: string, estado: EstadoDominioPublico, verificadoAt: string | null, reclamadoAt: string | null, verificar: boolean, raizEsNuestra: boolean): Promise<EstadoDominio> {
   const c = configVercel();
   const valorTxt = valorTxtMako(ws, id, d);
   let pd = await leerEnVercel(c, d);
   if (pd && !pd.verified && verificar && pd.verification.length) pd = (await verificarEnVercel(c, d)) ?? pd;
-  const [dns, mako, www] = await Promise.all([
+  const [dns, mako, wwwLeido] = await Promise.all([
     pd ? configDns(c, d) : Promise.resolve(null),
     estado === 'verificado' ? Promise.resolve(true) : txtTiene(d, valorTxt),
     pd ? wwwDeLaRaiz(c, d, pd.apexName) : Promise.resolve(null),
   ]);
+  let www = wwwLeido;   // se vuelve a leer si se suma recién (abajo)
   const comp: Comprobacion = { enVercel: !!pd, vercel: pd ? pd.verified : null, apunta: dns ? dns.apunta : null, mako };
 
   let estadoFinal = estado;
@@ -402,6 +403,20 @@ async function comprobar(ws: number, id: number, d: string, estado: EstadoDomini
     }
   }
 
+  // El www de la raíz: recién VERIFICADA (`debeSumarWww`: antes se sumaba al conectar y un reclamo ajeno tapaba el www
+  // del dueño real). No frena nada: la landing anda en la raíz aunque el www falle.
+  if (pd && debeSumarWww({ verificado: estadoFinal === 'verificado', raizEsNuestra, wwwRedirige: www !== null })) {
+    try {
+      const r = await sumarWww(depsWww(c), d, true);
+      if (r === 'sumado') {
+        console.log(`[editor-landing:dominio] #${id} (ws ${ws}) sumó el www de ${d}`);
+        www = await wwwDeLaRaiz(c, d, pd.apexName);
+      }
+    } catch (e) {
+      console.error(`[editor-landing:dominio] #${id}: no pude sumar el www de ${d} (la raíz sigue): ${msg(e)}`);
+    }
+  }
+
   return {
     dominio: d,
     estado: estadoFinal,
@@ -416,7 +431,6 @@ async function comprobar(ws: number, id: number, d: string, estado: EstadoDomini
       { ...comp, mako: estadoFinal === 'verificado' ? true : comp.mako },
       estadoFinal === 'verificado',
       estadoFinal === 'pendiente' && pendienteVencido(reclamadoAt, Date.now()),
-      www ? www.apunta : undefined,
     ),
   };
 }
@@ -493,20 +507,12 @@ export async function conectarDominio(idRaw: unknown, dominioRaw: unknown): Prom
       // Sin la marca el dominio no se suelta nunca de Vercel: queda colgado, que es la dirección segura.
       if (error) console.error(`[editor-landing:dominio] #${id}: Vercel agregó ${d} y no pude guardar la marca (no se soltará solo): ${error.message}`);
     }
-    // Tanda 7: una RAÍZ suma su www redirigiendo a ella (`sumarWww`, en positivo: sólo si la raíz es nuestra).
-    // No frena la conexión: la landing anda en la raíz aunque el www falle, y la lista de registros dice la
-    // verdad (el www sólo aparece si quedó en el proyecto).
-    try {
-      const www = await sumarWww(depsWww(c), d, agrego || marca);
-      if (www === 'sumado') console.log(`[editor-landing:dominio] #${id} (ws ${ws}) sumó el www de ${d}`);
-      else if (www === 'ocupado' || www === 'ajeno') console.warn(`[editor-landing:dominio] #${id}: el www de ${d} ya estaba (${www}): no se tocó`);
-    } catch (e) {
-      console.error(`[editor-landing:dominio] #${id}: no pude sumar el www de ${d} (la raíz quedó conectada): ${msg(e)}`);
-    }
+    // El www de una RAÍZ ya no se suma acá: recién cuando queda VERIFICADA (`comprobar`, `debeSumarWww`). Sumarlo al
+    // conectar dejaba que un reclamo ajeno, sin probar nada, tapara el www del dueño real para siempre.
     console.log(`[editor-landing:dominio] #${id} (ws ${ws}) conectó ${d}${agrego ? '' : ' (ya estaba en el proyecto)'}`);
     const estado = reclamado ? 'pendiente' : (fila.dominio_estado ?? 'pendiente');
     // Un reclamo recién hecho no venció; un reintento sobre el mismo dominio conserva SU fecha (no la renueva).
-    return { ok: true, dominio: await comprobar(ws, id, d, estado, reclamado ? null : fila.dominio_verificado_at, reclamado ? null : fila.dominio_reclamado_at, false) };
+    return { ok: true, dominio: await comprobar(ws, id, d, estado, reclamado ? null : fila.dominio_verificado_at, reclamado ? null : fila.dominio_reclamado_at, false, agrego || marca) };
   } catch (e) {
     return deError(e, 'conectar');
   }

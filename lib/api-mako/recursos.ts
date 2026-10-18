@@ -55,7 +55,7 @@ const ACENTOS: Record<string, string> = {
   analisis: 'análisis', angulos: 'ángulos', busqueda: 'búsqueda', campanas: 'campañas',
   diagnostico: 'diagnóstico', diagnosticos: 'diagnósticos', estadisticas: 'estadísticas',
   metricas: 'métricas', numeros: 'números', pixeles: 'píxeles', pixel: 'píxel',
-  publicos: 'públicos', senales: 'señales', envio: 'envío', limites: 'límites', mias: 'mías',
+  publicos: 'públicos', senales: 'señales', envio: 'envío', limites: 'límites', mias: 'mías', exportacion: 'exportación',
 };
 
 /** «anuncios-con-problemas» → «Anuncios con problemas»; «campanas» → «Campañas». */

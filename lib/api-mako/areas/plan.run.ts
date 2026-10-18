@@ -31,6 +31,9 @@ import { runMakoTool } from '@/lib/mako-tools';
 import { crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { listPlanBoard, guardarPlanTarea, moverPlanTarea, agregarDependencia, borrarDependencia, listDependencias } from '@/lib/plan-board';
 import { listTareas, editarTarea, moverTarea } from '@/lib/todo';
+// Cerrar EN EL ACTO (17/10/2026): la misma escritura en los dos tableros, sin borrador.
+import { cerrarConEvidencia, type CierreEnElActo } from '@/lib/plan-cerrar';
+import { rutaParaRevisar } from '@/lib/operaciones-reglas';
 // Las columnas del kanban (16/10/2026): claves, etiquetas y qué es un pendiente, de UN lugar.
 import { esEstado, estaPendiente, etiquetaEstado, motivoAtoradaOk } from '@/lib/todo-estados';
 import {
@@ -52,6 +55,7 @@ import { listarDescartadas } from '@/lib/reunion-descartadas';
 import { AREA_GLOSARIO } from '@/lib/glosario';
 import { createKnowledge, updateKnowledge } from '@/lib/mako-knowledge';
 import { hoyEnWorkspace } from '@/lib/timezone';
+import { validarFechaLimite } from '@/lib/plan-fecha-limite';
 // «Se repite para siempre» (mig 0163). Mismo módulo que usan el reparto, los avisos y las
 // pantallas: una lectura no puede tener su propia definición de qué compite.
 import { esRecurrente, sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurrentes';
@@ -738,6 +742,53 @@ export const RUNNERS: Runners = {
   },
 
   /**
+   * LA FECHA LÍMITE DE UNA TAREA (17/10/2026), también por WhatsApp. `preparar` valida contra el tablero y el día del
+   * negocio; `ejecutar` RELEE la fila antes de escribir (el tablero del dueño no tiene patch por columna: la regla de la
+   * cabecera de este archivo).
+   */
+  cambiar_fecha_tarea_plan: {
+    preparar: async (input, ctx) => {
+      const tab = await leerTablero(ctx.ws);
+      const t = buscarTarea(tab, str(input, 'id'), null);
+      if (!t) return { error: `No encuentro la tarea «${str(input, 'id')}» en el plan de este negocio.` };
+      if (esRecurrente(t)) return { error: `«${recortar(t.titulo, 120)}» se repite para siempre: no lleva fecha límite.` };
+      const quitar = input.quitar === true;
+      const fecha = quitar ? '' : str(input, 'fecha').trim();
+      if (!quitar) {
+        const v = validarFechaLimite(fecha, await hoyEnWorkspace().catch(() => new Date().toISOString().slice(0, 10)));
+        if (v) return { error: v };
+      }
+      const antes = t.deadline ?? '';
+      if (antes === fecha) return { error: fecha ? `La tarea «${recortar(t.titulo, 120)}» ya vence el ${fecha}.` : `La tarea «${recortar(t.titulo, 120)}» ya está sin fecha.`, yaEstaba: true };
+      return {
+        payload: { id: t.id, fecha },
+        resumen: fecha
+          ? `${antes ? `Mover la fecha de «${recortar(t.titulo, 120)}» del ${antes} al ${fecha}` : `Ponerle fecha a «${recortar(t.titulo, 120)}»: ${fecha}`}`
+          : `Quitarle la fecha (${antes}) a «${recortar(t.titulo, 120)}»`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = String(payload.id ?? '');
+      const fecha = typeof payload.fecha === 'string' ? payload.fecha : '';
+      const texto = (antes: string) => (fecha ? `MaKo movió la fecha límite ${antes ? `del ${antes} ` : ''}al ${fecha}` : `MaKo le quitó la fecha límite (${antes})`);
+      if (await usaPlanBoard(ctx.ws)) {
+        const t = (await listPlanBoard()).tareas.find((x) => x.id === id);
+        if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
+        if (esRecurrente(t)) return { ok: false, resumen: 'La tarea pasó a repetirse: no lleva fecha.' };
+        const e = texto(t.deadline || '');
+        await guardarPlanTarea({ ...t, deadline: fecha, historial: [{ id: genHistId(), ts: Date.now(), actor: 'ia' as const, text: e }, ...(t.historial ?? [])].slice(0, 40) });
+        return { ok: true, resumen: `«${t.title}»: ${e}`, datos: { id, deadline: fecha || null } };
+      }
+      const t = (await listTareas()).find((x) => x.id === Number(id));
+      if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
+      if (esRecurrente(t)) return { ok: false, resumen: 'La tarea pasó a repetirse: no lleva fecha.' };
+      const e = texto(t.deadline ?? '');
+      await editarTarea(t.id, { deadline: fecha || null, historial: [{ id: genHistId(), ts: Date.now(), actor: 'ia' as const, text: e }, ...t.historial].slice(0, 40) });
+      return { ok: true, resumen: `«${t.titulo}»: ${e}`, datos: { id, deadline: fecha || null } };
+    },
+  },
+
+  /**
    * MOVER DE COLUMNA (16/10/2026). Escribe por las MISMAS funciones que el arrastre del tablero
    * (`moverPlanTarea` / `moverTarea`): la regla de qué pasa con el avance y el motivo
    * (`trasMover`) es una sola. Sin `orden`: va arriba de la columna destino, como una tarjeta
@@ -750,7 +801,7 @@ export const RUNNERS: Runners = {
       if (!t) return { error: `No encuentro la tarea «${str(input, 'id')}» en el plan de este negocio.` };
       const estado = str(input, 'estado');
       // El validador ya filtra por el enum; esto es la segunda puerta para quien llame sin él.
-      if (!esEstado(estado) || estado === 'hecho') return { error: 'Columna inválida: usa por_hacer, en_curso, en_seguimiento o no_cumple. Para completarla, proponer_cierre_tareas.' };
+      if (!esEstado(estado) || estado === 'hecho') return { error: 'Columna inválida: usa por_hacer, en_curso, en_seguimiento o no_cumple. Para completarla, cerrar_tareas_plan.' };
       const motivo = estado === 'en_seguimiento' ? motivoAtoradaOk(input.motivo) : null;
       const destino = etiquetaEstado(estado);
       // «Ya está así» es un éxito sin nada que hacer para un flujo o un token (yaEstaba), y un
@@ -974,6 +1025,50 @@ export const RUNNERS: Runners = {
       return { id, url: linkBorrador(id), nueva: true, extra: { cierres: cerrar.length } };
     },
     ejecutar: async () => ({ ok: false, resumen: 'Los cierres se confirman de a uno en la pantalla de revisión (/plan/revisar), no por aquí.' }),
+  },
+
+  /**
+   * CERRAR EN EL ACTO (17/10/2026): lo mismo que valida `proponer_cierre_tareas` (que exista, que esté abierta, que
+   * traiga evidencia), pero sin borrador: la confirmación es la de cualquier acción de chat. Una que ya estaba hecha
+   * es «ya está así» (`yaEstaba`): un éxito sin nada que hacer para el Centro, un flujo o un token.
+   */
+  cerrar_tareas_plan: {
+    preparar: async (input, ctx) => {
+      const tab = await leerTablero(ctx.ws);
+      const cerrar: Array<{ id: string; titulo: string; evidencia: string; revisar: string | null }> = [];
+      const noEstan: string[] = [];
+      const cortas: string[] = [];
+      const yaHechas: string[] = [];
+      for (const c of lista(input, 'cerrar')) {
+        const t = buscarTarea(tab, str(c, 'id'), null);
+        if (!t) { noEstan.push(str(c, 'id')); continue; }
+        if (!abierta(t)) { yaHechas.push(t.titulo); continue; }
+        const evidencia = str(c, 'evidencia');
+        if (evidencia.length < 10) { cortas.push(t.titulo); continue; }
+        if (cerrar.some((x) => x.id === t.id)) continue;
+        cerrar.push({ id: t.id, titulo: t.titulo, evidencia, revisar: rutaParaRevisar(str(c, 'revisar')) });
+      }
+      if (noEstan.length) return { error: `Estas tareas no existen en el plan de este negocio: ${noEstan.join(', ')}. Revisa los ids con listar_tareas_plan.` };
+      if (cortas.length) return { error: `Falta evidencia (mínimo 10 caracteres) para: ${cortas.map((x) => `«${recortar(x, 60)}»`).join(', ')}.` };
+      if (!cerrar.length) {
+        return yaHechas.length
+          ? { error: `Ya estaba${yaHechas.length === 1 ? '' : 'n'} hecha${yaHechas.length === 1 ? '' : 's'}: ${yaHechas.map((x) => `«${recortar(x, 60)}»`).join(', ')}.`, yaEstaba: true }
+          : { error: 'Pasa al menos una tarea en `cerrar`.' };
+      }
+      const nombres = cerrar.map((x) => `«${recortar(x.titulo, 80)}»`).join(', ');
+      return { payload: { cerrar }, resumen: `Marcar hecha${cerrar.length === 1 ? '' : 's'} ${nombres}` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const items = (Array.isArray(payload.cerrar) ? payload.cerrar : []) as CierreEnElActo[];
+      const r = await cerrarConEvidencia(await usaPlanBoard(ctx.ws), items);
+      if (!r.cerradas.length) return { ok: false, resumen: `No pude marcar hecha ninguna${r.fallidas.length ? `: ${r.fallidas.map((x) => `«${recortar(x, 60)}»`).join(', ')}` : ''}.`, datos: { cerradas: 0 } };
+      const hechas = r.cerradas.map((x) => `«${recortar(x.titulo, 80)}»`).join(', ');
+      return {
+        ok: true,
+        resumen: `Marcada${r.cerradas.length === 1 ? '' : 's'} hecha${r.cerradas.length === 1 ? '' : 's'}: ${hechas}${r.fallidas.length ? `. No pude con ${r.fallidas.length}.` : ''}`,
+        datos: { cerradas: r.cerradas.length, ids: r.cerradas.map((x) => x.id) },
+      };
+    },
   },
 
   proponer_ampliar_tareas: {

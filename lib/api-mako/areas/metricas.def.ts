@@ -60,6 +60,7 @@ export const DEFS: readonly OperacionDef[] = [
   // ── Heredadas (MAKO_TOOLS), con cuerpo nativo ──────────────────────────────
   {
     id: 'metricas_negocio', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Números del negocio por período',
     descripcion: 'Los NÚMEROS del negocio por período: inversión, impresiones, clics y formularios de Meta; visitas y visitantes del landing; plays del VSL; leads nuevos; agendas creadas; reuniones 1 y 2 (programadas, realizadas, no-show y SIN MARCAR, por separado); cierres e ingreso, agregados por día, semana o mes, con totales, cobertura por fuente (null = no hay de dónde leer, 0 = de verdad no hubo) y advertencias. Úsala SIEMPRE que pregunten cómo va el negocio, cuánto se invirtió, si algo mejoró o empeoró, o para comparar dos períodos. Nunca contestes de memoria una pregunta sobre resultados. Cierre = cerro con fecha de cierre en el período. Por HTTP acepta ?formato=md|csv|json.',
     parametros: [
@@ -89,6 +90,7 @@ export const DEFS: readonly OperacionDef[] = [
   // ── Marketing: la parte de arriba del embudo ───────────────────────────────
   {
     id: 'resumir_marketing_periodo', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'KPIs de marketing del período',
     descripcion: 'Un solo agregado de la ventana, como lo muestra /marketing: gasto en USD, impresiones, clics y clics de link, landing page views del píxel, formularios instantáneos, plays del VSL, reuniones 1 con fecha en la ventana, cierres en la ventana y el CAC, más CTR (de clics totales y de clics de link, por separado), CPC, CPM y costo por landing view. Úsala para contestar rápido «¿cuánto gasté y qué CTR o CPM tengo este mes?». Para una serie por mes o semana usa metricas_negocio. Reuniones = fecha de la reunión 1 en la ventana (no la fecha en que se reservó). Cierre = cerro con fecha de cierre en la ventana. Sin filas de Meta en la ventana, los números de Meta salen null con una nota (no cero).',
     parametros: [desde(RANGO_DEFAULT), hasta(' Default: hoy.')],
@@ -98,15 +100,21 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'diagnosticar_funnel', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Salud del embudo por etapa',
-    descripcion: 'El embudo del período con el porcentaje de paso de cada etapa y su salud (verde, ámbar, rojo, sin_datos): Impresión→Click de link, Click→Formulario, Formulario→Agenda, Agenda→Asistió a la R1, Asistió→Calificado, Calificado→Cierre, más dos etapas de contexto (Click→Landing, Landing→VSL) que no compiten por ser el cuello. Devuelve el cuello de botella. Úsala para «¿dónde pierdo más gente?» o «¿qué etapa optimizo primero?». Una etapa con su fuente desconectada dice fuente_pendiente, no 0%. Los umbrales son una referencia fija de la plataforma, no del negocio del cliente: dilo si repites un «rojo». Cierre = etapa ganado.',
-    parametros: [desde(RANGO_DEFAULT), hasta(' Default: hoy.')],
+    descripcion: 'El embudo del período con el porcentaje de paso de cada etapa y su salud (verde, ámbar, rojo, sin_datos): Impresión→Click de link, Click→Formulario, Formulario→Agenda, Agenda→Asistió a la R1, Asistió→Calificado, Calificado→Cierre, más dos etapas de contexto (Click→Landing, Landing→VSL) que no compiten por ser el cuello. Devuelve el cuello de botella. Úsala para «¿dónde pierdo más gente?» o «¿qué etapa optimizo primero?». Una etapa con su fuente desconectada dice fuente_pendiente, no 0%. Los umbrales son una referencia fija de la plataforma, no del negocio del cliente: dilo si repites un «rojo». Cierre = etapa ganado. Con «funnels», el embudo de ESOS funnels: las etapas del CRM cuentan sólo sus leads (cada uno en el funnel donde estaba ese día); lo de Meta (impresiones, clics, formularios) sigue siendo de toda la cuenta y la salida lo dice.',
+    parametros: [
+      desde(RANGO_DEFAULT), hasta(' Default: hoy.'),
+      // #896 (17/10/2026): uno o varios funnels, con la MISMA lectura que el OKR (lib/api-mako/funnels-del-pedido.ts).
+      { nombre: 'funnels', tipo: 'string', max: 200, descripcion: 'De qué funnels es el embudo: «todos» (el negocio entero, el default) o ids separados por coma de funnels_del_negocio (listar_objetivos), p. ej. «1,29». Funnels con etapas distintas (uno con reuniones y otro sin) no se miden juntos: pídelos de a uno.' },
+    ],
     salida: 'json',
     canales: TODOS, costo: 'gratis',
     gating: GATING_GRAPHICS,
   },
   {
     id: 'ver_serie_funnel_semanal', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Serie semanal del embudo',
     // ⚠️ LAS CLAVES NO SE ENUMERAN ACÁ. Las del tramo de Meta son fijas; las del CRM
     // dependen del funnel del cliente (lib/funnel-comercial.ts), así que una lista a
@@ -115,6 +123,8 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       hasta(' La última semana es la que contiene este día. Default: hoy en la zona del negocio.'),
       { nombre: 'semanas', tipo: 'number', entero: true, minimo: 1, maximo: 26, descripcion: 'Cuántas semanas hacia atrás. Default 12.' },
+      // 17/10/2026, el cabo de #896: uno o varios funnels, con la MISMA lectura que diagnosticar_funnel.
+      { nombre: 'funnels', tipo: 'string', max: 200, descripcion: 'De qué funnels es la serie: «todos» (el negocio entero, el default) o ids separados por coma de funnels_del_negocio (listar_objetivos), p. ej. «1,29». Lo de Meta sigue siendo de toda la cuenta. Funnels con etapas distintas no se miden juntos: pídelos de a uno.' },
     ],
     salida: 'json',
     canales: TODOS, costo: 'gratis',
@@ -122,6 +132,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_tendencias', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Tendencias de marketing y comercial',
     descripcion: 'Series por período de marketing (impresiones, visitas a la landing, CTR de link, gasto en USD, formularios, CPL, plays del VSL) y comerciales (agendas, asistencias a la R1, cierres, cash cobrado, CAC), con cuadros de contexto por métrica (total, promedio, mejor período). La granularidad sale del largo de la ventana: hasta 31 días diaria, hasta 180 semanal, más larga mensual. Úsala para «¿qué tendencia ves?» o «¿qué cambió?». La ventana se recorta a ayer y nunca empieza antes del 2025-11-01, y después se estira a períodos completos (del lunes al domingo, o del día 1 al fin de mes): el primer período puede sumar días antes de `desde` y el último, fechas futuras. La respuesta dice la ventana que de verdad se leyó. Agendas = reuniones 1 con fecha en el período; cierre = etapa ganado.',
     parametros: [desde(RANGO_DEFAULT), hasta(' Default: hoy (se recorta a ayer).')],
@@ -131,6 +142,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'detectar_fatiga_adsets', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Conjuntos con fatiga de creativo',
     descripcion: 'Los conjuntos de anuncios que muestran fatiga: en la ventana corta (de `hasta` menos 7 días a `hasta`, inclusive: 8 días) gastaron más de USD 50, con frecuencia media mayor a 3.5 y un costo por formulario 1.5 veces mayor que el de la ventana larga (de `hasta` menos 28 días a `hasta`: 29 días). Es una de las alertas del reporte horario. Úsala para «¿hay anuncios quemados?» o «¿tengo que rotar creativos?». Los umbrales son fijos de la plataforma. Lista vacía = ninguno cumple las tres condiciones (o no hay datos de Meta en la ventana).',
     parametros: [hasta(' Default: hoy en la zona del negocio.')],
@@ -140,6 +152,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'comparar_agendas_meta_crm', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Agendas según Meta y según CRM',
     descripcion: 'Los dos conteos de agendas de una ventana, lado a lado: las que Meta se atribuye (suma de la conversión del píxel por anuncio) y las del CRM (leads con fecha de reunión 1 en la ventana). Úsala para explicar por qué un costo por agenda «según Meta» es optimista o por qué dos pantallas no cuadran. No son dos mitades de un total: no se suman.',
     parametros: [desde(RANGO_DEFAULT), hasta(' Default: hoy.')],
@@ -149,6 +162,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_serie_vsl', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Plays diarios del VSL',
     descripcion: 'Plays del VSL por día en los últimos N días (histórico de YouTube más Panda), con el total, la suma diaria de espectadores de Panda, el promedio diario de la retención mediana (p50) de Panda y el tiempo de visionado promedio, y si Panda tiene datos en la ventana. Úsala para «¿cuánta gente ve el VSL por día?». La ventana termina hoy en UTC. La retención es un promedio de promedios diarios (no ponderado por plays).',
     parametros: [{ nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 365, descripcion: 'Cuántos días hacia atrás, terminando hoy. Default 56.' }],
@@ -185,6 +199,7 @@ export const DEFS: readonly OperacionDef[] = [
   // ── Comercial: revenue, CAC, cohortes, ciclo ───────────────────────────────
   {
     id: 'ver_revenue_periodo', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Revenue, CAC y ROAS del período',
     descripcion: 'Los tres números de revenue que NO son lo mismo: sold (monto firmado de los cierres con fecha de cierre en la ventana), cash cobrado (cuotas pagadas con fecha de pago en la ventana, incluye cuotas de clientes de meses anteriores) y outstanding (cuotas sin pagar que vencen desde el primer día de la ventana, SIN tope hacia adelante), más el gasto de Meta en USD, el CAC por cliente con primer pago en la ventana y el ROAS sobre cash y sobre sold. Úsala para «¿cuánto vendí, cuánto cobré y cuánto me falta cobrar?». El detalle de a quién se le debe está en a_quien_cobrar, y las cuotas vencidas o por vencer en cuotas_pendientes. Las suscripciones no entran aquí: para eso está ver_mrr_activo.',
     parametros: [desde(RANGO_DEFAULT), hasta(' Default: hoy.')],
@@ -194,6 +209,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_revenue_mensual', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Ingresos contra gasto, mes a mes',
     descripcion: 'Una fila por mes (continua, con los meses en cero, sin los meses iniciales sin actividad): sold en USD, cash cobrado en USD, gasto de Meta en USD, cantidad de cierres y de reuniones 1 con fecha en el mes. Úsala para ver la forma del negocio a lo largo de hasta 36 meses o comparar inversión contra resultados. Montos redondeados al dólar.',
     parametros: [
@@ -206,6 +222,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_mrr_activo', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'MRR de suscripciones activas',
     descripcion: 'El ingreso recurrente mensual en USD de los leads ganados con venta de tipo suscripción que siguen activos hoy (indefinidos, o de plazo fijo cuyo fin todavía no llegó), más las suscripciones activas que cobra la pasarela (Stripe o Mercado Pago) a un lead que no es de suscripción, y cuántas suscripciones son. Va APARTE del high-ticket: las suscripciones no entran en sold ni en cash. Úsala para «¿cuánto tengo en recurrente?». No requiere parámetros.',
     parametros: [],
@@ -215,6 +232,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_cac_acumulado', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'CAC acumulado histórico',
     descripcion: 'El costo de adquisición de TODO el histórico: gasto total de Meta convertido a USD dividido por los cierres totales (cerro), opcionalmente hasta un día. Es la referencia contra la que se compara el CAC de una ventana. Úsala para «¿cuánto me cuesta un cliente en promedio desde que arranqué?». No tiene fecha de inicio: es desde el primer dato.',
     parametros: [hasta(' Si falta, todo el histórico hasta hoy.')],
@@ -224,6 +242,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_cac_mensual', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'CAC mes a mes',
     descripcion: 'Serie del CAC por mes: gasto de Meta del mes en USD dividido por los clientes con primer pago en ese mes. Solo aparecen los meses con al menos un primer pago, en orden cronológico, los últimos N. Úsala para «¿el CAC viene subiendo?». Un mes que falta no es un CAC de cero: es un mes sin primeros pagos.',
     parametros: [{ nombre: 'meses', tipo: 'number', entero: true, minimo: 1, maximo: 36, descripcion: 'Cuántos meses con primer pago devolver. Default 12.' }],
@@ -233,6 +252,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'listar_cohortes_semanales', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Cohortes semanales por reunión 1',
     descripcion: 'Las últimas N semanas agrupadas por la fecha de la reunión 1 de cada lead (la más reciente primero): total de R1, asistencias, limpias (asistió y calificó), cierres, ingreso en USD, días promedio de la R1 al cierre y la madurez (madura: la última R1 fue hace 14 días o más; madurando: 5 o más; reciente). La tasa de cierre solo es confiable en cohortes maduras. Úsala para «¿cómo cerró la semana del 4 de mayo?».',
     parametros: [{ nombre: 'semanas', tipo: 'number', entero: true, minimo: 1, maximo: 52, descripcion: 'Cuántas semanas devolver. Default 8.' }],
@@ -242,6 +262,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'listar_cohortes_mensuales', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Cohortes mensuales por reunión 1',
     descripcion: 'Lo mismo que listar_cohortes_semanales pero por mes de la reunión 1, los últimos N meses. Cuidado: la madurez de un mes se mide por su ÚLTIMA R1, así que una sola R1 tardía vuelve «reciente» a todo el mes. Para la tasa de cierre confiable usa ver_embudo_comercial_maduro, que agrega semanas.',
     parametros: [{ nombre: 'meses', tipo: 'number', entero: true, minimo: 1, maximo: 24, descripcion: 'Cuántos meses devolver. Default 6.' }],
@@ -251,6 +272,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_embudo_comercial_maduro', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Embudo comercial de cohortes maduras',
     descripcion: 'El agregado de las semanas MADURAS (la última R1 de la semana fue hace 14 días o más): R1 totales, asistencias, R1 sin asistencia marcada como sí (incluye las que nadie marcó), limpias, cierres, ingreso en USD, cuántas semanas entran, la tasa de cierre madura (cierres sobre limpias) y el ciclo promedio de la R1 al cierre. Es la fuente del KPI de no-show y de tasa de cierre de /comercial. Úsala para «¿cuál es mi tasa de cierre real?». Sin fechas, todo el histórico.',
     parametros: [
@@ -277,6 +299,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_ciclo_venta', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Ciclo de venta promedio y P90',
     descripcion: 'Cuántos días pasan entre que un lead reserva (fecha de agenda) y hace su primer pago: promedio y percentil 90, sobre los leads con las dos fechas, de todo el histórico. Con menos de 3 leads los dos salen null (no es honesto promediar dos). Úsala para «¿cuánto tarda un cliente en pagar desde que agenda?». Para ver dónde se traba, ver_tramos_ciclo_venta.',
     parametros: [],
@@ -286,6 +309,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_tramos_ciclo_venta', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Tramos del ciclo de venta',
     descripcion: 'La línea de tiempo promedio del ciclo partida en tramos (formulario de Meta→agenda, solo para leads que entraron por un formulario instantáneo; agenda→R1, R1→R2, R2→confirmación, confirmación→pago), cada uno con el promedio de días y cuántos leads tienen las dos fechas, el tramo más lento y el total. Todo el histórico. Úsala para «¿dónde se traba la venta?». Si el negocio tiene más de 1000 leads, la respuesta avisa que el cálculo está hecho sobre una parte.',
     parametros: [],
@@ -295,6 +319,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_distribucion_pipeline', area: 'metricas', tipo: 'lectura',
+    datosDeClientes: false,
     titulo: 'Pipeline abierto por madurez',
     descripcion: 'Cuántos leads asistieron a la R1 y todavía no cerraron, partidos por los días desde la R1 (reciente: menos de 5; madurando: 5 a 13; madura: 14 o más), con porcentajes. Úsala para «¿cuántos deals tengo abiertos y qué tan viejos son?». No distingue perdidos de abiertos: cuenta todo lo que asistió y no tiene cerro.',
     parametros: [],

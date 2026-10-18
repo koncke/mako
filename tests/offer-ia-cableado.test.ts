@@ -152,6 +152,8 @@ const PROMPTS: Array<[string, string]> = [
   ['offer.arranque.system', 'OFFER_ARRANQUE_SYSTEM_TEMPLATE'],
   ['offer.diagnostico.system', 'OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE'], ['offer.diagnostico.user', 'OFFER_DIAGNOSTICO_USER_TEMPLATE'],
   ['offer.propuesta.system', 'OFFER_PROPUESTA_SYSTEM_TEMPLATE'], ['offer.propuesta.user', 'OFFER_PROPUESTA_USER_TEMPLATE'],
+  // Un documento largo se lee entero, por partes (17/10/2026, #865).
+  ['offer.lectura.system', 'OFFER_LECTURA_SYSTEM_TEMPLATE'],
 ];
 
 // v2: rotura (el slot {{diagnostico}} del turno sin declarar en el registro): 1 fallo, 9 pases.
@@ -162,7 +164,7 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
   assert.match(REG, /from '\.\/offer-ia';/);
   const enRegistro = [...REG.matchAll(/key: '(offer\.[\w.]+)'/g)].map((m) => m[1]).sort();
   const enCallSite = [...IA.matchAll(/renderPrompt\('(offer\.[\w.]+)'/g)].map((m) => m[1]).sort();
-  assert.deepEqual(enRegistro, PROMPTS.map(([k]) => k).sort(), 'las keys del registro no son las siete');
+  assert.deepEqual(enRegistro, PROMPTS.map(([k]) => k).sort(), 'las keys del registro no son las ocho');
   assert.deepEqual(enCallSite, enRegistro, 'el call site lee keys que el registro no tiene (o al revés)');
   for (const [key, constante] of PROMPTS) {
     const i = REG.indexOf(`key: '${key}'`);
@@ -182,7 +184,9 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
       assert.ok(template(constante).includes('${IDIOMA}'), `${key}: falta el bloque de idioma`);
       // El del onboarding NO lleva el marco, a propósito: el marco es la rúbrica del análisis, y ahí sólo se pregunta
       // qué vende (lleva las keys de las piezas, `claves`).
-      if (key !== 'offer.arranque.system') assert.ok(delTemplate.includes('marco'), `${key}: falta el marco`);
+      // Tampoco la lectura por partes (#865): anota lo que dice el documento, no lo juzga.
+      if (key === 'offer.lectura.system') assert.ok(!delTemplate.length, `${key}: la lectura de una parte no lleva slots`);
+      else if (key !== 'offer.arranque.system') assert.ok(delTemplate.includes('marco'), `${key}: falta el marco`);
       else assert.ok(delTemplate.includes('claves') && !delTemplate.includes('marco'), `${key}: el onboarding volvió a llevar el marco del análisis`);
     }
   }
@@ -369,8 +373,10 @@ test('«Guardar»: la oferta nueva se liga al funnel, principal sólo si no ten�
   assert.match(liga, /if \(estado === 'no-existe'\) \{\n\s*return \{ aviso: '[^']+', avisoReintentable: false \};/);
   assert.equal([...liga.matchAll(/return \{ aviso: AVISO_LIGA_REINTENTABLE, avisoReintentable: true \};/g)].length, 2, 'sólo la base caída es reintentable');
   const guardar = SES.slice(SES.indexOf('export async function guardarComoOferta('), SES.indexOf('async function descartarOferta('));
-  // La liga corre en el camino idempotente, en el que ganó otro pedido y en el normal.
-  assert.equal([...guardar.matchAll(/await ligarAlFunnel\(f\.funnelId, /g)].length, 3, 'la liga corre en los tres caminos');
+  // La liga corre en el camino idempotente, en el que ganó otro pedido y en el normal. Desde el 17/10/2026 (#895) a
+  // los funnels ELEGIDOS (uno o varios; sin elección, el de la conversación): tests/offer-guardar-funnels.test.ts.
+  assert.match(guardar, /const ligar = async \(ofertaId: number\) => ligarAFunnels\(await destinoAhora\(f\.funnelId, elegidos\), ofertaId\);/);
+  assert.equal([...guardar.matchAll(/\.\.\.\(await ligar\(/g)].length, 3, 'la liga corre en los tres caminos');
   // Nunca pisa la oferta que se analizaba: el upsert de guardar va SIN id (fila nueva).
   assert.match(guardar, /ofertaId = await upsertOferta\(\{ \.\.\.base, nombre \}\);/);
   // La anotación MIRA lo que hay (compare-and-set): si otro pedido ya anotó esta versión, gana ésa y la
@@ -418,7 +424,9 @@ test('las conversaciones: el árbol las lee TODAS, el CAS espera creciente, «Nu
   assert.match(vista, /ofertaGuardadaId: f\.ofertaId,/);
   assert.match(vista, /ligada: ligadaParaVista\(f, nombres\.ligada\),/);
   const nombres = SES.slice(SES.indexOf('export async function nombresDeSesion('), SES.indexOf('export async function vistaSesion('));
-  assert.match(nombres, /db\.from\('funnel_ofertas'\)\.select\('id'\)\.eq\('funnel_id', f\.funnelId as number\)\.eq\('oferta_id', f\.ofertaId as number\)\.limit\(1\);/);
+  // Desde el 17/10/2026 (#895) la oferta puede estar en VARIOS funnels: la liga se mira a cualquiera
+  // (tests/offer-guardar-funnels.test.ts).
+  assert.match(nombres, /db\.from\('funnel_ofertas'\)\.select\('funnel_id'\)\.eq\('oferta_id', f\.ofertaId as number\)/);
   assert.match(nombres, /out\.ligada = !\(\(fun\.data \?\? \[\]\) as unknown\[\]\)\.length;/);
 });
 
@@ -459,8 +467,17 @@ test('«A definir»: avisos antes de la IA, el control final con las piezas, el 
   const diag = funcion(RUTA, 'diagnosticarSesion');
   const iAvisos = diag.indexOf('avisosAntesDelDiagnostico(');
   assert.ok(iAvisos > 0 && iAvisos < diag.indexOf('await diagnosticoOffer('), 'los avisos van ANTES de la IA (la de Foco tiene que verlos)');
-  assert.match(diag, /alertas: \[\.\.\.\(avisos\.foco \? \[avisos\.foco\] : \[\]\), \.\.\.avisos\.otras\],/);
-  assert.match(diag, /calcularDiagnostico\(ia\.valor\.dimensiones, \{ foco: avisos\.foco, otras: avisos\.otras, piezas: fila\.piezas \}\)/);
+  assert.match(diag, /const alertas = \[\.\.\.\(avisos\.foco \? \[avisos\.foco\] : \[\]\), \.\.\.avisos\.otras\];/);
+  assert.match(diag, /await diagnosticoOffer\(\{[\s\S]*?\n    alertas,\n  \}\);/);
+  // Cada número del diagnóstico dice de dónde sale (#888, 17/10/2026): lo de la IA pasa por `diagnosticoConFuentes`
+  // ANTES del cálculo, con las tres fuentes, y la conclusión queda marcada.
+  const iFuentes = diag.indexOf('diagnosticoConFuentes(ia.valor, {');
+  assert.ok(iFuentes > diag.indexOf('await diagnosticoOffer(') && iFuentes < diag.indexOf('calcularDiagnostico('), 'las cifras se revisan antes del cálculo');
+  assert.match(diag, /delNegocio: cifrasConPorcentaje\(\[\.\.\.valoresDeLasPiezas\(fila\.piezas\), \.\.\.fuentesDelDueno\(fila\), ctx\.texto\]\),/);
+  assert.match(diag, /conFuente: cifrasConFuente\(ctx\.embudoOffer, fila\.piezas\),/);
+  assert.match(diag, /deLosAvisos: cifrasConPorcentaje\(alertas\),/);
+  assert.match(diag, /calcularDiagnostico\(diagnostico\.dimensiones, \{ foco: avisos\.foco, otras: avisos\.otras, piezas: fila\.piezas \}\), cifrasConFuente: true \}/);
+  assert.match(diag, /return \{ borrador: \{ diagnostico, calculo, modelo: ia\.modelo, at \} \};/);
   assert.doesNotMatch(RUTA, /alertaFoco\(/, 'el foco sale de avisosAntesDelDiagnostico (con las otras ofertas)');
   // La IA del diagnóstico lee los avisos (sin envolverlos: los escribe el código).
   const dIA = IA.slice(IA.indexOf('export async function diagnosticoOffer('), IA.indexOf('function diagnosticoParaPrompt('));
@@ -469,7 +486,7 @@ test('«A definir»: avisos antes de la IA, el control final con las piezas, el 
   // Generar: las fuentes de las cifras y el nombre del negocio; lo provisional; el PDF en el MISMO CAS.
   const gen = funcion(RUTA, 'generarSesion');
   assert.match(gen, /reglas: \{ fuentes, negocio \}/);
-  assert.match(gen, /\.\.\.fila\.mensajes\.filter\(\(m\) => m\.de === 'yo'\)\.map\(\(m\) => m\.texto\),/);
+  assert.match(gen, /const fuentes = \[\.\.\.fuentesDelDueno\(fila\), ctx\.texto\];/);
   assert.match(gen, /const provisional = provisionalDe\(borrador\.diagnostico\);/);
   const cas = gen.slice(gen.indexOf('actualizarSesion(id, (f) => {'), gen.indexOf("await marcar('of_conclusion')"));
   assert.match(cas, /\.\.\.\(provisional \? \{ provisional \} : \{\}\),/);
@@ -482,7 +499,7 @@ test('«A definir»: avisos antes de la IA, el control final con las piezas, el 
   // GET /api/offer/pdf?id=&v=: la versión pedida o la última; nunca otra.
   const PDF = sinComentarios(leer('app/api/offer/pdf/route.ts'));
   assert.match(PDF, /if \(version != null && \(!Number\.isInteger\(version\) \|\| version <= 0\)\) return Response\.json\(/);
-  assert.match(PDF, /const conclusion = conclusionDeVersion\(fila\.conclusiones, version\);\n\s*if \(!conclusion\) return Response\.json\(\{ ok: false, error: `Esta oferta no tiene la versión \$\{version\}\.` \}, \{ status: 404 \}\);/);
+  assert.match(PDF, /const guardada = conclusionDeVersion\(fila\.conclusiones, version\);\n\s*const conclusion = guardada \? conclusionVisible\(guardada, fila\) : null;\n\s*if \(!conclusion\) return Response\.json\(\{ ok: false, error: `Esta oferta no tiene la versión \$\{version\}\.` \}, \{ status: 404 \}\);/);
   assert.match(PDF, /pdfDeOferta\(conclusion, /);
 });
 

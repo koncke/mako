@@ -195,10 +195,10 @@ export type RecordatorioEnSeco = { leadId: number; cual: CualReunion; min: numbe
 
 export type ResultadoAlLead = {
   ws: number;
-  /** El interruptor del negocio: el `activa` de su automatización, o el de la configuración de antes. */
+  /** El interruptor del negocio: el `activa` de su automatización (sin ninguna, apagado). */
   activo: boolean;
   /** De dónde salieron los toques (ver `toquesDelNegocio`). Ausente = no se llegó a leer. */
-  fuente?: 'automatizacion' | 'configuracion';
+  fuente?: 'automatizacion';
   /** `envio_whatsapp_enabled` del negocio. null = no se llegó a mirar. */
   envio: boolean | null;
   /** Toques vencidos en esta corrida. */
@@ -242,20 +242,20 @@ export async function leerConfigRecordatorio(ws: number): Promise<ConfigRecordat
 }
 
 /**
- * DE DÓNDE SALEN LOS TOQUES DE UN NEGOCIO (decisión de Martín, 10/10/2026: «Mudarlo al motor»). Si el negocio
- * tiene una automatización con el CRON del recordatorio (`TRIGGER_RECORDATORIO`, lib/recordatorio-automatizacion.ts),
- * de ESA fila: su `activa` y, por cada toque, el texto y el número. Si no tiene ninguna, de la configuración de
- * antes (`chatbot.recordatorio_reunion`), como siempre.
+ * DE DÓNDE SALEN LOS TOQUES DE UN NEGOCIO (decisión de Martín, 10/10/2026: «Mudarlo al motor»): de su automatización con
+ * el CRON del recordatorio (`TRIGGER_RECORDATORIO`, lib/recordatorio-automatizacion.ts), su `activa` y, por cada toque, el
+ * texto, el número y la vista previa. SIN NINGUNA, NO SALE NADA.
  *
- * ⚠️ CON LA FILA, LA CONFIGURACIÓN DE ANTES NO SE MIRA, aunque diga `activo`: si no, archivar la automatización
- * revivía lo de antes. La mudanza además la deja apagada (scripts/recordatorio-a-automatizacion.mts).
- * ⚠️ Y UNA LECTURA QUE FALLA TIRA: «no pude leer las automatizaciones» no es «no tiene», y caer a la configuración
- * de antes sería mandar con los textos viejos. Con varias filas manda la primera activa por cada minuto (las marcas
+ * ⚠️ SIN CAMINO VIEJO (17/10/2026, «nada por detrás», lote 3). Hasta ese día, sin automatización caía a la configuración de
+ * antes (`chatbot.recordatorio_reunion`), con textos que no se ven en ninguna automatización. Medido el 17/10: ningún
+ * negocio activo tenía fila, y los dos con configuración (ws1 y ws11) la tenían apagada, así que no cambia lo que sale.
+ * La configuración se sigue LEYENDO sólo para mudarla (`leerConfigRecordatorio`, scripts/recordatorio-a-automatizacion.mts).
+ * ⚠️ Y UNA LECTURA QUE FALLA TIRA: «no pude leer las automatizaciones» no es «no tiene». Con varias filas manda la primera activa por cada minuto (las marcas
  * `claveToque` son por lead, reunión y minuto: dos filas con el mismo toque no lo mandan dos veces).
  */
 export async function toquesDelNegocio(ws: number): Promise<{
-  activo: boolean; fuente: 'automatizacion' | 'configuracion';
-  toques: Array<{ min: number; texto: string; linea: string | null }>; problemas: string[];
+  activo: boolean; fuente: 'automatizacion';
+  toques: Array<{ min: number; texto: string; linea: string | null; sinVistaPrevia?: boolean }>; problemas: string[];
 }> {
   const { data, error } = await getSupabaseServer()
     .from('nutricion_secuencias').select('id, activa, pasos')
@@ -265,20 +265,16 @@ export async function toquesDelNegocio(ws: number): Promise<{
   const filas = (data ?? []) as Array<{ id: number; activa: boolean | null; pasos: unknown }>;
   if (filas.length) {
     const problemas: string[] = [];
-    const porMin = new Map<number, { min: number; texto: string; linea: string | null }>();
+    const porMin = new Map<number, { min: number; texto: string; linea: string | null; sinVistaPrevia?: boolean }>();
     const activas = filas.filter((f) => f.activa === true);
     for (const f of activas.length ? activas : filas.slice(0, 1)) {
       const r = toquesDeLaAutomatizacion(Array.isArray(f.pasos) ? f.pasos : []);
       if (r.problema) { problemas.push(`#${f.id}: ${r.problema}`); continue; }
-      for (const t of r.toques) if (!porMin.has(t.min)) porMin.set(t.min, { min: t.min, texto: t.texto, linea: t.linea });
+      for (const t of r.toques) if (!porMin.has(t.min)) porMin.set(t.min, { min: t.min, texto: t.texto, linea: t.linea, sinVistaPrevia: t.sinVistaPrevia === true });
     }
     return { activo: activas.length > 0, fuente: 'automatizacion', toques: [...porMin.values()], problemas };
   }
-  const cfg = await leerConfigRecordatorio(ws);
-  return {
-    activo: cfg.activo, fuente: 'configuracion', problemas: [],
-    toques: TOQUES.map((min) => ({ min, texto: cfg.textos[min], linea: cfg.lineas[min] ?? null })),
-  };
+  return { activo: false, fuente: 'automatizacion', toques: [], problemas: [] };
 }
 
 /**
@@ -362,7 +358,8 @@ export async function mandarRecordatoriosAlLead(
         // Por el número de ESE toque (el que se eligió en su tarjeta); sin elegir, el de por default,
         // como siempre. Uno que ya no está no cae al de por default: `enviarTexto` no manda y el
         // error queda abajo, en `fallo:` (lib/recordatorio-lead.ts, `ConfigRecordatorio.lineas`).
-        const r = await enviarYEspejar({ telefono, texto, leadId: lead.id, linea: toque.linea })
+        // Con su interruptor «Vista previa del link» apagado, el link de la reunión sale como texto (#869).
+        const r = await enviarYEspejar({ telefono, texto, leadId: lead.id, linea: toque.linea, sinVistaPrevia: toque.sinVistaPrevia === true })
           .catch((e): { ok: false; error: string } => ({ ok: false, error: msgErr(e) }));
         if (r.ok) {
           // La marca de ENVIADO va después del envío ok, nunca antes.

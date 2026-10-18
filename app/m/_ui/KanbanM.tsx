@@ -93,6 +93,12 @@ export type KanbanMProps = {
   fraseMovida?: (columna: string) => string;
   /** La columna en la que abre (la key). Por defecto, la primera con algo. */
   inicial?: string;
+  /**
+   * Abrir el «Mover a…» de ESTA tarjeta desde afuera (17/10/2026: la ficha rápida de «Ver info» del CRM). Cada pedido
+   * trae su `vez` para que pedir dos veces la misma tarjeta vuelva a abrirlo. Es el MISMO sheet del toque largo: el
+   * movimiento, el toast y el deshacer no se duplican.
+   */
+  pedirMover?: { id: string; vez: number } | null;
 };
 
 const ESPACIO = 10; // el gap entre columnas (m.css, .m-kb__pista)
@@ -121,6 +127,9 @@ export function KanbanM(p: KanbanMProps) {
   const [llego, setLlego] = useState<string | null>(null);
   const [agarrada, setAgarrada] = useState<string | null>(null);
   const [moviendo, setMoviendo] = useState<string | null>(null);
+  // El pedido de afuera (`pedirMover`): abre el MISMO «Mover a…» del toque largo.
+  const vezPedida = p.pedirMover?.vez;
+  useEffect(() => { if (p.pedirMover) setMoviendo(p.pedirMover.id); }, [vezPedida]); // eslint-disable-line react-hooks/exhaustive-deps
   const presion = useRef<{ id: string; x: number; y: number; t: ReturnType<typeof setTimeout>; largo: boolean; nodo: HTMLElement } | null>(null);
   // El arrastre con el dedo (ver la cabecera). En un ref: se actualiza en cada `pointermove` y un
   // estado por evento redibujaría el tablero 60 veces por segundo.
@@ -394,7 +403,7 @@ export function KanbanM(p: KanbanMProps) {
     <div className="m-kb" aria-label={p.etiqueta} role="region">
       {p.arriba && <div className="m-kb__arriba">{p.arriba}</div>}
 
-      <div className="m-kb__etapas" style={{ gridTemplateColumns: `repeat(${cols.length}, minmax(0, 1fr))` }} aria-label="Ir a una columna">
+      <div className="m-kb__etapas" aria-label="Ir a una columna">
         {cols.map((c, i) => {
           const n = cuenta(c, porColumna.get(c.key)?.length ?? 0);
           return (
@@ -407,7 +416,8 @@ export function KanbanM(p: KanbanMProps) {
               aria-label={`${c.titulo}: ${n}`}
               onClick={() => irA(i)}
             >
-              <i />
+              {/* El NOMBRE de la etapa y su contador (17/10/2026, pestañas píldora del prototipo): antes era una raya. */}
+              <span>{c.titulo}</span>
               <b key={late?.col === c.key ? `l${late.n}` : 'q'} data-late={late?.col === c.key || undefined}>{n}</b>
             </button>
           );

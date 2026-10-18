@@ -24,7 +24,7 @@ import { leerDecisiones } from '@/lib/admin-decisiones';
 import type { DecisionEspera } from '@/lib/centro-chats';
 import { sanearAspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { guardarMuneco } from '@/lib/centro-munecos-db';
-import { leerTurnos } from '@/lib/centro-turnos-db';
+import { leerTurnos, leerUltimosTurnos } from '@/lib/centro-turnos-db';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { leerAbiertas, leerPreguntas, marcarContestada } from '@/lib/centro-preguntas-chat-db';
 import { eleccionValida, textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
@@ -32,6 +32,16 @@ import { guardarBorradorDe, leerBorradorDe } from '@/lib/centro-borradores-db';
 import type { Borrador } from '@/lib/centro-caja';
 import { leerTareasDelChat } from '@/lib/centro-plan-auto';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
+import { leerMarcasDe, marcarDe } from '@/lib/centro-mensajes-db';
+import { guardarAlias, leerCuentasConNombre } from '@/lib/centro-titulares-db';
+import { CUENTA_RE } from '@/lib/operaciones-reglas';
+import { aliasValido, type CuentasConNombre } from '@/lib/centro-titulares';
+import { leerPasos } from '@/lib/centro-pasos-db';
+import type { PasosPorChat } from '@/lib/centro-pasos';
+import { chatCheap } from '@/lib/ai-cheap';
+import { decisionDeRespuesta, decisionPorReglas, promptChatNuevo, type DecisionChatNuevo } from '@/lib/centro-chat-nuevo';
+import { nombresDeTabs } from './tabs';
+import { sanearCambio, type MarcasChat } from '@/lib/centro-mensajes';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló: vuelve a intentarlo.');
@@ -41,14 +51,21 @@ const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo
  *  de la lista; las preguntas mismas viajan con los turnos del chat abierto). */
 export type FotoCentro = {
   ok: true; pedidos: Pedido[]; carteros: EstadoCarteros; decisiones: DecisionEspera[] | null; preguntasAbiertas: Record<string, number>;
+  /** El nombre y el email de cada cuenta (la G, 17/10/2026). */
+  cuentas: CuentasConNombre;
+  /** Lo que están haciendo AHORA los chats ocupados (la E): sus últimos pasos, si se subieron hace poco. */
+  pasos: PasosPorChat;
+  /** Lo ÚLTIMO de cada chat, por sesión, recortado (lib/operaciones-reglas.ts → resumirTurnos): para el aviso de un «Completado»
+   *  sin ver y para esconder al vigía callado. Son para la fila de la lista, no para la conversación. */
+  ultimos: Record<string, TurnoChat[]>;
 } | { ok: false; error: string };
 
 export async function fotoCentroAction(): Promise<FotoCentro> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
-    const [pedidos, carteros, decisiones, preguntasAbiertas] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas()]);
-    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas };
+    const [pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas(), leerCuentasConNombre(), leerPasos(), leerUltimosTurnos()]);
+    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
@@ -64,17 +81,47 @@ export async function pushesCentroAction(): Promise<LecturaPushes> {
 
 /** Lo que se dijo en un chat (sus sesiones, las de todas sus cuentas), para su conversación (17/10/2026: «los chats no
  *  se entienden»). Lo pide la pantalla al abrir un chat y en cada refresco de ese chat; los demás no viajan. */
-export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null; tareas: TareaDelChat[] } | { ok: false; error: string }> {
+export async function turnosCentroAction(locales: string[], direccion?: string): Promise<{ ok: true; turnos: TurnoChat[]; preguntas: PreguntaChat[]; borrador: Borrador | null; tareas: TareaDelChat[]; marcas: MarcasChat | null } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   if (!Array.isArray(locales)) return { ok: false, error: 'Falta el chat.' };
   const validos = locales.filter((l): l is string => typeof l === 'string');
   // Las preguntas del chat y su borrador viajan con lo que se dijo en él: son parte de su conversación (17/10/2026).
-  const [turnos, preguntas, borrador, tareas] = await Promise.all([
+  // Y las marcas de Martín en sus mensajes (reacciones, destacados, fijados, eliminados para él: lib/centro-mensajes.ts).
+  const [turnos, preguntas, borrador, tareas, marcas] = await Promise.all([
     leerTurnos(validos), leerPreguntas(validos), typeof direccion === 'string' ? leerBorradorDe(direccion) : Promise.resolve(null),
-    leerTareasDelChat(validos),
+    leerTareasDelChat(validos), typeof direccion === 'string' ? leerMarcasDe(direccion) : Promise.resolve(null),
   ]);
-  return { ok: true, turnos, preguntas, borrador, tareas };
+  return { ok: true, turnos, preguntas, borrador, tareas, marcas };
+}
+
+/** El nombre que Martín le pone a una cuenta en el Uso (la G, 17/10/2026). Vacío vuelve al del titular. Vive en MaKo, nunca
+ *  en cuentas.tsv: ése es de la PC y del hook del 97%. */
+export async function guardarAliasCuentaAction(cuenta: string, alias: string): Promise<{ ok: true; cuentas: CuentasConNombre } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof cuenta !== 'string' || !CUENTA_RE.test(cuenta) || typeof alias !== 'string') return { ok: false, error: 'Elige la cuenta otra vez.' };
+  const v = aliasValido(alias);
+  if (!v.ok) return v;
+  try {
+    return { ok: true, cuentas: await guardarAlias(cuenta, v.alias) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Una marca de Martín sobre un mensaje (17/10/2026, lo de WhatsApp): reaccionar, destacar, fijar o eliminar para él. NO
+ *  va al chat: se guarda en MaKo para que se vea igual en la computadora y en el teléfono. */
+export async function marcarMensajeAction(direccion: string, cambio: unknown): Promise<{ ok: true; marcas: MarcasChat } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  const c = sanearCambio(cambio);
+  if (typeof direccion !== 'string' || !c) return { ok: false, error: 'Elige el mensaje otra vez.' };
+  try {
+    return { ok: true, marcas: await marcarDe(direccion, c) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
 }
 
 /** Guarda el borrador de un chat en MaKo, para que cruce al teléfono (17/10/2026, la B). Sólo si es más nuevo. */
@@ -173,4 +220,30 @@ export async function guardarMunecoAction(titulo: string, aspecto: unknown): Pro
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
+}
+
+/**
+ * «Nuevo chat» SIN modal (17/10/2026, Martín: «jamás debe abrir un modal»): con el primer mensaje, la IA barata de la plataforma
+ * decide dónde va —un chat que ya existe, un empleado nuevo de un jefe, o un jefe nuevo— y cómo se llama. Es texto de Martín,
+ * no datos de clientes (por eso la barata y no una de pago: el Plan nunca paga IA). Lo que contesta pasa por
+ * `decisionDeRespuesta` (la lista blanca del nombre es la de la PC); si no contesta o no vale, deciden las reglas
+ * (`decisionPorReglas`). Nunca se le pregunta nada a Martín.
+ */
+export async function decidirChatNuevoAction(texto: unknown, chats: unknown): Promise<{ ok: true; decision: DecisionChatNuevo } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof texto !== 'string' || !texto.trim() || texto.length > 8000) return { ok: false, error: 'Escribe tu mensaje.' };
+  const lista = (Array.isArray(chats) ? chats : []).slice(0, 300).flatMap((c): Array<{ clave: string; titulo: string }> => {
+    const o = c && typeof c === 'object' ? (c as Record<string, unknown>) : null;
+    return o && typeof o.clave === 'string' && typeof o.titulo === 'string' && o.clave.length <= 200 ? [{ clave: o.clave, titulo: o.titulo.slice(0, 120) }] : [];
+  });
+  const ctx = { tabs: nombresDeTabs(), chats: lista };
+  try {
+    const { system, user } = promptChatNuevo(texto, ctx);
+    const crudo = await chatCheap({ system, user, json: true, maxTokens: 160, temperature: 0, feature: 'centro-chat-nuevo', motivo: 'Dónde va un chat nuevo del Ops Center', timeoutMs: 9000 });
+    const json = crudo.match(/\{[\s\S]*\}/)?.[0];
+    const d = json ? decisionDeRespuesta(JSON.parse(json), ctx) : null;
+    if (d) return { ok: true, decision: d };
+  } catch { /* sin IA, o una respuesta que no es JSON: deciden las reglas */ }
+  return { ok: true, decision: decisionPorReglas(texto, ctx) };
 }
