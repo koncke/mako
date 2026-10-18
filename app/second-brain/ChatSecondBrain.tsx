@@ -41,12 +41,13 @@ import { Icon } from '@/app/_components/icons';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { claveParaUrl, seguirChat } from '@/lib/centro-chats';
 import { ChatDelCentro, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
+import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
 import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
 import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
 import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { MunecoNuevo } from '@/app/admin/operaciones/NuevoChat';
+import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { Microfono } from '@/app/admin/operaciones/Microfono';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
@@ -193,6 +194,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     const entrada = chatInicial == null && mapa == null ? centroDeEntrada(centro) : null;
     return entrada ? { centro: entrada } : null;
   });
+  // «Nuevo chat» de Claude Code (Ops Center): un chat vacío con su caja, sin modal; MaKo decide dónde va con el primer mensaje.
+  const [nuevoCentro, setNuevoCentro] = useState(false);
   const [conChat, setConChat] = useState(chatInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
   const [ticketera, setTicketera] = useState<VistaDeTicketera | null>(ticketeraInicial);
   const [items, setItems] = useState<ItemHilo[]>([]);
@@ -297,7 +300,12 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   }, [chatCentro, claveCentro]);
   // En la URL va su SESIÓN (no cambia al renombrarlo); el que no tiene, su clave.
   const urlCentro = chatCentro ? claveParaUrl(chatCentro) : claveCentro;
-  useEffect(() => { if (elegido) anotarEnUrl(idElegido, urlCentro); }, [elegido, idElegido, urlCentro]);
+  // ⚠️ Con el grafo abierto, la URL es del grafo (`?panel=mapa`): tocar un chat navega con `router.push`, y si este efecto
+  // reescribe la URL con `replaceState` ANTES de que esa navegación termine, la deja otra vez en `?panel=mapa&centro=…` y el grafo
+  // no se va nunca (Martín, 17/10/2026: «una vez que entro a Second Brain, no puedo salir más dándole click a un chat»). Mientras
+  // hay grafo no se anota nada; al irse, el efecto vuelve a correr y anota el chat.
+  const hayMapa = mapa != null;
+  useEffect(() => { if (elegido && !hayMapa) anotarEnUrl(idElegido, urlCentro); }, [elegido, idElegido, urlCentro, hayMapa]);
   // ⚠️ LA TICKETERA SIGUE A LA URL, no a la prop: un link a esta misma página con otro `?ticketera=` (el ítem «Ticketera»
   // de la barra de admin) no la vuelve a montar (docs/hallazgos-operaciones.md).
   const qTicketera = useSearchParams().get('ticketera');
@@ -310,7 +318,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   }, [qTicketera, ops]);
   // Los tickets de los usuarios que esperan a Martín: el número del botón (17/10/2026, app/tickets/bandeja/).
   const ticketsPorDecidir = useTicketsPorDecidir(ops);
-  const abrirTicketera = (v: VistaDeTicketera) => { setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
+  const abrirTicketera = (v: VistaDeTicketera) => { setNuevoCentro(false); setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
   const cerrarTicketera = () => { setTicketera(null); anotarParam('ticketera', null); };
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
@@ -335,6 +343,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   // ── Elegir en la barra ──
   const elegir = (e: Elegido) => {
     if (ocupadoRef.current) return;
+    setNuevoCentro(false);
     setConChat(true);
     setFaltaMic(null);
     for (const a of elegidosRef.current) URL.revokeObjectURL(a.url);
@@ -512,8 +521,15 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   // «Second Brain» abre el GRAFO en el panel (Martín, 17/10/2026: «Entro a la tab de Second Brain y me envía a un CHAT de
   // Second Brain... cuando ahí debería saltar el grafo»), con el chat que estaba abierto anotado para volver. Sin el Mapa
   // (no es admin de la tab), el chat con MaKo.
+  /** «Nuevo chat»: abre el chat vacío (ChatNuevo.tsx). Con el grafo o la Ticketera abiertos, los deja. */
+  const abrirNuevoCentro = () => {
+    if (mapa) router.push(base);
+    if (ticketera) cerrarTicketera();
+    setNuevoCentro(true);
+    setConChat(true);
+  };
   const irAlSecondBrain = () => {
-    if (veMapa) { if (ticketera) cerrarTicketera(); setConChat(true); router.push(hrefMapa); return; }
+    if (veMapa) { if (ticketera) cerrarTicketera(); setNuevoCentro(false); setConChat(true); router.push(hrefMapa); return; }
     elegir(arbol.jefe ? { id: arbol.jefe.id } : { virtual: 'jefe' });
   };
   // Los chats de Claude Code que dicen lo buscado (el elegido, `chatCentro`, se sigue arriba).
@@ -574,10 +590,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
           {/* Ops Center fuera del Second Brain: los chats de Claude Code (el Cerebro y cada jefe con sus sub-chats). */}
           {!listaSB && centro && (
             <>
-              <NuevoChatCentro centro={centro} cuentaDelAbierto={chatCentro?.cuenta ?? null} />
+              <NuevoChatCentro onNuevo={abrirNuevoCentro} actual={nuevoCentro && !mapa && !ticketera} />
               {centro.chats.length > 0 && !delCentro.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
               {centro.chats.length
-                ? <ListaCentro centro={centro} visibles={delCentro} actual={ticketera ? null : claveCentro} buscando={!!busca.trim()} onElegir={(clave) => elegir({ centro: clave })} />
+                ? <ListaCentro centro={centro} visibles={delCentro} actual={ticketera || nuevoCentro ? null : claveCentro} buscando={!!busca.trim()} onElegir={(clave) => elegir({ centro: clave })} />
                 : <p className="co-lista__vacio">Conecta un Runner para ver tus chats aquí.</p>}
             </>
           )}
@@ -586,7 +602,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
           <button type="button" className="co-fila co-fila--nuevo"
             aria-current={!mapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo' ? 'true' : undefined}
             onClick={() => elegir({ virtual: 'nuevo' })}>
-            <MunecoNuevo />
+            <CirculoNuevo />
             <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
           </button>
           {errorLista && <p className="co-lista__vacio">{errorLista}</p>}
@@ -631,6 +647,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
         <section className="co-panel" aria-label="Second Brain">
           <VolverDelGrafo.Provider value={() => { setConChat(false); router.push(hrefVolver); }}>{mapa}</VolverDelGrafo.Provider>
         </section>
+      ) : centro && nuevoCentro ? (
+        // Un chat NUEVO de Claude Code: vacío, con su caja; con el primer mensaje, MaKo decide dónde va (ChatNuevo.tsx).
+        <ChatNuevoCentro centro={centro} onAbrir={(clave) => elegir({ centro: clave })} onVolver={() => { setNuevoCentro(false); setConChat(false); }} />
       ) : centro && chatCentro ? (
         // Un chat de Claude Code: la conversación del Centro, con su caja firmada (el único camino, mandar.ts).
         <ChatDelCentro centro={centro} chat={chatCentro} onVolver={() => setConChat(false)} />

@@ -113,9 +113,16 @@ function textoRunner(estado: EstadoRunnerUso, vistoAt: string | null, ahora: num
   return vistoAt ? `Runner sin conexión · ${hace(Date.parse(vistoAt), ahora)}` : conCuota ? 'Sin Runner · se mide a mano' : 'Sin Runner todavía';
 }
 
-/** Qué dice una cuenta sin ninguna medición: con su Runner conectado, que todavía no midió; sin él, que el uso aparece al conectarlo. */
-export const textoSinMedicion = (runnerConectado: boolean): string =>
-  runnerConectado ? 'Runner conectado, todavía sin medir' : 'Su uso aparece cuando su Runner esté conectado';
+/**
+ * Qué dice una cuenta sin ninguna medición, según lo que de verdad pasa con ella (`estadoRunnerUso`). Martín (17/10/2026): «No me
+ * pongas "Runner conectado, todavía sin medir"; si no se midió, se debe ejecutar automáticamente la medición». Eso era falso:
+ * una cuenta `sin_terminal` la recorre OTRO Runner (el de la app) y nadie de esa cuenta mide — medido el 17/10: la cuenta 2 no
+ * tenía ni un chat Runner, sólo una sesión suelta sin barra de estado. Lo que mide el Uso es la barra de estado de SU Runner de
+ * terminal (`--settings`, cartero.mjs `uso`) o `get_usage` de la app (sólo la cuenta de la app): MaKo no puede pedírselo a un
+ * Runner que no existe. Se dice eso, sin prometer una medición que nadie va a hacer.
+ */
+export const textoSinMedicion = (estado: EstadoRunnerUso): string =>
+  estado === 'apagado' ? 'Su uso aparece cuando su Runner esté conectado' : 'Sin medir: su terminal no tiene Runner abierto';
 
 /** Cada cuenta con su plan, su Runner y sus dos ventanas (la computadora y el teléfono). */
 export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly CuentaUso[]; ahora: number; onRenombrar?: RenombrarCuenta }) {
@@ -154,10 +161,9 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
                 {u.medido != null && !vencida && <p className="co-uso__reinicio co-uso__medido">{`Medido ${hace(u.medido, ahora)}`}</p>}
               </>
             ) : (
-              // ⚠️ Lo que dice acá NO puede contradecir al renglón del Runner de arriba (17/10/2026, Martín: «Su uso aparece
-              // cuando su Runner esté conectado» y arriba «Runner activo»): con el Runner conectado y sin medición, se
-              // dice eso mismo (`textoSinMedicion`).
-              <p className="co-uso__reinicio">{textoSinMedicion(vivo)}</p>
+              // ⚠️ Lo que dice acá sale del MISMO estado que el renglón del Runner de arriba (`textoSinMedicion(estado)`): escrito
+              // aparte, «Su uso aparece cuando su Runner esté conectado» convivía con «Runner activo» (17/10/2026).
+              <p className="co-uso__reinicio">{textoSinMedicion(estado)}</p>
             )}
           </section>
         );

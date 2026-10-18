@@ -322,7 +322,7 @@ test('More: el Ops Center (con la Ticketera adentro) sólo para el super admin, 
   const mas = leer('app/m/mas/page.tsx').replace(/\/\/.*$/gm, '');
   assert.match(mas, /const veOpsCenter = ctx\.sesion\.rol === 'admin' && !ctx\.impersonando;/,
     'la fila va detrás de la pregunta de super admin (la misma de getSesionAdmin), sin mirar a un cliente');
-  assert.match(mas, /\{veOpsCenter && <FilaM navegacion leading=\{criatura\('Ops Center'\)\} titulo="Ops Center" href=\{RUTA_CENTRO\} \/>\}/);
+  assert.match(mas, /\{veOpsCenter && <FilaM navegacion leading=\{criatura\('Ops Center', true\)\} titulo="Ops Center" href=\{RUTA_CENTRO\} \/>\}/);
   assert.match(mas, /const RUTA_CENTRO = '\/m\/operaciones'/, 'el Centro, con la Ticketera adentro (16/10/2026)');
   // No es una tab del negocio: si estuviera en SECCIONES_MAS podría subir a la barra de un rol.
   assert.doesNotMatch(leer('lib/movil-rutas.ts'), /id: 'decisiones'/);

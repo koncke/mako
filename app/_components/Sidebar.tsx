@@ -29,7 +29,7 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, OPS_CENTER, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { puedeVerItem, resolverTab, seccionesVisibles } from '@/lib/nav-visibilidad';
 import { BuscadorNav, type Destino } from './BuscadorNav';
@@ -50,7 +50,8 @@ const ICO = 19;
 const ICO_HIJO = 17;
 
 function ItemIcon({ item, size = ICO }: { item: NavItem; size?: number }) {
-  if (item.criatura) return <Criatura nombre={item.criatura} size={size} />;
+  // El Ops Center lleva la estrella de MaKo (Martín, 17/10/2026); Second Brain, la suya por su nombre.
+  if (item.criatura) return <Criatura nombre={item.criatura} estrella={item.key === OPS_CENTER.key} size={size} />;
   if (item.icon === 'mako') return <MakoStar size={size} color="var(--mako)" />;
   // El color lo hereda de la fila (currentColor): así el hover lo pinta también,
   // sin que el ícono se quede apagado cuando el texto ya se encendió.

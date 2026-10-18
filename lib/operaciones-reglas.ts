@@ -414,6 +414,28 @@ export function unirTurnos(antes: readonly TurnoChat[], nuevos: readonly TurnoCh
   return [...porId.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).slice(-TURNOS_POR_CHAT);
 }
 
+// ── Lo último de CADA chat, para su fila de la lista (17/10/2026, el aviso del «Completado» que no salía) ─────────────────
+// Los turnos completos viajan sólo del chat que se mira, así que la fila de uno que no se abrió nunca sabía que su último
+// mensaje era un «Ya está»: el aviso del «Completado» sin ver no salía (docs/hallazgos-operaciones.md). Cada refresco trae,
+// de TODOS los chats, sólo lo último y recortado: lo que hace falta para la fila (el primer renglón) y no la conversación.
+/** Cuántos turnos por chat viajan para la lista, y hasta qué antigüedad (lo de más de 3 días ya no avisa nada). */
+export const ULTIMOS_POR_CHAT = 3;
+export const ULTIMOS_VENTANA_MS = 3 * 86_400_000;
+/** Cuánto del texto viaja: alcanza para el primer renglón (el «Ya está», «Sin incidentes nuevos»). */
+export const ULTIMOS_TEXTO = 300;
+
+/**
+ * Los últimos turnos de un chat para su fila: los `ULTIMOS_POR_CHAT` más nuevos de los últimos 3 días, con el texto
+ * recortado. ⚠️ SON PARA LA FILA, NUNCA PARA LA CONVERSACIÓN: el texto va cortado (el chat abierto trae los suyos enteros).
+ */
+export function resumirTurnos(turnos: readonly TurnoChat[], ahora: number): TurnoChat[] {
+  return turnos
+    .filter((t) => ahora - Date.parse(t.at) < ULTIMOS_VENTANA_MS)
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+    .slice(-ULTIMOS_POR_CHAT)
+    .map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO) }));
+}
+
 /** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */
 /** `revisar`: la página de MaKo donde se mira lo que hizo (punto 6, la sub-tab «Review»). Sólo una ruta interna. */
 export type Cierre = { decidido: string; hecho: string; comprobado: string; sigue: string; prueba: string | null; revisar?: string | null };

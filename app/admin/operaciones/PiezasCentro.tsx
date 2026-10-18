@@ -30,16 +30,15 @@ export { buscarChats } from '@/lib/centro-chats';
 import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
-import { comandoNuevoChat, tieneTerminal } from '@/lib/runner';
 import {
   AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
 } from '@/lib/centro-cuentas';
-import { nombreValido, segundoRenglon } from '@/lib/centro-chats';
+import { segundoRenglon } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
-import { MunecoNuevo, NuevoChat, sePuedeAbrir, type BorradorNuevoChat } from './NuevoChat';
+import { CirculoNuevo } from './NuevoChat';
 import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import type { Centro } from './useCentro';
@@ -85,16 +84,18 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
   const espera = esperaDe(c, k.esperas);
   // Un «Completado» sin ver avisa IGUAL que una pregunta que espera (el globito de la criatura y el renglón de abajo).
   const sinVer = k.yaSinVer.has(c.clave);
+  // Dormido (ojos cerrados y la fila apagada) si no trabaja y no tiene nada para Martín: despierto sólo con un trabajo o un aviso.
+  const animo = animoDe(c, k.avisos(c));
   return (
     <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
       <button
         type="button" title={c.titulo}
-        className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}`}
+        className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}${animo === 'dormido' ? ' co-fila--dormida' : ''}`}
         aria-current={actual ? 'true' : undefined}
         onClick={() => onElegir(c.clave)}
         onContextMenu={(e) => { e.preventDefault(); k.abrirMenu(c.clave, e.clientX, e.clientY); }}
       >
-        <Muneco titulo={c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)} animo={animoDe(c)} size={sub ? 30 : 38} espera={k.avisos(c)} />
+        <Muneco titulo={c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)} animo={animo} size={sub ? 30 : 38} espera={k.avisos(c)} />
         <span className="co-fila__cuerpo">
           <span className="co-fila__l1">
             <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
@@ -330,32 +331,16 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
   );
 }
 
-/** «Nuevo chat» de Claude Code, arriba de sus chats, con un muñeco gris de lugar vacío (NuevoChat.tsx). Arranca en la
- *  cuenta del chat abierto si tiene terminal; si no, en la 1. */
-export function NuevoChatCentro({ centro: k, cuentaDelAbierto }: { centro: Centro; cuentaDelAbierto: string | null }) {
-  const [nuevo, setNuevo] = useState<BorradorNuevoChat | null>(null);
-  const [abriendo, setAbriendo] = useState(false);
+/**
+ * «Nuevo chat» de Claude Code, arriba de sus chats, con su círculo verde (NuevoChat.tsx). NO abre un modal (Martín, 17/10/2026:
+ * «jamás debe abrir un modal, eso es lo más contraintuitivo y contra IA que existe»): abre un chat vacío con la caja lista
+ * (ChatNuevo.tsx) y MaKo decide dónde va y cómo se llama con el primer mensaje.
+ */
+export function NuevoChatCentro({ onNuevo, actual }: { onNuevo: () => void; actual: boolean }) {
   return (
-    <>
-      <button type="button" className="co-fila co-fila--nuevo"
-        onClick={() => setNuevo({ nombre: '', cuenta: cuentaDelAbierto && tieneTerminal(cuentaDelAbierto) ? cuentaDelAbierto : 'claude1' })}>
-        <MunecoNuevo />
-        <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
-      </button>
-      {nuevo && (
-        <Modal titulo="Nuevo chat" onCerrar={() => setNuevo(null)} ancho={520}
-          // «Abrir» primero (el clic, 17/10/2026); copiar el comando queda de segunda opción mientras el Runner no abra.
-          pie={<>
-            <Button variant={k.puedeAbrirEn(nuevo.cuenta) ? 'secondary' : 'primary'} disabled={!nombreValido(nuevo.nombre.trim()).ok}
-              onClick={() => { void k.copiarConAviso(comandoNuevoChat(nuevo.cuenta, nuevo.nombre), 'Copiado: pégalo en PowerShell'); setNuevo(null); }}>Copiar comando</Button>
-            {k.puedeAbrirEn(nuevo.cuenta) && (
-              <Button loading={abriendo} disabled={abriendo || !sePuedeAbrir(nuevo, true)}
-                onClick={async () => { setAbriendo(true); const ok = await k.abrirChat(nuevo); setAbriendo(false); if (ok) setNuevo(null); }}>Abrir</Button>
-            )}
-          </>}>
-          <NuevoChat borrador={nuevo} onCambio={setNuevo} onCopiar={k.copiarConAviso} puedeAbrir={k.puedeAbrirEn(nuevo.cuenta)} estado={k.apertura} />
-        </Modal>
-      )}
-    </>
+    <button type="button" className="co-fila co-fila--nuevo" aria-current={actual ? 'true' : undefined} onClick={onNuevo}>
+      <CirculoNuevo />
+      <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
+    </button>
   );
 }
