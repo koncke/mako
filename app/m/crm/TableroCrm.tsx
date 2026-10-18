@@ -88,7 +88,7 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
     return {
       ok: true,
       deshacer: async () => {
-        const d = await deshacerMoverAction(leadId, datos.funnelId, r.antes, r.esCasa).catch(() => ({ ok: false as const }));
+        const d = await deshacerMoverAction(leadId, datos.funnelId, r.antes, r.esCasa, r.deshacer).catch(() => ({ ok: false as const }));
         return d.ok;
       },
     };

@@ -85,6 +85,22 @@ export async function cambiarSettingSi(key: string, esperado: string | null, nue
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * Borra una setting SOLO si todavía vale `esperado` (el compare-and-set de `cambiarSettingSi`, para borrar).
+ * Devuelve si borró.
+ */
+export async function borrarSettingSi(key: string, esperado: string): Promise<boolean> {
+  const { data, error } = await getSupabaseServer()
+    .from('app_settings')
+    .delete()
+    .eq('workspace_id', await wsObligatorio())
+    .eq('key', key)
+    .eq('value', esperado)
+    .select('key');
+  if (error) throw new Error(`Error borrando setting ${key}: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
 /** Valor numérico tolerante: null si no existe o no parsea (sin romper). */
 export async function getSettingNum(key: string): Promise<number | null> {
   const raw = await getSetting(key);

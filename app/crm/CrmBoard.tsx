@@ -65,7 +65,8 @@ import {
   eliminarLeadsAction,
   type OpEtapa,
 } from './actions';
-import type { ReagendarResultado, StageMoveData } from './actions';
+import type { ReagendarResultado, StageMoveData, StageMoveResultado } from './actions';
+import type { TokenDeshacer } from '@/lib/deshacer-movimiento';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
@@ -605,7 +606,15 @@ export function CrmBoard({
   const [ordenCols, setOrdenCols] = useState<{ funnel: number | null; keys: string[] } | null>(null);
   // `pendientes`: lo que la etapa pide y todavía falta. Desde el 17/09 eso NO frena
   // el movimiento (08-T22): se guarda igual y se avisa acá, sin pedir nada.
-  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; monto: number | null; motivo: string | null; pendientes?: string[] } | null>(null);
+  // `deshacer`: la foto firmada que devolvió el movimiento (lib/deshacer-movimiento.ts). Sin ella, el botón va apagado.
+  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; pendientes?: string[]; deshacer?: TokenDeshacer } | null>(null);
+  // El Deshacer que no se pudo: se DICE, como en el teléfono (antes la card volvía sola, sin una palabra).
+  const [avisoDeshacer, setAvisoDeshacer] = useState<string | null>(null);
+  useEffect(() => {
+    if (!avisoDeshacer) return;
+    const t = setTimeout(() => setAvisoDeshacer(null), 5000);
+    return () => clearTimeout(t);
+  }, [avisoDeshacer]);
   // Los dos toques opcionales de Meta que viajan en la confirmación de mover (ver
   // senales-meta.ts). Ref y no estado: la confirmación guarda su `onOk` al abrirse,
   // y tiene que leer lo que se tocó DESPUÉS, al confirmar.
@@ -706,9 +715,9 @@ export function CrmBoard({
           asistio_j2: tr?.category === 'perdida' ? undefined : tr?.asistioJ2,
           calificado: senales?.calificado ?? undefined,
         });
-        if (r.ok && r.pendientes?.length) {
-          const labels = r.pendientes.map((p) => p.label);
-          setUndoInfo((u) => (u && u.id === id ? { ...u, pendientes: labels } : u));
+        if (r.ok) {
+          const labels = r.pendientes?.length ? r.pendientes.map((p) => p.label) : undefined;
+          setUndoInfo((u) => (u && u.id === id ? { ...u, ...(labels ? { pendientes: labels } : {}), deshacer: r.deshacer } : u));
         }
         // Red de seguridad: el server de hoy ya no devuelve ok:false por datos
         // faltantes, pero si algún día lo hiciera, se abre el wizard en vez de
@@ -728,7 +737,7 @@ export function CrmBoard({
     // Toast "Deshacer" (5s) tras concretar un movimiento en el tablero.
     if (from && from !== key) {
       const lead = leads.find((l) => l.id === id);
-      setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label, monto: lead?.monto || null, motivo: lead?.motivo || null });
+      setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label });
     }
   };
 
@@ -793,16 +802,22 @@ export function CrmBoard({
 
   // Revertir el último movimiento a su etapa anterior (ventana del toast, 5s).
   // No deja huella en el historial: un movimiento deshecho al instante es un
-  // mis-click, no historia. Lleva el monto/motivo previos para reponerlos si el
-  // movimiento los borró (des-ganar).
+  // mis-click, no historia. El server repone la FOTO firmada que devolvió el
+  // movimiento (estado, monto, fecha de cierre, cuotas…), tal cual (17/10/2026,
+  // `undoStageMoveAction`). Si no pudo, la card vuelve y se DICE por qué.
   const undoMove = () => {
-    if (!undoInfo) return;
-    const { id, from, monto, motivo } = undoInfo;
+    if (!undoInfo?.deshacer) return;
+    const { id, from, deshacer } = undoInfo;
     setUndoInfo(null);
     setLocalStage((m) => ({ ...m, [id]: from }));
     startTransition(async () => {
-      try { await undoStageMoveAction(id, from, { monto, motivo }); }
-      catch { setLocalStage((m) => { const n = { ...m }; delete n[id]; return n; }); }
+      try {
+        const r = await undoStageMoveAction(id, deshacer);
+        if (r && 'error' in r) throw new Error(r.error);
+      } catch (e) {
+        setLocalStage((m) => { const n = { ...m }; delete n[id]; return n; });
+        setAvisoDeshacer(e instanceof Error && e.message.length <= 40 ? e.message : 'No se pudo deshacer');
+      }
       router.refresh();
     });
   };
@@ -1548,7 +1563,7 @@ export function CrmBoard({
         setLocalStage((m) => ({ ...m, [leadId]: destino }));
         if (from !== destino) {
           const pendientes = r.pendientes?.map((p) => p.label);
-          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, monto: l.monto || null, motivo: l.motivo || null, pendientes });
+          setUndoInfo({ id: leadId, name: l.name, from, toLabel: destinoLabel, pendientes, deshacer: r.deshacer });
         }
         router.refresh();
       } catch (e) {
@@ -1587,12 +1602,13 @@ export function CrmBoard({
     const nota = modo === 'futura' ? mmNota.trim() : null;
     setManualMeeting(null);
     startTransition(async () => {
-      await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
+      const r = await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
+      setUndoInfo((u) => (u && u.id === leadId ? { ...u, deshacer: r.deshacer } : u));
       router.refresh();
     });
     // Toast Deshacer también en este camino (antes solo lo tenía el drag directo).
     if (lead && from && from !== which) {
-      setUndoInfo({ id: leadId, name: lead.name, from, toLabel: findStage(stages, which).label, monto: lead.monto || null, motivo: lead.motivo || null });
+      setUndoInfo({ id: leadId, name: lead.name, from, toLabel: findStage(stages, which).label });
     }
   };
 
@@ -3342,11 +3358,11 @@ export function CrmBoard({
             equipo={equipo}
             onVerDetalle={esCompletar ? () => router.push(`/crm/${l.id}`) : undefined}
             onClose={() => setStageMove(null)}
-            onDone={() => {
+            onDone={(r?: StageMoveResultado) => {
               setStageMove(null);
               setLocalStage((m) => ({ ...m, [l.id]: stageMove.move.to }));
               if (from !== stageMove.move.to) {
-                setUndoInfo({ id: l.id, name: l.name, from, toLabel: findStage(stages, stageMove.move.to).label, monto: l.monto || null, motivo: l.motivo || null });
+                setUndoInfo({ id: l.id, name: l.name, from, toLabel: findStage(stages, stageMove.move.to).label, deshacer: r && r.ok ? r.deshacer : undefined });
               }
               router.refresh();
             }}
@@ -3912,8 +3928,14 @@ export function CrmBoard({
               }} style={{ background: '#F3F5F8', border: 'none', color: '#14161B', fontWeight: 700, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>Completar ahora</button>
             </>
           )}
-          <button type="button" onClick={undoMove} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>↶ Deshacer</button>
+          {/* Apagado hasta que llega la foto del movimiento: un Deshacer que no deshace es peor que ninguno. */}
+          <button type="button" onClick={undoMove} disabled={!undoInfo.deshacer} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: undoInfo.deshacer ? 'pointer' : 'default', opacity: undoInfo.deshacer ? 1 : 0.45, fontFamily: SANS }}>↶ Deshacer</button>
           <button type="button" onClick={() => setUndoInfo(null)} aria-label="cerrar" style={{ background: 'transparent', border: 'none', color: 'rgba(243,245,248,.6)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+        </div>
+      )}
+      {avisoDeshacer && !undoInfo && (
+        <div role="alert" style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 70, maxWidth: 'min(640px, calc(100vw - 32px))', background: '#14161B', color: '#F3F5F8', padding: '12px 16px', borderRadius: 12, boxShadow: '0 12px 32px rgba(18,21,27,.35)', fontFamily: SANS, fontSize: 14 }}>
+          {avisoDeshacer}
         </div>
       )}
       {/* Eliminar una etapa es irreversible y mueve leads: se pregunta, y la pregunta dice

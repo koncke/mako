@@ -116,7 +116,9 @@ test('M1-b: una reunión cargada a mano inscribe al instante, sólo hacia una et
   // `updateLead` dispara salvo que cambie el ESTADO (un movimiento: `setPipelineStage` siempre lo manda) o que el
   // que llama escriba la etapa él después (`setMeetingManual`).
   const upd = cuerpo(LEADS, 'export async function updateLead(');
-  assert.match(upd, /const cambioDeEstado = input\.estado_lead !== undefined && input\.estado_lead !== actual\.estado_lead;/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: un deshacer trae el estado en `desenlaceExacto` y no en `input`
+  // (tests/deshacer-movimiento-venta.test.ts); también es un cambio de estado y tampoco dispara.
+  assert.match(upd, /const estadoPedido = opts\?\.desenlaceExacto\?\.estado_lead \?\? input\.estado_lead;\s*const cambioDeEstado = estadoPedido !== undefined && estadoPedido !== actual\.estado_lead;/);
   assert.match(upd, /if \(opts\?\.disparoDeEtapa !== false && !cambioDeEstado && entraAEtapaDeReunion\(antes, despues\)\) \{\s*await enrolarPorEtapaDerivada\(id, despues, actual\.funnel_id \?\? null\);/);
   // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: el estado viaja sólo si cambia (tests/updatelead-no-borra-venta.test.ts).
   // Sin cambio de estado no cambia nada acá: `cambioDeEstado` ya era false con el mismo estado mandado.
