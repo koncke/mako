@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  DESTINO_NUEVO, DESTINO_RE, aceptaAbrir, aceptaAdjuntos, problemaDeNombreNuevo, type AdjuntoPedido, type TurnoChat,
+  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaTextoLargo, problemaDeNombreNuevo, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
 import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
@@ -397,7 +397,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const d = destinoDeChat(c);
     const envio = envioDe(c);
     if (!d.sesion || !envio.puede) { avisar(textoDeEnvio(envio) ?? 'No recibe ahora', 'bad'); return false; }
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, 'solo_esto');
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto');
     if (!r.ok) { avisar(r.error, 'bad'); return false; }
     anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
     return true;
@@ -410,6 +410,11 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const puedeAdjuntar = (c: ChatCentro) => {
     const { cuenta } = destinoDeChat(c);
     return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaAdjuntos(k.version));
+  };
+  /** Cuánto texto acepta el Runner de la cuenta a la que sale (18/10/2026): uno de antes de la 1.15.8 rechaza más de 8000. */
+  const topeDe = (c: ChatCentro) => {
+    const { cuenta } = destinoDeChat(c);
+    return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaTextoLargo(k.version)) ? MAX_TEXTO_LARGO : MAX_TEXTO;
   };
   const sumarAdjuntos = async (clave: string, lista: readonly File[]) => {
     if (!lista.length) return;
@@ -463,7 +468,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     }
     // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
     const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, 'solo_esto', como, subidos);
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto', como, subidos);
     setEnviando(false);
     if (!r.ok) { avisar(r.error, 'bad'); return; }
     anotarEnviado({
@@ -487,7 +492,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     for (const c of destinos.slice(0, TOPE_REENVIO)) {
       const d = destinoDeChat(c);
       if (!d.sesion || !envioDe(c).puede) { avisar(`${c.titulo}: ${textoDeEnvio(envioDe(c)) ?? 'no recibe ahora'}`, 'bad'); continue; }
-      const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, sale, 'solo_esto');
+      const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, sale, 'solo_esto');
       if (!r.ok) { avisar(r.error, 'bad'); continue; }
       ok += 1;
       anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: sale, estado: 'escrito', motivo: null, cierre: null });

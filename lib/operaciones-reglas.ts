@@ -20,6 +20,14 @@ export const VERSION_PEDIDO = 1 as const;
 /** Tope del texto de un pedido. Se RECHAZA, no se recorta (AGENTS.md: un tope en un texto que
  *  escribe una persona rechaza). */
 export const MAX_TEXTO = 8000;
+/**
+ * Los mensajes largos de Martín (18/10/2026: «debería poder enviar mensajes mucho más largos»; el de su feedback tenía
+ * ~12.000). El servidor los acepta hasta este tope; la caja los ofrece sólo a un Runner que también los acepta
+ * (`aceptaTextoLargo`): uno de antes rechazaría el trabajo entero, y saldría «No se pudo».
+ */
+export const MAX_TEXTO_LARGO = 40_000;
+export const VERSION_TEXTO_LARGO = '1.15.8';
+export const aceptaTextoLargo = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_TEXTO_LARGO);
 /** Un pedido firmado vale dos semanas: alcanza para que vuelva una cuenta inactiva. */
 export const VENCE_DIAS = 14;
 /** Más que esto sin noticias del cartero y la pantalla deja de decir «vivo». El cartero pasa
@@ -225,7 +233,7 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (o.v !== VERSION_PEDIDO) return { ok: false, motivo: 'versión desconocida' };
   if (typeof o.id !== 'string' || !UUID_RE.test(o.id)) return { ok: false, motivo: 'id inválido' };
   if (typeof o.texto !== 'string' || !o.texto.trim()) return { ok: false, motivo: 'sin texto' };
-  if (o.texto.length > MAX_TEXTO) return { ok: false, motivo: `el texto pasa de ${MAX_TEXTO} caracteres` };
+  if (o.texto.length > MAX_TEXTO_LARGO) return { ok: false, motivo: `el texto pasa de ${MAX_TEXTO_LARGO} caracteres` };
   const nuevo = o.destino === DESTINO_NUEVO;
   if (!nuevo && (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino))) return { ok: false, motivo: 'destino inválido' };
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
@@ -380,6 +388,8 @@ export function sanearAcuses(x: unknown): Acuse[] {
 export type TurnoChat = { local: string; uuid: string; rol: 'yo' | 'el' | 'otro'; de: string | null; texto: string; at: string; trabajo: string | null };
 /** Lo más largo de un turno que se guarda (la PC ya lo corta). */
 export const TOPE_TURNO = 4000;
+/** Lo que escribió Martín (rol «yo») no se corta como lo demás: puede ser largo, y es suyo (18/10/2026). */
+export const TOPE_TURNO_YO = MAX_TEXTO_LARGO;
 /** Cuántos turnos sube una vuelta, como mucho (la primera de un chat largo trae su historia). */
 export const MAX_TURNOS_VUELTA = 300;
 /** Cuántos turnos se guardan por chat (los últimos). */
@@ -399,7 +409,7 @@ export function sanearTurnos(x: unknown): TurnoChat[] {
     if (!Number.isFinite(at)) continue;
     out.push({
       local: o.local, uuid: o.uuid, rol: o.rol, de: o.rol === 'otro' ? corto(o.de, 60) || null : null,
-      texto: o.texto.slice(0, TOPE_TURNO), at: new Date(at).toISOString(),
+      texto: o.texto.slice(0, o.rol === 'yo' ? TOPE_TURNO_YO : TOPE_TURNO), at: new Date(at).toISOString(),
       trabajo: typeof o.trabajo === 'string' && UUID_RE.test(o.trabajo) ? o.trabajo : null,
     });
   }
