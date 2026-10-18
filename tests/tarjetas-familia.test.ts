@@ -14,7 +14,9 @@
 //   6. toda pieza del kit lleva sus variables, aunque se use fuera de una tarjeta `.tk` (18/10: el círculo del Plan era
 //      invisible y la cara del teléfono salía sin color, en producción, con todo lo de arriba en verde);
 //   7. cada componente del kit monta SUS estilos, y quien usa clases `tk-*` sueltas también (18/10: Clients de la
-//      computadora no los montaba y la tarjeta salió sin estilos para todos los negocios).
+//      computadora no los montaba y la tarjeta salió sin estilos para todos los negocios);
+//   8. la columna con su bloque de fondo (el mismo en los tres tableros) y «Próximo» plegado, abierto por el ícono del
+//      calendario (18/10, Martín, pt 8).
 //
 // PROBADO ROMPIÉNDOLO (17/10/2026), con el archivo en 5 / 0, una rotura por vez y restaurada:
 //   · la ficha rápida del CRM moviendo sin `handleDrop`                              → 4 / 1
@@ -29,6 +31,8 @@
 //   estilos) → 6 / 1, nombrando CaraTarjeta y PestanasPildora (las tarjetas pasan porque dibujan una CaraTarjeta); y
 //   VistaSelector del CRM sin el suyo → 6 / 1, nombrando app/crm/CrmToolbar.tsx. Sacarlo SÓLO de TarjetaPersona da
 //   7 / 0, y está bien: su CaraTarjeta lo monta igual (una rotura que no cambia la pantalla no prueba nada).
+// Y el 8 (18/10/2026), con el archivo en 8 / 0: el CrmBoard de antes (columna al 55 % y «Próximo» siempre abierto)
+//   → 7 / 1; y KanbanEntrega de antes (su columna al 55 %) → 7 / 1.
 // Correr: node --import tsx --test tests/tarjetas-familia.test.ts
 // =============================================================================
 
@@ -167,4 +171,20 @@ test('cada componente del kit monta sus estilos, y quien usa clases tk-* sueltas
     return !t.includes('<EstiloTarjetas />') && !/<(TarjetaPersona|TarjetaTarea|CaraTarjeta|PestanasPildora|TarjetaDestacada|CuerpoFichaRapida|FichaRapida)\b/.test(t);
   });
   assert.deepEqual(huerfanos, [], `usan clases tk-* sin montar los estilos: ${huerfanos.join(', ')}`);
+});
+
+// ── 8. La columna con su bloque de fondo, y «Próximo» plegado ───────────────────────────────────────────────────────
+test('la columna con su bloque de fondo en los tres tableros, y «Próximo» plegado detrás del calendario', () => {
+  const tk = leer('lib/tarjeta-kanban.ts');
+  assert.match(tk, /export const FONDO_COLUMNA = 'var\(--surface-2\)';/);
+  const crm = leer('app/crm/CrmBoard.tsx');
+  for (const [f, t] of [['app/crm/CrmBoard.tsx', crm], ['app/plan/board/BoardShell.tsx', leer('app/plan/board/BoardShell.tsx')],
+    ['app/customer-success/KanbanEntrega.tsx', leer('app/customer-success/KanbanEntrega.tsx')]] as const) {
+    assert.doesNotMatch(t, /var\(--surface-2\) 55%/, `${f}: la columna volvió al fondo que no se ve`);
+    assert.match(t, /FONDO_COLUMNA/, `${f}: la columna no usa el fondo común`);
+  }
+  assert.match(crm, /const \[verProximo, setVerProximo\] = useState\(false\);/, '«Próximo» tiene que arrancar plegado');
+  assert.match(crm, /if \(!verProximo\) return null;/, '«Próximo» se dibuja sólo desplegado');
+  assert.match(crm, /onAlternar=\{hayProxima \? \(\) => setVerProximo\(\(v\) => !v\) : null\}/, 'el calendario lo despliega');
+  assert.match(leer('app/crm/ReunionesProximas.tsx'), /onClick=\{onAlternar \?\? \(\(\) => setAbierto\(true\)\)\}/, 'con próxima reunión, el calendario no abre el pop-up');
 });

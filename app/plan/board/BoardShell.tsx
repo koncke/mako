@@ -145,7 +145,7 @@ import { TablaProyectos, TablaTareas, LineaRepeticion } from './Tablas';
 // este código no las nombra: dos modelos de lo mismo es el bug que la 0167 vino a cerrar.
 import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, recurrenciaDe, ROTULO_REPETICION } from '@/lib/plan-recurrentes';
 import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
-import { NOMBRE_PRIORIDAD, type PrioridadTarea } from '@/lib/tarjeta-kanban';
+import { FONDO_COLUMNA, NOMBRE_PRIORIDAD, type PrioridadTarea } from '@/lib/tarjeta-kanban';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -3509,7 +3509,7 @@ function ColumnaKanban({ estado: e, label, items, board, manual, puedeMover, ins
       // gesto miden estos rectángulos UNA vez y después no vuelven a leer layout.
       data-columna={e}
       aria-label={`${label}: ${items.length}`}
-      style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: encima ? 'var(--primary-bg)' : 'color-mix(in srgb, var(--surface-2) 55%, transparent)', border: 'none', borderRadius: 26, padding: '12px 10px 10px', boxShadow: encima ? `inset 0 0 0 2px ${color}` : 'none', transition: 'background .12s, box-shadow .12s' }}>
+      style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: encima ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 26, padding: '12px 10px 10px', boxShadow: encima ? `inset 0 0 0 2px ${color}` : 'none', transition: 'background .12s, box-shadow .12s' }}>
       <ColHeader label={label} color={color} count={items.length} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
         {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas). Nace

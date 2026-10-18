@@ -117,6 +117,7 @@ import { avanceDeCliente } from './aviso-tarjeta';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { quienesViajan } from './LoteClientes';
 import { indiceEnColumna, antesDeQuien } from './orden-manual';
+import { FONDO_COLUMNA } from '@/lib/tarjeta-kanban';
 
 /** Dónde está un cliente en esta entrega. */
 export type Asignacion = { etapa: string; etapa_desde: string; por: string };
@@ -762,7 +763,7 @@ const CSS = `
 .ke-col {
   flex: 0 0 304px; display: flex; flex-direction: column; gap: 8px;
   /* La columna de la familia de tarjetas (17/10/2026): 26 de radio y fondo suave, sin borde duro. */
-  background: color-mix(in srgb, var(--surface-2) 55%, transparent); border: 1px solid transparent;
+  background: ${FONDO_COLUMNA}; border: 1px solid transparent;
   border-radius: 26px; padding: 12px 10px 10px; min-height: 248px; max-height: 68vh;
   transition: background .12s, border-color .12s;
 }

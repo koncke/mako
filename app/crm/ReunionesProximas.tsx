@@ -36,7 +36,17 @@ function CalendarioIcono() {
   );
 }
 
-export function BotonReuniones({ juntas, onAbrir }: { juntas: CrmJunta[]; onAbrir: (leadId: number) => void }) {
+/**
+ * `onAlternar` (18/10/2026, Martín, pt 8): con una reunión por delante, el ícono del calendario ya no abre el pop-up:
+ * despliega y pliega «Próximo», la tarjeta azul de arriba del tablero, que arranca PLEGADA. Sin reunión por delante
+ * (`onAlternar` null), sigue abriendo la lista.
+ */
+export function BotonReuniones({ juntas, onAbrir, onAlternar, desplegado }: {
+  juntas: CrmJunta[];
+  onAbrir: (leadId: number) => void;
+  onAlternar?: (() => void) | null;
+  desplegado?: boolean;
+}) {
   const [abierto, setAbierto] = useState(false);
   // `onCerrar` de identidad FIJA: el Modal de la casa re-ejecuta su efecto de foco con cada
   // identidad nueva (AGENTS.md → «Todo <Modal> recibe un onCerrar de identidad FIJA»).
@@ -58,9 +68,10 @@ export function BotonReuniones({ juntas, onAbrir }: { juntas: CrmJunta[]; onAbri
       <button
         type="button"
         className="crm-reunion-latido"
-        onClick={() => setAbierto(true)}
+        onClick={onAlternar ?? (() => setAbierto(true))}
+        aria-pressed={onAlternar ? !!desplegado : undefined}
         title={n === 1 ? 'Tienes una reunión cerca' : `Tienes ${n} reuniones cerca`}
-        aria-label={n === 1 ? 'Ver la reunión que viene' : `Ver las ${n} reuniones que vienen`}
+        aria-label={onAlternar ? (desplegado ? 'Plegar la próxima reunión' : 'Ver la próxima reunión') : n === 1 ? 'Ver la reunión que viene' : `Ver las ${n} reuniones que vienen`}
         style={{
           flex: 'none', height: 40, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 7,
           borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--primary-bg)', color: 'var(--primary)',
