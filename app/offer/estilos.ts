@@ -142,6 +142,7 @@ export const CSS_OFFER = `
 .of-puntos span { animation: of-latido 1.2s ease-in-out infinite; }
 .of-puntos span:nth-child(2) { animation-delay: .2s; }
 .of-puntos span:nth-child(3) { animation-delay: .4s; }
+.of-analizando { font-size: 13px; color: var(--dim); }
 .of-escribiendo { display: inline-flex; align-items: center; gap: 4px; padding: 4px 2px; color: var(--dim); }
 .of-escribiendo i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: of-escribe 1.2s ease-in-out infinite; }
 .of-escribiendo i:nth-child(2) { animation-delay: .15s; }
