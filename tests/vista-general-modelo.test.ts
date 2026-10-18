@@ -249,7 +249,7 @@ test('(4) la lectura elige el tablero con tableroActual() y lee plan_tareas para
   assert.match(src, /tablero === 'dueno'\) return tareasDelDuenoParaFoco\(\(await listPlanBoard\(\)\)\.tareas\)/);
   assert.match(src, /tablero === 'cliente'\) return tareasDelClienteParaFoco\(await listTareas\(\)\)/);
   // Y la página ya no elige tabla por su cuenta.
-  assert.doesNotMatch(sinComentarios(leer('app/general/page.tsx')), /listTareas|experimento_tareas/);
+  assert.doesNotMatch(sinComentarios(leer('app/dashboard/FocusDeGeneral.tsx')), /listTareas|experimento_tareas/);
 });
 
 // ── (5) El hoy del workspace ─────────────────────────────────────────────────

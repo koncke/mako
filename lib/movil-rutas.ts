@@ -673,6 +673,8 @@ export function rutaMovil(href: string | null | undefined): string | null {
     // `?hoja=` de escritorio: «comercial» es la segunda pestaña del segmentado; otra hoja propia
     // abre /m/dashboard/<id> (si no existe o no entra en el teléfono, esa página vuelve sola).
     const hoja = q.get('hoja')?.trim();
+    // La hoja fija «Focus» del Dashboard unido (17/10/2026, lib/dashboard-focus.ts) es lo que era /general: la portada.
+    if (hoja === 'focus') return HOME_MOVIL;
     if (!hoja || hoja === 'marketing') return '/m/dashboard';
     if (hoja === 'comercial') return '/m/dashboard?hoja=comercial';
     return `/m/dashboard/${encodeURIComponent(hoja)}`;

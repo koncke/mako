@@ -9033,6 +9033,11 @@ Desde el 14/10/2026 `/general` monta `EditorInforme` con `informe="general"` (su
 Martín: «intenta replicar lo que tenemos en dashboard... Los bloques también deberían ser editables». El porqué y lo que
 costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «General es el editor del Dashboard».
 
+- **Desde el 17/10/2026 General es la hoja «Focus» del Dashboard** (lib/dashboard-focus.ts): `/general` sólo redirige a
+  `/dashboard?hoja=focus` y el cuerpo vive en app/dashboard/FocusDeGeneral.tsx. Un link nuevo a la portada va a
+  `/dashboard` (abre Focus); a una hoja de General, `/dashboard?hoja=<id>`. Lo que cambia los datos de Focus revalida
+  `/dashboard`. Siguen siendo DOS informes: no se mezclan hojas de uno en el otro.
+
 - **Lo que se puede medir con el catálogo de gráficos va como GRÁFICO**, que se edita entero. Un bloque de General es
   lo que el catálogo no tiene (la meta y la acción del día, los KPIs con su registro, el semáforo, el Plan).
 - **Un bloque es una TARJETA DE LA HOJA** (Martín, 14/10/2026: «no están interactuando con el diseño de la página»): el
