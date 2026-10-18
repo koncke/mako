@@ -28,6 +28,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { exigirClienteDePrueba } from './auth-session';
 import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
+import { PERFIL_EXTRA } from './datos-mau';
 
 /**
  * Qué se vacía: TODAS las tablas de inquilino.
@@ -248,6 +249,23 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
   {
     const { error } = await getSupabaseServer().from('workspaces').update({ nombre: NOMBRE_WS_PRUEBA }).eq('id', ws);
     if (error) avisos.push(`el nombre del workspace: ${error.message}`);
+  }
+
+  // Y SU GENTE, DE CERO (18/10/2026, Martín: después de RESET la tarjeta del ws 3 mostraba la foto de Mauricio). MEDIDO:
+  // el único miembro del ws 3 tenía el `foto_url` de Mauricio. Lo pone «Traer datos de Mau» (`copiarPerfilDelDueno`,
+  // lib/datos-mau.ts), que guarda lo de antes en un recibo DENTRO de app_settings: el RESET borraba el recibo y dejaba
+  // la foto, el nombre y el perfil copiados, sin forma de volver. Los usuarios no se borran (se perdería el acceso):
+  // vuelven al nombre del workspace, sin foto y sin los campos de perfil que copia esa función.
+  {
+    const db = getSupabaseServer();
+    const { data, error } = await db.from('usuarios').select('id, perfil').eq('workspace_id', ws);
+    if (error) avisos.push(`los usuarios del workspace: ${error.message}`);
+    for (const u of (data ?? []) as Array<{ id: number; perfil: Record<string, unknown> | null }>) {
+      const perfil: Record<string, unknown> = { ...(u.perfil ?? {}) };
+      for (const k of PERFIL_EXTRA) delete perfil[k];
+      const r = await db.from('usuarios').update({ nombre: NOMBRE_WS_PRUEBA, foto_url: null, perfil }).eq('id', u.id).eq('workspace_id', ws);
+      if (r.error) avisos.push(`el usuario ${u.id}: ${r.error.message}`);
+    }
   }
 
   // Lo que este botón NO puede limpiar, dicho de frente en vez de prometido.
