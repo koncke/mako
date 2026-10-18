@@ -2808,7 +2808,7 @@ export function CrmBoard({
                 nombre={l.name}
                 foto={l.foto}
                 insignia={insigniaDeCanal(l.canal)}
-                subtitulo={subtituloLead(plataDeLead({ ganado: isGanado, monto: l.monto, ingresoEstimado: l.ingresoEstimado, suscripcionMonto: l.suscripcionMonto }), l.canal)}
+                subtitulo={subtituloLead(isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado }), l.canal)}
                 pildora={{ texto: 'Ver info', titulo: 'La ficha rápida, con «Mover a…»', onClick: () => { setMoviendoRapida(false); setRapida(l); } }}
                 antes={
                   /* LA CASILLA. `onClick` con `stopPropagation` y no `onChange`: el click
@@ -3037,7 +3037,8 @@ export function CrmBoard({
         if (!j || !l) return null;
         const etapa = effStage(l);
         const i = stages.findIndex((s) => s.key === etapa);
-        const plata = plataDeLead({ ganado: etapa === 'ganado', monto: l.monto, ingresoEstimado: l.ingresoEstimado, suscripcionMonto: l.suscripcionMonto });
+        // En Ganado, el helper de la casa (`montoDeTarjeta`: la mensualidad de una suscripción, «Sin cobro» de un becado).
+        const plata = etapa === 'ganado' ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
         return (
           <div style={{ marginBottom: 14 }}>
             <TarjetaDestacada ancha sobre="Próximo"
@@ -3348,7 +3349,8 @@ export function CrmBoard({
         const l = rapida;
         const etapa = effStage(l);
         const i = stages.findIndex((s) => s.key === etapa);
-        const plata = plataDeLead({ ganado: etapa === 'ganado', monto: l.monto, ingresoEstimado: l.ingresoEstimado, suscripcionMonto: l.suscripcionMonto });
+        // En Ganado, el helper de la casa (`montoDeTarjeta`: la mensualidad de una suscripción, «Sin cobro» de un becado).
+        const plata = etapa === 'ganado' ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
         const cerrar = () => { setRapida(null); setMoviendoRapida(false); };
         return (
           <FichaRapida

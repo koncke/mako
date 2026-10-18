@@ -9950,8 +9950,9 @@ app/m/crm/acciones.ts · test: deshacer-movimiento-venta · *17/10/2026, agente 
   tienen foto; el resto, iniciales con el color del nombre y la insignia del canal.
 - **Las vistas del prototipo se mapearon a las que hay:** «Tablero · Lista» (la lista sigue siendo la tabla). No hay
   «Follow-ups»: no existe esa vista, y no se inventó.
-- **La plata de la tarjeta sigue la regla del total de su columna** (lib/tarjeta-kanban.ts `plataDeLead` ≈ total-columna.ts):
-  vendido en Ganado, «≈» estimado abierto, nada sin dato.
+- **La plata de la tarjeta:** en Ganado, el helper de la casa (`montoDeTarjeta`, lib/venta-tipo.ts: la mensualidad de una
+  suscripción con monto 0, «Sin cobro» de un becado) — una copia propia se lo había saltado y la frenó tests/ganado-monto;
+  abierto, el estimado con «≈» (`plataDeLead`). Sin dato, nada.
 
 **Sin hacer:** la foto de Instagram (no se guarda: la URL vence); la tabla («Lista») sigue con su diseño de tabla.
 **Vive en:** app/crm/CrmBoard.tsx · app/crm/CrmToolbar.tsx (`VistaSelector`) · app/m/crm/datos.ts y TableroCrm.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
