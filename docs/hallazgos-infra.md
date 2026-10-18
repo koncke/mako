@@ -7012,3 +7012,23 @@ La Papelera no se pudo medir (devuelve 0 sin admin) y no se vació.
   `git clone`, pero son su referencia: no se tocaron.
 - **Scratchpads de sesiones de menos de 3 días**, que cumplen el criterio en 1 o 2 días: `Temp\claude\…\f3876a09…\scratchpad`
   (`gh` 2,6 GB y `presenton-*` 0,7 GB, sin tocar desde el 11/10), `4eb065fe…` (1,6 GB), `eb5e2cd4…` y `e86e3994…` (0,4 GB c/u).
+
+---
+
+## `git log --since=2026-10-17` devuelve 0 commits de hoy: una fecha pelada toma la HORA de ahora (17/10/2026)
+
+**Síntoma.** Para conciliar `docs/pendientes.md` se pidió `git log --since=2026-10-17 --oneline | head -300`. Dio **0 líneas** con 678
+commits del día en el árbol (el último, de las 21:42, ya estaba commiteado). Con la fecha pelada se podía creer que «hoy no hubo nada».
+
+**Causa.** Git completa una fecha sin hora con la hora actual del reloj: a las 22:03 `--since=2026-10-17` significa «desde el 17/10 a las 22:03», y
+todo lo del día quedó antes. No es zona horaria (los commits llevan `-0300` y la máquina dice AST): es la hora del día.
+
+**Regla.** Para «desde el comienzo de hoy», `--since="2026-10-17 00:00:00 -0300"` (con la hora y la zona). Si `git log --since=<hoy>` da 0, no es que
+no se hizo nada: se mira `git log -3 --format='%h %ad %s' --date=iso` y se compara.
+
+**Y la fuente de un pendiente se mueve.** Al conciliar, 18 renglones de `docs/pendientes.md` citaban `docs/relevo/crm-tanda-b1.md`, que se
+borró el mismo día (f2b9a3dfe) y quedó en `docs/relevo/crm-pendientes-b1.md`; los encabezados `PARA EL CUARTO OPS CENTER n` de
+`docs/relevo/centro-operaciones.md` también cambiaron (ahora van por el sexto y el séptimo). Una fuente que no abre es un pendiente sin dueño:
+al borrar o renombrar un relevo, se buscan sus citas en `docs/pendientes.md` en el mismo commit.
+
+**Vive en:** `docs/pendientes.md` · `scratchpad/armar-pendientes.cjs` (el texto del resumen dice «eran 409 anotados»: es de la foto de la mañana; hay que leerlo de `pendientes.json` → `resumen`).
