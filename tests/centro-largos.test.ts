@@ -17,6 +17,7 @@
 //   · `sanearTurnos` cortando también lo de Martín → 1 fallo (3);
 //   · `vigilar` sin `crecio` en la condición de la vuelta → 1 fallo (4).
 //   · la burbuja sin «desde la app» (o mostrándolo también en lo que salió por el Ops Center) → 1 fallo (5).
+//   · la burbuja sin `max-width: 100%` → 1 fallo (6).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -80,4 +81,11 @@ test('5. lo que Martín escribió directo en la app lo dice, sutil, junto a la h
   // Sin `trabajo` = no pasó por la cola del Ops Center: lo escribió en la app de Claude.
   assert.match(hilo, /\{t\.rol === 'yo' && !t\.trabajo && <span className="co-burbuja__desde" title="Lo escribiste directo en la app de Claude">desde la app<\/span>\}\{hora\}/);
   assert.match(leer('app/admin/operaciones/centro.css'), /\.co-burbuja__desde \{[^}]*color: var\(--faint\)/, 'en gris, que no compita con el mensaje');
+});
+
+test('6. la burbuja con una cita no se sale de la pantalla (Martín en su Android, 18/10)', () => {
+  const css = leer('app/admin/operaciones/centro.css');
+  // La cita va en un renglón: sin tope, la burbuja toma el ancho de la frase entera y se sale por la izquierda.
+  assert.match(css, /\.co-cita__texto \{[^}]*white-space: nowrap/);
+  assert.match(css, /\.co-yo \.co-burbuja \{ max-width: 100%; min-width: 0; \}/, 'la burbuja no pasa del ancho de su fila');
 });

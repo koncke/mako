@@ -1,5 +1,17 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## CIERRE DEL 18/10 (la cuenta 4 al 96%): lo que quedó del pedido 906144b3 de Martín en su Android
+
+- **La cita que se salía por la izquierda: HECHO** (test 6 de tests/centro-largos.test.ts). La cita va en un renglón
+  (`.co-cita__texto`, nowrap) y la burbuja, sin tope, tomaba el ancho de la frase entera; como va alineada a la derecha,
+  se salía por la izquierda. `.co-yo .co-burbuja { max-width: 100%; min-width: 0; }` (centro.css, al final). La causa
+  salió del CSS y de la captura, **sin medirla en un navegador**: mirarlo en el teléfono respondiendo un mensaje largo.
+- **El «atrás» de Android, SIN EMPEZAR.** Martín: «en Mobile si le doy para atrás debería sacarme del chat para ir a ver
+  todos los chats». app/m/_ui/SheetM.tsx YA hace `history.pushState` (`?sheet=<id>`) y cierra la hoja en `popstate`
+  (líneas ~97-137), y el chat abierto es un `SheetM abierto onCerrar` (app/m/operaciones/ChatsMovil.tsx ~línea 122, el
+  estado `abierto` / `onAbierto` lo lleva el padre). Lo primero es medir en el teléfono por qué ESA hoja no queda en el
+  historial (¿le falta el id que registra la entrada?, ¿el padre la reabre con `abierto`?), no escribir otro pushState.
+
 ## PUNTO 4 DEL 18/10, SIN EMPEZAR (para después del 20/10, cuando se renueve la cuota): lo que Martín adjunta en la app
 
 Martín: «cuando envío imágenes por aquí [la app de Claude] o adjunto cosas también deberían aparecer en el Center». No se
