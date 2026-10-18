@@ -69,6 +69,11 @@ const BURBUJA_YO = 'var(--primary-bg)';
 /** El renglón de «MaKo está escribiendo» viaja como un mensaje más del hilo (con su foto al lado). */
 const ID_ESCRIBIENDO = '__of-escribiendo';
 
+/** ¿MaKo está LEYENDO algo (un link o archivos) y no sólo contestando? Entonces la espera dice «Analizando…» (18/10/2026). */
+export function leeAlgo(fuente: string | undefined): boolean {
+  return fuente === 'tu link' || /archivos?$/.test(fuente ?? '');
+}
+
 const ACCEPT_FOTO = [...EXT_POR_FAMILIA.imagen, ...EXT_POR_FAMILIA.video].map((e) => `.${e}`).join(',');
 
 const sinSuscripcion = () => () => {};
@@ -142,7 +147,7 @@ const ID_ARMANDO = '__of-armando';
 export type AudioEnEspera = { url: string; secs: number };
 
 export function ChatOffer({
-  sesion, pendiente, respondiendo, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onVarias, onReintentar,
+  sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onVarias, onReintentar,
   texto, onTexto, onEnviar, ocupado, vista, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
   error, onError, armando = null, onVerOferta = null, avatar, extra, soloTexto = false, placeholder, errorExtra,
 }: {
@@ -255,7 +260,11 @@ export function ChatOffer({
           {/* SÓLO LOS TRES PUNTITOS de «está escribiendo», sin texto (18/10/2026, Martín: «En lugar de "Revisando tu
               respuesta", sólo debería aparecer la animación de los ... como que está escribiendo»). El mismo latido que
               «Trabajando…» del Ops Center (`.co-trabajando__puntos`, centro.css, que sólo carga el Centro). */}
-          <BurbujaHilo contenido={{}} saliente={false} vacio={(
+          {/* Y «Analizando…» mientras LEE un link o un documento (18/10/2026, 14:00, Martín): ahí tarda y conviene decir
+              qué hace. Los puntitos, sólo cuando contesta (`leeAlgo`). */}
+          <BurbujaHilo contenido={{}} saliente={false} vacio={leeAlgo(fuente) ? (
+            <span role="status" className="of-analizando">Analizando {fuente}<span className="of-puntos" aria-hidden><span>.</span><span>.</span><span>.</span></span></span>
+          ) : (
             <span role="status" aria-label="MaKo está escribiendo" className="of-escribiendo"><i /><i /><i /></span>
           )} />
         </FilaMako>

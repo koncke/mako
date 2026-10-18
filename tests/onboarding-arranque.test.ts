@@ -126,13 +126,14 @@ test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve c
   // Explica antes de preguntar (18/10/2026): para qué y cuánto tarda.
   assert.equal(a0[0].texto, SALUDO_ARRANQUE);
   assert.match(SALUDO_ARRANQUE, /conocer tu negocio[\s\S]*menos de 5 minutos[\s\S]*¿cómo te llamas\?$/);
-  assert.deepEqual(a0[0].opciones, ['Martín'], 'ofrece el primer nombre de la cuenta');
+  // Sin respuestas rápidas en el nombre ni en el negocio (18/10/2026, 14:00, Martín): ofrecían restos de otra prueba.
+  assert.equal(a0[0].opciones, undefined, 'el nombre volvió a ofrecer el de la cuenta');
   const { antes } = mensajesDeArranque({ nombre: 'Martín' }, H);
   assert.deepEqual(antes.map((m) => m.de), ['mako', 'yo', 'mako']);
   assert.equal(antes[1].texto, 'Martín');
   assert.equal(antes[0].opciones, undefined, 'una pregunta ya contestada no vuelve a ofrecer opciones');
   assert.match(antes[2].texto, /Un gusto, Martín/);
-  assert.deepEqual(antes[2].opciones, ['Negocio que Escala']);
+  assert.equal(antes[2].opciones, undefined, 'el negocio volvió a ofrecer el nombre del workspace');
   // Ya no se pregunta el objetivo a 90 días, ni con una conversación que lo había contestado.
   assert.ok(!mensajesDeArranque({ ...QUIEN, objetivo: 'Vender más' }, H).antes.some((m) => m.id === 'arr-objetivo'));
   const fin = mensajesDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada' }, { ...H, loQueVende: true, faseGuardada: true }).despues;
@@ -166,7 +167,7 @@ test('el CRM: la tarjeta va con la pregunta, y propone el tipo de su canal prime
 // ── Las respuestas ──────────────────────────────────────────────────────────
 test('las respuestas: texto libre, una opción, el código y «ahora no»', () => {
   assert.deepEqual(leerRespuesta({}, H, { texto: '  Martín  ' }), { ok: true, patch: { nombre: 'Martín' } });
-  assert.deepEqual(leerRespuesta({}, H, { opcion: 0 }), { ok: true, patch: { nombre: 'Martín' } });
+  assert.equal(leerRespuesta({}, H, { opcion: 0 }).ok, false, 'el nombre no tiene opciones: se escribe');
   assert.equal(leerRespuesta({}, H, { texto: '   ' }).ok, false);
   const h = { ...H, loQueVende: true, faseGuardada: true };
   assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0 }), { ok: true, patch: { crmTipo: 'llamada' } });
@@ -315,7 +316,10 @@ test('un fallo pasajero no encierra: «no pude leer» no abre otra conversación
   assert.match(chat, /setIntentoCierre\(/, 'el cierre que falla no tiene reintento');
   assert.match(chat, /action: 'preparar'/, 'sin funnel principal, nada lo vuelve a intentar');
   assert.match(chat, /: 'sin'\)/, 'sin link del plan, la tarjeta queda «armando» para siempre');
-  assert.match(chat, /<BotonIntegracion servicio="gemini"/, 'si la IA no contesta, no hay salida adentro del chat');
+  // NUNCA «Conectar mi propia IA» en el onboarding (18/10/2026, Martín): usa el crédito de la plataforma. Roturas
+  // (romper-propia-ia.js; base 26/0): vuelve el botón → 25/1 · vuelve la frase en el archivero → 25/1.
+  assert.doesNotMatch(chat, /Conectar mi propia IA|BotonIntegracion|errorExtra/, 'el onboarding vuelve a ofrecer conectar la propia IA');
+  assert.doesNotMatch(leer('app/api/onboarding/archivero/route.ts'), /propia IA/, 'el error del archivero del onboarding ofrece conectar la propia IA');
   const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
   assert.match(server, /leerSesion\(e\.sesionId\)\.catch\(\(\) => \{ sesionCaida = true; return null; \}\)/);
   assert.match(sinComentarios(leer('app/offer/OfferApp.tsx')), /label: 'Reintentar', onClick: \(\) => \{ setErrorSelector\(null\); void nuevaSesion\(funnelArranque, null\); \}/);
@@ -410,20 +414,21 @@ test('el chat no desaparece nunca: armar es un mensaje del hilo y la oferta se v
   assert.match(app, /conProbar=\{!arranque\}/);
 });
 
-test('la entrada: sin el grafo, avanza SOLA (tocarla la adelanta), sin anillos, sin movimiento si se pide, y aterriza en la foto', () => {
-  // 17/10/2026, Martín: «En el onboarding elimina la animación del grafo... haz una buena entrada de la criatura de
-  // MaKo tipo motion graphics». 18/10/2026: la animación sirve para cargar, «sin clic para continuar», y «sin el círculo
-  // azul alrededor». Roturas (18/10): sin el temporizador → 1 fallo · vuelve un anillo → 1 fallo.
+test('la entrada: sin el grafo, ESPERA EL CLIC (o Enter), sin anillos, sin movimiento si se pide, y aterriza en la foto', () => {
+  // 17/10/2026, Martín: «haz una buena entrada de la criatura de MaKo tipo motion graphics, y que al clickearla recién
+  // pase al siguiente mensaje». El 18/10 a la mañana pidió que avanzara sola; a las 14:00 lo revirtió: vuelve a pedir el
+  // clic, y la animación queda igual («sin el círculo azul alrededor»). Roturas (18/10, romper-clic.js; base 26/0): vuelve
+  // el avance solo → 25/1 · sin «Tócame para empezar» → 25/1.
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/IntroMako.tsx')), 'volvió la animación del grafo');
   const sin = sinComentarios(leer('app/onboarding/EntradaMako.tsx'));
   assert.doesNotMatch(sin, /cerebro-modelo|<svg/, 'volvió el grafo');
   assert.doesNotMatch(sin, /fetch\(|getSetting|await /, 'la entrada no lee datos');
-  // Avanza sola: un temporizador que llama a `empezar`, y el mismo `empezar` en el clic.
+  // No avanza sola: el único temporizador es el que le da el foco al botón.
   assert.equal((sin.match(/setTimeout\(/g) ?? []).length, 1);
-  assert.match(sin, /const t = setTimeout\(empezar, MS_SOLA\);/, 'la entrada volvió a esperar un clic');
-  assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede adelantar tocándola');
+  assert.match(sin, /setTimeout\(\(\) => boton\.current\?\.focus\(/, 'la entrada volvió a avanzar sola');
+  assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede tocar (ni con el teclado)');
   assert.doesNotMatch(sin, /className="en-anillo/, 'volvió el círculo azul alrededor');
-  assert.doesNotMatch(sin, /Tócame para empezar/);
+  assert.match(sin, /Tócame para empezar/, 'sin la invitación a tocarla, no se sabe que espera el clic');
   assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ alFin\.current\(\); return; \}/, 'con movimiento reducido no corre');
   assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
   assert.match(sin, /top: var\(--barra-agencia, 0px\)/, 'la entrada queda debajo de la barra de «Inspeccionar»');

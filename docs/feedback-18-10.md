@@ -92,3 +92,20 @@ Dato extra: «Que el doer registre solo lo que falla» figura por hacer y ya est
 5. **NUNCA «Conectar mi propia IA» en el onboarding.** Salió en la barra naranja de «Entré a tu página pero casi no encontré texto…»: el onboarding corre con el crédito de la plataforma (memoria ia-del-cliente-suscripcion). Viene del cambio de la Ticketera (run 139), que suma ese link a los avisos de IA.
 
 Capturas: images/23 a 26 de la sesión del Cerebro. Las copia el próximo que lo tome; si no, se describen arriba.
+
+## Ops Center: «Completado» y «Espera tu respuesta» (pedido 1d15877a, 18/10 15:12). LO PRIMERO del Ops Center el 20/10
+
+Martín: «No me aparece el mensaje de "Completado" y la notificación de todos los chats siempre debe ser "Espera tu respuesta", y no desaparecer hasta que yo le dé un check al mensaje de completado».
+
+- **Hoy (lib/centro-chats.ts):**
+  - `avisaYaEsta` avisa sólo si el «Ya está» es más nuevo que lo que este dispositivo VIO (`vistos`), así que abrir el chat lo apaga.
+  - `vistaPrevia` mira el ÚLTIMO turno del chat: si después del «Ya está» el chat escribió otra cosa (un relevo, un «sigo con…»), el Completado deja de ser el último y no se marca.
+- **Lo que pide:**
+  - un check explícito (✓) en la tarjeta de Completado;
+  - hasta que Martín lo toca, el chat dice «Espera tu respuesta» en la lista, en computadora y en el teléfono, aunque lo haya abierto y aunque el chat haya escrito algo después;
+  - el check se guarda del lado del servidor (no por dispositivo), para que valga en las dos pantallas.
+- **Medir primero** por qué no le aparece el Completado de los chats que sí escribieron su «Ya está» hoy (CRM, Sidebar, Dashboard, Ticketera, Second Brain, Onboarding y Ops Center 3). Puede ser lo de `vistaPrevia`, o que el turno no subió entero.
+
+## Ops Center: pegar lo copiado (pedido 5e8b6bff, 18/10 15:15)
+
+«Si saqué una screen o tengo algo copiado, debería aparecer así arriba para pegarlo en el chat»: es el «Pegar» que el teclado de Android ofrece en WhatsApp con la captura recién sacada. Para que el teclado lo ofrezca en la caja del Ops Center, la caja tiene que aceptar pegar IMÁGENES (`onPaste` con `clipboardData.files`, como adjunto). Lo mismo con Ctrl+V en la computadora. Hecho el 18/10: la marca dice «En la app de Claude» (f68a38879). Pegar imágenes: después del 20/10, junto con las imágenes desde la app (punto 4 de Ops Center 3).

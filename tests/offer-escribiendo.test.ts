@@ -23,7 +23,11 @@ test('la burbuja de espera son tres puntos, sin texto', () => {
   assert.ok(i > 0, 'no encuentro la burbuja de espera');
   const burbuja = chat.slice(i, chat.indexOf('\n    }\n', i));
   assert.match(burbuja, /<span role="status" aria-label="MaKo está escribiendo" className="of-escribiendo"><i \/><i \/><i \/><\/span>/);
-  assert.doesNotMatch(burbuja, /GRAMATICA|fuente|Revisando|of-puntos/, 'volvió el texto «Revisando · tu respuesta…»');
+  assert.doesNotMatch(burbuja, /GRAMATICA|Revisando/, 'volvió el texto «Revisando · tu respuesta…»');
+  // 18/10/2026, 14:00 (Martín): «Analizando…» mientras LEE un link o un documento; los puntitos, sólo cuando contesta.
+  // Roturas (romper-analizando.js; base 2/0): siempre los puntitos → 1/1 · «Analizando» también al contestar → 1/1.
+  assert.match(burbuja, /vacio=\{leeAlgo\(fuente\) \? \([\s\S]*?Analizando \{fuente\}[\s\S]*?\) : \([\s\S]*?of-escribiendo/, 'la lectura de un link o un documento no dice «Analizando…»');
+  assert.match(chat, /return fuente === 'tu link' \|\| \/archivos\?\$\/\.test\(fuente \?\? ''\);/, '«Analizando» no se limita a links y documentos');
 });
 
 test('los puntos laten, y quietos con movimiento reducido', () => {

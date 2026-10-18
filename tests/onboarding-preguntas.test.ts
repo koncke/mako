@@ -80,12 +80,13 @@ test('la respuesta del nombre: lo que se guarda, lo que dice MaKo después y el 
   const { antes } = mensajesDeArranque(r.patch, H);
   const pregunta = antes[antes.length - 1];
   assert.equal(pregunta.texto, 'Un gusto, Martín. ¿Cómo se llama tu negocio?');
-  assert.deepEqual(pregunta.opciones, ['Acme'], 'el negocio que nombró no se ofrece');
+  // Desde el 18/10/2026 (14:00) el negocio se escribe: sin respuestas rápidas, ni la que nombró con su nombre.
+  assert.equal(pregunta.opciones, undefined);
   // «hola» no es un nombre: se pide de nuevo, sin guardar nada.
   const mal = leerRespuesta({}, H, { texto: 'hola' });
   assert.equal(mal.ok, false);
   // La opción (su nombre de la cuenta) va tal cual.
-  assert.deepEqual(leerRespuesta({}, { ...H, nombreCuenta: 'Martín Koncke' }, { opcion: 0 }), { ok: true, patch: { nombre: 'Martín' } });
+  assert.equal(leerRespuesta({}, { ...H, nombreCuenta: 'Martín Koncke' }, { opcion: 0 }).ok, false, 'el nombre no tiene opciones: se escribe');
 });
 
 test('el negocio se entiende sin la frase alrededor', () => {
@@ -124,13 +125,18 @@ test('las dos preguntas nuevas van AL FINAL (antes del teléfono), de un toque, 
   }
 });
 
-test('el nombre de la cuenta se ofrece sin la frase: nunca el botón «Soy»', () => {
+test('el nombre y el negocio se escriben: nunca un botón con restos de otra prueba («Soy», «Ayelen», «Consultesis»)', () => {
+  // 18/10/2026, 14:00, Martín: después de RESET ofrecía «Ayelen» al nombre y «Consultesis» al negocio. Roturas
+  // (romper-reset.js; base 34/0 con onboarding-arranque y reset-ws-nombre): vuelve la opción del nombre → 30/4 · vuelve
+  // la del negocio → 31/3.
   // 18/10/2026: una cuenta guardada como «Soy Martín» ofrecía «Soy» como respuesta rápida.
   for (const cuenta of ['Soy Martín', 'soy Martín Koncke', 'Martín Koncke']) {
     const { antes } = mensajesDeArranque({}, { ...H, nombreCuenta: cuenta });
-    assert.deepEqual(antes[0].opciones, ['Martín'], `«${cuenta}»`);
+    assert.equal(antes[0].opciones, undefined, `«${cuenta}»`);
   }
   assert.equal(mensajesDeArranque({}, { ...H, nombreCuenta: 'Soy' }).antes[0].opciones, undefined);
+  const negocio = mensajesDeArranque({ nombre: 'Ayelen', negocioSugerido: 'Acme' }, { ...H, nombreWorkspace: 'Consultesis' }).antes;
+  assert.equal(negocio[negocio.length - 1].opciones, undefined, 'el negocio volvió a ofrecer «Consultesis»');
 });
 
 test('el interés: la opción o lo que escriba, y a qué pestaña entra al terminar', () => {
