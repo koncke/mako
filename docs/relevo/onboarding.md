@@ -1,5 +1,43 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 18/10/2026 ~12:40 AR — CIERRE POR CUENTA AL 95 % (LO PRIMERO PARA QUIEN SIGA)
+
+<sub>Chat «Onboarding», cuenta 4. Rama onboarding-v3 (C:/dev/wt-onboarding-v3), sin pushear: las puntas van al Cerebro
+(local_797d5445…). En producción hasta el run 145: todo el punto 15 del feedback del 18/10 y la estrella.</sub>
+
+**Commiteado y pasado al Cerebro en esta última tanda** (feedback de Martín probando el ws 3):
+- `469115ee1`: mientras MaKo contesta, sólo los tres puntitos (ChatOffer, también /offer). Test offer-escribiendo.
+- `96971a73c`: la pregunta pendiente manda. Con las cinco piezas y una pregunta de MaKo sin contestar, no sale el PDF
+  (`preguntaAbierta` en lib/offer-marco.ts). Test onboarding-pregunta-abierta.
+- `01d68e2ef`: «Lo que vendes» se mira EN el chat (modal con las páginas en SVG). El link sin ?ws= hacía que el super
+  admin buscara la conversación en otro ws. Un iframe no sirve: X-Frame-Options DENY. Test onboarding-pdf-en-el-chat.
+- `d4d17b4fb`: sin «Antes de terminar» ni «Última cosa». Test onboarding-sin-anuncios.
+- `bb14efd03`: al terminar entra solo a /second-brain (1,5 s, fundido, navegación interna para no cortar el plan).
+- El commit de este relevo arregla offer-vista-pdf.test.ts, el único rojo del VERDE de esos cinco.
+
+**SIN HACER, con dónde vive:**
+- **Las preguntas de fase suponen Meta Ads** (Martín: «el onboarding sólo tiene presente el tema de META ADS…»).
+  Viven en lib/fase-diagnostico.ts → `PREGUNTAS` (`inversion`: «¿Cuánto inviertes por día en Meta Ads?»,
+  `creativos`: «¿Cuántos creativos lanzas por mes?»). Cada opción vota una fase de 0 a 4 por su ÍNDICE.
+  - **Paso chico propuesto, sin tocar el cálculo:** mismos ids y 5 opciones.
+    - `inversion` → «¿Cuánto inviertes por mes en conseguir clientes (anuncios, prospección, contenido)?», con
+      «Nada o menos de $600 / $600 – $3.000 / $3.000 – $9.000 / $9.000 – $30.000 / Más de $30.000». Son los mismos
+      cortes de hoy, pasados de día a mes.
+    - `creativos` → «¿Cuántas piezas nuevas para atraer clientes sacas por mes (anuncios, videos, posts, lead
+      magnets)?», con las mismas 5 opciones.
+  - **El diseño entero, después:** primero «¿por qué canales consigues clientes hoy?» (varias: anuncios, prospección,
+    funnel orgánico, lead magnets, YouTube y los del catálogo de funnels), y después una pregunta por canal elegido.
+    El voto de inversión no puede hundir a un negocio orgánico.
+  - Los consejos de cada fase (`FASES`: «Prende Meta con poco», `estrategia.inversion`) y los pilares también están
+    escritos para VSL más Meta: se reescriben con el diseño entero.
+- **El vuelo de la estrella a la sidebar al terminar** (hoy es un fundido): FLIP de `[data-mako-foto]` hasta el ícono
+  de Ops Center de la barra (`Criatura` con `estrella` en app/_components/Sidebar.tsx). Después del 20/10.
+- **La animación como carga de toda la app** y **el chat con el diseño del Ops Center**: después del 20/10.
+- **#850** sigue abierta en el Plan hasta confirmar la F (`3a47301ed`) en producción. Se cierra con
+  `cerrar-881-850.ts --solo=#850 --aplicar` (scratchpad de la sesión 35a96d39) o con `cerrar_tareas_plan`.
+- **La cookie vieja `mako_ws`** (vale para todo el navegador) como otra vía de «datos de otro ws», sin tocar
+  (hallazgos-onboarding).
+
 ## ESTADO AL 18/10/2026 ~11:30 AR — LO PRIMERO PARA QUIEN SIGA
 
 <sub>Chat «Onboarding», cuenta 4, con la cuenta al 92 % semanal. Rama onboarding-v3 (C:/dev/wt-onboarding-v3), sin
