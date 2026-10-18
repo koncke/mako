@@ -29,7 +29,7 @@ import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { DIAL_DEFAULT } from '@/lib/paises';
 import { tipoCrmPorId } from '@/lib/pipeline';
-import { rutaDeEntrada, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
+import { RUTA_AL_TERMINAR, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
 import { MENSAJE_BLOQUEADO } from '@/lib/onboarding-guardia';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
 import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
@@ -178,7 +178,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
-    if (t === 'listo') return <TarjetaListo modo={vista.modo} plan={plan} entrada={rutaDeEntrada(vista.interes ?? undefined)} />;
+    if (t === 'listo') return <TarjetaListo modo={vista.modo} plan={plan} entrada={RUTA_AL_TERMINAR} />;
     return null;
   };
 
@@ -331,7 +331,7 @@ function TarjetaListo({ modo, plan, entrada }: { modo: VistaArranque['modo']; pl
       {typeof plan === 'object' && (
         <Link href={plan.url} className="arr-link">{plan.n > 0 ? `Mi plan de arranque · ${plan.n} tareas` : 'Mi plan de arranque'}</Link>
       )}
-      {/* Entra a lo que dijo que quiere resolver primero (`rutaDeEntrada`, 17/10/2026). */}
+      {/* Entra al Ops Center (`RUTA_AL_TERMINAR`, 18/10/2026: «la primera tab que ve el cliente es Ops Center»). */}
       <Link href={modo === 'oferta' ? entrada : '/plan'} className="arr-link arr-link--principal">Entrar a MaKo</Link>
     </div>
   );

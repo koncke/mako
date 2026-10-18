@@ -409,18 +409,21 @@ test('el chat no desaparece nunca: armar es un mensaje del hilo y la oferta se v
   assert.match(app, /conProbar=\{!arranque\}/);
 });
 
-test('la entrada: sin el grafo, no avanza sola, se toca (o Enter), sin movimiento si se pide, y aterriza en la foto', () => {
+test('la entrada: sin el grafo, avanza SOLA (tocarla la adelanta), sin anillos, sin movimiento si se pide, y aterriza en la foto', () => {
   // 17/10/2026, Martín: «En el onboarding elimina la animación del grafo... haz una buena entrada de la criatura de
-  // MaKo tipo motion graphics, y que al clickearla recién pase al siguiente mensaje, que la animación no sea automática».
+  // MaKo tipo motion graphics». 18/10/2026: la animación sirve para cargar, «sin clic para continuar», y «sin el círculo
+  // azul alrededor». Roturas (18/10): sin el temporizador → 1 fallo · vuelve un anillo → 1 fallo.
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/IntroMako.tsx')), 'volvió la animación del grafo');
   const sin = sinComentarios(leer('app/onboarding/EntradaMako.tsx'));
   assert.doesNotMatch(sin, /cerebro-modelo|<svg/, 'volvió el grafo');
   assert.doesNotMatch(sin, /fetch\(|getSetting|await /, 'la entrada no lee datos');
-  // No avanza sola: el único temporizador es el que le da el foco al botón.
+  // Avanza sola: un temporizador que llama a `empezar`, y el mismo `empezar` en el clic.
   assert.equal((sin.match(/setTimeout\(/g) ?? []).length, 1);
-  assert.match(sin, /setTimeout\(\(\) => boton\.current\?\.focus\(/);
-  assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede tocar (ni con el teclado)');
-  assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ onFin\(\); return; \}/, 'con movimiento reducido no corre');
+  assert.match(sin, /const t = setTimeout\(empezar, MS_SOLA\);/, 'la entrada volvió a esperar un clic');
+  assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede adelantar tocándola');
+  assert.doesNotMatch(sin, /className="en-anillo/, 'volvió el círculo azul alrededor');
+  assert.doesNotMatch(sin, /Tócame para empezar/);
+  assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ alFin\.current\(\); return; \}/, 'con movimiento reducido no corre');
   assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
   assert.match(sin, /top: var\(--barra-agencia, 0px\)/, 'la entrada queda debajo de la barra de «Inspeccionar»');
   const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
