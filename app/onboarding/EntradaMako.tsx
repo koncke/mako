@@ -68,7 +68,9 @@ export function EntradaMako({ onFin }: { onFin: () => void }) {
   }, []);
 
   return (
-    <div className={`en-capa${saliendo ? ' en-capa--sale' : ''}`} role="presentation">
+    // TOCAR CUALQUIER LADO EMPIEZA (18/10/2026, Martín, punto 1: «debería poder tocar cualquier lado de la pantalla para
+    // empezar»). El botón queda para el teclado (Enter o espacio); el clic en la capa entera hace lo mismo.
+    <div className={`en-capa${saliendo ? ' en-capa--sale' : ''}`} role="presentation" onClick={empezar}>
       <style>{CSS_ENTRADA}</style>
       <div className="en-centro">
         {/* Sin los anillos azules alrededor (18/10/2026, Martín: «sin el círculo azul alrededor»). */}
@@ -96,7 +98,10 @@ const CSS_ENTRADA = `
   position: relative; z-index: 1; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%;
   -webkit-tap-highlight-color: transparent;
 }
-.en-boton:focus-visible { outline: 3px solid var(--primary); outline-offset: 8px; }
+/* Sin el anillo azul alrededor (18/10/2026, Martín, punto 1): el foco del botón, que se pone solo para el teclado, se
+   dibujaba como un círculo azul. El foco sigue (Enter o espacio empiezan); sólo no se pinta. */
+.en-boton:focus, .en-boton:focus-visible { outline: none; }
+.en-capa { cursor: pointer; }
 .en-cuerpo { display: inline-flex; animation: en-entra .9s cubic-bezier(.34,1.56,.64,1) both, en-flota 3.2s ease-in-out .9s infinite; }
 .en-boton:hover .en-cuerpo { filter: brightness(1.04); }
 .en-anillo {

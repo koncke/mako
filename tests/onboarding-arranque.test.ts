@@ -440,6 +440,11 @@ test('la entrada: sin el grafo, ESPERA EL CLIC (o Enter), sin anillos, sin movim
   assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede tocar (ni con el teclado)');
   assert.doesNotMatch(sin, /className="en-anillo/, 'volvió el círculo azul alrededor');
   assert.match(sin, /Tócame para empezar/, 'sin la invitación a tocarla, no se sabe que espera el clic');
+  // 18/10/2026 (punto 1): tocar CUALQUIER lado empieza, y sin el anillo azul del foco. Roturas (romper-capa.js; base 26/0):
+  // sin el clic en la capa → 25/1 · vuelve el anillo → 25/1.
+  assert.match(sin, /role="presentation" onClick=\{empezar\}>/, 'sólo se puede empezar tocando la estrella');
+  assert.match(sin, /\.en-boton:focus, \.en-boton:focus-visible \{ outline: none; \}/, 'volvió el círculo azul del foco');
+  assert.doesNotMatch(sin, /\.en-boton:focus-visible \{ outline: 3px solid var\(--primary\)/);
   assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ alFin\.current\(\); return; \}/, 'con movimiento reducido no corre');
   assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
   assert.match(sin, /top: var\(--barra-agencia, 0px\)/, 'la entrada queda debajo de la barra de «Inspeccionar»');
