@@ -73,7 +73,8 @@ const H: HechosArranque = {
 };
 const PLAN: HechosArranque = { ...H, modo: 'plan', conCrm: false, conTelefono: false };
 // Con las dos del final ya contestadas (desde el 18/10 van antes del teléfono): así las etapas de en medio se ven solas.
-const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', origen: 'Instagram', interes: 'ventas' };
+// Con el PDF confirmado (18/10/2026, `pdfOk`): las etapas de en medio se ven solas; la del PDF tiene su test.
+const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', origen: 'Instagram', interes: 'ventas', pdfOk: 'si' };
 
 // ── La etapa ────────────────────────────────────────────────────────────────
 test('modo oferta: quién es → lo que vende → la fase → el CRM → el teléfono → cierra, sin esperar ninguna oferta', () => {
@@ -82,6 +83,8 @@ test('modo oferta: quién es → lo que vende → la fase → el CRM → el tel�
   // Del negocio, directo a lo que vende: sin el objetivo a 90 días (18/10/2026). Las dos del 17/10 van AL FINAL.
   assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'oferta');
   assert.equal(etapaDeArranque(QUIEN, H), 'oferta');
+  // Con lo que vende, primero «¿está correcto el PDF?» (18/10/2026).
+  assert.equal(etapaDeArranque({ ...QUIEN, pdfOk: undefined }, { ...H, loQueVende: true }), 'pdf');
   // Con lo que vende, el diagnóstico de fase lo pregunta el arranque (la conversación ya no lo hace).
   assert.equal(etapaDeArranque(QUIEN, { ...H, loQueVende: true }), 'fase');
   const vende = { ...H, loQueVende: true, faseGuardada: true };
@@ -215,7 +218,9 @@ test('después de lo que vende, el diagnóstico de fase lo pregunta el arranque,
   const { despues } = mensajesDeArranque(QUIEN, conOffer);
   const ultima = despues[despues.length - 1];
   assert.equal(despues[0].id, 'arr-pdf');
-  assert.equal(despues[1].id, 'arr-fase');
+  // La confirmación del PDF (18/10/2026) va contestada antes de la fase.
+  assert.equal(despues[1].id, 'arr-pdf-r');
+  assert.equal(despues[2].id, 'arr-fase');
   assert.ok(!despues.some((m) => m.id === 'arr-fase-canal' || m.id === 'arr-fase-0'), 'repitió lo que ya contestó en Offer');
   assert.equal(ultima.id, 'arr-fase-1');
   assert.ok(ultima.opciones?.length, 'la pregunta va con sus opciones');
