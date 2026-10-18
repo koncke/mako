@@ -1449,3 +1449,5 @@ a.co-link:hover { color: var(--primary-strong); }
   background: var(--surface); font: inherit; color: var(--ink);
 }
 .co-nuevo-nota__input:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* «desde la app»: lo que Martín escribió directo en la app de Claude, sutil junto a la hora (18/10/2026). */
+.co-burbuja__desde { margin-right: 3px; font-size: 10.5px; color: var(--faint); white-space: nowrap; }

@@ -16,6 +16,7 @@
 //   · `topeDe` sin mirar la versión → 1 fallo (2);
 //   · `sanearTurnos` cortando también lo de Martín → 1 fallo (3);
 //   · `vigilar` sin `crecio` en la condición de la vuelta → 1 fallo (4).
+//   · la burbuja sin «desde la app» (o mostrándolo también en lo que salió por el Ops Center) → 1 fallo (5).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -72,4 +73,11 @@ test('4. `vigilar` da la vuelta completa cuando un transcript creció (lo escrit
   assert.match(src, /if \(\(hay > 0 \|\| fallo \|\| crecio\) && ahora\(\) - ultima >= /, 'cuenta como «hay algo»');
   assert.match(src, /if \(tam > marca\.offset\) return true;/, 'creció más allá de lo que ya subió');
   assert.match(src, /CARTERO_TURNOS_MS\) \|\| 10_000\)/, 'como mucho una vuelta cada 10 s');
+});
+
+test('5. lo que Martín escribió directo en la app lo dice, sutil, junto a la hora', () => {
+  const hilo = leer('app/admin/operaciones/Hilo.tsx');
+  // Sin `trabajo` = no pasó por la cola del Ops Center: lo escribió en la app de Claude.
+  assert.match(hilo, /\{t\.rol === 'yo' && !t\.trabajo && <span className="co-burbuja__desde" title="Lo escribiste directo en la app de Claude">desde la app<\/span>\}\{hora\}/);
+  assert.match(leer('app/admin/operaciones/centro.css'), /\.co-burbuja__desde \{[^}]*color: var\(--faint\)/, 'en gris, que no compita con el mensaje');
 });

@@ -30,6 +30,10 @@ empezó a medias: la cuenta estaba en 94% semanal. El diseño, para hacerlo de u
     (`transcriptsCrecidos`), como mucho una cada 10 s. Sin prueba de punta a punta en la PC: mirarlo con el Runner.
 - VERDE `119959156` (`antes-de-subir --rapido`, 2207 tests). Tipos del acotado: 0 errores en 7 de los 8 archivos;
   ChatsMovil.tsx no se pudo chequear (el vigía de RAM): lo mira Actions.
+- **«desde la app»** (pedido del Cerebro, 18/10): lo que Martín escribió directo en la app de Claude lo dice chico y en gris
+  junto a la hora, en la computadora y el teléfono (la misma burbuja: Hilo.tsx → Turno). Se infiere de que el turno no
+  trae `trabajo`, o sea, no pasó por la cola del Ops Center. Cuando se haga el punto 4, sus fotos van en esa misma burbuja,
+  así que llevan la marca sin tocar nada más.
 
 ## PARA EL SÉPTIMO OPS CENTER (17/10, ~20:00): lo que dejó el sexto, y lo que sigue
 
