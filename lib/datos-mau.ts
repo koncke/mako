@@ -410,7 +410,7 @@ const keyRecibo = (a: AmbitoKey) => `mako.datos_mau.${a}`;
  * prueba le suene el celular a Mauricio. `email` tampoco está: es columna de
  * login y UNIQUE.
  */
-const PERFIL_EXTRA = ['cargo', 'empresa', 'web', 'bio', 'timezone'] as const;
+export const PERFIL_EXTRA = ['cargo', 'empresa', 'web', 'bio', 'timezone'] as const;
 
 type FilaUsuario = {
   id: number; nombre: string | null; foto_url: string | null;

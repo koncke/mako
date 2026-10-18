@@ -14,10 +14,16 @@
   `NOMBRE_WS_PRUEBA`). El onboarding le escribe el negocio y el RESET no tocaba esa fila: por eso seguía
   «Consultesis». El nombre y el negocio ya no tienen respuestas rápidas («Ayelen», «Consultesis»).
 
+**Después (18/10 ~15:50, Martín sacó el corte del 97 %):**
+- `a57d85f53`: las preguntas de fase sin Meta Ads. Es el paso chico: mismos ids y cortes de día a mes, en
+  lib/fase-diagnostico.ts. El diseño por canales sigue abajo.
+- `3c111e29d`: «la foto de Mauricio». MEDIDO: el único miembro del ws 3 tenía el `foto_url` de Mauricio. Lo puso
+  «Traer datos de Mau» (`copiarPerfilDelDueno`), cuyo recibo vive en app_settings, y el RESET lo borraba sin devolver
+  el perfil. Ahora el RESET deja a los usuarios del ws de prueba con el nombre del ws, sin foto y sin `PERFIL_EXTRA`.
+  (La lectura anterior que decía «sin usuarios» estaba mal: falló por una columna que no existe.)
+
 **SIN HACER:**
-- **«La foto de Mauricio» después de RESET:** no se pudo medir sin el navegador, y el ws 3 no tiene usuarios.
-  Sospecha: el avatar del lado «yo» del chat o el de la barra mirando un ws sin titular. Hay que mirarlo con la
-  pantalla, inspeccionando el ws 3 después de un RESET.
+- Ver en el navegador, con un RESET del ws 3, que la tarjeta quede sin la foto y con «Cliente de Prueba».
 - Todo lo de la sección siguiente que sigue «sin hacer»: las preguntas de fase sin Meta, el vuelo de la estrella, la
   carga de toda la app y #850.
 
