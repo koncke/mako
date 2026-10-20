@@ -41,7 +41,9 @@
 // Sin selector ni bienvenida: la conversación nace sola en el funnel principal, y alrededor de ella van
 // los mensajes del arranque (quién es, el CRM, el teléfono), que contesta el arranque y no Offer. Desde el
 // 17/10/2026 la conversación del arranque sólo pregunta qué vende (`origen: 'arranque'` en cada turno) y no
-// arma la oferta: el análisis es de esta tab.
+// arma la oferta: el análisis es de esta tab. Desde el 20/10/2026 escribe en la caja del Ops Center (./CajaDelCentro.tsx,
+// pedido del 18/10, punto 3): lo adjuntado va arriba del texto (sus miniaturas) y no en la vista previa, y se lee igual al
+// mandar (`enviarVista`).
 //
 // El motor vive en app/api/offer/route.ts y lib/offer-sesiones.ts; acá sólo se llama al contrato
 // (./offer-api.ts) y se dibuja lo que vuelve.
@@ -60,8 +62,10 @@ import { Banner, Button, ButtonLink, Modal, Spinner } from '@/app/_ui';
 import { ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { VistaAdjuntos, useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { MAX_ADJUNTOS, type ItemAdjunto } from '@/app/whatsapp/_shared/adjuntos-vista';
 import { AvatarMako } from './AvatarMako';
+import { CajaDelCentro } from './CajaDelCentro';
 import { ChatOffer } from './ChatOffer';
 import { Conclusion } from './Conclusion';
 import type { PasoGeneracion } from './Generando';
@@ -255,6 +259,17 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     urls.current.delete(u);
     try { URL.revokeObjectURL(u); } catch { /* ya no estaba */ }
   };
+  /** Las miniaturas de la caja del arranque, por id de lo juntado; las que ya no están se sueltan. */
+  const urlsCaja = useRef(new Map<string, string>());
+  useEffect(() => {
+    const vivos = new Set(lista.items.map((x) => x.id));
+    for (const [id, u] of urlsCaja.current) {
+      if (vivos.has(id)) continue;
+      urlsCaja.current.delete(id);
+      urls.current.delete(u);
+      try { URL.revokeObjectURL(u); } catch { /* ya no estaba */ }
+    }
+  }, [lista.items]);
   useEffect(() => {
     const todas = urls.current;
     return () => { for (const u of todas) { try { URL.revokeObjectURL(u); } catch { /* noop */ } } todas.clear(); };
@@ -571,6 +586,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     lista.quitar(idArchivo);
     docsLeidos.current.delete(idArchivo);
     if (idArchivo === falloId) { setFalloId(null); setErrorVista(null); }
+    // Sin nada juntado no queda de qué quejarse (en la caja del arranque no hay vista que cerrar).
+    if (!lista.ref.current.length) setErrorVista(null);
   };
   /** La ✕ de la vista o Escape: descarta los archivos (el texto queda en la barra). */
   const cerrarVista = () => {
@@ -852,7 +869,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const bienvenida = bienvenidaDe(arbolLeido, arbolVacio(arbol));
   // La vista previa, sobre el área del chat, mientras haya archivos juntados. Su error: el de la vista
   // (un archivo que no entró o no se pudo leer) o, si el turno no salió, el que dejó `mandar`.
-  const vistaAdjuntos = lista.items.length ? (
+  // En el arranque no hay vista: lo juntado va en la caja del Ops Center (abajo, `cajaArranque`).
+  const vistaAdjuntos = !arranque && lista.items.length ? (
     <VistaAdjuntos
       items={lista.items}
       onAgregar={agregarArchivos}
@@ -891,6 +909,22 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     ? { paso: gen.paso, corriendo: gen.corriendo, error: gen.error, onReintentar: () => void armar() }
     : null;
   const conRiel = !arranque || arranque.conRiel;
+  // El arranque escribe en la caja del Ops Center (20/10/2026): lo juntado, como sus miniaturas, con la URL `blob:` que nace
+  // al verlas (`urlsCaja`) y se suelta al quitarlas. Sumar y quitar son los de siempre: se leen al mandar.
+  const adjuntosCaja: AdjuntosDeCaja = {
+    items: lista.items.map((it) => {
+      let url = urlsCaja.current.get(it.id);
+      if (!url) { url = crearUrl(it.file); urlsCaja.current.set(it.id, url); }
+      return { id: it.id, file: it.file, tipo: it.file.type.startsWith('image/') ? 'image' : 'document', url };
+    }),
+    puede: !!sesion,
+    onSumar: agregarArchivos,
+    onQuitar: quitarArchivo,
+  };
+  const cajaArranque = arranque ? (
+    <CajaDelCentro key={sesion?.id ?? 0} texto={texto} onTexto={setTexto} onMandar={() => void enviarComposer()} ocupado={ocupado}
+      placeholder={arranque.placeholder} adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista} />
+  ) : null;
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -966,12 +1000,13 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
               onEnviar={() => void enviarComposer()}
               ocupado={ocupado}
               vista={vistaAdjuntos}
+              caja={cajaArranque}
               onArchivos={agregarArchivos}
               onAudio={mandarAudio}
               audioEnEspera={audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs } : null}
               onReenviarAudio={reenviarAudio}
               onDescartarAudio={descartarAudio}
-              error={errorChat}
+              error={arranque ? errorVista ?? errorChat : errorChat}
               onError={setErrorChat}
               armando={armandoEnChat}
               onVerOferta={conclusion ? verOferta : null}
