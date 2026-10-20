@@ -1754,3 +1754,14 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
   - Un envío del Runner que queda retenido se le pasa ENTERO al Cerebro («REENVIAR A <sesión>: …»). El Cerebro se lo reenvía a ese chat, como su padre, y ahí sí entra.
   - Un chat nuevo se abre desde el Cerebro o en el mismo modo que el Runner.
 - **Chats en `auto` al 18/10:** Onboarding, Ops Center 3, CRM, Ticketera, Dashboard, Second Brain, MaKo Alert, Automations, Infra, Pagos y AI Avatar.
+
+## «Espera tu respuesta» sin pregunta: el chat cerró con el recuadro de la app, que no llega al Ops Center (20/10/2026)
+
+**Síntoma:** Martín: «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la funcionalidad que creamos de respuestas múltiples». En su Ops Center, el hilo de Debate terminaba en un mensaje de 40 minutos antes.
+
+**El diagnóstico obvio era el equivocado:** «Debate no recibió la respuesta». Sí la recibió: `operaciones.turnos.local_752add17…` tiene la respuesta de Martín de las 21:10Z.
+- Después, Debate cerró sus dos turnos SÓLO con herramientas: `SendMessage` y `mcp__ccd_turn__wrap_up`, con `recap`, `ask` y `actions` (botones). No escribió texto.
+- El cartero (`turnosDeLaVuelta`) sube sólo bloques de texto: ni el resumen ni la pregunta llegaron. El recuadro de próximo paso existe sólo en la app de Claude.
+- Le pasa a cualquier chat que cierra así, que es justo lo que el system prompt de la app empuja a hacer.
+
+**Regla:** una decisión para Martín va por `cartero.mjs preguntar` (AGENTS.md, desde el 17/10), y el turno termina con una línea de texto. El arreglo de fondo, encargado a Ops Center 3 el 20/10, es que el cartero suba el `recap` de un wrap_up como turno y su `ask`/`actions` como una pregunta de opciones.
