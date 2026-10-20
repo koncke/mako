@@ -35,6 +35,7 @@ import { borrarBinario, insertFile, listFiles, mapaParaEscribir, subirBinario } 
 import { idDeContenido } from './archivero-registro';
 import { nombreArchivoLoQueVendes, pdfDeLoQueVendes } from './lo-que-vendes-pdf';
 import { tzDeWorkspace } from './timezone';
+import { NOMBRE_WS_PRUEBA } from './reset-workspace';
 import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
   CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, cobroDelPrecio, sinMarca,
@@ -129,7 +130,8 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
   return {
     modo,
     nombreCuenta: perfil?.nombre ?? '',
-    nombreWorkspace: w?.nombre ?? '',
+    // El nombre del ws de prueba no se ofrece como «tu negocio» (lo pone el RESET: lib/reset-workspace.ts).
+    nombreWorkspace: w?.nombre && w.nombre !== NOMBRE_WS_PRUEBA ? w.nombre : '',
     faseGuardada: diag != null,
     canalNegocio: diag?.canal && esCanal(diag.canal) ? diag.canal : null,
     // Con las piezas, sí. Ya no espera a que el modelo deje de preguntar (`preguntaAbierta`, 18/10): con las piezas el turno

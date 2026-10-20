@@ -51,6 +51,10 @@ export type EstadoArranque = {
   /** El negocio que nombró junto con su nombre («Martín, de Acme»): se OFRECE en la pregunta del negocio, nunca
    *  se da por contestada (en «Martín de Córdoba» lo de después del «de» es un lugar). */
   negocioSugerido?: string;
+  /** El nombre del negocio que se ENTENDIÓ y espera el sí antes de escribirse en el workspace (20/10/2026, Florencia, ws21:
+   *  «mi marca personal: Florencia Ayelen Carballo» se escribió tal cual en el ws, el CRM, el producto y el PDF). `escrito`
+   *  es lo que puso la persona. */
+  negocioPorConfirmar?: { escrito: string; nombre: string };
   /** «¿Cómo llegaste a MaKo?»: una opción de `ORIGENES` o lo que escribió (17/10/2026). */
   origen?: string;
   /** «¿Qué quieres que MaKo resuelva primero?» (modo 'oferta'): decide a qué pestaña entra al terminar. */
@@ -276,12 +280,55 @@ export function extraerNombre(texto: string): { nombre: string; negocio: string 
   return { nombre: conMayuscula(nombre.join(' ')).slice(0, 60), negocio: limpio(negocio) || null };
 }
 
-/** El nombre del negocio, sin la frase alrededor: «Se llama Acme», «Mi negocio es Acme», «Es Acme» → «Acme». */
+/**
+ * El nombre del negocio, sin la frase alrededor: «Se llama Acme», «Mi negocio es Acme», «Es Acme» → «Acme». Desde el
+ * 20/10/2026 (Florencia, ws21, «mi marca personal: Florencia Ayelen Carballo» quedó entero como nombre): «(Es) mi marca
+ * personal: X» → «X», y «Rubro: Nombre» → lo de después de los dos puntos.
+ */
 export function extraerNegocio(texto: string): string {
   let t = limpiarRespuesta(texto).replace(/[!¡¿?]+/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(/^(?:es|son)\s+(?=(?:mi|nuestr[oa])\s)/i, '');
+  t = t.replace(/^(?:mi|nuestr[oa])\s+(?:negocio|empresa|marca|agencia|emprendimiento|consultora|estudio|proyecto)(?:\s+personal)?\s*[:\-–—]\s*/i, '');
   t = t.replace(/^(?:mi\s+(?:negocio|empresa|marca|agencia|emprendimiento)\s+)?(?:se\s+llama|es|son|somos)\s+/i, '');
   t = t.replace(/^(?:la\s+empresa|la\s+marca|el\s+negocio)\s+(?:se\s+llama|es)\s+/i, '');
+  // «Consultora: Florencia Carballo»: el nombre es lo de después de los dos puntos.
+  const dos = t.match(/^[^:]{1,40}:\s*(\S.*)$/);
+  if (dos) t = dos[1];
   return t.replace(/[«»"]/g, '').replace(/[.]+$/, '').trim();
+}
+
+/** «Uso mi nombre», «no tiene nombre», «es mi marca personal»: la marca es la persona (20/10/2026, Florencia: «ya no tiene
+ * más un nombre de empresa, tiene mi nombre»). */
+const RE_MI_NOMBRE = /\b(?:uso|usa|es|lleva|con|tiene)\s+(?:mi|su)\s+(?:propio\s+)?nombre\b|\bno\s+tiene\s+(?:un\s+)?nombre\b|\bsin\s+nombre\b|^(?:es\s+)?mi\s+marca\s+personal$/i;
+
+export const NEGOCIO_CONFIRMAR = ['Sí, se llama así', 'No, lo escribo de nuevo'] as const;
+
+/**
+ * Lo que se entendió como nombre del negocio, y si hay que CONFIRMARLO antes de escribirlo en el workspace (de ahí se
+ * copia al CRM, al producto, al PDF y al grupo de WhatsApp): cuando se sacó algo con dos puntos o un guion, cuando dice
+ * «personal», cuando es largo o cuando es su nombre. Quitar un «se llama» no se pregunta. `persona` es el nombre de la
+ * persona, para «uso mi nombre». null = no se entendió.
+ */
+export function leerNegocio(texto: string, persona: string): { nombre: string; confirmar: boolean } | null {
+  const limpio = limpiarRespuesta(texto).replace(/[«»"]/g, '').replace(/[.]+$/, '').trim();
+  if (!limpio) return null;
+  if (RE_MI_NOMBRE.test(limpio)) return persona.trim() ? { nombre: persona.trim(), confirmar: true } : null;
+  const nombre = extraerNegocio(limpio);
+  if (!nombre) return null;
+  const raro = nombre !== limpio && (/[:\-–—]/.test(limpio) || /\bpersonal\b/i.test(limpio));
+  return { nombre, confirmar: raro || nombre.split(/\s+/).length > 5 || nombre.length > 60 };
+}
+
+/**
+ * Las respuestas rápidas del nombre del negocio: el del alta si parece un negocio (`pareceNegocio`) y el que dijo con su
+ * nombre («Martín de Acme»). 12ad33b25 (18/10) las había sacado porque el ws de prueba ofrecía «Consultesis», pero eso era
+ * el RESET, ya arreglado; el nombre del ws de prueba no llega acá (lo saca `hechosDelArranque`).
+ */
+export function sugerenciasDeNegocio(e: EstadoArranque, h: HechosArranque): string[] | undefined {
+  const s = [e.negocioSugerido, pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? h.nombreWorkspace : undefined]
+    .map((x) => (x ?? '').trim()).filter(Boolean);
+  const unicas = [...new Set(s)];
+  return unicas.length ? unicas : undefined;
 }
 
 /**
@@ -420,7 +467,10 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   // prueba («Ayelen» del perfil, «Consultesis» del nombre del workspace). Se escriben. tests/onboarding-preguntas.test.ts.
   preguntar(antes, 'nombre', SALUDO_ARRANQUE, e.nombre);
   if (etapa === 'nombre') return { antes, despues };
-  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio);
+  // Con el nombre del alta para tocar, y lo entendido se CONFIRMA antes de escribirlo (20/10/2026, Florencia).
+  const pendiente = !e.negocio ? e.negocioPorConfirmar : undefined;
+  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio ?? pendiente?.escrito, sugerenciasDeNegocio(e, h));
+  if (pendiente) preguntar(antes, 'negocio-ok', `¿Tu negocio se llama «${pendiente.nombre}»?`, undefined, [...NEGOCIO_CONFIRMAR]);
   if (etapa === 'negocio') return { antes, despues };
 
   // Las dos del 17/10 (`ORIGENES`, `INTERESES`), AL FINAL desde el 18/10 (Martín): antes del teléfono y del cierre.
@@ -567,9 +617,24 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { nombre, ...(negocio ? { negocioSugerido: negocio } : {}) } };
   }
   if (etapa === 'negocio') {
-    const negocio = opcion !== undefined ? texto : extraerNegocio(texto);
-    if (!negocio) return { ok: false, error: '¿Cómo se llama tu negocio?' };
-    return { ok: true, patch: { negocio } };
+    const pendiente = e.negocioPorConfirmar;
+    const corto = texto.split(/\s+/).length <= 5;
+    // Lo pendiente se borra sólo si había algo pendiente.
+    const limpiar = pendiente ? { negocioPorConfirmar: undefined } : {};
+    if (pendiente && (opcion === NEGOCIO_CONFIRMAR[0] || (opcion === undefined && corto && /^(?:s[ií]|correcto|exacto|as[ií] es)\b/i.test(texto)))) {
+      return { ok: true, patch: { negocio: pendiente.nombre, negocioPorConfirmar: undefined } };
+    }
+    if (pendiente && (opcion === NEGOCIO_CONFIRMAR[1] || (opcion === undefined && corto && /^no\b/i.test(texto)))) {
+      return { ok: true, patch: { negocioPorConfirmar: undefined } };
+    }
+    // Una respuesta rápida (el nombre del alta) es el nombre tal cual: es lo que el negocio ya escribió.
+    if (opcion !== undefined && texto) return { ok: true, patch: { negocio: texto, ...limpiar } };
+    const persona = [h.nombreCuenta, e.nombre].find((x) => !!x?.trim() && !x.includes('@')) ?? '';
+    const leido = leerNegocio(texto, persona);
+    if (!leido) return { ok: false, error: '¿Cómo se llama tu negocio? Si usas tu nombre, escríbelo.' };
+    return leido.confirmar
+      ? { ok: true, patch: { negocioPorConfirmar: { escrito: texto, nombre: leido.nombre } } }
+      : { ok: true, patch: { negocio: leido.nombre, ...limpiar } };
   }
   if (etapa === 'pdf') {
     // La opción tal cual, o lo que escriba: «no», «faltan cosas», «está mal» es que no; «sí», «correcto», «bien», que sí.
