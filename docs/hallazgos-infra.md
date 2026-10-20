@@ -7070,6 +7070,11 @@ cola, el chat «Onboarding» pidió el candado cada 15 s durante una hora y no l
 trabajo, y `rm -rf C:/dev/pesado.lock`. Mientras se espera, se puede trabajar en OTRO worktree de la misma rama base
 (`git worktree add -b <rama-nueva>` + la junction de `node_modules`) y mergear después.
 
+**Y el merge de main va ADENTRO del candado.** `antes-de-subir` chequea al FINAL que la rama tenga origin/main. El 20/10 el chat
+«Onboarding» mergeó main e integración, esperó 40 minutos el candado y el VERDE salió ROJO con los 2563 tests en verde: en
+la espera main había avanzado 6 commits. Primero se toma el candado, después `git fetch && git merge origin/main` (y la
+integración), y recién ahí `antes-de-subir --rapido`.
+
 ## Probar el dictado con un micrófono falso no sirve (20/10/2026)
 
 Para medir si el dictado en vivo aguanta 2 minutos, el chat «Onboarding» le dio a un Chrome aparte un WAV como micrófono
