@@ -128,6 +128,12 @@
   --grafo-voz: #D9CE8F;
   --sidebar-text: #949CAA;
   --on-sidebar: #F3F5F8;
+  /* La CARA de las criaturas del Ops Center (ojos, boca) y su rubor (20/10/2026, feedback del 18/10 pt 10: «no quiero
+     que cambien las criaturas de color»). Iban con --ink y --bad, que se dan vuelta en oscuro: los ojos quedaban
+     blancos sobre cuerpos pastel. Los cuerpos son pasteles fijos (--grafo-*, --mako) pensados para un ojo OSCURO
+     (lib/centro-munecos.ts), así que la cara también es fija: no se redefine en ningún tema. */
+  --criatura-tinta: #22262E;
+  --criatura-rubor: #C0414D;
   /* Lo que se lee ENCIMA de un relleno --ink. No es lo mismo que --on-sidebar,
      aunque hoy coincidan en el tema por defecto: aquél significa «se lee sobre
      LA BARRA» y éste «se lee sobre LA TINTA». Se separaron el día que un tema

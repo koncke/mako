@@ -4169,3 +4169,25 @@ con un nombre que ya no se ve.
 
 **Vive en:** `app/_components/nav.ts` (MAKO_NAV, `estrella`, `jefe`) · `lib/centro-chats.ts` (`rutaDeLaTab`) ·
 `app/admin/operaciones/tabs.ts` · test: `tests/sidebar-nueva.test.ts`, `tests/centro-revisar.test.ts`
+
+## La barra clara no se hace en :root: las --sidebar* son la «isla oscura» de toda la app (20/10/2026)
+
+Martín pidió que la barra siga el modo (feedback del 18/10, pt 10: «si estoy en dark mode se debe adaptar a white mode,
+lo contrario»). Hasta ese día era #14161B también con la pantalla clara.
+
+- **Lo obvio era cambiar las `--sidebar*` de `:root` a valores claros.** Está mal: 43 archivos fuera de la barra las
+  usan como superficie oscura (los toasts, el grafo del Second Brain, bloques del Dashboard, la cabecera de video, el
+  recorrido…). Se habrían puesto blancos todos, sin un error.
+- **La regla que queda:** la barra clara se define ACOTADA a `[data-sidebar]` (app/_ui/ui.css). Lo que vive adentro
+  de la barra (la campana, el saldo, el interruptor de modo, la foto) hereda los valores solo. Si una pieza nueva quiere
+  «el color de la barra», usa las `--sidebar*` y vive adentro de `[data-sidebar]`. Si quiere «una isla oscura», no
+  debería usar las de la barra: hoy lo hacen 43 archivos y quedan así.
+- **Las criaturas «cambiaban de color» por la CARA, no por el cuerpo.** El cuerpo son pasteles fijos (`--grafo-*`,
+  `--mako`). Los ojos y la boca iban con `--ink`, que en oscuro es claro: ojos blancos sobre pastel. Ahora la cara va
+  con `--criatura-tinta` y `--criatura-rubor`, que ningún tema redefine (el test lo cuenta).
+
+**Sin hacer:** las 43 islas oscuras que usan `--sidebar*` siguen colgadas del nombre de la barra. Si un tema candidato
+cambia la barra a clara, también las cambia a ellas (ya pasó con el selector Kanban/Tabla, por eso existe `--on-ink`).
+
+**Vive en:** `app/_ui/ui.css` (la barra clara, `--sidebar-hover`) · `app/globals.css` (`--criatura-tinta`) ·
+`app/admin/operaciones/Muneco.tsx` · `app/_components/Sidebar.tsx` · test: `tests/sidebar-nueva.test.ts`
