@@ -47,7 +47,8 @@ test('enviarTexto, enviarMedia y enviarAudio devuelven el motivo', () => {
     assert.ok(desde >= 0, `no encontré ${fn}`);
     const resto = src.slice(desde);
     const cuerpo = resto.slice(0, resto.search(/\n\}\r?\n/));
-    assert.match(cuerpo, /error: r\.motivo \?\? r\.error/, `${fn} volvió a devolver el error sin motivo`);
+    // (20/10/2026: con `motivoConPista` alrededor, que le agrega «Revisa que tenga el código de país» a «no tiene WhatsApp».)
+    assert.match(cuerpo, /error: (?:motivoConPista\()?r\.motivo \?\? r\.error/, `${fn} volvió a devolver el error sin motivo`);
   }
   assert.match(src, /motivo: motivoDeEvolution\(res\.status, body\)/, 'evFetch ya no arma el motivo');
 });
