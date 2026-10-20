@@ -70,8 +70,11 @@ test('⚠️ la ruta: barata cuando no hay nada, y el motor con el turno, sobre 
   // El horario que acaba de abrir: con la MISMA función que lo decide, y LA regla de la zona (undécima tanda:
   // `zonaDeLoGuardado`, la de las pantallas; sin zona, Tijuana). Era `zonaDelMotor`, que sin zona caía a Ciudad de
   // México. Se conserva la lectura EN LOTE de las zonas (una consulta para todos los negocios con horario).
-  assert.match(ruta, /acabaDeAbrir\(ahora, zonaDeLoGuardado\(zonaDe\.get\(ws\)\), h, VENTANA_FRESCA_MIN\)/);
-  assert.match(ruta, /\.eq\('key', KEY_TIMEZONE\)\.in\('workspace_id', \[\.\.\.conHorario\.keys\(\)\]\);/, 'la zona volvió a leerse por negocio');
+  // 20/10/2026: y cuando abre el horario PROPIO de una automatización (`abrioAlgunaPropia`, lib/config-automatizacion.ts).
+  assert.match(ruta, /const tz = zonaDeLoGuardado\(zonaDe\.get\(ws\)\);/);
+  assert.match(ruta, /return \(!!h && acabaDeAbrir\(ahora, tz, h, VENTANA_FRESCA_MIN\)\) \|\| abrioAlgunaPropia\(propiasDe\.get\(ws\) \?\? \[\], ahora, tz, VENTANA_FRESCA_MIN\);/);
+  // 20/10/2026: las zonas de los negocios con horario, el suyo o el de una automatización, en UNA lectura.
+  assert.match(ruta, /\.eq\('key', KEY_TIMEZONE\)\.in\('workspace_id', \[\.\.\.new Set\(\[\.\.\.conHorario\.keys\(\), \.\.\.propiasDe\.keys\(\)\]\)\]\);/, 'la zona volvió a leerse por negocio');
   assert.doesNotMatch(ruta, /zonaDelMotor|ZONA_SIN_CONFIGURAR|Mexico_City/);
   // No inscribe por cohorte ni evalúa desenlaces: eso es de la corrida de cada hora.
   assert.doesNotMatch(ruta, /comprometerInscripciones|evaluarDesenlaces/);

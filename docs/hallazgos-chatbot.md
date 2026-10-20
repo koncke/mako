@@ -5447,3 +5447,35 @@ Ya había pasado el 15/10 («Las doce cosas de Automations (vivían sólo en un 
 - docs/relevo/chatbot.md:37, :104, :119-120
 - app/admin/dev/chatbot/bitacora.ts:1638 (el último hito «prompt»)
 - app/automations/SecuenciaPerfil.tsx:1202 y app/automations/SimuladorWhatsApp.tsx:827 (lo que sigue sin hacer)
+
+**Hecho el 20/10/2026 a la noche (`claude4`), y lo que no se ve en el código:**
+- **El chat es la sidebar POR PORTAL, y la ranura no se desmonta.** El chat necesita el estado del lienzo (los pasos, el
+  borrador, `alListoIA`), así que lo sigue montando SecuenciaPerfil, por portal en una ranura de la lista flotante. La «←»
+  esconde la ranura (`display: none`), no la saca: un portal hacia un nodo que desaparece desmonta el chat, y con él un
+  pedido en vuelo de hasta cinco minutos. El muelle de la derecha quedó sólo para «Probar».
+- **⚠️ El modal NO se importa en la lista ni en el lienzo, ni siquiera por tipos.** Arrastra acciones del servidor y los
+  tests que dibujan SimuladorWhatsApp y SecuenciaPerfil caen AL IMPORTAR; además una guarda (automations-configuraciones)
+  lee el TEXTO y caza un `import type` igual. La tab lo pasa como componente (`Configuraciones`) y el tipo de sus props
+  vive en el módulo puro (`PropsConfiguraciones`, lib/config-automatizacion.ts).
+- **Qué es de cada automatización y qué no.** El horario de oficina (propio, «sin horario» o el del negocio) y las horas
+  entre dos mensajes a la misma persona sí; los topes por día y por hora NO: son el presupuesto anti-ban de UNA línea que
+  comparten todas, y un tope por automatización no la protege. Sin nada guardado vale la del negocio: así cada
+  automatización que ya existía arrancó con lo de su negocio sin escribir nada en producción.
+- **En el motor, `fueraDeHorario` pasó a ser «TODAS cerradas»** (o «no pude leer»); cada fila pregunta por la suya
+  (`fuera(insc.secuencia_id)`) y las cerradas sin nada que corra afuera ni se leen. Lo propio de todas sale de UNA lectura
+  estricta por corrida (`configsDeEnvio`): «no pude leer» no es «no tiene nada propio». El tick barre también cuando abre
+  el horario PROPIO de una automatización (`abrioAlgunaPropia`), o lo que venció de noche esperaba a la corrida de la hora.
+- **El id `au-mako` del recorrido ya existía y está prohibido**: era «MaKo en WhatsApp» (retirado en la undécima) y un
+  test lo veta. El paso del chat es `au-chat`. Y `marcasDeVoseo` marca «acá»: el texto dice «aquí».
+
+**Lo que quedó SIN hacer:** el AI Step que «contesta sola» (`asistirRespuesta`, `seguirCharla`, lib/nutricion.ts) sigue
+con el horario del NEGOCIO, no el de su automatización · el chip «Espera a que abra» de la tarjeta MaKo del lienzo lee el
+horario del negocio (`useFijarHorarioOficina`) · la sugerencia del aviso al equipo va como texto, sin botones · nada se
+vio con clics en un navegador · de la cola del 16/10: el botón de conectar WhatsApp (OnboardingChatAgent.tsx) y lo visual
+de «Probar» (nombres de persona, chips «antes de», «Prueba finalizada»).
+
+**Vive en:** app/automations/SimuladorWhatsApp.tsx (la ranura, `enLaLista`) · app/automations/SecuenciaPerfil.tsx (el
+portal, `BotonTuerca`, `conAvisoProspeccion`) · app/automations/ConfiguracionesBoton.tsx (el modal y el «?») ·
+app/automations/ConfigAutomatizacionPanel.tsx · lib/config-automatizacion.ts (+ `-db`) · lib/nutricion.ts
+(`procesarEnvios`) · app/api/cron/nutricion-tick/route.ts · lib/api-mako/areas/chatbot.* (`configuracion_automatizacion`,
+`configurar_automatizacion`) · test: tests/automations-chat-siempre.test.ts · *20/10/2026, claude4.*

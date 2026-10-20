@@ -71,7 +71,8 @@ test('⚠️ la guarda mira la BASE y lo que salió EN ESTA CORRIDA (dos hilos d
 
 test('el motor consulta el freno con las dos fuentes y anota cada envío o borrador de la corrida', () => {
   // Probado rompiéndolo (08/10/2026): borrando el `anotarEnCorrida(...)` del motor → 8 pasan / 1 falla.
-  assert.match(PROC, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioReciente, enviadoEnCorrida\)/);
+  // 20/10/2026: con las horas a la misma persona de CADA automatización (`conEnvioRecienteDe`, lib/config-automatizacion.ts).
+  assert.match(PROC, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)/);
   assert.match(PROC, /if \(estado === 'enviado' \|\| estado === 'simulado' \|\| estado === 'borrador'\) anotarEnCorrida\(enviadoEnCorrida, insc\.lead_id, paso\.canal\);/);
   // El set nace UNA vez por corrida, afuera del bucle de lotes: por lote se perdería entre lotes.
   const decl = PROC.indexOf('const enviadoEnCorrida: EnviadoEnCorrida = new Map();');
@@ -179,7 +180,11 @@ test('⚠️ sin horario NO hay ventana (sexta tanda): el motor corta sólo con 
   // El corte, UNA vez por corrida, antes del bucle, con el horario leído ESTRICTO. (Undécima tanda, M3 f: fuera del
   // horario —o con el horario ilegible— ya no se corta TODO: corren sólo el carril del recordatorio y «MaKo en
   // WhatsApp», y sin ninguno de los dos, el corte de siempre. Ver tests/motor-carril-recordatorio.test.ts.)
-  assert.match(PROC, /const horario = await horarioDeEnvio\(\);\s*if \(horario === 'ilegible'\) fueraDeHorario = 'horario-ilegible';\s*else if \(horario && \(await zonaDeLaVentana\(\)\) === ZONA_ILEGIBLE\) fueraDeHorario = 'zona-ilegible';\s*else if \(!\(await dentroDeVentana\(horario\)\)\) fueraDeHorario = 'fuera-de-horario';/);
+  // 20/10/2026: cada automatización con SU horario (lib/config-automatizacion.ts): lo propio de todas en UNA lectura
+  // estricta, y «fuera» es «todas cerradas» (las de a una van en `cerradas`). Sin horario en ninguna, no hay ventana.
+  assert.match(PROC, /const horario = await horarioDeEnvio\(\);\s*if \(horario === 'ilegible' \|\| configs === 'ilegible'\) fueraDeHorario = 'horario-ilegible';/);
+  assert.match(PROC, /if \(conHorario && tz === ZONA_ILEGIBLE\) fueraDeHorario = 'zona-ilegible';/);
+  assert.match(PROC, /cerradas = cerradasAhora\(ids, configs, horario, Date\.now\(\), tz\);[\s\S]{0,200}?if \(ids\.length \? cerradas\.size === ids\.length : !\(await dentroDeVentana\(horario\)\)\) fueraDeHorario = 'fuera-de-horario';/);
   assert.match(PROC, /if \(fueraDeHorario && !corrensFuera\.length\) return \{ \.\.\.res, saltado: fueraDeHorario \};/);
   assert.ok(PROC.indexOf('horarioDeEnvio()') < PROC.indexOf('while ((!cupoLleno()'));
   const h = cuerpo(NUTRI, 'async function horarioDeEnvio(', '\n}');
@@ -193,7 +198,8 @@ test('⚠️ sin horario NO hay ventana (sexta tanda): el motor corta sólo con 
   const z = cuerpo(NUTRI, 'async function zonaDeLaVentana(', '\n}');
   assert.match(z, /return await zonaDelNegocioEstricta\(ws\);/);
   assert.match(z, /catch \{\s*return ZONA_ILEGIBLE;/, '«no pude leer» no es «no hay zona»');
-  assert.match(PROC, /else if \(horario && \(await zonaDeLaVentana\(\)\) === ZONA_ILEGIBLE\) fueraDeHorario = 'zona-ilegible';/);
+  // 20/10/2026: la zona se lee si ALGUNA automatización tiene horario (el suyo o el del negocio).
+  assert.match(PROC, /const tz = conHorario \? await zonaDeLaVentana\(\) : null;\s*if \(conHorario && tz === ZONA_ILEGIBLE\) fueraDeHorario = 'zona-ilegible';/);
   assert.doesNotMatch(NUTRI, /getSetting\(KEY_TIMEZONE\)|zonaDelMotor\(/, 'el motor volvió a leer la zona por su cuenta');
   assert.doesNotMatch(PROC + v + z, /tzDeWorkspace/, 'la zona del motor es la estricta: un 5xx no es «sin zona»');
 });

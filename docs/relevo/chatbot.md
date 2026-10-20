@@ -6,8 +6,13 @@
 > sin «Avisar al equipo» ni «Si responde» que nadie pidió), dice qué hizo («Creé «X»: sale … a … (N hoy). Manda «…»» y,
 > al editar, tarjeta por tarjeta + «toca Publicar»), y el motor reinscribe en cada ocurrencia de un Recurrente a quien
 > terminó la anterior (`barridoEsEvento`). Test: tests/crear-ia-recurrente.test.ts. Cosecha: docs/hallazgos-chatbot.md
-> («Crear con IA» no podía poner un Recurrente…). ⛔ #284 y #282 sin tocar. **Falta el pedido B** (el chat siempre
-> abierto en la sidebar, la tuerca, Configuraciones por automatización, el «?» solo y el aviso de Prospección).
+> («Crear con IA» no podía poner un Recurrente…). ⛔ #284 y #282 sin tocar. **Y EL PEDIDO B:** con una automatización abierta, la sidebar ES
+> el chat de MaKo (por portal, siempre montado, sin ✕; «←» vuelve a la lista); en el título, la tuerca en lugar del logo;
+> Configuraciones de CADA automatización (horario propio o el del negocio, y las horas a la misma persona; el motor y el
+> tick las respetan; también desde el «⋯»; API de MaKo `configuracion_automatizacion` / `configurar_automatizacion`); el
+> menú de la lista sólo con el «?»; y el aviso de Prospección al Publicar o Probar. Test: tests/automations-chat-siempre.test.ts.
+> **Sin hacer:** el AI Step que contesta sola sigue con el horario del negocio; el chip «Espera a que abra» de la tarjeta
+> MaKo lee el del negocio; no se vio con clics; de la cola del 16/10, el botón de conectar WhatsApp y lo visual de «Probar».
 >
 > **20/10/2026 (`claude4`, chat jefe «Automations»): DOS PEDIDOS DE MARTÍN, CON EL TEXTO ENTERO** (regla de AGENTS.md:
 > nunca «los puntos N-M» sin el texto; el de abajo se perdió justamente así entre el 16 y el 17/10). En la bitácora, los

@@ -294,7 +294,8 @@ test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, e
   assert.match(dormir, /for \(const \[id, vence\] of esperasCortas\) if \(vence <= ahora\) \{ vistos\.delete\(id\); esperasCortas\.delete\(id\); \}/);
   assert.match(dormir, /esperasHechas >= TOPE_ESPERAS_CORTAS/, 'sin tope de esperas, una corrida podría dormir sin fin');
   // ⚠️ El anti-ban sigue: lo que viene después de la espera pasa por TODAS las guardas de la vuelta.
-  assert.match(proc, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioReciente, enviadoEnCorrida\)/);
+  // 20/10/2026: con las horas a la misma persona de CADA automatización (`conEnvioRecienteDe`, lib/config-automatizacion.ts).
+  assert.match(proc, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)/);
   // La vía rápida (un evento) no da tope: no duerme ADENTRO del webhook (sigue después: el test de abajo).
   assert.match(nutri, /try \{ await viaRapidaConTurno\(leadId\); \}/);
 });

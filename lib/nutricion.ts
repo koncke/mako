@@ -101,6 +101,8 @@ import { hoyEnTz } from '@/lib/date-utils';
 import { getSettingEstricto, cambiarSettingSi, setSetting } from '@/lib/settings';
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
+import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { configsDelNegocio } from '@/lib/config-automatizacion-db';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
   hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
@@ -2630,6 +2632,15 @@ async function limitesDeEnvio(): Promise<LimitesEnvio | 'ilegible'> {
 }
 
 /**
+ * LO PROPIO DE CADA AUTOMATIZACIÓN (20/10/2026, lib/config-automatizacion.ts): su horario y sus horas a la misma persona,
+ * una vez por corrida y para todas. `'ilegible'` = la base no contestó: como con el horario y los límites del negocio,
+ * «no pude leer» no es «no tiene nada propio», y la corrida no manda.
+ */
+async function configsDeEnvio(): Promise<Map<number, ConfigAutomatizacion> | 'ilegible'> {
+  try { return await configsDelNegocio(); } catch { return 'ilegible'; }
+}
+
+/**
  * Lo que ya salió en la ventana de cada tope, con los MISMOS contadores que el motor (para la línea
  * «24 h: 6 de 40» de Configuraciones › Límites). Tira si la base no contesta: la pantalla dice que no pudo.
  */
@@ -3676,24 +3687,45 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // reunión era un emisor aparte que no miraba el horario —un «15 min antes» a las 8:45 no puede esperar a que
   // abra a las 9— y el aviso de un agendado al equipo salía del webhook a cualquier hora. Lo demás, como siempre:
   // espera a que abra. Con el horario ilegible, igual: «no sé si está abierto» no manda prospección.
+  //
+  // ⚠️ CADA AUTOMATIZACIÓN CON SU HORARIO (20/10/2026, Martín, 16/10 punto 5: «como también el horario de oficina para
+  // cada automatización»): el propio si eligió uno, si no el del negocio (`horarioDeLaAutomatizacion`,
+  // lib/config-automatizacion.ts). Lo propio de todas sale de UNA lectura, estricta como la del negocio
+  // (`configsDeEnvio`): sin leerla, no se manda prospección (`horario-ilegible`). Desde ese día `fueraDeHorario` es
+  // «TODAS cerradas» (o «no pude leer»); las cerradas de a una van en `cerradas`, y su fila corre lo que corre afuera.
   let fueraDeHorario: 'fuera-de-horario' | 'horario-ilegible' | 'zona-ilegible' | null = null;
-  if (!opts?.ignorarVentana) {
-    const horario = await horarioDeEnvio();
-    if (horario === 'ilegible') fueraDeHorario = 'horario-ilegible';
-    else if (horario && (await zonaDeLaVentana()) === ZONA_ILEGIBLE) fueraDeHorario = 'zona-ilegible';
-    else if (!(await dentroDeVentana(horario))) fueraDeHorario = 'fuera-de-horario';
-  }
+  const configs = await configsDeEnvio();
   // Sin nada que corra fuera del horario, el corte de siempre, sin leer nada más.
   const secuencias = await getSecuenciasActivas();
+  let cerradas = new Set<number>();
+  if (!opts?.ignorarVentana) {
+    const horario = await horarioDeEnvio();
+    if (horario === 'ilegible' || configs === 'ilegible') fueraDeHorario = 'horario-ilegible';
+    else {
+      const ids = secuencias.map((s) => s.id);
+      const conHorario = !!horario || ids.some((id) => horarioDeLaAutomatizacion(configs.get(id) ?? {}, horario) != null);
+      const tz = conHorario ? await zonaDeLaVentana() : null;
+      if (conHorario && tz === ZONA_ILEGIBLE) fueraDeHorario = 'zona-ilegible';
+      else {
+        cerradas = cerradasAhora(ids, configs, horario, Date.now(), tz);
+        // Todas cerradas (o el negocio cerrado y ninguna con un horario propio abierto): el corte de siempre.
+        if (ids.length ? cerradas.size === ids.length : !(await dentroDeVentana(horario))) fueraDeHorario = 'fuera-de-horario';
+      }
+    }
+  }
+  /** ¿Esta automatización está fuera de SU horario en esta corrida? */
+  const fuera = (secId: number): boolean => fueraDeHorario != null || cerradas.has(secId);
   // ¿«MaKo en WhatsApp» sale fuera del horario? Lo dice CADA tarjeta (`esperaQueAbra`, lib/mako-tarjeta.ts, 15/10/2026): de
   // fábrica ESPERA a que abra (Martín). Hasta ese día lo decía una casilla del horario, y antes una regla escondida.
   const sigueIgual = (p: PasoGrafo | undefined): boolean => esTarjetaMako(p) && !esperaQueAbra((p?.accion as { params?: Record<string, unknown> } | null | undefined)?.params);
   const corrensFuera = secuencias.filter((s) => tieneCarril(s.pasos) || s.pasos.some(sigueIgual)).map((s) => s.id);
   if (fueraDeHorario && !corrensFuera.length) return { ...res, saltado: fueraDeHorario };
+  // Las cerradas que no tienen nada que corra afuera: sus filas ni se leen.
+  const soloCerradas = [...cerradas].filter((id) => !corrensFuera.includes(id));
   // LOS LÍMITES DEL NEGOCIO (décima tanda, GENERAL 4), una vez por corrida y estrictos: sin leerlos no se
   // manda nada (lo vencido sigue ahí para la próxima), como con el horario.
   const limites = await limitesDeEnvio();
-  if (limites === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };
+  if (limites === 'ilegible' || configs === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };
   const presupuesto = limites.wa.dia - (await enviosUltimas24h('whatsapp'));
   // Lo que ya salió en esta HORA, sólo para las corridas del cron (`cupoPorHora`).
   const enLaHora = opts?.cupoPorHora ? await enviosEnLaHora('whatsapp') : 0;
@@ -4011,6 +4043,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     if (cupoLleno()) q = q.in('secuencia_id', sinTopeWa);
     // Fuera del horario, sólo las automatizaciones que tienen algo que corre igual (el carril, «MaKo en WhatsApp»).
     if (fueraDeHorario) q = q.in('secuencia_id', corrensFuera);
+    // Las cerradas de a una (20/10/2026): fuera, salvo las que tienen algo que corre igual.
+    else if (soloCerradas.length) q = q.not('secuencia_id', 'in', `(${soloCerradas.join(',')})`);
     // LOS YA VISTOS SE EXCLUYEN EN EL SERVER, y el orden desempata por `id`. Antes se
     // filtraban en memoria después del `.limit(LOTE)`: las filas salteadas por «msg
     // <20h» no se actualizan, así que la vuelta siguiente releía LAS MISMAS LOTE
@@ -4066,8 +4100,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         asistio_j1?: boolean | null; asistio_j2?: boolean | null; estado_lead?: string | null;
       } & JuntasLead>).map((l) => [l.id, l]),
     );
-    // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop).
-    const conEnvioReciente = await leadsConEnvioReciente(leadIds, { whatsapp: limites.wa.personaHoras, email: limites.email.personaHoras });
+    // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop). 20/10/2026: con las horas de CADA
+    // automatización (las propias o las del negocio, `personaHorasDeLaAutomatizacion`): una lectura por ventana distinta
+    // del lote, que casi siempre es una sola.
+    const ventanaDe = (secId: number) => personaHorasDeLaAutomatizacion(configs.get(secId) ?? {}, limites);
+    const claveVentana = (v: { whatsapp: number; email: number }): string => `${v.whatsapp}:${v.email}`;
+    const porVentana = new Map<string, { v: { whatsapp: number; email: number }; leads: Set<number> }>();
+    for (const d of due) {
+      const v = ventanaDe(d.secuencia_id);
+      const g = porVentana.get(claveVentana(v)) ?? { v, leads: new Set<number>() };
+      g.leads.add(d.lead_id);
+      porVentana.set(claveVentana(v), g);
+    }
+    const recientesPorVentana = new Map<string, RecientesPorCanal>();
+    for (const [k, g] of porVentana) recientesPorVentana.set(k, await leadsConEnvioReciente([...g.leads], g.v));
+    const conEnvioRecienteDe = (secId: number): RecientesPorCanal =>
+      recientesPorVentana.get(claveVentana(ventanaDe(secId))) ?? { whatsapp: new Set<number>(), email: new Set<number>() };
     // Quién ya recibió algo alguna vez → decide cuál de los dos pasos de
     // apertura sale (presentarse o retomar). También en batch.
     const yaContactados = await leadsYaContactados(leadIds);
@@ -4107,9 +4155,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const enRespuesta = insc.estado === 'respondio';
       // Fuera del horario: el carril (`esHiloDelCarril`) y la tarjeta «MaKo en WhatsApp» que dice «Lo manda igual»
       // (`sigueIgual`); la que espera, y todo lo demás, sale cuando abre.
-      const seMueve = (i: number): boolean => !!sec && (fueraDeHorario != null
+      // Fuera de SU horario (20/10/2026: cada automatización con el suyo, `fuera`).
+      const cerrada = fuera(insc.secuencia_id);
+      const seMueve = (i: number): boolean => !!sec && (cerrada
         ? esHiloDelCarril(sec.pasos, i) || sigueIgual(sec.pasos[i])
-        : seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: fueraDeHorario != null }));
+        : seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: cerrada }));
       let hs = sanearHilos(insc.hilos);
       if (sec && !hs && esFilaNueva(insc) && raicesSalida(sec.pasos).length > 1) {
         hs = await repartirAlEntrar(supabase, insc, sec.pasos, (n) => proximoEnvioDePaso(nodoPorId(sec.pasos, n) ?? undefined, lead));
@@ -4118,7 +4168,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if (sec && hs) {
         const vencidos = hilosVencidos(hs, Date.now()).filter((x) => !hilosVistos.has(`${insc.id}:${x.h}:${x.nodo}`));
         // Fuera del horario, los que no corren igual se quedan como están (salen al abrir).
-        const libres = fueraDeHorario ? vencidos.filter((x) => seMueve(indicePorId(sec.pasos, x.nodo))) : vencidos;
+        const libres = cerrada ? vencidos.filter((x) => seMueve(indicePorId(sec.pasos, x.nodo))) : vencidos;
         // Y los que se quedan, si la fila tiene el carril pendiente, se aplazan para no taparlo (`aplazaParaNoTapar`).
         for (const x of vencidos) {
           if (libres.includes(x) || !aplazaParaNoTapar(sec.pasos, sanearHilos(insc.hilos), x.h)) continue;
@@ -4616,7 +4666,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // ⚠️ SIN EL FRENO DE 20 H PARA INSTAGRAM Y MESSENGER: protege a la línea NO oficial de WhatsApp
       // de un baneo, y por Meta la ventana es de 24 h — frenar 20 h un segundo DM lo dejaría afuera.
       // (Undécima tanda, M3 d: el carril del recordatorio tampoco, `pasaPorAntiBan`.)
-      if (!canalApagado && !esCanalSocial(paso.canal) && frenadoPorAntiBan(insc.lead_id, paso.canal, conEnvioReciente, enviadoEnCorrida)
+      if (!canalApagado && !esCanalSocial(paso.canal) && frenadoPorAntiBan(insc.lead_id, paso.canal, conEnvioRecienteDe(insc.secuencia_id), enviadoEnCorrida)
           && pasaPorAntiBan({ carril: carril != null, social: esCanalSocial(paso.canal), canalApagado })) {
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
         await aplazarSiTapa(insc, sec);

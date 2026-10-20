@@ -1,0 +1,140 @@
+'use client';
+
+// =============================================================================
+// ConfigAutomatizacionPanel — el horario y las horas entre mensajes de UNA automatización (20/10/2026)
+// =============================================================================
+// Martín, 16/10/2026 (punto 5, texto entero en docs/relevo/chatbot.md): «"configuraciones" ya no viva para todo
+// Automations, sino para cada chat en los 3 puntos... si estoy corriendo ads en Meta y llegan leads, ahí no hay riesgo,
+// pero si tengo configurado eso y no salen mensajes si es un problema... como también el horario de oficina para cada
+// automatización». Lo abren la tuerca del título (SecuenciaPerfil) y «Configuraciones» del «⋯» de la fila.
+//
+// Sin nada propio, cada parte dice «Como el negocio» con lo que vale: así arranca toda automatización que ya existía.
+// Las reglas, en lib/config-automatizacion.ts.
+// =============================================================================
+
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Spinner } from '@/app/_ui';
+import { HorarioEnvioPanel, Interruptor, type FuenteHorario } from '@/app/configuraciones/HorarioEnvioPanel';
+import { getConfigAutomatizacionAction, saveConfigAutomatizacionAction } from './config-automatizacion-actions';
+import { Numero } from './LimitesEnvioPanel';
+import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
+import { RANGOS_LIMITES } from '@/lib/limites-envio';
+import { textoDeHorario, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+
+const SANS = "'Geist', sans-serif";
+const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 18, fontFamily: SANS };
+
+type Leido = Awaited<ReturnType<typeof getConfigAutomatizacionAction>>;
+
+/** Lo leído, una vez, para las dos pestañas. */
+function useConfig(secuenciaId: number) {
+  const [d, setD] = useState<Leido | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let vivo = true;
+    getConfigAutomatizacionAction(secuenciaId)
+      .then((x) => { if (vivo) setD(x); })
+      .catch(() => { if (vivo) setError('No pude leer la configuración.'); });
+    return () => { vivo = false; };
+  }, [secuenciaId]);
+  return { d, error, poner: (config: ConfigAutomatizacion) => setD((x) => (x ? { ...x, config } : x)) };
+}
+
+/**
+ * EL HORARIO DE ESTA AUTOMATIZACIÓN: «Propio» apagado = el del negocio (dicho con sus horas); prendido, el panel de
+ * siempre (`HorarioEnvioPanel`) guardando en ESTA automatización, que arranca con lo del negocio.
+ */
+export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
+  const { d, error, poner } = useConfig(secuenciaId);
+  const [aviso, setAviso] = useState('');
+  const [vuelta, setVuelta] = useState(0);
+  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
+  const propio = d.config.horario !== undefined;
+  const off = !d.puedeEditar;
+  const alternar = (v: boolean) => {
+    setAviso('');
+    const horario = v ? (d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }) : null;
+    void saveConfigAutomatizacionAction(secuenciaId, { horario })
+      .then((r) => { if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); setVuelta((n) => n + 1); })
+      .catch(() => setAviso('No se pudo guardar.'));
+  };
+  const fuente: FuenteHorario = {
+    titulo: 'Horario de esta automatización',
+    leer: async () => ({ horario: d.config.horario ?? d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }, zona: d.zona, puedeEditar: d.puedeEditar }),
+    guardar: async (h) => {
+      const r = await saveConfigAutomatizacionAction(secuenciaId, { horario: h });
+      if (r.ok && r.config) poner(r.config);
+      return { ok: r.ok, error: r.error, horario: r.config?.horario ?? undefined };
+    },
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div data-horario-propio={propio ? 'si' : 'no'} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Horario propio</div>
+          <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2 }}>
+            {propio ? 'Sólo para esta automatización.' : `Como el negocio: ${textoDeHorario(d.horarioNegocio)}.`}
+          </div>
+        </div>
+        <Interruptor on={propio} disabled={off} etiqueta={propio ? 'Volver al horario del negocio' : 'Ponerle un horario propio'} onCambio={alternar} />
+      </div>
+      {aviso && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}</p>}
+      {propio && <HorarioEnvioPanel key={vuelta} fuente={fuente} onSucio={onSucio} />}
+    </div>
+  );
+}
+
+/** LAS HORAS ENTRE DOS MENSAJES A LA MISMA PERSONA de esta automatización, por canal (sin propio: las del negocio). */
+export function PersonaDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
+  const { d, error, poner } = useConfig(secuenciaId);
+  const [aviso, setAviso] = useState('');
+  const [invalido, setInvalido] = useState<Record<string, string>>({});
+  const [enVuelo, setEnVuelo] = useState(false);
+  const respiro = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
+  useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
+  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
+  const off = !d.puedeEditar;
+  const guardar = (personaHoras: Record<string, number | null>) => {
+    setAviso('');
+    if (respiro.current) clearTimeout(respiro.current);
+    setEnVuelo(true);
+    respiro.current = setTimeout(() => {
+      void saveConfigAutomatizacionAction(secuenciaId, { personaHoras })
+        .then((r) => { setEnVuelo(false); if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); })
+        .catch(() => { setEnVuelo(false); setAviso('No se pudo guardar.'); });
+    }, 350);
+  };
+  const filas = [
+    { canal: 'whatsapp' as const, rotulo: 'WhatsApp', rango: RANGOS_LIMITES.wa.personaHoras },
+    { canal: 'email' as const, rotulo: 'Email', rango: RANGOS_LIMITES.email.personaHoras },
+  ];
+  return (
+    <section aria-label="A la misma persona" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>A la misma persona, en esta automatización</div>
+      <div style={{ fontSize: 13, color: 'var(--dim)' }}>Las horas que espera entre dos mensajes a alguien. Con leads de un anuncio, pocas; prospectando en frío, más.</div>
+      {filas.map((f) => {
+        const propio = d.config.personaHoras?.[f.canal];
+        const valor = propio ?? d.personaNegocio[f.canal];
+        return (
+          <div key={f.canal} data-persona={f.canal} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ flex: '1 1 120px', minWidth: 0, fontSize: 14, color: 'var(--ink)' }}>{f.rotulo}</span>
+            <Numero valor={valor} min={f.rango[0]} max={f.rango[1]} disabled={off} etiqueta={`${f.rotulo} · horas entre dos mensajes`}
+              onCambio={(n) => guardar({ [f.canal]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [f.canal]: e ?? '' }))} />
+            <span style={{ flex: '0 0 auto', fontSize: 13, color: 'var(--dim)' }}>horas</span>
+            {propio === undefined
+              ? <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Como el negocio</span>
+              : !off && (
+                <button type="button" onClick={() => guardar({ [f.canal]: null })}
+                  style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>
+                  Como el negocio ({d.personaNegocio[f.canal]} h)
+                </button>
+              )}
+            {invalido[f.canal] && <span role="alert" style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--bad)' }}>{invalido[f.canal]}</span>}
+          </div>
+        );
+      })}
+      {aviso && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}</span>}
+    </section>
+  );
+}

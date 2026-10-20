@@ -238,7 +238,8 @@ test('«Probar» ofrece sólo los canales que el flujo usa', () => {
 
 test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y es un desplegable con los canales del flujo', () => {
   const perfil = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
-  const probar = bloque(perfil, 'const probar = (canal:', '\n  };', 400);
+  // (20/10/2026: con el aviso de Prospección antes de abrir, `conAvisoProspeccion`.)
+  const probar = bloque(perfil, 'const probar = (canal:', '\n  };', 500);
   const freno = probar.indexOf('const freno = frenoDeEsta(pasos);');
   assert.ok(freno >= 0 && freno < probar.indexOf('onProbar(canal)'), '«Probar» abre sin frenar lo inconcluso');
   assert.match(probar, /if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
@@ -263,7 +264,8 @@ test('⚠️ «Probar» se frena con lo mismo que Publicar, abre la tarjeta, y e
 test('⚠️ «Publicar» sin el cartel «Sin publicar»: apagado si no hay cambios', () => {
   const perfil = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
   assert.doesNotMatch(perfil, />Sin publicar</, 'volvió el cartel «Sin publicar»');
-  assert.match(perfil, /<button onClick=\{\(\) => void publicar\(\)\} disabled=\{busy === 'save' \|\| !sinPublicar\}/);
+  // 20/10/2026: con el aviso de Prospección antes (`conAvisoProspeccion`, tests/automations-chat-siempre.test.ts).
+  assert.match(perfil, /<button onClick=\{\(\) => conAvisoProspeccion\(\(\) => void publicar\(\)\)\} disabled=\{busy === 'save' \|\| !sinPublicar\}/);
 });
 
 test('el emoji del título: se guarda sólo un emoji, null vuelve al del objetivo', () => {

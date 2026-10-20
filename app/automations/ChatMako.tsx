@@ -98,8 +98,13 @@ export type ChatMakoProps = {
   publicadas?: number;
   /** `false` = no lo aplicó (editar sobre un lienzo que cambió): el pedido vuelve a la barra. */
   onListo: (r: ListoCrearIA) => boolean | void;
-  /** El ✕ del chat. */
+  /** El ✕ del chat (sin esto, no hay ✕: en Automations el chat está siempre, desde el 20/10/2026). */
   onCerrar?: () => void;
+  /**
+   * LA «←» DE LA CABECERA (20/10/2026, Martín: «con la flecha para atrás para cambiar a otra automatización»): la sidebar
+   * vuelve a la lista. Sin esto, no hay flecha.
+   */
+  onVolver?: () => void;
   /** Mientras MaKo trabaja: quien monta tapa el lienzo (y deja el chat encima de la capa). */
   onTrabajando?: (trabajando: boolean) => void;
   deshabilitado?: boolean;
@@ -139,6 +144,8 @@ export const NO_APLICADO = 'Cambiaste el flujo: pídelo de nuevo';
 /** Debajo del nombre, como en WhatsApp. */
 export const ESTADO_EN_LINEA = 'en línea';
 export const ESTADO_ESCRIBIENDO = 'escribiendo…';
+/** La «←» de la cabecera: vuelve a la lista de automatizaciones (20/10/2026). */
+export const ROTULO_VOLVER = 'Volver a tus automatizaciones';
 /** La línea del hilo que dice de qué tarjeta salió un pedido del ✦ (punto 7). */
 export const ROTULO_TARJETA = 'MaKo te ayuda en';
 /** Lo que se lee con el hilo vacío. */
@@ -479,6 +486,9 @@ export function ChatMako(p: ChatMakoProps) {
 
   const cabecera = (
     <div data-cabecera-mako="" style={S.cabecera}>
+      {p.onVolver && (
+        <button type="button" className="chm-x" data-volver-lista="" onClick={p.onVolver} aria-label={ROTULO_VOLVER} title={ROTULO_VOLVER}>←</button>
+      )}
       <span role="img" aria-label="MaKo" style={{ display: 'inline-flex', flex: 'none' }}><Muneco titulo="Automations" animo={trabajando ? 'trabajando' : 'despierto'} size={30} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={S.nombre}>MaKo</div>

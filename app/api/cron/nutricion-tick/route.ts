@@ -34,6 +34,7 @@ import { procesarEnvios, getSecuenciasActivas } from '@/lib/nutricion';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { ESPERA_CORRIDA_HASTA_MS, VENTANA_FRESCA_MIN, desdeFresco } from '@/lib/espera-duracion';
 import { KEY_HORARIO_ENVIO, horarioVigente, acabaDeAbrir } from '@/lib/horario-envio';
+import { CLAVE_PREFIJO, sanearConfigAutomatizacion, abrioAlgunaPropia, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { KEY_TIMEZONE } from '@/lib/timezone';
 // LA regla de lectura de la zona (undécima tanda): la misma del motor y las pantallas; sin zona, `ZONA_POR_DEFECTO`.
 import { zonaDeLoGuardado } from '@/lib/zona-negocio-reglas';
@@ -79,15 +80,28 @@ export async function GET(request: NextRequest) {
       const h = horarioVigente(r.value);
       if (h) conHorario.set(Number(r.workspace_id), h);
     }
+    // Y los horarios PROPIOS de una automatización (20/10/2026, lib/config-automatizacion.ts): si abre el de una, el
+    // negocio se barre igual (lo que venció mientras estaba cerrada sale al abrir, como con el del negocio).
+    const { data: propias, error: eProp } = await db.from('app_settings').select('workspace_id, value').like('key', `${CLAVE_PREFIJO}%`);
+    if (eProp) throw new Error(`horarios propios: ${eProp.message}`);
+    const propiasDe = new Map<number, ConfigAutomatizacion[]>();
+    for (const r of (propias ?? []) as Array<{ workspace_id: number | string; value: string }>) {
+      const c = sanearConfigAutomatizacion(r.value);
+      if (!c.horario || !c.horario.activo) continue;
+      const ws = Number(r.workspace_id);
+      propiasDe.set(ws, [...(propiasDe.get(ws) ?? []), c]);
+    }
     let abrieronConVencido: number[] = [];
-    if (conHorario.size) {
+    if (conHorario.size || propiasDe.size) {
       const { data: zonas, error: eZ } = await db.from('app_settings').select('workspace_id, value')
-        .eq('key', KEY_TIMEZONE).in('workspace_id', [...conHorario.keys()]);
+        .eq('key', KEY_TIMEZONE).in('workspace_id', [...new Set([...conHorario.keys(), ...propiasDe.keys()])]);
       if (eZ) throw new Error(`zonas: ${eZ.message}`);
       const zonaDe = new Map(((zonas ?? []) as Array<{ workspace_id: number | string; value: string }>).map((z) => [Number(z.workspace_id), z.value]));
-      const abiertos = [...conHorario.entries()]
-        .filter(([ws, h]) => acabaDeAbrir(ahora, zonaDeLoGuardado(zonaDe.get(ws)), h, VENTANA_FRESCA_MIN))
-        .map(([ws]) => ws);
+      const abiertos = [...new Set([...conHorario.keys(), ...propiasDe.keys()])].filter((ws) => {
+        const tz = zonaDeLoGuardado(zonaDe.get(ws));
+        const h = conHorario.get(ws);
+        return (!!h && acabaDeAbrir(ahora, tz, h, VENTANA_FRESCA_MIN)) || abrioAlgunaPropia(propiasDe.get(ws) ?? [], ahora, tz, VENTANA_FRESCA_MIN);
+      });
       if (abiertos.length) {
         const { data: viejas, error: eV } = await db.from('nutricion_inscripciones')
           .select('workspace_id').in('estado', ESTADOS_QUE_SE_MUEVEN).lte('proximo_envio_at', ahoraIso).in('workspace_id', abiertos).limit(1000);

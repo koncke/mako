@@ -51,6 +51,10 @@ import { esWsPlataforma } from './integraciones.helpers';
 import { listarEtiquetas } from '@/lib/etiquetas';
 import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@/lib/flujo-ia-crear';
 import { conConteos } from '@/lib/flujo-ia-crear-core';
+import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
+import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
+import { horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, textoDeHorario, configParaGuardar } from '@/lib/config-automatizacion';
+import { leerConfigAutomatizacion, guardarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
 import { TOPE_RONDAS, type RespuestaMako } from '@/lib/automatizacion-chat';
 import { falloDeIA } from '@/lib/flujo-ia';
@@ -69,7 +73,7 @@ import { getEntregables } from '@/lib/entregable';
 import { estadoPlantillasSecuencia, plantillaDesdePaso } from '@/lib/nutricion-plantillas';
 import { armarSecuenciasDeAudios } from '@/lib/secuencias-audios';
 import { getContactoReportes } from '@/lib/perfil';
-import { getSetting, setSetting } from '@/lib/settings';
+import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { getFunnelDefault } from '@/lib/funnels';
 import {
   secuenciaFila, inscripcionesVivas, handoffFila, inscripcionesDeLead, TOPE_INSCRIPCIONES_LEAD,
@@ -108,6 +112,36 @@ const AUDIO_A_SECUENCIA: Record<string, string> = {
 
 async function secuenciaVigente(id: number) {
   return (await getSecuenciasConStats()).find((s) => s.id === id) ?? null;
+}
+
+/**
+ * LO QUE PIDE `configurar_automatizacion`, en el cambio de `configParaGuardar` (lib/config-automatizacion.ts) y en
+ * palabras para el resumen que la persona confirma. Sin nada que cambiar, el error.
+ */
+function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
+  const cambio: Record<string, unknown> = {};
+  const partes: string[] = [];
+  const h = str(input, 'horario');
+  if (h === 'negocio') { cambio.horario = null; partes.push('el horario del negocio'); }
+  else if (h === 'sin_horario') { cambio.horario = { activo: false, desde: 9, hasta: 21, dias: [0, 1, 2, 3, 4, 5, 6] }; partes.push('sin horario (manda a cualquier hora)'); }
+  else if (h === 'propio') {
+    const dias = str(input, 'dias') ? str(input, 'dias').split(',').map((x) => Number(x.trim())).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6) : [0, 1, 2, 3, 4, 5, 6];
+    const horario = { activo: true, desde: Number(input.desde), hasta: Number(input.hasta), dias: dias as DiaSemana[] };
+    if (!Number.isFinite(horario.desde) || !Number.isFinite(horario.hasta)) return { error: 'Con horario propio, falta desde y hasta.' };
+    cambio.horario = horario;
+    partes.push(`horario propio, ${textoDeHorario(horario)}`);
+  }
+  if (input.personaNegocio === true) { cambio.personaHoras = null; partes.push('las horas a la misma persona del negocio'); }
+  else {
+    const ph: Record<string, number> = {};
+    if (input.horasWhatsapp != null) { ph.whatsapp = num(input, 'horasWhatsapp'); partes.push(`${ph.whatsapp} h entre dos WhatsApp a la misma persona`); }
+    if (input.horasEmail != null) { ph.email = num(input, 'horasEmail'); partes.push(`${ph.email} h entre dos emails a la misma persona`); }
+    if (Object.keys(ph).length) cambio.personaHoras = ph;
+  }
+  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario) o las horas a la misma persona (horasWhatsapp, horasEmail).' };
+  const prueba = configParaGuardar({}, cambio);
+  if (!prueba.ok) return { error: prueba.error };
+  return { cambio, resumen: partes.join(' · ') };
 }
 
 const noExiste = (id: number) => `No existe la secuencia #${id} vigente en este negocio (puede estar archivada). Pide el id con listar_secuencias_nutricion.`;
@@ -772,6 +806,45 @@ export const RUNNERS: Runners = {
       // Con la clave SIEMPRE (`vistaPreviaAlGuardar`): `false` la vuelve a prender, no «se conserva la de antes».
       await setSecuenciaPasos(id, s.pasos.map((p) => (p.orden === orden ? { ...p, sin_vista_previa: !conTarjeta } : p)));
       return { ok: true, resumen: `Los links del paso ${orden} de «${s.nombre}» salen ${conTarjeta ? 'con' : 'sin'} vista previa.` };
+    },
+  },
+
+  // CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026, lib/config-automatizacion.ts): las mismas reglas que la tuerca.
+  configuracion_automatizacion: {
+    leer: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return errorLectura(noExiste(id));
+      const [config, horario, limites] = await Promise.all([leerConfigAutomatizacion(id), getSettingEstricto(KEY_HORARIO_ENVIO), getSettingEstricto(KEY_LIMITES_ENVIO)]);
+      const delNegocio = horarioVigente(horario);
+      const lim = limitesVigentes(limites, limitesDeFabrica(process.env));
+      const vale = horarioDeLaAutomatizacion(config, delNegocio);
+      const persona = personaHorasDeLaAutomatizacion(config, lim);
+      return json({
+        secuencia: { id, nombre: s.nombre },
+        horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: config.horario === undefined ? 'negocio' : 'propio' },
+        horas_a_la_misma_persona: {
+          whatsapp: { horas: persona.whatsapp, de: config.personaHoras?.whatsapp === undefined ? 'negocio' : 'propio' },
+          email: { horas: persona.email, de: config.personaHoras?.email === undefined ? 'negocio' : 'propio' },
+        },
+        nota: 'Los topes por día y por hora son de la LÍNEA, para todas las automatizaciones: no se configuran por automatización.',
+      });
+    },
+  },
+
+  configurar_automatizacion: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const r = cambioDeConfigDelInput(input);
+      if ('error' in r) return { error: r.error };
+      return { payload: { secuenciaId: id, cambio: r.cambio }, resumen: `«${s.nombre}»: ${r.resumen}` };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      const r = await guardarConfigAutomatizacion(id, payload.cambio);
+      return r.ok ? { ok: true, resumen: `Listo: la configuración de la automatización #${id} quedó guardada.` } : { ok: false, resumen: r.error };
     },
   },
 

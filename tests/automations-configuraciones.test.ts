@@ -140,7 +140,8 @@ test('el motor lee los límites UNA vez por corrida, ESTRICTO, antes de cualquie
   assert.match(lector, /catch \{ return 'ilegible'; \}/);
   assert.equal(PROC.split('await limitesDeEnvio()').length - 1, 1, 'una lectura por corrida');
   const iLee = PROC.indexOf('const limites = await limitesDeEnvio();');
-  const iIlegible = PROC.indexOf("if (limites === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };");
+  // 20/10/2026: también lo propio de cada automatización (`configs`): «no pude leer» tampoco es «como el negocio».
+  const iIlegible = PROC.indexOf("if (limites === 'ilegible' || configs === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };");
   const iPresupuesto = PROC.indexOf('const presupuesto = ');
   assert.ok(iLee > 0 && iIlegible > iLee && iPresupuesto > iIlegible, '«no pude leer» no es «de fábrica»: la corrida no manda');
 });
@@ -150,7 +151,10 @@ test('los cuatro topes y el freno salen de lo leído, no de una constante', () =
   assert.match(PROC, /const presupuestoEmail = conEmail\.length \? limites\.email\.dia - \(await enviosUltimas24h\('email'\)\) : 0;/);
   assert.match(PROC, /const cupo = Math\.max\(0, Math\.min\(limites\.wa\.hora - enLaHora, presupuesto\)\);/);
   assert.match(PROC, /const LOTE = \(cupo > 0 \? cupo : limites\.wa\.hora\) \* 3;/);
-  assert.match(PROC, /leadsConEnvioReciente\(leadIds, \{ whatsapp: limites\.wa\.personaHoras, email: limites\.email\.personaHoras \}\)/);
+  // 20/10/2026: las horas a la misma persona son de CADA automatización (las propias o las del negocio): una lectura
+  // por ventana distinta del lote.
+  assert.match(PROC, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configs\.get\(secId\) \?\? \{\}, limites\);/);
+  assert.match(PROC, /recientesPorVentana\.set\(k, await leadsConEnvioReciente\(\[\.\.\.g\.leads\], g\.v\)\);/);
   assert.doesNotMatch(NUTRI, /\b(MAX_POR_DIA|MAX_POR_CORRIDA|MAX_EMAIL_POR_DIA|HS_MIN_ENTRE_MSGS)\b/, 'volvió una constante cableada');
   const freno = bloque(NUTRI, 'async function leadsConEnvioReciente(', '\nasync function leadIdsDe(');
   assert.match(freno, /const desde = haceHorasISO\(personaHoras\.whatsapp\);/);
@@ -211,7 +215,8 @@ test('el call site del setter lee el tope y el horario; con algo ilegible no sal
 // undécima lo fija tests/automations-undecima-ui.test.ts.
 test('ChatAgentApp monta el menú de Configuraciones en los dos lugares del horario, y el horario de antes se fue', () => {
   const app = fuente('app/automations/ChatAgentApp.tsx');
-  assert.match(app, /import \{ MenuAutomations \} from '\.\/ConfiguracionesBoton';/);
+  // 20/10/2026: y el modal de UNA automatización, que la tab le pasa a la lista y al lienzo como componente.
+  assert.match(app, /import \{ MenuAutomations, ConfiguracionesModal, tieneConfigPropiaDe \} from '\.\/ConfiguracionesBoton';/);
   // Duodécima tanda (decisión 11): el cartel vacío se fue y la lista se dibuja también sin automatizaciones, así
   // que el menú vive en UN lugar, el de la lista.
   assert.equal(app.split('<MenuAutomations onTutorial={recorrido.reabrir} />').length - 1, 1, 'uno, en la lista');
@@ -221,27 +226,30 @@ test('ChatAgentApp monta el menú de Configuraciones en los dos lugares del hora
   for (const r of ['app/automations/HorarioLista.tsx', 'app/automations/HorarioBoton.tsx']) assert.equal(existsSync(new URL(`../${r}`, import.meta.url)), false, `${r} volvió`);
 });
 
+// ⚠️ 20/10/2026 (Martín, 16/10 punto 5: «"configuraciones" ya no viva para todo Automations, sino para cada chat en los 3
+// puntos»): el modal es de UNA automatización (`secuenciaId`), lo abren la tuerca del título y el «⋯» de la fila, y el
+// menú de la lista es sólo el «?». Lo nuevo, en tests/automations-chat-siempre.test.ts.
 test('el modal: dos pestañas, `onCerrar` fijo que no cierra con un guardado en vuelo, por portal', () => {
   const src = fuente('app/automations/ConfiguracionesBoton.tsx');
-  // «Configuraciones» es una opción del menú (con su ícono), no un botón propio.
-  assert.match(src, /\{ value: 'configuraciones', label: 'Configuraciones', icono: 'configurar' \}/);
-  assert.match(src, /if \(v === 'configuraciones'\) setAbierto\(true\);/);
+  assert.match(src, /export function ConfiguracionesModal\(\{ secuenciaId, nombre, onCerrar \}: PropsConfiguraciones\) \{/);
   assert.match(src, /const cerrar = useCerrarEstable\(onCerrar, ocupado\);/, 'el Modal recibe una flecha nueva por render, o cierra con el guardado en vuelo');
-  assert.match(src, /const cerrar = useCallback\(\(\) => setAbierto\(false\), \[\]\);/, 'el menú le pasa al modal una flecha nueva por render');
+  // Quien lo abre le pasa un `onCerrar` de identidad FIJA (el lienzo y la lista).
+  assert.match(fuente('app/automations/SecuenciaPerfil.tsx'), /const cerrarConfig = useCallback\(\(\) => setConfigAbierta\(false\), \[\]\);/);
+  assert.match(fuente('app/automations/SimuladorWhatsApp.tsx'), /const cerrarConfigDe = useCallback\(\(\) => setConfigDe\(null\), \[\]\);/);
   assert.match(src, /<Modal titulo="Configuraciones" onCerrar=\{cerrar\} ancho=\{600\} alto="[^"]+" sinFiletes>/, 'el modal salta de alto al cambiar de pestaña');
   assert.match(src, /createPortal\(\s*<Modal /);
-  assert.match(src, /import \{ HorarioEnvioPanel \} from '@\/app\/configuraciones\/HorarioEnvioPanel';/, 'no es el MISMO editor del horario');
-  // Los dos MONTADOS: la pestaña sólo esconde (desmontar tiraba el guardado de su respiro).
-  // (15/10/2026: y al guardar, el lienzo toma el horario nuevo: el chip «Espera a que abra» de la tarjeta MaKo.)
-  assert.match(src, /<div hidden=\{pestana !== 'horario'\}><HorarioEnvioPanel onSucio=\{alSucioHorario\} onGuardado=\{fijarOficina\} \/><\/div>/);
-  assert.match(src, /<div hidden=\{pestana !== 'limites'\}><LimitesEnvioPanel onSucio=\{alSucioLimites\} \/><\/div>/);
+  // El MISMO editor del horario, guardando en ESTA automatización (`fuente`).
+  assert.match(fuente('app/automations/ConfigAutomatizacionPanel.tsx'), /\{propio && <HorarioEnvioPanel key=\{vuelta\} fuente=\{fuente\} onSucio=\{onSucio\} \/>\}/, 'no es el MISMO editor del horario');
+  // Los paneles MONTADOS: la pestaña sólo esconde (desmontar tiraba el guardado de su respiro).
+  assert.match(src, /<div hidden=\{pestana !== 'horario'\}><HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{alSucioHorario\} \/><\/div>/);
+  assert.match(src, /<div hidden=\{pestana !== 'limites'\}>/);
+  assert.match(src, /<LimitesEnvioPanel onSucio=\{alSucioLimites\} sinPersona \/>/);
   assert.doesNotMatch(src, /\{pestana === '(horario|limites)' && /, 'una pestaña desmonta su panel');
   for (const r of ['app/automations/ConfiguracionesBoton.tsx', 'app/automations/LimitesEnvioPanel.tsx']) {
     assert.doesNotMatch(fuente(r), /href=|<Link\b|router\.(push|replace)|window\.location|['"`]\/configuraciones/, `${r} manda a otro lado`);
   }
-  // El botón del menú no lleva fondo en línea (le ganaría al hover del Dropdown).
-  const estilo = bloque(src, 'buttonStyle={{', '}}');
-  assert.doesNotMatch(estilo, /\bbackground:/, 'el style en línea le gana al :hover');
+  // (Acá se miraba el `buttonStyle` del desplegable del menú: desde el 20/10/2026 el menú es el «?», un botón.)
+  assert.doesNotMatch(src, /<Dropdown /, 'el menú volvió a ser un desplegable');
 });
 
 test('el panel de límites: se guarda solo, avisa «sucio» antes del return, y la lista no importa las acciones', () => {

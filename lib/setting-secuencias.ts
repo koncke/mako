@@ -18,6 +18,7 @@ import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
 import { sanearCron, proximaOcurrencia } from './cron-aviso';
 import { tzActual, TZ_DEFAULT } from './timezone';
 import { listarFunnels, getFunnelDe, getFunnelDefault, productoDeFunnel } from './funnels';
+import { parseEntradas, tipoDeFunnel } from './pipeline';
 import { nombreVisible } from './lead-funnel-reglas';
 import { entregasDeProductos } from './entrega-servicio';
 import type { EntregaConfig } from './servicio-etapas';
@@ -326,7 +327,28 @@ export type ProductoConEtapas = {
    */
   etapasEntrega: Array<{ value: string; label: string }>;
   origenEntrega: 'declarado' | 'default' | null;
+  /**
+   * EL FUNNEL ES DE «PROSPECCIÓN» (`tipoDeFunnel`, lib/pipeline.ts; 20/10/2026, Martín, 16/10 punto 5: «Solo cuando se
+   * selecciona etapas o algún funnel que esté catalogado como "Prospección", debe saltar un warning para configurar eso al
+   * momento de darle a publicar o probar»). Ausente = no se sabe o no lo es.
+   */
+  prospeccion?: boolean;
 };
+
+/**
+ * LOS FUNNELS DE «PROSPECCIÓN» del negocio (su tipo, `tipoDeFunnel` sobre `data.entradas`). Una lectura chica: sólo el id y
+ * las entradas. Si falla, ninguno (el aviso de Prospección no sale: es un aviso, no un freno).
+ */
+async function funnelsDeProspeccion(): Promise<Set<number>> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('funnels').select('id, entradas:data->entradas').eq('activo', true);
+  if (error) throw new Error(error.message);
+  const out = new Set<number>();
+  for (const f of (data ?? []) as unknown as Array<{ id: number; entradas: unknown }>) {
+    if (tipoDeFunnel(parseEntradas(f.entradas))?.id === 'prospeccion') out.add(Number(f.id));
+  }
+  return out;
+}
 
 export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
   const funnels = await listarFunnels();
@@ -334,6 +356,7 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
     .catch(() => new Map<number, { id: number; nombre: string }>());
   const entregas = await entregasDeProductos([...delFunnel.values()].map((p) => p.id))
     .catch(() => new Map<number, EntregaConfig>());
+  const deProspeccion = await funnelsDeProspeccion().catch(() => new Set<number>());
   const out: ProductoConEtapas[] = [];
   for (const f of funnels) {
     // El default se lee con `getFunnelDefault` (es el camino que ya cachea la pantalla);
@@ -351,6 +374,7 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
         .map((st) => ({ value: st.key, label: st.label })),
       etapasEntrega: (entrega?.etapas ?? []).map((et) => ({ value: et.key, label: et.label })),
       origenEntrega: entrega?.origen ?? null,
+      ...(deProspeccion.has(f.id) ? { prospeccion: true } : {}),
     });
   }
 
