@@ -278,14 +278,17 @@ const HERRAMIENTAS = {
 
 export const FAMILIAS: NavFamilia[] = [
   {
-    // LO DE TODOS LOS DÍAS, SIN RÓTULO (17/10/2026 noche, prototipo docs/prototipos/sidebar-nueva-1710.html; Martín: «la
+    // LO DE TODOS LOS DÍAS (sin rótulo hasta el 20/10/2026; 17/10/2026 noche, prototipo docs/prototipos/sidebar-nueva-1710.html; Martín: «la
     // sidebar es confusa, copiá otras apps»). Es la zona que Linear y Notion ponen arriba de las secciones: Plan, Chats
     // (con el contador) y Dashboard. «Home» (/general) salió de la barra el mismo día (docs/prototipos/coherencia-1710.md,
     // pedido 3): el Dashboard abre en la hoja fija «Focus», que es lo que era /general, y /general redirige ahí.
+    // ⚠️ 20/10/2026 (feedback del 18/10, pt 10; Martín: «quiero que Ops center esté dentro de la sección de «Plan, chats y
+    // dashboard» y que esa sección también se pueda plegar como las otras»): lleva rótulo y se pliega, y el Sidebar le
+    // pone ARRIBA el Ops Center (`arribaDe`: el del super admin o el de cada negocio). ARRIBA sigue siendo su propia
+    // lista porque el teléfono y los tests la usan; la barra la dibuja acá adentro.
     key: 'diario',
     label: 'Today',
     pregunta: 'Lo de todos los días',
-    sinRotulo: true,
     icon: 'rayo',
     color: '--sec-diario',
     notifica: true,
@@ -326,7 +329,6 @@ export const FAMILIAS: NavFamilia[] = [
           ],
         },
         { key: 'customer-success', label: 'Clients', href: '/clients', icon: 'users', match: (p) => starts('/clients')(p) || starts('/customer-success')(p) },
-        { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', soloCapas: ['agencia'], match: starts('/partners') },
       ],
     ],
   },
@@ -706,6 +708,10 @@ export const USER_NAV: NavItem[] = [
   // Al lado de Integraciones porque es lo mismo visto desde afuera: con qué se conecta
   // un tercero. Solo el admin (sin `rolesWs`): acá se acuñan credenciales.
   { key: 'api-mako', label: 'API', href: '/api-mako', icon: 'api', match: starts('/api-mako') },
+  // MaKo Partners (20/10/2026, feedback del 18/10 pt 10; Martín: «"MaKo Partners" debería ir dentro del desplegable del
+  // perfil, no como una tab»). Sigue siendo sólo del admin de una AGENCIA (`soloCapas`, que mira `puedeVerItem`); su
+  // página se cuida sola (app/partners/page.tsx, `esAgencia`).
+  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', soloCapas: ['agencia'], match: starts('/partners') },
   // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
   // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
   // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.

@@ -123,7 +123,8 @@ export type DefSeccionMas = {
  * Create. `masCompleto` las cruza con nav.ts por la KEY (antes por la posición: con cuatro familias, la tercera se perdía).
  */
 export const FAMILIAS_MAS = [
-  { id: 'diario', label: null },
+  // Con título desde el 20/10/2026: en la barra de escritorio lo diario lleva rótulo, se pliega y tiene el Ops Center adentro.
+  { id: 'diario', label: 'Today' },
   { id: 'sales', label: 'Sales' },
   { id: 'marketing', label: 'Marketing' },
   { id: 'create', label: 'Create' },
@@ -181,7 +182,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
   { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'sales' },
   // MaKo Partners (17/10/2026): sólo el admin de una agencia (`soloCapas` del ítem de nav.ts, que `puedeVerKey` mira).
-  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: 'sales' },
+  // MaKo Partners: del menú de la foto desde el 20/10/2026 (nav.ts → USER_NAV), así que su fila de More la arma el menú
+  // (`masCompleto`) y acá va OCULTA, como Report a problem y Business settings.
+  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: null, oculta: true },
   // Marketing.
   { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'marketing' },
   { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'marketing' },
@@ -278,7 +281,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   calendario: ['vista', 'fecha'], // app/calendario/page.tsx
   'second-brain': ['area', 'vista'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts)
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
-  offer: ['oferta', 'funnel'], // app/offer/page.tsx (el «Analizar oferta →» del CRM)
+  offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)
   copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
   'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Clients › Classroom)

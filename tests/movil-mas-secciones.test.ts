@@ -162,7 +162,7 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
     [null, ['mako']],
     // 17/10/2026 noche, la sidebar del prototipo: lo diario sin título (las hojas del Dashboard; Plan, Chats y el
     // Dashboard están en la barra), y Sales · Marketing · Create. Clients es UNA fila; MaKo Partners sólo para una agencia.
-    [null, ['dashboard']],
+    ['Today', ['dashboard']],
     ['Sales', ['calendario', 'automations', 'cs']],
     ['Marketing', ['offer', 'landing', 'ads']],
     // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
@@ -209,7 +209,7 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     calendario: ['vista', 'fecha'],
     'second-brain': ['area', 'vista'],
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
-    offer: ['oferta', 'funnel'],
+    offer: ['oferta', 'funnel', 'sesion'],
     copywriting: ['tab'],
     // La API de MaKo (17/10/2026): docs · tokens · registro, en los dos lados.
     'api-mako': ['tab'],

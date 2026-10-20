@@ -138,6 +138,23 @@ scopes es por persona.
 
 **Vive en:** la configuración del proyecto en Vercel (no hay código del repo involucrado).
 
+**20/10/2026: se mudó otra vez, de `hola-mako/dashboard-marketing` a `koncke/mako`.** Otra vez el push siguió
+andando (GitHub redirige y avisa «This repository moved» en el `remote:`), y lo que se rompió fue lo que nadie mira:
+
+- **La API de GitHub no da error: contesta un JSON.** `GET /repos/hola-mako/dashboard-marketing/actions/runs`
+  devuelve un 301 con cuerpo `{"message":"Moved Permanently",…}`. `curl -s` sin `-L` imprime ese cuerpo, y un
+  script que lee `workflow_runs` ve **una lista vacía**. El que esperaba los runs del Cerebro decía «sin-run» y seguía
+  esperando: el diagnóstico obvio («el run está tardando») era el equivocado, el run había terminado verde hacía rato.
+- **El código de la app no se cayó por eso:** el `fetch` de Node sigue el 301 en un GET (mismo host, no suelta el
+  `Authorization`). Igual se cambió el default en `lib/github-commits.ts` (`REPO_DEFAULT`), `lib/metodo-verificar.ts`
+  y la ayuda de `GITHUB_REPO` en `lib/metodo-catalogo.ts`, para no depender de una redirección que GitHub puede soltar
+  el día que alguien cree un repo con el nombre viejo.
+- **Vercel:** esta vez el vínculo **sobrevivió**: los pushes de 0570b4d8b y 6eb209c4c (runs 162 y 163) se desplegaron solos a producción después de la mudanza. Igual se mira con la API, no se supone: la del 15/10 había soltado el `link` sin avisar.
+
+**La regla que suma:** todo script que le pregunte algo a la API de GitHub va con `curl -L` y mira `message` antes de
+leer la lista. Un «no hay run» más de 5 minutos después de un push es una consulta rota, no un run lento. Y el
+remoto del clon se apunta al nombre nuevo (`git remote set-url origin https://github.com/koncke/mako.git`).
+
 ## Supabase: leer y escribir sin perder datos
 
 ### ⚠️ `getSetting` devuelve `null` tanto si falló la lectura como si no hay fila, y eso expulsa a un cliente onboardeado al wizard

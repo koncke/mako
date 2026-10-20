@@ -35,6 +35,12 @@
 //   - aceptar «agrega»/«marca» sueltos en el medio de la frase (tercera persona) → 5 / 1.
 // Antes del 09/10 la exclusión de volcados y la relevancia daban 6 / 0: no había caso que las
 // pidiera. Se sumaron «Idea: cuando el dueño dice "movelo a calificado"…» y «dejale dicho…».
+//
+// ⚠️ PROBADO ROMPIÉNDOLO (20/10/2026, MaKo Alert), el modal «necesito que… lo pases» del ws13 (7 de 7 en verde antes):
+//   - MODAL_CRM fuera de los verbos → 6 / 1; sin la guarda del «me» («que me pases el lead») → 6 / 1;
+//   - el subjuntivo en tercera persona (pase, marque) → 6 / 1; «busques» como verbo (buscar no cambia nada) → 6 / 1;
+//   - «descalificados» fuera de OBJETO_CRM → 6 / 1; `marques` fuera del tipo calificado → 6 / 1; sin «quiero» → 6 / 1;
+//   - sin el límite de la oración (`[^.\n]`) → 7 / 0 hasta sumar «…el lead de Joan. Ojalá que no lo muevas», luego 6 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -101,6 +107,12 @@ const PEDIDOS: ReadonlyArray<readonly [string, string]> = [
   ['dejale dicho en la ficha a Miguel que lo llamo el lunes', 'agregar_nota_lead'],
   ['marcalo como que asistió a la reunión', 'marcar_asistencia_reunion'],
   ['agregalo también al producto Mentoría', 'agregar_lead_a_producto'],
+  // ws13, 19/10/2026 13:44 UTC, literal: sin un imperativo («necesito que… lo pases») salía `capturar` dudosa con las tres
+  // del plan, y MaKo contestó «no tengo acceso a listar los leads de tu CRM ni a moverlos».
+  ['MaKo, necesito que busques en la lista eh del CRM a Joan o Johan en la parte de lead entrante o o pre R1 y que lo agarres y lo pases a la sección descalificados.', 'proponer_cambio_etapa'],
+  ['Necesito que pases a Joan a descalificados', 'proponer_cambio_etapa'],
+  ['quiero que muevas al lead de Ana a calificado', 'proponer_cambio_etapa'],
+  ['necesito que marques a Nicolás como calificado', 'marcar_calificado'],
 ];
 
 test('cada pedido sobre un lead llega como `actuar`, con el área del CRM y su herramienta', () => {
@@ -158,6 +170,20 @@ test('un volcado de ideas que nombra el CRM no se vuelve una orden', () => {
     'la nota de voz del lead no se escucha',
   ]) {
     assert.equal(esPedidoSobreLead(m), null, `«${m.slice(0, 60)}» se leyó como un pedido sobre un lead`);
+  }
+});
+
+test('«necesito que…» sólo es un pedido a MaKo con un verbo en segunda persona y sin «me»', () => {
+  for (const m of [
+    'necesito que me pases el lead de Joan', // «dame», no «movelo»
+    'necesito que el closer marque al lead como calificado', // tercera persona: es del closer
+    'quiero que el setter pase al lead a calificado',
+    'necesito que busques a Joan en el CRM', // buscar no cambia nada
+    'hay que ver que el lead se mueva solo',
+    // El «que» de otra oración no pide nada: el modal y el verbo tienen que ser de la MISMA frase.
+    'necesito que busques el lead de Joan. Ojalá que no lo muevas de ahí',
+  ]) {
+    assert.equal(esPedidoSobreLead(m), null, `«${m}» se leyó como un pedido sobre un lead`);
   }
 });
 
