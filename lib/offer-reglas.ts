@@ -930,6 +930,32 @@ export function repartirTranscripcion(
   };
 }
 
+/** El nombre del documento que guarda un mensaje escrito más largo que el chat. */
+export const NOMBRE_DOC_TEXTO_LARGO = 'Tu mensaje largo';
+
+/**
+ * Un mensaje ESCRITO más largo que el tope del chat (20/10/2026, Florencia, ws21: el texto que armó con ChatGPT tenía
+ * 21.629 caracteres, rebotó con «Súbelo como documento» y tardó 12 minutos en armar un .docx). Va por el camino del audio
+ * (`repartirTranscripcion`): el texto ENTERO queda como documento de la conversación y el mensaje lleva el principio y lo
+ * dice. null = la conversación ya no admite documentos: cortarlo en silencio sería peor que decirlo.
+ */
+export function repartirTextoLargo(
+  texto: string, opts: { tope: number; topeDoc: number; docsLibres: number; inicio?: number },
+): { cuerpo: string; doc: { texto: string; chars: number; aviso?: string } | null } | null {
+  if (texto.length <= opts.tope) return { cuerpo: texto, doc: null };
+  if (opts.docsLibres <= 0) return null;
+  const principio = recortar(texto, Math.min(opts.inicio ?? 1_500, opts.tope));
+  const recortado = texto.length > opts.topeDoc;
+  return {
+    cuerpo: `${principio}\n\n(Tu mensaje sigue entero en el documento «${NOMBRE_DOC_TEXTO_LARGO}».)`,
+    doc: {
+      texto: texto.slice(0, opts.topeDoc),
+      chars: texto.length,
+      ...(recortado ? { aviso: `Tu mensaje tiene ${texto.length.toLocaleString('es-MX')} caracteres: guardé los primeros ${opts.topeDoc.toLocaleString('es-MX')}.` } : {}),
+    },
+  };
+}
+
 /** Los parámetros de un link que no cambian la página que se ve (seguimiento de anuncios, de mails, de previews). */
 const PARAM_DE_SEGUIMIENTO = /^(utm_[a-z0-9_]+|fbclid|gclid|gbraid|wbraid|dclid|msclkid|ttclid|yclid|twclid|igshid|mc_cid|mc_eid|_ga|_gl|_hs[a-z]+|hsa_[a-z]+|ref|ref_src|sfnsn|__lovable_load_id)$/i;
 

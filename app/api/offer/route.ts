@@ -87,7 +87,7 @@ import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
 import { MARCA_COMPLETAR, faltanDelArranque, faltanMinimas, type ArchiveroDoc, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, TOPE_DOC_ENTERO, sanearLinksSinLeer, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
+  MAX_DOCS_SESION, NOMBRE_DOC_TEXTO_LARGO, TOPE_DOC_ENTERO, repartirTextoLargo, sanearLinksSinLeer, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
@@ -632,7 +632,9 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
   // Los links del mensaje que la pantalla no pudo abrir (sólo los que están en el texto): MaKo no puede decir que los vio.
   const linksSinLeer = sanearLinksSinLeer(body.linksSinLeer).filter((u) => texto.includes(u));
   if (!texto && !docIds.length && !audio && !respuestaPedida) return no(400, 'Escribe algo, dicta un audio o adjunta un documento.');
-  if (texto.length > TOPE_MENSAJE) return no(413, 'El mensaje es muy largo para el chat. Súbelo como documento y MaKo lo lee entero.');
+  // Un texto más largo que el chat va como documento de la conversación, como el audio (20/10/2026, Florencia: 21.629
+  // caracteres rebotaban con este 413). Junto con un audio, no: uno por vez.
+  if (texto.length > TOPE_MENSAJE && audio) return no(413, 'El mensaje es muy largo para mandarlo con un audio. Mándalo solo y MaKo lo lee entero.');
   const sesionIdRaw = body.sesionId == null ? null : entero(body.sesionId);
   if (body.sesionId != null && !sesionIdRaw) return no(400, 'La conversación no es válida.');
   if (!sesionIdRaw && (docIds.length || respuestaPedida)) return no(400, 'Eso va con una conversación. Recarga la página y vuelve a intentarlo.');
@@ -671,6 +673,10 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
     && MAX_DOCS_SESION > antes.documentos.length
     ? await leerPorPartes(transcripcion, 'Transcripción del audio', inicio)
     : null;
+  // Lo mismo con un texto escrito más largo que el chat: va a documento y, si no entra en un pedido, se lee por partes.
+  const textoPorPartes = !transcripcion && texto.length > TOPE_MENSAJE && MAX_DOCS_SESION > antes.documentos.length
+    ? await leerPorPartes(texto, NOMBRE_DOC_TEXTO_LARGO, inicio)
+    : null;
   const conMensaje = await actualizarSesion(sesionId, (f) => {
     const porId = new Map(f.documentos.map((d) => [d.id, d] as const));
     const faltan = docIds.filter((d) => !porId.has(d));
@@ -679,12 +685,15 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
     const at = new Date().toISOString();
     const reparto = transcripcion
       ? repartirTranscripcion(texto, transcripcion, { tope: TOPE_MENSAJE, topeDoc: TOPE_TEXTO_DOC, docsLibres: MAX_DOCS_SESION - f.documentos.length })
-      : { cuerpo: texto, doc: null };
+      : repartirTextoLargo(texto, { tope: TOPE_MENSAJE, topeDoc: TOPE_TEXTO_DOC, docsLibres: MAX_DOCS_SESION - f.documentos.length });
+    if (!reparto) throw new ErrorOffer('Tu mensaje es muy largo y esta conversación ya tiene todos los documentos que admite. Pártelo en dos.', 413);
+    const porPartes = transcripcion ? audioPorPartes : textoPorPartes;
     const transcripta: DocumentoGuardado | null = reparto.doc
       ? {
-        id: docAudio.id, nombre: 'Transcripción del audio', via: 'audio', texto: reparto.doc.texto, chars: reparto.doc.chars,
-        ...(reparto.doc.aviso ? { aviso: reparto.doc.aviso } : audioPorPartes?.aviso ? { aviso: audioPorPartes.aviso } : {}),
-        ...(audioPorPartes ? { lectura: audioPorPartes.lectura, partes: audioPorPartes.partes } : {}),
+        id: docAudio.id, nombre: transcripcion ? 'Transcripción del audio' : NOMBRE_DOC_TEXTO_LARGO, via: transcripcion ? 'audio' : 'texto',
+        texto: reparto.doc.texto, chars: reparto.doc.chars,
+        ...(reparto.doc.aviso ? { aviso: reparto.doc.aviso } : porPartes?.aviso ? { aviso: porPartes.aviso } : {}),
+        ...(porPartes ? { lectura: porPartes.lectura, partes: porPartes.partes } : {}),
         at,
       }
       : null;

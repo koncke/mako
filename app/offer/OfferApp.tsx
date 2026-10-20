@@ -74,7 +74,7 @@ import { SelectorFunnel } from './SelectorFunnel';
 import { leerAdjuntos } from './adjuntos-envio';
 import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
 import {
-  ACTUALIZAR_PDF, TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, quedoGuardado, reemplaza,
+  ACTUALIZAR_PDF, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, quedoGuardado, reemplaza,
   resumenDe, unirOpciones, type AvisoGuardado,
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
@@ -496,7 +496,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     }
     if (lista.ref.current.length) { void enviarVista(); return; }
     if (!puedeMandar || !hayAlgo) return;
-    if (texto.length > TOPE_MENSAJE) { setErrorChat('Tu mensaje es muy largo. Pártelo en dos.'); return; }
     const t = texto.trim();
     const e = epoca.current;
     setTexto('');
@@ -531,7 +530,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const enviarVista = async () => {
     const items = lista.ref.current;
     if (!items.length || leyendoRef.current || !puedeMandar) return;
-    if (texto.length > TOPE_MENSAJE) { setErrorVista('Tu mensaje es muy largo. Pártelo en dos.'); return; }
     const id = sesionId.current;
     const s = sesionRef.current;
     if (id == null || !s) return;
