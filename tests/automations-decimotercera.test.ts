@@ -103,10 +103,12 @@ test('punto 2: «Pídeselo a MaKo» cierra el modal y crea la fila por la puerta
   // La ruta crea SOBRE la fila (vacía y pausada) y anota el turno y el final en SU chat.
   const ruta = fuente('app/api/chat-agent/secuencias/ia/route.ts');
   assert.match(ruta, /const sinId = modo === 'crear' && \(body\.secuenciaId == null \|\| body\.secuenciaId === ''\);/);
-  assert.match(ruta, /await anotar\(\[mensajeChat\('mako', textoDeCreada\(r\.nombre\), 'app', \{ avisos: r\.avisos \}\)\]\);/);
+  // 20/10/2026 (punto 4, decir qué hizo): lo que dice MaKo lo arma el core con lo GUARDADO (cuándo sale, a quién, qué
+  // manda) y viaja en `r.texto`; la ruta lo anota y lo manda en `listo`, y la pantalla lo dibuja tal cual.
+  assert.match(ruta, /await anotar\(\[mensajeChat\('mako', r\.texto, 'app', \{ avisos: r\.avisos \}\)\]\);/);
   // Lo que dice MaKo al crear lo dice IGUAL el chat de la pantalla y el que guarda el server.
   assert.equal(textoDeCreada('Bienvenida'), textoDeCreadaServer('Bienvenida'));
-  assert.match(CHAT, /texto: l\.modo === 'crear' \? textoDeCreada\(l\.nombre\) : textoDeListo\(l\)/);
+  assert.match(CHAT, /texto: l\.modo === 'crear' \? \(l\.texto \?\? textoDeCreada\(l\.nombre\)\) : textoDeListo\(l\)/);
 });
 
 test('punto 2: «que dentro aparezca un loader»: la capa con «Creando tu automatización» en el lienzo vacío', () => {

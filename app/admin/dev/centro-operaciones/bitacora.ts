@@ -727,4 +727,31 @@ export const BITACORA: Hito[] = [
       'tests/cartero-medir.test.ts — el caso del 20/10',
     ],
   },
+  {
+    fecha: '20 oct', hora: '17:28', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Offer no llega al Ops Center',
+    pedido: 'Revisa que el chat de OFFER no está llegando al Ops Center, eso está muy mal',
+    puntos: ['Lo pasó el Cerebro con el diagnóstico medido: Offer guarda en offer_sesiones y el Ops Center leía sólo chart_sessions.'],
+  },
+  {
+    fecha: '20 oct', hora: '18:45', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Las conversaciones de Offer se ven en el Ops Center del cliente',
+    pedido: 'Revisa que el chat de OFFER no está llegando al Ops Center, eso está muy mal',
+    revisar: '/second-brain',
+    puntos: [
+      'En el Ops Center del cliente hay una sección «Offer» con cada conversación de Offer del negocio.',
+      'Se lee ahí mismo y se sigue en Offer, en esa misma conversación, con «Seguir en Offer».',
+      'En el teléfono, las mismas conversaciones están en «Tus chats».',
+      'La ve quien ve la tab Offer (el admin del negocio); un closer o un setter, no.',
+    ],
+    archivos: [
+      'lib/chat-mako-indice.ts — chatsDeOffer, hiloDeOffer, PROYECCIONES; lib/offer-sesiones.ts — leerConversacionOffer',
+      'app/api/mako/chat/route.ts — ?offer=1 y ?offerId=N',
+      'app/second-brain/ChatSecondBrain.tsx — la sección «Offer»; app/m/mako/ChatMako.tsx — en «Tus chats»',
+      'app/offer/page.tsx, app/m/offer/page.tsx — ?sesion= abre esa conversación',
+      'tests/second-brain-offer.test.ts',
+    ],
+  },
 ];

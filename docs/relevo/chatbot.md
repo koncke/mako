@@ -1,5 +1,26 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **20/10/2026 noche (`claude4`): EL PEDIDO A (el Recurrente de Leila), HECHO EN `undecima`.** «Crear con IA» saca del
+> pedido el horario (`horarioDelPedido`, lib/flujo-ia-recurrente.ts) y a quién («todos los del funnel X» = todas sus
+> etapas; si no lo dice, pregunta «¿A quién le llega?» con cuántos hay hoy), arma SÓLO lo pedido (regla 8 nueva + código:
+> sin «Avisar al equipo» ni «Si responde» que nadie pidió), dice qué hizo («Creé «X»: sale … a … (N hoy). Manda «…»» y,
+> al editar, tarjeta por tarjeta + «toca Publicar»), y el motor reinscribe en cada ocurrencia de un Recurrente a quien
+> terminó la anterior (`barridoEsEvento`). Test: tests/crear-ia-recurrente.test.ts. Cosecha: docs/hallazgos-chatbot.md
+> («Crear con IA» no podía poner un Recurrente…). ⛔ #284 y #282 sin tocar. **Falta el pedido B** (el chat siempre
+> abierto en la sidebar, la tuerca, Configuraciones por automatización, el «?» solo y el aviso de Prospección).
+>
+> **20/10/2026 (`claude4`, chat jefe «Automations»): DOS PEDIDOS DE MARTÍN, CON EL TEXTO ENTERO** (regla de AGENTS.md:
+> nunca «los puntos N-M» sin el texto; el de abajo se perdió justamente así entre el 16 y el 17/10). En la bitácora, los
+> dos hitos `actor: "martin", tipo: "prompt"` del 16 y del 20/10.
+>
+> **16/10, 02:22 AR, «Feedback Automations», puntos 5 y 6 (transcript a8f8993e):**
+> 5. Es importante que "configuraciones" ya no viva para todo Automations, sino para cada chat en los 3 puntos... Porque por ejemplo, si estoy corriendo ads en Meta y llegan leads, ahí no hay riesgo, pero si tengo configurado eso y no salen mensajes si es un problema... Entonces cada usuario puede configurar eso desde los 3 puntos, como también el horario de oficina para cada automatización... Solo cuando se selecciona etapas o algún funnel que esté catalogado como "Prospección", debe saltar un warning para configurar eso al momento de darle a publicar o probar...  Y en el lugar donde hoy está el ícono de configuraciones que solo quede el "?" del tutorial...
+> 6. El ícono de configuraciones pasa a estar en donde hoy vive "Pedirle un cambio a MaKo" el icono de la estrella... Y mi idea es que al abrir una automatización, toda la sidebar se transforme en el chat con MaKo y que esté permanentemente abierta. Y con la flecha para atrás para cambiar a otra automatización.
+>
+> **20/10, 18:02 AR, puntos 4 y 5 (transcript 9bc46b5e; registro en docs/feedback-20-10.md):**
+> 4. También revisa el chat de Leila con Automations... Le pidió literalmente que creara una automatización usando el CRON de Recurrente, y creó cualquier cosa... Nuevamente, eso debería ser inteligente, no crear cosas por defecto...
+> 5. Y el chat de Automations yo ya te habia pedido que quede SIEMPRE abierto en donde está la sidebar de todas las automatizaciones, que se elimine el icono de MaKo ya que quedará siempre abierto, y en su lugar que allí vaya el ícono de configuraciones... Te habia pedido varias cosas, ¿No tienes el registro?
+
 > **17/10/2026 tarde (`claude4`, chat jefe «Automations», sesión local_f74a2156) — LA LISTA DEL CEREBRO, HECHA:**
 > - **Punta (rama `undecima`, con origin/main mergeado en 15e3dd0bf):** 1d48f3176 #894 (varios funnels en «Está en el
 >   funnel de»), cb51166a3 + f677f1cd1 los tres pedidos del ws9 (lib/mako-pedidos.ts), 8a2a5326f #847 (45 s por intento,

@@ -28,6 +28,7 @@ import {
   TOPE_RONDAS, sanearMensaje,
   type PreguntaMako, type RespuestaMako, type OpcionPregunta, type MensajeChatMako, type SobrePregunta,
 } from './automatizacion-chat';
+import { horarioConRespuestas, preguntaHorario, preguntaQuien, audienciaDelPedido, TEXTO_HORARIO, TEXTO_QUIEN } from './flujo-ia-recurrente';
 
 /** Los textos de las preguntas del código (6 palabras o menos). */
 export const TEXTO_PREGUNTA = {
@@ -36,6 +37,8 @@ export const TEXTO_PREGUNTA = {
   evento: '¿Qué hace la persona?',
   cron: '¿Qué la dispara?',
   condicion: '¿Qué condición uso?',
+  horario: TEXTO_HORARIO,
+  quien: TEXTO_QUIEN,
 } as const satisfies Record<SobrePregunta, string>;
 
 /** El rótulo de «Elige tú» (la respuesta con `valor: null` y sin texto). */
@@ -45,7 +48,7 @@ export const ELIGE_TU = 'Elige tú';
 export const TOPE_OPCIONES_PREGUNTA = 4;
 
 /** Lo que mira `preguntaAntes` del contexto (la API de MaKo arma sólo esto: `contextoDePreguntas`). */
-export type CtxPreguntas = Pick<CtxIA, 'disparadores' | 'productos'>;
+export type CtxPreguntas = Pick<CtxIA, 'disparadores' | 'productos'> & { etiquetas?: CtxIA['etiquetas'] };
 
 /** Sin tildes ni mayúsculas, y lo que no es letra ni número como un espacio (para buscar una frase ENTERA). */
 const palabras = (s: unknown): string => normNombre(s).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -178,11 +181,19 @@ function preguntaProducto(pedido: string, ctx: CtxPreguntas): PreguntaMako | nul
  *   · evento: el canal (el del pedido o el elegido) es Instagram o Messenger y el pedido no dice qué hace la persona;
  *   · producto: el pedido nombra una etapa que está en 2 o más productos y no nombra el producto (el «Onboarding» de
  *     ws10: «Fiesta Music» y «Service Delivery & Ops»). Con un canal social no se pregunta: el CRON es el evento.
+ *   · EL RECURRENTE (20/10/2026, lib/flujo-ia-recurrente.ts): si el pedido dice un horario, se pregunta lo que le
+ *     falta (el día o la hora) y después a quién le llega, si el pedido no lo dice. Nada de canal, evento ni producto:
+ *     un Recurrente le escribe a una cohorte (Meta no deja escribir primero por un DM) y «a quién» ya dice el producto.
  * Con `TOPE_RONDAS` respuestas, nunca más. Lo ya contestado (también con «Elige tú» u «Otra cosa») no se repite.
  */
 export function preguntaAntes(pedido: string, ctx: CtxPreguntas, respuestas: readonly RespuestaMako[] = []): PreguntaMako | null {
   if (respuestas.length >= TOPE_RONDAS) return null;
   const texto = pedidoConTextos(String(pedido ?? ''), respuestas);
+  const horario = horarioConRespuestas(pedido, respuestas);
+  if (horario) {
+    if (!horario.completo) return preguntaHorario(horario);
+    return respondida(respuestas, 'quien', 'cron') ? null : preguntaQuien(audienciaDelPedido(texto, ctx));
+  }
   // Un CRON ya elegido (evento o el del modelo) dice todo lo que estas preguntas buscan.
   if (respondida(respuestas, 'cron', 'evento')) return null;
   if (!respondida(respuestas, 'canal')) {
@@ -329,7 +340,8 @@ export function aplicarRespuestas<C extends CtxIA>(ctx: C, pedido: string, respu
  * 1) Fiesta Music 2) Service Delivery & Ops 3) Elige tú». Los rótulos son los del catálogo (los mismos de la pantalla).
  */
 export function preguntaParaWhatsApp(p: PreguntaMako): string {
-  const ops = [...p.opciones.map((o) => o.label), ELIGE_TU].map((l, i) => `${i + 1}) ${l}`).join(' ');
+  // El detalle va entre paréntesis: «Todos los de «Funnel principal» (37 hoy)» (la pregunta de a quién, 20/10/2026).
+  const ops = [...p.opciones.map((o) => (o.detalle ? `${o.label} (${o.detalle})` : o.label)), ELIGE_TU].map((l, i) => `${i + 1}) ${l}`).join(' ');
   return `${p.texto} Responde con el número: ${ops}`;
 }
 

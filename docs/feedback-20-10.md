@@ -118,6 +118,36 @@ quedó.
 - **Hoy:** la fila de cada chat en /admin/operaciones muestra el paso en curso («Check onboarding guard…», «Escribe flujo-ia-recurrente.ts»), lo de los `pasos` del cartero 1.15.3.
 - **Encargo:** **Ops Center 3**, antes del chat unificado. La fila dice sólo «Trabajando…», «Espera tu respuesta» o nada, en la computadora y en el teléfono. El paso puede seguir adentro del hilo.
 
+### 12. CRM: «No veo el chat con MaKo… Muchos cambios aún no están, como que las columnas no sean invisibles… las cards personalizables… "Tablero y lista" sólo con íconos… ¿está lo de vincular una etapa de reunión a un evento?»
+- **El chat con MaKo en el CRM:** ChatMakoCrm existe, pero Martín no lo ve. Va como barra fija a la derecha (regla del 18/10, «Editar = el patrón de Web Generator») y con la pieza única del chat del Ops Center.
+- **Las columnas invisibles:** pedidas el 18/10 (pt 8: «la columna con su bloque de fondo») y nunca hechas.
+- **Las cards personalizables** y **«Tablero» y «Lista» sólo con íconos:** nuevos.
+- **Vincular una etapa de reunión a un evento: YA ESTÁ** desde el 16/10 (c7f7b5609), en el «⋯» de la etapa → «Asignar evento», con Calendly y Cal.com.
+  - Google Calendar no está: su API no lista las páginas de reserva (app/crm/EventosDeEtapaModal.tsx:18).
+- **Encargo:** **CRM**, que primero arma docs/pedidos-crm.md con TODO lo que Martín pidió para el CRM y su estado. Eso contesta «muchos cambios aún no están».
+
+### 13. «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la funcionalidad que creamos de respuestas múltiples en Ops Center...»
+- **Causa:** Debate sí recibió la respuesta (21:10Z). Después cerró sus turnos sólo con el recuadro de la app (`wrap_up`, con pregunta y botones), sin texto. El cartero sube sólo texto, así que nada de eso llegó al Ops Center.
+- **Hecho:** Debate vuelve a preguntar con `cartero preguntar`, el formulario de opciones.
+- **Encargo de fondo:** **Ops Center 3**. El cartero sube el resumen de un `wrap_up` como mensaje, y su pregunta y sus botones como formulario.
+- **Hallazgo:** docs/hallazgos-operaciones.md.
+
+### 14. «Comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo, mapea al 100% todo lo que eso conlleva, y la inteligencia que tienen que tener cada chat... No elimines por ahora las tabs... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...»
+- **En curso (20/10):** el mapeo al 100%, con ocho agentes por áreas más uno de síntesis y un crítico.
+  - Por cada acción de cada tab mide si el Ops Center ya puede hacerla, qué falta (herramienta, motor, bloque en el chat, confirmación) y qué inteligencia necesita el chat del área.
+  - Sale un documento maestro con el plan por olas y por chat.
+- **Después:** reparto por olas a los chats de área. Lo transversal (los bloques en el chat, la confirmación adentro, los sub-chats) va a Ops Center 3.
+- Las tabs quedan.
+
+### 15. «Veo MaKo mobile roto, como si estuviera en desktop, solucionalo» (Ops Center, 19:36, pedido d4bc0840)
+- **Causa:** «General» (Horario y Criterio) no tiene pantalla en el teléfono. Su hoja «Abrir en la computadora» pone la cookie `mako_vista=escritorio` por 12 h y para TODA la app (lib/movil-dispositivo.ts), y ningún botón la borra (`cookieVistaMovil` no tiene llamadores).
+  - El desvío (`pedidoMovil`) está bien: con un teléfono sin la cookie, todo va a /m.
+- **Encargo:** **Sidebar**, urgente.
+  - El botón «Volver a la versión del teléfono».
+  - «Abrir en la computadora» sólo para ESA pantalla.
+  - Después, General con su pantalla en /m.
+- **El cierre** del pedido lo hace el Cerebro con el deploy.
+
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 
 | Pedido (minuto) | Estado | De quién |
