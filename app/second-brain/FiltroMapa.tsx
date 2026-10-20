@@ -137,7 +137,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
         type="button"
         onClick={() => onAbrir(abierto ? null : 'root')}
         aria-expanded={!!abierto}
-        aria-label="Filtrar el mapa"
+        aria-label="Filtrar el Second Brain"
         style={{
           position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 7,
           padding: '6px 11px', borderRadius: 9, fontFamily: SANS, fontSize: 12.5, fontWeight: 500,
@@ -171,7 +171,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
           <span onClick={() => onAbrir(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
           <div
             role="dialog"
-            aria-label="Filtros del mapa"
+            aria-label="Filtros del Second Brain"
             style={{
               position: 'absolute', top: 38, left: 0, zIndex: 41, width: 262,
               maxWidth: 'calc(100vw - 32px)', maxHeight: 'min(460px, calc(100dvh - 96px))', overflowY: 'auto', overscrollBehavior: 'contain',

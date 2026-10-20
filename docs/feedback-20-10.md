@@ -139,6 +139,15 @@ quedó.
 - **Después:** reparto por olas a los chats de área. Lo transversal (los bloques en el chat, la confirmación adentro, los sub-chats) va a Ops Center 3.
 - Las tabs quedan.
 
+### 15. «Veo MaKo mobile roto, como si estuviera en desktop, solucionalo» (Ops Center, 19:36, pedido d4bc0840)
+- **Causa:** «General» (Horario y Criterio) no tiene pantalla en el teléfono. Su hoja «Abrir en la computadora» pone la cookie `mako_vista=escritorio` por 12 h y para TODA la app (lib/movil-dispositivo.ts), y ningún botón la borra (`cookieVistaMovil` no tiene llamadores).
+  - El desvío (`pedidoMovil`) está bien: con un teléfono sin la cookie, todo va a /m.
+- **Encargo:** **Sidebar**, urgente.
+  - El botón «Volver a la versión del teléfono».
+  - «Abrir en la computadora» sólo para ESA pantalla.
+  - Después, General con su pantalla en /m.
+- **El cierre** del pedido lo hace el Cerebro con el deploy.
+
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 
 | Pedido (minuto) | Estado | De quién |

@@ -13,6 +13,7 @@
 //   · la ruta cambiada a «/ops-center»: 3 / 1.
 //   · el botón de la computadora diciendo «Mapa» otra vez: 3 / 1.
 //   · la fila del teléfono diciendo «Mapa» otra vez: 3 / 1.
+//   · (20/10/2026, base 5 / 0) «Tu mapa tiene datos…» de vuelta en el grafo: 4 / 1 · «Sumado a tu mapa» en el teléfono: 4 / 1.
 // =============================================================================
 
 import test from 'node:test';
@@ -46,4 +47,20 @@ test('el botón que abre el grafo se llama «Second Brain», en la computadora y
   assert.ok(!/\/>Mapa/.test(boton), 'nunca «Mapa»');
   const tel = readFileSync(join(__dirname, '..', 'app/m/mako/ChatMako.tsx'), 'utf8');
   assert.match(tel, /<FilaM navegacion titulo="Second Brain" icono="cerebro" href=\{hrefMapa\} \/>/);
+});
+
+// 20/10/2026 (el Cerebro: «confirmá que "Mapa" ya no aparece en ningún otro lado»): lo que se LEE en el grafo, en la
+// computadora y en el teléfono, tampoco dice «mapa». Sólo los textos entre comillas; los comentarios y las claves no.
+test('ningún texto del grafo dice «mapa»: es el Second Brain', () => {
+  const textos = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8')
+    .split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(l))
+    .flatMap((l) => l.match(/(['"`])(?:(?!\1).)*\1/g) ?? []);
+  for (const rel of [
+    'app/second-brain/Grafo.tsx', 'app/second-brain/BuscadorCerebro.tsx', 'app/second-brain/FiltroMapa.tsx',
+    'app/second-brain/VistaCerebro.tsx', 'app/m/second-brain/SecondBrainM.tsx', 'app/m/second-brain/ArchiveroM.tsx',
+    'app/m/second-brain/modelo.ts',
+  ]) {
+    const conMapa = textos(rel).filter((t) => /\bmapa\b/i.test(t) && !/^['"`][\w\-/.:?=&]*['"`]$/.test(t));
+    assert.deepEqual(conMapa, [], `${rel} todavía dice «mapa»`);
+  }
 });
