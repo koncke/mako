@@ -36,6 +36,7 @@ app/admin/dev/onboarding/bitacora.ts, `0f46389e6`):
 - 5b, el diagnóstico de fase repite el canal que ya contó (lib/onboarding-arranque.ts → preguntarFase).
 - El voseo y el «Perfecto:» del modelo sin filtro de salida (lib/offer-ia.ts); `TOPE_PIEZA` corta las piezas con «…».
 - El dictado de respaldo usa las keys del negocio (hallazgos-plan): es del Plan, no de este chat.
+- **Pasar la caja del onboarding a la pieza única** `app/_chat/CajaChat.tsx` (Ops Center 3, rama chat-unico, 7237af372) cuando esté en integración: borrar app/offer/CajaDelCentro.tsx. Le pedí a Ops Center 3 que la pieza sume la nota de voz (`voz`) y la línea de estado; tests/chat-unico.test.ts deja al onboarding en su lista de pendientes.
 
 ## ESTADO AL 18/10/2026 ~18:30 AR — PEDIDO 9a143455 (Martín, 17:28), CUENTA AL 98 %
 
