@@ -10355,3 +10355,46 @@ doer de WhatsApp lo cortaba (la voz en su system y `sanearSalida` antes de manda
 corte antes de guardar: se saca la oración grosera, no la respuesta entera. Las promesas no se sacan ahí (la tarjeta y la
 pantalla dicen lo que quedó hecho). **Sin hacer:** otros caminos que usan `buildSystemPrompt` (el analista de un lead, el
 Second Brain) no se revisaron uno por uno. Test: tests/mako-app-sin-groserias.test.ts. *17/10/2026, B5 (claude4)*
+
+## Chats tardaba 17 s en abrir: el espejo de WhatsApp leído página por página, y releído cada 15 s (20/10/2026)
+
+**Síntoma:** Martín, en la llamada con Leila del 19/10 (minuto 55:12): «abrir la tab Chats tarda mucho».
+**Medido** (ws1 sólo con GET; `next start` local y un cronómetro de cada fetch del servidor, precargado con
+`--require`, sin tocar el código; después, el mismo `listarChats` desde un script con `runWithWorkspace`):
+
+| ws1, 265 chats | Antes | Después |
+|---|---|---|
+| Lista entera (al abrir y, antes, cada 15 s) | 17,3–18,5 s · 39 consultas | 4,1–5,6 s |
+| Lectura rápida, 3 páginas (la del teléfono) | 6,4–6,7 s | 1,9–2,1 s |
+
+Los números son desde Argentina (~230 ms por ida y vuelta a Supabase); en Vercel cada consulta cuesta menos y la
+proporción es la que importa. La investigación del 19/10 había medido 5,5–7,8 s en producción para la lista entera.
+
+**Causa:** `getConversacionesNoOficial` (lib/evolution-mensajes.ts) lee el espejo ENTERO (`wa_mensajes`, 18.885 filas en
+el ws1) para quedarse con el último mensaje de cada conversación, y lo hacía de a una página: 19 páginas en serie eran
+12,7 de los 17,4 s. Detrás, también en serie: la agenda entera (`evolution_contactos`, 5.597 contactos en 6 páginas,
+2,5 s), los leads de «Nutrición - Manual», los ocultos y los bloqueados, que no dependen del espejo. Y la computadora
+pedía todo eso de nuevo cada 15 s; el teléfono ya lo acotaba a 3 páginas.
+- ⚠️ **El diagnóstico obvio no alcanzaba:** «hay muchas consultas» (39) no era el problema; el problema era que iban
+  EN FILA. La línea de tiempo del cronómetro (inicio y fin de cada pedido) es lo que lo muestra; la suma por tabla no.
+- **El ws3 y el ws9 no lo reproducen:** sus espejos están vacíos (0 chats, 13 consultas, 1,7 s). Para medir esto hace
+  falta un negocio con volumen; se leyó el ws1 sólo con GET (el cronómetro confirma cero pedidos que no sean GET).
+
+**Arreglo:**
+1. `leerPorPaginas` acepta `paralelo`: las páginas salen en olas y se entregan en el mismo orden, cortando igual.
+   El espejo va en olas de 5 y la agenda en olas de 4.
+2. Lo que no depende del espejo arranca con él.
+3. La pantalla dibuja con la lectura rápida (`/api/chats?paginas=3`), lee todo una vez después, y el sondeo de cada
+   15 s es rápido y se FUSIONA con lo que hay (`fusionarRecientes`): reemplaza lo que trae, deja lo que no trae y suma
+   canales. Todo entero cada 20 sondeos (5 min).
+
+**Regla:** una lectura grande que alguien espera mirando la pantalla no va página por página, y un sondeo no relee lo
+que ya tiene.
+
+**Sin hacer:** la lectura entera sigue barriendo todo el espejo; lo de raíz es que la base devuelva el último mensaje
+por conversación (una vista o una función con `DISTINCT ON`, migración que numera el Cerebro). Una conversación cuyo
+último mensaje quedó más atrás de 3 páginas aparece con la lectura completa, no con la primera vista (unos segundos
+después). No visto en pantalla: el build no entró en la RAM de esa tarde.
+**Vive en:** lib/supabase-paginado.ts · lib/evolution-mensajes.ts · lib/evolution-contactos.ts · app/chats/ChatsApp.tsx ·
+app/chats/lista-reglas.ts · app/api/chats/route.ts. Tests: tests/paginado-paralelo.test.ts y
+tests/chats-lista-rapida.test.ts. *20/10/2026, chat «CRM» (claude4).*
