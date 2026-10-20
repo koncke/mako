@@ -24,6 +24,7 @@
 // =============================================================================
 
 import { layoutCerebro } from './cerebro-layout';
+import { PUENTE_ISLA_OBRA, puentesARaiz } from './cerebro-union';
 import { instanteHito, type HitoP } from './progreso-reglas';
 import { claveDeNombre } from './centro-chats';
 import type { AristaCerebro, Cerebro, NodoCerebro, Taxonomia } from './cerebro-modelo';
@@ -233,6 +234,9 @@ export function armarConstruccion(areas: readonly AreaDeObra[], ahora: number): 
   }
 
   const reales = nodos.filter((n) => !/^(raiz|area:|n1:)/.test(n.id));
+  // UN cerebro, nunca dos (Martín, 20/10/2026): un área sin hitos que comparta archivos, o una carpeta con una sola
+  // familia, quedaba suelta. Todo lo suelto cuelga de la raíz, antes del layout.
+  aristas.push(...puentesARaiz(nodos, aristas, 'raiz', PUENTE_ISLA_OBRA));
   const { posiciones, encuadre } = layoutCerebro(nodos, aristas);
   return {
     negocio: 'Construcción de MaKo',

@@ -52,7 +52,6 @@
 }
 [data-m] .m-second-brain-titulo { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15; color: var(--ink); }
 [data-m] .m-second-brain-sub { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--dim); line-height: 1.4; }
-.m-second-brain-capas { margin-top: 12px; }
 .m-second-brain-mapa {
   margin-top: 12px; aspect-ratio: 17 / 10; overflow: hidden;
 }

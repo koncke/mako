@@ -22,6 +22,7 @@ import { hayQueRecrear, mensajeEvolution, motivoDeEvolution, veredictoSondeo, ty
 import { elegirLinea, esLineaDelWorkspace, instanceNameDeWs, nombreLineaNueva, lineaPorDefault } from './lineas-whatsapp';
 import { lineaDeMaKoPara, ETIQUETA_LINEA_MAKO } from './linea-plataforma';
 import { queryDeWebhook } from './evolution-firma';
+import { numeroParaWhatsApp, motivoConPista } from './numero-whatsapp';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
 // test). Se re-exporta para que ningún import cambie.
@@ -836,12 +837,14 @@ export async function lineasParaMandar(ws: number): Promise<{ lineas: LineaRow[]
 }
 
 /** Elegir la línea de un envío sin tirar: el motivo vuelve como el error del envío. */
-async function lineaDeEnvio(linea?: string | null): Promise<{ ok: true; instance: string } | { ok: false; error: string }> {
+// `numeroLinea`: el número del dueño de esa línea (`evolution_instancias.numero`), de donde sale el país con que se completa
+// un teléfono sin código de país (lib/numero-whatsapp.ts). null si la fila no lo tiene (la de MaKo tampoco).
+async function lineaDeEnvio(linea?: string | null): Promise<{ ok: true; instance: string; numeroLinea: string | null } | { ok: false; error: string }> {
   try {
     const ws = await wsEstricto();
     const { lineas, deMaKo } = await lineasParaMandar(ws);
     const e = elegirLinea(lineas, linea, ws, deMaKo);
-    return e.ok ? { ok: true, instance: e.instance } : { ok: false, error: e.motivo };
+    return e.ok ? { ok: true, instance: e.instance, numeroLinea: lineas.find((x) => x.instance_name === e.instance)?.numero ?? null } : { ok: false, error: e.motivo };
   } catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'No pude elegir la línea de WhatsApp.' }; }
 }
 
@@ -854,8 +857,9 @@ export async function enviarTexto(telefono: string, texto: string, linea?: strin
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;
-  const num = (telefono || '').replace(/\D/g, '');
-  if (!num) return { ok: false, error: 'teléfono inválido' };
+  const n = numeroParaWhatsApp(telefono, l.numeroLinea); // completa el país de la línea: 2233550684 no existe, 542233550684 sí
+  if (!n.ok) return n;
+  const num = n.numero;
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
   const base = Math.min(1500 + texto.length * 45, 9000);
   const delay = Math.round(base * (0.8 + Math.random() * 0.4)); // ±20% jitter
@@ -863,7 +867,7 @@ export async function enviarTexto(telefono: string, texto: string, linea?: strin
     `/message/sendText/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num, text: texto, delay, ...(opts.sinVistaPrevia ? { linkPreview: false } : {}) }) },
   );
-  if (!r.ok) return { ok: false, error: r.motivo ?? r.error }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
+  if (!r.ok) return { ok: false, error: motivoConPista(r.motivo ?? r.error) }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
   return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };
 }
 
@@ -880,8 +884,9 @@ export async function enviarMedia(
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;
-  const num = (telefono || '').replace(/\D/g, '');
-  if (!num) return { ok: false, error: 'teléfono inválido' };
+  const n = numeroParaWhatsApp(telefono, l.numeroLinea);
+  if (!n.ok) return n;
+  const num = n.numero;
   const media64 = soloB64(media.base64);
   if (!media64) return { ok: false, error: 'archivo vacío' };
   const delay = Math.round(Math.min(1200 + Math.floor(media64.length / 120), 6000) * (0.8 + Math.random() * 0.4));
@@ -892,7 +897,7 @@ export async function enviarMedia(
     `/message/sendMedia/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify(body) },
   );
-  if (!r.ok) return { ok: false, error: r.motivo ?? r.error }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
+  if (!r.ok) return { ok: false, error: motivoConPista(r.motivo ?? r.error) }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
   return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };
 }
 
@@ -902,8 +907,9 @@ export async function enviarAudio(telefono: string, base64: string, linea?: stri
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;
-  const num = (telefono || '').replace(/\D/g, '');
-  if (!num) return { ok: false, error: 'teléfono inválido' };
+  const n = numeroParaWhatsApp(telefono, l.numeroLinea);
+  if (!n.ok) return n;
+  const num = n.numero;
   const audio64 = soloB64(base64);
   if (!audio64) return { ok: false, error: 'audio vacío' };
   const delay = Math.round(Math.min(2000 + Math.floor(audio64.length / 90), 8000) * (0.8 + Math.random() * 0.4));
@@ -911,7 +917,7 @@ export async function enviarAudio(telefono: string, base64: string, linea?: stri
     `/message/sendWhatsAppAudio/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num, audio: audio64, delay, encoding: true }) },
   );
-  if (!r.ok) return { ok: false, error: r.motivo ?? r.error }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
+  if (!r.ok) return { ok: false, error: motivoConPista(r.motivo ?? r.error) }; // el MOTIVO (`motivoDeEvolution`), no «Evolution 400»
   return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net`, instance };
 }
 
@@ -1087,13 +1093,16 @@ export async function fetchConversacionEvolution(
 // agendados por ese alias). POST /chat/whatsappNumbers → [{ jid, exists, lid }].
 // Sólo funciona si Evolution ya "aprendió" el mapeo. null si no hay. Best-effort.
 export async function fetchLidDeNumero(telefono: string): Promise<string | null> {
-  const num = (telefono || '').replace(/\D/g, '');
   const ws = await getWorkspaceActual();
-  if (ws == null || !num || !evolutionConfigurado()) return null;
+  if (ws == null || !evolutionConfigurado()) return null;
   const instance = (await lineaSuave()) ?? instanceNameDeWs(ws);
+  // La consulta pregunta por el número como lo va a ver Evolution al mandar: con el país de la línea (lib/numero-whatsapp.ts).
+  const numeroLinea = (await listarLineas().catch(() => [] as LineaRow[])).find((x) => x.instance_name === instance)?.numero ?? null;
+  const n = numeroParaWhatsApp(telefono, numeroLinea);
+  if (!n.ok) return null;
   const r = await evFetch<Array<{ jid?: string; lid?: string | null; exists?: boolean }>>(
     `/chat/whatsappNumbers/${encodeURIComponent(instance)}`,
-    { method: 'POST', body: JSON.stringify({ numbers: [num] }) },
+    { method: 'POST', body: JSON.stringify({ numbers: [n.numero] }) },
   );
   if (!r.ok || !Array.isArray(r.data)) return null;
   const lid = r.data[0]?.lid;

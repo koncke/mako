@@ -62,7 +62,7 @@ import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
 import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
 import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
 import {
-  sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, textoDeCreada, respuestaDelCron,
+  sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
 } from '@/lib/flujo-ia-preguntas';
 import { sanearChat, type EventoPreguntaIA, type MensajeChatMako, type PreguntaMako } from '@/lib/automatizacion-chat';
 import { leerChat, agregarAlChat } from '@/lib/automatizacion-chat-db';
@@ -233,8 +233,9 @@ export async function POST(req: NextRequest) {
             return;
           }
           // Sin id el chat lo volcó `crearConIA` al nacer la fila; con id, lo cierra la ruta.
-          await anotar([mensajeChat('mako', textoDeCreada(r.nombre), 'app', { avisos: r.avisos })]);
-          send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador });
+          // Lo que dice MaKo lo armó el core con lo guardado (20/10/2026: cuándo sale, a quién y qué manda).
+          await anotar([mensajeChat('mako', r.texto, 'app', { avisos: r.avisos })]);
+          send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador, texto: r.texto, ...(r.cron ? { cron: r.cron } : {}) });
           return;
         }
 

@@ -384,6 +384,47 @@ envíos y permisos. Lo que le rompía a un cliente quedó arreglado y fijado en 
 
 ## WhatsApp no oficial (Evolution)
 
+### ⚠️ Un teléfono sin código de país no existe en WhatsApp, y el envío no lo completaba (ws11, 20/10/2026)
+
+**Síntoma:** Leila (ws11) le mandó a Martín una captura: en la ficha del lead #2313, «WhatsApp no oficial» → «Ese número
+no tiene WhatsApp». Martín: «Otro error que Leila me envía».
+
+**El diagnóstico obvio era el equivocado:** no era la línea desconectada ni un número mal tipeado. El lead tenía el número
+como lo cargó el cliente —10 dígitos, sin el 52— y `enviarTexto`, `enviarMedia` y `enviarAudio` sólo sacaban lo que no es
+dígito y lo mandaban tal cual. Evolution contesta `exists:false` (medido el 21/08: 542233550684 existe, 2233550684 no), y
+`motivoDeEvolution` lo dice bien, así que el error se ve como «ese número no existe» cuando el número es real.
+
+**No era un lead:** 53 de los 70 leads del ws11 están en 10 dígitos (7 con 52+10, 9 con 521+10, 1 con 54), y **27 de los 32
+borradores pendientes** (los recordatorios de la sesión de mañana) habrían fallado igual al aprobarlos. Nada da error antes:
+el borrador se crea bien, la cola lo muestra, y es el clic de «Enviar» del setter el que descubre que no sale.
+
+**La regla:** los datos del cliente no se tocan; el número se completa **en el envío**, con el país de la LÍNEA que manda
+(el dueño de la instancia: `evolution_instancias.numero`). `numeroParaWhatsApp` (lib/numero-whatsapp.ts, puro):
+- un número con el largo LOCAL del país de la línea (10 en MX, AR, CO, VE y EE.UU./Canadá; 9 en ES, CL y PE) se completa;
+- lo que ya trae país (52, 521, 54, 1…) no se toca; el «00» del principio se saca; un solo 0 (el de tránsito) no;
+- **sin línea conocida no se adivina:** la de MaKo no guarda su número, y un número de línea que no es de ningún país de la
+  tabla NO es México (`splitTelefono` cae a México para hidratar un selector; para enviar eso es adivinar). Con 10 dígitos,
+  «A este número le falta el código de país»;
+- si igual no existe, el modal dice «Ese número no tiene WhatsApp. Revisa que tenga el código de país.» (`motivoConPista`);
+  `motivoDeEvolution` no cambia: es el de todas las pantallas.
+
+**Dónde:** los cuatro caminos que le dan un número a Evolution —texto, media, audio (por ahí pasan los borradores) y la
+consulta del @lid (`fetchLidDeNumero`)— y `lineaDeEnvio`, que ahora devuelve el número de la línea. **No** se tocó lo que
+la línea de MaKo manda a grupos y destinatarios (lib/mako-grupo.ts, lib/mako-tarjeta.ts): esos números salen del selector
+con país, y `prepararContacto` (lib/mako-grupo.ts) ya dice «Revisa que esté con el código de país».
+
+**Medido con los datos reales del ws11** (sólo lectura): los 70 leads quedan en 52+10 (60), 521+10 (9) y 54 (1); de los 32
+borradores, 31 quedan bien y 1 —un borrador de nutrición sin lead, con 12 ceros— no se puede mandar nunca.
+
+**Sin hacer:** (1) el espejo del saliente guarda `telefono` como lo cargó el cliente y `chat_jid` con el número completo:
+si la bandeja une el hilo con el lead por el teléfono, hay que mirarlo con un envío real. (2) Brasil (largo 10 u 11) y el
+resto de los países no están en la tabla: su 10 dígitos da el error. (3) No medí de dónde entran los leads con 10 dígitos
+(formulario, importación, anuncios): lo correcto es que lleguen con país, y eso es de CRM. (4) Un borrador con el teléfono vacío o
+de ceros hay que descartarlo, no reintentarlo.
+
+**Vive en:** `lib/numero-whatsapp.ts` · `lib/evolution.ts` (`lineaDeEnvio`, `enviarTexto`, `enviarMedia`, `enviarAudio`,
+`fetchLidDeNumero`) · `tests/numero-whatsapp.test.ts` (16 roturas, cada una con su fallo) · *20/10/2026, sin subagentes.*
+
 ### El costo del WhatsApp escala con NÚMEROS CONECTADOS, no con mensajes enviados
 
 **Síntoma:** al presupuestar «prendemos el chatbot y le escribimos a los 1.251 leads» se
@@ -848,6 +889,11 @@ visible de canal.
   automáticamente según la ETAPA del lead (10/07).
 
 ---
+
+**Lo que queda, de la revisión del Cerebro antes de subirlo (20/10):**
+- **Un número de EE.UU. guardado sin el 1, mandado desde una línea de México, se completa con 52.** Antes no salía (`exists:false`). Ahora puede llegar a un número mexicano real. Los dos son de 10 dígitos y no hay cómo distinguirlos sin la lada. Es raro en estos negocios; el arreglo de raíz es guardar el número con su país al cargarlo (`TelefonoConPais`).
+- **Un número internacional completo de 10 dígitos** (Noruega 47+8, Dinamarca 45+8, Singapur 65+8) mandado desde una línea de 10 dígitos locales se toma como local y se le antepone el país de la línea. Antes salía bien.
+- **Medido:** la línea del ws11 es `521…` (13 dígitos): el país sale 52 y sus 53 números de 10 dígitos se completan bien.
 
 ## WhatsApp oficial (Chatwoot y Meta)
 

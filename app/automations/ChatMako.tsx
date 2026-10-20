@@ -330,6 +330,8 @@ export function ChatMako(p: ChatMakoProps) {
     const aplicado = onListoRef.current({
       modo: l.modo, secuenciaId: l.secuenciaId, pasos: l.pasos, nombre: l.nombre, orden: l.orden,
       avisos: l.avisos, etiquetasNuevas: l.etiquetasNuevas, disparador: l.disparador ?? null, base,
+      // El horario de un Recurrente (20/10/2026): sin él, la tarjeta CRON se sembraba sin horario.
+      ...(l.cron ? { cron: l.cron } : {}),
       ...(l.resumen !== undefined ? { resumen: l.resumen } : {}),
       ...(l.cambiadas ? { cambiadas: l.cambiadas } : {}),
       ...(l.quitadas ? { quitadas: l.quitadas } : {}),
@@ -343,7 +345,8 @@ export function ChatMako(p: ChatMakoProps) {
     setRonda(l.pregunta ? { pedido: enCurso.pedido, respuestas: [], pregunta: l.pregunta } : null);
     const avisos = ordenarAvisos(l.avisos ?? []);
     setMensajes((ms) => [...ms, {
-      id: nuevoId('mako'), de: 'mako', texto: l.modo === 'crear' ? textoDeCreada(l.nombre) : textoDeListo(l), at: new Date().toISOString(), via: 'app',
+      // Crear: lo que armó el server con lo guardado (cuándo sale, a quién y qué manda, 20/10/2026); uno de antes, el corto.
+      id: nuevoId('mako'), de: 'mako', texto: l.modo === 'crear' ? (l.texto ?? textoDeCreada(l.nombre)) : textoDeListo(l), at: new Date().toISOString(), via: 'app',
       ...(avisos.length ? { avisos } : {}), ...(l.pregunta ? { pregunta: l.pregunta } : {}),
     }]);
     return true;
