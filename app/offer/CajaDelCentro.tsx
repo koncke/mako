@@ -13,14 +13,22 @@
 // Lo que NO viene, y por qué:
 //   · el «Con qué corre» del «+» (la cuenta, el modelo, el esfuerzo) y las tareas vinculadas: son del Runner, no de MaKo;
 //   · la cita (responder a un mensaje) y las preguntas del empleado: el onboarding no las tiene.
-// El micrófono DICTA (BotonMandar → useDictar): lo dicho entra en la caja y se lee antes de mandar. El onboarding ya no
-// manda notas de voz; la tab Offer sigue con la barra de WhatsApp y las suyas.
+// EL MICRÓFONO DEL ONBOARDING GRABA UNA NOTA DE VOZ (`voz`, 20/10/2026), no dicta. El Cerebro pidió probar antes que el
+// dictado aguanta un monólogo de 2 minutos, y no se pudo medir: Chrome con un micrófono falso (un WAV de 124 s) detecta la
+// voz y no devuelve texto, y el dictado en vivo (useDictadoVivo) no se reanuda cuando Chrome cierra su sesión. El otro
+// camino del mismo botón, grabar y transcribir (/api/plan-dictado), usa las keys del negocio, que un cliente nuevo no tiene.
+// La nota de voz va por la ruta de Offer (con la red de la plataforma en el onboarding), y Florencia mandó 6 de 1 a 2
+// minutos. Se graba con la sesión de voz de la casa (useGrabacionVoz → BarraGrabacion): se termina, se escucha y recién
+// ahí se manda (Martín, 09/10: nunca sale un audio al soltar). Su ➤ va en el negro del Ops Center, no en el verde.
+// Sin `voz` (el nombre, un código), el botón es el de siempre: dicta.
 // Los archivos se juntan arriba del texto y se leen recién al MANDAR (OfferApp → enviarVista), como antes.
 //
 // ⚠️ LA ARMA OfferApp Y ChatOffer LA RECIBE HECHA (`caja`): ChatOffer lo importa un test en node
 // (tests/offer-pulir-pdf.test.ts → DocumentoPdf) y estas piezas traen .css, que node no lee.
 
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { Icon } from '@/app/_components/icons';
+import { BarraGrabacion, useGrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
 import { conVinetas, enterEnLista } from '@/lib/centro-caja';
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
 import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
@@ -28,7 +36,17 @@ import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from '@/app/admi
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
 import '@/app/admin/operaciones/centro.css';
 
-export function CajaDelCentro({ texto, onTexto, onMandar, ocupado, placeholder = 'Escríbele a MaKo', adjuntos, estado }: {
+/** La nota de voz del onboarding: cómo se manda, y la que no salió (vuelve para reenviarla o tirarla). */
+export type VozDeCaja = {
+  onAudio: (blob: Blob, secs: number) => void;
+  onError: (m: string) => void;
+  pendiente: { url: string; secs: number; onReenviar: () => void; onDescartar: () => void } | null;
+};
+
+/** El ➤ y el ✓ de la barra de grabar van en el negro del Ops Center: la barra los pinta con `--good` (el verde). */
+const SIN_VERDE = { '--good': 'var(--ink)' } as CSSProperties;
+
+export function CajaDelCentro({ texto, onTexto, onMandar, ocupado, placeholder = 'Escríbele a MaKo', adjuntos, estado, voz = null }: {
   texto: string;
   onTexto: (v: string) => void;
   onMandar: () => void;
@@ -39,7 +57,13 @@ export function CajaDelCentro({ texto, onTexto, onMandar, ocupado, placeholder =
   adjuntos: AdjuntosDeCaja | undefined;
   /** La línea de abajo de la caja: «Leyendo «X»…». Lo que dice el micrófono si no pudo va primero. */
   estado: string | null;
+  /** Con esto el micrófono GRABA una nota de voz (el onboarding); sin esto, dicta como en el Ops Center. */
+  voz?: VozDeCaja | null;
 }) {
+  // La sesión de voz se crea siempre (los hooks no son condicionales); sin `voz` nunca arranca.
+  const sesion = useGrabacionVoz(async (blob, secs) => { voz?.onAudio(blob, secs); }, (m) => voz?.onError(m));
+  const enVoz = !!voz && (sesion.fase !== 'quieta' || !!voz.pendiente);
+  const hayQueMandar = !!texto.trim() || !!adjuntos?.items.length;
   const caja = useRef<HTMLTextAreaElement>(null);
   /** Dónde va el cursor después de que una lista cambió el texto (la viñeta, el ítem siguiente). */
   const cursor = useRef<number | null>(null);
@@ -73,6 +97,14 @@ export function CajaDelCentro({ texto, onTexto, onMandar, ocupado, placeholder =
   return (
     <div className="co-caja-wrap">
       <div className="co-caja">
+        {enVoz && voz ? (
+          <div className="co-caja__voz" style={SIN_VERDE}>
+            <BarraGrabacion voz={sesion} ocupado={ocupado} rotuloEnviar="Enviar audio"
+              existente={sesion.fase === 'quieta' && voz.pendiente
+                ? { url: voz.pendiente.url, secs: voz.pendiente.secs, onBorrar: voz.pendiente.onDescartar, onDejar: voz.pendiente.onReenviar }
+                : null} />
+          </div>
+        ) : (<>
         <ListaAdjuntos a={adjuntos} />
         <div className="co-caja__fila">
           {adjuntos && <MasCaja a={adjuntos} apagado={ocupado} resumen={null} />}
@@ -97,10 +129,18 @@ export function CajaDelCentro({ texto, onTexto, onMandar, ocupado, placeholder =
             aria-label={placeholder}
           />
           </div>
-          <BotonMandar valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} enviando={false} apagado={ocupado}
-            hayQueMandar={!!texto.trim() || !!adjuntos?.items.length} onMandar={onMandar} titulo="Mandar (Enter)" />
+          {voz && !hayQueMandar ? (
+            <button type="button" className="co-enviar co-enviar--mic" onClick={() => void sesion.start()} disabled={ocupado}
+              title="Grabar una nota de voz" aria-label="Grabar una nota de voz">
+              <Icon name="mic" size={18} />
+            </button>
+          ) : (
+            <BotonMandar valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} enviando={false} apagado={ocupado}
+              hayQueMandar={hayQueMandar} onMandar={onMandar} titulo="Mandar (Enter)" />
+          )}
         </div>
         <LinksDeLaCaja texto={texto} />
+        </>)}
       </div>
       <p className="co-caja__estado" aria-live="polite">{faltaMic ?? estado ?? ''}</p>
     </div>

@@ -925,7 +925,11 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   };
   const cajaArranque = arranque ? (
     <CajaDelCentro key={sesion?.id ?? 0} texto={texto} onTexto={setTexto} onMandar={() => void enviarComposer()} ocupado={ocupado}
-      placeholder={arranque.placeholder} adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista} />
+      placeholder={arranque.placeholder} adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista}
+      voz={arranque.manda ? null : {
+        onAudio: mandarAudio, onError: setErrorChat,
+        pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onReenviar: reenviarAudio, onDescartar: descartarAudio } : null,
+      }} />
   ) : null;
 
   return (
