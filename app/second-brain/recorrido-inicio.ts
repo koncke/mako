@@ -10,7 +10,7 @@
 import type { PasoRecorrido } from '@/lib/recorridos';
 
 export const PASOS_INICIO: PasoRecorrido[] = [
-  { objetivo: 'sb-hilo', titulo: 'Tu onboarding quedó acá', texto: 'Esta es la conversación que acabas de tener con MaKo. Queda guardada para retomarla cuando quieras.' },
+  { objetivo: 'sb-hilo', titulo: 'Tu onboarding quedó aquí', texto: 'Esta es la conversación que acabas de tener con MaKo. Queda guardada para retomarla cuando quieras.' },
   { objetivo: 'sb-chats', titulo: 'Tus chats con MaKo', texto: 'Cada conversación queda en esta lista. Abre una nueva para empezar otro tema.' },
   { objetivo: 'sb-escribir', titulo: 'Pídele lo que necesites', texto: 'Escríbele, adjunta un archivo o dicta con el micrófono. MaKo ya conoce tu negocio.' },
 ];
