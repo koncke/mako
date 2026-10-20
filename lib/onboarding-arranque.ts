@@ -51,6 +51,14 @@ export type EstadoArranque = {
   /** El negocio que nombró junto con su nombre («Martín, de Acme»): se OFRECE en la pregunta del negocio, nunca
    *  se da por contestada (en «Martín de Córdoba» lo de después del «de» es un lugar). */
   negocioSugerido?: string;
+  /** El nombre del negocio que se ENTENDIÓ y espera el sí antes de escribirse en el workspace (20/10/2026, Florencia, ws21:
+   *  «mi marca personal: Florencia Ayelen Carballo» se escribió tal cual en el ws, el CRM, el producto y el PDF). `escrito`
+   *  es lo que puso la persona. */
+  negocioPorConfirmar?: { escrito: string; nombre: string };
+  /** Lo que ESCRIBIÓ en una pregunta con opciones, por id de la pregunta ('canal', 'cuello', 'interes'…): se tomó la opción
+   *  más parecida (`opcionMasCercana`) y se le dijo «Lo tomé como: …» (20/10/2026, Florencia: «no te deja escribir cuando te
+   *  da las opciones»). Queda dibujado como su respuesta, y así llega al chat «Onboarding». */
+  escritas?: Record<string, string>;
   /** «¿Cómo llegaste a MaKo?»: una opción de `ORIGENES` o lo que escribió (17/10/2026). */
   origen?: string;
   /** «¿Qué quieres que MaKo resuelva primero?» (modo 'oferta'): decide a qué pestaña entra al terminar. */
@@ -209,6 +217,34 @@ export function rutaDelHilo(chat: number | null): string {
   return chat ? `${RUTA_AL_TERMINAR}?chat=${chat}&recorrido=${RECORRIDO_INICIO}` : `${RUTA_AL_TERMINAR}?recorrido=${RECORRIDO_INICIO}`;
 }
 
+/** El título del chat del Ops Center con la conversación del onboarding. */
+export const TITULO_HILO = 'Onboarding';
+
+/**
+ * El último mensaje del chat «Onboarding» (20/10/2026, llamada con Florencia del 18/10: salió al Ops Center sin guía y sin
+ * saber dónde pedir ayuda). Pregunta por dónde empezar con lo que dijo que quería resolver primero (`interes`, que se
+ * guardaba y nadie leía), nombra lo que MaKo ya puede hacer y dónde avisar si algo no anda: ahí MaKo abre el ticket.
+ */
+export function salidaDelOnboarding(interes: InteresId | undefined): string {
+  const i = INTERESES.find((x) => x.id === interes);
+  const primero = i ? `Me dijiste que quieres empezar por «${i.label.toLowerCase()}»: ¿arrancamos por ahí?` : '¿Por dónde quieres empezar?';
+  return `Listo, ya conozco tu negocio. ${primero} También puedo armar tu landing, escribir tus anuncios o tus guiones, cargar tus clientes al CRM o crear tus primeras publicaciones.\n\nSi algo no funciona, escríbemelo aquí o en tu grupo de WhatsApp con MaKo y abro un ticket para que lo arreglen.`;
+}
+
+/**
+ * Los mensajes del chat «Onboarding», en el orden en que pasaron: la conversación tal cual (un adjunto sin texto dice su
+ * nombre: si no, se perdía) y al final la salida (`salidaDelOnboarding`).
+ */
+export function mensajesDelHilo(
+  mensajes: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; adjuntos?: ReadonlyArray<{ nombre: string }> }>, interes: InteresId | undefined,
+): Array<{ role: 'user' | 'assistant'; content: string }> {
+  const out = mensajes.map((m) => ({
+    role: m.de === 'yo' ? 'user' as const : 'assistant' as const,
+    content: (m.texto ?? '').trim() || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n'),
+  })).filter((m) => m.content);
+  return [...out, { role: 'assistant', content: salidaDelOnboarding(interes) }];
+}
+
 export function rutaDeEntrada(interes: InteresId | undefined): string {
   return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';
 }
@@ -225,6 +261,32 @@ export function interesDe(texto: string): InteresId | null {
   if (/plan|equipo|tarea|organiz/.test(t)) return 'organizar';
   return null;
 }
+
+const PALABRAS_VACIAS = new Set(['que', 'los', 'las', 'del', 'con', 'por', 'para', 'una', 'uno', 'unos', 'mis', 'sus', 'pero', 'cuando', 'como', 'mas', 'muy', 'ese', 'esa', 'eso', 'esto', 'esta', 'son', 'sin', 'hoy', 'todo', 'toda', 'nada', 'solo', 'sola', 'algo']);
+/** Las palabras que cuentan de un texto, por su raíz (las 5 primeras letras: «empujo» y «empujar» son la misma). */
+const palabrasDe = (t: string): string[] => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+  .split(/[^a-z0-9ñ]+/).filter((w) => w.length >= 3 && !PALABRAS_VACIAS.has(w)).map((w) => w.slice(0, 5));
+
+/**
+ * La opción más parecida a lo que escribió, por las palabras que comparten (20/10/2026, Florencia: «vendo cuando empujo yo,
+ * pero va cambiando» no se aceptaba en «¿Cuál es tu mayor cuello de botella?»). null si no comparte ninguna: ahí se pide de
+ * nuevo, porque el diagnóstico se calcula por la opción.
+ */
+export function opcionMasCercana(texto: string, opciones: readonly string[]): number | null {
+  const mias = new Set(palabrasDe(texto));
+  let mejor = -1;
+  let puntos = 0;
+  opciones.forEach((o, i) => {
+    const p = new Set(palabrasDe(o).filter((w) => mias.has(w))).size;
+    if (p > puntos) { puntos = p; mejor = i; }
+  });
+  return puntos > 0 ? mejor : null;
+}
+
+/** El «Lo tomé como: …» después de una respuesta escrita con otras palabras. */
+const tomeComo = (id: string, opcion: string): MensajeArranque => ({ id: `arr-${id}-tome`, de: 'mako', texto: `Lo tomé como: «${opcion}».` });
+
+export const NO_ENTENDI_OPCION = 'No te entendí: elige una de las opciones o dímelo con otras palabras.';
 
 /** El primer nombre, para saludar y ofrecerlo: «Martín Koncke» → «Martín». */
 export function primerNombre(nombre: string): string {
@@ -276,12 +338,55 @@ export function extraerNombre(texto: string): { nombre: string; negocio: string 
   return { nombre: conMayuscula(nombre.join(' ')).slice(0, 60), negocio: limpio(negocio) || null };
 }
 
-/** El nombre del negocio, sin la frase alrededor: «Se llama Acme», «Mi negocio es Acme», «Es Acme» → «Acme». */
+/**
+ * El nombre del negocio, sin la frase alrededor: «Se llama Acme», «Mi negocio es Acme», «Es Acme» → «Acme». Desde el
+ * 20/10/2026 (Florencia, ws21, «mi marca personal: Florencia Ayelen Carballo» quedó entero como nombre): «(Es) mi marca
+ * personal: X» → «X», y «Rubro: Nombre» → lo de después de los dos puntos.
+ */
 export function extraerNegocio(texto: string): string {
   let t = limpiarRespuesta(texto).replace(/[!¡¿?]+/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(/^(?:es|son)\s+(?=(?:mi|nuestr[oa])\s)/i, '');
+  t = t.replace(/^(?:mi|nuestr[oa])\s+(?:negocio|empresa|marca|agencia|emprendimiento|consultora|estudio|proyecto)(?:\s+personal)?\s*[:\-–—]\s*/i, '');
   t = t.replace(/^(?:mi\s+(?:negocio|empresa|marca|agencia|emprendimiento)\s+)?(?:se\s+llama|es|son|somos)\s+/i, '');
   t = t.replace(/^(?:la\s+empresa|la\s+marca|el\s+negocio)\s+(?:se\s+llama|es)\s+/i, '');
+  // «Consultora: Florencia Carballo»: el nombre es lo de después de los dos puntos.
+  const dos = t.match(/^[^:]{1,40}:\s*(\S.*)$/);
+  if (dos) t = dos[1];
   return t.replace(/[«»"]/g, '').replace(/[.]+$/, '').trim();
+}
+
+/** «Uso mi nombre», «no tiene nombre», «es mi marca personal»: la marca es la persona (20/10/2026, Florencia: «ya no tiene
+ * más un nombre de empresa, tiene mi nombre»). */
+const RE_MI_NOMBRE = /\b(?:uso|usa|es|lleva|con|tiene)\s+(?:mi|su)\s+(?:propio\s+)?nombre\b|\bno\s+tiene\s+(?:un\s+)?nombre\b|\bsin\s+nombre\b|^(?:es\s+)?mi\s+marca\s+personal$/i;
+
+export const NEGOCIO_CONFIRMAR = ['Sí, se llama así', 'No, lo escribo de nuevo'] as const;
+
+/**
+ * Lo que se entendió como nombre del negocio, y si hay que CONFIRMARLO antes de escribirlo en el workspace (de ahí se
+ * copia al CRM, al producto, al PDF y al grupo de WhatsApp): cuando se sacó algo con dos puntos o un guion, cuando dice
+ * «personal», cuando es largo o cuando es su nombre. Quitar un «se llama» no se pregunta. `persona` es el nombre de la
+ * persona, para «uso mi nombre». null = no se entendió.
+ */
+export function leerNegocio(texto: string, persona: string): { nombre: string; confirmar: boolean } | null {
+  const limpio = limpiarRespuesta(texto).replace(/[«»"]/g, '').replace(/[.]+$/, '').trim();
+  if (!limpio) return null;
+  if (RE_MI_NOMBRE.test(limpio)) return persona.trim() ? { nombre: persona.trim(), confirmar: true } : null;
+  const nombre = extraerNegocio(limpio);
+  if (!nombre) return null;
+  const raro = nombre !== limpio && (/[:\-–—]/.test(limpio) || /\bpersonal\b/i.test(limpio));
+  return { nombre, confirmar: raro || nombre.split(/\s+/).length > 5 || nombre.length > 60 };
+}
+
+/**
+ * Las respuestas rápidas del nombre del negocio: el del alta si parece un negocio (`pareceNegocio`) y el que dijo con su
+ * nombre («Martín de Acme»). 12ad33b25 (18/10) las había sacado porque el ws de prueba ofrecía «Consultesis», pero eso era
+ * el RESET, ya arreglado; el nombre del ws de prueba no llega acá (lo saca `hechosDelArranque`).
+ */
+export function sugerenciasDeNegocio(e: EstadoArranque, h: HechosArranque): string[] | undefined {
+  const s = [e.negocioSugerido, pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? h.nombreWorkspace : undefined]
+    .map((x) => (x ?? '').trim()).filter(Boolean);
+  const unicas = [...new Set(s)];
+  return unicas.length ? unicas : undefined;
 }
 
 /**
@@ -416,11 +521,14 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
 
   // 1. Quién es. EXPLICA ANTES DE PREGUNTAR (18/10/2026, Martín: «empieza a preguntar de la nada… debería decir algo como
   // "necesito que me cuentes de tu negocio para poder configurar tu cuenta... no tardaremos más de 5 minutos"»).
-  // SIN respuestas rápidas en el nombre ni en el negocio (18/10/2026, 14:00, Martín): ofrecían lo que quedaba de otra
-  // prueba («Ayelen» del perfil, «Consultesis» del nombre del workspace). Se escriben. tests/onboarding-preguntas.test.ts.
+  // SIN respuestas rápidas en el nombre (18/10/2026, 14:00, Martín): ofrecía lo que quedaba de otra prueba («Ayelen» del
+  // perfil). El negocio sí, desde el 20/10 (`sugerenciasDeNegocio`). tests/onboarding-preguntas.test.ts.
   preguntar(antes, 'nombre', SALUDO_ARRANQUE, e.nombre);
   if (etapa === 'nombre') return { antes, despues };
-  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio);
+  // Con el nombre del alta para tocar, y lo entendido se CONFIRMA antes de escribirlo (20/10/2026, Florencia).
+  const pendiente = !e.negocio ? e.negocioPorConfirmar : undefined;
+  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio ?? pendiente?.escrito, sugerenciasDeNegocio(e, h));
+  if (pendiente) preguntar(antes, 'negocio-ok', `¿Tu negocio se llama «${pendiente.nombre}»?`, undefined, [...NEGOCIO_CONFIRMAR]);
   if (etapa === 'negocio') return { antes, despues };
 
   // Las dos del 17/10 (`ORIGENES`, `INTERESES`), AL FINAL desde el 18/10 (Martín): antes del teléfono y del cierre.
@@ -430,7 +538,10 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     preguntar(lista, 'origen', `¿Cómo llegaste a MaKo, ${nombre}?`, e.origen, [...ORIGENES]);
     if (etapa === 'origen') return true;
     if (h.modo === 'oferta') {
-      preguntar(lista, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', INTERESES.find((i) => i.id === e.interes)?.label, INTERESES.map((i) => i.label));
+      const interes = INTERESES.find((i) => i.id === e.interes)?.label;
+      const escritaInteres = interes ? e.escritas?.interes : undefined;
+      preguntar(lista, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', escritaInteres ?? interes, INTERESES.map((i) => i.label));
+      if (escritaInteres && interes) lista.push(tomeComo('interes', interes));
       if (etapa === 'interes') return true;
     }
     return false;
@@ -499,13 +610,17 @@ function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: P
     if (PREGUNTAS[i].id === 'volumen' && !o.canalYaDicho) {
       const c = textoPreguntaFase({ tipo: 'canal' }, e.canal);
       const elegido = e.canal ? CANALES.find((x) => x.id === e.canal)?.label : undefined;
-      preguntar(lista, 'fase-canal', c.texto, elegido, c.opciones);
+      const escritaCanal = elegido ? e.escritas?.canal : undefined;
+      preguntar(lista, 'fase-canal', c.texto, escritaCanal ?? elegido, c.opciones);
+      if (escritaCanal && elegido) lista.push(tomeComo('fase-canal', elegido));
       if (!e.canal) return true;
     }
     if (o.yaContestada?.(PREGUNTAS[i].id)) continue;
     const q = textoPreguntaFase({ tipo: 'pregunta', idx: i }, e.canal);
     const r = contestada(resp[i]) ? q.opciones[resp[i]] : undefined;
-    preguntar(lista, `fase-${i}`, q.texto, r, q.opciones);
+    const escrita = r !== undefined ? e.escritas?.[PREGUNTAS[i].id] : undefined;
+    preguntar(lista, `fase-${i}`, q.texto, escrita ?? r, q.opciones);
+    if (escrita && r !== undefined) lista.push(tomeComo(`fase-${i}`, r));
     if (r === undefined) return true;
   }
   return false;
@@ -567,9 +682,24 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { nombre, ...(negocio ? { negocioSugerido: negocio } : {}) } };
   }
   if (etapa === 'negocio') {
-    const negocio = opcion !== undefined ? texto : extraerNegocio(texto);
-    if (!negocio) return { ok: false, error: '¿Cómo se llama tu negocio?' };
-    return { ok: true, patch: { negocio } };
+    const pendiente = e.negocioPorConfirmar;
+    const corto = texto.split(/\s+/).length <= 5;
+    // Lo pendiente se borra sólo si había algo pendiente.
+    const limpiar = pendiente ? { negocioPorConfirmar: undefined } : {};
+    if (pendiente && (opcion === NEGOCIO_CONFIRMAR[0] || (opcion === undefined && corto && /^(?:s[ií]|correcto|exacto|as[ií] es)\b/i.test(texto)))) {
+      return { ok: true, patch: { negocio: pendiente.nombre, negocioPorConfirmar: undefined } };
+    }
+    if (pendiente && (opcion === NEGOCIO_CONFIRMAR[1] || (opcion === undefined && corto && /^no\b/i.test(texto)))) {
+      return { ok: true, patch: { negocioPorConfirmar: undefined } };
+    }
+    // Una respuesta rápida (el nombre del alta) es el nombre tal cual: es lo que el negocio ya escribió.
+    if (opcion !== undefined && texto) return { ok: true, patch: { negocio: texto, ...limpiar } };
+    const persona = [h.nombreCuenta, e.nombre].find((x) => !!x?.trim() && !x.includes('@')) ?? '';
+    const leido = leerNegocio(texto, persona);
+    if (!leido) return { ok: false, error: '¿Cómo se llama tu negocio? Si usas tu nombre, escríbelo.' };
+    return leido.confirmar
+      ? { ok: true, patch: { negocioPorConfirmar: { escrito: texto, nombre: leido.nombre } } }
+      : { ok: true, patch: { negocio: leido.nombre, ...limpiar } };
   }
   if (etapa === 'pdf') {
     // La opción tal cual, o lo que escriba: «no», «faltan cosas», «está mal» es que no; «sí», «correcto», «bien», que sí.
@@ -584,9 +714,11 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { origen: texto } };
   }
   if (etapa === 'interes') {
-    const interes = interesDe(texto);
-    if (!interes) return { ok: false, error: 'Elige una de las opciones.' };
-    return { ok: true, patch: { interes } };
+    const cercana = opcionMasCercana(texto, INTERESES.map((i) => i.label));
+    const interes = interesDe(texto) ?? (cercana != null ? INTERESES[cercana].id : null);
+    if (!interes) return { ok: false, error: NO_ENTENDI_OPCION };
+    const escrita = opcion === undefined && !INTERESES.some((i) => i.label === texto);
+    return { ok: true, patch: { interes, ...(escrita ? { escritas: { ...e.escritas, interes: texto } } : {}) } };
   }
   if (etapa === 'objetivo' || etapa === 'que_hace') {
     if (!texto) return { ok: false, error: 'Escríbeme tu respuesta.' };
@@ -600,12 +732,15 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     const { opciones } = textoPreguntaFase(p, ef.canal);
     // Sólo con una opción: el diagnóstico se CALCULA (lib/fase-diagnostico.ts) y una respuesta libre no
     // tiene índice. Se acepta el texto si es exactamente una opción.
-    const idx = Number.isInteger(r.opcion) ? (r.opcion as number) : opciones.findIndex((o) => o.toLowerCase() === texto.toLowerCase());
-    if (!(idx >= 0 && idx < opciones.length)) return { ok: false, error: 'Elige una de las opciones.' };
+    const exacta = Number.isInteger(r.opcion) ? (r.opcion as number) : opciones.findIndex((o) => o.toLowerCase() === texto.toLowerCase());
+    // Lo escrito con otras palabras vale (20/10/2026, Florencia): la opción más parecida, y lo que escribió queda guardado.
+    const idx = exacta >= 0 ? exacta : opcionMasCercana(texto, opciones) ?? -1;
+    if (!(idx >= 0 && idx < opciones.length)) return { ok: false, error: NO_ENTENDI_OPCION };
+    const escritas = exacta < 0 ? { escritas: { ...e.escritas, [p.tipo === 'canal' ? 'canal' : PREGUNTAS[p.idx].id]: texto } } : {};
     if (p.tipo === 'canal') {
       const canal = CANALES[idx].id;
       const siguiente: EstadoArranque = { ...ef, canal };
-      return { ok: true, patch: { canal }, ...(faseCompleta(siguiente) ? { fase: faseCompleta(siguiente)!, faseCanal: canal } : {}) };
+      return { ok: true, patch: { canal, ...escritas }, ...(faseCompleta(siguiente) ? { fase: faseCompleta(siguiente)!, faseCanal: canal } : {}) };
     }
     const faseResp = [...(ef.faseResp ?? PREGUNTAS.map(() => -1))];
     while (faseResp.length < PREGUNTAS.length) faseResp.push(-1);
@@ -615,7 +750,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     // copiarlo haría que `preguntoLaFase` dibujara como del arranque preguntas que hizo la otra conversación.
     const propias = h.modo === 'oferta' ? faseResp.map((v, i) => (contestada(e.faseResp?.[i]) || i === p.idx ? v : -1)) : faseResp;
     const completa = faseCompleta(siguiente);
-    return { ok: true, patch: { faseResp: propias }, ...(completa ? { fase: completa, ...(siguiente.canal ? { faseCanal: siguiente.canal } : {}) } : {}) };
+    return { ok: true, patch: { faseResp: propias, ...escritas }, ...(completa ? { fase: completa, ...(siguiente.canal ? { faseCanal: siguiente.canal } : {}) } : {}) };
   }
   if (etapa === 'codigo') {
     if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined } };
@@ -662,7 +797,23 @@ export function cierreDePasos(
  */
 export function sinMarca(v: string | null | undefined): string {
   const t = (v ?? '').trim();
-  return /\[completar\]/i.test(t) ? '' : t;
+  // «sin dato: …» tampoco es un dato (20/10/2026, Florencia, ws21): llegó a la promesa del producto y al brief.
+  return /\[completar\]/i.test(t) || /^sin dato\b/i.test(t) ? '' : t;
+}
+
+/**
+ * Cómo cobra, de lo que dijo del precio (20/10/2026, Florencia: «6 cuotas mensuales» quedaba como pago único). Las cuotas
+ * o lo mensual son una suscripción, con los meses si los dijo («6 cuotas»); un «pago único» o «de contado» manda aunque
+ * también ofrezca cuotas. Lo demás, único. El monto no se lee: es texto libre y lo pone el dueño en Productos.
+ */
+export function cobroDelPrecio(precio: string | null | undefined): { tipo: 'unico' | 'suscripcion'; meses: number | null } {
+  const t = (precio ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  if (!t.trim() || /pago unico|un (?:solo|unico) pago|de contado|al contado/.test(t)) return { tipo: 'unico', meses: null };
+  const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
+  if (cuotas) return { tipo: 'suscripcion', meses: Number(cuotas[1]) || null };
+  if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) return { tipo: 'unico', meses: null };
+  const meses = t.match(/(\d{1,2})\s*meses\b/);
+  return { tipo: 'suscripcion', meses: meses ? Number(meses[1]) || null : null };
 }
 
 /**

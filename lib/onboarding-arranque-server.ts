@@ -10,9 +10,10 @@
 import 'server-only';
 import { capaDef } from './capas';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
-import { getCapaActual, getWorkspace, getWorkspaceActual, actualizarWorkspace } from './workspace';
+import { estaImpersonando, getCapaActual, getWorkspace, getWorkspaceActual, actualizarWorkspace } from './workspace';
 import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CLAVE_GUARDIA, parseGuardia } from './onboarding-guardia';
+import { wsDelOnboarding } from './onboarding-guard';
 import { getPerfil, setPerfil } from './perfil';
 import { getDiagnosticoFase } from './fase-store';
 import { PREGUNTAS, esCanal } from './fase-diagnostico';
@@ -35,9 +36,10 @@ import { borrarBinario, insertFile, listFiles, mapaParaEscribir, subirBinario } 
 import { idDeContenido } from './archivero-registro';
 import { nombreArchivoLoQueVendes, pdfDeLoQueVendes } from './lo-que-vendes-pdf';
 import { tzDeWorkspace } from './timezone';
-import { faltanDelArranque, preguntaAbierta, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
+import { NOMBRE_WS_PRUEBA } from './reset-workspace';
+import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
-  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
+  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, cobroDelPrecio, mensajesDelHilo, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -80,18 +82,39 @@ export async function guardarEstadoArranque(patch: Partial<EstadoArranque>): Pro
  * (el más viejo es el jefe, «Second Brain»), para que éste quede como «Onboarding» y no como el principal.
  */
 export async function hiloDelOnboarding(): Promise<number | null> {
+  // Mirando a un cliente, NO (20/10/2026): el chat quedaría con el chart_key del super admin. Se crea cuando entra el cliente
+  // (`hiloParaQuienYaTermino`, en su primera visita al Ops Center).
+  if (await estaImpersonando().catch(() => true)) return null;
   const previo = parseEstado(await getSettingEstricto(CLAVE));
   if (previo.hiloChat) return previo.hiloChat;
   const persona = await getUsuarioActual();
   const chartKey = persona ? chartKeyDePersona(persona) : null;
   if (!chartKey) return null;
+  const sesiones = await listSessions(chartKey);
+  // Ya está (dos pestañas a la vez, o se cortó antes de anotar el id): se anota ése y no se crea otro.
+  const ya = sesiones.find((s) => s.titulo === TITULO_HILO);
+  if (ya) { await guardarEstadoArranque({ hiloChat: ya.id }); return ya.id; }
   const v = await vistaArranque();
-  const mensajes = [...v.antes, ...(v.sesion?.mensajes ?? []), ...v.despues].filter((m) => m.texto && m.texto.trim());
-  if (!(await listSessions(chartKey)).length) await createSession(chartKey, null, null);
-  const hilo = await createSession(chartKey, 'Onboarding', null);
-  for (const m of mensajes) await appendMessage(hilo.id, m.de === 'yo' ? 'user' : 'assistant', m.texto.trim());
+  const mensajes = mensajesDelHilo([...v.antes, ...(v.sesion?.mensajes ?? []), ...v.despues], previo.interes);
+  if (!sesiones.length) await createSession(chartKey, null, null);
+  const hilo = await createSession(chartKey, TITULO_HILO, null);
+  for (const m of mensajes) await appendMessage(hilo.id, m.role, m.content);
   await guardarEstadoArranque({ hiloChat: hilo.id });
   return hilo.id;
+}
+
+/**
+ * El chat «Onboarding» para quien terminó ANTES de que existiera (20/10/2026, Florencia, ws21: terminó el 18/10 y su Ops
+ * Center tenía 0 chats). /onboarding redirige a quien ya terminó, así que el final del onboarding no le llega nunca: se
+ * crea en su primera visita al Ops Center. Sólo si terminó el onboarding de CHAT (hay `nombre` o `sesionId` en su estado)
+ * y quien entra es el admin del negocio (no un closer o un setter del equipo). Devuelve el id sólo si lo creó ahora.
+ */
+export async function hiloParaQuienYaTermino(): Promise<number | null> {
+  const e = parseEstado(await getSettingEstricto(CLAVE));
+  if (e.hiloChat || (!e.nombre && !e.sesionId)) return null;
+  if ((await getEstadoOnboarding()).status !== 'done') return null;
+  if ('error' in (await wsDelOnboarding())) return null;
+  return hiloDelOnboarding();
 }
 
 export type HechosServer = HechosArranque & {
@@ -129,11 +152,14 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
   return {
     modo,
     nombreCuenta: perfil?.nombre ?? '',
-    nombreWorkspace: w?.nombre ?? '',
+    // El nombre del ws de prueba no se ofrece como «tu negocio» (lo pone el RESET: lib/reset-workspace.ts).
+    nombreWorkspace: w?.nombre && w.nombre !== NOMBRE_WS_PRUEBA ? w.nombre : '',
     faseGuardada: diag != null,
     canalNegocio: diag?.canal && esCanal(diag.canal) ? diag.canal : null,
-    // Con una pregunta de MaKo sin contestar, todavía no: la pregunta pendiente manda (18/10/2026, `preguntaAbierta`).
-    loQueVende: !!sesion && faltanDelArranque(sesion.piezas).length === 0 && !preguntaAbierta(sesion.mensajes),
+    // Con las piezas, sí. Ya no espera a que el modelo deje de preguntar (`preguntaAbierta`, 18/10): con las piezas el turno
+    // que cierra lo escribe el código (app/api/offer/route.ts → mensajeDeCierreDelArranque), y esperar al modelo hizo que
+    // Florencia contestara 6 preguntas de más (20/10/2026).
+    loQueVende: !!sesion && faltanDelArranque(sesion.piezas).length === 0,
     // Lo que ya contestó del diagnóstico en la conversación de la oferta: el arranque no lo repite.
     faseOffer: sesion ? (({ respuestas, canal }) => ({ respuestas, canal }))(estadoDiagnostico(sesion.mensajes, { canal: null, yaGuardado: false })) : null,
     conCrm: modo === 'oferta',
@@ -335,11 +361,13 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
         // monto del producto es el del link de cobro (CobrarConLink). Queda escrito en la descripción y el
         // monto lo pone él en Productos.
         const precio = sinMarca(piezas?.precio?.valor);
+        // Cuotas o mensual es una suscripción (20/10/2026, Florencia: cobra 6 cuotas y quedaba «pago único»).
+        const cobro = cobroDelPrecio(precio);
         await upsertProducto({
           nombre: sinMarca(propuesta?.nombre) || `Oferta de ${e.negocio ?? 'tu negocio'}`,
-          tipo: 'unico',
+          tipo: cobro.tipo,
           monto_usd: null,
-          suscripcion_meses: null,
+          suscripcion_meses: cobro.meses,
           promesa: sinMarca(piezas?.resultado?.valor) || null,
           incluye: sinMarca(piezas?.entregables?.valor) || null,
           garantia: sinMarca(piezas?.garantia?.valor) || null,

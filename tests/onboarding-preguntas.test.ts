@@ -80,8 +80,8 @@ test('la respuesta del nombre: lo que se guarda, lo que dice MaKo después y el 
   const { antes } = mensajesDeArranque(r.patch, H);
   const pregunta = antes[antes.length - 1];
   assert.equal(pregunta.texto, 'Un gusto, Martín. ¿Cómo se llama tu negocio?');
-  // Desde el 18/10/2026 (14:00) el negocio se escribe: sin respuestas rápidas, ni la que nombró con su nombre.
-  assert.equal(pregunta.opciones, undefined);
+  // Desde el 20/10/2026 vuelve a ofrecer el que nombró con su nombre (Florencia, ws21); un email del alta, no.
+  assert.deepEqual(pregunta.opciones, ['Acme']);
   // «hola» no es un nombre: se pide de nuevo, sin guardar nada.
   const mal = leerRespuesta({}, H, { texto: 'hola' });
   assert.equal(mal.ok, false);
@@ -135,8 +135,12 @@ test('el nombre y el negocio se escriben: nunca un botón con restos de otra pru
     assert.equal(antes[0].opciones, undefined, `«${cuenta}»`);
   }
   assert.equal(mensajesDeArranque({}, { ...H, nombreCuenta: 'Soy' }).antes[0].opciones, undefined);
+  // Desde el 20/10/2026 el negocio SÍ ofrece el nombre del alta y el que dijo con su nombre (Florencia, ws21): lo de
+  // «Consultesis» era el RESET, que ya devuelve el ws a «Cliente de Prueba», y ése no llega (hechosDelArranque).
   const negocio = mensajesDeArranque({ nombre: 'Ayelen', negocioSugerido: 'Acme' }, { ...H, nombreWorkspace: 'Consultesis' }).antes;
-  assert.equal(negocio[negocio.length - 1].opciones, undefined, 'el negocio volvió a ofrecer «Consultesis»');
+  assert.deepEqual(negocio[negocio.length - 1].opciones, ['Acme', 'Consultesis']);
+  const sinNegocio = mensajesDeArranque({ nombre: 'Ayelen' }, { ...H, nombreWorkspace: '' }).antes;
+  assert.equal(sinNegocio[sinNegocio.length - 1].opciones, undefined, 'sin nombre del alta, nada que ofrecer');
 });
 
 test('el interés: la opción o lo que escriba, y a qué pestaña entra al terminar', () => {

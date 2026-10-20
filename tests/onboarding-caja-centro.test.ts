@@ -44,7 +44,9 @@ test('la caja del onboarding tiene las piezas de la del Ops Center, y ninguna pr
   for (const pieza of ['ListaAdjuntos', 'MasCaja', 'BotonEmojis', 'BotonMandar', 'ResalteDeLinks']) {
     assert.match(onb, new RegExp(`import \\{[^}]*\\b${pieza}\\b[^}]*\\} from '@/app/admin/operaciones/`), `${pieza} tiene que ser LA del Ops Center`);
   }
-  assert.doesNotMatch(onb, /<svg|<button|ComposerWhatsApp/, 'un botón propio (o la barra verde de WhatsApp) no es la caja del Ops Center');
+  assert.doesNotMatch(onb, /<svg|ComposerWhatsApp/, 'un ícono propio (o la barra verde de WhatsApp) no es la caja del Ops Center');
+  // El único botón propio es el micrófono de la nota de voz (20/10/2026): con la clase del de mandar del Ops Center.
+  assert.deepEqual([...onb.matchAll(/<button[^>]*className="([^"]+)"/g)].map((m) => m[1]), ['co-enviar co-enviar--mic']);
   assert.match(onb, /import '@\/app\/admin\/operaciones\/centro\.css';/);
 });
 

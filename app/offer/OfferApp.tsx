@@ -74,7 +74,7 @@ import { SelectorFunnel } from './SelectorFunnel';
 import { leerAdjuntos } from './adjuntos-envio';
 import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
 import {
-  ACTUALIZAR_PDF, TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, quedoGuardado, reemplaza,
+  ACTUALIZAR_PDF, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, quedoGuardado, reemplaza,
   resumenDe, unirOpciones, type AvisoGuardado,
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
@@ -362,6 +362,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       ...(envio.audio ? { audio: { url: envio.audio.url, secs: envio.audio.secs } } : {}),
     });
     let avisoLink: string | null = null;
+    /** Los links que no abrieron: el turno los lleva para que MaKo no diga que los vio (20/10/2026, Florencia). */
+    const sinLeer: string[] = [];
     try {
       const docIds = envio.docs.map((d) => d.id);
       // 1) Los links del mensaje, leídos como un documento más (y una sola vez por conversación).
@@ -385,6 +387,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
           // texto…»); con un prefijo nuestro adelante se leía como dos frases pegadas.
           if (err instanceof ErrorOfferApi && err.sesion) aplicarSesion(err.sesion, e);
           avisoLink = mensajeDeError(err);
+          sinLeer.push(url);
         }
       }
       // 2) La nota de voz: a MP3 y a Storage, como un archivo (no pasa por una server action, que topea en 1 MB).
@@ -408,6 +411,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
           action: 'turno', sesionId: id, texto: envio.texto, docIds,
           ...(audio ? { audio } : {}),
           ...(envio.respuesta ? { respuesta: envio.respuesta } : {}),
+          ...(sinLeer.length ? { linksSinLeer: sinLeer } : {}),
           // En el onboarding MaKo sólo pregunta qué vende (el servidor lo confirma: onboarding pendiente).
           ...(arranque ? { origen: 'arranque' } : {}),
         },
@@ -492,7 +496,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     }
     if (lista.ref.current.length) { void enviarVista(); return; }
     if (!puedeMandar || !hayAlgo) return;
-    if (texto.length > TOPE_MENSAJE) { setErrorChat('Tu mensaje es muy largo. Pártelo en dos.'); return; }
     const t = texto.trim();
     const e = epoca.current;
     setTexto('');
@@ -527,7 +530,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const enviarVista = async () => {
     const items = lista.ref.current;
     if (!items.length || leyendoRef.current || !puedeMandar) return;
-    if (texto.length > TOPE_MENSAJE) { setErrorVista('Tu mensaje es muy largo. Pártelo en dos.'); return; }
     const id = sesionId.current;
     const s = sesionRef.current;
     if (id == null || !s) return;
@@ -923,7 +925,11 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   };
   const cajaArranque = arranque ? (
     <CajaDelCentro key={sesion?.id ?? 0} texto={texto} onTexto={setTexto} onMandar={() => void enviarComposer()} ocupado={ocupado}
-      placeholder={arranque.placeholder} adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista} />
+      placeholder={arranque.placeholder} adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista}
+      voz={arranque.manda ? null : {
+        onAudio: mandarAudio, onError: setErrorChat,
+        pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onReenviar: reenviarAudio, onDescartar: descartarAudio } : null,
+      }} />
   ) : null;
 
   return (

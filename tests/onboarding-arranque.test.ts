@@ -136,7 +136,8 @@ test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve c
   assert.equal(antes[1].texto, 'Martín');
   assert.equal(antes[0].opciones, undefined, 'una pregunta ya contestada no vuelve a ofrecer opciones');
   assert.match(antes[2].texto, /Un gusto, Martín/);
-  assert.equal(antes[2].opciones, undefined, 'el negocio volvió a ofrecer el nombre del workspace');
+  // Desde el 20/10/2026 el negocio ofrece el nombre del alta si parece un negocio (Florencia, ws21; lo del 18/10 era el RESET).
+  assert.deepEqual(antes[2].opciones, ['Negocio que Escala']);
   // Ya no se pregunta el objetivo a 90 días, ni con una conversación que lo había contestado.
   assert.ok(!mensajesDeArranque({ ...QUIEN, objetivo: 'Vender más' }, H).antes.some((m) => m.id === 'arr-objetivo'));
   const fin = mensajesDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada' }, { ...H, loQueVende: true, faseGuardada: true }).despues;

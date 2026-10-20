@@ -2414,3 +2414,28 @@ Pedido de Martín (punto 15 del feedback del 18/10), en cuatro commits de la ram
 - **Las preguntas con opciones no aceptan texto** (lib/onboarding-arranque.ts:570 y :586 devuelven «Elige una de las opciones.»), y la pantalla tampoco avisa que se puede escribir otra cosa.
 - **Lo que contestó en «¿qué querés que MaKo resuelva primero?» no se usa:** `rutaDeEntrada` (lib/onboarding-arranque.ts:194) no tiene llamadores, y la salida siempre va a /second-brain sin guía ni soporte visible.
 - **«Lo justo» estaba desplegado y el onboarding igual duró 45 minutos** (22:22→23:07 UTC, contra «menos de 5» del saludo). El diagnóstico obvio, que el límite de 3 piezas (6470c86f6) no estaba en producción, era el equivocado: 3413c63aa estaba READY desde las 21:35 UTC. La causa es la de arriba: el corte lo decide el modelo.
+
+**Lo que quedó, y las reglas (20/10/2026, chat «Onboarding», rama onboarding-v3):**
+- **El corte lo escribe el código.** Con `faltanDelArranque` vacío, el mensaje es «¡Gracias!» sin opciones, diga lo que diga el modelo (`mensajeDeCierreDelArranque`). Una pieza se pregunta dos veces como mucho: a la segunda respuesta sin anotar queda «sin dato:» (`conTopeDelArranque`). La pieza que se pregunta es la PRIMERA que falta en el orden de la guía, y por eso la nota va sin el texto del dueño: podría no ser la que MaKo preguntó.
+- **El nombre se confirma antes de escribirse.** Lo sacado con dos puntos o guion, lo que dice «personal», lo largo y «uso mi nombre» preguntan «¿Tu negocio se llama «X»?»; quitar un «se llama» no. Ojo al probar `extraerNegocio`: la regla general de los dos puntos ya cubre «mi marca personal: X», así que un test con dos puntos no prueba la específica (hace falta el caso con guion).
+- **Una opción tocada no es palabra del dueño:** en el onboarding se va la respuesta rápida con un número que el dueño no dijo, y con menos de dos no se ofrece ninguna (`opcionesDelArranque`).
+- **El chat «Onboarding» de quien ya terminó** se crea en su primera visita a /second-brain (sólo el admin, nunca mirando como super admin), y se reusa uno con ese título si ya existe. Florencia lo recibe la primera vez que entre después del deploy.
+- **La nota de voz se queda en el onboarding.** El dictado del Ops Center no se pudo probar con 2 minutos (ver hallazgos-infra, «Probar el dictado con un micrófono falso…»), y el otro camino del botón usa las keys del negocio (hallazgos-plan). La caja es la del Ops Center; su micrófono graba la nota con la sesión de voz de la casa.
+- **Reparar el ws21** quedó escrito y sin correr: `side-session-notes/…/feedback-20-10/reparar-ws21.ts` (sin `--aplicar` sólo lee). Corre con el sí de Martín y el nombre que él elija.
+- **Sin hacer:** el diagnóstico de fase repite el canal que ya contó en la conversación (5b, lib/onboarding-arranque.ts → preguntarFase); el voseo y el «Perfecto:» del modelo no tienen filtro de salida (lib/offer-ia.ts); `TOPE_PIEZA` = 400 sigue cortando las piezas largas con «…» (lib/offer-reglas.ts); la salida del hilo lista lo que MaKo puede hacer, pero sin botones (chart_chats no guarda opciones).
+
+## El CRM a medida, el hilo que no puede ser el primero, y la caja del Ops Center (20/10/2026)
+
+- **El CRM a medida cambia NOMBRES, nunca claves.** Martín pidió que el CRM del onboarding fuera «personalizado». Lo
+  tentador es que la IA arme las etapas enteras, y no se puede: las nutriciones, los avisos y las automatizaciones mueven a
+  cada cliente por la `key` de su etapa (`lead`, `agenda`, `ganado`…). MaKo elige un tipo de `TIPOS_CRM` entre los de
+  su canal y sólo renombra; `parsePropuestaCrm` (lib/onboarding-crm.ts) tira un tipo fuera de la lista y deja el nombre de
+  fábrica a uno largo, con emoji o repetido. Se guarda una vez (`crmPropuesta`; `null` = no salió y queda la plantilla).
+- **La propuesta se arma en el POST que PASA a la etapa del CRM, y relee los hechos.** Con los hechos de antes de guardar,
+  la última respuesta de la fase todavía no figura como diagnóstico guardado y `etapaDeArranque` sigue diciendo «fase»: la
+  propuesta no se armaba nunca. Se relee sólo si la etapa era `pdf` o `fase` (releer siempre son ocho lecturas por mensaje).
+- **El hilo «Onboarding» no puede ser el primer chat.** El jefe del cliente («Second Brain») es la sesión MÁS VIEJA de su
+  chartKey: si el del onboarding se creaba primero, quedaba como jefe. Por eso se crea antes una sesión vacía si no hay.
+- **La caja del Ops Center no se importa en ChatOffer**: ver hallazgos-offer.md (un test carga ChatOffer en node).
+
+*20/10/2026, chat «Onboarding» (claude4), rama onboarding-v3.*

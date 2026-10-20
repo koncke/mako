@@ -345,7 +345,8 @@ test('el diagnóstico de fase: se guarda en el negocio SÓLO si no había uno (i
   assert.match(resp, /diagnostico: diagnosticoParaPrompt\(plan, e\), diagnosticoObligatorio: plan\.modo === 'forzar',/);
   // Un turno con documentos nuevos no fuerza la pregunta (en los DOS planes: el de antes y el de después de la IA).
   assert.equal([...resp.matchAll(/conDocumentosNuevos: p\.nuevos\.length > 0/g)].length, 2);
-  assert.match(resp, /const m = mensajeDeMako\(\{/);
+  // En el onboarding, con las piezas, el mensaje lo escribe el código (20/10/2026); si no, el de siempre.
+  assert.match(resp, /const m = (?:cierra \? mensajeDeCierreDelArranque\(randomUUID\(\), new Date\(\)\.toISOString\(\)\) : )?mensajeDeMako\(\{/);
   // El bloque del diagnóstico NO va envuelto como dato no confiable: trae una orden.
   const turnoIA = IA.slice(IA.indexOf('export async function turnoOffer('), IA.indexOf('export async function diagnosticoOffer('));
   assert.match(turnoIA, /diagnostico: p\.diagnostico\.trim\(\) \|\| '\(nada pendiente\)',/);

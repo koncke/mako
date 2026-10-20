@@ -1534,3 +1534,14 @@ test: `tests/sidebar-nueva.test.ts`
   «Abrir ficha» lleva a la completa. Antes tocar abría la completa.
 
 **Vive en:** app/m/_ui/KanbanM.tsx · app/m/m.css · app/m/crm/TableroCrm.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
+
+## Nada que traiga .css adentro de ShellM: el índice de app/m/_ui lo reexporta (20/10/2026)
+
+**Síntoma:** tests/m-offer.test.ts cayó al cargar con `SyntaxError: Unexpected token '.'` en
+app/admin/operaciones/criatura.css, sin que nadie tocara Offer. **Lo obvio era lo equivocado:** no había un error de
+sintaxis ni en m-offer ni en lo que importa directo. La entrada de MaKo al abrir la app (EntradaMako → CriaturaMako →
+Criatura → criatura.css) se había montado en ShellM, y `app/m/_ui/index.ts` reexporta ShellM: todo test que importa algo
+de `@/app/m/_ui` (HojasOfferM lo hace) arrastraba el .css. **Regla:** lo que trae CSS se monta en app/m/layout.tsx, no
+en ShellM. Lo fija tests/movil-entrada.test.ts.
+
+*20/10/2026, chat «Onboarding» (claude4).*

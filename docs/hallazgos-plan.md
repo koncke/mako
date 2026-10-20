@@ -7222,3 +7222,14 @@ Causa: `clasificarReunion` (lib/reunion-clasificar.ts:57-70, el motivo en :92-95
 Regla: alguien con workspace propio en MaKo es cliente para el clasificador, aunque su lead no esté en «ganado». Mientras no se arregle, «Leer igual» desde el modal de Fathom.
 
 Además, en esa grabación Fathom cruza los hablantes. Florencia entró con dos cuentas (la personal y la de Consultesis, que aparece como «Cónsul Tesis») y frases suyas salen como «Martin Carballo». Una llamada así se atribuye por el contenido, no por la etiqueta.
+
+## El dictado de respaldo usa las keys del negocio: un cliente nuevo no puede dictar sin el reconocimiento del navegador (20/10/2026)
+
+`useDictar` (app/_components/useDictar.ts) dicta en vivo con el reconocimiento del navegador y, si no lo hay (Firefox) o
+falla el permiso, graba y sube a /api/plan-dictado. Esa ruta transcribe con `transcribirAudio` contra las keys del
+WORKSPACE (lo dice su cabecera), así que un cliente sin IA propia —todo cliente nuevo— recibe «No pude transcribir el
+audio». Lo encontró el chat «Onboarding» al elegir el micrófono del onboarding (se quedó con la nota de voz de Offer, que
+en el onboarding usa la red de la plataforma). **Sin hacer:** que el respaldo del dictado use la red de la plataforma o
+diga por qué no puede, en el Plan, el Ops Center y el chat del teléfono.
+
+*20/10/2026, chat «Onboarding» (claude4); el código es del Plan.*
