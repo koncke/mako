@@ -99,4 +99,6 @@ export const NOMBRE_PRIORIDAD: Readonly<Record<PrioridadTarea, string>> = { 0: '
  * bloque de fondo, no vacía»). El de la familia del 17/10 era `--surface-2` al 55 %, que sobre el fondo de la página casi
  * no se ve: una columna sin tarjetas parecía un hueco. Lo fija tests/tarjetas-familia.test.ts.
  */
-export const FONDO_COLUMNA = 'var(--surface-2)';
+// ⚠️ Una VARIABLE con su valor claro y oscuro (app/globals.css), no `--surface-2`: el 18/10 se puso `--surface-2` y
+// era el mismo color que la página (#F5F7FA sobre #F4F6F9); el 20/10 Martín seguía viendo las columnas invisibles.
+export const FONDO_COLUMNA = 'var(--fondo-columna)';
