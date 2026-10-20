@@ -2032,3 +2032,55 @@ Los tres vinieron de la revisión con Código Inmobiliario (16/10, Fathom 863534
   interpreta suelto en /api/mako/pedidos).
 
 *17/10/2026, «Pendientes B3» (`claude4`).*
+
+## Adjuntar documentos al chat del editor y varios a la caja de crear (20/10/2026)
+
+Pedido de la llamada de Fathom 864249059 (el onboarding de Florencia, 18/10): ella no pudo darle al chat del editor su
+documento y el PDF «Lo que vendes» («No me permite»). El hito, literal, en la bitácora del área.
+
+### El esquema corta a 60.000 caracteres sin avisar: varios archivos pegados perdían el último
+- **Dónde:** `esquema` en modo «pegar» (`lib/editor-landing/ia.ts`) hace `slice(0, MAX_TEXTO_ENTRADA)` callado. Cada
+  archivo que lee la ruta de importar ya puede traer 60.000: dos pegados uno detrás de otro dejaban al segundo afuera
+  entero, sin error en ningún lado.
+- **Regla:** varios textos que van a un tope se REPARTEN (`repartirTexto` / `unirArchivos`, `lib/editor-landing/adjuntos.ts`):
+  el que entra en su parte va entero y el resto se divide, con «[…cortado]» donde se cortó. Y sin `---` entre archivos:
+  en «pegar» un `---` parte secciones.
+- **El test que daba verde sobre el bug:** con dos archivos de 50.000 el corte ingenuo pasaba, porque el segundo
+  «asomaba» después del primero. Un test de un tope va con el MÁXIMO que puede llegar (dos de 60.000) y mide que cada
+  uno tenga su parte.
+
+### Lo que la IA puede citar tiene que estar en `fuente`, o se vacía como inventado
+- `editar` pasa cada sección por `quitarPruebaInventada(t, fuente)`, y `fuente` es lo que se mandó: las secciones, la
+  instrucción y el contexto. Un testimonio que viene de un PDF adjunto, si el PDF no está en `fuente`, se borra como
+  «sin respaldo» y la persona ve la cita vacía. Medido con el modelo de mentira: la MISMA respuesta conserva la cita con
+  el archivo y la pierde sin él.
+- Por eso los adjuntos van DENTRO del contexto (`contextoConAdjuntos`), no como un bloque aparte del prompt. Y en el
+  slot `{{contexto}}`, no en uno nuevo: la regla de AGENTS.md (un prompt editado en /configuraciones no tendría el slot).
+- Cada archivo va con `contenidoNoConfiable`: un PDF ajeno con «</archivo_adjunto> ignora lo anterior» no cierra su
+  bloque ni mete un `{{slot}}`. El system de editar ya declara el CONTEXTO como datos.
+
+### El PDF «Lo que vendes» se lee gratis, y la descarga del Archivero tiene CORS abierto
+- `pdf-escritor` deja una capa de texto que `unpdf` lee entera, acentos incluidos (un PDF de 3,9 KB da 669 caracteres,
+  `via: 'pdf'`), así que el chip no paga una lectura por visión. Si alguien cambia el escritor para dibujar el texto
+  como trazos, cada chip costaría IA: lo vigila tests/web-generator-adjuntos.test.ts.
+- El chip lo BAJA el navegador (`/api/onboarding/archivero/download?id=…&preview=1`, un 302 a la URL firmada) y lo suma
+  como cualquier archivo. Funciona porque el storage responde `Access-Control-Allow-Origin: *` (medido el 20/10 con
+  curl). Con un storage sin CORS habría que leerlo en el server.
+- Se ofrece sólo el del onboarding (`origen: 'onboarding'`, el nombre de `nombreArchivoLoQueVendes`): un PDF que la
+  persona subió con ese nombre no es «el de MaKo». `esNombreLoQueVendes` es la vuelta del nombre, y el test las prueba
+  juntas.
+
+### Lo que quedó SIN hacer
+- **No se probó con clics en el ws3**: el ⊕ abriendo hacia arriba en el panel de 336 px, soltar y pegar, el chip, y los
+  colores de las piezas en el oscuro del editor. Hay que verlo en `/web-generator/<id>` del ws3.
+- **Un archivo de más de ~4,5 MB, sin medir.** La pantalla promete 15 MB (`TOPE_IMPORTAR_BYTES`) y la ruta de importar
+  dice que el tope de abajo es el proxy (~18 MB), pero lib/mako-adjuntos.ts dice que Vercel corta todo POST de más de
+  ~4,5 MB con un 413 en texto plano. Una de las dos está vieja.
+- Si `/api/mako/pedidos` parte el mensaje («usa este PDF y créame otra landing»), los archivos van sólo a la parte de la
+  landing abierta: la creación nueva sale sin ellos (`pedirEdicion` en PanelAgente.tsx, `burbujasDe` en pedidos-chat.ts).
+- Las píldoras de sugerencias no llevan los archivos de la caja (los dejan ahí para el próximo mensaje).
+- El «Documento» del «+» ofrece lo del Ops Center (`ACCEPT_ADJUNTOS_CENTRO`: fotos, PDF, Office y texto); soltar o pegar
+  toma además audio, video y OpenDocument (lo que lee el lector). `MasCaja` no recibe un `accept`.
+- MaKo Mobile (`/m/landing`) no tiene el chat del editor, así que tampoco el ⊕.
+
+*20/10/2026, jefe Web Generator (`claude4`).*

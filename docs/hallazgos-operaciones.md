@@ -1733,3 +1733,12 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
   - Un envío del Runner que queda retenido se le pasa ENTERO al Cerebro («REENVIAR A <sesión>: …»). El Cerebro se lo reenvía a ese chat, como su padre, y ahí sí entra.
   - Un chat nuevo se abre desde el Cerebro o en el mismo modo que el Runner.
 - **Chats en `auto` al 18/10:** Onboarding, Ops Center 3, CRM, Ticketera, Dashboard, Second Brain, MaKo Alert, Automations, Infra, Pagos y AI Avatar.
+
+## La miniatura de la caja decía «PDF» para un Word (20/10/2026, desde el chat del Web Generator)
+
+- **Síntoma:** desde el 18/10 la caja toma Word, Excel, PowerPoint y texto, pero `ListaAdjuntos` (AdjuntosCaja.tsx)
+  dibujaba todo documento con el rótulo fijo «PDF». Se vio al usar las piezas en el chat del editor de landings.
+- **Ahora:** la extensión del archivo (`etiquetaDoc`: «DOCX», «XLSX»…). Y `AdjuntoCaja` tiene un `estado` opcional
+  («leyendo» / «error») que la miniatura pone en `data-estado`: el Centro no lo usa; el editor lo pinta con su hoja.
+- **Sin hacer:** tocar la miniatura de un Word abre el `Visor`, que lo pone en un iframe con su `blob:`: el navegador no
+  lo muestra (lo baja o queda en blanco). Pasa igual en el Centro.
