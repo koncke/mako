@@ -51,7 +51,8 @@ import type { PasoGrafo } from '@/lib/flujo-grafo';
  *     `disparadores` (el CRON que eligió la persona: quien monta lo guarda YA por `action: 'disparadores'`). La
  *     `pregunta` la dibuja el chat.
  */
-export type ListoCrearIA = Pick<ListoIA, 'secuenciaId' | 'pasos' | 'nombre' | 'orden' | 'avisos' | 'etiquetasNuevas' | 'disparador'>
+// 20/10/2026: y `cron`, el horario del Recurrente que puso el server (la tarjeta CRON lo siembra igual).
+export type ListoCrearIA = Pick<ListoIA, 'secuenciaId' | 'pasos' | 'nombre' | 'orden' | 'avisos' | 'etiquetasNuevas' | 'disparador' | 'cron'>
   & Partial<ExtrasEdicionIA>
   & { modo: 'crear' | 'editar'; base?: readonly PasoGrafo[] };
 

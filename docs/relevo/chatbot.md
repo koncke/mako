@@ -1,5 +1,14 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **20/10/2026 noche (`claude4`): EL PEDIDO A (el Recurrente de Leila), HECHO EN `undecima`.** «Crear con IA» saca del
+> pedido el horario (`horarioDelPedido`, lib/flujo-ia-recurrente.ts) y a quién («todos los del funnel X» = todas sus
+> etapas; si no lo dice, pregunta «¿A quién le llega?» con cuántos hay hoy), arma SÓLO lo pedido (regla 8 nueva + código:
+> sin «Avisar al equipo» ni «Si responde» que nadie pidió), dice qué hizo («Creé «X»: sale … a … (N hoy). Manda «…»» y,
+> al editar, tarjeta por tarjeta + «toca Publicar»), y el motor reinscribe en cada ocurrencia de un Recurrente a quien
+> terminó la anterior (`barridoEsEvento`). Test: tests/crear-ia-recurrente.test.ts. Cosecha: docs/hallazgos-chatbot.md
+> («Crear con IA» no podía poner un Recurrente…). ⛔ #284 y #282 sin tocar. **Falta el pedido B** (el chat siempre
+> abierto en la sidebar, la tuerca, Configuraciones por automatización, el «?» solo y el aviso de Prospección).
+>
 > **20/10/2026 (`claude4`, chat jefe «Automations»): DOS PEDIDOS DE MARTÍN, CON EL TEXTO ENTERO** (regla de AGENTS.md:
 > nunca «los puntos N-M» sin el texto; el de abajo se perdió justamente así entre el 16 y el 17/10). En la bitácora, los
 > dos hitos `actor: "martin", tipo: "prompt"` del 16 y del 20/10.
