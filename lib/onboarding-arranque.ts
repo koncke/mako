@@ -213,6 +213,34 @@ export function rutaDelHilo(chat: number | null): string {
   return chat ? `${RUTA_AL_TERMINAR}?chat=${chat}&recorrido=${RECORRIDO_INICIO}` : `${RUTA_AL_TERMINAR}?recorrido=${RECORRIDO_INICIO}`;
 }
 
+/** El título del chat del Ops Center con la conversación del onboarding. */
+export const TITULO_HILO = 'Onboarding';
+
+/**
+ * El último mensaje del chat «Onboarding» (20/10/2026, llamada con Florencia del 18/10: salió al Ops Center sin guía y sin
+ * saber dónde pedir ayuda). Pregunta por dónde empezar con lo que dijo que quería resolver primero (`interes`, que se
+ * guardaba y nadie leía), nombra lo que MaKo ya puede hacer y dónde avisar si algo no anda: ahí MaKo abre el ticket.
+ */
+export function salidaDelOnboarding(interes: InteresId | undefined): string {
+  const i = INTERESES.find((x) => x.id === interes);
+  const primero = i ? `Me dijiste que quieres empezar por «${i.label.toLowerCase()}»: ¿arrancamos por ahí?` : '¿Por dónde quieres empezar?';
+  return `Listo, ya conozco tu negocio. ${primero} También puedo armar tu landing, escribir tus anuncios o tus guiones, cargar tus clientes al CRM o crear tus primeras publicaciones.\n\nSi algo no funciona, escríbemelo aquí o en tu grupo de WhatsApp con MaKo y abro un ticket para que lo arreglen.`;
+}
+
+/**
+ * Los mensajes del chat «Onboarding», en el orden en que pasaron: la conversación tal cual (un adjunto sin texto dice su
+ * nombre: si no, se perdía) y al final la salida (`salidaDelOnboarding`).
+ */
+export function mensajesDelHilo(
+  mensajes: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; adjuntos?: ReadonlyArray<{ nombre: string }> }>, interes: InteresId | undefined,
+): Array<{ role: 'user' | 'assistant'; content: string }> {
+  const out = mensajes.map((m) => ({
+    role: m.de === 'yo' ? 'user' as const : 'assistant' as const,
+    content: (m.texto ?? '').trim() || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n'),
+  })).filter((m) => m.content);
+  return [...out, { role: 'assistant', content: salidaDelOnboarding(interes) }];
+}
+
 export function rutaDeEntrada(interes: InteresId | undefined): string {
   return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';
 }
@@ -463,8 +491,8 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
 
   // 1. Quién es. EXPLICA ANTES DE PREGUNTAR (18/10/2026, Martín: «empieza a preguntar de la nada… debería decir algo como
   // "necesito que me cuentes de tu negocio para poder configurar tu cuenta... no tardaremos más de 5 minutos"»).
-  // SIN respuestas rápidas en el nombre ni en el negocio (18/10/2026, 14:00, Martín): ofrecían lo que quedaba de otra
-  // prueba («Ayelen» del perfil, «Consultesis» del nombre del workspace). Se escriben. tests/onboarding-preguntas.test.ts.
+  // SIN respuestas rápidas en el nombre (18/10/2026, 14:00, Martín): ofrecía lo que quedaba de otra prueba («Ayelen» del
+  // perfil). El negocio sí, desde el 20/10 (`sugerenciasDeNegocio`). tests/onboarding-preguntas.test.ts.
   preguntar(antes, 'nombre', SALUDO_ARRANQUE, e.nombre);
   if (etapa === 'nombre') return { antes, despues };
   // Con el nombre del alta para tocar, y lo entendido se CONFIRMA antes de escribirlo (20/10/2026, Florencia).

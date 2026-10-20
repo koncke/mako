@@ -29,10 +29,12 @@ test('el chat «Onboarding» se crea una vez, con la conversación entera y en o
   const f = s.slice(i, s.indexOf('\n}\n', i));
   assert.match(f, /if \(previo\.hiloChat\) return previo\.hiloChat;/, 'una segunda llamada duplicaría el chat');
   assert.match(f, /\[\.\.\.v\.antes, \.\.\.\(v\.sesion\?\.mensajes \?\? \[\]\), \.\.\.v\.despues\]/, 'la conversación no va tal cual (el orden de la pantalla)');
-  assert.match(f, /if \(!\(await listSessions\(chartKey\)\)\.length\) await createSession\(chartKey, null, null\);/,
+  assert.match(f, /if \(!sesiones\.length\) await createSession\(chartKey, null, null\);/,
     'sin un chat principal antes, el más viejo es el jefe y «Onboarding» se mostraría como «Second Brain»');
-  assert.match(f, /const hilo = await createSession\(chartKey, 'Onboarding', null\);/);
-  assert.match(f, /appendMessage\(hilo\.id, m\.de === 'yo' \? 'user' : 'assistant', m\.texto\.trim\(\)\)/);
+  // Desde el 20/10/2026 los mensajes salen de `mensajesDelHilo` (el adjunto sin texto y la salida al final):
+  // tests/onboarding-hilo-ya-termino.test.ts.
+  assert.match(f, /const hilo = await createSession\(chartKey, TITULO_HILO, null\);/);
+  assert.match(f, /for \(const m of mensajes\) await appendMessage\(hilo\.id, m\.role, m\.content\);/);
   assert.match(f, /await guardarEstadoArranque\(\{ hiloChat: hilo\.id \}\);/);
 });
 
