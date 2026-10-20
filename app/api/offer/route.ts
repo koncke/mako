@@ -87,7 +87,7 @@ import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
 import { MARCA_COMPLETAR, faltanDelArranque, faltanMinimas, type ArchiveroDoc, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, TOPE_DOC_ENTERO, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
+  MAX_DOCS_SESION, TOPE_DOC_ENTERO, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
@@ -795,7 +795,10 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
       turno: turnoIA, plan: planFinal, piezas, puedeConcluir: puede, id: randomUUID(), at: new Date().toISOString(),
       diagPara: plan.modo === 'no' ? null : plan.pregunta.id,
     });
-    return { mensajes: [...inferida.mensajes, m], piezas };
+    // En el onboarding, ninguna respuesta rápida con un número que el dueño no dijo, y dos o más (20/10/2026, Florencia).
+    const dicho = [...f.mensajes.filter((x) => x.de === 'yo').map((x) => x.texto), ...f.documentos.map((d) => d.texto)];
+    const mensaje = p.arranque ? conOpcionesDelArranque(m, dicho) : m;
+    return { mensajes: [...inferida.mensajes, mensaje], piezas };
   });
   await asegurarFaseGuardada(final, ctx);
   return ok({ sesion: await vistaSesion(final) });

@@ -734,10 +734,6 @@ export function planDiagnostico(e: EstadoDiagnostico, c: { puedeConcluir: boolea
   return { modo: 'ofrecer', ...base };
 }
 
-/** Los números de un texto, sin separadores («$3.000» y «3,000» son 3000). El cero no cuenta: «$0 – $3.000» se dice «menos de $3.000». */
-const numerosDe = (s: string): string[] =>
-  (s.match(/\d+(?:[.,]\d+)*/g) ?? []).map((n) => n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')).filter((n) => n !== '0');
-
 /**
  * Las opciones que se dibujan: las ADAPTADAS por la IA, mientras sigan siendo las originales.
  *
@@ -2830,6 +2826,30 @@ export function conTopeDelArranque(piezas: PiezasSabidas, mensajes: ReadonlyArra
     else if (m.de === 'yo' && abierta) { preguntas += 1; abierta = false; }
   }
   return preguntas >= REPREGUNTAS_DEL_ARRANQUE ? mergePiezas(piezas, { [falta]: 'sin dato:' }, 'chat', at) : piezas;
+}
+
+/** Los números de un texto, sin separadores («$1.500» y «1500» son el mismo). */
+const numerosDe = (t: string): string[] => (t.match(/\d+(?:[.,]\d+)*/g) ?? []).map((n) => n.replace(/[.,]/g, ''));
+
+/**
+ * Las respuestas rápidas del onboarding (20/10/2026, Florencia, ws21). Una opción tocada se anota como si la hubiera
+ * dicho el dueño: los rangos de precio que inventó MaKo («Entre $100 y $300 USD») terminaron siendo su precio, y la ÚNICA
+ * opción de un turno («Un plan de trabajo con hitos…») terminó siendo la 1ª sección de su PDF. Se va la que trae un
+ * número que el dueño no dijo (ni en sus mensajes ni en sus documentos), y con menos de dos no se ofrece ninguna: una
+ * sola opción no es elegir, es contestar por él.
+ */
+export function opcionesDelArranque(opciones: readonly string[] | undefined, dichoPorElDueno: readonly string[]): string[] {
+  const suyos = new Set(dichoPorElDueno.flatMap(numerosDe));
+  const sirven = (opciones ?? []).filter((o) => numerosDe(o).every((n) => suyos.has(n)));
+  return sirven.length >= 2 ? sirven : [];
+}
+
+/** El mensaje de MaKo del onboarding con sus respuestas rápidas filtradas (`opcionesDelArranque`). */
+export function conOpcionesDelArranque(m: MensajeSinAudio, dichoPorElDueno: readonly string[]): MensajeSinAudio {
+  if (!m.opciones?.length || m.pregunta) return m;
+  const { opciones: propuestas, varias, ...resto } = m;
+  const opciones = opcionesDelArranque(propuestas, dichoPorElDueno);
+  return { ...resto, ...(opciones.length ? { opciones } : {}), ...(varias && opciones.length > 1 ? { varias: true as const } : {}) };
 }
 
 export const guiaDelArranque = (): string =>
