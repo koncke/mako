@@ -259,7 +259,7 @@ export async function leerFila(id: number): Promise<FilaOffer | null> {
  * Sólo la conversación de una sesión, SIN documentos ni borrador (20/10/2026): la lee el Ops Center del cliente
  * (lib/chat-mako-indice.ts → hiloDeOffer) para mostrar Offer sin copiar nada. null = no es de este workspace.
  */
-export async function leerConversacionOffer(id: number): Promise<{ id: number; titulo: string; mensajes: OfferMensaje[]; updatedAt: string } | null> {
+export async function leerConversacionOffer(id: number): Promise<{ id: number; titulo: string; mensajes: MensajeGuardado[]; updatedAt: string } | null> {
   const db = await getTenantDb();
   const { data, error } = await db.from(TABLA).select('id, titulo, mensajes, updated_at').eq('id', id).limit(1);
   if (error) throw fallo(`leer la conversación #${id}`, error.message);

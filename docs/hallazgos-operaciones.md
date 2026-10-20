@@ -1781,18 +1781,19 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
   - **El hilo sigue siendo dos:** `Hilo` (Ops Center, turnos de Claude Code) y `HiloMako` (MaKo, con sus tarjetas).
   - **Las otras pantallas**, cada una de su chat (la lista, en el test).
 
-## «Espera tu respuesta» de un chat que ya contestó: cerraba con `wrap_up`, sin texto (20/10/2026)
+## «Espera tu respuesta» sin pregunta: el chat cerró con el recuadro de la app, que no llega al Ops Center (20/10/2026)
 
-- **Síntoma:** Martín: «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la
-  funcionalidad que creamos de respuestas múltiples en Ops Center». En el Ops Center, Debate seguía con «Espera tu respuesta»,
-  el hilo cortado y sin pregunta.
-- **Lo obvio era el error:** «Debate no recibió la respuesta». Sí la recibió y contestó. Después de la respuesta de las
-  21:10Z, cerró sus dos turnos SÓLO con herramientas: SendMessage y `mcp__ccd_turn__wrap_up` con `recap`, `ask` y `actions`.
-  No escribió una línea de texto.
-- **Causa:** el cartero subía de cada turno sólo los bloques de TEXTO (`turnosDeLineas` → `textoDe`). Un turno sin texto no
-  existía: en `operaciones.turnos.<Debate>` el último era de las 20:58. El recuadro de próximo paso del `wrap_up` (su
-  pregunta y sus botones) sólo se ve en la app de Claude. Le pasa a CUALQUIER chat que cierra con `wrap_up`, que es
-  justamente lo que la app le pide a cada chat al terminar.
+**Síntoma:** Martín: «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la funcionalidad que creamos de respuestas múltiples». En su Ops Center, el hilo de Debate terminaba en un mensaje de 40 minutos antes.
+
+**El diagnóstico obvio era el equivocado:** «Debate no recibió la respuesta». Sí la recibió: `operaciones.turnos.local_752add17…` tiene la respuesta de Martín de las 21:10Z.
+- Después, Debate cerró sus dos turnos SÓLO con herramientas: `SendMessage` y `mcp__ccd_turn__wrap_up`, con `recap`, `ask` y `actions` (botones). No escribió texto.
+- El cartero (`turnosDeLaVuelta`) sube sólo bloques de texto: ni el resumen ni la pregunta llegaron. El recuadro de próximo paso existe sólo en la app de Claude.
+- Le pasa a cualquier chat que cierra así, que es justo lo que el system prompt de la app empuja a hacer.
+
+**Regla:** una decisión para Martín va por `cartero.mjs preguntar` (AGENTS.md, desde el 17/10), y el turno termina con una línea de texto. El arreglo de fondo, encargado a Ops Center 3 el 20/10, es que el cartero suba el `recap` de un wrap_up como turno y su `ask`/`actions` como una pregunta de opciones.
+
+**Arreglado (20/10, Ops Center 3):**
+
 - **Arreglo (cartero 1.17.2):**
   - El `wrap_up` se lee como un mensaje del chat: su `recap` es el texto del turno (`cierreWrapUp`).
   - Con `ask` y dos o más botones se arma una PREGUNTA de las de 1.14.0 (`preguntaDeWrapUp`): pregunta = ask, opciones = los
@@ -1802,5 +1803,5 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
   - **El id de la pregunta es FIJO** (sale del id del `tool_use`): releer el transcript sube la misma, y MaKo no la repite
     ni le pisa la respuesta (`unirPreguntas` se queda con la que tiene).
   - No se sube si el chat ya hizo esa pregunta con `preguntar` (`preguntasSinRepetir`).
-- **Regla:** lo que un chat le muestra a Martín al terminar NO es sólo su texto. Cualquier forma de cerrar que la app dibuje
+- **Y del lado del cartero:** lo que un chat le muestra a Martín al terminar NO es sólo su texto. Cualquier forma de cerrar que la app dibuje
   (hoy, `wrap_up`) tiene que llegar al Ops Center, o el Ops Center miente sobre en qué quedó el chat.
