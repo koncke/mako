@@ -4531,3 +4531,24 @@ sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA
 - **Causa real:** en `chatClaudeTools` (`lib/anthropic.ts`), un `try { registro + cascada gratis } catch {}` envolvía las dos cosas. Cuando la cascada no contestaba, el llamador pedía `sinFallbackClaude` y el «falló la IA (…)» re-lanzado caía en ese `catch` vacío. El modelo quedaba en `''` y el veto hablaba por él. `chatClaude` ya tenía la lección («Acá afuera del catch, para que el corte no se lo coma»); la mitad con herramientas no.
 - **Regla:** un `catch` vacío envuelve sólo la operación que puede fallar «sin importancia» (leer el registro), nunca un camino que re-lanza a propósito. Lo fija `tests/anthropic-tools-sin-fallback.test.ts`: la forma vieja da 3 de 3 fallas.
 - **Sin hacer:** con el arreglo desplegado, el ticket #6 (04:13 UTC) trajo el motivo real: «falló la IA (sin proveedor gratis disponible)». El ws1 no tiene NINGUNA IA para el chat de MaKo. La causa probable, no medida clave por clave: desde el 16/10 las copias de las claves de la plataforma no cuentan como del negocio (`lib/ia-keys.ts`), y el ws1 podría no tener ninguna propia que pueda recibir datos de sus clientes. Eso decide Martín: el ticket volvió a él como pedido.
+
+## Un negocio con SÓLO su Claude no tenía IA para el chat, y «Conectar tu IA» le pedía Gemini (20/10/2026)
+
+- **Síntoma** (docs/investigacion-ops-center-19-10.md): un negocio que conectó sólo su Claude recibía en el chat «Para
+  contestarte necesito una IA conectada» con el modal de **Gemini**.
+- **Causa real:** el turno con herramientas (`chatClaudeTools`, la feature `mako-doer`) corría sólo la cascada barata
+  (`CASCADA_TOOLS`: Gemini, Groq, Mistral, OpenRouter, OpenAI). La clave de Anthropic del negocio movía sólo la cascada de
+  TEXTO (`conClaveDelNegocio`): en el chat nunca se miraba. Sin ninguna barata, «sin proveedor gratis disponible», y el
+  botón tenía Gemini fijo.
+- **Arreglo:** la frontera de la puerta 2 es UNA pieza (`permisoDeLaClaveDelNegocio`, lib/anthropic.ts) para los dos
+  caminos. En el chat se prueba cuando ninguna barata contestó y la cascada no ejecutó nada (si ejecutó, otro modelo
+  duplicaría la escritura): Haiku 4.5, su clave, la marca del negocio primero en el gasto, y nunca el Claude de MaKo. El
+  turno la cuenta como IA propia, y el botón abre la IA que el negocio ya tiene en su fila (`iaParaConectar`: su Claude, su
+  OpenAI, después las gratis; sin ninguna, Gemini).
+- **Medido en vivo** (20/10, con la clave propia del ws10, sin tocar la base): Haiku 4.5 con ese mismo pedido —herramientas,
+  sin thinking ni effort— pidió la herramienta, recibió el resultado y contestó. Lo que no se probó: el turno entero en la
+  app con un negocio de sólo Claude.
+- **Regla:** una IA que el negocio conectó tiene que poder contestar en TODOS los caminos que la ofrecen (texto y
+  herramientas), y lo que se le pide conectar es lo que ya eligió, no un default.
+- **Sin hacer:** con la pausa de Claude prendida (`mako.claude.pausa`), el negocio con sólo su Claude sigue viendo «Conectar
+  tu IA» (le abre su modal de Claude, no Gemini).

@@ -374,8 +374,24 @@ export function faltaIADelNegocio(fallo: string | null, iaPropia: number | null)
 export const AVISO_SIN_IA_EQUIPO = 'Para contestarte necesito una IA conectada. Ya lo está resolviendo el equipo de MaKo.';
 
 /** Lo que dice MaKo sin IA, y si lleva el botón para conectarla. `delEntorno` = `esNegocioDelEntorno(ws)`. */
-export function avisoSinIA(delEntorno: boolean): { aviso: string; conectar: string | null } {
-  return delEntorno ? { aviso: AVISO_SIN_IA_EQUIPO, conectar: null } : { aviso: AVISO_SIN_IA, conectar: SERVICIO_IA };
+export function avisoSinIA(delEntorno: boolean, servicio: string = SERVICIO_IA): { aviso: string; conectar: string | null } {
+  return delEntorno ? { aviso: AVISO_SIN_IA_EQUIPO, conectar: null } : { aviso: AVISO_SIN_IA, conectar: servicio };
+}
+
+/**
+ * QUÉ IA LE ABRE «Conectar tu IA»: LA QUE EL NEGOCIO YA ELIGIÓ (20/10/2026, docs/investigacion-ops-center-19-10.md: «un
+ * negocio que conectó sólo su Claude igual recibe el modal de Gemini»). Si tiene alguna guardada en su fila, se le abre
+ * ésa —para arreglarla, no para pedirle otra—, en este orden: su Claude y su OpenAI primero (la decisión A de Martín:
+ * cada negocio conecta la suya), después las gratis. Sin ninguna, Gemini (gratis, y el mismo link que manda WhatsApp).
+ */
+export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq', 'mistral', 'openrouter'] as const;
+/** La credencial base de cada una (lib/integraciones-catalogo.ts): la que se mira en la fila del negocio. */
+export const ENV_DE_IA: Record<(typeof IA_PARA_CONECTAR)[number], string> = {
+  anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY',
+  groq: 'GROQ_API_KEY', mistral: 'MISTRAL_API_KEY', openrouter: 'OPENROUTER_API_KEY',
+};
+export function iaParaConectar(conFila: readonly string[]): string {
+  return IA_PARA_CONECTAR.find((s) => conFila.includes(s)) ?? SERVICIO_IA;
 }
 
 /**

@@ -63,8 +63,10 @@ export type ItemHilo =
    *  `conectar`: la integración que le falta al negocio (`RespuestaTurno.conectar`): un botón que abre su modal ahí mismo. */
   | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string };
 
-/** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor. */
-export const botonConectar = (servicio: string): string => (servicio === 'gemini' ? 'Conectar tu IA' : 'Conectar');
+/** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor: el
+ *  modal que abre es el de la que el negocio ya eligió (`iaParaConectar`, lib/mako-turno-app-reglas.ts). */
+const SERVICIOS_DE_IA: ReadonlySet<string> = new Set(['anthropic', 'openai', 'gemini', 'groq', 'mistral', 'openrouter', 'cerebras']);
+export const botonConectar = (servicio: string): string => (SERVICIOS_DE_IA.has(servicio) ? 'Conectar tu IA' : 'Conectar');
 
 let secuencia = 0;
 /** Un id local para la `key` de React (los mensajes guardados no traen id). */

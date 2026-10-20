@@ -30,7 +30,7 @@
 // =============================================================================
 
 import 'server-only';
-import { chatClaudeTools, type RichMsg, type ToolDef } from '@/lib/anthropic';
+import { chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
 import { aToolDef, porId } from '@/lib/api-mako/registro';
@@ -50,7 +50,7 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { avisoDePuntos } from '@/lib/puntos-mensaje';
 import { validarRespuestaDoer } from '@/lib/respuesta-doer';
 import { sanearSalida } from '@/lib/doer-salida';
-import { credWs, esNegocioDelEntorno } from '@/lib/credenciales';
+import { credDelCliente, credWs, esNegocioDelEntorno } from '@/lib/credenciales';
 import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
@@ -69,7 +69,7 @@ import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoL
 import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA,
-  historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA, iaParaConectar, IA_PARA_CONECTAR, ENV_DE_IA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -245,10 +245,21 @@ async function iaPropiaDelTurno(): Promise<number | null> {
     const { provsDe, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
     let n = 0;
     for (const p of CASCADA_TOOLS) n += (await provsDe(p)).length;
+    // Y su Claude, que el turno usa cuando ninguna barata contesta (`chatClaudeTools`, 20/10/2026): un negocio con sólo
+    // su Claude TIENE con qué contestar.
+    const claude = await permisoDeLaClaveDelNegocio(FEATURE);
+    if (claude && 'permiso' in claude) n++;
     return n;
   } catch {
     return null;
   }
+}
+
+/** Las IA que el negocio tiene guardadas en SU fila (`credDelCliente`, sin el entorno), para abrirle la que ya eligió. */
+async function iaConFila(): Promise<string[]> {
+  const out: string[] = [];
+  for (const s of IA_PARA_CONECTAR) if (await credDelCliente(ENV_DE_IA[s]).catch(() => null)) out.push(s);
+  return out;
 }
 
 /** Mandarle un ticket al equipo de MaKo (lib/api-mako/areas/tickets.def.ts): viaja SIEMPRE en el chat de la app, para
@@ -529,7 +540,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     }
     // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
     // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.
-    const sinIAEs = !respuesta && sinIA ? avisoSinIA(await esNegocioDelEntorno(ws).catch(() => false)) : null;
+    const sinIAEs = !respuesta && sinIA
+      ? avisoSinIA(await esNegocioDelEntorno(ws).catch(() => false), iaParaConectar(await iaConFila()))
+      : null;
     if (!respuesta) aviso = [aviso, sinIAEs?.aviso ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
     const conectar = sinIAEs?.conectar ?? null;
     return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas, conectar };

@@ -115,4 +115,14 @@ export const BITACORA: Hito[] = [
       '⚠️ Lo que no es IA (Meta, Calendly, Fathom…) y las configuraciones de la plataforma siguen en el ws1: es otra decisión, y está en el relevo del área.',
     ],
   },
+  {
+    fecha: '20 oct', hora: '18:30', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un negocio con sólo su Claude ya tiene MaKo en el chat, y no le piden Gemini',
+    revisar: '/second-brain',
+    puntos: [
+      'Lo encontró la investigación del Ops Center: un negocio que conectó sólo su Claude no tenía respuesta en el chat, y «Conectar tu IA» le abría Gemini.',
+      'Ahora, si ninguna IA gratis le contesta, el chat usa su Claude (el modelo barato, lo paga su cuenta). Probado en vivo con la clave propia de un negocio: pidió la herramienta y contestó.',
+      '«Conectar tu IA» abre la IA que el negocio ya tiene cargada (su Claude primero); sólo sin ninguna ofrece Gemini.',
+    ],
+  },
 ];

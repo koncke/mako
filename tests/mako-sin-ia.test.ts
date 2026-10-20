@@ -36,6 +36,12 @@
 //      plataforma en silencio · `guardarCredencial` reflejando con `OWNER_WS` · `credWs` prestándole el entorno al ws1 ·
 //      la migración del arranque copiando la IA al ws1 · `conClaveDelNegocio` con la fila del ws1 · `esClaveDeIA` sin
 //      Claude · el script de migración pisando una clave de la plataforma · y el script imprimiendo un valor. Restaurado: 6 / 0.
+//   6. UN NEGOCIO CON SÓLO SU CLAUDE (20/10/2026, docs/investigacion-ops-center-19-10.md): el chat contesta con su clave
+//      (`chatClaudeTools` → `permisoDeLaClaveDelNegocio`) y «Conectar tu IA» abre la que ya eligió (`iaParaConectar`). Arnés
+//      `romper-solo-claude.mjs` (base 7 / 0), diez roturas, todas 6 / 1: `iaParaConectar` siempre Gemini · `avisoSinIA`
+//      ignorando la elegida · el botón sin nombrar a Claude · el turno sin pasarla · `iaPropiaDelTurno` sin su Claude ·
+//      `chatClaudeTools` sin probarla · con el permiso de la plataforma · pagada como gasto de MaKo · con thinking y effort ·
+//      cayendo igual al Claude de la plataforma. Restaurado: 7 / 0.
 //
 // Correr: npx tsx --test tests/mako-sin-ia.test.ts
 // =============================================================================
@@ -45,7 +51,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { esDeConfiguracion, esRuido, sanearReporte } from '../lib/errores-app-reglas';
-import { AVISO_SIN_IA, AVISO_SIN_IA_EQUIPO, SERVICIO_IA, avisoSinIA, faltaIADelNegocio, type RespuestaTurno } from '../lib/mako-turno-app-reglas';
+import {
+  AVISO_SIN_IA, AVISO_SIN_IA_EQUIPO, ENV_DE_IA, IA_PARA_CONECTAR, SERVICIO_IA, avisoSinIA, faltaIADelNegocio, iaParaConectar,
+  type RespuestaTurno,
+} from '../lib/mako-turno-app-reglas';
+import { evaluarClaveDelNegocio } from '../lib/veto-claude';
 import { botonConectar, itemsDeRespuesta } from '../app/m/mako/chat-ui';
 import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO, esClaveDeIA, veredictoDeIA } from '../lib/ia-keys';
 import { servicioDeLink } from '../lib/integracion-en-tab';
@@ -99,7 +109,7 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   assert.match(turno, /\.\.\.\(fallo && !sinIA \? \[\{ nombre: 'responder'/);
   assert.match(turno, /const sinIA = faltaIADelNegocio\(fallo, fallo \? await iaPropiaDelTurno\(\) : null\)/);
   assert.match(turno, /provsDe, CASCADA_TOOLS/, 'cuenta con la MISMA lectura que la cascada');
-  assert.match(turno, /const sinIAEs = !respuesta && sinIA \? avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\)\) : null;/);
+  assert.match(turno, /const sinIAEs = !respuesta && sinIA\s*\? avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\), iaParaConectar\(await iaConFila\(\)\)\)\s*: null;/);
   assert.match(turno, /if \(!respuesta\) aviso = \[aviso, sinIAEs\?\.aviso \?\? AVISO_NO_PUDE\]/);
   assert.match(turno, /pantallas, conectar \}/);
 });
@@ -220,4 +230,50 @@ test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, le
   assert.match(mig, /if \(yaTiene\.has\(huella\(f\.valor\)\)\)/, 'idempotente: un valor que ya está no se copia');
   assert.match(mig, /guardarCredencial\(plataforma, p\.hacia, p\.valor/);
   assert.doesNotMatch(mig, /console\.(log|error)\([^)]*\.valor\b[^)]*\)/, 'nunca imprime un valor');
+});
+
+test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conectar tu IA» abre la que ya eligió', () => {
+  // docs/investigacion-ops-center-19-10.md: «Un negocio que conectó sólo su Claude igual recibe el modal de Gemini».
+  // 1. El botón abre la IA que el negocio ya tiene en su fila, para arreglarla; sin ninguna, Gemini.
+  // Rota: `iaParaConectar` devolviendo siempre Gemini → este test falla.
+  assert.equal(iaParaConectar(['anthropic']), 'anthropic');
+  assert.equal(iaParaConectar(['groq', 'anthropic']), 'anthropic', 'su Claude antes que una gratis');
+  assert.equal(iaParaConectar(['gemini', 'openai']), 'openai');
+  assert.equal(iaParaConectar(['groq']), 'groq');
+  assert.equal(iaParaConectar([]), SERVICIO_IA);
+  assert.deepEqual(avisoSinIA(false, 'anthropic'), { aviso: AVISO_SIN_IA, conectar: 'anthropic' });
+  assert.equal(avisoSinIA(true, 'anthropic').conectar, null, 'el workspace del entorno, sin botón igual');
+  for (const s of IA_PARA_CONECTAR) {
+    assert.equal(botonConectar(s), 'Conectar tu IA', `${s}: la IA se nombra como la piensa la persona`);
+    assert.equal(servicioDeLink(`/integraciones?abrir=${s}`), s, `${s}: su modal se abre suelto, en la misma pantalla`);
+  }
+  // La credencial que se mira en su fila es la del catálogo de /integraciones.
+  const catalogo = leer('lib/integraciones-catalogo.ts');
+  for (const s of IA_PARA_CONECTAR) {
+    assert.match(catalogo, new RegExp(`key: '${s}'[^\\n]*envs: \\['${ENV_DE_IA[s]}'`), `${s} → ${ENV_DE_IA[s]}`);
+  }
+
+  // 2. El veto deja que el chat (`mako-doer`) use la clave del negocio, con el modelo barato.
+  const v = evaluarClaveDelNegocio({ feature: 'mako-doer', clave: 'sk-ant-del-negocio', clavesPlataforma: ['sk-ant-de-mako'], pausa: false });
+  assert.ok(v.ok && v.permiso.model === 'claude-haiku-4-5' && v.permiso.clave === 'sk-ant-del-negocio');
+
+  // 3. `chatClaudeTools`: si ninguna barata contestó (y no ejecutó nada), su Claude ANTES de tirar «sin proveedor».
+  // Rota: sacar el intento con la clave del negocio → este test falla.
+  const ant = sinComentarios(leer('lib/anthropic.ts'));
+  const tools = ant.slice(ant.indexOf('export async function chatClaudeTools('));
+  const intento = tools.indexOf('const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);');
+  assert.ok(intento > tools.indexOf('if (r) return { text: r.text') && intento < tools.indexOf("'sin proveedor gratis disponible'"),
+    'después de la cascada que no contestó, antes de tirar');
+  assert.match(tools, /if \(n && 'permiso' in n\) delNegocio = n\.permiso;\s*else if \(opts\.sinFallbackClaude\) throw/);
+  assert.match(tools, /if \(delNegocio\) permiso = delNegocio;/, 'el permiso es el de la puerta 2, no el de la plataforma');
+  assert.match(tools, /const key = delNegocio \? delNegocio\.clave : await credWs\('ANTHROPIC_API_KEY'\);/, 'la clave que verificó el veto');
+  assert.match(tools, /delNegocio\s*\? \{ model, max_tokens: opts\.maxTokens \?\? 4096, system, messages: msgs, tools \}/, 'el pedido que ya anda con su clave');
+  assert.match(tools, /delNegocio \? \[MOTIVO_CLAVE_DEL_NEGOCIO, /, 'lo paga el negocio: su marca primero');
+  assert.match(tools, /if \(!delNegocio\) \{\s*model = opts\.fallbackModel \?\? 'claude-sonnet-5';/, 'no cae a Claude de la plataforma');
+
+  // 4. El turno cuenta su Claude como IA propia, y mira SU fila (no el entorno) para elegir qué abrir.
+  // Rota: `iaPropiaDelTurno` sin su Claude → este test falla (le pediría conectar algo que ya tiene).
+  const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
+  assert.match(turno, /const claude = await permisoDeLaClaveDelNegocio\(FEATURE\);\s*if \(claude && 'permiso' in claude\) n\+\+;/);
+  assert.match(turno, /for \(const s of IA_PARA_CONECTAR\) if \(await credDelCliente\(ENV_DE_IA\[s\]\)/);
 });

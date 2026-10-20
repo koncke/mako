@@ -10,6 +10,7 @@ import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenci
 import {
   permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO,
   evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
+  type PermisoClaveDelNegocio,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
 
@@ -75,10 +76,12 @@ async function registrarBloqueo(e: unknown, feature: string | undefined, model: 
  *     devuelve null. Un «no pude leer» tratado como «no hay clave de la plataforma» haría
  *     pasar cualquier copia;
  *   · el `fetch` usa `permiso.clave`, la que el veto verificó, y no vuelve a resolver nada.
+ *
+ * El permiso (la frontera) es UNA pieza para los dos caminos que la usan: la cascada de texto y, desde el 20/10/2026, el
+ * turno con herramientas del chat (`chatClaudeTools`): un negocio que conectó SÓLO su Claude no tenía ninguna IA para el
+ * chat, y «Conectar tu IA» le pedía Gemini (docs/investigacion-ops-center-19-10.md).
  */
-export async function conClaveDelNegocio(p: {
-  system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; timeoutMs: number;
-}): Promise<{ texto: string } | { error: string } | null> {
+export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | null> {
   const clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
   if (!clave) return null;
   let clavesPlataforma: Array<string | null | undefined>;
@@ -93,12 +96,22 @@ export async function conClaveDelNegocio(p: {
     ];
   } catch { return null; }
   const pausa = await claudePausado();
-  const v = evaluarClaveDelNegocio({ feature: p.feature, clave, clavesPlataforma, pausa });
+  const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa });
+  if (!v.ok) return pausa ? { pausa: true } : null;
+  return { permiso: v.permiso };
+}
+
+/** La clave del negocio en la cascada de TEXTO: su primer intento (arriba, `permisoDeLaClaveDelNegocio`, la frontera). */
+export async function conClaveDelNegocio(p: {
+  system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; timeoutMs: number;
+}): Promise<{ texto: string } | { error: string } | null> {
+  const r = await permisoDeLaClaveDelNegocio(p.feature);
+  if (!r) return null;
   // ⚠️ LA PAUSA SE DICE (17/10/2026, docs/hallazgos-graficos.md): con `null`, el negocio que conectó SU Claude quedaba sin
   // ningún error suyo y la caja le decía «Conecta tu Claude en Integraciones» (`avisoSinIA`), que ya está conectado. La
   // pausa es de la plataforma, pero la clave que no se usó es la SUYA: va a su lista, con lo que pasa de verdad.
-  if (!v.ok) return pausa ? { error: CLAUDE_EN_PAUSA } : null;
-  const permiso = v.permiso;
+  if ('pausa' in r) return { error: CLAUDE_EN_PAUSA };
+  const permiso = r.permiso;
 
   // Claude no tiene modo JSON: se le pide en el system, y la cascada verifica que parsee.
   const system = p.json ? `${p.system}\n\nResponde SOLO con el JSON pedido, sin texto antes ni después y sin bloques de código.` : p.system;
@@ -485,6 +498,8 @@ export async function chatClaudeTools(
   // corría en Opus). El doer de WhatsApp pasa `model` explícito (router) → salta
   // esto y sigue en Claude; su ruteo a barato va por su propio camino (DOER_GROQ_TOOLS).
   let model = opts.model ?? '';   // sin default: el `?? MODEL` era la quinta puerta
+  /** La clave de Claude del NEGOCIO, cuando ninguna IA barata suya contestó (abajo). */
+  let delNegocio: PermisoClaveDelNegocio | null = null;
   if (!opts.model && opts.feature) {
     // ⚠️ El `catch` vacío envuelve SÓLO la lectura del registro (ticket #5, 18/10/2026). Antes envolvía también la
     // cascada, y el «falló la IA» que se re-lanza con `sinFallbackClaude` caía en él y se perdía. El modelo quedaba
@@ -517,7 +532,14 @@ export async function chatClaudeTools(
           provs, modelos: { [ref.provider as ProvName]: ref.model }, erroresOut: errores,
         });
         if (r) return { text: r.text, steps: r.steps, stopReason: r.stopReason };
-        if (opts.sinFallbackClaude) throw new Error(`falló la IA (${errores.join(' · ').slice(0, 200) || 'sin proveedor gratis disponible'})`);
+        // ⚠️ NINGUNA IA BARATA DEL NEGOCIO CONTESTÓ (o no tiene ninguna): SU CLAVE DE CLAUDE, si la cargó (20/10/2026).
+        // Un negocio que conectó SÓLO su Claude no tenía con qué contestar en el chat —este camino nunca la miraba— y
+        // «Conectar tu IA» le pedía Gemini (docs/investigacion-ops-center-19-10.md). Va por la puerta 2 del veto (su
+        // clave, el modelo barato, nunca el Plan) y la paga su cuenta. Sólo si la cascada volvió sin ejecutar nada: si
+        // tiró, ya tocó datos, y otro modelo duplicaría la escritura.
+        const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);
+        if (n && 'permiso' in n) delNegocio = n.permiso;
+        else if (opts.sinFallbackClaude) throw new Error(`falló la IA (${errores.join(' · ').slice(0, 200) || 'sin proveedor gratis disponible'})`);
       } catch (e) {
         // El caller pidió NO caer a Claude (ej. el doer): re-lanzamos para que avise
         // "falló Gemini" en vez de gastar Claude en silencio.
@@ -525,9 +547,11 @@ export async function chatClaudeTools(
         errores.push(e instanceof Error ? e.message : String(e));
       }
       // Toda la cascada gratis falló: recién ACÁ se paga, con SONNET por default (el
-      // fallbackModel del router si vino), NUNCA Opus.
-      model = opts.fallbackModel ?? 'claude-sonnet-5';
-      console.warn(`[anthropic] tools ${opts.feature}: la cascada gratis no contestó, pago Claude ${model} — ${errores.join(' · ')}`);
+      // fallbackModel del router si vino), NUNCA Opus. Salvo que pague el negocio con su clave.
+      if (!delNegocio) {
+        model = opts.fallbackModel ?? 'claude-sonnet-5';
+        console.warn(`[anthropic] tools ${opts.feature}: la cascada gratis no contestó, pago Claude ${model} — ${errores.join(' · ')}`);
+      }
     } else if (ref) {
       model = ref.model;
     }
@@ -538,32 +562,41 @@ export async function chatClaudeTools(
   // frenaba: era la tercera de las cinco puertas. Ahora no hace falta que lo consulte —
   // la puerta es una sola y está acá. Se evalúa UNA vez, antes del loop: dentro del loop
   // sería el mismo permiso N veces y N filas de bloqueo.
+  // Con la clave del NEGOCIO el permiso ya lo dio la puerta 2 (arriba): no pasa por la de la plataforma.
   let permiso: PermisoClaude;
-  try {
-    permiso = permisoDeGasto({ feature: opts.feature, model, pausa: await claudePausado() });
-  } catch (e) {
-    await registrarBloqueo(e, opts.feature, model);
-    throw e;
+  if (delNegocio) permiso = delNegocio;
+  else {
+    try {
+      permiso = permisoDeGasto({ feature: opts.feature, model, pausa: await claudePausado() });
+    } catch (e) {
+      await registrarBloqueo(e, opts.feature, model);
+      throw e;
+    }
   }
   model = permiso.model;
 
-  // La key de Claude sale POR WORKSPACE (BYOK): fila cifrada del cliente > env del dueño.
-  const key = await credWs('ANTHROPIC_API_KEY');
+  // La key de Claude sale POR WORKSPACE (BYOK): fila cifrada del cliente > env del dueño. La del negocio, la que el
+  // veto verificó (`permiso.clave`), sin volver a resolver nada.
+  const key = delNegocio ? delNegocio.clave : await credWs('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
   const effort: Effort = opts.effort ?? DEFAULT_EFFORT;
   const maxSteps = opts.maxSteps ?? 8;
   const msgs: RichMsg[] = [...messages];
 
   for (let step = 0; step < maxSteps; step++) {
-    const payload: Record<string, unknown> = {
-      model,
-      max_tokens: opts.maxTokens ?? 16000,
-      system,
-      messages: msgs,
-      output_config: { effort },
-      thinking: { type: 'adaptive' },
-      tools,
-    };
+    // Con la clave del negocio, el pedido de `conClaveDelNegocio` (el modelo barato, sin thinking ni effort) más las
+    // herramientas: es la forma que ya anda con su clave.
+    const payload: Record<string, unknown> = delNegocio
+      ? { model, max_tokens: opts.maxTokens ?? 4096, system, messages: msgs, tools }
+      : {
+        model,
+        max_tokens: opts.maxTokens ?? 16000,
+        system,
+        messages: msgs,
+        output_config: { effort },
+        thinking: { type: 'adaptive' },
+        tools,
+      };
     if (opts.toolChoice) payload.tool_choice = { type: opts.toolChoice };
 
     const res = await fetch(permiso.endpoint, {
@@ -573,9 +606,14 @@ export async function chatClaudeTools(
       cache: 'no-store',
     });
     const body = await res.json();
-    if (!res.ok || body.error) throw new Error(body?.error?.message ?? `Anthropic ${res.status}`);
+    if (!res.ok || body.error) {
+      const m = body?.error?.message ?? `Anthropic ${res.status}`;
+      throw new Error(delNegocio ? `falló la IA (tu clave de Claude: ${m})` : m);
+    }
 
-    const usage = await recordUsage(permiso.feature, String(model), body.usage, opts.motivo);
+    // Lo que paga el negocio lleva su marca PRIMERO: lib/costos-ia.ts lo saca del gasto de MaKo.
+    const usage = await recordUsage(permiso.feature, String(model), body.usage,
+      delNegocio ? [MOTIVO_CLAVE_DEL_NEGOCIO, (opts.motivo ?? '').trim()].filter(Boolean).join(' · ') : opts.motivo);
     opts.onUsage?.(usage);
 
     const content: Block[] = Array.isArray(body.content) ? (body.content as Block[]) : [];
