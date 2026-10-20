@@ -25,7 +25,7 @@ import { leerSesion } from '@/lib/offer-sesiones';
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { etapaDeArranque, leerRespuesta, type EstadoArranque } from '@/lib/onboarding-arranque';
 import {
-  FaltaParaCerrar, asegurarFunnelPrincipal, cerrarArranque, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
+  FaltaParaCerrar, asegurarFunnelPrincipal, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
   hechosDelArranque, sembrarCrmPrincipal, vistaArranque,
 } from '@/lib/onboarding-arranque-server';
 
@@ -154,6 +154,12 @@ export async function POST(req: NextRequest) {
       case 'preparar': {
         await asegurarFunnelPrincipal();
         return listo();
+      }
+
+      // El chat «Onboarding» del Ops Center con esta conversación, tal cual (20/10/2026): la pantalla lo pide al terminar
+      // y entra a él. Una sola vez (lib/onboarding-arranque-server.ts → hiloDelOnboarding).
+      case 'hilo': {
+        return NextResponse.json({ ok: true, chat: await hiloDelOnboarding() });
       }
 
       // El super admin, mirando a un cliente bloqueado por la guardia, lo desbloquea desde el mismo onboarding.

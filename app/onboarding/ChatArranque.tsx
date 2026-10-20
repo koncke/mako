@@ -31,7 +31,7 @@ import { Button } from '@/app/_ui';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { DIAL_DEFAULT } from '@/lib/paises';
 import { tipoCrmPorId } from '@/lib/pipeline';
-import { RUTA_AL_TERMINAR, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
+import { RUTA_AL_TERMINAR, rutaDelHilo, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
 import { MENSAJE_BLOQUEADO } from '@/lib/onboarding-guardia';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
 import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
@@ -171,8 +171,22 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   const [saliendo, setSaliendo] = useState(false);
   useEffect(() => {
     if (vista.etapa !== 'listo') return;
-    const t = window.setTimeout(() => { setSaliendo(true); router.push(vista.modo === 'oferta' ? RUTA_AL_TERMINAR : '/plan'); }, MS_PARA_ENTRAR);
-    return () => window.clearTimeout(t);
+    // Al chat «Onboarding» con la conversación y el tutorial (20/10/2026, `rutaDelHilo`). Si no se pudo crear, al Ops Center.
+    let vivo = true;
+    const t = window.setTimeout(() => {
+      void (async () => {
+        let destino = vista.modo === 'oferta' ? RUTA_AL_TERMINAR : '/plan';
+        if (vista.modo === 'oferta') {
+          const r = await fetch('/api/onboarding/arranque', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hilo' }) })
+            .then((x) => x.json()).catch(() => null) as { ok?: boolean; chat?: number | null } | null;
+          destino = rutaDelHilo(r?.ok && typeof r.chat === 'number' ? r.chat : null);
+        }
+        if (!vivo) return;
+        setSaliendo(true);
+        router.push(destino);
+      })();
+    }, MS_PARA_ENTRAR);
+    return () => { vivo = false; window.clearTimeout(t); };
   }, [vista.etapa, vista.modo, router]);
 
   // ── Lo que se dibuja ─────────────────────────────────────────────────────

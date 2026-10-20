@@ -161,7 +161,7 @@ test('al terminar, entra solo al Ops Center por navegación interna (nunca una r
   // entra solo → 13/2 · entra con una recarga dura → 13/2 · vuelven los caminos → 14/1.
   const src = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
   assert.doesNotMatch(src, /window\.location|redirect\(/, 'el chat de arranque recarga la página al terminar');
-  assert.match(src, /if \(vista\.etapa !== 'listo'\) return;[\s\S]{0,200}router\.push\(/, 'al terminar no entra solo');
+  assert.match(src, /if \(vista\.etapa !== 'listo'\) return;[\s\S]{0,1200}router\.push\(destino\);/, 'al terminar no entra solo');
   assert.match(src, /function TarjetaListo/, 'sin el link de respaldo por si la navegación no sale');
 });
 
@@ -237,7 +237,10 @@ test('el cierre del onboarding no ofrece caminos que la capa no puede abrir', ()
   // preguntarme»). Sin el CRM ni Offer en la tarjeta, y la entrada sola mira la capa igual que el link.
   assert.doesNotMatch(tarjeta, /href="\/crm"|href="\/offer"|Armando tu plan/, 'volvieron los caminos del final');
   const sin = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
-  assert.match(sin, /setSaliendo\(true\); router\.push\(vista\.modo === 'oferta' \? RUTA_AL_TERMINAR : '\/plan'\); \}, MS_PARA_ENTRAR\);/,
+  // Desde el 20/10/2026 entra al chat «Onboarding» con el tutorial (`rutaDelHilo`); sin chat, al Ops Center igual.
+  assert.match(sin, /let destino = vista\.modo === 'oferta' \? RUTA_AL_TERMINAR : '\/plan';/, 'la entrada a MaKo no mira la capa');
+  assert.match(sin, /destino = rutaDelHilo\(r\?\.ok && typeof r\.chat === 'number' \? r\.chat : null\);/, 'al terminar no entra al chat «Onboarding»');
+  assert.match(sin, /setSaliendo\(true\);\s*router\.push\(destino\);/,
     'al terminar no entra solo (o entra por una recarga dura, que corta el plan que se sigue armando)');
   assert.match(sin, /import Link, \{ useRouter, useWs \} from '@\/app\/_ui\/Link';/, 'el router sin el ?ws= saca al super admin del cliente');
   // Desde el 17/10/2026 el modo 'oferta' entra a lo que dijo que quiere resolver primero (`rutaDeEntrada`): sus capas

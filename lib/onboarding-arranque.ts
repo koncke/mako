@@ -73,6 +73,8 @@ export type EstadoArranque = {
   telefonoNumero?: string;
   /** La conversación de Offer donde vive la oferta (modo 'oferta'). */
   sesionId?: number;
+  /** El chat «Onboarding» del Ops Center con esta conversación (20/10/2026): se crea una vez, al terminar. */
+  hiloChat?: number;
   /** Ya vio la animación del principio: no se repite al recargar. */
   introVista?: boolean;
 };
@@ -190,6 +192,18 @@ export function llegadaDe(raw: string | null | undefined): LlegadaCliente | null
  * Ops Center»). Lo que dijo que quiere resolver primero queda en la encuesta y en `rutaDeEntrada`, pero ya no decide la entrada.
  */
 export const RUTA_AL_TERMINAR = '/second-brain';
+
+/** El tutorial del Ops Center que arranca al terminar el onboarding (20/10/2026). */
+export const RECORRIDO_INICIO = 'sb-inicio';
+
+/**
+ * Al terminar entra AL CHAT «Onboarding», con la conversación tal cual, y arranca el tutorial (20/10/2026, Martín, punto 13
+ * del 18/10: «debería estar posicionado en el chat de ‹Onboarding›... con toda la conversación tal cual... y luego debería
+ * iniciar el tutorial de la app»). Sin chat (falló crearlo), al Ops Center igual: nunca se traba el final.
+ */
+export function rutaDelHilo(chat: number | null): string {
+  return chat ? `${RUTA_AL_TERMINAR}?chat=${chat}&recorrido=${RECORRIDO_INICIO}` : `${RUTA_AL_TERMINAR}?recorrido=${RECORRIDO_INICIO}`;
+}
 
 export function rutaDeEntrada(interes: InteresId | undefined): string {
   return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';

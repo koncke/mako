@@ -21,6 +21,8 @@ import { getEstadoVerificacionContacto } from './mako-grupo';
 import { getContactoReportes } from './perfil';
 import { integracionConectada } from './credenciales';
 import { leerSesion, leerFila, guardarComoOferta } from './offer-sesiones';
+import { appendMessage, createSession, listSessions } from './chart-chats';
+import { chartKeyDePersona } from './mako-turno-app-reglas';
 import { estadoDiagnostico } from './offer-reglas';
 import { crearFunnel, getFunnelDefault, idDelFunnelDefault, renombrarFunnel, saveFunnelDefault } from './funnels';
 import { FUNNEL_DEFAULT_NOMBRE } from './funnel-fila';
@@ -67,6 +69,27 @@ export async function guardarEstadoArranque(patch: Partial<EstadoArranque>): Pro
   }
   await setSetting(CLAVE, JSON.stringify(nuevo));
   return nuevo as EstadoArranque;
+}
+
+/**
+ * El chat «Onboarding» del Ops Center con la conversación del arranque, TAL CUAL (20/10/2026). Una sola vez: el id queda
+ * en el estado (`hiloChat`) y una segunda llamada lo devuelve sin duplicar. Va a nombre de quien está (el mismo chart_key
+ * que el chat del Ops Center del cliente y el de /m/mako). Si la persona no tenía chats, primero se crea el principal
+ * (el más viejo es el jefe, «Second Brain»), para que éste quede como «Onboarding» y no como el principal.
+ */
+export async function hiloDelOnboarding(): Promise<number | null> {
+  const previo = parseEstado(await getSettingEstricto(CLAVE));
+  if (previo.hiloChat) return previo.hiloChat;
+  const persona = await getUsuarioActual();
+  const chartKey = persona ? chartKeyDePersona(persona) : null;
+  if (!chartKey) return null;
+  const v = await vistaArranque();
+  const mensajes = [...v.antes, ...(v.sesion?.mensajes ?? []), ...v.despues].filter((m) => m.texto && m.texto.trim());
+  if (!(await listSessions(chartKey)).length) await createSession(chartKey, null, null);
+  const hilo = await createSession(chartKey, 'Onboarding', null);
+  for (const m of mensajes) await appendMessage(hilo.id, m.de === 'yo' ? 'user' : 'assistant', m.texto.trim());
+  await guardarEstadoArranque({ hiloChat: hilo.id });
+  return hilo.id;
 }
 
 export type HechosServer = HechosArranque & {
