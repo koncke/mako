@@ -107,6 +107,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { armarTsconfig } from './tsc-acotado.mjs';
 import { veredicto } from './tsc-bitacoras.mjs';
+import { describirEstado, estado, tomarTurno } from './candado-pesado.mjs';
 import {
   agrupar, alcanceTsc, correrTests, dormir, esperarRam, git, imprimirPlan, indiceConNuevos, min, planear, ramLibreGb,
   SALIDA_SIN_CORRER, ZONA_ROJA_VIGIA_GB,
@@ -233,8 +234,45 @@ export function sucio() {
   return execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: RAIZ, encoding: 'utf8' }).split('\n').filter(Boolean);
 }
 
+/** La cuenta que firma los commits (`Claude-Cuenta:`): la primera línea de ~/.claude/cuenta-activa.txt. */
+export function cuentaActiva() {
+  if (process.env.MAKO_CUENTA) return process.env.MAKO_CUENTA;
+  try { return readFileSync(path.join(os.homedir(), '.claude', 'cuenta-activa.txt'), 'utf8').split('\n')[0].trim() || '?'; } catch { return '?'; }
+}
+
+/**
+ * Trae `origin/main` a la rama con un MERGE (nunca rebase: el commit del jefe no se reescribe). Se llama al TOMAR el candado, no antes: el que esperó
+ * 40 min vuelve con main 40 min más adelante, y como el Cerebro pushea seguido su VERDE salía ROJO sólo por «te faltan N commits de main» (medido el
+ * 20/10: Onboarding corrió el VERDE tres veces, con los 2.563 tests en verde). Si choca, se ABORTA el merge (la rama queda como estaba) y se dice en
+ * qué archivos. Con `fetch: false` usa el `origin/main` que ya hay. Para probarlo con un repo de mentira: `cwd`.
+ * @returns {{ ok: boolean, mergeado: boolean, atras: number, archivos?: string[], aviso?: string }}
+ */
+export function traerMain({ cwd = RAIZ, base = 'origin/main', cuenta = '?', fetch = true } = {}) {
+  // Un GIT_INDEX_FILE heredado (el índice temporal de los tests) haría el merge sobre otro índice.
+  const env = { ...process.env };
+  for (const k of ['GIT_INDEX_FILE', 'GIT_DIR', 'GIT_WORK_TREE']) delete env[k];
+  const g = (args, extra = {}) => spawnSync('git', args, { cwd, encoding: 'utf8', env, maxBuffer: 64 * 1024 * 1024, ...extra });
+  const [remoto, ...resto] = base.split('/');
+  let aviso;
+  if (fetch) {
+    const f = g(['fetch', remoto, resto.join('/')], { timeout: 30000 });
+    if (f.status !== 0) aviso = `no pude bajar ${base} (¿sin red?): sigo con la copia que tengo`;
+  }
+  const atras = Number(g(['rev-list', '--count', `HEAD..${base}`]).stdout.trim()) || 0;
+  if (atras === 0) return { ok: true, mergeado: false, atras: 0, aviso };
+  const rama = g(['rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim();
+  const mensaje = `Merge remote-tracking branch '${base}' into ${rama === 'HEAD' ? 'la punta' : rama}\n\nAl tomar el candado de lo pesado (scripts/antes-de-subir.mjs).\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nClaude-Cuenta: ${cuenta}\n`;
+  // Una PC sin user.email (un clon nuevo, un worktree de otra cuenta) no puede commitear el merge, y eso NO es un choque: se firma con la identidad de Claude.
+  const sinIdentidad = !g(['config', 'user.email']).stdout.trim();
+  const m = g([...(sinIdentidad ? ['-c', 'user.name=Claude', '-c', 'user.email=noreply@anthropic.com'] : []), 'merge', '-m', mensaje, base]);
+  if (m.status === 0) return { ok: true, mergeado: true, atras, aviso };
+  const archivos = g(['diff', '--name-only', '--diff-filter=U']).stdout.split('\n').filter(Boolean);
+  g(['merge', '--abort']);
+  return { ok: false, mergeado: false, atras, archivos, aviso, detalle: `${m.stdout ?? ''}${m.stderr ?? ''}`.trim().split('\n').slice(-3).join(' | ') };
+}
+
 function leerArgs(argv) {
-  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity, importadores: false, rapido: false, conTipos: true, compartir: !process.env.CI };
+  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity, importadores: false, rapido: false, conTipos: true, compartir: !process.env.CI, cola: false, merge: true, yaTengoElCandado: false };
   for (let i = 0; i < argv.length; i++) {
     const [k, v] = argv[i].split(/=(.*)/s);
     if (k === '--base') o.base = v !== undefined ? v : argv[++i];
@@ -248,6 +286,9 @@ function leerArgs(argv) {
     else if (k === '--con-tipos') o.conTipos = true;
     else if (k === '--sin-tipos') o.conTipos = false;
     else if (k === '--sin-compartir') o.compartir = false;
+    else if (k === '--cola') o.cola = true;
+    else if (k === '--sin-merge') o.merge = false;
+    else if (k === '--ya-tengo-el-candado') o.yaTengoElCandado = true;
     else if (k === '--solo') o.solo = v !== undefined ? v : argv[++i];
     else if (k === '--profundidad') o.profundidad = Math.max(1, Number.parseInt(v !== undefined ? v : argv[++i], 10) || 1);
     else { process.stderr.write(`  [antes-de-subir] no conozco «${argv[i]}»\n`); o.ayuda = true; }
@@ -263,11 +304,55 @@ async function main(argv) {
     out(linea);
     if (process.env.MAKO_LINEA_VEREDICTO) { try { writeFileSync(process.env.MAKO_LINEA_VEREDICTO, linea + '\n'); } catch { /* sólo es un espejo */ } }
   };
-  if (o.ayuda) { out('node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--sin-condiciones] [--solo guardas|tipos|tests] [--profundidad N] [--importadores] [--rapido [--sin-tipos]] [--sin-compartir] [--listar]'); return 2; }
+  if (o.ayuda) { out('node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--sin-condiciones] [--solo guardas|tipos|tests] [--profundidad N] [--importadores] [--rapido [--sin-tipos]] [--sin-compartir] [--listar] [--cola] [--sin-merge] [--ya-tengo-el-candado]'); return 2; }
   process.chdir(RAIZ);
 
+  // Ver quién tiene el candado y cómo está la fila, sin tocar nada.
+  if (o.cola) { out('[antes-de-subir] el candado de lo pesado:'); out(describirEstado(estado())); return 0; }
+
+  // ⚠️ EL CANDADO DE LO PESADO, CON COLA (20/10/2026): ver scripts/candado-pesado.mjs. Se toma ANTES de lo pesado (los tipos y los tests), nunca para `--listar`
+  // ni para las guardas solas; en Actions (CI) no hace falta; MAKO_SIN_COLA=1 lo saltea; `--ya-tengo-el-candado` es para quien lo tomó a mano (el viejo mkdir).
+  const conCandado = !o.listar && o.solo !== 'guardas' && !process.env.CI && !process.env.MAKO_SIN_COLA && !o.yaTengoElCandado;
+  let candado = null;
+  let yaTraje = false;
+  if (conCandado) {
+    // Un árbol sucio no puede tener VERDE: no se hace fila para enterarse de eso al final.
+    if (o.condiciones) {
+      const s = sucio();
+      if (s.length) { lineaFinal(`ROJO: el árbol tiene ${s.length} cambios sin commitear (${s.slice(0, 3).map((l) => l.slice(3)).join(', ')}${s.length > 3 ? '…' : ''}): un VERDE de acá no valdría para el sha — commitealos o sacalos y volvé a correr (no hice fila por esto)`); return 1; }
+    }
+    const rama = git(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+    const datos = { chat: `${path.basename(RAIZ)} · ${rama}`, cuenta: cuentaActiva(), sha: git(['rev-parse', '--short=9', 'HEAD']).trim(), comando: `antes-de-subir ${argv.join(' ')}`.trim() };
+    out('[antes-de-subir] candado de lo pesado: anotándome en la fila…');
+    const turno = await tomarTurno({ datos, aviso: (t) => out(`  ${t}`) });
+    if (turno.vencio) { lineaFinal(`ROJO: esperé el candado de lo pesado ${Math.round(turno.esperoMs / 60000)} min y no me tocó (no es un rojo del código): mirá quién lo tiene con --cola`); return SALIDA_SIN_CORRER; }
+    candado = turno;
+    const soltarYa = () => { try { candado.soltar(); } catch { /* ya está suelto */ } };
+    process.on('exit', soltarYa);
+    for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { soltarYa(); process.exit(130); });
+    out(`  ✔ candado tomado${turno.esperoMs > 1500 ? ` (esperé ${Math.round(turno.esperoMs / 60000)} min ${Math.round((turno.esperoMs % 60000) / 1000)} s)` : ''}`);
+    // AL TOMARLO: traer origin/main (merge, nunca rebase), para que el VERDE no salga ROJO sólo porque main avanzó mientras esperabas.
+    if (o.condiciones && o.merge && o.base.startsWith('origin/')) {
+      const m = traerMain({ base: o.base, cuenta: cuentaActiva(), fetch: o.fetch });
+      if (m.aviso) out(`  ⚠ ${m.aviso}`);
+      if (!m.ok) {
+        candado.soltar();
+        lineaFinal(m.archivos.length
+          ? `ROJO: el merge de ${o.base} chocó en ${m.archivos.length} archivo(s): ${m.archivos.slice(0, 5).join(', ')}${m.archivos.length > 5 ? '…' : ''} — la rama quedó como estaba y solté el candado; mergeá a mano (git merge ${o.base}), resolvé y volvé a correr`
+          : `ROJO: no pude mergear ${o.base} (no es un choque de archivos): ${m.detalle || 'git no dijo por qué'} — la rama quedó como estaba y solté el candado`);
+        return 1;
+      }
+      yaTraje = true;
+      if (m.mergeado) out(`  ✔ mergeé ${o.base} (+${m.atras} commits): el VERDE vale para el sha NUEVO`);
+    }
+  }
+  try { return await ejecutar(o, out, lineaFinal, { yaTraje }); }
+  finally { if (candado) candado.soltar(); }
+}
+
+async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
   const sha = git(['rev-parse', '--short=9', 'HEAD']).trim();
-  if (o.fetch) {
+  if (o.fetch && !yaTraje) {
     const f = spawnSync('git', ['fetch', 'origin', 'main'], { cwd: RAIZ, stdio: 'ignore', timeout: 30000 });
     if (f.status !== 0) out('  ⚠ no pude bajar origin/main (¿sin red?): sigo con la copia que tengo');
   }
@@ -288,6 +373,8 @@ async function main(argv) {
   if (o.listar) {
     imprimirPlan(plan, { base: o.base, explicar: false }, out);
     out(`  tsc acotado: ${alcance.length} archivos${alcance.length ? ' (' + alcance.slice(0, 4).join(', ') + (alcance.length > 4 ? '…' : '') + ')' : ''}`);
+    out('[antes-de-subir] el candado de lo pesado (si lo corrieras ahora):');
+    out(describirEstado(estado()));
     return 0;
   }
 
