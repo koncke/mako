@@ -598,3 +598,25 @@ Se reinicia el 20/10 a las 17:00 ART (20:00 UTC). Hasta entonces, nada nuevo con
 13. El grafo único del super admin y el nombre «Mapa».
 
 **El vigía (MaKo Alert):** su cron (job 29debd9d) murió con su sesión. Para retomarlo, ver §0 y §5 de docs/relevo/mako-en-whatsapp.md.
+
+## 20/10 ~21:00 ART: la cuenta 4 se renovó (cuota en 0%)
+
+- ⚠️ **ERROR DEL CEREBRO CORREGIDO:** saqué la cuenta de `~/.claude.json` (decía mbustos@) y puse `claude1` en el marcador. Martín: «ahora mismo estoy en la cuenta de leandrotejadogonzalvez@gmail.com... ¿Por qué asumiste que era la cuenta 1?». La cuenta es la **4**. `~/.claude.json` va con retraso y NO sirve para saber la cuenta: sólo el marcador o Martín.
+- **Integrado:** la rama de la nube `claude/admiring-wozniak-odby79` (5bebe33f8). Es la investigación de Martín en la cuenta 1: las reglas del Cerebro pasaron a AGENTS.md. Va en 16eacbc30.
+- **Repartido (Martín: «Continuá con todo»):**
+  - **Onboarding:** 13b (entrar al chat Onboarding y el tutorial), 3 (el composer del Ops Center), 2 (la animación en el teléfono) y 10b (el CRM a medida).
+  - **Sidebar:** el pt 10 (claro/oscuro, criaturas sin cambiar de color, MaKo Partners al perfil, el logo plegado, Ops Center dentro de la sección, todo desplegado) y el pliegue al entrar al Second Brain.
+  - **Ops Center 3:** imágenes y adjuntos desde la app, y pegar capturas.
+- **Cola, cuando terminen estos y haya RAM (a 4,3 GB, de a 3):**
+  - Ticketera con el diseño anterior.
+  - Dashboard: «Editar» con el patrón de Web Generator y «Analizar con MaKo» con el chat único.
+  - CRM: columnas editables del Plan.
+  - Second Brain: grafo único del super admin y el nombre «Mapa».
+  - Chats: el pt 11.
+  - Offer y los chats de MaKo con el chat único (pts 5 y 7).
+  - «Uso» en los ws (pt 2).
+  - El onboarding del CRM en su tab.
+- **Espera a Martín:** los recordatorios programados del ws13 y la clave de Cerebras del ws1.
+- **Mecánica:**
+  - Lo que el Runner no logra entregar porque queda retenido llega acá con «REENVIAR A <sesión>:», y se reenvía tal cual.
+  - El chat «Debate» es para las preguntas y las opiniones.

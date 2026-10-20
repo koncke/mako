@@ -212,6 +212,18 @@ AGENTS.md). Lo que costó medir:
   no habría salido NUNCA ninguno. Un chequeo que sólo puede contestar «no» se ve igual que uno que funciona hasta el
   día que se corre de verdad: probalo una vez contra el estado que tiene que dar «sí».
 
+**Otro caso de la misma familia (ws13, 19/10, lo vio MaKo Alert): «necesito que… lo pases a descalificados».** «MaKo,
+necesito que busques en la lista del CRM a Joan… y que lo agarres y lo pases a la sección descalificados» →
+«no tengo acceso a listar los leads de tu CRM ni a moverlos en este chat». ⚠️ **El diagnóstico obvio (falta un permiso o
+una herramienta) era el equivocado**: `proponer_cambio_etapa` existe, y la lleva `esPedidoSobreLead` — pero SÓLO para un
+imperativo («pasalo», «movelo»). Con un modal + subjuntivo («necesito que… pases») caía a `capturar` dudosa con las tres
+del plan, y el modelo (flash-lite) dedujo que no se podía. Medido con la frase literal: `capturar`, sin una herramienta de
+CRM; con «buscá a Joan en el CRM y pasalo a descalificados» sí llega. Ahora `MODAL_CRM` lo toma: la 2ª persona del
+subjuntivo (-s: pases, muevas), nunca la 3ª («necesito que el closer marque…» es del closer), nunca «que me pases el lead»
+(es un «dame»), y modal y verbo en la MISMA oración. «descalificados» no estaba entre las palabras que sólo viven en el
+CRM. **Sin hacer:** la pregunta con un modal («¿podés pasar a Joan a descalificados?») sigue siendo `consultar` y no trae
+las que escriben (la misma trampa que la del calendario, pero sin caso real todavía).
+
 **Lo que quedó sin hacer:**
 - **Nada se probó contra una agenda real.** El ws18 tiene Google conectado y es un cliente: la primera prueba es su
   próximo pedido, y el vigía lo va a ver.
