@@ -44,11 +44,12 @@
 //     opción «Tu texto» —de guía, resumir, tal cual— aparece sola, ver crear/caja-modos.ts, `esTextoLargo`);
 //   · EL cuadro (CajaPedido.tsx, el MISMO de /automations, con su marco, su alto y su fila de abajo en todos los modos):
 //       Generar  el campo con el ejemplo que se escribe solo (sin tarjetas de ejemplos ni «Aleatorio»);
-//       Importar el contenedor para soltar o elegir un archivo; con uno, vuelve al texto con su MINIATURA adentro;
+//       Importar el contenedor para soltar o elegir archivos; con uno o varios (20/10/2026: «no te está permitiendo
+//                juntar documentos», Martín en el onboarding de Florencia), vuelve al texto con sus MINIATURAS adentro;
 //       Analizar / Replicar  el contenedor del link; pegado o soltado, vuelve al texto con el link y su pastilla como
 //                CHIPS del renglón: se sigue escribiendo después, y Backspace al principio los borra (primero la
 //                pastilla, después el link);
-//     y en cualquier modo, un archivo arrastrado se adjunta y un link arrastrado se vuelve chips;
+//     y en cualquier modo, los archivos arrastrados se adjuntan y un link arrastrado se vuelve chips;
 //   · en la fila de abajo: el «+» (adjuntar un archivo o una imagen, y las indicaciones recientes) y «Plan», que dice
 //     CÓMO se genera (Plan o Express, la cantidad, el objetivo, el idioma y «Más ajustes»: crear/AjustesCaja.tsx);
 //   · Landing | Presentación y las plantillas del tipo (tocar una CREA y ABRE: navegación dura, cambió QUÉ EXISTE).
@@ -77,6 +78,7 @@ import {
   type OpcionDesplegable,
 } from './MiniaturaLanding';
 import { leerArchivo } from './cliente';
+import { MAX_ARCHIVOS } from '@/lib/editor-landing/adjuntos';
 import { hostDe, type AccionCaja } from './panel-reglas';
 import {
   EJEMPLOS_CAJA, docDe, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
@@ -85,8 +87,8 @@ import { CSS_TIPO, SelectorTipo } from './crear/PiezasTipo';
 import { DialogoObjetivo } from './crear/DialogoObjetivo';
 import { OPCIONES_FORMATO } from './crear/Replicar';
 import {
-  OPCIONES_MODO, TOPE_TEXTO, alEnviar, alEscribir, avisoDeTexto, borrarAlInicio, cajaDeSemilla, cambiarFormato, conArchivo, conLink,
-  elegirModo, linkSoltado, listoParaEnviar, muestraTuTexto, placeholderDe, quitarArchivo, quitarLink, tipoDeArchivo, vistaDeCaja,
+  OPCIONES_MODO, TOPE_TEXTO, alEnviar, alEscribir, avisoDeTexto, borrarAlInicio, cabeArchivo, cajaDeSemilla, cambiarFormato, conArchivo, conLeido,
+  conLink, elegirModo, linkSoltado, listoParaEnviar, muestraTuTexto, placeholderDe, quitarArchivo, quitarLink, tipoDeArchivo, vistaDeCaja,
   type AccionLink, type ArchivoCaja, type EstadoCaja, type ModoCaja, type SemillaCaja,
 } from './crear/caja-modos';
 import { MODOS_TEXTO, paramsIniciales, type ModoGen } from './crear/ajustes';
@@ -156,8 +158,13 @@ export default function CajaCrear({
   const [eligiendo, setEligiendo] = useState<PlantillaCrear | null>(null);
   const cerrarMas = useCallback(() => setMenuMas(null), []);
   const cerrarEleccion = useCallback(() => setEligiendo(null), []);
-  const subida = useRef<AbortController | null>(null);
-  const vistaImagen = useRef<string | null>(null);
+  /** Lo que se está leyendo y las miniaturas de las imágenes (un objectURL vive hasta que se revoca), por archivo. */
+  const lecturas = useRef(new Map<string, AbortController>());
+  const vistas = useRef(new Map<string, string>());
+  const ultimoArchivo = useRef(0);
+  /** El estado de AHORA, para sumar varios archivos seguidos sin pasarse del tope (el render puede no haber llegado). */
+  const estadoVivo = useRef(estado);
+  useLayoutEffect(() => { estadoVivo.current = estado; });
   const elegirArchivo = useRef<HTMLInputElement>(null);
   const elegirImagen = useRef<HTMLInputElement>(null);
   const campo = useRef<HTMLTextAreaElement | null>(null);
@@ -176,18 +183,21 @@ export default function CajaCrear({
 
   const vista = vistaDeCaja(estado);
 
-  // Sin archivo, lo que se estaba leyendo se corta y la miniatura de la imagen se suelta (un objectURL vive hasta que
-  // se revoca). Mira el ESTADO: el archivo se va por la ✕, por elegir otro modo o desde el Panel.
-  const hayArchivo = !!estado.archivo;
+  // Un archivo que se fue, se corta lo que se estaba leyendo y su miniatura se suelta. Mira el ESTADO: se van por su ✕,
+  // por elegir otro modo o desde el Panel.
+  const ids = estado.archivos.map((a) => a.id).join(' ');
   useEffect(() => {
-    if (hayArchivo) return;
-    subida.current?.abort();
-    subida.current = null;
-    if (vistaImagen.current) { URL.revokeObjectURL(vistaImagen.current); vistaImagen.current = null; }
-  }, [hayArchivo]);
-  useEffect(() => () => {
-    subida.current?.abort();
-    if (vistaImagen.current) URL.revokeObjectURL(vistaImagen.current);
+    const quedan = new Set(ids.split(' '));
+    for (const [id, ac] of lecturas.current) if (!quedan.has(id)) { ac.abort(); lecturas.current.delete(id); }
+    for (const [id, url] of vistas.current) if (!quedan.has(id)) { URL.revokeObjectURL(url); vistas.current.delete(id); }
+  }, [ids]);
+  useEffect(() => {
+    const ls = lecturas.current;
+    const vs = vistas.current;
+    return () => {
+      for (const ac of ls.values()) ac.abort();
+      for (const url of vs.values()) URL.revokeObjectURL(url);
+    };
   }, []);
 
   // El contenedor del link toma el foco al aparecer o al pasar de Analizar a Replicar (elegirlos es para pegar uno).
@@ -227,31 +237,45 @@ export default function CajaCrear({
     if (m === 'generar') alCampo();
   };
 
-  /** Lee el archivo (o la imagen, por visión) y queda como MINIATURA adentro del cuadro. */
-  const subir = (file: File, imagen: boolean) => {
+  /**
+   * Lee cada archivo (o imagen, por visión) y queda como MINIATURA adentro del cuadro, al lado de los que ya estaban.
+   * `imagen`: si vino del «Subir imagen»; si no, lo dice su tipo. Lo que no se puede leer o no entra, se dice.
+   */
+  const subir = (files: readonly File[], imagen?: boolean) => {
     setMenuMas(null);
     setError(null);
-    if (!puedeLeerse(file.name, file.type)) { setError(porQueNoPuedo(file.name) || 'No puedo leer ese archivo.'); return; }
-    subida.current?.abort();
-    if (vistaImagen.current) URL.revokeObjectURL(vistaImagen.current);
-    vistaImagen.current = imagen ? URL.createObjectURL(file) : null;
-    const base = { nombre: file.name, imagen, ...(vistaImagen.current ? { vista: vistaImagen.current } : {}) };
-    const ac = new AbortController();
-    subida.current = ac;
-    setEstado((e) => conArchivo(e, { ...base, estado: 'leyendo' }));
+    // Se arma sobre el estado de AHORA (el tope), y se aplica con una función: una lectura que vuelve en el medio no se pisa.
+    let e = estadoVivo.current;
+    const nuevos: ArchivoCaja[] = [];
+    for (const file of files) {
+      if (!puedeLeerse(file.name, file.type)) { setError(porQueNoPuedo(file.name) || `No puedo leer «${file.name}».`); continue; }
+      if (!cabeArchivo(e)) { setError(`Hasta ${MAX_ARCHIVOS} archivos.`); break; }
+      const id = `f${++ultimoArchivo.current}`;
+      const esImagen = imagen ?? familiaDeArchivo(file.name, file.type) === 'imagen';
+      const vista = esImagen ? URL.createObjectURL(file) : null;
+      if (vista) vistas.current.set(id, vista);
+      const nuevo: ArchivoCaja = { id, nombre: file.name, imagen: esImagen, ...(vista ? { vista } : {}), estado: 'leyendo' };
+      e = conArchivo(e, nuevo);
+      nuevos.push(nuevo);
+      const ac = new AbortController();
+      lecturas.current.set(id, ac);
+      void leerArchivo(file, ac.signal).then((r) => {
+        if (ac.signal.aborted) return;
+        lecturas.current.delete(id);
+        setEstado((x) => conLeido(x, id, r));
+        if (!r.ok) setError(`«${file.name}»: ${r.error}`);
+      });
+    }
+    if (!nuevos.length) return;
+    estadoVivo.current = e;
+    setEstado((x) => nuevos.reduce(conArchivo, x));
     alCampo();
-    void leerArchivo(file, ac.signal).then((r) => {
-      if (ac.signal.aborted) return;
-      const listo: ArchivoCaja = r.ok ? { ...base, estado: 'listo', texto: r.texto } : { ...base, estado: 'error' };
-      setEstado((e) => (e.archivo ? { ...e, archivo: listo } : e));
-      if (!r.ok) setError(r.error);
-    });
   };
 
-  /** Lo que se arrastra al cuadro (o un archivo pegado): un archivo se adjunta; un link, chips. Si no, lo del navegador. */
+  /** Lo que se arrastra al cuadro (o archivos pegados): los archivos se adjuntan; un link, chips. Si no, lo del navegador. */
   const soltar = (d: DataTransfer): boolean => {
-    const f = d.files?.[0];
-    if (f) { subir(f, familiaDeArchivo(f.name, f.type) === 'imagen'); return true; }
+    const fs = Array.from(d.files ?? []);
+    if (fs.length) { subir(fs); return true; }
     const url = linkSoltado(d.getData('text/uri-list'), d.getData('text/plain'));
     if (!url) return false;
     setError(null);
@@ -315,7 +339,7 @@ export default function CajaCrear({
   const nota = avisoDeTexto(estado);
   // La landing de base se VE en el cuadro (lo que viaja a la IA está en la pantalla); en una presentación no viaja.
   const base = tipo === 'landing' && vista !== 'link' && !link?.accion ? params.basadoEnUrl : null;
-  const recientesMas = vista === 'texto' && !estado.texto.trim() && !link && !estado.archivo ? recientes.slice(0, RECIENTES_EN_MAS) : [];
+  const recientesMas = vista === 'texto' && !estado.texto.trim() && !link && !estado.archivos.length ? recientes.slice(0, RECIENTES_EN_MAS) : [];
 
   // ── Lo que va adentro del cuadro ────────────────────────────────────────────
 
@@ -335,10 +359,12 @@ export default function CajaCrear({
     </>
   ) : null;
 
-  // La miniatura del archivo (punto 6) y la landing de base, ARRIBA del campo.
-  const adjunto = estado.archivo || base ? (
+  // Las miniaturas de los archivos (punto 6) y la landing de base, ARRIBA del campo.
+  const adjunto = estado.archivos.length || base ? (
     <>
-      {estado.archivo && <MiniaturaArchivo archivo={estado.archivo} onQuitar={() => { setEstado(quitarArchivo); setError(null); }} />}
+      {estado.archivos.map((a) => (
+        <MiniaturaArchivo key={a.id} archivo={a} onQuitar={() => { setEstado((e) => quitarArchivo(e, a.id)); setError(null); }} />
+      ))}
       {base && (
         <ChipCaja icono="reporte" texto={`Sobre ${hostDe(base)}`} titulo={base} nombre={`Landing de base: ${hostDe(base)}`}
           onQuitar={() => set('basadoEnUrl', null)} etiquetaQuitar="Quitar la landing de base" />
@@ -352,7 +378,7 @@ export default function CajaCrear({
       <span className="gp-cc-soltar-icono" aria-hidden="true"><Ico n="subir" t={20} /></span>
       <span className="gp-cc-soltar-textos">
         <span className="gp-cc-soltar-titulo">
-          Suelta tu archivo aquí o{' '}
+          Suelta tus archivos aquí o{' '}
           <button type="button" className="gp-cc-soltar-elegir" onClick={() => elegirArchivo.current?.click()}>elígelo</button>
         </span>
         <span className="gp-cc-soltar-sub">{ROTULO_ARCHIVOS}</span>
@@ -418,7 +444,7 @@ export default function CajaCrear({
         reinicio={tipo}
         ejemplos={EJEMPLOS_CAJA[tipo]}
         valor={estado.texto}
-        animar={!estado.archivo && !link}
+        animar={!estado.archivos.length && !link}
         placeholderQuieto={placeholderDe(estado)}
         etiqueta="Qué quieres crear"
         tope={TOPE_TEXTO}
@@ -525,10 +551,10 @@ export default function CajaCrear({
           ))}
         </MenuFlotante>
       )}
-      <input ref={elegirArchivo} type="file" accept={ACCEPT_ARCHIVO} hidden tabIndex={-1} aria-hidden
-        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) subir(f, false); }} />
-      <input ref={elegirImagen} type="file" accept={ACCEPT_IMAGEN} hidden tabIndex={-1} aria-hidden
-        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) subir(f, true); }} />
+      <input ref={elegirArchivo} type="file" accept={ACCEPT_ARCHIVO} multiple hidden tabIndex={-1} aria-hidden
+        onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; if (fs.length) subir(fs, false); }} />
+      <input ref={elegirImagen} type="file" accept={ACCEPT_IMAGEN} multiple hidden tabIndex={-1} aria-hidden
+        onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; if (fs.length) subir(fs, true); }} />
       {eligiendo && <DialogoObjetivo ocupado={!!creando} onElegir={conObjetivo} onCerrar={cerrarEleccion} />}
       {aviso}
     </section>

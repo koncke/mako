@@ -653,4 +653,15 @@ export const BITACORA: Hito[] = [
       'app/web-generator/editor/pedidos-chat.ts — la burbuja «¿Para cuál producto?»',
     ],
   },
+  {
+    fecha: '18 oct', hora: '20:45', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el chat del editor deje adjuntar documentos',
+    pedido: 'Florencia [01:27:40], queriendo adjuntar al chat del costado del editor su documento y el PDF «Lo que vendes» de MaKo: «No me permite». Martín [01:28:08]: «es un error… no te está permitiendo juntar documentos, yo lo voy a solucionar».',
+    puntos: [
+      'Es de la llamada de Fathom 864249059 (18/10, el onboarding de Florencia, ws21). Llegó el 20/10 por el Cerebro, con el registro en docs/feedback-20-10.md («Lo demás que salió de la llamada») y las dos citas del diagnóstico de esa llamada.',
+      'El chat del editor no tenía ⊕ a propósito (PanelAgente.tsx, decisión del 11/10: «Lo que NO se copia: adjuntar archivos al chat») y la caja de crear tomaba un solo archivo.',
+      'Lo que pidió el Cerebro: el ⊕ con las MISMAS piezas del Ops Center (un solo chat en toda la app), varios archivos, arrastrar y pegar; que lo adjuntado llegue al modelo que edita la landing; el PDF «Lo que vendes» del onboarding como chip; y varios archivos en la caja de crear.',
+    ],
+  },
 ];

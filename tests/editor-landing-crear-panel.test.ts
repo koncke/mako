@@ -259,12 +259,13 @@ test('el «+»: Importar archivo y Subir imagen; lo de antes sigue alcanzable de
   assert.doesNotMatch(src.match(/export const ACCEPT_ARCHIVO = [^\n]+/)?.[0] ?? '', /imagen/);
   // Se lee con el lector de la casa y queda como MINIATURA adentro del cuadro (tanda 7); al mandar, su texto va como texto.
   assert.match(src, /void leerArchivo\(file, ac\.signal\)\.then\(/);
-  // Verificación de la tanda 6 (rotura C3: `texto: ''` quedaba en verde): lo que viaja es EL TEXTO leído (el envío,
-  // `alEnviar`, se ejecuta en tests/web-generator-cuadro.test.ts), y Crear lo pone en su texto y en lo que se manda.
-  assert.match(src, /const listo: ArchivoCaja = r\.ok \? \{ \.\.\.base, estado: 'listo', texto: r\.texto \} : \{ \.\.\.base, estado: 'error' \};/);
+  // Verificación de la tanda 6 (rotura C3: `texto: ''` quedaba en verde): lo que viaja es EL TEXTO leído. Desde el 20/10
+  // (varios archivos) lo pone `conLeido` (crear/caja-modos.ts), que se EJECUTA en tests/web-generator-cuadro.test.ts con
+  // el envío (`alEnviar`); acá, que la caja se lo pase tal cual. Crear lo pone en su texto y en lo que se manda.
+  assert.match(src, /setEstado\(\(x\) => conLeido\(x, id, r\)\);/);
   const crearIA = fuente(CREAR);
   assert.match(crearIA, /const deTexto = arranque\.archivo \? arranque\.archivo\.texto : arranque\.texto;\s*if \(deTexto\) \{[\s\S]{0,300}setTexto\(deTexto\);[\s\S]{0,200}texto: deTexto,/);
-  assert.match(src, /\{estado\.archivo && <MiniaturaArchivo archivo=\{estado\.archivo\}/);
+  assert.match(src, /\{estado\.archivos\.map\(\(a\) => \(\s*<MiniaturaArchivo key=\{a\.id\} archivo=\{a\}/);
   // «Usar plantilla» = la grilla de abajo; «Del generador anterior» = la galería de Plantillas del Panel.
   const inicio = fuente(INICIO);
   assert.match(inicio, /\{tipo === 'landing' && \(\s*<button type="button" className="gp-btn gp-btn-contorno gp-galeria-borradores" onClick=\{onBorradores\}>/);
