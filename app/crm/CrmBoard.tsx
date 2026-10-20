@@ -2874,7 +2874,8 @@ export function CrmBoard({
     // ⚠️ ARRIBA, 16 Y NO 34 (punto 23 del 12/10/2026: «Sube la topbar del todo»). Con el título
     // fuera ya no hay header: la primera fila es la barra, y los 34 px de arriba eran el aire de
     // un título que no está. El esqueleto (app/crm/loading.tsx) lleva el mismo número.
-    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px', display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerecho}>
+    // El padding derecho deja el lugar de la barra de MaKo cuando está abierta (`--ancho-panel-mako`, la prende esa barra).
+    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px calc(44px + var(--ancho-panel-mako, 0px)) 60px 44px', display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerecho}>
       <CrmToolbarStyles />
       <EstiloTarjetas />
       {/* Conectar Google desde el reagendar abre el modal acá (14/10/2026, «para una integración jamás se debe salir de
