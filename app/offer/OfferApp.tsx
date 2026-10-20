@@ -912,7 +912,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   // El arranque escribe en la caja del Ops Center (20/10/2026): lo juntado, como sus miniaturas, con la URL `blob:` que nace
   // al verlas (`urlsCaja`) y se suelta al quitarlas. Sumar y quitar son los de siempre: se leen al mandar.
   const adjuntosCaja: AdjuntosDeCaja = {
-    items: lista.items.map((it) => {
+    items: lista.items.map((it): AdjuntosDeCaja['items'][number] => {
       let url = urlsCaja.current.get(it.id);
       if (!url) { url = crearUrl(it.file); urlsCaja.current.set(it.id, url); }
       return { id: it.id, file: it.file, tipo: it.file.type.startsWith('image/') ? 'image' : 'document', url };
