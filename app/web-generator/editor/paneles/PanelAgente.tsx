@@ -61,7 +61,7 @@
 import '@/app/admin/operaciones/centro.css';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import type { Editor } from '@tiptap/react';
-import Link, { useRouter } from '@/app/_ui/Link';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
 import { ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { instruccionConAdjuntos, type AdjuntoEditar } from '@/lib/editor-landing/adjuntos';
 import { useEditorLanding, type CtxEditorLanding } from '../contexto';
@@ -605,11 +605,19 @@ function BurbujaDePedido({ burbuja, onBoton }: { burbuja: BurbujaPedido; onBoton
 let ultimoAdjunto = 0;
 
 /**
- * El «Lo que vendes» del negocio (GET /api/landing-generator/importar), pedido UNA vez por pestaña: el panel se
- * colapsa y se vuelve a montar, y el documento no cambia mientras se edita. Si no vino, se vuelve a pedir la próxima.
+ * El «Lo que vendes» del negocio (GET /api/landing-generator/importar), pedido UNA vez por negocio en la pestaña: el
+ * panel se colapsa y se vuelve a montar, y el documento no cambia mientras se edita. Por `ws`: el super admin cambia de
+ * negocio sin recargar y no tiene que ver el chip del otro. Si no vino, se vuelve a pedir la próxima.
  */
-let loQueVendes: Promise<DocDelArchivero | null> | null = null;
-const traerLoQueVendes = () => (loQueVendes ??= pedirLoQueVendes().then((d) => { if (!d) loQueVendes = null; return d; }));
+const loQueVendes = new Map<number | null, Promise<DocDelArchivero | null>>();
+function traerLoQueVendes(ws: number | null): Promise<DocDelArchivero | null> {
+  let p = loQueVendes.get(ws);
+  if (!p) {
+    p = pedirLoQueVendes().then((d) => { if (!d) loQueVendes.delete(ws); return d; });
+    loQueVendes.set(ws, p);
+  }
+  return p;
+}
 
 /** `onCerrar`: quien lo monta puede cerrarlo a su manera; si no, el panel se colapsa por el contexto. */
 export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
@@ -619,6 +627,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   const ctxVivo = useCallback(() => ctxRef.current, []);
   const { docId, titulo, editor, tarjetaActiva, modoIA, setPanelIzq, avisar, setPanelDer } = ctx;
   const router = useRouter();
+  const ws = useWs();
   const hilo = useHilo(docId);
   const sugerencias = sugerenciasDe(ctx.config);
   const [texto, setTexto] = useState('');
@@ -643,9 +652,9 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   const [encima, setEncima] = useState(false);
   useEffect(() => {
     let vivo = true;
-    void traerLoQueVendes().then((d) => { if (vivo) setDoc(d); });
+    void traerLoQueVendes(ws).then((d) => { if (vivo) setDoc(d); });
     return () => { vivo = false; };
-  }, []);
+  }, [ws]);
   useEffect(() => {
     const c = caja.current;
     return () => {
