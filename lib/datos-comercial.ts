@@ -17,7 +17,7 @@
 // lib/pagos.ts, que son las mismas que leen los runners de MaKo. Acá sólo se ARMA lo que ya se leyó: el
 // orden de «A quién cobrarle» y la ventana del Outstanding.
 
-import type { OutstandingLead } from '@/lib/pagos';
+import type { ItemPorCobrar, MotivoSuscripcion } from '@/lib/suscripciones-por-cobrar';
 import { finDeMesDeFecha } from '@/lib/date-utils';
 import { rangoDe } from '@/lib/graficos-catalogo';
 
@@ -69,6 +69,11 @@ export type FilaCobro = {
   pendiente: number;
   /** La próxima cuota sin pagar: la que se marca con «Marcar cobrado». */
   cuota: { pagoId: number; numero: number; monto: number; vence: string | null } | null;
+  /**
+   * Una SUSCRIPCIÓN por cobrar (20/10/2026, lib/suscripciones-por-cobrar.ts): no tiene cuota que marcar; se registra el
+   * mes en su ficha. null en la fila de una cuota.
+   */
+  suscripcion: { motivo: MotivoSuscripcion; meses: number; vence: string | null } | null;
   /** Días hasta el vencimiento (negativo = vencida hace N días). */
   dias: number | null;
   urgencia: Urgencia;
@@ -101,10 +106,12 @@ export const nombreCuota = (n: number) => (n === 0 ? 'cobro inicial' : `cuota ${
  * El total se suma de las MISMAS filas que se dibujan: así un pie «Total pendiente» no puede contar
  * distinto que la tabla.
  */
-export function armarCobranza(items: readonly OutstandingLead[], hoy: string): { filas: FilaCobro[]; total: number } {
+export function armarCobranza(items: readonly ItemPorCobrar[], hoy: string): { filas: FilaCobro[]; total: number } {
   const filas: FilaCobro[] = items.map((it) => {
     const c = it.proxima_cuota;
-    const dias = diasHasta(c?.fecha_esperada ?? null, hoy);
+    // Una suscripción no tiene cuota: su vencimiento es el del mes que se le cobra (lib/suscripciones-por-cobrar.ts).
+    const vence = c?.fecha_esperada ?? it.suscripcion?.vence ?? null;
+    const dias = diasHasta(vence, hoy);
     return {
       leadId: it.lead_id,
       nombre: it.lead_nombre,
@@ -112,13 +119,14 @@ export function armarCobranza(items: readonly OutstandingLead[], hoy: string): {
       cobrado: Number(it.cobrado_usd) || 0,
       pendiente: Number(it.pendiente_usd) || 0,
       cuota: c ? { pagoId: c.pago_id, numero: c.numero, monto: Number(c.monto_usd) || 0, vence: c.fecha_esperada } : null,
+      suscripcion: !c && it.suscripcion ? { ...it.suscripcion } : null,
       dias,
       urgencia: urgenciaDe(dias),
     };
   });
   filas.sort((a, b) => {
-    const fa = a.cuota?.vence ?? null;
-    const fb = b.cuota?.vence ?? null;
+    const fa = a.cuota?.vence ?? a.suscripcion?.vence ?? null;
+    const fb = b.cuota?.vence ?? b.suscripcion?.vence ?? null;
     if (fa !== fb) {
       if (!fa) return 1;
       if (!fb) return -1;

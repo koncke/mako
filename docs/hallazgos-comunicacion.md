@@ -48,6 +48,24 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## Un aviso sobre un lead no decía de quién ni llevaba a la ficha (20/10/2026)
+
+- **El síntoma** (Martín, llamada con Leila del 19/10, 24:15): en el teléfono, «Cuota vencida → cobrar», sin el
+  cliente, sin el monto y sin llevar a ningún lado.
+- **Medido en producción, sólo leyendo:** el ws1 escribe una fila por día a las 14:00 con el título repetido como texto
+  y el link a Configuraciones. Es la BITÁCORA de un evento de MaKo sin ninguna automatización prendida
+  (`emitirPorEvento`, lib/aviso-evento.ts). Desde el 17/10 la marca `sin_automatizacion` la esconde de las listas, pero
+  la del 16/10 y las anteriores no tienen la marca y se siguen viendo.
+- **La causa de fondo, más amplia que la cobranza:** `emitirAviso` recibía el `lead` y no lo usaba para el link. Todo
+  aviso sobre un lead (también los que corren por una automatización) llevaba a Configuraciones, en la fila, en el
+  push y en el correo.
+- **La regla** (lib/aviso-lead.ts, tests/aviso-lead.test.ts):
+  - un aviso con lead lleva a su ficha (`/crm/<id>`; el teléfono la abre en `/m/crm/<id>`);
+  - salvo un aviso `alDueno`: lo lee el super admin y el lead es de un cliente;
+  - la bitácora de un evento sin automatización dice quién, qué cuota, cuánto y cuándo venció;
+  - el TÍTULO nombra al cliente adelante («Francisco · Cuota vencida → cobrar»), en la fila y en el push: es lo primero
+    que se lee, y en el detalle el nombre quedaba escondido (`tituloConLead`).
+
 ## «Unificar Email en Chats» no era mudar una bandeja: Email no tiene bandeja (17/10/2026)
 
 El pedido fue «eliminar las tabs de Email y WhatsApp y unificarlo todo en Chats». Lo obvio era mover la bandeja de
