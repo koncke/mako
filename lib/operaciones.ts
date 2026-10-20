@@ -34,7 +34,7 @@ import {
   CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
 } from './operaciones-reglas';
-import { sanearCuota, type Cuota } from './centro-uso';
+import { cuentaDeLaSemana, sanearCuota, type Cuota } from './centro-uso';
 import { guardarTurnos } from './centro-turnos-db';
 import { guardarTitular } from './centro-titulares-db';
 import { guardarPasos } from './centro-pasos-db';
@@ -334,7 +334,14 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   const claves = sanearClaves(e.claves);
   const version = typeof e.version === 'string' ? e.version.slice(0, 40) : null;
   // El Uso de la cuenta (cartero 1.4.0, la barra de estado de su Runner). Sin medición no se pisa la anterior.
-  const cuota = sanearCuota(e.uso);
+  let cuota = sanearCuota(e.uso);
+  // ⚠️ LA HUELLA DE LA SEMANA (20/10/2026, la segunda vez): una cuota cuyo reinicio semanal es el de OTRA cuenta vigente es de
+  // ésa (el marcador de la PC estaba mal), y no se guarda. Frena también a un cartero de antes de la 1.16.1.
+  if (cuota?.semana?.reinicia) {
+    const { data: otras } = await db.from(T_CARTEROS).select('cuenta, cuota').neq('cuenta', cuenta);
+    const de = cuentaDeLaSemana(cuenta, cuota, (otras ?? []).map((f) => ({ cuenta: f.cuenta as string, cuota: sanearCuota(f.cuota) })), Date.now());
+    if (de) { console.warn(`[operaciones] la cuota que subió ${cuenta} es de ${de} (su semana): no se guarda`); cuota = null; }
+  }
   const ahoraIso = new Date().toISOString();
 
   const { error: eUp } = await db.from(T_CARTEROS)

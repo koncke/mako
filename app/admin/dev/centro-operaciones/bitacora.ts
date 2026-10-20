@@ -710,4 +710,21 @@ export const BITACORA: Hito[] = [
       'tests/centro-adjuntos-grandes.test.ts, tests/centro-adjuntos.test.ts',
     ],
   },
+  {
+    fecha: '20 oct', hora: '17:50', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El Uso no vuelve a mostrar los números de una cuenta en otra',
+    pedido: 'El uso quedó mal en Mauricio... Que no vuelva a pasar nunca más',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Cada cuenta reinicia su semana siempre a la misma hora: una medición cuya semana es la de otra cuenta ya no se anota.',
+      'Tampoco se anota una que mueve la semana de una cuenta antes de que venza, salvo que digas que esa cuenta se renovó.',
+      'MaKo hace el mismo control, así que también frena a un Runner de antes.',
+    ],
+    archivos: [
+      'scripts/operaciones/cartero.mjs — 1.16.1: problemaDeHuella en medir',
+      'lib/centro-uso.ts — cuentaDeLaSemana; lib/operaciones.ts — cicloCartero no la guarda',
+      'tests/cartero-medir.test.ts — el caso del 20/10',
+    ],
+  },
 ];
