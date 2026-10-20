@@ -16,7 +16,8 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { leerConversacionOffer, listarSesionesOffer } from '@/lib/offer-sesiones';
-import { mensajesDeOffer } from '@/lib/chat-mako-reglas';
+import { mensajesDeOffer, offerDelOnboardingCopiada } from '@/lib/chat-mako-reglas';
+import { getSetting } from '@/lib/settings';
 import {
   esChatDelTelefono, getSession, getSessionMessages, listAllSessions, listSessions, listSessionsDePersona,
   type ChartMsg, type ChartSession,
@@ -145,8 +146,10 @@ async function wsSiVeOffer(): Promise<number | null> {
 export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
   const ws = await wsSiVeOffer();
   if (ws == null) return [];
-  const lista = await runWithWorkspace(ws, () => listarSesionesOffer());
-  return lista.filter((s) => s.id > 0).map((s) => ({ id: s.id, titulo: s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace' }));
+  // La del onboarding, si ya tiene su chat «Onboarding» (lo copia hiloDelOnboarding), no se lista: saldría dos veces.
+  const [lista, arranque] = await runWithWorkspace(ws, () => Promise.all([listarSesionesOffer(), getSetting('onboarding.arranque').catch(() => null)]));
+  const copiada = offerDelOnboardingCopiada(arranque);
+  return lista.filter((s) => s.id > 0 && s.id !== copiada).map((s) => ({ id: s.id, titulo: s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace' }));
 }
 
 /** Una conversación de Offer, para leerla en el Ops Center. null = no ve la tab, o no es de este negocio (no se distingue). */
