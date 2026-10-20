@@ -15,7 +15,8 @@
 // Probado rompiéndolo (20/10/2026, con la base en 0 fallos):
 //   · la pieza sin el «+» (MasCaja) → 1 fallo (1);
 //   · Conversacion.tsx con su <textarea> otra vez → 1 fallo (2);
-//   · una pantalla nueva de MaKo con su propio <textarea> → 1 fallo (4).
+//   · una pantalla nueva de MaKo con su propio <textarea> → 1 fallo (4);
+//   · la caja con `voz` que dicta en vez de grabar → 1 fallo (5).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -105,4 +106,16 @@ test('4. una pantalla de MaKo nueva no arma su propia caja: usa la caja única',
     .filter((f) => f !== 'app/_chat/CajaChat.tsx' && !(f in INVENTARIO))
     .filter((f) => { const s = leer(f); return ES_DE_MAKO.test(s) && CAJA_PROPIA.test(s); });
   assert.deepEqual(nuevas, [], `Estas pantallas de MaKo arman su propia caja: usá app/_chat/CajaChat.tsx (o, si de verdad falta, sumalas al INVENTARIO como «pendiente, de <chat>»): ${nuevas.join(', ')}`);
+});
+
+test('5. la nota de voz y la línea de estado (lo que pidió el onboarding)', () => {
+  // La caja no se dibuja en node (AdjuntosCaja importa su CSS): se mira el código, como los demás de la caja.
+  const c = leer('app/_chat/CajaChat.tsx');
+  assert.match(c, /return p\.voz \? <CajaConVoz \{\.\.\.p\} voz=\{p\.voz\} \/> : <Caja p=\{p\} grabacion=\{null\} \/>;/, 'sin `voz`, la grabación ni se monta');
+  assert.match(c, /const grabacion = useGrabacionVoz\(p\.voz\.onAudio, p\.voz\.onError\);/);
+  assert.match(c, /\{grabacion && !hayQueMandar && !enviando \? \(\n\s*<button type="button" className="co-enviar co-enviar--mic" onClick=\{\(\) => void grabacion\.start\(\)\}/, 'con `voz` y nada que mandar, el botón GRABA');
+  assert.match(c, /aria-label="Grabar una nota de voz"/);
+  assert.match(c, /const conBarra = !!grabacion && \(grabacion\.fase === 'grabando' \|\| !!grabacion\.revision \|\| !!p\.voz\?\.pendiente\);/, 'grabando o con algo para escuchar');
+  assert.match(c, /<BarraGrabacion voz=\{grabacion\} ocupado=\{enviando\} existente=\{p\.voz\?\.pendiente \?\? null\}/, 'la barra: se termina, se escucha y recién ahí se manda');
+  assert.match(c, /\{p\.estado !== undefined && <p className="co-caja__estado" aria-live="polite">\{p\.estado \?\? ''\}<\/p>\}/, 'la línea de estado, si la pantalla la da');
 });

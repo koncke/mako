@@ -15,9 +15,15 @@
 // Lo que cambia de una pantalla a otra va por props: a quién se le escribe, qué se manda, qué va arriba (la cita, un
 // texto largo pegado) y qué va en el «+». El motor (a qué endpoint manda y qué devuelve) es de cada pantalla.
 // ⚠️ ARRASTRAR Y SOLTAR es de la PANTALLA: toda la conversación es la zona (`alSoltar` y `traeArchivos`, pegar.ts).
+// La NOTA DE VOZ (20/10/2026, para el onboarding): con `voz`, sin nada escrito el botón GRABA en vez de dictar (el dictado
+// no aguanta un monólogo, y su respaldo usa las keys del negocio, que un cliente nuevo no tiene). Mientras graba, o con lo
+// grabado para escuchar, la fila es la barra de la grabación (`BarraGrabacion`): se termina, se escucha y recién ahí se
+// manda (la regla de Martín del 09/10). Sin `voz`, el micrófono dicta, como siempre.
 // ⚠️ tests/chat-unico.test.ts hace cumplir la regla: una pantalla de MaKo que arma su propia caja falla.
 
 import { useLayoutEffect, useRef, type ClipboardEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { Icon } from '@/app/_components/icons';
+import { BarraGrabacion, useGrabacionVoz, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
 import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
@@ -57,9 +63,30 @@ export type PropsCajaChat = {
   onErrorMic?: (m: string) => void;
   /** La clase de la fila: la de la computadora (`co-caja__fila`) o la del teléfono (`m-operaciones-caja__fila`). */
   fila?: string;
+  /** La nota de voz: `onAudio` recibe lo que se MANDA (después de escucharlo); `pendiente`, una grabación de antes que la
+   *  pantalla todavía tiene (con borrar, dejar y seguir); `rotuloEnviar`, el nombre del botón que la manda. */
+  voz?: {
+    onAudio: (blob: Blob, secs: number) => void | Promise<void>;
+    onError?: (m: string) => void;
+    pendiente?: { url: string; secs?: number | null; onBorrar: () => void; onDejar: () => void; onSeguir?: () => void } | null;
+    rotuloEnviar?: string;
+  };
+  /** La línea de estado debajo de la caja, con lo que dice la pantalla («Leyendo «X»…»). Sin esto, no se dibuja (la pantalla
+   *  puede tener la suya afuera, como el Ops Center). */
+  estado?: string | null;
 };
 
 export function CajaChat(p: PropsCajaChat) {
+  // La grabación es un hook: va en su propio componente, así una pantalla sin nota de voz no la monta.
+  return p.voz ? <CajaConVoz {...p} voz={p.voz} /> : <Caja p={p} grabacion={null} />;
+}
+
+function CajaConVoz(p: PropsCajaChat & { voz: NonNullable<PropsCajaChat['voz']> }) {
+  const grabacion = useGrabacionVoz(p.voz.onAudio, p.voz.onError);
+  return <Caja p={p} grabacion={grabacion} />;
+}
+
+function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | null }) {
   const { texto, onTexto, enviando = false, apagado = false, altoMax = 220 } = p;
   const propio = useRef<HTMLTextAreaElement | null>(null);
   const caja = p.campo ?? propio;
@@ -99,11 +126,18 @@ export function CajaChat(p: PropsCajaChat) {
     if (p.enterManda) { e.preventDefault(); p.onMandar(); }
   };
 
+  const hayQueMandar = !apagado && (!!texto.trim() || !!p.adjuntos?.items.length || !!p.hayAlgoMas);
+  /** Grabando, o con lo grabado para escuchar: la fila es la barra de la grabación. */
+  const conBarra = !!grabacion && (grabacion.fase === 'grabando' || !!grabacion.revision || !!p.voz?.pendiente);
+
   return (
     <>
       {p.arriba}
       <ListaAdjuntos a={p.adjuntos} />
       <div className={p.fila ?? 'co-caja__fila'}>
+        {conBarra && grabacion ? (
+          <BarraGrabacion voz={grabacion} ocupado={enviando} existente={p.voz?.pendiente ?? null} rotuloEnviar={p.voz?.rotuloEnviar} />
+        ) : (<>
         {(p.adjuntos || p.mas) && <MasCaja a={p.adjuntos} apagado={quieto} resumen={null}>{p.mas}</MasCaja>}
         {/* Los emojis, en su botón junto al campo (WhatsApp; Emojis.tsx). */}
         <BotonEmojis campo={caja} valor={texto} onValor={onTexto} apagado={quieto} />
@@ -129,11 +163,20 @@ export function CajaChat(p: PropsCajaChat) {
             disabled={quieto}
           />
         </div>
-        <BotonMandar valor={texto} onValor={onTexto} onError={(m) => p.onErrorMic?.(m)} enviando={enviando} apagado={apagado}
-          hayQueMandar={!apagado && (!!texto.trim() || !!p.adjuntos?.items.length || !!p.hayAlgoMas)} onMandar={p.onMandar}
-          titulo={p.tituloMandar} />
+        {/* Con nota de voz y nada que mandar, el botón GRABA; si no, el de siempre (dicta, o la flecha con algo escrito). */}
+        {grabacion && !hayQueMandar && !enviando ? (
+          <button type="button" className="co-enviar co-enviar--mic" onClick={() => void grabacion.start()} disabled={quieto}
+            aria-label="Grabar una nota de voz" title="Grabar una nota de voz">
+            <Icon name="mic" size={18} />
+          </button>
+        ) : (
+          <BotonMandar valor={texto} onValor={onTexto} onError={(m) => p.onErrorMic?.(m)} enviando={enviando} apagado={apagado}
+            hayQueMandar={hayQueMandar} onMandar={p.onMandar} titulo={p.tituloMandar} />
+        )}
+        </>)}
       </div>
       <LinksDeLaCaja texto={texto} />
+      {p.estado !== undefined && <p className="co-caja__estado" aria-live="polite">{p.estado ?? ''}</p>}
     </>
   );
 }
