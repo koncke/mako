@@ -6,6 +6,8 @@
 // GET  ?antes=1                                      → { ok, antes }    los chats de «Pregúntale a MaKo» (sólo lectura)
 // GET  ?antesId=N                                    → { ok, sesion, mensajes }
 // GET  ?adjunto=<id del mensaje>:<n>                 → 302 al archivo (link firmado, 300 s)
+// GET  ?offer=1                                      → { ok, offer }    las conversaciones de Offer del negocio (20/10/2026)
+// GET  ?offerId=N                                    → { ok, sesion, mensajes }      una, de sólo lectura; de otro ws, 404
 // POST { action:'new' }                              → { ok, sesion }               sin saludo del modelo
 // POST { action:'send', sessionId, mensaje }         → RespuestaTurno
 // POST multipart: mensaje, sessionId, adjuntos[]     → RespuestaTurno               (fotos y PDF, como el teléfono)
@@ -30,7 +32,7 @@ import {
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
 import { CONTEXTO_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
-import { chatsDeAntes, hiloDeAntes, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeOffer, hiloDeAntes, hiloDeOffer, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 420;
@@ -63,6 +65,14 @@ export async function GET(req: NextRequest) {
       const id = enteroDe(sp.get('antesId'));
       const hilo = id == null ? null : await hiloDeAntes(q, id);
       if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // Offer (20/10/2026): una proyección del workspace, con la puerta de la tab (lib/chat-mako-indice.ts). Sin la tab, [].
+    if (sp.get('offer')) return json({ ok: true, offer: await chatsDeOffer() });
+    if (sp.has('offerId')) {
+      const id = enteroDe(sp.get('offerId'));
+      const hilo = id == null ? null : await hiloDeOffer(id);
+      if (!hilo) return json({ ok: false, error: 'No encuentro esa conversación.' }, 404);
       return json({ ok: true, ...hilo });
     }
     if (sp.has('sessionId')) {
