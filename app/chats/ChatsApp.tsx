@@ -32,7 +32,7 @@ import { FILTRO_INICIAL, coincideBusqueda, contarBandejas, filtrarChats, parsear
 import { RUTA_CHATS, rutaChatsDeClave } from '@/lib/chats-links';
 import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import {
-  almacenLocal, claveDelLink, filtroRecordado, guardarLocal, leerLinkProfundo, leerLocal, pasoDelLink,
+  almacenLocal, claveDelLink, filtroRecordado, fusionarRecientes, guardarLocal, leerLinkProfundo, leerLocal, pasoDelLink,
   type LinkProfundo,
 } from './lista-reglas';
 import { FuenteChats } from './fuente';
@@ -65,6 +65,15 @@ type RespHilo = { ok: true; chat: ChatResumen | null } | { ok: false; error?: st
 
 /** Cada cuánto se relee la lista con la pestaña a la vista (respond.io empuja; acá se sondea). */
 const SONDEO_MS = 15_000;
+/**
+ * CHATS SIN ESPERAR A TODO (20/10/2026, Martín en la llamada con Leila: «abrir Chats tarda mucho»). Leer la lista entera
+ * eran 19 páginas del espejo de WhatsApp: 17 s en el ws1, y se repetía cada 15 s. Ahora la PRIMERA vista y el sondeo
+ * leen sólo las `PAGINAS_RAPIDA` páginas más nuevas (como el teléfono) y se fusionan con lo que ya está
+ * (`fusionarRecientes`); la lista ENTERA se lee una vez al abrir, después de la rápida, y cada `COMPLETA_CADA` sondeos.
+ * Números en docs/hallazgos-comunicacion.md.
+ */
+const PAGINAS_RAPIDA = 3;
+const COMPLETA_CADA = 20;
 /** La espera del buscador: no pedir una búsqueda por letra. */
 const ESPERA_BUSCAR_MS = 350;
 /** Por debajo de este ancho de ventana el drawer arranca cerrado: no entra con la lista y el chat. */
@@ -104,38 +113,51 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
   /** Cuántas lecturas buenas van: los links pendientes cuentan lecturas, no segundos. */
   const [lecturas, setLecturas] = useState(0);
   const pedidoLista = useRef(0);
+  const pedidoCompleta = useRef(0);
 
-  const cargarLista = useCallback(async () => {
-    const id = ++pedidoLista.current;
+  /** `rapida`: las páginas más nuevas, fusionadas con lo que hay. `completa`: todo, y reemplaza. */
+  const cargarLista = useCallback(async (modo: 'rapida' | 'completa') => {
+    // Cada modo descarta sólo SUS lecturas viejas: una completa lenta no se tira porque entró un sondeo en el medio.
+    const pedido = modo === 'rapida' ? pedidoLista : pedidoCompleta;
+    const id = ++pedido.current;
     try {
-      const r = await fetch('/api/chats', { cache: 'no-store', signal: AbortSignal.timeout(45_000) });
+      const r = await fetch(modo === 'rapida' ? `/api/chats?paginas=${PAGINAS_RAPIDA}` : '/api/chats', { cache: 'no-store', signal: AbortSignal.timeout(45_000) });
       const j = (await r.json().catch(() => null)) as RespLista | null;
       // Una lectura vieja que llega después de una nueva no la pisa.
-      if (id !== pedidoLista.current) return;
+      if (id !== pedido.current) return;
       if (!r.ok || !j || !j.ok) {
         setErrorLista((j && !j.ok && j.error) || `Error ${r.status}`);
         return;
       }
-      setDatos({
+      const nuevos: DatosLista = {
         chats: j.chats ?? [], lineas: j.lineas ?? [], cuentasSociales: j.cuentasSociales ?? [], etapas: j.etapas ?? [],
         yo: j.yo ?? SIN_YO, equipo: j.equipo ?? [], fallas: j.fallas ?? [],
-      });
+      };
+      setDatos((d) => (modo === 'rapida' && d ? { ...nuevos, chats: fusionarRecientes(d.chats, nuevos.chats) } : nuevos));
       setErrorLista(null);
       setLecturas((n) => n + 1);
     } catch (e) {
-      if (id === pedidoLista.current) setErrorLista(e instanceof Error ? e.message : 'Sin conexión');
+      if (id === pedido.current) setErrorLista(e instanceof Error ? e.message : 'Sin conexión');
     }
   }, []);
 
+  /** Al abrir (y al reintentar): primero lo reciente, para dibujar ya; después todo, una vez. */
+  const cargarTodo = useCallback(() => cargarLista('rapida').then(() => cargarLista('completa')), [cargarLista]);
+
   useEffect(() => {
-    void cargarLista();
+    void cargarTodo();
     const visible = () => document.visibilityState === 'visible';
-    const t = setInterval(() => { if (visible()) void cargarLista(); }, SONDEO_MS);
+    let sondeos = 0;
+    const t = setInterval(() => {
+      if (!visible()) return;
+      sondeos += 1;
+      void cargarLista(sondeos % COMPLETA_CADA === 0 ? 'completa' : 'rapida');
+    }, SONDEO_MS);
     // Al volver a la pestaña se lee en el acto: lo que pasó mientras no se miraba es lo primero que importa.
-    const alVolver = () => { if (visible()) void cargarLista(); };
+    const alVolver = () => { if (visible()) void cargarLista('rapida'); };
     document.addEventListener('visibilitychange', alVolver);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver); };
-  }, [cargarLista]);
+  }, [cargarLista, cargarTodo]);
 
   // ── Las comodidades del navegador (con el ws en la clave) ─────────────────────────────────
   const [filtro, setFiltro] = useState<FiltroChats>(FILTRO_INICIAL);
@@ -262,7 +284,8 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
     }
     if (paso.paso === 'esperar') {
       p.sinVerlo += 1;
-      const t = setTimeout(() => { void cargarLista(); }, REINTENTO_LINK_MS);
+      // El link busca una conversación que la lectura rápida pudo no traer: se reintenta con TODO.
+      const t = setTimeout(() => { void cargarLista('completa'); }, REINTENTO_LINK_MS);
       return () => clearTimeout(t);
     }
     // No apareció en dos lecturas. Si el link nombra una clave EXACTA (un lead sin mensajes todavía, un
@@ -308,7 +331,7 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
   // ── Cambios desde la ventana, el drawer o la fila ──────────────────────────────────────────
   /** Cuántas veces cambió algo: el drawer relee el contacto y la actividad cuando sube. */
   const [version, setVersion] = useState(0);
-  const alCambiar = useCallback(() => { setVersion((v) => v + 1); void cargarLista(); }, [cargarLista]);
+  const alCambiar = useCallback(() => { setVersion((v) => v + 1); void cargarLista('rapida'); }, [cargarLista]);
 
   const alCambiarClave = useCallback((nueva: string) => {
     // Se agregó al CRM: la conversación pasa a `lead:<id>`. La ventana se vuelve a montar (su `key` es
@@ -397,7 +420,7 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
         errorLista={errorLista}
         fallas={modoBusca ? fallasBusca : datos?.fallas ?? []}
         lineas={datos?.lineas ?? []}
-        onReintentar={() => void cargarLista()}
+        onReintentar={() => void cargarTodo()}
         filtro={filtro}
         onFiltro={cambiarFiltro}
         modoBusca={modoBusca}
