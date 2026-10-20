@@ -83,7 +83,8 @@ test('un solo grafo: no se pierde ningún nodo ni ninguna arista, y la raíz de 
   const o = obra();
   const u = unirCerebros(n, o);
   assert.equal(u.nodos.length, n.nodos.length + o.nodos.length, 'ningún nodo de ninguno de los dos');
-  assert.equal(u.aristas.length, n.aristas.length + o.aristas.length, 'ninguna arista');
+  // Ninguna arista se pierde; se suma UNA, la que cuelga la construcción de la raíz (20/10/2026: un cerebro, nunca dos).
+  assert.equal(u.aristas.length, n.aristas.length + o.aristas.length + 1, 'ninguna arista, y el puente');
   const ids = idsDe(u);
   assert.equal(new Set(ids).size, ids.length, 'ids únicos');
   assert.equal(ids.filter((i) => i === 'raiz').length, 1, 'una sola raíz del negocio');
@@ -112,16 +113,14 @@ test('un solo grafo: si otro id choca, el de la construcción se prefija y nada 
   assert.ok(u.aristas.some((e) => e.de === 'obra:of:1' && e.a === 'dev:crm'), 'la arista sigue al nodo renombrado');
 });
 
-test('un solo grafo: las dos nubes quedan LADO A LADO, con todas las posiciones y un encuadre que las abarca', () => {
+// 20/10/2026: lado a lado son sólo las posiciones de PARTIDA; el servidor corre la física entera
+// (tests/second-brain-un-cerebro.test.ts fija que el acomodado NO queda así).
+test('un solo grafo: las posiciones de partida cubren todo, adentro de un encuadre que las abarca', () => {
   const n = negocio();
   const o = obra();
   const u = unirCerebros(n, o);
   for (const x of u.nodos) assert.ok(u.posiciones[x.id], `${x.id} tiene posición`);
   for (const x of n.nodos) assert.deepEqual(u.posiciones[x.id], n.posiciones[x.id], 'la nube del negocio no se mueve');
-  const xs = (ids: string[]) => ids.map((i) => u.posiciones[i].x);
-  const minObra = Math.min(...xs(o.nodos.map((x) => (x.id === 'raiz' ? ID_RAIZ_OBRA : x.id))));
-  const maxNeg = Math.max(...xs(n.nodos.map((x) => x.id)));
-  assert.ok(minObra > maxNeg, `la construcción a la derecha (${minObra} > ${maxNeg})`);
   const { x, y, lado } = u.encuadre;
   for (const p of Object.values(u.posiciones)) {
     assert.ok(p.x >= x && p.x <= x + lado && p.y >= y && p.y <= y + lado, 'todo adentro del encuadre');
@@ -183,11 +182,11 @@ test('Exportar: baja sólo el negocio; mirando sólo la construcción no hay nad
   assert.equal(filtroDelNegocio(filtroDeCapa(filtroVacio(), tax, CAPA_NEGOCIO), tax)?.carpetas.size, TAXONOMIA_NEGOCIO.carpetas.length);
 });
 
-test('un solo grafo: la pantalla dibuja UN `<Grafo>`, junto con unirCerebros, sin el selector de dos grafos', () => {
+test('un solo grafo: la pantalla dibuja UN `<Grafo>`, con el cerebro que manda el servidor, sin el selector de dos grafos', () => {
   const v = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
   assert.equal((v.match(/<Grafo\b/g) ?? []).length, 1, 'un solo grafo');
   assert.doesNotMatch(v, /key="construccion"|sb-capas|elegirCapa|filtroObra/, 'ya no hay dos grafos ni su selector');
-  assert.match(v, /unirCerebros\(cerebro, construccion\)/);
+  assert.match(v, /<Grafo\s+cerebro=\{cerebro\}/, 'el que llega, ya unido en el servidor (20/10/2026)');
   const f = sinComentarios(leer('app/second-brain/FiltroMapa.tsx'));
   assert.match(f, /label: 'Capa'/, 'las capas se eligen en el filtro');
   assert.doesNotMatch(f, /\bNIVEL1\b|\bAREAS\b/, 'el filtro lee la taxonomía del grafo, no la del negocio a mano');
@@ -273,7 +272,7 @@ test('la barra lateral apaisada: al costado, con scroll, y el botón «Girar la 
 test('el Mapa del teléfono abre el grafo real a pantalla entera, y la foto es la puerta', () => {
   const m = sinComentarios(leer('app/m/second-brain/SecondBrainM.tsx'));
   assert.match(m, /<VistaCerebro\s+movil\s/, 'el mismo componente de escritorio, en su modo teléfono');
-  assert.match(m, /construccion=\{construccion\}/, 'con la construcción: un solo grafo también acá');
+  assert.match(m, /<VistaCerebro\s+movil\s+cerebro=\{grafo\}/, 'con la construcción adentro: UN cerebro también acá (20/10/2026)');
   assert.match(m, /useAtrasCierra\(grafoAbierto, \(\) => setGrafoAbierto\(false\)\)/, 'el «atrás» de Android cierra el grafo');
   assert.match(m, /className="m-second-brain-abrir"/, 'la foto del mapa es un botón');
   assert.match(m, /document\.getElementById\('m-root'\) \?\? document\.body/, 'en el shell del teléfono (ahí viven sus tokens)');

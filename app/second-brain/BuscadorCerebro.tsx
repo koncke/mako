@@ -109,7 +109,7 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
             if (e.key === 'Enter' && e.shiftKey && hayTexto) { e.preventDefault(); onBuscarIA(q); }
           }}
           placeholder={conIA ? 'Buscando con MaKo…' : 'Buscar un dato'}
-          aria-label="Buscar un dato en el mapa"
+          aria-label="Buscar un dato en el Second Brain"
           style={{ flex: 1, minWidth: 0, height: 28, padding: '0 0 0 10px', border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 12.5, outline: 'none', fontFamily: SANS }}
         />
 
@@ -144,7 +144,7 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
 
       {(ampliada || conIA) && (
         <div style={{ position: 'absolute', top: '100%', left: 2, marginTop: 3, fontSize: 10, fontFamily: MONO, letterSpacing: '.04em', color: conIA ? 'var(--accent)' : 'var(--dim)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
-          {conIA ? (ia.pensando ? 'MaKo está leyendo tu mapa…' : `MaKo eligió ${ia.ids?.length ?? 0}`) : resumenCamposCerebro(campos)}
+          {conIA ? (ia.pensando ? 'MaKo está leyendo tu Second Brain…' : `MaKo eligió ${ia.ids?.length ?? 0}`) : resumenCamposCerebro(campos)}
         </div>
       )}
 
