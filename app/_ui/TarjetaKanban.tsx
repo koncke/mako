@@ -236,10 +236,12 @@ type PropsPersona = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
   alerta?: boolean;
   draggable?: boolean;
   titulo?: string;
+  /** Sin la foto ni las iniciales (quien personalizó la tarjeta del CRM y la sacó, 20/10/2026). */
+  sinCara?: boolean;
 };
 
 export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function TarjetaPersona(
-  { nombre, foto, insignia, subtitulo, antes, sinLeer, pildora, avance, chips, acciones, marcada, alerta, className, titulo, onClick, ...resto }, ref,
+  { nombre, foto, insignia, subtitulo, antes, sinLeer, pildora, avance, chips, acciones, marcada, alerta, className, titulo, onClick, sinCara, ...resto }, ref,
 ) {
   const clases = ['tk', onClick ? 'tk--clic' : '', marcada ? 'tk--marcada' : '', alerta ? 'tk--alerta' : '', className ?? ''].filter(Boolean).join(' ');
   const pct = avance ? Math.max(0, Math.min(100, Math.round(avance.pct))) : 0;
@@ -248,7 +250,7 @@ export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function Tar
       <EstiloTarjetas />
       <div className="tk-fila">
         {antes}
-        <CaraTarjeta nombre={nombre} foto={foto} insignia={insignia} />
+        {sinCara ? null : <CaraTarjeta nombre={nombre} foto={foto} insignia={insignia} />}
         <div className="tk-tx">
           <div className="tk-nom"><span>{nombre || 'Sin nombre'}</span>{sinLeer && <i className="tk-punto" title="Espera respuesta" />}</div>
           {subtitulo ? <span className="tk-sub">{subtitulo}</span> : null}

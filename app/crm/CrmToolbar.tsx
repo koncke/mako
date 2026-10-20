@@ -220,12 +220,14 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas }: {
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas }: {
   onImportar: () => void;
   onExportar: () => void;
   onNuevo: () => void;
   /** Abre el pop-up de etapas del funnel que el tablero está dibujando. */
   onEditarEtapas: () => void;
+  /** Qué datos muestra la tarjeta de un lead, para quien mira (20/10/2026). */
+  onPersonalizarTarjetas?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   useEscape(open, () => setOpen(false));
@@ -277,6 +279,12 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
                 había que irse, cambiar a ciegas y volver a ver si había quedado bien. */}
             <MenuItem icon={<FunnelIcon size={15} />} label="Editar las etapas"
               onClick={() => { setOpen(false); onEditarEtapas(); }} />
+            {/* «Las cards, las debería poder personalizar también, por si el usuario quiere más o menos info»
+                (Martín, 20/10/2026). Un pop-up con una casilla por dato; es de quien mira, no del funnel. */}
+            {onPersonalizarTarjetas && (
+              <MenuItem icon={<IconoMenu nombre="configurar" size={15} />} label="Personalizar tarjetas"
+                onClick={() => { setOpen(false); onPersonalizarTarjetas(); }} />
+            )}
             {/* ⚠️ ACÁ HABÍA TRES RENGLONES MÁS, y se fueron el 14/10/2026. Martín: «ya
                 eliminarías en los 3 puntos los botones de "avisos y resumen"... Y elimina el
                 botón de "CRM Automático", para eso ya llevamos todo a Automations».
