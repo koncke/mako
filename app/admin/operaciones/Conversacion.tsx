@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
-import { conVinetas, enterEnLista } from '@/lib/centro-caja';
+import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
@@ -34,7 +34,7 @@ import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat'
 import { Pregunta } from './Pregunta';
 import { BotonMandar } from './Microfono';
 import { BotonEmojis } from './Emojis';
-import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from './AdjuntosCaja';
+import { ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { TareasVinculadas, irAlTurno } from './Avance';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from './ConLinks';
 import { Muneco, animoDe } from './Muneco';
@@ -56,7 +56,7 @@ export type WaDeConversacion = {
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
   aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
-  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos,
+  preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto,
 }: {
   /** Los pasos en vivo de su turno abierto (la E): van en el «Trabajando…» del hilo. */
   pasos?: readonly PasoDelTurno[];
@@ -66,6 +66,9 @@ export function Conversacion({
   wa?: WaDeConversacion;
   /** Las tareas del Plan de este chat (lib/centro-plan-auto-reglas.ts): la tarjeta de cada «Ya está» y «Tareas vinculadas». */
   tareas?: readonly TareaDelChat[];
+  /** El ✓ de sus «Completado» (18/10/2026): hasta qué «Ya está» lo vio Martín, y cómo se marca (useCentro.ts → marcarYaVisto). */
+  yaVisto?: number | null;
+  onYaVisto?: (instante: number) => void;
   /** Lo elegido para mandar que no es «Automático» (la cuenta, el modelo), en chico al lado del «+». */
   resumenEnvio?: string | null;
   /** Las preguntas del chat como formulario en su conversación (17/10/2026), y cómo se contestan (useCentro.ts). */
@@ -112,6 +115,8 @@ export function Conversacion({
   const lineas = lineasDeFuera ?? historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
   // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
+  /** Se está arrastrando un archivo sobre la conversación: se dibuja dónde soltarlo (18/10/2026). */
+  const [soltando, setSoltando] = useState(false);
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
@@ -123,12 +128,19 @@ export function Conversacion({
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [chat.clave, lineas.length]);
-  // El renglón crece con lo que se escribe, hasta el tope del CSS.
+  // El renglón crece con lo que se escribe, hasta el tope del CSS. Y el scroll lo acompaña (18/10/2026, Martín: «la caja
+  // crece y el chat no lo acompaña»): la conversación, que se achica cuando la caja crece, sigue abajo si estaba abajo
+  // (se mide ANTES de crecer); y la caja, pasado su tope, sigue al cursor (el `height = 'auto'` le reseteaba el scroll).
   useLayoutEffect(() => {
     const el = caja.current;
     if (!el) return;
+    const h = hilo.current;
+    const conversacionAbajo = h ? estaAbajo(h) : false;
+    const antes = el.scrollTop;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+    el.scrollTop = el.selectionEnd >= el.value.length ? el.scrollHeight : antes;
+    if (h && conversacionAbajo) h.scrollTop = h.scrollHeight;
     if (cursor.current != null) { el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
   }, [texto]);
   // Elegir un chat deja el cursor en su caja, como cualquier app de chat.
@@ -167,8 +179,9 @@ export function Conversacion({
 
   // ── Lo que la conversación le pasa al hilo, ESTABLE: el hilo está memorizado (Hilo.tsx) y una función o un objeto
   //    nuevos en cada tecla lo volverían a dibujar entero ──────────────────────────────────────────────────────────
-  const ultimos = useRef({ onResponder, responderSobre, wa, chat });
-  useLayoutEffect(() => { ultimos.current = { onResponder, responderSobre, wa, chat }; });
+  const ultimos = useRef({ onResponder, responderSobre, wa, chat, onYaVisto });
+  useLayoutEffect(() => { ultimos.current = { onResponder, responderSobre, wa, chat, onYaVisto }; });
+  const yaVistoCb = useCallback((instante: number) => ultimos.current.onYaVisto?.(instante), []);
   const responderPregunta = useCallback<NonNullable<typeof onResponder>>((p, e, o) => ultimos.current.onResponder?.(p, e, o) ?? Promise.resolve(null), []);
   const feedback = useCallback((titulo: string) => ultimos.current.responderSobre(titulo), []);
   const animo = animoDe(chat, espera);
@@ -208,7 +221,12 @@ export function Conversacion({
   };
 
   return (
-    <section className="co-panel" aria-label={`Conversación con ${chat.titulo}`}>
+    <section className="co-panel" aria-label={`Conversación con ${chat.titulo}`} data-soltando={soltando || undefined}
+      // Arrastrar una imagen o un PDF a la conversación lo adjunta (18/10/2026): sin esto el navegador lo abría en la pestaña.
+      onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); e.dataTransfer.dropEffect = adjuntos?.puede ? 'copy' : 'none'; if (!soltando) setSoltando(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSoltando(false); }}
+      onDrop={(e) => { setSoltando(false); alSoltar(e, adjuntos); }}>
+      {soltando && <div className="co-soltar" aria-hidden>{adjuntos?.puede ? 'Suelta para adjuntar' : 'Este chat no recibe archivos'}</div>}
       <header className="co-cab">
         <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
           <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
@@ -250,6 +268,7 @@ export function Conversacion({
           <ContextoWA.Provider value={wa ? accionesWA : null}>
             <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
               vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos}
+              yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
               mostrar={cuantos} onVerAnteriores={verTodo} />
           </ContextoWA.Provider>
         </div>

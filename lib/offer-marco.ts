@@ -521,11 +521,26 @@ export function faltanMinimas(piezas: PiezasSabidas): PiezaKey[] {
  * (cuántos pagaron, cuántos lograron el resultado, valor, costo, escalera), sin el diagnóstico de la oferta y sin la
  * oferta mejorada: eso se hace después, en la tab Offer, sobre la MISMA conversación.
  */
-export const PIEZAS_DEL_ARRANQUE: readonly PiezaKey[] = ['entregables', 'cliente', 'problema', 'resultado', 'precio'];
+// LO JUSTO (18/10/2026, Martín, punto 5: «Me hizo una cantidad absurda de preguntas innecesarias... el onboarding sea rápido
+// con lo justo y necesario para la configuración inicial»): qué vende, a quién y cuánto cuesta. Qué resuelve y qué logra
+// se preguntan al analizar la oferta, en Offer. tests/onboarding-lo-que-vende.test.ts.
+export const PIEZAS_DEL_ARRANQUE: readonly PiezaKey[] = ['entregables', 'cliente', 'precio'];
 
 /** Las piezas del arranque que faltan. «sin dato: …» cuenta como contestada (la persona ya dijo que no lo sabe). */
 export function faltanDelArranque(piezas: PiezasSabidas): PiezaKey[] {
   return PIEZAS_DEL_ARRANQUE.filter((k) => !piezas[k]?.valor?.trim());
+}
+
+/**
+ * ¿La conversación termina en una pregunta de MaKo que todavía no se contestó? (18/10/2026, Martín: «no me dio tiempo a
+ * responder y me mandó el pdf»). Con las cinco piezas anotadas MaKo puede seguir preguntando un detalle («¿cuál es el
+ * monto total de esas cuotas?»); mientras esa pregunta esté abierta, el arranque no pasa al PDF ni a la etapa siguiente.
+ * El turno que cierra («listo») no pregunta ni trae opciones: es la regla 8 de OFFER_ARRANQUE_SYSTEM_TEMPLATE.
+ */
+export function preguntaAbierta(mensajes: readonly OfferMensaje[]): boolean {
+  const ult = mensajes[mensajes.length - 1];
+  if (!ult || ult.de !== 'mako') return false;
+  return (ult.opciones?.length ?? 0) > 0 || ult.texto.includes('?');
 }
 
 // ── El marco, en el texto que leen los modelos ───────────────────────────────

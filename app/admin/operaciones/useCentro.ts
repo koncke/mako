@@ -19,16 +19,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  DESTINO_NUEVO, DESTINO_RE, aceptaAbrir, aceptaAdjuntos, problemaDeNombreNuevo, type AdjuntoPedido, type TurnoChat,
+  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, tipoDeElegidoCentro, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
 import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
-import { idLocal, problemaDeSeleccion, tipoDeElegido } from '@/app/m/mako/chat-ui';
+import { idLocal } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
-  avisaYaEsta, avisosDe, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, vigiaCallado, type VistosDeChats,
+  avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type VistosDeChats, type YaVistos,
 } from '@/lib/centro-chats';
 import type { PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
@@ -37,7 +37,7 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { contestarPreguntaAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, pushesCentroAction, turnosCentroAction } from './acciones';
+import { contestarPreguntaAction, fotoCentroAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, pushesCentroAction, turnosCentroAction } from './acciones';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
 import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
@@ -195,6 +195,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // ya no lo avisa. `desde` es la primera vez que este navegador abrió el Ops Center: lo de antes no se avisa (si no, todos
   // los chats saldrían con aviso el primer día).
   const [vistos, setVistos] = useState<VistosDeChats | null>(null);
+  /** El ✓ de cada «Completado», guardado en MaKo (18/10/2026): llega con cada refresco, así cruza al teléfono. */
+  const [yaVistos, setYaVistos] = useState<YaVistos | null>(null);
   const [mirando, setMirando] = useState<string | null>(null);
   useEffect(() => { setVistos(leerVistos(Date.now())); }, []);
   const verChat = useCallback((clave: string) => {
@@ -214,7 +216,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (!(adjuntosRef.current[c.clave]?.length)) {
       void leerAdjuntosGuardados(claveParaUrl(c)).then((fs) => {
         if (!fs.length || adjuntosRef.current[c.clave]?.length) return;
-        adjuntosRef.current = { ...adjuntosRef.current, [c.clave]: fs.map((f): AdjuntoCaja => ({ id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f) })) };
+        adjuntosRef.current = { ...adjuntosRef.current, [c.clave]: fs.map((f): AdjuntoCaja => ({ id: idLocal('a'), file: f, tipo: tipoDeElegidoCentro(f, true) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f) })) };
         setAdjuntos(adjuntosRef.current);
       });
     }
@@ -290,15 +292,24 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const t = (borradores[clave] ?? '').split('\n').map((x) => x.trim()).find(Boolean);
     return t ? t.replace(/^• /, '') : null;
   };
-  /** Los chats cuyo último mensaje es un «Ya está» que este dispositivo todavía no vio (lib/centro-chats.ts → avisaYaEsta). */
-  const yaSinVer = useMemo(() => new Set([...previas].filter(([k, p]) => k !== mirando && avisaYaEsta(p, vistos, k)).map(([k]) => k)), [previas, vistos, mirando]);
+  /** Los chats cuyo último «Ya está» espera el ✓ de Martín (lib/centro-chats.ts → esperaCheck): aunque lo haya abierto y aunque
+   *  el chat haya escrito algo después (18/10/2026, pedido 1d15877a). Antes era por dispositivo y se apagaba al abrirlo. */
+  const yaSinVer = useMemo(() => new Set([...lineasDe].filter(([k, l]) => esperaCheck(ultimoYaEsta(l), yaVistos, k)).map(([k]) => k)), [lineasDe, yaVistos]);
+  /** El ✓ de un «Completado»: al toque en pantalla, y en MaKo; si no se pudo guardar, vuelve atrás y lo dice. */
+  const marcarYaVisto = useCallback(async (clave: string, instante: number) => {
+    let antes: YaVistos | null = null;
+    setYaVistos((v) => { antes = v; return { ...(v ?? {}), [clave]: Math.max(v?.[clave] ?? 0, instante) }; });
+    const r = await marcarYaVistoAction(clave, instante).catch(() => null);
+    if (r?.ok) setYaVistos(r.yaVistos);
+    else { setYaVistos(antes); avisar(r?.error ?? 'No pude guardarlo', 'bad'); }
+  }, [avisar]);
   /** Cuánto avisa cada chat en su fila: lo que espera a Martín MÁS un «Completado» sin ver (es el mismo aviso, 17/10/2026). Del
    *  globito de la criatura y del orden de la lista. */
   const avisos = useMemo(() => (c: ChatCentro) => avisosDe(esperaDe(c, esperasConVigia), yaSinVer.has(c.clave)), [esperasConVigia, yaSinVer]);
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); setAbiertas(f.preguntasAbiertas ?? {}); if (f.ultimos) { const firma = JSON.stringify(f.ultimos); if (firma !== ultimosFirma.current) { ultimosFirma.current = firma; setUltimos(f.ultimos); } } if (f.cuentas) setNombresCuentas(f.cuentas); setPasos(f.pasos ?? {}); if (f.yaVistos) setYaVistos(f.yaVistos); if (f.decisiones) { setDecisiones(f.decisiones); setDecisionesOk(true); } }
     if (mirado.current) void pedirTurnos(mirado.current);
     setAhora(Date.now());
   }, [pedirTurnos]);
@@ -397,7 +408,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const d = destinoDeChat(c);
     const envio = envioDe(c);
     if (!d.sesion || !envio.puede) { avisar(textoDeEnvio(envio) ?? 'No recibe ahora', 'bad'); return false; }
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, 'solo_esto');
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto');
     if (!r.ok) { avisar(r.error, 'bad'); return false; }
     anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
     return true;
@@ -411,21 +422,37 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const { cuenta } = destinoDeChat(c);
     return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaAdjuntos(k.version));
   };
+  /** Cuánto texto acepta el Runner de la cuenta a la que sale (18/10/2026): uno de antes de la 1.15.8 rechaza más de 8000. */
+  const topeDe = (c: ChatCentro) => {
+    const { cuenta } = destinoDeChat(c);
+    return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaTextoLargo(k.version)) ? MAX_TEXTO_LARGO : MAX_TEXTO;
+  };
+  /** ¿El Runner de la cuenta a la que sale baja archivos grandes (1.16.0, 18/10/2026)? Con él: hasta 20 archivos de hasta
+   *  100 MB, subidos directo al storage y TAL CUAL (no se achican). Con uno de antes, los topes de siempre (4 y 4 MB). */
+  const grandesDe = (c: ChatCentro | undefined) => {
+    if (!c) return false;
+    const { cuenta } = destinoDeChat(c);
+    return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaAdjuntosGrandes(k.version));
+  };
   const sumarAdjuntos = async (clave: string, lista: readonly File[]) => {
     if (!lista.length) return;
-    const validos = lista.filter((f) => tipoDeElegido(f) != null);
-    if (validos.length < lista.length) avisar(ERROR_ADJUNTO.formato, 'bad');
+    const grandes = grandesDe(chats.find((x) => x.clave === clave));
+    // Fotos y PDF siempre; Word, Excel, PowerPoint y texto, con un Runner 1.16.0 (18/10/2026). Nunca un ejecutable.
+    const validos = lista.filter((f) => tipoDeElegidoCentro(f, grandes) != null);
+    if (validos.length < lista.length) avisar(grandes ? 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' : ERROR_ADJUNTO.formato, 'bad');
     const listos: File[] = [];
     for (const f of validos) {
-      const talCual = f.size <= TAL_CUAL_BYTES && /^image\/(png|jpeg|webp|gif)$|^application\/pdf$/.test(f.type);
+      // Lo que la PC acepta tal cual no se toca; lo demás (un HEIC, una foto enorme con un Runner de antes) se achica.
+      const tipoOk = /^image\/(png|jpeg|webp|gif)$|^application\/pdf$/.test(f.type);
+      const talCual = tipoOk && (grandes || f.size <= TAL_CUAL_BYTES);
       try { listos.push(talCual ? f : await achicarImagen(f)); } catch (e) { avisar(e instanceof Error ? e.message : 'No pude leer esa imagen.', 'bad'); }
     }
     if (!listos.length) return;
     const antes = adjuntosRef.current[clave] ?? [];
-    const problema = problemaDeSeleccion([...antes.map((a) => a.file.size), ...listos.map((f) => f.size)]);
+    const problema = problemaDeAdjuntosCaja([...antes.map((a) => a.file.size), ...listos.map((f) => f.size)], grandes);
     if (problema) { avisar(problema, 'bad'); return; }
     const todos = [...antes, ...listos.map((f): AdjuntoCaja => ({
-      id: idLocal('a'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
+      id: idLocal('a'), file: f, tipo: tipoDeElegidoCentro(f, grandes) === 'image' ? 'image' : 'document', url: URL.createObjectURL(f),
     }))];
     ponerAdjuntos(clave, todos);
     const dir = direccionDe(clave);
@@ -457,13 +484,13 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     // Primero los archivos: el trabajo se firma con el `ref` de cada uno y el sha256 que calculó este navegador.
     let subidos: AdjuntoPedido[] = [];
     if (archivos.length) {
-      const s = await subirAdjuntos(archivos.map((a) => a.file));
+      const s = await subirAdjuntos(archivos.map((a) => a.file), grandesDe(c));
       if (!s.ok) { setEnviando(false); avisar(s.error, 'bad'); return; }
       subidos = s.adjuntos;
     }
     // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
     const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, texto, 'solo_esto', como, subidos);
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto', como, subidos);
     setEnviando(false);
     if (!r.ok) { avisar(r.error, 'bad'); return; }
     anotarEnviado({
@@ -487,7 +514,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     for (const c of destinos.slice(0, TOPE_REENVIO)) {
       const d = destinoDeChat(c);
       if (!d.sesion || !envioDe(c).puede) { avisar(`${c.titulo}: ${textoDeEnvio(envioDe(c)) ?? 'no recibe ahora'}`, 'bad'); continue; }
-      const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo }, sale, 'solo_esto');
+      const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, sale, 'solo_esto');
       if (!r.ok) { avisar(r.error, 'bad'); continue; }
       ok += 1;
       anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: sale, estado: 'escrito', motivo: null, cierre: null });
@@ -584,7 +611,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, pasosDe,
-    lineasDe, previas, enCursos, yaSinVer, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
+    lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */

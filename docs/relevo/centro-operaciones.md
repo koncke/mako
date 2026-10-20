@@ -1,5 +1,64 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 18/10 tarde: adjuntos grandes (cartero 1.16.0) y arrastrar y soltar — HECHOS; lo que quedó
+
+- **Los topes:** el corte de 4 MB era Vercel, no el storage. Medido: `archivero` sin tope propio, el proyecto ≥2 GB por
+  archivo, y 20 MB subieron y bajaron por URL firmada, idénticos. Ahora: 100 MB por archivo y 20 archivos, sólo con un
+  Runner 1.16.0 (`aceptaAdjuntosGrandes`). El tope que queda es la MEMORIA: el navegador y la PC tienen el archivo entero
+  para su sha256. Subirlo a más pide hashear en partes (no hecho).
+- **El tipo sigue siendo sólo fotos y PDF** (las condiciones de Martín del 17/10, que no se negocian). Un Word o un Excel
+  necesitan que Martín lo decida.
+- **SIN HACER: el «Pegar» del teclado del teléfono** (pedido 5e8b6bff). Gboard ofrece pegar una imagen sólo en un campo
+  que la acepta (contenteditable con `commitContent`); un `<textarea>` no. Ctrl+V en la computadora ya andaba (pegar.ts).
+- **Sin probar de punta a punta** en el navegador ni con el Runner: mirarlo después de instalar el cartero 1.16.0.
+
+## CIERRE DEL 18/10 (la cuenta 4 al 96%): lo que quedó del pedido 906144b3 de Martín en su Android
+
+- **La cita que se salía por la izquierda: HECHO** (test 6 de tests/centro-largos.test.ts). La cita va en un renglón
+  (`.co-cita__texto`, nowrap) y la burbuja, sin tope, tomaba el ancho de la frase entera; como va alineada a la derecha,
+  se salía por la izquierda. `.co-yo .co-burbuja { max-width: 100%; min-width: 0; }` (centro.css, al final). La causa
+  salió del CSS y de la captura, **sin medirla en un navegador**: mirarlo en el teléfono respondiendo un mensaje largo.
+- **El «atrás» de Android, SIN EMPEZAR.** Martín: «en Mobile si le doy para atrás debería sacarme del chat para ir a ver
+  todos los chats». app/m/_ui/SheetM.tsx YA hace `history.pushState` (`?sheet=<id>`) y cierra la hoja en `popstate`
+  (líneas ~97-137), y el chat abierto es un `SheetM abierto onCerrar` (app/m/operaciones/ChatsMovil.tsx ~línea 122, el
+  estado `abierto` / `onAbierto` lo lleva el padre). Lo primero es medir en el teléfono por qué ESA hoja no queda en el
+  historial (¿le falta el id que registra la entrada?, ¿el padre la reabre con `abierto`?), no escribir otro pushState.
+
+## PUNTO 4 DEL 18/10, SIN EMPEZAR (para después del 20/10, cuando se renueve la cuota): lo que Martín adjunta en la app
+
+Martín: «cuando envío imágenes por aquí [la app de Claude] o adjunto cosas también deberían aparecer en el Center». No se
+empezó a medias: la cuenta estaba en 94% semanal. El diseño, para hacerlo de una:
+- **De dónde sale.** En el transcript, una imagen que pegó Martín es un bloque `{ type: 'image', source: { type: 'base64',
+  media_type, data } }` dentro de su mensaje `user` (un PDF, `type: 'document'`). Sólo los de Martín (rol «yo»): nunca los de
+  un `tool_result` ni los de otra sesión.
+- **La PC (cartero 1.16.0; avisar ANTES al Cerebro).** `turnosDeLineas` saca esos bloques del turno «yo» y los deja en
+  `adjuntos-turnos/<uuid>-<n>`; la vuelta los sube ANTES que los turnos y el turno viaja con sus refs (`<local>/<uuid>/<n>`).
+  Topes: foto (png, jpeg, webp, gif) o PDF, por los primeros bytes como en `bajarAdjuntos`; 5 MB cada uno, 4 por turno.
+- **MaKo.** Un bucket PRIVADO `operaciones-turnos` (el número de migración lo da el Cerebro). Un POST con el token del
+  cartero (`?adjunto-turno=1`) que valida la sesión (DESTINO_RE), el uuid, el tipo por bytes y el tamaño. Las URLs, firmadas
+  y cortas (10 min), SÓLO dentro de `turnosCentroAction`, que ya pasa por `puedeOperar`. Se borran a los 14 días (VENCE_DIAS).
+- **La pantalla.** En la burbuja de Martín (Hilo.tsx → Turno «yo»), las miniaturas como en la caja (`ListaAdjuntos`): se
+  amplían al tocarlas, y un PDF es un chip.
+- **Antes de integrar:** revisión de seguridad del Cerebro, porque la PC SUBE archivos.
+
+## 18/10 (el tercer Ops Center, retomado por el Cerebro con la cuenta al 94%): tres arreglos del feedback del 18/10, HECHOS
+
+- `c969bc493`: el scroll acompaña lo que se escribe (la conversación sigue abajo si estaba abajo; la caja sigue al cursor),
+  computadora y teléfono (lib/centro-caja.ts → `estaAbajo`).
+- `1600a8425`, **cartero 1.15.8** (lo instala el Cerebro al integrar):
+  - mensajes de hasta 40.000 caracteres (`MAX_TEXTO_LARGO`), validados igual en MaKo y en la PC; la caja los ofrece sólo
+    si el Runner de esa cuenta tiene la 1.15.8 (`aceptaTextoLargo`);
+  - lo que escribe Martín (rol «yo») no se corta a 4000 (`TOPE_TURNO_YO`);
+  - **lo escrito directo en la app de Claude llega en segundos:** medido, NO se perdía; subía con la vuelta completa del cron
+    (minutos). Ahora `vigilar` da la vuelta completa apenas el transcript de un chat vivo creció más allá de su marca
+    (`transcriptsCrecidos`), como mucho una cada 10 s. Sin prueba de punta a punta en la PC: mirarlo con el Runner.
+- VERDE `119959156` (`antes-de-subir --rapido`, 2207 tests). Tipos del acotado: 0 errores en 7 de los 8 archivos;
+  ChatsMovil.tsx no se pudo chequear (el vigía de RAM): lo mira Actions.
+- **«desde la app»** (pedido del Cerebro, 18/10): lo que Martín escribió directo en la app de Claude lo dice chico y en gris
+  junto a la hora, en la computadora y el teléfono (la misma burbuja: Hilo.tsx → Turno). Se infiere de que el turno no
+  trae `trabajo`, o sea, no pasó por la cola del Ops Center. Cuando se haga el punto 4, sus fotos van en esa misma burbuja,
+  así que llevan la marca sin tocar nada más.
+
 ## PARA EL SÉPTIMO OPS CENTER (17/10, ~20:00): lo que dejó el sexto, y lo que sigue
 
 El sexto (agente «Ops Center 6» del Cerebro, cuenta 4, rama `ops6-1710`, worktree `C:/dev/wt-ops4`) hizo los nueve pedidos de Martín
@@ -147,6 +206,8 @@ veces). Al seguir, mergeá origin/integracion: ya va por la 1.14.3.
    título entero, y `cerrarTareaDelPlan` pasa a la operación nueva `cerrar_tareas_plan` (sin borrador). Cuando se integre,
    juntarlo con lo de acá (lib/centro-plan-auto.ts): el «Ya está» que no cierra la tarea de su «Voy a trabajar en…» puede
    probar `cerrarPorYaEsta`. OJO al mergear lib/centro-plan.ts: acá se sumó `tareaId` a lo que devuelve `sumarTareaAlPlan`.
+   Y un bug que vio Offer (#888 del ws 9): `cerrarTareaDelPlan` no recorta la evidencia (el tope es 400) y, si falla con una
+   tarea de OTRO proyecto, tapa el error con «Ya no estaba abierta.». Arreglado por el chat Plan en su rama (`197b9dc59`, con sus tests): verificar que entre con la integración de `plan`.
 7. **La revisión del loop de tickets de Ticketera** (5d46eb4f7, cartero 1.15.0) ya la hice: OK, con dos notas que le pasé (que la PC
    compruebe que el destino es el Cerebro, y mergear la 1.14.3). Si vuelve con cambios, mirarlo otra vez antes de que se integre.
 

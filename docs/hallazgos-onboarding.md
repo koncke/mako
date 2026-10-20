@@ -2335,3 +2335,54 @@ reacciones) · `app/onboarding/EntradaMako.tsx` · `app/onboarding/CriaturaMako.
   (`archivarLoQueVendes`).
 
 *17/10/2026, «Pendientes B3» (`claude4`).*
+
+## «Consultesis» en otro negocio: el chat no se volvía a montar al cambiar de workspace (18/10/2026)
+
+Martín, feedback del 18/10 (punto 15): al abrir otro negocio le aparecieron respuestas previas de otro («Consultesis»).
+
+- **Lo que dice la base (medido, sólo lectura):** «Consultesis» existía SÓLO en `onboarding.arranque` del ws 3 (13:41 de
+  ese día). Ningún otro workspace lo tenía, y no se había creado ninguno desde el 16/10. El server no lo prestó: el
+  estado del arranque es por workspace (`getSetting` filtra `workspace_id`) y la conversación se lee con `getTenantDb`.
+- ⚠️ **Lo mostró la PANTALLA.** `ChatArranque` arranca su estado de `inicial` UNA vez (`useState(inicial)`). Pasar de
+  un `?ws=` a otro sin recargar deja montado el mismo componente: la vista nueva llega en las props y en pantalla siguen
+  las respuestas del negocio anterior. **Regla:** un componente cliente que guarda datos de un negocio en su estado se
+  monta con `key` del workspace (app/onboarding/page.tsx).
+- **La otra vía, sin tocar:** la cookie vieja `mako_ws` vale para TODO el navegador (lib/workspace.ts,
+  `resolverDesdeCookies`), y la siguen escribiendo `Sidebar.entrarComoDuenoYNavegar` y los `NoEsTuyo` del Plan y el
+  CRM. Un super admin que abre /onboarding sin `?ws=` cae en el negocio de esa cookie. Si vuelve a pasar con la key
+  puesta, mirar eso primero.
+
+**Vive en:** `app/onboarding/page.tsx` (la key) · test `tests/onboarding-otro-ws.test.ts`
+
+## El onboarding del 18/10: explica, pregunta menos, halaga en serio y termina en el Ops Center
+
+Pedido de Martín (punto 15 del feedback del 18/10), en cuatro commits de la rama onboarding-v3:
+
+- **Explica antes de preguntar** (`SALUDO_ARRANQUE`): para qué son las preguntas y que tardan menos de 5 minutos.
+- **Sin el botón «Soy»:** el nombre de la cuenta pasa por `extraerNombre` antes de ofrecerse. Una cuenta guardada como
+  «Soy Martín» ofrecía «Soy».
+- **Sin el objetivo a 90 días:** del negocio se pasa directo a lo que vende. El de una conversación de antes sigue
+  llegando al brief (`negocio_objetivo`). «¿Cómo llegaste?» y «¿Qué resolver primero?» van AL FINAL, después del CRM y
+  antes del teléfono.
+- **El prompt del arranque** (`OFFER_ARRANQUE_SYSTEM_TEMPLATE`):
+  - antes de cada pregunta, una frase genuina que nombra algo concreto de lo que contó, y nunca elogia lo que no es
+    bueno;
+  - `opciones` siempre, salvo al pedir el link;
+  - una pregunta por pieza, sin detalles de entrega («las primeras 24 horas»).
+
+  ⚠️ El ejemplo viejo de la regla 4 («¿qué recibe exactamente tu cliente?») es lo que llevaba a la IA a preguntar
+  detalles de entrega.
+- **Al terminar, al Ops Center** (`RUTA_AL_TERMINAR = '/second-brain'`). El interés queda en la encuesta.
+- **La entrada avanza sola** a los 2,4 s (tocarla la adelanta), sin los anillos azules.
+- **La cara es la ESTRELLA del Ops Center**: `CriaturaMako` envuelve la `Criatura` de app/admin/operaciones con
+  `ASPECTO_MAKO`, la misma de la barra lateral desde el run 141. ⚠️ Yo la había dado por «del próximo Ops Center»
+  porque Ops Center 3 dijo que no estaba hecha. Ya existía: antes de esperar a otro chat, buscar el componente en el
+  árbol (`git grep ASPECTO_MAKO`). Se borró el muñeco redondo propio (`MunecoMako`).
+
+**Sin hacer:**
+- La misma animación como pantalla de CARGA de toda la app («nota la app lenta al cambiar de tabs»): toca el layout y
+  `tests/layout-sin-suspense.test.ts`.
+- Que la criatura vuele a la sidebar de los chats del Ops Center al terminar.
+- El modo plan sigue entrando a /plan: la capa Project Manager puede no ver /second-brain, y no se miró.
+- El chat del onboarding con el diseño del chat del Ops Center: después del 20/10.
+- Quedó CSS muerto de los anillos y de «Tócame» en `EntradaMako.tsx`.

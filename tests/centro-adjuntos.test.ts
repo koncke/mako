@@ -32,7 +32,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import {
-  MAX_ADJUNTOS, MAX_BYTES_ADJUNTOS, MIMES_ADJUNTO, VERSION_ADJUNTOS, aceptaAdjuntos, armarFirmable, leerFirmable, nombresDeAdjuntos,
+  MAX_ADJUNTOS, MAX_BYTES_ADJUNTO, MIMES_ADJUNTO, VERSION_ADJUNTOS, aceptaAdjuntos, armarFirmable, leerFirmable, nombresDeAdjuntos,
   nuevoPayload, problemaDeAdjuntos, type AdjuntoPedido,
 } from '../lib/operaciones-reglas';
 import { tipoPorFirma } from '../lib/mako-adjuntos';
@@ -72,14 +72,15 @@ test('el servidor y el cartero dan el MISMO veredicto sobre los adjuntos de un t
   const cartero = await import('../scripts/operaciones/cartero.mjs');
   assert.deepEqual(cartero.MIMES_ADJUNTO, [...MIMES_ADJUNTO]);
   assert.equal(cartero.MAX_ADJUNTOS, MAX_ADJUNTOS);
-  assert.equal(cartero.MAX_BYTES_ADJUNTOS, MAX_BYTES_ADJUNTOS);
+  assert.equal(cartero.MAX_BYTES_ADJUNTO, MAX_BYTES_ADJUNTO);
   const bien = adj(REF1, PNG, 'image/png');
   const BATERIA: Array<[string, unknown]> = [
     ['uno bueno', [bien]],
     ['dos buenos', [bien, adj(REF2, PDF, 'application/pdf', 'informe.pdf')]],
     ['vacío', []],
     ['no es lista', { ref: REF1 }],
-    ['cinco', [1, 2, 3, 4, 5].map((i) => adj(`${i}1111111-1111-4111-8111-111111111111`, PNG, 'image/png'))],
+    ['veintiuno', Array.from({ length: 21 }, (_, i) => adj(`${String(i).padStart(2, '0')}111111-1111-4111-8111-111111111111`, PNG, 'image/png'))],
+    ['veinte', Array.from({ length: 20 }, (_, i) => adj(`${String(i).padStart(2, '0')}111111-1111-4111-8111-111111111111`, PNG, 'image/png'))],
     ['ref repetido', [bien, bien]],
     ['ref raro', [{ ...bien, ref: '../../x' }]],
     ['un .exe', [{ ...bien, mime: 'application/x-msdownload' }]],
@@ -87,8 +88,9 @@ test('el servidor y el cartero dan el MISMO veredicto sobre los adjuntos de un t
     ['sin hash', [{ ...bien, sha256: '' }]],
     ['hash en mayúsculas', [{ ...bien, sha256: bien.sha256.toUpperCase() }]],
     ['pesa cero', [{ ...bien, bytes: 0 }]],
-    ['pesa de más', [{ ...bien, bytes: MAX_BYTES_ADJUNTOS + 1 }]],
-    ['entre los dos pesan de más', [{ ...bien, bytes: MAX_BYTES_ADJUNTOS - 10 }, { ...adj(REF2, PDF, 'application/pdf'), bytes: 11 }]],
+    ['pesa de más', [{ ...bien, bytes: MAX_BYTES_ADJUNTO + 1 }]],
+    ['pesa justo el tope', [{ ...bien, bytes: MAX_BYTES_ADJUNTO }]],
+    ['dos grandes', [{ ...bien, bytes: MAX_BYTES_ADJUNTO - 10 }, { ...adj(REF2, PDF, 'application/pdf'), bytes: 11 }]],
     ['bytes con coma', [{ ...bien, bytes: 1.5 }]],
     ['nombre vacío', [{ ...bien, nombre: '  ' }]],
     ['nombre con salto', [{ ...bien, nombre: 'a\nb.png' }]],
@@ -100,7 +102,7 @@ test('el servidor y el cartero dan el MISMO veredicto sobre los adjuntos de un t
     assert.equal(cartero.problemaDeAdjuntos(x), a, `${nombre}: el servidor dice ${a}, el cartero otra cosa`);
     if (a === null) buenos++;
   }
-  assert.equal(buenos, 2, 'la batería tiene dos listas válidas');
+  assert.equal(buenos, 5, 'la batería tiene cinco listas válidas (desde el 18/10, también veinte archivos y uno de 100 MB)');
   // Y adentro del texto firmado, los dos lo leen igual (un adjunto roto invalida el trabajo entero).
   const AHORA = Date.now();
   const p = nuevoPayload({ id: '6b2b7d32-9a51-4e43-9a43-2f3a4b5c6d7e', texto: 'x', destino: 'local_0b1c2d3e-4f50-4a61-8b72-9c83d4e5f601', cuenta: null, titulo: null, alcance: 'solo_esto' }, AHORA);
@@ -132,22 +134,32 @@ test('el nombre en disco lo arma la PC: la extensión es la del TIPO, nunca la q
   assert.equal(nombreEnDisco(0, '....', 'image/png'), '1-adjunto.png');
 });
 
-/** Un MaKo de mentira: `archivos` es lo que contesta a cada `?adjunto=`; `pedidos`, lo que da la vuelta. */
+/** Un MaKo de mentira: `archivos` es lo que contesta a cada `?adjunto=`; `pedidos`, lo que da la vuelta. Desde el cartero
+ *  1.16.0 (18/10/2026) MaKo da una URL firmada (`&firmada=1`) y los bytes salen de «/almacen/», que hace del storage. */
 function servidor(archivos: Record<string, Buffer>, pedidos: unknown[] = []) {
   const pedidosVistos: string[] = [];
+  const conToken = { veces: 0 };
   const srv = createServer((req: IncomingMessage, res: ServerResponse) => {
     const u = new URL(req.url ?? '/', 'http://x');
-    if (req.method === 'GET') {
-      pedidosVistos.push(`${u.searchParams.get('pedido')}/${u.searchParams.get('adjunto')}`);
-      const b = archivos[u.searchParams.get('adjunto') ?? ''];
-      if (req.headers.authorization !== `Bearer mkop_${'x'.repeat(30)}` || !b) { res.statusCode = 404; res.end('{}'); return; }
+    if (req.method === 'GET' && u.pathname.startsWith('/almacen/')) {
+      if (req.headers.authorization) conToken.veces += 1;
+      const b = archivos[u.pathname.slice('/almacen/'.length)];
+      if (!b) { res.statusCode = 404; res.end(); return; }
       res.setHeader('content-type', 'application/octet-stream');
       res.end(b);
       return;
     }
+    if (req.method === 'GET') {
+      pedidosVistos.push(`${u.searchParams.get('pedido')}/${u.searchParams.get('adjunto')}`);
+      const ref = u.searchParams.get('adjunto') ?? '';
+      if (req.headers.authorization !== `Bearer mkop_${'x'.repeat(30)}` || !archivos[ref] || u.searchParams.get('firmada') !== '1') { res.statusCode = 404; res.end('{}'); return; }
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ url: `http://${req.headers.host}/almacen/${ref}` }));
+      return;
+    }
     req.resume().on('end', () => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ pedidos, vencidos: 0, acuses: 0, cierres: 0 })); });
   });
-  return { srv, pedidosVistos };
+  return { srv, pedidosVistos, conToken };
 }
 const escuchar = async (srv: ReturnType<typeof createServer>) => {
   await new Promise<void>((ok) => srv.listen(0, '127.0.0.1', () => ok()));
@@ -160,13 +172,14 @@ test('la PC baja sólo lo que coincide con lo firmado (tamaño, hash y tipo), a 
   const ID = 'aaaaaaaa-0000-4000-8000-0000000000a1';
   const otraCaptura = Buffer.concat([PNG, Buffer.from('?')]);
   const exeComoPng = EXE;
-  const { srv } = servidor({ [REF1]: PNG, [REF2]: otraCaptura, '33333333-3333-4333-8333-333333333333': exeComoPng });
+  const { srv, conToken } = servidor({ [REF1]: PNG, [REF2]: otraCaptura, '33333333-3333-4333-8333-333333333333': exeComoPng });
   const url = await escuchar(srv);
   const token = `mkop_${'x'.repeat(30)}`;
   try {
     const rutas = await bajarAdjuntos(url, token, ID, [adj(REF1, PNG, 'image/png', 'Mi captura.png')], dir);
     assert.deepEqual(rutas, [join(dir, ID, '1-Mi-captura.png')]);
     assert.deepEqual(readFileSync(rutas[0]), PNG, 'los bytes, tal cual');
+    assert.equal(conToken.veces, 0, 'al storage se baja SIN el token del cartero (1.16.0)');
 
     // MaKo da OTRO archivo que el firmado (mismo tamaño no alcanza: el hash no coincide).
     const ID2 = 'aaaaaaaa-0000-4000-8000-0000000000a2';
@@ -176,7 +189,7 @@ test('la PC baja sólo lo que coincide con lo firmado (tamaño, hash y tipo), a 
 
     // Un ejecutable con el hash BIEN firmado y el tipo de una foto: los bytes lo delatan.
     const ID3 = 'aaaaaaaa-0000-4000-8000-0000000000a3';
-    await assert.rejects(bajarAdjuntos(url, token, ID3, [adj('33333333-3333-4333-8333-333333333333', exeComoPng, 'image/png', 'foto.png')], dir), /no es una foto ni un PDF/);
+    await assert.rejects(bajarAdjuntos(url, token, ID3, [adj('33333333-3333-4333-8333-333333333333', exeComoPng, 'image/png', 'foto.png')], dir), /no es un archivo aceptado/);
     assert.equal(existsSync(join(dir, ID3)), false);
 
     // Lo que no está o pesa distinto, tampoco.
@@ -258,14 +271,21 @@ test('la caja firma el hash que calculó ELLA, y no ofrece adjuntar hasta el car
 
 test('MaKo da un adjunto sólo al cartero, sólo de un trabajo en vuelo, y lo sube sólo con la guarda del Centro', () => {
   const lib = sinComentarios(leer('lib/operaciones-adjuntos.ts'));
-  const dar = lib.slice(lib.indexOf('export async function adjuntoParaElCartero'), lib.indexOf('export function refsDe'));
+  // Desde el 18/10 (cartero 1.16.0) la condición vive en `seLeDa`, y la piden los bytes Y la URL firmada.
+  const dar = lib.slice(lib.indexOf('async function seLeDa'), lib.indexOf('export function refsDe'));
   assert.match(dar, /\.eq\('estado', 'tomado'\)/, 'sólo de un trabajo que la PC está por entregar');
   assert.match(dar, /refsDe\(data\.firmado as string\)\.includes\(ref\)/, 'y que su texto firmado lo nombre');
+  for (const f of ['urlParaElCartero', 'adjuntoParaElCartero']) {
+    const cuerpo = dar.slice(dar.indexOf(`export async function ${f}`));
+    assert.match(cuerpo, /^[^\n]*\r?\n\s*if \(!\(await seLeDa\(pedido, ref\)\)\) return null;/, `${f}: lo primero, si se le da`);
+  }
   const ruta = sinComentarios(leer('app/api/operaciones/cartero/route.ts'));
   const get = ruta.slice(ruta.indexOf('export async function GET'), ruta.indexOf('export async function POST'));
   assert.ok(get.indexOf('tokenDelCarteroValido') < get.indexOf('adjuntoParaElCartero'), 'el token antes de leer');
+  assert.ok(get.indexOf('tokenDelCarteroValido') < get.indexOf('urlParaElCartero'), 'y antes de firmar la URL');
   const subir = sinComentarios(leer('app/api/operaciones/adjuntos/route.ts'));
   assert.ok(subir.indexOf('puedeOperar(') > 0 && subir.indexOf('puedeOperar(') < subir.indexOf('formData()'), 'la guarda del Centro antes de leer el cuerpo');
+  assert.ok(subir.indexOf('puedeOperar(') < subir.indexOf('req.json()'), 'y antes de firmar una subida');
 });
 
 // ── La revisión de seguridad del Cerebro (17/10/2026), los dos defectos que no se cayeron al refutarlos ──────────────
@@ -280,6 +300,8 @@ test('la PC corta la bajada apenas pasa lo firmado (sin content-length) y no ace
   let enviadas = 0;
   const srv = createServer((req, res) => {
     const ref = new URL(req.url ?? '/', 'http://x').searchParams.get('adjunto');
+    // MaKo da la URL firmada (1.16.0); los bytes, en la segunda vuelta, son los que prueba este test.
+    if (new URL(req.url ?? '/', 'http://x').searchParams.get('firmada') === '1') { res.end(JSON.stringify({ url: `http://${req.headers.host}/almacen?adjunto=${ref}` })); return; }
     if (ref === GZIP) {
       res.setHeader('content-encoding', 'gzip');
       res.end(gzipSync(PNG));

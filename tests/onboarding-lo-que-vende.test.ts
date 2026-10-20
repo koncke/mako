@@ -61,8 +61,11 @@ async function textoPdf(bytes: Uint8Array): Promise<string> {
   return Array.isArray(text) ? text.join('\n') : text;
 }
 
-test('lo que pregunta el onboarding: qué es, para quién, qué resuelve, qué logra y cuánto cuesta; nada del análisis', () => {
-  assert.deepEqual([...PIEZAS_DEL_ARRANQUE].sort(), ['cliente', 'entregables', 'precio', 'problema', 'resultado']);
+test('lo que pregunta el onboarding: qué vende, a quién y cuánto cuesta; nada del análisis', () => {
+  // LO JUSTO desde el 18/10/2026 (Martín, punto 5): qué resuelve y qué logra se preguntan al analizar, en Offer. Rotura
+  // (romper-justo.js; base 7/0): vuelve «problema» → 6/1.
+  assert.deepEqual([...PIEZAS_DEL_ARRANQUE].sort(), ['cliente', 'entregables', 'precio']);
+  for (const k of ['problema', 'resultado'] as const) assert.ok(!PIEZAS_DEL_ARRANQUE.includes(k), `el onboarding volvió a preguntar «${k}»: va en el análisis de Offer`);
   for (const k of PIEZAS_DEL_ARRANQUE) assert.ok(PIEZAS_MINIMAS.includes(k), `${k} no es mínima: la tab la volvería a pedir`);
   for (const k of ['ventas', 'prueba', 'valor', 'costo', 'escalera', 'otras'] as const) {
     assert.ok(!PIEZAS_DEL_ARRANQUE.includes(k), `el onboarding volvió a preguntar «${k}», que es del análisis`);
@@ -88,6 +91,15 @@ test('el prompt del onboarding: sin el marco del análisis, sin diagnóstico, si
   assert.match(tpl, /NO analizas su oferta/);
   assert.match(tpl, /"diagnostico": null y "diagnostico_respuesta": null, siempre/);
   assert.doesNotMatch(tpl, /Armar mi oferta/);
+  // 18/10/2026, Martín (punto 15): halagos GENUINOS («nunca elogiar algo que después se sugiere cambiar»), respuestas
+  // rápidas en TODA pregunta, y fuera las preguntas irrelevantes («¿qué recibe en las primeras 24 horas?»).
+  // Roturas (arnés romper-prompt.js con onboarding-preguntas, base 14/0): sin el halago genuino, la pregunta abierta sin
+  // opciones, las de logística de vuelta y la entrada por el interés → 13/1 cada una.
+  assert.match(tpl, /UNA frase cálida y GENUINA: nombra algo concreto de su respuesta/, 'sin la regla del halago genuino');
+  assert.match(tpl, /nunca elogies algo que no sea bueno de verdad/);
+  assert.match(tpl, /"opciones": SIEMPRE, salvo cuando pides el link o un documento: de 2 a 4 respuestas cortas/, 'una pregunta sin respuestas rápidas');
+  assert.match(tpl, /Nunca preguntes detalles de la entrega ni de la logística \(qué le llega al correo, qué pasa en las primeras 24 horas/);
+  assert.doesNotMatch(tpl, /si es abierta, \[\]/, 'volvió la pregunta abierta sin opciones');
   const turno = sinComentarios(funcion(IA, 'turnoOffer'));
   assert.match(turno, /p\.arranque\s*\?\s*await renderPrompt\('offer\.arranque\.system', OFFER_ARRANQUE_SYSTEM_TEMPLATE,/);
   assert.match(turno, /faltan: p\.arranque \? faltanDelArranqueParaPrompt\(p\.piezas\) : b\.faltan/);
@@ -127,17 +139,18 @@ test('el PDF «Lo que vendes»: las palabras del dueño en orden, lo que falta d
     garantia: v('Si no agenda 10 pacientes, sigue gratis'),
   };
   const ap = apartadosLoQueVendes(piezas);
-  // Primero las del onboarding en su orden (aunque falten), después lo que contó de más.
-  assert.deepEqual(ap.map((a) => a.pieza), ['entregables', 'cliente', 'problema', 'resultado', 'precio', 'garantia']);
+  // Primero las del onboarding en su orden (aunque falten), después lo que contó de más (el problema, «sin dato»).
+  for (const k of ['entregables', 'cliente', 'precio'] as const) assert.ok(ap.some((x) => x.pieza === k), `el PDF perdió «${k}»`);
   assert.equal(ap.find((a) => a.pieza === 'problema')?.sinDato, true);
   assert.equal(ap.find((a) => a.pieza === 'problema')?.texto, 'no sabe decirlo');
-  assert.equal(ap.find((a) => a.pieza === 'resultado')?.sinDato, true);
+  assert.ok(!ap.some((a) => a.pieza === 'resultado'), 'una pieza que ya no se pregunta y no contó no se dibuja vacía');
   const txt = await textoPdf(pdfDeLoQueVendes(piezas, { negocio: 'Clínica Sonrisa', fecha: new Date('2026-10-17T12:00:00Z') }));
   assert.match(txt, /Lo que vende Clínica Sonrisa/);
   for (const frase of ['Una mentoría de 12 semanas, 1 a 1', 'Dueños de clínicas dentales', 'USD 1.500 en dos pagos', 'Si no agenda 10 pacientes, sigue gratis']) {
     assert.ok(txt.includes(frase), `el PDF perdió «${frase}»`);
   }
-  assert.match(txt, /Todavía no me lo contaste/);
+  // Desde el 18/10/2026 el resultado no se pregunta en el onboarding: si no lo contó, no sale un apartado vacío.
+  assert.doesNotMatch(txt, /Todavía no me lo contaste/);
   assert.doesNotMatch(txt, /PUNTAJE|\/100|La propuesta que te armo|Lista para vender/, 'el PDF del onboarding trae el análisis');
   assert.equal(nombreArchivoLoQueVendes('Clínica Sonrisa'), 'lo-que-vende-clinica-sonrisa.pdf');
   assert.equal(nombreArchivoLoQueVendes(''), 'lo-que-vendes.pdf');
@@ -154,7 +167,8 @@ test('la ruta del PDF: el de lo que vende va con el mismo gate y no pide una ofe
 
 test('el cierre: el producto sale de lo que vende aunque no haya oferta armada, y la oferta sólo si la hay', () => {
   const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
-  assert.match(server, /loQueVende: !!sesion && faltanDelArranque\(sesion\.piezas\)\.length === 0,/);
+  // Desde el 18/10/2026, también sin una pregunta de MaKo abierta (tests/onboarding-pregunta-abierta.test.ts).
+  assert.match(server, /loQueVende: !!sesion && faltanDelArranque\(sesion\.piezas\)\.length === 0 && !preguntaAbierta\(sesion\.mensajes\),/);
   const i = server.indexOf('export async function cerrarArranque');
   const cerrar = server.slice(i, server.indexOf('export function tipoValido', i));
   assert.match(cerrar, /if \(h\.modo === 'oferta' && piezas && e\.sesionId\) \{/, 'sin oferta armada, el cierre no deja el producto');

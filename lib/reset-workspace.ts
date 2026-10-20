@@ -28,6 +28,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { exigirClienteDePrueba } from './auth-session';
 import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
+import { PERFIL_EXTRA } from './datos-mau';
 
 /**
  * Qué se vacía: TODAS las tablas de inquilino.
@@ -44,6 +45,9 @@ import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
  * El orden alfabético no importa: el bucle reintenta en pasadas.
  */
 const TABLAS_RESET = TABLAS_DE_INQUILINO;
+
+/** El nombre con el que el workspace de prueba vuelve a quedar (como recién creado). */
+export const NOMBRE_WS_PRUEBA = 'Cliente de Prueba';
 
 /** Buckets con binarios prefijados por `<ws>/`. `avatars` NO: es por usuario. */
 // Los tres últimos son del curso tipo Skool (07/10/2026): adjuntos de la descripción (0216), lo que
@@ -236,6 +240,31 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
       }
     } catch (e) {
       avisos.push(`${bucket}: ${msg(e)}`);
+    }
+  }
+
+  // EL NOMBRE DEL WORKSPACE TAMBIÉN VUELVE (18/10/2026, Martín: después de RESET seguía diciendo «Consultesis»). La fila
+  // del workspace no se borra, pero el onboarding le escribe el nombre del negocio (`guardarNombreNegocio`): sin esto, el
+  // RESET dejaba el negocio de la prueba anterior en el saludo, en las sugerencias y en el PDF.
+  {
+    const { error } = await getSupabaseServer().from('workspaces').update({ nombre: NOMBRE_WS_PRUEBA }).eq('id', ws);
+    if (error) avisos.push(`el nombre del workspace: ${error.message}`);
+  }
+
+  // Y SU GENTE, DE CERO (18/10/2026, Martín: después de RESET la tarjeta del ws 3 mostraba la foto de Mauricio). MEDIDO:
+  // el único miembro del ws 3 tenía el `foto_url` de Mauricio. Lo pone «Traer datos de Mau» (`copiarPerfilDelDueno`,
+  // lib/datos-mau.ts), que guarda lo de antes en un recibo DENTRO de app_settings: el RESET borraba el recibo y dejaba
+  // la foto, el nombre y el perfil copiados, sin forma de volver. Los usuarios no se borran (se perdería el acceso):
+  // vuelven al nombre del workspace, sin foto y sin los campos de perfil que copia esa función.
+  {
+    const db = getSupabaseServer();
+    const { data, error } = await db.from('usuarios').select('id, perfil').eq('workspace_id', ws);
+    if (error) avisos.push(`los usuarios del workspace: ${error.message}`);
+    for (const u of (data ?? []) as Array<{ id: number; perfil: Record<string, unknown> | null }>) {
+      const perfil: Record<string, unknown> = { ...(u.perfil ?? {}) };
+      for (const k of PERFIL_EXTRA) delete perfil[k];
+      const r = await db.from('usuarios').update({ nombre: NOMBRE_WS_PRUEBA, foto_url: null, perfil }).eq('id', u.id).eq('workspace_id', ws);
+      if (r.error) avisos.push(`el usuario ${u.id}: ${r.error.message}`);
     }
   }
 

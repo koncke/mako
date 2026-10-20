@@ -67,3 +67,52 @@
 - las reuniones de planes que no son el del ws9.
 
 Dato extra: «Que el doer registre solo lo que falla» figura por hacer y ya está en main (118148d1e).
+
+## Más del 18/10 (probando el onboarding en el ws3)
+
+- «En lugar de "Revisando tu respuesta", sólo debería aparecer la animación de los ... como que está escribiendo»: lo hace el chat Onboarding, en chico.
+- «La interfaz de cuando subo un archivo y en general todo el chat del onboarding se debe ver igual que en el Center». Hoy al subir un PDF se abre una vista propia: la hoja grande, «Leyendo…», las miniaturas abajo y un botón verde. **Es la primera pieza del chat unificado después del 20/10**: el onboarding toma el chat del Ops Center tal cual, con su manera de adjuntar.
+- «Todo lo de "Armemos tu CRM" debería ser como el onboarding dentro de cada tab... al entrar por primera vez». La configuración de cada tab sale del onboarding general y pasa al de la tab, que se abre la primera vez que se entra. **Después del 20/10**: mientras el CRM no tenga su propio onboarding, el paso queda en el general.
+- Las preguntas de fase sólo hablan de Meta Ads («¿cuánto inviertes por día en Meta Ads?», «¿cuántos creativos lanzas?»). Tienen que cubrir prospección, funnel orgánico, lead magnets, YouTube…: lo lleva el chat Onboarding, y si sale grande, sólo el reemplazo de las dos de Meta.
+- Dos bugs del onboarding:
+  - preguntó el monto de las cuotas y siguió de largo con el PDF;
+  - «Ver lo que vendes (PDF)» abre otra pestaña con «No encontré esa oferta», y tiene que verse en la misma pantalla.
+
+  Los lleva el chat Onboarding, primero.
+
+## Onboarding, probado por Martín a las 14:00 ART (después del run 149). LO PRIMERO del 20/10
+
+1. **La animación de entrada vuelve a pedir el clic:** «SÍ debe estar la animación y el clickear para avanzar luego de la animación». Se revierte el avance solo a los 2,4 s de ffd0ea3ef; la animación queda igual.
+2. **RESET tiene que dejar todo de cero:**
+   - Hoy, después de RESET, sigue diciendo «Consultesis» (el nombre del ws3), muestra la foto de Mauricio y ofrece «Ayelen» como respuesta rápida al nombre.
+   - Sin respuestas rápidas en las preguntas del nombre y del nombre del negocio.
+   - Medir qué guarda RESET: el nombre del ws, la foto del dueño, el estado del arranque.
+3. **Leer las redes de verdad:** con un link de Facebook o Instagram, entrar y leer las publicaciones, la biografía y las descripciones. Hoy dice «no puedo acceder a los detalles» y «casi no encontré texto». Si no alcanza, MaKo SIEMPRE insiste una segunda vez: ¿tiene algún documento o algo que explique su negocio?
+4. **«Analizando…» cuando analiza algo** (un link o un documento), y los tres puntitos sólo cuando contesta.
+5. **NUNCA «Conectar mi propia IA» en el onboarding.** Salió en la barra naranja de «Entré a tu página pero casi no encontré texto…»: el onboarding corre con el crédito de la plataforma (memoria ia-del-cliente-suscripcion). Viene del cambio de la Ticketera (run 139), que suma ese link a los avisos de IA.
+
+Capturas: images/23 a 26 de la sesión del Cerebro. Las copia el próximo que lo tome; si no, se describen arriba.
+
+## Ops Center: «Completado» y «Espera tu respuesta» (pedido 1d15877a, 18/10 15:12). LO PRIMERO del Ops Center el 20/10
+
+Martín: «No me aparece el mensaje de "Completado" y la notificación de todos los chats siempre debe ser "Espera tu respuesta", y no desaparecer hasta que yo le dé un check al mensaje de completado».
+
+- **Hoy (lib/centro-chats.ts):**
+  - `avisaYaEsta` avisa sólo si el «Ya está» es más nuevo que lo que este dispositivo VIO (`vistos`), así que abrir el chat lo apaga.
+  - `vistaPrevia` mira el ÚLTIMO turno del chat: si después del «Ya está» el chat escribió otra cosa (un relevo, un «sigo con…»), el Completado deja de ser el último y no se marca.
+- **Lo que pide:**
+  - un check explícito (✓) en la tarjeta de Completado;
+  - hasta que Martín lo toca, el chat dice «Espera tu respuesta» en la lista, en computadora y en el teléfono, aunque lo haya abierto y aunque el chat haya escrito algo después;
+  - el check se guarda del lado del servidor (no por dispositivo), para que valga en las dos pantallas.
+- **Medir primero** por qué no le aparece el Completado de los chats que sí escribieron su «Ya está» hoy (CRM, Sidebar, Dashboard, Ticketera, Second Brain, Onboarding y Ops Center 3). Puede ser lo de `vistaPrevia`, o que el turno no subió entero.
+
+## Ops Center: pegar lo copiado (pedido 5e8b6bff, 18/10 15:15)
+
+«Si saqué una screen o tengo algo copiado, debería aparecer así arriba para pegarlo en el chat»: es el «Pegar» que el teclado de Android ofrece en WhatsApp con la captura recién sacada. Para que el teclado lo ofrezca en la caja del Ops Center, la caja tiene que aceptar pegar IMÁGENES (`onPaste` con `clipboardData.files`, como adjunto). Lo mismo con Ctrl+V en la computadora. Hecho el 18/10: la marca dice «En la app de Claude» (f68a38879). Pegar imágenes: después del 20/10, junto con las imágenes desde la app (punto 4 de Ops Center 3).
+
+## Pedido de un cliente: recordatorios programados por WhatsApp (ws13, 2ª vez)
+
+- **El pedido:** 19/10 00:14 UTC, en el grupo de Código Inmobiliario: «Mako enviame un mensaje de recordatorio en 4 minutos que diga "acordate"». El 10/10 ya había pedido «programar enviarle un mensaje por privado a un número».
+- **Qué pasa hoy:** MaKo contestó con honestidad que no puede. La API no tiene ninguna operación para programar un mensaje al grupo; sólo existen `programar_broadcast` (email) y `programar_analisis_dashboard`.
+- **Propuesta del Cerebro:** una operación `programar_recordatorio` en la API de MaKo (regla api-mako-con-cada-feature), que cree una corrida diferida con el mismo motor de esperas de Automations y le escriba al GRUPO del negocio. El mensaje privado a un tercero queda afuera: choca con «a terceros sale el número del usuario».
+- **Estado:** es capacidad nueva, así que decide Martín. Se informó el 19/10.

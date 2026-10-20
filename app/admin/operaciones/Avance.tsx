@@ -21,7 +21,7 @@ import Link from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
 import { Markdown, conFormato } from '@/app/_components/Markdown';
-import { cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
+import { cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, tieneCheck, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
 import { ROTULO_TAREA, type TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TOPE_TURNO, type TurnoChat } from '@/lib/operaciones-reglas';
 
@@ -40,8 +40,11 @@ export type ChatDelYaEsta = Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'>;
 const estadoDe = (x: TareaDelChat) => (x.ya && x.estado === 'creada' ? 'Marcándola hecha' : ROTULO_TAREA[x.estado]);
 
 /** El «Ya está» de un chat, en su conversación: qué cambió, dónde revisarlo, su tarea del Plan y responder sobre esto. */
-export function YaEstaMensaje({ t, chat, tareas = [], onFeedback }: {
+export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaVisto }: {
   t: TurnoChat; chat?: ChatDelYaEsta; tareas?: readonly TareaDelChat[];
+  /** El ✓ (18/10/2026, Martín: «no desaparecer hasta que yo le dé un check al mensaje de completado»): hasta qué «Ya está»
+   *  lo vio, y cómo lo marca. Sin `onYaVisto`, la tarjeta no lleva ✓. */
+  yaVisto?: number | null; onYaVisto?: (instante: number) => void;
   /** Responder sobre este «Ya está»: la caja de abajo arranca con «Sobre «…»: » (Conversacion.tsx). */
   onFeedback?: (titulo: string) => void;
 }) {
@@ -58,11 +61,20 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback }: {
   // Un cuerpo muy largo se pliega SÓLO en su detalle; lo que sigue pendiente y cómo probarlo queda siempre a la vista.
   const plegable = partirPendiente(cuerpo);
   const [abierto, setAbierto] = useState(false);
+  const instante = Date.parse(t.at);
+  const visto = tieneCheck(instante, yaVisto);
   return (
     <article className="co-ya" aria-label={`Completado: ${titulo}`}>
       <header className="co-ya__cab">
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
         <span className="co-ya__rotulo">Completado</span>
+        {/* Hasta que lo toca, el chat dice «Espera tu respuesta» en la lista (lib/centro-chats.ts → esperaCheck). */}
+        {onYaVisto && Number.isFinite(instante) && (
+          <button type="button" className={`co-ya__check${visto ? ' co-ya__check--ok' : ''}`} aria-pressed={visto} disabled={visto}
+            aria-label={visto ? 'Visto' : 'Marcar como visto'} title={visto ? 'Visto' : 'Marcar como visto'} onClick={() => onYaVisto(instante)}>
+            <Icon name="check" size={15} />{visto ? 'Visto' : null}
+          </button>
+        )}
       </header>
       {/* Con el formato aplicado (17/10/2026): el título de un chat puede traer **negrita**, `código` o un link. */}
       {tituloEntero && <p className="co-ya__titulo">{conFormato(tituloEntero, 'ya-t')}</p>}

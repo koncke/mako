@@ -20,7 +20,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import { BUCKET_ADJUNTOS } from './chart-chats';
 import { validarAdjuntos } from './mako-adjuntos';
-import { MIMES_ADJUNTO, UUID_RE, leerFirmable, type AdjuntoPedido, type MimeAdjunto } from './operaciones-reglas';
+import { MAX_ADJUNTOS, MAX_BYTES_ADJUNTO, MAX_NOMBRE_ADJUNTO, MIMES_ADJUNTO, UUID_RE, leerFirmable, type AdjuntoPedido, type MimeAdjunto } from './operaciones-reglas';
 
 /** Fuera de los `<ws>/…` del Archivero: los trabajos del Centro son de la plataforma, como sus tablas (mig 0285). */
 const rutaDe = (ref: string) => `operaciones/${ref}`;
@@ -52,17 +52,60 @@ export async function subirAdjuntosCentro(lista: ReadonlyArray<{ nombre: string;
   return { ok: true, adjuntos: subidos };
 }
 
-/**
- * Los bytes de un adjunto para el cartero: sólo si el trabajo está `tomado` y su texto firmado lo nombra. null = no hay
- * (o no se le da). Quien llama ya validó el token del cartero.
- */
-export async function adjuntoParaElCartero(pedido: string, ref: string): Promise<Buffer | null> {
-  if (!UUID_RE.test(pedido) || !UUID_RE.test(ref)) return null;
+// ── Los archivos grandes (cartero 1.16.0, 18/10/2026): directo al storage, sin pasar por Vercel ────────────────────────
+// Martín: «quita esa limitación» (los 4 MB). Una ruta de Vercel no deja pasar más de ~4,5 MB, ni de ida ni de vuelta. Ahora
+// el navegador pide acá una URL firmada por archivo y lo sube DIRECTO al storage; la PC pide otra para bajarlo. Lo que
+// protege sigue siendo la firma: el navegador firma el sha256 que calculó él, y la PC compara lo que baja con ése.
+/** Cuánto vale la URL para bajar. La de subir vale 2 horas (la fija Supabase): alcanza para un archivo grande. */
+const BAJADA_VENCE_S = 5 * 60;
+
+export type SubidasFirmadas = { ok: true; subidas: { ref: string; url: string }[] } | { ok: false; error: string };
+
+/** Una URL firmada por archivo, para que el navegador lo suba directo. Mira lo que se puede mirar sin los bytes (cuántos,
+ *  cuánto pesan, el tipo que declaran); el tipo por los BYTES lo mira el navegador antes y la PC al bajarlo. */
+export async function firmarSubidasCentro(lista: unknown): Promise<SubidasFirmadas> {
+  if (!Array.isArray(lista) || !lista.length) return { ok: false, error: 'No llegó ningún archivo.' };
+  if (lista.length > MAX_ADJUNTOS) return { ok: false, error: `Máximo ${MAX_ADJUNTOS} archivos.` };
+  for (const a of lista) {
+    const o = (a ?? {}) as Record<string, unknown>;
+    if (typeof o.nombre !== 'string' || !o.nombre.trim() || o.nombre.length > MAX_NOMBRE_ADJUNTO) return { ok: false, error: 'Falta el nombre del archivo.' };
+    if (!(MIMES_ADJUNTO as readonly unknown[]).includes(o.mime)) return { ok: false, error: 'Solo fotos (JPG, PNG, WEBP, GIF) o PDF.' };
+    if (typeof o.bytes !== 'number' || !Number.isInteger(o.bytes) || o.bytes < 1 || o.bytes > MAX_BYTES_ADJUNTO) {
+      return { ok: false, error: `Hasta ${MAX_BYTES_ADJUNTO / 1024 / 1024} MB cada uno.` };
+    }
+  }
+  const subidas: { ref: string; url: string }[] = [];
+  for (let i = 0; i < lista.length; i += 1) {
+    const ref = randomUUID();
+    const { data, error } = await bucket().createSignedUploadUrl(rutaDe(ref));
+    if (error || !data?.signedUrl) return { ok: false, error: 'No pude preparar la subida: vuelve a intentarlo.' };
+    subidas.push({ ref, url: data.signedUrl });
+  }
+  return { ok: true, subidas };
+}
+
+/** ¿Se le da este adjunto al cartero? Sólo si el trabajo está `tomado` hace poco y su texto firmado lo nombra. */
+async function seLeDa(pedido: string, ref: string): Promise<boolean> {
+  if (!UUID_RE.test(pedido) || !UUID_RE.test(ref)) return false;
   const { data, error } = await getSupabaseServer().from('operaciones_pedidos').select('firmado')
     .eq('id', pedido).eq('estado', 'tomado').gt('tomado_at', new Date(Date.now() - VENTANA_ADJUNTO_MS).toISOString()).maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data?.firmado) return null;
-  if (!refsDe(data.firmado as string).includes(ref)) return null;
+  return !!data?.firmado && refsDe(data.firmado as string).includes(ref);
+}
+
+/** La URL firmada (5 minutos) para que el cartero 1.16.0 baje el adjunto directo del storage. null = no se le da. */
+export async function urlParaElCartero(pedido: string, ref: string): Promise<string | null> {
+  if (!(await seLeDa(pedido, ref))) return null;
+  const { data, error } = await bucket().createSignedUrl(rutaDe(ref), BAJADA_VENCE_S);
+  return error || !data?.signedUrl ? null : data.signedUrl;
+}
+
+/**
+ * Los bytes de un adjunto para el cartero de antes de la 1.16.0 (pasan por Vercel: sólo los chicos). null = no hay
+ * (o no se le da). Quien llama ya validó el token del cartero.
+ */
+export async function adjuntoParaElCartero(pedido: string, ref: string): Promise<Buffer | null> {
+  if (!(await seLeDa(pedido, ref))) return null;
   const { data: blob, error: e2 } = await bucket().download(rutaDe(ref));
   if (e2 || !blob) return null;
   return Buffer.from(await blob.arrayBuffer());

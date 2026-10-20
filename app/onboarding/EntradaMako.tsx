@@ -17,7 +17,7 @@
 // ⚠️ La capa empieza DEBAJO de la barra de «Inspeccionar» (`--barra-agencia`), como el chat.
 // =============================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CriaturaMako } from './CriaturaMako';
 
 const MS_VUELO = 700;
@@ -45,30 +45,35 @@ export function EntradaMako({ onFin }: { onFin: () => void }) {
   const cuerpo = useRef<HTMLSpanElement>(null);
   const boton = useRef<HTMLButtonElement>(null);
   const terminado = useRef(false);
+  // El padre puede volver a dibujarse durante la entrada: el temporizador no se reinicia por eso.
+  const alFin = useRef(onFin);
+  useEffect(() => { alFin.current = onFin; });
 
-  // El foco va al botón cuando termina de entrar: Enter o espacio también empiezan.
-  useEffect(() => {
-    const t = setTimeout(() => boton.current?.focus({ preventScroll: true }), 900);
-    return () => clearTimeout(t);
-  }, []);
-
-  const empezar = () => {
+  const empezar = useCallback(() => {
     if (terminado.current) return;
     terminado.current = true;
     setSaliendo(true);
     const el = cuerpo.current;
     const destino = document.querySelector<HTMLElement>('[data-mako-foto]')?.getBoundingClientRect();
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (!el || !destino || destino.width === 0 || reduce) { onFin(); return; }
-    volar(el, destino, onFin);
-  };
+    if (!el || !destino || destino.width === 0 || reduce) { alFin.current(); return; }
+    volar(el, destino, () => alFin.current());
+  }, []);
+
+  // ESPERA EL CLIC (18/10/2026, 14:00, Martín: la animación vuelve a pedir el clic). El avance solo a los 2,4 s
+  // (ffd0ea3ef) se revirtió; la estrella y la entrada quedan igual. El foco va al botón: Enter o espacio también empiezan.
+  useEffect(() => {
+    const t = setTimeout(() => boton.current?.focus({ preventScroll: true }), 900);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
-    <div className={`en-capa${saliendo ? ' en-capa--sale' : ''}`} role="presentation">
+    // TOCAR CUALQUIER LADO EMPIEZA (18/10/2026, Martín, punto 1: «debería poder tocar cualquier lado de la pantalla para
+    // empezar»). El botón queda para el teclado (Enter o espacio); el clic en la capa entera hace lo mismo.
+    <div className={`en-capa${saliendo ? ' en-capa--sale' : ''}`} role="presentation" onClick={empezar}>
       <style>{CSS_ENTRADA}</style>
       <div className="en-centro">
-        <span className="en-anillo" aria-hidden />
-        <span className="en-anillo en-anillo--2" aria-hidden />
+        {/* Sin los anillos azules alrededor (18/10/2026, Martín: «sin el círculo azul alrededor»). */}
         {CHISPAS.map((g) => <span key={g} className="en-chispa" aria-hidden style={{ ['--g' as string]: `${g}deg` }} />)}
         <button ref={boton} type="button" className="en-boton" onClick={empezar} aria-label="Empezar con MaKo">
           <span ref={cuerpo} className="en-cuerpo"><CriaturaMako size={120} reaccion="escucha" /></span>
@@ -93,7 +98,10 @@ const CSS_ENTRADA = `
   position: relative; z-index: 1; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%;
   -webkit-tap-highlight-color: transparent;
 }
-.en-boton:focus-visible { outline: 3px solid var(--primary); outline-offset: 8px; }
+/* Sin el anillo azul alrededor (18/10/2026, Martín, punto 1): el foco del botón, que se pone solo para el teclado, se
+   dibujaba como un círculo azul. El foco sigue (Enter o espacio empiezan); sólo no se pinta. */
+.en-boton:focus, .en-boton:focus-visible { outline: none; }
+.en-capa { cursor: pointer; }
 .en-cuerpo { display: inline-flex; animation: en-entra .9s cubic-bezier(.34,1.56,.64,1) both, en-flota 3.2s ease-in-out .9s infinite; }
 .en-boton:hover .en-cuerpo { filter: brightness(1.04); }
 .en-anillo {

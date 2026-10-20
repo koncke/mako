@@ -45,7 +45,8 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   if (await quienOpera()) redirect(await rutaConWs(rutaDelSecondBrainEnOpsCenter(q)));
   // Los chats de Claude Code (el Cerebro y cada jefe), sólo para quien `puedeOperar`: la guarda va ADENTRO, antes de
   // leer la cola (app/admin/operaciones/datos.ts). Tanda 5: «quiero mandar prompts por MaKo en el Second Brain».
-  const centro = await datosDelCentroSiOpera().catch(() => null);
+  // Mirando a un cliente, sin el Centro (`quienOpera`): nunca los chats del super admin en la cuenta de un cliente.
+  const centro = (await quienOpera()) ? await datosDelCentroSiOpera().catch(() => null) : null;
 
   let mapa: ReactNode = null;
   if (veMapa && pideElMapa(q)) {

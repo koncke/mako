@@ -109,7 +109,9 @@ test('2 · la ruta da las páginas con vista=paginas, de lo guardado y como el P
   const visible = ruta.indexOf('const conclusion = guardada ? conclusionVisible(guardada, fila) : null;');
   assert.ok(visible > 0 && i > visible, 'las páginas salen de lo guardado, leído como el PDF');
   assert.match(ruta.slice(i, i + 300), /paginas: paginasDeOferta\(conclusion, meta\)/);
-  assert.match(leer('app/offer/offer-api.ts'), /fetch\(`\$\{urlPdf\(sesionId, version\)\}&vista=paginas`/);
+  // Desde el 18/10/2026 también para «Lo que vendes» del onboarding (`tipo`): la base cambia, la vista es la misma.
+  assert.match(leer('app/offer/offer-api.ts'), /const base = tipo \? `\/api\/offer\/pdf\?id=\$\{sesionId\}&tipo=\$\{tipo\}` : urlPdf\(sesionId, version\);/);
+  assert.match(leer('app/offer/offer-api.ts'), /fetch\(`\$\{base\}&vista=paginas`/);
 });
 
 const sesion = { id: 8, ofertaId: null, ligada: true, funnelId: 6 } as unknown as OfferSesionVista;
@@ -144,7 +146,7 @@ test('4 · al terminar el armado con la pantalla abierta, la ventana se abre sol
 test('5 · la vista del PDF: imágenes con su texto alternativo, y un error que se puede volver a cargar', () => {
   // Sin los comentarios (el de arriba nombra el `<iframe>` para decir por qué no).
   const v = leer('app/offer/VistaPdf.tsx').split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
-  assert.match(v, /alt=\{`Página \$\{i \+ 1\} de \$\{n\} de tu oferta`\}/);
+  assert.match(v, /alt=\{`Página \$\{i \+ 1\} de \$\{n\} de \$\{tipo \? 'lo que vendes' : 'tu oferta'\}`\}/);
   assert.match(v, /accion=\{\{ label: 'Volver a cargar el PDF', onClick: cargar \}\}/);
   assert.doesNotMatch(v, /dangerouslySetInnerHTML|<iframe/, 'el SVG va como imagen, nunca pegado en la página');
 });

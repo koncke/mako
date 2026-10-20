@@ -23,13 +23,15 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from '@/app/_ui/Link';
+import { createPortal } from 'react-dom';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
+import { VistaPdf } from '../offer/VistaPdf';
 import { Button } from '@/app/_ui';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
-import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { DIAL_DEFAULT } from '@/lib/paises';
 import { tipoCrmPorId } from '@/lib/pipeline';
-import { rutaDeEntrada, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
+import { RUTA_AL_TERMINAR, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
 import { MENSAJE_BLOQUEADO } from '@/lib/onboarding-guardia';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
 import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
@@ -43,6 +45,8 @@ type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: 
 type Aviso = { texto: string; accion?: { label: string; onClick: () => void } };
 /** El plan de arranque: escribiéndose, listo con su link, o sin plan (no salió o la capa no lo arma). */
 type EstadoPlan = 'armando' | 'sin' | { url: string; n: number };
+/** Cuánto se ve el «¡Listo!» antes de entrar solo al Ops Center (18/10/2026). */
+const MS_PARA_ENTRAR = 1500;
 
 async function llamar(cuerpo: Record<string, unknown>): Promise<Respuesta> {
   try {
@@ -159,6 +163,18 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     })();
   }, [vista.etapa, intentoCierre]);
 
+  // ENTRA SOLO (18/10/2026, Martín: «cuando dice "¡Listo…! Tu MaKo ya está armado." automáticamente debería ingresar a
+  // MaKo, no preguntarme, y la primera tab es el center»). A los 1,5 s del «¡Listo!» la pantalla se funde y entra al Ops
+  // Center con el router de la casa (lleva el `?ws=`). Es navegación INTERNA a propósito: el plan que se sigue armando
+  // (`/api/onboarding/plan-arranque`) es un fetch en vuelo, y una recarga dura lo cortaría; ésta no.
+  const router = useRouter();
+  const [saliendo, setSaliendo] = useState(false);
+  useEffect(() => {
+    if (vista.etapa !== 'listo') return;
+    const t = window.setTimeout(() => { setSaliendo(true); router.push(vista.modo === 'oferta' ? RUTA_AL_TERMINAR : '/plan'); }, MS_PARA_ENTRAR);
+    return () => window.clearTimeout(t);
+  }, [vista.etapa, vista.modo, router]);
+
   // ── Lo que se dibuja ─────────────────────────────────────────────────────
   const lado = ladoDeLaPregunta(vista.etapa, vista.modo);
   // ⚠️ Memo: el hilo se vuelve a desplazar cada vez que cambia su lista de mensajes, y un arreglo nuevo en
@@ -178,7 +194,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
-    if (t === 'listo') return <TarjetaListo modo={vista.modo} plan={plan} entrada={rutaDeEntrada(vista.interes ?? undefined)} />;
+    if (t === 'listo') return <TarjetaListo modo={vista.modo} entrada={RUTA_AL_TERMINAR} />;
     return null;
   };
 
@@ -211,9 +227,9 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     conRiel: false,
     placeholder: placeholderDe(vista.etapa),
     vacia: SESION_VACIA,
-    // Si la IA no contesta, la salida está ACÁ: conectar la propia, en el modal de /integraciones abierto en
-    // la misma pantalla (mientras el onboarding esté pendiente, ninguna otra tab se puede abrir).
-    errorExtra: <BotonIntegracion servicio="gemini" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar mi propia IA</BotonIntegracion>,
+    // NUNCA «Conectar mi propia IA» en el onboarding (18/10/2026, Martín): el onboarding usa el crédito de la plataforma
+    // (ia-del-cliente-suscripcion), y el botón aparecía en la barra de «Entré a tu página pero casi no encontré texto…».
+    // Sin `errorExtra`, el error queda con su «Reintentar». tests/onboarding-arranque.test.ts.
   };
 
   // ⛔ BLOQUEADO POR LA GUARDIA (lib/onboarding-guardia.ts, 17/10/2026): sin chat. El cliente lee que quedó en revisión;
@@ -240,7 +256,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   }
 
   return (
-    <div className="arr-capa">
+    <div className={`arr-capa${saliendo ? ' arr-capa--sale' : ''}`}>
       <style>{CSS_ARRANQUE}</style>
       {/* La cabecera de la referencia que mandó Martín (17/10): la foto de MaKo, su nombre y «Tu onboarding», y una
           línea. Los mensajes van sueltos sobre el fondo, sin recuadro (CSS de abajo). */}
@@ -281,11 +297,12 @@ function TarjetaCrm({ vista }: { vista: VistaArranque }) {
     <div className="arr-tarjeta">
       <span className="arr-tarjeta__rotulo">{vista.crmTipo ? 'Tu CRM' : 'Te propongo'}</span>
       <span className="arr-tarjeta__titulo">{tipo.label}</span>
-      <div className="arr-etapas">
+      {/* Las etapas, numeradas y en orden, para que se lea el recorrido de un cliente (18/10/2026, punto 10). */}
+      <ol className="arr-etapas">
         {tipo.pipeline.map((s, i) => (
-          <span key={`${s.key}-${i}`} className="arr-etapa">{s.label}</span>
+          <li key={`${s.key}-${i}`} className="arr-etapa"><span className="arr-etapa__n">{i + 1}</span>{s.label}</li>
         ))}
-      </div>
+      </ol>
     </div>
   );
 }
@@ -313,31 +330,64 @@ const CAMPO = {
 };
 
 /** El PDF con lo que vende: lo arma la ruta con las piezas de la conversación, cada vez (nunca queda viejo). */
+/**
+ * «Lo que vendes» se mira EN el chat (18/10/2026, Martín: «ni siquiera debería sacarme de la tab»). Antes era un link a
+ * otra pestaña, y sin el `?ws=` el super admin que mira a un cliente caía en otro workspace: «No encontré esa oferta».
+ * Las páginas llegan por `fetch` (WsFetch le pega el `?ws=`), y la descarga lleva el `?ws=` a mano (`conWs`).
+ */
 function TarjetaPdf({ sesionId }: { sesionId: number }) {
+  const ws = useWs();
+  const [viendo, setViendo] = useState(false);
   return (
     <div className="arr-links">
-      <a href={linkPdfLoQueVende(sesionId)} className="arr-link" target="_blank" rel="noopener">Ver lo que vendes (PDF)</a>
+      <button type="button" className="arr-link" onClick={() => setViendo(true)}>Ver lo que vendes (PDF)</button>
+      {viendo && <VisorPdf sesionId={sesionId} url={conWs(linkPdfLoQueVende(sesionId), ws)} onCerrar={() => setViendo(false)} />}
     </div>
   );
 }
 
+/**
+ * El visor de «Lo que vendes», ENCIMA de todo el onboarding (18/10/2026, Martín, punto 6: «mira cómo se bugea la preview del
+ * PDF»). El Modal de la casa quedaba dentro de la capa del chat: lo tapaban las respuestas rápidas y la caja de escribir, y
+ * no ocupaba la pantalla. Éste va por portal a <body>, por encima de la capa (z 100) y debajo de la barra de inspección
+ * (z 300), con su fondo, su cierre (✕, Escape o tocar afuera) y la descarga. tests/onboarding-pdf-en-el-chat.test.ts.
+ */
+function VisorPdf({ sesionId, url, onCerrar }: { sesionId: number; url: string; onCerrar: () => void }) {
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar(); };
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [onCerrar]);
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="arr-visor" role="dialog" aria-modal="true" aria-label="Lo que vendes" onClick={onCerrar}>
+      <div className="arr-visor__caja" onClick={(e) => e.stopPropagation()}>
+        <header className="arr-visor__cab">
+          <b>Lo que vendes</b>
+          <button type="button" className="arr-visor__x" aria-label="Cerrar" onClick={onCerrar}>×</button>
+        </header>
+        <div className="arr-visor__cuerpo"><VistaPdf sesionId={sesionId} tipo="lo-que-vendes" /></div>
+        <footer className="arr-visor__pie"><a href={url} download className="arr-link arr-link--principal">Descargar PDF</a></footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /** Lo que quedó armado, con links que la persona elige (el chat no se va solo a ningún lado). */
-function TarjetaListo({ modo, plan, entrada }: { modo: VistaArranque['modo']; plan: EstadoPlan; entrada: string }) {
+function TarjetaListo({ modo, entrada }: { modo: VistaArranque['modo']; entrada: string }) {
   return (
     <div className="arr-links">
-      {modo === 'oferta' && <Link href="/crm" className="arr-link">Abrir mi CRM</Link>}
-      {modo === 'oferta' && <Link href="/offer" className="arr-link">Analizar mi oferta</Link>}
-      {plan === 'armando' && <span className="arr-link arr-link--espera">Armando tu plan…</span>}
-      {typeof plan === 'object' && (
-        <Link href={plan.url} className="arr-link">{plan.n > 0 ? `Mi plan de arranque · ${plan.n} tareas` : 'Mi plan de arranque'}</Link>
-      )}
-      {/* Entra a lo que dijo que quiere resolver primero (`rutaDeEntrada`, 17/10/2026). */}
+      {/* Sin caminos para elegir (18/10/2026): entra solo a los 1,5 s (`MS_PARA_ENTRAR`). Este link queda sólo por si la
+          navegación no sale. */}
       <Link href={modo === 'oferta' ? entrada : '/plan'} className="arr-link arr-link--principal">Entrar a MaKo</Link>
     </div>
   );
 }
 
 const CSS_ARRANQUE = `
+.arr-capa--sale { opacity: 0; transition: opacity .4s ease; }
+@media (prefers-reduced-motion: reduce) { .arr-capa--sale { transition: none; } }
 .arr-capa {
   position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; left: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column;
   font-family: 'Geist', sans-serif; color: var(--ink);
@@ -381,15 +431,25 @@ const CSS_ARRANQUE = `
 }
 .arr-tarjeta__rotulo { font-size: var(--fs-meta); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
 .arr-tarjeta__titulo { font-size: 15px; font-weight: 650; color: var(--ink); }
-.arr-etapas { display: flex; flex-wrap: wrap; gap: 6px; }
+.arr-visor { position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; left: 0; z-index: 250; display: grid; place-items: center; padding: 24px 16px; background: rgba(18,21,27,.55); }
+.arr-visor__caja { width: min(760px, 100%); max-height: 100%; display: flex; flex-direction: column; background: var(--surface); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden; }
+.arr-visor__cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 17px; color: var(--ink); }
+.arr-visor__x { border: 0; background: transparent; font-size: 26px; line-height: 1; cursor: pointer; color: var(--dim); padding: 0 4px; }
+.arr-visor__cuerpo { flex: 1; min-height: 0; overflow-y: auto; }
+.arr-visor__pie { display: flex; justify-content: flex-end; padding: 12px 18px; border-top: 1px solid var(--border); }
+.arr-etapas { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
 .arr-etapa {
-  padding: 4px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border);
-  font-size: var(--fs-sm); color: var(--dim);
+  display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 10px; background: var(--surface);
+  border: 1px solid var(--border); font-size: var(--fs-sm); color: var(--ink);
+}
+.arr-etapa__n {
+  flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--primary-bg); color: var(--primary); font-size: 12px; font-weight: 700;
 }
 .arr-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .arr-link {
   display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--surface); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; text-decoration: none;
+  background: var(--surface); color: var(--ink); font-size: var(--fs-sm); font-weight: 600; text-decoration: none; font-family: inherit; cursor: pointer;
 }
 .arr-link:hover { border-color: var(--border-strong); }
 .arr-link--principal { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }

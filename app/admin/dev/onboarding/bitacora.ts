@@ -687,4 +687,30 @@ export const BITACORA: Hito[] = [
       "tests/inspeccionar-primer-cuadro.test.ts y barra-inspeccion-alto.test.ts — probados rompiéndolos",
     ],
   },
+  {
+    fecha: "18 oct", hora: "11:50", chat: "Onboarding", sesion: "local_0702928b-fa1b-49e2-ac90-85a94053d088", cuenta: "claude4",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El onboarding explica al arrancar, pregunta menos, halaga en serio y nunca muestra otro negocio",
+    puntos: [
+      "Lo que pidió Martín el 18/10 (punto 15 del feedback). Cada negocio abre su propio chat de cero: al abrir otro ya no aparecen las respuestas del anterior («Consultesis»).",
+      "MaKo explica al arrancar que son unas preguntas rápidas de menos de 5 minutos. Sin el botón «Soy» ni el objetivo a 90 días; «¿Cómo llegaste?» y «¿Qué resolver primero?» van al final. Toda pregunta trae respuestas rápidas, y ninguna de detalle («las primeras 24 horas»).",
+      "Halagos genuinos: nombra algo concreto de lo que contaste y nunca elogia algo flojo. MaKo es la estrella del Ops Center, entra sola (sin clic ni anillo azul), y al terminar «Entrar a MaKo» lleva al Ops Center.",
+      "DÓNDE SE PRUEBA: en un negocio de prueba nuevo, nunca el ws 1, de punta a punta; y abrir el onboarding de otro negocio para ver que arranca vacío. Para después del 20/10: la animación como carga de toda la app, la estrella volando a la barra de chats y el chat con el diseño del Ops Center.",
+    ],
+    revisar: "/onboarding?ws=3",
+    commits: [
+      { sha: "fe38fb7", msg: "Onboarding: otro negocio es otro chat, nunca con las respuestas del anterior («Consultesis»)", lineas: 70, archivos: 2 },
+      { sha: "e044676", msg: "Onboarding: MaKo explica antes de preguntar, sin «Soy» ni el objetivo a 90 días, y las dos preguntas al final", lineas: 140, archivos: 3 },
+      { sha: "34d4ef6", msg: "Onboarding: halagos genuinos, respuestas rápidas en toda pregunta, sin preguntas de logística, y al terminar al Ops Center", lineas: 60, archivos: 5 },
+      { sha: "ffd0ea3", msg: "Onboarding: la entrada de MaKo avanza sola (tocarla la adelanta) y sin los anillos azules", lineas: 45, archivos: 2 },
+      { sha: "09bf1c4", msg: "Onboarding: la cara de MaKo es la estrella del Ops Center, no el muñeco redondo", lineas: 90, archivos: 5 },
+    ],
+    archivos: [
+      "app/onboarding/page.tsx — el chat se monta con la key del workspace",
+      "lib/onboarding-arranque.ts — el saludo, el orden de las preguntas y a dónde entra al terminar",
+      "lib/offer-ia.ts — las reglas de la conversación: halagos genuinos, opciones siempre, sin logística",
+      "app/onboarding/CriaturaMako.tsx y EntradaMako.tsx — la estrella y la entrada sin clic",
+      "tests: onboarding-otro-ws, onboarding-preguntas, onboarding-arranque y onboarding-lo-que-vende — probados rompiéndolos",
+    ],
+  },
 ];

@@ -114,7 +114,8 @@ test('13b · el componente usa la taxonomía del grafo: color y filtro', () => {
 test('13b · sólo quien opera recibe la capa, y la construcción no se edita ni se exporta', () => {
   const p = sinComentarios(leer('app/second-brain/pagina.tsx'));
   assert.match(p, /const construccion = opera \? construccionDeMako\(\) : null;/);
-  assert.match(p, /try \{ return puedeOperar\(await getSesionAdmin\(\), await wsSuperAdmin\(\)\); \} catch \{ return false; \}/, 'la guarda del Centro, tal cual');
+  // La guarda del Centro, tal cual, y desde el 18/10/2026 nunca mirando a un cliente (tests/second-brain-mirando-cliente.test.ts).
+  assert.match(p, /if \(await estaImpersonando\(\)\) return false;\s*return puedeOperar\(await getSesionAdmin\(\), await wsSuperAdmin\(\)\);/, 'la guarda del Centro, tal cual');
   const v = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
   // 17/10/2026: ya no hay un segundo grafo, sino UNO con las dos capas (lib/cerebro-union.ts).
   assert.equal((v.match(/<Grafo\b/g) ?? []).length, 1, 'un solo grafo');

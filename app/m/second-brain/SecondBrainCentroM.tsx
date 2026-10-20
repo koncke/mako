@@ -24,13 +24,23 @@ export function SecondBrainCentroM({ centro, chat }: { centro: DatosCentro; chat
   const toast = useToastM();
   const k = useCentro(centro, (t) => toast(t));
   const [abierto, setAbierto] = useState<string | null>(null);
+  // El «atrás» de Android (18/10/2026, Martín: «si le doy para atrás debería sacarme del chat para ir a ver todos los
+  // chats»). Abrir un chat de la lista REEMPLAZA la hoja «Tus chats» (SheetM: nunca hay dos), así que cerrarlo, con el
+  // «atrás», la ✕ o el arrastre, dejaba el chat de MaKo y no la lista. Al cerrarse, la lista vuelve. ⚠️ Con una demora:
+  // cerrar por la ✕ consume su entrada del historial con un `back()` asíncrono, y una hoja que hiciera su `pushState`
+  // antes lo vería pisado (SecondBrainM.tsx → editarDesdeElGrafo, el mismo cuidado).
+  const [reabrir, setReabrir] = useState(0);
+  const alAbrir = (clave: string | null) => {
+    setAbierto(clave);
+    if (clave == null && abierto != null) window.setTimeout(() => setReabrir((n) => n + 1), 350);
+  };
   return (
     <>
-      <ChatMako {...chat} masChats={(cerrar) => (
+      <ChatMako {...chat} reabrirChats={reabrir} masChats={(cerrar) => (
         <ChatsMDelCentro centro={k} parte="lista" tituloChats="Claude Code" abierto={abierto}
           onAbierto={(clave) => { cerrar(); setAbierto(clave); }} />
       )} />
-      <ChatsMDelCentro centro={k} parte="hoja" abierto={abierto} onAbierto={setAbierto} />
+      <ChatsMDelCentro centro={k} parte="hoja" abierto={abierto} onAbierto={alAbrir} />
     </>
   );
 }

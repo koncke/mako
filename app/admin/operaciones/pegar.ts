@@ -3,7 +3,7 @@
 // =============================================================================
 // ⚠️ SIN CSS y sin 'use client': lo importa su test (en node un `.css` no carga) y lo re-exporta AdjuntosCaja.tsx.
 
-import type { ClipboardEvent } from 'react';
+import type { ClipboardEvent, DragEvent } from 'react';
 import type { AdjuntosDeCaja } from './AdjuntosCaja';
 
 /**
@@ -33,4 +33,22 @@ export function archivosDelPortapapeles(d: Pick<DataTransfer, 'files' | 'items'>
     if (f && !out.some((x) => x.name === f.name && x.size === f.size && x.type === f.type)) out.push(f);
   }
   return out;
+}
+
+/**
+ * Arrastrar y soltar (18/10/2026, Martín: «debería funcionar si ARRASTRO una img o un doc al chat, debería tomarlo, hoy ni
+ * siquiera aquí en el Center funciona eso»). Sólo cuando lo arrastrado trae ARCHIVOS: un texto arrastrado sigue su camino.
+ * Sin esto, soltar una imagen en la página la ABRÍA en la pestaña y se perdía lo escrito.
+ */
+export const traeArchivos = (d: Pick<DataTransfer, 'types'> | null | undefined): boolean => !!d && Array.from(d.types ?? []).includes('Files');
+
+/** Soltó algo en la conversación: si son archivos, entran como adjuntos (los mismos topes y avisos que el «+»). */
+export function alSoltar(e: DragEvent<HTMLElement>, a: AdjuntosDeCaja | undefined): void {
+  if (!traeArchivos(e.dataTransfer)) return;
+  e.preventDefault();
+  if (!a) return;
+  const fs = archivosDelPortapapeles(e.dataTransfer);
+  if (!fs.length) return;
+  if (!a.puede) { a.onNoPuede?.(); return; }
+  a.onSumar(fs);
 }

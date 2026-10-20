@@ -20,7 +20,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { cicloCartero, hayParaElCartero, tokenDelCarteroValido } from '@/lib/operaciones';
-import { adjuntoParaElCartero } from '@/lib/operaciones-adjuntos';
+import { adjuntoParaElCartero, urlParaElCartero } from '@/lib/operaciones-adjuntos';
 import { guardarPasos } from '@/lib/centro-pasos-db';
 import { planDesdeElChat } from '@/lib/centro-plan-chat';
 import { CUENTA_RE } from '@/lib/operaciones-reglas';
@@ -51,6 +51,13 @@ export async function GET(req: NextRequest) {
       const lista = (k: string) => (q.get(k) ?? '').split(',').map((c) => c.trim()).filter(Boolean);
       const hay = await hayParaElCartero(lista('hay'), lista('abre'));
       return NextResponse.json({ hay }, { headers: { 'cache-control': 'no-store' } });
+    }
+    // &firmada=1 (cartero 1.16.0, 18/10/2026): una URL firmada de 5 minutos para bajarlo directo del storage. Un archivo
+    // de más de ~4,5 MB no pasa por esta ruta (Vercel lo corta). Las MISMAS condiciones que los bytes.
+    if (q.get('firmada') === '1') {
+      const url = await urlParaElCartero(q.get('pedido') ?? '', q.get('adjunto') ?? '');
+      if (!url) return NextResponse.json({ error: 'no hay ese adjunto para entregar' }, { status: 404 });
+      return NextResponse.json({ url }, { headers: { 'cache-control': 'no-store' } });
     }
     const b = await adjuntoParaElCartero(q.get('pedido') ?? '', q.get('adjunto') ?? '');
     if (!b) return NextResponse.json({ error: 'no hay ese adjunto para entregar' }, { status: 404 });

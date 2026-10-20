@@ -27,7 +27,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
-import { conVinetas, enterEnLista } from '@/lib/centro-caja';
+import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import {
   SECCION_CHATS, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP, type VistaPrevia,
@@ -155,7 +155,7 @@ const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, 
         vivo: <span className="m-operaciones-vivo">{enCurso ?? 'trabajando…'}</span>,
         espera: <span className="m-operaciones-espera">Espera tu respuesta</span>,
         // El MISMO aviso, con el mismo estilo: un «Completado» sin ver, para revisar.
-        revisar: <span className="m-operaciones-espera">Completado · para revisar</span>,
+        revisar: <span className="m-operaciones-espera">Espera tu respuesta</span>,
         borrador: <span className="m-operaciones-previa"><span className="co-borrador">Borrador:</span>{borrador}</span>,
         ya: <span className="m-operaciones-previa"><SelloCompletado />{p?.texto}</span>,
         previa: <span className="m-operaciones-previa">{p?.tick ? <Tick estado={p.tick} /> : p?.propio ? 'Tú: ' : ''}{p?.texto}</span>,
@@ -248,9 +248,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const cursor = useRef<number | null>(null);
   const resalte = useRef<HTMLDivElement | null>(null);
   const borradorAbierto = elegido && centro ? centro.borradorDe(elegido.clave) : '';
+  // El scroll acompaña lo que se escribe (18/10/2026): la caja crece sola (`field-sizing`) y el cuerpo de la hoja se achica;
+  // si se estaba mirando lo último (con el margen de lo que creció), se lo deja abajo.
   useEffect(() => {
     const el = caja.current;
     if (el && cursor.current != null) { el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
+    const cuerpo = hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null;
+    if (cuerpo && document.activeElement === el && estaAbajo(cuerpo, 160)) cuerpo.scrollTop = cuerpo.scrollHeight;
   }, [borradorAbierto]);
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado,
   // así que se baja en el cuadro siguiente (en el mismo efecto no hay todavía qué scrollear).
@@ -289,6 +293,11 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     reaccionar: (id, emoji) => { const { centro: k, elegido: c } = ultimos.current; if (c) void k.marcar(c, { tipo: 'reaccion', id, emoji }); },
     verTodo,
   }), [verTodo]);
+  /** El ✓ de un «Completado» (18/10/2026): guardado en MaKo, vale en la computadora. */
+  const yaVistoCb = useCallback((instante: number) => {
+    const { centro: k, elegido: c } = ultimos.current;
+    if (c) void k.marcarYaVisto(c.clave, instante);
+  }, []);
   /** Responder sobre un «Ya está» (la C): la caja arranca con «Sobre «…»: ». */
   const feedback = useCallback((titulo: string) => {
     const { centro: k, elegido: c } = ultimos.current;
@@ -507,6 +516,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             <ContextoWA.Provider value={accionesWA}>
               <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
                 vivo={vivo} onResponder={responderPregunta} tareas={centro.tareasDe(elegido)} onFeedback={feedback} marcas={marcas} pasos={centro.pasosDe(elegido)}
+                yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
                 mostrar={cuantos} onVerAnteriores={verTodo} />
             </ContextoWA.Provider>
             {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}

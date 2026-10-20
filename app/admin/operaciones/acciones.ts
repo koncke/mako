@@ -21,7 +21,8 @@ import {
 } from '@/lib/operaciones';
 import { leerPushes, type LecturaPushes } from '@/lib/progreso';
 import { leerDecisiones } from '@/lib/admin-decisiones';
-import type { DecisionEspera } from '@/lib/centro-chats';
+import type { DecisionEspera, YaVistos } from '@/lib/centro-chats';
+import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
 import { sanearAspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { guardarMuneco } from '@/lib/centro-munecos-db';
 import { leerTurnos, leerUltimosTurnos } from '@/lib/centro-turnos-db';
@@ -58,14 +59,16 @@ export type FotoCentro = {
   /** Lo ÚLTIMO de cada chat, por sesión, recortado (lib/operaciones-reglas.ts → resumirTurnos): para el aviso de un «Completado»
    *  sin ver y para esconder al vigía callado. Son para la fila de la lista, no para la conversación. */
   ultimos: Record<string, TurnoChat[]>;
+  /** El ✓ de cada «Completado» (18/10/2026): null = no se pudo leer, y la lista no avisa. */
+  yaVistos: YaVistos | null;
 } | { ok: false; error: string };
 
 export async function fotoCentroAction(): Promise<FotoCentro> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
-    const [pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas(), leerCuentasConNombre(), leerPasos(), leerUltimosTurnos()]);
-    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos };
+    const [pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos, yaVistos] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas(), leerCuentasConNombre(), leerPasos(), leerUltimosTurnos(), leerYaVistosDe()]);
+    return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos, yaVistos };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
@@ -119,6 +122,19 @@ export async function marcarMensajeAction(direccion: string, cambio: unknown): P
   if (typeof direccion !== 'string' || !c) return { ok: false, error: 'Elige el mensaje otra vez.' };
   try {
     return { ok: true, marcas: await marcarDe(direccion, c) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** El ✓ de un «Completado» (18/10/2026, pedido 1d15877a): hasta ese «Ya está», el chat deja de decir «Espera tu respuesta»,
+ *  en la computadora y en el teléfono. Sólo avanza (lib/centro-ya-vistos-db.ts). */
+export async function marcarYaVistoAction(chat: string, instante: number): Promise<{ ok: true; yaVistos: YaVistos } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof chat !== 'string' || !chat || chat.length > 300 || typeof instante !== 'number' || !Number.isFinite(instante)) return { ok: false, error: 'Falta el mensaje.' };
+  try {
+    return { ok: true, yaVistos: await marcarYaVistoDe(chat, Math.min(instante, Date.now() + 60_000)) };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
