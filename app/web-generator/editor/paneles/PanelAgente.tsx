@@ -30,6 +30,10 @@
 // como chip. Lo puro (qué entra, qué se avisa, cuándo se manda) está en ../adjuntos-agente.ts.
 // Las piezas toman los colores del editor: CSS_AGENTE redefine sus tokens (--surface, --border…)
 // bajo `.gma-ag` (AGENTS.md, «Una pantalla oscura se hace redefiniendo TOKENS»).
+// ⚠️ ESTE ARCHIVO NO CARGA CSS. Lo importan módulos que cargan los tests (DialogoAnalitica, AskAgent…) y en
+//    node un `.css` no carga: tiró abajo tests/editor-landing-agente.test.ts (20/10/2026). Por eso el «+» y
+//    las miniaturas entran con `next/dynamic` (AdjuntosCaja.tsx trae chat.css), pegar y soltar vienen de
+//    pegar.ts (sin CSS) y centro.css lo importa EditorLanding.tsx, que ya traía gamma.css.
 //
 // Además de la pantalla, este archivo EXPORTA lo que comparte con el popover de una sección
 // (AskAgent.tsx) y con el historial y el modo Presentar: el pedido a las rutas, la revisión
@@ -58,11 +62,12 @@
 // NUESTROS, de edición: no se interpretan.
 // =============================================================================
 
-import '@/app/admin/operaciones/centro.css';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import type { Editor } from '@tiptap/react';
+import dynamic from 'next/dynamic';
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
-import { ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import { alPegar, alSoltar, traeArchivos } from '@/app/admin/operaciones/pegar';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { instruccionConAdjuntos, type AdjuntoEditar } from '@/lib/editor-landing/adjuntos';
 import { useEditorLanding, type CtxEditorLanding } from '../contexto';
 import { esPresentacion, formatoDe, terminoTarjeta, type ConfigLanding } from '@/lib/editor-landing/api-tipos';
@@ -531,10 +536,8 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
     return;
   }
   // T3: con una presentación, la IA edita diapositivas (ia.ts lee `params.formato` del pedido crudo).
-  const r = await pedirIA({
-    accion: 'editar', instruccion: paraEditar, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', params: { formato: formatoDe(ctx.config) },
-    ...(adjuntos.length ? { adjuntos: [...adjuntos] } : {}),
-  }, { signal: corte.signal });
+  const conAdjuntos = adjuntos.length ? { adjuntos: [...adjuntos] } : {};
+  const r = await pedirIA({ accion: 'editar', instruccion: paraEditar, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', ...conAdjuntos, params: { formato: formatoDe(ctx.config) } }, { signal: corte.signal });
   let msg: Mensaje;
   if (!r.ok) msg = { id: ++ultimoId, de: 'mako', texto: r.error, error: !cortadoPorUsuario(r) };
   else if ('tarjetas' in r) {
@@ -603,6 +606,10 @@ function BurbujaDePedido({ burbuja, onBoton }: { burbuja: BurbujaPedido; onBoton
 }
 
 let ultimoAdjunto = 0;
+
+/** El «+» y las miniaturas del Ops Center, sin cargar su CSS en el import de este módulo (ver la cabecera). */
+const ListaAdjuntos = dynamic(() => import('@/app/admin/operaciones/AdjuntosCaja').then((m) => m.ListaAdjuntos));
+const MasCaja = dynamic(() => import('@/app/admin/operaciones/AdjuntosCaja').then((m) => m.MasCaja));
 
 /**
  * El «Lo que vendes» del negocio (GET /api/landing-generator/importar), pedido UNA vez por negocio en la pestaña: el

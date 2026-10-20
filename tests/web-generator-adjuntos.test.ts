@@ -134,7 +134,11 @@ test('se manda cuando lo de la caja está leído: nunca con uno leyéndose o en 
 
 test('las piezas son las del Ops Center (un solo chat en toda la app): el «+», las miniaturas, pegar y soltar', () => {
   const src = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
-  assert.match(src, /import \{ ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja \} from '@\/app\/admin\/operaciones\/AdjuntosCaja';/);
+  assert.match(src, /import \{ alPegar, alSoltar, traeArchivos \} from '@\/app\/admin\/operaciones\/pegar';/);
+  // El «+» y las miniaturas, con next/dynamic: este módulo lo cargan los tests y AdjuntosCaja.tsx trae CSS.
+  assert.match(src, /const ListaAdjuntos = dynamic\(\(\) => import\('@\/app\/admin\/operaciones\/AdjuntosCaja'\)\.then\(\(m\) => m\.ListaAdjuntos\)\);/);
+  assert.match(src, /const MasCaja = dynamic\(\(\) => import\('@\/app\/admin\/operaciones\/AdjuntosCaja'\)\.then\(\(m\) => m\.MasCaja\)\);/);
+  assert.doesNotMatch(src, /^import '[^']+\.css';/m, 'un CSS en el import tira abajo a los tests que cargan este módulo');
   assert.match(src, /<ListaAdjuntos a=\{adj\} \/>/);
   assert.match(src, /<MasCaja a=\{adj\} apagado=\{!adj\.puede\} \/>/);
   assert.match(src, /onPaste=\{\(e\) => alPegar\(e, adj\)\}/);
@@ -143,7 +147,7 @@ test('las piezas son las del Ops Center (un solo chat en toda la app): el «+»,
   // Cada archivo se lee al entrar, con la ruta de Importar, y lo que viaja a «editar» es su texto.
   assert.match(src, /void leerArchivo\(n\.file, ac\.signal\)\.then\(\(r\) => \{[\s\S]{0,160}poner\(\(xs\) => conLectura\(xs, n\.id, r\)\);/);
   assert.match(src, /void pedirEdicion\(ctxRef\.current, texto, alcanceReal, \{ adjuntos: paraEnviar\(items\) \}\);/);
-  assert.match(src, /accion: 'editar', instruccion: paraEditar,[\s\S]{0,200}\.\.\.\(adjuntos\.length \? \{ adjuntos: \[\.\.\.adjuntos\] \} : \{\}\),/);
+  assert.match(src, /const conAdjuntos = adjuntos\.length \? \{ adjuntos: \[\.\.\.adjuntos\] \} : \{\};\s*const r = await pedirIA\(\{ accion: 'editar', [^\n]*\.\.\.conAdjuntos, params:/);
   // La decisión del 11/10 se dio vuelta: la cabecera ya no dice que no se adjunta.
   assert.doesNotMatch(leer('app/web-generator/editor/paneles/PanelAgente.tsx'), /Lo que NO se copia: adjuntar archivos/);
   // La miniatura del Ops Center dice el tipo (decía «PDF» para un Word) y dibuja el estado.

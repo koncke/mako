@@ -2070,6 +2070,15 @@ documento y el PDF «Lo que vendes» («No me permite»). El hito, literal, en l
   persona subió con ese nombre no es «el de MaKo». `esNombreLoQueVendes` es la vuelta del nombre, y el test las prueba
   juntas.
 
+### PanelAgente no puede cargar CSS: lo importan módulos que cargan los tests
+- **Síntoma:** con `import centro.css` (y AdjuntosCaja, que trae chat.css) en PanelAgente.tsx, sus 13 tests propios daban
+  verde, pero `antes-de-subir` dio ROJO en tests/editor-landing-agente.test.ts: «SyntaxError: Unexpected token '.'» en la
+  línea del import. Ese test no mira el chat: importa `dialogos/DialogoAnalitica`, que importa `Ico` de PanelAgente.
+- **Por qué:** PanelAgente.tsx también es una caja de piezas (`aceptarPropuesta`, `Miniatura`, `Ico`, `EstilosPanelesB`)
+  que importan AskAgent, Presentar, SelectorImagen y dos diálogos, y en node un `.css` no carga.
+- **Regla:** el CSS va en la pantalla que monta el chat (`EditorLanding.tsx`, que ya traía gamma.css), y las piezas que
+  lo traen entran con `next/dynamic`. Lo fija tests/web-generator-adjuntos.test.ts (ningún `import '….css'` en el panel).
+
 ### Lo que quedó SIN hacer
 - **No se probó con clics en el ws3**: el ⊕ abriendo hacia arriba en el panel de 336 px, soltar y pegar, el chip, y los
   colores de las piezas en el oscuro del editor. Hay que verlo en `/web-generator/<id>` del ws3.
