@@ -34,7 +34,11 @@ export async function GET(req: NextRequest) {
       const r = await listarChats({ buscar, usuario: puerta.yo });
       return NextResponse.json({ ok: true, chats: r.chats, fallas: r.fallas });
     }
-    const [r, equipo] = await Promise.all([listarChats({ usuario: puerta.yo }), getEquipoAction()]);
+    // `?paginas=N` (1-20): sólo las N páginas más nuevas del espejo de WhatsApp, como el teléfono. La pantalla lo
+    // usa para la PRIMERA vista y para el sondeo de cada 15 s (Chats, 20/10/2026: leer todo eran 17 s en el ws1).
+    const paginas = Number(req.nextUrl.searchParams.get('paginas'));
+    const paginasWhatsapp = Number.isInteger(paginas) && paginas >= 1 && paginas <= 20 ? paginas : undefined;
+    const [r, equipo] = await Promise.all([listarChats({ usuario: puerta.yo, paginasWhatsapp }), getEquipoAction()]);
     return NextResponse.json({
       ok: true,
       chats: r.chats,

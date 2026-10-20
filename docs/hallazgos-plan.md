@@ -7210,3 +7210,15 @@ lib/reunion-plan-aviso.ts · tests/reunion-larga-reloj.test.ts (R1-R7 en su cabe
 
 **Sin hacer:** la vista «Prioridades» (`TarjetaPrioridad`) y el tablero de Proyectos del teléfono siguen con su tarjeta.
 **Vive en:** app/plan/board/BoardShell.tsx (`CardTile`) · app/m/plan/ListaPlan.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
+
+## Las llamadas con clientes se descartan como «ventas» (20/10/2026)
+
+Síntoma: las llamadas de feedback con Florencia (864249059 → recording 193776726, 18/10) y con Leila (864249064 → 194147010, 19/10) no dejaron ni una tarea en el Plan, y Martín tiene que pedir que alguien las lea a mano.
+
+El diagnóstico obvio era que falló la lectura de Fathom, y es el equivocado. No existe ningún `mako.fathom.cache.<id>` porque nunca se intentó leerlas: las dos están en `plan_reuniones_descartadas` del ws9 con tipo 'ventas' y el motivo «… está en tu CRM como prospecto».
+
+Causa: `clasificarReunion` (lib/reunion-clasificar.ts:57-70, el motivo en :92-95) decide por el `estado_lead` del invitado en el CRM del ws9, y `TIPOS_AL_PLAN` (lib/reunion-auto.ts:70) solo deja pasar 'equipo' y 'entrega'. Una clienta que ya paga (Florencia, 97 por mes desde el 18/10) sigue como prospecto, así que su llamada es «ventas».
+
+Regla: alguien con workspace propio en MaKo es cliente para el clasificador, aunque su lead no esté en «ganado». Mientras no se arregle, «Leer igual» desde el modal de Fathom.
+
+Además, en esa grabación Fathom cruza los hablantes. Florencia entró con dos cuentas (la personal y la de Consultesis, que aparece como «Cónsul Tesis») y frases suyas salen como «Martin Carballo». Una llamada así se atribuye por el contenido, no por la etiqueta.

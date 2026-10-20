@@ -1947,3 +1947,17 @@ Second Brain del teléfono (app/m/second-brain) no muestra el origen.
 
 **Vive en:** lib/archivero-registro.ts · lib/archivero-subida.ts · lib/archivero.ts (`insertFile`, `pubFile`)
 · app/onboarding/Archivero.tsx · supabase/migrations/0316_archivero_origen.sql · *2026-10-17*
+
+## Ops Center del cliente: «el chat de X no llegó» se mide en la base, nunca mirando la pantalla como super admin (20/10/2026)
+
+- **Síntoma:** en /second-brain?ws=21 sólo se ve el chat «Second Brain», sin la conversación de Offer de la clienta.
+- **El diagnóstico obvio («no se creó el hilo») es la mitad del problema.** En el ws21 no había ninguna fila de `chart_sessions` (medido). Pero aunque el hilo exista para el cliente, el super admin que mira el ws no lo ve.
+- **Por qué no lo ve:**
+  - Los chats del Ops Center son POR PERSONA DE QUIEN ESTÁ LOGUEADO: `chart_key = mako-movil:<persona>`, armada con `chartKeyDePersona(getUsuarioActual())` (lib/mako-turno-app.ts:112).
+  - `getUsuarioActual` devuelve al super admin, no al usuario del ws impersonado.
+  - El comentario de pagina.tsx («el super admin ve lo que ve el cliente») vale para el Centro, no para la lista de chats.
+- **Regla:** para saber si a un cliente le llegó un chat, medir `chart_sessions` por `workspace_id` + la `chart_key` del usuario del cliente (`mako-movil:u<id>`).
+- **Otras dos trampas del mismo lugar:**
+  1. `listSessions` compara la clave EXACTA (lib/chart-chats.ts:82). Los chats de la misma tabla y el mismo motor con sufijo (`mako-movil:<p>:crm:N`, `:lead:N`) no aparecen en el Ops Center.
+  2. Un hilo que se COPIA «al terminar el onboarding» (`hiloDelOnboarding`) sólo nace si el cliente pasa por la pantalla «listo» DESPUÉS del deploy. Los que ya terminaron (el ws21, el 18/10) quedan sin nada, y lo que se hable después en /offer tampoco llega. Para Offer conviene una proyección que lea `offer_sesiones` por workspace (decisión 5 de docs/diseno-mako-ai-native.md), no una copia.
+- **Sin hacer** (archivo donde vive): el índice de chats por origen no existe (lib/chat-mako-indice.ts sólo lee chart_sessions, «Antes» y un lector del grupo que nadie llama).
