@@ -209,7 +209,7 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     calendario: ['vista', 'fecha'],
     'second-brain': ['area', 'vista'],
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
-    offer: ['oferta', 'funnel'],
+    offer: ['oferta', 'funnel', 'sesion'],
     copywriting: ['tab'],
     // La API de MaKo (17/10/2026): docs · tokens · registro, en los dos lados.
     'api-mako': ['tab'],

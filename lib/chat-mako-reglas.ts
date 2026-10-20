@@ -86,6 +86,9 @@ export function sesionDelCanal(canalKey: string | null | undefined): number | nu
 
 /** El título de un chat de antes (de /mako): el suyo, o de qué era. */
 export const SECCION_ANTES = 'Antes';
+/** Las conversaciones de Offer en el Ops Center (20/10/2026): se leen acá y se siguen en su tab. */
+export const SECCION_OFFER = 'Offer';
+export const AVISO_OFFER = 'Esta conversación sigue en Offer.';
 export const AVISO_ANTES = 'Este chat es de antes. Sigue en uno nuevo.';
 
 /** Las preguntas de arranque, con el hilo vacío: lo que más se le pide al chat central. */
@@ -178,4 +181,26 @@ export function estadoDeLoHecho(estado: string, venceAt: string | null, ahora: n
   if (estado === 'cancelada') return 'cancelada';
   if (estado === 'vencida') return 'vencida';
   return 'fallo';
+}
+
+/** Un mensaje de Offer como uno del chat (20/10/2026, lib/chat-mako-indice.ts → hiloDeOffer): 'yo' es la persona, 'mako' es
+ *  MaKo; lo vacío no se dibuja. */
+export function mensajesDeOffer(ms: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; at: string }>): Array<{ role: 'user' | 'assistant'; content: string; created_at?: string }> {
+  return ms.filter((m) => typeof m.texto === 'string' && m.texto.trim())
+    .map((m) => ({ role: m.de === 'yo' ? 'user' : 'assistant', content: m.texto, ...(m.at ? { created_at: m.at } : {}) }));
+}
+
+/**
+ * La conversación de Offer del ONBOARDING que ya tiene su chat «Onboarding» (20/10/2026, acordado con el chat Onboarding):
+ * `hiloDelOnboarding` (rama onboarding-v3) la COPIA a chart_sessions al terminar y guarda su id en `onboarding.arranque` →
+ * `hiloChat`; la proyección de Offer la esconde, o saldría dos veces. Lee el setting crudo (`sesionId` y `hiloChat`).
+ * null = no se esconde ninguna (sin onboarding, o sin el chat todavía).
+ */
+export function offerDelOnboardingCopiada(raw: unknown): number | null {
+  let o: unknown = raw;
+  if (typeof raw === 'string') { try { o = JSON.parse(raw); } catch { return null; } }
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+  const { sesionId, hiloChat } = o as Record<string, unknown>;
+  const entero = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v > 0;
+  return entero(hiloChat) && entero(sesionId) ? (sesionId as number) : null;
 }
