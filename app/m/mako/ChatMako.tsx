@@ -281,7 +281,8 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
       <SheetM abierto={hojaChats} onCerrar={() => setHojaChats(false)} titulo="Tus chats" id="chats" snap="medio"
         pie={<PieM><Button variant="primary" size="lg" full onClick={nuevoChat}>Nuevo chat</Button></PieM>}>
         {/* El grafo del negocio, arriba de los chats: como «Mapa» en la barra del Second Brain de escritorio. */}
-        {hrefMapa && <ListaM><FilaM navegacion titulo="Mapa" icono="cerebro" href={hrefMapa} /></ListaM>}
+        {/* «Second Brain», no «Mapa» (Martín, 18/10): el grafo se llama así; la tab es «Ops Center». */}
+        {hrefMapa && <ListaM><FilaM navegacion titulo="Second Brain" icono="cerebro" href={hrefMapa} /></ListaM>}
         {sesiones.length === 0
           ? <VacioM frase="Todavía no hay chats." />
           : (

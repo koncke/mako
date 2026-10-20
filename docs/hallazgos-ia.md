@@ -4531,3 +4531,42 @@ sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA
 - **Causa real:** en `chatClaudeTools` (`lib/anthropic.ts`), un `try { registro + cascada gratis } catch {}` envolvía las dos cosas. Cuando la cascada no contestaba, el llamador pedía `sinFallbackClaude` y el «falló la IA (…)» re-lanzado caía en ese `catch` vacío. El modelo quedaba en `''` y el veto hablaba por él. `chatClaude` ya tenía la lección («Acá afuera del catch, para que el corte no se lo coma»); la mitad con herramientas no.
 - **Regla:** un `catch` vacío envuelve sólo la operación que puede fallar «sin importancia» (leer el registro), nunca un camino que re-lanza a propósito. Lo fija `tests/anthropic-tools-sin-fallback.test.ts`: la forma vieja da 3 de 3 fallas.
 - **Sin hacer:** con el arreglo desplegado, el ticket #6 (04:13 UTC) trajo el motivo real: «falló la IA (sin proveedor gratis disponible)». El ws1 no tiene NINGUNA IA para el chat de MaKo. La causa probable, no medida clave por clave: desde el 16/10 las copias de las claves de la plataforma no cuentan como del negocio (`lib/ia-keys.ts`), y el ws1 podría no tener ninguna propia que pueda recibir datos de sus clientes. Eso decide Martín: el ticket volvió a él como pedido.
+
+## Lo que midió la verificación del debate «quién paga el chat» (20/10/2026)
+
+Cuatro verificadores revisaron `docs/debate-ops-center-decisiones-20-10.md` contra producción antes de llevárselo a
+Martín. Ese día él decidió que nadie paga el Ops Center de los clientes: cada uno conecta sus cuentas de Claude y GPT.
+Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
+
+- **Un costo «por turno» sacado de `anthropic_usage` sale a la mitad.** La tabla anota una fila por PASO del loop de
+  herramientas (`lib/ai-cheap.ts`, `recordUsage` dentro del `for (let step…)`), y un turno son ~2,1 pasos (WhatsApp
+  2,26; el Ops Center 2,15; Offer 1,0). El documento llamó «turnos» a llamadas, y el empate «Haiku contra un plan de
+  US$47» daba ~3.450 turnos cuando son ~1.700-1.800. **Regla:** un tope por turnos se calcula agrupando las filas por el
+  recorte del pedido dentro del `motivo`, no contando filas.
+- **«Por mes» no es la suma de 30 días** cuando las features nacieron en el medio. Tres de las cuatro del chat
+  (`mako-chat` 09/10, `mako-doer` 11/10, `offer` 12/10) tenían 9 a 11 días: 296 de las 336 filas eran de las últimas
+  dos semanas, y el gasto real al ritmo de hoy era ~2× la suma cruda (Haiku: ~US$7 por mes todos los negocios, no 3,69).
+  Además, casi todos esos tokens los contó el tokenizador de Gemini, y no está medido cuántos cuenta Claude para el mismo
+  texto.
+- **Un turno del Ops Center NO carga las ~739 operaciones que ve un admin.** Viajan las 25 de siempre más las de las
+  áreas que nombra el pedido, con tope de 12.000 caracteres (`PRESUPUESTO_REGISTRO_CHARS`, `lib/doer-herramientas.ts`):
+  entre 0 y ~40 herramientas. Medido con el selector real: una llamada pesa ~9.300 tokens de entrada, y un turno ~21.000.
+- **MaKo no sabe si la Gemini del cliente es la gratis, que entrena.** No hay ninguna verificación antes de mandar; la
+  única señal es el texto de un 429 («…FreeTier…»), que se anota DESPUÉS (`anotarRebote429`, `lib/ia-cuotas.ts`). Con
+  eso está comprobado que el ws13 usa Gemini gratis: el doer de WhatsApp (`mako-doer-in`, pii) le mandó datos de su CRM
+  34 veces desde el 17/10. Y el ws14 tiene cargada la MISMA key que el ws13. El corte por pii frena las keys gratis de
+  MaKo, no la gratis PROPIA del cliente (`soloLasPropias` sólo descarta las copias de la plataforma). Es el hueco que
+  dejó abierto la decisión del 07/10 de no sacarle Gemini a quien sólo tiene Gemini (arriba, «Le sacaba Gemini a quien
+  sólo tiene Gemini»). **Sigue abierto y es de Martín:** cortarlo, pedirle una key paga, o que conecte su Claude.
+- **El censo de IA de los clientes (20/10):**
+  - 11 negocios activos: todos menos el ws9 de la plataforma y los ws3 y ws4 de prueba; el ws5 está pausado.
+  - Con Claude conectado hay dos. El ws11 tiene su propia clave. El ws10 tiene, a pedido de Martín, la clave del
+    crédito de la cuenta 2, y por eso comparte esos US$200 con el crédito de la plataforma.
+  - Sólo con Gemini hay cinco: ws13, ws15, ws17, ws18 y ws19.
+  - Sin ninguna key propia hay tres: ws20, ws21 y el ws1, cuyas siete keys de IA son copias de las de MaKo (salvo
+    Cerebras, que el chat no usa).
+  - Hasta el 20/10 hubo **0 llamadas** pagadas con la clave de Anthropic de un negocio. Ese día lo destrabó
+    25f9bbca6 (Ticketera): el turno con herramientas prueba la clave del negocio cuando ninguna barata contestó.
+
+**Dónde están los datos:** los scripts (sólo lectura) quedaron en el scratchpad del Cerebro del 20/10
+(`verif-debate/`). Lo que importa está acá.
