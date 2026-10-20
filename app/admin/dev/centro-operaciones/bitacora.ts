@@ -710,4 +710,23 @@ export const BITACORA: Hito[] = [
       'tests/centro-adjuntos-grandes.test.ts, tests/centro-adjuntos.test.ts',
     ],
   },
+  {
+    fecha: '20 oct', hora: '17:30', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que adjuntas en la app de Claude se ve en el Ops Center, y «Pegar» para tu captura',
+    pedido: 'Cuando envío imágenes por aquí o adjunto cosas también deberían aparecer en el Center',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Una captura o un PDF que pegas en la app de Claude aparece en tu mensaje del Ops Center, con «En la app de Claude».',
+      'Tocar la foto la amplía; un PDF se abre aparte.',
+      'En el «+» de la caja hay «Pegar»: toma la captura que copiaste, también en el teléfono.',
+      'Hace falta el Runner nuevo (1.17.0).',
+    ],
+    archivos: [
+      'scripts/operaciones/cartero.mjs — 1.17.0: saca y sube lo adjuntado (subirAdjuntosDeTurnos)',
+      'lib/operaciones-reglas.ts — sanearAdjuntosTurno; lib/operaciones-adjuntos.ts — las URLs firmadas',
+      'app/admin/operaciones/FotosEnviadas.tsx — AdjuntosDeLaApp; pegar.ts, AdjuntosCaja.tsx — «Pegar»',
+      'tests/centro-app-adjuntos.test.ts',
+    ],
+  },
 ];

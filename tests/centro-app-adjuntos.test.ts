@@ -51,9 +51,10 @@ test('1. la PC saca lo que Martín pegó en la app (no lo de las herramientas), 
   ]);
   assert.equal(turnos.length, 2, 'lo de la herramienta no es de Martín');
   assert.equal(turnos[0].texto, '', 'una captura sola también es un mensaje');
-  assert.deepEqual(turnos[0].crudos, [PNG.toString('base64')]);
+  const crudos = (i: number) => (turnos[i] as { crudos?: string[] }).crudos;
+  assert.deepEqual(crudos(0), [PNG.toString('base64')]);
   assert.equal(turnos[1].texto, 'mirá cómo se bugea');
-  assert.equal(turnos[1].crudos.length, 1, 'sólo imágenes y PDF: otro bloque en base64 (un audio) no');
+  assert.equal(crudos(1)?.length, 1, 'sólo imágenes y PDF: otro bloque en base64 (un audio) no');
 });
 
 test('2. las sube directo al storage, sin el token, mirándolas por sus bytes; si falla, ese chat espera', async () => {
@@ -136,7 +137,7 @@ test('4. la pantalla las ve en la burbuja de Martín, con URL firmada y sólo de
   assert.match(html, /href="https:\/\/storage\.example\/doc\.pdf"[^>]*>[\s\S]*?PDF/, 'el PDF, su chip');
   assert.match(html, /En la app de Claude/, 'con la marca');
   assert.equal(vistaPrevia(lineas)?.texto, 'Archivo', 'la fila: «Archivo» si hay algo que no es foto');
-  assert.equal(vistaPrevia([{ ...lineas[0], turno: { ...turno, adjuntos: [turno.adjuntos![0]] } }])?.texto, 'Foto');
+  assert.equal(vistaPrevia([{ tipo: 'turno', instante: Date.parse(turno.at), turno: { ...turno, adjuntos: [turno.adjuntos![0]] } }])?.texto, 'Foto');
 });
 
 test('5. «Pegar» del «+» toma la captura copiada; sin imagen, lo dice', async () => {
