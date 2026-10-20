@@ -340,7 +340,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // Las fotos y los PDF de la caja (17/10/2026): el estado es del motor (useCentro.ts), el mismo de la computadora.
   const adjuntos: AdjuntosDeCaja | undefined = centro && elegido ? {
     items: centro.adjuntosDe(elegido.clave), puede: centro.puedeAdjuntar(elegido),
-    onSumar: (fs) => void centro.sumarAdjuntos(elegido.clave, fs), onQuitar: (id) => centro.quitarAdjunto(elegido.clave, id), onNoPuede: centro.sinAdjuntos,
+    onSumar: (fs) => void centro.sumarAdjuntos(elegido.clave, fs), onQuitar: (id) => centro.quitarAdjunto(elegido.clave, id), onNoPuede: centro.sinAdjuntos, onSinImagen: centro.sinImagen,
   } : undefined;
 
   // Mandar es el del motor (useCentro.ts → mandar): el mismo de la computadora, con la cita si responde a un mensaje.

@@ -213,7 +213,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       envio={k.envioDe(chat)} texto={k.borradorDe(chat.clave)} onTexto={(t) => k.ponerBorrador(chat.clave, t)}
       adjuntos={{
         items: k.adjuntosDe(chat.clave), puede: k.puedeAdjuntar(chat),
-        onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id), onNoPuede: k.sinAdjuntos,
+        onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id), onNoPuede: k.sinAdjuntos, onSinImagen: k.sinImagen,
       }}
       enviando={k.enviando} resumenEnvio={resumenDeEnvio(k, chat)}
       onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}

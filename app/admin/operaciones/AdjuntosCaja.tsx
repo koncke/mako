@@ -19,6 +19,7 @@ import { IconoChat } from '@/app/m/mako/iconos';
 import { ACCEPT_ADJUNTOS_CENTRO } from '@/lib/operaciones-reglas';
 import type { AdjuntoCaja } from './useCentro';
 import { Visor } from './Visor';
+import { imagenesDelPortapapeles } from './pegar';
 
 /** Lo que la caja necesita para adjuntar. `puede` = false: el Runner todavía no baja adjuntos (no se ofrece). */
 export type AdjuntosDeCaja = {
@@ -28,6 +29,8 @@ export type AdjuntosDeCaja = {
   onQuitar: (id: string) => void;
   /** Se pegó una imagen y este chat todavía no recibe adjuntos (su Runner es viejo): decirlo, no tragársela callado. */
   onNoPuede?: () => void;
+  /** «Pegar» del «+» sin una imagen copiada, o un navegador que no deja leer el portapapeles (20/10/2026). */
+  onSinImagen?: (puedeLeer: boolean) => void;
 };
 
 // Pegar una imagen: pegar.ts (sin CSS, para que su test lo importe).
@@ -91,6 +94,11 @@ export function MasCaja({ a, apagado, resumen, children }: {
     setAbierto(false);
     if (lista.length) a?.onSumar(lista);
   };
+  const pegarImagen = async () => {
+    setAbierto(false);
+    const fs = await imagenesDelPortapapeles().catch(() => null);
+    if (fs?.length) a?.onSumar(fs); else a?.onSinImagen?.(fs != null);
+  };
   const adjunta = !!a?.puede;
   return (
     <div className="co-mas-caja" ref={caja}>
@@ -114,6 +122,10 @@ export function MasCaja({ a, apagado, resumen, children }: {
               </button>
               <button type="button" role="menuitem" className="co-mas-caja__tile co-mas-caja__tile--camara" onClick={() => camara.current?.click()}>
                 <span className="co-mas-caja__circulo co-mas-caja__circulo--camara"><Camara /></span><span>Cámara</span>
+              </button>
+              {/* La captura que se copió (20/10/2026): el teclado del teléfono no la ofrece en la caja (pegar.ts). */}
+              <button type="button" role="menuitem" className="co-mas-caja__tile" onClick={pegarImagen}>
+                <span className="co-mas-caja__circulo co-mas-caja__circulo--pegar"><Icon name="copy" size={22} /></span><span>Pegar</span>
               </button>
             </div>
           )}

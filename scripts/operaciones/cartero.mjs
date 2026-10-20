@@ -84,7 +84,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.16.0';
+export const VERSION = '1.17.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -643,7 +643,9 @@ export function turnosDeLineas(lineas, pendiente = null) {
     const c = o.message?.content;
     if (Array.isArray(c) && c.some((b) => b && b.type === 'tool_result')) continue;
     const t = textoDe(c).replace(RECORDATORIO_RE, '').trim();
-    if (!t || AUTOMATICO_RE.test(t)) continue;
+    // 1.17.0 (20/10/2026): lo que Martín pegó o adjuntó en la app (una captura, un PDF), aunque no haya escrito nada.
+    const crudos = crudosDe(c);
+    if ((!t && !crudos.length) || (t && AUTOMATICO_RE.test(t))) continue;
     cerrar();
     const m = CRUZADO_RE.exec(t);
     if (m) {
@@ -657,9 +659,65 @@ export function turnosDeLineas(lineas, pendiente = null) {
         : { uuid: o.uuid, rol: 'otro', de, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
       continue;
     }
-    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO_YO), at: o.timestamp, trabajo: null });
+    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO_YO), at: o.timestamp, trabajo: null, ...(crudos.length ? { crudos } : {}) });
   }
   return { turnos, pendiente: p };
+}
+
+// ── Lo que Martín adjunta en la app de Claude (1.17.0, 20/10/2026) ───────────────────────────────────────────────────
+// Copia de lib/operaciones-reglas.ts → MIMES_ADJUNTO_TURNO, MAX_ADJUNTOS_TURNO y MAX_BYTES_ADJUNTO_TURNO.
+export const MIMES_ADJUNTO_TURNO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+export const MAX_ADJUNTOS_TURNO = 8;
+export const MAX_BYTES_ADJUNTO_TURNO = 30 * 1024 * 1024;
+
+/** Las imágenes y los PDF de un mensaje de Martín, en base64, tal cual vienen (los mira `subirAdjuntosDeTurnos`). */
+function crudosDe(content) {
+  if (!Array.isArray(content)) return [];
+  return content.filter((b) => b && (b.type === 'image' || b.type === 'document') && b.source?.type === 'base64' && typeof b.source.data === 'string')
+    .slice(0, MAX_ADJUNTOS_TURNO).map((b) => b.source.data);
+}
+
+/**
+ * Sube DIRECTO al storage lo que Martín adjuntó (los `crudos` de cada turno) y deja en el turno sólo su `ref`. Cada uno se
+ * mira por sus BYTES (`mimePorFirma`: foto o PDF) y su tamaño; lo que no vale se deja afuera. Si la subida de un chat
+ * falla, sus turnos NO salen en esta vuelta (`fallidos`: su marca no avanza y vuelven en la siguiente). Nunca sale un
+ * `crudo` en el cuerpo de la vuelta: pesaría más de lo que deja pasar Vercel.
+ */
+export async function subirAdjuntosDeTurnos(url, token, turnos) {
+  const fallidos = new Set();
+  const listos = [];
+  for (const { crudos, ...t } of turnos) {
+    if (!crudos?.length) { listos.push(t); continue; }
+    if (fallidos.has(t.local)) continue;
+    const adjuntos = [];
+    try {
+      for (const [n, data] of crudos.entries()) {
+        const b = Buffer.from(data, 'base64');
+        const mime = mimePorFirma(b);
+        if (!mime || !MIMES_ADJUNTO_TURNO.includes(mime) || !b.length || b.length > MAX_BYTES_ADJUNTO_TURNO) continue;
+        const q = await fetch(`${url}/api/operaciones/cartero?adjunto-turno=1`, {
+          method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({ local: t.local, uuid: t.uuid, n, mime, bytes: b.length }), signal: AbortSignal.timeout(30_000),
+        });
+        const firmada = (await q.json().catch(() => null))?.url;
+        if (!q.ok || typeof firmada !== 'string' || !/^https?:\/\//.test(firmada)) throw new Error(`MaKo no dio dónde subirlo (${q.status})`);
+        // Al storage, SIN el token del cartero (la URL firmada es la llave).
+        const s = await fetch(firmada, {
+          method: 'PUT', body: b, headers: { 'content-type': mime, 'x-upsert': 'true' },
+          signal: AbortSignal.timeout(60_000 + Math.ceil(b.length / 100_000) * 1000),
+        });
+        if (!s.ok) throw new Error(`el storage no lo tomó (${s.status})`);
+        adjuntos.push({ ref: `${t.local}/${t.uuid}/${n}`, mime, bytes: b.length });
+      }
+    } catch (e) {
+      fallidos.add(t.local);
+      log(`no pude subir lo que Martín adjuntó en ${t.local}: ${e instanceof Error ? e.message : e}`);
+      continue;
+    }
+    if (!adjuntos.length && !t.texto) continue;
+    listos.push(adjuntos.length ? { ...t, adjuntos } : t);
+  }
+  return { turnos: listos.filter((t) => !fallidos.has(t.local)), fallidos };
 }
 
 /** El cierre de un turno: su último texto, si no es el mismo que ya salió como el primero. null = nada que sumar. */
@@ -1108,7 +1166,12 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   // sólo eso; lo demás queda escrito y sale cuando se abra ese Runner (no se vence en el buzón).
   const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner && !c.esRunner).map((c) => c.local);
   // Lo que se dijo en cada chat desde la vuelta anterior (sólo lo nuevo). Lo del Runner no: son sus vueltas.
-  const { turnos, marcas } = turnosDeLaVuelta([...chats.values()].filter((c) => !c.esRunner));
+  const delaVuelta = turnosDeLaVuelta([...chats.values()].filter((c) => !c.esRunner));
+  // Lo que Martín adjuntó en la app (1.17.0) sube ANTES, directo al storage: los turnos llevan sólo su `ref`. El chat cuya
+  // subida falló no sale ahora (ni su marca avanza): vuelve en la vuelta siguiente.
+  const subida = await subirAdjuntosDeTurnos(url, cfg.token, delaVuelta.turnos);
+  const turnos = subida.turnos;
+  const marcas = delaVuelta.marcas.filter((m) => !subida.fallidos.has(path.basename(m.archivo, '.json')));
   // Los chats de la nube que anotó el Runner de la app (no tienen canal ni transcript en esta PC: sólo se ven).
   const enNube = leerNube(cuenta).map((n) => ({ local: n.id, titulo: n.titulo, cuenta, vivo: false, estado: null, actividad: null, nube: true }));
   const r = await fetch(`${url}/api/operaciones/cartero`, {

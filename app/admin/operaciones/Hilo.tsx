@@ -33,7 +33,7 @@ import type { Aspecto } from '@/lib/centro-munecos';
 import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
 import { PreguntaChat, type Responder } from './PreguntaChat';
 import { TEXTO_SOLO_ADJUNTOS, bloquesDeMensaje } from '@/lib/centro-caja';
-import { AdjuntosEnBurbuja } from './FotosEnviadas';
+import { AdjuntosDeLaApp, AdjuntosEnBurbuja } from './FotosEnviadas';
 import { MiFoto } from './MiFoto';
 import { ConLinks } from './ConLinks';
 import { memo } from 'react';
@@ -202,9 +202,11 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
   }
   return (
     <Deslizable m={m} className="co-yo">
-      <div className="co-burbuja">
+      <div className={`co-burbuja${t.adjuntos?.length ? ' co-burbuja--con-adjuntos' : ''}`}>
         {t.rol === 'otro' && <span className="co-burbuja__cita">{t.de ?? 'Otro chat'}</span>}
-        <TextoMio texto={t.texto} lineas={wa.lineas} />
+        {/* Lo que adjuntó en la app de Claude (20/10/2026): arriba del texto, como las fotos que salen por el Ops Center. */}
+        {t.adjuntos?.length ? <AdjuntosDeLaApp adjuntos={t.adjuntos} /> : null}
+        {t.texto && <TextoMio texto={t.texto} lineas={wa.lineas} />}
         {/* Lo que Martín escribió DIRECTO en la app de Claude (no pasó por la cola del Ops Center: sin `trabajo`) lo dice,
             chico y en gris junto a la hora (18/10/2026: «un pequeño y sutil aclaración de que ese mensaje se envió por aquí»). */}
         <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{t.rol === 'yo' && !t.trabajo && <span className="co-burbuja__desde" title="Lo escribiste directo en la app de Claude">En la app de Claude</span>}{hora}</span>
