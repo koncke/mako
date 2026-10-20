@@ -171,7 +171,9 @@ test('«Si responde» no tiene padre: cuelga del CRON, y una flecha que la apunt
   const r2 = deIA(conFlecha, ctx, rndDe());
   ok(r2.pasos, ctx);
   assert.equal(padreDe(r2.pasos, raizRespuesta(r2.pasos)!), null);
-  assert.ok(r2.avisos.some((a) => a.includes('no cuelga de ninguna tarjeta')), r2.avisos.join(' | '));
+  // 20/10/2026: la flecha se corta SIN aviso. «corté la flecha» le llegaba a la clienta (Leila, #284) como jerga de una
+  // reparación que no cambia lo que sale (también lo mira tests/crear-ia-recurrente.test.ts).
+  assert.ok(!r2.avisos.some((a) => /no cuelga de ninguna tarjeta|corté la flecha/.test(a)), r2.avisos.join(' | '));
 });
 
 // rotura 5 (pegar `ctx.links[k].url` sin mirar si existe): 1 fallo. rotura 6 (no borrar las

@@ -88,9 +88,10 @@ test('el motor decide por la Reentrada, no por la forma del flujo', () => {
   assert.doesNotMatch(reusa, /preparaReunion\(/, 'volvió la regla escondida');
   const rd = bloque(NUTRI, 'async function reusablesDe(', '\n}\n');
   assert.match(rd, /puedeReentrar\(modo, \{ fila, marcas: marcas\.get\(fila\.id\) \?\? SIN_MARCAS, reunionNuevaMs: reunionMs, porEvento \}\)/);
-  // El barrido NO es un evento; el evento sí.
+  // El barrido NO es un evento; el evento sí. 20/10/2026: SALVO el de un Recurrente (`barridoEsEvento`: corre una vez por
+  // ocurrencia), que si no le llegaba una sola vez a cada lead (tests/crear-ia-recurrente.test.ts).
   const ains = bloque(NUTRI, 'async function aInscribir(', '\n}\n');
-  assert.match(ains, /reusablesDe\(db, filas, \(\) => modo, false\)/);
+  assert.match(ains, /reusablesDe\(db, filas, \(\) => modo, barridoEsEvento\(sec\)\)/);
   const ev = bloque(NUTRI, 'export async function enrolarPorEvento(', '\n}\n');
   assert.match(ev, /reusablesDe\(supabase, previas, \(secId\) => modoSec\.get\(secId\) \?\? null, true\)/);
   assert.match(ev, /reunionAt: r\.reunionMs == null \? null : new Date\(r\.reunionMs\)\.toISOString\(\)/, '«Cada vez» sin reunión reventaba en new Date(null)');

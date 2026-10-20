@@ -1158,7 +1158,9 @@ const CLASE_DEL_PREFIJO: ReadonlyMap<string, ClaseDeEventos> = new Map(CLASES_DE
  *   · «Etiqueta»: «Se agrega etiqueta a un lead» y «Se elimina etiqueta a un lead» (`etiqueta_agregada` /
  *     `etiqueta_quitada`), con los rótulos de la pantalla del CRON;
  *   · «Instagram», «Messenger», «Email» y «Pagos», cada una SÓLO si su canal está conectado, con `eventosParaIA`.
- * Afuera quedan el Recurrente (pide un horario, que la IA no elige) y `manual` (no inscribe a nadie).
+ * Afuera quedan el Recurrente y `manual` (no inscribe a nadie). El horario de un Recurrente no lo elige la IA: lo saca el
+ * CÓDIGO del pedido (20/10/2026, `recurrenteDelPedido`, lib/flujo-ia-recurrente.ts), y de estas opciones sale A QUIÉN
+ * (`recurrenteDeValorIA`). Hasta ese día el modelo, sin Recurrente, elegía la etapa de nombre más parecido (#284 de ws11).
  */
 export function opcionesCronIA(e: EntradaCronIA): Array<{ title: string; options: OpcionDisparo[] }> {
   const out = seccionesDisparo({ disparadores: [], productos: e.productos, etiquetas: e.etiquetas, actual: { trigger_tipo: 'manual' }, textoActual: '' });
@@ -1206,6 +1208,20 @@ export function disparadorDeValorIA(valor: string, id = 'd1'): Disparador[] {
   if (!d) return [];
   const lista = sanearDisparadores([d]);
   return lista.length === 1 && problemaDeDisparadores(lista) == null ? lista : [];
+}
+
+/**
+ * EL RECURRENTE DE «CREAR CON IA» (20/10/2026, el pedido de Leila: «cada semana los martes a las 3, a todos los del funnel
+ * principal»): el CRON de un valor de COHORTE (`venta:…`, `entrega:…`, `etiqueta:<id>`) con el horario que sacó el código
+ * (`horarioDelPedido`, lib/flujo-ia-recurrente.ts). Es lo mismo que arma la pantalla al elegir «Recurrente» y «A quién»
+ * (`borradorDeClase` + `quienTrasTocar`). Un evento (un DM, un pago) no tiene a quién barrer: `[]`, nunca «sin horario».
+ */
+export function recurrenteDeValorIA(valor: string, cron: CronAviso, id = 'd1'): Disparador[] {
+  const c = sanearCron(cron);
+  const [d] = disparadorDeValorIA(valor, id);
+  if (!c || !d || !tieneCohorte(d) || CON_SUBTIPO.has(d.trigger_tipo) || CON_IGNORAR.has(d.trigger_tipo)) return [];
+  const lista = sanearDisparadores([{ ...d, cron: c, cron_proxima_at: null }]);
+  return lista.length === 1 && lista[0].cron && problemaDeDisparadores(lista) == null ? lista : [];
 }
 
 /**

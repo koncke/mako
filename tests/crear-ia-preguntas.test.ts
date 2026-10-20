@@ -337,7 +337,8 @@ test('la API de MaKo: `preparar` pregunta numerado ANTES de proponer; la respues
   const op = run.slice(run.indexOf('crear_automatizacion_con_ia: {'), run.indexOf('crear_automatizacion_desde_plantilla: {'));
   const preparar = op.slice(op.indexOf('preparar:'), op.indexOf('ejecutar:'));
   assert.match(preparar, /const p = preguntaAntes\(pedido, cx, respuestas\);/);
-  assert.match(preparar, /if \(!dado\) return \{ error: preguntaParaWhatsApp\(p\), faltan: \[p\.sobre\] \};/);
+  // 20/10/2026: «¿A quién le llega?» va con cuántos hay hoy en cada opción (`conConteos`); las demás, igual.
+  assert.match(preparar, /if \(!dado\) return \{ error: preguntaParaWhatsApp\(await conConteos\(p, contarCohorte\)\), faltan: \[p\.sobre\] \};/);
   assert.ok(preparar.indexOf('preguntaAntes(') < preparar.indexOf('return { payload:'), 'propone antes de preguntar');
   assert.match(op, /respuestas: sanearRespuestas\(payload\.respuestas\), via \}\);/);
   // Ejecutado: el texto numerado y la vuelta.
