@@ -78,6 +78,12 @@ quedó.
 - **Decide Martín (o Leila):** aprobar los 31 y pausar #284 para no duplicar.
 - **Hallazgo:** docs/hallazgos-chatbot.md.
 
+### 7. «Otro error que Leila me envía»: «Ese número no tiene WhatsApp» (lead #2313)
+- **Causa:** `enviarTexto` (lib/evolution.ts:857) manda el número tal cual. 53 de los 70 leads del ws11 lo tienen en 10 dígitos, sin el 52, y 27 de sus 32 borradores pendientes fallarían igual.
+- **Encargo:** **MaKo Alert**, urgente. Al mandar, un número de 10 dígitos lleva el código de país de la línea, sin tocar los datos del cliente. Pasa por revisión adversarial antes de subir.
+- **Mientras tanto:** la #284 quedó PAUSADA (Martín, 20/10 21:37 UTC) para no duplicar el recordatorio de la #282.
+- **Al desplegar:** aviso en el grupo del ws11, firmado «Desarrollador de MaKo» (regla nueva de AGENTS.md).
+
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 
 | Pedido (minuto) | Estado | De quién |
