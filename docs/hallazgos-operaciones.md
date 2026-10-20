@@ -1556,6 +1556,11 @@ que el reinicio dice de quién es una medición. `cuotaDe` ya la usaba para la l
 
 **Regla:** un dato que se anota a nombre de alguien se contrasta con una huella propia de ese alguien (acá, la hora de su
 reinicio). El marcador de cuenta es un dato más, y puede estar mal.
+**Los límites que quedan** (revisión del Cerebro, 20/10, antes de subirlo):
+- **Dos cuentas reales cuya semana reinicia con menos de 5 min de diferencia chocan siempre:** cada una rechaza a la otra, semana tras semana. Hoy no pasa: las conocidas reinician en días y horas distintos. Si pasa, el error lo dice en cada vuelta del Runner, y se resuelve achicando `MISMA_SEMANA_MS`, porque la API varía ~1 s.
+- **Una cuenta RENOVADA queda sin medir hasta que alguien pase `--renovada`** (B). La renovación la avisa Martín, y el Cerebro corre `medir --renovada`. Mientras tanto, la tarjeta envejece a «Sin medir hace X», que es lo seguro.
+- **Del lado de MaKo, una fila MALA que ya entró bloquea a la buena:** `cuentaDeLaSemana` le cree a la fila que llegó primero. Si vuelve a pasar, se limpia la fila mala (`cuota=null`), como la del 20/10.
+- **Sólo con la ventana de 5 h** (sin semana) no hay huella: `medir` la anota a nombre del marcador. El Runner manda siempre las dos.
 
 ## El menú que se cerraba solo, las fotos que no se veían y lo demás de WhatsApp (17/10/2026, quinto Ops Center)
 
