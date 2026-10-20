@@ -36,7 +36,7 @@ import { TITULO_INBOX } from '@/lib/movil-rutas';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import type { MensajeChat, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import {
-  CabeceraM, FilaM, ListaM, PieM, PildoraM, SheetM, SkeletonFilas, VacioM, ErrorM, useConexion, horaCorta,
+  CabeceraM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, SkeletonFilas, VacioM, ErrorM, useConexion, horaCorta,
 } from '../_ui';
 import { Composer, type Envio } from './Composer';
 import { SheetPropuesta } from './SheetPropuesta';
@@ -46,17 +46,21 @@ import {
   itemsDeSesion, leerRespuesta, textoConArchivos, type EstadoPropuesta, type ItemHilo,
 } from './chat-ui';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
+import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
 import { PegadosHilo, TextoPlegable } from '@/app/_chat/PegadoHilo';
 import { partirPegados } from '@/lib/chat-pegado';
 
 const RUTA = '/api/m/mako';
+/** Las conversaciones de Offer del negocio (20/10/2026): las lee el índice del Second Brain, con la puerta de la tab. */
+const RUTA_OFFER = '/api/mako/chat?offer=1';
+type ChatDeOfferM = { id: number; titulo: string; updatedAt: string };
 /** El maxDuration de /api/m/mako es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
 const TOPE_MS = 425_000;
 
 type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
 
-export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats }: {
+export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats, reabrirChats = 0 }: {
   sesionesIniciales: SesionChat[];
   inicial: Abierta | null;
   /** El Mapa del Second Brain (sólo el admin, lo decide el servidor): va arriba de la hoja «Tus chats» (16/10/2026). */
@@ -64,6 +68,8 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
   /** Otros chats debajo de los de MaKo en la hoja «Tus chats»: los de Claude Code del super admin en /m/second-brain
    *  (17/10/2026, app/m/second-brain/SecondBrainCentroM.tsx). `cerrar` cierra la hoja al elegir uno. */
   masChats?: (cerrar: () => void) => ReactNode;
+  /** Cada vez que cambia, vuelve a abrir «Tus chats»: cerrar un chat de Claude Code vuelve a la lista (18/10/2026). */
+  reabrirChats?: number;
 }) {
   const ws = useWs();
   const { enLinea } = useConexion();
@@ -75,6 +81,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
   const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
   const [segs, setSegs] = useState(0);
   const [hojaChats, setHojaChats] = useState(false);
+  useEffect(() => { if (reabrirChats > 0) setHojaChats(true); }, [reabrirChats]);
   const [abierta, setAbierta] = useState<string | null>(null);
   const [altoComposer, setAltoComposer] = useState(96);
   const envios = useRef(new Map<string, Envio>());
@@ -130,6 +137,18 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
     } catch { /* la lista que hay sigue sirviendo */ }
   }, []);
   useEffect(() => { if (hojaChats) void refrescarLista(); }, [hojaChats, refrescarLista]);
+  // Offer (20/10/2026, Martín: «el chat de OFFER no está llegando al Ops Center»): sus conversaciones en «Tus chats», cada
+  // una lleva a ESA conversación en Offer. Sin la tab, la lista llega vacía y la sección no se dibuja.
+  const [offer, setOffer] = useState<ChatDeOfferM[]>([]);
+  useEffect(() => {
+    if (!hojaChats) return;
+    let vivo = true;
+    void fetch(RUTA_OFFER, { signal: AbortSignal.timeout(20_000) })
+      .then(async (res) => leerRespuesta<{ offer: ChatDeOfferM[] }>(res.status, await res.text()))
+      .then((l) => { if (vivo && l.ok) setOffer(l.datos.offer ?? []); })
+      .catch(() => { /* sin la lista de Offer, «Tus chats» sigue igual */ });
+    return () => { vivo = false; };
+  }, [hojaChats]);
 
   const nuevoChat = () => {
     setHojaChats(false);
@@ -262,7 +281,8 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
       <SheetM abierto={hojaChats} onCerrar={() => setHojaChats(false)} titulo="Tus chats" id="chats" snap="medio"
         pie={<PieM><Button variant="primary" size="lg" full onClick={nuevoChat}>Nuevo chat</Button></PieM>}>
         {/* El grafo del negocio, arriba de los chats: como «Mapa» en la barra del Second Brain de escritorio. */}
-        {hrefMapa && <ListaM><FilaM navegacion titulo="Mapa" icono="cerebro" href={hrefMapa} /></ListaM>}
+        {/* «Second Brain», no «Mapa» (Martín, 18/10): el grafo se llama así; la tab es «Ops Center». */}
+        {hrefMapa && <ListaM><FilaM navegacion titulo="Second Brain" icono="cerebro" href={hrefMapa} /></ListaM>}
         {sesiones.length === 0
           ? <VacioM frase="Todavía no hay chats." />
           : (
@@ -280,6 +300,16 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
               })}
             </ListaM>
           )}
+        {offer.length > 0 && (
+          <SeccionM titulo="Offer">
+            <ListaM etiqueta="Offer">
+              {offer.map((o) => (
+                <FilaM key={`o${o.id}`} navegacion titulo={o.titulo} href={`/m/offer?sesion=${o.id}`}
+                  riel={<span className="m-mako-riel"><CuandoCorto iso={o.updatedAt} /></span>} />
+              ))}
+            </ListaM>
+          </SeccionM>
+        )}
         {masChats?.(() => setHojaChats(false))}
       </SheetM>
     </div>
@@ -332,7 +362,7 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
       ? <li className="m-mako-aviso" role="status">{x.texto}</li>
       : (
         <li className="m-mako-msg m-mako-msg--mk">
-          <div className="m-mako-burbuja"><div className="m-mako-texto m-mako-md"><Markdown text={x.texto} /></div></div>
+          <div className="m-mako-burbuja"><div className="m-mako-texto m-mako-md"><Markdown text={x.texto} /></div>{x.conectar && <ConectarDelAviso servicio={x.conectar} />}</div>
         </li>
       );
   }

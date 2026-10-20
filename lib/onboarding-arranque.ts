@@ -66,6 +66,8 @@ export type EstadoArranque = {
   crmTipo?: TipoCrmId;
   /** Mostrar todos los tipos de CRM, no sólo los de su canal. */
   crmVerTodos?: boolean;
+  /** «¿Está correcto el PDF?» (18/10/2026): 'no' = faltan cosas o hay algo mal; se anota y se sigue. */
+  pdfOk?: 'si' | 'no';
   /** El teléfono de los avisos: 'codigo' = se mandó el código y falta cargarlo. */
   telefono?: 'codigo' | 'verificado' | 'postergado';
   telefonoNumero?: string;
@@ -100,7 +102,7 @@ export type HechosArranque = {
 };
 
 export type EtapaArranque =
-  | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'crm'
+  | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'pdf' | 'crm'
   | 'telefono' | 'codigo' | 'cierre' | 'listo';
 
 /** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). */
@@ -120,6 +122,10 @@ export const OBJETIVOS_SUGERIDOS = ['Conseguir mis primeros clientes', 'Vender m
 export const AHORA_NO = 'Ahora no';
 export const CAMBIAR_NUMERO = 'Cambiar número';
 export const VER_OTROS_TIPOS = 'Ver otros tipos';
+/** La primera respuesta del CRM (18/10/2026, Martín, punto 10: «las respuestas rápidas tiene que ser ‹Sí, es correcto› u
+ *  otras opciones»): acepta el que se le propone. */
+export const CRM_SI = 'Sí, es correcto';
+export const CRM_PREGUNTA = 'Ahora armemos tu CRM. Estas son las etapas por las que va a pasar cada cliente, de la primera charla a la venta. ¿Te sirven?';
 const PREGUNTA_CANAL = '¿Dónde cierras la venta?';
 
 const TOPE_RESPUESTA = 300;
@@ -132,6 +138,17 @@ const TOPE_RESPUESTA = 300;
  * super admin para la pauta) y el interés decide a qué pestaña entra al terminar. El detalle, en
  * docs/hallazgos-onboarding.md.
  */
+/**
+ * El primer mensaje: explica para qué son las preguntas y cuánto tardan ANTES de preguntar (18/10/2026, Martín: «empieza
+ * a preguntar de la nada»).
+ */
+export const SALUDO_ARRANQUE = '¡Hola! Soy MaKo. Para dejar tu cuenta lista necesito conocer tu negocio: son unas preguntas rápidas, menos de 5 minutos. Para empezar, ¿cómo te llamas?';
+
+/** El PDF de lo que vende, con su confirmación (18/10/2026). */
+export const PDF_PREGUNTA = 'Perfecto: ya tengo claro qué vendes. Te armé un PDF con tu oferta, ¿está correcto?';
+export const PDF_OPCIONES = ['Sí, está correcto', 'No, faltan cosas o hay algo mal'] as const;
+export const PDF_NO = 'Está bien: lo anoto para trabajarlo dentro de la app. Ahora sigamos para terminar el onboarding.';
+
 export const ORIGENES = ['Instagram', 'YouTube', 'TikTok', 'Un anuncio', 'Me lo recomendaron', 'Google', 'Otro'] as const;
 
 export type InteresId = 'anuncios' | 'ventas' | 'whatsapp' | 'organizar';
@@ -168,6 +185,12 @@ export function llegadaDe(raw: string | null | undefined): LlegadaCliente | null
 }
 
 /** A dónde entra al terminar: la pestaña de lo que quiere resolver primero, o /general. */
+/**
+ * A dónde entra al terminar: el Ops Center (/second-brain), siempre (18/10/2026, Martín: «la primera tab que ve el cliente es
+ * Ops Center»). Lo que dijo que quiere resolver primero queda en la encuesta y en `rutaDeEntrada`, pero ya no decide la entrada.
+ */
+export const RUTA_AL_TERMINAR = '/second-brain';
+
 export function rutaDeEntrada(interes: InteresId | undefined): string {
   return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';
 }
@@ -332,11 +355,9 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
   if (h.terminado) return 'listo';
   if (!e.nombre) return 'nombre';
   if (!e.negocio) return 'negocio';
-  // Las dos del 17/10 van antes del objetivo. Una conversación que ya había pasado el objetivo (empezada antes)
-  // no vuelve atrás a preguntarlas.
-  if (!e.origen && !e.objetivo) return 'origen';
-  if (h.modo === 'oferta' && !e.interes && !e.objetivo) return 'interes';
-  if (!e.objetivo) return 'objetivo';
+  // Sin el objetivo a 90 días (18/10/2026, Martín: «eliminar "Y en los próximos 90 días, ¿qué quieres lograr?"»): del
+  // negocio se pasa directo a lo que vende. Una conversación de antes que lo contestó lo guarda (va al brief), pero ya
+  // no se dibuja ni se pregunta. Y «¿Cómo llegaste?» y «¿Qué resolver primero?» van AL FINAL, antes del teléfono.
   if (h.modo === 'plan') {
     if (!e.queHace) return 'que_hace';
     if (!h.faseGuardada) return 'fase';
@@ -345,9 +366,13 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
     // pregunta el arranque con sus opciones: la conversación del onboarding ya no lo hace (17/10/2026). Lo que
     // la persona haya contestado en una conversación de antes (`faseOffer`) no se repite.
     if (!h.loQueVende) return 'oferta';
+    // «¿Está correcto?» del PDF (18/10/2026). Una conversación que ya pasó la fase no vuelve atrás a preguntarlo.
+    if (!e.pdfOk && !h.faseGuardada) return 'pdf';
     if (!h.faseGuardada) return 'fase';
     if (h.conCrm && !e.crmTipo) return 'crm';
   }
+  if (!e.origen) return 'origen';
+  if (h.modo === 'oferta' && !e.interes) return 'interes';
   if (h.conTelefono && e.telefono !== 'verificado' && e.telefono !== 'postergado') {
     return e.telefono === 'codigo' ? 'codigo' : 'telefono';
   }
@@ -371,44 +396,48 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     if (respuesta !== undefined) lista.push({ id: `arr-${id}-r`, de: 'yo', texto: respuesta });
   };
 
-  // 1. Quién es. Un nombre que es un email (las altas sin nombre guardan el email) no se ofrece.
-  const sugNombre = h.nombreCuenta.includes('@') ? '' : primerNombre(h.nombreCuenta);
-  // El texto del saludo es el de la referencia que mandó Martín el 17/10 (el chat sin recuadro).
-  preguntar(antes, 'nombre', '¡Hola! Soy MaKo. Para empezar, ¿cómo te llamas?', e.nombre, sugNombre ? [sugNombre] : undefined);
+  // 1. Quién es. EXPLICA ANTES DE PREGUNTAR (18/10/2026, Martín: «empieza a preguntar de la nada… debería decir algo como
+  // "necesito que me cuentes de tu negocio para poder configurar tu cuenta... no tardaremos más de 5 minutos"»).
+  // SIN respuestas rápidas en el nombre ni en el negocio (18/10/2026, 14:00, Martín): ofrecían lo que quedaba de otra
+  // prueba («Ayelen» del perfil, «Consultesis» del nombre del workspace). Se escriben. tests/onboarding-preguntas.test.ts.
+  preguntar(antes, 'nombre', SALUDO_ARRANQUE, e.nombre);
   if (etapa === 'nombre') return { antes, despues };
-  // Lo que nombró junto con su nombre va primero; si no, el nombre del workspace (si parece un negocio).
-  const sugNegocio = [e.negocioSugerido, pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? h.nombreWorkspace.trim() : '']
-    .filter((x): x is string => !!x && !!x.trim())
-    .filter((x, i, xs) => xs.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
-  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio, sugNegocio.length ? sugNegocio : undefined);
+  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio);
   if (etapa === 'negocio') return { antes, despues };
-  // Las dos del 17/10 (`ORIGENES`, `INTERESES`): sólo si se preguntaron o tocan ahora (una conversación de antes
-  // que ya pasó el objetivo no las dibuja vacías).
-  if (e.origen || etapa === 'origen') {
-    preguntar(antes, 'origen', `¡Qué bueno tenerte por aquí, ${nombre}! ¿Cómo llegaste a MaKo?`, e.origen, [...ORIGENES]);
-    if (etapa === 'origen') return { antes, despues };
-  }
-  if (h.modo === 'oferta' && (e.interes || etapa === 'interes')) {
-    preguntar(antes, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', INTERESES.find((i) => i.id === e.interes)?.label, INTERESES.map((i) => i.label));
-    if (etapa === 'interes') return { antes, despues };
-  }
-  preguntar(antes, 'objetivo', 'Y en los próximos 90 días, ¿qué quieres lograr?', e.objetivo, [...OBJETIVOS_SUGERIDOS]);
-  if (etapa === 'objetivo') return { antes, despues };
+
+  // Las dos del 17/10 (`ORIGENES`, `INTERESES`), AL FINAL desde el 18/10 (Martín): antes del teléfono y del cierre.
+  const finales = (lista: MensajeArranque[]): boolean => {
+    // Sin «Antes de terminar» ni «Última cosa» (18/10/2026, Martín: «no me puede estar diciendo "Antes de terminar"...
+    // cada rato»): cada pregunta va directa y el cierre se dice una vez, al final (tests/onboarding-sin-anuncios.test.ts).
+    preguntar(lista, 'origen', `¿Cómo llegaste a MaKo, ${nombre}?`, e.origen, [...ORIGENES]);
+    if (etapa === 'origen') return true;
+    if (h.modo === 'oferta') {
+      preguntar(lista, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', INTERESES.find((i) => i.id === e.interes)?.label, INTERESES.map((i) => i.label));
+      if (etapa === 'interes') return true;
+    }
+    return false;
+  };
 
   // 2a. Modo 'plan': a qué se dedica y el diagnóstico, con las preguntas originales.
   if (h.modo === 'plan') {
     preguntar(antes, 'que-hace', '¿A qué se dedica tu negocio?', e.queHace);
     if (etapa === 'que_hace') return { antes, despues };
     if (preguntarFase(antes, e, preguntar)) return { antes, despues };
+    if (finales(antes)) return { antes, despues };
     return { antes, despues: cierre(e, h, etapa, nombre) };
   }
 
   // 2b. Modo 'oferta': el pase a la conversación de lo que vende (sus mensajes los dibuja Offer).
-  antes.push({ id: 'arr-oferta', de: 'mako', texto: 'Perfecto. Ahora cuéntame qué vendes: lo dejo ordenado para trabajar con eso.' });
+  antes.push({ id: 'arr-oferta', de: 'mako', texto: `Gracias, ${nombre}. Ahora cuéntame qué vendes en ${e.negocio}: lo dejo ordenado para trabajar con eso.` });
   if (etapa === 'oferta') return { antes, despues };
 
   // 2c. Lo que vende, ordenado en un PDF (la tarjeta lleva el link).
-  despues.push({ id: 'arr-pdf', de: 'mako', texto: 'Listo: ordené lo que vendes en un PDF. Lo uso para crear lo que necesites.', tarjeta: 'pdf' });
+  // CORTO Y CON CONFIRMACIÓN (18/10/2026, Martín: «el mensaje anterior al PDF es larguísimo... Debería ser algo como
+  // "Perfecto: ya tengo claro qué vendes. Te armé un PDF con tu oferta, ¿está correcto?"»). Si dice que no, se anota para
+  // trabajarlo dentro de la app y se sigue: el onboarding no se traba en la oferta.
+  preguntar(despues, 'pdf', PDF_PREGUNTA, e.pdfOk ? (e.pdfOk === 'si' ? PDF_OPCIONES[0] : PDF_OPCIONES[1]) : undefined, [...PDF_OPCIONES], 'pdf');
+  if (etapa === 'pdf') return { antes, despues };
+  if (e.pdfOk === 'no') despues.push({ id: 'arr-pdf-no', de: 'mako', texto: PDF_NO });
 
   // 2d. El diagnóstico de fase, con sus opciones: sólo lo que la persona no contestó ya en una conversación
   // de antes. Queda dibujado después, como parte de la historia.
@@ -423,12 +452,14 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   // 3. El CRM.
   if (h.conCrm) {
     const { tipos, hayMas } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos);
-    const elegido = e.crmTipo ? TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label : undefined;
-    const opciones = [...tipos.map((t) => t.label), ...(hayMas ? [VER_OTROS_TIPOS] : [])];
-    preguntar(despues, 'crm', 'Ahora armemos tu CRM: con lo que me contaste, te propongo este.', elegido, opciones, 'crm');
+    // Primero el que se le propone, con «Sí, es correcto»; «Ver otros tipos» abre la lista (18/10/2026, punto 10).
+    const elegido = e.crmTipo ? (e.crmTipo === tipos[0].id && !e.crmVerTodos ? CRM_SI : TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label) : undefined;
+    const opciones = e.crmVerTodos ? tipos.map((t) => t.label) : [CRM_SI, ...(hayMas ? [VER_OTROS_TIPOS] : [])];
+    preguntar(despues, 'crm', CRM_PREGUNTA, elegido, opciones, 'crm');
     if (etapa === 'crm') return { antes, despues };
   }
 
+  if (finales(despues)) return { antes, despues };
   despues.push(...cierre(e, h, etapa, nombre));
   return { antes, despues };
 }
@@ -466,7 +497,7 @@ function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: P
 function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nombre: string): MensajeArranque[] {
   const out: MensajeArranque[] = [];
   if (h.conTelefono) {
-    out.push({ id: 'arr-telefono', de: 'mako', texto: 'Última cosa: ¿a qué WhatsApp te escribo con los avisos y los reportes?', ...(etapa === 'telefono' ? { opciones: [AHORA_NO], tarjeta: 'telefono' as const } : {}) });
+    out.push({ id: 'arr-telefono', de: 'mako', texto: '¿A qué WhatsApp te escribo con los avisos y los reportes?', ...(etapa === 'telefono' ? { opciones: [AHORA_NO], tarjeta: 'telefono' as const } : {}) });
     if (e.telefono === 'postergado') out.push({ id: 'arr-telefono-r', de: 'yo', texto: AHORA_NO });
     else if (e.telefono === 'codigo' || e.telefono === 'verificado') out.push({ id: 'arr-telefono-r', de: 'yo', texto: e.telefonoNumero || 'Mi WhatsApp' });
     if (etapa === 'telefono') return out;
@@ -522,6 +553,13 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     if (!negocio) return { ok: false, error: '¿Cómo se llama tu negocio?' };
     return { ok: true, patch: { negocio } };
   }
+  if (etapa === 'pdf') {
+    // La opción tal cual, o lo que escriba: «no», «faltan cosas», «está mal» es que no; «sí», «correcto», «bien», que sí.
+    const no = texto === PDF_OPCIONES[1] || /^no\b|falta|mal\b|incorrect/i.test(texto);
+    const si = texto === PDF_OPCIONES[0] || /^s[ií]\b|correct|bien|perfect/i.test(texto);
+    if (!no && !si) return { ok: false, error: 'Dime si está correcto o si le falta algo.' };
+    return { ok: true, patch: { pdfOk: no ? 'no' : 'si' } };
+  }
   if (etapa === 'origen') {
     // Una opción o lo que escriba («por un amigo», «en un podcast»): las dos sirven para saber de dónde viene.
     if (!texto) return { ok: false, error: 'Elige una opción o escríbelo.' };
@@ -569,6 +607,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   if (etapa === 'telefono' && opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
   if (etapa === 'crm') {
     if (opcion === VER_OTROS_TIPOS) return { ok: true, patch: { crmVerTodos: true } };
+    if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false).tipos[0].id } };
     const t = TIPOS_CRM.find((x) => x.label === opcion);
     if (!t) return { ok: false, error: 'Elige un tipo de CRM.' };
     return { ok: true, patch: { crmTipo: t.id } };

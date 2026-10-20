@@ -35,7 +35,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useRouter } from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
@@ -61,10 +61,10 @@ import { VolverDelGrafo } from './volver';
 import { caracteres, conPegados, esPegadoLargo, nombrePegado } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
-  ARRANQUES_SECOND_BRAIN, AVISO_ANTES, JEFE_SECOND_BRAIN, SECCION_ANTES, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, colgarIrA, edadCorta, filtrarSubs,
+  ARRANQUES_SECOND_BRAIN, AVISO_ANTES, AVISO_OFFER, JEFE_SECOND_BRAIN, SECCION_ANTES, SECCION_OFFER, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, colgarIrA, edadCorta, filtrarSubs,
   linksDePedidos, nombreDeSub, tituloDe, type IrA,
 } from '@/lib/chat-mako-reglas';
-import type { ChatDeAntes } from '@/lib/chat-mako-indice';
+import type { ChatDeAntes, ChatDeOffer } from '@/lib/chat-mako-indice';
 import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
@@ -84,7 +84,7 @@ type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: Tarjet
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 /** Lo elegido en la barra: una conversación, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»: se lee y no se escribe), o un chat de Claude Code (su clave del Centro). */
-type Elegido = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string };
+type Elegido = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number };
 /** Un archivo elegido en la caja, antes de mandar. `url` es su vista previa (`blob:`): la usa también la burbuja
  *  mientras sale, y se suelta cuando vuelve guardado o cuando se quita. */
 type ArchivoElegido = { id: string; file: File; tipo: 'image' | 'document'; url: string };
@@ -211,6 +211,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   /** Los chats de «Pregúntale a MaKo» (null = todavía no se pidieron: se piden al abrir la sección). */
   const [antes, setAntes] = useState<ChatDeAntes[] | null>(null);
   const [antesAbierta, setAntesAbierta] = useState(false);
+  /** Las conversaciones de Offer del negocio (20/10/2026, Martín: «el chat de OFFER no está llegando al Ops Center»): una
+   *  proyección de offer_sesiones (lib/chat-mako-indice.ts → chatsDeOffer), con la puerta de la tab. null = todavía no llegó. */
+  const [offer, setOffer] = useState<ChatDeOffer[] | null>(null);
+  const [offerAbierta, setOfferAbierta] = useState(true);
   const [ahora, setAhora] = useState(() => Date.now());
   const ocupadoRef = useRef(false);
   const sesionRef = useRef<number | null>(null);
@@ -267,9 +271,29 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   }, []);
 
   const idAntes = elegido && 'antes' in elegido ? elegido.antes : null;
+  const idOffer = elegido && 'offer' in elegido ? elegido.offer : null;
+  // Las conversaciones de Offer, una vez (no en Ops Center: ahí la lista es la de Claude Code).
+  useEffect(() => {
+    if (ops) return;
+    let vivo = true;
+    void pedir<{ offer: ChatDeOffer[] }>(`${RUTA}?offer=1`).then((l) => { if (vivo) setOffer(l.ok ? l.datos.offer ?? [] : []); });
+    return () => { vivo = false; };
+  }, [ops]);
   useEffect(() => {
     if (!elegido) return;
     sesionRef.current = idElegido;
+    if (idOffer != null) {
+      // Una conversación de Offer: se LEE acá (sin copiarla) y se sigue en su tab.
+      let vivo = true;
+      setCargado(false); setErrorCarga(null);
+      void pedir<{ mensajes: MensajeChat[] }>(`${RUTA}?offerId=${idOffer}`).then((l) => {
+        if (!vivo) return;
+        if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir la conversación.'); setCargado(true); return; }
+        setItems(itemsDeSesion(l.datos.mensajes ?? [], []));
+        setCargado(true);
+      });
+      return () => { vivo = false; };
+    }
     if (idAntes != null) {
       let vivo = true;
       setCargado(false); setErrorCarga(null);
@@ -286,7 +310,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     let vivo = true;
     void cargarHilo(idElegido, () => vivo);
     return () => { vivo = false; };
-  }, [elegido, idElegido, idAntes, cargarHilo]);
+  }, [elegido, idElegido, idAntes, idOffer, cargarHilo]);
 
   const claveCentro = elegido && 'centro' in elegido ? elegido.centro : null;
   // ⚠️ EL CHAT ABIERTO SE SIGUE AUNQUE LO RENOMBREN (17/10/2026: renombrarlo dejaba a Martín en un panel vacío). Su clave es
@@ -450,7 +474,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     if (a) URL.revokeObjectURL(a.url);
     ponerElegidos(elegidosRef.current.filter((x) => x.id !== id));
   };
-  const puedeSoltar = idAntes == null && cargado && !errorCarga;
+  const puedeSoltar = idAntes == null && idOffer == null && cargado && !errorCarga;
   const conArchivos = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
   const arrastre = {
     onDragOver: (e: DragEvent) => { if (!puedeSoltar || !conArchivos(e)) return; e.preventDefault(); setSoltando(true); },
@@ -506,8 +530,12 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const esJefe = elegido != null && (('virtual' in elegido && elegido.virtual === 'jefe') || (arbol.jefe != null && idElegido === arbol.jefe.id));
   const sub = idElegido != null && !esJefe ? (sesiones ?? []).find((s) => s.id === idElegido) ?? null : null;
   const deAntes = idAntes != null ? (antes ?? []).find((a) => a.id === idAntes) ?? null : null;
-  const nombre = esJefe ? JEFE_SECOND_BRAIN : idAntes != null ? (deAntes?.titulo?.trim() || 'Chat de antes') : sub ? tituloDe(sub) : SIN_TITULO;
-  const nombreMuneco = esJefe ? JEFE_SECOND_BRAIN : idAntes != null ? SECCION_ANTES : nombreDeSub(sub ?? { titulo: null });
+  const deOffer = idOffer != null ? (offer ?? []).find((o) => o.id === idOffer) ?? null : null;
+  /** ¿El chat abierto se LEE y no se escribe? (los de antes, y los de Offer, que se siguen en su tab). */
+  const soloLeer = idAntes != null || idOffer != null;
+  const nombre = esJefe ? JEFE_SECOND_BRAIN : idOffer != null ? (deOffer?.titulo || SECCION_OFFER) : idAntes != null ? (deAntes?.titulo?.trim() || 'Chat de antes') : sub ? tituloDe(sub) : SIN_TITULO;
+  const nombreMuneco = esJefe ? JEFE_SECOND_BRAIN : idOffer != null ? SECCION_OFFER : idAntes != null ? SECCION_ANTES : nombreDeSub(sub ?? { titulo: null });
+  const delOffer = (offer ?? []).filter((o) => !busca.trim() || o.titulo.toLowerCase().includes(busca.trim().toLowerCase()));
   const animo = trabajo ? 'trabajando' : 'despierto';
   // El grafo se abre sin soltar el chat que estaba abierto: vuelve a él (17/10/2026: «nunca cambia de chat»).
   const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : ''}`;
@@ -581,7 +609,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
           {veMapa && listaSB && (
             <button type="button" className="co-acceso" aria-pressed={mapa != null}
               onClick={() => { setConChat(true); router.push(mapa ? hrefVolver : hrefMapa); }}>
-              <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Mapa
+              {/* «Second Brain», no «Mapa» (Martín, llamada con Florencia del 18/10 [00:50:28]: «no debería llamarse mapa,
+                  debería llamarse second brain»). La TAB es «Ops Center»; lo que se llama «Second Brain» es el grafo. */}
+              <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Second Brain
             </button>
           )}
         </div>
@@ -621,6 +651,16 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
                 <button type="button" className="co-mas" onClick={() => setTodas(false)}>Mostrar menos</button>
               )}
               {busca.trim() && !subs.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
+            </div>
+          )}
+          {/* Offer (20/10/2026): sus conversaciones, una por fila, como los sub-chats de un jefe. Sólo si se ve la tab y hay. */}
+          {delOffer.length > 0 && (
+            <div className="co-cuenta">
+              <button type="button" className="co-cuenta__cab" aria-expanded={offerAbierta} onClick={() => setOfferAbierta((v) => !v)}>
+                {SECCION_OFFER}
+                <span className={`co-chev${offerAbierta ? '' : ' co-chev--cerrado'}`} aria-hidden><Icon name="chevron" size={14} /></span>
+              </button>
+              {offerAbierta && delOffer.map((o) => fila(`o${o.id}`, { offer: o.id }, o.titulo, SECCION_OFFER, o.updatedAt, true))}
             </div>
           )}
           {/* Los chats de «Pregúntale a MaKo», de sólo lectura, plegados al final (los grupos por fecha de ChatGPT). */}
@@ -665,7 +705,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
             <Muneco titulo={nombreMuneco} animo={animo} size={34} />
             <div className="co-cab__texto">
               <h1 className="co-cab__titulo" title={nombre}>{nombre}</h1>
-              <span className="co-cab__meta">{esJefe ? 'Tu chat con MaKo' : idAntes != null ? SECCION_ANTES : JEFE_SECOND_BRAIN}</span>
+              <span className="co-cab__meta">{esJefe ? 'Tu chat con MaKo' : idOffer != null ? SECCION_OFFER : idAntes != null ? SECCION_ANTES : JEFE_SECOND_BRAIN}</span>
             </div>
           </header>
 
@@ -678,8 +718,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
             ) : !items.length && !trabajo ? (
               <div className="co-portada">
                 <Muneco titulo={nombreMuneco} animo="despierto" size={76} />
-                <p className="co-portada__nombre">{idAntes != null ? 'Este chat está vacío.' : '¿En qué te ayudo?'}</p>
-                {idAntes == null && <div className="ch-arranques">
+                <p className="co-portada__nombre">{soloLeer ? 'Este chat está vacío.' : '¿En qué te ayudo?'}</p>
+                {!soloLeer && <div className="ch-arranques">
                   {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => enviar(a)}>{a}</button>)}
                 </div>}
               </div>
@@ -690,7 +730,13 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
           </div>
 
           <div className="co-caja-wrap">
-            {idAntes != null ? (
+            {idOffer != null ? (
+              // Se lee acá y se sigue en Offer, en ESA conversación (`?sesion=`), con el ?ws= del cliente que se está mirando.
+              <div className="co-caja co-caja--quieta">
+                <p>{AVISO_OFFER}</p>
+                <Link className="co-chip" href={`/offer?sesion=${idOffer}`}>Seguir en Offer</Link>
+              </div>
+            ) : idAntes != null ? (
               <div className="co-caja co-caja--quieta">
                 <p>{AVISO_ANTES}</p>
                 <button type="button" className="co-chip" onClick={() => elegir({ virtual: 'nuevo' })}>Seguir en uno nuevo</button>

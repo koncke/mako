@@ -107,6 +107,7 @@ import { ClienteCard, type CursoDeTarjeta } from './ClienteCard';
 import { columnasVisibles } from './BarraClientes';
 import { repartirEnEtapas, colorDeEtapa, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 import { tiempoEnEtapa } from './en-etapa';
+import { avanceDeCliente } from './aviso-tarjeta';
 // ⚠️ EL MISMO MOLDE QUE EL PLAN, no una copia. «La animación de arrastrar tarjetas por
 // el kanban, eso replicalo tal cual de como lo hacemos en PLAN» (Martín, 05/10/2026).
 // Estaba inline en `BoardShell.tsx` y salió a su módulo para que las dos pantallas usen
@@ -515,7 +516,7 @@ export function KanbanEntrega({
       {/* ⚠️ SIN `onDragOver`: el empuje horizontal escucha en `document` (`montarEmpuje`),
           porque el del riel se cortaba apenas el cursor salía de su caja. */}
       <div className="ke-riel" ref={riel}>
-        {visibles.map((e) => {
+        {visibles.map((e, iCol) => {
           const cards = porEtapa[e.key] ?? [];
           const color = colorDeEtapa(e, fases);
           const destino = ins?.etapa === e.key;
@@ -657,6 +658,9 @@ export function KanbanEntrega({
                               aria-label={elegida ? `Quitar «${nombre}» de la selección` : `Seleccionar «${nombre}»`}
                               style={{ height: 15, marginTop: 2, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
                           }
+                          /* La barra y el aviso de la familia de tarjetas (17/10/2026): la etapa del servicio, y
+                             «Sin entrar al curso» o «N días sin moverse» en rojo (./aviso-tarjeta.ts). */
+                          avance={avanceDeCliente({ etapa: iCol, etapas: visibles.length, enEtapa: t ? { frase: t.frase, trabado: t.trabado } : null, acceso: cursoDe?.(c.leadId)?.acceso ?? null, ahoraMs: Date.now() })}
                           chipExtra={desde && (
                             <span className={`ke-chip${trabado ? ' ke-chip-trabado' : ''}`}>
                               {trabado ? `${desde.replace(/^hace /, '')} sin moverse` : desde}
@@ -756,9 +760,11 @@ const CSS = `
    resuelve CERO en Safari — y con el el overflow hidden de arriba, cero es una pantalla en
    blanco. La cabecera y el boton de alta se quedan fijos; lo que corre son las tarjetas. */
 .ke-col {
-  flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 11px; min-height: 248px; max-height: 68vh;
+  flex: 0 0 304px; display: flex; flex-direction: column; gap: 8px;
+  /* La columna de la familia de tarjetas (17/10/2026): 26 de radio y fondo suave, sin borde duro. */
+  /* El valor de FONDO_COLUMNA (lib/tarjeta-kanban), escrito y no interpolado: la llave de cierre de una interpolación corta las reglas que leen los tests. */
+  background: var(--surface-2); border: 1px solid transparent;
+  border-radius: 26px; padding: 12px 10px 10px; min-height: 248px; max-height: 68vh;
   transition: background .12s, border-color .12s;
 }
 /* ⚠️ LA TARJETA SE DA VUELTA ADENTRO DE LA COLUMNA, y acá, no en TarjetaEntidad: esa
@@ -794,7 +800,10 @@ const CSS = `
 /* El envoltorio que se arrastra. La tarjeta de adentro trae su propia caja.
    El position relative es para el numero que lleva la copia (ke-lleva), que se cuelga
    de la esquina. */
-.ke-card { position: relative; display: flex; border-radius: 18px; }
+.ke-card { position: relative; display: flex; border-radius: 22px; }
+/* La tarjeta de la familia se arrastra desde el envoltorio: el cursor lo dice. */
+.ke-card .tk { cursor: grab; }
+.ke-card:active .tk { cursor: grabbing; }
 .ke-card > * { width: 100%; }
 /* ⚠️ EL CURSOR SE PONE A MANO. El botón que TarjetaEntidad monta en inset: 0 para
    que la tarjeta entera sea clicable declara cursor: pointer, y gana sobre el del
@@ -824,6 +833,7 @@ const CSS = `
 /* La tarjeta MARCADA, con los dos valores de la del Plan: fondo primary-bg y borde
    primary. Va despues de la regla que la da vuelta a surface-2, que la pisaria. */
 .ke-card-elegida .cl-card, .ke-card-elegida .cl-card:hover { background: var(--primary-bg); border-color: var(--primary); }
+.ke-card-elegida .tk { background: var(--primary-bg); box-shadow: 0 0 0 2px var(--primary); }
 .ke-card-elegida .cl-acc { background: var(--primary-bg); }
 
 /* EL NUMERO QUE LLEVA LA COPIA cuando viajan varios. Solo existe en la copia: se

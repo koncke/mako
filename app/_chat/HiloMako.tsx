@@ -20,6 +20,7 @@ import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ERROR_INCIERTO, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
 import { TarjetaAccion, type ItemPropuesta } from './TarjetaAccion';
 import { ArchivosHilo } from './ArchivosHilo';
+import { ConectarDelAviso } from './ConectarDelAviso';
 
 const hora = (iso: string | null): string => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -113,7 +114,7 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
     if (x.k === 'aviso') {
       filas.push(x.tono === 'plataforma'
         ? <p key={x.id} className="co-nota co-nota--mal" role="status">{x.texto}</p>
-        : <DeMako key={x.id} quien={quien}><div className="ch-md"><Markdown text={x.texto} /></div></DeMako>);
+        : <DeMako key={x.id} quien={quien}><div className="ch-md"><Markdown text={x.texto} /></div>{x.conectar && <ConectarDelAviso servicio={x.conectar} />}</DeMako>);
       return;
     }
     if (x.k === 'pantalla') {

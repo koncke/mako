@@ -367,8 +367,15 @@ const VERBO_CRM_PEGADO = /\b(?:anota(?:le|lo|la)|apunta(?:le|lo|la)|agrega(?:le|
 const VERBO_CRM_TILDE = /(?:^|[\s,.;:!¡¿?"'(])(?:anotá|apuntá|agregá|sumá|dejá|poné|cargá|escribí|guardá|registrá|mové|pasá|llevá|marcá|asigná|calificá|descartá|cambiá|sacá|quitá)(?=[\s,.;:!?"')]|$)/i;
 /** La forma suelta (tuteo o voseo sin tilde): sólo cuenta si es lo PRIMERO del mensaje. */
 const VERBO_CRM_SUELTO = /^(?:anota|apunta|agrega|suma|deja|pone|pon|carga|escribe|guarda|registra|mueve|move|pasa|lleva|marca|asigna|califica|descarta|cambia|saca|quita)\b/;
+/**
+ * El pedido con un modal: «necesito que busques… y que lo agarres y lo pases a la sección descalificados» (ws13, 19/10/2026,
+ * mako_doer_conv): sin un imperativo, salía `capturar` dudosa con las tres herramientas del plan, y MaKo contestó «no tengo
+ * acceso a listar los leads de tu CRM ni a moverlos». La segunda persona del subjuntivo termina en -s (pases, muevas), la
+ * tercera no («necesito que el closer marque al lead» es de otro), y «que me pases el lead» es un «dame», no un «movelo».
+ */
+const MODAL_CRM = /\b(?:necesito|necesitamos|quiero|queremos|queria|quisiera|me gustaria|te pido|te pedimos|hace falta)\s+que\b[^.\n]{0,160}?\b(?<!\bme\s)(?:(?:lo|la|los|las|le|les|se)\s+)?(?:pases|muevas|pongas|dejes|agregues|anotes|marques|asignes|califiques|descartes|saques|quites|cargues|apuntes|registres|guardes|lleves|cambies|etiquetes)\b/;
 /** Algo que sólo vive en el CRM. */
-const OBJETO_CRM = /\b(?:leads?|ficha|crm|historial|notas?|comentario|etapas?|columna|embudo|funnel|pipeline|calificad[oa]s?|descartad[oa]s?|ganad[oa]s?|perdid[oa]s?|etiquetas?|closer|setter|prospectos?|seguimiento \d|pre ?listing|en revision|nutricion manual|asisti(?:o|eron|da|do)?|productos?)\b/;
+const OBJETO_CRM = /\b(?:leads?|ficha|crm|historial|notas?|comentario|etapas?|columna|embudo|funnel|pipeline|calificad[oa]s?|descalificad[oa]s?|descartad[oa]s?|ganad[oa]s?|perdid[oa]s?|etiquetas?|closer|setter|prospectos?|seguimiento \d|pre ?listing|en revision|nutricion manual|asisti(?:o|eron|da|do)?|productos?)\b/;
 /** Mover a un lugar: «movelo a calificado», «pasalo a pre listing», «ponelo en descartado». */
 const MOVER_A = /\b(?:move|mueve|pasa|lleva|pone)(?:lo|la|los|las)\s+(?:a|al|en|como|hacia)\s+(?!limpio\b)\S/;
 /** Dar de alta: «me agregás a lead a German», «cargalo como lead», «creá un lead con…».
@@ -407,13 +414,13 @@ export function esPedidoSobreLead(texto: string): PedidoSobreLead | null {
   const arranque = n.replace(PRELUDIO_CRM, '');
   // El alta va antes: «me agregás a lead…» no trae un imperativo, y es inequívoca.
   if (ALTA_LEAD.test(n) && !/\b(?:notas?|comentario|historial)\b/.test(n)) return { tipo: 'alta' };
-  const verbo = VERBO_CRM_PEGADO.test(n) || VERBO_CRM_TILDE.test(crudo) || VERBO_CRM_SUELTO.test(arranque);
+  const verbo = VERBO_CRM_PEGADO.test(n) || VERBO_CRM_TILDE.test(crudo) || VERBO_CRM_SUELTO.test(arranque) || MODAL_CRM.test(n);
   if (!verbo) return null;
   if (!OBJETO_CRM.test(n) && !MOVER_A.test(n)) return null;
   if (/\b(?:notas?|comentario|historial)\b/.test(n)) return { tipo: 'nota' };
   if (/\betiquetas?\b/.test(n)) return { tipo: 'etiqueta' };
   if (/\b(?:closer|setter)\b/.test(n)) return { tipo: 'asignar' };
-  if (/\bmarca/.test(n) && /\bcomo\b/.test(n)) return { tipo: 'calificado' };
+  if (/\b(?:marca|marques)/.test(n) && /\bcomo\b/.test(n)) return { tipo: 'calificado' };
   if (VERBO_NOTA.test(arranque) && !MOVER_A.test(n)) return { tipo: 'nota' };
   return { tipo: 'etapa' };
 }

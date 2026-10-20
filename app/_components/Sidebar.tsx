@@ -29,7 +29,7 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, OPS_CENTER, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { puedeVerItem, resolverTab, seccionesVisibles } from '@/lib/nav-visibilidad';
 import { BuscadorNav, type Destino } from './BuscadorNav';
@@ -50,8 +50,8 @@ const ICO = 19;
 const ICO_HIJO = 17;
 
 function ItemIcon({ item, size = ICO }: { item: NavItem; size?: number }) {
-  // El Ops Center lleva la estrella de MaKo (Martín, 17/10/2026); Second Brain, la suya por su nombre.
-  if (item.criatura) return <Criatura nombre={item.criatura} estrella={item.key === OPS_CENTER.key} size={size} />;
+  // Las dos entradas «Ops Center» (la del super admin y, desde el 18/10/2026, la de cada negocio) llevan la estrella de MaKo.
+  if (item.criatura) return <Criatura nombre={item.criatura} estrella={!!item.estrella} size={size} />;
   if (item.icon === 'mako') return <MakoStar size={size} color="var(--mako)" />;
   // El color lo hereda de la fila (currentColor): así el hover lo pinta también,
   // sin que el ícono se quede apagado cuando el texto ya se encendió.
@@ -84,9 +84,14 @@ const inicialesDe = (nombre: string) => nombre.trim().split(/\s+/).map((w) => w[
 /** El @usuario: la parte de antes de la arroba del email (no hay un usuario aparte en la base). */
 const usuarioDe = (email: string) => { const u = (email ?? '').split('@')[0]?.trim(); return u ? `@${u}` : ''; };
 
-const PLEGADAS = 'mk-nav-plegadas';
-/** Sin nada guardado (17/10/2026 noche, el prototipo): arranca abierto Sales; Marketing y Create, plegados. */
-export const PLEGADAS_DE_ENTRADA: readonly string[] = ['marketing', 'create'];
+/**
+ * Lo plegado se recuerda en el navegador. La clave cambió el 20/10/2026 (feedback del 18/10, pt 10; Martín: «quiero que
+ * por defecto estén todas desplegadas»): con la vieja, quien ya había tocado una sección la guardaba junto con
+ * Marketing y Create plegadas (el default del 17/10), y no habría visto el cambio nunca.
+ */
+const PLEGADAS = 'mk-nav-plegadas-v2';
+/** Sin nada guardado: TODAS desplegadas (20/10/2026). */
+export const PLEGADAS_DE_ENTRADA: readonly string[] = [];
 function leerPlegadas(): ReadonlySet<string> {
   try {
     const crudo = window.localStorage.getItem(PLEGADAS);
@@ -103,6 +108,11 @@ function leerPlegadas(): ReadonlySet<string> {
 const FIJA = 'mk-nav-fija';
 function leerFija(): boolean {
   try { return window.localStorage.getItem(FIJA) !== 'no'; } catch { return true; }
+}
+/** Las pantallas que pliegan la barra al entrar: las del Ops Center, que traen su propia barra de chats (20/10/2026). */
+export const RUTAS_QUE_PLIEGAN: readonly string[] = ['/second-brain', '/admin/operaciones'];
+export function pliegaLaBarra(pathname: string): boolean {
+  return RUTAS_QUE_PLIEGAN.some((r) => pathname === r || pathname.startsWith(r + '/'));
 }
 function guardarFija(v: boolean) {
   try { window.localStorage.setItem(FIJA, v ? 'si' : 'no'); } catch { /* sin almacenamiento */ }
@@ -175,7 +185,7 @@ export function Marca({ open }: { open: boolean }) {
       <span className="mk-marca__logo" style={{ display: 'flex', flex: 'none' }}><MakoLogo size={32} /></span>
       {open && (
         <span className="mk-marca__word" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1 }}>
-          <MakoWord base="#F3F0E7">MaKo</MakoWord>
+          <MakoWord base="var(--on-sidebar)">MaKo</MakoWord>
         </span>
       )}
     </span>
@@ -419,9 +429,23 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const hasta = searchParams.get('hasta');
   const dateQuery = desde && hasta ? `?desde=${desde}&hasta=${hasta}` : '';
 
-  const [fija, setFijaEstado] = useState(true);
+  const [fijaGuardada, setFijaEstado] = useState(true);
   useEffect(() => { setFijaEstado(leerFija()); }, []);
-  const setFija = (v: boolean) => { setFijaEstado(v); guardarFija(v); if (!v) setExpanded(false); };
+  /**
+   * AL ENTRAR AL OPS CENTER (el Second Brain de cada negocio, /second-brain, y el del super admin, /admin/operaciones)
+   * LA BARRA SE PLIEGA (20/10/2026, feedback del 18/10 pt 4; Martín: «por defecto en todos los ws, si entro al second
+   * brain que la sidebar principal de todas las tabs se colapse»). Esa pantalla trae su propia barra de chats y las dos
+   * juntas se comían el ancho. Es «por defecto»: la flecha la vuelve a abrir ahí, sin tocar lo que la persona eligió
+   * para el resto de las tabs, y al salir vuelve lo suyo.
+   */
+  const enOpsCenter = pliegaLaBarra(pathname);
+  const [abiertaAca, setAbiertaAca] = useState(false);
+  useEffect(() => { setAbiertaAca(false); }, [enOpsCenter]);
+  const fija = fijaGuardada && (!enOpsCenter || abiertaAca);
+  const setFija = (v: boolean) => {
+    if (enOpsCenter) { setAbiertaAca(v); if (!v) setExpanded(false); return; }
+    setFijaEstado(v); guardarFija(v); if (!v) setExpanded(false);
+  };
   const open = fija || expanded || userOpen || !!flyout;
 
   /**
@@ -524,6 +548,13 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
       if (f.planaParaCliente && !adminShell) {
         const sueltos = grupos.flatMap((g) => g.items);
         return { ...f, bloques: sueltos.length ? [...bloques, sueltos] : bloques, grupos: [] };
+      }
+      // El Ops Center (el del super admin o el de cada negocio, `arribaDe`) va PRIMERO adentro de lo diario desde el
+      // 20/10/2026 (feedback del 18/10, pt 10): «quiero que Ops center esté dentro de la sección de «Plan, chats y
+      // dashboard»». Hasta ese día iba suelto arriba de todo, fuera de las secciones.
+      if (f.key === 'diario' && arriba.length) {
+        const [primero = [], ...resto] = bloques;
+        return { ...f, bloques: [[...arriba, ...primero], ...resto], grupos };
       }
       return { ...f, bloques, grupos };
     })
@@ -747,10 +778,14 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
           position: 'absolute', top: 0, left: 0, bottom: 0,
           ...panelStyle(open),
           transition: 'width .2s ease, padding .2s ease',
-          boxShadow: open ? '6px 0 30px rgba(23,21,17,.24)' : 'none',
+          // La sombra es de la barra que se abre ENCIMA al pasar el cursor; fija está acoplada y no flota.
+          boxShadow: open && !fija ? '6px 0 30px rgba(23,21,17,.24)' : 'none',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flex: 'none' }}>
+        {/* Plegada, la marca va CENTRADA como los íconos de abajo (20/10/2026, feedback del 18/10 pt 10: «cuando está
+            plegada el logo de MaKo está desalineado al resto de iconos»): con `space-between` y la flecha escondida, quedaba
+            pegada a la izquierda. */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: open ? 'space-between' : 'center', flex: 'none' }}>
           <Marca open={open} />
           {/* La flecha (17/10/2026 noche): pliega la barra al rail o la deja fija. Sólo con la barra abierta. */}
           {open && (
@@ -788,7 +823,6 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
         {!enDev && (
           <div style={{ flex: 'none', marginBottom: 12 }}>
             <BuscadorNav abierta={open} onAbrir={() => setExpanded(true)} destinos={[
-              ...arriba.map((item): Destino => ({ item, donde: null })),
               ...familiasProducto.flatMap((f) => f.bloques.flat().flatMap((t): Destino[] => [
                 { item: t, donde: f.sinRotulo ? null : f.label },
                 ...(t.secciones ? seccionesVisibles(t, vistaNav).filter((x) => x.href !== t.href).map((item) => ({ item, donde: t.label })) : []),
@@ -799,16 +833,6 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
           </div>
         )}
 
-        {/* ARRIBA DE TODO (17/10/2026): Ops Center y Second Brain, con sus criaturas y sin rótulo — lo tuyo y tu IA antes
-            que el producto, como Inbox en Linear o Notion AI en Notion. Fuera de la columna que scrollea: siempre a la
-            vista. En el modo Dev no van: ahí la barra entera es otra. */}
-        {!enDev && arriba.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 'none', marginBottom: 16 }}>
-            {arriba.map((it) => (
-              <NavLink key={it.key} item={it} active={it.match(pathname)} expanded={open} />
-            ))}
-          </div>
-        )}
 
         {/* Navegación. Con una familia abierta puede pasarse de alto en pantallas
             bajas: scrollea acá adentro, nunca corta. */}

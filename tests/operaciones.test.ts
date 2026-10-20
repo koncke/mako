@@ -73,7 +73,7 @@ function acciones(src: string): Array<{ nombre: string; cuerpo: string }> {
   return out;
 }
 
-const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction', 'marcarMensajeAction', 'guardarAliasCuentaAction', 'decidirChatNuevoAction'];
+const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction', 'marcarMensajeAction', 'guardarAliasCuentaAction', 'decidirChatNuevoAction', 'marcarYaVistoAction'];
 
 test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cualquier otra cosa', () => {
   const as = acciones(sinComentarios(leer('app/admin/operaciones/acciones.ts')));
@@ -184,7 +184,8 @@ const BATERIA: Array<[string, string]> = [
   ['versión 2', variante({ v: 2 })],
   ['id raro', variante({ id: 'abc' })],
   ['texto vacío', variante({ texto: '   ' })],
-  ['texto largo', variante({ texto: 'x'.repeat(8001) })],
+  // Desde la 1.15.8 el tope es MAX_TEXTO_LARGO (40.000): un caracter más, rechazado por los dos.
+  ['texto largo', variante({ texto: 'x'.repeat(40_001) })],
   ['destino por nombre', variante({ destino: 'CRM' })],
   ['cuenta rara', variante({ cuenta: 'mauricio' })],
   ['alcance raro', variante({ alcance: 'siempre' })],

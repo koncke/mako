@@ -240,3 +240,25 @@ export function guardarLocal(st: Almacen | null, ws: number | null, nombre: stri
     /* lleno o bloqueado */
   }
 }
+
+/**
+ * LA LECTURA RECIENTE SOBRE LA LISTA QUE YA ESTÁ (Chats, 20/10/2026). El sondeo de cada 15 s lee sólo las páginas más
+ * nuevas del espejo de WhatsApp (`/api/chats?paginas=3`): trae las conversaciones que se movieron, no las viejas. Las que
+ * trae REEMPLAZAN a las de pantalla (estado, no leídos, último mensaje); las que no trae se QUEDAN como estaban (una
+ * lectura acotada no dice que se fueron). Los canales se suman: una conversación vieja por otra línea no está en las
+ * páginas nuevas, y perderla dejaría sin a dónde contestar. La lectura completa (al abrir y cada `COMPLETA_CADA`
+ * sondeos) reemplaza todo y es la que borra lo que de verdad se fue.
+ */
+export function fusionarRecientes(enPantalla: readonly ChatResumen[], recientes: readonly ChatResumen[]): ChatResumen[] {
+  const antes = new Map(enPantalla.map((c) => [c.clave, c]));
+  const vinieron = new Set(recientes.map((c) => c.clave));
+  const idCanal = (x: ChatResumen['canales'][number]) => `${x.canal}|${x.cuenta ?? ''}|${x.ref}`;
+  const fusionados = recientes.map((c) => {
+    const viejo = antes.get(c.clave);
+    if (!viejo) return c;
+    const tiene = new Set(c.canales.map(idCanal));
+    const faltan = viejo.canales.filter((x) => !tiene.has(idCanal(x)));
+    return faltan.length ? { ...c, canales: [...c.canales, ...faltan] } : c;
+  });
+  return [...fusionados, ...enPantalla.filter((c) => !vinieron.has(c.clave))];
+}

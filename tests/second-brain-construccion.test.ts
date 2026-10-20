@@ -112,17 +112,17 @@ test('13b · el componente usa la taxonomía del grafo: color y filtro', () => {
 });
 
 test('13b · sólo quien opera recibe la capa, y la construcción no se edita ni se exporta', () => {
-  const p = sinComentarios(leer('app/second-brain/pagina.tsx'));
-  assert.match(p, /const construccion = opera \? construccionDeMako\(\) : null;/);
-  assert.match(p, /try \{ return puedeOperar\(await getSesionAdmin\(\), await wsSuperAdmin\(\)\); \} catch \{ return false; \}/, 'la guarda del Centro, tal cual');
+  // 20/10/2026: la guarda y el cerebro que se dibuja viven en lib/second-brain-opera.ts (la usa también el grafo vivo).
+  const p = sinComentarios(leer('lib/second-brain-opera.ts'));
+  assert.match(p, /\(opera \?\? await quienOpera\(\)\) \? cerebroUnido\(negocio, construccionDeMako\(\)\) : negocio;/);
+  // La guarda del Centro, tal cual, y desde el 18/10/2026 nunca mirando a un cliente (tests/second-brain-mirando-cliente.test.ts).
+  assert.match(p, /if \(await estaImpersonando\(\)\) return false;\s*return puedeOperar\(await getSesionAdmin\(\), await wsSuperAdmin\(\)\);/, 'la guarda del Centro, tal cual');
   const v = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
   // 17/10/2026: ya no hay un segundo grafo, sino UNO con las dos capas (lib/cerebro-union.ts).
   assert.equal((v.match(/<Grafo\b/g) ?? []).length, 1, 'un solo grafo');
-  assert.match(v, /construccion \? unirCerebros\(cerebro, construccion\) : cerebro/, 'sin construcción, el grafo de siempre');
   assert.match(v, /tax \? filtroDelNegocio\(filtro, tax\) : filtro/, '«Exportar» baja sólo el negocio');
   const m = sinComentarios(leer('app/m/second-brain/mapa/page.tsx'));
-  assert.match(m, /const construccion = \(await quienOpera\(\)\) \? construccionDeMako\(\) : null;/, 'el teléfono, con la misma guarda');
-  assert.match(sinComentarios(leer('app/m/second-brain/SecondBrainM.tsx')), /\{enObra && <ConstruccionM cerebro=\{construccion\} \/>\}/);
+  assert.match(m, /grafo = await cerebroQueSeDibuja\(cerebro\);/, 'el teléfono, con la misma guarda y el mismo cerebro');
   assert.match(leer('lib/cerebro-construccion-datos.ts'), /^import 'server-only';/m);
 });
 
@@ -136,5 +136,5 @@ test('13b · /admin/dev lleva al grafo, y la barra de antes se fue', () => {
 
 test('13b · `?capa=construccion` abre el mapa único ya filtrado a esa capa', () => {
   const v = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
-  assert.match(v, /construccion && tax && params\?\.get\('capa'\) === CAPA_CONSTRUCCION \? filtroDeCapa\(filtroVacio\(\), tax, CAPA_CONSTRUCCION\)/);
+  assert.match(v, /conObra && tax && params\?\.get\('capa'\) === CAPA_CONSTRUCCION \? filtroDeCapa\(filtroVacio\(\), tax, CAPA_CONSTRUCCION\)/);
 });

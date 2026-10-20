@@ -47,7 +47,7 @@ import { join } from 'node:path';
 import {
   etapaDeArranque, mensajesDeArranque, leerRespuesta, tiposOfrecidos, tipoRecomendado, pareceNegocio,
   primerNombre, sinMarca, briefDesdeArranque, fundirBrief, siguientePreguntaFase,
-  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, OBJETIVOS_SUGERIDOS,
+  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, ORIGENES, SALUDO_ARRANQUE, CRM_SI, CRM_PREGUNTA,
   type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
 import { mandaElArranque, ladoDeLaPregunta, SESION_VACIA, aMensajeOffer, linkPdfLoQueVende } from '../app/onboarding/arranque-ui';
@@ -72,22 +72,27 @@ const H: HechosArranque = {
   canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: true, terminado: false,
 };
 const PLAN: HechosArranque = { ...H, modo: 'plan', conCrm: false, conTelefono: false };
-const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', objetivo: 'Vender más cada mes' };
+// Con las dos del final ya contestadas (desde el 18/10 van antes del teléfono): así las etapas de en medio se ven solas.
+// Con el PDF confirmado (18/10/2026, `pdfOk`): las etapas de en medio se ven solas; la del PDF tiene su test.
+const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', origen: 'Instagram', interes: 'ventas', pdfOk: 'si' };
 
 // ── La etapa ────────────────────────────────────────────────────────────────
 test('modo oferta: quién es → lo que vende → la fase → el CRM → el teléfono → cierra, sin esperar ninguna oferta', () => {
   assert.equal(etapaDeArranque({}, H), 'nombre');
   assert.equal(etapaDeArranque({ nombre: 'M' }, H), 'negocio');
-  // Las dos del 17/10 (cómo llegó y qué resolver primero) van antes del objetivo: tests/onboarding-preguntas.test.ts.
-  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'origen');
-  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', origen: 'Instagram' }, H), 'interes');
-  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', origen: 'Instagram', interes: 'ventas' }, H), 'objetivo');
+  // Del negocio, directo a lo que vende: sin el objetivo a 90 días (18/10/2026). Las dos del 17/10 van AL FINAL.
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N' }, H), 'oferta');
   assert.equal(etapaDeArranque(QUIEN, H), 'oferta');
+  // Con lo que vende, primero «¿está correcto el PDF?» (18/10/2026).
+  assert.equal(etapaDeArranque({ ...QUIEN, pdfOk: undefined }, { ...H, loQueVende: true }), 'pdf');
   // Con lo que vende, el diagnóstico de fase lo pregunta el arranque (la conversación ya no lo hace).
   assert.equal(etapaDeArranque(QUIEN, { ...H, loQueVende: true }), 'fase');
   const vende = { ...H, loQueVende: true, faseGuardada: true };
   assert.equal(etapaDeArranque(QUIEN, vende), 'crm');
   assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada' }, vende), 'telefono');
+  // «¿Cómo llegaste?» y «¿Qué resolver primero?»: después del CRM y antes del teléfono.
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada' }, vende), 'origen');
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada', origen: 'Instagram' }, vende), 'interes');
   assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'codigo' }, vende), 'codigo');
   // Ya no hay una etapa que espere la oferta armada: el análisis es de la tab Offer.
   assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'postergado' }, vende), 'cierre');
@@ -105,28 +110,37 @@ test('lo que vende queda en un PDF: el mensaje con su tarjeta va justo después 
   assert.equal(linkPdfLoQueVende(42), '/api/offer/pdf?id=42&tipo=lo-que-vendes');
   const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
   assert.match(chat, /if \(t === 'pdf'\) return vista\.sesion \? <TarjetaPdf sesionId=\{vista\.sesion\.id\} \/> : null;/);
-  assert.match(chat, /href=\{linkPdfLoQueVende\(sesionId\)\}/);
+  // Desde el 18/10/2026 se mira EN el chat (tests/onboarding-pdf-en-el-chat.test.ts); la descarga lleva el ?ws=.
+  assert.match(chat, /url=\{conWs\(linkPdfLoQueVende\(sesionId\), ws\)\}/);
 });
 
 test('modo plan (Project Manager, sin Offer ni CRM): quién es → a qué se dedica → diagnóstico → cierra', () => {
   assert.equal(etapaDeArranque(QUIEN, PLAN), 'que_hace');
   assert.equal(etapaDeArranque({ ...QUIEN, queHace: 'Consultoría' }, PLAN), 'fase');
   assert.equal(etapaDeArranque({ ...QUIEN, queHace: 'Consultoría' }, { ...PLAN, faseGuardada: true }), 'cierre');
+  // Al final, cómo llegó (en el modo plan no se pregunta qué resolver primero: no hay pestañas de ventas).
+  assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', queHace: 'Consultoría' }, { ...PLAN, faseGuardada: true }), 'origen');
 });
 
 // ── Lo que dice MaKo ────────────────────────────────────────────────────────
 test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve como respuesta', () => {
   const { antes: a0 } = mensajesDeArranque({}, H);
   assert.equal(a0.length, 1);
-  assert.deepEqual(a0[0].opciones, ['Martín'], 'ofrece el primer nombre de la cuenta');
+  // Explica antes de preguntar (18/10/2026): para qué y cuánto tarda.
+  assert.equal(a0[0].texto, SALUDO_ARRANQUE);
+  assert.match(SALUDO_ARRANQUE, /conocer tu negocio[\s\S]*menos de 5 minutos[\s\S]*¿cómo te llamas\?$/);
+  // Sin respuestas rápidas en el nombre ni en el negocio (18/10/2026, 14:00, Martín): ofrecían restos de otra prueba.
+  assert.equal(a0[0].opciones, undefined, 'el nombre volvió a ofrecer el de la cuenta');
   const { antes } = mensajesDeArranque({ nombre: 'Martín' }, H);
   assert.deepEqual(antes.map((m) => m.de), ['mako', 'yo', 'mako']);
   assert.equal(antes[1].texto, 'Martín');
   assert.equal(antes[0].opciones, undefined, 'una pregunta ya contestada no vuelve a ofrecer opciones');
   assert.match(antes[2].texto, /Un gusto, Martín/);
-  assert.deepEqual(antes[2].opciones, ['Negocio que Escala']);
-  const { antes: aObj } = mensajesDeArranque({ nombre: 'M', negocio: 'N', origen: 'Instagram', interes: 'ventas' }, H);
-  assert.deepEqual(aObj[aObj.length - 1].opciones, [...OBJETIVOS_SUGERIDOS]);
+  assert.equal(antes[2].opciones, undefined, 'el negocio volvió a ofrecer el nombre del workspace');
+  // Ya no se pregunta el objetivo a 90 días, ni con una conversación que lo había contestado.
+  assert.ok(!mensajesDeArranque({ ...QUIEN, objetivo: 'Vender más' }, H).antes.some((m) => m.id === 'arr-objetivo'));
+  const fin = mensajesDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada' }, { ...H, loQueVende: true, faseGuardada: true }).despues;
+  assert.deepEqual(fin[fin.length - 1].opciones, [...ORIGENES], 'la pregunta del final, de un toque');
   // En la oferta, los mensajes del arranque terminan en el pase (lo demás lo dice Offer).
   const { antes: aOf, despues } = mensajesDeArranque(QUIEN, H);
   assert.equal(aOf[aOf.length - 1].id, 'arr-oferta');
@@ -145,8 +159,14 @@ test('el CRM: la tarjeta va con la pregunta, y propone el tipo de su canal prime
   const { despues } = mensajesDeArranque(QUIEN, h);
   const crm = despues.find((m) => m.id === 'arr-crm');
   assert.ok(crm && crm.tarjeta === 'crm');
-  assert.equal(crm.opciones?.[0], 'Conversaciones por chat');
+  // Desde el 18/10/2026 (Martín, punto 10): «Sí, es correcto» acepta el que se propone (el de su canal, en la tarjeta), y
+  // «Ver otros tipos» abre la lista. Roturas (romper-crm.js; base 26/0): sin «Sí, es correcto» → 25/1 · el «sí» elige otro → 25/1.
+  assert.equal(crm.opciones?.[0], CRM_SI);
   assert.ok(crm.opciones?.includes(VER_OTROS_TIPOS));
+  assert.equal(crm.texto, CRM_PREGUNTA);
+  assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'conversaciones' } });
+  const todos = mensajesDeArranque({ ...QUIEN, crmVerTodos: true }, h).despues.find((m) => m.id === 'arr-crm');
+  assert.equal(todos?.opciones?.[0], 'Conversaciones por chat', 'con la lista abierta, primero el de su canal');
   assert.equal(tipoRecomendado(null).id, 'llamada', 'sin canal manda la llamada de venta (el marco es de alto ticket)');
   assert.equal(tiposOfrecidos('carrito', false).tipos[0].id, 'carrito');
   assert.equal(tiposOfrecidos('llamadas', true).tipos.length, TIPOS_CRM.length);
@@ -156,7 +176,7 @@ test('el CRM: la tarjeta va con la pregunta, y propone el tipo de su canal prime
 // ── Las respuestas ──────────────────────────────────────────────────────────
 test('las respuestas: texto libre, una opción, el código y «ahora no»', () => {
   assert.deepEqual(leerRespuesta({}, H, { texto: '  Martín  ' }), { ok: true, patch: { nombre: 'Martín' } });
-  assert.deepEqual(leerRespuesta({}, H, { opcion: 0 }), { ok: true, patch: { nombre: 'Martín' } });
+  assert.equal(leerRespuesta({}, H, { opcion: 0 }).ok, false, 'el nombre no tiene opciones: se escribe');
   assert.equal(leerRespuesta({}, H, { texto: '   ' }).ok, false);
   const h = { ...H, loQueVende: true, faseGuardada: true };
   assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0 }), { ok: true, patch: { crmTipo: 'llamada' } });
@@ -204,7 +224,9 @@ test('después de lo que vende, el diagnóstico de fase lo pregunta el arranque,
   const { despues } = mensajesDeArranque(QUIEN, conOffer);
   const ultima = despues[despues.length - 1];
   assert.equal(despues[0].id, 'arr-pdf');
-  assert.equal(despues[1].id, 'arr-fase');
+  // La confirmación del PDF (18/10/2026) va contestada antes de la fase.
+  assert.equal(despues[1].id, 'arr-pdf-r');
+  assert.equal(despues[2].id, 'arr-fase');
   assert.ok(!despues.some((m) => m.id === 'arr-fase-canal' || m.id === 'arr-fase-0'), 'repitió lo que ya contestó en Offer');
   assert.equal(ultima.id, 'arr-fase-1');
   assert.ok(ultima.opciones?.length, 'la pregunta va con sus opciones');
@@ -231,8 +253,9 @@ test('después de lo que vende, el diagnóstico de fase lo pregunta el arranque,
 // ── El perfil del negocio que queda escrito ─────────────────────────────────
 test('el brief sale de la conversación y NUNCA pisa lo que el negocio ya tenía', () => {
   const v = (valor: string) => ({ valor, fuente: 'chat' as const, at: '2026-10-16' });
+  // El objetivo ya no se pregunta (18/10/2026), pero el de una conversación de antes sigue llegando al brief.
   const brief = briefDesdeArranque({
-    estado: QUIEN,
+    estado: { ...QUIEN, objetivo: 'Vender más cada mes' },
     piezas: { cliente: v('Dueños de pyme'), problema: v('Todo pasa por ellos'), resultado: v('Delegar en 90 días'), precio: v('USD 1.500'), entregables: v('Mentoría') },
     propuesta: { nombre: 'Programa Dueño Libre', frase: 'Delegar en 90 días sin perder clientes' } as never,
     cuello: 'Consigo pocos clientes potenciales',
@@ -304,7 +327,10 @@ test('un fallo pasajero no encierra: «no pude leer» no abre otra conversación
   assert.match(chat, /setIntentoCierre\(/, 'el cierre que falla no tiene reintento');
   assert.match(chat, /action: 'preparar'/, 'sin funnel principal, nada lo vuelve a intentar');
   assert.match(chat, /: 'sin'\)/, 'sin link del plan, la tarjeta queda «armando» para siempre');
-  assert.match(chat, /<BotonIntegracion servicio="gemini"/, 'si la IA no contesta, no hay salida adentro del chat');
+  // NUNCA «Conectar mi propia IA» en el onboarding (18/10/2026, Martín): usa el crédito de la plataforma. Roturas
+  // (romper-propia-ia.js; base 26/0): vuelve el botón → 25/1 · vuelve la frase en el archivero → 25/1.
+  assert.doesNotMatch(chat, /Conectar mi propia IA|BotonIntegracion|errorExtra/, 'el onboarding vuelve a ofrecer conectar la propia IA');
+  assert.doesNotMatch(leer('app/api/onboarding/archivero/route.ts'), /propia IA/, 'el error del archivero del onboarding ofrece conectar la propia IA');
   const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
   assert.match(server, /leerSesion\(e\.sesionId\)\.catch\(\(\) => \{ sesionCaida = true; return null; \}\)/);
   assert.match(sinComentarios(leer('app/offer/OfferApp.tsx')), /label: 'Reintentar', onClick: \(\) => \{ setErrorSelector\(null\); void nuevaSesion\(funnelArranque, null\); \}/);
@@ -399,25 +425,34 @@ test('el chat no desaparece nunca: armar es un mensaje del hilo y la oferta se v
   assert.match(app, /conProbar=\{!arranque\}/);
 });
 
-test('la entrada: sin el grafo, no avanza sola, se toca (o Enter), sin movimiento si se pide, y aterriza en la foto', () => {
-  // 17/10/2026, Martín: «En el onboarding elimina la animación del grafo... haz una buena entrada de la criatura de
-  // MaKo tipo motion graphics, y que al clickearla recién pase al siguiente mensaje, que la animación no sea automática».
+test('la entrada: sin el grafo, ESPERA EL CLIC (o Enter), sin anillos, sin movimiento si se pide, y aterriza en la foto', () => {
+  // 17/10/2026, Martín: «haz una buena entrada de la criatura de MaKo tipo motion graphics, y que al clickearla recién
+  // pase al siguiente mensaje». El 18/10 a la mañana pidió que avanzara sola; a las 14:00 lo revirtió: vuelve a pedir el
+  // clic, y la animación queda igual («sin el círculo azul alrededor»). Roturas (18/10, romper-clic.js; base 26/0): vuelve
+  // el avance solo → 25/1 · sin «Tócame para empezar» → 25/1.
   assert.ok(!existsSync(join(RAIZ, 'app/onboarding/IntroMako.tsx')), 'volvió la animación del grafo');
   const sin = sinComentarios(leer('app/onboarding/EntradaMako.tsx'));
   assert.doesNotMatch(sin, /cerebro-modelo|<svg/, 'volvió el grafo');
   assert.doesNotMatch(sin, /fetch\(|getSetting|await /, 'la entrada no lee datos');
   // No avanza sola: el único temporizador es el que le da el foco al botón.
   assert.equal((sin.match(/setTimeout\(/g) ?? []).length, 1);
-  assert.match(sin, /setTimeout\(\(\) => boton\.current\?\.focus\(/);
+  assert.match(sin, /setTimeout\(\(\) => boton\.current\?\.focus\(/, 'la entrada volvió a avanzar sola');
   assert.match(sin, /<button ref=\{boton\} type="button" className="en-boton" onClick=\{empezar\} aria-label="Empezar con MaKo">/, 'no se puede tocar (ni con el teclado)');
-  assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ onFin\(\); return; \}/, 'con movimiento reducido no corre');
+  assert.doesNotMatch(sin, /className="en-anillo/, 'volvió el círculo azul alrededor');
+  assert.match(sin, /Tócame para empezar/, 'sin la invitación a tocarla, no se sabe que espera el clic');
+  // 18/10/2026 (punto 1): tocar CUALQUIER lado empieza, y sin el anillo azul del foco. Roturas (romper-capa.js; base 26/0):
+  // sin el clic en la capa → 25/1 · vuelve el anillo → 25/1.
+  assert.match(sin, /role="presentation" onClick=\{empezar\}>/, 'sólo se puede empezar tocando la estrella');
+  assert.match(sin, /\.en-boton:focus, \.en-boton:focus-visible \{ outline: none; \}/, 'volvió el círculo azul del foco');
+  assert.doesNotMatch(sin, /\.en-boton:focus-visible \{ outline: 3px solid var\(--primary\)/);
+  assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ alFin\.current\(\); return; \}/, 'con movimiento reducido no corre');
   assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
   assert.match(sin, /top: var\(--barra-agencia, 0px\)/, 'la entrada queda debajo de la barra de «Inspeccionar»');
   const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
   assert.match(chat, /data-mako-foto/, 'el chat no tiene dónde aterrizar a MaKo');
   assert.match(chat, /\{intro && <EntradaMako onFin=/);
   // El CSS vive en template literals: una comilla invertida adentro lo corta y rompe el build entero.
-  for (const [archivo, constante] of [['app/onboarding/EntradaMako.tsx', 'const CSS_ENTRADA = '], ['app/onboarding/CriaturaMako.tsx', 'const CSS_CRIATURA = '], ['app/onboarding/ChatArranque.tsx', 'const CSS_ARRANQUE = ']]) {
+  for (const [archivo, constante] of [['app/onboarding/EntradaMako.tsx', 'const CSS_ENTRADA = '], ['app/onboarding/ChatArranque.tsx', 'const CSS_ARRANQUE = ']]) {
     const src = leer(archivo);
     const i = src.indexOf(constante);
     assert.ok(i > 0, `no encuentro ${constante}`);
@@ -444,8 +479,22 @@ test('modo claro, sin recuadro, como la referencia, y MaKo reacciona a lo que co
   const sin = sinComentarios(chat);
   assert.match(sin, /reaccionar\(salio \? 'contenta' : 'duda'/, 'MaKo no reacciona a la respuesta');
   assert.match(sin, /reaccion=\{ocupado \? 'piensa' : gesto \?\? 'escucha'\}/);
-  // La cara pasa por el ADAPTADOR (la estrella de Ops Center 3 se enchufa ahí): nada dibuja el muñeco directo.
-  assert.doesNotMatch(sin, /<MunecoMako /);
+  // La cara pasa por el ADAPTADOR: nada dibuja una criatura directo.
+  assert.doesNotMatch(sin, /<MunecoMako |<Muneco /);
+});
+
+test('la cara de MaKo es la ESTRELLA del Ops Center, no un dibujo propio ni el círculo', () => {
+  // 18/10/2026, Martín (por el Cerebro): «la estrella NO es "del próximo Ops Center". Ya existe: la usan la sidebar y el
+  // Ops Center... Reusá ese componente en la entrada del onboarding en lugar del círculo, sin crear una nueva».
+  // Roturas (18/10, arnés romper-estrella.js; base 26/0): el adaptador sin ASPECTO_MAKO → 25/1 · vuelve el muñeco
+  // redondo → 25/1 · la entrada dibuja otra cosa → 25/1.
+  const cria = sinComentarios(leer('app/onboarding/CriaturaMako.tsx'));
+  assert.match(cria, /import \{ Criatura \} from '@\/app\/admin\/operaciones\/Criatura';/);
+  assert.match(cria, /<Criatura aspecto=\{ASPECTO_MAKO\} titulo="MaKo" size=\{size\} reaccion=\{reaccion\}/, 'la cara no es la estrella del Centro');
+  assert.doesNotMatch(cria, /<svg|<style>|<Muneco /, 'el onboarding volvió a dibujar su propia criatura');
+  assert.ok(!existsSync(join(RAIZ, 'app/onboarding/MunecoMako.tsx')), 'volvió el muñeco redondo');
+  // La entrada y la cabecera usan el adaptador.
+  assert.match(sinComentarios(leer('app/onboarding/EntradaMako.tsx')), /<CriaturaMako size=\{120\} reaccion="escucha" \/>/);
 });
 
 test('el taller de temas no se monta para un cliente (lo cuidaba el test de la bienvenida de antes)', () => {

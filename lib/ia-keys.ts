@@ -172,3 +172,41 @@ export function sinCopiasDeLaPlataforma<T extends { key: string }>(
   const huellas = p.huellas;
   return provs.filter((x) => !huellas.has(p.huella(x.key)));
 }
+
+/**
+ * LA TARJETA DE UNA IA EN /integraciones DICE LO QUE MaKo PUEDE USAR (tickets #5 y #6, 18/10/2026).
+ *
+ * Medido ese día, sólo leyendo: en el ws1 las siete tarjetas de IA decían «Conectada y operativa», y MaKo no tenía
+ * con qué contestarle. Tres son copias de la plataforma en su fila (Gemini, OpenAI, Claude), y en producción las demás
+ * también: la hidratación del arranque copia la fila del ws1 (`OWNER_WS`) al entorno, y la regla de arriba descarta
+ * toda key igual a una del entorno. La grilla miraba `credWs` («hay algo guardado, o el entorno si es el ws1»); la
+ * cascada mira «es SUYA». Ahora la tarjeta hace la pregunta de la cascada (lib/integraciones.ts → `iaDelNegocio`).
+ *
+ * `fila` = el negocio tiene la key base guardada en SU fila; `propia` = MaKo la puede usar como suya.
+ *
+ * ⚠️ `delEntorno` = es el workspace cuya fila se copia a `process.env` (lib/credenciales.ts → `esNegocioDelEntorno`;
+ * hasta el 18/10, el ws1). Ahí la tarjeta NO ofrece pegar una key ni dice «la de MaKo» (el Cerebro, 18/10/2026): lo que pegara pasaría
+ * a ser la key de la plataforma y su workspace seguiría sin IA. Dice que la configura el equipo, y gana sobre todo lo demás.
+ */
+export function veredictoDeIA(p: { fila: boolean; propia: boolean; delEntorno?: boolean }): 'conectada' | 'copia' | 'falta' | 'equipo' {
+  if (p.delEntorno) return 'equipo';
+  if (p.propia) return 'conectada';
+  return p.fila ? 'copia' : 'falta';
+}
+
+/**
+ * ¿Es una credencial de IA? Las de la cascada (todas sus cuentas y sus rótulos `_ACCOUNT`), OpenAI, Cerebras y la clave
+ * de Anthropic. Desde el 18/10/2026 éstas salen del workspace de la PLATAFORMA y no del ws1 (lib/credenciales.ts →
+ * `wsDelEntorno`; Martín: «separá el ws1 de las claves de la plataforma... para que Mauricio pueda conectar su propia
+ * IA»). Las del crédito de Claude (`ANTHROPIC_CREDITO_CUENTA*`) no entran: ya se leen sólo de la plataforma (veto).
+ */
+const IA_DE_UNA_CUENTA: ReadonlySet<string> = new Set(['OPENAI_API_KEY', 'CEREBRAS_API_KEY', 'ANTHROPIC_API_KEY']);
+export function esClaveDeIA(clave: string): boolean {
+  const c = esClaveDeCuenta(clave) ? clave.slice(0, -SUFIJO_CUENTA.length) : clave;
+  return IA_DE_UNA_CUENTA.has(c) || PROVS_MULTIKEY.some((p) => clavesDe(p).includes(c));
+}
+
+/** Lo que lee el negocio cuando lo guardado es una copia de la plataforma (la tarjeta y su modal). */
+export const POR_QUE_IA_DE_MAKO = 'Esa key es la de MaKo, no la tuya: pega la de tu cuenta.';
+/** Lo que lee el workspace del entorno en sus IA: sin formulario para pegar nada. */
+export const POR_QUE_LA_CONFIGURA_MAKO = 'La configura el equipo de MaKo.';

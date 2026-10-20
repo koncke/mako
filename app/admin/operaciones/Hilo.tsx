@@ -103,7 +103,11 @@ type Quien = { titulo: string; aspecto?: Aspecto | null };
 export type VivoDelHilo = { chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner' | 'clave' | 'sesion' | 'titulo'>; carteros: readonly CarteroP[] };
 
 /** Lo del «Ya está» de un chat (17/10/2026, la C): sus tareas del Plan y responder sobre lo que dijo. */
-export type ExtrasDelHilo = { tareas?: readonly TareaDelChat[]; onFeedback?: (titulo: string) => void };
+export type ExtrasDelHilo = {
+  tareas?: readonly TareaDelChat[]; onFeedback?: (titulo: string) => void;
+  /** El ✓ de los «Completado» (18/10/2026): hasta qué «Ya está» lo vio Martín, y cómo se marca uno. */
+  yaVisto?: number | null; onYaVisto?: (instante: number) => void;
+};
 
 function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; quien: Quien; vivo?: VivoDelHilo; ahora: number; wa: DelHiloWA }) {
   const id = idDeLinea(l);
@@ -174,7 +178,7 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
         <div className="co-el co-el--especial" id={`co-turno-${t.uuid}`}>
         <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
         <div className="co-el__cuerpo co-el__cuerpo--ancho">
-          <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} />
+          <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} yaVisto={extras?.yaVisto} onYaVisto={extras?.onYaVisto} />
           <p className="co-el__rotulo"><MarcasEnHora id={id} marcas={wa.marcas} />{hora}</p>
           <ReaccionWA id={id} marcas={wa.marcas} />
         </div>
@@ -201,7 +205,9 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
       <div className="co-burbuja">
         {t.rol === 'otro' && <span className="co-burbuja__cita">{t.de ?? 'Otro chat'}</span>}
         <TextoMio texto={t.texto} lineas={wa.lineas} />
-        <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{hora}</span>
+        {/* Lo que Martín escribió DIRECTO en la app de Claude (no pasó por la cola del Ops Center: sin `trabajo`) lo dice,
+            chico y en gris junto a la hora (18/10/2026: «un pequeño y sutil aclaración de que ese mensaje se envió por aquí»). */}
+        <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{t.rol === 'yo' && !t.trabajo && <span className="co-burbuja__desde" title="Lo escribiste directo en la app de Claude">En la app de Claude</span>}{hora}</span>
       </div>
       {t.rol === 'yo' ? <MiFoto /> : <span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span>}
       <ReaccionWA id={id} marcas={wa.marcas} />
@@ -280,7 +286,7 @@ function Linea({ l, pushes, ahora, quien, vivo, onResponder, extras, wa }: { l: 
  *  cargan para atrás de a tandas). Medido el 17/10/2026: abrir un chat de 60 respuestas trababa ~0,5 s con la CPU ×4. */
 export const TANDA_HILO = 25;
 
-function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder, tareas, onFeedback, marcas, pasos, mostrar, onVerAnteriores }: {
+function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder, tareas, onFeedback, yaVisto, onYaVisto, marcas, pasos, mostrar, onVerAnteriores }: {
   lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string;
   /** El empleado de este chat: su muñeco va al lado de lo que hizo, y grande si todavía no hay nada. */
   quien: Quien & { animo: Animo; dato?: string | null };
@@ -323,7 +329,7 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onRespo
       {ocultas > 0 && <button type="button" className="co-anteriores" onClick={onVerAnteriores}>{`Ver ${ocultas} mensajes anteriores`}</button>}
       {items.map((it) => (it.dia
         ? <span key={it.k} className="co-dia">{it.dia}</span>
-        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} onResponder={onResponder} extras={{ tareas, onFeedback }} wa={wa} />))}
+        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} onResponder={onResponder} extras={{ tareas, onFeedback, yaVisto, onYaVisto }} wa={wa} />))}
       {/* «Trabajando…» con sus pasos desplegables, UNA pieza para todos los chats (Trabajando.tsx). Con la clave del chat: al
           cambiar de chat arranca cerrada. */}
       {trabaja && <Trabajando key={quien.titulo} titulo={quien.titulo} aspecto={quien.aspecto} pasos={pasos} />}

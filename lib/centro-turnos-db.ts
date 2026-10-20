@@ -16,6 +16,7 @@ import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { ULTIMOS_VENTANA_MS, DESTINO_RE, resumirTurnos, sanearTurnos, unirTurnos, type TurnoChat } from './operaciones-reglas';
 import { getSupabaseServer } from './supabase';
+import { esYaEsta } from './centro-chats';
 
 const PREFIJO = 'operaciones.turnos.';
 const parsear = (v: string | null): unknown => { try { return v ? JSON.parse(v) : []; } catch { return []; } };
@@ -78,7 +79,8 @@ export async function leerUltimosTurnos(ahora = Date.now()): Promise<Record<stri
     for (const f of filas) {
       const local = String(f.key).slice(PREFIJO.length);
       if (!DESTINO_RE.test(local)) continue;
-      const r = resumirTurnos(ULTIMOS_EN_MEMORIA.get(f.key)?.turnos ?? [], ahora);
+      // Con su último «Ya está», aunque haya escrito más después: el ✓ del «Completado» (18/10/2026).
+      const r = resumirTurnos(ULTIMOS_EN_MEMORIA.get(f.key)?.turnos ?? [], ahora, esYaEsta);
       if (r.length) out[local] = r;
     }
     return out;

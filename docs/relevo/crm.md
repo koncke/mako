@@ -34,6 +34,78 @@ historial de la ficha con «Volver a como estaba»; la ficha que edita MaKo se r
 - **Decisión abierta que sigue siendo de Martín: §5.1** (ganar en un producto agregado no marca ganado al lead). De ella
   depende la invitación al curso en un segundo producto (docs/relevo/customer-success.md).
 
+## 0-Ω17. 20/10/2026 (chat «CRM», cuenta `claude4`): Chats lento, EN PRODUCCIÓN (run 165)
+
+Lo vio Martín en la llamada con Leila del 19/10 (minuto 55:12). Arreglo `b7817fe9f` (+ `87464faa8`), VERDE `3107dbeca`.
+Medido en el ws1 sólo con GET: la lista entera 17,4 → 4,1 s; la primera vista (3 páginas) ~2 s; el sondeo de 15 s ya
+no relee todo. Detalle y números en docs/hallazgos-comunicacion.md. **Se revisa en /chats** (el ws3 y el ws9 no tienen
+mensajes en el espejo: ahí abre rápido igual; el volumen está en los negocios con WhatsApp).
+
+**SIGUIENTE (lo de raíz):** que la base devuelva el ÚLTIMO mensaje por conversación en vez de barrer todo el espejo
+(`wa_mensajes`, 18.885 filas en el ws1): una vista o una función con `DISTINCT ON` por teléfono (los últimos 10 dígitos,
+como `claveTel`), con el conteo y el `lead_id`. Es una migración: **la numera el Cerebro**. Quien lo encare reemplaza la
+lectura de `getConversacionesNoOficial` (lib/evolution-mensajes.ts) y mide con el cronómetro de fetch (como se midió en
+hallazgos-comunicacion). Lo que queda mientras tanto: una conversación más vieja que 3 páginas aparece con la lectura
+completa, unos segundos después de abrir.
+
+## 0-Ω16. 18/10/2026 (chat «CRM», cuenta `claude4`, al 91% semanal): el feedback del 18/10 (pts 14, 8 y 9)
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: se le pasa al Cerebro.** El pedido entero está en
+docs/feedback-18-10.md (rama del Cerebro, `C:/dev/wt-push-q`).
+
+- **Cliente roto, arreglado (`cd6a4e78b`, VERDE `5489c21a9`, sha ya pasado):** /clients mostraba la tarjeta sin estilos
+  para todos los negocios. Cada componente del kit monta ahora sus estilos (hallazgos-ui).
+- **Clients (pt 14, `44b4b111b`):** sin el título ni el número de clientes; sin el desplegable del servicio («Editar
+  etapas» pasó a los tres puntos); la cabecera sobre el fondo de MaKo con la cuadrícula de puntos.
+- **CRM (pt 8, `772ed2a14`):** la columna con un bloque de fondo visible y alto mínimo, el mismo en los tres tableros
+  (`FONDO_COLUMNA`); «Próximo» plegado, lo abre el ícono del calendario (sin reunión por delante, sigue la lista).
+- **Plan (pt 9, `ad2bac4b6`):** la tarjeta sin prioridad, sin origen y sin el aviso del deadline; se completa con un
+  check gris a la derecha, al lado del tacho.
+
+**No visto en pantalla** (RAM en 2 GB, un proceso pesado a la vez): nada de lo de hoy. Mirarlo al desplegar, en el ws3
+o el ws9: /clients (la tarjeta con estilos, sin título ni desplegable, el fondo), /crm (columnas y «Próximo») y /plan.
+
+**Sin hacer (con su archivo):** el nombre VIEJO del servicio («VSL FUNNEL») sigue guardado: el producto no sigue al
+funnel renombrado; ya no se ve en Clients, pero el dato está mal (`productosDeLaEntrega` en `app/customer-success/entrega.ts` lee
+`productos.nombre`). Crear un servicio nuevo ya no se puede desde Clients (se crea como producto en el CRM). El Plan del
+TELÉFONO sigue completando con el círculo (`app/m/plan/ListaPlan.tsx`): decidir si también va al check. Las columnas
+editables del Plan, después del 20/10.
+
+## 0-Ω15. 17-18/10/2026 (chat «CRM», cuenta `claude4`, al 85% semanal): la familia de tarjetas en CRM, Clients y Plan
+
+Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2` (node_modules COPIADO de verdad, no enlace: la limpieza de disco lo había
+vuelto a enlazar). **Sin subir: se le pasa al Cerebro.** Pedido de Martín del 17/10 22:40, punto 8 (prototipo
+docs/prototipos/coherencia-1710.html). Commits: `de3be68bb` (CRM computadora + el kit), `3b1f3a742` (CRM teléfono +
+KanbanM), `134cd221c` (Clients), `ffe362733` (Plan), `a75a5b0de` (tests) y el de la cosecha.
+
+**Qué cambia al desplegar (todos los clientes):** las tarjetas de CRM, Clients y Plan, en computadora y teléfono, pasan a
+la familia (cara con insignia, nombre, subtítulo, «Ver info»; la tarea con el círculo de prioridad que completa); «Ver
+info» abre una ficha rápida con «Mover a…»; «Próximo» arriba del CRM; las etapas del teléfono con su nombre; columnas
+redondas. **En el teléfono, tocar una tarjeta del CRM abre la ficha rápida** (antes, la completa).
+
+**Sin hacer (con su archivo):** «Pago fallido» en la tarjeta de un cliente (el cobro no llega al tablero:
+app/customer-success/aviso-tarjeta.ts); la foto de Instagram (no se guarda); la vista «Prioridades» del Plan
+(`TarjetaPrioridad`) y el tablero de Proyectos del teléfono; la foto de un cliente en el teléfono (`ClienteCs`).
+Lo de antes sigue: medir el pop-up en producción.
+
+**Visto en el ws3** (build parcial + `next start`, sesión firmada, a 1440): el tablero del CRM con las tarjetas, la ficha
+rápida y «Mover a…» (se arreglaron el paso, los rellenos y la negrita: `42358d5a8`). **No visto:** Clients (/customer-success
+daba 404 en el build parcial), el Plan (pide «Migra tu Plan a la nube» en un perfil nuevo: no se tocó, escribe en
+producción) y todo el teléfono (/m/crm entra en un bucle de redirecciones con un build parcial). Mirarlos en el ws3 al
+desplegar. VERDE `42358d5a8`.
+
+**18/10, ya en producción (run 137), la segunda pasada** — sin el Chrome de Martín conectado, con el build parcial y
+`next start -H localhost` (con `-H 127.0.0.1` Next trata el rewrite del teléfono como externo y arma el bucle: está en
+hallazgos-mobile). **En el ws9, no en el ws3**: el ws3 tiene el onboarding PENDIENTE y tapa Clients, el Plan y todo el
+teléfono (también en producción); y **sin escribir nada**: el navegador cortaba todo pedido que no fuera GET, así que el
+círculo del Plan se probó por el POST que intenta mandar (`/api/plan-board`, computadora; la acción de /plan, teléfono).
+Visto bien: /m/crm a 390 con las píldoras por etapa, la ficha rápida y «Mover a…»; Clients del teléfono con la barra;
+More con la barra CRM · Chats · Dashboard · Plan · More. **Roto y arreglado:** el círculo del Plan invisible y las
+iniciales del teléfono sin color (los tokens del kit no llegaban a las piezas sueltas: hallazgos-ui). **No visto:** Clients
+en la computadora (su panel pide una API que el build parcial no tiene). **De otros (no tocado):** More, en el build parcial, deja dos huecos
+en blanco entre la cuenta, Ops Center y Dashboard sheets. Y en producción, los teléfonos de verdad reciben 200 en /crm,
+/plan, /clients, /mas, /chats y /general (registros de Vercel, 24 h: 1.307 pedidos).
+
 ## 0-Ω14. 17/10/2026 (chat «CRM», cuenta `claude4`): las seis tarjetas de la revisión de las llamadas del 16/10
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: cada punta se le pasa al Cerebro.** El orden lo dio el

@@ -21,18 +21,19 @@ type Estado = { paginas: string[] | null; error: string | null };
 /** La imagen de una página: el SVG como `data:` (así no corre nada y no hay otra ruta que pedir). */
 export const srcDePagina = (svg: string): string => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
-export function VistaPdf({ sesionId, version }: { sesionId: number; version: number }) {
+/** `tipo='lo-que-vendes'`: el PDF del onboarding (las piezas), que se mira en el chat sin salir de la pestaña (18/10/2026). */
+export function VistaPdf({ sesionId, version = null, tipo }: { sesionId: number; version?: number | null; tipo?: 'lo-que-vendes' }) {
   const [estado, setEstado] = useState<Estado>({ paginas: null, error: null });
   const [intento, setIntento] = useState(0);
   const cargar = useCallback(() => { setEstado({ paginas: null, error: null }); setIntento((n) => n + 1); }, []);
 
   useEffect(() => {
     let vivo = true;
-    paginasPdf(sesionId, version)
+    paginasPdf(sesionId, version, tipo)
       .then((paginas) => { if (vivo) setEstado({ paginas, error: paginas.length ? null : 'El PDF salió vacío.' }); })
       .catch((e) => { if (vivo) setEstado({ paginas: null, error: mensajeDeError(e) }); });
     return () => { vivo = false; };
-  }, [sesionId, version, intento]);
+  }, [sesionId, version, tipo, intento]);
 
   if (estado.error) {
     return <Banner tono="bad" alcance="local" accion={{ label: 'Volver a cargar el PDF', onClick: cargar }}>{estado.error}</Banner>;
@@ -49,7 +50,7 @@ export function VistaPdf({ sesionId, version }: { sesionId: number; version: num
     <div className="of-pdf" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 'clamp(8px, 2vw, 18px)', borderRadius: 16, background: 'var(--surface-2)' }}>
       {estado.paginas.map((svg, i) => (
         // eslint-disable-next-line @next/next/no-img-element -- un SVG en data: no pasa por el optimizador de imágenes
-        <img key={i} src={srcDePagina(svg)} alt={`Página ${i + 1} de ${n} de tu oferta`} loading={i === 0 ? 'eager' : 'lazy'}
+        <img key={i} src={srcDePagina(svg)} alt={`Página ${i + 1} de ${n} de ${tipo ? 'lo que vendes' : 'tu oferta'}`} loading={i === 0 ? 'eager' : 'lazy'}
           width={595} height={842}
           style={{ display: 'block', width: '100%', height: 'auto', aspectRatio: '595.28 / 841.89', background: '#FFFFFF', borderRadius: 6, boxShadow: '0 1px 3px rgba(0,0,0,.12), 0 6px 18px rgba(0,0,0,.06)' }} />
       ))}

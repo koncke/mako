@@ -1449,3 +1449,27 @@ a.co-link:hover { color: var(--primary-strong); }
   background: var(--surface); font: inherit; color: var(--ink);
 }
 .co-nuevo-nota__input:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* «desde la app»: lo que Martín escribió directo en la app de Claude, sutil junto a la hora (18/10/2026). */
+.co-burbuja__desde { margin-right: 3px; font-size: 10.5px; color: var(--faint); white-space: nowrap; }
+/* La burbuja no pasa del ancho de su fila (18/10/2026, Martín en su Android: «mirá cómo se bugea cuando respondo un mensaje»).
+   La cita va en un renglón (`.co-cita__texto`, nowrap): sin tope, la burbuja tomaba el ancho de la frase entera y, alineada a
+   la derecha, se salía por la IZQUIERDA. Con el tope, la cita se corta con «…» adentro. */
+.co-yo .co-burbuja { max-width: 100%; min-width: 0; }
+/* El ✓ del «Completado» (18/10/2026): arriba a la derecha de la tarjeta. Sin tocar, un círculo vacío; tocado, «✓ Visto» en
+   verde. Hasta que se toca, el chat dice «Espera tu respuesta» en la lista. 36px de alto: se toca con el dedo. */
+.co-ya__check {
+  margin-left: auto; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 36px; height: 36px;
+  padding: 0 10px; border: 1.5px solid var(--line); border-radius: 999px; background: transparent;
+  color: var(--faint); font: inherit; font-size: var(--fs-meta); font-weight: 600; cursor: pointer;
+}
+.co-ya__check:hover { border-color: var(--good); color: var(--good); }
+.co-ya__check:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-ya__check--ok, .co-ya__check--ok:hover { border-color: transparent; color: var(--good); cursor: default; }
+/* Arrastrar y soltar un archivo en la conversación (18/10/2026): mientras se arrastra, toda la conversación es la zona.
+   pointer-events: none para que el «soltar» llegue a la sección, no al cartel. */
+.co-panel[data-soltando] { position: relative; }
+.co-soltar {
+  position: absolute; inset: 8px; z-index: 30; display: grid; place-items: center; pointer-events: none;
+  border: 2px dashed var(--primary); border-radius: 12px; background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  font-size: var(--fs-md); font-weight: 600; color: var(--primary-strong);
+}

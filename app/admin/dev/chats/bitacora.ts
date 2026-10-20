@@ -66,4 +66,31 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/chats-email.ts', 'lib/chats-email-reglas.ts', 'app/api/chats/email/route.ts', 'supabase/migrations/0312_email_mensajes.sql', 'app/chats/Composer.tsx', 'tests/chats-email.test.ts'],
     revisar: '/chats',
   },
+  {
+    fecha: '20 oct', hora: '18:35', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Leila: «Ese número no tiene WhatsApp» en la ficha del lead',
+    pedido: 'Otro error que Leila me envía',
+    puntos: [
+      'Con una captura: en la ficha del lead #2313 (ws11), «WhatsApp no oficial» → «Ese número no tiene WhatsApp». Llegó por el Cerebro; la regla de Martín de ese día es avisar al grupo del cliente cuando esté arreglado.',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '18:50', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: el teléfono sin código de país se completa en el envío, con el país de la línea (⚠️ REVISAR: toca envíos a clientes)',
+    revisar: '/crm/2313/resumen?ws=11',
+    puntos: [
+      '⚠️ **El diagnóstico obvio (WhatsApp desconectado, o el número mal cargado) era el equivocado:** el número estaba cargado como lo cargó el cliente, en 10 dígitos, y `enviarTexto` sólo sacaba lo que no es dígito. Evolution contesta `exists:false` si no lleva el país (medido el 21/08: 542233550684 existe, 2233550684 no). No es un caso suelto: **53 de los 70 leads del ws11** están así, y **27 de los 32 borradores pendientes** (los recordatorios de la sesión de mañana) habrían fallado igual al aprobarlos.',
+      'Los datos del cliente NO se tocan: `numeroParaWhatsApp` (lib/numero-whatsapp.ts, puro) completa el número al ENVIAR con el país de la LÍNEA que manda (el dueño de la instancia, `evolution_instancias.numero`). 10 dígitos en México, Argentina, Colombia, Venezuela y EE.UU./Canadá; 9 en España, Chile y Perú. Lo que ya trae país (52, 521, 54, 1) no se toca, y el «00» del principio se saca.',
+      '**Sin línea conocida no se adivina:** la de MaKo no guarda su número, y un número de un país que no está en la tabla tampoco; con 10 dígitos el error dice «A este número le falta el código de país». Si igual no existe, el modal dice «Ese número no tiene WhatsApp. Revisa que tenga el código de país.»',
+      'Pasa por los cuatro caminos que le dan un número a Evolution: texto, media, audio (con eso, el camino de los borradores) y la consulta del @lid. **No** toca los envíos de la línea de MaKo a grupos y destinatarios (lib/mako-grupo.ts, lib/mako-tarjeta.ts): esos números salen del selector con país.',
+      'Medido con los datos reales del ws11 (sólo lectura, sin imprimir un número): los 70 leads quedan en 52+10 (60), 521+10 (9) y 54 (1); de los 32 borradores, 31 quedan bien y 1 es un borrador de nutrición sin lead con 12 ceros, que no se puede mandar nunca (alguien tiene que descartarlo).',
+      '**Sin hacer:** el espejo del saliente guarda el teléfono tal cual lo cargó el cliente (10 dígitos) y el `chat_jid` con el número completo; si la bandeja une el hilo con el lead por el teléfono, hay que mirarlo con un envío real. Brasil (largo 10 u 11) y el resto de los países no están en la tabla: su 10 dígitos da el error.',
+    ],
+    archivos: [
+      'lib/numero-whatsapp.ts — `numeroParaWhatsApp`, `codigoDePaisDeLinea`, `motivoConPista` (puro)',
+      'lib/evolution.ts — `lineaDeEnvio` devuelve el número de la línea; enviarTexto, enviarMedia, enviarAudio y fetchLidDeNumero lo usan',
+      'tests/numero-whatsapp.test.ts — 8 tests, 16 roturas con su fallo',
+      'tests/evolution-motivo.test.ts — acepta el motivo con la pista',
+    ],
+  },
 ];

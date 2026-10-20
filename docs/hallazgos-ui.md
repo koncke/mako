@@ -4111,3 +4111,83 @@ My Profile de arriba. El chequeo de tipos de esta tanda lo corrió Actions: en l
 **Vive en:** `app/_components/nav.ts` (FAMILIAS, PRONTO, SIN_FILA) · `app/_components/Sidebar.tsx` (la barra fija, la
 cara del menú, Platform › Coming soon) · `app/_components/BuscadorNav.tsx` + `lib/buscador-nav.ts` · `app/_ui/ui.css`
 (`--sec-*`) · `lib/ajustes-secciones.ts` (My Profile, Business settings) · test: `tests/sidebar-nueva.test.ts`
+
+## Una familia de tarjetas para CRM, Clients y Plan: el kit vive en app/_ui/TarjetaKanban (17/10/2026)
+
+Martín, 17/10 22:40 (punto 8): «No me gustan las cards… Quiero que tengan coherencia». La fuente fue el prototipo
+docs/prototipos/coherencia-1710.html; su kit se escribió UNA vez en `app/_ui/TarjetaKanban.tsx` (`TarjetaPersona`,
+`TarjetaTarea`, `PestanasPildora`, `TarjetaDestacada`, `CuerpoFichaRapida`/`FichaRapida`) y lo puro (iniciales, color,
+insignia del canal, plata) en `lib/tarjeta-kanban.ts`, con test.
+- **La raíz de la tarjeta recibe las props del que la monta** (`draggable`, `onDragStart`, `data-*`, `onClick`): el
+  arrastre, el clic derecho y la selección siguen siendo del tablero. La familia dibuja; no decide.
+- **Los tokens del kit son `--tk-*`, adentro del componente**, apoyados en los de la casa (`--card-bg`, `--primary`,
+  `--good`…): la app no tenía sombra de tarjeta ni los colores de sección del prototipo. Oscuro: `[data-tema="oscuro"]`.
+  El CSS va con `<style href precedence>`: React lo deduplica aunque cada tarjeta lo monte.
+- ⚠️ **Y los tokens van en TODA pieza `tk-*`, no en unas raíces (18/10, ya en producción).** Se declaraban sólo en
+  `.tk-raiz, .tk, .tk-ptabs, .tk-feat, .tk-sheet`, y el Plan y el teléfono usan piezas SUELTAS: el círculo de prioridad
+  vive en la tarjeta del Plan (que no es `.tk`) y la cara del teléfono en `.m-kb-tj`. Síntoma: el círculo del Plan
+  **invisible** —`--pc` vacío deja el borde en `currentColor`, que es el blanco del tilde, sobre la tarjeta blanca; el de
+  prioridad 3 directamente sin borde, porque un `var()` sin valor invalida el `border` entero— y las iniciales del teléfono
+  sin su círculo de color. Lo que NO lo delataba: el CSS es válido, el clic andaba y los tests de cableado pasaban; sólo
+  se ve mirando la pantalla. El arreglo es la primitiva: `.tk, :where([class^="tk-"], [class*=" tk-"])` (el `:where` no
+  suma especificidad, el oscuro sigue ganando). Lo fija tests/tarjetas-familia.test.ts: por cada regla del kit que USA
+  una variable, una pieza con sólo esa clase tiene que caer en la que las declara (roto: 5/1 con 20 piezas sin color).
+- ⚠️ **Y los ESTILOS los monta cada componente, no el tablero (18/10, cliente roto en producción).** `<EstiloTarjetas />`
+  lo montaban el CRM, el teléfono y el Plan; Clients de la computadora usó `TarjetaPersona` sin montarlo y la tarjeta
+  salió sin estilos para TODOS los negocios (la foto a todo el ancho; nombre, «Ver info» y «Acciones» como texto suelto).
+  Lo que lo escondió: era la única pantalla que el build parcial no dejó ver (su panel pide una API que no estaba en el
+  build), y se dio por buena porque «es el mismo componente que el CRM». Regla: cada componente del kit lleva su
+  `<EstiloTarjetas />` (React deduplica el `<style href precedence>`), y quien escribe clases `tk-*` a mano lo monta él.
+- **`TarjetaEntidad` NO se tocó**: también la usa /admin. Clients dejó de usarla; quien quiera la familia, usa el kit.
+- **Un botón adentro de una tarjeta que ya es botón no vale** (el teléfono): el círculo de una tarea y la píldora «Ver
+  info» van como `span` (con rol de botón, el círculo; sólo dibujo, la píldora: toda la tarjeta abre la ficha rápida).
+- **Una rotura que no cambia nada no prueba nada:** sacar el corte de «Sin origen» en `insigniaDeCanal` daba 4/0 porque
+  ese texto también caía al `return null` del final. Se midió otra (sin el caso de WhatsApp: 3/1).
+
+**Vive en:** app/_ui/TarjetaKanban.tsx · lib/tarjeta-kanban.ts · tests/tarjeta-kanban.test.ts y tests/tarjetas-familia.test.ts ·
+*17/10/2026 noche, chat «CRM» (claude4).*
+
+## Renombrar una fila de la barra le cambia la tab a los chats jefe (18/10/2026)
+
+El Second Brain de cada negocio pasó a llamarse «Ops Center» (pedido de Martín). Cambiar el `label` en nav.ts parecía
+todo, y los tests de la barra pasaban.
+
+- **El Ops Center del super admin busca la tab de cada chat jefe por el NOMBRE de la fila** (`rutaDeLaTab` en
+  lib/centro-chats.ts, el primer ítem cuyo `label` coincide). Con el renombre pasaban dos cosas a la vez, sin error:
+  - «Ops Center» quedaba repetido, y como la barra del producto va primero, el «Revisar» de los chats «Ops Center»
+    llevaba a /second-brain.
+  - El jefe «Second Brain» no encontraba ninguna fila con su nombre y caía en la ficha de desarrollo
+    (`/admin/dev/second-brain`, que se llama igual en el menú de Dev).
+- **Lo obvio era renombrar también el chat jefe.** No sirve: hay un jefe «Ops Center» de verdad (el del Centro), y los
+  dos chats tendrían el mismo nombre.
+- **La regla que queda:** el ítem puede decir el nombre de su jefe cuando no es el de la fila (`jefe` en `NavItem`), y
+  `rutaDeLaTab` y `nombresDeTabs` lo usan. **Antes de renombrar una fila, buscar si un chat jefe se llama como ella.**
+
+**Sin hacer:** los textos de MaKo siguen diciendo «Second Brain → Persona» (lib/secciones-negocio.ts y las reglas del
+chat). Son contenido y no se tocaron. Si «Second Brain» deja de nombrarse en la barra del negocio, MaKo manda a un lugar
+con un nombre que ya no se ve.
+
+**Vive en:** `app/_components/nav.ts` (MAKO_NAV, `estrella`, `jefe`) · `lib/centro-chats.ts` (`rutaDeLaTab`) ·
+`app/admin/operaciones/tabs.ts` · test: `tests/sidebar-nueva.test.ts`, `tests/centro-revisar.test.ts`
+
+## La barra clara no se hace en :root: las --sidebar* son la «isla oscura» de toda la app (20/10/2026)
+
+Martín pidió que la barra siga el modo (feedback del 18/10, pt 10: «si estoy en dark mode se debe adaptar a white mode,
+lo contrario»). Hasta ese día era #14161B también con la pantalla clara.
+
+- **Lo obvio era cambiar las `--sidebar*` de `:root` a valores claros.** Está mal: 43 archivos fuera de la barra las
+  usan como superficie oscura (los toasts, el grafo del Second Brain, bloques del Dashboard, la cabecera de video, el
+  recorrido…). Se habrían puesto blancos todos, sin un error.
+- **La regla que queda:** la barra clara se define ACOTADA a `[data-sidebar]` (app/_ui/ui.css). Lo que vive adentro
+  de la barra (la campana, el saldo, el interruptor de modo, la foto) hereda los valores solo. Si una pieza nueva quiere
+  «el color de la barra», usa las `--sidebar*` y vive adentro de `[data-sidebar]`. Si quiere «una isla oscura», no
+  debería usar las de la barra: hoy lo hacen 43 archivos y quedan así.
+- **Las criaturas «cambiaban de color» por la CARA, no por el cuerpo.** El cuerpo son pasteles fijos (`--grafo-*`,
+  `--mako`). Los ojos y la boca iban con `--ink`, que en oscuro es claro: ojos blancos sobre pastel. Ahora la cara va
+  con `--criatura-tinta` y `--criatura-rubor`, que ningún tema redefine (el test lo cuenta).
+
+**Sin hacer:** las 43 islas oscuras que usan `--sidebar*` siguen colgadas del nombre de la barra. Si un tema candidato
+cambia la barra a clara, también las cambia a ellas (ya pasó con el selector Kanban/Tabla, por eso existe `--on-ink`).
+
+**Vive en:** `app/_ui/ui.css` (la barra clara, `--sidebar-hover`) · `app/globals.css` (`--criatura-tinta`) ·
+`app/admin/operaciones/Muneco.tsx` · `app/_components/Sidebar.tsx` · test: `tests/sidebar-nueva.test.ts`

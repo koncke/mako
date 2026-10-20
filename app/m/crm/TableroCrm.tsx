@@ -41,6 +41,8 @@ import {
 } from '@/app/m/_ui';
 import { buscarLeadsAction, deshacerMoverAction, moverEtapaAction } from './acciones';
 import { MIN_BUSQUEDA, type FilaLeadM } from './reglas';
+import { CaraTarjeta, CuerpoFichaRapida, EstiloTarjetas, TarjetaDestacada } from '@/app/_ui/TarjetaKanban';
+import { insigniaDeCanal, subtituloLead } from '@/lib/tarjeta-kanban';
 import type { TableroCrmM } from './datos';
 
 type Busqueda =
@@ -55,6 +57,10 @@ const urlFunnel = (id: number | null) => (id == null ? '/m/crm' : `/m/crm?funnel
 export function TableroCrm({ datos }: { datos: TableroCrmM }) {
   const [buscar, setBuscar] = useState(false);
   const [elegirFunnel, setElegirFunnel] = useState(false);
+  // La ficha rápida (17/10/2026, la familia del prototipo): tocar una tarjeta la abre; «Abrir ficha» lleva a la completa.
+  const [rapida, setRapida] = useState<TableroCrmM['tarjetas'][number] | null>(null);
+  // «Mover a…» desde la ficha rápida: le pide a KanbanM su MISMO sheet (el del toque largo, con su toast y su deshacer).
+  const [pedirMover, setPedirMover] = useState<{ id: string; vez: number } | null>(null);
   const router = useRouter();
 
   // UNA acción a la derecha (memo: CabeceraM vuelve a pisar el encabezado cada vez que cambia).
@@ -73,7 +79,7 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
   const tarjetas: TarjetaKanban[] = useMemo(() => datos.tarjetas.map((t) => ({
     id: String(t.id),
     col: t.col,
-    href: ficha(t.id),
+    // Sin `href` (17/10/2026): tocar abre la ficha rápida (`onTocar`); desde ahí «Abrir ficha» lleva a la completa.
     // El nombre accesible lleva lo que dice el punto (el color solo no se lee).
     etiqueta: t.senal.dice ? `${t.nombre}, ${t.senal.dice}` : t.nombre,
     contenido: <FilaLead t={t} />,
@@ -102,16 +108,39 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
     </button>
   ) : undefined;
 
+  // «Próximo» (17/10/2026, la destacada del prototipo): la próxima reunión que todavía no pasó, con Llamar / WhatsApp.
+  const px = datos.proximo;
+  // El paso cuenta el CAMINO (las columnas del pipeline), como en la computadora.
+  const camino = datos.columnas.filter((c) => c.camino);
+  const iPx = px ? camino.findIndex((c) => c.key === px.col) : -1;
+  const proximo = px ? (
+    <TarjetaDestacada sobre="Próximo" titulo={`Reunión con ${px.nombre}`}
+      bajada={[px.cuando, px.plata].filter(Boolean).join(' · ')}
+      cara={{ nombre: px.nombre, foto: px.foto }}
+      avance={iPx >= 0 ? { pct: ((iPx + 1) / camino.length) * 100, izq: `Paso ${iPx + 1} de ${camino.length} · ${camino[iPx].titulo}` } : null}
+      acciones={px.telefono
+        ? [{ texto: 'Llamar', href: `tel:+${px.telefono}`, primaria: true }, { texto: 'WhatsApp', href: `https://wa.me/${px.telefono}`, externo: true }]
+        : [{ texto: 'Abrir ficha', onClick: () => router.push(ficha(px.id)), primaria: true }]} />
+  ) : null;
+  const arriba = selector || proximo ? <div className="m-crm-arriba">{selector}{proximo}</div> : undefined;
+
+  const r = rapida;
+  const iR = r ? camino.findIndex((c) => c.key === r.col) : -1;
+  const destinosR = r && deDondeSale.has(r.col) ? datos.columnas.filter((c) => movibles.has(c.key) && c.key !== r.col) : [];
+
   return (
     <>
       <CabeceraM accion={accion} />
+      <EstiloTarjetas />
       <div className="m-crm-tablero">
         <KanbanM
           etiqueta="Tablero del CRM"
           columnas={columnas}
           tarjetas={tarjetas}
           unidades="leads"
-          arriba={selector}
+          arriba={arriba}
+          onTocar={(id) => setRapida(datos.tarjetas.find((t) => String(t.id) === id) ?? null)}
+          pedirMover={pedirMover}
           moverA={(id) => {
             const actualCol = datos.tarjetas.find((t) => String(t.id) === id)?.col;
             if (!actualCol || !deDondeSale.has(actualCol)) return [];
@@ -120,6 +149,27 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
           onMover={mover}
         />
       </div>
+
+      <SheetM id="info" abierto={!!r} onCerrar={() => setRapida(null)} titulo="Ver info" snap="medio">
+        {r && (
+          <CuerpoFichaRapida
+            nombre={r.nombre}
+            foto={r.foto}
+            insignia={insigniaDeCanal(r.canal)}
+            subtitulo={subtituloLead(r.plata, r.canal)}
+            avance={iR >= 0 ? { pct: ((iR + 1) / camino.length) * 100, texto: `Paso ${iR + 1} de ${camino.length} · ${camino[iR].titulo}` } : null}
+            filas={[
+              ...(r.segunda ? [{ k: 'Empresa o llegó por', v: r.segunda }] : []),
+              ...(r.senal.dice ? [{ k: 'Ahora', v: r.senal.dice }] : []),
+            ]}
+            acciones={[
+              ...(r.telefono ? [{ texto: 'Llamar', href: `tel:+${r.telefono}`, primaria: true }, { texto: 'WhatsApp', href: `https://wa.me/${r.telefono}`, externo: true }] : []),
+              { texto: 'Abrir ficha', onClick: () => { const id = r.id; setRapida(null); router.push(ficha(id)); }, primaria: !r.telefono },
+            ]}
+            onMoverA={destinosR.length ? () => { const id = String(r.id); setRapida(null); setPedirMover((p) => ({ id, vez: (p?.vez ?? 0) + 1 })); } : null}
+          />
+        )}
+      </SheetM>
 
       <SheetM id="funnel" abierto={elegirFunnel} onCerrar={() => setElegirFunnel(false)} titulo="Funnel" snap="medio">
         <ListaM etiqueta="Funnels">
@@ -154,19 +204,21 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
  * (KanbanM), fuera del tablero, y tiene que dibujarse igual.
  */
 function FilaLead({ t }: { t: TableroCrmM['tarjetas'][number] }) {
-  const linea = [t.plata, t.segunda].filter(Boolean).join(' · ');
+  // La familia de tarjetas (17/10/2026): la cara con la insignia del canal, el nombre, «plata · por dónde llegó», la
+  // señal (la reunión, el plazo que vence) y «Ver info», como en la computadora. Toda la tarjeta abre la ficha rápida:
+  // la píldora es la pista, no un segundo botón adentro de otro.
+  const sub = subtituloLead(t.plata, t.canal);
   return (
     <span className="m-crm-tj" data-tono={t.senal.tono ?? undefined}>
+      <CaraTarjeta nombre={t.nombre} foto={t.foto} insignia={insigniaDeCanal(t.canal)} tam={46} />
       <span className="m-crm-tj__txt">
         <span className="m-crm-tj__n">{t.nombre}</span>
-        {linea && <span className="m-crm-tj__c">{linea}</span>}
+        {sub && <span className="m-crm-tj__c">{sub}</span>}
+        {t.senal.tono && t.senal.texto && (
+          <span className="m-crm-tj__cuando"><i className="m-crm-tj__punto" aria-hidden />{t.senal.texto}</span>
+        )}
       </span>
-      {(t.senal.tono || t.senal.texto) && (
-        <span className="m-crm-tj__der">
-          {t.senal.tono && <i className="m-crm-tj__punto" aria-hidden />}
-          {t.senal.texto && <span className="m-crm-tj__cuando">{t.senal.texto}</span>}
-        </span>
-      )}
+      <span className="m-crm-tj__ver tk-pill tk-pill--suave" aria-hidden>Ver info</span>
     </span>
   );
 }

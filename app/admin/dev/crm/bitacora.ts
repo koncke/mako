@@ -2560,4 +2560,52 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '18 oct', hora: '11:50', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las tarjetas de CRM, Clients y Plan son de una misma familia, en la computadora y en el teléfono',
+    puntos: [
+      'En producción desde los runs 137, 138 y 144. Pedido de Martín del 17/10 (punto 8) y su feedback del 18/10 (puntos 14, 8 y 9).',
+      'CRM: cada lead con su foto o sus iniciales en color, el canal por el que llegó, la plata y «Ver info», que abre una ficha rápida con «Mover a…». Las columnas tienen su bloque de fondo aunque estén vacías, y «Próximo» (la próxima reunión, en azul) arranca plegado y se abre con el ícono del calendario.',
+      'En el teléfono, el CRM tiene las etapas en pestañas con su nombre y su contador, y tocar una tarjeta abre la misma ficha rápida.',
+      'Clients: la misma tarjeta con la barra de la etapa y el aviso en rojo (sin entrar al curso, días sin moverse). Ya no repite el título ni tiene el desplegable del servicio («Editar etapas» está en los tres puntos), y la cabecera va sobre el fondo de MaKo con cuadrícula.',
+      'Plan: la tarjeta ya no muestra prioridad, origen ni el aviso de falta de deadline, y se completa con el cuadro gris al lado del tacho. En el teléfono se completa con el círculo de la izquierda.',
+      'Se arregló en el camino: Clients llegó a producción sin los estilos de la tarjeta (run 137) y el círculo del Plan salía invisible (run 138).',
+      'Sin hacer: el nombre viejo del servicio sigue guardado en el producto; decidir si el Plan del teléfono también pasa al cuadro gris; las columnas editables del Plan, después del 20/10.',
+    ],
+    commits: [
+      { sha: 'de3be68bb', msg: 'CRM en computadora: la familia de tarjetas del prototipo (cara con insignia, «plata · por dónde llegó», «Ver info»)', lineas: 834, archivos: 7 },
+      { sha: '3b1f3a742', msg: 'CRM en el teléfono: la misma familia de tarjetas, las etapas en pestañas píldora y «Próximo»', lineas: 324, archivos: 6 },
+      { sha: '134cd221c', msg: 'Clients: la misma familia de tarjetas, con la barra de la etapa y el aviso en rojo (computadora y teléfono)', lineas: 189, archivos: 6 },
+      { sha: 'ffe362733', msg: 'Plan: la tarea en la familia de tarjetas — el círculo de prioridad completa (computadora y teléfono)', lineas: 276, archivos: 3 },
+      { sha: '42358d5a8', msg: 'Tarjetas del CRM: lo que se vio en el ws3 — el paso cuenta sólo el camino, sin datos de relleno, nombre en negrita', lineas: 35, archivos: 4 },
+      { sha: '3707bb6b0', msg: 'Tarjetas: el círculo del Plan y las caras del teléfono vuelven a tener color', lineas: 93, archivos: 5 },
+      { sha: 'cd6a4e78b', msg: 'Clients: la tarjeta vuelve a tener sus estilos (cada pieza del kit monta los suyos)', lineas: 55, archivos: 5 },
+      { sha: '44b4b111b', msg: 'Clients: sin el título, sin el desplegable del servicio y con el fondo de MaKo', lineas: 98, archivos: 3 },
+      { sha: '772ed2a14', msg: 'CRM: cada columna con su bloque de fondo, y «Próximo» plegado detrás del calendario', lineas: 64, archivos: 6 },
+      { sha: 'ad2bac4b6', msg: 'Plan: la tarjeta sin prioridad, sin origen ni aviso, y el check gris al lado del tacho', lineas: 72, archivos: 2 },
+      { sha: '75abd774b', msg: 'Clients: el fondo de la columna escrito, no interpolado (los tests de la columna lo leen)', lineas: 20, archivos: 4 },
+    ],
+    archivos: [
+    ],
+    revisar: '/clients',
+  },
+  {
+    fecha: '20 oct', hora: '19:30', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Chats abre en un par de segundos y no relee todo cada 15 segundos',
+    puntos: [
+      'En producción desde el run 165. Lo vio Martín en la llamada con Leila del 19/10: abrir Chats tardaba mucho.',
+      'Medido en el ws1, sólo leyendo: la lista entera tardaba 17 s; ahora 4 s. La primera vista sale con lo reciente en unos 2 s, y lo más viejo llega después.',
+      'La causa: para armar la lista se leían los 18.885 mensajes de WhatsApp de una página por vez, y la computadora lo repetía cada 15 segundos. Ahora se piden varias páginas a la vez, y el refresco sólo lee lo reciente; la lista entera, cada 5 minutos.',
+      'Siguiente: que la base devuelva directamente el último mensaje de cada conversación (una migración).',
+    ],
+    commits: [
+      { sha: 'b7817fe9f', msg: 'Chats abre en 2 s y no relee todo cada 15 s (antes 17 s en el ws1)', lineas: 366, archivos: 10 },
+      { sha: '87464faa8', msg: 'Chats: el test de la pantalla sigue la nueva forma del sondeo (sólo con la pestaña visible)', lineas: 4, archivos: 1 },
+    ],
+    archivos: [
+    ],
+    revisar: '/chats',
+  },
 ];

@@ -38,6 +38,7 @@ import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
 import { Confirm } from '@/app/_ui/Confirm';
 import { LapizIcon } from './iconos';
 import { BANDAS_KANBAN } from './filtros-guardados';
+import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
@@ -307,33 +308,22 @@ export function VistaSelector({ vista, onVista, pendientes }: {
   /** cuántos leads tienen datos sin marcar (0 = el segmento va sin badge). */
   pendientes: number;
 }) {
-  const seg = (activo: boolean): CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 15px', borderRadius: 8,
-    border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 14,
-    fontWeight: activo ? 600 : 500,
-    background: activo ? 'var(--ink)' : 'transparent',
-    // `--on-ink`, no `--on-sidebar`. Coincidían en el tema por defecto, pero el
-    // segundo significa «se lee sobre LA BARRA»: con la barra clara, esto quedó
-    // tinta sobre tinta —ratio 1,00, el botón activo INVISIBLE— y se veía igual
-    // en claro y en oscuro, así que ningún vistazo lo iba a encontrar.
-    color: activo ? 'var(--on-ink)' : 'var(--dim)',
-  });
+  void pendientes;
+  // ⚠️ PESTAÑAS PÍLDORA (17/10/2026, la familia del prototipo docs/prototipos/coherencia-1710.html): «Tablero · Lista»,
+  //    las dos vistas que existen (decidido: las del prototipo se mapean a las de hoy). El ícono sigue saliendo de
+  //    app/_ui/iconos-vista (el mismo que Customer Success), ahora con su nombre al lado: una píldora con sólo un
+  //    dibujo no dice qué vista es. El estilo es el de `.tk-ptab` (app/_ui/TarjetaKanban.tsx).
+  const NOMBRE: Record<CrmVista, string> = { kanban: 'Tablero', tabla: 'Lista' };
   return (
-    <>
-    <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 4, gap: 4 }}>
-      {/* ⚠️ LOS ÍCONOS SALEN DE UN SOLO LUGAR (app/_ui/iconos-vista), no de una copia.
-          Son los mismos que usa el tablero de Customer Success, y el pedido fue
-          justamente que el toggle se vea IGUAL en las dos pantallas: dos SVG
-          «parecidos» divergen en cuanto alguien ajusta uno. El estilo del botón sí es
-          de cada barra — acá el segmento con `--ink`, allá su `.bc-toggle`. */}
+    <div className="tk-ptabs" role="tablist" aria-label="Cómo ver los leads" style={{ flex: 'none', padding: 0, overflow: 'visible' }}>
+      <EstiloTarjetas />
       {(['kanban', 'tabla'] as const).map((v) => (
-        <button key={v} type="button" onClick={() => onVista(v)} style={seg(vista === v)}
-          title={ICONO_VISTA[v].titulo} aria-label={ICONO_VISTA[v].titulo} aria-pressed={vista === v}>
-          {ICONO_VISTA[v].icono}
+        <button key={v} type="button" role="tab" className="tk-ptab" onClick={() => onVista(v)} aria-selected={vista === v}
+          title={ICONO_VISTA[v].titulo} aria-label={ICONO_VISTA[v].titulo} style={{ height: 34, padding: '0 14px' }}>
+          {ICONO_VISTA[v].icono}{NOMBRE[v]}
         </button>
       ))}
     </div>
-    </>
   );
 }
 

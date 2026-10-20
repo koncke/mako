@@ -14,10 +14,16 @@
 //   · `enterEnLista` sin cortar en el ítem vacío → 1 fallo (2);
 //   · `textoParaMandar` sin pasar «• » a «- » → 1 fallo (3);
 //   · `borradorQueVale` prefiriendo el que tiene texto → 1 fallo (4).
+// Y el scroll que acompaña lo que se escribe (18/10/2026, Martín: «la caja crece y el chat no lo acompaña»):
+//   · midiendo la conversación DESPUÉS de agrandar la caja → 1 fallo (5); sin devolverle a la caja su scroll → 1 fallo (5);
+//   · el teléfono sin seguir abajo al escribir → 1 fallo (5).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bloquesDeMensaje, borradorQueVale, conVinetas, enterEnLista, leerBorrador, textoParaMandar } from '../lib/centro-caja';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { bloquesDeMensaje, borradorQueVale, conVinetas, enterEnLista, estaAbajo, leerBorrador, textoParaMandar } from '../lib/centro-caja';
 
 test('1. el guion pasa a viñeta en el renglón donde se escribe, recién tipeado el espacio', () => {
   assert.deepEqual(conVinetas('Hola\n- ', 7), { texto: 'Hola\n• ', cursor: 7 });
@@ -53,4 +59,18 @@ test('4. entre el borrador del navegador y el de MaKo gana el más nuevo, aunque
   assert.deepEqual(borradorQueVale(local, null), local);
   assert.equal(leerBorrador({ texto: 3, at: 1 }), null);
   assert.equal(leerBorrador('x'), null);
+});
+
+const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
+const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
+
+test('5. el scroll acompaña lo que se escribe: la conversación sigue abajo y la caja sigue al cursor', () => {
+  assert.equal(estaAbajo({ scrollHeight: 1000, scrollTop: 960, clientHeight: 20 }), true, 'a 20 px del final está abajo');
+  assert.equal(estaAbajo({ scrollHeight: 1000, scrollTop: 500, clientHeight: 300 }), false, 'leyendo más arriba no se la mueve');
+  const pc = leer('app/admin/operaciones/Conversacion.tsx');
+  const efecto = pc.slice(pc.indexOf('const conversacionAbajo'), pc.indexOf('}, [texto]);'));
+  assert.ok(efecto.indexOf('const conversacionAbajo = h ? estaAbajo(h) : false;') < efecto.indexOf("el.style.height = 'auto';"), 'se mide ANTES de agrandar la caja');
+  assert.match(efecto, /el\.scrollTop = el\.selectionEnd >= el\.value\.length \? el\.scrollHeight : antes;/, 'la caja no pierde su scroll al medirse');
+  assert.match(efecto, /if \(h && conversacionAbajo\) h\.scrollTop = h\.scrollHeight;/);
+  assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /estaAbajo\(cuerpo, 160\)\) cuerpo\.scrollTop = cuerpo\.scrollHeight;/, 'el teléfono también');
 });

@@ -1,5 +1,123 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 18/10/2026 ~18:30 AR — PEDIDO 9a143455 (Martín, 17:28), CUENTA AL 98 %
+
+<sub>Rama onboarding-v3. Commits sin pushear, cada uno con su test probado rompiéndolo. Los puntos 4 y 9 (los 4 MB, el
+«Máximo 4 archivos» y arrastrar en el Center) los tiene Ops Center 3.</sub>
+
+**Hecho:**
+- 13 `fd8ad2f87`: mirando a un cliente, el super admin no ve el Centro ni sus chats. `quienOpera()` mira
+  `estaImpersonando`. Un cliente real nunca los veía.
+- 11 `9bb120646`: tu respuesta se ve apenas la mandás (`ladoDeLaPregunta`, origen e interes en `despues`).
+- 7 `47548221a`: etapa `pdf`, «Perfecto: ya tengo claro qué vendes… ¿está correcto?» Sí/No. Con No, se anota
+  (`pdfOk`) y se sigue.
+- 5 `6470c86f6`: de la oferta sólo qué vende, a quién y cuánto cuesta (`PIEZAS_DEL_ARRANQUE`).
+- 8 `b785202c8`: las respuestas del funnel y del cuello sin VSL, creativos ni CPA (lib/fase-diagnostico.ts).
+- 10 `ccc8f3588`: el CRM con sus etapas numeradas y «Sí, es correcto».
+- 1 `26f689d63`: tocar cualquier lado empieza; sin el anillo azul del foco.
+- 6 `cbb9851a0`: la vista previa del PDF en un visor propio por portal a <body> (el Modal quedaba dentro de la capa,
+  tapado por las respuestas rápidas), y sin las marcas «[de: chat]» en el PDF.
+
+**SIN HACER (con dónde vive):**
+- **13b, entrar al chat «Onboarding» con toda la conversación y después el tutorial de la app.** Hoy entra a
+  /second-brain (`RUTA_AL_TERMINAR`, lib/onboarding-arranque.ts) con el chat del Second Brain vacío
+  (app/second-brain/ChatSecondBrain.tsx). Hace falta un hilo «Onboarding» en el chat del cliente con los mensajes del
+  arranque (`mensajesDeArranque` + la conversación de Offer de `sesionId`) y lanzar el tutorial (los recorridos de
+  app/_ui/Recorrido.tsx).
+- **2, la misma entrada al abrir la app en el teléfono:** EntradaMako en el arranque de /m (app/m/…).
+- **3, el chat del onboarding como el del Ops Center:** + para adjuntar, grabar audio, enviar no verde. Hay que copiar
+  el composer de app/admin/operaciones (Conversacion.tsx o su barra), sin crear uno nuevo. Hoy el onboarding usa
+  ChatOffer (app/offer/ChatOffer.tsx).
+- **10b, el CRM a medida de lo que vende** (hoy es el tipo por canal, `tiposOfrecidos`).
+- **5b, si hace falta acortar también el diagnóstico de fase** (6 preguntas más el canal, lib/fase-diagnostico.ts).
+
+
+## ESTADO AL 18/10/2026 ~15:00 AR — CIERRE CON LA CUENTA AL 96 %
+
+<sub>Martín autorizó seguir pasado el 95 % (pedido 9cb5e3a6 del Ops Center, 14:42). Rama onboarding-v3, VERDE
+`0322b1536` (con origin/integracion), pasado al Cerebro.</sub>
+
+**Lo de esta tanda** (feedback-18-10.md, «Onboarding, probado por Martín a las 14:00 ART», menos el 3):
+- `1f7467b4d`: nunca «Conectar mi propia IA» en el onboarding (usa el crédito de la plataforma).
+- `8819fc58f`: la entrada vuelve a esperar el clic (se revierte el avance solo de ffd0ea3ef).
+- `d40986454`: «Analizando tu link…» / «Analizando N archivos…» mientras lee; los puntitos, sólo al contestar
+  (`leeAlgo` en app/offer/ChatOffer.tsx).
+- `12ad33b25`: RESET devuelve el nombre del workspace a «Cliente de Prueba» (lib/reset-workspace.ts,
+  `NOMBRE_WS_PRUEBA`). El onboarding le escribe el negocio y el RESET no tocaba esa fila: por eso seguía
+  «Consultesis». El nombre y el negocio ya no tienen respuestas rápidas («Ayelen», «Consultesis»).
+
+**Después (18/10 ~15:50, Martín sacó el corte del 97 %):**
+- `a57d85f53`: las preguntas de fase sin Meta Ads. Es el paso chico: mismos ids y cortes de día a mes, en
+  lib/fase-diagnostico.ts. El diseño por canales sigue abajo.
+- `3c111e29d`: «la foto de Mauricio». MEDIDO: el único miembro del ws 3 tenía el `foto_url` de Mauricio. Lo puso
+  «Traer datos de Mau» (`copiarPerfilDelDueno`), cuyo recibo vive en app_settings, y el RESET lo borraba sin devolver
+  el perfil. Ahora el RESET deja a los usuarios del ws de prueba con el nombre del ws, sin foto y sin `PERFIL_EXTRA`.
+  (La lectura anterior que decía «sin usuarios» estaba mal: falló por una columna que no existe.)
+
+**SIN HACER:**
+- Ver en el navegador, con un RESET del ws 3, que la tarjeta quede sin la foto y con «Cliente de Prueba».
+- Todo lo de la sección siguiente que sigue «sin hacer»: las preguntas de fase sin Meta, el vuelo de la estrella, la
+  carga de toda la app y #850.
+
+
+## ESTADO AL 18/10/2026 ~12:40 AR — CIERRE POR CUENTA AL 95 % (LO PRIMERO PARA QUIEN SIGA)
+
+<sub>Chat «Onboarding», cuenta 4. Rama onboarding-v3 (C:/dev/wt-onboarding-v3), sin pushear: las puntas van al Cerebro
+(local_797d5445…). En producción hasta el run 145: todo el punto 15 del feedback del 18/10 y la estrella.</sub>
+
+**Commiteado y pasado al Cerebro en esta última tanda** (feedback de Martín probando el ws 3):
+- `469115ee1`: mientras MaKo contesta, sólo los tres puntitos (ChatOffer, también /offer). Test offer-escribiendo.
+- `96971a73c`: la pregunta pendiente manda. Con las cinco piezas y una pregunta de MaKo sin contestar, no sale el PDF
+  (`preguntaAbierta` en lib/offer-marco.ts). Test onboarding-pregunta-abierta.
+- `01d68e2ef`: «Lo que vendes» se mira EN el chat (modal con las páginas en SVG). El link sin ?ws= hacía que el super
+  admin buscara la conversación en otro ws. Un iframe no sirve: X-Frame-Options DENY. Test onboarding-pdf-en-el-chat.
+- `d4d17b4fb`: sin «Antes de terminar» ni «Última cosa». Test onboarding-sin-anuncios.
+- `bb14efd03`: al terminar entra solo a /second-brain (1,5 s, fundido, navegación interna para no cortar el plan).
+- El commit de este relevo arregla offer-vista-pdf.test.ts, el único rojo del VERDE de esos cinco.
+
+**SIN HACER, con dónde vive:**
+- **Las preguntas de fase suponen Meta Ads** (Martín: «el onboarding sólo tiene presente el tema de META ADS…»).
+  Viven en lib/fase-diagnostico.ts → `PREGUNTAS` (`inversion`: «¿Cuánto inviertes por día en Meta Ads?»,
+  `creativos`: «¿Cuántos creativos lanzas por mes?»). Cada opción vota una fase de 0 a 4 por su ÍNDICE.
+  - **Paso chico propuesto, sin tocar el cálculo:** mismos ids y 5 opciones.
+    - `inversion` → «¿Cuánto inviertes por mes en conseguir clientes (anuncios, prospección, contenido)?», con
+      «Nada o menos de $600 / $600 – $3.000 / $3.000 – $9.000 / $9.000 – $30.000 / Más de $30.000». Son los mismos
+      cortes de hoy, pasados de día a mes.
+    - `creativos` → «¿Cuántas piezas nuevas para atraer clientes sacas por mes (anuncios, videos, posts, lead
+      magnets)?», con las mismas 5 opciones.
+  - **El diseño entero, después:** primero «¿por qué canales consigues clientes hoy?» (varias: anuncios, prospección,
+    funnel orgánico, lead magnets, YouTube y los del catálogo de funnels), y después una pregunta por canal elegido.
+    El voto de inversión no puede hundir a un negocio orgánico.
+  - Los consejos de cada fase (`FASES`: «Prende Meta con poco», `estrategia.inversion`) y los pilares también están
+    escritos para VSL más Meta: se reescriben con el diseño entero.
+- **El vuelo de la estrella a la sidebar al terminar** (hoy es un fundido): FLIP de `[data-mako-foto]` hasta el ícono
+  de Ops Center de la barra (`Criatura` con `estrella` en app/_components/Sidebar.tsx). Después del 20/10.
+- **La animación como carga de toda la app** y **el chat con el diseño del Ops Center**: después del 20/10.
+- **#850** sigue abierta en el Plan hasta confirmar la F (`3a47301ed`) en producción. Se cierra con
+  `cerrar-881-850.ts --solo=#850 --aplicar` (scratchpad de la sesión 35a96d39) o con `cerrar_tareas_plan`.
+- **La cookie vieja `mako_ws`** (vale para todo el navegador) como otra vía de «datos de otro ws», sin tocar
+  (hallazgos-onboarding).
+
+## ESTADO AL 18/10/2026 ~11:30 AR — LO PRIMERO PARA QUIEN SIGA
+
+<sub>Chat «Onboarding», cuenta 4, con la cuenta al 92 % semanal. Rama onboarding-v3 (C:/dev/wt-onboarding-v3), sin
+pushear: las puntas van al Cerebro (local_797d5445…).</sub>
+
+**El punto 15 del feedback del 18/10** (C:/dev/wt-push-q/docs/feedback-18-10.md), prioridad 1 de Martín:
+- **Pasados VERDES al Cerebro:**
+  - `fe38fb766`: nunca datos de otro ws («Consultesis»; ver hallazgos-onboarding);
+  - `e04467639`: explica al arrancar; sin «Soy» ni el objetivo a 90 días; las dos preguntas al final.
+- **Commiteados, falta el VERDE** (`antes-de-subir --rapido` con C:/dev/pesado.lock):
+  - `34d4ef643`: halagos genuinos, respuestas rápidas siempre, sin preguntas de logística, al terminar a /second-brain;
+  - `ffd0ea3ef`: la entrada avanza sola y sin anillos;
+  - el commit de esta cosecha.
+- **Sin hacer**, con dónde vive cada cosa en hallazgos-onboarding («El onboarding del 18/10»):
+  - la animación como carga de toda la app;
+  - la criatura volando a la sidebar de chats;
+  - el chat con el diseño del Ops Center (después del 20/10).
+- #850 sigue abierta en el Plan hasta que la F (`3a47301ed`) esté en producción. Para cerrarla:
+  `cerrar-881-850.ts --solo=#850 --aplicar`, en el scratchpad de la sesión 35a96d39.
+
 ## 17/10/2026 a la tarde («Pendientes B3», claude4, rama pend-b3-1710)
 
 Hecho: lo tachado de «Qué hacer ahora» se guarda y MaKo lo sabe; la tabla de clientes del super admin tiene «Llegó

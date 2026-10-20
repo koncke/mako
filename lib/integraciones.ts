@@ -7,7 +7,9 @@
 // =============================================================================
 
 import 'server-only';
-import { credWs } from './credenciales';
+import { credDelCliente, credWs, credWsEstricta, esNegocioDelEntorno, wsDelEntorno } from './credenciales';
+import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO, veredictoDeIA } from './ia-keys';
+import type { ProvName } from './ai-cheap';
 import { emailConectado } from './resend';
 import { POR_QUE_SIN_EMAIL } from './email-remitente';
 import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
@@ -219,6 +221,22 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
       ...delMetodo(d.key),
     };
   }
+  // ⚠️ UNA IA ESTÁ CONECTADA SI MaKo LA PUEDE USAR COMO DEL NEGOCIO (tickets #5 y #6, lib/ia-keys.ts → `veredictoDeIA`):
+  // en el ws1 decía «Conectada y operativa» en las siete, con copias de la plataforma, y MaKo no tenía con qué contestar.
+  const ia = await iaDelNegocio(d.key, d.envs[0]).catch(() => null);
+  if (ia) {
+    const v = veredictoDeIA(ia);
+    return {
+      key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
+      estado: (v === 'conectada' ? 'conectada' : 'falta') as EstadoIntegracion,
+      detalle: v === 'conectada' ? 'Conectada y operativa.' : v === 'copia' ? POR_QUE_IA_DE_MAKO
+        : v === 'equipo' ? POR_QUE_LA_CONFIGURA_MAKO : `Falta configurar: ${d.envs.join(', ')}`,
+      tieneDetalle: d.tieneDetalle,
+      ...delMetodo(d.key),
+      // El workspace del entorno no pega ninguna key de IA: sin el formulario del modal (`mostrarForm`).
+      ...(v === 'equipo' ? { soloServidor: true } : {}),
+    };
+  }
   return {
     key: d.key,
     nombre: d.nombre,
@@ -229,4 +247,33 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
     tieneDetalle: d.tieneDetalle,
     ...delMetodo(d.key),
   };
+}
+
+/** Las IA de la cascada barata: las que MaKo usa con las keys del negocio (`provsDe`, lib/ai-cheap.ts). */
+const IA_DE_LA_CASCADA: ReadonlySet<string> = new Set<ProvName>(['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'openai']);
+
+/**
+ * ¿Qué tiene de SUYO el negocio en esta IA? Con las MISMAS lecturas que la usan, para que la tarjeta no pueda decir
+ * «Conectada» donde MaKo no encuentra nada:
+ *   · las baratas, con `provsDe` (sus filas, sin las copias de la plataforma);
+ *   · la de Anthropic, con la frontera de `conClaveDelNegocio` (lib/anthropic.ts): su fila, distinta de la del entorno
+ *     y de la fila de la que sale el entorno (`wsDelEntorno`: la plataforma desde el 18/10, antes el ws1).
+ * `null` = no es una IA, o es la plataforma (usa las suyas): manda lo de siempre.
+ * ⚠️ El workspace del ENTORNO va primero y sin leer nada (`esNegocioDelEntorno`): su fila es la de la plataforma, y la
+ * tarjeta no le ofrece pegar una key aunque falle cualquier lectura de abajo.
+ */
+async function iaDelNegocio(key: string, envBase: string | undefined): Promise<{ fila: boolean; propia: boolean; delEntorno?: boolean } | null> {
+  if (!envBase || (!IA_DE_LA_CASCADA.has(key) && key !== 'anthropic')) return null;
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (await esNegocioDelEntorno(ws)) return { fila: false, propia: false, delEntorno: true };
+  const wsSA = await wsSuperAdmin().catch(() => null);
+  if (ws == null || wsSA == null || ws === wsSA) return null;
+  const fila = (await credDelCliente(envBase, ws))?.trim() ?? '';
+  if (key === 'anthropic') {
+    if (!fila) return { fila: false, propia: false };
+    const plataforma = [process.env[envBase], await credWsEstricta(envBase, await wsDelEntorno(envBase)), await credWsEstricta(envBase, wsSA)];
+    return { fila: true, propia: !plataforma.some((x) => typeof x === 'string' && x.trim() === fila) };
+  }
+  const { provsDe } = await import('./ai-cheap');
+  return { fila: !!fila, propia: (await provsDe(key as ProvName)).length > 0 };
 }

@@ -58,8 +58,9 @@ function Previa({ c, p, espera, enCurso, borrador, sinVer }: { c: ChatCentro; p:
   switch (segundoRenglon(c, espera, borrador, p, sinVer)) {
     case 'vivo': return <span className="co-fila__l2 co-fila__l2--vivo" title={enCurso ?? undefined}>{enCurso ?? 'trabajando…'}</span>;
     case 'espera': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
-    // El MISMO aviso, con el mismo estilo (Martín, 17/10/2026): un «Completado» sin ver, para revisar.
-    case 'revisar': return <span className="co-fila__l2 co-fila__l2--espera">Completado · para revisar</span>;
+    // El MISMO aviso, con las mismas palabras (Martín, 18/10/2026: «siempre debe ser "Espera tu respuesta", y no desaparecer
+    // hasta que yo le dé un check al mensaje de completado»): un «Completado» sin su ✓.
+    case 'revisar': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
     case 'borrador': return <span className="co-fila__l2"><span className="co-borrador">Borrador:</span><span className="co-fila__l2-texto">{borrador}</span></span>;
     case 'ya': return <span className="co-fila__l2"><SelloCompletado /><span className="co-fila__l2-texto">{p?.texto}</span></span>;
     case 'previa': return (
@@ -189,6 +190,8 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       tareas={k.tareasDe(chat)}
+      // El ✓ de sus «Completado» (18/10/2026): guardado en MaKo, vale en el teléfono.
+      yaVisto={k.yaVistos?.[chat.clave] ?? null} onYaVisto={(i) => void k.marcarYaVisto(chat.clave, i)}
       aspecto={elegidoPara(k.munecos, chat.titulo)}
       // El Cerebro es siempre la estrella de MaKo: tocarla no abre el selector.
       onMuneco={esCriaturaDeMako(chat.titulo) ? undefined : () => k.abrirMuneco(chat)}

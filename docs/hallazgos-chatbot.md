@@ -5351,3 +5351,99 @@ en producción, no se hizo.
 - **La regla.** El que perdió se BORRA (lo creó esa misma llamada: sin charla ni historial, y `createLead` no dispara
   nada) y le pasa al que ganó el anuncio y la entrada sólo si no los tiene (`.is(null)`). Nunca se borra el que quedó
   unido. **Vive en:** lib/zernio-entrante.ts (`quitarHuerfano`) · tests/zernio-huerfano.test.ts · *17/10/2026, agente B4.*
+
+---
+
+## «Crear con IA» no podía poner un Recurrente, y el que se pusiera a mano llegaba una sola vez por lead (20/10/2026)
+
+Visto el 20/10/2026 (Leila, ws11, #284; diagnóstico del Cerebro en feedback-20-10). Pidió «cada semana los días martes a
+las 3 de la tarde ... a todos los que tenemos en el funnel principal» y salió «Llega a «1ª sesión sin costo»», sin
+horario, con 6 de 7 tarjetas que nadie pidió, y al editar MaKo contestó «Cambié 2». ⛔ #284 y #282 no se tocaron: lo
+decide Martín.
+
+- **El horario es un dato exacto: lo saca el CÓDIGO.** `opcionesCronIA` deja afuera el Recurrente a propósito y el
+  modelo, sin él, elegía la etapa de nombre más parecido («sesión»), sin avisar que el horario se perdía. Ahora
+  `horarioDelPedido` (lib/flujo-ia-recurrente.ts) lee el horario del pedido y `crearConIA` lo IMPONE; si falta el día o
+  la hora, MaKo pregunta con opciones que dicen el horario entero («Todos los martes a las 15:00»). Se guarda por la
+  puerta de la pantalla (`recurrenteDeValorIA` → `guardarDisparadores`).
+- **⚠️ La hora es la de AL LADO del horario.** El pedido de Leila trae dos: «a las 3 de la tarde» (cuándo sale) y «a las
+  7:30» (la sesión, que es contenido). Vale la más cercana a la frase del horario y sólo a 40 caracteres o menos
+  (`VENTANA_HORA`). Tomar «la primera hora del texto» o «la última» falla con este mismo pedido.
+- **A quién lo dice el pedido, no el modelo.** «Todos los del funnel X» son TODAS sus etapas (las salidas ya no vienen:
+  `productosConEtapas`); sin funnel ni etapa nombrados, se pregunta «¿A quién le llega?» con cuántos hay HOY en cada
+  opción. ⚠️ Ese número es la cohorte del MOTOR (`leadsDeCohorte`, con su ventana de 90 días), no los leads del embudo:
+  contar el embudo daría un número plausible y falso. Sin poder contar, va sin número.
+- **⚠️ Una etiqueta nombrada como TEMA no es a quién.** «La sesión de Lídermente» nombra una etiqueta de ws11; sólo
+  cuenta si el pedido habla de etiquetas.
+- **El diagnóstico obvio era el equivocado: las tarjetas de más NO venían de la plantilla.** `plantillaParaPedido` manda
+  todo «recordatorio» a «Un Lead Agendó Llamada», pero en ws11 no entró al prompt (medido en anthropic_usage: 3664 vs
+  3622 tokens, la diferencia del pedido). Salían del system: la regla 8 pedía flujos «completos» con el aviso al equipo
+  y el único ejemplo traía un `avisar_al_equipo`. Antes de culpar a la plantilla, mirá si entró (los tokens lo dicen).
+  Ahora la regla 8 dice «SÓLO lo que pide el pedido», el ejemplo no trae el aviso, y lo cumple el código: un aviso que el
+  pedido no pide se saca y queda como sugerencia (`pidioAviso`; «avísales» es al lead, no cuenta), y un «Si responde»
+  va sólo si el pedido habla de lo que contesta o un mensaje pregunta algo (`pidioRespuesta`). Un Recurrente o una
+  difusión no llevan plantilla.
+- **Un «Otra cosa» que CONTESTA no entra en un AI Step** (`respuestaAPasoIA`: «Lo demás» sólo avisa), y dejaba el «Si
+  responde» con tres tarjetas de IA. Al crear, pasa a ser un escenario más (`otraCosaComoCaso`): queda UN AI Step.
+- **Un apodo de la guía de voz no va en un mensaje para todos.** La guía de ws11 nombra «hermosa» cuatro veces y la regla
+  7 manda escribir con ella. En un Recurrente se saca donde se le HABLA a alguien (un saludo, una coma, el final) y el
+  primero se vuelve {{nombre}} (`sinApodos`). «Qué linda sesión» no se toca.
+- **Decir qué hizo.** «Creé «X»: sale todos los martes a las 15:00 a todos los de «Funnel principal» (37 hoy). Manda
+  «…». Quedó pausada.» (`detalleDeCreada`, con lo GUARDADO). Editar dice tarjeta por tarjeta «Cambié «…»: ahora «…»» y
+  «Está en el borrador: toca Publicar.» (`resumenEdicionDetalle`). «corté la flecha» era una reparación interna que le
+  llegaba a la clienta en jerga: ahora va al log.
+- **Trampa del motor: un Recurrente le llegaba UNA vez a cada lead.** Cada ocurrencia inscribe por el BARRIDO
+  (`aInscribir`, porEvento=false) y, con el unique (lead, secuencia), ni «Una sola vez» ni «Cada vez que vuelve a
+  entrar» reinscribían a quien ya lo recibió: un «todos los martes a todos» llegaba una vez y después sólo a los nuevos,
+  sin error. Ahora el barrido de un CRON CON horario cuenta como evento (`barridoEsEvento`, lib/reentrada.ts): corre una
+  vez por ocurrencia (la reclama el compare-and-set de `cron_proxima_at`), así que no repite en cada tick. Un barrido
+  sin horario sigue sin serlo. El Recurrente que crea la IA nace con «Cada vez que vuelve a entrar».
+
+**Regla:** un horario que dice el pedido lo extrae el código y se impone; si no se puede expresar, se pregunta, nunca se
+cambia por otro CRON. Un flujo creado con IA lleva sólo lo que el pedido pide.
+
+**Lo que quedó SIN hacer:** la sugerencia del aviso va como texto («pídemelo»), sin botones · «cada año» y «el primer
+lunes de cada mes» no se leen (el pedido sigue al modelo, como antes) · un Recurrente hecho A MANO en el editor no nace
+con «Cada vez que vuelve a entrar» (la reentrada se elige en el CRON) · #284 tiene un Recurrente puesto a mano los
+martes 16:15 con la reentrada de antes: le llega una vez por lead hasta que alguien elija «Cada vez» (lo decide Martín).
+
+**Vive en:** lib/flujo-ia-recurrente.ts · lib/flujo-ia-crear-core.ts (`crearConIA`, `detalleDeCreada`, `conConteos`) ·
+lib/flujo-ia-preguntas.ts (`preguntaAntes`) · lib/flujo-ia.ts (regla 8, `pidioAviso`, `pidioRespuesta`,
+`otraCosaComoCaso`, `resumenEdicionDetalle`) · lib/disparadores.ts (`recurrenteDeValorIA`) · lib/flujo-ia-crear.ts
+(`contarCohorte`) · lib/reentrada.ts (`barridoEsEvento`) · lib/nutricion.ts (`aInscribir`) · test:
+tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
+
+**«Configuré una recurrente y no salió» (Leila, ws11, 20/10, medido a las 21:31 UTC):** el diagnóstico obvio («el Recurrente no anda») era a medias. Pasaron tres cosas:
+- **Lo que no salió no era el Recurrente.** Era #282 «Recordatorio clase reactivación», disparada por la etapa: la corrida de las 21:00Z inscribió a los 31 leads de Reactivación, y los **31 mensajes quedaron como BORRADORES pendientes** (`wa_borradores`, origen nutricion). Por WhatsApp no oficial, a un lead sin `fecha_primer_pago` nunca se le manda directo: se deposita un borrador que alguien manda con un clic (la regla dura del PDF, `esLeadCliente` en lib/evolution-envio.ts). La pantalla de Automations no lo dice: la clienta cree que la automatización no anda.
+- **Un Recurrente sale a la hora en punto siguiente, no a su minuto.** El tick de cada minuto (app/api/cron/nutricion-tick) no inscribe por cohorte: eso lo hace sólo la corrida de cada hora (`comprometerInscripciones`, app/api/cron/nutricion, minuto 0). El de los martes 16:15 (21:15Z) seguía con `cron_proxima_at` 21:15Z a las 21:31Z: toca a las 22:00Z.
+- **Dos automatizaciones al mismo grupo con el mismo recordatorio.** #282 (por etapa) y el d2 de #284 (Recurrente) van a Reactivación del funnel 4 con casi el mismo texto. El motor no apila (espera a que se mande el borrador pendiente: `tieneBorradorNutriPendiente`), así que si se aprueban las dos, el lead recibe el recordatorio DOS veces. Nada avisa que hay otra automatización con la misma cohorte.
+
+**Regla:** antes de decir «no salió», mirar `wa_borradores` pendientes del ws y `cron_proxima_at` de cada disparador. Una automatización que deja borradores tiene que decirlo en su pantalla, con cuántos y dónde se aprueban.
+
+## «El chat de MaKo siempre abierto en la sidebar»: el pedido no se perdió en el código, se perdió en el relevo (20/10/2026)
+
+**Síntoma.** El 20/10 Martín preguntó: «Te habia pedido varias cosas, ¿No tienes el registro?». Pedía el chat de Automations siempre abierto en la sidebar, sin el logo de MaKo y con la tuerca en su lugar.
+
+**Diagnósticos obvios, los dos equivocados:**
+- **«Nadie lo anotó»:** falso. El Cerebro reenvió el pedido textual al chat Automations el 16/10 a las 05:22 UTC (puntos 5 y 6 del «Feedback Automations»).
+- **«Se hizo y se revirtió»:** falso. `git log --all --since=2026-10-16` no tiene un solo commit que lo toque. El chat a la derecha es de la decimocuarta tanda (51a3ad96d, 12/10).
+
+**La causa real: un PUNTERO sin contenido entre cuentas.**
+1. El chat de la cuenta 3 dejó los puntos 5 y 6 al final de la cola.
+2. Al cerrar por cuota, el relevo escribió «lo visual de «Probar», 4c (Calendly) y los puntos 5-6», sin el texto (docs/relevo/chatbot.md:104).
+3. El Cerebro de la cuenta 4 lo leyó como si los puntos 5-6 fueran parte de «Probar».
+4. El chat nuevo buscó «el feedback del 16/10» y encontró OTRO documento con ese nombre (docs/feedback-16-10-crm-onboarding-second-brain.md, del CRM, de la tarde), donde el 5 y el 6 son otra cosa. Lo marcó «sin ubicar» (docs/relevo/chatbot.md:37).
+5. Le preguntó al Cerebro y la pregunta no tuvo respuesta. Al día siguiente el pedido ya no estaba en ninguna lista ni en docs/pendientes.md.
+
+Ya había pasado el 15/10 («Las doce cosas de Automations (vivían sólo en un mensaje entre chats)», bitácora): ese día se arregló para esas doce, pero no quedó como regla.
+
+**Reglas que quedan:**
+- Un pedido de Martín que llega por otro chat se pega LITERAL como hito `actor: "martin", tipo: "prompt"` en la bitácora del área, el mismo día, aunque vaya al final de la cola.
+- Un relevo nunca escribe «los puntos N-M del feedback del <fecha>»: copia el texto o cita el hito.
+- Un mismo día puede tener varios «feedback» (el 16/10 hubo dos), así que una fecha no identifica un documento.
+- Una pregunta a otro chat que queda sin respuesta no saca el pedido de la lista: va a docs/pendientes.md con «sin ubicar» y el transcript donde buscarlo. Los transcripts quedan en ~/.claude/projects/…/<sesión>.jsonl; este estaba en a8f8993e, 2026-10-16T05:22:05Z.
+
+**Vive en:**
+- docs/relevo/chatbot.md:37, :104, :119-120
+- app/admin/dev/chatbot/bitacora.ts:1638 (el último hito «prompt»)
+- app/automations/SecuenciaPerfil.tsx:1202 y app/automations/SimuladorWhatsApp.tsx:827 (lo que sigue sin hacer)

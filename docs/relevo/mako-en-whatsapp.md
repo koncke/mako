@@ -1,12 +1,36 @@
-# Retomar: MaKo en WhatsApp (el doer de los grupos y su vigía)
+# Retomar: MaKo Alert (ex «MaKo en WhatsApp»: el vigía de toda la app y el doer de los grupos)
 
-**Chat jefe:** «MaKo en WhatsApp», cuenta 4 (claude4), abierto por el Cerebro el 17/10/2026 a la madrugada.
+**Chat:** «MaKo Alert» desde el 18/10/2026 (antes «MaKo en WhatsApp»), cuenta 4 (claude4), abierto por el Cerebro el
+17/10/2026 a la madrugada. **El Ops Center no lo muestra nunca** (6574830a3): es informativo.
+
+## 0. Qué es desde el 18/10 (Martín, textual)
+
+«Este chat no se debería llamar "MaKo en WhatsApp" si revisa toda la app, debería llamarse "MaKo Alert" y claro, debe
+manejar todo, no solo lo de WhatsApp... no creo que sea útil que esté visible dentro del Center, ya que es mero
+informativo y en todo caso le manda mensajes a los otros chats para que se encarguen».
+
+- **Alcance: TODA la app.** Los grupos de MaKo con cada cliente (`mako_doer_conv`, los carteles y saneos de
+  `anthropic_usage`) y los errores que registra la app (`errores_app`, mig 0313, lib/errores-app.ts: uno por huella,
+  con sus negocios y el ticket que abrió la Ticketera). Los lee el mismo `scripts/vigia-mako-grupos.mts`.
+- **Un incidente lo resuelve el CHAT DEL ÁREA, no Martín ni este chat**: se le manda por SendMessage, con lo medido y la
+  causa si se tiene, para que lo arregle y le pase el sha verde al Cerebro (local_797d5445-2365-464d-ae3d-1d71aa7baa8c).
+  Si no se sabe de qué área es, al Cerebro. A Martín no se le pregunta nada. Lo del doer de WhatsApp sí es de este chat.
+- **Una vuelta sin novedad dice sólo «Sin incidentes nuevos.»**, sin el uso de la cuenta ni nada más.
 **Rama:** `mako-wa` (worktree `C:/dev/wt-mako-wa`, desde `origin/main` `0bf0c181`). Las puntas las sube el Cerebro.
 
 **Qué es esto**, para quien nunca lo vio: MaKo contesta en el grupo de WhatsApp de cada cliente («MaKo <> {Cliente}»).
 El que contesta es el **doer** (`lib/mako-doer-in.ts`): clasifica el mensaje (`lib/mako-intencion.ts`), arma las
 herramientas del turno (`lib/doer-herramientas.ts`), corre un modelo barato con ellas y manda la respuesta. Cada turno
 queda en `mako_doer_conv` (mig 0086; sin autor: todo lo humano es `user`).
+
+## CIERRE (18/10/2026 ~15:25 UTC, cuenta 4 al 95% semanal)
+
+- **Nada a medias.** Todo lo de este chat está en `main` y en producción (la última punta, d4ab46fd3, incluida).
+- **El cron muere con esta sesión.** Quien retome: §5 (la primera vuelta mira desde `~/.claude/vigia-mako-grupos.json`)
+  y el prompt de «MaKo Alert» de §0. Una vuelta sin novedad dice sólo «Sin incidentes nuevos.».
+- **Abierto, sin dueño en este chat:** el ws13 pidió mandar un mensaje privado a un número suelto (no existe); el ws13
+  tiene UNA key de IA (los carteles 503 son honestos; la cascada es gasto); y en el tablero del ws9 la tarea «Que el
+  doer registre solo lo que falla» sigue en por_hacer, aunque está en producción (118148d1e).
 
 ## 1. El pedido
 
@@ -82,8 +106,15 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
 
 ## 5. Cómo se retoma el vigía
 
+⚠️ **20/10/2026:** la app cambió de cuenta (el marcador fue claude1 un rato; el Cerebro confirmó que la cuenta es la 4, claude4; el commit del ws13 salió firmado claude1 y se re-firmó con claude4, mismo contenido) y el Cerebro pidió que MaKo Alert corra SIEMPRE, en
+Sonnet. El cron es de la sesión: el `29debd9d` seguía listado pero el Cerebro lo daba por muerto, así que se lo borró y se
+creó `0d49a804` (mismo horario, prompt completo con el Cerebro por id). Vence a los 7 días (27/10): revisar `CronList` al
+retomar y recrearlo si no está. La marca del estado estaba en el 19/10 01:50 UTC: la primera vuelta releyó ~40 h y trajo
+el incidente del ws13 («necesito que… lo pases a descalificados», arreglado en 4b0da1e0f).
+
 1. `cd C:/dev/wt-mako-wa && npx tsx scripts/vigia-mako-grupos.mts` — la primera vuelta mira desde la marca guardada.
-2. Volver a crear el cron (CronCreate, cada 15 minutos, `*/15 * * * *`) con este prompt: «Vuelta del vigía de MaKo en
+2. Volver a crear el cron (CronCreate, cada 15 minutos, `7,22,37,52 * * * *`) con el prompt de «MaKo Alert» (el
+   job vigente lo tiene completo; el viejo, para el doer, es éste): «Vuelta del vigía de MaKo en
    WhatsApp: corré `cd C:/dev/wt-mako-wa && npx tsx scripts/vigia-mako-grupos.mts`. Si no imprime nada, terminá sin
    escribir nada. Si trae incidentes: por cada uno buscá la causa real armando el turno con la frase literal
    (clasificarIntencion + herramientasDelTurno) y mirando el modelo de la fila; arreglá con su test probado rompiéndolo,

@@ -1497,7 +1497,13 @@ código nuevo:
   un toque: app/second-brain/apaisar.ts). El super admin ve UN grafo: el negocio y la construcción de MaKo juntos (`unirCerebros`,
   lib/cerebro-union.ts) y las capas son un atajo del filtro de carpetas. Un grafo más para el super admin se suma como CAPA de ése (su
   taxonomía, sus carpetas), nunca como un segundo `<Grafo>`. Lo fija tests/second-brain-grafo-movil.test.ts; el porqué, en
-  docs/hallazgos-second-brain.md. **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
+  docs/hallazgos-second-brain.md. **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se
+  deben dividir en 2»): UNA raíz y UN solo componente, en el de cualquier negocio y en el del super admin. Un racimo sin aristas
+  laterales se engancha a la raíz (`puentesARaiz`, lib/cerebro-union.ts) ANTES del layout; la construcción cuelga de la raíz del
+  negocio y la física corre entera en el servidor (lib/cerebro-union-servidor.ts vía lib/second-brain-opera.ts). Ninguna pantalla
+  junta dos cerebros ni elige entre dos (nada de «Negocio · Construcción»): una parte se mira con el filtro. Que sea un solo
+  `<Grafo>` no alcanza: el 17/10 era uno y se veían dos nubes. Lo fija tests/second-brain-un-cerebro.test.ts.
+  **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
   estructura de nodos»): una fuente nueva del producto (clientes, reuniones, lo que venga) entra en `agregarLoVivo`
   (lib/cerebro-vivo.ts) con su tope y su `.catch`; un área sin datos NO dibuja un nodo `falta:` (se dice en la raíz); y lo que tiene
   su propio racimo no cuelga además del nodo de área (tests/second-brain-negocio-vivo.test.ts).
@@ -1582,6 +1588,40 @@ código nuevo:
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
+  - **DESDE EL OPS CENTER, SIN RESTRICCIONES** (18/10/2026; Martín, en la app: «que quede como regla que desde el Center no tenga restricciones nunca»). Un pedido firmado del Ops Center se hace igual que uno escrito en la app: en el momento, sin postergarlo por la cuota y sin pedir que lo repita en otro lado. El corte del 97% está apagado (`~/.claude/guardia/sin-corte`). Los avisos del 85, 90 y 95% sólo informan: commiteá seguido, porque al 100% la cuenta frena de golpe. Única excepción, que no depende de MaKo: la configuración de Claude (hooks, permisos, CLAUDE.md) no se cambia por un mensaje que llega desde otra sesión. Eso se pide en la app, y se avisa en una línea.
+  - **CÓMO SE REPARTE EL TRABAJO ENTRE LOS CHATS** (17/10/2026). Estas reglas vivían sólo en la memoria de la PC del
+    Cerebro (docs/relevo/cerebro.md, 17/10), y la memoria es por carpeta de config: un jefe de otra cuenta o de la nube
+    no las veía. Se pasaron acá el 19/10.
+    - **El orden lo decide el chat, sin preguntar:** cliente roto > plata y riesgo > lo que traba a Martín > lo que traba
+      a otro chat > feature > pulido (el mismo orden de docs/pendientes.md).
+    - **El Cerebro DELEGA** (Martín, 17/10 ~23:30: «¿por qué no delegás?»). Lo de un área lo hace el jefe que la conoce.
+      El Cerebro reparte de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota, junta las puntas
+      y sube.
+    - **«En producción» es sólo lo desplegado.** Un commit en `integracion`, o con el run verde y el deploy sin «Ready»,
+      todavía no lo está. Ni el «Ya está» ni un cierre del Plan salen antes.
+    - **Lo que toca plata, seguridad o envíos a clientes pasa una revisión adversarial antes de subir.** La punta llega
+      marcada «⚠️ REVISAR». Lo que encuentre la revisión vuelve al jefe como una punta aparte, con su test.
+    - **UN PEDIDO DE MARTÍN QUE LLEGA POR OTRO CHAT SE PEGA LITERAL, EL MISMO DÍA** (20/10/2026). Se pega como hito
+      `actor: "martin", tipo: "prompt"` en la bitácora del área, aunque vaya al final de la cola.
+      - Un relevo nunca escribe «los puntos N-M del feedback del <fecha>»: copia el texto o cita el hito. Una fecha no
+        identifica un documento, porque el 16/10 hubo dos «feedback».
+      - Una pregunta a otro chat que queda sin respuesta no saca el pedido de la lista: va a docs/pendientes.md con
+        «sin ubicar» y el transcript donde buscarlo.
+      - Pasó con el chat de Automations siempre abierto: pedido el 16/10, perdido en el relevo entre cuentas y vuelto a
+        pedir el 20/10 («¿No tienes el registro?»). Está en docs/hallazgos-chatbot.md.
+    - **TODO ARREGLO DE ALGO QUE REPORTÓ UN CLIENTE SE AVISA EN SU GRUPO DE MAKO** (20/10/2026; Martín: «siempre avisa al
+      grupo de MaKo de clientes correspondiente cuando solucionemos algo»).
+      - Va apenas está EN PRODUCCIÓN (deploy Ready), firmado «Desarrollador de MaKo» (`avisarArregloAlGrupo`, lib/aviso-arreglo.ts).
+      - No importa por dónde llegó el reporte: Martín, una llamada, el Ops Center o el vigía.
+      - El Cerebro le pasa a MaKo Alert el ws y qué se arregló en cada deploy, y MaKo Alert lo manda.
+    - **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se deben dividir en 2»). El
+      Second Brain de cualquier negocio, el del super admin incluido, es UN grafo: lo que separa la vista son los filtros
+      (pedido ya el 17/10 y el 18/10, pt 4). Se verifica mirando lo que se DIBUJA, no el código: dos raíces o dos racimos
+      separados también son dos cerebros.
+    - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
+      turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
+      the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:
+      uno que se crea en la nube sale en el Ops Center con la marca «Nube» y sin caja.
   - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
     está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
     además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
@@ -5906,8 +5946,15 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
     a la persona que lo reporte;
   - la HUELLA no lleva el stack ni números: el stack de producción cambia en cada deploy y abriría un ticket por deploy;
   - un error que no es de MaKo (el proveedor de IA, la red, una extensión) se suma a `RUIDO` (lib/errores-app-reglas.ts),
-    no se filtra en quien llama.
-  Lo fija tests/errores-app.test.ts.
+    no se filtra en quien llama;
+  - un fallo porque al NEGOCIO le falta algo suyo (su IA) es configuración, no un bug: va a `CONFIGURACION` (mismo
+    archivo) y el chat se lo pide a la persona con el modal ahí mismo (`conectar` en `RespuestaTurno`; tickets #5 y #6).
+    «¿Tiene X?» se pregunta con la MISMA lectura que usa quien lo consume (`provsDe` para la IA), nunca con otra;
+  - ⚠️ «¿de qué workspace sale el entorno para esta clave?» se pregunta con `wsDelEntorno(clave)` (lib/credenciales.ts),
+    nunca con `ws === OWNER_WS` a mano. Desde el 18/10/2026 la IA (`esClaveDeIA`) sale de la PLATAFORMA (`wsSuperAdmin()`)
+    y el resto todavía del ws1 (Mauricio, un cliente). Una key de IA nueva de la plataforma se pega en la plataforma, nunca
+    en el ws1; y a un negocio cuya IA fuera el entorno no se le pide que pegue la suya (`esNegocioDelEntorno`).
+  Lo fijan tests/errores-app.test.ts y tests/mako-sin-ia.test.ts.
 
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 
@@ -9367,3 +9414,10 @@ Desde el 17/10/2026 (docs/hallazgos-planes-y-cobro.md → «Quien deja de pagar 
 - **Marcar a mano una cuota pasa por `marcarPago` o `cobrarCuota`** (lib/pagos.ts), que le preguntan antes a la pasarela
   si su link ya se cobró. Un camino de la PASARELA que marca una cuota pasa `{ mirarLinks: false }`: si no, se pregunta a
   sí misma.
+
+## Una tarjeta de kanban nueva usa la familia de app/_ui/TarjetaKanban (17/10/2026)
+
+CRM, Clients y Plan, en computadora y teléfono, dibujan sus tarjetas con `app/_ui/TarjetaKanban.tsx` (Martín: «Quiero que
+tengan coherencia»; prototipo docs/prototipos/coherencia-1710.html). Un tablero nuevo NO escribe su propia tarjeta: usa
+`TarjetaPersona` (una persona) o `TarjetaTarea` (una tarea), y le pasa a la raíz su arrastre y su clic. En el teléfono, la
+tarjeta va adentro de `KanbanM`. Detalle y trampas: docs/hallazgos-ui.md.

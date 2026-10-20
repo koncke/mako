@@ -59,8 +59,12 @@ export type ItemHilo =
     }
   | { k: 'propuesta'; id: string; t: TarjetaPendiente; estado: EstadoPropuesta; nota?: string }
   | { k: 'pantalla'; id: string; p: PropuestaPantalla }
-  /** `mako` = lo escribió el código para la persona (la agenda); `plataforma` = no pude */
-  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma' };
+  /** `mako` = lo escribió el código para la persona (la agenda); `plataforma` = no pude.
+   *  `conectar`: la integración que le falta al negocio (`RespuestaTurno.conectar`): un botón que abre su modal ahí mismo. */
+  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string };
+
+/** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor. */
+export const botonConectar = (servicio: string): string => (servicio === 'gemini' ? 'Conectar tu IA' : 'Conectar');
 
 let secuencia = 0;
 /** Un id local para la `key` de React (los mensajes guardados no traen id). */
@@ -103,7 +107,10 @@ export function itemsDeRespuesta(r: RespuestaTurno, yaVistas: ReadonlySet<number
     if (m.role === 'assistant' && m.content.trim()) out.push({ ...aMensaje(m, 0), id: idLocal('a') });
   });
   for (const t of r.paraLaPersona) if (t.trim()) out.push({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' });
-  if (r.aviso) out.push({ k: 'aviso', id: idLocal('v'), texto: r.aviso, tono: 'plataforma' });
+  // Al negocio le falta una integración (su IA): no es un cartel de «no pude», lo dice MaKo y trae el botón para conectarla.
+  if (r.aviso) out.push(r.conectar
+    ? { k: 'aviso', id: idLocal('v'), texto: r.aviso, tono: 'mako', conectar: r.conectar }
+    : { k: 'aviso', id: idLocal('v'), texto: r.aviso, tono: 'plataforma' });
   for (const t of r.propuestas) if (!yaVistas.has(t.pendienteId)) out.push(aPropuesta(t));
   for (const p of r.pantallas) out.push({ k: 'pantalla', id: idLocal('s'), p });
   return out;

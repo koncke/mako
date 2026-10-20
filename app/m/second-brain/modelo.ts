@@ -21,7 +21,7 @@ export const ROTULOS_ESCRITORIO = {
   todo: { t: 'Todo', en: 'app/second-brain/BuscadorCerebro.tsx' },
   donde: { t: 'Dónde buscar', en: 'app/second-brain/BuscadorCerebro.tsx' },
   conMako: { t: 'Buscar con MaKo', en: 'app/second-brain/BuscadorCerebro.tsx' },
-  leyendo: { t: 'MaKo está leyendo tu mapa…', en: 'app/second-brain/BuscadorCerebro.tsx' },
+  leyendo: { t: 'MaKo está leyendo tu Second Brain…', en: 'app/second-brain/BuscadorCerebro.tsx' },
   eligio: { t: 'MaKo eligió', en: 'app/second-brain/BuscadorCerebro.tsx' },
   negocio: { t: 'Tu negocio', en: 'app/second-brain/Grafo.tsx' },
   norte: { t: 'Tu Norte', en: 'app/second-brain/Grafo.tsx' },

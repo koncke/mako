@@ -30,13 +30,14 @@ import { getPromptText } from '@/lib/prompt-render';
 import { parseJsonObject } from '@/lib/json-del-modelo';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { getVozGuia } from '@/lib/nutricion-generator';
-import { setSecuenciaPasos, setSecuenciaActiva, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { setSecuenciaPasos, setSecuenciaActiva, setSecuenciaReentrada, leadsDeCohorte, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { etapasDe } from '@/lib/nutricion-etapa';
 import {
   productosConEtapas, renombrarSecuencia, nombreDeSecuencia, crearSecuenciaVacia, TriggerInvalidoError,
 } from '@/lib/setting-secuencias';
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { estadoCanalesDisparo } from '@/lib/disparadores-canales';
-import { opcionesCronIA, disparadorDeValorIA, type CanalesConectadosIA } from '@/lib/disparadores';
+import { opcionesCronIA, disparadorDeValorIA, recurrenteDeValorIA, type CanalesConectadosIA } from '@/lib/disparadores';
 import { catalogosDe, etapasDeCondicion } from '@/lib/condiciones-catalogos';
 import { catalogosRemotos } from '@/lib/condiciones-catalogo-datos';
 import { listarEtiquetas, crearEtiqueta } from '@/lib/etiquetas';
@@ -153,7 +154,8 @@ export async function armarContexto(ws: number, pedido: string): Promise<{ ctx: 
   // EL DISPARADOR: el mismo catálogo cerrado que el desplegable del CRON (`opcionesCronIA`: los kanbans, las
   // etiquetas, y los eventos de Instagram, Messenger, Email y Pagos de los canales CONECTADOS), aplanado CON EL
   // PRODUCTO en el rótulo (`disparadoresParaIA`: con dos productos con la misma etapa, el rótulo pelado elegía el
-  // embudo equivocado). Ni `manual` ni el Recurrente: uno no inscribe a nadie y el otro pide un horario.
+  // embudo equivocado). Ni `manual` ni el Recurrente: uno no inscribe a nadie, y el horario del otro lo saca el CÓDIGO del
+  // pedido (20/10/2026, `recurrenteDelPedido`, lib/flujo-ia-recurrente.ts): de esta lista sale sólo A QUIÉN le llega.
   // DUODÉCIMA TANDA: de ESTO salen también las preguntas de MaKo (`preguntaAntes`, lib/flujo-ia-preguntas.ts), en la
   // pantalla y en la API (`preparar` llama a esta misma función): las dos ven las MISMAS opciones.
   const disparadores = disparadoresParaIA(opcionesCronIA({
@@ -381,6 +383,23 @@ export async function generar<R extends { avisos: string[] }>(p: {
 /** Lo que devuelve crear (re-exportado para las dos puertas). */
 export type { ResultadoCrearIA, OptsCrearIA, PreguntaCrearIA } from '@/lib/flujo-ia-crear-core';
 
+/**
+ * CUÁNTOS ALCANZA HOY EL CRON DE UN VALOR (la pregunta «¿A quién le llega?» y el mensaje de «Creé…», 20/10/2026): la
+ * MISMA cohorte que barre el motor (`leadsDeCohorte`, con su ventana de 90 días), no los leads del embudo. Contar el
+ * embudo entero diría un número plausible y falso. null = no se pudo (sin número, nunca un cero inventado).
+ */
+export async function contarCohorte(valor: string): Promise<number | null> {
+  const [d] = disparadorDeValorIA(valor);
+  if (!d) return null;
+  try {
+    const ids = await leadsDeCohorte(d.trigger_tipo, etapasDe({ etapa: d.etapa ?? null, etapas: d.etapas ?? null }), d.funnel_id ?? null, d.producto_id ?? null, d.etiqueta_id ?? null);
+    return ids.length;
+  } catch (e) {
+    console.error('[flujo-ia-crear] no pude contar la cohorte:', msg(e));
+    return null;
+  }
+}
+
 /** Las dependencias de verdad, para el workspace del contexto (ver `crearFlujoConIA`). */
 function depsReales(ws: number): DepsCrearIA {
   const filaDe = async (id: number) => {
@@ -412,12 +431,15 @@ function depsReales(ws: number): DepsCrearIA {
     // la ruta y los quince lectores de siempre) Y la lista de la 0241, y valida contra el negocio. Con
     // `setTriggerSecuencia` la lista quedaba en NULL (#243 y #245 de ws10) y un CRON de Instagram no se podía poner.
     // VARIAS etapas (punto 14) viajan en el valor (`venta:5:a,b`) y `disparadorDeValorIA` las conserva.
-    ponerDisparador: async (id, valor) => {
-      const lista = disparadorDeValorIA(valor);
+    // Con `cron` (20/10/2026) es un Recurrente: el valor es a quién y el horario lo puso el código (`recurrenteDeValorIA`).
+    ponerDisparador: async (id, valor, cron) => {
+      const lista = cron ? recurrenteDeValorIA(valor, cron) : disparadorDeValorIA(valor);
       if (!lista.length) throw new TriggerInvalidoError('no se entiende');
       await guardarDisparadores(id, lista);
     },
     motivoDeDisparador: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+    ponerReentrada: (id, modo) => setSecuenciaReentrada(id, modo),
+    contar: contarCohorte,
     renombrar: async (id, nombre) => {
       const n = nombreDeSecuencia(nombre);
       if (!n) return null;

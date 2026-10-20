@@ -171,10 +171,12 @@ export async function descargarPdf(sesionId: number, version?: number | null, op
  * Las páginas del PDF en SVG, para verlo en la pantalla antes de descargarlo (17/10/2026, tarjeta #887). Es el MISMO
  * documento que baja `descargarPdf` (GET /api/offer/pdf?…&vista=paginas). Tira con el mensaje del servidor.
  */
-export async function paginasPdf(sesionId: number, version?: number | null): Promise<string[]> {
+export async function paginasPdf(sesionId: number, version?: number | null, tipo?: 'lo-que-vendes'): Promise<string[]> {
   let r: Response;
+  // `tipo` = «Lo que vendes» del onboarding (18/10/2026): las piezas, sin conclusión ni versión.
+  const base = tipo ? `/api/offer/pdf?id=${sesionId}&tipo=${tipo}` : urlPdf(sesionId, version);
   try {
-    r = await fetch(`${urlPdf(sesionId, version)}&vista=paginas`, { signal: AbortSignal.timeout(TOPE.pdf) });
+    r = await fetch(`${base}&vista=paginas`, { signal: AbortSignal.timeout(TOPE.pdf) });
   } catch (e) {
     throw new Error(esCorte(e) ? 'El PDF tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.');
   }

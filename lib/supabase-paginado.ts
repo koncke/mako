@@ -101,6 +101,14 @@ export type OpcionesPaginado = {
    * devolver `false` desde `onPagina`.
    */
   maxPaginas?: number;
+  /**
+   * Cuántas páginas se piden A LA VEZ (default 1: de a una). Con N, las páginas salen en OLAS de N y se entregan
+   * a `onPagina` en el mismo orden que de a una; el barrido corta igual (página corta, `false` o el tope). Lo que
+   * cuesta: hasta N-1 páginas pedidas de más al final. Para leer tablas grandes ENTERAS en un pedido que alguien
+   * espera mirando la pantalla: de a una, cada página paga la ida y vuelta entera (Chats, 20/10/2026: 19 páginas
+   * del espejo de WhatsApp en serie eran 12,7 de los 17,4 s de abrir la tab; docs/hallazgos-comunicacion.md).
+   */
+  paralelo?: number;
 };
 
 /**
@@ -134,11 +142,9 @@ export async function leerPorPaginas<T>(
   const pagina = opts.pagina ?? PAGINA_POSTGREST;
   const orden = columnasOrden(opts.orden ?? 'id');
   const tope = Math.max(1, Math.trunc(opts.maxPaginas ?? MAX_PAGINAS));
+  const ola = Math.max(1, Math.trunc(opts.paralelo ?? 1));
 
-  for (let p = 0; ; p++) {
-    if (p >= tope) {
-      throw new Error(`Paginado de ${tabla} pasó ${tope} páginas (${tope * pagina} filas): algo está mal en el filtro o la tabla creció fuera de escala`);
-    }
+  const leerPagina = async (p: number): Promise<T[]> => {
     const desde = p * pagina;
     let q = db.from(tabla).select(cols) as ConsultaPaginada;
     if (opts.filtros) q = opts.filtros(q);
@@ -155,11 +161,23 @@ export async function leerPorPaginas<T>(
     for (const o of orden) ordenada = ordenada.order(o.col, { ascending: o.asc ?? true }) as ConsultaPaginada;
     const { data, error } = await ordenada.range(desde, desde + pagina - 1);
     if (error) throw new Error(`Error leyendo ${tabla} (página ${p + 1}): ${error.message}`);
-    const filas = (data ?? []) as unknown as T[];
-    if (onPagina(filas, p + 1) === false) return;
-    // Página incompleta = última página. Si vino EXACTA, hay que pedir otra
-    // aunque esté vacía: no hay forma de distinguir "justo 1000" de "cortado".
-    if (filas.length < pagina) return;
+    return (data ?? []) as unknown as T[];
+  };
+
+  for (let p = 0; ; p += ola) {
+    if (p >= tope) {
+      throw new Error(`Paginado de ${tabla} pasó ${tope} páginas (${tope * pagina} filas): algo está mal en el filtro o la tabla creció fuera de escala`);
+    }
+    // Una ola: hasta `ola` páginas a la vez, sin pasar el tope. Se entregan EN ORDEN.
+    const nros = Array.from({ length: Math.min(ola, tope - p) }, (_, i) => p + i);
+    const paginas = await Promise.all(nros.map(leerPagina));
+    for (let i = 0; i < paginas.length; i++) {
+      const filas = paginas[i];
+      if (onPagina(filas, nros[i] + 1) === false) return;
+      // Página incompleta = última página. Si vino EXACTA, hay que pedir otra
+      // aunque esté vacía: no hay forma de distinguir "justo 1000" de "cortado".
+      if (filas.length < pagina) return;
+    }
   }
 }
 

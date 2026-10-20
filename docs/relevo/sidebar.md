@@ -1,6 +1,6 @@
 # Relevo: chat «Sidebar» (la barra, la navegación y el teléfono que la sigue)
 
-<sub>Escrito el 18/10/2026 de madrugada (hora AR), con la cuenta claude4 al 85% de la cuota semanal.</sub>
+<sub>Escrito el 18/10/2026 (hora AR), con la cuenta claude4 al 89% de la cuota semanal.</sub>
 
 **Pegar en un chat nuevo:** «Sos el jefe Sidebar. Leé docs/relevo/sidebar.md y docs/diseno-sidebar.md (la v2 arriba) y seguí
 con lo pendiente. No pushees: pasale tu punta al Cerebro.»
@@ -13,21 +13,22 @@ barra de abajo), `app/m/mas`. El diseño y por qué: `docs/diseno-sidebar.md`. E
 
 ## Dónde quedó
 
-- **Rama `sidebar-v2`** en `C:/dev/wt-sidebar-email` (salió de `origin/integracion` 2858b8185): la sidebar del prototipo
-  (lo diario arriba, Sales · Marketing · Create, barra fija con flecha, Ctrl K sin modal, la cara del menú de la foto,
-  colores de sección, More del teléfono con la foto real, barra de abajo CRM · Chats · Dashboard · Plan · More). Commit
-  hecho, **sin pushear** (pushea el Cerebro).
-- La tanda anterior (Chats unificado, Ops Center arriba, Admin al menú de la foto) ya está en main (51cbc9df8).
+- La sidebar del prototipo (lo diario arriba, Sales · Marketing · Create, Ctrl K, la cara del menú de la foto, More con la
+  foto real, barra de abajo CRM · Chats · Dashboard · Plan · More) está en main.
+- **18/10: «Ops Center» en todos los negocios** (la fila de /second-brain con ese nombre y la estrella): rama
+  `ops-center-clientes` en `C:/dev/wt-sidebar-email`, salida de origin/main. Commit hecho, **sin pushear** (pushea el Cerebro).
 
 ## Lo que falta (con el archivo donde vive)
 
-1. **Dashboard abre en Focus** (`app/dashboard/page.tsx`, `app/general/page.tsx`, del jefe «Dashboard»): hoja fija Focus,
-   botón Templates, /general → /dashboard?hoja=focus. Se le mandó el plan medido el 17/10. Cuando esté: sacar la fila
-   «Dashboard sheets» de More (`SECCIONES_MAS` en `lib/movil-rutas.ts`) y el alias, si cambia la ruta.
+1. **Dashboard con Focus**: lo hizo el jefe «Dashboard» (7e0a57b2a). La fila «Dashboard sheets» de More
+   (`SECCIONES_MAS` en `lib/movil-rutas.ts`) se queda: quien no armó hojas en el Dashboard llega a Marketing/Comercial
+   del teléfono sólo por ahí.
 2. **My Profile con «My leads / My tasks / My reports / Favorites»** (prototipo de coherencia, parte 7): antes hace falta
    un filtro «míos» en el CRM y el Plan. No se dibujaron filas que mientan.
 3. **La barra de abajo flotante con el activo en píldora** (prototipo): es de `app/m/_ui/ShellM.tsx`, no se tocó.
 4. **Mirarlo en un navegador**, escritorio y 390 px, en el ws3 (nunca el ws1). Esta tanda la fijan los tests y el tsc;
    nadie la vio dibujada.
-5. Viejos: Resend Receiving + MX para el email entrante de Chats; sacar del todo la key `experimentos` cuando las
+5. Los textos de MaKo que dicen «Second Brain → Persona» (lib/secciones-negocio.ts, reglas del chat): el lugar ahora se
+   llama Ops Center en la barra del negocio. Es contenido del jefe Second Brain.
+6. Viejos: Resend Receiving + MX para el email entrante de Chats; sacar del todo la key `experimentos` cuando las
    redirecciones del Dashboard estén en producción.

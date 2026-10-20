@@ -74,7 +74,7 @@ export function BuscadorNav({ destinos, abierta, onAbrir }: {
 
   return (
     <>
-      <label className="mk-buscador" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 'var(--r-sm)', background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)', color: 'var(--sidebar-text)' }}>
+      <label className="mk-buscador" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 'var(--r-sm)', background: 'var(--sidebar-2)', border: '1px solid var(--sidebar-line)', color: 'var(--sidebar-text)' }}>
         <Icon name="search" size={15} />
         <input ref={campo} value={q} placeholder="Search" aria-label="Search tabs and settings"
           onFocus={medir}

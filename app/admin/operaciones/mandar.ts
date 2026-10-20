@@ -12,14 +12,15 @@
 // la PC decide si la acepta.
 
 import { useCallback, useEffect, useState } from 'react';
-import { MAX_TEXTO, armarFirmable, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type Modelo } from '@/lib/operaciones-reglas';
+import { MAX_NOMBRE_ADJUNTO, MAX_TEXTO, MIMES_ADJUNTO, armarFirmable, mimeDeArchivoCentro, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type MimeAdjunto, type Modelo } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { TEXTO_SOLO_ADJUNTOS } from '@/lib/centro-caja';
 import { encolarPedidoAction } from './acciones';
 import { claveDelDispositivo, crearClaveDelDispositivo, firmar, type ClaveDispositivo } from './clave-dispositivo';
 
 /** A quién va: la SESIÓN del chat (nunca su título: se repiten entre cuentas). */
-export type DestinoTrabajo = { sesion: string; cuenta: string | null; titulo: string };
+/** `tope`: el largo que acepta el Runner de esa cuenta (useCentro.ts → topeDe); sin él, el de siempre (MAX_TEXTO). */
+export type DestinoTrabajo = { sesion: string; cuenta: string | null; titulo: string; tope?: number };
 
 export type ResultadoMandar = { ok: true; id: string; creado: string } | { ok: false; error: string };
 /** El modelo y el esfuerzo con los que tiene que correr el chat (null = «Automático»: no se tocan). Van firmados. */
@@ -48,7 +49,8 @@ export function useFirma(sub: string) {
     if (!clave) return { ok: false, error: 'Crea tu Token para comenzar a chatear' };
     if (!texto.trim() && !adjuntos.length) return { ok: false, error: 'Escribe algo para mandarlo' };
     // Un tope en un texto que escribe una persona RECHAZA, no recorta (AGENTS.md).
-    if (texto.length > MAX_TEXTO) return { ok: false, error: `Acórtalo a ${MAX_TEXTO} caracteres para mandarlo` };
+    const tope = d.tope ?? MAX_TEXTO;
+    if (texto.length > tope) return { ok: false, error: `Acórtalo a ${tope} caracteres para mandarlo` };
     try {
       const payload = nuevoPayload({
         id: crypto.randomUUID(), texto: texto.trim() || TEXTO_SOLO_ADJUNTOS, destino: d.sesion, cuenta: d.cuenta, titulo: d.titulo, alcance,
@@ -76,7 +78,12 @@ const hex = (b: ArrayBuffer) => Array.from(new Uint8Array(b), (x) => x.toString(
  * el sha256 que calculó ESTE navegador sobre lo que subió. Si MaKo dice otra cosa, no se firma: la PC baja sólo lo que
  * coincide con lo firmado (lib/operaciones-reglas.ts, «Los adjuntos de un trabajo»).
  */
-export async function subirAdjuntos(archivos: readonly File[]): Promise<{ ok: true; adjuntos: AdjuntoPedido[] } | { ok: false; error: string }> {
+export async function subirAdjuntos(
+  archivos: readonly File[],
+  /** El Runner tiene la 1.16.0: cada archivo sube DIRECTO al storage (`subirDirecto`), sin el tope de 4 MB de Vercel. */
+  grandes = false,
+): Promise<{ ok: true; adjuntos: AdjuntoPedido[] } | { ok: false; error: string }> {
+  if (grandes) return subirDirecto(archivos);
   const fallo = { ok: false as const, error: 'No pude subir los adjuntos: vuelve a mandarlo' };
   try {
     const propios = await Promise.all(archivos.map(async (f) => ({ bytes: f.size, sha256: hex(await crypto.subtle.digest('SHA-256', await f.arrayBuffer())) })));
@@ -92,6 +99,44 @@ export async function subirAdjuntos(archivos: readonly File[]): Promise<{ ok: tr
     if (!Array.isArray(suyos) || suyos.length !== archivos.length) return fallo;
     if (suyos.some((a, i) => a.sha256 !== propios[i].sha256 || a.bytes !== propios[i].bytes)) return { ok: false, error: 'Un adjunto llegó distinto: vuelve a mandarlo' };
     return { ok: true, adjuntos: suyos.map((a, i) => ({ ref: a.ref, nombre: a.nombre, mime: a.mime, bytes: propios[i].bytes, sha256: propios[i].sha256 })) };
+  } catch {
+    return fallo;
+  }
+}
+
+/**
+ * Los archivos grandes (18/10/2026, Martín: «quita esa limitación» de los 4 MB): MaKo da una URL firmada por archivo y el
+ * navegador lo sube DIRECTO al storage (una ruta de Vercel no deja pasar más de ~4,5 MB). El tipo sale de los BYTES (como
+ * los mira la PC) y el sha256 lo calcula este navegador: es lo que se firma, y lo que la PC compara al bajarlo.
+ */
+async function subirDirecto(archivos: readonly File[]): Promise<{ ok: true; adjuntos: AdjuntoPedido[] } | { ok: false; error: string }> {
+  const fallo = { ok: false as const, error: 'No pude subir los adjuntos: vuelve a mandarlo' };
+  try {
+    const propios: { nombre: string; mime: MimeAdjunto; bytes: number; sha256: string }[] = [];
+    for (const f of archivos) {
+      const b = new Uint8Array(await f.arrayBuffer());
+      const mime = mimeDeArchivoCentro(b, f.name);
+      if (!mime || !(MIMES_ADJUNTO as readonly string[]).includes(mime)) return { ok: false, error: 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' };
+      const nombre = f.name.replace(/[\u0000-\u001f]/g, '').trim().slice(0, MAX_NOMBRE_ADJUNTO) || 'adjunto';
+      propios.push({ nombre, mime: mime as MimeAdjunto, bytes: b.byteLength, sha256: hex(await crypto.subtle.digest('SHA-256', b)) });
+    }
+    const r = await fetch('/api/operaciones/adjuntos', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(30_000),
+      body: JSON.stringify({ archivos: propios.map(({ nombre, mime, bytes }) => ({ nombre, mime, bytes })) }),
+    });
+    let o: { ok?: boolean; error?: string; subidas?: { ref: string; url: string }[] } = {};
+    try { o = JSON.parse(await r.text()); } catch { return fallo; }
+    if (!r.ok || !o.ok || !Array.isArray(o.subidas) || o.subidas.length !== archivos.length) return { ok: false, error: o.error || fallo.error };
+    const subidas = o.subidas;
+    // De a uno: un minuto, más uno por cada 100 KB (un archivo grande por una conexión lenta entra).
+    for (const [i, f] of archivos.entries()) {
+      const s = await fetch(subidas[i].url, {
+        method: 'PUT', body: f, headers: { 'content-type': propios[i].mime, 'x-upsert': 'false' },
+        signal: AbortSignal.timeout(60_000 + Math.ceil(f.size / 100_000) * 1000),
+      });
+      if (!s.ok) return { ok: false, error: `No pude subir «${propios[i].nombre}»: vuelve a mandarlo` };
+    }
+    return { ok: true, adjuntos: propios.map((p, i) => ({ ref: subidas[i].ref, ...p })) };
   } catch {
     return fallo;
   }

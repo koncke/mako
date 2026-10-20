@@ -37,7 +37,7 @@ const dotenv = await import(pathToFileURL(path.join(REPO, 'node_modules', 'doten
 (dotenv.default ?? dotenv).config({ path: ENV, quiet: true });
 
 const { getSupabaseServer } = await imp('lib/supabase.ts');
-const { incidentesDe, lineaDe, ESPERA_RESPUESTA_MS } = await imp('lib/vigia-mako-grupos.ts');
+const { incidentesDe, incidentesDeErrores, lineaDe, ESPERA_RESPUESTA_MS } = await imp('lib/vigia-mako-grupos.ts');
 type Incidente = import('../lib/vigia-mako-grupos').Incidente;
 
 type Estado = { marca: string; vistos: string[] };
@@ -64,7 +64,13 @@ async function todo<T>(tabla: string, sel: string, aplicar: (q: any) => any): Pr
 try {
   const conv = await todo<any>('mako_doer_conv', 'id, workspace_id, grupo_jid, role, content, created_at', (q) => q.gte('created_at', leerDesde));
   const usos = await todo<any>('anthropic_usage', 'id, workspace_id, created_at, feature, model, provider, motivo', (q) => q.gte('created_at', leerDesde).in('feature', ['mako-doer-in', 'cartel-ia', 'saneo-doer']));
-  const nuevos: Incidente[] = (incidentesDe(conv, usos, ahora) as Incidente[]).filter((i) => !estado.vistos.includes(i.clave));
+  // Los errores de TODA la app (lib/errores-app.ts, mig 0313): los que se vieron desde la última vuelta. Por `ultima_vez`
+  // y no por `id`: una huella vieja que vuelve a pasar no es nueva, pero un error nuevo siempre tiene su `primera_vez` acá.
+  const { data: errs, error: eErr } = await db.from('errores_app')
+    .select('id, origen, titulo, veces, primera_vez, ultima_vez, afectados, ticket_id').gte('primera_vez', leerDesde).limit(200);
+  if (eErr) throw new Error(`errores_app: ${eErr.message}`);
+  const nuevos: Incidente[] = ([...incidentesDe(conv, usos, ahora), ...incidentesDeErrores(errs ?? [])] as Incidente[])
+    .filter((i) => !estado.vistos.includes(i.clave));
 
   // La marca avanza hasta lo último leído (o se queda), y lo contado se recuerda.
   const ultimo = [...conv, ...usos].map((f) => f.created_at as string).sort().pop();
@@ -88,7 +94,7 @@ try {
     const filas = usos.filter((u: any) => u.feature === 'mako-doer-in' && u.workspace_id === i.ws && Date.parse(u.created_at) <= t + 2000 && Date.parse(u.created_at) >= t0);
     return filas.length ? `\n    ⚙ ${filas.map((u: any) => `${u.model} · ${(u.motivo ?? '').slice(0, 110)}`).join('\n    ⚙ ')}` : '';
   };
-  console.log(`VIGÍA de MaKo en WhatsApp — ${nuevos.length} incidente(s) nuevo(s) desde ${desde.slice(0, 16)} UTC`);
+  console.log(`MaKo Alert — ${nuevos.length} incidente(s) nuevo(s) desde ${desde.slice(0, 16)} UTC`);
   for (const i of nuevos) console.log(`\n${lineaDe(i, nombreWs)}${turnoDe(i)}`);
 } catch (e) {
   console.error(`VIGÍA: no pude leer (${e instanceof Error ? e.message : String(e)}). La marca no avanzó.`);

@@ -215,69 +215,39 @@
 .m-crm-resultados { margin-top: 14px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   REDISEÑO 17/10/2026 — el tablero con la piel de PIPEDRIVE (y el conteo de Attio)
+   LA FAMILIA DE TARJETAS (17/10/2026, noche) — la del prototipo docs/prototipos/coherencia-1710.html
    ════════════════════════════════════════════════════════════════════════════
-   Copiado de las capturas de la App Store de Pipedrive en el teléfono («Progress your deals along a sales
-   pipeline»): la columna blanca con su encabezado gris («Proposal Presented / $109,790»), las filas pegadas con
-   filete (no tarjetas sueltas sobre gris), el punto de actividad a la derecha y la barra de etapas llena hasta
-   la que se mira. Es PIEL de KanbanM (app/m/_ui, compartido con Clientes y el Plan): todo va debajo de
-   `.m-crm-tablero` y el componente no se toca. Los gestos, las columnas y sus anchos (una por pantalla y la
-   siguiente asomando) son los de siempre. */
-
-/* La barra de etapas: las que quedan ANTES de la que se mira, en azul suave; la actual, en azul (Pipedrive). */
-.m-crm-tablero .m-kb__etapa i { height: 4px; border-radius: 2px; }
-.m-crm-tablero .m-kb__etapa:has(~ .m-kb__etapa[aria-current="true"]) i {
-  background: color-mix(in srgb, var(--primary) 40%, var(--border));
-}
-
-/* La columna: blanca, con borde; el encabezado gris con el nombre en letra normal y la plata abajo. */
-.m-crm-tablero .m-kb__col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); }
-.m-crm-tablero .m-kb__col[data-destino] {
-  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
-  box-shadow: inset 0 0 0 2px var(--primary);
-}
-.m-crm-tablero .m-kb__col-cab {
-  flex-wrap: wrap; row-gap: 2px; padding: 12px 14px 10px;
-  background: var(--surface-2); border-bottom: 1px solid var(--border);
-}
-[data-m] .m-crm-tablero .m-kb__col-cab h3 {
-  flex: 1; font-size: var(--fs-card); font-weight: 650; letter-spacing: -0.01em; text-transform: none; color: var(--ink);
-}
-.m-crm-tablero .m-kb__cuenta { background: var(--surface); border: 1px solid var(--border); }
-.m-crm-tablero .m-kb__total {
-  order: 3; flex-basis: 100%; margin-left: 0;
-  font-size: var(--fs-sm); font-weight: 600; color: var(--dim);
-}
-
-/* Las filas: pegadas, con su filete, sobre la columna blanca (Pipedrive). */
-.m-crm-tablero .m-kb__lista { gap: 0; padding: 0 0 12px; }
-.m-crm-tablero .m-kb-tj {
-  min-height: 64px; padding: 11px 14px; justify-content: center;
-  border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: var(--surface);
-}
-.m-crm-tablero .m-kb-tj:active { transform: none; background: var(--velo-hover); }
-.m-crm-tablero .m-kb-tj[data-agarrada] { border-radius: var(--r-md); }
+   Martín: «No me gustan las cards y cómo se ven... Quiero que tengan coherencia». Reemplaza la piel de Pipedrive
+   de la tarde (filas pegadas con filete): la tarjeta grande y redonda, las etapas en pestañas píldora y la columna
+   suave vienen de KanbanM y m.css, iguales en Clientes y el Plan. Acá queda lo que es del CRM: lo de adentro de la
+   tarjeta (la cara con la insignia del canal, el nombre, «plata · por dónde llegó», la señal y «Ver info») y el tinte
+   de lo que venció. Las piezas de la cara y la píldora son de app/_ui/TarjetaKanban (`tk-*`). */
+.m-crm-tablero .m-kb-tj { padding: 12px; }
 .m-crm-tablero .m-kb-tj[data-llego] { animation: m-crm-llego 1.4s ease; }
 @keyframes m-crm-llego { 0%, 70% { box-shadow: inset 0 0 0 2px var(--primary); } 100% { box-shadow: inset 0 0 0 0 transparent; } }
-/* Lo que venció (la Nutrición manual): la fila entera se tiñe, como el deal «podrido» de Pipedrive. */
-.m-crm-tablero .m-kb-tj:has(.m-crm-tj[data-tono="rojo"]) { background: color-mix(in srgb, var(--bad) 7%, var(--surface)); }
+/* Lo que venció (la Nutrición manual): la tarjeta lleva el filo rojo, como en la computadora. */
+.m-crm-tablero .m-kb-tj:has(.m-crm-tj[data-tono="rojo"]) { box-shadow: inset 3px 0 0 var(--bad), 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent); }
 
-/* Lo de adentro de la fila. Sin `.m-crm-tablero` delante: la copia que sigue al dedo cuelga de #m-root. */
+/* Lo de adentro. Sin `.m-crm-tablero` delante: la copia que sigue al dedo cuelga de #m-root. */
 .m-crm-tj { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; }
-.m-crm-tj__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.m-crm-tj__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .m-crm-tj__n {
-  font-size: var(--fs-md); font-weight: 600; line-height: 1.25; color: var(--ink);
+  font-size: 15px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .m-crm-tj__c {
-  font-size: var(--fs-sm); line-height: 1.3; color: var(--dim); font-variant-numeric: tabular-nums;
+  font-size: 12.5px; line-height: 1.3; color: var(--dim); font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.m-crm-tj__der { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
-.m-crm-tj__punto { display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
+.m-crm-tj__cuando { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.m-crm-tj__punto { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
 .m-crm-tj[data-tono="verde"] .m-crm-tj__punto { background: var(--good); }
 .m-crm-tj[data-tono="rojo"] .m-crm-tj__punto { background: var(--bad); }
-.m-crm-tj__cuando { font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.m-crm-tj[data-tono="rojo"] .m-crm-tj__cuando { color: var(--bad); font-weight: 650; }
+.m-crm-tj__ver { flex: none; pointer-events: none; }
+
+/* «Próximo» arriba del tablero, con el selector de funnel: se van con el scroll del documento. */
+.m-crm-arriba { display: grid; gap: 12px; width: 100%; padding-bottom: 4px; }
 
 /* El selector de funnel como el «Sales pipeline ▾» de Pipedrive: el nombre en negrita y la flecha hacia abajo. */
 .m-crm-funnel { font-size: var(--fs-card); font-weight: 700; }

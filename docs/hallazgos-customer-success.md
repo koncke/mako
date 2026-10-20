@@ -5675,3 +5675,22 @@ app/customer-success/FichaCurso.tsx · lib/curso-purga.ts · app/customer-succes
 lib/curso.ts (`conPostDeComentar`) · app/customer-success/curso/vista/pantalla.tsx · tests: cs-ficha-resumen,
 curso-sacar-un-curso, curso-purga-entregas, curso-grabar-notas, curso-vista-previa-comentar ·
 *17/10/2026, chat «Pendientes B2: CRM y clientes» (claude4).*
+
+## La tarjeta de un cliente en la familia: la barra de la etapa y el aviso en rojo (17/10/2026)
+
+- **El aviso, el más urgente primero** (`avanceDeCliente`, app/customer-success/aviso-tarjeta.ts, puro y con test):
+  «Sin entrar al curso» (invitado y nunca entró: rojo; entró pero hace más de 14 días: amarillo) y después «N días sin
+  moverse». Computadora y teléfono usan la MISMA función.
+- **«Pago fallido» del prototipo NO está:** el estado del cobro de cada cliente no llega al tablero (leerlo es una
+  lectura por cliente). Si se suma, que sea una lectura en lote al armar la pantalla, y entra primero en el orden.
+- **La barra es la etapa del servicio** (la 2 de 5), no el avance del curso: es lo que el tablero de la entrega mira.
+- Los números del tablero de trabajo (proyectos, tareas, recurrentes) quedaron en un chip; «los tres o ninguno» sigue.
+
+**Sin hacer:** «Pago fallido»; la foto en el teléfono (`ClienteCs` no trae `avatar_url`); la vista Tabla y Avance.
+**Vive en:** app/customer-success/ClienteCard.tsx y KanbanEntrega.tsx · app/m/cs/CustomerSuccessM.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
+
+⚠️ **Una `}` en el CSS de KanbanEntrega rompe sus tests sin tocar la pantalla (18/10/2026).** tests/cs-kanban-fases.test.ts
+lee la regla `.ke-col` con `[^}]*`: un `${FONDO_COLUMNA}` interpolado —y después, un comentario que mencionaba la llave—
+la cortaban antes del `max-height`, y el test decía «sin tope, la columna crece», que se lee como una regresión del
+scroll y no lo es. Regla: en ese CSS, valores escritos (no interpolados) y ninguna llave dentro de un comentario.
+*18/10/2026, chat «CRM» (claude4).*

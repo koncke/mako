@@ -21,7 +21,7 @@ import { promesasDe, groseriasDe } from './doer-salida';
 export type FilaConv = { id: number; workspace_id: number; grupo_jid: string; role: string; content: string; created_at: string };
 export type FilaUso = { id: number; workspace_id: number; created_at: string; feature: string; model: string | null; provider: string | null; motivo: string | null };
 
-export type TipoIncidente = 'no-puede' | 'promesa' | 'queja' | 'voz' | 'sin-respuesta' | 'cartel' | 'saneo';
+export type TipoIncidente = 'no-puede' | 'promesa' | 'queja' | 'voz' | 'sin-respuesta' | 'cartel' | 'saneo' | 'error-app';
 export type Incidente = {
   /** Estable entre vueltas: el vigía no repite lo que ya contó. */
   clave: string;
@@ -119,6 +119,26 @@ export function incidentesDe(conv: FilaConv[], usos: FilaUso[], ahora: number): 
     });
   }
   return out.sort((a, b) => a.at.localeCompare(b.at));
+}
+
+/** Una fila de `errores_app` (mig 0313): un error de la app agrupado por huella (lib/errores-app.ts). */
+export type FilaError = { id: number; origen: string; titulo: string; veces: number; primera_vez: string; ultima_vez: string; afectados: unknown; ticket_id: number | null };
+
+/**
+ * Los errores de TODA la app (18/10/2026, «MaKo Alert»: «debe manejar todo, no solo lo de WhatsApp»). Uno por huella, la
+ * primera vez que el vigía la ve: un error que se repite suma `veces` y no es un incidente nuevo. Lo que se reporta es
+ * para que lo arregle el chat del área: el título, cuántas veces, en qué negocios y el ticket que ya abrió la Ticketera.
+ */
+export function incidentesDeErrores(filas: readonly FilaError[]): Incidente[] {
+  return filas.map((e) => {
+    const ws = (Array.isArray(e.afectados) ? e.afectados : [])
+      .map((a) => Number((a as { ws?: unknown })?.ws)).filter((n) => Number.isInteger(n) && n > 0);
+    return {
+      clave: `err:${e.id}`, tipos: ['error-app'] as TipoIncidente[], ws: ws[0] ?? 0, grupo: null, at: e.primera_vez,
+      texto: recorte(`${e.titulo} (${e.origen}, ${e.veces} ${e.veces === 1 ? 'vez' : 'veces'}${ws.length ? `, ws ${[...new Set(ws)].join(', ')}` : ''})`),
+      marcas: e.ticket_id ? [`ticket #${e.ticket_id}`] : [], antes: null, antesAt: null,
+    };
+  });
 }
 
 /** Una línea por incidente, para leerla en la terminal. */

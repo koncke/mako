@@ -168,7 +168,7 @@ export function readme(cerebro: Cerebro, areas: AreaId[], ids?: Set<string>): Ar
       // Si se exportó un recorte, el README lo DICE. Sin esta línea, dentro de un mes
       // el que abra la carpeta no tiene forma de saber si le falta algo o si su negocio
       // era eso: un export parcial es indistinguible de un negocio incompleto.
-      ...(ids ? ['> Este export es un recorte: solo lo que estabas viendo en el mapa cuando lo bajaste.', ''] : []),
+      ...(ids ? ['> Este export es un recorte: solo lo que estabas viendo en el Second Brain cuando lo bajaste.', ''] : []),
       // ⚠️ El conteo sale de `conteoPorArea`, que aplica EXACTAMENTE el mismo filtro
       // que `construirVault`. Antes se filtraba acá a mano —solo por `autoria !==
       // 'pendiente'`— y se colaban los nodos de ÁREA y la RAÍZ, que no son archivos:

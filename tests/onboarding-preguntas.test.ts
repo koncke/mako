@@ -27,13 +27,17 @@
 //   - el cierre no guarda la encuesta                   → 44/1
 //   - la API de MaKo no la expone                       → 44/1
 //   - al terminar entra siempre a /general              → 44/1
+//
+// 18/10/2026 (Martín: sin «Soy», sin el objetivo a 90 días, las dos preguntas AL FINAL, explicar al arrancar), arnés
+// romper-orden.js con onboarding-arranque, base 32/0: el saludo sin explicar → 31/1 · el botón «Soy» → 31/1 · las dos
+// preguntas de vuelta al principio → 30/2 · vuelve el objetivo → 23/9.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  extraerNombre, extraerNegocio, etapaDeArranque, mensajesDeArranque, leerRespuesta, interesDe, rutaDeEntrada,
+  extraerNombre, extraerNegocio, etapaDeArranque, mensajesDeArranque, leerRespuesta, interesDe, rutaDeEntrada, RUTA_AL_TERMINAR,
   ORIGENES, INTERESES, CLAVE_ENCUESTA, type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
 
@@ -76,12 +80,13 @@ test('la respuesta del nombre: lo que se guarda, lo que dice MaKo después y el 
   const { antes } = mensajesDeArranque(r.patch, H);
   const pregunta = antes[antes.length - 1];
   assert.equal(pregunta.texto, 'Un gusto, Martín. ¿Cómo se llama tu negocio?');
-  assert.deepEqual(pregunta.opciones, ['Acme'], 'el negocio que nombró no se ofrece');
+  // Desde el 18/10/2026 (14:00) el negocio se escribe: sin respuestas rápidas, ni la que nombró con su nombre.
+  assert.equal(pregunta.opciones, undefined);
   // «hola» no es un nombre: se pide de nuevo, sin guardar nada.
   const mal = leerRespuesta({}, H, { texto: 'hola' });
   assert.equal(mal.ok, false);
   // La opción (su nombre de la cuenta) va tal cual.
-  assert.deepEqual(leerRespuesta({}, { ...H, nombreCuenta: 'Martín Koncke' }, { opcion: 0 }), { ok: true, patch: { nombre: 'Martín' } });
+  assert.equal(leerRespuesta({}, { ...H, nombreCuenta: 'Martín Koncke' }, { opcion: 0 }).ok, false, 'el nombre no tiene opciones: se escribe');
 });
 
 test('el negocio se entiende sin la frase alrededor', () => {
@@ -93,23 +98,45 @@ test('el negocio se entiende sin la frase alrededor', () => {
   assert.deepEqual(r, { ok: true, patch: { negocio: 'Acme' } });
 });
 
-test('las preguntas nuevas van antes del objetivo, de un toque, y no vuelven atrás en una conversación de antes', () => {
+test('las dos preguntas nuevas van AL FINAL (antes del teléfono), de un toque, y ya no hay objetivo a 90 días', () => {
+  // 18/10/2026, Martín: «"¿Cómo llegaste a MaKo?" y "¿Qué te gustaría que MaKo resuelva primero?" van al final» y
+  // «eliminar "Y en los próximos 90 días, ¿qué quieres lograr?"».
   const quien: EstadoArranque = { nombre: 'Martín', negocio: 'Acme' };
-  assert.equal(etapaDeArranque(quien, H), 'origen');
-  const { antes } = mensajesDeArranque(quien, H);
-  assert.deepEqual(antes[antes.length - 1].opciones, [...ORIGENES]);
-  assert.match(antes[antes.length - 1].texto, /¿Cómo llegaste a MaKo\?/);
+  assert.equal(etapaDeArranque(quien, H), 'oferta', 'del negocio se pasa directo a lo que vende');
+  const hecho = { ...H, loQueVende: true, faseGuardada: true };
+  const conCrm: EstadoArranque = { ...quien, crmTipo: 'llamada' };
+  assert.equal(etapaDeArranque(conCrm, hecho), 'origen');
+  const { despues } = mensajesDeArranque(conCrm, hecho);
+  assert.deepEqual(despues[despues.length - 1].opciones, [...ORIGENES]);
+  assert.match(despues[despues.length - 1].texto, /^¿Cómo llegaste a MaKo, Martín\?$/);
   // Lo que escriba también sirve («por un amigo»).
-  assert.deepEqual(leerRespuesta(quien, H, { texto: 'por un amigo' }), { ok: true, patch: { origen: 'por un amigo' } });
-  assert.equal(etapaDeArranque({ ...quien, origen: 'Instagram' }, H), 'interes');
-  const conOrigen = mensajesDeArranque({ ...quien, origen: 'Instagram' }, H).antes;
+  assert.deepEqual(leerRespuesta(conCrm, hecho, { texto: 'por un amigo' }), { ok: true, patch: { origen: 'por un amigo' } });
+  assert.equal(etapaDeArranque({ ...conCrm, origen: 'Instagram' }, hecho), 'interes');
+  const conOrigen = mensajesDeArranque({ ...conCrm, origen: 'Instagram' }, hecho).despues;
   assert.deepEqual(conOrigen[conOrigen.length - 1].opciones, INTERESES.map((i) => i.label));
-  assert.equal(etapaDeArranque({ ...quien, origen: 'Instagram', interes: 'ventas' }, H), 'objetivo');
+  assert.equal(etapaDeArranque({ ...conCrm, origen: 'Instagram', interes: 'ventas' }, hecho), 'telefono');
   // El Project Manager no tiene anuncios ni CRM: no se le pregunta qué resolver primero.
-  assert.equal(etapaDeArranque({ ...quien, origen: 'Google' }, PLAN), 'objetivo');
-  // Una conversación que ya pasó el objetivo (empezada antes del 17/10) no vuelve atrás.
-  assert.equal(etapaDeArranque({ ...quien, objetivo: 'Vender más' }, H), 'oferta');
-  assert.ok(!mensajesDeArranque({ ...quien, objetivo: 'Vender más' }, H).antes.some((m) => m.id === 'arr-origen'));
+  assert.equal(etapaDeArranque({ ...quien, queHace: 'Consultoría', origen: 'Google' }, { ...PLAN, faseGuardada: true }), 'cierre');
+  // Nunca se pregunta el objetivo, ni a quien lo había contestado antes del 18/10.
+  const casos: EstadoArranque[] = [quien, { ...quien, objetivo: 'Vender más' }, { ...conCrm, origen: 'Google', interes: 'ventas' }];
+  for (const e of casos) {
+    const m = mensajesDeArranque(e, hecho);
+    assert.ok(![...m.antes, ...m.despues].some((x) => x.id === 'arr-objetivo'), 'volvió la pregunta del objetivo a 90 días');
+  }
+});
+
+test('el nombre y el negocio se escriben: nunca un botón con restos de otra prueba («Soy», «Ayelen», «Consultesis»)', () => {
+  // 18/10/2026, 14:00, Martín: después de RESET ofrecía «Ayelen» al nombre y «Consultesis» al negocio. Roturas
+  // (romper-reset.js; base 34/0 con onboarding-arranque y reset-ws-nombre): vuelve la opción del nombre → 30/4 · vuelve
+  // la del negocio → 31/3.
+  // 18/10/2026: una cuenta guardada como «Soy Martín» ofrecía «Soy» como respuesta rápida.
+  for (const cuenta of ['Soy Martín', 'soy Martín Koncke', 'Martín Koncke']) {
+    const { antes } = mensajesDeArranque({}, { ...H, nombreCuenta: cuenta });
+    assert.equal(antes[0].opciones, undefined, `«${cuenta}»`);
+  }
+  assert.equal(mensajesDeArranque({}, { ...H, nombreCuenta: 'Soy' }).antes[0].opciones, undefined);
+  const negocio = mensajesDeArranque({ nombre: 'Ayelen', negocioSugerido: 'Acme' }, { ...H, nombreWorkspace: 'Consultesis' }).antes;
+  assert.equal(negocio[negocio.length - 1].opciones, undefined, 'el negocio volvió a ofrecer «Consultesis»');
 });
 
 test('el interés: la opción o lo que escriba, y a qué pestaña entra al terminar', () => {
@@ -123,7 +150,9 @@ test('el interés: la opción o lo que escriba, y a qué pestaña entra al termi
   assert.equal(rutaDeEntrada('ventas'), '/crm');
   assert.equal(rutaDeEntrada(undefined), '/general');
   const chat = leer('app/onboarding/ChatArranque.tsx');
-  assert.match(chat, /entrada=\{rutaDeEntrada\(vista\.interes \?\? undefined\)\}/);
+  // Desde el 18/10/2026 entra SIEMPRE al Ops Center: el interés queda en la encuesta, no decide la entrada.
+  assert.equal(RUTA_AL_TERMINAR, '/second-brain');
+  assert.match(chat, /entrada=\{RUTA_AL_TERMINAR\}/);
   assert.match(chat, /href=\{modo === 'oferta' \? entrada : '\/plan'\}/);
 });
 

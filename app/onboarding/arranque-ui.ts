@@ -62,7 +62,10 @@ export function placeholderDe(etapa: EtapaArranque): string | undefined {
  * antes o después de la conversación de la oferta.
  */
 export function ladoDeLaPregunta(etapa: EtapaArranque, modo: 'oferta' | 'plan' = 'plan'): 'antes' | 'despues' {
-  // El diagnóstico va antes en modo 'plan' (no hay oferta) y después en 'oferta' (después de lo que vende).
-  if (etapa === 'fase') return modo === 'oferta' ? 'despues' : 'antes';
-  return etapa === 'nombre' || etapa === 'negocio' || etapa === 'origen' || etapa === 'interes' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
+  // El diagnóstico va antes en modo 'plan' (no hay oferta) y después en 'oferta' (después de lo que vende). «¿Cómo
+  // llegaste?» y «¿Qué resolver primero?» van al final desde el 18/10/2026: en 'oferta', DESPUÉS de lo que vende. Si
+  // este lado no es el de la pregunta, la respuesta optimista se dibuja arriba, fuera de la vista, y abajo sólo salen
+  // los puntitos (Martín, punto 11). tests/onboarding-respuesta-visible.test.ts recorre todas las etapas.
+  if (etapa === 'fase' || etapa === 'origen' || etapa === 'interes') return modo === 'oferta' ? 'despues' : 'antes';
+  return etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
 }

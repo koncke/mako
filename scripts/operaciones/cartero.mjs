@@ -84,7 +84,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.15.7';
+export const VERSION = '1.16.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -212,18 +212,40 @@ const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}
 const CUENTA_RE = /^claude\d{1,2}$/;
 /** El id de un chat de la nube (copia de lib/operaciones-reglas.ts → NUBE_RE): lo que no es de esta PC. */
 export const NUBE_RE = /^(?!local_|cli_)[A-Za-z][A-Za-z0-9_-]{5,100}$/;
-const MAX_TEXTO = 8000;
+/** Hasta la 1.15.7 eran 8000; desde la 1.15.8, los mensajes largos de Martín (copia de MAX_TEXTO_LARGO). */
+const MAX_TEXTO = 40_000;
 /** El modelo y el esfuerzo que eligió Martín (opcionales; copia de lib/operaciones-reglas.ts → MODELOS y ESFUERZOS). */
 const MODELOS = ['opus', 'sonnet', 'haiku'];
 const ESFUERZOS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const VENCE_DIAS = 14;
 // Los adjuntos (1.9.0, 17/10/2026; copia de lib/operaciones-reglas.ts → problemaDeAdjuntos, con test diferencial).
-export const MIMES_ADJUNTO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
-export const MAX_ADJUNTOS = 4;
-export const MAX_BYTES_ADJUNTOS = 4 * 1024 * 1024;
+export const MIMES_ADJUNTO = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf',
+  // 1.16.0 (18/10/2026): Word, Excel y PowerPoint (por la estructura del zip, sin macros) y texto (sin HTML ni scripts).
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain', 'text/markdown', 'text/csv',
+];
+const MIMES_TEXTO = ['text/plain', 'text/markdown', 'text/csv'];
+const OFFICE = [
+  ['word/document.xml', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ['xl/workbook.xml', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ['ppt/presentation.xml', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+];
+// 1.16.0 (18/10/2026, Martín: «quita esa limitación» de los 4 MB y los 4 archivos): bajan directo del storage, sin pasar
+// por Vercel (copia de lib/operaciones-reglas.ts → MAX_ADJUNTOS y MAX_BYTES_ADJUNTO).
+export const MAX_ADJUNTOS = 20;
+export const MAX_BYTES_ADJUNTO = 100 * 1024 * 1024;
 const MAX_NOMBRE_ADJUNTO = 120;
 /** La extensión con la que se guarda: la decide el TIPO (validado por los bytes), nunca el nombre que trajo. */
-const EXT_ADJUNTO = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' };
+const EXT_ADJUNTO = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'text/plain': 'txt', 'text/markdown': 'md', 'text/csv': 'csv',
+};
 
 export function problemaDeAdjuntos(x) {
   if (!Array.isArray(x) || !x.length || x.length > MAX_ADJUNTOS) return 'adjuntos inválidos';
@@ -235,11 +257,11 @@ export function problemaDeAdjuntos(x) {
     refs.add(a.ref);
     if (typeof a.nombre !== 'string' || !a.nombre.trim() || a.nombre.length > MAX_NOMBRE_ADJUNTO || /[\u0000-\u001f]/.test(a.nombre)) return 'adjuntos inválidos';
     if (!MIMES_ADJUNTO.includes(a.mime)) return 'adjuntos inválidos';
-    if (typeof a.bytes !== 'number' || !Number.isInteger(a.bytes) || a.bytes < 1) return 'adjuntos inválidos';
+    if (typeof a.bytes !== 'number' || !Number.isInteger(a.bytes) || a.bytes < 1 || a.bytes > MAX_BYTES_ADJUNTO) return 'adjuntos inválidos';
     if (typeof a.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(a.sha256)) return 'adjuntos inválidos';
     total += a.bytes;
   }
-  return total > MAX_BYTES_ADJUNTOS ? 'adjuntos inválidos' : null;
+  return total > MAX_ADJUNTOS * MAX_BYTES_ADJUNTO ? 'adjuntos inválidos' : null;
 }
 
 /** Qué es un archivo por sus PRIMEROS BYTES (copia de lib/mako-adjuntos.ts → tipoPorFirma, con test diferencial). Un
@@ -251,8 +273,30 @@ export function mimePorFirma(b) {
   if (b.length >= 6 && es(0, 0x47, 0x49, 0x46, 0x38)) return 'image/gif';
   if (b.length >= 12 && es(0, 0x52, 0x49, 0x46, 0x46) && es(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp';
   if (b.length >= 5 && es(0, 0x25, 0x50, 0x44, 0x46, 0x2d)) return 'application/pdf';
-  return null;
+  return oficinaPorZip(b);
 }
+
+/** Word, Excel o PowerPoint por la estructura del zip, sin macros (copia de lib/operaciones-reglas.ts → oficinaPorZip). */
+export function oficinaPorZip(b) {
+  if (!(b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04)) return null;
+  const cola = Buffer.from(b.subarray(Math.max(0, b.length - 2 * 1024 * 1024))).toString('latin1');
+  if (!cola.includes('[Content_Types].xml') || cola.includes('vbaProject.bin')) return null;
+  const tipos = OFFICE.filter(([parte]) => cola.includes(parte)).map(([, mime]) => mime);
+  return tipos.length === 1 ? tipos[0] : null;
+}
+
+/** ¿Es texto de verdad, y no una página ni un script? (copia de lib/operaciones-reglas.ts → esTextoSeguro). */
+export function esTextoSeguro(b) {
+  if (!b.length || b.includes(0)) return false;
+  let t;
+  try { t = new TextDecoder('utf-8', { fatal: true }).decode(b); } catch { return false; }
+  const inicio = t.replace(/^\uFEFF/, '').trimStart().slice(0, 200).toLowerCase();
+  if (inicio.startsWith('#!') || /^<(!doctype|html|head|body|script|svg|\?php|\?xml)/.test(inicio)) return false;
+  return !/<script[\s>]/i.test(t);
+}
+
+/** ¿Los bytes son de ese tipo? (copia de lib/operaciones-reglas.ts → tipoAceptado). */
+export const tipoAceptado = (b, mime) => (MIMES_TEXTO.includes(mime) ? esTextoSeguro(b) : mimePorFirma(b) === mime);
 
 /** El nombre en disco: el número, lo legible del nombre (sin su extensión) y la extensión del TIPO. */
 export function nombreEnDisco(i, nombre, mime) {
@@ -278,10 +322,17 @@ export async function bajarAdjuntos(url, token, id, adjuntos, dir = ADJUNTOS) {
       //    entera iba a la RAM antes de mirar nada: una respuesta «chunked» no trae content-length (Number(null) da 0 y
       //    pasaba) y una con gzip trae el tamaño COMPRIMIDO. Ahora se pide sin comprimir, se rechaza la comprimida, y se
       //    corta en cuanto lo leído pasa lo firmado.
-      const r = await fetch(`${url}/api/operaciones/cartero?pedido=${id}&adjunto=${a.ref}`, {
-        headers: { authorization: `Bearer ${token}`, 'accept-encoding': 'identity' }, signal: AbortSignal.timeout(60_000),
+      // 1.16.0: MaKo da una URL firmada de 5 minutos y se baja DIRECTO del storage, SIN el token del cartero: un archivo de
+      // más de ~4,5 MB no pasa por una ruta de Vercel. Lo que protege no cambia: el tamaño, el sha256 firmado y el tipo.
+      const q = await fetch(`${url}/api/operaciones/cartero?pedido=${id}&adjunto=${a.ref}&firmada=1`, {
+        headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000),
       });
-      if (!r.ok) throw new Error(`MaKo no lo dio (${r.status})`);
+      if (!q.ok) throw new Error(`MaKo no lo dio (${q.status})`);
+      const firmada = (await q.json().catch(() => null))?.url;
+      if (typeof firmada !== 'string' || !/^https?:\/\//.test(firmada)) throw new Error('MaKo no dio dónde bajarlo');
+      // Un minuto, más uno por cada 100 KB: 100 MB por una conexión lenta entran.
+      const r = await fetch(firmada, { headers: { 'accept-encoding': 'identity' }, signal: AbortSignal.timeout(60_000 + Math.ceil(a.bytes / 100_000) * 1000) });
+      if (!r.ok) throw new Error(`el storage no lo dio (${r.status})`);
       const codificado = (r.headers.get('content-encoding') ?? 'identity').trim().toLowerCase();
       if (codificado !== 'identity') { await r.body?.cancel().catch(() => {}); throw new Error('vino comprimido'); }
       const largo = r.headers.get('content-length');
@@ -296,7 +347,7 @@ export async function bajarAdjuntos(url, token, id, adjuntos, dir = ADJUNTOS) {
       const b = Buffer.concat(partes, leidos);
       if (b.length !== a.bytes) throw new Error('no pesa lo firmado');
       if (crypto.createHash('sha256').update(b).digest('hex') !== a.sha256) throw new Error('no es el archivo firmado');
-      if (mimePorFirma(b) !== a.mime) throw new Error('no es una foto ni un PDF');
+      if (!tipoAceptado(b, a.mime)) throw new Error('no es un archivo aceptado');
       const ruta = path.join(carpeta, nombreEnDisco(i, a.nombre, a.mime));
       fs.writeFileSync(ruta, b, { flag: 'wx' });
       rutas.push(ruta);
@@ -530,6 +581,8 @@ export function quienFirmo(texto, firmaB64, spkis) {
 // y se sube sólo lo nuevo. Del transcript NO sale nada más: ni las herramientas, ni lo que pensó, ni los recordatorios.
 const TURNOS = path.join(DIR, 'turnos');
 const TOPE_TURNO = 4000;
+/** Lo que escribió Martín (rol «yo») no se corta: puede ser largo, y es suyo (1.15.8; copia de TOPE_TURNO_YO). */
+const TOPE_TURNO_YO = 40_000;
 /** La primera vez que se lee un chat, sólo su cola: la historia entera puede pesar decenas de MB. */
 const COLA_PRIMERA_VEZ = 2 * 1024 * 1024;
 /** Lo que se lee de un chat por vuelta, como mucho (el resto, en la siguiente). */
@@ -600,11 +653,11 @@ export function turnosDeLineas(lineas, pendiente = null) {
       const trabajo = /^Pedido de Martín desde el Centro de Operaciones/.test(cuerpo) ? (/ cierre ([0-9a-f-]{36}) /.exec(cuerpo)?.[1] ?? null) : null;
       const de = /\bname="([^"]{1,60})"/.exec(m[1])?.[1] ?? /\bfrom="([^"]{1,60})"/.exec(m[1])?.[1] ?? null;
       turnos.push(trabajo
-        ? { uuid: o.uuid, rol: 'yo', de: null, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo }
+        ? { uuid: o.uuid, rol: 'yo', de: null, texto: cuerpo.slice(0, TOPE_TURNO_YO), at: o.timestamp, trabajo }
         : { uuid: o.uuid, rol: 'otro', de, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
       continue;
     }
-    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
+    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO_YO), at: o.timestamp, trabajo: null });
   }
   return { turnos, pendiente: p };
 }
@@ -819,6 +872,30 @@ const PASOS_POR_CHAT = 6;
 const MAX_TEXTO_PASO = 90;
 /** Cada cuánto `vigilar` sube los pasos, y cada cuánto los repite aunque no cambien (MaKo los da por viejos a los 90 s). */
 const CADA_PASOS_MS = Math.max(100, Number(process.env.CARTERO_PASOS_MS) || 15_000);
+/** Lo que se escribe en un chat desde AFUERA del Ops Center (la app, la terminal) sube con la vuelta completa: si el
+ *  transcript de un chat vivo creció más allá de su marca, `vigilar` la da, como mucho una cada esto (1.15.8). Antes
+ *  esperaba al cron (2 minutos): Martín, 18/10/2026, «envié este mensaje por aquí y no me aparece en el chat de Ops Center». */
+const CADA_TURNOS_MS = Math.max(100, Number(process.env.CARTERO_TURNOS_MS) || 10_000);
+
+/** ¿Algún chat vivo de estas cuentas tiene en su transcript algo que todavía no subió? (local: sin red, sólo tamaños). */
+export function transcriptsCrecidos(cuenta, cfg = config(), propio = dirPropio(cfg)) {
+  const cuentas = cuenta ? [cuenta] : cuentasDeLaCarpeta(cfg, propio);
+  const runners = carpetasConRunner(cfg, propio);
+  for (const c of cuentas) {
+    let chats;
+    try { chats = verChats(c, cfg, runners); } catch { continue; }
+    for (const ch of chats.values()) {
+      if (!ch.vivo || ch.esRunner || !ch.transcript) continue;
+      const marca = leerJson(path.join(TURNOS, `${ch.local}.json`), null);
+      // Sin marca, la primera vuelta lo lee igual (su cola): no hace falta adelantarla.
+      if (!marca || marca.transcript !== ch.transcript) continue;
+      let tam = 0;
+      try { tam = fs.statSync(ch.transcript).size; } catch { continue; }
+      if (tam > marca.offset) return true;
+    }
+  }
+  return false;
+}
 const REPETIR_PASOS_MS = 45_000;
 
 const corto = (s) => String(s ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_TEXTO_PASO);
@@ -1271,7 +1348,35 @@ function cuotaDe(cuenta) {
  * Escribe lo mismo que la barra de estado (USO/<cuenta>.json, que sube `cuotaDe`) y las dos líneas que lee el corte del
  * 97% (~/.claude/guardia/corte-97.mjs): uso-cinco.txt y uso-semanal.txt, con la cuenta como 4º campo.
  */
-export function medir(cuenta, args, ahora = Date.now()) {
+/** Lo que separa dos reinicios semanales que son «el mismo» (la API devuelve el mismo instante con milisegundos distintos). */
+const MISMA_SEMANA_MS = 5 * 60_000;
+
+/**
+ * La HUELLA de la semana (1.16.1, 20/10/2026): cada cuenta reinicia su semana siempre a la misma hora, así que el reinicio
+ * dice de QUÉ cuenta es una medición, aunque el marcador (cuenta-activa.txt) diga otra. Pasó DOS veces: el 17/10 y el 20/10
+ * (un chat puso el marcador en claude1 con la app en la cuenta 4, y `medir` anotó la semana de la 4 a nombre de la 1; el
+ * Uso del Ops Center mostró los números de una cuenta en otra). null = la medición es de esta cuenta; si no, el motivo:
+ *   · A: el reinicio coincide con el de OTRA cuenta que todavía no venció → es de ésa;
+ *   · B: el reinicio de ESTA cuenta todavía no venció y el nuevo es otro → la semana no se mueve antes de vencer: o el
+ *        marcador está mal, o la cuenta se renovó (`renovada`, cuando Martín lo dice).
+ */
+export function problemaDeHuella(cuenta, reinicia, ahora, { renovada = false, dir = USO } = {}) {
+  const t = Date.parse(String(reinicia ?? ''));
+  if (!Number.isFinite(t)) return null;
+  for (const f of listar(dir)) {
+    const otra = path.basename(f, '.json');
+    if (otra === cuenta || !CUENTA_RE.test(otra)) continue;
+    const r = Date.parse(leerJson(f, null)?.semana?.reinicia ?? '');
+    if (Number.isFinite(r) && r > ahora && Math.abs(r - t) <= MISMA_SEMANA_MS) return `no anoté la cuota: es de ${otra}, no de ${cuenta} (el marcador está mal)`;
+  }
+  const propia = Date.parse(leerJson(path.join(dir, `${cuenta}.json`), null)?.semana?.reinicia ?? '');
+  if (!renovada && Number.isFinite(propia) && propia > ahora && Math.abs(propia - t) > MISMA_SEMANA_MS) {
+    return `no anoté la cuota: la semana de ${cuenta} se reinicia ${new Date(propia).toISOString()} y esta medición dice ${new Date(t).toISOString()} (el marcador está mal, o la cuenta se renovó: --renovada)`;
+  }
+  return null;
+}
+
+export function medir(cuenta, args, ahora = Date.now(), { renovada = false } = {}) {
   const [p5, r5, ps, rs] = args;
   const v = (p, r) => {
     const n = Number(p);
@@ -1282,6 +1387,9 @@ export function medir(cuenta, args, ahora = Date.now()) {
   const cinco = v(p5, r5);
   const semana = v(ps, rs);
   if (!cinco && !semana) throw new Error('uso: medir <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
+  // Antes de escribir NADA (ni el JSON ni las dos líneas del corte del 97%): ¿esta semana es de esta cuenta?
+  const huella = problemaDeHuella(cuenta, semana?.reinicia, ahora, { renovada });
+  if (huella) { log(`[${cuenta}] ${huella}`); throw new Error(huella); }
   const medido = new Date(ahora).toISOString();
   escribirJson(path.join(USO, `${cuenta}.json`), { cinco, semana, medido, api: null });
   const linea = (w) => `${w.pct} ${w.reinicia ?? '-'} ${medido} ${cuenta}\n`;
@@ -1595,10 +1703,12 @@ async function vigilar(cuenta, maxSeg = 100, ahora = () => Date.now()) {
     let fallo = false;
     try { hay = await hayAlgo(cuenta, cfg, propio); consultas++; } catch (e) { fallo = true; log(`VIGILAR: la consulta falló (${textoRemoto(e.message)}): cae a la vuelta completa`); }
     if (!fallo && base == null) base = hay;
+    // Lo que se escribió en un chat desde afuera del Ops Center (1.15.8): cuenta como «hay algo», una vuelta cada CADA_TURNOS_MS.
+    const crecio = ahora() - ultima >= CADA_TURNOS_MS && transcriptsCrecidos(cuenta, cfg, propio);
     const entraVuelta = ahora() + dura * 1.5 <= fin;
     // Hay algo NUEVO y la vuelta completa no entra en este Bash: sale ya y lo dice; el Runner corre `vigilar` otra vez.
     if (!entraVuelta && hay > (base ?? 0)) { otraVez = true; break; }
-    if ((hay > 0 || fallo) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && entraVuelta) {
+    if ((hay > 0 || fallo || crecio) && ahora() - ultima >= (fallo ? ENTRE_VUELTAS_MS : 0) && entraVuelta) {
       t0 = ahora();
       r = await vuelta(cuenta);
       ultima = ahora();
@@ -1709,7 +1819,8 @@ if (esMain) {
         const activa = (() => { try { const c = fs.readFileSync(path.join(path.dirname(USO_APP), 'cuenta-activa.txt'), 'utf8').trim().split(/\s+/)[0]; return CUENTA_RE.test(c) ? c : null; } catch { return null; } })();
         const c = cuentaOpcional() ?? activa ?? cuentaDeLaApp(cfg, dirPropio(cfg));
         if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: medir --cuenta claudeN <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
-        imprimir({ ok: true, cuenta: c, ...medir(c, resto) }); break;
+        // `--renovada` (1.16.1): Martín dijo que esta cuenta se renovó, y su semana cambia antes de vencer (problemaDeHuella, B).
+        imprimir({ ok: true, cuenta: c, ...medir(c, resto.filter((a) => a !== '--renovada'), Date.now(), { renovada: resto.includes('--renovada') }) }); break;
       }
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
       case 'vigilar': { const i = resto.indexOf('--max-seg'); imprimir(await vigilar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) : 100)); break; }

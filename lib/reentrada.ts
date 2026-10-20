@@ -69,3 +69,13 @@ export function puedeReentrar(modo: Reentrada, p: {
   if (!p.porEvento) return { entra: false, porque: 'solo_por_evento' };
   return { entra: true, porque: 'vuelve_a_entrar' };
 }
+
+/**
+ * ¿ESTE BARRIDO CUENTA COMO EVENTO? Sí cuando el CRON tiene HORARIO, un Recurrente (20/10/2026). Su barrido corre UNA vez
+ * por ocurrencia —la reclama el compare-and-set de `cron_proxima_at` (lib/nutricion.ts, `comprometerInscripciones`)—, así
+ * que cada ocurrencia es «otra vez», como un evento, y no «cada corrida». Sin esto, «todos los martes a todos los del
+ * funnel» le llegaba UNA vez a cada lead: con el unique (lead, secuencia), la segunda ocurrencia caía en `solo_por_evento`
+ * y sólo le llegaba a los nuevos, sin error (#284 de ws11, el único Recurrente de prod al 20/10).
+ * Un barrido SIN horario (una etapa) sigue sin serlo: mira quién ESTÁ, y corre cada tick.
+ */
+export const barridoEsEvento = (d: { cron?: unknown }): boolean => d.cron != null;

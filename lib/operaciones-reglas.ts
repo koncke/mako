@@ -14,12 +14,20 @@
 // prueba que los dos lados leen lo mismo).
 // =============================================================================
 
-import { TOPE_ADJUNTOS, TOPE_TOTAL_BYTES } from './mako-adjuntos';
+import { ACCEPT_ADJUNTOS_CHAT, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, tipoPorFirma } from './mako-adjuntos';
 
 export const VERSION_PEDIDO = 1 as const;
 /** Tope del texto de un pedido. Se RECHAZA, no se recorta (AGENTS.md: un tope en un texto que
  *  escribe una persona rechaza). */
 export const MAX_TEXTO = 8000;
+/**
+ * Los mensajes largos de Martín (18/10/2026: «debería poder enviar mensajes mucho más largos»; el de su feedback tenía
+ * ~12.000). El servidor los acepta hasta este tope; la caja los ofrece sólo a un Runner que también los acepta
+ * (`aceptaTextoLargo`): uno de antes rechazaría el trabajo entero, y saldría «No se pudo».
+ */
+export const MAX_TEXTO_LARGO = 40_000;
+export const VERSION_TEXTO_LARGO = '1.15.8';
+export const aceptaTextoLargo = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_TEXTO_LARGO);
 /** Un pedido firmado vale dos semanas: alcanza para que vuelva una cuenta inactiva. */
 export const VENCE_DIAS = 14;
 /** Más que esto sin noticias del cartero y la pantalla deja de decir «vivo». El cartero pasa
@@ -93,11 +101,91 @@ export type PayloadPedido = {
 //   · con el tipo y el tamaño validados (por los primeros bytes, no por la extensión), y nunca un ejecutable: sólo las
 //     fotos y el PDF que ya acepta el chat con MaKo (lib/mako-adjuntos.ts), con los mismos topes;
 //   · el chat recibe la RUTA local en el mensaje (scripts/operaciones/cartero.mjs → bajarAdjuntos).
-export const MIMES_ADJUNTO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'] as const;
+export const MIMES_ADJUNTO = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf',
+  // 18/10/2026 (cartero 1.16.0; el Cerebro, por el «una img o un doc» de Martín): Word, Excel y PowerPoint, y texto.
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain', 'text/markdown', 'text/csv',
+] as const;
+/** Los de texto no tienen firma: se aceptan si son texto de verdad (`esTextoSeguro`), y su tipo lo da el nombre. */
+export const MIMES_TEXTO: readonly string[] = ['text/plain', 'text/markdown', 'text/csv'];
+/** Lo que ofrece el «Adjuntar archivo» de la caja (con un Runner 1.16.0). */
+export const ACCEPT_ADJUNTOS_CENTRO = `${ACCEPT_ADJUNTOS_CHAT},.docx,.xlsx,.pptx,.txt,.md,.csv`;
+const OFFICE: ReadonlyArray<readonly [string, string]> = [
+  ['word/document.xml', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ['xl/workbook.xml', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ['ppt/presentation.xml', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+];
+const latin1 = (b: Uint8Array) => Array.from(b, (x) => String.fromCharCode(x)).join('');
+
+/**
+ * Un Word, un Excel o un PowerPoint por su ESTRUCTURA (18/10/2026): un zip («PK\x03\x04») con `[Content_Types].xml` y la
+ * parte principal de UNO de los tres, mirado en el directorio del zip (al final). Los que traen macros (docm, xlsm, pptm:
+ * `vbaProject.bin`) no entran. La MISMA regla que el cartero (test diferencial).
+ */
+export function oficinaPorZip(b: Uint8Array): string | null {
+  if (!(b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04)) return null;
+  const cola = latin1(b.subarray(Math.max(0, b.length - 2 * 1024 * 1024)));
+  if (!cola.includes('[Content_Types].xml') || cola.includes('vbaProject.bin')) return null;
+  const tipos = OFFICE.filter(([parte]) => cola.includes(parte)).map(([, mime]) => mime);
+  return tipos.length === 1 ? tipos[0] : null;
+}
+
+/** El tipo de un archivo por sus BYTES: las fotos y el PDF (lib/mako-adjuntos.ts) y los de Office. null = ninguno. */
+export const mimePorFirmaCentro = (b: Uint8Array): string | null => tipoPorFirma(b)?.mime ?? oficinaPorZip(b);
+
+/**
+ * ¿Es TEXTO de verdad? UTF-8 válido y sin bytes nulos (un binario los tiene), y NUNCA una página ni un script: ni HTML, ni
+ * SVG, ni PHP, ni un «#!» al principio, ni un `<script` adentro. Un texto se guarda con la extensión de su tipo (.txt, .md,
+ * .csv): no se ejecuta.
+ */
+export function esTextoSeguro(b: Uint8Array): boolean {
+  if (!b.length || b.includes(0)) return false;
+  let t: string;
+  try { t = new TextDecoder('utf-8', { fatal: true }).decode(b); } catch { return false; }
+  const inicio = t.replace(/^\uFEFF/, '').trimStart().slice(0, 200).toLowerCase();
+  if (inicio.startsWith('#!') || /^<(!doctype|html|head|body|script|svg|\?php|\?xml)/.test(inicio)) return false;
+  return !/<script[\s>]/i.test(t);
+}
+
+/** ¿Los bytes son de ese tipo? Lo usa la PC antes de guardar, y el navegador antes de subir. */
+export const tipoAceptado = (b: Uint8Array, mime: string): boolean =>
+  MIMES_TEXTO.includes(mime) ? esTextoSeguro(b) : mimePorFirmaCentro(b) === mime;
+
+/** El tipo de un texto, por su nombre (no tiene firma). */
+export function mimeTextoPorNombre(nombre: string): string | null {
+  const ext = /\.([a-z0-9]+)$/i.exec(nombre)?.[1]?.toLowerCase();
+  return ext === 'txt' ? 'text/plain' : ext === 'md' || ext === 'markdown' ? 'text/markdown' : ext === 'csv' ? 'text/csv' : null;
+}
+
+/** El tipo con el que se firma un archivo: por sus bytes; un texto, por su nombre si de verdad es texto. */
+export const mimeDeArchivoCentro = (b: Uint8Array, nombre: string): string | null =>
+  mimePorFirmaCentro(b) ?? (mimeTextoPorNombre(nombre) && esTextoSeguro(b) ? mimeTextoPorNombre(nombre) : null);
+
+/** ¿La caja lo toma? Fotos y PDF siempre; Office y texto, sólo con un Runner 1.16.0. 'image' se ve como foto; lo demás, chip. */
+export function tipoDeElegidoCentro(f: { name: string; type: string }, grandes: boolean): 'image' | 'document' | null {
+  if (f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name)) return 'image';
+  if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) return 'document';
+  if (grandes && /\.(docx|xlsx|pptx|txt|md|markdown|csv)$/i.test(f.name)) return 'document';
+  return null;
+}
 export type MimeAdjunto = (typeof MIMES_ADJUNTO)[number];
-/** Cuántos archivos y cuántos bytes en total: los del chat con MaKo (Vercel corta un POST de más de ~4,5 MB). */
-export const MAX_ADJUNTOS = TOPE_ADJUNTOS;
-export const MAX_BYTES_ADJUNTOS = TOPE_TOTAL_BYTES;
+/**
+ * Cuántos archivos y cuánto cada uno (18/10/2026, Martín: «hay limitación de hasta 4mb de archivos, quita esa limitación»
+ * y «dice "Máximo 4 archivos" elimina esa restricción»). Medido ese día: el bucket `archivero` no tiene tope propio y el
+ * proyecto acepta al menos 2 GB por archivo (el bucket `curso-videos` tiene 2 GB); el corte de 4 MB era Vercel, que no
+ * deja pasar más de ~4,5 MB por una ruta. Desde el cartero 1.16.0 el archivo NO pasa por Vercel: el navegador lo sube
+ * directo al storage y la PC lo baja de ahí, los dos con una URL firmada. El tope que queda es el de la memoria: el
+ * navegador (también el teléfono) y la PC lo tienen entero para calcular su sha256.
+ */
+export const MAX_ADJUNTOS = 20;
+export const MAX_BYTES_ADJUNTO = 100 * 1024 * 1024;
+/** Con un Runner de antes de la 1.16.0, los de antes: los del chat con MaKo, porque el archivo pasa por Vercel. */
+export const MAX_ADJUNTOS_CHICOS = TOPE_ADJUNTOS;
+export const MAX_BYTES_ADJUNTOS_CHICOS = TOPE_TOTAL_BYTES;
+export const VERSION_ADJUNTOS_GRANDES = '1.16.0';
 export const MAX_NOMBRE_ADJUNTO = 120;
 /** `ref`: dónde lo guardó MaKo (un uuid); `bytes` y `sha256`: los del archivo que salió del navegador. */
 export type AdjuntoPedido = { ref: string; nombre: string; mime: MimeAdjunto; bytes: number; sha256: string };
@@ -114,17 +202,29 @@ export function problemaDeAdjuntos(x: unknown): string | null {
     refs.add(o.ref);
     if (typeof o.nombre !== 'string' || !o.nombre.trim() || o.nombre.length > MAX_NOMBRE_ADJUNTO || /[\u0000-\u001f]/.test(o.nombre)) return 'adjuntos inválidos';
     if (!(MIMES_ADJUNTO as readonly unknown[]).includes(o.mime)) return 'adjuntos inválidos';
-    if (typeof o.bytes !== 'number' || !Number.isInteger(o.bytes) || o.bytes < 1) return 'adjuntos inválidos';
+    if (typeof o.bytes !== 'number' || !Number.isInteger(o.bytes) || o.bytes < 1 || o.bytes > MAX_BYTES_ADJUNTO) return 'adjuntos inválidos';
     if (typeof o.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(o.sha256)) return 'adjuntos inválidos';
     total += o.bytes;
   }
-  return total > MAX_BYTES_ADJUNTOS ? 'adjuntos inválidos' : null;
+  return total > MAX_ADJUNTOS * MAX_BYTES_ADJUNTO ? 'adjuntos inválidos' : null;
 }
 
 /** El cartero que baja adjuntos. Con uno de antes, el trabajo saldría SIN sus archivos y nadie lo diría: la caja no ofrece
  *  adjuntar hasta que el Runner de esa cuenta suba esta versión (o una más nueva). */
 export const VERSION_ADJUNTOS = '1.9.1';
 export const aceptaAdjuntos = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ADJUNTOS);
+/** El cartero que baja por URL firmada: con él, la caja ofrece los topes grandes (`MAX_ADJUNTOS`, `MAX_BYTES_ADJUNTO`). */
+export const aceptaAdjuntosGrandes = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ADJUNTOS_GRANDES);
+
+/** Lo que la caja le dice a Martín si lo elegido no entra (null = entra). `grandes`: el Runner tiene la 1.16.0. */
+export function problemaDeAdjuntosCaja(bytes: readonly number[], grandes: boolean): string | null {
+  if (!grandes) {
+    if (bytes.length > MAX_ADJUNTOS_CHICOS) return `Máximo ${MAX_ADJUNTOS_CHICOS} archivos con este Runner.`;
+    return bytes.reduce((n, b) => n + b, 0) > MAX_BYTES_ADJUNTOS_CHICOS ? 'Hasta 4 MB con este Runner.' : null;
+  }
+  if (bytes.length > MAX_ADJUNTOS) return `Máximo ${MAX_ADJUNTOS} archivos.`;
+  return bytes.some((b) => b > MAX_BYTES_ADJUNTO) ? `Hasta ${MAX_BYTES_ADJUNTO / 1024 / 1024} MB cada uno.` : null;
+}
 
 /** ¿La versión de un cartero es ésta o una más nueva? Por número: «1.10.0» es mayor que «1.9.1». Sin versión, no. */
 export function versionAlMenos(version: string | null | undefined, minima: string): boolean {
@@ -225,7 +325,7 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (o.v !== VERSION_PEDIDO) return { ok: false, motivo: 'versión desconocida' };
   if (typeof o.id !== 'string' || !UUID_RE.test(o.id)) return { ok: false, motivo: 'id inválido' };
   if (typeof o.texto !== 'string' || !o.texto.trim()) return { ok: false, motivo: 'sin texto' };
-  if (o.texto.length > MAX_TEXTO) return { ok: false, motivo: `el texto pasa de ${MAX_TEXTO} caracteres` };
+  if (o.texto.length > MAX_TEXTO_LARGO) return { ok: false, motivo: `el texto pasa de ${MAX_TEXTO_LARGO} caracteres` };
   const nuevo = o.destino === DESTINO_NUEVO;
   if (!nuevo && (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino))) return { ok: false, motivo: 'destino inválido' };
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
@@ -380,6 +480,8 @@ export function sanearAcuses(x: unknown): Acuse[] {
 export type TurnoChat = { local: string; uuid: string; rol: 'yo' | 'el' | 'otro'; de: string | null; texto: string; at: string; trabajo: string | null };
 /** Lo más largo de un turno que se guarda (la PC ya lo corta). */
 export const TOPE_TURNO = 4000;
+/** Lo que escribió Martín (rol «yo») no se corta como lo demás: puede ser largo, y es suyo (18/10/2026). */
+export const TOPE_TURNO_YO = MAX_TEXTO_LARGO;
 /** Cuántos turnos sube una vuelta, como mucho (la primera de un chat largo trae su historia). */
 export const MAX_TURNOS_VUELTA = 300;
 /** Cuántos turnos se guardan por chat (los últimos). */
@@ -399,7 +501,7 @@ export function sanearTurnos(x: unknown): TurnoChat[] {
     if (!Number.isFinite(at)) continue;
     out.push({
       local: o.local, uuid: o.uuid, rol: o.rol, de: o.rol === 'otro' ? corto(o.de, 60) || null : null,
-      texto: o.texto.slice(0, TOPE_TURNO), at: new Date(at).toISOString(),
+      texto: o.texto.slice(0, o.rol === 'yo' ? TOPE_TURNO_YO : TOPE_TURNO), at: new Date(at).toISOString(),
       trabajo: typeof o.trabajo === 'string' && UUID_RE.test(o.trabajo) ? o.trabajo : null,
     });
   }
@@ -428,12 +530,16 @@ export const ULTIMOS_TEXTO = 300;
  * Los últimos turnos de un chat para su fila: los `ULTIMOS_POR_CHAT` más nuevos de los últimos 3 días, con el texto
  * recortado. ⚠️ SON PARA LA FILA, NUNCA PARA LA CONVERSACIÓN: el texto va cortado (el chat abierto trae los suyos enteros).
  */
-export function resumirTurnos(turnos: readonly TurnoChat[], ahora: number): TurnoChat[] {
-  return turnos
-    .filter((t) => ahora - Date.parse(t.at) < ULTIMOS_VENTANA_MS)
-    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
-    .slice(-ULTIMOS_POR_CHAT)
-    .map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO) }));
+export function resumirTurnos(
+  turnos: readonly TurnoChat[], ahora: number,
+  /** Con esto (`esYaEsta`), también el último «Ya está» del chat aunque no esté entre los últimos: la lista lo necesita para
+   *  el ✓ del «Completado» (18/10/2026: si el chat escribía 3 cosas después, el «Completado» no llegaba a la lista). */
+  esYa?: (texto: string) => boolean,
+): TurnoChat[] {
+  const orden = turnos.filter((t) => ahora - Date.parse(t.at) < ULTIMOS_VENTANA_MS).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const ultimos = orden.slice(-ULTIMOS_POR_CHAT);
+  const ya = esYa ? [...orden].reverse().find((t) => t.rol === 'el' && esYa(t.texto)) : undefined;
+  return (ya && !ultimos.includes(ya) ? [ya, ...ultimos] : ultimos).map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO) }));
 }
 
 /** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */

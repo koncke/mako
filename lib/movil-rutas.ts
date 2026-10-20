@@ -123,7 +123,8 @@ export type DefSeccionMas = {
  * Create. `masCompleto` las cruza con nav.ts por la KEY (antes por la posición: con cuatro familias, la tercera se perdía).
  */
 export const FAMILIAS_MAS = [
-  { id: 'diario', label: null },
+  // Con título desde el 20/10/2026: en la barra de escritorio lo diario lleva rótulo, se pliega y tiene el Ops Center adentro.
+  { id: 'diario', label: 'Today' },
   { id: 'sales', label: 'Sales' },
   { id: 'marketing', label: 'Marketing' },
   { id: 'create', label: 'Create' },
@@ -181,7 +182,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
   { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'sales' },
   // MaKo Partners (17/10/2026): sólo el admin de una agencia (`soloCapas` del ítem de nav.ts, que `puedeVerKey` mira).
-  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: 'sales' },
+  // MaKo Partners: del menú de la foto desde el 20/10/2026 (nav.ts → USER_NAV), así que su fila de More la arma el menú
+  // (`masCompleto`) y acá va OCULTA, como Report a problem y Business settings.
+  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: null, oculta: true },
   // Marketing.
   { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'marketing' },
   { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'marketing' },
@@ -199,10 +202,12 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'create' },
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
-  { id: 'mako', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'mako', familia: null },
+  // «Ops Center» desde el 18/10/2026, como en escritorio (nav.ts → MAKO_NAV): el nombre de la fila, de la cabecera y del
+  // «volver» de sus subpantallas. La pantalla no cambia.
+  { id: 'mako', label: 'Ops Center', href: '/m/second-brain', icon: 'cerebro', navKey: 'mako', familia: null },
   // OCULTAS (17/10/2026): sus páginas siguen y un link de escritorio las abre en el teléfono (`rutaMovil` las busca por
   // id), pero no son filas de More ni suben a la barra: en escritorio salieron de la sidebar (nav.ts → SIN_FILA).
-  { id: 'second-brain', label: 'Second Brain', href: '/m/second-brain', icon: 'cerebro', navKey: 'second-brain', familia: null, oculta: true },
+  { id: 'second-brain', label: 'Ops Center', href: '/m/second-brain', icon: 'cerebro', navKey: 'second-brain', familia: null, oculta: true },
   { id: 'experimentos', label: 'Experiments', href: '/m/experimentos', icon: 'experiments', navKey: 'experimentos', familia: null, oculta: true },
   // Course y Community: sub-tabs de Clients desde el 17/10/2026 (arriba de las tres pantallas, app/m/cs/SeccionesClientsM.tsx).
   { id: 'curso', label: 'Classroom', href: '/m/curso', icon: 'video', navKey: 'cs-curso', familia: null, oculta: true },
@@ -276,7 +281,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   calendario: ['vista', 'fecha'], // app/calendario/page.tsx
   'second-brain': ['area', 'vista'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts)
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
-  offer: ['oferta', 'funnel'], // app/offer/page.tsx (el «Analizar oferta →» del CRM)
+  offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)
   copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
   'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Clients › Classroom)

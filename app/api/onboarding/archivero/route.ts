@@ -45,7 +45,7 @@ const MAX_ARCHIVO_BYTES = 25 * 1024 * 1024;
 const mensajeSinIA = async (nombre: string, motivo?: string): Promise<string> => {
   if (motivo) return `No pude analizar "${nombre}": ${motivo}`;
   if (await docsIADisponible().catch(() => false)) return `Tu IA está conectada pero no pudo analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento.`;
-  return `No pude analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento, o conecta tu propia IA en Integraciones para no depender de la de MaKo.`;
+  return `No pude analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento.`;
 };
 const LEER_DOC = 'Transcribe TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describe también lo que se ve. Devuelve solo el texto.';
 

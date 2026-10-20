@@ -178,6 +178,28 @@ Lo cazó la revisión del archivo con `cat -A`. Para editar código con barras, 
 
 ---
 
+## Un negocio sin IA no es un bug: la Ticketera abrió el #5 y el #6 por algo que el código no arregla (18/10/2026)
+
+**El síntoma**: dos tickets de bug de Mauricio (ws1), con arreglo automático, por «MaKo no pudo contestarte». El #5 decía
+«Claude vetado» (ése sí era de código y ya salió: el `catch` del registro se tragaba el error) y el #6, ya arreglado eso,
+«falló la IA (sin proveedor gratis disponible)».
+
+**La causa**: la cascada con herramientas no tuvo NINGUNA cuenta que probar. Desde el 16/10 una key de la plataforma copiada
+en la fila de un negocio no cuenta como suya, y en el ws1 no queda ninguna (el porqué, que es más hondo:
+[hallazgos-integraciones.md](hallazgos-integraciones.md) → «El ws1 no puede tener una IA propia»). No hay nada roto: falta
+la IA del negocio, que es la decisión A de Martín (cada negocio conecta la suya).
+
+**La regla**: un fallo porque al negocio le falta algo SUYO es configuración, no un bug (`esDeConfiguracion`,
+lib/errores-app-reglas.ts): `registrarError` lo descarta antes de la huella, y el chat le dice a la persona qué hacer, con el
+botón que abre el modal ahí mismo (`faltaIADelNegocio` y `conectar`, lib/mako-turno-app-reglas.ts). Se reconoce por el texto
+que escribe la cascada cuando no había con qué probar, y por la cuenta de cuentas propias con la MISMA lectura que usa la
+cascada (`provsDe`): una lectura propia de «¿tiene IA?» diverge en silencio. «falta RESEND_API_KEY» del servidor sigue siendo un
+bug: es de la plataforma.
+
+**Vive en:** lib/errores-app-reglas.ts · lib/errores-app.ts · lib/mako-turno-app.ts (`iaPropiaDelTurno`) · lib/mako-turno-app-reglas.ts · app/_chat/ConectarDelAviso.tsx · tests/mako-sin-ia.test.ts
+
+---
+
 ## Lo que quedó sin hacer
 
 | Qué | Dónde | Por qué |
@@ -188,3 +210,5 @@ Lo cazó la revisión del archivo con `cat -A`. Para editar código con barras, 
 | Levantarlo por WhatsApp | lib/mako-doer-in.ts | Es del chat «MaKo en WhatsApp»: el registro ya acepta `actor: 'whatsapp:<teléfono>'` (lo atribuye a la persona del negocio con ese teléfono) y el aviso de vuelta pasa por `sanearSalida` |
 | Adjuntar una captura a mano | app/tickets | El contexto automático cubre el caso del chat |
 | Borrar el mazo de las preguntas de los chats | app/tickets/decisiones, app/admin/runway | Cuando ande el formulario de opciones dentro de cada chat (Ops Center) |
+| Lo que no es IA de la fila del ws1 sigue siendo el entorno | lib/credenciales.ts (`wsDelEntorno`) | La IA ya se separó el 18/10 (Martín). Meta, Calendly, Fathom y las settings de plataforma en el ws1 quedan para otra decisión ([hallazgos-integraciones.md](hallazgos-integraciones.md)) |
+| El doer de WhatsApp cuenta las copias como keys del negocio | lib/mako-doer-in.ts (`contarKeysIA`) | Cuenta `clavesCargadas`, con las copias de la plataforma: en el ws1 nunca daría `sin_keys`. Leído en el código, no medido. Es del chat «MaKo en WhatsApp» |

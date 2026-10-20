@@ -21,10 +21,7 @@ import { VistaCerebro } from './VistaCerebro';
 import { ChatSecondBrain } from './ChatSecondBrain';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { chatsMakoDeQuienMira } from '@/lib/cerebro-chats';
-import { construccionDeMako } from '@/lib/cerebro-construccion-datos';
-import { getSesionAdmin } from '@/lib/auth';
-import { wsSuperAdmin } from '@/lib/workspace';
-import { puedeOperar } from '@/lib/operaciones-reglas';
+import { cerebroQueSeDibuja, quienOpera } from '@/lib/second-brain-opera';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { esVistaTicketera } from '@/app/tickets/decisiones/reglas';
 // La Ticketera vive adentro de Ops Center (16/10/2026): sus hojas las importa la página (CambioVista.tsx lo explica).
@@ -51,18 +48,15 @@ export async function mapaDelSecondBrain(): Promise<ReactNode> {
     </p>
   );
   // Con los chats con MaKo de quien mira: son suyos, así que sólo los suma la pantalla (lib/cerebro-chats.ts). Y para
-  // quien OPERA (el super admin, con la misma guarda del Centro), la construcción de MaKo como segunda capa: a los demás
-  // no se les arma ni se les manda.
+  // quien OPERA (el super admin, con la misma guarda del Centro), UN cerebro con la construcción de MaKo colgada de la
+  // raíz, acomodado entero en el servidor (20/10/2026: nunca dos). A los demás no se les arma ni se les manda.
   const [chatsMako, opera] = await Promise.all([chatsMakoDeQuienMira(), quienOpera()]);
-  const cerebro = await construirCerebro({ chatsMako });
-  const construccion = opera ? construccionDeMako() : null;
-  return <VistaCerebro cerebro={cerebro} construccion={construccion} funnelPanel={funnelPanel} />;
+  const cerebro = await cerebroQueSeDibuja(await construirCerebro({ chatsMako }), opera);
+  return <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} />;
 }
 
-/** ¿Quien mira opera MaKo? La guarda del Centro de Operaciones (app/admin/operaciones/datos.ts), tal cual. */
-export async function quienOpera(): Promise<boolean> {
-  try { return puedeOperar(await getSesionAdmin(), await wsSuperAdmin()); } catch { return false; }
-}
+/** La guarda vive en lib/second-brain-opera.ts (la usa también la ruta del grafo vivo, que no puede importar esta página). */
+export { quienOpera };
 
 const enteroDe = (v: string | undefined): number | null => {
   const n = Number(v);

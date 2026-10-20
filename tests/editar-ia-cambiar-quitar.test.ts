@@ -91,7 +91,10 @@ test('cambiar el texto conserva el id, el lugar y lo que no se nombró', () => {
   assert.deepEqual(r.quitadas, []);
   assert.equal(r.pasos.length, base245().length);
   assert.deepEqual(erroresEdicion(base245(), r, ctx), []);
-  assert.equal(r.resumen, 'Cambié 1');
+  // 20/10/2026 (Leila: «Cambié 2» no decía qué): el resumen dice la tarjeta y cómo quedó, y que falta Publicar. La cuenta
+  // sigue en `resumenEdicion`.
+  assert.equal(resumenEdicion(r), 'Cambié 1');
+  assert.match(r.resumen, /^Cambié «WHATSAPP: .+»: ahora «WHATSAPP: .+»\nEstá en el borrador: toca Publicar\.$/);
 });
 
 // rotura B (sin el cambio de canal por código: `if (cambio && false)`): 11 / 1, cae éste (la copia sola deja el WhatsApp y
@@ -182,7 +185,9 @@ test('quitar una condición se lleva sus ramas, con el aviso de cuántas tarjeta
   const r2 = deIAEdicion({ quitar: ['k1'], agregar: [{ despues_de: 'm0', salida: 'sig', tarjetas: [{ id: 't1', tipo: 'esperar', horas: 24, sigue: 't2' }, { id: 't2', tipo: 'mensaje', texto: '¿Seguimos?' }] }] }, baseCondicion(), ctx, rndDe());
   assert.equal(r2.agregadas.length, 2);
   assert.equal(r2.pasos[0].siguiente, r2.agregadas[0]);
-  assert.equal(r2.resumen, 'Saqué 4 · agregué 2');
+  assert.equal(resumenEdicion(r2), 'Saqué 4 · agregué 2');
+  // Tarjeta por tarjeta, hasta tres y «y N más» (20/10/2026).
+  assert.match(r2.resumen, /^Saqué «CONDITION: .+»\n(?:.+\n){2}y 3 más\nEstá en el borrador: toca Publicar\.$/);
 });
 
 // rotura J (`deIAEdicion` deja de leer "agregar"): 9 / 3, cae éste (y el de quitar y el del resumen, que agregan).
@@ -198,7 +203,8 @@ test('el formato viejo (sólo "agregar") sigue igual: lo de antes no cambia', ()
   assert.equal(r.agregadas.length, 2);
   assert.deepEqual(r.cambiadas, []);
   assert.deepEqual(r.quitadas, []);
-  assert.equal(r.resumen, 'Agregué 2');
+  assert.equal(resumenEdicion(r), 'Agregué 2');
+  assert.match(r.resumen, /^Agregué «.+»\nAgregué «.+»\nEstá en el borrador: toca Publicar\.$/);
   assert.deepEqual(erroresEdicion(base, r, ctx), []);
 });
 
@@ -224,7 +230,7 @@ test('resumenEdicion cuenta bien, sólo con lo que pasó', () => {
     quitar: ['k1'],
     agregar: [{ despues_de: 'm0', salida: 'sig', tarjetas: [{ id: 't1', tipo: 'esperar', dias: 1, sigue: 't2' }, { id: 't2', tipo: 'mensaje', texto: '¿Cómo vas?' }] }],
   }, baseCondicion(), ctx, rndDe());
-  assert.equal(r.resumen, 'Cambié 1 · saqué 4 · agregué 2');
+  assert.equal(resumenEdicion(r), 'Cambié 1 · saqué 4 · agregué 2');
   assert.deepEqual(erroresEdicion(baseCondicion(), r, ctx), []);
 });
 

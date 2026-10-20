@@ -11670,7 +11670,7 @@ curl -L \
 
 ### `PATCH /api/v1/negocio/perfil/campos/{key}` — Completar un campo del perfil
 
-PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y corregirlo se hace en Second Brain → Documentos. Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.
+PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y corregirlo se hace en Ops Center → Documentos. Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.
 
 - **Ruta por operación:** `POST /api/v1/negocio/guardar_campo_perfil`
 - **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)

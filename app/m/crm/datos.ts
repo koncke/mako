@@ -221,7 +221,16 @@ export type TarjetaCrmM = {
   senal: SenalTarjeta;
   /** El monto (o el estimado, con «≈»), corto. */
   plata: string | null;
+  /** Por dónde llegó (`canalDeLead`): el subtítulo y la insignia de la cara (17/10/2026, la familia de tarjetas). */
+  canal: string;
+  /** La cara: la elegida o la de WhatsApp guardada. Sin ninguna, iniciales. */
+  foto: string | null;
+  /** Sólo dígitos, para Llamar y WhatsApp en la ficha rápida. */
+  telefono: string | null;
 };
+
+/** «Próximo» (17/10/2026, la destacada del prototipo): la próxima reunión que todavía no pasó. */
+export type ProximoCrmM = { id: number; nombre: string; cuando: string; plata: string | null; telefono: string | null; foto: string | null; col: string };
 
 export type TableroCrmM = {
   /** null = el funnel del negocio (como `leads.funnel_id`). */
@@ -229,8 +238,9 @@ export type TableroCrmM = {
   /** El selector: el del negocio primero. Con uno solo, no hay selector. */
   funnels: Array<{ id: number | null; nombre: string }>;
   /** `movible`: se puede llevar un lead ACÁ desde el teléfono; `sale`: se puede sacar uno de acá. */
-  columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean; sale: boolean }>;
+  columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean; sale: boolean; camino: boolean }>;
   tarjetas: TarjetaCrmM[];
+  proximo: ProximoCrmM | null;
 };
 
 const BANDA_ORDEN = ['pipeline', 'nutricion', 'salidas'];
@@ -280,7 +290,31 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
             abierto: c.estadoLead === 'abierto', creadoISO: c.createdISO,
           }, ahoraMs, tz, hoy),
           plata: monto,
+          canal: c.canal,
+          foto: c.foto ?? null,
+          telefono: c.telefonoNorm ?? null,
         });
+      }
+    }
+    // «Próximo»: la reunión más cercana que no pasó, de un lead abierto. Una fecha sin hora (sólo el día) cuenta todo
+    // el día; una con hora, hasta una hora después de empezar (la misma gracia que las reuniones de escritorio).
+    let proximo: ProximoCrmM | null = null;
+    {
+      let mejor: { c: (typeof ordenados)[number]; ms: number } | null = null;
+      for (const c of ordenados) {
+        if (c.estadoLead !== 'abierto' || !c.fechaJ1) continue;
+        const soloDia = c.fechaJ1.length <= 10;
+        const ms = Date.parse(soloDia ? `${c.fechaJ1}T23:59:59` : c.fechaJ1);
+        if (!Number.isFinite(ms)) continue;
+        if (soloDia ? c.fechaJ1 < hoy : ms + 60 * 60_000 < ahoraMs) continue;
+        if (!mejor || ms < mejor.ms) mejor = { c, ms };
+      }
+      if (mejor) {
+        const c = mejor.c;
+        const col = etapaEnTablero(c.stage, keys);
+        const senal = senalDeTarjeta({ reunionISO: c.fechaJ1, manualDeadline: null, enManual: false, abierto: true, creadoISO: c.createdISO }, ahoraMs, tz, hoy);
+        const plata = c.monto > 0 ? plataCorta(c.monto) : (c.ingresoEstimado ?? 0) > 0 ? `≈ ${plataCorta(c.ingresoEstimado ?? 0)}` : null;
+        proximo = { id: c.id, nombre: c.name?.trim() || 'Sin nombre', cuando: senal.tono === 'verde' && senal.texto ? senal.texto : (c.fechaJ1!.length <= 10 ? (c.fechaJ1 === hoy ? 'Hoy' : c.fechaJ1!.slice(8, 10) + '/' + c.fechaJ1!.slice(5, 7)) : 'Ahora'), plata, telefono: c.telefonoNorm ?? null, foto: c.foto ?? null, col };
       }
     }
     const lite = stages.map((s) => ({ key: s.key, label: s.label, kind: s.kind ?? null }));
@@ -298,9 +332,12 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
         return {
           key: s.key, titulo: s.label, total: t ? textoDelTotal(t) : null, cuantos: cs.length,
           movible: seMueveEnElTelefono(lite, s.key), sale: seSacaEnElTelefono(lite, s.key),
+          // Es un PASO del recorrido (la banda pipeline): la barra de «Paso N de M» no cuenta nutrición ni salidas.
+          camino: (s.band ?? 'pipeline') === 'pipeline',
         };
       }),
       tarjetas,
+      proximo,
     };
   } catch (e) {
     console.error(`[m/crm] tablero: ${msg(e)}`);
