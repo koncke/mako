@@ -59,6 +59,25 @@ export function sanearCuota(x: unknown): Cuota | null {
   return plan ? { cinco, semana, medido, plan } : { cinco, semana, medido };
 }
 
+/**
+ * ¿La semana de esta cuota es de OTRA cuenta? (20/10/2026, la segunda vez que el Uso mostró los números de una cuenta en
+ * otra.) Cada cuenta reinicia su semana siempre a la misma hora: si el reinicio coincide (±5 min) con el de otra cuenta que
+ * todavía no venció, la medición es de ésa, y no se guarda. Es la misma huella que mira la PC antes de anotar (cartero
+ * 1.16.1 → problemaDeHuella); acá frena también a un cartero de antes. Devuelve la cuenta dueña, o null.
+ */
+export function cuentaDeLaSemana(
+  cuenta: string, cuota: Pick<Cuota, 'semana'> | null, otras: ReadonlyArray<{ cuenta: string; cuota: Pick<Cuota, 'semana'> | null }>, ahora: number,
+): string | null {
+  const t = Date.parse(cuota?.semana?.reinicia ?? '');
+  if (!Number.isFinite(t)) return null;
+  for (const o of otras) {
+    if (o.cuenta === cuenta) continue;
+    const r = Date.parse(o.cuota?.semana?.reinicia ?? '');
+    if (Number.isFinite(r) && r > ahora && Math.abs(r - t) <= 5 * 60_000) return o.cuenta;
+  }
+  return null;
+}
+
 /** Una medición de hace más que esto lleva su edad al lado. */
 export const USO_VIEJO_MS = 30 * 60 * 1000;
 /**
