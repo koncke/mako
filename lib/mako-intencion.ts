@@ -94,6 +94,10 @@ export type VeredictoIntencion = {
   /** La persona le reclama a MaKo lo que le prometió («Pasamelo» después de «Eso lo miro y te lo paso»): las
    *  herramientas se eligen por el pedido que MaKo prometió, no por el último mensaje (lib/mako-doer-in.ts). */
   reclamaPromesa?: boolean;
+  /** Sólo en la app (`ctx.canal`): si el texto no nombra ningún área, la operación se busca en TODO el registro, ordenada por
+   *  relevancia contra el pedido, en vez de llegar sin ninguna. Es la contracara de «un canal propone»: en la app lo que se
+   *  elige es una tarjeta, no una acción hecha (lib/doer-herramientas.ts). */
+  buscaEnTodo?: boolean;
 };
 
 /** Lo que dice un pedido de agenda para el presupuesto: pone primero las de agenda. */
@@ -774,6 +778,13 @@ export function sinPrefijoDeLote(texto: string): string {
  *  punto o un punto y coma («…, llamar a…»). Sin tildes, como el resto. */
 const OTRO_INFINITIVO = /[,;.]\s*(?:y\s+|tambien\s+|despues\s+|luego\s+)?[a-z]{2,}(?:ar|er|ir)\b/;
 
+/**
+ * El NOMBRE de lo que se crea: «una etiqueta llamada Caliente», «un evento que se llame Cena». No es una llamada que agendar.
+ * «llamá a Juan» y «una llamada con Ana mañana» siguen siendo de la agenda (la palabra que sigue es una preposición, un
+ * artículo o un día). Sobre el texto sin tildes.
+ */
+const NOMBRADO = /\b(?:que\s+se\s+)?(?:llam(?:a|e|an|en)|llamad[oa]s?|titulad[oa]s?)\s+(?!(?:con|a|para|de|del|el|la|los|las|manana|hoy|que|por|en|al|un|una|y|o|esta|este|lunes|martes|miercoles|jueves|viernes|sabado|domingo|ahora|luego|despues|temprano|tarde)\b)[^\s,.;:]+/g;
+
 /** ¿Pide crear, mover, cambiar o cancelar una reunión? Recibe el texto sin tildes. */
 function esPedidoAgenda(n: string): boolean {
   const t = n.replace(PRELUDIO, '').trim();
@@ -960,6 +971,13 @@ export function clasificarIntencion(
     /** El último mensaje de MaKo PROMETIÓ algo (lib/doer-salida.ts, `promesasDe`), y ésta es la intención del pedido
      *  de la persona que prometía cumplir. Sin promesa, undefined. */
     pedidoPrometido?: Intencion;
+    /**
+     * Por dónde habla la persona. `'app'` (el Ops Center y /m/mako): MaKo sólo PROPONE y la persona confirma con un toque, así
+     * que ante la duda se actúa (se arma la tarjeta) en vez de anotar el pedido como idea: decisión D1 = A de
+     * docs/ops-center-principal.md, 20/10/2026. Sin `canal` (o `'whatsapp'`) todo es como siempre: el grupo de WhatsApp
+     * sigue anotando, que es lo que conviene al dueño que vuelca ideas por ahí.
+     */
+    canal?: 'app' | 'whatsapp';
   } = {},
 ): VeredictoIntencion {
   const t = (texto || '').trim();
@@ -967,10 +985,17 @@ export function clasificarIntencion(
   // Se calcula una vez: lo miran la regla del «sí» (para NO quedárselo) y la de agenda. Sobre
   // lo que escribió la persona: el encabezado de un lote alarga el texto y no es de ella.
   const nPersona = norm(sinPrefijoDeLote(t));
-  const pedidoAgenda = esPedidoAgenda(nPersona) || corrigeAgenda(nPersona, !!ctx.hayPendienteDeAgenda);
+  // «una etiqueta llamada Caliente» es un NOMBRE, no una llamada que agendar (medido el 20/10/2026: «crea una etiqueta llamada
+  // Caliente» llegaba como pedido de agenda).
+  const nAgenda = nPersona.replace(NOMBRADO, ' ');
+  // Sólo en la app (lib/mako-intencion-app.ts): de qué área es lo que se pide cuando el texto no la nombra.
+  const fam = ctx.canal === 'app' ? familiasDe(t) : null;
+  // «creá una plantilla de WhatsApp para recordar la reunión» nombra una reunión pero no pide agendarla.
+  const pedidoAgenda = !fam?.ganaALaAgenda && (esPedidoAgenda(nAgenda) || corrigeAgenda(nAgenda, !!ctx.hayPendienteDeAgenda));
   const pedidoLead = esPedidoSobreLead(t);
   const pedidoCobro = esPedidoDeCobro(t);
   const pedidoLanding = esPedidoDeLanding(sinPrefijoDeLote(t));
+  const deLaApp = ctx.canal === 'app' ? { buscaEnTodo: true as const, ...(fam ? { areas: fam.areas, relevancia: fam.relevancia } : {}) } : {};
 
   // 0) COMPARTIÓ UN CONTACTO. Va antes que todo porque no admite lectura: nadie
   //    comparte una tarjeta de contacto para que quede anotada como una idea.
@@ -1023,7 +1048,8 @@ export function clasificarIntencion(
   // La única diferencia era la palabra «hola» adelante.
   //
   // Se pela el saludo y se clasifica EL RESTO. `charlar` sólo si no quedó nada.
-  if ((SALUDO.test(t) || SOLO_EMOJI.test(t)) && cuentaLinks(t) === 0) {
+  //    (En la app, «prueba la automatización de bienvenida» no es un saludo: la familia del pedido gana.)
+  if ((SALUDO.test(t) || SOLO_EMOJI.test(t)) && cuentaLinks(t) === 0 && !(ctx.canal === 'app' && fam?.actua)) {
     const resto = SOLO_EMOJI.test(t) ? '' : sinSaludoInicial(t);
     if (!resto) return { intencion: 'charlar', dudosa: false, porque: 'saludo/charla' };
     // Sólo si de verdad se acortó, o esto no termina nunca.
@@ -1145,6 +1171,8 @@ export function clasificarIntencion(
   //    obviamente la buena. Gana capturar —perder el material es el error caro—
   //    pero se marca dudosa para que MaKo ofrezca la otra en una línea.
   if (dictado && pedido) {
+    // En la app no hay dos lecturas: MaKo propone y la persona confirma (D1 = A, `canal`).
+    if (ctx.canal === 'app') return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'canal app: trae material y un verbo en imperativo; propone con tarjeta' };
     return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'trae material dictado y también un verbo en imperativo' };
   }
 
@@ -1159,7 +1187,8 @@ export function clasificarIntencion(
 
   // 6) Solo links, sin una frase que diga qué hacer con ellos. Mandar un link
   //    pelado es guardarlo: si quisiera que MaKo lo mire, lo diría.
-  if (links > 0 && !pedido && n.replace(/https?:\/\/\S+/g, '').trim().length < 60) {
+  //    (En la app un verbo de hacer con el link —«cargá la grabación de Fathom de Juan: https://…»— es una orden.)
+  if (links > 0 && !pedido && !(ctx.canal === 'app' && (pideHacerAlApp(t) || fam?.actua)) && n.replace(/https?:\/\/\S+/g, '').trim().length < 60) {
     return { intencion: 'capturar', dudosa: false, porque: 'links sin instrucción: material para guardar' };
   }
 
@@ -1189,6 +1218,13 @@ export function clasificarIntencion(
     return { intencion: 'actuar', dudosa: false, porque: 'pedido de agenda: crear, mover, cambiar o cancelar una reunión', areas: ['crm'], relevancia: RELEVANCIA_AGENDA };
   }
 
+  // 6-quater) EN LA APP, UN VERBO DE HACER AL ARRANQUE («creame…», «mandale…», «poné…», «quiero crear…», «¿podés cambiar…?»)
+  //           es un pedido: MaKo propone con una tarjeta. Va antes de 7 y de 8: «¿podés cambiar la hora?» termina en «?» y
+  //           «mandá un mail» está en `IMPERATIVO` (pensar, que no escribe). Ver lib/mako-intencion-app.ts.
+  if (ctx.canal === 'app' && (pideHacerAlApp(t) || fam?.actua)) {
+    return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'canal app: pide hacer algo; propone con tarjeta' };
+  }
+
   // 7) Escritura sobre la cuenta.
   if (ACCION_CUENTA_RE.test(t)) {
     return { intencion: 'actuar', dudosa: false, porque: 'verbo de acción sobre la cuenta' };
@@ -1198,19 +1234,19 @@ export function clasificarIntencion(
   //    entraron») porque el contrato es el mismo y el tier es más barato: sin
   //    esto, cada «decime…» se iba a Opus.
   if (PREGUNTA.test(t) || (pedido && INTERROGATIVO.test(t))) {
-    return { intencion: 'consultar', dudosa: false, porque: 'pregunta por un dato' };
+    return { intencion: 'consultar', dudosa: false, porque: 'pregunta por un dato', ...deLaApp };
   }
   // 8-bis) Pedido de datos sin forma de pregunta («un reporte de mis resultados de
   //        junio»). Va DESPUÉS del dictado (4-6): «Idea: un reporte de resultados para
   //        clientes» sigue siendo material para guardar. Ver PEDIDO_DATOS.
   //        Y solo en un mensaje CORTO: pedir un reporte es una línea, no un volcado.
   if (t.length <= 280 && PEDIDO_DATOS.test(n)) {
-    return { intencion: 'consultar', dudosa: false, porque: 'pide un reporte o sus números' };
+    return { intencion: 'consultar', dudosa: false, porque: 'pide un reporte o sus números', ...deLaApp };
   }
 
   // 9) Imperativo dirigido a MaKo, o media adjunta → hacerlo ahora.
   if (pedido || ctx.hayMedia) {
-    return { intencion: 'pensar', dudosa: false, porque: ctx.hayMedia ? 'adjunto para interpretar' : 'imperativo dirigido a MaKo' };
+    return { intencion: 'pensar', dudosa: false, porque: ctx.hayMedia ? 'adjunto para interpretar' : 'imperativo dirigido a MaKo', ...deLaApp };
   }
 
   // 9-bis) Un «sí/dale» suelto SIN nada esperando no es material: es ruido de
@@ -1224,6 +1260,9 @@ export function clasificarIntencion(
   //     y se avisa. El default viejo era «mandale todas las tools y que el modelo
   //     vea»: eso es lo que producía dos resultados distintos para el mismo
   //     mensaje.
+  //     EN LA APP no: ahí el default es proponer con una tarjeta (D1 = A). Medido el 20/10/2026 con el turno real, lo que
+  //     no se reconocía caía acá y llegaba con sólo `ver_plan` y `listar_pendientes`: CRM 41 de 91, núcleo 23 de 40.
+  if (ctx.canal === 'app') return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'canal app: sin señal clara; propone con tarjeta' };
   return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'sin señal clara: se guarda para no perderlo' };
 }
 
@@ -1280,6 +1319,7 @@ export function avisoDeDuda(v: VeredictoIntencion): string {
 // `toolsParaIntencion` aplica a la duda).
 
 import type { Area } from './api-mako/tipos';
+import { pideHacerAlApp, familiasDe } from './mako-intencion-app';
 
 export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   general: /\b(objetivos?|metas? del (mes|trimestre)|kpis?|sem[aá]foro|c[oó]mo (voy|vamos|va el negocio)|trimestre)/i,

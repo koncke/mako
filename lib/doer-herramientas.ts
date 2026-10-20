@@ -247,13 +247,29 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   ])];
   const relevanteA = [sobre, v.relevancia ?? '', ...(p.resumenesPendientes ?? [])].filter(Boolean).join('\n');
   const deSiempre = p.sinCalendly ? p.deSiempre.filter((t) => !DE_CALENDLY.includes(t.name)) : p.deSiempre;
-  const delRegistro = areas.length
-    ? toolsDelRegistro({
-        vista: p.vista, areas, incluirAcciones: v.intencion === 'actuar',
-        excluir: new Set([...p.deSiempre.map((t) => t.name), ...(p.sinCalendly ? DE_CALENDLY : []), ...(v.mover ? NO_MUEVEN_DE_DIA : [])]),
-        maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA,
-      })
-    : [];
+  const excluir = new Set([...p.deSiempre.map((t) => t.name), ...(p.sinCalendly ? DE_CALENDLY : []), ...(v.mover ? NO_MUEVEN_DE_DIA : [])]);
+  // En la app (`buscaEnTodo`, lib/mako-intencion.ts) el pedido no siempre nombra el área de su operación («creá una etiqueta»,
+  // «cortá el video»): primero entran las operaciones de las áreas que el texto SÍ nombra (hasta el 60% del presupuesto, para
+  // que un área ancha como el CRM no se lo coma todo) y el resto del presupuesto se llena con lo más relevante de TODO el
+  // registro. Lo que se elige es una tarjeta que la persona confirma; la alternativa era llegar con sólo `ver_plan`.
+  const buscaEnTodo = !!v.buscaEnTodo && (v.intencion === 'actuar' || v.intencion === 'consultar' || v.intencion === 'pensar');
+  const conAcciones = v.intencion === 'actuar';
+  const delRegistro = buscaEnTodo
+    ? (() => {
+        const deLasAreas = areas.length
+          ? toolsDelRegistro({ vista: p.vista, areas, incluirAcciones: conAcciones, excluir, maxChars: Math.floor(PRESUPUESTO_REGISTRO_CHARS * 0.6), relevanteA })
+          : [];
+        const yaEntraron = new Set([...excluir, ...deLasAreas.map((t) => t.name)]);
+        const usados = deLasAreas.reduce((n, t) => n + JSON.stringify(t).length, 0);
+        const deTodo = toolsDelRegistro({ vista: p.vista, incluirAcciones: conAcciones, excluir: yaEntraron, maxChars: PRESUPUESTO_REGISTRO_CHARS - usados, relevanteA });
+        return [...deLasAreas, ...deTodo];
+      })()
+    : areas.length
+      ? toolsDelRegistro({
+          vista: p.vista, areas, incluirAcciones: v.intencion === 'actuar',
+          excluir, maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA,
+        })
+      : [];
   /**
    * ⚠️ EN UNA PREGUNTA NO VIAJAN LAS HERRAMIENTAS QUE ESCRIBEN: MaKo OFRECE la acción.
    *

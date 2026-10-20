@@ -1128,6 +1128,13 @@ Ocho cosas que no se ven en el código y ya mordieron:
    caía `capturar` con DOS herramientas — MaKo no podía registrar un pago, con o sin moneda
    (`tests/api-mako-pago-intencion.test.ts`, docs/hallazgos-api-mako.md → «Pendientes B1 de la API»).
 
+**Y el chat de la APP no anota ante la duda** (20/10/2026, Ops Center pieza 1.2; docs/hallazgos-ia.md → «Ops Center, pieza 1.2»):
+`clasificarIntencion` recibe `canal: 'app'` (lo pasa lib/mako-turno-app.ts) y, sin señal clara, MaKo propone con una tarjeta (D1 = A);
+WhatsApp sigue anotando como idea. Una frase nueva de la app entra a `tests/ops-center-clasificador-app.test.ts` con su operación, y
+si no llega: (1) un verbo de hacer al arranque va en `lib/mako-intencion-app.ts`; (2) si el pedido no nombra el área, una fila de
+`FAMILIAS` con las palabras del NOMBRE de la operación (verbo y sustantivo; un verbo suelto puntúa en cientos de operaciones y la saca
+del presupuesto); (3) un veredicto dudoso no suma las áreas del texto, así que el default de la app va `dudosa: false`.
+
 **Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
 docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
 

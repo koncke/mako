@@ -505,6 +505,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'detecta en la respuesta del modelo los pedidos de un dato («pasame la hora») y las groserías («boludo») para SACARLOS: sin las formas no ve nada',
   },
   {
+    ruta: 'lib/mako-intencion-app.ts',
+    porque: 'detecta lo que la persona ESCRIBE en el chat de la app («mandale», «escribile», «¿podés…?», «probame») para saber si le pide algo a MaKo: sin las formas del voseo no reconoce el pedido',
+  },
+  {
     ruta: 'lib/vigia-mako-grupos.ts',
     porque: 'lee lo que escribieron MaKo y el cliente en el grupo («no tenés», «no me entendés») para marcar incidentes; no le habla a nadie',
   },

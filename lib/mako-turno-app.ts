@@ -362,6 +362,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const ultimoDeMako = previos.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
     const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${adjuntos.length ? textoMemoria : textoPersona}`;
     const intencion = clasificarIntencion(textoClasificar, {
+      // Por la app MaKo sólo PROPONE y la persona confirma: ante la duda se actúa, no se anota (D1 = A, lib/mako-intencion.ts).
+      canal: 'app',
       hayMedia: adjuntos.length > 0,
       hayPendientes: vigentes.length > 0,
       hayPendienteDeAgenda: vigentes.some((p) => (ACCIONES_AGENDA as readonly string[]).includes(p.tipo)),

@@ -438,4 +438,33 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-comunicacion.md — la entrada «No puedo», «déjame ver»…, caso del ws13',
     ],
   },
+  {
+    fecha: '20 oct', hora: '19:10', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Ops Center es lo principal de MaKo: que se pueda hacer todo desde ahí',
+    pedido: 'comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...',
+    puntos: [
+      'Llegó por el Cerebro con el mapa de docs/ops-center-principal.md (510 acciones en 18 áreas, plan por olas). A este chat le toca la pieza 1.2: el clasificador del canal app, por tandas, con las frases de cada chat de área.',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '20:50', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: Ops Center 1.2, tanda 1 — el chat de la app propone con tarjeta en vez de anotar (CRM 41→91 de 91, núcleo 23→40 de 40)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '⚠️ **El freno no eran las operaciones: era el clasificador.** El turno de la APP usaba el del grupo de WhatsApp, que ante la duda anota el pedido como idea y le saca a MaKo la herramienta de escribir. Medido con el turno real sobre las frases de los mapas: CRM 41 de 91, Automations y Clients 17 de 48, núcleo 23 de 40. Ahora: 91, 44 (las otras 4 son operaciones sólo http) y 40.',
+      '**D1 = A, por defecto:** en la app, sin señal clara se actúa —se arma la tarjeta y nada se hace sin el toque—. WhatsApp sigue anotando (un test lo fija). Si Martín elige otra (B: preguntar «¿lo hago o lo anoto?»), es una rama (`deLaApp` en lib/mako-intencion.ts).',
+      '`pideHacerAlApp` (un verbo de hacer al arranque, en tuteo y voseo, con pronombre pegado y como pedido indirecto), las familias de pedidos (de qué área es la operación y con qué palabras de su NOMBRE entra al presupuesto) y la búsqueda en TODO el registro cuando el texto no nombra un área.',
+      '⚠️ **Dos trampas que no dan error:** un veredicto dudoso no suma las áreas del texto (`herramientasDelTurno` las suma solo con `!v.dudosa`), y la relevancia son raíces de 5 letras: un verbo suelto en la relevancia de una familia saca operaciones del presupuesto (medido: `editar_etiqueta` afuera, `cobranza_lead` adentro).',
+      '**Sin hacer:** las tandas de Plan, Calendario y Dashboard, Pagos, Offer y Second Brain, video e imagen, Web y Ads (Meta después de la 1.4); abrir a la app las 4 operaciones de curso y comunidad que hoy son sólo http (Clients); confirmar D1 con Martín.',
+    ],
+    archivos: [
+      'lib/mako-intencion-app.ts — `pideHacerAlApp` y la tabla de familias (puro)',
+      'lib/mako-intencion.ts — `canal`, `buscaEnTodo`, `NOMBRADO`, la regla 6-quater y el default de la app',
+      'lib/doer-herramientas.ts — la búsqueda en todo el registro (áreas del texto hasta el 60% del presupuesto)',
+      'lib/mako-turno-app.ts — `canal: \'app\'`',
+      'tests/ops-center-clasificador-app.test.ts — 175 frases medidas, 12 tests, 29 roturas con su fallo',
+    ],
+  },
 ];
