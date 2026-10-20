@@ -109,3 +109,10 @@ Martín: «No me aparece el mensaje de "Completado" y la notificación de todos 
 ## Ops Center: pegar lo copiado (pedido 5e8b6bff, 18/10 15:15)
 
 «Si saqué una screen o tengo algo copiado, debería aparecer así arriba para pegarlo en el chat»: es el «Pegar» que el teclado de Android ofrece en WhatsApp con la captura recién sacada. Para que el teclado lo ofrezca en la caja del Ops Center, la caja tiene que aceptar pegar IMÁGENES (`onPaste` con `clipboardData.files`, como adjunto). Lo mismo con Ctrl+V en la computadora. Hecho el 18/10: la marca dice «En la app de Claude» (f68a38879). Pegar imágenes: después del 20/10, junto con las imágenes desde la app (punto 4 de Ops Center 3).
+
+## Pedido de un cliente: recordatorios programados por WhatsApp (ws13, 2ª vez)
+
+- **El pedido:** 19/10 00:14 UTC, en el grupo de Código Inmobiliario: «Mako enviame un mensaje de recordatorio en 4 minutos que diga "acordate"». El 10/10 ya había pedido «programar enviarle un mensaje por privado a un número».
+- **Qué pasa hoy:** MaKo contestó con honestidad que no puede. La API no tiene ninguna operación para programar un mensaje al grupo; sólo existen `programar_broadcast` (email) y `programar_analisis_dashboard`.
+- **Propuesta del Cerebro:** una operación `programar_recordatorio` en la API de MaKo (regla api-mako-con-cada-feature), que cree una corrida diferida con el mismo motor de esperas de Automations y le escriba al GRUPO del negocio. El mensaje privado a un tercero queda afuera: choca con «a terceros sale el número del usuario».
+- **Estado:** es capacidad nueva, así que decide Martín. Se informó el 19/10.

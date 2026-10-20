@@ -10,8 +10,9 @@ anteriores quedan en el historial de git. Esta tabla se rehízo el **17/10/2026 
 Para qué existen: la lista de chats de la app está **partida por cuenta** aunque los
 transcripts sean compartidos, así que un chat de la otra cuenta **no se puede reabrir ni
 mensajear** desde esta. Verificado el 27/09: `get_session` sobre las 4 sesiones de esa
-mañana devuelve *not found*, y esta build no expone ninguna herramienta para crear
-sesiones. El único paso que Claude no puede dar es el clic de «chat nuevo».
+mañana devuelve *not found*. ⚠️ Lo de «no hay herramienta para crear sesiones» quedó viejo el 17/10: el Cerebro de la
+app abre los jefes con `start_session` (nombre, modelo, esfuerzo y la línea de la tabla), pero sólo en un turno que
+arranca con un mensaje de Martín (AGENTS.md → «Cómo se reparte el trabajo entre los chats»). Desde la nube no se puede.
 
 **Antes que esta tabla: [`chats.md`](chats.md)** — en qué chats se estuvo trabajando, con la
 última actividad de cada uno. Una cuenta nueva ve la barra lateral VACÍA (está partida por
