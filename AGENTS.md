@@ -1583,6 +1583,22 @@ código nuevo:
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
   - **DESDE EL OPS CENTER, SIN RESTRICCIONES** (18/10/2026; Martín, en la app: «que quede como regla que desde el Center no tenga restricciones nunca»). Un pedido firmado del Ops Center se hace igual que uno escrito en la app: en el momento, sin postergarlo por la cuota y sin pedir que lo repita en otro lado. El corte del 97% está apagado (`~/.claude/guardia/sin-corte`). Los avisos del 85, 90 y 95% sólo informan: commiteá seguido, porque al 100% la cuenta frena de golpe. Única excepción, que no depende de MaKo: la configuración de Claude (hooks, permisos, CLAUDE.md) no se cambia por un mensaje que llega desde otra sesión. Eso se pide en la app, y se avisa en una línea.
+  - **CÓMO SE REPARTE EL TRABAJO ENTRE LOS CHATS** (17/10/2026). Estas reglas vivían sólo en la memoria de la PC del
+    Cerebro (docs/relevo/cerebro.md, 17/10), y la memoria es por carpeta de config: un jefe de otra cuenta o de la nube
+    no las veía. Se pasaron acá el 19/10.
+    - **El orden lo decide el chat, sin preguntar:** cliente roto > plata y riesgo > lo que traba a Martín > lo que traba
+      a otro chat > feature > pulido (el mismo orden de docs/pendientes.md).
+    - **El Cerebro DELEGA** (Martín, 17/10 ~23:30: «¿por qué no delegás?»). Lo de un área lo hace el jefe que la conoce.
+      El Cerebro reparte de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota, junta las puntas
+      y sube.
+    - **«En producción» es sólo lo desplegado.** Un commit en `integracion`, o con el run verde y el deploy sin «Ready»,
+      todavía no lo está. Ni el «Ya está» ni un cierre del Plan salen antes.
+    - **Lo que toca plata, seguridad o envíos a clientes pasa una revisión adversarial antes de subir.** La punta llega
+      marcada «⚠️ REVISAR». Lo que encuentre la revisión vuelve al jefe como una punta aparte, con su test.
+    - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
+      turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
+      the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:
+      uno que se crea en la nube sale en el Ops Center con la marca «Nube» y sin caja.
   - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
     está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
     además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
