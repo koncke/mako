@@ -10,9 +10,10 @@
 //   3. se guarda en el perfil de la persona, y la página lo lee para quien mira;
 //   4. la API lo declara sólo por la app y sólo como lectura.
 //
-// PROBADO ROMPIÉNDOLO (20/10/2026), con el archivo en 4 / 0, de a una rotura y restaurada:
+// PROBADO ROMPIÉNDOLO (20/10/2026), con el archivo en 4 / 0 (5 / 0 con el teléfono), de a una rotura y restaurada:
 //   · `camposTarjetaDe` devolviendo lo guardado sin limpiar                         → 3 / 1
 //   · app/crm/CrmBoard.tsx de antes (la tarjeta fija, sin «Personalizar tarjetas»)  → 3 / 1
+//   · (y el teléfono, abajo) app/m/crm/TableroCrm.tsx de antes                         → 4 / 1
 // Correr: node --import tsx --test tests/crm-tarjeta-personalizable.test.ts
 // =============================================================================
 
@@ -66,4 +67,13 @@ test('la API de MaKo lo lee sólo por la app (es de una persona), y no lo escrib
   assert.match(op, /tipo: 'lectura'/);
   assert.match(op, /canales: \['app'\]/, 'por WhatsApp o HTTP no hay sesión que diga quién es');
   assert.match(leer('lib/api-mako/areas/crm.run.ts'), /ver_campos_tarjeta_crm: \{\n\s+leer: async \(\) => \{\n\s+const \{ campos, guardable \} = await getCamposTarjetaCrm\(\);/);
+});
+
+// El teléfono sigue la MISMA elección (la foto, la plata y por dónde llegó): se elige en la computadora y vale ahí.
+// Probado rompiéndolo (20/10/2026), con el archivo en 5 / 0: app/m/crm/TableroCrm.tsx de antes → 4 / 1.
+test('el teléfono dibuja la tarjeta con la misma elección', () => {
+  const t = leer('app/m/crm/TableroCrm.tsx');
+  assert.match(t, /\{ve\.has\('foto'\) && <CaraTarjeta/);
+  assert.match(t, /subtituloLead\(ve\.has\('plata'\) \? t\.plata : null, ve\.has\('canal'\) \? t\.canal : null\)/);
+  assert.match(leer('app/m/crm/datos.ts'), /campos: \(await getCamposTarjetaCrm\(\)\)\.campos,/);
 });
