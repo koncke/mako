@@ -31,6 +31,8 @@ export type AdjuntosDeCaja = {
   onNoPuede?: () => void;
   /** «Pegar» del «+» sin una imagen copiada, o un navegador que no deja leer el portapapeles (20/10/2026). */
   onSinImagen?: (puedeLeer: boolean) => void;
+  /** Lo que ofrece «Documento» (20/10/2026, la caja única): sin esto, lo del Ops Center (fotos, PDF, Office y texto). */
+  accept?: string;
 };
 
 // Pegar una imagen: pegar.ts (sin CSS, para que su test lo importe).
@@ -137,7 +139,7 @@ export function MasCaja({ a, apagado, resumen, children }: {
           )}
         </div>
       )}
-      <input ref={archivo} type="file" accept={ACCEPT_ADJUNTOS_CENTRO} multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
+      <input ref={archivo} type="file" accept={a?.accept ?? ACCEPT_ADJUNTOS_CENTRO} multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
       <input ref={imagen} type="file" accept="image/*" multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
       <input ref={camara} type="file" accept="image/*" capture="environment" hidden onChange={(e) => elegir(e.target.files, e.target)} />
     </div>
