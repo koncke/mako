@@ -662,7 +662,23 @@ export function cierreDePasos(
  */
 export function sinMarca(v: string | null | undefined): string {
   const t = (v ?? '').trim();
-  return /\[completar\]/i.test(t) ? '' : t;
+  // «sin dato: …» tampoco es un dato (20/10/2026, Florencia, ws21): llegó a la promesa del producto y al brief.
+  return /\[completar\]/i.test(t) || /^sin dato\b/i.test(t) ? '' : t;
+}
+
+/**
+ * Cómo cobra, de lo que dijo del precio (20/10/2026, Florencia: «6 cuotas mensuales» quedaba como pago único). Las cuotas
+ * o lo mensual son una suscripción, con los meses si los dijo («6 cuotas»); un «pago único» o «de contado» manda aunque
+ * también ofrezca cuotas. Lo demás, único. El monto no se lee: es texto libre y lo pone el dueño en Productos.
+ */
+export function cobroDelPrecio(precio: string | null | undefined): { tipo: 'unico' | 'suscripcion'; meses: number | null } {
+  const t = (precio ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  if (!t.trim() || /pago unico|un (?:solo|unico) pago|de contado|al contado/.test(t)) return { tipo: 'unico', meses: null };
+  const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
+  if (cuotas) return { tipo: 'suscripcion', meses: Number(cuotas[1]) || null };
+  if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) return { tipo: 'unico', meses: null };
+  const meses = t.match(/(\d{1,2})\s*meses\b/);
+  return { tipo: 'suscripcion', meses: meses ? Number(meses[1]) || null : null };
 }
 
 /**

@@ -37,7 +37,7 @@ import { nombreArchivoLoQueVendes, pdfDeLoQueVendes } from './lo-que-vendes-pdf'
 import { tzDeWorkspace } from './timezone';
 import { faltanDelArranque, preguntaAbierta, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
-  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
+  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, cobroDelPrecio, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -335,11 +335,13 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
         // monto del producto es el del link de cobro (CobrarConLink). Queda escrito en la descripción y el
         // monto lo pone él en Productos.
         const precio = sinMarca(piezas?.precio?.valor);
+        // Cuotas o mensual es una suscripción (20/10/2026, Florencia: cobra 6 cuotas y quedaba «pago único»).
+        const cobro = cobroDelPrecio(precio);
         await upsertProducto({
           nombre: sinMarca(propuesta?.nombre) || `Oferta de ${e.negocio ?? 'tu negocio'}`,
-          tipo: 'unico',
+          tipo: cobro.tipo,
           monto_usd: null,
-          suscripcion_meses: null,
+          suscripcion_meses: cobro.meses,
           promesa: sinMarca(piezas?.resultado?.valor) || null,
           incluye: sinMarca(piezas?.entregables?.valor) || null,
           garantia: sinMarca(piezas?.garantia?.valor) || null,
