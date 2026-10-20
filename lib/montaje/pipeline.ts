@@ -122,7 +122,7 @@ export async function montarAnuncio(t: TrabajoMontaje, h: Herramientas): Promise
 async function montarEn(T: string, t: TrabajoMontaje, h: Herramientas): Promise<Montado> {
   const log = h.log ?? (() => {});
   const ff = (args: string[], cwd = T) => correr(h.ffmpeg, args, { cwd });
-  const script = (nombre: string, args: string[], env: NodeJS.ProcessEnv = {}, entrada?: string) =>
+  const script = (nombre: string, args: string[], env: Record<string, string> = {}, entrada?: string) =>
     correr(h.node, [path.join(h.scripts, nombre), ...args], { cwd: T, env: { ...process.env, FFMPEG: h.ffmpeg, GROQ_API_KEY: h.groqKey, ...env }, entrada });
 
   const N = t.clips.length;
