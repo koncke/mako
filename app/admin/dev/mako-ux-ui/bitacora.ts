@@ -236,4 +236,18 @@ export const BITACORA: Hito[] = [
     archivos: ['app/_components/nav.ts', 'app/_components/Sidebar.tsx', 'lib/buscador-nav.ts', 'lib/centro-chats.ts', 'tests/sidebar-nueva.test.ts'],
     revisar: '/second-brain',
   },
+  {
+    fecha: '20 oct', hora: '18:30', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: la barra sigue el modo y el Ops Center va dentro de Today',
+    pedido: 'La sidebar, si estoy en dark mode se debe adaptar a white mode, lo contrario... quiero que Ops center esté dentro de la sección de «Plan, chats y dashboard»',
+    puntos: [
+      'La barra es blanca en modo claro y oscura en oscuro; las criaturas mantienen su color en los dos.',
+      'El Ops Center va primero dentro de «Today» (Plan, Chats, Dashboard), que tiene título y se pliega; todo arranca desplegado.',
+      'MaKo Partners está en el menú de la foto (sólo agencias), en la computadora y en el teléfono.',
+      'Plegada la barra, el logo queda centrado. Al entrar al Ops Center la barra se pliega; la flecha la abre ahí.',
+      'Sin hacer: las barras oscuras de otras pantallas siguen colgadas de los colores de la barra (docs/hallazgos-ui.md).',
+    ],
+    archivos: ['app/_components/Sidebar.tsx', 'app/_components/nav.ts', 'app/_ui/ui.css', 'app/admin/operaciones/Muneco.tsx', 'lib/movil-rutas.ts', 'tests/sidebar-nueva.test.ts'],
+    revisar: '/crm',
+  },
 ];
