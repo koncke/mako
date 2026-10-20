@@ -69,7 +69,8 @@ export function DesvioMovil({ telefono, wsPropio = null }: {
           size="lg"
           full
           onClick={() => {
-            document.cookie = cookieVistaEscritorio();
+            // Sólo ESTA pantalla en la computadora (20/10/2026): cualquier otra vuelve al teléfono.
+            document.cookie = cookieVistaEscritorio(window.location.pathname);
             window.location.replace(conWs(window.location.pathname + window.location.search, ws));
           }}
         >
