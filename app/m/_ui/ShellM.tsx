@@ -30,7 +30,6 @@ import Link, { useRouter } from '@/app/_ui/Link';
 import { useRutaInterna } from '@/app/_components/VistaMovil';
 import { Icon } from '@/app/_components/icons';
 import { MakoLogo } from '@/app/_components/MakoBrand';
-import { EntradaMobile } from './EntradaMobile';
 import { ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
 import { HOME_MOVIL, destinoActivo, type IdBarra, type ItemBarra } from '@/lib/movil-rutas';
 import { iniciarCapturaInstalacion } from '@/lib/movil-instalar';
@@ -376,8 +375,6 @@ export function ShellM({
         {/* Los sheets se montan acá (portal): fuera del contenido, que se
             mueve al navegar y al tirar para refrescar. */}
         <div id="m-capas" />
-        {/* La entrada de MaKo al abrir la app (20/10/2026, pedido del 18/10, punto 2): una vez por sesión. */}
-        <EntradaMobile />
 
         <div className="m-toast-capa" aria-live="polite">
           {toast && (

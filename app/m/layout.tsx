@@ -21,6 +21,7 @@ import type { Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './m.css';
 import { ShellM } from './_ui/ShellM';
+import { EntradaMobile } from './_ui/EntradaMobile';
 import { contarBadges } from './badges';
 import { contextoMovil } from '@/lib/movil-guard';
 import { barraMovil } from '@/lib/movil-rutas';
@@ -77,6 +78,9 @@ export default async function LayoutMovil({ children }: { children: ReactNode })
       >
         {children}
       </ShellM>
+      {/* La entrada de MaKo al abrir la app (20/10/2026, pedido del 18/10, punto 2): una vez por sesión. Va AQUÍ y no
+          en ShellM: el índice de app/m/_ui reexporta ShellM, los tests lo cargan en node, y la entrada trae un .css. */}
+      <EntradaMobile />
     </div>
   );
 }
