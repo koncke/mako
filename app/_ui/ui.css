@@ -462,7 +462,7 @@
 }
 [data-tema="oscuro"] .mk-modal__cuerpo::-webkit-scrollbar-thumb:hover,
 [data-tema="oscuro"] .mk-scroll-y::-webkit-scrollbar-thumb:hover { background: var(--dim); }
-.mk-navrow:hover { background: rgba(255, 255, 255, .085); color: var(--on-sidebar); }
+.mk-navrow:hover { background: var(--sidebar-hover, rgba(255, 255, 255, .085)); color: var(--on-sidebar); }
 .mk-navrow:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-weak); }
 .mk-navrow.is-activo {
   color: var(--on-sidebar);
@@ -2222,7 +2222,7 @@
   --sec-create: #2F6F73; --sec-create-bg: #D6EAEB;
   --sec-ajustes: #4C566A; --sec-ajustes-bg: #DCE2EC;
 }
-[data-tema="oscuro"], [data-sidebar] {
+[data-tema="oscuro"] {
   --sec-diario: #8AB4FA; --sec-diario-bg: #33405A;
   --sec-sales: #A3BE8C; --sec-sales-bg: #3E4A36;
   --sec-marketing: #D7A9CF; --sec-marketing-bg: #4A3E4A;
@@ -2238,3 +2238,27 @@
   --sec-ajustes: #4C566A; --sec-ajustes-bg: #DCE2EC;
 }
 .mk-ico-tinte { color: var(--tinte, inherit); }
+
+/* ── LA BARRA SIGUE EL MODO (20/10/2026) ──────────────────────────────────
+   Feedback del 18/10, pt 10. Martín: «La sidebar, si estoy en dark mode se debe
+   adaptar a white mode, lo contrario». Hasta ese día la barra era OSCURA
+   (#14161B) también con la pantalla clara. En claro es blanca, con su filete; en
+   oscuro, la de siempre.
+
+   ⚠️ Va ACOTADO a [data-sidebar] y no en :root: los --sidebar* se usan como
+   «isla oscura» en 43 archivos fuera de la barra (toasts, el grafo, bloques del
+   Dashboard, la cabecera de video…). Cambiarlos en :root los volvía blancos a
+   todos. Lo que vive ADENTRO de la barra (la campana, el saldo, el interruptor de
+   modo, la foto) hereda estos valores solo. Los temas candidatos (True North) traen
+   su barra y no se tocan. */
+:root:not([data-tema="oscuro"]):not([data-tema-candidato]) [data-sidebar] {
+  --sidebar: #FFFFFF;
+  --sidebar-2: #EEF1F5;
+  --sidebar-line: #E3E7ED;
+  --sidebar-text: #454C57;
+  --on-sidebar: #12151B;
+  --sidebar-hover: rgba(18, 21, 27, .055);
+}
+:root:not([data-tema="oscuro"]):not([data-tema-candidato]) [data-sidebar] > div {
+  border-right: 1px solid var(--sidebar-line);
+}
