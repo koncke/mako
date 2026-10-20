@@ -106,6 +106,12 @@ errores en automático cuando surjan». El ejemplo: el Google Calendar de Pablo 
 
 ## 5. Cómo se retoma el vigía
 
+⚠️ **20/10/2026:** la app cambió de cuenta (el marcador fue claude1 un rato; el Cerebro confirmó que la cuenta es la 4, claude4; el commit del ws13 salió firmado claude1 y se re-firmó con claude4, mismo contenido) y el Cerebro pidió que MaKo Alert corra SIEMPRE, en
+Sonnet. El cron es de la sesión: el `29debd9d` seguía listado pero el Cerebro lo daba por muerto, así que se lo borró y se
+creó `0d49a804` (mismo horario, prompt completo con el Cerebro por id). Vence a los 7 días (27/10): revisar `CronList` al
+retomar y recrearlo si no está. La marca del estado estaba en el 19/10 01:50 UTC: la primera vuelta releyó ~40 h y trajo
+el incidente del ws13 («necesito que… lo pases a descalificados», arreglado en 4b0da1e0f).
+
 1. `cd C:/dev/wt-mako-wa && npx tsx scripts/vigia-mako-grupos.mts` — la primera vuelta mira desde la marca guardada.
 2. Volver a crear el cron (CronCreate, cada 15 minutos, `7,22,37,52 * * * *`) con el prompt de «MaKo Alert» (el
    job vigente lo tiene completo; el viejo, para el doer, es éste): «Vuelta del vigía de MaKo en
