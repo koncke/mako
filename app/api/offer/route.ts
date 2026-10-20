@@ -87,7 +87,7 @@ import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
 import { MARCA_COMPLETAR, faltanDelArranque, faltanMinimas, type ArchiveroDoc, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, TOPE_DOC_ENTERO, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
+  MAX_DOCS_SESION, TOPE_DOC_ENTERO, sanearLinksSinLeer, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
@@ -629,6 +629,8 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
   const audio = leerAudio(ws, body.audio);
   if (audio === 'invalido') return no(400, 'Ese audio no es de esta cuenta. Vuelve a grabarlo.');
   const respuestaPedida = body.respuesta && typeof body.respuesta === 'object' ? body.respuesta as { preguntaId?: unknown; idx?: unknown } : null;
+  // Los links del mensaje que la pantalla no pudo abrir (sólo los que están en el texto): MaKo no puede decir que los vio.
+  const linksSinLeer = sanearLinksSinLeer(body.linksSinLeer).filter((u) => texto.includes(u));
   if (!texto && !docIds.length && !audio && !respuestaPedida) return no(400, 'Escribe algo, dicta un audio o adjunta un documento.');
   if (texto.length > TOPE_MENSAJE) return no(413, 'El mensaje es muy largo para el chat. Súbelo como documento y MaKo lo lee entero.');
   const sesionIdRaw = body.sesionId == null ? null : entero(body.sesionId);
@@ -697,6 +699,7 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
       ...(adjuntos.length ? { adjuntos } : {}),
       ...(audio ? { audio } : {}),
       ...(r ? { respuesta: { preguntaId: r.preguntaId, idx: r.idx } } : {}),
+      ...(linksSinLeer.length ? { linksSinLeer } : {}),
     };
     // Un mensaje nuevo vacía el borrador: un diagnóstico de la conversación de antes ya no la describe.
     return { mensajes: [...f.mensajes, m], borrador: null, ...(transcripta ? { documentos: [...f.documentos, transcripta] } : {}) };

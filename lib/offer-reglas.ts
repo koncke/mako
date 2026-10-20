@@ -269,6 +269,7 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
     const opciones = Array.isArray(o.opciones) ? o.opciones.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [];
     const pregunta = de === 'mako' ? sanearPregunta(o.pregunta) : undefined;
     const respuesta = de === 'yo' ? sanearRespuesta(o.respuesta) : undefined;
+    const linksSinLeer = de === 'yo' ? sanearLinksSinLeer(o.linksSinLeer) : [];
     const pdf = de === 'mako' ? sanearPdf(o.pdf) : undefined;
     // Sin esta línea la selección múltiple se veía al llegar el turno y se perdía al reabrir la conversación.
     const varias = de === 'mako' && !pregunta && opciones.length > 1 && o.varias === true;
@@ -280,10 +281,17 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
       ...(audio ? { audio } : {}),
       ...(pregunta ? { pregunta } : {}),
       ...(respuesta ? { respuesta } : {}),
+      ...(linksSinLeer.length ? { linksSinLeer } : {}),
       ...(pdf ? { pdf } : {}),
     });
   }
   return out;
+}
+
+/** Los links que no abrieron, como los manda la pantalla o los guarda la base: sólo http(s), cinco como mucho. */
+export function sanearLinksSinLeer(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter((x): x is string => typeof x === 'string' && /^https?:\/\/\S+$/i.test(x.trim()) && x.length <= 500).map((x) => x.trim()))].slice(0, 5);
 }
 
 /** El PDF de una versión, en un mensaje de MaKo: sólo una versión entera y positiva. */
@@ -733,6 +741,10 @@ export function planDiagnostico(e: EstadoDiagnostico, c: { puedeConcluir: boolea
   if (contestadas > 0 || c.puedeConcluir || c.mensajesDelDueno >= MENSAJES_ANTES_DEL_DIAGNOSTICO) return { modo: 'forzar', ...base };
   return { modo: 'ofrecer', ...base };
 }
+
+/** Los números de un texto, sin separadores («$3.000» y «3,000» son 3000). El cero no cuenta: «$0 – $3.000» se dice «menos de $3.000». */
+const numerosDe = (s: string): string[] =>
+  (s.match(/\d+(?:[.,]\d+)*/g) ?? []).map((n) => n.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '')).filter((n) => n !== '0');
 
 /**
  * Las opciones que se dibujan: las ADAPTADAS por la IA, mientras sigan siendo las originales.
@@ -2696,7 +2708,7 @@ export const TOPE_DOCS_PROMPT = 24_000;
  * modelo lee como dato.
  */
 /** Lo que el prompt lee de un mensaje: le da igual si es la forma guardada o la de la pantalla. */
-export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos'> & { audio?: unknown };
+export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos' | 'linksSinLeer'> & { audio?: unknown };
 
 export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_MENSAJES_PROMPT): string {
   const ult = mensajes.slice(-max);
@@ -2704,11 +2716,13 @@ export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_
     // «por audio»: el texto es una transcripción, y el modelo tiene que poder dudar de una palabra rara.
     const quien = m.de === 'yo' ? (m.audio ? 'DUEÑO (por audio)' : 'DUEÑO') : 'MaKo';
     const adj = m.adjuntos?.length ? ` (adjuntó: ${m.adjuntos.map((a) => a.nombre).join(', ')})` : '';
+    // Un link que no abrió, dicho (20/10/2026, Florencia): sin esto MaKo dijo «vi tu Instagram» infiriéndolo del nombre.
+    const sinLeer = m.de === 'yo' && m.linksSinLeer?.length ? ` (NO se pudo abrir: ${m.linksSinLeer.join(', ')}; no lo viste)` : '';
     const cuerpo = (m.texto ?? '').trim() || (m.adjuntos?.length ? '(mandó documentos sin texto)' : '(vacío)');
     // Lo del DUEÑO va entero hasta el tope que acepta la ruta (12.000, TOPE_MENSAJE en
     // app/api/offer/route.ts): recortarlo a 2.000 guardaba el mensaje y nunca se lo leía al modelo,
     // que preguntaba por el precio que estaba en el tramo cortado. Lo de MaKo es corto por construcción.
-    return `${quien}${adj}: ${recortar(cuerpo, m.de === 'yo' ? 12_000 : 2_000)}`;
+    return `${quien}${adj}${sinLeer}: ${recortar(cuerpo, m.de === 'yo' ? 12_000 : 2_000)}`;
   });
   if (mensajes.length > ult.length) lineas.unshift(`(Se omiten los ${mensajes.length - ult.length} mensajes más viejos.)`);
   return lineas.join('\n');
@@ -2827,9 +2841,6 @@ export function conTopeDelArranque(piezas: PiezasSabidas, mensajes: ReadonlyArra
   }
   return preguntas >= REPREGUNTAS_DEL_ARRANQUE ? mergePiezas(piezas, { [falta]: 'sin dato:' }, 'chat', at) : piezas;
 }
-
-/** Los números de un texto, sin separadores («$1.500» y «1500» son el mismo). */
-const numerosDe = (t: string): string[] => (t.match(/\d+(?:[.,]\d+)*/g) ?? []).map((n) => n.replace(/[.,]/g, ''));
 
 /**
  * Las respuestas rápidas del onboarding (20/10/2026, Florencia, ws21). Una opción tocada se anota como si la hubiera
