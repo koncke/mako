@@ -2797,6 +2797,41 @@ export const guiaParaPrompt = (): string =>
  * preguntas de esas piezas, en el orden de la de Offer, y lo que falta son sólo ellas: con la lista entera
  * (`piezasParaPrompt`), el modelo se pondría a preguntar por la garantía o el costo, que son del análisis.
  */
+// ── El corte del onboarding (20/10/2026, Florencia, ws21) ─────────────────────────────────────────────────────────
+/**
+ * Que la conversación del ONBOARDING terminó lo decide el CÓDIGO, nunca el modelo. Florencia (18/10): con las tres piezas
+ * anotadas a las 22:43:34, MaKo siguió 6 preguntas y 10 minutos más, y antes le preguntó el precio 4 veces; el «listo» del
+ * modelo se parseaba y nadie lo leía. Con `faltanDelArranque` vacío, el mensaje es éste, diga lo que diga el modelo.
+ */
+export const CIERRE_DEL_ARRANQUE = '¡Gracias!';
+export function mensajeDeCierreDelArranque(id: string, at: string): MensajeSinAudio {
+  return { id, de: 'mako', texto: CIERRE_DEL_ARRANQUE, at };
+}
+
+/** Cuántas veces se pregunta una pieza del onboarding antes de anotarla «sin dato» y seguir. */
+export const REPREGUNTAS_DEL_ARRANQUE = 2;
+
+/**
+ * El tope de repreguntas del onboarding. La pieza que se está preguntando es la primera que falta en el orden de la guía
+ * (el prompt pide ese orden: `guiaDelArranque`). Si desde la última pieza anotada MaKo ya preguntó
+ * `REPREGUNTAS_DEL_ARRANQUE` veces y el dueño contestó cada una sin que se anotara nada (un «depende», un «varía»), esa
+ * pieza queda «sin dato:» y no se vuelve a preguntar. Sin el texto del dueño, a propósito: la pieza podría no ser la que
+ * MaKo preguntó, y lo que dijo queda igual en la conversación (la tab Offer lo lee).
+ */
+export function conTopeDelArranque(piezas: PiezasSabidas, mensajes: ReadonlyArray<{ de: string; texto: string; at?: string }>, at: string): PiezasSabidas {
+  const falta = PREGUNTAS_GUIA.find((q) => PIEZAS_DEL_ARRANQUE.includes(q.pieza) && !piezaAnotada(piezas, q.pieza))?.pieza;
+  if (!falta) return piezas;
+  const desde = Math.max(0, ...PIEZAS_DEL_ARRANQUE.map((k) => Date.parse(piezas[k]?.at ?? '') || 0));
+  let preguntas = 0;
+  let abierta = false;
+  for (const m of mensajes) {
+    if ((Date.parse(m.at ?? '') || 0) < desde) continue;
+    if (m.de === 'mako') abierta = m.texto.includes('?');
+    else if (m.de === 'yo' && abierta) { preguntas += 1; abierta = false; }
+  }
+  return preguntas >= REPREGUNTAS_DEL_ARRANQUE ? mergePiezas(piezas, { [falta]: 'sin dato:' }, 'chat', at) : piezas;
+}
+
 export const guiaDelArranque = (): string =>
   PREGUNTAS_GUIA.filter((q) => PIEZAS_DEL_ARRANQUE.includes(q.pieza)).map((q, i) => `${i + 1}. [${q.pieza}] ${q.pregunta}`).join('\n');
 

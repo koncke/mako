@@ -85,9 +85,9 @@ import { sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { listarOfertas } from '@/lib/ofertas';
 import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
-import { MARCA_COMPLETAR, faltanMinimas, type ArchiveroDoc, type ConclusionOferta } from '@/lib/offer-marco';
+import { MARCA_COMPLETAR, faltanDelArranque, faltanMinimas, type ArchiveroDoc, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, TOPE_DOC_ENTERO, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
+  MAX_DOCS_SESION, TOPE_DOC_ENTERO, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
@@ -778,7 +778,10 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     // Si mientras tanto llegó otra respuesta de MaKo, no se agrega una segunda.
     const u = f.mensajes[f.mensajes.length - 1];
     if (!u || u.de !== 'yo') return null;
-    const piezas = turnoIA ? mergePiezas(f.piezas, turnoIA.piezas, fuente) : f.piezas;
+    const fundidas = turnoIA ? mergePiezas(f.piezas, turnoIA.piezas, fuente) : f.piezas;
+    // En el onboarding una pieza se pregunta dos veces como mucho, y el que termina es el CÓDIGO (20/10/2026, Florencia).
+    const piezas = p.arranque ? conTopeDelArranque(fundidas, f.mensajes, new Date().toISOString()) : fundidas;
+    const cierra = !!p.arranque && faltanDelArranque(piezas).length === 0;
     // En el onboarding no se ofrece armar: «puede concluir» es lo que pone el botón.
     const puede = !p.arranque && faltanMinimas(piezas).length === 0;
     const inferida = p.arranque
@@ -788,7 +791,7 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     const planFinal = inferida.preguntaId
       ? planDiagnostico(estadoDiagnostico(inferida.mensajes, optsDiag), { puedeConcluir: puede, mensajesDelDueno: duenos(inferida.mensajes), conDocumentosNuevos: p.nuevos.length > 0 })
       : plan;
-    const m = mensajeDeMako({
+    const m = cierra ? mensajeDeCierreDelArranque(randomUUID(), new Date().toISOString()) : mensajeDeMako({
       turno: turnoIA, plan: planFinal, piezas, puedeConcluir: puede, id: randomUUID(), at: new Date().toISOString(),
       diagPara: plan.modo === 'no' ? null : plan.pregunta.id,
     });

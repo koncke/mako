@@ -35,7 +35,7 @@ import { borrarBinario, insertFile, listFiles, mapaParaEscribir, subirBinario } 
 import { idDeContenido } from './archivero-registro';
 import { nombreArchivoLoQueVendes, pdfDeLoQueVendes } from './lo-que-vendes-pdf';
 import { tzDeWorkspace } from './timezone';
-import { faltanDelArranque, preguntaAbierta, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
+import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
   CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, cobroDelPrecio, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
@@ -132,8 +132,10 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     nombreWorkspace: w?.nombre ?? '',
     faseGuardada: diag != null,
     canalNegocio: diag?.canal && esCanal(diag.canal) ? diag.canal : null,
-    // Con una pregunta de MaKo sin contestar, todavía no: la pregunta pendiente manda (18/10/2026, `preguntaAbierta`).
-    loQueVende: !!sesion && faltanDelArranque(sesion.piezas).length === 0 && !preguntaAbierta(sesion.mensajes),
+    // Con las piezas, sí. Ya no espera a que el modelo deje de preguntar (`preguntaAbierta`, 18/10): con las piezas el turno
+    // que cierra lo escribe el código (app/api/offer/route.ts → mensajeDeCierreDelArranque), y esperar al modelo hizo que
+    // Florencia contestara 6 preguntas de más (20/10/2026).
+    loQueVende: !!sesion && faltanDelArranque(sesion.piezas).length === 0,
     // Lo que ya contestó del diagnóstico en la conversación de la oferta: el arranque no lo repite.
     faseOffer: sesion ? (({ respuestas, canal }) => ({ respuestas, canal }))(estadoDiagnostico(sesion.mensajes, { canal: null, yaGuardado: false })) : null,
     conCrm: modo === 'oferta',
