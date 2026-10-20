@@ -169,7 +169,8 @@ test('la vuelta sube la cuota: la barra de estado anota la de su terminal, y la 
 
 test('MaKo guarda la cuota que sube el Runner, y una vuelta sin medición no borra la anterior', () => {
   const src = readFileSync(join(RAIZ, 'lib/operaciones.ts'), 'utf8');
-  assert.ok(src.includes('const cuota = sanearCuota(e.uso);'), 'lo que sube se sanea');
+  // 20/10/2026: `let`, porque la huella de la semana la anula si es de otra cuenta (tests/cartero-medir.test.ts).
+  assert.ok(src.includes('let cuota = sanearCuota(e.uso);'), 'lo que sube se sanea');
   assert.ok(src.includes('...(cuota ? { cuota } : {})'), 'sin medición, la columna no se toca');
   assert.ok(src.includes("select('cuenta, visto_at, version, chats, claves, cuota')"), 'se lee');
   assert.ok(src.includes('cuota: sanearCuota(f.cuota)'), 'lo que se lee también se sanea');
