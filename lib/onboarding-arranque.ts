@@ -55,6 +55,10 @@ export type EstadoArranque = {
    *  «mi marca personal: Florencia Ayelen Carballo» se escribió tal cual en el ws, el CRM, el producto y el PDF). `escrito`
    *  es lo que puso la persona. */
   negocioPorConfirmar?: { escrito: string; nombre: string };
+  /** Lo que ESCRIBIÓ en una pregunta con opciones, por id de la pregunta ('canal', 'cuello', 'interes'…): se tomó la opción
+   *  más parecida (`opcionMasCercana`) y se le dijo «Lo tomé como: …» (20/10/2026, Florencia: «no te deja escribir cuando te
+   *  da las opciones»). Queda dibujado como su respuesta, y así llega al chat «Onboarding». */
+  escritas?: Record<string, string>;
   /** «¿Cómo llegaste a MaKo?»: una opción de `ORIGENES` o lo que escribió (17/10/2026). */
   origen?: string;
   /** «¿Qué quieres que MaKo resuelva primero?» (modo 'oferta'): decide a qué pestaña entra al terminar. */
@@ -257,6 +261,32 @@ export function interesDe(texto: string): InteresId | null {
   if (/plan|equipo|tarea|organiz/.test(t)) return 'organizar';
   return null;
 }
+
+const PALABRAS_VACIAS = new Set(['que', 'los', 'las', 'del', 'con', 'por', 'para', 'una', 'uno', 'unos', 'mis', 'sus', 'pero', 'cuando', 'como', 'mas', 'muy', 'ese', 'esa', 'eso', 'esto', 'esta', 'son', 'sin', 'hoy', 'todo', 'toda', 'nada', 'solo', 'sola', 'algo']);
+/** Las palabras que cuentan de un texto, por su raíz (las 5 primeras letras: «empujo» y «empujar» son la misma). */
+const palabrasDe = (t: string): string[] => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+  .split(/[^a-z0-9ñ]+/).filter((w) => w.length >= 3 && !PALABRAS_VACIAS.has(w)).map((w) => w.slice(0, 5));
+
+/**
+ * La opción más parecida a lo que escribió, por las palabras que comparten (20/10/2026, Florencia: «vendo cuando empujo yo,
+ * pero va cambiando» no se aceptaba en «¿Cuál es tu mayor cuello de botella?»). null si no comparte ninguna: ahí se pide de
+ * nuevo, porque el diagnóstico se calcula por la opción.
+ */
+export function opcionMasCercana(texto: string, opciones: readonly string[]): number | null {
+  const mias = new Set(palabrasDe(texto));
+  let mejor = -1;
+  let puntos = 0;
+  opciones.forEach((o, i) => {
+    const p = new Set(palabrasDe(o).filter((w) => mias.has(w))).size;
+    if (p > puntos) { puntos = p; mejor = i; }
+  });
+  return puntos > 0 ? mejor : null;
+}
+
+/** El «Lo tomé como: …» después de una respuesta escrita con otras palabras. */
+const tomeComo = (id: string, opcion: string): MensajeArranque => ({ id: `arr-${id}-tome`, de: 'mako', texto: `Lo tomé como: «${opcion}».` });
+
+export const NO_ENTENDI_OPCION = 'No te entendí: elige una de las opciones o dímelo con otras palabras.';
 
 /** El primer nombre, para saludar y ofrecerlo: «Martín Koncke» → «Martín». */
 export function primerNombre(nombre: string): string {
@@ -508,7 +538,10 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     preguntar(lista, 'origen', `¿Cómo llegaste a MaKo, ${nombre}?`, e.origen, [...ORIGENES]);
     if (etapa === 'origen') return true;
     if (h.modo === 'oferta') {
-      preguntar(lista, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', INTERESES.find((i) => i.id === e.interes)?.label, INTERESES.map((i) => i.label));
+      const interes = INTERESES.find((i) => i.id === e.interes)?.label;
+      const escritaInteres = interes ? e.escritas?.interes : undefined;
+      preguntar(lista, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', escritaInteres ?? interes, INTERESES.map((i) => i.label));
+      if (escritaInteres && interes) lista.push(tomeComo('interes', interes));
       if (etapa === 'interes') return true;
     }
     return false;
@@ -577,13 +610,17 @@ function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: P
     if (PREGUNTAS[i].id === 'volumen' && !o.canalYaDicho) {
       const c = textoPreguntaFase({ tipo: 'canal' }, e.canal);
       const elegido = e.canal ? CANALES.find((x) => x.id === e.canal)?.label : undefined;
-      preguntar(lista, 'fase-canal', c.texto, elegido, c.opciones);
+      const escritaCanal = elegido ? e.escritas?.canal : undefined;
+      preguntar(lista, 'fase-canal', c.texto, escritaCanal ?? elegido, c.opciones);
+      if (escritaCanal && elegido) lista.push(tomeComo('fase-canal', elegido));
       if (!e.canal) return true;
     }
     if (o.yaContestada?.(PREGUNTAS[i].id)) continue;
     const q = textoPreguntaFase({ tipo: 'pregunta', idx: i }, e.canal);
     const r = contestada(resp[i]) ? q.opciones[resp[i]] : undefined;
-    preguntar(lista, `fase-${i}`, q.texto, r, q.opciones);
+    const escrita = r !== undefined ? e.escritas?.[PREGUNTAS[i].id] : undefined;
+    preguntar(lista, `fase-${i}`, q.texto, escrita ?? r, q.opciones);
+    if (escrita && r !== undefined) lista.push(tomeComo(`fase-${i}`, r));
     if (r === undefined) return true;
   }
   return false;
@@ -677,9 +714,11 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { origen: texto } };
   }
   if (etapa === 'interes') {
-    const interes = interesDe(texto);
-    if (!interes) return { ok: false, error: 'Elige una de las opciones.' };
-    return { ok: true, patch: { interes } };
+    const cercana = opcionMasCercana(texto, INTERESES.map((i) => i.label));
+    const interes = interesDe(texto) ?? (cercana != null ? INTERESES[cercana].id : null);
+    if (!interes) return { ok: false, error: NO_ENTENDI_OPCION };
+    const escrita = opcion === undefined && !INTERESES.some((i) => i.label === texto);
+    return { ok: true, patch: { interes, ...(escrita ? { escritas: { ...e.escritas, interes: texto } } : {}) } };
   }
   if (etapa === 'objetivo' || etapa === 'que_hace') {
     if (!texto) return { ok: false, error: 'Escríbeme tu respuesta.' };
@@ -693,12 +732,15 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     const { opciones } = textoPreguntaFase(p, ef.canal);
     // Sólo con una opción: el diagnóstico se CALCULA (lib/fase-diagnostico.ts) y una respuesta libre no
     // tiene índice. Se acepta el texto si es exactamente una opción.
-    const idx = Number.isInteger(r.opcion) ? (r.opcion as number) : opciones.findIndex((o) => o.toLowerCase() === texto.toLowerCase());
-    if (!(idx >= 0 && idx < opciones.length)) return { ok: false, error: 'Elige una de las opciones.' };
+    const exacta = Number.isInteger(r.opcion) ? (r.opcion as number) : opciones.findIndex((o) => o.toLowerCase() === texto.toLowerCase());
+    // Lo escrito con otras palabras vale (20/10/2026, Florencia): la opción más parecida, y lo que escribió queda guardado.
+    const idx = exacta >= 0 ? exacta : opcionMasCercana(texto, opciones) ?? -1;
+    if (!(idx >= 0 && idx < opciones.length)) return { ok: false, error: NO_ENTENDI_OPCION };
+    const escritas = exacta < 0 ? { escritas: { ...e.escritas, [p.tipo === 'canal' ? 'canal' : PREGUNTAS[p.idx].id]: texto } } : {};
     if (p.tipo === 'canal') {
       const canal = CANALES[idx].id;
       const siguiente: EstadoArranque = { ...ef, canal };
-      return { ok: true, patch: { canal }, ...(faseCompleta(siguiente) ? { fase: faseCompleta(siguiente)!, faseCanal: canal } : {}) };
+      return { ok: true, patch: { canal, ...escritas }, ...(faseCompleta(siguiente) ? { fase: faseCompleta(siguiente)!, faseCanal: canal } : {}) };
     }
     const faseResp = [...(ef.faseResp ?? PREGUNTAS.map(() => -1))];
     while (faseResp.length < PREGUNTAS.length) faseResp.push(-1);
@@ -708,7 +750,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     // copiarlo haría que `preguntoLaFase` dibujara como del arranque preguntas que hizo la otra conversación.
     const propias = h.modo === 'oferta' ? faseResp.map((v, i) => (contestada(e.faseResp?.[i]) || i === p.idx ? v : -1)) : faseResp;
     const completa = faseCompleta(siguiente);
-    return { ok: true, patch: { faseResp: propias }, ...(completa ? { fase: completa, ...(siguiente.canal ? { faseCanal: siguiente.canal } : {}) } : {}) };
+    return { ok: true, patch: { faseResp: propias, ...escritas }, ...(completa ? { fase: completa, ...(siguiente.canal ? { faseCanal: siguiente.canal } : {}) } : {}) };
   }
   if (etapa === 'codigo') {
     if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined } };

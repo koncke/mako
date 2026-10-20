@@ -52,6 +52,8 @@ export function placeholderDe(etapa: EtapaArranque): string | undefined {
     case 'objetivo': return 'Tu objetivo';
     case 'que_hace': return 'A qué se dedica';
     case 'codigo': return 'El código de 6 dígitos';
+    // Las preguntas con opciones también se contestan escribiendo (20/10/2026, Florencia: no sabía que podía).
+    case 'fase': case 'interes': return 'Elige una opción o escríbelo con tus palabras';
     case 'cierre': case 'listo': return 'Tu oferta sigue en Offer';
     default: return undefined;
   }
