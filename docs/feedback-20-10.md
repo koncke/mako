@@ -114,6 +114,10 @@ quedó.
 - **Encargo:** **Second Brain**, verificado en el navegador.
 - **Regla nueva (AGENTS.md):** ningún cerebro, de ningún negocio, se divide en dos.
 
+### 11. «En la preview de los chats… Jamás debe decir el subtítulo las cosas que ponen… O debe decir "Trabajando..." o "Espera tu respuesta" o no tener subtítulo»
+- **Hoy:** la fila de cada chat en /admin/operaciones muestra el paso en curso («Check onboarding guard…», «Escribe flujo-ia-recurrente.ts»), lo de los `pasos` del cartero 1.15.3.
+- **Encargo:** **Ops Center 3**, antes del chat unificado. La fila dice sólo «Trabajando…», «Espera tu respuesta» o nada, en la computadora y en el teléfono. El paso puede seguir adentro del hilo.
+
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 
 | Pedido (minuto) | Estado | De quién |
