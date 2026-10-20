@@ -1614,6 +1614,10 @@ código nuevo:
       - Va apenas está EN PRODUCCIÓN (deploy Ready), firmado «Desarrollador de MaKo» (`avisarArregloAlGrupo`, lib/aviso-arreglo.ts).
       - No importa por dónde llegó el reporte: Martín, una llamada, el Ops Center o el vigía.
       - El Cerebro le pasa a MaKo Alert el ws y qué se arregló en cada deploy, y MaKo Alert lo manda.
+    - **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se deben dividir en 2»). El
+      Second Brain de cualquier negocio, el del super admin incluido, es UN grafo: lo que separa la vista son los filtros
+      (pedido ya el 17/10 y el 18/10, pt 4). Se verifica mirando lo que se DIBUJA, no el código: dos raíces o dos racimos
+      separados también son dos cerebros.
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:

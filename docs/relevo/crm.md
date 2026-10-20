@@ -34,6 +34,20 @@ historial de la ficha con «Volver a como estaba»; la ficha que edita MaKo se r
 - **Decisión abierta que sigue siendo de Martín: §5.1** (ganar en un producto agregado no marca ganado al lead). De ella
   depende la invitación al curso en un segundo producto (docs/relevo/customer-success.md).
 
+## 0-Ω17. 20/10/2026 (chat «CRM», cuenta `claude4`): Chats lento, EN PRODUCCIÓN (run 165)
+
+Lo vio Martín en la llamada con Leila del 19/10 (minuto 55:12). Arreglo `b7817fe9f` (+ `87464faa8`), VERDE `3107dbeca`.
+Medido en el ws1 sólo con GET: la lista entera 17,4 → 4,1 s; la primera vista (3 páginas) ~2 s; el sondeo de 15 s ya
+no relee todo. Detalle y números en docs/hallazgos-comunicacion.md. **Se revisa en /chats** (el ws3 y el ws9 no tienen
+mensajes en el espejo: ahí abre rápido igual; el volumen está en los negocios con WhatsApp).
+
+**SIGUIENTE (lo de raíz):** que la base devuelva el ÚLTIMO mensaje por conversación en vez de barrer todo el espejo
+(`wa_mensajes`, 18.885 filas en el ws1): una vista o una función con `DISTINCT ON` por teléfono (los últimos 10 dígitos,
+como `claveTel`), con el conteo y el `lead_id`. Es una migración: **la numera el Cerebro**. Quien lo encare reemplaza la
+lectura de `getConversacionesNoOficial` (lib/evolution-mensajes.ts) y mide con el cronómetro de fetch (como se midió en
+hallazgos-comunicacion). Lo que queda mientras tanto: una conversación más vieja que 3 páginas aparece con la lectura
+completa, unos segundos después de abrir.
+
 ## 0-Ω16. 18/10/2026 (chat «CRM», cuenta `claude4`, al 91% semanal): el feedback del 18/10 (pts 14, 8 y 9)
 
 Rama `crm-ficha-v2` en `C:/dev/wt-crm-ficha2`. **Sin subir: se le pasa al Cerebro.** El pedido entero está en
