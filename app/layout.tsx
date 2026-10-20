@@ -23,7 +23,8 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
 import { DesvioMovil } from './_components/DesvioMovil';
 import { TelefonoProvider } from './_components/VistaMovil';
-import { prefiereMovil } from '@/lib/movil-guard';
+import { prefiereMovil, vistaEscritorioEnTelefono } from '@/lib/movil-guard';
+import { VueltaAlTelefono } from './_components/VueltaAlTelefono';
 import { MOVIL_ACTIVO, seDesvia } from '@/lib/movil-desvio';
 import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { vistaDeOtro } from '@/lib/vista-de-otro';
@@ -124,6 +125,8 @@ export default async function RootLayout({
   // plataforma): hasta el 12/10 se lo dejaba en el escritorio y era Martín (lib/movil-desvio.ts →
   // `seDesvia`). El workspace sólo se pregunta en un teléfono: la computadora no paga esa lectura.
   const esTelefono = MOVIL_ACTIVO && (await prefiereMovil());
+  // Un TELÉFONO en la versión de computadora (la cookie de vista): lleva «Volver al teléfono» (20/10/2026).
+  const enEscritorioDesdeTelefono = MOVIL_ACTIVO && sesion && !esTelefono ? await vistaEscritorioEnTelefono() : null;
   const telefono = seDesvia({ activo: MOVIL_ACTIVO, telefono: esTelefono });
   const wsPropioMovil = telefono && esAdmin && (await getWorkspaceActual()) == null ? await wsSuperAdmin() : null;
   // #881: a quién se está mirando, para que el PRIMER cuadro ya sea del cliente inspeccionado. Sin esto el
@@ -214,6 +217,7 @@ export default async function RootLayout({
           <TituloTab />
         </Suspense>
         <DesvioMovil telefono={telefono} wsPropio={wsPropioMovil} />
+        {enEscritorioDesdeTelefono && <VueltaAlTelefono global={enEscritorioDesdeTelefono.global} />}
         <NotificationsProvider>
           <div style={rootStyle}>
             {/* Sidebar usa useSearchParams (propaga el filtro de fecha). Su Suspense

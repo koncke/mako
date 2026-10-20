@@ -36,7 +36,8 @@ import {
 } from './fathom-api';
 import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
-import { clasificarReunion, motivoDelTipo, type TipoReunion } from './reunion-clasificar';
+import { clasificarReunion, motivoDelTipo, type TipoReunion, type ClientesMako, type LeadDeReunion } from './reunion-clasificar';
+import { getWorkspaceActual, getWorkspace, listarWorkspaces } from './workspace';
 import { resolverDueño, normNombre, rotuloDePersona, fuenteDicha, aliasDelDueno, conNombreReal, type FuenteDicha, type AliasDelDueno } from './tarea-dueno';
 import { fuenteDeDatos, permitidosDe, limpiarLoDicho, type ControlDeLoDicho } from './detalle-sin-inventos';
 import { decidirRecurrente } from './plan-criterio-reglas';
@@ -190,16 +191,44 @@ export type ProyectoRef = { id: string; emoji: string; nombre: string };
 // Además clasifica cada reunión (punto 10): trae UNA vez el mapa de leads por email
 // (closing.ts, tenant-scoped) y el set de emails del equipo (usuarios del workspace),
 // y cruza los invitados de cada reunión. Determinístico, sin IA, aislado por cliente.
+/**
+ * Quién tiene su propia cuenta de MaKo (`ClientesMako`, lib/reunion-clasificar.ts), SÓLO en el tablero del dueño: para él,
+ * una llamada con alguien que tiene un workspace es de ENTREGA, aunque su lead diga prospecto (20/10/2026: las de Florencia
+ * y Leila se descartaban como «ventas»). En el tablero de un cliente devuelve null: un usuario de MaKo no es cliente suyo.
+ * `usuarios` no está scopeada por workspace, así que acá se ven los de todos (lo mismo que `porWorkspaceCliente`).
+ */
+async function clientesMako(): Promise<ClientesMako | null> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null || (await getWorkspace(ws))?.capa !== 'superadmin') return null;
+    const [us, wss] = await Promise.all([listarUsuarios(), listarWorkspaces()]);
+    const otros = new Set(wss.filter((w) => w.id !== ws).map((w) => w.id));
+    const suyos = us.filter((u) => u.workspace_id != null && otros.has(u.workspace_id as number));
+    return {
+      emails: new Set(suyos.map((u) => u.email.trim().toLowerCase()).filter(Boolean)),
+      nombres: [
+        ...wss.filter((w) => otros.has(w.id)).map((w) => w.nombre ?? ''),
+        ...suyos.map((u) => u.nombre ?? ''),
+      ].map((n) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9ñ]+/g, ' ').trim()).filter((n) => n.includes(' ')),
+    };
+  } catch (e) {
+    console.error(`[plan-fathom] clientesMako: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 export async function listReunionesRecientes(opts: { limit?: number; cursor?: string | null; recordedAfter?: string; createdAfter?: string } = {}): Promise<PaginaReuniones> {
   const page = await listMeetingsPage({ limit: opts.limit ?? 15, cursor: opts.cursor ?? undefined, recordedAfter: opts.recordedAfter, createdAfter: opts.createdAfter });
   const items = page.items ?? [];
 
   // Los dos mapas para clasificar. Best-effort: si el CRM o los usuarios fallan,
   // las reuniones salen igual con tipo 'otra' en vez de tirar todo el selector.
-  const [leadsByEmail, equipoEmails] = await Promise.all([
-    getLeadsByEmail().catch(() => new Map<string, { estado_lead: string | null }>()),
-    listarUsuarios().then((us) => new Set(us.map((u) => u.email.trim().toLowerCase()).filter(Boolean))).catch(() => new Set<string>()),
+  const [leadsByEmail, usuarios, clientes] = await Promise.all([
+    getLeadsByEmail().catch(() => new Map<string, LeadDeReunion>()),
+    listarUsuarios().catch(() => []),
+    clientesMako(),
   ]);
+  const equipoEmails = new Set(usuarios.map((u) => u.email.trim().toLowerCase()).filter(Boolean));
 
   const reuniones = items
     .map((m: FathomMeeting) => ({
@@ -209,8 +238,8 @@ export async function listReunionesRecientes(opts: { limit?: number; cursor?: st
       durMin: meetingDurationMin(m),
       url: m.url ?? m.share_url ?? null,
       involucrados: externalInviteeEmails(m),
-      tipo: clasificarReunion(m, leadsByEmail, equipoEmails),
-      motivo: motivoDelTipo(m, leadsByEmail, equipoEmails),
+      tipo: clasificarReunion(m, leadsByEmail, equipoEmails, clientes),
+      motivo: motivoDelTipo(m, leadsByEmail, equipoEmails, clientes),
       participantes: participantesDeReunion(m),
       host: m.recorded_by?.email
         ? { nombre: (m.recorded_by.name ?? '').trim(), email: m.recorded_by.email.trim().toLowerCase() }

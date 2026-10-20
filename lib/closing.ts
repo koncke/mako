@@ -102,6 +102,8 @@ export type ClosingAnalysisRow = {
 /** Lead mínimo para el match + pistas de clasificación. */
 type LeadMatch = {
   id: number;
+  /** La cuenta de MaKo a la que apunta este lead (mig 0175). La usa el clasificador de reuniones (`esClienteMako`). */
+  cliente_ws?: number | null;
   nombre: string;
   empresa: string | null;
   email: string | null;
@@ -211,7 +213,7 @@ export async function getLeadsByEmail(): Promise<Map<string, LeadMatch>> {
   try {
     data = await leerTodo<LeadMatch>(
       supabase, 'leads',
-      'id, nombre, empresa, email, closer, estado_lead, fecha_junta_1, fecha_junta_2, fecha_cierre, fecha_inicio_servicio',
+      'id, nombre, empresa, email, closer, estado_lead, fecha_junta_1, fecha_junta_2, fecha_cierre, fecha_inicio_servicio, cliente_ws',
     );
   } catch (e) {
     throw new Error(`Error trayendo leads para match: ${e instanceof Error ? e.message : String(e)}`);

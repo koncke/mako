@@ -23,9 +23,13 @@ import { FilaM } from './FilaM';
 import { PieM } from './Piezas';
 import { SheetM } from './SheetM';
 
-/** Abre una pantalla de escritorio en este teléfono: la cookie de «Versión completa» y la URL con su `?ws=`. */
+/**
+ * Abre UNA pantalla de escritorio en este teléfono: la cookie de vista con SU ruta y la URL con su `?ws=`. Desde el
+ * 20/10/2026 la cookie es de esa pantalla sola: hasta ese día era de toda la app por 12 h y el teléfono quedaba en la
+ * versión de computadora sin vuelta (Martín: «Veo MaKo mobile roto, como si estuviera en desktop»).
+ */
 export function abrirEnComputadora(href: string, ws: number | null) {
-  document.cookie = cookieVistaEscritorio();
+  document.cookie = cookieVistaEscritorio(href);
   window.location.href = conWs(href, ws);
 }
 
