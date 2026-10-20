@@ -84,7 +84,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.16.0';
+export const VERSION = '1.16.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1348,7 +1348,35 @@ function cuotaDe(cuenta) {
  * Escribe lo mismo que la barra de estado (USO/<cuenta>.json, que sube `cuotaDe`) y las dos líneas que lee el corte del
  * 97% (~/.claude/guardia/corte-97.mjs): uso-cinco.txt y uso-semanal.txt, con la cuenta como 4º campo.
  */
-export function medir(cuenta, args, ahora = Date.now()) {
+/** Lo que separa dos reinicios semanales que son «el mismo» (la API devuelve el mismo instante con milisegundos distintos). */
+const MISMA_SEMANA_MS = 5 * 60_000;
+
+/**
+ * La HUELLA de la semana (1.16.1, 20/10/2026): cada cuenta reinicia su semana siempre a la misma hora, así que el reinicio
+ * dice de QUÉ cuenta es una medición, aunque el marcador (cuenta-activa.txt) diga otra. Pasó DOS veces: el 17/10 y el 20/10
+ * (un chat puso el marcador en claude1 con la app en la cuenta 4, y `medir` anotó la semana de la 4 a nombre de la 1; el
+ * Uso del Ops Center mostró los números de una cuenta en otra). null = la medición es de esta cuenta; si no, el motivo:
+ *   · A: el reinicio coincide con el de OTRA cuenta que todavía no venció → es de ésa;
+ *   · B: el reinicio de ESTA cuenta todavía no venció y el nuevo es otro → la semana no se mueve antes de vencer: o el
+ *        marcador está mal, o la cuenta se renovó (`renovada`, cuando Martín lo dice).
+ */
+export function problemaDeHuella(cuenta, reinicia, ahora, { renovada = false, dir = USO } = {}) {
+  const t = Date.parse(String(reinicia ?? ''));
+  if (!Number.isFinite(t)) return null;
+  for (const f of listar(dir)) {
+    const otra = path.basename(f, '.json');
+    if (otra === cuenta || !CUENTA_RE.test(otra)) continue;
+    const r = Date.parse(leerJson(f, null)?.semana?.reinicia ?? '');
+    if (Number.isFinite(r) && r > ahora && Math.abs(r - t) <= MISMA_SEMANA_MS) return `no anoté la cuota: es de ${otra}, no de ${cuenta} (el marcador está mal)`;
+  }
+  const propia = Date.parse(leerJson(path.join(dir, `${cuenta}.json`), null)?.semana?.reinicia ?? '');
+  if (!renovada && Number.isFinite(propia) && propia > ahora && Math.abs(propia - t) > MISMA_SEMANA_MS) {
+    return `no anoté la cuota: la semana de ${cuenta} se reinicia ${new Date(propia).toISOString()} y esta medición dice ${new Date(t).toISOString()} (el marcador está mal, o la cuenta se renovó: --renovada)`;
+  }
+  return null;
+}
+
+export function medir(cuenta, args, ahora = Date.now(), { renovada = false } = {}) {
   const [p5, r5, ps, rs] = args;
   const v = (p, r) => {
     const n = Number(p);
@@ -1359,6 +1387,9 @@ export function medir(cuenta, args, ahora = Date.now()) {
   const cinco = v(p5, r5);
   const semana = v(ps, rs);
   if (!cinco && !semana) throw new Error('uso: medir <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
+  // Antes de escribir NADA (ni el JSON ni las dos líneas del corte del 97%): ¿esta semana es de esta cuenta?
+  const huella = problemaDeHuella(cuenta, semana?.reinicia, ahora, { renovada });
+  if (huella) { log(`[${cuenta}] ${huella}`); throw new Error(huella); }
   const medido = new Date(ahora).toISOString();
   escribirJson(path.join(USO, `${cuenta}.json`), { cinco, semana, medido, api: null });
   const linea = (w) => `${w.pct} ${w.reinicia ?? '-'} ${medido} ${cuenta}\n`;
@@ -1788,7 +1819,8 @@ if (esMain) {
         const activa = (() => { try { const c = fs.readFileSync(path.join(path.dirname(USO_APP), 'cuenta-activa.txt'), 'utf8').trim().split(/\s+/)[0]; return CUENTA_RE.test(c) ? c : null; } catch { return null; } })();
         const c = cuentaOpcional() ?? activa ?? cuentaDeLaApp(cfg, dirPropio(cfg));
         if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: medir --cuenta claudeN <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
-        imprimir({ ok: true, cuenta: c, ...medir(c, resto) }); break;
+        // `--renovada` (1.16.1): Martín dijo que esta cuenta se renovó, y su semana cambia antes de vencer (problemaDeHuella, B).
+        imprimir({ ok: true, cuenta: c, ...medir(c, resto.filter((a) => a !== '--renovada'), Date.now(), { renovada: resto.includes('--renovada') }) }); break;
       }
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
       case 'vigilar': { const i = resto.indexOf('--max-seg'); imprimir(await vigilar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) : 100)); break; }
