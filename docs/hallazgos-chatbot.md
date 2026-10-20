@@ -5412,3 +5412,38 @@ lib/flujo-ia-preguntas.ts (`preguntaAntes`) · lib/flujo-ia.ts (regla 8, `pidioA
 `otraCosaComoCaso`, `resumenEdicionDetalle`) · lib/disparadores.ts (`recurrenteDeValorIA`) · lib/flujo-ia-crear.ts
 (`contarCohorte`) · lib/reentrada.ts (`barridoEsEvento`) · lib/nutricion.ts (`aInscribir`) · test:
 tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
+
+**«Configuré una recurrente y no salió» (Leila, ws11, 20/10, medido a las 21:31 UTC):** el diagnóstico obvio («el Recurrente no anda») era a medias. Pasaron tres cosas:
+- **Lo que no salió no era el Recurrente.** Era #282 «Recordatorio clase reactivación», disparada por la etapa: la corrida de las 21:00Z inscribió a los 31 leads de Reactivación, y los **31 mensajes quedaron como BORRADORES pendientes** (`wa_borradores`, origen nutricion). Por WhatsApp no oficial, a un lead sin `fecha_primer_pago` nunca se le manda directo: se deposita un borrador que alguien manda con un clic (la regla dura del PDF, `esLeadCliente` en lib/evolution-envio.ts). La pantalla de Automations no lo dice: la clienta cree que la automatización no anda.
+- **Un Recurrente sale a la hora en punto siguiente, no a su minuto.** El tick de cada minuto (app/api/cron/nutricion-tick) no inscribe por cohorte: eso lo hace sólo la corrida de cada hora (`comprometerInscripciones`, app/api/cron/nutricion, minuto 0). El de los martes 16:15 (21:15Z) seguía con `cron_proxima_at` 21:15Z a las 21:31Z: toca a las 22:00Z.
+- **Dos automatizaciones al mismo grupo con el mismo recordatorio.** #282 (por etapa) y el d2 de #284 (Recurrente) van a Reactivación del funnel 4 con casi el mismo texto. El motor no apila (espera a que se mande el borrador pendiente: `tieneBorradorNutriPendiente`), así que si se aprueban las dos, el lead recibe el recordatorio DOS veces. Nada avisa que hay otra automatización con la misma cohorte.
+
+**Regla:** antes de decir «no salió», mirar `wa_borradores` pendientes del ws y `cron_proxima_at` de cada disparador. Una automatización que deja borradores tiene que decirlo en su pantalla, con cuántos y dónde se aprueban.
+
+## «El chat de MaKo siempre abierto en la sidebar»: el pedido no se perdió en el código, se perdió en el relevo (20/10/2026)
+
+**Síntoma.** El 20/10 Martín preguntó: «Te habia pedido varias cosas, ¿No tienes el registro?». Pedía el chat de Automations siempre abierto en la sidebar, sin el logo de MaKo y con la tuerca en su lugar.
+
+**Diagnósticos obvios, los dos equivocados:**
+- **«Nadie lo anotó»:** falso. El Cerebro reenvió el pedido textual al chat Automations el 16/10 a las 05:22 UTC (puntos 5 y 6 del «Feedback Automations»).
+- **«Se hizo y se revirtió»:** falso. `git log --all --since=2026-10-16` no tiene un solo commit que lo toque. El chat a la derecha es de la decimocuarta tanda (51a3ad96d, 12/10).
+
+**La causa real: un PUNTERO sin contenido entre cuentas.**
+1. El chat de la cuenta 3 dejó los puntos 5 y 6 al final de la cola.
+2. Al cerrar por cuota, el relevo escribió «lo visual de «Probar», 4c (Calendly) y los puntos 5-6», sin el texto (docs/relevo/chatbot.md:104).
+3. El Cerebro de la cuenta 4 lo leyó como si los puntos 5-6 fueran parte de «Probar».
+4. El chat nuevo buscó «el feedback del 16/10» y encontró OTRO documento con ese nombre (docs/feedback-16-10-crm-onboarding-second-brain.md, del CRM, de la tarde), donde el 5 y el 6 son otra cosa. Lo marcó «sin ubicar» (docs/relevo/chatbot.md:37).
+5. Le preguntó al Cerebro y la pregunta no tuvo respuesta. Al día siguiente el pedido ya no estaba en ninguna lista ni en docs/pendientes.md.
+
+Ya había pasado el 15/10 («Las doce cosas de Automations (vivían sólo en un mensaje entre chats)», bitácora): ese día se arregló para esas doce, pero no quedó como regla.
+
+**Reglas que quedan:**
+- Un pedido de Martín que llega por otro chat se pega LITERAL como hito `actor: "martin", tipo: "prompt"` en la bitácora del área, el mismo día, aunque vaya al final de la cola.
+- Un relevo nunca escribe «los puntos N-M del feedback del <fecha>»: copia el texto o cita el hito.
+- Un mismo día puede tener varios «feedback» (el 16/10 hubo dos), así que una fecha no identifica un documento.
+- Una pregunta a otro chat que queda sin respuesta no saca el pedido de la lista: va a docs/pendientes.md con «sin ubicar» y el transcript donde buscarlo. Los transcripts quedan en ~/.claude/projects/…/<sesión>.jsonl; este estaba en a8f8993e, 2026-10-16T05:22:05Z.
+
+**Vive en:**
+- docs/relevo/chatbot.md:37, :104, :119-120
+- app/admin/dev/chatbot/bitacora.ts:1638 (el último hito «prompt»)
+- app/automations/SecuenciaPerfil.tsx:1202 y app/automations/SimuladorWhatsApp.tsx:827 (lo que sigue sin hacer)

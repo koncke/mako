@@ -1595,6 +1595,23 @@ código nuevo:
       todavía no lo está. Ni el «Ya está» ni un cierre del Plan salen antes.
     - **Lo que toca plata, seguridad o envíos a clientes pasa una revisión adversarial antes de subir.** La punta llega
       marcada «⚠️ REVISAR». Lo que encuentre la revisión vuelve al jefe como una punta aparte, con su test.
+    - **UN PEDIDO DE MARTÍN QUE LLEGA POR OTRO CHAT SE PEGA LITERAL, EL MISMO DÍA** (20/10/2026). Se pega como hito
+      `actor: "martin", tipo: "prompt"` en la bitácora del área, aunque vaya al final de la cola.
+      - Un relevo nunca escribe «los puntos N-M del feedback del <fecha>»: copia el texto o cita el hito. Una fecha no
+        identifica un documento, porque el 16/10 hubo dos «feedback».
+      - Una pregunta a otro chat que queda sin respuesta no saca el pedido de la lista: va a docs/pendientes.md con
+        «sin ubicar» y el transcript donde buscarlo.
+      - Pasó con el chat de Automations siempre abierto: pedido el 16/10, perdido en el relevo entre cuentas y vuelto a
+        pedir el 20/10 («¿No tienes el registro?»). Está en docs/hallazgos-chatbot.md.
+    - **TODO ARREGLO DE ALGO QUE REPORTÓ UN CLIENTE SE AVISA EN SU GRUPO DE MAKO** (20/10/2026; Martín: «siempre avisa al
+      grupo de MaKo de clientes correspondiente cuando solucionemos algo»).
+      - Va apenas está EN PRODUCCIÓN (deploy Ready), firmado «Desarrollador de MaKo» (`avisarArregloAlGrupo`, lib/aviso-arreglo.ts).
+      - No importa por dónde llegó el reporte: Martín, una llamada, el Ops Center o el vigía.
+      - El Cerebro le pasa a MaKo Alert el ws y qué se arregló en cada deploy, y MaKo Alert lo manda.
+    - **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se deben dividir en 2»). El
+      Second Brain de cualquier negocio, el del super admin incluido, es UN grafo: lo que separa la vista son los filtros
+      (pedido ya el 17/10 y el 18/10, pt 4). Se verifica mirando lo que se DIBUJA, no el código: dos raíces o dos racimos
+      separados también son dos cerebros.
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:

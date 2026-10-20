@@ -298,13 +298,34 @@ export async function getConversacionesNoOficial(
   // no estaba entre esas `limite` filas. Se pagina TODO el espejo (mismo patrón
   // que la ruta de onboarding) y recién al final se corta a `limite` conversaciones.
   type Fila = { chat_jid: string; telefono: string | null; push_name: string | null; texto: string | null; tipo: string | null; from_me: boolean; wa_timestamp: string | null; lead_id: number | null };
+
+  // ⚠️ LO QUE NO DEPENDE DEL ESPEJO ARRANCA CON ÉL (Chats, 20/10/2026). La agenda, los leads de «Nutrición - Manual»,
+  // los ocultos y los bloqueados se leían DESPUÉS del espejo, uno detrás del otro: en el ws1, 2,5 s de agenda más
+  // cuatro idas y vueltas al final de una lista que ya tenía todo. Se piden ACÁ y se esperan donde se usan. Cada uno
+  // queda «resuelto» (`asentar`) para que un rechazo no quede sin atender mientras el espejo lee, y vuelve a lanzar
+  // donde se espera: falla igual que antes. Medido en docs/hallazgos-comunicacion.md.
+  const asentar = <T,>(p: PromiseLike<T>) => Promise.resolve(p).then((v) => ({ ok: true as const, v }), (e: unknown) => ({ ok: false as const, e }));
+  const esperar = async <T,>(p: Promise<{ ok: true; v: T } | { ok: false; e: unknown }>): Promise<T> => { const r = await p; if (!r.ok) throw r.e; return r.v; };
+  const agendaP = asentar(opts?.conAgenda === false
+    ? Promise.resolve(new Map<string, string>())
+    : getNombresContacto().catch(() => new Map<string, string>()));
+  const manualesP = asentar(supabase
+    .from('leads')
+    .select('id, nombre, empresa, telefono_normalizado')
+    .eq('pipeline_stage', 'manual')
+    .not('telefono_normalizado', 'is', null)
+    .limit(300));
+  const ocultosP = asentar(telefonosOcultos());
+  const bloqueadosP = asentar(telefonosBloqueados());
+
   const rows: Fila[] = [];
   await leerPorPaginas<Fila>(
     supabase, 'wa_mensajes',
     'chat_jid, telefono, push_name, texto, tipo, from_me, wa_timestamp, lead_id',
     (pagina, nro) => { rows.push(...pagina); return nro < topePaginas; },
     // reacciones/protocolo no cuentan como "último mensaje"
-    { orden: ORDEN_ESPEJO, filtros: (q) => (linea ? q.neq('tipo', 'evento').eq('instance_name', linea) : q.neq('tipo', 'evento')) },
+    // En OLAS de 5 páginas (Chats, 20/10/2026): de a una, las 19 páginas del ws1 eran 12,7 s en serie.
+    { orden: ORDEN_ESPEJO, paralelo: 5, filtros: (q) => (linea ? q.neq('tipo', 'evento').eq('instance_name', linea) : q.neq('tipo', 'evento')) },
   );
 
   // Agrupamos por TELÉFONO (últimos 10 dígitos), NO por chat_jid exacto: Evolution
@@ -379,9 +400,7 @@ export async function getConversacionesNoOficial(
   // Con `catch`: la agenda es un ADORNO del inbox (sin ella se ve el número), y
   // desde que la lectura pasó a paginar de verdad puede lanzar. Una agenda que
   // no se pudo leer no puede dejar al dueño sin inbox.
-  const nombresContacto = opts?.conAgenda === false
-    ? new Map<string, string>()
-    : await getNombresContacto().catch(() => new Map<string, string>());
+  const nombresContacto = await esperar(agendaP);
   if (nombresContacto.size) for (const c of convs) {
     if (c.nombre === c.telefono || c.nombre === c.chatJid.replace(/@.*/, '') || c.nombre === 'Você') {
       const n = nombresContacto.get((c.telefono || '').replace(/\D/g, '').slice(-10));
@@ -393,12 +412,7 @@ export async function getConversacionesNoOficial(
   // como conversaciones placeholder — así se les puede escribir desde el inbox.
   const idsConConv = new Set(convs.map((c) => c.leadId).filter((x): x is number => x != null));
   const telsConConv = new Set(convs.map((c) => (c.telefono || '').replace(/\D/g, '').slice(-10)).filter(Boolean));
-  const { data: manuales } = await supabase
-    .from('leads')
-    .select('id, nombre, empresa, telefono_normalizado')
-    .eq('pipeline_stage', 'manual')
-    .not('telefono_normalizado', 'is', null)
-    .limit(300);
+  const { data: manuales } = await esperar(manualesP);
   for (const l of (manuales ?? []) as Array<{ id: number; nombre: string | null; empresa: string | null; telefono_normalizado: string | null }>) {
     if (idsConConv.has(l.id)) continue;
     const tel = (l.telefono_normalizado || '').replace(/\D/g, '');
@@ -415,7 +429,7 @@ export async function getConversacionesNoOficial(
 
   // Ocultos: por defecto los SACAMOS del inbox (y de MaKo). Con incluirOcultos
   // (vista "ver ocultos") los dejamos para poder desocultarlos.
-  const ocultos = await telefonosOcultos();
+  const ocultos = await esperar(ocultosP);
   let salida = convs;
   if (ocultos.size) {
     const estaOculto = (c: WaConversacion) => !!c.telefono && ocultos.has(c.telefono.replace(/\D/g, ''));
@@ -425,7 +439,7 @@ export async function getConversacionesNoOficial(
   }
 
   // Marcar contactos bloqueados (una sola query).
-  const bloq = await telefonosBloqueados();
+  const bloq = await esperar(bloqueadosP);
   if (bloq.size) for (const c of salida) if (c.telefono && bloq.has(c.telefono.replace(/\D/g, ''))) c.bloqueado = true;
 
   // El corte a `limite` va ACÁ (conversaciones, ya ordenadas por la más reciente),

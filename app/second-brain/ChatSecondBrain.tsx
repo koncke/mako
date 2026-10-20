@@ -581,7 +581,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
           {veMapa && listaSB && (
             <button type="button" className="co-acceso" aria-pressed={mapa != null}
               onClick={() => { setConChat(true); router.push(mapa ? hrefVolver : hrefMapa); }}>
-              <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Mapa
+              {/* «Second Brain», no «Mapa» (Martín, llamada con Florencia del 18/10 [00:50:28]: «no debería llamarse mapa,
+                  debería llamarse second brain»). La TAB es «Ops Center»; lo que se llama «Second Brain» es el grafo. */}
+              <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Second Brain
             </button>
           )}
         </div>

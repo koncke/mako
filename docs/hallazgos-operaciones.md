@@ -1541,6 +1541,27 @@ sin Runner y con número dice «Sin Runner · se mide a mano».
 **Regla:** cuando se arregla un error que ESCRIBE datos, en el mismo trabajo se buscan y corrigen los datos que ya
 escribió. Un dato sin fecha a la vista que nadie vuelve a medir se lee como vigente.
 
+**Segunda vez, 20/10/2026.** Martín: «El uso quedó mal en Mauricio... Que no vuelva a pasar nunca más». Un chat puso
+`~/.claude/cuenta-activa.txt` en claude1 durante unos minutos, con la app en la cuenta 4. A las 20:14 UTC el Runner midió con
+get_usage y `medir` anotó en `uso/claude1.json` la semana de la 4: 6% y 2%, con reinicio el 2026-10-27T20:00:00.496Z. Se
+subió a `operaciones_carteros`. El arreglo del 17/10 era el correcto (usar el marcador), pero el marcador MISMO puede estar
+mal, y nada lo contrastaba. Datos corregidos por el Cerebro: `uso/claude1.json.mal-20-10`, y la fila claude1 con
+`cuota=null`. **El arreglo de fondo es la huella de la semana:** cada cuenta reinicia su semana siempre a la misma hora, así
+que el reinicio dice de quién es una medición. `cuotaDe` ya la usaba para la línea de uso-semanal.txt, pero `medir` no.
+- Desde el cartero 1.16.1 (`problemaDeHuella`), `medir` no escribe nada si el reinicio coincide (±5 min) con el de OTRA
+  cuenta vigente; el error la nombra: «no anoté la cuota: es de claude4, no de claude1 (el marcador está mal)».
+- Tampoco escribe si mueve la semana de ESTA cuenta antes de que venza, salvo con `--renovada`, para cuando Martín dice que
+  esa cuenta se renovó.
+- MaKo hace lo mismo en `cicloCartero` (`cuentaDeLaSemana`, lib/centro-uso.ts), y así frena también a un cartero viejo.
+
+**Regla:** un dato que se anota a nombre de alguien se contrasta con una huella propia de ese alguien (acá, la hora de su
+reinicio). El marcador de cuenta es un dato más, y puede estar mal.
+**Los límites que quedan** (revisión del Cerebro, 20/10, antes de subirlo):
+- **Dos cuentas reales cuya semana reinicia con menos de 5 min de diferencia chocan siempre:** cada una rechaza a la otra, semana tras semana. Hoy no pasa: las conocidas reinician en días y horas distintos. Si pasa, el error lo dice en cada vuelta del Runner, y se resuelve achicando `MISMA_SEMANA_MS`, porque la API varía ~1 s.
+- **Una cuenta RENOVADA queda sin medir hasta que alguien pase `--renovada`** (B). La renovación la avisa Martín, y el Cerebro corre `medir --renovada`. Mientras tanto, la tarjeta envejece a «Sin medir hace X», que es lo seguro.
+- **Del lado de MaKo, una fila MALA que ya entró bloquea a la buena:** `cuentaDeLaSemana` le cree a la fila que llegó primero. Si vuelve a pasar, se limpia la fila mala (`cuota=null`), como la del 20/10.
+- **Sólo con la ventana de 5 h** (sin semana) no hay huella: `medir` la anota a nombre del marcador. El Runner manda siempre las dos.
+
 ## El menú que se cerraba solo, las fotos que no se veían y lo demás de WhatsApp (17/10/2026, quinto Ops Center)
 
 **El menú de un mensaje se cerraba solo: no era un redibujo, era Android.** Martín: «al mantener apretado un mensaje, el
