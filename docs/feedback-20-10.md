@@ -126,6 +126,19 @@ quedó.
   - Google Calendar no está: su API no lista las páginas de reserva (app/crm/EventosDeEtapaModal.tsx:18).
 - **Encargo:** **CRM**, que primero arma docs/pedidos-crm.md con TODO lo que Martín pidió para el CRM y su estado. Eso contesta «muchos cambios aún no están».
 
+### 13. «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la funcionalidad que creamos de respuestas múltiples en Ops Center...»
+- **Causa:** Debate sí recibió la respuesta (21:10Z). Después cerró sus turnos sólo con el recuadro de la app (`wrap_up`, con pregunta y botones), sin texto. El cartero sube sólo texto, así que nada de eso llegó al Ops Center.
+- **Hecho:** Debate vuelve a preguntar con `cartero preguntar`, el formulario de opciones.
+- **Encargo de fondo:** **Ops Center 3**. El cartero sube el resumen de un `wrap_up` como mensaje, y su pregunta y sus botones como formulario.
+- **Hallazgo:** docs/hallazgos-operaciones.md.
+
+### 14. «Comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo, mapea al 100% todo lo que eso conlleva, y la inteligencia que tienen que tener cada chat... No elimines por ahora las tabs... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...»
+- **En curso (20/10):** el mapeo al 100%, con ocho agentes por áreas más uno de síntesis y un crítico.
+  - Por cada acción de cada tab mide si el Ops Center ya puede hacerla, qué falta (herramienta, motor, bloque en el chat, confirmación) y qué inteligencia necesita el chat del área.
+  - Sale un documento maestro con el plan por olas y por chat.
+- **Después:** reparto por olas a los chats de área. Lo transversal (los bloques en el chat, la confirmación adentro, los sub-chats) va a Ops Center 3.
+- Las tabs quedan.
+
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 
 | Pedido (minuto) | Estado | De quién |
