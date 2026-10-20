@@ -43,6 +43,22 @@
 //   · la fila del teléfono todavía «Second Brain»                           → 11 / 1
 //   · Ctrl K sin el alias «second brain»                                     → 11 / 1
 //   · `rutaDeLaTab` sin mirar el `jefe` («Ops Center» caía en /second-brain) → 11 / 1
+//
+// FEEDBACK DEL 18/10, PT 10 Y EL PLIEGUE DEL PT 4 (20/10/2026). Martín: «La sidebar, si estoy en dark mode se debe adaptar a
+// white mode, lo contrario» · «no quiero que cambien las criaturas de color» · «MaKo Partners debería ir dentro del
+// desplegable del perfil, no como una tab» · «cuando está plegada el logo de MaKo está desalineado al resto de iconos» ·
+// «quiero que Ops center esté dentro de la sección de «Plan, chats y dashboard» y que esa sección también se pueda plegar
+// como las otras... Y quiero que por defecto estén todas desplegadas» · «si entro al second brain que la sidebar
+// principal de todas las tabs se colapse». Probado ROMPIÉNDOLO, de a uno, con la base en 13 pases y 0 fallos:
+//   · lo diario otra vez sin rótulo (no se pliega)                          → 10 / 3 (familias, pt 10, teléfono)
+//   · el Ops Center fuera de lo diario                                      → 12 / 1 (pt 10)
+//   · Marketing y Create plegadas por defecto                               → 12 / 1
+//   · MaKo Partners fuera del menú de la foto                               → 12 / 1
+//   · el logo plegado a la izquierda (`space-between` siempre)              → 12 / 1
+//   · la barra no se pliega al entrar al Ops Center                         → 12 / 1
+//   · la barra clara puesta en :root (pisaba las islas oscuras)             → 12 / 1
+//   · la cara de la criatura con --ink                                      → 12 / 1
+//   · el modo oscuro redefiniendo la tinta de las criaturas                 → 12 / 1
 // =============================================================================
 
 import test from 'node:test';
@@ -56,6 +72,8 @@ import { puedeVerItem, resolverTab, type VistaNav } from '../lib/nav-visibilidad
 import { PRONTO } from '../app/_components/nav';
 import { DESTINOS_MOVIL, FAMILIAS_MAS, barraMovil, gruposMas, masCompleto } from '../lib/movil-rutas';
 import { ALIAS, buscarDestinos, type Destino } from '../lib/buscador-nav';
+import { USER_NAV } from '../app/_components/nav';
+import { pliegaLaBarra } from '../app/_components/Sidebar';
 import { tituloDe } from '../lib/titulo-tab';
 import { cabeceraPorRuta } from '../app/m/_ui/cabecera';
 import { rutaDeLaTab } from '../lib/centro-chats';
@@ -73,13 +91,14 @@ const dibujadas = (): NavItem[] => [
   ...FAMILIAS.flatMap((f) => [...f.bloques.flat(), ...(f.grupos ?? []).flatMap((g) => g.items)]),
 ];
 
-test('las familias del prototipo: lo diario sin rótulo, y Sales · Marketing · Create; Home y las «pronto» salieron', () => {
+test('las familias del prototipo: lo diario, y Sales · Marketing · Create; Home y las «pronto» salieron', () => {
+  // Lo diario lleva rótulo y se pliega desde el 20/10/2026 (el test del pt 10, abajo).
   assert.deepEqual(FAMILIAS.map((f) => [f.key, f.label, !!f.sinRotulo]), [
-    ['diario', 'Today', true], ['sales', 'Sales', false], ['marketing', 'Marketing', false], ['create', 'Create', false],
+    ['diario', 'Today', false], ['sales', 'Sales', false], ['marketing', 'Marketing', false], ['create', 'Create', false],
   ]);
   const de = (k: string) => itemsDe(FAMILIAS.find((f) => f.key === k)!).map((i) => i.key);
   assert.deepEqual(FAMILIAS[0].bloques.flat().map((i) => i.key), ['todo', 'bandeja', 'graphics'], 'lo diario: Plan, Chats y Dashboard');
-  for (const k of ['crm', 'calendario', 'setting', 'customer-success', 'partners']) assert.ok(de('sales').includes(k), `«${k}» no está en Sales`);
+  for (const k of ['crm', 'calendario', 'setting', 'customer-success']) assert.ok(de('sales').includes(k), `«${k}» no está en Sales`);
   for (const k of ['offer', 'landing-writer', 'ads-manager']) assert.ok(de('marketing').includes(k), `«${k}» no está en Marketing`);
   for (const k of ['video-editor', 'video-generator', 'image-editor', 'ads-writer']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
   // «Home» (/general) ya no es fila: redirige al Dashboard (Focus). Su key sigue (capas, onboarding) en SIN_FILA, y el
@@ -128,6 +147,46 @@ test('Ops Center en todos los negocios: la fila de /second-brain se llama así y
   assert.equal(rutaDeLaTab('Second Brain', tabs), '/second-brain');
 });
 
+test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Partners en la foto, la barra sigue el modo', () => {
+  const sb = sinComentarios(leer('app/_components/Sidebar.tsx'));
+  // El Ops Center (arribaDe) va PRIMERO adentro de lo diario, que tiene rótulo y se pliega; no queda un bloque suelto arriba.
+  assert.equal(FAMILIAS.find((f) => f.key === 'diario')?.sinRotulo, undefined, 'lo diario volvió a ir sin rótulo (no se pliega)');
+  assert.match(sb, /if \(f\.key === 'diario' && arriba\.length\) \{\s*const \[primero = \[\], \.\.\.resto\] = bloques;\s*return \{ \.\.\.f, bloques: \[\[\.\.\.arriba, \.\.\.primero\], \.\.\.resto\], grupos \};/);
+  assert.doesNotMatch(sb, /arriba\.map\(\(it\) => \(\s*<NavLink/, 'volvió el bloque suelto de arriba');
+  // Todas desplegadas por defecto, con la clave nueva (la vieja traía Marketing y Create plegadas guardadas).
+  assert.match(sb, /const PLEGADAS = 'mk-nav-plegadas-v2';/);
+  assert.match(sb, /export const PLEGADAS_DE_ENTRADA: readonly string\[\] = \[\];/);
+  // MaKo Partners: en el menú de la foto, sólo para el admin de una agencia; en el teléfono, su fila sale del menú.
+  const partners = USER_NAV.find((i) => i.key === 'partners');
+  assert.ok(partners, 'MaKo Partners no está en el menú de la foto');
+  assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'partners'), 'MaKo Partners volvió a ser una tab');
+  assert.equal(puedeVerItem(partners!, { adminShell: false, rolWs: 'admin', capa: 'agencia' }), true);
+  assert.equal(puedeVerItem(partners!, CLIENTE), false, 'un negocio que no es agencia la vería');
+  const menuMas = masCompleto('admin', 'agencia', false).find((g) => g.id === 'menu')?.filas.map((f) => f.label) ?? [];
+  assert.ok(menuMas.includes('MaKo Partners'), 'en el teléfono no está con el menú de la foto');
+  // Plegada, la marca centrada como los íconos.
+  assert.match(sb, /justifyContent: open \? 'space-between' : 'center', flex: 'none' \}\}>\s*<Marca open=\{open\} \/>/);
+  // Al entrar al Ops Center (el de cada negocio y el del super admin) la barra se pliega; la flecha la abre ahí.
+  assert.equal(pliegaLaBarra('/second-brain'), true);
+  assert.equal(pliegaLaBarra('/second-brain/mapa'), true);
+  assert.equal(pliegaLaBarra('/admin/operaciones'), true);
+  assert.equal(pliegaLaBarra('/crm'), false);
+  assert.equal(pliegaLaBarra('/second-brainx'), false);
+  assert.match(sb, /const fija = fijaGuardada && \(!enOpsCenter \|\| abiertaAca\);/);
+  // La barra sigue el modo: blanca en claro, ACOTADA a la barra (en :root las --sidebar* siguen oscuras: son la «isla
+  // oscura» de 43 archivos), y su hover con token. La palabra MaKo con la tinta de la barra.
+  const ui = leer('app/_ui/ui.css');
+  assert.match(ui, /:root:not\(\[data-tema="oscuro"\]\):not\(\[data-tema-candidato\]\) \[data-sidebar\] \{\s*--sidebar: #FFFFFF;/);
+  assert.match(ui, /\.mk-navrow:hover \{ background: var\(--sidebar-hover, /);
+  assert.match(leer('app/globals.css'), /:root \{[\s\S]*?--sidebar: #14161B;/);
+  assert.match(sb, /<MakoWord base="var\(--on-sidebar\)">MaKo<\/MakoWord>/);
+  // Las criaturas no cambian de color: la cara va con tokens que ningún tema redefine.
+  const muneco = sinComentarios(leer('app/admin/operaciones/Muneco.tsx'));
+  assert.match(muneco, /const TINTA = 'var\(--criatura-tinta\)';/);
+  assert.doesNotMatch(muneco, /var\(--ink\)|var\(--bad\)/, 'la cara de la criatura volvió a un color que cambia con el modo');
+  assert.equal(leer('app/globals.css').split('--criatura-tinta:').length - 1, 1, 'un tema redefine la tinta de las criaturas');
+});
+
 test('el buscador (Ctrl K): «home» y «general» llevan al Dashboard, y encuentra lo de adentro de una tab', () => {
   for (const k of ['home', 'general', 'focus']) assert.equal(ALIAS[k], 'graphics', `«${k}» no lleva al Dashboard`);
   const destinos: Destino[] = FAMILIAS.flatMap((f) => f.bloques.flat()).flatMap((t) => [
@@ -161,7 +220,7 @@ test('la barra de abajo del teléfono: CRM · Chats · Dashboard · Plan · More
   assert.deepEqual(barraMovil('admin', 'completo').map((b) => b.label), ['CRM', 'Chats', 'Dashboard', 'Plan', 'More']);
   // More: las familias por su KEY (con cuatro, cruzarlas por posición perdía Create).
   const mas = masCompleto('admin', 'completo', false);
-  assert.deepEqual(mas.filter((g) => FAMILIAS_MAS.some((f) => f.id === g.id)).map((g) => g.titulo), [null, 'Sales', 'Marketing', 'Create']);
+  assert.deepEqual(mas.filter((g) => FAMILIAS_MAS.some((f) => f.id === g.id)).map((g) => g.titulo), ['Today', 'Sales', 'Marketing', 'Create']);
   const create = mas.find((g) => g.id === 'create')!;
   assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
 });

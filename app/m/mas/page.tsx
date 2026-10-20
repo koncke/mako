@@ -38,7 +38,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { getWorkspace } from '@/lib/workspace';
 import { leerPerfil } from '@/lib/perfil';
 import { Icon } from '@/app/_components/icons';
-import { masCompleto, type FilaMas } from '@/lib/movil-rutas';
+import { FAMILIAS_MAS, masCompleto, type FilaMas } from '@/lib/movil-rutas';
 import { Criatura } from '@/app/_components/Criatura';
 import { MAKO_NAV } from '@/app/_components/nav';
 import { FilaM } from '../_ui/FilaM';
@@ -81,7 +81,11 @@ export default async function MasPagina() {
   const nombre = (tuyo?.nombre || ctx.sesion.nombre || '').trim();
   const usuario = usuarioDe(ctx.sesion.email);
   const arriba = grupos.find((g) => g.id === 'arriba');
-  const resto = grupos.filter((g) => g.id !== 'arriba');
+  // El Ops Center va ADENTRO de lo diario desde el 20/10/2026, como en la barra de escritorio (feedback del 18/10, pt 10):
+  // una sola caja «Today» con el Ops Center primero y lo diario que no está en la barra de abajo.
+  const diario = grupos.find((g) => g.id === 'diario');
+  const resto = grupos.filter((g) => g.id !== 'arriba' && g.id !== 'diario');
+  const tituloDiario = FAMILIAS_MAS.find((f) => f.id === 'diario')?.label ?? null;
 
   /** Una fila de More: su pantalla, la hoja «En la computadora», o la hoja de un desplegable. */
   const fila = (f: FilaMas, conCriatura = false) => (
@@ -109,13 +113,16 @@ export default async function MasPagina() {
         />
       </ListaM>
 
-      {(veOpsCenter || arriba) && (
-        <SeccionM titulo={null}>
-          <ListaM>
-            {veOpsCenter && <FilaM navegacion leading={criatura('Ops Center', true)} titulo="Ops Center" href={RUTA_CENTRO} />}
-            {arriba?.filas.map((f) => fila(f, true))}
-          </ListaM>
-        </SeccionM>
+      {(veOpsCenter || arriba || diario) && (
+        <div className="m-mas-sec" data-sec="diario">
+          <SeccionM titulo={tituloDiario}>
+            <ListaM>
+              {veOpsCenter && <FilaM navegacion leading={criatura('Ops Center', true)} titulo="Ops Center" href={RUTA_CENTRO} />}
+              {arriba?.filas.map((f) => fila(f, true))}
+              {diario?.filas.map((f) => fila(f))}
+            </ListaM>
+          </SeccionM>
+        </div>
       )}
 
       {resto.map((g) => (

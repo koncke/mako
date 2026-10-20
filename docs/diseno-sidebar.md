@@ -1,5 +1,14 @@
 # La sidebar nueva (17/10/2026)
 
+> **20/10/2026: feedback del 18/10, pt 10 y el pliegue del pt 4** (docs/feedback-18-10.md). Lo diario («Today») lleva
+> rótulo, se pliega y tiene el **Ops Center** adentro, primero (el Sidebar le pone `arribaDe`; ARRIBA sigue siendo su
+> lista). **Todo desplegado por defecto** (la clave de lo plegado pasó a `mk-nav-plegadas-v2`). **MaKo Partners** salió de
+> Sales al menú de la foto (sólo agencias). **La barra sigue el modo**: blanca en claro, oscura en oscuro, acotada a
+> `[data-sidebar]` (las `--sidebar*` de `:root` siguen oscuras: son la isla oscura de 43 archivos). **Las criaturas no
+> cambian de color**: su cara va con `--criatura-tinta`/`--criatura-rubor`, que ningún tema redefine. Plegada, la **marca
+> centrada**. Al entrar al **Ops Center** (/second-brain y /admin/operaciones) la barra se **pliega**; la flecha la abre
+> ahí sin cambiar lo elegido para las demás tabs. En el teléfono, More arma la caja «Today» con el Ops Center primero.
+
 > **18/10/2026: «Ops Center» en todos los negocios.** Martín: «En todos los clientes también debe llamarse la tab
 > «Ops Center» en lugar de «Second Brain» y tener la criatura de estrella». La fila de arriba de cada negocio (key `mako`,
 > /second-brain) se llama **Ops Center** y lleva la **estrella** de MaKo (`estrella: true` en el ítem), igual que el Ops

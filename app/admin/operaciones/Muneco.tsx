@@ -83,7 +83,10 @@ export function Cuerpo({ forma, color }: { forma: Forma; color: string }) {
   }
 }
 
-const TINTA = 'var(--ink)';
+// La cara es FIJA en los dos modos (20/10/2026; Martín: «no quiero que cambien las criaturas de color»): con --ink, en
+// oscuro los ojos quedaban blancos sobre el cuerpo pastel. Lo mismo el rubor, que iba con --bad (app/globals.css).
+const TINTA = 'var(--criatura-tinta)';
+const RUBOR = 'var(--criatura-rubor)';
 
 export function Boca({ cara, y }: { cara: CaraMuneco; y: number }) {
   const b = y + 4.6;
@@ -98,7 +101,7 @@ export function Boca({ cara, y }: { cara: CaraMuneco; y: number }) {
     case 'tranquila': return <path d={`M18 ${b + 0.9}h4`} fill="none" stroke={TINTA} strokeWidth={1.6} strokeLinecap="round" />;
     case 'asombro': return <ellipse cx="20" cy={b + 1.3} rx="1.6" ry="1.9" fill={TINTA} />;
     // El beso: un corazoncito en lugar de la boca.
-    case 'beso': return <path d={`M20 ${b + 2.6}c-2.6-1.6-3-3.6-1.6-4.2c.8-.3 1.4.2 1.6.7c.2-.5.8-1 1.6-.7c1.4.6 1 2.6-1.6 4.2Z`} fill="var(--bad)" opacity={0.85} />;
+    case 'beso': return <path d={`M20 ${b + 2.6}c-2.6-1.6-3-3.6-1.6-4.2c.8-.3 1.4.2 1.6.7c.2-.5.8-1 1.6-.7c1.4.6 1 2.6-1.6 4.2Z`} fill={RUBOR} opacity={0.85} />;
     case 'bigote': return (
       <g>
         <path d={`M17.6 ${b + 1.2}q2.4 2 4.8 0`} fill="none" stroke={TINTA} strokeWidth={1.4} strokeLinecap="round" />
@@ -110,7 +113,7 @@ export function Boca({ cara, y }: { cara: CaraMuneco; y: number }) {
     case 'lengua': return (
       <g>
         <path d={`M17.2 ${b}q2.8 2.4 5.6 0`} fill="none" stroke={TINTA} strokeWidth={1.6} strokeLinecap="round" />
-        <path d={`M19.4 ${b + 1.6}q1.2 2.4 2.4 0`} fill="var(--bad)" opacity={0.75} />
+        <path d={`M19.4 ${b + 1.6}q1.2 2.4 2.4 0`} fill={RUBOR} opacity={0.75} />
       </g>
     );
     default: return <path d={`M17.4 ${b}q2.6 2.2 5.2 0`} fill="none" stroke={TINTA} strokeWidth={1.6} strokeLinecap="round" />;
@@ -133,8 +136,8 @@ function Cara({ forma, cara, animo }: { forma: Forma; cara: CaraMuneco; animo: A
   return (
     <g>
       {mejillas && <>
-        <ellipse cx={20 - dx - 3.2} cy={y + 3.6} rx="2.2" ry="1.3" fill="var(--bad)" opacity="0.22" />
-        <ellipse cx={20 + dx + 3.2} cy={y + 3.6} rx="2.2" ry="1.3" fill="var(--bad)" opacity="0.22" />
+        <ellipse cx={20 - dx - 3.2} cy={y + 3.6} rx="2.2" ry="1.3" fill={RUBOR} opacity="0.22" />
+        <ellipse cx={20 + dx + 3.2} cy={y + 3.6} rx="2.2" ry="1.3" fill={RUBOR} opacity="0.22" />
       </>}
       <g className={animo === 'trabajando' ? 'mun-ojos mun-ojos--parpadeo' : 'mun-ojos'} style={{ transformOrigin: `20px ${y}px` }}>
         <ellipse cx={20 - dx} cy={y} rx="2.5" ry={ry} fill={TINTA} />

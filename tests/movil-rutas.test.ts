@@ -94,7 +94,7 @@ test('CRM · Chats · Dashboard · Plan · More; More por las familias de la sid
     // 17/10/2026 noche, la sidebar del prototipo: lo diario, Sales, Marketing y Create, en el orden de la sidebar.
     ['dashboard', 'graphics', 'diario', false],
     ['calendario', 'calendario', 'sales', false], ['automations', 'setting', 'sales', false],
-    ['cs', 'customer-success', 'sales', false], ['partners', 'partners', 'sales', false],
+    ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true],
     ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
     ['video', 'video-generator', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'ads-writer', 'create', false],
     ['mako', 'mako', null, false],
@@ -124,7 +124,8 @@ test('admin de un cliente completo: la barra de cinco y More con todo, una caja 
     // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video.
     ['video', 'image', 'copywriting'],
   ]);
-  assert.deepEqual(familias('admin', 'completo'), [null, null, 'Sales', 'Marketing', 'Create']);
+  // Lo diario con título desde el 20/10/2026 (en escritorio lleva rótulo y el Ops Center adentro).
+  assert.deepEqual(familias('admin', 'completo'), [null, 'Today', 'Sales', 'Marketing', 'Create']);
 });
 
 test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () => {
@@ -133,7 +134,7 @@ test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () =
   assert.deepEqual(mas('closer', 'completo'), [['mako'], ['dashboard']]);
   assert.deepEqual(mas('setter', 'completo'), [['mako'], ['dashboard'], ['automations']]);
   // Una familia sin nada que el rol vea no deja una caja vacía.
-  assert.deepEqual(familias('closer', 'completo'), [null, null]);
+  assert.deepEqual(familias('closer', 'completo'), [null, 'Today']);
   // El closer entra al Dashboard SÓLO por la hoja Closing (app/dashboard/page.tsx): en una capa
   // sin Closing (pm tiene graphics, no closing), More no le ofrece una fila que lo rebota a Today.
   assert.equal(puedeVerKey('graphics', 'closer', 'pm'), true, 'el nav solo se la daría');
