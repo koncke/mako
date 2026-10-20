@@ -212,7 +212,8 @@ test('5: los emojis donde está el cursor, en su botón junto al campo; el «+»
   }
   const mas = codigo('app/admin/operaciones/AdjuntosCaja.tsx');
   const rotulos = [...mas.matchAll(/<\/span><span>([^<]+)<\/span>\s*<\/button>/g)].map((m) => m[1]);
-  assert.deepEqual(rotulos, ['Documento', 'Fotos', 'Cámara'], 'los círculos de WhatsApp, en su orden');
+  // 20/10/2026: «Pegar» al final, la captura copiada (el teclado del teléfono no la ofrece en la caja; tests/centro-app-adjuntos.test.ts).
+  assert.deepEqual(rotulos, ['Documento', 'Fotos', 'Cámara', 'Pegar'], 'los círculos de WhatsApp, en su orden');
   assert.match(mas, /co-mas-caja__titulo">Con qué corre</);
 });
 
