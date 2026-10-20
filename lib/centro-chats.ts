@@ -566,28 +566,31 @@ export function historialDelChat(
 export type VistaPrevia = { texto: string; propio: boolean; tick: EstadoPedido | null; instante: number; ya?: true };
 
 /**
- * Qué dice el segundo renglón de la fila de un chat, en este orden, en la computadora y en el teléfono: en qué trabaja, que
- * espera una respuesta, que trae un «Completado» sin ver (`revisar`), el borrador sin mandar («Borrador: …», como WhatsApp,
- * 17/10/2026), un «Completado» ya visto, o lo último. null = la fila va de un renglón.
+ * Qué dice el segundo renglón de la fila de un chat, en la computadora y en el teléfono. SÓLO TRES COSAS (20/10/2026, Martín,
+ * con captura de la lista: «Jamás debe decir el subtitulo las cosas que ponen... O debe decir "Trabajando..." o "Espera tu
+ * respuesta" o no tener subtitulo»): «Trabajando…» si el chat está ocupado, «Espera tu respuesta» si algo espera a Martín
+ * (una pregunta, una tarjeta, un «Completado» sin su ✓), o nada. NUNCA el texto de un paso, de un mensaje, de una
+ * herramienta ni de un borrador: el paso en curso sigue ADENTRO del chat, en el «Trabajando ••• …» del hilo.
  *
  * ⚠️ `revisar` es el MISMO aviso que `espera` (Martín, 17/10/2026, 19:33: «Cuando tengo algo pendiente que revisar de
  * "Completado" la misma notif de "Espera tu respuesta"»): mismo lugar, mismo estilo y el mismo globito en la criatura
  * (`avisosDe`). Desde el 18/10/2026 dice «Espera tu respuesta» y NO desaparece al abrir el chat: sólo con el ✓ de Martín
  * en la tarjeta del «Completado» (`esperaCheck`, guardado en MaKo).
  */
-export type SegundoRenglon = 'vivo' | 'espera' | 'revisar' | 'borrador' | 'ya' | 'previa' | null;
+export type SegundoRenglon = 'vivo' | 'espera' | 'revisar' | null;
 export function segundoRenglon(
-  c: Pick<ChatCentro, 'estado' | 'viejo'>, espera: number, borrador: string | null | undefined, p: VistaPrevia | null | undefined,
+  c: Pick<ChatCentro, 'estado' | 'viejo'>, espera: number,
   /** Su último «Completado» espera el ✓ de Martín (`esperaCheck`), aunque el chat haya escrito algo después. */
   sinVer = false,
 ): SegundoRenglon {
   if (c.estado === 'trabajando' && !c.viejo) return 'vivo';
   if (espera > 0) return 'espera';
-  if (sinVer) return 'revisar';
-  if (borrador) return 'borrador';
-  if (!p) return null;
-  return p.ya ? 'ya' : 'previa';
+  return sinVer ? 'revisar' : null;
 }
+/** Lo que dice la fila de cada uno (las mismas palabras en la computadora y en el teléfono). */
+export const TEXTO_SEGUNDO_RENGLON: Record<NonNullable<SegundoRenglon>, string> = {
+  vivo: 'Trabajando…', espera: 'Espera tu respuesta', revisar: 'Espera tu respuesta',
+};
 
 /**
  * Cuánto avisa un chat en su fila (el globito de la criatura y el orden de la lista): las tarjetas y preguntas que esperan

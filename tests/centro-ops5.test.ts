@@ -111,11 +111,11 @@ test('3: un solo botón, el micrófono sin nada escrito y la flecha con texto, e
   const flecha = renderToStaticMarkup(createElement(BotonMandar, { ...base, valor: 'hola', hayQueMandar: true }));
   assert.match(flecha, /aria-label="Firmar y mandar"/);
   assert.doesNotMatch(flecha, /Dictar/);
-  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    const s = codigo(f);
-    assert.match(s, /<BotonMandar /, `${f}: el botón único`);
-    assert.doesNotMatch(s, /<Microfono /, `${f}: sin el micrófono aparte`);
-  }
+  // Desde el 20/10/2026 la caja es UNA pieza (app/_chat/CajaChat.tsx): el botón único vive ahí, y las dos pantallas la usan.
+  const pieza = codigo('app/_chat/CajaChat.tsx');
+  assert.match(pieza, /<BotonMandar /, 'la caja única: el botón único');
+  assert.doesNotMatch(pieza, /<Microfono /, 'sin el micrófono aparte');
+  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) assert.match(codigo(f), /<CajaChat /, `${f}: la caja única`);
 });
 
 test('8: «Completado» en pantalla, el aviso en la fila sólo si no se vio, y el «atrás» cierra la foto', () => {
@@ -207,9 +207,8 @@ test('5: los emojis donde está el cursor, en su botón junto al campo; el «+»
   assert.deepEqual(conEmoji('hola mundo', 4, 4, '👍'), { texto: 'hola👍 mundo', cursor: 6 });
   assert.deepEqual(conEmoji('hola mundo', 5, 10, '🔥'), { texto: 'hola 🔥', cursor: 7 }, 'reemplaza lo seleccionado');
   assert.deepEqual(conEmoji('hola', null, null, '✅'), { texto: 'hola✅', cursor: 5 }, 'sin cursor, al final');
-  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    assert.match(codigo(f), /<\/MasCaja>[\s\S]{0,120}<BotonEmojis campo=\{caja\}/, `${f}: la carita, junto al campo`);
-  }
+  // La carita, junto al campo, en la caja única (app/_chat/CajaChat.tsx, 20/10/2026), que usan la computadora y el teléfono.
+  assert.match(codigo('app/_chat/CajaChat.tsx'), /<\/MasCaja>\}[\s\S]{0,160}<BotonEmojis campo=\{caja\}/, 'la carita, junto al campo');
   const mas = codigo('app/admin/operaciones/AdjuntosCaja.tsx');
   const rotulos = [...mas.matchAll(/<\/span><span>([^<]+)<\/span>\s*<\/button>/g)].map((m) => m[1]);
   // 20/10/2026: «Pegar» al final, la captura copiada (el teclado del teléfono no la ofrece en la caja; tests/centro-app-adjuntos.test.ts).
@@ -217,23 +216,16 @@ test('5: los emojis donde está el cursor, en su botón junto al campo; el «+»
   assert.match(mas, /co-mas-caja__titulo">Con qué corre</);
 });
 
-test('6: un borrador sin mandar se ve en la fila («Borrador: …»), de todos los chats', () => {
+test('6: el borrador ya NO va en la fila (20/10/2026, Martín: «Jamás debe decir el subtitulo las cosas que ponen»)', () => {
+  // Desde el 20/10 la fila dice «Trabajando…», «Espera tu respuesta» o nada (tests/centro-subtitulo.test.ts). El borrador
+  // sigue guardado en su chat (la B del 17/10), pero no se lista.
   const quieto = { estado: 'abierto' as const, viejo: false };
-  const previa = { texto: 'Listo', propio: false, tick: null, instante: AHORA };
-  assert.equal(segundoRenglon(quieto, 0, 'a medio escribir', previa), 'borrador', 'el borrador le gana a lo último que pasó');
-  assert.equal(segundoRenglon(quieto, 0, 'a medio escribir', { ...previa, ya: true }), 'borrador', 'y a un «Completado»');
-  assert.equal(segundoRenglon(quieto, 1, 'a medio escribir', previa), 'espera', 'lo que espera a Martín va primero');
-  assert.equal(segundoRenglon({ estado: 'trabajando', viejo: false }, 0, 'x', previa), 'vivo');
-  assert.equal(segundoRenglon(quieto, 0, null, previa), 'previa');
-  assert.equal(segundoRenglon(quieto, 0, '', null), null);
-  // Las dos listas usan ESE orden, y el chat abierto no muestra su borrador (se está escribiendo ahí).
-  const piezas = codigo('app/admin/operaciones/PiezasCentro.tsx');
-  assert.match(piezas, /switch \(segundoRenglon\(c, espera, borrador, p, sinVer\)\)/);
-  assert.match(piezas, /borrador=\{actual \? null : k\.borradorDeLista\(c\.clave\)\}/);
-  const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
-  assert.match(movil, /const renglon = segundoRenglon\(c, espera, borrador, p, nuevo\);/);
-  assert.match(movil, /borrador=\{f\.c\.clave === elegido\?\.clave \? null : centro\.borradorDeLista\(f\.c\.clave\)\}/);
-  assert.match(movil, /a\.borrador === b\.borrador/, 'la fila memorizada se redibuja si cambia su borrador');
+  assert.equal(segundoRenglon(quieto, 0), null, 'con un borrador, sin subtítulo');
+  assert.equal(segundoRenglon(quieto, 1), 'espera', 'lo que espera a Martín');
+  assert.equal(segundoRenglon({ estado: 'trabajando', viejo: false }, 0), 'vivo');
+  // Las dos listas usan la MISMA regla.
+  assert.match(codigo('app/admin/operaciones/PiezasCentro.tsx'), /const r = segundoRenglon\(c, espera, sinVer\);/);
+  assert.match(codigo('app/m/operaciones/ChatsMovil.tsx'), /const renglon = segundoRenglon\(c, espera, nuevo\);/);
   // Los de TODOS los chats, no sólo los que se abrieron: se leen de este navegador al aparecer en la lista.
   assert.match(codigo('app/admin/operaciones/useCentro.ts'), /for \(const c of chats\) if \(!conBorradorLeido\.current\.has\(c\.clave\)\) \{[^}]*cargarBorrador\(c, null\)/);
 });

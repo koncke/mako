@@ -798,4 +798,29 @@ export const BITACORA: Hito[] = [
       'tests/chat-unico.test.ts — la guarda y la lista de lo que falta',
     ],
   },
+  {
+    fecha: '20 oct', hora: '19:40', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El subtítulo de los chats en la lista',
+    pedido: 'En la preview de los chats, que estan todos unos abajos de otros, en la sidebar... Jamás debe decir el subtitulo las cosas que ponen... O debe decir "Trabajando..." o "Espera tu respuesta" o no tener subtitulo.',
+    puntos: ['Con captura de /admin/operaciones: decía el paso en curso («Listar los chats de la app y…», «Escribe flujo-ia-recurrente.ts»).'],
+  },
+  {
+    fecha: '20 oct', hora: '19:55', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La lista de chats dice «Trabajando…», «Espera tu respuesta» o nada',
+    pedido: 'O debe decir "Trabajando..." o "Espera tu respuesta" o no tener subtitulo',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Debajo del nombre de cada chat sólo puede decir «Trabajando…» o «Espera tu respuesta»; si no, nada.',
+      'Ya no aparece el paso en curso, el último mensaje, el borrador ni el título de un «Completado».',
+      'Adentro del chat, el «Trabajando…» del final sigue diciendo en qué está.',
+      'Igual en la computadora y en el teléfono.',
+    ],
+    archivos: [
+      'lib/centro-chats.ts — segundoRenglon y TEXTO_SEGUNDO_RENGLON',
+      'app/admin/operaciones/PiezasCentro.tsx, app/m/operaciones/ChatsMovil.tsx — las dos listas',
+      'tests/centro-subtitulo.test.ts',
+    ],
+  },
 ];

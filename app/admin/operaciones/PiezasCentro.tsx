@@ -24,7 +24,7 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
   SECCION_CEREBRO, SECCION_CHATS, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats, sinNoticiasDesde,
-  type ChatCentro, type VistaPrevia,
+  type ChatCentro,
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
 import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
@@ -33,13 +33,12 @@ import { edadCorta } from '@/lib/chat-mako-reglas';
 import {
   AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
 } from '@/lib/centro-cuentas';
-import { segundoRenglon } from '@/lib/centro-chats';
+import { TEXTO_SEGUNDO_RENGLON, segundoRenglon } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
 import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
 import { CirculoNuevo } from './NuevoChat';
-import { Tick } from './Hilo';
 import { Muneco, animoDe } from './Muneco';
 import type { Centro } from './useCentro';
 
@@ -49,28 +48,13 @@ const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone
 /** Cuántos chats se ven antes de «Mostrar más» (como los proyectos de Codex). */
 const VISIBLES = 14;
 
-/** El segundo renglón de la fila: mientras trabaja, EN QUÉ (Martín, 16/10/2026: «Cuando un chat dice "Trabajando..." debo
- *  saber en qué está trabajando»: el título de lo que tiene en curso, `enQueTrabaja`; «trabajando…» si no se sabe), si no
- *  lo último que pasó, con el tick si es un trabajo propio. */
-function Previa({ c, p, espera, enCurso, borrador, sinVer }: { c: ChatCentro; p: VistaPrevia | null; espera: number; enCurso: string | null; borrador?: string | null; sinVer: boolean }) {
-  // El orden lo decide `segundoRenglon` (lib/centro-chats.ts), el mismo del teléfono. Sin nada que contar, la fila es de un
-  // renglón: «Sin nada anotado» repetido en 40 filas no distingue a ninguna.
-  switch (segundoRenglon(c, espera, borrador, p, sinVer)) {
-    case 'vivo': return <span className="co-fila__l2 co-fila__l2--vivo" title={enCurso ?? undefined}>{enCurso ?? 'trabajando…'}</span>;
-    case 'espera': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
-    // El MISMO aviso, con las mismas palabras (Martín, 18/10/2026: «siempre debe ser "Espera tu respuesta", y no desaparecer
-    // hasta que yo le dé un check al mensaje de completado»): un «Completado» sin su ✓.
-    case 'revisar': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
-    case 'borrador': return <span className="co-fila__l2"><span className="co-borrador">Borrador:</span><span className="co-fila__l2-texto">{borrador}</span></span>;
-    case 'ya': return <span className="co-fila__l2"><SelloCompletado /><span className="co-fila__l2-texto">{p?.texto}</span></span>;
-    case 'previa': return (
-      <span className="co-fila__l2">
-        {p?.tick ? <Tick estado={p.tick} /> : p?.propio ? 'Tú: ' : ''}
-        <span className="co-fila__l2-texto">{p?.texto}</span>
-      </span>
-    );
-    default: return null;
-  }
+/** El segundo renglón de la fila: «Trabajando…», «Espera tu respuesta» o nada (20/10/2026, Martín: «Jamás debe decir el
+ *  subtitulo las cosas que ponen»). Lo decide `segundoRenglon` (lib/centro-chats.ts), el mismo del teléfono; el paso en
+ *  curso sigue adentro del chat. Sin nada que contar, la fila es de un renglón. */
+function Previa({ c, espera, sinVer }: { c: ChatCentro; espera: number; sinVer: boolean }) {
+  const r = segundoRenglon(c, espera, sinVer);
+  if (!r) return null;
+  return <span className={`co-fila__l2 ${r === 'vivo' ? 'co-fila__l2--vivo' : 'co-fila__l2--espera'}`}>{TEXTO_SEGUNDO_RENGLON[r]}</span>;
 }
 
 /** El sello de un «Ya está» en la lista (17/10/2026: en pantalla «Ya está» se dice «Completado»). */
@@ -104,7 +88,7 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
             {c.nube && <span className="co-chip-cuenta">Nube</span>}
             <span className="co-fila__hace">{edadCorta(c.actividad, k.ahora)}</span>
           </span>
-          <Previa c={c} p={k.previas.get(c.clave) ?? null} espera={espera} sinVer={sinVer} enCurso={k.enCursos.get(c.clave) ?? null} borrador={actual ? null : k.borradorDeLista(c.clave)} />
+          <Previa c={c} espera={espera} sinVer={sinVer} />
         </span>
       </button>
       <button type="button" className="co-fila__mas" aria-label={`Opciones de ${c.titulo}`} title="Opciones"
