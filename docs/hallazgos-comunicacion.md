@@ -890,6 +890,11 @@ visible de canal.
 
 ---
 
+**Lo que queda, de la revisión del Cerebro antes de subirlo (20/10):**
+- **Un número de EE.UU. guardado sin el 1, mandado desde una línea de México, se completa con 52.** Antes no salía (`exists:false`). Ahora puede llegar a un número mexicano real. Los dos son de 10 dígitos y no hay cómo distinguirlos sin la lada. Es raro en estos negocios; el arreglo de raíz es guardar el número con su país al cargarlo (`TelefonoConPais`).
+- **Un número internacional completo de 10 dígitos** (Noruega 47+8, Dinamarca 45+8, Singapur 65+8) mandado desde una línea de 10 dígitos locales se toma como local y se le antepone el país de la línea. Antes salía bien.
+- **Medido:** la línea del ws11 es `521…` (13 dígitos): el país sale 52 y sus 53 números de 10 dígitos se completan bien.
+
 ## WhatsApp oficial (Chatwoot y Meta)
 
 ### ⚠️ Un 200 de Chatwoot NO es una entrega: Meta rechaza después y nadie se entera
