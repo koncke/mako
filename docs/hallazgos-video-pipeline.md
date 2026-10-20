@@ -1149,3 +1149,104 @@ reciben ese dato —acá el validador y el worker— antes de darlo por cerrado.
   lo soporta (es un array ordenado), lo que falta es el arrastre.
 - **El worker sigue sin contenedor**, así que nada de esto se probó de punta a punta contra
   un montaje real.
+
+---
+
+## §14 — La cola que nadie atendía (20/10/2026)
+
+`lib/montaje/pipeline.ts` · `lib/montaje/cola.ts` · `app/api/cron/montaje/route.ts` ·
+`scripts/plan-cortes-anuncio.mjs` · `next.config.ts` (`outputFileTracingIncludes`) ·
+`tests/montaje-cola.test.ts`
+
+**Síntoma.** En la llamada con Leila del 19/10, la pantalla del montaje decía «Lleva 68.646
+minutos esperando turno». Medido el 20/10 en `montaje_trabajos`: dos trabajos, #3 (ws1,
+01/09, 7 tomas) y #4 (ws11, 02/09, 8 tomas), los dos `pendiente` con `intentos = 0`. Nadie
+los había tomado nunca, y por eso las tomas tampoco llegaban al Video Editor.
+
+**Causa.** El proceso que ejecuta la cola era el worker en contenedor de §13, y ese
+contenedor nunca se desplegó («Provisionar el contenedor — necesita la cuenta de Martín»
+quedó como pendiente y ahí murió). Lo atiende ahora un cron de Vercel cada 2 minutos, con
+`ffmpeg-static`, que se despliega con todo lo demás.
+
+### ⚠️ El diagnóstico obvio era el equivocado: desplegar el contenedor no habría montado nada
+
+El bash que llamaba el worker lee la voz de cada toma de `sts-N.mp3`. Esos archivos los
+creaba sólo el script MANUAL (`montar-anuncio-vertical.sh`, con ElevenLabs): el worker
+bajaba los clips y llamaba al bash sin crearlos. El primer trabajo habría muerto en el plan
+de cortes. El pipeline en Node agrega el paso 0: la voz sale del audio del propio clip (la
+que generó Flow). **Regla:** antes de «desplegar lo que faltaba», correr lo que ya está
+escrito contra un caso real; un componente que nunca corrió no está «listo salvo el
+deploy».
+
+### `ffmpeg-static` 5.3.0 trae DOS ffmpeg distintos según el sistema
+
+El paquete fija el tag `b6.1.1`, pero el binario de Windows es ffmpeg **6.1.1** (gyan.dev) y
+el de Linux es **7.0.2** (johnvansickle; lo dice su `linux-x64.README`). La misma versión
+del paquete cambia de ffmpeg al cambiar de máquina. Consecuencia concreta: la sintaxis
+`-/filter_complex archivo` (§11.4) anda en Linux y **falla en Windows**. El pipeline pasa los
+filtros en línea, que anda en las dos. Y el build estático de Linux pierde la resolución
+DNS (glibc estática): **ffmpeg nunca recibe una url**, las tomas se bajan con `fetch`.
+
+### Sin ffprobe, la duración daba 0 sin un error
+
+`ffmpeg-static` no trae ffprobe, y `plan-cortes-anuncio.mjs` leía la duración SÓLO de
+ffprobe: sin él, `+''` es `0`, el tope de cada toma es 0 y el plan sale vacío o en `NaN`,
+sin una línea de error. Ahora cae a la línea `Duration:` de `ffmpeg -i`. `FFMPEG` y
+`FFPROBE` se leen del entorno.
+
+### Lo que tiene que viajar con la función, nadie lo importa
+
+ffmpeg, los cuatro scripts de ayuda y la Anton se ejecutan o se leen como archivos: el
+trazado de Next no los ve y la función llegaría sin ellos. Van en
+`outputFileTracingIncludes['/api/cron/montaje']`, y el test exige que cada
+`script('x.mjs')` del pipeline esté ahí. La ruta de ffmpeg se arma a mano: el `index.js` de
+`ffmpeg-static` usa `__dirname`, que empaquetado por Next deja de apuntar a node_modules. Si
+el binario llega sin permiso de ejecución, se copia a `/tmp` y se le hace `chmod` (el resto
+del disco de la función es de sólo lectura).
+
+### Tomar un trabajo le quema un intento
+
+`montaje_tomar` suma un intento al tomar y al tercero lo da por fallido. Si el cron tomara
+sin tener ffmpeg o la clave de Groq, cada corrida le quemaría un intento a un trabajo sin
+culpa. Pregunta por las herramientas ANTES de tomar.
+
+### La espera necesita un final
+
+Una fila sin vencimiento convierte cualquier caída del que la atiende en una espera eterna
+que se lee igual que una fila larga. El cron da de baja lo `pendiente` de más de 6 horas
+(`VENCE_HORAS`) con `motivo = 'vencido'`, y la pantalla tiene su texto: «quedó en la fila
+sin que nadie lo tomara». No «no se pudo montar», que haría pensar que el anuncio tiene algo
+mal. Seis horas y no menos porque el peor reintento vivo (tres rescates de 20 minutos) ronda
+la hora. La espera se dice en horas pasados los 60 minutos.
+
+### La duración de la primera toma para todas: arreglado
+
+El pendiente anotado el 16/09 (arriba) seguía en el port: el plan recibía un solo número,
+el de la primera toma, y topeaba ahí a todas. Ahora `<durvid>` acepta una lista
+(«10,8,10»), y el pipeline pasa una por toma. Un número solo sigue valiendo para todas (el
+bash). `segundosAntes` es la suma de las duraciones, no N × la primera.
+
+### Un test que busca basura en `/tmp` puede tropezar con la de otra corrida
+
+La primera pasada de roturas dio la base en 10 / 2 después de R11 («no limpia al
+fallar»): esa rotura dejó carpetas `montaje-<id>-*` y la corrida siguiente las encontró. Cada
+corrida del test usa ids propios.
+
+### Lo que quedó SIN hacer
+
+- **Ver el primer montaje en producción.** En local (Windows, ffmpeg 6.1.1, Groq real)
+  montó tres tomas de prueba en 7-11 s: 24 s → 12 s, Anton, −14 LUFS. En la función es
+  ffmpeg 7.0.2, sin fontconfig del sistema (se le da un `fonts.conf` propio) y 1 vCPU: el
+  tiempo y la fuente se ven recién ahí. El ws3 no tiene ningún anuncio en su historial, así
+  que la prueba ahí pide filmar uno o encolar un trabajo de ws3 con tomas de prueba.
+- **El worker del contenedor quedó muerto**: `worker/montar-cola.mjs`, `worker/Dockerfile`
+  y `app/api/montaje/worker/route.ts` (sin `MONTAJE_WORKER_TOKEN` contesta 404). Borrarlos o
+  dejarlos como camino alternativo es una decisión; si alguien los despliega, conviven
+  (`for update skip locked`), pero el worker seguiría sin `sts-N.mp3`.
+- **Avisarle a la persona cuando el anuncio está listo.** Hoy lo ve si tiene la pantalla
+  abierta o vuelve a entrar.
+- **El verificador de palabras** (`verificar-corte-anuncio.mjs`) sigue sin invocarse, igual
+  que en §13.
+- **Si la instalación de `ffmpeg-static` falla** (baja el binario de GitHub en el
+  `postinstall`), `npm ci` falla entero, en el CI y en el build de Vercel. Escape:
+  `FFMPEG_BIN` apuntando a un binario existente saltea la descarga.

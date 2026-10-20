@@ -2252,9 +2252,10 @@ export async function cambiarMuletillasAction(
 }
 
 // ── El montaje: pegar las tomas y devolver el anuncio ────────────────────────
-// El pipeline corre en un contenedor propio (worker/), no acá: encadena ~15
-// invocaciones de ffmpeg y un render son ~25 s de CPU. Esto sólo encola y
-// consulta.
+// El pipeline no corre acá: encadena ~15 invocaciones de ffmpeg y un render. Lo
+// corre el cron de la cola (app/api/cron/montaje, cada 2 minutos), que además da
+// de baja lo que quedó en la fila más de `VENCE_HORAS` (lib/montaje/cola.ts).
+// Esto sólo encola y consulta.
 
 export type EstadoMontaje =
   | { fase: 'sin_empezar' }
