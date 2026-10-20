@@ -31,6 +31,7 @@ import { Button } from '@/app/_ui';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { DIAL_DEFAULT } from '@/lib/paises';
 import { tipoCrmPorId } from '@/lib/pipeline';
+import { etapasConNombres } from '@/lib/onboarding-crm';
 import { RUTA_AL_TERMINAR, rutaDelHilo, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
 import { MENSAJE_BLOQUEADO } from '@/lib/onboarding-guardia';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
@@ -306,14 +307,17 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
 
 /** El CRM que propone (o eligió): su tipo y sus etapas, como lo va a ver en el tablero. */
 function TarjetaCrm({ vista }: { vista: VistaArranque }) {
-  const tipo = (vista.crmTipo && tipoCrmPorId(vista.crmTipo)) || tipoRecomendado(vista.canal);
+  const p = vista.crmPropuesta;
+  const tipo = (vista.crmTipo && tipoCrmPorId(vista.crmTipo)) || (p && tipoCrmPorId(p.tipo)) || tipoRecomendado(vista.canal);
+  // Con los nombres de SU negocio si MaKo los armó para este tipo (20/10/2026, el CRM a medida: lib/onboarding-crm.ts).
+  const etapas = etapasConNombres(tipo.pipeline, p?.tipo === tipo.id ? p.etapas : null);
   return (
     <div className="arr-tarjeta">
       <span className="arr-tarjeta__rotulo">{vista.crmTipo ? 'Tu CRM' : 'Te propongo'}</span>
       <span className="arr-tarjeta__titulo">{tipo.label}</span>
       {/* Las etapas, numeradas y en orden, para que se lea el recorrido de un cliente (18/10/2026, punto 10). */}
       <ol className="arr-etapas">
-        {tipo.pipeline.map((s, i) => (
+        {etapas.map((s, i) => (
           <li key={`${s.key}-${i}`} className="arr-etapa"><span className="arr-etapa__n">{i + 1}</span>{s.label}</li>
         ))}
       </ol>

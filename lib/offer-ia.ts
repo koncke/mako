@@ -48,6 +48,8 @@ import {
   conversacionParaPrompt, documentosParaPrompt, faltanDelArranqueParaPrompt, guiaDelArranque, guiaParaPrompt, parseDiagnostico, parseLectura, parsePropuesta, parseTurno,
   parseTurnoConDiagnostico, piezasParaPrompt, validadorConRespaldo, type ContextoReglas, type DocParaPrompt, type MensajeParaPrompt, type TurnoOffer,
 } from './offer-reglas';
+import { parsePropuestaCrm, tiposParaPrompt, type PropuestaCrm } from './onboarding-crm';
+import type { TipoCrm } from './pipeline';
 
 /** Las keys de las piezas con lo que es cada una: el prompt del onboarding no lleva el marco entero. */
 const clavesParaPrompt = (): string => PIEZAS.map((p) => `- ${p.key}: ${p.que}`).join('\n');
@@ -240,6 +242,28 @@ ${SEGURIDAD}
 ${IDIOMA}
 
 Devuelve SOLO un objeto JSON, sin texto fuera: {"lectura": "lo que dice esta parte"}`;
+
+/**
+ * El CRM a medida del onboarding (20/10/2026, pedido del 18/10, punto 10: «el armado del CRM también debe ser personalizado»).
+ * Elige UN tipo de los que la plataforma sabe armar y nombra sus etapas con las palabras del negocio; las CLAVES no se tocan
+ * (lib/onboarding-crm.ts dice por qué y descarta lo que no sirve). Los tipos los escribe el código ({{tipos}}).
+ */
+export const OFFER_CRM_SYSTEM_TEMPLATE = `Eres MaKo. Armas el CRM de un negocio que recién empieza contigo: las etapas por las que pasa cada cliente, de la primera charla a la compra. Te paso lo que vende, a quién y a qué precio, y los tipos de CRM que sabes armar, cada uno con sus etapas (clave = nombre de fábrica).
+
+QUÉ HACES:
+1. Elige UN tipo de la lista: el que mejor encaja con cómo vende este negocio. Escribe su id tal cual.
+2. A cada etapa de ese tipo ponle un nombre con las palabras de ESTE negocio: lo que vende y cómo le dice a su cliente («Agenda R1» → «Agendó su consulta», en un consultorio). Corto (de 2 a 5 palabras), sin emojis, que se lea como el título de una columna.
+3. No cambies lo que significa la etapa: el sistema mueve a cada cliente por su clave. «ganado» es que ya compró.
+4. Si una etapa no la sabes nombrar mejor, déjala afuera: queda la de fábrica. No inventes etapas ni claves.
+
+TIPOS DE CRM:
+{{tipos}}
+
+${SEGURIDAD}
+
+${IDIOMA}
+
+Devuelve SOLO un objeto JSON, sin texto fuera: {"tipo": "<id>", "etapas": {"<clave>": "<nombre>"}}`;
 
 export const OFFER_DIAGNOSTICO_USER_TEMPLATE = `LO QUE EL NEGOCIO YA TENÍA CARGADO:
 {{contexto}}
@@ -518,6 +542,22 @@ export async function lecturaDeParte(p: { nombre: string; parte: string; i: numb
     hastaMs: p.hastaMs, hastaRedMs: p.hastaMs + 30_000,
     motivo: `Offer: leer «${p.nombre}» por partes (${p.i + 1} de ${p.n})`, tema: 'leer tu documento entero',
     parse: parseLectura,
+  });
+}
+
+/**
+ * El CRM a medida del onboarding (20/10/2026): el tipo y el nombre de cada etapa, con las palabras del negocio. Lo que vende
+ * viaja como dato (las piezas que dio el dueño); los tipos y el canal los escribe el código. Plazos cortos: el dueño espera
+ * con la pregunta del CRM en pantalla, y sin respuesta queda la plantilla de su canal.
+ */
+export async function crmOffer(p: { piezas: PiezasSabidas; canal: string | null; candidatos: readonly TipoCrm[]; inicio: number }): Promise<ResultadoIA<PropuestaCrm>> {
+  const system = await renderPrompt('offer.crm.system', OFFER_CRM_SYSTEM_TEMPLATE, { tipos: tiposParaPrompt(p.candidatos) });
+  const user = `LO QUE VENDE (lo que dio el dueño en el onboarding):\n${contenidoNoConfiable(piezasParaPrompt(p.piezas).sabidas, 'piezas')}\n\nDÓNDE CIERRA LA VENTA: ${p.canal ?? 'no lo dijo'}`;
+  return pedir({
+    system, user, maxTokens: 1_500, timeoutMs: 30_000, esfuerzo: 'low',
+    hastaMs: p.inicio + 40_000, hastaRedMs: p.inicio + 80_000,
+    motivo: 'Onboarding: el CRM a medida de lo que vende', tema: 'armar tu CRM',
+    parse: (raw) => parsePropuestaCrm(raw, p.candidatos),
   });
 }
 

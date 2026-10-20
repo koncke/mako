@@ -39,6 +39,7 @@
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, type CanalId } from './fase-diagnostico';
 import { TIPOS_CRM, type TipoCrm, type TipoCrmId } from './pipeline';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
+import type { PropuestaCrm } from './onboarding-crm';
 import { RUTA_AUTOMATIONS } from './ruta-automations';
 
 export type ModoArranque = 'oferta' | 'plan';
@@ -66,6 +67,9 @@ export type EstadoArranque = {
   crmTipo?: TipoCrmId;
   /** Mostrar todos los tipos de CRM, no sólo los de su canal. */
   crmVerTodos?: boolean;
+  /** El CRM a medida que armó MaKo con lo que vende (20/10/2026, lib/onboarding-crm.ts). null = se intentó y no salió: queda
+   *  la plantilla de su canal. Se arma una vez, al llegar a la pregunta del CRM. */
+  crmPropuesta?: PropuestaCrm | null;
   /** «¿Está correcto el PDF?» (18/10/2026): 'no' = faltan cosas o hay algo mal; se anota y se sigue. */
   pdfOk?: 'si' | 'no';
   /** El teléfono de los avisos: 'codigo' = se mandó el código y falta cargarlo. */
@@ -307,10 +311,10 @@ export function tipoRecomendado(canal: CanalId | null): TipoCrm {
 /**
  * Los tipos que se ofrecen: el recomendado primero y los demás de su canal; con «ver todos», los doce. El
  * marco de Offer es de alto ticket vendido por llamada (lib/offer-autores.ts), así que sin canal manda
- * «Llamada de venta».
+ * «Llamada de venta». Con el CRM a medida (`propuesta`, 20/10/2026), el recomendado es el que eligió MaKo.
  */
-export function tiposOfrecidos(canal: CanalId | null, verTodos: boolean): { tipos: TipoCrm[]; hayMas: boolean } {
-  const rec = tipoRecomendado(canal);
+export function tiposOfrecidos(canal: CanalId | null, verTodos: boolean, propuesta?: PropuestaCrm | null): { tipos: TipoCrm[]; hayMas: boolean } {
+  const rec = (propuesta && TIPOS_CRM.find((t) => t.id === propuesta.tipo)) || tipoRecomendado(canal);
   const base = verTodos ? [...TIPOS_CRM] : TIPOS_CRM.filter((t) => t.canal === rec.canal);
   const tipos = [rec, ...base.filter((t) => t.id !== rec.id)];
   return { tipos, hayMas: !verTodos && tipos.length < TIPOS_CRM.length };
@@ -465,7 +469,7 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
 
   // 3. El CRM.
   if (h.conCrm) {
-    const { tipos, hayMas } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos);
+    const { tipos, hayMas } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos, e.crmPropuesta);
     // Primero el que se le propone, con «Sí, es correcto»; «Ver otros tipos» abre la lista (18/10/2026, punto 10).
     const elegido = e.crmTipo ? (e.crmTipo === tipos[0].id && !e.crmVerTodos ? CRM_SI : TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label) : undefined;
     const opciones = e.crmVerTodos ? tipos.map((t) => t.label) : [CRM_SI, ...(hayMas ? [VER_OTROS_TIPOS] : [])];
@@ -621,7 +625,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   if (etapa === 'telefono' && opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
   if (etapa === 'crm') {
     if (opcion === VER_OTROS_TIPOS) return { ok: true, patch: { crmVerTodos: true } };
-    if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false).tipos[0].id } };
+    if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false, e.crmPropuesta).tipos[0].id } };
     const t = TIPOS_CRM.find((x) => x.label === opcion);
     if (!t) return { ok: false, error: 'Elige un tipo de CRM.' };
     return { ok: true, patch: { crmTipo: t.id } };

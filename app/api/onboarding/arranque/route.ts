@@ -26,10 +26,12 @@ import { idDelFunnelDefault } from '@/lib/funnels';
 import { etapaDeArranque, leerRespuesta, type EstadoArranque } from '@/lib/onboarding-arranque';
 import {
   FaltaParaCerrar, asegurarFunnelPrincipal, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
-  hechosDelArranque, sembrarCrmPrincipal, vistaArranque,
+  hechosDelArranque, propuestaDeCrm, sembrarCrmPrincipal, vistaArranque,
 } from '@/lib/onboarding-arranque-server';
 
 export const dynamic = 'force-dynamic';
+// El CRM a medida le pide a la IA al llegar a su pregunta (`propuestaDeCrm`, con su plazo de 80 s).
+export const maxDuration = 120;
 
 const no = (status: number, error: string) => NextResponse.json({ ok: false, error }, { status });
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -98,7 +100,7 @@ export async function POST(req: NextRequest) {
         // El CRM se siembra ANTES de guardar la elección: si la siembra falla, la pregunta sigue abierta.
         let aviso: string | undefined;
         if (patch.crmTipo) {
-          const r = await sembrarCrmPrincipal(patch.crmTipo, e.negocio ?? '');
+          const r = await sembrarCrmPrincipal(patch.crmTipo, e.negocio ?? '', e.crmPropuesta?.tipo === patch.crmTipo ? e.crmPropuesta.etapas : undefined);
           aviso = r.aviso;
         }
         // El diagnóstico, al contestar la última pregunta: todo en modo 'plan'; en 'oferta', lo que faltó
@@ -109,6 +111,12 @@ export async function POST(req: NextRequest) {
         const nuevo = await guardarEstadoArranque(patch);
         // Al entrar a la oferta, la conversación nace en el funnel principal: que exista.
         if (h.modo === 'oferta' && etapaDeArranque(nuevo, h) === 'oferta') await asegurarFunnelPrincipal().catch(() => {});
+        // El CRM a medida (20/10/2026, pedido del 18/10, punto 10): al pasar del PDF o de la fase a la pregunta del CRM, MaKo lo
+        // arma UNA vez con lo que vende. Los hechos se releen: la última respuesta de la fase recién guardó el diagnóstico.
+        if (h.conCrm && (etapa === 'pdf' || etapa === 'fase') && nuevo.crmPropuesta === undefined && !nuevo.crmTipo) {
+          const h2 = await hechosDelArranque(nuevo);
+          if (etapaDeArranque(nuevo, h2) === 'crm') await guardarEstadoArranque({ crmPropuesta: await propuestaDeCrm(nuevo, h2.canalNegocio).catch(() => null) });
+        }
         return listo(aviso ? { aviso } : {});
       }
 

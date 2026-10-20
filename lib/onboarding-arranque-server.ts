@@ -27,6 +27,8 @@ import { estadoDiagnostico } from './offer-reglas';
 import { crearFunnel, getFunnelDefault, idDelFunnelDefault, renombrarFunnel, saveFunnelDefault } from './funnels';
 import { FUNNEL_DEFAULT_NOMBRE } from './funnel-fila';
 import { DEFAULT_PIPELINE, apagadasAlCrear, mismoPipeline, siembraDeCrm, tipoCrmPorId, type TipoCrmId } from './pipeline';
+import { candidatosCrm, etapasConNombres, type PropuestaCrm } from './onboarding-crm';
+import type { CanalId } from './fase-diagnostico';
 import { listProductos, upsertProducto } from './productos';
 import { ANSWERS_KEY, saveAnswers } from './onboarding';
 import { borrarBinario, insertFile, listFiles, mapaParaEscribir, subirBinario } from './archivero';
@@ -166,6 +168,8 @@ export type VistaArranque = {
   telefonoNumero: string;
   /** El tipo de CRM elegido, para la tarjeta. */
   crmTipo: TipoCrmId | null;
+  /** El CRM a medida que armó MaKo (lib/onboarding-crm.ts): la tarjeta muestra sus etapas con esos nombres. */
+  crmPropuesta: PropuestaCrm | null;
   /** El canal con el que se propone el CRM. */
   canal: HechosArranque['canalNegocio'];
   /** Lo que quiere resolver primero: decide a qué pestaña entra al terminar (`rutaDeEntrada`). */
@@ -198,6 +202,7 @@ export async function vistaArranque(): Promise<VistaArranque> {
     nombre: e.nombre ?? '',
     telefonoNumero: e.telefonoNumero ?? '',
     crmTipo: e.crmTipo ?? null,
+    crmPropuesta: e.crmPropuesta ?? null,
     canal: h.canalNegocio,
     interes: e.interes ?? null,
     bloqueo: guardia.bloqueo ? { at: guardia.bloqueo.at, motivo: guardia.bloqueo.motivo } : null,
@@ -223,9 +228,11 @@ export async function guardarNombreNegocio(nombre: string): Promise<void> {
  * secundario arrancaría vacío. Se siembra sólo si está INTACTO (igual al de fábrica), con el mismo guard que
  * tenía el wizard: con la lectura caída no se escribe nada, y uno que el negocio ya editó no se pisa.
  */
-export async function sembrarCrmPrincipal(tipo: TipoCrmId, nombreNegocio: string): Promise<{ sembrado: boolean; aviso?: string }> {
-  const s = siembraDeCrm({ tipo });
-  if ('error' in s) throw new Error(s.error);
+export async function sembrarCrmPrincipal(tipo: TipoCrmId, nombreNegocio: string, nombres?: Readonly<Record<string, string>>): Promise<{ sembrado: boolean; aviso?: string }> {
+  const siembra = siembraDeCrm({ tipo });
+  if ('error' in siembra) throw new Error(siembra.error);
+  // Las etapas con los nombres del CRM a medida (20/10/2026): mismas claves, otros nombres.
+  const s = { ...siembra, pipeline: etapasConNombres(siembra.pipeline, nombres) };
   const actual = await getFunnelDefault();
   if (actual.origen === 'error') throw new Error('No pude leer tu CRM (falló la base de MaKo, no es nada tuyo). Prueba de nuevo en un momento.');
   const intacto = mismoPipeline(actual.pipeline, DEFAULT_PIPELINE) && actual.suppressed.length === 0;
@@ -236,6 +243,20 @@ export async function sembrarCrmPrincipal(tipo: TipoCrmId, nombreNegocio: string
   const id = actual.id ?? (await idDelFunnelDefault().catch(() => null));
   if (id != null && nombreNegocio.trim()) await renombrarFunnel(id, nombreNegocio).catch(() => {});
   return { sembrado: true };
+}
+
+/**
+ * El CRM a medida (20/10/2026, pedido del 18/10, punto 10: «el armado del CRM también debe ser personalizado»): con lo que
+ * vende (las piezas de la conversación del onboarding), MaKo elige el tipo entre los de su canal y nombra sus etapas. null =
+ * no se pudo (sin la conversación, o la IA no contestó algo que sirva): queda la plantilla de su canal, como antes.
+ */
+export async function propuestaDeCrm(e: EstadoArranque, canal: CanalId | null): Promise<PropuestaCrm | null> {
+  if (!e.sesionId) return null;
+  const sesion = await leerSesion(e.sesionId).catch(() => null);
+  if (!sesion) return null;
+  const { crmOffer } = await import('./offer-ia');
+  const r = await crmOffer({ piezas: sesion.piezas, canal, candidatos: candidatosCrm(canal), inicio: Date.now() });
+  return r.ok ? r.valor : null;
 }
 
 /**
