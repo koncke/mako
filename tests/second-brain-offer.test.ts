@@ -1,0 +1,96 @@
+// =============================================================================
+// Las conversaciones de Offer llegan al Ops Center del cliente (20/10/2026)
+// =============================================================================
+// Martín: «Revisa que el chat de OFFER no está llegando al Ops Center, eso está muy mal». Medido ese día (docs/feedback-20-10.md,
+// punto 1; docs/hallazgos-second-brain.md): Offer guarda en `offer_sesiones` (por workspace) y el Ops Center leía sólo
+// `chart_sessions` con la clave exacta `mako-movil:<persona>`; las 6 conversaciones de Offer (ws1 ×2, ws10, ws11, ws13, ws21)
+// no se veían. Ahora el índice las PROYECTA sin copiarlas (la decisión 5 de docs/diseno-mako-ai-native.md). Lo que se fija:
+//   1. un mensaje de Offer se lee como uno del chat: 'yo' es la persona, 'mako' es MaKo;
+//   2. la proyección se declara con su origen y su alcance, corre DENTRO del workspace y con la puerta de la tab (un closer
+//      o un setter sin Offer no la ve), y lee la conversación SIN documentos;
+//   3. la API: `?offer=1` y `?offerId=N`, detrás de la puerta de MaKo; una que no es de este negocio, 404;
+//   4. la pantalla: una sección «Offer» con una fila por conversación; se lee y se sigue en Offer, en ESA conversación
+//      (`?sesion=`), con el ?ws= del cliente; el jefe «Second Brain» sigue mirando sólo la clave exacta;
+//   5. en el teléfono, las mismas conversaciones en «Tus chats», que llevan a Offer.
+//
+// Probado rompiéndolo (20/10/2026, con la base en 0 fallos):
+//   · `mensajesDeOffer` con los roles al revés → 1 fallo (1);
+//   · `wsSiVeOffer` sin la puerta de la tab → 1 fallo (2);
+//   · la pantalla sin la sección «Offer» → 1 fallo (4);
+//   · Offer sin `?sesion=` en el teléfono → 1 fallo (4);
+//   · `chatsDeOffer` sin esconder la del onboarding ya copiada → 1 fallo (6).
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { mensajesDeOffer, offerDelOnboardingCopiada, SECCION_OFFER } from '../lib/chat-mako-reglas';
+import { puedeVerKey } from '../lib/movil-rutas';
+
+const leer = (r: string) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', r), 'utf8').replace(/\r\n/g, '\n');
+
+test('1. un mensaje de Offer se lee como uno del chat', () => {
+  assert.deepEqual(mensajesDeOffer([
+    { de: 'mako', texto: '¿Qué vendes?', at: '2026-10-18T22:24:41Z' },
+    { de: 'yo', texto: 'Un curso de inglés', at: '2026-10-18T22:25:00Z' },
+    { de: 'mako', texto: '   ', at: '2026-10-18T22:25:10Z' },
+  ]), [
+    { role: 'assistant', content: '¿Qué vendes?', created_at: '2026-10-18T22:24:41Z' },
+    { role: 'user', content: 'Un curso de inglés', created_at: '2026-10-18T22:25:00Z' },
+  ], 'lo vacío no se dibuja');
+  assert.equal(SECCION_OFFER, 'Offer');
+});
+
+test('2. la proyección dice su origen y su alcance, corre en el workspace y con la puerta de la tab', () => {
+  const ind = leer('lib/chat-mako-indice.ts');
+  assert.match(ind, /export const PROYECCIONES = \[\{ origen: 'offer', alcance: 'workspace', tab: 'offer' \}\] as const;/);
+  assert.match(ind, /return rolWs && ws != null && puedeVerKey\('offer', rolWs, capa\) \? ws : null;/, 'la MISMA puerta que la tab');
+  assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[listarSesionesOffer\(\)/, 'la lista, dentro del workspace');
+  assert.match(ind, /runWithWorkspace\(ws, \(\) => leerConversacionOffer\(id\)\)/, 'el hilo, dentro del workspace');
+  // Lo que la puerta deja ver, medido: Offer es de admin; un closer o un setter no la ven.
+  assert.equal(puedeVerKey('offer', 'admin', null), true);
+  assert.equal(puedeVerKey('offer', 'closer', null), false);
+  assert.equal(puedeVerKey('offer', 'setter', null), false);
+  // El hilo, SIN documentos ni borrador (pesan, y no son la conversación).
+  const lector = leer('lib/offer-sesiones.ts');
+  const conv = lector.slice(lector.indexOf('export async function leerConversacionOffer'));
+  assert.match(conv, /\.select\('id, titulo, mensajes, updated_at'\)/);
+});
+
+test('3. la API: ?offer=1 y ?offerId=N, detrás de la puerta de MaKo; uno de otro negocio no existe', () => {
+  const r = leer('app/api/mako/chat/route.ts');
+  const get = r.slice(r.indexOf('export async function GET'), r.indexOf('export async function POST'));
+  assert.ok(get.indexOf('personaDelRequest()') < get.indexOf("sp.get('offer')"), 'la puerta de MaKo primero');
+  assert.match(get, /if \(sp\.get\('offer'\)\) return json\(\{ ok: true, offer: await chatsDeOffer\(\) \}\);/);
+  assert.match(get, /if \(!hilo\) return json\(\{ ok: false, error: 'No encuentro esa conversación\.' \}, 404\);/);
+});
+
+test('4. la pantalla: «Offer» con una fila por conversación, que se lee y se sigue en Offer', () => {
+  const sb = leer('app/second-brain/ChatSecondBrain.tsx');
+  assert.match(sb, /fila\(`o\$\{o\.id\}`, \{ offer: o\.id \}, o\.titulo, SECCION_OFFER, o\.updatedAt, true\)/, 'una fila por conversación');
+  assert.match(sb, /pedir<\{ mensajes: MensajeChat\[\] \}>\(`\$\{RUTA\}\?offerId=\$\{idOffer\}`\)/, 'el hilo, leído');
+  assert.match(sb, /<Link className="co-chip" href=\{`\/offer\?sesion=\$\{idOffer\}`\}>Seguir en Offer<\/Link>/, 'se sigue en Offer, con el ?ws=');
+  assert.match(sb, /import Link, \{ useRouter \} from '@\/app\/_ui\/Link';/, 'el Link que lleva el ?ws= del cliente');
+  assert.doesNotMatch(leer('lib/chat-mako-reglas.ts').slice(leer('lib/chat-mako-reglas.ts').indexOf('export function arbolDelJefe')).split('\n}')[0], /offer/i, 'el jefe sigue mirando sólo la clave exacta');
+  // Offer abre ESA conversación con ?sesion=, si es de este negocio (en la computadora y en el teléfono).
+  for (const p of ['app/offer/page.tsx', 'app/m/offer/page.tsx']) {
+    assert.match(leer(p), /const pedidaSesion = idDeParametro\(q\.sesion\);\n  const pedido = pedidaSesion != null && todasLasSesiones\(leido\.arbol\)\.some\(\(s\) => s\.id === pedidaSesion\)/, p);
+  }
+});
+
+test('5. en el teléfono, «Tus chats» trae las conversaciones de Offer y lleva a ellas', () => {
+  const m = leer('app/m/mako/ChatMako.tsx');
+  assert.match(m, /const RUTA_OFFER = '\/api\/mako\/chat\?offer=1';/);
+  assert.match(m, /<FilaM key=\{`o\$\{o\.id\}`\} navegacion titulo=\{o\.titulo\} href=\{`\/m\/offer\?sesion=\$\{o\.id\}`\}/);
+});
+
+test('6. la conversación del onboarding no sale dos veces (acordado con el chat Onboarding)', () => {
+  // hiloDelOnboarding la copia a un chat «Onboarding» y deja su id en `hiloChat`: entonces «Offer» no la lista.
+  assert.equal(offerDelOnboardingCopiada(JSON.stringify({ sesionId: 14, hiloChat: 301 })), 14);
+  assert.equal(offerDelOnboardingCopiada({ sesionId: 14 }), null, 'sin el chat todavía, se ve en «Offer»');
+  assert.equal(offerDelOnboardingCopiada(null), null);
+  assert.equal(offerDelOnboardingCopiada('no es json'), null);
+  const ind = leer('lib/chat-mako-indice.ts');
+  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque\);\n  return lista\.filter\(\(s\) => s\.id > 0 && s\.id !== copiada\)/);
+});

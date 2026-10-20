@@ -36,7 +36,7 @@ import { TITULO_INBOX } from '@/lib/movil-rutas';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import type { MensajeChat, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import {
-  CabeceraM, FilaM, ListaM, PieM, PildoraM, SheetM, SkeletonFilas, VacioM, ErrorM, useConexion, horaCorta,
+  CabeceraM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, SkeletonFilas, VacioM, ErrorM, useConexion, horaCorta,
 } from '../_ui';
 import { Composer, type Envio } from './Composer';
 import { SheetPropuesta } from './SheetPropuesta';
@@ -51,6 +51,9 @@ import { PegadosHilo, TextoPlegable } from '@/app/_chat/PegadoHilo';
 import { partirPegados } from '@/lib/chat-pegado';
 
 const RUTA = '/api/m/mako';
+/** Las conversaciones de Offer del negocio (20/10/2026): las lee el índice del Second Brain, con la puerta de la tab. */
+const RUTA_OFFER = '/api/mako/chat?offer=1';
+type ChatDeOfferM = { id: number; titulo: string; updatedAt: string };
 /** El maxDuration de /api/m/mako es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
 const TOPE_MS = 425_000;
 
@@ -134,6 +137,18 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
     } catch { /* la lista que hay sigue sirviendo */ }
   }, []);
   useEffect(() => { if (hojaChats) void refrescarLista(); }, [hojaChats, refrescarLista]);
+  // Offer (20/10/2026, Martín: «el chat de OFFER no está llegando al Ops Center»): sus conversaciones en «Tus chats», cada
+  // una lleva a ESA conversación en Offer. Sin la tab, la lista llega vacía y la sección no se dibuja.
+  const [offer, setOffer] = useState<ChatDeOfferM[]>([]);
+  useEffect(() => {
+    if (!hojaChats) return;
+    let vivo = true;
+    void fetch(RUTA_OFFER, { signal: AbortSignal.timeout(20_000) })
+      .then(async (res) => leerRespuesta<{ offer: ChatDeOfferM[] }>(res.status, await res.text()))
+      .then((l) => { if (vivo && l.ok) setOffer(l.datos.offer ?? []); })
+      .catch(() => { /* sin la lista de Offer, «Tus chats» sigue igual */ });
+    return () => { vivo = false; };
+  }, [hojaChats]);
 
   const nuevoChat = () => {
     setHojaChats(false);
@@ -285,6 +300,16 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
               })}
             </ListaM>
           )}
+        {offer.length > 0 && (
+          <SeccionM titulo="Offer">
+            <ListaM etiqueta="Offer">
+              {offer.map((o) => (
+                <FilaM key={`o${o.id}`} navegacion titulo={o.titulo} href={`/m/offer?sesion=${o.id}`}
+                  riel={<span className="m-mako-riel"><CuandoCorto iso={o.updatedAt} /></span>} />
+              ))}
+            </ListaM>
+          </SeccionM>
+        )}
         {masChats?.(() => setHojaChats(false))}
       </SheetM>
     </div>
