@@ -1603,6 +1603,11 @@ código nuevo:
         «sin ubicar» y el transcript donde buscarlo.
       - Pasó con el chat de Automations siempre abierto: pedido el 16/10, perdido en el relevo entre cuentas y vuelto a
         pedir el 20/10 («¿No tienes el registro?»). Está en docs/hallazgos-chatbot.md.
+    - **TODO ARREGLO DE ALGO QUE REPORTÓ UN CLIENTE SE AVISA EN SU GRUPO DE MAKO** (20/10/2026; Martín: «siempre avisa al
+      grupo de MaKo de clientes correspondiente cuando solucionemos algo»).
+      - Va apenas está EN PRODUCCIÓN (deploy Ready), firmado «Desarrollador de MaKo» (`avisarArregloAlGrupo`, lib/aviso-arreglo.ts).
+      - No importa por dónde llegó el reporte: Martín, una llamada, el Ops Center o el vigía.
+      - El Cerebro le pasa a MaKo Alert el ws y qué se arregló en cada deploy, y MaKo Alert lo manda.
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:
