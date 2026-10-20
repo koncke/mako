@@ -94,7 +94,7 @@ export function ArchiveroM({ abierto, onCerrar }: { abierto: boolean; onCerrar: 
       setArchivos([]);
       setWeb('');
       onCerrar();
-      toast('Sumado a tu mapa');
+      toast('Sumado a tu Second Brain');
       window.setTimeout(() => router.refresh(), 400);
       return;
     }
@@ -117,7 +117,7 @@ export function ArchiveroM({ abierto, onCerrar }: { abierto: boolean; onCerrar: 
       ocupado={enviando}
       rotuloCerrar="Cerrar El Archivero"
       pie={(
-        <PieM consecuencia={enviando ? 'Leyendo. Puede tardar un minuto.' : hay ? 'MaKo lo lee y lo suma a tu mapa.' : undefined}>
+        <PieM consecuencia={enviando ? 'Leyendo. Puede tardar un minuto.' : hay ? 'MaKo lo lee y lo suma a tu Second Brain.' : undefined}>
           <Button variant="mako" size="lg" full loading={enviando} disabled={!hay || enviando} onClick={() => void analizar()}>
             {`${R.analizar} ${objeto}`}
           </Button>

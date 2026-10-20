@@ -1497,7 +1497,13 @@ código nuevo:
   un toque: app/second-brain/apaisar.ts). El super admin ve UN grafo: el negocio y la construcción de MaKo juntos (`unirCerebros`,
   lib/cerebro-union.ts) y las capas son un atajo del filtro de carpetas. Un grafo más para el super admin se suma como CAPA de ése (su
   taxonomía, sus carpetas), nunca como un segundo `<Grafo>`. Lo fija tests/second-brain-grafo-movil.test.ts; el porqué, en
-  docs/hallazgos-second-brain.md. **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
+  docs/hallazgos-second-brain.md. **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se
+  deben dividir en 2»): UNA raíz y UN solo componente, en el de cualquier negocio y en el del super admin. Un racimo sin aristas
+  laterales se engancha a la raíz (`puentesARaiz`, lib/cerebro-union.ts) ANTES del layout; la construcción cuelga de la raíz del
+  negocio y la física corre entera en el servidor (lib/cerebro-union-servidor.ts vía lib/second-brain-opera.ts). Ninguna pantalla
+  junta dos cerebros ni elige entre dos (nada de «Negocio · Construcción»): una parte se mira con el filtro. Que sea un solo
+  `<Grafo>` no alcanza: el 17/10 era uno y se veían dos nubes. Lo fija tests/second-brain-un-cerebro.test.ts.
+  **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
   estructura de nodos»): una fuente nueva del producto (clientes, reuniones, lo que venga) entra en `agregarLoVivo`
   (lib/cerebro-vivo.ts) con su tope y su `.catch`; un área sin datos NO dibuja un nodo `falta:` (se dice en la raíz); y lo que tiene
   su propio racimo no cuelga además del nodo de área (tests/second-brain-negocio-vivo.test.ts).

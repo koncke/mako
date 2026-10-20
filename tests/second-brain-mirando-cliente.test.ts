@@ -16,7 +16,9 @@ import { join } from 'node:path';
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 
 test('quienOpera dice que no mientras se mira a un cliente', () => {
-  const src = leer('app/second-brain/pagina.tsx');
+  // Desde el 20/10/2026 vive en lib/second-brain-opera.ts (la usa también el grafo vivo); pagina.tsx la reexporta.
+  const src = leer('lib/second-brain-opera.ts');
+  assert.match(leer('app/second-brain/pagina.tsx'), /export \{ quienOpera \};/);
   const i = src.indexOf('export async function quienOpera()');
   assert.match(src.slice(i, i + 300), /if \(await estaImpersonando\(\)\) return false;\s*return puedeOperar\(await getSesionAdmin\(\), await wsSuperAdmin\(\)\);/,
     'el super admin que inspecciona a un cliente vuelve a ver el Centro de la plataforma');
