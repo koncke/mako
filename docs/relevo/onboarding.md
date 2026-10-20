@@ -1,5 +1,42 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 20/10/2026 ~19:20 AR — LA TANDA DEL 18/10 CERRADA Y LA DE FLORENCIA (feedback del 20/10)
+
+<sub>Chat «Onboarding», claude4. Dos ramas sin pushear: **onboarding-v3** (C:/dev/wt-onboarding-v3: la tanda del 18/10) y
+**onboarding-florencia** (C:/dev/wt-onboarding-florencia, sale de v3: el feedback del 20/10). Se mergea florencia en v3 y
+el VERDE (`antes-de-subir --rapido` con C:/dev/pesado.lock) va al Cerebro. El tsc acotado no entra en la RAM libre (ver
+hallazgos-infra): los tipos se revisaron a mano.</sub>
+
+**Hecho en onboarding-v3** (cada uno con su test probado rompiéndolo):
+- 2, la entrada de MaKo al abrir la app en el teléfono: `ee2c96f26` (montada en el layout desde `2826d4df2`).
+- 13b, al terminar entra al chat «Onboarding» con la conversación y arranca el tutorial: `b222b34fc`, `98df2846f`, `01553fd32`.
+- 3, el chat del onboarding con la caja del Ops Center: `6b0154a1d` (+ `d78802587`).
+- 10b, el CRM a medida de lo que vende (MaKo elige el tipo y nombra las etapas; las claves no cambian): `ef814400a`.
+
+**Hecho en onboarding-florencia** (feedback del 20/10, puntos 2 y 3; el pedido literal es el hito del 20/10 en
+app/admin/dev/onboarding/bitacora.ts, `0f46389e6`):
+- 1, el chat «Onboarding» para quien ya terminó (en su primera visita al Ops Center; nunca mirando como super admin), con
+  la salida que usa `interes` y dice dónde pedir ayuda: `c37574140`.
+- 2, el nombre del negocio se entiende y se confirma antes de escribirse, y vuelve el nombre del alta: `1bbba201e`.
+- 3, el cierre de «lo que vendes» lo escribe el código, dos repreguntas como mucho: `f8faebbc4`.
+- 4, respuestas rápidas sin cifras inventadas y dos o más: `94d3e04b2` (su `numerosDe` borrado por error lo devolvió `1c39ed1dd`).
+- 5, el link que no abre se le dice a MaKo: `1c39ed1dd`.
+- 6, «sin dato» no llega al producto ni al brief, el PDF muestra lo que trae datos, la escalera sale, el producto toma
+  cómo cobra: `5573b9730`.
+- 7, un texto de más de 12.000 caracteres va a documento: `64f716ba9`; las preguntas con opciones aceptan texto («Lo tomé
+  como»): `9333f968d`; el micrófono del onboarding graba una nota de voz (el dictado no se pudo probar con 2 min):
+  `b6f40d5c6`.
+
+**SIN HACER (con dónde vive):**
+- **Reparar el ws21** (su nombre, el funnel 40, el producto 48, el PDF, el grupo): el script está escrito y NO se corrió,
+  en `side-session-notes/local_797d5445…/feedback-20-10/reparar-ws21.ts` (sin `--aplicar` sólo lee). Espera el sí de
+  Martín y el nombre que él elija.
+- **Coordinar con Ops Center 3** que la conversación de Offer del onboarding (`onboarding.arranque.sesionId`) no salga
+  dos veces cuando proyecten Offer en el Ops Center: se lo propuse el 20/10 (que la salteen si hay `hiloChat`); sin respuesta.
+- 5b, el diagnóstico de fase repite el canal que ya contó (lib/onboarding-arranque.ts → preguntarFase).
+- El voseo y el «Perfecto:» del modelo sin filtro de salida (lib/offer-ia.ts); `TOPE_PIEZA` corta las piezas con «…».
+- El dictado de respaldo usa las keys del negocio (hallazgos-plan): es del Plan, no de este chat.
+
 ## ESTADO AL 18/10/2026 ~18:30 AR — PEDIDO 9a143455 (Martín, 17:28), CUENTA AL 98 %
 
 <sub>Rama onboarding-v3. Commits sin pushear, cada uno con su test probado rompiéndolo. Los puntos 4 y 9 (los 4 MB, el

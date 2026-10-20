@@ -6772,6 +6772,11 @@ con el heap de siempre lo mató el vigía de RAM («código 1, 0 bytes de salida
 achicar el heap no ayuda. **Lo que anduvo:** tandas de 3 a 5 archivos con `--heap=2300`, y las librerías y los tests en
 otra tanda: las cinco dieron ✓. Un 99 sigue sin ser un verde: se vuelve a correr en tandas, nunca se da por bueno.
 
+**20/10/2026: tampoco con UN archivo puro.** `lib/onboarding-crm.ts` solo (importa lib/pipeline.ts) se quedó sin heap con
+`--heap=1800` a los 72 s, y con el de siempre lo cortó el vigía, con 1,5 a 3,2 GB libres. El grafo de lib/pipeline.ts es
+casi la app: «acotado» es la lista de archivos, no lo que se chequea. Así no hay tanda que entre: se dice «sin tipos» y se
+revisa el diff a mano (los estrechamientos, los literales que devuelve un `map`).
+
 *17/10/2026, chat «Ops Center» (claude4), en C:/dev/wt-centro-chat.*
 
 ## Los logs de producción de AYER se leen con `vercel logs --since/--until` (17/10/2026)
@@ -7055,3 +7060,26 @@ al borrar o renombrar un relevo, se buscan sus citas en `docs/pendientes.md` en 
 - **Síntoma:** el renombre «Second Brain» → «Ops Center» (465f85e6e) dio VERDE en local con 2402 tests, y Actions cayó en el run 140: `tests/notificaciones.test.ts` esperaba el título de pestaña «MaKo - Second Brain».
 - **Causa:** `tituloDe` arma el título de la pestaña con el NOMBRE de la entrada de la barra (`nav.ts`), pero `tests-afectados` no relaciona ese test con un cambio en `nav.ts`. En local corre lo afectado, y Actions corre las 422 barredoras.
 - **Regla:** quien renombre una entrada de la barra busca su nombre viejo, entre comillas, en `tests/` antes del VERDE (`grep -rn "'MaKo - <nombre viejo>'" tests`).
+
+## El candado de lo pesado: es un DIRECTORIO, y quien lo pide cada 15 s no lo consigue nunca (20/10/2026)
+
+`C:/dev/pesado.lock` lo crean las sesiones con `mkdir`, que es atómico. Un script que lo trata como archivo (`[ -e … ]` y
+después `echo > …`) espera bien, pero entre ver que no está y crearlo puede entrar otra sesión. Y con seis sesiones en
+cola, el chat «Onboarding» pidió el candado cada 15 s durante una hora y no lo consiguió nunca: las demás lo piden cada
+5 s y se lo llevan apenas se libera. Lo que anda: `until mkdir C:/dev/pesado.lock 2>/dev/null; do sleep 5; done`, el
+trabajo, y `rm -rf C:/dev/pesado.lock`. Mientras se espera, se puede trabajar en OTRO worktree de la misma rama base
+(`git worktree add -b <rama-nueva>` + la junction de `node_modules`) y mergear después.
+
+## Probar el dictado con un micrófono falso no sirve (20/10/2026)
+
+Para medir si el dictado en vivo aguanta 2 minutos, el chat «Onboarding» le dio a un Chrome aparte un WAV como micrófono
+(`--use-fake-device-for-media-stream --use-file-for-fake-audio-capture=<wav>%noloop`, perfil temporal). Cuatro intentos,
+ninguno sirvió para medir: headless y con ventana, Chrome detecta la voz (`speechstart`) y `SpeechRecognition` no
+devuelve texto (0 caracteres, o una palabra suelta). Trampas del camino, por si alguien lo retoma:
+- **El WAV de SAPI (System.Speech) trae un `fmt` de 18 bytes**: Chrome lo lee corrido y llega ruido. Hay que pasarlo por
+  ffmpeg (`-c:a pcm_s16le`, `fmt` de 16).
+- **PowerShell 5.1 lee un .ps1 sin BOM como ANSI**: el texto en español del here-string sale con «Ã±». El texto va en un
+  .txt leído con `[IO.File]::ReadAllText(…, UTF8)`.
+- Medir el dictado de verdad pide una persona hablando 2 minutos en Chrome.
+
+*20/10/2026, chat «Onboarding» (claude4).*

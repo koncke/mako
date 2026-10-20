@@ -916,3 +916,18 @@ guarda siempre en el funnel de la conversación (`app/m/offer/OfferM.tsx`, no ma
   `propuestoPorMako`, `conclusionVisible`) · `tests/offer-numeros-estimados.test.ts` (O1-O7).
 
 *17/10/2026, «Pendientes B3» (`claude4`).*
+
+## El onboarding lo termina el código, y ChatOffer no puede importar nada con .css (20/10/2026)
+
+- **En el modo arranque, el turno que cierra lo escribe el código** (app/api/offer/route.ts → `responder`): con las piezas
+  del arranque, «¡Gracias!» aunque el modelo traiga otra pregunta; y una pieza no se pregunta más de dos veces. El
+  «listo» del modelo se parseaba y nadie lo leía (Florencia: 6 preguntas de más). Detalle en hallazgos-onboarding.md,
+  «Florencia (ws21, 18/10)».
+- **Un texto escrito más largo que el chat ya no rebota:** va a documento («Tu mensaje largo») por el camino del audio, y
+  la pantalla (OfferApp y OfferM) dejó de cortarlo antes de mandarlo. Ojo: el corte estaba en los DOS lados; arreglar sólo
+  la ruta no alcanzaba.
+- **ChatOffer no puede importar nada con .css.** tests/offer-pulir-pdf.test.ts importa `DocumentoPdf` de
+  app/offer/ChatOffer.tsx en node, que no lee `.css`: la caja del Ops Center (app/offer/CajaDelCentro.tsx, que trae
+  chat.css y centro.css) la arma OfferApp y entra por la prop `caja`. Lo fija tests/onboarding-caja-centro.test.ts.
+
+*20/10/2026, chat «Onboarding» (claude4).*
