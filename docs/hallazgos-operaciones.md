@@ -1775,3 +1775,27 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
     pantalla completa de lo adjuntado (VistaAdjuntosM). Migrarlo hoy le sacaría funciones. Primero se le suman a la pieza.
   - **El hilo sigue siendo dos:** `Hilo` (Ops Center, turnos de Claude Code) y `HiloMako` (MaKo, con sus tarjetas).
   - **Las otras pantallas**, cada una de su chat (la lista, en el test).
+
+## «Espera tu respuesta» de un chat que ya contestó: cerraba con `wrap_up`, sin texto (20/10/2026)
+
+- **Síntoma:** Martín: «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la
+  funcionalidad que creamos de respuestas múltiples en Ops Center». En el Ops Center, Debate seguía con «Espera tu respuesta»,
+  el hilo cortado y sin pregunta.
+- **Lo obvio era el error:** «Debate no recibió la respuesta». Sí la recibió y contestó. Después de la respuesta de las
+  21:10Z, cerró sus dos turnos SÓLO con herramientas: SendMessage y `mcp__ccd_turn__wrap_up` con `recap`, `ask` y `actions`.
+  No escribió una línea de texto.
+- **Causa:** el cartero subía de cada turno sólo los bloques de TEXTO (`turnosDeLineas` → `textoDe`). Un turno sin texto no
+  existía: en `operaciones.turnos.<Debate>` el último era de las 20:58. El recuadro de próximo paso del `wrap_up` (su
+  pregunta y sus botones) sólo se ve en la app de Claude. Le pasa a CUALQUIER chat que cierra con `wrap_up`, que es
+  justamente lo que la app le pide a cada chat al terminar.
+- **Arreglo (cartero 1.17.2):**
+  - El `wrap_up` se lee como un mensaje del chat: su `recap` es el texto del turno (`cierreWrapUp`).
+  - Con `ask` y dos o más botones se arma una PREGUNTA de las de 1.14.0 (`preguntaDeWrapUp`): pregunta = ask, opciones = los
+    botones (título = label, detalle = message), la primera recomendada, con las mismas reglas que `preguntar`. Martín la
+    contesta en el formulario, y la respuesta le llega al chat como siempre.
+  - Con un solo botón, el `ask` va como texto, porque no hay formulario de una sola opción.
+  - **El id de la pregunta es FIJO** (sale del id del `tool_use`): releer el transcript sube la misma, y MaKo no la repite
+    ni le pisa la respuesta (`unirPreguntas` se queda con la que tiene).
+  - No se sube si el chat ya hizo esa pregunta con `preguntar` (`preguntasSinRepetir`).
+- **Regla:** lo que un chat le muestra a Martín al terminar NO es sólo su texto. Cualquier forma de cerrar que la app dibuje
+  (hoy, `wrap_up`) tiene que llegar al Ops Center, o el Ops Center miente sobre en qué quedó el chat.

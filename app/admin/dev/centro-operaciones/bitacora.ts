@@ -823,4 +823,28 @@ export const BITACORA: Hito[] = [
       'tests/centro-subtitulo.test.ts',
     ],
   },
+  {
+    fecha: '20 oct', hora: '20:05', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Debate espera mi respuesta, pero ya respondí',
+    pedido: 'Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la funcionalidad que creamos de respuestas múltiples en Ops Center',
+    puntos: ['Medido por el Cerebro: Debate cerró sus turnos sólo con wrap_up (resumen, pregunta y botones), sin texto.'],
+  },
+  {
+    fecha: '20 oct', hora: '20:30', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Lo que un chat te deja al terminar llega al Ops Center, y su pregunta es un formulario',
+    pedido: 'Debate me dice que espera mi respuesta, pero ya respondí',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Cuando un chat termina con el recuadro de «próximo paso» de la app, su resumen aparece en su conversación del Ops Center.',
+      'Si te pregunta algo con botones, ves la pregunta con esas opciones y la contestas ahí, como las demás.',
+      'La misma pregunta no aparece dos veces.',
+      'Hace falta el Runner nuevo (1.17.2).',
+    ],
+    archivos: [
+      'scripts/operaciones/cartero.mjs — 1.17.2: cierreWrapUp, preguntaDeWrapUp, preguntasSinRepetir',
+      'tests/cartero-wrapup.test.ts',
+    ],
+  },
 ];

@@ -85,7 +85,8 @@ import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
 // 1.17.1 = la 1.17.0 (lo adjuntado en la app) + la 1.16.1 (la huella de la semana en `medir`), juntas (20/10/2026).
-export const VERSION = '1.17.1';
+// 1.17.2: el cierre con `wrap_up` sube su resumen como turno y su pregunta como formulario (cierreWrapUp, 20/10/2026).
+export const VERSION = '1.17.2';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -622,6 +623,8 @@ function textoDe(content) {
  */
 export function turnosDeLineas(lineas, pendiente = null) {
   const turnos = [];
+  /** Las preguntas de los cierres con `wrap_up` (1.17.2): van con la vuelta, como las de `preguntar`. */
+  const preguntas = [];
   let p = pendiente;
   const cerrar = () => { const t = cierreDe(p); if (t) turnos.push(t); p = null; };
   for (const l of lineas) {
@@ -631,7 +634,12 @@ export function turnosDeLineas(lineas, pendiente = null) {
     if (o.type === 'assistant') {
       // Lo que escribe la app en nombre del modelo («You've hit your session limit…») no es una respuesta del chat.
       if (o.isApiErrorMessage || o.message?.model === '<synthetic>') continue;
-      const t = textoDe(o.message?.content).trim();
+      // 1.17.2: un turno que cierra SÓLO con `wrap_up` (sin texto) igual dice algo: su resumen, y su pregunta como formulario.
+      const w = cierreWrapUp(o.message?.content);
+      const q = w ? preguntaDeWrapUp(w, o.timestamp) : null;
+      if (q) preguntas.push(q);
+      const delCierre = w ? [w.recap, q ? '' : w.ask].filter(Boolean).join('\n\n') : '';
+      const t = [textoDe(o.message?.content).trim(), delCierre].filter(Boolean).join('\n\n');
       if (!t || typeof o.uuid !== 'string') continue;
       const ultimo = { uuid: o.uuid, texto: t.slice(0, TOPE_TURNO), at: o.timestamp };
       // El primer texto del turno sale ya: «Voy a trabajar en…».
@@ -662,7 +670,62 @@ export function turnosDeLineas(lineas, pendiente = null) {
     }
     turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO_YO), at: o.timestamp, trabajo: null, ...(crudos.length ? { crudos } : {}) });
   }
-  return { turnos, pendiente: p };
+  return { turnos, pendiente: p, preguntas };
+}
+
+// ── El cierre con `wrap_up` (1.17.2, 20/10/2026) ───────────────────────────────────────────────────────────────────
+// Martín: «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la funcionalidad que
+// creamos de respuestas múltiples en Ops Center». Medido: Debate terminó sus turnos SÓLO con herramientas (SendMessage y
+// `mcp__ccd_turn__wrap_up` con `recap`, `ask` y `actions`), sin una línea de texto, y el cartero subía sólo los bloques de
+// texto: en el Ops Center su último turno era de 12 minutos antes, sin pregunta. NO era que «no recibió la respuesta». Le
+// pasa a cualquier chat que cierra con wrap_up, que es lo que la app le pide a cada chat.
+const WRAP_UP = 'mcp__ccd_turn__wrap_up';
+
+/** El `wrap_up` de un mensaje del chat: su resumen, su pregunta y sus botones. null = el mensaje no cierra con wrap_up. */
+export function cierreWrapUp(content) {
+  if (!Array.isArray(content)) return null;
+  const b = content.find((x) => x && x.type === 'tool_use' && x.name === WRAP_UP && x.input && typeof x.input === 'object');
+  if (!b) return null;
+  const i = b.input;
+  const texto = (v) => (typeof v === 'string' ? v.trim() : '');
+  const actions = (Array.isArray(i.actions) ? i.actions : []).filter((a) => a && texto(a.label));
+  return { id: typeof b.id === 'string' ? b.id : null, recap: texto(i.recap), ask: texto(i.ask), actions };
+}
+
+/** Un uuid FIJO para un texto (el id del `tool_use`): releer el transcript sube la MISMA pregunta, y MaKo no la repite
+ *  (lib/centro-preguntas-chat.ts → unirPreguntas se queda con la que ya tiene, con su respuesta). */
+export function uuidDeTexto(s) {
+  const h = crypto.createHash('sha256').update(String(s)).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
+ * La pregunta de un `wrap_up` con `ask` y DOS o más botones (`actions`): pregunta = ask, opciones = los botones (título =
+ * label, detalle = message), la primera recomendada, y las MISMAS reglas y topes que `preguntar` (armarPregunta). null = no
+ * se arma (sin ask, con un solo botón, o algo que no pasa las reglas): entonces el ask va como texto en el turno.
+ */
+export function preguntaDeWrapUp(w, at) {
+  if (!w?.ask || w.actions.length < TOPES_PREGUNTA.min) return null;
+  try {
+    const q = armarPregunta({
+      pregunta: w.ask.slice(0, TOPES_PREGUNTA.pregunta),
+      opciones: w.actions.slice(0, TOPES_PREGUNTA.max).map((a) => ({
+        titulo: a.label.trim().slice(0, TOPES_PREGUNTA.titulo),
+        detalle: typeof a.message === 'string' && a.message.trim() ? a.message.trim().replace(/\s+/g, ' ').slice(0, TOPES_PREGUNTA.detalle) : null,
+      })),
+      recomendada: 0,
+    }, '', Number.isFinite(Date.parse(at)) ? new Date(at) : new Date());
+    return { ...q, id: uuidDeTexto(`wrap_up:${w.id ?? w.ask}`) };
+  } catch {
+    return null;
+  }
+}
+
+/** Las preguntas que suben juntas, sin repetir: la de un `wrap_up` no va si el mismo chat ya hizo esa pregunta con `preguntar`. */
+export function preguntasSinRepetir(deArchivos, deCierres) {
+  const clave = (q) => `${q.local}\n${String(q.pregunta ?? '').trim().toLowerCase()}`;
+  const ya = new Set(deArchivos.map(clave));
+  return [...deArchivos, ...deCierres.filter((q) => !ya.has(clave(q)) && (ya.add(clave(q)), true))];
 }
 
 // ── Lo que Martín adjunta en la app de Claude (1.17.0, 20/10/2026) ───────────────────────────────────────────────────
@@ -763,13 +826,17 @@ function turnosNuevos(c) {
   const r = turnosDeLineas(completo.toString('utf8').split('\n').filter(Boolean), pendiente);
   // Un chat que no está trabajando ya terminó su turno: su última respuesta es la que vale.
   if (r.pendiente && !ocupado) { const t = cierreDe(r.pendiente); if (t) r.turnos.push(t); r.pendiente = null; }
-  return { turnos: r.turnos.map((t) => ({ local: c.local, ...t })), marca: { archivo, transcript: c.transcript, offset, pendiente: r.pendiente } };
+  return {
+    turnos: r.turnos.map((t) => ({ local: c.local, ...t })), marca: { archivo, transcript: c.transcript, offset, pendiente: r.pendiente },
+    preguntas: (r.preguntas ?? []).map((q) => ({ ...q, local: c.local })),
+  };
 }
 
 /** Lo nuevo de todos los chats de la vuelta, con un tope (lo que no entra sale en la siguiente: su marca no avanza). */
 export function turnosDeLaVuelta(chats) {
   const turnos = [];
   const marcas = [];
+  const preguntas = [];
   for (const c of chats) {
     // Los chats cerrados hace días no cambian: no se leen (la app guarda cientos).
     const t = c.actividad ? Date.parse(c.actividad) : NaN;
@@ -780,8 +847,9 @@ export function turnosDeLaVuelta(chats) {
     if (turnos.length + n.turnos.length > MAX_TURNOS_VUELTA && turnos.length) break;
     turnos.push(...n.turnos.slice(-MAX_TURNOS_VUELTA));
     marcas.push(n.marca);
+    preguntas.push(...(n.preguntas ?? []));
   }
-  return { turnos, marcas };
+  return { turnos, marcas, preguntas };
 }
 
 function guardarMarcas(marcas) {
@@ -1162,12 +1230,14 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   const cierres = archivosCierre.map((f) => leerJson(f, null)).filter(Boolean);
   // Las preguntas de los chats (1.14.0): son de la PC, como los cierres; las sube la vuelta que pase primero.
   const archivosPregunta = listar(PREGUNTAS);
-  const preguntas = archivosPregunta.map((f) => leerJson(f, null)).filter(Boolean);
+  const deArchivos = archivosPregunta.map((f) => leerJson(f, null)).filter(Boolean);
   // Lo que ALGÚN Runner de la PC puede entregar: el chat vivo, con un Runner abierto en su carpeta. MaKo reclama
   // sólo eso; lo demás queda escrito y sale cuando se abra ese Runner (no se vence en el buzón).
   const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner && !c.esRunner).map((c) => c.local);
   // Lo que se dijo en cada chat desde la vuelta anterior (sólo lo nuevo). Lo del Runner no: son sus vueltas.
   const delaVuelta = turnosDeLaVuelta([...chats.values()].filter((c) => !c.esRunner));
+  // Más las de los cierres con `wrap_up` (1.17.2), sin repetir una que el chat también hizo con `preguntar`.
+  const preguntas = preguntasSinRepetir(deArchivos, delaVuelta.preguntas);
   // Lo que Martín adjuntó en la app (1.17.0) sube ANTES, directo al storage: los turnos llevan sólo su `ref`. El chat cuya
   // subida falló no sale ahora (ni su marca avanza): vuelve en la vuelta siguiente.
   const subida = await subirAdjuntosDeTurnos(url, cfg.token, delaVuelta.turnos);
