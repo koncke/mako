@@ -43,8 +43,15 @@ function prioridad(a: string): number {
  * Lo que dice MaKo al crear (corto; los avisos van aparte). Vive acá y no en lib/flujo-ia-preguntas.ts (que lo
  * reexporta) desde la decimotercera tanda: lo dibuja también el chat del lienzo (app/automations/ChatMako.tsx) cuando
  * MaKo crea sobre la fila que nació al enviar desde «Nueva automatización».
+ *
+ * DECIR QUÉ HIZO (20/10/2026, Martín sobre el chat de Leila): «Creé «X». Quedó pausada.» no decía cuándo sale, a quién
+ * ni qué manda, y la clienta no sabía si era lo que pidió. Con `d`: «Creé «X»: sale todos los martes a las 15:00 a todos
+ * los de «Funnel principal» (37 hoy). Manda «Holaa {{nombre}}!…». Quedó pausada.» Lo arma el código (`detalleDeCreada`,
+ * lib/flujo-ia-crear-core.ts) con lo que quedó GUARDADO.
  */
-export const textoDeCreada = (nombre: string): string => `Creé «${nombre}». Quedó pausada.`;
+export type DetalleCreada = { cuando?: string | null; manda?: string | null };
+export const textoDeCreada = (nombre: string, d: DetalleCreada = {}): string =>
+  `Creé «${nombre}»${d.cuando ? `: ${d.cuando}` : ''}.${d.manda ? ` Manda «${d.manda}».` : ''} Quedó pausada.`;
 
 export function ordenarAvisos(avisos: readonly string[]): string[] {
   return avisos.map((a, i) => ({ a, i, p: prioridad(a) })).sort((x, y) => x.p - y.p || x.i - y.i).map((x) => x.a);

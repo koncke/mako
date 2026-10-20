@@ -48,6 +48,7 @@ import { FASES, CANALES } from './fase-diagnostico';
 import { PERSONALIDAD_PREGUNTAS } from './personalidad';
 import { BIBLIOTECA_ANGULOS } from './angulos-data';
 import { layoutCerebro } from './cerebro-layout';
+import { puentesARaiz } from './cerebro-union';
 import { getFunnelDefault } from './funnels';
 import { BAND_LABEL, TRIGGER, salidasDeEtapa, type FunnelTransition } from './pipeline';
 import { getSecuenciasActivas } from './nutricion';
@@ -1045,6 +1046,10 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
     }
   }
 
+  // 🚨 DESDE EL 20/10/2026 UN ÁREA SUELTA SÍ ES UN BUG (Martín: «En ningún caso jamás los cerebros se deben dividir en
+  //    2»). Lo de abajo es lo que se pensaba hasta ese día y queda como registro: el umbral del hub (4,5×) es una receta
+  //    de dibujo y la regla de Martín le gana. Cada racimo suelto se engancha a la raíz por su nodo más estructural
+  //    (`puentesARaiz`, lib/cerebro-union.ts), justo antes del layout.
   // ⚠️ UN ÁREA SUELTA DEL RESTO DEL MAPA NO ES UN BUG, Y SE INTENTÓ «ARREGLAR».
   // Un área se engancha al resto solo por las aristas laterales de sus miembros; si
   // ninguno tiene una —pasa en un workspace que nunca contestó el quiz de personalidad:
@@ -1082,6 +1087,8 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[] } 
   // y un área no es una cosa entendida, es la caja donde viven varias.
   const esArea = (n: NodoCerebro) => n.id.startsWith('area:');
   const reales = nodos.filter((n) => n.autoria !== 'pendiente' && !esArea(n));
+  // UN cerebro, nunca dos: todo lo que quedó suelto cuelga de la raíz (ver arriba, 20/10/2026).
+  aristas.push(...puentesARaiz(nodos, aristas, RAIZ));
   const { posiciones, encuadre } = layoutCerebro(nodos, aristas);
   return {
     negocio: negocio || 'Tu negocio',

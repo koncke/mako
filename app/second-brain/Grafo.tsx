@@ -1787,7 +1787,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
           {/* «N de M», que el tablero no tiene y el CRM sí. Sin esto, filtrar y no ver
               nada es indistinguible de que el mapa esté vacío. */}
           {hayFiltro && (
-            <span className="cbg-cuenta" title={`Se muestran ${datosVisibles} de ${datosTotal} datos del mapa`}>
+            <span className="cbg-cuenta" title={`Se muestran ${datosVisibles} de ${datosTotal} datos del Second Brain`}>
               <b style={{ fontWeight: 600, color: 'var(--cbg-texto)' }}>{datosVisibles}</b> de {datosTotal}
             </span>
           )}
@@ -1808,7 +1808,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             className="cbg-mapa"
             viewBox={vb}
             role="img"
-            aria-label={`Mapa del segundo cerebro: ${cuenta.total} datos que MaKo entendió de tu negocio`}
+            aria-label={`Second Brain: ${cuenta.total} datos que MaKo entendió de tu negocio`}
             onDragStart={frenarDragNativo}
             // Mantener apretado dispara `contextmenu` en Android y abre el menú del navegador encima del gesto.
             onContextMenu={frenarMenu}
@@ -1990,7 +1990,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
               <NoResults
                 inline
-                detalle="Tu mapa tiene datos, pero ninguno pasa este filtro."
+                detalle="Tu Second Brain tiene datos, pero ninguno pasa este filtro."
                 onLimpiar={() => setFiltro(filtroVacio())}
               />
             </div>

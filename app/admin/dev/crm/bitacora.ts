@@ -2590,4 +2590,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/clients',
   },
+  {
+    fecha: '20 oct', hora: '19:30', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Chats abre en un par de segundos y no relee todo cada 15 segundos',
+    puntos: [
+      'En producción desde el run 165. Lo vio Martín en la llamada con Leila del 19/10: abrir Chats tardaba mucho.',
+      'Medido en el ws1, sólo leyendo: la lista entera tardaba 17 s; ahora 4 s. La primera vista sale con lo reciente en unos 2 s, y lo más viejo llega después.',
+      'La causa: para armar la lista se leían los 18.885 mensajes de WhatsApp de una página por vez, y la computadora lo repetía cada 15 segundos. Ahora se piden varias páginas a la vez, y el refresco sólo lee lo reciente; la lista entera, cada 5 minutos.',
+      'Siguiente: que la base devuelva directamente el último mensaje de cada conversación (una migración).',
+    ],
+    commits: [
+      { sha: 'b7817fe9f', msg: 'Chats abre en 2 s y no relee todo cada 15 s (antes 17 s en el ws1)', lineas: 366, archivos: 10 },
+      { sha: '87464faa8', msg: 'Chats: el test de la pantalla sigue la nueva forma del sondeo (sólo con la pestaña visible)', lineas: 4, archivos: 1 },
+    ],
+    archivos: [
+    ],
+    revisar: '/chats',
+  },
 ];

@@ -1945,4 +1945,26 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "16 oct", hora: "02:22", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Feedback Automations, puntos 5 y 6: Configuraciones por automatización y el chat de MaKo en la sidebar",
+    puntos: [
+      "Pegado el 20/10: llegó al chat de Automations por el Cerebro el 16/10 y se perdió en el relevo («los puntos 5-6», sin el texto).",
+      "Configuraciones (horario y límites) por automatización, en el «⋯»; aviso al Publicar o Probar con un funnel de Prospección.",
+      "La tuerca en el lugar del logo de MaKo; la sidebar es el chat de MaKo, siempre abierto, con una flecha para volver.",
+    ],
+    pedido: "«5. Es importante que \"configuraciones\" ya no viva para todo Automations, sino para cada chat en los 3 puntos... Porque por ejemplo, si estoy corriendo ads en Meta y llegan leads, ahí no hay riesgo, pero si tengo configurado eso y no salen mensajes si es un problema... Entonces cada usuario puede configurar eso desde los 3 puntos, como también el horario de oficina para cada automatización... Solo cuando se selecciona etapas o algún funnel que esté catalogado como \"Prospección\", debe saltar un warning para configurar eso al momento de darle a publicar o probar...  Y en el lugar donde hoy está el ícono de configuraciones que solo quede el \"?\" del tutorial...\n6. El ícono de configuraciones pasa a estar en donde hoy vive \"Pedirle un cambio a MaKo\" el icono de la estrella... Y mi idea es que al abrir una automatización, toda la sidebar se transforme en el chat con MaKo y que esté permanentemente abierta. Y con la flecha para atrás para cambiar a otra automatización.»",
+  },
+  {
+    fecha: "20 oct", hora: "18:02", chat: "Automations", cuenta: "claude4",
+    actor: "martin", tipo: "prompt",
+    titulo: "Leila y el Recurrente que «Crear con IA» no supo armar, y el chat de MaKo siempre abierto (otra vez)",
+    puntos: [
+      "Puntos 4 y 5 del feedback del 20/10 (docs/feedback-20-10.md). Llegaron por el Cerebro.",
+      "Crear con IA tiene que armar lo que se pide (el Recurrente, a quién) y no tarjetas por defecto.",
+      "El chat de Automations siempre abierto en la sidebar, sin el logo de MaKo, con la tuerca en su lugar.",
+    ],
+    pedido: "«4. También revisa el chat de Leila con Automations... Le pidió literalmente que creara una automatización usando el CRON de Recurrente, y creó cualquier cosa... Nuevamente, eso debería ser inteligente, no crear cosas por defecto...\n5. Y el chat de Automations yo ya te habia pedido que quede SIEMPRE abierto en donde está la sidebar de todas las automatizaciones, que se elimine el icono de MaKo ya que quedará siempre abierto, y en su lugar que allí vaya el ícono de configuraciones... Te habia pedido varias cosas, ¿No tienes el registro?»",
+  },
 ];

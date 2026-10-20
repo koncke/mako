@@ -124,5 +124,6 @@ test('lo que recibe «Probar» y el catálogo de condiciones sale del PRIMERO de
   // Lo que eligió «Crear con IA» se pinta en el primero (el server ya lo guardó).
   // Duodécima tanda: entero, con `disparadorDeValorIA` (un evento de Instagram lleva su subtipo).
   assert.match(cuerpo, /crons\.sembrarPrimero\(puesto\)/);
-  assert.match(cuerpo, /disparadorDeValorIA\(r\.disparador\)\[0\]/);
+  // 20/10/2026: un Recurrente con su horario (`recurrenteDeValorIA`); lo demás, `disparadorDeValorIA`.
+  assert.match(cuerpo, /\(r\.cron \? recurrenteDeValorIA\(r\.disparador, r\.cron\) : disparadorDeValorIA\(r\.disparador\)\)\[0\]/);
 });

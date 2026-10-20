@@ -1497,7 +1497,13 @@ código nuevo:
   un toque: app/second-brain/apaisar.ts). El super admin ve UN grafo: el negocio y la construcción de MaKo juntos (`unirCerebros`,
   lib/cerebro-union.ts) y las capas son un atajo del filtro de carpetas. Un grafo más para el super admin se suma como CAPA de ése (su
   taxonomía, sus carpetas), nunca como un segundo `<Grafo>`. Lo fija tests/second-brain-grafo-movil.test.ts; el porqué, en
-  docs/hallazgos-second-brain.md. **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
+  docs/hallazgos-second-brain.md. **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se
+  deben dividir en 2»): UNA raíz y UN solo componente, en el de cualquier negocio y en el del super admin. Un racimo sin aristas
+  laterales se engancha a la raíz (`puentesARaiz`, lib/cerebro-union.ts) ANTES del layout; la construcción cuelga de la raíz del
+  negocio y la física corre entera en el servidor (lib/cerebro-union-servidor.ts vía lib/second-brain-opera.ts). Ninguna pantalla
+  junta dos cerebros ni elige entre dos (nada de «Negocio · Construcción»): una parte se mira con el filtro. Que sea un solo
+  `<Grafo>` no alcanza: el 17/10 era uno y se veían dos nubes. Lo fija tests/second-brain-un-cerebro.test.ts.
+  **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
   estructura de nodos»): una fuente nueva del producto (clientes, reuniones, lo que venga) entra en `agregarLoVivo`
   (lib/cerebro-vivo.ts) con su tope y su `.catch`; un área sin datos NO dibuja un nodo `falta:` (se dice en la raíz); y lo que tiene
   su propio racimo no cuelga además del nodo de área (tests/second-brain-negocio-vivo.test.ts).
@@ -1611,6 +1617,15 @@ código nuevo:
         «sin ubicar» y el transcript donde buscarlo.
       - Pasó con el chat de Automations siempre abierto: pedido el 16/10, perdido en el relevo entre cuentas y vuelto a
         pedir el 20/10 («¿No tienes el registro?»). Está en docs/hallazgos-chatbot.md.
+    - **TODO ARREGLO DE ALGO QUE REPORTÓ UN CLIENTE SE AVISA EN SU GRUPO DE MAKO** (20/10/2026; Martín: «siempre avisa al
+      grupo de MaKo de clientes correspondiente cuando solucionemos algo»).
+      - Va apenas está EN PRODUCCIÓN (deploy Ready), firmado «Desarrollador de MaKo» (`avisarArregloAlGrupo`, lib/aviso-arreglo.ts).
+      - No importa por dónde llegó el reporte: Martín, una llamada, el Ops Center o el vigía.
+      - El Cerebro le pasa a MaKo Alert el ws y qué se arregló en cada deploy, y MaKo Alert lo manda.
+    - **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se deben dividir en 2»). El
+      Second Brain de cualquier negocio, el del super admin incluido, es UN grafo: lo que separa la vista son los filtros
+      (pedido ya el 17/10 y el 18/10, pt 4). Se verifica mirando lo que se DIBUJA, no el código: dos raíces o dos racimos
+      separados también son dos cerebros.
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:

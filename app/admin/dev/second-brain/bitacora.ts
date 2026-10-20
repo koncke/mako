@@ -477,4 +477,44 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  {
+    fecha: '20 oct', hora: '22:26', chat: 'Second Brain', sesion: 'local_26ff7b73-b712-4726-9882-89617840bf7c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: el botón que abre el grafo se llama «Second Brain», no «Mapa»',
+    revisar: '/second-brain?ws=21',
+    pedido: 'no debería llamarse mapa, debería llamarse second brain',
+    puntos: [
+      'En el Ops Center de un negocio, el botón de arriba que abre el grafo dice «Second Brain». En el teléfono, la fila de «Tus chats» también.',
+      '**Cómo se prueba:** /second-brain?ws=21, el botón de arriba; en el teléfono, «Tus chats» → «Second Brain». En producción desde el run 165.',
+    ],
+    commits: [
+      { sha: 'cf255c7f', msg: 'El botón que abre el grafo se llama «Second Brain», no «Mapa» (computadora y teléfono)', lineas: 31, archivos: 3 },
+    ],
+    archivos: [
+      'app/second-brain/ChatSecondBrain.tsx — el botón de la computadora',
+      'app/m/mako/ChatMako.tsx — la fila del teléfono',
+      'tests/second-brain-ops-center-nombre.test.ts',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '22:15', chat: 'Second Brain', sesion: 'local_26ff7b73-b712-4726-9882-89617840bf7c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El Second Brain es UN cerebro: una raíz y todo colgado de ella, nunca dos',
+    pedido: 'El Second Brain de SuperAdmin ya te había pedido que no se dividiera en 2... En ningún caso jamás los cerebros se deben dividir en 2',
+    puntos: [
+      'Tu negocio y la construcción de MaKo salen de la misma raíz y se acomodan juntos, en una sola nube. Antes eran dos nubes, una al lado de la otra.',
+      'Vale para todos los negocios: el de MaKo tenía 3 pedazos sueltos y el del Cliente de Prueba, 2. Ahora todo cuelga de la raíz.',
+      'Para mirar sólo una parte (negocio, construcción, ventas, marketing) está el filtro.',
+      'En el teléfono se fue el «Negocio · Construcción»: una foto y un grafo, el mismo de la computadora.',
+    ],
+    archivos: [
+      'lib/cerebro-union.ts — una raíz: el puente y los racimos sueltos (`puentesARaiz`)',
+      'lib/cerebro-union-servidor.ts — la física de todo junto, en el servidor',
+      'lib/second-brain-opera.ts — el cerebro que se dibuja, para la pantalla, el teléfono y el grafo vivo',
+      'lib/cerebro-grafo.ts, lib/cerebro-construccion.ts — cada cerebro, de una pieza',
+      'app/m/second-brain/SecondBrainM.tsx — el teléfono sin el selector',
+      'tests/second-brain-un-cerebro.test.ts',
+    ],
+    revisar: '/second-brain',
+  },
 ];

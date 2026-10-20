@@ -13,8 +13,7 @@ import '../second-brain.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { chatsMakoDeQuienMira } from '@/lib/cerebro-chats';
-import { construccionDeMako } from '@/lib/cerebro-construccion-datos';
-import { quienOpera } from '@/app/second-brain/pagina';
+import { cerebroQueSeDibuja } from '@/lib/second-brain-opera';
 import type { Cerebro } from '@/lib/cerebro-modelo';
 import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { SecondBrainM } from '../SecondBrainM';
@@ -30,10 +29,12 @@ export default async function MapaSecondBrainPagina({ searchParams }: {
   const sp = await searchParams;
 
   let cerebro: Cerebro;
-  // La construcción de MaKo, sólo para quien opera (la misma guarda que la computadora, app/second-brain/pagina.tsx).
-  const construccion = (await quienOpera()) ? construccionDeMako() : null;
+  // Lo que se dibuja: para quien opera, UN cerebro con la construcción de MaKo adentro (la misma guarda y el mismo
+  // cerebro que la computadora, lib/second-brain-opera.ts). Las listas de abajo son del negocio.
+  let grafo: Cerebro<string>;
   try {
     cerebro = await construirCerebro({ chatsMako: await chatsMakoDeQuienMira() });
+    grafo = await cerebroQueSeDibuja(cerebro);
   } catch (e) {
     console.error('[m/second-brain/mapa] construirCerebro:', e instanceof Error ? e.message : e);
     return (
@@ -46,7 +47,7 @@ export default async function MapaSecondBrainPagina({ searchParams }: {
 
   return (
     <PantallaM>
-      <SecondBrainM cerebro={cerebro} areaInicial={areaDeParam(sp.area)} construccion={construccion} />
+      <SecondBrainM cerebro={cerebro} grafo={grafo} areaInicial={areaDeParam(sp.area)} />
       <ComputadoraM que="Exportar el Second Brain" />
     </PantallaM>
   );

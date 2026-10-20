@@ -98,7 +98,7 @@ import { esTopeDeTamano } from './fallo-ia-texto';
 import type { ProvName } from './ai-cheap';
 // Cómo se escribe un disparador de VARIAS etapas (cuarta tanda, punto 14): UNA forma, la del
 // desplegable del CRON. Puro: lib/flujo-conversacion.ts no importa nada con `server-only`.
-import { kanbanDeValor, valorDeVarios, separarValor, MENU_MAS, esperaAntesDe, errorLegible } from './flujo-conversacion';
+import { kanbanDeValor, valorDeVarios, separarValor, MENU_MAS, esperaAntesDe, errorLegible, nombreDeTarjeta } from './flujo-conversacion';
 // Undécima tanda: las filas del catálogo, los datos del «{ }», la tarjeta MaKo por partes, la forma de hoy y la galería.
 // Duodécima: el desplegable de condiciones por ámbito (`seccionesDeCondiciones`) y las opciones de una de lista.
 import {
@@ -113,6 +113,7 @@ import { problemasDeForma, datosDeReunionSinMirarla } from './flujo-forma';
 import { PLANTILLAS, pasosDePlantilla, type PlantillaAutomatizacion } from './plantillas-automatizaciones';
 // Duodécima tanda, ola 2 (§3.5): lo que suma el `listo` de editar y la pregunta de MaKo. Sólo tipos (puro).
 import type { PreguntaMako, ExtrasEdicionIA } from './automatizacion-chat';
+import type { CronAviso } from './cron-aviso';
 import { respuestaDelModelo } from './flujo-ia-consulta';
 
 // ── Constantes que comparten la ruta y los tests ─────────────────────────────────
@@ -305,6 +306,12 @@ export type CtxIA = {
    * pregunta «¿Cambio qué la dispara?») y el ámbito de las condiciones. Ausente = no se sabe: se pregunta igual.
    */
   disparadorActual?: string | null;
+  /**
+   * CREAR (20/10/2026, Martín: «debería ser inteligente, no crear cosas por defecto»): `deIA` saca lo que el pedido no
+   * pidió (`pidioAviso`, `pidioRespuesta`): un «Avisar al equipo» y un «Si responde» que nadie pidió. Lo pone el core de
+   * crear; editar y los tests de siempre no lo llevan (ahí cada tarjeta la pidió alguien).
+   */
+  soloLoPedido?: boolean;
 };
 
 /** Un paso tal como lo arma la IA: un nodo de `pasos` con su relleno. */
@@ -873,6 +880,22 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
 /** La operación de la tarjeta «MaKo en WhatsApp» (el mismo literal que `OP_TARJETA_MAKO`, lib/mako-tarjeta.ts). */
 const OP_MAKO = 'avisar_al_equipo';
 
+// ── Sólo lo que pide el pedido (20/10/2026, Leila: 6 de las 7 tarjetas de #284 no estaban pedidas) ──────────────
+
+/**
+ * ¿El pedido pide que le avisen al equipo? («avísame», «notifica al grupo», «que el equipo se entere»). «Avísales» y
+ * «avisarle» son al lead: no cuentan.
+ */
+export const pidioAviso = (pedido: unknown): boolean =>
+  /\bavis(?!ar?les?\b)|notific|alert|\bequipo\b|\bgrupo\b|enter(?:arme|arnos|e|en)\b|que (?:yo )?sepa|me (?:digas|cuentes|escribas)\b/.test(normNombre(pedido));
+
+/** ¿El pedido habla de lo que contesta el lead? («si confirma», «si van a asistir», «cuando responda»). */
+export const pidioRespuesta = (pedido: unknown): boolean =>
+  /respond|contest|confirm|asist|si (?:dice|quiere|viene|vienen|van|puede|pueden)\b|pregunta(?:le|les)?\b|preguntal|\bresponda/.test(normNombre(pedido));
+
+/** La sugerencia cuando se saca un «Avisar al equipo» que nadie pidió (va en el chat, en palabras de la persona). */
+export const SUGERENCIA_AVISO = 'Si quieres que te avise en el grupo cuando alguien contesta, pídemelo';
+
 function porIdOTitulo<T extends { id: number; titulo: string }>(lista: readonly T[], v: unknown): T | null {
   const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v.trim()) ? Number(v.trim()) : NaN;
   if (Number.isInteger(n)) { const x = lista.find((a) => a.id === n); if (x) return x; }
@@ -1030,6 +1053,12 @@ function nodoDe(c: Card, est: Estado): NodoIA {
       n.sigue = refs(raw.sigue);
       const r = resolverAccion(raw.operacion ?? raw.accion, raw.datos ?? raw.params, est);
       if ('quitar' in r) { avisos.push(r.quitar); n.quitar = true; return n; }
+      // Un aviso al equipo que el pedido no pidió se saca (lo que colgaba sigue en su lugar) y queda como sugerencia.
+      if (r.accion.operacion === OP_MAKO && est.ctx.soloLoPedido && !pidioAviso(est.ctx.pedido)) {
+        if (!avisos.includes(SUGERENCIA_AVISO)) avisos.push(SUGERENCIA_AVISO);
+        n.quitar = true;
+        return n;
+      }
       n.paso = { accion: r.accion };
       return n;
     }
@@ -1143,8 +1172,10 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
       avisoUnaVez(`no:${ref}`, 'Una tarjeta seguía en otra que no existe: lo corté');
       return { tipo: 'nada' };
     }
+    // Una flecha a «Si responde» (que escucha desde el CRON) se corta SIN AVISO (20/10/2026): «corté la flecha» le llegaba
+    // a la clienta como jerga de una reparación que no cambia nada de lo que sale (#284 de ws11). Queda en el log.
     if (n.clase === 'respuesta') {
-      avisoUnaVez(`resp:${ref}`, '«Si responde» no cuelga de ninguna tarjeta: corté la flecha');
+      if (!avisados.has(`resp:${ref}`)) { avisados.add(`resp:${ref}`); console.info('[flujo-ia] una flecha apuntaba a «Si responde»: cortada'); }
       return { tipo: 'nada' };
     }
     // Adentro de «Si responde» todo corre en el momento: una espera ahí se saca.
@@ -1588,6 +1619,13 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
     est.avisos.push(`Saqué el Si responde: el AI Step de ${NOMBRE_CANAL[social]} se suma desde el ＋`);
     usadas = sinRespuesta(usadas);
   }
+  // SÓLO LO PEDIDO (20/10/2026): un «Si responde» va si el pedido habla de lo que contesta el lead o si un mensaje le
+  // pregunta algo. Si no, lo armaba la regla 8 de antes («completa») y nadie lo había pedido. Se saca sin aviso: es
+  // algo que el pedido no tenía.
+  if (ctx.soloLoPedido && usadas.some((c) => c.tipo === 'si_responde') && !pidioRespuesta(ctx.pedido)
+    && !usadas.some((c) => c.tipo === 'mensaje' && c.raw.ia !== true && /\?/.test(str(c.raw.texto)))) {
+    usadas = sinRespuesta(usadas);
+  }
 
   // «Si responde»: una sola. Los casos de las demás se suman a la primera.
   const respuestas = usadas.filter((c) => c.tipo === 'si_responde');
@@ -1634,7 +1672,11 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
   // no entra (una condición, un texto fijo), queda como «Si responde» de los de siempre (que no lleva objetivo).
   if (pasos.some((p) => claseDe(p) === 'respuesta')) {
     const objetivo = objetivoDeIA(respuestas.map((c) => c.raw.objetivo), est.avisos);
-    const comoIA = respuestaAPasoIA(pasos, undefined, { objetivo });
+    // CREAR (20/10/2026, #284): un «Otra cosa» que CONTESTA (un «MaKo contesta») no entra en un AI Step, cuyo «Lo demás»
+    // sólo avisa, y dejaba el «Si responde» con tres tarjetas de IA colgando. Pasa a ser un escenario más, «Otra cosa»,
+    // con la misma respuesta: contesta igual, y queda UN AI Step con el objetivo (memoria «UN AI Step por objetivo»).
+    const base = ctx.soloLoPedido ? otraCosaComoCaso(pasos, rnd) : pasos;
+    const comoIA = respuestaAPasoIA(base, undefined, { objetivo });
     if (!('error' in comoIA)) pasos = comoIA.pasos;
   }
   // Lo que el modelo armó FUERA de las piezas de hoy (undécima tanda, lib/flujo-forma.ts): se dice, la persona lo ve.
@@ -1647,6 +1689,23 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
     nombre: str(o.nombre).trim() || null,
     disparador,
   };
+}
+
+/** El escenario en que se vuelve el «Otra cosa» que contesta (`otraCosaComoCaso`). */
+export const CASO_OTRA_COSA = { titulo: 'Otra cosa', cuando: 'Pregunta o dice algo que no es lo de arriba' } as const;
+
+/**
+ * EL «OTRA COSA» QUE CONTESTA, COMO UN ESCENARIO MÁS del «Si responde» (para plegarlo a UN AI Step). Sólo si lo que cuelga
+ * de «Otra cosa» es UN «MaKo contesta» (un WhatsApp con `tipo: 'ia'`) que no sigue a nada más: lo demás queda como estaba
+ * y `respuestaAPasoIA` decide.
+ */
+function otraCosaComoCaso(pasos: PasoIA[], rnd: () => number): PasoIA[] {
+  const i = pasos.findIndex((p) => claseDe(p) === 'respuesta');
+  const r = i >= 0 ? pasos[i] : null;
+  const destino = r?.si_no ? pasos.find((p) => p.id === r.si_no) : undefined;
+  if (!r || !destino || claseDe(destino) !== 'mensaje' || destino.tipo !== 'ia' || destino.siguiente || destino.paralelos?.length) return pasos;
+  const caso = { id: nuevoId(pasos, rnd), ...CASO_OTRA_COSA, siguiente: destino.id! };
+  return pasos.map((p, k) => (k === i ? { ...p, casos: [...(p.casos ?? []), caso], si_no: null } : p));
 }
 
 /**
@@ -2235,7 +2294,8 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
     ...(pregunta ? { pregunta } : {}),
     ...(disparador !== undefined ? { disparador } : {}),
   };
-  out.resumen = resumenEdicion(out);
+  // 20/10/2026: tarjeta por tarjeta, con cómo quedó y «toca Publicar» (`resumenEdicionDetalle`), no sólo el conteo.
+  out.resumen = resumenEdicionDetalle(base, out);
   return out;
 }
 
@@ -2381,6 +2441,33 @@ export function resumenEdicion(r: Pick<ResultadoEdicion, 'cambiadas' | 'quitadas
     r.quitadas.length ? `saqué ${r.quitadas.length}` : '',
     r.agregadas.length ? `agregué ${r.agregadas.length}` : '',
   ].filter(Boolean).join(' · ').replace(/^./, (c) => c.toUpperCase());
+}
+
+/** Cuántas tarjetas nombra el resumen de una edición; las demás van en «y N más». */
+export const TOPE_RESUMEN_EDICION = 3;
+/** El cierre de una edición: lo cambiado está en el borrador, no salió. */
+export const CIERRE_EDICION = 'Está en el borrador: toca Publicar.';
+
+/**
+ * EL RESUMEN DE UNA EDICIÓN, TARJETA POR TARJETA (20/10/2026). Leila pidió «no pongas hermosa, pon el nombre» y MaKo
+ * contestó «Cambié 2»: no decía qué tarjeta, cómo quedó, ni que faltaba Publicar. Ahora, con el nombre de cada tarjeta
+ * como se lee en el lienzo (`nombreDeTarjeta`): «Cambié «WhatsApp: Holaa hermosa…»: ahora «WhatsApp: Holaa {{nombre}}…»»,
+ * hasta `TOPE_RESUMEN_EDICION` y «y N más», y cierra con `CIERRE_EDICION`. Nada → ''.
+ */
+export function resumenEdicionDetalle(base: readonly PasoGrafo[], r: Pick<ResultadoEdicion, 'pasos' | 'cambiadas' | 'quitadas' | 'agregadas'>): string {
+  const antes = base.map((p, i) => ({ ...p, id: idDe(p, i) }));
+  const lineas = [
+    ...r.cambiadas.map((id) => {
+      const a = nombreDeTarjeta(antes, id);
+      const b = nombreDeTarjeta(r.pasos, id);
+      return a === b ? `Cambié «${a}»` : `Cambié «${a}»: ahora «${b}»`;
+    }),
+    ...r.quitadas.map((id) => `Saqué «${nombreDeTarjeta(antes, id)}»`),
+    ...r.agregadas.map((id) => `Agregué «${nombreDeTarjeta(r.pasos, id)}»`),
+  ];
+  if (!lineas.length) return '';
+  const resto = lineas.length - TOPE_RESUMEN_EDICION;
+  return [...lineas.slice(0, TOPE_RESUMEN_EDICION), ...(resto > 0 ? [`y ${resto} más`] : []), CIERRE_EDICION].join('\n');
 }
 
 /** El error del canal social que NUNCA se perdona como «ya estaba» (es justo lo que el cambio de canal tiene que arreglar). */
@@ -2773,7 +2860,14 @@ export function leyendoDe(ctx: CtxIA, perfil: string): LeyendoIA {
 
 // ── El USER del prompt (lo variable: AGENTS.md, un override no conoce bloques nuevos) ─
 
-export type DatosPedido = { perfil: string; voz: string | null; pedido: string };
+export type DatosPedido = {
+  perfil: string; voz: string | null; pedido: string;
+  /**
+   * EL RECURRENTE (20/10/2026, lib/flujo-ia-recurrente.ts): las líneas «CUÁNDO / A QUIÉN» que armó el código
+   * (`lineaRecurrente`), y si a quién ya está puesto (entonces DISPARADORES no viaja: son tokens de Groq que no se usan).
+   */
+  recurrente?: { linea: string; conQuien: boolean };
+};
 
 /** Los topes de lo que viaja al modelo, en caracteres. Cada carácter de más le resta salida a Groq (`salidaParaIA`). */
 const TOPE_PERFIL = 1800;
@@ -2840,13 +2934,17 @@ export function userDeCrear(ctx: CtxIA, d: DatosPedido): string {
   const pedido = [
     `EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`,
     ...(canal && esCanalSocial(canal) ? [`CANAL: "${canal}" (los mensajes al lead van por ahí)`] : []),
+    ...(d.recurrente ? [d.recurrente.linea] : []),
     'Arma la automatización.',
   ];
-  const sin = [...bloquesDeContexto(ctx, d), ...pedido].join('\n\n');
-  const p = plantillaParaPedido(d.pedido);
+  const contexto = bloquesDeContexto(ctx, d, d.recurrente?.conQuien ? { cron: false } : {});
+  const sin = [...contexto, ...pedido].join('\n\n');
+  // Un Recurrente o una difusión no tienen plantilla en la galería: la de «recordatorio» (Un Lead Agendó Llamada, con
+  // avisos al equipo y «Si responde») le enseñaba a armar lo que nadie pidió (20/10/2026, Leila).
+  const p = d.recurrente ? null : plantillaParaPedido(d.pedido);
   if (!p) return sin;
   const con = [
-    ...bloquesDeContexto(ctx, d),
+    ...contexto,
     `LA DE ESA CATEGORÍA (de la galería: «${p.nombre}»; úsala de base y adáptala al pedido y al negocio, sin copiar sus textos):\n${JSON.stringify(ejemploDePlantilla(p))}`,
     ...pedido,
   ].join('\n\n');
@@ -2913,10 +3011,17 @@ export const PALABRAS_PLANTILLA: ReadonlyArray<readonly [id: string, palabras: R
 /** Sin acentos, sin mayúsculas, sin espacios de más. */
 const planoPedido = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-/** LA PLANTILLA DE LA CATEGORÍA MÁS CERCANA AL PEDIDO (`PALABRAS_PLANTILLA`), o null: sin coincidencia va el ejemplo de siempre. */
+/** Una DIFUSIÓN («un mensaje masivo», «a toda la base»): no tiene categoría en la galería. */
+const RX_DIFUSION = /difusi|masiv|toda (?:la|mi|nuestra) base/;
+
+/**
+ * LA PLANTILLA DE LA CATEGORÍA MÁS CERCANA AL PEDIDO (`PALABRAS_PLANTILLA`), o null: sin coincidencia va el ejemplo de siempre.
+ * Una difusión no tiene plantilla (20/10/2026): «recordatorio» la mandaba a «Un Lead Agendó Llamada», con sus avisos al
+ * equipo y su «Si responde». El Recurrente tampoco, y eso lo decide `userDeCrear` (`d.recurrente`).
+ */
 export function plantillaParaPedido(pedido: string): PlantillaAutomatizacion | null {
   const t = planoPedido(String(pedido ?? ''));
-  if (!t) return null;
+  if (!t || RX_DIFUSION.test(t)) return null;
   for (const [id, rx] of PALABRAS_PLANTILLA) if (rx.test(t)) return PLANTILLAS.find((p) => p.id === id) ?? null;
   return null;
 }
@@ -3014,7 +3119,7 @@ REGLAS (el código las comprueba y saca lo que no cumpla):
 5. Hasta ${TOPE_TARJETAS_IA} tarjetas, ${TOPE_PARALELOS} caminos a la vez por tarjeta, ${TOPE_RAMAS} ramas por condición y ${TOPE_FILAS} filas por rama.
 6. No inventes precios, cifras, plazos, resultados ni herramientas que no estén en el negocio o en el pedido.
 7. Escribe con la GUÍA DE VOZ. Sin guía: español neutro, cercano y directo, con tú, aunque el negocio sea del Río de la Plata.
-8. Una automatización por categoría, completa: los recordatorios van con "antes_de_reunion", el aviso al equipo con "avisar_al_equipo" y lo que contesta en UN "si_responde" con varios casos. Entre dos "condicion" va un mensaje o un aviso.
+8. Arma SÓLO lo que pide el pedido: sin avisos al equipo, etiquetas, esperas, seguimientos ni "si_responde" que no pida. Si un mensaje le pregunta algo al lead, lo que conteste va en UN "si_responde" con su "objetivo". Un recordatorio de una reunión va con "antes_de_reunion". Entre dos "condicion" va un mensaje o un aviso.
 9. Por "instagram" o "messenger" Meta no deja escribir primero: el disparador es de ese canal, sin armar "si_responde" y sin esperar más de 24 h antes de un DM.`;
 
 // ⚠️ EL EJEMPLO OBEDECE A LAS REGLAS QUE ENSEÑA (revisión, 09/10/2026). La guía de «Quiere agendar»
@@ -3025,6 +3130,9 @@ REGLAS (el código las comprueba y saca lo que no cumpla):
 // (17/10/2026, #849) Sin «Devuelves el flujo como un objeto JSON.» en la primera línea: lo dice el cierre
 // («Devuelve EXCLUSIVAMENTE el objeto JSON»), y esos ~11 tokens pagan la condición «Contestó el equipo»
 // bajo el techo de Groq (tests/crear-ia-tercera.test.ts estaba en ~4.005 de 4.000).
+// (20/10/2026, Leila) Sin el «avisar_al_equipo» de la t4: era el ÚNICO ejemplo, y con la regla 8 de antes («completa:
+// … el aviso al equipo») el modelo le ponía dos avisos a un recordatorio que no los pedía (#284). La regla 8 dice ahora
+// «SÓLO lo que pide el pedido», y lo cumple el código (`pidioAviso`, `pidioRespuesta`).
 export const CREAR_IA_SYSTEM_TEMPLATE = `Armas AUTOMATIZACIONES de ${NOMBRES_CANALES} para un negocio: un flujo de tarjetas que arranca solo (el CRON) y les escribe a sus leads. Te paso el negocio, sus listas y el pedido del dueño.
 
 ${TARJETAS_Y_REGLAS}
@@ -3035,8 +3143,7 @@ LA FORMA (un ejemplo; no copies sus textos):
 {"nombre": "Bienvenida a quien dejó sus datos", "disparador": "d1", "etiquetas_nuevas": ["Seguimiento"], "inicio": "t1", "tarjetas": [
 {"id": "t1", "tipo": "mensaje", "canal": "whatsapp", "texto": "Hola {{nombre}}, vi que dejaste tus datos. ¿Te sirve que hablemos esta semana?", "link": "agenda", "sigue": "t2"},
 {"id": "t2", "tipo": "esperar", "horas": 24, "sigue": "t3"},
-{"id": "t3", "tipo": "condicion", "ramas": [{"si": [{"campo": "agendo"}], "sigue": "t4"}], "si_no": "t5"},
-{"id": "t4", "tipo": "accion", "operacion": "avisar_al_equipo", "datos": {"mensaje": "Agendó después de la bienvenida"}},
+{"id": "t3", "tipo": "condicion", "ramas": [{"si": [{"campo": "agendo", "no": true}], "sigue": "t5"}]},
 {"id": "t5", "tipo": "etiqueta", "poner": "Seguimiento"},
 {"id": "r1", "tipo": "si_responde", "objetivo": "Que agende una llamada", "casos": [{"titulo": "Quiere agendar", "cuando": "Pide un horario o pregunta cómo agendar", "sigue": "r2"}], "otra_cosa": null},
 {"id": "r2", "tipo": "mensaje", "canal": "whatsapp", "ia": true, "texto": "Dile que con gusto hablan y pásale el link para que elija cuándo.", "link": "agenda"}
@@ -3226,6 +3333,10 @@ export type ListoIA = {
    * 09/10/2026): `disparo` es un estado sembrado al montar. Editar no toca el disparador.
    */
   disparador?: string | null;
+  /** Crear: el horario del Recurrente puesto con `disparador` (20/10/2026); la tarjeta CRON lo siembra igual que el server. */
+  cron?: CronAviso | null;
+  /** Crear: lo que dijo MaKo («Creé «X»: sale … Manda «…»»), armado por el server con lo guardado (`textoDeCreada`). */
+  texto?: string;
 } & Partial<ExtrasEdicionIA>;
 
 /**

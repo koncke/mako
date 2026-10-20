@@ -13,7 +13,11 @@ import 'server-only';
 // ⚠️ NADA SE COPIA: se lee de chart_sessions/chart_chats, donde ya está (el principio del grafo: una proyección).
 
 import { getUsuarioActual } from '@/lib/auth';
-import { getRolWsEfectivo } from '@/lib/workspace';
+import { getCapaActual, getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { puedeVerKey } from '@/lib/movil-rutas';
+import { leerConversacionOffer, listarSesionesOffer } from '@/lib/offer-sesiones';
+import { mensajesDeOffer, offerDelOnboardingCopiada } from '@/lib/chat-mako-reglas';
+import { getSetting } from '@/lib/settings';
 import {
   esChatDelTelefono, getSession, getSessionMessages, listAllSessions, listSessions, listSessionsDePersona,
   type ChartMsg, type ChartSession,
@@ -114,4 +118,46 @@ export async function hiloDelGrupoMaKo(
   if (!jid) return null;
   const { filas, hayMas } = await hiloDelGrupo(p.ws, jid, { antes, limite: 60 });
   return { mensajes: filas.map((f) => ({ role: f.role, content: f.content, created_at: f.created_at })), hayMas };
+}
+
+// ── Las conversaciones de las TABS en el Ops Center (20/10/2026): una proyección, sin copiar ─────────────────────────────
+// Martín: «Revisa que el chat de OFFER no está llegando al Ops Center, eso está muy mal». Medido ese día: Offer guarda en
+// `offer_sesiones` (por workspace) y el Ops Center leía sólo `chart_sessions` con la clave exacta `mako-movil:<persona>`:
+// las 6 conversaciones de Offer (ws1 ×2, ws10, ws11, ws13, ws21) no se veían en ningún lado. Es la decisión 5 de
+// docs/diseno-mako-ai-native.md: «Offer y Automations no se mudan: los lee un índice nuevo, sin copiar filas».
+// ⚠️ CADA PROYECCIÓN DICE SU ORIGEN Y SU ALCANCE, para que las que siguen se enchufen igual: CRM (`:crm:%`, `:lead:%`),
+//    Automations (`automatizacion.chat:*`) y el grupo. Offer es por WORKSPACE (no por persona): la ve quien ve la tab, con
+//    la MISMA puerta que la tab (`puedeVerKey('offer', rol, capa)`); un closer o un setter sin Offer no la ve.
+// ⚠️ Martín, mirando un ws como super admin, ve SUS chats de chart_sessions; lo de Offer, al ser del workspace, sí lo ve.
+
+/** Las proyecciones del índice: de dónde sale cada chat que no vive en chart_sessions, a quién alcanza y su tab. */
+export const PROYECCIONES = [{ origen: 'offer', alcance: 'workspace', tab: 'offer' }] as const;
+export type OrigenDeChat = (typeof PROYECCIONES)[number]['origen'];
+
+export type ChatDeOffer = { id: number; titulo: string; updatedAt: string; origen: 'offer'; alcance: 'workspace' };
+
+/** El workspace del pedido, si quien pide ve la tab Offer (la puerta de la tab, la misma del teléfono). null = no la ve. */
+async function wsSiVeOffer(): Promise<number | null> {
+  const [rolWs, ws, capa] = await Promise.all([getRolWsEfectivo(), getWorkspaceActual(), getCapaActual().catch(() => null)]);
+  return rolWs && ws != null && puedeVerKey('offer', rolWs, capa) ? ws : null;
+}
+
+/** Las conversaciones de Offer del negocio, la más reciente primero. [] = no ve la tab, o no hay. */
+export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
+  const ws = await wsSiVeOffer();
+  if (ws == null) return [];
+  // La del onboarding, si ya tiene su chat «Onboarding» (lo copia hiloDelOnboarding), no se lista: saldría dos veces.
+  const [lista, arranque] = await runWithWorkspace(ws, () => Promise.all([listarSesionesOffer(), getSetting('onboarding.arranque').catch(() => null)]));
+  const copiada = offerDelOnboardingCopiada(arranque);
+  return lista.filter((s) => s.id > 0 && s.id !== copiada).map((s) => ({ id: s.id, titulo: s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace' }));
+}
+
+/** Una conversación de Offer, para leerla en el Ops Center. null = no ve la tab, o no es de este negocio (no se distingue). */
+export async function hiloDeOffer(id: number): Promise<{ sesion: ChatDeOffer; mensajes: MensajeChat[] } | null> {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const ws = await wsSiVeOffer();
+  if (ws == null) return null;
+  const c = await runWithWorkspace(ws, () => leerConversacionOffer(id));
+  if (!c) return null;
+  return { sesion: { id: c.id, titulo: c.titulo, updatedAt: c.updatedAt, origen: 'offer', alcance: 'workspace' }, mensajes: mensajesDeOffer(c.mensajes) };
 }

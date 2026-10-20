@@ -17,8 +17,11 @@
 
 import type { Disparador } from './disparadores';
 
-/** Sobre qué pregunta MaKo (§2.4). */
-export type SobrePregunta = 'canal' | 'producto' | 'evento' | 'cron' | 'condicion';
+/**
+ * Sobre qué pregunta MaKo (§2.4). `horario` y `quien` (20/10/2026, el Recurrente de Leila): el horario de un Recurrente
+ * y a quién le llega (lib/flujo-ia-recurrente.ts). Se SUMAN: un chat guardado con los de antes se sigue leyendo igual.
+ */
+export type SobrePregunta = 'canal' | 'producto' | 'evento' | 'cron' | 'condicion' | 'horario' | 'quien';
 export type OpcionPregunta = { valor: string; label: string; detalle?: string };
 export type PreguntaMako = { id: string; sobre: SobrePregunta; texto: string; opciones: OpcionPregunta[]; otra: true };
 /** valor null = «Elige tú»; texto = «Otra cosa». */
@@ -51,7 +54,7 @@ export const TOPE_TARJETA_CHAT = 160;
 const TOPE_OPCIONES = 8;
 const TOPE_AVISOS = 20;
 
-const SOBRES: ReadonlySet<string> = new Set<SobrePregunta>(['canal', 'producto', 'evento', 'cron', 'condicion']);
+const SOBRES: ReadonlySet<string> = new Set<SobrePregunta>(['canal', 'producto', 'evento', 'cron', 'condicion', 'horario', 'quien']);
 
 const esObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const esId = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= 80;

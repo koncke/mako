@@ -24,7 +24,7 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
 import { EditorDisparadores, useDisparadores, useTextoDisparador, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { disparoActualDe, disparadorDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
+import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
 import { problemasDeTokens } from '@/lib/tokens-del-flujo';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
@@ -554,7 +554,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       // Con varios CRON (sexta tanda), la IA pone el PRIMERO: los demás siguen como estaban.
       // Duodécima tanda: con `disparadorDeValorIA`, lo MISMO que guardó el server (`ponerDisparador`). `disparoDeValor`
       // no entiende `instagram:dm`, `pago:aprobado` ni `etiqueta_agregada` y la tarjeta seguía con el de antes.
-      const puesto = r.disparador ? disparadorDeValorIA(r.disparador)[0] : undefined;
+      // Un Recurrente (20/10/2026) viene con su horario: `recurrenteDeValorIA`, lo MISMO que guardó el server.
+      const puesto = r.disparador ? (r.cron ? recurrenteDeValorIA(r.disparador, r.cron) : disparadorDeValorIA(r.disparador))[0] : undefined;
       if (puesto) crons.sembrarPrimero(puesto);
       onCambio();
     } else {

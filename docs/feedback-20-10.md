@@ -78,6 +78,76 @@ quedó.
 - **Decide Martín (o Leila):** aprobar los 31 y pausar #284 para no duplicar.
 - **Hallazgo:** docs/hallazgos-chatbot.md.
 
+### 7. «Otro error que Leila me envía»: «Ese número no tiene WhatsApp» (lead #2313)
+- **Causa:** `enviarTexto` (lib/evolution.ts:857) manda el número tal cual. 53 de los 70 leads del ws11 lo tienen en 10 dígitos, sin el 52, y 27 de sus 32 borradores pendientes fallarían igual.
+- **Encargo:** **MaKo Alert**, urgente. Al mandar, un número de 10 dígitos lleva el código de país de la línea, sin tocar los datos del cliente. Pasa por revisión adversarial antes de subir.
+- **Mientras tanto:** la #284 quedó PAUSADA (Martín, 20/10 21:37 UTC) para no duplicar el recordatorio de la #282.
+- **Al desplegar:** aviso en el grupo del ws11, firmado «Desarrollador de MaKo» (regla nueva de AGENTS.md).
+
+### 8. «Te pedí que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades... en el onboarding y en otros lugares el chat sigue siendo diferente»
+- **Registro:** la regla «un solo chat en toda la app» es del 18/10 (docs/feedback-18-10.md, pts 1, 5, 7, 11, 12 y 15), y quedó «después del 20/10». Ese después ya llegó.
+- **Inventario del 20/10.** Los chats de MaKo que NO usan las piezas del Ops Center:
+  - app/second-brain/ChatSecondBrain.tsx: el Ops Center de los clientes, con su propia versión;
+  - app/offer/ChatOffer.tsx y app/m/offer/ComposerOfferM.tsx: `ComposerWhatsApp`;
+  - app/automations/ChatMako.tsx: `ComposerWhatsApp`;
+  - app/crm/lead-view/MakoAnalystLead.tsx: `ComposerWhatsApp`;
+  - app/dashboard/EditorMako.tsx;
+  - app/web-generator/editor/paneles/PanelAgente.tsx;
+  - app/video-editor/_opencut/chat/PanelChat.tsx;
+  - app/image-editor/mako/chat/PanelMakoIA.tsx;
+  - app/plan/board/MakoProyecto.tsx;
+  - app/_components/MakoChat.tsx.
+- **El onboarding** ya tiene el composer del Ops Center (punto 3, rama onboarding-v3), todavía sin desplegar.
+- **Encargo:** **Ops Center 3** saca el chat del Ops Center (Conversacion.tsx / ChatsMovil.tsx) como UNA pieza compartida.
+  - Migra primero el Ops Center de los clientes.
+  - Suma un test que falle si una pantalla de MaKo arma su propio chat.
+  - Después, cada chat de área migra la suya con esa pieza.
+
+### 9. «No sé de dónde sacaste eso de "Mapa" en los clientes... Para todos tiene que ser "Second Brain"»
+- Ya estaba pedido el 18/10 (pt 1). Quedó arreglado en cf255c7f1 (Second Brain, 20/10), que sale con el deploy de abdb2504a.
+- La captura era de antes de ese deploy.
+
+### 10. «El Second Brain de SuperAdmin ya te había pedido que no se dividiera en 2... En ningún caso jamás los cerebros se deben dividir en 2»
+- **Registro:** lo pidió el 17/10 («no pongas 2 grafos, todo 1 solo… para eso existen los filtros») y el 18/10 (pt 4: «el super admin con UN solo grafo»).
+- **El código:** desde 08c34967b (17/10) dibuja un solo `<Grafo>` con `unirCerebros` (lib/cerebro-union.ts).
+- **El diagnóstico obvio («ya está hecho») no alcanza:** Martín lo ve partido. Hay que mirar QUÉ se dibuja, por ejemplo dos raíces o dos racimos que la física separa.
+- **Encargo:** **Second Brain**, verificado en el navegador.
+- **Regla nueva (AGENTS.md):** ningún cerebro, de ningún negocio, se divide en dos.
+
+### 11. «En la preview de los chats… Jamás debe decir el subtítulo las cosas que ponen… O debe decir "Trabajando..." o "Espera tu respuesta" o no tener subtítulo»
+- **Hoy:** la fila de cada chat en /admin/operaciones muestra el paso en curso («Check onboarding guard…», «Escribe flujo-ia-recurrente.ts»), lo de los `pasos` del cartero 1.15.3.
+- **Encargo:** **Ops Center 3**, antes del chat unificado. La fila dice sólo «Trabajando…», «Espera tu respuesta» o nada, en la computadora y en el teléfono. El paso puede seguir adentro del hilo.
+
+### 12. CRM: «No veo el chat con MaKo… Muchos cambios aún no están, como que las columnas no sean invisibles… las cards personalizables… "Tablero y lista" sólo con íconos… ¿está lo de vincular una etapa de reunión a un evento?»
+- **El chat con MaKo en el CRM:** ChatMakoCrm existe, pero Martín no lo ve. Va como barra fija a la derecha (regla del 18/10, «Editar = el patrón de Web Generator») y con la pieza única del chat del Ops Center.
+- **Las columnas invisibles:** pedidas el 18/10 (pt 8: «la columna con su bloque de fondo») y nunca hechas.
+- **Las cards personalizables** y **«Tablero» y «Lista» sólo con íconos:** nuevos.
+- **Vincular una etapa de reunión a un evento: YA ESTÁ** desde el 16/10 (c7f7b5609), en el «⋯» de la etapa → «Asignar evento», con Calendly y Cal.com.
+  - Google Calendar no está: su API no lista las páginas de reserva (app/crm/EventosDeEtapaModal.tsx:18).
+- **Encargo:** **CRM**, que primero arma docs/pedidos-crm.md con TODO lo que Martín pidió para el CRM y su estado. Eso contesta «muchos cambios aún no están».
+
+### 13. «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la funcionalidad que creamos de respuestas múltiples en Ops Center...»
+- **Causa:** Debate sí recibió la respuesta (21:10Z). Después cerró sus turnos sólo con el recuadro de la app (`wrap_up`, con pregunta y botones), sin texto. El cartero sube sólo texto, así que nada de eso llegó al Ops Center.
+- **Hecho:** Debate vuelve a preguntar con `cartero preguntar`, el formulario de opciones.
+- **Encargo de fondo:** **Ops Center 3**. El cartero sube el resumen de un `wrap_up` como mensaje, y su pregunta y sus botones como formulario.
+- **Hallazgo:** docs/hallazgos-operaciones.md.
+
+### 14. «Comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo, mapea al 100% todo lo que eso conlleva, y la inteligencia que tienen que tener cada chat... No elimines por ahora las tabs... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...»
+- **En curso (20/10):** el mapeo al 100%, con ocho agentes por áreas más uno de síntesis y un crítico.
+  - Por cada acción de cada tab mide si el Ops Center ya puede hacerla, qué falta (herramienta, motor, bloque en el chat, confirmación) y qué inteligencia necesita el chat del área.
+  - Sale un documento maestro con el plan por olas y por chat.
+- **Después:** reparto por olas a los chats de área. Lo transversal (los bloques en el chat, la confirmación adentro, los sub-chats) va a Ops Center 3.
+- Las tabs quedan.
+
+### 15. «Veo MaKo mobile roto, como si estuviera en desktop, solucionalo» (Ops Center, 19:36, pedido d4bc0840)
+- **Causa:** «General» (Horario y Criterio) no tiene pantalla en el teléfono. Su hoja «Abrir en la computadora» pone la cookie `mako_vista=escritorio` por 12 h y para TODA la app (lib/movil-dispositivo.ts), y ningún botón la borra (`cookieVistaMovil` no tiene llamadores).
+  - El desvío (`pedidoMovil`) está bien: con un teléfono sin la cookie, todo va a /m.
+- **Encargo:** **Sidebar**, urgente.
+  - El botón «Volver a la versión del teléfono».
+  - «Abrir en la computadora» sólo para ESA pantalla.
+  - Después, General con su pantalla en /m.
+- **El cierre** del pedido lo hace el Cerebro con el deploy.
+
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 
 | Pedido (minuto) | Estado | De quién |
