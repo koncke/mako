@@ -567,7 +567,7 @@ Las hojas de la pantalla General de una persona (cada una con sus bloques, gráf
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
+| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite: en el chat de la app, la de quien chatea; si no, la única persona admin de la cuenta. |
 
 ```bash
 curl -L \
@@ -594,7 +594,7 @@ Propone agregar una hoja nueva a la pantalla General de una persona: desde una p
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
+| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite: en el chat de la app, la de quien chatea; si no, la única persona admin de la cuenta. |
 | `plantilla` | string (general \\| bienvenida \\| foco \\| operacion \\| ventas \\| cobros \\| anuncios \\| funnel-llamadas \\| funnel-whatsapp \\| lanzamiento \\| servicio \\| curso \\| instagram) | no | id de la plantilla de General. Usa esto O pedido. |
 | `pedido` | string | no | Qué quiere ver al entrar, en palabras, para que MaKo arme la hoja. Usa esto O plantilla. |
 | `nombre` | string | no | Cómo se llama la hoja (default: el de la plantilla o el que elija MaKo). |
@@ -625,7 +625,7 @@ Cambia una hoja de General con un pedido en palabras («agrega mis tareas priori
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
+| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite: en el chat de la app, la de quien chatea; si no, la única persona admin de la cuenta. |
 | `hoja` | string | no | id de la hoja (de listar_hojas_general). Si se omite, la primera. |
 | `pedido` | string | sí | Qué cambiar en la hoja, en palabras. |
 
@@ -657,7 +657,7 @@ Propone agregar UN bloque de General (el objetivo y la acción del día, los OKR
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
+| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite: en el chat de la app, la de quien chatea; si no, la única persona admin de la cuenta. |
 | `hoja` | string | no | id de la hoja (de listar_hojas_general). Si se omite, la primera. |
 | `bloque` | string (cabecera \\| accion \\| objetivos \\| kpis \\| semaforo \\| tareas \\| prioridades \\| deadlines \\| proyectos \\| agenda \\| llamadas \\| pendientes \\| funnel \\| cobranza \\| mes \\| publicaciones) | sí | id del bloque de General. |
 | `titulo` | string | no | Un título propio para el bloque (vacío = el de siempre). |
@@ -710,7 +710,7 @@ Propone cambiar las opciones de UN bloque que ya está en una hoja de General (c
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
+| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite: en el chat de la app, la de quien chatea; si no, la única persona admin de la cuenta. |
 | `hoja` | string | sí | id de la hoja (de listar_hojas_general). |
 | `elemento` | string | sí | id del bloque en esa hoja (de listar_hojas_general). |
 | `opciones` | object | no | Las opciones a cambiar, como {opción: valor}. Las que no pases quedan como están. |
@@ -7475,7 +7475,7 @@ Una hoja del informe de una persona con su configuración y sus números: la cab
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 
 ```bash
@@ -7500,7 +7500,7 @@ El último análisis del AI Analyst de una hoja: el resumen, los hallazgos con s
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 
 ```bash
@@ -7528,7 +7528,7 @@ Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: des
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `plantilla` | string | no | El id de una plantilla de hoja (de ver_catalogo_dashboard). |
 | `pedido` | string | no | Qué quiere ver, en palabras, para que MaKo arme la hoja. Usa esto O plantilla. |
 | `nombre` | string | no | El nombre de la pestaña. Default: el de la plantilla, el que elija MaKo o «Página N». |
@@ -7561,7 +7561,7 @@ Cambia una hoja del Dashboard con un pedido en palabras («agrega el CPL por sem
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `pedido` | string | sí | Qué cambiar en la hoja, en palabras. |
 
@@ -7593,7 +7593,7 @@ Cambia cómo se llama o se ve una hoja del Dashboard: nombre, emoji, subtítulo,
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `nombre` | string | no | El nombre nuevo de la pestaña. |
 | `emoji` | string | no | Un emoji al lado del título. «-» lo saca. |
@@ -7638,7 +7638,7 @@ Copia una hoja del Dashboard con todos sus gráficos y filtros, al lado de la or
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 
 ```bash
@@ -7669,7 +7669,7 @@ Borra una hoja del informe del Dashboard de una persona, con sus gráficos. No s
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 
 ```bash
@@ -7700,7 +7700,7 @@ Agrega un gráfico a una hoja del Dashboard: un `tipo` (tabla, serie, barras, ci
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `tipo` | string | no | El tipo de gráfico (de ver_catalogo_dashboard). Va con conjunto y metricas. |
 | `conjunto` | string | no | El id del conjunto de datos (leads, meta, pagos, llamadas…; la lista en ver_catalogo_dashboard). Va con tipo. |
@@ -7748,7 +7748,7 @@ Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, 
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `componente` | string | sí | El id del gráfico o del elemento (de leer_hoja_dashboard), o su título. |
 | `titulo` | string | no | El título que se ve arriba. Sin título, se arma solo con la métrica y la dimensión; al editar, «-» lo saca. |
@@ -7799,7 +7799,7 @@ Saca un gráfico o un elemento de una hoja del Dashboard, con los conectores que
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `componente` | string | sí | El id del gráfico o del elemento (de leer_hoja_dashboard), o su título. |
 
@@ -7831,7 +7831,7 @@ Agrega un filtro a la barra de arriba de una hoja: un período, una lista de val
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `tipo` | string | sí | periodo, lista (valores de un campo), texto (lo que contenga) o agrupar (día, semana o mes). |
 | `campo` | string | no | Para lista y texto: el campo (campana, closer, leads.etapa…; de ver_catalogo_dashboard, sección campos). |
@@ -7870,7 +7870,7 @@ Saca un filtro de la barra de arriba de una hoja del Dashboard. Se nombra por su
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `filtro` | string | no | El id del filtro (de leer_hoja_dashboard). |
 | `tipo` | string | no | En vez del id: el tipo del filtro (periodo, lista, texto o agrupar). |
@@ -7904,7 +7904,7 @@ Inserta un elemento en una hoja del Dashboard, según los tipos de ver_catalogo_
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `tipo` | string | sí | El tipo de elemento: texto, imagen, enlace, video, insertado, linea, flecha, seccion, ia o accion (la lista en ver_catalogo_dashboard). |
 | `texto` | string | no | El texto (un título, una nota), lo que dice un enlace, el título de una sección o de una caja de Conclusiones, o lo que dice un botón. |
@@ -7950,7 +7950,7 @@ Vuelve el informe de una persona al inicial de MaKo, con sus dos hojas: Marketin
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 
 ```bash
 curl -L \
@@ -7980,7 +7980,7 @@ Pone a MaKo a analizar los gráficos de una hoja y deja el resultado guardado. L
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `componentes` | string[] | no | Sólo estos gráficos (sus ids). Sin esto, todos los de la hoja. |
 
@@ -8012,7 +8012,7 @@ Programa cada cuánto MaKo analiza una hoja sola: cada N días, semanas o meses,
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `unidad` | string | sí | dia, semana, mes, o apagar para sacar el horario. |
 | `cada` | number | no | Cada cuántas unidades. Default 1. |
@@ -8050,7 +8050,7 @@ Corta el análisis de una hoja que está corriendo. El que sigue por detrás ter
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 
 ```bash
@@ -8081,7 +8081,7 @@ Une dos componentes de una hoja del Dashboard (gráficos o elementos) con una fl
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `origen` | string | sí | El componente donde arranca la flecha: su id (de leer_hoja_dashboard) o su título. |
 | `destino` | string | sí | El componente donde termina la flecha: su id o su título. |
@@ -8116,7 +8116,7 @@ Saca un conector de una hoja del Dashboard. Se nombra por su id (de leer_hoja_da
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `conector` | string | no | El id del conector (de leer_hoja_dashboard). |
 | `origen` | string | no | En vez del id: uno de los dos componentes que une (su id o su título). |
@@ -8147,7 +8147,7 @@ Lo último que escribieron las cajas «Conclusiones de MaKo» de una hoja (o la 
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `componente` | string | no | La caja: su id (de leer_hoja_dashboard) o su título. Sin esto, todas las de la hoja. |
 
@@ -8176,7 +8176,7 @@ Pone a MaKo a escribir una caja «Conclusiones de MaKo» de una hoja (el ↻ de 
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `persona` | string | no | El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
+| `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
 | `hoja` | string | sí | La hoja del informe: su id (de leer_hoja_dashboard) o su nombre, como se ve en la pestaña. |
 | `componente` | string | sí | La caja: su id (de leer_hoja_dashboard) o su título. |
 

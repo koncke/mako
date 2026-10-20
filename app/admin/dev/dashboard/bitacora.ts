@@ -669,4 +669,22 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/queries.ts', 'lib/api-mako/areas/metricas.run.ts', 'lib/api-mako/funnels-del-pedido.ts', 'tests/funnel-etapas-elegidos.test.ts — probado rompiéndolo'],
     revisar: '/api-mako',
   },
+  {
+    fecha: '20 oct', hora: '—', chat: 'Cerebro', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Ops Center = lo principal',
+    pedido: 'comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo',
+    puntos: ['El plan por olas está en docs/ops-center-principal.md. Al chat Dashboard le tocan la 1.5 (la persona del informe), la 2.6 (compartir, exportar y mover), la 2.7 (los bloques del Dashboard en el hilo) y el mapa de Experimentos y Closing Analyst.'],
+  },
+  {
+    fecha: '20 oct', hora: '21:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Mi hoja» es la de quien chatea',
+    puntos: [
+      'Desde el Ops Center, «agregá un gráfico a mi hoja» usa TU informe del Dashboard, como la pantalla, aunque la cuenta tenga varios informes guardados: ya no te pide un email.',
+      'Lo mismo con Focus (lo que era General).',
+      'Si nombras a otra persona, se usa el de ella. Por WhatsApp sigue como antes.',
+    ],
+    commits: [{ sha: '2404417d4', msg: 'Ops Center: «mi hoja» es la de quien chatea, y con 2 o más informes ya no pide un email (1.5)', lineas: 197, archivos: 13 }],
+    archivos: ['lib/api-mako/tipos.ts', 'lib/mako-turno-app.ts', 'lib/api-mako/areas/dashboard.helpers.ts', 'lib/general-plantillas.ts', 'tests/api-mako-mi-hoja.test.ts — probado rompiéndolo'],
+    revisar: '/second-brain',
+  },
 ];
