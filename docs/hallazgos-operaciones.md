@@ -1749,3 +1749,29 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
   - Un envío del Runner que queda retenido se le pasa ENTERO al Cerebro («REENVIAR A <sesión>: …»). El Cerebro se lo reenvía a ese chat, como su padre, y ahí sí entra.
   - Un chat nuevo se abre desde el Cerebro o en el mismo modo que el Runner.
 - **Chats en `auto` al 18/10:** Onboarding, Ops Center 3, CRM, Ticketera, Dashboard, Second Brain, MaKo Alert, Automations, Infra, Pagos y AI Avatar.
+
+## Un solo chat: la caja del Ops Center como UNA pieza (20/10/2026)
+
+- **Síntoma:** Martín: «Te pedí que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades... Y en el
+  onboarding y en otros lugares el chat sigue siendo diferente». La regla era del 18/10 y había quedado «después del 20/10».
+- **Causa:** no había una pieza para reusar. La caja del Ops Center vivía como JSX en línea en DOS archivos
+  (Conversacion.tsx y ChatsMovil.tsx). Cada pantalla de MaKo armó la suya (un <textarea>, `ComposerWhatsApp`, `ChatHilo`), y
+  el Ops Center de los clientes (ChatSecondBrain.tsx) tenía otra, con otro orden y sin el «+».
+- **Lo obvio era el error:** «copiar el composer del Ops Center». El onboarding lo hizo (rama onboarding-v3) y quedó una
+  TERCERA copia. Lo que unifica es una pieza y una guarda que impida la copia.
+- **El arreglo:**
+  - `app/_chat/CajaChat.tsx`, con todo lo de la caja del Ops Center. Lo de cada pantalla va por props: a quién, qué se manda,
+    qué va arriba (la cita, el texto largo pegado), qué va en el «+», qué acepta «Documento» (`accept`) y si Enter manda.
+  - Arrastrar y soltar sigue siendo de la PANTALLA, porque la zona es la conversación entera.
+  - La usan el Ops Center (computadora y teléfono) y el Ops Center de los clientes en la computadora.
+- **La trampa de la guarda:** buscar «mako» en el código es inútil (95 archivos con un campo de texto lo nombran). Sirve
+  «dibuja `HiloMako`, le habla a /api/mako/chat o /api/m/mako, o su caja le escribe "a MaKo"», más una caja propia. Así
+  encontró `app/whatsapp/WhatsAppAdvisor.tsx` («Pregúntale a MaKo…»), que el inventario del 20/10 no tenía.
+- **Regla:** en AGENTS.md («UNA SOLA CAJA PARA HABLAR CON MaKo»). tests/chat-unico.test.ts lleva la lista de lo que falta, y
+  una migración que no saca su archivo de «pendiente» falla.
+- **Sin hacer:**
+  - **El chat de MaKo del teléfono** (app/m/mako/Composer.tsx, el Ops Center de los clientes en el celular). Tiene tres cosas
+    que la pieza no tiene: la nota de voz manteniendo apretado, el teclado de iOS (`visualViewport`) y la vista previa a
+    pantalla completa de lo adjuntado (VistaAdjuntosM). Migrarlo hoy le sacaría funciones. Primero se le suman a la pieza.
+  - **El hilo sigue siendo dos:** `Hilo` (Ops Center, turnos de Claude Code) y `HiloMako` (MaKo, con sus tarjetas).
+  - **Las otras pantallas**, cada una de su chat (la lista, en el test).

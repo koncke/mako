@@ -773,4 +773,29 @@ export const BITACORA: Hito[] = [
       'tests/second-brain-offer.test.ts',
     ],
   },
+  {
+    fecha: '20 oct', hora: '18:50', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Un solo chat en toda la app',
+    pedido: 'Te pedí que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades... Y en el onboarding y en otros lugares el chat sigue siendo diferente...',
+    puntos: ['Lo pasó el Cerebro con el inventario del 20/10 (docs/feedback-20-10.md, punto 8): diez pantallas con su propio chat.'],
+  },
+  {
+    fecha: '20 oct', hora: '19:30', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La caja del Ops Center es una sola pieza, y el Ops Center de los clientes la usa',
+    pedido: 'Te pedí que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades',
+    revisar: '/second-brain',
+    puntos: [
+      'La caja para escribirle a MaKo es la misma en el Ops Center (computadora y teléfono) y en el Ops Center de los clientes.',
+      'En el Second Brain de los clientes ahora hay «+» con Documento, Fotos, Cámara y Pegar, emojis, listas y links azules.',
+      'Una pantalla nueva que arme su propia caja para hablar con MaKo ya no pasa los tests.',
+      'Falta pasar a la misma caja el chat de MaKo del teléfono y las pantallas de cada tab (Offer, CRM, Automations…).',
+    ],
+    archivos: [
+      'app/_chat/CajaChat.tsx — la caja única',
+      'app/admin/operaciones/Conversacion.tsx, app/m/operaciones/ChatsMovil.tsx, app/second-brain/ChatSecondBrain.tsx — la usan',
+      'tests/chat-unico.test.ts — la guarda y la lista de lo que falta',
+    ],
+  },
 ];
