@@ -287,7 +287,7 @@ export default function CajaCrear({
 
   /** Lo tipeado en el contenedor del link: pegado (o cerrado por un espacio), un link completo vuelve al texto como chips. */
   const escribirLink = (v: string) => {
-    const r = alEscribir({ ...estado, texto: escritoLink, link: null, archivo: null }, v);
+    const r = alEscribir({ ...estado, texto: escritoLink, link: null, archivos: [] }, v);
     if (r.link) { setEscritoLink(''); setEstado((e) => conLink(e, r.link!.url)); alCampo(); return; }
     setEscritoLink(v);
   };
