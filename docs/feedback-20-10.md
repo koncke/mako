@@ -71,6 +71,13 @@ quedó.
 - **Regla nueva (AGENTS.md):** un pedido que llega por otro chat se pega literal como hito ese mismo día.
 - **Hallazgo:** docs/hallazgos-chatbot.md.
 
+### 6. «Leila configuró una automatización recurrente y me dijo que no salió»
+- **Lo que no salió no era el Recurrente:** era #282, por etapa. Los 31 mensajes están como borradores esperando aprobación: por WhatsApp no oficial, un lead sin pago no recibe nada directo (anti-baneo). La pantalla no se lo dice.
+- **El Recurrente de #284** (martes 16:15 de ella) sale a la hora en punto siguiente (22:00Z), y va al mismo grupo que #282: si se aprueban las dos, el lead recibe el recordatorio dos veces.
+- **Encargo:** **Automations**: la pantalla dice cuántos borradores esperan y dónde se aprueban, el Recurrente sale a su minuto, y un aviso cuando dos automatizaciones van al mismo grupo con el mismo mensaje.
+- **Decide Martín (o Leila):** aprobar los 31 y pausar #284 para no duplicar.
+- **Hallazgo:** docs/hallazgos-chatbot.md.
+
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 
 | Pedido (minuto) | Estado | De quién |

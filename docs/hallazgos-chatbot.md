@@ -5366,6 +5366,13 @@ Visto el 20/10/2026 (Leila, ws11, #284). Pidió «cada semana los martes a las 3
 
 **Sin hacer:** todo lo de arriba (encargo del 20/10 al chat de Automations).
 
+**«Configuré una recurrente y no salió» (Leila, ws11, 20/10, medido a las 21:31 UTC):** el diagnóstico obvio («el Recurrente no anda») era a medias. Pasaron tres cosas:
+- **Lo que no salió no era el Recurrente.** Era #282 «Recordatorio clase reactivación», disparada por la etapa: la corrida de las 21:00Z inscribió a los 31 leads de Reactivación, y los **31 mensajes quedaron como BORRADORES pendientes** (`wa_borradores`, origen nutricion). Por WhatsApp no oficial, a un lead sin `fecha_primer_pago` nunca se le manda directo: se deposita un borrador que alguien manda con un clic (la regla dura del PDF, `esLeadCliente` en lib/evolution-envio.ts). La pantalla de Automations no lo dice: la clienta cree que la automatización no anda.
+- **Un Recurrente sale a la hora en punto siguiente, no a su minuto.** El tick de cada minuto (app/api/cron/nutricion-tick) no inscribe por cohorte: eso lo hace sólo la corrida de cada hora (`comprometerInscripciones`, app/api/cron/nutricion, minuto 0). El de los martes 16:15 (21:15Z) seguía con `cron_proxima_at` 21:15Z a las 21:31Z: toca a las 22:00Z.
+- **Dos automatizaciones al mismo grupo con el mismo recordatorio.** #282 (por etapa) y el d2 de #284 (Recurrente) van a Reactivación del funnel 4 con casi el mismo texto. El motor no apila (espera a que se mande el borrador pendiente: `tieneBorradorNutriPendiente`), así que si se aprueban las dos, el lead recibe el recordatorio DOS veces. Nada avisa que hay otra automatización con la misma cohorte.
+
+**Regla:** antes de decir «no salió», mirar `wa_borradores` pendientes del ws y `cron_proxima_at` de cada disparador. Una automatización que deja borradores tiene que decirlo en su pantalla, con cuántos y dónde se aprueban.
+
 ## «El chat de MaKo siempre abierto en la sidebar»: el pedido no se perdió en el código, se perdió en el relevo (20/10/2026)
 
 **Síntoma.** El 20/10 Martín preguntó: «Te habia pedido varias cosas, ¿No tienes el registro?». Pedía el chat de Automations siempre abierto en la sidebar, sin el logo de MaKo y con la tuerca en su lugar.
