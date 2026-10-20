@@ -118,6 +118,14 @@ quedó.
 - **Hoy:** la fila de cada chat en /admin/operaciones muestra el paso en curso («Check onboarding guard…», «Escribe flujo-ia-recurrente.ts»), lo de los `pasos` del cartero 1.15.3.
 - **Encargo:** **Ops Center 3**, antes del chat unificado. La fila dice sólo «Trabajando…», «Espera tu respuesta» o nada, en la computadora y en el teléfono. El paso puede seguir adentro del hilo.
 
+### 12. CRM: «No veo el chat con MaKo… Muchos cambios aún no están, como que las columnas no sean invisibles… las cards personalizables… "Tablero y lista" sólo con íconos… ¿está lo de vincular una etapa de reunión a un evento?»
+- **El chat con MaKo en el CRM:** ChatMakoCrm existe, pero Martín no lo ve. Va como barra fija a la derecha (regla del 18/10, «Editar = el patrón de Web Generator») y con la pieza única del chat del Ops Center.
+- **Las columnas invisibles:** pedidas el 18/10 (pt 8: «la columna con su bloque de fondo») y nunca hechas.
+- **Las cards personalizables** y **«Tablero» y «Lista» sólo con íconos:** nuevos.
+- **Vincular una etapa de reunión a un evento: YA ESTÁ** desde el 16/10 (c7f7b5609), en el «⋯» de la etapa → «Asignar evento», con Calendly y Cal.com.
+  - Google Calendar no está: su API no lista las páginas de reserva (app/crm/EventosDeEtapaModal.tsx:18).
+- **Encargo:** **CRM**, que primero arma docs/pedidos-crm.md con TODO lo que Martín pidió para el CRM y su estado. Eso contesta «muchos cambios aún no están».
+
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 
 | Pedido (minuto) | Estado | De quién |
