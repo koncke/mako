@@ -84,6 +84,36 @@ quedó.
 - **Mientras tanto:** la #284 quedó PAUSADA (Martín, 20/10 21:37 UTC) para no duplicar el recordatorio de la #282.
 - **Al desplegar:** aviso en el grupo del ws11, firmado «Desarrollador de MaKo» (regla nueva de AGENTS.md).
 
+### 8. «Te pedí que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades... en el onboarding y en otros lugares el chat sigue siendo diferente»
+- **Registro:** la regla «un solo chat en toda la app» es del 18/10 (docs/feedback-18-10.md, pts 1, 5, 7, 11, 12 y 15), y quedó «después del 20/10». Ese después ya llegó.
+- **Inventario del 20/10.** Los chats de MaKo que NO usan las piezas del Ops Center:
+  - app/second-brain/ChatSecondBrain.tsx: el Ops Center de los clientes, con su propia versión;
+  - app/offer/ChatOffer.tsx y app/m/offer/ComposerOfferM.tsx: `ComposerWhatsApp`;
+  - app/automations/ChatMako.tsx: `ComposerWhatsApp`;
+  - app/crm/lead-view/MakoAnalystLead.tsx: `ComposerWhatsApp`;
+  - app/dashboard/EditorMako.tsx;
+  - app/web-generator/editor/paneles/PanelAgente.tsx;
+  - app/video-editor/_opencut/chat/PanelChat.tsx;
+  - app/image-editor/mako/chat/PanelMakoIA.tsx;
+  - app/plan/board/MakoProyecto.tsx;
+  - app/_components/MakoChat.tsx.
+- **El onboarding** ya tiene el composer del Ops Center (punto 3, rama onboarding-v3), todavía sin desplegar.
+- **Encargo:** **Ops Center 3** saca el chat del Ops Center (Conversacion.tsx / ChatsMovil.tsx) como UNA pieza compartida.
+  - Migra primero el Ops Center de los clientes.
+  - Suma un test que falle si una pantalla de MaKo arma su propio chat.
+  - Después, cada chat de área migra la suya con esa pieza.
+
+### 9. «No sé de dónde sacaste eso de "Mapa" en los clientes... Para todos tiene que ser "Second Brain"»
+- Ya estaba pedido el 18/10 (pt 1). Quedó arreglado en cf255c7f1 (Second Brain, 20/10), que sale con el deploy de abdb2504a.
+- La captura era de antes de ese deploy.
+
+### 10. «El Second Brain de SuperAdmin ya te había pedido que no se dividiera en 2... En ningún caso jamás los cerebros se deben dividir en 2»
+- **Registro:** lo pidió el 17/10 («no pongas 2 grafos, todo 1 solo… para eso existen los filtros») y el 18/10 (pt 4: «el super admin con UN solo grafo»).
+- **El código:** desde 08c34967b (17/10) dibuja un solo `<Grafo>` con `unirCerebros` (lib/cerebro-union.ts).
+- **El diagnóstico obvio («ya está hecho») no alcanza:** Martín lo ve partido. Hay que mirar QUÉ se dibuja, por ejemplo dos raíces o dos racimos que la física separa.
+- **Encargo:** **Second Brain**, verificado en el navegador.
+- **Regla nueva (AGENTS.md):** ningún cerebro, de ningún negocio, se divide en dos.
+
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 
 | Pedido (minuto) | Estado | De quién |
