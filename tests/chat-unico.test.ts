@@ -28,7 +28,7 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 
 /** Las pantallas de MaKo con chat, y en qué están. «pendiente, de <chat>»: la migra el chat de esa área. */
-const INVENTARIO: Record<string, 'caja única' | `pendiente, de ${string}`> = {
+const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   'app/admin/operaciones/Conversacion.tsx': 'caja única',
   'app/m/operaciones/ChatsMovil.tsx': 'caja única',
   'app/second-brain/ChatSecondBrain.tsx': 'caja única',

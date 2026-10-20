@@ -300,7 +300,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const destino = elegido ? (centro ? centro.destinoDeChat(elegido) : elegido) : null;
   const envio = destino ? comoSale(destino, carteros, firma.clave === undefined ? undefined : firma.clave?.id ?? null, ahora) : null;
   // El borrador es el del motor (useCentro.ts): el mismo que en la computadora, guardado mientras se escribe.
-  const texto = borradorAbierto;
+  const texto = elegido && centro ? centro.borradorDe(elegido.clave) : '';
   const ponerTexto = (t: string) => { if (elegido && centro) centro.ponerBorrador(elegido.clave, t); };
   const marcas = elegido ? centro.marcasDe(elegido) : SIN_MARCAS;
   const elegirEnMenu = (m: MensajeWA, id: string) => {
