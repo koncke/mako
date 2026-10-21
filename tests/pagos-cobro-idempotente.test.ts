@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { hoyEnTz } from '../lib/date-utils';
+import { hoyEnTz, horaEnTz } from '../lib/date-utils';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -33,8 +33,10 @@ type Salida = {
   redesmarcar: { yaEstaba: boolean; quitada: boolean }; redesmarcarEscrituras: number;
   recobrar: { yaEstaba: boolean }; recobrarEscrituras: number;
   cobrarSinFecha: { yaEstaba: boolean };
-  cuotas: Record<string, { pagado: boolean; fecha_pago: string | null; monto_usd: number; moneda: string | null } | null>;
-  filas: number; red: string[];
+  carreraMarcar: { yaEstaba: boolean }[];
+  carreraCobrar: { yaEstaba: boolean; pendiente: number | null }[];
+  cuotas: Record<string, { pagado: boolean; fecha_pago: string | null; monto_usd: number; moneda: string | null; monto_original: number | null } | null>;
+  filas: number; totales: Record<string, number | null>; pagosDe9: { id?: number; pagado: boolean; monto_usd: number }[]; red: string[];
 };
 let salida: Salida | null = null;
 const correr = (): Salida => {
@@ -53,7 +55,7 @@ test('1. ⚠️ marcar o cobrar una cuota que YA está cobrada no toca nada; des
   // Cobrarla otra vez por otro monto y en pesos, tampoco: ni el monto ni la moneda del cobro que ya entró.
   assert.equal(s.recobrar.yaEstaba, true);
   assert.equal(s.recobrarEscrituras, 0);
-  assert.deepEqual(s.cuotas[10], { pagado: true, fecha_pago: '2026-10-01', monto_usd: 500, moneda: null });
+  assert.deepEqual(s.cuotas[10], { pagado: true, fecha_pago: '2026-10-01', monto_usd: 500, moneda: null, monto_original: null });
   // Un pago suelto ya desmarcado: desmarcarlo otra vez no lo QUITA (nació cobrado, y quitar es borrarlo).
   assert.equal(s.redesmarcar.yaEstaba, true);
   assert.equal(s.redesmarcar.quitada, false);
@@ -115,13 +117,69 @@ test('4. el guardián: ningún «hoy» en UTC en Pagos ni en Clients', () => {
     ...readdirSync(join(RAIZ, 'app/customer-success')).filter((f) => /\.tsx?$/.test(f)).map((f) => `app/customer-success/${f}`),
     'app/crm/lead-view/ficha/FichaPorBloques.tsx', 'lib/pagos.ts', 'lib/cobrado-lead.ts', 'lib/pagos-vistazo.ts', 'lib/pagos-campo.ts',
     'lib/suscripciones-por-cobrar.ts', 'lib/pagos-baja.ts',
+    // (revisión del 20/10, noche) la cartera de Clients y la del Dashboard, y el asistente de Ganado que arma el plan.
+    ...readdirSync(join(RAIZ, 'lib')).filter((f) => /^cs-.*\.ts$/.test(f)).map((f) => `lib/${f}`),
+    'lib/graficos-datos-extra.ts', 'app/crm/StageMoveDialog.tsx',
   ];
-  assert.ok(archivos.length > 15, `barrió ${archivos.length} archivos`);
+  assert.ok(archivos.length > 20, `barrió ${archivos.length} archivos`);
   const conUtc = archivos.filter((f) => /\.tsx?$/.test(f) && PATRON.test(sinComentarios(leer(f))));
   assert.deepEqual(conUtc, [], 'el día de hoy sale de la zona del negocio (`hoyEnTz` con `tzActual`, o `hoyEnWorkspace`)');
 });
 
-// ROTURAS (20/10/2026). Base: 4 pases, 0 fallos. Rota (pases / fallos):
+test('5. ⚠️ dos cobros A LA VEZ sobre la misma cuota: gana uno, el otro «ya estaba», y nada queda mezclado', () => {
+  const s = correr();
+  // Dos «Marcar cobrada» con fechas distintas: uno escribe, el otro no; la fecha es la del que escribió.
+  const ganoMarcar = s.carreraMarcar.findIndex((r) => !r.yaEstaba);
+  assert.deepEqual(s.carreraMarcar.map((r) => r.yaEstaba).sort(), [false, true], 'uno y sólo uno');
+  assert.equal(s.cuotas[20]?.fecha_pago, ['2026-10-20', '2026-10-19'][ganoMarcar]);
+  assert.equal(s.totales[8], 500, 'lo cobrado del lead, sincronizado una vez');
+  // MaKo cobra 300 (el resto pendiente) mientras la ficha guarda 500 en pesos: la cuota queda con UNO de los dos, entero.
+  const ganoCobrar = s.carreraCobrar.findIndex((r) => !r.yaEstaba);
+  assert.deepEqual(s.carreraCobrar.map((r) => r.yaEstaba).sort(), [false, true]);
+  const c = s.cuotas[21];
+  if (ganoCobrar === 0) {
+    assert.deepEqual([c?.monto_usd, c?.moneda, c?.fecha_pago], [300, null, '2026-10-20']);
+    assert.deepEqual(s.pagosDe9.filter((p) => !p.pagado).map((p) => p.monto_usd), [200], 'la diferencia, una vez');
+  } else {
+    assert.deepEqual([c?.monto_usd, c?.moneda, c?.monto_original, c?.fecha_pago], [500, 'MXN', 8600, '2026-10-19']);
+    assert.deepEqual(s.pagosDe9.filter((p) => !p.pagado), [], 'sin una diferencia que ya no se debe');
+  }
+  const cobrado = s.pagosDe9.filter((p) => p.pagado).reduce((a, p) => a + p.monto_usd, 0);
+  assert.equal(s.totales[9], cobrado, 'lo cobrado del lead coincide con sus cuotas');
+  // La escritura que reserva: en marcarPago y en cobrarCuota, condicional y con las filas que tocó.
+  const pagos = sinComentarios(leer('lib/pagos.ts'));
+  assert.match(pagos, /siSigue\(supabase\.from\('pagos'\)\.update\(\{ pagado, fecha_pago: fecha \}\)\.eq\('id', pagoId\), pagado\)\.select\('id'\)/);
+  assert.match(pagos, /if \(!tocadas\?\.length\) return \{ quitada: false, porLink: null, yaEstaba: true \};/);
+  assert.match(pagos, /siSigue\(db\.from\('pagos'\)\.update\(upd\)\.eq\('id', pagoId\)\.eq\('lead_id', leadId\), true\)\.select\('id'\)/);
+  const cobrar = pagos.slice(pagos.indexOf('export async function cobrarCuota('), pagos.indexOf('export async function registrarPagoSuelto('));
+  assert.doesNotMatch(cobrar, /await marcarPago\(/, 'cobrarCuota no escribe en dos pasos');
+  assert.match(cobrar, /await trasCobrar\(pagoId, fila\.cobro_id \?\? null\);/, 'y corta los recordatorios como marcarPago');
+});
+
+test('6. la cartera de Clients y la del Dashboard dicen «vencida» como la ficha; el cobro se anota con la hora del negocio', () => {
+  const cartera = sinComentarios(leer('lib/cs-cartera.ts'));
+  assert.match(cartera, /const hoy = await hoyEnWorkspace\(\);/);
+  assert.match(cartera, /p\.fecha_vencimiento\.slice\(0, 10\) < hoy\)/, 'vencida es ANTES de hoy (no `<=`)');
+  assert.match(cartera, /cuotaVencidaDias: vencidaMasVieja \? diasDeCalendario\(vencidaMasVieja, hoy\) : null,/);
+  const extra = sinComentarios(leer('lib/graficos-datos-extra.ts'));
+  const filas = extra.slice(extra.indexOf('async function filasCartera('), extra.indexOf('\n}\n', extra.indexOf('async function filasCartera(')));
+  assert.match(filas, /const hoy = await hoyEnWorkspace\(\)\.catch\(\(\) => hoyEnTijuana\(\)\);/);
+  assert.match(filas, /p\.fecha_esperada\.slice\(0, 10\) < hoy\)/, 'la deuda vencida, con la MISMA vara que la cartera');
+  // El asistente de Ganado: la primera cuota y las de una suscripción salen del día del negocio.
+  const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
+  assert.match(wizard, /const hoyISO = hoyEnTz\(useTzWorkspace\(\)\);/);
+  assert.match(wizard, /const d = new Date\(\(last\?\.fecha \|\| hoyISO\) \+ 'T00:00:00Z'\);/, '«+ Agregar cuota» sin cuotas arranca de hoy, no del UTC');
+  // La hora: la del negocio, no la del navegador (alguien en Buenos Aires anotaba un cobro de México con su hora).
+  const instante = new Date('2026-10-21T03:30:00Z');
+  assert.equal(horaEnTz('America/Mexico_City', instante), '21:30');
+  assert.equal(horaEnTz('America/Argentina/Buenos_Aires', instante), '00:30');
+  const piezas = leer('app/crm/lead-view/ficha/pagos/piezas.tsx');
+  assert.match(piezas, /const useHoraDelNegocio = \(\): string => \{ const tz = useTzWorkspace\(\); return horaEnTz\(tz\); \};/);
+  assert.equal((piezas.match(/const horaNegocio = useHoraDelNegocio\(\);\s*const \[hora, setHora\] = useState\(horaNegocio\);/g) ?? []).length, 2);
+  assert.doesNotMatch(piezas, /toTimeString\(\)/, 'ni una hora del navegador');
+});
+
+// ROTURAS (20/10/2026). Base: 4 pases, 0 fallos (los tests 1 a 4). Rota (pases / fallos):
 //   · `marcarPago` sin la vuelta de «ya estaba»                                       → 3 / 1 (1)
 //   · `cobrarCuota` reescribe una cuota cobrada (monto y moneda)                      → 3 / 1 (1)
 //   · `marcarPagoAction` escribe el historial aunque ya estaba                         → 3 / 1 (2)
@@ -132,3 +190,15 @@ test('4. el guardián: ningún «hoy» en UTC en Pagos ni en Clients', () => {
 //   · la ficha vuelve a contar hoy en UTC                                               → 2 / 2 (3 y 4)
 //   · Clients vuelve a contar hoy en UTC                                                → 2 / 2 (3 y 4)
 //   · «Registrar pago» propone el día UTC                                               → 2 / 2 (3 y 4)
+//
+// ROTURAS de la revisión adversarial (20/10/2026, noche). Base: 6 pases, 0 fallos. Rota (pases / fallos):
+//   · `marcarPago` escribe sin condición (en la carrera pasan las dos)               → 5 / 1 (5)
+//   · `cobrarCuota` escribe sin condición                                           → 5 / 1 (5)
+//   · `marcarPago` ignora que no tocó ninguna fila                                  → 5 / 1 (5)
+//   · `cobrarCuota` no corta los recordatorios (`trasCobrar`)                       → 5 / 1 (5)
+//   · la cartera de Clients vuelve al día UTC                                       → 4 / 2 (4 y 6)
+//   · la cartera vuelve a `<=` (una cuota de HOY, vencida)                          → 5 / 1 (6)
+//   · la deuda vencida del Dashboard vuelve a `<=`                                  → 5 / 1 (6)
+//   · el asistente de Ganado vuelve al día UTC                                  → 4 / 2 (4 y 6)
+//   · «+ Agregar cuota» sin cuotas arranca del instante UTC                     → 5 / 1 (6)
+//   · la hora del cobro vuelve a la del navegador                               → 5 / 1 (6)

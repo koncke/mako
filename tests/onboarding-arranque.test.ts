@@ -447,8 +447,10 @@ test('la entrada: sin el grafo, ESPERA EL CLIC (o Enter), sin anillos, sin movim
   assert.match(sin, /role="presentation" onClick=\{empezar\}>/, 'sólo se puede empezar tocando la estrella');
   assert.match(sin, /\.en-boton:focus, \.en-boton:focus-visible \{ outline: none; \}/, 'volvió el círculo azul del foco');
   assert.doesNotMatch(sin, /\.en-boton:focus-visible \{ outline: 3px solid var\(--primary\)/);
-  assert.match(sin, /if \(!el \|\| !destino \|\| destino\.width === 0 \|\| reduce\) \{ alFin\.current\(\); return; \}/, 'con movimiento reducido no corre');
-  assert.match(sin, /querySelector<HTMLElement>\('\[data-mako-foto\]'\)/);
+  assert.match(sin, /if \(!el \|\| !caja \|\| caja\.width === 0 \|\| reduce\) \{ alFin\.current\(\); return; \}/, 'con movimiento reducido no corre');
+  // Desde el 21/10/2026 el destino es una prop (el teléfono la manda a la barra), y el del onboarding sigue siendo la foto del chat.
+  assert.match(sin, /destino = '\[data-mako-foto\]'/);
+  assert.match(sin, /querySelector<HTMLElement>\(destino\)/);
   assert.match(sin, /top: var\(--barra-agencia, 0px\)/, 'la entrada queda debajo de la barra de «Inspeccionar»');
   const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
   assert.match(chat, /data-mako-foto/, 'el chat no tiene dónde aterrizar a MaKo');

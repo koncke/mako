@@ -29,6 +29,15 @@ la de /m/second-brain.
 - El número de «lo que espera una decisión» (`app/m/badges.ts`) colgaba de la id del lugar del Dashboard (`hoy`): al sacar
   el lugar, el número desaparece en silencio. Ahora va en More y en la fila del Dashboard.
 - La cabecera buscaba el Dashboard en `DESTINOS_MOVIL` con `find(...)!`: sin él, `undefined` en el «volver» de Avisos.
+- **El ícono declarado no es el que se dibuja** (21/10/2026, Martín lo vio en su Android: «Pusiste a Ops Center con el logo
+  del Second Brain»). La fila de More dice `icon: 'cerebro'`, pero More y la sidebar dibujan el Ops Center con la CRIATURA de
+  MaKo (`criatura(…, estrella)`), aparte del dato. Al subirlo a la barra se copió el dato y salió el cerebro. Ahora el
+  destino lleva `criatura: true` y ShellM dibuja `<Criatura estrella>`, que flota y parpadea. **Regla:** al mover algo a
+  otro lugar, mirá CÓMO se dibuja donde estaba, no sólo sus datos. La pantalla del Centro tampoco volvía a More: es raíz.
+- **La entrada de MaKo al abrir la app** (21/10/2026, mismo pedido): es la de app/onboarding/EntradaMako.tsx, reusada con
+  un `destino`, una vez por apertura (sessionStorage) y volando a la criatura de la barra. Copiarla la habría dejado vieja.
+  ⚠️ Va con `next/dynamic` en ShellM: importada de frente, su criatura arrastra `criatura.css` al índice de app/m/_ui y
+  tumba los tests de node que lo importan (run 182 cayó en tests/m-offer.test.ts; es la misma trampa del `.module.css`).
 
 ## Las tabs de CREACIÓN en el teléfono: editores, AI Avatar y writers (17/10/2026, «Mobile 1»)
 

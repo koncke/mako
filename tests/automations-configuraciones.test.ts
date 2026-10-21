@@ -143,7 +143,8 @@ test('el motor lee los límites UNA vez por corrida, ESTRICTO, antes de cualquie
   // 20/10/2026: también lo propio de cada automatización (`configs`): «no pude leer» tampoco es «como el negocio».
   // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): lo propio ilegible no corta acá (el horario ya cerró la prospección: corre sólo
   // el carril y lo que no espera, con las horas del negocio).
-  const iIlegible = PROC.indexOf("if (limites === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };");
+  // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): y con `ignorar_ventana` lo propio ilegible corta acá.
+  const iIlegible = PROC.indexOf("if (limites === 'ilegible' || (configs === 'ilegible' && fueraDeHorario == null)) return { ...res, saltado: 'limites-ilegibles' };");
   const iPresupuesto = PROC.indexOf('const presupuesto = ');
   assert.ok(iLee > 0 && iIlegible > iLee && iPresupuesto > iIlegible, '«no pude leer» no es «de fábrica»: la corrida no manda');
 });
