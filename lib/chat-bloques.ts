@@ -38,7 +38,8 @@
 /** El botón que lleva a la pantalla donde vive lo creado. */
 export type Abrir = { titulo: string; href: string };
 
-export type EstadoPaso = 'listo' | 'en_curso' | 'pendiente' | 'fallo';
+/** `incierto`: el trabajo se cortó y no se sabe si llegó a hacerse (lib/chat-trabajos.ts, su `hasta`). */
+export type EstadoPaso = 'listo' | 'en_curso' | 'pendiente' | 'fallo' | 'incierto';
 
 /** G5: lo que se creó (o se tocó), con su miniatura. Sin miniatura, un marco con la forma (`ancho` × `alto`). */
 export type BloqueCreado = {
@@ -93,12 +94,19 @@ const MAX_FILAS = 12;
 const MAX_PASOS = 10;
 /** Las filas de «A quién cobrar» que se guardan (General muestra 5 y «Ver las N»; la lista viva las trae todas). */
 export const MAX_FILAS_COBRANZA = 30;
-/** Una zona IANA («America/Mexico_City»): con otra cosa, `hoyEnTz` tira al marcar. */
-const ZONA = /^[A-Za-z]+(?:\/[A-Za-z0-9_+-]+){1,2}$/;
+/**
+ * ¿Es una zona que `hoyEnTz` entiende? La MISMA vara: la del motor de fechas (`Intl`), no una forma. ⚠️ Con un regex
+ * que exigía una barra (21/10/2026, revisión adversarial), un negocio en 'UTC', 'CET' o 'EST5EDT' —zonas que
+ * `zonaCanonica` acepta— perdía la lista de «A quién cobrar», y MaKo igual decía que estaba abajo.
+ */
+const esZona = (tz: string): boolean => {
+  if (!tz || tz.length > 64 || !/^[A-Za-z0-9_+\-/]+$/.test(tz)) return false;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch { return false; }
+};
 const URGENCIAS: readonly FilaCobranza['urgencia'][] = ['vencida', 'pronto', null];
 const idPositivo = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : null);
 const fecha = (v: unknown): string | null => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
-const ESTADOS_PASO: readonly EstadoPaso[] = ['listo', 'en_curso', 'pendiente', 'fallo'];
+const ESTADOS_PASO: readonly EstadoPaso[] = ['listo', 'en_curso', 'pendiente', 'fallo', 'incierto'];
 
 const texto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const opcional = (v: unknown, max: number): string | undefined => texto(v, max) || undefined;
@@ -206,7 +214,7 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       return { t: 'pregunta', pregunta, opciones, ...(recomendada !== undefined ? { recomendada } : {}), ...(o.varias === true ? { varias: true } : {}) };
     }
     case 'cobranza': {
-      const tz = typeof o.tz === 'string' && o.tz.length <= 64 && ZONA.test(o.tz) ? o.tz : null;
+      const tz = typeof o.tz === 'string' && esZona(o.tz) ? o.tz : null;
       const al = fecha(o.al);
       if (!tz || !al || !Array.isArray(o.filas)) return null;
       const v = o.ventana && typeof o.ventana === 'object' ? (o.ventana as Record<string, unknown>) : null;
@@ -278,7 +286,7 @@ export function razon(b: Pick<BloqueCreado, 'ancho' | 'alto'>): number {
 }
 
 /** Lo que dice cada paso de un trabajo largo, para quien no ve el ícono. */
-export const ROTULO_PASO: Record<EstadoPaso, string> = { listo: 'Listo', en_curso: 'En curso', pendiente: 'Falta', fallo: 'Falló' };
+export const ROTULO_PASO: Record<EstadoPaso, string> = { listo: 'Listo', en_curso: 'En curso', pendiente: 'Falta', fallo: 'Falló', incierto: 'Sin saber' };
 
 type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
 const enCurso = (t: Trabajo) => t.pasos.some((p) => p.estado === 'en_curso');
@@ -312,5 +320,7 @@ export function leerConsulta(status: number, cuerpo: unknown, consulta: string):
   const aparte = bloques.filter((x) => x.t !== 'trabajo');
   if (enCurso(trabajo)) return { sigue: true, trabajo, aparte };
   const texto = typeof j.texto === 'string' && j.texto.trim() ? j.texto.trim().slice(0, 600) : null;
-  return { sigue: false, trabajo, aparte, ok: !trabajo.pasos.some((p) => p.estado === 'fallo'), texto };
+  // Cortado no es «falló» (la segunda revisión): pintarlo rojo invitaba a pedirlo de nuevo algo que pudo quedar hecho.
+  const ok = trabajo.pasos.some((p) => p.estado === 'fallo') ? false : trabajo.pasos.some((p) => p.estado === 'incierto') ? null : true;
+  return { sigue: false, trabajo, aparte, ok, texto };
 }

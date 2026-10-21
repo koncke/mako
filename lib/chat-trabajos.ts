@@ -80,7 +80,7 @@ export async function estadoDeTrabajo(consulta: unknown, ahora = Date.now()): Pr
   const suyo = bloques.find((b): b is Extract<Bloque, { t: 'trabajo' }> => b.t === 'trabajo' && b.consulta === consulta);
   if (!suyo) return null;
   if (!suyo.hasta || ahora <= suyo.hasta || !suyo.pasos.some((p) => p.estado === 'en_curso')) return { texto: fila.content, bloques };
-  const cortado: Bloque = { ...suyo, pasos: suyo.pasos.map((p) => (p.estado === 'en_curso' ? { ...p, estado: 'fallo' as const } : p)) };
+  const cortado: Bloque = { ...suyo, pasos: suyo.pasos.map((p) => (p.estado === 'en_curso' ? { ...p, estado: 'incierto' as const } : p)) };
   const conCorte = bloques.map((b) => (b === suyo ? cortado : b));
   const texto = textoCortado(suyo.titulo);
   // Que lo vea también quien vuelve sin pantalla abierta, y el modelo en el turno siguiente. Si no se puede guardar, igual

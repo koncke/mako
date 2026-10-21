@@ -94,5 +94,5 @@ test('4. la vuelta sube las de los cierres junto con las de `preguntar`', () => 
   // Desde la 1.17.3 (la revisión de caja-voz): la última de cada chat y el tope antes de mandar (tests/caja-voz-revision.test.ts).
   assert.match(s, /const \{ preguntas, sinLugar \} = preguntasParaSubir\(deArchivos, delaVuelta\.preguntas\);/);
   assert.match(s, /\.\.\.\(preguntas\.length \? \{ preguntas \} : \{\}\),/);
-  assert.match(s, /export const VERSION = '1\.17\.3';/);
+  assert.ok(Number(/export const VERSION = '1\.17\.(\d+)';/.exec(s)?.[1]) >= 3, 'la 1.17.3 o una posterior');
 });
