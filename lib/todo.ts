@@ -7,6 +7,8 @@
 // `orden` (float) ordena dentro de la columna e inserta entre dos sin renumerar.
 // =============================================================================
 
+import { esIdColumnaPropia } from './plan-columnas';
+import { esColumnaInexistente } from './nutricion-grafo-motor';
 import 'server-only';
 import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 import { getTenantDb } from './workspace';
@@ -45,6 +47,8 @@ export type Tarea = {
   estado: EstadoTarea;
   /** Por qué está «Atorada» (`en_seguimiento`), en una línea. null fuera de ahí (mig 0294). */
   motivo_atorada: string | null;
+  /** La columna PROPIA donde está (mig 0317, lib/plan-columnas.ts). null = la de su estado; sin la columna, undefined. */
+  columna?: string | null;
   prioridad: Prioridad;
   progreso: number;              // 0-100
   deadline: string | null;       // YYYY-MM-DD
@@ -210,6 +214,7 @@ export const rowTo = (r: Record<string, unknown>): Tarea => {
   // Sólo existe en «Atorada»: un motivo pegado a otra columna (un script, una fila vieja) se lee
   // como null, que es lo que la tarjeta sabe dibujar.
   t.motivo_atorada = t.estado === 'en_seguimiento' ? motivoAtoradaOk(r.motivo_atorada) : null;
+  t.columna = esIdColumnaPropia(r.columna) ? r.columna : null;
   t.orden = Number.isFinite(Number(r.orden)) ? Number(r.orden) : 0;
   t.responsable = txtOk(r.responsable);
   t.responsable_email = txtOk(r.responsable_email);
@@ -568,7 +573,8 @@ export async function crearTareasDesde(
 export async function moverTarea(
   id: number, estado: EstadoTarea, orden?: number,
   /** `progreso`: el avance de ANTES, sólo para el Deshacer de un mover (`trasMover`). */
-  opts: { motivo?: string | null; historial?: HistEntry[]; progreso?: number } = {},
+  /** `columna`: la propia de destino (mig 0317); sin ella, la de su estado. */
+  opts: { motivo?: string | null; historial?: HistEntry[]; progreso?: number; columna?: string | null } = {},
 ): Promise<{ ok: true; tarea: Tarea } | { ok: false; error: string; status: number }> {
   if (!esEstado(estado)) return { ok: false, error: `estado inválido: ${String(estado)}`, status: 400 };
   const supabase = (await getTenantDb());
@@ -592,7 +598,14 @@ export async function moverTarea(
     updated_at: new Date().toISOString(),
   };
   if (opts.historial !== undefined) patch.historial = histOk(opts.historial);
-  const { data, error } = await supabase.from('experimento_tareas').update(patch).eq('id', id).select(COLS).single();
+  // MOVER SIEMPRE ESCRIBE LA COLUMNA (mig 0317): pasar de «En revisión» a «En proceso» no cambia el estado, sólo esto.
+  patch.columna = esIdColumnaPropia(opts.columna) ? opts.columna : null;
+  let { data, error } = await supabase.from('experimento_tareas').update(patch).eq('id', id).select(COLS).single();
+  // ⚠️ SIN LA MIG 0317 la base contesta 42703/PGRST204: se mueve igual, a la columna de su estado.
+  if (error && esColumnaInexistente(error)) {
+    delete patch.columna;
+    ({ data, error } = await supabase.from('experimento_tareas').update(patch).eq('id', id).select(COLS).single());
+  }
   if (error) throw new Error(`moverTarea: ${error.message}`);
   return { ok: true, tarea: rowTo(data) };
 }

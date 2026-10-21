@@ -18,9 +18,10 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { leerTodo, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { enTandas } from '@/lib/ids-con-filas';
+import { TelefonosDe } from '@/lib/numero-whatsapp';
 import {
   COLS_RESIDUO, TRIGGER_RESIDUO,
-  clasificarInscripciones, esResiduo, soloDigitos, turnosResiduo,
+  clasificarInscripciones, esResiduo, turnosResiduo,
   type CtxResiduo, type InscResiduo, type LeadResiduo,
 } from '@/lib/nutricion-residuo';
 
@@ -70,7 +71,7 @@ async function contextoDe(db: SupabaseClient, leadIds: readonly number[], ahoraM
   // re-pregunta no cierre la inscripción que está por mandar.
   const { ocupados, yaEnResiduo } = clasificarInscripciones(inscripciones, delResiduo);
   const bloq = await leerTodo<{ telefono: string | null }>(db, 'wa_bloqueados', 'id, telefono', { orden: 'id' });
-  const bloqueados = new Set(bloq.map((b) => soloDigitos(b.telefono)).filter(Boolean));
+  const bloqueados = new TelefonosDe(bloq.map((b) => b.telefono));
   return { ctx: { ahoraMs, pagados, bloqueados, ocupados }, yaEnResiduo };
 }
 

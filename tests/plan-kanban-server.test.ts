@@ -190,10 +190,12 @@ test('el Deshacer del escritorio manda el avance EN el mover: la base y la panta
   // useBoard ya no hace el segundo guardado, y las dos rutas y los dos repos llevan `progreso`.
   const ub = leerFuente('app', 'plan', 'board', 'useBoard.ts');
   const desh = ub.slice(ub.indexOf('const deshacerMover'), ub.indexOf('const setMotivoAtorada'));
-  assert.match(desh, /repo\.mover\(id, antes\.estado, antes\.orden, \{ motivo: antes\.motivoAtorada, historial, progreso: antes\.progress \}\)/);
+  // (20/10/2026) Con las columnas PROPIAS del negocio (lib/plan-columnas.ts) la columna de una tarjeta es su CLAVE
+  // (el estado, o el id de una propia), no su estado: tests/plan-columnas-propias.test.ts.
+  assert.match(desh, /repo\.mover\(id, antes\.estado, antes\.orden, \{ motivo: antes\.motivoAtorada, historial, progreso: antes\.progress, columna: antes\.columna \}\)/);
   assert.doesNotMatch(desh, /\bpatch\(id,/, 'el segundo guardado era el que la base leía como «cambió el avance»');
-  assert.match(leerFuente('app', 'api', 'todo', 'route.ts'), /moverTarea\(id, estado, orden, \{ motivo, historial, progreso \}\)/);
-  assert.match(leerFuente('app', 'api', 'plan-board', 'route.ts'), /moverPlanTarea\(id, estado, orden, \{ motivo, historial, progreso \}\)/);
+  assert.match(leerFuente('app', 'api', 'todo', 'route.ts'), /moverTarea\(id, estado, orden, \{ motivo, historial, progreso, columna \}\)/);
+  assert.match(leerFuente('app', 'api', 'plan-board', 'route.ts'), /moverPlanTarea\(id, estado, orden, \{ motivo, historial, progreso, columna \}\)/);
   assert.match(leerFuente('app', 'plan', 'TodoBoard.tsx'), /action: 'mover'[^\n]*progreso: opts\?\.progreso/);
   assert.match(leerFuente('app', 'plan', 'board', 'repo-plan.ts'), /action: 'mover-tarea'[^\n]*progreso: opts\?\.progreso/);
 });

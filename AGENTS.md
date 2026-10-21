@@ -1069,6 +1069,13 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   confirma una PERSONA (un «sí» en WhatsApp o la bandeja `/mako/pendientes`); `pantalla`
   deja una propuesta con link a una pantalla editable. **Lo que cuesta plata es `pantalla`
   y `rolMinimo: 'admin'`, sin excepción** (el test lo exige).
+  Toda superficie que muestra una pendiente para CONFIRMARLA (la tarjeta del chat, el teléfono, la bandeja
+  `/mako/pendientes`) pinta con `lineasDelPayload`: lo que se aprueba se ve ENTERO, hasta `MAX_TEXTO`, y el `max` de un
+  parámetro que se aprueba mirándolo no lo pasa (21/10/2026: la bandeja cortaba en 240 y el email salía con 2.000).
+  Una lista de objetos se pinta elemento por elemento, nunca como «N elementos».
+- **Un teléfono de WhatsApp se compara con `mismoContacto` / `TelefonosDe`** (lib/numero-whatsapp.ts), nunca con `===`
+  ni con un `Set` de strings: bloquear, desbloquear, ocultar y marcar una lista. El mismo contacto llega con y sin país,
+  con el 9 de Argentina o el 1 de México (21/10/2026: un bloqueado seguía recibiendo la secuencia).
 - **`gating.soloPlataforma`** en lo que la PLATAFORMA decide sobre los negocios y un negocio no puede deshacer en el
   suyo (exigir el 2FA): se resuelve por la capa en `vistaDe`, y el runner lo vuelve a preguntar. Un `gating.tab` no
   sirve para esto: las capas `completo` y `agencia` ven todas las tabs.

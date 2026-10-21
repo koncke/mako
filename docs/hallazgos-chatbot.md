@@ -5680,3 +5680,11 @@ ocurrencia perdida del Recurrente.
 **Lo que quedó SIN hacer** (pedido a Automations como punta de seguimiento): los tres de arriba · el aviso al Activar
 compara el borrador del lienzo y no lo publicado (SecuenciaPerfil.tsx:1062) · el paso `au-chat` del recorrido no
 aparece nunca para quien ya tiene automatizaciones (arranca en la lista). *20/10/2026, Cerebro, claude4.*
+
+## El motor no le escribe a un bloqueado en NINGUNA forma del número (21/10/2026)
+
+La secuencia, el AI Step que contesta solo, la rama y los recordatorios de reunión preguntan `estaBloqueado(lead.telefono)`
+(lib/nutricion.ts, lib/reunion-recordatorio.ts). Comparaba exacto: un bloqueado desde /chats (542233550684) con
+2233550684 en el CRM seguía recibiendo, y desde el 20/10 le llega. La regla ahora vive en `estaBloqueado` y el motor la
+hereda sin cambios; el residuo de nutrición inscribe con la misma (`TelefonosDe`). Detalle y porqué en
+hallazgos-comunicacion («La identidad de un bloqueo es UNA regla»). *21/10/2026, chat «CRM» (claude4).*
