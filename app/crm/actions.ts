@@ -170,7 +170,7 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
-import { avisoDeConservadas, planDelAsistente } from '@/lib/pagos-campo';
+import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { urlGravatar } from '@/lib/gravatar';
@@ -425,6 +425,9 @@ export type StageMoveData = {
   soloCompletar?: boolean;
 };
 
+/** ¿Tiene un plan o plata cobrada? Con la regla de `pagosPrevios`: una cuota devuelta o de baja no cuenta (21/10/2026). */
+const tienePagos = (pagos: Pago[]): boolean => { const p = pagosPrevios(pagos); return p.hayPlan || p.sueltos.length > 0; };
+
 /**
  * FUENTE ÚNICA de "qué pide la etapa `to` para este lead".
  *
@@ -491,8 +494,10 @@ function valoresDeRequisitos(
     // Higiene (setter/closer/empresa/deal/comprobante) NO gatea el movimiento.
     // Una suscripción (aunque sea indefinida y sin cuotas) es un plan válido: el
     // monto mensual ES el plan, así que no se exige el plan de cuotas fijo.
+    // ⚠️ El tipo EFECTIVO (21/10/2026, quinta revisión): con «o el guardado», un lead guardado como suscripción al que el
+    // asistente le elige «Pago único» no veía «Plan de pagos» y se ganaba sin cuotas.
     tienePlan: to === 'ganado'
-      ? (!!d.plan || !!d.cuotas?.length || pagosExistentes.length > 0 || d.ventaTipo === 'suscripcion' || before?.venta_tipo === 'suscripcion')
+      ? (!!d.plan || !!d.cuotas?.length || tienePagos(pagosExistentes) || (d.ventaTipo ?? before?.venta_tipo) === 'suscripcion')
       : undefined,
     hoyISO: hoyEnTijuana(),
     // Hora real de Calendly: una reunión de HOY que ya terminó sí exige su Fathom.
@@ -693,12 +698,15 @@ export async function completeStageMoveAction(
       // que quedó escrito difieren sin que nadie lo diga.
       const conservadas = avisoDeConservadas(cambios);
       if (conservadas) {
-        sinTocar = `Del plan no se tocó: ${conservadas}.`;
+        sinTocar = [sinTocar, `Del plan no se tocó: ${conservadas}.`].filter(Boolean).join(' ');
         await logLeadEvent(id, 'Plan de pagos', `No se tocó: ${conservadas}`, autor);
       }
     }
   } else if (d.plan) {
-    await savePlanPagos(id, d.plan);
+    // El plan uniforme, con la MISMA regla (`avisoPlanUniforme`): encima de plata suelta sin plan no se arma, y se dice.
+    const aviso = avisoPlanUniforme(await getPagosByLead(id));
+    if (aviso) sinTocar = aviso;
+    else await savePlanPagos(id, d.plan);
   }
 
   // 4) Deal Details + omisiones + motivo de agenda externa (wizard "una pasada").

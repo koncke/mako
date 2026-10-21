@@ -83,7 +83,7 @@ const cuota = (id: number, x: Record<string, unknown>) => ({
 
 async function main() {
   const { runWithWorkspace } = await import('../lib/workspace');
-  const { marcarPago, cobrarCuota, registrarCobroDeProveedor } = await import('../lib/pagos');
+  const { marcarPago, cobrarCuota, registrarCobroDeProveedor, saveLeadPlanManual, savePlanPagos } = await import('../lib/pagos');
   const db = pg.db;
   db.workspaces.push({ id: WS, nombre: 'Prueba' });
   db.app_settings.push({ workspace_id: WS, key: 'mako.timezone', value: 'America/Mexico_City', updated_at: '2026-10-01T00:00:00Z' });
@@ -99,6 +99,15 @@ async function main() {
     { id: 15, workspace_id: WS, nombre: 'Inés', monto_cierre_usd: 500, total_cobrado_usd: null },
     { id: 16, workspace_id: WS, nombre: 'Juan', monto_cierre_usd: 500, total_cobrado_usd: null },
     { id: 17, workspace_id: WS, nombre: 'Kati', monto_cierre_usd: 1000, total_cobrado_usd: null },
+    // (quinta revisión, 21/10) La fecha de cierre al ganar con el plan, el plan uniforme sobre una seña, la cuota que se
+    // borra mientras se cobra y el monto de menos de un centavo.
+    { id: 18, workspace_id: WS, nombre: 'Lía', venta_tipo: 'suscripcion', estado_lead: 'abierto', fecha_cierre: null, total_cobrado_usd: null },
+    { id: 19, workspace_id: WS, nombre: 'Mati', venta_tipo: 'suscripcion', estado_lead: 'ganado', cerro: true, fecha_cierre: '2026-10-01', total_cobrado_usd: null },
+    { id: 20, workspace_id: WS, nombre: 'Nora', estado_lead: 'ganado', fecha_cierre: '2026-10-01', total_cobrado_usd: 100 },
+    { id: 21, workspace_id: WS, nombre: 'Omar', estado_lead: 'ganado', fecha_cierre: '2026-10-01', total_cobrado_usd: 100 },
+    { id: 22, workspace_id: WS, nombre: 'Pía', monto_cierre_usd: 500, total_cobrado_usd: null },
+    { id: 23, workspace_id: WS, nombre: 'Quique', monto_cierre_usd: 500, total_cobrado_usd: null },
+    { id: 24, workspace_id: WS, nombre: 'Rita', monto_cierre_usd: 500, total_cobrado_usd: null },
   );
   db.pagos.push(
     cuota(10, { pagado: true, fecha_pago: '2026-10-01' }), // ya cobrada el 1/10
@@ -115,6 +124,13 @@ async function main() {
     cuota(31, { lead_id: 16, numero: 1 }), // la pasarela: sincronizar falla una vez
     cuota(43, { lead_id: 17, numero: 1, fecha_esperada: '2026-10-01' }), // el casamiento por monto: la primera…
     cuota(44, { lead_id: 17, numero: 2, fecha_esperada: '2026-11-01' }), // …y la siguiente del mismo monto
+    cuota(45, { lead_id: 20, numero: 1, monto_usd: 100, pagado: true, fecha_pago: '2026-10-05', nacio_cobrada: true }), // una seña suelta, sin plan
+    cuota(46, { lead_id: 21, numero: 0, monto_usd: 1000, fecha_esperada: '2026-10-01' }), // un plan (inicial y cuota 1)…
+    cuota(47, { lead_id: 21, numero: 1, monto_usd: 1000, fecha_esperada: '2026-11-05' }),
+    cuota(48, { lead_id: 21, numero: 2, monto_usd: 100, pagado: true, fecha_pago: '2026-10-05', nacio_cobrada: true }), // …y una seña con el número 2
+    cuota(49, { lead_id: 22, numero: 1 }), // se borra mientras se cobra entera
+    cuota(50, { lead_id: 23, numero: 1 }), // se borra mientras se cobra por menos
+    cuota(51, { lead_id: 24, numero: 1 }), // un monto de menos de un centavo
   );
   const fila = (id: number) => {
     const f = db.pagos.find((p) => p.id === id);
@@ -220,6 +236,29 @@ async function main() {
     r.casa = await registrarCobroDeProveedor({ leadId: 17, cobroId: 79, pagoId: null, proveedor: 'stripe', proveedorPagoId: 'pi_casa', montoUsd: 500, montoOriginal: 500, moneda: 'USD', fechaPago: '2026-10-20' });
     r.casaFilas = db.pagos.filter((p) => p.lead_id === 17).map((p) => ({ id: p.id, pagado: p.pagado, proveedor: p.proveedor }));
     r.casaTotal = db.leads.find((l) => l.id === 17)?.total_cobrado_usd ?? null;
+
+    // (quinta revisión) Lo que gana guardando el plan lleva su fecha de cierre: la del día del negocio si no tenía.
+    await saveLeadPlanManual(18, { total_usd: null, duracion_meses: null, fecha_cierre: null, fecha_inicio: null, cuotas: [{ monto_usd: 500, fecha_esperada: '2026-10-20' }] });
+    r.cierreNuevo = db.leads.find((l) => l.id === 18)?.fecha_cierre ?? null;
+    await saveLeadPlanManual(19, { total_usd: null, duracion_meses: null, fecha_cierre: null, fecha_inicio: null, cuotas: [{ monto_usd: 500, fecha_esperada: '2026-10-01' }] });
+    r.cierreQueTenia = db.leads.find((l) => l.id === 19)?.fecha_cierre ?? null;
+    // El plan uniforme sobre una seña sin plan: no se arma (la seña tapaba la cuota 1) y se dice.
+    const plan = { cobro_inicial_usd: 1000, monto_cuota_usd: 1000, total_cuotas: 3, dia_de_pago: 5 };
+    r.unifSena = await savePlanPagos(20, plan).then(() => 'no tiró', (e) => String(e instanceof Error ? e.message : e));
+    r.unifSenaFilas = db.pagos.filter((p) => p.lead_id === 20).length;
+    // Con un plan y una seña con el número 2: la cuota 2 del plan se arma igual (la seña no la tapa).
+    await savePlanPagos(21, plan);
+    r.unifPlan = db.pagos.filter((p) => p.lead_id === 21 && !p.pagado).map((p) => Number(p.monto_usd)).reduce((a, b) => a + b, 0);
+    r.unifPlanNumeros = db.pagos.filter((p) => p.lead_id === 21).map((p) => p.numero).sort((a, b) => Number(a) - Number(b));
+    // La cuota se BORRA entre la lectura y la toma (la reconciliación de un plan): no es «ya estaba cobrada».
+    ganchos.push({ cuando: (u, m) => m === 'PATCH' && u.pathname.endsWith('/pagos') && u.searchParams.get('id') === 'eq.49', antes: () => { db.pagos.splice(db.pagos.findIndex((p) => p.id === 49), 1); } });
+    r.borradaEntera = await cobrarCuota(49, 22, { monto: 500, fecha: '2026-10-20' }).then((x) => x, (e) => String(e instanceof Error ? e.message : e));
+    ganchos.push({ cuando: alRpc(23), antes: () => { db.pagos.splice(db.pagos.findIndex((p) => p.id === 50), 1); } });
+    r.borradaMenos = await cobrarCuota(50, 23, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' }).then((x) => x, (e) => String(e instanceof Error ? e.message : e));
+    r.borradaMenosFilas = db.pagos.filter((p) => p.lead_id === 23).length;
+    // Un monto que no llega a un centavo: no se cobra entero ni en 0.
+    r.centavo = await cobrarCuota(51, 24, { monto: 0.004, fecha: '2026-10-20' }).then((x) => x, (e) => String(e instanceof Error ? e.message : e));
+    r.centavoCuota = fila(51);
   });
   const lead = (id: number) => db.leads.find((l) => l.id === id)?.total_cobrado_usd ?? null;
   const delLead = (id: number) => db.pagos.filter((p) => p.lead_id === id).map((p) => ({ id: p.id, pagado: p.pagado, monto_usd: p.monto_usd }));

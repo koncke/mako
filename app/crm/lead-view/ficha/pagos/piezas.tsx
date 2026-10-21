@@ -64,7 +64,9 @@ export function Semaforo({ tono, children }: { tono: Tono; children: ReactNode }
 const useHoraDelNegocio = (): string => { const tz = useTzWorkspace(); return horaEnTz(tz); };
 const numero = (s: string): number | null => {
   const n = Number(String(s).replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+  // Lo que redondea a 0 (0,004) es «falta el monto», no un cobro de 0 (21/10/2026).
+  const r = Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+  return r > 0 ? r : null;
 };
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 

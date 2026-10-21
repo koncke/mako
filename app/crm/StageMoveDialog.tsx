@@ -398,13 +398,15 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       ...(move.asistioJ2 != null ? { asistioJ2: move.asistioJ2 } : {}),
       ...(yaCalificado != null ? { calificado: yaCalificado } : {}),
       ...(yaMotivo?.trim() ? { motivo: yaMotivo } : {}),
+      // El tipo de venta que se ELIGE acá (21/10/2026): pasar de suscripción a pago único pide «Plan de pagos».
+      ventaTipo,
     })
       .then((r) => { if (vivo) setReqServer(r); })
       // Si la consulta falla seguimos con lo local: es preferible un wizard que
       // pregunte de menos a un pop-up que no abre.
       .catch(() => { if (vivo) setReqServer([]); });
     return () => { vivo = false; };
-  }, [lead.id, to, move.asistioJ1, move.asistioJ2, yaCalificado, yaMotivo]);
+  }, [lead.id, to, move.asistioJ1, move.asistioJ2, yaCalificado, yaMotivo, ventaTipo]);
 
   const cargandoReq = reqServer === null;
   // `placeholder` entra también en la unión final: cuando el caller no pasó

@@ -19,7 +19,7 @@ import { faltaColumnaFunnel } from './funnels-elegidos';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from './pagos-diferencia';
 import {
-  aplicarObligacion, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
+  aplicarObligacion, avisoPlanUniforme, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
   diferenciaDePlan, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
   type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type FilaVenta,
   type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal,
@@ -193,7 +193,7 @@ async function cuotasParaReconciliar(leadId: number): Promise<CuotaExistente[]> 
   return pagos.map((q) => ({
     id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado,
     // La de un cliente dado de baja (#871) queda fuera del plan como la devuelta: ni se casa, ni se reescribe, ni se borra.
-    devuelta: noEsDeuda(q), protegida: prot.get(q.id) ?? [],
+    devuelta: noEsDeuda(q), nacio_cobrada: !!q.nacio_cobrada, protegida: prot.get(q.id) ?? [],
   }));
 }
 
@@ -370,6 +370,11 @@ export async function savePlanPagos(
   plan: PlanPagos,
   hoy?: string,
 ): Promise<Pago[]> {
+  // ⚠️ NO SE ARMA ENCIMA DE PLATA SUELTA SIN PLAN (21/10/2026, quinta revisión): la seña de US$100 (número 1) tapaba la
+  // cuota 1 de US$1.000 y la API contestaba «Listo» con US$900 menos. La MISMA regla que el asistente de Ganado
+  // (`avisoPlanUniforme` → `pagosPrevios`, lib/pagos-campo.ts): se arma en la tab Pagos, viendo lo cobrado.
+  const aviso = avisoPlanUniforme(await getPagosByLead(leadId));
+  if (aviso) throw new Error(aviso);
   // Sin `hoy`, el del NEGOCIO (20/10/2026): el default era el día UTC, que de noche en México ya es mañana.
   return (await ajustarPlanPagos(leadId, plan, hoy ?? (await hoyEnWorkspace()))).pagos;
 }
@@ -401,15 +406,20 @@ export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise
 
   // El plan de pagos pertenece a un lead GANADO: dejamos el desenlace coherente
   // (estado_lead/cerro) para que Sold Revenue y los cierres lo cuenten siempre.
-  const leadUpdate: Record<string, unknown> = { estado_lead: 'ganado', cerro: true };
-  if (p.total_usd != null) leadUpdate.monto_cierre_usd = p.total_usd;
-  if (p.duracion_meses != null) leadUpdate.duracion_meses = p.duracion_meses;
-  if (p.fecha_cierre) leadUpdate.fecha_cierre = p.fecha_cierre;
-  if (p.fecha_inicio) leadUpdate.fecha_inicio_servicio = p.fecha_inicio;
   // ⚠️ ESTE UPDATE TAMBIÉN GANA: no pasa por updateLead, así que el enganche «al ganar» (la
   // invitación automática al curso, lib/crm-curso-al-ganar.ts) se llama acá. Por eso se lee
   // el estado de ANTES: sólo la transición invita, y guardar las cuotas de un ganado no.
-  const { data: antes } = await supabase.from('leads').select('estado_lead, funnel_id').eq('id', leadId).maybeSingle();
+  const { data: antes } = await supabase.from('leads').select('estado_lead, funnel_id, fecha_cierre').eq('id', leadId).maybeSingle();
+  const leadUpdate: Record<string, unknown> = { estado_lead: 'ganado', cerro: true };
+  if (p.total_usd != null) leadUpdate.monto_cierre_usd = p.total_usd;
+  if (p.duracion_meses != null) leadUpdate.duracion_meses = p.duracion_meses;
+  // ⚠️ LO QUE GANA LLEVA SU FECHA DE CIERRE (21/10/2026, quinta revisión): una suscripción ganada desde el asistente con
+  // su plan quedaba con `fecha_cierre` NULL (este update gana sin ella, y después `setPipelineStage` ve el lead ya
+  // ganado y no toca la venta). No contaba en los cierres del mes, el MRR la daba activa para siempre y nunca
+  // «Terminó». Sin una fecha que venga ni una que ya tenga, la del día del negocio: la misma con que se anclan sus cuotas.
+  if (p.fecha_cierre) leadUpdate.fecha_cierre = p.fecha_cierre;
+  else if (!(antes as { fecha_cierre?: string | null } | null)?.fecha_cierre) leadUpdate.fecha_cierre = await hoyEnWorkspace();
+  if (p.fecha_inicio) leadUpdate.fecha_inicio_servicio = p.fecha_inicio;
   if (Object.keys(leadUpdate).length > 0) {
     const { error } = await supabase.from('leads').update(leadUpdate).eq('id', leadId);
     if (error) throw new Error(`Error guardando plan del lead ${leadId}: ${error.message}`);
@@ -700,7 +710,19 @@ export async function cobrarCuota(
     await curarDespues(pagoId, leadId, true, fila.cobro_id ?? null);
     return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink: null, yaEstaba: true as const };
   };
+  // ⚠️ NO TOMARLA NO SIEMPRE ES «YA ESTABA» (21/10/2026, quinta revisión): si la cuota se BORRÓ en el medio (la
+  // reconciliación de un plan), decir «ya estaba cobrada» escondía un cobro que sí entró. Se mira cómo quedó.
+  const noTomada = async () => {
+    const { data: ahora } = await db.from('pagos').select('pagado').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+    if ((ahora as { pagado?: boolean | null } | null)?.pagado) return yaCobrada();
+    throw new Error('La cuota cambió mientras la cobrabas (se quitó o se rehízo el plan): recarga la ficha y vuelve a cobrarla. No se escribió nada.');
+  };
   if (fila.pagado) return yaCobrada();
+  // ⚠️ Un monto que no llega a un centavo (0,004) no es «sin monto» (21/10/2026, quinta revisión): caía como el cobro
+  // ENTERO, o se guardaba en 0 y la deuda desaparecía sin su diferencia.
+  if (datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 && centavos(datos.monto) <= 0) {
+    throw new Error('El monto tiene que ser de al menos un centavo.');
+  }
   // ⚠️ Si un link de la cuota ya se cobró, la cuota queda cobrada con ESE pago y no se toca nada más: ni el monto, ni
   // la diferencia, ni la moneda (17/10/2026, `linkYaPagado`). Antes la plata se contaba dos veces.
   if (!fila.pagado) {
@@ -735,11 +757,11 @@ export async function cobrarCuota(
       p_moneda: enMoneda?.moneda ?? null, p_monto_original: enMoneda?.montoOriginal ?? null, p_limpiar_moneda: !enMoneda && aMano,
       p_resto: pend, p_vence: fila.fecha_esperada ?? datos.fecha,
     });
-    if (!r.tomada) return yaCobrada();
+    if (!r.tomada) return noTomada();
   } else {
     const { data: tomada, error } = await siSigue(db.from('pagos').update(upd).eq('id', pagoId).eq('lead_id', leadId), true).select('id');
     if (error) throw new Error(`Error cobrando el pago ${pagoId}: ${error.message}`);
-    if (!tomada?.length) return yaCobrada();
+    if (!tomada?.length) return noTomada();
   }
   // El concepto y el método (`etiquetarPago` no tira: una etiqueta que no se guardó no tumba un cobro que ya entró).
   await etiquetarPago(pagoId, datos, { limpiar: aMano });

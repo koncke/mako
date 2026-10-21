@@ -57,20 +57,26 @@ apagados (tests/plan-acceso.test.ts, tests/api-tab.test.ts, tests/pagos-link-ya-
 
 Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
 
-## 21/10/2026 · el cobro a prueba de fallas (cuatro revisiones adversariales)
+## 21/10/2026 · el cobro a prueba de fallas (cinco revisiones adversariales)
 
 - En producción: marcar un cobro dos veces no lo cambia, «hoy» es el día del negocio (4559998ab), y la escritura del cobro es
-  condicional (0f55e9abd).
-- Rama `pagos-cobro-bordes`: el cobro de menos va en una transacción, la **mig 0318** (`cobrar_cuota_con_resto`), que
+  condicional (0f55e9abd). Y `pagos-cobro-bordes` (5f433c96b, run 193, con la 0318 aplicada antes).
+- Rama `pagos-plan-sueltos` (quinta revisión): lo cobrado suelto se cuenta por plata (`mesesDePlata`) en el asistente y en
+  la ficha, qué es un plan lo dice `pagosPrevios`, el plan uniforme no se arma encima de una seña, y lo que gana con el
+  plan lleva su fecha de cierre. El detalle, en hallazgos-pagos («La quinta revisión»).
+- Rama `pagos-cobro-bordes` (ya en producción): el cobro de menos va en una transacción, la **mig 0318** (`cobrar_cuota_con_resto`), que
   **se aplica ANTES del deploy**. Sin ella, un cobro por menos no se guarda y lo dice; el cobro entero sigue igual.
   Además: el asistente de Ganado no rehace un plan, la primera cuota es el día del cierre, la pasarela cura su «ya estaba»
   y el día de cierre es el del negocio. El detalle, en hallazgos-pagos («La tercera revisión»).
 - Cuarta revisión, en la misma rama: el plan del asistente lo decide `planDelAsistente` (los pagos sueltos ya cobrados
   son las primeras cuotas; nunca nace una cuota por un mes cobrado), lo que no se hizo se muestra, y la 0318 lleva su
   revoke/grant y el `order by id`. El detalle, en hallazgos-pagos («La cuarta revisión»).
-- **Sin hacer:** las suscripciones que el asistente ya armó tienen sus cuotas corridas un mes (siguen en «Falta registrar
-  1 mes»). Hay que medirlas en sólo lectura y decidir si se corren. Y las que ya recibieron 12 cuotas encima de meses
-  sueltos (el agujero de la cuarta revisión, también en main): medir leads con `nacio_cobrada` y más cuotas que el plazo.
+- ~~**Sin hacer:** medir las suscripciones corridas un mes y las que recibieron cuotas encima de meses sueltos.~~ Medido
+  en producción el 21/10 (sólo lectura): ninguna con cuotas encima de meses cobrados, ninguna ganada con plan y sin
+  cierre, y UNA corrida un mes: **ws 11, lead 2605** (12 cuotas desde el 08/11, cierre el 08/10, nada cobrado). Decide
+  Martín con el cliente si octubre se cobró; no se toca sin su OK.
+- **Sin hacer:** la 0318 no ve si el MONTO de la cuota cambió entre la lectura y la toma (necesita una migración nueva
+  con `p_original`; el número lo da el Cerebro).
 
 ## Lo que sigue, en orden
 

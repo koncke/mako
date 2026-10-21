@@ -376,6 +376,43 @@ test('9. ⚠️ un pago suelto previo: nunca nace una cuota por un mes ya cobrad
   assert.equal(siguienteFechaDeCuota(['2026-10-21', '', '2026-11-21'], '2026-10-21'), '2026-12-21', 'una fila sin fecha no cuenta');
 });
 
+test('10. ⚠️ quinta revisión: lo que gana lleva su cierre, el plan uniforme no tapa cuotas con una seña, y no tomarla no es «ya estaba»', () => {
+  const s = correr() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- la salida del hijo, campo por campo
+  // Una suscripción ganada desde el asistente con su plan quedaba con `fecha_cierre` NULL: no contaba en los cierres del
+  // mes, el MRR la daba activa para siempre y nunca «Terminó». Ahora, el día del NEGOCIO (las 20 h del 20/10 en México).
+  assert.equal(s.cierreNuevo, '2026-10-20');
+  assert.equal(s.cierreQueTenia, '2026-10-01', 'la que ya tenía no se toca');
+  // La seña de 100 (número 1) tapaba la cuota 1 de 1000 y la API decía «Listo» con 900 menos: ahora no se arma, y se dice.
+  assert.match(String(s.unifSena), /Ya tenía pagos cobrados: el plan no se armó/);
+  assert.equal(s.unifSenaFilas, 1, 'no se escribió nada');
+  // Con un plan y una seña en el número 2, el plan entero (1000 + 3 × 1000) queda por cobrar: la seña no tapa la cuota 2.
+  assert.equal(s.unifPlan, 4000);
+  assert.deepEqual(s.unifPlanNumeros, [0, 1, 2, 3, 4], 'ningún número repetido');
+  // La cuota se borra mientras se cobra (entera y por menos): no es «ya estaba», y no se escribe nada.
+  for (const k of ['borradaEntera', 'borradaMenos']) assert.match(String(s[k]), /La cuota cambió mientras la cobrabas/, k);
+  assert.equal(s.borradaMenosFilas, 0, 'ni una diferencia de un cobro que no se anotó');
+  // Menos de un centavo: ni el cobro entero, ni en 0.
+  assert.match(String(s.centavo), /al menos un centavo/);
+  assert.deepEqual([s.centavoCuota.pagado, s.centavoCuota.monto_usd], [false, 500]);
+
+  const pagos = sinComentarios(leer('lib/pagos.ts'));
+  const cobrar = pagos.slice(pagos.indexOf('export async function cobrarCuota('), pagos.indexOf('export async function registrarPagoSuelto('));
+  assert.doesNotMatch(cobrar, /return yaCobrada\(\);\s*\} else \{|if \(!tomada\?\.length\) return yaCobrada\(\);/, 'no tomarla pasa por `noTomada`');
+  assert.equal((cobrar.match(/return noTomada\(\);/g) ?? []).length, 2, 'la transacción y la escritura entera');
+  const modal = leer('app/crm/lead-view/ficha/pagos/piezas.tsx');
+  assert.match(modal, /const r = Number\.isFinite\(n\) && n > 0 \? Math\.round\(n \* 100\) \/ 100 : 0;\s*return r > 0 \? r : null;/, 'el modal dice «falta el monto»');
+  // MaKo no propone el plan uniforme encima de plata suelta (y `savePlanPagos` igual lo frena).
+  const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
+  const gpp = run.slice(run.indexOf('  guardar_plan_pagos: {'), run.indexOf('  guardar_cuotas: {'));
+  assert.match(gpp, /const sueltos = avisoPlanUniforme\(await getPagosByLead\(lead\.id\)\);\s*if \(sueltos\) return \{ error: sueltos \};/);
+  // El tablero pide el plan con el tipo de venta que se ELIGE (pasar de suscripción a pago único lo pide).
+  const acciones = sinComentarios(leer('app/crm/actions.ts'));
+  assert.match(acciones, /tienePagos\(pagosExistentes\) \|\| \(d\.ventaTipo \?\? before\?\.venta_tipo\) === 'suscripcion'\)/);
+  const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
+  assert.match(wizard, /ventaTipo,\s*\}\)\s*\.then\(\(r\) => \{ if \(vivo\) setReqServer\(r\); \}\)/);
+  assert.match(wizard, /\}, \[lead\.id, to, move\.asistioJ1, move\.asistioJ2, yaCalificado, yaMotivo, ventaTipo\]\);/);
+});
+
 // ROTURAS (20/10/2026). Base: 4 pases, 0 fallos (los tests 1 a 4). Rota (pases / fallos):
 //   · `marcarPago` sin la vuelta de «ya estaba»                                       → 3 / 1 (1)
 //   · `cobrarCuota` reescribe una cuota cobrada (monto y moneda)                      → 3 / 1 (1)
@@ -444,3 +481,14 @@ test('9. ⚠️ un pago suelto previo: nunca nace una cuota por un mes ya cobrad
 //   · la 0318 sin el revoke                                                         → 8 / 1 (7)
 //   · la 0318 sin el grant a service_role                                           → 8 / 1 (7)
 //   · la 0318 toma las cuotas sin orden                                             → 8 / 1 (7)
+//
+// ROTURAS de la quinta revisión (21/10/2026). Base: 10 pases, 0 fallos. Rota (pases / fallos):
+//   · lo que gana con el plan, sin fecha de cierre                                   → 9 / 1 (10)
+//   · `savePlanPagos` arma encima de una seña                                        → 9 / 1 (10)
+//   · la cuota borrada en el medio es «ya estaba» (entera)                           → 9 / 1 (10)
+//   · la cuota borrada en el medio es «ya estaba» (por menos)                        → 9 / 1 (10)
+//   · menos de un centavo se cobra                                                   → 9 / 1 (10)
+//   · MaKo propone el plan uniforme encima de una seña                               → 9 / 1 (10)
+//   · el tablero no vuelve a preguntar al cambiar el tipo                            → 9 / 1 (10)
+//   · «Plan de pagos» con el tipo guardado, no el elegido                            → 9 / 1 (10)
+//   · el modal toma 0,004 como un monto                                              → 9 / 1 (10)
