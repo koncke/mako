@@ -1,9 +1,10 @@
 // =============================================================================
 // Hijo de tests/d6b-rutas.test.ts — NO es un test (no termina en .test.ts)
 // =============================================================================
-// Corre DE VERDAD rutas del Ops Center que la revisión del Cerebro (21/10/2026) encontró yendo a la Gemini gratis: el
-// POST de «Buscar con MaKo» (app/api/second-brain/buscar) y el POST de El Archivero de su pantalla con una foto y con un
-// texto (app/api/onboarding/archivero). lib/ai-cheap.ts lleva `server-only`: corre en un node aparte con
+// Corre DE VERDAD caminos del Ops Center que las revisiones del Cerebro (21/10/2026) encontraron yendo a la Gemini gratis:
+// el POST de «Buscar con MaKo» (app/api/second-brain/buscar), el POST de El Archivero de su pantalla con una foto y con
+// un texto (app/api/onboarding/archivero), y el GET del cron del AI Analyst PROGRAMADO (app/api/cron/dashboard-analisis:
+// «analizá la hoja Ventas todos los lunes», pedido en el chat, corre ahí, en otro pedido). lib/ai-cheap.ts lleva `server-only`: corre en un node aparte con
 // `--conditions=react-server`, contra un PostgREST de mentira (tests/_postgrest-de-mentira.ts). Toda la red que no es la
 // base se ANOTA por host y contesta 400 (un 400 no se reintenta: la corrida no espera los reintentos de un 5xx).
 //
@@ -13,7 +14,8 @@
 // de D6b y el contexto son los reales. El workspace va con `runWithWorkspace`, como lo resuelve la cookie.
 //
 // El negocio (ws3) tiene una Gemini vieja del onboarding. Tres estados:
-//   · sinSuIA  (el control): sin su PC ni su clave → la cascada sale a Gemini. Si no, la prueba no vería nada.
+//   · sinSuIA  (el control): sin su PC ni su clave → la cascada sale a Gemini. Si no, la prueba no vería nada (y el
+//     análisis programado tiene que LLEGAR a la IA: la hoja es la del informe inicial, con los gráficos de verdad).
 //   · conSuPc  : su PC conectada (su Claude, D6b) → ni un pedido a un proveedor gratis, y la pantalla dice lo cierto.
 //   · enOnboarding: su PC y el onboarding en curso → el crédito de Claude de la plataforma SIGUE (api.anthropic.com):
 //     El Archivero del onboarding no se rompe por correr adentro del contexto.
@@ -30,12 +32,13 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-de-prueba';
 process.env.CREDENCIALES_SECRET = 'secreto-de-prueba-de-32-caracteres-o-mas-para-el-test';
 process.env.AUTH_SECRET = 'secreto-de-sesion-de-prueba-de-32-caracteres-o-mas';
+process.env.CRON_SECRET = 'secreto-del-cron-de-prueba';
 
 const WS = 3;
 const PLATAFORMA = 9;
 const ONBOARDING_HECHO = { workspace_id: WS, key: 'onboarding.state', value: JSON.stringify({ status: 'done' }) };
 
-const pg = crearPostgrest({ tablas: ['credenciales', 'workspaces', 'app_settings', 'anthropic_usage', 'ia_cuotas', 'ia_rebotes', 'ia_pc_dispositivos'] });
+const pg = crearPostgrest({ tablas: ['credenciales', 'workspaces', 'app_settings', 'anthropic_usage', 'ia_cuotas', 'ia_rebotes', 'ia_pc_dispositivos', 'dashboard_analisis', 'dashboard_ia_elementos'] });
 let red: string[] = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
@@ -69,7 +72,8 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
   return cargarOriginal.call(this, pedido, padre, esMain);
 };
 
-type Corrida = { red: string[]; status: number; cuerpo: Record<string, unknown> };
+type Corrida = { red: string[]; status: number; cuerpo: Record<string, unknown>; fila?: { estado: unknown; error: unknown } | null };
+const PERSONA = 'admin@negocio.com';
 
 async function main() {
   const { cifrarSecreto } = await import('../lib/credenciales');
@@ -77,7 +81,21 @@ async function main() {
   const { runWithWorkspace } = await import('../lib/workspace');
   const buscar = await import('../app/api/second-brain/buscar/route');
   const archivero = await import('../app/api/onboarding/archivero/route');
-  cookieSesion = crearToken({ sub: 'password', email: 'admin@negocio.com', rol: 'usuario', rolWs: 'admin', ws: WS } as never) ?? '';
+  const cronAnalista = await import('../app/api/cron/dashboard-analisis/route');
+  const { tableroInicial } = await import('../lib/graficos-plantillas');
+  // El AI Analyst programado: la primera hoja del informe INICIAL (el que ve quien nunca guardó el suyo), vencida hace un
+  // minuto, todos los días a las 9. La fila se rehace antes de cada corrida (el cron le avanza el horario).
+  const hojaId = tableroInicial().hojas[0].id;
+  const programarAnalisis = () => {
+    pg.db.dashboard_analisis = [{
+      id: 1, workspace_id: WS, usuario: PERSONA, hoja_id: hojaId, componentes: null,
+      cron: { unidad: 'dia', cada: 1, hora: 9, minuto: 0 }, tz: 'America/Argentina/Buenos_Aires',
+      proxima_at: new Date(Date.now() - 60_000).toISOString(), anterior_at: null, que_tablero: null,
+      estado: null, fase: null, corrida_id: null, origen: null, started_at: null, finished_at: null, error: null,
+      analizado_at: null, resultado: null, entrada: null, modelo: null, visto_at: null, corridas: 0,
+    }];
+  };
+  cookieSesion = crearToken({ sub: 'password', email: PERSONA, rol: 'usuario', rolWs: 'admin', ws: WS } as never) ?? '';
   if (!cookieSesion) throw new Error('no pude firmar la sesión de prueba');
   pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, { id: WS, capa: 'cliente', nombre: 'Prueba' });
   // El onboarding del negocio, terminado: el crédito de Claude de la plataforma no corre (lib/veto-claude.ts).
@@ -103,7 +121,13 @@ async function main() {
       fd.append('file', new File(['Vendemos un programa de inglés para adultos a US$ 500, con clases en vivo y garantía de 30 días.'], 'oferta.txt', { type: 'text/plain' }));
       return archivero.POST(new Request('http://app.test/api/onboarding/archivero', { method: 'POST', body: fd }) as never);
     },
+    // Un cron no tiene sesión ni negocio: recorre a los que tienen algo vencido (se corre SIN `runWithWorkspace`).
+    cronAnalista: () => {
+      programarAnalisis();
+      return cronAnalista.GET(new Request('http://app.test/api/cron/dashboard-analisis', { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } }) as never);
+    },
   };
+  const DEL_CRON = new Set(['cronAnalista']);
   const correr = async (nombres: string[]) => {
     const out: Record<string, Corrida> = {};
     for (const nombre of nombres) {
@@ -112,11 +136,12 @@ async function main() {
       let cuerpo: Record<string, unknown> = {};
       try {
         // El workspace de la cookie: en la ruta de verdad lo resuelve `getWorkspaceActual` desde la sesión.
-        const r = await runWithWorkspace(WS, () => casos[nombre]());
+        const r = DEL_CRON.has(nombre) ? await casos[nombre]() : await runWithWorkspace(WS, () => casos[nombre]());
         status = r.status;
         cuerpo = await r.json().catch(() => ({}));
       } catch (e) { cuerpo = { tiro: e instanceof Error ? e.stack : String(e) }; }
-      out[nombre] = { red: [...new Set(red)], status, cuerpo };
+      const fila = DEL_CRON.has(nombre) ? pg.db.dashboard_analisis[0] : undefined;
+      out[nombre] = { red: [...new Set(red)], status, cuerpo, ...(fila ? { fila: { estado: fila.estado, error: fila.error } } : {}) };
     }
     return out;
   };
@@ -127,7 +152,7 @@ async function main() {
 
   // ── Con su PC conectada: su Claude (D6b) ─────────────────────────────────────────────────────────────────────────
   const ahora = new Date().toISOString();
-  pg.db.ia_pc_dispositivos.push({ id: 1, workspace_id: WS, persona: 'admin@negocio.com', revocado_at: null, confirmado_at: ahora, activa_at: ahora, creado_at: ahora });
+  pg.db.ia_pc_dispositivos.push({ id: 1, workspace_id: WS, persona: PERSONA, revocado_at: null, confirmado_at: ahora, activa_at: ahora, creado_at: ahora });
   const conSuPc = await correr(todos);
 
   // ── Con su PC y el onboarding en curso: el crédito de Claude de la plataforma sigue (lib/veto-claude.ts) ──────────

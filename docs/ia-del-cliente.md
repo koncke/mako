@@ -401,6 +401,9 @@ prueba en el ws3.
 - **Las rutas que D6b deja afuera como decisión pendiente** (`FUERA_DE_D6B` en tests/d6b-rutas.test.ts): la API de MaKo
   (`v1`, `agente`), Offer y `onboarding/arranque` (lo decide Offer), y las demás tabs (CRM, Ads, Landing, Chat Agent,
   gráficos, editores, CS). Y lib/transcribe.ts, una cascada a Groq y Gemini sin el corte.
+- **Lo que el chat del Ops Center EMBEBE de otras tabs** (la ficha del lead, closing, Web Generator, integraciones,
+  gráficos: 57 entradas, 149 handlers, se listan con `D6B_VOLCAR=1`): hoy afuera con su tab. Que prendan es extender
+  D6b al CRM, a closing y al Web Generator: lo decide Martín.
 - **Las claves pegadas en WhatsApp** (pieza 1.6 en el otro canal, de «MaKo en WhatsApp»): `taparClaves` en
   `manejarEntranteDoer` antes de `rutearDoer` (y el `caption` de los adjuntos), y en `bufferearYResponder` antes de
   `encolar`, también en el `payload` crudo; si tapó, `avisoClaveTapada` con el link a la app.

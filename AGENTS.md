@@ -4672,10 +4672,12 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   (segunda revisión del Cerebro, 21/10/2026): lo que corre al CONFIRMAR una tarjeta va en otro pedido
   (`confirmarDesdeTarjeta`, la bandeja, /mako/revisar) y los números del negocio iban a Gemini. Una ruta, una server
   action o un confirmar nuevo envuelve su trabajo en `conSuIADelNegocio(ws, fn)` (lib/ia-del-negocio.ts) o llama a
-  `entrarSoloSuIA` tras leer el negocio; tests/d6b-confirmar.test.ts corre los caminos de confirmar. **Una ruta o server
-  action nueva que llega a lib/ai-cheap.ts se decide en tests/d6b-rutas.test.ts**: adentro (con `conSuIADelNegocio`) o en
-  `FUERA_DE_D6B` con su porqué; lo que llaman las pantallas del Ops Center no puede ir afuera. Y lib/transcribe.ts es
-  otra cascada SIN el corte: envolver la ruta no la protege.
+  `entrarSoloSuIA` tras leer el negocio; tests/d6b-confirmar.test.ts corre los caminos de confirmar. **Cada handler o
+  acción nueva (también un `'use server'` en lib/, también un cron que corre lo pedido desde el Ops Center) que llega a
+  lib/ai-cheap.ts se decide en tests/d6b-rutas.test.ts**: adentro (con `conSuIADelNegocio`), en `SIN_IA` si no pide IA, o
+  en `FUERA_DE_D6B` con su porqué; lo que alcanzan las pantallas del Ops Center no puede ir afuera. La guarda decide por
+  HANDLER: que el POST de al lado prenda no salva al PATCH nuevo. Y lib/transcribe.ts es otra cascada SIN el corte:
+  envolver la ruta no la protege, así que lo que la alcanza va afuera o en `SIN_IA`, nunca «adentro».
   ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
   lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
   `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las

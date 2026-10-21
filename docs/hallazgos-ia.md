@@ -4701,7 +4701,8 @@ y en lo que pasa en la PC antes de que la persona diga que sí. Lo no obvio:
   imprimir NADA también sin `timeout`, en primer plano y con la salida a un archivo (medido hoy por dos agentes). Y
   **tampoco es «hay errores»**: una vez coincidió con un error real (`'insertada' is possibly 'null'`, que la API sí
   mostró), pero el otro agente vio el mismo `tsc -p` salir 1 mudo tres veces y después 0 con toda la salida, sin cambiar
-  nada. Es intermitente y no prueba nada en ningún sentido. **Lo que sirve es la API**: `createProgram` +
+  nada. **Es el vigía de RAM, que mata el proceso** (lo dice la cabecera de scripts/tsc-acotado.mjs: «código 1 y cero
+  salida»): por eso es intermitente, según la memoria libre de la PC en ese momento. **Lo que sirve es la API**: `createProgram` +
   `getPreEmitDiagnostics` con el tsconfig acotado (un script de 12 líneas, que imprime cada diagnóstico). ⚠️ **Con el
   tsconfig que arma `armarTsconfig` (scripts/tsc-acotado.mjs), no con uno a mano**: ése suma los globales de Next
   (`next/types/global.d.ts`), que hacen OBLIGATORIO `NODE_ENV` en `ProcessEnv`. El mío a mano dio 0 y el VERDE 3
@@ -4791,13 +4792,36 @@ medias y tres bajas. Lo no obvio:
 - **Emparejar gasta el código y anota su PC en dos viajes**: el tutorial que preguntaba en el medio decía «Ese código ya
   se usó y la computadora no quedó conectada» mientras la ventana preguntaba «¿Es tu negocio?». Recién usado sin PC
   anotada es «eligiendo» por un minuto.
+- **La guarda de las rutas decidía por ARCHIVO, y un handler nuevo al lado de uno que prende pasaba verde.** Ahora
+  tests/d6b-rutas.test.ts decide por handler (cada GET/POST y cada acción exportada), toma como entradas todos los
+  `'use server'` del repo (también los de lib/), tiene dos destinos (lib/ai-cheap.ts y lib/transcribe.ts, que el contexto
+  no protege) y sigue los imports de las pantallas del Ops Center por todo el repo. Lo no obvio de armarla:
+  - **El alcance es por MÓDULO, no por función**: casi todo GET del Ops Center «llega» a la cascada porque lib/archivero
+    y lib/onboarding la importan, y por eso hay 32 entradas en `SIN_IA`, cada una con lo que usa fijado. Seguir llamadas
+    entre funciones daría falsos verdes: las acciones de MaKo se ejecutan por un registro (`porId(tipo).ejecutar`), que
+    una regex no ve.
+  - **lib/rutas-publicas.ts se importa del lado del cliente y nombra todas las rutas públicas**: sin excluir sus
+    `/api/…`, todo lo público pasaba a ser «del Ops Center». Y el lado servidor de una page no se sigue hacia lib/ (son
+    1481 archivos, y las bitácoras de /admin/dev nombran rutas).
+  - **/mako/pendientes es otra page**, no cuelga de app/mako/page.tsx: las pantallas son todas las `page.tsx` de esas
+    carpetas.
+  - **El chat embebe bloques de otras tabs** (la ficha del lead, closing, Web Generator, integraciones, gráficos):
+    siguiendo los imports, el Ops Center llega a 57 entradas de otras tabs (149 handlers). Quedan afuera con «decisión
+    pendiente»; exigir que prendan es extender D6b a esas tabs (§13 de docs/ia-del-cliente.md, la decide Martín).
+- **El AI Analyst programado corre en OTRO pedido** (app/api/cron/dashboard-analisis y landing-analyst-auto): al
+  confirmar sólo se guarda el horario. Cada negocio corre ahora adentro de `conSuIADelNegocio`; con su IA y sin una
+  clave que lea, la fila queda en error con el porqué (el hijo lo corre: cero hosts gratis).
 - **Lo que quedó SIN hacer:**
   - **La 0322 sin aplicar y los ejecutables 0.3.2 sin subir** (los arma en seco la Ticketera; los sube Martín). La prueba
     de punta a punta (`--instalador --reinstalar`) espera a las dos.
   - **El AI Analyst programado desde el Ops Center decide con qué IA corre cada vez, no cuando se programó**: la fila no
     guarda desde dónde se programó (tests/d6b-rutas.test.ts lo cubre por el cron).
   - **La Mac, sin probar en una Mac.**
-- **Probado rompiéndolo**: 24 roturas (tests/ia-pc-tercera-revision.test.ts, base 8/0), todas en rojo. La primera corrida
+  - **Los demás crons** (avisos programados, los reportes, el Plan) siguen afuera como «fondo», sin revisar uno por uno.
+    Las cajas «Conclusiones» programadas van por el mismo envoltorio, verificado leyendo, no corriendo. El render de
+    servidor de una page no es entrada de la guarda.
+- **Probado rompiéndolo**: 24 roturas de la PC y de las claves, y 34 de la guarda y los crons (cada una de las 11 rutas
+  sin el contexto, los tres huecos del revisor, el cron sin contexto o escondido en el prefijo), todas en rojo. Las 24: (tests/ia-pc-tercera-revision.test.ts, base 8/0), todas en rojo. La primera corrida
   dio 23: «la clave de la plataforma ilegible se saltea» pasaba, porque el caso usaba una copia de la PRIMERA cuenta, y
   saltear la ilegible o fallar cerrado daban lo mismo («sí»). Con la copia de la SEGUNDA cuenta (legible) se distinguen:
   saltear la da por copia («no»). Un caso de falla cerrada se prueba donde el error de saltear cambia la respuesta.
