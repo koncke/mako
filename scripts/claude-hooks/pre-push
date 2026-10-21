@@ -64,6 +64,7 @@ if [ "$A_INTEGRACION" -eq 1 ] && [ "$A_MAIN" -eq 0 ] && [ "${MAKO_SIN_ANTES_DE_S
       echo ""
       echo "  ✖ PUSH BLOQUEADO: SIN TIPOS. Lo demás dio verde, pero los tipos de lo cambiado no se pudieron chequear. Esto NO es un rojo del código."
       echo "    Cerrá unos chats de Claude y volvé a pushear, o MAKO_SIN_TIPOS=1 git push … si lo decidís vos (la línea pasa a PARCIAL): los tipos los decide Actions."
+      echo "    Si la línea de abajo dice «cambió package.json / tsconfig / un .d.ts»: NO hay RAM que liberar (un tsc acotado no puede chequear eso). Corré el tsc completo (npm run typecheck) o MAKO_SIN_TIPOS=1: Actions decide."
       echo ""
       [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
       exit 1

@@ -22,12 +22,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { alcanceTsc, cerrar, correrTipos, especificadoresConTipos, planDeTipos, salidaSinRam, SALIDA_SIN_TIPOS, seleccionar, tiposNoAcotables } from '../scripts/tests-afectados.mjs';
-import { armarTsconfig, dtsVersionados } from '../scripts/tsc-acotado.mjs';
+import { alcanceTsc, cerrar, correrTipos, especificadoresConTipos, planDeTipos, reexportaciones, salidaSinRam, SALIDA_SIN_TIPOS, seleccionar, tiposNoAcotables } from '../scripts/tests-afectados.mjs';
+import { armarTsconfig, dtsVersionados, GLOBALES_DE_NEXT } from '../scripts/tsc-acotado.mjs';
 
 const REPO_REAL = fileURLToPath(new URL('..', import.meta.url));
 const TESTS_AFECTADOS = join(REPO_REAL, 'scripts', 'tests-afectados.mjs');
@@ -132,7 +132,7 @@ function repoDeMentira(): string {
   const dir = mkdtempSync(join(tmpdir(), 'repo-tipos-'));
   const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=Prueba', '-c', 'user.email=prueba@example.com', '-c', 'commit.gpgsign=false', '-c', 'core.autocrlf=false', ...args], { cwd: dir, env: limpio(), encoding: 'utf8' });
   git('init', '-q', '-b', 'main');
-  writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, target: 'es2022', module: 'esnext', moduleResolution: 'bundler', noEmit: true, skipLibCheck: true, allowJs: true } }));
+  writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, target: 'es2022', module: 'esnext', moduleResolution: 'bundler', noEmit: true, skipLibCheck: true, allowJs: true, jsx: 'react-jsx' } }));
   symlinkSync(join(REPO_REAL, 'node_modules'), join(dir, 'node_modules'), 'junction');
   writeFileSync(join(dir, '.gitignore'), 'node_modules\n');
   mkdirSync(join(dir, 'tests'));
@@ -437,6 +437,120 @@ test('DE PUNTA A PUNTA: tipos en ROJO y los tests sin RAM → ROJO (1), no 99 «
 });
 
 // =============================================================================
+// La revisión v2 del 21/10/2026 (2b8edc128): lo que el acotado todavía no veía o decía mal
+// =============================================================================
+// 1. `<style jsx>` daba un ROJO FALSO (TS2322 «jsx no existe en StyleHTMLAttributes»): el acotado no cargaba los tipos de styled-jsx, que el tsc completo trae por next-env.d.ts.
+// 2. Los AYUDANTES de tests (`tests/_*.ts`) no entraban al alcance aunque importaran DIRECTO lo cambiado: el mismo mecanismo del run 187.
+// 3. Un SIN TIPOS por package.json / tsconfig / un .d.ts mandaba a «liberar RAM y repetir», que no cambia nada: ahí hay que decir tsc completo o --sin-tipos.
+// 4. (Mejora) Atravesar un RE-EXPORT no cuenta como un salto: un test que importa el barril depende del tipo original.
+
+test('GLOBALES_DE_NEXT: cada archivo que el acotado carga existe en el node_modules REAL (si un upgrade de next lo mueve, los falsos rojos vuelven en silencio)', () => {
+  assert.ok(GLOBALES_DE_NEXT.includes('node_modules/next/dist/styled-jsx/types/index.d.ts'), 'los tipos de styled-jsx están en la lista');
+  for (const rel of GLOBALES_DE_NEXT) assert.ok(existsSync(join(REPO_REAL, rel)), `${rel} existe`);
+});
+
+const ESTILO_JSX = "export const Estilo = () => (\n  <div>\n    <style jsx>{`div { color: red; }`}</style>\n  </div>\n);\n";
+
+test('DE PUNTA A PUNTA: un .tsx con <style jsx> NO da un ROJO falso (el acotado carga los tipos de styled-jsx)', () => {
+  const dir = repoDeMentira();
+  try {
+    agregarYCommitear(dir, 'app/Estilo.tsx', ESTILO_JSX);
+    const r = correrCli(dir, []);
+    assert.equal(r.codigo, 0, r.salida);
+    assert.doesNotMatch(r.salida, /TS2322|StyleHTMLAttributes/, 'sin los tipos de styled-jsx esto era un error de un archivo que el tsc completo da por bueno');
+    assert.match(r.ultima, /^VERDE · tipos de 1 archivos sin errores/, 'la línea final: ' + r.ultima);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('alcanceTsc: los AYUDANTES de tests (tests/_*.ts) que importan DIRECTO lo cambiado entran al alcance, como los tests; lo que no está en la raíz de tests/, no', () => {
+  const fuentes: Record<string, string> = {
+    'lib/tipo.ts': 'export type P = { a: string };\n',
+    'tests/_ayuda.ts': "import type { P } from '../lib/tipo';\nexport const p: P = { a: 'x' };\n",
+    'tests/uno.test.ts': "import { p } from './_ayuda';\nvoid p;\n",
+    'tests/sub/otro.ts': "import type { P } from '../../lib/tipo';\nexport const q: P = { a: 'y' };\n",
+    'tests/ajeno.test.ts': 'export {};\n',
+  };
+  const archivos = Object.keys(fuentes);
+  const sel = seleccionar({ cambiados: ['lib/tipo.ts'], archivos, leer: (r: string) => fuentes[r] ?? null });
+  const alcance = alcanceTsc({ cambiados: ['lib/tipo.ts'], archivos, importadoPor: sel.importadoPor, importadoPorTipos: sel.importadoPorTipos, reexportadoPor: sel.reexportadoPor, aumentan: sel.aumentan });
+  assert.deepEqual(alcance, ['lib/tipo.ts', 'tests/_ayuda.ts'], 'el ayudante sí; el test que lo importa está a dos saltos (no); el de la subcarpeta no es de la raíz de tests/');
+});
+
+test('DE PUNTA A PUNTA: cambia un TIPO y un ayudante de tests SIN TOCAR deja de compilar → ROJO', () => {
+  const dir = repoDeMentira();
+  try {
+    agregarYCommitear(dir, 'tests/_ayuda.ts', "import type { P } from '../lib/tipo';\nexport const p: P = { a: 'x' };\n");
+    agregarYCommitear(dir, 'lib/tipo.ts', 'export type P = { a: string };\n');
+    agregarYCommitear(dir, 'lib/tipo.ts', 'export type P = { a: string; b: number };\n');   // el ayudante NO se toca
+    const r = correrCli(dir, []);
+    assert.equal(r.codigo, 1, r.salida);
+    assert.match(r.ultima, /^ROJO: tipos: 1 errores \(tests\/_ayuda\.ts\)/, 'la línea final: ' + r.ultima);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('reexportaciones: lee los `export … from` y nada más', () => {
+  const src = [
+    "export * from './a';", "export * as ns from './b';", "export { x, y as z } from './c';", "export type { T } from './d';",
+    "export {\n  uno,\n  dos,\n} from './e';",
+    "export const k = 1;", "export { local };", "import { i } from './f';", "import type { J } from './g';",
+  ].join('\n');
+  assert.deepEqual(reexportaciones(src).sort(), ['./a', './b', './c', './d', './e']);
+});
+
+test('alcanceTsc: atravesar un RE-EXPORT no cuenta como un salto (un test que importa el barril entra); una cadena de imports comunes, sí cuenta', () => {
+  const fuentes: Record<string, string> = {
+    'lib/tipos.ts': 'export type P = { a: string };\n',
+    'lib/barril.ts': "export * from './tipos';\n",
+    'lib/medio.ts': "import type { P } from './tipos';\nexport const m = (p: P) => p;\n",
+    'tests/por-barril.test.ts': "import type { P } from '../lib/barril';\nexport const x: P = { a: '1' };\n",
+    'tests/por-medio.test.ts': "import { m } from '../lib/medio';\nvoid m;\n",
+  };
+  const archivos = Object.keys(fuentes);
+  const sel = seleccionar({ cambiados: ['lib/tipos.ts'], archivos, leer: (r: string) => fuentes[r] ?? null });
+  const alc = (extra: object = {}) => alcanceTsc({ cambiados: ['lib/tipos.ts'], archivos, importadoPor: sel.importadoPor, importadoPorTipos: sel.importadoPorTipos, reexportadoPor: sel.reexportadoPor, aumentan: sel.aumentan, ...extra });
+  assert.deepEqual(alc(), ['lib/tipos.ts', 'tests/por-barril.test.ts'], 'el test del barril entra con un salto; el de «medio» (un import común: dos saltos) no');
+  assert.deepEqual(alc({ reexportadoPor: null }), ['lib/tipos.ts'], 'sin saber de los re-exports el barril cuenta como un salto más: el test queda a dos');
+  assert.deepEqual(alc({ profundidadTests: 2 }), ['lib/tipos.ts', 'tests/por-barril.test.ts', 'tests/por-medio.test.ts'], 'con dos saltos entra también el otro');
+});
+
+test('DE PUNTA A PUNTA: cambia un tipo, y un test SIN TOCAR que lo importa por un BARRIL deja de compilar → ROJO', () => {
+  const dir = repoDeMentira();
+  try {
+    agregarYCommitear(dir, 'lib/barril.ts', "export * from './tipos';\n");
+    agregarYCommitear(dir, 'tests/por-barril.test.ts', "import type { P } from '../lib/barril';\nconst p: P = { a: 'x' };\nvoid p;\n");
+    agregarYCommitear(dir, 'lib/tipos.ts', 'export type P = { a: string };\n');
+    agregarYCommitear(dir, 'lib/tipos.ts', 'export type P = { a: string; b: number };\n');
+    const r = correrCli(dir, []);
+    assert.equal(r.codigo, 1, r.salida);
+    assert.match(r.ultima, /^ROJO: tipos: 1 errores \(tests\/por-barril\.test\.ts\)/, 'la línea final: ' + r.ultima);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('el SIN TIPOS por un cambio que NO se puede acotar dice la salida de verdad (tsc completo o --sin-tipos), y el de «sin RAM» sigue diciendo liberar RAM', async () => {
+  await conEntorno(FIJO(), async () => {
+    const noAcotable = await correrTipos([], { ejecutar: () => ({ status: 0, salida: '' }), raiz: REPO_REAL, noAcotables: ['package.json'] });
+    assert.equal(noAcotable.estado, 'sin-tipos');
+    assert.equal(noAcotable.noAcotable, true, 'la causa queda marcada');
+    assert.match(noAcotable.porque ?? '', /^cambió package\.json: define tipos para todo el repo/);
+    assert.match(noAcotable.porque ?? '', /corré el tsc completo \(npm run typecheck\), o --sin-tipos y que decida el paso «Tipos» de Actions/);
+    const fin = cerrar({ tipos: noAcotable });
+    assert.equal(fin.palabra, 'SIN TIPOS');
+    assert.equal(fin.codigo, SALIDA_SIN_TIPOS);
+    assert.match(fin.detalle, /acá NO hay RAM que liberar/);
+    assert.doesNotMatch(fin.detalle, /liberá RAM y repetí/, 'no manda a hacer algo que no cambia nada');
+    assert.match(fin.detalle, /el tsc completo, o --sin-tipos \(la línea pasa a PARCIAL\)/);
+  });
+  const sinRam = cerrar({ tipos: { estado: 'sin-tipos', porque: 'no hay RAM: quedan 0.9 GB y el tsc acotado pide 4.0' } });
+  assert.match(sinRam.detalle, /liberá RAM y repetí, o --sin-tipos si lo decidís vos/, 'el de la RAM no cambia');
+  assert.doesNotMatch(sinRam.detalle, /NO hay RAM que liberar/);
+});
+
+test('el hook de pre-push (la copia versionada) dice, para un 98 por package.json / tsconfig / .d.ts, que NO hay RAM que liberar y cuál es la salida', () => {
+  const hook = readFileSync(join(REPO_REAL, 'scripts', 'claude-hooks', 'pre-push'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(hook, /cambió package\.json \/ tsconfig \/ un \.d\.ts»: NO hay RAM que liberar[\s\S]*?npm run typecheck[\s\S]*?MAKO_SIN_TIPOS=1: Actions decide/);
+});
+
+// =============================================================================
 // ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026; se rompe UNA pieza, se corren estas pruebas, se restaura): 16 roturas, 16 rojas. Detalle en docs/hallazgos-infra.md («tsx no chequea tipos…»).
 //   `cerrar` (5): sin tipos disfrazado de VERDE (lo que pasaba) → 3 rojas · SIN TIPOS que sale 0 → 2 · un rojo que no manda sobre SIN TIPOS → 1 · `--sin-tipos` llamado VERDE → 3 · un rojo
 //     que esconde que los tipos tampoco se chequearon → 1.
@@ -444,6 +558,8 @@ test('DE PUNTA A PUNTA: tipos en ROJO y los tests sin RAM → ROJO (1), no 99 «
 //   `tests-afectados` (3): no corre los tipos por default → 2 · `--sin-tipos` que no cambia la palabra → 1 · los tipos que corren también en Actions (CI) → 1.
 //     (La primera versión de esta última rotura tocaba otra línea y salió VERDE: no era una rotura de verdad, y por eso se repitió bien.)
 //   `antes-de-subir` (4): `--rapido` que no mira los tipos → 1 · SIN TIPOS que vuelve a salir como VERDE → 1 · SIN TIPOS que sale 0 → 1 · un error de tipos que no entra a los rojos → 1.
+// ⚠️ TERCERA VUELTA (la revisión v2, 21/10/2026 noche): 12 roturas, 12 rojas — sin los tipos de styled-jsx → 2 · los ayudantes que no entran → 2 · «ayudante» con subcarpetas → 1 · un re-export contado como salto → 2 · el límite de saltos → 1 · planDeTipos sin los re-exports → 1 ·
+//   seleccionar sin registrarlos → 2 · RE_REEXPORT sin `export *` → 2 · el 98 no marcado como no acotable → 1 · el mensaje que vuelve a mandar a liberar RAM → 1 · cerrar sin distinguir la causa → 1 · el hook sin la aclaración → 1.
 // ⚠️ SEGUNDA VUELTA (la revisión del Cerebro, 21/10/2026): 22 roturas, 22 rojas.
 //   el alcance (10): el grafo de tipos que no se pasa a alcanceTsc → 3 · sin el `import type` en el grafo → 3 · especificadoresConTipos que ignora el import type → 3 · los tests importadores que no entran → 4 ·
 //     la búsqueda que sólo parte de los .ts cambiados (se pierde el .mjs del run 173) → 1 · el archivo borrado que no suma a sus importadores → 1 · sin límite de profundidad → 1 · la profundidad por defecto infinita → 1 ·

@@ -394,7 +394,7 @@ o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `t
 ⚠️ **UN VERDE SIN TIPOS NO SE LLAMA VERDE** (21/10/2026). Si los tipos de lo cambiado no se pudieron chequear (no entra en RAM en 2 min, otro
 typecheck no se libera, el vigía mató el tsc) la línea final es **`SIN TIPOS: <por qué>`** y el exit **98**: lo demás dio verde, pero eso NO
 es un VERDE, y **no se le pasa al Cerebro**. Antes la línea seguía diciendo `VERDE <sha> (tipos: los chequea Actions)`, y se leía como un
-verde. Qué hacer con un `SIN TIPOS`: liberar RAM (cerrar chats) y repetir; **no** pasarlo igual. `--sin-tipos` (o `MAKO_SIN_TIPOS=1`) existe
+verde. Qué hacer con un `SIN TIPOS`: liberar RAM (cerrar chats) y repetir; **no** pasarlo igual. **Salvo uno: el que dice `cambió package.json` / `tsconfig` / un `.d.ts`** — ahí NO hay RAM que liberar (un tsc acotado no puede chequear lo que define tipos para todo el repo): la salida es el tsc completo (`npm run typecheck`, ~6 GB libres) o `--sin-tipos`, y entonces la línea es `PARCIAL (…)` y decide el paso «Tipos» de Actions; se le pasa al Cerebro como PARCIAL, diciendo qué cambió. `--sin-tipos` (o `MAKO_SIN_TIPOS=1`) existe
 para lo que NO es una punta (una prueba local, un cambio sólo de docs): la línea final es `PARCIAL (sin tipos…)`, tampoco VERDE.
 `scripts/tests-afectados.mjs` —que el Cerebro corre solo antes de cada push— hace lo mismo: corre el tsc acotado además de los tests, y
 `SIN TIPOS`, `PARCIAL` y `ROJO` salen por la **última línea** (en Actions y con `--resto` no se corren: ahí está el paso «Tipos»). Que un
@@ -405,8 +405,8 @@ Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sig
 1. **Las guardas del push** (`scripts/guardas-push.sh`, las mismas del pre-push y de Actions — incluida «todo `.ts` es un
    módulo»: un `.ts` sin `import`/`export` es un script global para `tsc` y choca con otros, runs 51 y 52).
 2. **El `tsc` ACOTADO de lo que cambiaste Y DE LOS TESTS QUE DEPENDEN DE ESO** (un test que llama con dos argumentos a una firma que pide uno, run 31; una bitácora
-   sin `puntos`, run 10; un test SIN TOCAR cuyo tipo importado cambió, run 187; un .ts que importa un .mjs que cambió, run 173). Los tests que importan
-   DIRECTO lo cambiado entran al alcance, lo toque el cambio o no, siguiendo los imports **de tipos** (`import type` también) desde todo lo cambiado —un `.mjs`
+   sin `puntos`, run 10; un test SIN TOCAR cuyo tipo importado cambió, run 187; un .ts que importa un .mjs que cambió, run 173). Los tests (y sus ayudantes `tests/_*.ts`) que importan
+   DIRECTO lo cambiado entran al alcance (atravesar un `export … from` no cuenta como un salto), lo toque el cambio o no, siguiendo los imports **de tipos** (`import type` también) desde todo lo cambiado —un `.mjs`
    incluido—; **un salto, no más** (`MAKO_TIPOS_PROFUNDIDAD=3` lo ensancha): medido sobre 40 merges de main, la mediana del alcance pasa de 6 a 16 archivos con un salto y a 518
    con todos (los hubs de `lib/` los importan 500 tests y con ellos casi todo el programa, ~5 GB: SIN TIPOS casi siempre). Un archivo
    BORRADO suma a quienes lo importaban; y los `.d.ts` propios del repo (8) entran siempre (si no, `tono.ts`/`color-picker` daban un ROJO falso). Lo que

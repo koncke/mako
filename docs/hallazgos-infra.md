@@ -6868,6 +6868,16 @@ mandó uno. **Cuatro cayeron en «Tipos», todas en un TEST**: tres en un test n
    Ahora la ruta es lo que va antes de `(línea,col): error TS`, y un error sin archivo cuenta como propio.
 5. **Un ROJO de tipos se perdía si los tests no tenían RAM:** `tests-afectados` salía 99 («no es un rojo del código») sin mirar los tipos. `salidaSinRam`: un rojo de tipos gana, sale 1. (Para probarlo hicieron falta `MAKO_TESTS_PISO_GB` y `MAKO_TESTS_ESPERA_S`, que sólo usan las pruebas.)
 
+**La tercera vuelta (la revisión v2 de 2b8edc128, 21/10 noche)** — tres huecos más, todos reproducidos con el tsc de verdad:
+1. **Un ROJO falso en todo `.tsx` con `<style jsx>`** (`Galeria.tsx`, `Compartir.tsx`, `BrandingMaKo.tsx`): TS2322 «Property 'jsx' does not exist on type 'StyleHTMLAttributes'». El atributo existe sólo si se cargaron los tipos de styled-jsx, que el tsc completo trae por `next-env.d.ts`
+   (`next/index.d.ts` los referencia) y el acotado no. Era un rojo SIN SALIDA permitida para quien tocara uno de esos tres. Se agregó `node_modules/next/dist/styled-jsx/types/index.d.ts` a `GLOBALES_DE_NEXT` (y no todo `next/index.d.ts`, que arrastra la superficie entera de next a un chequeo de
+   un archivo). **La trampa:** `existsSync` saltea en silencio lo que no existe, así que un upgrade de next que lo mueva trae los falsos rojos de vuelta sin decirlo; un test comprueba que cada archivo de la lista exista en el `node_modules` real.
+2. **Los AYUDANTES de tests (`tests/_*.ts`) no entraban al alcance** aunque importaran DIRECTO lo cambiado: el `ES_TEST` es el glob de `npm test` (`*.test.ts`). Ahora `ES_TEST_O_AYUDANTE` (`tests/<algo>.ts` en la raíz de tests/) entra igual que un test.
+3. **El `SIN TIPOS` por `package.json` / `tsconfig` / un `.d.ts` mandaba a «liberar RAM y repetir»**, que no cambia nada: no hay RAM que liberar. Ahora el mensaje dice «corré el tsc completo (npm run typecheck), o --sin-tipos y que decida el paso «Tipos» de Actions», `cerrar` distingue las dos causas
+   (`noAcotable`) y el hook dice lo mismo; AGENTS.md permite esa salida (PARCIAL, diciendo qué cambió) y sólo para ese caso.
+4. **(Mejora)** atravesar un **re-export** (`export * from './tipos'`, `export { a } from`, `export type { T } from`) no cuenta como un salto: un test que importa el barril depende del tipo original igual que si lo importara. `reexportaciones`, `reexportadoPor` y un BFS que suma 0 saltos por una arista de re-export.
+   Como el resto del grafo, lee con regex: un `export * from` dentro de un string cuenta como re-export (sobreincluye, no pierde nada).
+
 **La lección de esa vuelta:** el arreglo citaba cuatro runs como motivo y yo lo di por cerrado sin REPRODUCIR cada uno. Con el 187 reproducido (cambiar un tipo, no tocar el test) el hueco aparece en un minuto. **Cuando un arreglo se justifica con N fallos reales, cada uno de los N es una prueba de punta a punta** — ahora lo son el 173 (`.mjs`) y el 187 (`import type`).
 
 **Las trampas que aparecieron:**

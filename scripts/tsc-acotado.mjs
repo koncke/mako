@@ -51,7 +51,12 @@ const barra = (p) => p.replace(/\\/g, '/');
 // OBLIGATORIO `NODE_ENV` en `NodeJS.ProcessEnv`. Medido el 17/10/2026 (run 100 de Actions y el que le siguió): un test pasaba `{}` donde se pide un
 // `ProcessEnv` — el tsc ACOTADO dio verde y el completo dio rojo dos veces seguidas (TS2345; y después, al castear, TS2352). Se agregan sólo si existen
 // (`next-env.d.ts` está en .gitignore y un worktree no lo tiene; los paquetes de next sí).
-const GLOBALES_DE_NEXT = ['node_modules/next/types/global.d.ts', 'node_modules/next/image-types/global.d.ts'];
+//
+// ⚠️ Y los de styled-jsx (21/10/2026, la revisión de tipos-en-el-VERDE): `<style jsx>` es un atributo que SÓLO existe si se cargó `next/dist/styled-jsx/types` (lo carga `next/index.d.ts`, que llega por
+// next-env.d.ts). Sin él, el acotado daba TS2322 «Property 'jsx' does not exist on type 'StyleHTMLAttributes'» en Galeria.tsx, Compartir.tsx y BrandingMaKo.tsx: un ROJO falso que el tsc completo no da, en una
+// punta que sólo tocaba uno de esos archivos. Se agrega el archivo de tipos de styled-jsx y no todo `next/index.d.ts` (que arrastraría la superficie entera de next a un chequeo de un archivo).
+// Si un upgrade de next lo mueve, `existsSync` lo saltea en silencio y los falsos rojos vuelven: por eso un test comprueba que cada uno de estos archivos exista en el node_modules real.
+export const GLOBALES_DE_NEXT = ['node_modules/next/types/global.d.ts', 'node_modules/next/image-types/global.d.ts', 'node_modules/next/dist/styled-jsx/types/index.d.ts'];
 
 /**
  * Los `.d.ts` PROPIOS del repo (versionados). ⚠️ Un archivo suelto no ve los tipos que declara un `.d.ts` que él no importa (21/10/2026, la revisión de tipos-en-el-VERDE):
