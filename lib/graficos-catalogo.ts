@@ -1127,6 +1127,12 @@ export function minimoDeElemento(tipo: string): { w: number; h: number } {
   const i = TIPOS_ELEMENTO.find((x) => x.id === tipo);
   return { w: i?.minW ?? 1, h: i?.minH ?? 1 };
 }
+/**
+ * Lo más chico que se puede achicar una tarjeta (el `minW`/`minH` de la grilla). El de un elemento sale del catálogo
+ * (`minimoDeElemento`): un video o una página insertada más chicos que 3 × 4 no se ven ni se tocan. Un gráfico, 2 × 2.
+ * Lo usan la grilla del editor (app/dashboard/EditorInforme.tsx) y mover desde la API (lib/graficos-mover.ts): UNA regla.
+ */
+export const minimoDeComponente = (c: Componente): { w: number; h: number } => (esElemento(c) ? minimoDeElemento(c.tipo) : { w: 2, h: 2 });
 /** Lo más largo del texto de cada tipo: el párrafo de un Texto, el de un Enlace, el título de un Video. */
 const TOPE_TEXTO_ELEMENTO: Partial<Record<TipoElemento, number>> = { enlace: 300, video: 120, insertado: 120, seccion: 80, ia: 80, entidad: 80, accion: 80, general: 80, experimento: 80 };
 /** El tope del texto de un tipo: el MISMO para el saneo y para los campos de la pantalla (su `maxLength`). */

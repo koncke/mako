@@ -5508,7 +5508,8 @@ Ya había pasado el 15/10 («Las doce cosas de Automations (vivían sólo en un 
   siempre con otra `fuente`, pero el desplegable del huso seguía guardando `mako.timezone` (`saveZonaHorarioAction`):
   elegir Madrid en «Leads Meta» dejaba a TODAS las demás mandando de madrugada, y la tarjeta decía «Sólo para esta
   automatización». Reusar un panel del negocio adentro de algo por automatización obliga a revisar CADA cosa que guarda,
-  no sólo la `fuente` principal. Ahora, con `zonaSoloLectura`, el huso es texto («Huso del negocio: …»).
+  no sólo la `fuente` principal. Ahora, con `zonaSoloLectura`, el huso es texto («Huso del negocio: …»). **Regla:** en la configuración de una
+  automatización, lo del negocio se muestra y no se edita.
 - **⚠️ Una copia que pierde lo que vive FUERA de la fila.** `duplicarSecuencia` copia una lista blanca de columnas, y la
   configuración propia está en `app_settings` (`automatizacion.config:<id>`): la copia de una «Prospección fría» de 9 a
   18 con 48 h nacía mandando a las 3 AM con 20 h, sin aviso. `copiarConfig` es OBLIGATORIA en las dependencias (un

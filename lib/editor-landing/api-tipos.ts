@@ -267,7 +267,8 @@ export type AccionTexto = (typeof ACCIONES_TEXTO)[number];
 export type PedidoIA =
   | { accion: 'esquema'; modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: Lectura; params: ParamsGeneracion }
   | { accion: 'secciones'; esquema: Esquema; indices: number[]; params: ParamsGeneracion; temaId: string }
-  | { accion: 'editar'; instruccion: string; tarjetas: JsonNodo[]; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion> }
+  /** `adjuntos` (20/10/2026): los archivos del mensaje del chat, ya leídos (./adjuntos.ts); van al contexto como datos. */
+  | { accion: 'editar'; instruccion: string; tarjetas: JsonNodo[]; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; adjuntos?: { nombre: string; texto: string }[] }
   | { accion: 'texto'; tipo: AccionTexto; texto: string; contexto?: string; tono?: string; idioma?: string }
   /** `params.formato` (tanda 6): en una presentación las alternativas son diapositivas, no secciones de página. */
   | { accion: 'disenos'; tarjeta: JsonNodo; params?: Partial<ParamsGeneracion> }

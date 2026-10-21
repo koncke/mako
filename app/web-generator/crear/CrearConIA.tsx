@@ -427,7 +427,7 @@ export function CrearConIA(props: PropsCrear) {
    */
   const semilla = (): SemillaCaja => {
     const de = { tipo, modoGen: arranque?.modo ?? 'plan', params: { ...params, instrucciones: arranque?.archivo ? arranque.params?.instrucciones ?? '' : params.instrucciones } };
-    if (arranque?.archivo) return { ...de, archivo: arranque.archivo, texto: arranque.prompt ?? '' };
+    if (arranque?.archivo) return { ...de, archivo: arranque.archivo, ...(arranque.archivos ? { archivos: arranque.archivos } : {}), texto: arranque.prompt ?? '' };
     return { ...de, texto: origen === 'generar' ? prompt : texto };
   };
   const volver = () => onSalir(semilla());

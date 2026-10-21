@@ -31,7 +31,7 @@ import {
   listCohortesSemanales, listCohortesMensuales, getResumenComercialMaduras, getFunnelMadurasLeads,
   getSCL, getTramosSCL, getDistribucionPipeline, FunnelsConEtapasDistintas, type FunnelLeadItem,
 } from '@/lib/queries';
-import { getOutstandingDetalle, getCuotasPendientes, type CuotaPendiente } from '@/lib/pagos';
+import { getPorCobrar, getCuotasPendientes, type CuotaPendiente } from '@/lib/pagos';
 import { funnelsDelPedido } from '../funnels-del-pedido';
 import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
@@ -433,8 +433,9 @@ export const RUNNERS: Runners = {
       if (alReves) return alReves;
       const filtra = !!(d && h);
       const hoy = await hoyEnWorkspace();
-      const [o, filas] = await Promise.all([
-        getOutstandingDetalle(hoy, filtra ? d : null, filtra ? h : null),
+      const [{ detalle: o, items }, filas] = await Promise.all([
+        // Las cuotas Y las suscripciones por cobrar (20/10/2026): la MISMA lista que la pantalla (`getPorCobrar`).
+        getPorCobrar(hoy, filtra ? d : null, filtra ? h : null),
         // getOutstandingDetalle lee la tabla pagos ENTERA sin paginar.
         contarFilas('pagos', (q) => q),
       ]);
@@ -445,21 +446,23 @@ export const RUNNERS: Runners = {
           ? `Solo cuotas sin pagar que vencen entre ${d} y ${h}. Una cuota sin fecha de vencimiento no entra en el filtro.`
           : 'Todo lo pendiente a hoy, sin importar cuándo vence (incluye cuotas futuras y cuotas sin fecha).',
         'proxima_cuota = la cuota sin pagar que vence primero; su pago_id es el que pide marcar_pago_cobrado. dias_desde_cierre null = el lead no tiene fecha de cierre.',
+        'suscripcion = un cliente de mensualidad por cobrar (no tiene cuota que marcar): «sin-registrar» son meses que ya empezaron y no se registraron, «renovacion-fallida» la tarjeta rechazada, «proxima» la próxima mensualidad manual. Su pendiente NO suma a pendiente_total_usd, que es el de las cuotas (el Outstanding).',
       ];
       if (!d !== !h) notas.unshift('Llegó solo uno de desde/hasta: el filtro por vencimiento necesita los dos, así que NO se filtró.');
       return json({
         a_la_fecha: hoy,
         filtro_vencimiento: filtra ? ventana(d, h) : null,
-        clientes_con_pendiente: o.items.length,
+        clientes_con_pendiente: items.length,
         pendiente_total_usd: r2(o.total),
-        fuera_de_la_lista: Math.max(0, o.items.length - LIMITE_COBRANZA),
-        clientes: o.items.slice(0, LIMITE_COBRANZA).map((x) => ({
+        fuera_de_la_lista: Math.max(0, items.length - LIMITE_COBRANZA),
+        clientes: items.slice(0, LIMITE_COBRANZA).map((x) => ({
           lead_id: x.lead_id, nombre: x.lead_nombre,
           vendido_usd: r2(x.vendido_usd), cobrado_usd: r2(x.cobrado_usd), pendiente_usd: r2(x.pendiente_usd),
           dias_desde_cierre: x.dias_desde_cierre,
           proxima_cuota: x.proxima_cuota
             ? { pago_id: x.proxima_cuota.pago_id, numero: x.proxima_cuota.numero, monto_usd: r2(x.proxima_cuota.monto_usd), vence: x.proxima_cuota.fecha_esperada }
             : null,
+          ...(x.suscripcion ? { suscripcion: { motivo: x.suscripcion.motivo, meses: x.suscripcion.meses, vence: x.suscripcion.vence } } : {}),
         })),
         notas,
       });

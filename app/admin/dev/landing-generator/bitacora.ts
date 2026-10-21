@@ -653,4 +653,39 @@ export const BITACORA: Hito[] = [
       'app/web-generator/editor/pedidos-chat.ts — la burbuja «¿Para cuál producto?»',
     ],
   },
+  {
+    fecha: '18 oct', hora: '20:45', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el chat del editor deje adjuntar documentos',
+    pedido: 'Florencia [01:27:40], queriendo adjuntar al chat del costado del editor su documento y el PDF «Lo que vendes» de MaKo: «No me permite». Martín [01:28:08]: «es un error… no te está permitiendo juntar documentos, yo lo voy a solucionar».',
+    puntos: [
+      'Es de la llamada de Fathom 864249059 (18/10, el onboarding de Florencia, ws21). Llegó el 20/10 por el Cerebro, con el registro en docs/feedback-20-10.md («Lo demás que salió de la llamada») y las dos citas del diagnóstico de esa llamada.',
+      'El chat del editor no tenía ⊕ a propósito (PanelAgente.tsx, decisión del 11/10: «Lo que NO se copia: adjuntar archivos al chat») y la caja de crear tomaba un solo archivo.',
+      'Lo que pidió el Cerebro: el ⊕ con las MISMAS piezas del Ops Center (un solo chat en toda la app), varios archivos, arrastrar y pegar; que lo adjuntado llegue al modelo que edita la landing; el PDF «Lo que vendes» del onboarding como chip; y varios archivos en la caja de crear.',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '19:06', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat del editor adjunta documentos, y la caja de crear toma varios',
+    puntos: [
+      'El chat del editor tiene el «+» del Ops Center: documentos, fotos, arrastrar y pegar, hasta 10 por mensaje. Cada archivo se lee al entrar y el mensaje sale cuando todos están leídos; uno que no se pudo leer queda en rojo y hay que quitarlo.',
+      'Lo adjuntado le llega a la IA que edita como material del pedido, y cuenta como respaldo: un testimonio del PDF ya no se borra como inventado.',
+      'Si el onboarding dejó «Lo que vendes» en El Archivero, el chat lo ofrece como chip; se lee sin gastar IA.',
+      'La caja «¿Qué vas a crear hoy?» toma varios archivos, y van juntos sin que el último se pierda en el corte de 60.000 caracteres.',
+      'Falta verlo con clics en el ws3, y medir un archivo de más de 4,5 MB (docs/hallazgos-editor-landing.md).',
+    ],
+    commits: [
+      { sha: '671920249', msg: 'Web Generator: el chat del editor adjunta documentos, y la caja de crear toma varios', lineas: 1109, archivos: 19 },
+    ],
+    archivos: [
+      'app/web-generator/editor/paneles/PanelAgente.tsx — el «+», las miniaturas, pegar, soltar y el chip',
+      'app/web-generator/editor/adjuntos-agente.ts — qué entra, cuándo se manda y qué viaja (puro)',
+      'lib/editor-landing/adjuntos.ts — los archivos al contexto de editar, y el tope repartido',
+      'app/web-generator/crear/caja-modos.ts — `archivos` en vez de `archivo`',
+      'app/api/landing-generator/importar/route.ts — GET: el «Lo que vendes» del Archivero',
+      'tests/web-generator-adjuntos.test.ts — un bloque por pieza, probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+  },
 ];

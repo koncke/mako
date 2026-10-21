@@ -27,13 +27,14 @@ const PAGINA = sinComentarios(leer('app/general/datos.ts'));
 const BLOQUE = sinComentarios(leer('app/general/bloques/Negocio.tsx'));
 const LISTA = sinComentarios(leer('app/general/Cobranza.tsx'));
 
-// Rotura: renglón distinto en General (`· vence` → `— vence`): 1 fallo.
+// Desde el 20/10/2026 los dos arman la fila con la MISMA función (`cobroDeFila`, app/m/dashboard/modelo.ts), que también
+// dibuja las suscripciones por cobrar: un renglón no se puede separar del otro.
+// Rotura: renglón distinto en General (otra función o el monto con otro formato): 1 fallo.
 test('el renglón de cada cuota es el MISMO que el del teléfono', () => {
-  const renglon = /linea: (`\$\{fmtValor\(f\.cuota\.monto, 'usd'\)\}[^`]*`)/;
-  const deGeneral = renglon.exec(PAGINA)?.[1];
-  const delTelefono = renglon.exec(sinComentarios(leer('app/m/dashboard/datos.ts')))?.[1];
-  assert.ok(deGeneral && delTelefono, 'no encontré el renglón en alguno de los dos');
-  assert.equal(deGeneral, delTelefono);
+  const llamada = /cobroDeFila\(f, \(n\) => fmtValor\(n, 'usd'\)\)/;
+  assert.match(PAGINA, llamada, 'General arma la fila con cobroDeFila');
+  assert.match(sinComentarios(leer('app/m/dashboard/datos.ts')), llamada, 'el teléfono arma la fila con cobroDeFila');
+  assert.match(sinComentarios(leer('app/m/dashboard/modelo.ts')), /linea: `\$\{plata\(f\.cuota\.monto\)\} · \$\{textoVence\(f\.cuota\.vence, f\.dias\)\}`/);
 });
 
 // Desde el 14/10/2026 «A quién cobrarle» es un bloque que la persona pone, saca y acomoda en su General (el editor del
@@ -43,8 +44,9 @@ test('el renglón de cada cuota es el MISMO que el del teléfono', () => {
 test('la lectura es TODO lo pendiente, y una lectura caída se dice en el bloque', () => {
   const lib = sinComentarios(leer('lib/datos-comercial-server.ts'));
   const fn = lib.slice(lib.indexOf('export async function leerAQuienCobrar'), lib.indexOf('export async function leerComercial'));
-  assert.match(fn, /getOutstandingDetalle\(c\.hoy, null, null\)/);
-  assert.match(fn, /armarCobranza\(out\.items, c\.hoy\)\.filas/);
+  // Las cuotas Y las suscripciones por cobrar (20/10/2026, `getPorCobrar`), sin ventana.
+  assert.match(fn, /getPorCobrar\(c\.hoy, null, null\)/);
+  assert.match(fn, /armarCobranza\(items, c\.hoy\)\.filas/);
   assert.match(PAGINA, /const cobranzaLeida = leerAQuienCobrar\(\);/);
   assert.match(PAGINA, /cobranza: !cobranza\.ok \? \{ ok: false, error: 'No pude leer la cobranza\.' \} : \{/);
   assert.match(BLOQUE, /if \(!d\.ok\) return <Cobranza filas=\{\[\]\} tz="" error=\{d\.error\} alcance=\{nombreFunnel\} \/>;/);

@@ -31,12 +31,18 @@
 // al borrar un chip, qué viaja al server) tiene test (tests/web-generator-cuadro.test.ts) y se ejecuta.
 //
 // LAS INVARIANTES (cada función las conserva):
-//   · con un archivo adjunto, el modo es «importar»;
+//   · con archivos adjuntos (uno o varios, 20/10/2026), el modo es «importar»;
 //   · con un link que tiene acción (Analiza / Replica esta landing), el modo es esa acción;
 //   · un link SIN acción (se le borró la pastilla) es una referencia del pedido: el modo es «generar» (o «importar»
 //     si además hay un archivo) y la dirección viaja adentro del pedido, como texto.
 //   Lo que se VE sale del modo y de lo adjunto (`vistaDeCaja`): «importar» sin archivo es el contenedor para soltar
 //   un archivo; «analizar» o «replicar» sin link, el contenedor del link; lo demás, el texto.
+//
+// VARIOS ARCHIVOS (20/10/2026). En el onboarding de Florencia (llamada de Fathom 864249059) Martín: «es un error… no te
+// está permitiendo juntar documentos, yo lo voy a solucionar». La caja tomaba UNO. Ahora `archivos` es una lista (hasta
+// MAX_ARCHIVOS), cada uno con su id, su lectura y su ✕; se manda cuando TODOS se leyeron (uno en rojo se quita: nada
+// viaja callado), y van al esquema como UN texto (`unirArchivos`, lib/editor-landing/adjuntos.ts: cada uno con su nombre
+// y su parte del tope de 60.000, para que el último no se pierda en el corte).
 //
 // ⚠️ LO ESCRITO NUNCA SE PIERDE NI SE ESCONDE SIN AVISO (la regla de la verificación de la tanda 6): elegir otro modo
 //    no borra el texto (a lo sumo lo tapa el contenedor de ese modo y vuelve al salir), el link que deja de ser
@@ -47,6 +53,7 @@
 import type { ParamsGeneracion } from '@/lib/editor-landing/api-tipos';
 import type { FormatoReplicar } from '@/lib/editor-landing/replicar-reglas';
 import { familiaDeArchivo, type FamiliaArchivo } from '@/lib/formatos-archivo';
+import { MAX_ARCHIVOS, unirArchivos } from '@/lib/editor-landing/adjuntos';
 import { linkEscrito, sacarLink, type AccionCaja } from '../panel-reglas';
 import type { TipoCrear } from './tipo';
 
@@ -84,8 +91,8 @@ export const TOPE_TEXTO = 60_000;
 /** El link pegado o soltado: la dirección TAL CUAL (con su www y su query) y su acción (null = es una referencia). */
 export type LinkCaja = { url: string; accion: AccionLink | null; formato: FormatoReplicar };
 
-/** El archivo adjunto: leyéndose, leído (con su texto) o que no se pudo leer. `vista`: la imagen, para su miniatura. */
-export type ArchivoCaja = { nombre: string; imagen: boolean; vista?: string } & (
+/** Un archivo adjunto: leyéndose, leído (con su texto) o que no se pudo leer. `vista`: la imagen, para su miniatura. */
+export type ArchivoCaja = { id: string; nombre: string; imagen: boolean; vista?: string } & (
   | { estado: 'leyendo' }
   | { estado: 'listo'; texto: string }
   | { estado: 'error' }
@@ -96,21 +103,24 @@ export type EstadoCaja = {
   /** Lo escrito en el campo (después de los chips). */
   texto: string;
   link: LinkCaja | null;
-  archivo: ArchivoCaja | null;
+  /** Los archivos adjuntos, en el orden en que llegaron (hasta MAX_ARCHIVOS). */
+  archivos: readonly ArchivoCaja[];
   /**
-   * Dónde estaba el cuadro cuando llegó el link o el archivo: a dónde vuelve si se quitan y no hay nada escrito
+   * Dónde estaba el cuadro cuando llegó el link o el primer archivo: a dónde vuelve si se quitan y no hay nada escrito
    * (el contenedor de Importar si se eligió Importar, el de Analizar si se eligió Analizar, el texto si se pegó
    * en Generar). Con algo escrito vuelve SIEMPRE al texto: lo escrito no queda tapado.
    */
   antes: ModoCaja;
 };
 
-export const cajaVacia = (modo: ModoCaja = 'generar'): EstadoCaja => ({ modo, texto: '', link: null, archivo: null, antes: modo });
+export const cajaVacia = (modo: ModoCaja = 'generar'): EstadoCaja => ({ modo, texto: '', link: null, archivos: [], antes: modo });
 
 /** Lo que trae el cuadro al abrirse UNA vez (no viaja en la URL): lo de vuelta de Crear, o el deep link de la landing de base. */
 export type SemillaCaja = {
   texto?: string;
+  /** El archivo que se mandó (con varios, el texto unido); `archivos`, cada uno, para volver con sus miniaturas. */
   archivo?: { nombre: string; texto: string };
+  archivos?: readonly { nombre: string; texto: string }[];
   modoGen?: 'plan' | 'express';
   params?: Partial<ParamsGeneracion>;
   tipo?: TipoCrear;
@@ -122,7 +132,11 @@ export type SemillaCaja = {
 /** El estado con el que abre el cuadro: el modo que pide el Panel y, si vuelve de Crear, lo que se había mandado. */
 export function cajaDeSemilla(modo: ModoCaja, s?: SemillaCaja | null): EstadoCaja {
   const e = cajaVacia(modo);
-  if (s?.archivo) return { ...e, modo: 'importar', antes: 'importar', texto: s.texto ?? '', archivo: { nombre: s.archivo.nombre, imagen: false, estado: 'listo', texto: s.archivo.texto } };
+  const docs = s?.archivos?.length ? s.archivos : s?.archivo ? [s.archivo] : [];
+  if (docs.length) {
+    const archivos = docs.slice(0, MAX_ARCHIVOS).map((d, i): ArchivoCaja => ({ id: `s${i}`, nombre: d.nombre, imagen: false, estado: 'listo', texto: d.texto }));
+    return { ...e, modo: 'importar', antes: 'importar', texto: s?.texto ?? '', archivos };
+  }
   return s?.texto && (modo === 'generar' || modo === 'importar') ? { ...e, modo: 'generar', antes: 'generar', texto: s.texto } : e;
 }
 
@@ -130,7 +144,7 @@ export type VistaCaja = 'texto' | 'importar' | 'link';
 
 /** Lo que muestra el cuadro adentro (el marco, el alto y la fila de abajo son los mismos en las tres). */
 export function vistaDeCaja(e: EstadoCaja): VistaCaja {
-  if (e.modo === 'importar' && !e.archivo) return 'importar';
+  if (e.modo === 'importar' && !e.archivos.length) return 'importar';
   if ((e.modo === 'analizar' || e.modo === 'replicar') && !e.link) return 'link';
   return 'texto';
 }
@@ -144,25 +158,25 @@ const comoReferencia = (l: LinkCaja | null): LinkCaja | null => (l ? { ...l, acc
 
 /**
  * Elegir un modo arriba del cuadro (punto 3: cambia el cuadro, nada navega).
- *   · Generar: el archivo se suelta (se eligió escribir) y el link queda como referencia del pedido.
- *   · Importar: el link queda como referencia (va con las instrucciones del archivo); sin archivo, el contenedor.
- *   · Analizar / Replicar: con un link, cambia su pastilla; sin link, el contenedor del link. El archivo se suelta
- *     (Analizar y Replicar no leen un archivo).
+ *   · Generar: los archivos se sueltan (se eligió escribir) y el link queda como referencia del pedido.
+ *   · Importar: el link queda como referencia (va con las instrucciones de los archivos); sin archivos, el contenedor.
+ *   · Analizar / Replicar: con un link, cambia su pastilla; sin link, el contenedor del link. Los archivos se sueltan
+ *     (Analizar y Replicar no leen archivos).
  * El texto no se toca nunca.
  */
 export function elegirModo(e: EstadoCaja, m: ModoCaja): EstadoCaja {
-  if (m === 'generar') return { ...e, modo: 'generar', archivo: null, link: comoReferencia(e.link), antes: e.link ? e.antes : 'generar' };
-  if (m === 'importar') return { ...e, modo: 'importar', link: comoReferencia(e.link), antes: e.archivo || e.link ? e.antes : 'importar' };
-  return { ...e, modo: m, archivo: null, link: e.link ? { ...e.link, accion: m } : null, antes: e.link ? e.antes : m };
+  if (m === 'generar') return { ...e, modo: 'generar', archivos: [], link: comoReferencia(e.link), antes: e.link ? e.antes : 'generar' };
+  if (m === 'importar') return { ...e, modo: 'importar', link: comoReferencia(e.link), antes: e.archivos.length || e.link ? e.antes : 'importar' };
+  return { ...e, modo: m, archivos: [], link: e.link ? { ...e.link, accion: m } : null, antes: e.link ? e.antes : m };
 }
 
 /**
  * Un link como CHIPS (pegado, soltado o escrito en el contenedor del link): la dirección en azul y su pastilla, la
- * de Replicar si se estaba en Replicar y si no la de Analizar (la de la tanda 6). Con un archivo adjunto o con otro
+ * de Replicar si se estaba en Replicar y si no la de Analizar (la de la tanda 6). Con archivos adjuntos o con otro
  * link ya puesto, la dirección va al TEXTO (son instrucciones): nunca se pisa lo que ya estaba.
  */
 export function conLink(e: EstadoCaja, url: string): EstadoCaja {
-  if (e.archivo || e.link) return { ...e, texto: unir(e.texto, url) };
+  if (e.archivos.length || e.link) return { ...e, texto: unir(e.texto, url) };
   const accion = accionDe(e.modo);
   return { ...e, link: { url, accion, formato: FORMATO_INICIAL }, modo: accion, antes: e.modo };
 }
@@ -172,28 +186,50 @@ export function conLink(e: EstadoCaja, url: string): EstadoCaja {
  * un espacio) se vuelve chips; con texto al lado queda en el texto tal cual (va como pedido a Generar).
  */
 export function alEscribir(e: EstadoCaja, ahora: string): EstadoCaja {
-  if (!e.link && !e.archivo) {
+  if (!e.link && !e.archivos.length) {
     const url = sacarLink(e.texto, ahora);
     if (url) return conLink({ ...e, texto: '' }, url);
   }
   return { ...e, texto: ahora };
 }
 
-/** Un archivo adjunto (el «+», soltado en el cuadro o pegado): el modo pasa a Importar y el link queda de referencia. */
+/** ¿Entra otro archivo? Hasta MAX_ARCHIVOS: el que sobra no se suma (la pantalla lo dice). */
+export const cabeArchivo = (e: EstadoCaja): boolean => e.archivos.length < MAX_ARCHIVOS;
+
+/**
+ * Un archivo adjunto (el «+», soltado en el cuadro o pegado): se SUMA a los que había, el modo pasa a Importar y el link
+ * queda de referencia. Con la caja llena, no entra (`cabeArchivo`).
+ */
 export function conArchivo(e: EstadoCaja, a: ArchivoCaja): EstadoCaja {
-  return { ...e, archivo: a, modo: 'importar', link: comoReferencia(e.link), antes: e.archivo ? e.antes : e.modo };
+  if (!cabeArchivo(e)) return e;
+  return { ...e, archivos: [...e.archivos, a], modo: 'importar', link: comoReferencia(e.link), antes: e.archivos.length ? e.antes : e.modo };
 }
 
-/** La ✕ del archivo: con algo escrito (o un link) vuelve al texto; si no, a donde estaba. */
-export function quitarArchivo(e: EstadoCaja): EstadoCaja {
-  if (!e.archivo) return e;
-  return { ...e, archivo: null, modo: e.texto.trim() || e.link ? 'generar' : e.antes };
+/** Lo que volvió de leer el archivo `id`: su texto, o en rojo. Si ya se quitó, nada. */
+export function conLeido(e: EstadoCaja, id: string, r: { ok: true; texto: string } | { ok: false }): EstadoCaja {
+  if (!e.archivos.some((a) => a.id === id)) return e;
+  return {
+    ...e,
+    archivos: e.archivos.map((a): ArchivoCaja => {
+      if (a.id !== id) return a;
+      const base = { id: a.id, nombre: a.nombre, imagen: a.imagen, ...(a.vista ? { vista: a.vista } : {}) };
+      return r.ok ? { ...base, estado: 'listo', texto: r.texto } : { ...base, estado: 'error' };
+    }),
+  };
+}
+
+/** La ✕ de un archivo: se va ése. Sin ninguno: con algo escrito (o un link) vuelve al texto; si no, a donde estaba. */
+export function quitarArchivo(e: EstadoCaja, id: string): EstadoCaja {
+  if (!e.archivos.some((a) => a.id === id)) return e;
+  const archivos = e.archivos.filter((a) => a.id !== id);
+  if (archivos.length) return { ...e, archivos };
+  return { ...e, archivos, modo: e.texto.trim() || e.link ? 'generar' : e.antes };
 }
 
 /** La ✕ del link (se va con su pastilla): con algo escrito vuelve al texto; si no, a donde estaba. */
 export function quitarLink(e: EstadoCaja): EstadoCaja {
   if (!e.link) return e;
-  if (e.archivo) return { ...e, link: null };
+  if (e.archivos.length) return { ...e, link: null };
   return { ...e, link: null, modo: e.texto.trim() ? 'generar' : e.antes };
 }
 
@@ -204,7 +240,7 @@ export function quitarLink(e: EstadoCaja): EstadoCaja {
  */
 export function borrarAlInicio(e: EstadoCaja): EstadoCaja | null {
   if (!e.link) return null;
-  const modo: ModoCaja = e.archivo ? 'importar' : 'generar';
+  const modo: ModoCaja = e.archivos.length ? 'importar' : 'generar';
   if (e.link.accion) return { ...e, link: { ...e.link, accion: null }, modo };
   return { ...e, link: null, modo };
 }
@@ -239,10 +275,10 @@ export function esTextoLargo(t: string): boolean {
   return s.split(/\r?\n/).filter((r) => r.trim()).length >= TEXTO_LARGO_RENGLONES;
 }
 
-/** ¿Aparece la opción «Tu texto» (de guía / resumir / tal cual)? Con un texto largo o un archivo, y sin una acción de link. */
+/** ¿Aparece la opción «Tu texto» (de guía / resumir / tal cual)? Con un texto largo o archivos, y sin una acción de link. */
 export function muestraTuTexto(e: EstadoCaja): boolean {
   if (e.link?.accion) return false;
-  return !!e.archivo || esTextoLargo(e.texto);
+  return e.archivos.length > 0 || esTextoLargo(e.texto);
 }
 
 /**
@@ -258,7 +294,7 @@ export function avisoDeTexto(e: EstadoCaja): string | null {
 export function placeholderDe(e: EstadoCaja): string {
   if (e.link?.accion === 'analizar') return 'Listo para analizar';
   if (e.link?.accion === 'replicar') return 'Listo para replicar';
-  if (e.archivo) return 'Qué hacer con el archivo (opcional)';
+  if (e.archivos.length) return e.archivos.length === 1 ? 'Qué hacer con el archivo (opcional)' : 'Qué hacer con los archivos (opcional)';
   if (e.link) return '¿Qué quieres crear con ella?';
   return '¿Qué quieres crear?';
 }
@@ -269,7 +305,7 @@ export function listoParaEnviar(e: EstadoCaja, escritoLink = ''): boolean {
   if (v === 'link') return !!linkEscrito(escritoLink);
   if (v === 'importar') return false;
   if (e.link) return true;
-  if (e.archivo) return e.archivo.estado === 'listo';
+  if (e.archivos.length) return e.archivos.every((a) => a.estado === 'listo');
   return !!e.texto.trim();
 }
 
@@ -292,7 +328,8 @@ const unir = (...partes: (string | null | undefined)[]): string => partes.map((p
  * El ↑ (o Enter). Qué se manda en cada caso:
  *   · un link con «Analiza esta landing»: el Diagnóstico de esa página; con «Replica esta landing»: Replicar en su
  *     formato (lo escrito no viaja: lo dice `avisoDeTexto`);
- *   · un archivo leído: «pegar» con el texto del archivo, y lo escrito (y el link de referencia) como instrucciones;
+ *   · archivos leídos (TODOS): «pegar» con su texto (varios, unidos con su nombre: `unirArchivos`), y lo escrito (y el
+ *     link de referencia) como instrucciones;
  *   · un texto LARGO: «pegar» con ese texto (y `params.modoTexto`, la opción «Tu texto»);
  *   · un pedido corto: «generar» con el pedido (y el link de referencia adelante, si quedó uno);
  *   · un link escrito y nada más: primero se vuelve chips (`que: 'chips'`), como si se hubiera pegado.
@@ -309,9 +346,16 @@ export function alEnviar(e: EstadoCaja, c: ComoGenerar, escritoLink = ''): Envio
   if (l?.accion === 'analizar') return { que: 'accion', accion: { que: 'analizar', url: l.url } };
   if (l?.accion === 'replicar') return { que: 'accion', accion: { que: 'replicar', url: l.url, formato: l.formato } };
   const base = { modo: c.modo, params: c.params };
-  if (e.archivo) {
-    if (e.archivo.estado !== 'listo') return { que: 'nada' };
-    return { que: 'accion', accion: { que: 'ia', tipo: c.tipo, arranque: { ...base, prompt: unir(l?.url, e.texto), archivo: { nombre: e.archivo.nombre, texto: e.archivo.texto } } } };
+  if (e.archivos.length) {
+    const partes = e.archivos.map((a) => (a.estado === 'listo' ? { nombre: a.nombre, texto: a.texto } : null));
+    if (partes.some((p) => !p)) return { que: 'nada' };
+    const leidos = partes as { nombre: string; texto: string }[];
+    const archivo = unirArchivos(leidos, TOPE_TEXTO);
+    if (!archivo) return { que: 'nada' };
+    return {
+      que: 'accion',
+      accion: { que: 'ia', tipo: c.tipo, arranque: { ...base, prompt: unir(l?.url, e.texto), archivo, ...(leidos.length > 1 ? { archivos: leidos } : {}) } },
+    };
   }
   if (!l) {
     const url = linkEscrito(e.texto);

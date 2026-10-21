@@ -33,6 +33,8 @@ import type { MarcasDeCobranza } from './deshacer-movimiento';
 import { plazoAlReactivar } from './suscripcion-manual';
 import { laCobraLaPasarela } from './cobros-reglas';
 import type { Pasarela } from './cobros-tipos';
+import type { CobroParaCobrado } from './cobrado-lead';
+import { itemDeSuscripcion, type ItemPorCobrar, type LeadSuscripcion } from './suscripciones-por-cobrar';
 
 export type Pago = {
   id: number;
@@ -1272,6 +1274,53 @@ async function _getOutstandingDetalle(
   cuotas.sort((a, b) => (a.fecha && b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.fecha ? -1 : 1));
   const total = items.reduce((s, i) => s + i.pendiente_usd, 0);
   return { items, total, cuotas };
+}
+
+/**
+ * Las SUSCRIPCIONES por cobrar de «a quién cobrarle» (20/10/2026): una suscripción no genera cuotas, así que la lista de
+ * arriba no las veía nunca. La regla es la de toda la app (`cobradoDelLead`), en lib/suscripciones-por-cobrar.ts: un mes
+ * sin registrar, una renovación rechazada o la próxima mensualidad manual dentro de la ventana.
+ * ⚠️ No suma al Outstanding (ver la cabecera de ese módulo). Y una lectura que falla no tumba la lista de cuotas: lo
+ * dice el log y vuelve vacía.
+ */
+export async function getSuscripcionesPorCobrar(hoy: string, desde: string | null, hasta: string | null): Promise<ItemPorCobrar[]> {
+  try {
+    const db = await getTenantDb();
+    const { data: leads, error } = await db.from('leads')
+      .select('id, nombre, fecha_cierre, suscripcion_monto_usd, suscripcion_meses, suscripcion_cancelada_at')
+      .eq('venta_tipo', 'suscripcion').eq('estado_lead', 'ganado').is('suscripcion_cancelada_at', null).limit(500);
+    if (error) throw new Error(error.message);
+    const filas = (leads ?? []) as LeadSuscripcion[];
+    if (!filas.length) return [];
+    const ids = filas.map((l) => Number(l.id));
+    const [pg, cb] = await Promise.all([
+      db.from('pagos').select('*').in('lead_id', ids),
+      db.from('cobros').select('lead_id, tipo, estado, suscripcion_estado, motivo').in('lead_id', ids).eq('tipo', 'suscripcion'),
+    ]);
+    if (pg.error) throw new Error(pg.error.message);
+    if (cb.error) throw new Error(cb.error.message);
+    const pagosDe = new Map<number, Pago[]>();
+    for (const p of (pg.data ?? []) as Pago[]) pagosDe.set(Number(p.lead_id), [...(pagosDe.get(Number(p.lead_id)) ?? []), p]);
+    const cobrosDe = new Map<number, CobroParaCobrado[]>();
+    for (const c of (cb.data ?? []) as Array<CobroParaCobrado & { lead_id: number }>) cobrosDe.set(Number(c.lead_id), [...(cobrosDe.get(Number(c.lead_id)) ?? []), c]);
+    return filas
+      .map((l) => itemDeSuscripcion({ lead: l, pagos: pagosDe.get(Number(l.id)) ?? [], cobros: cobrosDe.get(Number(l.id)) ?? [], hoy, ventana: { desde, hasta } }))
+      .filter((x): x is ItemPorCobrar => x != null);
+  } catch (e) {
+    console.error('[pagos] suscripciones por cobrar:', e instanceof Error ? e.message : String(e));
+    return [];
+  }
+}
+
+/**
+ * «A quién cobrarle» entero: las filas de las cuotas (`getOutstandingDetalle`) y las de las suscripciones. Un lead que
+ * ya tiene una fila por una cuota no se repite. El `detalle` (y su `total`, el Outstanding) sigue siendo el de las
+ * cuotas. Lo leen la tab General, el teléfono, el conjunto «Clientes por cobrar» del Dashboard y la API de MaKo.
+ */
+export async function getPorCobrar(hoy: string, desde: string | null, hasta: string | null): Promise<{ detalle: Awaited<ReturnType<typeof getOutstandingDetalle>>; items: ItemPorCobrar[] }> {
+  const [detalle, subs] = await Promise.all([getOutstandingDetalle(hoy, desde, hasta), getSuscripcionesPorCobrar(hoy, desde, hasta)]);
+  const conCuota = new Set(detalle.items.map((i) => Number(i.lead_id)));
+  return { detalle, items: [...detalle.items, ...subs.filter((s) => !conCuota.has(Number(s.lead_id)))] };
 }
 
 export type CuotaPendiente = {

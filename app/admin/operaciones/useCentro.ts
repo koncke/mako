@@ -84,8 +84,9 @@ export type DatosCentro = {
   deshacer?: AccionDeshacer;
 };
 
-/** Un archivo elegido (o pegado) en la caja, con su vista previa local. */
-export type AdjuntoCaja = { id: string; file: File; tipo: 'image' | 'document'; url: string };
+/** Un archivo elegido (o pegado) en la caja, con su vista previa local. `estado`: lo que la miniatura dice mientras no
+ *  está listo (la caja del Web Generator lo LEE antes de mandar, app/web-generator/editor/adjuntos-agente.ts). */
+export type AdjuntoCaja = { id: string; file: File; tipo: 'image' | 'document'; url: string; estado?: 'leyendo' | 'error' };
 /** Una captura chica va tal cual (el texto de una captura se lee mejor en PNG); una foto grande se achica (Vercel corta
  *  un POST de más de ~4,5 MB). */
 const TAL_CUAL_BYTES = 1_500_000;

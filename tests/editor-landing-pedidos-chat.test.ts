@@ -424,11 +424,13 @@ test('enviar: la interpretación ANTES de «editar», que lleva sólo lo actual 
   assert.match(entre, /if \(!paraEditar\) \{ terminar\(\.\.\.burbujas\); return; \}/, 'sin nada actual igual se llama a «editar»');
   assert.match(entre, /const interp = interpretacionDe\(ri, texto\);/, 'la respuesta no pasa por la validación (la falla no vuelve a lo de siempre)');
   assert.match(entre, /if \(!ri\.ok && cortadoPorUsuario\(ri\)\) \{ terminar\(/, '«Detener» mientras interpreta no corta');
-  assert.match(pedir, /if \(op\.interpretar !== false\) \{/);
+  // (20/10/2026: con archivos y nada escrito, la instrucción es la nuestra y no se interpreta: `&& escrito`.)
+  assert.match(pedir, /if \(op\.interpretar !== false && escrito\) \{/);
   // Las sugerencias son ediciones NUESTRAS: no se interpretan. Lo escrito, sí.
   assert.match(PANEL, /if \(s\.instruccion\) \{ enviar\(s\.instruccion, s\.alcance \?\? alcanceReal, \{ interpretar: false \}\); return; \}/);
-  assert.match(PANEL, /enviar\(texto\);/);
-  assert.doesNotMatch(PANEL, /enviar\(texto, [^)]*interpretar: false/);
+  // (20/10/2026: lo escrito sale por `mandar`, con los archivos de la caja, y se sigue interpretando.)
+  assert.match(PANEL, /void pedirEdicion\(ctxRef\.current, texto, alcanceReal, \{ adjuntos: paraEnviar\(items\) \}\);/);
+  assert.doesNotMatch(PANEL, /pedirEdicion\(ctxRef\.current, texto, [^)]*interpretar: false/);
 });
 
 test('el «Sí» de borrar es la Papelera del Panel (`accion: \'papelera\'`), nunca la abierta y nunca para siempre', () => {
@@ -447,7 +449,7 @@ test('el «Sí» de borrar es la Papelera del Panel (`accion: \'papelera\'`), nu
   const sesion = crear.indexOf('window.sessionStorage.setItem(CLAVE_CAJA, cajaParaCrear(pedido, Date.now()));');
   const ir = crear.indexOf('router.push(RUTA_CREAR);');
   assert.ok(guardar >= 0 && sesion > guardar && ir > sesion, 'el orden es guardar, dejar el pedido y navegar');
-  assert.match(PANEL, /import Link, \{ useRouter \} from '@\/app\/_ui\/Link';/);
+  assert.match(PANEL, /import Link, \{ useRouter(?:, useWs)? \} from '@\/app\/_ui\/Link';/);
   // Los botones se leen del STORE (dos clics en un tick no repiten) y las burbujas se dibujan con su vista.
   assert.match(PANEL, /const mensajes = hilos\.get\(docId\)\?\.mensajes \?\? \[\];\n  const m = mensajes\.find\(\(x\) => x\.id === id\);/);
   assert.match(PANEL, /const v = vistaDeBurbuja\(burbuja\);/);

@@ -2608,4 +2608,39 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/chats',
   },
+  {
+    fecha: '20 oct', hora: '19:11', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El chat con MaKo, las columnas que no se ven, cards personalizables, «Tablero y Lista» sólo con íconos y el evento de una etapa',
+    pedido: 'Por otro lado, en el CRM:\n1. No veo el chat con MaKo que te había pedido.\n2. Muchos cambios que te había pedido aún no están, como que las columnas no sean invisibles.\n3. Las cards, las debería poder personalizar también, por si el usuario quiere más o menos info.\n4. Los botones de "Tablero y lista" solo con íconos debería estar.\n5. El tema de asignar en una etapa de reunión y vincularla a un evento de Calendar, Calendly o Cal, ¿está eso?',
+    puntos: [
+      'Llegó por el Cerebro, en la app, con una captura de /crm (docs/feedback-20-10.md, punto 12). Se pega literal por la regla del 20/10 (AGENTS.md).',
+      'Lo que Martín pidió para el CRM y su estado, uno por uno: docs/pedidos-crm.md.',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '21:28', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las columnas se ven, el chat con MaKo a la derecha, las tarjetas personalizables y «Tablero/Lista» con íconos',
+    puntos: [
+      'En producción desde el run 172. Es lo que Martín pidió el 20/10 (el hito de las 19:11, literal).',
+      'Las columnas tienen su bloque de fondo aunque estén vacías: el del 18/10 era el mismo gris que la página. Vale en el CRM, Clients, el Plan y el teléfono.',
+      'El chat con MaKo es una barra a la derecha: abre sola en una pantalla ancha y, plegada, es una pestaña en el borde derecho. Antes su botón quedaba debajo de la sidebar.',
+      'En «⋯» › «Personalizar tarjetas» cada persona elige qué datos ve en la tarjeta de un lead (y «Más info»: empresa, teléfono, campaña, fecha de alta). Vale en todos sus funnels y en el teléfono.',
+      '«Tablero» y «Lista» van sólo con su ícono; el nombre sale al pasar el mouse.',
+      'Todo lo que Martín pidió para el CRM y su estado está en docs/pedidos-crm.md: 265 pedidos, 242 hechos, 13 parciales, 9 no hechos.',
+      'No se vio en pantalla: se revisa en /crm.',
+    ],
+    commits: [
+      { sha: 'dae7de4fc', msg: 'Columnas del kanban: el bloque de fondo se ve de verdad (antes era el mismo color que la página)', lineas: 59, archivos: 6 },
+      { sha: '10fc93059', msg: 'CRM: «Tablero» y «Lista» sólo con íconos, con el nombre en el tooltip', lineas: 40, archivos: 2 },
+      { sha: '44f14b087', msg: 'CRM: el chat con MaKo como barra fija a la derecha, y se ve (antes quedaba debajo de la sidebar)', lineas: 78, archivos: 4 },
+      { sha: '88daad475', msg: 'CRM: la tarjeta de un lead, personalizable por cada persona', lineas: 310, archivos: 12 },
+      { sha: '5cb1e334a', msg: 'CRM: la tarjeta del teléfono sigue la misma elección, y la cosecha del 20/10', lineas: 74, archivos: 7 },
+      { sha: '52d40baf7', msg: 'CRM: el registro de todo lo que Martín pidió y su estado (docs/pedidos-crm.md), y el relevo', lineas: 242, archivos: 2 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];
