@@ -723,6 +723,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const [notaChat, setNotaChat] = useState<{ id: string; texto: string } | null>(null);
   /** El aviso de Prospección pendiente, con lo que se iba a hacer (Publicar o Probar). */
   const [avisoProspeccion, setAvisoProspeccion] = useState<{ seguir: () => void } | null>(null);
+  /** Una consulta de «¿tiene lo suyo?» en vuelo (`conAvisoProspeccion`): los clics de mientras no hacen nada. */
+  const consultandoProspeccion = useRef(false);
   /** El aviso de una automatización que ya le escribe lo mismo a la misma gente (`conAvisoDuplicada`), con lo que se iba a hacer. */
   const [avisoDup, setAvisoDup] = useState<{ texto: string; boton: string; seguir: () => void } | null>(null);
   // Identidad FIJA (AGENTS.md: todo `<Modal>` recibe un `onCerrar` estable).
@@ -1066,8 +1068,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   };
   const conAvisoProspeccion = (seguir: () => void) => {
     if (!rolAdmin || !Configuraciones || avisadaProspeccion.has(secuencia.id) || !cronDeProspeccion(crons.lista, productos, secuencia.funnel_id ?? null)) { seguir(); return; }
+    // ⚠️ UNA CONSULTA A LA VEZ, Y LA QUE YA TIENE LO SUYO QUEDA AVISADA (revisión del 20/10/2026): sin esto cada clic
+    // consultaba la configuración y un doble clic, con Publicar todavía habilitado, mandaba dos PATCH.
+    if (consultandoProspeccion.current) return;
+    consultandoProspeccion.current = true;
     void (configPropia ? configPropia(secuencia.id).catch(() => false) : Promise.resolve(false))
-      .then((propia) => { if (propia) seguir(); else setAvisoProspeccion({ seguir }); });
+      .then((propia) => { if (propia) { avisadaProspeccion.add(secuencia.id); seguir(); } else setAvisoProspeccion({ seguir }); })
+      .finally(() => { consultandoProspeccion.current = false; });
   };
   // «PROBAR» APAGADO MIENTRAS FALTE ALGO (16/10/2026, `motivoParaNoProbar`): el porqué al lado; con una tarjeta a medias,
   // tocarlo lleva a esa tarjeta (lo de Publicar).
@@ -1228,8 +1235,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 configuraciones pasa a estar en donde hoy vive "Pedirle un cambio a MaKo"»; y el 20/10: «que se elimine el
                 icono de MaKo ya que quedará siempre abierto, y en su lugar que allí vaya el ícono de configuraciones»).
                 Abre el horario y los límites de ESTA automatización (`ConfiguracionesModal` con `secuenciaId`). Ahí
-                vivía el logo de MaKo (`BotonLogoMako`) desde la sexta tanda: el chat está ahora siempre, en la sidebar. */}
-            {rolAdmin && Configuraciones && (
+                vivía el logo de MaKo (`BotonLogoMako`) desde la sexta tanda: el chat está ahora siempre, en la sidebar.
+                ⚠️ TAMBIÉN PARA QUIEN NO ES ADMIN (revisión del 20/10/2026): el modal entra en sólo lectura (`puedeEditar` lo
+                dice el server). Con `rolAdmin` acá, el setter perdió la vista del horario y los límites. */}
+            {Configuraciones && (
               <BotonTuerca lado={ALTO_ACCION} onClick={() => setConfigAbierta(true)} />
             )}
             {configAbierta && Configuraciones && <Configuraciones secuenciaId={secuencia.id} nombre={nombre || secuencia.nombre} onCerrar={cerrarConfig} />}

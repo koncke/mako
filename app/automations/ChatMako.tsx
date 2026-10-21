@@ -288,8 +288,17 @@ export function ChatMako(p: ChatMakoProps) {
   useEffect(() => {
     if (!trabajando) return;
     const alTeclado = (e: KeyboardEvent) => {
+      const raiz = raizRef.current;
+      const adentro = !!raiz && e.target instanceof Node && raiz.contains(e.target);
+      // ⚠️ ESCAPE NO CANCELA LO QUE NO SE VE (revisión del 20/10/2026). Con «←» la ranura del chat se ESCONDE (no se
+      // desmonta) y el pedido sigue en vuelo: un Escape para cerrar un modal, un desplegable o el buscador de la lista lo
+      // cortaba sin que se viera, y al volver el pedido no estaba. Con el chat escondido, o con un diálogo o menú abierto
+      // afuera del chat (y el Escape no nace en el chat), el Escape es de ellos.
+      const oculto = !raiz || raiz.getClientRects().length === 0;
+      const otroAbierto = !adentro && [...document.querySelectorAll('[role="dialog"], [role="menu"], [role="listbox"]')].some((n) => !raiz?.contains(n));
+      if (e.key === 'Escape' && (oculto || otroAbierto)) return;
       if (e.key === 'Escape' && fase !== 'revision') { e.preventDefault(); e.stopImmediatePropagation(); cancelar(); return; }
-      if (raizRef.current && e.target instanceof Node && raizRef.current.contains(e.target)) return;
+      if (adentro) return;
       if (esCampo(e.target)) return;
       // Sin `preventDefault`: los atajos del NAVEGADOR siguen andando; lo que se corta es que lleguen a los de la app.
       e.stopImmediatePropagation();

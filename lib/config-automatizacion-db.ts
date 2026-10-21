@@ -15,7 +15,7 @@ import { getWorkspaceActual } from './workspace';
 import { setSetting } from './settings';
 import { secuenciaDelWorkspace } from './automatizacion-chat-db';
 import {
-  CLAVE_PREFIJO, claveConfigAutomatizacion, configParaGuardar, sanearConfigAutomatizacion, secuenciaDeClave,
+  CLAVE_PREFIJO, claveConfigAutomatizacion, configParaGuardar, sanearConfigAutomatizacion, secuenciaDeClave, tieneConfigPropia,
   type ConfigAutomatizacion,
 } from './config-automatizacion';
 
@@ -62,6 +62,27 @@ export async function guardarConfigAutomatizacion(secuenciaId: number, cambio: u
   const previo = await leerConfigAutomatizacion(secuenciaId);
   const r = configParaGuardar(previo, cambio);
   if (!r.ok) return r;
-  await setSetting(claveConfigAutomatizacion(secuenciaId), r.valor);
+  // Todo como el negocio: la clave se BORRA (revisión del 20/10/2026). Un '{}' por cada «volver a como el negocio» se
+  // acumulaba y engordaba la lectura de todas las del tick.
+  if (r.vacia) await borrarConfig(ws, secuenciaId);
+  else await setSetting(claveConfigAutomatizacion(secuenciaId), r.valor);
   return { ok: true, config: r.config };
+}
+
+async function borrarConfig(ws: number, secuenciaId: number): Promise<void> {
+  const { error } = await getSupabaseServer().from('app_settings').delete()
+    .eq('workspace_id', ws).eq('key', claveConfigAutomatizacion(secuenciaId));
+  if (error) throw new Error(`No pude volver la automatización a como el negocio: ${error.message}`);
+}
+
+/**
+ * LA COPIA HEREDA LA CONFIGURACIÓN PROPIA (revisión del 20/10/2026). Vive FUERA de la fila (en `app_settings`), así que
+ * «Duplicar» la perdía: la copia de una «Prospección fría» de 9 a 18 con 48 h nacía mandando a las 3 AM con 20 h. La
+ * llama quien crea un id nuevo desde otro (`duplicarSecuencia`); estricta: si no puede leer o escribir, TIRA, y quien
+ * la llama borra la copia.
+ */
+export async function copiarConfigAutomatizacion(de: number, a: number): Promise<void> {
+  const c = await leerConfigAutomatizacion(de);
+  if (!tieneConfigPropia(c)) return;
+  await setSetting(claveConfigAutomatizacion(a), JSON.stringify(c));
 }

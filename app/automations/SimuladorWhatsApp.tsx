@@ -399,8 +399,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * chat. Hasta acá el chat se abría con el logo de MaKo y ocupaba el muelle de «Probar» (decimocuarta tanda): ese muelle
    * es ahora sólo de «Probar».
    * ⚠️ LA RANURA NO SE DESMONTA al mostrar la lista: se esconde. Un pedido en vuelo dura hasta cinco minutos.
+   * ⚠️ Y AL ENTRAR, LA LISTA (revisión del 20/10/2026): la primera automatización queda elegida sola (`selId`), y con
+   * esto en `false` la sidebar arrancaba siendo SU chat: la lista, el buscador, «＋ Nueva» y el «?» quedaban escondidos, y
+   * el recorrido salteaba au-lista, au-nueva y au-ayuda. El chat aparece al ELEGIR una (un clic, `?sec=`, la recién creada).
    */
-  const [enLaLista, setEnLaLista] = useState(false);
+  const [enLaLista, setEnLaLista] = useState(true);
   const [ranuraChat, setRanuraChat] = useState<HTMLDivElement | null>(null);
   /** El pedido con que nació (`abrir.pedido`, decimotercera tanda, punto 2): el chat de ESA fila lo manda solo. */
   const [pedidoPara, setPedidoPara] = useState<{ id: number; pedido: string } | null>(null);

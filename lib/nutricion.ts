@@ -102,7 +102,7 @@ import { getSettingEstricto, cambiarSettingSi, setSetting } from '@/lib/settings
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
 import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
-import { configsDelNegocio } from '@/lib/config-automatizacion-db';
+import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
   hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
@@ -2627,6 +2627,17 @@ async function horarioDeEnvio(): Promise<HorarioEnvio | null | 'ilegible'> {
 }
 
 /**
+ * EL HORARIO DE UNA AUTOMATIZACIÓN: el suyo si eligió uno, si no el del negocio (`horarioDeLaAutomatizacion`). Lo usa
+ * «contesta sola» del AI Step (revisión del 20/10/2026: seguía con el del negocio aunque la tuerca dijera otro). Estricto:
+ * si no puede leer lo propio, 'ilegible' (no sale sola).
+ */
+async function horarioDeEnvioDe(secuenciaId: number): Promise<HorarioEnvio | null | 'ilegible'> {
+  const [h, c] = await Promise.all([horarioDeEnvio(), leerConfigAutomatizacion(secuenciaId).catch(() => 'ilegible' as const)]);
+  if (h === 'ilegible' || c === 'ilegible') return 'ilegible';
+  return horarioDeLaAutomatizacion(c, h);
+}
+
+/**
  * Los LÍMITES de envío del negocio (décima tanda, GENERAL 4), una vez por corrida: lo que guardó en
  * Configuraciones › Límites encima de lo de fábrica (lib/limites-envio.ts). `'ilegible'` = la base no contestó.
  *
@@ -3711,8 +3722,13 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const ids = secuencias.map((s) => s.id);
       const conHorario = !!horario || ids.some((id) => horarioDeLaAutomatizacion(configs.get(id) ?? {}, horario) != null);
       const tz = conHorario ? await zonaDeLaVentana() : null;
-      if (conHorario && tz === ZONA_ILEGIBLE) fueraDeHorario = 'zona-ilegible';
-      else {
+      if (conHorario && tz === ZONA_ILEGIBLE) {
+        // Sin la zona, «no sé qué hora es ahí»: cerrada TODA la que tiene un horario (el propio o el del negocio), y la
+        // que no tiene ninguno sigue (revisión del 20/10/2026: con el negocio sin horario y UNA con el suyo, una falla
+        // leyendo la zona frenaba también a la de los leads del anuncio). Todas con horario: el corte de siempre.
+        cerradas = cerradasAhora(ids, configs, horario, Date.now(), null);
+        if (!ids.length || cerradas.size === ids.length) fueraDeHorario = 'zona-ilegible';
+      } else {
         cerradas = cerradasAhora(ids, configs, horario, Date.now(), tz);
         // Todas cerradas (o el negocio cerrado y ninguna con un horario propio abierto): el corte de siempre.
         if (ids.length ? cerradas.size === ids.length : !(await dentroDeVentana(horario))) fueraDeHorario = 'fuera-de-horario';
@@ -3731,7 +3747,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // LOS LÍMITES DEL NEGOCIO (décima tanda, GENERAL 4), una vez por corrida y estrictos: sin leerlos no se
   // manda nada (lo vencido sigue ahí para la próxima), como con el horario.
   const limites = await limitesDeEnvio();
-  if (limites === 'ilegible' || configs === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };
+  if (limites === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };
+  // ⚠️ SIN LO PROPIO DE CADA UNA, CORRE SÓLO LO QUE CORRE FUERA DEL HORARIO (revisión del 20/10/2026). `fueraDeHorario`
+  // ya es 'horario-ilegible' (no se manda prospección), y el carril del recordatorio y las tarjetas que no esperan
+  // siguen con las horas del NEGOCIO (el carril no pasa por el anti-ban). Cortar acá frenaba el «15 min antes» de
+  // TODAS las automatizaciones, también las que no tienen nada propio, por una lectura nueva.
+  const configsCorrida: ReadonlyMap<number, ConfigAutomatizacion> = configs === 'ilegible' ? new Map() : configs;
   const presupuesto = limites.wa.dia - (await enviosUltimas24h('whatsapp'));
   // Lo que ya salió en esta HORA, sólo para las corridas del cron (`cupoPorHora`).
   const enLaHora = opts?.cupoPorHora ? await enviosEnLaHora('whatsapp') : 0;
@@ -4109,7 +4130,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop). 20/10/2026: con las horas de CADA
     // automatización (las propias o las del negocio, `personaHorasDeLaAutomatizacion`): una lectura por ventana distinta
     // del lote, que casi siempre es una sola.
-    const ventanaDe = (secId: number) => personaHorasDeLaAutomatizacion(configs.get(secId) ?? {}, limites);
+    const ventanaDe = (secId: number) => personaHorasDeLaAutomatizacion(configsCorrida.get(secId) ?? {}, limites);
     const claveVentana = (v: { whatsapp: number; email: number }): string => `${v.whatsapp}:${v.email}`;
     const porVentana = new Map<string, { v: { whatsapp: number; email: number }; leads: Set<number> }>();
     for (const d of due) {
@@ -5771,8 +5792,9 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
         tzActual().catch(() => TZ_DEFAULT),
         // EL TOPE Y EL HORARIO DEL NEGOCIO (décima tanda, GENERAL 4): el tope de Configuraciones › Límites,
         // y el horario de oficina si está prendido (si no, 9 a 21 como siempre). «No pude leer» no sale solo.
+        // 20/10/2026: el horario de ESTA automatización, si tiene uno propio (`horarioDeEnvioDe`).
         limitesDeEnvio(),
-        horarioDeEnvio(),
+        horarioDeEnvioDe(secuencia.id),
       ]);
       const hora = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: tz }).format(new Date()));
       const d = limites === 'ilegible' || horario === 'ilegible'
@@ -5846,7 +5868,7 @@ async function contestarSolaPorRedes(
         .then((r) => (r.error ? Number.POSITIVE_INFINITY : (r.count ?? 0))),
       tzActual().catch(() => TZ_DEFAULT),
       limitesDeEnvio(),
-      horarioDeEnvio(),
+      horarioDeEnvioDe(secuencia.id),
     ]);
     if (limites === 'ilegible' || horario === 'ilegible') return { ok: false, motivo: 'no pude leer tus límites' };
     const { puedeContestarSolo } = await import('@/lib/setter-conversacion');

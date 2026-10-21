@@ -60,6 +60,8 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   };
   const fuente: FuenteHorario = {
     titulo: 'Horario de esta automatización',
+    // El huso es del NEGOCIO: acá se ve, no se cambia (revisión del 20/10/2026).
+    zonaSoloLectura: true,
     leer: async () => ({ horario: d.config.horario ?? d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }, zona: d.zona, puedeEditar: d.puedeEditar }),
     guardar: async (h) => {
       const r = await saveConfigAutomatizacionAction(secuenciaId, { horario: h });
@@ -73,7 +75,10 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Horario propio</div>
           <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2 }}>
-            {propio ? 'Sólo para esta automatización.' : `Como el negocio: ${textoDeHorario(d.horarioNegocio)}.`}
+            {/* Propio y APAGADO es «manda a cualquier hora» (revisión del 20/10/2026): la tarjeta lo dice con todas las letras. */}
+            {propio && !d.config.horario?.activo
+              ? <span data-sin-horario="" style={{ color: 'var(--warn)' }}>Sólo para esta automatización: {textoDeHorario(null)}.</span>
+              : propio ? 'Sólo para esta automatización.' : `Como el negocio: ${textoDeHorario(d.horarioNegocio)}.`}
           </div>
         </div>
         <Interruptor on={propio} disabled={off} etiqueta={propio ? 'Volver al horario del negocio' : 'Ponerle un horario propio'} onCambio={alternar} />
@@ -91,18 +96,35 @@ export function PersonaDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   const [invalido, setInvalido] = useState<Record<string, string>>({});
   const [enVuelo, setEnVuelo] = useState(false);
   const respiro = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * ⚠️ LO TOCADO SE VE YA Y SE JUNTA (revisión del 20/10/2026). Sin esto, tres ▲ rápidos sobre 20 calculaban 21 los tres
+   * (el valor no cambiaba hasta que volvía el server) y un ▲ en Email dentro del respiro tiraba el de WhatsApp. `local`
+   * es lo que se ve hasta que el server contesta (null = «como el negocio»); `pendiente`, lo que sale al vencer el respiro.
+   */
+  const [local, setLocal] = useState<Record<string, number | null>>({});
+  const pendiente = useRef<Record<string, number | null>>({});
   useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
   if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
   const off = !d.puedeEditar;
-  const guardar = (personaHoras: Record<string, number | null>) => {
+  const guardar = (cambio: Record<string, number | null>) => {
     setAviso('');
+    pendiente.current = { ...pendiente.current, ...cambio };
+    setLocal((p) => ({ ...p, ...cambio }));
     if (respiro.current) clearTimeout(respiro.current);
     setEnVuelo(true);
     respiro.current = setTimeout(() => {
+      const personaHoras = pendiente.current;
+      pendiente.current = {};
+      // Lo que se mandó deja de ser «local» (si no se tocó otra vez mientras tanto): manda lo que contestó el server.
+      const soltar = () => setLocal((p) => {
+        const q = { ...p };
+        for (const [k, v] of Object.entries(personaHoras)) if (q[k] === v) delete q[k];
+        return q;
+      });
       void saveConfigAutomatizacionAction(secuenciaId, { personaHoras })
-        .then((r) => { setEnVuelo(false); if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); })
-        .catch(() => { setEnVuelo(false); setAviso('No se pudo guardar.'); });
+        .then((r) => { setEnVuelo(false); soltar(); if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); })
+        .catch(() => { setEnVuelo(false); soltar(); setAviso('No se pudo guardar.'); });
     }, 350);
   };
   const filas = [
@@ -114,7 +136,7 @@ export function PersonaDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
       <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>A la misma persona, en esta automatización</div>
       <div style={{ fontSize: 13, color: 'var(--dim)' }}>Las horas que espera entre dos mensajes a alguien. Con leads de un anuncio, pocas; prospectando en frío, más.</div>
       {filas.map((f) => {
-        const propio = d.config.personaHoras?.[f.canal];
+        const propio = f.canal in local ? (local[f.canal] ?? undefined) : d.config.personaHoras?.[f.canal];
         const valor = propio ?? d.personaNegocio[f.canal];
         return (
           <div key={f.canal} data-persona={f.canal} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

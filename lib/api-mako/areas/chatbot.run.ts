@@ -54,7 +54,7 @@ import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
 import { horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, textoDeHorario, configParaGuardar } from '@/lib/config-automatizacion';
-import { leerConfigAutomatizacion, guardarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
 import { TOPE_RONDAS, type RespuestaMako } from '@/lib/automatizacion-chat';
 import { falloDeIA } from '@/lib/flujo-ia';
@@ -709,7 +709,7 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async (payload, ctx) => {
       try {
-        const r = await duplicarSecuencia(Number(payload.secuenciaId), { db: (await getTenantDb()) as unknown as DbDuplicar, setPasos: setSecuenciaPasos, setCron: setCronSecuencia });
+        const r = await duplicarSecuencia(Number(payload.secuenciaId), { db: (await getTenantDb()) as unknown as DbDuplicar, setPasos: setSecuenciaPasos, setCron: setCronSecuencia, copiarConfig: copiarConfigAutomatizacion });
         // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser exacto).
         const link = linkApp(`/automations?sec=${r.id}`, ctx.ws);
         return {

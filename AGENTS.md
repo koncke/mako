@@ -9421,3 +9421,12 @@ CRM, Clients y Plan, en computadora y teléfono, dibujan sus tarjetas con `app/_
 tengan coherencia»; prototipo docs/prototipos/coherencia-1710.html). Un tablero nuevo NO escribe su propia tarjeta: usa
 `TarjetaPersona` (una persona) o `TarjetaTarea` (una tarea), y le pasa a la raíz su arrastre y su clic. En el teléfono, la
 tarjeta va adentro de `KanbanM`. Detalle y trampas: docs/hallazgos-ui.md.
+
+## Lo que se guarda POR AUTOMATIZACIÓN fuera de su fila viaja con «Duplicar» (20/10/2026)
+
+La configuración propia de una automatización (horario, horas a la misma persona) vive en `app_settings`
+(`automatizacion.config:<id>`), no en `nutricion_secuencias`. Algo NUEVO que se guarde por id de automatización fuera de
+la fila se copia en `duplicarSecuencia` (lib/secuencia-duplicar.ts, por una dependencia OBLIGATORIA como `copiarConfig`) y,
+si no se puede copiar, la copia se borra. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
+(«La revisión adversarial lo frenó»).

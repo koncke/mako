@@ -141,7 +141,9 @@ test('el motor lee los límites UNA vez por corrida, ESTRICTO, antes de cualquie
   assert.equal(PROC.split('await limitesDeEnvio()').length - 1, 1, 'una lectura por corrida');
   const iLee = PROC.indexOf('const limites = await limitesDeEnvio();');
   // 20/10/2026: también lo propio de cada automatización (`configs`): «no pude leer» tampoco es «como el negocio».
-  const iIlegible = PROC.indexOf("if (limites === 'ilegible' || configs === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };");
+  // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): lo propio ilegible no corta acá (el horario ya cerró la prospección: corre sólo
+  // el carril y lo que no espera, con las horas del negocio).
+  const iIlegible = PROC.indexOf("if (limites === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };");
   const iPresupuesto = PROC.indexOf('const presupuesto = ');
   assert.ok(iLee > 0 && iIlegible > iLee && iPresupuesto > iIlegible, '«no pude leer» no es «de fábrica»: la corrida no manda');
 });
@@ -153,7 +155,7 @@ test('los cuatro topes y el freno salen de lo leído, no de una constante', () =
   assert.match(PROC, /const LOTE = \(cupo > 0 \? cupo : limites\.wa\.hora\) \* 3;/);
   // 20/10/2026: las horas a la misma persona son de CADA automatización (las propias o las del negocio): una lectura
   // por ventana distinta del lote.
-  assert.match(PROC, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configs\.get\(secId\) \?\? \{\}, limites\);/);
+  assert.match(PROC, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}, limites\);/);
   assert.match(PROC, /recientesPorVentana\.set\(k, await leadsConEnvioReciente\(\[\.\.\.g\.leads\], g\.v\)\);/);
   assert.doesNotMatch(NUTRI, /\b(MAX_POR_DIA|MAX_POR_CORRIDA|MAX_EMAIL_POR_DIA|HS_MIN_ENTRE_MSGS)\b/, 'volvió una constante cableada');
   const freno = bloque(NUTRI, 'async function leadsConEnvioReciente(', '\nasync function leadIdsDe(');
@@ -196,7 +198,8 @@ test('conversacionAbierta: los días de la charla por parámetro', () => {
 
 test('el call site del setter lee el tope y el horario; con algo ilegible no sale solo', () => {
   const asistir = bloque(NUTRI, "const { puedeContestarSolo } = await import('@/lib/setter-conversacion');", 'if (d.ok) {');
-  assert.match(asistir, /limitesDeEnvio\(\),\s*horarioDeEnvio\(\),\s*\]\);/);
+  // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): «contesta sola» con el horario de ESA automatización (`horarioDeEnvioDe`).
+  assert.match(asistir, /limitesDeEnvio\(\),\s*horarioDeEnvioDe\(secuencia\.id\),\s*\]\);/);
   assert.match(asistir, /const d = limites === 'ilegible' \|\| horario === 'ilegible'\s*\? \{ ok: false as const, motivo: 'no pude leer tus límites' \}/);
   assert.match(asistir, /tope: limites\.mako\.solasPor24h,/);
   // Revisión de la décima tanda (11/10/2026): en la zona de SIEMPRE de «Contesta sola» (`tz`, de `tzActual`), no en
@@ -243,7 +246,8 @@ test('el modal: dos pestañas, `onCerrar` fijo que no cierra con un guardado en 
   // Los paneles MONTADOS: la pestaña sólo esconde (desmontar tiraba el guardado de su respiro).
   assert.match(src, /<div hidden=\{pestana !== 'horario'\}><HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{alSucioHorario\} \/><\/div>/);
   assert.match(src, /<div hidden=\{pestana !== 'limites'\}>/);
-  assert.match(src, /<LimitesEnvioPanel onSucio=\{alSucioLimites\} sinPersona \/>/);
+  // Revisión del 20/10/2026: las horas a la misma persona del NEGOCIO se ven y se editan (rotuladas «por defecto»).
+  assert.match(src, /<LimitesEnvioPanel onSucio=\{alSucioLimites\} personaPorDefecto \/>/);
   assert.doesNotMatch(src, /\{pestana === '(horario|limites)' && /, 'una pestaña desmonta su panel');
   for (const r of ['app/automations/ConfiguracionesBoton.tsx', 'app/automations/LimitesEnvioPanel.tsx']) {
     assert.doesNotMatch(fuente(r), /href=|<Link\b|router\.(push|replace)|window\.location|['"`]\/configuraciones/, `${r} manda a otro lado`);

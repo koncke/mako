@@ -183,7 +183,8 @@ test('⚠️ sin horario NO hay ventana (sexta tanda): el motor corta sólo con 
   // 20/10/2026: cada automatización con SU horario (lib/config-automatizacion.ts): lo propio de todas en UNA lectura
   // estricta, y «fuera» es «todas cerradas» (las de a una van en `cerradas`). Sin horario en ninguna, no hay ventana.
   assert.match(PROC, /const horario = await horarioDeEnvio\(\);\s*if \(horario === 'ilegible' \|\| configs === 'ilegible'\) fueraDeHorario = 'horario-ilegible';/);
-  assert.match(PROC, /if \(conHorario && tz === ZONA_ILEGIBLE\) fueraDeHorario = 'zona-ilegible';/);
+  // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): sin la zona, cerradas SÓLO las que tienen horario (la de los anuncios sigue).
+  assert.match(PROC, /if \(conHorario && tz === ZONA_ILEGIBLE\) \{[\s\S]{0,500}?cerradas = cerradasAhora\(ids, configs, horario, Date\.now\(\), null\);\s*if \(!ids\.length \|\| cerradas\.size === ids\.length\) fueraDeHorario = 'zona-ilegible';/);
   assert.match(PROC, /cerradas = cerradasAhora\(ids, configs, horario, Date\.now\(\), tz\);[\s\S]{0,200}?if \(ids\.length \? cerradas\.size === ids\.length : !\(await dentroDeVentana\(horario\)\)\) fueraDeHorario = 'fuera-de-horario';/);
   assert.match(PROC, /if \(fueraDeHorario && !corrensFuera\.length\) return \{ \.\.\.res, saltado: fueraDeHorario \};/);
   assert.ok(PROC.indexOf('horarioDeEnvio()') < PROC.indexOf('while ((!cupoLleno()'));
@@ -199,7 +200,7 @@ test('⚠️ sin horario NO hay ventana (sexta tanda): el motor corta sólo con 
   assert.match(z, /return await zonaDelNegocioEstricta\(ws\);/);
   assert.match(z, /catch \{\s*return ZONA_ILEGIBLE;/, '«no pude leer» no es «no hay zona»');
   // 20/10/2026: la zona se lee si ALGUNA automatización tiene horario (el suyo o el del negocio).
-  assert.match(PROC, /const tz = conHorario \? await zonaDeLaVentana\(\) : null;\s*if \(conHorario && tz === ZONA_ILEGIBLE\) fueraDeHorario = 'zona-ilegible';/);
+  assert.match(PROC, /const tz = conHorario \? await zonaDeLaVentana\(\) : null;\s*if \(conHorario && tz === ZONA_ILEGIBLE\) \{/);
   assert.doesNotMatch(NUTRI, /getSetting\(KEY_TIMEZONE\)|zonaDelMotor\(/, 'el motor volvió a leer la zona por su cuenta');
   assert.doesNotMatch(PROC + v + z, /tzDeWorkspace/, 'la zona del motor es la estricta: un 5xx no es «sin zona»');
 });

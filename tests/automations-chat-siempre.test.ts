@@ -85,7 +85,8 @@ test('1: la sidebar dibuja el chat de la abierta por portal, siempre montado, y 
 test('2: en el título va la tuerca (no el logo de MaKo), y el «⋯» de la fila también abre Configuraciones', () => {
   const perfil = PERFIL();
   assert.doesNotMatch(perfil, /<BotonLogoMako /, 'volvió el logo de MaKo al título');
-  assert.match(perfil, /\{rolAdmin && Configuraciones && \(\n\s+<BotonTuerca lado=\{ALTO_ACCION\} onClick=\{\(\) => setConfigAbierta\(true\)\} \/>/);
+  // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): la tuerca también para quien no es admin (el modal entra en sólo lectura).
+  assert.match(perfil, /\{Configuraciones && \(\n\s+<BotonTuerca lado=\{ALTO_ACCION\} onClick=\{\(\) => setConfigAbierta\(true\)\} \/>/);
   assert.match(perfil, /\{configAbierta && Configuraciones && <Configuraciones secuenciaId=\{secuencia\.id\} nombre=\{nombre \|\| secuencia\.nombre\} onCerrar=\{cerrarConfig\} \/>\}/);
   const html = renderToStaticMarkup(createElement(BotonTuerca, { lado: 44, onClick: () => {} }));
   assert.match(html, new RegExp(`aria-label="${TITULO_TUERCA}"`));
@@ -156,9 +157,11 @@ test('3: el motor lee lo de cada automatización UNA vez, estricto, y lo usa por
   assert.match(pe, /const fuera = \(secId: number\): boolean => fueraDeHorario != null \|\| cerradas\.has\(secId\);/);
   assert.match(pe, /else if \(soloCerradas\.length\) q = q\.not\('secuencia_id', 'in', `\(\$\{soloCerradas\.join\(','\)\}\)`\);/);
   assert.match(pe, /const cerrada = fuera\(insc\.secuencia_id\);/);
-  assert.match(pe, /if \(limites === 'ilegible' \|\| configs === 'ilegible'\) return \{ \.\.\.res, saltado: 'limites-ilegibles' \};/);
+  // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): lo propio ilegible ya no corta el carril de todas: corre sólo lo de afuera del horario.
+  assert.match(pe, /if \(limites === 'ilegible'\) return \{ \.\.\.res, saltado: 'limites-ilegibles' \};/);
+  assert.match(pe, /const configsCorrida: ReadonlyMap<number, ConfigAutomatizacion> = configs === 'ilegible' \? new Map\(\) : configs;/);
   assert.match(pe, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)/);
-  assert.match(pe, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configs\.get\(secId\) \?\? \{\}, limites\);/);
+  assert.match(pe, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}, limites\);/);
   // «No pude leer» no es «no tiene nada propio».
   assert.match(m, /async function configsDeEnvio\(\): Promise<Map<number, ConfigAutomatizacion> \| 'ilegible'> \{\n\s+try \{ return await configsDelNegocio\(\); \} catch \{ return 'ilegible'; \}/);
   const tick = sinComentarios(leer('app/api/cron/nutricion-tick/route.ts'));
@@ -208,7 +211,8 @@ test('5: Publicar y Probar avisan si el CRON elige un funnel de Prospección y l
   assert.match(perfil, /<button onClick=\{\(\) => conAvisoProspeccion\(\(\) => conAvisoDuplicada\(activa, 'Publicar igual', \(\) => void publicar\(\)\)\)\}/);
   assert.match(perfil, /conAvisoProspeccion\(\(\) => onProbar\(canal\)\);/);
   assert.match(perfil, /!cronDeProspeccion\(crons\.lista, productos, secuencia\.funnel_id \?\? null\)\) \{ seguir\(\); return; \}/);
-  assert.match(perfil, /\.then\(\(propia\) => \{ if \(propia\) seguir\(\); else setAvisoProspeccion\(\{ seguir \}\); \}\);/);
+  // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): la que ya tiene lo suyo queda avisada, y una consulta a la vez.
+  assert.match(perfil, /\.then\(\(propia\) => \{ if \(propia\) \{ avisadaProspeccion\.add\(secuencia\.id\); seguir\(\); \} else setAvisoProspeccion\(\{ seguir \}\); \}\)/);
   // El funnel dice si es de Prospección (su tipo: `tipoDeFunnel`).
   assert.match(sinComentarios(leer('lib/setting-secuencias.ts')), /if \(tipoDeFunnel\(parseEntradas\(f\.entradas\)\)\?\.id === 'prospeccion'\) out\.add\(Number\(f\.id\)\);/);
 });

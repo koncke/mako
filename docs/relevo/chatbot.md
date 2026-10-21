@@ -1,5 +1,15 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **20/10/2026 noche (`claude4`): LA REVISIÓN DEL PEDIDO B, ARREGLADA.** El Cerebro frenó b0ff4dc42 (detalle en sus notas,
+> revision-automations-b-20-10.md). Arreglado: el huso de la tuerca es de sólo lectura (era el del NEGOCIO); «Duplicar»
+> copia la configuración propia (si no puede, borra la copia); las horas «misma persona» del negocio vuelven a editarse
+> («por defecto»); al entrar, la sidebar es la lista; Escape no corta un pedido escondido; las «Evento de MaKo» esperan
+> SU horario; y los menores (activo no booleano, apagado sin días, '{}' que no se borraba, lecturas que frenaban todo,
+> clics que se pisaban, la tuerca para el setter, «contesta sola» con su horario). Test:
+> tests/automations-config-revision.test.ts. Cosecha: docs/hallazgos-chatbot.md («La revisión adversarial lo frenó») y la
+> regla en AGENTS.md. **Sin hacer:** el chip «Espera a que abra» del lienzo sigue con el horario del negocio; el piso de
+> la línea entre automatizaciones lo decide Martín.
+>
 > **20/10/2026 noche (`claude4`): «NO SALIÓ», HECHO EN `undecima`.** Martín, 20/10 (llegó por el Cerebro, transcript
 > 9bc46b5e, 21:27Z): «Tambien revisa que Leila configuró una automatización recurrente y me dijo que no salió». Lo que
 > no salió era #282, que NO es un Recurrente (por etapa, sin horario): inscribió a 31 y los 31 mensajes quedaron como

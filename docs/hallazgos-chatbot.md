@@ -5503,14 +5503,55 @@ Ya había pasado el 15/10 («Las doce cosas de Automations (vivían sólo en un 
 - **El id `au-mako` del recorrido ya existía y está prohibido**: era «MaKo en WhatsApp» (retirado en la undécima) y un
   test lo veta. El paso del chat es `au-chat`. Y `marcasDeVoseo` marca «acá»: el texto dice «aquí».
 
-**Lo que quedó SIN hacer:** el AI Step que «contesta sola» (`asistirRespuesta`, `seguirCharla`, lib/nutricion.ts) sigue
-con el horario del NEGOCIO, no el de su automatización · el chip «Espera a que abra» de la tarjeta MaKo del lienzo lee el
-horario del negocio (`useFijarHorarioOficina`) · la sugerencia del aviso al equipo va como texto, sin botones · nada se
-vio con clics en un navegador · de la cola del 16/10: el botón de conectar WhatsApp (OnboardingChatAgent.tsx) y lo visual
-de «Probar» (nombres de persona, chips «antes de», «Prueba finalizada»).
+**La revisión adversarial lo frenó (Cerebro, 20/10/2026 noche), y lo que enseñó — arreglado el mismo día (`claude4`):**
+- **⚠️ Un control de UNA automatización que escribe algo del NEGOCIO.** La tuerca montaba el `HorarioEnvioPanel` de
+  siempre con otra `fuente`, pero el desplegable del huso seguía guardando `mako.timezone` (`saveZonaHorarioAction`):
+  elegir Madrid en «Leads Meta» dejaba a TODAS las demás mandando de madrugada, y la tarjeta decía «Sólo para esta
+  automatización». Reusar un panel del negocio adentro de algo por automatización obliga a revisar CADA cosa que guarda,
+  no sólo la `fuente` principal. Ahora, con `zonaSoloLectura`, el huso es texto («Huso del negocio: …»).
+- **⚠️ Una copia que pierde lo que vive FUERA de la fila.** `duplicarSecuencia` copia una lista blanca de columnas, y la
+  configuración propia está en `app_settings` (`automatizacion.config:<id>`): la copia de una «Prospección fría» de 9 a
+  18 con 48 h nacía mandando a las 3 AM con 20 h, sin aviso. `copiarConfig` es OBLIGATORIA en las dependencias (un
+  llamador nuevo que la olvide no compila) y, si falla, la copia se borra. Regla: todo lo que se guarde por id fuera de
+  la fila tiene que estar en «Duplicar».
+- **Esconder no es mudar.** `sinPersona` sacó las horas «misma persona» del NEGOCIO del único panel que las editaba: el
+  valor que heredan TODAS las que ya existían quedó sin pantalla. Volvieron al mismo panel, rotuladas «Misma persona, por
+  defecto» (`personaPorDefecto`).
+- **La elegida sola no es una elección.** `selId` cae en la primera para dibujar su lienzo; con `enLaLista` en false, la
+  sidebar arrancaba siendo SU chat y escondía la lista, «＋ Nueva» y el «?» (el recorrido salteaba tres pasos). Arranca en
+  la lista; el chat aparece al ELEGIR (clic, `?sec=`, la recién creada).
+- **Un listener en captura sobre `document` alcanza al componente escondido.** El Escape de ChatMako cancelaba el pedido
+  en vuelo aunque la ranura estuviera oculta (un Escape para cerrar un modal de la lista). Ahora mira si se ve
+  (`getClientRects`) y si hay un diálogo o menú abierto afuera.
+- **Las «Evento de MaKo» no pasan por el motor**: esperan la apertura en lib/flujos.ts (`aperturaDelNegocio`), que leía
+  sólo el horario del negocio. Ahora lee el de la fila (`filaDeIdCorrida` → `automatizacion.config:<id>`, en el negocio
+  donde VIVE la fila) con la zona del que la recibe.
+- **Una lectura nueva que falla no puede frenar lo que antes andaba.** «Lo propio ilegible» cortaba el carril del
+  recordatorio de TODAS (`limites-ilegibles`) y, en el tick, tiraba la ruta entera. Ahora el horario lo marca
+  ilegible (no sale prospección), el carril corre con las horas del negocio, y el tick sigue sin esa lectura. Lo mismo
+  la zona: sin ella se cierran SÓLO las que tienen horario (`cerradasAhora(…, null)`), no la de los anuncios.
+- **Menores:** un horario sin `activo` booleano se rechaza (`sanearHorario` lo leía como «apagado» = a las 3 AM);
+  apagado con los días vacíos se guarda (como el del negocio); «como el negocio» BORRA la clave (los '{}' se
+  acumulaban) y el tick lee sólo los prendidos, con tope; la tarjeta dice «manda a cualquier hora» con el propio
+  apagado; tres ▲ rápidos ya no guardan 21 en vez de 23 (estado optimista y cambios juntados en el respiro); la tuerca
+  la ve también el que no es admin (sólo lectura); el aviso de Prospección consulta una vez; «contesta sola» del AI
+  Step mira el horario de SU automatización (`horarioDeEnvioDe`). Test: tests/automations-config-revision.test.ts.
+
+**Lo que quedó SIN hacer:** el chip «Espera a que abra» de la tarjeta MaKo del lienzo lee el horario del negocio
+(`useFijarHorarioOficina`, app/automations/horario-oficina.tsx: el lienzo no lee la configuración de su automatización) ·
+las horas «misma persona» del negocio que se cambian abajo no refrescan el «Como el negocio (20 h)» de arriba hasta
+reabrir el modal · con «sin horario» propio, «contesta sola» sigue con su 9 a 21 de siempre (`puedeContestarSolo` sin
+`enHorario`) · el piso de la línea entre automatizaciones: con 3 h propias, «Leads Meta» le escribe 3 h después de un
+WhatsApp de «Prospección» (20 h); al revés se respeta. Si Martín quiere un piso, `max(horas de la fila, las del negocio)`
+sólo frente a envíos de OTRA (lib/nutricion.ts, `ventanaDe`) · una plantilla de SuperAdmin copiada a un cliente no lleva
+la configuración (es de otro negocio) · la sugerencia del aviso al equipo va como texto, sin botones · nada se vio con
+clics en un navegador · de la cola del 16/10: el botón de conectar WhatsApp (OnboardingChatAgent.tsx) y lo visual de
+«Probar» (nombres de persona, chips «antes de», «Prueba finalizada»).
 
 **Vive en:** app/automations/SimuladorWhatsApp.tsx (la ranura, `enLaLista`) · app/automations/SecuenciaPerfil.tsx (el
 portal, `BotonTuerca`, `conAvisoProspeccion`) · app/automations/ConfiguracionesBoton.tsx (el modal y el «?») ·
 app/automations/ConfigAutomatizacionPanel.tsx · lib/config-automatizacion.ts (+ `-db`) · lib/nutricion.ts
 (`procesarEnvios`) · app/api/cron/nutricion-tick/route.ts · lib/api-mako/areas/chatbot.* (`configuracion_automatizacion`,
-`configurar_automatizacion`) · test: tests/automations-chat-siempre.test.ts · *20/10/2026, claude4.*
+`configurar_automatizacion`) · lib/secuencia-duplicar.ts (`copiarConfig`) · lib/flujos.ts (`aperturaDelNegocio`) ·
+app/configuraciones/HorarioEnvioPanel.tsx (`zonaSoloLectura`) · app/automations/LimitesEnvioPanel.tsx (`personaPorDefecto`) ·
+test: tests/automations-chat-siempre.test.ts y tests/automations-config-revision.test.ts · *20/10/2026, claude4.*

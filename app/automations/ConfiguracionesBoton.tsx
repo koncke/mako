@@ -26,7 +26,8 @@
 //   · `ConfiguracionesModal` es de UNA automatización (`secuenciaId`): lo abren la tuerca del título (SecuenciaPerfil) y
 //     «Configuraciones» del «⋯» de la fila. Horario = el propio o el del negocio (`HorarioDeLaAutomatizacion`); Límites =
 //     las horas entre dos mensajes a la misma persona de ESTA (`PersonaDeLaAutomatizacion`) y, abajo, los de la LÍNEA,
-//     que son de todas (`LimitesEnvioPanel` con `sinPersona`). El horario del negocio sigue en Configuraciones › Horario.
+//     que son de todas (`LimitesEnvioPanel` con `personaPorDefecto`: ahí también las horas a la misma persona del NEGOCIO,
+//     las que valen para las que no tienen las suyas). El horario del negocio sigue en Configuraciones › Horario.
 //
 // Un `Modal` de la casa con dos pestañas (`Tabs`):
 //   · Horario = HorarioEnvioPanel TAL CUAL (el mismo de Configuraciones › Horario, con sus acciones).
@@ -96,7 +97,7 @@ export function ConfiguracionesModal({ secuenciaId, nombre, onCerrar }: PropsCon
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <PersonaDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioPersona} />
             <p style={{ margin: '6px 0 0', fontSize: 13, fontWeight: 600, color: 'var(--dim)', fontFamily: "'Geist', sans-serif" }}>{TITULO_LIMITES_LINEA}</p>
-            <LimitesEnvioPanel onSucio={alSucioLimites} sinPersona />
+            <LimitesEnvioPanel onSucio={alSucioLimites} personaPorDefecto />
           </div>
         </div>
       </div>

@@ -77,7 +77,15 @@ export type FuenteHorario = {
   guardar: (h: HorarioEnvio) => Promise<{ ok: boolean; error?: string; horario?: HorarioEnvio }>;
   /** El título del recuadro (sin esto, «Horario de oficina»). */
   titulo?: string;
+  /**
+   * ⚠️ EL HUSO SE VE, NO SE EDITA (revisión del 20/10/2026). Es el de TODO el negocio (`mako.timezone`): elegir Madrid en la
+   * tuerca de UNA automatización dejaba a todas las demás mandando de madrugada. Con esto, «Huso del negocio: …» como
+   * texto; se cambia en Configuraciones › Horario.
+   */
+  zonaSoloLectura?: true;
 };
+/** El huso, de sólo lectura en el horario de UNA automatización (`zonaSoloLectura`). */
+export const ROTULO_ZONA_NEGOCIO = 'Huso del negocio';
 const FUENTE_NEGOCIO: FuenteHorario = { leer: () => getHorarioEnvioAction(), guardar: (h) => saveHorarioEnvioAction(h) };
 
 export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO }: {
@@ -163,9 +171,15 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
               <Dropdown value={String(h.hasta)} options={HASTA} width={104} ariaLabel="Hasta" disabled={off} onChange={(v) => cambiar({ hasta: Number(v) })} />
             </>
           )}
-          <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-            <Dropdown value={zona} options={opcionesDeZona(zona)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
-          </div>
+          {fuente.zonaSoloLectura ? (
+            <span data-zona-del-negocio="" style={{ flex: '1 1 160px', minWidth: 0, fontSize: 13, color: 'var(--dim)' }}>
+              {ROTULO_ZONA_NEGOCIO}: {opcionesDeZona(zona).find((o) => o.value === zona)?.label ?? zona}
+            </span>
+          ) : (
+            <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+              <Dropdown value={zona} options={opcionesDeZona(zona)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
+            </div>
+          )}
         </div>
         {/* Los días CENTRADOS en el recuadro (décima tanda de Automations, general 3, 11/10/2026: «En "Horarios
             de Oficina" pon los días centrado en el recuadro, no alineado a la izquierda»). */}

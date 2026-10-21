@@ -22,7 +22,7 @@
 // de MaKo y el motor, que la lee UNA vez por corrida para todas (`CLAVE_PREFIJO`).
 // =============================================================================
 
-import { sanearHorario, dentroDelHorario, acabaDeAbrir, horaTexto, DIAS_PANTALLA, type HorarioEnvio } from './horario-envio';
+import { sanearHorario, dentroDelHorario, acabaDeAbrir, horaTexto, DIAS_PANTALLA, HORARIO_SUGERIDO, type HorarioEnvio } from './horario-envio';
 import { RANGOS_LIMITES, type LimitesEnvio } from './limites-envio';
 import { TRIGGER_ETAPA } from './nutricion-etapa';
 
@@ -109,14 +109,20 @@ export function personaHorasDeLaAutomatizacion(c: ConfigAutomatizacion, delNegoc
  * LO QUE SE GUARDA, o el error. `null` en una parte la VUELVE a la del negocio (se saca); `horario: { activo: false }`
  * es «sin horario» propio. Devuelve el texto para `app_settings` y si quedó vacío (entonces se borra la clave).
  */
-export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown): { ok: true; config: ConfigAutomatizacion; valor: string } | { ok: false; error: string } {
+export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown): { ok: true; config: ConfigAutomatizacion; valor: string; vacia: boolean } | { ok: false; error: string } {
   if (!cambio || typeof cambio !== 'object' || Array.isArray(cambio)) return { ok: false, error: 'No entiendo qué cambiar.' };
   const o = cambio as Record<string, unknown>;
   const out: ConfigAutomatizacion = { ...previo };
   if ('horario' in o) {
     if (o.horario === null) delete out.horario;
     else {
-      const h = sanearHorario(o.horario);
+      // ⚠️ SIN `activo` BOOLEANO SE RECHAZA (revisión del 20/10/2026): `sanearHorario` lo lee como «apagado», y un pedido
+      // que no dice si está prendido quedaba en «sin horario»: a las 3 AM aunque el negocio tenga de 9 a 18.
+      const crudo = o.horario && typeof o.horario === 'object' ? o.horario as Record<string, unknown> : null;
+      if (!crudo || typeof crudo.activo !== 'boolean') return { ok: false, error: 'Ese horario no se entiende.' };
+      // APAGADO no necesita horas ni días válidos (como el del negocio, `horarioParaGuardar`): apagarlo con los días
+      // vacíos se rechazaba y la automatización seguía con el último horario prendido.
+      const h = sanearHorario(o.horario) ?? (crudo.activo === false ? { ...HORARIO_SUGERIDO, activo: false } : null);
       if (!h) return { ok: false, error: 'Ese horario no se entiende.' };
       if (h.activo && h.hasta <= h.desde) return { ok: false, error: 'Cierra antes de abrir.' };
       out.horario = h;
@@ -136,7 +142,8 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
       if (Object.keys(nuevo).length) out.personaHoras = nuevo; else delete out.personaHoras;
     }
   }
-  return { ok: true, config: out, valor: JSON.stringify(out) };
+  // Vacío = todo como el negocio: quien guarda BORRA la clave (`vacia`), no deja un '{}' (revisión del 20/10/2026).
+  return { ok: true, config: out, valor: JSON.stringify(out), vacia: !tieneConfigPropia(out) };
 }
 
 // ── El motor: qué automatizaciones están en su horario ahora ─────────────────────

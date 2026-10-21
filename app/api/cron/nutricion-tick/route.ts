@@ -87,8 +87,11 @@ export async function GET(request: NextRequest) {
     }
     // Y los horarios PROPIOS de una automatización (20/10/2026, lib/config-automatizacion.ts): si abre el de una, el
     // negocio se barre igual (lo que venció mientras estaba cerrada sale al abrir, como con el del negocio).
-    const { data: propias, error: eProp } = await db.from('app_settings').select('workspace_id, value').like('key', `${CLAVE_PREFIJO}%`);
-    if (eProp) throw new Error(`horarios propios: ${eProp.message}`);
+    // Sólo las que tienen un horario PRENDIDO (las demás no abren nada), y tolerante (revisión del 20/10/2026): si falla, el
+    // tick sigue con los horarios del negocio; lo que venció mientras una estaba cerrada lo barre la corrida de la hora.
+    const { data: propias, error: eProp } = await db.from('app_settings').select('workspace_id, value')
+      .like('key', `${CLAVE_PREFIJO}%`).like('value', '%"activo":true%').limit(1000);
+    if (eProp) console.error(`[cron:nutricion-tick] horarios propios: ${eProp.message}`);
     const propiasDe = new Map<number, ConfigAutomatizacion[]>();
     for (const r of (propias ?? []) as Array<{ workspace_id: number | string; value: string }>) {
       const c = sanearConfigAutomatizacion(r.value);
