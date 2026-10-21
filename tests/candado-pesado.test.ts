@@ -5,7 +5,7 @@
 // seguido — Pagos esperó casi DOS horas. Estas pruebas fijan lo que lo reemplaza: orden FIFO, un proceso muerto que no traba, compatibilidad con el
 // mkdir a mano, y que al tomarlo se traiga origin/main (con merge, y sin dejar el repo a medias si choca).
 //
-// ⚠️ PROBADO ROMPIÉNDOLO (20/10/2026, medido: se rompe UNA pieza, se corren las pruebas de este archivo, se restaura; 14 de 14 dieron rojo):
+// ⚠️ PROBADO ROMPIÉNDOLO (20/10/2026, medido: se rompe UNA pieza, se corren las pruebas de este archivo, se restaura; 14 de 14 dieron rojo el 20/10):
 //   · la cola al revés (el más nuevo primero)                    → 1 roja (FIFO)
 //   · ordenar el turno por pid en vez de por hora                → 1 roja (FIFO: los pids van al revés de la hora a propósito; la primera versión
 //                                                                   de la prueba tenía los pids crecientes y esta rotura SALÍA VERDE)
@@ -21,6 +21,10 @@
 //   · traerMain que rebasea en vez de mergear                    → 2 rojas
 //   · traerMain con un solo intento de fetch (sin reintento)     → 1 roja
 //   · el aviso del fetch sin la causa que dio git                → 1 roja
+// Y el 21/10/2026 (el candado a mano de wt-crm-ficha2 que trabó 27 min a 7 chats), otras 10 roturas, las 10 dieron rojo, 1 roja cada una:
+//   · no tomar el candado a mano de MI worktree · esMio que confunde wt-crm con wt-crm-ficha2 · esMio que deja pasar otra rama del clon compartido ·
+//     sin la regla del candado a mano OCIOSO (10 min) · mirar procesos aunque sea joven · soltar con un proceso pesado vivo · soltar cuando no se pudo
+//     mirar (null) · el tope a mano otra vez en 90 min · esLineaPesada que cuenta la espera de antes-de-subir · esLineaPesada que no ve `node --test`.
 // Además: una PC sin user.email no podía commitear el merge y eso se leía como «chocó en 0 archivos» → ahora se firma con la identidad de Claude y,
 // si falla por otra cosa, el ROJO lo dice (la prueba corre en repos de mentira sin identidad, igual que esta PC).
 // =============================================================================
@@ -33,7 +37,8 @@ import os from 'node:os';
 import { join } from 'node:path';
 import { traerMain } from '../scripts/antes-de-subir.mjs';
 import {
-  anotarse, describirEstado, duenoVencido, estado, intentarTomar, leerCola, leerDueno, rutas, soltar, tomarTurno, VENCE_MS,
+  A_MANO_OCIOSO_MS, A_MANO_VENCE_MS, anotarse, describirEstado, duenoVencido, esLineaPesada, esMio, estado, intentarTomar, leerCola, leerDueno, procesosPesados,
+  rutas, soltar, tomarTurno, VENCE_MS,
 } from '../scripts/candado-pesado.mjs';
 
 const nuevoDir = () => mkdtempSync(join(os.tmpdir(), 'candado-'));
@@ -237,4 +242,103 @@ test('traerMain: si el fetch falla lo REINTENTA (los chats comparten un .git) y 
     assert.deepEqual([r.ok, r.mergeado, r.atras], [true, false, 0], 'sin poder bajar, sigue con lo que tiene');
     assert.match(r.aviso ?? '', /^no pude bajar nube\/main tras 3 intentos \(.*nube.*\): sigo con la copia que tengo$/, 'dice cuántos intentos y la causa que dio git');
   } finally { rmSync(raiz, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------------------
+// El candado A MANO que traba (21/10: wt-crm-ficha2, 27 min, 7 chats esperando, sin que corriera nada)
+// ---------------------------------------------------------------------------
+
+/** El quien.txt tal cual quedó el 21/10 a la 01:06 (copiado byte a byte por el Cerebro). */
+const QUIEN_DEL_21_10 = 'wt-crm-ficha2 · crm-ficha-v2 (claude4) antes-de-subir --rapido — 21/10 01:06\n';
+const MI_CHAT = { chat: 'wt-crm-ficha2 · crm-ficha-v2', cuenta: 'claude4', comando: 'antes-de-subir --rapido' };
+const NADA_PESADO = () => [] as string[];
+
+/** Un candado tomado a mano: el directorio y un quien.txt, SIN dueno.json; `haceMin` le pone esa edad. */
+function aMano(dir: string, quien: string, haceMin = 0) {
+  const { lock } = rutas(dir);
+  mkdirSync(lock);
+  const q = join(lock, 'quien.txt');
+  writeFileSync(q, quien);
+  if (haceMin) { const t = new Date(Date.now() - haceMin * 60_000); utimesSync(q, t, t); }
+}
+const pausaCorta = () => new Promise<void>((r) => setTimeout(r, 2));
+
+test('NO se traba contra sí mismo: un candado a mano de MI worktree (el quien.txt del 21/10) lo toma la cola al instante, sin mirar procesos', async () => conDir(async (dir) => {
+  aMano(dir, QUIEN_DEL_21_10);   // recién tomado: 0 min, bien lejos de cualquier tope
+  const r = await tomarTurno({ dir, datos: MI_CHAT, pid: 27780, vivo: VIVOS, pausa: pausaCorta, sondeoMs: 1, esperaMaxMs: 3000, pesados: () => { throw new Error('no debía mirar procesos: es mío'); } });
+  assert.equal(r.vencio, undefined, 'no esperó 27 minutos: lo tomó');
+  assert.equal(leerDueno({ dir })?.pid, 27780, 'ahora es suyo, con pid');
+  assert.match(readFileSync(rutas(dir).log, 'utf8'), /limpia-dueno a mano · wt-crm-ficha2 · crm-ficha-v2 .*mismo worktree/);
+  assert.equal(leerCola({ dir, vivo: VIVOS }).length, 0);
+}));
+
+test('esMio: el mismo worktree sí; el vecino de nombre parecido no; en el clon compartido hace falta la misma rama; el de dueno.json (con pid) nunca', () => {
+  const manual = (quien: string) => ({ manual: true, quien, mtime: 0 });
+  const chat = (c: string) => ({ chat: c });
+  assert.equal(esMio(manual(QUIEN_DEL_21_10.trim()), chat('wt-crm-ficha2 · crm-ficha-v2')), true, 'el caso del 21/10');
+  assert.equal(esMio(manual(QUIEN_DEL_21_10.trim()), chat('wt-crm-ficha2 · otra-rama')), true, 'mismo worktree, otra rama (en un wt- hay un solo chat)');
+  assert.equal(esMio(manual('wt-crm · x (claude4) antes-de-subir — 21/10 01:06'), chat('wt-crm-ficha2 · y')), false, 'wt-crm no es wt-crm-ficha2');
+  assert.equal(esMio(manual('wt-crm-ficha2 · y (claude4) antes-de-subir — 21/10 01:06'), chat('wt-crm · x')), false, 'ni al revés');
+  assert.equal(esMio(manual('Onboarding (claude4) VERDE --rapido — 20:49'), chat('wt-onboarding-v3 · onboarding-v3')), false, 'un texto libre de otro formato no se adivina');
+  assert.equal(esMio(manual('dashboard-marketing-main · rama-a (claude1) antes-de-subir — 21/10 01:06'), chat('dashboard-marketing-main · rama-b')), false, 'clon compartido: otra rama es otro chat');
+  assert.equal(esMio(manual('dashboard-marketing-main · rama-a (claude1) antes-de-subir — 21/10 01:06'), chat('dashboard-marketing-main · rama-a')), true, 'clon compartido: la misma rama es la mía');
+  assert.equal(esMio({ manual: false, quien: QUIEN_DEL_21_10.trim(), mtime: 0 }, chat('wt-crm-ficha2 · crm-ficha-v2')), false, 'con dueno.json el dueño tiene pid y se juzga por el pid');
+  assert.equal(esMio(manual(QUIEN_DEL_21_10.trim()), undefined), false);
+});
+
+test('un candado a mano de OTRO worktree que nadie usa se suelta a los 10 min si no hay ningún proceso pesado vivo, y no antes', async () => conDir(async (dir) => {
+  const OTRO = { chat: 'wt-flow-ui · montaje-cola', cuenta: 'claude4', comando: 'antes-de-subir' };
+  const intento = (pesados: () => string[] | null, pid: number) => {
+    const turno = anotarse({ dir, datos: OTRO, pid });
+    return intentarTomar({ dir, turno, datos: OTRO, pid, vivo: VIVOS, pesados });
+  };
+  aMano(dir, QUIEN_DEL_21_10, 5);
+  let miradas = 0;
+  assert.equal(intento(() => { miradas++; return []; }, 5001).estado, 'espera', 'a los 5 min todavía puede ser un trabajo largo');
+  assert.equal(miradas, 0, 'y ni siquiera lanza el proceso que mira (cuesta ~1 s)');
+  rmSync(rutas(dir).lock, { recursive: true }); rmSync(rutas(dir).cola, { recursive: true });
+
+  aMano(dir, QUIEN_DEL_21_10, 11);
+  assert.equal(intento(() => ['node.exe C:/dev/wt-x/node_modules/typescript/lib/tsc.js -p x'], 5002).estado, 'espera', '11 min pero hay un tsc vivo: sigue siendo de alguien');
+  rmSync(rutas(dir).cola, { recursive: true });
+  assert.equal(intento(() => null, 5003).estado, 'espera', '11 min y no se pudo mirar los procesos: nunca se suelta a ciegas');
+  rmSync(rutas(dir).cola, { recursive: true });
+  assert.equal(intento(NADA_PESADO, 5004).estado, 'tomado', '11 min y nada pesado corriendo: es un olvido');
+  assert.match(readFileSync(rutas(dir).log, 'utf8'), /limpia-dueno a mano · wt-crm-ficha2 .*sin ningún proceso pesado vivo/);
+  soltar({ dir, pid: 5004 });
+  rmSync(rutas(dir).cola, { recursive: true, force: true });
+
+  aMano(dir, QUIEN_DEL_21_10, 31);
+  assert.equal(intento(() => ['node.exe --import tsx --test tests/x.test.ts'], 5005).estado, 'tomado', 'a los 30 min se suelta aunque corra algo (tope duro; antes eran 90)');
+  assert.match(readFileSync(rutas(dir).log, 'utf8'), /a mano y pasó el tope de 30 min/);
+  assert.ok(A_MANO_OCIOSO_MS === 10 * 60_000 && A_MANO_VENCE_MS === 30 * 60_000 && VENCE_MS === 90 * 60_000, 'los topes son 10 / 30 / 90 min');
+}));
+
+test('esLineaPesada: tsc, node --test, next build, vitest… cuentan; la espera de antes-de-subir, el tsserver del editor y un servidor MCP no', () => {
+  // Así las ve Windows de verdad (CommandLine de Win32_Process). La unidad se arma aparte: la guarda de rutas de Windows en tests (scripts/rutas-windows-en-tests.mjs)
+  // frena cualquier literal que EMPIECE con la letra de unidad, y acá es un dato de texto para un regex, no una ruta que se abra.
+  const UNIDAD = 'C' + ':';
+  for (const pesada of [
+    'node --import tsx --test tests/foo.test.ts',
+    'node --test --test-concurrency=2 tests/a.test.ts tests/b.test.ts',
+    String.raw`"${UNIDAD}\Program Files\nodejs\node.exe" ${UNIDAD}\dev\wt-x\node_modules\typescript\lib\tsc.js -p tsconfig.json --noEmit`,
+    'node /c/dev/wt-x/node_modules/typescript/lib/tsc.js --noEmit',
+    String.raw`node C:\dev\wt-x\node_modules\next\dist\bin\next build`,
+    'node node_modules/vitest/vitest.mjs run',
+    'node node_modules/playwright/cli.js test',
+    'node node_modules/eslint/bin/eslint.js .',
+  ]) assert.equal(esLineaPesada(pesada), true, pesada);
+  for (const liviana of [
+    'node scripts/antes-de-subir.mjs --rapido',
+    'node scripts/antes-de-subir.mjs --rapido --test',
+    'node scripts/tests-afectados.mjs --rapido',
+    String.raw`node C:\dev\wt-x\node_modules\typescript\lib\tsserver.js --useInferredProjectPerProjectRoot`,
+    String.raw`node C:\Users\marti\.claude\mcp\servidor.js`,
+    'node scripts/candado-pesado.mjs',
+  ]) assert.equal(esLineaPesada(liviana), false, liviana);
+});
+
+test('procesosPesados mira de verdad (o dice que no pudo): una lista de líneas pesadas, o null — nunca otra cosa', () => {
+  const p = procesosPesados();
+  assert.ok(p === null || (Array.isArray(p) && p.every((l) => esLineaPesada(l))), 'o null, o sólo líneas que esLineaPesada acepta');
 });
