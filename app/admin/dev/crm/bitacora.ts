@@ -2707,4 +2707,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/chats',
   },
+  {
+    fecha: '21 oct', hora: '17:10', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La lista de /crm se lee bien en una pantalla chica',
+    puntos: [
+      'En producción desde el run 214 (01554d7b6). Lo pidió Martín el 21/10, con su Chrome al 60 % (~934×639).',
+      'Los encabezados ya no se pisan y la etapa no se monta sobre la fecha. Las columnas que no entran se ocultan por prioridad (nombre, etapa, ¿Agendó?, Creado, Empresa, Monto, Origen); el nombre y la etapa están siempre.',
+      'La Empresa que no entra como columna aparece debajo del nombre, con el email.',
+      'Medido con la tabla dibujada a 934×639 y 1024×768: 0 textos fuera de su celda (antes 5 y 4), y el nombre de 82 px a 178 px y entero a 1024.',
+      'No se vio en la app real: se revisa en /crm, vista Lista, con el navegador al 60 %.',
+    ],
+    commits: [
+      { sha: 'fc42c3f5a', msg: 'CRM · la vista lista aguanta un escritorio chico (934×639, 1024×768)', lineas: 528, archivos: 9 },
+      { sha: 'b679d9e82', msg: 'CRM lista: el test pasa el rótulo de ThCrm como children (lo vio el tsc acotado)', lineas: 2, archivos: 1 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];
