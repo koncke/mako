@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { conversacionParaPrompt, sanearLinksSinLeer, sanearMensajes } from '../lib/offer-reglas';
+import { linksDe } from '../app/offer/ayudas';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const IG = 'https://www.instagram.com/una.cuenta/';
@@ -34,8 +35,11 @@ test('el modelo lo lee marcado: no lo viste', () => {
 
 test('la ruta guarda en el mensaje los que están en su texto', () => {
   const ruta = leer('app/api/offer/route.ts');
-  assert.match(ruta, /const linksSinLeer = sanearLinksSinLeer\(body\.linksSinLeer\)\.filter\(\(u\) => texto\.includes\(u\)\);/);
+  // Con la normalización de la pantalla (revisión del Cerebro, 20/10): «www.instagram.com/x» viaja con «https://».
+  assert.match(ruta, /const linksDelTexto = linksDe\(texto, 5\);\s*const linksSinLeer = sanearLinksSinLeer\(body\.linksSinLeer\)\.filter\(\(u\) => linksDelTexto\.includes\(u\)\);/);
   assert.match(ruta, /\.\.\.\(linksSinLeer\.length \? \{ linksSinLeer \} : \{\}\),/);
+  assert.ok(linksDe('mi insta es www.instagram.com/florencia.coach').includes('https://www.instagram.com/florencia.coach'),
+    'lo que manda la pantalla es lo que encuentra la ruta');
 });
 
 test('la pantalla manda los que fallaron al leerlos', () => {

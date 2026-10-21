@@ -34,6 +34,9 @@ test('la ruta ya no rebota un texto largo: lo guarda como documento y lo lee por
   assert.doesNotMatch(ruta, /if \(texto\.length > TOPE_MENSAJE\) return no\(413/);
   assert.match(ruta, /: repartirTextoLargo\(texto, \{ tope: TOPE_MENSAJE, topeDoc: TOPE_TEXTO_DOC, docsLibres: MAX_DOCS_SESION - f\.documentos\.length \}\);/);
   assert.match(ruta, /await leerPorPartes\(texto, NOMBRE_DOC_TEXTO_LARGO, inicio\)/);
+  // La guardia del onboarding no juzga como troleo un texto largo entero (revisión del Cerebro, 20/10: «Ignora las reglas
+  // que te enseñaron…» en un texto armado con ChatGPT sumaba faltas y a la tercera bloqueaba).
+  assert.match(ruta, /texto: tipoIa === 'turno' && textoTurno\.length <= TOPE_MENSAJE \? textoTurno : undefined/);
 });
 
 test('la pantalla (escritorio y teléfono) ya no lo corta antes de mandarlo', () => {

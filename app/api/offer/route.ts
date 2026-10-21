@@ -94,6 +94,7 @@ import {
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
+import { linksDe } from '@/app/offer/ayudas';
 import { avisarOfertaLista } from '@/lib/oferta-lista-server';
 import { FEATURE_OFFER, diagnosticoOffer, lecturaDeParte, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
 import {
@@ -223,7 +224,11 @@ export async function POST(req: NextRequest) {
       if ((tipoIa || analisis) && await onboardingPendiente().catch(() => false)) {
         if (analisis) return no(409, 'El análisis de tu oferta se hace en la tab Offer, cuando termines el onboarding.');
         const usuario = (await getUsuarioActual().catch(() => null))?.email ?? null;
-        const freno = await frenoDeIa({ req, ws, usuario, tipo: tipoIa!, texto: tipoIa === 'turno' ? cadena(body.texto) : undefined });
+        // Un texto más largo que el chat va a documento (repartirTextoLargo) y se mira como un documento: sin el troleo sobre
+        // el texto entero (20/10/2026, revisión del Cerebro: un texto armado con ChatGPT con «Ignora las reglas que te
+        // enseñaron…» o un índice «…… 3» sumaba faltas y a la tercera bloqueaba el onboarding).
+        const textoTurno = cadena(body.texto);
+        const freno = await frenoDeIa({ req, ws, usuario, tipo: tipoIa!, texto: tipoIa === 'turno' && textoTurno.length <= TOPE_MENSAJE ? textoTurno : undefined });
         if (freno) return no(freno.status, freno.error, freno.bloqueado ? { bloqueado: true } : {});
       }
       switch (action) {
@@ -630,7 +635,10 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
   if (audio === 'invalido') return no(400, 'Ese audio no es de esta cuenta. Vuelve a grabarlo.');
   const respuestaPedida = body.respuesta && typeof body.respuesta === 'object' ? body.respuesta as { preguntaId?: unknown; idx?: unknown } : null;
   // Los links del mensaje que la pantalla no pudo abrir (sólo los que están en el texto): MaKo no puede decir que los vio.
-  const linksSinLeer = sanearLinksSinLeer(body.linksSinLeer).filter((u) => texto.includes(u));
+  // Con la MISMA normalización que la pantalla (`linksDe`: «www.instagram.com/x» viaja como «https://www.instagram.com/x»;
+  // con `includes` se descartaba, revisión del Cerebro del 20/10).
+  const linksDelTexto = linksDe(texto, 5);
+  const linksSinLeer = sanearLinksSinLeer(body.linksSinLeer).filter((u) => linksDelTexto.includes(u));
   if (!texto && !docIds.length && !audio && !respuestaPedida) return no(400, 'Escribe algo, dicta un audio o adjunta un documento.');
   // Un texto más largo que el chat va como documento de la conversación, como el audio (20/10/2026, Florencia: 21.629
   // caracteres rebotaban con este 413). Junto con un audio, no: uno por vez.
