@@ -156,178 +156,27 @@ export function mencionaProducto(texto: string): boolean {
   return /\bproductos?\b/.test(plano(nfc(texto)));
 }
 
-/** Las palabras con que se nombra un producto en un pedido («mi otro curso», «otra de mis ofertas»). */
-const COSA = '(?:productos?|servicios?|ofertas?|cursos?|programas?|talleres?|mentorias?)';
 /**
- * «Otro» producto, en todas sus formas: «otro producto», «otros productos», «otro de mis productos», «otro producto
- * más», «mi otro curso», «nuevo producto», «segundo producto», «producto nuevo», «producto distinto», «producto aparte».
- * (Revisión del 20/10/2026, noche: «nuevo», «segundo», «distinto», «diferente» y «aparte» también piden otro.)
- */
-// En una lista y no con «+» entre templates: el minificador del build se come el medio (tests/minificador-templates).
-const OTRO = new RegExp(`\\b(?:${[
-  `otr[ao]s?\\s+(?:de\\s+(?:mis|los|tus|sus|nuestros|nuestras)\\s+)?${COSA}(?:\\s+mas)?`,
-  `(?:nuev[ao]s?|segund[ao]s?|distint[ao]s?|diferentes?)\\s+${COSA}`,
-  `${COSA}\\s+(?:nuev[ao]s?|distint[ao]s?|diferentes?|aparte)`,
-].join('|')})\\b`, 'g');
-/** Lo que dice que la landing ES para eso («para mi otro producto», «de mis otros productos»). */
-const DESTINO = new Set(['para', 'de', 'del', 'sobre', 'con', 'al', 'lanzar', 'vender', 'promocionar']);
-/** Lo que dice que NO («no menciones otros productos», «sin hablar de mis otros servicios»). */
-const NIEGA = new Set(['no', 'sin', 'ni', 'nunca', 'jamas', 'tampoco']);
-/** Lo que va entre el destino y el «otro» sin cambiar nada («para mi otro…», «para un producto nuevo»). */
-const ARTICULO = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'mi', 'mis', 'tu', 'tus', 'su', 'sus', 'nuestro', 'nuestra', 'este', 'esta', 'ese', 'esa']);
-
-/**
- * ¿El pedido es para OTRO producto? Sobre el texto plano, renglón por renglón (idea, instrucciones, título y audiencia
- * van en renglones aparte). Cuenta sólo como DESTINO de la landing: con «para», «de», «sobre»… en las cuatro palabras de
- * antes, o al principio del renglón (un título «Mi otro producto»). No cuenta negado («no menciones otros productos»,
- * «sin hablar de mis otros servicios») ni en una comparación («más que otros productos», «que ya compraron otros…»).
- */
-export function pideOtroProducto(texto: string): boolean {
-  for (const renglon of plano(nfc(texto)).split(/\n+/)) {
-    for (const m of renglon.matchAll(OTRO)) {
-      const antes = renglon.slice(0, m.index).split(/[^a-z0-9ñ]+/).filter(Boolean).slice(-4);
-      if (antes.some((w) => NIEGA.has(w)) || antes[antes.length - 1] === 'que') continue;
-      if (antes.some((w) => DESTINO.has(w)) || antes.every((w) => ARTICULO.has(w))) return true;
-    }
-  }
-  return false;
-}
-
-/** El texto sin tildes y con sus MAYÚSCULAS (las mismas posiciones que `plano`): ¿se dijo el nombre con la suya? */
-const sinTildes = (s: string): string => nfc(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC');
-
-/**
- * Los productos del catálogo que el texto NOMBRA (su nombre entero, como palabras):
- *   · sin los que están adentro de otro nombrado («Curso» dentro de «Curso avanzado»: queda el largo);
- *   · si el pedido es para OTRO producto (`pideOtroProducto`), sólo un nombre dicho como el de ESE producto: con
- *     artículo definido («la Mentoría 1 a 1») o con su mayúscula («Kairos»). «Mi otro producto, un curso de fotografía»
- *     con «Curso» en el catálogo NO es el curso del catálogo, y «mi otra mentoría» tampoco es la Mentoría (revisión del
- *     20/10/2026, noche). Un «otro» negado o de comparación no cuenta: «para mi mentoría / que no se compare con otros
- *     productos» es la Mentoría.
- */
-export function productosNombrados(texto: string, productos: readonly ObjetoChat[]): ObjetoChat[] {
-  const t = ` ${comparable(texto)} `;
-  const conOtro = pideOtroProducto(texto);
-  const original = sinTildes(texto);
-  const dichos = productos.filter((p) => {
-    const n = comparable(p.nombre);
-    if (n.length < 3) return false;
-    let i = t.indexOf(` ${n} `);
-    if (i < 0) return false;
-    if (!conOtro) return true;
-    for (; i >= 0; i = t.indexOf(` ${n} `, i + 1)) {
-      const previa = t.slice(0, i).trim().split(' ').pop() ?? '';
-      if (/^(?:otr[ao]s?|nuev[ao]s?|segund[ao]s?)$/.test(previa)) continue;
-      if (/^(?:el|la|los|las)$/.test(previa)) return true;
-    }
-    // Con su mayúscula: el nombre del catálogo empieza con una y el texto lo trae igual.
-    const nombre = sinTildes(p.nombre).trim();
-    return /^\p{Lu}/u.test(nombre) && new RegExp(`(?:^|[^\\p{L}\\p{N}])${nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|[^\\p{L}\\p{N}])`, 'u').test(original)
-      && !new RegExp(`\\b(?:otr[ao]s?|nuev[ao]s?)\\s+${n.replace(/ /g, '\\s+')}\\b`).test(plano(nfc(texto)));
-  });
-  return dichos.filter((p) => !dichos.some((q) => q !== p && ` ${comparable(q.nombre)} `.includes(` ${comparable(p.nombre)} `)));
-}
-
-/**
- * El producto de un pedido, con los productos ACTIVOS del negocio en el orden de su catálogo (lo usa el chat del
- * editor, app/api/mako/pedidos):
- *   · si el texto nombra uno (`productosNombrados`), ése;
+ * El producto de un pedido, con los productos ACTIVOS del negocio en el orden de su catálogo:
+ *   · si el texto nombra uno (su nombre entero), ése;
  *   · si dice «producto» sin nombrarlo: con uno solo, ése —salvo «otro producto», que entonces no es ése y no se
  *     sabe cuál—; con varios, la pregunta con los primeros `MAX_PRODUCTOS_PREGUNTA`;
  *   · si no dice nada de un producto, null (se crea como siempre).
  */
 export function productoDelPedido(texto: string, productos: readonly ObjetoChat[]): ProductoDelPedido | null {
   if (!productos.length) return null;
-  const nombrados = productosNombrados(texto, productos);
+  const t = ` ${comparable(texto)} `;
+  const nombrados = productos.filter((p) => {
+    const n = comparable(p.nombre);
+    return n.length >= 3 && t.includes(` ${n} `);
+  });
   if (nombrados.length === 1) return { objeto: nombrados[0], candidatos: [], pregunta: null };
   if (!nombrados.length && !mencionaProducto(texto)) return null;
   const lista = nombrados.length > 1 ? nombrados : productos;
   if (lista.length === 1) {
-    return pideOtroProducto(texto) ? null : { objeto: lista[0], candidatos: [], pregunta: null };
+    return /\botr[ao]s?\s+productos?\b/.test(plano(nfc(texto))) ? null : { objeto: lista[0], candidatos: [], pregunta: null };
   }
   return { objeto: null, candidatos: lista.slice(0, MAX_PRODUCTOS_PREGUNTA), pregunta: PREGUNTA_PRODUCTO };
-}
-
-/** Lo que `productoDeLanding` decide: seguir (con el producto para el pedido, si se sabe) o preguntar antes. */
-export type ProductoDeLanding = { que: 'sigue'; producto: string | null } | { que: 'preguntar'; mensaje: string };
-
-const nombresDe = (ps: readonly ObjetoChat[]) => ps.slice(0, MAX_PRODUCTOS_PREGUNTA).map((p) => `«${p.nombre}»`).join(', ');
-const VUELTA = 'Si la persona ya dijo cuál es, pásalo en «producto» con su nombre o lo que es (no «el otro» ni «mi otro producto»); si no, pregúntale y vuelve a proponer con lo que conteste en «producto».';
-
-/** Lo que no dice CUÁL producto: referencias («el otro», «mi otro producto», «el segundo») y respuestas vacías («no sé», «N/A»). */
-const VAGAS = new Set([
-  ...ARTICULO, 'lo', 'de', 'del', 'al', 'a', 'otro', 'otra', 'otros', 'otras', 'nuevo', 'nueva', 'nuevos', 'nuevas', 'segundo', 'segunda',
-  'distinto', 'distinta', 'diferente', 'diferentes', 'aparte', 'mas', 'producto', 'productos', 'servicio', 'servicios', 'oferta', 'ofertas',
-  'curso', 'cursos', 'programa', 'programas', 'taller', 'talleres', 'mentoria', 'mentorias', 'no', 'se', 'ninguno', 'ninguna', 'nada', 'cual',
-  'eso', 'esto', 'que', 'aun', 'todavia', 'ya', 'na', 'opcion', 'numero', 'primero', 'primera', 'tercero', 'tercera',
-  'ultimo', 'ultima', 'en', 'para', 'esos', 'esas', 'estos', 'estas', 'aquel', 'aquella', 'ellos', 'ellas',
-]);
-/**
- * ¿El `producto` que mandó el modelo no dice cuál es? Sin una palabra con contenido, es una referencia, no un producto.
- * Los números no cuentan («el 2», «la opción 2» señalan una lista): un nombre con números fuera del catálogo necesita
- * alguna palabra más («Mentoría 1 a 1 de marca personal»), y la pregunta lo pide («su nombre o lo que es»).
- */
-export const esReferenciaVaga = (dicho: string): boolean =>
-  !plano(nfc(dicho)).split(/[^a-z0-9ñ]+/).some((w) => w.length >= 2 && !VAGAS.has(w));
-
-/** Lo que dice que la landing es de TODO el negocio, no de un producto. */
-const TODO = new Set(['todo', 'todos', 'todas', 'general', 'negocio', 'marca', 'empresa']);
-/**
- * ¿El `producto` es «todos», «todos mis productos», «el negocio en general»? Es la respuesta a «¿para cuál?» cuando es
- * para todos, y no es un producto que se llame así: sin esto, la vuelta creaba la landing de un producto «todos».
- */
-const esTodoElNegocio = (dicho: string): boolean => {
-  const ws = plano(nfc(dicho)).split(/[^a-z0-9ñ]+/).filter((w) => w.length >= 2);
-  return ws.some((w) => TODO.has(w)) && ws.every((w) => TODO.has(w) || VAGAS.has(w));
-};
-/** El nombre en singular («mentorías» → «mentoría»): para reconocer un producto del catálogo dicho en plural. */
-const enSingular = (s: string): string => s.replace(/(?<=\p{L}{3})(?:es|s)(?=$|[^\p{L}\p{N}])/gu, '');
-
-/**
- * PARA QUÉ PRODUCTO es una landing que se le pide a MaKo (Ops Center 1.15). Lo impone el código en el `preparar` de
- * generar_landing_con_ia: sin esto, el esquema sale del perfil del negocio, o sea del producto principal.
- *   · `producto` (el parámetro): si nombra uno del catálogo, ése; si es una referencia («mi otro producto», «el otro»,
- *     «no sé»), como si no se hubiera dicho; si no, ése tal cual (uno nuevo, con sus palabras). La vuelta después de
- *     preguntar pasa aunque sea una palabra («Kairos»).
- *   · si no, el texto: el producto que NOMBRA, ése; varios, se pregunta cuál; «otro» como destino de la landing sin
- *     nombrar ninguno, se pregunta (con dos o más, con sus nombres; con uno o ninguno, cuál es, en texto libre);
- *     «producto» suelto con dos o más, se pregunta cuál.
- *   · un producto suelto con UNO solo en el catálogo no se pega al pedido: como antes de esta pieza (la revisión del
- *     20/10, noche: se pegaba «Mentoría» a «una landing para mi nuevo producto: un taller de cerámica», y la persona no
- *     lo veía al confirmar).
- * NO se cuentan palabras del pedido: la primera revisión del 20/10 mostró que cualquier par de palabras saltaba el
- * guardia.
- */
-export function productoDeLanding(texto: string, producto: string | null | undefined, productos: readonly ObjetoChat[]): ProductoDeLanding {
-  const dicho = (producto ?? '').replace(/\s+/g, ' ').trim();
-  if (dicho) {
-    const tal = productosNombrados(dicho, productos);
-    const delCatalogo = tal.length ? tal : productosNombrados(enSingular(dicho), productos);
-    if (delCatalogo.length === 1) return { que: 'sigue', producto: delCatalogo[0].nombre };
-    if (esTodoElNegocio(dicho)) return { que: 'sigue', producto: null };
-    if (!esReferenciaVaga(dicho)) return { que: 'sigue', producto: dicho.slice(0, 300) };
-  }
-  // Para todo el negocio («todos mis productos»), no es un producto.
-  if (/\btod[ao]s\s+(?:mis|los|nuestros|nuestras)\s+(?:productos|servicios|ofertas)\b/.test(plano(nfc(texto)))) return { que: 'sigue', producto: null };
-  const nombrados = productosNombrados(texto, productos);
-  if (nombrados.length === 1) return { que: 'sigue', producto: nombrados[0].nombre };
-  if (nombrados.length > 1) {
-    return { que: 'preguntar', mensaje: `El pedido nombra más de un producto del catálogo: ${nombresDe(nombrados)}. Pregúntale a la persona para cuál es la landing. ${VUELTA}` };
-  }
-  // Un `producto` que es una referencia a OTRO («el otro», «mi nuevo producto», «el segundo») también lo pide, aunque la
-  // idea que escribió el modelo no lo diga: es lo que la persona dijo.
-  if (pideOtroProducto(texto) || (dicho && esReferenciaVaga(dicho) && /\b(?:otr[ao]s?|nuev[ao]s?|segund[ao]s?|distint[ao]s?|diferentes?|aparte)\b/.test(plano(nfc(dicho))))) {
-    if (productos.length >= 2) {
-      return { que: 'preguntar', mensaje: `El pedido es para otro producto y no dice cuál. En el catálogo hay ${productos.length}: ${nombresDe(productos)}. Pregúntale a la persona cuál (o, si es uno nuevo, su nombre y de qué se trata). ${VUELTA}` };
-    }
-    return productos.length === 1
-      ? { que: 'preguntar', mensaje: `En el catálogo hay un solo producto («${productos[0].nombre}») y el pedido es para OTRO, que no está en MaKo: no la armes sobre «${productos[0].nombre}». ${VUELTA} Lo que hace falta: su nombre, a quién le sirve y qué recibe.` }
-      : { que: 'preguntar', mensaje: `El negocio todavía no tiene productos en el catálogo y el pedido es para «otro producto». ${VUELTA} Lo que hace falta: su nombre, a quién le sirve y qué recibe.` };
-  }
-  if (productos.length >= 2 && mencionaProducto(texto)) {
-    return { que: 'preguntar', mensaje: `El pedido no dice para cuál producto es, y en el catálogo hay ${productos.length}: ${nombresDe(productos)}. Pregúntale a la persona cuál (o, si es uno nuevo, su nombre y de qué se trata). ${VUELTA}` };
-  }
-  return { que: 'sigue', producto: null };
 }
 
 /**

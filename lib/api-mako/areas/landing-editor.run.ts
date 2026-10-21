@@ -38,7 +38,7 @@ import { buscarStock, copiarUrlABucket, type Orientacion } from '@/lib/imagenes-
 import { borradorPorId } from './landing.helpers';
 // Puro: el `config` con que nace un documento de la IA, EL MISMO de «Crear con IA» de la pantalla.
 import { configDeCreacion } from '@/app/web-generator/crear/tipo';
-import { esReferenciaVaga, mencionaProducto, pideOtroProducto, productoDeLanding } from '@/lib/mako-pedidos';
+import { OPCION_NEGOCIO, productoDeLanding } from '@/lib/editor-landing/producto-de-landing';
 import { listProductos } from '@/lib/productos';
 import { siFallaNuestra, urlDeLanding } from './landing-editor.helpers';
 import {
@@ -341,24 +341,20 @@ export const RUNNERS_EDITOR: Runners = {
   generar_landing_con_ia: {
     preparar: async (input, ctx): Promise<Preparado> => {
       if (enFlujo(ctx)) return { error: 'Crear una landing con IA no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Pídesela a MaKo en el chat o créala en el Web Generator.' };
-      // PARA QUÉ PRODUCTO (Ops Center 1.15, 20/10/2026; rehecho tras la revisión de esa noche): el esquema sale del
-      // perfil del negocio, o sea del producto principal. `productoDeLanding` (lib/mako-pedidos.ts) compara el pedido con
-      // los NOMBRES del catálogo y, si es para otro que no dice cuál, no se prepara nada: el error es lo que hay que
-      // preguntar. Se mira todo lo que pide la persona (idea, instrucciones, título y audiencia), no el texto pegado, que
-      // es contenido. El catálogo se lee sólo si el pedido habla de un producto; si no se pudo leer, sigue como antes
-      // («no tienes productos» sería inventarlo). Lo que sigue REEMPLAZA al `producto` que mandó el modelo: una referencia
-      // («mi otro producto», «todos») no va pegada al pedido como si fuera el nombre.
+      // PARA QUÉ PRODUCTO (Ops Center 1.15; tras tres revisiones, 21/10/2026): el esquema sale del perfil del negocio, o
+      // sea del producto principal. `productoDeLanding` (lib/editor-landing/producto-de-landing.ts) no adivina: elige sólo
+      // lo seguro y, si no, no se prepara nada y el error es la pregunta, con las opciones. Corre en TODO pedido, porque
+      // uno que no nombra producto también saldría sobre el principal. Se mira lo que pide la persona (idea,
+      // instrucciones, título y audiencia), no el texto pegado, que es contenido. Lo decidido REEMPLAZA a lo que mandó el
+      // modelo; si el catálogo no se pudo leer, sigue como antes de esta pieza («no tienes productos» sería inventarlo).
       const pedido = ['idea', 'instrucciones', 'titulo', 'audiencia'].map((k) => str(input, k)).filter(Boolean).join('\n');
-      const producto = str(input, 'producto');
-      if (producto || mencionaProducto(pedido) || pideOtroProducto(pedido)) {
-        const productos = await listProductos(true).then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre }))).catch(() => null);
-        const d = productos ? productoDeLanding(pedido, producto, productos) : null;
-        if (d?.que === 'preguntar') return { error: d.mensaje, faltan: ['producto'] };
-        if (d || (producto && esReferenciaVaga(producto))) {
-          const { producto: _delModelo, ...resto } = input;
-          input = d?.producto ? { ...resto, producto: d.producto } : resto;
-        }
-      }
+      const { producto: _producto, producto_nuevo: _nuevo, ...resto } = input;
+      const productos = await listProductos(true).then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre }))).catch(() => null);
+      const d = productos ? productoDeLanding(pedido, { producto: str(input, 'producto'), nuevo: str(input, 'producto_nuevo') }, productos) : null;
+      if (d?.que === 'preguntar') return { error: d.mensaje, faltan: ['producto'] };
+      input = d?.es === 'catalogo' ? { ...resto, producto: d.producto }
+        : d?.es === 'nuevo' ? { ...resto, producto_nuevo: d.producto }
+          : d?.es === 'negocio' ? { ...resto, producto: OPCION_NEGOCIO } : resto;
       const propios = await temasPropios();
       // Sólo con «basadaEn» se leen las analizadas (una consulta que el resto de los pedidos no necesita).
       const analizadas = input.basadaEn ? await listarAnalizadas() : [];
