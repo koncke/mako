@@ -5112,6 +5112,12 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   se revoca con `on procedure` (o `on routine`, que sirve para todo). El default global de la 0319 también le da EXECUTE a service_role a
   lo que postgres cree en CUALQUIER esquema; una extensión que haga pedidos de red (http, pg_net, dblink) NO debe vivir en `public` (la
   clave anon la llamaría por /rest/v1/rpc: SSRF). Detalle: docs/hallazgos-seguridad.md («El EXECUTE de PUBLIC es un default GLOBAL»).
+- **Un CSV se arma SIEMPRE con `lib/csv-celda.ts`** (`celdaCsv`, `filaCsv`, `armarCsv`), nunca con un `replace(/"/g, '""')` propio: todo texto que
+  viene de afuera (un formulario público, una campaña de Meta, el título de una tarea) arranca a veces con `=`, `+`, `-` o `@`, y en Excel o Sheets
+  eso es una FÓRMULA (`=HYPERLINK(…)`, `=cmd|…`). El helper le antepone un apóstrofo; un número tipado no se toca; las opciones (`sep`,
+  `siempreComillas`, `telefonosComoTexto`…) dan lo que cada pantalla ya hacía. `tests/csv-una-sola-via.test.ts` rompe Actions si una exportación
+  escribe su escape, o baja un `text/csv` sin importar el helper (si lo arma otro módulo, va a `CONSUME_CSV_DE_OTRO` con su porqué). Un
+  importador de un archivo que la app exportó llama a `desescaparCeldaCsv`. Detalle: docs/hallazgos-seguridad.md («Inyección de fórmulas en los CSV»).
 
 # Un canal PROPONE; una persona confirma. Nada escribe directo
 
