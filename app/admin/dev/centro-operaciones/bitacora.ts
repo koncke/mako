@@ -974,7 +974,7 @@ export const BITACORA: Hito[] = [
     revisar: '/admin/operaciones',
     puntos: [
       'A cada cliente, MaKo le habla de SU negocio por su nombre: antes le decía que el negocio era de Martín.',
-      'Si MaKo dice «Listo, ya lo armé» sin haber hecho nada, eso no sale: queda «En este mensaje no hice nada: fíjate si ya quedó».',
+      'Si MaKo dice «Listo, ya lo armé» y no hay nada que lo respalde, lo dice igual con una nota: «No veo esa acción en este chat: revísala antes de darla por hecha».',
       'Lo mismo en la retrospectiva y en el asesor de WhatsApp.',
       'MaKo se sigue presentando como «el consultor IA de Martín Koncke»: eso es la marca, y lo decides tú.',
     ],
@@ -1005,6 +1005,23 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '21 oct', hora: '02:00', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un chat puede retirar una pregunta que ya no hace falta',
+    pedido: 'no más preguntas',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Si un chat te preguntó algo que ya no hace falta, la retira: deja de esperarte en el Ops Center.',
+      'Si todavía no te había llegado, no te llega.',
+      'Hace falta el Runner nuevo (1.17.4), después del deploy.',
+    ],
+    archivos: [
+      'lib/centro-preguntas-chat.ts (retirarDeLaLista), lib/centro-preguntas-chat-db.ts, app/api/operaciones/cartero/route.ts',
+      'scripts/operaciones/cartero.mjs — 1.17.4: retirar',
+      'tests/centro-preguntas-retirar.test.ts',
+    ],
+  },
+  {
     fecha: '21 oct', hora: '01:30', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Lo largo ya no queda «En curso» para siempre, y MaKo no te hace pedir dos veces lo que ya hizo',
@@ -1019,7 +1036,7 @@ export const BITACORA: Hito[] = [
       'En la computadora, Enter con «1.» manda. Y puedes dictar mientras MaKo trabaja.',
     ],
     archivos: [
-      'lib/doer-salida.ts (RespaldoDeHecho, SIN_HECHO), lib/mako-turno-app.ts',
+      'lib/doer-salida.ts (RespaldoDeHecho, NOTA_SIN_RESPALDO), lib/mako-turno-app.ts',
       'lib/chat-trabajos.ts (hasta), app/api/mako/propuesta/route.ts, app/_chat/BloqueHilo.tsx, app/_chat/FormularioEnChat.tsx',
       'lib/mako-turno-app-reglas.ts (aRetirar), app/_chat/CajaChat.tsx, app/admin/operaciones/Microfono.tsx',
       'lib/centro-plan-auto-reglas.ts (saltados), lib/centro-preguntas-chat.ts',

@@ -2184,6 +2184,11 @@ un runner que tarda 5,5 s (`tests/_trabajos-hijo.ts`).
   - **La consulta previa de la tarjeta miraba sólo el id:** con la pendiente de OTRO chat (los ids son correlativos)
     anotaba «En curso», y servía para ver qué hay vivo en otros. Ahora tiene que ser de este chat y pasar el gating de
     quien toca; si no, el camino de siempre contesta el error sin escribir en el hilo.
+  - **Cortado no es «falló»** (la segunda revisión): el corte pintaba el paso y la tarjeta en rojo, «Falló», al lado de
+    «No sé si terminó»; si el trabajo SÍ había terminado (falló sólo el «Hecho» final), la persona lo pedía de nuevo. El
+    paso queda `incierto` («Sin saber»), `leerConsulta` da `ok: null` y la tarjeta dice «Revísalo» (`incierta`).
+  - **Al recargar, la burbuja «En curso: …»** quedaba al lado de un G6 que ya había terminado. Un mensaje cuyo G6 sigue
+    en curso se dibuja sólo con su G6 (`conSusBloques`), que consulta y dice cómo termina.
 
 **Sin hacer:**
 - El G6 tiene dos pasos (Confirmado → el trabajo): los runners no informan avance intermedio.

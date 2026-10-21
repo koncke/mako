@@ -6743,16 +6743,32 @@ candado) ahora corren ANTES de hacer fila —un rojo de guarda dice «no hice fi
 tomarlo, con main mergeado, que puede traer guardas y archivos nuevos. Verificado a mano (rompiendo el test a propósito con otro candado puesto), sin
 prueba automática: el efecto vive en `main()` del CLI y probarlo pide un repo roto.
 
-**Sigue abierto, y es la raíz:** un `mkdir` a mano le gana a la cola en el instante en que el dueño suelta (aquí por ~2 s). Lo de arriba lo hace
-inofensivo para `antes-de-subir`, no lo impide. Lo que lo impediría: que `soltar` ENTREGUE el candado al primero de la fila sin borrar el
-directorio (reescribe `dueno.json` con el pid del siguiente), así un `mkdir` a mano nunca lo ve libre mientras haya alguien esperando. No se hizo:
-cambia el contrato de `soltar`; hay que decidirlo.
+**La raíz, resuelta (decidido por el Cerebro el mismo 21/10): `soltar` ENTREGA el candado.** Un `mkdir` a mano le ganaba a la cola en el instante en que
+el dueño soltaba (aquí por ~2 s), porque soltar BORRABA el directorio y el siguiente tenía que volver a ganar el `mkdir`. Ahora, con alguien esperando,
+`soltar` reescribe `dueno.json` y `quien.txt` con los datos del primero de la fila que siga vivo y NO borra el directorio: un `mkdir` a mano justo en ese
+instante falla (EEXIST), nunca lo ve libre. Con la fila vacía se borra, como siempre. Lo que hubo que resolver:
+- **El que recibe se entera con el mismo sondeo de siempre** (0,4 s): `intentarTomar` mira primero si `dueno.json` ya tiene su pid —antes de mirar la cola:
+  su turno sigue ahí y, si no, se leería como «lo limpiaron»— y confirma con `recibido`. Medido en la prueba de punta a punta: no espera nada más por ser entrega.
+- **El siguiente muerto se saltea:** `leerCola` ya limpia los turnos de procesos muertos con el mismo `vivo`; se entrega al primero que quede. Un filtro
+  `vivo(t.pid)` extra en `soltar` salía VERDE al romperlo (era redundante) y se sacó.
+- **Un siguiente que está vivo pero colgado no puede quedarse con el candado 90 min:** una entrega sin `recibido` a los 30 s (`ENTREGA_VENCE_MS`) se libera.
+- **`dueno.json` se escribe por un temporal y un rename** para que nadie lo lea a medias, y un `dueno.json` que existe pero no se lee se trata como un candado
+  a mano con la edad de ESE archivo (recién escrito), no la del `quien.txt` viejo del dueño anterior: si no, la regla del candado ocioso (10 min) lo soltaría
+  en plena entrega. El rename atómico en sí no tiene prueba (sólo se vería con una lectura exacta a mitad de escritura); el efecto de ver el archivo a medias sí.
+- **Conviven versiones: cada worktree corre SU copia del script.** Un dueño nuevo que le entregara el candado a un esperador viejo lo dejaría esperando 90 min
+  un candado que ya es suyo y que su código no sabe reconocer (vería su propio pid como un dueño vivo). Por eso el turno lleva `entrega: 1` («sé recibir») y
+  `soltar` sólo entrega si el PRIMERO de la fila lo declara; si es viejo, borra el directorio y lo toma con su `mkdir` de siempre (el orden de la fila manda:
+  no se saltea al viejo). Lo vi recién al pensar el despliegue, ya con el VERDE en camino; sin esto la primera entrega a un chat sin `merge` de main era
+  la tercera trabada. La misma regla para cualquier cambio de protocolo del candado: **el que escribe el formato nuevo tiene que poder leer al viejo, y el
+  nuevo no debe depender de que el viejo lo entienda.**
+- **La prueba que movió esto, por una trampa de las pruebas:** con pids inventados (101, 202…) un `soltar` con el `vivo` real limpiaba los turnos y la prueba de
+  la cola ya no veía a nadie; ahora `soltar` recibe `vivo` y `ahora` como el resto.
 
 **Sin hacer:** `~/.claude/guardia/memoria.mjs` (la lista de comandos «pesados» del vigía) sigue sin saber de `antes-de-subir`; lo agrega el
 Cerebro. Y el candado no cubre el `mobile-build.lock` de los Mobile: es otro recurso con otra cola.
 
 **Vive en:** `scripts/candado-pesado.mjs` · `scripts/antes-de-subir.mjs` (`traerMain`, `--cola`, `--ya-tengo-el-candado`, `--sin-merge`) ·
-`tests/candado-pesado.test.ts` (17 pruebas; 24 roturas a propósito, todas dan rojo) · `AGENTS.md` («El candado de lo pesado ahora tiene COLA»)
+`tests/candado-pesado.test.ts` (21 pruebas; 32 roturas a propósito, todas dan rojo) · `AGENTS.md` («El candado de lo pesado ahora tiene COLA»)
 
 ## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
 
@@ -7173,6 +7189,10 @@ arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Ce
   y «el segundo dijo ya estaba» sale verde igual.
 - **tests/_postgrest-de-mentira.ts entiende `is.true`, `is.false`, `not.is.true` y `not.is.false`**, con la semántica
   de Postgres: `NOT (x IS TRUE)` también matchea el null.
+- **La base de mentira contesta también un rpc de escritura** (21/10/2026): `cobrar_cuota_con_resto`, una copia en JS
+  de la función de la mig 0318, atómica porque una llamada de node no se intercala con otra. Respeta los `unicos` (si
+  el número choca, no escribe nada y contesta 23505). La copia se fija contra el .sql en tests/pagos-cobro-idempotente.test.ts:
+  sin eso, el test probaría la copia y no la función.
 
 ## Un merge toma EN SILENCIO lo de main donde tu rama volvió a la base (21/10/2026, la ola 1 del Ops Center)
 
