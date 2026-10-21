@@ -21,7 +21,7 @@
 // =============================================================================
 
 import {
-  DESTINOS_MOVIL, HOME_MOVIL, RUTA_INBOX, RUTA_MAS, SECCIONES_MAS, TITULO_INBOX, esRutaMovil, seccionDeRuta, tituloSeccion,
+  DESTINOS_MOVIL, HOME_MOVIL, RUTA_INBOX, RUTA_MAS, SECCIONES_MAS, TITULO_HOME_MOVIL, TITULO_INBOX, esRutaMovil, seccionDeRuta, tituloSeccion,
 } from '@/lib/movil-rutas';
 import { TITULO_CUENTA as TITULO_TU_CUENTA } from '@/lib/ajustes-secciones';
 
@@ -44,7 +44,9 @@ export const TITULO_CUENTA = TITULO_TU_CUENTA;
 /** La pantalla de onboarding pendiente: sin barra y sin «volver». */
 export const RUTA_CONFIGURAR = '/m/configurar';
 
-const HOY = DESTINOS_MOVIL.find((d) => d.href === HOME_MOVIL)!;
+// El Dashboard: desde el 20/10/2026 es una fila de More (el Ops Center tomó su lugar en la barra), así que ya no se busca
+// en DESTINOS_MOVIL. Sigue siendo la vuelta de Avisos y de una ruta que nadie declaró: existe para todos.
+const HOY: LugarBarra = { href: HOME_MOVIL, label: TITULO_HOME_MOVIL };
 const MAS: PadreM = { href: RUTA_MAS, label: DESTINOS_MOVIL.find((d) => d.href === RUTA_MAS)!.label };
 
 function limpia(pathname: string | null | undefined): string {
@@ -124,6 +126,8 @@ export function cabeceraPorRuta(
   if (seccion) return { titulo: tituloSeccion(seccion), padre: MAS, trabajo, conBarra: !trabajo };
 
   if (p === RUTA_CUENTA) return { titulo: TITULO_CUENTA, padre: MAS, trabajo: false, conBarra: true };
+  // El Dashboard es una fila de More desde el 20/10/2026: vuelve a More, como cualquier sección.
+  if (p === HOME_MOVIL) return { titulo: TITULO_HOME_MOVIL, padre: MAS, trabajo: false, conBarra: true };
   // La campana de General (v3: Inbox dejó la barra): se titula Avisos (TITULO_INBOX) y vuelve a General.
   if (p === RUTA_INBOX) return { titulo: TITULO_INBOX, padre: { href: HOY.href, label: HOY.label }, trabajo: false, conBarra: true };
 
@@ -155,6 +159,8 @@ export function nivel(pathname: string | null | undefined, barra: readonly Lugar
   const p = limpia(pathname);
   if (!esRutaMovil(p) || p === '/m' || p === RUTA_CONFIGURAR) return 0;
   if (raizDeBarra(p, barra)) return 0;
+  // La campana de Avisos se abre desde el Dashboard, que es una fila de More desde el 20/10/2026: uno más adentro que él.
+  if (dentro(p, RUTA_INBOX)) return 2;
   const dueno = duenoDe(p, barra);
   if (!dueno) return 1;
   const base = raizDeBarra(dueno.href, barra) ? 0 : 1;

@@ -42,7 +42,7 @@ import { cuentasDeUso } from '../lib/centro-uso';
 import { ListaUso, LogoClaude, textoSinMedicion } from '../app/admin/operaciones/Uso';
 import { ARRIBA, MAKO_NAV, OPS_CENTER, arribaDe } from '../app/_components/nav';
 import { puedeVerItem } from '../lib/nav-visibilidad';
-import { masCompleto } from '../lib/movil-rutas';
+import { barraMovil, masCompleto } from '../lib/movil-rutas';
 import { RUTA_GRAFO_OPS_CENTER, rutaDelSecondBrainEnOpsCenter } from '../lib/ops-center-ruta';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -90,17 +90,22 @@ test('3: el super admin no ve «Second Brain» en la barra ni en More; el client
   assert.deepEqual(arribaDe(false, () => false), [], 'quien no tiene MaKo no ve nada arriba');
   assert.deepEqual(ARRIBA.map((i) => i.key), [OPS_CENTER.key, MAKO_NAV[0].key], 'la lista completa no cambia: lo decide quien mira');
   assert.match(codigo('app/_components/Sidebar.tsx'), /const arriba = arribaDe\(adminShell, puedeVer\);/);
-  // More del teléfono: sin la fila 'mako' para el super admin, con ella para los demás.
+  // More del teléfono: sin la fila 'mako' para nadie desde el 20/10/2026, porque es el lugar del medio de la barra: el chat
+  // del cliente para los demás, el Centro para el super admin.
   const arriba = (adminShell: boolean) => masCompleto('admin', 'completo', adminShell).find((g) => g.id === 'arriba')?.filas.map((f) => f.key) ?? [];
   assert.deepEqual(arriba(true), [], 'el super admin: nada de Second Brain en More');
-  assert.deepEqual(arriba(false), ['mako'], 'el cliente: su Second Brain');
+  assert.deepEqual(arriba(false), [], 'el cliente: su Second Brain está en la barra');
+  assert.equal(barraMovil('admin', 'completo').find((b) => b.id === 'mako')?.href, '/m/second-brain', 'el cliente: su Second Brain');
+  assert.equal(barraMovil('admin', 'completo', true).find((b) => b.id === 'mako')?.href, '/m/operaciones', 'el super admin: el Centro');
   // /second-brain: el super admin va al grafo del Ops Center, y la puerta va DESPUÉS de la del chat.
   const page = codigo('app/second-brain/page.tsx');
   const cuerpo = page.slice(page.indexOf('export default async function'));
   assert.ok(cuerpo.indexOf('requireRolWs(') < cuerpo.indexOf('quienOpera()'), 'primero la puerta del chat');
   assert.match(cuerpo, /if \(await quienOpera\(\)\) redirect\(await rutaConWs\(rutaDelSecondBrainEnOpsCenter\(q\)\)\);/);
   assert.ok(cuerpo.indexOf('quienOpera()') < cuerpo.indexOf('datosDelCentroSiOpera()'), 'antes de leer la cola del Centro');
-  assert.match(codigo('app/m/second-brain/page.tsx'), /uno\(sp\.area\) \|\| await quienOpera\(\)\)/, 'el teléfono: al grafo');
+  // El teléfono (20/10/2026, el Ops Center es la tab principal): el grafo sólo si se pide; si no, quien opera va al Centro.
+  assert.match(codigo('app/m/second-brain/page.tsx'), /if \(veMapa && \(uno\(sp\.panel\) === 'mapa' \|\| uno\(sp\.area\)\)\)/, 'el teléfono: al grafo si lo pide');
+  assert.match(codigo('app/m/second-brain/page.tsx'), /if \(ctx\.sesion\.rol === 'admin' && !ctx\.impersonando\) redirect\(await rutaConWs\(RUTA_CENTRO_M\)\);/, 'el teléfono: si no, al Centro');
   // El destino: el grafo sin pedir nada; lo que pide la URL se respeta; `ws` lo vuelve a poner la puerta.
   assert.equal(RUTA_GRAFO_OPS_CENTER, '/admin/operaciones?panel=mapa');
   assert.equal(rutaDelSecondBrainEnOpsCenter({}), '/admin/operaciones?panel=mapa');

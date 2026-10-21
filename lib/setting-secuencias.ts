@@ -18,6 +18,7 @@ import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
 import { sanearCron, proximaOcurrencia } from './cron-aviso';
 import { tzActual, TZ_DEFAULT } from './timezone';
 import { listarFunnels, getFunnelDe, getFunnelDefault, productoDeFunnel } from './funnels';
+import { parseEntradas, tipoDeFunnel } from './pipeline';
 import { nombreVisible } from './lead-funnel-reglas';
 import { entregasDeProductos } from './entrega-servicio';
 import type { EntregaConfig } from './servicio-etapas';
@@ -40,6 +41,7 @@ import { leerBorradoresSecuencias, firmaPublicado, type DbBorrador } from './sec
 import type { PasoGrafo } from './flujo-grafo';
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON, TRIGGERS_DEL_EMISOR, MOTIVO_CRON_FIJO } from './disparadores';
 import { pasosDeEsqueleto } from './setting-semillas';
+import { contarPorAprobar } from './mensajes-por-aprobar';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
@@ -50,6 +52,11 @@ export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
   reentrada_efectiva: Reentrada;
   /** El emoji del título (mig 0229). null = el del objetivo, que lo pone la pantalla. */
   emoji: string | null;
+  /**
+   * Cuántos mensajes suyos esperan que los apruebes (`wa_borradores` pendientes del motor, lib/mensajes-por-aprobar.ts).
+   * `null` = no se pudieron leer, que no es «ninguno»: la pantalla no dice nada.
+   */
+  por_aprobar: number | null;
   /**
    * Dónde puso la persona cada tarjeta del lienzo (mig 0233, lib/secuencia-posiciones.ts). `{}` =
    * ninguna movida; `null` = NO SE PUDIERON LEER (falta la columna o falló la consulta): el lienzo se
@@ -106,6 +113,24 @@ export async function setEmojiSecuencia(secuenciaId: number, emoji: unknown): Pr
   if (!data?.length) throw new TriggerInvalidoError('Esa automatización no existe en este negocio.');
 }
 
+/**
+ * LOS MENSAJES QUE ESPERAN QUE LOS APRUEBES, por automatización (20/10/2026: el Recurrente de Leila «que no salió»
+ * dejó 31 borradores y la pantalla decía «Activa»). Los del MOTOR (`origen: 'nutricion'`): los de «Si responde» que
+ * escribe el setter asistido tienen su propia bandeja. Tolerante como las posiciones: `null` = no se pudieron leer.
+ */
+async function leerPorAprobar(supabase: Awaited<ReturnType<typeof getTenantDb>>): Promise<Map<number, number> | null> {
+  try {
+    const filas = await leerTodo<{ secuencia_id: number | null }>(supabase, 'wa_borradores', 'id, secuencia_id', {
+      orden: 'id', eq: { estado: 'pendiente', origen: 'nutricion' },
+      filtros: (q) => q.not('secuencia_id', 'is', null),
+    });
+    return contarPorAprobar(filas);
+  } catch (e) {
+    console.error(`[setting-secuencias] mensajes por aprobar: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 /** Secuencias + métricas 30d + la serie diaria del workspace (una sola pasada). */
 export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrategia[]; serie: PuntoSerie[] }> {
   const supabase = await getTenantDb();
@@ -125,10 +150,11 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
   const met = agregarMetricas(filasEnvio, filasInsc);
   // Las posiciones y los borradores van aparte y tolerantes (no tiran): ver `leerPosicionesSecuencias`
   // y `leerBorradoresSecuencias`. `null` = no se pudieron leer, que no es «ninguno».
-  const [emojis, posiciones, borradores] = await Promise.all([
+  const [emojis, posiciones, borradores, porAprobar] = await Promise.all([
     emojisDeSecuencias(supabase),
     leerPosicionesSecuencias(supabase as unknown as DbPosiciones),
     leerBorradoresSecuencias(supabase as unknown as DbBorrador),
+    leerPorAprobar(supabase),
   ]);
   const secuencias = secs.map((s) => ({
     ...s,
@@ -137,6 +163,7 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     emoji: emojis.get(s.id) ?? null,
     reentrada_efectiva: reentradaDeSecuencia(s),
     posiciones: posiciones ? (posiciones.get(s.id) ?? {}) : null,
+    por_aprobar: porAprobar ? (porAprobar.get(s.id) ?? 0) : null,
     // Sin poder leerlos, la clave NO va: la pantalla distingue «no hay» (null) de «no sé» (ausente) y
     // en el segundo caso no guarda, para no pisar un borrador que no vio.
     //
@@ -326,7 +353,28 @@ export type ProductoConEtapas = {
    */
   etapasEntrega: Array<{ value: string; label: string }>;
   origenEntrega: 'declarado' | 'default' | null;
+  /**
+   * EL FUNNEL ES DE «PROSPECCIÓN» (`tipoDeFunnel`, lib/pipeline.ts; 20/10/2026, Martín, 16/10 punto 5: «Solo cuando se
+   * selecciona etapas o algún funnel que esté catalogado como "Prospección", debe saltar un warning para configurar eso al
+   * momento de darle a publicar o probar»). Ausente = no se sabe o no lo es.
+   */
+  prospeccion?: boolean;
 };
+
+/**
+ * LOS FUNNELS DE «PROSPECCIÓN» del negocio (su tipo, `tipoDeFunnel` sobre `data.entradas`). Una lectura chica: sólo el id y
+ * las entradas. Si falla, ninguno (el aviso de Prospección no sale: es un aviso, no un freno).
+ */
+async function funnelsDeProspeccion(): Promise<Set<number>> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('funnels').select('id, entradas:data->entradas').eq('activo', true);
+  if (error) throw new Error(error.message);
+  const out = new Set<number>();
+  for (const f of (data ?? []) as unknown as Array<{ id: number; entradas: unknown }>) {
+    if (tipoDeFunnel(parseEntradas(f.entradas))?.id === 'prospeccion') out.add(Number(f.id));
+  }
+  return out;
+}
 
 export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
   const funnels = await listarFunnels();
@@ -334,6 +382,7 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
     .catch(() => new Map<number, { id: number; nombre: string }>());
   const entregas = await entregasDeProductos([...delFunnel.values()].map((p) => p.id))
     .catch(() => new Map<number, EntregaConfig>());
+  const deProspeccion = await funnelsDeProspeccion().catch(() => new Set<number>());
   const out: ProductoConEtapas[] = [];
   for (const f of funnels) {
     // El default se lee con `getFunnelDefault` (es el camino que ya cachea la pantalla);
@@ -351,6 +400,7 @@ export async function productosConEtapas(): Promise<ProductoConEtapas[]> {
         .map((st) => ({ value: st.key, label: st.label })),
       etapasEntrega: (entrega?.etapas ?? []).map((et) => ({ value: et.key, label: et.label })),
       origenEntrega: entrega?.origen ?? null,
+      ...(deProspeccion.has(f.id) ? { prospeccion: true } : {}),
     });
   }
 
