@@ -35,7 +35,8 @@ import { sanearBloqueGrafico, type BloqueGrafico } from './chat-bloques-dashboar
 /** El botón que lleva a la pantalla donde vive lo creado. */
 export type Abrir = { titulo: string; href: string };
 
-export type EstadoPaso = 'listo' | 'en_curso' | 'pendiente' | 'fallo';
+/** `incierto`: el trabajo se cortó y no se sabe si llegó a hacerse (lib/chat-trabajos.ts, su `hasta`). */
+export type EstadoPaso = 'listo' | 'en_curso' | 'pendiente' | 'fallo' | 'incierto';
 
 /** G5: lo que se creó (o se tocó), con su miniatura. Sin miniatura, un marco con la forma (`ancho` × `alto`). */
 export type BloqueCreado = {
@@ -72,7 +73,7 @@ export type BloqueGuardado = { k: 'bloque'; b: Bloque };
 export const MAX_BLOQUES_MENSAJE = 4;
 const MAX_FILAS = 12;
 const MAX_PASOS = 10;
-const ESTADOS_PASO: readonly EstadoPaso[] = ['listo', 'en_curso', 'pendiente', 'fallo'];
+const ESTADOS_PASO: readonly EstadoPaso[] = ['listo', 'en_curso', 'pendiente', 'fallo', 'incierto'];
 
 const texto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const opcional = (v: unknown, max: number): string | undefined => texto(v, max) || undefined;
@@ -220,7 +221,7 @@ export function razon(b: Pick<BloqueCreado, 'ancho' | 'alto'>): number {
 }
 
 /** Lo que dice cada paso de un trabajo largo, para quien no ve el ícono. */
-export const ROTULO_PASO: Record<EstadoPaso, string> = { listo: 'Listo', en_curso: 'En curso', pendiente: 'Falta', fallo: 'Falló' };
+export const ROTULO_PASO: Record<EstadoPaso, string> = { listo: 'Listo', en_curso: 'En curso', pendiente: 'Falta', fallo: 'Falló', incierto: 'Sin saber' };
 
 type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
 const enCurso = (t: Trabajo) => t.pasos.some((p) => p.estado === 'en_curso');
@@ -254,5 +255,7 @@ export function leerConsulta(status: number, cuerpo: unknown, consulta: string):
   const aparte = bloques.filter((x) => x.t !== 'trabajo');
   if (enCurso(trabajo)) return { sigue: true, trabajo, aparte };
   const texto = typeof j.texto === 'string' && j.texto.trim() ? j.texto.trim().slice(0, 600) : null;
-  return { sigue: false, trabajo, aparte, ok: !trabajo.pasos.some((p) => p.estado === 'fallo'), texto };
+  // Cortado no es «falló» (la segunda revisión): pintarlo rojo invitaba a pedirlo de nuevo algo que pudo quedar hecho.
+  const ok = trabajo.pasos.some((p) => p.estado === 'fallo') ? false : trabajo.pasos.some((p) => p.estado === 'incierto') ? null : true;
+  return { sigue: false, trabajo, aparte, ok, texto };
 }

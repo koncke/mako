@@ -18,7 +18,9 @@
 //      `hasta`, la consulta lo da por cortado, lo deja escrito y no pide repetirlo;
 //   7. la pantalla no pregunta para siempre (un 404, o MAX_CONSULTAS), dibuja lo que pasó en palabras («No se pudo: …»: antes
 //      era un punto rojo), y la tarjeta o el formulario que lo lanzó deja de decir «En curso»;
-//   8. la tarjeta lenta de OTRO chat (o una que quien toca no puede) no anota «En curso»: contesta el error, como antes.
+//   8. la tarjeta lenta de OTRO chat (o una que quien toca no puede) no anota «En curso»: contesta el error, como antes;
+//   9. (la segunda revisión) un trabajo cortado se pinta «Sin saber» y su tarjeta «Revísalo», no «Falló»; y al recargar, la
+//      burbuja «En curso: …» de uno que sigue no se dibuja (su G6 dice cómo termina).
 //
 // Probado rompiéndolo (20/10/2026, con la base en 0 fallos):
 //   · `confirmarDesdeTarjeta` sin el camino de los trabajos largos → 2 fallos (1 y 2);
@@ -28,7 +30,9 @@
 //   · (21/10) el formulario por la server action otra vez → 1 fallo (5); `estadoDeTrabajo` sin mirar `hasta` → 1 fallo (6);
 //     sin dejar escrito el corte → 1 fallo (6); `leerConsulta` sin cortar ante un 404 → 1 fallo (7); sin el `texto` → 1
 //     fallo (7); `itemsTrasTarjeta` sin decir de qué tarjeta es el G6 → 1 fallo (7); el teléfono sin `onTermina` → 1
-//     fallo (7); `confirmarDesdeTarjeta` sin mirar de qué chat es la pendiente → 1 fallo (8).
+//     fallo (7); `confirmarDesdeTarjeta` sin mirar de qué chat es la pendiente → 1 fallo (8);
+//   · (la segunda revisión) el corte como 'fallo', como antes → 1 fallo (6); `trasTrabajo` sin el «no se sabe» → 1 fallo
+//     (7); `conSusBloques` dibujando el «En curso» → 1 fallo (9).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,7 +43,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MAX_CONSULTAS, PLAZO_TRABAJO_MS, leerConsulta, sanearBloque, textoCortado, type Bloque } from '../lib/chat-bloques';
-import { PILL_PROPUESTA, conTarjeta, trasTarjeta, trasTrabajo, type ItemHilo } from '../app/m/mako/chat-ui';
+import { PILL_PROPUESTA, conTarjeta, itemsDeSesion, trasTarjeta, trasTrabajo, type ItemHilo } from '../app/m/mako/chat-ui';
 import type { TarjetaPendiente } from '../lib/mako-turno-app-reglas';
 import type { ResultadoTarjeta } from '../lib/mako-turno-app-reglas';
 
@@ -125,6 +129,10 @@ test('6. un trabajo que muere no queda «En curso» para siempre', () => {
   assert.equal(trabajo(murio.antesDelPlazo)?.pasos.at(-1)?.estado, 'en_curso');
   assert.equal(murio.pasado?.texto, textoCortado('Replicar otra página'), 'pasado el plazo, se cortó');
   assert.ok(trabajo(murio.pasado)?.pasos.every((p) => p.estado !== 'en_curso'), 'y el G6 ya no dice «en curso»');
+  // Cortado no es «falló» (la segunda revisión): se pinta «Sin saber», y la tarjeta «Revísalo», no en rojo.
+  assert.equal(trabajo(murio.pasado)?.pasos.at(-1)?.estado, 'incierto');
+  const visto = leerConsulta(200, { ok: true, ...murio.pasado }, trabajo(murio.pasado)!.consulta!);
+  assert.ok(!visto.sigue && visto.ok === null, 'la pantalla no sabe si terminó');
   assert.doesNotMatch(murio.pasado?.texto ?? '', /otra vez|de nuevo y lo hago/, 'no pide repetirlo: no se sabe si se hizo');
   assert.equal(murio.alVolver?.texto, textoCortado('Replicar otra página'), 'queda escrito: lo ve quien vuelve y el modelo');
 });
@@ -150,7 +158,10 @@ test('7. la pantalla no pregunta para siempre, dice lo que pasó, y la tarjeta d
   assert.equal(fin?.k === 'propuesta' ? fin.estado : undefined, 'fallo');
   // Cada pantalla se lo pasa a su G6, y el G6 dibuja lo que pasó.
   const hilo = sinComentarios(leer('app/_chat/BloqueHilo.tsx'));
-  assert.match(hilo, /if \(terminado\.ok != null\) onTermina\?\.\(terminado\.ok\);/, 'el G6 avisa cuando termina');
+  assert.match(hilo, /onTermina\?\.\(terminado\.ok\);/, 'el G6 avisa cuando termina, también si no se sabe cómo');
+  const incierta = trasTrabajo(conG6, 21, null).find((x) => x.k === 'propuesta');
+  assert.equal(incierta?.k === 'propuesta' ? incierta.estado : undefined, 'incierta', 'sin saber: la tarjeta dice «Revísalo»');
+  assert.deepEqual(PILL_PROPUESTA.incierta, { texto: 'Revísalo', tono: 'warn' });
   assert.match(hilo, /\{fin\.texto \?\? \(fin\.ok == null \? 'No sé cómo terminó: recarga el chat para verlo\.' : null\)\}/, 'y lo dice en palabras');
   assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /onTermina=\{de != null && onTrabajo \? \(ok\) => onTrabajo\(de, ok\) : undefined\}/, 'la computadora');
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/crm/mako-crm/ChatMakoCrm.tsx']) {
@@ -166,4 +177,13 @@ test('8. la tarjeta lenta de otro chat no anota «En curso»', () => {
   assert.equal(ajena.r.ok, false, 'contesta el error, como antes de la 1.11');
   assert.equal(ajena.mensajesDespues, ajena.mensajesAntes, 'sin escribir en este hilo');
   assert.equal(ajena.despues, 0, 'y sin dejar nada corriendo por detrás');
+});
+
+test('9. al recargar, la burbuja «En curso» de un trabajo que sigue no se dibuja: lo dice su G6', () => {
+  const llave = '1200.AxQ9Q5F591--1t2l';
+  const g6 = (estado: 'en_curso' | 'listo') => sanearBloque({ t: 'trabajo', titulo: 'Replicar', consulta: llave, pasos: [{ texto: 'Replicar', estado }] })!;
+  const sigue = itemsDeSesion([{ role: 'assistant', content: 'En curso: Replicar', bloques: [g6('en_curso')] }], []);
+  assert.deepEqual(sigue.map((x) => x.k), ['bloque'], 'sólo el G6, que consulta y dice cómo termina');
+  const termino = itemsDeSesion([{ role: 'assistant', content: 'Hecho: Replicada la página.', bloques: [g6('listo')] }], []);
+  assert.deepEqual(termino.map((x) => x.k), ['msg', 'bloque'], 'uno que ya terminó, con su «Hecho»');
 });
