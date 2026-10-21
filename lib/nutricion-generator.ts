@@ -16,7 +16,7 @@ import { getAnswers, perfilNegocioTexto } from '@/lib/onboarding';
 import { getTenantDb } from '@/lib/workspace';
 import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { getPromptText, renderPrompt, contenidoNoConfiable } from '@/lib/prompt-render';
-import { getSecuenciasConStats, setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, publicarPasos, type PasoSecuencia } from '@/lib/nutricion';
 import { metodologiaDeArea } from '@/lib/mako-knowledge';
 import { ejemplosRelevantes } from '@/lib/copywriting-metodo';
 import { resumenFunnel } from '@/lib/mako-context';
@@ -405,10 +405,11 @@ export async function generarSecuencia(secuenciaId: number): Promise<GenerarSecu
 }
 
 /** Persiste el copy revisado de una secuencia (F3.4 → aprobar). Scopeado por ws. */
-export async function aplicarSecuencia(secuenciaId: number, pasos: PasoSecuencia[]): Promise<void> {
+export async function aplicarSecuencia(secuenciaId: number, pasos: PasoSecuencia[], o: { aunqueDuplique?: boolean } = {}): Promise<void> {
   if (!Array.isArray(pasos) || !pasos.length) throw new Error('No hay pasos para guardar.');
   // Confirmá que la secuencia es de este workspace antes de escribir.
   const secs = await getSecuenciasConStats();
   if (!secs.some((s) => s.id === secuenciaId)) throw new Error('Esa secuencia no existe en este workspace.');
-  await setSecuenciaPasos(secuenciaId, pasos);
+  // Aprobar una ACTIVA es publicar lo nuevo (revisión del 21/10/2026): pregunta por la duplicada (`publicarPasos`).
+  await publicarPasos(secuenciaId, pasos, { aunqueDuplique: o.aunqueDuplique === true });
 }
