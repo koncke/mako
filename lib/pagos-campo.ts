@@ -26,6 +26,7 @@
 import { centavos } from './pagos-diferencia';
 import { formatoMonto, normalizarMoneda } from './pasarela-moneda';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
+import { sumarMeses } from './cobrado-lead';
 
 type Resultado<T> = ({ ok: true } & T) | { ok: false; error: string; faltan?: string[] };
 
@@ -501,6 +502,40 @@ const MOTIVO_CONSERVADA: Readonly<Record<MotivoConservada, string>> = {
 export function avisoDeConservadas(plan: PlanDeCuotas): string | null {
   if (!plan.conservar.length) return null;
   return plan.conservar.map((c) => `${nombreCuota(c.numero)}: ${MOTIVO_CONSERVADA[c.motivo]}`).join(' · ');
+}
+
+export type CuotaDelAsistente = { monto_usd: number; fecha_esperada: string | null };
+
+/**
+ * ⚠️ LAS CUOTAS QUE ESCRIBE EL ASISTENTE DEL CRM (`completeStageMoveAction`, 21/10/2026, revisión adversarial, alta).
+ * «Un pago suelto no es un plan» no alcanzaba: una suscripción registrada mes a mes (tres mensualidades sueltas) que se
+ * abría desde el tablero para cargar el teléfono recibía 12 cuotas MÁS desde hoy (15 para un plazo de 12), y el cliente
+ * que pagó el primer mes suelto y se arrastraba a Ganado tenía la cuota de hoy impaga encima del mes ya cobrado. La regla:
+ * - Con un plan (una cuota que no nació cobrada, o una impaga), el asistente NO lo toca: se edita en la tab Pagos.
+ * - Una suscripción con meses ya cobrados sueltos: esos meses SON las primeras cuotas (como los cuenta `cobradoDelLead`,
+ *   uno por cobrada), y se arman sólo los que faltan del plazo. Las fechas van desde `ancla`, el día del cierre: armado
+ *   después del Ganado, un plan desde hoy dejaba al cliente al día en «Falta registrar» del 1 al 20 de cada mes.
+ * - Las cuotas de un pago único las escribió la persona y no se puede saber si ya descontó lo cobrado: con un pago previo
+ *   no se arman (se arman en la tab Pagos), y se dice.
+ * Nunca nace una cuota por un mes ya cobrado. `aviso`: lo que no se hizo, dicho para la persona.
+ */
+export function planDelAsistente(
+  pedidas: CuotaDelAsistente[],
+  existentes: ReadonlyArray<{ pagado?: boolean | null; nacio_cobrada?: boolean | null }>,
+  o: { suscripcion: boolean; ancla: string },
+): { cuotas: CuotaDelAsistente[]; yaCobradas: number; aviso: string | null } {
+  if (!pedidas.length) return { cuotas: [], yaCobradas: 0, aviso: null };
+  if (existentes.some((q) => !q.nacio_cobrada || !q.pagado)) {
+    return { cuotas: [], yaCobradas: 0, aviso: 'Ya tenía un plan de pagos: no se cambió. Se edita en la pestaña Pagos.' };
+  }
+  if (!o.suscripcion) {
+    return existentes.length
+      ? { cuotas: [], yaCobradas: 0, aviso: 'Ya tenía pagos cobrados: el plan no se armó, para no cobrarlos dos veces. Se arma en la pestaña Pagos.' }
+      : { cuotas: pedidas, yaCobradas: 0, aviso: null };
+  }
+  const meses = pedidas.map((c, i) => ({ monto_usd: c.monto_usd, fecha_esperada: sumarMeses(o.ancla, i) }));
+  const yaCobradas = Math.min(existentes.length, meses.length);
+  return { cuotas: meses.slice(yaCobradas), yaCobradas, aviso: null };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
