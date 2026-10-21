@@ -4582,6 +4582,13 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 **El diagnóstico obvio era el equivocado:** «faltan operaciones en la API». Muchas existen (795 en el registro). El freno es que el turno de la APP usa el clasificador del grupo de WhatsApp: ante la duda anota el pedido como idea («capturar») y le saca a MaKo la herramienta de escribir. Además, el presupuesto de 12.000 caracteres deja afuera la operación que entiende el pedido, y viajan 18 operaciones muertas de Chatwoot.
 
 **Regla:** antes de pedir una operación nueva, medir si la frase natural la hace viajar (`herramientasDelChat` / `herramientasDelTurno`). Las frases medidas pasan a una batería guardián en `tests/`, la pieza 1.1. El mapa completo y el plan por olas: docs/ops-center-principal.md. Las correcciones del crítico, en su Anexo C: el turno también suma las áreas del clasificador, y sin IA propia la app no usa la red gratis.
+## Lo que encontró la revisión de la tanda 1 del clasificador antes de subirla (20/10/2026)
+
+El detalle está en las notas compartidas, `revision-clasificador-tanda-1-20-10.md`.
+- **«WhatsApp no cambia» se mide comparando antes y después con las funciones reales y miles de frases, no con un test que fija un caso.** Un `replace` sin `ctx.canal` (`NOMBRADO`, que saca «llamada <nombre>») rompió en WhatsApp «cancelá la llamada pendiente con Juan»: dejó de cancelar, y con una pendiente vigente cancelaba OTRA cosa.
+- **Un default «actuar» con `dudosa:false` desarma los candados que miran `dudosa`:** un «ahí hice la prueba» volvió a crear un borrador del Plan (el bug del 25/08).
+- **Buscar la operación en TODO el registro trae escrituras de otra cosa cuando la pedida no existe** («borrá la nota» → borrar_audio), y las raíces de 5 letras matchean dentro de palabras («borra» en «borrador»). Una acción que llega sin la lectura que le da el id no «llega».
+
 ## Ops Center, pieza 1.2 (tandas 1 a 7): el clasificador del canal app (20/10/2026)
 
 **Pedido (Martín, 20/10):** «comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...». Esta es la parte del clasificador (docs/ops-center-principal.md, 2.3 y pieza 1.2); la tanda 1 cubre CRM y Chats, Automations y Clients y el núcleo; la 2, Plan, Calendario y Dashboard; la 3, video, imagen y creaciones; la 4, Pagos y cuenta (cobros, equipo, reportes y avisos); la 5, Offer, Copywriting, Second Brain y experimentos; la 6, el Web Generator; la 7, Meta Ads.
@@ -4618,4 +4625,5 @@ Tandas 5 a 7 (misma medición): Offer, Copywriting y Second Brain 24 de 26 y 6 d
 **Para medir sin engañarse:** el presupuesto escribe un `console.warn` de ~10.000 caracteres por turno; un script que lee la salida de un test con `execFileSync` y su buffer por defecto (1 MB) recibe el resumen cortado y se lee «sin fallos». Pedir `maxBuffer` grande.
 
 **Vive en:** `lib/mako-intencion-app.ts` · `lib/mako-intencion.ts` (`canal`, `buscaEnTodo`, `NOMBRADO`, las reglas 6-quater y el default) · `lib/doer-herramientas.ts` (`buscaEnTodo`) · `lib/mako-turno-app.ts` (`canal: 'app'`) · `tests/ops-center-clasificador-app.test.ts` (449 frases y 24 tests; 52 roturas, cada una con su fallo) · *20/10/2026, sin subagentes.*
+
 

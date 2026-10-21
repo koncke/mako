@@ -20,7 +20,7 @@
 //    el auto-scroll va AHÍ: durante un arrastre nativo el navegador congela los timers y el rAF.
 // =============================================================================
 
-import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { bloqueDef, casaDelBloque, esTabFicha, FUENTES_RESPUESTA, REDES, type BloqueId, type FuenteRespuesta, type LugarFicha, type Red } from '@/lib/ficha/catalogo';
@@ -65,6 +65,8 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
     verPrivado: ctx.verPrivado,
     epico,
   });
+  // Los bloques puestos en esta hoja: el que envuelve a otros no repite lo que ya está aparte (PropsBloque.hermanos).
+  const hermanos = useMemo(() => lista.map((p) => p.id), [lista]);
   const [arrastrando, setArrastrando] = useState<number | null>(null);
   const desdeRef = useRef<number | null>(null);
   const [soltar, setSoltar] = useState<Soltar | null>(null);
@@ -173,7 +175,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
           {b.vacio
             ? <div className="fb-vacio">Sin datos en este lead</div>
             // En una hoja propia, cada bloque se dibuja como en su tab de siempre (`casaDelBloque`): PropsBloque.tab es eso.
-            : <Componente ctx={ctx} puesto={b.puesto} def={b.def} tab={esTabFicha(tab) ? tab : casaDelBloque(b.def) ?? 'resumen'} titulo={titulo} diseno={disenoADibujar(b.puesto, b.def, b.reglas)} ancho={b.puesto.ancho} icono={icono} editando={editando} epico={epico} />}
+            : <Componente ctx={ctx} puesto={b.puesto} def={b.def} tab={esTabFicha(tab) ? tab : casaDelBloque(b.def) ?? 'resumen'} titulo={titulo} diseno={disenoADibujar(b.puesto, b.def, b.reglas)} ancho={b.puesto.ancho} icono={icono} hermanos={hermanos} editando={editando} epico={epico} />}
         </div>
       </div>
     );
