@@ -28,7 +28,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  argumentosDeTanda, argumentosDeTsc, clasificar, correrTsc, juntarTandas, leerEstadisticas, miles, SALIDA_SIN_TIPOS, tandasPedidas, topeDeHeapMb, UMBRAL_AVISO, veredictoDeTipos,
+  argumentosDeTanda, argumentosDeTsc, clasificar, correrTsc, juntarTandas, leerEstadisticas, miles, raicesPedidas, SALIDA_SIN_TIPOS, tandasPedidas, topeDeHeapMb, UMBRAL_AVISO, veredictoDeTipos,
 } from '../scripts/tipos-ci.mjs';
 import * as TESTS_AFECTADOS from '../scripts/tests-afectados.mjs';
 
@@ -309,6 +309,14 @@ test('tandasPedidas: TIPOS_TANDAS es un entero de 1 a 8; cualquier otra cosa es 
 test('argumentosDeTanda: el tope y --expose-gc son de node (van antes del script); la tanda va al final', () => {
   const a = argumentosDeTanda({ topeMb: 6144, script: 'ruta/tandas.mjs', i: 2, K: 3, extra: ['-p', 'x.json'] });
   assert.deepEqual(a, ['--max-old-space-size=6144', '--expose-gc', 'ruta/tandas.mjs', '-p', 'x.json', '--tanda', '2/3']);
+  const r = argumentosDeTanda({ topeMb: 6144, script: 'ruta/tandas.mjs', i: 2, K: 4, extra: ['-p', 'x.json'], raices: true });
+  assert.deepEqual(r, ['--max-old-space-size=6144', '--expose-gc', 'ruta/tandas.mjs', '--raices', '-p', 'x.json', '--tanda', '2/4'], 'con raíces el driver recibe --raices (después del script, que es donde lo lee)');
+  assert.ok(!argumentosDeTanda({ topeMb: 6144, script: 's.mjs', i: 1, K: 2 }).includes('--raices'), 'sin pedirlo, no');
+});
+
+test('raicesPedidas: sólo TIPOS_RAICES=1 lo enciende (cualquier otra cosa es el programa entero por tanda)', () => {
+  assert.equal(raicesPedidas({ TIPOS_RAICES: '1' }), true);
+  for (const malo of [undefined, '', '0', 'true', 'si', ' 1']) assert.equal(raicesPedidas({ TIPOS_RAICES: malo }), false, `«${malo}»`);
 });
 
 const tanda = (estado: string, vivoMb: number | null, baseMb: number | null, segundos = 60, lineasDeError: string[] = []) => ({
@@ -346,6 +354,12 @@ test('veredictoDeTipos con tandas: la línea TIPOS-MEDIDA suma tandas= y base_mb
   assert.equal(v.lineas[0], 'TIPOS-MEDIDA estado=ok segundos=200 tope_mb=6144 ram_mb=7941 vivo_mb=3300 vivo_pct=54 archivos=7723 tipos=n/d instanciaciones=n/d chequeo_s=90 tandas=3 base_mb=1800');
   const solo = veredictoDeTipos({ estado: 'ok', segundos: 134, topeMb: 6144, ramMb: 7941, estadisticas: { ...e, vivoMb: 5062 }, tandas: 1 });
   assert.doesNotMatch(solo.lineas[0], /tandas=|base_mb=/, 'con una sola tanda la línea es la de siempre');
+  assert.doesNotMatch(v.lineas[0], /raices=/, 'sin raíces la línea no lo dice');
+  const conRaices = veredictoDeTipos({ estado: 'ok', segundos: 200, topeMb: 6144, ramMb: 7941, cpu: 2, estadisticas: e, tandas: 4, raices: true });
+  assert.match(conRaices.lineas[0], / tandas=4 base_mb=1800 raices=1$/, 'con raíces, `raices=1` AL FINAL: quien lee la línea no ve moverse nada');
+  assert.doesNotMatch(veredictoDeTipos({ estado: 'ok', segundos: 134, topeMb: 6144, ramMb: 7941, estadisticas: e, tandas: 1, raices: true }).lineas[0], /raices=/, 'con una sola tanda es el tsc de siempre: no hay raíces que decir');
+  assert.match(conRaices.resumen.join('\n'), /piso \(programa de sus raíces\) 1\.800 MB/, 'el resumen del run dice de qué es el piso: ya no es «el programa atado»');
+  assert.match(v.resumen.join('\n'), /piso \(programa atado\) 1\.800 MB/);
   const aviso = veredictoDeTipos({ estado: 'ok', segundos: 200, topeMb: 6144, ramMb: 7941, estadisticas: { ...e, vivoMb: 5000 }, tandas: 3 });
   assert.match(aviso.anotaciones.join('\n'), /La tanda más pesada \(de 3\) usó 5\.000 MB vivos/);
   const oom = veredictoDeTipos({ estado: 'sin-memoria', segundos: 90, topeMb: 6144, ramMb: 7941, tandas: 3, tandaFallida: 2 });
@@ -384,6 +398,22 @@ test('de punta a punta con TIPOS_TANDAS=3: los errores salen una vez cada uno, c
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('de punta a punta con TIPOS_TANDAS=3 y TIPOS_RAICES=1: los mismos dos errores, una vez cada uno, y la línea dice raices=1', () => {
+  const dir = proyectoVarios(TRES);
+  try {
+    const r = correrCli(dir, { TIPOS_TANDAS: '3', TIPOS_RAICES: '1' });
+    assert.equal(r.status, 1, r.out + r.err);
+    assert.match(r.out, /3 tandas \(TIPOS_TANDAS\), cada una con el programa de SUS raíces \(TIPOS_RAICES\)/);
+    assert.match(r.out, /Tipos: ERRORES DE TIPOS · 2 error\(es\)/, 'lo mismo que sin raíces: el tsc de verdad da esos dos');
+    assert.match(r.out, /TIPOS-MEDIDA estado=errores .* tandas=3 base_mb=\d+ raices=1/);
+    const raicesPorTanda = (out: string) => [...out.matchAll(/^Root files:\s+(\d+)/gm)].map((m) => m[1]);
+    assert.deepEqual(raicesPorTanda(r.out), ['1', '1', '1'], 'cada tanda partió de SU archivo y no de los tres: el driver recibió --raices (no sólo lo dice la línea)');
+    const sin = correrCli(dir, { TIPOS_TANDAS: '3' });
+    assert.doesNotMatch(sin.out, /raices=1|SUS raíces/, 'sin pedirlas, no hay raíces');
+    assert.deepEqual(raicesPorTanda(sin.out), ['3', '3', '3'], 'y sin pedirlas cada tanda ata los tres archivos, como siempre');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('de punta a punta con TIPOS_TANDAS=3: un proyecto sano da exit 0 y mide el pico y el piso', () => {
   const dir = proyectoVarios({ 'a.ts': TRES['a.ts'], 'b.ts': 'export const b: number = 2;\n', 'c.ts': 'export const c = 3;\n' });
   try {
@@ -418,4 +448,6 @@ test('de punta a punta con TIPOS_TANDAS=3: un OOM de verdad en la primera tanda 
 //     una línea que falta como 0 → 1 · sin tolerar CRLF → 1 · umbral de aviso al 95 % → 1 · avisa siempre → 1 · el resumen del run que no se escribe → 2 · el exit del script que no llega → 2.
 //   tope (5): sin reserva de RAM → 2 · sin tope máximo → 1 · sin tope mínimo → 1 · TIPOS_HEAP_MB ignorado → 2 · TIPOS_HEAP_MB que acepta basura → 4.
 //   reenvío y workflow (3): la salida que no se reenvía → 3 · el workflow que vuelve al tsc pelado → 2 · el paso que traga el exit → 1.
+// ⚠️ TIPOS_RAICES (21/10/2026 tarde): 9 roturas, 9 rojas — TIPOS_RAICES que acepta cualquier valor → 1 · argumentosDeTanda sin --raices → 1 · --raices antes del script (lo leería node) → 1 · --raices siempre → 1 · la línea sin raices=1 → 2 ·
+//   raices=1 aunque no se pidan → 2 · el resumen que no distingue el piso → 1 · main sin pasarle raíces al veredicto → 1 · main sin pasarle --raices al driver → 1 (verde la primera vez: la línea decía raices=1 pero ninguna tanda las usaba; ahora se cuentan los «Root files» de cada tanda).
 // =============================================================================

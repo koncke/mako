@@ -196,6 +196,10 @@ test('el bloque de estadísticas lo lee leerEstadisticas de tipos-ci: la misma m
   assert.equal(leido.tipos, 2077874);
   assert.equal(leido.instanciaciones, 7254272);
   assert.equal(leido.chequeoS, 40.5);
+  assert.doesNotMatch(bloque, /Extra files checked/, 'sin extras no hay fila');
+  const conExtras = bloqueEstadisticas({ ...e, extras: 16 }, { i: 2, K: 3 }).join('\n');
+  assert.match(conExtras, /^Extra files checked:\s+16$/m, 'con extras, la fila que lee el medidor');
+  assert.equal(leerEstadisticas(conExtras).vivoMb, 3100, 'y la fila nueva no desordena lo que tipos-ci lee');
 });
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -205,7 +209,8 @@ test('el bloque de estadísticas lo lee leerEstadisticas de tipos-ci: la misma m
 test('leerProceso lee lo que sale de un proceso del tsc o de una tanda, y la curva y los puntos calientes', () => {
   const salida = [
     'CURVA tanda=1/1 chequeados=500 vivo_mb=2100', 'CALIENTE ms=4200 lib/nutricion.ts', 'CALIENTE ms=900 app/crm/actions.ts',
-    'Tanda:                  1/3', 'Files:                  7723', 'Files checked:          1800', 'Types:                  2077874', 'Instantiations:         7254272',
+    'EXTRA scripts/medir.mjs', 'EXTRA node_modules/pkg/index.ts',
+    'Tanda:                  1/3', 'Files:                  7723', 'Files checked:          1800', 'Extra files checked:    2', 'Types:                  2077874', 'Instantiations:         7254272',
     'Base memory used:       1887436K', 'Memory used:            3250000K', 'Max RSS:                3400 MB', 'Parse time:             14.20s', 'Bind time:              6.10s', 'Check time:             40.50s', '',
   ].join('\n');
   const p = leerProceso(salida);
@@ -213,13 +218,15 @@ test('leerProceso lee lo que sale de un proceso del tsc o de una tanda, y la cur
   assert.equal(p.baseMb, 1800);
   assert.equal(p.rssMb, 3400);
   assert.equal(p.archivos, 7723);
-  assert.equal(p.chequeados, 1800);
+  assert.equal(p.chequeados, 1800, '«Files checked» son las raíces de la tanda; los extras no se suman acá');
+  assert.deepEqual(p.extras, ['scripts/medir.mjs', 'node_modules/pkg/index.ts'], 'los EXTRA: los archivos que la tanda trae por import sin ser raíz de nadie, por su nombre');
   assert.equal(p.chequeoS, 40.5);
   assert.deepEqual(p.curva, ['CURVA tanda=1/1 chequeados=500 vivo_mb=2100']);
   assert.equal(p.calientes.length, 2);
   const sinNada = leerProceso('FATAL ERROR: Reached heap limit\n');
   assert.equal(sinNada.vivoMb, null, 'un proceso que murió no tiene memoria viva: n/d, no 0');
   assert.equal(sinNada.baseMb, null);
+  assert.deepEqual(sinNada.extras, [], 'sin EXTRA, una lista vacía');
 });
 
 test('experimentos y tsconfig partidos: las trece mediciones en orden (tandas-1 antes que las balanceadas), y los dos programas que separan tests/ del resto', () => {
@@ -258,15 +265,17 @@ test('resumenDeMedicion: la tabla, y una lectura mecánica que dice cuánto baja
   assert.match(md, /NO alcanza \(el programa de los tests arrastra casi todo\)/, 'partir tests/ con 4.800 de 5.000 no sirve');
   assert.match(md, /El piso .* es 1\.800 MB: 36 % del pico/);
   // La cobertura: las tandas por raíces tienen que chequear los MISMOS archivos que el chequeo entero.
-  const chequea = (c: number | null) => ({ i: 1, estado: 'ok', segundos: 1, vivoMb: 3000, baseMb: 1500, rssMb: null, chequeados: c, archivos: null });
+  const chequea = (c: number | null, extras: string[] = []) => ({ i: 1, estado: 'ok', segundos: 1, vivoMb: 3000, baseMb: 1500, rssMb: null, chequeados: c, archivos: null, extras });
   const cobertura = resumenDeMedicion([
     { nombre: 'tandas-1', K: 1, nota: '', procesos: [chequea(6185)] },
     { nombre: 'tandas-4', K: 4, nota: '', procesos: [chequea(6185)] },
-    { nombre: 'tandas-4-raices', K: 4, nota: '', procesos: [chequea(3000), chequea(3185)] },
-    { nombre: 'tandas-3-raices-balanceadas', K: 3, nota: '', procesos: [chequea(3000), chequea(3000)] },
+    // Las raíces suman 6.183; dos .mjs sin tanda los trae cada programa (uno lo trae DOS veces) y cuentan UNA vez por nombre: 6.183 + 2 = 6.185.
+    { nombre: 'tandas-4-raices', K: 4, nota: '', procesos: [chequea(3000, ['scripts/a.mjs', 'scripts/b.mjs']), chequea(3183, ['scripts/b.mjs'])] },
+    // Las mismas raíces pero SIN los extras: faltan 2 archivos que el chequeo entero sí revisa.
+    { nombre: 'tandas-3-raices-balanceadas', K: 3, nota: '', procesos: [chequea(3000), chequea(3183)] },
   ], 6144).md;
-  assert.match(cobertura, /`tandas-4-raices`: .*cobertura ✔ \(6\.185 archivos chequeados/, 'los mismos archivos: cobertura ✔');
-  assert.match(cobertura, /`tandas-3-raices-balanceadas`: .*⚠️ COBERTURA DISTINTA: 6\.000 archivos chequeados contra 6\.185/, 'unos archivos que ninguna tanda chequeó se dicen, no se pierden en silencio');
+  assert.match(cobertura, /`tandas-4-raices`: .*cobertura ✔ \(6\.185 archivos chequeados/, 'raíces + extras sin repetir son los mismos archivos que el chequeo entero: cobertura ✔');
+  assert.match(cobertura, /`tandas-3-raices-balanceadas`: .*⚠️ COBERTURA DISTINTA: 6\.183 archivos chequeados contra 6\.185/, 'unos archivos que ninguna tanda chequeó se dicen, no se pierden en silencio');
   const sinDatos = resumenDeMedicion([{ nombre: 'tandas-1', K: 1, nota: '', procesos: [{ ...proc(0, null), vivoMb: null }] }], 6144).md;
   assert.match(sinDatos, /\| tandas-1 \| 1 \| ok \| n\/d \| n\/d \|/, 'sin medir se dice n/d, nunca 0');
 });
@@ -370,14 +379,16 @@ const porTandasCon = (dir: string, K: number, extra: string[]) => {
   const codigos: (number | null)[] = [];
   const chequeados: number[] = [];
   const raices: number[] = [];
+  const extras = new Set<string>();
   for (let i = 1; i <= K; i++) {
     const r = correr(dir, ['--expose-gc', TANDAS, '-p', 'tsconfig.json', '--tanda', `${i}/${K}`, ...extra]);
     codigos.push(r.status);
     lineas.push(...lineasDeError(`${r.stdout}${r.stderr}`));
     chequeados.push(Number(/^Files checked:\s+(\d+)/m.exec(r.stdout)?.[1] ?? NaN));
     raices.push(Number(/^Root files:\s+(\d+)/m.exec(r.stdout)?.[1] ?? NaN));
+    for (const m of r.stdout.matchAll(/^EXTRA (.+)$/gm)) extras.add(m[1]);
   }
-  return { codigos, lineas: [...new Set(lineas)].sort(), chequeados, raices };
+  return { codigos, lineas: [...new Set(lineas)].sort(), chequeados, raices, extras: [...extras].sort() };
 };
 
 test('DE PUNTA A PUNTA con --raices: la unión de las tandas da EXACTAMENTE las líneas del tsc, también con un declare global, un script y un .d.ts que otro archivo usa sin importar', () => {
@@ -394,6 +405,56 @@ test('DE PUNTA A PUNTA con --raices: la unión de las tandas da EXACTAMENTE las 
     const r4 = porTandasCon(dir, 4, ['--raices']);
     const entero = porTandasCon(dir, 1, []);
     assert.ok(Math.max(...r4.raices) < entero.raices[0], `el programa de cada tanda parte de menos raíces (${r4.raices.join('/')} contra ${entero.raices[0]})`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// Lo que el programa trae por IMPORT sin ser raíz de ninguna tanda: un .ts fuera del `include`, un .mjs (checkJs) y un .json. El tsc entero chequea los dos primeros; sin la regla de los «extras» las tandas por raíces no.
+const CON_EXTRAS: Record<string, string> = {
+  'app/a.ts': "import { e } from '../fuera/x';\nimport datos from '../datos.json';\nimport { h } from '../scripts/h.mjs';\nexport const s: string = datos.n;\nexport const t = [e, h];\n",
+  'app/b.ts': "export const b: number = 'mal';\n",
+  // x.ts entra por DOS tandas distintas: se chequea dos veces y su error sale una. Y c.ts importa a b.ts, que es raíz de OTRA tanda: b.ts está en el programa de la tanda de c pero NO es un extra (si lo fuera, cada tanda
+  // chequearía todo lo que importa de las demás y el reparto no serviría de nada).
+  'app/c.ts': "import { e } from '../fuera/x';\nimport { p } from 'pkg';\nimport { b } from './b';\nexport const c = [e, p, b];\n",
+  'fuera/x.ts': "export const e: number = 'x';\n",
+  // Un paquete que publica su fuente .ts: el tsc LO CHEQUEA (medido) y reporta sus errores, aunque sea de node_modules.
+  'node_modules/pkg/package.json': '{ "name": "pkg", "version": "1.0.0", "main": "index.ts" }\n',
+  'node_modules/pkg/index.ts': "export const p: number = 'mal en node_modules';\n",
+  'datos.json': '{ "n": 1 }\n',
+  'scripts/h.mjs': "// @ts-check\n/** @type {number} */\nexport const h = 'no es un número';\n",
+};
+const TSCONFIG_EXTRAS = { compilerOptions: { ...TSCONFIG.compilerOptions, allowJs: true, resolveJsonModule: true }, include: ['app/**/*.ts'] };
+
+test('DE PUNTA A PUNTA con --raices: lo que el programa trae por import y NO es raíz (un .ts fuera del include, un .mjs) también se chequea, y la cobertura da lo mismo que el chequeo entero', () => {
+  const dir = proyecto(CON_EXTRAS, TSCONFIG_EXTRAS);
+  try {
+    const oraculo = tscReal(dir);
+    assert.equal(oraculo.lineas.length, 5, `cinco errores: a.ts (el json), b.ts, fuera/x.ts, scripts/h.mjs y node_modules/pkg/index.ts: ${oraculo.lineas.join(' | ')}`);
+    for (const f of [/fuera[\\/]x\.ts/, /scripts[\\/]h\.mjs/, /node_modules[\\/]pkg[\\/]index\.ts/]) assert.ok(oraculo.lineas.some((l) => f.test(l)), `el tsc chequea lo que sólo entra por import: ${f}`);
+    const entero = porTandasCon(dir, 1, []);
+    assert.deepEqual(entero.lineas, oraculo.lineas);
+    assert.equal(entero.chequeados[0], 6, 'el chequeo entero: las 3 raíces, x.ts, h.mjs y el .ts del paquete (el .json no da errores y no cuenta)');
+    for (const K of [1, 2, 3, 4]) {
+      const r = porTandasCon(dir, K, ['--raices']);
+      assert.deepEqual(r.lineas, oraculo.lineas, `K=${K}: lo mismo que el tsc, con los archivos que sólo entran por import`);
+      assert.equal(r.chequeados.reduce((a, n) => a + n, 0), 3, `K=${K}: las tres raíces, una vez cada una`);
+      assert.deepEqual(r.extras, ['fuera/x.ts', 'node_modules/pkg/index.ts', 'scripts/h.mjs'], `K=${K}: los extras que alguna tanda trae, por su nombre y sin repetir`);
+      assert.equal(r.chequeados.reduce((a, n) => a + n, 0) + r.extras.length, entero.chequeados[0], `K=${K}: la cobertura (raíces + extras sin repetir) es la del chequeo entero`);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('con skipLibCheck: false el tsc SÍ chequea un .d.ts, y las tandas también (con o sin raíces): el .d.ts es código a chequear salvo que se lo saltee skipLibCheck', () => {
+  const dir = proyecto({
+    'app/a.ts': 'export const a: number = 1;\n',
+    'app/b.ts': "export const b: number = 'mal';\n",
+    'types/malo.d.ts': 'declare const DUP: number;\ndeclare const DUP: string;\n',     // TS2451 (redeclarar) dentro de un .d.ts
+  }, { ...TSCONFIG, compilerOptions: { ...TSCONFIG.compilerOptions, skipLibCheck: false } });
+  try {
+    const oraculo = tscReal(dir);
+    assert.ok(oraculo.lineas.some((l) => /types[\\/]malo\.d\.ts.*TS2451/.test(l)), `el tsc reporta el error del .d.ts con skipLibCheck: false: ${oraculo.lineas.join(' | ')}`);
+    for (const K of [1, 2, 3]) {
+      for (const modo of [[], ['--raices']]) assert.deepEqual(porTandasCon(dir, K, modo).lineas, oraculo.lineas, `K=${K} ${modo.join(' ') || 'entero'}: lo mismo que el tsc, el .d.ts incluido`);
+    }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -446,7 +507,8 @@ test('el workflow de medición corre SÓLO en la rama medir-tipos (o a mano), co
   assert.ok(Number(/timeout-minutes:\s*(\d+)/.exec(codigo)?.[1]) <= 60, 'y es razonable: los minutos son plata');
   // Cada nombre de --solo es un experimento que existe (un error de tipeo se saltearía en silencio) y tandas-1 va antes que quien lee su costo por archivo.
   const solo = (/medir-tipos\.mjs --solo (\S+)/.exec(codigo)?.[1] ?? '').split(',').filter(Boolean);
-  assert.ok(solo.length >= 5, `el workflow elige qué medir: ${solo.join(',')}`);
+  assert.ok(solo.length >= 3, `el workflow elige qué medir: ${solo.join(',')}`);
+  for (const n of ['tandas-1', 'tandas-4', 'tandas-4-raices']) assert.ok(solo.includes(n), `la tercera medición compara ${n}: sin él el medidor no dice si la cobertura es ✔ ni cuánto baja el pico`);
   const conocidos = experimentos().map((e) => e.nombre);
   assert.deepEqual(solo.filter((n) => !conocidos.includes(n)), [], 'todos existen');
   for (const n of solo.filter((x) => experimentos().find((e) => e.nombre === x)?.pesos)) assert.ok(solo.indexOf('tandas-1') >= 0 && solo.indexOf('tandas-1') < solo.indexOf(n), `tandas-1 va antes que ${n}`);
@@ -477,4 +539,10 @@ test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y
 //     sin restaurar → 2 · los balanceados que no leen los pesos → 1 · tandas-1 que no escribe los costos → 1 · la cobertura que no se compara → 1 · el tsconfig de types que no se borra → 1 · el workflow con tandas-1 después de quien lo lee → 1 · con un experimento que no existe → 1.
 //   las tandas encendidas en integracion.yml (3, 21/10 tarde): 3 en vez de 4 → 1 · el env: sin declarar → 1 · un valor que no es un número → 1.
 //   (tests/tipos-ci.test.ts: las tandas, 8 roturas más — ver su pie.)
+//   LA COBERTURA DE LOS «EXTRAS» (21/10 tarde: lo que el programa trae por import y ninguna tanda toma como raíz — 16 .mjs, 10 .json y un .ts de node_modules en el repo real): 12 roturas, 12 rojas, DOS salieron verdes en la primera pasada:
+//     los extras que no se suman a lo que chequea la tanda → 1 · lo de node_modules que no se chequea → 1 (el tsc de verdad SÍ lo chequea: medido) · los .json que cuentan como código → 1 · los .js/.mjs que no cuentan → 1 · los extras que no se imprimen → 1 ·
+//     el bloque sin la fila → 1 · los «chequeados» que ya incluyen los extras → 1 · el medidor que no lee los EXTRA → 1 · que los cuenta repetidos → 1 · que los ignora → 1 ·
+//     un archivo que es raíz de OTRA tanda y cuenta como extra → 1 (verde la primera vez: ninguna raíz importaba a otra; ahora c.ts importa b.ts) ·
+//     un .d.ts que no cuenta como código → 1 (verde la primera vez Y ERA UN BUG REAL: con `skipLibCheck: false` el tsc chequea los .d.ts y las tandas los dejaban sin chequear; ahora hay un caso con un error en un .d.ts).
+//   la tercera medición (medir-tipos.yml): sin tandas-4-raices → 1 · sin tandas-1 → 1.
 // =============================================================================

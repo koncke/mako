@@ -24,6 +24,8 @@
 // TANDAS (TIPOS_TANDAS=K, default 1 = el tsc de siempre): el chequeo completo repartido en K procesos, de a uno, cada uno con el programa entero atado pero chequeando sólo su pedazo
 // (scripts/tipos-por-tandas.mjs). Es el arreglo de fondo del 21/10/2026: el tsc guarda en memoria todo lo que instancia, y el programa crece ~1 GB de memoria viva por semana. Con K tandas
 // el pico por proceso baja hacia (piso + resto/K). Se decide K con los números de scripts/medir-tipos.mjs (docs/hallazgos-infra.md); acá sólo se enciende.
+// TIPOS_RAICES=1 (con K > 1): cada tanda crea su programa sólo desde SUS archivos (más los ambientes y lo que ellos importan), en vez de desde todo el proyecto: baja el piso por proceso
+// (medido en Actions el 21/10/2026: pico 2.595 MB con 4 tandas contra 3.537 MB sin raíces). Dice lo mismo que el tsc (la unión de las tandas, probada contra el tsc de verdad).
 //
 // Lo que NO hace: no arregla que el programa crezca (en 7 días pasó de >4,0 a >5,0 GB de heap). Eso se mide con los números de la línea
 // TIPOS-MEDIDA y se decide con ellos: docs/hallazgos-infra.md.
@@ -114,10 +116,10 @@ export function leerEstadisticas(salida) {
 
 /**
  * Qué se imprime, qué se anota y con qué exit sale. Puro (sin tocar el disco ni la consola): lo prueba un test.
- * @param {{ estado: string, errores?: number, segundos: number, topeMb: number, ramMb: number, cpu?: number, estadisticas?: Partial<ReturnType<typeof leerEstadisticas>>, status?: number | null, signal?: string | null, tandas?: number, tandaFallida?: number | null }} a
+ * @param {{ estado: string, errores?: number, segundos: number, topeMb: number, ramMb: number, cpu?: number, estadisticas?: Partial<ReturnType<typeof leerEstadisticas>>, status?: number | null, signal?: string | null, tandas?: number, tandaFallida?: number | null, raices?: boolean }} a
  * @returns {{ codigo: number, palabra: string, lineas: string[], anotaciones: string[], resumen: string[] }}
  */
-export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb, cpu = 0, estadisticas, status = null, signal = null, tandas = 1, tandaFallida = null }) {
+export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb, cpu = 0, estadisticas, status = null, signal = null, tandas = 1, tandaFallida = null, raices = false }) {
   const e = estadisticas ?? {};
   const enTanda = tandas > 1 && tandaFallida != null ? ` (tanda ${tandaFallida}/${tandas})` : '';
   const fraccion = e.vivoMb != null ? e.vivoMb / topeMb : null;
@@ -134,7 +136,7 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
     `instanciaciones=${e.instanciaciones ?? 'n/d'}`,
     `chequeo_s=${e.chequeoS ?? 'n/d'}`,
     // Sólo con tandas, y al FINAL: quien lee la línea de siempre no ve cambiar ni una posición.
-    ...(tandas > 1 ? [`tandas=${tandas}`, `base_mb=${e.baseMb ?? 'n/d'}`] : []),
+    ...(tandas > 1 ? [`tandas=${tandas}`, `base_mb=${e.baseMb ?? 'n/d'}`, ...(raices ? ['raices=1'] : [])] : []),
   ].join(' ');
   const lineas = [medida];
   const anotaciones = [];
@@ -184,7 +186,7 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
     '|---|---|',
     `| Memoria viva (tras GC) | ${e.vivoMb == null ? 'sin medir' : `${miles(e.vivoMb)} MB de ${miles(topeMb)} (${Math.round(fraccion * 100)} %)`} |`,
     `| Archivos / tipos / instanciaciones | ${[e.archivos, e.tipos, e.instanciaciones].map((x) => (x == null ? 'n/d' : miles(x))).join(' / ')} |`,
-    ...(tandas > 1 ? [`| Tandas | ${tandas}: pico por tanda ${e.vivoMb == null ? 'n/d' : `${miles(e.vivoMb)} MB`}, piso (programa atado) ${e.baseMb == null ? 'n/d' : `${miles(e.baseMb)} MB`} |`] : []),
+    ...(tandas > 1 ? [`| Tandas | ${tandas}: pico por tanda ${e.vivoMb == null ? 'n/d' : `${miles(e.vivoMb)} MB`}, piso (${raices ? 'programa de sus raíces' : 'programa atado'}) ${e.baseMb == null ? 'n/d' : `${miles(e.baseMb)} MB`} |`] : []),
     `| Runner | ${miles(ramMb)} MB de RAM${cpu ? `, ${cpu} CPU` : ''} |`,
     '',
   ];
@@ -201,12 +203,21 @@ export function tandasPedidas(env) {
 }
 
 /**
+ * Si se pide que cada tanda cree su programa SÓLO desde sus raíces (TIPOS_RAICES=1; `--raices` del driver): el piso de cada proceso baja de «todo el programa» a «lo que su pedazo importa».
+ * Sólo vale con más de una tanda (con una es el tsc de siempre). Puro.
+ * @param {Record<string, string | undefined>} env
+ */
+export function raicesPedidas(env) {
+  return env.TIPOS_RAICES === '1';
+}
+
+/**
  * Los argumentos de node + el driver de tandas (scripts/tipos-por-tandas.mjs). El `--expose-gc` es lo que hace que «Memory used» sea la memoria VIVA.
- * @param {{ topeMb: number, script: string, i: number, K: number, extra?: string[] }} a
+ * @param {{ topeMb: number, script: string, i: number, K: number, extra?: string[], raices?: boolean }} a
  * @returns {string[]}
  */
-export function argumentosDeTanda({ topeMb, script, i, K, extra = [] }) {
-  return [`--max-old-space-size=${topeMb}`, '--expose-gc', script, ...extra, '--tanda', `${i}/${K}`];
+export function argumentosDeTanda({ topeMb, script, i, K, extra = [], raices = false }) {
+  return [`--max-old-space-size=${topeMb}`, '--expose-gc', script, ...(raices ? ['--raices'] : []), ...extra, '--tanda', `${i}/${K}`];
 }
 
 /**
@@ -278,13 +289,14 @@ async function main() {
     const clase = r.fallo ? { estado: 'sin-chequear' } : clasificar({ status: r.status, signal: r.signal, salida: r.salida });
     v = veredictoDeTipos({ ...clase, segundos: r.segundos, topeMb, ramMb, cpu, estadisticas: leerEstadisticas(r.salida), status: r.status, signal: r.signal });
   } else {
-    process.stdout.write(`tipos-ci: ${K} tandas (TIPOS_TANDAS), de a una\n`);
+    const raices = raicesPedidas(process.env);
+    process.stdout.write(`tipos-ci: ${K} tandas (TIPOS_TANDAS)${raices ? ', cada una con el programa de SUS raíces (TIPOS_RAICES)' : ''}, de a una\n`);
     const script = join(raiz, 'scripts', 'tipos-por-tandas.mjs');
     const hechas = [];
     let ultima = { status: /** @type {number | null} */ (null), signal: /** @type {string | null} */ (null) };
     for (let i = 1; i <= K; i++) {
       process.stdout.write(`\n── tanda ${i}/${K} ──\n`);
-      const r = await correrTsc({ topeMb, tsc, args: argumentosDeTanda({ topeMb, script, i, K, extra: process.argv.slice(2) }), cwd: raiz });
+      const r = await correrTsc({ topeMb, tsc, args: argumentosDeTanda({ topeMb, script, i, K, extra: process.argv.slice(2), raices }), cwd: raiz });
       const clase = r.fallo ? { estado: 'sin-chequear' } : clasificar({ status: r.status, signal: r.signal, salida: r.salida });
       const estadisticas = leerEstadisticas(r.salida);
       hechas.push({ clase, segundos: r.segundos, estadisticas, lineasDeError: r.salida.split('\n').map((l) => l.trim()).filter((l) => /error TS\d+/.test(l)) });
@@ -294,7 +306,7 @@ async function main() {
       if (['sin-memoria', 'matado', 'sin-chequear'].includes(clase.estado)) break;
     }
     const j = juntarTandas(hechas);
-    v = veredictoDeTipos({ estado: j.estado, errores: j.errores, segundos: j.segundos, topeMb, ramMb, cpu, estadisticas: j.estadisticas, status: ultima.status, signal: ultima.signal, tandas: K, tandaFallida: j.tandaFallida });
+    v = veredictoDeTipos({ estado: j.estado, errores: j.errores, segundos: j.segundos, topeMb, ramMb, cpu, estadisticas: j.estadisticas, status: ultima.status, signal: ultima.signal, tandas: K, tandaFallida: j.tandaFallida, raices });
   }
   process.stdout.write(`\n${v.lineas.join('\n')}\n${v.anotaciones.join('\n')}${v.anotaciones.length ? '\n' : ''}`);
   if (process.env.GITHUB_STEP_SUMMARY) {

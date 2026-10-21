@@ -49,6 +49,7 @@ export function leerProceso(salida) {
     archivos: e.archivos,
     raices: num('Root files'),
     chequeados: num('Files checked'),
+    extras: [...salida.matchAll(/^EXTRA (.+)$/gm)].map((m) => m[1]),
     tipos: e.tipos,
     instanciaciones: e.instanciaciones,
     parseS: num('Parse time'),
@@ -188,7 +189,7 @@ export function aplicarSinLiteralesGrandes(proyecto, ts, minChars = 20000, env =
 
 /**
  * El resumen en Markdown y una lectura mecánica de los números (NO decide: el criterio es «el pico por proceso, con tope de 6.144, no pasa del ~60 %»). Puro.
- * @param {{ nombre: string, K: number, nota: string, procesos: { i: number, estado: string, segundos: number, vivoMb: number | null, baseMb: number | null, rssMb: number | null, chequeados: number | null, archivos: number | null }[] }[]} resultados
+ * @param {{ nombre: string, K: number, nota: string, procesos: { i: number, estado: string, segundos: number, vivoMb: number | null, baseMb: number | null, rssMb: number | null, chequeados: number | null, archivos: number | null, extras?: string[] }[] }[]} resultados
  * @param {number} topeMb
  */
 export function resumenDeMedicion(resultados, topeMb) {
@@ -198,7 +199,10 @@ export function resumenDeMedicion(resultados, topeMb) {
     const pico = max(r.procesos.map((p) => p.vivoMb));
     const piso = max(r.procesos.map((p) => p.baseMb));
     const segundos = r.procesos.reduce((a, p) => a + p.segundos, 0);
-    const chequeados = r.procesos.every((p) => p.chequeados != null) ? r.procesos.reduce((a, p) => a + (p.chequeados ?? 0), 0) : null;
+    // Los chequeados de cada tanda (su pedazo) más los EXTRA que cada una trae por import sin ser raíz de nadie, contados UNA vez aunque dos tandas los chequeen (por nombre).
+    const chequeados = r.procesos.every((p) => p.chequeados != null)
+      ? r.procesos.reduce((a, p) => a + (p.chequeados ?? 0), 0) + new Set(r.procesos.flatMap((p) => p.extras ?? [])).size
+      : null;
     return { ...r, estados, pico, piso, segundos, chequeados };
   });
   const pct = (n) => (n == null ? 'n/d' : `${Math.round((n / topeMb) * 100)} %`);
@@ -256,10 +260,11 @@ function correr(exp, i, topeMb) {
   const estado = c.estado === 'errores' ? 'ok(con errores de tipos)' : c.estado;
   // El modo sale de los argumentos que de verdad se pasaron (no de lo que el experimento declara): si falta uno, el log lo dice.
   const modo = exp.real ? 'tsc' : [extra.includes('--raices') ? 'raices' : null, extra.includes('--pesos') ? 'pesos' : null].filter(Boolean).join('+') || 'bytes';
-  process.stdout.write(`MEDIDA-TIPOS exp=${exp.nombre} tanda=${i}/${exp.K} modo=${modo} estado=${estado} segundos=${Math.round(segundos)} vivo_mb=${p.vivoMb ?? 'n/d'} base_mb=${p.baseMb ?? 'n/d'} rss_mb=${p.rssMb ?? 'n/d'} archivos=${p.archivos ?? 'n/d'} raices=${p.raices ?? 'n/d'} chequeados=${p.chequeados ?? 'n/d'} tipos=${p.tipos ?? 'n/d'} instanciaciones=${p.instanciaciones ?? 'n/d'} parse_s=${p.parseS ?? 'n/d'} bind_s=${p.bindS ?? 'n/d'} chequeo_s=${p.chequeoS ?? 'n/d'}\n`);
+  process.stdout.write(`MEDIDA-TIPOS exp=${exp.nombre} tanda=${i}/${exp.K} modo=${modo} estado=${estado} segundos=${Math.round(segundos)} vivo_mb=${p.vivoMb ?? 'n/d'} base_mb=${p.baseMb ?? 'n/d'} rss_mb=${p.rssMb ?? 'n/d'} archivos=${p.archivos ?? 'n/d'} raices=${p.raices ?? 'n/d'} chequeados=${p.chequeados ?? 'n/d'} extras=${p.extras.length} tipos=${p.tipos ?? 'n/d'} instanciaciones=${p.instanciaciones ?? 'n/d'} parse_s=${p.parseS ?? 'n/d'} bind_s=${p.bindS ?? 'n/d'} chequeo_s=${p.chequeoS ?? 'n/d'}\n`);
   for (const l of [...p.curva, ...p.calientes]) process.stdout.write(`${l}\n`);
+  for (const e of p.extras.slice(0, 40)) process.stdout.write(`EXTRA ${e}\n`);
   if (c.estado === 'sin-memoria' || c.estado === 'matado' || c.estado === 'sin-chequear') process.stdout.write(`  (cola de la salida) ${salida.slice(-600).replace(/\n/g, ' ⏎ ')}\n`);
-  return { i, estado, segundos, vivoMb: p.vivoMb, baseMb: p.baseMb, rssMb: p.rssMb, chequeados: p.chequeados, archivos: p.archivos };
+  return { i, estado, segundos, vivoMb: p.vivoMb, baseMb: p.baseMb, rssMb: p.rssMb, chequeados: p.chequeados, archivos: p.archivos, extras: p.extras };
 }
 
 function main(argv) {

@@ -13,6 +13,10 @@
 # 2.406 MB = 47 % del pico) no baja con más tandas y crece con el repo. Ésta mide lo que podría bajar el piso, SIN partir el programa en proyectos: `types: ['node']` (types-node), los literales grandes de datos
 # (sin-literales: modifica archivos del checkout de ESTE runner, que se descarta), el programa de cada tanda con sólo sus raíces (*-raices) y el reparto por costo medido (*-balanceadas), contra `tandas-4`
 # de la misma corrida. ~30 minutos: ocho experimentos de a uno (tandas-1 va primero: escribe el costo por archivo que leen los balanceados).
+#
+# TERCERA MEDICIÓN (21/10/2026 tarde, ~10 minutos). La segunda (run 39616608454) dio que `--raices` con 4 tandas baja el pico a 2.595 MB (42 %) contra 3.537 de `tandas-4`, pero el medidor marcó COBERTURA DISTINTA:
+# 27 archivos que el programa trae por import y ninguna tanda tomaba como raíz (16 .mjs, 10 .json, 1 .ts de node_modules). Las tandas ahora los chequean (los «extras»). Esta corrida sólo confirma, en el repo
+# de verdad, que `tandas-4-raices` da cobertura ✔ (los mismos archivos que el chequeo entero) y deja `tandas-4` al lado para comparar el pico en el mismo runner.
 # =============================================================================
 name: medir tipos
 
@@ -49,4 +53,4 @@ jobs:
       - name: Medir
         run: |
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
-          node scripts/medir-tipos.mjs --solo tandas-1,tandas-4,types-node,sin-literales,tandas-4-balanceadas,tandas-4-raices,tandas-4-raices-balanceadas,tandas-3-raices-balanceadas
+          node scripts/medir-tipos.mjs --solo tandas-1,tandas-4,tandas-4-raices

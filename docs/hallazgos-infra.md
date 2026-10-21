@@ -6801,12 +6801,30 @@ llega al 80 % del tope (el aviso) en ~2 semanas y al tope en ~4. Con 3 tandas, e
   que no son de primer nivel). Dice cuánto del piso son DATOS y no código. ⚠️ Modifica archivos: sólo corre en CI o con `MEDIR_TIPOS_PERMITIR_STUBS=1`, y los restaura al terminar.
 - **`--raices`** (la que más promete): el programa de cada tanda se crea con sus archivos como raíces, y no con los 7,7 mil. El tsc carga lo que esos archivos importan y nada más, así que el piso baja a lo que esa tanda necesita. El riesgo es de EXACTITUD y se cubre así: los `.d.ts`, los
   archivos con `declare module`/`declare global` y los «scripts» (sin import ni export) son raíz de TODA tanda, porque cambian los tipos de archivos que no los importan (probado con tres casos: un `declare global` dentro de un módulo, un script con una declaración global y un `.d.ts`; sin esa regla
-  `usa-global.ts` daría TS2304/TS2339 que el tsc no da). Un archivo que se importa pero no es raíz de ninguna tanda NO se chequea: en este repo no hay (el `include` es `**/*.ts`), y el medidor cuenta los chequeados de todas las tandas contra los del chequeo entero y grita `COBERTURA DISTINTA` si no coinciden.
+  `usa-global.ts` daría TS2304/TS2339 que el tsc no da). **Los «extras» (corregido el 21/10 tarde, ⚠️ el diagnóstico obvio era el equivocado):** escribí «un archivo que se importa pero no es raíz de ninguna tanda no existe en este repo porque el `include` es `**/*.ts`». Falso: el programa trae por IMPORT archivos que el `include` no nombra, y esos no están en el reparto de nadie. La primera medición real dijo `COBERTURA DISTINTA` por **27 archivos**, y no eran los `.d.ts`, ni los `declare`, ni los scripts que se sospechaba:
+  **16 `.mjs`** (los `scripts/` que los tests importan; con `allowJs`), **10 `.json`** (`resolveJsonModule`) y **1 `.ts` de `node_modules`** (un paquete que publica su fuente). Regla que los cubre: cada tanda chequea además los archivos de código que SU programa trae y que no son raíz de NINGUNA tanda (los «extras»; si dos tandas traen el mismo se chequea dos veces,
+  el error sale una sola vez); un `.json` no da errores y no cuenta. ⚠️ Un `.ts` de `node_modules` **sí** lo chequea el tsc (medido con el tsc de verdad: `main: index.ts` con un error de tipos lo reporta), así que tampoco se excluye. El driver imprime `EXTRA <ruta>` por cada uno y la fila `Extra files checked`; el medidor cuenta chequeados + extras sin repetir (por nombre) contra los del chequeo entero y grita `COBERTURA DISTINTA` si no coinciden.
 - **`--pesos`** (el reparto por COSTO): `tandas-1 --medir --costos-out` escribe cuántos tipos creó el chequeo de cada archivo; `--pesos` reparte con eso (más el tamaño, un tipo cada 300 bytes; un archivo nuevo pesa el promedio). Variantes medidas: `tandas-4-balanceadas`, `tandas-4-raices`,
   `tandas-4-raices-balanceadas` y `tandas-3-raices-balanceadas` (¿alcanza con una tanda menos, que son ~35 s menos por run?). Para usarlo en integracion.yml haría falta COMMITEAR el json de costos (queda viejo con el tiempo: el reparto sigue siendo válido, sólo menos parejo); no se decide antes de ver el número.
 Todo con el tsc como oráculo (`--raices` y `--pesos`, K = 1 a 5: la unión de las tandas da exactamente las líneas del tsc) y 23 roturas, 23 rojas.
 
-**Sin hacer:** correr la segunda medición (la sube el Cerebro a la rama `medir-tipos`) y decidir con sus números; project references sólo si estas palancas no alcanzan.
+**Resultado de la segunda medición** (run 39616608454, runner de 2 CPU y 7.932 MB, tope 6.144):
+
+| Medición | Pico por tanda | % del tope | Segundos |
+|---|---|---|---|
+| `tandas-4` (por bytes, lo que corre hoy) | 3.537 MB | 58 % | — |
+| `tandas-4-raices` | **2.595 MB** | **42 %** | 190 |
+| `tandas-4-raices-balanceadas` | 2.766 MB | 45 % | — |
+| `tandas-3-raices-balanceadas` | 3.064 MB | 50 % | 175 |
+
+- **`--raices` es la palanca** (−942 MB de pico, −27 %): el piso de cada tanda deja de ser «todo el programa». **Balancear por costo no suma con raíces** (2.766 contra 2.595: el reparto contiguo por bytes ya queda parejo cuando cada programa es chico), así que no hace falta commitear un json de costos que se vuelve viejo.
+- **`types: ['node']` no sirve** (los `@types/*` que se importan entran igual) y **sacar los literales grandes baja el piso 183 MB**: ninguna de las dos es el arreglo.
+- Margen (estimación, no medida): el programa crecía ~1 GB de memoria viva por semana en total; repartido en 4 tandas son del orden de 250-300 MB por semana por tanda, y el aviso del 80 % (4.915 MB) queda a unos dos meses de los 2.595 de hoy. Con 3 tandas por raíces (3.064) el margen es menor (~6-7 semanas): no vale ahorrar una tanda.
+
+**Decisión (21/10 tarde):** `TIPOS_TANDAS=4` + `TIPOS_RAICES=1` en el paso «Tipos» de integracion.yml, **una vez que el medidor dé cobertura ✔ en Actions** con la regla de los extras (un run corto de `medir-tipos` con `tandas-1`, `tandas-4` y `tandas-4-raices`). Antes de eso, la unión de las tandas por raíces
+da EXACTAMENTE las líneas del tsc en los proyectos de prueba (K = 1 a 5, con un declare global, un script, un `.d.ts`, un `.ts` fuera del `include`, un `.mjs` con `checkJs`, un `.json` y un `.ts` de un paquete), pero «en el repo real» sólo lo dice el medidor.
+
+**Sin hacer:** el run corto de `medir-tipos` (lo sube el Cerebro) y, con el ✔, encender `TIPOS_RAICES`; project references sólo si el piso por tanda vuelve a acercarse al 70 %.
 
 
 ## Una migración sin aplicar no rompe nada si el código la tolera: la 0283 (21/10/2026) y el verificador de sólo lectura

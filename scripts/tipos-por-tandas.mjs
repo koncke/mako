@@ -108,7 +108,7 @@ const posix = (p) => p.replace(/\\/g, '/');
 /**
  * Crea el programa del tsconfig y chequea SU tanda. `ts` se inyecta en las pruebas; `gc` es `global.gc` si el proceso corre con --expose-gc.
  * @param {{ ts: any, config: string, tanda?: { i: number, K: number }, medir?: boolean, gc?: (() => void) | undefined, raices?: boolean, pesos?: { archivos: Record<string, number>, promedio: number } | null, costosOut?: string | null }} p
- * @returns {{ lineas: string[], errores: number, estadisticas: Record<string, number | null>, curva: string[], calientes: string[], archivosDeLaTanda: string[], raices: number }}
+ * @returns {{ lineas: string[], errores: number, estadisticas: Record<string, number | null>, curva: string[], calientes: string[], archivosDeLaTanda: string[], raices: number, extras: string[] }}
  */
 export function chequearTanda({ ts, config, tanda = { i: 1, K: 1 }, medir = false, gc, raices = false, pesos = null, costosOut = null }) {
   const t0 = Date.now();
@@ -117,6 +117,10 @@ export function chequearTanda({ ts, config, tanda = { i: 1, K: 1 }, medir = fals
   if (!parseado) throw new Error(`no pude leer ${config}`);
   const cwd = ts.sys.getCurrentDirectory();
   const saltaNombre = (nombre) => parseado.options.skipLibCheck && /\.d\.[cm]?ts$/.test(nombre);
+  /** Lo que el tsc puede reportar al chequear un archivo: código (TS y JS —un JS «plano» también da unos pocos errores—), no JSON. Un `.d.ts` SÍ cuenta: con `skipLibCheck: false` el tsc lo chequea;
+   *  con `skipLibCheck: true` lo saltean `saltaNombre` (raíces) y `saltea` (programa), no esta regla. */
+  const esCodigo = (nombre) => /\.(?:[cm]?[jt]s|[jt]sx)$/.test(nombre);
+  const todasLasRaices = new Set(parseado.fileNames);
 
   // Con --raices el reparto se decide ANTES de crear el programa (con lo que dice el tsconfig y el disco), idéntico en todas las tandas; sin ellas, del programa entero, como siempre.
   /** @type {string[] | null} */
@@ -124,7 +128,7 @@ export function chequearTanda({ ts, config, tanda = { i: 1, K: 1 }, medir = fals
   /** @type {Set<string> | null} */
   let propiosPorRaiz = null;
   if (raices) {
-    const candidatos = parseado.fileNames.filter((f) => !saltaNombre(f)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    const candidatos = parseado.fileNames.filter((f) => !saltaNombre(f) && esCodigo(f)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     const reparto = repartir(candidatos.map((f) => ({ nombre: f, peso: pesoDe(posix(relative(cwd, f)), (() => { try { return statSync(f).size; } catch { return 0; } })(), pesos) })), tanda.K);
     propiosPorRaiz = new Set(reparto[tanda.i - 1]);
     const ambientes = parseado.fileNames.filter((f) => { if (propiosPorRaiz?.has(f)) return false; const t = ts.sys.readFile(f); return t != null && esRaizAmbiente(f, t); });
@@ -155,15 +159,25 @@ export function chequearTanda({ ts, config, tanda = { i: 1, K: 1 }, medir = fals
   const baseMb = mb(process.memoryUsage().heapUsed);
   const tAtado = Date.now();
 
+  const saltea = (sf) => (parseado.options.skipLibCheck && sf.isDeclarationFile) || (parseado.options.skipDefaultLibCheck && sf.hasNoDefaultLib);
+  /** Un archivo del programa del que el tsc sí reportaría errores: código, no una declaración saltada. ⚠️ SIN excluir lo de node_modules: un `.ts` de un paquete (main: index.ts) el tsc SÍ lo chequea y reporta sus errores
+   *  (medido el 21/10/2026 con el tsc de verdad); lo que no entra al programa son los .js de node_modules (maxNodeModuleJsDepth 0), y esos no están acá. */
+  const chequeable = (sf) => !saltea(sf) && esCodigo(sf.fileName);
   /** @type {any[]} */
   let aChequear;
   let candidatosN;
+  /** @type {any[]} */
+  let extras = [];
   if (propiosPorRaiz) {
     aChequear = [...propiosPorRaiz].sort().map((n) => programa.getSourceFile(n)).filter(Boolean);
     candidatosN = propiosPorRaiz.size;
+    // ⚠️ Los archivos que el programa trae por IMPORT pero que no son raíz de NINGUNA tanda (un .mjs de scripts/ que un test importa, un .ts fuera del `include`, un .ts de un paquete) no están en el reparto de
+    // nadie: sin esto el tsc entero los chequea y las tandas no (medido el 21/10/2026: 27 archivos sin tanda, 16 .mjs, 10 .json y un .ts de node_modules). Cada tanda chequea los que SU programa trae; si dos
+    // tandas los traen, se chequean dos veces (los errores salen una vez: se deduplican), que es barato porque son pocos. Un .json no da errores al chequear: no cuenta.
+    extras = programa.getSourceFiles().filter((sf) => !todasLasRaices.has(sf.fileName) && chequeable(sf)).sort((a, b) => (a.fileName < b.fileName ? -1 : a.fileName > b.fileName ? 1 : 0));
+    aChequear = [...aChequear, ...extras];
   } else {
-    const saltea = (sf) => (parseado.options.skipLibCheck && sf.isDeclarationFile) || (parseado.options.skipDefaultLibCheck && sf.hasNoDefaultLib);
-    const candidatos = programa.getSourceFiles().filter((sf) => !saltea(sf)).sort((a, b) => (a.fileName < b.fileName ? -1 : a.fileName > b.fileName ? 1 : 0));
+    const candidatos = programa.getSourceFiles().filter((sf) => chequeable(sf)).sort((a, b) => (a.fileName < b.fileName ? -1 : a.fileName > b.fileName ? 1 : 0));
     const reparto = repartir(candidatos.map((sf) => ({ nombre: sf.fileName, peso: pesoDe(posix(relative(cwd, sf.fileName)), sf.text.length, pesos) })), tanda.K);
     const propios = new Set(reparto[tanda.i - 1]);
     aChequear = candidatos.filter((sf) => propios.has(sf.fileName));
@@ -203,7 +217,8 @@ export function chequearTanda({ ts, config, tanda = { i: 1, K: 1 }, medir = fals
     identifiers: num('getIdentifierCount'),
     baseMb,
     vivoMb: mb(vivoBytes),
-    checked: aChequear.length,
+    checked: aChequear.length - extras.length,
+    extras: extras.length,
     candidatos: candidatosN,
     parseS: (tPrograma - t0) / 1000,
     bindS: (tAtado - tPrograma) / 1000,
@@ -212,7 +227,7 @@ export function chequearTanda({ ts, config, tanda = { i: 1, K: 1 }, medir = fals
     maxRssMb: mb(process.resourceUsage().maxRSS * 1024),
   };
   const calientes = tiempos.sort((a, b) => b[0] - a[0]).slice(0, 25).map(([ms, f]) => `CALIENTE ms=${ms} ${f}`);
-  return { lineas, errores: lineas.filter((l) => /error TS\d+/.test(l)).length, estadisticas, curva, calientes, archivosDeLaTanda: aChequear.map((sf) => sf.fileName), raices: estadisticas.roots };
+  return { lineas, errores: lineas.filter((l) => /error TS\d+/.test(l)).length, estadisticas, curva, calientes, archivosDeLaTanda: aChequear.map((sf) => sf.fileName), raices: estadisticas.roots, extras: extras.map((sf) => posix(relative(cwd, sf.fileName))) };
 }
 
 /** El bloque final, con el estilo de `--extendedDiagnostics` (lo lee leerEstadisticas de scripts/tipos-ci.mjs). Puro. */
@@ -223,6 +238,7 @@ export function bloqueEstadisticas(e, tanda) {
     fila('Files', e.files),
     ...(e.roots == null ? [] : [fila('Root files', e.roots)]),
     fila('Files checked', e.checked),
+    ...(e.extras ? [fila('Extra files checked', e.extras)] : []),
     ...(e.symbols == null ? [] : [fila('Symbols', e.symbols)]),
     ...(e.types == null ? [] : [fila('Types', e.types)]),
     ...(e.instantiations == null ? [] : [fila('Instantiations', e.instantiations)]),
@@ -250,6 +266,7 @@ function main(argv) {
   });
   if (r.lineas.length) process.stdout.write(`${r.lineas.join('\n')}\n`);
   for (const l of [...r.curva, ...r.calientes]) process.stdout.write(`${l}\n`);
+  for (const e of r.extras.slice(0, 200)) process.stdout.write(`EXTRA ${e}\n`);
   process.stdout.write(`${bloqueEstadisticas(r.estadisticas, tanda).join('\n')}\n`);
   return r.lineas.length > 0 ? 2 : 0;     // 2 = lo que el tsc devuelve con errores (DiagnosticsPresent_OutputsGenerated), también con noEmit
 }
