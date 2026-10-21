@@ -9,7 +9,8 @@
 //   · las secciones de «Tu cuenta» de la computadora, como filas con su ícono, en el MISMO orden y con
 //     los MISMOS rótulos (lib/ajustes-secciones.ts): Información personal (una hoja con la misma
 //     pantalla de la computadora) · Seguridad (/m/cuenta/seguridad) · Notificaciones (una hoja con los
-//     avisos de ESTE teléfono) · Instalar la app (los pasos, o el aviso de Chrome);
+//     avisos de ESTE teléfono) · Instalar la app (los pasos, o el aviso de Chrome) · Tus cuentas de IA
+//     (/m/cuenta/ia, 21/10/2026: el estado de sus computadoras y «Desconectar»; conectar una, en la computadora);
 //   · Modo oscuro (la misma preferencia que el botón de la barra de escritorio);
 //   · «Configuración del negocio», sólo para quien lo administra (su pantalla, /m/configuraciones, desde el 17/10/2026);
 //   · Cerrar sesión.
@@ -79,7 +80,7 @@ export type DatosCuenta = {
   perfil: { perfil: Perfil; vista: VistaPerfil } | null;
 };
 
-type ClaveCuenta = 'info' | 'seguridad' | 'notificaciones' | 'instalar';
+type ClaveCuenta = 'info' | 'seguridad' | 'notificaciones' | 'instalar' | 'ia';
 
 /** Los rótulos y los íconos de «Tu cuenta», los MISMOS de la computadora (lib/ajustes-secciones.ts). */
 const ROTULO = Object.fromEntries(SECCIONES_CUENTA.map((s) => [s.key, s.label])) as Record<ClaveCuenta, string>;
@@ -145,6 +146,9 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
                   deshabilitada={avisos.ocupado != null} onClick={() => void avisos.instalar()} />
               : <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar}
                   riel={fila === 'instalada' ? 'Instalada' : undefined} />
+        )}
+        {ve('ia') && (
+          <FilaM navegacion leading={<IconoSeccion k="ia" />} titulo={ROTULO.ia} href="/m/cuenta/ia" />
         )}
       </ListaM>
 

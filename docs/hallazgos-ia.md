@@ -4532,6 +4532,300 @@ sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA
 - **Regla:** un `catch` vacío envuelve sólo la operación que puede fallar «sin importancia» (leer el registro), nunca un camino que re-lanza a propósito. Lo fija `tests/anthropic-tools-sin-fallback.test.ts`: la forma vieja da 3 de 3 fallas.
 - **Sin hacer:** con el arreglo desplegado, el ticket #6 (04:13 UTC) trajo el motivo real: «falló la IA (sin proveedor gratis disponible)». El ws1 no tiene NINGUNA IA para el chat de MaKo. La causa probable, no medida clave por clave: desde el 16/10 las copias de las claves de la plataforma no cuentan como del negocio (`lib/ia-keys.ts`), y el ws1 podría no tener ninguna propia que pueda recibir datos de sus clientes. Eso decide Martín: el ticket volvió a él como pedido.
 
+## Un negocio con SÓLO su Claude no tenía IA para el chat, y «Conectar tu IA» le pedía Gemini (20/10/2026)
+
+- **Síntoma** (docs/investigacion-ops-center-19-10.md): un negocio que conectó sólo su Claude recibía en el chat «Para
+  contestarte necesito una IA conectada» con el modal de **Gemini**.
+- **Causa real:** el turno con herramientas (`chatClaudeTools`, la feature `mako-doer`) corría sólo la cascada barata
+  (`CASCADA_TOOLS`: Gemini, Groq, Mistral, OpenRouter, OpenAI). La clave de Anthropic del negocio movía sólo la cascada de
+  TEXTO (`conClaveDelNegocio`): en el chat nunca se miraba. Sin ninguna barata, «sin proveedor gratis disponible», y el
+  botón tenía Gemini fijo.
+- **Arreglo:** la frontera de la puerta 2 es UNA pieza (`permisoDeLaClaveDelNegocio`, lib/anthropic.ts) para los dos
+  caminos. En el chat se prueba cuando ninguna barata contestó y la cascada no ejecutó nada (si ejecutó, otro modelo
+  duplicaría la escritura): Haiku 4.5, su clave, la marca del negocio primero en el gasto, y nunca el Claude de MaKo. El
+  turno la cuenta como IA propia, y el botón abre la IA que el negocio ya tiene en su fila (`iaParaConectar`: su Claude, su
+  OpenAI, después las gratis; sin ninguna, Gemini).
+- **Medido en vivo** (20/10, con la clave propia del ws10, sin tocar la base): Haiku 4.5 con ese mismo pedido —herramientas,
+  sin thinking ni effort— pidió la herramienta, recibió el resultado y contestó. Lo que no se probó: el turno entero en la
+  app con un negocio de sólo Claude.
+- **Regla:** una IA que el negocio conectó tiene que poder contestar en TODOS los caminos que la ofrecen (texto y
+  herramientas), y lo que se le pide conectar es lo que ya eligió, no un default.
+- **Sin hacer:** con la pausa de Claude prendida (`mako.claude.pausa`), el negocio con sólo su Claude sigue viendo «Conectar
+  tu IA» (le abre su modal de Claude, no Gemini).
+
+## La IA del cliente en SU computadora: lo que no se ve en el código (ola 1, 21/10/2026)
+
+El diseño: docs/ia-del-cliente.md. Lo medido al hacerlo, en esta PC, con Claude Code 2.1.301 y el ws3:
+- **`--bare` apaga la suscripción.** Su ayuda lo dice: «Anthropic auth is strictly ANTHROPIC_API_KEY… OAuth and keychain
+  are never read». Parece el modo «limpio» para un programa, y es justo el que no sirve. El programa de la PC nunca lo usa.
+- **Con `ANTHROPIC_API_KEY` en el entorno, `-p` usa la key y no la suscripción** (code.claude.com/docs/en/authentication):
+  el programa saca esa variable (y las de Bedrock y Vertex) antes de correr `claude`.
+- **`--tools ""` + `--strict-mcp-config` deja a Claude sin manos:** ni terminal, ni archivos, ni web, sólo las
+  herramientas de MaKo del turno. Medido: contestó «Hola» con la suscripción y sin herramientas propias.
+- **Sin elegir modelo, Claude Code usa Opus** (medido: `modelUsage` = `claude-opus-5-5`): le gasta el cupo de 5 horas al
+  cliente en pocos turnos. Va `--model sonnet`.
+- **La carpeta por defecto (`~/.claude`) puede estar sin sesión** aunque Claude Code ande: Martín corre cada cuenta con
+  su carpeta (`CLAUDE_CONFIG_DIR`). `claude auth status` dice cuál está logueada (`loggedIn`, `authMethod`, el plan y el
+  email) sin mostrar el token. Con varias cuentas, el programa corre cada turno con la carpeta de la cuenta elegida.
+- **De punta a punta en el ws3 anda** (`scripts/ia-pc/probar-punta-a-punta.mts`): la PC se empareja, late, toma el turno,
+  el Claude real pide las herramientas por el MCP, `turnoApp` las corre con su `runTool` y la respuesta vuelve al chat
+  (una lectura en 32 s; «agrega un lead» terminó en la ficha para confirmar, no en un lead creado).
+- **Trampa del arnés, no del código:** fuera de Next, las herramientas que usan `unstable_cache` (contar y listar leads)
+  tiran «Invariant: incrementalCache missing». En la app corren dentro de Next. Para probarlas de punta a punta hace
+  falta el servidor de verdad, no el arnés.
+- **`String.replace` con `$'` en el reemplazo pega el resto del texto:** al editar el SQL de la migración con un script,
+  el `'^[0-9a-f]{64}$'),` del reemplazo se volvió «el resto del archivo» y duplicó media migración. Para texto con `$`,
+  el editor, nunca un `replace` con el reemplazo armado a mano.
+- **Sin hacer (ola 2):** «Tus cuentas de IA» y el tutorial; el ejecutable de un archivo (hoy es `node mako-pc.mjs`); el %
+  usado de cada cuenta (Claude lo da en el `/usage` del Agent SDK, no en `-p`); que el cliente elija el modelo; varias
+  cuentas con rotación. Y el riesgo legal de Anthropic (docs/ia-del-cliente.md §10), que es del Cerebro.
+
+## La IA del cliente, ola 2: el instalador y el % usado (21/10/2026)
+
+- **El % usado está en el stream, no en `/usage`.** `claude -p "/usage"` contesta sólo «You are currently using your
+  subscription». `--output-format stream-json --verbose` trae un `rate_limit_event` con `unifiedWindows.five_hour` y
+  `seven_day` (`utilization` de 0 a 1 y `resetsAt` en segundos). Medido con Claude Code 2.1.301.
+- **Bun compila para Windows y Mac desde esta PC** (`npx bun@1.2.21 build --compile --target=…`): un programa sin
+  dependencias sale de 119 MB en Windows y 60-66 en Mac. **Adentro del ejecutable, `process.argv[1]` es una ruta virtual**
+  (`B:/~BUN/root/…`) y `realpathSync` tira: «¿me corrieron directo?» se pregunta con `import.meta.main`.
+- **Supabase Storage corta en 50 MB por archivo**: comprimidos con gzip entran (43, 23 y 25 MB), y PowerShell y `gunzip`
+  los descomprimen en la PC.
+- **Bajado por `Invoke-WebRequest` o `curl`, un ejecutable no lleva la marca de «descargado de internet»**: SmartScreen y
+  Gatekeeper no lo frenan, y el instalador de una línea no necesita la firma de código. En una Mac con chip de Apple un
+  ejecutable sin ninguna firma no corre: el instalador le pone la local (`codesign --sign -`). Sin probar en una Mac.
+- **PowerShell 5.1 muestra «qued�»** si el script no pone `[Console]::OutputEncoding = [Text.Encoding]::UTF8`.
+- **De punta a punta en esta PC** (`probar-punta-a-punta.mts --instalador`): la línea del tutorial instaló, conectó y
+  dejó en Inicio el ejecutable, que contestó un turno con las herramientas de MaKo; la limpieza sacó todo.
+- **La guarda de topes lo frenó a tiempo** (tests/rutas-publicas-limite.test.ts): emparejar era una ruta pública sin tope,
+  o sea que se podían probar códigos sin límite.
+- **Sin hacer (ola 3 y después):** GPT con Codex; el ícono en la bandeja; que la Mac se pruebe de verdad; el riesgo legal
+  de Anthropic (docs/ia-del-cliente.md §10), que es del Cerebro.
+
+## La IA del cliente después de la revisión del Cerebro: lo que el camino feliz no mostraba (21/10/2026)
+
+La revisión adversarial de b93a280f1 (5 altos, 9 medios) encontró una pieza que andaba en la prueba de punta a punta y se
+rompía en todo lo demás. Lo no obvio, para el que toque esto después:
+
+- **Defender pone en cuarentena un `.vbs` en Inicio que hace `WScript.Shell.Run` oculto** («Trojan:VBS/AgentTesla.GVC!MTB»,
+  severidad 5, medido en la PC de Martín a las 02:26 y 04:18). El script del instalador no tiraba error, decía «¡Listo!»,
+  el programa corría hasta apagar la PC y nunca volvía a arrancar; la limpieza del e2e lo borraba con
+  `-ErrorAction SilentlyContinue` y nunca vio que faltaba. **El arranque es la clave `Run` de HKCU** (`New-ItemProperty`:
+  sin administrador, en UTF-16). `Set-Content -Encoding ASCII` además volvía «José Muñoz» en «Jos? Mu?oz».
+- **`bun build --compile --windows-hide-console` NO cambia el subsistema del ejecutable** (Bun 1.2.21, medido: queda 3, de
+  consola). Arrancado por la clave Run, uno de consola abre una ventana negra. publicar-binarios.mts lo marca «de ventana»
+  a mano (el byte de `Subsystem` de la cabecera PE, como `editbin`) y lo verifica. Dos consecuencias medidas: **PowerShell
+  no espera a un programa de ventana** ni toma su `$LASTEXITCODE` si no se lo encadena (`& $exe … | Out-Host`), y **cada
+  `spawn` de un programa de consola desde uno de ventana abre su propia ventana** salvo con `windowsHide: true`.
+- **«No pude leer» tratado como «no hay», dos veces, con dos daños distintos.** `dispositivoDelToken` sin mirar `error`:
+  un bache de la base era un 401, el programa de Windows salía «MaKo desconectó esta computadora» y no volvía hasta el
+  próximo inicio de sesión, y el chat decía «préndela» con la PC prendida. `pcDe` sin mirar `error`: el turno de la dueña
+  de la PC iba a Gemini. Ahora cada lectura tira (`sinError`), las rutas de la PC contestan 503 (lib/ia-pc-ruta.ts) y el
+  programa sale SÓLO con un 401 que dice `revocado`. postgrest-js reintenta solo los 503/520 de un GET: no es una red.
+- **D6b no se corta en el modelo: se corta abajo de todo, y el diagnóstico obvio no alcanzaba.** La primera versión
+  sacaba la cascada en `chatClaudeTools`, y el resto del turno (El Archivero, la foto, la voz, los pedidos) seguía en
+  Gemini. Poner el corte en `provDe` (por donde pasan todas las keys) parecía suficiente; el hijo que corre las entradas
+  REALES de la cascada contra una base de mentira (tests/_solo-su-ia-hijo.ts) mostró que no: **`ordenarPorCuota` leía las
+  keys de cada gratis y le consultaba el saldo a OpenRouter ANTES de que `provDe` cortara.** El corte vive en tres lugares
+  (`provDe`, `provsGratisDePlataforma`, `ordenarPorCuota`), prendido por un AsyncLocalStorage (lib/solo-su-ia.ts) que
+  `after()` de Next conserva (`AsyncLocalStorage.bind`). Se decide por NEGOCIO (la PC de otra persona cuenta) y falla
+  cerrada (lib/ia-del-negocio.ts).
+- **Una cuenta al 95 % quedaba descartada para siempre**: el % sólo se medía después de un turno, y sin turnos nada lo
+  volvía a medir; `repone` se guardaba y no se leía. Una ventana repuesta cuenta como 0 %, y si todas están al tope se usa
+  la de menos uso: el límite lo dice Claude, con la hora.
+- **El instalador oficial de Claude no toca el PATH de la ventana abierta** (ni el de una nueva, en Windows): «En la misma
+  ventana escribe claude» daba «no se reconoce» en toda instalación nueva. El paso 3 da la ruta completa con
+  `claude auth login` (va directo al navegador), y el instalador de MaKo abre el login si falta. Y el programa miraba la
+  sesión UNA vez, al arrancar: ahora en cada latido las que no la tienen, y antes de rechazar un turno.
+- **`curl | sh` lee el script por la entrada estándar**: lo que pregunta lee de `/dev/tty`, y cada programa va con
+  `< /dev/null`, o se come las líneas que siguen. **`irm` y `curl -f` no muestran el cuerpo de un 4xx**: el instalador
+  contesta 200 con un `echo` para que la persona lea el porqué.
+- **launchd con `KeepAlive` en `true` relanza también una salida a propósito** (cada ~10 s, para siempre, después de
+  desconectar). Va `KeepAlive → SuccessfulExit false` y el programa sale con 0 al ser desconectado.
+- **Sin red, `fetch` falla al instante y el bucle giraba**: ~1000 pedidos por segundo y un núcleo entero (medido por el
+  revisor con un puerto cerrado). Ahora espera 5, 10, 30 y 60 s, y lo anota una vez.
+- ⚠️ **CORREGIDO en la segunda revisión (abajo): el «1 en blanco» de tsc NO es el `timeout`, son errores de tipos que no
+  se imprimen.** Lo que se creyó entonces, para que se entienda el error:
+  **`tsc` envuelto en el `timeout` de Git Bash sale con 1 SIN IMPRIMIR NADA** (medido tres veces, por dos agentes): no es un
+  error de tipos. El mismo tsc acotado, sin `timeout` o desde PowerShell, da 0 (y con errores reales imprime y sale con
+  2). Un «1 en blanco» de tsc acá es del envoltorio: correrlo sin `timeout` antes de buscar el error. Para iterar, un
+  tsconfig que extiende el del repo con `files`.
+- **Lo que quedó SIN hacer:**
+  - **WhatsApp no tapa las claves** (pieza 1.6): lib/mako-doer-in.ts es de «MaKo en WhatsApp». Dónde: en
+    `manejarEntranteDoer` antes de `rutearDoer` (y el `caption`), y en `bufferearYResponder` antes de `encolar`, también en
+    el `payload` (docs/ia-del-cliente.md §13).
+  - **Las fotos con el Claude de la PC**: hoy, con su propio Claude, se leen con SU OpenAI o se dice que no. Para que las
+    vea su Claude: `claude -p --input-format stream-json` acepta bloques de imagen (sin medir).
+  - **Claude Code instalado con npm** (`claude.cmd`): `spawn` sin shell no corre un `.cmd`; el tutorial pide el instalador
+    oficial. La Mac sigue sin probarse en una Mac.
+  - **Los ejecutables 0.3.0 están en el bucket** (los necesitaba el e2e del instalador), pero producción sigue sirviendo
+    los 0.2.0 hasta que se despliegue este código: el instalador pide `mako-pc-${VERSION_PC}`.
+- **De punta a punta en esta PC, el 21/10 a las 07:00** (`probar-punta-a-punta.mts --instalador`, ws3, la carpeta del
+  programa en «…\José Muñoz\AppData\Local»): la línea del tutorial dijo «se va a conectar a «Cliente de Prueba» como
+  prueba-ia-pc@…», la clave Run quedó con la ruta exacta (con la ñ) y SEGUÍA 15 s después, nada en Inicio, el Claude real
+  de la PC contestó con `listar_tareas_plan` en 32 s, y desconectada desde MaKo el programa se sacó solo del arranque y se
+  apagó. Defender: cero detecciones desde las 05:00. La Mac, sin probar.
+
+## La IA del cliente, segunda revisión: lo que pasa FUERA del turno y antes del «sí» (21/10/2026)
+
+La segunda revisión del Cerebro (sobre 71706061d: 2 altos, 6 medios, 17 bajos) cerró los altos de la primera y encontró
+que lo que faltaba no estaba en el turno: estaba en lo que corre en OTRO pedido (confirmar una tarjeta, otras pantallas)
+y en lo que pasa en la PC antes de que la persona diga que sí. Lo no obvio:
+
+- **D6b prendido en el turno no cubre lo que se ejecuta al CONFIRMAR.** Una tarjeta con costo de IA (analizar una hoja, el
+  insight de un lead) no corre en el turno que la propone: corre cuando se toca «Confirmar», en otra ruta o server action
+  (`confirmarDesdeTarjeta`, la bandeja /mako/pendientes, /mako/revisar), y ahí no había contexto: los números del negocio
+  iban a Gemini y Groq. La regla: **toda entrada que ejecuta trabajo con IA de un negocio prende el contexto ella misma**
+  (`conSuIADelNegocio(ws, fn)` o `entrarSoloSuIA`), no lo hereda. tests/_d6b-confirmar-hijo.ts corre los caminos REALES y
+  cuenta los hosts; el control (la misma ejecución, fuera) tiene que salir a la red gratis, o la prueba no ve nada.
+- **La PC fantasma: activar al emparejar le sacaba la IA a TODO el negocio.** Emparejar dejaba la PC conectada antes de la
+  pregunta «¿es tu negocio?»; quien cerraba la ventana ahí dejaba una PC que `negocioConPc` contaba, y el negocio entero
+  pasaba a «sólo su IA» sin nadie que contestara. Ahora nace PENDIENTE, el «sí» la confirma, y cuenta recién ACTIVA (un
+  latido con una cuenta con sesión): una PC sin Claude Code tampoco cuenta (mig 0322, SIN APLICAR).
+- **`Stop-Process` no espera a que el proceso suelte el archivo**: escribir el `.exe` justo después daba «está siendo
+  utilizado por otro proceso» (8 de 8, el revisor). Y como el instalador paraba ANTES de preguntar, un «no», un código
+  vencido o un 503 dejaban apagada la conexión que andaba. Ahora baja a `mako-pc.nuevo`, para con `Kill()` +
+  `WaitForExit(15000)` recién con el «sí», reemplaza con `Move-Item` y reintentos, y un `finally` (un `trap` en la Mac)
+  deja uno corriendo pase lo que pase.
+- **En Windows, `process.exit()` justo después de dos `fetch` revienta Node** (24.17, medido): «Assertion failed:
+  !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94» y sale con **0xC0000409** (3221226505). `confirmar`
+  hace dos pedidos (confirmar y soltar la vieja). Con un pedido solo (`cancelar`) no pasaba, por eso no lo vio nadie
+  antes. **Pero el ejecutable que instala el cliente (Bun 1.2.21) NO revienta**: medido 5 de 5 con 0 con `process.exit()`
+  y 5 de 5 con el arreglo, el token nuevo guardado cada vez. Lo veían el test y el e2e sin `--instalador`, que corren el
+  `.mjs` con Node: ahí el instalador habría leído «no se confirmó» con la conexión YA guardada. Los comandos de una vez
+  dejan `process.exitCode` y terminan solos (los sockets de `fetch` no retienen el proceso: < 1 s), con un reloj
+  `unref()` de 10 s por si algo lo retiene. El modo de fondo (`correr`) sigue con `process.exit(0)` al ser desconectado.
+- **El programa viejo que recibe el 401 borraba la conexión NUEVA.** Reinstalar suelta en MaKo el token de antes; si el
+  programa viejo seguía vivo (el Kill falló), su próximo latido recibía `revocado` y su `desconectada()` borraba el token
+  del config —que ya era el nuevo— y sacaba la clave Run. Ahora sólo borra si el token del config es el SUYO.
+- **El «1 en blanco» de tsc NO es el `timeout` de Git Bash** (el diagnóstico de la primera revisión): sale con 1 sin
+  imprimir NADA también sin `timeout`, en primer plano y con la salida a un archivo (medido hoy por dos agentes). Y
+  **tampoco es «hay errores»**: una vez coincidió con un error real (`'insertada' is possibly 'null'`, que la API sí
+  mostró), pero el otro agente vio el mismo `tsc -p` salir 1 mudo tres veces y después 0 con toda la salida, sin cambiar
+  nada. **Es el vigía de RAM, que mata el proceso** (lo dice la cabecera de scripts/tsc-acotado.mjs: «código 1 y cero
+  salida»): por eso es intermitente, según la memoria libre de la PC en ese momento. **Lo que sirve es la API**: `createProgram` +
+  `getPreEmitDiagnostics` con el tsconfig acotado (un script de 12 líneas, que imprime cada diagnóstico). ⚠️ **Con el
+  tsconfig que arma `armarTsconfig` (scripts/tsc-acotado.mjs), no con uno a mano**: ése suma los globales de Next
+  (`next/types/global.d.ts`), que hacen OBLIGATORIO `NODE_ENV` en `ProcessEnv`. El mío a mano dio 0 y el VERDE 3
+  (`rutaDeClaude({}, …)` en un test: `{}` ya no es un `ProcessEnv`).
+- **Adentro de «sólo su IA», las pantallas mentían** (las rutas del Second Brain y del onboarding): `errorDeCascada` decía
+  «No hay ninguna IA conectada… con Gemini alcanza», `leerDocumentoIA` «Carga una API key de Gemini (gratis)», El
+  Archivero «Prueba de nuevo en un momento», y Buscar «MaKo eligió 0». Y `CONECTA_TU_CLAUDE` tampoco: le dice «Conecta tu
+  Claude» a quien ya lo tiene en su PC. Con el contexto prendido, cada una dice `conSuIASinClave(tema)` («para eso
+  necesito tu clave de Claude o de OpenAI»), y Buscar vuelve a la búsqueda por texto y lo dice.
+- **«Llega a la cascada» es casi todo el repo**: por los `import()`, 370 entradas (rutas y `'use server'`) llegan a
+  lib/ai-cheap.ts (`credenciales` → `agenda-evento-etapa-server` → `leads` → `nutricion` → `ai-cheap`, y
+  `anthropic` → `ai-cheap`). La guarda que sirve no es «llega» sino «prende el contexto o está decidida»:
+  tests/d6b-rutas.test.ts recorre el grafo (resolviendo `@/` y siguiendo las llamadas, no una lista a mano), y lo que
+  llaman las pantallas del Ops Center (app/second-brain, app/mako, app/onboarding, app/_chat…) no puede ir afuera.
+- **lib/transcribe.ts es una SEGUNDA cascada sin el corte de D6b**: va directo a Groq y Gemini con las keys del entorno.
+  Envolver una ruta que la use no la protege. Hoy la usan ads-manager, cron/transcribe-ads, mako/knowledge y
+  lib/onboarding-extract (ninguna del Ops Center).
+- **Un stub en `Module._load` no pega en un `await import()` bajo tsx**: el hook corre y gana el módulo real (medido con
+  `onboardingPendiente`). Para el onboarding en curso el hijo usa una cookie firmada de verdad (`crearToken`).
+- **Fallar cerrado tiene contracara**: si `negocioConSuIA` no puede leer la base, un negocio SIN su Claude queda en «sólo
+  su IA» por ese pedido y lee «Con tu propio Claude…».
+- **El PostgREST de mentira no pone ids** (tests/_postgrest-de-mentira.ts): sin `defaults`, la PC insertada quedaba sin
+  `id`, `estadoDelCodigo` decía «cancelado» y `confirmar` no actualizaba nada. Un hijo que depende del id o de los
+  defaults de una columna (`confirmado_at null`, `creado_at`) los declara en `defaults`.
+- **Pieza 1.6 (claves pegadas), la tercera ronda: tapaba texto del negocio.** La regla heredada de OpenAI (`sk-` + 20) seguía
+  viva mientras `openai` estuviera en `SERVICIO_DE_REGLA`: agregar la nueva no alcanza, hay que sacar la vieja (un slug
+  `sk-proj-lanzamiento-verano-2026-…` salía tapado con el botón de OpenAI). La vieja exige 40+ alfanuméricos con dígito y
+  mayúscula; las nuevas (`sk-proj-`, `sk-svcacct-`, `sk-admin-`, `sk-None-`) una mayúscula en los primeros 64 (las reales
+  traen `T3BlbkFJ`). **«El nombre del `.env` TERMINA en KEY» era una regresión**: `FATHOM_API_KEY_MARTIN` y
+  `ELEVENLABS_API_KEY_MAURICIO_IMPAGA` (nombres reales del repo) no terminan así; con `=` vale KEY/TOKEN/SECRET como palabra
+  entera seguida de más palabras, con `:` tiene que terminar (`KEYWORDS:`, `MAX_TOKENS`, `TURKEY_RECIPE` ya no se tapan).
+  **Un lookahead dentro de una tirada con `-` es cuadrático** (cada `sk-` abre un `\b`; un MB de `sk-proj-` colgaba el
+  turno): se acota a 64 y 80 caracteres. El orden entre una regla sin servicio y una con servicio no importa (el bucle de
+  `taparClaves` sólo corta con servicio). 26 roturas, todas con su rojo.
+- **Lo que quedó SIN hacer:**
+  - **La 0322 no está aplicada** (va con la revisión del Cerebro). Sin ella producción no tiene las columnas: este código
+    no puede desplegarse antes. La prueba de punta a punta de la PC pendiente (reinstalar sobre una que anda, decir que
+    no, cerrar la ventana en la pregunta) espera a la 0322 en el ws3.
+  - **Los ejecutables 0.3.1** tienen que estar en el bucket antes de desplegar (el instalador pide `mako-pc-${VERSION_PC}`).
+  - **`sk-ant-farm-habitat-kit-for-kids-xl` se sigue tapando** con el botón de Anthropic (la heredada `sk-ant-` + 20): las
+    reales son `sk-ant-api03-` + ~93; se podría exigir esa forma (lib/claves-en-el-chat.ts).
+  - **WhatsApp sigue sin tapar claves** (1.6 en el otro canal, de «MaKo en WhatsApp», docs/ia-del-cliente.md §13).
+  - **La Mac, sin probar en una Mac.**
+  - **Las rutas que tests/d6b-rutas.test.ts deja afuera como «decisión pendiente, no olvido»** (`FUERA_DE_D6B`): `v1` y
+    `agente` (la API de MaKo), Offer y `onboarding/arranque` (corren con el crédito de Claude; lo decide Offer), y las
+    demás tabs (CRM, Ads, Landing, Chat Agent, gráficos, editores, CS, `mako/voz`, `mako/nutricion`…).
+  - **Buscar sin ninguna IA (fuera de D6b) devuelve 500 «respuesta sin JSON»** (`parseJsonObject('')` tira) y el
+    escritorio muestra «MaKo eligió 0» porque ignora `ok: false` (app/api/second-brain/buscar/route.ts y
+    app/second-brain/Grafo.tsx). Viejo, sin tocar.
+- **Probado rompiéndolo**: 49 roturas + 23 de las rutas (cada una de las 11 sin el contexto, una ruta nueva sin decidir,
+  un área escondida afuera, el detector sin seguir llamadas, cada texto de D6b quitado…), todas con su rojo. Las 49: una por vez y restauradas con sha256, todas con su rojo (los tres caminos de
+  confirmar fuera de «sólo su IA» → d6b-confirmar 2/1; la PC pendiente, activa y abandonada, el instalador en Windows y
+  en la Mac, el programa, la pantalla y el turno → ia-pc-segunda-revision 16/1 o 14/3; D6b contando una PC no activa →
+  solo-su-ia). El arnés: `romper-segunda.mjs` del scratchpad de la sesión.
+
+## La IA del cliente, tercera revisión: «falla cerrada» no es «cualquier cosa cuenta» (21/10/2026)
+
+La tercera revisión del Cerebro (sobre af8f42baf) cerró el alto de confirmar y los medios de las rutas, y confirmó cuatro
+medias y tres bajas. Lo no obvio:
+
+- **Contar una COPIA de la clave de MaKo como «su IA» parecía el lado seguro, y dejaba a un cliente sin servicio.** El
+  comentario lo decía a propósito («se equivoca hacia el lado de no mandar a Gemini»). Pero el ws1 tiene en su fila
+  copias de las keys de MaKo (esperan que Martín decida borrarlas): pasaba a «sólo su IA» sin ninguna IA que sirviera
+  (el veto rechaza la copia de Claude, `provsDe` saca la de OpenAI), y Buscar, El Archivero y las áreas, que en main le
+  andan, le decían «con tu propio Claude…», falso. La falla cerrada es para lo que NO SE PUEDE LEER, no para lo que se
+  sabe que es de MaKo: una copia (también de una cuenta extra, `OPENAI_API_KEY_2`, o con espacios) no cuenta.
+- **`descifrar` devuelve `null` sin tirar** (lib/cripto-credenciales.ts): una clave guardada que no se puede descifrar (el
+  secreto rotó, la fila se dañó) se leía como «no tiene», y D6b fallaba ABIERTO. Para decidir D6b se mira si la FILA
+  existe, no su valor: guardada e ilegible cuenta como suya.
+- **Reinstalar abría D6b en el hueco entre soltar la vieja y el primer latido de la nueva** (medido con la función real):
+  `confirmar` sólo marca `confirmado_at` y `activa_at` lo pone el latido. Si la sesión había vencido o se cerraba la
+  ventana, sin plazo y sin aviso. El arreglo no fue esperar el latido (eso deja la vieja «activa» con el programa ya
+  parado), sino **pasar la activación en el servidor al confirmar**, con el token de la de antes como prueba: misma
+  persona, mismo negocio y activa. Y el programa guarda la conexión nueva ANTES de soltar la vieja.
+- **Un `finally` de PowerShell no corre si se cierra la ventana** (medido por el Cerebro: WM_CLOSE mata PowerShell adentro
+  del `try`, 3 de 3, con un programa nativo bloqueando como `claude auth login`). El programa se prendía en el `finally`,
+  DESPUÉS del login: cerrar la ventana mientras el navegador pedía la sesión lo dejaba apagado. Lo que tiene que pasar sí o
+  sí no puede vivir en un `finally`: se prende antes del paso que espera a la persona.
+- **«No latió nunca» no es «abandonada»**: la purga revocaba también una PC CONFIRMADA sin latido, que tiene el arranque
+  puesto y late en el próximo inicio de sesión (la de las 03:40 casi siempre gana). Sólo se purgan las que nunca dijeron
+  que sí.
+- **Desplegar antes de la migración volvía GLOBAL la falla cerrada**: sin la columna `activa_at`, `negocioConPc` tiraba en
+  cada turno de cada negocio, y todos los que no tienen clave propia quedaban en «sólo su IA» sin ninguna IA. Un error de
+  ESQUEMA (42703, 42P01, PGRST204/205) se distingue y se contesta con lo que se sabe sin la columna: sin ninguna PC
+  registrada, «no»; con alguna, falla cerrada. Cualquier otro error sigue tirando. El orden (la 0322 primero) quedó
+  escrito en su cabecera, y la cabecera la exige un test.
+- **Emparejar gasta el código y anota su PC en dos viajes**: el tutorial que preguntaba en el medio decía «Ese código ya
+  se usó y la computadora no quedó conectada» mientras la ventana preguntaba «¿Es tu negocio?». Recién usado sin PC
+  anotada es «eligiendo» por un minuto.
+- **La guarda de las rutas decidía por ARCHIVO, y un handler nuevo al lado de uno que prende pasaba verde.** Ahora
+  tests/d6b-rutas.test.ts decide por handler (cada GET/POST y cada acción exportada), toma como entradas todos los
+  `'use server'` del repo (también los de lib/), tiene dos destinos (lib/ai-cheap.ts y lib/transcribe.ts, que el contexto
+  no protege) y sigue los imports de las pantallas del Ops Center por todo el repo. Lo no obvio de armarla:
+  - **El alcance es por MÓDULO, no por función**: casi todo GET del Ops Center «llega» a la cascada porque lib/archivero
+    y lib/onboarding la importan, y por eso hay 32 entradas en `SIN_IA`, cada una con lo que usa fijado. Seguir llamadas
+    entre funciones daría falsos verdes: las acciones de MaKo se ejecutan por un registro (`porId(tipo).ejecutar`), que
+    una regex no ve.
+  - **lib/rutas-publicas.ts se importa del lado del cliente y nombra todas las rutas públicas**: sin excluir sus
+    `/api/…`, todo lo público pasaba a ser «del Ops Center». Y el lado servidor de una page no se sigue hacia lib/ (son
+    1481 archivos, y las bitácoras de /admin/dev nombran rutas).
+  - **/mako/pendientes es otra page**, no cuelga de app/mako/page.tsx: las pantallas son todas las `page.tsx` de esas
+    carpetas.
+  - **El chat embebe bloques de otras tabs** (la ficha del lead, closing, Web Generator, integraciones, gráficos):
+    siguiendo los imports, el Ops Center llega a 57 entradas de otras tabs (149 handlers). Quedan afuera con «decisión
+    pendiente»; exigir que prendan es extender D6b a esas tabs (§13 de docs/ia-del-cliente.md, la decide Martín).
+- **El AI Analyst programado corre en OTRO pedido** (app/api/cron/dashboard-analisis y landing-analyst-auto): al
+  confirmar sólo se guarda el horario. Cada negocio corre ahora adentro de `conSuIADelNegocio`; con su IA y sin una
+  clave que lea, la fila queda en error con el porqué (el hijo lo corre: cero hosts gratis).
+- **Lo que quedó SIN hacer:**
+  - **La 0322 sin aplicar y los ejecutables 0.3.2 sin subir** (los arma en seco la Ticketera; los sube Martín). La prueba
+    de punta a punta (`--instalador --reinstalar`) espera a las dos.
+  - **El AI Analyst programado desde el Ops Center decide con qué IA corre cada vez, no cuando se programó**: la fila no
+    guarda desde dónde se programó (tests/d6b-rutas.test.ts lo cubre por el cron).
+  - **La Mac, sin probar en una Mac.**
+  - **Los demás crons** (avisos programados, los reportes, el Plan) siguen afuera como «fondo», sin revisar uno por uno.
+    Las cajas «Conclusiones» programadas van por el mismo envoltorio, verificado leyendo, no corriendo. El render de
+    servidor de una page no es entrada de la guarda.
+- **Probado rompiéndolo**: 24 roturas de la PC y de las claves, y 34 de la guarda y los crons (cada una de las 11 rutas
+  sin el contexto, los tres huecos del revisor, el cron sin contexto o escondido en el prefijo), todas en rojo. Las 24: (tests/ia-pc-tercera-revision.test.ts, base 8/0), todas en rojo. La primera corrida
+  dio 23: «la clave de la plataforma ilegible se saltea» pasaba, porque el caso usaba una copia de la PRIMERA cuenta, y
+  saltear la ilegible o fallar cerrado daban lo mismo («sí»). Con la copia de la SEGUNDA cuenta (legible) se distinguen:
+  saltear la da por copia («no»). Un caso de falla cerrada se prueba donde el error de saltear cambia la respuesta.
+
 ## Lo que midió la verificación del debate «quién paga el chat» (20/10/2026)
 
 Cuatro verificadores revisaron `docs/debate-ops-center-decisiones-20-10.md` contra producción antes de llevárselo a

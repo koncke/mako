@@ -34,6 +34,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { drenarVencidos, type CuentaCron } from '@/lib/graficos-analisis-server';
 import { drenarCajasVencidas } from '@/lib/graficos-ia-elemento-server';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -75,8 +76,14 @@ export async function GET(req: NextRequest) {
       // Un negocio que falla no corta a los demás.
       try {
         const sumar = (r: CuentaCron) => { for (const k of Object.keys(total) as Array<keyof CuentaCron>) total[k] += r[k]; };
-        if (deAnalisis.has(ws)) sumar(await runWithWorkspace(ws, () => drenarVencidos({ deadline })));
-        if (deCajas.has(ws)) sumar(await runWithWorkspace(ws, () => drenarCajasVencidas({ deadline })));
+        // ⛔ D6b, CADA NEGOCIO ADENTRO DE «SÓLO SU IA» (tercera revisión del Cerebro, 21/10/2026): lo programado se pide
+        // también desde el chat del Ops Center («analizá la hoja Ventas todos los lunes»), y al confirmar se guarda sólo el
+        // horario: el trabajo corre ACÁ, en otro pedido, y sin esto mandaba los números del negocio a Gemini y Groq. Con su
+        // IA y sin una clave que lea, la fila queda en error con lo que pasa (`errorDeCascada`), nunca en silencio.
+        await conSuIADelNegocio(ws, async () => {
+          if (deAnalisis.has(ws)) sumar(await runWithWorkspace(ws, () => drenarVencidos({ deadline })));
+          if (deCajas.has(ws)) sumar(await runWithWorkspace(ws, () => drenarCajasVencidas({ deadline })));
+        });
       } catch (e) {
         errores.push({ ws, error: e instanceof Error ? e.message : String(e) });
       }

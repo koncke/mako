@@ -23,6 +23,7 @@ import { listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
 import { getSetting } from '@/lib/settings';
 import { LANDING_TOKEN_KEY } from '@/lib/landing-token';
 import { asegurarAnalisisDeDeclaradas } from '@/lib/landing-analyst-auto';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -43,7 +44,10 @@ export async function GET(req: NextRequest) {
       const r = await runWithWorkspace(w.id, async () => {
         // Sin Pixel acuñado no hay páginas declaradas que mirar.
         if (!(await getSetting(LANDING_TOKEN_KEY))?.trim()) return null;
-        return asegurarAnalisisDeDeclaradas({ deadline });
+        // ⛔ D6b: una página se declara también desde el chat del Ops Center (`guardar_landing` → `escribirLandings` →
+        // `programarAnalisisDeclaradas`), y lo que ese `after()` no alcanzó lo termina este cron, en otro pedido. Adentro de
+        // «sólo su IA» del negocio, como al confirmar (tercera revisión del Cerebro, 21/10/2026).
+        return conSuIADelNegocio(w.id, () => asegurarAnalisisDeDeclaradas({ deadline }));
       });
       if (!r) continue;
       revisados.push({ ws: w.id, declaradas: r.declaradas, analizadas: r.analizadas.length, fallidas: r.fallidas.length, cortadas: r.cortadas, reintentadas: r.reintentadas });

@@ -122,11 +122,13 @@ test('los adjuntos: se abren por su mensaje mirando de quién es, no quedan suel
   assert.equal((ruta.match(/guardarAdjuntos: true/g) ?? []).length, 1, 'el Second Brain lo pide (sólo en el envío con archivos)');
   assert.match(sinComentarios(leer('app/api/m/mako/route.ts')), /guardarAdjuntos: true/, 'el teléfono lo pide');
   assert.ok(!/guardarAdjuntos/.test(sinComentarios(leer('lib/mako-analyst-lead.ts'))), 'el Analyst del lead no');
-  assert.match(turno, /archivarPdfsDelChat\(ws, msg\.id, inicio, pdfs\)/, 'el plazo de El Archivero corre desde que empezó el turno');
+  // `msgId` es `msg.id` (21/10/2026: El Archivero se decide antes, con D6b; tests/solo-su-ia.test.ts).
+  assert.match(turno, /archivarPdfsDelChat\(ws, msgId, inicio, pdfs\)/, 'el plazo de El Archivero corre desde que empezó el turno');
   const archivar = turno.indexOf('archivarPdfsDelChat(ws');
   assert.ok(archivar > 0, 'el turno pasa los PDF a El Archivero');
   const antes = turno.slice(0, archivar);
-  assert.ok(antes.slice(antes.lastIndexOf('if (')).startsWith("if (persona.rol === 'admin'"), 'sólo los del admin (El Archivero alimenta el perfil del negocio)');
+  // Desde el 21/10/2026 el «sólo el admin» está en la lista de los PDF (antes de decidir El Archivero con D6b).
+  assert.ok(antes.lastIndexOf("const pdfs = persona.rol === 'admin' && msg.conBloques && msgId != null ?") > 0, 'sólo los del admin (El Archivero alimenta el perfil del negocio)');
 
   const cc = sinComentarios(leer('lib/chart-chats.ts'));
   const del = cc.slice(cc.indexOf('export async function deleteSession('));

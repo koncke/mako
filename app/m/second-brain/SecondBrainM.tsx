@@ -173,7 +173,7 @@ export function SecondBrainM({ cerebro, grafo = cerebro, areaInicial }: {
   );
 
   const volverANormal = () => { pedido.current++; setIa(SIN_IA); };
-  const escribir = (v: string) => { setQ(v); if (conIA) volverANormal(); };
+  const escribir = (v: string) => { setQ(v); if (conIA || ia.explico) volverANormal(); };
 
   /** Le pide a MaKo que lea el mapa (la misma ruta de escritorio). Devuelve IDS: se dibujan los nodos de acá. */
   const buscarConMako = async () => {
@@ -186,9 +186,11 @@ export function SecondBrainM({ cerebro, grafo = cerebro, areaInicial }: {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ q: texto }), signal: AbortSignal.timeout(60_000),
       });
-      const j = await r.json().catch(() => null) as { ok?: boolean; ids?: unknown; explico?: unknown } | null;
+      const j = await r.json().catch(() => null) as { ok?: boolean; ids?: unknown; explico?: unknown; porTexto?: boolean } | null;
       if (n !== pedido.current) return;
       if (!j || j.ok === false) { setIa({ pensando: false, ids: [], explico: R.sinMako }); return; }
+      // `porTexto` (D6b): con su propio Claude y sin una clave que busque, MaKo no buscó: queda la búsqueda por texto, con el porqué.
+      if (j.porTexto) { setIa({ pensando: false, ids: null, explico: String(j.explico ?? '') }); return; }
       setIa({ pensando: false, ids: Array.isArray(j.ids) ? j.ids.map(String) : [], explico: String(j.explico ?? '') });
     } catch {
       if (n === pedido.current) setIa({ pensando: false, ids: [], explico: R.sinMako });
@@ -334,6 +336,8 @@ export function SecondBrainM({ cerebro, grafo = cerebro, areaInicial }: {
               />
             </div>
           )}
+          {/* MaKo no buscó (D6b, `porTexto`): lo de abajo es la búsqueda por texto, y se dice por qué. */}
+          {!conIA && ia.explico && <p className="m-second-brain-estado">{ia.explico}</p>}
 
           {ia.pensando ? (
             <>

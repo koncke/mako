@@ -959,6 +959,9 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         body: JSON.stringify({ q: texto }), signal: AbortSignal.timeout(60_000),
       });
       const j = await r.json();
+      // `porTexto` (D6b): con su propio Claude y sin una clave que busque, MaKo no buscó. `ids: null` deja la búsqueda
+      // por texto, y `explico` dice por qué (BuscadorCerebro.tsx lo muestra).
+      if (j?.porTexto) { setIa({ pensando: false, ids: null, explico: String(j?.explico ?? '') }); return; }
       setIa({ pensando: false, ids: Array.isArray(j?.ids) ? j.ids : [], explico: String(j?.explico ?? '') });
     } catch {
       setIa({ pensando: false, ids: [], explico: 'No se pudo consultar a MaKo.' });

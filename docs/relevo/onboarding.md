@@ -1,5 +1,71 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 ~14:45 AR — EN PRODUCCIÓN; LA RAMA onboarding-v3 SE CIERRA PARA ESTA RONDA
+
+- De la primera a la sexta revisión, con 689f75560 (run 199). De la séptima a la undécima, con cbafd6eae (aa3ff1c0e,
+  run 212: 3.882 tests y tipos limpios). El «Hecho» está en la bitácora del Onboarding (app/admin/dev/onboarding).
+- Lo que sigue abierto, y dónde: reparar el ws21 de Florencia (el script, sólo con el sí de Martín y el nombre que él
+  elija); las otras exportaciones a CSV sin escape de fórmulas (docs/hallazgos-seguridad.md, no es de esta área); los
+  «Sin hacer» de docs/hallazgos-onboarding.md (cobrar por año o por semana, la nota del PDF en Offer, el campo de la caja
+  que se vuelve a montar, «mínimo 3 meses» o «Hasta 6 cuotas con Mercado Pago» que todavía proponen la N).
+- Una ronda nueva arranca de origin/main en una rama nueva, no sobre onboarding-v3.
+
+## ESTADO AL 21/10/2026 — UNDÉCIMA REVISIÓN (de 1106e8c16): LA LECTURA CON EL MISMO EXTRACTOR QUE LA RED
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
+(side-session-notes/local_797d5445…/revision-onboarding-undecima-21-10.md).</sub>
+
+- Un extractor de N (`nsDelPrecio`) para la lectura y las opciones; una N con moneda no es N, y un número pelado no es un
+  monto (`MONTO_CON_MONEDA`). Los meses se proponen sólo pegados a un cobro o al plazo del plan (`RE_MESES_DEL_PLAN`).
+  Señales de pago único dichas de otra forma (`UNICO_DICHO`) y negaciones más amplias (`NEGO_LO_PERIODICO`).
+- Medido con las 570 frases del Cerebro: faltan 0, el «Sí» guarda mal 6 (producción 122). Pregunta sin proponer en 83
+  precios sin señal que producción proponía como pago único (la familia del precio pelado). Tests:
+  tests/onboarding-undecima-revision.test.ts. Sondas: medir-criterio.mts del scratchpad del chat «Onboarding».
+
+## ESTADO AL 21/10/2026 — DÉCIMA REVISIÓN (de 5d353db16): LA ENTRADA EN DÍGITOS Y SIN LECTURAS POR DEFECTO
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
+(side-session-notes/local_797d5445…/revision-onboarding-decima-21-10.md).</sub>
+
+- El precio se pasa a dígitos una vez (`precioEnDigitos`): «tres cuotas» trae la de 3 meses. La red junta enumeraciones,
+  «x N», «cuotas: N» y «partes»; las N de cuotas van antes que las de meses, sin tope (hasta 60).
+- Una lectura sin señal (`porDefecto`) no se propone: «No me queda claro cómo cobras: ¿cuál uso?», orden fijo, un sí no
+  elige. Incluye el precio pelado («USD 997»). La guarda de pestaña vieja ve el cobro con lectura recomendada.
+- PDF: lo sumado va con `SUMA_PDF` (un salto de línea) y la pregunta cuenta lo sumado. Tests:
+  tests/onboarding-decima-revision.test.ts.
+
+## ESTADO AL 21/10/2026 — NOVENA REVISIÓN (de 82321e397): EL COBRO CAMBIA DE RED
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
+(side-session-notes/local_797d5445…/revision-onboarding-novena-21-10.md).</sub>
+
+- **El cobro:** no hay más reglas de periodicidad. Las opciones son todas las lecturas (`opcionesDeCobro`: «Pago único»,
+  «Suscripción mensual (sin fin)», «Suscripción de N meses» por cada N del texto); la lectura (`cobroDelPrecio`) sólo
+  ordena y arma el «Entendí». Si alguien encuentra otro precio mal leído, NO se arregla la lectura: se mira que la
+  opción correcta esté (tests/onboarding-novena-revision.test.ts).
+- La pregunta del PDF repite lo último sumado, así cambia al sumar pasado el tope.
+
+## ESTADO AL 21/10/2026 — OCTAVA REVISIÓN (de 108b2f270): DOS REGRESIONES CONTRA PRODUCCIÓN, CERRADAS
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560 (run 199)
+(side-session-notes/local_797d5445…/revision-onboarding-octava-21-10.md).</sub>
+
+- La duda con un nombre esperando es sólo de la palabra suelta: «Claro, así se llama» confirma, «Claro» pregunta.
+- El cobro lee la periodicidad pegada al pago (`RE_CUOTAS_CON`, `RE_PEGADO`): «con una llamada semanal» no es un cobro
+  semanal. Lo trimestral, semestral, bimestral y quincenal se pregunta sin proponer. Pasado el tope del PDF, lo nuevo se
+  suma a lo último. Tests: tests/onboarding-octava-revision.test.ts.
+
+## ESTADO AL 21/10/2026 — SÉPTIMA REVISIÓN (de 689f75560): ENTRÓ; LOS SEIS BAJOS
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «689f75560 ENTRA, sin altos ni medios»
+(side-session-notes/local_797d5445…/revision-onboarding-septima-21-10.md).</sub>
+
+- Con un nombre esperando, «Simón», «Vale», «Listo» o «Tal Cual» ni confirman ni reemplazan: se pregunta cuál
+  (`siAlPendiente`, `PUEDE_SER_NOMBRE` en lib/onboarding-frases.ts). El mismo nombre otra vez confirma, también «Su Lin».
+- Cobro: lo semanal va antes que las cuotas, y las cuotas «anuales» no son meses. Toque del PDF: valen los sí y no de una
+  palabra («Ok», «Dale», «👍», «Nop», «👎»), con tope de `PDF_TOPE_ESCRITAS`. MaKo pregunta qué falta siempre que la nota
+  no lo dice. Los recortes van por punto de código (`cortar`). Tests: tests/onboarding-septima-revision.test.ts.
+
 ## ESTADO AL 21/10/2026 — SEXTA REVISIÓN (de a0cdcfcc6): EL TOQUE DEL PDF CON LA POLARIDAD DE LA PREGUNTA
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3

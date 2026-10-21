@@ -40,7 +40,7 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
 import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto, monedaDelNegocio } from '@/lib/pagos';
-import { avisoDeConservadas, avisoMonedaPorOmision, cobroManualDeEntrada, textoDelCobro } from '@/lib/pagos-campo';
+import { avisoDeConservadas, avisoMonedaPorOmision, avisoPlanUniforme, cobroManualDeEntrada, textoDelCobro } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
@@ -2042,6 +2042,9 @@ export const RUNNERS: Runners = {
       const plan = { cobro_inicial_usd: n(input.cobro_inicial_usd) ?? null, monto_cuota_usd: n(input.monto_cuota_usd) ?? null, total_cuotas: n(input.total_cuotas) ?? null, dia_de_pago: n(input.dia_de_pago) ?? null };
       if (plan.cobro_inicial_usd == null && plan.monto_cuota_usd == null) return { error: 'Pasa al menos el cobro inicial o el monto de la cuota (en USD).', faltan: ['cobro_inicial_usd', 'monto_cuota_usd'] };
       if (plan.monto_cuota_usd != null && plan.total_cuotas == null) return { error: 'Con monto de cuota hace falta la cantidad de cuotas (1 a 6).', faltan: ['total_cuotas'] };
+      // Con plata suelta y sin plan, no se propone (21/10/2026): la seña tapaba la cuota 1 (`savePlanPagos` igual lo frena).
+      const sueltos = avisoPlanUniforme(await getPagosByLead(lead.id));
+      if (sueltos) return { error: sueltos };
       const partes = [plan.cobro_inicial_usd != null ? `inicial ${plan.cobro_inicial_usd} USD` : '', plan.monto_cuota_usd != null ? `${plan.total_cuotas} cuota(s) de ${plan.monto_cuota_usd} USD` : '', plan.dia_de_pago != null ? `día ${plan.dia_de_pago}` : ''].filter(Boolean);
       return { payload: { leadId: lead.id, ...plan }, resumen: `Plan de pagos de ${lead.nombre}: ${partes.join(', ')}. Reemplaza las cuotas no pagadas.` };
     },

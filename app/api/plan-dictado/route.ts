@@ -8,10 +8,21 @@
 // Usa `transcribirAudio` (lib/ai-cheap), que es la MISMA cascada gratis que el resto de la
 // app (Gemini → Groq → OpenAI) y ya aplica la gramática de la marca al texto que devuelve.
 // Nada de `whisper-1` pago: acá se dicta una línea, no se transcribe una clase.
+//
+// ⛔ UNA NOTA DE VOZ ES UN DATO DE UN CLIENTE (revisión del Cerebro, 21/10/2026): la usa también el chat de MaKo del
+// teléfono («¿qué le pasó a María González con el pago?»), así que va con `pii` —la red gratis de la plataforma no la
+// escucha, como en WhatsApp (lib/mako-doer-in.ts)— y, en un negocio con su Claude o su GPT (D6b, lib/ia-del-negocio.ts),
+// sólo con SU OpenAI: sin ella, se dice por qué, en vez de mandarla a Gemini.
 // =============================================================================
 
 import { getUsuarioActual } from '@/lib/auth';
-import { transcribirAudio } from '@/lib/ai-cheap';
+import { provsDe, transcribirAudio } from '@/lib/ai-cheap';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { conSoloSuIA } from '@/lib/solo-su-ia';
+
+/** Con su propio Claude y sin su OpenAI no hay con qué escuchar la nota sin la cascada gratis. */
+const SIN_OIDO_SU_IA = 'Con tu propio Claude, las notas de voz las escucho con tu clave de OpenAI, y no la tienes conectada. Escríbemelo.';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -31,7 +42,14 @@ export async function POST(req: Request) {
     // propósito: esto es una nota de voz de segundos, no un archivo.
     if (file.size > 12 * 1024 * 1024) return Response.json({ ok: false, error: 'El audio es muy largo. Graba menos de un minuto.' }, { status: 400 });
     const base64 = Buffer.from(await file.arrayBuffer()).toString('base64');
-    const texto = await transcribirAudio(base64, file.type || 'audio/webm', { motivo: 'Dictar una tarea del plan' });
+    const ws = await getWorkspaceActual().catch(() => null);
+    // Sin saber de qué negocio es, como si tuviera su IA (falla cerrada).
+    const negocio = ws == null ? { suIA: true } : await negocioConSuIA(ws);
+    const texto = await conSoloSuIA(negocio.suIA, async () => {
+      if (negocio.suIA && !(await provsDe('openai')).length) return null;
+      return transcribirAudio(base64, file.type || 'audio/webm', { motivo: 'Dictar una tarea del plan', pii: true });
+    });
+    if (texto == null) return Response.json({ ok: false, error: SIN_OIDO_SU_IA }, { status: 200 });
     return Response.json({ ok: true, texto: texto.trim() });
   } catch (e) {
     // El error VIAJA tal cual: la cascada ya dice cuál falló y por qué («ninguna IA

@@ -170,6 +170,10 @@
       "schedule": "20 6 * * *"
     },
     {
+      "path": "/api/cron/ia-pc-purga",
+      "schedule": "40 6 * * *"
+    },
+    {
       "path": "/api/cron/cs-sesiones-entrega",
       "schedule": "52 * * * *"
     },

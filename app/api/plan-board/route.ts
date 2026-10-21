@@ -120,7 +120,9 @@ export async function POST(req: NextRequest) {
       const historial = Array.isArray(body.historial) ? (body.historial as Hist[]) : undefined;
       // El avance de ANTES: sólo lo manda el «Deshacer» de un mover (`trasMover`, 16/10/2026).
       const progreso = typeof body.progreso === 'number' && Number.isFinite(body.progreso) ? body.progreso : undefined;
-      const r = await moverPlanTarea(id, estado, orden, { motivo, historial, progreso });
+      // La columna propia de destino (mig 0317); cualquier otra cosa es «la de su estado».
+      const columna = typeof body.columna === 'string' ? body.columna : null;
+      const r = await moverPlanTarea(id, estado, orden, { motivo, historial, progreso, columna });
       return r.ok ? NextResponse.json({ ok: true, tarea: r.tarea }) : NextResponse.json({ ok: false, error: r.error }, { status: r.status });
     }
     if (action === 'borrar-tarea') {

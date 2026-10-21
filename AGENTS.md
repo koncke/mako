@@ -796,6 +796,11 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
   todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
   («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.
+  ⚠️ **Y una migración se aplica en producción RECIÉN DESPUÉS de la revisión del Cerebro** (el Cerebro, 21/10/2026).
+  Ese día la Ticketera escribió `0318_ia_pc` y `0319_ia_pc_consentimiento` mirando sólo main y su rama, sin pedir el
+  número, y las aplicó para probar de punta a punta: la 0318 era de Pagos y la 0319 de Infra, reservadas y por entrar
+  antes. Se renumeraron (0320 y 0321), quedaron idempotentes y con «Aplicada a mano en producción el …» en la cabecera.
+  Si una prueba necesita la tabla antes de la revisión, se pide el número Y el permiso de aplicarla, las dos cosas.
 - ⚠️ **`git add <ruta>` NO acota el commit: se commitea TODO el índice.** Si otra sesión ya
   stageó algo, `git add mi-archivo && git commit` se lo lleva adentro de tu commit, con tu
   mensaje y tu trailer. Pasó el 05/10/2026: un commit de docs salió con una baja ajena de 430
@@ -1069,6 +1074,13 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   confirma una PERSONA (un «sí» en WhatsApp o la bandeja `/mako/pendientes`); `pantalla`
   deja una propuesta con link a una pantalla editable. **Lo que cuesta plata es `pantalla`
   y `rolMinimo: 'admin'`, sin excepción** (el test lo exige).
+  Toda superficie que muestra una pendiente para CONFIRMARLA (la tarjeta del chat, el teléfono, la bandeja
+  `/mako/pendientes`) pinta con `lineasDelPayload`: lo que se aprueba se ve ENTERO, hasta `MAX_TEXTO`, y el `max` de un
+  parámetro que se aprueba mirándolo no lo pasa (21/10/2026: la bandeja cortaba en 240 y el email salía con 2.000).
+  Una lista de objetos se pinta elemento por elemento, nunca como «N elementos».
+- **Un teléfono de WhatsApp se compara con `mismoContacto` / `TelefonosDe`** (lib/numero-whatsapp.ts), nunca con `===`
+  ni con un `Set` de strings: bloquear, desbloquear, ocultar y marcar una lista. El mismo contacto llega con y sin país,
+  con el 9 de Argentina o el 1 de México (21/10/2026: un bloqueado seguía recibiendo la secuencia).
 - **`gating.soloPlataforma`** en lo que la PLATAFORMA decide sobre los negocios y un negocio no puede deshacer en el
   suyo (exigir el 2FA): se resuelve por la capa en `vistaDe`, y el runner lo vuelve a preguntar. Un `gating.tab` no
   sirve para esto: las capas `completo` y `agencia` ven todas las tabs.
@@ -1869,6 +1881,17 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   con un plan no se toca; en una suscripción, los meses ya cobrados sueltos son las primeras cuotas y las fechas van
   desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
   un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
+- **Lo cobrado de una suscripción se cuenta DE A UNA cobrada, con `mesesDeUnaCobrada`** (lib/cobrado-lead.ts,
+  21/10/2026): lo que se registró COMO la mensualidad (`es_mensualidad`) vale un mes, sea del monto que sea; la plata
+  cuenta sólo para un pago suelto o la pasarela, con el mínimo de un mes; nunca la suma de todas (el desvío se
+  acumula). Cómo se registró lo dice la fila, no su monto. Qué es plata suelta, `esPlataSuelta`; en 'slots' la
+  cuota N es la N-ésima del plan, no la fila con el número N; y qué es un plan lo dice `pagosPrevios`
+  (lib/pagos-campo.ts): ninguna lectura nueva cuenta filas como meses ni arma su propia regla.
+- **Toda fila de `pagos` que no es una cuota del plan NACE MARCADA, y qué es del plan lo dice `esCuotaDelPlan`**
+  (lib/cobrado-lead.ts, 21/10/2026): un pago suelto, una mensualidad a mano y el cobro de un link sin cuota llevan
+  `nacio_cobrada`; la diferencia de un cobro por menos, `resto_de`. Un escritor nuevo de `pagos` marca su fila al
+  insertarla; nunca se adivina por `proveedor` (una cuota del plan cobrada por link también lo tiene), por número ni
+  por fecha. Lo que gana un lead sin pasar por `updateLead` escribe también su `fecha_cierre`.
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
@@ -2038,6 +2061,31 @@ algo?» invertía el sí, y DICE_SI («perfecto», «está bien») anotaba como 
 pregunta del toque repite lo que confirma (así el guard de pestaña vieja la distingue). Ahí deciden sólo los botones y un
 sí o un no pelados, y lo demás escrito se SUMA a lo anterior, no lo pisa. Y al exportar a CSV texto que escribió otro, lo
 que empieza con = + - @ va con una comilla simple adelante (docs/hallazgos-seguridad.md).
+
+**Con un nombre esperando, una palabra que es sí y también nombre no confirma (séptima revisión, 21/10/2026).** «Simón»,
+«Vale», «Listo» son un sí y son nombres reales: con un pendiente, se pregunta cuál de los dos es (`siAlPendiente`). La duda
+es de la palabra SUELTA: «Claro, así se llama» es un sí (octava revisión). Y un texto del usuario que se recorta se corta
+por punto de código (`cortar`), nunca con `slice`: un emoji partido no se puede guardar en Postgres.
+
+**Un arreglo no puede ser más ancho que el caso (octava revisión, 21/10/2026).** Las dos regresiones de esa ronda salieron
+de cerrar un caso con una regla que alcanzaba a más («semanal» en cualquier parte del precio, la duda para toda frase que
+empieza con «Claro»). Antes de pasar la punta, las frases de la revisión anterior se corren en la punta y en producción, y
+se mira el diff.
+
+**Las opciones del toque son todas las lecturas; la lectura sólo ordena (novena revisión, 21/10/2026).** Si una lectura con
+reglas decide QUÉ opciones se muestran, cada error de lectura deja a la persona sin la respuesta correcta, y cada regla
+nueva mueve casos de lugar (el cobro tuvo cuatro vueltas). Las opciones se arman con todo lo que el texto PERMITE
+(`opcionesDeCobro`), y la lectura sólo elige cuál va primera.
+
+**Una lectura por defecto no se propone, y la entrada se normaliza antes de leer (décima revisión, 21/10/2026).** La caída
+de una lectura sin ninguna señal (el `return` del final) se marca y se pregunta sin recomendar: si no, «Entendí que…»
+afirma algo que el texto no dijo, y un «Sí» lo guarda. Y lo que varía en la forma y no en el fondo (números en letras,
+«x», enumeraciones) se normaliza UNA vez al entrar (`precioEnDigitos`), no con más alternativas en cada regex.
+
+**La lectura y la red usan el mismo extractor (undécima revisión, 21/10/2026).** Si la lectura tiene su propio parser, la
+opción correcta está pero el «Sí» guarda otra; la lectura toma la primera de lo que extrae la red (`nsDelPrecio`). Y
+normalizar la entrada arrastra a la forma nueva todo defecto que la lectura ya tenía: después de normalizar, se mide
+contra la respuesta correcta otra vez.
 
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
@@ -4672,6 +4720,24 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+- ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
+  camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts; el turno,
+  con `entrarSoloSuIA` después de su primer `await`), con `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y
+  fallando cerrado. El corte vive en lib/ai-cheap.ts (`provDe`,
+  `provsGratisDePlataforma`) y en `ordenarPorCuota`: **una lectura nueva de una key barata, o una consulta nueva a un
+  proveedor, pasa por ahí o suma su corte**, y tests/solo-su-ia.test.ts la tiene que ver (corre las entradas REALES de la
+  cascada contra una base de mentira y cuenta a qué hosts sale). El 21/10 el corte obvio (`provDe`) no alcanzó: el orden
+  por cuota ya había leído las keys y le había consultado el saldo a OpenRouter.
+  ⚠️ **Toda ENTRADA que ejecuta trabajo con IA de un negocio prende el contexto ella misma; no lo hereda del turno**
+  (segunda revisión del Cerebro, 21/10/2026): lo que corre al CONFIRMAR una tarjeta va en otro pedido
+  (`confirmarDesdeTarjeta`, la bandeja, /mako/revisar) y los números del negocio iban a Gemini. Una ruta, una server
+  action o un confirmar nuevo envuelve su trabajo en `conSuIADelNegocio(ws, fn)` (lib/ia-del-negocio.ts) o llama a
+  `entrarSoloSuIA` tras leer el negocio; tests/d6b-confirmar.test.ts corre los caminos de confirmar. **Cada handler o
+  acción nueva (también un `'use server'` en lib/, también un cron que corre lo pedido desde el Ops Center) que llega a
+  lib/ai-cheap.ts se decide en tests/d6b-rutas.test.ts**: adentro (con `conSuIADelNegocio`), en `SIN_IA` si no pide IA, o
+  en `FUERA_DE_D6B` con su porqué; lo que alcanzan las pantallas del Ops Center no puede ir afuera. La guarda decide por
+  HANDLER: que el POST de al lado prenda no salva al PATCH nuevo. Y lib/transcribe.ts es otra cascada SIN el corte:
+  envolver la ruta no la protege, así que lo que la alcanza va afuera o en `SIN_IA`, nunca «adentro».
   ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
   lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
   `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las
@@ -9591,3 +9657,11 @@ pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `p
 `setSecuenciaPasos` directo (ése es del sistema, que no tiene a quién preguntarle). Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
+
+## Una tabla en grilla aguanta un escritorio chico (21/10/2026)
+
+En una grilla CSS lo que no recorta no empuja la columna: se dibuja encima de la de al lado, sin error. Cada celda lleva
+`minWidth: 0` y recorta con «…», y un botón o un chip adentro de una celda también (`minWidth: 0`, `maxWidth: '100%'`).
+Si la tabla tiene más de cuatro columnas, salen de un ancho MEDIDO con mínimo y prioridad (el molde:
+app/crm/tabla-columnas.ts), no de fracciones fijas, y se mide a 934×639 y 1024×768 contando el texto fuera de su celda
+(tests/_crm-lista-arnes.tsx). Detalle: docs/hallazgos-crm.md.

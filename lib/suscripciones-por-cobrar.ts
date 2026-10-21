@@ -80,8 +80,9 @@ export function itemDeSuscripcion(e: {
   if (s.renovacionFallida) {
     motivo = 'renovacion-fallida'; meses = 1; vence = ultimoAniversario(cierre, hoy);
   } else if (s.fuente === 'manual' && s.sinRegistrar > 0) {
-    // El primer mes sin registrar: los meses cuentan desde el cierre, y los registrados son las cobradas.
-    motivo = 'sin-registrar'; meses = s.sinRegistrar; vence = sumarMeses(cierre, c.cuotas.cobradas);
+    // El primer mes sin registrar: los meses cuentan desde el cierre, y los cubiertos son los que cuenta `cobradoDelLead`
+    // (por plata la suelta: un adelanto de 3 meses en un pago son 3, no 1, o el cliente desaparecía de la lista del mes).
+    motivo = 'sin-registrar'; meses = s.sinRegistrar; vence = sumarMeses(cierre, s.mesesCubiertos);
   } else if (s.fuente === 'manual' && s.proximaRenovacion) {
     motivo = 'proxima'; meses = 1; vence = s.proximaRenovacion;
   } else {

@@ -77,7 +77,12 @@ export const TABLAS_DE_INQUILINO = [
   'email_entrantes', 'email_mensajes', 'evolution_contactos',
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'flujo_corridas', 'formatos',
-  'funnel_config', 'funnel_ofertas', 'funnels', 'identidades_fiscales',
+  'funnel_config', 'funnel_ofertas', 'funnels',
+  // La IA del cliente en SU computadora (migs 0320 y 0321, 21/10/2026): los códigos, las PC y los turnos, por negocio.
+  // `ia_pc_llamadas` no tiene `workspace_id`: se va con su turno (on delete cascade). No van en TENANT_TABLES: las lee
+  // lib/ia-pc.ts con el service role.
+  'ia_pc_codigos', 'ia_pc_dispositivos', 'ia_pc_turnos',
+  'identidades_fiscales',
   'ig_conversaciones', 'ig_mensajes', 'image_disenos', 'image_editor_chats', 'image_subidos', 'insistencias', 'kpi_registros', 'kpis',
   'landing_analyses', 'landing_doc_comentarios', 'landing_doc_versiones', 'landing_docs', 'landing_drafts', 'landing_sugerencias', 'landing_visits', 'lead_audit',
   'lead_funnel', 'lead_insights', 'lead_magnets', 'lead_orden', 'lead_respuestas', 'leads',

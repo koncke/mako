@@ -38,7 +38,7 @@ import { lugarSeccion } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { getSetting } from '@/lib/settings';
-import { CLAVE_ENCUESTA, PDF_SIN_DETALLE } from '@/lib/onboarding-arranque';
+import { CLAVE_ENCUESTA } from '@/lib/onboarding-arranque';
 import { getAvatares, getContextoAvatares, siguientePreguntaAvatares } from '@/lib/avatares';
 import { getEntregables, siguientePreguntaEntregable } from '@/lib/entregable';
 import { getPersona, personaEstado } from '@/lib/persona';
@@ -337,9 +337,9 @@ export const RUNNERS: Runners = {
         // Sin completedBy: es el email de quien lo cerró (dato del equipo) y esto sale por http.
         empezo: s.startedAt ?? null, termino: s.completedAt ?? null,
         nota: [pasos.length ? 'Solo los pasos que le tocan a este plan.' : 'Este plan no tiene asistente de arranque.',
-          encuesta?.pdfNota ? 'encuesta.pdfNota: lo que el cliente dijo que falta o está mal en el PDF de su oferta. Se le prometió trabajarlo en la app: ofrécele corregirlo en Offer.' : '',
-          // Un «no» sin detalle (sexta revisión, 21/10): que MaKo pregunte qué es, la próxima vez que hablen.
-          encuesta?.pdfNota === PDF_SIN_DETALLE ? 'No dijo qué: pregúntale qué falta o qué está mal antes de corregir nada.' : ''].filter(Boolean).join(' '),
+          // Si la nota no dice qué (un «no» sin detalle, o «No me convence»), que MaKo pregunte: siempre, no sólo con la marca
+          // sin detalle (séptima revisión, 21/10).
+          encuesta?.pdfNota ? 'encuesta.pdfNota: lo que el cliente dijo que falta o está mal en el PDF de su oferta. Se le prometió trabajarlo en la app: ofrécele corregirlo en Offer. Si la nota no dice QUÉ falta o qué está mal («sin detalle», «No me convence», «Falta algo»), pregúntale antes de corregir nada.' : ''].filter(Boolean).join(' '),
       });
     },
   },

@@ -7266,6 +7266,68 @@ borrador pendiente en /plan/revisar, cruzado contra el tablero.
 (`clientesMako`, `listReunionesRecientes`) · lib/closing.ts (`getLeadsByEmail` trae `cliente_ws`) ·
 tests/reunion-clasificar-clientes.test.ts
 
+## Las columnas del Plan: las de siempre ES el estado; las propias, un paso dentro de uno (20/10/2026)
+
+«Columnas editables como en el CRM» (Martín, 18/10 pt 9). Lo que no se ve en el código:
+
+- **La columna del Plan es el ESTADO de la tarea**, con un CHECK en `plan_tareas` y en `experimento_tareas` y ~10
+  lectores que deciden con él (qué es pendiente, qué se completa, qué cuenta el Perro). Por eso se edita lo que en el
+  CRM se edita de una etapa del sistema: el NOMBRE. La clave no cambia nunca (lib/todo-estados.ts ya lo decía: «las
+  CLAVES no se renombran nunca: cambian las ETIQUETAS»). Cada negocio guarda sus nombres en `app_settings`
+  (`plan.columnas`), y el toast, el historial, el selector de la ficha, el teléfono y MaKo dicen el mismo.
+- **Un tablero embebido es de OTRO negocio.** La ficha de un cliente y el admin dibujan el plan de otro workspace,
+  pero el contexto del server es el de quien mira: leer los nombres ahí daría los del negocio equivocado. Esos
+  tableros reciben `columnas = null` (los de siempre, sin editar); sólo /plan y /plan/agencia pasan los suyos.
+- **Escribir lee ESTRICTO** (`getSettingEstricto` + `cambiarSettingSi`): `getSetting` devuelve null si falla, y
+  guardar «sólo el nuevo» borraría los demás nombres sin un error.
+- **MaKo, sólo por la app** (`ver_columnas_plan`, `renombrar_columna_plan`): el presupuesto de herramientas del turno
+  de WhatsApp ya está justo (tests/agenda-whatsapp.test.ts), y renombrar una columna se hace mirando el tablero.
+
+- **Una columna PROPIA es un paso DENTRO de un estado** («En revisión» agregada después de «En proceso» es trabajo en
+  curso). La tarea guarda en cuál está (`columna`, mig 0317) y su estado sigue siendo el de esa columna, así que los
+  ~10 lectores del estado no se enteran. Si la columna ya no existe o no es de su estado (se completó por el avance, la
+  movió MaKo), se dibuja en la de su estado (`claveDeTarea`): quitar una columna no pierde tareas y no hace falta FK.
+- **Mover SIEMPRE escribe la columna** (null = la de siempre): de «En revisión» a «En proceso» el estado no cambia y
+  sólo esto lo dice. Y en `useBoard.mover` una columna sin decir (`undefined`) SE QUEDA si el estado no cambia: cargar
+  el motivo de Atorada o reordenar no la saca de su columna; si cambia, va a la de su estado.
+- **Sin la mig 0317 anda igual:** las lecturas del tablero son `select('*')`; mover reintenta sin `columna` con
+  42703/PGRST204; el teléfono lee la fila con `*` (una lista que NOMBRA `columna` tumba la consulta entera).
+- ⚠️ **El PostgREST de mentira del arnés aceptaba lo que la base rechaza:** devolvía la fila entera para cualquier
+  `select` y aplicaba cualquier PATCH. Dos roturas salían en verde (el teléfono leyendo `columna` por nombre, y mover
+  que no borraba la columna al volver a la de siempre) hasta que el mock contestó 42703/PGRST204 como la base real y el
+  arnés hizo el viaje de vuelta. tests/_plan-columnas-hijo.ts.
+- **Una operación nueva en la API de MaKo pide regenerar `docs/api-mako.md`** (`node --import tsx
+  scripts/generar-api-doc.mjs`): lo exige un test de api-mako. La primera parte no lo hizo y el test lo cazó en la segunda.
+
+**Sin hacer:** las de siempre no se quitan ni se mueven (son el estado). Los tableros embebidos de otro negocio, con
+sus columnas. Nada se vio en pantalla.
+**Vive en:** lib/plan-columnas.ts y plan-columnas-server.ts · app/plan/board/useBoard.ts y BoardShell.tsx ·
+lib/plan-mover.ts · app/m/plan/ · lib/api-mako/areas/plan.* · mig 0317 · tests tests/plan-columnas-nombre.test.ts y
+tests/plan-columnas-propias.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
+
+## Lo que encontró la revisión de las columnas propias (21/10/2026)
+
+- **Un callback del modal corre con el `board` del render del CLIC.** El «＋ Nueva tarea» de una columna propia
+  movía la tarea en el `onDone` del modal: ese `board.mover` buscaba la tarea en un `tasks` que todavía no la tenía,
+  devolvía false y no avisaba. La tarea quedaba en la columna de su estado. Se mueve en un EFECTO cuando el tablero
+  ya la trae (`aColumnaPropia`, BoardShell). Regla: lo que depende de un dato recién creado no se hace con el
+  closure del clic.
+- **«Embebido» no es «de otro negocio».** Admin › Clientes › tablero monta el MISMO tablero del negocio sin las
+  columnas. Ahí soltar mandaba `columna: null` y al reordenar le borraba a la tarjeta su columna propia. Un tablero que
+  no conoce las columnas no manda columna (`undefined`), y `mover` conserva la que tenía si el estado no cambia.
+- **MaKo leía el estado y no la columna**: decía «En proceso» de una tarea en «En revisión» y anunciaba «de En
+  proceso a En proceso». Ahora mira `claveDeTarea` para la ficha, el «desde», el «ya está así», el historial del mover y
+  las listas (`columnaPropia` en `leerTablero`, una vez para todas).
+- **La lista le daba a MaKo el NOMBRE de la columna propia y mover pedía la CLAVE** `c_…`, que sólo da
+  `ver_columnas_plan`, que no viaja en todos los turnos de la app (queda afuera del presupuesto) y por WhatsApp no
+  existe. Ahora mover acepta el nombre o la clave (`propiaDeEstado`, sin mayúsculas ni acentos, de ESE estado), y el
+  error dice cuáles hay. **Regla: lo que una herramienta acepta es lo que otra le da a MaKo.**
+- **El parámetro `columna` de mover también viaja a WhatsApp** y corre el corte voraz del presupuesto de 12.000
+  caracteres: entra una herramienta y sale otra. Medido por SHA (main 41fbbfe2e contra la rama, cada frase sin y con «MaKo preguntó»): con la descripción de antes, mover medía 931 caracteres (main 828) y cambiaban 6 de 56 turnos de frases reales del plan («ya lo hice», «listo, ya lo hice» y «Ya lo subí» perdían `actualizar_avance_tarea`) y 2 de 1.516 de las baterías. Con mover recortado a 828 (9daaaa495): 0 de 56, 0 de 1.516, y 3 de 74.058 turnos de todas las frases de los tests, los tres porque entra `agregar_contacto_al_crm` (da de alta un lead, no le manda nada). Ningún turno de WhatsApp trae un envío al lead. El test fija el tope (828). ⚠️ **Esa medición no miraba el «sí» a un ofrecimiento** (armaba los turnos sin `contextoDelSi`): ahí `agregar_contacto_al_crm` entraba en 71 de 105 y sacaba lecturas que producción daba. Se dejó sólo por la app, y medido otra vez por SHA (main ef0fe3464 contra la rama d73776f0e): 0 de 137 «sí» a un ofrecimiento, 0 de 56 frases del plan y 0 de 1.516 de las baterías cambian. **Regla: «WhatsApp no cambia» se mide también con el «sí» y su ofrecimiento.**
+
+**Vive en:** app/plan/board/BoardShell.tsx · lib/api-mako/areas/plan.run.ts · tests/plan-columnas-propias.test.ts ·
+*21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*
+
 ## El dictado de respaldo usa las keys del negocio: un cliente nuevo no puede dictar sin el reconocimiento del navegador (20/10/2026)
 
 `useDictar` (app/_components/useDictar.ts) dicta en vivo con el reconocimiento del navegador y, si no lo hay (Firefox) o

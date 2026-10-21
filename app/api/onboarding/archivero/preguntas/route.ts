@@ -9,6 +9,7 @@
 import { runWithWorkspace } from '@/lib/workspace';
 import { generarPreguntasCerradas } from '@/lib/onboarding';
 import { buildEstado, resolverWsAdmin } from '@/lib/archivero';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,7 +20,8 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export async function POST() {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
-  return runWithWorkspace(ws, async () => {
+  // ⛔ D6b: con su propio Claude o su GPT, las preguntas no se arman con la Gemini gratis (tests/d6b-rutas.test.ts).
+  return runWithWorkspace(ws, () => conSuIADelNegocio(ws, async () => {
     try {
       const est = await buildEstado(false);
       const byKey = new Map(est.brief.map((c) => [c.key, c]));
@@ -34,5 +36,5 @@ export async function POST() {
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
     }
-  });
+  }));
 }

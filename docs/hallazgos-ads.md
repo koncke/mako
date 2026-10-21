@@ -4303,5 +4303,49 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
   nuevo (Instagram, Messenger, `pages_manage_metadata`) es otra revisión que va a entrar por el mismo negocio. La
   cuenta del revisor la crea Martín, adentro del ws3: sumada desde el negocio de la plataforma queda super admin, y el
   super admin pide 2FA siempre.
+- **El negocio de revisión tiene que tener el onboarding terminado.** Con el onboarding pendiente, `/integraciones?ws=3`
+  redirigía al chat de onboarding («¿cómo te llamas?»): el revisor de Meta y el de Google entraban y no llegaban ni a
+  Integraciones ni al CRM. El 21/10 se terminó por la interfaz, como lo haría un cliente, con datos de prueba (nombre
+  y negocio «Cliente de Prueba», «Mentoría de prueba, USD 100, pago único», «Ahora no» al WhatsApp). Desde ahí
+  /integraciones y /crm abren directo. Quedó un lead de prueba (`lead.prueba@example.com`, sin teléfono) en «Agenda R1»
+  con reunión del 20/10. Si alguien resetea el ws3 («Reset» de la barra de agencia), hay que repetirlo antes de
+  cualquier revisión: el reset deja el negocio en el onboarding.
+- **Sin confirmar:** el clic exacto que abre «Reagendar» con ese lead. Sale en «¿Qué hacer ahora?» de una reunión
+  pasada (`abrirQueHacer`, app/crm/CrmBoard.tsx) y puede necesitar una agenda conectada en el ws3.
+- **Un falso positivo que no hay que repetir:** el Explorador de la Graph API puede tener cargado un token de USUARIO
+  aunque el desplegable diga «System User Token». Antes de sacar conclusiones de `/me/permissions`, mirar `/me`: un
+  token del botón responde «MaKo System User», uno de usuario responde el nombre de la persona.
+- ⚠️ **El token del botón tampoco LEE los leads, y Meta no da error: devuelve la lista vacía** (medido el 21/10 a las
+  16:57 UTC). Se armó la «primera tanda» de la revisión (páginas y leads, sin anuncios). En la página Hola MaKo se creó
+  el formulario «Formulario de prueba MaKo» (4674559882869456) y se le mandó un lead con la herramienta de prueba de
+  Meta. `leadgen_forms?fields=leads_count` dice **1**; `/{formulario}/leads` devuelve `{"data":[]}` con el token de
+  página **y** con el del usuario del sistema, y siguió vacío durante más de 5 minutos.
+  - **Lo que NO es:** el acceso a clientes potenciales de la página está en el valor predeterminado (no personalizado),
+    el usuario del sistema tiene `MANAGE_LEADS`, `ADVERTISE` y `MANAGE` sobre la página, y `/me/permissions` trae
+    `leads_retrieval`.
+  - **Lo más probable:** la documentación de Meta pone `ads_management` entre los permisos para leer leads. Si es eso,
+    es el MISMO bloqueo que los permisos de anuncios. Pendiente de confirmar: con un token de usuario que sí tenga
+    `ads_management`, ¿se lee el lead?
+  - **Qué implica:** hoy «Conectar con Meta» no trae ningún lead al CRM. El poll no avisa nada: ve el formulario y
+    0 leads, sin error. Tampoco hay webhook: suscribir la página (`subscribed_apps`) pide `pages_manage_metadata`, que
+    la configuración no pide y no está en la revisión. «La página seleccionada no tiene ninguna app asociada», en la
+    herramienta de prueba, quiere decir eso mismo.
+  - **La regla:** para saber si un token lee leads, compará `leads_count` del formulario con lo que devuelve `/leads`.
+    Una lista vacía no quiere decir «no hay leads».
+  - **Lo que quedó SIN hacer:** la primera tanda no se puede mostrar con leads entrando al CRM. El formulario de prueba
+    y su lead quedan en la página para la próxima grabación. `pages_manage_metadata` no está pedido en ningún lado.
+  - **Cómo se grabó igual el video de leads (21/10, https://youtu.be/ZUJDwSo_IWg, oculto):** con la página de Mauricio
+    (ws1, 282881742134130), que SÍ está suscripta, pero a la app VIEJA 954456647632371 «Leads - Dashboard MKT
+    (Martin)». La herramienta de prueba de Meta muestra ese id en pantalla. El lead entró en segundos por el webhook.
+    Muestra la función, pero no prueba que la app en revisión lea leads: el revisor que pruebe con la cuenta del ws3 va
+    a chocar con la lista vacía.
+- **Tres trampas al grabar un video de revisión con la extensión de Chrome:**
+  - La extensión trabaja sobre pestañas en segundo plano sin traerlas al frente. Lo que graba `gdigrab` es la pestaña
+    VISIBLE: se pierde todo lo que se hizo en otra. Todo el recorrido va en UNA pestaña, navegando.
+  - El lead de la herramienta de prueba trae `test@meta.com`. Si ya hay uno con ese email, MaKo lo FUNDE en el lead
+    viejo (en el ws1, el #250 del 15/06), y la ficha dice «creado 15/06». Hay que usar un formulario que no pida email:
+    el de diciembre de 2023 de Mauricio creó el lead #2767, nuevo, en «Lead entrante».
+  - En los desplegables del diálogo de Facebook (página, píxel, cuenta) aparecen los activos de OTROS clientes. En el
+    video del 21/10 se cortaron esos 7 segundos, y la columna «Agenda R1» del CRM del ws1 va borroneada.
 
 **Vive en:** lib/meta-login.ts (`config_id`, `WORKSPACES_DE_REVISION`, `botonMetaVisible`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · tests/meta-login.test.ts · panel de la app 2586146911825340

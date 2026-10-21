@@ -82,7 +82,8 @@ test('1. ⚠️ el comprobante llega en SU moneda: pesos en pesos (el valor en d
   const piezas = leer('app/crm/lead-view/ficha/pagos/piezas.tsx');
   const marcar = piezas.slice(piezas.indexOf('export function MarcarPagada('), piezas.indexOf('export function RegistrarPago('));
   assert.match(marcar, /const j = reciboLeido\(await r\.json\(\)\.catch\(/);
-  assert.match(marcar, /const p = plataDeRecibo\(j, monedaNegocio, valorUsd\);\s*if \(p\.plata\) setPlata\(p\.plata\);/);
+  // (revisión de 1b6fc9ad8, baja) Con la moneda que `subir` recibe ya cargada, no la del render: chat-bloque-estado-cuenta, test 5.
+  assert.match(marcar, /const p = plataDeRecibo\(j, moneda, valorUsd\);\s*if \(p\.plata\) setPlata\(p\.plata\);/);
   assert.match(marcar, /setLeido\(\{ nombre: j\.nombre \?\? file\.name, nota: \[j\.nota, p\.aviso\]\.filter\(Boolean\)\.join\(' · '\) \|\| null \}\);/, 'lo que no se llenó se dice');
   assert.doesNotMatch(marcar, /j\.monto\b|montoUsd/, 'nadie lee un monto en dólares de la IA');
   assert.match(piezas, /const dolares = numero\(p\.usd\) \?\? usdPorDefecto;/, 'vacío, el valor en dólares es el de la cuota');

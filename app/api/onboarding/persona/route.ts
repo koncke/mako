@@ -8,6 +8,7 @@
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { personaEstado, addPersonaFoto, deletePersonaFoto, setPersonaDescripcion, generarDescripcionPersona } from '@/lib/persona';
 
@@ -32,7 +33,8 @@ export async function POST(req: NextRequest) {
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
   const ct = req.headers.get('content-type') || '';
 
-  return runWithWorkspace(ws, async () => {
+  // ⛔ D6b: con su propio Claude o su GPT, lo que pide la IA acá no va a la Gemini gratis (tests/d6b-rutas.test.ts).
+  return runWithWorkspace(ws, () => conSuIADelNegocio(ws, async () => {
     try {
       // JSON → 'describir' (MaKo analiza las fotos) o guardar la descripción a mano.
       if (ct.includes('application/json')) {
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
     }
-  });
+  }));
 }
 
 export async function DELETE(req: NextRequest) {

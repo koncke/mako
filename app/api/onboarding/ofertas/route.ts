@@ -10,6 +10,7 @@
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { resolverWsAdmin, getPanorama } from '@/lib/archivero';
 import { getAnswers, perfilNegocioTexto } from '@/lib/onboarding';
 import { listProductos } from '@/lib/productos';
@@ -124,7 +125,8 @@ export async function POST(req: NextRequest) {
   try { body = (await req.json()) as Record<string, unknown>; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const action = s(body.action);
 
-  return runWithWorkspace(ws, async () => {
+  // ⛔ D6b: con su propio Claude o su GPT, lo que pide la IA acá no va a la Gemini gratis (tests/d6b-rutas.test.ts).
+  return runWithWorkspace(ws, () => conSuIADelNegocio(ws, async () => {
     try {
       if (action === 'sugerir') {
         const actual = await filaOfertaPrincipal();
@@ -229,5 +231,5 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
     }
-  });
+  }));
 }

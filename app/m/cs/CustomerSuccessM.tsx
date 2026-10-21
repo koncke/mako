@@ -37,6 +37,7 @@ import { Icon } from '@/app/_components/icons';
 import { haptico } from '@/lib/haptico';
 import { relojDeVuelta } from '@/lib/servicio-etapas';
 import { CaraTarjeta, EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
+import { useFotoContacto } from '@/app/_components/foto-contacto';
 import { avanceDeCliente } from '@/app/customer-success/aviso-tarjeta';
 import { tiempoEnEtapa } from '@/app/customer-success/en-etapa';
 import { moverEntregaAction, sacarDeEntregaAction } from '@/app/customer-success/actions';
@@ -251,7 +252,7 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
             // LA FAMILIA DE TARJETAS (17/10/2026): la cara, el nombre, la empresa y «Ver info», y la barra de la etapa con
             // su aviso — la MISMA regla que la computadora (`avanceDeCliente`, app/customer-success/aviso-tarjeta.ts).
             const te = tiempoEnEtapa(asig[id]?.desde ?? null);
-            const av = avanceDeCliente({ etapa: iCol, etapas: grupos.length, enEtapa: te ? { frase: te.frase, trabado: te.trabado } : null, ahoraMs: Date.now() });
+            const av = avanceDeCliente({ etapa: iCol, etapas: grupos.length, enEtapa: te ? { frase: te.frase, trabado: te.trabado } : null, cobro: cli?.cobro ?? null, ahoraMs: Date.now() });
             return {
               id: String(id),
               col: g.key,
@@ -259,7 +260,7 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
               contenido: (
                 <span className="m-cs-tj">
                   <span className="m-cs-tj__fila">
-                    <CaraTarjeta nombre={nombreDe(id)} tam={44} />
+                    <CaraCliente nombre={nombreDe(id)} cara={cli?.cara} tam={44} />
                     <span className="m-cs-tj__txt">
                       <span className="m-kb-tj__n">{nombreDe(id)}</span>
                       {cli?.empresa && <span className="m-kb-tj__c">{cli.empresa}</span>}
@@ -329,4 +330,17 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
       )}
     </div>
   );
+}
+
+/**
+ * LA CARA DE UN CLIENTE EN SU TARJETA (20/10/2026, docs/pedidos-crm.md B2): antes eran iniciales para todos. Lo que
+ * alguien le eligió gana; si no, su WhatsApp y después la de su email, que se prueban ANTES de dibujar — la misma
+ * cadena que la computadora (`useFotoContacto`; en Clients la arma `ClienteCard` con `useFotoCliente`).
+ */
+function CaraCliente({ nombre, cara, tam }: { nombre: string; cara: ClienteCs['cara']; tam: number }) {
+  const auto = useFotoContacto({
+    icono: cara?.icono ?? null, avatarUrl: cara?.avatarUrl ?? null,
+    telefono: cara?.telefono ?? null, fotoGuardada: cara?.fotoGuardada ?? null, fotoEmail: cara?.fotoEmail ?? null,
+  });
+  return <CaraTarjeta nombre={nombre} foto={cara?.avatarUrl || auto} tam={tam} />;
 }

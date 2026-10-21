@@ -137,21 +137,29 @@ test('los links: el aviso de mensaje nuevo y los ?lead= muertos van a /chats', (
   assert.deepEqual(muertos, [], 'un link a /whatsapp?lead= abre el chat de otra persona: va a rutaChatsDeLead');
 });
 
-test('la API de MaKo: el área chats existe, lee sin HTTP, y no manda ni asigna', () => {
+// (21/10/2026) Con la D3a de Martín («el toque en "Enviar" ES la aprobación del mensaje al lead») el área MANDA, siempre
+// con la tarjeta: las tres de ENVIAN (Ops Center 2.1, tests/chats-mako-envio.test.ts). Asignar sigue afuera.
+const ENVIAN = ['contestar_dm', 'contestar_email_chat', 'enviar_borrador_whatsapp'];
+test('la API de MaKo: el área chats existe, lee sin HTTP, manda SÓLO con la tarjeta y no asigna', () => {
   assert.ok((AREAS as readonly string[]).includes('chats'));
   assert.equal(AREA_INFO.chats.ruta, RUTA_CHATS);
   const ops = REGISTRO.filter((d) => d.area === 'chats');
-  assert.deepEqual(ops.map((d) => d.id).sort(), ['cerrar_chat', 'hilo_chat', 'listar_chats', 'posponer_chat', 'reabrir_chat']);
+  assert.deepEqual(ops.map((d) => d.id).sort(), [
+    'agregar_contacto_al_crm', 'cerrar_chat', 'contestar_dm', 'contestar_email_chat', 'enviar_borrador_whatsapp',
+    'hilo_chat', 'listar_chats', 'marcar_leido_chat', 'posponer_chat', 'reabrir_chat',
+  ]);
   for (const d of ops) {
     // Conversaciones de personas no salen por HTTP (AGENTS.md); las acciones tampoco: sin la lista no hay clave.
     assert.ok(!d.canales.includes('http'), `«${d.id}» sale por HTTP`);
     assert.equal(d.gating?.tab, 'chats', `«${d.id}» no está atada a la capa de la tab`);
     assert.equal(d.gating?.rolMinimo, undefined, `«${d.id}» pide admin, y closer y setter usan la tab`);
     assert.doesNotMatch(d.id, /instagram|zernio/, 'el canal es un parámetro, no la operación (tests/sin-instagram.test.ts)');
-    assert.doesNotMatch(d.id, /enviar|mandar|responder|escribir|asignar/, `«${d.id}»: un canal propone y una persona confirma; asignar ya es asignar_closer_setter`);
+    assert.doesNotMatch(d.id, /asignar/, `«${d.id}»: asignar ya es asignar_closer_setter`);
+    if (!ENVIAN.includes(d.id)) assert.doesNotMatch(d.id, /enviar|mandar|responder|contestar|escribir/, `«${d.id}»: lo que manda es de ENVIAN, con su tarjeta`);
     if (esAccion(d)) {
-      assert.equal(d.confirmacion, 'chat', `«${d.id}» cambia el estado de UNA conversación: se confirma con un «sí»`);
-      assert.equal(d.reversible, true);
+      assert.equal(d.confirmacion, 'chat', `«${d.id}» se confirma tocando la tarjeta (o con un «sí» por WhatsApp)`);
+      // Un mensaje que salió no se desmanda; el resto (estado, leído, alta) se deshace.
+      assert.equal(d.reversible, !ENVIAN.includes(d.id), `«${d.id}»: reversible`);
     } else {
       assert.ok(esLectura(d), `«${d.id}» no es lectura ni acción`);
     }

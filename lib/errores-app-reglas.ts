@@ -133,6 +133,10 @@ const CONFIGURACION = [
   /sin proveedor gratis disponible/i,     // lib/anthropic.ts, chatClaudeTools: la cascada con herramientas sin ninguna cuenta
   /sin proveedor de ia barata/i,          // lib/ai-cheap.ts, `proveedor()`: el negocio sin ninguna key barata
   /red gratis salteada:/i,                // lib/ai-cheap.ts: con datos de clientes la red de MaKo no corre (lib/fallo-ia-texto.ts)
+  // SU clave de Claude sin crédito, revocada o sin permiso (lib/anthropic.ts, «tu clave de Claude: …»): es de su cuenta, y se
+  // le dice con el botón de su Claude (revisión del Cerebro, 21/10/2026). Un 400 de NUESTRO pedido sí es un bug: no entra.
+  /tu clave de Claude: .*(credit balance|invalid x-api-key|authentication|permission|billing|\b40[13]\b)/i,
+  /MaKo lo tiene en pausa por un rato/i,  // lib/anthropic.ts → CLAUDE_EN_PAUSA: la plataforma pausó Claude a propósito
 ];
 export const esDeConfiguracion = (r: Pick<ReporteError, 'mensaje'>): boolean => CONFIGURACION.some((x) => x.test(r.mensaje));
 
