@@ -38,7 +38,7 @@ import { buscarStock, copiarUrlABucket, type Orientacion } from '@/lib/imagenes-
 import { borradorPorId } from './landing.helpers';
 // Puro: el `config` con que nace un documento de la IA, EL MISMO de «Crear con IA» de la pantalla.
 import { configDeCreacion } from '@/app/web-generator/crear/tipo';
-import { mencionaProducto, pideOtroProducto, productoDeLanding } from '@/lib/mako-pedidos';
+import { esReferenciaVaga, mencionaProducto, pideOtroProducto, productoDeLanding } from '@/lib/mako-pedidos';
 import { listProductos } from '@/lib/productos';
 import { siFallaNuestra, urlDeLanding } from './landing-editor.helpers';
 import {
@@ -346,14 +346,18 @@ export const RUNNERS_EDITOR: Runners = {
       // los NOMBRES del catálogo y, si es para otro que no dice cuál, no se prepara nada: el error es lo que hay que
       // preguntar. Se mira todo lo que pide la persona (idea, instrucciones, título y audiencia), no el texto pegado, que
       // es contenido. El catálogo se lee sólo si el pedido habla de un producto; si no se pudo leer, sigue como antes
-      // («no tienes productos» sería inventarlo).
+      // («no tienes productos» sería inventarlo). Lo que sigue REEMPLAZA al `producto` que mandó el modelo: una referencia
+      // («mi otro producto», «todos») no va pegada al pedido como si fuera el nombre.
       const pedido = ['idea', 'instrucciones', 'titulo', 'audiencia'].map((k) => str(input, k)).filter(Boolean).join('\n');
       const producto = str(input, 'producto');
       if (producto || mencionaProducto(pedido) || pideOtroProducto(pedido)) {
         const productos = await listProductos(true).then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre }))).catch(() => null);
         const d = productos ? productoDeLanding(pedido, producto, productos) : null;
         if (d?.que === 'preguntar') return { error: d.mensaje, faltan: ['producto'] };
-        if (d?.producto) input = { ...input, producto: d.producto };
+        if (d || esReferenciaVaga(producto)) {
+          const { producto: _delModelo, ...resto } = input;
+          input = d?.producto ? { ...resto, producto: d.producto } : resto;
+        }
       }
       const propios = await temasPropios();
       // Sólo con «basadaEn» se leen las analizadas (una consulta que el resto de los pedidos no necesita).

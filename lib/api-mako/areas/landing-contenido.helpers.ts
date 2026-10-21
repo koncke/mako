@@ -1655,6 +1655,8 @@ export type PedidoGenerarApi = {
   params: Partial<ParamsGeneracion>;
   tema: string;
   titulo: string | null;
+  /** Para qué producto es (Ops Center 1.15): ya va en la idea o en las instrucciones; acá, para que se VEA al confirmar. */
+  producto: string | null;
 };
 
 /**
@@ -1732,14 +1734,19 @@ export function pedidoGenerar(
     params,
     tema,
     titulo: texto1(e.titulo, TOPES.titulo) || null,
+    producto: producto || null,
   };
 }
 
 /** Lo que lee la persona antes de confirmar una generación. */
 export function resumenGenerar(p: PedidoGenerarApi, nombreTema: string | null): string {
   const que = p.tipo === 'presentacion' ? 'una presentación' : 'una landing';
+  // El producto va ADELANTE y aparte (revisión del 20/10/2026, noche): pegado al final de la idea, el corte de 140 lo
+  // escondía y la persona confirmaba sin ver a cuál quedaba atada la landing.
+  const para = p.producto ? ` para el producto «${corto(p.producto, 80)}»` : '';
+  const idea = (p.idea ?? '').replace(/\.?\s*Es para el producto «[^»]*»\.$/, '');
   const de = p.modo === 'generar'
-    ? `desde la idea «${corto(p.idea ?? '', 140)}»`
+    ? `desde la idea «${corto(idea, 140)}»`
     : `desde un texto de ${(p.texto ?? '').split(/\s+/).filter(Boolean).length} palabras, usado ${NOMBRE_MODO_TEXTO[(p.params.modoTexto ?? 'generar') as (typeof MODOS_TEXTO_API)[number]]}`;
   const partes = [
     `${p.params.cantidad} ${p.tipo === 'presentacion' ? 'diapositivas' : 'secciones'}`,
@@ -1749,5 +1756,5 @@ export function resumenGenerar(p: PedidoGenerarApi, nombreTema: string | null): 
     p.params.instrucciones ? `con instrucciones («${corto(p.params.instrucciones, 80)}»)` : '',
     p.params.basadoEnUrl ? `sobre ${corto(p.params.basadoEnUrl, 80)}, resolviendo sus hallazgos` : '',
   ].filter(Boolean);
-  return `Crear con IA ${que} ${de}: ${partes.join(', ')}. Queda como borrador, sin publicar (se puede mandar a la papelera). Usa IA y tarda hasta unos minutos.`;
+  return `Crear con IA ${que}${para} ${de}: ${partes.join(', ')}. Queda como borrador, sin publicar (se puede mandar a la papelera). Usa IA y tarda hasta unos minutos.`;
 }
