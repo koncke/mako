@@ -14,6 +14,7 @@ import { validarOperaciones, type OperacionChat } from './chat-catalogo';
 import { unirRefs } from './espejo';
 import { leerEspejo } from './espejo-server';
 import { VENTANA_JUNTAR_MS, leerVista, lineaDeOperacion, revisarContraCopia } from './propuestas';
+import { filasDePropuesta, type FilaPropuesta } from './propuesta-bloque';
 
 const TABLA = 'video_editor_propuestas';
 const faltaLaTabla = (e: { code?: string | null } | null | undefined): boolean => e?.code === 'PGRST205' || e?.code === '42P01';
@@ -42,7 +43,14 @@ const aAbierta = (f: Fila): PropuestaAbierta => ({
   creada: f.created_at,
 });
 
-export type Propuesto = { ok: true; id: string; nueva: boolean; lineas: string[]; sinRevisar?: true } | Falla | { ok: false; motivo: string };
+/**
+ * `filas`: la propuesta ENTERA (lo que ya tenía y esto) como «Original | Modificado» contra la copia, para la tarjeta
+ * del chat (./propuesta-bloque.ts); `total`, cuántos cambios tiene (la tarjeta muestra hasta 12); `nombre`, el del
+ * proyecto como se ve en el editor.
+ */
+export type Propuesto =
+  | { ok: true; id: string; nueva: boolean; lineas: string[]; filas: FilaPropuesta[]; total: number; nombre: string; sinRevisar?: true }
+  | Falla | { ok: false; motivo: string };
 
 /**
  * Suma una operación (ya validada en su forma) a la propuesta abierta del proyecto en este canal, o abre una. La
@@ -78,7 +86,11 @@ export async function proponerOperacion(p: {
         refs: unirRefs(copia.fila.refs, []), operaciones: [p.op], lineas: [linea], propuesto_por: p.actor, updated_at: ahora,
       }).select('id').single();
       if (e2) return falla(e2);
-      return { ok: true, id: (alta as { id: string }).id, nueva: true, lineas: [linea], ...(vista ? {} : { sinRevisar: true as const }) };
+      return {
+        ok: true, id: (alta as { id: string }).id, nueva: true, lineas: [linea],
+        filas: filasDePropuesta([p.op], copia.fila.vista), total: 1, nombre: copia.fila.nombre,
+        ...(vista ? {} : { sinRevisar: true as const }),
+      };
     }
 
     const lineas = [...(Array.isArray(abierta.lineas) ? (abierta.lineas as string[]) : []), linea];
@@ -86,7 +98,14 @@ export async function proponerOperacion(p: {
       operaciones: [...previas, p.op], lineas, refs: unirRefs(abierta.refs, copia.fila.refs), version: abierta.version + 1, updated_at: ahora,
     }).eq('workspace_id', p.ws).eq('id', abierta.id).eq('estado', 'abierta').eq('version', abierta.version).select('id');
     if (e3) return falla(e3);
-    if ((cambio ?? []).length) return { ok: true, id: abierta.id, nueva: false, lineas, ...(vista ? {} : { sinRevisar: true as const }) };
+    if ((cambio ?? []).length) {
+      const todas = [...previas, p.op];
+      return {
+        ok: true, id: abierta.id, nueva: false, lineas,
+        filas: filasDePropuesta(todas, copia.fila.vista), total: todas.length, nombre: copia.fila.nombre,
+        ...(vista ? {} : { sinRevisar: true as const }),
+      };
+    }
     // Otra acción la cambió en el medio (o se resolvió): se vuelve a leer, una vez.
   }
   return { ok: false, motivo: 'la propuesta cambió mientras se sumaba este cambio: vuelve a pedirlo' };
