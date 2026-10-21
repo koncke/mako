@@ -713,4 +713,15 @@ export const BITACORA: Hito[] = [
       "tests: onboarding-otro-ws, onboarding-preguntas, onboarding-arranque y onboarding-lo-que-vende — probados rompiéndolos",
     ],
   },
+  {
+    fecha: "20 oct", hora: "18:20", chat: "Onboarding", sesion: "local_0702928b-fa1b-49e2-ac90-85a94053d088", cuenta: "claude4",
+    actor: "martin", tipo: "prompt",
+    titulo: "Florencia: el chat «Onboarding» no le llegó y el onboarding se equivocó en lo básico",
+    pedido: "en el caso de Florencia, debería haber llegado a un chat llamado \"Onboarding\" en su Ops Center... Y no llegó. No solamente eso, sino que también hizo muchas cosas mal el onboarding, cosas básicas como que no supo identificar cómo se llama su negocio, le puso literalmente \"mi marca personal: Florencia Ayelen Carballo\". Revisa toda la conversación y revisa la llamada que tuvimos para corregir más cosas del onboarding: 864249059",
+    puntos: [
+      "Llegó por el Cerebro el 20/10 (Martín lo escribió en la app). El diagnóstico, de sólo lectura, está en docs/feedback-20-10.md (puntos 2 y 3) y en docs/hallazgos-onboarding.md, la entrada «Florencia (ws21, 18/10)».",
+      "Lo que se corrige: el chat «Onboarding» también para quien ya terminó; el nombre del negocio se entiende y se confirma antes de escribirlo; el cierre de «lo que vendes» lo decide el código; las respuestas rápidas sin cifras inventadas; un link que no abre se le dice a MaKo; el PDF y el producto; un texto largo va como documento; las preguntas con opciones aceptan texto; la salida pregunta qué hacer primero.",
+      "Reparar el ws21 (su nombre, el funnel, el producto, el PDF) NO lo hace este chat: queda el script, y corre sólo con el sí de Martín y el nombre que él elija.",
+    ],
+  },
 ];

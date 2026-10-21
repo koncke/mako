@@ -23,13 +23,18 @@ import { setDiagnosticoFase } from '@/lib/fase-store';
 import { enviarCodigoVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
 import { leerSesion } from '@/lib/offer-sesiones';
 import { idDelFunnelDefault } from '@/lib/funnels';
-import { etapaDeArranque, leerRespuesta, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { estaImpersonando } from '@/lib/workspace';
+import { getEstadoOnboarding } from '@/lib/onboarding-state';
+import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
+import { etapaDeArranque, leerRespuesta, pisaElNombreDelPerfil, type EstadoArranque } from '@/lib/onboarding-arranque';
 import {
-  FaltaParaCerrar, asegurarFunnelPrincipal, cerrarArranque, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
-  hechosDelArranque, sembrarCrmPrincipal, vistaArranque,
+  FaltaParaCerrar, asegurarFunnelPrincipal, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
+  hechosDelArranque, propuestaDeCrm, sembrarCrmPrincipal, vistaArranque,
 } from '@/lib/onboarding-arranque-server';
 
 export const dynamic = 'force-dynamic';
+// El CRM a medida le pide a la IA al llegar a su pregunta (`propuestaDeCrm`, con su plazo de 45 s).
+export const maxDuration = 120;
 
 const no = (status: number, error: string) => NextResponse.json({ ok: false, error }, { status });
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -75,6 +80,8 @@ export async function POST(req: NextRequest) {
         const texto = typeof body.texto === 'string' ? body.texto : undefined;
         const opcion = typeof body.opcion === 'number' ? body.opcion : undefined;
         const opcionTexto = typeof body.opcionTexto === 'string' ? body.opcionTexto : undefined;
+        // La pregunta que contesta (cuarta revisión, 21/10): un toque viejo no confirma una lectura que no vio.
+        const pregunta = typeof body.pregunta === 'string' ? body.pregunta.slice(0, 2_000) : undefined;
 
         // ⛔ La guardia (17/10/2026): la ráfaga, el bloqueo y el troleo, antes de anotar nada. Una opción tocada no
         // se mira (la escribió MaKo); lo escrito, sí.
@@ -89,16 +96,19 @@ export async function POST(req: NextRequest) {
           return listo();
         }
 
-        const lectura = leerRespuesta(e, h, { texto, opcion, opcionTexto });
+        const lectura = leerRespuesta(e, h, { texto, opcion, opcionTexto, pregunta });
         // La pregunta cambió (una pestaña vieja): no se anota nada y vuelve la conversación de HOY.
         if (!lectura.ok && lectura.cambio) return NextResponse.json({ ok: false, error: lectura.error, vista: await vistaArranque() }, { status: 409 });
         if (!lectura.ok) return no(422, lectura.error);
-        const patch = lectura.patch;
+        // Quién contesta el onboarding (20/10/2026, revisión del Cerebro): el chat «Onboarding» es para esa persona, no para
+        // otro admin que entre primero al Ops Center. Se anota con su primera respuesta, nunca mirando como super admin.
+        const dueno = !e.dueno && !(await estaImpersonando().catch(() => true)) ? (await getUsuarioActual().then((p) => (p ? chartKeyDePersona(p) : null)).catch(() => null)) : null;
+        const patch = { ...lectura.patch, ...(dueno ? { dueno } : {}) };
 
         // El CRM se siembra ANTES de guardar la elección: si la siembra falla, la pregunta sigue abierta.
         let aviso: string | undefined;
         if (patch.crmTipo) {
-          const r = await sembrarCrmPrincipal(patch.crmTipo, e.negocio ?? '');
+          const r = await sembrarCrmPrincipal(patch.crmTipo, e.negocio ?? '', e.crmPropuesta?.tipo === patch.crmTipo ? e.crmPropuesta.etapas : undefined);
           aviso = r.aviso;
         }
         // El diagnóstico, al contestar la última pregunta: todo en modo 'plan'; en 'oferta', lo que faltó
@@ -109,6 +119,12 @@ export async function POST(req: NextRequest) {
         const nuevo = await guardarEstadoArranque(patch);
         // Al entrar a la oferta, la conversación nace en el funnel principal: que exista.
         if (h.modo === 'oferta' && etapaDeArranque(nuevo, h) === 'oferta') await asegurarFunnelPrincipal().catch(() => {});
+        // El CRM a medida (20/10/2026, pedido del 18/10, punto 10): al pasar del PDF o de la fase a la pregunta del CRM, MaKo lo
+        // arma UNA vez con lo que vende. Los hechos se releen: la última respuesta de la fase recién guardó el diagnóstico.
+        if (h.conCrm && (etapa === 'pdf' || etapa === 'cobro' || etapa === 'fase') && nuevo.crmPropuesta === undefined && !nuevo.crmTipo) {
+          const h2 = await hechosDelArranque(nuevo);
+          if (etapaDeArranque(nuevo, h2) === 'crm') await guardarEstadoArranque({ crmPropuesta: await propuestaDeCrm(nuevo, h2.canalNegocio).catch(() => null) });
+        }
         return listo(aviso ? { aviso } : {});
       }
 
@@ -139,7 +155,9 @@ export async function POST(req: NextRequest) {
         // una agencia que hacen el arranque mirando al cliente se quedaban con sus reportes.
         const [previo, perfil] = await Promise.all([getContactoReportes().catch(() => null), getPerfil().catch(() => null)]);
         await setContactoReportes({
-          nombre: previo?.nombre || e.nombre || undefined,
+          // El nombre del PERFIL si es uno de verdad (sexta revisión, 21/10: lo leído sin toque, «Cómo Estás», llegaba a los
+          // reportes); con el perfil en un email, el perfil ya tiene el confirmado con el toque.
+          nombre: previo?.nombre || (!pisaElNombreDelPerfil(perfil?.nombre) ? perfil?.nombre : '') || e.nombre || undefined,
           email: previo?.email || perfil?.email || undefined,
           telefono: digitos,
         });
@@ -154,6 +172,15 @@ export async function POST(req: NextRequest) {
       case 'preparar': {
         await asegurarFunnelPrincipal();
         return listo();
+      }
+
+      // El chat «Onboarding» del Ops Center con esta conversación, tal cual (20/10/2026): la pantalla lo pide al terminar
+      // y entra a él. Una sola vez (lib/onboarding-arranque-server.ts → hiloDelOnboarding).
+      case 'hilo': {
+        // Sólo con el onboarding TERMINADO (20/10/2026, revisión del Cerebro): una pestaña vieja o un POST a mano lo armaban
+        // con la conversación a medias, y la proyección de Offer escondía después la de verdad.
+        if ((await getEstadoOnboarding()).status !== 'done') return NextResponse.json({ ok: true, chat: null });
+        return NextResponse.json({ ok: true, chat: await hiloDelOnboarding() });
       }
 
       // El super admin, mirando a un cliente bloqueado por la guardia, lo desbloquea desde el mismo onboarding.

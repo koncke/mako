@@ -154,6 +154,8 @@ const PROMPTS: Array<[string, string]> = [
   ['offer.propuesta.system', 'OFFER_PROPUESTA_SYSTEM_TEMPLATE'], ['offer.propuesta.user', 'OFFER_PROPUESTA_USER_TEMPLATE'],
   // Un documento largo se lee entero, por partes (17/10/2026, #865).
   ['offer.lectura.system', 'OFFER_LECTURA_SYSTEM_TEMPLATE'],
+  // El CRM a medida del onboarding (20/10/2026): elige el tipo y nombra sus etapas.
+  ['offer.crm.system', 'OFFER_CRM_SYSTEM_TEMPLATE'],
 ];
 
 // v2: rotura (el slot {{diagnostico}} del turno sin declarar en el registro): 1 fallo, 9 pases.
@@ -186,6 +188,8 @@ test('cada prompt offer.*: registrado con la MISMA key, el MISMO default y los M
       // qué vende (lleva las keys de las piezas, `claves`).
       // Tampoco la lectura por partes (#865): anota lo que dice el documento, no lo juzga.
       if (key === 'offer.lectura.system') assert.ok(!delTemplate.length, `${key}: la lectura de una parte no lleva slots`);
+      // El CRM a medida tampoco: nombra etapas, no juzga la oferta. Lleva los tipos que sabe armar.
+      else if (key === 'offer.crm.system') assert.deepEqual(delTemplate, ['tipos'], `${key}: el CRM a medida lleva sólo los tipos`);
       else if (key !== 'offer.arranque.system') assert.ok(delTemplate.includes('marco'), `${key}: falta el marco`);
       else assert.ok(delTemplate.includes('claves') && !delTemplate.includes('marco'), `${key}: el onboarding volvió a llevar el marco del análisis`);
     }
@@ -341,7 +345,8 @@ test('el diagnóstico de fase: se guarda en el negocio SÓLO si no había uno (i
   assert.match(resp, /diagnostico: diagnosticoParaPrompt\(plan, e\), diagnosticoObligatorio: plan\.modo === 'forzar',/);
   // Un turno con documentos nuevos no fuerza la pregunta (en los DOS planes: el de antes y el de después de la IA).
   assert.equal([...resp.matchAll(/conDocumentosNuevos: p\.nuevos\.length > 0/g)].length, 2);
-  assert.match(resp, /const m = mensajeDeMako\(\{/);
+  // En el onboarding, con las piezas, el mensaje lo escribe el código (20/10/2026); si no, el de siempre.
+  assert.match(resp, /const m = (?:cierra \? mensajeDeCierreDelArranque\(randomUUID\(\), new Date\(\)\.toISOString\(\)\) : )?mensajeDeMako\(\{/);
   // El bloque del diagnóstico NO va envuelto como dato no confiable: trae una orden.
   const turnoIA = IA.slice(IA.indexOf('export async function turnoOffer('), IA.indexOf('export async function diagnosticoOffer('));
   assert.match(turnoIA, /diagnostico: p\.diagnostico\.trim\(\) \|\| '\(nada pendiente\)',/);

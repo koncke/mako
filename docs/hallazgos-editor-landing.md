@@ -2093,3 +2093,148 @@ documento y el PDF «Lo que vendes» («No me permite»). El hito, literal, en l
 - MaKo Mobile (`/m/landing`) no tiene el chat del editor, así que tampoco el ⊕.
 
 *20/10/2026, jefe Web Generator (`claude4`).*
+
+## Crear webs desde el Ops Center: la receta y los datos de los bloques (20/10/2026, piezas 1.12, 1.13 y 1.15)
+
+Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear webs». El plan, en docs/ops-center-principal.md.
+
+### «Mi otro producto»: cuatro rondas de reglas, y la red es PREGUNTAR con los nombres
+- **El caso:** con un solo producto en el catálogo, «créame una landing para mi otro producto» creaba igual, y el esquema
+  salía del perfil del negocio: la landing del producto que ya tiene.
+- **Dónde se impone:** en el `preparar` de generar_landing_con_ia (`productoDeLanding`,
+  lib/editor-landing/producto-de-landing.ts): si no se sabe para cuál es, no se prepara nada y el error ES la pregunta. La
+  receta (RECETA_LANDING) sólo hace que MaKo pregunte antes de proponer.
+- **El diagnóstico obvio era el equivocado, cuatro veces.** Cada ronda de reglas cerró lo que la revisión marcaba y abrió
+  agujeros nuevos (20 y 21/10, un escéptico por hallazgo):
+  - contar palabras «que no son relleno»: «ventas», «porfa» o el voseo «creás» la saltaban;
+  - comparar con los nombres y reconocer «otro» como destino: el modelo copiaba la referencia en `producto` («mi otro
+    producto») y saltaba el guardia; «un producto nuevo» pegaba el único;
+  - negaciones, plurales, «todo el negocio» y el nombre largo: la tercera probó ~200 frases y encontró «una landing que
+    venda mi otro producto» (no se veía), «ya tengo la de la Mentoría; créame una para mi otro producto» (elegía la
+    Mentoría) y la vuelta «Curso de fotografía» (caía en el «Curso» del catálogo);
+  - elegir el producto nombrado si no hay ninguna palabra de una lista de DUDA (otr, nuev, «no», «ya tengo», parecid…):
+    la cuarta probó 44 frases naturales de excluir, comparar o vender cruzado y las 44 elegían el nombrado («sin
+    mencionar la Mentoría», «como la de la Mentoría pero para mi taller», «que al final lleve a la Mentoría», «not the
+    Mentoría»). **Una lista de palabras de duda siempre deja afuera la frase siguiente → preguntar.**
+  Leer texto libre con reglas falla en lo obvio: es la regla de AGENTS.md («la red es que la persona CONFIRME»).
+- **Lo que quedó: el texto no elige nunca.** Con catálogo, se elige sin preguntar SÓLO si el modelo manda en `producto`
+  un nombre del catálogo (sin tildes, mayúsculas ni artículo definido: «un curso» no es el Curso) o «El negocio en
+  general», o un producto nuevo con nombre en `producto_nuevo` (aunque diga «curso»). Lo demás PREGUNTA con opciones:
+  los productos, «Un producto nuevo» y «El negocio en general». Que «la landing es PARA la Mentoría» lo decide el
+  modelo, que lee la conversación, y la persona lo ve en la tarjeta. Preguntar de más cuesta un toque; elegir mal, una
+  landing mala.
+- **Sin catálogo no es «no hay cuál elegir mal».** El esquema sale de la oferta del brief (`ofertaPrincipal`, tabla
+  `ofertas` o el brief), no de `productos`, que puede estar vacío o todo inactivo. Así que un nombre en `producto` con
+  el catálogo vacío es un producto nuevo (tirarlo dejaba la landing sobre la oferta del brief), «Un producto nuevo» sin
+  nombre pide el nombre, y si el catálogo no se pudo leer valen «El negocio en general» y un `producto_nuevo` con nombre.
+  Sin ningún producto, la tarjeta lo dice: «sobre el perfil del negocio (sin un producto elegido)».
+- **Con el catálogo ilegible, un `producto` hace VOLVER A INTENTAR, no se tira ni se adivina.** Al confirmar en
+  /mako/revisar se vuelve a correr el preparar: si ahí la base fallaba, la tarjeta confirmada decía un producto y la
+  landing salía sin él. Distinguir sin catálogo un nombre de una referencia sería otra lista de palabras («Mentoría 1 a
+  1» está hecha toda de palabras vagas): el error pide reintentar.
+- **La clave del catálogo guarda los símbolos que cambian el nombre.** Borrarlos (`[^a-z0-9]`) hacía de «Curso de C» el
+  «Curso de C++» (el primero que coincidía), de «Descuento 50» el «Descuento 50%» y de «?» un «🚀». Sólo se saca la
+  puntuación que no cambia el nombre (comillas, puntos, comas, paréntesis, guiones); un nombre que queda vacío no se
+  compara, y dos del catálogo con la misma clave se preguntan, no se toma el primero.
+- **Un `producto_nuevo` que nombra uno del catálogo pregunta sólo si no dice nada más** («no es Kairos», «uno parecido a
+  la Mentoría 1 a 1»). Uno que lo nombra Y dice qué es («Mentoría grupal para emprendedoras» con «Mentoría») es nuevo:
+  si preguntara, la persona elegiría «Un producto nuevo», volvería lo mismo y no saldría nunca.
+- **La red es la tarjeta:** lo decidido REEMPLAZA a lo que mandó el modelo y va adelante en el resumen que se confirma
+  («para el producto «X»», «para un producto nuevo, «X»», «para el negocio en general»): pegado al final de la idea, el
+  corte de 140 caracteres lo escondía. Y la frase del producto en la idea nunca es lo que se corta: con una idea de 8.000,
+  el tope se comía «Es para el producto…» y la tarjeta mostraba lo que el esquema no recibía (se corta la idea antes).
+- **El chat del editor no se tocó:** `productoDelPedido` (lib/mako-pedidos.ts) quedó byte a byte como en main. Una
+  regla «mejor» compartida le metía regresiones en producción («que venda mi otro producto» pasó a pegar la Mentoría).
+  Su test fija lo que devolvía main.
+- **Corre en TODO pedido:** uno que no nombra producto también saldría sobre el principal.
+- **Una frase prueba una regla sólo si esa regla es la ÚNICA que la decide.** Varias frases de las revisiones daban bien
+  sin la regla que decían probar; una rotura que queda en verde pide una frase nueva. Ahora que el guardia no recibe el
+  texto, una batería de frases contra la función pasaría sola: las ~190 frases van por el `preparar` de VERDAD (un
+  proceso hijo con el catálogo de mentira), así una regla nueva que lea el texto se ve.
+- **La receta no nombra herramientas:** no siempre viajan las que nombraría (lo fija su test). Y la línea del producto
+  viaja SÓLO con generar_landing_con_ia, la única con dónde ponerlo: con las otras cuatro (en blanco, desde un diseño,
+  presentación, replicar) la pregunta se hacía y la respuesta se perdía, porque `validarInput` descarta lo no declarado.
+- **Trampa:** armar una regex uniendo templates con «+» la rompe el minificador del build en producción
+  (tests/minificador-templates lo frena): en una lista con `join('|')`.
+
+### Un bloque no puede viajar en la respuesta de la herramienta
+- La salida de una lectura (`SalidaLectura`) es lo que lee el MODELO, y la tarjeta de una landing necesita su primera
+  sección en JSON para la miniatura. Ponerla ahí sería pagarla en cada paso del turno. Por eso
+  lib/editor-landing/bloques-chat.ts arma los datos aparte y el marco del Ops Center 3 (1.7) decide por dónde llegan al
+  hilo sin pasar por el modelo. Se le preguntó la forma el 20/10.
+- Diseños, temas y formatos son catálogo del navegador (crear/tipo.ts, temas.ts): el bloque lleva sus IDS y la pantalla
+  dibuja la miniatura, como el Panel. Sólo la tarjeta de una landing creada trae su sección.
+
+### Dos tests que daban verde sobre la rotura
+- «Nunca ofrece el tema que ya tiene» pasaba con el filtro roto: con «mako» como tema actual, «mako» no es el primero de
+  su grupo y no salía igual. Un test de «nunca X» va con el X que saldría PRIMERO (el primero de cada grupo).
+- Es la misma lección que la del corte de 60.000 de arriba: el caso de prueba es el borde, no uno cualquiera.
+
+### Sobre el marco de bloques (ola1, 20/10): la landing es un bloque del área, no un G5
+- **El G5 genérico (`creado`) pide una IMAGEN** (una ruta de la app o una pública de Storage) y una landing no tiene: su
+  miniatura se dibuja con su primera sección. Por eso `landing`, `elegir` (el G2), `publicada` y `dominio` son bloques del
+  área (lib/editor-landing/bloques-web.ts), enganchados en DOS lugares del marco: la unión `Bloque` y el `default:` de
+  `sanearBloque`. La sección viaja en el bloque con tope (40.000 caracteres en JSON): más grande, la tarjeta sale sin
+  miniatura antes que inflar el mensaje guardado.
+- **El saneo recibe `rutaInterna` como parámetro**: chat-bloques.ts importa bloques-web.ts, y al revés sería un ciclo.
+- **La única dirección de afuera es la de una landing publicada** (`urlPublicada`): `https:`, sin usuario, contraseña ni
+  puerto, con host de dominio. Se muestra y se abre con `noopener`; nunca es una miniatura.
+- **El bloque no llega al modelo:** `confirmar_accion` le devuelve sólo «✅ Hecho: resumen». La API HTTP sí devuelve
+  `datos` entero (con la sección): un cliente de la API que sea un modelo la lee. Es poco (1-3 KB un hero), pero es del
+  marco decidir si `rest.ts` saca `bloque`.
+- **`crear` devuelve la landing COMPLETA y `duplicar` el resumen del Panel** (`LandingResumen`, con `primera` y `tema`):
+  la tarjeta se arma con `bloqueDeCompleta` en uno y con `bloqueLanding` en el otro. Los tests que leen el fuente daban
+  verde con el equivocado; lo vio el tsc.
+- **BloqueHilo los carga con `next/dynamic`** (traen la hoja del contenido, ~100 KB): en un test con
+  `renderToStaticMarkup` el hilo no los dibuja; se dibuja BloqueWeb directo.
+- **Un bloque nuevo hereda el contrato del marco, no sólo su forma.** El G2 (`elegir`) nació en la rama antes del arreglo
+  del G1 en main (3099aa97c, 21/10: «Respondiste» sólo si el mensaje salió, las opciones esperan mientras MaKo trabaja,
+  y lo contestado vale en CADA render) y el merge no lo trajo: decía «Respondiste» con el mensaje sin mandar, y al
+  recargar volvía activo porque `conRespuestas` sólo miraba la `pregunta`. Ahora Elegir hace lo mismo que PreguntaHilo,
+  BloqueHilo le pasa `ocupado`, y `conRespuestas` cuenta también el `elegir`.
+- **Una respuesta no cierra DOS selectores.** MaKo guarda en el mismo mensaje lo que dibujan las lecturas y su
+  pregunta (el G2 de diseños y el G1 del producto), y `conRespuestas` cerraba los dos con el primer mensaje: tocar
+  «Mentoría» dejaba los diseños apagados con «Respondiste: Mentoría». Con varios esperando el mismo mensaje, cada uno se
+  cierra sólo con lo que manda un toque suyo (`respuestasDeElegir` en bloques-web.ts, la misma fuente que el botón); lo
+  escrito que no es de ninguno los deja abiertos. Con uno solo, escribir lo contesta, como siempre.
+- **Una lectura que dibuja tiene que leer el pedido.** `listar_disenos_landing` dibujaba el G2 sin mirar
+  `ctx.mensajeUsuario`: siempre los mismos tres, también en una presentación o con el diseño ya nombrado. Ahora
+  `elegirDisenoPara` los ordena por el pedido y no dibuja nada en esos dos casos. «MaKo» es también el nombre de la app:
+  cuenta como diseño sólo dicho como tal («el diseño de MaKo»).
+
+- **Una lectura deja su bloque AL LADO de lo que lee el modelo:** devuelve `{ content, bloque }` (`SalidaLectura`).
+  `ejecutarOperacion` lo sanea y lo dibuja por `ctx.aDibujar` (ola1, 061c1b74d: el canal de Pagos, uno solo para todas
+  las áreas); el modelo recibe sólo `content`, y sin el canal (WhatsApp, HTTP) se descarta. El primer camino, un campo
+  `bloque` ADENTRO del JSON de `content` (508cb901f), se sacó: había que parsear la salida para encontrarlo. UN bloque
+  por herramienta (hasta 4 por mensaje entre todas): la lista de landings es un solo bloque (`landings`, hasta 4
+  tarjetas y «Ver todas»). `listar_disenos_landing` deja el G2 de 3 diseños, y la papelera no lleva tarjetas.
+
+### Lo que quedó SIN hacer
+- «Armame una landing» sin diseño muestra los 3 SÓLO si el modelo llama a listar_disenos_landing: que llegue la
+  herramienta es del clasificador (1.2). Los temas y el formato de Replicar no se emiten todavía: un «elegir tema» sin
+  la landing a la que va confundiría.
+- La miniatura de una landing con un tema propio (`ws:<id>`) sale con el tema de base: el hilo no tiene los temas propios.
+- No se vio con clics en el ws3 (la computadora y Android): la tarjeta, el G2, el link y «Verificar ahora».
+- El chat del EDITOR (/api/mako/pedidos, `productoDelPedido`) sigue con las fallas de producción que marcó la tercera
+  revisión: «ya tengo la de la Mentoría 1 a 1; créame una para mi otro producto», «para mi próximo producto» o «mi otro
+  producto, Mentoría grupal» eligen el que hay. Pasarlo a `productoDeLanding` pide decidir cómo vuelve la respuesta a
+  un pedido (cada mensaje se interpreta suelto); al hacerlo, cambia la tabla de main en tests/ops-center-landing-receta.
+- La pregunta del producto va en TEXTO: con el marco ya en main puede ir como un G2 `elegir` con las opciones.
+- `producto_nuevo` acepta cualquier cosa con una palabra de contenido: «mi otra marca» pasa como nombre. La red es la
+  tarjeta, que lo muestra adelante (lib/editor-landing/producto-de-landing.ts, `esDescripcionVaga`).
+- Pregunta de más, a propósito: con catálogo, TODO pedido sin `producto` pregunta, también «landing para la Mentoría 1
+  a 1» si el modelo no pasa el nombre. Si en el uso molesta, el arreglo es que el modelo lo pase (la receta lo pide),
+  no una regla sobre el texto.
+- La API HTTP con escritura directa devuelve el `datos.bloque` de las acciones (la tarjeta, ~1,3 KB con la primera
+  sección): lo saca Dashboard en lib/api-mako/rutas-http.ts en su rama; no se tocó acá para no chocar.
+- La regla de cuándo dibujar los diseños es de palabras (`elegirDisenoPara`, bloques-chat.ts): «diapos», «ppt»,
+  «powerpoint» o «keynote» no cuentan como presentación, «mi curso de presentaciones en público» sí, y «editorial»,
+  «fresco», «tecnológico», «cálido» o «audaz» como palabras comunes cuentan como un diseño ya nombrado.
+- Tocar «Mentoría» en el G1 llega sin herramientas de landing: el clasificador no reconoce la respuesta a una pregunta
+  (lib/mako-intencion.ts, `clasificarIntencion`). Lo vio el escéptico de la 5ª revisión; falta verificarlo.
+- `producto_nuevo` «el otro que no es la mentoría individual» (no nombra el del catálogo) pasa como nombre: la red es
+  la tarjeta.
+- `publicar_landing` devuelve en `datos.url` la dirección de MaKo aunque la landing tenga un dominio propio verificado
+  (`urlDeLanding(r.slug)` en landing.run.ts): el bloque de publicada tiene que recibir la del dominio.
+
+*20/10/2026, jefe Web Generator (`claude4`).*
