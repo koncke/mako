@@ -127,7 +127,7 @@ import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type Cont
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 import { EstiloTarjetas, FichaRapida, TarjetaDestacada, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
-import { CAMPOS_TARJETA_DEFAULT, FONDO_COLUMNA, insigniaDeCanal, plataDeLead, subtituloLead, type CampoTarjetaLead } from '@/lib/tarjeta-kanban';
+import { CAMPOS_TARJETA_DEFAULT, FONDO_COLUMNA, insigniaDeCanal, plataDeLead, subtituloEnOrden, subtituloLead, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
 import { CamposTarjetaModal } from './CamposTarjetaModal';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 
@@ -455,6 +455,7 @@ export function CrmBoard({
   partners = false,
   puedeCrearCrm = false,
   camposTarjeta = CAMPOS_TARJETA_DEFAULT,
+  disenoTarjeta = 'completa',
   camposGuardables = false,
 }: {
   leads: CrmLead[];
@@ -509,6 +510,8 @@ export function CrmBoard({
   puedeCrearCrm?: boolean;
   /** Qué datos muestra la tarjeta de un lead para quien mira (20/10/2026; lib/tarjeta-kanban → CAMPOS_TARJETA_LEAD). */
   camposTarjeta?: readonly CampoTarjetaLead[];
+  /** Con qué diseño (Completa, Compacta, Con avance). */
+  disenoTarjeta?: DisenoTarjeta;
   /** ¿Se puede guardar? (sin fila propia en `usuarios`, vale sólo en esta pestaña). */
   camposGuardables?: boolean;
 }) {
@@ -2021,8 +2024,8 @@ export function CrmBoard({
   const [avisoAgenda, setAvisoAgenda] = useState<string | null>(null);
   // LA TARJETA PERSONALIZADA (20/10/2026): qué datos ve quien mira. Cambia en el acto desde «Personalizar tarjetas».
   const [campos, setCampos] = useState<readonly CampoTarjetaLead[]>(camposTarjeta);
+  const [diseno, setDiseno] = useState<DisenoTarjeta>(disenoTarjeta);
   const [personalizando, setPersonalizando] = useState(false);
-  const ve = useMemo(() => new Set(campos), [campos]);
   const cerrarPersonalizar = useCallback(() => setPersonalizando(false), []);
   // «Próximo» arranca PLEGADO y lo abre el ícono del calendario (18/10/2026, Martín, pt 8).
   const [verProximo, setVerProximo] = useState(false);
@@ -2780,12 +2783,6 @@ export function CrmBoard({
             style={{ flex: 'none', textAlign: 'left', border: '1px dashed var(--border-strong)', background: 'none', color: 'var(--faint)', borderRadius: 11, padding: '7px 13px', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
           >＋ Nuevo lead</button>
           {cards.map((l, iCard) => {
-            const isGanado = effStage(l) === 'ganado';
-            const isManual = effStage(l) === 'manual';
-            const dl = l.nutriManualDeadline;
-            const dlFmt = dl ? `${dl.slice(8, 10)}/${dl.slice(5, 7)}/${dl.slice(0, 4)}` : null;
-            const overdueManual = isManual && l.estadoLead === 'abierto' && !!dl && dl < hoy;
-            const waiting = pendingLeadIds.has(l.id);
             const hueco = insTarjeta?.col === c.key && insTarjeta.idx === iCard;
             return (
               <Fragment key={l.id}>
@@ -2818,15 +2815,12 @@ export function CrmBoard({
                 }}
                 onDragEnd={limpiarArrastreTarjeta}
                 marcada={leadDelMenu === l.id}
-                alerta={overdueManual}
                 titulo={l.origin && l.origin !== l.canal ? l.origin : undefined}
                 nombre={l.name}
                 foto={l.foto}
-                sinCara={!ve.has('foto')}
                 insignia={insigniaDeCanal(l.canal)}
-                subtitulo={subtituloLead(
-                  ve.has('plata') ? (isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado })) : null,
-                  ve.has('canal') ? l.canal : null)}
+                /* Qué datos, en qué orden y con qué diseño: «Personalizar tarjetas» (`propsDeTarjeta`, arriba del return). */
+                {...propsDeTarjeta(l, campos, diseno)}
                 pildora={{ texto: 'Ver info', titulo: 'La ficha rápida, con «Mover a…»', onClick: () => { setMoviendoRapida(false); setRapida(l); } }}
                 antes={
                   /* LA CASILLA. `onClick` con `stopPropagation` y no `onChange`: el click
@@ -2849,32 +2843,6 @@ export function CrmBoard({
                        es como se ve arreglado sin estarlo. */
                     style={{ height: 15, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
                 }
-                chips={
-                  <>
-                    {/* Sin parpadeo (08-T22). Un tablero donde cada card incompleta titilaba en rojo le decía a
-                        Mauricio, apenas entraba, que tenía un chorro de cosas por contestar — y lo abandonaba. Lo que
-                        falta se marca, sereno; no se reclama. «Vencida» sí es una alerta (una fecha que pasó). */}
-                    {/* Cada chip, si quien mira lo eligió en «Personalizar tarjetas» (20/10/2026). */}
-                    {!ve.has('vence') ? null : overdueManual
-                      ? <span className="tk-chip tk-chip--mal" title="Venció el deadline de la nutrición manual">Venció · {dlFmt ?? 'sin fecha'}</span>
-                      : isManual && dlFmt ? <span className="tk-chip tk-chip--gris" title="El plazo de la nutrición manual">Vence · {dlFmt}</span> : null}
-                    {ve.has('datos') && !overdueManual && waiting && <span className="tk-chip tk-chip--riesgo" title="Faltan datos de esta etapa. Se pueden completar cuando quieras: MaKo te los pide después.">Datos pendientes</span>}
-                    {ve.has('agenda') && !isGanado && !isManual && l.agenda ? <span className="tk-chip tk-chip--gris" title="La reunión agendada">Agenda · {l.agenda}</span> : null}
-                    {/* «Más info»: lo que la tarjeta de siempre no trae. Sin los rellenos de `mapToCrmLead` («Sin empresa»). */}
-                    {ve.has('empresa') && l.company?.trim() && l.company !== 'Sin empresa' ? <span className="tk-chip tk-chip--gris" title="Empresa">{l.company}</span> : null}
-                    {ve.has('telefono') && l.telefonoNorm ? <span className="tk-chip tk-chip--gris" title="Teléfono">+{l.telefonoNorm}</span> : null}
-                    {ve.has('campana') && l.campanaNombre ? <span className="tk-chip tk-chip--gris" title="La campaña de la que entró">{l.campanaNombre}</span> : null}
-                    {ve.has('alta') && l.created ? <span className="tk-chip tk-chip--gris" title="Cuándo entró">Alta · {l.created}</span> : null}
-                    {/* ⚠️ ESTÁ DIBUJADO ACÁ Y NO ES DE ACÁ. La etapa guardada del lead no existe en este funnel, así que
-                        el tablero lo ubica donde puede (medido el 25/09: 1.057 de los 1.138 leads del ws1). Sin el chip,
-                        esos leads se leen como «Nuevo». `stageMetaOpt` y NO `stageMeta`: el segundo cae a `stages[0]`. */}
-                    {ve.has('fuera') && l.stageFuera && (
-                      <span className="tk-chip tk-chip--gris" title={`Este lead quedó guardado en «${stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera}», una etapa que tu funnel ya no tiene. Se muestra aquí porque no hay columna donde ponerlo.`}>
-                        {stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera} · fuera del funnel
-                      </span>
-                    )}
-                  </>
-                }
               />
               </Fragment>
             );
@@ -2890,6 +2858,69 @@ export function CrmBoard({
       </div>
     );
   };
+
+  // ── LA TARJETA DE UN LEAD, según «Personalizar tarjetas» (20/10/2026) ─────────────────────────────────────────────
+  // Qué datos, EN QUÉ ORDEN (el que arrastró la persona) y con qué diseño. UNA función para el tablero y para la vista
+  // previa del pop-up: si fueran dos, la vista previa podría mostrar una tarjeta que el tablero no dibuja.
+  const caminoTarjeta = stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline');
+  const propsDeTarjeta = (l: CrmLead, cs: readonly CampoTarjetaLead[], dis: DisenoTarjeta) => {
+    const etapa = effStage(l);
+    const isGanado = etapa === 'ganado';
+    const isManual = etapa === 'manual';
+    const dl = l.nutriManualDeadline;
+    const dlFmt = dl ? `${dl.slice(8, 10)}/${dl.slice(5, 7)}/${dl.slice(0, 4)}` : null;
+    const overdueManual = isManual && l.estadoLead === 'abierto' && !!dl && dl < hoy;
+    const waiting = pendingLeadIds.has(l.id);
+    // Sin parpadeo (08-T22): lo que falta se marca, sereno; no se reclama. «Vencida» sí es una alerta (una fecha que pasó).
+    const chip = (c: CampoTarjetaLead): ReactNode => {
+      switch (c) {
+        case 'vence':
+          return overdueManual
+            ? <span className="tk-chip tk-chip--mal" title="Venció el deadline de la nutrición manual">Venció · {dlFmt ?? 'sin fecha'}</span>
+            : isManual && dlFmt ? <span className="tk-chip tk-chip--gris" title="El plazo de la nutrición manual">Vence · {dlFmt}</span> : null;
+        case 'datos':
+          return !overdueManual && waiting ? <span className="tk-chip tk-chip--riesgo" title="Faltan datos de esta etapa. Se pueden completar cuando quieras: MaKo te los pide después.">Datos pendientes</span> : null;
+        case 'agenda':
+          return !isGanado && !isManual && l.agenda ? <span className="tk-chip tk-chip--gris" title="La reunión agendada">Agenda · {l.agenda}</span> : null;
+        // «Más info»: lo que la tarjeta de siempre no trae. Sin los rellenos de `mapToCrmLead` («Sin empresa»).
+        case 'empresa':
+          return l.company?.trim() && l.company !== 'Sin empresa' ? <span className="tk-chip tk-chip--gris" title="Empresa">{l.company}</span> : null;
+        case 'telefono':
+          return l.telefonoNorm ? <span className="tk-chip tk-chip--gris" title="Teléfono">+{l.telefonoNorm}</span> : null;
+        case 'campana':
+          return l.campanaNombre ? <span className="tk-chip tk-chip--gris" title="La campaña de la que entró">{l.campanaNombre}</span> : null;
+        case 'alta':
+          return l.created ? <span className="tk-chip tk-chip--gris" title="Cuándo entró">Alta · {l.created}</span> : null;
+        // ⚠️ ESTÁ DIBUJADO ACÁ Y NO ES DE ACÁ: la etapa guardada del lead no existe en este funnel (medido el 25/09: 1.057
+        // de los 1.138 leads del ws1). `stageMetaOpt` y NO `stageMeta`: el segundo cae a `stages[0]`.
+        case 'fuera':
+          return l.stageFuera ? (
+            <span className="tk-chip tk-chip--gris" title={`Este lead quedó guardado en «${stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera}», una etapa que tu funnel ya no tiene. Se muestra aquí porque no hay columna donde ponerlo.`}>
+              {stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera} · fuera del funnel
+            </span>
+          ) : null;
+        default:
+          return null;
+      }
+    };
+    // «Con avance» (como Clients): el paso del lead en el CAMINO del funnel (sin nutrición ni salidas).
+    const iPaso = caminoTarjeta.findIndex((s) => s.key === etapa);
+    return {
+      alerta: overdueManual,
+      sinCara: !cs.includes('foto'),
+      compacta: dis === 'compacta',
+      subtitulo: subtituloEnOrden(cs, {
+        plata: isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado }),
+        canal: l.canal,
+      }),
+      avance: dis === 'avance' && iPaso >= 0
+        ? { pct: ((iPaso + 1) / caminoTarjeta.length) * 100, texto: `Paso ${iPaso + 1} de ${caminoTarjeta.length} · ${caminoTarjeta[iPaso].label}` }
+        : null,
+      chips: <>{cs.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}</>,
+    };
+  };
+  // La vista previa del pop-up: el primer lead del tablero, con lo que se está eligiendo.
+  const muestraTarjeta = leads[0] ?? null;
 
   return (
     // ⚠️ ARRIBA, 16 Y NO 34 (punto 23 del 12/10/2026: «Sube la topbar del todo»). Con el título
@@ -4067,7 +4098,12 @@ export function CrmBoard({
         />
       )}
       {personalizando && (
-        <CamposTarjetaModal campos={campos} guardable={camposGuardables} onCambio={setCampos} onCerrar={cerrarPersonalizar} />
+        <CamposTarjetaModal campos={campos} diseno={diseno} guardable={camposGuardables}
+          onCambio={(cs, d) => { setCampos(cs); setDiseno(d); }} onCerrar={cerrarPersonalizar}
+          vistaPrevia={muestraTarjeta ? (cs, d) => (
+            <TarjetaPersona nombre={muestraTarjeta.name} foto={muestraTarjeta.foto} insignia={insigniaDeCanal(muestraTarjeta.canal)}
+              {...propsDeTarjeta(muestraTarjeta, cs, d)} pildora={{ texto: 'Ver info', onClick: () => {} }} />
+          ) : null} />
       )}
     </main>
   );
