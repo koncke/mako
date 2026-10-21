@@ -2141,10 +2141,12 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
 - **BloqueHilo los carga con `next/dynamic`** (traen la hoja del contenido, ~100 KB): en un test con
   `renderToStaticMarkup` el hilo no los dibuja; se dibuja BloqueWeb directo.
 
-- **Una lectura deja su bloque ARRIBA de su salida** (ola1, 508cb901f): `{ bloque, ...lo de siempre }`. El turno lo saca
-  con `bloqueDeSalida`, lo sanea y lo cuelga del mensaje; al modelo le llega la salida sin él. UN bloque por
-  herramienta: la lista de landings es un solo bloque (`landings`, hasta 4 tarjetas y «Ver todas»), no cuatro.
-  `listar_disenos_landing` deja el G2 de 3 diseños, y la papelera no lleva tarjetas (no se abren desde ahí).
+- **Una lectura deja su bloque AL LADO de lo que lee el modelo:** devuelve `{ content, bloque }` (`SalidaLectura`).
+  `ejecutarOperacion` lo sanea y lo dibuja por `ctx.aDibujar` (ola1, 061c1b74d: el canal de Pagos, uno solo para todas
+  las áreas); el modelo recibe sólo `content`, y sin el canal (WhatsApp, HTTP) se descarta. El primer camino, un campo
+  `bloque` ADENTRO del JSON de `content` (508cb901f), se sacó: había que parsear la salida para encontrarlo. UN bloque
+  por herramienta (hasta 4 por mensaje entre todas): la lista de landings es un solo bloque (`landings`, hasta 4
+  tarjetas y «Ver todas»). `listar_disenos_landing` deja el G2 de 3 diseños, y la papelera no lleva tarjetas.
 
 ### Lo que quedó SIN hacer
 - «Armame una landing» sin diseño muestra los 3 SÓLO si el modelo llama a listar_disenos_landing: que llegue la

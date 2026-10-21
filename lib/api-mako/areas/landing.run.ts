@@ -576,11 +576,13 @@ export const RUNNERS: Runners = {
       const r = await docsEditor.listar();
       if (!r.ok) { siFallaNuestra(r); return errorLectura(`No pude leer las landings (${r.error}).`); }
       const papelera = bool(input, 'papelera') === true;
-      // El bloque (Ops Center 1.12): las primeras con su tarjeta, arriba de todo de la salida. Lo saca el turno
-      // (`bloqueDeSalida`): al modelo le llega la lista sin él. La papelera no lleva tarjetas: no se abren desde ahí.
+      // El bloque (Ops Center 1.12): las primeras con su tarjeta. Va al LADO de `content` (`SalidaLectura.bloque`):
+      // ejecutarOperacion lo sanea y lo dibuja por `ctx.aDibujar`, y al modelo le llega sólo `content`. La papelera no
+      // lleva tarjetas: no se abren desde ahí.
       const vivas = papelera ? [] : r.docs.filter((d) => !d.papelera);
       const bloque = bloqueListaLandings(vivas.map((d) => ({ d, url: estaPublicada(d) ? urlPublicaParaApi(d.slug as string, d.dominio) : null })), vivas.length);
-      return json({ ...(bloque ? { bloque } : {}), ...listaParaApi(r.docs, num(input, 'limite') ?? LIMITE_LISTA, { papelera }) });
+      const content = json(listaParaApi(r.docs, num(input, 'limite') ?? LIMITE_LISTA, { papelera }));
+      return bloque ? { content, bloque } : content;
     },
   },
 
@@ -691,9 +693,9 @@ export const RUNNERS: Runners = {
   },
 
   // El bloque (Ops Center 1.12): «armame una landing» sin diseño muestra 3 para elegir (el G2); lo elegido vuelve como
-  // un mensaje de la persona («Diseño: Clásico claro»). Lo saca el turno: al modelo le llega el catálogo sin él.
+  // un mensaje de la persona («Diseño: Clásico claro»). Va al lado de `content`: al modelo le llega sólo el catálogo.
   listar_disenos_landing: {
-    leer: async () => json({ bloque: elegirDiseno(), ...disenosParaApi() }),
+    leer: async () => ({ content: json(disenosParaApi()), bloque: elegirDiseno() }),
   },
 
   // ── Acciones por chat ──────────────────────────────────────────────────────

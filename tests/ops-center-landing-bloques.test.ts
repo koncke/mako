@@ -28,13 +28,15 @@
 //   R12 la tabla DNS dice «Falta» del www informativo                                 → 8 / 1
 //   R13 crear desde un diseño no devuelve su tarjeta                                  → 7 / 2
 //   R14 el link público se abre sin `noopener`                                        → 8 / 1
-//   (con la base en 9 tests; las seis siguientes, con las lecturas, sobre la base de 12 / 0)
-//   R15 listar no deja su bloque en la salida                                         → 11 / 1
+//   (con la base en 9 tests; las siguientes, con las lecturas, sobre 12 / 0, y R15, R17, R19 y R21 rehechas sobre
+//   13 / 0 cuando el bloque pasó al lado de `content`, el canal `ctx.aDibujar` de ola1, 061c1b74d)
+//   R15 listar no deja su bloque al lado de `content`                                 → 12 / 1
 //   R16 la lista lleva todas las landings, no las primeras                            → 10 / 2
-//   R17 la papelera lleva tarjetas                                                    → 11 / 1
+//   R17 la papelera lleva tarjetas                                                    → 12 / 1
 //   R18 el saneo de la lista deja una tarjeta que abre afuera                         → 11 / 1
-//   R19 los diseños no dejan su G2                                                    → 11 / 1
+//   R19 los diseños no dejan su G2                                                    → 11 / 2
 //   R20 BloqueWeb no dibuja la lista                                                  → 11 / 1
+//   R21 el G2 va también ADENTRO de lo que lee el modelo                              → 11 / 2
 //
 // Correr: node --import tsx --test tests/ops-center-landing-bloques.test.ts
 // =============================================================================
@@ -288,7 +290,7 @@ test('la lista se dibuja: cada tarjeta abre su editor, y «Ver todas» dice cuá
   assert.match(h, /<a class="ch-abrir" href="\/web-generator[^"]*">Ver todas en el Web Generator \(6\)<\/a>/);
 });
 
-test('listar y los diseños dejan su bloque arriba de la salida: llega al hilo y al modelo no (se ejecuta)', () => {
+test('listar y los diseños dejan su bloque AL LADO de lo que lee el modelo; ejecutarOperacion lo dibuja (se ejecuta)', () => {
   const r = hijo(`
 import { mock } from 'node:test';
 const real = (m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'default' && k !== 'module.exports'));
@@ -297,24 +299,39 @@ const doc = (id, extra = {}) => ({ id, titulo: 'L' + id, tema: 'mako', creado: '
 const docs = [doc(1, { slug: 'uno', publicadoAt: '2026-10-20T00:00:00Z' }), doc(2), doc(3, { papelera: true })];
 mock.module(${url('lib/editor-landing/server.ts')}, { exports: { ...real(await import(${url('lib/editor-landing/server.ts')})), listar: async () => ({ ok: true, docs }) } });
 const { RUNNERS } = await import(${url('lib/api-mako/areas/landing.run.ts')});
-const { bloqueDeSalida } = await import(${url('lib/chat-bloques.ts')});
 const ctx = { ws: 3, canal: 'app', canalKey: 'app:prueba', alcance: 'leer', rol: 'admin' };
-const lista = bloqueDeSalida(await RUNNERS.listar_landings_creadas.leer({}, ctx));
-const enPapelera = bloqueDeSalida(await RUNNERS.listar_landings_creadas.leer({ papelera: true }, ctx));
-const disenos = bloqueDeSalida(await RUNNERS.listar_disenos_landing.leer({}, ctx));
+const lista = await RUNNERS.listar_landings_creadas.leer({}, ctx);
+const enPapelera = await RUNNERS.listar_landings_creadas.leer({ papelera: true }, ctx);
+const disenos = await RUNNERS.listar_disenos_landing.leer({}, ctx);
 console.log(JSON.stringify({ lista, enPapelera, disenos }));
-`) as Record<string, { out: string; bloque: Record<string, unknown> | null }>;
+`) as Record<string, string | { content: string; bloque?: Record<string, unknown> }>;
+  const lista = r.lista as { content: string; bloque: Record<string, unknown> };
   // La lista: el bloque con las dos que no están en la papelera, y la publicada con su dirección.
-  assert.equal(r.lista.bloque?.t, 'landings', JSON.stringify(r.lista));
-  const ls = r.lista.bloque!.landings as { id: number; estado: string; url: string | null }[];
+  assert.equal(lista.bloque?.t, 'landings', JSON.stringify(r.lista).slice(0, 300));
+  const ls = lista.bloque.landings as { id: number; estado: string; url: string | null }[];
   assert.deepEqual(ls.map((l) => [l.id, l.estado]), [[1, 'publicada'], [2, 'borrador']]);
   assert.match(ls[0].url ?? '', /^https:\/\/[^/]+\/(?:l\/)?uno$/, 'la publicada lleva su dirección');
-  // Al modelo le llega la salida SIN el bloque (la sección no se paga en cada paso), y con la lista de siempre.
-  assert.doesNotMatch(r.lista.out, /"bloque"|"primera"|"tarjeta"/);
-  assert.equal((JSON.parse(r.lista.out) as { landings: unknown[] }).landings.length, 2);
-  assert.equal(r.enPapelera.bloque, null, 'la papelera no lleva tarjetas');
-  // Los diseños: el G2 de tres, y el catálogo para el modelo, sin el bloque.
-  assert.deepEqual([r.disenos.bloque?.t, (r.disenos.bloque?.opciones as unknown[]).length], ['elegir', 3]);
-  assert.doesNotMatch(r.disenos.out, /"bloque"/);
-  assert.ok((JSON.parse(r.disenos.out) as { disenos: unknown[] }).disenos.length >= 3);
+  assert.deepEqual(sanearBloque(lista.bloque), lista.bloque, 'el marco no lo dibujaría');
+  // Lo que lee el modelo (`content`) no trae el bloque ni la sección: no se paga en cada paso.
+  assert.doesNotMatch(lista.content, /"bloque"|"primera"|"tarjeta"/);
+  assert.equal((JSON.parse(lista.content) as { landings: unknown[] }).landings.length, 2);
+  assert.equal(typeof r.enPapelera, 'string', 'la papelera no lleva tarjetas: sale el texto de siempre');
+  // Los diseños: el G2 de tres al lado del catálogo.
+  const d = r.disenos as { content: string; bloque: Record<string, unknown> };
+  assert.deepEqual([d.bloque?.t, (d.bloque?.opciones as unknown[]).length], ['elegir', 3]);
+  assert.doesNotMatch(d.content, /"bloque"/);
+  assert.ok((JSON.parse(d.content) as { disenos: unknown[] }).disenos.length >= 3);
+});
+
+test('por el camino REAL (ejecutarOperacion): los diseños se dibujan por `ctx.aDibujar`, saneados, y el modelo no los ve', () => {
+  const r = JSON.parse(execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_dibujar-landing-hijo.ts')], {
+    cwd: RAIZ, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'],
+  })) as { conCanal: { ok: boolean; resultado: string }; sinCanal: { resultado: string }; dibujados: Record<string, unknown>[]; cuantos: number; red: string[] };
+  assert.deepEqual(r.red, [], 'nada sale a la red');
+  assert.equal(r.conCanal.ok, true, JSON.stringify(r.conCanal).slice(0, 300));
+  assert.equal(r.cuantos, 1, 'con el canal de la pantalla, se dibuja una vez');
+  assert.deepEqual(r.dibujados[0], elegirDiseno(), 'se dibuja el G2 de los tres diseños, saneado y entero');
+  assert.doesNotMatch(r.conCanal.resultado, /"bloque"|"opciones"/, 'al modelo le llega el catálogo sin el bloque');
+  assert.equal(r.dibujados.length, 1, 'sin el canal (WhatsApp, HTTP) no se dibuja');
+  assert.equal(r.sinCanal.resultado, r.conCanal.resultado);
 });
