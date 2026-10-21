@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   // ⚠️ UNA CUOTA YA COBRADA NO CAMBIA DE COMPROBANTE DESDE ACÁ (21/10/2026, revisión de Pagos): con una vista vieja (otra
   // pestaña, o un link que se pagó mientras tanto), abrir «Marcar pagada» le pisaba el comprobante a una cuota cobrada
   // (el PDF del banco, el de Stripe) con la foto del chat, y cancelar no lo deshacía.
-  if ((pagoRow as { pagado?: boolean | null }).pagado) return Response.json({ error: 'Esa cuota ya está cobrada: su comprobante no se cambia desde acá.', ya_cobrada: true }, { status: 409 });
+  if ((pagoRow as { pagado?: boolean | null }).pagado) return Response.json({ error: 'Esa cuota ya está cobrada: su comprobante no se cambia desde aquí.', ya_cobrada: true }, { status: 409 });
 
   // Subir el comprobante y registrarlo en la fila del pago.
   const safe = (file.name || 'comprobante').replace(/[^\w.\-]+/g, '_').slice(-80);
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     .eq('pagado', false)
     .select('id');
   if (dbErr) return Response.json({ error: `pagos: ${dbErr.message}` }, { status: 500 });
-  if (!tocadas?.length) return Response.json({ error: 'Esa cuota ya está cobrada: su comprobante no se cambia desde acá.', ya_cobrada: true }, { status: 409 });
+  if (!tocadas?.length) return Response.json({ error: 'Esa cuota ya está cobrada: su comprobante no se cambia desde aquí.', ya_cobrada: true }, { status: 409 });
 
   const prompt = await getPromptText('contracts.extract_receipt.user', RECEIPT_EXTRACT_DEFAULT);
   const isPdf = mime.includes('pdf') || (file.name || '').toLowerCase().endsWith('.pdf');
