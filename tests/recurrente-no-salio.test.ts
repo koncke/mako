@@ -129,7 +129,8 @@ test('(6) Chats abre la bandeja del link, con «Todas», y la URL vuelve a /chat
 
 test('(6) al ACTIVARLA el chat dice por qué quedan para aprobar (sólo si quedan), y ChatMako lo agrega una vez', () => {
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /if \(!activa && dejaBorradores\(pasos, est\?\.envio_automatico === true\)\) \{\n\s+setNotaChat\(\{ id: `mako-aprobar-\$\{Date\.now\(\)\.toString\(36\)\}`, texto: `\$\{POR_QUE_SE_APRUEBAN\}\. Se aprueban en Chats › Borradores\.` \}\);/);
+  // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): con lo PUBLICADO: Activar prende la fila, no el borrador.
+  assert.match(perfil, /if \(!activa && dejaBorradores\(abiertoPublicado, est\?\.envio_automatico === true\)\) \{\n\s+setNotaChat\(\{ id: `mako-aprobar-\$\{Date\.now\(\)\.toString\(36\)\}`, texto: `\$\{POR_QUE_SE_APRUEBAN\}\. Se aprueban en Chats › Borradores\.` \}\);/);
   assert.match(perfil, /onListaCambio=\{onListaCambio\} nota=\{notaChat\} \/>/);
   const chat = sinComentarios(leer('app/automations/ChatMako.tsx'));
   assert.match(chat, /if \(!nota \|\| notaDicha\.current === nota\.id\) return;\n\s+notaDicha\.current = nota\.id;\n\s+setMensajes\(\(ms\) => \[\.\.\.ms, \{ id: nota\.id, de: 'mako', texto: nota\.texto,/);
@@ -241,12 +242,15 @@ test('(8) el primer mensaje es el de la SALIDA (saltando esperas), no una respue
 
 test('(8) la pantalla pregunta al ACTIVAR, y al PUBLICAR sólo si ya está activa; no frena', () => {
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /onClick=\{\(\) => \(activa \? void toggle\(\) : conAvisoDuplicada\(true, 'Activar igual', \(\) => void toggle\(\)\)\)\}/);
+  // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): Activar compara lo PUBLICADO (`abiertoPublicado`).
+  assert.match(perfil, /onClick=\{\(\) => \(activa \? void toggle\(\) : conAvisoDuplicada\(true, 'Activar igual', \(\) => void toggle\(\), abiertoPublicado\)\)\}/);
   assert.match(perfil, /onClick=\{\(\) => conAvisoProspeccion\(\(\) => conAvisoDuplicada\(activa, 'Publicar igual', \(\) => void publicar\(\)\)\)\}/);
   assert.match(perfil, /if \(!rolAdmin \|\| !vaAMandar\) \{ seguir\(\); return; \}/);
   // Lo de AHORA de ésta (el lienzo y sus CRON) contra lo PUBLICADO de las otras.
-  assert.match(perfil, /\{ id: secuencia\.id, nombre, disparadores: crons\.lista, pasos \},\n\s+secuencias\.map\(\(s\) => \(\{ id: s\.id, nombre: s\.nombre, activa: s\.activa, disparadores: disparadoresDeSecuencia\(s\), pasos: s\.pasos \?\? \[\] \}\)\),/);
-  assert.match(perfil, /onConfirm=\{\(\) => \{ const s = avisoDup\.seguir; setAvisoDup\(null\); s\(\); \}\}\n\s+onCancel=\{\(\) => setAvisoDup\(null\)\} \/>/);
+  // (Revisión del 20/10/2026, noche: lo que se compara de ésta es `queManda`: el lienzo al publicar, lo publicado al activar.)
+  assert.match(perfil, /\{ id: secuencia\.id, nombre, disparadores: crons\.lista, pasos: queManda \},\n\s+secuencias\.map\(\(s\) => \(\{ id: s\.id, nombre: s\.nombre, activa: s\.activa, disparadores: disparadoresDeSecuencia\(s\), pasos: s\.pasos \?\? \[\] \}\)\),/);
+  // (21/10/2026: «… igual» marca la respuesta, `respondioIgual`, que el pedido que sigue manda al server como `aunqueDuplique`.)
+  assert.match(perfil, /onConfirm=\{\(\) => \{ const s = avisoDup\.seguir; setAvisoDup\(null\); respondioIgual\.current = true; s\(\); \}\}\n\s+onCancel=\{\(\) => setAvisoDup\(null\)\} \/>/);
 });
 
 // PROBADO ROMPIÉNDOLO (20/10/2026, arnés `romper.py` + `roturas-no-salio.json`, una rotura por vez y restaurada con

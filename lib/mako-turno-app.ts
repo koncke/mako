@@ -33,7 +33,7 @@ import 'server-only';
 import { chatClaudeTools, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
-import { aToolDef, porId } from '@/lib/api-mako/registro';
+import { aToolDef, gatingOk, porId } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
@@ -66,16 +66,19 @@ import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pega
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
 import { descartarPropuesta, getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
+import { descartarPropuesta as descartarBorradorDelPlan } from '@/lib/plan-propuesta';
+import { resolverPropuesta as resolverPropuestaDeVideo } from '@/lib/editor-video/propuestas-server';
+import { descartarBorrador } from '@/lib/evolution-envio';
 import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
 import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
-  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta,
+  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
-  historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  historialParaModelo, hechoEnElHilo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -483,14 +486,13 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const capturados: LinkCapturado[] = [];
     // Un turno que se re-arranca (la cascada de chatClaudeTools rota de cuenta) no repite
     // acciones: el mismo memo que el doer de WhatsApp.
-    const memo = crearMemoDeAcciones((n) => {
-      const d = porId(n);
-      return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
-    });
+    const escribe = (n: string) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); };
+    const memo = crearMemoDeAcciones(escribe);
     // Desde que MaKo pregunta, no se propone nada en el turno (1.9): una lectura sí, para armar las opciones.
-    const guardia = crearGuardiaDePregunta((n) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); });
-    /** Cuántas herramientas corrieron DE VERDAD en el turno: el guardia de promesas lo necesita (1.5). */
+    const guardia = crearGuardiaDePregunta(escribe);
+    /** Cuántas herramientas corrieron DE VERDAD en el turno, y cuántas LEYERON sin error: el guardia de promesas (1.5). */
     let corridas = 0;
+    let leidas = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
       // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
@@ -515,6 +517,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       herramientaActual = name;
       const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
       memo.anotar(name, out);
+      if (!escribe(name) && (out as { isError?: unknown }).isError !== true) leidas++;
       const err = errorParaTicket(name, out);
       if (err) erroresDelTurno.push(err);
       else if (name === LEVANTAR_TICKET) ticketPropuesto = true;
@@ -570,7 +573,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (pregunta) {
       await Promise.all([
         ...delTurno.map((t) => resolverPendiente(ws, t.pendienteId, 'cancelada', 'MaKo preguntó antes de proponer', { soloSiPendiente: true }).catch(() => false)),
-        ...capturadas.map((p) => { const id = p.clase === 'accion' ? idDePropuesta(p.escritorio) : null; return id ? descartarPropuesta(id).catch(() => undefined) : undefined; }),
+        ...capturados.map((l) => retirarEnSuPantalla(ws, aRetirar(l))),
       ]);
     }
     const retirado = retirar(pregunta, delTurno, capturadas);
@@ -581,8 +584,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // editor») no se dibuja dos veces: queda el bloque.
     const conBloque = new Set(dibujos.flatMap((b) => ('abrir' in b && b.abrir ? [b.abrir.href] : [])));
     const pantallas = retirado.pantallas.filter((p) => !conBloque.has(p.escritorio));
-    const borrador = capturados.find((c) => c.clase === 'borrador') ?? null;
-    const lead = capturados.find((c) => c.clase === 'lead') ?? null;
+    // Con lo que QUEDA: con una pregunta se retiró, y el mensaje no puede decir «confírmalo abajo» sin nada abajo.
+    const borrador = pregunta ? null : capturados.find((c) => c.clase === 'borrador') ?? null;
+    const lead = pregunta ? null : capturados.find((c) => c.clase === 'lead') ?? null;
 
     let respuesta: string | null = null;
     let aviso: string | null = avisos.length ? avisos.join(' ') : null;
@@ -604,8 +608,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // —el de la app y el teléfono de los clientes— no. Se saca la oración, no la respuesta entera (las promesas no: acá la
     // tarjeta y la pantalla dicen lo que quedó hecho).
     if (respuesta && !borrador && !lead) {
-      // Con lo que DE VERDAD corrió (1.5): sin ninguna herramienta, «déjame ver» y «Listo, ya lo armé» son mentira.
-      const saneo = sanearSalida(respuesta, { corrioHerramientas: corridas > 0, hecho: true });
+      // Con lo que DE VERDAD corrió (1.5): sin ninguna herramienta, «déjame ver» es mentira. Y lo que dice HECHO, con lo
+      // que lo respalda: en este chat el turno no ejecuta nada, así que «ya le mandé» sólo vale si lo anota el hilo.
+      const saneo = sanearSalida(respuesta, {
+        corrioHerramientas: corridas > 0,
+        hecho: { enElHilo: hechoEnElHilo(historial), leyo: leidas > 0, tarjeta: propuestas.length > 0 || retirado.pantallas.length > 0 },
+      });
       if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
       respuesta = saneo.texto;
     }
@@ -635,6 +643,20 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
  *  siguiente («¿ya lo hiciste?»). Es el `resumen` del resultado, que por contrato es apto
  *  para un modelo (lo que no, va en `paraLaPersona` y no se guarda). Si guardarlo falla, la
  *  acción igual quedó hecha: no se revierte una ejecución porque no se pudo anotar. */
+/** Lo que el turno propuso en una pantalla y se retira porque MaKo preguntó (1.9): cada uno con SU descarte, que sólo
+ *  toca lo que sigue pendiente. Si falla, se registra y el turno sigue: la pregunta igual sale. */
+async function retirarEnSuPantalla(ws: number, r: ReturnType<typeof aRetirar>): Promise<void> {
+  if (!r) return;
+  try {
+    if (r.clase === 'accion' || r.clase === 'lead') await descartarPropuesta(r.id);
+    else if (r.clase === 'borrador') await descartarBorradorDelPlan(r.id);
+    else if (r.clase === 'editor') await resolverPropuestaDeVideo({ ws, id: r.id, estado: 'descartada', persona: 'MaKo', descartes: [] });
+    else await descartarBorrador(Number(r.id));
+  } catch (e) {
+    console.error(`[mako-turno-app] ws=${ws} no pude retirar ${r.clase} ${r.id}:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
 async function anotarEnHilo(sessionId: number, texto: string, bloques: readonly Bloque[] = []): Promise<void> {
   // Con el bloque (lib/chat-bloques.ts): al recargar, lo creado vuelve con su miniatura debajo del «Hecho: …».
   try { await appendMessage(sessionId, 'assistant', texto, bloques.length ? bloques.map(aGuardar) : undefined); }
@@ -654,10 +676,13 @@ export async function confirmarDesdeTarjeta(persona: PersonaChat, sessionId: num
     if (!(await sesionDe(persona, sessionId))) return NO_ES_TUYA;
     // Un trabajo LARGO (1.11, lib/chat-trabajos.ts): se confirma por detrás y la respuesta vuelve enseguida, con el G6 que
     // la pantalla consulta. Si no se puede anotar su avance, corre como siempre, acá abajo.
+    // ⚠️ SÓLO LA DE ESTE CHAT, Y SI QUIEN TOCA PUEDE (revisión del 21/10/2026): con la pendiente de otro chat (los ids son
+    //    correlativos) anotaba «En curso» y servía para ver qué hay vivo en otros; y un closer que tocaba una de admin veía
+    //    «En curso» y después «No se pudo». Si no, el camino de siempre contesta el error sin escribir en el hilo.
     const pend = await getPendiente(persona.ws, pendienteId).catch(() => null);
-    const def = pend?.estado === 'pendiente' ? porId(pend.tipo) : undefined;
-    if (def && esAccion(def) && def.lenta) {
-      const ctx = ctxDeTarjeta(persona, sessionId);
+    const def = pend?.estado === 'pendiente' && pend.grupoJid === canalKeyDeSesion(sessionId) ? porId(pend.tipo) : undefined;
+    const ctx = ctxDeTarjeta(persona, sessionId);
+    if (def && esAccion(def) && def.lenta && gatingOk(def, await vistaDe(ctx))) {
       const trabajo = await enSegundoPlano(persona.ws, sessionId, def.titulo, async () => {
         const r = await confirmarPendiente(ctx, pendienteId);
         return 'error' in r ? { ok: false, resumen: errorCortoDeTarjeta(r.error) } : r;

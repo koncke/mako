@@ -67,7 +67,7 @@ import { CSS_OFFER } from '@/app/offer/estilos';
 import { horaDe } from '@/app/offer/ayudas';
 import {
   AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, fuenteDelTurno, idLocal, itemsDeRespuesta, conTarjeta,
-  itemsDeSesion, leerRespuesta, problemaDeSeleccion, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo,
+  itemsDeSesion, leerRespuesta, problemaDeSeleccion, rotuloPrimario, trasTarjeta, trasTrabajo, conRespuestas, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen, postConProgreso } from '@/app/m/mako/subir';
 import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
@@ -428,7 +428,8 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     return out;
   }, [items, hayTrabajo]);
 
-  const porId = useMemo(() => new Map(items.map((x) => [x.id, x])), [items]);
+  // Con lo contestado (`conRespuestas`): contestar escribiendo apaga las opciones de la pregunta en el acto.
+  const porId = useMemo(() => new Map(conRespuestas(items).map((x) => [x.id, x])), [items]);
 
   /** Lo que la burbuja de ChatHilo no sabe dibujar; null = la de siempre. */
   const renderMensaje = (h: HiloMsg): ReactNode | null => {
@@ -508,7 +509,13 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     }
 
     // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza del Ops Center y del teléfono.
-    if (x.k === 'bloque') return <FilaMako><BloqueHilo b={x.b} respondida={x.respondida} onResponder={(t) => enviar({ texto: t, adjuntos: [] })} /></FilaMako>;
+    if (x.k === 'bloque') {
+      const de = x.deTarjeta;
+      // El trabajo largo de una tarjeta terminó: la tarjeta deja de decir «En curso» y la ficha se relee (lo cambió).
+      const termina = de != null ? (ok: boolean) => { setItems((xs) => trasTrabajo(xs, de, ok)); refrescarFicha(); } : undefined;
+      return <FilaMako><BloqueHilo b={x.b} respondida={x.respondida} ocupado={hayTrabajo} onTermina={termina}
+        onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t, adjuntos: [] }); return true; }} /></FilaMako>;
+    }
 
     if (x.k === 'pantalla' && x.p.form) {
       return (

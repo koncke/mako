@@ -14,6 +14,7 @@
 
 import { TextField, Field, Textarea, Select, Checkbox } from '@/app/_ui';
 import type { Parametro } from '@/lib/api-mako/tipos';
+import { rotuloDeParametro } from '@/lib/editor-acciones';
 
 export type OperacionPlana = {
   id: string;
@@ -98,14 +99,20 @@ export function valorLegible(v: unknown): string {
   return JSON.stringify(v);
 }
 
-export function Campo({ p, valor, error, disabled, onChange }: {
-  p: Parametro; valor: Valor; error?: string; disabled: boolean; onChange: (v: Valor) => void;
+/**
+ * Un campo del formulario. `paraCliente` (el formulario del chat, revisión del 21/10/2026): el rótulo de una persona
+ * (`rotuloDeParametro`: «Lead», no «leadId») y sin la `descripcion`, que está escrita para el modelo («id del lead (de
+ * buscar_leads).»). La pantalla de revisión sigue como estaba.
+ */
+export function Campo({ p, valor, error, disabled, onChange, paraCliente = false }: {
+  p: Parametro; valor: Valor; error?: string; disabled: boolean; onChange: (v: Valor) => void; paraCliente?: boolean;
 }) {
-  const hint = p.descripcion;
+  const hint = paraCliente ? '' : p.descripcion;
+  const rotulo = paraCliente ? rotuloDeParametro(p) : p.nombre;
   if (p.tipo === 'boolean') {
     return (
       <div>
-        <Checkbox checked={valor === true} onChange={onChange} label={p.nombre} hint={hint} disabled={disabled} />
+        <Checkbox checked={valor === true} onChange={onChange} label={rotulo} hint={hint || undefined} disabled={disabled} />
         {error && <span className="mk-err" role="alert">{error}</span>}
       </div>
     );
@@ -116,11 +123,11 @@ export function Campo({ p, valor, error, disabled, onChange }: {
       ...(p.obligatorio ? [] : [{ value: '', label: 'Sin definir' }]),
       ...p.enum.map((e) => ({ value: e, label: e })),
     ];
-    return <Select label={p.nombre} hint={hint} error={error} required={p.obligatorio} options={opciones} value={texto} onChange={onChange} disabled={disabled} />;
+    return <Select label={rotulo} hint={hint || undefined} error={error} required={p.obligatorio} options={opciones} value={texto} onChange={onChange} disabled={disabled} />;
   }
   if (p.tipo === 'string') {
     return (
-      <TextField label={p.nombre} hint={hint} error={error} required={p.obligatorio} value={texto} disabled={disabled}
+      <TextField label={rotulo} hint={hint || undefined} error={error} required={p.obligatorio} value={texto} disabled={disabled}
         multiline={(p.max ?? 4000) > LARGO_TEXTAREA} maxLength={p.max}
         onChange={(e) => onChange(e.target.value)} />
     );
@@ -128,7 +135,7 @@ export function Campo({ p, valor, error, disabled, onChange }: {
   if (p.tipo === 'number') {
     const rango = [p.minimo != null ? `mínimo ${p.minimo}` : '', p.maximo != null ? `máximo ${p.maximo}` : '', p.entero ? 'entero' : ''].filter(Boolean).join(' · ');
     return (
-      <TextField label={p.nombre} hint={rango ? `${hint} (${rango})` : hint} error={error} required={p.obligatorio} value={texto} disabled={disabled}
+      <TextField label={rotulo} hint={(rango ? (hint ? `${hint} (${rango})` : rango) : hint) || undefined} error={error} required={p.obligatorio} value={texto} disabled={disabled}
         type="number" inputMode={p.entero ? 'numeric' : 'decimal'} step={p.entero ? 1 : 'any'} min={p.minimo} max={p.maximo}
         onChange={(e) => onChange(e.target.value)} />
     );
@@ -137,7 +144,7 @@ export function Campo({ p, valor, error, disabled, onChange }: {
     const opciones = p.enum?.length ? ` Valores posibles: ${p.enum.join(', ')}.` : '';
     const idLista = `campo-${p.nombre}`;
     return (
-      <Field label={p.nombre} hint={`${hint} Un valor por renglón.${opciones}`} error={error} required={p.obligatorio} htmlFor={idLista}>
+      <Field label={rotulo} hint={`${hint ? `${hint} ` : ''}Un valor por renglón.${opciones}`} error={error} required={p.obligatorio} htmlFor={idLista}>
         <Textarea id={idLista} error={!!error} value={texto} disabled={disabled} rows={Math.min(10, Math.max(3, texto.split('\n').length))}
           onChange={(e) => onChange(e.target.value)} />
       </Field>
@@ -146,7 +153,7 @@ export function Campo({ p, valor, error, disabled, onChange }: {
   // object / object[]: JSON a mano, validado al enviar.
   const id = `campo-${p.nombre}`;
   return (
-    <Field label={p.nombre} hint={`${hint} En formato JSON.`} error={error} required={p.obligatorio} htmlFor={id}>
+    <Field label={rotulo} hint={`${hint ? `${hint} ` : ''}En formato JSON.`} error={error} required={p.obligatorio} htmlFor={id}>
       <Textarea id={id} error={!!error} value={texto} disabled={disabled} rows={Math.min(14, Math.max(4, texto.split('\n').length))}
         spellCheck={false} style={{ fontFamily: "'Geist Mono', monospace", fontSize: 'var(--fs-meta)' }}
         onChange={(e) => onChange(e.target.value)} />

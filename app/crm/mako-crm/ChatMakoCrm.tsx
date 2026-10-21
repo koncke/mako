@@ -35,7 +35,7 @@ import { Microfono } from '@/app/admin/operaciones/Microfono';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 import {
-  idLocal, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
+  idLocal, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, trasTarjeta, trasTrabajo, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
@@ -276,7 +276,8 @@ export function ChatMakoCrm({ funnelId, pedido }: {
         ) : (
           <HiloMako items={items} quien={{ nombre: 'CRM' }} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
             tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
-            onResponder={(t) => enviar({ texto: t })} />
+            onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t }); return true; }}
+            onTrabajo={(id, ok) => { setItems((xs) => trasTrabajo(xs, id, ok)); router.refresh(); }} />
         )}
       </div>
       <div className="co-caja-wrap">

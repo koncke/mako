@@ -16,7 +16,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import Link, { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
-import { ROTULO_PASO, proporcion, razon, sanearBloque, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
+import { MAX_CONSULTAS, ROTULO_PASO, leerConsulta, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
 import { esBloqueWeb } from '@/lib/editor-landing/bloques-web';
 
 /** Los bloques del Web Generator (la tarjeta de una landing, elegir entre 3, lo publicado, el dominio), aparte: traen la
@@ -30,12 +30,17 @@ type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
 const CONSULTA_INICIAL_MS = 3_000;
 const CONSULTA_MAX_MS = 15_000;
 
-export function BloqueHilo({ b, onResponder, respondida }: {
+export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
   b: Bloque;
-  /** Contestar una pregunta (G1): lo elegido sale como un mensaje de la persona. Sin esto, las opciones se ven y no se tocan. */
-  onResponder?: (texto: string) => void;
+  /** Contestar una pregunta (G1): lo elegido sale como un mensaje de la persona. Sin esto, las opciones se ven y no se tocan.
+   *  `false` = no salió (MaKo estaba trabajando): la pregunta NO dice «Respondiste». */
+  onResponder?: (texto: string) => boolean | void;
+  /** MaKo está trabajando: las opciones esperan (lo tocado no saldría). */
+  ocupado?: boolean;
   /** Una pregunta que ya se contestó (al recargar): se ve contestada y no se toca. */
   respondida?: string;
+  /** Un trabajo largo (G6) terminó mientras se miraba: quien lo lanzó (su tarjeta, su formulario) deja de decir «En curso». */
+  onTermina?: (ok: boolean) => void;
 }) {
   if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} respondida={respondida} />;
   if (b.t === 'creado') return <Creado b={b} />;
@@ -56,41 +61,53 @@ export function BloqueHilo({ b, onResponder, respondida }: {
       </div>
     );
   }
-  if (b.t === 'trabajo') return <TrabajoHilo b={b} />;
-  return <PreguntaHilo b={b} onResponder={onResponder} respondida={respondida} />;
+  if (b.t === 'trabajo') return <TrabajoHilo b={b} onTermina={onTermina} />;
+  return <PreguntaHilo b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
 }
 
 /**
  * G6: los pasos de un trabajo largo. Con `consulta` y un paso en curso, la pantalla pregunta cómo va
  * (GET /api/mako/chat?trabajo=, lib/chat-trabajos.ts) hasta que termina, y entonces dibuja su resultado: el G5 en que
- * termina, su «Abrir», o lo que dibuje aparte (1.11). Sin recargar.
+ * termina, su «Abrir», lo que dibuje aparte (1.11) y lo que pasó en palabras («No se pudo: …»). Sin recargar.
+ * ⚠️ NO PREGUNTA PARA SIEMPRE (revisión del 21/10/2026): un 404 (el trabajo ya no está) o `MAX_CONSULTAS` sin respuesta
+ *    lo cortan, y lo dice. Uno que murió en el server lo corta `estadoDeTrabajo` (su `hasta`).
  */
-function TrabajoHilo({ b }: { b: Trabajo }) {
+function TrabajoHilo({ b, onTermina }: { b: Trabajo; onTermina?: (ok: boolean) => void }) {
   const ws = useWs();
   const [actual, setActual] = useState<Trabajo>(b);
   const [aparte, setAparte] = useState<Bloque[]>([]);
-  const vivo = !!actual.consulta && actual.pasos.some((p) => p.estado === 'en_curso');
+  /** Cómo terminó, visto desde acá: `ok` null = no se sabe. */
+  const [fin, setFin] = useState<{ ok: boolean | null; texto: string | null } | null>(null);
+  const vivo = !!actual.consulta && actual.pasos.some((p) => p.estado === 'en_curso') && !fin;
   useEffect(() => {
     if (!vivo || !actual.consulta) return;
     const consulta = actual.consulta;
     let parar = false;
     let espera = CONSULTA_INICIAL_MS;
+    let intentos = 0;
     let reloj: ReturnType<typeof setTimeout> | undefined;
     const mirar = async () => {
+      intentos++;
+      let r: ReturnType<typeof leerConsulta> = { sigue: true };
       try {
         const res = await fetch(conWs(`/api/mako/chat?trabajo=${encodeURIComponent(consulta)}`, ws), { cache: 'no-store' });
-        const j = await res.json() as { ok?: boolean; bloques?: unknown[] };
-        const bloques = (j.ok && Array.isArray(j.bloques) ? j.bloques : []).map(sanearBloque).filter((x): x is Bloque => !!x);
-        const suyo = bloques.find((x): x is Trabajo => x.t === 'trabajo' && x.consulta === consulta);
-        if (!parar && suyo) { setActual(suyo); setAparte(bloques.filter((x) => x.t !== 'trabajo')); }
-        if (suyo && !suyo.pasos.some((p) => p.estado === 'en_curso')) return;
+        r = leerConsulta(res.status, await res.json().catch(() => null), consulta);
       } catch { /* sin red: se vuelve a preguntar */ }
       if (parar) return;
+      if (r.trabajo) { setActual(r.trabajo); setAparte(r.aparte ?? []); }
+      if (!r.sigue || intentos >= MAX_CONSULTAS) {
+        const terminado = r.sigue ? { ok: null, texto: null } : { ok: r.ok, texto: r.texto };
+        setFin(terminado);
+        if (terminado.ok != null) onTermina?.(terminado.ok);
+        return;
+      }
       espera = Math.min(Math.round(espera * 1.5), CONSULTA_MAX_MS);
       reloj = setTimeout(() => void mirar(), espera);
     };
     reloj = setTimeout(() => void mirar(), espera);
     return () => { parar = true; if (reloj) clearTimeout(reloj); };
+    // `onTermina` cambia en cada render del padre: no reinicia la consulta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vivo, actual.consulta, ws]);
   return (
     <div className="ch-bloque" data-bloque="trabajo" role="status" aria-live="polite">
@@ -105,6 +122,11 @@ function TrabajoHilo({ b }: { b: Trabajo }) {
         ))}
       </ol>
       {vivo && <p className="ch-tarjeta__nota">Sigue por detrás: puedes cerrar el chat, al volver está.</p>}
+      {fin && (
+        <p className={`ch-tarjeta__nota${fin.ok === false ? ' ch-form__error' : ''}`} role={fin.ok === false ? 'alert' : 'status'}>
+          {fin.texto ?? (fin.ok == null ? 'No sé cómo terminó: recarga el chat para verlo.' : null)}
+        </p>
+      )}
       {actual.listo && <Creado b={actual.listo} />}
       {actual.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={actual.abrir.href}>{actual.abrir.titulo}</Link></div>}
       {aparte.map((x, i) => <BloqueHilo key={i} b={x} />)}
@@ -137,14 +159,20 @@ function Creado({ b }: { b: BloqueCreado }) {
 }
 
 /** G1: las opciones, la recomendada marcada; de a una (tocar contesta) o varias (se marcan y «Listo»). */
-function PreguntaHilo({ b, onResponder, respondida }: { b: Pregunta; onResponder?: (texto: string) => void; respondida?: string }) {
+function PreguntaHilo({ b, onResponder, respondida, ocupado }: { b: Pregunta; onResponder?: (texto: string) => boolean | void; respondida?: string; ocupado?: boolean }) {
   const [marcadas, setMarcadas] = useState<number[]>([]);
-  const [enviada, setEnviada] = useState<string | null>(respondida ?? null);
-  const quieta = !onResponder || enviada != null;
+  const [enviada, setEnviada] = useState<string | null>(null);
+  const [noSalio, setNoSalio] = useState(false);
+  // Contestada al recargar, o escribiendo después de la pregunta (`conRespuestas`): vale lo que dijo la persona.
+  const dicha = respondida ?? enviada;
+  const quieta = !onResponder || dicha != null || !!ocupado;
+  // ⚠️ «Respondiste» SÓLO SI SALIÓ (revisión del 21/10/2026): tocar mientras MaKo trabajaba marcaba la opción y no
+  //    mandaba nada, sin aviso.
   const responder = (t: string) => {
     if (quieta) return;
+    if (onResponder?.(t) === false) { setNoSalio(true); return; }
+    setNoSalio(false);
     setEnviada(t);
-    onResponder?.(t);
   };
   const tocar = (i: number) => {
     if (!b.varias) { responder(b.opciones[i].titulo); return; }
@@ -156,7 +184,7 @@ function PreguntaHilo({ b, onResponder, respondida }: { b: Pregunta; onResponder
       <div className="ch-opciones" role="group" aria-label={b.pregunta}>
         {b.opciones.map((o, i) => (
           <button key={i} type="button" className="ch-opcion" disabled={quieta}
-            aria-pressed={b.varias ? marcadas.includes(i) : enviada === o.titulo}
+            aria-pressed={b.varias ? marcadas.includes(i) : dicha === o.titulo}
             data-recomendada={i === b.recomendada || undefined} onClick={() => tocar(i)}>
             <span className="ch-opcion__titulo">
               {o.titulo}{i === b.recomendada && <span className="ch-pildora">Recomendada</span>}
@@ -165,7 +193,8 @@ function PreguntaHilo({ b, onResponder, respondida }: { b: Pregunta; onResponder
           </button>
         ))}
       </div>
-      {enviada == null ? (
+      {noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.</p>}
+      {dicha == null ? (
         <div className="ch-tarjeta__botones">
           {b.varias && (
             <button type="button" className="ch-abrir" disabled={quieta || !marcadas.length}
@@ -174,7 +203,7 @@ function PreguntaHilo({ b, onResponder, respondida }: { b: Pregunta; onResponder
           <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Elige tú')}>Elige tú</button>
           <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Saltear')}>Saltear</button>
         </div>
-      ) : <p className="ch-tarjeta__nota">{`Respondiste: ${enviada}`}</p>}
+      ) : <p className="ch-tarjeta__nota">{`Respondiste: ${dicha}`}</p>}
     </div>
   );
 }

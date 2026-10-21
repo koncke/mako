@@ -54,7 +54,7 @@ import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
   archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta,
-  type EstadoPropuesta, type ItemHilo, type Leido,
+  trasTrabajo, type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
 import { IconoChat } from '@/app/m/mako/iconos';
@@ -728,7 +728,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
             ) : (
               <HiloMako items={items} quien={{ nombre: nombreMuneco }} ahora={ahora} escribiendo={trabajo ? { segs } : null}
                 tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
-                onResponder={(t) => { enviar(t); }} />
+                onResponder={(t) => enviar(t)} onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))} />
             )}
           </div>
 

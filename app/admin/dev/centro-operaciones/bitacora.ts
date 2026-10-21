@@ -974,7 +974,7 @@ export const BITACORA: Hito[] = [
     revisar: '/admin/operaciones',
     puntos: [
       'A cada cliente, MaKo le habla de SU negocio por su nombre: antes le decía que el negocio era de Martín.',
-      'Si MaKo dice «Listo, ya lo armé» sin haber hecho nada, eso no sale: queda «Eso no lo llegué a hacer…» para que se lo pidas de nuevo.',
+      'Si MaKo dice «Listo, ya lo armé» sin haber hecho nada, eso no sale: queda «En este mensaje no hice nada: fíjate si ya quedó».',
       'Lo mismo en la retrospectiva y en el asesor de WhatsApp.',
       'MaKo se sigue presentando como «el consultor IA de Martín Koncke»: eso es la marca, y lo decides tú.',
     ],
@@ -1002,6 +1002,27 @@ export const BITACORA: Hito[] = [
       'scripts/operaciones/cartero.mjs — 1.17.3: preguntasParaSubir, marcasQueAvanzan',
       'app/_chat/CajaChat.tsx (ocupado), app/second-brain/ChatSecondBrain.tsx',
       'tests/caja-voz-revision.test.ts',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '01:30', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Lo largo ya no queda «En curso» para siempre, y MaKo no te hace pedir dos veces lo que ya hizo',
+    pedido: 'Ops Center = lo principal en MaKo (ola 1, lo que encontró su revisión)',
+    revisar: '/second-brain',
+    puntos: [
+      'Si confirmaste algo y preguntas «¿quedó?», MaKo te dice que sí. Antes te pedía que lo pidieras otra vez.',
+      'Un trabajo largo que se corta lo dice, y la tarjeta pasa a Hecho o Falló sin recargar. Si falla, ves el motivo.',
+      'Cuando MaKo te pregunta, lo que había preparado se retira de verdad: no quedan dos borradores.',
+      'Tocar una opción mientras MaKo trabaja ya no dice «Respondiste» sin mandar nada.',
+      'El formulario del chat habla como persona: sin «leadId» ni nombres de tablas.',
+      'En la computadora, Enter con «1.» manda. Y puedes dictar mientras MaKo trabaja.',
+    ],
+    archivos: [
+      'lib/doer-salida.ts (RespaldoDeHecho, SIN_HECHO), lib/mako-turno-app.ts',
+      'lib/chat-trabajos.ts (hasta), app/api/mako/propuesta/route.ts, app/_chat/BloqueHilo.tsx, app/_chat/FormularioEnChat.tsx',
+      'lib/mako-turno-app-reglas.ts (aRetirar), app/_chat/CajaChat.tsx, app/admin/operaciones/Microfono.tsx',
+      'lib/centro-plan-auto-reglas.ts (saltados), lib/centro-preguntas-chat.ts',
     ],
   },
 ];

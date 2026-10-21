@@ -107,9 +107,33 @@ async function main() {
   const consultaB = g6b && g6b.t === 'trabajo' ? g6b.consulta ?? '' : '';
   const pantalla = await enWs(() => estadoDeTrabajo(consultaB));
 
+  const hilo = db.chart_chats.map((m) => ({ id: m.id, session_id: m.session_id, content: m.content }));
+
+  // La tarjeta lenta de OTRO chat (los ids son correlativos): no se anota nada en éste.
+  db.mako_acciones_pendientes.push({
+    id: 22, workspace_id: WS, grupo_jid: canalKeyDeSesion(78), tipo: 'replicar_landing', payload: { url: 'https://otro.com', formato: 'landing' },
+    resumen: 'Replicar otro.com', estado: 'pendiente', vence_at: new Date(Date.now() + 3_600_000).toISOString(), created_at: ahoraIso(), origen: null,
+  });
+  const mensajesAntes = db.chart_chats.length;
+  const ajena = { r: await confirmarDesdeTarjeta(persona, 77, 22), mensajesAntes, mensajesDespues: db.chart_chats.length, despues: despues.length };
+
+  // 3. Uno que MUERE: la plataforma corta la invocación y nadie reescribe el «En curso» (lo de `after()` no corre nunca).
+  const creado = Date.now();
+  const g6c = await enWs(() => enSegundoPlano(WS, 77, 'Replicar otra página', async () => ({ ok: true, resumen: 'nunca llega' })));
+  despues.splice(0);
+  const consultaC = g6c && g6c.t === 'trabajo' ? g6c.consulta ?? '' : '';
+  const hasta = g6c && g6c.t === 'trabajo' ? g6c.hasta ?? 0 : 0;
+  const murio = {
+    creado, hasta,
+    antesDelPlazo: await enWs(() => estadoDeTrabajo(consultaC, hasta - 1)),
+    pasado: await enWs(() => estadoDeTrabajo(consultaC, hasta + 1)),
+    // Con la hora de verdad (antes del plazo): lo cortado quedó ESCRITO, también para quien vuelve y para el modelo.
+    alVolver: await enWs(() => estadoDeTrabajo(consultaC)),
+  };
+
   process.stdout.write(JSON.stringify({
-    tarjeta, ms, antes, conOtraLlave, enOtroNegocio, pendienteAntes, despuesDeCorrer, pendienteDespues, pantalla,
-    hilo: db.chart_chats.map((m) => ({ id: m.id, session_id: m.session_id, content: m.content })), red,
+    tarjeta, ms, antes, conOtraLlave, enOtroNegocio, pendienteAntes, despuesDeCorrer, pendienteDespues, pantalla, murio, ajena,
+    hilo, red,
   }));
 }
 

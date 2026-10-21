@@ -43,7 +43,7 @@ import { SheetPropuesta } from './SheetPropuesta';
 import { postConProgreso } from './subir';
 import {
   AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, archivosDeRespuesta, conTarjeta, duracion, fuenteDelTurno, idLocal, itemsDeRespuesta,
-  itemsDeSesion, leerRespuesta, textoConArchivos, type EstadoPropuesta, type ItemHilo,
+  itemsDeSesion, leerRespuesta, textoConArchivos, trasTrabajo, conRespuestas, type EstadoPropuesta, type ItemHilo,
 } from './chat-ui';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
 import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
@@ -264,9 +264,10 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
         : vacio ? <VacioM frase="Pregúntale por tus leads, tu agenda o tu plan." />
         : (
           <ol className="m-mako-hilo" aria-label="Conversación con MaKo">
-            {items.map((x) => (
-              <Item key={x.id} x={x}
-                onResponder={(t) => void enviar({ texto: t, adjuntos: [] })}
+            {conRespuestas(items).map((x) => (
+              <Item key={x.id} x={x} ocupado={!!trabajo}
+                onResponder={(t) => { if (trabajo) return false; void enviar({ texto: t, adjuntos: [] }); return true; }}
+                onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))}
                 onAbrir={(id) => setAbierta(id)}
                 onReintentar={reintentar}
                 onRecargar={sesion ? () => void abrir(sesion.id) : undefined} />
@@ -322,11 +323,15 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
 /** La estrella de MaKo: sólo en lo que MaKo propone (no en cada mensaje suyo). */
 const MARCA_MAKO = <span className="m-mako-marca" aria-hidden><Icon name="mako" size={18} /></span>;
 
-function Item({ x, onAbrir, onReintentar, onRecargar, onResponder }: {
+function Item({ x, onAbrir, onReintentar, onRecargar, onResponder, onTrabajo, ocupado }: {
   x: ItemHilo;
   onAbrir: (id: string) => void;
-  /** Contestar una pregunta con opciones (1.9): sale como el siguiente mensaje. */
-  onResponder: (texto: string) => void;
+  /** Contestar una pregunta con opciones (1.9): sale como el siguiente mensaje. `false` = no salió. */
+  onResponder: (texto: string) => boolean;
+  /** MaKo está trabajando: las opciones esperan. */
+  ocupado: boolean;
+  /** El trabajo largo de una tarjeta terminó (1.11): la fila deja de decir «En curso». */
+  onTrabajo: (pendienteId: number, ok: boolean) => void;
   onReintentar: (id: string) => void;
   onRecargar?: () => void;
 }) {
@@ -370,7 +375,10 @@ function Item({ x, onAbrir, onReintentar, onRecargar, onResponder }: {
       );
   }
   // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza de la computadora.
-  if (x.k === 'bloque') return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} /></li>;
+  if (x.k === 'bloque') {
+    const de = x.deTarjeta;
+    return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} ocupado={ocupado} onTermina={de != null ? (ok) => onTrabajo(de, ok) : undefined} /></li>;
+  }
   if (x.k === 'pantalla' && x.p.form) {
     return (
       <li className="m-mako-msg m-mako-msg--mk">

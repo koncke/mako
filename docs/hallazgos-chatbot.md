@@ -5441,13 +5441,34 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   la misma etapa del mismo funnel (sin funnel = todos), la misma entrega o la misma etiqueta; por evento no se compara.
   Parecido = Dice de las palabras de 4 letras o más ≥ 0,5 (#282 contra #284: 0,61); con menos de 3, sólo si es el
   MISMO texto. Compara lo de AHORA de ésta (lienzo y CRON) con lo PUBLICADO de las otras, que es lo que manda el motor.
+- **⚠️ Una defensa que no cubre TODOS los caminos que prenden algo no defiende** (revisión del Cerebro, 20/10 noche). La
+  primera versión preguntaba sólo en el interruptor del lienzo: el «⋯» de la lista (el camino más común para activar)
+  y un CRON agregado a una que YA está activa (se guarda en vivo, no habilita Publicar) prendían el doble recordatorio
+  de #282 y #284 sin una pregunta. Ahora es UNA función (`duplicadaAlActivar`) que usan el interruptor, el «⋯» (pregunta
+  antes del PATCH; «Activar igual» sigue sin volver a preguntar) y el guardado del CRON (avisa DESPUÉS de guardar, sólo
+  si recién ahí pasó a ser la misma gente: `onGuardado` de `useDisparadores`, llamado después de `onError(null)` o el
+  aviso se borraba en el mismo tick). Y al ACTIVAR se compara lo PUBLICADO de ésta (`abiertoPublicado`), no el
+  borrador del lienzo: Activar prende la fila, no lo que se está editando. Lo mismo la nota del chat (`dejaBorradores`).
+  Test: tests/automations-aviso-todos-caminos.test.ts.
+- **⚠️ Y LA LISTA DE CAMINOS SE SACA DEL REPO, NO DE LA MEMORIA** (segunda revisión, 21/10). Arreglados el «⋯» y el
+  CRON, seguían sin preguntar el TELÉFONO (/m/automations, que con `MOVIL_ACTIVO` es la pantalla de cualquier celular),
+  «MaKo escribe tu nutrición» › Aprobar en /email y la API de MaKo. La pregunta pasó al SERVER, a la única puerta que
+  prende (`setSecuenciaActiva` tira `DuplicadaError` sin `aunqueDuplique`; las rutas contestan 409 `duplicada`; Publicar
+  una ACTIVA pregunta lo mismo antes de escribir los pasos). Cada pantalla vuelve a preguntar con eso y manda
+  `aunqueDuplique` recién después de «… igual»; la API de MaKo lo dice en la PROPUESTA y sólo entonces el «sí» lo lleva.
+  Un camino que nadie actualizó no prende en silencio: recibe el aviso como error. tests/automations-activar-todos-los-caminos.test.ts
+  barre `git ls-files`: los llamadores de `setSecuenciaActiva`, quién escribe `activa: true` y qué pantalla hace PATCH con
+  `activa`; uno nuevo lo hace fallar hasta que alguien lo mire.
+- **Un aviso que se calcula no se borra.** El del CRON nuevo en una activa colgaba del guardado (se lo comía el
+  `onError(null)` del guardado siguiente, y se perdía si se cambiaba de automatización antes de que volviera). Ahora se
+  CALCULA de lo que hay (sus CRON de ahora y lo publicado, `dupActiva`) y se dice al lado de «Activar» mientras sea así.
 - **Guardas que cambiaron a propósito:** tests/motor-tick.test.ts fijaba «el tick no llama a
   `comprometerInscripciones`»; ahora fija que la llama UNA vez y sólo con `soloRecurrentes`. Y `motivo === 'vencio'`
   pasó a `motivo !== 'abrio'` (`recurrente` también mira sólo lo fresco), también en tests/espera-duracion.test.ts.
 
 **Lo que quedó SIN hacer:** los 31 borradores de #282 y el de #284 siguen pendientes (aprobar o descartar lo decide
 Martín) · el aviso de duplicada no mira el horario ni la reentrada (dos Recurrentes a la misma etapa en días distintos
-avisan igual) · no avisa por la API de MaKo (`proponer_toggle_nutricion`) ni al crear con IA · el conteo está en la
+avisan igual) · cambiarle los CRON a una activa por la API de MaKo no pregunta (la pantalla lo dice al abrirla) · el conteo está en la
 automatización abierta, no en la fila de la lista · nada se vio con clics en un navegador.
 
 **Vive en:** lib/mensajes-por-aprobar.ts · lib/setting-secuencias.ts (`leerPorAprobar`) · app/automations/SecuenciaPerfil.tsx
@@ -5531,6 +5552,15 @@ Ya había pasado el 15/10 («Las doce cosas de Automations (vivían sólo en un 
   recordatorio de TODAS (`limites-ilegibles`) y, en el tick, tiraba la ruta entera. Ahora el horario lo marca
   ilegible (no sale prospección), el carril corre con las horas del negocio, y el tick sigue sin esa lectura. Lo mismo
   la zona: sin ella se cierran SÓLO las que tienen horario (`cerradasAhora(…, null)`), no la de los anuncios.
+  ⚠️ Y ESE ARREGLO ABRIÓ UN HUECO (revisión de la misma noche): «el horario ya cerró la prospección» no vale con
+  `ignorar_ventana`, que saltea el bloque del horario; esa corrida mandaba TODO con las horas del negocio. El corte
+  volvió para cuando nada lo acotó (`configs === 'ilegible' && fueraDeHorario == null`). Un arreglo que se apoya en «lo
+  de arriba ya cortó» tiene que mirar los caminos donde lo de arriba no corre.
+- **«Copiar flujo» › «Crear» es otra copia que crea un id desde otro.** Pegado en el MISMO negocio (el token guarda el
+  negocio y la automatización de origen: `origenDeCopia`) lleva la configuración propia, como «Duplicar»; entre
+  negocios no (es de otro negocio). Va adentro del try que borra la copia si algo falla (`crearDesdeCopia`, `configDe`).
+- **Arrancar en la lista dejó muerto el paso au-chat del recorrido** (sólo buscaba el chat, y el «?» vive en la lista):
+  ahora también señala la fila elegida, y el texto dice las dos formas («Abre una y aquí le pides cambios a MaKo»).
 - **Menores:** un horario sin `activo` booleano se rechaza (`sanearHorario` lo leía como «apagado» = a las 3 AM);
   apagado con los días vacíos se guarda (como el del negocio); «como el negocio» BORRA la clave (los '{}' se
   acumulaban) y el tick lee sólo los prendidos, con tope; la tarjeta dice «manda a cualquier hora» con el propio
