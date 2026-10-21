@@ -18,6 +18,7 @@
 // =============================================================================
 
 import { lunesDeFecha, esFechaValida, diasAntes } from './date-utils';
+import { celdaCsv } from './csv-celda';
 
 /** Cómo se agrupan las filas. `mes` es el default: es el grano en el que se
  *  pregunta por un trimestre. */
@@ -210,14 +211,15 @@ export const COLUMNAS: Array<keyof FilaMetricas> = [
 
 /**
  * Una celda de CSV. Comillas dobles si hay coma, comilla, punto y coma o salto —y
- * la comilla se duplica, que es el escape del formato.
+ * la comilla se duplica, que es el escape del formato—, y un texto que arranca como
+ * fórmula (`=`, `+`, `-`, `@`) lleva un apóstrofo adelante: los nombres de campaña
+ * vienen de Meta y los carga quien administra la cuenta. Todo eso vive en
+ * lib/csv-celda.ts, la única vía (tests/csv-una-sola-via.test.ts).
  *
  * ⚠️ Un `null` sale VACÍO, nunca `0` ni la palabra «null».
  */
 export function celda(v: unknown): string {
-  if (v == null) return '';
-  const s = String(v);
-  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  return celdaCsv(v == null ? null : typeof v === 'number' ? v : String(v), { numero: String, comillasTambien: ';' });
 }
 
 /**
