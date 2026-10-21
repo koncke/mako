@@ -699,4 +699,25 @@ export const BITACORA: Hito[] = [
       'Dependen del marco de bloques (1.7), la confirmación adentro (1.10) y los trabajos largos (1.11) del Ops Center 3. Mientras no estén, se adelantan los datos de cada bloque, la receta y los tests. La landing de MaKo de esta semana va primero si choca.',
     ],
   },
+  {
+    fecha: '20 oct', hora: '21:20', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Crear webs desde el Ops Center: «mi otro producto» pregunta cuál, y los datos de los bloques',
+    puntos: [
+      'Con un solo producto en el catálogo, «créame una landing para mi otro producto» ya no crea la landing del que hay: MaKo pregunta cuál es el otro, con su nombre y de qué se trata.',
+      'Está listo lo que va a mostrar el chat de una landing: su tarjeta con la miniatura y «Abrir en el editor», elegir entre 3 diseños, temas o formatos, el link publicado y la tabla del dominio con lo que falta.',
+      'Falta que el chat lo dibuje: espera el marco de bloques del Ops Center 3 (pieza 1.7), con quien se está acordando la forma.',
+    ],
+    commits: [
+      { sha: 'a0e95e3bf', msg: 'Ops Center 1.15: «créame una landing para mi otro producto» con un solo producto pregunta cuál', lineas: 181, archivos: 5 },
+      { sha: '66a092ee8', msg: 'Ops Center 1.12 y 1.13: los datos de la tarjeta de la landing, elegir entre 3, publicar y el dominio', lineas: 366, archivos: 2 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — faltaElOtroProducto y pideOtroProducto',
+      'lib/api-mako/areas/landing-editor.run.ts — el guardia en el preparar de generar_landing_con_ia',
+      'lib/doer-recetas.ts — RECETA_LANDING, sólo con las herramientas que crean una landing',
+      'lib/editor-landing/bloques-chat.ts — los datos de cada bloque (puro)',
+      'tests/ops-center-landing-receta.test.ts y tests/ops-center-landing-bloques.test.ts — probados rompiéndolos',
+    ],
+  },
 ];

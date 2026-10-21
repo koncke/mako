@@ -2093,3 +2093,44 @@ documento y el PDF «Lo que vendes» («No me permite»). El hito, literal, en l
 - MaKo Mobile (`/m/landing`) no tiene el chat del editor, así que tampoco el ⊕.
 
 *20/10/2026, jefe Web Generator (`claude4`).*
+
+## Crear webs desde el Ops Center: la receta y los datos de los bloques (20/10/2026, piezas 1.12, 1.13 y 1.15)
+
+Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear webs». El plan, en docs/ops-center-principal.md.
+
+### «Mi otro producto» con uno solo: la pregunta la impone el código, no la receta
+- **El caso:** con un solo producto en el catálogo, «créame una landing para mi otro producto» creaba igual, y el esquema
+  salía del perfil del negocio: la landing del producto que ya tiene. `productoDelPedido` lo sabía (devuelve null) pero
+  nadie preguntaba.
+- **Regla:** lo que no se puede dejar en manos del modelo va en el `preparar` de la operación: `generar_landing_con_ia`
+  pregunta `faltaElOtroProducto` (lib/mako-pedidos.ts) y, si falta, no prepara nada y el error ES la pregunta. La receta
+  (RECETA_LANDING, lib/doer-recetas.ts) sólo hace que MaKo pregunte antes de proponer.
+- **Para que la vuelta pase:** la idea con lo que contó la persona («un curso online de cerámica») ya no es «otro
+  producto» a secas: con dos o más palabras que no son relleno, pasa. El catálogo se lee sólo si el pedido dice «otro
+  producto», y si no se puede leer sigue como antes (decir «no tienes productos» sería inventarlo).
+- **La receta no nombra herramientas:** no siempre viajan las que nombraría (lo fija su test).
+
+### Un bloque no puede viajar en la respuesta de la herramienta
+- La salida de una lectura (`SalidaLectura`) es lo que lee el MODELO, y la tarjeta de una landing necesita su primera
+  sección en JSON para la miniatura. Ponerla ahí sería pagarla en cada paso del turno. Por eso
+  lib/editor-landing/bloques-chat.ts arma los datos aparte y el marco del Ops Center 3 (1.7) decide por dónde llegan al
+  hilo sin pasar por el modelo. Se le preguntó la forma el 20/10.
+- Diseños, temas y formatos son catálogo del navegador (crear/tipo.ts, temas.ts): el bloque lleva sus IDS y la pantalla
+  dibuja la miniatura, como el Panel. Sólo la tarjeta de una landing creada trae su sección.
+
+### Dos tests que daban verde sobre la rotura
+- «Nunca ofrece el tema que ya tiene» pasaba con el filtro roto: con «mako» como tema actual, «mako» no es el primero de
+  su grupo y no salía igual. Un test de «nunca X» va con el X que saldría PRIMERO (el primero de cada grupo).
+- Es la misma lección que la del corte de 60.000 de arriba: el caso de prueba es el borde, no uno cualquiera.
+
+### Lo que quedó SIN hacer
+- **Enganchar los bloques** a las operaciones (listar, crear, replicar, publicar, conectar y verificar el dominio) y
+  dibujarlos en el hilo: espera el contrato de la 1.7 (Ops Center 3). Los datos están en bloques-chat.ts, con test.
+- «Armame una landing» sin diseño mostrando los 3: necesita que el turno devuelva el bloque `elegir` (1.7) y que llegue la
+  herramienta (el clasificador, 1.2, chat MaKo WhatsApp).
+- En el chat del EDITOR (/api/mako/pedidos), «mi otro producto» con uno solo sigue creando sin producto: preguntarlo en
+  texto libre ahí pide decidir cómo vuelve la respuesta al pedido (cada mensaje se interpreta suelto).
+- `publicar_landing` devuelve en `datos.url` la dirección de MaKo aunque la landing tenga un dominio propio verificado
+  (`urlDeLanding(r.slug)` en landing.run.ts): el bloque de publicada tiene que recibir la del dominio.
+
+*20/10/2026, jefe Web Generator (`claude4`).*
