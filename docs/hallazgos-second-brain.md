@@ -20,8 +20,43 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
    página scrollea al mismo tiempo. [→](#onwheel-de-react-no-puede-frenar-el-scroll)
 5. **`opacity: 0` en SVG no ahorra nada.** [→](#opacity-0-en-svg-cuesta-lo-mismo-que-dibujarlo)
 6. **`var(--mono)` no está definido** en ningún `:root`, y se usa 38 veces. [→](#varmono-no-existe-y-se-usa-38-veces)
+7. **Un solo `<Grafo>` no es un solo cerebro.** El 17/10 había uno y se veían dos nubes; el que mide es «desde la raíz se
+   llega a todo». [→](#el-código-decía-uno-y-se-veían-dos-ningún-cerebro-se-divide-en-dos-20102026)
 
 ---
+
+## El código decía «uno» y se veían dos: ningún cerebro se divide en dos (20/10/2026)
+
+Martín: «El Second Brain de SuperAdmin ya te había pedido que no se dividiera en 2... En ningún caso jamás los cerebros se
+deben dividir en 2» (lo había pedido el 17 y el 18). Código: lib/cerebro-union.ts, lib/cerebro-union-servidor.ts,
+lib/second-brain-opera.ts, lib/cerebro-grafo.ts, lib/cerebro-construccion.ts · tests/second-brain-un-cerebro.test.ts.
+
+- **Síntoma:** en el Second Brain del super admin, el negocio a un lado y la construcción de MaKo al otro, separados. En el
+  teléfono, un «Negocio · Construcción» que cambiaba un grafo por otro.
+- **Por qué el código decía «uno»:** el 17/10 se cambiaron dos `<Grafo>` por uno, y el test contaba `<Grafo` = 1. Pero
+  `unirCerebros` devolvía un `Cerebro` con DOS raíces, sin ninguna arista entre ellas (el comentario decía «a propósito»), y
+  ponía la nube de la construcción AL LADO de la del negocio, con un 18 % de aire. Un componente de React, dos cerebros.
+- **No era sólo el super admin (el diagnóstico obvio se quedaba corto).** Medido en producción: el negocio del ws 9 tenía 3
+  pedazos y el del ws 3 (Cliente de Prueba), 2. Los racimos sin aristas laterales (la voz sin el quiz, por ejemplo) flotaban
+  aparte, y una nota de cerebro-grafo.ts decía «NO ES UN BUG» porque un puente había subido el hub a 4,6×. La construcción
+  también se partía: con pocas áreas, una carpeta de una familia no se dibuja y la raíz queda sola.
+- **Regla:** lo que se mide es la CONECTIVIDAD, no la cantidad de componentes de React: desde UNA raíz se llega a todos los
+  nodos. Todo racimo suelto se engancha a la raíz por su nodo más estructural (`puentesARaiz`: carpeta, si no área, si no el
+  más conectado), ANTES del layout. La construcción cuelga de la raíz del negocio (`PUENTE_OBRA`) y la física corre ENTERA
+  en el servidor (`acomodarUnido`); poner dos nubes ya asentadas una al lado de la otra se lee como dos cerebros aunque haya
+  una arista entre ellas.
+- **El hub no se rompió:** con los puentes, ws 9 da 3,4× y ws 3, 2,4× (umbral 4,5×). El 4,6× de antes era de otro armado.
+- **La física de todo junto cuesta:** 203 nodos, 655 ms medidos. Se guarda el último acomodado (`cerebroUnido`) y se reusa
+  mientras la huella no cambie; si cambia, se parte de las posiciones de antes.
+- **Trampa de la ruta:** el grafo vivo (`/api/second-brain/cerebro`) vuelve a pedir el cerebro cada 3 minutos. Si manda sólo el
+  negocio, la construcción desaparece del grafo del super admin a los 3 minutos. Las tres puertas (pantalla, teléfono, ruta)
+  piden el mismo `cerebroQueSeDibuja`. `quienOpera` se mudó a lib/second-brain-opera.ts porque una ruta no puede importar una
+  página (pagina.tsx la reexporta).
+- **«Exportar» sigue bajando sólo el negocio:** `soloElNegocio` saca del unido los nodos de las diez áreas.
+- **Sin hacer:** en el unido del ws 9 la raíz queda adentro de la nube de la construcción (180 nodos contra 22 del negocio) y el
+  negocio es un racimo al costado, conectado. Si Martín lo quiere en el centro, es una fuerza propia para la raíz en
+  lib/cerebro-layout.ts (ojo: clavarla dibujaba un asterisco). Y producción no tiene la columna `archivero_files.origen`
+  (mig 0316): cada armado del grafo lo avisa en el log.
 
 ## El grafo en el teléfono: el Mapa era una foto, y UN solo grafo para el super admin (17/10/2026)
 
@@ -43,6 +78,8 @@ lib/cerebro-union.ts, app/m/second-brain/SecondBrainM.tsx · tests/second-brain-
   layout vertical (la barra como hoja desde abajo). **No se dibujó el lienzo rotado con CSS** a propósito: el paneo (`escala` en
   `onPointerMove`) calcula con los ejes de la pantalla y se rompería. La barra lateral apaisada es un corte
   `(orientation: landscape) and (max-height: 640px)` que va DESPUÉS de los de 1100 y 720 px (misma especificidad, gana el último).
+- ⚠️ **SUPERADO el 20/10/2026** ([ningún cerebro se divide en dos](#el-código-decía-uno-y-se-veían-dos-ningún-cerebro-se-divide-en-dos-20102026)):
+  dos nubes lado a lado se leían como dos cerebros. Queda como registro de lo que se pensaba.
 - **UN solo grafo = dos nubes ya asentadas, una al lado de la otra, no un layout nuevo.** El de la construcción cuesta segundos (4,4 s con
   ~180 nodos); unirlos de nuevo en cada vuelta del grafo vivo sería lo mismo. Sin arista entre las dos raíces (una arista tiene que
   significar algo verificable, y el super admin puede estar mirando el negocio de un cliente). La raíz de la construcción pasa a `n1:obra`
@@ -1219,6 +1256,10 @@ van agregadas.
 
 ### Un área suelta del resto NO es un bug, y «arreglarlo» rompió un umbral real
 
+> ⚠️ **SUPERADO el 20/10/2026:** sí es un bug (Martín: «En ningún caso jamás los cerebros se deben dividir en 2»). Todo racimo
+> suelto se engancha a la raíz antes del layout, y el hub quedó en 3,4× y 2,4×. Ver
+> [ningún cerebro se divide en dos](#el-código-decía-uno-y-se-veían-dos-ningún-cerebro-se-divide-en-dos-20102026).
+
 **Vive en:** `lib/cerebro-grafo.ts` (el comentario del bloque de áreas)
 
 Al sumar las fuentes nuevas, un workspace que nunca contestó el quiz de personalidad
@@ -1961,3 +2002,5 @@ Second Brain del teléfono (app/m/second-brain) no muestra el origen.
   1. `listSessions` compara la clave EXACTA (lib/chart-chats.ts:82). Los chats de la misma tabla y el mismo motor con sufijo (`mako-movil:<p>:crm:N`, `:lead:N`) no aparecen en el Ops Center.
   2. Un hilo que se COPIA «al terminar el onboarding» (`hiloDelOnboarding`) sólo nace si el cliente pasa por la pantalla «listo» DESPUÉS del deploy. Los que ya terminaron (el ws21, el 18/10) quedan sin nada, y lo que se hable después en /offer tampoco llega. Para Offer conviene una proyección que lea `offer_sesiones` por workspace (decisión 5 de docs/diseno-mako-ai-native.md), no una copia.
 - **Sin hacer** (archivo donde vive): el índice de chats por origen no existe (lib/chat-mako-indice.ts sólo lee chart_sessions, «Antes» y un lector del grupo que nadie llama).
+
+**Arreglado (20/10, Ops Center 3, f3c377318 + bb031718c):** la proyección de la decisión 5 (`chatsDeOffer`/`hiloDeOffer`, lib/chat-mako-indice.ts, con `PROYECCIONES` de origen y alcance). Se ve en /second-brain como la sección «Offer», un sub-chat por conversación con «Seguir en Offer», y en el teléfono en «Tus chats». La conversación del onboarding no se proyecta si ya tiene su `hiloChat`. Medido: ws21 #14 dibuja 32 de 33 mensajes (uno vacío). Falta enchufar CRM, Automations y el grupo al mismo índice.

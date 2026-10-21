@@ -209,7 +209,8 @@ test('la ruta y la API llaman a la MISMA función (`crearFlujoConIA`), y la API 
   assert.equal(def.costo, 'gratis');
   assert.equal(def.gating?.rolMinimo, 'admin');
   // Duodécima tanda (§2.4): las respuestas a las preguntas de MaKo, opcionales.
-  assert.deepEqual(def.parametros.map((p) => [p.nombre, !!p.obligatorio]), [['pedido', true], ['canal', false], ['producto', false], ['evento', false]]);
+  // 20/10/2026: y las del Recurrente (`horario`, `quien`, lib/flujo-ia-recurrente.ts).
+  assert.deepEqual(def.parametros.map((p) => [p.nombre, !!p.obligatorio]), [['pedido', true], ['canal', false], ['producto', false], ['evento', false], ['horario', false], ['quien', false]]);
   // La vieja se retiró: con las dos, el doer podía crear el esqueleto lineal de antes.
   assert.equal(porId('crear_secuencia_mensajes') ?? null, null);
   const run = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));

@@ -68,7 +68,7 @@ import {
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 // La «Reentrada» del CRON (14/10/2026, docs/diseno-mako-nada-por-detras.md §2.4-a): si un lead vuelve a entrar.
-import { reentradaDe, puedeReentrar, esReentrada, type Reentrada } from '@/lib/reentrada';
+import { reentradaDe, puedeReentrar, esReentrada, barridoEsEvento, type Reentrada } from '@/lib/reentrada';
 // El carril del recordatorio (undécima tanda, M3): la marca del emisor de hoy, compartida.
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
@@ -1780,9 +1780,11 @@ async function aInscribir(
   const filas = await inscripcionesDe(db, candidatos, (q) => q.eq('secuencia_id', sec.id), prepara);
   const conFila = new Set(filas.map((f) => f.lead_id));
   const pendientes = candidatos.filter((id) => !conFila.has(id));
-  // El BARRIDO no es un evento: «Cada vez que vuelve a entrar» no reusa acá (lib/reentrada.ts, `solo_por_evento`).
+  // El BARRIDO no es un evento: «Cada vez que vuelve a entrar» no reusa acá (lib/reentrada.ts, `solo_por_evento`). SALVO
+  // en un Recurrente (20/10/2026, `barridoEsEvento`): su barrido corre una vez por ocurrencia, y cada una le vuelve a
+  // llegar a quien TERMINÓ la anterior.
   const modo = reentradaDeSecuencia(sec);
-  const reusables = reusaInscripciones(sec) ? [...(await reusablesDe(db, filas, () => modo, false)).values()] : [];
+  const reusables = reusaInscripciones(sec) ? [...(await reusablesDe(db, filas, () => modo, barridoEsEvento(sec))).values()] : [];
 
   const quienes = [...pendientes, ...reusables.map((r) => r.fila.lead_id)];
   // En tandas y paginado: con el `.in()` suelto, un lead que caía del corte se quedaba sin su

@@ -2590,4 +2590,32 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/clients',
   },
+  {
+    fecha: '20 oct', hora: '19:30', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Chats abre en un par de segundos y no relee todo cada 15 segundos',
+    puntos: [
+      'En producción desde el run 165. Lo vio Martín en la llamada con Leila del 19/10: abrir Chats tardaba mucho.',
+      'Medido en el ws1, sólo leyendo: la lista entera tardaba 17 s; ahora 4 s. La primera vista sale con lo reciente en unos 2 s, y lo más viejo llega después.',
+      'La causa: para armar la lista se leían los 18.885 mensajes de WhatsApp de una página por vez, y la computadora lo repetía cada 15 segundos. Ahora se piden varias páginas a la vez, y el refresco sólo lee lo reciente; la lista entera, cada 5 minutos.',
+      'Siguiente: que la base devuelva directamente el último mensaje de cada conversación (una migración).',
+    ],
+    commits: [
+      { sha: 'b7817fe9f', msg: 'Chats abre en 2 s y no relee todo cada 15 s (antes 17 s en el ws1)', lineas: 366, archivos: 10 },
+      { sha: '87464faa8', msg: 'Chats: el test de la pantalla sigue la nueva forma del sondeo (sólo con la pestaña visible)', lineas: 4, archivos: 1 },
+    ],
+    archivos: [
+    ],
+    revisar: '/chats',
+  },
+  {
+    fecha: '20 oct', hora: '19:11', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El chat con MaKo, las columnas que no se ven, cards personalizables, «Tablero y Lista» sólo con íconos y el evento de una etapa',
+    pedido: 'Por otro lado, en el CRM:\n1. No veo el chat con MaKo que te había pedido.\n2. Muchos cambios que te había pedido aún no están, como que las columnas no sean invisibles.\n3. Las cards, las debería poder personalizar también, por si el usuario quiere más o menos info.\n4. Los botones de "Tablero y lista" solo con íconos debería estar.\n5. El tema de asignar en una etapa de reunión y vincularla a un evento de Calendar, Calendly o Cal, ¿está eso?',
+    puntos: [
+      'Llegó por el Cerebro, en la app, con una captura de /crm (docs/feedback-20-10.md, punto 12). Se pega literal por la regla del 20/10 (AGENTS.md).',
+      'Lo que Martín pidió para el CRM y su estado, uno por uno: docs/pedidos-crm.md.',
+    ],
+  },
 ];

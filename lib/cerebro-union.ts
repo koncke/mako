@@ -1,21 +1,24 @@
 // =============================================================================
-// cerebro-union — UN SOLO grafo para el super admin: el negocio y la construcción de MaKo (17/10/2026)
+// cerebro-union — UN SOLO cerebro para el super admin: el negocio y la construcción de MaKo (17/10 y 20/10/2026)
 // =============================================================================
 // Martín, 17/10/2026: «en SuperAdmin no pongas 2 grafos, todo 1 solo... Para eso existen los filtros para ver desarrollo
 // o ventas o marketing». Hasta hoy `VistaCerebro` dibujaba DOS `<Grafo>` y un selector «Negocio / Construcción». Ahora se
 // dibuja uno: esto junta los dos `Cerebro` en uno, y las capas son un atajo del filtro de carpetas (cerebro-filtro.ts).
 //
-// PURO, sin `server-only` y sin React: lo llama el cliente (VistaCerebro, a cada vuelta del grafo vivo) y lo prueba
-// tests/second-brain-grafo-movil.test.ts sin base. No corre ninguna física: el layout de ~180 nodos de la construcción
-// cuesta segundos (docs/hallazgos-second-brain.md), así que las dos nubes ya asentadas se PONEN lado a lado.
+// PURO, sin `server-only` y sin React: lo importa el cliente (`esAreaDeNegocio`, `filtroDelNegocio`, `soloElNegocio`) y
+// lo prueban tests/second-brain-grafo-movil.test.ts y tests/second-brain-un-cerebro.test.ts sin base. No corre ninguna
+// física: la corre lib/cerebro-union-servidor.ts, en el servidor, sobre lo que arma `unirCerebros`.
 //
 // QUÉ NO SE PIERDE: ningún nodo ni ninguna arista de los dos grafos. Lo único que cambia es el id de la raíz de la
 // construcción (`raiz` choca con la del negocio): pasa a `n1:obra`, que es lo que es, la carpeta madre de su nube.
 // Cualquier otro id que chocara se prefija con `obra:` (hoy no choca ninguno; el test lo mira).
 //
-// ⚠️ NO HAY UNA ARISTA ENTRE LAS DOS RAÍCES, a propósito: una arista se dibuja sólo si significa algo verificable, y «la
-//    construcción de MaKo» no es parte del negocio que se mira (el super admin puede estar mirando el de un cliente).
-//    Son dos nubes en el mismo lienzo, con las mismas barra lateral, búsqueda y filtros.
+// 🚨 UNA SOLA RAÍZ Y UN SOLO COMPONENTE (Martín, 20/10/2026: «En ningún caso jamás los cerebros se deben dividir en 2»;
+//    ya lo había pedido el 17 y el 18). Hasta ese día este archivo decía «NO HAY UNA ARISTA ENTRE LAS DOS RAÍCES, a
+//    propósito» y ponía la nube de la construcción AL LADO de la del negocio, con aire en el medio: el código dibujaba un
+//    solo `<Grafo>` y la pantalla mostraba DOS cerebros. Ahora la carpeta de la construcción cuelga de la raíz del negocio
+//    (`PUENTE_OBRA`), todo componente suelto se engancha a la raíz (`puentesARaiz`) y, en el servidor, la física arma UNA
+//    nube con todo junto (lib/cerebro-union-servidor.ts). Lo de acá sigue siendo puro: sin física.
 // =============================================================================
 
 import {
@@ -47,6 +50,40 @@ export function unirTaxonomias(negocio: Taxonomia, obra: Taxonomia): Taxonomia {
   };
 }
 
+/** La arista que hace UNO del negocio y la construcción: la raíz del negocio y la carpeta madre de la construcción. */
+export const PUENTE_OBRA = 'Lo que construye MaKo, el producto con el que trabaja este negocio';
+export const PUENTE_ISLA = 'Es parte de tu negocio';
+export const PUENTE_ISLA_OBRA = 'Es parte de MaKo';
+
+/** Los componentes conexos del grafo (cada uno, la lista de sus ids), el más grande primero. */
+export function componentes(nodos: readonly Pick<NodoCerebro<string>, 'id'>[], aristas: readonly AristaCerebro[]): string[][] {
+  const padre = new Map(nodos.map((n) => [n.id, n.id]));
+  const raizDe = (x: string): string => { let r = x; while (padre.get(r) !== r) r = padre.get(r)!; padre.set(x, r); return r; };
+  for (const a of aristas) {
+    if (!padre.has(a.de) || !padre.has(a.a)) continue;
+    const x = raizDe(a.de); const y = raizDe(a.a);
+    if (x !== y) padre.set(x, y);
+  }
+  const grupos = new Map<string, string[]>();
+  for (const n of nodos) { const r = raizDe(n.id); grupos.set(r, [...(grupos.get(r) ?? []), n.id]); }
+  return [...grupos.values()].sort((a, b) => b.length - a.length);
+}
+
+/**
+ * Las aristas que faltan para que TODO cuelgue de UNA raíz: una por cada componente que no la contiene, desde su nodo
+ * más estructural (una carpeta madre, si no un área, si no el más conectado) hasta la raíz. Medido antes: una isla
+ * (un área cuyos datos no tienen ninguna arista lateral) se dibujaba flotando aparte, y eso también es un cerebro partido.
+ */
+export function puentesARaiz(nodos: readonly Pick<NodoCerebro<string>, 'id'>[], aristas: readonly AristaCerebro[], raiz = 'raiz', motivo = PUENTE_ISLA): AristaCerebro[] {
+  if (!nodos.some((n) => n.id === raiz)) return [];
+  const grado = new Map<string, number>();
+  for (const a of aristas) { grado.set(a.de, (grado.get(a.de) ?? 0) + 1); grado.set(a.a, (grado.get(a.a) ?? 0) + 1); }
+  const peso = (id: string) => (id.startsWith('n1:') ? 3 : id.startsWith('area:') ? 2 : 1) * 1000 + (grado.get(id) ?? 0);
+  return componentes(nodos, aristas)
+    .filter((c) => !c.includes(raiz))
+    .map((c) => ({ de: [...c].sort((x, y) => peso(y) - peso(x) || (x < y ? -1 : 1))[0], a: raiz, motivo }));
+}
+
 /** Los dos cerebros en uno. `negocio` es el del workspace que se mira; `obra`, la construcción de MaKo. */
 export function unirCerebros(negocio: Cerebro<string>, obra: Cerebro<string>): Cerebro<string> {
   const taxNegocio = negocio.taxonomia ?? TAXONOMIA_NEGOCIO;
@@ -56,7 +93,8 @@ export function unirCerebros(negocio: Cerebro<string>, obra: Cerebro<string>): C
   const delNegocio = new Set(negocio.nodos.map((n) => n.id));
   const idNuevo = (id: string): string => (id === 'raiz' ? ID_RAIZ_OBRA : delNegocio.has(id) ? `obra:${id}` : id);
 
-  // Las dos nubes lado a lado: la de la construcción a la derecha, centrada en vertical con la del negocio.
+  // POSICIONES DE PARTIDA, no las finales: la construcción a la derecha, centrada con el negocio. El servidor le corre la
+  // física a todo junto (lib/cerebro-union-servidor.ts); dibujar ESTO tal cual es dibujar dos nubes.
   const vacio = negocio.nodos.length === 0;
   const en = negocio.encuadre;
   const eo = obra.encuadre;
@@ -79,10 +117,15 @@ export function unirCerebros(negocio: Cerebro<string>, obra: Cerebro<string>): C
   const lado = Math.max(x1 - x0, y1 - y0);
   const encuadre: Encuadre = { x: (x0 + x1) / 2 - lado / 2, y: (y0 + y1) / 2 - lado / 2, lado };
 
+  // UNA raíz: la carpeta madre de la construcción cuelga de la raíz del negocio, y lo que quedara suelto también.
+  const nodos = [...negocio.nodos, ...nodosObra];
+  const aristasJuntas = [...negocio.aristas, ...aristasObra];
+  if (!vacio && nodos.some((n) => n.id === ID_RAIZ_OBRA)) aristasJuntas.push({ de: 'raiz', a: ID_RAIZ_OBRA, motivo: PUENTE_OBRA });
+  aristasJuntas.push(...puentesARaiz(nodos, aristasJuntas));
   return {
     negocio: negocio.negocio,
-    nodos: [...negocio.nodos, ...nodosObra],
-    aristas: [...negocio.aristas, ...aristasObra],
+    nodos,
+    aristas: aristasJuntas,
     cuenta: {
       total: negocio.cuenta.total + obra.cuenta.total,
       mako: negocio.cuenta.mako + obra.cuenta.mako,
@@ -95,6 +138,15 @@ export function unirCerebros(negocio: Cerebro<string>, obra: Cerebro<string>): C
     huella: negocio.huella,
     taxonomia: unirTaxonomias(taxNegocio, taxObra),
   };
+}
+
+/** Sólo el negocio del cerebro unido (sus nodos son los de las diez áreas): lo que cuenta «Exportar», que baja el ZIP del
+ *  negocio. Sin la construcción, devuelve el mismo cerebro. */
+export function soloElNegocio(c: Cerebro<string>): Cerebro {
+  if (!c.taxonomia?.capas?.length) return c as Cerebro;
+  const nodos = c.nodos.filter((n) => esAreaDeNegocio(n.area)) as NodoCerebro[];
+  const ids = new Set(nodos.map((n) => n.id));
+  return { ...c, nodos, aristas: c.aristas.filter((a) => ids.has(a.de) && ids.has(a.a)), taxonomia: TAXONOMIA_NEGOCIO } as Cerebro;
 }
 
 /** Lo que «Exportar» puede bajar del filtro puesto: sólo existe el ZIP del negocio, no el de la construcción.

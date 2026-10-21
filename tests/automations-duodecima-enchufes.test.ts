@@ -101,7 +101,9 @@ test('Publicar muestra el `aviso` del PATCH después de «Publicado ✓»', () =
 });
 
 test('la tarjeta CRON se siembra con lo que guardó el server (`disparadorDeValorIA`), entero', () => {
-  assert.match(PERFIL, /const puesto = r\.disparador \? disparadorDeValorIA\(r\.disparador\)\[0\] : undefined;\n\s*if \(puesto\) crons\.sembrarPrimero\(puesto\);/);
+  // 20/10/2026 (el Recurrente de Leila): un Recurrente viene con su horario y se siembra con `recurrenteDeValorIA`, lo
+  // MISMO que guardó el server; lo demás, con `disparadorDeValorIA` como siempre.
+  assert.match(PERFIL, /const puesto = r\.disparador \? \(r\.cron \? recurrenteDeValorIA\(r\.disparador, r\.cron\) : disparadorDeValorIA\(r\.disparador\)\)\[0\] : undefined;\n\s*if \(puesto\) crons\.sembrarPrimero\(puesto\);/);
   assert.doesNotMatch(PERFIL, /disparoDeValor\(/, 'disparoDeValor no entiende instagram:dm');
   const hook = sinComentarios(leer('app/automations/EditorDisparadores.tsx'));
   assert.match(hook, /const sembrarPrimero = \(d: Disparador\) => setLista\(\(l\) => \(l\.length \? \[\{ \.\.\.d, id: l\[0\]\.id \}, \.\.\.l\.slice\(1\)\] : \[d\]\)\);/);

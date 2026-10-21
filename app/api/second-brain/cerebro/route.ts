@@ -7,11 +7,14 @@
 //
 // ⚠️ La MISMA puerta que las otras rutas del Second Brain (`soloAdminDeTab`): el grafo no es del closer ni del setter.
 // ⚠️ Con los chats con MaKo de quien pide, como la pantalla: son suyos (lib/cerebro-chats.ts).
+// ⚠️ EL MISMO cerebro que la pantalla (20/10/2026): para quien opera, UNO con la construcción adentro. Si esta ruta
+//    mandara sólo el negocio, a los 3 minutos la construcción desaparecería del grafo del super admin.
 
 import type { NextRequest } from 'next/server';
 import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { chatsMakoDeQuienMira } from '@/lib/cerebro-chats';
+import { cerebroQueSeDibuja } from '@/lib/second-brain-opera';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -20,7 +23,7 @@ export async function GET(req: NextRequest) {
   const cerrada = await soloAdminDeTab('second-brain');
   if (cerrada) return cerrada;
   try {
-    const cerebro = await construirCerebro({ chatsMako: await chatsMakoDeQuienMira() });
+    const cerebro = await cerebroQueSeDibuja(await construirCerebro({ chatsMako: await chatsMakoDeQuienMira() }));
     const tenia = req.nextUrl.searchParams.get('huella');
     if (tenia && tenia === cerebro.huella) return Response.json({ ok: true, igual: true, huella: cerebro.huella });
     return Response.json({ ok: true, igual: false, huella: cerebro.huella, cerebro });

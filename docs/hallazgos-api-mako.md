@@ -1669,3 +1669,30 @@ lib/api-mako/funnels-del-pedido.ts.
 R1 y las altas con `enLosFunnels`, igual que el período. La caché no necesitó cambiar: `unstable_cache` suma los
 argumentos a la clave, así que la serie de «1,29» y la del negocio entero no se pisan (el relevo decía que había que
 sumarlos a mano). Test: el último de tests/funnel-etapas-elegidos.test.ts.
+
+## «Mi hoja» es la de quien chatea: el Dashboard y General ya no piden un email en el Ops Center (20/10/2026)
+
+**Síntoma:** desde el Ops Center, en una cuenta con 2 o más informes guardados, «agregá un gráfico a mi hoja de
+Marketing» contestaba «Hay 2 informes guardados en la cuenta: di de quién es (su email)». Es la pieza 1.5 de
+docs/ops-center-principal.md.
+
+**Causa:** la API elegía la persona del informe por el email que se nombraba o por «el único informe guardado». El
+contexto de la app sólo traía `actor` (un email, o un nombre, o el `sub`, según la sesión). La pantalla, en cambio, lee
+siempre el informe de quien mira, por su `sub`.
+
+**Lo que quedó:** el turno de la app pasa `Ctx.quien` (`usuarios.id`, email y nombre), al proponer y al confirmar. El
+Dashboard (`elegirPersona`, dashboard.helpers.ts) y General (lib/general-plantillas.ts) lo usan cuando no se nombra a
+nadie. Se lee con `quienChatea(ctx)` (lib/api-mako/tipos.ts), que lo ignora fuera de la app: en WhatsApp, por HTTP o en
+un flujo no hay «mío».
+- **Por el `sub` y no por el email:** el super admin que mira un negocio no es miembro de ese workspace, y la pantalla
+  igual abre SU informe ahí. Buscarlo por email entre los miembros no lo encontraba. Una sesión que no es una persona
+  (`dev`, `password`) no trae `quien`.
+- **Nombrar a otra persona le sigue ganando**, una automatización sigue exigiendo la persona, y un closer o un setter
+  reciben «tu Dashboard es la hoja Closing» en vez de escribir un informe de admin.
+- La descripción del parámetro `persona` cambió en las dos áreas (es lo que lee el modelo): si decía «con varios, pide
+  elegir», el modelo preguntaba el email aunque el código ya no lo necesitara.
+
+Test: tests/api-mako-mi-hoja.test.ts (probado rompiéndolo, cinco roturas). **Nadie lo probó en el Ops Center.**
+**Vive en:** lib/api-mako/tipos.ts · lib/mako-turno-app.ts · lib/api-mako/areas/dashboard.helpers.ts ·
+lib/api-mako/areas/dashboard.run.ts · lib/api-mako/areas/general.run.ts · lib/general-plantillas.ts.
+*20/10/2026, claude4 (chat Dashboard).*
