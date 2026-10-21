@@ -72,7 +72,7 @@ export const lecturaConCosto = (d: OperacionDef): boolean => d.tipo === 'lectura
 
 /** Los ids de lecturas que la descripción de una operación (o la de sus parámetros) nombra como origen de lo que pide. */
 export function lecturasQueNombra(d: OperacionDef): string[] {
-  const texto = [d.descripcion, ...((d as { parametros?: Array<{ descripcion?: string }> }).parametros ?? []).map((p) => p.descripcion ?? '')].join(' ');
+  const texto = [d.descripcion, ...((d as unknown as { parametros?: Array<{ descripcion?: string }> }).parametros ?? []).map((p) => p.descripcion ?? '')].join(' ');
   const ids = texto.match(/[a-z]+(?:_[a-z0-9]+)+/g) ?? [];
   return [...new Set(ids)].filter((id) => id !== d.id && porId(id)?.tipo === 'lectura');
 }
