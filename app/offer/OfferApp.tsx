@@ -41,7 +41,7 @@
 // Sin selector ni bienvenida: la conversación nace sola en el funnel principal, y alrededor de ella van
 // los mensajes del arranque (quién es, el CRM, el teléfono), que contesta el arranque y no Offer. Desde el
 // 17/10/2026 la conversación del arranque sólo pregunta qué vende (`origen: 'arranque'` en cada turno) y no
-// arma la oferta: el análisis es de esta tab. Desde el 20/10/2026 escribe en la caja del Ops Center (./CajaDelCentro.tsx,
+// arma la oferta: el análisis es de esta tab. Desde el 20/10/2026 escribe en la caja del Ops Center (la caja única app/_chat/CajaChat.tsx desde el 21/10,
 // pedido del 18/10, punto 3): lo adjuntado va arriba del texto (sus miniaturas) y no en la vista previa, y se lee igual al
 // mandar (`enviarVista`).
 //
@@ -57,7 +57,7 @@
 // (ComposerWhatsApp guarda ese `onAudio`). Por eso `mandar` y `mandarAudio` deciden con REFS
 // (`sesionRef`, `enviando`, `leyendoRef`), nunca con el estado de su render.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Banner, Button, ButtonLink, Modal, Spinner } from '@/app/_ui';
 import { ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
@@ -65,7 +65,8 @@ import { VistaAdjuntos, useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdj
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { MAX_ADJUNTOS, type ItemAdjunto } from '@/app/whatsapp/_shared/adjuntos-vista';
 import { AvatarMako } from './AvatarMako';
-import { CajaDelCentro } from './CajaDelCentro';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import '@/app/admin/operaciones/centro.css';
 import { ChatOffer } from './ChatOffer';
 import { Conclusion } from './Conclusion';
 import type { PasoGeneracion } from './Generando';
@@ -82,6 +83,9 @@ import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, 
 
 type EstadoGeneracion = { paso: PasoGeneracion; corriendo: boolean; error: string | null };
 const GEN_QUIETA: EstadoGeneracion = { paso: 'diagnostico', corriendo: false, error: null };
+
+/** El ➤ y el ✓ de la barra de grabar del onboarding van en el negro del Ops Center: la barra los pinta con `--good` (el verde). */
+const SIN_VERDE = { '--good': 'var(--ink)' } as CSSProperties;
 /** Cada cuánto se relee la conversación mientras el servidor arma la oferta. */
 const RELEER_ARMADO_MS = 4_000;
 
@@ -922,14 +926,25 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     puede: !!sesion,
     onSumar: agregarArchivos,
     onQuitar: quitarArchivo,
+    // «Documento» ofrece lo que Offer sabe leer (audio y video incluidos), no lo del Ops Center (revisión del Cerebro, 20/10).
+    accept: ACCEPT_IMPORTAR,
+    onSinImagen: (puedeLeer) => setErrorChat(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar: usa Ctrl+V.'),
   };
+  // LA CAJA ÚNICA (app/_chat/CajaChat.tsx, 21/10/2026): la misma del Ops Center, con la nota de voz (el micrófono GRABA, no
+  // dicta) y la línea de estado, que se sumaron a la pieza para el onboarding. Con sólo texto (el nombre, un código), sin
+  // adjuntos ni voz. La barra de grabar, sin el verde de WhatsApp (`SIN_VERDE`).
   const cajaArranque = arranque ? (
-    <CajaDelCentro key={sesion?.id ?? 0} texto={texto} onTexto={setTexto} onMandar={() => void enviarComposer()} ocupado={ocupado}
-      placeholder={arranque.placeholder} adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista}
-      voz={arranque.manda ? null : {
-        onAudio: mandarAudio, onError: setErrorChat,
-        pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onReenviar: reenviarAudio, onDescartar: descartarAudio } : null,
-      }} />
+    <div key={sesion?.id ?? 0} className="co-caja-wrap" style={SIN_VERDE}>
+      <div className="co-caja">
+        <CajaChat texto={texto} onTexto={setTexto} onMandar={() => void enviarComposer()} ocupado={ocupado} enterManda
+          placeholder={arranque.placeholder ?? 'Escríbele a MaKo'} tituloMandar="Mandar (Enter)" onErrorMic={setErrorChat}
+          adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista}
+          voz={arranque.manda ? undefined : {
+            onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio',
+            pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onBorrar: descartarAudio, onDejar: reenviarAudio } : null,
+          }} />
+      </div>
+    </div>
   ) : null;
 
   return (

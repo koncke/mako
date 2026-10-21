@@ -40,7 +40,7 @@
 // ⚠️ LA HORA DE CADA BURBUJA SE PIDE DESPUÉS DE MONTAR (`montado`): sale de la zona horaria de quien
 // la calcula, y el HTML del server la diría distinta del navegador (la hidratación falla).
 // EL ONBOARDING VA CON LA CAJA DEL OPS CENTER (20/10/2026, pedido del 18/10, punto 3): OfferApp la arma
-// (./CajaDelCentro.tsx) y llega por `caja`, en lugar de la barra de WhatsApp; los archivos se juntan arriba del texto y no
+// (la caja única, app/_chat/CajaChat.tsx, desde el 21/10) y llega por `caja`, en lugar de la barra de WhatsApp; los archivos se juntan arriba del texto y no
 // en la vista previa. NO se importa acá: este archivo lo carga un test en node y esas piezas traen .css.
 //
 // ⚠️ `data-esquina-ocupada` en la tarjeta: la ➤ y el micrófono viven en el rincón de abajo a la
@@ -210,7 +210,7 @@ export function ChatOffer({
   placeholder?: string;
   /** Lo que va debajo del error (en el arranque, conectar una IA propia si la de MaKo no contesta). */
   errorExtra?: ReactNode;
-  /** La caja de escribir del Ops Center, ya armada (el onboarding: ./CajaDelCentro.tsx). null = la barra de WhatsApp. */
+  /** La caja de escribir del Ops Center, ya armada (el onboarding: la caja única, app/_chat/CajaChat.tsx). null = la barra de WhatsApp. */
   caja?: ReactNode | null;
 }) {
   const ws = useWs();

@@ -2518,9 +2518,9 @@ nuevos que cargaban mal el diagnóstico. El escéptico lo midió corriendo la mi
   trabajo de un documento (hasta 20 lecturas). Contado sólo como turno, salteaba el tope de documentos. Además se leía el
   texto entero antes de recortarlo a lo que se guarda.
 
-**Sin hacer:** el «+» de la caja del onboarding acepta menos que antes (sin audio ni video; «Fotos» sin video): se arregla
-pasando a `CajaChat` con `accept: ACCEPT_IMPORTAR` cuando caja-voz llegue a main, y ahí se borra app/offer/CajaDelCentro.tsx.
-/m/second-brain crea el hilo pero no lee `?recorrido=`: en el teléfono no hay tutorial. El CRM a medida sigue pidiendo
+**Sin hacer:** ~~el «+» de la caja del onboarding acepta menos que antes~~ HECHO el 21/10: el onboarding usa la caja ÚNICA
+(app/_chat/CajaChat.tsx) con `accept: ACCEPT_IMPORTAR`, y app/offer/CajaDelCentro.tsx se borró; «Fotos» sigue sólo con
+imágenes. /m/second-brain crea el hilo pero no lee `?recorrido=`: en el teléfono no hay tutorial. El CRM a medida sigue pidiendo
 la propuesta ANTES de responder (bajó a 25 s / 45 s con la red); armarla aparte queda para después.
 
 *20/10/2026, noche, chat «Onboarding» (claude4), rama onboarding-v3.*

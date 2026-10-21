@@ -9,6 +9,10 @@
   contesta (un toque viejo no confirma); etapa 'cobro' con el toque; el chat «Onboarding» con hora creciente; la corrección
   del PDF se anota; el nombre de la persona no pisa el de Google; la entrada del teléfono se marca al verse; la
   conversación de Offer vuelve a listarse si siguió después de la copia. Tests: tests/onboarding-toque-que-confirma.test.ts.
+- **La caja del onboarding es la caja ÚNICA** (app/_chat/CajaChat.tsx, llegó a main con caja-voz): OfferApp la arma con
+  la nota de voz, la línea de estado, «Documento» con lo que Offer lee (`ACCEPT_IMPORTAR`, audio y video incluidos) y el
+  aviso de «Pegar» sin imagen. app/offer/CajaDelCentro.tsx se borró. Tests: onboarding-caja-centro y onboarding-caja-voz.
+  «Fotos» sigue sólo con imágenes (el `accept` de la caja única es sólo para «Documento»).
 - Sin hacer: las etiquetas de los tramos dicen «$» sin «USD» (decisión de copy, lib/fase-diagnostico.ts).
 
 ## ESTADO AL 21/10/2026 ~03:00 AR — TERCERA REVISIÓN (de 8805b81aa): LO ESCRITO SE CONFIRMA CON UN TOQUE
