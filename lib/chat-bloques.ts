@@ -118,7 +118,9 @@ const idPositivo = (v: unknown): number | null => (typeof v === 'number' && Numb
 const fecha = (v: unknown): string | null => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
 const ESTADOS_PASO: readonly EstadoPaso[] = ['listo', 'en_curso', 'pendiente', 'fallo', 'incierto'];
 
-const texto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+// Se recorta DESPUÉS de cortar (revisión del 21/10/2026): cortar en un espacio dejaba el texto terminado en uno, y lo
+// que manda el botón (recortado por la pantalla) ya no era igual a lo guardado: un selector viejo no se reconocía.
+const texto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max).trim() : '');
 const opcional = (v: unknown, max: number): string | undefined => texto(v, max) || undefined;
 const lado = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isInteger(v) && v > 0 && v <= 20_000 ? v : undefined;
