@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function POST(req: NextRequest) {
-  const p = await pcDelPedido(req, 'soltar');
+  // También una PENDIENTE (mig 0322): «no es mi negocio» la suelta antes de confirmarla.
+  const p = await pcDelPedido(req, 'soltar', { pendientesTambien: true });
   if ('respuesta' in p) return p.respuesta;
   const { d } = p;
   const frenado = limitePorClave('ia-pc-soltar', d.id, 5, 60_000);

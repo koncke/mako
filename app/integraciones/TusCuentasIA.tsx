@@ -19,7 +19,7 @@ import { hace } from '@/lib/progreso-reglas';
 import { TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, estadoDeLaPc, lineaDeInstalacion, yaPaso, type CuentaPc, type SistemaPc } from '@/lib/ia-pc-reglas';
 import './tus-cuentas-ia.css';
 
-type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[] };
+type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[]; sinClaude?: boolean };
 type Estado = { ok: boolean; esAdmin: boolean; modelo: string; pcs: Pc[] };
 
 const MODELOS: Array<{ v: string; t: string }> = [{ v: 'sonnet', t: 'Sonnet (recomendado)' }, { v: 'opus', t: 'Opus' }, { v: 'haiku', t: 'Haiku' }];
@@ -84,8 +84,10 @@ function Tutorial({ onCerrar, pcsAntes, recargar }: { onCerrar: () => void; pcsA
   const [venceAt, setVenceAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lista, setLista] = useState(false);
-  // Se conectó pero su Claude no tiene la sesión iniciada: no es «¡Listo!», es volver al paso 3.
-  const [sinSesion, setSinSesion] = useState(false);
+  // Se conectó pero su Claude no tiene la sesión iniciada: no es «¡Listo!», es volver al paso 3 (o al 2, sin Claude).
+  const [sinSesion, setSinSesion] = useState<'sesion' | 'claude' | null>(null);
+  // Cómo quedó el código en MaKo: gastado sin conectar (dijo que no, o cerró la ventana) o esperando su «sí».
+  const [delCodigo, setDelCodigo] = useState<'gastado' | 'eligiendo' | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
   // El código se pide recién cuando la persona acepta con un toque cómo funciona (TEXTO_CONSENTIMIENTO).
   const [acepto, setAcepto] = useState(false);
@@ -94,27 +96,32 @@ function Tutorial({ onCerrar, pcsAntes, recargar }: { onCerrar: () => void; pcsA
     const r = await fetch('/api/ia-pc/codigo', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ acepto: VERSION_CONSENTIMIENTO }),
     }).then((x) => x.json()).catch(() => null);
-    if (r?.ok && r.codigo) { setCodigo(r.codigo); setVenceAt(Date.parse(r.venceAt) || Date.now() + 10 * 60_000); setAhora(Date.now()); }
+    // Con SU reloj: la hora del servidor contra una PC adelantada hacía nacer «vencido» cada código (segunda revisión).
+    if (r?.ok && r.codigo) { setCodigo(r.codigo); setDelCodigo(null); setVenceAt(Date.now() + (Number(r.duraMs) || 10 * 60_000)); setAhora(Date.now()); }
     else setError(r?.error ?? 'No pude crear el código. Intenta de nuevo.');
   }, []);
   useEffect(() => { if (paso === 4 && acepto && !codigo) void pedirCodigo(); }, [paso, acepto, codigo, pedirCodigo]);
-  const vencido = !!codigo && venceAt != null && ahora >= venceAt;
-  // Espera a que aparezca una computadora nueva en línea, CON un Claude con sesión.
+  // Con el código ya usado (esperando su «sí» en la ventana), la cuenta de 10 minutos no corre: el código no vence ahí.
+  const vencido = !!codigo && venceAt != null && ahora >= venceAt && delCodigo !== 'eligiendo';
+  // Espera a que aparezca una computadora nueva en línea, CON un Claude con sesión. Y mira el código: si se gastó sin
+  // conectar, no se queda «Esperando…» con una línea que ya no sirve (segunda revisión del Cerebro, 21/10/2026).
   useEffect(() => {
     if (paso !== 4 || !codigo || lista) return;
     const t = setInterval(async () => {
       setAhora(Date.now());
       const e = await recargar();
       const nueva = e?.pcs.find((p) => p.enLinea && p.esMia && !pcsAntes.includes(p.id));
-      if (nueva && nueva.cuentas.length) { setLista(true); setSinSesion(false); setPaso(5); }
-      else if (nueva) setSinSesion(true);
+      if (nueva && nueva.cuentas.length) { setLista(true); setSinSesion(null); setPaso(5); return; }
+      if (nueva) { setSinSesion(nueva.sinClaude ? 'claude' : 'sesion'); return; }
+      const c = await fetch(`/api/ia-pc/codigo?codigo=${encodeURIComponent(codigo)}`, { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
+      if (c?.ok) setDelCodigo(c.estado === 'cancelado' ? 'gastado' : c.estado === 'eligiendo' ? 'eligiendo' : null);
     }, 3000);
     return () => clearInterval(t);
   }, [paso, codigo, lista, pcsAntes, recargar]);
   // Otro código sin volver a aceptar: la persona ya aceptó en esta misma pantalla.
   // Con un código en pantalla, alcanza con soltarlo: el efecto de arriba pide el nuevo. Pedirlo acá TAMBIÉN creaba dos, y
   // el segundo anula al primero (lib/ia-pc.ts → crearCodigo), que podía quedar en pantalla.
-  const otroCodigo = () => { if (codigo) { setCodigo(null); setVenceAt(null); } else void pedirCodigo(); };
+  const otroCodigo = () => { setDelCodigo(null); setSinSesion(null); if (codigo) { setCodigo(null); setVenceAt(null); } else void pedirCodigo(); };
 
   return (
     <div className="tci-tutorial" role="dialog" aria-label="Conectar mi computadora">
@@ -135,8 +142,8 @@ function Tutorial({ onCerrar, pcsAntes, recargar }: { onCerrar: () => void; pcsA
       )}
       {paso === 2 && (
         <>
-          <h3>Instala Claude</h3>
-          <p>{DONDE_PEGAR[sistema]} Si ya tienes Claude Code, sigue al próximo paso.</p>
+          <h3>Instala Claude Code</h3>
+          <p>{DONDE_PEGAR[sistema]} Es Claude Code, no la app de escritorio de Claude. Si ya lo tienes, sigue al próximo paso.</p>
           <Copiar texto={COMANDO_CLAUDE[sistema]} />
         </>
       )}
@@ -159,17 +166,33 @@ function Tutorial({ onCerrar, pcsAntes, recargar }: { onCerrar: () => void; pcsA
           ) : (
             <>
               <p>{DONDE_PEGAR[sistema]} MaKo te dice a qué negocio se conecta y te pregunta si es el tuyo. Después arranca cada vez que prendas la computadora.</p>
-              {codigo && !vencido ? <Copiar texto={lineaDeInstalacion(window.location.origin, sistema, codigo)} /> : !codigo && <p className="tci-nota">{error ?? 'Preparando tu código…'}</p>}
+              {codigo && !vencido && delCodigo !== 'gastado' ? <Copiar texto={lineaDeInstalacion(window.location.origin, sistema, codigo)} /> : !codigo && <p className="tci-nota">{error ?? 'Preparando tu código…'}</p>}
             </>
           )}
-          {(error || vencido) && (
+          {(error || vencido || delCodigo === 'gastado') && (
             <>
-              {vencido && <p className="tci-nota">El código venció.</p>}
+              {delCodigo === 'gastado'
+                ? <p className="tci-nota">Ese código ya se usó y la computadora no quedó conectada.</p>
+                : vencido && <p className="tci-nota">El código venció.</p>}
               <button type="button" className="tci-boton" onClick={otroCodigo}>Pedir otro código</button>
             </>
           )}
-          {codigo && !vencido && !sinSesion && <p className="tci-espera"><span className="tci-punto tci-punto--esperando" aria-hidden /> Esperando a tu computadora… (el código dura 10 minutos)</p>}
-          {sinSesion && (
+          {codigo && !vencido && !sinSesion && delCodigo !== 'gastado' && (
+            <>
+              <p className="tci-espera">
+                <span className="tci-punto tci-punto--esperando" aria-hidden />{' '}
+                {delCodigo === 'eligiendo' ? 'Tu computadora te pregunta si es tu negocio: contesta en esa ventana.' : 'Esperando a tu computadora… (el código dura 10 minutos)'}
+              </p>
+              <button type="button" className="tci-boton tci-boton--suave" onClick={otroCodigo}>Pedir otro código</button>
+            </>
+          )}
+          {sinSesion === 'claude' && (
+            <>
+              <p className="tci-nota">Tu computadora se conectó, pero no tiene Claude Code instalado.</p>
+              <button type="button" className="tci-boton tci-boton--suave" onClick={() => setPaso(2)}>Instalar Claude Code (paso 2)</button>
+            </>
+          )}
+          {sinSesion === 'sesion' && (
             <>
               <p className="tci-nota">Tu computadora se conectó, pero tu Claude no tiene la sesión iniciada.</p>
               <button type="button" className="tci-boton tci-boton--suave" onClick={() => setPaso(3)}>Iniciar sesión (paso 3)</button>
@@ -192,7 +215,8 @@ function Tutorial({ onCerrar, pcsAntes, recargar }: { onCerrar: () => void; pcsA
   );
 }
 
-export function TusCuentasIA() {
+/** `sinCabecera`: donde la página ya pone el título (/perfil/ia), sólo el botón; si no, el título salía dos veces. */
+export function TusCuentasIA({ sinCabecera = false }: { sinCabecera?: boolean } = {}) {
   const [estado, setEstado] = useState<Estado | null>(null);
   const [tutorial, setTutorial] = useState(false);
   const [confirmar, setConfirmar] = useState<number | null>(null);
@@ -222,11 +246,15 @@ export function TusCuentasIA() {
   return (
     <section className="tci" aria-labelledby="tci-titulo">
       <div className="tci-cab">
-        <div>
-          <h2 id="tci-titulo" className="tci-titulo">Tus cuentas de IA</h2>
-          <p className="tci-bajada">Tu Ops Center contesta con tu Claude, en tu computadora y con tu cuenta.</p>
-        </div>
-        <button type="button" className="tci-boton" onClick={abrirTutorial}>Conectar mi computadora</button>
+        {sinCabecera ? <span id="tci-titulo" hidden>Tus cuentas de IA</span> : (
+          <div>
+            <h2 id="tci-titulo" className="tci-titulo">Tus cuentas de IA</h2>
+            <p className="tci-bajada">Tu Ops Center contesta con tu Claude, en tu computadora y con tu cuenta.</p>
+          </div>
+        )}
+        {/* Hasta que llegue el estado no se sabe qué PC ya estaban: una en línea de antes contaba como la nueva y el
+            tutorial decía «¡Listo!» sin que se conectara nada (segunda revisión, 21/10/2026). */}
+        <button type="button" className="tci-boton" onClick={abrirTutorial} disabled={!estado}>Conectar mi computadora</button>
       </div>
 
       {tutorial && <Tutorial onCerrar={() => { setTutorial(false); void recargar(); }} pcsAntes={antes.current} recargar={recargar} />}

@@ -135,13 +135,14 @@ test('la puerta del servidor: el negocio sale del token, la PC sólo toma lo suy
   assert.match(cuerpo('turnoDelToken'), /\.eq\('token_hash', hash\(token\)\)\.eq\('estado', 'tomado'\)\.gt\('vence_at'/);
   assert.match(cuerpo('esperarALaPc'), /update\(\{ estado: 'vencido' \}\)/, 'lo que no volvió a tiempo, vence');
   // Las rutas: el negocio nunca sale del pedido.
-  for (const r of ['emparejar', 'latido', 'turno', 'turno/[id]', 'mcp', 'soltar']) {
+  for (const r of ['emparejar', 'latido', 'turno', 'turno/[id]', 'mcp', 'soltar', 'confirmar']) {
     const src = sinComentarios(leer(`app/api/ia-pc/${r}/route.ts`));
     assert.doesNotMatch(src, /workspace|searchParams\.get\('ws'\)|body\??\.ws\b/, `${r}: el negocio no sale del pedido`);
   }
   // Las rutas de la PC sacan la PC del token en UN lugar (lib/ia-pc-ruta.ts), que distingue 401 `revocado` de 503.
-  assert.match(leer('lib/ia-pc-ruta.ts'), /dispositivoDelToken\(bearer\(req\.headers\.get\('authorization'\)\)\)/);
-  for (const r of ['latido', 'turno', 'turno/[id]', 'soltar']) assert.match(leer(`app/api/ia-pc/${r}/route.ts`), /const p = await pcDelPedido\(req, '[a-z]+'\);\s*if \('respuesta' in p\) return p\.respuesta;/, r);
+  assert.match(leer('lib/ia-pc-ruta.ts'), /dispositivoDelToken\(bearer\(req\.headers\.get\('authorization'\)\), o\)/);
+  // `soltar` y `confirmar` aceptan la PC PENDIENTE (mig 0322): es lo único que puede hacer antes del «sí».
+  for (const r of ['latido', 'turno', 'turno/[id]', 'soltar', 'confirmar']) assert.match(leer(`app/api/ia-pc/${r}/route.ts`), /const p = await pcDelPedido\(req, '[a-z]+'(, \{ pendientesTambien: true \})?\);\s*if \('respuesta' in p\) return p\.respuesta;/, r);
   assert.match(leer('app/api/ia-pc/mcp/route.ts'), /turnoDelToken\(bearer\(req\.headers\.get\('authorization'\)\)\)/);
   assert.match(leer('app/api/ia-pc/codigo/route.ts'), /personaDelRequest\(\)/, 'el código lo pide una persona con sesión');
   const publicas = leer('lib/rutas-publicas.ts');
@@ -166,7 +167,7 @@ test('el MCP es un relevo: sólo las herramientas del turno, y las corre el turn
 
 test('el turno: la PC de QUIEN escribe, sólo en línea Y con sesión, con su runTool; y con su IA, sin la cascada barata', () => {
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(t, /const pc = await pcDe\(ws, persona\.actor\)/, 'la cuenta es de una persona: sólo sus turnos');
+  assert.match(t, /const leidaPc = await pcDe\(ws, persona\.actor\)/, 'la cuenta es de una persona: sólo sus turnos');
   // Rota: mandar a la PC aunque esté apagada o sin sesión → este test falla.
   assert.match(t, /const pcPuede = pcUsable\(pc\);/);
   assert.match(t, /if \(pc && pcPuede\) \{\s*try \{\s*const modelo = modeloPc\(await getSetting\(CLAVE_MODELO_PC\)\.catch\(\(\) => null\)\);\s*const turnoPc = await encolarTurno\(pc, s\.id, \{ system, prompt: armarPrompt\(historial, textoModelo\), tools, modelo \}\);/);

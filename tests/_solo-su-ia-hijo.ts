@@ -87,8 +87,13 @@ async function main() {
   const negocio: Record<string, unknown> = {};
   dejar(WS, ['GEMINI_API_KEY', 'GROQ_API_KEY']);
   negocio.soloGratis = await negocioConSuIA(WS);
-  // La PC de OTRA persona del negocio (la admin): el turno del closer también es «con su IA».
-  pg.db.ia_pc_dispositivos.push({ id: 1, workspace_id: WS, persona: 'admin@negocio.com', revocado_at: null });
+  // Una PC PENDIENTE (emparejada, sin el «sí» o sin su primer latido con sesión) no cuenta (mig 0322, segunda revisión).
+  pg.db.ia_pc_dispositivos.push({ id: 1, workspace_id: WS, persona: 'admin@negocio.com', revocado_at: null, confirmado_at: null, activa_at: null });
+  negocio.conPcPendiente = await negocioConSuIA(WS);
+  pg.db.ia_pc_dispositivos[0].confirmado_at = new Date().toISOString();
+  negocio.conPcSinLatido = await negocioConSuIA(WS);
+  // La PC ACTIVA de OTRA persona del negocio (la admin): el turno del closer también es «con su IA».
+  pg.db.ia_pc_dispositivos[0].activa_at = new Date().toISOString();
   negocio.conPcDeOtra = await negocioConSuIA(WS);
   pg.db.ia_pc_dispositivos[0].revocado_at = new Date().toISOString();
   negocio.pcDesconectada = await negocioConSuIA(WS);

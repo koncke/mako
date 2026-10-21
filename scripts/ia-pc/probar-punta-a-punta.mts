@@ -20,6 +20,10 @@
 //     cuarentena el MaKo.vbs de la 0.2.0 apenas se escribía);
 //   · nada de MaKo en la carpeta Inicio;
 //   · al desconectar la PC desde MaKo, el programa se saca solo del arranque y se apaga (401 `revocado`).
+// `--reinstalar` (con `--instalador`; la segunda revisión, 21/10/2026, y la mig 0322 aplicada): con la PC andando, pega
+// la línea OTRA vez y contesta «no» (lo que andaba tiene que seguir: el mismo proceso, la misma PC en MaKo, y la nueva
+// pendiente soltada), y después otra vez con «sí» (el .exe se reemplaza con el viejo corriendo, queda UNO corriendo, la
+// vieja soltada y la nueva activa).
 // La limpieza saca todo lo que escribió (la clave, la carpeta, el proceso), y lo verifica.
 // =============================================================================
 import path from 'node:path';
@@ -42,6 +46,7 @@ if (!CLAUDE_DIR) { console.error('⛔ falta --claude-dir <carpeta de una cuenta 
 // `--instalador` (Windows, ola 2): en vez de `node mako-pc.mjs`, la línea de PowerShell del tutorial, con el ejecutable
 // de verdad que bajó del bucket. ⚠️ Deja el arranque automático en Inicio: la limpieza del final lo saca.
 const INSTALADOR = process.argv.includes('--instalador');
+const REINSTALAR = INSTALADOR && process.argv.includes('--reinstalar');
 const PUERTO = 4319;
 // El instalador apunta al servidor de la app: acá, al local (antes de importar las rutas, que lo leen al cargar).
 if (INSTALADOR) process.env.APP_BASE_URL = `http://localhost:${PUERTO}`;
@@ -59,6 +64,7 @@ const rutas = {
   mcp: await imp('app/api/ia-pc/mcp/route.ts'),
   instalar: await imp('app/api/ia-pc/instalar/route.ts'),
   soltar: await imp('app/api/ia-pc/soltar/route.ts'),
+  confirmar: await imp('app/api/ia-pc/confirmar/route.ts'),
 };
 const { crearCodigo, pcDe, desconectar } = await imp('lib/ia-pc.ts');
 const { turnoApp, nuevaSesion } = await imp('lib/mako-turno-app.ts');
@@ -79,7 +85,8 @@ const servidor = http.createServer(async (req, res) => {
           : p === '/api/ia-pc/mcp' ? await (req.method === 'GET' ? rutas.mcp.GET() : rutas.mcp.POST(r))
             : p === '/api/ia-pc/instalar' ? await rutas.instalar.GET(r)
               : p === '/api/ia-pc/soltar' ? await rutas.soltar.POST(r)
-                : new Response('no', { status: 404 });
+                : p === '/api/ia-pc/confirmar' ? await rutas.confirmar.POST(r)
+                  : new Response('no', { status: 404 });
   res.writeHead(resp.status, Object.fromEntries(resp.headers.entries()));
   res.end(Buffer.from(await resp.arrayBuffer()));
 });
@@ -100,11 +107,13 @@ const correr = (args: string[], fondo = false): Promise<string> | ChildProcess =
   if (fondo) return p;
   return new Promise((ok) => { let s = ''; p.stdout!.on('data', (b) => { s += b; }); p.stderr!.on('data', (b) => { s += b; }); p.on('close', () => ok(s.trim())); });
 };
-const ps = (comando: string) => new Promise<string>((ok) => {
+const ps = (comando: string, si = true) => new Promise<string>((ok) => {
   // `MAKO_PC_SI=1`: el «sí» a «¿Es tu negocio?» (lib/ia-pc-reglas.ts → scriptDeInstalacion), que acá no lo escribe nadie.
+  // Sin él, `Read-Host` lee la entrada vacía: el «no».
   const p = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `[Console]::OutputEncoding = [Text.Encoding]::UTF8; ${comando}`], {
-    env: { ...process.env, MAKO_PC_DIR: DIR_PC, CLAUDE_CONFIG_DIR: CLAUDE_DIR, MAKO_PC_SI: '1', LOCALAPPDATA: LOCAL_PRUEBA },
+    env: { ...process.env, MAKO_PC_DIR: DIR_PC, CLAUDE_CONFIG_DIR: CLAUDE_DIR, LOCALAPPDATA: LOCAL_PRUEBA, ...(si ? { MAKO_PC_SI: '1' } : { MAKO_PC_SI: '' }) },
   });
+  p.stdin.end();
   let s = ''; p.stdout.on('data', (b) => { s += b; }); p.stderr.on('data', (b) => { s += b; }); p.on('close', () => ok(s.trim()));
 });
 let pc: ChildProcess | null = null;
@@ -133,7 +142,40 @@ if (INSTALADOR) {
 let enLinea = false;
 for (let i = 0; i < 40 && !enLinea; i++) { await new Promise((ok) => setTimeout(ok, 500)); enLinea = !!(await pcDe(WS, actor))?.enLinea; }
 console.log(`3. La PC está ${enLinea ? 'EN LÍNEA' : 'sin conexión (falló el latido)'}`);
-const dispositivo = await pcDe(WS, actor);
+let dispositivo = await pcDe(WS, actor);
+
+// ── 3b. Reinstalar sobre la que anda: con «no», y con «sí» (segunda revisión del Cerebro) ──────────────────────────
+if (REINSTALAR && dispositivo) {
+  const { lineaDeInstalacion } = await imp('lib/ia-pc-reglas.ts');
+  const procesos = async () => (await ps("@(Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue | ForEach-Object Id) -join ','")).trim();
+  const filas = async () => (await getSupabaseServer().from('ia_pc_dispositivos').select('id, revocado_at, confirmado_at, activa_at')
+    .eq('workspace_id', WS).eq('persona', actor).order('id')).data ?? [];
+  const antes = await procesos();
+  const no = await crearCodigo(WS, actor, VERSION_CONSENTIMIENTO);
+  const salidaNo = await ps(lineaDeInstalacion(`http://localhost:${PUERTO}`, 'windows', no.codigo), false);
+  await new Promise((ok) => setTimeout(ok, 3_000));
+  const trasNo = await procesos();
+  const pcTrasNo = await pcDe(WS, actor);
+  const fNo = await filas();
+  const pendienteSoltada = fNo.length >= 2 && fNo.at(-1)?.revocado_at != null && fNo.at(-1)?.confirmado_at == null;
+  console.log(`3b. Reinstalar y decir «no»: ${/No la conecté/.test(salidaNo) ? 'dijo «No la conecté»' : `⛔ dijo «${salidaNo.slice(-200)}»`}`);
+  console.log(`    el programa: ${antes && trasNo === antes ? 'el MISMO proceso sigue' : `⛔ antes ${antes}, después ${trasNo || 'ninguno'}`} · la PC en MaKo: ${pcTrasNo?.id === dispositivo.id && pcTrasNo.enLinea ? 'la misma, en línea' : '⛔ cambió o se apagó'} · la nueva: ${pendienteSoltada ? 'soltada sin confirmar' : '⛔ quedó'}`);
+  const si = await crearCodigo(WS, actor, VERSION_CONSENTIMIENTO);
+  const salidaSi = await ps(lineaDeInstalacion(`http://localhost:${PUERTO}`, 'windows', si.codigo));
+  let nueva: Awaited<ReturnType<typeof pcDe>> = null;
+  for (let i = 0; i < 60; i++) {
+    await new Promise((ok) => setTimeout(ok, 1_000));
+    nueva = await pcDe(WS, actor);
+    if (nueva && nueva.id !== dispositivo.id && nueva.enLinea && nueva.activa) break;
+  }
+  const trasSi = await procesos();
+  const fSi = await filas();
+  const vieja = fSi.find((f: { id: number }) => f.id === dispositivo!.id);
+  console.log(`3c. Reinstalar y decir «sí»: ${/está siendo utilizado|being used/i.test(salidaSi) ? '⛔ el .exe en uso' : 'sin «en uso»'} · procesos: ${trasSi && !trasSi.includes(',') && trasSi !== antes ? 'UNO, el nuevo' : `⛔ ${trasSi || 'ninguno'}`}`);
+  console.log(`    la nueva: ${nueva && nueva.id !== dispositivo.id && nueva.activa ? 'confirmada, activa y en línea' : '⛔ no quedó activa'} · la vieja: ${vieja?.revocado_at ? 'soltada' : '⛔ sigue'}`);
+  console.log(salidaSi.split('\n').map((l) => `    ${l}`).join('\n'));
+  dispositivo = nueva ?? dispositivo;
+}
 
 // ── 4. Dos turnos del Ops Center ─────────────────────────────────────────────
 const resumen = async (titulo: string, mensaje: string) => {

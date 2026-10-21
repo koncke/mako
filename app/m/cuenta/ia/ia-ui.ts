@@ -27,6 +27,8 @@ export type PcIA = {
   ultimoLatido: string | null;
   version: string | null;
   cuentas: CuentaPc[];
+  /** Su último latido dijo que no tiene Claude Code (mig 0322): «Falta instalar Claude», no «Sin sesión». */
+  sinClaude?: boolean;
 };
 export type EstadoIA = { ok: boolean; esAdmin: boolean; modelo: string; pcs: PcIA[] };
 
@@ -40,7 +42,7 @@ export type TonoPc = 'linea' | 'atencion' | 'apagada';
  * punto. «En línea» sin ninguna cuenta no es «En línea»: el programa late pero Claude no tiene sesión y el chat no tiene
  * con qué contestar (punto de atención, no verde).
  */
-export function estadoDePc(pc: Pick<PcIA, 'enLinea' | 'ultimoLatido' | 'cuentas'>, ahora: number): { texto: string; tono: TonoPc } {
+export function estadoDePc(pc: Pick<PcIA, 'enLinea' | 'ultimoLatido' | 'cuentas' | 'sinClaude'>, ahora: number): { texto: string; tono: TonoPc } {
   const tono: TonoPc = pc.enLinea ? (pc.cuentas.length === 0 ? 'atencion' : 'linea') : 'apagada';
   return { texto: estadoDeLaPc(pc, ahora, hace), tono };
 }

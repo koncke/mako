@@ -25,6 +25,18 @@
 // «(envió …)» del archivo, lo limpia aunque lo escribió la persona, pisa lo que la persona escribió · cada uno de los cuatro
 // chats sin el reemplazo (4) · un quinto chat que arma el hilo sin él. Restaurado: 10 / 0.
 //
+// TERCERA RONDA (21/10/2026, otra revisión adversarial: seguía tapando texto del negocio; mismo arnés, base 10 / 0). 26 roturas,
+// 26 detectadas. OpenAI (14): la heredada de vuelta (`sk-` + 20 de cualquier cosa se comía el slug de un producto) · la vieja
+// sin exigir dígito ni mayúscula (3: ni uno ni otro, sin la mayúscula, sin el dígito) · 20 en vez de 40 · la vieja sacada · sin
+// `sk-proj-`, `sk-svcacct-`, `sk-admin-` o `sk-None-` (4) · la nueva sin la mayúscula · la ventana de esa mayúscula sin acotar
+// (cuadrática: la caza la línea gigante) · el servicio en null · la regla sacada. Mercado Pago (4): la de antes (prefijo + dígitos
+// + laxo) · sin los 32 hex · el hex estrecho (33) · la heredada de agente-redaccion. .env (7): la de antes (el nombre CONTIENE
+// KEY/PASS) · sin la exclusión de http(s):// · sin el sufijo numérico · sin los nombres con palabras después de la clave · esas
+// palabras también con «:» · la clave sin ser palabra entera · el nombre sin acotar a 80 (cuadrática). Y el archivo de antes de
+// esta ronda entero. Restaurado: 10 / 0.
+// (La 2.ª ronda dejó Mercado Pago laxo porque el fixture de tests/mercadopago-api.test.ts trae 12 hex. Ese fixture no es de este
+// archivo: acá se usa uno con la forma real, y el de allá no se toca.)
+//
 // Correr: npx tsx --test tests/claves-en-el-chat.test.ts
 // =============================================================================
 
@@ -47,7 +59,7 @@ const X = 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6';
 const CASOS: Array<[string, string, string | null]> = [
   ['anthropic', `mi clave es sk-ant-api03-${X}`, 'anthropic'],
   ['openrouter', `toma sk-or-v1-${X}`, 'openrouter'],
-  ['openai', `sk-proj-${X}`, 'openai'],
+  ['openai', `sk-proj-${X}T3BlbkFJ${X}`, 'openai'],
   ['google', `AIzaSy${X}`, 'gemini'],
   ['groq', `gsk_${X}`, 'groq'],
   ['cerebras', `csk-${X}`, 'cerebras'],
@@ -76,7 +88,7 @@ test('se tapa cada clave, con el servicio al que pertenece; lo del negocio (emai
 
 // Rellenos con el largo y el alfabeto de lo real (lib/api-mako/tokens.ts, lib/agente-token-nucleo.ts, lib/ia-pc.ts), sin ser nada.
 const hex = (n: number) => 'a1b2c3d4e5f60718293a4b5c6d7e8f90'.repeat(4).slice(0, n);
-const b64u = (n: number) => 'Ab1-_Cd2Ef3Gh4Ij5Kl6Mn7Op8Qr9St0Uv1Wx2Yz3Ab1-_'.repeat(2).slice(0, n);
+const b64u = (n: number) => 'Ab1-_Cd2Ef3Gh4Ij5Kl6Mn7Op8Qr9St0Uv1Wx2Yz3Ab1-_'.repeat(4).slice(0, n);
 const alnum = (n: number) => 'Zy9Xw8Vu7Ts6Rq5Po4Nm3Lk2Ji1Hg0Fe'.repeat(3).slice(0, n);
 
 test('los tokens de MaKo y el fine-grained de GitHub se tapan, en cada forma en que se pegan', () => {
@@ -105,7 +117,7 @@ test('los tokens de MaKo y el fine-grained de GitHub se tapan, en cada forma en 
 });
 
 test('el texto normal del negocio NO se tapa: el crudo no se guarda, y lo que se come no vuelve', () => {
-  // Cada una la tapaba una regla laxa de agente-redaccion (la de Mercado Pago, la de Resend, la de .env).
+  // Cada una la tapaba una regla laxa de agente-redaccion (la de Mercado Pago, la de Resend, la de .env, la de OpenAI).
   const DEL_NEGOCIO = [
     'Pausa TEST-CBO-lookalike-compradores-1pct-AR y deja la otra',
     'Duplica APP_USR-lookalike-compradores-1pct-argentina-premium en la otra cuenta',
@@ -115,25 +127,57 @@ test('el texto normal del negocio NO se tapa: el crudo no se guarda, y lo que se
     'BLACKFRIDAY_PASS: 30% para todos',
     'CODIGO_PASS: BLACK30 hasta el viernes',
     'Promos de hoy:\nBLACKFRIDAY_PASS: 30% para todos\nCYBER_SECRET: 50% solo hoy',
+    // OpenAI (la heredada era `sk-` + 20 de cualquier cosa): un link y un producto con slug que empieza por «sk-».
+    'mira https://tienda.com/products/sk-ii-facial-treatment-essence-230ml',
+    'el producto sk-camiseta-oversize-negra-talle-l',
+    'sk-proj-lanzamiento-verano-2026-promociones-especiales-argentina-todo-en-minuscula',
+    'sk-camisetaoversizenegratalleldeverano2026edicionlimitadaxl',
+    'sk-CamisetaOversizeNegraTalleLDeVeranoEdicionLimitadaXLPremium',
+    'Repone el código sk-A1B2C3D4E5F6G7H8I9J0K1L2M3N4 en la bodega',
+    // .env: el nombre CONTENÍA «KEY» / «PASS» (la regla vieja) pero no termina en eso; y un link tras «:» no es una clave.
+    'KEYWORDS: zapatillas-running-mujer-ofertas',
+    'KEYWORDS=zapatillas-running-mujer-ofertas',
+    'MAX_TOKENS=4096',
+    'BLACKFRIDAY_PASS: https://tienda.com/promo',
+    'CYBER_SECRET: http://tienda.com/promo-secreta-de-hoy',
+    'PASS_VIERNES: descuento-especial-para-todos-los-clientes',
+    'TURKEY_RECIPE=pavo-al-horno-con-papas',
+    // Mercado Pago: el prefijo y los dígitos no alcanzan, hacen falta los 32 hex.
+    'Pausa TEST-2026102112-lookalike-compradores-AR',
+    'Pausa TEST-6472139054868291-040214-lookalike-compradores-AR',
   ];
-  // Rota: volver a la regla vieja de Mercado Pago / de Resend / de .env → este test falla (con el botón equivocado, además).
+  // Rota: volver a la regla vieja de Mercado Pago / de Resend / de .env / de OpenAI → este test falla (con el botón equivocado, además).
   for (const texto of DEL_NEGOCIO) {
     assert.deepEqual(taparClaves(texto), { texto, tapadas: 0, servicio: null }, texto);
   }
 });
 
-test('las claves de verdad de Mercado Pago, Resend y .env siguen tapándose con la forma exacta', () => {
+test('las claves de verdad de OpenAI, Mercado Pago, Resend y .env siguen tapándose con la forma exacta', () => {
   // [qué es, el texto, el servicio del botón, lo que NO puede quedar]
   const EXACTAS: Array<[string, string, string | null, string]> = [
     ['Mercado Pago de producción', `mi token: APP_USR-6472139054868291-040214-${hex(32)}-123456789`, 'mercadopago', hex(32)],
     ['Mercado Pago de prueba', `TEST-6472139054868291-040214-${hex(32)}-123456789`, 'mercadopago', hex(32)],
-    ['Mercado Pago, el ejemplo de los tests del repo', 'APP_USR-1234567890123456-101112-abcdefabcdef-123456', 'mercadopago', 'abcdefabcdef'],
+    // Con la FORMA de las de verdad: los 32 hex (el fixture de tests/mercadopago-api.test.ts trae 12 y no la tiene).
+    ['Mercado Pago, la forma de los tests del repo con sus 32 hex', `APP_USR-1234567890123456-101112-${hex(32)}-123456`, 'mercadopago', hex(32)],
+    ['OpenAI vieja, sk- + 48 alfanuméricos con el T3BlbkFJ', `la mía es sk-${alnum(20)}T3BlbkFJ${alnum(20)} gracias`, 'openai', `T3BlbkFJ${alnum(20)}`],
+    ['OpenAI de proyecto, sk-proj-', `sk-proj-${b64u(70)}T3BlbkFJ${b64u(70)}`, 'openai', b64u(70)],
+    ['OpenAI de cuenta de servicio, sk-svcacct-', `sk-svcacct-${b64u(70)}T3BlbkFJ${b64u(70)}`, 'openai', b64u(70)],
+    ['OpenAI de administración, sk-admin-', `sk-admin-${b64u(70)}T3BlbkFJ${b64u(70)}`, 'openai', b64u(70)],
+    ['OpenAI de usuario sin proyecto, sk-None-', `sk-None-${b64u(70)}T3BlbkFJ${b64u(70)}`, 'openai', b64u(70)],
+    ['OpenAI en una línea de .env: el botón es el de OpenAI', `OPENAI_API_KEY=sk-proj-${b64u(70)}T3BlbkFJ${b64u(70)}`, 'openai', b64u(70)],
+    ['Anthropic larga: sigue ganando sk-ant-, no OpenAI', `sk-ant-api03-${b64u(93)}AA`, 'anthropic', b64u(93)],
+    ['OpenRouter larga: sigue ganando sk-or-, no OpenAI', `sk-or-v1-${hex(64)}`, 'openrouter', hex(64)],
+    ['.env con sufijo numérico (GEMINI_API_KEY_2)', `GEMINI_API_KEY_2=AIzaSy${X}`, 'gemini', X],
+    ['.env con la clave seguida de más palabras (nombre real del .env.local)', `FATHOM_API_KEY_MARTIN=${hex(32)}`, null, hex(32)],
+    ['.env con dos puntos, nombre que termina en TOKEN', `SLACK_BOT_TOKEN: ${hex(24)}`, null, hex(24)],
+    ['.env con dos puntos y sufijo numérico', `GEMINI_API_KEY_2: ${hex(24)}`, null, hex(24)],
     ['Resend, re_ + 8 + _ + 24', `la key es re_${alnum(8)}_${alnum(24)} gracias`, 'email', alnum(24)],
     ['línea de .env con export y comillas', 'export JWT_SECRET="mi frase larga de verdad"', null, 'frase'],
     ['línea de .env con una contraseña corta', 'DB_PASSWORD=hunter2', null, 'hunter2'],
     ['línea de .env con dos puntos y un valor largo', `API_SECRET: ${hex(24)}`, null, hex(24)],
   ];
-  // Rota: la forma exacta demasiado estrecha (el hex de 32 de Mercado Pago, el _ de Resend) → falla: la clave se escaparía.
+  // Rota: la forma exacta demasiado estrecha (el hex de 32 de Mercado Pago, el _ de Resend, un prefijo de OpenAI o el sufijo del
+  // nombre en un .env) → falla: la clave se escaparía.
   for (const [nombre, texto, servicio, secreto] of EXACTAS) {
     const t = taparClaves(texto);
     assert.equal(t.tapadas, 1, `${nombre}: se tapó`);
@@ -151,14 +195,19 @@ test('una línea gigante no cuelga el tapado (las reglas son lineales)', () => {
   // mismo proceso no se enteraría nunca (el regex bloquea el event loop). El mensaje llega entero al tapado, sin tope previo.
   const codigo = `
     const { taparClaves } = await import(${JSON.stringify(pathToFileURL(join(RAIZ, 'lib/claves-en-el-chat.ts')).href)});
-    for (const t of ['KEY'.repeat(300000), 'A_'.repeat(500000), 're_'.repeat(300000), 'KEY\\n'.repeat(200000), 'mkoag_'.repeat(150000)]) {
+    const lineas = [
+      'KEY'.repeat(300000), 'A_'.repeat(500000), 're_'.repeat(300000), 'KEY\\n'.repeat(200000), 'mkoag_'.repeat(150000),
+      'KEY_'.repeat(250000), ('KEY_'.repeat(19) + 'X:\\n').repeat(12000), 'sk-'.repeat(350000), 'sk-proj-'.repeat(125000),
+      'sk-' + 'A1'.repeat(500000), 'TEST-1111111111-'.repeat(60000),
+    ];
+    for (const t of lineas) {
       const desde = Date.now();
       taparClaves(t);
       if (Date.now() - desde > 2000) process.exit(3);
     }`;
   assert.doesNotThrow(
     () => execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', codigo], { cwd: RAIZ, timeout: 30_000, stdio: 'pipe' }),
-    'cinco líneas de ~1 MB se tapan en menos de 2 s cada una',
+    'once líneas de ~1 MB se tapan en menos de 2 s cada una',
   );
 });
 

@@ -196,6 +196,8 @@ export const PUBLICOS = [
   '/api/ia-pc/turno',
   '/api/ia-pc/mcp',
   '/api/ia-pc/soltar',
+  // `confirmar`: la PC pendiente dice que la persona aceptó «¿Es tu negocio?» (mig 0322). Con su token.
+  '/api/ia-pc/confirmar',
   // El instalador de un comando: lo pide PowerShell o curl, sin sesión. Sólo GET, y no gasta el código.
   '/api/ia-pc/instalar',
 ] as const;

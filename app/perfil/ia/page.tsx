@@ -21,7 +21,7 @@ export default async function TusCuentasIAPage() {
   return (
     <AjustesPagina lugar={TITULO_CUENTA} secciones={seccionesCuenta(deOtro, 'ia')} activa="ia">
       <TituloAjustes titulo="Tus cuentas de IA" bajada="Tu Ops Center contesta con tu Claude, en tu computadora y con tu cuenta." />
-      <TusCuentasIA />
+      <TusCuentasIA sinCabecera />
     </AjustesPagina>
   );
 }

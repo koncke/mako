@@ -62,17 +62,17 @@ test('Windows: el arranque es la clave Run (nada en Inicio), cada llamada al pro
   assert.match(win, /New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'MaKo' -Value \('"' \+ \$exe \+ '"'\) -PropertyType String -Force/);
   assert.match(win, /Remove-Item -Force \(Join-Path \(\[Environment\]::GetFolderPath\('Startup'\)\) 'MaKo\.vbs'\)/, 'lo de la 0.2.0 se saca de Inicio');
   // El programa es «de ventana»: sin `| Out-Host`, PowerShell no lo espera y $LASTEXITCODE no es suyo (medido).
-  const llamadas = win.split('\n').filter((l) => /& \$exe /.test(l));
-  assert.ok(llamadas.length >= 4);
-  for (const l of llamadas) assert.match(l, /& \$exe [^|]*\| Out-Host/, `sin Out-Host: ${l}`);
+  const llamadas = win.split('\n').filter((l) => /& \$(exe|nuevo) /.test(l));
+  assert.ok(llamadas.length >= 5);
+  for (const l of llamadas) assert.match(l, /& \$(exe|nuevo) [^|]*\| Out-Host/, `sin Out-Host: ${l}`);
   // Rota: conectar sin preguntar → este test falla (el código de otro negocio se llevaba su suscripción en silencio).
   assert.match(win, /Read-Host '¿Es tu negocio\?/);
-  assert.match(win, /if \(\$si -notmatch '\^\\s\*\[sS\]'\) \{ & \$exe cancelar \| Out-Host; throw 'No la conecté\.' \}/);
-  assert.ok(win.indexOf('& $exe confirmar') > win.indexOf('Read-Host'), 'confirma DESPUÉS de preguntar');
+  assert.match(win, /if \(\$si -notmatch '\^\\s\*\[sS\]'\) \{ & \$nuevo cancelar \| Out-Host;/);
+  assert.ok(win.indexOf('& $nuevo confirmar') > win.indexOf('Read-Host'), 'confirma DESPUÉS de preguntar');
   // La sesión: si falta, el login con la RUTA COMPLETA (esta ventana no tiene el PATH del instalador de Claude).
   assert.match(win, /\$claude = Join-Path \$env:USERPROFILE '\.local\\bin\\claude\.exe'/);
-  assert.match(win, /if \(\$LASTEXITCODE -eq 2 -and \(Test-Path \$claude\)\) \{ [^}]*& \$claude auth login \}/);
-  assert.ok(win.indexOf('New-ItemProperty') > win.indexOf('& $exe confirmar'), 'el arranque se deja sólo si quedó conectada');
+  assert.match(win, /if \(\$sesion -eq 2 -and \(Test-Path \$claude\)\) \{ [^}]*& \$claude auth login;/);
+  assert.ok(win.indexOf('New-ItemProperty') > win.indexOf('& $nuevo confirmar'), 'el arranque se deja sólo si quedó conectada');
 });
 
 test('Mac: launchd relanza sólo si el programa se CAYÓ, y lo que pregunta lee de la terminal, no del script', () => {
@@ -82,8 +82,8 @@ test('Mac: launchd relanza sólo si el programa se CAYÓ, y lo que pregunta lee 
   assert.doesNotMatch(mac, /<key>KeepAlive<\/key><true\/>/);
   assert.doesNotMatch(mac, /StandardOutPath/, 'el registro lo lleva el programa, con tope');
   assert.match(mac, /read -r SI < \/dev\/tty/, '`curl | sh` lee el script por la entrada: la pregunta va a la terminal');
-  for (const c of ['emparejar', 'confirmar', 'cancelar', 'sesion']) assert.match(mac, new RegExp(`"\\$D/mako-pc" ${c}[^\\n]*< /dev/null`), `${c} no se come el script`);
-  assert.match(mac, /"\$HOME\/\.local\/bin\/claude" auth login < \/dev\/tty/);
+  for (const c of ['emparejar', 'confirmar', 'cancelar', 'sesion']) assert.match(mac, new RegExp(`"\\$D/mako-pc(\\.nuevo)?" ${c}[^\\n]*< /dev/null`), `${c} no se come el script`);
+  assert.match(mac, /"\$C" auth login < \/dev\/tty/);
 });
 
 test('el ejecutable de Windows se marca «de ventana» (Bun no lo hace), y publicar-binarios lo verifica', () => {
@@ -142,7 +142,7 @@ test('el cupo agotado se dice como cupo, con la hora en que se repone (no «revi
   assert.equal(avisoDeLaPc('muchos', false), AVISO_PC_MUCHOS);
   // La PC manda el tipo, y la puerta lo guarda y lo devuelve (lib/ia-pc.ts → contestarTurno y esperarALaPc).
   const p = sinComentarios(leer('scripts/ia-pc/mako-pc.mjs'));
-  assert.match(p, /cuerpo = \{ error: res\.error, \.\.\.\(tipo \? \{ tipo \} : \{\}\), \.\.\.\(tipo === 'tope' && cuenta\.repone \? \{ repone: cuenta\.repone \} : \{\}\) \};/);
+  assert.match(p, /cuerpo = \{ error: res\.error, \.\.\.\(tipo \? \{ tipo \} : \{\}\), \.\.\.\(repone \? \{ repone \} : \{\}\) \};/);
   const lib = sinComentarios(leer('lib/ia-pc.ts'));
   assert.match(lib, /uso: r\.tipo \? \{ tipo: r\.tipo, \.\.\.\(r\.repone \? \{ repone: r\.repone \} : \{\}\) \} : null/);
 });
@@ -167,7 +167,7 @@ test('«en línea» es una PC con un Claude CON sesión, y el tutorial no dice �
   assert.match(ui, /mac: '~\/\.local\/bin\/claude auth login'/);
   assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\[sistema\]\} \/>/);
   assert.doesNotMatch(ui, /escribe <code>claude<\/code>/);
-  assert.match(ui, /if \(nueva && nueva\.cuentas\.length\) \{ setLista\(true\); setSinSesion\(false\); setPaso\(5\); \}\s*else if \(nueva\) setSinSesion\(true\);/);
+  assert.match(ui, /if \(nueva && nueva\.cuentas\.length\) \{ setLista\(true\); setSinSesion\(null\); setPaso\(5\); return; \}\s*if \(nueva\) \{ setSinSesion\(/);
   assert.match(ui, /yaPaso\(repone, ahora\)/);
   // El programa la vuelve a mirar: en cada latido (las que no tienen sesión) y antes de rechazar un turno.
   const p = sinComentarios(leer('scripts/ia-pc/mako-pc.mjs'));
@@ -274,8 +274,8 @@ test('el turno: la PC que se apaga a mitad se ve (no 4 minutos), y se espera lo 
   const lib = sinComentarios(leer('lib/ia-pc.ts'));
   const espera = lib.slice(lib.indexOf('export async function esperarALaPc('));
   // Rota: no mirar el latido ni si la tomó → este test falla (esperaba los 240 s y decía «tardó demasiado»).
-  assert.match(espera, /t\.estado === 'tomado' && Number\.isFinite\(latido\) && Date\.now\(\) - latido > SIN_LATIDO_MS\) \{ await vencer\(\); return \{ apagada: true \}; \}/);
-  assert.match(espera, /t\.estado === 'esperando' && Date\.now\(\) - inicio > SIN_TOMAR_MS\)/);
+  assert.match(espera, /t\.estado === 'tomado' && sinLatir\(SIN_LATIDO_MS\)\) \{ await vencer\(\); return \{ apagada: true \}; \}/);
+  assert.match(espera, /t\.estado === 'esperando' && Date\.now\(\) - inicio > SIN_TOMAR_MS && sinLatir\(SIN_TOMAR_MS\)\)/);
   assert.match(espera, /if \(!eo && !count\) \{ await vencer\(\); return \{ apagada: true \}; \}/, 'apagada sólo si no está ocupada con otro turno');
   // Un error de lectura ya no es «tardó»: se sigue esperando (y lo que no volvió, vence antes de devolver).
   assert.match(espera, /const \{ data: t, error \} = await db\(\)\.from\('ia_pc_turnos'\)[\s\S]*if \(!error\) \{/);
@@ -312,10 +312,10 @@ test('la puerta: desconectar corta el turno en curso, el MCP espera lo que le qu
   assert.match(cuerpo('pedirLlamada'), /\.eq\('id', data\.id\)\.eq\('estado', 'esperando'\)\.select\('id'\)\.maybeSingle\(\);\s*if \(sacada\) return null;/);
   assert.match(sinComentarios(leer('app/api/ia-pc/mcp/route.ts')), /await pedirLlamada\(t\.id, nombre, entrada, Math\.max\(1_000, queda\)\)/);
   // Emparejar dice A QUÉ negocio y COMO QUIÉN; el programa suelta la conexión de antes al confirmar.
-  assert.match(cuerpo('emparejar'), /return \{ token, ws, negocio: [^,]+, persona \};/);
+  assert.match(cuerpo('emparejar'), /return \{ token, ws, negocio, persona \};/);
   assert.match(sinComentarios(leer('app/api/ia-pc/emparejar/route.ts')), /return json\(\{ ok: true, token: r\.token, negocio: r\.negocio, persona: r\.persona \}\);/);
   const p = sinComentarios(leer('scripts/ia-pc/mako-pc.mjs'));
-  assert.match(p, /if \(c\.token && c\.token !== p\.token\) await api\(\{ servidor: c\.servidor \?\? p\.servidor, token: c\.token \}, 'POST', '\/api\/ia-pc\/soltar'\)/, 'sin tarjeta fantasma');
+  assert.match(p, /if \(c\.token && c\.token !== p\.token\) await conReintentos\(\{ servidor: c\.servidor \?\? p\.servidor, token: c\.token \}, '\/api\/ia-pc\/soltar'\)/, 'sin tarjeta fantasma');
   assert.match(p, /guardarConfig\(\{ \.\.\.antes, pendiente: \{ servidor, token: r\.datos\.token, nombre, negocio, persona \} \}\);/, 'emparejar deja PENDIENTE: confirma la persona');
   // Un código nuevo anula los anteriores, y son 8 letras.
   assert.match(cuerpo('crearCodigo'), /update\(\{ vence_at: ahora \}\)\s*\.eq\('workspace_id', ws\)\.eq\('persona', persona\)\.is\('usado_at', null\)\.gt\('vence_at', ahora\)/);
@@ -337,7 +337,7 @@ test('los topes y la limpieza: por negocio, el del código, y los turnos (con da
   assert.doesNotMatch(inst, /, 4\d\d\)|, 5\d\d\)/, 'los avisos van con 200: `irm` y `curl -f` no muestran el cuerpo de un error');
   // La pantalla: el código que vence ofrece otro, sin volver a aceptar.
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
-  assert.match(ui, /const vencido = !!codigo && venceAt != null && ahora >= venceAt;/);
-  assert.match(ui, /\{\(error \|\| vencido\) && \(/);
+  assert.match(ui, /const vencido = !!codigo && venceAt != null && ahora >= venceAt && delCodigo !== 'eligiendo';/);
+  assert.match(ui, /\{\(error \|\| vencido \|\| delCodigo === 'gastado'\) && \(/);
   assert.match(ui, /\{estado\?\.esAdmin && \(\s*<p className="tci-nota tci-otra">/, 'la clave de API es del negocio: sólo el admin');
 });

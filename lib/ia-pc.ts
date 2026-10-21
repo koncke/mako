@@ -42,7 +42,14 @@ export const TOPE_TURNOS_POR_MINUTO = 20;
 /** Cuánto se guardan los turnos y sus herramientas (llevan el system con datos del negocio y lo que leyó la PC). */
 export const GUARDA_TURNOS_MS = 24 * 60 * 60_000;
 
-export type Dispositivo = { id: number; ws: number; persona: string; nombre: string; ultimoLatido: string | null; cuentas: CuentaPc[] };
+/**
+ * Una PC. `confirmado`: la persona dijo que sí a «¿Es tu negocio?»; `activa`: además latió con una cuenta con sesión
+ * (sólo las activas prenden D6b); `claudeFalta`: su último latido dijo que no hay Claude Code (mig 0322).
+ */
+export type Dispositivo = {
+  id: number; ws: number; persona: string; nombre: string; ultimoLatido: string | null; cuentas: CuentaPc[];
+  confirmado: boolean; activa: boolean; claudeFalta: boolean;
+};
 
 // ── Emparejar ────────────────────────────────────────────────────────────────
 
@@ -67,26 +74,67 @@ export async function crearCodigo(ws: number, persona: string, consentimiento: s
  * Canjea el código por el token de la PC. El código se gasta en el mismo update que lo valida (un solo uso). Devuelve
  * también A QUÉ NEGOCIO y COMO QUIÉN se conecta: el programa se lo muestra a la persona y le pregunta si es el suyo antes
  * de dejarla conectada (revisión del 21/10/2026: el código de otro negocio, pegado con la línea oficial, no decía nada).
+ *
+ * ⚠️ LA PC NACE PENDIENTE (mig 0322; segunda revisión del Cerebro, 21/10/2026): sin `confirmado_at` no recibe turnos, no
+ * se lista y no cuenta para D6b. La activaba esto mismo, antes del «sí»: una instalación abandonada en la pregunta dejaba
+ * una PC fantasma que pasaba todo el negocio a «sólo su IA». La confirma el programa (`confirmar`, con su token).
+ * El nombre del negocio se lee ANTES de gastar el código: sin él, la pregunta de seguridad decía «tu negocio».
  */
 export async function emparejar(codigoCrudo: unknown, nombreCrudo: unknown): Promise<{ token: string; ws: number; negocio: string; persona: string } | null> {
   const codigo = normalizarCodigo(codigoCrudo);
   if (!codigo) return null;
+  const ahora = new Date().toISOString();
+  const vivo = sinError(await db().from('ia_pc_codigos').select('workspace_id')
+    .eq('codigo_hash', hash(codigo)).is('usado_at', null).gt('vence_at', ahora).maybeSingle(), 'el código');
+  if (!vivo) return null;
+  const w = sinError(await db().from('workspaces').select('nombre').eq('id', Number(vivo.workspace_id)).maybeSingle(), 'el negocio');
+  const negocio = String((w as { nombre?: unknown } | null)?.nombre ?? '').trim();
+  if (!negocio) throw new Error('ia-pc: el negocio del código no tiene nombre');
   const data = sinError(await db().from('ia_pc_codigos')
-    .update({ usado_at: new Date().toISOString() })
-    .eq('codigo_hash', hash(codigo)).is('usado_at', null).gt('vence_at', new Date().toISOString())
+    .update({ usado_at: ahora })
+    .eq('codigo_hash', hash(codigo)).is('usado_at', null).gt('vence_at', ahora)
     .select('workspace_id, persona, consentimiento').maybeSingle(), 'el código');
   if (!data) return null;
   const token = tokenNuevo(PREFIJO_TOKEN_PC);
   const ws = Number(data.workspace_id);
   const persona = String(data.persona);
-  const { error } = await db().from('ia_pc_dispositivos').insert({
+  const insertada = sinError(await db().from('ia_pc_dispositivos').insert({
     workspace_id: ws, persona, nombre: sanearNombrePc(nombreCrudo), token_hash: hash(token),
     // Lo que aceptó la persona al pedir el código, con la hora en que se conectó la PC (mig 0321).
-    consentimiento: (data.consentimiento as string | null) ?? null, consentimiento_at: new Date().toISOString(),
-  });
-  if (error) throw new Error(`ia-pc: no pude emparejar: ${error.message}`);
-  const w = await db().from('workspaces').select('nombre').eq('id', ws).maybeSingle();
-  return { token, ws, negocio: String((w.data as { nombre?: unknown } | null)?.nombre ?? '').trim() || 'tu negocio', persona };
+    consentimiento: (data.consentimiento as string | null) ?? null, consentimiento_at: ahora,
+  }).select('id').single(), 'la PC nueva');
+  // Qué PC salió de este código (mig 0322): el tutorial sabe si se gastó sin conectar (`estadoDelCodigo`).
+  if (insertada) await db().from('ia_pc_codigos').update({ dispositivo_id: Number(insertada.id) }).eq('codigo_hash', hash(codigo));
+  return { token, ws, negocio, persona };
+}
+
+/**
+ * La persona dijo que SÍ a «¿Es tu negocio?»: la PC pendiente pasa a confirmada (mig 0322). Con SU token, y sólo una vez.
+ * Pasa a ACTIVA (cuenta para D6b) con su primer latido con una cuenta de Claude con sesión (`latir`).
+ */
+export async function confirmar(d: Dispositivo): Promise<boolean> {
+  const data = sinError(await db().from('ia_pc_dispositivos').update({ confirmado_at: new Date().toISOString() })
+    .eq('id', d.id).eq('workspace_id', d.ws).is('revocado_at', null).is('confirmado_at', null).select('id').maybeSingle(), 'la PC');
+  return !!data || d.confirmado;
+}
+
+/** Cómo quedó un código, para el tutorial (lo pide quien lo pidió): si se gastó sin conectar, que pida otro. */
+export type EstadoDelCodigo = 'vivo' | 'vencido' | 'eligiendo' | 'conectado' | 'cancelado';
+/** Una pendiente que no se confirmó en este tiempo se abandonó (la persona cerró la ventana en la pregunta). */
+export const PENDIENTE_MS = 15 * 60_000;
+
+export async function estadoDelCodigo(ws: number, persona: string, codigoCrudo: unknown): Promise<EstadoDelCodigo> {
+  const codigo = normalizarCodigo(codigoCrudo);
+  if (!codigo) return 'vencido';
+  const c = sinError(await db().from('ia_pc_codigos').select('usado_at, vence_at, dispositivo_id')
+    .eq('codigo_hash', hash(codigo)).eq('workspace_id', ws).eq('persona', persona).maybeSingle(), 'el código');
+  if (!c) return 'vencido';
+  if (!c.usado_at) return Date.parse(String(c.vence_at)) > Date.now() ? 'vivo' : 'vencido';
+  if (c.dispositivo_id == null) return 'cancelado';
+  const pc = sinError(await db().from('ia_pc_dispositivos').select('revocado_at, confirmado_at').eq('id', Number(c.dispositivo_id)).maybeSingle(), 'la PC del código');
+  if (!pc || pc.revocado_at) return 'cancelado';
+  if (pc.confirmado_at) return 'conectado';
+  return Date.now() - Date.parse(String(c.usado_at)) > PENDIENTE_MS ? 'cancelado' : 'eligiendo';
 }
 
 /**
@@ -102,29 +150,44 @@ export async function codigoVivo(codigoCrudo: unknown): Promise<boolean> {
   return !!data;
 }
 
+const COLUMNAS_PC = 'id, workspace_id, persona, nombre, ultimo_latido, cuentas, confirmado_at, activa_at, claude_falta';
 const aDispositivo = (r: Record<string, unknown>): Dispositivo => ({
   id: Number(r.id), ws: Number(r.workspace_id), persona: String(r.persona), nombre: String(r.nombre),
   ultimoLatido: (r.ultimo_latido as string | null) ?? null, cuentas: sanearCuentas(r.cuentas),
+  confirmado: r.confirmado_at != null, activa: r.activa_at != null, claudeFalta: r.claude_falta === true,
 });
 
 /**
- * La PC de un token, o null si no existe o la desconectaron. El NEGOCIO sale de acá, nunca de lo que diga el pedido
+ * La PC de un token, o null si no existe, la desconectaron, o todavía no se confirmó (salvo `pendientesTambien`: lo que
+ * la PC puede hacer antes del «sí» es confirmarse o soltarse). El NEGOCIO sale de acá, nunca de lo que diga el pedido
  * (regla 1). Si la base falla TIRA: la ruta contesta 503 y la PC reintenta (null es 401 `revocado`, y el programa se apaga).
  */
-export async function dispositivoDelToken(token: unknown): Promise<Dispositivo | null> {
+export async function dispositivoDelToken(token: unknown, o: { pendientesTambien?: boolean } = {}): Promise<Dispositivo | null> {
   if (!tieneFormaDeToken(token, PREFIJO_TOKEN_PC)) return null;
   const data = sinError(await db().from('ia_pc_dispositivos')
-    .select('id, workspace_id, persona, nombre, ultimo_latido, cuentas').eq('token_hash', hash(token)).is('revocado_at', null).maybeSingle(), 'la PC');
-  return data ? aDispositivo(data) : null;
+    .select(COLUMNAS_PC).eq('token_hash', hash(token)).is('revocado_at', null).maybeSingle(), 'la PC');
+  if (!data) return null;
+  const d = aDispositivo(data);
+  return d.confirmado || o.pendientesTambien ? d : null;
 }
 
+/**
+ * El latido: la PC está prendida, con sus cuentas. El primero de una PC confirmada que trae una cuenta con sesión la
+ * ACTIVA (mig 0322): recién ahí cuenta para D6b. `sinClaude`: en esa PC no hay Claude Code.
+ */
 export async function latir(d: Dispositivo, cuerpo: unknown): Promise<void> {
   const o = cuerpo && typeof cuerpo === 'object' ? (cuerpo as Record<string, unknown>) : {};
   const version = typeof o.version === 'string' ? o.version.replace(/[^\w.\-+]/g, '').slice(0, 40) : null;
+  const cuentas = sanearCuentas(o.cuentas);
+  const ahora = new Date().toISOString();
   const { error } = await db().from('ia_pc_dispositivos')
-    .update({ ultimo_latido: new Date().toISOString(), version, cuentas: sanearCuentas(o.cuentas) })
+    .update({ ultimo_latido: ahora, version, cuentas, claude_falta: o.sinClaude === true && !cuentas.length })
     .eq('id', d.id).eq('workspace_id', d.ws);
   if (error) throw new Error(`ia-pc: no pude anotar el latido: ${error.message}`);
+  if (!d.activa && d.confirmado && cuentas.length) {
+    const a = await db().from('ia_pc_dispositivos').update({ activa_at: ahora }).eq('id', d.id).eq('workspace_id', d.ws).is('activa_at', null);
+    if (a.error) throw new Error(`ia-pc: no pude activar la PC: ${a.error.message}`);
+  }
 }
 
 /** La PC suelta su propia conexión (al reemplazarla por otra, o si la persona dijo que no era su negocio). */
@@ -132,11 +195,14 @@ export async function soltar(d: Dispositivo): Promise<void> {
   await desconectar(d.ws, d.id);
 }
 
-/** La PC de ESTA persona en este negocio (la más reciente que no se desconectó), con si está en línea. Tira si falla. */
+/**
+ * La PC de ESTA persona en este negocio (la más reciente confirmada que no se desconectó), con si está en línea. Una
+ * pendiente no es de nadie todavía. Tira si falla.
+ */
 export async function pcDe(ws: number, persona: string): Promise<(Dispositivo & { enLinea: boolean }) | null> {
   const data = sinError(await db().from('ia_pc_dispositivos')
-    .select('id, workspace_id, persona, nombre, ultimo_latido, cuentas')
-    .eq('workspace_id', ws).eq('persona', persona).is('revocado_at', null)
+    .select(COLUMNAS_PC)
+    .eq('workspace_id', ws).eq('persona', persona).is('revocado_at', null).not('confirmado_at', 'is', null)
     .order('ultimo_latido', { ascending: false, nullsFirst: false }).limit(1).maybeSingle(), 'la PC de la persona');
   if (!data) return null;
   const d = aDispositivo(data);
@@ -144,11 +210,14 @@ export async function pcDe(ws: number, persona: string): Promise<(Dispositivo & 
 }
 
 /**
- * ¿El NEGOCIO conectó alguna PC (de cualquier persona, en línea o no)? D6b se decide por negocio (revisión del 21/10/2026):
- * el turno de un closer de un negocio que conectó su Claude tampoco va a Gemini. Tira si falla.
+ * ¿El NEGOCIO tiene alguna PC ACTIVA (de cualquier persona, en línea o no)? D6b se decide por negocio (revisión del
+ * 21/10/2026): el turno de un closer de un negocio que conectó su Claude tampoco va a Gemini. Sólo las ACTIVAS (mig 0322:
+ * confirmadas y con un latido con sesión): una pendiente abandonada, o una que nunca tuvo Claude, no le saca la IA a nadie.
+ * Tira si falla.
  */
 export async function negocioConPc(ws: number): Promise<boolean> {
-  const data = sinError(await db().from('ia_pc_dispositivos').select('id').eq('workspace_id', ws).is('revocado_at', null).limit(1), 'las PC del negocio');
+  const data = sinError(await db().from('ia_pc_dispositivos').select('id')
+    .eq('workspace_id', ws).is('revocado_at', null).not('activa_at', 'is', null).limit(1), 'las PC del negocio');
   return (data ?? []).length > 0;
 }
 
@@ -159,17 +228,22 @@ export async function desconectar(ws: number, id: number): Promise<void> {
   await db().from('ia_pc_turnos').update({ estado: 'vencido' }).eq('dispositivo_id', id).eq('workspace_id', ws).in('estado', ['esperando', 'tomado']);
 }
 
-/** Lo que ve «Tus cuentas de IA»: las PC del negocio (el admin, todas; los demás, las suyas), sin ningún secreto. */
+/**
+ * Lo que ve «Tus cuentas de IA»: las PC CONFIRMADAS del negocio (el admin, todas; los demás, las suyas), sin ningún
+ * secreto. Una confirmada que nunca latió en PENDIENTE_MS se abandonó: no se muestra (y la purga la revoca).
+ */
 export async function listarDispositivos(ws: number, persona: string, esAdmin: boolean): Promise<Array<Dispositivo & { enLinea: boolean; version: string | null; esMia: boolean }>> {
   let q = db().from('ia_pc_dispositivos')
-    .select('id, workspace_id, persona, nombre, ultimo_latido, cuentas, version')
-    .eq('workspace_id', ws).is('revocado_at', null).order('creado_at', { ascending: false }).limit(20);
+    .select(`${COLUMNAS_PC}, version, creado_at`)
+    .eq('workspace_id', ws).is('revocado_at', null).not('confirmado_at', 'is', null).order('creado_at', { ascending: false }).limit(20);
   if (!esAdmin) q = q.eq('persona', persona);
   const data = sinError(await q, 'las PC');
-  return (data ?? []).map((r) => {
-    const d = aDispositivo(r);
-    return { ...d, enLinea: enLinea(d.ultimoLatido), version: (r.version as string | null) ?? null, esMia: d.persona === persona };
-  });
+  return (data ?? [])
+    .filter((r) => r.ultimo_latido != null || Date.now() - Date.parse(String(r.creado_at)) <= PENDIENTE_MS)
+    .map((r) => {
+      const d = aDispositivo(r);
+      return { ...d, enLinea: enLinea(d.ultimoLatido), version: (r.version as string | null) ?? null, esMia: d.persona === persona };
+    });
 }
 
 /** ¿Puede esta persona desconectar esa PC? La suya, siempre; la de otro, sólo el admin del negocio. */
@@ -255,9 +329,13 @@ export async function turnoDelToken(token: unknown): Promise<{ id: number; ws: n
 /**
  * El MCP deja la llamada y espera a que el turno la corra: mientras el turno siga tomado, hasta `hastaMs` (lo que le
  * queda a la ruta del MCP). Con 60 s fijos, una herramienta que arrancaba tarde se informaba «no se corrió» y se corría
- * igual (revisión del 21/10/2026). null = el turno ya no espera.
+ * igual (revisión del 21/10/2026). null = el turno ya no espera. Si al no esperar más la herramienta está CORRIENDO (mig
+ * 0322), no se la saca de la fila: se dice que se está corriendo.
  */
 export async function pedirLlamada(turnoId: number, nombre: string, entrada: Record<string, unknown>, hastaMs: number): Promise<{ salida: string; esError: boolean } | null> {
+  // Un turno que ya no está tomado (lo desconectaron, venció) no recibe llamadas nuevas.
+  const { data: vivo, error: ev } = await db().from('ia_pc_turnos').select('estado').eq('id', turnoId).maybeSingle();
+  if (ev || vivo?.estado !== 'tomado') return null;
   const { data, error } = await db().from('ia_pc_llamadas').insert({ turno_id: turnoId, nombre: nombre.slice(0, 120), entrada }).select('id').single();
   if (error || !data) return null;
   const fin = Date.now() + hastaMs;
@@ -272,7 +350,8 @@ export async function pedirLlamada(turnoId: number, nombre: string, entrada: Rec
       if (!et && t?.estado !== 'tomado') break;
     }
   }
-  // No se esperó más: si nadie la empezó, se la saca de la fila (así «no se corrió» es cierto); si ya corrió, su salida.
+  // No se esperó más: si nadie la empezó, se la saca de la fila (así «no se corrió» es cierto); si ya corrió, su salida;
+  // si se está corriendo, eso.
   const { data: sacada } = await db().from('ia_pc_llamadas').update({ estado: 'lista', salida: '(no se esperó)', es_error: true, lista_at: new Date().toISOString() })
     .eq('id', data.id).eq('estado', 'esperando').select('id').maybeSingle();
   if (sacada) return null;
@@ -283,38 +362,56 @@ export async function pedirLlamada(turnoId: number, nombre: string, entrada: Rec
 
 export type Ejecutor = (nombre: string, entrada: Record<string, unknown>) => Promise<string | { content: string; isError?: boolean }>;
 
-/** Cómo terminó la espera de la PC. `apagada`: no lo tomó a tiempo o dejó de latir (el turno queda vencido). */
-export type FinDeLaPc = { texto: string } | { error: string; tipo?: TipoFalloPc; repone?: string } | { apagada: true } | null;
+/**
+ * Cómo terminó la espera de la PC. `apagada`: no lo tomó a tiempo o dejó de latir (el turno queda vencido);
+ * `desconectada`: la desconectaron a mitad del turno.
+ */
+export type FinDeLaPc = { texto: string } | { error: string; tipo?: TipoFalloPc; repone?: string } | { apagada: true } | { desconectada: true } | null;
 
 /**
  * El turno que espera a la PC: corre las herramientas que ella pide (con SU `runTool`, el del chat: el gating de la vista,
  * el memo y las tarjetas) y vuelve con la respuesta. null = no volvió a tiempo. Antes de devolver algo que no es la
  * respuesta, el turno queda VENCIDO: lo que la PC conteste después no se muestra.
- *   · si la PC no lo tomó en SIN_TOMAR_MS y no está ocupada con otro turno, se apagó: `{ apagada }` (no 4 minutos);
- *   · si lo tomó y dejó de latir SIN_LATIDO_MS, se apagó a mitad de turno: `{ apagada }`;
+ *   · cada herramienta se TOMA antes de correrla (esperando → corriendo, mig 0322) y sólo con el turno todavía tomado:
+ *     desconectar la PC a mitad de turno ya no deja correr la que estaba en la fila;
+ *   · si la PC no lo tomó en SIN_TOMAR_MS, no está ocupada con otro turno y no latió en ese tiempo, se apagó: `apagada`
+ *     (una PC prendida late cada 30 s: el hueco entre contestar un turno y tomar el siguiente no la da por apagada);
+ *   · si lo tomó y dejó de latir SIN_LATIDO_MS, se apagó a mitad de turno: `apagada`;
  *   · un error de lectura se reintenta dentro del plazo (antes daba «tardó demasiado» al instante y dejaba el turno vivo).
  */
 export async function esperarALaPc(turnoId: number, ws: number, dispositivoId: number, ejecutar: Ejecutor, hastaMs: number): Promise<FinDeLaPc> {
   const inicio = Date.now();
   const fin = inicio + hastaMs;
   const vencer = () => db().from('ia_pc_turnos').update({ estado: 'vencido' }).eq('id', turnoId).in('estado', ['esperando', 'tomado']).then(() => undefined, () => undefined);
+  const turnoTomado = async () => {
+    const { data, error } = await db().from('ia_pc_turnos').select('estado').eq('id', turnoId).maybeSingle();
+    return !error && data?.estado === 'tomado';
+  };
   let ultimaMirada = 0;
   while (Date.now() < fin) {
     const { data: llamadas } = await db().from('ia_pc_llamadas').select('id, nombre, entrada')
       .eq('turno_id', turnoId).eq('estado', 'esperando').order('id').limit(5);
     for (const l of llamadas ?? []) {
+      // Se toma ANTES de correrla: si el MCP ya la dio por no esperada, no corre; y si el turno se cortó, tampoco.
+      const { data: tomada } = await db().from('ia_pc_llamadas').update({ estado: 'corriendo' }).eq('id', l.id).eq('estado', 'esperando').select('id').maybeSingle();
+      if (!tomada) continue;
       let salida = '';
       let esError = false;
-      try {
-        const r = await ejecutar(String(l.nombre), (l.entrada ?? {}) as Record<string, unknown>);
-        if (typeof r === 'string') salida = r;
-        else { salida = r.content; esError = !!r.isError; }
-      } catch (e) {
-        salida = e instanceof Error ? e.message : String(e);
+      if (!(await turnoTomado())) {
+        salida = 'El turno se cortó: no se corrió.';
         esError = true;
+      } else {
+        try {
+          const r = await ejecutar(String(l.nombre), (l.entrada ?? {}) as Record<string, unknown>);
+          if (typeof r === 'string') salida = r;
+          else { salida = r.content; esError = !!r.isError; }
+        } catch (e) {
+          salida = e instanceof Error ? e.message : String(e);
+          esError = true;
+        }
       }
       await db().from('ia_pc_llamadas').update({ estado: 'lista', salida: salida.slice(0, 50_000), es_error: esError, lista_at: new Date().toISOString() })
-        .eq('id', l.id).eq('estado', 'esperando');
+        .eq('id', l.id).eq('estado', 'corriendo');
     }
     const { data: t, error } = await db().from('ia_pc_turnos').select('estado, respuesta, error, uso').eq('id', turnoId).eq('workspace_id', ws).maybeSingle();
     if (!error) {
@@ -324,14 +421,20 @@ export async function esperarALaPc(turnoId: number, ws: number, dispositivoId: n
         const tipo = u.tipo === 'tope' || u.tipo === 'sesion' ? u.tipo : undefined;
         return { error: String(t.error ?? 'error'), ...(tipo ? { tipo } : {}), ...(typeof u.repone === 'string' ? { repone: u.repone } : {}) };
       }
-      if (!t || t.estado === 'vencido') return null;
+      if (!t) return null;
+      if (t.estado === 'vencido') {
+        // Si la venció «Desconectar», eso es lo que pasó (no «tardó demasiado»).
+        const { data: pc } = await db().from('ia_pc_dispositivos').select('revocado_at').eq('id', dispositivoId).maybeSingle();
+        return pc?.revocado_at ? { desconectada: true } : null;
+      }
       // ¿Se apagó? Cada ~5 s, mirando si la tomó y si sigue latiendo.
       if (Date.now() - ultimaMirada > 5_000) {
         ultimaMirada = Date.now();
         const { data: pc, error: ep } = await db().from('ia_pc_dispositivos').select('ultimo_latido').eq('id', dispositivoId).maybeSingle();
         const latido = pc?.ultimo_latido ? Date.parse(String(pc.ultimo_latido)) : NaN;
-        if (!ep && t.estado === 'tomado' && Number.isFinite(latido) && Date.now() - latido > SIN_LATIDO_MS) { await vencer(); return { apagada: true }; }
-        if (!ep && t.estado === 'esperando' && Date.now() - inicio > SIN_TOMAR_MS) {
+        const sinLatir = (ms: number) => Number.isFinite(latido) && Date.now() - latido > ms;
+        if (!ep && t.estado === 'tomado' && sinLatir(SIN_LATIDO_MS)) { await vencer(); return { apagada: true }; }
+        if (!ep && t.estado === 'esperando' && Date.now() - inicio > SIN_TOMAR_MS && sinLatir(SIN_TOMAR_MS)) {
           const { count, error: eo } = await db().from('ia_pc_turnos').select('id', { count: 'exact', head: true }).eq('dispositivo_id', dispositivoId).eq('estado', 'tomado');
           if (!eo && !count) { await vencer(); return { apagada: true }; }
         }
@@ -349,19 +452,27 @@ export async function esperarALaPc(turnoId: number, ws: number, dispositivoId: n
 /**
  * Borra los turnos de más de GUARDA_TURNOS_MS (sus herramientas se van con ellos: `on delete cascade`) y los códigos
  * viejos. Los turnos llevan el system con datos del negocio y lo que leyó la PC (PII de leads): no se guardan para
- * siempre (revisión del 21/10/2026). Lo corre /api/cron/ia-pc-purga, una vez por día. `seco` sólo cuenta.
+ * siempre (revisión del 21/10/2026). Y revoca las PC abandonadas (mig 0322): pendientes (nunca dijeron que sí) o
+ * confirmadas que nunca latieron, pasado PENDIENTE_MS. Lo corre /api/cron/ia-pc-purga, una vez por día. `seco` sólo cuenta.
  */
-export async function purgarTurnosViejos(o: { seco?: boolean } = {}): Promise<{ turnos: number; codigos: number }> {
+export async function purgarTurnosViejos(o: { seco?: boolean } = {}): Promise<{ turnos: number; codigos: number; abandonadas: number }> {
   const corte = new Date(Date.now() - GUARDA_TURNOS_MS).toISOString();
+  const corteAbandonadas = new Date(Date.now() - PENDIENTE_MS).toISOString();
   const turnos = await db().from('ia_pc_turnos').select('id', { count: 'exact', head: true }).lt('creado_at', corte);
   const codigos = await db().from('ia_pc_codigos').select('codigo_hash', { count: 'exact', head: true }).lt('vence_at', corte);
+  const abandonadas = await db().from('ia_pc_dispositivos').select('id', { count: 'exact', head: true })
+    .is('revocado_at', null).is('ultimo_latido', null).lt('creado_at', corteAbandonadas);
   if (turnos.error) throw new Error(`ia-pc: no pude contar los turnos viejos: ${turnos.error.message}`);
   if (codigos.error) throw new Error(`ia-pc: no pude contar los códigos viejos: ${codigos.error.message}`);
+  if (abandonadas.error) throw new Error(`ia-pc: no pude contar las PC abandonadas: ${abandonadas.error.message}`);
   if (!o.seco) {
     const a = await db().from('ia_pc_turnos').delete().lt('creado_at', corte);
     if (a.error) throw new Error(`ia-pc: no pude borrar los turnos viejos: ${a.error.message}`);
     const b = await db().from('ia_pc_codigos').delete().lt('vence_at', corte);
     if (b.error) throw new Error(`ia-pc: no pude borrar los códigos viejos: ${b.error.message}`);
+    const c = await db().from('ia_pc_dispositivos').update({ revocado_at: new Date().toISOString() })
+      .is('revocado_at', null).is('ultimo_latido', null).lt('creado_at', corteAbandonadas);
+    if (c.error) throw new Error(`ia-pc: no pude revocar las PC abandonadas: ${c.error.message}`);
   }
-  return { turnos: turnos.count ?? 0, codigos: codigos.count ?? 0 };
+  return { turnos: turnos.count ?? 0, codigos: codigos.count ?? 0, abandonadas: abandonadas.count ?? 0 };
 }

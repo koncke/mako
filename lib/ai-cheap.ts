@@ -32,6 +32,7 @@ import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys'
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import { proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
+import { conSuIASinClave, CON_SU_IA_SIN_VISION } from '@/lib/fallo-ia-texto';
 import { corregirMarca } from '@/lib/mako-gramatica';
 import { salidaDegenerada } from '@/lib/stt-degenerado';
 import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
@@ -877,6 +878,10 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
  * `tema` va adentro de la frase: 'generar las razones', 'elegir los formatos'…
  */
 export async function errorDeCascada(errores: string[], tema: string): Promise<string> {
+  // ⛔ D6b: con su propio Claude o su GPT, la red y las keys gratis no corren (lib/solo-su-ia.ts). Sin ningún error SUYO
+  // es que no tenía con qué (ni su clave de Claude ni su OpenAI): «No hay ninguna IA… con Gemini alcanza» lo mandaba a
+  // conectar una IA que no se usaría. Con un error suyo, tiene IA y falló: nunca «no hay ninguna IA».
+  if (soloSuIA()) return errores.length ? mensajeIAFallo({ hayIA: true, motivo: motivoDeErroresCascada(errores), errores, tema }) : conSuIASinClave(tema);
   const hayIA = await docsIADisponible().catch(() => false);
   return mensajeIAFallo({ hayIA, motivo: motivoDeErroresCascada(errores), errores, tema });
 }
@@ -1005,6 +1010,9 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
     }
   }
   if (errores.length) throw new Error(`No se pudo leer el documento con ninguna IA. ${errores.join(' · ')}`);
+  // ⛔ D6b: con su propio Claude, sólo su OpenAI mira (la red gratis no corrió): pedirle «Gemini (gratis)» sería mandarlo
+  // a cargar una key que no se usaría.
+  if (soloSuIA()) throw new Error(CON_SU_IA_SIN_VISION);
   const nombres = sinKey.map((p) => (p === 'gemini' ? 'Gemini (gratis)' : 'OpenAI')).join(' o ');
   throw new Error(`No hay ninguna IA con visión configurada. Carga una API key de ${nombres || 'Gemini u OpenAI'} en Integraciones.`);
 }

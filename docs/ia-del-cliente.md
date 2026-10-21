@@ -311,7 +311,7 @@ prueba en el ws3.
     arrancado al iniciar sesión no abre una consola. Por eso el instalador lo llama siempre con `| Out-Host`.
 21. **«¿Es tu negocio?» lo pregunta el script del instalador, no el programa**: uno «de ventana» no lee la consola. El
     programa empareja y deja la conexión PENDIENTE (con el negocio y la persona), y sólo `confirmar` la activa y suelta la
-    de antes (sin tarjeta fantasma); `cancelar` la suelta en MaKo.
+    de antes (sin tarjeta fantasma); `cancelar` la suelta en MaKo. (La PC pendiente también en MaKo: punto 32.)
 22. **D6b se decide por NEGOCIO y falla cerrada** (lib/ia-del-negocio.ts): su IA es cualquier PC conectada del negocio,
     su Claude (aunque esté en pausa) o su OpenAI; una base que no contesta es «sí». La plataforma misma queda afuera (lo
     interno sigue). El corte vive abajo de todo (lib/solo-su-ia.ts → `provDe`, la red de la plataforma, el orden por
@@ -338,6 +338,36 @@ prueba en el ws3.
 31. **Un tope de 20 turnos por minuto por NEGOCIO** (§3, regla 6) y **los turnos se borran a las 24 horas** (llevan el
     system con datos del negocio y lo que leyeron las herramientas; /api/cron/ia-pc-purga).
 
+**Después de la segunda revisión del Cerebro (21/10/2026, 71706061d no aprobado; lo medido, en docs/hallazgos-ia.md):**
+
+32. **La PC nace PENDIENTE y cuenta como «su IA» recién ACTIVA** (mig 0322): emparejar la crea sin `confirmado_at`
+    (no recibe turnos, no se lista, no cuenta para D6b); el «sí» la confirma (`/api/ia-pc/confirmar`, con su token
+    pendiente); su primer latido con una cuenta de Claude con sesión la activa (`activa_at`). La que se dijo que no se
+    suelta, y la abandonada en la pregunta (15 minutos sin latir) la revoca la purga. Reemplaza al «sólo `confirmar` la
+    activa» del punto 21: antes la activaba emparejar, y una instalación abandonada le sacaba la IA a todo el negocio.
+33. **El instalador no toca lo que anda hasta el «sí»**: baja el programa a `mako-pc.nuevo`, lo empareja y pregunta; con
+    «no» (o un código vencido, o un 503) suelta lo pendiente y sale, y lo de antes sigue corriendo. Con el «sí»: para el
+    viejo (`Kill` + `WaitForExit`: `Stop-Process` no espera a que suelte el archivo), confirma, reemplaza con reintentos y
+    deja el arranque; al salir, pase lo que pase, deja uno corriendo (`finally` en Windows, `trap` en la Mac).
+34. **El programa confirma con MaKo ANTES de soltar la conexión de antes**, y sólo con un 200 la guarda; un 503 se
+    reintenta. El programa viejo que recibe el 401 de su conexión soltada no borra la nueva ni saca el arranque.
+35. **Lo que se ejecuta al CONFIRMAR una tarjeta también es del negocio** (D6b): el chat de la app, el teléfono, el CRM y
+    el Analyst (`confirmarDesdeTarjeta`), la bandeja /mako/pendientes (`conSuIADelNegocio`) y /mako/revisar corren
+    adentro de «sólo su IA». Una tarjeta con costo de IA (una hoja, el insight de un lead) no sale a la Gemini gratis.
+36. **El tutorial mira el código**: si se gastó sin conectar (dijo que no, o cerró la ventana) lo dice y ofrece otro;
+    «Pedir otro código» está siempre a mano. El vencimiento se cuenta con el reloj de quien mira (`duraMs`), no con la
+    hora del servidor. «Conectar mi computadora» espera a saber qué PC ya estaban (si no, decía «¡Listo!» con una vieja).
+37. **Sin Claude Code instalado es «Falta instalar Claude» (el paso 2), no «Sin sesión» (el 3)**: el latido lo dice
+    (`sinClaude`), la tarjeta, el tutorial y el chat lo repiten. Y nadie pide «pega la misma línea» (el código ya se usó):
+    MaKo lo detecta solo.
+38. **No poder leer la PC no es «no tiene»**: el chat dice «no pude ver tu computadora» (no «conéctala») y va a la
+    Ticketera. La semana agotada se dice con la hora de la semana («se repone el sábado a las 10:00»).
+39. **Las pantallas del Ops Center que piden IA fuera del chat también son del negocio**: «Buscar con MaKo», El Archivero
+    (subir y sus preguntas) y las del onboarding (avatares, entregable, formatos, ofertas, persona, personalidad,
+    productos, razones) corren adentro de `conSuIADelNegocio`. Sin una clave que lea, lo dicen (`conSuIASinClave`) y
+    Buscar vuelve a la búsqueda por texto. El crédito de Claude del onboarding sigue andando adentro. Lo que queda
+    afuera está decidido una por una en tests/d6b-rutas.test.ts (§13).
+
 ---
 
 ## 13. Lo que no es de la Ticketera (para repartir)
@@ -347,6 +377,9 @@ prueba en el ws3.
 - **El doer de WhatsApp** (`lib/mako-doer-in.ts`): si un negocio con su Claude tiene que contestar por WhatsApp con su
   PC, eso es de «MaKo en WhatsApp». Por ahora WhatsApp no va por la suscripción (es lo de fondo, D6a).
 - **Lo de fondo sin Gemini** (D6b, más allá de los turnos): AI Step, nutrición, reuniones. Cada uno es de su chat.
+- **Las rutas que D6b deja afuera como decisión pendiente** (`FUERA_DE_D6B` en tests/d6b-rutas.test.ts): la API de MaKo
+  (`v1`, `agente`), Offer y `onboarding/arranque` (lo decide Offer), y las demás tabs (CRM, Ads, Landing, Chat Agent,
+  gráficos, editores, CS). Y lib/transcribe.ts, una cascada a Groq y Gemini sin el corte.
 - **Las claves pegadas en WhatsApp** (pieza 1.6 en el otro canal, de «MaKo en WhatsApp»): `taparClaves` en
   `manejarEntranteDoer` antes de `rutearDoer` (y el `caption` de los adjuntos), y en `bufferearYResponder` antes de
   `encolar`, también en el `payload` crudo; si tapó, `avisoClaveTapada` con el link a la app.

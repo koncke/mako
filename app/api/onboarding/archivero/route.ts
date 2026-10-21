@@ -11,10 +11,15 @@
 // pisar un dato ya cargado, solo super-admin). Descargar: /download?id=.
 // Piso: admin del workspace; el dueño (sin impersonar) opera sobre OWNER_WS. Todo
 // el trabajo va dentro de runWithWorkspace(ws) para scopear tabla + storage + brief.
+//
+// ⛔ D6b (Martín, 21/10/2026): el POST lee y extrae con IA, y corre adentro de `conSuIADelNegocio`: un negocio con su
+// propio Claude o su GPT no manda sus documentos a la Gemini gratis. La revisión del Cerebro encontró esta pantalla
+// afuera (sólo el turno del chat lo prendía). Lo fija tests/d6b-rutas.test.ts, que también CORRE este POST con una foto.
 
 import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { extraerDeArchivo, generarPanorama } from '@/lib/onboarding';
 import { leerDocumentoIA, docsIADisponible } from '@/lib/ai-cheap';
 import { muroConocido, textoInsuficiente, sinDatosDelNegocio } from '@/lib/archivero-webs';
@@ -242,16 +247,16 @@ export async function POST(req: NextRequest) {
   if ((req.headers.get('content-type') || '').includes('application/json')) {
     let body: { action?: string; fileId?: string; path?: string; nombre?: string; mime?: string; tamano?: number; finalizar?: boolean; url?: string };
     try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
-    if (body.action === 'procesar-link') return runWithWorkspace(ws, () => procesarLink(ws, body));
+    if (body.action === 'procesar-link') return runWithWorkspace(ws, () => conSuIADelNegocio(ws, () => procesarLink(ws, body)));
     if (body.action !== 'procesar') return Response.json({ ok: false, error: 'acción inválida' }, { status: 400 });
-    return runWithWorkspace(ws, () => procesarDirecto(ws, body));
+    return runWithWorkspace(ws, () => conSuIADelNegocio(ws, () => procesarDirecto(ws, body)));
   }
   let form: FormData;
   try { form = await req.formData(); } catch { return Response.json({ ok: false, error: 'Subida inválida' }, { status: 400 }); }
   const files = form.getAll('file').filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return Response.json({ ok: false, error: 'No subiste ningún archivo.' }, { status: 400 });
 
-  return runWithWorkspace(ws, async () => {
+  return runWithWorkspace(ws, () => conSuIADelNegocio(ws, async () => {
     try {
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
       const warnings: string[] = [];
@@ -283,7 +288,7 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
     }
-  });
+  }));
 }
 
 export async function DELETE(req: NextRequest) {

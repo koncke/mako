@@ -74,7 +74,11 @@ test('la decisión es por NEGOCIO, falla CERRADA, y la plataforma queda afuera',
   const n = R.negocio;
   assert.deepEqual(n.soloGratis, { suIA: false, conPc: false }, 'una key de Gemini no es «su IA»');
   // Rota: decidir por persona (sin `negocioConPc`) → este test falla.
-  assert.deepEqual(n.conPcDeOtra, { suIA: true, conPc: true }, 'la PC de otra persona del negocio cuenta');
+  // Rota: contar una PC sin `activa_at` → este test falla (una instalación abandonada en «¿es tu negocio?» pasaba todo el
+  // negocio a «sólo su IA», y nadie tenía con qué contestar: segunda revisión del Cerebro, 21/10/2026).
+  assert.deepEqual(n.conPcPendiente, { suIA: false, conPc: false }, 'una PC pendiente (sin el «sí») no cuenta');
+  assert.deepEqual(n.conPcSinLatido, { suIA: false, conPc: false }, 'confirmada sin un latido con sesión, tampoco');
+  assert.deepEqual(n.conPcDeOtra, { suIA: true, conPc: true }, 'la PC activa de otra persona del negocio cuenta');
   assert.deepEqual(n.pcDesconectada, { suIA: false, conPc: false }, 'una PC desconectada no');
   assert.equal(n.conSuOpenAI.suIA, true);
   assert.equal(n.conSuClaude.suIA, true);
@@ -122,7 +126,7 @@ test('lo prenden los caminos del Ops Center: el turno (con El Archivero y los ar
     assert.ok(dentro.includes(paso), `${paso} corre adentro de «sólo su IA»`);
   }
   assert.match(dentro, /soloSuIA: negocio\.suIA/);
-  assert.match(dentro, /if \(negocio\.suIA && !\(await puedeArchivarConSuIA\(\)\)\) avisos\.push\(AVISO_SIN_ARCHIVERO\);/, 'sin con qué, El Archivero no corre y se dice');
+  assert.match(dentro, /const archiva = negocio\.suIA \? await puedeArchivarConSuIA\(\) : 'si';\s*if \(archiva !== 'si'\) avisos\.push\(/, 'sin con qué, El Archivero no corre y se dice');
   const pedidos = sinComentarios(leer('app/api/mako/pedidos/route.ts'));
   assert.match(pedidos, /conSoloSuIA\(negocio\.suIA, \(\) => interpretarMensaje\(texto, ctx\)\)/);
   assert.match(pedidos, /taparClaves\(body\.texto\)\.texto/, 'una clave pegada se tapa también acá (pieza 1.6)');

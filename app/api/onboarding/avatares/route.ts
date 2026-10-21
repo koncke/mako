@@ -10,6 +10,7 @@
 import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
 import { generarAvatares, getAvatares, setAvatares, siguientePreguntaAvatares, describirArchivoAvatar, getContextoAvatares, setContextoAvatares, type Avatar, type PasoHistorialAvatar } from '@/lib/avatares';
@@ -49,7 +50,8 @@ export async function POST(req: NextRequest) {
   let body: { action?: string; avatares?: unknown; respuestas?: unknown; historial?: unknown; imagenDataUrl?: unknown };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
-  return runWithWorkspace(ws, async () => {
+  // ⛔ D6b: con su propio Claude o su GPT, lo que pide la IA acá no va a la Gemini gratis (tests/d6b-rutas.test.ts).
+  return runWithWorkspace(ws, () => conSuIADelNegocio(ws, async () => {
     try {
       const historialDe = (v: unknown): PasoHistorialAvatar[] =>
         Array.isArray(v) ? v.map((x) => { const o = (x ?? {}) as Record<string, unknown>; return { pregunta: s(o.pregunta), respuesta: s(o.respuesta) }; }).filter((x) => x.pregunta && x.respuesta) : [];
@@ -96,5 +98,5 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
     }
-  });
+  }));
 }

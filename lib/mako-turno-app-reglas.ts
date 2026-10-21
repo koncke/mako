@@ -559,6 +559,8 @@ export const AVISO_CONECTA_TU_PC = 'Tu negocio contesta con su propio Claude. Pa
 export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de OpenAI. Escríbeme lo que dice.`;
 /** Con su propio Claude y sin una clave que lea (su Claude por clave o su OpenAI), El Archivero no corre: se dice. */
 export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no en El Archivero: con tu propio Claude, para archivarlo necesito tu clave de Claude o de OpenAI.';
+/** Tiene su clave de Claude, pero la plataforma la pausó por un rato: no se le pide «tu clave», que ya la tiene. */
+export const AVISO_ARCHIVERO_EN_PAUSA = 'Lo dejé en el chat, pero no en El Archivero: tu Claude está en pausa por un rato en MaKo. Mándamelo de nuevo más tarde.';
 
 /**
  * Los rechazos de `confirmarPendiente` / `cancelarPendiente` (lib/api-mako/acciones.ts)

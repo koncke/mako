@@ -4643,7 +4643,9 @@ rompía en todo lo demás. Lo no obvio, para el que toque esto después:
   desconectar). Va `KeepAlive → SuccessfulExit false` y el programa sale con 0 al ser desconectado.
 - **Sin red, `fetch` falla al instante y el bucle giraba**: ~1000 pedidos por segundo y un núcleo entero (medido por el
   revisor con un puerto cerrado). Ahora espera 5, 10, 30 y 60 s, y lo anota una vez.
-- **`tsc` envuelto en el `timeout` de Git Bash sale con 1 SIN IMPRIMIR NADA** (medido tres veces, por dos agentes): no es un
+- ⚠️ **CORREGIDO en la segunda revisión (abajo): el «1 en blanco» de tsc NO es el `timeout`, son errores de tipos que no
+  se imprimen.** Lo que se creyó entonces, para que se entienda el error:
+  **`tsc` envuelto en el `timeout` de Git Bash sale con 1 SIN IMPRIMIR NADA** (medido tres veces, por dos agentes): no es un
   error de tipos. El mismo tsc acotado, sin `timeout` o desde PowerShell, da 0 (y con errores reales imprime y sale con
   2). Un «1 en blanco» de tsc acá es del envoltorio: correrlo sin `timeout` antes de buscar el error. Para iterar, un
   tsconfig que extiende el del repo con `files`.
@@ -4662,6 +4664,95 @@ rompía en todo lo demás. Lo no obvio, para el que toque esto después:
   prueba-ia-pc@…», la clave Run quedó con la ruta exacta (con la ñ) y SEGUÍA 15 s después, nada en Inicio, el Claude real
   de la PC contestó con `listar_tareas_plan` en 32 s, y desconectada desde MaKo el programa se sacó solo del arranque y se
   apagó. Defender: cero detecciones desde las 05:00. La Mac, sin probar.
+
+## La IA del cliente, segunda revisión: lo que pasa FUERA del turno y antes del «sí» (21/10/2026)
+
+La segunda revisión del Cerebro (sobre 71706061d: 2 altos, 6 medios, 17 bajos) cerró los altos de la primera y encontró
+que lo que faltaba no estaba en el turno: estaba en lo que corre en OTRO pedido (confirmar una tarjeta, otras pantallas)
+y en lo que pasa en la PC antes de que la persona diga que sí. Lo no obvio:
+
+- **D6b prendido en el turno no cubre lo que se ejecuta al CONFIRMAR.** Una tarjeta con costo de IA (analizar una hoja, el
+  insight de un lead) no corre en el turno que la propone: corre cuando se toca «Confirmar», en otra ruta o server action
+  (`confirmarDesdeTarjeta`, la bandeja /mako/pendientes, /mako/revisar), y ahí no había contexto: los números del negocio
+  iban a Gemini y Groq. La regla: **toda entrada que ejecuta trabajo con IA de un negocio prende el contexto ella misma**
+  (`conSuIADelNegocio(ws, fn)` o `entrarSoloSuIA`), no lo hereda. tests/_d6b-confirmar-hijo.ts corre los caminos REALES y
+  cuenta los hosts; el control (la misma ejecución, fuera) tiene que salir a la red gratis, o la prueba no ve nada.
+- **La PC fantasma: activar al emparejar le sacaba la IA a TODO el negocio.** Emparejar dejaba la PC conectada antes de la
+  pregunta «¿es tu negocio?»; quien cerraba la ventana ahí dejaba una PC que `negocioConPc` contaba, y el negocio entero
+  pasaba a «sólo su IA» sin nadie que contestara. Ahora nace PENDIENTE, el «sí» la confirma, y cuenta recién ACTIVA (un
+  latido con una cuenta con sesión): una PC sin Claude Code tampoco cuenta (mig 0322, SIN APLICAR).
+- **`Stop-Process` no espera a que el proceso suelte el archivo**: escribir el `.exe` justo después daba «está siendo
+  utilizado por otro proceso» (8 de 8, el revisor). Y como el instalador paraba ANTES de preguntar, un «no», un código
+  vencido o un 503 dejaban apagada la conexión que andaba. Ahora baja a `mako-pc.nuevo`, para con `Kill()` +
+  `WaitForExit(15000)` recién con el «sí», reemplaza con `Move-Item` y reintentos, y un `finally` (un `trap` en la Mac)
+  deja uno corriendo pase lo que pase.
+- **En Windows, `process.exit()` justo después de dos `fetch` revienta Node** (24.17, medido): «Assertion failed:
+  !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94» y sale con **0xC0000409** (3221226505). `confirmar`
+  hace dos pedidos (confirmar y soltar la vieja). Con un pedido solo (`cancelar`) no pasaba, por eso no lo vio nadie
+  antes. **Pero el ejecutable que instala el cliente (Bun 1.2.21) NO revienta**: medido 5 de 5 con 0 con `process.exit()`
+  y 5 de 5 con el arreglo, el token nuevo guardado cada vez. Lo veían el test y el e2e sin `--instalador`, que corren el
+  `.mjs` con Node: ahí el instalador habría leído «no se confirmó» con la conexión YA guardada. Los comandos de una vez
+  dejan `process.exitCode` y terminan solos (los sockets de `fetch` no retienen el proceso: < 1 s), con un reloj
+  `unref()` de 10 s por si algo lo retiene. El modo de fondo (`correr`) sigue con `process.exit(0)` al ser desconectado.
+- **El programa viejo que recibe el 401 borraba la conexión NUEVA.** Reinstalar suelta en MaKo el token de antes; si el
+  programa viejo seguía vivo (el Kill falló), su próximo latido recibía `revocado` y su `desconectada()` borraba el token
+  del config —que ya era el nuevo— y sacaba la clave Run. Ahora sólo borra si el token del config es el SUYO.
+- **El «1 en blanco» de tsc NO es el `timeout` de Git Bash** (el diagnóstico de la primera revisión): sale con 1 sin
+  imprimir NADA también sin `timeout`, en primer plano y con la salida a un archivo (medido hoy por dos agentes). Y
+  **tampoco es «hay errores»**: una vez coincidió con un error real (`'insertada' is possibly 'null'`, que la API sí
+  mostró), pero el otro agente vio el mismo `tsc -p` salir 1 mudo tres veces y después 0 con toda la salida, sin cambiar
+  nada. Es intermitente y no prueba nada en ningún sentido. **Lo que sirve es la API**: `createProgram` +
+  `getPreEmitDiagnostics` con el tsconfig acotado (un script de 12 líneas, que imprime cada diagnóstico).
+- **Adentro de «sólo su IA», las pantallas mentían** (las rutas del Second Brain y del onboarding): `errorDeCascada` decía
+  «No hay ninguna IA conectada… con Gemini alcanza», `leerDocumentoIA` «Carga una API key de Gemini (gratis)», El
+  Archivero «Prueba de nuevo en un momento», y Buscar «MaKo eligió 0». Y `CONECTA_TU_CLAUDE` tampoco: le dice «Conecta tu
+  Claude» a quien ya lo tiene en su PC. Con el contexto prendido, cada una dice `conSuIASinClave(tema)` («para eso
+  necesito tu clave de Claude o de OpenAI»), y Buscar vuelve a la búsqueda por texto y lo dice.
+- **«Llega a la cascada» es casi todo el repo**: por los `import()`, 370 entradas (rutas y `'use server'`) llegan a
+  lib/ai-cheap.ts (`credenciales` → `agenda-evento-etapa-server` → `leads` → `nutricion` → `ai-cheap`, y
+  `anthropic` → `ai-cheap`). La guarda que sirve no es «llega» sino «prende el contexto o está decidida»:
+  tests/d6b-rutas.test.ts recorre el grafo (resolviendo `@/` y siguiendo las llamadas, no una lista a mano), y lo que
+  llaman las pantallas del Ops Center (app/second-brain, app/mako, app/onboarding, app/_chat…) no puede ir afuera.
+- **lib/transcribe.ts es una SEGUNDA cascada sin el corte de D6b**: va directo a Groq y Gemini con las keys del entorno.
+  Envolver una ruta que la use no la protege. Hoy la usan ads-manager, cron/transcribe-ads, mako/knowledge y
+  lib/onboarding-extract (ninguna del Ops Center).
+- **Un stub en `Module._load` no pega en un `await import()` bajo tsx**: el hook corre y gana el módulo real (medido con
+  `onboardingPendiente`). Para el onboarding en curso el hijo usa una cookie firmada de verdad (`crearToken`).
+- **Fallar cerrado tiene contracara**: si `negocioConSuIA` no puede leer la base, un negocio SIN su Claude queda en «sólo
+  su IA» por ese pedido y lee «Con tu propio Claude…».
+- **El PostgREST de mentira no pone ids** (tests/_postgrest-de-mentira.ts): sin `defaults`, la PC insertada quedaba sin
+  `id`, `estadoDelCodigo` decía «cancelado» y `confirmar` no actualizaba nada. Un hijo que depende del id o de los
+  defaults de una columna (`confirmado_at null`, `creado_at`) los declara en `defaults`.
+- **Pieza 1.6 (claves pegadas), la tercera ronda: tapaba texto del negocio.** La regla heredada de OpenAI (`sk-` + 20) seguía
+  viva mientras `openai` estuviera en `SERVICIO_DE_REGLA`: agregar la nueva no alcanza, hay que sacar la vieja (un slug
+  `sk-proj-lanzamiento-verano-2026-…` salía tapado con el botón de OpenAI). La vieja exige 40+ alfanuméricos con dígito y
+  mayúscula; las nuevas (`sk-proj-`, `sk-svcacct-`, `sk-admin-`, `sk-None-`) una mayúscula en los primeros 64 (las reales
+  traen `T3BlbkFJ`). **«El nombre del `.env` TERMINA en KEY» era una regresión**: `FATHOM_API_KEY_MARTIN` y
+  `ELEVENLABS_API_KEY_MAURICIO_IMPAGA` (nombres reales del repo) no terminan así; con `=` vale KEY/TOKEN/SECRET como palabra
+  entera seguida de más palabras, con `:` tiene que terminar (`KEYWORDS:`, `MAX_TOKENS`, `TURKEY_RECIPE` ya no se tapan).
+  **Un lookahead dentro de una tirada con `-` es cuadrático** (cada `sk-` abre un `\b`; un MB de `sk-proj-` colgaba el
+  turno): se acota a 64 y 80 caracteres. El orden entre una regla sin servicio y una con servicio no importa (el bucle de
+  `taparClaves` sólo corta con servicio). 26 roturas, todas con su rojo.
+- **Lo que quedó SIN hacer:**
+  - **La 0322 no está aplicada** (va con la revisión del Cerebro). Sin ella producción no tiene las columnas: este código
+    no puede desplegarse antes. La prueba de punta a punta de la PC pendiente (reinstalar sobre una que anda, decir que
+    no, cerrar la ventana en la pregunta) espera a la 0322 en el ws3.
+  - **Los ejecutables 0.3.1** tienen que estar en el bucket antes de desplegar (el instalador pide `mako-pc-${VERSION_PC}`).
+  - **`sk-ant-farm-habitat-kit-for-kids-xl` se sigue tapando** con el botón de Anthropic (la heredada `sk-ant-` + 20): las
+    reales son `sk-ant-api03-` + ~93; se podría exigir esa forma (lib/claves-en-el-chat.ts).
+  - **WhatsApp sigue sin tapar claves** (1.6 en el otro canal, de «MaKo en WhatsApp», docs/ia-del-cliente.md §13).
+  - **La Mac, sin probar en una Mac.**
+  - **Las rutas que tests/d6b-rutas.test.ts deja afuera como «decisión pendiente, no olvido»** (`FUERA_DE_D6B`): `v1` y
+    `agente` (la API de MaKo), Offer y `onboarding/arranque` (corren con el crédito de Claude; lo decide Offer), y las
+    demás tabs (CRM, Ads, Landing, Chat Agent, gráficos, editores, CS, `mako/voz`, `mako/nutricion`…).
+  - **Buscar sin ninguna IA (fuera de D6b) devuelve 500 «respuesta sin JSON»** (`parseJsonObject('')` tira) y el
+    escritorio muestra «MaKo eligió 0» porque ignora `ok: false` (app/api/second-brain/buscar/route.ts y
+    app/second-brain/Grafo.tsx). Viejo, sin tocar.
+- **Probado rompiéndolo**: 49 roturas + 23 de las rutas (cada una de las 11 sin el contexto, una ruta nueva sin decidir,
+  un área escondida afuera, el detector sin seguir llamadas, cada texto de D6b quitado…), todas con su rojo. Las 49: una por vez y restauradas con sha256, todas con su rojo (los tres caminos de
+  confirmar fuera de «sólo su IA» → d6b-confirmar 2/1; la PC pendiente, activa y abandonada, el instalador en Windows y
+  en la Mac, el programa, la pantalla y el turno → ia-pc-segunda-revision 16/1 o 14/3; D6b contando una PC no activa →
+  solo-su-ia). El arnés: `romper-segunda.mjs` del scratchpad de la sesión.
 
 ## Lo que midió la verificación del debate «quién paga el chat» (20/10/2026)
 

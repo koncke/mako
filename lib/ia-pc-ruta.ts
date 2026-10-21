@@ -17,9 +17,13 @@ export const respuestaDe = (fallo: 'revocado' | 'no-pude-leer'): NextResponse =>
   return NextResponse.json(r.cuerpo, { status: r.status, headers: { 'cache-control': 'no-store', ...(r.status === 503 ? { 'retry-after': '5' } : {}) } });
 };
 
-export async function pcDelPedido(req: NextRequest, ruta: string): Promise<{ d: Dispositivo } | { respuesta: NextResponse }> {
+/**
+ * `pendientesTambien`: sólo para lo que una PC puede hacer ANTES del «sí» (confirmarse o soltarse, mig 0322). Para latir y
+ * tomar turnos, una PC pendiente es como si no existiera (401 `revocado`).
+ */
+export async function pcDelPedido(req: NextRequest, ruta: string, o: { pendientesTambien?: boolean } = {}): Promise<{ d: Dispositivo } | { respuesta: NextResponse }> {
   try {
-    const d = await dispositivoDelToken(bearer(req.headers.get('authorization')));
+    const d = await dispositivoDelToken(bearer(req.headers.get('authorization')), o);
     return d ? { d } : { respuesta: respuestaDe('revocado') };
   } catch (e) {
     console.error(`[ia-pc/${ruta}]`, e instanceof Error ? e.message : String(e));

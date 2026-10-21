@@ -62,7 +62,7 @@ test('el programa: las copias son idénticas, y del servidor sólo entra el mode
 });
 
 test('el % usado sale del rate_limit_event, y de varias cuentas se usa la de más cupo', () => {
-  const esperado = { usado5h: 42, usadoSemana: 98, repone: new Date(1792576200 * 1000).toISOString() };
+  const esperado = { usado5h: 42, usadoSemana: 98, repone: new Date(1792576200 * 1000).toISOString(), reponeSemana: new Date(1792573200 * 1000).toISOString() };
   assert.deepEqual(limitesDelEvento(EVENTO), esperado);
   assert.deepEqual(programa.limitesDelEvento(EVENTO), esperado, 'la copia del programa lee igual');
   assert.deepEqual(programa.leerStream(STREAM).limites, esperado);
@@ -88,7 +88,7 @@ test('el programa pasa el modelo validado, y encuentra a Claude aunque falte el 
     return p;
   };
   const r = await programa.pensar({ dir, system: 's', prompt: 'p', mcp: {}, modelo: 'rm -rf /' }, falso as never, '/x/claude');
-  assert.deepEqual(r, { texto: 'Tienes 3 tareas.', uso: { entrada: 9, salida: 6 }, limites: { usado5h: 42, usadoSemana: 98, repone: new Date(1792576200 * 1000).toISOString() } });
+  assert.deepEqual(r, { texto: 'Tienes 3 tareas.', uso: { entrada: 9, salida: 6 }, limites: { usado5h: 42, usadoSemana: 98, repone: new Date(1792576200 * 1000).toISOString(), reponeSemana: new Date(1792573200 * 1000).toISOString() } });
   const v = visto as unknown as { cmd: string; args: string[] };
   assert.equal(v.cmd, '/x/claude');
   const i = v.args.indexOf('--model');
@@ -103,7 +103,7 @@ test('el instalador sólo lleva valores validados, y su línea es la del tutoria
   const urls = { 'windows-x64': 'https://x.supabase.co/storage/v1/object/sign/ia-pc/a.gz?token=abc', 'mac-arm64': 'https://x.supabase.co/a.gz?t=1', 'mac-x64': 'https://x.supabase.co/b.gz?t=1' };
   const win = scriptDeInstalacion({ sistema: 'windows', codigo: 'abcd-2345', servidor: 'https://hola-mako.com', urls });
   assert.match(win, /Invoke-WebRequest -UseBasicParsing -Uri 'https:\/\/x\.supabase\.co\/storage\/v1\/object\/sign\/ia-pc\/a\.gz\?token=abc'/);
-  assert.match(win, /& \$exe emparejar 'ABCD2345' --servidor 'https:\/\/hola-mako\.com'/, 'el código normalizado');
+  assert.match(win, /& \$nuevo emparejar 'ABCD2345' --servidor 'https:\/\/hola-mako\.com'/, 'el código normalizado');
   assert.match(win, /GZipStream/);
   // El arranque es la clave Run (tests/ia-pc-revision.test.ts fija el porqué: el .vbs lo ponía en cuarentena Defender).
   assert.match(win, /New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'MaKo'/, 'arranca solo al prender la computadora');
@@ -152,7 +152,7 @@ test('«Tus cuentas de IA»: con sesión, cada uno lo suyo, el modelo es del adm
   assert.doesNotMatch(pantalla, /\b(tenés|podés|elegí|instalá|iniciá|escribí|pegá|apretá|abrí|conectá|dejala|prendela)\b/i, 'de tú, no de vos');
   assert.match(leer('app/integraciones/page.tsx'), /<TusCuentasIA \/>/);
   // Y en «Tu cuenta», para todo el equipo: la PC es de la persona (revisión del 21/10/2026: un closer no tenía dónde).
-  assert.match(leer('app/perfil/ia/page.tsx'), /await requireRolWs\(\['closer', 'setter'\]\);[\s\S]*<TusCuentasIA \/>/);
+  assert.match(leer('app/perfil/ia/page.tsx'), /await requireRolWs\(\['closer', 'setter'\]\);[\s\S]*<TusCuentasIA sinCabecera \/>/);
 });
 
 test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, y queda guardado', () => {
@@ -166,7 +166,7 @@ test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, 
   assert.ok(ruta.indexOf('if (body?.acepto !== VERSION_CONSENTIMIENTO)') > 0 && ruta.indexOf('if (body?.acepto !== VERSION_CONSENTIMIENTO)') < ruta.indexOf('await crearCodigo('));
   const lib = sinComentarios(leer('lib/ia-pc.ts'));
   assert.match(lib, /if \(consentimiento !== VERSION_CONSENTIMIENTO\) throw/, 'la puerta también lo exige, no sólo la ruta');
-  assert.match(lib, /consentimiento: \(data\.consentimiento as string \| null\) \?\? null, consentimiento_at: new Date\(\)\.toISOString\(\)/, 'queda en la PC');
+  assert.match(lib, /consentimiento: \(data\.consentimiento as string \| null\) \?\? null, consentimiento_at: ahora,/, 'queda en la PC');
   // La pantalla: el código se pide recién después del toque.
   const p = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
   assert.match(p, /if \(paso === 4 && acepto && !codigo\) void pedirCodigo\(\);/);

@@ -4662,6 +4662,14 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   proveedor, pasa por ahí o suma su corte**, y tests/solo-su-ia.test.ts la tiene que ver (corre las entradas REALES de la
   cascada contra una base de mentira y cuenta a qué hosts sale). El 21/10 el corte obvio (`provDe`) no alcanzó: el orden
   por cuota ya había leído las keys y le había consultado el saldo a OpenRouter.
+  ⚠️ **Toda ENTRADA que ejecuta trabajo con IA de un negocio prende el contexto ella misma; no lo hereda del turno**
+  (segunda revisión del Cerebro, 21/10/2026): lo que corre al CONFIRMAR una tarjeta va en otro pedido
+  (`confirmarDesdeTarjeta`, la bandeja, /mako/revisar) y los números del negocio iban a Gemini. Una ruta, una server
+  action o un confirmar nuevo envuelve su trabajo en `conSuIADelNegocio(ws, fn)` (lib/ia-del-negocio.ts) o llama a
+  `entrarSoloSuIA` tras leer el negocio; tests/d6b-confirmar.test.ts corre los caminos de confirmar. **Una ruta o server
+  action nueva que llega a lib/ai-cheap.ts se decide en tests/d6b-rutas.test.ts**: adentro (con `conSuIADelNegocio`) o en
+  `FUERA_DE_D6B` con su porqué; lo que llaman las pantallas del Ops Center no puede ir afuera. Y lib/transcribe.ts es
+  otra cascada SIN el corte: envolver la ruta no la protege.
   ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
   lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
   `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las

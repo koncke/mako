@@ -113,6 +113,8 @@ export type CuentaPc = {
   usadoSemana?: number;
   /** ISO de cuándo se repone la ventana corta. */
   repone?: string;
+  /** ISO de cuándo se repone la semana (con la semana agotada, el chat da ESTA hora: la de las 5 horas era mentira). */
+  reponeSemana?: string;
 };
 
 const pct = (x: unknown): number | undefined => (typeof x === 'number' && Number.isFinite(x) && x >= 0 && x <= 100 ? Math.round(x) : undefined);
@@ -129,7 +131,9 @@ export function sanearCuentas(x: unknown): CuentaPc[] {
     const o = c as Record<string, unknown>;
     if (o.proveedor !== 'claude' && o.proveedor !== 'chatgpt') continue;
     const email = corta(o.email, 200);
-    const repone = typeof o.repone === 'string' && Number.isFinite(Date.parse(o.repone)) ? new Date(o.repone).toISOString() : undefined;
+    const iso = (v: unknown) => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : undefined);
+    const repone = iso(o.repone);
+    const reponeSemana = iso(o.reponeSemana);
     out.push({
       proveedor: o.proveedor,
       ...(email && /^[^\s@]+@[^\s@]+$/.test(email) ? { email } : {}),
@@ -137,6 +141,7 @@ export function sanearCuentas(x: unknown): CuentaPc[] {
       ...(pct(o.usado5h) != null ? { usado5h: pct(o.usado5h) } : {}),
       ...(pct(o.usadoSemana) != null ? { usadoSemana: pct(o.usadoSemana) } : {}),
       ...(repone ? { repone } : {}),
+      ...(reponeSemana ? { reponeSemana } : {}),
     });
   }
   return out;
@@ -213,18 +218,30 @@ export const MODELO_PC_DEFAULT: ModeloPc = 'sonnet';
 export const CLAVE_MODELO_PC = 'ia_pc.modelo';
 export const modeloPc = (x: unknown): ModeloPc => ((MODELOS_PC as readonly unknown[]).includes(x) ? (x as ModeloPc) : MODELO_PC_DEFAULT);
 
-/** El % usado que trae el `rate_limit_event` del stream (utilización de 0 a 1, `resetsAt` en segundos). */
-export function limitesDelEvento(e: unknown): { usado5h?: number; usadoSemana?: number; repone?: string } {
+/**
+ * El % usado que trae el `rate_limit_event` del stream (utilización de 0 a 1, `resetsAt` en segundos), con cuándo se
+ * repone cada ventana: la de la semana también (antes se descartaba, y con la semana agotada el chat daba la hora de las
+ * 5 horas — segunda revisión, 21/10/2026).
+ */
+export function limitesDelEvento(e: unknown): { usado5h?: number; usadoSemana?: number; repone?: string; reponeSemana?: string } {
   const o = e && typeof e === 'object' ? (e as Record<string, unknown>) : {};
   const info = (o.rate_limit_info && typeof o.rate_limit_info === 'object' ? o.rate_limit_info : o) as Record<string, unknown>;
   const w = (info.unifiedWindows && typeof info.unifiedWindows === 'object' ? info.unifiedWindows : {}) as Record<string, { utilization?: unknown; resetsAt?: unknown }>;
   const pct = (u: unknown) => (typeof u === 'number' && Number.isFinite(u) && u >= 0 && u <= 1.5 ? Math.min(100, Math.round(u * 100)) : undefined);
-  const r = w.five_hour?.resetsAt;
+  const iso = (r: unknown) => (typeof r === 'number' && Number.isFinite(r) ? new Date(r * 1000).toISOString() : undefined);
+  const repone = iso(w.five_hour?.resetsAt);
+  const reponeSemana = iso(w.seven_day?.resetsAt);
   return {
     ...(pct(w.five_hour?.utilization) != null ? { usado5h: pct(w.five_hour?.utilization) } : {}),
     ...(pct(w.seven_day?.utilization) != null ? { usadoSemana: pct(w.seven_day?.utilization) } : {}),
-    ...(typeof r === 'number' && Number.isFinite(r) ? { repone: new Date(r * 1000).toISOString() } : {}),
+    ...(repone ? { repone } : {}),
+    ...(reponeSemana ? { reponeSemana } : {}),
   };
+}
+
+/** Cuándo se repone una cuenta al tope: con la semana agotada, la semana; si no, las 5 horas. */
+export function reponeDelTope(l: { usadoSemana?: number; repone?: string; reponeSemana?: string }): string | undefined {
+  return (l.usadoSemana ?? 0) >= 100 && l.reponeSemana ? l.reponeSemana : l.repone;
 }
 
 // ── El instalador de un comando (ola 2) ──────────────────────────────────────
@@ -233,7 +250,7 @@ export function limitesDelEvento(e: unknown): { usado5h?: number; usadoSemana?: 
 // curl, el programa no lleva la marca de «descargado de internet», así que SmartScreen y Gatekeeper no lo frenan.
 
 /** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs). */
-export const VERSION_PC = '0.3.0';
+export const VERSION_PC = '0.3.1';
 export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
@@ -275,9 +292,17 @@ export const ARRANQUE_MAC = 'com.hola-mako.pc';
  * El script que corre en la PC del cliente. Sólo lleva valores que pasaron por una regla: el código (su alfabeto), el
  * servidor (el de la app) y las URL firmadas de los archivos (las arma el servidor). Nada que haya escrito una persona.
  *
- * Lo que hace, en orden: baja el programa, lo empareja (queda PENDIENTE), le muestra a la persona a qué negocio y como
- * quién se conecta y le pregunta si es el suyo, confirma o cancela, mira que su Claude tenga la sesión iniciada (si no,
- * abre el login con la ruta completa: la ventana del paso 2 no tiene el PATH nuevo), lo deja arrancando solo y lo prende.
+ * Lo que hace, en orden: baja el programa NUEVO a un archivo aparte, lo empareja (queda PENDIENTE en MaKo), le muestra a
+ * la persona a qué negocio y como quién se conecta y le pregunta si es el suyo. Con «no» (o si emparejar falla) suelta lo
+ * pendiente y se va SIN TOCAR lo que ya andaba. Recién con el «sí» para el programa que corría, confirma, reemplaza el
+ * ejecutable, deja el arranque y, pase lo que pase, al salir deja uno corriendo (el nuevo, o el de antes si algo falló).
+ * Después mira la sesión de Claude y, si falta, abre el login con la ruta que tenga (la ventana del paso 2 no tiene el
+ * PATH nuevo; un Claude de winget o Homebrew está en el PATH y no en ~/.local/bin).
+ *
+ * ⚠️ El ORDEN es lo que se revisó (segunda revisión del Cerebro, 21/10/2026): antes paraba el programa ANTES de preguntar,
+ * así que «no es mi negocio», un código vencido o un 503 dejaban apagada la conexión que andaba («sigue como estaba»,
+ * decía); y escribía el .exe en uso justo después de Stop-Process, que no espera a que suelte el archivo (8 de 8 veces
+ * «está siendo utilizado por otro proceso»). Ahora: archivo aparte, Kill + WaitForExit, y Move-Item con reintentos.
  *
  * ⚠️ WINDOWS: EL ARRANQUE ES LA CLAVE `Run` DE HKCU, NUNCA UN .vbs EN INICIO. El MaKo.vbs de la 0.2.0
  * (`WScript.Shell.Run` oculto) lo pone en cuarentena Defender como «Trojan:VBS/AgentTesla» (medido el 21/10/2026 en la PC
@@ -293,7 +318,10 @@ export function scriptDeInstalacion(p: { sistema: SistemaPc; codigo: string; ser
   if (!/^https:\/\/[\w.-]+(:\d+)?$/.test(p.servidor) && !/^http:\/\/localhost(:\d+)?$/.test(p.servidor)) throw new Error('servidor inválido');
   for (const u of Object.values(p.urls)) if (!/^https:\/\/[^\s'"`$]+$/.test(u)) throw new Error('url inválida');
   const otroCodigo = 'No pude conectar esta computadora. Pide otro código en MaKo.';
-  const faltaClaude = 'Falta instalar Claude: vuelve al paso 2 en MaKo y después pega esta línea de nuevo.';
+  const noConfirme = 'No pude confirmar la conexión: tu computadora sigue como estaba. Pide otro código en MaKo.';
+  const noLaConecte = 'No la conecté: tu computadora sigue como estaba.';
+  const faltaClaude = 'Tu computadora quedó conectada, pero falta Claude Code: instálalo con el paso 2 de MaKo. MaKo lo detecta solo: no hace falta pegar esto de nuevo.';
+  const faltaSesion = 'Tu computadora quedó conectada, pero tu Claude no tiene la sesión iniciada: hazlo con el paso 3 de MaKo. MaKo lo detecta solo: no hace falta pegar esto de nuevo.';
   const listo = '¡Listo! Tu computadora quedó conectada a MaKo. Déjala prendida.';
   if (p.sistema === 'windows') {
     return [
@@ -303,47 +331,61 @@ export function scriptDeInstalacion(p: { sistema: SistemaPc; codigo: string; ser
       "$dir = Join-Path $env:LOCALAPPDATA 'MaKo'",
       'New-Item -ItemType Directory -Force -Path $dir | Out-Null',
       "$exe = Join-Path $dir 'mako-pc.exe'",
+      "$nuevo = Join-Path $dir 'mako-pc.nuevo.exe'",
       "Write-Host 'Descargando MaKo en tu computadora...'",
       `$gz = Join-Path $dir 'mako-pc.gz'`,
       `Invoke-WebRequest -UseBasicParsing -Uri '${p.urls['windows-x64']}' -OutFile $gz`,
-      "Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue | Stop-Process -Force",
-      '$in = [IO.File]::OpenRead($gz); $out = [IO.File]::Create($exe)',
+      '$in = [IO.File]::OpenRead($gz); $out = [IO.File]::Create($nuevo)',
       '$z = New-Object IO.Compression.GZipStream($in, [IO.Compression.CompressionMode]::Decompress); $z.CopyTo($out)',
       '$z.Dispose(); $out.Dispose(); $in.Dispose(); Remove-Item $gz',
-      `& $exe emparejar '${codigo}' --servidor '${p.servidor}' --nombre $env:COMPUTERNAME | Out-Host`,
-      `if ($LASTEXITCODE -ne 0) { throw '${otroCodigo}' }`,
+      `& $nuevo emparejar '${codigo}' --servidor '${p.servidor}' --nombre $env:COMPUTERNAME | Out-Host`,
+      `if ($LASTEXITCODE -ne 0) { Remove-Item -Force $nuevo -ErrorAction SilentlyContinue; throw '${otroCodigo}' }`,
       "if ($env:MAKO_PC_SI -eq '1') { $si = 's' } else { $si = Read-Host '¿Es tu negocio? Escribe s y aprieta Enter para conectarla' }",
-      "if ($si -notmatch '^\\s*[sS]') { & $exe cancelar | Out-Host; throw 'No la conecté.' }",
-      '& $exe confirmar | Out-Host',
-      `if ($LASTEXITCODE -ne 0) { throw '${otroCodigo}' }`,
-      "$claude = Join-Path $env:USERPROFILE '.local\\bin\\claude.exe'",
-      '& $exe sesion | Out-Host',
-      `if ($LASTEXITCODE -eq 2 -and (Test-Path $claude)) { Write-Host 'Inicia sesión con tu cuenta de Claude: se abre el navegador.'; & $claude auth login } elseif ($LASTEXITCODE -ne 0) { Write-Host '${faltaClaude}' }`,
+      `if ($si -notmatch '^\\s*[sS]') { & $nuevo cancelar | Out-Host; Remove-Item -Force $nuevo -ErrorAction SilentlyContinue; throw '${noLaConecte}' }`,
+      // Recién con el sí se para el que corría; y pase lo que pase, al salir queda uno corriendo.
+      '$sesion = 1',
+      'try {',
+      "  Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue | ForEach-Object { try { $_.Kill(); [void]$_.WaitForExit(15000) } catch {} }",
+      '  & $nuevo confirmar | Out-Host',
+      `  if ($LASTEXITCODE -ne 0) { throw '${noConfirme}' }`,
+      '  $movido = $false',
+      '  for ($i = 0; $i -lt 20 -and -not $movido; $i++) { try { Move-Item -Force $nuevo $exe; $movido = $true } catch { Start-Sleep -Milliseconds 500 } }',
+      "  if (-not $movido) { throw 'No pude reemplazar el programa: cierra MaKo y pega la línea de nuevo.' }",
       // Lo de la 0.2.0, si quedó: nada de MaKo en Inicio.
-      "Remove-Item -Force (Join-Path ([Environment]::GetFolderPath('Startup')) 'MaKo.vbs') -ErrorAction SilentlyContinue",
-      `New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name '${ARRANQUE_WINDOWS}' -Value ('"' + $exe + '"') -PropertyType String -Force | Out-Null`,
-      'Start-Process -FilePath $exe',
-      `Write-Host '${listo}'`,
+      "  Remove-Item -Force (Join-Path ([Environment]::GetFolderPath('Startup')) 'MaKo.vbs') -ErrorAction SilentlyContinue",
+      `  New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name '${ARRANQUE_WINDOWS}' -Value ('"' + $exe + '"') -PropertyType String -Force | Out-Null`,
+      "  $claude = Join-Path $env:USERPROFILE '.local\\bin\\claude.exe'",
+      '  if (-not (Test-Path $claude)) { $c = Get-Command claude -ErrorAction SilentlyContinue; if ($c) { $claude = $c.Source } }',
+      '  & $exe sesion | Out-Host',
+      '  $sesion = $LASTEXITCODE',
+      "  if ($sesion -eq 2 -and (Test-Path $claude)) { Write-Host 'Inicia sesión con tu cuenta de Claude: se abre el navegador.'; & $claude auth login; & $exe sesion | Out-Host; $sesion = $LASTEXITCODE }",
+      '} finally {',
+      '  if (Test-Path $exe) { Start-Process -FilePath $exe }',
+      '  Remove-Item -Force $nuevo -ErrorAction SilentlyContinue',
+      '}',
+      `if ($sesion -eq 0) { Write-Host '${listo}' } elseif ($sesion -eq 3) { Write-Host '${faltaClaude}' } else { Write-Host '${faltaSesion}' }`,
     ].join('\n');
   }
   // Mac. `curl | sh` lee el script por la entrada: lo que pregunta lee de /dev/tty, y el programa va con < /dev/null para
-  // no comerse las líneas que siguen.
+  // no comerse las líneas que siguen. El agente de launchd se descarga recién con el «sí», y el `trap` lo vuelve a cargar
+  // al salir por donde sea (el nuevo, o el de antes si algo falló).
   return [
     'set -e',
     'D="$HOME/.mako-pc/bin"; mkdir -p "$D"',
+    `P="$HOME/Library/LaunchAgents/${ARRANQUE_MAC}.plist"; mkdir -p "$HOME/Library/LaunchAgents"`,
     'if [ "$(uname -m)" = "arm64" ]; then U=\'' + p.urls['mac-arm64'] + '\'; else U=\'' + p.urls['mac-x64'] + '\'; fi',
     'echo "Descargando MaKo en tu computadora..."',
-    `P="$HOME/Library/LaunchAgents/${ARRANQUE_MAC}.plist"; mkdir -p "$HOME/Library/LaunchAgents"`,
-    'launchctl unload "$P" 2>/dev/null || true',
     'curl -fsSL "$U" | gunzip > "$D/mako-pc.nuevo"',
-    'chmod +x "$D/mako-pc.nuevo"; mv -f "$D/mako-pc.nuevo" "$D/mako-pc"',
+    'chmod +x "$D/mako-pc.nuevo"',
     // En una Mac con chip de Apple, un ejecutable sin firma no corre: se le pone la firma local (ad-hoc).
-    'codesign --force --sign - "$D/mako-pc" 2>/dev/null || true',
-    `"$D/mako-pc" emparejar '${codigo}' --servidor '${p.servidor}' --nombre "$(scutil --get ComputerName 2>/dev/null || hostname)" < /dev/null || { echo "${otroCodigo}"; exit 1; }`,
+    'codesign --force --sign - "$D/mako-pc.nuevo" 2>/dev/null || true',
+    `"$D/mako-pc.nuevo" emparejar '${codigo}' --servidor '${p.servidor}' --nombre "$(scutil --get ComputerName 2>/dev/null || hostname)" < /dev/null || { rm -f "$D/mako-pc.nuevo"; echo "${otroCodigo}"; exit 1; }`,
     'if [ "$MAKO_PC_SI" = "1" ]; then SI=s; else printf "¿Es tu negocio? Escribe s y aprieta Enter para conectarla: "; read -r SI < /dev/tty || SI=; fi',
-    'case "$SI" in [sS]*) "$D/mako-pc" confirmar < /dev/null ;; *) "$D/mako-pc" cancelar < /dev/null; echo "No la conecté."; exit 1 ;; esac',
-    'E=0; "$D/mako-pc" sesion < /dev/null || E=$?',
-    `if [ "$E" = "2" ] && [ -x "$HOME/.local/bin/claude" ]; then echo "Inicia sesión con tu cuenta de Claude: se abre el navegador."; "$HOME/.local/bin/claude" auth login < /dev/tty || true; elif [ "$E" != "0" ]; then echo "${faltaClaude}"; fi`,
+    `case "$SI" in [sS]*) ;; *) "$D/mako-pc.nuevo" cancelar < /dev/null || true; rm -f "$D/mako-pc.nuevo"; echo "${noLaConecte}"; exit 1 ;; esac`,
+    `trap '[ -f "$P" ] && launchctl load "$P" 2>/dev/null; rm -f "$D/mako-pc.nuevo"' EXIT`,
+    'launchctl unload "$P" 2>/dev/null || true',
+    `"$D/mako-pc.nuevo" confirmar < /dev/null || { echo "${noConfirme}"; exit 1; }`,
+    'mv -f "$D/mako-pc.nuevo" "$D/mako-pc"',
     'cat > "$P" <<PLIST',
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -356,8 +398,10 @@ export function scriptDeInstalacion(p: { sistema: SistemaPc; codigo: string; ser
     '<key>EnvironmentVariables</key><dict><key>PATH</key><string>$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>',
     '</dict></plist>',
     'PLIST',
-    'launchctl load "$P"',
-    `echo "${listo}"`,
+    'C="$HOME/.local/bin/claude"; [ -x "$C" ] || C="$(command -v claude || true)"',
+    'E=0; "$D/mako-pc" sesion < /dev/null || E=$?',
+    'if [ "$E" = "2" ] && [ -n "$C" ]; then echo "Inicia sesión con tu cuenta de Claude: se abre el navegador."; "$C" auth login < /dev/tty || true; E=0; "$D/mako-pc" sesion < /dev/null || E=$?; fi',
+    `if [ "$E" = "0" ]; then echo "${listo}"; elif [ "$E" = "3" ]; then echo "${faltaClaude}"; else echo "${faltaSesion}"; fi`,
   ].join('\n');
 }
 
@@ -368,10 +412,12 @@ export const TOPE_CUPO = 95;
  * como libre: antes quedaba descartada PARA SIEMPRE, porque sin turnos nada la volvía a medir (revisión del 21/10/2026).
  * Si todas están al tope, igual se usa la de menos uso: que Claude conteste su límite, con la hora en que se repone.
  */
-export function cuentaConCupo<T extends { usado5h?: number; usadoSemana?: number; repone?: string }>(cuentas: readonly T[], ahora = Date.now()): T | null {
+export function cuentaConCupo<T extends { usado5h?: number; usadoSemana?: number; repone?: string; reponeSemana?: string }>(cuentas: readonly T[], ahora = Date.now()): T | null {
   if (!cuentas.length) return null;
   const uso = (c: T) => (c.repone && Date.parse(c.repone) <= ahora ? 0 : (c.usado5h ?? 0));
-  const libres = cuentas.filter((c) => uso(c) < TOPE_CUPO && (c.usadoSemana ?? 0) < 100);
+  // La semana, igual: una que ya se repuso deja de contar como llena (antes, un 100 % semanal viejo no se borraba nunca).
+  const semana = (c: T) => (c.reponeSemana && Date.parse(c.reponeSemana) <= ahora ? 0 : (c.usadoSemana ?? 0));
+  const libres = cuentas.filter((c) => uso(c) < TOPE_CUPO && semana(c) < 100);
   return (libres.length ? libres : cuentas).reduce((a, b) => (uso(b) < uso(a) ? b : a));
 }
 
@@ -389,8 +435,9 @@ export const yaPaso = (iso: string | null | undefined, ahora: number): boolean =
  * Lo que dice la tarjeta de una PC (computadora y teléfono): en línea sin una cuenta con sesión no contesta nada, así
  * que no se la llama «En línea» (revisión del 21/10/2026: el tutorial decía «¡Listo!» con una PC que nunca iba a contestar).
  */
-export function estadoDeLaPc(pc: { enLinea: boolean; ultimoLatido: string | null; cuentas: readonly unknown[] }, ahora: number, hace: (t: number, ahora: number) => string): string {
-  if (pc.enLinea) return pc.cuentas.length ? 'En línea' : 'Sin sesión de Claude';
+export function estadoDeLaPc(pc: { enLinea: boolean; ultimoLatido: string | null; cuentas: readonly unknown[]; sinClaude?: boolean }, ahora: number, hace: (t: number, ahora: number) => string): string {
+  // Sin Claude Code instalado no es «sin sesión»: el paso que falta es el 2, no el 3 (segunda revisión, 21/10/2026).
+  if (pc.enLinea) return pc.cuentas.length ? 'En línea' : pc.sinClaude ? 'Falta instalar Claude' : 'Sin sesión de Claude';
   return pc.ultimoLatido ? `Sin conexión · ${hace(Date.parse(pc.ultimoLatido), ahora)}` : 'Esperando que se conecte';
 }
 
@@ -404,23 +451,34 @@ export const AVISO_PC_ERROR = 'Tu Claude no pudo contestar ahora: mándamelo de 
 export const AVISO_PC_SIN_SESION = 'Tu Claude no tiene la sesión iniciada en tu computadora: inicia sesión (paso 3 de «Tus cuentas de IA») y mándamelo de nuevo.';
 /** El negocio pasó su tope de turnos por minuto (§3, regla 6). */
 export const AVISO_PC_MUCHOS = 'Me mandaron muchos pedidos seguidos: espera un minuto y mándamelo de nuevo.';
+/** En la PC no hay Claude Code (el paso que falta es el 2). */
+export const AVISO_PC_SIN_CLAUDE = 'Tu computadora no tiene Claude Code instalado: instálalo (paso 2 de «Tus cuentas de IA») y mándamelo de nuevo.';
+/** La desconectaron a mitad del turno («Desconectar»): el pedido se cortó, no «tardó». */
+export const AVISO_PC_DESCONECTADA = 'Esta computadora se desconectó de MaKo y el pedido se cortó.';
+/** No se pudo leer la PC de la persona (un bache de la base): no se le pide que conecte la que ya tiene. */
+export const AVISO_PC_ILEGIBLE = 'No pude ver tu computadora ahora: mándamelo de nuevo en un momento.';
 /**
  * Por qué no contestó la PC: el tipo que manda ella (`tope`, `sesion`), o lo que vio el servidor (no la tomó o dejó de
- * latir: `apagada`; no volvió a tiempo: `tarde`; el negocio pasó su tope: `muchos`).
+ * latir: `apagada`; no volvió a tiempo: `tarde`; el negocio pasó su tope: `muchos`; no tiene Claude: `sin-claude`; la
+ * desconectaron: `desconectada`).
  */
-export type FalloDeLaPc = 'tarde' | 'error' | 'apagada' | 'muchos' | TipoFalloPc;
-/** «Tu Claude llegó a su límite de uso: se repone a las 15:30», en la hora del negocio. */
+export type FalloDeLaPc = 'tarde' | 'error' | 'apagada' | 'muchos' | 'sin-claude' | 'desconectada' | TipoFalloPc;
+/** «Tu Claude llegó a su límite de uso: se repone a las 15:30» (o «mañana», o «el jueves»), en la hora del negocio. */
 export function avisoTope(repone: string | null | undefined, tz: string, ahora = Date.now()): string {
   const t = repone ? Date.parse(repone) : NaN;
   if (!Number.isFinite(t) || t <= ahora) return 'Tu Claude llegó a su límite de uso: se repone solo en unas horas. Mándamelo de nuevo más tarde.';
   const hora = new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(t);
   const dia = (x: number) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(x);
-  return `Tu Claude llegó a su límite de uso: se repone ${dia(t) === dia(ahora) ? '' : 'mañana '}a las ${hora}.`;
+  const dias = Math.round((Date.parse(dia(t)) - Date.parse(dia(ahora))) / 86_400_000);
+  const cuando = dias <= 0 ? '' : dias === 1 ? 'mañana ' : `el ${new Intl.DateTimeFormat('es', { weekday: 'long', timeZone: tz }).format(t)} `;
+  return `Tu Claude llegó a su límite de uso: se repone ${cuando}a las ${hora}.`;
 }
 export function avisoDeLaPc(fallo: FalloDeLaPc | null, apagada: boolean, extra: { repone?: string | null; tz?: string } = {}): string | null {
   if (fallo === 'tarde') return AVISO_PC_TARDE;
   if (fallo === 'error') return AVISO_PC_ERROR;
   if (fallo === 'muchos') return AVISO_PC_MUCHOS;
+  if (fallo === 'sin-claude') return AVISO_PC_SIN_CLAUDE;
+  if (fallo === 'desconectada') return AVISO_PC_DESCONECTADA;
   if (fallo === 'sesion') return AVISO_PC_SIN_SESION;
   if (fallo === 'tope') return avisoTope(extra.repone, extra.tz ?? 'UTC');
   return fallo === 'apagada' || apagada ? AVISO_PC_APAGADA : null;

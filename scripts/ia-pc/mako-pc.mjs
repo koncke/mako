@@ -34,7 +34,7 @@ import { pathToFileURL } from 'node:url';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.1';
 const CARPETA = process.env.MAKO_PC_DIR || join(homedir(), '.mako-pc');
 const CONFIG = join(CARPETA, 'config.json');
 const REGISTRO = join(CARPETA, 'registro.txt');
@@ -110,21 +110,28 @@ export function limitesDelEvento(e) {
   const info = o.rate_limit_info && typeof o.rate_limit_info === 'object' ? o.rate_limit_info : o;
   const w = info.unifiedWindows && typeof info.unifiedWindows === 'object' ? info.unifiedWindows : {};
   const pct = (u) => (typeof u === 'number' && Number.isFinite(u) && u >= 0 && u <= 1.5 ? Math.min(100, Math.round(u * 100)) : undefined);
-  const r = w.five_hour?.resetsAt;
+  const iso = (r) => (typeof r === 'number' && Number.isFinite(r) ? new Date(r * 1000).toISOString() : undefined);
+  const repone = iso(w.five_hour?.resetsAt);
+  const reponeSemana = iso(w.seven_day?.resetsAt);
   return {
     ...(pct(w.five_hour?.utilization) != null ? { usado5h: pct(w.five_hour?.utilization) } : {}),
     ...(pct(w.seven_day?.utilization) != null ? { usadoSemana: pct(w.seven_day?.utilization) } : {}),
-    ...(typeof r === 'number' && Number.isFinite(r) ? { repone: new Date(r * 1000).toISOString() } : {}),
+    ...(repone ? { repone } : {}),
+    ...(reponeSemana ? { reponeSemana } : {}),
   };
 }
+
+/** COPIA de `reponeDelTope` (lib/ia-pc-reglas.ts): con la semana agotada, la hora de la semana; si no, la de las 5 horas. */
+export const reponeDelTope = (l) => ((l.usadoSemana ?? 0) >= 100 && l.reponeSemana ? l.reponeSemana : l.repone);
 
 /** COPIA de TOPE_CUPO (lib/ia-pc-reglas.ts). */
 export const TOPE_CUPO = 95;
 /**
  * COPIA de `cuentaConCupo` (lib/ia-pc-reglas.ts): la de menos uso de las 5 horas. Una cuenta cuya ventana ya se repuso
- * (`repone` pasó) cuenta como libre: antes quedaba descartada para siempre, porque nada la volvía a medir. Si todas
- * están al tope se usa igual la de menos uso: que Claude conteste su propio límite (con la hora en que se repone).
- * @template {{ usado5h?: number, usadoSemana?: number, repone?: string }} T
+ * (`repone` pasó, o `reponeSemana` para la semana) cuenta como libre: antes quedaba descartada para siempre, porque nada
+ * la volvía a medir. Si todas están al tope se usa igual la de menos uso: que Claude conteste su propio límite (con la
+ * hora en que se repone).
+ * @template {{ usado5h?: number, usadoSemana?: number, repone?: string, reponeSemana?: string }} T
  * @param {T[]} cuentas
  * @param {number} [ahora]
  * @returns {T | null}
@@ -132,7 +139,8 @@ export const TOPE_CUPO = 95;
 export function cuentaConCupo(cuentas, ahora = Date.now()) {
   if (!cuentas.length) return null;
   const uso = (c) => (c.repone && Date.parse(c.repone) <= ahora ? 0 : (c.usado5h ?? 0));
-  const libres = cuentas.filter((c) => uso(c) < TOPE_CUPO && (c.usadoSemana ?? 0) < 100);
+  const semana = (c) => (c.reponeSemana && Date.parse(c.reponeSemana) <= ahora ? 0 : (c.usadoSemana ?? 0));
+  const libres = cuentas.filter((c) => uso(c) < TOPE_CUPO && semana(c) < 100);
   return (libres.length ? libres : cuentas).reduce((a, b) => (uso(b) < uso(a) ? b : a));
 }
 
@@ -237,12 +245,17 @@ const cuentasDe = (c) => (Array.isArray(c.cuentas) && c.cuentas.length ? c.cuent
  */
 export const paraElLatido = (cuentas, ahora = Date.now()) => cuentas.filter((x) => x.conSesion === true).map((x) => {
   const vieja = !!x.repone && Date.parse(x.repone) <= ahora;
+  const semanaVieja = !!x.reponeSemana && Date.parse(x.reponeSemana) <= ahora;
   return {
     proveedor: 'claude', ...(x.email ? { email: x.email } : {}), ...(x.plan ? { plan: x.plan } : {}),
-    ...(x.usado5h != null && !vieja ? { usado5h: x.usado5h } : {}), ...(x.usadoSemana != null ? { usadoSemana: x.usadoSemana } : {}),
+    ...(x.usado5h != null && !vieja ? { usado5h: x.usado5h } : {}),
+    ...(x.usadoSemana != null && !semanaVieja ? { usadoSemana: x.usadoSemana } : {}),
     ...(x.repone && !vieja ? { repone: x.repone } : {}),
+    ...(x.reponeSemana && !semanaVieja ? { reponeSemana: x.reponeSemana } : {}),
   };
 });
+/** Lo que se le suma al latido: sin Claude instalado (MaKo manda al paso 2, no al 3). Nunca con una cuenta con sesión. */
+export const extrasDelLatido = (cuentas) => (cuentas.length && cuentas.every((x) => x.falta === true) ? { sinClaude: true } : {});
 
 // ── Conectar: emparejar → «¿es tu negocio?» → confirmar o cancelar ─────────────
 // La persona ve A QUÉ NEGOCIO y COMO QUIÉN se conecta antes de que quede (revisión del 21/10/2026: un código de otro
@@ -268,26 +281,48 @@ async function emparejar() {
   return 0;
 }
 
+/** Un pedido de una vez (confirmar, soltar) con reintentos: sólo lo reintenta si no llegó o MaKo contestó 5xx. */
+async function conReintentos(c, ruta) {
+  let r = null;
+  for (const espera of [0, 2_000, 5_000]) {
+    if (espera) await dormir(espera);
+    r = await api(c, 'POST', ruta).catch(() => null);
+    if (r && r.status < 500) return r;
+  }
+  return r;
+}
+
+/**
+ * La persona dijo que sí: MaKo confirma la PC (hasta acá estaba PENDIENTE y no contaba como «su IA», mig 0322) y recién
+ * entonces se suelta la conexión de antes y se guarda la nueva. Si MaKo no la confirmó, nada cambia y sale con 1: el
+ * instalador vuelve a dejar corriendo lo de antes (segunda revisión del Cerebro, 21/10/2026).
+ */
 async function confirmar() {
   const c = leerConfig() ?? {};
   const p = c.pendiente;
   if (!p?.token) { decir('No hay ninguna conexión esperando. Pide otro código en MaKo.'); return 1; }
+  const r = await conReintentos({ servidor: p.servidor, token: p.token }, '/api/ia-pc/confirmar');
+  if (!r) { decir('No pude llegar a MaKo: revisa tu conexión a internet.'); return 1; }
+  if (r.status !== 200) {
+    decir(esRevocado(r) ? 'Ese código ya no sirve.' : (r.datos?.error ?? `MaKo no confirmó la conexión (HTTP ${r.status}).`));
+    return 1;
+  }
   // La conexión de antes se suelta en MaKo (si no, quedaba una tarjeta «Sin conexión» para siempre).
-  if (c.token && c.token !== p.token) await api({ servidor: c.servidor ?? p.servidor, token: c.token }, 'POST', '/api/ia-pc/soltar').catch(() => null);
+  if (c.token && c.token !== p.token) await conReintentos({ servidor: c.servidor ?? p.servidor, token: c.token }, '/api/ia-pc/soltar');
   const resto = { ...c };
   delete resto.pendiente;
   guardarConfig({ ...resto, servidor: p.servidor, token: p.token, nombre: p.nombre, negocio: p.negocio, persona: p.persona });
-  decir(`¡Listo! Esta computadora quedó conectada a «${p.negocio}».`);
+  decir(`Esta computadora quedó conectada a «${p.negocio}».`);
   return 0;
 }
 
+/** La persona dijo que no (o el instalador no siguió): se suelta lo pendiente y lo de antes queda como estaba. */
 async function cancelar() {
   const c = leerConfig() ?? {};
-  if (c.pendiente?.token) await api({ servidor: c.pendiente.servidor, token: c.pendiente.token }, 'POST', '/api/ia-pc/soltar').catch(() => null);
+  if (c.pendiente?.token) await conReintentos({ servidor: c.pendiente.servidor, token: c.pendiente.token }, '/api/ia-pc/soltar');
   const resto = { ...c };
   delete resto.pendiente;
   guardarConfig(resto);
-  decir('No la conecté. Esta computadora sigue como estaba.');
   return 0;
 }
 
@@ -328,10 +363,13 @@ async function agregarCuenta() {
 /**
  * MaKo desconectó esta PC: se borra el token y el arranque automático. Quien llama sale con 0 (en la Mac, launchd sólo
  * relanza una salida que NO es 0: antes salía con 1 y la relanzaba cada 10 s para siempre).
+ * ⚠️ Sólo si lo desconectado es SU token: si mientras tanto se guardó otra conexión (reinstalar suelta la de antes), el
+ * programa viejo que recibe el 401 no borra la nueva ni saca el arranque, que ya es del nuevo (segunda revisión).
  */
-async function desconectada() {
+async function desconectada(miToken) {
   log('MaKo desconectó esta computadora. Para volver a usarla, conéctala de nuevo desde MaKo.');
   const c = { ...(leerConfig() ?? {}) };
+  if (c.token && c.token !== miToken) return;
   delete c.token;
   try { guardarConfig(c); } catch { /* */ }
   // `MAKO_PC_SIN_ARRANQUE=1`: los tests (tests/ia-pc-revision.test.ts) no tocan el arranque de la PC donde corren.
@@ -351,8 +389,18 @@ async function desconectada() {
 
 // ── Esperar turnos ────────────────────────────────────────────────────────────
 
-/** Vuelve a mirar la sesión: las que no la tienen, siempre; las que sí, cada REVISAR_SESION_MS. */
+/**
+ * Vuelve a mirar la sesión: las que no la tienen, siempre; las que sí, cada REVISAR_SESION_MS. Antes suma las cuentas
+ * que se agregaron con `agregar-cuenta` mientras corría (si no, la nueva no se usaba hasta reiniciar la PC).
+ */
+export function sumarCuentasNuevas(cuentas, config = leerConfig()) {
+  if (!config) return 0;
+  let n = 0;
+  for (const y of cuentasDe(config)) if (!cuentas.some((x) => (x.dir ?? null) === (y.dir ?? null))) { cuentas.push({ ...y }); n++; }
+  return n;
+}
 async function revisarSesiones(cuentas, todas = false) {
+  if (sumarCuentasNuevas(cuentas)) todas = true;
   const ahora = Date.now();
   for (const x of cuentas) {
     if (!todas && x.conSesion === true && ahora - (x.revisada ?? 0) < REVISAR_SESION_MS) continue;
@@ -381,8 +429,8 @@ async function correr() {
   const latir = async () => {
     if (fuera) return;
     await revisarSesiones(cuentas).catch(() => {});
-    const r = await api(c, 'POST', '/api/ia-pc/latido', { version: VERSION, cuentas: paraElLatido(cuentas) }).catch(() => null);
-    if (esRevocado(r)) { fuera = true; await desconectada(); process.exit(0); }
+    const r = await api(c, 'POST', '/api/ia-pc/latido', { version: VERSION, cuentas: paraElLatido(cuentas), ...extrasDelLatido(cuentas) }).catch(() => null);
+    if (esRevocado(r)) { fuera = true; await desconectada(c.token); process.exit(0); }
   };
   await latir();
   const latido = setInterval(() => { void latir(); }, LATIDO_MS);
@@ -397,7 +445,7 @@ async function correr() {
     }
     if (fallas) { log('Volvió la conexión con MaKo.'); fallas = 0; }
     if (r.status === 204) continue;
-    if (esRevocado(r)) { fuera = true; clearInterval(latido); await desconectada(); return; }
+    if (esRevocado(r)) { fuera = true; clearInterval(latido); await desconectada(c.token); return; }
     if (r.status !== 200 || !r.datos?.id) { await dormir(5000); continue; }
     const t = r.datos;
     if (!cuentas.some((x) => x.conSesion)) await revisarSesiones(cuentas, true);
@@ -418,7 +466,8 @@ async function correr() {
     if (res.error) {
       const tipo = falloDeClaude(res.error, res.limites);
       if (tipo === 'sesion') cuenta.conSesion = false;
-      cuerpo = { error: res.error, ...(tipo ? { tipo } : {}), ...(tipo === 'tope' && cuenta.repone ? { repone: cuenta.repone } : {}) };
+      const repone = tipo === 'tope' ? reponeDelTope(cuenta) : undefined;
+      cuerpo = { error: res.error, ...(tipo ? { tipo } : {}), ...(repone ? { repone } : {}) };
     } else cuerpo = { texto: res.texto, uso: res.uso, cuenta: cuenta.email ?? null };
     const ok = await contestar(c, t.id, cuerpo);
     log(`Turno ${t.id}: ${res.error ? `no pudo (${res.error})` : 'contestado'}${ok?.status === 200 ? '' : ' (MaKo no lo aceptó: venció)'}`);
@@ -447,8 +496,16 @@ const esPrincipal = import.meta.main === true || (() => {
 })();
 if (esPrincipal) {
   const cmd = process.argv[2] ?? 'correr';
-  const salir = (n) => process.exit(typeof n === 'number' ? n : 0);
-  const fallar = (e) => { decir(e instanceof Error ? e.message : String(e)); process.exit(1); };
+  // ⚠️ Los comandos de una vez NO salen con `process.exit()`: en Windows, con un pedido recién cerrado (confirmar hace
+  // dos), Node revienta con «Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), src\win\async.c» y sale con
+  // 0xC0000409: corrido con Node (el test, el e2e), «no se confirmó» con la conexión ya guardada (medido el 21/10/2026,
+  // Node 24; el ejecutable de Bun no revienta). Se deja el código y que termine solo; si algo lo retiene, el reloj (que
+  // no lo retiene) lo cierra.
+  const salir = (n) => {
+    process.exitCode = typeof n === 'number' ? n : 0;
+    setTimeout(() => process.exit(process.exitCode), 10_000).unref();
+  };
+  const fallar = (e) => { decir(e instanceof Error ? e.message : String(e)); salir(1); };
   if (cmd === '--version') decir(VERSION);
   else if (cmd === 'emparejar') emparejar().then(salir, fallar);
   else if (cmd === 'confirmar') confirmar().then(salir, fallar);

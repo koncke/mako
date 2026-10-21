@@ -19,6 +19,7 @@
 import 'server-only';
 import { credWsEstricta } from './credenciales';
 import { negocioConPc } from './ia-pc';
+import { conSoloSuIA } from './solo-su-ia';
 import { wsSuperAdmin } from './workspace';
 
 /** Las claves que son «su IA» (no la cascada barata). */
@@ -42,4 +43,16 @@ export async function negocioConSuIA(ws: number): Promise<IaDelNegocio> {
     console.error(`[ia-del-negocio] ws=${ws}: no pude saber si tiene su IA, así que va como si la tuviera: ${e instanceof Error ? e.message : String(e)}`);
     return { suIA: true, conPc: false };
   }
+}
+
+/**
+ * Corre `fn` con D6b decidido para ESTE negocio: si tiene su IA, adentro de «sólo su IA» (lib/solo-su-ia.ts). Es la
+ * forma de una ruta o una acción del Ops Center que llama a una IA (la revisión del Cerebro del 21/10/2026 encontró el
+ * Archivero de su pantalla, «Buscar con MaKo» y las áreas del Second Brain fuera del contexto, yendo a la Gemini gratis).
+ * ⚠️ Para el RESTO de una función que ya corre (el turno), `entrarSoloSuIA` después de su primer `await`: un `enterWith`
+ * adentro de una función async que se espera NO llega a quien la esperó.
+ */
+export async function conSuIADelNegocio<T>(ws: number, fn: (negocio: IaDelNegocio) => Promise<T>): Promise<T> {
+  const negocio = await negocioConSuIA(ws);
+  return conSoloSuIA(negocio.suIA, () => fn(negocio));
 }

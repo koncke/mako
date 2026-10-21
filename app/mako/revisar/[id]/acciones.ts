@@ -21,6 +21,8 @@ import { bloqueDeResultado, type Abrir, type Bloque } from '@/lib/chat-bloques';
 import { abrirDeResultado } from '@/lib/mako-turno-app-reglas';
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { sesionDeClave } from '@/lib/chat-hilo-origen';
+import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { ctxDeBandeja } from '../../ctx-bandeja';
 
 /** `bloques` y `abrir`: lo que dibuja el resultado y su «Abrir en <tab>» (lib/chat-bloques.ts), para el chat que
@@ -42,6 +44,9 @@ export async function confirmarAccionAction(id: string, payloadEditado: Record<s
 
   const c = await ctxDeBandeja();
   if ('error' in c) return { ok: false, error: c.error };
+  // ⛔ D6b: lo que se aplica desde acá con costo de IA corre con «sólo su IA» del negocio, como en el turno que lo propuso
+  // (lib/ia-del-negocio.ts; revisión del Cerebro, 21/10/2026). Para el resto de esta acción y lo que vaya por detrás.
+  entrarSoloSuIA((await negocioConSuIA(c.ctx.ws)).suIA);
 
   // La operación se lee de la PROPUESTA guardada, no del formulario: el cliente
   // no elige qué se ejecuta, solo con qué datos.
