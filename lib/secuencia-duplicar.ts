@@ -23,6 +23,10 @@
 //     copia. `emoji` (mig 0229, la parte B de la tercera tanda) se copia si la fila lo trae, y
 //     `posiciones` (mig 0233, quinta tanda) también: los pasos conservan sus ids al pasar por
 //     `setSecuenciaPasos`, así que la copia se dibuja acomodada igual que la original.
+//   · LA CONFIGURACIÓN PROPIA ENTRA POR `copiarConfig` (revisión del 20/10/2026): el horario y las horas a la misma
+//     persona de UNA automatización viven en `app_settings` (`automatizacion.config:<id>`), FUERA de la fila, así que
+//     la lista blanca no la alcanzaba y la copia de una «Prospección fría» mandaba a las 3 AM. Es OBLIGATORIA en las
+//     dependencias: un llamador nuevo que la olvide no compila.
 //   · SI ALGO FALLA DESPUÉS DE CREARLA, SE BORRA. Una copia a medias (sin pasos, o sin su horario)
 //     es una automatización que dice ser la otra y no lo es. Recién creada no tiene inscripciones ni
 //     envíos, así que borrarla no se lleva nada.
@@ -96,6 +100,8 @@ export type DepsDuplicar = {
   setPasos: (id: number, pasos: never[]) => Promise<void>;
   /** `setCronSecuencia` (lib/setting-secuencias.ts). */
   setCron: (id: number, cron: unknown) => Promise<void>;
+  /** `copiarConfigAutomatizacion` (lib/config-automatizacion-db.ts): el horario y los límites propios de la original. */
+  copiarConfig: (de: number, a: number) => Promise<void>;
   /** Para el test: la clave nueva. Sin pasar nada, una al azar como la de «＋ Nueva». */
   clave?: () => string;
 };
@@ -114,6 +120,7 @@ export async function duplicarSecuencia(id: number, deps: DepsDuplicar): Promise
     const pasos = Array.isArray(original.pasos) ? original.pasos : [];
     if (pasos.length) await deps.setPasos(nueva.id, pasos as never[]);
     if (original.cron != null) await deps.setCron(nueva.id, original.cron);
+    await deps.copiarConfig(original.id, nueva.id);
   } catch (e) {
     // Se borra la copia a medias y se cuenta por qué (el motivo de `setSecuenciaPasos` es el que
     // la pantalla muestra: «No se guardó: …»). Si el borrado falla, el motivo sigue siendo el otro.

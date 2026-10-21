@@ -7106,3 +7106,24 @@ al borrar o renombrar un relevo, se buscan sus citas en `docs/pendientes.md` en 
 - **Síntoma:** el renombre «Second Brain» → «Ops Center» (465f85e6e) dio VERDE en local con 2402 tests, y Actions cayó en el run 140: `tests/notificaciones.test.ts` esperaba el título de pestaña «MaKo - Second Brain».
 - **Causa:** `tituloDe` arma el título de la pestaña con el NOMBRE de la entrada de la barra (`nav.ts`), pero `tests-afectados` no relaciona ese test con un cambio en `nav.ts`. En local corre lo afectado, y Actions corre las 422 barredoras.
 - **Regla:** quien renombre una entrada de la barra busca su nombre viejo, entre comillas, en `tests/` antes del VERDE (`grep -rn "'MaKo - <nombre viejo>'" tests`).
+
+## Re-revisar una punta «arreglada»: el arreglo trae errores nuevos, y verificar la lista no los ve (20/10/2026)
+
+Corrida `revision-puntas-20-10-noche` del Cerebro (20 agentes): cinco puntas antes de integrarlas, dos de ellas con
+los arreglos de una revisión anterior. **En las dos, el arreglo había abierto un defecto que antes no estaba**, y el
+test de cada arreglo pasaba:
+- Automations aflojó un corte («lo propio ilegible ya no frena») dentro de `if (!ignorarVentana)`, y con
+  `ignorar_ventana=1` la corrida pasó a mandar con las horas del negocio.
+- Onboarding confirmó «todo lo escrito» con `siONo`, y «Sí, está bien» pasó a proponer «está bien» como nombre del negocio.
+
+**La regla:** la re-revisión lleva DOS lentes por punta. Uno verifica la lista de la revisión anterior leyendo el código,
+no el mensaje del commit ni el test. El otro busca lo que el arreglo rompió. Cada hallazgo alto o medio pasa por un
+escéptico que intenta refutarlo. De 13 hallazgos que llegaron al escéptico, ninguno se cayó.
+
+**Y las heurísticas sobre frases en español se rompen en lo obvio** (Onboarding y Web Generator, mismo día):
+`m[2].startsWith('mil')` atrapa «millones» y multiplica por mil; una negación que salta «las dos palabras que siguen»
+también se aplica a las OPCIONES con las que se compara («tengo leads pero no cierran» cae en la opción equivocada);
+contar palabras sobrantes no dice si la persona nombró la cosa. Un parser de frases se prueba con una batería de
+frases reales, con tuteo, voseo y números en letras, no con los casos que lo motivaron. Los detalles por área los
+cosecha cada jefe con su arreglo (hallazgos-onboarding, hallazgos-editor-landing, hallazgos-video-*). Lo que entró sin
+arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Cerebro, claude4.*

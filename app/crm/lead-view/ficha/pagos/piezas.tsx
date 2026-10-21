@@ -59,7 +59,6 @@ export function Semaforo({ tono, children }: { tono: Tono; children: ReactNode }
   return <Status tono={TONO_UI[tono]}>{children}</Status>;
 }
 
-const hoyISO = (): string => new Date().toISOString().slice(0, 10);
 const horaAhora = (): string => new Date().toTimeString().slice(0, 5);
 const numero = (s: string): number | null => {
   const n = Number(String(s).replace(',', '.'));
@@ -140,8 +139,10 @@ function CamposDeCuando({ fecha, hora, metodo, setFecha, setHora, setMetodo }: {
  * cliente la sigue debiendo) o es un descuento. Con CUALQUIER diferencia no hay Deshacer: desmarcar dejaría viva la
  * cuota nueva de la diferencia, o la cuota con el monto cobrado en vez del suyo.
  */
-export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }: {
+export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, onCerrar, onHecho }: {
   cuota: Pago; leadId: number; monedaNegocio: string; onCerrar: () => void;
+  /** El día del NEGOCIO (`ctx.hoy`), la fecha que se propone: con el UTC, de noche el cobro caía mañana. */
+  hoy: string;
   /** `deshacer`: la cuota quedó pagada entera y se puede volver atrás. */
   onHecho: (mensaje: string, deshacer: boolean) => void;
 }) {
@@ -151,7 +152,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }
   const [leyendo, setLeyendo] = useState(false);
   const [leido, setLeido] = useState<string | null>(null);
   const [plata, setPlata] = useState<Plata>({ moneda: 'USD', monto: String(valorUsd), usd: '' });
-  const [fecha, setFecha] = useState(hoyISO());
+  const [fecha, setFecha] = useState(hoy);
   const [hora, setHora] = useState(horaAhora());
   const [metodo, setMetodo] = useState<MetodoPago | ''>('');
   const [resto, setResto] = useState<'pendiente' | 'descuento'>('pendiente');
@@ -188,6 +189,8 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }
         // más el pendiente también es null, y desmarcar no devuelve el monto: la cuota quedaba debiendo lo cobrado.
         // El link ya se había cobrado (17/10/2026): quedó con ese pago y no hay nada que deshacer acá.
         if (r.porLink) { onHecho('Ya pagada por link', false); return; }
+        // Alguien la cobró mientras el modal estaba abierto: no se tocó nada, y no hay nada que deshacer.
+        if (r.yaEstaba) { onHecho(`${nombre} ya estaba cobrada`, false); return; }
         onHecho(r.pendiente != null ? `${nombre} cobrada · quedan ${usd(r.pendiente)} pendientes` : `${nombre} marcada como pagada`, r.pendiente == null && p.monto === valorUsd);
       } catch (e) { setError(msg(e)); }
     });
@@ -235,15 +238,17 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }
  * MENSUALIDAD cobrada de una suscripción manual. Entra como una cuota nueva ya cobrada por `marcarPago`, el mismo
  * camino que cualquier cobro: suma a lo cobrado y corta los recordatorios. No toca el monto de la venta.
  */
-export function RegistrarPago({ leadId, monedaNegocio, modo, sugeridoUsd, onCerrar, onHecho }: {
+export function RegistrarPago({ leadId, monedaNegocio, modo, sugeridoUsd, hoy, onCerrar, onHecho }: {
   leadId: number; monedaNegocio: string;
+  /** El día del NEGOCIO (`ctx.hoy`), la fecha que se propone: con el UTC, de noche el pago caía mañana. */
+  hoy: string;
   /** 'mensualidad': el título, el concepto y el monto sugerido son los de la suscripción. */
   modo: 'pago' | 'mensualidad';
   sugeridoUsd?: number | null;
   onCerrar: () => void; onHecho: (mensaje: string) => void;
 }) {
   const [plata, setPlata] = useState<Plata>({ moneda: 'USD', monto: sugeridoUsd ? String(sugeridoUsd) : '', usd: '' });
-  const [fecha, setFecha] = useState(hoyISO());
+  const [fecha, setFecha] = useState(hoy);
   const [hora, setHora] = useState(horaAhora());
   const [metodo, setMetodo] = useState<MetodoPago | ''>('');
   const [concepto, setConcepto] = useState(modo === 'mensualidad' ? 'Mensualidad' : '');

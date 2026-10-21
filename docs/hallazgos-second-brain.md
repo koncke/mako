@@ -25,6 +25,21 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## El link de un cliente abría la lista del CRM, y el test lo fijaba así (20/10/2026)
+
+Lo encontró el chat de CRM. Código: lib/cerebro-vivo.ts (el nodo `cliente:<id>`) · tests/second-brain-links.test.ts.
+
+- **Síntoma:** tocar un cliente en el Second Brain y «Abrir» llevaba a la lista del CRM, no a su ficha.
+- **Causa:** el nodo linkeaba `/crm?lead=<id>` y /crm no lee `lead` (sus searchParams son `funnel` y `embudo`). La ficha es
+  /crm/<id> (app/crm/[id]), la misma ruta que escribe todo el CRM; no hay una función única que la arme.
+- **Por qué nadie lo vio:** el test del grafo vivo FIJABA el link roto (`'/crm?lead=500'`). Copiaba lo que devolvía el código
+  en vez de mirar qué lee la pantalla de destino. Un test así nace verde y protege el bug.
+- **Regla:** un link se prueba contra su DESTINO. El barrido mira cada `href` de lib/cerebro-*.ts: la ruta existe en app/
+  y, si lleva `?param=`, la página lo declara en el tipo de sus searchParams. Medido el 20/10: el único roto era éste;
+  `?oferta=`, `?funnel=`, `?hoja=`, `?centro=` y `?chat=` los leen sus pantallas.
+- **Trampa del barrido:** sólo ve los `href:` escritos como texto en lib/cerebro-*.ts. Un link armado en otro archivo, o
+  con una función, no entra.
+
 ## El código decía «uno» y se veían dos: ningún cerebro se divide en dos (20/10/2026)
 
 Martín: «El Second Brain de SuperAdmin ya te había pedido que no se dividiera en 2... En ningún caso jamás los cerebros se

@@ -171,10 +171,11 @@ test('(e) el título del lienzo se re-siembra al dibujar cuando cambia el nombre
 
 test('(f) el modal: `sinFiletes`, Tabs con `sinLinea` y UN SOLO hijo con los dos paneles montados', () => {
   const src = fuente('app/automations/ConfiguracionesBoton.tsx');
-  const modal = tramo(src, '<Modal titulo="Configuraciones" onCerrar={cerrar} ancho={600} alto="min(85vh, 640px)" sinFiletes>', '</Modal>', 900);
+  // 20/10/2026: de UNA automatización (su nombre arriba, y sus paneles), con el mismo cuerpo de un solo hijo.
+  const modal = tramo(src, '<Modal titulo="Configuraciones" onCerrar={cerrar} ancho={600} alto="min(85vh, 680px)" sinFiletes>', '</Modal>', 1_800);
   const cuerpo = modal.slice(modal.indexOf('>') + 1).replace(/\{\}/g, '').trim();
-  assert.match(cuerpo, /^<div>\s*<Tabs tabs=\{\[\.\.\.PESTANAS_CONFIGURACIONES\]\} activa=\{pestana\} onCambio=\{\(id\) => setPestana\(id as Pestana\)\} sinLinea \/>\s*<div hidden=\{pestana !== 'horario'\}><HorarioEnvioPanel onSucio=\{alSucioHorario\} onGuardado=\{fijarOficina\} \/><\/div>\s*<div hidden=\{pestana !== 'limites'\}><LimitesEnvioPanel onSucio=\{alSucioLimites\} \/><\/div>\s*<\/div>$/,
-    'el cuerpo no es UN hijo con Tabs sin línea y los dos paneles montados (el segundo hijo lleva un filete arriba)');
+  assert.match(cuerpo, /^<div data-config-automatizacion=\{secuenciaId\}>[\s\S]*<Tabs tabs=\{\[\.\.\.PESTANAS_CONFIGURACIONES\]\} activa=\{pestana\} onCambio=\{\(id\) => setPestana\(id as Pestana\)\} sinLinea \/>\s*<div hidden=\{pestana !== 'horario'\}><HorarioDeLaAutomatizacion secuenciaId=\{secuenciaId\} onSucio=\{alSucioHorario\} \/><\/div>\s*<div hidden=\{pestana !== 'limites'\}>[\s\S]*<\/div>\s*<\/div>$/,
+    'el cuerpo no es UN hijo con Tabs sin línea y los paneles montados (el segundo hijo lleva un filete arriba)');
   assert.match(src, /const cerrar = useCerrarEstable\(onCerrar, ocupado\);/, 'el Modal recibe una flecha nueva por render, o cierra con el guardado en vuelo');
   assert.match(src, /return createPortal\(\s*<Modal /);
   // Tabs, ejecutado: con `sinLinea` no hay borde abajo; sin la prop, el de siempre.
@@ -188,16 +189,16 @@ test('(f) el modal: `sinFiletes`, Tabs con `sinLinea` y UN SOLO hijo con los dos
 
 // ── (g) El menú: Configuraciones y Tutorial ───────────────────────────────────────────────
 
-test('(g) el menú: las dos opciones con su ícono, el `data-recorrido` del último paso, y la lista no lo importa', () => {
+// ⚠️ 20/10/2026 (Martín: «en el lugar donde hoy está el ícono de configuraciones que solo quede el "?" del tutorial»): el
+// menú es sólo el «?». Configuraciones pasó a cada automatización (la tuerca y el «⋯» de la fila).
+test('(g) el menú: sólo el «?», con el `data-recorrido` del último paso, y la lista no lo importa', () => {
   const src = fuente('app/automations/ConfiguracionesBoton.tsx');
-  assert.match(src, /\{ value: 'configuraciones', label: 'Configuraciones', icono: 'configurar' \},\n\s+\{ value: 'tutorial', label: 'Tutorial', icono: 'pregunta' \},/);
-  for (const n of ['configurar', 'pregunta']) assert.ok(esIconoMenu(n), `«${n}» no es del set`);
+  assert.ok(esIconoMenu('configurar'), '«configurar» no es del set (lo usa el «⋯» de la fila)');
   const menu = tramo(src, 'export function MenuAutomations(', '\n}\n', 2000);
   assert.match(menu, /<span data-recorrido=\{OBJETIVO_AYUDA\} style=\{\{ display: 'inline-flex', flex: 'none' \}\}>/, 'el último paso del recorrido no tiene qué señalar');
-  assert.match(menu, /<Dropdown value="" resetAfterSelect sinFlecha search=\{false\} align="left" ariaLabel="Configuraciones y tutorial"/);
+  assert.match(menu, /<button type="button" data-boton-tutorial="" onClick=\{onTutorial\}/);
   assert.match(menu, /width: LADO_FILTRO, height: LADO_FILTRO/, 'el botón no es cuadrado del alto del buscador');
-  assert.match(menu, /if \(v === 'configuraciones'\) setAbierto\(true\); else if \(v === 'tutorial'\) onTutorial\(\);/);
-  assert.match(menu, /\{abierto && <ConfiguracionesModal onCerrar=\{cerrar\} \/>\}/);
+  assert.doesNotMatch(menu, /Dropdown|ConfiguracionesModal/, 'el menú volvió a abrir Configuraciones');
   assert.equal(OBJETIVO_AYUDA, 'au-ayuda');
   // El botón de antes y su CSS se fueron.
   assert.doesNotMatch(src, /data-configuraciones|chb-config|CSS_CONFIG/);

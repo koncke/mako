@@ -1818,6 +1818,12 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   escribe una sola: `fijarZonaDelNegocio`, con su origen.
 - **Dos zonas se comparan después de `zonaCanonica`**: Cal.com y Chrome contestan alias (`America/Buenos_Aires`) y Node
   24 devuelve el nombre viejo de ICU.
+- **«Hoy» es el día del NEGOCIO, nunca `new Date().toISOString().slice(0, 10)`** (20/10/2026): eso es el día UTC, y de 18
+  a 24 h en México ya es mañana (la ficha daba vencida una cuota que vence hoy). En el server, `hoyEnWorkspace()`; en un
+  componente, `hoyEnTz(useTzWorkspace())` (app/crm/lead-view/useTzWorkspace.ts). Una función de plata no tiene un
+  `hoy` por default: lo pide, o lo saca del negocio. tests/pagos-cobro-idempotente.test.ts barre Pagos y Clients.
+- **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
+  devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
 
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
@@ -9452,3 +9458,12 @@ CRM, Clients y Plan, en computadora y teléfono, dibujan sus tarjetas con `app/_
 tengan coherencia»; prototipo docs/prototipos/coherencia-1710.html). Un tablero nuevo NO escribe su propia tarjeta: usa
 `TarjetaPersona` (una persona) o `TarjetaTarea` (una tarea), y le pasa a la raíz su arrastre y su clic. En el teléfono, la
 tarjeta va adentro de `KanbanM`. Detalle y trampas: docs/hallazgos-ui.md.
+
+## Lo que se guarda POR AUTOMATIZACIÓN fuera de su fila viaja con «Duplicar» (20/10/2026)
+
+La configuración propia de una automatización (horario, horas a la misma persona) vive en `app_settings`
+(`automatizacion.config:<id>`), no en `nutricion_secuencias`. Algo NUEVO que se guarde por id de automatización fuera de
+la fila se copia en `duplicarSecuencia` (lib/secuencia-duplicar.ts, por una dependencia OBLIGATORIA como `copiarConfig`) y,
+si no se puede copiar, la copia se borra. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
+(«La revisión adversarial lo frenó»).
