@@ -769,4 +769,25 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-landing-receta.test.ts — las 60 frases de la revisión y 12 más, 30 roturas en rojo',
     ],
   },
+  {
+    fecha: '21 oct', hora: '02:23', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Para crear una landing, MaKo ya no adivina el producto: si no está claro, te pregunta con opciones',
+    puntos: [
+      'La tercera revisión probó unas 200 frases y encontró que MaKo seguía eligiendo mal: «Ya tengo la landing de la Mentoría; créame una para mi otro producto» la armaba sobre la Mentoría.',
+      'Ahora elige solo si nombras un producto de tu catálogo y no hablas de otro. Si no, te pregunta para cuál es: tus productos, «Un producto nuevo» o «El negocio en general».',
+      'Si eliges uno nuevo, te pide su nombre y de qué se trata. La tarjeta para confirmar dice para qué producto queda la landing.',
+      'El chat del editor de landings sigue igual que antes.',
+    ],
+    commits: [
+      { sha: 'bc42804f0', msg: 'Ops Center 1.15: el producto de la landing ya no se adivina; si no es seguro, se pregunta con opciones', lineas: 903, archivos: 7 },
+    ],
+    archivos: [
+      'lib/editor-landing/producto-de-landing.ts — productoDeLanding: elige sólo lo seguro, si no pregunta con opciones',
+      'lib/api-mako/areas/landing-editor.run.ts y .def.ts — el guardia en todo pedido y el parámetro producto_nuevo',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — el producto, uno nuevo o el negocio, adelante en la tarjeta',
+      'lib/mako-pedidos.ts — de vuelta como en producción (el chat del editor)',
+      'tests/ops-center-landing-receta.test.ts — las ~200 frases de las tres revisiones, 42 roturas en rojo',
+    ],
+  },
 ];
