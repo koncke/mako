@@ -7,7 +7,8 @@
 //      posterior (contestó en la app, en la caja o por Remote Control), o un wrap_up más nuevo. No cuenta como abierta, no
 //      se contesta, y el formulario no se toca. Las de `preguntar` no se tocan;
 //   2. la misma pregunta abierta no entra dos veces, aunque llegue en otra vuelta;
-//   3. la caja del cliente no se apaga mientras MaKo trabaja: `ocupado` sólo hace girar el botón;
+//   3. la caja del cliente no se apaga mientras MaKo trabaja: `ocupado` sólo hace girar la flecha; se puede dictar o grabar
+//      el siguiente, y quien dictaba no pierde el botón de terminar (revisión de la ola 1, 21/10/2026);
 //   4. el cartero (1.17.3): la pregunta de wrap_up lleva su origen, `armarPregunta` limpia como el servidor, un archivo
 //      malformado no tumba la vuelta, sube la última de cada chat con el tope antes de mandar, y la marca de un chat no
 //      avanza si su pregunta no entró (con un límite, para no dejarlo mudo);
@@ -19,7 +20,8 @@
 //   · `unirPreguntas` sin mirar el texto → 1 fallo (2);
 //   · la caja con `quieto = enviando || apagado || ocupado` → 1 fallo (3);
 //   · `preguntasSinRepetir` sin filtrar lo malformado → 1 fallo (4);
-//   · `marcasQueAvanzan` que avanza siempre → 1 fallo (4).
+//   · `marcasQueAvanzan` que avanza siempre → 1 fallo (4);
+//   · (21/10) `BotonMandar` girando con `ocupado` aunque se dicte → 1 fallo (3); la caja pasándole `girando` → 1 fallo (3).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -86,8 +88,11 @@ test('3. la caja del cliente no se apaga mientras MaKo trabaja', () => {
   // La caja no se dibuja en node (AdjuntosCaja importa su CSS): se mira el código, como tests/chat-unico.test.ts.
   const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.match(c, /const quieto = enviando \|\| apagado;/, 'el campo, el «+» y los emojis se apagan sólo saliendo o sin cargar');
-  assert.match(c, /const girando = enviando \|\| ocupado;/, 'el botón gira también mientras MaKo trabaja');
-  assert.match(c, /<BotonMandar [\s\S]{0,200}?enviando=\{girando\}/, 'y no manda');
+  assert.match(c, /const girando = enviando \|\| ocupado;/, 'la barra de la nota de voz no manda mientras MaKo trabaja');
+  assert.match(c, /<BotonMandar [\s\S]{0,200}?enviando=\{enviando\} ocupado=\{ocupado\}/, 'el botón sabe que MaKo trabaja');
+  const boton = sinComentarios(leer('app/admin/operaciones/Microfono.tsx'));
+  assert.match(boton, /if \(enviando \|\| \(ocupado && hayQueMandar && !d\.escuchando && !d\.subiendo\)\) return <button type="button" className="co-enviar" disabled aria-label="Mandando">/,
+    'mientras trabaja, la flecha espera; el micrófono (y el botón de terminar de dictar) no');
   assert.match(c, /aria-label=\{p\.placeholder\}\s*disabled=\{quieto\}/, 'el <textarea> mira `quieto`, no `ocupado`');
   assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /ocupado=\{!!trabajo\} apagado=\{!cargado \|\| !!errorCarga\}/, 'el chat del cliente usa `ocupado`');
 });
