@@ -24,8 +24,8 @@ onboarding-v3» en docs/hallazgos-onboarding.md.</sub>
   borrar app/offer/CajaDelCentro.tsx. El test ya mira CajaChat apenas exista.
 - /m/second-brain no lee `?recorrido=`: en el teléfono no hay tutorial.
 - La propuesta del CRM a medida se sigue pidiendo antes de responder (25 s / 45 s con la red).
-- **Choque para que decida el Cerebro:** Martín (18/10) pidió «sin respuestas rápidas en las preguntas del nombre y del
-  nombre del negocio»; el Cerebro (20/10) pidió volver a ofrecer el nombre del alta. Hoy se ofrece SÓLO el del alta.
+- ~~Choque de las respuestas rápidas del nombre~~ **DECIDIDO (Cerebro, 20/10 noche): gana Martín.** Ni el nombre ni el
+  negocio ofrecen opciones, tampoco el nombre del alta: `be2a4e4eb`.
 - Reparar el ws21 y borrar las dos keys copiadas del ws1: siguen esperando el sí de Martín (abajo).
 
 ## ESTADO AL 20/10/2026 ~19:20 AR — LA TANDA DEL 18/10 CERRADA Y LA DE FLORENCIA (feedback del 20/10)
