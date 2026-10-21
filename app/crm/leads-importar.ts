@@ -21,6 +21,7 @@
 // El criterio de teléfono de la casa. Los dos módulos son client-safe, así que esto no
 // arrastra nada del server al navegador.
 import { telefonoComparable } from '@/lib/leads-duplicados';
+import { desescaparCeldaCsv } from '@/lib/csv-celda';
 
 /** Por qué una fila NO se va a importar. Ninguna se esconde: se muestra atenuada. */
 export type MotivoDescarte = 'sin-nombre' | 'sin-contacto' | 'duplicado' | 'repetido-archivo';
@@ -488,7 +489,9 @@ export function parseCsv(text: string, delim = ','): string[][] {
  * sabe corregir.
  */
 export function filasDesdeCsv(texto: string, delim = ','): { filas: FilaImport[]; error?: string } {
-  const rows = parseCsv(texto, delim);
+  // El archivo puede ser uno que la propia app exportó: el apóstrofo que se le antepone a lo que arranca como fórmula (y el `="…"` de los teléfonos) no es parte
+  // del dato (lib/csv-celda.ts, `desescaparCeldaCsv`). Sin esto, exportar → corregir → importar dejaría un «'» pegado al nombre.
+  const rows = parseCsv(texto, delim).map((fila) => fila.map(desescaparCeldaCsv));
   if (rows.length < 2) return { filas: [], error: 'El archivo no tiene filas de datos.' };
   const header = rows[0].map((h) => h.trim().toLowerCase());
   const coincide = (h: string, names: string[]) => names.some((n) => h === n || h.includes(n));

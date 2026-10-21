@@ -37,6 +37,8 @@
 //  21. `ARRANCA_FORMULA` sin el `\s*` (« =1+1» pasa)                     → 12 / 1
 //  22. `PARECE_NUMERO` como `/\d/` (una comilla entra al literal)        → 12 / 1
 //  23. `textoCSV` con el escape del commit 3e87b4ac, el de antes          → 12 / 1
+//  (21/10/2026: `celda`, `ARRANCA_FORMULA` y `PARECE_NUMERO` de los números 18 a 22 se mudaron a lib/csv-celda.ts, el helper único de todos los CSV; `textoCSV` las usa
+//   con `telefonosComoTexto` y las mismas salidas. Las roturas de arriba valen igual, aplicadas allá. Ver tests/csv-celda.test.ts.)
 // Las roturas 1-17 se midieron con 12 tests: hoy darían 12 / 1. Restaurado: 13 pass / 0 fail.
 
 import { test } from 'node:test';
