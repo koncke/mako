@@ -19,12 +19,12 @@ import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
 import { rutaConWs } from '@/lib/workspace';
+import { RUTA_CENTRO_M } from '@/lib/movil-rutas';
 import { personaDelRequest, listarSesiones, abrirSesion } from '@/lib/mako-turno-app';
 import { ErrorM } from '@/app/m/_ui';
 import { ChatMako } from '../mako/ChatMako';
 import { SecondBrainCentroM } from './SecondBrainCentroM';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
-import { quienOpera } from '@/app/second-brain/pagina';
 import { hiloParaQuienYaTermino } from '@/lib/onboarding-arranque-server';
 import '../mako/mako.css';
 
@@ -38,18 +38,24 @@ const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 export default async function SecondBrainPagina({ searchParams }: {
   searchParams: Promise<{ area?: string | string[]; vista?: string | string[]; panel?: string | string[] }>;
 }) {
-  await requireMovil({ navKey: 'mako' });
+  const ctx = await requireMovil({ navKey: 'mako' });
   const veMapa = await esAdminDeTab('second-brain');
   const sp = await searchParams;
 
   // ⚠️ Y para el super admin el Second Brain vive dentro del Ops Center (17/10/2026): su entrada salió de More y un
   // /m/second-brain guardado lo lleva al grafo, como en la computadora (lib/ops-center-ruta.ts). La fila «Second Brain» del Ops
   // Center del teléfono ya apunta acá con `?panel=mapa`.
-  if (veMapa && (uno(sp.panel) === 'mapa' || uno(sp.area) || await quienOpera())) {
+  if (veMapa && (uno(sp.panel) === 'mapa' || uno(sp.area))) {
     const q = new URLSearchParams();
     for (const k of ['area', 'vista'] as const) { const v = uno(sp[k]); if (v) q.set(k, v); }
     redirect(await rutaConWs(`/m/second-brain/mapa${q.size ? `?${q}` : ''}`));
   }
+  // ⚠️ Desde el 20/10/2026 el Ops Center es la TAB PRINCIPAL del teléfono (pedido bb885d5f) y la app entra por acá
+  // (`ENTRADA_MOVIL`): sin pedir el grafo, quien opera va al Centro, que es SU Ops Center (el grafo está adentro, en la
+  // fila «Second Brain»). Hasta ese día iba directo al grafo. La pregunta es la de la fila del Centro en /m/mas y la de la
+  // barra (app/m/layout.tsx), NO `quienOpera`: en el teléfono el super admin siempre lleva el `?ws=` de su negocio, y para
+  // `quienOpera` eso ya es «mirando un cliente» (contextoMovil sí distingue su negocio propio). Mirando uno: su chat.
+  if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));
 
   // El chat «Onboarding» de quien terminó antes de que existiera, también desde el teléfono (20/10/2026, revisión del
   // Cerebro): se crea una vez, con las mismas reglas que en la computadora, y como es el más reciente es el que se abre.
