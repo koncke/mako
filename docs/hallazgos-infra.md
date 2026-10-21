@@ -6736,6 +6736,13 @@ dice); lo que sí se puede es que el diseño no dependa de eso.
 - Costo asumido: un candado a mano de otro worktree que sólo mira una pantalla en Chrome (sin ningún proceso pesado) se libera a los 10 min.
   El de ahora no es el caso (usa `antes-de-subir`), pero es la contrapartida de no poder preguntarle a un candado sin pid si vive.
 
+**Y lo que mi propia corrida de ese día mostró:** esperé 25 min en la fila (6 delante) y, al tomar el candado y mergear `origin/main` (+84 commits), una
+guarda nueva que vino en el merge frenó el VERDE **en 7 s**: un test mío tenía un literal que empieza con la letra de unidad de Windows
+(`scripts/rutas-windows-en-tests.mjs`; la unidad se arma aparte: `'C' + ':'`). Las guardas del push (~10 s, ~300 MB; el pre-push las corre sin
+candado) ahora corren ANTES de hacer fila —un rojo de guarda dice «no hice fila por esto» y tarda 8 s, medido con otro candado tomado— y otra vez al
+tomarlo, con main mergeado, que puede traer guardas y archivos nuevos. Verificado a mano (rompiendo el test a propósito con otro candado puesto), sin
+prueba automática: el efecto vive en `main()` del CLI y probarlo pide un repo roto.
+
 **Sigue abierto, y es la raíz:** un `mkdir` a mano le gana a la cola en el instante en que el dueño suelta (aquí por ~2 s). Lo de arriba lo hace
 inofensivo para `antes-de-subir`, no lo impide. Lo que lo impediría: que `soltar` ENTREGUE el candado al primero de la fila sin borrar el
 directorio (reescribe `dueno.json` con el pid del siguiente), así un `mkdir` a mano nunca lo ve libre mientras haya alguien esperando. No se hizo:

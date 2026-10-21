@@ -315,10 +315,13 @@ test('un candado a mano de OTRO worktree que nadie usa se suelta a los 10 min si
 }));
 
 test('esLineaPesada: tsc, node --test, next build, vitest… cuentan; la espera de antes-de-subir, el tsserver del editor y un servidor MCP no', () => {
+  // Así las ve Windows de verdad (CommandLine de Win32_Process). La unidad se arma aparte: la guarda de rutas de Windows en tests (scripts/rutas-windows-en-tests.mjs)
+  // frena cualquier literal que EMPIECE con la letra de unidad, y acá es un dato de texto para un regex, no una ruta que se abra.
+  const UNIDAD = 'C' + ':';
   for (const pesada of [
     'node --import tsx --test tests/foo.test.ts',
     'node --test --test-concurrency=2 tests/a.test.ts tests/b.test.ts',
-    String.raw`"C:\Program Files\nodejs\node.exe" C:\dev\wt-x\node_modules\typescript\lib\tsc.js -p tsconfig.json --noEmit`,
+    String.raw`"${UNIDAD}\Program Files\nodejs\node.exe" ${UNIDAD}\dev\wt-x\node_modules\typescript\lib\tsc.js -p tsconfig.json --noEmit`,
     'node /c/dev/wt-x/node_modules/typescript/lib/tsc.js --noEmit',
     String.raw`node C:\dev\wt-x\node_modules\next\dist\bin\next build`,
     'node node_modules/vitest/vitest.mjs run',

@@ -436,6 +436,8 @@ como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a ma
   anterior y su propio `antes-de-subir` se anotó DETRÁS de ese candado: 27 min y 7 chats parados). Ahora la cola reconoce el candado a mano
   de tu worktree y lo toma, pero es un parche: el diseño es que `antes-de-subir` hace la fila solo. Si tomaste el candado a mano de verdad
   (un `tsc` suelto, un build) y corrés `antes-de-subir` con otro nombre, usá `--ya-tengo-el-candado`. `MAKO_SIN_COLA=1` lo saltea; en Actions no se usa.
+- **Las guardas del push corren ANTES de hacer fila** (~10 s, livianas) y vuelven a correr al tomar el candado, ya con `origin/main` mergeado: el 21/10
+  una guarda frenó un VERDE en 7 s pero después de 25 min de espera. Un `ROJO` de guarda dice «no hice fila por esto».
 - Un `ROJO: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
 
 ⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con
