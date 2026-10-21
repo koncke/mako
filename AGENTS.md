@@ -1962,6 +1962,23 @@ envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una acla
   grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
   lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
 
+# Leer texto libre con reglas falla en lo obvio: la red es que la persona CONFIRME lo que se entendió
+
+Dos piezas leían texto con heurísticas: el onboarding (cifras, opciones, el «sí», el nombre del negocio) y el
+clasificador del chat de la app (qué herramientas ve MaKo). Cada ronda de reglas cerraba los casos marcados y abría otros,
+medido con revisiones adversariales y un escéptico por hallazgo (20-21/10/2026). En el onboarding fueron tres rondas,
+cada una con errores nuevos: «2 palos por mes» (pesos) se guardaba como «Más de $80.000» (dólares) y «Sí, es así»
+proponía «así» como nombre del negocio. En el clasificador fueron dos: «cancelá llamada pendiente con Juan» terminaba en
+`cancelar_accion`, que corre sin tarjeta.
+
+**La regla:** lo que se interpreta de un texto libre y se GUARDA como dato del cliente, o se EJECUTA sin vuelta atrás,
+pasa por un toque de la persona que ve lo que se entendió («Entendí $3.000 – $10.000 por mes. ¿Es así?»; la tarjeta de
+MaKo para una destructiva). Las reglas siguen sirviendo para PROPONER bien; la red es el toque. Así un error de lectura
+cuesta un clic y no un dato malo. Un texto que no da una lectura clara no adivina: pregunta. Eso incluye una moneda que
+no es la de los tramos, un empate o una negación rara. Un test fija que no hay ningún camino de guardado o de ejecución
+destructiva sin ese toque. Detalle: docs/hallazgos-infra.md («Re-revisar una punta arreglada»), hallazgos-onboarding e
+hallazgos-ia.
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres
