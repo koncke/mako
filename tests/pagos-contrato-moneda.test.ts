@@ -11,7 +11,9 @@
 //   2. el asistente de Ganado lo dice («el contrato dice MX$72.000: carga cuánto es en dólares») y no da por resuelto un
 //      plan de cuotas sin montos;
 //   3. (revisión de bc5fb022d) con el total en dólares, las cuotas valen sólo si SUMAN el total, con la tolerancia del
-//      asistente: un total en USD con cuotas en pesos no da un plan en dólares que nadie declaró.
+//      asistente: un total en USD con cuotas en pesos no da un plan en dólares que nadie declaró;
+//   4. (revisión de b23ce2a9c) el plan del contrato queda resuelto sólo si cuadra con el monto de cierre que va a QUEDAR
+//      (`planDelContrato`), y cada aviso dice lo que pasó: sin total no es «no suman su total», y una cuota de 0 se saca.
 //
 // Probado rompiéndolo (21/10/2026, una rotura por vez, restaurando byte a byte): los números, en ROTURAS al final.
 //
@@ -23,7 +25,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONTRACT_EXTRACT_DEFAULT } from '../lib/prompt-defaults';
-import { montosDelContrato, toleranciaCuotas } from '../lib/contrato-montos';
+import { montosDelContrato, planDelContrato, toleranciaCuotas } from '../lib/contrato-montos';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -61,7 +63,9 @@ test('1. ⚠️ la ruta REAL: en pesos el total original y las fechas, sin dóla
   assert.match(CONTRACT_EXTRACT_DEFAULT, /NO conviertas ningún monto/);
   assert.match(CONTRACT_EXTRACT_DEFAULT, /«\$», «MX\$» o «pesos» sin código NO son dólares/);
   // La regla, sola: un monto de 0 o en texto no es un monto.
-  assert.deepEqual(montosDelContrato({ total: '3000', moneda: 'USD', cuotas: [{ monto: 0, fecha: '01/11/2026' }] }).cuotas, [{ monto: null, fecha: '01/11/2026' }]);
+  // (revisión de b23ce2a9c) Una cuota de 0 no es una cuota: se saca (antes quedaba sin monto y anulaba el plan entero).
+  assert.deepEqual(montosDelContrato({ total: '3000', moneda: 'USD', cuotas: [{ monto: 0, fecha: '01/11/2026' }] }).cuotas, []);
+  assert.deepEqual(montosDelContrato({ total: '3000', moneda: 'USD', cuotas: [{ monto: 'mil', fecha: '01/11/2026' }] }).cuotas, [{ monto: null, fecha: '01/11/2026' }], 'en texto, sin monto');
   assert.equal(montosDelContrato({ total: 3000, moneda: 'usd' }).total_usd, 3000);
   assert.equal(montosDelContrato({ total_usd: null, cuotas: [] }).montos_no_usados, undefined, 'un prompt viejo sin montos no avisa nada');
 });
@@ -71,7 +75,8 @@ test('2. el asistente de Ganado lo dice, y no da por resuelto un plan sin montos
   assert.match(w, /if \(pideMonto && j\.total_usd == null && Number\(j\.total_original\) > 0\) \{/);
   assert.match(w, /aRevisar\.push\(`A revisar: monto \(el contrato dice \$\{dice\}: carga cuánto es en dólares\)`\);/);
   assert.match(w, /if \(j\.montos_no_usados\) aRevisar\.push\('A revisar: los montos del contrato no se usaron/);
-  assert.match(w, /if \(j\.cuotas\.every\(\(c: \{ monto\?: number \| string \| null \}\) => c\.monto != null\)\) \{ ok\.add\('plan'\); rell\.push\('plan de cuotas'\); \}\s*else aRevisar\.push\(j\.cuotas_no_cuadran\s*\? 'A revisar: plan de cuotas \(las cuotas del contrato no suman su total en dólares: cárgalas a mano\)'/,
+  // (revisión de b23ce2a9c) Lo decide `planDelContrato` (el test 4), con el monto de cierre que va a quedar.
+  assert.match(w, /const delPlan = planDelContrato\(j, \{ montoQueQueda, suscripcion: ventaTipo === 'suscripcion' \}\);\s*if \(delPlan\.resuelto\) \{ ok\.add\('plan'\); rell\.push\('plan de cuotas'\); \}\s*else if \(delPlan\.aviso\) aRevisar\.push\(delPlan\.aviso\);/,
     'sin montos, el paso del plan queda a la vista');
   // El total en dólares sigue siendo SÓLO el del contrato en dólares (la ruta lo da null en otra moneda).
   assert.match(sinComentarios(leer('app/api/extract-contract/route.ts')), /const montos = montosDelContrato\(parsed\);\s*return Response\.json\(\{\s*\.\.\.montos,/);
@@ -101,6 +106,35 @@ test('3. ⚠️ con el total en dólares, las cuotas valen sólo si suman el tot
   assert.doesNotMatch(copy, /convierte a USD|tasa aproximada|~17 MXN\/USD/);
 });
 
+test('4. ⚠️ el plan del contrato se resuelve sólo si cuadra con el monto que va a quedar, y cada aviso dice lo que pasó', () => {
+  const cuotas = (...m: Array<number | null>) => ({ cuotas: m.map((monto) => ({ monto, fecha: 'x' })) });
+  // Cierre de 5.000 ya cargado y un contrato de 4 × 1.000: NO queda resuelto (antes sí, sin pasar por `cuotasCuadran`).
+  const b11 = planDelContrato(cuotas(1000, 1000, 1000, 1000), { montoQueQueda: 5000, suscripcion: false });
+  assert.deepEqual(b11, { resuelto: false, aviso: 'A revisar: plan de cuotas (suman US$ 4.000 y el monto de cierre es US$ 5.000)' });
+  // Cuadra con el monto que queda (el que había, o el total recién precargado), con la tolerancia del asistente.
+  assert.deepEqual(planDelContrato(cuotas(1000, 1000, 1000, 1000), { montoQueQueda: 4000, suscripcion: false }), { resuelto: true, aviso: null });
+  assert.equal(planDelContrato(cuotas(1000, 1000, 1000, 1010), { montoQueQueda: 4000, suscripcion: false }).resuelto, true, 'dentro del 0,5%');
+  assert.equal(planDelContrato(cuotas(1000, 1000, 1000, 1000), { montoQueQueda: 0, suscripcion: false }).aviso, 'A revisar: plan de cuotas (suman US$ 4.000: falta el monto de cierre)');
+  // Una suscripción no tiene total que cuadrar (como `cuotasCuadran`).
+  assert.equal(planDelContrato(cuotas(500, 500), { montoQueQueda: 0, suscripcion: true }).resuelto, true);
+  // Sin montos: el aviso dice POR QUÉ.
+  assert.match(String(planDelContrato({ ...cuotas(null, null), sin_total: true }, { montoQueQueda: 0, suscripcion: false }).aviso), /el contrato no dice su total: carga el monto y las cuotas/);
+  assert.match(String(planDelContrato({ ...cuotas(null, null), cuotas_no_cuadran: true }, { montoQueQueda: 0, suscripcion: false }).aviso), /no suman su total en dólares/);
+  assert.match(String(planDelContrato(cuotas(null, null), { montoQueQueda: 0, suscripcion: false }).aviso), /vinieron las fechas/);
+
+  // Por la ruta REAL: «6 pagos de US$500» sin total. Antes decía «no suman su total», sin total.
+  const s = correr();
+  const st = s.sinTotal.respuesta;
+  assert.deepEqual([st.total_usd, st.cuotas_no_cuadran, st.sin_total], [null, undefined, true]);
+  assert.ok(st.cuotas.length === 6 && st.cuotas.every((c) => c.monto === null), 'sin total no hay con qué cuadrarlas: van sin monto');
+  // Con una cuota de 0 (0 + 3 × 1.000, total 3.000): la de 0 se saca y las tres valen. Antes, el plan entero sin monto.
+  const cc = s.conCero.respuesta;
+  assert.deepEqual([cc.total_usd, cc.cuotas_no_cuadran, cc.cuotas.map((c) => c.monto)], [3000, undefined, [1000, 1000, 1000]]);
+  // `cuotas_no_cuadran` sólo con un total y todas las cuotas con monto.
+  assert.equal(montosDelContrato({ total: 2000, moneda: 'USD', cuotas: [{ monto: 1000, fecha: 'a' }, { monto: null, fecha: 'b' }] }).cuotas_no_cuadran, undefined);
+  assert.equal(montosDelContrato({ total: 2000, moneda: 'USD', cuotas: [{ monto: 1000, fecha: 'a' }, { monto: 500, fecha: 'b' }] }).cuotas_no_cuadran, true);
+});
+
 // ROTURAS (21/10/2026). Base: 2 pases, 0 fallos. Rota (pases / fallos):
 //   · el total_usd de un prompt viejo vuelve a usarse                     → 1 / 1 (1)
 //   · un contrato en pesos llena los montos como dólares                  → 1 / 1 (1)
@@ -118,3 +152,12 @@ test('3. ⚠️ con el total en dólares, las cuotas valen sólo si suman el tot
 //   · el copy público vuelve a prometer la conversión                     → 2 / 1 (3)
 // (La primera versión de «sin total, las cuotas van igual» no rompía nada: con total null, |suma − null| ≤ 1 ya era
 //  falso. Se reescribió para que de verdad las deje pasar.)
+//
+// ROTURAS de la revisión de b23ce2a9c (21/10/2026). Base: 4 pases, 0 fallos. Rota (pases / fallos):
+//   · el plan se resuelve con cuadrar con el total del contrato (sin el cierre)       → 3 / 1 (4)
+//   · el asistente no le pasa el monto de cierre                                       → 3 / 1 (2)
+//   · «no suman su total» vuelve a salir sin total                                     → 3 / 1 (4)
+//   · sin total no se dice                                                             → 3 / 1 (4)
+//   · una cuota de 0 anula el plan                                                     → 2 / 2 (1 y 4)
+//   · el aviso de «sin total» se pierde                                                → 3 / 1 (4)
+//   · una suscripción tiene que cuadrar                                                → 3 / 1 (4)

@@ -555,5 +555,11 @@ de México.
   que mira la suma (`cuotasCuadran`). **Regla:** con el total en dólares, las cuotas traen monto sólo si SUMAN el total,
   con la misma tolerancia del asistente (`toleranciaCuotas`, una sola función para los dos); si no, van sin monto, el
   paso del plan se muestra y se dice que no suman. El copy de /vsl ya no promete la conversión.
+- **Cuadrar con el total del CONTRATO no es cuadrar con el CIERRE** (revisión de b23ce2a9c, baja). El plan se guarda
+  contra el monto de cierre: con un cierre de 5.000 ya cargado, un contrato de 4 × 1.000 quedaba «resuelto» y el paso
+  del plan no se veía (producción hacía lo mismo). **Regla:** lo decide `planDelContrato` (lib/contrato-montos.ts), con
+  el monto que va a QUEDAR (el que hay, o el total recién precargado) y la misma tolerancia. Y cada aviso dice lo que
+  pasó: «no suman su total» sólo con un total y todas las cuotas con monto; sin total, «el contrato no dice su total»;
+  una cuota de 0 se saca en vez de dejar el plan entero sin monto.
 - **Sin hacer:** los planes YA armados con montos convertidos así no se corrigen solos. El que se midió (ws11, lead 2605)
   lo decide Martín con el cliente.

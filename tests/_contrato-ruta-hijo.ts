@@ -63,6 +63,9 @@ async function main() {
   // tal cual, y con las cuotas convertidas por la IA (6.000 / 17 = 352,94, que suman 4.235,28).
   out.mixto = await pedir({ total: 4000, moneda: 'USD', duracion_meses: 12, cuotas: doce(6000), nota: null });
   out.convertido = await pedir({ total: 4000, moneda: 'USD', duracion_meses: 12, cuotas: doce(352.94), nota: null });
+  // (revisión de b23ce2a9c) Un contrato en dólares SIN total («6 pagos de US$500»), y uno con una cuota de 0.
+  out.sinTotal = await pedir({ total: null, moneda: 'USD', duracion_meses: 6, cuotas: Array.from({ length: 6 }, (_, i) => ({ monto: 500, fecha: `08/${String(10 + (i % 3)).padStart(2, '0')}/2026` })), nota: null });
+  out.conCero = await pedir({ total: 3000, moneda: 'USD', duracion_meses: 3, cuotas: [{ monto: 0, fecha: '08/10/2026' }, { monto: 1000, fecha: '08/11/2026' }, { monto: 1000, fecha: '08/12/2026' }, { monto: 1000, fecha: '08/01/2027' }], nota: null });
   out.viejo = await pedir({ total_usd: 4235.29, duracion_meses: 12, cuotas: doce(352.94), nota: 'Montos convertidos de MXN a USD a ~17 MXN/USD' });
   process.stdout.write(JSON.stringify({ ...out, red, sinMock: [...pg.sinMock] }));
 }
