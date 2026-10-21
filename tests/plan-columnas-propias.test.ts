@@ -25,6 +25,9 @@
 //   · el «＋» de una propia moviendo desde el `onDone` del modal (el `board` del clic no tiene la tarea) → 4 / 1
 //   · soltar en un tablero embebido mandando `columna: null` (le borraba la propia al reordenar)        → 4 / 1
 //   · MaKo diciendo «desde» por el estado y no por la columna donde se ve la tarea                       → 4 / 1
+// Y la tercera revisión (21/10/2026, archivo en 7 / 0, una rotura por vez):
+//   · mover sólo por la clave `c_…` (la lista le da a MaKo el NOMBRE, y ver_columnas_plan no viaja)       → 6 / 1
+//   · el error de una columna que no existe sin decir cuáles hay                                        → 6 / 1
 // Correr: node --import tsx --test tests/plan-columnas-propias.test.ts
 // =============================================================================
 
@@ -34,7 +37,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  claveDeTarea, columnasEnOrden, conColumnaPropia, destinoDeClave, parsearColumnasPlan, sinColumnaPropia, TOPE_COLUMNAS_PROPIAS,
+  claveDeTarea, columnasEnOrden, conColumnaPropia, destinoDeClave, nombreDeColumnaPropia, parsearColumnasPlan, propiaDeEstado, sinColumnaPropia, TOPE_COLUMNAS_PROPIAS,
   type ConfigColumnasPlan,
 } from '../lib/plan-columnas';
 import { columnasPorEstado } from '../app/plan/board/kanban';
@@ -133,4 +136,21 @@ test('MaKo ve la columna propia también en el historial del mover y en las list
   const h = leer('lib/api-mako/areas/plan.helpers.ts');
   assert.match(h, /\.\.\.\(t\.columnaPropia \? \{ columna: t\.columnaPropia \} : \{\}\),/, 'las listas dicen la columna propia');
   assert.equal((h.match(/columnaPropia: nombreDeColumnaPropia\(cols, /g) ?? []).length, 2, 'en las dos mitades del tablero');
+});
+
+test('MaKo mueve a una columna propia por el NOMBRE que le da la lista (tercera revisión 21/10)', () => {
+  const cfg = parsearColumnasPlan(JSON.stringify({ v: 2, nombres: {}, propias: [{ id: 'c_revision1', nombre: 'En revisión', estado: 'en_curso' }, { id: 'c_espera2', nombre: 'Esperando', estado: 'en_seguimiento' }] }));
+  // La vuelta entera: la lista da el nombre (`tareaCompacta` → `nombreDeColumnaPropia`), y mover lo acepta.
+  const nombre = nombreDeColumnaPropia(cfg, 'en_curso', 'c_revision1');
+  assert.equal(nombre, 'En revisión');
+  assert.equal(propiaDeEstado(cfg, 'en_curso', nombre ?? '')?.id, 'c_revision1', 'el nombre de la lista');
+  assert.equal(propiaDeEstado(cfg, 'en_curso', 'en revision')?.id, 'c_revision1', 'sin mayúsculas ni acentos');
+  assert.equal(propiaDeEstado(cfg, 'en_curso', 'c_revision1')?.id, 'c_revision1', 'y la clave, como antes');
+  assert.equal(propiaDeEstado(cfg, 'en_seguimiento', 'En revisión'), null, 'de OTRO estado: no');
+  assert.equal(propiaDeEstado(cfg, 'en_curso', 'Esperando'), null);
+  const run = leer('lib/api-mako/areas/plan.run.ts');
+  assert.match(run, /const propia = pedida \? propiaDeEstado\(config, estado, pedida\) : null;/);
+  assert.match(run, /Las de ese estado: \$\{hay\.join\(', '\)\}/, 'el error dice cuáles hay: ver_columnas_plan no viaja en todos los turnos');
+  const def = leer('lib/api-mako/areas/plan.def.ts');
+  assert.match(def, /\{ nombre: 'columna', tipo: 'string', descripcion: 'opcional: una columna propia de ese estado, por su nombre\.', max: 40 \}/, 'corto: viaja también a WhatsApp');
 });

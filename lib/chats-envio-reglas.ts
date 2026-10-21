@@ -22,7 +22,9 @@ import { MAX_TEXTO } from './inbox-movil-reglas';
 export const TOPE_TEXTO_ENVIO: Readonly<Record<CanalChat, number>> = { whatsapp: MAX_TEXTO, instagram: 1000, messenger: 1000, email: MAX_TEXTO };
 
 /** Una aceptación, no un mensaje: «sí», «dale», «ok», «mándalo», «listo», «envíalo ya»… solas o juntas. */
-const PALABRA_QUE_ACEPTA = '(?:s[ií]|dale|ok(?:ay)?|okey|listo|perfecto|claro|va|vale|bueno|de una|hazlo|h[aá]celo|m[aá]nd[aá]?(?:lo|la|selo|sela)?|env[ií][aá]?(?:lo|la|selo|sela)?|ya|por favor|porfa|ahora|mismo|eso|as[ií])';
+// Con las órdenes con «-le» (mándale, envíale, contéstale, respóndele, dile): «sí, dale, mándale» sólo ACEPTA, y su «Sí, dale»
+// no es un mensaje dictado (revisión del 21/10/2026). «contéstale que sí» sigue dictando por el «que».
+const PALABRA_QUE_ACEPTA = '(?:s[ií]|dale|ok(?:ay)?|okey|listo|perfecto|claro|va|vale|bueno|de una|hazlo|h[aá]celo|m[aá]nd[aá]?(?:lo|la|le|selo|sela)?|env[ií][aá]?(?:lo|la|le|selo|sela)?|cont[eé]st[aá]le|resp[oó]nd[eé]le|dile|dec[ií]le|ya|por favor|porfa|ahora|mismo|eso|as[ií])';
 const SOLO_ACEPTA = new RegExp(`^[¡¿\\s]*${PALABRA_QUE_ACEPTA}(?:[\\s,.!¡¿?]+${PALABRA_QUE_ACEPTA})*[\\s.!?]*$`, 'i');
 
 /**
@@ -65,7 +67,7 @@ export function identidadParaEnviar(canales: readonly IdentidadCanal[], canal: C
 export type CanalDeEnvio = 'whatsapp' | 'dm' | 'email';
 const NOMBRADO: ReadonlyArray<[CanalDeEnvio, RegExp]> = [
   ['email', /\b(e-?mails?|mails?|correos?)\b/],
-  ['dm', /\b(dms?|mensajes? directos?|instagram|insta|messenger)\b/],
+  ['dm', /\b(dms?|mensajes? directos?|instagram|insta|ig|messenger|facebook|fb)\b/],
   ['whatsapp', /\b(whats?app|wsp|wpp|whats)\b/],
 ];
 const OPERACION_DE: Readonly<Record<CanalDeEnvio, string>> = { whatsapp: 'enviar_borrador_whatsapp', dm: 'contestar_dm', email: 'contestar_email_chat' };
@@ -76,8 +78,14 @@ const QUE_ES: Readonly<Record<CanalDeEnvio, string>> = { whatsapp: 'un WhatsApp'
  * turno haya traído la de WhatsApp. Si el pedido nombra UN canal y no es el de esta operación, no se propone: se dice
  * cuál es. Si no nombra ninguno, o nombra varios, no frena (lo decide la conversación).
  */
-export function canalNombradoNoCoincide(mensajeUsuario: string | null | undefined, propio: CanalDeEnvio): string | null {
-  const m = (mensajeUsuario ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+export function canalNombradoNoCoincide(mensajeUsuario: string | null | undefined, propio: CanalDeEnvio, dictado?: string | null): string | null {
+  const plano = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  // EN EL PEDIDO, NO EN LO DICTADO (revisión del 21/10/2026): «contéstale a Pedro: te mandé el link por mail» es un
+  // WhatsApp; «mail» es del mensaje. Se saca el texto dictado, lo que va después del «:» y lo que va entre comillas.
+  let m = plano(mensajeUsuario ?? '');
+  const d = plano(dictado ?? '').trim();
+  if (d && m.includes(d)) m = m.replace(d, ' ');
+  m = m.replace(/[«"“][^»"”]*[»"”]/g, ' ').split(':')[0];
   const nombrados = NOMBRADO.filter(([, re]) => re.test(m)).map(([c]) => c);
   if (nombrados.length !== 1 || nombrados[0] === propio) return null;
   const pedido = nombrados[0];
@@ -102,4 +110,13 @@ export function canalDeDm(canales: readonly IdentidadCanal[], pedido?: string | 
   if (hay.length === 1) return { canal: hay[0] };
   if (!hay.length) return { error: 'Ese contacto no tiene mensajes directos de Instagram ni de Messenger. Para WhatsApp, enviar_borrador_whatsapp; para email, contestar_email_chat.' };
   return { error: 'Ese contacto te escribe por Instagram y por Messenger: ¿por cuál le contesto?', faltan: ['canal'] };
+}
+
+/**
+ * ¿El envío se cortó por TIEMPO? Entonces «no sé si salió», no «no salió»: Evolution o el servidor de email pudieron haber
+ * entregado el mensaje antes del corte, y quien lee «no salió» lo manda otra vez (revisión del 21/10/2026). `contestar_dm`
+ * ya lo distingue con `incierto`.
+ */
+export function esCortePorTiempo(error: string | null | undefined): boolean {
+  return /abort|time ?out|timed out|tiempo de espera/i.test(error ?? '');
 }

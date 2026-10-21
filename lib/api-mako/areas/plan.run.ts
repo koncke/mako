@@ -37,7 +37,7 @@ import { rutaParaRevisar } from '@/lib/operaciones-reglas';
 // Las columnas del kanban (16/10/2026): claves, etiquetas y qué es un pendiente, de UN lugar.
 import { ESTADOS, esEstado, estaPendiente, motivoAtoradaOk, type EstadoTarea } from '@/lib/todo-estados';
 import { etiquetasDeColumnasPlan, leerColumnasPlan, cambiarColumnasPlan } from '@/lib/plan-columnas-server';
-import { aplicarCambioColumnas, claveDeTarea, columnasEnOrden, destinoDeClave, etiquetaDeClave, nuevoIdColumna, type CambioColumnas } from '@/lib/plan-columnas';
+import { aplicarCambioColumnas, claveDeTarea, columnasEnOrden, destinoDeClave, etiquetaDeClave, nuevoIdColumna, propiaDeEstado, type CambioColumnas } from '@/lib/plan-columnas';
 import {
   getPropuesta, getPropuestaPorRef, listPropuestasPendientes, estadoDePropuesta, resumenPropuestasPorRefs,
   descartarPropuesta, crearPropuesta,
@@ -863,9 +863,13 @@ export const RUNNERS: Runners = {
       const pedida = str(input, 'columna');
       // Las columnas siempre: también dicen DÓNDE está hoy la tarea, si es en una propia (revisión del 21/10/2026).
       const config = await leerColumnasPlan();
-      const propia = pedida ? destinoDeClave(config, pedida) : null;
-      if (pedida && (!propia || !propia.columna || propia.estado !== estado)) return { error: `No hay una columna propia «${pedida}» en ${etiqueta(estado)}. Míralas con ver_columnas_plan.` };
-      const columna = propia?.columna ?? null;
+      const propia = pedida ? propiaDeEstado(config, estado, pedida) : null;
+      if (pedida && !propia) {
+        // El error dice cuáles HAY: `ver_columnas_plan` no viaja en todos los turnos (y no existe por WhatsApp).
+        const hay = config.propias.filter((p) => p.estado === estado).map((p) => `«${p.nombre}»`);
+        return { error: `No hay una columna «${pedida}» en ${etiqueta(estado)}.${hay.length ? ` Las de ese estado: ${hay.join(', ')}.` : ' Ese estado no tiene columnas propias.'}` };
+      }
+      const columna = propia?.id ?? null;
       const destino = columna ? etiquetaDeClave(config, columna) : etiqueta(estado);
       // «Ya está así» es un éxito sin nada que hacer para un flujo o un token (yaEstaba), y un
       // rechazo con la razón para una persona.

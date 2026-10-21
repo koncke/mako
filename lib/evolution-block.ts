@@ -25,6 +25,20 @@ export async function desbloquearContacto(telefono: string): Promise<void> {
   await (await getTenantDb()).from('wa_bloqueados').delete().eq('telefono', tel);
 }
 
+/**
+ * ¿Está bloqueado, en CUALQUIER forma del número? Por los últimos 10 dígitos, como /chats (`por10`, lib/chats.ts): un
+ * bloqueo hecho con 542233550684 tiene que frenar un borrador guardado como 2233550684 (revisión del 21/10/2026: la
+ * puerta comparaba exacto y le salía a un bloqueado). Con menos de 10 dígitos, exacto.
+ */
+export async function estaBloqueadoPorUltimos10(telefono: string | null | undefined): Promise<boolean> {
+  const d = String(telefono ?? '').replace(/\D/g, '');
+  if (d.length < 10) return d ? estaBloqueado(d) : false;
+  const u10 = d.slice(-10);
+  const { data, error } = await (await getTenantDb()).from('wa_bloqueados').select('telefono').like('telefono', `%${u10}`).limit(50);
+  if (error) throw new Error(`No pude leer los bloqueados: ${error.message}`);
+  return ((data ?? []) as Array<{ telefono: string | null }>).some((r) => String(r.telefono ?? '').replace(/\D/g, '').slice(-10) === u10);
+}
+
 export async function estaBloqueado(telefono: string): Promise<boolean> {
   const tel = norm(telefono);
   if (!tel) return false;

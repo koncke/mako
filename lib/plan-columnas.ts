@@ -110,6 +110,16 @@ export function nombreDeColumnaPropia(c: ConfigColumnasPlan | null | undefined, 
   return clave === estado ? null : etiquetaDeClave(c, clave);
 }
 
+/**
+ * Una columna PROPIA de ese estado por su nombre (sin mayúsculas ni acentos) o por su clave. Las listas de MaKo dan el
+ * NOMBRE («En revisión») y mover lo acepta: la clave `c_…` sólo la da `ver_columnas_plan`, que no viaja en todos los turnos
+ * (revisión del 21/10/2026).
+ */
+export function propiaDeEstado(c: ConfigColumnasPlan | null | undefined, estado: EstadoTarea, nombreOClave: string): ColumnaPropia | null {
+  const k = comparable(nombreOClave);
+  return c?.propias.find((p) => p.estado === estado && (p.id === nombreOClave || comparable(p.nombre) === k)) ?? null;
+}
+
 /** A qué estado y columna va una tarea soltada en `clave`. null = esa columna no existe. */
 export function destinoDeClave(c: ConfigColumnasPlan | null | undefined, clave: string): { estado: EstadoTarea; columna: string | null } | null {
   if (esEstado(clave)) return { estado: clave, columna: null };

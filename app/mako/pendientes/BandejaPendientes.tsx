@@ -15,6 +15,7 @@
 import { useState } from 'react';
 import { EmptyState, Mako, Status, type DatoMako } from '@/app/_ui';
 import { confirmarPendienteAction, cancelarPendienteAction } from './acciones';
+import { lineasDelPayload } from '@/lib/inbox-movil-reglas';
 
 export type FilaPendiente = {
   id: number;
@@ -40,24 +41,20 @@ type Marca =
   | { fase: 'cancelada'; resumen: string }
   | { fase: 'error'; error: string };
 
-const MAX_VALOR = 240;
-
-/** Un valor del payload, legible. Lo largo se corta: es para reconocer qué se
- *  va a ejecutar, no para auditarlo byte a byte. */
-function valorLegible(v: unknown): string {
-  if (v == null) return '—';
-  const s = typeof v === 'string' ? v : JSON.stringify(v);
-  return s.length > MAX_VALOR ? `${s.slice(0, MAX_VALOR)}…` : s;
-}
-
+/**
+ * LO QUE SE VA A EJECUTAR, con las MISMAS líneas que la tarjeta del chat y el teléfono (`lineasDelPayload`): un texto
+ * hasta 2.000 caracteres, entero. ⚠️ Esta bandeja es OTRA puerta de confirmación de los envíos al lead (revisión del
+ * 21/10/2026): cortaba en 240 y se confirmaba un email de 1.500 caracteres viendo el principio. Lo que se aprueba no se
+ * recorta.
+ */
 function LoQueSeEjecuta({ payload }: { payload: Record<string, unknown> }) {
-  const entradas = Object.entries(payload);
-  if (!entradas.length) return <span>Sin datos adicionales: se ejecuta tal como dice el resumen.</span>;
+  const lineas = lineasDelPayload(payload);
+  if (!lineas.length) return <span>Sin datos adicionales: se ejecuta tal como dice el resumen.</span>;
   return (
     <>
-      {entradas.map(([k, v]) => (
-        <span key={k}>
-          <span style={{ fontWeight: 600 }}>{k}</span>: {valorLegible(v)}
+      {lineas.map((l) => (
+        <span key={l.rotulo} style={{ whiteSpace: 'pre-wrap' }}>
+          <span style={{ fontWeight: 600 }}>{l.rotulo}</span>: {l.valor}
         </span>
       ))}
     </>

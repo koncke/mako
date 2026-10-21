@@ -27,6 +27,8 @@ export type CobroTarjeta = 'rechazado' | 'vencida' | null;
 export type CobroParaTarjeta = {
   estado: string | null; created_at: string | null; updated_at?: string | null; pagado_at?: string | null;
   tipo?: string | null; suscripcion_estado?: string | null; motivo?: string | null;
+  /** El concepto: ata el evento del rechazo a ESTE cobro (`logLeadEvent` escribe «<concepto>: <motivo>»). */
+  concepto?: string | null;
 };
 
 /**
@@ -51,11 +53,18 @@ export function cobroDelCliente(
    * eventos (un historial que no se pudo escribir), cuenta cuándo se creó el link: puede callar un rechazo, nunca
    * inventarlo.
    */
-  rechazos?: ReadonlyArray<string>,
+  rechazos?: ReadonlyArray<{ valor: string | null; created_at: string }>,
 ): CobroTarjeta {
   if (cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada' && esRenovacionFallida(c.motivo))) return 'rechazado';
   const fallidos = cobros.filter((c) => c.estado === 'fallido');
-  const rechazo = (rechazos?.length ? [...rechazos] : fallidos.map((c) => String(c.created_at ?? ''))).filter(Boolean).sort().at(-1);
+  // Cada fallido con SU evento («<concepto>: …»): el de un link que después se anuló o se reembolsó no cuenta, porque
+  // ese cobro ya no está fallido (tercera revisión del 21/10/2026). El evento se corta en 300 (lib/cobros.ts): el prefijo
+  // también. Sin evento propio, cuándo se creó el link.
+  const cuandoFallo = (f: CobroParaTarjeta): string => {
+    const suyos = f.concepto ? (rechazos ?? []).filter((e) => (e.valor ?? '').startsWith(`${f.concepto}: `.slice(0, 300))).map((e) => e.created_at) : [];
+    return [...suyos].sort().at(-1) ?? String(f.created_at ?? '');
+  };
+  const rechazo = fallidos.map(cuandoFallo).filter(Boolean).sort().at(-1);
   const pagadoAt = (c: CobroParaTarjeta): string => String(c.pagado_at ?? c.created_at ?? '');
   if (fallidos.length && rechazo && !cobros.some((c) => c.estado === 'pagado' && pagadoAt(c) > rechazo)) return 'rechazado';
   if (cuotasSinPagar.some((q) => q.fecha_esperada && q.fecha_esperada.slice(0, 10) < hoy)) return 'vencida';

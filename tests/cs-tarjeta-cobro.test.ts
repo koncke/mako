@@ -21,6 +21,8 @@
 //   · el rechazo fechado por `created_at` (un pago anterior lo tapaba)                               → 4 / 1
 //   · la cartera en una sola consulta (sin tandas: la URL y el techo de 1.000 filas)                 → 4 / 1
 //   (el test de la versión de ayer fijaba el mismo supuesto equivocado: el `created_at` del fallido como hora del rechazo)
+// Y la tercera revisión (21/10/2026, archivo en 5 / 0):
+//   · el evento del rechazo del LEAD y no de SU cobro (el de un link anulado inventaba un rechazo)  → 4 / 1
 // Correr: node --import tsx --test tests/cs-tarjeta-cobro.test.ts
 // =============================================================================
 
@@ -32,7 +34,9 @@ import { avanceDeCliente, cobroDelCliente } from '../app/customer-success/aviso-
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const HOY = '2026-10-20';
-const c = (estado: string, created_at: string, pagado_at: string | null = null, updated_at: string | null = null) => ({ estado, created_at, pagado_at, updated_at });
+const c = (estado: string, created_at: string, pagado_at: string | null = null, updated_at: string | null = null, concepto: string | null = null) => ({ estado, created_at, pagado_at, updated_at, concepto });
+/** El evento «Pago rechazado» como lo escribe `aplicarPagoFallido`: «<concepto>: <motivo>». */
+const ev = (concepto: string, created_at: string) => ({ valor: `${concepto}: card_declined`, created_at });
 
 test('el cobro de un cliente: rechazado si el ÚLTIMO falló y no pagó después; vencida si una cuota pasó su fecha', () => {
   assert.equal(cobroDelCliente([c('pagado', '2026-09-01T10:00:00Z', '2026-09-01T10:01:00Z'), c('fallido', '2026-10-01T10:00:00Z')], [], HOY), 'rechazado');
@@ -50,12 +54,18 @@ test('el cobro de un cliente: rechazado si el ÚLTIMO falló y no pagó después
 
 test('la revisión del 21/10: el rechazo cuenta por CUÁNDO pasó, y la renovación rechazada avisa', () => {
   // El link de la cuota 2 se creó el 01/10; la cuota 1 se pagó el 05/10; la 2 rebotó el 20/10 (el EVENTO del rechazo).
-  assert.equal(cobroDelCliente([c('pagado', '2026-09-25T10:00:00Z', '2026-10-05T10:00:00Z'), c('fallido', '2026-10-01T10:00:00Z')], [], HOY, ['2026-10-20T10:00:00Z']), 'rechazado',
+  assert.equal(cobroDelCliente([c('pagado', '2026-09-25T10:00:00Z', '2026-10-05T10:00:00Z', null, 'Cuota 1'), c('fallido', '2026-10-01T10:00:00Z', null, null, 'Cuota 2')], [], HOY, [ev('Cuota 2', '2026-10-20T10:00:00Z')]), 'rechazado',
     'un pago anterior al rechazo no lo tapa, aunque el link rechazado se haya creado antes');
   // Segunda revisión: el link A rebotó el 01/10, el B se pagó el 05/10, y el 10/10 alguien abrió el link A viejo (updated_at).
-  assert.equal(cobroDelCliente([c('fallido', '2026-09-30T10:00:00Z', null, '2026-10-10T10:00:00Z'), c('pagado', '2026-10-04T10:00:00Z', '2026-10-05T10:00:00Z')], [], HOY, ['2026-10-01T10:00:00Z']), null,
+  assert.equal(cobroDelCliente([c('fallido', '2026-09-30T10:00:00Z', null, '2026-10-10T10:00:00Z', 'Link A'), c('pagado', '2026-10-04T10:00:00Z', '2026-10-05T10:00:00Z', null, 'Link B')], [], HOY, [ev('Link A', '2026-10-01T10:00:00Z')]), null,
     'abrir un link viejo no es un rechazo nuevo: la hora es la del EVENTO');
-  assert.equal(cobroDelCliente([c('pagado', '2026-10-01T10:00:00Z', '2026-10-02T10:00:00Z')], [], HOY, ['2026-10-01T09:00:00Z']), null, 'un evento sin un cobro todavía fallido no avisa');
+  assert.equal(cobroDelCliente([c('pagado', '2026-10-01T10:00:00Z', '2026-10-02T10:00:00Z', null, 'Cuota 1')], [], HOY, [ev('Cuota 1', '2026-10-01T09:00:00Z')]), null, 'un evento sin un cobro todavía fallido no avisa');
+  // Tercera revisión: el evento es de SU cobro. La cuota 2 rebotó el 20/10 y después se ANULÓ; la cuota 3 rebotó el 01/09
+  // y se pagó el 05/10. Con los eventos del lead, el de la 2 (anulada) inventaba un rechazo posterior al pago.
+  assert.equal(cobroDelCliente([c('anulado', '2026-10-15T10:00:00Z', null, null, 'Cuota 2'), c('fallido', '2026-09-01T10:00:00Z', null, null, 'Cuota 3'), c('pagado', '2026-10-04T10:00:00Z', '2026-10-05T10:00:00Z', null, 'Cuota 3 (otra tarjeta)')], [], HOY, [ev('Cuota 2', '2026-10-20T10:00:00Z'), ev('Cuota 3', '2026-09-01T10:05:00Z')]), null,
+    'el rechazo de un link anulado no cuenta: sólo el de los cobros que siguen fallidos');
+  assert.equal(cobroDelCliente([c('fallido', '2026-09-01T10:00:00Z', null, null, 'Cuota 3'), c('pagado', '2026-10-04T10:00:00Z', '2026-10-05T10:00:00Z', null, 'Cuota 1')], [], HOY, [ev('Cuota 3', '2026-10-20T10:00:00Z')]), 'rechazado',
+    'el de un cobro que sigue fallido, sí: con SU hora');
   assert.equal(cobroDelCliente([c('fallido', '2026-10-01T10:00:00Z', null, '2026-10-02T10:00:00Z'), c('pagado', '2026-09-30T10:00:00Z', '2026-10-03T10:00:00Z')], [], HOY), null,
     'pagó después del rechazo: no avisa');
   const renovacion = (o: Record<string, string>) => ({ estado: 'pagado', created_at: '2026-09-01T10:00:00Z', pagado_at: '2026-09-01T10:00:00Z', tipo: 'suscripcion', motivo: 'Falló el cobro de la renovación: card_declined', ...o });
@@ -79,7 +89,7 @@ test('el aviso: «Pago rechazado» le gana a todo; «Cuota vencida» va después
 test('el cableado: una lectura para la cartera que nunca tira, y la misma regla en computadora y teléfono', () => {
   const lector = leer('app/customer-success/cobro-tarjeta.ts');
   // De a tandas de 150 y paginado (revisión 21/10): un `.in()` va en la URL y PostgREST corta en 1.000 sin avisar.
-  assert.match(lector, /leerTodo<FilaCobro>\(db, 'cobros', 'id, lead_id, estado, created_at, updated_at, pagado_at, tipo, suscripcion_estado, motivo'/, 'la regla necesita cuándo falló y el motivo de la renovación');
+  assert.match(lector, /leerTodo<FilaCobro>\(db, 'cobros', 'id, lead_id, estado, created_at, updated_at, pagado_at, tipo, suscripcion_estado, motivo, concepto'/, 'la regla necesita cuándo falló, el motivo de la renovación y el concepto (ata el evento a SU cobro)');
   assert.match(lector, /q\.in\('lead_id', t\)\.in\('estado', \['fallido', 'pagado'\]\)/);
   assert.match(lector, /q\.in\('lead_id', t\)\.eq\('pagado', false\)\.lt\('fecha_esperada', hoy\)/);
   assert.match(lector, /const TANDA = 150;/);

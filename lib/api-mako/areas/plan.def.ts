@@ -300,7 +300,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan), o «#412».', obligatorio: true, max: 80 },
       { nombre: 'estado', tipo: 'string', descripcion: 'la columna destino.', obligatorio: true, enum: ['por_hacer', 'en_curso', 'en_seguimiento', 'no_cumple'] },
       { nombre: 'motivo', tipo: 'string', descripcion: 'solo con en_seguimiento: por qué está atorada, en una línea.', max: 140 },
-      { nombre: 'columna', tipo: 'string', descripcion: 'opcional: una columna PROPIA de ese estado (clave c_…, de ver_columnas_plan). Sin ella, la de siempre de ese estado.', max: 40 },
+      { nombre: 'columna', tipo: 'string', descripcion: 'opcional: una columna propia de ese estado, por su nombre.', max: 40 },
     ],
     escribe: 'el estado, la columna, el lugar en la columna y el historial de la tarea (plan_tareas o experimento_tareas)',
     canales: TODOS, costo: 'gratis', gating: TAB,

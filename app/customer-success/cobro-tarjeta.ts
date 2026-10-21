@@ -34,7 +34,7 @@ export async function cobrosDeLaCartera(leadIds: readonly number[]): Promise<Rec
     const tandas: number[][] = [];
     for (let i = 0; i < ids.length; i += TANDA) tandas.push(ids.slice(i, i + TANDA));
     const [cobros, cuotas, rechazosLeidos] = await Promise.all([
-      Promise.all(tandas.map((t) => leerTodo<FilaCobro>(db, 'cobros', 'id, lead_id, estado, created_at, updated_at, pagado_at, tipo, suscripcion_estado, motivo', {
+      Promise.all(tandas.map((t) => leerTodo<FilaCobro>(db, 'cobros', 'id, lead_id, estado, created_at, updated_at, pagado_at, tipo, suscripcion_estado, motivo, concepto', {
         orden: 'id', filtros: (q) => q.in('lead_id', t).in('estado', ['fallido', 'pagado']) as unknown as ConsultaPaginada,
       }))).then((x) => x.flat()),
       Promise.all(tandas.map((t) => leerTodo<FilaCuota>(db, 'pagos', 'id, lead_id, fecha_esperada', {
@@ -45,10 +45,10 @@ export async function cobrosDeLaCartera(leadIds: readonly number[]): Promise<Rec
         orden: 'id', filtros: (q) => q.in('lead_id', t).eq('campo', 'Pago rechazado') as unknown as ConsultaPaginada,
       }))).then((x) => x.flat()),
     ]);
-    const rechazosDe = new Map<number, string[]>();
+    const rechazosDe = new Map<number, Array<{ valor: string | null; created_at: string }>>();
     for (const f of rechazosLeidos) {
       if (f.lead_id == null || /^Renovación de /.test(f.valor_nuevo ?? '')) continue;
-      rechazosDe.set(Number(f.lead_id), [...(rechazosDe.get(Number(f.lead_id)) ?? []), f.created_at]);
+      rechazosDe.set(Number(f.lead_id), [...(rechazosDe.get(Number(f.lead_id)) ?? []), { valor: f.valor_nuevo, created_at: f.created_at }]);
     }
     const cobrosDe = new Map<number, FilaCobro[]>();
     for (const f of cobros) if (f.lead_id != null) cobrosDe.set(Number(f.lead_id), [...(cobrosDe.get(Number(f.lead_id)) ?? []), f]);
