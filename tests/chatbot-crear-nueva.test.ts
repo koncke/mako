@@ -77,7 +77,9 @@ test('el pie de antes («N etapas sin secuencia · Armar una») no vuelve, ni su
   // Y lo que se dibuja: ni el pie ni el texto de «secuencia».
   const html = dibujar({});
   assert.ok(!/sin secuencia|Armar una/.test(html), 'la lista dibuja el pie de las etapas');
-  assert.ok(html.includes('aria-label="Tus automatizaciones"'), 'la lista volvió a llamarse «Tus secuencias»');
+  // 20/10/2026: con una automatización abierta la sidebar es el chat de MaKo (`Chat con MaKo`); con la lista, ése nombre.
+  assert.ok(html.includes('aria-label="Tus automatizaciones"') || html.includes('aria-label="Chat con MaKo"'), 'la sidebar perdió su nombre');
+  assert.ok(!html.includes('Tus secuencias'), 'la lista volvió a llamarse «Tus secuencias»');
 });
 
 test('la puerta pregunta por lo no publicado ANTES de crear', () => {

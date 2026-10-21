@@ -27,6 +27,7 @@ Los journals siguen en disco, en
 
 | Fecha | Corrida | Agentes | Qué se fue a buscar | |
 |---|---|---|---|---|
+| 2026-10-20 | `revision-puntas-20-10-noche` | 20 | Revisión adversarial de 5 puntas antes de integrarlas (Automations, Onboarding, la cola de montaje de Video, Video 1.14/1.15, Web Generator 1.15): 7 revisores por lente y un escéptico por hallazgo alto o medio. Entró Automations (con 2 defectos chicos anotados); las otras cuatro volvieron con 11 defectos confirmados | ya escrita |
 | 2026-10-10 | `tabs-desde-strategy` | 10 | Qué secciones de la tab Strategy merecen tab propia con datos reales: 6 lectores (secciones, tabs y proyectos, datos reales, referidos, ¿qué es MaKo?, objetivos), 1 diseñador y 3 refutadores (dato real, duplicado, audiencia y poda). De 11 tabs propuestas: 3 ahora, 4 después y 3 no; el bloqueo es el CRM vacío de ws9 | ya escrita |
 
 | 2026-09-23 | `depurar-plan-fase2` | 44 | Segunda poda con el criterio de los audios del 22/09 (tres fases con fecha): clasificar las 436 abiertas, refutar cada baja, y convertir el feedback de producto sobre el Plan y el Perro en tareas grandes. 195 borradas, 64 veredictos corregidos, 12 tareas nuevas | **cosechada** |

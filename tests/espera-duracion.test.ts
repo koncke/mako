@@ -244,9 +244,10 @@ test('⚠️ las DOS rutas del cron le dan el tope a TODAS sus corridas, y compa
     // Y con el TURNO del negocio: dos corridas del motor a la vez mandan dos veces.
     assert.match(ruta, /conTurno(DelMotor)?\(/, `${archivo} corre el motor sin el turno del negocio`);
   }
-  // El tick, sólo sobre lo que acaba de vencer (salvo al abrir el horario: barre entero).
+  // El tick, sólo sobre lo que acaba de vencer (salvo al abrir el horario: barre entero). 20/10/2026: un Recurrente que
+  // llegó a su hora (`recurrente`) también mira lo fresco: ahí caen los que acaba de inscribir.
   const tick = sinComentarios(leer('app/api/cron/nutricion-tick/route.ts'));
-  assert.match(tick, /\.\.\.\(motivo === 'vencio' \? \{ vencidasDesde: desde \} : \{\}\)/);
+  assert.match(tick, /\.\.\.\(motivo !== 'abrio' \? \{ vencidasDesde: desde \} : \{\}\)/);
 });
 
 test('⚠️ la VÍA RÁPIDA cumple la espera corta DESPUÉS de contestar (after), con su tope y su workspace', () => {
@@ -294,7 +295,8 @@ test('⚠️ `procesarEnvios` duerme las esperas cortas AL FINAL de la vuelta, e
   assert.match(dormir, /for \(const \[id, vence\] of esperasCortas\) if \(vence <= ahora\) \{ vistos\.delete\(id\); esperasCortas\.delete\(id\); \}/);
   assert.match(dormir, /esperasHechas >= TOPE_ESPERAS_CORTAS/, 'sin tope de esperas, una corrida podría dormir sin fin');
   // ⚠️ El anti-ban sigue: lo que viene después de la espera pasa por TODAS las guardas de la vuelta.
-  assert.match(proc, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioReciente, enviadoEnCorrida\)/);
+  // 20/10/2026: con las horas a la misma persona de CADA automatización (`conEnvioRecienteDe`, lib/config-automatizacion.ts).
+  assert.match(proc, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)/);
   // La vía rápida (un evento) no da tope: no duerme ADENTRO del webhook (sigue después: el test de abajo).
   assert.match(nutri, /try \{ await viaRapidaConTurno\(leadId\); \}/);
 });

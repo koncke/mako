@@ -146,18 +146,16 @@ test('dibujada: una automatización vacía NO dibuja la caja de crear (vive en e
   assert.ok(CAJA_IA_ANCHO > 0 && franjaIA(m).bottom > 0);
 });
 
-// Decimocuarta tanda (punto 3): el chat va en el muelle (`muelleChat`), se esconde SÓLO con «Probar» abierto (el mismo lugar),
-// sin desmontarse, y avisa a la tab que está abierto para que le reserve la derecha.
-test('el chat de editar va en el muelle de la derecha y se esconde (sin desmontarse) sólo con «Probar» abierto', () => {
+// ⚠️ 20/10/2026: el chat ya no va en el muelle de la derecha (decimocuarta tanda): ES LA SIDEBAR, siempre montado, por portal
+// en la ranura de la lista (Martín, 16/10 punto 6 y 20/10 punto 5). `chatAlCostado` queda medido arriba por si vuelve.
+test('el chat de editar va en la sidebar, siempre montado (por portal), y el muelle de la derecha es sólo de «Probar»', () => {
   const src = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Décima tanda: el lienzo vacío no monta la caja de crear (ni reserva lugar para ella).
   assert.doesNotMatch(src, /<CrearConIA /, 'volvió la caja de CrearConIA al lienzo');
   assert.doesNotMatch(src, /RESERVA_ABAJO_CREAR/);
-  assert.match(src, /const muelleChat = chatAlCostado\(muelles\);/);
-  const editar = src.match(/\{rolAdmin && editandoIA && \(\n\s+<div data-crear-ia="editar" data-muelle="mako" style=\{\{ position: 'absolute', \.\.\.muelleChat, display: probarAbierto \? 'none' : 'flex', flexDirection: 'column', zIndex: chatTrabajando \? Z_CHAT_ENCIMA : 4 \}\}>\n\s+<div style=\{\{ flex: 1, minHeight: 0, position: 'relative' \}\}>\n\s+<ChatMako secuenciaId=\{secuencia\.id\}/);
-  assert.ok(editar, 'el chat de editar no está montado en el muelle');
+  assert.doesNotMatch(src, /chatAlCostado|data-muelle="mako"|editandoIA/, 'el chat volvió al muelle de la derecha');
+  assert.match(src, /\{rolAdmin && ranuraChat && createPortal\(\n\s+<div data-crear-ia="editar" data-chat-sidebar="" style=\{\{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' \}\}>\n\s+<ChatMako secuenciaId=\{secuencia\.id\}/);
   assert.doesNotMatch(src, /\.\.\.franja, height: ALTO_CHAT_MAKO/, 'volvió el chat a la franja de abajo');
-  assert.match(src, /useEffect\(\(\) => \{ avisarChat\.current\?\.\(rolAdmin && editandoIA\); \}, \[rolAdmin, editandoIA\]\);/);
   assert.match(src, /onTarjetaAbierta=\{setTarjetaAbierta\}/);
 });
 

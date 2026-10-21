@@ -98,8 +98,13 @@ export type ChatMakoProps = {
   publicadas?: number;
   /** `false` = no lo aplicó (editar sobre un lienzo que cambió): el pedido vuelve a la barra. */
   onListo: (r: ListoCrearIA) => boolean | void;
-  /** El ✕ del chat. */
+  /** El ✕ del chat (sin esto, no hay ✕: en Automations el chat está siempre, desde el 20/10/2026). */
   onCerrar?: () => void;
+  /**
+   * LA «←» DE LA CABECERA (20/10/2026, Martín: «con la flecha para atrás para cambiar a otra automatización»): la sidebar
+   * vuelve a la lista. Sin esto, no hay flecha.
+   */
+  onVolver?: () => void;
   /** Mientras MaKo trabaja: quien monta tapa el lienzo (y deja el chat encima de la capa). */
   onTrabajando?: (trabajando: boolean) => void;
   deshabilitado?: boolean;
@@ -120,6 +125,12 @@ export type ChatMakoProps = {
   onCrearOtra?: (pedido: string) => Promise<boolean>;
   /** Se eliminó o volvió OTRA automatización desde una burbuja: la lista se vuelve a leer. */
   onListaCambio?: () => void;
+  /**
+   * LO QUE LA PANTALLA LE HACE DECIR A MaKo (20/10/2026): al activarla, por qué sus mensajes quedan para que los apruebes
+   * (`POR_QUE_SE_APRUEBAN`, lib/mensajes-por-aprobar.ts). Una vez por `id`; no se guarda en el hilo: lo sigue diciendo la
+   * línea de la automatización mientras haya alguno esperando.
+   */
+  nota?: { id: string; texto: string } | null;
 };
 
 
@@ -139,6 +150,8 @@ export const NO_APLICADO = 'Cambiaste el flujo: pídelo de nuevo';
 /** Debajo del nombre, como en WhatsApp. */
 export const ESTADO_EN_LINEA = 'en línea';
 export const ESTADO_ESCRIBIENDO = 'escribiendo…';
+/** La «←» de la cabecera: vuelve a la lista de automatizaciones (20/10/2026). */
+export const ROTULO_VOLVER = 'Volver a tus automatizaciones';
 /** La línea del hilo que dice de qué tarjeta salió un pedido del ✦ (punto 7). */
 export const ROTULO_TARJETA = 'MaKo te ayuda en';
 /** Lo que se lee con el hilo vacío. */
@@ -218,6 +231,15 @@ export function ChatMako(p: ChatMakoProps) {
   const onListoRef = useRef(p.onListo);
   useEffect(() => { onListoRef.current = p.onListo; });
 
+  // La nota de la pantalla (`nota`): una vez por id, como un turno de MaKo de esta pantalla.
+  const notaDicha = useRef<string | null>(null);
+  const nota = p.nota ?? null;
+  useEffect(() => {
+    if (!nota || notaDicha.current === nota.id) return;
+    notaDicha.current = nota.id;
+    setMensajes((ms) => [...ms, { id: nota.id, de: 'mako', texto: nota.texto, at: new Date().toISOString(), via: 'app' }]);
+  }, [nota]);
+
   // El reloj de lo que lleva (progreso real, no decorativo). Corre sólo mientras trabaja.
   useEffect(() => {
     if (!trabajando) return;
@@ -266,8 +288,17 @@ export function ChatMako(p: ChatMakoProps) {
   useEffect(() => {
     if (!trabajando) return;
     const alTeclado = (e: KeyboardEvent) => {
+      const raiz = raizRef.current;
+      const adentro = !!raiz && e.target instanceof Node && raiz.contains(e.target);
+      // ⚠️ ESCAPE NO CANCELA LO QUE NO SE VE (revisión del 20/10/2026). Con «←» la ranura del chat se ESCONDE (no se
+      // desmonta) y el pedido sigue en vuelo: un Escape para cerrar un modal, un desplegable o el buscador de la lista lo
+      // cortaba sin que se viera, y al volver el pedido no estaba. Con el chat escondido, o con un diálogo o menú abierto
+      // afuera del chat (y el Escape no nace en el chat), el Escape es de ellos.
+      const oculto = !raiz || raiz.getClientRects().length === 0;
+      const otroAbierto = !adentro && [...document.querySelectorAll('[role="dialog"], [role="menu"], [role="listbox"]')].some((n) => !raiz?.contains(n));
+      if (e.key === 'Escape' && (oculto || otroAbierto)) return;
       if (e.key === 'Escape' && fase !== 'revision') { e.preventDefault(); e.stopImmediatePropagation(); cancelar(); return; }
-      if (raizRef.current && e.target instanceof Node && raizRef.current.contains(e.target)) return;
+      if (adentro) return;
       if (esCampo(e.target)) return;
       // Sin `preventDefault`: los atajos del NAVEGADOR siguen andando; lo que se corta es que lleguen a los de la app.
       e.stopImmediatePropagation();
@@ -479,6 +510,9 @@ export function ChatMako(p: ChatMakoProps) {
 
   const cabecera = (
     <div data-cabecera-mako="" style={S.cabecera}>
+      {p.onVolver && (
+        <button type="button" className="chm-x" data-volver-lista="" onClick={p.onVolver} aria-label={ROTULO_VOLVER} title={ROTULO_VOLVER}>←</button>
+      )}
       <span role="img" aria-label="MaKo" style={{ display: 'inline-flex', flex: 'none' }}><Muneco titulo="Automations" animo={trabajando ? 'trabajando' : 'despierto'} size={30} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={S.nombre}>MaKo</div>
