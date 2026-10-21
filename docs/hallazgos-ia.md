@@ -4757,6 +4757,51 @@ y en lo que pasa en la PC antes de que la persona diga que sí. Lo no obvio:
   en la Mac, el programa, la pantalla y el turno → ia-pc-segunda-revision 16/1 o 14/3; D6b contando una PC no activa →
   solo-su-ia). El arnés: `romper-segunda.mjs` del scratchpad de la sesión.
 
+## La IA del cliente, tercera revisión: «falla cerrada» no es «cualquier cosa cuenta» (21/10/2026)
+
+La tercera revisión del Cerebro (sobre af8f42baf) cerró el alto de confirmar y los medios de las rutas, y confirmó cuatro
+medias y tres bajas. Lo no obvio:
+
+- **Contar una COPIA de la clave de MaKo como «su IA» parecía el lado seguro, y dejaba a un cliente sin servicio.** El
+  comentario lo decía a propósito («se equivoca hacia el lado de no mandar a Gemini»). Pero el ws1 tiene en su fila
+  copias de las keys de MaKo (esperan que Martín decida borrarlas): pasaba a «sólo su IA» sin ninguna IA que sirviera
+  (el veto rechaza la copia de Claude, `provsDe` saca la de OpenAI), y Buscar, El Archivero y las áreas, que en main le
+  andan, le decían «con tu propio Claude…», falso. La falla cerrada es para lo que NO SE PUEDE LEER, no para lo que se
+  sabe que es de MaKo: una copia (también de una cuenta extra, `OPENAI_API_KEY_2`, o con espacios) no cuenta.
+- **`descifrar` devuelve `null` sin tirar** (lib/cripto-credenciales.ts): una clave guardada que no se puede descifrar (el
+  secreto rotó, la fila se dañó) se leía como «no tiene», y D6b fallaba ABIERTO. Para decidir D6b se mira si la FILA
+  existe, no su valor: guardada e ilegible cuenta como suya.
+- **Reinstalar abría D6b en el hueco entre soltar la vieja y el primer latido de la nueva** (medido con la función real):
+  `confirmar` sólo marca `confirmado_at` y `activa_at` lo pone el latido. Si la sesión había vencido o se cerraba la
+  ventana, sin plazo y sin aviso. El arreglo no fue esperar el latido (eso deja la vieja «activa» con el programa ya
+  parado), sino **pasar la activación en el servidor al confirmar**, con el token de la de antes como prueba: misma
+  persona, mismo negocio y activa. Y el programa guarda la conexión nueva ANTES de soltar la vieja.
+- **Un `finally` de PowerShell no corre si se cierra la ventana** (medido por el Cerebro: WM_CLOSE mata PowerShell adentro
+  del `try`, 3 de 3, con un programa nativo bloqueando como `claude auth login`). El programa se prendía en el `finally`,
+  DESPUÉS del login: cerrar la ventana mientras el navegador pedía la sesión lo dejaba apagado. Lo que tiene que pasar sí o
+  sí no puede vivir en un `finally`: se prende antes del paso que espera a la persona.
+- **«No latió nunca» no es «abandonada»**: la purga revocaba también una PC CONFIRMADA sin latido, que tiene el arranque
+  puesto y late en el próximo inicio de sesión (la de las 03:40 casi siempre gana). Sólo se purgan las que nunca dijeron
+  que sí.
+- **Desplegar antes de la migración volvía GLOBAL la falla cerrada**: sin la columna `activa_at`, `negocioConPc` tiraba en
+  cada turno de cada negocio, y todos los que no tienen clave propia quedaban en «sólo su IA» sin ninguna IA. Un error de
+  ESQUEMA (42703, 42P01, PGRST204/205) se distingue y se contesta con lo que se sabe sin la columna: sin ninguna PC
+  registrada, «no»; con alguna, falla cerrada. Cualquier otro error sigue tirando. El orden (la 0322 primero) quedó
+  escrito en su cabecera, y la cabecera la exige un test.
+- **Emparejar gasta el código y anota su PC en dos viajes**: el tutorial que preguntaba en el medio decía «Ese código ya
+  se usó y la computadora no quedó conectada» mientras la ventana preguntaba «¿Es tu negocio?». Recién usado sin PC
+  anotada es «eligiendo» por un minuto.
+- **Lo que quedó SIN hacer:**
+  - **La 0322 sin aplicar y los ejecutables 0.3.2 sin subir** (los arma en seco la Ticketera; los sube Martín). La prueba
+    de punta a punta (`--instalador --reinstalar`) espera a las dos.
+  - **El AI Analyst programado desde el Ops Center decide con qué IA corre cada vez, no cuando se programó**: la fila no
+    guarda desde dónde se programó (tests/d6b-rutas.test.ts lo cubre por el cron).
+  - **La Mac, sin probar en una Mac.**
+- **Probado rompiéndolo**: 24 roturas (tests/ia-pc-tercera-revision.test.ts, base 8/0), todas en rojo. La primera corrida
+  dio 23: «la clave de la plataforma ilegible se saltea» pasaba, porque el caso usaba una copia de la PRIMERA cuenta, y
+  saltear la ilegible o fallar cerrado daban lo mismo («sí»). Con la copia de la SEGUNDA cuenta (legible) se distinguen:
+  saltear la da por copia («no»). Un caso de falla cerrada se prueba donde el error de saltear cambia la respuesta.
+
 ## Lo que midió la verificación del debate «quién paga el chat» (20/10/2026)
 
 Cuatro verificadores revisaron `docs/debate-ops-center-decisiones-20-10.md` contra producción antes de llevárselo a

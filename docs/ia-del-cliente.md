@@ -343,14 +343,17 @@ prueba en el ws3.
 32. **La PC nace PENDIENTE y cuenta como «su IA» recién ACTIVA** (mig 0322): emparejar la crea sin `confirmado_at`
     (no recibe turnos, no se lista, no cuenta para D6b); el «sí» la confirma (`/api/ia-pc/confirmar`, con su token
     pendiente); su primer latido con una cuenta de Claude con sesión la activa (`activa_at`). La que se dijo que no se
-    suelta, y la abandonada en la pregunta (15 minutos sin latir) la revoca la purga. Reemplaza al «sólo `confirmar` la
-    activa» del punto 21: antes la activaba emparejar, y una instalación abandonada le sacaba la IA a todo el negocio.
+    suelta, y la abandonada en la pregunta (15 minutos sin decir que sí) la revoca la purga. Reemplaza al «sólo
+    `confirmar` la activa» del punto 21: antes la activaba emparejar, y una instalación abandonada le sacaba la IA a todo
+    el negocio. (Una CONFIRMADA no se purga, y al reinstalar hereda la activación: punto 40.)
 33. **El instalador no toca lo que anda hasta el «sí»**: baja el programa a `mako-pc.nuevo`, lo empareja y pregunta; con
-    «no» (o un código vencido, o un 503) suelta lo pendiente y sale, y lo de antes sigue corriendo. Con el «sí»: para el
-    viejo (`Kill` + `WaitForExit`: `Stop-Process` no espera a que suelte el archivo), confirma, reemplaza con reintentos y
-    deja el arranque; al salir, pase lo que pase, deja uno corriendo (`finally` en Windows, `trap` en la Mac).
+    «no» (o un código vencido, o un 503) suelta lo pendiente y sale, y lo de antes sigue corriendo. Con el «sí»: confirma
+    con lo de antes todavía corriendo, para el viejo (`Kill` + `WaitForExit`: `Stop-Process` no espera a que suelte el
+    archivo), reemplaza con reintentos, deja el arranque y lo PRENDE antes de mirar la sesión (punto 41). El `finally`
+    (Windows) o el `trap` (Mac) quedan de respaldo: cerrar la ventana NO los corre.
 34. **El programa confirma con MaKo ANTES de soltar la conexión de antes**, y sólo con un 200 la guarda; un 503 se
-    reintenta. El programa viejo que recibe el 401 de su conexión soltada no borra la nueva ni saca el arranque.
+    reintenta. Guarda la nueva y RECIÉN DESPUÉS suelta la de antes: el programa viejo que recibe el 401 no borra la nueva
+    ni saca el arranque.
 35. **Lo que se ejecuta al CONFIRMAR una tarjeta también es del negocio** (D6b): el chat de la app, el teléfono, el CRM y
     el Analyst (`confirmarDesdeTarjeta`), la bandeja /mako/pendientes (`conSuIADelNegocio`) y /mako/revisar corren
     adentro de «sólo su IA». Una tarjeta con costo de IA (una hoja, el insight de un lead) no sale a la Gemini gratis.
@@ -367,6 +370,24 @@ prueba en el ws3.
     productos, razones) corren adentro de `conSuIADelNegocio`. Sin una clave que lea, lo dicen (`conSuIASinClave`) y
     Buscar vuelve a la búsqueda por texto. El crédito de Claude del onboarding sigue andando adentro. Lo que queda
     afuera está decidido una por una en tests/d6b-rutas.test.ts (§13).
+
+**Después de la tercera revisión del Cerebro (21/10/2026, af8f42baf no aprobado; lo medido, en docs/hallazgos-ia.md):**
+
+40. **Reinstalar no abre D6b**: el programa confirma la PC nueva mandando el token de la de antes, y si era de la misma
+    persona del mismo negocio y estaba ACTIVA, MaKo le pasa la activación a la nueva en ese mismo pedido. Recién después
+    se suelta la de antes. Antes, entre soltar y el primer latido de la nueva, el negocio salía de «sólo su IA» (y sin
+    plazo si la sesión había vencido o se cerraba la ventana).
+41. **El instalador prende el programa ANTES de la sesión y del login**: cerrar la ventana mientras el navegador pide la
+    sesión no corre el `finally` (medido: WM_CLOSE mata PowerShell adentro del `try`), y el programa ya mira la sesión
+    solo en cada latido. La purga revoca sólo las que nunca dijeron que sí; una confirmada que todavía no latió se
+    muestra («Esperando que se conecte») y late en el próximo inicio de sesión.
+42. **«Su IA» son sus claves PROPIAS**: una clave que es copia de la de la plataforma (también de una cuenta extra, o con
+    espacios) no cuenta, como en `provsDe` y el veto: el ws1, con copias de MaKo, siguió con Buscar y El Archivero. Una
+    clave guardada que no se puede descifrar SÍ cuenta (falla cerrada), y si la de la plataforma no se puede leer,
+    también (no se sabe si es copia).
+43. **Sin la mig 0322 (si el código llegara antes), un negocio sin ninguna PC registrada sigue con su IA de siempre**:
+    el error de esquema se loguea «FALTA LA MIG 0322» y sólo un negocio con alguna PC registrada falla cerrado. El orden
+    igual es la 0322 primero (está en su cabecera).
 
 ---
 

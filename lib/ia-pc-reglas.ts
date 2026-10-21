@@ -250,7 +250,7 @@ export function reponeDelTope(l: { usadoSemana?: number; repone?: string; repone
 // curl, el programa no lleva la marca de «descargado de internet», así que SmartScreen y Gatekeeper no lo frenan.
 
 /** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs). */
-export const VERSION_PC = '0.3.1';
+export const VERSION_PC = '0.3.2';
 export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
@@ -295,9 +295,15 @@ export const ARRANQUE_MAC = 'com.hola-mako.pc';
  * Lo que hace, en orden: baja el programa NUEVO a un archivo aparte, lo empareja (queda PENDIENTE en MaKo), le muestra a
  * la persona a qué negocio y como quién se conecta y le pregunta si es el suyo. Con «no» (o si emparejar falla) suelta lo
  * pendiente y se va SIN TOCAR lo que ya andaba. Recién con el «sí» para el programa que corría, confirma, reemplaza el
- * ejecutable, deja el arranque y, pase lo que pase, al salir deja uno corriendo (el nuevo, o el de antes si algo falló).
- * Después mira la sesión de Claude y, si falta, abre el login con la ruta que tenga (la ventana del paso 2 no tiene el
- * PATH nuevo; un Claude de winget o Homebrew está en el PATH y no en ~/.local/bin).
+ * ejecutable, deja el arranque y lo PRENDE. Después mira la sesión de Claude y, si falta, abre el login con la ruta que
+ * tenga (la ventana del paso 2 no tiene el PATH nuevo; un Claude de winget o Homebrew está en el PATH y no en
+ * ~/.local/bin).
+ *
+ * ⚠️ TERCERA REVISIÓN (21/10/2026): cerrar la ventana NO corre el `finally` (medido por el Cerebro: WM_CLOSE mata
+ * PowerShell adentro del `try`, 3 de 3). El programa se prendía recién en el `finally`, DESPUÉS del login, y cerrar la
+ * ventana mientras el navegador pedía la sesión lo dejaba apagado. Ahora: confirma con lo de antes todavía corriendo (si
+ * falla, no se tocó nada), reemplaza y prende enseguida, y la sesión se mira después (el programa la vuelve a mirar
+ * solo en cada latido). El `finally` (el `trap` en la Mac) queda de respaldo, y no prende un segundo programa.
  *
  * ⚠️ El ORDEN es lo que se revisó (segunda revisión del Cerebro, 21/10/2026): antes paraba el programa ANTES de preguntar,
  * así que «no es mi negocio», un código vencido o un 503 dejaban apagada la conexión que andaba («sigue como estaba»,
@@ -342,33 +348,34 @@ export function scriptDeInstalacion(p: { sistema: SistemaPc; codigo: string; ser
       `if ($LASTEXITCODE -ne 0) { Remove-Item -Force $nuevo -ErrorAction SilentlyContinue; throw '${otroCodigo}' }`,
       "if ($env:MAKO_PC_SI -eq '1') { $si = 's' } else { $si = Read-Host '¿Es tu negocio? Escribe s y aprieta Enter para conectarla' }",
       `if ($si -notmatch '^\\s*[sS]') { & $nuevo cancelar | Out-Host; Remove-Item -Force $nuevo -ErrorAction SilentlyContinue; throw '${noLaConecte}' }`,
-      // Recién con el sí se para el que corría; y pase lo que pase, al salir queda uno corriendo.
-      '$sesion = 1',
+      // Con el sí: confirma con lo de antes todavía corriendo. Si MaKo no la confirma, no se tocó nada.
+      '& $nuevo confirmar | Out-Host',
+      `if ($LASTEXITCODE -ne 0) { Remove-Item -Force $nuevo -ErrorAction SilentlyContinue; throw '${noConfirme}' }`,
       'try {',
       "  Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue | ForEach-Object { try { $_.Kill(); [void]$_.WaitForExit(15000) } catch {} }",
-      '  & $nuevo confirmar | Out-Host',
-      `  if ($LASTEXITCODE -ne 0) { throw '${noConfirme}' }`,
       '  $movido = $false',
       '  for ($i = 0; $i -lt 20 -and -not $movido; $i++) { try { Move-Item -Force $nuevo $exe; $movido = $true } catch { Start-Sleep -Milliseconds 500 } }',
       "  if (-not $movido) { throw 'No pude reemplazar el programa: cierra MaKo y pega la línea de nuevo.' }",
       // Lo de la 0.2.0, si quedó: nada de MaKo en Inicio.
       "  Remove-Item -Force (Join-Path ([Environment]::GetFolderPath('Startup')) 'MaKo.vbs') -ErrorAction SilentlyContinue",
       `  New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name '${ARRANQUE_WINDOWS}' -Value ('"' + $exe + '"') -PropertyType String -Force | Out-Null`,
-      "  $claude = Join-Path $env:USERPROFILE '.local\\bin\\claude.exe'",
-      '  if (-not (Test-Path $claude)) { $c = Get-Command claude -ErrorAction SilentlyContinue; if ($c) { $claude = $c.Source } }',
-      '  & $exe sesion | Out-Host',
-      '  $sesion = $LASTEXITCODE',
-      "  if ($sesion -eq 2 -and (Test-Path $claude)) { Write-Host 'Inicia sesión con tu cuenta de Claude: se abre el navegador.'; & $claude auth login; & $exe sesion | Out-Host; $sesion = $LASTEXITCODE }",
+      // Se prende YA, antes de la sesión y del login: cerrar la ventana después no lo deja apagado.
+      '  Start-Process -FilePath $exe',
       '} finally {',
-      '  if (Test-Path $exe) { Start-Process -FilePath $exe }',
+      "  if ((Test-Path $exe) -and -not (Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue)) { Start-Process -FilePath $exe }",
       '  Remove-Item -Force $nuevo -ErrorAction SilentlyContinue',
       '}',
+      "$claude = Join-Path $env:USERPROFILE '.local\\bin\\claude.exe'",
+      'if (-not (Test-Path $claude)) { $c = Get-Command claude -ErrorAction SilentlyContinue; if ($c) { $claude = $c.Source } }',
+      '& $exe sesion | Out-Host',
+      '$sesion = $LASTEXITCODE',
+      "if ($sesion -eq 2 -and (Test-Path $claude)) { Write-Host 'Inicia sesión con tu cuenta de Claude: se abre el navegador.'; & $claude auth login; & $exe sesion | Out-Host; $sesion = $LASTEXITCODE }",
       `if ($sesion -eq 0) { Write-Host '${listo}' } elseif ($sesion -eq 3) { Write-Host '${faltaClaude}' } else { Write-Host '${faltaSesion}' }`,
     ].join('\n');
   }
   // Mac. `curl | sh` lee el script por la entrada: lo que pregunta lee de /dev/tty, y el programa va con < /dev/null para
-  // no comerse las líneas que siguen. El agente de launchd se descarga recién con el «sí», y el `trap` lo vuelve a cargar
-  // al salir por donde sea (el nuevo, o el de antes si algo falló).
+  // no comerse las líneas que siguen. Con el «sí» confirma con lo de antes cargado; recién ahí descarga el agente,
+  // reemplaza y lo CARGA antes de la sesión. El `trap` lo vuelve a cargar al salir por donde sea (de respaldo).
   return [
     'set -e',
     'D="$HOME/.mako-pc/bin"; mkdir -p "$D"',
@@ -382,9 +389,9 @@ export function scriptDeInstalacion(p: { sistema: SistemaPc; codigo: string; ser
     `"$D/mako-pc.nuevo" emparejar '${codigo}' --servidor '${p.servidor}' --nombre "$(scutil --get ComputerName 2>/dev/null || hostname)" < /dev/null || { rm -f "$D/mako-pc.nuevo"; echo "${otroCodigo}"; exit 1; }`,
     'if [ "$MAKO_PC_SI" = "1" ]; then SI=s; else printf "¿Es tu negocio? Escribe s y aprieta Enter para conectarla: "; read -r SI < /dev/tty || SI=; fi',
     `case "$SI" in [sS]*) ;; *) "$D/mako-pc.nuevo" cancelar < /dev/null || true; rm -f "$D/mako-pc.nuevo"; echo "${noLaConecte}"; exit 1 ;; esac`,
+    `"$D/mako-pc.nuevo" confirmar < /dev/null || { rm -f "$D/mako-pc.nuevo"; echo "${noConfirme}"; exit 1; }`,
     `trap '[ -f "$P" ] && launchctl load "$P" 2>/dev/null; rm -f "$D/mako-pc.nuevo"' EXIT`,
     'launchctl unload "$P" 2>/dev/null || true',
-    `"$D/mako-pc.nuevo" confirmar < /dev/null || { echo "${noConfirme}"; exit 1; }`,
     'mv -f "$D/mako-pc.nuevo" "$D/mako-pc"',
     'cat > "$P" <<PLIST',
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -398,6 +405,8 @@ export function scriptDeInstalacion(p: { sistema: SistemaPc; codigo: string; ser
     '<key>EnvironmentVariables</key><dict><key>PATH</key><string>$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>',
     '</dict></plist>',
     'PLIST',
+    // Se carga YA, antes de la sesión y del login: cerrar la terminal después no lo deja apagado.
+    'launchctl load "$P" 2>/dev/null || true',
     'C="$HOME/.local/bin/claude"; [ -x "$C" ] || C="$(command -v claude || true)"',
     'E=0; "$D/mako-pc" sesion < /dev/null || E=$?',
     'if [ "$E" = "2" ] && [ -n "$C" ]; then echo "Inicia sesión con tu cuenta de Claude: se abre el navegador."; "$C" auth login < /dev/tty || true; E=0; "$D/mako-pc" sesion < /dev/null || E=$?; fi',

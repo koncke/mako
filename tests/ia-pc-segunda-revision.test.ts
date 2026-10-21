@@ -99,13 +99,15 @@ test('las rutas: confirmar es de la PC (pública, con su token pendiente), y sol
   const conf = sinComentarios(leer('app/api/ia-pc/confirmar/route.ts'));
   assert.match(conf, /pcDelPedido\(req, 'confirmar', \{ pendientesTambien: true \}\)/);
   assert.match(conf, /limitePorClave\('ia-pc-confirmar', d\.id, 5, 60_000\)/);
-  assert.match(conf, /ok = await confirmar\(d\)/);
+  assert.match(conf, /ok = await confirmar\(d(, body\?\.anterior)?\)/);
   assert.match(leer('lib/rutas-publicas.ts'), /'\/api\/ia-pc\/confirmar'/);
   assert.match(sinComentarios(leer('app/api/ia-pc/soltar/route.ts')), /pcDelPedido\(req, 'soltar', \{ pendientesTambien: true \}\)/);
   // Las demás rutas de la PC (latido, turno, mcp) NO aceptan una pendiente.
   for (const r of ['latido', 'turno']) assert.doesNotMatch(leer(`app/api/ia-pc/${r}/route.ts`), /pendientesTambien/, r);
   const mig = leer('supabase/migrations/0322_ia_pc_pendiente.sql');
-  assert.match(mig, /SIN APLICAR/);
+  // Hasta que el Cerebro la aplique dice «SIN APLICAR»; después, «APLICADA» (con la fecha). Y siempre el orden.
+  assert.match(mig, /SIN APLICAR|APLICADA/);
+  assert.match(mig, /ORDEN DE DESPLIEGUE: esta migración ANTES de integrar/);
   for (const c of ['confirmado_at timestamptz', 'activa_at timestamptz', 'claude_falta boolean not null default false']) assert.ok(mig.includes(`add column if not exists ${c}`), c);
   assert.match(mig, /add column if not exists dispositivo_id bigint references ia_pc_dispositivos\(id\) on delete set null/);
 });
@@ -124,12 +126,13 @@ test('Windows: nada de lo que corre se para antes del «sí»; con el sí, Kill 
   // Rota: Stop-Process en vez de Kill + WaitForExit → este test falla (8 de 8: «está siendo utilizado por otro proceso»).
   assert.match(win, /Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue \| ForEach-Object \{ try \{ \$_\.Kill\(\); \[void\]\$_\.WaitForExit\(15000\) \} catch \{\} \}/);
   assert.match(win, /for \(\$i = 0; \$i -lt 20 -and -not \$movido; \$i\+\+\) \{ try \{ Move-Item -Force \$nuevo \$exe; \$movido = \$true \} catch \{ Start-Sleep -Milliseconds 500 \} \}/);
-  // Rota: sin el `finally` → este test falla (un 503 al confirmar dejaba la PC sin programa hasta reiniciarla).
-  assert.match(win, /\} finally \{\n {2}if \(Test-Path \$exe\) \{ Start-Process -FilePath \$exe \}/);
+  // Rota: sin el `finally` → este test falla (si Move-Item falla, el de antes no volvía a arrancar).
+  assert.match(win, /\} finally \{\n {2}if \(\(Test-Path \$exe\) -and -not \(Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue\)\) \{ Start-Process -FilePath \$exe \}/);
   const t = win.indexOf('try {');
-  assert.ok(t > pregunta && win.indexOf('Kill()') > t && win.indexOf('& $nuevo confirmar') > win.indexOf('Kill()'), 'para, y recién ahí confirma');
+  // Desde la tercera revisión confirma ANTES de parar lo de antes (tests/ia-pc-tercera-revision.test.ts).
+  assert.ok(t > pregunta && win.indexOf('Kill()') > t && win.indexOf('& $nuevo confirmar') < t, 'confirma, y recién ahí para');
   assert.ok(win.indexOf('Move-Item') > win.indexOf('& $nuevo confirmar'), 'reemplaza sólo si MaKo la confirmó');
-  assert.match(win, /& \$nuevo confirmar \| Out-Host\n {2}if \(\$LASTEXITCODE -ne 0\) \{ throw '[^']+' \}/);
+  assert.match(win, /& \$nuevo confirmar \| Out-Host\nif \(\$LASTEXITCODE -ne 0\) \{ Remove-Item -Force \$nuevo -ErrorAction SilentlyContinue; throw '[^']+' \}/);
   assert.ok(win.indexOf('New-ItemProperty') > win.indexOf('Move-Item'), 'el arranque, con el programa nuevo ya en su lugar');
   for (const l of win.split('\n').filter((x) => /& \$(exe|nuevo) /.test(x))) assert.match(l, /& \$(exe|nuevo) [^|]*\| Out-Host/, `sin Out-Host: ${l}`);
 });
@@ -143,7 +146,8 @@ test('Mac: el agente se descarga recién con el «sí», y un `trap` lo vuelve a
   assert.match(mac, /\*\) "\$D\/mako-pc\.nuevo" cancelar < \/dev\/null \|\| true; rm -f "\$D\/mako-pc\.nuevo"; echo "No la conecté: tu computadora sigue como estaba\."; exit 1 ;;/);
   const trap = mac.indexOf("trap '[ -f \"$P\" ] && launchctl load \"$P\"");
   assert.ok(trap > pregunta && trap < mac.indexOf('launchctl unload'), 'el trap, antes de descargarlo');
-  assert.ok(mac.indexOf('"$D/mako-pc.nuevo" confirmar') > mac.indexOf('launchctl unload'));
+  // Desde la tercera revisión confirma con el agente todavía cargado (tests/ia-pc-tercera-revision.test.ts).
+  assert.ok(mac.indexOf('"$D/mako-pc.nuevo" confirmar') < mac.indexOf('launchctl unload'));
   assert.ok(mac.indexOf('mv -f "$D/mako-pc.nuevo" "$D/mako-pc"') > mac.indexOf('"$D/mako-pc.nuevo" confirmar'));
   for (const c of ['emparejar', 'confirmar', 'cancelar']) assert.match(mac, new RegExp(`"\\$D/mako-pc\\.nuevo" ${c}[^\\n]*< /dev/null`), `${c} no se come el script`);
   assert.match(mac, /"\$D\/mako-pc" sesion < \/dev\/null/);

@@ -34,7 +34,7 @@ import { pathToFileURL } from 'node:url';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 
-export const VERSION = '0.3.1';
+export const VERSION = '0.3.2';
 const CARPETA = process.env.MAKO_PC_DIR || join(homedir(), '.mako-pc');
 const CONFIG = join(CARPETA, 'config.json');
 const REGISTRO = join(CARPETA, 'registro.txt');
@@ -284,11 +284,11 @@ async function emparejar() {
 }
 
 /** Un pedido de una vez (confirmar, soltar) con reintentos: sólo lo reintenta si no llegó o MaKo contestó 5xx. */
-async function conReintentos(c, ruta) {
+async function conReintentos(c, ruta, cuerpo) {
   let r = null;
   for (const espera of [0, 2_000, 5_000]) {
     if (espera) await dormir(espera);
-    r = await api(c, 'POST', ruta).catch(() => null);
+    r = await api(c, 'POST', ruta, cuerpo).catch(() => null);
     if (r && r.status < 500) return r;
   }
   return r;
@@ -303,17 +303,22 @@ async function confirmar() {
   const c = leerConfig() ?? {};
   const p = c.pendiente;
   if (!p?.token) { decir('No hay ninguna conexión esperando. Pide otro código en MaKo.'); return 1; }
-  const r = await conReintentos({ servidor: p.servidor, token: p.token }, '/api/ia-pc/confirmar');
+  // La de antes, si era del mismo MaKo: con su token, MaKo le pasa la activación a la nueva al confirmarla, ANTES de que
+  // se suelte (si no, entre soltar y el primer latido de la nueva el negocio salía de «sólo su IA»: tercera revisión).
+  const anterior = c.token && c.token !== p.token && (c.servidor ?? p.servidor) === p.servidor ? c.token : null;
+  const r = await conReintentos({ servidor: p.servidor, token: p.token }, '/api/ia-pc/confirmar', anterior ? { anterior } : undefined);
   if (!r) { decir('No pude llegar a MaKo: revisa tu conexión a internet.'); return 1; }
   if (r.status !== 200) {
     decir(esRevocado(r) ? 'Ese código ya no sirve.' : (r.datos?.error ?? `MaKo no confirmó la conexión (HTTP ${r.status}).`));
     return 1;
   }
-  // La conexión de antes se suelta en MaKo (si no, quedaba una tarjeta «Sin conexión» para siempre).
-  if (c.token && c.token !== p.token) await conReintentos({ servidor: c.servidor ?? p.servidor, token: c.token }, '/api/ia-pc/soltar');
+  // Primero se guarda la nueva y DESPUÉS se suelta la de antes: el programa viejo, si sigue corriendo, recibe el 401 y
+  // sale sin borrar nada (`desconectada` sólo borra su propio token). Al revés, borraba la nueva.
   const resto = { ...c };
   delete resto.pendiente;
   guardarConfig({ ...resto, servidor: p.servidor, token: p.token, nombre: p.nombre, negocio: p.negocio, persona: p.persona });
+  // La conexión de antes se suelta en MaKo (si no, quedaba una tarjeta «Sin conexión» para siempre).
+  if (c.token && c.token !== p.token) await conReintentos({ servidor: c.servidor ?? p.servidor, token: c.token }, '/api/ia-pc/soltar');
   decir(`Esta computadora quedó conectada a «${p.negocio}».`);
   return 0;
 }

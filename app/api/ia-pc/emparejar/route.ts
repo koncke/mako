@@ -23,9 +23,10 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   let r: Awaited<ReturnType<typeof emparejar>>;
   try { r = await emparejar(body?.codigo, body?.nombre); } catch (e) {
-    // «No pude leer» no es «ese código no vale»: que lo intente de nuevo con el mismo.
+    // «No pude leer» no es «ese código no vale». Pero si falló DESPUÉS de gastar el código, la misma línea ya no sirve:
+    // un código nuevo anda en los dos casos (tercera revisión, 21/10/2026).
     console.error('[ia-pc/emparejar]', e instanceof Error ? e.message : String(e));
-    return json({ ok: false, error: 'MaKo no pudo conectar ahora. Pega la línea de nuevo en un minuto.' }, 503);
+    return json({ ok: false, error: 'MaKo no pudo conectar ahora. En un minuto pide otro código en MaKo y pega la línea nueva.' }, 503);
   }
   if (!r) return json({ ok: false, error: 'Ese código no vale o ya venció. Pide otro en MaKo.' }, 400);
   return json({ ok: true, token: r.token, negocio: r.negocio, persona: r.persona });

@@ -235,7 +235,7 @@ test('un error de la base (503) o un 401 sin `revocado` NO apagan el programa: r
   for (const f of ['dispositivoDelToken', 'pcDe', 'tomarTurno', 'contestarTurno', 'turnoDelToken', 'negocioConPc']) {
     const cuerpo = lib.slice(lib.indexOf(`export async function ${f}(`), lib.indexOf('\nexport ', lib.indexOf(`export async function ${f}(`) + 10));
     // Rota: leer sin mirar `error` → este test falla («no pude leer» volvía a ser «no hay»).
-    assert.match(cuerpo, /sinError\(await db\(\)/, `${f}: una lectura que falla tira`);
+    assert.match(cuerpo, /sinError\((await db\(\)|r, )/, `${f}: una lectura que falla tira`);
   }
 });
 

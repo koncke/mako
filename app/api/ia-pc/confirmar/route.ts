@@ -20,8 +20,12 @@ export async function POST(req: NextRequest) {
   const { d } = p;
   const frenado = limitePorClave('ia-pc-confirmar', d.id, 5, 60_000);
   if (frenado) return frenado;
+  // `anterior`: el token de la conexión que esta PC reemplaza (al reinstalar). Si era de la misma persona y estaba
+  // activa, la activación pasa a la nueva acá (lib/ia-pc.ts → `confirmar`): el negocio no sale de «sólo su IA».
+  let body: Record<string, unknown> = {};
+  try { body = await req.json(); } catch { /* sin cuerpo: una PC nueva */ }
   let ok: boolean;
-  try { ok = await confirmar(d); } catch (e) {
+  try { ok = await confirmar(d, body?.anterior); } catch (e) {
     console.error(`[ia-pc/confirmar] ws=${d.ws} pc=${d.id}:`, e instanceof Error ? e.message : String(e));
     return respuestaDe('no-pude-leer');
   }

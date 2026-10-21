@@ -37,6 +37,13 @@ const sinError = <T>(r: { data: T; error: { message: string } | null }, que: str
   return r.data;
 };
 
+/**
+ * ¿El error es de ESQUEMA (una columna o una tabla que la base todavía no tiene)? Postgres 42703 / 42P01, o PostgREST
+ * con su caché de esquema (PGRST204 / PGRST205). Es lo que pasa si este código llega a producción antes que la mig 0322.
+ */
+export const esErrorDeEsquema = (e: { code?: string | null; message?: string | null } | null | undefined): boolean =>
+  !!e && (['42703', '42P01', 'PGRST204', 'PGRST205'].includes(String(e.code ?? '')) || /does not exist|schema cache/i.test(String(e.message ?? '')));
+
 /** Cuántos turnos por minuto acepta la puerta de UN negocio, entre todas sus PC (§3, regla 6). */
 export const TOPE_TURNOS_POR_MINUTO = 20;
 /** Cuánto se guardan los turnos y sus herramientas (llevan el system con datos del negocio y lo que leyó la PC). */
@@ -104,7 +111,11 @@ export async function emparejar(codigoCrudo: unknown, nombreCrudo: unknown): Pro
     consentimiento: (data.consentimiento as string | null) ?? null, consentimiento_at: ahora,
   }).select('id').single(), 'la PC nueva');
   // Qué PC salió de este código (mig 0322): el tutorial sabe si se gastó sin conectar (`estadoDelCodigo`).
-  if (insertada) await db().from('ia_pc_codigos').update({ dispositivo_id: Number(insertada.id) }).eq('codigo_hash', hash(codigo));
+  if (insertada) {
+    const l = await db().from('ia_pc_codigos').update({ dispositivo_id: Number(insertada.id) }).eq('codigo_hash', hash(codigo));
+    // No se corta por esto (la PC ya está creada): el tutorial la ve aparecer igual; sólo el estado del código queda corto.
+    if (l.error) console.error(`[ia-pc] ws=${ws}: no pude anotar la PC ${String(insertada.id)} en su código: ${l.error.message}`);
+  }
   return { token, ws, negocio, persona };
 }
 
@@ -112,16 +123,31 @@ export async function emparejar(codigoCrudo: unknown, nombreCrudo: unknown): Pro
  * La persona dijo que SÍ a «¿Es tu negocio?»: la PC pendiente pasa a confirmada (mig 0322). Con SU token, y sólo una vez.
  * Pasa a ACTIVA (cuenta para D6b) con su primer latido con una cuenta de Claude con sesión (`latir`).
  */
-export async function confirmar(d: Dispositivo): Promise<boolean> {
+export async function confirmar(d: Dispositivo, anterior?: unknown): Promise<boolean> {
   const data = sinError(await db().from('ia_pc_dispositivos').update({ confirmado_at: new Date().toISOString() })
     .eq('id', d.id).eq('workspace_id', d.ws).is('revocado_at', null).is('confirmado_at', null).select('id').maybeSingle(), 'la PC');
-  return !!data || d.confirmado;
+  const ok = !!data || d.confirmado;
+  // ⚠️ REINSTALAR (tercera revisión del Cerebro, 21/10/2026): el programa suelta la conexión de antes apenas confirma, y
+  // la nueva recién se activa con su primer latido con sesión; en ese hueco el negocio salía de «sólo su IA» (y si la
+  // ventana se cerraba o la sesión había vencido, sin plazo). Con el token de la de ANTES (la que el programa va a
+  // soltar), si era de la misma persona del mismo negocio y estaba ACTIVA, la activación pasa a la nueva acá mismo.
+  if (ok && !d.activa && tieneFormaDeToken(anterior, PREFIJO_TOKEN_PC)) {
+    const vieja = sinError(await db().from('ia_pc_dispositivos').select('id, workspace_id, persona, activa_at')
+      .eq('token_hash', hash(anterior)).is('revocado_at', null).maybeSingle(), 'la PC de antes');
+    if (vieja && Number(vieja.id) !== d.id && Number(vieja.workspace_id) === d.ws && String(vieja.persona) === d.persona && vieja.activa_at != null) {
+      sinError(await db().from('ia_pc_dispositivos').update({ activa_at: new Date().toISOString() })
+        .eq('id', d.id).eq('workspace_id', d.ws).is('activa_at', null).select('id').maybeSingle(), 'la PC nueva');
+    }
+  }
+  return ok;
 }
 
 /** Cómo quedó un código, para el tutorial (lo pide quien lo pidió): si se gastó sin conectar, que pida otro. */
 export type EstadoDelCodigo = 'vivo' | 'vencido' | 'eligiendo' | 'conectado' | 'cancelado';
 /** Una pendiente que no se confirmó en este tiempo se abandonó (la persona cerró la ventana en la pregunta). */
 export const PENDIENTE_MS = 15 * 60_000;
+/** Lo que puede tardar emparejar entre gastar el código y anotarle su PC. */
+const SIN_ANOTAR_MS = 60_000;
 
 export async function estadoDelCodigo(ws: number, persona: string, codigoCrudo: unknown): Promise<EstadoDelCodigo> {
   const codigo = normalizarCodigo(codigoCrudo);
@@ -130,7 +156,9 @@ export async function estadoDelCodigo(ws: number, persona: string, codigoCrudo: 
     .eq('codigo_hash', hash(codigo)).eq('workspace_id', ws).eq('persona', persona).maybeSingle(), 'el código');
   if (!c) return 'vencido';
   if (!c.usado_at) return Date.parse(String(c.vence_at)) > Date.now() ? 'vivo' : 'vencido';
-  if (c.dispositivo_id == null) return 'cancelado';
+  // Recién usado sin la PC anotada todavía: emparejar gasta el código, crea la PC y DESPUÉS la anota (dos viajes). Si el
+  // tutorial pregunta en ese medio, la ventana está preguntando «¿Es tu negocio?»: no es «se usó sin conectar».
+  if (c.dispositivo_id == null) return Date.now() - Date.parse(String(c.usado_at)) > SIN_ANOTAR_MS ? 'cancelado' : 'eligiendo';
   const pc = sinError(await db().from('ia_pc_dispositivos').select('revocado_at, confirmado_at').eq('id', Number(c.dispositivo_id)).maybeSingle(), 'la PC del código');
   if (!pc || pc.revocado_at) return 'cancelado';
   if (pc.confirmado_at) return 'conectado';
@@ -200,10 +228,13 @@ export async function soltar(d: Dispositivo): Promise<void> {
  * pendiente no es de nadie todavía. Tira si falla.
  */
 export async function pcDe(ws: number, persona: string): Promise<(Dispositivo & { enLinea: boolean }) | null> {
-  const data = sinError(await db().from('ia_pc_dispositivos')
+  const r = await db().from('ia_pc_dispositivos')
     .select(COLUMNAS_PC)
     .eq('workspace_id', ws).eq('persona', persona).is('revocado_at', null).not('confirmado_at', 'is', null)
-    .order('ultimo_latido', { ascending: false, nullsFirst: false }).limit(1).maybeSingle(), 'la PC de la persona');
+    .order('ultimo_latido', { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+  // Sin la mig 0322 ninguna PC puede estar confirmada: «sin PC», dicho fuerte en el log (ver `negocioConPc`).
+  if (esErrorDeEsquema(r.error)) { console.error(`[ia-pc] ⚠️ FALTA LA MIG 0322: ${r.error?.message}`); return null; }
+  const data = sinError(r, 'la PC de la persona');
   if (!data) return null;
   const d = aDispositivo(data);
   return { ...d, enLinea: enLinea(d.ultimoLatido) };
@@ -214,10 +245,22 @@ export async function pcDe(ws: number, persona: string): Promise<(Dispositivo & 
  * 21/10/2026): el turno de un closer de un negocio que conectó su Claude tampoco va a Gemini. Sólo las ACTIVAS (mig 0322:
  * confirmadas y con un latido con sesión): una pendiente abandonada, o una que nunca tuvo Claude, no le saca la IA a nadie.
  * Tira si falla.
+ *
+ * ⚠️ SI LA BASE NO TIENE LA MIG 0322 (este código desplegado antes que ella): la columna `activa_at` no existe, y tirar
+ * acá pasaba a «sólo su IA» —por la falla cerrada— a TODOS los negocios sin clave propia, que se quedaban sin ninguna IA
+ * (tercera revisión del Cerebro, 21/10/2026). Un error de ESQUEMA (y sólo ése) se loguea fuerte y se contesta con lo que
+ * se puede saber sin la columna: un negocio sin ninguna PC registrada no tiene PC («no»); uno con alguna, falla cerrada
+ * («sí»). Cualquier otro error sigue tirando.
  */
 export async function negocioConPc(ws: number): Promise<boolean> {
-  const data = sinError(await db().from('ia_pc_dispositivos').select('id')
-    .eq('workspace_id', ws).is('revocado_at', null).not('activa_at', 'is', null).limit(1), 'las PC del negocio');
+  const r = await db().from('ia_pc_dispositivos').select('id')
+    .eq('workspace_id', ws).is('revocado_at', null).not('activa_at', 'is', null).limit(1);
+  if (esErrorDeEsquema(r.error)) {
+    console.error(`[ia-pc] ⚠️ FALTA LA MIG 0322 (ws=${ws}): ${r.error?.message}. Sin PC registrada: sin PC; con alguna: falla cerrada.`);
+    const algunas = sinError(await db().from('ia_pc_dispositivos').select('id').eq('workspace_id', ws).is('revocado_at', null).limit(1), 'las PC del negocio (sin la 0322)');
+    return (algunas ?? []).length > 0;
+  }
+  const data = sinError(r, 'las PC del negocio');
   return (data ?? []).length > 0;
 }
 
@@ -230,7 +273,8 @@ export async function desconectar(ws: number, id: number): Promise<void> {
 
 /**
  * Lo que ve «Tus cuentas de IA»: las PC CONFIRMADAS del negocio (el admin, todas; los demás, las suyas), sin ningún
- * secreto. Una confirmada que nunca latió en PENDIENTE_MS se abandonó: no se muestra (y la purga la revoca).
+ * secreto. Una confirmada que todavía no latió se muestra («Esperando que se conecte»): tiene el arranque puesto y late
+ * en el próximo inicio de sesión (antes se escondía a los 15 minutos y la purga la revocaba: tercera revisión).
  */
 export async function listarDispositivos(ws: number, persona: string, esAdmin: boolean): Promise<Array<Dispositivo & { enLinea: boolean; version: string | null; esMia: boolean }>> {
   let q = db().from('ia_pc_dispositivos')
@@ -239,7 +283,6 @@ export async function listarDispositivos(ws: number, persona: string, esAdmin: b
   if (!esAdmin) q = q.eq('persona', persona);
   const data = sinError(await q, 'las PC');
   return (data ?? [])
-    .filter((r) => r.ultimo_latido != null || Date.now() - Date.parse(String(r.creado_at)) <= PENDIENTE_MS)
     .map((r) => {
       const d = aDispositivo(r);
       return { ...d, enLinea: enLinea(d.ultimoLatido), version: (r.version as string | null) ?? null, esMia: d.persona === persona };
@@ -452,8 +495,10 @@ export async function esperarALaPc(turnoId: number, ws: number, dispositivoId: n
 /**
  * Borra los turnos de más de GUARDA_TURNOS_MS (sus herramientas se van con ellos: `on delete cascade`) y los códigos
  * viejos. Los turnos llevan el system con datos del negocio y lo que leyó la PC (PII de leads): no se guardan para
- * siempre (revisión del 21/10/2026). Y revoca las PC abandonadas (mig 0322): pendientes (nunca dijeron que sí) o
- * confirmadas que nunca latieron, pasado PENDIENTE_MS. Lo corre /api/cron/ia-pc-purga, una vez por día. `seco` sólo cuenta.
+ * siempre (revisión del 21/10/2026). Y revoca las PC abandonadas (mig 0322): las PENDIENTES (nunca dijeron que sí)
+ * pasado PENDIENTE_MS. Una CONFIRMADA no, aunque no haya latido: tiene el arranque puesto y late en el próximo inicio de
+ * sesión, y no prende D6b sin latir (tercera revisión: la purga de las 03:40 la daba de baja para siempre). Lo corre
+ * /api/cron/ia-pc-purga, una vez por día. `seco` sólo cuenta.
  */
 export async function purgarTurnosViejos(o: { seco?: boolean } = {}): Promise<{ turnos: number; codigos: number; abandonadas: number }> {
   const corte = new Date(Date.now() - GUARDA_TURNOS_MS).toISOString();
@@ -461,7 +506,7 @@ export async function purgarTurnosViejos(o: { seco?: boolean } = {}): Promise<{ 
   const turnos = await db().from('ia_pc_turnos').select('id', { count: 'exact', head: true }).lt('creado_at', corte);
   const codigos = await db().from('ia_pc_codigos').select('codigo_hash', { count: 'exact', head: true }).lt('vence_at', corte);
   const abandonadas = await db().from('ia_pc_dispositivos').select('id', { count: 'exact', head: true })
-    .is('revocado_at', null).is('ultimo_latido', null).lt('creado_at', corteAbandonadas);
+    .is('revocado_at', null).is('confirmado_at', null).lt('creado_at', corteAbandonadas);
   if (turnos.error) throw new Error(`ia-pc: no pude contar los turnos viejos: ${turnos.error.message}`);
   if (codigos.error) throw new Error(`ia-pc: no pude contar los códigos viejos: ${codigos.error.message}`);
   if (abandonadas.error) throw new Error(`ia-pc: no pude contar las PC abandonadas: ${abandonadas.error.message}`);
@@ -471,7 +516,7 @@ export async function purgarTurnosViejos(o: { seco?: boolean } = {}): Promise<{ 
     const b = await db().from('ia_pc_codigos').delete().lt('vence_at', corte);
     if (b.error) throw new Error(`ia-pc: no pude borrar los códigos viejos: ${b.error.message}`);
     const c = await db().from('ia_pc_dispositivos').update({ revocado_at: new Date().toISOString() })
-      .is('revocado_at', null).is('ultimo_latido', null).lt('creado_at', corteAbandonadas);
+      .is('revocado_at', null).is('confirmado_at', null).lt('creado_at', corteAbandonadas);
     if (c.error) throw new Error(`ia-pc: no pude revocar las PC abandonadas: ${c.error.message}`);
   }
   return { turnos: turnos.count ?? 0, codigos: codigos.count ?? 0, abandonadas: abandonadas.count ?? 0 };

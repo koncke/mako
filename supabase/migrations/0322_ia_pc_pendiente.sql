@@ -1,6 +1,9 @@
 -- =============================================================================
 -- 0322 · La PC del cliente nace PENDIENTE y pasa a activa sola (docs/ia-del-cliente.md §3, 21/10/2026)
--- ⚠️ SIN APLICAR: la aplica la Ticketera recién después de la revisión del Cerebro. Idempotente.
+-- ⚠️ SIN APLICAR: la aplica el Cerebro recién después de su revisión. Idempotente.
+-- ⚠️ ORDEN DE DESPLIEGUE: esta migración ANTES de integrar la rama ia-ola2 a main. Es segura con el código de main (main
+-- no lee ninguna tabla ia_pc_*). Si el código llegara antes, lib/ia-pc.ts lo aguanta (un error de esquema se loguea
+-- «FALTA LA MIG 0322» y un negocio sin PC registrada sigue con su IA), pero las pantallas de la PC contestan 503.
 -- =============================================================================
 -- La segunda revisión del Cerebro (21/10/2026): emparejar dejaba la PC ACTIVA en la base antes de «¿Es tu negocio?». Si
 -- la persona cerraba la ventana ahí (o se perdía una respuesta), quedaba una PC fantasma que prendía D6b para TODO el
@@ -12,7 +15,9 @@
 --   · `claude_falta`: el último latido dijo que en esa PC no hay Claude Code (la tarjeta, el tutorial y el chat lo dicen);
 --   · ia_pc_codigos.dispositivo_id: qué PC salió de cada código, para que el tutorial sepa si se gastó sin conectar;
 --   · ia_pc_llamadas 'corriendo': la herramienta que el turno está corriendo ya no se saca de la fila «sin correr».
--- Las pendientes que nunca latieron se revocan solas (/api/cron/ia-pc-purga). Aditiva: columnas nuevas, un estado más.
+-- Las pendientes (nunca dijeron que sí) se revocan solas (/api/cron/ia-pc-purga); una confirmada, aunque no haya latido,
+-- no (tercera revisión). Al reinstalar, la activación pasa de la PC de antes a la nueva al confirmarla. Aditiva: columnas
+-- nuevas, un estado más.
 -- =============================================================================
 
 begin;
