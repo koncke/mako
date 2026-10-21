@@ -741,4 +741,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  {
+    fecha: '20 oct', hora: '23:40', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Pedirle a MaKo tus landings las muestra con su miniatura, y sin diseño te deja elegir entre 3',
+    puntos: [
+      '«¿Qué landings tengo?» en el Ops Center muestra las últimas cuatro con su miniatura y su estado; tocar una abre su editor, y «Ver todas» lleva al Panel.',
+      '«Armame una landing» sin decir el diseño te muestra tres para elegir (texto y video, video al centro, sólo texto). Lo que eliges le llega a MaKo como tu respuesta.',
+      'Va sobre el camino nuevo del Ops Center 3 (lo que muestra una herramienta llega al hilo sin pasar por la IA), que todavía no está en main. Falta verlo con clics.',
+    ],
+    commits: [
+      { sha: 'dba50f175', msg: 'Ops Center 1.12: listar deja las tarjetas de las landings, y los diseños el «elegir entre 3»', lineas: 176, archivos: 6 },
+    ],
+    archivos: [
+      'lib/api-mako/areas/landing.run.ts — el `bloque` arriba de la salida de listar_landings_creadas y listar_disenos_landing',
+      'lib/editor-landing/bloques-web.ts — el tipo `landings` y su saneo',
+      'app/web-generator/BloqueWeb.tsx — la lista, de a dos por fila',
+    ],
+    revisar: '/second-brain',
+  },
 ];
