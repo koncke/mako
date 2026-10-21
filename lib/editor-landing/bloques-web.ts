@@ -80,11 +80,15 @@ export const TIPOS_WEB = ['landing', 'landings', 'elegir', 'publicada', 'dominio
 /** Lo que manda cada opción del «elegir»: «Diseño: Minimal». Con eso MaKo sabe QUÉ se eligió, y el hilo sabe que esa
  *  respuesta es de ESTE selector (`respuestasDeElegir`, la usa `conRespuestas`). */
 export const QUE_ELEGIR: Record<BloqueElegir['que'], string> = { diseno: 'Diseño', tema: 'Tema', formato: 'Formato' };
+/** Los rótulos de los dos botones de abajo. Lo que MANDAN lleva el prefijo del selector («Diseño: elige tú»): con el mismo
+ *  texto que los de la pregunta (G1) al lado, «Saltear» no decía de cuál venía (revisión del 21/10/2026). */
 export const ELIGE_TU = 'Elige tú';
 export const SALTEAR = 'Saltear';
 export const textoDeOpcion = (b: BloqueElegir, o: { titulo: string }): string => `${QUE_ELEGIR[b.que]}: ${o.titulo}`;
+export const textoEligeTu = (b: BloqueElegir): string => `${QUE_ELEGIR[b.que]}: elige tú`;
+export const textoSaltear = (b: BloqueElegir): string => `${QUE_ELEGIR[b.que]}: saltear`;
 /** Todo lo que un toque en este «elegir» puede mandar. */
-export const respuestasDeElegir = (b: BloqueElegir): string[] => [...b.opciones.map((o) => textoDeOpcion(b, o)), ELIGE_TU, SALTEAR];
+export const respuestasDeElegir = (b: BloqueElegir): string[] => [...b.opciones.map((o) => textoDeOpcion(b, o)), textoEligeTu(b), textoSaltear(b)];
 
 export const MAX_LANDINGS_BLOQUE = 4;
 
