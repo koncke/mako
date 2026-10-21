@@ -1,5 +1,33 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 20/10/2026 ~22:00 AR — LA REVISIÓN ADVERSARIAL DE v3 ARREGLADA
+
+<sub>Chat «Onboarding», claude4, rama **onboarding-v3** (C:/dev/wt-onboarding-v3, ya con florencia adentro). El Cerebro
+revisó beb153118 («no sube todavía»): side-session-notes/local_797d5445…/revision-onboarding-v3-20-10.md. Todo lo que
+marcó está arreglado encima, cada uno con su test probado rompiéndolo; la cosecha es «La revisión adversarial de
+onboarding-v3» en docs/hallazgos-onboarding.md.</sub>
+
+**Hecho** (bloquea, importantes y menores de la revisión):
+- El «Sí» escrito ya no se guarda como nombre; todo lo escrito se confirma (`siONo`): `c73a26fdb`.
+- El hilo: reserva con compare-and-set, un insert, lecturas estrictas, marca en el contexto, `dueno`/`hiloDe`, sólo con
+  status 'done', fuera el ws1, capa con productos, timeout y «Entrando…» en la pantalla, también en /m/second-brain: `88a5ebd05`.
+- La fase escrita: cifras a su tramo, canal por sinónimos sin negación, empates null: `6f3e53d26`.
+- La entrada del teléfono no la pinta el server (script antes de pintar): `80c997d4c` + `6c3e3a8c4`.
+- Texto largo sin la guardia de inyección; link sin leer con `linksDe` en el servidor: `6a6e5af41`.
+- El tope de repreguntas por pieza: `2f2c9aaa6`. Cuotas de tarjeta = único; terminales del CRM; plazo 25/45 s: `f01e15e18`.
+- Arrastrar un archivo con sólo texto no lo abre Chrome; el test de la caja compara por pieza y lee CajaChat si existe: `27460055c`.
+- La conversación de Offer del onboarding se esconde sólo a quien tiene la copia (lib/chat-mako-reglas.ts, archivo de
+  Ops Center 3; les avisé): `ebea6fb25`.
+
+**SIN HACER:**
+- **Pasar a `CajaChat`** cuando caja-voz llegue a main: `accept: ACCEPT_IMPORTAR`, «Fotos» con video, `voz` y `estado`;
+  borrar app/offer/CajaDelCentro.tsx. El test ya mira CajaChat apenas exista.
+- /m/second-brain no lee `?recorrido=`: en el teléfono no hay tutorial.
+- La propuesta del CRM a medida se sigue pidiendo antes de responder (25 s / 45 s con la red).
+- **Choque para que decida el Cerebro:** Martín (18/10) pidió «sin respuestas rápidas en las preguntas del nombre y del
+  nombre del negocio»; el Cerebro (20/10) pidió volver a ofrecer el nombre del alta. Hoy se ofrece SÓLO el del alta.
+- Reparar el ws21 y borrar las dos keys copiadas del ws1: siguen esperando el sí de Martín (abajo).
+
 ## ESTADO AL 20/10/2026 ~19:20 AR — LA TANDA DEL 18/10 CERRADA Y LA DE FLORENCIA (feedback del 20/10)
 
 <sub>Chat «Onboarding», claude4. Dos ramas sin pushear: **onboarding-v3** (C:/dev/wt-onboarding-v3: la tanda del 18/10) y

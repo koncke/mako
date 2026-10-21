@@ -2417,9 +2417,9 @@ Pedido de Martín (punto 15 del feedback del 18/10), en cuatro commits de la ram
 
 **Lo que quedó, y las reglas (20/10/2026, chat «Onboarding», rama onboarding-v3):**
 - **El corte lo escribe el código.** Con `faltanDelArranque` vacío, el mensaje es «¡Gracias!» sin opciones, diga lo que diga el modelo (`mensajeDeCierreDelArranque`). Una pieza se pregunta dos veces como mucho: a la segunda respuesta sin anotar queda «sin dato:» (`conTopeDelArranque`). La pieza que se pregunta es la PRIMERA que falta en el orden de la guía, y por eso la nota va sin el texto del dueño: podría no ser la que MaKo preguntó.
-- **El nombre se confirma antes de escribirse.** Lo sacado con dos puntos o guion, lo que dice «personal», lo largo y «uso mi nombre» preguntan «¿Tu negocio se llama «X»?»; quitar un «se llama» no. Ojo al probar `extraerNegocio`: la regla general de los dos puntos ya cubre «mi marca personal: X», así que un test con dos puntos no prueba la específica (hace falta el caso con guion).
+- **El nombre se confirma antes de escribirse: TODO lo escrito** (la revisión de la noche mostró que la lista de casos dejaba pasar «No tengo», «Soy yo», «Hola» y «🌸»; ver la entrada de abajo). Sólo la respuesta rápida del nombre del alta se escribe directo. Ojo al probar `extraerNegocio`: la regla general de los dos puntos ya cubre «mi marca personal: X», así que un test con dos puntos no prueba la específica (hace falta el caso con guion).
 - **Una opción tocada no es palabra del dueño:** en el onboarding se va la respuesta rápida con un número que el dueño no dijo, y con menos de dos no se ofrece ninguna (`opcionesDelArranque`).
-- **El chat «Onboarding» de quien ya terminó** se crea en su primera visita a /second-brain (sólo el admin, nunca mirando como super admin), y se reusa uno con ese título si ya existe. Florencia lo recibe la primera vez que entre después del deploy.
+- **El chat «Onboarding» de quien ya terminó** se crea en su primera visita a /second-brain o /m/second-brain (sólo quien contestó, nunca mirando como super admin). Ya NO se reconoce por el título: por la marca de su contexto (entrada de abajo). Florencia lo recibe la primera vez que entre después del deploy.
 - **La nota de voz se queda en el onboarding.** El dictado del Ops Center no se pudo probar con 2 minutos (ver hallazgos-infra, «Probar el dictado con un micrófono falso…»), y el otro camino del botón usa las keys del negocio (hallazgos-plan). La caja es la del Ops Center; su micrófono graba la nota con la sesión de voz de la casa.
 - **Reparar el ws21** quedó escrito y sin correr: `side-session-notes/…/feedback-20-10/reparar-ws21.ts` (sin `--aplicar` sólo lee). Corre con el sí de Martín y el nombre que él elija.
 - **Sin hacer:** el diagnóstico de fase repite el canal que ya contó en la conversación (5b, lib/onboarding-arranque.ts → preguntarFase); el voseo y el «Perfecto:» del modelo no tienen filtro de salida (lib/offer-ia.ts); `TOPE_PIEZA` = 400 sigue cortando las piezas largas con «…» (lib/offer-reglas.ts); la salida del hilo lista lo que MaKo puede hacer, pero sin botones (chart_chats no guarda opciones).
@@ -2439,3 +2439,63 @@ Pedido de Martín (punto 15 del feedback del 18/10), en cuatro commits de la ram
 - **La caja del Ops Center no se importa en ChatOffer**: ver hallazgos-offer.md (un test carga ChatOffer en node).
 
 *20/10/2026, chat «Onboarding» (claude4), rama onboarding-v3.*
+
+## La revisión adversarial de onboarding-v3: lo que el test feliz no veía (20/10/2026, noche)
+
+El Cerebro revisó la punta beb153118 con tres lentes (hilo y aislamiento, arranque y CRM, regresiones) antes de subirla:
+un bloqueante y seis importantes, todos comprobados con sondas. Todo arreglado en la misma rama, cada uno con su test
+probado rompiéndolo. Lo que queda como regla:
+
+- **`\b` en JavaScript es ASCII: después de «í» no hay límite de palabra.** `/^(?:s[ií]|correcto)\b/i` reconocía «si» y
+  no «Sí». Con un nombre por confirmar, el «Sí» escrito iba como nombre del negocio: `workspaces.nombre` = «Sí», funnel
+  «Sí», producto «Oferta de Sí». Es el bug de Florencia, peor. La flag `u` NO arregla `\b`: hay que cortar con
+  `(?=$|[\s,.!?])` o `(?![\p{L}\p{N}])`, o normalizar y comparar la frase entera (`siONo`, lib/onboarding-arranque.ts).
+  **Regla:** con algo pendiente de confirmar, nada se escribe sin un sí explícito; lo que no es sí ni no es OTRA
+  propuesta por confirmar, nunca va directo al dato. Un test de confirmación manda el TEXTO «Sí» con tilde, no la opción.
+- **«100.000» parte en «100» y «000», y «000» está en todas las opciones de plata.** La respuesta escrita de la fase
+  («Facturo 15.000 al mes») caía en «$0 – $3.000» y se guardaba como diagnóstico sin forma de corregirlo. Y «No hago
+  llamadas, vendo por chat» daba «Llamada de venta»: empate a 1, gana la primera, el «no» no cuenta. **Regla:** en una
+  pregunta de tramos se lee la cifra y se ubica en su tramo (`tramoDe`); el canal sale de sinónimos con la negación
+  quitada (`canalDeTexto`); por parecido, un empate es null y se vuelve a preguntar.
+- **El hilo «Onboarding» tenía una carrera que el diseño hacía inevitable.** La pantalla final pide el chat (POST 'hilo')
+  y /second-brain también (para quien ya terminó): con un clic o un F5 a tiempo quedaban dos «Onboarding» y dos jefes
+  vacíos, o se entraba a uno a medio copiar (2 de 52 mensajes). Lo que lo cierra: una RESERVA con compare-and-set sobre
+  el estado (`hiloCreando`, `cambiarSettingSi`; vence a los 2 min), los mensajes en UN insert y `hiloChat` recién al
+  final. **Regla:** un recurso que crean dos caminos se reserva antes de crearse, y el puntero se anota al final.
+- **Una copia armada con lecturas tolerantes se guarda incompleta para siempre.** Con `leerSesion` caída un instante, el
+  «Onboarding» salía sin la conversación de lo que vende; con el estado caído al default, «qué vendes en undefined». Y se
+  adoptaba cualquier chat titulado «Onboarding», aunque fuera uno propio del cliente. **Regla:** lo que se copia se lee
+  estricto (si falla, no se escribe nada), y lo propio se reconoce por una marca (`contextoDelHilo`), nunca por el título.
+- **«Quién está» no es «quién contestó».** Con dos admins, el primero que entraba se llevaba el onboarding de la dueña
+  (su nombre, su WhatsApp, lo que vende). Ahora el estado guarda `dueno` al contestar y `hiloDe` al crear el chat; con un
+  solo admin activo se le da a ese. Y la proyección de Offer esconde la conversación copiada SÓLO a quien tiene la copia
+  (`offerDelOnboardingCopiada(raw, chartKey)`, lib/chat-mako-reglas.ts): para todos, desaparecía del Ops Center del super
+  admin mirando, justo lo que Martín pidió arreglar ese día.
+- **Una capa que se lee de `sessionStorage` en `useState(true)` la pinta el server en CADA carga.** La entrada de MaKo en
+  el teléfono tapaba la pantalla hasta hidratar (1–3 s en un Android lento) y, sin JS, para siempre. Lo que anda: un
+  script antes del primer pintado pone `data-entrada-vista` y el CSS la oculta (app/m/_ui/entrada.ts), más una animación
+  que la esconde a los 6 s si nada hidrata. **Regla:** «una vez por sesión» no se decide en el estado inicial de React.
+- **La guardia anti-inyección no lee documentos enteros.** Un texto de 20.000 caracteres armado con ChatGPT trae «Olvida
+  las reglas de siempre…» o un índice «…… 3»: salía 'inyeccion' o 'basura' y a las 3 faltas el onboarding se bloqueaba.
+  Arriba de `TOPE_MENSAJE` el texto va como documento y la guardia no lo mira (app/api/offer/route.ts).
+- **Pantalla y servidor tienen que normalizar igual.** La pantalla mandaba el link sin leer como `https://www…` y el
+  servidor lo buscaba con `texto.includes(u)` en un texto que decía `www…`: se descartaba y MaKo no se enteraba de que no
+  lo pudo abrir. Ahora el servidor valida con el mismo `linksDe`.
+- **Un tope que cuenta preguntas tiene que contar las de ESA pieza.** El tope de 2 repreguntas contaba el pedido de
+  documento y cualquier pregunta del modelo: el precio quedaba «sin dato:» sin que nadie lo preguntara. Cuenta sólo las
+  que apuntan a la pieza que falta (`PREGUNTA_POR`, lib/offer-reglas.ts).
+- **Las cuotas de la tarjeta no son una suscripción** («12 cuotas sin interés», «MSI», «en un pago o 3 cuotas»): ante la
+  duda, único; en el CRM una suscripción se lee como ingreso recurrente. **Y una terminal del CRM no puede decir lo
+  contrario**: `{"ganado": "Perdido"}` es un nombre válido para el parser; `contradiceLaTerminal` lo deja de fábrica.
+- **Sin `preventDefault`, Chrome abre el archivo soltado y se lleva el onboarding.** En las preguntas de sólo texto, los
+  manejadores de arrastrar salían antes de frenar. El archivo se frena siempre; sumarlo es lo que depende de la pregunta.
+- **Un test que fija strings exactos de un archivo ajeno se rompe con el refactor de otro chat.** El de la caja copiaba
+  líneas de Conversacion.tsx, y la caja única (caja-voz) las movió a app/_chat/CajaChat.tsx: rojo sin nada roto. Ahora
+  compara por pieza (regex) y sigue el archivo donde viva la caja.
+
+**Sin hacer:** el «+» de la caja del onboarding acepta menos que antes (sin audio ni video; «Fotos» sin video): se arregla
+pasando a `CajaChat` con `accept: ACCEPT_IMPORTAR` cuando caja-voz llegue a main, y ahí se borra app/offer/CajaDelCentro.tsx.
+/m/second-brain crea el hilo pero no lee `?recorrido=`: en el teléfono no hay tutorial. El CRM a medida sigue pidiendo
+la propuesta ANTES de responder (bajó a 25 s / 45 s con la red); armarla aparte queda para después.
+
+*20/10/2026, noche, chat «Onboarding» (claude4), rama onboarding-v3.*

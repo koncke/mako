@@ -6675,6 +6675,10 @@ alcanzar, aunque se cumpliera al pie de la letra:
   - la salida va a un archivo del scratchpad y se lee después;
   - el script restaura en un `finally` (scratchpad `romper-reporte.mjs`);
   - al terminar, `git status` para ver que no quedó nada tocado.
+- ⚠️ **`npx tsx --test … | head && git commit` commitea con los tests en rojo** (20/10/2026, chat «Onboarding»,
+  80c997d4c): el código de salida de un pipe es el del ÚLTIMO comando, y `head` siempre sale 0. Un test de
+  tests/movil-shell.test.ts fallaba y el commit salió igual. Regla: los tests van a un archivo, se mira `exit=$?` y el
+  resultado, y el commit va en OTRO paso.
 - **Los worktrees (`C:/dev/wt-*`) no tienen `.env.local`.** Un script que lee producción necesita la ruta de afuera:
   `node --env-file=C:/dev/mako-api/.env.local --conditions react-server --import tsx <script>`, o el `--env=` del
   script (scripts/mudanza-avisos-plataforma.mts). `dotenv` tampoco se resuelve desde un script del scratchpad,
