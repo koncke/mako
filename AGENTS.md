@@ -419,6 +419,21 @@ tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El s
 **espera RAM** antes de cada una (el piso se deriva: zona roja del vigía + lo que pide cada proceso). Nunca corras
 `node --test tests/*.test.ts` a mano en esta máquina.
 
+⚠️ **El candado de lo pesado ahora tiene COLA y vive DENTRO de `antes-de-subir`** (20/10/2026). Antes era `mkdir C:/dev/pesado.lock`
+a mano y cada chat reintentaba en su loop: ganaba el que preguntaba más seguido (Pagos esperó casi 2 h), y el que esperaba 40 min
+volvía con `origin/main` adelantado y su VERDE salía ROJO sólo por «te faltan N commits». Ahora **no tomes el candado a mano para
+correr `antes-de-subir`: la herramienta se anota sola** en `C:/dev/pesado.cola/` (turnos por hora de llegada: entra el más VIEJO), lo
+toma con el mismo `mkdir` de siempre (por eso un `mkdir` a mano y la cola **se excluyen entre sí**), lo firma (`quien.txt` + `dueno.json`:
+chat, cuenta, sha, pid, desde) y lo suelta al terminar, también con Ctrl+C. **Al tomarlo hace `git fetch` + `merge origin/main`** (merge,
+nunca rebase: el commit del jefe no se reescribe) y el `VERDE <sha>` vale para el sha NUEVO; si el merge choca, aborta (la rama queda
+como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a mano y volvé a correr.
+- **Ver la fila sin tocar nada:** `node scripts/antes-de-subir.mjs --cola` (quién lo tiene, desde cuándo, y los que esperan en orden).
+- **Un proceso muerto no traba:** un turno se limpia si su pid no vive o si no late hace 10 min; un dueño, si su pid no vive o si pasó
+  `MAKO_PESADO_VENCE_MIN` (90). Un candado tomado a mano no tiene pid: sólo se libera cuando lo soltás, o a los 90 min.
+- **Si tomaste el candado a mano** para otra cosa (un `tsc` suelto, un build) y después corrés `antes-de-subir`, esperaría a su propio
+  candado: usá `--ya-tengo-el-candado`. `MAKO_SIN_COLA=1` lo saltea (para una máquina sin otros chats); en Actions no se usa.
+- Un `ROJO: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
+
 ⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con
 `scripts/cache-lecturas.cjs` memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos
 ~5.400 archivos y, con `node --test`, cada archivo de test es un proceso aparte que los vuelve a leer (12 barredoras: 193 s
@@ -1575,6 +1590,16 @@ código nuevo:
     **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
     escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
     quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
+  - **Un chat de tab adjunta con las piezas de la caja del Ops Center** (regla de Martín del 18/10/2026: un solo chat en
+    toda la app): el «+» (`MasCaja`), las miniaturas (`ListaAdjuntos`) y pegar y soltar (`alPegar`, `alSoltar`) de
+    app/admin/operaciones/AdjuntosCaja.tsx y pegar.ts, nunca un ⊕ propio. Fuera del Centro: se importa `centro.css`
+    (AdjuntosCaja trae sólo chat.css) en la pantalla que monta el chat, NUNCA en un módulo que cargan los tests (en node un
+    `.css` no carga: si el chat es un módulo compartido, `MasCaja` y `ListaAdjuntos` entran con `next/dynamic` y pegar y
+    soltar vienen de pegar.ts); y, si la pantalla tiene su propio tema (el editor de landings), se redefinen bajo su
+    raíz los tokens que usan (`--surface`, `--surface-2`, `--border`, `--ink`, `--dim`, `--velo-hover`, `--focus-ring`):
+    si no, el menú sale con los colores de la app sobre el oscuro del editor. Lo que una pantalla suma (leer el archivo
+    antes de mandar) va por `AdjuntoCaja.estado`, que la miniatura dibuja. El molde: el chat del editor
+    (app/web-generator/editor/paneles/PanelAgente.tsx, 20/10/2026).
   - **EL MODELO JUSTO Y LA INSTRUCCIÓN PRECISA: los tokens son la capacidad** (17/10/2026). Martín: «quiero que los jefes
     y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y eligiendo qué modelo de IA debe
     correr». Medido esa noche: con nueve chats abiertos, la ventana de 5 horas de una cuenta Max llegó al 95% en

@@ -18,7 +18,7 @@
 // =============================================================================
 
 import { getCamposTarjetaCrm } from '@/lib/perfil';
-import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, NOMBRE_CAMPO_TARJETA } from '@/lib/tarjeta-kanban';
+import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DISENOS_TARJETA, NOMBRE_CAMPO_TARJETA, NOMBRE_DISENO_TARJETA } from '@/lib/tarjeta-kanban';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
@@ -1032,8 +1032,10 @@ export const RUNNERS: Runners = {
 
   ver_campos_tarjeta_crm: {
     leer: async () => {
-      const { campos, guardable } = await getCamposTarjetaCrm();
+      const { campos, diseno, guardable } = await getCamposTarjetaCrm();
       return json({
+        diseno: { diseno, nombre: NOMBRE_DISENO_TARJETA[diseno] },
+        disenos: DISENOS_TARJETA.map((d) => ({ diseno: d, nombre: NOMBRE_DISENO_TARJETA[d], detalle: DETALLE_DISENO_TARJETA[d] })),
         campos: campos.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c] })),
         catalogo: CAMPOS_TARJETA_LEAD.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c], deSiempre: CAMPOS_TARJETA_DEFAULT.includes(c) })),
         guardable,

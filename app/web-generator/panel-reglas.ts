@@ -163,7 +163,8 @@ export type PasoIA = (typeof PASOS_IA)[number];
  * un F5 no vuelve a pedir un esquema que se paga.
  *   · `prompt`/`modo`: el pedido del cuadro «¿Qué vas a crear hoy?» (Plan | Express);
  *   · `archivo`: el archivo o la imagen adjuntos en el cuadro, ya leídos: su texto va como texto («pegar») y
- *     lo escrito, a las instrucciones;
+ *     lo escrito, a las instrucciones. Con varios (20/10/2026), `archivo` es el texto UNIDO y `archivos` cada uno,
+ *     para que «Volver» deje la caja con sus miniaturas;
  *   · `texto` (tanda 7): un texto LARGO escrito o pegado en el cuadro (ex «Pegar texto»): va como texto, con
  *     `params.modoTexto` (la opción «Tu texto» del cuadro: de guía, resumir o tal cual);
  *   · `params` (tanda 7): los ajustes del desplegable «Plan» y de «Más ajustes» (secciones, objetivo, idioma…);
@@ -176,6 +177,7 @@ export type ArranqueIA = {
   prompt?: string;
   modo?: 'plan' | 'express';
   archivo?: { nombre: string; texto: string };
+  archivos?: { nombre: string; texto: string }[];
   texto?: string;
   params?: Partial<ParamsGeneracion>;
   sesion?: boolean;

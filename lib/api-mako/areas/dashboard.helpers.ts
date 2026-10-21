@@ -67,6 +67,7 @@ import { esPiezaGeneral, piezaGeneral } from '@/lib/general-piezas';
 import { insertableDe, videoDe } from '@/lib/embeds';
 import type { Formato } from '@/lib/graficos-constructores';
 import type { SalidaCaja, VistaCaja } from '@/lib/graficos-ia-elemento';
+import { moverComponente, type Movida } from '@/lib/graficos-mover';
 
 /** Para comparar lo que escribe una persona: sin acentos, sin mayúsculas, sin espacios de más. */
 export const normalizar = (s: string): string =>
@@ -767,6 +768,8 @@ export type Cambio =
   | { op: 'agregar_componente'; hojaId: string; componente: Componente; lugar: 'abajo' | 'arriba' }
   | { op: 'reemplazar_componente'; hojaId: string; componente: Componente }
   | { op: 'quitar_componente'; hojaId: string; componenteId: string }
+  /** Mover una tarjeta o cambiarle el ancho con la grilla de la pantalla (lib/graficos-mover.ts, 20/10/2026). */
+  | { op: 'mover_componente'; hojaId: string; componenteId: string; movida: Movida }
   | { op: 'agregar_filtro'; hojaId: string; control: ControlVista }
   | { op: 'quitar_filtro'; hojaId: string; controlId: string }
   | { op: 'agregar_conector'; hojaId: string; conector: Conector }
@@ -896,6 +899,11 @@ export function aplicarCambio(t: Tablero, c: Cambio): Aplicado {
       const componentes = [...h.componentes];
       componentes[j] = comp;
       return conHoja({ ...h, componentes });
+    }
+    case 'mover_componente': {
+      const r = moverComponente(h.componentes, c.componenteId, c.movida);
+      if (!r.ok) return r.yaEstaba ? { ok: false, error: r.error, yaEstaba: true } : { ok: false, error: r.error };
+      return conHoja({ ...h, componentes: r.componentes });
     }
     case 'quitar_componente': {
       if (!h.componentes.some((x) => x.id === c.componenteId)) return { ok: false, error: 'Ese componente ya no está en la hoja.', yaEstaba: true };
