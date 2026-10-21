@@ -4940,6 +4940,11 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
   defecto: contra producción, 19 mentiras pierden la nota (13 porque lo que exime se mira con la cita, como «Le mandé a
   Juan «¿Pudiste ver la propuesta?».»; 4 promesas con «:», como «Dame un segundo: lo busco en el CRM.»; 2 con una cita al
   final), y 20 ganan la nota (las horas, los links y los emoticones).
+  Y la séptima revisión (el cierre) acortó esa lista otra vez: el paréntesis («Hice la cuenta (conversión: 21 %).»), el
+  emoticón («Te armé el resumen :)» y la lista) y el «:» pegado a una palabra («`etapa:ganado`», «la cuenta:con 14…»)
+  también eran formato, y un fuzz de 4.830 textos dio 88 notas falsas en esa familia. Ahora sólo no presenta el «:» pegado
+  a un dígito o a «/» (la hora y el link) y el que no tiene nada después. Cuesta 1 del banco (30 de 42: «Moví a Juan a
+  Ganado (estado: cerrado).» ya no se marca) y 3 H fuera de él («Ya le mandé el link a Juan :D»), a propósito.
 - **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
   (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
   pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que

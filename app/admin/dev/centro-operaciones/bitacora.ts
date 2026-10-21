@@ -1052,7 +1052,7 @@ export const BITACORA: Hito[] = [
       'Si MaKo te pasa lo que dijo un lead, un borrador o un copy entre comillas, ya no lleva «No veo esa acción en este chat».',
       'Tampoco lo que te muestra ahí mismo («Te armé un resumen de la semana:» y la lista, también en negrita, o la tabla que aparece debajo) ni lo condicional («si ya te mandé el link…»).',
       '«Esto no lo hice en este mensaje» va sólo si la promesa es lo último y no trae lo prometido: un borrador entre comillas, o «Déjame ver: tienes 3 reuniones», ya lo trae.',
-      'Si afirma algo que no hizo, la nota sigue, también con una hora («a las 10:30»), un link o un emoticón.',
+      'Si afirma algo que no hizo, la nota sigue, también con una hora («a las 10:30»), un link o un emoticón al final.',
       'Una grosería se saca sola: lo demás queda.',
     ],
     archivos: [
