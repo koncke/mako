@@ -104,7 +104,7 @@ export const MARGEN_DE_LECTURAS = 3500;
 export function registroParaLaApp(p: PedidoDeRegistro): ToolDef[] {
   const relevante = `${p.texto}\n${p.relevancia}`;
   const hayRaices = raicesUtiles(relevante).length > 0;
-  const comun = { vista: p.vista, incluirAcciones: p.conAcciones, silencioso: true } as const;
+  const comun = { vista: p.vista, incluirAcciones: p.conAcciones, sinAviso: true } as const;
   const nombran = new Set<string>(p.areas);
 
   // 1. Las áreas que el texto nombra, hasta el 60%.

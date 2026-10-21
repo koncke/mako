@@ -197,7 +197,7 @@ export type FiltroTools = {
    *  de otra área). Se aplica antes del orden y del presupuesto. Sin esto, todo igual. */
   donde?: (d: OperacionDef) => boolean;
   /** no avisar por consola lo que quedó afuera del presupuesto (cuando un turno se arma en varias pasadas). */
-  silencioso?: boolean;
+  sinAviso?: boolean;
 };
 
 /** Los ToolDefs para un turno del doer, según el filtro. */
@@ -220,7 +220,7 @@ export function toolsDelRegistro(f: FiltroTools): ToolDef[] {
     if (usados + largo > f.maxChars) { afuera.push(t.name); continue; }
     usados += largo; out.push(t);
   }
-  if (afuera.length && !f.silencioso) console.warn(`[api-mako] presupuesto de ${f.maxChars} chars: quedaron afuera ${afuera.join(', ')}`);
+  if (afuera.length && !f.sinAviso) console.warn(`[api-mako] presupuesto de ${f.maxChars} chars: quedaron afuera ${afuera.join(', ')}`);
   return out;
 }
 
