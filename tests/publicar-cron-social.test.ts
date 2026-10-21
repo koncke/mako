@@ -136,6 +136,8 @@ mock.module(${url('lib/evolution.ts')}, { exports: { ...real(ev),
 const nutri = await import(${url('lib/nutricion.ts')});
 mock.module(${url('lib/nutricion.ts')}, { exports: { ...real(nutri),
   setSecuenciaPasos: async () => { log.guardado++; }, vozDeAIStepQueFalta: async () => null,
+  // 21/10/2026: Publicar una activa pregunta por la duplicada (tests/automations-activar-todos-los-caminos.test.ts); acá, ninguna.
+  duplicadaDeLaActivacion: async () => null,
 } });
 const { PATCH } = await import(${url('app/api/whatsapp/secuencias/route.ts')});
 const dc = await import(${url('lib/disparadores-canales.ts')});

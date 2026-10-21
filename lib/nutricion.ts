@@ -103,6 +103,7 @@ import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio 
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
 import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
   hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
@@ -702,11 +703,18 @@ async function equipoContestoDesdeElAviso(inscripcionId: number): Promise<boolea
  * Sin esto, «Activar» prendía un flujo que «Publicar» no habría dejado guardar (uno escrito por un
  * camino viejo, o anterior a una regla nueva), y el motor lo corría a ciegas. Apagar no valida.
  */
-export async function setSecuenciaActiva(id: number, activa: boolean): Promise<void> {
+export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqueDuplique?: boolean } = {}): Promise<void> {
   const supabase = (await getTenantDb());
   // La red de seguridad: quien PROPONE activar ya validó (`validarActivacion`), pero entre la
   // propuesta y el «sí» los pasos pueden haber cambiado.
   if (activa) await validarActivacion(id);
+  // ⚠️ Y PREGUNTA SI OTRA ACTIVA YA LE ESCRIBE LO MISMO A LA MISMA GENTE (revisión del 21/10/2026): es la ÚNICA puerta
+  // que prende una automatización, así que acá la cubren todos los caminos (el lienzo, el «⋯», el teléfono, /email, la
+  // API de MaKo). Quien llama pasa `aunqueDuplique` recién cuando la persona contestó «Activar igual».
+  if (activa && !o.aunqueDuplique) {
+    const otra = await duplicadaDeLaActivacion(id);
+    if (otra) throw new DuplicadaError(otra);
+  }
   const { error } = await supabase
     .from('nutricion_secuencias')
     .update({ activa, updated_at: ahoraISO() })
@@ -791,6 +799,33 @@ export { textoDelPaso };
  * archivo, una tarjeta suelta, un destino que no existe). Es un error del QUE GUARDA y no de la
  * base: las rutas lo contestan 400 con el mensaje, que es lo que la pantalla muestra.
  */
+/**
+ * OTRA AUTOMATIZACIÓN ACTIVA YA LE ESCRIBE ALGO PARECIDO A LA MISMA GENTE (lib/automatizacion-duplicada.ts). La tira
+ * `setSecuenciaActiva` (y la ruta de Publicar, con una activa): las rutas contestan 409 con `duplicada` y la pantalla
+ * pregunta; con «… igual», vuelve a pedirlo con `aunqueDuplique`. El mensaje es el aviso, listo para mostrar.
+ */
+export class DuplicadaError extends Error {
+  readonly otra: { id: number; nombre: string };
+  constructor(otra: { id: number; nombre: string }) { super(avisoDuplicada(otra.nombre)); this.name = 'DuplicadaError'; this.otra = otra; }
+}
+
+/**
+ * ¿LA AUTOMATIZACIÓN `id` (con `pasos`, si se van a publicar) TIENE UNA GEMELA ACTIVA? Con lo PUBLICADO de las otras y
+ * sus CRON guardados: la misma regla que la pantalla (`duplicadaAlActivar`). `soloSiActiva`: sólo si ésta ya está
+ * prendida (Publicar una pausada no le manda nada a nadie: se pregunta al activarla). Una lectura que falla TIRA.
+ */
+export async function duplicadaDeLaActivacion(id: number, o: { pasos?: readonly PasoGrafo[]; soloSiActiva?: boolean } = {}): Promise<{ id: number; nombre: string } | null> {
+  const supabase = (await getTenantDb());
+  const filas = await leerFilasDeSecuencias((cols) => supabase.from('nutricion_secuencias').select(cols).is('archivada_at', null), 'duplicadaDeLaActivacion');
+  const vistas = filas.map((r) => ({
+    id: Number(r.id), nombre: String(r.nombre ?? ''), activa: r.activa === true,
+    pasos: Array.isArray(r.pasos) ? (r.pasos as PasoGrafo[]) : [], crons: disparadoresDe(r),
+  }));
+  const esta = vistas.find((v) => v.id === id);
+  if (!esta || (o.soloSiActiva && !esta.activa)) return null;
+  return duplicadaAlActivar(esta, vistas, (v) => v.crons, o.pasos ? { pasos: o.pasos } : {});
+}
+
 export class PasosInvalidosError extends Error {
   /** La tarjeta a abrir cuando el error es de UNA (los datos que no existen, undécima tanda). null = del flujo. */
   readonly tarjeta: string | null;
