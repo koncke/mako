@@ -4303,5 +4303,17 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
   nuevo (Instagram, Messenger, `pages_manage_metadata`) es otra revisión que va a entrar por el mismo negocio. La
   cuenta del revisor la crea Martín, adentro del ws3: sumada desde el negocio de la plataforma queda super admin, y el
   super admin pide 2FA siempre.
+- **El negocio de revisión tiene que tener el onboarding terminado.** Con el onboarding pendiente, `/integraciones?ws=3`
+  redirigía al chat de onboarding («¿cómo te llamas?»): el revisor de Meta y el de Google entraban y no llegaban ni a
+  Integraciones ni al CRM. El 21/10 se terminó por la interfaz, como lo haría un cliente, con datos de prueba (nombre
+  y negocio «Cliente de Prueba», «Mentoría de prueba, USD 100, pago único», «Ahora no» al WhatsApp). Desde ahí
+  /integraciones y /crm abren directo. Quedó un lead de prueba (`lead.prueba@example.com`, sin teléfono) en «Agenda R1»
+  con reunión del 20/10. Si alguien resetea el ws3 («Reset» de la barra de agencia), hay que repetirlo antes de
+  cualquier revisión: el reset deja el negocio en el onboarding.
+- **Sin confirmar:** el clic exacto que abre «Reagendar» con ese lead. Sale en «¿Qué hacer ahora?» de una reunión
+  pasada (`abrirQueHacer`, app/crm/CrmBoard.tsx) y puede necesitar una agenda conectada en el ws3.
+- **Un falso positivo que no hay que repetir:** el Explorador de la Graph API puede tener cargado un token de USUARIO
+  aunque el desplegable diga «System User Token». Antes de sacar conclusiones de `/me/permissions`, mirar `/me`: un
+  token del botón responde «MaKo System User», uno de usuario responde el nombre de la persona.
 
 **Vive en:** lib/meta-login.ts (`config_id`, `WORKSPACES_DE_REVISION`, `botonMetaVisible`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · tests/meta-login.test.ts · panel de la app 2586146911825340
