@@ -1245,7 +1245,7 @@ Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** el estado, el lugar en la columna y el historial de la tarea (plan_tareas o experimento_tareas)
+- **Escribe:** el estado, la columna, el lugar en la columna y el historial de la tarea (plan_tareas o experimento_tareas)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** todo
@@ -1255,6 +1255,7 @@ Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En
 | `id` | string | sí | id de la tarea (de listar_tareas_plan), o «#412». |
 | `estado` | string (por_hacer \\| en_curso \\| en_seguimiento \\| no_cumple) | sí | la columna destino. |
 | `motivo` | string | no | solo con en_seguimiento: por qué está atorada, en una línea. |
+| `columna` | string | no | opcional: una columna PROPIA de ese estado (clave c_…, de ver_columnas_plan). Sin ella, la de siempre de ese estado. |
 
 ```bash
 curl -L \

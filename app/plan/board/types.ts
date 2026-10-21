@@ -128,6 +128,11 @@ export type BoardTask = {
   /** Por qué está «Atorada», en una línea. Sólo existe con `estado: 'en_seguimiento'` (mig 0294). */
   motivoAtorada?: string | null;
   /**
+   * La columna PROPIA del negocio donde está (mig 0317, lib/plan-columnas.ts). null = la de su estado. Como `estado`,
+   * la escribe sólo `repo.mover`, nunca el guardado de la fila entera.
+   */
+  columna?: string | null;
+  /**
    * El lugar dentro de su columna, ASCENDENTE (la de menor `orden` arriba). Lo escriben el alta
    * y `repo.mover`; como `estado`, NO viaja en el guardado de la fila entera del dueño.
    */
@@ -552,7 +557,7 @@ export type Repo = {
    * ⚠️ OPCIONAL porque el tipo lo implementan también tableros armados a mano (tests, la demo
    * de Customer Success); los DOS tableros reales la tienen (TodoBoard y `repoPlan`).
    */
-  mover?(id: string, estado: EstadoTarea, orden?: number, opts?: { motivo?: string | null; historial?: Hist[]; progreso?: number }): Promise<BoardTask | null>;
+  mover?(id: string, estado: EstadoTarea, orden?: number, opts?: { motivo?: string | null; historial?: Hist[]; progreso?: number; columna?: string | null }): Promise<BoardTask | null>;
   /**
    * ¿LAS TARJETAS DE ESTE TABLERO SABEN QUIÉN LAS HACE? (`BoardTask.responsableTipo`, mig 0159).
    * Es lo que dibuja el filtro «Responsable» del kanban (16/10/2026). Sólo el del CLIENTE:

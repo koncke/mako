@@ -16,10 +16,10 @@
 // =============================================================================
 
 import {
-  columnasDelKanban, estadoTrasProgreso, ordenEntre,
+  estadoTrasProgreso, ordenEntre,
   type EstadoTarea, type ResponsableTipo,
 } from '@/lib/todo-estados';
-import { etiquetaDeColumna, type NombresColumnasPlan } from '@/lib/plan-columnas';
+import { claveDeTarea, columnasEnOrden, type ConfigColumnasPlan } from '@/lib/plan-columnas';
 import { estadoDe, prioFiltroDe, PCOLOR, PRIOS_FILTRO, PFILTRO_LABEL, type BoardTask, type PrioFiltro } from './types';
 
 /**
@@ -63,7 +63,8 @@ export function enOrdenManual<T extends { orden?: number; num: number }>(items: 
   });
 }
 
-export type ColumnaEstado<T> = { estado: EstadoTarea; label: string; items: T[] };
+/** Una columna con sus tarjetas. `clave` es el estado (las de siempre) o el id de una propia (lib/plan-columnas.ts). */
+export type ColumnaEstado<T> = { clave: string; estado: EstadoTarea; label: string; propia: boolean; items: T[] };
 
 /**
  * LAS COLUMNAS DEL KANBAN con sus tarjetas, en orden. `tablero` decide si existe «No cumplen
@@ -71,19 +72,23 @@ export type ColumnaEstado<T> = { estado: EstadoTarea; label: string; items: T[] 
  * aparece y desaparece al filtrar mueve el tablero entero); `visibles` es lo que se dibuja.
  * `ordenar` es el orden dentro de cada columna (por defecto, el manual).
  */
-export function columnasPorEstado<T extends { estado?: EstadoTarea; progress: number; orden?: number; num: number }>(
+export function columnasPorEstado<T extends { estado?: EstadoTarea; progress: number; orden?: number; num: number; columna?: string | null }>(
   visibles: readonly T[],
   tablero: readonly { estado?: EstadoTarea; progress: number }[],
   ordenar: (items: T[]) => T[] = enOrdenManual,
-  /** Los nombres que el negocio le puso a sus columnas (lib/plan-columnas.ts); sin ellos, los de siempre. */
-  nombres?: NombresColumnasPlan | null,
+  /**
+   * Las columnas del negocio (lib/plan-columnas.ts): los nombres de las de siempre y las PROPIAS, cada una a la derecha
+   * de su estado. Sin esto, las de siempre con su nombre de siempre. Cada tarjeta va a `claveDeTarea`: su columna propia
+   * si existe y es de su estado; si no, la de su estado.
+   */
+  config?: ConfigColumnasPlan | null,
 ): ColumnaEstado<T>[] {
   const hay = new Set<EstadoTarea>(tablero.map((t) => estadoDe(t)));
   for (const t of visibles) hay.add(estadoDe(t));
-  return columnasDelKanban((e) => hay.has(e)).map((estado) => ({
-    estado,
-    label: etiquetaDeColumna(nombres, estado),
-    items: ordenar(visibles.filter((t) => estadoDe(t) === estado)),
+  const clave = (t: T) => claveDeTarea({ estado: estadoDe(t), columna: t.columna }, config);
+  return columnasEnOrden(config, hay.has('no_cumple')).map((c) => ({
+    clave: c.clave, estado: c.estado, label: c.label, propia: c.propia,
+    items: ordenar(visibles.filter((t) => clave(t) === c.clave)),
   }));
 }
 

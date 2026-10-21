@@ -8,6 +8,8 @@
 // getTenantDb auto-scopea por workspace_id (TENANT_TABLES), así que las queries no
 // lo tocan a mano. Mapeo 1:1 con BoardTask/Label (jsonb para checklist/historial/fuente).
 
+import { esIdColumnaPropia } from './plan-columnas';
+import { esColumnaInexistente } from './nutricion-grafo-motor';
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, WS_NINGUNO } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
@@ -125,13 +127,15 @@ export function rowToTask(r: Row): BoardTask {
 }
 
 /** Estado, motivo y orden de una fila de `plan_tareas`, saneados (mig 0294). */
-function estadoDeFila(r: Row): Pick<BoardTask, 'estado' | 'motivoAtorada' | 'orden'> {
+function estadoDeFila(r: Row): Pick<BoardTask, 'estado' | 'motivoAtorada' | 'orden' | 'columna'> {
   const estado: EstadoTarea = esEstado(r.estado) ? r.estado : estadoDeAvance(int(r.progress));
   const orden = Number(r.orden);
   return {
     estado,
     // Sólo existe en «Atorada»: pegado a otra columna (un script, una fila a mano) se lee null.
     motivoAtorada: estado === 'en_seguimiento' ? motivoAtoradaOk(r.motivo_atorada) : null,
+    // La columna propia (mig 0317). Sin la columna en la base llega undefined: la de su estado.
+    columna: esIdColumnaPropia(r.columna) ? r.columna : null,
     orden: Number.isFinite(orden) ? orden : int(r.num),
   };
 }
@@ -462,8 +466,8 @@ export async function guardarPlanTarea(t: BoardTask, opts: { progresoGuardado?: 
  */
 export async function moverPlanTarea(
   id: string, estado: EstadoTarea, orden?: number,
-  /** `progreso`: el avance de ANTES, sólo para el Deshacer de un mover (`trasMover`). */
-  opts: { motivo?: string | null; historial?: Hist[]; progreso?: number } = {},
+  /** `progreso`: el avance de ANTES, sólo para el Deshacer de un mover (`trasMover`). `columna`: la propia de destino. */
+  opts: { motivo?: string | null; historial?: Hist[]; progreso?: number; columna?: string | null } = {},
 ): Promise<{ ok: true; tarea: BoardTask } | { ok: false; error: string; status: number }> {
   if (!esEstado(estado)) return { ok: false, error: `estado inválido: ${String(estado)}`, status: 400 };
   return enPlan(async () => {
@@ -482,7 +486,14 @@ export async function moverPlanTarea(
       updated_at: new Date().toISOString(),
     };
     if (opts.historial !== undefined) patch.historial = sanearHist(opts.historial).slice(0, HIST_CAP);
-    const { error } = await db.from('plan_tareas').update(patch).eq('id', id);
+    // MOVER SIEMPRE ESCRIBE LA COLUMNA (mig 0317): pasar de «En revisión» a «En proceso» no cambia el estado, sólo esto.
+    patch.columna = esIdColumnaPropia(opts.columna) ? opts.columna : null;
+    let { error } = await db.from('plan_tareas').update(patch).eq('id', id);
+    // ⚠️ SIN LA MIG 0317 la base contesta 42703/PGRST204: se mueve igual, a la columna de su estado.
+    if (error && esColumnaInexistente(error)) {
+      delete patch.columna;
+      ({ error } = await db.from('plan_tareas').update(patch).eq('id', id));
+    }
     if (error) throw new Error(`moverPlanTarea: ${error.message}`);
     return { ok: true as const, tarea: rowToTask({ ...fila, ...patch }) };
   });

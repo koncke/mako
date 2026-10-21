@@ -28,7 +28,7 @@ import type { BoardTask, Label } from '@/app/plan/board/types';
 import { proyectosDelTablero, recurrentesDelTablero, tareasDelTablero } from './tableros';
 import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { ListaPlan } from './ListaPlan';
-import { leerNombresColumnasPlan } from '@/lib/plan-columnas-server';
+import { leerColumnasPlan } from '@/lib/plan-columnas-server';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -54,8 +54,8 @@ export default async function PlanMovil() {
   }
 
   // El kanban de Tareas por ESTADO (16/10/2026): columnas con su conteo real y las tarjetas.
-  // Con los nombres que el negocio le puso a sus columnas (lib/plan-columnas.ts): los mismos que la computadora.
-  const kanban = tareasDelTablero({ tareas, proyectos, hoy: plan.fecha, conNum: plan.tablero === 'dueno', nombres: await leerNombresColumnasPlan() });
+  // Con las columnas del negocio (lib/plan-columnas.ts): sus nombres y las propias, las mismas que la computadora.
+  const kanban = tareasDelTablero({ tareas, proyectos, hoy: plan.fecha, conNum: plan.tablero === 'dueno', columnas: await leerColumnasPlan() });
   return (
     <PantallaM>
       <ListaPlan

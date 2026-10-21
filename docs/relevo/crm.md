@@ -64,8 +64,10 @@ quién escribió), la landing o campaña sin CRM y el lead que vuelve a la landi
 (no hay plantilla para ninguna). D5 espera a que el pedido B de Automations llegue a main (lo avisa el Cerebro).
 
 B1, primera parte (20/10, noche): las columnas del Plan se renombran (clic en el nombre o «⋯» › «Cambiar el nombre»,
-sólo el admin), por negocio, en la computadora, el teléfono y MaKo. Agregar y borrar columnas propias espera una
-migración (hallazgos-plan, «Las columnas del Plan se renombran»). No visto en pantalla: se revisa en /plan.
+sólo el admin), por negocio, en la computadora, el teléfono y MaKo. Segunda parte, la misma noche: agregar y quitar
+columnas PROPIAS desde el «⋯» (un paso dentro de un estado; la tarea guarda `columna`, mig 0317, que aplica el Cerebro
+al integrar). B1 queda Hecho. No visto en pantalla: se revisa en /plan («⋯» de una columna › «Agregar columna»,
+arrastrar una tarea ahí y quitarla).
 
 ## 0-Ω17. 20/10/2026 (chat «CRM», cuenta `claude4`): Chats lento, EN PRODUCCIÓN (run 165)
 

@@ -51,6 +51,8 @@ export type TareaPlan = {
   estado: EstadoTarea;
   /** Por qué está Atorada, en una línea; null fuera de ahí o si nadie lo dijo. */
   motivoAtorada: string | null;
+  /** La columna PROPIA donde está (mig 0317, lib/plan-columnas.ts). null = la de su estado. */
+  columna: string | null;
   avance: number;
   deadline: string | null;
   proyectoId: string | null;
@@ -152,7 +154,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       board: 'plan',
       tareas: b.tareas.map((t) => ({
         id: t.id, num: t.num, titulo: t.title, detalle: t.detalle ?? '', score: t.score, prioridad: t.priority,
-        estado: t.estado ?? estadoDeAvance(t.progress ?? 0), motivoAtorada: t.motivoAtorada ?? null,
+        estado: t.estado ?? estadoDeAvance(t.progress ?? 0), motivoAtorada: t.motivoAtorada ?? null, columna: t.columna ?? null,
         avance: t.progress ?? 0, deadline: t.deadline || null, proyectoId: t.labels[0] ?? null, labels: [...t.labels],
         checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
         notas: t.notas ?? '', scoreRazon: t.scoreRazon ?? null, deadlineRazon: t.deadlineRazon ?? null,
@@ -176,7 +178,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
     board: 'todo',
     tareas: tareas.map((t) => ({
       id: String(t.id), num: null, titulo: t.titulo, detalle: t.detalle ?? '', score: t.score, prioridad: t.prioridad,
-      estado: t.estado, motivoAtorada: t.motivo_atorada,
+      estado: t.estado, motivoAtorada: t.motivo_atorada, columna: t.columna ?? null,
       avance: t.progreso ?? 0, deadline: t.deadline ?? null, proyectoId: t.categorias[0] != null ? String(t.categorias[0]) : null,
       labels: t.categorias.map(String),
       checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),

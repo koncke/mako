@@ -21,7 +21,7 @@
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { estaImpersonando, rutaConWs, getRolWsEfectivo } from '@/lib/workspace';
-import { leerNombresColumnasPlan } from '@/lib/plan-columnas-server';
+import { leerColumnasPlan } from '@/lib/plan-columnas-server';
 import { getPerfil } from '@/lib/perfil';
 import { listPlanBoard } from '@/lib/plan-board';
 import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
@@ -76,8 +76,8 @@ export default async function PlanAgenciaPage({ searchParams }: { searchParams: 
   // tablero entero es el peor intercambio posible.
   const clientes = await clientesGanadosOVacio();
   // Los nombres de las columnas del negocio y si se pueden cambiar (lib/plan-columnas.ts): lo mismo que /plan.
-  const [nombresColumnas, rol] = await Promise.all([leerNombresColumnasPlan(), getRolWsEfectivo().catch(() => null)]);
+  const [configColumnas, rol] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null)]);
 
   return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} deps={deps} vacio={vacio} vistaInicial={vista} clientes={clientes} clienteInicial={leerClienteDeUrl(params.cliente)}
-    columnas={{ nombres: nombresColumnas, editables: rol === 'admin' }} />;
+    columnas={{ config: configColumnas, editables: rol === 'admin' }} />;
 }

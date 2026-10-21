@@ -11,7 +11,7 @@ import { seedTodoBoardSiVacio, autocompletarPorSenales } from '@/lib/todo-seeds'
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual, estaImpersonando, rutaConWs, getRolWsEfectivo } from '@/lib/workspace';
-import { leerNombresColumnasPlan } from '@/lib/plan-columnas-server';
+import { leerColumnasPlan } from '@/lib/plan-columnas-server';
 import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
 import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
@@ -102,8 +102,8 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   const clientes = await clientesGanadosOVacio();
   // Los nombres de las columnas de ESTE negocio (lib/plan-columnas.ts) y si quien mira los puede cambiar: el admin,
   // como el funnel del CRM. Leídos acá para que el primer HTML ya diga el nombre del negocio, sin parpadeo.
-  const [nombresColumnas, rol] = await Promise.all([leerNombresColumnasPlan(), getRolWsEfectivo().catch(() => null)]);
+  const [configColumnas, rol] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null)]);
 
   return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} clientes={clientes} clienteInicial={leerClienteDeUrl(cliente)}
-    columnas={demo ? null : { nombres: nombresColumnas, editables: rol === 'admin' }} />;
+    columnas={demo ? null : { config: configColumnas, editables: rol === 'admin' }} />;
 }

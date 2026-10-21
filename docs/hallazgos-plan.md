@@ -7266,7 +7266,7 @@ borrador pendiente en /plan/revisar, cruzado contra el tablero.
 (`clientesMako`, `listReunionesRecientes`) · lib/closing.ts (`getLeadsByEmail` trae `cliente_ws`) ·
 tests/reunion-clasificar-clientes.test.ts
 
-## Las columnas del Plan se renombran, no se inventan: la columna ES el estado (20/10/2026)
+## Las columnas del Plan: las de siempre ES el estado; las propias, un paso dentro de uno (20/10/2026)
 
 «Columnas editables como en el CRM» (Martín, 18/10 pt 9). Lo que no se ve en el código:
 
@@ -7283,8 +7283,24 @@ tests/reunion-clasificar-clientes.test.ts
 - **MaKo, sólo por la app** (`ver_columnas_plan`, `renombrar_columna_plan`): el presupuesto de herramientas del turno
   de WhatsApp ya está justo (tests/agenda-whatsapp.test.ts), y renombrar una columna se hace mirando el tablero.
 
-**Sin hacer:** agregar y borrar columnas propias (como «Agregar etapa» del CRM) necesita decir en qué columna está una
-tarea además de su estado: una columna nueva en las dos tablas (migración que numera el Cerebro). Los tableros
-embebidos de otro negocio, con sus nombres. Nada se vio en pantalla.
+- **Una columna PROPIA es un paso DENTRO de un estado** («En revisión» agregada después de «En proceso» es trabajo en
+  curso). La tarea guarda en cuál está (`columna`, mig 0317) y su estado sigue siendo el de esa columna, así que los
+  ~10 lectores del estado no se enteran. Si la columna ya no existe o no es de su estado (se completó por el avance, la
+  movió MaKo), se dibuja en la de su estado (`claveDeTarea`): quitar una columna no pierde tareas y no hace falta FK.
+- **Mover SIEMPRE escribe la columna** (null = la de siempre): de «En revisión» a «En proceso» el estado no cambia y
+  sólo esto lo dice. Y en `useBoard.mover` una columna sin decir (`undefined`) SE QUEDA si el estado no cambia: cargar
+  el motivo de Atorada o reordenar no la saca de su columna; si cambia, va a la de su estado.
+- **Sin la mig 0317 anda igual:** las lecturas del tablero son `select('*')`; mover reintenta sin `columna` con
+  42703/PGRST204; el teléfono lee la fila con `*` (una lista que NOMBRA `columna` tumba la consulta entera).
+- ⚠️ **El PostgREST de mentira del arnés aceptaba lo que la base rechaza:** devolvía la fila entera para cualquier
+  `select` y aplicaba cualquier PATCH. Dos roturas salían en verde (el teléfono leyendo `columna` por nombre, y mover
+  que no borraba la columna al volver a la de siempre) hasta que el mock contestó 42703/PGRST204 como la base real y el
+  arnés hizo el viaje de vuelta. tests/_plan-columnas-hijo.ts.
+- **Una operación nueva en la API de MaKo pide regenerar `docs/api-mako.md`** (`node --import tsx
+  scripts/generar-api-doc.mjs`): lo exige un test de api-mako. La primera parte no lo hizo y el test lo cazó en la segunda.
+
+**Sin hacer:** las de siempre no se quitan ni se mueven (son el estado). Los tableros embebidos de otro negocio, con
+sus columnas. Nada se vio en pantalla.
 **Vive en:** lib/plan-columnas.ts y plan-columnas-server.ts · app/plan/board/useBoard.ts y BoardShell.tsx ·
-app/m/plan/ · lib/api-mako/areas/plan.* · test tests/plan-columnas-nombre.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
+lib/plan-mover.ts · app/m/plan/ · lib/api-mako/areas/plan.* · mig 0317 · tests tests/plan-columnas-nombre.test.ts y
+tests/plan-columnas-propias.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
