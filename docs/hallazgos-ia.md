@@ -4812,9 +4812,17 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
   respuestas que no afirmaban nada (sin tildes, el subjuntivo y el pasado son la misma palabra; las negaciones; las
   ofertas), dejaba pasar 17 de 35 afirmaciones y podía sumar dos notas que se contradecían. Ahora: PRECISIÓN ANTES QUE
   COBERTURA. El banco de la revisión vive en tests/chat-guardia-banco.test.ts y mide, por sha, 0 oraciones borradas, 0
-  notas donde no se afirma nada y 0 respuestas con dos notas. Lo que se escapa es un NÚMERO (21/10: 26 de 36 llevan la
+  notas donde no se afirma nada y 0 respuestas con dos notas. Lo que se escapa es un NÚMERO (21/10: 25 de 36 llevan la
   nota sin respaldo; se escapan los estados «ya está hecho», «ya quedó», el plural «lo agendamos» y «te dejé la tarjeta»),
   y el test sólo pide que no baje. La red fuerte es lo que el código dibuja en el hilo, no el texto de MaKo.
+- **Y no se lee el texto que no es de MaKo (la cuarta revisión).** Lo que va entre comillas o en una línea «> …» (lo que
+  dijo un lead, un borrador para mandar, un copy en primera persona) llevaba la nota: «Juan te respondió: «Ya te mandé el
+  comprobante»». Ahora `afirmacionesDeHecho` lo saca antes de leer (`sinLoCitado`), no marca lo condicional («si ya te
+  mandé el link…») ni lo que presenta con «:» lo que sigue en el mismo mensaje («Te armé un resumen de la semana:»). La
+  nota de promesa va sólo si la promesa es lo ÚLTIMO del mensaje, no es condicional y no hay respaldo; y sacar una
+  grosería ya no se lleva lo demás aunque sea corto. **Regla:** antes de juzgar un texto, sacar lo que es de otro.
+  Cobertura, anotada como número: el «Hecho» de otra cosa respalda 25 de 30 pedidos NUEVOS que el clasificador no ve
+  como pedido; no se arregla con reglas.
 - **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
   (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
   pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que

@@ -141,6 +141,11 @@ function itemDeFuncion(item: string): { esq: string; nombre: string; tipos: stri
 
 const iguales = (a: string[], b: string[]) => a.length === b.length && a.every((t, i) => t === b[i]);
 const rolesCierran = (roles: string) => /\bpublic\b/i.test(roles) && /\banon\b/i.test(roles) && /\bauthenticated\b/i.test(roles);
+/**
+ * ¿Este REVOKE saca de verdad el EXECUTE? No lo saca `revoke GRANT OPTION FOR execute …` (sólo quita el derecho a darlo) ni `… granted by <rol>` (sólo los permisos que ese rol
+ * otorgó: un permiso dado por otro queda). Revisión de la 0319 del Cerebro, 21/10.
+ */
+const revocaDeVerdad = (soloOpcion: string | undefined, roles: string) => !soloOpcion && !/\bgranted\s+by\b/i.test(roles) && rolesCierran(roles);
 const rolesAbren = (roles: string) => /\b(anon|authenticated|public)\b/i.test(roles);
 
 type Fn = { esq: string; nombre: string; tipos: string[]; donde: string; trigger: boolean; cerrada: boolean; otorgada: boolean };
@@ -182,14 +187,14 @@ function funcionesAbiertas(migraciones: Migracion[], abiertas: ReadonlyMap<strin
         continue;
       }
       // REVOKE|GRANT … ON FUNCTION|PROCEDURE|ROUTINE a(args), b(args) FROM|TO roles
-      const sobreFunciones = /^(revoke|grant)\s+(?:grant\s+option\s+for\s+)?(?:all(?:\s+privileges)?|execute)\s+on\s+(?:function|procedure|routine)\s+([\s\S]+?)\s+(?:from|to)\s+([\s\S]+)$/i.exec(s);
+      const sobreFunciones = /^(revoke|grant)\s+(grant\s+option\s+for\s+)?(?:all(?:\s+privileges)?|execute)\s+on\s+(?:function|procedure|routine)\s+([\s\S]+?)\s+(?:from|to)\s+([\s\S]+)$/i.exec(s);
       if (sobreFunciones) {
-        const [, verbo, lista, roles] = sobreFunciones;
+        const [, verbo, soloOpcion, lista, roles] = sobreFunciones;
         for (const item of partirPrimerNivel(lista, ',')) {
           const f = itemDeFuncion(item);
           if (!f) continue;
           const objetivo = buscar(f.esq, f.nombre, f.tipos);
-          if (verbo.toLowerCase() === 'revoke') { if (rolesCierran(roles)) for (const v of objetivo) v.cerrada = true; }
+          if (verbo.toLowerCase() === 'revoke') { if (revocaDeVerdad(soloOpcion, roles)) for (const v of objetivo) v.cerrada = true; }
           else {
             if (/\bservice_role\b/i.test(roles)) for (const v of objetivo) v.otorgada = true;
             if (rolesAbren(roles) && !abiertas.has(f.nombre)) problemas.push(`${mig.nombre}: abre ${f.esq}.${f.nombre}() a ${roles.trim()} sin estar en ABIERTAS (con su porqué)`);
@@ -198,11 +203,11 @@ function funcionesAbiertas(migraciones: Migracion[], abiertas: ReadonlyMap<strin
         continue;
       }
       // REVOKE|GRANT … ON ALL FUNCTIONS|PROCEDURES|ROUTINES IN SCHEMA s FROM|TO roles
-      const sobreTodas = /^(revoke|grant)\s+(?:grant\s+option\s+for\s+)?(?:all(?:\s+privileges)?|execute)\s+on\s+all\s+(?:functions|procedures|routines)\s+in\s+schema\s+([\s\S]+?)\s+(?:from|to)\s+([\s\S]+)$/i.exec(s);
+      const sobreTodas = /^(revoke|grant)\s+(grant\s+option\s+for\s+)?(?:all(?:\s+privileges)?|execute)\s+on\s+all\s+(?:functions|procedures|routines)\s+in\s+schema\s+([\s\S]+?)\s+(?:from|to)\s+([\s\S]+)$/i.exec(s);
       if (sobreTodas) {
-        const [, verbo, esquemas, roles] = sobreTodas;
+        const [, verbo, soloOpcion, esquemas, roles] = sobreTodas;
         for (const e of partirPrimerNivel(esquemas, ',').map(ident)) {
-          if (verbo.toLowerCase() === 'revoke') { if (rolesCierran(roles)) for (const v of buscar(e, null, null)) v.cerrada = true; }
+          if (verbo.toLowerCase() === 'revoke') { if (revocaDeVerdad(soloOpcion, roles)) for (const v of buscar(e, null, null)) v.cerrada = true; }
           else {
             if (/\bservice_role\b/i.test(roles)) for (const v of buscar(e, null, null)) v.otorgada = true;
             if (rolesAbren(roles) && !abiertas.has('*')) problemas.push(`${mig.nombre}: abre TODAS las funciones de ${e} a ${roles.trim()} sin estar en ABIERTAS (con su porqué)`);
@@ -302,6 +307,17 @@ test('analizador: el revoke tiene que nombrar public, anon Y authenticated; el c
   assert.deepEqual(un(trig), [], 'la función de un trigger no necesita grant');
 });
 
+test('analizador: un REVOKE que NO saca el EXECUTE no cierra la función (`grant option for`, `granted by <rol>`), pero `cascade`/`restrict` y `all privileges` sí', () => {
+  const grant = 'grant execute on function public.f(bigint) to service_role;';
+  const grantTodas = 'grant execute on all functions in schema public to service_role;';
+  assert.equal(un(`${CREA}\nrevoke grant option for execute on function public.f(bigint) from public, anon, authenticated;\n${grant}`).length, 1, '`grant option for` sólo quita el derecho a darlo, no el EXECUTE');
+  assert.equal(un(`${CREA}\nrevoke execute on function public.f(bigint) from public, anon, authenticated granted by postgres;\n${grant}`).length, 1, '`granted by` sólo quita lo que dio ese rol: lo que dio otro queda');
+  assert.equal(un(`${CREA}\nrevoke grant option for execute on all functions in schema public from public, anon, authenticated;\n${grantTodas}`).length, 1, 'ni sobre todas las de un esquema');
+  assert.equal(un(`${CREA}\nrevoke execute on all routines in schema public from public, anon, authenticated granted by postgres;\n${grantTodas}`).length, 1, 'ni `granted by` sobre todas');
+  assert.deepEqual(un(`${CREA}\nrevoke execute on function public.f(bigint) from public, anon, authenticated cascade;\n${grant}`), [], 'cascade sí cierra');
+  assert.deepEqual(un(`${CREA}\nREVOKE ALL PRIVILEGES ON FUNCTION public.f(bigint) FROM PUBLIC, anon, authenticated RESTRICT;\n${grant}`), [], 'all privileges + restrict sí cierran');
+});
+
 test('analizador: un grant a anon / authenticated / public se reporta (sobre una función, sobre TODAS las functions|routines|procedures de un esquema, o como DEFAULT de las que vengan) salvo ABIERTAS', () => {
   const abre = `${CREA}\n${CIERRE}\ngrant execute on function public.f(bigint) to anon;`;
   assert.equal(un(abre).length, 1);
@@ -383,5 +399,8 @@ test('analizador: un `;` dentro de un cuerpo $$ no parte la sentencia, y un revo
 //     $$ (salió VERDE la primera vez: faltaba el caso de un `revoke` escrito DENTRO del cuerpo de una función; ahora roja) · `int` ≠ `integer` · el revoke sin exigir authenticated ·
 //     un drop que no borra · el esquema ignorado.
 //   Un mutante dio verde y era EQUIVALENTE (un `create` sin `or replace` sobre una función que ya existe es un error de Postgres, nunca se da): se simplificó el código.
+//   RONDA 3 (la verificación v2 del Cerebro, con la 0319 ya aplicada: «un `revoke grant option for` o `… granted by` NO saca el EXECUTE»; 11 pruebas): 4 roturas, 4 rojas — sin mirar
+//   `grant option for` · sin mirar `granted by` · y, por separado, el revoke sobre una función y el revoke sobre todas las de un esquema volviendo a cerrar sin mirar nada de eso.
+//   Total: 35 roturas, 34 rojas y 1 equivalente.
 // La 0319 se probó además en un Postgres real descartable (PGlite) con los default privileges de Supabase y la 0280: ver docs/hallazgos-seguridad.md.
 // =============================================================================
