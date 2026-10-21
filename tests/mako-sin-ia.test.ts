@@ -106,11 +106,13 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   // El turno: sin IA no registra el «responder», dice AVISO_SIN_IA y devuelve `conectar`.
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   // Rota: `...(fallo ? [...responder...])` sin el `!sinIA` → este test falla (el ticket #6 de vuelta).
-  assert.match(turno, /\.\.\.\(fallo && !sinIA \? \[\{ nombre: 'responder'/);
-  assert.match(turno, /const sinIA = faltaIADelNegocio\(fallo, fallo \? await iaPropiaDelTurno\(\) : null\)/);
+  // Desde el 21/10 también sin lo que falló en la computadora del cliente (`falloDeLaPc`, tests/ia-pc.test.ts).
+  assert.match(turno, /\.\.\.\(fallo && !sinIA(?: && !falloDeLaPc)? \? \[\{ nombre: 'responder'/);
+  assert.match(turno, /const sinIA = (?:!falloDeLaPc && )?faltaIADelNegocio\(fallo, fallo \? await iaPropiaDelTurno\(\) : null\)/);
   assert.match(turno, /provsDe, CASCADA_TOOLS/, 'cuenta con la MISMA lectura que la cascada');
-  assert.match(turno, /const sinIAEs = !respuesta && sinIA\s*\? avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\), iaParaConectar\(await iaConFila\(\)\)\)\s*: null;/);
-  assert.match(turno, /if \(!respuesta\) aviso = \[aviso, sinIAEs\?\.aviso \?\? AVISO_NO_PUDE\]/);
+  // Desde el 21/10, con su computadora conectada (aunque apagada) no se le pide otra IA: `&& !pc` (tests/ia-pc.test.ts).
+  assert.match(turno, /const sinIAEs = !respuesta && sinIA(?: && !pc)?\s*\? avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\), iaParaConectar\(await iaConFila\(\)\)\)\s*: null;/);
+  assert.match(turno, /aviso = \[aviso, (?:delaPc \?\? )?sinIAEs\?\.aviso \?\? AVISO_NO_PUDE\]/);
   assert.match(turno, /pantallas, conectar \}/);
 });
 

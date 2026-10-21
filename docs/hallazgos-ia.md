@@ -4552,3 +4552,30 @@ sería mandarlo a algo que no lo arregla: dice «Conecta tu propia API key de IA
   herramientas), y lo que se le pide conectar es lo que ya eligió, no un default.
 - **Sin hacer:** con la pausa de Claude prendida (`mako.claude.pausa`), el negocio con sólo su Claude sigue viendo «Conectar
   tu IA» (le abre su modal de Claude, no Gemini).
+
+## La IA del cliente en SU computadora: lo que no se ve en el código (ola 1, 21/10/2026)
+
+El diseño: docs/ia-del-cliente.md. Lo medido al hacerlo, en esta PC, con Claude Code 2.1.301 y el ws3:
+- **`--bare` apaga la suscripción.** Su ayuda lo dice: «Anthropic auth is strictly ANTHROPIC_API_KEY… OAuth and keychain
+  are never read». Parece el modo «limpio» para un programa, y es justo el que no sirve. El programa de la PC nunca lo usa.
+- **Con `ANTHROPIC_API_KEY` en el entorno, `-p` usa la key y no la suscripción** (code.claude.com/docs/en/authentication):
+  el programa saca esa variable (y las de Bedrock y Vertex) antes de correr `claude`.
+- **`--tools ""` + `--strict-mcp-config` deja a Claude sin manos:** ni terminal, ni archivos, ni web, sólo las
+  herramientas de MaKo del turno. Medido: contestó «Hola» con la suscripción y sin herramientas propias.
+- **Sin elegir modelo, Claude Code usa Opus** (medido: `modelUsage` = `claude-opus-5-5`): le gasta el cupo de 5 horas al
+  cliente en pocos turnos. Va `--model sonnet`.
+- **La carpeta por defecto (`~/.claude`) puede estar sin sesión** aunque Claude Code ande: Martín corre cada cuenta con
+  su carpeta (`CLAUDE_CONFIG_DIR`). `claude auth status` dice cuál está logueada (`loggedIn`, `authMethod`, el plan y el
+  email) sin mostrar el token. Con varias cuentas, el programa corre cada turno con la carpeta de la cuenta elegida.
+- **De punta a punta en el ws3 anda** (`scripts/ia-pc/probar-punta-a-punta.mts`): la PC se empareja, late, toma el turno,
+  el Claude real pide las herramientas por el MCP, `turnoApp` las corre con su `runTool` y la respuesta vuelve al chat
+  (una lectura en 32 s; «agrega un lead» terminó en la ficha para confirmar, no en un lead creado).
+- **Trampa del arnés, no del código:** fuera de Next, las herramientas que usan `unstable_cache` (contar y listar leads)
+  tiran «Invariant: incrementalCache missing». En la app corren dentro de Next. Para probarlas de punta a punta hace
+  falta el servidor de verdad, no el arnés.
+- **`String.replace` con `$'` en el reemplazo pega el resto del texto:** al editar el SQL de la migración con un script,
+  el `'^[0-9a-f]{64}$'),` del reemplazo se volvió «el resto del archivo» y duplicó media migración. Para texto con `$`,
+  el editor, nunca un `replace` con el reemplazo armado a mano.
+- **Sin hacer (ola 2):** «Tus cuentas de IA» y el tutorial; el ejecutable de un archivo (hoy es `node mako-pc.mjs`); el %
+  usado de cada cuenta (Claude lo da en el `/usage` del Agent SDK, no en `-p`); que el cliente elija el modelo; varias
+  cuentas con rotación. Y el riesgo legal de Anthropic (docs/ia-del-cliente.md §10), que es del Cerebro.

@@ -141,4 +141,21 @@ export const BITACORA: Hito[] = [
       'Un email, un teléfono o un monto no se tapan: en el chat del negocio son su trabajo.',
     ],
   },
+  {
+    fecha: '21 oct', hora: '01:28', chat: 'Cerebro', sesion: 'local_797d5445-2365-464d-ae3d-1d71aa7baa8c', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las cuentas de Claude y GPT de los clientes, al 100%',
+    pedido: 'Ya le respondí a Debate todo sobre la implementación de las cuentas de Claude y GPT para los clientes. Quiero que este al 100% eso, que puedan conectarlo, que haya un tutorial, que este 100% funcional',
+    puntos: ['Y a las 01:30: «No hagas más preguntas e implementalo al 100%». El mapa: docs/ia-del-cliente.md.'],
+  },
+  {
+    fecha: '21 oct', hora: '02:10', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Ops Center de un cliente ya puede contestar con SU Claude, desde su computadora',
+    puntos: [
+      'El cliente conecta su computadora con un código de 6 letras, y deja corriendo «MaKo en tu computadora». Su Ops Center contesta con su Claude, con su cuenta: MaKo nunca toma su login.',
+      'La computadora sólo piensa: Claude corre sin terminal ni archivos, y las herramientas de MaKo corren en MaKo, con las mismas tarjetas para confirmar.',
+      'Probado de punta a punta en esta computadora con el cliente de prueba: contestó con las herramientas de MaKo, y «agrega un lead» quedó en la ficha para confirmar.',
+      'Si su computadora está apagada, el chat le pide que la prenda. Con su Claude o su GPT, su chat ya no usa las IA gratis.',
+      '⚠️ Falta la ola 2: «Tus cuentas de IA», el tutorial y el instalador para Windows y Mac. Hoy se corre con un comando.',
+    ],
+  },
 ];

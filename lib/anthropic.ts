@@ -479,6 +479,9 @@ export async function chatClaudeTools(
   opts: {
     model?: string;
     fallbackModel?: string;         // si el override a IA barata (Gemini/Groq) falla, caé A ESTE (no a Opus).
+    /** D6b (21/10/2026): el negocio tiene SU Claude o SU GPT. La cascada sólo prueba su OpenAI y después su Claude: ni
+     *  Gemini, ni Groq, ni Mistral, ni OpenRouter (docs/ia-del-cliente.md §12.7). */
+    soloSuIA?: boolean;
     sinFallbackClaude?: boolean;    // si el override a IA barata falla, RE-LANZÁ el error (no caigas a Claude): el caller quiere avisar "falló", no gastar Claude en silencio.
     effort?: Effort;
     maxTokens?: number;
@@ -526,7 +529,8 @@ export async function chatClaudeTools(
       const errores: string[] = [];
       try {
         const { chatCheapToolsCascade, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
-        const provs = [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
+        // Con su Claude o su GPT (`soloSuIA`), sólo su OpenAI: la cascada barata no participa en sus turnos (D6b).
+        const provs: ProvName[] = opts.soloSuIA ? ['openai'] : [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
         const r = await chatCheapToolsCascade(system, messages, tools, runTool, {
           maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
           provs, modelos: { [ref.provider as ProvName]: ref.model }, erroresOut: errores,

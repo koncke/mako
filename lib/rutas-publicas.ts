@@ -186,6 +186,15 @@ export const PUBLICOS = [
   // mezcla POR CONSTRUCCIÓN, y tests/api-mako-registro.test.ts enumera en positivo
   // los route.ts permitidos bajo esa carpeta y falla si aparece otro.
   '/api/v1',
+
+  // ── La computadora del cliente (docs/ia-del-cliente.md, 21/10/2026) ───────────
+  // Una POR UNA, como /api/agente: en /api/ia-pc también vive `codigo`, que es con sesión y NO está acá. Todas se
+  // autentican por su bearer (`mkopc_` de la PC, `mkotn_` del turno) o por el código de 6 letras, nunca por la cookie.
+  // `turno` va como prefijo porque cubre `turno/<id>`, y las dos son de la PC.
+  '/api/ia-pc/emparejar',
+  '/api/ia-pc/latido',
+  '/api/ia-pc/turno',
+  '/api/ia-pc/mcp',
 ] as const;
 
 /** Los públicos que solo deben responder a LECTURA. El early-return se saltea el

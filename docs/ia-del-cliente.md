@@ -60,10 +60,9 @@ manos.**
 4. Por cada turno corre Claude Code oficial así, con el texto por stdin y nunca en la línea de comandos:
 
    ```
-   claude -p --output-format stream-json --verbose --no-session-persistence
-          --tools "" --strict-mcp-config --mcp-config <turno>.json
-          --allowedTools "mcp__mako" --max-turns 12
-          --system-prompt-file <turno>.system.txt
+   claude -p --output-format json --no-session-persistence
+          --tools "" --strict-mcp-config --allowedTools "mcp__mako" --max-turns 12 --model sonnet
+          --system-prompt-file <turno>/system.txt --mcp-config <turno>/mcp.json
    ```
    - `--tools ""` apaga TODAS las herramientas propias de Claude Code (terminal, archivos, web).
    - `--strict-mcp-config` + `--mcp-config` deja como únicas herramientas las de MaKo, por la puerta del turno (§4).
@@ -127,8 +126,8 @@ la PC de CADA cliente, con la confianza al revés: en la PC de Martín la confia
    función que usa el turno de hoy (`runTool`: el gating, el memo anti-duplicado y las tarjetas).
 5. La PC devuelve el texto. `turnoApp`, que estaba esperando (la ruta tiene 420 s), lo valida, lo guarda y lo muestra.
    La pantalla no cambia.
-6. Si a los 240 s no volvió, el chat dice «Tu Claude está tardando: la respuesta va a aparecer acá» y el turno sigue
-   vivo hasta que vence. Si vuelve después, queda en el hilo.
+6. Si a los 240 s no volvió, el turno VENCE y el chat dice «Tu Claude tardó demasiado: mándamelo de nuevo». Lo que la PC
+   conteste después no se muestra (§12.11).
 
 ---
 
@@ -273,6 +272,13 @@ prueba en el ws3.
    navegador y aparece en la consola web.
 10. **Codex en la ola 3:** `codex exec` con la cuenta de ChatGPT está documentado, pero que cargue los MCP no; se mide
     antes de prometerlo.
+11. **Lo que no volvió a tiempo vence** (ola 1): un turno que contesta después de que el chat dejó de esperar lo
+    contestaría una pantalla que ya no lo espera, fuera de orden. Se le pide a la persona que lo mande de nuevo.
+12. **El modelo de la PC es Sonnet** (`--model sonnet`, ola 1): medido el 21/10, sin elegir, Claude Code usa Opus, que
+    le gasta el cupo de 5 horas al cliente en pocos turnos. Que lo elija el cliente es de la ola 2 («Tus cuentas de IA»).
+13. **El MCP del servidor es un relevo** (ola 1): la PC pide la herramienta, queda en `ia_pc_llamadas`, y la corre el
+    MISMO `turnoApp` que espera, con su `runTool` (el memo, las tarjetas, los links de «Abrir para revisar»). Un segundo
+    motor de herramientas sería un segundo lugar con las reglas.
 
 ---
 

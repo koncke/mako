@@ -38,6 +38,8 @@ import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
 import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
+import { encolarTurno, esperarALaPc, pcDe, type Ejecutor } from '@/lib/ia-pc';
+import { armarPrompt, avisoDeLaPc, ESPERA_RESPUESTA_MS } from '@/lib/ia-pc-reglas';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import type { Ctx } from '@/lib/api-mako/tipos';
@@ -257,6 +259,21 @@ async function iaPropiaDelTurno(): Promise<number | null> {
 }
 
 /** Las IA que el negocio tiene guardadas en SU fila (`credDelCliente`, sin el entorno), para abrirle la que ya eligió. */
+/**
+ * ¿El negocio tiene SU Claude o SU GPT por clave? (D6b): su Claude que pasa la puerta 2 del veto, o su OpenAI propia
+ * (`provsDe`, sin las copias de la plataforma). Con eso, su turno no pasa por la cascada barata.
+ */
+async function tieneSuIA(): Promise<boolean> {
+  try {
+    const claude = await permisoDeLaClaveDelNegocio(FEATURE);
+    if (claude && 'permiso' in claude) return true;
+    const { provsDe } = await import('@/lib/ai-cheap');
+    return (await provsDe('openai')).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function iaConFila(): Promise<string[]> {
   const out: string[] = [];
   for (const s of IA_PARA_CONECTAR) if (await credDelCliente(ENV_DE_IA[s]).catch(() => null)) out.push(s);
@@ -476,19 +493,37 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const msgs: RichMsg[] = [...historial, { role: 'user', content: userContent }];
     let texto = '';
     let fallo: string | null = null;
+    // ── ¿Lo piensa la computadora de ESTA persona? (docs/ia-del-cliente.md, ola 1; D6a, 21/10/2026) ──────────────
+    // Su Claude, con su cuenta, en su PC, sin herramientas propias. Las de MaKo corren AQUÍ, con este mismo `runTool`
+    // (lib/ia-pc.ts → `esperarALaPc`): el gating, el memo y las tarjetas son los de siempre. Sólo la PC de quien escribe:
+    // la cuenta es de una persona (§10).
+    const pc = await pcDe(ws, persona.actor).catch(() => null);
+    // Lo que falló en la PC del cliente (no contestó a tiempo, su Claude dio error) no es un bug de MaKo.
+    let falloDeLaPc: 'tarde' | 'error' | null = null;
     try {
-      const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
-        feature: FEATURE, maxSteps: 8, sinFallbackClaude: true,
-        motivo: `app ${intencion.intencion} «${(textoPersona || textoMemoria).slice(0, 60)}»`,
-      });
-      texto = (r.text ?? '').trim();
-      if (texto.startsWith('(')) { fallo = `centinela ${texto.slice(0, 40)}`; texto = ''; }
+      if (pc?.enLinea) {
+        const turnoPc = await encolarTurno(pc, s.id, { system, prompt: armarPrompt(historial, textoModelo), tools });
+        const r = await esperarALaPc(turnoPc, ws, nuevoIntento() as Ejecutor, ESPERA_RESPUESTA_MS);
+        if (!r) { falloDeLaPc = 'tarde'; fallo = 'la computadora del cliente no contestó a tiempo'; }
+        else if ('error' in r) { falloDeLaPc = 'error'; fallo = `la computadora del cliente: ${r.error}`; }
+        else texto = r.texto.trim();
+      } else {
+        const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
+          feature: FEATURE, maxSteps: 8, sinFallbackClaude: true,
+          // D6b (el Cerebro, 21/10/2026): con su Claude o su GPT (su PC, o su clave), su turno corre con SU cuenta, y la
+          // cascada barata (Gemini, Groq, Mistral, OpenRouter) no participa.
+          soloSuIA: !!pc || (await tieneSuIA()),
+          motivo: `app ${intencion.intencion} «${(textoPersona || textoMemoria).slice(0, 60)}»`,
+        });
+        texto = (r.text ?? '').trim();
+        if (texto.startsWith('(')) { fallo = `centinela ${texto.slice(0, 40)}`; texto = ''; }
+      }
     } catch (e) {
       fallo = e instanceof Error ? e.message : String(e);
     }
     if (fallo) console.error(`[mako-turno-app] ws=${ws} sesión=${s.id} ${intencion.intencion}: ${fallo.slice(0, 300)}`);
     // Sin una IA propia no es un bug: es configuración del negocio, y se le pide a la persona (tickets #5 y #6).
-    const sinIA = faltaIADelNegocio(fallo, fallo ? await iaPropiaDelTurno() : null);
+    const sinIA = !falloDeLaPc && faltaIADelNegocio(fallo, fallo ? await iaPropiaDelTurno() : null);
 
     // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
     // Martín (17/10/2026): «córrelo en toda la app: MaKo en los chats de la app... Y todo lo solucionas
@@ -500,7 +535,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const fallasDeMako = [
       // `etiqueta`: el nombre humano de la operación («Mover un lead de etapa»), para el título que lee el cliente.
       ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error, etiqueta: porId(e.herramienta)?.titulo })),
-      ...(fallo && !sinIA ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
+      ...(fallo && !sinIA && !falloDeLaPc ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
     ];
     if (fallasDeMako.length && !ticketPropuesto) {
       const quien = await identidadDe(ws, persona.actor).catch(() => null);
@@ -546,10 +581,14 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     }
     // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
     // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.
-    const sinIAEs = !respuesta && sinIA
+    // Con su computadora conectada pero apagada, no se le pide conectar otra IA: se le dice que la prenda.
+    const sinIAEs = !respuesta && sinIA && !pc
       ? avisoSinIA(await esNegocioDelEntorno(ws).catch(() => false), iaParaConectar(await iaConFila()))
       : null;
-    if (!respuesta) aviso = [aviso, sinIAEs?.aviso ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
+    if (!respuesta) {
+      const delaPc = avisoDeLaPc(falloDeLaPc, !!pc && sinIA);
+      aviso = [aviso, delaPc ?? sinIAEs?.aviso ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
+    }
     let conectar = sinIAEs?.conectar ?? null;
     // La clave tapada se le dice, con el botón del servicio que se reconoció.
     if (tapado.tapadas) {
