@@ -78,7 +78,7 @@ import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
-  historialParaModelo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  historialParaModelo, bloquesDelMensaje, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -630,7 +630,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (pregunta && !respuesta) respuesta = pregunta.pregunta;
     // Lo que dibujaron las herramientas va con el mensaje (al recargar vuelve). Sin texto, una línea que lo presente.
     if (dibujos.length && !respuesta) respuesta = TEXTO_SOLO_BLOQUE;
-    const conElMensaje = [...dibujos, ...(pregunta ? [pregunta] : [])].slice(0, MAX_BLOQUES_MENSAJE);
+    const conElMensaje = bloquesDelMensaje(dibujos, pregunta, MAX_BLOQUES_MENSAJE);
 
     if (respuesta) {
       await appendMessage(s.id, 'assistant', respuesta, conElMensaje.length ? conElMensaje.map(aGuardar) : undefined);

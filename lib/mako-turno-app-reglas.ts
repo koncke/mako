@@ -407,6 +407,15 @@ export function historialParaModelo(msgs: readonly MensajeChat[], max = 12): Arr
  * respalda: un «Hecho:» de antes de su último pedido es de OTRA cosa (la segunda revisión: con cualquier «Hecho:» de los
  * últimos 12, «ya le mandé el WhatsApp a Juan» pasaba porque antes se había confirmado la reunión con Ana).
  */
+/**
+ * Lo que va con el mensaje de MaKo (sus bloques, hasta `tope`): lo que dibujaron las lecturas y, al final, la pregunta. ⚠️ LA
+ * PREGUNTA NUNCA SE RECORTA (lo encontró Dashboard, 21/10/2026): con 4 dibujos, `[...dibujos, pregunta].slice(0, 4)` la
+ * dejaba afuera y MaKo esperaba una respuesta que la persona no veía. Se recortan los dibujos.
+ */
+export function bloquesDelMensaje<B>(dibujos: readonly B[], pregunta: B | null, tope: number): B[] {
+  return [...dibujos.slice(0, Math.max(0, tope - (pregunta ? 1 : 0))), ...(pregunta ? [pregunta] : [])];
+}
+
 /** Un mensaje que PIDE hacer algo (la intención de lib/mako-intencion.ts): después de él, nada lo respalda todavía. */
 export const esPedido = (intencion: string): boolean => intencion === 'actuar' || intencion === 'confirmar';
 
