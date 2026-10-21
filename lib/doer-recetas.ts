@@ -52,6 +52,17 @@ const RECETA_AGENDA = `CUANDO TE PIDEN AGENDAR O REAGENDAR UNA REUNIÓN ("agenda
 Al confirmar puede pasar una de dos, y la tool te dice cuál: o la reunión QUEDÓ AGENDADA (Calendly ya mandó las invitaciones), o Calendly no dejó reservarla directo y te devuelve un LINK con el formulario ya completo. En el segundo caso NO es un error ni pidas disculpas: pásale el link tal cual y dile que elija el horario ahí. Es un toque.
 Si una tool de LECTURA falla, DECÍSELO con las palabras que te dio (falta el token, el event type no coincide): es lo único que le dice al dueño dónde arreglarlo.`;
 
+/**
+ * LA LANDING (pieza 1.15 del Ops Center, 20/10/2026; docs/ops-center-principal.md §4.8). Viaja con las herramientas que
+ * CREAN una landing o una presentación. «Mi otro producto» con uno solo en el catálogo también lo frena el código
+ * (`faltaElOtroProducto` en generar_landing_con_ia): la receta hace que MaKo pregunte antes de proponer, y el código
+ * asegura que no se cree igual. Sin nombres de herramientas: no siempre viajan las que nombraría.
+ */
+const RECETA_LANDING = `CUANDO TE PIDEN UNA LANDING O UNA PRESENTACIÓN:
+- PARA QUÉ PRODUCTO: si nombran uno, ése. Si hay varios y no dicen cuál, pregunta cuál, con sus nombres. Si piden «mi otro producto» y el catálogo tiene uno solo, ese otro NO está en MaKo: pregunta en texto libre cuál es (su nombre, a quién le sirve y qué recibe) y no la armes sobre el que hay.
+- Si te nombran una landing que coincide con dos, pregunta cuál: nunca elijas la primera.
+- No inventas testimonios, cifras, garantías ni precios, y no publicas sin que te lo pidan.`;
+
 const RECETA_CONFIRMAR = `CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hazlo", "adelante", "confirmo") y hay una acción pendiente: llama 'confirmar_accion' para ejecutarla. Si dice que no, 'cancelar_accion'. Si no estás seguro de a cuál se refiere, usa 'listar_pendientes' y pregunta.`;
 
 const RECETA_PLAN = `CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anota esto", "agrega al plan", varias cosas juntas):
@@ -80,6 +91,7 @@ export function recetasDelTurno(nombres: ReadonlySet<string>, ofrece: boolean): 
   if (hay(/^(?:crear_link_pago|anular_link_pago|reembolsar_cobro|cancelar_suscripcion)$/)) partes.push(RECETA_COBROS);
   if (hay(/^proponer_leads?$/)) partes.push(RECETA_LEAD);
   if (nombres.has('proponer_agendar_reunion')) partes.push(RECETA_AGENDA);
+  if (hay(/^(?:generar_landing_con_ia|crear_landing_desde_diseno|crear_landing_en_blanco|crear_presentacion_desde_plantilla|replicar_landing)$/)) partes.push(RECETA_LANDING);
   if (nombres.has('confirmar_accion')) partes.push(RECETA_CONFIRMAR);
   if (nombres.has('proponer_tareas_plan')) partes.push(RECETA_PLAN);
   return partes.length ? `\n\n${partes.join('\n\n')}` : '';

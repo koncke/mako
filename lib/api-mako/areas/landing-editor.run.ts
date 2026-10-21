@@ -38,6 +38,8 @@ import { buscarStock, copiarUrlABucket, type Orientacion } from '@/lib/imagenes-
 import { borradorPorId } from './landing.helpers';
 // Puro: el `config` con que nace un documento de la IA, EL MISMO de «Crear con IA» de la pantalla.
 import { configDeCreacion } from '@/app/web-generator/crear/tipo';
+import { faltaElOtroProducto, pideOtroProducto } from '@/lib/mako-pedidos';
+import { listProductos } from '@/lib/productos';
 import { siFallaNuestra, urlDeLanding } from './landing-editor.helpers';
 import {
   MOTIVO_ANTES_DE_MAKO, esFallaPlan, ubicarSeccion, ubicarPagina, seccionesDisponibles,
@@ -339,6 +341,15 @@ export const RUNNERS_EDITOR: Runners = {
   generar_landing_con_ia: {
     preparar: async (input, ctx): Promise<Preparado> => {
       if (enFlujo(ctx)) return { error: 'Crear una landing con IA no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Pídesela a MaKo en el chat o créala en el Web Generator.' };
+      // «Para mi otro producto» con uno solo en el catálogo (1.15 del Ops Center, 20/10/2026): el esquema saldría del
+      // producto que hay. Lo pregunta el código, no el modelo; el catálogo se lee sólo si el pedido dice «otro producto».
+      const idea = str(input, 'idea') ?? '';
+      if (pideOtroProducto(idea)) {
+        // Si el catálogo no se pudo leer, sigue como antes: «no tienes productos» sería inventarlo.
+        const productos = await listProductos(true).then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre }))).catch(() => null);
+        const falta = productos ? faltaElOtroProducto(idea, productos) : null;
+        if (falta) return { error: falta };
+      }
       const propios = await temasPropios();
       // Sólo con «basadaEn» se leen las analizadas (una consulta que el resto de los pedidos no necesita).
       const analizadas = input.basadaEn ? await listarAnalizadas() : [];

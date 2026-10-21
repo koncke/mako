@@ -688,4 +688,15 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '20 oct', hora: '19:10', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Ops Center es lo principal de MaKo: crear webs desde ahí',
+    pedido: 'comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...',
+    puntos: [
+      'Llegó por el Cerebro con docs/ops-center-principal.md (el plan por olas) y docs/ops-center-principal/mapa-web-ads.md (las 82 acciones de web y ads).',
+      'A este chat le tocan tres piezas de la ola 1: la 1.12 (la tarjeta de la landing y elegir entre 3), la 1.13 (publicar y conectar el dominio desde el hilo) y la 1.15 (la receta de landing: con un solo producto, «mi otro producto» pregunta cuál).',
+      'Dependen del marco de bloques (1.7), la confirmación adentro (1.10) y los trabajos largos (1.11) del Ops Center 3. Mientras no estén, se adelantan los datos de cada bloque, la receta y los tests. La landing de MaKo de esta semana va primero si choca.',
+    ],
+  },
 ];
