@@ -679,6 +679,7 @@ export const BITACORA: Hito[] = [
     fecha: '20 oct', hora: '21:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
     titulo: '«Mi hoja» es la de quien chatea',
     puntos: [
+      'En producción desde el run 172 (20/10).',
       'Desde el Ops Center, «agregá un gráfico a mi hoja» usa TU informe del Dashboard, como la pantalla, aunque la cuenta tenga varios informes guardados: ya no te pide un email.',
       'Lo mismo con Focus (lo que era General).',
       'Si nombras a otra persona, se usa el de ella. Por WhatsApp sigue como antes.',
