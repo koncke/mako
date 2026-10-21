@@ -106,7 +106,15 @@ jobs:
       # scripts/tipos-ci.mjs: el tope se deriva de la RAM del runner (RAM − 1,5 GB = 6.144 en el de 7,9 GB; TIPOS_HEAP_MB lo fuerza), el resultado se dice con
       # una palabra y un exit (0 ok · 1 ERRORES DE TIPOS · 98 SIN MEMORIA / MATADO: no son errores de tipos), y cada run deja una línea `TIPOS-MEDIDA` con la memoria
       # VIVA real y el tamaño del programa (con un warning desde el 80 % del tope). Qué infla el programa y cómo achicarlo: docs/hallazgos-infra.md.
+      #
+      # ⚠️ TIPOS_TANDAS=4 (21/10/2026, medido en Actions: run 39603272529 de medir-tipos.yml, runner de 2 CPU y 7.932 MB). El tsc completo pedía 5.065 MB vivos (82 % del tope, 159 s). Repartido en
+      # tandas —cada una crea el programa entero (el piso: 2.406 MB) y chequea un pedazo— el pico por proceso baja a: 2 tandas 4.102 MB (67 %, 174 s) · 3 tandas 3.685 (60 %, 200 s) · 4 tandas 3.535
+      # (58 %, 227 s). Se eligió 4: con 3 el pico queda justo en el criterio (≤ 60 % del tope) y se pasa en una o dos semanas; las 4 cuestan ~68 s más por run (159 → 227 s) y dejan ~1.200 MB más de aire.
+      # El warning del 80 % mira la tanda MÁS PESADA. ⚠️ Es una prórroga de semanas, no la solución: el piso (el programa atado, 47 % del pico) crece con el repo y ninguna cantidad de tandas
+      # lo baja. Para volver al tsc de siempre: sacar esta línea (o TIPOS_TANDAS=1).
       - name: Tipos
+        env:
+          TIPOS_TANDAS: '4'
         run: |
           set +e
           SECONDS=0

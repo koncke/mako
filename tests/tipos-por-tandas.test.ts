@@ -23,7 +23,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bloqueEstadisticas, chequearTanda, leerTanda, repartir } from '../scripts/tipos-por-tandas.mjs';
-import { leerEstadisticas } from '../scripts/tipos-ci.mjs';
+import { leerEstadisticas, tandasPedidas } from '../scripts/tipos-ci.mjs';
 import { experimentos, leerProceso, resumenDeMedicion, tsconfigsPartidos } from '../scripts/medir-tipos.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
@@ -279,6 +279,18 @@ test('el workflow de medición corre SÓLO en la rama medir-tipos (o a mano), co
   assert.ok(Number(/timeout-minutes:\s*(\d+)/.exec(codigo)?.[1]) <= 60, 'y es razonable: los minutos son plata');
 });
 
+test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y las entiende tipos-ci; y sigue sin tocar nada fuera del paso', () => {
+  const wf = readFileSync(join(REPO, '.github', 'workflows', 'integracion.yml'), 'utf8').replace(/\r\n/g, '\n');
+  const codigo = wf.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  const paso = /- name: Tipos\n([\s\S]*?)(?=\n      - name: )/.exec(codigo)?.[1] ?? '';
+  const pedido = /env:\s*\n\s+TIPOS_TANDAS: '(\d+)'/.exec(paso)?.[1];
+  assert.ok(pedido, `el paso Tipos declara TIPOS_TANDAS en su env:\n${paso}`);
+  assert.equal(tandasPedidas({ TIPOS_TANDAS: pedido }), 4, 'tipos-ci lo lee como 4 tandas: con 3 el pico (3.685 MB, 60 % del tope) queda justo y se pasa en una o dos semanas');
+  assert.match(paso, /node scripts\/tipos-ci\.mjs/, 'sigue corriendo el script que dice qué pasó');
+  assert.match(paso, /exit \$c/, 'y propaga su exit');
+  assert.doesNotMatch(codigo.replace(paso, ''), /TIPOS_TANDAS/, 'las tandas son sólo del paso «Tipos»: ningún otro paso las hereda');
+});
+
 // =============================================================================
 // ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026; se rompe UNA pieza, se corren estas pruebas, se restaura): 14 roturas, 14 rojas — dos salieron verdes en la primera pasada y se reforzaron.
 //   el driver (7): un reparto que no es contiguo → 1 · lo semántico que se chequea aunque haya sintaxis rota → 1 · cada tanda que chequea todo → 1 · salir 1 en vez de 2 como el tsc → 1 · la memoria escrita en KiB → 1 ·
@@ -286,5 +298,6 @@ test('el workflow de medición corre SÓLO en la rama medir-tipos (o a mano), co
 //     sin los diagnósticos de opciones y globales → 1 (verde la primera vez: ninguna fixture tenía un error de OPCIONES del programa; ahora una con moduleResolution bundler y module commonjs).
 //   el medidor (5): sin tandas-4 → 2 · «NO alcanza» que nunca se dice → 1 · los tests partidos que incluyen todo → 1 · el medidor que no borra sus tsconfig → 1 · el piso leído en KiB → 1.
 //   el workflow de medición (2): que también corra en integracion → 1 · que pueda escribir → 1.
+//   las tandas encendidas en integracion.yml (3, 21/10 tarde): 3 en vez de 4 → 1 · el env: sin declarar → 1 · un valor que no es un número → 1.
 //   (tests/tipos-ci.test.ts: las tandas, 8 roturas más — ver su pie.)
 // =============================================================================

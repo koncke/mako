@@ -181,7 +181,8 @@ CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM li
 línea `TIPOS-MEDIDA` con la memoria viva real (`vivo_pct`; un warning desde el 80 %). **Subir el tope otra vez no es el arreglo:** con esos números se decide partir el programa, buscar
 qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»). **El arreglo de fondo en marcha (21/10):** el chequeo repartido en TANDAS
 (`scripts/tipos-por-tandas.mjs`: cada proceso ata el programa entero y chequea un pedazo; `TIPOS_TANDAS=K` en el paso «Tipos»; probado contra el tsc como oráculo) y la medición que elige K, UNA vez en Actions
-(`.github/workflows/medir-tipos.yml`, rama `medir-tipos`, `scripts/medir-tipos.mjs`). No se sube el tope: se elige K con la tabla.
+(`.github/workflows/medir-tipos.yml`, rama `medir-tipos`, `scripts/medir-tipos.mjs`). **Medido (run 39603272529): `TIPOS_TANDAS=4` en el paso «Tipos» de `integracion.yml`** — pico por proceso 3.535 MB (58 % del tope) contra 5.065 del tsc entero, a cambio de ~68 s por run.
+No se sube el tope. ⚠️ Es una prórroga de **semanas**: el piso (el programa atado, 2.406 MB = 47 % del pico) crece con el repo y no se reparte; lo que dura es bajarlo (project references). Cuando el warning del 80 % salte, no se sube K a ciegas: de 3 a 4 tandas el pico bajó sólo 150 MB.
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
 

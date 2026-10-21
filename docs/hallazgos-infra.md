@@ -6760,7 +6760,42 @@ matada, muda: son minutos de runner), junta los errores sin repetir (uno de conf
 - **`tipos` e `instanciaciones` de una tanda no se suman:** cada proceso cuenta los suyos y se solapan; van por tanda en las líneas `TIPOS-TANDA`.
 - **Los números del run 203 no son comparables 1 a 1 con los de una tanda:** `vivo_mb` de una tanda es lo vivo DESPUÉS de chequear SU pedazo; el comparable del chequeo entero es `tandas-1` / `tsc-real` en la misma medición.
 
-**Sin hacer:** correr la medición en Actions (la sube el Cerebro: rama `medir-tipos`), elegir K con la tabla y encenderlo (`TIPOS_TANDAS`). Hasta entonces el paso «Tipos» sigue como estaba (82 %).
+**La medición real** (run 39603272529 de `medir-tipos.yml`, rama `medir-tipos`, runner de 2 CPU y 7.932 MB, 21/10/2026). Lo vivo por proceso, tras un GC completo:
+
+| experimento | pico por proceso (MB) | % del tope (6.144) | segundos (suma) | piso: programa atado (MB) |
+|---|---|---|---|---|
+| `tsc-real` (el paso de siempre) | 5.065 | 82 % | 159 | — |
+| 1 tanda (el driver, entero) | 5.113 | 83 % | 191 | 2.406 |
+| 2 tandas | 3.635 · **4.102** | 67 % | 174 | 2.406 |
+| 3 tandas | 3.167 · **3.685** · 3.483 | 60 % | 200 | 2.406 |
+| **4 tandas** | 2.910 · 3.279 · **3.535** · 3.089 | **58 %** | 227 | 2.406 |
+| partido: sin `tests/` | 4.273 | 70 % | 138 | 1.934 |
+| partido: sólo `tests/` | 4.894 | 80 % | 147 | 2.343 |
+
+**Lo que dicen los números:**
+1. **El driver da lo mismo que el tsc también en memoria:** 5.113 contra 5.065 MB (1 %), con los mismos 7.726 archivos. La equivalencia no era sólo de errores.
+2. **El piso es el 47 % del pico (2.406 MB, el programa creado y atado) y no se reparte.** Lo repartible es el resto: 2.707 MB con una sola tanda. Con K tandas el pico es piso + 1.696 (K=2) · + 1.279 (K=3) · + 1.129 (K=4): rendimientos
+   decrecientes (de 3 a 4 tandas el pico baja 150 MB). Las cuatro tandas suman 3.189 MB de «resto» contra 2.707 de una sola: **~18 % de solapamiento** (los tipos de los hubs de `lib/` se instancian en cada tanda).
+3. **Partir `tests/` del resto NO alcanza** (la predicción de antes de medir): sin tests el pico baja a 4.273 y el programa de los tests, con 4.894, **carga 7.425 de los 7.726 archivos** (el 96 %): los hubs de `lib/` los importa casi cualquier test.
+4. **No hay un inflador puntual: es volumen, con una zona más pesada.** La curva de memoria viva del chequeo entero, cada 500 archivos: 2.722 → 3.055 (1.500) → 3.412 (3.000) → 4.114 (4.000) → 4.810 (5.000) → 5.071 (6.000). El tramo de 3.500 a 5.000 sube ~1.150 MB con 1.500 archivos
+   (~2,5 veces el promedio): es una zona del árbol, no un archivo. Los más lentos de chequear: `.next/types/validator.ts` (2,7 s: lo genera `next typegen` e importa TODAS las rutas), `BoardShell.tsx` (1,5 s), `EditorRico.tsx`, `CrmBoard.tsx`, `lib/nutricion.ts`,
+   `IntegracionesBoard.tsx`; del cuarto en adelante, todos por debajo de 0,9 s.
+5. **El reparto por tamaño de fuente no balancea el costo:** la tanda 2 de 3 y la 3 de 4 concentran las instanciaciones (3,84 M y 4,0 M de 7,3 M). Repartir por costo medido, y no por bytes, ahorraría ~250-330 MB del pico (si las cuatro quedaran parejas, ~800 MB cada una).
+
+**La decisión: `TIPOS_TANDAS=4`** (en el paso «Tipos» de `integracion.yml`). Criterio: pico por proceso ≤ ~60 % del tope. Con 3 tandas queda en 3.685 (59,98 %), sin aire; con 4, 3.535 (57,5 %). Cuesta ~68 s más por run (159 → 227 s). El warning del 80 % mira la tanda MÁS PESADA.
+
+**El horizonte, sin engañarse: las tandas compran SEMANAS, no meses.** El piso crece con el repo. Si el programa entero sigue creciendo ~1 GB por semana (lo que se vio del 14 al 21/10), el pico de 4 tandas sube ~0,7 GB por semana (el piso, ~0,47, más el resto repartido, ~0,22):
+llega al 80 % del tope (el aviso) en ~2 semanas y al tope en ~4. Con 3 tandas, en ~1,7 y ~3,5. Esa tasa es de UNA semana con el Image Editor adentro: puede ser menor ahora, y se mide sola (cada run deja `vivo_mb` y `base_mb`).
+
+**Lo que sigue, por costo/beneficio:**
+- **Bajar el PISO** es lo único que dura: el programa atado son 6.185 fuentes (76,5 MB de TS rastreado; `tests/` son 17 MB, el 23 %). Lo que lo baja de verdad es partir el programa en proyectos con *project references* (`composite`): cada uno lee los `.d.ts` de los de abajo en
+  lugar de sus fuentes. Es trabajo grande (inferencias que no se pueden nombrar, TS4023/TS2742) y la medición dice dónde: el piso de «sin tests» es 1.934 (−472 MB), el de los tests 2.343.
+- **Balancear las tandas por costo medido** (~250-330 MB del pico, sin cambiar K).
+- **Medir cuánto del piso es evitable sin partir:** `types: [...]` explícito en el tsconfig (hoy entran los 30 `@types/*` instalados), y sacar del chequeo los datos (los cursos son `.ts`: 5,4 MB). No se sabe cuánto da: se mide con `--solo` en `medir-tipos` (otro run de ~10 min).
+- **Un runner con más RAM** es plata de Martín: sólo si lo anterior no alcanza.
+
+**Sin hacer:** nada de lo de arriba; lo único hecho es repartir en 4 tandas.
+
 
 ## Una migración sin aplicar no rompe nada si el código la tolera: la 0283 (21/10/2026) y el verificador de sólo lectura
 
