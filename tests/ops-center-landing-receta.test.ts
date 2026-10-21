@@ -44,7 +44,9 @@ const UNO = [{ id: '1', nombre: 'Mentoría 1 a 1' }];
 const DOS = [...UNO, { id: '2', nombre: 'Curso de cerámica' }];
 
 test('con un producto, «mi otro producto» es una pregunta en texto libre; con la respuesta en el pedido, pasa', () => {
-  for (const t of ['créame una landing para mi otro producto', 'Creame una web para mi otro producto por favor', 'hazme otra landing de mis otros productos']) {
+  // En tuteo y en voseo (lo escribe la persona): el verbo de pedir con su pronombre no cuenta como «contar cuál es».
+  for (const t of ['créame una landing para mi otro producto', 'Creame una web para mi otro producto por favor', 'hazme otra landing de mis otros productos',
+    'haceme una landing para mi otro producto', 'armame una web de mi otro producto', 'podés crear una landing para mi otro producto']) {
     const f = faltaElOtroProducto(t, UNO);
     assert.ok(f, `«${t}» pasó y se iba a armar sobre el producto que hay`);
     assert.match(f!, /un solo producto \(«Mentoría 1 a 1»\)/);
