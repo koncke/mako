@@ -56,6 +56,7 @@ test('la puerta del motor: enrolarPorPago pasa el subtipo por el ctx, sin casts,
   assert.match(puerta, /enrolarPorEvento\(leadId, 'pago', ctx\)/);
   assert.doesNotMatch(puerta, / as (any|never|unknown)\b/, 'el ctx va tipado, no con un cast');
   assert.doesNotMatch(puerta.replace(/\/\/.*$/gm, ''), /lead_nuevo/, 'un lead que entra pagando no es uno «sin agendar»');
-  const motor = leer('../lib/nutricion.ts');
+  // La tabla de eventos del motor vive en un módulo puro desde el 21/10/2026 (la lee también el aviso de duplicada).
+  const motor = leer('../lib/nutricion-eventos.ts');
   assert.match(motor, /\n\s+pago: \[TRIGGER_PAGO\],/);
 });
