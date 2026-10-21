@@ -123,7 +123,7 @@ export function useCobrar(ctx: CtxFicha) {
   } else if (abierto?.que === 'comprobante') {
     modal = <VerComprobante cuota={abierto.cuota} leadId={lead.id} onCerrar={cerrar} />;
   } else if (abierto?.que === 'registrar') {
-    modal = <RegistrarPago leadId={lead.id} monedaNegocio={moneda} modo={abierto.modo} sugeridoUsd={abierto.sugeridoUsd} hoy={ctx.hoy} onCerrar={cerrar}
+    modal = <RegistrarPago leadId={lead.id} monedaNegocio={moneda ?? 'USD'} modo={abierto.modo} sugeridoUsd={abierto.sugeridoUsd} hoy={ctx.hoy} onCerrar={cerrar}
       onHecho={(m) => { cerrar(); cambio(); show(m); }} />;
   } else if (abierto?.que === 'agregar') {
     modal = <AgregarCuota ctx={ctx} faltaUsd={abierto.faltaUsd} onCerrar={cerrar} onHecho={(m) => { cerrar(); cambio(); show(m); }} />;

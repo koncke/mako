@@ -1,5 +1,9 @@
 # La sidebar nueva (17/10/2026)
 
+> **21/10/2026: la ventana chica.** Por debajo de 1200 px de ancho la barra arranca plegada a íconos (se abre encima al
+> pasar el cursor; la flecha la fija ahí sin tocar la preferencia guardada), igual que al entrar al Ops Center. El
+> molde de ajustes y el modal de un servicio se angostan en el mismo corte. Medido contando en docs/hallazgos-ui.md.
+
 > **20/10/2026: feedback del 18/10, pt 10 y el pliegue del pt 4** (docs/feedback-18-10.md). Lo diario («Today») lleva
 > rótulo, se pliega y tiene el **Ops Center** adentro, primero (el Sidebar le pone `arribaDe`; ARRIBA sigue siendo su
 > lista). **Todo desplegado por defecto** (la clave de lo plegado pasó a `mk-nav-plegadas-v2`). **MaKo Partners** salió de

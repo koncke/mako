@@ -1341,3 +1341,7 @@ También: `lineasDelPayload` pinta las listas de objetos elemento por elemento; 
 `agregar_contacto_al_crm` sólo por la app. Queda: el id del cobro en el evento del rechazo (compartir concepto es lo
 normal), el «sí» a «¿le contesto por WhatsApp?», el borrador incierto que vuelve a pendiente, y MaKo-whatsapp con 9
 dígitos. `aTerceros` sigue sin estar en main al 21/10 (ef0fe3464).
+
+/crm en lista, escritorio chico (21/10, pedido de Martín vía el Cerebro, rama `crm-lista-chica`): columnas con prioridad
+por el ancho medido, encabezado y etapa que recortan, Empresa a la fila. Medido con el arnés: 0 textos fuera de su celda
+a 934×639 y 1024×768 (antes 5 y 4). Falta verlo en la app real.

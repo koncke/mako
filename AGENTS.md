@@ -9636,3 +9636,11 @@ pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `p
 `setSecuenciaPasos` directo (ése es del sistema, que no tiene a quién preguntarle). Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
+
+## Una tabla en grilla aguanta un escritorio chico (21/10/2026)
+
+En una grilla CSS lo que no recorta no empuja la columna: se dibuja encima de la de al lado, sin error. Cada celda lleva
+`minWidth: 0` y recorta con «…», y un botón o un chip adentro de una celda también (`minWidth: 0`, `maxWidth: '100%'`).
+Si la tabla tiene más de cuatro columnas, salen de un ancho MEDIDO con mínimo y prioridad (el molde:
+app/crm/tabla-columnas.ts), no de fracciones fijas, y se mide a 934×639 y 1024×768 contando el texto fuera de su celda
+(tests/_crm-lista-arnes.tsx). Detalle: docs/hallazgos-crm.md.
