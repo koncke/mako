@@ -144,7 +144,9 @@ function CamposDeCuando({ fecha, hora, metodo, setFecha, setHora, setMetodo }: {
  * cuota nueva de la diferencia, o la cuota con el monto cobrado en vez del suyo.
  */
 export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = null, onCerrar, onHecho }: {
-  cuota: Pago; leadId: number; monedaNegocio: string; onCerrar: () => void;
+  cuota: Pago; leadId: number; onCerrar: () => void;
+  /** null mientras no se sabe (`useMonedaDelNegocio`): un comprobante no se lee hasta saberla. */
+  monedaNegocio: string | null;
   /** El día del NEGOCIO (`ctx.hoy`), la fecha que se propone: con el UTC, de noche el cobro caía mañana. */
   hoy: string;
   /** El comprobante que la persona adjuntó en el chat con MaKo (la 2.28): se lee solo al abrir, como «Subir el comprobante». */
@@ -155,7 +157,8 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
   const nombre = nombreCuota(cuota.numero);
   const valorUsd = Number(cuota.monto_usd);
   const [paso, setPaso] = useState<'elegir' | 'datos'>('elegir');
-  const [leyendo, setLeyendo] = useState(false);
+  // Con un comprobante del chat, «leyendo» desde que abre: espera la moneda del negocio y lo lee solo.
+  const [leyendo, setLeyendo] = useState(!!comprobante);
   const [leido, setLeido] = useState<{ nombre: string; nota: string | null } | null>(null);
   const [plata, setPlata] = useState<Plata>({ moneda: 'USD', monto: String(valorUsd), usd: '' });
   const [fecha, setFecha] = useState(hoy);
@@ -167,7 +170,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
   const [pending, start] = useTransition();
   const archivo = useRef<HTMLInputElement | null>(null);
 
-  const subir = async (file: File) => {
+  const subir = async (file: File, moneda: string) => {
     setError(null); setLeyendo(true);
     try {
       const fd = new FormData(); fd.append('file', file); fd.append('pagoId', String(cuota.id)); fd.append('leadId', String(leadId));
@@ -176,7 +179,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
       if ('error' in j) throw new Error(j.error);
       // Lo leído llena el formulario y se revisa ahí: el monto en SU moneda (dólares, o la del negocio con el valor en
       // dólares de la cuota), nunca convertido por la IA (./recibo-leido.ts).
-      const p = plataDeRecibo(j, monedaNegocio, valorUsd);
+      const p = plataDeRecibo(j, moneda, valorUsd);
       if (p.plata) setPlata(p.plata);
       if (j.fecha) setFecha(j.fecha);
       if (j.hora) setHora(j.hora);
@@ -185,16 +188,17 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
     } catch (e) { setError(`No pude leer el comprobante: ${msg(e)}`); }
     finally { setLeyendo(false); if (archivo.current) archivo.current.value = ''; }
   };
-  // El del chat se lee UNA vez al abrir (un ref: el doble montaje de React en desarrollo no lo sube dos veces). Si no
-  // se puede bajar, queda el paso de elegir, con el error: se sube a mano o se carga a mano.
+  // El del chat se lee UNA vez al abrir (un ref: el doble montaje de React en desarrollo no lo sube dos veces), CUANDO
+  // SE SABE LA MONEDA del negocio (revisión de 1b6fc9ad8, baja: se leía con la del primer render, 'USD'). Si no se puede
+  // bajar, queda el paso de elegir, con el error: se sube a mano o se carga a mano.
   const delChat = useRef(false);
   useEffect(() => {
-    if (!comprobante || delChat.current) return;
+    if (!comprobante || delChat.current || monedaNegocio == null) return;
     delChat.current = true;
     setLeyendo(true);
-    comprobante.leer().then((f) => subir(f), (e) => { setLeyendo(false); setError(`No pude traer el comprobante del chat: ${msg(e)}`); });
+    comprobante.leer().then((f) => subir(f, monedaNegocio), (e) => { setLeyendo(false); setError(`No pude traer el comprobante del chat: ${msg(e)}`); });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- una sola vez, con el comprobante con que se abrió
-  }, [comprobante]);
+  }, [comprobante, monedaNegocio]);
 
   const p = plataParaServer(plata, valorUsd);
   const falta = p.ok && p.monto != null && p.monto < valorUsd ? Math.round((valorUsd - p.monto) * 100) / 100 : 0;
@@ -223,18 +227,18 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
           <Button variant="primary" onClick={guardar} loading={pending} disabled={!fecha}>Guardar el pago</Button>
         </>
       ) : <Button variant="secondary" onClick={onCerrar}>Cancelar</Button>}>
-      <input ref={archivo} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subir(f); }} />
+      <input ref={archivo} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f && monedaNegocio != null) void subir(f, monedaNegocio); }} />
       {paso === 'elegir' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ margin: 0, fontSize: 13.5, color: 'var(--dim)' }}>{nombre} · {usd(valorUsd)}{cuota.fecha_esperada ? ` · vence el ${fmtDDMMYYYY(cuota.fecha_esperada)}` : ''}</p>
           {comprobante && leyendo && <p style={{ margin: 0, fontSize: 13, color: 'var(--dim)' }}>Leyendo <b>{comprobante.nombre}</b>, el comprobante del chat…</p>}
-          <Button variant="primary" full loading={leyendo} onClick={() => archivo.current?.click()}>Subir el comprobante</Button>
+          <Button variant="primary" full loading={leyendo || monedaNegocio == null} onClick={() => archivo.current?.click()}>Subir el comprobante</Button>
           <Button variant="secondary" full disabled={leyendo} onClick={() => setPaso('datos')}>Cargarlo a mano</Button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {leido && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Leído de <b>{leido.nombre}</b>{leido.nota ? ` (${leido.nota})` : ''}. Revísalo antes de guardar.</p>}
-          <CamposDePlata plata={plata} set={setPlata} monedaNegocio={monedaNegocio} usdPorDefecto={valorUsd} />
+          <CamposDePlata plata={plata} set={setPlata} monedaNegocio={monedaNegocio ?? 'USD'} usdPorDefecto={valorUsd} />
           <CamposDeCuando fecha={fecha} hora={hora} metodo={metodo} setFecha={setFecha} setHora={setHora} setMetodo={setMetodo} />
           {falta > 0 && (
             <div role="radiogroup" aria-label="Qué pasa con la diferencia" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>

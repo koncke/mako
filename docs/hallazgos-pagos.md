@@ -360,6 +360,11 @@ estado de cuenta y el comprobante). Tests: tests/chat-bloque-cobranza.test.ts y 
 - **Una cuota ya cobrada no cambia de comprobante desde «Marcar pagada».** Con una vista vieja (otra pestaña, un link que
   se pagó mientras tanto), leer el comprobante le pisaba el del banco o el de Stripe; ahora la ruta contesta que ya está
   cobrada, y la escritura es condicional (`pagado = false`).
+- **⚠️ Un valor que llega tarde no puede empezar con un default que parece real** (revisión de 1b6fc9ad8, baja).
+  `useMonedaDelNegocio` empezaba en 'USD' hasta que contestaba el server, y el comprobante del chat se lee SOLO al abrir
+  «Marcar pagada»: se leía con 'USD', y unos pesos con «$» se tomaban por dólares en un negocio en MXN. **Regla:** lo
+  que se está cargando es null, y quien lee algo con ello espera (el efecto depende de la moneda, y «Subir el
+  comprobante» queda en «cargando» hasta saberla). Si el server no contesta, la de siempre (USD).
 - **Sin hacer:**
   - /api/extract-receipt sigue escribiendo `comprobante_path` al leer una cuota IMPAGA: cancelar no lo deshace. Lo
     limpio es guardarlo al «Guardar el pago». Vive en app/api/extract-receipt/route.ts y piezas.tsx (`subir`).
