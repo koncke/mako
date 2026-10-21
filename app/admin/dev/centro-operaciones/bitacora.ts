@@ -847,4 +847,24 @@ export const BITACORA: Hito[] = [
       'tests/cartero-wrapup.test.ts',
     ],
   },
+  {
+    fecha: '21 oct', hora: '02:30', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Si ya contestaste por otro lado, la pregunta deja de esperarte',
+    pedido: 'Debate me dice que espera mi respuesta, pero ya respondí',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Si contestas en la app de Claude, en la caja del Ops Center o desde el teléfono, la pregunta del chat se da por contestada: deja de decir «Espera tu respuesta».',
+      'La misma pregunta ya no aparece dos veces.',
+      'Cuando tocas una opción, al chat le llega el texto completo del botón, como si lo tocaras en la app.',
+      'En el Ops Center de los clientes se puede seguir escribiendo mientras MaKo trabaja.',
+      'Hace falta el Runner nuevo (1.17.3).',
+    ],
+    archivos: [
+      'lib/centro-preguntas-chat.ts (superarPreguntas, unirPreguntas), lib/centro-preguntas-chat-db.ts, lib/centro-turnos-db.ts',
+      'scripts/operaciones/cartero.mjs — 1.17.3: preguntasParaSubir, marcasQueAvanzan',
+      'app/_chat/CajaChat.tsx (ocupado), app/second-brain/ChatSecondBrain.tsx',
+      'tests/caja-voz-revision.test.ts',
+    ],
+  },
 ];

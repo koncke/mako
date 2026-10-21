@@ -91,7 +91,8 @@ test('3. releer da la misma pregunta, y no se repite la que el chat hizo con `pr
 
 test('4. la vuelta sube las de los cierres junto con las de `preguntar`', () => {
   const s = leer('scripts/operaciones/cartero.mjs');
-  assert.match(s, /const preguntas = preguntasSinRepetir\(deArchivos, delaVuelta\.preguntas\);/);
+  // Desde la 1.17.3 (la revisión de caja-voz): la última de cada chat y el tope antes de mandar (tests/caja-voz-revision.test.ts).
+  assert.match(s, /const \{ preguntas, sinLugar \} = preguntasParaSubir\(deArchivos, delaVuelta\.preguntas\);/);
   assert.match(s, /\.\.\.\(preguntas\.length \? \{ preguntas \} : \{\}\),/);
-  assert.match(s, /export const VERSION = '1\.17\.2';/);
+  assert.match(s, /export const VERSION = '1\.17\.3';/);
 });

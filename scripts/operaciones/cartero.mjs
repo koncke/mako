@@ -86,7 +86,11 @@ import { spawnSync } from 'node:child_process';
 
 // 1.17.1 = la 1.17.0 (lo adjuntado en la app) + la 1.16.1 (la huella de la semana en `medir`), juntas (20/10/2026).
 // 1.17.2: el cierre con `wrap_up` sube su resumen como turno y su pregunta como formulario (cierreWrapUp, 20/10/2026).
-export const VERSION = '1.17.2';
+// 1.17.3: lo que encontró la revisión de caja-voz (20/10/2026): la pregunta de un wrap_up va con `origen: 'wrap_up'` (MaKo la
+//         da por superada si Martín contesta por otro lado), sólo la ÚLTIMA de cada chat y con tope antes de mandar
+//         (`preguntasParaSubir`), la marca no avanza si no entró (`marcasQueAvanzan`), `armarPregunta` limpia como el
+//         servidor, y un archivo de pregunta malformado no tumba la vuelta.
+export const VERSION = '1.17.3';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -715,17 +719,78 @@ export function preguntaDeWrapUp(w, at) {
       })),
       recomendada: 0,
     }, '', Number.isFinite(Date.parse(at)) ? new Date(at) : new Date());
-    return { ...q, id: uuidDeTexto(`wrap_up:${w.id ?? w.ask}`) };
+    // `origen`: MaKo la da por superada cuando el chat sigue sin el formulario (lib/centro-preguntas-chat.ts).
+    return { ...q, id: uuidDeTexto(`wrap_up:${w.id ?? w.ask}`), origen: 'wrap_up' };
   } catch {
     return null;
   }
 }
 
-/** Las preguntas que suben juntas, sin repetir: la de un `wrap_up` no va si el mismo chat ya hizo esa pregunta con `preguntar`. */
+/** Una pregunta con su chat y su texto como strings: lo demás (un archivo escrito a mano) no se mira acá. */
+const preguntaLegible = (q) => !!q && typeof q === 'object' && typeof q.local === 'string' && typeof q.pregunta === 'string';
+
+/**
+ * Las preguntas que suben juntas, sin repetir: la de un `wrap_up` no va si el mismo chat ya hizo esa pregunta con
+ * `preguntar`. ⚠️ NUNCA TIRA (1.17.3): corre antes del POST, y un `preguntas/<uuid>.json` malformado (`{"local":{…}}`)
+ * trababa TODAS las vueltas de la cuenta. Lo que no se puede leer viaja igual y el servidor lo descarta, como antes.
+ */
 export function preguntasSinRepetir(deArchivos, deCierres) {
-  const clave = (q) => `${q.local}\n${String(q.pregunta ?? '').trim().toLowerCase()}`;
-  const ya = new Set(deArchivos.map(clave));
-  return [...deArchivos, ...deCierres.filter((q) => !ya.has(clave(q)) && (ya.add(clave(q)), true))];
+  const archivos = Array.isArray(deArchivos) ? deArchivos : [];
+  const cierres = (Array.isArray(deCierres) ? deCierres : []).filter(preguntaLegible);
+  const clave = (q) => `${q.local}\n${q.pregunta.replace(/\s+/g, ' ').trim().toLowerCase()}`;
+  const ya = new Set(archivos.filter(preguntaLegible).map(clave));
+  return [...archivos, ...cierres.filter((q) => !ya.has(clave(q)) && (ya.add(clave(q)), true))];
+}
+
+/** Copia de lib/centro-preguntas-chat.ts → MAX_PREGUNTAS_VUELTA: más, el servidor las corta (y se quedaba con las viejas). */
+export const MAX_PREGUNTAS_VUELTA = 20;
+
+/**
+ * Lo que sube la vuelta (1.17.3): de los cierres, sólo la ÚLTIMA pregunta de wrap_up de cada chat (las anteriores ya
+ * quedaron atrás: MaKo las daría por superadas igual), sin repetir las de `preguntar`, y el tope ANTES de mandar, con las
+ * más nuevas. `sinLugar`: los chats cuya pregunta no entró en el tope: su marca no avanza, y sale en la vuelta siguiente.
+ */
+export function preguntasParaSubir(deArchivos, deCierres, tope = MAX_PREGUNTAS_VUELTA) {
+  const ultima = new Map();
+  for (const q of (Array.isArray(deCierres) ? deCierres : []).filter(preguntaLegible)) {
+    const antes = ultima.get(q.local);
+    if (!antes || Date.parse(q.at) >= Date.parse(antes.at)) ultima.set(q.local, q);
+  }
+  const todas = preguntasSinRepetir(deArchivos, [...ultima.values()]);
+  if (todas.length <= tope) return { preguntas: todas, sinLugar: new Set() };
+  const t = (q) => { const n = Date.parse(q?.at); return Number.isFinite(n) ? n : 0; };
+  const quedan = [...todas].sort((a, b) => t(b) - t(a)).slice(0, tope);
+  const dentro = new Set(quedan);
+  return { preguntas: quedan, sinLugar: new Set(todas.filter((q) => !dentro.has(q) && q?.origen === 'wrap_up').map((q) => q.local)) };
+}
+
+/** Cuántas vueltas se retiene la marca de un chat por una pregunta que no entra: después sigue, con aviso (un chat MUDO
+ *  para siempre es peor que una pregunta perdida). Unos 5 minutos. */
+export const MAX_VUELTAS_RETENIDA = 30;
+
+/**
+ * Las marcas que se escriben después del POST (1.17.3). Un chat cuya pregunta de wrap_up no volvió en `preguntasIds` (o no
+ * entró en el tope) NO avanza: su pregunta sale de una línea del transcript, y con la marca adelante nadie la volvía a
+ * leer. La marca vieja queda con `retenida` (cuántas vueltas); a las `MAX_VUELTAS_RETENIDA`, avanza igual.
+ * `previaDe(archivo)`: lo que la marca tenía (para contar). Un servidor sin `preguntasIds` no retiene nada.
+ */
+/** @param {(m: string) => void} [avisar] */
+export function marcasQueAvanzan(marcas, subidas, sinLugar, preguntasIds, previaDe, avisar = (_m) => {}) {
+  const entraron = Array.isArray(preguntasIds) ? new Set(preguntasIds) : null;
+  const retener = new Set(sinLugar ?? []);
+  if (entraron) for (const q of subidas ?? []) if (q?.origen === 'wrap_up' && !entraron.has(q.id)) retener.add(q.local);
+  const out = [];
+  for (const m of marcas) {
+    const local = path.basename(m.archivo, '.json');
+    if (!retener.has(local)) { out.push(m); continue; }
+    const previa = previaDe(m.archivo);
+    // Sin una marca previa del MISMO transcript (un chat nuevo), no hay a qué volver: releerlo desde el principio sería peor.
+    if (!previa || previa.transcript !== m.transcript) { avisar(`PREGUNTA de ${local} no entró y el chat es nuevo: sigue sin ella`); out.push(m); continue; }
+    const veces = (Number.isInteger(previa.retenida) ? previa.retenida : 0) + 1;
+    if (veces >= MAX_VUELTAS_RETENIDA) { avisar(`PREGUNTA de ${local} no entró en ${veces} vueltas: el chat sigue sin ella`); out.push(m); continue; }
+    out.push({ ...previa, archivo: m.archivo, retenida: veces });
+  }
+  return out;
 }
 
 // ── Lo que Martín adjunta en la app de Claude (1.17.0, 20/10/2026) ───────────────────────────────────────────────────
@@ -1236,8 +1301,9 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner && !c.esRunner).map((c) => c.local);
   // Lo que se dijo en cada chat desde la vuelta anterior (sólo lo nuevo). Lo del Runner no: son sus vueltas.
   const delaVuelta = turnosDeLaVuelta([...chats.values()].filter((c) => !c.esRunner));
-  // Más las de los cierres con `wrap_up` (1.17.2), sin repetir una que el chat también hizo con `preguntar`.
-  const preguntas = preguntasSinRepetir(deArchivos, delaVuelta.preguntas);
+  // Más las de los cierres con `wrap_up` (1.17.2): la última de cada chat, sin repetir una que el chat también hizo con
+  // `preguntar`, y con el tope antes de mandar (1.17.3).
+  const { preguntas, sinLugar } = preguntasParaSubir(deArchivos, delaVuelta.preguntas);
   // Lo que Martín adjuntó en la app (1.17.0) sube ANTES, directo al storage: los turnos llevan sólo su `ref`. El chat cuya
   // subida falló no sale ahora (ni su marca avanza): vuelve en la vuelta siguiente.
   const subida = await subirAdjuntosDeTurnos(url, cfg.token, delaVuelta.turnos);
@@ -1269,7 +1335,10 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   // Lo que se subió ya está en MaKo: se borra de acá (sólo lo que se listó ANTES de subir).
   for (const f of archivosAcuse) fs.rmSync(f, { force: true });
   // Los turnos: la marca avanza sólo si MaKo los guardó (un servidor de antes no dice nada: los ignora igual).
-  if (salida.turnosOk !== false) guardarMarcas(marcas);
+  // 1.17.3: el chat cuya pregunta de wrap_up no entró no avanza (hasta MAX_VUELTAS_RETENIDA).
+  if (salida.turnosOk !== false) {
+    guardarMarcas(marcasQueAvanzan(marcas, preguntas, sinLugar, salida.preguntasIds, (f) => leerJson(f, null), log));
+  }
   // Un cierre se borra cuando MaKo dice que lo aplicó (`cierresIds`). El que no entró (su acuse todavía no llegó, o
   // un servidor de antes que no dice cuáles) se vuelve a subir en la vuelta siguiente, hasta un día.
   const aplicados = new Set(Array.isArray(salida.cierresIds) ? salida.cierresIds : []);
@@ -1648,7 +1717,8 @@ function cierre(id, args) {
 // («Respuesta a tu pregunta «…» [pregunta <id>]: …»). Se valida ACÁ con las mismas reglas que el servidor
 // (lib/centro-preguntas-chat.ts), para que el chat sepa en el acto qué corregir: una pregunta que no vale se rechaza
 // entera, nunca se recorta.
-const TOPES_PREGUNTA = { pregunta: 300, contexto: 600, titulo: 80, detalle: 240, min: 2, max: 6 };
+// Copia de lib/centro-preguntas-chat.ts (MAX_PREGUNTA, MAX_CONTEXTO, MAX_TITULO_OPCION, MAX_DETALLE_OPCION…).
+const TOPES_PREGUNTA = { pregunta: 300, contexto: 600, titulo: 80, detalle: 300, min: 2, max: 6 };
 
 /** La sesión del chat que corre esto: la de la app (`local_…`) o la de la terminal (`cli_…`). null = no se sabe. */
 export function sesionQuePregunta(env = process.env) {
@@ -1664,7 +1734,10 @@ export function armarPregunta(x, local, ahora = new Date()) {
   const t = (v, max, campo, obligatorio, renglones = false) => {
     if (v == null || (typeof v === 'string' && !v.trim())) { if (obligatorio) throw new Error(`falta ${campo}`); return null; }
     if (typeof v !== 'string') throw new Error(`${campo} tiene que ser texto`);
-    const limpio = (renglones ? v.replace(/\r\n?/g, '\n').replace(/[^\S\n]+/g, ' ') : v.replace(/\s+/g, ' ')).trim();
+    // Sin los caracteres de control, como el servidor (1.17.3): un título hecho sólo de control quedaba vacío allá, y la
+    // pregunta se rechazaba después de que la PC la diera por buena.
+    const limpio = (renglones ? v.replace(/\r\n?/g, '\n').replace(/[^\S\n]+/g, ' ') : v.replace(/\s+/g, ' ')).replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+    if (!limpio) { if (obligatorio) throw new Error(`falta ${campo}`); return null; }
     if (limpio.length > max) throw new Error(`${campo} se pasa de ${max} caracteres: acórtalo`);
     return limpio;
   };
