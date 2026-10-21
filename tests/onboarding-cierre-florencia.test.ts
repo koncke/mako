@@ -46,6 +46,10 @@ test('cómo cobra sale de lo que dijo del precio', () => {
   assert.deepEqual(cobroDelPrecio('150 USD por mes'), { tipo: 'suscripcion', meses: null });
   assert.deepEqual(cobroDelPrecio('800 MXN mensuales durante 3 meses'), { tipo: 'suscripcion', meses: 3 });
   assert.deepEqual(cobroDelPrecio('1.500 USD en un solo pago o 3 cuotas'), { tipo: 'unico', meses: null }, 'el pago único manda');
+  // Las cuotas de la tarjeta son una venta única (revisión del Cerebro, 20/10).
+  assert.deepEqual(cobroDelPrecio('USD 1.500, hasta 12 cuotas sin interés con tarjeta'), { tipo: 'unico', meses: null });
+  assert.deepEqual(cobroDelPrecio('USD 2.000 en un pago o 3 cuotas de 700'), { tipo: 'unico', meses: null });
+  assert.deepEqual(cobroDelPrecio('6 MSI de 500'), { tipo: 'unico', meses: null });
   assert.deepEqual(cobroDelPrecio('Programa de 12 meses, 3.000 USD'), { tipo: 'unico', meses: null }, 'la duración no es el cobro');
   assert.deepEqual(cobroDelPrecio(''), { tipo: 'unico', meses: null });
 });

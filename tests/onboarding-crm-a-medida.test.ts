@@ -46,6 +46,9 @@ test('lo que devuelve la IA: un tipo de los candidatos, nombres cortos, sin clav
   assert.deepEqual(raro, { tipo: 'llamada', etapas: {} }, 'un nombre largo, con emoji o vacío queda el de fábrica');
   const repetido = parsePropuestaCrm({ tipo: 'llamada', etapas: { lead: 'Consulta', agenda: 'consulta' } }, cands);
   assert.deepEqual(repetido?.etapas, { lead: 'Consulta' }, 'dos columnas con el mismo nombre no se distinguen');
+  // Una terminal no puede decir lo contrario (revisión del Cerebro, 20/10): la columna de los que compraron no se llama «Perdido».
+  const alReves = parsePropuestaCrm({ tipo: 'llamada', etapas: { ganado: 'Perdido', agenda: 'Agendó su consulta' } }, cands);
+  assert.deepEqual(alReves?.etapas, { agenda: 'Agendó su consulta' });
 });
 
 test('las etapas con sus nombres: mismas claves y en el mismo orden', () => {

@@ -64,12 +64,22 @@ export function parsePropuestaCrm(raw: unknown, candidatos: readonly TipoCrm[]):
   const etapas: Record<string, string> = {};
   const usados = new Set<string>();
   for (const s of tipo.pipeline) {
-    const propuesto = nombreValido(crudas[s.key]);
+    const valido = nombreValido(crudas[s.key]);
+    // Una terminal no puede decir lo contrario (revisión del Cerebro, 20/10): {"ganado": "Perdido"} es un nombre válido.
+    const propuesto = valido && !contradiceLaTerminal(s.key, valido) ? valido : null;
     const nombre = propuesto && !usados.has(normal(propuesto)) ? propuesto : s.label;
     usados.add(normal(nombre));
     if (nombre !== s.label) etapas[s.key] = nombre;
   }
   return { tipo: tipo.id, etapas };
+}
+
+/** ¿El nombre de una etapa terminal dice lo contrario? «ganado» que habla de perder o «perdido» que habla de comprar. */
+function contradiceLaTerminal(clave: string, nombre: string): boolean {
+  const n = normal(nombre);
+  if (clave === 'ganado') return /perd|no compr|no cerr|descart|rechaz|cancel/.test(n);
+  if (clave === 'perdido') return /\bgan|\bcompr|\bcerr[oó]\b|cliente activ|venta hecha/.test(n);
+  return false;
 }
 
 /** Las etapas con los nombres de la propuesta (las que no nombró, las de fábrica). Las claves no cambian. */

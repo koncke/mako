@@ -944,7 +944,9 @@ export function sinMarca(v: string | null | undefined): string {
  */
 export function cobroDelPrecio(precio: string | null | undefined): { tipo: 'unico' | 'suscripcion'; meses: number | null } {
   const t = (precio ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  if (!t.trim() || /pago unico|un (?:solo|unico) pago|de contado|al contado/.test(t)) return { tipo: 'unico', meses: null };
+  // Las cuotas de la TARJETA son una venta única (revisión del Cerebro, 20/10: «hasta 12 cuotas sin interés con tarjeta»
+  // salía suscripción de 12 meses). Ante la duda, único: una suscripción se lee como ingreso recurrente en el CRM.
+  if (!t.trim() || /pago unico|un (?:solo|unico) pago|en un (?:solo )?pago|de contado|al contado|sin interes|con tarjeta|\bmsi\b/.test(t)) return { tipo: 'unico', meses: null };
   const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
   if (cuotas) return { tipo: 'suscripcion', meses: Number(cuotas[1]) || null };
   if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) return { tipo: 'unico', meses: null };

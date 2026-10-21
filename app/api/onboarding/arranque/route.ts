@@ -33,7 +33,7 @@ import {
 } from '@/lib/onboarding-arranque-server';
 
 export const dynamic = 'force-dynamic';
-// El CRM a medida le pide a la IA al llegar a su pregunta (`propuestaDeCrm`, con su plazo de 80 s).
+// El CRM a medida le pide a la IA al llegar a su pregunta (`propuestaDeCrm`, con su plazo de 45 s).
 export const maxDuration = 120;
 
 const no = (status: number, error: string) => NextResponse.json({ ok: false, error }, { status });

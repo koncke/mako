@@ -555,7 +555,8 @@ export async function crmOffer(p: { piezas: PiezasSabidas; canal: string | null;
   const user = `LO QUE VENDE (lo que dio el dueño en el onboarding):\n${contenidoNoConfiable(piezasParaPrompt(p.piezas).sabidas, 'piezas')}\n\nDÓNDE CIERRA LA VENTA: ${p.canal ?? 'no lo dijo'}`;
   return pedir({
     system, user, maxTokens: 1_500, timeoutMs: 30_000, esfuerzo: 'low',
-    hastaMs: p.inicio + 40_000, hastaRedMs: p.inicio + 80_000,
+    // Corto (revisión del Cerebro, 20/10): el dueño espera con MaKo «escribiendo» y sin respuesta queda la plantilla.
+    hastaMs: p.inicio + 25_000, hastaRedMs: p.inicio + 45_000,
     motivo: 'Onboarding: el CRM a medida de lo que vende', tema: 'armar tu CRM',
     parse: (raw) => parsePropuestaCrm(raw, p.candidatos),
   });
