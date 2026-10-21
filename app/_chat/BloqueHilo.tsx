@@ -1,0 +1,129 @@
+'use client';
+
+// =============================================================================
+// Un bloque del hilo con MaKo: la MISMA pieza en la computadora y en el teléfono (20/10/2026, pieza 1.7)
+// =============================================================================
+// Dibuja los bloques de lib/chat-bloques.ts (docs/ops-center-principal.md §2.4): G5 lo creado con su miniatura y «Abrir
+// en <tab>», G4 el antes y el después, G6 un trabajo largo con sus pasos, G1 una pregunta con opciones. La usan el hilo
+// de la computadora (app/_chat/HiloMako.tsx), el del teléfono (app/m/mako/ChatMako.tsx) y el del MaKo Analyst de la
+// ficha (app/crm/lead-view/MakoAnalystLead.tsx).
+//
+// ⚠️ SIN CSS PROPIO: las clases (`ch-bloque…`) viven en app/_chat/chat.css, que el teléfono carga con PegadoHilo.tsx.
+//    Así la pieza se dibuja en un test (tests/chat-bloques.test.ts) sin navegador.
+// ⚠️ LOS LINKS VAN POR `Link` (app/_ui/Link.tsx), que le suma el `?ws=` de quien mira: el bloque guarda la ruta sola.
+
+import { useState, type CSSProperties } from 'react';
+import Link from '@/app/_ui/Link';
+import { ROTULO_PASO, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
+
+type Pregunta = Extract<Bloque, { t: 'pregunta' }>;
+
+export function BloqueHilo({ b, onResponder }: {
+  b: Bloque;
+  /** Contestar una pregunta (G1): lo elegido sale como un mensaje de la persona. Sin esto, las opciones se ven y no se tocan. */
+  onResponder?: (texto: string) => void;
+}) {
+  if (b.t === 'creado') return <Creado b={b} />;
+  if (b.t === 'antes_despues') {
+    return (
+      <div className="ch-bloque" data-bloque="antes_despues">
+        <p className="ch-bloque__titulo">{b.titulo}</p>
+        <ul className="ch-ad">
+          {b.filas.map((f, i) => (
+            <li key={i} className="ch-ad__fila">
+              {f.campo && <span className="ch-ad__campo">{f.campo}</span>}
+              <span className="ch-ad__lado ch-ad__lado--antes"><span className="ch-ad__rotulo">Original</span><del>{f.antes || '—'}</del></span>
+              <span className="ch-ad__lado ch-ad__lado--despues"><span className="ch-ad__rotulo">Modificado</span><ins>{f.despues || '—'}</ins></span>
+            </li>
+          ))}
+        </ul>
+        {b.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={b.abrir.href}>{b.abrir.titulo}</Link></div>}
+      </div>
+    );
+  }
+  if (b.t === 'trabajo') {
+    return (
+      <div className="ch-bloque" data-bloque="trabajo" role="status" aria-live="polite">
+        <p className="ch-bloque__titulo">{b.titulo}</p>
+        <ol className="ch-pasos">
+          {b.pasos.map((p, i) => (
+            <li key={i} className="ch-paso" data-estado={p.estado}>
+              <span className="ch-paso__marca" aria-hidden />
+              <span>{p.texto}</span>
+              <span className="ch-oculto">{` · ${ROTULO_PASO[p.estado]}`}</span>
+            </li>
+          ))}
+        </ol>
+        {b.listo && <Creado b={b.listo} />}
+      </div>
+    );
+  }
+  return <PreguntaHilo b={b} onResponder={onResponder} />;
+}
+
+/** G5: la miniatura (o un marco con la forma del diseño), el título, el estado y el botón para abrirlo. */
+function Creado({ b }: { b: BloqueCreado }) {
+  // Una miniatura que no carga (se borró, venció) deja el marco vacío, no un ícono roto.
+  const [rota, setRota] = useState(false);
+  return (
+    <div className="ch-bloque ch-creado" data-bloque="creado">
+      <div className="ch-creado__mini" style={{ aspectRatio: proporcion(b), '--r': razon(b) } as CSSProperties}>
+        {b.miniatura && !rota
+          // eslint-disable-next-line @next/next/no-img-element -- una ruta de la app o una pública de Storage, sin optimizar
+          ? <img src={b.miniatura} alt="" loading="lazy" onError={() => setRota(true)} />
+          : <span className="ch-creado__vacio" aria-hidden>{b.ancho && b.alto ? `${b.ancho} × ${b.alto}` : ''}</span>}
+      </div>
+      <div className="ch-creado__pie">
+        <div className="ch-creado__texto">
+          <p className="ch-creado__titulo">{b.titulo}</p>
+          {b.nota && <p className="ch-creado__nota">{b.nota}</p>}
+        </div>
+        {b.estado && <span className="ch-pildora">{b.estado}</span>}
+      </div>
+      <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={b.abrir.href}>{b.abrir.titulo}</Link></div>
+    </div>
+  );
+}
+
+/** G1: las opciones, la recomendada marcada; de a una (tocar contesta) o varias (se marcan y «Listo»). */
+function PreguntaHilo({ b, onResponder }: { b: Pregunta; onResponder?: (texto: string) => void }) {
+  const [marcadas, setMarcadas] = useState<number[]>([]);
+  const [enviada, setEnviada] = useState<string | null>(null);
+  const quieta = !onResponder || enviada != null;
+  const responder = (t: string) => {
+    if (quieta) return;
+    setEnviada(t);
+    onResponder?.(t);
+  };
+  const tocar = (i: number) => {
+    if (!b.varias) { responder(b.opciones[i].titulo); return; }
+    setMarcadas((xs) => (xs.includes(i) ? xs.filter((x) => x !== i) : [...xs, i]));
+  };
+  return (
+    <div className="ch-bloque" data-bloque="pregunta">
+      <p className="ch-bloque__titulo">{b.pregunta}</p>
+      <div className="ch-opciones" role="group" aria-label={b.pregunta}>
+        {b.opciones.map((o, i) => (
+          <button key={i} type="button" className="ch-opcion" disabled={quieta}
+            aria-pressed={b.varias ? marcadas.includes(i) : enviada === o.titulo}
+            data-recomendada={i === b.recomendada || undefined} onClick={() => tocar(i)}>
+            <span className="ch-opcion__titulo">
+              {o.titulo}{i === b.recomendada && <span className="ch-pildora">Recomendada</span>}
+            </span>
+            {o.detalle && <span className="ch-opcion__detalle">{o.detalle}</span>}
+          </button>
+        ))}
+      </div>
+      {enviada == null ? (
+        <div className="ch-tarjeta__botones">
+          {b.varias && (
+            <button type="button" className="ch-abrir" disabled={quieta || !marcadas.length}
+              onClick={() => responder(marcadas.slice().sort((x, y) => x - y).map((i) => b.opciones[i].titulo).join(', '))}>Listo</button>
+          )}
+          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Elige tú')}>Elige tú</button>
+          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Saltear')}>Saltear</button>
+        </div>
+      ) : <p className="ch-tarjeta__nota">{`Respondiste: ${enviada}`}</p>}
+    </div>
+  );
+}

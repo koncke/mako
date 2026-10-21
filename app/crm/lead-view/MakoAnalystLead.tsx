@@ -66,7 +66,7 @@ import { ChipArchivo } from '@/app/offer/ChipArchivo';
 import { CSS_OFFER } from '@/app/offer/estilos';
 import { horaDe } from '@/app/offer/ayudas';
 import {
-  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, fuenteDelTurno, idLocal, itemsDeRespuesta,
+  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, fuenteDelTurno, idLocal, itemsDeRespuesta, itemsTrasTarjeta,
   itemsDeSesion, leerRespuesta, problemaDeSeleccion, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen, postConProgreso } from '@/app/m/mako/subir';
@@ -75,6 +75,9 @@ import { useRefrescarFicha } from './ficha-cambio';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { conWs } from '@/lib/ws-tab';
+import { BloqueHilo } from '@/app/_chat/BloqueHilo';
+// Las clases del bloque (`ch-bloque…`) viven en la hoja de la pieza única de chat.
+import '@/app/_chat/chat.css';
 import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
 const RUTA = '/api/crm/analyst';
@@ -367,10 +370,10 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   };
 
   // ── Las tarjetas: confirmar o no ejecutar lo que MaKo propuso ──
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, paraLaPersona?: string[]) => {
+  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra: readonly ItemHilo[] = []) => {
     setItems((xs) => {
       const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      const extra: ItemHilo[] = (paraLaPersona ?? []).filter((t) => t.trim()).map((t) => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
       return [...sig, ...extra];
     });
   };
@@ -397,7 +400,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
         return;
       }
       const d = trasTarjeta(l.datos, accion);
-      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos.paraLaPersona);
+      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, itemsTrasTarjeta(l.datos));
       // Lo confirmado cambió al lead (su etapa, una nota, una etiqueta): la ficha que rodea al chat
       // es una FOTO y se relee por el aviso de siempre (ficha-cambio.tsx), no con un refresh suelto.
       if (d.estado === 'hecho' || d.estado === 'fallo') refrescarFicha();
@@ -504,6 +507,9 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
         </FilaMako>
       );
     }
+
+    // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza del Ops Center y del teléfono.
+    if (x.k === 'bloque') return <FilaMako><BloqueHilo b={x.b} /></FilaMako>;
 
     if (x.k === 'pantalla') {
       return (

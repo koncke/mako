@@ -25,6 +25,7 @@ import type {
 } from '@/lib/mako-turno-app-reglas';
 import { ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, type TipoAdjunto } from '@/lib/mako-adjuntos';
 import type { EstadoArchivero } from '@/lib/chat-mako-bloques';
+import type { Bloque } from '@/lib/chat-bloques';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 
 // ── El hilo ──────────────────────────────────────────────────────────────────
@@ -61,7 +62,10 @@ export type ItemHilo =
   | { k: 'pantalla'; id: string; p: PropuestaPantalla }
   /** `mako` = lo escribió el código para la persona (la agenda); `plataforma` = no pude.
    *  `conectar`: la integración que le falta al negocio (`RespuestaTurno.conectar`): un botón que abre su modal ahí mismo. */
-  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string };
+  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string }
+  /** Lo que el chat DIBUJA (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx): lo creado con su miniatura, el antes y el
+   *  después, un trabajo largo, una pregunta con opciones. Lo de MaKo, a la izquierda. */
+  | { k: 'bloque'; id: string; b: Bloque };
 
 /** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor. */
 export const botonConectar = (servicio: string): string => (servicio === 'gemini' ? 'Conectar tu IA' : 'Conectar');
@@ -91,9 +95,25 @@ export const rutaDeArchivo = (ref: string): string => `/api/mako/chat?adjunto=${
 
 const aPropuesta = (t: TarjetaPendiente): ItemHilo => ({ k: 'propuesta', id: `p${t.pendienteId}`, t, estado: 'pendiente' });
 
+/** Un mensaje guardado y, debajo, lo que dibuja (lo creado de un «Hecho: …» vuelve con su miniatura al recargar). */
+const conSusBloques = (m: MensajeChat, i: number): ItemHilo[] => [
+  aMensaje(m, i), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
+];
+
 /** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera. */
 export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[]): ItemHilo[] {
-  return [...mensajes.map(aMensaje), ...propuestas.map(aPropuesta)];
+  return [...mensajes.flatMap(conSusBloques), ...propuestas.map(aPropuesta)];
+}
+
+/**
+ * Lo que se SUMA al hilo después de tocar una tarjeta: lo que el código escribió para la persona y lo que dibuja el
+ * resultado (`bloques`, la 1.7), sin recargar. Lo usan TODAS las pantallas del chat con MaKo: una no puede mostrar la
+ * miniatura y otra no.
+ */
+export function itemsTrasTarjeta(r: ResultadoTarjeta): ItemHilo[] {
+  const avisos = (r.paraLaPersona ?? []).filter((t) => t.trim()).map((t): ItemHilo => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
+  const bloques = r.ok ? (r.bloques ?? []).map((b): ItemHilo => ({ k: 'bloque', id: idLocal('b'), b })) : [];
+  return [...avisos, ...bloques];
 }
 
 /**

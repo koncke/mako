@@ -847,4 +847,49 @@ export const BITACORA: Hito[] = [
       'tests/cartero-wrapup.test.ts',
     ],
   },
+  {
+    fecha: '20 oct', hora: '20:45', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Ops Center = lo principal en MaKo',
+    pedido: 'comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo, mapea al 100% todo lo que eso conlleva, y la inteligencia que tienen que tener cada chat para ello... No elimines por ahora las tabs, luego decidimos que hacemos, pero quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...',
+    puntos: [
+      'El mapa (510 acciones en 18 áreas) está en docs/ops-center-principal.md; a este chat le toca la ola 1: 1.1, 1.7, 1.8, 1.10, 1.11, 1.9, y la 1.3 y la 1.5 con la 1.2.',
+      'D1 arranca con la A: ante la duda, MaKo propone con una tarjeta y nada se hace sin el toque.',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '21:20', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las frases de los 8 mapas, guardadas como un piso que no puede bajar',
+    pedido: 'Ops Center = lo principal en MaKo (ola 1, 1.1)',
+    puntos: [
+      '505 pedidos de las 8 áreas quedan en el repo, cada uno con lo que MaKo tiene que hacer.',
+      'Hoy MaKo recibe la herramienta justa en 229 de los 505, igual en la app y en WhatsApp.',
+      'Si un cambio hace que MaKo pierda uno, no se puede subir. Cuando un área mejora, su número sube y queda anotado.',
+      'Quedan afuera 229 pedidos medidos, con el motivo de cada uno, para sumarlos con el ruteo.',
+    ],
+    archivos: [
+      'tests/ops-center-bateria.test.ts, tests/_bateria-ops-center-hijo.ts',
+      'tests/fixtures/ops-center-frases.json, tests/fixtures/ops-center-frases-afuera.json',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '21:25', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que MaKo crea aparece en el chat con su miniatura, sin recargar',
+    pedido: 'Ops Center = lo principal en MaKo (ola 1, 1.7)',
+    puntos: [
+      'Confirmas «crear un diseño» y debajo aparece el diseño con su miniatura y «Abrir en Image Editor».',
+      'Si MaKo cambia textos de un diseño, ves cada texto como estaba y como quedó.',
+      'Igual en la computadora, en el teléfono y en el chat de la ficha del lead; al recargar sigue ahí.',
+      'Ya están listas las piezas para los trabajos largos y las preguntas con opciones, que llegan en las próximas piezas.',
+      'Lo que no se puede deshacer se ve en rojo al lado del botón.',
+    ],
+    archivos: [
+      'lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx, app/_chat/chat.css',
+      'lib/mako-turno-app.ts (confirmarDesdeTarjeta), app/m/mako/chat-ui.ts (itemsTrasTarjeta)',
+      'lib/api-mako/areas/imagen.run.ts',
+      'tests/chat-bloques.test.ts, tests/_bloques-tarjeta-hijo.ts',
+    ],
+  },
 ];

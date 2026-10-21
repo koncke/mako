@@ -4570,3 +4570,41 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 
 **Dónde están los datos:** los scripts (sólo lectura) quedaron en el scratchpad del Cerebro del 20/10
 (`verif-debate/`). Lo que importa está acá.
+
+## La batería guardián del ruteo: 505 pares en `tests/`, con el piso por área (20/10/2026, ola 1, pieza 1.1)
+
+**Vive en:** `tests/ops-center-bateria.test.ts` · `tests/_bateria-ops-center-hijo.ts` · `tests/fixtures/ops-center-frases.json`
+(la batería) · `tests/fixtures/ops-center-frases-afuera.json` (lo que no entró, con su motivo).
+
+- **Qué mide:** si la operación de cada frase VIAJA al turno, por el camino real: el clasificador y la selección de
+  herramientas, la de la app (`herramientasDelChat`) y la de WhatsApp (`herramientasDelTurno`), con las de siempre reales.
+  Hoy los dos canales dan lo mismo, par por par.
+- **El piso del 20/10** (lo que llega / lo medido): núcleo 23/40 frases, CRM 40/89 frases, Automations 17/49 frases,
+  pagos 35/100 pares, Offer 9/12, Plan, Calendario y Dashboard 20/53, video e imagen 9/14, web y Ads 64/123.
+- **Regla: el piso es un trinquete.** Lo que deja de llegar hace caer el test. Lo que empieza a llegar TAMBIÉN, hasta que
+  se anota con `ACTUALIZAR_PISO=1` y se commitea con el arreglo. Así la 1.2 sube el piso de cada área en su tanda.
+- **En núcleo, CRM y Automations las operaciones de una frase son ALTERNATIVAS** («creame una landing» llega con
+  cualquiera de las que crean). Ahí se cuenta por frase. En las demás áreas se esperan todas y se cuenta por par. Contar
+  por par en las tres primeras daba 9 rojos falsos: frases donde llega una alternativa y otra no.
+- **Las de siempre llevan `server-only`** (`MAKO_TOOLS`, `MAKO_ACCION_TOOLS`): la medición corre en un node aparte con
+  `--conditions=react-server`. Medir sólo con sus nombres dio lo mismo, pero el turno real las pasa enteras.
+
+**Trampas al armarla:**
+- **Las baterías vivían donde se pierden.** De pagos, 33 de las 90 frases estaban sólo en el transcript de un agente
+  (se pasaron por la línea de comandos). Las de landing y Meta en voseo sobrevivían sólo en un `sim.out`: el `casos.json`
+  lo pisó la versión en tuteo. El `pedidos.json` de Offer lo pisó el agente de Automations. Los subagentes de una corrida
+  comparten el scratchpad: cada uno escribe con nombre propio, y lo medido pasa a `tests/` antes de terminar.
+- **Una frase sin su operación no mide nada.** Los scripts de Plan, Calendario y Dashboard, video, Offer y parte de
+  Automations no decían qué operación esperaban: 173 frases quedaron afuera.
+- **Cinco pares no pueden llegar por la app, y no es el ruteo:** `crear_modulo_curso`, `crear_clase_curso`,
+  `publicar_post_comunidad`, `crear_evento_comunidad` y `exigir_2fa_desde` no tienen el canal `app` en el registro.
+- **Inflar un `llegaHoy` agregando la clave no hace nada.** JSON se queda con la ÚLTIMA clave repetida, así que el
+  original lo pisa. Para romper el piso a mano se cambia el valor que ya está.
+- **La fecha del piso es la de Argentina:** `toISOString()` a las 21 de acá ya es el día siguiente.
+
+**Sin hacer:** las 229 frases de `tests/fixtures/ops-center-frases-afuera.json`:
+- 173 sin una operación explícita;
+- 40 con la batería vacía a propósito;
+- 8 con una operación que no existe: `crear_campana`, `agregar_conjunto` y `subir_creativos` de Meta;
+- 5 medidas con adjunto;
+- 3 «sí» que dependen del mensaje anterior.
