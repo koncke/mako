@@ -13,8 +13,8 @@ import { clientIp, rateLimit } from './rate-limit';
 import { sendEmail } from './resend';
 import { EMAIL_MAKO, REMITENTE_MAKO, linkApp } from './app-url';
 import {
-  CLAVE_GUARDIA, MENSAJE_BLOQUEADO, MENSAJE_FALTA, MENSAJE_RAPIDO, TOPES, conFalta, contar, decidir, desbloquear, falta, parseGuardia,
-  type EstadoGuardia, type TipoPedido,
+  CLAVE_GUARDIA, MENSAJE_BLOQUEADO, MENSAJE_FALTA, MENSAJE_RAPIDO, TOPES, conFalta, contarTodos, decidirTodos, desbloquear, falta,
+  faltaDelPedido, parseGuardia, tiposDelPedido, type EstadoGuardia, type TipoPedido,
 } from './onboarding-guardia';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -33,9 +33,10 @@ export type Freno = { status: number; error: string; bloqueado?: true };
 /**
  * Antes de un pedido de IA del onboarding: la ráfaga (por usuario y por IP), el bloqueo, el tope del onboarding y el
  * troleo del texto. `null` = pasa (y ya quedó contado); si no, el freno con su status y el texto que lee la persona.
- * Una falta NO llega a la IA: no se paga.
+ * Una falta NO llega a la IA: no se paga. `largo` = un turno con un texto más largo que el chat, que se lee como documento:
+ * cuenta también como documento y sólo su insulto es falta (`tiposDelPedido`, `faltaDelPedido`).
  */
-export async function frenoDeIa(p: { req: Request; ws: number; usuario: string | null; tipo: TipoPedido; texto?: string }): Promise<Freno | null> {
+export async function frenoDeIa(p: { req: Request; ws: number; usuario: string | null; tipo: TipoPedido; texto?: string; largo?: boolean }): Promise<Freno | null> {
   const ip = clientIp(p.req);
   if (!rateLimit(`onb-ia:u:${p.ws}:${p.usuario ?? '-'}`, TOPES.iaPorMinutoUsuario, 60_000)
     || !rateLimit(`onb-ia:ip:${ip}`, TOPES.iaPorMinutoIp, 60_000)) {
@@ -46,11 +47,12 @@ export async function frenoDeIa(p: { req: Request; ws: number; usuario: string |
     console.error(`[onboarding:guardia] ws=${p.ws} no pude leer la guardia: ${msg(err)}`);
     return { status: 503, error: 'No pude guardar tu mensaje (falló la base de MaKo, no es nada tuyo). Prueba de nuevo en un momento.' };
   }
-  const d = decidir(e, p.tipo);
+  const tipos = tiposDelPedido(p.tipo, !!p.largo);
+  const d = decidirTodos(e, tipos);
   if (!d.ok) return { status: d.razon === 'bloqueado' ? 423 : 429, error: d.mensaje, ...(d.razon === 'bloqueado' ? { bloqueado: true as const } : {}) };
-  const f = p.texto ? falta(p.texto) : null;
+  const f = faltaDelPedido(p.texto, !!p.largo);
   if (f) return registrarFalta(e, p.ws, p.usuario, p.texto ?? '', f);
-  await guardar(contar(e, p.tipo)).catch((err) => console.error(`[onboarding:guardia] ws=${p.ws} no pude contar: ${msg(err)}`));
+  await guardar(contarTodos(e, tipos)).catch((err) => console.error(`[onboarding:guardia] ws=${p.ws} no pude contar: ${msg(err)}`));
   return null;
 }
 

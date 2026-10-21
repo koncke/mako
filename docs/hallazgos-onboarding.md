@@ -2390,10 +2390,10 @@ Pedido de Martín (punto 15 del feedback del 18/10), en cuatro commits de la ram
 ## Florencia (ws21, 18/10): el nombre del negocio, la conversación sin corte y el chat «Onboarding» que no llega a quien ya terminó (20/10/2026)
 
 - **El nombre: el diagnóstico obvio («el regex no entiende») es cierto, pero no es la causa de fondo.** `extraerNegocio` solo quita «se llama/es/son/somos» del principio, así que «(Es) mi marca personal: Florencia Ayelen Carballo» quedó tal cual en `workspaces.nombre`. De ahí pasó al funnel principal, al producto («Oferta de …»), al PDF y a su archivo en El Archivero.
-  - Lo que quitó la red fue 12ad33b25 (18/10 14:50). Para que el ws3 dejara de ofrecer «Consultesis» se sacaron las respuestas rápidas del nombre y del negocio, cuando el problema del ws3 era el RESET, arreglado en ese mismo commit.
-  - Desde entonces el nombre del alta («Consultora Argentina», medido por el slug) no se ofrece, y la respuesta libre lo pisa sin confirmar.
+  - 12ad33b25 (18/10 14:50) sacó las respuestas rápidas del nombre y del negocio. Desde entonces el nombre del alta («Consultora Argentina», medido por el slug) no se ofrece, y la respuesta libre lo escribía sin confirmar.
+  - ⚠️ **El diagnóstico obvio («se sacaron por el ws de prueba, cuyo problema era el RESET») era el equivocado.** Con esa lectura el 20/10 volvió el nombre del alta como botón. Pero detrás de ese commit había un pedido LITERAL de Martín («Sin respuestas rápidas en las preguntas del nombre y del nombre del negocio»), y esa noche el Cerebro sacó el botón otra vez. La red que faltaba era la confirmación, no el botón.
   - El texto crudo que escribió la persona no se guarda en ningún lado, solo lo extraído.
-  - **Regla:** un dato que se copia a cinco lugares se confirma antes de escribirlo. Y un arreglo para el ws de prueba no saca lo que les sirve a los clientes reales.
+  - **Regla:** un dato que se copia a cinco lugares se confirma antes de escribirlo. Y antes de devolver algo que un commit sacó, se busca si lo pidió Martín (la bitácora del área, el feedback del día): un pedido literal no se revierte con un diagnóstico técnico.
 
 - **`preguntaAbierta` hizo al onboarding rehén del modelo.** 96971a73c (18/10) no deja pasar al PDF mientras el último mensaje de MaKo pregunte algo. Pero el cierre depende de que el modelo cumpla la regla 8, y su `listo` se parsea y nadie lo lee (lib/offer-reglas.ts:1113).
   - Caso real: con las 3 piezas anotadas a las 22:43:34, MaKo siguió 6 preguntas y 10 minutos más (escalera, ventas, prueba, plazo, primera semana), que son justo las piezas del análisis que el punto 5 del 18/10 sacó. Antes había preguntado el precio 4 veces.
@@ -2415,11 +2415,246 @@ Pedido de Martín (punto 15 del feedback del 18/10), en cuatro commits de la ram
 - **Lo que contestó en «¿qué querés que MaKo resuelva primero?» no se usa:** `rutaDeEntrada` (lib/onboarding-arranque.ts:194) no tiene llamadores, y la salida siempre va a /second-brain sin guía ni soporte visible.
 - **«Lo justo» estaba desplegado y el onboarding igual duró 45 minutos** (22:22→23:07 UTC, contra «menos de 5» del saludo). El diagnóstico obvio, que el límite de 3 piezas (6470c86f6) no estaba en producción, era el equivocado: 3413c63aa estaba READY desde las 21:35 UTC. La causa es la de arriba: el corte lo decide el modelo.
 
-## Lo que encontró la revisión de onboarding-v3 antes de subirla (20/10/2026)
+**Lo que quedó, y las reglas (20/10/2026, chat «Onboarding», rama onboarding-v3):**
+- **El corte lo escribe el código.** Con `faltanDelArranque` vacío, el mensaje es «¡Gracias!» sin opciones, diga lo que diga el modelo (`mensajeDeCierreDelArranque`). Una pieza se pregunta dos veces como mucho: a la segunda respuesta sin anotar queda «sin dato:» (`conTopeDelArranque`). La pieza que se pregunta es la PRIMERA que falta en el orden de la guía, y por eso la nota va sin el texto del dueño: podría no ser la que MaKo preguntó.
+- **El nombre se confirma antes de escribirse: TODO lo escrito** (la revisión de la noche mostró que la lista de casos dejaba pasar «No tengo», «Soy yo», «Hola» y «🌸»; ver la entrada de abajo). Ninguna de las dos preguntas ofrece opciones, tampoco el nombre del alta (Martín, 18/10; el botón volvió y se fue el 20/10). Ojo al probar `extraerNegocio`: la regla general de los dos puntos ya cubre «mi marca personal: X», así que un test con dos puntos no prueba la específica (hace falta el caso con guion).
+- **Una opción tocada no es palabra del dueño:** en el onboarding se va la respuesta rápida con un número que el dueño no dijo, y con menos de dos no se ofrece ninguna (`opcionesDelArranque`).
+- **El chat «Onboarding» de quien ya terminó** se crea en su primera visita a /second-brain o /m/second-brain (sólo quien contestó, nunca mirando como super admin). Ya NO se reconoce por el título: por la marca de su contexto (entrada de abajo). Florencia lo recibe la primera vez que entre después del deploy.
+- **La nota de voz se queda en el onboarding.** El dictado del Ops Center no se pudo probar con 2 minutos (ver hallazgos-infra, «Probar el dictado con un micrófono falso…»), y el otro camino del botón usa las keys del negocio (hallazgos-plan). La caja es la del Ops Center; su micrófono graba la nota con la sesión de voz de la casa.
+- **Reparar el ws21** quedó escrito y sin correr: `side-session-notes/…/feedback-20-10/reparar-ws21.ts` (sin `--aplicar` sólo lee). Corre con el sí de Martín y el nombre que él elija.
+- **Sin hacer:** el diagnóstico de fase repite el canal que ya contó en la conversación (5b, lib/onboarding-arranque.ts → preguntarFase); el voseo y el «Perfecto:» del modelo no tienen filtro de salida (lib/offer-ia.ts); `TOPE_PIEZA` = 400 sigue cortando las piezas largas con «…» (lib/offer-reglas.ts); la salida del hilo lista lo que MaKo puede hacer, pero sin botones (chart_chats no guarda opciones).
 
-El detalle está en las notas compartidas, `revision-onboarding-v3-20-10.md`.
-- **«Confirmar» un dato no sirve si un texto que no es «sí» se guarda igual.** «Sí» con tilde no matcheaba `s[ií]`, porque `` no corta después de una letra acentuada, y se guardaba como el nombre del negocio. **Regla:** con algo pendiente de confirmar, nada se escribe sin un sí explícito; otro texto es una propuesta nueva.
-- **Un chat que se COPIA al terminar necesita candado e insert en lote.** Con dos caminos que crean (el POST de la pantalla y la primera visita a /second-brain) y una ventana de segundos, salen duplicados o se adopta una copia a medio hacer.
-- **«Quién lo hizo» se guarda:** sin eso, el hilo de la dueña se le crea al primer admin que entra.
-- **Una capa que se decide en el cliente no arranca visible en el HTML del server.** `useState(true)` la pinta en cada carga, antes de leer el sessionStorage.
+## El CRM a medida, el hilo que no puede ser el primero, y la caja del Ops Center (20/10/2026)
 
+- **El CRM a medida cambia NOMBRES, nunca claves.** Martín pidió que el CRM del onboarding fuera «personalizado». Lo
+  tentador es que la IA arme las etapas enteras, y no se puede: las nutriciones, los avisos y las automatizaciones mueven a
+  cada cliente por la `key` de su etapa (`lead`, `agenda`, `ganado`…). MaKo elige un tipo de `TIPOS_CRM` entre los de
+  su canal y sólo renombra; `parsePropuestaCrm` (lib/onboarding-crm.ts) tira un tipo fuera de la lista y deja el nombre de
+  fábrica a uno largo, con emoji o repetido. Se guarda una vez (`crmPropuesta`; `null` = no salió y queda la plantilla).
+- **La propuesta se arma en el POST que PASA a la etapa del CRM, y relee los hechos.** Con los hechos de antes de guardar,
+  la última respuesta de la fase todavía no figura como diagnóstico guardado y `etapaDeArranque` sigue diciendo «fase»: la
+  propuesta no se armaba nunca. Se relee sólo si la etapa era `pdf` o `fase` (releer siempre son ocho lecturas por mensaje).
+- **El hilo «Onboarding» no puede ser el primer chat.** El jefe del cliente («Second Brain») es la sesión MÁS VIEJA de su
+  chartKey: si el del onboarding se creaba primero, quedaba como jefe. Por eso se crea antes una sesión vacía si no hay.
+- **La caja del Ops Center no se importa en ChatOffer**: ver hallazgos-offer.md (un test carga ChatOffer en node).
+
+*20/10/2026, chat «Onboarding» (claude4), rama onboarding-v3.*
+
+## La revisión adversarial de onboarding-v3: lo que el test feliz no veía (20/10/2026, noche)
+
+El Cerebro revisó la punta beb153118 con tres lentes (hilo y aislamiento, arranque y CRM, regresiones) antes de subirla:
+un bloqueante y seis importantes, todos comprobados con sondas. Todo arreglado en la misma rama, cada uno con su test
+probado rompiéndolo. Lo que queda como regla:
+
+- **`\b` en JavaScript es ASCII: después de «í» no hay límite de palabra.** `/^(?:s[ií]|correcto)\b/i` reconocía «si» y
+  no «Sí». Con un nombre por confirmar, el «Sí» escrito iba como nombre del negocio: `workspaces.nombre` = «Sí», funnel
+  «Sí», producto «Oferta de Sí». Es el bug de Florencia, peor. La flag `u` NO arregla `\b`: hay que cortar con
+  `(?=$|[\s,.!?])` o `(?![\p{L}\p{N}])`, o normalizar y comparar la frase entera (`siONo`, lib/onboarding-arranque.ts).
+  **Regla:** con algo pendiente de confirmar, nada se escribe sin un sí explícito; lo que no es sí ni no es OTRA
+  propuesta por confirmar, nunca va directo al dato. Un test de confirmación manda el TEXTO «Sí» con tilde, no la opción.
+- **«100.000» parte en «100» y «000», y «000» está en todas las opciones de plata.** La respuesta escrita de la fase
+  («Facturo 15.000 al mes») caía en «$0 – $3.000» y se guardaba como diagnóstico sin forma de corregirlo. Y «No hago
+  llamadas, vendo por chat» daba «Llamada de venta»: empate a 1, gana la primera, el «no» no cuenta. **Regla:** en una
+  pregunta de tramos se lee la cifra y se ubica en su tramo (`tramoDe`); el canal sale de sinónimos con la negación
+  quitada (`canalDeTexto`); por parecido, un empate es null y se vuelve a preguntar.
+- **El hilo «Onboarding» tenía una carrera que el diseño hacía inevitable.** La pantalla final pide el chat (POST 'hilo')
+  y /second-brain también (para quien ya terminó): con un clic o un F5 a tiempo quedaban dos «Onboarding» y dos jefes
+  vacíos, o se entraba a uno a medio copiar (2 de 52 mensajes). Lo que lo cierra: una RESERVA con compare-and-set sobre
+  el estado (`hiloCreando`, `cambiarSettingSi`; vence a los 2 min), los mensajes en UN insert y `hiloChat` recién al
+  final. **Regla:** un recurso que crean dos caminos se reserva antes de crearse, y el puntero se anota al final.
+- **Una copia armada con lecturas tolerantes se guarda incompleta para siempre.** Con `leerSesion` caída un instante, el
+  «Onboarding» salía sin la conversación de lo que vende; con el estado caído al default, «qué vendes en undefined». Y se
+  adoptaba cualquier chat titulado «Onboarding», aunque fuera uno propio del cliente. **Regla:** lo que se copia se lee
+  estricto (si falla, no se escribe nada), y lo propio se reconoce por una marca (`contextoDelHilo`), nunca por el título.
+- **«Quién está» no es «quién contestó».** Con dos admins, el primero que entraba se llevaba el onboarding de la dueña
+  (su nombre, su WhatsApp, lo que vende). Ahora el estado guarda `dueno` al contestar y `hiloDe` al crear el chat; con un
+  solo admin activo se le da a ese. Y la proyección de Offer esconde la conversación copiada SÓLO a quien tiene la copia
+  (`offerDelOnboardingCopiada(raw, chartKey)`, lib/chat-mako-reglas.ts): para todos, desaparecía del Ops Center del super
+  admin mirando, justo lo que Martín pidió arreglar ese día.
+- **Una capa que se lee de `sessionStorage` en `useState(true)` la pinta el server en CADA carga.** La entrada de MaKo en
+  el teléfono tapaba la pantalla hasta hidratar (1–3 s en un Android lento) y, sin JS, para siempre. Lo que anda: un
+  script antes del primer pintado pone `data-entrada-vista` y el CSS la oculta (app/m/_ui/entrada.ts), más una animación
+  que la esconde a los 6 s si nada hidrata. **Regla:** «una vez por sesión» no se decide en el estado inicial de React.
+- **La guardia anti-inyección no lee documentos enteros.** Un texto de 20.000 caracteres armado con ChatGPT trae «Olvida
+  las reglas de siempre…» o un índice «…… 3»: salía 'inyeccion' o 'basura' y a las 3 faltas el onboarding se bloqueaba.
+  Arriba de `TOPE_MENSAJE` el texto va como documento y la guardia no lo mira (app/api/offer/route.ts).
+- **Pantalla y servidor tienen que normalizar igual.** La pantalla mandaba el link sin leer como `https://www…` y el
+  servidor lo buscaba con `texto.includes(u)` en un texto que decía `www…`: se descartaba y MaKo no se enteraba de que no
+  lo pudo abrir. Ahora el servidor valida con el mismo `linksDe`.
+- **Un tope que cuenta preguntas tiene que contar las de ESA pieza.** El tope de 2 repreguntas contaba el pedido de
+  documento y cualquier pregunta del modelo: el precio quedaba «sin dato:» sin que nadie lo preguntara. Cuenta sólo las
+  que apuntan a la pieza que falta (`PREGUNTA_POR`, lib/offer-reglas.ts).
+- **Las cuotas de la tarjeta no son una suscripción** («12 cuotas sin interés», «MSI», «en un pago o 3 cuotas»): ante la
+  duda, único; en el CRM una suscripción se lee como ingreso recurrente. **Y una terminal del CRM no puede decir lo
+  contrario**: `{"ganado": "Perdido"}` es un nombre válido para el parser; `contradiceLaTerminal` lo deja de fábrica.
+- **Sin `preventDefault`, Chrome abre el archivo soltado y se lleva el onboarding.** En las preguntas de sólo texto, los
+  manejadores de arrastrar salían antes de frenar. El archivo se frena siempre; sumarlo es lo que depende de la pregunta.
+- **Un test que fija strings exactos de un archivo ajeno se rompe con el refactor de otro chat.** El de la caja copiaba
+  líneas de Conversacion.tsx, y la caja única (caja-voz) las movió a app/_chat/CajaChat.tsx: rojo sin nada roto. Ahora
+  compara por pieza (regex) y sigue el archivo donde viva la caja.
+
+**La segunda revisión (la misma noche, punta 4eef10c7a): los arreglos rompieron lo que antes andaba.** El bloqueante
+quedó resuelto. Pero los arreglos de la fase escrita, hechos contra los casos de la primera revisión, trajeron errores
+nuevos que cargaban mal el diagnóstico. El escéptico lo midió corriendo la misma sonda sobre la punta anterior
+(88a5ebd05): eran regresiones de la rama, no de producción.
+- ⚠️ **Una transformación pensada para lo que escribe el dueño se aplicó también a las OPCIONES.** Borrar lo negado
+  sacaba el «no cierran» de «Me entran interesados pero se caen: no agendan… o no cierran». Entonces «tengo leads pero no
+  cierran» caía en «Me sobra volumen» por la palabra «leads». **Regla:** lo negado se MARCA (`!cierr`) y empareja con lo
+  negado de la opción; y un parser se prueba con las frases que YA andaban, no sólo con las que fallaban.
+- **`startsWith('mil')` es true para «millones».** La regex probaba bien «millón» antes que «mil», pero la línea que
+  elegía el multiplicador volvía a mirar el prefijo. **Regla:** cuando dos palabras comparten prefijo, la más larga se mira
+  primero en TODOS los lugares que las distinguen, no sólo en la regex.
+- **«y» une un rango y también dos datos distintos.** «entre 30 y 50 mil» es un rango, y su «mil» vale para las dos puntas.
+  «15 mil y tengo 4 clientes» no es un rango: son dos cifras. Rango = dos cifras PEGADAS por y/a/-/hasta. Con cifras
+  sueltas vale la única que trae plata o magnitud ($, USD, mil, puntos de miles); con dos así, se vuelve a preguntar.
+- **La lista de lo que dice «sí» tiene que aceptar frases enteras.** «Sí, está bien», «Correcto, así se llama» o «Sí, por
+  favor» no estaban en la lista, y lo que seguía al «sí» se tomaba como el nombre nuevo. Ahora un sí seguido de palabras
+  de acuerdo es un sí. Un sí seguido de otra cosa no adivina: pregunta de nuevo.
+- **«Con tarjeta» es el medio de pago, no la forma de cobro.** Con «por mes» o «membresía» es una suscripción. Sólo las
+  cuotas de la tarjeta sin nada mensual, «sin interés» o «MSI» son pago único.
+- **Lo que esconde la pantalla va DESPUÉS del `await`, no antes.** El fundido arrancaba antes del POST 'hilo'. La capa
+  invisible se comía los clics, y el «Entrando…», que está adentro de esa capa, no se veía nunca.
+- **La guardia de costo cuenta el trabajo que se hace, no el nombre de la acción.** Un 'turno' con texto largo hace el
+  trabajo de un documento (hasta 20 lecturas). Contado sólo como turno, salteaba el tope de documentos. Además se leía el
+  texto entero antes de recortarlo a lo que se guarda.
+
+**Sin hacer:** ~~el «+» de la caja del onboarding acepta menos que antes~~ HECHO el 21/10: el onboarding usa la caja ÚNICA
+(app/_chat/CajaChat.tsx) con `accept: ACCEPT_IMPORTAR`, y app/offer/CajaDelCentro.tsx se borró; «Fotos» sigue sólo con
+imágenes. /m/second-brain crea el hilo pero no lee `?recorrido=`: en el teléfono no hay tutorial. El CRM a medida sigue pidiendo
+la propuesta ANTES de responder (bajó a 25 s / 45 s con la red); armarla aparte queda para después.
+
+*20/10/2026, noche, chat «Onboarding» (claude4), rama onboarding-v3.*
+
+## El parser escrito necesita confirmación: tres rondas de reglas abrieron agujeros nuevos cada vez (21/10/2026)
+
+**El síntoma.** Hubo tres revisiones del Cerebro seguidas (20/10 tarde, 20/10 noche, 21/10 madrugada) sobre lo que el
+onboarding lee de una respuesta ESCRITA en una pregunta con opciones. Cada ronda cerró los casos de la anterior y abrió
+otros con frases igual de comunes:
+- **Ronda 1:** «15.000» caía en «$0 – $3.000» por el token «000», y «no hago llamadas» era «Llamada de venta».
+- **Ronda 2:** «millones» valía por mil, la negación se aplicaba también a las opciones y «directo» era chat.
+- **Ronda 3:** «2 palos» (pesos) se leía en dólares, lo negado valía doble y pisaba el contenido, «web» sola era
+  carrito, un «a la semana» suelto multiplicaba lo mensual, «treinta y pico mil» quedaba en «todavía nada», y «Sí, es
+  así» proponía el nombre «así».
+
+Cada error se GUARDABA en el diagnóstico con un «Lo tomé como: …» que informaba sin dejar corregir. En producción sólo se
+aceptaba la opción exacta: todo esto entraba nuevo.
+
+- ⚠️ **El diagnóstico obvio de la ronda 3 era el equivocado: «2 millones de pesos» no era un bug de «millones».** Los tramos
+  son en DÓLARES (lib/fase-diagnostico.ts: «$0 – $3k/mes · $20/día en ads»). El arreglo de la ronda 2 multiplicaba bien,
+  pero ignoraba la moneda, y **el test de esa ronda FIJABA el error** (`['unos 2 millones de pesos', 4]`, «Más de $80.000»).
+  Un test que fija una lectura puede fijar la lectura mala: la frase de la batería necesita también la respuesta
+  verdadera, no la que da el código.
+- **La regla (decisión del Cerebro): no hay una cuarta ronda de reglas, hay un toque.** Lo escrito se lee, MaKo muestra
+  «Entendí: «…». ¿Es así?» con «Sí, es eso» y las otras opciones, y se guarda recién con ese toque (`opcionPorConfirmar`,
+  `elegirOpcion`, lib/onboarding-arranque.ts). Un error de lectura cuesta un clic. Sin una lectura clara (un empate, una
+  sola palabra suelta, dos cifras de plata, una moneda que no es el dólar) no se adivina: se muestran las opciones, o se
+  pregunta «¿cuánto es más o menos en dólares?». La regla general quedó en AGENTS.md.
+- **El seguro se prueba BARRIENDO, no caso por caso.** tests/onboarding-opcion-escrita.test.ts pasa ~30 frases por cada
+  pregunta de la fase, el canal y el interés, en los dos modos, y fija que ninguna guarda nada sin el toque. Romper la
+  confirmación tira 6 tests.
+- **Una rotura que ningún test detecta dice que el código sobra.** Sumar los verbos de relleno («tengo», «hago») a las
+  palabras vacías no cambiaba ninguna frase de la batería. Se sacó en vez de inventarle un test.
+- **Las listas de lo que ESCRIBE la persona van en un archivo aparte (lib/onboarding-frases.ts).** El guard de voseo
+  (tests/puente-panel-copy.test.ts) va por archivo, y marcó «ándale» (¡de México!) y «soles» (la moneda de Perú) adentro de
+  lib/onboarding-arranque.ts, que tiene el copy del chat. Excluir ese archivo apagaría el guard sobre el copy real; el
+  detector aparte entra en FUERA_DE_ALCANCE con su porqué, como lib/onboarding-troleo.ts. Y el archivo nuevo tiene que
+  estar en git (`git add`) antes de correr el guard: lista con git y da «excepciones que ya no apuntan a ningún archivo».
+- **El «sí» al nombre pendiente se lee por frase entera y nunca se vuelve el nombre.** «Sí, es así», «sisi», «Vale»,
+  «Listo», «es mi negocio» son un sí. Una palabra de acuerdo (o «No, está bien») no reemplaza al nombre que espera: se
+  pregunta de nuevo.
+
+**Y la cuarta revisión (punta 2fbd0f3a5): la red funcionaba, los agujeros estaban alrededor.**
+- ⚠️ **Un guard de pestaña vieja que compara el TEXTO DEL BOTÓN no sirve si todas las confirmaciones tienen el mismo
+  botón.** «Sí, es eso» es igual en todas, así que un toque viejo, o un «sí» escrito, confirmaba la lectura que el server
+  tenía AHORA, aunque esa pantalla nunca la hubiera mostrado. **Regla:** el toque y lo escrito viajan con la PREGUNTA que
+  contestan (`preguntaQueContesta`, app/onboarding/arranque-ui.ts), y el server la compara con la suya.
+- **Dos lectores de la misma frase con significados opuestos.** Para que «es mi marca personal» confirmara el nombre, se
+  sumó a la lista del sí. Pero RE_MI_NOMBRE lee esa misma frase como «uso mi nombre». Con el pendiente mal leído «Vendo
+  ropa», confirmaba «Vendo ropa». **Regla:** antes de sumar una frase a una lista de lectura, buscar si otra regex del
+  mismo archivo ya la lee (`git grep` de la frase). Lo que sólo nombra lo preguntado («es mi negocio») vale como sí
+  únicamente detrás de un sí explícito (`NOMBRA_LO_PREGUNTADO`).
+- **La duda de la moneda la tumbó el escéptico, y con razón.** «$ 150.000» no es un error de lectura: las opciones que ve
+  la persona dicen «$» sin «USD», así que leer «$» como la moneda de los tramos es coherente con lo que se muestra. El
+  problema, si lo hay, son las etiquetas de lib/fase-diagnostico.ts, que vienen de antes. Lo que sí se pregunta en dólares
+  es lo que dice otra moneda: pesos, «lucas», «palos».
+- **Un insert en lote con `DEFAULT now()` deja la MISMA hora en todas las filas.** Postgres lo corre en una transacción, y
+  si la lectura ordena sólo por esa columna, los empates salen en el orden físico de la tabla. El chat «Onboarding» podía
+  mostrar la mitad de la conversación antes del saludo. **Regla:** al copiar en lote, cada fila lleva su hora creciente.
+- **Lo que se lee y no se ve también necesita el toque: el tipo de cobro del producto.** Se guardaba sin que nadie lo
+  mirara. El PDF muestra el texto del precio, no la lectura, así que su «Sí, está correcto» no confirmaba nada. Ahora hay
+  una pregunta propia (etapa 'cobro').
+- **Un copy que promete una acción necesita código que la haga.** «Lo anoto» después de un «no» al PDF no anotaba nada:
+  ahora la nota va a onboarding.encuesta (`pdfNota`). Y el nombre de la persona leído con reglas pisaba el que trajo Google;
+  ahora sólo llena un perfil sin nombre.
+
+**Y la quinta (punta c7226ab77): el arreglo de la cuarta cortaba nombres reales.**
+- ⚠️ **Una palabra de acuerdo no confirma un pendiente, pero tampoco puede impedir que un NOMBRE sea esa palabra.** Para
+  que «Es mi negocio» no reemplazara al pendiente, la cuarta ronda cortaba toda palabra de acuerdo, y el corte quedó
+  valiendo también SIN pendiente. «Claro», «Listo», «Tal Cual», «Simón», «Órale» o «Mi Negocio» son negocios reales, y
+  quedaban en un error en bucle que no decía por qué; ni «Se llama Tal Cual» salía, porque «tal cual» está en DICE_SI.
+  **Regla:** con un pendiente, la palabra de acuerdo es un sí o se vuelve a preguntar; sin pendiente no hay nada que
+  confirmar, así que se PROPONE y el toque decide. Un nombre presentado («se llama», «el nombre es», entre comillas)
+  nunca se corta. Con el toque en su lugar, cortar por palabra sobra: es otra lista que no termina.
+- **Lo mismo con el nombre de la persona.** Con el perfil vacío o en un email (el alta de customer-success), «Gracias»,
+  «Dale» o «Jaja» iban a usuarios.nombre. Sumarlas a las palabras que no son nombre era otra lista, y «Dale» es un
+  nombre. Ahora lo que va al perfil se confirma («¿Te llamo «Ana»?», `nombrePorConfirmar`); con un nombre de verdad en el
+  perfil lo leído sólo saluda y no hace falta.
+- **El PDF tampoco se lee con reglas.** La cuarta ronda sumó «salvo», «pero», «aunque» a una lista, y la quinta encontró
+  «solo que», «lo único», «en vez de», «corregí»… Ahora un sí o un no sueltos valen, y lo demás pasa por «¿Lo tomo como
+  que falta algo?» (`pdfPorConfirmar`). Ojo con la doble negación: «No está mal» es un sí, y sin la coma es igual a «No,
+  está mal». `siONo` la devuelve como ni sí ni no, y decide el toque.
+- ⚠️ **Una nota que nadie lee no está «anotada».** La cuarta ronda arregló la ESCRITURA de `pdfNota` y dio el «lo anoto»
+  por cumplido, pero ningún lector la tomaba: ni la tabla del super admin (`llegadaDe`) ni `ver_estado_onboarding`.
+  **Regla:** al escribir un dato para alguien, `git grep` de sus LECTORES en el mismo cambio. Ahora la tabla de clientes
+  marca «Oferta a corregir» (con la nota al pasar el mouse y en el CSV), y la API de MaKo la devuelve con qué hacer.
+- **Un campo nuevo que el server exige deja en bucle a la pestaña abierta durante el despliegue.** La pregunta que
+  contesta viaja desde la cuarta ronda, pero el JS de antes no la manda: cada toque daba «La pregunta cambió» con la misma
+  vista, sin salida. **Regla:** el server distingue «no lo mandó» (JS viejo: «recarga la página», `RECARGA_LA_PAGINA`) de
+  «mandó otro» (otra pestaña). Va en AGENTS.md.
+- **Lo que no se sabe guardar no se propone.** Lo anual o semanal se proponía como «Suscripción mensual», y el producto
+  sólo sabe cobrar único o mensual: las dos opciones eran falsas, y el botón principal lo cobraba cada mes. Ahora la
+  lectura lleva su `periodo` y la etapa pregunta sin proponer (`cobroSinPropuesta`).
+- **La caja única cambia de botón en el mismo lugar.** Al mandar, el ➤ se vuelve micrófono, y un doble toque grababa (o
+  pedía permiso del micrófono a un cliente nuevo). Justo después de mandar el micrófono queda apagado 600 ms (`recien`,
+  app/_chat/CajaChat.tsx), y el onboarding no deja grabar ni sumar archivos mientras MaKo contesta (`voz.apagada`,
+  `puede`): esa respuesta puede cerrar la etapa, y lo juntado en el medio se perdía sin aviso.
+
+**Y la sexta (punta a0cdcfcc6): el toque nuevo del PDF tenía la polaridad al revés.**
+- ⚠️ **Una confirmación con la polaridad al revés que la pregunta anterior no se puede leer con DICE_SI.** La quinta
+  preguntaba «¿Lo tomo como que falta algo?», donde «sí» quiere decir que falta, y leía lo escrito con `siONo`. DICE_SI
+  trae «perfecto», «está bien», «muy bien», «genial», que son la respuesta natural de quien dice que el PDF está BIEN:
+  «Está perfecto» o «👍» quedaban anotados como corrección, y el super admin veía «Oferta a corregir: Todo perfecto».
+  **Regla:** la confirmación tiene la misma polaridad que la pregunta que confirma («Escribiste «…». ¿Lo tomo como que
+  está todo bien?», con el sí primero), y ahí deciden sólo los dos botones y un sí o un no PELADOS (`siONoPelado`). Lo
+  demás se anota y se vuelve a preguntar. Va en AGENTS.md.
+- **La pregunta de un toque tiene que llevar lo que confirma.** El guard de pestaña vieja compara el texto de la pregunta.
+  Una pregunta fija es igual para cualquier texto, y un toque viejo confirmaba una corrección que esa pantalla no mostró.
+- **Lo escrito a un toque se SUMA, no pisa.** «Sí, el precio» reemplazaba a «Todo bien salvo el precio, que es 200 USD», y
+  el 200 se perdía. Ahora lo escrito al PDF es una lista (`pdfEscritas`, que reemplazó a `pdfPorConfirmar`), y la nota
+  junta todo (`notaDelPdf`).
+- **Un «no» sin detalle también es una nota.** El camino más común, tocar «No, faltan cosas», no dejaba nada: pdfNota
+  salía de lo escrito. Ahora queda `PDF_SIN_DETALLE`, la tabla marca «Oferta a corregir» y `ver_estado_onboarding` le dice
+  a MaKo que pregunte qué es. No se pregunta en el onboarding: el pedido de Martín (18/10) es «lo anotas y seguimos».
+- **El orden de las reglas es una decisión.** La quinta puso lo anual antes que las cuotas, y «Programa anual: 12 cuotas
+  de USD 99» ya no podía cargarse como la suscripción de 12 meses. Las cuotas van primero.
+- **Una lista de corte también es una lista.** PALABRAS_NO_NOMBRE corta en «su», «mi», «una», «tu», «en», y «Su Lin» o
+  «Mi Young» quedaban en «No te entendí» en bucle (ya en producción). Si el corte deja vacío lo que tiene letras, se
+  propone con el toque (`nombreSinCortar`), con cualquier perfil; una pregunta o un «Ok» se siguen pidiendo de nuevo.
+- **«Sólo saluda» hay que verificarlo en TODOS los lugares a donde va el dato.** Con un perfil de verdad, el nombre leído
+  sin toque no iba al perfil, pero la etapa del teléfono lo copiaba a user_nombre, que firma los reportes. Ahora va el
+  nombre del perfil. Antes de decir que un dato «sólo se muestra», hay que hacer `git grep` de cada lugar donde se lee.
+- **Con un pendiente, «No, Pedro» y «Sí, soy Ana» se leen como en el negocio**: el sí o el no del principio y el nombre
+  de después. El mismo nombre escrito otra vez confirma. «Sí, no» no es un sí, ni en el nombre ni en el negocio (con la
+  persona pendiente guardaba su nombre como el del negocio).
+- **Un CSV con texto del cliente puede llevar una fórmula.** `=HYPERLINK(…)` en la nota del PDF entraba como fórmula en
+  Excel. La exportación de clientes antepone «'» a lo que empieza con = + - @. Las otras exportaciones a CSV están en
+  hallazgos-seguridad.
+
+**Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
+toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
+chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto
+(lib/productos.ts sólo tiene único y mensual). La nota del PDF no llega a la conversación de Offer, que es donde se
+trabaja la oferta: la ven el super admin y MaKo cuando la busca. Al pasar de lo que vende al PDF, CajaChat cambia de
+árbol (con voz → sin voz) y el campo se vuelve a montar: se pierde el foco y en el teléfono se cierra el teclado.
+
+*21/10/2026, chat «Onboarding» (claude4), rama onboarding-v3.*

@@ -41,7 +41,9 @@
 // Sin selector ni bienvenida: la conversación nace sola en el funnel principal, y alrededor de ella van
 // los mensajes del arranque (quién es, el CRM, el teléfono), que contesta el arranque y no Offer. Desde el
 // 17/10/2026 la conversación del arranque sólo pregunta qué vende (`origen: 'arranque'` en cada turno) y no
-// arma la oferta: el análisis es de esta tab.
+// arma la oferta: el análisis es de esta tab. Desde el 20/10/2026 escribe en la caja del Ops Center (la caja única app/_chat/CajaChat.tsx desde el 21/10,
+// pedido del 18/10, punto 3): lo adjuntado va arriba del texto (sus miniaturas) y no en la vista previa, y se lee igual al
+// mandar (`enviarVista`).
 //
 // El motor vive en app/api/offer/route.ts y lib/offer-sesiones.ts; acá sólo se llama al contrato
 // (./offer-api.ts) y se dibuja lo que vuelve.
@@ -55,13 +57,16 @@
 // (ComposerWhatsApp guarda ese `onAudio`). Por eso `mandar` y `mandarAudio` deciden con REFS
 // (`sesionRef`, `enviando`, `leyendoRef`), nunca con el estado de su render.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Banner, Button, ButtonLink, Modal, Spinner } from '@/app/_ui';
 import { ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { VistaAdjuntos, useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { MAX_ADJUNTOS, type ItemAdjunto } from '@/app/whatsapp/_shared/adjuntos-vista';
 import { AvatarMako } from './AvatarMako';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import '@/app/admin/operaciones/centro.css';
 import { ChatOffer } from './ChatOffer';
 import { Conclusion } from './Conclusion';
 import type { PasoGeneracion } from './Generando';
@@ -70,7 +75,7 @@ import { SelectorFunnel } from './SelectorFunnel';
 import { leerAdjuntos } from './adjuntos-envio';
 import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
 import {
-  ACTUALIZAR_PDF, TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, quedoGuardado, reemplaza,
+  ACTUALIZAR_PDF, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, quedoGuardado, reemplaza,
   resumenDe, unirOpciones, type AvisoGuardado,
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
@@ -78,6 +83,9 @@ import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, 
 
 type EstadoGeneracion = { paso: PasoGeneracion; corriendo: boolean; error: string | null };
 const GEN_QUIETA: EstadoGeneracion = { paso: 'diagnostico', corriendo: false, error: null };
+
+/** El ➤ y el ✓ de la barra de grabar del onboarding van en el negro del Ops Center: la barra los pinta con `--good` (el verde). */
+const SIN_VERDE = { '--good': 'var(--ink)' } as CSSProperties;
 /** Cada cuánto se relee la conversación mientras el servidor arma la oferta. */
 const RELEER_ARMADO_MS = 4_000;
 
@@ -255,6 +263,17 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     urls.current.delete(u);
     try { URL.revokeObjectURL(u); } catch { /* ya no estaba */ }
   };
+  /** Las miniaturas de la caja del arranque, por id de lo juntado; las que ya no están se sueltan. */
+  const urlsCaja = useRef(new Map<string, string>());
+  useEffect(() => {
+    const vivos = new Set(lista.items.map((x) => x.id));
+    for (const [id, u] of urlsCaja.current) {
+      if (vivos.has(id)) continue;
+      urlsCaja.current.delete(id);
+      urls.current.delete(u);
+      try { URL.revokeObjectURL(u); } catch { /* ya no estaba */ }
+    }
+  }, [lista.items]);
   useEffect(() => {
     const todas = urls.current;
     return () => { for (const u of todas) { try { URL.revokeObjectURL(u); } catch { /* noop */ } } todas.clear(); };
@@ -347,6 +366,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       ...(envio.audio ? { audio: { url: envio.audio.url, secs: envio.audio.secs } } : {}),
     });
     let avisoLink: string | null = null;
+    /** Los links que no abrieron: el turno los lleva para que MaKo no diga que los vio (20/10/2026, Florencia). */
+    const sinLeer: string[] = [];
     try {
       const docIds = envio.docs.map((d) => d.id);
       // 1) Los links del mensaje, leídos como un documento más (y una sola vez por conversación).
@@ -370,6 +391,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
           // texto…»); con un prefijo nuestro adelante se leía como dos frases pegadas.
           if (err instanceof ErrorOfferApi && err.sesion) aplicarSesion(err.sesion, e);
           avisoLink = mensajeDeError(err);
+          sinLeer.push(url);
         }
       }
       // 2) La nota de voz: a MP3 y a Storage, como un archivo (no pasa por una server action, que topea en 1 MB).
@@ -393,6 +415,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
           action: 'turno', sesionId: id, texto: envio.texto, docIds,
           ...(audio ? { audio } : {}),
           ...(envio.respuesta ? { respuesta: envio.respuesta } : {}),
+          ...(sinLeer.length ? { linksSinLeer: sinLeer } : {}),
           // En el onboarding MaKo sólo pregunta qué vende (el servidor lo confirma: onboarding pendiente).
           ...(arranque ? { origen: 'arranque' } : {}),
         },
@@ -477,7 +500,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     }
     if (lista.ref.current.length) { void enviarVista(); return; }
     if (!puedeMandar || !hayAlgo) return;
-    if (texto.length > TOPE_MENSAJE) { setErrorChat('Tu mensaje es muy largo. Pártelo en dos.'); return; }
     const t = texto.trim();
     const e = epoca.current;
     setTexto('');
@@ -512,7 +534,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const enviarVista = async () => {
     const items = lista.ref.current;
     if (!items.length || leyendoRef.current || !puedeMandar) return;
-    if (texto.length > TOPE_MENSAJE) { setErrorVista('Tu mensaje es muy largo. Pártelo en dos.'); return; }
     const id = sesionId.current;
     const s = sesionRef.current;
     if (id == null || !s) return;
@@ -571,6 +592,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     lista.quitar(idArchivo);
     docsLeidos.current.delete(idArchivo);
     if (idArchivo === falloId) { setFalloId(null); setErrorVista(null); }
+    // Sin nada juntado no queda de qué quejarse (en la caja del arranque no hay vista que cerrar).
+    if (!lista.ref.current.length) setErrorVista(null);
   };
   /** La ✕ de la vista o Escape: descarta los archivos (el texto queda en la barra). */
   const cerrarVista = () => {
@@ -852,7 +875,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const bienvenida = bienvenidaDe(arbolLeido, arbolVacio(arbol));
   // La vista previa, sobre el área del chat, mientras haya archivos juntados. Su error: el de la vista
   // (un archivo que no entró o no se pudo leer) o, si el turno no salió, el que dejó `mandar`.
-  const vistaAdjuntos = lista.items.length ? (
+  // En el arranque no hay vista: lo juntado va en la caja del Ops Center (abajo, `cajaArranque`).
+  const vistaAdjuntos = !arranque && lista.items.length ? (
     <VistaAdjuntos
       items={lista.items}
       onAgregar={agregarArchivos}
@@ -891,6 +915,41 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     ? { paso: gen.paso, corriendo: gen.corriendo, error: gen.error, onReintentar: () => void armar() }
     : null;
   const conRiel = !arranque || arranque.conRiel;
+  // El arranque escribe en la caja del Ops Center (20/10/2026): lo juntado, como sus miniaturas, con la URL `blob:` que nace
+  // al verlas (`urlsCaja`) y se suelta al quitarlas. Sumar y quitar son los de siempre: se leen al mandar.
+  const adjuntosCaja: AdjuntosDeCaja = {
+    items: lista.items.map((it): AdjuntosDeCaja['items'][number] => {
+      let url = urlsCaja.current.get(it.id);
+      if (!url) { url = crearUrl(it.file); urlsCaja.current.set(it.id, url); }
+      return { id: it.id, file: it.file, tipo: it.file.type.startsWith('image/') ? 'image' : 'document', url };
+    }),
+    // Mientras MaKo contesta, el «+» no se ofrece, ni se graba (`voz.apagada`; quinta revisión, 21/10): si esa respuesta
+    // cerraba lo que vende, lo juntado en el medio dejaba de verse y no se mandaba nunca.
+    puede: !!sesion && !ocupado,
+    onSumar: agregarArchivos,
+    onQuitar: quitarArchivo,
+    // «Documento» ofrece lo que Offer sabe leer (audio y video incluidos), no lo del Ops Center (revisión del Cerebro, 20/10).
+    accept: ACCEPT_IMPORTAR,
+    onSinImagen: (puedeLeer) => setErrorChat(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar: usa Ctrl+V.'),
+    // Lo pegado cuando no se puede sumar se dice (sexta revisión, 21/10: la imagen se perdía sin aviso).
+    onNoPuede: () => setErrorChat(ocupado ? 'Espera a que MaKo conteste para sumar archivos.' : 'Todavía no puedo recibir archivos: prueba en un momento.'),
+  };
+  // LA CAJA ÚNICA (app/_chat/CajaChat.tsx, 21/10/2026): la misma del Ops Center, con la nota de voz (el micrófono GRABA, no
+  // dicta) y la línea de estado, que se sumaron a la pieza para el onboarding. Con sólo texto (el nombre, un código), sin
+  // adjuntos ni voz. La barra de grabar, sin el verde de WhatsApp (`SIN_VERDE`).
+  const cajaArranque = arranque ? (
+    <div key={sesion?.id ?? 0} className="co-caja-wrap" style={SIN_VERDE}>
+      <div className="co-caja">
+        <CajaChat texto={texto} onTexto={setTexto} onMandar={() => void enviarComposer()} ocupado={ocupado} enterManda
+          placeholder={arranque.placeholder ?? 'Escríbele a MaKo'} tituloMandar="Mandar (Enter)" onErrorMic={setErrorChat}
+          adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista}
+          voz={arranque.manda ? undefined : {
+            onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio', apagada: ocupado,
+            pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onBorrar: descartarAudio, onDejar: reenviarAudio } : null,
+          }} />
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -966,12 +1025,13 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
               onEnviar={() => void enviarComposer()}
               ocupado={ocupado}
               vista={vistaAdjuntos}
+              caja={cajaArranque}
               onArchivos={agregarArchivos}
               onAudio={mandarAudio}
               audioEnEspera={audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs } : null}
               onReenviarAudio={reenviarAudio}
               onDescartarAudio={descartarAudio}
-              error={errorChat}
+              error={arranque ? errorVista ?? errorChat : errorChat}
               onError={setErrorChat}
               armando={armandoEnChat}
               onVerOferta={conclusion ? verOferta : null}
