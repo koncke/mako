@@ -534,4 +534,25 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-clasificador-app.test.ts — 513 frases, 37 tests, 85 roturas con su fallo (incluye las 64 del chat de Video / AI Avatar, 64/64)',
     ],
   },
+  {
+    fecha: '21 oct', hora: '01:40', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: la segunda revisión del clasificador de la app — la red es la tarjeta, no la regla (11 errores medidos, arreglados)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '⚠️ **Otra ronda de reglas habría dejado otros 11:** cada regla de la primera evitaba una cosa y dejaba afuera, o metía, otra (las filas de área abrían TODAS las destructivas del área: «eliminá las muletillas» traía `reiniciar_personalidad`; `reversible:false` frenaba «invitá a Ana»; «borrador» contiene «borra»). Se cambió la red, no las reglas.',
+      '**En la app nada que cambie algo corre sin una tarjeta:** `cancelar_accion` (la única operación del registro que cambiaba algo sin tarjeta) ya no viaja; cancelar es el botón de la tarjeta. Un test recorre el registro entero (741 operaciones en la vista de un admin) y frena un control en el chat.',
+      '**Lo que quita algo entra por la COSA que el pedido nombra, no por el área:** el pedido tiene que pedir quitar y nombrar el sustantivo de la operación (o un sinónimo); si no, no llega ninguna parecida y MaKo pregunta cuál. Las lecturas que dan el id llegan en todo turno de la app.',
+      '**Medido por SHA, un proceso por árbol** (`scripts/medir-turnos-por-sha.mts`): WhatsApp 582.996 turnos, 0 cambian contra origin/main; la app 145.749 turnos con cada cambio explicado (D1 = A, acuses, controles, destructivas que no se pidieron).',
+      '**Sin hacer:** «suspendé a Pedro» y «sacá a Juan de Bienvenida» ahora preguntan cuál (no nombran la cosa); «meté a Juan en Prospección» no llega; D1 sigue pendiente de Martín; el costo de las 20 herramientas de siempre en cada turno que actúa.',
+    ],
+    archivos: [
+      'lib/relevancia-app.ts — la puerta de las destructivas (`nombraLaCosa`), `lecturasDeLasAcciones`, las pasadas 75% / 25%',
+      'lib/mako-turno-app-reglas.ts — `cancelar_accion` fuera del chat, las lecturas del id en todo turno y la instrucción de preguntar cuál',
+      'lib/mako-intencion.ts — NOMBRADO detrás de un sustantivo, familia sola = adivinanza, el acuse después de una pregunta',
+      'lib/mako-intencion-app.ts — `pideQuitar`, las homógrafas con número / en / como / para, las familias de tarea',
+      'scripts/medir-turnos-por-sha.mts y scripts/volcar-turnos.mts — el arnés por SHA',
+      'tests/ops-center-clasificador-app.test.ts — la red recorre el registro entero y las 11 frases de la nota, cada una con su rotura',
+    ],
+  },
 ];
