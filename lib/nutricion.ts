@@ -103,7 +103,7 @@ import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio 
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
 import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
-import { duplicadaAlActivar, avisoDuplicada, type Duplicada } from '@/lib/automatizacion-duplicada';
+import { duplicadaAlActivar, avisoDuplicada, type Duplicada, type CronParaComparar } from '@/lib/automatizacion-duplicada';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
   hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
@@ -817,10 +817,23 @@ export class DuplicadaError extends Error {
  */
 export async function duplicadaDeLaActivacion(
   id: number,
-  o: { pasos?: readonly PasoGrafo[]; soloSiActiva?: boolean; columnas?: { etapa?: string; trigger_tipo?: string; etiqueta_id?: unknown } } = {},
+  o: {
+    pasos?: readonly PasoGrafo[]; crons?: readonly CronParaComparar[]; soloSiActiva?: boolean;
+    columnas?: { etapa?: string; trigger_tipo?: string; etiqueta_id?: unknown };
+  } = {},
 ): Promise<Duplicada | null> {
   const supabase = (await getTenantDb());
-  const filas = await leerFilasDeSecuencias((cols) => supabase.from('nutricion_secuencias').select(cols).is('archivada_at', null), 'duplicadaDeLaActivacion');
+  // Una PAUSADA que se publica no pregunta: se mira eso primero, sin leer todas con sus pasos (revisión del 21/10/2026).
+  // Si no se puede leer, se sigue: ante la duda, se pregunta.
+  if (o.soloSiActiva) {
+    const { data, error } = await supabase.from('nutricion_secuencias').select('activa').eq('id', id).maybeSingle();
+    if (!error && (data as { activa?: boolean | null } | null)?.activa !== true) return null;
+  }
+  // Ésta y las ACTIVAS: una pausada no le escribe a nadie.
+  const filas = await leerFilasDeSecuencias(
+    (cols) => supabase.from('nutricion_secuencias').select(cols).is('archivada_at', null).or(`activa.eq.true,id.eq.${Number(id)}`),
+    'duplicadaDeLaActivacion',
+  );
   // `columnas` (/email › Guardar): a quién le va a escribir con la etapa o el disparador NUEVOS, antes de escribirlos.
   const vistas = filas.map((r) => ({
     id: Number(r.id), nombre: String(r.nombre ?? ''), activa: r.activa === true,
@@ -829,7 +842,8 @@ export async function duplicadaDeLaActivacion(
   }));
   const esta = vistas.find((v) => v.id === id);
   if (!esta || (o.soloSiActiva && !esta.activa)) return null;
-  return duplicadaAlActivar(esta, vistas, (v) => v.crons, o.pasos ? { pasos: o.pasos } : {});
+  // `crons` (la API de MaKo): a quién le va a escribir con los CRON NUEVOS, antes de guardarlos.
+  return duplicadaAlActivar(esta, vistas, (v) => v.crons, { ...(o.pasos ? { pasos: o.pasos } : {}), ...(o.crons ? { crons: o.crons } : {}) });
 }
 
 /**
