@@ -297,24 +297,28 @@ const PALABRAS_VACIAS = new Set(['que', 'los', 'las', 'del', 'con', 'por', 'para
 const normal = (t: string): string => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 /**
  * Las palabras que cuentan de un texto, por su raíz (las 5 primeras letras: «empujo» y «empujar» son la misma). Sin los
- * NÚMEROS (el «000» de «15.000» empataba con todas las opciones con «.000», 20/10/2026) y sin lo NEGADO: las dos palabras
- * después de «no», «nunca» o «sin» no cuentan («no hago llamadas» no es «Llamada de venta»).
+ * NÚMEROS (el «000» de «15.000» empataba con todas las opciones con «.000», 20/10/2026). Lo NEGADO va MARCADO con «!»: las
+ * dos palabras después de «no», «nunca», «sin» o «ni». No se borra (20/10/2026, noche, revisión del Cerebro): borrarlo
+ * también borraba el «no cierran» de la OPCIÓN, y «tengo leads pero no cierran» caía en «Me sobra volumen» por «leads».
+ * Marcado, «no hago llamadas» sigue sin ser «Llamada de venta», y «no cierran» empareja con el «no cierran» de la opción.
  */
 const palabrasDe = (t: string): string[] => {
   const out: string[] = [];
   let negadas = 0;
   for (const w of normal(t).split(/[^a-z0-9ñ]+/).filter(Boolean)) {
     if (w === 'no' || w === 'nunca' || w === 'sin' || w === 'ni') { negadas = 2; continue; }
-    if (negadas > 0) { negadas -= 1; continue; }
-    if (w.length >= 3 && !/^\d+$/.test(w) && !PALABRAS_VACIAS.has(w)) out.push(w.slice(0, 5));
+    const negada = negadas > 0;
+    if (negada) negadas -= 1;
+    if (w.length >= 3 && !/^\d+$/.test(w) && !PALABRAS_VACIAS.has(w)) out.push(`${negada ? '!' : ''}${w.slice(0, 5)}`);
   }
   return out;
 };
 
 /**
  * La opción más parecida a lo que escribió, por las palabras que comparten (20/10/2026, Florencia: «vendo cuando empujo yo,
- * pero va cambiando» no se aceptaba en «¿Cuál es tu mayor cuello de botella?»). null si no comparte ninguna o si dos
- * empatan: ahí se pide de nuevo, porque el diagnóstico se calcula por la opción (antes el empate lo ganaba la primera).
+ * pero va cambiando» no se aceptaba en «¿Cuál es tu mayor cuello de botella?»). Una palabra negada compartida vale DOBLE:
+ * «no cierran» dice más que «leads». null si no comparte ninguna o si dos empatan: ahí se pide de nuevo, porque el
+ * diagnóstico se calcula por la opción (antes el empate lo ganaba la primera).
  */
 export function opcionMasCercana(texto: string, opciones: readonly string[]): number | null {
   const mias = new Set(palabrasDe(texto));
@@ -322,37 +326,148 @@ export function opcionMasCercana(texto: string, opciones: readonly string[]): nu
   let puntos = 0;
   let empate = false;
   opciones.forEach((o, i) => {
-    const p = new Set(palabrasDe(o).filter((w) => mias.has(w))).size;
+    const p = [...new Set(palabrasDe(o))].filter((w) => mias.has(w)).reduce((s, w) => s + (w.startsWith('!') ? 2 : 1), 0);
     if (p > puntos) { puntos = p; mejor = i; empate = false; } else if (p > 0 && p === puntos) empate = true;
   });
   return puntos > 0 && !empate ? mejor : null;
 }
 
-/** Los números de un texto, con su separador de miles («15.000», «15,000») y «mil», «k» o «millones» atrás. */
-function numerosDe(t: string): number[] {
-  const out: number[] = [];
-  for (const m of normal(t).matchAll(/(\d+(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(mil(?:es)?\b|k\b|millon(?:es)?\b|m\b)?/g)) {
-    const crudo = m[1];
-    const valor = /^\d+(?:[.,]\d{3})+$/.test(crudo) ? Number(crudo.replace(/[.,]/g, '')) : Number(crudo.replace(',', '.'));
-    const por = !m[2] ? 1 : m[2].startsWith('mil') || m[2] === 'k' ? 1_000 : 1_000_000;
-    if (Number.isFinite(valor)) out.push(valor * por);
+// ── Las cifras escritas ─────────────────────────────────────────────────────
+// La revisión de la noche del 20/10 (Cerebro) encontró que «millones» se multiplicaba por MIL («Facturo 2 millones» caía en
+// «$0 – $3.000»), que «entre 30 y 50 mil» promediaba 30 con 50.000, y que «15 mil y tengo 4 clientes» se tomaba como un
+// rango. Y la gente escribe en letras («cincuenta mil», «dos millones») y en lunfardo («50 lucas», «2 palos»).
+// La batería de frases reales está en tests/onboarding-cifras-escritas.test.ts.
+
+const NUMERO_EN_LETRAS: Record<string, number> = {
+  dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13,
+  catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiun: 21,
+  veintiuno: 21, veintiuna: 21, veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26,
+  veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70,
+  ochenta: 80, noventa: 90, cien: 100, ciento: 100, doscientos: 200, doscientas: 200, trescientos: 300, trescientas: 300,
+  cuatrocientos: 400, cuatrocientas: 400, quinientos: 500, quinientas: 500, seiscientos: 600, seiscientas: 600,
+  setecientos: 700, setecientas: 700, ochocientos: 800, ochocientas: 800, novecientos: 900, novecientas: 900,
+};
+/** «un», «una» y «medio» sólo son número delante de «mil» o «millón»: «un poco» o «una llamada» no son una cifra. */
+const ANTE_MULTIPLICADOR: Record<string, number> = { un: 1, uno: 1, una: 1, medio: 0.5, media: 0.5 };
+const MULTIPLICADOR: Record<string, number> = { mil: 1_000, luca: 1_000, lucas: 1_000, millon: 1_000_000, millones: 1_000_000, palo: 1_000_000, palos: 1_000_000 };
+
+/** Un número en letras desde la palabra `k`: lo que vale, cómo se escribe en cifras y hasta qué palabra llegó. null = no empieza uno. */
+function numeroEnLetras(ws: readonly string[], k: number, trasCifra: boolean): { texto: string; hasta: number } | null {
+  const primera = ws[k];
+  const empieza = primera in NUMERO_EN_LETRAS
+    || (primera in ANTE_MULTIPLICADOR && ws[k + 1] in MULTIPLICADOR)
+    || ((primera === 'mil' || primera === 'millon') && !trasCifra);
+  if (!empieza) return null;
+  let total = 0;
+  let base = 0;
+  let ultimo = Infinity;
+  let mult = 0;
+  let mults = 0;
+  let j = k;
+  while (j < ws.length) {
+    const x = ws[j];
+    if (x in NUMERO_EN_LETRAS && NUMERO_EN_LETRAS[x] < ultimo) {
+      base += NUMERO_EN_LETRAS[x];
+      ultimo = NUMERO_EN_LETRAS[x];
+    } else if (x in ANTE_MULTIPLICADOR && !base && ws[j + 1] in MULTIPLICADOR) {
+      base = ANTE_MULTIPLICADOR[x];
+      ultimo = 1;
+    } else if (x in MULTIPLICADOR) {
+      const m = MULTIPLICADOR[x];
+      total = m >= 1_000_000 ? (total + (base || 1)) * m : total + (base || 1) * m;
+      base = 0;
+      ultimo = Infinity;
+      mult = m;
+      mults += 1;
+    } else if (x === 'y' && ultimo >= 30 && ultimo < 100 && ultimo % 10 === 0 && (NUMERO_EN_LETRAS[ws[j + 1]] ?? 10) < 10) {
+      // «treinta y cinco»: la «y» une una decena con su unidad. «treinta y cincuenta» es un rango: corta acá.
+    } else if (x === 'y' && mult && ws[j + 1] === 'medio') {
+      total += mult / 2;
+      j += 2;
+      continue;
+    } else break;
+    j += 1;
   }
-  return out;
+  if (j === k) return null;
+  // Con UN multiplicador al final («cincuenta mil», «dos millones», «medio millón»), queda en palabras: así un rango lo
+  // comparte («entre treinta y cincuenta mil»). Si no, la cifra entera con sus puntos de miles.
+  const texto = mults === 1 && !base
+    ? `${total / mult} ${mult >= 1_000_000 ? 'millones' : 'mil'}`
+    : String(Math.round(total + base)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return { texto, hasta: j };
 }
 
+/** Los números escritos en letras, pasados a cifras: «treinta y cinco mil» → «35 mil». Lo que sigue a una cifra («2 millones») no se toca. */
+function conNumerosEnLetras(t: string): string {
+  const ws = t.split(/\s+/).filter(Boolean);
+  const out: string[] = [];
+  let k = 0;
+  while (k < ws.length) {
+    const r = numeroEnLetras(ws, k, k > 0 && /\d$/.test(ws[k - 1]));
+    if (!r) { out.push(ws[k]); k += 1; continue; }
+    out.push(r.texto);
+    k = r.hasta;
+  }
+  return out.join(' ');
+}
+
+/** Un número de un texto: lo que vale, el número sin multiplicar, su multiplicador, si trae marca de plata o de magnitud, y dónde está. */
+type Numero = { valor: number; crudo: number; por: number; marcado: boolean; inicio: number; fin: number };
+
 /**
- * La cifra de una respuesta escrita a una pregunta de cifras («Facturo 15.000 al mes», «entre 10.000 y 30.000», «más de
- * 80.000», «50 mil», «$20 por día», «nada»). Un rango vale su medio; «más de» y «menos de» corren un poco; lo diario se
- * pasa a mes. null si no dice ninguna.
+ * Los números de un texto (en cifras o en letras), con su separador de miles («15.000», «15,000»), el multiplicador de atrás
+ * («mil», «k», «lucas», «millones», «palos», «M») y la moneda. Devuelve también el texto en el que se buscaron, para mirar
+ * qué hay entre dos números.
+ */
+function numerosDe(texto: string): { t: string; ns: Numero[] } {
+  const t = conNumerosEnLetras(normal(texto));
+  const ns: Numero[] = [];
+  const re = /(\$|us\$|usd\s*)?(\d+(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)(?:\s*(millon(?:es)?\b|palos?\b|mil(?:es)?\b|lucas?\b|k\b|m\b))?(\s*(?:usd|us\$|dolares|dls|pesos|euros|mxn|ars|cop|clp)\b)?/g;
+  for (const m of t.matchAll(re)) {
+    const conMiles = /^\d+(?:[.,]\d{3})+$/.test(m[2]);
+    const crudo = conMiles ? Number(m[2].replace(/[.,]/g, '')) : Number(m[2].replace(',', '.'));
+    if (!Number.isFinite(crudo)) continue;
+    // «millón» antes que «mil»: con `startsWith('mil')` «2 millones» valía 2.000 (revisión del Cerebro, 20/10 noche).
+    const por = !m[3] ? 1 : /^(?:millon|palo|m$)/.test(m[3]) ? 1_000_000 : 1_000;
+    const inicio = m.index ?? 0;
+    ns.push({ valor: crudo * por, crudo, por, marcado: conMiles || !!m[1] || !!m[3] || !!m[4], inicio, fin: inicio + m[0].length });
+  }
+  return { t, ns };
+}
+
+/** Lo que puede haber entre las dos puntas de un rango: «30 y 50», «de 30 a 50», «30-50», «$10.000 - $30.000», «hasta». */
+const ENTRE_PUNTAS = /^\s*(?:y|a|al|-|–|—|hasta|o)\s*(?:\$|us\$|usd)?\s*$/;
+
+/**
+ * La cifra de una respuesta escrita a una pregunta de cifras («Facturo 15.000 al mes», «entre 30 y 50 mil», «más de
+ * 80.000», «cincuenta lucas», «$20 por día», «nada»). Un rango vale su medio, y sus dos puntas comparten el multiplicador
+ * («entre 30 y 50 mil» es de 30.000 a 50.000). Con varias cifras sueltas («15 mil y tengo 4 clientes») vale la única con
+ * plata o magnitud; si hay más de una, null: se vuelve a preguntar. «Más de» y «menos de» corren un poco; lo diario, lo
+ * semanal y lo anual se pasan a mes. null si no dice ninguna.
  */
 export function cifraDe(texto: string): number | null {
-  const t = normal(texto);
-  const ns = numerosDe(t);
+  const { t, ns } = numerosDe(texto);
   if (!ns.length) return /^(?:nada|cero|ningun[oa]|todavia (?:nada|no)|no (?:facturo|invierto|saco|tengo|hago)\b)/.test(t.trim()) ? 0 : null;
-  let v = ns.length >= 2 && /\d[^\d]*(?:\by\b|\ba\b|-|–|hasta)[^\d]*\d/.test(t) ? (ns[0] + ns[1]) / 2 : ns[0];
+  const grupos: Array<{ valor: number; marcado: boolean }> = [];
+  for (let k = 0; k < ns.length; k += 1) {
+    const a = ns[k];
+    const b = ns[k + 1];
+    if (b && ENTRE_PUNTAS.test(t.slice(a.fin, b.inicio))) {
+      const va = a.por === 1 && b.por > 1 && a.crudo < b.crudo ? a.crudo * b.por : a.valor;
+      const vb = b.por === 1 && a.por > 1 && b.crudo > a.crudo && b.crudo < 1_000 ? b.crudo * a.por : b.valor;
+      grupos.push({ valor: (va + vb) / 2, marcado: a.marcado || b.marcado });
+      k += 1;
+    } else grupos.push({ valor: a.valor, marcado: a.marcado });
+  }
+  const marcados = grupos.filter((g) => g.marcado);
+  const g = grupos.length === 1 ? grupos[0] : marcados.length === 1 ? marcados[0] : null;
+  if (!g) return null;
+  let v = g.valor;
   if (/\bmas de\b|\barriba de\b|\bpor encima de\b/.test(t)) v += 1;
   if (/\bmenos de\b|\bdebajo de\b/.test(t)) v = Math.max(0, v - 1);
-  if (/\b(?:por|al) dia\b|\bdiari[oa]s?\b/.test(t)) v *= 30;
+  if (/\b(?:por|al|x|cada) dia\b|\bdiari[oa]s?\b|\bdiariamente\b/.test(t)) v *= 30;
+  else if (/\b(?:por|a la|x|cada|en la) semana\b|\bsemanal(?:es|mente)?\b/.test(t)) v *= 4.3;
+  else if (/\b(?:por|al|x|cada|en el) ano\b|\banual(?:es|mente)?\b/.test(t) && !/\bmes(?:es)?\b|\bmensual/.test(t)) v /= 12;
   return v;
 }
 
@@ -360,8 +475,8 @@ export function cifraDe(texto: string): number | null {
 export function tramosDe(opciones: readonly string[]): Array<[number, number]> | null {
   const out: Array<[number, number]> = [];
   for (const o of opciones) {
-    const t = normal(o);
-    const ns = numerosDe(t);
+    const { t, ns: nums } = numerosDe(o);
+    const ns = nums.map((n) => n.valor);
     if (/\bmas de\b/.test(t) && ns.length === 1) out.push([ns[0], Infinity]);
     else if (/\bmenos de\b/.test(t) && ns.length === 1) out.push([0, ns[0]]);
     else if (ns.length >= 2) out.push([ns[0], ns[1]]);
@@ -387,9 +502,11 @@ export function tramoDe(texto: string, opciones: readonly string[]): number | nu
 
 /** El canal por sus palabras de siempre, sin lo negado: «vendo todo por WhatsApp» es «Conversaciones por chat». */
 const PALABRAS_DE_CANAL: Array<[CanalId, RegExp]> = [
-  ['conversaciones', /\b(?:whats?app|wsp|wpp|whats|dm|dms|chat|chats|mensajes?|instagram|insta|directo|inbox|messenger)\b/],
+  // Sin «directo» suelto (revisión del Cerebro, 20/10 noche): «me compran directo en la web» es carrito, no chat. El «mensaje
+  // directo» ya entra por «mensaje».
+  ['conversaciones', /\b(?:whats?app|wsp|wpp|whats|dm|dms|chat|chats|mensajes?|instagram|insta|inbox|messenger)\b/],
   ['llamadas', /\b(?:llamadas?|zoom|meet|videollamadas?|telefono|telefonica|call)\b/],
-  ['carrito', /\b(?:carrito|checkout|tienda|ecommerce|e-commerce|hotmart|shopify|pagina de pago|compran solos?)\b/],
+  ['carrito', /\b(?:carrito|checkout|tienda|ecommerce|e-commerce|hotmart|shopify|pagina de pago|compran solos?|web|pagina|sitio|link de pago)\b/],
   ['webinar', /\b(?:webinars?|masterclass|clase en vivo|en vivo|live)\b/],
   ['presencial', /\b(?:presencial|local|taller|consultorio|en persona|oficina)\b/],
 ];
@@ -485,17 +602,36 @@ const RE_MI_NOMBRE = new RegExp([
 
 export const NEGOCIO_CONFIRMAR = ['Sí, se llama así', 'No, lo escribo de nuevo'] as const;
 
+/** Lo que dice que sí, solo o en fila («Sí, está bien», «Correcto, así se llama», «Siii», «Claro que sí»). Sin tildes. */
+const DICE_SI = [
+  's+i+', 'sip', 'claro', 'claro que si', 'correcto', 'es correcto', 'exacto', 'exactamente', 'asi es', 'asi', 'eso', 'eso es',
+  'ese', 'esa', 'ese es', 'esa es', 'es ese', 'es esa', 'ese mismo', 'esa misma', 'el mismo', 'dale', 'ok', 'okay', 'okey',
+  'oki', 'perfecto', 'esta bien', 'esta perfecto', 'de acuerdo', 'de una', 'obvio', 'por supuesto', 'por favor', 'gracias',
+  'tal cual', 'asi se llama', 'se llama asi', 'confirmo', 'afirmativo', 'va', 'sale', 'genial', 'bien', 'muy bien',
+  '👍', '✅', '👌', '🙌',
+];
+/** Lo que dice que no. Detrás puede venir «gracias», «ese no» o el texto del botón («No, lo escribo de nuevo»). */
+const DICE_NO = ['no+', 'nop', 'nope', 'incorrecto', 'para nada', 'no es asi', 'no es', 'no se llama asi', 'esta mal', 'negativo', 'nada que ver', '👎'];
+const TRAS_EL_NO = [...DICE_NO, 'gracias', 'ese no', 'esa no', 'ese', 'esa', 'lo escribo de nuevo', 'te lo escribo', 'lo cambio'];
+const enFila = (primeras: string[], siguientes: string[]) => {
+  const alt = (xs: string[]) => [...xs].sort((a, b) => b.length - a.length).join('|');
+  return new RegExp(`^(?:${alt(primeras)})(?: (?:${alt(siguientes)}))*$`, 'u');
+};
+const RE_SI = enFila(DICE_SI, DICE_SI);
+const RE_NO = enFila(DICE_NO, TRAS_EL_NO);
+
 /**
  * Un sí o un no ESCRITO a una pregunta de sí o no, con tilde o sin ella y con las formas de siempre («Sí», «Dale», «Ok»,
  * «Perfecto», «Está bien», «👍»). Sin la flag `u`, `\b` no corta después de «í» y «Sí» no era un sí (20/10/2026, revisión
- * del Cerebro: el negocio pasaba a llamarse «Sí»). Con algo más que la afirmación («sí, pero se llama Acme») no es un sí ni
- * un no: es otra respuesta. null = ni sí ni no.
+ * del Cerebro: el negocio pasaba a llamarse «Sí»). Un sí con más palabras de acuerdo sigue siendo un sí («Sí, está bien»,
+ * «Sí, por favor»: la revisión de la noche las encontró volviéndose el nombre propuesto). Con algo que no es acuerdo («sí,
+ * pero se llama Acme») no es un sí ni un no: es otra respuesta. null = ni sí ni no.
  */
 export function siONo(texto: string): 'si' | 'no' | null {
-  const t = (texto || '').trim().toLowerCase().replace(/[.!¡?¿,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const t = normal((texto || '').trim()).replace(/[.!¡?¿,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!t) return null;
-  if (/^(?:s[ií]|sip|claro|correcto|exacto|as[ií] es|eso|ese|ese mismo|esa|dale|ok|okay|okey|perfecto|est[aá] bien|de acuerdo|👍|✅|👌)(?: (?:s[ií]|claro|correcto|exacto|as[ií] es|perfecto|gracias|👍))*$/u.test(t)) return 'si';
-  if (/^(?:no|nop|nope|incorrecto|para nada|no es as[ií]|no es|👎)(?: (?:gracias|no))*$/u.test(t)) return 'no';
+  if (RE_SI.test(t)) return 'si';
+  if (RE_NO.test(t)) return 'no';
   return null;
 }
 
@@ -804,8 +940,23 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     }
     // Sin pendiente no hay opciones (Martín, 18/10): todo nombre llega escrito y se confirma.
     const persona = [h.nombreCuenta, e.nombre].find((x) => !!x?.trim() && !x.includes('@')) ?? '';
-    // «Sí, pero se llama Acme» / «No, es Acme»: lo de después del sí o el no es el nombre nuevo.
-    const otro = pendiente ? texto.replace(/^(?:s[ií]|no)[\s,.!]+(?:pero\s+)?/iu, '') : texto;
+    let otro = texto;
+    const conSiONo = pendiente ? /^(s[ií]+|no+)(?=$|[\s,.!¡?¿:;])[\s,.!¡?¿:;]*(.*)$/iu.exec(texto.trim()) : null;
+    if (pendiente && conSiONo) {
+      // «Sí, pero se llama Acme» / «No, es Acme» / «No, Acme»: lo de después es el nombre nuevo. Un «sí» seguido de algo
+      // que no es acuerdo ni un nombre presentado NO se adivina (revisión del Cerebro, 20/10 noche: «Sí, está bien» se
+      // volvía «¿Tu negocio se llama «está bien»?» y el nombre bueno se perdía): se pregunta de nuevo.
+      const conPero = /^pero\s/i.test(conSiONo[2]);
+      const resto = conSiONo[2].replace(/^pero\s+/i, '');
+      const esSi = /^s/i.test(conSiONo[1]);
+      if (esSi && normal(leerNegocio(resto, persona) ?? '') === normal(pendiente.nombre)) {
+        return { ok: true, patch: { negocio: pendiente.nombre, negocioPorConfirmar: undefined } };
+      }
+      if (esSi && !conPero && !/^(?:se llama|es|el nombre es|mejor|en realidad)\s/i.test(resto)) {
+        return { ok: false, error: `¿Tu negocio se llama «${pendiente.nombre}»? Dime sí o no, o escribe el nombre.` };
+      }
+      otro = resto;
+    }
     const nombre = leerNegocio(otro, persona);
     if (!nombre) return { ok: false, error: '¿Cómo se llama tu negocio? Si usas tu nombre, escríbelo.' };
     return { ok: true, patch: { negocioPorConfirmar: { escrito: texto, nombre } } };
@@ -922,9 +1073,14 @@ export function sinMarca(v: string | null | undefined): string {
  */
 export function cobroDelPrecio(precio: string | null | undefined): { tipo: 'unico' | 'suscripcion'; meses: number | null } {
   const t = (precio ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  if (!t.trim() || /pago unico|un (?:solo|unico) pago|en un (?:solo )?pago|de contado|al contado/.test(t)) return { tipo: 'unico', meses: null };
   // Las cuotas de la TARJETA son una venta única (revisión del Cerebro, 20/10: «hasta 12 cuotas sin interés con tarjeta»
-  // salía suscripción de 12 meses). Ante la duda, único: una suscripción se lee como ingreso recurrente en el CRM.
-  if (!t.trim() || /pago unico|un (?:solo|unico) pago|en un (?:solo )?pago|de contado|al contado|sin interes|con tarjeta|\bmsi\b/.test(t)) return { tipo: 'unico', meses: null };
+  // salía suscripción de 12 meses). Pero «con tarjeta» es sólo el MEDIO de pago: con «por mes», «membresía» o «cuotas
+  // mensuales» sigue siendo una suscripción (revisión de la noche: «150 USD por mes con tarjeta» salía pago único).
+  // «Sin interés» y «MSI» son financiación de la tarjeta salvo que diga que es una membresía o un cobro recurrente.
+  const recurrente = /membresia|suscripcion|cobro automatico|recurrente|debito automatico/.test(t);
+  const mensual = recurrente || /mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes/.test(t);
+  if ((/sin interes(?:es)?|\bmsi\b/.test(t) && !recurrente) || (/con tarjeta/.test(t) && /cuotas/.test(t) && !mensual)) return { tipo: 'unico', meses: null };
   const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
   if (cuotas) return { tipo: 'suscripcion', meses: Number(cuotas[1]) || null };
   if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) return { tipo: 'unico', meses: null };

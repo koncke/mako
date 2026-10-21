@@ -244,6 +244,15 @@ test('el cierre del onboarding no ofrece caminos que la capa no puede abrir', ()
   assert.match(sin, /destino = rutaDelHilo\(r\?\.ok && typeof r\.chat === 'number' \? r\.chat : null\);/, 'al terminar no entra al chat «Onboarding»');
   assert.match(sin, /setSaliendo\(true\);[\s\S]{0,1000}router\.push\(destino\);/,
     'al terminar no entra solo (o entra por una recarga dura, que corta el plan que se sigue armando)');
+  // Mientras corre el POST 'hilo' la pantalla queda, con «Entrando…» en el botón; se funde recién al navegar (revisión del
+  // Cerebro, 20/10 noche: fundida antes del POST, la capa invisible se comía los clics y el «Entrando…» no se veía).
+  // Rotura (roturas-noche.json del scratchpad, base 41/0 con la batería de onboarding-cifras-escritas): fundir antes del
+  // POST → 40/1.
+  const entrar = sin.slice(sin.indexOf('const entrar = useCallback('), sin.indexOf('}, [vista.modo, router]);'));
+  assert.ok(entrar.indexOf('setEntrandoYa(true);') > 0 && entrar.indexOf('setEntrandoYa(true);') < entrar.indexOf("action: 'hilo'"), 'el «Entrando…» no se prende antes del POST');
+  assert.match(entrar, /setSaliendo\(true\);\n\s*router\.push\(destino\);/, 'la pantalla se funde antes de tener adónde ir');
+  assert.ok(entrar.indexOf('setSaliendo(true);') > entrar.indexOf("action: 'hilo'"), 'la pantalla se funde antes del POST');
+  assert.match(sin, /<TarjetaListo onEntrar=\{\(\) => void entrar\(\)\} entrando=\{entrandoYa\} \/>/);
   assert.match(sin, /import \{ useRouter, useWs \} from '@\/app\/_ui\/Link';/, 'el router sin el ?ws= saca al super admin del cliente');
   // Desde el 17/10/2026 el modo 'oferta' entra a lo que dijo que quiere resolver primero (`rutaDeEntrada`): sus capas
   // (completo y agencia) ven todas las tabs.

@@ -171,14 +171,17 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   // (`/api/onboarding/plan-arranque`) es un fetch en vuelo, y una recarga dura lo cortaría; ésta no.
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
+  const [entrandoYa, setEntrandoYa] = useState(false);
   // ENTRAR ES UNO SOLO, con el temporizador o con el botón (20/10/2026, revisión del Cerebro: «Entrar a MaKo» o un F5 corrían
   // a la vez que el POST que arma el chat «Onboarding»). Al chat con la conversación y el tutorial (`rutaDelHilo`); si no se
-  // pudo crear, al Ops Center igual: nunca se traba el final. El POST lleva plazo, y la pantalla se funde apenas arranca.
+  // pudo crear, al Ops Center igual: nunca se traba el final. El POST lleva plazo. Mientras corre, el botón dice
+  // «Entrando…» y la pantalla queda; se funde recién al navegar (revisión de la noche: fundida antes del POST, la capa
+  // invisible se comía los clics y el «Entrando…» no se veía nunca).
   const entrando = useRef(false);
   const entrar = useCallback(async () => {
     if (entrando.current) return;
     entrando.current = true;
-    setSaliendo(true);
+    setEntrandoYa(true);
     // En el teléfono, la entrada de MaKo ya se vio acá: el layout de /m no la repite (EntradaMobile).
     try { sessionStorage.setItem(CLAVE_ENTRADA_MOVIL, '1'); } catch { /* sin storage */ }
     let destino = vista.modo === 'oferta' ? RUTA_AL_TERMINAR : '/plan';
@@ -188,6 +191,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
       }).then((x) => x.json()).catch(() => null) as { ok?: boolean; chat?: number | null } | null;
       destino = rutaDelHilo(r?.ok && typeof r.chat === 'number' ? r.chat : null);
     }
+    setSaliendo(true);
     router.push(destino);
   }, [vista.modo, router]);
   useEffect(() => {
@@ -215,7 +219,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
-    if (t === 'listo') return <TarjetaListo onEntrar={() => void entrar()} entrando={saliendo} />;
+    if (t === 'listo') return <TarjetaListo onEntrar={() => void entrar()} entrando={entrandoYa} />;
     return null;
   };
 

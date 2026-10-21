@@ -15,6 +15,8 @@
 // no se escribe directo → 5/1 · sin el nombre del alta → 5/1 · el ws de prueba ofrece su nombre → 5/1.
 // Y el 20/10 a la noche, sin el botón del alta (romper.js + roturas-sin-chip.json, con onboarding-preguntas y
 // onboarding-arranque; base 39/0): vuelve el botón del nombre del alta → 34/5 · vuelve el del nombre de la cuenta → 33/6.
+// Y la revisión de la noche (roturas-noche.json, con la batería de tests/onboarding-cifras-escritas.test.ts; base 41/0): un sí
+// con más palabras de acuerdo no es sí → 39/2 · un sí con otra cosa adivina el nombre → 40/1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -75,6 +77,28 @@ test('lo escrito SIEMPRE se confirma; con algo pendiente, nada se escribe sin un
   // Ni sí ni no: otro nombre, que se vuelve a confirmar.
   assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: 'Sí, pero se llama Acme' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'Sí, pero se llama Acme', nombre: 'Acme' } } });
   assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: 'Florencia Carballo' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'Florencia Carballo', nombre: 'Florencia Carballo' } } });
+});
+
+test('un sí con más palabras de acuerdo es un sí, y un sí con otra cosa no adivina un nombre (revisión, 20/10 noche)', () => {
+  // La revisión de la noche: «Sí, está bien» se volvía «¿Tu negocio se llama «está bien»?» y el nombre bueno se perdía.
+  const guarda = { ok: true, patch: { negocio: 'Florencia Ayelen Carballo', negocioPorConfirmar: undefined } };
+  for (const t of ['Sí, está bien', 'Sí, ese es', 'Si, es ese', 'Sí, por favor', 'sí así se llama', 'Correcto, así se llama', 'Siii',
+    'Exactamente', 'Claro que sí', 'Obvio', 'Dale, perfecto', 'Sí, Florencia Ayelen Carballo', 'Sí, tal cual 👍']) {
+    assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: t }), guarda, `«${t}»`);
+  }
+  for (const t of ['No, lo escribo de nuevo', 'No, gracias', 'Nop', 'No es ese']) {
+    assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: t }), { ok: true, patch: { negocioPorConfirmar: undefined } }, `«${t}»`);
+  }
+  // Un sí con algo que no es acuerdo ni un nombre presentado: se pregunta de nuevo y NO se pierde lo pendiente.
+  const duda = leerRespuesta(PENDIENTE, H, { texto: 'Sí, mi emprendimiento' });
+  assert.equal(duda.ok, false);
+  assert.match(duda.ok ? '' : duda.error, /¿Tu negocio se llama «Florencia Ayelen Carballo»\? Dime sí o no, o escribe el nombre\./);
+  // «No, Acme» y «Sí, pero es Acme»: el nombre nuevo, que se vuelve a confirmar.
+  assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: 'No, Acme Estudio' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'No, Acme Estudio', nombre: 'Acme Estudio' } } });
+  assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: 'Sí, pero es Acme' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'Sí, pero es Acme', nombre: 'Acme' } } });
+  // Un nombre que empieza como «sí» o «no» no se confunde: «Sinergia», «Nora Diseño».
+  assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: 'Nora Diseño' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'Nora Diseño', nombre: 'Nora Diseño' } } });
+  assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: 'Sinergia' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'Sinergia', nombre: 'Sinergia' } } });
 });
 
 test('el nombre y el negocio no ofrecen NINGUNA opción, tampoco el nombre del alta (Martín, 18/10)', () => {
