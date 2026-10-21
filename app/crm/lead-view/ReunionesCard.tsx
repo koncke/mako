@@ -115,7 +115,16 @@ function BloqueReunion({ titulo, leadId, campoFecha, campoFathom, fecha, fallbac
   );
 }
 
-export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }: { lead: Lead; respuestas?: { R1: RespuestaQA[]; R2: RespuestaQA[] }; equipo?: MiembroEquipo[]; closerDetectado?: string | null }) {
+/**
+ * LAS PARTES DE LA TARJETA (20/10/2026, docs/pedidos-crm.md D2: «Reuniones personalizable bloque por bloque, como el
+ * Dashboard»). La ficha por bloques pone cada parte como su bloque (`reunion-1`, `reunion-2`, `agendar-reunion`,
+ * `lo-que-salio-de-la-llamada`), y la tarjeta dibuja SÓLO las que le piden. Sin `partes`, todas: la de siempre.
+ */
+export type PartesReuniones = { r1?: boolean; r2?: boolean; agendar?: boolean; llamada?: boolean; cajas?: boolean };
+const TODAS: Required<PartesReuniones> = { r1: true, r2: true, agendar: true, llamada: true, cajas: true };
+
+export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado, partes, rotulo = 'Reuniones' }: { lead: Lead; respuestas?: { R1: RespuestaQA[]; R2: RespuestaQA[] }; equipo?: MiembroEquipo[]; closerDetectado?: string | null; partes?: PartesReuniones; rotulo?: string }) {
+  const ver = partes ? { r1: !!partes.r1, r2: !!partes.r2, agendar: !!partes.agendar, llamada: !!partes.llamada, cajas: !!partes.cajas } : TODAS;
   const agendo = !!lead.fecha_junta_1 || !!lead.fecha_junta_2 || !!lead.fecha_agenda || lead.asistio_j1 != null;
   const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
   // Heurística de asignación de grabaciones: por etiqueta; lo no etiquetado va a R1.
@@ -133,10 +142,10 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
   const r1 = respuestas?.R1 ?? [];
   const r2 = respuestas?.R2 ?? [];
 
-  if (!agendo) {
+  if (!agendo && ver.r1) {
     return (
       <section style={card}>
-        <div style={{ ...sectLabel, marginBottom: 10 }}>Reuniones</div>
+        <div style={{ ...sectLabel, marginBottom: 10 }}>{rotulo}</div>
         <p style={{ fontSize: 14, color: 'var(--faint)' }}>Este lead todavía no agendó ninguna reunión. Cuando agende (por Calendly o a mano) los datos de R1/R2 aparecen aquí.</p>
       </section>
     );
@@ -144,9 +153,9 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
 
   return (
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 14 }}>Reuniones</div>
+      <div style={{ ...sectLabel, marginBottom: 14 }}>{rotulo}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <BloqueReunion
+        {ver.r1 && <BloqueReunion
           titulo="Reunión 1"
           reunion="R1"
           leadId={lead.id}
@@ -172,8 +181,8 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
           </>}
           fathom={fathomR1}
           respuestas={r1}
-        />
-        {tuvoR2 && (
+        />}
+        {ver.r2 && tuvoR2 && (
           <BloqueReunion
             titulo="Reunión 2"
             reunion="R2"
@@ -196,7 +205,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
             ofrecerle deshacer una decisión que tomó en otra pantalla.
 
             El control se apaga solo si el negocio no puede usarlo (ver AgendarR2). */}
-        {!tuvoR2 && !lead.sin_r2 && <AgendarR2 leadId={lead.id} email={lead.email ?? null} />}
+        {ver.agendar && !tuvoR2 && !lead.sin_r2 && <AgendarR2 leadId={lead.id} email={lead.email ?? null} />}
       </div>
 
       {/* Lo que salió de la llamada. Va DEBAJO de los bloques y no adentro de
@@ -206,7 +215,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
       {/* Sin envoltorio a propósito: este apartado puede no dibujarse (sin
           grabación no falta nada), y una caja puesta desde afuera convierte ese
           `return null` en un hueco de 16 px que nadie puso. El margen va adentro. */}
-      <InsightsLlamadaCard leadId={lead.id} links={links} hayGrabacion={links.length > 0} />
+      {ver.llamada && <InsightsLlamadaCard leadId={lead.id} links={links} hayGrabacion={links.length > 0} />}
 
       {/* Agendamiento · Closer · Setter · Confirmación en recuadros que llegan hasta
           el ancho. Eran TRES: el agendamiento entró acá porque era el cuarto campo
@@ -216,7 +225,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
           angosto bajan a dos filas en vez de recortar el valor.
           Cada recuadro es una `CajaCampo` (12/10/2026, punto 7): un clic en cualquier parte
           abre su campo, no sólo sobre el «—». */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 16 }}>
+      {ver.cajas && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 16 }}>
         <CajaCampo style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Agendamiento</span>
           <div style={{ marginTop: 3 }}>
@@ -257,7 +266,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
             />
           </div>
         </CajaCampo>
-      </div>
+      </div>}
     </section>
   );
 }
