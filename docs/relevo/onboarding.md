@@ -1,5 +1,15 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 ~20:15 AR — FLORENCIA (ws21): EL NOMBRE EDITABLE, EN PRODUCCIÓN
+
+- «Tu negocio» (/configuraciones/negocio y /m/configuraciones/negocio): el admin de cada negocio cambia su nombre. En
+  producción con a6d65929f (run 221). El «Hecho» está en la bitácora del Onboarding. La rama onboarding-ws21 se cierra.
+- Para el próximo chat: (1) las preguntas del arranque se guardan en el historial con su respuesta, en la sesión de
+  Offer, y se ven en el Ops Center (el del super admin incluido); lo de Florencia se reconstruye del estado, marcado
+  «reconstruido». Ojo: `hechosDelArranque` lee la capa y el perfil de QUIEN MIRA. (2) El script de reparación del ws21
+  (side-session-notes/local_797d5445…/feedback-20-10/reparar-ws21-v2.ts) espera el sí de Martín y `--meses=6` o
+  `--mensual`. Los dos, en docs/hallazgos-onboarding.md, «Florencia otra vez».
+
 ## ESTADO AL 21/10/2026 ~14:45 AR — EN PRODUCCIÓN; LA RAMA onboarding-v3 SE CIERRA PARA ESTA RONDA
 
 - De la primera a la sexta revisión, con 689f75560 (run 199). De la séptima a la undécima, con cbafd6eae (aa3ff1c0e,
