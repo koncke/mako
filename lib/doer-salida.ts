@@ -72,6 +72,46 @@ export function afirmaHechoDe(texto: string, { soloPorMi = false }: { soloPorMi?
   return [...HECHO_POR_MI, ...(soloPorMi ? [] : [QUEDO_HECHO])].flatMap((re) => t.match(re)?.[0] ?? []);
 }
 
+/**
+ * Los pretéritos de PRIMERA persona de lo que MaKo puede decir que hizo, CON tilde: sin ella, «mande», «agende» o «cree» son
+ * también subjuntivo («¿querés que te mande el resumen?»), y la tercera revisión los vio llevar la nota en las ofertas con
+ * las que MaKo propone cada acción. «hice» no tiene otro tiempo igual. «dejé» va aparte (`DEJE_HECHO`).
+ */
+const PRETERITOS = 'mandé|envié|agendé|creé|armé|cargué|publiqué|cambié|moví|borré|guardé|configuré|programé|anoté|actualicé|subí|edité|agregué|eliminé|activé|pausé|prendí|apagué|inscribí|asigné|cancelé|confirmé|respondí|escribí|marqué|reprogramé|avisé|hice';
+const PRETERITO = new RegExp(`(?<!\\p{L})(?:${PRETERITOS})(?!\\p{L})`, 'u');
+/** «te dejé agendada la reunión» dice hecho; «te dejé la tarjeta» habla de lo que dejó para confirmar. */
+const DEJE_HECHO = /(?<!\p{L})dejé(?:\s+\p{L}+){0,2}\s+\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
+/** «acabo de cargar las 3 tareas»: el pasado reciente, en primera persona. */
+const ACABO_DE = /(?<!\p{L})acabo de (?:mandar|enviar|agendar|crear|armar|cargar|publicar|cambiar|mover|borrar|guardar|programar|anotar|actualizar|subir|agregar|eliminar|activar|pausar|cancelar|confirmar|responder|escribir|marcar|reprogramar)(?!\p{L})/u;
+/** Lo que deja una oración sin afirmar: una negación («no te agendé»), o hablar de lo que quedó para confirmar. */
+const NIEGA = /(?<!\p{L})(?:no|nunca|tampoco|ni)(?!\p{L})/u;
+// «confírmala», «para confirmar», «revísala»: lo que habla de confirmar; «confirmé» y «revisé» dicen hecho, y no entran.
+const DE_LO_PROPUESTO = /(?<!\p{L})(?:abajo|tarjeta|borrador|propuesta|conf[ií]rm(?!é)\p{L}*|rev[ií]s(?!é)\p{L}*)(?!\p{L})/u;
+
+/**
+ * Las oraciones donde MaKo dice CLARO que hizo algo él (1.5; la tercera revisión, 21/10/2026): en primera persona, en
+ * pasado, sin negación, sin pregunta y sin hablar de lo que dejó para confirmar. ⚠️ PRECISIÓN ANTES QUE COBERTURA: que se
+ * escape una mentira está aceptado (la red fuerte es lo que el código dibuja en el hilo: el «Hecho:», la tarjeta), y una
+ * nota en una respuesta que no afirma nada, no. No se le suman raíces ni formas para «ver más».
+ */
+export function afirmacionesDeHecho(texto: string): string[] {
+  return oraciones(texto).flat().map((o) => o.trim()).filter((o) => {
+    const t = o.toLowerCase();
+    if (!t || /[¿?]/.test(t) || NIEGA.test(t) || DE_LO_PROPUESTO.test(t)) return false;
+    return PRETERITO.test(t) || DEJE_HECHO.test(t) || ACABO_DE.test(t);
+  });
+}
+
+/**
+ * Las promesas de una acción INMEDIATA que el turno no hizo («déjame ver el plan», «dame un segundo», «voy a revisar»,
+ * «estoy buscando»), para el chat de la app. Sin «te aviso», «te paso» ni «te cargo»: son ofertas o condiciones
+ * («cualquier cosa te aviso»), y la tercera revisión los vio borrar una verdad respaldada.
+ */
+export function promesasFirmesDe(texto: string): string[] {
+  return oraciones(texto).flat().map((o) => o.trim()).filter((o) => o && !/[¿?]/.test(o) && !PIDE_DATO.test(norm(o)))
+    .filter((o) => [PROMESAS[0], PROMESAS[1], PROMESAS[4], PROMESAS[6]].some((re) => re.test(norm(o))));
+}
+
 /** La oración pide un dato a la persona («dime», «pásame», «confirmame»). Sin tildes. */
 const PIDE_DATO = /\b(?:pasame|dime|decime|mandame|enviame|confirmame|indicame|contame|cuentame|avisame)\b/;
 
@@ -145,28 +185,30 @@ export function sinOraciones(texto: string, fuera: (oracion: string) => boolean)
  */
 export const SIN_HACER = 'Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago.';
 /**
- * La de un HECHO que se sacó. ⚠️ No es `SIN_HACER`: «pídemelo otra vez» sobre algo que pudo quedar hecho en su pantalla
- * (un envío, una reunión) es pedirle a la persona que lo haga dos veces. Le dice que se fije antes (revisión del 21/10).
+ * La nota que va cuando MaKo dice que HIZO algo y el código no ve nada que lo respalde (1.5; la tercera revisión,
+ * 21/10/2026). ⚠️ LA ORACIÓN NO SE BORRA: borrar una verdad («sí, ya te la agendé» después de confirmar la tarjeta) es peor
+ * que dejar pasar una mentira, porque le dice al cliente «no hice nada» sobre algo que sí se hizo. Las dos versiones que
+ * borraban (por si corrió algo, y por las raíces de las palabras) terminaron borrando verdades: leer texto libre con reglas
+ * falla en lo obvio (AGENTS.md). Un falso positivo cuesta esta nota, no una respuesta. ⚠️ No pide repetirlo.
  */
-export const SIN_HECHO = 'En este mensaje no hice nada: fíjate si ya quedó antes de pedírmelo de nuevo.';
+export const NOTA_SIN_RESPALDO = 'No veo esa acción en este chat: revísala antes de darla por hecha.';
+/** La de una promesa de algo inmediato que el turno no hizo (el chat de la app; la oración tampoco se borra). */
+export const NOTA_SIN_HACER = 'Esto no lo hice en este mensaje: si lo necesitas, pídemelo.';
 /** Lo que va cuando la respuesta entera era grosera. */
 export const SIN_GROSERIA = 'Perdón, me expresé mal. ¿Seguimos?';
 
-export type Saneo = { texto: string; promesas: string[]; groserias: string[] };
+/** `sinRespaldo`: lo que dice HECHO y el código no respalda (lleva la nota). */
+export type Saneo = { texto: string; promesas: string[]; groserias: string[]; sinRespaldo?: string[] };
 
 /**
- * Lo que respalda, en el chat de la app, una frase que dice HECHO (1.5; revisión del 21/10/2026). En ese chat el turno no
- * ejecuta nada: lo que escribe deja una tarjeta o una pantalla, y se hace al confirmar. Entonces «ya le mandé» sólo es
- * verdad si lo dice el hilo. ⚠️ Lo obvio era el error: «sin herramientas, es mentira» borraba el «sí, quedó agendada» que
- * MaKo contesta desde el «Hecho: …» del hilo, y le pedía a la persona que lo pidiera otra vez.
+ * Lo que respalda, en el chat de la app, una frase que dice HECHO (1.5; las revisiones del 21/10/2026). En ese chat el
+ * turno no ejecuta nada: lo que escribe deja una tarjeta o una pantalla, y se hace al confirmar. El respaldo lo pone el
+ * CÓDIGO, nunca el texto: lo que se ejecutó, o la tarjeta confirmada, ya se ve en el hilo.
  */
 export type RespaldoDeHecho = {
-  /** El hilo que lee el modelo ya anota algo hecho («Hecho: …», lo que deja una tarjeta o un trabajo largo): no se juzga. */
-  enElHilo: boolean;
-  /** Corrió una LECTURA: «quedó agendada» puede ser lo que leyó. «Ya le mandé», no. */
-  leyo: boolean;
-  /** El turno dejó algo para confirmar: lo que falta lo dice la tarjeta de abajo, y la frase no se juzga. */
-  tarjeta: boolean;
+  /** Corrió en el turno algo que ESCRIBE de verdad (un control como `cancelar_accion`, sin error), o el hilo tiene una
+   *  tarjeta confirmada («Hecho: …») después del último pedido de la persona. Con eso, no hay nota. */
+  respaldado: boolean;
 };
 
 /**
@@ -178,22 +220,31 @@ export type RespaldoDeHecho = {
  *
  * Sin la promesa, la respuesta dice lo que hizo y nada de lo que no: se le suma `SIN_HACER`,
  * porque una charla que termina en «Jajaja, acepto el reto.» deja a la persona esperando lo que
- * se le prometió en la oración que se sacó. Si lo sacado era un hecho, `SIN_HECHO`.
+ * se le prometió en la oración que se sacó.
+ *
+ * ⚠️ EN EL CHAT DE LA APP (`hecho`) NINGUNA ORACIÓN SE BORRA POR LO QUE DICE (la tercera revisión: el camino de las promesas,
+ * desde main, borraba «Sí, ya te la agendé. Cualquier cosa te aviso.» y pedía repetirlo). Lo que se borraba se MARCA, con
+ * UNA nota como máximo: primero `NOTA_SIN_RESPALDO` (dice hecho algo que el código no respalda), si no `NOTA_SIN_HACER`
+ * (promete algo inmediato sin haber corrido nada). Las groserías sí se sacan: no dicen nada de lo hecho.
  */
 export function sanearSalida(texto: string, { corrioHerramientas, hecho }: {
   corrioHerramientas: boolean;
   /** También lo que dice HECHO sin respaldo («Listo, ya lo armé»): el chat de la app (1.5). */
   hecho?: RespaldoDeHecho;
 }): Saneo {
-  const juzgar = hecho && !hecho.enElHilo && !hecho.tarjeta ? { soloPorMi: hecho.leyo } : null;
-  const prometidas = corrioHerramientas ? [] : promesasDe(texto);
-  const hechos = juzgar ? afirmaHechoDe(texto, juzgar) : [];
-  const promesas = [...prometidas, ...hechos];
   const groserias = groseriasDe(texto);
-  if (!promesas.length && !groserias.length) return { texto, promesas, groserias };
-  const sacada = sinOraciones(texto, (o) => (prometidas.length > 0 && promesasDe(o).length > 0)
-    || (juzgar != null && afirmaHechoDe(o, juzgar).length > 0) || groseriasDe(o).length > 0);
-  const linea = hechos.length ? SIN_HECHO : SIN_HACER;
-  if (promesas.length) return { texto: sacada ? `${sacada}\n\n${linea}` : linea, promesas, groserias };
-  return { texto: sacada ?? SIN_GROSERIA, promesas, groserias };
+  if (hecho) {
+    let salida = groserias.length ? (sinOraciones(texto, (o) => groseriasDe(o).length > 0) ?? SIN_GROSERIA) : texto;
+    const sinRespaldo = hecho.respaldado ? [] : afirmacionesDeHecho(salida);
+    const prometidas = corrioHerramientas ? [] : promesasFirmesDe(salida);
+    const nota = sinRespaldo.length ? NOTA_SIN_RESPALDO : prometidas.length ? NOTA_SIN_HACER : null;
+    if (nota) salida = `${salida}\n\n${nota}`;
+    return { texto: salida, promesas: prometidas, groserias, ...(sinRespaldo.length ? { sinRespaldo } : {}) };
+  }
+  // El doer de WhatsApp: una respuesta suya es el FINAL del turno, y la promesa sin herramientas se saca (lo de siempre).
+  const prometidas = corrioHerramientas ? [] : promesasDe(texto);
+  if (!prometidas.length && !groserias.length) return { texto, promesas: prometidas, groserias };
+  const sacada = sinOraciones(texto, (o) => (prometidas.length > 0 && promesasDe(o).length > 0) || groseriasDe(o).length > 0);
+  if (prometidas.length) return { texto: sacada ? `${sacada}\n\n${SIN_HACER}` : SIN_HACER, promesas: prometidas, groserias };
+  return { texto: sacada ?? SIN_GROSERIA, promesas: prometidas, groserias };
 }
