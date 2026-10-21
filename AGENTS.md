@@ -9457,7 +9457,9 @@ tarjeta va adentro de `KanbanM`. Detalle y trampas: docs/hallazgos-ui.md.
 
 La configuración propia de una automatización (horario, horas a la misma persona) vive en `app_settings`
 (`automatizacion.config:<id>`), no en `nutricion_secuencias`. Algo NUEVO que se guarde por id de automatización fuera de
-la fila se copia en `duplicarSecuencia` (lib/secuencia-duplicar.ts, por una dependencia OBLIGATORIA como `copiarConfig`) y,
-si no se puede copiar, la copia se borra. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+la fila se copia en `duplicarSecuencia` (lib/secuencia-duplicar.ts, por una dependencia OBLIGATORIA como `copiarConfig`) y
+en «Copiar flujo» pegado en el MISMO negocio (`crearDesdeCopia` con `configDe`, lib/flujo-copia-negocio.ts) y, si no se
+puede copiar, la copia se borra. Y un aviso que defiende algo (el de automatización duplicada) va en TODOS los caminos que
+lo prenden, no sólo en el botón de la pantalla donde se pensó. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
