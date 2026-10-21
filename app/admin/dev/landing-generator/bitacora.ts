@@ -869,4 +869,22 @@ export const BITACORA: Hito[] = [
       'lib/doer-recetas.ts — «para qué producto» sólo con generar_landing_con_ia',
     ],
   },
+  {
+    fecha: '21 oct', hora: '07:04', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'En el chat, «Saltear» contesta sólo la pregunta en la que lo tocaste',
+    puntos: [
+      'Cuando MaKo te mostraba los diseños y te preguntaba el producto juntos, tocar «Saltear» en una apagaba la otra. Ahora cada una se contesta por separado.',
+      'Si dejaste los diseños sin elegir y los tocas más tarde, se contesta esa elección y no la pregunta nueva de MaKo. Al recargar, lo que ya elegiste sigue elegido.',
+      'Si tienes dos productos que se llaman casi igual, al elegir uno MaKo usa ése y no te vuelve a preguntar.',
+    ],
+    commits: [
+      { sha: '212bd77f3', msg: 'Web Generator, 6ª revisión: cada botón dice de qué selector viene, y un selector abierto sigue esperando', lineas: 150, archivos: 9 },
+    ],
+    archivos: [
+      'app/m/mako/chat-ui.ts — conRespuestas: un selector abierto sigue esperando; «Listo» armado como el botón',
+      'lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx y lib/editor-landing/bloques-web.ts — lo que manda cada botón dice de cuál viene',
+      'lib/editor-landing/producto-de-landing.ts — dos con la misma clave: el exacto',
+    ],
+  },
 ];
