@@ -137,8 +137,9 @@ test('en el teléfono, las rutas de antes van a la Ticketera del Centro, con la 
   // Desde el 17/10/2026 More no tiene fila «Ticketera»: la puerta es el Ops Center de arriba (la Ticketera vive adentro),
   // igual que en la sidebar de escritorio.
   const mas = sinComentarios(leer('app/m/mas/page.tsx'));
-  assert.match(mas, /titulo="Ops Center" href=\{RUTA_CENTRO\}/);
-  assert.match(mas, /const RUTA_CENTRO = '\/m\/operaciones'/);
+  // Desde el 20/10/2026 el Centro es además el lugar del medio de la barra del super admin (lib/movil-rutas.ts).
+  assert.match(mas, /titulo="Ops Center" href=\{RUTA_CENTRO_M\}/);
+  assert.match(leer('lib/movil-rutas.ts'), /export const RUTA_CENTRO_M = '\/m\/operaciones';/);
 });
 
 test('las rutas de antes no se pierden la query: un aviso que trae a una tarjeta sigue llegando', () => {
