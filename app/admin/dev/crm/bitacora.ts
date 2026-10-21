@@ -2643,4 +2643,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '20 oct', hora: '22:16', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tarjeta de un lead con tres diseños, datos que se arrastran y la vista en vivo',
+    puntos: [
+      'En producción desde el run 175. Es la otra mitad del pedido de las cards del 20/10 («por si el usuario quiere más o menos info»).',
+      'En «⋯» › «Personalizar tarjetas» se elige el diseño: Completa, Compacta o Avance (la barra de su recorrido).',
+      'Los datos se ordenan arrastrándolos (o con las flechas), y la tarjeta de arriba muestra en vivo cómo va a quedar con un lead de verdad.',
+      '«Volver a lo de siempre» deja la tarjeta como venía. La elección es de cada persona y vale en todos sus funnels.',
+      'No se vio en pantalla: se revisa en /crm › ⋯ › Personalizar tarjetas.',
+    ],
+    commits: [
+      { sha: '99bc8b095', msg: 'CRM: la tarjeta con diseños, datos que se arrastran para acomodarlos y la vista en vivo', lineas: 504, archivos: 12 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];
