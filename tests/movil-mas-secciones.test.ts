@@ -157,24 +157,24 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
   for (const capa of Object.keys(CAPAS) as CapaId[]) {
     for (const rol of ['closer', 'setter', null] as const) assert.deepEqual(ve(rol, capa), [], `${rol} en ${capa}`);
   }
-  // More entero del admin de un cliente completo (17/10/2026): Second Brain arriba sin título, y una caja por familia.
+  // More entero del admin de un cliente completo: una caja por familia. Second Brain (el Ops Center) iba arriba sin título
+  // hasta el 20/10/2026, cuando pasó al lugar del medio de la barra: More no lo repite.
   assert.deepEqual(gruposMas('admin', 'completo').map((g) => [g.titulo, g.secciones.map((s) => s.id)]), [
-    [null, ['mako']],
-    // 17/10/2026 noche, la sidebar del prototipo: lo diario sin título (las hojas del Dashboard; Plan, Chats y el
-    // Dashboard están en la barra), y Sales · Marketing · Create. Clients es UNA fila; MaKo Partners sólo para una agencia.
+    // 17/10/2026 noche, la sidebar del prototipo: lo diario (las hojas del Dashboard; Plan y Chats están en la barra), y
+    // Sales · Marketing · Create. Clients es UNA fila; MaKo Partners sólo para una agencia.
     ['Today', ['dashboard']],
     ['Sales', ['calendario', 'automations', 'cs']],
     ['Marketing', ['offer', 'landing', 'ads']],
     // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
     ['Create', ['video', 'image', 'copywriting']],
   ]);
-  // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la sidebar, MENOS
-  // las hojas del Dashboard (son del lugar del medio, 17/10/2026 noche): Calendar y Second Brain. En More le quedan las hojas.
-  assert.deepEqual(barraMovil('admin', 'pm').map((b) => b.id), ['calendario', 'mako', 'hoy', 'plan', 'mas']);
-  assert.deepEqual(gruposMas('admin', 'pm').map((g) => g.secciones.map((s) => s.id)), [['dashboard']]);
-  // El closer y el setter no cambian: More no les ofrece ninguna de las siete.
-  assert.deepEqual(gruposMas('closer', 'completo').map((g) => g.secciones.map((s) => s.id)), [['mako'], ['dashboard']]);
-  assert.deepEqual(gruposMas('setter', 'completo').map((g) => g.secciones.map((s) => s.id)), [['mako'], ['dashboard'], ['automations']]);
+  // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la sidebar (desde el
+  // 20/10/2026 el Ops Center es el lugar del medio y el Dashboard dejó la barra, así que suben sus hojas y Calendar).
+  assert.deepEqual(barraMovil('admin', 'pm').map((b) => b.id), ['dashboard', 'calendario', 'mako', 'plan', 'mas']);
+  assert.deepEqual(gruposMas('admin', 'pm').map((g) => g.secciones.map((s) => s.id)), []);
+  // El closer y el setter: More no les ofrece ninguna de las siete (y el Ops Center lo tienen en la barra).
+  assert.deepEqual(gruposMas('closer', 'completo').map((g) => g.secciones.map((s) => s.id)), [['dashboard']]);
+  assert.deepEqual(gruposMas('setter', 'completo').map((g) => g.secciones.map((s) => s.id)), [['dashboard'], ['automations']]);
 });
 
 test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo gating)', () => {
@@ -234,10 +234,15 @@ test('la cabecera de cada sección vuelve a More, con el nombre de la pantalla; 
   const t = (titulo: string, trabajo = false) => ({ titulo, padre: { href: RUTA_MAS, label: 'More' }, trabajo, conBarra: !trabajo });
   for (const id of SIETE) {
     const s: DefSeccionMas = seccion(id);
+    // Su chat es el lugar del medio de la barra desde el 20/10/2026: una raíz, sin «volver», con la barra abajo.
+    if (id === 'second-brain') {
+      assert.deepEqual(cabeceraPorRuta(s.href), { titulo: 'Ops Center', padre: null, trabajo: true, conBarra: true }, s.href);
+      assert.equal(tituloDe(s.href), 'MaKo - Ops Center', s.href);
+      continue;
+    }
     // Offer es, en escritorio, un chat con MaKo por funnel; en el v3, la pantalla del chat (sin título
-    // grande, el composer en la franja del pulgar): como el chat de MaKo, sin la barra de abajo. Y el Second Brain ES
-    // ese chat desde el 16/10/2026.
-    assert.deepEqual(cabeceraPorRuta(s.href), t(tituloSeccion(s), id === 'offer' || id === 'second-brain'), s.href);
+    // grande, el composer en la franja del pulgar): como el chat de MaKo, sin la barra de abajo.
+    assert.deepEqual(cabeceraPorRuta(s.href), t(tituloSeccion(s), id === 'offer'), s.href);
     assert.equal(nivel(s.href), 1, s.href);
     assert.equal(tituloDe(s.href), `MaKo - ${tituloSeccion(s)}`, s.href);
   }
