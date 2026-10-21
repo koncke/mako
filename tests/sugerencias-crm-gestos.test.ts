@@ -6,6 +6,7 @@
 //   · clase 2: mover a mano 5 o más leads de A a B en 14 días → «¿Lo hago solo?» (por el chat); marcar 3 No show a mano →
 //     la plantilla de reagendar, con el porqué («marcaste 3 No show»);
 //   · clase 4: el primer DM de Instagram o Messenger → que MaKo los conteste (las plantillas que ya existen);
+//   · (20/10, noche) el mismo mensaje a 3 leads de una etapa, la landing o campaña sin CRM y el lead que volvió;
 //   · el server cuenta SÓLO los gestos de una persona (autor con email) y lo que no puede leer se abstiene.
 //
 // PROBADO ROMPIÉNDOLO (20/10/2026), con el archivo en 4 / 0, de a una rotura y restaurada:
@@ -13,6 +14,14 @@
 //   · la clase 2 DESPUÉS de la 1 (el No show perdía su porqué)                     → 3 / 1
 //   · el server contando también lo que hizo MaKo (sin el filtro del email)        → 3 / 1
 // Y Fathom pegado a mano (20/10, después), con el archivo en 5 / 0: sin mirar si Fathom ya está conectado → 4 / 1.
+// Y los tres que faltaban (20/10, noche), con el archivo en 8 / 0, de a una rotura y restaurada:
+//   · el mismo mensaje contado por ENVÍO y no por lead (tres al mismo lead sugerían)   → 7 / 1
+//   · sin el mínimo de letras («ok, gracias» a tres leads era una secuencia)          → 7 / 1
+//   · el texto comparado CON el nombre del lead («Hola Ana» ≠ «Hola Juan»)            → 7 / 1
+//   · el lead que volvió con `/crm?lead=` (/crm no lee ese parámetro: no abría nada)   → 7 / 1
+//   · el email contado sin `autor` (los de una automatización también)               → 7 / 1
+//   · `landing.config` leído con `getSetting` (caído = TODA landing «sin CRM»)         → 7 / 1
+//   · la visita del MISMO día que entró contada como «volvió»                         → 7 / 1
 // Correr: node --import tsx --test tests/sugerencias-crm-gestos.test.ts
 // =============================================================================
 
@@ -20,7 +29,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sugerenciasDelCrm, type EntradaSugerencias } from '../lib/sugerencias-crm';
+import { sugerenciasDelCrm, textoComparable, type EntradaSugerencias } from '../lib/sugerencias-crm';
 import { generateFunnel, DEFAULT_PIPELINE } from '../lib/pipeline';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
@@ -88,4 +97,59 @@ test('el server cuenta sólo los gestos de una persona, y lo que no lee se calla
   assert.match(sv, /gestosAMano\(idsCasa, ahora\)\.catch\(avisar\('gestos'\)\)/);
   assert.match(sv, /dmsNuevos\(ahora\)\.catch\(avisar\('conversaciones nuevas'\)\)/);
   assert.match(sv, /gestos, nuevos,\n\s+\};/);
+});
+
+// ── D4, los tres que faltaban (20/10/2026, noche) ────────────────────────────
+
+test('clase 2: el mismo mensaje a 3 leads de una etapa ofrece dejarlo como secuencia (con el nombre fuera)', () => {
+  assert.equal(textoComparable('Hola Ana, ¿pudiste ver el video que te mandé?', 'Ana María'),
+    textoComparable('hola JUAN ¿pudiste ver el vídeo que te mandé?!', 'Juan'), 'el saludo con el nombre no lo hace otro mensaje');
+  const msj = (lead: number, nombre: string, etapa = 'agenda') => ({
+    texto: textoComparable(`Hola ${nombre}, ¿pudiste ver el video que te mandé ayer?`, nombre), muestra: `Hola ${nombre}, ¿pudiste ver el video que te mandé ayer?`, lead, etapa,
+  });
+  const gestos = (mensajes: ReturnType<typeof msj>[]) => ({ movimientos: [], noShowsAMano: 0, mensajes });
+  const s = sugerenciasDelCrm(base({ gestos: gestos([msj(1, 'Ana'), msj(2, 'Juan'), msj(3, 'Leila')]) }), 100);
+  const g = s.find((x) => x.id === 'gesto-mensaje:agenda');
+  assert.ok(g && g.clase === 2 && g.accion.tipo === 'chat');
+  assert.match(g.texto, /Mandaste el mismo mensaje a 3 leads de «.+»\. ¿Lo dejo como secuencia de esa etapa\?/);
+  assert.match(g.accion.tipo === 'chat' ? g.accion.pedido : '', /«Hola Ana, ¿pudiste ver el video/, 'MaKo recibe el texto para armarla');
+  assert.ok(!sugerenciasDelCrm(base({ gestos: gestos([msj(1, 'Ana'), msj(1, 'Ana'), msj(1, 'Ana')]) }), 100).some((x) => x.id.startsWith('gesto-mensaje')),
+    'tres veces al MISMO lead es insistir, no repetir');
+  assert.ok(!sugerenciasDelCrm(base({ gestos: gestos([msj(1, 'Ana'), msj(2, 'Juan'), msj(3, 'Leila', 'lead')]) }), 100).some((x) => x.id.startsWith('gesto-mensaje')),
+    'dos en una etapa y uno en otra no son «de una etapa»');
+  const corto = (lead: number) => ({ texto: textoComparable('ok, gracias'), muestra: 'ok, gracias', lead, etapa: 'agenda' });
+  assert.ok(!sugerenciasDelCrm(base({ gestos: { movimientos: [], noShowsAMano: 0, mensajes: [corto(1), corto(2), corto(3)] } }), 100).some((x) => x.id.startsWith('gesto-mensaje')),
+    'una respuesta corta no es una secuencia');
+});
+
+test('clase 4: el lead de un formulario sin CRM ofrece conectarlo; el que vuelve al VSL, su ficha o la lista', () => {
+  const s = sugerenciasDelCrm(base({ nuevos: { dmInstagram: 0, dmMessenger: 0, sinCrm: [{ tipo: 'landing', nombre: 'hola-mako.site/otono', leads: 1 }] } }), 100);
+  const f = s.find((x) => x.id === 'sin-crm:landing:hola-mako.site/otono');
+  assert.ok(f && f.clase === 4 && f.soloAdmin, 'conectar un formulario es del admin');
+  assert.match(f.texto, /Llegó 1 lead de la landing «hola-mako\.site\/otono», que no está en ningún CRM\. ¿La conecto\?/);
+  const uno = sugerenciasDelCrm(base({ nuevos: { dmInstagram: 0, dmMessenger: 0, volvieron: [{ lead: 42, nombre: 'Ana', etapa: 'agenda' }] } }), 100)
+    .find((x) => x.id === 'volvieron');
+  assert.ok(uno && uno.clase === 4);
+  assert.deepEqual(uno.accion, { tipo: 'link', href: '/crm/42' });
+  const varios = sugerenciasDelCrm(base({ nuevos: { dmInstagram: 0, dmMessenger: 0, volvieron: [{ lead: 1, nombre: 'Ana', etapa: 'agenda' }, { lead: 2, nombre: 'Juan', etapa: 'lead' }] } }), 100)
+    .find((x) => x.id === 'volvieron');
+  assert.ok(varios && varios.accion.tipo === 'chat' && /Ana \(.+\), Juan \(.+\)/.test(varios.accion.pedido));
+  assert.ok(!sugerenciasDelCrm(base({ nuevos: { dmInstagram: 0, dmMessenger: 0, volvieron: [], sinCrm: [] } }), 100).some((x) => x.clase === 4));
+});
+
+test('el server: los mensajes de una PERSONA (sin WhatsApp), la asignación de HOY leída estricta, y la vuelta un día DESPUÉS', () => {
+  const sv = leer('lib/sugerencias-crm-server.ts');
+  const m = sv.slice(sv.indexOf('async function mensajesAMano'), sv.indexOf('const nombreDePagina'));
+  assert.match(m, /from\('ig_mensajes'\)\.select\('conversacion_id, texto'\)\.eq\('direccion', 'saliente'\)/);
+  assert.match(m, /from\('email_mensajes'\)[^\n]*\.not\('autor', 'is', null\)/, 'un email cuenta sólo si lo mandó una persona desde Chats');
+  assert.doesNotMatch(m, /wa_mensajes/, 'WhatsApp no sabe quién escribió: contaría las secuencias como gestos');
+  const f = sv.slice(sv.indexOf('async function fuentesSinCrm'), sv.indexOf('async function leadsQueVolvieron'));
+  assert.match(f, /if \(!funnels\.some\(\(f\) => !f\.esDefault\)\) return \[\];/, 'con un solo CRM no hay a dónde conectarla');
+  assert.match(f, /getSettingEstricto\(CLAVE_LANDINGS\)/, 'un setting caído no puede leerse como «nada asignado»');
+  assert.match(f, /leerCampanasAsignadasEstricto\(\)/);
+  assert.match(f, /q\.is\('funnel_id', null\)/);
+  const v = sv.slice(sv.indexOf('async function leadsQueVolvieron'), sv.indexOf('const aLeadSug'));
+  assert.match(v, /diaDe\(v\.created_at\) > diaDe\(l\.creado\)/, 'la visita del día que entró no es volver');
+  assert.match(v, /p\.auto !== true/, 'el autoplay no es mirar el VSL');
+  assert.match(sv, /leadsQueVolvieron\(deCasa, enRecorrido, tz, ahora\)\.catch\(avisar\('los que volvieron'\)\)/);
 });

@@ -59,6 +59,10 @@ teléfono, una lectura para la cartera: `app/customer-success/cobro-tarjeta.ts`)
 (`CaraCliente`, misma cadena que la computadora). Test `tests/cs-tarjeta-cobro.test.ts`. No visto en pantalla: se revisa
 en /customer-success (una tarjeta con un cobro fallido) y en /m/cs (las caras).
 
+D4 completo (20/10, noche): las sugerencias de MaKo suman el mismo mensaje a 3 leads de una etapa (sin WhatsApp: no sabe
+quién escribió), la landing o campaña sin CRM y el lead que vuelve a la landing o mira el VSL dos veces. Van por el chat
+(no hay plantilla para ninguna). D5 espera a que el pedido B de Automations llegue a main (lo avisa el Cerebro).
+
 ## 0-Ω17. 20/10/2026 (chat «CRM», cuenta `claude4`): Chats lento, EN PRODUCCIÓN (run 165)
 
 Lo vio Martín en la llamada con Leila del 19/10 (minuto 55:12). Arreglo `b7817fe9f` (+ `87464faa8`), VERDE `3107dbeca`.

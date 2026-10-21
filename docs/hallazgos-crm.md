@@ -9990,3 +9990,26 @@ que su hoja no puso aparte (`partesDeReunion1`, `partesDeVisitas`). Nada guardad
 no se migra la configuración guardada.
 **Vive en:** app/crm/lead-view/ficha/reglas-reuniones.ts · reglas-tracking.ts · Armador.tsx · ReunionesCard.tsx ·
 ComportamientoCard.tsx. Test: tests/crm-ficha-bloques-partidos.test.ts. *20/10/2026, chat «CRM» (claude4).*
+
+## Las sugerencias que faltaban: lo que la base NO sabe y casi se cuenta igual (20/10/2026, noche)
+
+- **WhatsApp no sabe quién mandó un saliente.** `wa_mensajes` no tiene autor y las automatizaciones mandan por la MISMA
+  función que Chats (`enviarYEspejar`). «El mismo mensaje a 3 leads» contado ahí habría dicho «mandaste el mismo
+  mensaje a 30 leads» por una secuencia. Se cuentan Instagram/Messenger (`ig_mensajes` saliente: sólo lo escribe el
+  envío manual) y email (`email_mensajes` con `autor`). Para sumar WhatsApp hace falta marcar el autor al enviar (una
+  columna en `wa_mensajes`: migración que numera el Cerebro).
+- **«Sin CRM» no existe en la base.** Un lead de una landing o una campaña sin asignar cae al CRM principal
+  (`funnel_id` null), igual que uno asignado a propósito. Se vuelve a mirar la asignación de HOY (`landing.config`,
+  `meta.campanas`), y con un solo CRM no se sugiere nada (no hay a dónde conectarla). El formulario de Meta no se
+  asigna por formulario sino por campaña: el aviso dice «la campaña».
+- **Esas dos lecturas van ESTRICTAS** (`getSettingEstricto`, `leerCampanasAsignadasEstricto`): `getSetting` devuelve
+  null si falla, `parsearConfig(null)` es `[]` y TODA landing parecería suelta. El test rompe eso a propósito.
+- **«Volvió» es un día DESPUÉS del que entró.** `landing_visits` y `vsl_events` no tienen `lead_id` (se cruzan por
+  `leads.visitor_id`) ni filtran por fecha en los helpers de `lib/leads.ts`; la visita del día del alta no es volver,
+  y el autoplay (`auto = true`) no es mirar el VSL.
+- **La ficha de un lead vive en `/crm/<id>`; `/crm?lead=<id>` no abre nada** (la página sólo lee `funnel` y
+  `embudo`). La primera versión del aviso lo usaba. `lib/cerebro-vivo.ts:229` todavía arma ese link.
+
+**Sin hacer:** WhatsApp en «el mismo mensaje» (falta el autor en `wa_mensajes`); el link de `lib/cerebro-vivo.ts`.
+**Vive en:** lib/sugerencias-crm.ts y lib/sugerencias-crm-server.ts · test tests/sugerencias-crm-gestos.test.ts ·
+*20/10/2026 noche, chat «CRM» (claude4).*

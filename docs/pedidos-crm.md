@@ -13,16 +13,16 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 
 | | Hecho | Parcial | No hecho | Sin confirmar | Total |
 |---|---|---|---|---|---|
-| Del 13/10 al 20/10 (tablas A, B, C, D e I) | 85 | 4 | 6 | 0 | 95 |
+| Del 13/10 al 20/10 (tablas A, B, C, D e I) | 86 | 3 | 6 | 0 | 95 |
 | Hasta el 12/10 (tablas E, F, G y H) | 164 | 4 | 1 | 1 | 170 |
-| **Todo** | **249** | **8** | **7** | **1** | **265** |
+| **Todo** | **250** | **7** | **7** | **1** | **265** |
 
 - **No hecho (7):** A1 (el chat con la pieza única del Ops Center), B1 (columnas editables del Plan), B2 (tres de las cinco
   cosas del prototipo de tarjetas: la foto de Instagram, la vista «Prioridades» del Plan y Proyectos del teléfono), C1
   (Google Calendar en «Asignar evento») y H1, que ya no aplica (Chatwoot se borró). O sea, 6 que cuentan.
-- **Parcial (8):** B4, C2, D4, D5, E1, F1, F2 y H2.
+- **Parcial (7):** B4, C2, D5, E1, F1, F2 y H2.
 - **Sin confirmar (1):** E2, el título «MaKo - CRM» de la pestaña (no se midió en un navegador).
-- En filas: 72 Hecho, 9 Parcial, 4 No hecho y 1 Sin confirmar (86 filas; B2 es Parcial: 2 de sus 5 puntos).
+- En filas: 73 Hecho, 8 Parcial, 4 No hecho y 1 Sin confirmar (86 filas; B2 es Parcial: 2 de sus 5 puntos).
 - De los 5 puntos que Martín mandó hoy, 4 se cerraron hoy (A2, A3, A4 y A5) y el quinto (A6, la etapa de reunión con su
   evento) ya estaba hecho desde el 16/10. Lo que sigue abierto de hoy es A1 (la pieza única del chat); la otra mitad
   del pedido de las cards (D1: diseños, arrastrar y vista en vivo) se hizo esa misma noche.
@@ -104,7 +104,7 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 | D1 | 13/10: «Personalizable la tarjeta del lead… varios diseños template… arrastrar campos, acomodarlos… en tiempo real» | Hecho | `88daad475` (elegir datos) y el commit de D1 del 20/10 noche · `app/crm/CamposTarjetaModal.tsx`, `lib/tarjeta-kanban.ts` (`DISENOS_TARJETA`, `prefsTarjetaDe`, `moverCampo`), `app/crm/CrmBoard.tsx` (`propsDeTarjeta`) | Tres diseños (Completa, Compacta y Con avance, la de Clients con la barra del paso); los datos se arrastran (y ↑ ↓) para acomodarlos; arriba del pop-up, la tarjeta de un lead del tablero en vivo, armada por la misma función que el tablero. Por persona. No visto en pantalla. |
 | D2 | 14/10: Reuniones y Tracking «personalizables» bloque por bloque, como el Dashboard | Hecho | el commit de D2 del 20/10 noche · `app/crm/lead-view/ficha/registro-reuniones.tsx`, `registro-tracking.tsx`, `reglas-reuniones.ts` (`partesDeReunion1`), `reglas-tracking.ts` (`partesDeVisitas`) | Reuniones: la R2, «Agendar» y lo que salió de la llamada son bloques propios. Tracking: el video, la actividad en la página y la grabación. El bloque viejo dibuja lo que su hoja no puso aparte: las fichas guardadas se ven igual. No visto en pantalla. |
 | D3 | 14/10: «implementa el click derecho en todo el CRM para diferentes acciones» | Hecho | `a3496cc3` (tablero y lista) y el commit de D3 del 20/10 noche (la ficha) · `app/_ui/MenuContextual.tsx`, `app/crm/menu-contextual-crm.ts`, `app/crm/lead-view/ficha/menu-contextual-ficha.ts` | En el tablero y la lista (tarjeta, fila, columna, fondo, selección) y en la ficha: las del «⋯» de la ficha más WhatsApp y copiar teléfono o email. Sobre un campo, un link o texto seleccionado queda el menú del navegador. No visto en pantalla. |
-| D4 | 13/10 pts 2 y 3: sugerencias de MaKo «inteligentes y personalizadas», mapeando todas las que se te ocurran | Parcial | `b04e3d1f`, `b34838dd`, y el commit de D4 del 20/10 noche · `lib/sugerencias-crm.ts`, `lib/sugerencias-crm-server.ts`, `docs/sugerencias-mako-crm.md` | Las cuatro clases andan: la 1 y la 3 desde el 14/10; desde el 20/10, la 2 (mover a mano 5 leads de A a B → «¿Lo hago solo?»; 3 No show a mano → reagendar; el link de Fathom pegado a mano 3 veces → conectarlo) y la 4 (el primer DM de Instagram o Messenger → que MaKo conteste). Faltan tres disparadores: el mismo mensaje a 3 leads, el primer lead de un formulario sin CRM y el lead que vuelve a mirar el VSL. |
+| D4 | 13/10 pts 2 y 3: sugerencias de MaKo «inteligentes y personalizadas», mapeando todas las que se te ocurran | Hecho | `b04e3d1f`, `b34838dd`, y los dos commits de D4 del 20/10 noche · `lib/sugerencias-crm.ts`, `lib/sugerencias-crm-server.ts`, `docs/sugerencias-mako-crm.md` | Las cuatro clases andan: la 1 y la 3 desde el 14/10; desde el 20/10, la 2 (mover a mano 5 leads de A a B → «¿Lo hago solo?»; 3 No show a mano → reagendar; el link de Fathom pegado a mano 3 veces → conectarlo) y la 4 (el primer DM de Instagram o Messenger → que MaKo conteste). Y desde el 20/10 a la noche los tres que faltaban: el mismo mensaje a 3 leads de una etapa (Instagram, Messenger y email: WhatsApp no sabe quién escribió), la landing o campaña sin CRM (si hay más de un CRM) y el lead que vuelve a la landing o mira el VSL dos veces. Test `tests/sugerencias-crm-gestos.test.ts`. |
 | D5 | 14/10: sacar el botón de «CRM Automático» y llevar lo que quedó pendiente a Automations como template | Parcial | `43a27b56` (botón fuera) · motor `lib/crm-auto.ts`, cron `/api/cron/crm-automatico` | El botón no está, pero el motor sigue corriendo (se apaga por negocio con `crm_auto_enabled`). La galería de Automations no tiene la etapa destino para mover (T2 y T6, según el relevo del 14/10): en `lib/plantillas-automatizaciones.ts` no hay una plantilla de «reactivación» por antigüedad, sólo `reactivar-sin-cierre`. |
 | D6 | 13/10 pt 1: datos sin marcar con «Ver →», solucionar que lleva al dato (sin pop-up), ignorar, «Ver más» y elegir de qué avisa MaKo (5 puntos) | Hecho | `42e57a6c` (14/10, mig 0270), `7ce7578ee`, `0c51fcf1c` · `DatosSinMarcarCard.tsx` | |
 | D7 | 13/10 pt 2: «A revisar» sólo con datos sin marcar, sin la «Mk» ni «MaKo movió 6 leads» (2 puntos) | Hecho | `0d07ddc8` | El motor que movía leads sigue vivo (D5). |
@@ -188,17 +188,16 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 Del pedido más reciente al más viejo. Entre paréntesis, lo que depende de una decisión de Martín.
 
 1. **A1** · El chat del CRM con la pieza única del Ops Center: `app/crm/mako-crm/ChatMakoCrm.tsx` y `PanelMakoCrm.tsx`, cuando `app/_chat/CajaChat.tsx` (rama `chat-unico`) llegue a `main`.
-2. **D4** · Los tres disparadores que faltan de las clases 2 y 4 (el mismo mensaje a 3 leads, el primer lead de un formulario sin CRM, el lead que vuelve a mirar el VSL): `lib/sugerencias-crm.ts` y `lib/sugerencias-crm-server.ts`.
-3. **D5** · Las plantillas de Automations que reemplacen al «CRM automático» (T1 a T6) y recién entonces apagar el motor: `lib/plantillas-automatizaciones.ts`, `lib/crm-auto.ts`.
-4. **B1** · Columnas editables en el Plan: `app/plan/board/BoardShell.tsx`.
-5. **B4** · Plan del teléfono con el check gris en vez del círculo (si Martín lo quiere): `app/m/plan/ListaPlan.tsx`.
-6. **B2** · Lo que queda del prototipo de tarjetas: la foto de Instagram, la vista «Prioridades» del Plan y Proyectos del teléfono: `app/plan/`, `app/m/plan/` («Pago fallido» y la foto del cliente en el teléfono, hechos el 20/10).
-7. **C1** y **C2** · Google Calendar en «Asignar evento» (decidido que no por la API de Google; decide Martín) y crear el evento desde MaKo en vez de abrir Calendly o Cal.com: `app/crm/EventosDeEtapaModal.tsx`.
-8. **E1** · Buscar Instagram por nombre (decide Martín si se paga una fuente): `lib/instagram-buscar.ts`, `app/api/crm/instagram-buscar/route.ts`.
-9. **E2** · Mirar en un navegador que la pestaña diga «MaKo - CRM»: `app/_components/TituloTab.tsx`.
-10. **F1** · Atribución y VSL por funnel en un lead que está en varios: `lib/lead-funnel.ts`, `supabase/migrations/0207_lead_funnel.sql` (una migración nueva).
-11. **F2** · Los restos de «Producto» → «Funnel»: `lib/api-mako/areas/crm.def.ts`, `lib/graficos-catalogo.ts` y los prompts.
-12. **H2** · Las 3 preguntas a Mauricio y los 1.057 leads fuera del embudo (decide Mauricio o Martín): `docs/friccion-crm.md`, `/admin/friccion`.
+2. **D5** · Las plantillas de Automations que reemplacen al «CRM automático» (T1 a T6) y recién entonces apagar el motor: `lib/plantillas-automatizaciones.ts`, `lib/crm-auto.ts`. **Espera** a que el pedido B de Automations llegue a main (toca los mismos archivos): lo avisa el Cerebro y ahí se acuerda con Automations quién la hace.
+3. **B1** · Columnas editables en el Plan: `app/plan/board/BoardShell.tsx`.
+4. **B4** · Plan del teléfono con el check gris en vez del círculo (si Martín lo quiere): `app/m/plan/ListaPlan.tsx`.
+5. **B2** · Lo que queda del prototipo de tarjetas: la foto de Instagram, la vista «Prioridades» del Plan y Proyectos del teléfono: `app/plan/`, `app/m/plan/` («Pago fallido» y la foto del cliente en el teléfono, hechos el 20/10).
+6. **C1** y **C2** · Google Calendar en «Asignar evento» (decidido que no por la API de Google; decide Martín) y crear el evento desde MaKo en vez de abrir Calendly o Cal.com: `app/crm/EventosDeEtapaModal.tsx`.
+7. **E1** · Buscar Instagram por nombre (decide Martín si se paga una fuente): `lib/instagram-buscar.ts`, `app/api/crm/instagram-buscar/route.ts`.
+8. **E2** · Mirar en un navegador que la pestaña diga «MaKo - CRM»: `app/_components/TituloTab.tsx`.
+9. **F1** · Atribución y VSL por funnel en un lead que está en varios: `lib/lead-funnel.ts`, `supabase/migrations/0207_lead_funnel.sql` (una migración nueva).
+10. **F2** · Los restos de «Producto» → «Funnel»: `lib/api-mako/areas/crm.def.ts`, `lib/graficos-catalogo.ts` y los prompts.
+11. **H2** · Las 3 preguntas a Mauricio y los 1.057 leads fuera del embudo (decide Mauricio o Martín): `docs/friccion-crm.md`, `/admin/friccion`.
 
 **Esperan una decisión de Martín** (no son pedidos suyos, pero frenan filas de arriba):
 - **E1**: ¿se paga una fuente para buscar Instagram por nombre?

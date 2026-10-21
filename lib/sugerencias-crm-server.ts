@@ -49,9 +49,13 @@ import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { TriggerInvalidoError } from '@/lib/setting-secuencias';
 import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
+import { CONFIG_KEY as CLAVE_LANDINGS, parsearConfig, funnelIdsDeLanding } from '@/lib/landing-config';
+import { leerCampanasAsignadasEstricto } from '@/lib/campana-funnel';
+import { funnelIdDeCampana } from '@/lib/campana-config';
+import { TERMINAL_DEL_PIPELINE } from '@/lib/pipeline';
 import {
   sugerenciasDelCrm, sinCalladas, parsearCalladas, conCallada, sinCallada, estaCallada, claveCallada,
-  CLAVE_CALLADAS, UMBRALES_SUGERENCIAS,
+  CLAVE_CALLADAS, UMBRALES_SUGERENCIAS, textoComparable,
   type AutomatizacionSug, type EntradaSugerencias, type LeadSug, type Sugerencia,
 } from '@/lib/sugerencias-crm';
 
@@ -173,6 +177,140 @@ async function dmsNuevos(ahora: number): Promise<NonNullable<EntradaSugerencias[
   return { dmInstagram, dmMessenger };
 }
 
+/** Un lead de la casa del CRM, con lo que miran los tres lectores de abajo. */
+type LeadDeCasa = { id: number; nombre: string; etapa: string; creado: string | null; visitorId: string | null };
+
+/**
+ * CLASE 2 (20/10/2026, noche): los mensajes que una PERSONA mandó a mano a estos leads en la ventana, para «el mismo
+ * mensaje a 3 leads». Sólo Instagram/Messenger (`ig_mensajes` saliente: lo único que escribe ahí es el envío manual de
+ * Chats; las automatizaciones van a `nutricion_envios`) y email (`email_mensajes` con `autor`, el que mandó desde Chats).
+ * ⚠️ WhatsApp NO: `wa_mensajes` no sabe quién escribió un saliente (lib/cs-contacto.ts) y las automatizaciones mandan
+ * por la misma función que Chats; contarlo diría «mandaste el mismo mensaje a 30 leads» por una secuencia.
+ */
+async function mensajesAMano(casa: ReadonlyMap<number, LeadDeCasa>, ahora: number): Promise<NonNullable<NonNullable<EntradaSugerencias['gestos']>['mensajes']>> {
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const db = await getTenantDb();
+  const [ig, email] = await Promise.all([
+    db.from('ig_mensajes').select('conversacion_id, texto').eq('direccion', 'saliente').gte('created_at', desde).limit(3000),
+    db.from('email_mensajes').select('lead_id, texto').eq('direccion', 'saliente').not('autor', 'is', null).gte('created_at', desde).limit(3000),
+  ]);
+  if (ig.error) throw new Error(`mensajes de Instagram: ${ig.error.message}`);
+  if (email.error) throw new Error(`emails: ${email.error.message}`);
+  const igFilas = (ig.data ?? []) as Array<{ conversacion_id: number; texto: string | null }>;
+  const convIds = [...new Set(igFilas.map((f) => Number(f.conversacion_id)))];
+  const leadDeConv = new Map<number, number>();
+  for (let i = 0; i < convIds.length; i += 200) {
+    const { data, error } = await db.from('ig_conversaciones').select('id, lead_id').in('id', convIds.slice(i, i + 200));
+    if (error) throw new Error(`conversaciones: ${error.message}`);
+    for (const c of (data ?? []) as Array<{ id: number; lead_id: number | null }>) if (c.lead_id != null) leadDeConv.set(Number(c.id), Number(c.lead_id));
+  }
+  const out: Array<{ texto: string; muestra: string; lead: number; etapa: string }> = [];
+  const sumar = (leadId: number | undefined | null, texto: string | null) => {
+    const l = leadId != null ? casa.get(Number(leadId)) : undefined;
+    const t = (texto ?? '').trim();
+    if (!l || !t) return;
+    out.push({ texto: textoComparable(t, l.nombre), muestra: t.length > 160 ? `${t.slice(0, 159).trimEnd()}…` : t, lead: l.id, etapa: l.etapa });
+  };
+  for (const f of igFilas) sumar(leadDeConv.get(Number(f.conversacion_id)), f.texto);
+  for (const f of (email.data ?? []) as Array<{ lead_id: number | null; texto: string | null }>) sumar(f.lead_id, f.texto);
+  return out;
+}
+
+/** «hola-mako.site/oferta» de «https://www.hola-mako.site/oferta/?x=1»: lo que se lee de una landing en una línea. */
+const nombreDePagina = (url: string): string => url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/[?#].*$/, '').replace(/\/+$/, '') || url;
+
+/**
+ * CLASE 4 (20/10/2026, noche): las landings y campañas de Meta que trajeron leads en la ventana SIN estar conectadas a
+ * ningún CRM. En MaKo ese lead cae al CRM principal (`funnel_id` null), igual que uno asignado a propósito al principal:
+ * en la base no se distinguen, así que se vuelve a mirar la asignación de hoy (`landing.config` y `meta.campanas`).
+ * Si el negocio tiene un solo CRM, no hay a dónde conectarla: lista vacía.
+ * ⚠️ Las dos lecturas son ESTRICTAS: un setting caído leído como «sin asignar» haría que TODA landing pareciera suelta.
+ */
+async function fuentesSinCrm(ahora: number): Promise<NonNullable<NonNullable<EntradaSugerencias['nuevos']>['sinCrm']>> {
+  const funnels = await leerFunnels();
+  if (!funnels) throw new Error('no pude leer los CRM');
+  if (!funnels.some((f) => !f.esDefault)) return [];
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const [leads, landings, campanas] = await Promise.all([
+    leerTodo<{ id: number; origen_lead: string | null; pagina_registro: string | null; meta_campaign_id: string | null; adset_id_origen: string | null; meta_campaign_name: string | null }>(
+      await getTenantDb(), 'leads', 'id, origen_lead, pagina_registro, meta_campaign_id, adset_id_origen, meta_campaign_name', {
+        orden: 'id', maxPaginas: 5,
+        filtros: (q) => q.is('funnel_id', null).gte('created_at', desde).in('origen_lead', ['landing', 'instant_form']) as unknown as ConsultaPaginada,
+      }),
+    getSettingEstricto(CLAVE_LANDINGS).then(parsearConfig),
+    leerCampanasAsignadasEstricto(),
+  ]);
+  const cuenta = new Map<string, { tipo: 'landing' | 'campaña'; nombre: string; leads: number }>();
+  const sumar = (tipo: 'landing' | 'campaña', clave: string, nombre: string) => {
+    const k = `${tipo}|${clave}`;
+    const c = cuenta.get(k) ?? { tipo, nombre, leads: 0 };
+    c.leads++;
+    cuenta.set(k, c);
+  };
+  for (const l of leads) {
+    if (l.origen_lead === 'landing' && l.pagina_registro?.trim()) {
+      if (!funnelIdsDeLanding(landings, l.pagina_registro).length) sumar('landing', nombreDePagina(l.pagina_registro), nombreDePagina(l.pagina_registro));
+    } else if (l.origen_lead === 'instant_form' && (l.meta_campaign_id || l.adset_id_origen)) {
+      if (!funnelIdDeCampana(campanas, { campaignId: l.meta_campaign_id, adsetId: l.adset_id_origen }).asignada) {
+        sumar('campaña', String(l.meta_campaign_id ?? l.adset_id_origen), l.meta_campaign_name?.trim() || String(l.meta_campaign_id ?? l.adset_id_origen));
+      }
+    }
+  }
+  return [...cuenta.values()].sort((a, b) => b.leads - a.leads).slice(0, 5);
+}
+
+/**
+ * CLASE 4 (20/10/2026, noche): los leads de este CRM, todavía en el recorrido (ni ganados ni fuera), que VOLVIERON: una
+ * visita a la landing un día DESPUÉS del que entraron, o el VSL dado play dos veces (sin contar el autoplay), en la
+ * ventana. `landing_visits` y `vsl_events` no tienen `lead_id`: se cruzan por `leads.visitor_id`. Con tope: los 1.000
+ * más nuevos con visitor_id (de a 150 por consulta).
+ */
+async function leadsQueVolvieron(casa: ReadonlyMap<number, LeadDeCasa>, enRecorrido: ReadonlySet<string>, tz: string, ahora: number): Promise<NonNullable<NonNullable<EntradaSugerencias['nuevos']>['volvieron']>> {
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const porVisitor = new Map<string, LeadDeCasa>();
+  for (const l of [...casa.values()].sort((a, b) => String(b.creado ?? '').localeCompare(String(a.creado ?? '')))) {
+    if (l.visitorId && enRecorrido.has(l.etapa) && !porVisitor.has(l.visitorId)) porVisitor.set(l.visitorId, l);
+    if (porVisitor.size >= 1000) break;
+  }
+  const vids = [...porVisitor.keys()];
+  if (!vids.length) return [];
+  const db = await getTenantDb();
+  const visitas: Array<{ visitor_id: string; created_at: string }> = [];
+  const plays: Array<{ visitor_id: string; created_at: string; auto: boolean | null }> = [];
+  const tandas: string[][] = [];
+  for (let i = 0; i < vids.length; i += 150) tandas.push(vids.slice(i, i + 150));
+  for (let i = 0; i < tandas.length; i += 4) {
+    await Promise.all(tandas.slice(i, i + 4).map(async (t) => {
+      const [v, p] = await Promise.all([
+        db.from('landing_visits').select('visitor_id, created_at').in('visitor_id', t).gte('created_at', desde).limit(5000),
+        db.from('vsl_events').select('visitor_id, created_at, auto').in('visitor_id', t).gte('created_at', desde).or('tipo_evento.eq.play,event.eq.vsl_play').limit(5000),
+      ]);
+      if (v.error) throw new Error(`visitas: ${v.error.message}`);
+      if (p.error) throw new Error(`plays del VSL: ${p.error.message}`);
+      visitas.push(...((v.data ?? []) as typeof visitas));
+      plays.push(...((p.data ?? []) as typeof plays));
+    }));
+  }
+  const diaDe = (iso: string) => hoyEnTz(tz, new Date(iso));
+  const ultimaVuelta = new Map<number, string>();
+  const marcar = (l: LeadDeCasa, cuando: string) => { if (String(ultimaVuelta.get(l.id) ?? '') < cuando) ultimaVuelta.set(l.id, cuando); };
+  for (const v of visitas) {
+    const l = porVisitor.get(v.visitor_id);
+    if (l?.creado && diaDe(v.created_at) > diaDe(l.creado)) marcar(l, v.created_at);
+  }
+  const playsDe = new Map<string, string[]>();
+  for (const p of plays) if (p.auto !== true) playsDe.set(p.visitor_id, [...(playsDe.get(p.visitor_id) ?? []), p.created_at]);
+  for (const [vid, fechas] of playsDe) {
+    const l = porVisitor.get(vid);
+    const ultima = fechas.sort().at(-1)!;
+    if (l && fechas.length >= 2 && (!l.creado || ultima >= l.creado)) marcar(l, ultima);
+  }
+  return [...ultimaVuelta].sort((a, b) => b[1].localeCompare(a[1])).map(([id]) => {
+    const l = casa.get(id)!;
+    return { lead: l.id, nombre: l.nombre, etapa: l.etapa };
+  });
+}
+
 const aLeadSug = (l: Lead, etapa: string): LeadSug => ({
   etapa, creado: l.created_at ?? null,
   r1: l.fecha_junta_1, asistioR1: l.asistio_j1, r2: l.fecha_junta_2, asistioR2: l.asistio_j2,
@@ -206,12 +344,26 @@ async function calcular(ws: number, crm: CrmDeLaPantalla): Promise<Calculo> {
   const leads: LeadSug[] | null = leadsCrudos ? casa.map((l) => aLeadSug(l, etapaVigenteDe(l, cfg.stages))) : null;
   const idsCasa = new Set(casa.map((l) => l.id));
   const ahora = Date.now();
-  // Las tres lecturas que dependen de los leads, a la vez. Lo que falla se abstiene (null): esa clase se calla.
-  const [cuotas, gestos, nuevos] = await Promise.all([
+  const deCasa = new Map<number, LeadDeCasa>(casa.map((l) => [l.id, {
+    id: l.id, nombre: l.nombre?.trim() || 'Sin nombre', etapa: etapaVigenteDe(l, cfg.stages), creado: l.created_at ?? null, visitorId: l.visitor_id ?? null,
+  }]));
+  // «Volver» importa mientras se le está vendiendo: los pasos del recorrido, sin el ganado.
+  const enRecorrido = new Set(cfg.stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline' && s.key !== TERMINAL_DEL_PIPELINE).map((s) => s.key));
+  // Las lecturas que dependen de los leads, a la vez. Lo que falla se abstiene (null o ausente): esa sugerencia se calla.
+  const [cuotas, gestosLeidos, mensajes, dms, sinCrm, volvieron] = await Promise.all([
     leadsCrudos ? cuotasDe(idsCasa, hoy).catch(avisar('cuotas')) : Promise.resolve(null),
     leadsCrudos ? gestosAMano(idsCasa, ahora).catch(avisar('gestos')) : Promise.resolve(null),
+    leadsCrudos ? mensajesAMano(deCasa, ahora).catch(avisar('mensajes a mano')) : Promise.resolve(null),
     dmsNuevos(ahora).catch(avisar('conversaciones nuevas')),
+    fuentesSinCrm(ahora).catch(avisar('landings y campañas sin CRM')),
+    leadsCrudos ? leadsQueVolvieron(deCasa, enRecorrido, tz, ahora).catch(avisar('los que volvieron')) : Promise.resolve(null),
   ]);
+  const gestos = gestosLeidos ? { ...gestosLeidos, ...(mensajes ? { mensajes } : {}) } : null;
+  // Cada lectura de la clase 4 se abstiene sola: un DM que no se leyó no calla al lead que volvió.
+  const nuevos = {
+    dmInstagram: dms?.dmInstagram ?? 0, dmMessenger: dms?.dmMessenger ?? 0,
+    ...(sinCrm ? { sinCrm } : {}), ...(volvieron ? { volvieron } : {}),
+  };
   const { plazos } = sanearPlazosPorEtapa(umbrales?.porEtapa, new Set(cfg.stages.map((s) => s.key)));
   const canal = canalEfectivo(cfg.canal, diag?.canal);
   const entradas = [...cfg.entradas];
